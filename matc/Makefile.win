@@ -1,0 +1,60 @@
+#*******************************************************************************
+#*
+#*       ELMER, A Computational Fluid Dynamics Program.
+#*
+#*       Copyright 1st April 1995 - , Center for Scientific Computing,
+#*                                    Finland.
+#*
+#*       All rights reserved. No part of this program may be used,
+#*       reproduced or transmitted in any form or by any means
+#*       without the written permission of CSC.
+#*
+#*******************************************************************************
+
+#*******************************************************************************
+#*
+#*  Makefile for objects subdirectory of ElmerPost
+#*
+#*******************************************************************************
+#*
+#*                     Author:       Juha Ruokolainen
+#*
+#*                    Address: Center for Scientific Computing
+#*                                Tietotie 6, P.O. BOX 405
+#*                                  02101 Espoo, Finland
+#*                                  Tel. +358 0 457 2723
+#*                                Telefax: +358 0 457 2302
+#*                              EMail: Juha.Ruokolainen@csc.fi
+#*
+#*                       Date: 1 Oct 1995
+#*
+#*                Modified by:
+#*
+#*       Date of modification:
+#*
+#*******************************************************************************
+
+LIB	=	../lib/libmatc.lib
+
+OBJS	=	eig.obj	  funcs.obj   lu.obj     oper.obj   str.obj      \
+		eval.obj  jacobi.obj  matc.obj   optim.obj  urand.obj    \
+		files.obj lists.obj   matrix.obj parser.obj variable.obj \
+                gra.obj   gra_com.obj clip.obj   c3d.obj    dri_ps.obj   \
+                error.obj
+
+AR	=	lib
+RM	=	del
+CC	=	cl -O2 -I./ -I../ -DWIN32
+
+ALL: $(LIB)
+
+.SUFFIXES:	.obj
+
+.c.obj:
+	$(CC) $(CFLAGS) -c $<
+
+$(LIB): $(OBJS)
+	$(AR) -out:$(LIB) $(OBJS)
+
+clean:
+	$(RM) *.obj
