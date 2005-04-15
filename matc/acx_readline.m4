@@ -20,7 +20,7 @@ AC_ARG_ENABLE(readline,
     ], [
       AC_MSG_WARN([I need GNU Readline 4.2 or later])
       AC_MSG_ERROR([this is fatal unless you specify --disable-readline])
-    ],"-lcurses")
+    ],"-lncurses")
   fi
   AC_SUBST(LIBREADLINE)
 ])
@@ -28,7 +28,7 @@ AC_ARG_ENABLE(readline,
 
 AC_DEFUN([ACX_GET_TERM], [
 acx_found_termlib=no
-for termlib in ncurses curses termcap terminfo termlib; do
+for termlib in ncurses; do
   AC_CHECK_LIB(${termlib}, tputs, [TERMLIBS="${TERMLIBS} -l${termlib}"])
   case "${TERMLIBS}" in
     *-l${termlib}*)
@@ -41,8 +41,7 @@ for termlib in ncurses curses termcap terminfo termlib; do
 done
 
 if test "$acx_found_termlib" = no; then
-  warn_termlibs="I couldn't find -ltermcap, -lterminfo, -lncurses, -lcurses, o\
-r -ltermlib!"
+  warn_termlibs="I couldn't find -lncurses (patch this to look for others)!"
   AC_MSG_WARN($warn_termlibs)
 fi
 ])
