@@ -1,0 +1,381 @@
+
+/*
+ * huti_sfe_c.c - HUTIter library. Fron-ends for iterative solvers,
+ *                C -version
+ *
+ * $Id: huti_sfe_c.src,v 1.4 2000/10/19 07:48:29 jpr Exp $
+ *
+ */
+
+#include "huti_intdefs.h"
+MAKE_INCLUDE(#,include, <stdlib.h> )
+MAKE_INCLUDE(#,include, <stdio.h> )
+MAKE_INCLUDE(#,include, "huti_defs.h" )
+
+extern void MAKE_F_SUBRN(HUTI_,CGSOLV) ( int *ndim, int *wrkdim,
+			void *xvec, void *rhsvec, int *ipar, double *dpar,
+			void *work, void (*matvecsubr)(),
+			void (*pcondlsubr)(), void (*pcondrsubr)(),
+			void (*dotprodfun)(), double (*normfun)(),
+			void (*stopcfun)() );
+
+extern void MAKE_F_SUBRN(HUTI_,CGSSOLV) ( int *ndim, int *wrkdim,
+			void *xvec, void *rhsvec, int *ipar, double *dpar,
+			void *work, void (*matvecsubr)(),
+			void (*pcondlsubr)(), void (*pcondrsubr)(),
+			void (*dotprodfun)(), double (*normfun)(),
+			void (*stopcfun)() );
+
+extern void MAKE_F_SUBRN(HUTI_,BICGSTABSOLV) ( int *ndim, int *wrkdim,
+			void *xvec, void *rhsvec, int *ipar, double *dpar,
+			void *work, void (*matvecsubr)(),
+			void (*pcondlsubr)(), void (*pcondrsubr)(),
+			void (*dotprodfun)(), double (*normfun)(),
+			void (*stopcfun)() );
+
+extern void MAKE_F_SUBRN(HUTI_,QMRSOLV) ( int *ndim, int *wrkdim,
+			void *xvec, void *rhsvec, int *ipar, double *dpar,
+			void *work, void (*matvecsubr)(),
+			void (*pcondlsubr)(), void (*pcondrsubr)(),
+			void (*dotprodfun)(), double (*normfun)(),
+			void (*stopcfun)() );
+
+extern void MAKE_F_SUBRN(HUTI_,TFQMRSOLV) ( int *ndim, int *wrkdim,
+			void *xvec, void *rhsvec, int *ipar, double *dpar,
+			void *work, void (*matvecsubr)(),
+			void (*pcondlsubr)(), void (*pcondrsubr)(),
+			void (*dotprodfun)(), double (*normfun)(),
+			void (*stopcfun)() );
+
+extern void MAKE_F_SUBRN(HUTI_,GMRESSOLV) ( int *ndim, int *wrkdim,
+			void *xvec, void *rhsvec, int *ipar, double *dpar,
+			void *work, void (*matvecsubr)(),
+			void (*pcondlsubr)(), void (*pcondrsubr)(),
+			void (*dotprodfun)(), double (*normfun)(),
+			void (*stopcfun)() );
+
+extern void MAKE_F_SUBRN(HUTI_,BICGSTAB_2SOLV) ( int *ndim, int *wrkdim,
+			void *xvec, void *rhsvec, int *ipar, double *dpar,
+			void *work, void (*matvecsubr)(),
+			void (*pcondlsubr)(), void (*pcondrsubr)(),
+			void (*dotprodfun)(), double (*normfun)(),
+			void (*stopcfun)() );
+
+extern int huti_num_of_procs;
+
+extern void PRECD_DUMMY_PCONDFUN (void *u, void *v, int *ipar);
+
+/* BLAS routines, these definitions are only for function pointers */
+
+extern void PRECD_BLAS_DOTPRODFUN (int *N, void *x, int *xind, void *y, int *yind);
+extern void PRECD_BLAS_DOTPRODFUN_N (int *N, void *x, int *xind, void *y, int *yind);
+extern void PRECD_BLAS_NORMFUN (int *N, void *x, int *xind);
+
+/*
+ *
+ * HUTIter library: Front-end for conjugate gradient solver.
+ *                  PRECISION_COMMENT version.
+ *
+ */
+
+#if defined(UNICOS) || defined(WIN32)
+void MAKE_F_SUBRN(HUTI_,_CG) ( void *xvec, void *rhsvec,
+#else
+void MAKE_F_SUBRN(huti_,_cg) ( void *xvec, void *rhsvec,
+#endif
+		int *ipar, double *dpar, void *work,
+		void (*matvecsubr)(),
+		void (*pcondlsubr)(),
+		void (*pcondrsubr)(),
+		void (*dotprodfun)(),
+		void (*normfun)(),
+		void (*mstopfun)() )
+{
+  HUTI_Init();
+
+  /* Here we take care of the "dynamic" bindings */
+
+  if (*((int *) pcondrsubr) == 0)
+    pcondrsubr = PRECD_DUMMY_PCONDFUN;
+  if (*((int *) pcondlsubr) == 0)
+    pcondlsubr = PRECD_DUMMY_PCONDFUN;
+  if (*((int *) dotprodfun) == 0)
+    dotprodfun = PRECD_BLAS_DOTPRODFUN;
+  if (*((int *) normfun) == 0)
+    normfun = PRECD_BLAS_NORMFUN;
+
+#if defined(UNICOS) || defined(WIN32)
+  MAKE_F_SUBRN(HUTI_,CGSOLV) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
+#else
+  MAKE_F_SUBRN(huti_,cgsolv) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
+#endif
+                 ipar, dpar, work, matvecsubr, pcondlsubr, pcondrsubr,
+                 dotprodfun, normfun, mstopfun );
+
+  return;
+}
+  
+/*
+ *
+ * HUTIter library: Front-end for Transpose-Free Quasi-Minimal Residual
+ *	 	    solver. PRECISION_COMMENT version.
+ *
+ */
+
+#if defined(UNICOS) || defined(WIN32)
+void MAKE_F_SUBRN(HUTI_,_TFQMR) ( void *xvec, void *rhsvec,
+#else
+void MAKE_F_SUBRN(huti_,_tfqmr) ( void *xvec, void *rhsvec,
+#endif
+		int *ipar, double *dpar, void *work,
+		void (*matvecsubr)(),
+		void (*pcondlsubr)(),
+		void (*pcondrsubr)(),
+		void (*dotprodfun)(),
+		void (*normfun)(),
+		void (*mstopfun)() )
+{
+  HUTI_Init();
+
+  /* Here we take care of the "dynamic" bindings */
+
+  if (*((int *) pcondrsubr) == 0)
+    pcondrsubr = PRECD_DUMMY_PCONDFUN;
+  if (*((int *) pcondlsubr) == 0)
+    pcondlsubr = PRECD_DUMMY_PCONDFUN;
+  if (*((int *) dotprodfun) == 0)
+    dotprodfun = PRECD_BLAS_DOTPRODFUN;
+  if (*((int *) normfun) == 0)
+    normfun = PRECD_BLAS_NORMFUN;
+
+#if defined(UNICOS) || defined(WIN32)
+  MAKE_F_SUBRN(HUTI_,TFQMRSOLV) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
+#else
+  MAKE_F_SUBRN(huti_,tfqmrsolv) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
+#endif
+                 ipar, dpar, work, matvecsubr, pcondlsubr, pcondrsubr,
+                 dotprodfun, normfun, mstopfun );
+
+  return;
+}
+  
+/*
+ *
+ * HUTIter library: Front-end for Conjugate Gradient Squared solver.
+ *	 	    PRECISION_COMMENT version.
+ *
+ */
+
+#if defined(UNICOS) || defined(WIN32)
+void MAKE_F_SUBRN(HUTI_,_CGS) ( void *xvec, void *rhsvec,
+#else
+void MAKE_F_SUBRN(huti_,_cgs) ( void *xvec, void *rhsvec,
+#endif
+		int *ipar, double *dpar, void *work,
+		void (*matvecsubr)(),
+		void (*pcondlsubr)(),
+		void (*pcondrsubr)(),
+		void (*dotprodfun)(),
+		void (*normfun)(),
+		void (*mstopfun)() )
+{
+  HUTI_Init();
+
+  /* Here we take care of the "dynamic" bindings */
+
+  if (*((int *) pcondrsubr) == 0)
+    pcondrsubr = PRECD_DUMMY_PCONDFUN;
+  if (*((int *) pcondlsubr) == 0)
+    pcondlsubr = PRECD_DUMMY_PCONDFUN;
+  if (*((int *) dotprodfun) == 0)
+    dotprodfun = PRECD_BLAS_DOTPRODFUN;
+  if (*((int *) normfun) == 0)
+    normfun = PRECD_BLAS_NORMFUN;
+
+#if defined(UNICOS) || defined(WIN32)
+  MAKE_F_SUBRN(HUTI_,CGSSOLV) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
+#else
+  MAKE_F_SUBRN(huti_,cgssolv) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
+#endif
+                 ipar, dpar, work, matvecsubr, pcondlsubr, pcondrsubr,
+                 dotprodfun, normfun, mstopfun );
+
+  return;
+}
+
+/*
+ *
+ * HUTIter library: Front-end for Quasi-Minimal Residual solver.
+ *	 	    PRECISION_COMMENT version.
+ *
+ */
+
+#if defined(UNICOS) || defined(WIN32)
+void MAKE_F_SUBRN(HUTI_,_QMR) ( void *xvec, void *rhsvec,
+#else
+void MAKE_F_SUBRN(huti_,_qmr) ( void *xvec, void *rhsvec,
+#endif
+		int *ipar, double *dpar, void *work,
+		void (*matvecsubr)(),
+		void (*pcondlsubr)(),
+		void (*pcondrsubr)(),
+		void (*dotprodfun)(),
+		void (*normfun)(),
+		void (*mstopfun)() )
+{
+  HUTI_Init();
+
+  /* Here we take care of the "dynamic" bindings */
+
+  if (*((int *) pcondrsubr) == 0)
+    pcondrsubr = PRECD_DUMMY_PCONDFUN;
+  if (*((int *) pcondlsubr) == 0)
+    pcondlsubr = PRECD_DUMMY_PCONDFUN;
+  if (*((int *) dotprodfun) == 0)
+    dotprodfun = PRECD_BLAS_DOTPRODFUN;
+  if (*((int *) normfun) == 0)
+    normfun = PRECD_BLAS_NORMFUN;
+
+#if defined(UNICOS) || defined(WIN32)
+  MAKE_F_SUBRN(HUTI_,QMRSOLV) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
+#else
+  MAKE_F_SUBRN(huti_,qmrsolv) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
+#endif
+                 ipar, dpar, work, matvecsubr, pcondlsubr, pcondrsubr,
+                 dotprodfun, normfun, mstopfun );
+
+  return;
+}
+
+/*
+ *
+ * HUTIter library: Front-end for BiConjugate Gradient Stabilised solver.
+ *	 	    PRECISION_COMMENT version.
+ *
+ */
+
+#if defined(UNICOS) || defined(WIN32)
+void MAKE_F_SUBRN(HUTI_,_BICGSTAB) ( void *xvec, void *rhsvec,
+#else
+void MAKE_F_SUBRN(huti_,_bicgstab) ( void *xvec, void *rhsvec,
+#endif
+		int *ipar, double *dpar, void *work,
+		void (*matvecsubr)(),
+		void (*pcondlsubr)(),
+		void (*pcondrsubr)(),
+		void (*dotprodfun)(),
+		void (*normfun)(),
+		void (*mstopfun)() )
+{
+  HUTI_Init();
+
+  /* Here we take care of the "dynamic" bindings */
+
+  if (*((int *) pcondrsubr) == 0)
+    pcondrsubr = PRECD_DUMMY_PCONDFUN;
+  if (*((int *) pcondlsubr) == 0)
+    pcondlsubr = PRECD_DUMMY_PCONDFUN;
+  if (*((int *) dotprodfun) == 0)
+    dotprodfun = PRECD_BLAS_DOTPRODFUN;
+  if (*((int *) normfun) == 0)
+    normfun = PRECD_BLAS_NORMFUN;
+
+#if defined(UNICOS) || defined(WIN32)
+  MAKE_F_SUBRN(HUTI_,BICGSTABSOLV) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
+#else
+  MAKE_F_SUBRN(huti_,bicgstabsolv) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
+#endif
+                 ipar, dpar, work, matvecsubr, pcondlsubr, pcondrsubr,
+                 dotprodfun, normfun, mstopfun );
+
+  return;
+}
+  
+/*
+ *
+ * HUTIter library: Front-end for Generalized Minimum RESidual solver.
+ *	 	    PRECISION_COMMENT version.
+ *
+ */
+
+#if defined(UNICOS) || defined(WIN32)
+void MAKE_F_SUBRN(HUTI_,_GMRES) ( void *xvec, void *rhsvec,
+#else
+void MAKE_F_SUBRN(huti_,_gmres) ( void *xvec, void *rhsvec,
+#endif
+		int *ipar, double *dpar, void *work,
+		void (*matvecsubr)(),
+		void (*pcondlsubr)(),
+		void (*pcondrsubr)(),
+		void (*dotprodfun)(),
+		void (*normfun)(),
+		void (*mstopfun)() )
+{
+  HUTI_Init();
+
+  /* Here we take care of the "dynamic" bindings */
+
+  if (*((int *) pcondrsubr) == 0)
+    pcondrsubr = PRECD_DUMMY_PCONDFUN;
+  if (*((int *) pcondlsubr) == 0)
+    pcondlsubr = PRECD_DUMMY_PCONDFUN;
+  if (*((int *) dotprodfun) == 0)
+    dotprodfun = PRECD_BLAS_DOTPRODFUN_N;
+  if (*((int *) normfun) == 0)
+    normfun = PRECD_BLAS_NORMFUN;
+
+#if defined(UNICOS) || defined(WIN32)
+  MAKE_F_SUBRN(HUTI_,GMRESSOLV) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
+#else
+  MAKE_F_SUBRN(huti_,gmressolv) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
+#endif
+                 ipar, dpar, work, matvecsubr, pcondlsubr, pcondrsubr,
+                 dotprodfun, normfun, mstopfun );
+
+  return;
+}
+  
+/*
+ *
+ * HUTIter library: Front-end for BiConjugate Gradient Stabilised (2) solver.
+ *	 	    PRECISION_COMMENT version.
+ *
+ */
+
+#if defined(UNICOS) || defined(WIN32)
+void MAKE_F_SUBRN(HUTI_,_BICGSTAB_2) ( void *xvec, void *rhsvec,
+#else
+void MAKE_F_SUBRN(huti_,_bicgstab_2) ( void *xvec, void *rhsvec,
+#endif
+		int *ipar, double *dpar, void *work,
+		void (*matvecsubr)(),
+		void (*pcondlsubr)(),
+		void (*pcondrsubr)(),
+		void (*dotprodfun)(),
+		void (*normfun)(),
+		void (*mstopfun)() )
+{
+  HUTI_Init();
+
+  /* Here we take care of the "dynamic" bindings */
+
+  if (*((int *) pcondrsubr) == 0)
+    pcondrsubr = PRECD_DUMMY_PCONDFUN;
+  if (*((int *) pcondlsubr) == 0)
+    pcondlsubr = PRECD_DUMMY_PCONDFUN;
+  if (*((int *) dotprodfun) == 0)
+    dotprodfun = PRECD_BLAS_DOTPRODFUN;
+  if (*((int *) normfun) == 0)
+    normfun = PRECD_BLAS_NORMFUN;
+
+#if defined(UNICOS) || defined(WIN32)
+  MAKE_F_SUBRN(HUTI_,BICGSTAB_2SOLV) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
+#else
+  MAKE_F_SUBRN(huti_,bicgstab_2solv) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
+#endif
+                 ipar, dpar, work, matvecsubr, pcondlsubr, pcondrsubr,
+                 dotprodfun, normfun, mstopfun );
+
+  return;
+}
+  
