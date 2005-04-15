@@ -1,3 +1,7 @@
+#  
+# - which are needed? 
+# - should it be <matc.h> or <matc/matc.h>
+# 
 include_HEADERS = \
 	fnames.h \
 	gra.h \
