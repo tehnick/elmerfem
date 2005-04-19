@@ -1,0 +1,44 @@
+# Elmer EIO library Sgi(n32) makefile, Fortran binding
+# Needs Gnu make!
+# Martti Verho
+# 25.03.99
+
+# Path separator
+PATH_SEP = $(strip /)
+
+BINDING = F
+TARGET = libeioF$(DBG_EXT).a
+LINKOUT = -o $(TARGET)
+
+INCLUDES = -I./include 
+
+C_EXT = c
+CPP_EXT = cpp
+OBJ_EXT = o
+
+CC = CC
+C  = cc
+LINK = CC
+AR = ar -r
+CP = cp 
+RM = rm -f
+MV = mv
+
+# Should we create debug-version (names like *_g.*)
+# NOTE: Use DEBUG_VERSION=1 in the make-command
+#       to build the debug version
+ifeq ($(strip $(DEBUG_VERSION)),1)
+ OPTM =
+ DEBUG = -g
+ DBG_EXT = _g
+else
+ OPTM = -O2
+ DEBUG = 
+ DBG_EXT =
+endif 
+					
+CFLAGS = $(OPTM) $(DEBUG) -D$(BINDING)BINDING=1 -c
+
+#-Read objects and dependencies and rules
+include ./make.inc
+
