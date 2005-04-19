@@ -1,8 +1,44 @@
+
 !
 ! Subroutines to implement Transpose Free QMR iteration
 !
-! $Id: huti_tfqmr.src,v 1.2 2000/10/19 07:48:30 jpr Exp $
-#include "huti_fdefs.h"
+! $Id: huti_tfqmr.src,v 1.1.1.1 2005/04/15 10:31:18 vierinen Exp $
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#include  "huti_fdefs.h" 
 
 !*************************************************************************
 !*************************************************************************
@@ -32,33 +68,33 @@
 ! Definitions to make the code more understandable and to make it look
 ! like the pseudo code
 !
-#define X xvec
-#define B rhsvec
+#define  X  xvec 
+#define  B  rhsvec 
 
-#define V work(:,1)
-#define V_ind 1
-#define Y work(:,2)
-#define Y_ind 2
-#define YNEW work(:,3)
-#define YNEW_ind 3
-#define RTLD work(:,4)
-#define RTLD_ind 4
-#define T1V work(:,5)
-#define T1V_ind 5
-#define T2V work(:,6)
-#define T2V_ind 6
-#define W work(:,7)
-#define W_ind 7
-#define D work(:,8)
-#define D_ind 8
-#define R work(:,9)
-#define R_ind 9
-#define TRV work(:,10)
-#define TRV_ind 10
+#define  V  work(:,1) 
+#define  V_ind  1 
+#define  Y  work(:,2) 
+#define  Y_ind  2 
+#define  YNEW  work(:,3) 
+#define  YNEW_ind  3 
+#define  RTLD  work(:,4) 
+#define  RTLD_ind  4 
+#define  T1V  work(:,5) 
+#define  T1V_ind  5 
+#define  T2V  work(:,6) 
+#define  T2V_ind  6 
+#define  W  work(:,7) 
+#define  W_ind  7 
+#define  D  work(:,8) 
+#define  D_ind  8 
+#define  R  work(:,9) 
+#define  R_ind  9 
+#define  TRV  work(:,10) 
+#define  TRV_ind  10 
 
 ! This is the magic ratio for upperb and tolerance used in upper bound
 ! convergence test
-#define UPPERB_TOL_RATIO 10.0
+#define  UPPERB_TOL_RATIO  10.0 
 
 !*************************************************************************
 !*************************************************************************
@@ -66,7 +102,7 @@
 !*************************************************************************
 !*************************************************************************
 
-subroutine huti_ctfqmrsolv ( ndim, wrkdim, xvec, rhsvec, ipar,&
+subroutine  huti_ctfqmrsolv  ( ndim, wrkdim, xvec, rhsvec, ipar,&
                             dpar, work, matvecsubr, pcondlsubr, pcondrsubr, &
                             dotprodfun, normfun, stopcfun )
 
@@ -114,7 +150,7 @@ subroutine huti_ctfqmrsolv ( ndim, wrkdim, xvec, rhsvec, ipar,&
 
   ! Norms of right-hand side vector are used in convergence tests
 
-  if ( HUTI_STOPC .eq. HUTI_TRESID_SCALED_BYB .or. &
+  if ( HUTI_STOPC .eq. HUTI_TRESID_SCALED_BYB .or. & 
        HUTI_STOPC .eq. HUTI_PRESID_SCALED_BYB .or. &
        HUTI_STOPC .eq. HUTI_UPPERB_STOPC ) then
      rhsnorm = normfun( HUTI_NDIM, B, 1 )
@@ -131,7 +167,7 @@ subroutine huti_ctfqmrsolv ( ndim, wrkdim, xvec, rhsvec, ipar,&
   ! Generate vector X if needed
 
   if ( HUTI_INITIALX .eq. HUTI_RANDOMX ) then
-     call huti_crandvec ( X, ipar )
+     call  huti_crandvec   ( X, ipar )
   else if ( HUTI_INITIALX .ne. HUTI_USERSUPPLIEDX ) then
      X = 1
   end if
@@ -231,10 +267,10 @@ subroutine huti_ctfqmrsolv ( ndim, wrkdim, xvec, rhsvec, ipar,&
   case (HUTI_UPPERB_STOPC)
      upperb = real( sqrt( 2.0 * iter_count ) * tau / rhsnorm)
      if ( ( upperb / HUTI_TOLERANCE ) .lt. UPPERB_TOL_RATIO ) then
-        call pcondrsubr( TRV, X, ipar )
+	call pcondrsubr( TRV, X, ipar )
         call matvecsubr( TRV, R, ipar )
         TRV = R - B
-        call pcondlsubr( R, TRV, ipar )
+	call pcondlsubr( R, TRV, ipar )
         residual = normfun( HUTI_NDIM, R, 1 ) / rhsnorm
      else
         residual = upperb
@@ -311,10 +347,10 @@ subroutine huti_ctfqmrsolv ( ndim, wrkdim, xvec, rhsvec, ipar,&
   case (HUTI_UPPERB_STOPC)
      upperb = real( sqrt( 2.0 * iter_count ) * tau / rhsnorm)
      if ( ( upperb / HUTI_TOLERANCE ) .lt. UPPERB_TOL_RATIO ) then
-        call pcondrsubr( TRV, X, ipar )
+	call pcondrsubr( TRV, X, ipar )
         call matvecsubr( TRV, R, ipar )
         TRV = R - B
-        call pcondlsubr( R, TRV, ipar )
+	call pcondlsubr( R, TRV, ipar )
         residual = normfun( HUTI_NDIM, R, 1 ) / rhsnorm
      else
         residual = upperb
@@ -391,9 +427,9 @@ subroutine huti_ctfqmrsolv ( ndim, wrkdim, xvec, rhsvec, ipar,&
 
   if ( HUTI_DBUGLVL .ne. HUTI_NO_DEBUG ) then
      if ( HUTI_STOPC .eq. HUTI_UPPERB_STOPC ) then
-        write (*, '(I8, 2E17.7)') iter_count, residual, upperb
+	write (*, '(I8, 2E17.7)') iter_count, residual, upperb
      else
-        write (*, '(I8, E17.7)') iter_count, residual
+	write (*, '(I8, E17.7)') iter_count, residual
      end if
   end if
   HUTI_ITERS = iter_count
@@ -403,6 +439,6 @@ subroutine huti_ctfqmrsolv ( ndim, wrkdim, xvec, rhsvec, ipar,&
   ! End of execution
   !*********************************************************************
 
-end subroutine huti_ctfqmrsolv
+end subroutine  huti_ctfqmrsolv 
 
 !*************************************************************************

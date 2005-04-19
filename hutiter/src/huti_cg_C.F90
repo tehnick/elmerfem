@@ -1,7 +1,7 @@
 !
 ! Subroutines to implement Conjugate Gradient iterative method
 !
-! $Id: huti_cg.src,v 1.2 2000/10/19 07:48:29 jpr Exp $
+! $Id: huti_cg_C.F90,v 1.1.1.1 2005/04/15 10:31:18 vierinen Exp $
 #include "huti_fdefs.h"
 
 !*************************************************************************
@@ -48,8 +48,6 @@
 subroutine huti_ccgsolv ( ndim, wrkdim, xvec, rhsvec, &
                           ipar, dpar, work, matvecsubr, pcondlsubr, &
                           pcondrsubr, dotprodfun, normfun, stopcfun )
-
-
   implicit none
 
   external matvecsubr, pcondlsubr, pcondrsubr

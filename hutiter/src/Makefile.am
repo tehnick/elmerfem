@@ -48,3 +48,43 @@ COMMON_SRCS =  \
 
 lib_LIBRARIES = libhuti.a
 libhuti_a_SOURCES = $(COMMON_SRCS)
+
+# Custom preprocessing targets. 
+# 
+# cpp is not very portable, so we include automatic code generation as a 
+# seperate non-automatically launched target.
+#
+HUTI_CPP="cpp"
+PRECS	=	S D C Z
+precdf90=huti_cg huti_tfqmr huti_cgs huti_qmr huti_bicgstab \
+	 huti_gmres huti_bicgstab_2 huti_aux
+precdc=huti_sfe_c
+HUTI_PPFLAGS = -traditional -P
+
+preprocess:
+	@echo
+	@echo 'Generating source files from *.src files, WARNING, only known to work on Linux :)'
+	@echo
+#
+# First make the precision dependent Fortran90 files
+#
+	@if [ "$(precdf90)X" != "X" ]; then \
+	  for p in $(PRECS); do \
+	    for pd in $(precdf90); do \
+		$(RM) $${pd}_$${p}.F90; \
+		echo $(HUTI_CPP) $(HUTI_PPFLAGS) -D$${p}_PRE $${pd}.src $${pd}_$${p}.F90; \
+		$(HUTI_CPP) $(HUTI_PPFLAGS) -D$${p}_PRE $${pd}.src $${pd}_$${p}.F90; \
+	    done; \
+	  done; \
+	fi 
+#
+# Third make the precision dependent C files
+#
+	@if [ "$(precdc)X" != "X" ]; then \
+	  for p in $(PRECS); do \
+	    for pd in $(precdc); do \
+		$(RM) $${pd}_$${p}.c; \
+		$(HUTI_CPP)  $(HUTI_PPFLAGS) -D$${p}_PRE $${pd}.src $${pd}_$${p}.c; \
+	    done; \
+	  done; \
+	fi 

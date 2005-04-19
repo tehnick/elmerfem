@@ -1,8 +1,44 @@
+
 !
 ! Subroutine to implement QMR iterative method (double complex)
 !
-! $Id: huti_qmr.src,v 1.2 2000/10/19 07:48:29 jpr Exp $
-#include "huti_fdefs.h"
+! $Id: huti_qmr.src,v 1.1.1.1 2005/04/15 10:31:18 vierinen Exp $
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#include  "huti_fdefs.h" 
 
 !*************************************************************************
 !
@@ -12,7 +48,7 @@
 ! and a book by Barret et al.:
 ! "Templates for the Solution of Linear Systems: Building Blocks for
 !  Iterative Methods", 1993.
-!
+! 
 ! All matrix-vector operations are done externally, so we do not need
 ! to know about the matrix structure (sparse or dense). Memory allocation
 ! for the working arrays has also been done externally.
@@ -38,46 +74,46 @@
 ! Definitions to make the code more understandable and to make it look
 ! like the pseudo code
 !
-#define X xvec
-#define B rhsvec
+#define  X  xvec 
+#define  B  rhsvec 
 
-#define V work(:,1)
-#define V_ind 1
-#define VTLD work(:,2)
-#define VTLD_ind 2
-#define Y work(:,3)
-#define Y_ind 3
-#define YTLD work(:,4)
-#define YTLD_ind 4
-#define W work(:,5)
-#define W_ind 5
-#define WTLD work(:,6)
-#define WTLD_ind 6
-#define Z work(:,7)
-#define Z_ind 7
-#define ZTLD work(:,8)
-#define ZTLD_ind 8
-#define P work(:,9)
-#define P_ind 9
-#define PTLD work(:,10)
-#define PTLD_ind 10
-#define Q work(:,11)
-#define Q_ind 11
-#define D work(:,12)
-#define D_ind 12
-#define S work(:,13)
-#define S_ind 13
-#define R work(:,14)
-#define R_ind 14
+#define  V  work(:,1) 
+#define  V_ind  1 
+#define  VTLD  work(:,2) 
+#define  VTLD_ind  2 
+#define  Y  work(:,3) 
+#define  Y_ind  3 
+#define  YTLD  work(:,4) 
+#define  YTLD_ind  4 
+#define  W  work(:,5) 
+#define  W_ind  5 
+#define  WTLD  work(:,6) 
+#define  WTLD_ind  6 
+#define  Z  work(:,7) 
+#define  Z_ind  7 
+#define  ZTLD  work(:,8) 
+#define  ZTLD_ind  8 
+#define  P  work(:,9) 
+#define  P_ind  9 
+#define  PTLD  work(:,10) 
+#define  PTLD_ind  10 
+#define  Q  work(:,11) 
+#define  Q_ind  11 
+#define  D  work(:,12) 
+#define  D_ind  12 
+#define  S  work(:,13) 
+#define  S_ind  13 
+#define  R  work(:,14) 
+#define  R_ind  14 
 !*************************************************************************
-
+  
 !*************************************************************************
 !*************************************************************************
 ! Single precision version
 !*************************************************************************
 !*************************************************************************
 
-subroutine huti_sqmrsolv ( ndim, wrkdim, xvec, rhsvec, &
+subroutine  huti_sqmrsolv  ( ndim, wrkdim, xvec, rhsvec, &
                           ipar, dpar, work, matvecsubr, pcondlsubr, &
                           pcondrsubr, dotprodfun, normfun, stopcfun )
 
@@ -119,7 +155,7 @@ subroutine huti_sqmrsolv ( ndim, wrkdim, xvec, rhsvec, &
 
   ! Norms of right-hand side vector are used in convergence tests
 
-  if ( HUTI_STOPC .eq. HUTI_TRESID_SCALED_BYB .or. &
+  if ( HUTI_STOPC .eq. HUTI_TRESID_SCALED_BYB .or. & 
        HUTI_STOPC .eq. HUTI_PRESID_SCALED_BYB ) then
      rhsnorm = normfun( HUTI_NDIM, B, 1 )
   end if
@@ -131,7 +167,7 @@ subroutine huti_sqmrsolv ( ndim, wrkdim, xvec, rhsvec, &
   ! Generate vector X if needed
 
   if ( HUTI_INITIALX .eq. HUTI_RANDOMX ) then
-     call huti_srandvec ( X, ipar )
+     call  huti_srandvec   ( X, ipar )
   else if ( HUTI_INITIALX .ne. HUTI_USERSUPPLIEDX ) then
      X = 1
   end if
@@ -313,6 +349,6 @@ subroutine huti_sqmrsolv ( ndim, wrkdim, xvec, rhsvec, &
   ! End of execution
   !*********************************************************************
 
-end subroutine huti_sqmrsolv
+end subroutine  huti_sqmrsolv 
 
 !*********************************************************************

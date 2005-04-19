@@ -1,8 +1,44 @@
+
 !
 ! Subroutine to implement BiConjugate Gradient Stabilised iteration
 !
-! $Id: huti_bicgstab.src,v 1.2 2000/10/19 07:48:29 jpr Exp $
-#include "huti_fdefs.h"
+! $Id: huti_bicgstab.src,v 1.1.1.1 2005/04/15 10:31:18 vierinen Exp $
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#include  "huti_fdefs.h" 
 
 !*************************************************************************
 !*************************************************************************
@@ -31,33 +67,33 @@
 ! like the pseudo code
 !
 
-#define X xvec
-#define B rhsvec
+#define  X  xvec 
+#define  B  rhsvec 
 
-#define RTLD work(:,1)
-#define RTLD_ind 1
-#define P work(:,2)
-#define P_ind 2
-#define T1V work(:,3)
-#define T1V_ind 3
-#define V work(:,4)
-#define V_ind 4
-#define S work(:,5)
-#define S_ind 5
-#define T2V work(:,6)
-#define T2V_ind 6
-#define T work(:,7)
-#define T_ind 7
-#define R work(:,8)
-#define R_ind 8
-
+#define  RTLD  work(:,1) 
+#define  RTLD_ind  1 
+#define  P  work(:,2) 
+#define  P_ind  2 
+#define  T1V  work(:,3) 
+#define  T1V_ind  3 
+#define  V  work(:,4) 
+#define  V_ind  4 
+#define  S  work(:,5) 
+#define  S_ind  5 
+#define  T2V  work(:,6) 
+#define  T2V_ind  6 
+#define  T  work(:,7) 
+#define  T_ind  7 
+#define  R  work(:,8) 
+#define  R_ind  8 
+  
 !*************************************************************************
 !*************************************************************************
 ! Double precision version
 !*************************************************************************
 !*************************************************************************
 
-subroutine huti_dbicgstabsolv ( ndim, wrkdim, xvec, rhsvec, &
+subroutine  huti_dbicgstabsolv  ( ndim, wrkdim, xvec, rhsvec, &
                             ipar, dpar, work, matvecsubr, pcondlsubr, &
                             pcondrsubr, dotprodfun, normfun, stopcfun )
 
@@ -104,7 +140,7 @@ subroutine huti_dbicgstabsolv ( ndim, wrkdim, xvec, rhsvec, &
 
   ! Norms of right-hand side vector are used in convergence tests
 
-  if ( HUTI_STOPC .eq. HUTI_TRESID_SCALED_BYB .or. &
+  if ( HUTI_STOPC .eq. HUTI_TRESID_SCALED_BYB .or. & 
        HUTI_STOPC .eq. HUTI_PRESID_SCALED_BYB ) then
      rhsnorm = normfun( HUTI_NDIM, B, 1 )
   end if
@@ -116,7 +152,7 @@ subroutine huti_dbicgstabsolv ( ndim, wrkdim, xvec, rhsvec, &
   ! Generate vector X if needed
 
   if ( HUTI_INITIALX .eq. HUTI_RANDOMX ) then
-     call huti_drandvec ( X, ipar )
+     call  huti_drandvec   ( X, ipar )
   else if ( HUTI_INITIALX .ne. HUTI_USERSUPPLIEDX ) then
      X = 1
   end if
@@ -245,6 +281,6 @@ subroutine huti_dbicgstabsolv ( ndim, wrkdim, xvec, rhsvec, &
   ! End of execution
   !*********************************************************************
 
-end subroutine huti_dbicgstabsolv
+end subroutine  huti_dbicgstabsolv 
 
 !*************************************************************************

@@ -1,291 +1,354 @@
- #include <stdlib.h>
- #include <stdio.h>
- #include "huti_defs.h"
 
-extern void HUTI_zCGSOLV_ ( int *ndim, int *wrkdim,
-                        void *xvec, void *rhsvec, int *ipar, double *dpar,
-                        void *work, void (*matvecsubr)(),
-                        void (*pcondlsubr)(), void (*pcondrsubr)(),
-                        void (*dotprodfun)(), double (*normfun)(),
-                        void (*stopcfun)() );
 
-extern void HUTI_zCGSSOLV_ ( int *ndim, int *wrkdim,
-                        void *xvec, void *rhsvec, int *ipar, double *dpar,
-                        void *work, void (*matvecsubr)(),
-                        void (*pcondlsubr)(), void (*pcondrsubr)(),
-                        void (*dotprodfun)(), double (*normfun)(),
-                        void (*stopcfun)() );
 
-extern void HUTI_zBICGSTABSOLV_ ( int *ndim, int *wrkdim,
-                        void *xvec, void *rhsvec, int *ipar, double *dpar,
-                        void *work, void (*matvecsubr)(),
-                        void (*pcondlsubr)(), void (*pcondrsubr)(),
-                        void (*dotprodfun)(), double (*normfun)(),
-                        void (*stopcfun)() );
 
-extern void HUTI_zQMRSOLV_ ( int *ndim, int *wrkdim,
-                        void *xvec, void *rhsvec, int *ipar, double *dpar,
-                        void *work, void (*matvecsubr)(),
-                        void (*pcondlsubr)(), void (*pcondrsubr)(),
-                        void (*dotprodfun)(), double (*normfun)(),
-                        void (*stopcfun)() );
 
-extern void HUTI_zTFQMRSOLV_ ( int *ndim, int *wrkdim,
-                        void *xvec, void *rhsvec, int *ipar, double *dpar,
-                        void *work, void (*matvecsubr)(),
-                        void (*pcondlsubr)(), void (*pcondrsubr)(),
-                        void (*dotprodfun)(), double (*normfun)(),
-                        void (*stopcfun)() );
 
-extern void HUTI_zGMRESSOLV_ ( int *ndim, int *wrkdim,
-                        void *xvec, void *rhsvec, int *ipar, double *dpar,
-                        void *work, void (*matvecsubr)(),
-                        void (*pcondlsubr)(), void (*pcondrsubr)(),
-                        void (*dotprodfun)(), double (*normfun)(),
-                        void (*stopcfun)() );
 
-extern void HUTI_zBICGSTAB_2SOLV_ ( int *ndim, int *wrkdim,
-                        void *xvec, void *rhsvec, int *ipar, double *dpar,
-                        void *work, void (*matvecsubr)(),
-                        void (*pcondlsubr)(), void (*pcondrsubr)(),
-                        void (*dotprodfun)(), double (*normfun)(),
-                        void (*stopcfun)() );
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#include  <stdlib.h> 
+#include  <stdio.h> 
+#include  "huti_defs.h" 
+#include  "../config.h" 
+
+extern void FC_FUNC_(huti_zcgsolv,HUTI_ZCGSOLV) ( int *ndim, int *wrkdim,
+			void *xvec, void *rhsvec, int *ipar, double *dpar,
+			void *work, void (*matvecsubr)(),
+			void (*pcondlsubr)(), void (*pcondrsubr)(),
+			void (*dotprodfun)(), double (*normfun)(),
+			void (*stopcfun)() );
+
+extern void FC_FUNC_(huti_zcgssolv,HUTI_ZCGSSOLV) ( int *ndim, int *wrkdim,
+			void *xvec, void *rhsvec, int *ipar, double *dpar,
+			void *work, void (*matvecsubr)(),
+			void (*pcondlsubr)(), void (*pcondrsubr)(),
+			void (*dotprodfun)(), double (*normfun)(),
+			void (*stopcfun)() );
+
+extern void FC_FUNC_(huti_zbicgstabsolv,HUTI_ZBICGSTABSOLV) ( int *ndim, int *wrkdim,
+			void *xvec, void *rhsvec, int *ipar, double *dpar,
+			void *work, void (*matvecsubr)(),
+			void (*pcondlsubr)(), void (*pcondrsubr)(),
+			void (*dotprodfun)(), double (*normfun)(),
+			void (*stopcfun)() );
+
+extern void FC_FUNC_(huti_zqmrsolv,HUTI_ZQMRSOLV) ( int *ndim, int *wrkdim,
+			void *xvec, void *rhsvec, int *ipar, double *dpar,
+			void *work, void (*matvecsubr)(),
+			void (*pcondlsubr)(), void (*pcondrsubr)(),
+			void (*dotprodfun)(), double (*normfun)(),
+			void (*stopcfun)() );
+
+extern void FC_FUNC_(huti_ztfqmrsolv,HUTI_ZTFQMRSOLV) ( int *ndim, int *wrkdim,
+			void *xvec, void *rhsvec, int *ipar, double *dpar,
+			void *work, void (*matvecsubr)(),
+			void (*pcondlsubr)(), void (*pcondrsubr)(),
+			void (*dotprodfun)(), double (*normfun)(),
+			void (*stopcfun)() );
+
+extern void FC_FUNC_(huti_zgmressolv,HUTI_ZGMRESSOLV) ( int *ndim, int *wrkdim,
+			void *xvec, void *rhsvec, int *ipar, double *dpar,
+			void *work, void (*matvecsubr)(),
+			void (*pcondlsubr)(), void (*pcondrsubr)(),
+			void (*dotprodfun)(), double (*normfun)(),
+			void (*stopcfun)() );
+
+extern void FC_FUNC_(huti_zbicgstab_2solv,HUTI_ZBICGSTAB_2SOLV) ( int *ndim, int *wrkdim,
+			void *xvec, void *rhsvec, int *ipar, double *dpar,
+			void *work, void (*matvecsubr)(),
+			void (*pcondlsubr)(), void (*pcondrsubr)(),
+			void (*dotprodfun)(), double (*normfun)(),
+			void (*stopcfun)() );
 
 extern int huti_num_of_procs;
 
-extern void huti_zdummy_pcondfun_ (void *u, void *v, int *ipar);
+extern void FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN) (void *u, void *v, int *ipar);
 
 
 
-extern void zdotu_ (int *N, void *x, int *xind, void *y, int *yind);
-extern void zdotc_ (int *N, void *x, int *xind, void *y, int *yind);
-extern void dznrm2_ (int *N, void *x, int *xind);
-void huti_z_cg_ ( void *xvec, void *rhsvec,
+extern void FC_FUNC(zdotu,ZDOTU) (int *N, void *x, int *xind, void *y, int *yind);
+extern void FC_FUNC(zdotc,ZDOTC) (int *N, void *x, int *xind, void *y, int *yind);
+extern void FC_FUNC(dznrm2,DZNRM2) (int *N, void *x, int *xind);
 
-                int *ipar, double *dpar, void *work,
-                void (*matvecsubr)(),
-                void (*pcondlsubr)(),
-                void (*pcondrsubr)(),
-                void (*dotprodfun)(),
-                void (*normfun)(),
-                void (*mstopfun)() )
+
+
+
+
+
+
+
+void FC_FUNC_(huti_z_cg,HUTI_Z_CG) ( void *xvec, void *rhsvec,
+		int *ipar, double *dpar, void *work,
+		void (*matvecsubr)(),
+		void (*pcondlsubr)(),
+		void (*pcondrsubr)(),
+		void (*dotprodfun)(),
+		void (*normfun)(),
+		void (*mstopfun)() )
 {
   HUTI_Init();
 
-
+  
 
   if (*((int *) pcondrsubr) == 0)
-    pcondrsubr = huti_zdummy_pcondfun_;
+    pcondrsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
   if (*((int *) pcondlsubr) == 0)
-    pcondlsubr = huti_zdummy_pcondfun_;
+    pcondlsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
   if (*((int *) dotprodfun) == 0)
-    dotprodfun = zdotu_;
+    dotprodfun = FC_FUNC(zdotu,ZDOTU);
   if (*((int *) normfun) == 0)
-    normfun = dznrm2_;
+    normfun = FC_FUNC(dznrm2,DZNRM2);
 
-
-
-
-  huti_zcgsolv_ ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
-
+  FC_FUNC_(huti_zcgsolv,HUTI_ZCGSOLV) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
                  ipar, dpar, work, matvecsubr, pcondlsubr, pcondrsubr,
                  dotprodfun, normfun, mstopfun );
 
   return;
 }
-void huti_z_tfqmr_ ( void *xvec, void *rhsvec,
+  
 
-                int *ipar, double *dpar, void *work,
-                void (*matvecsubr)(),
-                void (*pcondlsubr)(),
-                void (*pcondrsubr)(),
-                void (*dotprodfun)(),
-                void (*normfun)(),
-                void (*mstopfun)() )
+
+
+
+
+
+
+void FC_FUNC_(huti_z_tfqmr,HUTI_Z_TFQMR) ( void *xvec, void *rhsvec,
+
+		int *ipar, double *dpar, void *work,
+		void (*matvecsubr)(),
+		void (*pcondlsubr)(),
+		void (*pcondrsubr)(),
+		void (*dotprodfun)(),
+		void (*normfun)(),
+		void (*mstopfun)() )
 {
   HUTI_Init();
 
-
+  
 
   if (*((int *) pcondrsubr) == 0)
-    pcondrsubr = huti_zdummy_pcondfun_;
+    pcondrsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
   if (*((int *) pcondlsubr) == 0)
-    pcondlsubr = huti_zdummy_pcondfun_;
+    pcondlsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
   if (*((int *) dotprodfun) == 0)
-    dotprodfun = zdotu_;
+    dotprodfun = FC_FUNC(zdotu,ZDOTU);
   if (*((int *) normfun) == 0)
-    normfun = dznrm2_;
+    normfun = FC_FUNC(dznrm2,DZNRM2);
 
-
-
-
-  huti_ztfqmrsolv_ ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
-
+  FC_FUNC_(huti_ztfqmrsolv,HUTI_ZTFQMRSOLV) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
                  ipar, dpar, work, matvecsubr, pcondlsubr, pcondrsubr,
                  dotprodfun, normfun, mstopfun );
 
   return;
 }
-void huti_z_cgs_ ( void *xvec, void *rhsvec,
+  
 
-                int *ipar, double *dpar, void *work,
-                void (*matvecsubr)(),
-                void (*pcondlsubr)(),
-                void (*pcondrsubr)(),
-                void (*dotprodfun)(),
-                void (*normfun)(),
-                void (*mstopfun)() )
+
+
+
+
+
+
+void FC_FUNC_(huti_z_cgs,HUTI_Z_CGS) ( void *xvec, void *rhsvec,
+		int *ipar, double *dpar, void *work,
+		void (*matvecsubr)(),
+		void (*pcondlsubr)(),
+		void (*pcondrsubr)(),
+		void (*dotprodfun)(),
+		void (*normfun)(),
+		void (*mstopfun)() )
 {
   HUTI_Init();
 
-
+  
 
   if (*((int *) pcondrsubr) == 0)
-    pcondrsubr = huti_zdummy_pcondfun_;
+    pcondrsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
   if (*((int *) pcondlsubr) == 0)
-    pcondlsubr = huti_zdummy_pcondfun_;
+    pcondlsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
   if (*((int *) dotprodfun) == 0)
-    dotprodfun = zdotu_;
+    dotprodfun = FC_FUNC(zdotu,ZDOTU);
   if (*((int *) normfun) == 0)
-    normfun = dznrm2_;
+    normfun = FC_FUNC(dznrm2,DZNRM2);
 
-
-
-
-  huti_zcgssolv_ ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
-
+  FC_FUNC_(huti_zcgssolv,HUTI_ZCGSSOLV) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
                  ipar, dpar, work, matvecsubr, pcondlsubr, pcondrsubr,
                  dotprodfun, normfun, mstopfun );
 
   return;
 }
-void huti_z_qmr_ ( void *xvec, void *rhsvec,
 
-                int *ipar, double *dpar, void *work,
-                void (*matvecsubr)(),
-                void (*pcondlsubr)(),
-                void (*pcondrsubr)(),
-                void (*dotprodfun)(),
-                void (*normfun)(),
-                void (*mstopfun)() )
+
+
+
+
+
+
+
+void FC_FUNC_(huti_z_qmr,HUTI_Z_QMR) ( void *xvec, void *rhsvec,
+		int *ipar, double *dpar, void *work,
+		void (*matvecsubr)(),
+		void (*pcondlsubr)(),
+		void (*pcondrsubr)(),
+		void (*dotprodfun)(),
+		void (*normfun)(),
+		void (*mstopfun)() )
 {
   HUTI_Init();
 
-
+  
 
   if (*((int *) pcondrsubr) == 0)
-    pcondrsubr = huti_zdummy_pcondfun_;
+    pcondrsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
   if (*((int *) pcondlsubr) == 0)
-    pcondlsubr = huti_zdummy_pcondfun_;
+    pcondlsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
   if (*((int *) dotprodfun) == 0)
-    dotprodfun = zdotu_;
+    dotprodfun = FC_FUNC(zdotu,ZDOTU);
   if (*((int *) normfun) == 0)
-    normfun = dznrm2_;
+    normfun = FC_FUNC(dznrm2,DZNRM2);
+
+  FC_FUNC_(huti_zqmrsolv,HUTI_ZQMRSOLV) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
+                 ipar, dpar, work, matvecsubr, pcondlsubr, pcondrsubr,
+                 dotprodfun, normfun, mstopfun );
+  return;
+}
 
 
 
 
-  huti_zqmrsolv_ ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
 
+
+
+void FC_FUNC_(huti_z_bicgstab,HUTI_Z_BICGSTAB) ( void *xvec, void *rhsvec,
+		int *ipar, double *dpar, void *work,
+		void (*matvecsubr)(),
+		void (*pcondlsubr)(),
+		void (*pcondrsubr)(),
+		void (*dotprodfun)(),
+		void (*normfun)(),
+		void (*mstopfun)() )
+{
+  HUTI_Init();
+
+  
+
+  if (*((int *) pcondrsubr) == 0)
+    pcondrsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
+  if (*((int *) pcondlsubr) == 0)
+    pcondlsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
+  if (*((int *) dotprodfun) == 0)
+    dotprodfun = FC_FUNC(zdotu,ZDOTU);
+  if (*((int *) normfun) == 0)
+    normfun = FC_FUNC(dznrm2,DZNRM2);
+
+  FC_FUNC_(huti_zbicgstabsolv,HUTI_ZBICGSTABSOLV) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
                  ipar, dpar, work, matvecsubr, pcondlsubr, pcondrsubr,
                  dotprodfun, normfun, mstopfun );
 
   return;
 }
-void huti_z_bicgstab_ ( void *xvec, void *rhsvec,
+  
 
-                int *ipar, double *dpar, void *work,
-                void (*matvecsubr)(),
-                void (*pcondlsubr)(),
-                void (*pcondrsubr)(),
-                void (*dotprodfun)(),
-                void (*normfun)(),
-                void (*mstopfun)() )
+
+
+
+
+
+
+void FC_FUNC_(huti_z_gmres,HUTI_Z_GMRES) ( void *xvec, void *rhsvec,
+		int *ipar, double *dpar, void *work,
+		void (*matvecsubr)(),
+		void (*pcondlsubr)(),
+		void (*pcondrsubr)(),
+		void (*dotprodfun)(),
+		void (*normfun)(),
+		void (*mstopfun)() )
 {
   HUTI_Init();
 
-
+  
 
   if (*((int *) pcondrsubr) == 0)
-    pcondrsubr = huti_zdummy_pcondfun_;
+    pcondrsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
   if (*((int *) pcondlsubr) == 0)
-    pcondlsubr = huti_zdummy_pcondfun_;
+    pcondlsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
   if (*((int *) dotprodfun) == 0)
-    dotprodfun = zdotu_;
+    dotprodfun = FC_FUNC(zdotc,ZDOTC);
   if (*((int *) normfun) == 0)
-    normfun = dznrm2_;
+    normfun = FC_FUNC(dznrm2,DZNRM2);
 
-
-
-
-  huti_zbicgstabsolv_ ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
-
+  FC_FUNC_(huti_zgmressolv,HUTI_ZGMRESSOLV) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
                  ipar, dpar, work, matvecsubr, pcondlsubr, pcondrsubr,
                  dotprodfun, normfun, mstopfun );
 
   return;
 }
-void huti_z_gmres_ ( void *xvec, void *rhsvec,
+  
 
-                int *ipar, double *dpar, void *work,
-                void (*matvecsubr)(),
-                void (*pcondlsubr)(),
-                void (*pcondrsubr)(),
-                void (*dotprodfun)(),
-                void (*normfun)(),
-                void (*mstopfun)() )
+
+
+
+
+
+void FC_FUNC_(huti_z_bicgstab_2,HUTI_Z_BICGSTAB_2) ( void *xvec, void *rhsvec,
+		int *ipar, double *dpar, void *work,
+		void (*matvecsubr)(),
+		void (*pcondlsubr)(),
+		void (*pcondrsubr)(),
+		void (*dotprodfun)(),
+		void (*normfun)(),
+		void (*mstopfun)() )
 {
   HUTI_Init();
 
-
-
-  if (*((int *) pcondrsubr) == 0)
-    pcondrsubr = huti_zdummy_pcondfun_;
-  if (*((int *) pcondlsubr) == 0)
-    pcondlsubr = huti_zdummy_pcondfun_;
-  if (*((int *) dotprodfun) == 0)
-    dotprodfun = zdotc_;
-  if (*((int *) normfun) == 0)
-    normfun = dznrm2_;
-
-
-
-
-  huti_zgmressolv_ ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
-
-                 ipar, dpar, work, matvecsubr, pcondlsubr, pcondrsubr,
-                 dotprodfun, normfun, mstopfun );
-
-  return;
-}
-void huti_z_bicgstab_2_ ( void *xvec, void *rhsvec,
-
-                int *ipar, double *dpar, void *work,
-                void (*matvecsubr)(),
-                void (*pcondlsubr)(),
-                void (*pcondrsubr)(),
-                void (*dotprodfun)(),
-                void (*normfun)(),
-                void (*mstopfun)() )
-{
-  HUTI_Init();
-
-
+  
 
   if (*((int *) pcondrsubr) == 0)
-    pcondrsubr = huti_zdummy_pcondfun_;
+    pcondrsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
   if (*((int *) pcondlsubr) == 0)
-    pcondlsubr = huti_zdummy_pcondfun_;
+    pcondlsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
   if (*((int *) dotprodfun) == 0)
-    dotprodfun = zdotu_;
+    dotprodfun = FC_FUNC(zdotu,ZDOTU);
   if (*((int *) normfun) == 0)
-    normfun = dznrm2_;
+    normfun = FC_FUNC(dznrm2,DZNRM2);
 
-
-
-
-  huti_zbicgstab_2solv_ ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
-
+  FC_FUNC_(huti_zbicgstab_2solv,HUTI_ZBICGSTAB_2SOLV) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
                  ipar, dpar, work, matvecsubr, pcondlsubr, pcondrsubr,
                  dotprodfun, normfun, mstopfun );
 

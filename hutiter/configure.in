@@ -36,7 +36,9 @@ AC_ISC_POSIX
 
 dnl This isn't done very nicely right now. The correct way to proceed would be to 
 dnl get rid of the complicated preprocessing and c-code that is done to fit the symbol names.
-_AC_F77_NAME_MANGLING
+AC_F77_WRAPPERS
+AC_FC_WRAPPERS
+dnl _AC_F77_NAME_MANGLING
 dnl The alternatives in the cases here could be left over from a previous
 dnl config.cache -- autoconf changed.
 dnl lower case / upper case:
@@ -50,23 +52,23 @@ dnl    containing at least one underscore
 case "$ac_cv_f77_mangling" in
   "upper case, no underscore, no extra underscore" | \
   "upper case, no underscores")
-    AC_DEFINE(LINKTYP, 2) ;;
+    AC_DEFINE(LINKTYP, 2, "Mangling: upper case, no underscore, no extra underscore") ;;
   "lower case, no underscore, no extra underscore" | \
   "lower case, no underscores" )
-    AC_DEFINE(LINKTYP, 3) ;;
+    AC_DEFINE(LINKTYP, 3, "Mangling: lower case, no underscore, no extra underscore") ;;
   "lower case, underscore, no extra underscore" | \
   "lower case, single underscores")
-    AC_DEFINE(LINKTYP, 1) ;;
+    AC_DEFINE(LINKTYP, 1, "Mangling: lower case, underscore, no extra underscore") ;;
   "lower case, underscore, extra underscore" | \
   "lower case, double underscores")
-    AC_DEFINE(LINKTYP, 1)
+    AC_DEFINE(LINKTYP, 1, "Mangling: lower case, underscore, extra underscore")
     # We aren't set up for f2c-style double underscoring.
     if test "$G77" = yes; then
       AC_MSG_WARN([
-*** Using option -fno-second-underscore with g95
+*** Not using option -fno-second-underscore with g95, sticking with canonical naming conventions.
 ])
-      FFLAGS="-fno-second-underscore $FFLAGS"
-      FCFLAGS="-fno-second-underscore $FCFLAGS"
+dnl      FFLAGS="-fno-second-underscore $FFLAGS"
+dnl      FCFLAGS="-fno-second-underscore $FCFLAGS"
     else
       AC_MSG_WARN([
 *** Your Fortran compiler looks like f2c.
@@ -97,7 +99,7 @@ ACX_LAPACK([], [AC_MSG_ERROR([LAPACK was not found!])])
 
 LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
 
-
+AC_CONFIG_HEADER(config.h) 
 
 AC_OUTPUT([
 Makefile

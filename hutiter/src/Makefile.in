@@ -47,6 +47,7 @@ am__aclocal_m4_deps = $(top_srcdir)/acx_lapack.m4 \
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
+CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
 am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
 am__vpath_adj = case $$p in \
@@ -80,7 +81,7 @@ am__objects_1 = huti_aux_C.$(OBJEXT) huti_aux_D.$(OBJEXT) \
 	huti_tfqmr_Z.$(OBJEXT)
 am_libhuti_a_OBJECTS = $(am__objects_1)
 libhuti_a_OBJECTS = $(am_libhuti_a_OBJECTS)
-DEFAULT_INCLUDES = -I. -I$(srcdir)
+DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
 PPFCCOMPILE = $(FC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
@@ -244,6 +245,16 @@ COMMON_SRCS = \
 
 lib_LIBRARIES = libhuti.a
 libhuti_a_SOURCES = $(COMMON_SRCS)
+
+# Custom preprocessing targets. 
+# cpp is not a multi-purpose code processor, so this can never be truly portable.
+HUTI_CPP = "cpp"
+PRECS = S D C Z
+precdf90 = huti_cg huti_tfqmr huti_cgs huti_qmr huti_bicgstab \
+	 huti_gmres huti_bicgstab_2 huti_aux
+
+precdc = huti_sfe_c
+HUTI_PPFLAGS = -traditional -P
 all: all-am
 
 .SUFFIXES:
@@ -509,6 +520,34 @@ uninstall-am: uninstall-info-am uninstall-libLIBRARIES
 	mostlyclean-generic pdf pdf-am ps ps-am tags uninstall \
 	uninstall-am uninstall-info-am uninstall-libLIBRARIES
 
+
+preprocess:
+	@echo
+	@echo 'Generating source files from *.src files, WARNING, only known to work on Linux :)'
+	@echo
+#
+# First make the precision dependent Fortran90 files
+#
+	@if [ "$(precdf90)X" != "X" ]; then \
+	  for p in $(PRECS); do \
+	    for pd in $(precdf90); do \
+		$(RM) $${pd}_$${p}.F90; \
+		echo $(HUTI_CPP) $(HUTI_PPFLAGS) -D$${p}_PRE $${pd}.src $${pd}_$${p}.F90; \
+		$(HUTI_CPP) $(HUTI_PPFLAGS) -D$${p}_PRE $${pd}.src $${pd}_$${p}.F90; \
+	    done; \
+	  done; \
+	fi 
+#
+# Third make the precision dependent C files
+#
+	@if [ "$(precdc)X" != "X" ]; then \
+	  for p in $(PRECS); do \
+	    for pd in $(precdc); do \
+		$(RM) $${pd}_$${p}.c; \
+		$(HUTI_CPP)  $(HUTI_PPFLAGS) -D$${p}_PRE $${pd}.src $${pd}_$${p}.c; \
+	    done; \
+	  done; \
+	fi 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:
