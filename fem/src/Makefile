@@ -52,7 +52,7 @@ install:
 	@echo "Install stuff"
 
 clean:
-	$(RM) $(ALL) *.o *.mod *.F90 *.fpp *~ *.a *.so \#*
+	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so \#*
 
 ##################
 # Cellar

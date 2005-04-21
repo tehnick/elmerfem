@@ -309,7 +309,7 @@ ac_includes_default="\
 # include <unistd.h>
 #endif"
 
-ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os canonical_host_type CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT RANLIB ac_ct_RANLIB AR ARFLAGS INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA SET_MAKE CPP EGREP LIBOBJS FC FCFLAGS ac_ct_FC F77 FFLAGS ac_ct_F77 FLIBS FCLIBS BLAS_LIBS LAPACK_LIBS HUTI_LIBS FPICFLAG CPICFLAG CXXPICFLAG SHLEXT SHLLIB SHLBIN SHLEXT_VER SHLLIB_VER SHLBIN_VER SHLLINKEXT DLFCN_DIR SH_LD SH_LDFLAGS DL_LD DL_LDFLAGS MKOCTFILE_DL_LDFLAGS SONAME_FLAGS NO_OCT_FILE_STRIP RLD_FLAG TEMPLATE_AR TEMPLATE_ARFLAGS library_path_var FCPPFLAGS LIBEXT LIBSOLVER_DEPS RM CP MV LTLIBOBJS'
+ac_subst_vars='SHELL PATH_SEPARATOR PACKAGE_NAME PACKAGE_TARNAME PACKAGE_VERSION PACKAGE_STRING PACKAGE_BUGREPORT exec_prefix prefix program_transform_name bindir sbindir libexecdir datadir sysconfdir sharedstatedir localstatedir libdir includedir oldincludedir infodir mandir build_alias host_alias target_alias DEFS ECHO_C ECHO_N ECHO_T LIBS build build_cpu build_vendor build_os host host_cpu host_vendor host_os target target_cpu target_vendor target_os canonical_host_type CC CFLAGS LDFLAGS CPPFLAGS ac_ct_CC EXEEXT OBJEXT RANLIB ac_ct_RANLIB AR ARFLAGS INSTALL_PROGRAM INSTALL_SCRIPT INSTALL_DATA SET_MAKE CPP EGREP LIBOBJS FC FCFLAGS ac_ct_FC F77 FFLAGS ac_ct_F77 FLIBS FCLIBS BLAS_LIBS LAPACK_LIBS HUTI_LIBS EIO_LIBS FPICFLAG CPICFLAG CXXPICFLAG SHLEXT SHLLIB SHLBIN SHLEXT_VER SHLLIB_VER SHLBIN_VER SHLLINKEXT DLFCN_DIR SH_LD SH_LDFLAGS DL_LD DL_LDFLAGS MKOCTFILE_DL_LDFLAGS SONAME_FLAGS NO_OCT_FILE_STRIP RLD_FLAG TEMPLATE_AR TEMPLATE_ARFLAGS library_path_var FCPPFLAGS LIBEXT LIBSOLVER_DEPS RM CP MV LTLIBOBJS'
 ac_subst_files=''
 
 # Initialize some variables set by options.
@@ -866,6 +866,7 @@ Optional Packages:
   --with-blas=<lib>       use BLAS library <lib>
   --with-lapack=<lib>     use LAPACK library <lib>
   --with-huti=<lib>       use HUTI library <lib>
+  --with-eio=<lib>        use EIO library <lib>
 
 Some influential environment variables:
   CC          C compiler command
@@ -2449,8 +2450,6 @@ fi
 else
   RANLIB="$ac_cv_prog_RANLIB"
 fi
-
-
 
 
 
@@ -5205,7 +5204,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:5208:" \
+echo "$as_me:5207:" \
      "checking for Fortran compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version </dev/null >&5\"") >&5
@@ -5441,7 +5440,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:5444:" \
+echo "$as_me:5443:" \
      "checking for Fortran 77 compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version </dev/null >&5\"") >&5
@@ -5637,7 +5636,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_verb"
-(eval echo $as_me:5640: \"$ac_link\") >&5
+(eval echo $as_me:5639: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -5715,7 +5714,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_cv_prog_f77_v"
-(eval echo $as_me:5718: \"$ac_link\") >&5
+(eval echo $as_me:5717: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -5939,7 +5938,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_verb"
-(eval echo $as_me:5942: \"$ac_link\") >&5
+(eval echo $as_me:5941: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -6017,7 +6016,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_cv_prog_fc_v"
-(eval echo $as_me:6020: \"$ac_link\") >&5
+(eval echo $as_me:6019: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -9687,6 +9686,237 @@ echo "$as_me: error: libhuti wasn't found." >&2;}
 fi
 
 
+
+
+acx_eio_ok=no
+
+
+# Check whether --with-eio or --without-eio was given.
+if test "${with_eio+set}" = set; then
+  withval="$with_eio"
+
+fi;
+case $with_eio in
+	yes | "") ;;
+	no) acx_eio_ok=disable ;;
+	-* | */* | *.a | *.so | *.so.* | *.o) HUTI_LIBS="$with_eio" ;;
+	*) HUTI_LIBS="-l$with_eio" ;;
+esac
+
+# Get fortran linker names of EIO functions to check for.
+ac_ext=${FC_SRCEXT-f}
+ac_compile='$FC -c $FCFLAGS $FCFLAGS_SRCEXT conftest.$ac_ext >&5'
+ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $FCFLAGS_SRCEXT conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_fc_compiler_gnu
+case $ac_cv_fc_mangling in
+  upper*) ac_val="EIO_INIT" ;;
+  lower*) ac_val="eio_init" ;;
+  *)      ac_val="unknown" ;;
+esac
+case $ac_cv_fc_mangling in *," underscore"*) ac_val="$ac_val"_ ;; esac
+case $ac_cv_fc_mangling in *," extra underscore"*) ac_val="$ac_val"_ ;; esac
+
+eio_init="$ac_val"
+
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+acx_eio_save_LIBS="$LIBS"
+
+# First, check EIO_LIBS environment variable
+if test $acx_eio_ok = no; then
+if test "x$EIO_LIBS" != x; then
+	save_LIBS="$LIBS"; LIBS="$EIO_LIBS $LIBS"
+	echo "$as_me:$LINENO: checking for $eio_init in $EIO_LIBS" >&5
+echo $ECHO_N "checking for $eio_init in $EIO_LIBS... $ECHO_C" >&6
+	cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char $eio_init ();
+#ifdef F77_DUMMY_MAIN
+
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int F77_DUMMY_MAIN() { return 1; }
+
+#endif
+#ifdef FC_DUMMY_MAIN
+#ifndef FC_DUMMY_MAIN_EQ_F77
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int FC_DUMMY_MAIN() { return 1; }
+#endif
+#endif
+int
+main ()
+{
+$eio_init ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  acx_eio_ok=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+EIO_LIBS=""
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+	echo "$as_me:$LINENO: result: $acx_eio_ok" >&5
+echo "${ECHO_T}$acx_eio_ok" >&6
+	LIBS="$save_LIBS"
+fi
+fi
+
+# Generic EIO library?
+if test $acx_eio_ok = no; then
+	as_ac_Lib=`echo "ac_cv_lib_eio_$eio_init" | $as_tr_sh`
+echo "$as_me:$LINENO: checking for $eio_init in -leio" >&5
+echo $ECHO_N "checking for $eio_init in -leio... $ECHO_C" >&6
+if eval "test \"\${$as_ac_Lib+set}\" = set"; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-leio  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char $eio_init ();
+#ifdef F77_DUMMY_MAIN
+
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int F77_DUMMY_MAIN() { return 1; }
+
+#endif
+#ifdef FC_DUMMY_MAIN
+#ifndef FC_DUMMY_MAIN_EQ_F77
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int FC_DUMMY_MAIN() { return 1; }
+#endif
+#endif
+int
+main ()
+{
+$eio_init ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  eval "$as_ac_Lib=yes"
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+eval "$as_ac_Lib=no"
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Lib'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_Lib'}'`" >&6
+if test `eval echo '${'$as_ac_Lib'}'` = yes; then
+  acx_eio_ok=yes; EIO_LIBS="-leio"
+fi
+
+fi
+
+
+
+LIBS="$acx_eio_save_LIBS"
+
+# Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
+if test x"$acx_eio_ok" = xyes; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_EIO 1
+_ACEOF
+
+        :
+else
+        acx_eio_ok=no
+        { { echo "$as_me:$LINENO: error: libeio wasn't found, make sure it is in the prefix, or CFLAGS and LIBS are correct if they are somewhere else." >&5
+echo "$as_me: error: libeio wasn't found, make sure it is in the prefix, or CFLAGS and LIBS are correct if they are somewhere else." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+
+
 # disable it for not since it is not used yet: need to check for "NO"
 # AC_CHECK_UMFPACK(4.3.0) # at least umfpack 4.3
 
@@ -10591,6 +10821,7 @@ s,@FCLIBS@,$FCLIBS,;t t
 s,@BLAS_LIBS@,$BLAS_LIBS,;t t
 s,@LAPACK_LIBS@,$LAPACK_LIBS,;t t
 s,@HUTI_LIBS@,$HUTI_LIBS,;t t
+s,@EIO_LIBS@,$EIO_LIBS,;t t
 s,@FPICFLAG@,$FPICFLAG,;t t
 s,@CPICFLAG@,$CPICFLAG,;t t
 s,@CXXPICFLAG@,$CXXPICFLAG,;t t

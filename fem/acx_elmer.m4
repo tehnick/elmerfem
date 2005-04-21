@@ -4,7 +4,7 @@ dnl look for AR
 dnl
 dnl ELMER_PREFIX
 dnl
-dnl @version $Id: acx_blas.m4,v 1.1.1.1 2005/04/15 10:31:18 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.1.1.1 2005/04/21 13:29:01 vierinen Exp $
 dnl @author juha.vierinen@csc.fi
 
 dnl
@@ -93,8 +93,6 @@ fi
 ])dnl ACX_HUTI
 
 
-
-
 dnl
 dnl @synopsis ACX_EIO([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
 dnl
@@ -109,8 +107,8 @@ AC_ARG_WITH(eio,
 case $with_eio in
 	yes | "") ;;
 	no) acx_eio_ok=disable ;;
-	-* | */* | *.a | *.so | *.so.* | *.o) HUTI_LIBS="$with_eio" ;;
-	*) HUTI_LIBS="-l$with_eio" ;;
+	-* | */* | *.a | *.so | *.so.* | *.o) EIO_LIBS="$with_eio" ;;
+	*) EIO_LIBS="-l$with_eio" ;;
 esac
 
 # Get fortran linker names of EIO functions to check for.

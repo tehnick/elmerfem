@@ -108,15 +108,12 @@ dnl      FCFLAGS="-fno-second-underscore $FCFLAGS"
     AC_MSG_ERROR([Unknown sort of Fortran name mangling]) ;;
 esac
 
-dnl 
-dnl Checks for libraries:
-dnl - blas
-dnl - lapack
-dnl - arpack
-dnl - umfpack
-dnl - hutiter
-dnl - eio
-dnl - matc
+dnl ******************************************************
+dnl Library checks 
+dnl
+dnl blas, lapack, arpack, umfpack, hutiter, eio, matc
+dnl
+dnl
 
 dnl
 dnl Elmer prefix is an influential argument that is used 
@@ -136,6 +133,8 @@ ACX_LAPACK([], [AC_MSG_ERROR([LAPACK was not found!])])
 
 dnl requires BLAS & LAPACK
 ACX_HUTI([], [AC_MSG_ERROR([libhuti wasn't found.])])
+
+ACX_EIO([], [AC_MSG_ERROR([libeio wasn't found, make sure it is in the prefix, or CFLAGS and LIBS are correct if they are somewhere else.])])
 
 dnl umfpack
 # disable it for not since it is not used yet: need to check for "NO"
