@@ -1,0 +1,74 @@
+#
+# Makefile for Elmer's fem solver
+#
+# author: juha.vierinen@csc.fi
+#
+
+TARGETS = dist clean 
+SUBDIRS = src
+
+$(SUBDIRS):
+	$(MAKE) -C $@ all
+.PHONY: $(SUBDIRS)
+
+NO_DEP_TARGETS = clean
+
+all: header-msg config-check $(SUBDIRS)
+	$(MAKE) -f src/Makefile all
+
+# Maybe this message will prevent people from asking why the
+# Makefiles don't work for them.  Maybe not.
+
+header-msg: FORCE
+	@echo ""
+	@echo "***********************************************************"
+	@echo "*"
+	@echo "*  Elmer solver requires the following libraries:"
+	@echo "*  "
+	@echo "*  - BLAS (ATLAS|NETLIB|...)"
+	@echo "*  - LAPACK ()"
+	@echo "*  - ARPACK ()"
+	@echo "*  - UMFPACK ()"
+	@echo "*  "
+	@echo "*  Consult INSTALL file for further information "
+	@echo "*  "
+	@echo "***********************************************************"
+	@echo ""
+
+help: header-msg
+	@echo ""
+	@echo "For more information, please read the files INSTALL,"
+	@echo ""
+	@echo "The following targets are available:"
+	@echo ""
+	@echo "  all                  build everything"
+	@echo "  check                run self tests"
+	@echo "  install              install files"
+	@echo "  uninstall            delete installed files"
+	@echo ""
+	@echo "  dist                 create a source distribution"
+	@echo "  binary-dist          create a binary distribution"
+	@echo ""
+	@echo "  clean                remove files created by make all"
+	@echo ""
+	@echo "  help                 print this message"
+	@echo ""
+
+config-check:
+# is checking config.log enough?
+	@if test -f config.log; then \
+	  true; \
+	else \
+	  echo ""; \
+	  echo "*** You must run configure before running make."; \
+	  echo "***"; \
+	  echo "*** Please read the INSTALL file"; \
+	  echo "*** for more information about how to configure and"; \
+	  echo "*** compile Elmer."; \
+	  echo ""; \
+	  exit 1; \
+	fi
+
+FORCE:
+
+.NOTPARALLEL:

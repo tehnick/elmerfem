@@ -1,0 +1,132 @@
+#*******************************************************************************
+#*
+#*       ELMER, A Computational Fluid Dynamics Program.
+#*
+#*       Copyright 1st April 1996 - , Center for Scientific Computing,
+#*                                    Finland.
+#*
+#*       All rights reserved. No part of this program may be used,
+#*       reproduced or transmitted in any form or by any means
+#*       without the written permission of CSC.
+#*
+#*******************************************************************************
+
+#*******************************************************************************
+#*
+#* 
+#*
+#*******************************************************************************
+#*
+#*                     Author:       Juha Ruokolainen
+#*
+#*                    Address: Center for Scientific Computing
+#*                                Tietotie 6, P.O. BOX 405
+#*                                  02101 Espoo, Finland
+#*                                  Tel. +358 0 457 2723
+#*                                Telefax: +358 0 457 2302
+#*                              EMail: Juha.Ruokolainen@csc.fi
+#*
+#*                       Date: 26 Sep 1995
+#*
+#*                Modified by:
+#*
+#*       Date of modification:
+#*
+#*******************************************************************************
+
+LIB	= libfem.a
+include make.bin
+
+SYSLIBS	= -G -brtl -bexpall -lxlf90 -lxlopt -lxlf -lxlomp_ser -lm -lc
+
+LIBDIR	= $(ELMER_PREFIX)/lib
+BINDIR	= $(ELMER_PREFIX)/bin
+INCLDIR = $(ELMER_PREFIX)/include
+
+all:	$(LIB) $(SOLVER) $(BINARIES) $(BINARIES_ODD)
+
+OBJ_EXT	=	.o
+include	make.inc
+
+#F90	=	mpxlf90 -qsuffix=f=f90 -I. -g -qstrict
+F90	=	mpxlf90 -qsuffix=f=f90 -I. -O -qstrict -qmaxmem=-1
+F77     =       mpxlf -O -cpp -I.
+CC      =       mpcc  -DAIX -I. -O
+
+CP	=	/bin/cp
+CPP	=	/usr/lib/cpp -C -DAIX -DUSE_ARPACK -DCYLSYM -DFULL_INDUCTION
+
+.SUFFIXES: .f90
+
+.f90.o:
+	$(CPP) -I. -DDLLEXPORT="!" $< > $(TMPDIR)/$*.f90
+	$(F90) -c  $(TMPDIR)/$*.f90
+	ar r $(LIB) $@
+
+.f.o:
+	$(CPP) -I. -DDLLEXPORT="!" $< > $(TMPDIR)/$*.f
+	$(F77) -c $(TMPDIR)/$<
+	ar r $(LIB) $@
+
+.c.o:
+	$(CC) -c -O  $<
+	ar r $(LIB) $@
+
+$(LIB):	$(OBJS)
+	$(CP) libfem.a $(LIBDIR)
+	$(CP) elements.def $(LIBDIR)
+
+
+$(SOLVER): $(OBJS) Solver.o
+	./ldAix ls *.o
+	$(LD) *.o -bE:lib.exp -o libSolver.so \
+	-L. -L$(LIBDIR) -L/p/lib -lfem -lparpack -larpack -llapack -lblas -leioF -lfem -lhuti -lmatc  \
+                -L/usr/lpp/ppe.poe/lib -lmpi $(SYSLIBS)
+	$(CP) libSolver.so $(BINDIR)
+	$(F90) Solver.o  -o $@ -brtl -bshared -L. -L$(LIBDIR) -lSolver -bmaxdata:2000000000 -bmaxstack:2000000000 \
+	-bstatic -bshared -lxlf90 -lm -lc -lC
+	$(CP) $(SOLVER) $(BINDIR)
+	$(CP) *.mod $(INCLDIR)
+	$(CP) SOLVER.KEYWORDS $(LIBDIR)
+
+Solver.o: Solver.f90 $(OBJS)
+	$(F90) -c -O3 -c Solver.f90
+
+$(RESULT): $(RESULT).o $(LIB)
+	$(F90) $(RESULT).o  -o $@ -brtl -bshared -L. -L$(LIBDIR) -lSolver -bmaxdata:2000000000 -bmaxstack:2000000000 \
+	-bstatic -bshared -lxlf90 -lm -lc -lC
+	$(CP) $(RESULT) $(BINDIR)
+
+$(BINARIES): $(OBJS)
+	for p in $(BINARIES); do \
+	    $(F90) -c $${p}.f90; \
+	    $(LD) -o $${p} $${p}.o -L. -lSolver $(SYSLIBS); \
+	    $(CP) $${p} $(BINDIR); \
+	done;
+
+$(MEMREYNO): $(MEMREYNO).f90 $(OBJS)
+	$(F90) -c MEMUtilities.f90
+	$(F90) -c $(MEMREYNO).f90
+	$(LD) -o $(MEMREYNO) $(MEMREYNO).o MEMUtilities.o  -L. -lSolver $(SYSLIBS)
+	$(CP) $(MEMREYNO) $(BINDIR)
+
+$(MEMELSTAT): $(MEMELSTAT).f90 $(OBJS)
+	$(F90) -c MEMUtilities.f90
+	$(F90) -c $(MEMELSTAT).f90
+	$(LD) -o $(MEMELSTAT) $(MEMELSTAT).o MEMUtilities.o  -L. -lSolver $(SYSLIBS)
+	$(CP) $(MEMELSTAT) $(BINDIR)
+
+$(POISSON_BEM): $(POISSON_BEM).o $(OBJS)
+	$(LD) -o $(POISSON_BEM) $(POISSON_BEM).o -L. -lSolver $(SYSLIBS)
+	$(CP) $(POISSON_BEM) $(BINDIR)
+
+$(HELMHOLTZ_BEM): $(HELMHOLTZ_BEM).o $(OBJS)
+	$(LD) -o $(HELMHOLTZ_BEM) $(HELMHOLTZ_BEM).o -llapack -lblas -L. -lSolver $(SYSLIBS)
+	$(CP) $(HELMHOLTZ_BEM) $(BINDIR)
+
+$(SC2ELMER): $(SC2ELMER).c $(OBJS)
+	cc  -o $(SC2ELMER) $(SC2ELMER).c -lm
+	$(CP) $(SC2ELMER) $(BINDIR)
+
+clean:
+	/bin/rm $(ALL) *.o *.mod lib.exp

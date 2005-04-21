@@ -1,0 +1,65 @@
+#*******************************************************************************
+# Elmer Makefile.in 
+#
+# 1. build objects using dependencies from make.inc.
+# 2. create libsolver.so using objects.
+# 3. build individual solvers as dynamically linked libraries.
+# 
+# mpi_stubs, solver, binaries, odd binaries 
+# 
+# LIB	   = libfem.a
+#
+# make ext variables look better in makefile-mode than autoconf replacements
+OBJ_EXT=.@OBJEXT@
+SHL_EXT=.@SHLEXT@
+LIB_EXT=.@LIBEXT@
+EXE_EXT=@EXEEXT@
+
+# define $(SOLVER) and $(BINARIES)
+include make.bin
+
+all:	libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT)
+# $(SOLVER) $(BINARIES)$(BINARIES_ODD)
+# libfem$(LIB_EXT)
+
+# define $(OBJS) that go into libsolver.so
+include make.inc
+
+.SUFFIXES: .f90
+
+# a bit kludgy way to do the cpp, but hopefully portable enough
+.f90.o:
+	@CP@ $< $*.fpp
+	@CPP@ @FCPPFLAGS@ @CFLAGS@ $*.fpp > $*.F90
+	@FC@ @FCFLAGS@ -c $*.F90
+
+# a bit kludgy way to do the cpp, but hopefully portable enough
+.f.o:
+	@CP@ $< $*.fpp
+	@CPP@ @FCPPFLAGS@ @CFLAGS@ $*.fpp > $*.F
+	@F77@ @FFLAGS@ -c $*.F
+
+# Shared base lib
+libsolver$(SHL_EXT): $(OBJS)
+	@RM@ $@
+	@SH_LD@ @SH_LDFLAGS@ @SONAME_FLAGS@ -o $@ @LIBSOLVER_DEPS@ $(OBJS)
+
+# The executable
+ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT)
+	@FC@ @FCFLAGS@ @LIBS@ -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT)
+
+install:
+	@echo "Install stuff"
+
+clean:
+	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so \#*
+
+##################
+# Cellar
+#
+# libfem.a obsolete?
+#
+# libfem$(LIB_EXT): $(OBJS)
+#	@RM@ $@
+#	@TEMPLATE_AR@ @TEMPLATE_ARFLAGS@ $@ $(OBJS)
+#	@RANLIB@ $@
