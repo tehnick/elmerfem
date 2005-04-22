@@ -64,9 +64,9 @@ Author(s):  Harri Hakula 10.03.98
 int eio_mkdir(const char *dir)
 {
   int rc;
-#ifndef LINUX_PC 
+  /* #ifndef LINUX_PC 
   extern int errno;
-#endif
+  #endif */
 
 #if defined(WIN32)
   rc = _mkdir(dir);
@@ -95,9 +95,9 @@ int eio_mkdir(const char *dir)
 int eio_chdir(const char *dir)
 {
   int rc;
-#ifndef LINUX_PC
+  /* #ifndef LINUX_PC
   extern int errno;
-#endif
+  #endif */
 
 #if defined(WIN32)
   rc = _chdir(dir);
@@ -141,9 +141,9 @@ int eio_chdir(const char *dir)
 int eio_checkmodel(const char *model)
 {
   int rc;
-#ifndef LINUX_PC
+  /* #ifndef LINUX_PC
   extern int errno;
-#endif
+  #endif */
 
 #if defined(WIN32)
   struct _stat buf;
