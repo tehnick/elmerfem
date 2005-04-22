@@ -47,10 +47,11 @@ libfem$(LIB_EXT): $(OBJS)
 	@TEMPLATE_AR@ @TEMPLATE_ARFLAGS@ $@ $(OBJS)
 	@RANLIB@ $@
 
-# Shared base lib
+# Shared base lib (libs in the right place!)
+# g++ -shared -Wl,-soname -Wl,libsolver.so -lfem -o libsolver.so ElmerSolver.o -ldl -lfem -lblas -llapack -larpack -lumfpack -lamd -lhuti -lmatc -leio -lmatc -lstdc++  -L. -L/tmp/testelmer/lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s
 libsolver$(SHL_EXT): libfem$(LIB_EXT) ElmerSolver$(OBJ_EXT)
 	@RM@ $@
-	@SH_LD@ @SH_LDFLAGS@ @SONAME_FLAGS@ -o $@ ElmerSolver$(OBJ_EXT) @LIBSOLVER_DEPS@ -lfem -L. 
+	@SH_LD@ @SH_LDFLAGS@ @SONAME_FLAGS@ -lfem -L. -o $@ ElmerSolver$(OBJ_EXT) @LIBSOLVER_DEPS@ 
 
 # The executable
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
