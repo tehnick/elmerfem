@@ -1,3 +1,5 @@
+#include "../config.h"
+#ifndef HAVE_MPI
 !
 !  
 !  (C) 1993 by Argonne National Laboratory and Mississipi State University.
@@ -216,7 +218,7 @@
 !
       SAVE /MPIPRIV/
 ! 
-!     $Id: mpif_linux.h,v 1.3 2005/04/04 06:18:32 jpr Exp $    
+!     $Id: mpif.h,v 1.1.1.1 2005/04/21 13:29:02 vierinen Exp $    
 ! 
 !     Copyright (C) 1997 University of Chicago. 
 !     See COPYRIGHT notice in top-level directory.
@@ -261,3 +263,4 @@
 !
 !
 !
+#endif

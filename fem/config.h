@@ -29,8 +29,14 @@
 /* As FC_FUNC, but for C identifiers containing underscores. */
 #define FC_FUNC_(name,NAME) name ## __
 
+/* Define if you have a ARPACK library. */
+#define HAVE_ARPACK 1
+
 /* Define if you have a BLAS library. */
 #define HAVE_BLAS 1
+
+/* Define if you have a EIO library. */
+#define HAVE_EIO 1
 
 /* Define to 1 if you have the `gettimeofday' function. */
 #define HAVE_GETTIMEOFDAY 1
@@ -44,15 +50,24 @@
 /* Define if you have LAPACK library. */
 #define HAVE_LAPACK 1
 
+/* Define to 1 if you have the `stdc++' library (-lstdc++). */
+#define HAVE_LIBSTDC__ 1
+
 /* Define to 1 if your system has a GNU libc compatible `malloc' function, and
    to 0 otherwise. */
 #define HAVE_MALLOC 1
+
+/* Define if you have a MATC library. */
+#define HAVE_MATC 1
 
 /* Define to 1 if you have the <memory.h> header file. */
 #define HAVE_MEMORY_H 1
 
 /* Define to 1 if you have the `mkdir' function. */
 #define HAVE_MKDIR 1
+
+/* Define if you have the MPI library. */
+/* #undef HAVE_MPI */
 
 /* Define to 1 if you have the `sqrt' function. */
 /* #undef HAVE_SQRT */
@@ -80,6 +95,9 @@
 
 /* Define to 1 if you have the <sys/types.h> header file. */
 #define HAVE_SYS_TYPES_H 1
+
+/* Define if you have a UMFPACK library. */
+#define HAVE_UMFPACK 1
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #define HAVE_UNISTD_H 1

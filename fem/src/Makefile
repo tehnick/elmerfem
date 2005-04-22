@@ -15,14 +15,10 @@ SHL_EXT=.so
 LIB_EXT=.a
 EXE_EXT=
 
-# define $(SOLVER) and $(BINARIES)
 include make.bin
 
-all:	libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT)
-# $(SOLVER) $(BINARIES)$(BINARIES_ODD)
-# libfem$(LIB_EXT)
+all:	libfem$(LIB_EXT) libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT)
 
-# define $(OBJS) that go into libsolver.so
 include make.inc
 
 .SUFFIXES: .f90
@@ -36,17 +32,29 @@ include make.inc
 # a bit kludgy way to do the cpp, but hopefully portable enough
 .f.o:
 	cp $< $*.fpp
-	gcc -E -traditional-cpp -DDLLEXPORT="!" -g -O2 -I/tmp/testelmer/include $*.fpp > $*.F
-	g77 -g -O2 -c $*.F
+	gcc -E -traditional-cpp -DDLLEXPORT="!" -g -O2 -I/tmp/testelmer/include $*.fpp > $*.FOR
+	g77 -g -O2 -c $*.FOR
+
+# mpi stubs and load.c
+.c.o:
+	$(CC) -c -O  $<
+
+# g95 -export_dynamic -shared -o libSolver.so ElmerSolver.o -L. -L/tmp/testelmer/lib -lhuti -lumfpack -lamd -lmatc -leio -lstdc++ -larpack -llapack -lblas -ldl -L/usr/local/lib -L/tmp/g95/lib/gcc-lib/i686-pc-linux-gnu/3.5.0/ -lf95 -lgcc -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/ -lgcc -lg2c
+
+# static fem lib
+libfem$(LIB_EXT): $(OBJS)
+	rm -f $@
+	$(AR) rc $@ $(OBJS)
+	ranlib $@
 
 # Shared base lib
-libsolver$(SHL_EXT): $(OBJS)
+libsolver$(SHL_EXT): libfem$(LIB_EXT) ElmerSolver$(OBJ_EXT)
 	rm -f $@
-	$(CXX) -shared -Wl,-soname -Wl,$@ -o $@ -lblas -llapack -lhuti  -L/tmp/testelmer/lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s $(OBJS)
+	$(CXX) -shared -Wl,-soname -Wl,$@ -o $@ ElmerSolver$(OBJ_EXT) -lblas -llapack -larpack -lumfpack -lamd -lhuti -lmatc -leio -lmatc -lstdc++  -L/tmp/testelmer/lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s -lfem -L. 
 
 # The executable
-ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT)
-	gfortran -g -lblas -llapack -lhuti  -L/tmp/testelmer/lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT)
+ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
+	gfortran -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT)
 
 install:
 	@echo "Install stuff"
@@ -59,7 +67,3 @@ clean:
 #
 # libfem.a obsolete?
 #
-# libfem$(LIB_EXT): $(OBJS)
-#	rm -f $@
-#	$(AR) rc $@ $(OBJS)
-#	ranlib $@

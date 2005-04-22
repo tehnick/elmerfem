@@ -1,4 +1,5 @@
-OBJS	=	NavierStokes$(OBJ_EXT)				\
+OBJS	=	mpi_stubs$(OBJ_EXT) 				\
+		NavierStokes$(OBJ_EXT)				\
 		NavierStokesGeneral$(OBJ_EXT)	     		\
 		NavierStokesCylindrical$(OBJ_EXT)		\
 		Lists$(OBJ_EXT)					\
@@ -12,7 +13,7 @@ OBJS	=	NavierStokes$(OBJ_EXT)				\
 		GeneralUtils$(OBJ_EXT)				\
 		Stress$(OBJ_EXT)				\
 		StressGeneral$(OBJ_EXT)				\
-		LinearAlgebra$(OBJ_EXT)			\
+		LinearAlgebra$(OBJ_EXT)		 	        \
 		CoordinateSystems$(OBJ_EXT)			\
 		CRSMatrix$(OBJ_EXT)				\
 		BandMatrix$(OBJ_EXT)				\
@@ -42,7 +43,6 @@ OBJS	=	NavierStokes$(OBJ_EXT)				\
 		Interpolation$(OBJ_EXT)				\
 		IMeshToMesh$(OBJ_EXT)				\
 		MainUtils$(OBJ_EXT)				\
-		ElmerSolver$(OBJ_EXT)				\
 		MeshSolve$(OBJ_EXT)				\
 		Adaptive$(OBJ_EXT)				\
 		EigenSolve$(OBJ_EXT)				\
@@ -61,8 +61,9 @@ OBJS	=	NavierStokes$(OBJ_EXT)				\
 		solve_real$(OBJ_EXT)				\
 		MGPrec$(OBJ_EXT)				\
 		DefUtils$(OBJ_EXT)				\
-	        RadiationFactors$(OBJ_EXT)                      \
-		Solver$(OBJ_EXT)
+	        RadiationFactors$(OBJ_EXT)                      
+
+
 #
 #
 #  Dependencies ... !

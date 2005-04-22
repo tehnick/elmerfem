@@ -11,6 +11,7 @@
 # even the implied warranty of MERCHANTABILITY or FITNESS FOR A
 # PARTICULAR PURPOSE.
 
+m4_include([acx_mpi.m4])
 m4_include([acx_blas.m4])
 m4_include([acx_lapack.m4])
 m4_include([acx_elmer.m4])

@@ -52,8 +52,9 @@ AC_C_BIGENDIAN
 
 AC_PROG_CC
 AC_PROG_CPP
+AC_PROG_CXX
 
-AC_CHECK_FUNCS([gettimeofday mkdir sqrt ])
+AC_CHECK_FUNCS([gettimeofday mkdir sqrt])
 AC_CHECK_HEADERS([stdlib.h strings.h sys/param.h sys/time.h])
 AC_FUNC_MALLOC
 AC_HEADER_TIME
@@ -113,49 +114,35 @@ dnl Library checks
 dnl
 dnl blas, lapack, arpack, umfpack, hutiter, eio, matc
 dnl
+sinclude(acx_lapack.m4)
+sinclude(acx_blas.m4)
+sinclude(acx_mpi.m4)
 dnl
-
-dnl
-dnl Elmer prefix is an influential argument that is used 
-dnl when searching for libraries in abnormal places.
-dnl 
-ACX_ELMER_PREFIX
-dnl 
-dnl Also, we'll look for libs and includes in the installation prefix
+dnl Also, we'll look for libs and includes in the installation prefix,
+dnl you always want configure to do this by default, but maybe it's anti-GPL or something.
 dnl 
 LIBS="$LIBS -L$prefix/lib"
 CFLAGS="$CFLAGS -I$prefix/include"
 
-sinclude(acx_lapack.m4)
-sinclude(acx_blas.m4)
+ELMER_LIBERRORMSG="wasn't found, make sure it is in the prefix, or CFLAGS and LIBS are correct if they are somewhere else."
+
+ACX_MPI([], 
+        [AC_MSG_WARN([MPI was not found, using stubs!])])
+
+
+AC_CHECK_LIB(stdc++, main,,AC_MSG_ERROR(elmer requires libstdc++))
 ACX_BLAS([], [AC_MSG_ERROR([BLAS was not found!])])
 ACX_LAPACK([], [AC_MSG_ERROR([LAPACK was not found!])])
+ACX_HUTI([], [AC_MSG_ERROR([libhuti $ELMER_LIBERRORMSG])])
+ACX_EIO([], [AC_MSG_ERROR([libeio $ELMER_LIBERRORMSG])])
+ACX_ARPACK([], [AC_MSG_ERROR([libarpack $ELMER_LIBERRORMSG])])
+ACX_UMFPACK([], [AC_MSG_ERROR([libumfpack $ELMER_LIBERRORMSG])])
+ACX_MATC([], [AC_MSG_ERROR([libmatc $ELMER_LIBERRORMSG])])
 
-dnl requires BLAS & LAPACK
-ACX_HUTI([], [AC_MSG_ERROR([libhuti wasn't found.])])
-
-ACX_EIO([], [AC_MSG_ERROR([libeio wasn't found, make sure it is in the prefix, or CFLAGS and LIBS are correct if they are somewhere else.])])
-
-dnl umfpack
-# disable it for not since it is not used yet: need to check for "NO"
-# AC_CHECK_UMFPACK(4.3.0) # at least umfpack 4.3
-dnl AM_CONDITIONAL(HAVE_UMFPACK, test "x$umfpack_libs" != "x" )
-
-dnl lapack, blas, g2c
-dnl AC_CHECK_UMFPACK
-dnl AM_CONDITIONAL(HAVE_UMFPACK, test "x$umfpack_libs" != "x" )
-
-
-dnl look for our own libs.
-dnl ACX_HUTI
-dnl ACX_EIO
-dnl ACX_MATC
-
-LIBS="$BLAS_LIBS $LAPACK_LIBS $HUTI_LIBS $LIBS $FCLIBS $FLIBS"
+LIBS="$BLAS_LIBS $LAPACK_LIBS $ARPACK_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIO_LIBS $MATC_LIBS $LIBS $FCLIBS $FLIBS"
 
 dnl  
-dnl OS-specific stuff
-dnl first the canonical values and then the exceptions
+dnl OS-specific stuff that hasn't been (or can't be) done in a clean way.
 dnl
 DLFCN_DIR=
 CPICFLAG=-fPIC
@@ -398,3 +385,30 @@ AC_OUTPUT([
 Makefile
 src/Makefile]
 )
+
+AC_MSG_RESULT([
+Build options:
+  Version                   $VERSION
+  Install prefix            $prefix
+  CPPFLAGS                  $CPPFLAGS
+  CFLAGS                    $CFLAGS
+  LDFLAGS                   $LDFLAGS
+  LIBS                      $LIBS
+
+Compilers:
+  Fortran 90 compiler       $FC
+  Fortran 77 compiler       $F77
+  CC                        $CC
+  C++                       $CXX
+
+Libs:  
+  BLAS                      $BLAS_LIBS
+  LAPACK                    $LAPACK_LIBS
+  UMFPACK                   $UMFPACK_LIBS
+  ARPACK		    $ARPACK_LIBS
+  HUTI			    $HUTI_LIBS
+  EIO			    $EIO_LIBS
+
+MPI:
+  $HAVE_MPI
+]);

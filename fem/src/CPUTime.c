@@ -34,77 +34,58 @@
  *
  ******************************************************************************/
 
+#include "../config.h"
 
-#ifndef WIN32
+#ifndef WIN32 // posix compliant...
 
-  #include <sys/types.h>
-  #include <sys/times.h>
-  #include <sys/param.h>
+#include <sys/types.h>
+#include <sys/times.h>
+#include <sys/param.h>
 
-  #include <sys/time.h>
-  #include <sys/resource.h>
+#include <sys/time.h>
+#include <sys/resource.h>
 
-  static struct rusage usage;
+static struct rusage usage;
 
-  static struct timeval tp;
-  static struct timezone tzp;
+static struct timeval tp;
+static struct timezone tzp;
 
-#if defined(UNICOS)
-  double CPUTIME( )
-#elif defined(AIX)
-  double cputime( )
-#else
-  double cputime_( )
-#endif
-  {
-      getrusage( RUSAGE_SELF, &usage );
-      return (double) usage.ru_utime.tv_sec + usage.ru_utime.tv_usec*1.0e-6;
-  }
+double FC_FUNC(cputime,CPUTIME) ()
+{
+  getrusage( RUSAGE_SELF, &usage );
+  return (double) usage.ru_utime.tv_sec + usage.ru_utime.tv_usec*1.0e-6;
+}
 
-#if defined(UNICOS)
-  double REALTIME( )
-#elif defined(AIX)
-  double realtime( )
-#else
-  double realtime_( )
-#endif
-  {
-      gettimeofday( &tp,&tzp );
-      return (double) tp.tv_sec + tp.tv_usec*1.0e-6;
-  }
+double FC_FUNC(realtime,REALTIME) () 
+{
+  gettimeofday( &tp,&tzp );
+  return (double) tp.tv_sec + tp.tv_usec*1.0e-6;
+}
 
-#if defined(UNICOS)
-  double CPUMEMORY( )
-#elif defined(AIX)
-  double cpumemory( )
-#else
-  double cpumemory_( )
-#endif
-  { 
-    getrusage( RUSAGE_SELF, &usage );
-    return (double) 1.0 * usage.ru_maxrss;
-  }
+double FC_FUNC(cpumemory,CPUMEMORY) ()
+{ 
+  getrusage( RUSAGE_SELF, &usage );
+  return (double) 1.0 * usage.ru_maxrss;
+}
 
+#else // windoze territory...
 
-#else
+#include <sys/types.h>
+#include <time.h>
 
-  #include <sys/types.h>
-  #include <time.h>
+__declspec(dllexport) double __stdcall REALTIME( )
+{
+  return clock() / (double)CLOCKS_PER_SEC;
+}
 
-  __declspec(dllexport) double __stdcall REALTIME( )
-  {
-     return clock() / (double)CLOCKS_PER_SEC;
-  }
+__declspec(dllexport) double __stdcall CPUTIME( )
+{
+  return clock() / (double)CLOCKS_PER_SEC;
+}
 
-  __declspec(dllexport) double __stdcall CPUTIME( )
-  {
-     return clock() / (double)CLOCKS_PER_SEC;
-  }
+__declspec(dllexport) double __stdcall CPUMEMORY( )
+{
+  return 0.0;
+}
 
-  __declspec(dllexport) double __stdcall CPUMEMORY( )
-  {
-     return 0.0;
-  }
-
-
-#endif
+#endif // WIN32

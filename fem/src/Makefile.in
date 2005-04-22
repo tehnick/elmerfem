@@ -15,14 +15,10 @@ SHL_EXT=.@SHLEXT@
 LIB_EXT=.@LIBEXT@
 EXE_EXT=@EXEEXT@
 
-# define $(SOLVER) and $(BINARIES)
 include make.bin
 
-all:	libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT)
-# $(SOLVER) $(BINARIES)$(BINARIES_ODD)
-# libfem$(LIB_EXT)
+all:	libfem$(LIB_EXT) libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT)
 
-# define $(OBJS) that go into libsolver.so
 include make.inc
 
 .SUFFIXES: .f90
@@ -36,17 +32,29 @@ include make.inc
 # a bit kludgy way to do the cpp, but hopefully portable enough
 .f.o:
 	@CP@ $< $*.fpp
-	@CPP@ @FCPPFLAGS@ @CFLAGS@ $*.fpp > $*.F
-	@F77@ @FFLAGS@ -c $*.F
+	@CPP@ @FCPPFLAGS@ @CFLAGS@ $*.fpp > $*.FOR
+	@F77@ @FFLAGS@ -c $*.FOR
+
+# mpi stubs and load.c
+.c.o:
+	$(CC) -c -O  $<
+
+# g95 -export_dynamic -shared -o libSolver.so ElmerSolver.o -L. -L/tmp/testelmer/lib -lhuti -lumfpack -lamd -lmatc -leio -lstdc++ -larpack -llapack -lblas -ldl -L/usr/local/lib -L/tmp/g95/lib/gcc-lib/i686-pc-linux-gnu/3.5.0/ -lf95 -lgcc -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/ -lgcc -lg2c
+
+# static fem lib
+libfem$(LIB_EXT): $(OBJS)
+	@RM@ $@
+	@TEMPLATE_AR@ @TEMPLATE_ARFLAGS@ $@ $(OBJS)
+	@RANLIB@ $@
 
 # Shared base lib
-libsolver$(SHL_EXT): $(OBJS)
+libsolver$(SHL_EXT): libfem$(LIB_EXT) ElmerSolver$(OBJ_EXT)
 	@RM@ $@
-	@SH_LD@ @SH_LDFLAGS@ @SONAME_FLAGS@ -o $@ @LIBSOLVER_DEPS@ $(OBJS)
+	@SH_LD@ @SH_LDFLAGS@ @SONAME_FLAGS@ -o $@ ElmerSolver$(OBJ_EXT) @LIBSOLVER_DEPS@ -lfem -L. 
 
 # The executable
-ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT)
-	@FC@ @FCFLAGS@ @LIBS@ -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT)
+ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
+	@FC@ -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT)
 
 install:
 	@echo "Install stuff"
@@ -59,7 +67,3 @@ clean:
 #
 # libfem.a obsolete?
 #
-# libfem$(LIB_EXT): $(OBJS)
-#	@RM@ $@
-#	@TEMPLATE_AR@ @TEMPLATE_ARFLAGS@ $@ $(OBJS)
-#	@RANLIB@ $@

@@ -24,13 +24,14 @@ dnl library is found, and ACTION-IF-NOT-FOUND is a list of commands
 dnl to run it if it is not found.  If ACTION-IF-FOUND is not specified,
 dnl the default action will define HAVE_MPI.
 dnl
-dnl @version $Id: acx_mpi.m4,v 1.1.1.1 2005/04/15 10:31:18 vierinen Exp $
+dnl @version $Id: acx_mpi.m4,v 1.1.1.1 2005/04/21 13:29:01 vierinen Exp $
 dnl @author Steven G. Johnson <stevenj@alum.mit.edu>
 
 AC_DEFUN([ACX_MPI], [
 AC_PREREQ(2.50) dnl for AC_LANG_CASE
 
-AC_LANG_CASE([C], [
+AC_LANG_CASE(
+[C], [
 	AC_REQUIRE([AC_PROG_CC])
 	AC_CHECK_PROGS(MPICC, mpicc hcc mpcc mpcc_r mpxlc, $CC)
 	acx_mpi_save_CC="$CC"
@@ -50,14 +51,23 @@ AC_LANG_CASE([C], [
 	acx_mpi_save_F77="$F77"
 	F77="$MPIF77"
 	AC_SUBST(MPIF77)
-])
+],
+[Fortran 90], [
+	AC_REQUIRE([AC_PROG_FC])
+	AC_CHECK_PROGS(MPIF90, mpf90 mpf95, $FC)
+	acx_mpi_save_FC="$FC"
+	FC="$MPIFC"
+	AC_SUBST(MPIFC)])
 
 if test x = x"$MPILIBS"; then
-	AC_LANG_CASE([C], [AC_CHECK_FUNC(MPI_Init, [MPILIBS=" "])],
+	AC_LANG_CASE(
+	        [C], [AC_CHECK_FUNC(MPI_Init, [MPILIBS=" "])],
 		[C++], [AC_CHECK_FUNC(MPI_Init, [MPILIBS=" "])],
 		[Fortran 77], [AC_MSG_CHECKING([for MPI_Init])
-			AC_TRY_LINK([],[      call MPI_Init], [MPILIBS=" "
-				AC_MSG_RESULT(yes)], [AC_MSG_RESULT(no)])])
+			       AC_TRY_LINK([],[call MPI_Init], [MPILIBS=" " AC_MSG_RESULT(yes)], [AC_MSG_RESULT(no)])],
+		[Fortran 90], [AC_MSG_CHECKING([for MPI_Init])
+			       AC_TRY_LINK([],[call MPI_Init], [MPILIBS=" " AC_MSG_RESULT(yes)], [AC_MSG_RESULT(no)])])
+
 fi
 if test x = x"$MPILIBS"; then
 	AC_CHECK_LIB(mpi, MPI_Init, [MPILIBS="-lmpi"])
@@ -81,16 +91,18 @@ fi])
 
 AC_LANG_CASE([C], [CC="$acx_mpi_save_CC"],
 	[C++], [CXX="$acx_mpi_save_CXX"],
-	[Fortran 77], [F77="$acx_mpi_save_F77"])
+	[Fortran 77], [F77="$acx_mpi_save_F77"],
+	[Fortran 90], [FC="$acx_mpi_save_FC"])
 
 AC_SUBST(MPILIBS)
 
 # Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
 if test x = x"$MPILIBS"; then
         $2
+	HAVE_MPI="No MPI found"
         :
 else
-        ifelse([$1],,[AC_DEFINE(HAVE_MPI,1,[Define if you have the MPI library.])],[$1])
+        ifelse([$1],,[AC_DEFINE(HAVE_MPI,1,[Define if you have the MPI library.]) HAVE_MPI="Using MPI"],[$1])
         :
 fi
 ])dnl ACX_MPI
