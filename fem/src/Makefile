@@ -47,10 +47,11 @@ libfem$(LIB_EXT): $(OBJS)
 	$(AR) rc $@ $(OBJS)
 	ranlib $@
 
-# Shared base lib
+# Shared base lib (libs in the right place!)
+# g++ -shared -Wl,-soname -Wl,libsolver.so -lfem -o libsolver.so ElmerSolver.o -ldl -lfem -lblas -llapack -larpack -lumfpack -lamd -lhuti -lmatc -leio -lmatc -lstdc++  -L. -L/tmp/testelmer/lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s
 libsolver$(SHL_EXT): libfem$(LIB_EXT) ElmerSolver$(OBJ_EXT)
 	rm -f $@
-	$(CXX) -shared -Wl,-soname -Wl,$@ -lfem -L. -o $@ ElmerSolver$(OBJ_EXT) -lblas -llapack -larpack -lumfpack -lamd -lhuti -lmatc -leio -lmatc -lstdc++  -L/tmp/testelmer/lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s 
+	$(CXX) -shared -Wl,-soname -Wl,$@ -o $@ ElmerSolver$(OBJ_EXT) -lfem -ldl -lblas -llapack -larpack -lumfpack -lamd -lhuti -lmatc -leio -lmatc -lstdc++  -L/tmp/testelmer/lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s -L.
 
 # The executable
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)

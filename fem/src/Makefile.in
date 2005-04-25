@@ -39,8 +39,6 @@ include make.inc
 .c.o:
 	$(CC) -c -O  $<
 
-# g95 -export_dynamic -shared -o libSolver.so ElmerSolver.o -L. -L/tmp/testelmer/lib -lhuti -lumfpack -lamd -lmatc -leio -lstdc++ -larpack -llapack -lblas -ldl -L/usr/local/lib -L/tmp/g95/lib/gcc-lib/i686-pc-linux-gnu/3.5.0/ -lf95 -lgcc -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/ -lgcc -lg2c
-
 # static fem lib
 libfem$(LIB_EXT): $(OBJS)
 	@RM@ $@
@@ -48,10 +46,9 @@ libfem$(LIB_EXT): $(OBJS)
 	@RANLIB@ $@
 
 # Shared base lib (libs in the right place!)
-# g++ -shared -Wl,-soname -Wl,libsolver.so -lfem -o libsolver.so ElmerSolver.o -ldl -lfem -lblas -llapack -larpack -lumfpack -lamd -lhuti -lmatc -leio -lmatc -lstdc++  -L. -L/tmp/testelmer/lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s
 libsolver$(SHL_EXT): libfem$(LIB_EXT) ElmerSolver$(OBJ_EXT)
 	@RM@ $@
-	@SH_LD@ @SH_LDFLAGS@ @SONAME_FLAGS@ -lfem -L. -o $@ ElmerSolver$(OBJ_EXT) @LIBSOLVER_DEPS@ 
+	@SH_LD@ @SH_LDFLAGS@ @SONAME_FLAGS@ -o $@ ElmerSolver$(OBJ_EXT) -lfem @LIBS@ -L.
 
 # The executable
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)

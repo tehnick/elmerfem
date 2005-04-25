@@ -325,6 +325,84 @@ else
   RLD_FLAG=""
 fi
 
+### Dynamic linking is now enabled only if we are building shared
+### libs and some API for dynamic linking is detected.
+
+LD_CXX='$(CXX)'
+LIBDLFCN=
+DLFCN_INCFLAGS=
+RDYNAMIC_FLAG=
+DL_API_MSG=""
+dlopen_api=false
+shl_load_api=false
+loadlibrary_api=false
+dyld_api=false
+
+### yes atleast now
+SHARED_LIBS=true
+if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
+
+  ### Check for dyld first since OS X can have a non-standard libdl	
+
+  AC_CHECK_HEADER(Mach-O/dyld.h)  
+  if test "$ac_cv_header_Mach_O_dyld_h" = yes; then
+    dyld_api=true
+  else 
+    AC_CHECK_LIB(dld, shl_load)
+    AC_CHECK_FUNCS(shl_load shl_findsym)
+    if test "$ac_cv_func_shl_load" = yes \
+      && test "$ac_cv_func_shl_findsym" = yes; then
+      shl_load_api=true
+    else
+      AC_CHECK_LIB(wsock32, LoadLibrary)
+      AC_CHECK_FUNCS(LoadLibrary)
+      if test "$ac_cv_func_loadlibrary" = yes; then
+        loadlibrary_api=true
+      else
+        AC_CHECK_LIB(dl, dlopen)
+        AC_CHECK_FUNCS(dlopen dlsym dlerror dlclose)
+        if test "$ac_cv_func_dlclose" = yes \
+          && test "$ac_cv_func_dlerror" = yes \
+          && test "$ac_cv_func_dlopen" = yes \
+          && test "$ac_cv_func_dlsym" = yes; then
+          dlopen_api=true
+        else
+	  case "$canonical_host_type" in
+	    rs6000-ibm-aix* | powerpc-ibm-aix*)
+	      LIBDLFCN="-ldlfcn -ll -lld"
+	      DLFCN_INCFLAGS='-I$(top_srcdir)/dlfcn -I$(TOPDIR)/dlfcn'
+	      dlopen_api=true
+	    ;;
+	    i[[3456]]86-*-sco3.2v5*)
+	      LD_CXX='LD_RUN_PATH=$LD_RUN_PATH:$(octlibdir) $(CXX)'
+	      dlopen_api=true
+	    ;;
+	  esac
+	fi
+      fi
+    fi
+  fi
+
+  if $dlopen_api; then
+    DL_API_MSG="(dlopen)"
+    AC_DEFINE(HAVE_DLOPEN_API, 1, [Define if your system has dlopen, dlsym, dlerror, and dlclose for dynamic linking])
+  elif $shl_load_api; then
+    DL_API_MSG="(shl_load)"
+    AC_DEFINE(HAVE_SHL_LOAD_API, 1, [Define if your system has shl_load and shl_findsym for dynamic linking])
+  elif $loadlibrary_api; then
+    DL_API_MSG="(LoadLibrary)"
+    AC_DEFINE(HAVE_LOADLIBRARY_API, 1, [Define if your system has LoadLibrary for dynamic linking])
+  elif $dyld_api; then
+    DL_API_MSG="(dyld)"
+    AC_DEFINE(HAVE_DYLD_API, 1, [Define if your system has dyld for dynamic linking])
+  fi
+
+  if $dlopen_api || $shl_load_api || $loadlibrary_api || $dyld_api; then
+    ENABLE_DYNAMIC_LINKING=true
+    AC_DEFINE(ENABLE_DYNAMIC_LINKING, 1, [Define if using dynamic linking])
+  fi
+fi
+
 AC_MSG_RESULT([defining FPICFLAG to be $FPICFLAG])
 AC_MSG_RESULT([defining CPICFLAG to be $CPICFLAG])
 AC_MSG_RESULT([defining CXXPICFLAG to be $CXXPICFLAG])

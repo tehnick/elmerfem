@@ -4,6 +4,9 @@
 /* "Mangling: lower case */
 #define ELMER_LINKTYP 1
 
+/* Define if using dynamic linking */
+#define ENABLE_DYNAMIC_LINKING 1
+
 /* Define to dummy `main' function (if any) required to link to the Fortran
    libraries. */
 /* #undef F77_DUMMY_MAIN */
@@ -35,6 +38,25 @@
 /* Define if you have a BLAS library. */
 #define HAVE_BLAS 1
 
+/* Define to 1 if you have the `dlclose' function. */
+#define HAVE_DLCLOSE 1
+
+/* Define to 1 if you have the `dlerror' function. */
+#define HAVE_DLERROR 1
+
+/* Define to 1 if you have the `dlopen' function. */
+#define HAVE_DLOPEN 1
+
+/* Define if your system has dlopen, dlsym, dlerror, and dlclose for dynamic
+   linking */
+#define HAVE_DLOPEN_API 1
+
+/* Define to 1 if you have the `dlsym' function. */
+#define HAVE_DLSYM 1
+
+/* Define if your system has dyld for dynamic linking */
+/* #undef HAVE_DYLD_API */
+
 /* Define if you have a EIO library. */
 #define HAVE_EIO 1
 
@@ -50,8 +72,23 @@
 /* Define if you have LAPACK library. */
 #define HAVE_LAPACK 1
 
+/* Define to 1 if you have the `dl' library (-ldl). */
+#define HAVE_LIBDL 1
+
+/* Define to 1 if you have the `dld' library (-ldld). */
+/* #undef HAVE_LIBDLD */
+
 /* Define to 1 if you have the `stdc++' library (-lstdc++). */
 #define HAVE_LIBSTDC__ 1
+
+/* Define to 1 if you have the `wsock32' library (-lwsock32). */
+/* #undef HAVE_LIBWSOCK32 */
+
+/* Define to 1 if you have the `LoadLibrary' function. */
+/* #undef HAVE_LOADLIBRARY */
+
+/* Define if your system has LoadLibrary for dynamic linking */
+/* #undef HAVE_LOADLIBRARY_API */
 
 /* Define to 1 if your system has a GNU libc compatible `malloc' function, and
    to 0 otherwise. */
@@ -68,6 +105,15 @@
 
 /* Define if you have the MPI library. */
 /* #undef HAVE_MPI */
+
+/* Define to 1 if you have the `shl_findsym' function. */
+/* #undef HAVE_SHL_FINDSYM */
+
+/* Define to 1 if you have the `shl_load' function. */
+/* #undef HAVE_SHL_LOAD */
+
+/* Define if your system has shl_load and shl_findsym for dynamic linking */
+/* #undef HAVE_SHL_LOAD_API */
 
 /* Define to 1 if you have the `sqrt' function. */
 /* #undef HAVE_SQRT */
