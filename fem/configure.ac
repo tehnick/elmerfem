@@ -2,25 +2,16 @@ dnl
 dnl The big one.  
 dnl 
 dnl Preq. libs:
-dnl eio-export_dynamic -shared -o libSolver.so ElmerSolver.o -L. -L$(LIBDIR) 
-dnl
-dnl -lfem -lhuti -lsparse -lumfpack -lamd -lmatc -leioF -lstdc++ -larpack -llapack -lblas -ldl -lf95 -lgcc -lgcc -lg2c
 dnl
 dnl Optional libs:
 dnl -support different blas implementations
 dnl 
-dnl The plan is to first try automake+autoconf. 
-dnl If that doesn't work out, just use autoconf for snooping 
-dnl libraries and leave the rest to good old makefile.
-dnl
 dnl Things to find out:
 dnl
 dnl prefix
 dnl platform
 dnl f90,f77,cc,cpp,c++,ld,objext,shobjext,cp_cmd,rm_cmd
 dnl cflags,fflags,ldflags
-dnl
-
 dnl
 dnl Check host type and other basic things
 dnl
@@ -42,6 +33,7 @@ AC_SUBST(canonical_host_type)
 AC_LANG_COMPILER
 AC_PROG_RANLIB
 sinclude(acx_elmer.m4)
+
 ACX_PROG_AR
 
 AC_ISC_POSIX
@@ -91,7 +83,7 @@ case "$ac_cv_f77_mangling" in
     AC_DEFINE(ELMER_LINKTYP, 1, "Mangling: lower case, underscore, no extra underscore") ;;
   "lower case, underscore, extra underscore" | \
   "lower case, double underscores")
-    AC_DEFINE(ELMER_LINKTYP, 1, "Mangling: lower case, underscore, extra underscore")
+    AC_DEFINE(ELMER_LINKTYP, 4, "Mangling: lower case, underscore, extra underscore")
     # We aren't set up for f2c-style double underscoring.
     if test "$G77" = yes; then
       AC_MSG_WARN([
@@ -171,6 +163,7 @@ FCPPFLAGS=''
 CP='cp'
 RM='rm -f'
 MV='mv'
+MKDIR='mkdir -p'
 LIBSOLVER_DEPS=$LIBS
 
 dnl Should we use canonical host name or something more coarse grained?
@@ -308,11 +301,12 @@ dnl  fl32: Microsoft Fortran 77 "PowerStation" compiler
 dnl  af77: Apogee F77 compiler for Intergraph hardware running CLIX
 dnl  epcf90: "Edinburgh Portable Compiler" F90
 dnl  fort: Compaq (now HP) Fortran 90/95 compiler for Tru64 and Linux/Alpha
-dnl  ifc: Intel Fortran 95 compiler for Linux/x86
+dnl  ifc: Intel Fortran 95 compiler for Linux/x86 (also known as ifort)
 dnl  efc: Intel Fortran 95 compiler for IA64
 dnl
 case "$FC" in
-  gfortran | g95)
+  gfortran | g95 | ifort | ifc)
+    dnl Get rid of unwanted DLLEXPORT declarations
     FCPPFLAGS="$FCPPFLAGS -DDLLEXPORT=\"!\""
   ;;
 esac
@@ -455,6 +449,7 @@ AC_SUBST(LIBSOLVER_DEPS)
 AC_SUBST(RM)
 AC_SUBST(CP)
 AC_SUBST(MV)
+AC_SUBST(MKDIR)
 AC_SUBST(LIBS)
 
 AC_CONFIG_HEADER(config.h)

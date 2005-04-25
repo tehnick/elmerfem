@@ -17,11 +17,11 @@ EXE_EXT=@EXEEXT@
 
 include make.bin
 
-all:	libfem$(LIB_EXT) libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT)
+all:	libfem$(LIB_EXT) libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES)
 
 include make.inc
 
-.SUFFIXES: .f90
+.SUFFIXES: .f90 .so
 
 # a bit kludgy way to do the cpp, but hopefully portable enough
 .f90.o:
@@ -54,8 +54,19 @@ libsolver$(SHL_EXT): libfem$(LIB_EXT) ElmerSolver$(OBJ_EXT)
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
 	@FC@ -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT)
 
+# build seperate solvers as shared libs
+.f90.@SHLEXT@:
+	@FC@ @FCFLAGS@ -c $*.f90
+	@SH_LD@ @SH_LDFLAGS@ @SONAME_FLAGS@ -o $@ $*$(OBJ_EXT)  -lsolver -L.
+
 install:
-	@echo "Install stuff"
+	@echo "Installing stuff to $(prefix),@prefix@"
+	@MKDIR@ @prefix@/lib
+	@MKDIR@ @prefix@/include
+	@MKDIR@ @prefix@/bin
+	@CP@ ElmerSolver$(EXEEXT) @prefix@/bin
+	@CP@ *$(SHL_EXT) @prefix@/lib
+	@CP@ *.mod @prefix@/include
 
 clean:
 	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so \#*

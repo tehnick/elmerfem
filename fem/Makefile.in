@@ -7,14 +7,21 @@
 TARGETS = dist clean 
 SUBDIRS = src
 
-$(SUBDIRS):
+$(SUBDIRS): 
 	$(MAKE) -C $@ all
+
 .PHONY: $(SUBDIRS)
 
 NO_DEP_TARGETS = clean
 
-all: header-msg config-check $(SUBDIRS)
-	$(MAKE) -f src/Makefile all
+# all: header-msg config-check $(SUBDIRS)
+#	$(MAKE) -f src/Makefile all
+clean:
+	$(MAKE) -C src clean
+
+install:
+	$(MAKE) -C src install
+
 
 # Maybe this message will prevent people from asking why the
 # Makefiles don't work for them.  Maybe not.
