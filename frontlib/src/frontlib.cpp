@@ -30,31 +30,13 @@ Abstract:   Implementation: Parser for ELMER model file (.emf files).
 
 ************************************************************************/
 
-
-// By default we do not use the new stdlib streams
-// (problems in Unix: Sgi,...)
-#undef ELMER_FRONT_NOSTDLIB
-
-#if !defined(ELMER_FRONT_STDLIB)
-  #define ELMER_FRONT_NOSTDLIB
-#endif
-
-#if !defined(ELMER_FRONT_NOSTDLIB)
-  #include <ctype.h>
-  #include <string.h>
-  #include <iostream>
-  #include <fstream>
-  #include <strstream>
-  #include <iomanip>
-  using namespace std;
-#else
-  #include <ctype.h>
-  #include <string.h>
-  #include <iostream.h>
-  #include <fstream.h>
-  #include <strstream.h>
-  #include <iomanip.h>
-#endif
+using namespace std;
+#include <ctype.h>
+#include <string.h>
+#include <iostream>
+#include <fstream>
+#include <strstream>
+#include <iomanip>
 
 #include "frontlib.h"
 
