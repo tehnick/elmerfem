@@ -6,6 +6,7 @@ INCLUDES = \
 
 COMMON_SRCS =  \
 	eio_api_f.cpp \
+	eio-config.h \
 	EIOConstraintAgent.cpp \
 	EIODualMeshAgent.cpp \
 	EIOGeometryAgent.cpp \
