@@ -5680,9 +5680,10 @@ echo "${ECHO_T}libraries $x_libraries, headers $x_includes" >&6
 fi
 
 
-LIBS="-L$x_libraries -L$prefix/lib $LIBS -lX11"
+LIBS="$LIBS -L$x_libraries -lX11 -L$prefix/lib"
 CFLAGS="$CFLAGS -I$prefix/include -I$x_includes"
 CXXFLAGS="$CXXFLAGS -I$prefix/include $CXXFLAGS -I$x_includes -I$x_includes/X11"
+LDFLAGS="-L$prefix/lib $LDFLAGS"
 
 
 
@@ -5805,12 +5806,12 @@ esac
 
 acx_eioc_save_LIBS="$LIBS"
 
-LIBS="$LIBS"
+LIBS="-leioc $LIBS"
 
 # First, check EIO_LIBS environment variable
 if test $acx_eioc_ok = no; then
 if test "x$EIOC_LIBS" != x; then
-	save_LIBS="$LIBS"; LIBS="$EIOC_LIBS $LIBS"
+	save_LIBS="$LIBS"; LIBS="$LIBS $EIOC_LIBS"
 	echo "$as_me:$LINENO: checking for eio_init in $EIOC_LIBS" >&5
 echo $ECHO_N "checking for eio_init in $EIOC_LIBS... $ECHO_C" >&6
 	cat >conftest.$ac_ext <<_ACEOF
