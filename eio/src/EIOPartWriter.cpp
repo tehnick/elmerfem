@@ -90,7 +90,7 @@ write_descriptor(int& nodeC,                 /* nodes */
 		 int& borderC,               /* elements bordering the part */
 		 int& boundaryC,
 		 int& usedElementTypes, 
-		 int* elementTypeTags,
+		 int* elementTypeTagsH,
 		 int* elementCountByType)
 {
   int i;
@@ -98,14 +98,14 @@ write_descriptor(int& nodeC,                 /* nodes */
   str << nodeC << ' ' << elementC << ' ' << boundaryC << '\n';
   str << usedElementTypes << '\n';
   for(i = 0; i < usedElementTypes; ++i)
-    str << elementTypeTags[i] << ' ' << elementCountByType[i] << '\n';
+    str << elementTypeTagsH[i] << ' ' << elementCountByType[i] << '\n';
 
   str << sharedC << ' ' << borderC << '\n';
   return 0;
 }
 
 int EIOPartWriter::
-write_node(int& tag, int& type, double *coord, int& partC, int *parts)
+write_node(int& tag, int& type, double *coord, int& partC, int *partsH)
 {
   fstream& str = meshFileStream[NODES];
   fstream& str2 = meshFileStream[SHARED];
@@ -122,7 +122,7 @@ write_node(int& tag, int& type, double *coord, int& partC, int *parts)
       str2 << tag << ' ' << partC << ' ';
       for(i = 0; i < partC; ++i)
 	{
-	  str2 << parts[i] << ' ';
+	  str2 << partsH[i] << ' ';
 	}
       str2 << std::endl;
     }

@@ -38,8 +38,7 @@ Author(s):  Harri Hakula 10.03.98
 
 static int step = 0;
 
-
-int CDECL nodecomp(const void *a, const void *b)
+extern "C" int CDECL nodecomp(const void *a, const void *b)
 {
   cache_node *aptr = (cache_node*)a;
   cache_node *bptr = (cache_node*)b;
@@ -374,7 +373,7 @@ read_nextBoundaryElement(int& tag, int& boundary, int& leftElement,
 
 int EIOMeshAgent::
 write_descriptor(int& nodeC, int& elementC, int& boundaryElementC, 
-		 int& usedElementTypes, int* elementTypeTags,
+		 int& usedElementTypes, int* elementTypeTagsH,
 		 int* elementCountByType)
 {
   int i;
@@ -382,7 +381,7 @@ write_descriptor(int& nodeC, int& elementC, int& boundaryElementC,
   str << nodeC << ' ' << elementC << ' ' << boundaryElementC << '\n';
   str << usedElementTypes << '\n';
   for(i = 0; i < usedElementTypes; ++i)
-    str << elementTypeTags[i] << ' ' << elementCountByType[i] << '\n';
+    str << elementTypeTagsH[i] << ' ' << elementCountByType[i] << '\n';
   return 0;
 }
 
@@ -463,7 +462,7 @@ read_sharedNode(int& tag,
 		int& constraint,      
 		double *coord, 
 		int& partcount, 
-		int *parts)
+		int *partsH)
 {
   int i;
   fstream& str = meshFileStream[SHARED];
@@ -480,7 +479,7 @@ read_sharedNode(int& tag,
     }
 
   str >> tag >> partcount;
-  for(i = 0; i < partcount; ++i) str >> parts[i];
+  for(i = 0; i < partcount; ++i) str >> partsH[i];
  
   cache_node *retval = search_node(tag);
   if(retval == NULL) 

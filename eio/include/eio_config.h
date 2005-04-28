@@ -2,5 +2,5 @@
 #if defined(WIN32)
 #define CDECL __cdecl
 #else
-#define CDECL
+#define CDECL 
 #endif
