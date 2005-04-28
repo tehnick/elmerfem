@@ -5,7 +5,6 @@ INCLUDES = \
         -I$(top_srcdir)/include         
 
 COMMON_SRCS =  \
-	eio_api_f.cpp \
 	eio-config.h \
 	EIOConstraintAgent.cpp \
 	EIODualMeshAgent.cpp \
@@ -16,5 +15,7 @@ COMMON_SRCS =  \
 	EIOPartWriter.cpp \
 	EIOSolverAgent.cpp 
 
-lib_LIBRARIES = libeio.a
-libeio_a_SOURCES = $(COMMON_SRCS)
+lib_LIBRARIES = libeioc.a libeiof.a
+libeioc_a_SOURCES = $(COMMON_SRCS) eio_api_c.cpp
+libeiof_a_SOURCES = $(COMMON_SRCS) eio_api_f.cpp
+

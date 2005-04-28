@@ -14,7 +14,7 @@
 
 @SET_MAKE@
 
-SOURCES = $(libeio_a_SOURCES)
+SOURCES = $(libeioc_a_SOURCES) $(libeiof_a_SOURCES)
 
 srcdir = @srcdir@
 top_srcdir = @top_srcdir@
@@ -59,15 +59,19 @@ libLIBRARIES_INSTALL = $(INSTALL_DATA)
 LIBRARIES = $(lib_LIBRARIES)
 AR = ar
 ARFLAGS = cru
-libeio_a_AR = $(AR) $(ARFLAGS)
-libeio_a_LIBADD =
-am__objects_1 = eio_api_f.$(OBJEXT) EIOConstraintAgent.$(OBJEXT) \
+libeioc_a_AR = $(AR) $(ARFLAGS)
+libeioc_a_LIBADD =
+am__objects_1 = EIOConstraintAgent.$(OBJEXT) \
 	EIODualMeshAgent.$(OBJEXT) EIOGeometryAgent.$(OBJEXT) \
 	EIOMeshAgent.$(OBJEXT) EIOModelDataAgent.$(OBJEXT) \
 	EIOModelManager.$(OBJEXT) EIOPartWriter.$(OBJEXT) \
 	EIOSolverAgent.$(OBJEXT)
-am_libeio_a_OBJECTS = $(am__objects_1)
-libeio_a_OBJECTS = $(am_libeio_a_OBJECTS)
+am_libeioc_a_OBJECTS = $(am__objects_1) eio_api_c.$(OBJEXT)
+libeioc_a_OBJECTS = $(am_libeioc_a_OBJECTS)
+libeiof_a_AR = $(AR) $(ARFLAGS)
+libeiof_a_LIBADD =
+am_libeiof_a_OBJECTS = $(am__objects_1) eio_api_f.$(OBJEXT)
+libeiof_a_OBJECTS = $(am_libeiof_a_OBJECTS)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -76,8 +80,12 @@ CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 CXXLD = $(CXX)
 CXXLINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) $(LDFLAGS) \
 	-o $@
-SOURCES = $(libeio_a_SOURCES)
-DIST_SOURCES = $(libeio_a_SOURCES)
+COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
+	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+CCLD = $(CC)
+LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
+SOURCES = $(libeioc_a_SOURCES) $(libeiof_a_SOURCES)
+DIST_SOURCES = $(libeioc_a_SOURCES) $(libeiof_a_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -189,7 +197,7 @@ INCLUDES = \
         -I$(top_srcdir)/include         
 
 COMMON_SRCS = \
-	eio_api_f.cpp \
+	eio-config.h \
 	EIOConstraintAgent.cpp \
 	EIODualMeshAgent.cpp \
 	EIOGeometryAgent.cpp \
@@ -199,8 +207,9 @@ COMMON_SRCS = \
 	EIOPartWriter.cpp \
 	EIOSolverAgent.cpp 
 
-lib_LIBRARIES = libeio.a
-libeio_a_SOURCES = $(COMMON_SRCS)
+lib_LIBRARIES = libeioc.a libeiof.a
+libeioc_a_SOURCES = $(COMMON_SRCS) eio_api_c.cpp
+libeiof_a_SOURCES = $(COMMON_SRCS) eio_api_f.cpp
 all: all-am
 
 .SUFFIXES:
@@ -263,10 +272,14 @@ uninstall-libLIBRARIES:
 
 clean-libLIBRARIES:
 	-test -z "$(lib_LIBRARIES)" || rm -f $(lib_LIBRARIES)
-libeio.a: $(libeio_a_OBJECTS) $(libeio_a_DEPENDENCIES) 
-	-rm -f libeio.a
-	$(libeio_a_AR) libeio.a $(libeio_a_OBJECTS) $(libeio_a_LIBADD)
-	$(RANLIB) libeio.a
+libeioc.a: $(libeioc_a_OBJECTS) $(libeioc_a_DEPENDENCIES) 
+	-rm -f libeioc.a
+	$(libeioc_a_AR) libeioc.a $(libeioc_a_OBJECTS) $(libeioc_a_LIBADD)
+	$(RANLIB) libeioc.a
+libeiof.a: $(libeiof_a_OBJECTS) $(libeiof_a_DEPENDENCIES) 
+	-rm -f libeiof.a
+	$(libeiof_a_AR) libeiof.a $(libeiof_a_OBJECTS) $(libeiof_a_LIBADD)
+	$(RANLIB) libeiof.a
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
@@ -282,6 +295,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/EIOModelManager.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/EIOPartWriter.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/EIOSolverAgent.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eio_api_c.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/eio_api_f.Po@am__quote@
 
 .cpp.o:

@@ -1,5 +1,7 @@
 include_HEADERS = \
-	eio_api.h \
+	eio_api.h 
+
+noinst_HEADERS = \
 	eio_config.h \
 	EIOConstraintAgent.h \
 	EIODualMeshAgent.h \
