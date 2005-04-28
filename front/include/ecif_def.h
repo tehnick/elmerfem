@@ -592,16 +592,7 @@ typedef float Point3f[3];
 typedef double Point4[4];
 typedef float Point4f[4];
 
-
-// By default we do not use the new stdlib streams
-// (problems in Unix: Sgi,...)
-#undef ELMER_FRONT_NOSTDLIB
-
-#if !defined(ELMER_FRONT_STDLIB)
-  #define ELMER_FRONT_NOSTDLIB
-#endif
-
-#if !defined(ELMER_FRONT_NOSTDLIB)
+  using namespace std;
   #include <iostream>
   #include <fstream>
   #include <strstream>
@@ -614,8 +605,8 @@ typedef float Point4f[4];
   #include <cstring>
   #include <ctime>
 
-  using namespace std;
 
+/*
 #else
   #include <iostream.h>
   #include <fstream.h>
@@ -630,6 +621,7 @@ typedef float Point4f[4];
   #include <time.h>
 
 #endif
+*/
 
 #ifdef WIN32
   #define WIN32_LEAN_AND_MEAN
