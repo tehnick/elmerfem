@@ -53,7 +53,7 @@ const int notOk = emf_ERROR;
 static int int_buffer[10000];
 
 InputEgf::InputEgf(enum ecif_modelDimension m_dim,
-                       ifstream& in_file, char* in_filename):
+                       ifstream& in_file, const char* in_filename):
 InputFront(m_dim, in_file, in_filename)
 {
   isEgfInput = true;

@@ -75,7 +75,7 @@ class InputIges : public Input
 {
 public:
   InputIges(enum ecif_modelDimension m_dim,
-            ifstream& in_file, char* in_filename);
+            ifstream& in_file, const char* in_filename);
   ~InputIges() {};
 protected:
   bool createNewBody;

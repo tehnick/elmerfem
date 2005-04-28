@@ -102,7 +102,7 @@ IgesDirectoryEntry::IgesDirectoryEntry()
 
 // Constructor
 InputIges::InputIges(enum ecif_modelDimension m_dim,
-                     ifstream& in_file, char* in_filename):
+                     ifstream& in_file, const char* in_filename):
 Input(m_dim, in_file, in_filename)
 {
   modelDimension = inputDimension;

@@ -49,7 +49,7 @@ Model* Input::model = NULL;
 
 //Constructor
 Input::Input(enum ecif_modelDimension m_dim,
-             ifstream& in_file, char* filename)
+             ifstream& in_file, const char* filename)
              : inputDimension(m_dim), infile(in_file)
 {
   modelDimension = ECIF_ND;

@@ -257,7 +257,7 @@ struct ModelData {
 
 // A structure to collect general model info
 struct ModelInfo {
-  ModelInfo(char* model_name, ecif_modelSource source, char* in_file_name);
+  ModelInfo(const char* model_name, ecif_modelSource source, const char* in_file_name);
   ~ModelInfo();
   modelGeometryType updateGeometryType();
   void updateCoordinateMapping(const char* coordinate_mapping_str);

@@ -53,7 +53,7 @@ public:
   friend class ModelMeshManager;
   friend class ModelOutputManager;
   friend class Renderer_OGL;
-  Model(char* name = NULL, ecif_modelSource = ECIF_CAD_OR_MESH_FILE, char* in_filename = NULL);
+  Model(const char* name = NULL, ecif_modelSource = ECIF_CAD_OR_MESH_FILE, const char* in_filename = NULL);
   ~Model();
   struct Units unit; // Muuta tämä suojatuksi !!
   //

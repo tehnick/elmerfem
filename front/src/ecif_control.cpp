@@ -492,8 +492,8 @@ Control::processSuspend(int process_nbr)
 // Reads in CAD model data file.
 //
 bool
-Control::readCADFile(char* CAD_filename,
-                     char* CAD_type,
+Control::readCADFile(const char* CAD_filename,
+                     const char* CAD_type,
                      enum ecif_modelDimension m_dim)
 {
   char fname[1 + 1024];
@@ -561,7 +561,8 @@ Control::readCADFile(char* CAD_filename,
   //ifstream in_file(CAD_filename, ios::nocreate);
   ifstream in_file(CAD_filename);
 
-  theModel = new Model("", ECIF_CAD_FILE, CAD_filename);
+  const char *shite="";
+  theModel = new Model(shite, ECIF_CAD_FILE, CAD_filename);
 
   //---Select input-type and create model object
   if (is_egf) {

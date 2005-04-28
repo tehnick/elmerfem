@@ -74,7 +74,7 @@ output_array(ostream& out, UserInterface* gui, int length, T* array)
 
 
 InputFront::InputFront(enum ecif_modelDimension m_dim,
-                       ifstream& in_file, char* in_filename):
+                       ifstream& in_file, const char* in_filename):
 Input(m_dim, in_file, in_filename)
 {
   isChecked = false;

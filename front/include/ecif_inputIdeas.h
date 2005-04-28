@@ -112,7 +112,7 @@ class InputIdeas : public Input
 {
 public:        
   InputIdeas(enum ecif_modelDimension m_dim,
-             ifstream& infile, char* filename);
+             ifstream& infile, const char* filename);
   ~InputIdeas();
   bool readMeshGeometry();
 
