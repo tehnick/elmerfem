@@ -49,11 +49,13 @@ COMMON_SRCS =  \
 lib_LIBRARIES = libhuti.a
 libhuti_a_SOURCES = $(COMMON_SRCS)
 
-# Custom preprocessing targets. 
-# 
-# cpp is not very portable, so we include automatic code generation as a 
-# seperate non-automatically launched target.
+#################################################################################
+# If sources are missing generate them with the preprocessor.
+# this is the section to watch out for, when compiling on more exotic (non-linux) 
+# platforms.
 #
+$(COMMON_SRCS): preprocess
+
 HUTI_CPP="cpp"
 PRECS	=	S D C Z
 precdf90=huti_cg huti_tfqmr huti_cgs huti_qmr huti_bicgstab \

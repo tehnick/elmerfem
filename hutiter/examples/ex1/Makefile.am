@@ -12,7 +12,4 @@ hutiex_SOURCES = \
 hutiex_LDADD = \
 	../../src/libhuti.a
 
-
-
-
 TESTS = testmat.script
