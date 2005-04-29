@@ -26,21 +26,6 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 #include  <stdlib.h> 
 #include  <stdio.h> 
 #include  "huti_defs.h" 
