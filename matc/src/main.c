@@ -1,8 +1,11 @@
 
 /*
- * $Id: main.c,v 1.1.1.1 2005/04/14 13:29:14 vierinen Exp $ 
+ * $Id: main.c,v 1.2 2005/04/15 06:54:30 vierinen Exp $ 
  *
  * $Log: main.c,v $
+ * Revision 1.2  2005/04/15 06:54:30  vierinen
+ * added gnu readline support
+ *
  * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
  * initial matc automake package
  *
@@ -34,7 +37,7 @@ void main( int argc, char **argv )
     {
 #ifdef USE_READLINE
       str = readline ("MATC> ");
-      // add to history
+      /* add to history */
       if (str && *str)
 	add_history (str);
 
@@ -45,7 +48,7 @@ void main( int argc, char **argv )
 #endif
       if ( *str ) fprintf( stdout, "%s\n", mtc_domath( str ) );
       
-      // kludge to enable exit.
+      /* kludge to enable exit. */
       if( strcasecmp( str, "exit") == 0  || strcasecmp( str, "quit") == 0 )
       {
 	return;
