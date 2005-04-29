@@ -76,7 +76,7 @@ const int ideasReorderTable[][MAX_NOF_NODES] = {
 
 InputIdeas::InputIdeas(enum ecif_modelDimension m_dim,
                        ifstream& in_file, const char* in_filename):
-Input(m_dim, in_file, in_filename)
+Input(m_dim, in_file, (const char *)in_filename)
 {
   elementCodeCounters = new int[1 + MAX_IDEAS_ELEMENT_CODE];
 
@@ -266,7 +266,7 @@ InputIdeas::readCadGeometry()
     int dataset;
     switch(dataset = findDataset()) {
     case DS_WIRE_FRAME_CURVES:
-      input = new InputIdeasWF(modelDimension, infile, infileName);
+      input = new InputIdeasWF(modelDimension, infile, (const char *)infileName);
       if (!input->readCadGeometry()) {
         modelDimension = ECIF_ND;
       }

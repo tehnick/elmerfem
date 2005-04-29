@@ -55,7 +55,7 @@ const int NFI_DIM   = 11; // Dimension (of control points) (2-4).
 
 
 InputIdeasWF::InputIdeasWF(enum ecif_modelDimension m_dim,
-                           ifstream& in_file, char* in_filename):
+                           ifstream& in_file, const char* in_filename):
         InputIdeas(m_dim, in_file, in_filename)
 {
   modelDimension = inputDimension;
