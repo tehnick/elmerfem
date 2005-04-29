@@ -194,12 +194,14 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION)
    void (*Function)(),*Handle;
    int i;
    char NewName[MAX_NAME_LEN];
-   /*--------------------------------------------------------------------------*/
+   char NewLibName[MAX_NAME_LEN];
+/*--------------------------------------------------------------------------*/
    
-   fortranMangle(Name, NewName);
+   fortranMangle( Name, NewName );
+   strcpy( NewLibName, Library );
 
    if ( Quiet==0 ) 
-     fprintf(stdout,"Loading user function library: [%s]...[%s]",Library,Name);
+     fprintf(stdout,"Loading user function library: [%s]...[%s]", Library, NewName);
    
 #ifdef HAVE_DLOPEN_API
    if ( ( Handle = dlopen( Library,RTLD_NOW ) ) == NULL )

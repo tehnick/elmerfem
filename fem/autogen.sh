@@ -3,7 +3,7 @@
 # Regenerate configuration files
 # libtoolize --force --copy
 aclocal
-# automake -afc --foreign
+automake -afc --foreign
 autoheader
 autoconf
 

@@ -79,6 +79,7 @@ ElementDescription$(OBJ_EXT):			\
 	Integration$(OBJ_EXT)			\
 	GeneralUtils$(OBJ_EXT)			\
 	CoordinateSystems$(OBJ_EXT)		\
+	LUDecomposition$(OBJ_EXT)               \
 	LinearAlgebra$(OBJ_EXT)
 
 PElementBase$(OBJ_EXT):				\

@@ -1,14 +1,13 @@
-dnl @synopsis ACX_PROG_AR([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
 dnl 
-dnl look for AR
+dnl Elmer specific M4sh macros 
 dnl
-dnl ELMER_PREFIX
-dnl
-dnl @version $Id: acx_elmer.m4,v 1.2 2005/04/21 13:37:59 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.2 2005/04/29 08:04:53 vierinen Exp $
 dnl @author juha.vierinen@csc.fi
+dnl
 
 dnl
-dnl Check for ar.
+dnl @synopsis ACX_PROG_AR([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
+dnl 
 dnl
 AC_DEFUN([ACX_PROG_AR],
 [if test -z "$AR"; then
@@ -21,7 +20,6 @@ if test -z "$ARFLAGS"; then
 fi
 AC_SUBST(ARFLAGS)
 ])
-
 
 dnl
 dnl @synopsis ACX_HUTI([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
@@ -81,59 +79,114 @@ fi
 
 
 dnl
-dnl @synopsis ACX_EIO([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
+dnl @synopsis ACX_EIOF([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
 dnl
-dnl Look for eio library
+dnl Look for eio fortran library
 dnl
-AC_DEFUN([ACX_EIO], [
+AC_DEFUN([ACX_EIOF], [
 AC_PREREQ(2.50)
-acx_eio_ok=no
+acx_eiof_ok=no
 
-AC_ARG_WITH(eio,
-	[AC_HELP_STRING([--with-eio=<lib>], [use EIO library <lib>])])
-case $with_eio in
+AC_ARG_WITH(eiof,
+	[AC_HELP_STRING([--with-eiof=<lib>], [use EIOF library <lib>])])
+case $with_eiof in
 	yes | "") ;;
-	no) acx_eio_ok=disable ;;
-	-* | */* | *.a | *.so | *.so.* | *.o) EIO_LIBS="$with_eio" ;;
-	*) EIO_LIBS="-l$with_eio" ;;
+	no) acx_eiof_ok=disable ;;
+	-* | */* | *.a | *.so | *.so.* | *.o) EIOF_LIBS="$with_eiof" ;;
+	*) EIOF_LIBS="-l$with_eiof" ;;
 esac
 
 # Get fortran linker names of EIO functions to check for.
 AC_FC_FUNC(eio_init)
 
-acx_eio_save_LIBS="$LIBS"
+acx_eiof_save_LIBS="$LIBS"
 
 LIBS="$LIBS"
 
 # First, check EIO_LIBS environment variable
-if test $acx_eio_ok = no; then
-if test "x$EIO_LIBS" != x; then
-	save_LIBS="$LIBS"; LIBS="$EIO_LIBS $LIBS"
-	AC_MSG_CHECKING([for $eio_init in $EIO_LIBS])
-	AC_TRY_LINK_FUNC($eio_init, [acx_eio_ok=yes], [EIO_LIBS=""])
-	AC_MSG_RESULT($acx_eio_ok)
+if test $acx_eiof_ok = no; then
+if test "x$EIOF_LIBS" != x; then
+	save_LIBS="$LIBS"; LIBS="$EIOF_LIBS $LIBS"
+	AC_MSG_CHECKING([for $eio_init in $EIOF_LIBS])
+	AC_TRY_LINK_FUNC($eio_init, [acx_eiof_ok=yes], [EIOF_LIBS=""])
+	AC_MSG_RESULT($acx_eiof_ok)
 	LIBS="$save_LIBS"
 fi
 fi
 
 # Generic EIO library?
-if test "$acx_eio_ok" = no; then
-	AC_CHECK_LIB(eio, $eio_init, [acx_eio_ok=yes; EIO_LIBS="-leio"])
+if test "$acx_eiof_ok" = no; then
+	AC_CHECK_LIB(eiof, $eio_init, [acx_eiof_ok=yes; EIOF_LIBS="-leiof"])
 fi
 
-AC_SUBST(EIO_LIBS)
+AC_SUBST(EIOF_LIBS)
 
-LIBS="$acx_eio_save_LIBS"
+LIBS="$acx_eiof_save_LIBS"
 
 # Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
-if test x"$acx_eio_ok" = xyes; then
-        ifelse([$1],,AC_DEFINE(HAVE_EIO,1,[Define if you have a EIO library.]),[$1])
+if test x"$acx_eiof_ok" = xyes; then
+        ifelse([$1],,AC_DEFINE(HAVE_EIOF,1,[Define if you have a EIOF library.]),[$1])
         :
 else
-        acx_eio_ok=no
+        acx_eiof_ok=no
         $2
 fi
 ])dnl ACX_EIO
+
+
+
+dnl
+dnl @synopsis ACX_EIOC([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
+dnl
+dnl Look for eio library
+dnl
+AC_DEFUN([ACX_EIOC], 
+[
+AC_PREREQ(2.50)
+acx_eioc_ok=no
+
+AC_ARG_WITH(eioc,
+	[AC_HELP_STRING([--with-eioc=<lib>], [use EIOC library <lib>])])
+case $with_eioc in
+	yes | "") ;;
+	no) acx_eioc_ok=disable ;;
+	-* | */* | *.a | *.so | *.so.* | *.o) EIOC_LIBS="$with_eioc" ;;
+	*) EIOC_LIBS="-l$with_eioc" ;;
+esac
+
+acx_eioc_save_LIBS="$LIBS"
+
+LIBS="-leioc $LIBS"
+
+# First, check EIO_LIBS environment variable
+if test $acx_eioc_ok = no; then
+if test "x$EIOC_LIBS" != x; then
+	save_LIBS="$LIBS"; LIBS="$LIBS $EIOC_LIBS"
+	AC_MSG_CHECKING([for eio_init in $EIOC_LIBS])
+	AC_TRY_LINK_FUNC(eio_init, [acx_eioc_ok=yes], [EIOC_LIBS=""])
+	AC_MSG_RESULT($acx_eioc_ok)
+	LIBS="$save_LIBS"
+fi
+fi
+
+# Generic EIO library?
+if test "$acx_eioc_ok" = no; then
+	AC_CHECK_LIB(eioc, eio_init, [acx_eioc_ok=yes; EIOC_LIBS="-leioc"])
+fi
+
+AC_SUBST(EIOC_LIBS)
+
+LIBS="$acx_eioc_save_LIBS"
+
+# Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
+if test x"$acx_eioc_ok" = xyes; then
+        ifelse([$1],,AC_DEFINE(HAVE_EIOC,1,[Define if you have a EIOC library.]),[$1])
+        :
+else
+        acx_eioc_ok=no
+        $2
+fi
+])dnl ACX_EIOC
 
 
 dnl
