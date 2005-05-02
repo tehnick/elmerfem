@@ -21,7 +21,7 @@ pkglibdir = $(libdir)/elmer
 pkgincludedir = $(includedir)/elmer
 top_builddir = ..
 am__cd = CDPATH="$${ZSH_VERSION+.}$(PATH_SEPARATOR)" && cd
-INSTALL = /usr/bin/install -c
+INSTALL = /p/gnu/bin/install -c
 install_sh_DATA = $(install_sh) -c -m 644
 install_sh_PROGRAM = $(install_sh) -c
 install_sh_SCRIPT = $(install_sh) -c
@@ -33,9 +33,9 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-build_triplet = i686-pc-linux-gnu
-host_triplet = i686-pc-linux-gnu
-target_triplet = i686-pc-linux-gnu
+build_triplet = powerpc-ibm-aix5.2.0.0
+host_triplet = powerpc-ibm-aix5.2.0.0
+target_triplet = powerpc-ibm-aix5.2.0.0
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(srcdir)/make.bin $(srcdir)/make.inc
 subdir = src
@@ -62,70 +62,70 @@ ETAGS = etags
 CTAGS = ctags
 DIST_SUBDIRS = $(SUBDIRS)
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
-ACLOCAL = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run aclocal-1.9
+ACLOCAL = ${SHELL} /wrk/vierinen/src/fem/missing --run aclocal-1.9
 AMDEP_FALSE = #
 AMDEP_TRUE = 
-AMTAR = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run tar
+AMTAR = ${SHELL} /wrk/vierinen/src/fem/missing --run tar
 AR = ar
 ARFLAGS = rc
 ARPACK_LIBS = 
-AUTOCONF = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run autoconf
-AUTOHEADER = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run autoheader
-AUTOMAKE = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run automake-1.9
+AUTOCONF = ${SHELL} /wrk/vierinen/src/fem/missing --run autoconf
+AUTOHEADER = ${SHELL} /wrk/vierinen/src/fem/missing --run autoheader
+AUTOMAKE = ${SHELL} /wrk/vierinen/src/fem/missing --run automake-1.9
 AWK = gawk
-BLAS_LIBS = -lblas
-CC = gcc
+BLAS_LIBS = -lessl -lblas
+CC = c++
 CCC = 
 CCDEPMODE = depmode=none
-CFLAGS = -g -O2 -I/home/vierinen//include
+CFLAGS = -g -O2 -I/wrk/vierinen/aix/include
 CP = cp
-CPICFLAG = -fPIC
-CPP = gcc -E
+CPICFLAG = 
+CPP = c++ -E
 CPPFLAGS = 
-CXX = g++
+CXX = c++
 CXXDEPMODE = depmode=none
 CXXFLAGS = -g -O2
-CXXPICFLAG = -fPIC
+CXXPICFLAG = 
 CYGPATH_W = echo
 DEFS = -DHAVE_CONFIG_H
 DEPDIR = .deps
-DLFCN_DIR = 
+DLFCN_DIR = dlfcn
 DL_LD = $(SH_LD)
 DL_LDFLAGS = $(SH_LDFLAGS)
-ECHO_C = 
-ECHO_N = -n
+ECHO_C = \c
+ECHO_N = 
 ECHO_T = 
-EGREP = /bin/grep -E
+EGREP = /p/gnu/bin/grep -E
 EIOF_LIBS = -leiof
 ELMER_FEM_DEPENDENCIES =  arpack/libarpack.a
 EXEEXT = 
-F77 = g77
-FC = g95
-FCFLAGS = -g
-FCLIBS =  -L/home/vierinen/lib -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -ltk8.4 -ltcl8.4 -lf95 -lm
-FCPPFLAGS = -traditional-cpp -DDLLEXPORT="!"
-FFLAGS = -g -O2
-FLIBS =  -L/home/vierinen/lib -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -ltk8.4 -ltcl8.4 -lfrtbegin -lg2c -lm -lgcc_s
-FPICFLAG = -fPIC
-GREP = /bin/grep
+F77 = xlf_r
+FC = xlf95_r
+FCFLAGS = -qsuffix=cpp=F90
+FCLIBS =  -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm
+FCPPFLAGS = 
+FFLAGS = -g
+FLIBS =  -lg -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm
+FPICFLAG = 
+GREP = /p/gnu/bin/grep
 HUTI_LIBS = -lhuti
 INSTALL_DATA = ${INSTALL} -m 644
 INSTALL_PROGRAM = ${INSTALL}
 INSTALL_SCRIPT = ${INSTALL}
 INSTALL_STRIP_PROGRAM = ${SHELL} $(install_sh) -c -s
 LAPACK_LIBS = -llapack
-LDFLAGS = -L/home/vierinen/lib -ltk8.4 -ltcl8.4
+LDFLAGS = 
 LIBEXT = a
-LIBOBJS = 
-LIBS = -ldl -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lstdc++  -L/home/vierinen//lib  -L/home/vierinen/lib -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -ltk8.4 -ltcl8.4 -lf95 -lm  -L/home/vierinen/lib -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -ltk8.4 -ltcl8.4 -lfrtbegin -lg2c -lm -lgcc_s
-LIBSOLVER_DEPS = -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lstdc++  -L/home/vierinen//lib  -L/home/vierinen/lib -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -ltk8.4 -ltcl8.4 -lf95 -lm  -L/home/vierinen/lib -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -ltk8.4 -ltcl8.4 -lfrtbegin -lg2c -lm -lgcc_s
-LTLIBOBJS = 
-MAKEINFO = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run makeinfo
+LIBOBJS =  malloc$U.o
+LIBS = -ldl -lessl -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lstdc++  -L/wrk/vierinen/aix/lib  -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm  -lg -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm
+LIBSOLVER_DEPS = -lessl -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lstdc++  -L/wrk/vierinen/aix/lib  -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm  -lg -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm
+LTLIBOBJS =  malloc$U.lo
+MAKEINFO = ${SHELL} /wrk/vierinen/src/fem/missing --run makeinfo
 MATC_LIBS = -lmatc
 MKDIR = mkdir -p
-MKOCTFILE_DL_LDFLAGS = -shared -Wl,-Bsymbolic
-MPICC = gcc
-MPILIBS = 
+MKOCTFILE_DL_LDFLAGS = $(DL_LDFLAGS)
+MPICC = mpcc
+MPILIBS =  
 MV = mv
 NO_OCT_FILE_STRIP = false
 OBJEXT = o
@@ -137,7 +137,7 @@ PACKAGE_TARNAME =
 PACKAGE_VERSION = 
 PATH_SEPARATOR = :
 RANLIB = ranlib
-RLD_FLAG = -Wl,-rpath -Wl,$(octlibdir)
+RLD_FLAG = 
 RM = rm -f
 SET_MAKE = 
 SHELL = /bin/sh
@@ -150,15 +150,15 @@ SHLLIB_VER = $(SHLLIB).$(version)
 SHLLINKEXT = 
 SH_LD = $(CXX)
 SH_LDFLAGS = -shared
-SONAME_FLAGS = -Wl,-soname -Wl,$@
+SONAME_FLAGS = 
 STRIP = 
 TEMPLATE_AR = $(AR)
 TEMPLATE_ARFLAGS = rc
 UMFPACK_LIBS = -lumfpack -lamd
 VERSION = 1.0.0
-ac_ct_CC = gcc
-ac_ct_CXX = g++
-ac_ct_F77 = g77
+ac_ct_CC = c++
+ac_ct_CXX = 
+ac_ct_F77 = 
 ac_ct_FC = 
 ac_ct_RANLIB = ranlib
 ac_ct_STRIP = 
@@ -172,46 +172,46 @@ am__quote =
 am__tar = ${AMTAR} chof - "$$tardir"
 am__untar = ${AMTAR} xf -
 bindir = ${exec_prefix}/bin
-build = i686-pc-linux-gnu
+build = powerpc-ibm-aix5.2.0.0
 build_alias = 
-build_cpu = i686
-build_os = linux-gnu
-build_vendor = pc
-canonical_host_type = i686-pc-linux-gnu
+build_cpu = powerpc
+build_os = aix5.2.0.0
+build_vendor = ibm
+canonical_host_type = powerpc-ibm-aix5.2.0.0
 datadir = ${datarootdir}
 datarootdir = ${prefix}/share
 docdir = ${datarootdir}/doc/${PACKAGE}
 dvidir = ${docdir}
 exec_prefix = ${prefix}
-host = i686-pc-linux-gnu
+host = powerpc-ibm-aix5.2.0.0
 host_alias = 
-host_cpu = i686
-host_os = linux-gnu
-host_vendor = pc
+host_cpu = powerpc
+host_os = aix5.2.0.0
+host_vendor = ibm
 htmldir = ${docdir}
 includedir = ${prefix}/include
 infodir = ${datarootdir}/info
-install_sh = /home/vierinen/src/newelmer/fem/install-sh
+install_sh = /wrk/vierinen/src/fem/install-sh
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
 library_path_var = LD_LIBRARY_PATH
 localedir = ${datarootdir}/locale
 localstatedir = ${prefix}/var
 mandir = ${datarootdir}/man
-mkdir_p = mkdir -p --
+mkdir_p = $(install_sh) -d
 oldincludedir = /usr/include
 pdfdir = ${docdir}
-prefix = /home/vierinen/
+prefix = /wrk/vierinen/aix
 program_transform_name = s,x,x,
 psdir = ${docdir}
 sbindir = ${exec_prefix}/sbin
 sharedstatedir = ${prefix}/com
 sysconfdir = ${prefix}/etc
-target = i686-pc-linux-gnu
+target = powerpc-ibm-aix5.2.0.0
 target_alias = 
-target_cpu = i686
-target_os = linux-gnu
-target_vendor = pc
+target_cpu = powerpc
+target_os = aix5.2.0.0
+target_vendor = ibm
 SUBDIRS = blas lapack arpack
 
 #*******************************************************************************
@@ -965,14 +965,14 @@ SUFFIXES: .f90 .so
 # a bit kludgy way to do the cpp, but hopefully portable enough
 .f90.o:
 	cp $< $*.fpp
-	gcc -E -traditional-cpp -DDLLEXPORT="!" -g -O2 -I/home/vierinen//include $*.fpp > $*.F90
-	g95 -g -c $*.F90
+	c++ -E  -g -O2 -I/wrk/vierinen/aix/include $*.fpp > $*.F90
+	xlf95_r -qsuffix=cpp=F90 -c $*.F90
 
 # a bit kludgy way to do the cpp, but hopefully portable enough
 .f.o:
 	cp $< $*.fpp
-	gcc -E -traditional-cpp -DDLLEXPORT="!" -g -O2 -I/home/vierinen//include $*.fpp > $*.FOR
-	g77 -g -O2 -c $*.FOR
+	c++ -E  -g -O2 -I/wrk/vierinen/aix/include $*.fpp > $*.FOR
+	xlf_r -g -c $*.FOR
 
 # mpi stubs and load.c
 .c.o:
@@ -987,27 +987,27 @@ libfem$(LIB_EXT): $(OBJS)
 # Shared base lib (libs in the right place!)
 libsolver$(SHL_EXT): libfem$(LIB_EXT) ElmerSolver$(OBJ_EXT)
 	rm -f $@
-	$(CXX) -shared -Wl,-soname -Wl,$@ -o $@ ElmerSolver$(OBJ_EXT)  arpack/libarpack.a -lfem -ldl -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lstdc++  -L/home/vierinen//lib  -L/home/vierinen/lib -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -ltk8.4 -ltcl8.4 -lf95 -lm  -L/home/vierinen/lib -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -ltk8.4 -ltcl8.4 -lfrtbegin -lg2c -lm -lgcc_s -L.
+	$(CXX) -shared  -o $@ ElmerSolver$(OBJ_EXT)  arpack/libarpack.a -lfem -ldl -lessl -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lstdc++  -L/wrk/vierinen/aix/lib  -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm  -lg -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm -L.
 
 # The executable
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
-	g95 -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT)
+	xlf95_r -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT)
 
 # build seperate solvers as shared libs
 .f90.so:
-	g95 -g -c $*.f90
-	$(CXX) -shared -Wl,-soname -Wl,$@ -o $@ $*$(OBJ_EXT)  -lsolver -L.
+	xlf95_r -qsuffix=cpp=F90 -c $*.f90
+	$(CXX) -shared  -o $@ $*$(OBJ_EXT)  -lsolver -L.
 
 install:
-	@echo "Installing stuff to $(prefix),/home/vierinen/"
-	mkdir -p /home/vierinen//lib
-	mkdir -p /home/vierinen//include
-	mkdir -p /home/vierinen//bin
-	cp ElmerSolver$(EXEEXT) /home/vierinen//bin
-	cp *$(SHL_EXT) /home/vierinen//lib
-	cp *.mod /home/vierinen//include
-	cp elements.def /home/vierinen//lib
-	cp SOLVER.KEYWORDS /home/vierinen//lib
+	@echo "Installing stuff to $(prefix),/wrk/vierinen/aix"
+	mkdir -p /wrk/vierinen/aix/lib
+	mkdir -p /wrk/vierinen/aix/include
+	mkdir -p /wrk/vierinen/aix/bin
+	cp ElmerSolver$(EXEEXT) /wrk/vierinen/aix/bin
+	cp *$(SHL_EXT) /wrk/vierinen/aix/lib
+	cp *.mod /wrk/vierinen/aix/include
+	cp elements.def /wrk/vierinen/aix/lib
+	cp SOLVER.KEYWORDS /wrk/vierinen/aix/lib
 
 clean:
 	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so \#*

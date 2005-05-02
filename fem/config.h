@@ -2,7 +2,7 @@
 /* config.h.in.  Generated from configure.in by autoheader.  */
 
 /* "Mangling: lower case */
-#define ELMER_LINKTYP 4
+#define ELMER_LINKTYP 3
 
 /* Define if using dynamic linking */
 #define ENABLE_DYNAMIC_LINKING 1
@@ -13,10 +13,10 @@
 
 /* Define to a macro mangling the given C identifier (in lower and upper
    case), which must not contain underscores, for linking with Fortran. */
-#define F77_FUNC(name,NAME) name ## _
+#define F77_FUNC(name,NAME) name
 
 /* As F77_FUNC, but for C identifiers containing underscores. */
-#define F77_FUNC_(name,NAME) name ## __
+#define F77_FUNC_(name,NAME) name
 
 /* Define to dummy `main' function (if any) required to link to the Fortran
    libraries. */
@@ -27,10 +27,10 @@
 
 /* Define to a macro mangling the given C identifier (in lower and upper
    case), which must not contain underscores, for linking with Fortran. */
-#define FC_FUNC(name,NAME) name ## _
+#define FC_FUNC(name,NAME) name
 
 /* As FC_FUNC, but for C identifiers containing underscores. */
-#define FC_FUNC_(name,NAME) name ## __
+#define FC_FUNC_(name,NAME) name
 
 /* Define if you have a ARPACK library. */
 /* #undef HAVE_ARPACK */
@@ -92,7 +92,7 @@
 
 /* Define to 1 if your system has a GNU libc compatible `malloc' function, and
    to 0 otherwise. */
-#define HAVE_MALLOC 1
+#define HAVE_MALLOC 0
 
 /* Define if you have a MATC library. */
 #define HAVE_MATC 1
@@ -104,7 +104,7 @@
 #define HAVE_MKDIR 1
 
 /* Define if you have the MPI library. */
-/* #undef HAVE_MPI */
+#define HAVE_MPI 1
 
 /* Define to 1 if you have the `shl_findsym' function. */
 /* #undef HAVE_SHL_FINDSYM */
@@ -180,7 +180,7 @@
 
 /* Define to 1 if your processor stores words with the most significant byte
    first (like Motorola and SPARC, unlike Intel and VAX). */
-/* #undef WORDS_BIGENDIAN */
+#define WORDS_BIGENDIAN 1
 
 /* Define to rpl_malloc if the replacement function should be used. */
-/* #undef malloc */
+#define malloc rpl_malloc
