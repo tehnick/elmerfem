@@ -79,7 +79,7 @@
 /* #undef HAVE_LIBDLD */
 
 /* Define to 1 if you have the `stdc++' library (-lstdc++). */
-#define HAVE_LIBSTDC__ 1
+/* #undef HAVE_LIBSTDC__ */
 
 /* Define to 1 if you have the `wsock32' library (-lwsock32). */
 /* #undef HAVE_LIBWSOCK32 */
@@ -116,7 +116,7 @@
 /* #undef HAVE_SHL_LOAD_API */
 
 /* Define to 1 if you have the `sqrt' function. */
-#define HAVE_SQRT 1
+/* #undef HAVE_SQRT */
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #define HAVE_STDINT_H 1

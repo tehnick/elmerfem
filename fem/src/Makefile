@@ -74,17 +74,17 @@ AUTOHEADER = ${SHELL} /wrk/vierinen/src/fem/missing --run autoheader
 AUTOMAKE = ${SHELL} /wrk/vierinen/src/fem/missing --run automake-1.9
 AWK = gawk
 BLAS_LIBS = -lessl -lblas
-CC = c++
+CC = xlc
 CCC = 
 CCDEPMODE = depmode=none
-CFLAGS = -g -O2 -I/wrk/vierinen/aix/include
+CFLAGS = -g -I/wrk/vierinen/aix/include
 CP = cp
 CPICFLAG = 
-CPP = c++ -E
+CPP = xlc -E
 CPPFLAGS = 
-CXX = c++
+CXX = cc
 CXXDEPMODE = depmode=none
-CXXFLAGS = -g -O2
+CXXFLAGS = -g
 CXXPICFLAG = 
 CYGPATH_W = echo
 DEFS = -DHAVE_CONFIG_H
@@ -101,11 +101,11 @@ ELMER_FEM_DEPENDENCIES =  arpack/libarpack.a
 EXEEXT = 
 F77 = xlf_r
 FC = xlf95_r
-FCFLAGS = -qsuffix=cpp=F90
-FCLIBS =  -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm
+FCFLAGS = -g
+FCLIBS =  -lC -lg -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm
 FCPPFLAGS = 
 FFLAGS = -g
-FLIBS =  -lg -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm
+FLIBS =  -lC -lg -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm
 FPICFLAG = 
 GREP = /p/gnu/bin/grep
 HUTI_LIBS = -lhuti
@@ -117,8 +117,8 @@ LAPACK_LIBS = -llapack
 LDFLAGS = 
 LIBEXT = a
 LIBOBJS =  malloc$U.o
-LIBS = -ldl -lessl -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lstdc++  -L/wrk/vierinen/aix/lib  -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm  -lg -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm
-LIBSOLVER_DEPS = -lessl -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lstdc++  -L/wrk/vierinen/aix/lib  -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm  -lg -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm
+LIBS = -ldl -lessl -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lC -L/wrk/vierinen/aix/lib  -lC -lg -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm  -lC -lg -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm
+LIBSOLVER_DEPS = -lessl -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lC -L/wrk/vierinen/aix/lib  -lC -lg -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm  -lC -lg -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm
 LTLIBOBJS =  malloc$U.lo
 MAKEINFO = ${SHELL} /wrk/vierinen/src/fem/missing --run makeinfo
 MATC_LIBS = -lmatc
@@ -156,7 +156,7 @@ TEMPLATE_AR = $(AR)
 TEMPLATE_ARFLAGS = rc
 UMFPACK_LIBS = -lumfpack -lamd
 VERSION = 1.0.0
-ac_ct_CC = c++
+ac_ct_CC = xlc
 ac_ct_CXX = 
 ac_ct_F77 = 
 ac_ct_FC = 
@@ -198,7 +198,7 @@ library_path_var = LD_LIBRARY_PATH
 localedir = ${datarootdir}/locale
 localstatedir = ${prefix}/var
 mandir = ${datarootdir}/man
-mkdir_p = $(install_sh) -d
+mkdir_p = $(mkinstalldirs)
 oldincludedir = /usr/include
 pdfdir = ${docdir}
 prefix = /wrk/vierinen/aix
@@ -965,13 +965,13 @@ SUFFIXES: .f90 .so
 # a bit kludgy way to do the cpp, but hopefully portable enough
 .f90.o:
 	cp $< $*.fpp
-	c++ -E  -g -O2 -I/wrk/vierinen/aix/include $*.fpp > $*.F90
-	xlf95_r -qsuffix=cpp=F90 -c $*.F90
+	xlc -E  -g -I/wrk/vierinen/aix/include $*.fpp > $*.F90
+	xlf95_r -g -c $*.F90
 
 # a bit kludgy way to do the cpp, but hopefully portable enough
 .f.o:
 	cp $< $*.fpp
-	c++ -E  -g -O2 -I/wrk/vierinen/aix/include $*.fpp > $*.FOR
+	xlc -E  -g -I/wrk/vierinen/aix/include $*.fpp > $*.FOR
 	xlf_r -g -c $*.FOR
 
 # mpi stubs and load.c
@@ -987,7 +987,7 @@ libfem$(LIB_EXT): $(OBJS)
 # Shared base lib (libs in the right place!)
 libsolver$(SHL_EXT): libfem$(LIB_EXT) ElmerSolver$(OBJ_EXT)
 	rm -f $@
-	$(CXX) -shared  -o $@ ElmerSolver$(OBJ_EXT)  arpack/libarpack.a -lfem -ldl -lessl -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lstdc++  -L/wrk/vierinen/aix/lib  -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm  -lg -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm -L.
+	$(CXX) -shared  -o $@ ElmerSolver$(OBJ_EXT)  arpack/libarpack.a -lfem -ldl -lessl -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lC -L/wrk/vierinen/aix/lib  -lC -lg -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm  -lC -lg -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm -L.
 
 # The executable
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
@@ -995,7 +995,7 @@ ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
 
 # build seperate solvers as shared libs
 .f90.so:
-	xlf95_r -qsuffix=cpp=F90 -c $*.f90
+	xlf95_r -g -c $*.f90
 	$(CXX) -shared  -o $@ $*$(OBJ_EXT)  -lsolver -L.
 
 install:
