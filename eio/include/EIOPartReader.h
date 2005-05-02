@@ -26,7 +26,8 @@ Author(s):  Harri Hakula 10.03.98
 #define EIOPARTREADER_H
 
 #include "EIOModelManager.h"
-#include <fstream.h>
+using namespace std;
+#include <fstream>
 
 const int partReaderFiles = 5;
 

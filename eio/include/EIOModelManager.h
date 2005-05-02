@@ -26,7 +26,9 @@ Author(s):  Harri Hakula 10.03.98
 #define EIOMODELMANAGER_H
 
 #include "eio_config.h"
-#include <fstream.h>
+
+using namespace std;
+#include <fstream>
 #include <iostream>
 
 class EIOModelManager

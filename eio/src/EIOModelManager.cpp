@@ -32,8 +32,9 @@ Author(s):  Harri Hakula 10.03.98
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#include <iostream.h>
-#include <fstream.h>
+using namespace std;
+#include <iostream>
+#include <fstream>
 
 #if defined(WIN32)   
   # include <direct.h> 
