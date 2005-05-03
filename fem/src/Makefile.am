@@ -29,7 +29,7 @@ SUFFIXES: .f90 .so
 .f90.o:
 	@CP@ $< $*.fpp
 	@CPP@ @FCPPFLAGS@ @CFLAGS@ $*.fpp > $*.F90
-	@FC@ @FCFLAGS@ -c $*.F90
+	@FC@ @FPICFLAG@ @FCFLAGS@ -c $*.F90
 
 # a bit kludgy way to do the cpp, but hopefully portable enough
 .f.o:
@@ -58,10 +58,10 @@ ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
 
 # build seperate solvers as shared libs
 .f90.@SHLEXT@:
-	@FC@ @FCFLAGS@ -c $*.f90
+	@FC@ @FPICFLAG@ @FCFLAGS@ -c $*.f90
 	@SH_LD@ @SH_LDFLAGS@ @SONAME_FLAGS@ -o $@ $*$(OBJ_EXT)  -lsolver -L.
 
-install:
+install-exec-local:
 	@echo "Installing stuff to $(prefix),@prefix@"
 	@MKDIR@ @prefix@/lib
 	@MKDIR@ @prefix@/include
@@ -72,7 +72,7 @@ install:
 	@CP@ elements.def @prefix@/lib
 	@CP@ SOLVER.KEYWORDS @prefix@/lib
 
-clean:
+clean-local:
 	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so \#*
 
 ##################

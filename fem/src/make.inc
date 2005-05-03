@@ -61,6 +61,7 @@ OBJS	=	mpi_stubs$(OBJ_EXT) 				\
 		solve_real$(OBJ_EXT)				\
 		MGPrec$(OBJ_EXT)				\
 		DefUtils$(OBJ_EXT)				\
+		LUDecomposition$(OBJ_EXT) 			\
 	        RadiationFactors$(OBJ_EXT)                      
 
 

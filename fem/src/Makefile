@@ -21,7 +21,7 @@ pkglibdir = $(libdir)/elmer
 pkgincludedir = $(includedir)/elmer
 top_builddir = ..
 am__cd = CDPATH="$${ZSH_VERSION+.}$(PATH_SEPARATOR)" && cd
-INSTALL = /p/gnu/bin/install -c
+INSTALL = /usr/bin/install -c
 install_sh_DATA = $(install_sh) -c -m 644
 install_sh_PROGRAM = $(install_sh) -c
 install_sh_SCRIPT = $(install_sh) -c
@@ -33,9 +33,9 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-build_triplet = powerpc-ibm-aix5.2.0.0
-host_triplet = powerpc-ibm-aix5.2.0.0
-target_triplet = powerpc-ibm-aix5.2.0.0
+build_triplet = i686-pc-linux-gnu
+host_triplet = i686-pc-linux-gnu
+target_triplet = i686-pc-linux-gnu
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(srcdir)/make.bin $(srcdir)/make.inc
 subdir = src
@@ -62,52 +62,52 @@ ETAGS = etags
 CTAGS = ctags
 DIST_SUBDIRS = $(SUBDIRS)
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
-ACLOCAL = ${SHELL} /wrk/vierinen/src/fem/missing --run aclocal-1.9
+ACLOCAL = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run aclocal-1.9
 AMDEP_FALSE = #
 AMDEP_TRUE = 
-AMTAR = ${SHELL} /wrk/vierinen/src/fem/missing --run tar
+AMTAR = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run tar
 AR = ar
 ARFLAGS = rc
 ARPACK_LIBS = 
-AUTOCONF = ${SHELL} /wrk/vierinen/src/fem/missing --run autoconf
-AUTOHEADER = ${SHELL} /wrk/vierinen/src/fem/missing --run autoheader
-AUTOMAKE = ${SHELL} /wrk/vierinen/src/fem/missing --run automake-1.9
+AUTOCONF = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run autoconf
+AUTOHEADER = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run autoheader
+AUTOMAKE = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run automake-1.9
 AWK = gawk
-BLAS_LIBS = -lessl -lblas
-CC = xlc
+BLAS_LIBS = -lblas
+CC = gcc
 CCC = 
 CCDEPMODE = depmode=none
-CFLAGS = -g -I/wrk/vierinen/aix/include
+CFLAGS = -g -O2 -I/home/vierinen/ifc/include
 CP = cp
-CPICFLAG = 
-CPP = xlc -E
+CPICFLAG = -fPIC
+CPP = gcc -E
 CPPFLAGS = 
-CXX = cc
+CXX = g++
 CXXDEPMODE = depmode=none
-CXXFLAGS = -g
-CXXPICFLAG = 
+CXXFLAGS = -g -O2
+CXXPICFLAG = -fPIC
 CYGPATH_W = echo
 DEFS = -DHAVE_CONFIG_H
 DEPDIR = .deps
-DLFCN_DIR = dlfcn
+DLFCN_DIR = 
 DL_LD = $(SH_LD)
 DL_LDFLAGS = $(SH_LDFLAGS)
-ECHO_C = \c
-ECHO_N = 
+ECHO_C = 
+ECHO_N = -n
 ECHO_T = 
-EGREP = /p/gnu/bin/grep -E
+EGREP = /bin/grep -E
 EIOF_LIBS = -leiof
-ELMER_FEM_DEPENDENCIES =  arpack/libarpack.a
+ELMER_FEM_DEPENDENCIES =  -Larpack/ -larpack
 EXEEXT = 
-F77 = xlf_r
-FC = xlf95_r
+F77 = g77
+FC = ifort
 FCFLAGS = -g
-FCLIBS =  -lC -lg -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm
-FCPPFLAGS = 
-FFLAGS = -g
-FLIBS =  -lC -lg -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm
-FPICFLAG = 
-GREP = /p/gnu/bin/grep
+FCLIBS =  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s
+FCPPFLAGS = -traditional-cpp -DDLLEXPORT="!"
+FFLAGS = -g -O2
+FLIBS =  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s
+FPICFLAG = -fPIC
+GREP = /bin/grep
 HUTI_LIBS = -lhuti
 INSTALL_DATA = ${INSTALL} -m 644
 INSTALL_PROGRAM = ${INSTALL}
@@ -116,16 +116,16 @@ INSTALL_STRIP_PROGRAM = ${SHELL} $(install_sh) -c -s
 LAPACK_LIBS = -llapack
 LDFLAGS = 
 LIBEXT = a
-LIBOBJS =  malloc$U.o
-LIBS = -ldl -lessl -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lC -L/wrk/vierinen/aix/lib  -lC -lg -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm  -lC -lg -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm
-LIBSOLVER_DEPS = -lessl -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lC -L/wrk/vierinen/aix/lib  -lC -lg -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm  -lC -lg -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm
-LTLIBOBJS =  malloc$U.lo
-MAKEINFO = ${SHELL} /wrk/vierinen/src/fem/missing --run makeinfo
+LIBOBJS = 
+LIBS = -ldl -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lstdc++  -L/home/vierinen/ifc/lib  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s
+LIBSOLVER_DEPS = -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lstdc++  -L/home/vierinen/ifc/lib  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s
+LTLIBOBJS = 
+MAKEINFO = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run makeinfo
 MATC_LIBS = -lmatc
 MKDIR = mkdir -p
-MKOCTFILE_DL_LDFLAGS = $(DL_LDFLAGS)
-MPICC = mpcc
-MPILIBS =  
+MKOCTFILE_DL_LDFLAGS = -shared -Wl,-Bsymbolic
+MPICC = gcc
+MPILIBS = 
 MV = mv
 NO_OCT_FILE_STRIP = false
 OBJEXT = o
@@ -137,7 +137,7 @@ PACKAGE_TARNAME =
 PACKAGE_VERSION = 
 PATH_SEPARATOR = :
 RANLIB = ranlib
-RLD_FLAG = 
+RLD_FLAG = -Wl,-rpath -Wl,$(octlibdir)
 RM = rm -f
 SET_MAKE = 
 SHELL = /bin/sh
@@ -150,16 +150,16 @@ SHLLIB_VER = $(SHLLIB).$(version)
 SHLLINKEXT = 
 SH_LD = $(CXX)
 SH_LDFLAGS = -shared
-SONAME_FLAGS = 
+SONAME_FLAGS = -Wl,-soname -Wl,$@
 STRIP = 
 TEMPLATE_AR = $(AR)
 TEMPLATE_ARFLAGS = rc
 UMFPACK_LIBS = -lumfpack -lamd
 VERSION = 1.0.0
-ac_ct_CC = xlc
-ac_ct_CXX = 
-ac_ct_F77 = 
-ac_ct_FC = 
+ac_ct_CC = gcc
+ac_ct_CXX = g++
+ac_ct_F77 = g77
+ac_ct_FC = ifort
 ac_ct_RANLIB = ranlib
 ac_ct_STRIP = 
 am__fastdepCC_FALSE = 
@@ -172,46 +172,46 @@ am__quote =
 am__tar = ${AMTAR} chof - "$$tardir"
 am__untar = ${AMTAR} xf -
 bindir = ${exec_prefix}/bin
-build = powerpc-ibm-aix5.2.0.0
+build = i686-pc-linux-gnu
 build_alias = 
-build_cpu = powerpc
-build_os = aix5.2.0.0
-build_vendor = ibm
-canonical_host_type = powerpc-ibm-aix5.2.0.0
+build_cpu = i686
+build_os = linux-gnu
+build_vendor = pc
+canonical_host_type = i686-pc-linux-gnu
 datadir = ${datarootdir}
 datarootdir = ${prefix}/share
 docdir = ${datarootdir}/doc/${PACKAGE}
 dvidir = ${docdir}
 exec_prefix = ${prefix}
-host = powerpc-ibm-aix5.2.0.0
+host = i686-pc-linux-gnu
 host_alias = 
-host_cpu = powerpc
-host_os = aix5.2.0.0
-host_vendor = ibm
+host_cpu = i686
+host_os = linux-gnu
+host_vendor = pc
 htmldir = ${docdir}
 includedir = ${prefix}/include
 infodir = ${datarootdir}/info
-install_sh = /wrk/vierinen/src/fem/install-sh
+install_sh = /home/vierinen/src/newelmer/fem/install-sh
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
 library_path_var = LD_LIBRARY_PATH
 localedir = ${datarootdir}/locale
 localstatedir = ${prefix}/var
 mandir = ${datarootdir}/man
-mkdir_p = $(mkinstalldirs)
+mkdir_p = mkdir -p --
 oldincludedir = /usr/include
 pdfdir = ${docdir}
-prefix = /wrk/vierinen/aix
+prefix = /home/vierinen/ifc
 program_transform_name = s,x,x,
 psdir = ${docdir}
 sbindir = ${exec_prefix}/sbin
 sharedstatedir = ${prefix}/com
 sysconfdir = ${prefix}/etc
-target = powerpc-ibm-aix5.2.0.0
+target = i686-pc-linux-gnu
 target_alias = 
-target_cpu = powerpc
-target_os = aix5.2.0.0
-target_vendor = ibm
+target_cpu = i686
+target_os = linux-gnu
+target_vendor = pc
 SUBDIRS = blas lapack arpack
 
 #*******************************************************************************
@@ -559,6 +559,7 @@ check: check-recursive
 all-am: Makefile
 installdirs: installdirs-recursive
 installdirs-am:
+install: install-recursive
 install-exec: install-exec-recursive
 install-data: install-data-recursive
 uninstall: uninstall-recursive
@@ -582,7 +583,9 @@ distclean-generic:
 maintainer-clean-generic:
 	@echo "This command is intended for maintainers to use"
 	@echo "it deletes files that may require special tools to rebuild."
-clean-am: clean-generic mostlyclean-am
+clean: clean-recursive
+
+clean-am: clean-generic clean-local mostlyclean-am
 
 distclean: distclean-recursive
 	-rm -f Makefile
@@ -600,7 +603,7 @@ info-am:
 
 install-data-am:
 
-install-exec-am:
+install-exec-am: install-exec-local
 
 install-info: install-info-recursive
 
@@ -629,11 +632,12 @@ uninstall-am: uninstall-info-am
 uninstall-info: uninstall-info-recursive
 
 .PHONY: $(RECURSIVE_TARGETS) CTAGS GTAGS all all-am check check-am \
-	clean clean-generic clean-recursive ctags ctags-recursive \
-	distclean distclean-generic distclean-recursive distclean-tags \
-	distdir dvi dvi-am html html-am info info-am install \
-	install-am install-data install-data-am install-exec \
-	install-exec-am install-info install-info-am install-man \
+	clean clean-generic clean-local clean-recursive ctags \
+	ctags-recursive distclean distclean-generic \
+	distclean-recursive distclean-tags distdir dvi dvi-am html \
+	html-am info info-am install install-am install-data \
+	install-data-am install-exec install-exec-am \
+	install-exec-local install-info install-info-am install-man \
 	install-strip installcheck installcheck-am installdirs \
 	installdirs-am maintainer-clean maintainer-clean-generic \
 	maintainer-clean-recursive mostlyclean mostlyclean-generic \
@@ -965,14 +969,14 @@ SUFFIXES: .f90 .so
 # a bit kludgy way to do the cpp, but hopefully portable enough
 .f90.o:
 	cp $< $*.fpp
-	xlc -E  -g -I/wrk/vierinen/aix/include $*.fpp > $*.F90
-	xlf95_r -g -c $*.F90
+	gcc -E -traditional-cpp -DDLLEXPORT="!" -g -O2 -I/home/vierinen/ifc/include $*.fpp > $*.F90
+	ifort -fPIC -g -c $*.F90
 
 # a bit kludgy way to do the cpp, but hopefully portable enough
 .f.o:
 	cp $< $*.fpp
-	xlc -E  -g -I/wrk/vierinen/aix/include $*.fpp > $*.FOR
-	xlf_r -g -c $*.FOR
+	gcc -E -traditional-cpp -DDLLEXPORT="!" -g -O2 -I/home/vierinen/ifc/include $*.fpp > $*.FOR
+	g77 -g -O2 -c $*.FOR
 
 # mpi stubs and load.c
 .c.o:
@@ -987,29 +991,29 @@ libfem$(LIB_EXT): $(OBJS)
 # Shared base lib (libs in the right place!)
 libsolver$(SHL_EXT): libfem$(LIB_EXT) ElmerSolver$(OBJ_EXT)
 	rm -f $@
-	$(CXX) -shared  -o $@ ElmerSolver$(OBJ_EXT)  arpack/libarpack.a -lfem -ldl -lessl -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lC -L/wrk/vierinen/aix/lib  -lC -lg -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm  -lC -lg -lxlf90 -lxlopt -lxlf -lxlomp_ser -lpthreads -lm -L.
+	$(CXX) -shared -Wl,-soname -Wl,$@ -o $@ ElmerSolver$(OBJ_EXT)  -Larpack/ -larpack -lfem -ldl -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lstdc++  -L/home/vierinen/ifc/lib  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s -L.
 
 # The executable
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
-	xlf95_r -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT)
+	ifort -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT)
 
 # build seperate solvers as shared libs
 .f90.so:
-	xlf95_r -g -c $*.f90
-	$(CXX) -shared  -o $@ $*$(OBJ_EXT)  -lsolver -L.
+	ifort -fPIC -g -c $*.f90
+	$(CXX) -shared -Wl,-soname -Wl,$@ -o $@ $*$(OBJ_EXT)  -lsolver -L.
 
-install:
-	@echo "Installing stuff to $(prefix),/wrk/vierinen/aix"
-	mkdir -p /wrk/vierinen/aix/lib
-	mkdir -p /wrk/vierinen/aix/include
-	mkdir -p /wrk/vierinen/aix/bin
-	cp ElmerSolver$(EXEEXT) /wrk/vierinen/aix/bin
-	cp *$(SHL_EXT) /wrk/vierinen/aix/lib
-	cp *.mod /wrk/vierinen/aix/include
-	cp elements.def /wrk/vierinen/aix/lib
-	cp SOLVER.KEYWORDS /wrk/vierinen/aix/lib
+install-exec-local:
+	@echo "Installing stuff to $(prefix),/home/vierinen/ifc"
+	mkdir -p /home/vierinen/ifc/lib
+	mkdir -p /home/vierinen/ifc/include
+	mkdir -p /home/vierinen/ifc/bin
+	cp ElmerSolver$(EXEEXT) /home/vierinen/ifc/bin
+	cp *$(SHL_EXT) /home/vierinen/ifc/lib
+	cp *.mod /home/vierinen/ifc/include
+	cp elements.def /home/vierinen/ifc/lib
+	cp SOLVER.KEYWORDS /home/vierinen/ifc/lib
 
-clean:
+clean-local:
 	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so \#*
 
 ##################
