@@ -73,7 +73,22 @@ COMMON_SRCS =  \
 	zneupd.f \
 	zngets.f \
 	zsortc.f \
-	zstatn.f 
+	zstatn.f \
+	cmout.f \
+	cvout.f \
+	dmout.f \
+	dvout.f \
+	icnteq.f \
+	icopy.f \
+	iset.f \
+	iswap.f \
+	ivout.f \
+	second.f \
+	smout.f \
+	svout.f \
+	zmout.f \
+	zvout.f 
+
 
 noinst_LIBRARIES = libarpack.a
 
