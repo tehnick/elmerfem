@@ -91,7 +91,7 @@ case "$ac_cv_f77_mangling" in
 esac
 
 dnl ******************************************************
-dnl Library checks 
+dnl Library checks (juha vierinen,25,tkk,tietokoneita,kiinnostunut kaikesta.)
 dnl
 dnl blas, lapack, arpack, umfpack, hutiter, eio, matc
 dnl
@@ -104,6 +104,8 @@ dnl you always want configure to do this by default, but maybe it's anti-GPL or 
 dnl 
 LIBS="$LIBS -L$prefix/lib"
 CFLAGS="$CFLAGS -I$prefix/include"
+dnl order is important, because prefix/include might include bogus .mods or headers
+FCFLAGS="$FCFLAGS -I. -I$prefix/include"
 
 ELMER_LIBERRORMSG="wasn't found, make sure it is in the prefix, or CFLAGS and LIBS are correct if they are somewhere else."
 
@@ -111,9 +113,9 @@ ACX_MPI([],
         [AC_MSG_WARN([MPI was not found, using stubs!])])
 
 AC_CHECK_LIB(stdc++, main,,AC_MSG_WARN(elmer might need libstc++))
-ACX_BLAS([], [AC_MSG_WARN([BLAS was not found!])])
-ACX_LAPACK([], [AC_MSG_WARN([LAPACK was not found!])])
-ACX_HUTI([], [AC_MSG_ERROR([libhuti $ELMER_LIBERRORMSG])])
+ACX_BLAS([], [AC_MSG_ERROR([BLAS was not found!])])
+ACX_LAPACK([], [AC_MSG_ERROR([LAPACK was not found!])])
+ACX_HUTI([], [AC_MSG_ERROR([Libhuti wasn't found])])
 ACX_EIOF([], [AC_MSG_ERROR([libeiof $ELMER_LIBERRORMSG])])
 ACX_ARPACK([], [AC_MSG_WARN([Using local ARPACK])])
 ACX_UMFPACK([], [AC_MSG_ERROR([libumfpack $ELMER_LIBERRORMSG])])
@@ -226,12 +228,13 @@ case "$canonical_host_type" in
     SHLLINKEXT=.dll
     SONAME_FLAGS='-Wl,--out-implib=$@.a'
     library_path_var=PATH
+    FCPPFLAGS="$FCPPFLAGS -DWIN32"
   ;;
   *-*-linux* | *-*-gnu*)
     MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
     SONAME_FLAGS='-Wl,-soname -Wl,$@'
     RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
-    FCPPFLAGS='-traditional-cpp'
+    FCPPFLAGS="-C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
   ;;
   i[[3456]]86-*-sco3.2v5*)
     SONAME_FLAGS='-Wl,-h -Wl,$@'
@@ -319,11 +322,21 @@ dnl  ifc: Intel Fortran 95 compiler for Linux/x86 (also known as ifort)
 dnl  efc: Intel Fortran 95 compiler for IA64
 dnl
 case "$FC" in
-  gfortran | g95 | ifort | ifc | xlf*)
+  gfortran | g95 )
     dnl Get rid of unwanted DLLEXPORT declarations
     FCPPFLAGS="$FCPPFLAGS -DDLLEXPORT=\"!\""
   ;;
+  xlf*)
+    FCPPFLAGS="$FCPPFLAGS -DDLLEXPORT=\"!\""
+  ;;
+  ifort | ifc )
+    FCPPFLAGS="$FCPPFLAGS -DDLLEXPORT=\"!\""
+  ;;	
 esac
+
+FCFLAGS="$FCFLAGS $FPICFLAG"
+CFLAGS="$CFLAGS $CPICFLAG"
+CXXFLAGS="$CXXFLAGS $CXXPICFLAG"
 
 if $use_rpath; then
   if test -n "$enable_rpath_arg"; then
@@ -466,24 +479,24 @@ AC_SUBST(CP)
 AC_SUBST(MV)
 AC_SUBST(MKDIR)
 AC_SUBST(LIBS)
+AC_SUBST(FCFLAGS)
 
 AC_CONFIG_HEADER(config.h)
 
 AC_OUTPUT([
 Makefile
 src/Makefile
-src/blas/Makefile
-src/lapack/Makefile
-src/arpack/Makefile
+src/view3d/Makefile
+src/viewaxis/Makefile
 ]
 )
-
 
 AC_MSG_RESULT([
 ELMER build options:
   Version                   $VERSION
   Install prefix            $prefix
   CPPFLAGS                  $CPPFLAGS
+  FCPPFLAGS                 $FCPPFLAGS
   CFLAGS                    $CFLAGS
   LDFLAGS                   $LDFLAGS
   LIBS                      $LIBS

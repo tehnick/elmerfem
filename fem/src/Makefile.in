@@ -229,7 +229,7 @@ target_alias = @target_alias@
 target_cpu = @target_cpu@
 target_os = @target_os@
 target_vendor = @target_vendor@
-SUBDIRS = arpack
+SUBDIRS = arpack view3d viewaxis
 
 #*******************************************************************************
 # Elmer Makefile.in 
@@ -370,7 +370,7 @@ SC2Elmer_SOURCES = SC2Elmer.c
 all: all-recursive
 
 .SUFFIXES:
-.SUFFIXES: .@SHLEXT@ .c .f .f90 .o .obj
+.SUFFIXES: .@OBJEXT@ .@SHLEXT@ .c .f .f90 .o .obj
 $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am $(srcdir)/make.bin $(srcdir)/make.inc $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -434,6 +434,13 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/SC2Elmer.Po@am__quote@
+
+.c.o:
+@am__fastdepCC_TRUE@	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ $<; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/$*.Tpo" "$(DEPDIR)/$*.Po"; else rm -f "$(DEPDIR)/$*.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(COMPILE) -c $<
 
 .c.obj:
 @am__fastdepCC_TRUE@	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ `$(CYGPATH_W) '$<'`; \
@@ -717,7 +724,7 @@ uninstall-info: uninstall-info-recursive
 
 
 # libfem$(LIB_EXT)
-all:	 libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD)
+all:	 libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
 
 #
 #
@@ -1057,19 +1064,19 @@ MEMStatElecReduced$(SHL_EXT): \
 SUFFIXES: .f90 .so
 
 # a bit kludgy way to do the cpp, but hopefully portable enough
-.f90.o:
+.f90.@OBJEXT@:
 	@CP@ $< $*.fpp
 	@CPP@ @FCPPFLAGS@ @CFLAGS@ $*.fpp > $*.F90
 	@FC@ @FCFLAGS@ -c $*.F90
 
 # a bit kludgy way to do the cpp, but hopefully portable enough
-.f.o:
+.f.@OBJEXT@:
 	@CP@ $< $*.fpp
 	@CPP@ @FCPPFLAGS@ @CFLAGS@ $*.fpp > $*.FOR
 	@F77@ @FFLAGS@ -c $*.FOR
 
 # mpi stubs and load.c
-.c.o:
+.c.@OBJEXT@:
 	$(CC) -c -O  $<
 
 # static fem lib
@@ -1084,9 +1091,15 @@ libsolver$(SHL_EXT): ElmerSolver$(OBJ_EXT) $(OBJS)
 	@RM@ $@
 	@SH_LD@ @SH_LDFLAGS@ @SONAME_FLAGS@ -o $@ ElmerSolver$(OBJ_EXT) $(OBJS) @LIBS@ -L. @ELMER_FEM_DEPENDENCIES@ 
 
-# The executable
+# The executables
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
 	@FC@ -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT)
+
+ViewFactors$(EXE_EXT): libsolver$(SHL_EXT) ViewFactors$(OBJ_EXT)
+	@FC@ -lsolver -o ViewFactors$(EXE_EXT) -L. ViewFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a
+
+GebhardtFactors$(EXE_EXT): libsolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT)
+	@FC@ -lsolver -o GebhardtFactors$(EXE_EXT) -L. GebhardtFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a
 
 # build seperate solvers as shared libs
 .f90.@SHLEXT@:
@@ -1102,6 +1115,8 @@ install-exec-local:
 	@MKDIR@ @prefix@/bin
 	@CP@ ElmerSolver$(EXEEXT) @prefix@/bin
 	@CP@ ElmerSolver$(EXEEXT) @prefix@/bin/Solver$(EXEEXT)
+	@CP@ ViewFactors$(EXEEXT) @prefix@/bin
+	@CP@ GebhardtFactors$(EXEEXT) @prefix@/bin
 	@CP@ *$(SHL_EXT) @prefix@/lib
 	@CP@ *.mod @prefix@/include
 	@CP@ elements.def @prefix@/lib
@@ -1109,22 +1124,6 @@ install-exec-local:
 
 clean-local:
 	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so \#*
-
-###################
-# special cases
-#
-
-MEMReynolds$(SHL_EXT): \
-	MEMUtilities$(OBJ_EXT)
-
-MEMStatElecReduced$(SHL_EXT): \
-	MEMUtilities$(OBJ_EXT)
-
-##################
-# Cellar
-#
-# libfem.a obsolete?
-#
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

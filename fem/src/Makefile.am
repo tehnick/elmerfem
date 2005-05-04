@@ -1,4 +1,4 @@
-SUBDIRS=arpack
+SUBDIRS=arpack view3d viewaxis
 
 #*******************************************************************************
 # Elmer Makefile.in 
@@ -20,26 +20,26 @@ EXE_EXT=@EXEEXT@
 include make.bin
 
 # libfem$(LIB_EXT)
-all:	 libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD)
+all:	 libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
 
 include make.inc
 
 SUFFIXES: .f90 .so
 
 # a bit kludgy way to do the cpp, but hopefully portable enough
-.f90.o:
+.f90.@OBJEXT@:
 	@CP@ $< $*.fpp
 	@CPP@ @FCPPFLAGS@ @CFLAGS@ $*.fpp > $*.F90
 	@FC@ @FCFLAGS@ -c $*.F90
 
 # a bit kludgy way to do the cpp, but hopefully portable enough
-.f.o:
+.f.@OBJEXT@:
 	@CP@ $< $*.fpp
 	@CPP@ @FCPPFLAGS@ @CFLAGS@ $*.fpp > $*.FOR
 	@F77@ @FFLAGS@ -c $*.FOR
 
 # mpi stubs and load.c
-.c.o:
+.c.@OBJEXT@:
 	$(CC) -c -O  $<
 
 # static fem lib
@@ -54,9 +54,15 @@ libsolver$(SHL_EXT): ElmerSolver$(OBJ_EXT) $(OBJS)
 	@RM@ $@
 	@SH_LD@ @SH_LDFLAGS@ @SONAME_FLAGS@ -o $@ ElmerSolver$(OBJ_EXT) $(OBJS) @LIBS@ -L. @ELMER_FEM_DEPENDENCIES@ 
 
-# The executable
+# The executables
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
 	@FC@ -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT)
+
+ViewFactors$(EXE_EXT): libsolver$(SHL_EXT) ViewFactors$(OBJ_EXT)
+	@FC@ -lsolver -o ViewFactors$(EXE_EXT) -L. ViewFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a
+
+GebhardtFactors$(EXE_EXT): libsolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT)
+	@FC@ -lsolver -o GebhardtFactors$(EXE_EXT) -L. GebhardtFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a
 
 # build seperate solvers as shared libs
 .f90.@SHLEXT@:
@@ -72,6 +78,8 @@ install-exec-local:
 	@MKDIR@ @prefix@/bin
 	@CP@ ElmerSolver$(EXEEXT) @prefix@/bin
 	@CP@ ElmerSolver$(EXEEXT) @prefix@/bin/Solver$(EXEEXT)
+	@CP@ ViewFactors$(EXEEXT) @prefix@/bin
+	@CP@ GebhardtFactors$(EXEEXT) @prefix@/bin
 	@CP@ *$(SHL_EXT) @prefix@/lib
 	@CP@ *.mod @prefix@/include
 	@CP@ elements.def @prefix@/lib
@@ -80,22 +88,6 @@ install-exec-local:
 clean-local:
 	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so \#*
 
-bin_PROGRAMS = SC2Elmer
+bin_PROGRAMS = SC2Elmer 
 SC2Elmer_SOURCES = SC2Elmer.c
 
-###################
-# special cases
-#
-
-MEMReynolds$(SHL_EXT): \
-	MEMUtilities$(OBJ_EXT)
-
-MEMStatElecReduced$(SHL_EXT): \
-	MEMUtilities$(OBJ_EXT)
-
-
-##################
-# Cellar
-#
-# libfem.a obsolete?
-#

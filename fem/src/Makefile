@@ -94,7 +94,7 @@ BLAS_LIBS = -lblas
 CC = gcc
 CCC = 
 CCDEPMODE = depmode=gcc3
-CFLAGS = -g -O0 -I/home/vierinen/include -fPIC
+CFLAGS = -g -O2 -I/home/vierinen/include -fPIC
 CP = cp
 CPICFLAG = -fPIC
 CPP = gcc -E
@@ -118,10 +118,10 @@ ELMER_FEM_DEPENDENCIES =  arpack/libarpack.a
 EXEEXT = 
 F77 = g77
 FC = g95
-FCFLAGS = -O -I. -I/home/vierinen/include -fPIC
+FCFLAGS = -g -I. -I/home/vierinen/include -fPIC
 FCLIBS =  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm
 FCPPFLAGS = -C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -DDLLEXPORT="!"
-FFLAGS = -g -O0
+FFLAGS = -g -O2
 FLIBS =  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s
 FPICFLAG = -fPIC
 GREP = /bin/grep
@@ -229,7 +229,7 @@ target_alias =
 target_cpu = i686
 target_os = linux-gnu
 target_vendor = pc
-SUBDIRS = arpack
+SUBDIRS = arpack view3d viewaxis
 
 #*******************************************************************************
 # Elmer Makefile.in 
@@ -370,7 +370,7 @@ SC2Elmer_SOURCES = SC2Elmer.c
 all: all-recursive
 
 .SUFFIXES:
-.SUFFIXES: .so .c .f .f90 .o .obj
+.SUFFIXES: .o .so .c .f .f90 .o .obj
 $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am $(srcdir)/make.bin $(srcdir)/make.inc $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -434,6 +434,13 @@ distclean-compile:
 	-rm -f *.tab.c
 
 include ./$(DEPDIR)/SC2Elmer.Po
+
+.c.o:
+	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ $<; \
+	then mv -f "$(DEPDIR)/$*.Tpo" "$(DEPDIR)/$*.Po"; else rm -f "$(DEPDIR)/$*.Tpo"; exit 1; fi
+#	source='$<' object='$@' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(COMPILE) -c $<
 
 .c.obj:
 	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ `$(CYGPATH_W) '$<'`; \
@@ -717,7 +724,7 @@ uninstall-info: uninstall-info-recursive
 
 
 # libfem$(LIB_EXT)
-all:	 libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD)
+all:	 libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
 
 #
 #
@@ -1059,14 +1066,14 @@ SUFFIXES: .f90 .so
 # a bit kludgy way to do the cpp, but hopefully portable enough
 .f90.o:
 	cp $< $*.fpp
-	gcc -E -C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -DDLLEXPORT="!" -g -O0 -I/home/vierinen/include -fPIC $*.fpp > $*.F90
-	g95 -O -I. -I/home/vierinen/include -fPIC -c $*.F90
+	gcc -E -C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -DDLLEXPORT="!" -g -O2 -I/home/vierinen/include -fPIC $*.fpp > $*.F90
+	g95 -g -I. -I/home/vierinen/include -fPIC -c $*.F90
 
 # a bit kludgy way to do the cpp, but hopefully portable enough
 .f.o:
 	cp $< $*.fpp
-	gcc -E -C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -DDLLEXPORT="!" -g -O0 -I/home/vierinen/include -fPIC $*.fpp > $*.FOR
-	g77 -g -O0 -c $*.FOR
+	gcc -E -C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -DDLLEXPORT="!" -g -O2 -I/home/vierinen/include -fPIC $*.fpp > $*.FOR
+	g77 -g -O2 -c $*.FOR
 
 # mpi stubs and load.c
 .c.o:
@@ -1084,15 +1091,21 @@ libsolver$(SHL_EXT): ElmerSolver$(OBJ_EXT) $(OBJS)
 	rm -f $@
 	$(CXX) -shared -Wl,-soname -Wl,$@ -o $@ ElmerSolver$(OBJ_EXT) $(OBJS) -ldl -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lstdc++  -L/home/vierinen/lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s -L.  arpack/libarpack.a 
 
-# The executable
+# The executables
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
 	g95 -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT)
+
+ViewFactors$(EXE_EXT): libsolver$(SHL_EXT) ViewFactors$(OBJ_EXT)
+	g95 -lsolver -o ViewFactors$(EXE_EXT) -L. ViewFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a
+
+GebhardtFactors$(EXE_EXT): libsolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT)
+	g95 -lsolver -o GebhardtFactors$(EXE_EXT) -L. GebhardtFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a
 
 # build seperate solvers as shared libs
 .f90.so:
 	cp $< $*.fpp
-	gcc -E -C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -DDLLEXPORT="!" -g -O0 -I/home/vierinen/include -fPIC $*.fpp > $*.F90
-	g95 -O -I. -I/home/vierinen/include -fPIC -c $*.F90
+	gcc -E -C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -DDLLEXPORT="!" -g -O2 -I/home/vierinen/include -fPIC $*.fpp > $*.F90
+	g95 -g -I. -I/home/vierinen/include -fPIC -c $*.F90
 	$(CXX) -shared -Wl,-soname -Wl,$@ -o $@ $*$(OBJ_EXT)  -lsolver -L. -ldl -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lstdc++  -L/home/vierinen/lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s
 
 install-exec-local:
@@ -1102,6 +1115,8 @@ install-exec-local:
 	mkdir -p /home/vierinen/bin
 	cp ElmerSolver$(EXEEXT) /home/vierinen/bin
 	cp ElmerSolver$(EXEEXT) /home/vierinen/bin/Solver$(EXEEXT)
+	cp ViewFactors$(EXEEXT) /home/vierinen/bin
+	cp GebhardtFactors$(EXEEXT) /home/vierinen/bin
 	cp *$(SHL_EXT) /home/vierinen/lib
 	cp *.mod /home/vierinen/include
 	cp elements.def /home/vierinen/lib
@@ -1109,22 +1124,6 @@ install-exec-local:
 
 clean-local:
 	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so \#*
-
-###################
-# special cases
-#
-
-MEMReynolds$(SHL_EXT): \
-	MEMUtilities$(OBJ_EXT)
-
-MEMStatElecReduced$(SHL_EXT): \
-	MEMUtilities$(OBJ_EXT)
-
-##################
-# Cellar
-#
-# libfem.a obsolete?
-#
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

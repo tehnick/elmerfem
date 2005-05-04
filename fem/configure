@@ -1856,7 +1856,6 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
-
 ac_aux_dir=
 for ac_dir in $srcdir $srcdir/.. $srcdir/../..; do
   if test -f $ac_dir/install-sh; then
@@ -7368,7 +7367,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:7371:" \
+echo "$as_me:7370:" \
      "checking for Fortran compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -7616,7 +7615,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:7619:" \
+echo "$as_me:7618:" \
      "checking for Fortran 77 compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -7812,7 +7811,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_verb"
-(eval echo $as_me:7815: \"$ac_link\") >&5
+(eval echo $as_me:7814: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -7896,7 +7895,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_cv_prog_f77_v"
-(eval echo $as_me:7899: \"$ac_link\") >&5
+(eval echo $as_me:7898: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -8129,7 +8128,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_verb"
-(eval echo $as_me:8132: \"$ac_link\") >&5
+(eval echo $as_me:8131: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -8213,7 +8212,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_cv_prog_fc_v"
-(eval echo $as_me:8216: \"$ac_link\") >&5
+(eval echo $as_me:8215: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -9673,6 +9672,7 @@ esac
 
 LIBS="$LIBS -L$prefix/lib"
 CFLAGS="$CFLAGS -I$prefix/include"
+FCFLAGS="$FCFLAGS -I. -I$prefix/include"
 
 ELMER_LIBERRORMSG="wasn't found, make sure it is in the prefix, or CFLAGS and LIBS are correct if they are somewhere else."
 
@@ -11767,8 +11767,9 @@ _ACEOF
         :
 else
         acx_blas_ok=no
-        { echo "$as_me:$LINENO: WARNING: BLAS was not found!" >&5
-echo "$as_me: WARNING: BLAS was not found!" >&2;}
+        { { echo "$as_me:$LINENO: error: BLAS was not found!" >&5
+echo "$as_me: error: BLAS was not found!" >&2;}
+   { (exit 1); exit 1; }; }
 fi
 
 
@@ -12118,8 +12119,9 @@ _ACEOF
         :
 else
         acx_lapack_ok=no
-        { echo "$as_me:$LINENO: WARNING: LAPACK was not found!" >&5
-echo "$as_me: WARNING: LAPACK was not found!" >&2;}
+        { { echo "$as_me:$LINENO: error: LAPACK was not found!" >&5
+echo "$as_me: error: LAPACK was not found!" >&2;}
+   { (exit 1); exit 1; }; }
 fi
 
 
@@ -12369,8 +12371,8 @@ _ACEOF
         :
 else
         acx_huti_ok=no
-        { { echo "$as_me:$LINENO: error: libhuti $ELMER_LIBERRORMSG" >&5
-echo "$as_me: error: libhuti $ELMER_LIBERRORMSG" >&2;}
+        { { echo "$as_me:$LINENO: error: Libhuti wasn't found" >&5
+echo "$as_me: error: Libhuti wasn't found" >&2;}
    { (exit 1); exit 1; }; }
 fi
 
@@ -13376,12 +13378,13 @@ case "$canonical_host_type" in
     SHLLINKEXT=.dll
     SONAME_FLAGS='-Wl,--out-implib=$@.a'
     library_path_var=PATH
+    FCPPFLAGS="$FCPPFLAGS -DWIN32"
   ;;
   *-*-linux* | *-*-gnu*)
     MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
     SONAME_FLAGS='-Wl,-soname -Wl,$@'
     RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
-    FCPPFLAGS='-traditional-cpp'
+    FCPPFLAGS="-C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
   ;;
   i[3456]86-*-sco3.2v5*)
     SONAME_FLAGS='-Wl,-h -Wl,$@'
@@ -13450,10 +13453,20 @@ case "$canonical_host_type" in
 esac
 
 case "$FC" in
-  gfortran | g95 | ifort | ifc)
+  gfortran | g95 )
         FCPPFLAGS="$FCPPFLAGS -DDLLEXPORT=\"!\""
   ;;
+  xlf*)
+    FCPPFLAGS="$FCPPFLAGS -DDLLEXPORT=\"!\""
+  ;;
+  ifort | ifc )
+    FCPPFLAGS="$FCPPFLAGS -DDLLEXPORT=\"!\""
+  ;;
 esac
+
+FCFLAGS="$FCFLAGS $FPICFLAG"
+CFLAGS="$CFLAGS $CPICFLAG"
+CXXFLAGS="$CXXFLAGS $CXXPICFLAG"
 
 if $use_rpath; then
   if test -n "$enable_rpath_arg"; then
@@ -14405,10 +14418,11 @@ echo "${ECHO_T}defining LIBSOLVER_DEPS to be $LIBSOLVER_DEPS" >&6
 
 
 
+
           ac_config_headers="$ac_config_headers config.h"
 
 
-                                                  ac_config_files="$ac_config_files Makefile src/Makefile src/blas/Makefile src/lapack/Makefile src/arpack/Makefile"
+                                        ac_config_files="$ac_config_files Makefile src/Makefile src/view3d/Makefile src/viewaxis/Makefile"
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
 # tests run on this system so they can be shared between configure
@@ -14977,9 +14991,8 @@ do
   # Handling of arguments.
   "Makefile" ) CONFIG_FILES="$CONFIG_FILES Makefile" ;;
   "src/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
-  "src/blas/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/blas/Makefile" ;;
-  "src/lapack/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/lapack/Makefile" ;;
-  "src/arpack/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/arpack/Makefile" ;;
+  "src/view3d/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/view3d/Makefile" ;;
+  "src/viewaxis/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/viewaxis/Makefile" ;;
   "depfiles" ) CONFIG_COMMANDS="$CONFIG_COMMANDS depfiles" ;;
   "config.h" ) CONFIG_HEADERS="$CONFIG_HEADERS config.h" ;;
   *) { { echo "$as_me:$LINENO: error: invalid argument: $ac_config_target" >&5
@@ -15899,12 +15912,12 @@ if test "$no_create" != yes; then
 fi
 
 
-
 echo "$as_me:$LINENO: result:
 ELMER build options:
   Version                   $VERSION
   Install prefix            $prefix
   CPPFLAGS                  $CPPFLAGS
+  FCPPFLAGS                 $FCPPFLAGS
   CFLAGS                    $CFLAGS
   LDFLAGS                   $LDFLAGS
   LIBS                      $LIBS
@@ -15931,6 +15944,7 @@ ELMER build options:
   Version                   $VERSION
   Install prefix            $prefix
   CPPFLAGS                  $CPPFLAGS
+  FCPPFLAGS                 $FCPPFLAGS
   CFLAGS                    $CFLAGS
   LDFLAGS                   $LDFLAGS
   LIBS                      $LIBS
