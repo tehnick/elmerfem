@@ -85,12 +85,12 @@ AMDEP_TRUE =
 AMTAR = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run tar
 AR = ar
 ARFLAGS = rc
-ARPACK_LIBS = 
+ARPACK_LIBS = arpack/libarpack.a
 AUTOCONF = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run autoconf
 AUTOHEADER = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run autoheader
 AUTOMAKE = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run automake-1.9
 AWK = gawk
-BLAS_LIBS = -lblas
+BLAS_LIBS = /home/vierinen/lib/libf77blas.a /home/vierinen/lib/libatlas.a
 CC = gcc
 CCC = 
 CCDEPMODE = depmode=gcc3
@@ -114,7 +114,6 @@ ECHO_N = -n
 ECHO_T = 
 EGREP = /bin/grep -E
 EIOF_LIBS = -leiof
-ELMER_FEM_DEPENDENCIES =  arpack/libarpack.a
 EXEEXT = 
 F77 = g77
 FC = g95
@@ -134,8 +133,8 @@ LAPACK_LIBS = -llapack
 LDFLAGS = 
 LIBEXT = a
 LIBOBJS = 
-LIBS = -ldl -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lstdc++  -L/home/vierinen/lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s
-LIBSOLVER_DEPS = -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lstdc++  -L/home/vierinen/lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s
+LIBS = arpack/libarpack.a -llapack /home/vierinen/lib/libf77blas.a /home/vierinen/lib/libatlas.a -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -ldl -lstdc++  -L/home/vierinen/lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s
+LIBSOLVER_DEPS = -lstdc++  -L/home/vierinen/lib
 LTLIBOBJS = 
 MAKEINFO = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run makeinfo
 MATC_LIBS = -lmatc
@@ -175,7 +174,7 @@ UMFPACK_LIBS = -lumfpack -lamd
 VERSION = 1.0.0
 ac_ct_CC = gcc
 ac_ct_CXX = g++
-ac_ct_F77 = 
+ac_ct_F77 = g77
 ac_ct_FC = 
 ac_ct_RANLIB = ranlib
 ac_ct_STRIP = 
@@ -1063,6 +1062,9 @@ MEMStatElecReduced$(SHL_EXT): \
 
 SUFFIXES: .f90 .so
 
+##########################
+# Rules for building stuff
+#
 # a bit kludgy way to do the cpp, but hopefully portable enough
 .f90.o:
 	cp $< $*.fpp
@@ -1076,22 +1078,26 @@ SUFFIXES: .f90 .so
 	g77 -g -O2 -c $*.FOR
 
 # mpi stubs and load.c
-.c.o:
-	$(CC) -c -O  $<
+#.c.o:
+#	$(CC) -c -O  $<
 
-# static fem lib
-# libfem$(LIB_EXT): $(OBJS)
-#	rm -f $@
-#	$(AR) rc $@ $(OBJS) 
-#	ranlib $@
+# build seperate solvers as shared libs
+.f90.so:
+	cp $< $*.fpp
+	gcc -E -C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -DDLLEXPORT="!" -g -O2 -I/home/vierinen/include -fPIC $*.fpp > $*.F90
+	g95 -g -I. -I/home/vierinen/include -fPIC -c $*.F90
+	$(CXX) -shared -Wl,-soname -Wl,$@ -o $@ $*$(OBJ_EXT)  -lsolver -L. arpack/libarpack.a -llapack /home/vierinen/lib/libf77blas.a /home/vierinen/lib/libatlas.a -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -ldl -lstdc++  -L/home/vierinen/lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s
 
-# Shared base lib (libs in the right place!)
-# libfem$(LIB_EXT) 
+###############################
+# libsolver.so
+#
 libsolver$(SHL_EXT): ElmerSolver$(OBJ_EXT) $(OBJS)
 	rm -f $@
-	$(CXX) -shared -Wl,-soname -Wl,$@ -o $@ ElmerSolver$(OBJ_EXT) $(OBJS) -ldl -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lstdc++  -L/home/vierinen/lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s -L.  arpack/libarpack.a 
+	$(CXX) -shared -Wl,-soname -Wl,$@ -o $@ ElmerSolver$(OBJ_EXT) $(OBJS) arpack/libarpack.a -llapack /home/vierinen/lib/libf77blas.a /home/vierinen/lib/libatlas.a -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -ldl -lstdc++  -L/home/vierinen/lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s -L. 
 
+#########################
 # The executables
+#
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
 	g95 -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT)
 
@@ -1101,13 +1107,9 @@ ViewFactors$(EXE_EXT): libsolver$(SHL_EXT) ViewFactors$(OBJ_EXT)
 GebhardtFactors$(EXE_EXT): libsolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT)
 	g95 -lsolver -o GebhardtFactors$(EXE_EXT) -L. GebhardtFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a
 
-# build seperate solvers as shared libs
-.f90.so:
-	cp $< $*.fpp
-	gcc -E -C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -DDLLEXPORT="!" -g -O2 -I/home/vierinen/include -fPIC $*.fpp > $*.F90
-	g95 -g -I. -I/home/vierinen/include -fPIC -c $*.F90
-	$(CXX) -shared -Wl,-soname -Wl,$@ -o $@ $*$(OBJ_EXT)  -lsolver -L. -ldl -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lstdc++  -L/home/vierinen/lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s
-
+################################33
+# Local installation rules
+#
 install-exec-local:
 	@echo "Installing stuff to $(prefix),/home/vierinen"
 	mkdir -p /home/vierinen/lib
@@ -1124,6 +1126,12 @@ install-exec-local:
 
 clean-local:
 	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so \#*
+
+# static fem lib
+# libfem$(LIB_EXT): $(OBJS)
+#	rm -f $@
+#	$(AR) rc $@ $(OBJS) 
+#	ranlib $@
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

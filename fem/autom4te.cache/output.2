@@ -694,7 +694,6 @@ EIOF_LIBS
 ARPACK_LIBS
 UMFPACK_LIBS
 MATC_LIBS
-ELMER_FEM_DEPENDENCIES
 FPICFLAG
 CPICFLAG
 CXXPICFLAG
@@ -13279,29 +13278,10 @@ echo "$as_me: error: libmatc $ELMER_LIBERRORMSG" >&2;}
 fi
 
 
-LIBS="$BLAS_LIBS $LAPACK_LIBS $ARPACK_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $MATC_LIBS $LIBS $FCLIBS $FLIBS"
-
-ELMER_FEM_DEPENDENCIES=
 if test x"$acx_arpack_ok" = xno; then
-   ELMER_FEM_DEPENDENCIES="$ELMER_FEM_DEPENDENCIES arpack/libarpack.a"
-   ARPACK_MSG="*internal*"
-else		
-   ARPACK_MSG=$ARPACK_LIBS
+   ARPACK_LIBS="arpack/libarpack.a"
 fi
 
-if test x"$acx_blas_ok" = xno; then
-   ELMER_FEM_DEPENDENCIES="$ELMER_FEM_DEPENDENCIES blas/libblas.a"
-   BLAS_MSG="*internal*"
-else
-   BLAS_MSG=$BLAS_LIBS
-fi
-
-if test x"$acx_lapack_ok" = xno; then
-   ELMER_FEM_DEPENDENCIES="$ELMER_FEM_DEPENDENCIES lapack/liblapack.a"
-   LAPACK_MSG="*internal*"
-else
-   LAPACK_MSG=$LAPACK_LIBS
-fi
 
 
 DLFCN_DIR=
@@ -14339,6 +14319,8 @@ _ACEOF
 
 fi
 
+LIBS="$ARPACK_LIBS $LAPACK_LIBS $BLAS_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $MATC_LIBS $LIBS $FCLIBS $FLIBS"
+
 echo "$as_me:$LINENO: result: defining FPICFLAG to be $FPICFLAG" >&5
 echo "${ECHO_T}defining FPICFLAG to be $FPICFLAG" >&6
 echo "$as_me:$LINENO: result: defining CPICFLAG to be $CPICFLAG" >&5
@@ -15169,7 +15151,6 @@ s,@EIOF_LIBS@,$EIOF_LIBS,;t t
 s,@ARPACK_LIBS@,$ARPACK_LIBS,;t t
 s,@UMFPACK_LIBS@,$UMFPACK_LIBS,;t t
 s,@MATC_LIBS@,$MATC_LIBS,;t t
-s,@ELMER_FEM_DEPENDENCIES@,$ELMER_FEM_DEPENDENCIES,;t t
 s,@FPICFLAG@,$FPICFLAG,;t t
 s,@CPICFLAG@,$CPICFLAG,;t t
 s,@CXXPICFLAG@,$CXXPICFLAG,;t t
@@ -15929,10 +15910,10 @@ Compilers:
   C++                       $CXX
 
 Libs:  
-  BLAS                      $BLAS_MSG
-  LAPACK                    $LAPACK_MSG
+  BLAS                      $BLAS_LIBS
+  LAPACK                    $LAPACK_LIBS
   UMFPACK                   $UMFPACK_LIBS
-  ARPACK		    $ARPACK_MSG
+  ARPACK		    $ARPACK_LIBS
   HUTI			    $HUTI_LIBS
   EIO			    $EIO_LIBS
 
@@ -15956,10 +15937,10 @@ Compilers:
   C++                       $CXX
 
 Libs:  
-  BLAS                      $BLAS_MSG
-  LAPACK                    $LAPACK_MSG
+  BLAS                      $BLAS_LIBS
+  LAPACK                    $LAPACK_LIBS
   UMFPACK                   $UMFPACK_LIBS
-  ARPACK		    $ARPACK_MSG
+  ARPACK		    $ARPACK_LIBS
   HUTI			    $HUTI_LIBS
   EIO			    $EIO_LIBS
 

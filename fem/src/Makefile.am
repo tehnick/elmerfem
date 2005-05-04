@@ -26,6 +26,9 @@ include make.inc
 
 SUFFIXES: .f90 .so
 
+##########################
+# Rules for building stuff
+#
 # a bit kludgy way to do the cpp, but hopefully portable enough
 .f90.@OBJEXT@:
 	@CP@ $< $*.fpp
@@ -39,22 +42,26 @@ SUFFIXES: .f90 .so
 	@F77@ @FFLAGS@ -c $*.FOR
 
 # mpi stubs and load.c
-.c.@OBJEXT@:
-	$(CC) -c -O  $<
+#.c.@OBJEXT@:
+#	$(CC) -c -O  $<
 
-# static fem lib
-# libfem$(LIB_EXT): $(OBJS)
-#	@RM@ $@
-#	@TEMPLATE_AR@ @TEMPLATE_ARFLAGS@ $@ $(OBJS) 
-#	@RANLIB@ $@
+# build seperate solvers as shared libs
+.f90.@SHLEXT@:
+	@CP@ $< $*.fpp
+	@CPP@ @FCPPFLAGS@ @CFLAGS@ $*.fpp > $*.F90
+	@FC@ @FCFLAGS@ -c $*.F90
+	@SH_LD@ @SH_LDFLAGS@ @SONAME_FLAGS@ -o $@ $*$(OBJ_EXT)  -lsolver -L. @LIBS@
 
-# Shared base lib (libs in the right place!)
-# libfem$(LIB_EXT) 
+###############################
+# libsolver.so
+#
 libsolver$(SHL_EXT): ElmerSolver$(OBJ_EXT) $(OBJS)
 	@RM@ $@
-	@SH_LD@ @SH_LDFLAGS@ @SONAME_FLAGS@ -o $@ ElmerSolver$(OBJ_EXT) $(OBJS) @LIBS@ -L. @ELMER_FEM_DEPENDENCIES@ 
+	@SH_LD@ @SH_LDFLAGS@ @SONAME_FLAGS@ -o $@ ElmerSolver$(OBJ_EXT) $(OBJS) @LIBS@ -L. 
 
+#########################
 # The executables
+#
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
 	@FC@ -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT)
 
@@ -64,13 +71,9 @@ ViewFactors$(EXE_EXT): libsolver$(SHL_EXT) ViewFactors$(OBJ_EXT)
 GebhardtFactors$(EXE_EXT): libsolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT)
 	@FC@ -lsolver -o GebhardtFactors$(EXE_EXT) -L. GebhardtFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a
 
-# build seperate solvers as shared libs
-.f90.@SHLEXT@:
-	@CP@ $< $*.fpp
-	@CPP@ @FCPPFLAGS@ @CFLAGS@ $*.fpp > $*.F90
-	@FC@ @FCFLAGS@ -c $*.F90
-	@SH_LD@ @SH_LDFLAGS@ @SONAME_FLAGS@ -o $@ $*$(OBJ_EXT)  -lsolver -L. @LIBS@
-
+################################33
+# Local installation rules
+#
 install-exec-local:
 	@echo "Installing stuff to $(prefix),@prefix@"
 	@MKDIR@ @prefix@/lib
@@ -88,6 +91,16 @@ install-exec-local:
 clean-local:
 	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so \#*
 
+####################################
+# Automake knows how to do this
+#
 bin_PROGRAMS = SC2Elmer 
 SC2Elmer_SOURCES = SC2Elmer.c
+
+
+# static fem lib
+# libfem$(LIB_EXT): $(OBJS)
+#	@RM@ $@
+#	@TEMPLATE_AR@ @TEMPLATE_ARFLAGS@ $@ $(OBJS) 
+#	@RANLIB@ $@
 

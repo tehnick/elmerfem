@@ -121,33 +121,12 @@ ACX_ARPACK([], [AC_MSG_WARN([Using local ARPACK])])
 ACX_UMFPACK([], [AC_MSG_ERROR([libumfpack $ELMER_LIBERRORMSG])])
 ACX_MATC([], [AC_MSG_ERROR([libmatc $ELMER_LIBERRORMSG])])
 
-LIBS="$BLAS_LIBS $LAPACK_LIBS $ARPACK_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $MATC_LIBS $LIBS $FCLIBS $FLIBS"
-
-dnl
-dnl Actually, at the moment, only arpack can be built locally...
-dnl
-ELMER_FEM_DEPENDENCIES=
+dnl see if arpack has to be built locally
 if test x"$acx_arpack_ok" = xno; then
-   ELMER_FEM_DEPENDENCIES="$ELMER_FEM_DEPENDENCIES arpack/libarpack.a"
-   ARPACK_MSG="*internal*"
-else		
-   ARPACK_MSG=$ARPACK_LIBS
+   ARPACK_LIBS="arpack/libarpack.a"
 fi
 
-if test x"$acx_blas_ok" = xno; then
-   ELMER_FEM_DEPENDENCIES="$ELMER_FEM_DEPENDENCIES blas/libblas.a"
-   BLAS_MSG="*internal*"
-else
-   BLAS_MSG=$BLAS_LIBS
-fi
 
-if test x"$acx_lapack_ok" = xno; then
-   ELMER_FEM_DEPENDENCIES="$ELMER_FEM_DEPENDENCIES lapack/liblapack.a"
-   LAPACK_MSG="*internal*"
-else
-   LAPACK_MSG=$LAPACK_LIBS
-fi
-AC_SUBST(ELMER_FEM_DEPENDENCIES)
 
 dnl  
 dnl OS-specific stuff that hasn't been (or can't be) done in a clean way.
@@ -425,6 +404,8 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
   AC_DEFINE_UNQUOTED(SHL_EXTENSION, ".$SHLEXT",[Shared lib filename extension])
 fi
 
+LIBS="$ARPACK_LIBS $LAPACK_LIBS $BLAS_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $MATC_LIBS $LIBS $FCLIBS $FLIBS"
+
 AC_MSG_RESULT([defining FPICFLAG to be $FPICFLAG])
 AC_MSG_RESULT([defining CPICFLAG to be $CPICFLAG])
 AC_MSG_RESULT([defining CXXPICFLAG to be $CXXPICFLAG])
@@ -508,10 +489,10 @@ Compilers:
   C++                       $CXX
 
 Libs:  
-  BLAS                      $BLAS_MSG
-  LAPACK                    $LAPACK_MSG
+  BLAS                      $BLAS_LIBS
+  LAPACK                    $LAPACK_LIBS
   UMFPACK                   $UMFPACK_LIBS
-  ARPACK		    $ARPACK_MSG
+  ARPACK		    $ARPACK_LIBS
   HUTI			    $HUTI_LIBS
   EIO			    $EIO_LIBS
 
