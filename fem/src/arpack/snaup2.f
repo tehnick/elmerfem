@@ -227,7 +227,7 @@ c     | Local array arguments |
 c     %-----------------------%
 c
       integer    kp(4)
-      save
+c     save
 c
 c     %----------------------%
 c     | External Subroutines |

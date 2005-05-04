@@ -133,7 +133,6 @@ CONTAINS
           DO j = 1,3
              GradDisplacement(i,j) = SUM( dBasisdx(1:n,j) * LocalDisplacement(i,1:n) )
              GradPropagationShape(i,j) = SUM( dBasisdx(1:n,j) * LocalPropagationShape(i,1:n) )
-
           END DO
        END DO
        

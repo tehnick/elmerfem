@@ -35,6 +35,9 @@
 ! *
 ! *
 ! * $Log: ElementDescription.f90,v $
+! * Revision 1.87  2005/04/21 06:44:44  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.86  2005/04/19 08:53:46  jpr
 ! * Renamed module LUDecomposition as LinearAlgebra.
 ! *
@@ -68,7 +71,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: ElementDescription.f90,v 1.86 2005/04/19 08:53:46 jpr Exp $
+! * $Id: ElementDescription.f90,v 1.87 2005/04/21 06:44:44 jpr Exp $
 ! ******************************************************************************/
 
 MODULE ElementDescription
@@ -2073,8 +2076,8 @@ DLLEXPORT ElementInfo
            DO i=1, Element % BDOFs
               q = q + 1
               IF (q > SIZE(Basis)) THEN
-                 WRITE (*,*) 'Not enough space reserved for line p basis'
-                 STOP
+!                WRITE (*,*) 'Not enough space reserved for line p basis'
+                 CYCLE
               END IF
               
               Basis(q) = LineBubblePBasis(i+1,u,invert)
@@ -2108,7 +2111,7 @@ DLLEXPORT ElementInfo
               DO k=1,Edge % BDOFs
                  q = q + 1
                  IF (q > SIZE(Basis)) THEN
-                    WRITE (*,*) 'Not enough space reserved for edge p basis'
+!                   WRITE (*,*) 'Not enough space reserved for edge p basis'
                     CYCLE
                  END IF
                  
@@ -2144,7 +2147,7 @@ DLLEXPORT ElementInfo
                  q = q + 1
                  
                  IF ( q > SIZE(Basis)  ) THEN
-                    WRITE (*,*) 'Not enough space reserved for triangle bubble p basis'
+!                   WRITE (*,*) 'Not enough space reserved for triangle bubble p basis'
                     CYCLE
                  END IF
 
@@ -2188,7 +2191,7 @@ DLLEXPORT ElementInfo
               DO k=1,Edge % BDOFs
                  q = q + 1
                  IF ( q > SIZE(Basis)  ) THEN
-                    WRITE (*,*) 'Not enough space reserved for edge p basis'
+!                   WRITE (*,*) 'Not enough space reserved for edge p basis'
                     CYCLE
                  END IF
 
@@ -2232,7 +2235,7 @@ DLLEXPORT ElementInfo
               DO j=2,(p-i)
                  q = q + 1
                  IF ( q > SIZE(Basis) .OR. q > SIZE(dBasisdx,1) ) THEN
-                    WRITE (*,*) 'Not enough space reserved for bubble p basis'
+!                   WRITE (*,*) 'Not enough space reserved for bubble p basis'
                     CYCLE
                  END IF
                  
@@ -2271,7 +2274,7 @@ DLLEXPORT ElementInfo
               DO k=1, Edge % BDOFs
                  q = q + 1
                  IF (q > SIZE(Basis)) THEN 
-                    WRITE (*,*) 'Not enough space reserved for tetra edge p basis'
+!                   WRITE (*,*) 'Not enough space reserved for tetra edge p basis'
                     CYCLE
                  END IF
 
@@ -2305,7 +2308,7 @@ DLLEXPORT ElementInfo
                     q = q + 1 
                     
                     IF (q > SIZE(Basis)) THEN 
-                       WRITE (*,*) 'Not enough space reserved for tetra face p basis'
+!                      WRITE (*,*) 'Not enough space reserved for tetra face p basis'
                        CYCLE
                     END IF
                     
@@ -2337,7 +2340,7 @@ DLLEXPORT ElementInfo
                     q = q + 1
                     
                     IF (q > SIZE(Basis)) THEN
-                       WRITE (*,*) 'Not enough space reserved for tetra face p basis'
+!                      WRITE (*,*) 'Not enough space reserved for tetra face p basis'
                        CYCLE
                     END IF
 
@@ -2380,7 +2383,7 @@ DLLEXPORT ElementInfo
               DO k=1,Edge % BDOFs
                  q = q + 1
                  IF ( q > SIZE(Basis)  ) THEN
-                    WRITE (*,*) 'Not enough space reserved for pyramid edge p basis'
+!                   WRITE (*,*) 'Not enough space reserved for pyramid edge p basis'
                     CYCLE
                  END IF
 
@@ -2422,7 +2425,7 @@ DLLEXPORT ElementInfo
                        q = q + 1
                        
                        IF ( q > SIZE(Basis)  ) THEN
-                          WRITE (*,*) 'Not enough space reserved for pyramid face p basis'
+!                         WRITE (*,*) 'Not enough space reserved for pyramid face p basis'
                           CYCLE
                        END IF
                        
@@ -2448,7 +2451,7 @@ DLLEXPORT ElementInfo
                        q = q + 1
                        
                        IF ( q > SIZE(Basis)  ) THEN
-                          WRITE (*,*) 'Not enough space reserved for pyramid face p basis'
+!                         WRITE (*,*) 'Not enough space reserved for pyramid face p basis'
                           CYCLE
                        END IF
 
@@ -2480,7 +2483,7 @@ DLLEXPORT ElementInfo
                     q = q + 1
                     
                     IF ( q > SIZE(Basis)) THEN
-                       WRITE (*,*) 'Not enough space reserved for pyramid bubble p basis'
+!                      WRITE (*,*) 'Not enough space reserved for pyramid bubble p basis'
                        CYCLE
                     END IF
 
@@ -2522,7 +2525,7 @@ DLLEXPORT ElementInfo
               DO k=1,Edge % BDOFs
                  q = q + 1
                  IF ( q > SIZE(Basis)  ) THEN
-                    WRITE (*,*) 'Not enough space reserved for wedge edge p basis'
+!                   WRITE (*,*) 'Not enough space reserved for wedge edge p basis'
                     CYCLE
                  END IF
 
@@ -2569,7 +2572,7 @@ DLLEXPORT ElementInfo
                        q = q + 1
                        
                        IF ( q > SIZE(Basis)  ) THEN
-                          WRITE (*,*) 'Not enough space reserved for wedge face p basis'
+!                         WRITE (*,*) 'Not enough space reserved for wedge face p basis'
                           CYCLE
                        END IF
 
@@ -2603,7 +2606,7 @@ DLLEXPORT ElementInfo
                        q = q + 1
                        
                        IF ( q > SIZE(Basis)  ) THEN
-                          WRITE (*,*) 'Not enough space reserved for wedge face p basis'
+!                         WRITE (*,*) 'Not enough space reserved for wedge face p basis'
                           CYCLE
                        END IF
 
@@ -2640,7 +2643,7 @@ DLLEXPORT ElementInfo
                  DO k=2,p-3-i-j
                     q = q + 1
                     IF ( q > SIZE(Basis)  ) THEN
-                       WRITE (*,*) 'Not enough space reserved for wedge bubble p basis'
+!                      WRITE (*,*) 'Not enough space reserved for wedge bubble p basis'
                        CYCLE
                     END IF
 
@@ -2683,7 +2686,7 @@ DLLEXPORT ElementInfo
               DO k=1,Edge % BDOFs
                  q = q + 1
                  IF ( q > SIZE(Basis)  ) THEN
-                    WRITE (*,*) 'Not enough space reserved for brick edge p basis'
+!                   WRITE (*,*) 'Not enough space reserved for brick edge p basis'
                     CYCLE
                  END IF
 
@@ -2760,7 +2763,7 @@ DLLEXPORT ElementInfo
                  DO k=2,p-i-j
                     q = q + 1
                     IF ( q > SIZE(Basis)  ) THEN
-                       WRITE (*,*) 'Not enough space reserved for brick bubble p basis'
+!                      WRITE (*,*) 'Not enough space reserved for brick bubble p basis'
                        CYCLE
                     END IF
 
@@ -4676,9 +4679,9 @@ DLLEXPORT  GlobalToLocal
     n = Element % Type % NumberOfNodes
 
     ! @todo Not supported yet
-    IF (ASSOCIATED(Element % PDefs)) THEN
-       CALL Fatal('GlobalToLocal','P elements not supported yet!')
-    END IF
+!   IF (ASSOCIATED(Element % PDefs)) THEN
+!      CALL Fatal('GlobalToLocal','P elements not supported yet!')
+!   END IF
 
 !------------------------------------------------------------------------------
     DO i=1,Maxiter

@@ -96,7 +96,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       NoDims, NoDofs, NoOper, NoElements, NoVar, DIM, MaxVars, NoEigenValues, Ind
   REAL (KIND=DP) :: CPUTime, CPUMemory, MINVAL, MAXVAL
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.f90,v 1.112 2005/04/19 09:13:29 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.f90,v 1.113 2005/04/21 06:44:46 jpr Exp $"
 
   SAVE SubroutineVisited, NumberOfVars, MaxNo, &
       NoPoints, PointIndex, CoordinateIndex, CoordinateDist, ResultPrefix, &
@@ -711,7 +711,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     OPEN (10,FILE=ScalarsFile)
   END IF
   DO No=1,MaxNo
-    WRITE (10,'(ES17.8E3)',advance='no') Values(No)
+    WRITE (10,'(ES20.12E3)',advance='no') Values(No)
   END DO
   WRITE(10,'(A)') ' '
   CLOSE(10)
@@ -1850,7 +1850,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t), POINTER   :: CurrentElement, NextElement
   CHARACTER(LEN=MAX_NAME_LEN) :: SideFile, SideNamesFile, VarName, CondName
   CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: ValueNames(:)
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.f90,v 1.112 2005/04/19 09:13:29 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.f90,v 1.113 2005/04/21 06:44:46 jpr Exp $"
 
   LOGICAL :: cand
 

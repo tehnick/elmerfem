@@ -1,5 +1,3 @@
-#include "../config.h"
-#ifndef HAVE_MPI
 !
 !  
 !  (C) 1993 by Argonne National Laboratory and Mississipi State University.
@@ -61,8 +59,9 @@
       PARAMETER(MPI_SOURCE=2, MPI_TAG=3, MPI_ERROR=4)
       INTEGER MPI_STATUS_SIZE
       PARAMETER (MPI_STATUS_SIZE=4)
-      INTEGER MPI_MAX_PROCESSOR_NAME, MPI_MAX_ERROR_STRING
+      INTEGER MPI_MAX_PROCESSOR_NAME
       PARAMETER (MPI_MAX_PROCESSOR_NAME=256)
+      INTEGER MPI_MAX_ERROR_STRING
       PARAMETER (MPI_MAX_ERROR_STRING=512)
       INTEGER MPI_MAX_NAME_STRING
       PARAMETER (MPI_MAX_NAME_STRING=63)
@@ -218,7 +217,7 @@
 !
       SAVE /MPIPRIV/
 ! 
-!     $Id: mpif.h,v 1.1.1.1 2005/04/21 13:29:02 vierinen Exp $    
+!     $Id: mpif.h,v 1.2 2005/04/22 12:53:19 vierinen Exp $    
 ! 
 !     Copyright (C) 1997 University of Chicago. 
 !     See COPYRIGHT notice in top-level directory.
@@ -263,4 +262,4 @@
 !
 !
 !
-#endif
+

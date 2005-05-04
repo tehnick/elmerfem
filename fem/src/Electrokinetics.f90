@@ -407,7 +407,7 @@ END FUNCTION helmholtz_smoluchowski_comp
 ! **********************************************************************************************
 !----------------------------------------------------------------------------------
 FUNCTION helmholtz_smoluchowski( Model, NodeNumber, dummyargument) RESULT(hs_velocity)
-!DEC$ATTRIBUTES DLLEXPORT helmholtz_smoluchowski
+!DEC$ATTRIBUTES DLLEXPORT :: helmholtz_smoluchowski
   USE DefUtils
   IMPLICIT NONE
 ! external variables

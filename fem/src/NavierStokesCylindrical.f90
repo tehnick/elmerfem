@@ -346,7 +346,7 @@ DLLEXPORT NavierStokesCylindricalCompose
 !------------------------------------------------------------------------------
       Viscosity = SUM( NodalViscosity(1:n)*Basis(1:n) )
       Viscosity = EffectiveViscosity( Viscosity, Density, Ux, Uy, Uz, &
-                    Element, Nodes, n, u, v, w )
+                    Element, Nodes, n, n, u, v, w )
 
 !------------------------------------------------------------------------------
 !      Stabilization parameters Tau & Delta

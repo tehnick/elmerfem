@@ -33,6 +33,9 @@
 ! *       Date of modification:
 ! *
 ! * $Log: NavierStokes.f90,v $
+! * Revision 1.63  2005/04/21 06:44:45  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.62  2005/04/04 06:18:30  jpr
 ! * *** empty log message ***
 ! *
@@ -55,7 +58,7 @@
 ! * Added divergence form discretization of the diffusion term.
 ! *
 ! *
-! * $Id: NavierStokes.f90,v 1.62 2005/04/04 06:18:30 jpr Exp $
+! * $Id: NavierStokes.f90,v 1.63 2005/04/21 06:44:45 jpr Exp $
 ! *****************************************************************************/
 
 MODULE NavierStokes
@@ -329,7 +332,7 @@ DLLEXPORT NavierStokesCompose
 !------------------------------------------------------------------------------
       Viscosity = SUM( NodalViscosity(1:n) * Basis(1:n) )
       Viscosity = EffectiveViscosity( Viscosity, Density, Ux, Uy, Uz, &
-                 Element, Nodes, n, u, v, w )
+                 Element, Nodes, n, n, u, v, w )
 
 
       IF ( Stabilize ) THEN
@@ -762,7 +765,7 @@ DLLEXPORT NavierStokesBoundary
 
        Viscosity = SUM( NodalViscosity(1:pn) * PBasis )
        Viscosity = EffectiveViscosity( Viscosity,  Density, Ux, Uy, Uz, &
-            Parent,ParentNodes,pn,ParentU,ParentV,ParentW )
+            Parent,ParentNodes,pn,pn,ParentU,ParentV,ParentW )
  
        dVelodx = 0.0d0
        DO i=1,3

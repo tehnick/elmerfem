@@ -307,14 +307,12 @@ MODULE MEMUtilities
           END IF        
         END DO
 
-!#if 0        
 !        DO i=1,n
 !          IF(ElemAperture(i) < 0.0) THEN
 !            ElemAmplitude(1,i) = -ElemAmplitude(1,i) 
 !            ElemAperture(i) = -ElemAperture(i)
 !          END IF
 !        END DO
-!#endif
 
       END IF
     END IF

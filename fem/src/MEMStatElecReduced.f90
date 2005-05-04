@@ -132,7 +132,7 @@ SUBROUTINE StatElecReduced( Model,Solver,dt,TransientSimulation )
   REAL (KIND=dp) ::  Values(MaxNoValues) 
   CHARACTER(LEN=MAX_NAME_LEN) :: ValueNames(MaxNoValues), ValueUnits(MaxNoValues)
   LOGICAL :: ValueSaveLocal(MaxNoValues),ValueSaveRes(MaxNoValues)
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: MEMStatElecReduced.f90,v 1.12 2005/04/04 06:18:29 jpr Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: MEMStatElecReduced.f90,v 1.13 2005/04/27 12:23:16 raback Exp $"
 
   
   SAVE ElementNodes, AllocationsDone, Field, Force, Energy, Spring, &
@@ -886,9 +886,8 @@ SUBROUTINE StatElecReduced( Model,Solver,dt,TransientSimulation )
     NoValues = 0
     IF(pos > 0) CALL AddToSaveList('Position',Zpos,'(m)',.TRUE.,.FALSE.)
     CALL AddToSaveList('Critical amplitude',Zcritical,'(m)',.FALSE.,.FALSE.)
-!#if 0
+
 !    IF(GotElasticSpring == 2) CALL AddToSaveList('Elastic Spring',ElasticSpring,'(N/m)',.TRUE.,.TRUE.)      
-!#endif
 
     IF(StaticPressure) THEN
       CALL AddToSaveList('Int Pressure',dPressure,'(Pa)')

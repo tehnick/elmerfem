@@ -2009,7 +2009,7 @@ DLLEXPORT LoadRestartFile
                Var % Perm(j) = k
                IF ( k > 0 ) Var % Values(k) = value
             ELSE IF ( Var % Perm(j)>0 ) THEN
-               IF ( k>0 ) Var % Values(Var % Perm(j)) = value
+               IF ( k > 0 ) Var % Values(Var % Perm(j)) = value
             END IF
           END DO
         END IF

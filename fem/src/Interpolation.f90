@@ -313,15 +313,16 @@ MODULE Interpolation
 ! Model is automatically available (internal subroutine)
 !-------------------------------------------------------------------------------
     TYPE(Quadrant_t), POINTER :: MotherQuadrant
-    INTEGER :: i, dim
+    INTEGER :: i, dim, n
     TYPE(QuadrantPointer_t) :: ChildQuadrant(8)
     REAL(KIND=dp) :: XMin, XMax, YMin, YMax, ZMin, ZMax
 
 !-------------------------------------------------------------------------------
 ! Create 2**dim child quadrants
 !-------------------------------------------------------------------------------
-    ALLOCATE ( MotherQuadrant % ChildQuadrants(2**dim) )
-    DO i=1, 2**dim
+    n = 2**dim
+    ALLOCATE ( MotherQuadrant % ChildQuadrants(n) )
+    DO i=1, n
        ALLOCATE( MotherQuadrant % ChildQuadrants(i) % Quadrant )
        ChildQuadrant(i) % Quadrant => &
             MotherQuadrant % ChildQuadrants(i) % Quadrant
@@ -378,7 +379,7 @@ MODULE Interpolation
 !-------------------------------------------------------------------------------
 ! Check whether we need to branch for the next level
 !-------------------------------------------------------------------------------
-    DO i=1,2**dim
+    DO i=1,n
        ChildQuadrant(i) % Quadrant % Size = MotherQuadrant % Size / 2
        IF ( ChildQuadrant(i) % Quadrant % NElemsInQuadrant > MaxLeafElems ) THEN
           IF ( ChildQuadrant(i) % Quadrant % Size > &

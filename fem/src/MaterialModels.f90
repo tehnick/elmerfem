@@ -175,7 +175,7 @@ DLLEXPORT FrictionHeat
 
 !------------------------------------------------------------------------------
    FUNCTION EffectiveViscosity( Viscosity,Density,Ux,Uy,Uz,Element, &
-                      Nodes,n,u,v,w ) RESULT(PVisc)
+                      Nodes,n,nd,u,v,w ) RESULT(PVisc)
 DLLEXPORT EffectiveViscosity
 !------------------------------------------------------------------------------
 
@@ -183,11 +183,11 @@ DLLEXPORT EffectiveViscosity
 
      REAL(KIND=dp)  :: Viscosity,Density,u,v,w,PVisc,Ux(:),Uy(:),Uz(:)
      TYPE(Nodes_t)  :: Nodes
-     INTEGER :: n
+     INTEGER :: n,nd
      TYPE(Element_t),POINTER :: Element
 
 !------------------------------------------------------------------------------
-     REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(1,1,1)
+     REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3),ddBasisddx(1,1,1)
      REAL(KIND=dp) :: ss,s,SqrtMetric,SqrtElementMetric,Velo(3)
      REAL(KIND=dp) :: Metric(3,3), dVelodx(3,3), CtrMetric(3,3), &
                       Symb(3,3,3), dSymb(3,3,3,3)
@@ -213,14 +213,14 @@ DLLEXPORT EffectiveViscosity
      CHARACTER(LEN=MAX_NAME_LEN) :: str
 
      INTERFACE
-       FUNCTION MaterialUserFunction( Proc,Model,Element,Nodes,n, &
+       FUNCTION MaterialUserFunction( Proc,Model,Element,Nodes,n,nd, &
           Basis,dBasisdx,Viscosity,Velo, dVelodx ) RESULT(s)
        USE Types
        INTEGER(KIND=AddrInt) :: Proc
        TYPE(Model_t) :: Model
        TYPE(Nodes_t) :: Nodes
        TYPE(Element_t), POINTER :: Element
-       INTEGER :: n
+       INTEGER :: n,nd
        REAL(KIND=dp) :: Basis(:),dBasisdx(:,:),Viscosity, &
                     Velo(:), dVelodx(:,:), s
        END FUNCTION MaterialUserFunction
@@ -250,14 +250,14 @@ DLLEXPORT EffectiveViscosity
      CALL CoordinateSystemInfo( Metric,SqrtMetric,Symb,dSymb,x,y,z )
 !------------------------------------------------------------------------------
      DO j=1,3
-       dVelodx(1,j) = SUM( Ux(1:n)*dBasisdx(1:n,j) )
-       dVelodx(2,j) = SUM( Uy(1:n)*dBasisdx(1:n,j) )
-       dVelodx(3,j) = SUM( Uz(1:n)*dBasisdx(1:n,j) )
+       dVelodx(1,j) = SUM( Ux(1:nd)*dBasisdx(1:nd,j) )
+       dVelodx(2,j) = SUM( Uy(1:nd)*dBasisdx(1:nd,j) )
+       dVelodx(3,j) = SUM( Uz(1:nd)*dBasisdx(1:nd,j) )
      END DO
      
-     Velo(1) = SUM( Basis * Ux(1:n) )
-     Velo(2) = SUM( Basis * Uy(1:n) )
-     Velo(3) = SUM( Basis * Uz(1:n) )
+     Velo(1) = SUM( Basis(1:nd) * Ux(1:nd) )
+     Velo(2) = SUM( Basis(1:nd) * Uy(1:nd) )
+     Velo(3) = SUM( Basis(1:nd) * Uz(1:nd) )
      
      ss = SecondInvariant( Velo,dVelodx,Metric,Symb ) / 2
 
@@ -387,7 +387,7 @@ DLLEXPORT EffectiveViscosity
        CASE( 'user function' )
          str = ListGetString( Material, 'Viscosity Function' )
          Fnc = GetProcAddr( str, Quiet=.TRUE. )
-         PVisc = MaterialUserFunction( Fnc, CurrentModel, Element, Nodes, n, &
+         PVisc = MaterialUserFunction( Fnc, CurrentModel, Element, Nodes, n, nd, &
                 Basis, dBasisdx, Viscosity, Velo, dVelodx )
        
      CASE DEFAULT 
@@ -459,7 +459,7 @@ DLLEXPORT KEPhi
 
 !------------------------------------------------------------------------------
    FUNCTION EffectiveConductivity( Conductivity,Density,Element, &
-        Temperature,Ux,Uy,Uz,Nodes,n,u,v,w ) RESULT(PCond)
+        Temperature,Ux,Uy,Uz,Nodes,n,nd,u,v,w ) RESULT(PCond)
 DLLEXPORT EffectiveConductivity
 !------------------------------------------------------------------------------
      USE ModelDescription
@@ -467,24 +467,24 @@ DLLEXPORT EffectiveConductivity
      REAL(KIND=dp)  :: Conductivity,Density,u,v,w,PCond, &
               Ux(:),Uy(:),Uz(:), Temperature(:)
      TYPE(Nodes_t)  :: Nodes
-     INTEGER :: n
+     INTEGER :: n,nd
      TYPE(Element_t),POINTER :: Element
 
      INTERFACE
-       FUNCTION MaterialUserFunction( Proc,Model,Element,Nodes,n, &
+       FUNCTION MaterialUserFunction( Proc,Model,Element,Nodes,n,nd, &
           Basis,dBasisdx,Conductivity,Temp, dTempdx ) RESULT(s)
        USE Types
        INTEGER(KIND=AddrInt) :: Proc
        TYPE(Model_t) :: Model
        TYPE(Nodes_t) :: Nodes
        TYPE(Element_t), POINTER :: Element
-       INTEGER :: n
+       INTEGER :: n,nd
        REAL(KIND=dp) :: Basis(:),dBasisdx(:,:),Conductivity, &
                     Temp(:), dTempdx(:,:), s
        END FUNCTION MaterialUserFunction
      END INTERFACE
 !------------------------------------------------------------------------------
-     REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(1,1,1)
+     REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3),ddBasisddx(1,1,1)
      REAL(KIND=dp) :: ss,s,SqrtMetric,SqrtElementMetric,Velo(3)
      REAL(KIND=dp) :: Metric(3,3), dVelodx(3,3), CtrMetric(3,3), &
                       Symb(3,3,3), dSymb(3,3,3,3)
@@ -525,23 +525,23 @@ DLLEXPORT EffectiveConductivity
 !------------------------------------------------------------------------------
 !   Coordinate system dependent information
 !------------------------------------------------------------------------------
-     x = SUM( Nodes % x(1:n) * Basis )
-     y = SUM( Nodes % y(1:n) * Basis )
-     z = SUM( Nodes % z(1:n) * Basis )
+     x = SUM( Nodes % x(1:n) * Basis(1:n) )
+     y = SUM( Nodes % y(1:n) * Basis(1:n) )
+     z = SUM( Nodes % z(1:n) * Basis(1:n) )
      CALL CoordinateSystemInfo( Metric,SqrtMetric,Symb,dSymb,x,y,z )
 !------------------------------------------------------------------------------
      DO j=1,3
-       dVelodx(1,j) = SUM( Ux(1:n)*dBasisdx(1:n,j) )
-       dVelodx(2,j) = SUM( Uy(1:n)*dBasisdx(1:n,j) )
-       dVelodx(3,j) = SUM( Uz(1:n)*dBasisdx(1:n,j) )
-       dTempdx(j,1) = SUM( Temperature(1:n) * dBasisdx(1:n,j) )
+       dVelodx(1,j) = SUM( Ux(1:nd)*dBasisdx(1:nd,j) )
+       dVelodx(2,j) = SUM( Uy(1:nd)*dBasisdx(1:nd,j) )
+       dVelodx(3,j) = SUM( Uz(1:nd)*dBasisdx(1:nd,j) )
+       dTempdx(j,1) = SUM( Temperature(1:nd) * dBasisdx(1:nd,j) )
      END DO
      
-     Velo(1) = SUM( Basis * Ux(1:n) )
-     Velo(2) = SUM( Basis * Uy(1:n) )
-     Velo(3) = SUM( Basis * Uz(1:n) )
+     Velo(1) = SUM( Basis(1:nd) * Ux(1:nd) )
+     Velo(2) = SUM( Basis(1:nd) * Uy(1:nd) )
+     Velo(3) = SUM( Basis(1:nd) * Uz(1:nd) )
 
-     Temp(1) = SUM( Basis * Temperature(1:n) )
+     Temp(1) = SUM( Basis(1:nd) * Temperature(1:nd) )
      
      SELECT CASE( ConductivityFlag )
 
@@ -567,7 +567,7 @@ DLLEXPORT EffectiveConductivity
        CASE( 'user function' )
          str = ListGetString( Material, 'Heat Conductivity Function' )
          Fnc = GetProcAddr( str, Quiet=.TRUE. )
-         PCond = MaterialUserFunction( Fnc, CurrentModel, Element, Nodes, n, &
+         PCond = MaterialUserFunction( Fnc, CurrentModel, Element, Nodes, n, nd, &
               Basis, dBasisdx, Conductivity, Temp, dTempdx )
        
      CASE DEFAULT 

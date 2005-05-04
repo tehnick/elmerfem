@@ -199,14 +199,15 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION)
    
    fortranMangle( Name, NewName );
    strcpy( NewLibName, Library );
+   strcat( NewLibName, SHL_EXTENSION );
 
    if ( Quiet==0 ) 
-     fprintf(stdout,"Loading user function library: [%s]...[%s]", Library, NewName);
+     fprintf(stdout,"Loading user function library: [%s]...[%s]", NewLibName, NewName);
    
 #ifdef HAVE_DLOPEN_API
-   if ( ( Handle = dlopen( Library,RTLD_NOW ) ) == NULL )
+   if ( ( Handle = dlopen( NewLibName , RTLD_NOW ) ) == NULL )
    { 
-      fprintf( stderr, "Load: FATAL: Can't load shared image [%s]\n", Library );
+      fprintf( stderr, "Load: FATAL: Can't load shared image [%s]\n", NewLibName );
       fprintf( stderr, "Load: [%s]\n", dlerror() );
       exit(0);
    }

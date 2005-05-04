@@ -1,4 +1,4 @@
-SUBDIRS=blas lapack arpack
+SUBDIRS=arpack
 
 #*******************************************************************************
 # Elmer Makefile.in 
@@ -19,7 +19,8 @@ EXE_EXT=@EXEEXT@
 
 include make.bin
 
-all:	libfem$(LIB_EXT) libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES)
+# libfem$(LIB_EXT)
+all:	 libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD)
 
 include make.inc
 
@@ -29,7 +30,7 @@ SUFFIXES: .f90 .so
 .f90.o:
 	@CP@ $< $*.fpp
 	@CPP@ @FCPPFLAGS@ @CFLAGS@ $*.fpp > $*.F90
-	@FC@ @FPICFLAG@ @FCFLAGS@ -c $*.F90
+	@FC@ @FCFLAGS@ -c $*.F90
 
 # a bit kludgy way to do the cpp, but hopefully portable enough
 .f.o:
@@ -42,15 +43,16 @@ SUFFIXES: .f90 .so
 	$(CC) -c -O  $<
 
 # static fem lib
-libfem$(LIB_EXT): $(OBJS)
-	@RM@ $@
-	@TEMPLATE_AR@ @TEMPLATE_ARFLAGS@ $@ $(OBJS)
-	@RANLIB@ $@
+# libfem$(LIB_EXT): $(OBJS)
+#	@RM@ $@
+#	@TEMPLATE_AR@ @TEMPLATE_ARFLAGS@ $@ $(OBJS) 
+#	@RANLIB@ $@
 
 # Shared base lib (libs in the right place!)
-libsolver$(SHL_EXT): libfem$(LIB_EXT) ElmerSolver$(OBJ_EXT)
+# libfem$(LIB_EXT) 
+libsolver$(SHL_EXT): ElmerSolver$(OBJ_EXT) $(OBJS)
 	@RM@ $@
-	@SH_LD@ @SH_LDFLAGS@ @SONAME_FLAGS@ -o $@ ElmerSolver$(OBJ_EXT) @ELMER_FEM_DEPENDENCIES@ -lfem @LIBS@ -L.
+	@SH_LD@ @SH_LDFLAGS@ @SONAME_FLAGS@ -o $@ ElmerSolver$(OBJ_EXT) $(OBJS) @LIBS@ -L. @ELMER_FEM_DEPENDENCIES@ 
 
 # The executable
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
@@ -58,8 +60,10 @@ ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
 
 # build seperate solvers as shared libs
 .f90.@SHLEXT@:
-	@FC@ @FPICFLAG@ @FCFLAGS@ -c $*.f90
-	@SH_LD@ @SH_LDFLAGS@ @SONAME_FLAGS@ -o $@ $*$(OBJ_EXT)  -lsolver -L.
+	@CP@ $< $*.fpp
+	@CPP@ @FCPPFLAGS@ @CFLAGS@ $*.fpp > $*.F90
+	@FC@ @FCFLAGS@ -c $*.F90
+	@SH_LD@ @SH_LDFLAGS@ @SONAME_FLAGS@ -o $@ $*$(OBJ_EXT)  -lsolver -L. @LIBS@
 
 install-exec-local:
 	@echo "Installing stuff to $(prefix),@prefix@"
@@ -67,6 +71,7 @@ install-exec-local:
 	@MKDIR@ @prefix@/include
 	@MKDIR@ @prefix@/bin
 	@CP@ ElmerSolver$(EXEEXT) @prefix@/bin
+	@CP@ ElmerSolver$(EXEEXT) @prefix@/bin/Solver$(EXEEXT)
 	@CP@ *$(SHL_EXT) @prefix@/lib
 	@CP@ *.mod @prefix@/include
 	@CP@ elements.def @prefix@/lib
@@ -74,6 +79,20 @@ install-exec-local:
 
 clean-local:
 	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so \#*
+
+bin_PROGRAMS = SC2Elmer
+SC2Elmer_SOURCES = SC2Elmer.c
+
+###################
+# special cases
+#
+
+MEMReynolds$(SHL_EXT): \
+	MEMUtilities$(OBJ_EXT)
+
+MEMStatElecReduced$(SHL_EXT): \
+	MEMUtilities$(OBJ_EXT)
+
 
 ##################
 # Cellar

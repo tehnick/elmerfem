@@ -13,6 +13,9 @@
 # PARTICULAR PURPOSE.
 
 @SET_MAKE@
+
+SOURCES = $(SC2Elmer_SOURCES)
+
 srcdir = @srcdir@
 top_srcdir = @top_srcdir@
 VPATH = @srcdir@
@@ -38,6 +41,7 @@ host_triplet = @host@
 target_triplet = @target@
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(srcdir)/make.bin $(srcdir)/make.inc
+bin_PROGRAMS = SC2Elmer$(EXEEXT)
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/acx_mpi.m4 \
@@ -50,8 +54,21 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
-SOURCES =
-DIST_SOURCES =
+am__installdirs = "$(DESTDIR)$(bindir)"
+binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
+PROGRAMS = $(bin_PROGRAMS)
+am_SC2Elmer_OBJECTS = SC2Elmer.$(OBJEXT)
+SC2Elmer_OBJECTS = $(am_SC2Elmer_OBJECTS)
+SC2Elmer_LDADD = $(LDADD)
+DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
+depcomp = $(SHELL) $(top_srcdir)/depcomp
+am__depfiles_maybe = depfiles
+COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
+	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+CCLD = $(CC)
+LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
+SOURCES = $(SC2Elmer_SOURCES)
+DIST_SOURCES = $(SC2Elmer_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
 	html-recursive info-recursive install-data-recursive \
 	install-exec-recursive install-info-recursive \
@@ -212,7 +229,7 @@ target_alias = @target_alias@
 target_cpu = @target_cpu@
 target_os = @target_os@
 target_vendor = @target_vendor@
-SUBDIRS = blas lapack arpack
+SUBDIRS = arpack
 
 #*******************************************************************************
 # Elmer Makefile.in 
@@ -257,7 +274,7 @@ INPUT = ReloadInput$(SHL_EXT)
 ARTIF = ArtificialCompressibility$(SHL_EXT)
 POISSON_BEM = PoissonBEM$(SHL_EXT)
 HELMHOLTZ_BEM = HelmholtzBEM$(SHL_EXT)
-SC2ELMER = SC2Elmer$(SHL_EXT)
+SC2ELMER = SC2Elmer$(EXE_EXT)
 FREESURF = FreeSurfaceSolver$(SHL_EXT)
 SMITC = Smitc$(SHL_EXT)
 STREAM = StreamSolver$(SHL_EXT)
@@ -270,15 +287,17 @@ ELECTROKIN = Electrokinetics$(SHL_EXT)
 STRESS = StressSolve$(SHL_EXT)
 ENERGYRELEASE = EnergyRelease$(SHL_EXT)
 POISBOLTZ = PoissonBoltzmannSolve$(SHL_EXT)
-BINARIES_ODD = $(RESULT) $(POISSON_BEM) $(HELMHOLTZ_BEM) $(SC2ELMER) \
-	$(MEMREYNO) $(MEMELSTAT)
+
+# 
+BINARIES_ODD = $(RESULT) $(HELMHOLTZ_BEM) $(SC2ELMER)  \
+	$(MEMREYNO) $(MEMELSTAT) $(POISSON_BEM)
 
 BINARIES = $(ADVDIFF) $(STATMAG) $(STATELEC) $(STATCUR) $(ELASTIC) $(HELMHOLTZ)    \
 	$(ACOUSTICS) $(DH) $(IRROTVEL) $(SHEARWAVE) $(CHANGERATE) $(TRANSPORTEQ)   \
 	$(FDIFF) $(FDIFF3D) $(SAVEDATA) $(INPUT) $(FREERED) $(ARTIF) $(DCRCOMPLEX) \
 	$(RIGIDBODY) $(DIRICHLET) $(PERIODIC) $(FORCE) $(FREESURF) $(ELECFORCE)    \
 	$(SMITC) $(STREAM) $(KE) $(MEMLUMP) $(PHASECHANGE) $(POISBOLTZ) $(ELECTROKIN) \
-	$(STRESS) $(ENERGYRELEASE)
+	$(STRESS) $(ENERGYRELEASE) 
 
 OBJS = mpi_stubs$(OBJ_EXT) 				\
 		NavierStokes$(OBJ_EXT)				\
@@ -343,12 +362,15 @@ OBJS = mpi_stubs$(OBJ_EXT) 				\
 		solve_real$(OBJ_EXT)				\
 		MGPrec$(OBJ_EXT)				\
 		DefUtils$(OBJ_EXT)				\
-	        RadiationFactors$(OBJ_EXT)                      
+		LUDecomposition$(OBJ_EXT) 			\
+	        RadiationFactors$(OBJ_EXT)                      \
+		ResultToResult$(OBJ_EXT)
 
+SC2Elmer_SOURCES = SC2Elmer.c
 all: all-recursive
 
 .SUFFIXES:
-.SUFFIXES: .@SHLEXT@ .c .f .f90 .o
+.SUFFIXES: .@SHLEXT@ .c .f .f90 .o .obj
 $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am $(srcdir)/make.bin $(srcdir)/make.inc $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -378,6 +400,47 @@ $(top_srcdir)/configure:  $(am__configure_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(ACLOCAL_M4):  $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
+install-binPROGRAMS: $(bin_PROGRAMS)
+	@$(NORMAL_INSTALL)
+	test -z "$(bindir)" || $(mkdir_p) "$(DESTDIR)$(bindir)"
+	@list='$(bin_PROGRAMS)'; for p in $$list; do \
+	  p1=`echo $$p|sed 's/$(EXEEXT)$$//'`; \
+	  if test -f $$p \
+	  ; then \
+	    f=`echo "$$p1" | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'`; \
+	   echo " $(INSTALL_PROGRAM_ENV) $(binPROGRAMS_INSTALL) '$$p' '$(DESTDIR)$(bindir)/$$f'"; \
+	   $(INSTALL_PROGRAM_ENV) $(binPROGRAMS_INSTALL) "$$p" "$(DESTDIR)$(bindir)/$$f" || exit 1; \
+	  else :; fi; \
+	done
+
+uninstall-binPROGRAMS:
+	@$(NORMAL_UNINSTALL)
+	@list='$(bin_PROGRAMS)'; for p in $$list; do \
+	  f=`echo "$$p" | sed 's,^.*/,,;s/$(EXEEXT)$$//;$(transform);s/$$/$(EXEEXT)/'`; \
+	  echo " rm -f '$(DESTDIR)$(bindir)/$$f'"; \
+	  rm -f "$(DESTDIR)$(bindir)/$$f"; \
+	done
+
+clean-binPROGRAMS:
+	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
+SC2Elmer$(EXEEXT): $(SC2Elmer_OBJECTS) $(SC2Elmer_DEPENDENCIES) 
+	@rm -f SC2Elmer$(EXEEXT)
+	$(LINK) $(SC2Elmer_LDFLAGS) $(SC2Elmer_OBJECTS) $(SC2Elmer_LDADD) $(LIBS)
+
+mostlyclean-compile:
+	-rm -f *.$(OBJEXT)
+
+distclean-compile:
+	-rm -f *.tab.c
+
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/SC2Elmer.Po@am__quote@
+
+.c.obj:
+@am__fastdepCC_TRUE@	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ `$(CYGPATH_W) '$<'`; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/$*.Tpo" "$(DEPDIR)/$*.Po"; else rm -f "$(DEPDIR)/$*.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(COMPILE) -c `$(CYGPATH_W) '$<'`
 uninstall-info-am:
 
 # This directory's subdirectories are mostly independent; you can cd
@@ -556,9 +619,12 @@ distdir: $(DISTFILES)
 	done
 check-am: all-am
 check: check-recursive
-all-am: Makefile
+all-am: Makefile $(PROGRAMS)
 installdirs: installdirs-recursive
 installdirs-am:
+	for dir in "$(DESTDIR)$(bindir)"; do \
+	  test -z "$$dir" || $(mkdir_p) "$$dir"; \
+	done
 install: install-recursive
 install-exec: install-exec-recursive
 install-data: install-data-recursive
@@ -585,11 +651,13 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-recursive
 
-clean-am: clean-generic clean-local mostlyclean-am
+clean-am: clean-binPROGRAMS clean-generic clean-local mostlyclean-am
 
 distclean: distclean-recursive
+	-rm -rf ./$(DEPDIR)
 	-rm -f Makefile
-distclean-am: clean-am distclean-generic distclean-tags
+distclean-am: clean-am distclean-compile distclean-generic \
+	distclean-tags
 
 dvi: dvi-recursive
 
@@ -603,7 +671,7 @@ info-am:
 
 install-data-am:
 
-install-exec-am: install-exec-local
+install-exec-am: install-binPROGRAMS install-exec-local
 
 install-info: install-info-recursive
 
@@ -612,12 +680,13 @@ install-man:
 installcheck-am:
 
 maintainer-clean: maintainer-clean-recursive
+	-rm -rf ./$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
 mostlyclean: mostlyclean-recursive
 
-mostlyclean-am: mostlyclean-generic
+mostlyclean-am: mostlyclean-compile mostlyclean-generic
 
 pdf: pdf-recursive
 
@@ -627,25 +696,28 @@ ps: ps-recursive
 
 ps-am:
 
-uninstall-am: uninstall-info-am
+uninstall-am: uninstall-binPROGRAMS uninstall-info-am
 
 uninstall-info: uninstall-info-recursive
 
 .PHONY: $(RECURSIVE_TARGETS) CTAGS GTAGS all all-am check check-am \
-	clean clean-generic clean-local clean-recursive ctags \
-	ctags-recursive distclean distclean-generic \
-	distclean-recursive distclean-tags distdir dvi dvi-am html \
-	html-am info info-am install install-am install-data \
+	clean clean-binPROGRAMS clean-generic clean-local \
+	clean-recursive ctags ctags-recursive distclean \
+	distclean-compile distclean-generic distclean-recursive \
+	distclean-tags distdir dvi dvi-am html html-am info info-am \
+	install install-am install-binPROGRAMS install-data \
 	install-data-am install-exec install-exec-am \
 	install-exec-local install-info install-info-am install-man \
 	install-strip installcheck installcheck-am installdirs \
 	installdirs-am maintainer-clean maintainer-clean-generic \
-	maintainer-clean-recursive mostlyclean mostlyclean-generic \
-	mostlyclean-recursive pdf pdf-am ps ps-am tags tags-recursive \
-	uninstall uninstall-am uninstall-info-am
+	maintainer-clean-recursive mostlyclean mostlyclean-compile \
+	mostlyclean-generic mostlyclean-recursive pdf pdf-am ps ps-am \
+	tags tags-recursive uninstall uninstall-am \
+	uninstall-binPROGRAMS uninstall-info-am
 
 
-all:	libfem$(LIB_EXT) libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES)
+# libfem$(LIB_EXT)
+all:	 libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD)
 
 #
 #
@@ -667,6 +739,9 @@ ElementDescription$(OBJ_EXT):			\
 PElementBase$(OBJ_EXT):				\
 	Types$(OBJ_EXT)				\
 	PElementMaps$(OBJ_EXT)			
+
+LUDecomposition$(OBJ_EXT):  			\
+	Types$(OBJ_EXT)
 
 Integration$(OBJ_EXT):				\
 	Types$(OBJ_EXT)
@@ -964,13 +1039,28 @@ SParIterComm$(OBJ_EXT):				\
 	CRSMatrix$(OBJ_EXT)			\
 	SParIterGlobals$(OBJ_EXT)
 
+ResultToResult$(OBJ_EXT): 			\
+	SParIterComm$(OBJ_EXT)			\
+	Types$(OBJ_EXT) \
+	Lists$(OBJ_EXT) \
+	Integration$(OBJ_EXT) \
+	Interpolation$(OBJ_EXT) \
+	MainUtils$(OBJ_EXT) \
+	CoordinateSystems$(OBJ_EXT) 
+
+MEMReynolds$(SHL_EXT): \
+	MEMUtilities$(OBJ_EXT)
+
+MEMStatElecReduced$(SHL_EXT): \
+	MEMUtilities$(OBJ_EXT)
+
 SUFFIXES: .f90 .so
 
 # a bit kludgy way to do the cpp, but hopefully portable enough
 .f90.o:
 	@CP@ $< $*.fpp
 	@CPP@ @FCPPFLAGS@ @CFLAGS@ $*.fpp > $*.F90
-	@FC@ @FPICFLAG@ @FCFLAGS@ -c $*.F90
+	@FC@ @FCFLAGS@ -c $*.F90
 
 # a bit kludgy way to do the cpp, but hopefully portable enough
 .f.o:
@@ -983,15 +1073,16 @@ SUFFIXES: .f90 .so
 	$(CC) -c -O  $<
 
 # static fem lib
-libfem$(LIB_EXT): $(OBJS)
-	@RM@ $@
-	@TEMPLATE_AR@ @TEMPLATE_ARFLAGS@ $@ $(OBJS)
-	@RANLIB@ $@
+# libfem$(LIB_EXT): $(OBJS)
+#	@RM@ $@
+#	@TEMPLATE_AR@ @TEMPLATE_ARFLAGS@ $@ $(OBJS) 
+#	@RANLIB@ $@
 
 # Shared base lib (libs in the right place!)
-libsolver$(SHL_EXT): libfem$(LIB_EXT) ElmerSolver$(OBJ_EXT)
+# libfem$(LIB_EXT) 
+libsolver$(SHL_EXT): ElmerSolver$(OBJ_EXT) $(OBJS)
 	@RM@ $@
-	@SH_LD@ @SH_LDFLAGS@ @SONAME_FLAGS@ -o $@ ElmerSolver$(OBJ_EXT) @ELMER_FEM_DEPENDENCIES@ -lfem @LIBS@ -L.
+	@SH_LD@ @SH_LDFLAGS@ @SONAME_FLAGS@ -o $@ ElmerSolver$(OBJ_EXT) $(OBJS) @LIBS@ -L. @ELMER_FEM_DEPENDENCIES@ 
 
 # The executable
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
@@ -999,8 +1090,10 @@ ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
 
 # build seperate solvers as shared libs
 .f90.@SHLEXT@:
-	@FC@ @FPICFLAG@ @FCFLAGS@ -c $*.f90
-	@SH_LD@ @SH_LDFLAGS@ @SONAME_FLAGS@ -o $@ $*$(OBJ_EXT)  -lsolver -L.
+	@CP@ $< $*.fpp
+	@CPP@ @FCPPFLAGS@ @CFLAGS@ $*.fpp > $*.F90
+	@FC@ @FCFLAGS@ -c $*.F90
+	@SH_LD@ @SH_LDFLAGS@ @SONAME_FLAGS@ -o $@ $*$(OBJ_EXT)  -lsolver -L. @LIBS@
 
 install-exec-local:
 	@echo "Installing stuff to $(prefix),@prefix@"
@@ -1008,6 +1101,7 @@ install-exec-local:
 	@MKDIR@ @prefix@/include
 	@MKDIR@ @prefix@/bin
 	@CP@ ElmerSolver$(EXEEXT) @prefix@/bin
+	@CP@ ElmerSolver$(EXEEXT) @prefix@/bin/Solver$(EXEEXT)
 	@CP@ *$(SHL_EXT) @prefix@/lib
 	@CP@ *.mod @prefix@/include
 	@CP@ elements.def @prefix@/lib
@@ -1015,6 +1109,16 @@ install-exec-local:
 
 clean-local:
 	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so \#*
+
+###################
+# special cases
+#
+
+MEMReynolds$(SHL_EXT): \
+	MEMUtilities$(OBJ_EXT)
+
+MEMStatElecReduced$(SHL_EXT): \
+	MEMUtilities$(OBJ_EXT)
 
 ##################
 # Cellar

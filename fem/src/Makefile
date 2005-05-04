@@ -13,6 +13,9 @@
 # PARTICULAR PURPOSE.
 
 
+
+SOURCES = $(SC2Elmer_SOURCES)
+
 srcdir = .
 top_srcdir = ..
 
@@ -38,6 +41,7 @@ host_triplet = i686-pc-linux-gnu
 target_triplet = i686-pc-linux-gnu
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 	$(srcdir)/make.bin $(srcdir)/make.inc
+bin_PROGRAMS = SC2Elmer$(EXEEXT)
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/acx_mpi.m4 \
@@ -50,8 +54,21 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
-SOURCES =
-DIST_SOURCES =
+am__installdirs = "$(DESTDIR)$(bindir)"
+binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
+PROGRAMS = $(bin_PROGRAMS)
+am_SC2Elmer_OBJECTS = SC2Elmer.$(OBJEXT)
+SC2Elmer_OBJECTS = $(am_SC2Elmer_OBJECTS)
+SC2Elmer_LDADD = $(LDADD)
+DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
+depcomp = $(SHELL) $(top_srcdir)/depcomp
+am__depfiles_maybe = depfiles
+COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
+	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
+CCLD = $(CC)
+LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
+SOURCES = $(SC2Elmer_SOURCES)
+DIST_SOURCES = $(SC2Elmer_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
 	html-recursive info-recursive install-data-recursive \
 	install-exec-recursive install-info-recursive \
@@ -76,15 +93,15 @@ AWK = gawk
 BLAS_LIBS = -lblas
 CC = gcc
 CCC = 
-CCDEPMODE = depmode=none
-CFLAGS = -g -O2 -I/home/vierinen/ifc/include
+CCDEPMODE = depmode=gcc3
+CFLAGS = -g -O0 -I/home/vierinen/include -fPIC
 CP = cp
 CPICFLAG = -fPIC
 CPP = gcc -E
 CPPFLAGS = 
 CXX = g++
-CXXDEPMODE = depmode=none
-CXXFLAGS = -g -O2
+CXXDEPMODE = depmode=gcc3
+CXXFLAGS = -g -O2 -fPIC
 CXXPICFLAG = -fPIC
 CYGPATH_W = echo
 DEFS = -DHAVE_CONFIG_H
@@ -97,14 +114,14 @@ ECHO_N = -n
 ECHO_T = 
 EGREP = /bin/grep -E
 EIOF_LIBS = -leiof
-ELMER_FEM_DEPENDENCIES =  -Larpack/ -larpack
+ELMER_FEM_DEPENDENCIES =  arpack/libarpack.a
 EXEEXT = 
 F77 = g77
-FC = ifort
-FCFLAGS = -g
-FCLIBS =  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s
-FCPPFLAGS = -traditional-cpp -DDLLEXPORT="!"
-FFLAGS = -g -O2
+FC = g95
+FCFLAGS = -O -I. -I/home/vierinen/include -fPIC
+FCLIBS =  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm
+FCPPFLAGS = -C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -DDLLEXPORT="!"
+FFLAGS = -g -O0
 FLIBS =  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s
 FPICFLAG = -fPIC
 GREP = /bin/grep
@@ -117,8 +134,8 @@ LAPACK_LIBS = -llapack
 LDFLAGS = 
 LIBEXT = a
 LIBOBJS = 
-LIBS = -ldl -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lstdc++  -L/home/vierinen/ifc/lib  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s
-LIBSOLVER_DEPS = -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lstdc++  -L/home/vierinen/ifc/lib  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s
+LIBS = -ldl -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lstdc++  -L/home/vierinen/lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s
+LIBSOLVER_DEPS = -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lstdc++  -L/home/vierinen/lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s
 LTLIBOBJS = 
 MAKEINFO = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run makeinfo
 MATC_LIBS = -lmatc
@@ -158,14 +175,14 @@ UMFPACK_LIBS = -lumfpack -lamd
 VERSION = 1.0.0
 ac_ct_CC = gcc
 ac_ct_CXX = g++
-ac_ct_F77 = g77
-ac_ct_FC = ifort
+ac_ct_F77 = 
+ac_ct_FC = 
 ac_ct_RANLIB = ranlib
 ac_ct_STRIP = 
-am__fastdepCC_FALSE = 
-am__fastdepCC_TRUE = #
-am__fastdepCXX_FALSE = 
-am__fastdepCXX_TRUE = #
+am__fastdepCC_FALSE = #
+am__fastdepCC_TRUE = 
+am__fastdepCXX_FALSE = #
+am__fastdepCXX_TRUE = 
 am__include = include
 am__leading_dot = .
 am__quote = 
@@ -201,7 +218,7 @@ mandir = ${datarootdir}/man
 mkdir_p = mkdir -p --
 oldincludedir = /usr/include
 pdfdir = ${docdir}
-prefix = /home/vierinen/ifc
+prefix = /home/vierinen
 program_transform_name = s,x,x,
 psdir = ${docdir}
 sbindir = ${exec_prefix}/sbin
@@ -212,7 +229,7 @@ target_alias =
 target_cpu = i686
 target_os = linux-gnu
 target_vendor = pc
-SUBDIRS = blas lapack arpack
+SUBDIRS = arpack
 
 #*******************************************************************************
 # Elmer Makefile.in 
@@ -257,7 +274,7 @@ INPUT = ReloadInput$(SHL_EXT)
 ARTIF = ArtificialCompressibility$(SHL_EXT)
 POISSON_BEM = PoissonBEM$(SHL_EXT)
 HELMHOLTZ_BEM = HelmholtzBEM$(SHL_EXT)
-SC2ELMER = SC2Elmer$(SHL_EXT)
+SC2ELMER = SC2Elmer$(EXE_EXT)
 FREESURF = FreeSurfaceSolver$(SHL_EXT)
 SMITC = Smitc$(SHL_EXT)
 STREAM = StreamSolver$(SHL_EXT)
@@ -270,15 +287,17 @@ ELECTROKIN = Electrokinetics$(SHL_EXT)
 STRESS = StressSolve$(SHL_EXT)
 ENERGYRELEASE = EnergyRelease$(SHL_EXT)
 POISBOLTZ = PoissonBoltzmannSolve$(SHL_EXT)
-BINARIES_ODD = $(RESULT) $(POISSON_BEM) $(HELMHOLTZ_BEM) $(SC2ELMER) \
-	$(MEMREYNO) $(MEMELSTAT)
+
+# 
+BINARIES_ODD = $(RESULT) $(HELMHOLTZ_BEM) $(SC2ELMER)  \
+	$(MEMREYNO) $(MEMELSTAT) $(POISSON_BEM)
 
 BINARIES = $(ADVDIFF) $(STATMAG) $(STATELEC) $(STATCUR) $(ELASTIC) $(HELMHOLTZ)    \
 	$(ACOUSTICS) $(DH) $(IRROTVEL) $(SHEARWAVE) $(CHANGERATE) $(TRANSPORTEQ)   \
 	$(FDIFF) $(FDIFF3D) $(SAVEDATA) $(INPUT) $(FREERED) $(ARTIF) $(DCRCOMPLEX) \
 	$(RIGIDBODY) $(DIRICHLET) $(PERIODIC) $(FORCE) $(FREESURF) $(ELECFORCE)    \
 	$(SMITC) $(STREAM) $(KE) $(MEMLUMP) $(PHASECHANGE) $(POISBOLTZ) $(ELECTROKIN) \
-	$(STRESS) $(ENERGYRELEASE)
+	$(STRESS) $(ENERGYRELEASE) 
 
 OBJS = mpi_stubs$(OBJ_EXT) 				\
 		NavierStokes$(OBJ_EXT)				\
@@ -343,12 +362,15 @@ OBJS = mpi_stubs$(OBJ_EXT) 				\
 		solve_real$(OBJ_EXT)				\
 		MGPrec$(OBJ_EXT)				\
 		DefUtils$(OBJ_EXT)				\
-	        RadiationFactors$(OBJ_EXT)                      
+		LUDecomposition$(OBJ_EXT) 			\
+	        RadiationFactors$(OBJ_EXT)                      \
+		ResultToResult$(OBJ_EXT)
 
+SC2Elmer_SOURCES = SC2Elmer.c
 all: all-recursive
 
 .SUFFIXES:
-.SUFFIXES: .so .c .f .f90 .o
+.SUFFIXES: .so .c .f .f90 .o .obj
 $(srcdir)/Makefile.in:  $(srcdir)/Makefile.am $(srcdir)/make.bin $(srcdir)/make.inc $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -378,6 +400,47 @@ $(top_srcdir)/configure:  $(am__configure_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(ACLOCAL_M4):  $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
+install-binPROGRAMS: $(bin_PROGRAMS)
+	@$(NORMAL_INSTALL)
+	test -z "$(bindir)" || $(mkdir_p) "$(DESTDIR)$(bindir)"
+	@list='$(bin_PROGRAMS)'; for p in $$list; do \
+	  p1=`echo $$p|sed 's/$(EXEEXT)$$//'`; \
+	  if test -f $$p \
+	  ; then \
+	    f=`echo "$$p1" | sed 's,^.*/,,;$(transform);s/$$/$(EXEEXT)/'`; \
+	   echo " $(INSTALL_PROGRAM_ENV) $(binPROGRAMS_INSTALL) '$$p' '$(DESTDIR)$(bindir)/$$f'"; \
+	   $(INSTALL_PROGRAM_ENV) $(binPROGRAMS_INSTALL) "$$p" "$(DESTDIR)$(bindir)/$$f" || exit 1; \
+	  else :; fi; \
+	done
+
+uninstall-binPROGRAMS:
+	@$(NORMAL_UNINSTALL)
+	@list='$(bin_PROGRAMS)'; for p in $$list; do \
+	  f=`echo "$$p" | sed 's,^.*/,,;s/$(EXEEXT)$$//;$(transform);s/$$/$(EXEEXT)/'`; \
+	  echo " rm -f '$(DESTDIR)$(bindir)/$$f'"; \
+	  rm -f "$(DESTDIR)$(bindir)/$$f"; \
+	done
+
+clean-binPROGRAMS:
+	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
+SC2Elmer$(EXEEXT): $(SC2Elmer_OBJECTS) $(SC2Elmer_DEPENDENCIES) 
+	@rm -f SC2Elmer$(EXEEXT)
+	$(LINK) $(SC2Elmer_LDFLAGS) $(SC2Elmer_OBJECTS) $(SC2Elmer_LDADD) $(LIBS)
+
+mostlyclean-compile:
+	-rm -f *.$(OBJEXT)
+
+distclean-compile:
+	-rm -f *.tab.c
+
+include ./$(DEPDIR)/SC2Elmer.Po
+
+.c.obj:
+	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ `$(CYGPATH_W) '$<'`; \
+	then mv -f "$(DEPDIR)/$*.Tpo" "$(DEPDIR)/$*.Po"; else rm -f "$(DEPDIR)/$*.Tpo"; exit 1; fi
+#	source='$<' object='$@' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(COMPILE) -c `$(CYGPATH_W) '$<'`
 uninstall-info-am:
 
 # This directory's subdirectories are mostly independent; you can cd
@@ -556,9 +619,12 @@ distdir: $(DISTFILES)
 	done
 check-am: all-am
 check: check-recursive
-all-am: Makefile
+all-am: Makefile $(PROGRAMS)
 installdirs: installdirs-recursive
 installdirs-am:
+	for dir in "$(DESTDIR)$(bindir)"; do \
+	  test -z "$$dir" || $(mkdir_p) "$$dir"; \
+	done
 install: install-recursive
 install-exec: install-exec-recursive
 install-data: install-data-recursive
@@ -585,11 +651,13 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-recursive
 
-clean-am: clean-generic clean-local mostlyclean-am
+clean-am: clean-binPROGRAMS clean-generic clean-local mostlyclean-am
 
 distclean: distclean-recursive
+	-rm -rf ./$(DEPDIR)
 	-rm -f Makefile
-distclean-am: clean-am distclean-generic distclean-tags
+distclean-am: clean-am distclean-compile distclean-generic \
+	distclean-tags
 
 dvi: dvi-recursive
 
@@ -603,7 +671,7 @@ info-am:
 
 install-data-am:
 
-install-exec-am: install-exec-local
+install-exec-am: install-binPROGRAMS install-exec-local
 
 install-info: install-info-recursive
 
@@ -612,12 +680,13 @@ install-man:
 installcheck-am:
 
 maintainer-clean: maintainer-clean-recursive
+	-rm -rf ./$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
 mostlyclean: mostlyclean-recursive
 
-mostlyclean-am: mostlyclean-generic
+mostlyclean-am: mostlyclean-compile mostlyclean-generic
 
 pdf: pdf-recursive
 
@@ -627,25 +696,28 @@ ps: ps-recursive
 
 ps-am:
 
-uninstall-am: uninstall-info-am
+uninstall-am: uninstall-binPROGRAMS uninstall-info-am
 
 uninstall-info: uninstall-info-recursive
 
 .PHONY: $(RECURSIVE_TARGETS) CTAGS GTAGS all all-am check check-am \
-	clean clean-generic clean-local clean-recursive ctags \
-	ctags-recursive distclean distclean-generic \
-	distclean-recursive distclean-tags distdir dvi dvi-am html \
-	html-am info info-am install install-am install-data \
+	clean clean-binPROGRAMS clean-generic clean-local \
+	clean-recursive ctags ctags-recursive distclean \
+	distclean-compile distclean-generic distclean-recursive \
+	distclean-tags distdir dvi dvi-am html html-am info info-am \
+	install install-am install-binPROGRAMS install-data \
 	install-data-am install-exec install-exec-am \
 	install-exec-local install-info install-info-am install-man \
 	install-strip installcheck installcheck-am installdirs \
 	installdirs-am maintainer-clean maintainer-clean-generic \
-	maintainer-clean-recursive mostlyclean mostlyclean-generic \
-	mostlyclean-recursive pdf pdf-am ps ps-am tags tags-recursive \
-	uninstall uninstall-am uninstall-info-am
+	maintainer-clean-recursive mostlyclean mostlyclean-compile \
+	mostlyclean-generic mostlyclean-recursive pdf pdf-am ps ps-am \
+	tags tags-recursive uninstall uninstall-am \
+	uninstall-binPROGRAMS uninstall-info-am
 
 
-all:	libfem$(LIB_EXT) libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES)
+# libfem$(LIB_EXT)
+all:	 libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD)
 
 #
 #
@@ -667,6 +739,9 @@ ElementDescription$(OBJ_EXT):			\
 PElementBase$(OBJ_EXT):				\
 	Types$(OBJ_EXT)				\
 	PElementMaps$(OBJ_EXT)			
+
+LUDecomposition$(OBJ_EXT):  			\
+	Types$(OBJ_EXT)
 
 Integration$(OBJ_EXT):				\
 	Types$(OBJ_EXT)
@@ -964,57 +1039,86 @@ SParIterComm$(OBJ_EXT):				\
 	CRSMatrix$(OBJ_EXT)			\
 	SParIterGlobals$(OBJ_EXT)
 
+ResultToResult$(OBJ_EXT): 			\
+	SParIterComm$(OBJ_EXT)			\
+	Types$(OBJ_EXT) \
+	Lists$(OBJ_EXT) \
+	Integration$(OBJ_EXT) \
+	Interpolation$(OBJ_EXT) \
+	MainUtils$(OBJ_EXT) \
+	CoordinateSystems$(OBJ_EXT) 
+
+MEMReynolds$(SHL_EXT): \
+	MEMUtilities$(OBJ_EXT)
+
+MEMStatElecReduced$(SHL_EXT): \
+	MEMUtilities$(OBJ_EXT)
+
 SUFFIXES: .f90 .so
 
 # a bit kludgy way to do the cpp, but hopefully portable enough
 .f90.o:
 	cp $< $*.fpp
-	gcc -E -traditional-cpp -DDLLEXPORT="!" -g -O2 -I/home/vierinen/ifc/include $*.fpp > $*.F90
-	ifort -fPIC -g -c $*.F90
+	gcc -E -C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -DDLLEXPORT="!" -g -O0 -I/home/vierinen/include -fPIC $*.fpp > $*.F90
+	g95 -O -I. -I/home/vierinen/include -fPIC -c $*.F90
 
 # a bit kludgy way to do the cpp, but hopefully portable enough
 .f.o:
 	cp $< $*.fpp
-	gcc -E -traditional-cpp -DDLLEXPORT="!" -g -O2 -I/home/vierinen/ifc/include $*.fpp > $*.FOR
-	g77 -g -O2 -c $*.FOR
+	gcc -E -C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -DDLLEXPORT="!" -g -O0 -I/home/vierinen/include -fPIC $*.fpp > $*.FOR
+	g77 -g -O0 -c $*.FOR
 
 # mpi stubs and load.c
 .c.o:
 	$(CC) -c -O  $<
 
 # static fem lib
-libfem$(LIB_EXT): $(OBJS)
-	rm -f $@
-	$(AR) rc $@ $(OBJS)
-	ranlib $@
+# libfem$(LIB_EXT): $(OBJS)
+#	rm -f $@
+#	$(AR) rc $@ $(OBJS) 
+#	ranlib $@
 
 # Shared base lib (libs in the right place!)
-libsolver$(SHL_EXT): libfem$(LIB_EXT) ElmerSolver$(OBJ_EXT)
+# libfem$(LIB_EXT) 
+libsolver$(SHL_EXT): ElmerSolver$(OBJ_EXT) $(OBJS)
 	rm -f $@
-	$(CXX) -shared -Wl,-soname -Wl,$@ -o $@ ElmerSolver$(OBJ_EXT)  -Larpack/ -larpack -lfem -ldl -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lstdc++  -L/home/vierinen/ifc/lib  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s -L.
+	$(CXX) -shared -Wl,-soname -Wl,$@ -o $@ ElmerSolver$(OBJ_EXT) $(OBJS) -ldl -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lstdc++  -L/home/vierinen/lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s -L.  arpack/libarpack.a 
 
 # The executable
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
-	ifort -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT)
+	g95 -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT)
 
 # build seperate solvers as shared libs
 .f90.so:
-	ifort -fPIC -g -c $*.f90
-	$(CXX) -shared -Wl,-soname -Wl,$@ -o $@ $*$(OBJ_EXT)  -lsolver -L.
+	cp $< $*.fpp
+	gcc -E -C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -DDLLEXPORT="!" -g -O0 -I/home/vierinen/include -fPIC $*.fpp > $*.F90
+	g95 -O -I. -I/home/vierinen/include -fPIC -c $*.F90
+	$(CXX) -shared -Wl,-soname -Wl,$@ -o $@ $*$(OBJ_EXT)  -lsolver -L. -ldl -lblas -llapack  -lumfpack -lamd -lhuti -lmatc -leiof -lmatc -lstdc++  -L/home/vierinen/lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s
 
 install-exec-local:
-	@echo "Installing stuff to $(prefix),/home/vierinen/ifc"
-	mkdir -p /home/vierinen/ifc/lib
-	mkdir -p /home/vierinen/ifc/include
-	mkdir -p /home/vierinen/ifc/bin
-	cp ElmerSolver$(EXEEXT) /home/vierinen/ifc/bin
-	cp *$(SHL_EXT) /home/vierinen/ifc/lib
-	cp *.mod /home/vierinen/ifc/include
-	cp elements.def /home/vierinen/ifc/lib
-	cp SOLVER.KEYWORDS /home/vierinen/ifc/lib
+	@echo "Installing stuff to $(prefix),/home/vierinen"
+	mkdir -p /home/vierinen/lib
+	mkdir -p /home/vierinen/include
+	mkdir -p /home/vierinen/bin
+	cp ElmerSolver$(EXEEXT) /home/vierinen/bin
+	cp ElmerSolver$(EXEEXT) /home/vierinen/bin/Solver$(EXEEXT)
+	cp *$(SHL_EXT) /home/vierinen/lib
+	cp *.mod /home/vierinen/include
+	cp elements.def /home/vierinen/lib
+	cp SOLVER.KEYWORDS /home/vierinen/lib
 
 clean-local:
 	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so \#*
+
+###################
+# special cases
+#
+
+MEMReynolds$(SHL_EXT): \
+	MEMUtilities$(OBJ_EXT)
+
+MEMStatElecReduced$(SHL_EXT): \
+	MEMUtilities$(OBJ_EXT)
 
 ##################
 # Cellar

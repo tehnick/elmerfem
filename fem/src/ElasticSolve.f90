@@ -142,7 +142,7 @@
 
 
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ElasticSolve.f90,v 1.47 2005/04/19 08:53:45 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ElasticSolve.f90,v 1.48 2005/04/21 06:44:44 jpr Exp $"
 
 
      INTERFACE
@@ -1986,7 +1986,7 @@
         Viscosity  = SUM( NodalViscosity(1:fn) * FBasis )
 
         Viscosity = EffectiveViscosity( Viscosity,Density,Velocity(1,:),Velocity(2,:), &
-             Velocity(3,:),FlowElement,FlowNodes,fn,ParentU,ParentV,ParentW)
+             Velocity(3,:),FlowElement,FlowNodes,fn,fn,ParentU,ParentV,ParentW)
         Viscosity  = SUM( NodalViscosity(1:fn) * FBasis )
  
         FlowStress = Viscosity * ( Grad + TRANSPOSE(Grad) )
@@ -2179,7 +2179,7 @@
         Viscosity  = SUM( NodalViscosity(1:fn) * FBasis )
 
         Viscosity = EffectiveViscosity( Viscosity,Density,Velocity(1,:),Velocity(2,:), &
-             Velocity(3,:),FlowElement,FlowNodes,fn,ParentU,ParentV,ParentW)
+             Velocity(3,:),FlowElement,FlowNodes,fn,fn,ParentU,ParentV,ParentW)
  
         FlowStress = Viscosity * ( Grad + TRANSPOSE(Grad) )
 

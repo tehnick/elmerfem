@@ -18,7 +18,6 @@ COMMON_SRCS =  \
 	dnapps.f \
 	dnaup2.f \
 	dnaupd.f \
-	dnaupe.f \
 	dnconv.f \
 	dneigh.f \
 	dneupd.f \
@@ -43,7 +42,6 @@ COMMON_SRCS =  \
 	snapps.f \
 	snaup2.f \
 	snaupd.f \
-	snaupe.f \
 	snconv.f \
 	sneigh.f \
 	sneupd.f \

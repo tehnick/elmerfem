@@ -265,7 +265,7 @@ DLLEXPORT DiffuseConvectiveGenCompose
  
        DO i=1,dim
           C2(i,i) = EffectiveConductivity( C2(i,i), Density, Element, &
-                 Temperature, UX,UY,UZ, Nodes, n, u, v, w )
+                 Temperature, UX,UY,UZ, Nodes, n, n, u, v, w )
        END DO
 !------------------------------------------------------------------------------
 !      If there's no convection term we don't need the velocities, and
@@ -450,7 +450,7 @@ DLLEXPORT DiffuseConvectiveGenCompose
 
          Viscosity = SUM( NodalViscosity(1:n) * Basis(1:n) )
          Viscosity = EffectiveViscosity( Viscosity, 1.0d0, Ux, Uy, Uz, &
-               Element, Nodes, n, u, v, w )
+               Element, Nodes, n, n, u, v, w )
          IF ( Viscosity > 0.0d0 ) THEN
            IF ( .NOT.Compressible ) THEN
              dVelodx = 0.0D0
