@@ -28,7 +28,6 @@ Author(s):  Harri Hakula 10.03.98
 #include <stdio.h>
 
 #include <iostream>
-#include "eio-config.h"
 
 
 //extern "C" void *
@@ -38,7 +37,7 @@ Author(s):  Harri Hakula 10.03.98
 
 static int step = 0;
 
-extern "C" int CDECL nodecomp(const void *a, const void *b)
+int CDECL nodecomp(const void *a, const void *b)
 {
   cache_node *aptr = (cache_node*)a;
   cache_node *bptr = (cache_node*)b;
@@ -243,7 +242,7 @@ read_nextElementConnections(int& tag, int& body, int& type, int* pdofs, int* nod
     }
   str >> tag >> body >> typestr ;
   gotnodal = 0;
-  for( i=0; i<5; i++ ) pdofs[i] = 0;
+  for( i=0; i<6; i++ ) pdofs[i] = 0;
   for( i=0; i<strlen(typestr); i++ )
   {
      switch( typestr[i] ) {
@@ -262,6 +261,9 @@ read_nextElementConnections(int& tag, int& body, int& type, int* pdofs, int* nod
         break;
      case('b'):
         sscanf( &typestr[i+1], "%d",  &pdofs[4] );
+        break;
+     case('p'):
+        sscanf( &typestr[i+1], "%d",  &pdofs[5] );
         break;
      }
   }
@@ -373,7 +375,7 @@ read_nextBoundaryElement(int& tag, int& boundary, int& leftElement,
 
 int EIOMeshAgent::
 write_descriptor(int& nodeC, int& elementC, int& boundaryElementC, 
-		 int& usedElementTypes, int* elementTypeTagsH,
+		 int& usedElementTypes, int* elementTypeTags,
 		 int* elementCountByType)
 {
   int i;
@@ -381,7 +383,7 @@ write_descriptor(int& nodeC, int& elementC, int& boundaryElementC,
   str << nodeC << ' ' << elementC << ' ' << boundaryElementC << '\n';
   str << usedElementTypes << '\n';
   for(i = 0; i < usedElementTypes; ++i)
-    str << elementTypeTagsH[i] << ' ' << elementCountByType[i] << '\n';
+    str << elementTypeTags[i] << ' ' << elementCountByType[i] << '\n';
   return 0;
 }
 
@@ -462,7 +464,7 @@ read_sharedNode(int& tag,
 		int& constraint,      
 		double *coord, 
 		int& partcount, 
-		int *partsH)
+		int *parts)
 {
   int i;
   fstream& str = meshFileStream[SHARED];
@@ -479,7 +481,7 @@ read_sharedNode(int& tag,
     }
 
   str >> tag >> partcount;
-  for(i = 0; i < partcount; ++i) str >> partsH[i];
+  for(i = 0; i < partcount; ++i) str >> parts[i];
  
   cache_node *retval = search_node(tag);
   if(retval == NULL) 
