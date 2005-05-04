@@ -2,14 +2,14 @@
  *
  * huti_main.c - HUTIter libarary auxiliary routines
  *
- * $Id: huti_main.c,v 1.3 1998/11/26 11:28:44 jim Exp $
+ * $Id: huti_main.c,v 1.1.1.1 2005/04/15 10:31:18 vierinen Exp $
  *
  *
  */
 
 #include <stdlib.h>
 #include <stdio.h>
-#include <varargs.h>
+#include <stdarg.h>
 #include "huti_defs.h"
 
 
