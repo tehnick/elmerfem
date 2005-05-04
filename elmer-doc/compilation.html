@@ -1,0 +1,40 @@
+[Compilation instructions]
+
+
+[[Quick start]]
+
+Make sure you have a working blas, lapack and umfpack that work with
+your compiler (the configure scripts will tell you if somethings
+wrong). Then pick an installation directory, I recommend something
+like ~/bin/elmer or ~/elmer. Then compiler the elmer source packages
+in the following order: matc, eio, hutiter, elmergrid, meshgen2d,
+fem using the normal procedure of ./configure ; make ; make
+install. Use ./configure --help for some brief instructions
+
+!gunzip hutiter-x.x.x.tar.gz ; tar xvf hutiter-x.x.x.tar!
+!cd hutiter-x.x.x ; ./configure --prefix=~/elmer ; make ; make install!
+
+[[Specifying libraries]]
+
+
+If you want to specify your own blas and lapack, you can eg.
+
+!./configure --with-blas="~/lib/libblas.a"!
+
+or use the environment variable:
+
+!BLAS_LIBS="-L/some/convoluted/path/lib -lblas3.1.03"!
+
+a similar procedure works for most of the libraries that are detected
+using 
+
+[[Testing the build]]
+
+Get the newest elmer-tests package. Run the tests.
+
+[[Common errors]]
+
+- blas not found
+- lapack not found
+- mpi fucked
+- umfpack fucked
