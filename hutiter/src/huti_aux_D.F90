@@ -22,6 +22,21 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 #include  "huti_fdefs.h" 
 
 !*************************************************************************
@@ -70,9 +85,6 @@ subroutine  huti_drandvec  ( u, ipar )
   do i = 1, HUTI_NDIM
      call random_number( harvest )
      u(i) = harvest
-
-
-
 
   end do
 

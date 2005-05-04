@@ -49,8 +49,6 @@ COMMON_SRCS =  \
 lib_LIBRARIES = libhuti.a
 libhuti_a_SOURCES = $(COMMON_SRCS)
 
-$(COMMON_SRCS): preprocess
-
 #################################################################################
 # If sources are missing generate them with the preprocessor.
 # this is the section to watch out for, when compiling on more exotic (non-linux) 
@@ -133,11 +131,8 @@ huti_sfe_c_S.c:
 huti_sfe_c_Z.c:
 	$(HUTI_CPP) $(HUTI_PPFLAGS) -DZ_PRE huti_sfe_c.src huti_sfe_c_Z.c
 
-
-
-
 ##########################################################
-# The old for loop (which screwed up the dependencies)
+# The old for loop (which screwed up the dependencies, but was nicer anyway)
 #
 # $(PP_SRCS): preprocess
 #PRECS	=	S D C Z
