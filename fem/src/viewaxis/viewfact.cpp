@@ -5,6 +5,7 @@
 #include <math.h>
 #include <stdio.h>
 #include "viewfact.h"
+#include "../../config.h"
 
 static Real r1, r2, z1, z2;     /* Katseltavan pinnan koordinaatit */
 static Real r3, r4, z3, z4;     /* Katselevan pinnan koordinaatit */
@@ -21,16 +22,8 @@ static int nsurf,inode;
 static Real * coord;
 static int *surfEltop;
 
-#ifdef AIX
-  extern "C" void viewfactorsaxis
-#else
-#if defined(UNICOS) | defined(WIN32)
-  extern "C" void VIEWFACTORSAXIS
-#else
-  extern "C" void viewfactorsaxis_
-#endif
-#endif
-     (int *n,int *surf, Real *crd, Real *vf, int *idiv)
+extern "C" void FC_FUNC(viewfactorsaxis,VIEWFACTORSAXIS) 
+  (int *n,int *surf, Real *crd, Real *vf, int *idiv)
 {
   int i, j, ii, jj,div;
   Real a, sum, viewint;

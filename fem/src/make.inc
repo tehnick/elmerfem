@@ -52,7 +52,6 @@ OBJS	=	mpi_stubs$(OBJ_EXT) 				\
 		SParIterComm$(OBJ_EXT)				\
 		SParIterPrecond$(OBJ_EXT)			\
 		SParIterSolver$(OBJ_EXT)			\
-		huti_bicgstab_2_D$(OBJ_EXT)			\
 		Messages$(OBJ_EXT)				\
 		Multigrid$(OBJ_EXT)				\
 		ParallelUtils$(OBJ_EXT)                         \

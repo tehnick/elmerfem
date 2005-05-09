@@ -45,7 +45,7 @@ Juha Ruokolainen/CSC - 24 Aug 1995
 ******************************************************************************/
 
 #include <ViewFactors.h>
-
+#include "../../config.h"
 
 extern ShapeFunctionMatrix3[3][3],ShapeFunctionMatrix4[4][4];
 
@@ -495,19 +495,9 @@ void InitGeometryTypes()
 }
 
 
-#ifdef AIX
-  void viewfactors3d
-#else
-#if defined(UNICOS) | defined(WIN32)
-  void VIEWFACTORS3D
-#else
-  void viewfactors3d_
-#endif
-#endif
-  ( 
-     int *N, int *Topo, int *Type, double *Coord, double *Normals, double *Factors,
-          double *Feps, double *Aeps, double *Reps,int *NInteg,int *NInteg3
-  )
+void FC_FUNC(viewfactors3d,VIEWFACTORS3D)
+  ( int *N, int *Topo, int *Type, double *Coord, double *Normals, double *Factors,
+    double *Feps, double *Aeps, double *Reps,int *NInteg,int *NInteg3 )
 {
    int i,j,k,l,n;
 
