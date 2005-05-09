@@ -111,7 +111,7 @@
      SAVE Load, ElementNodes, VolumeSource, VolumeForce, AllocationsDone, &
       PotentialKnown, PotentialPerm, BoundaryPerm, BoundaryNodes, Pot, Flx
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: PoissonBEM.f90,v 1.17 2004/08/19 08:23:35 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: PoissonBEM.f90,v 1.1.1.1 2005/04/21 13:29:02 vierinen Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -314,7 +314,7 @@ at = CPUTime()
      st = CPUTime()
 !
 !    Solve system:
-!    -------------
+     !    -------------
      CALL SolveFull( BoundaryNodes, Matrix, Potential, ForceVector, Solver )
 !
 !    extract potential and fluxes for the boundary nodes:

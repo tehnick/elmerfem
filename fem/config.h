@@ -30,7 +30,7 @@
 #define FC_FUNC(name,NAME) name ## _
 
 /* As FC_FUNC, but for C identifiers containing underscores. */
-#define FC_FUNC_(name,NAME) name ## __
+#define FC_FUNC_(name,NAME) name ## _
 
 /* Define if you have a ARPACK library. */
 /* #undef HAVE_ARPACK */

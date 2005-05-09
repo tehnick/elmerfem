@@ -40,9 +40,7 @@
      REAL(KIND=dp), ALLOCATABLE :: Jacobian(:,:)
    END MODULE ViewFactorGlobals
 
-
    PROGRAM ViewFactors
-
 
      USE DefUtils
      USE ViewFactorGlobals
@@ -80,7 +78,7 @@
 
      INTEGER, POINTER :: Timesteps(:)
      INTEGER :: TimeIntervals,interval,timestep
-
+     
      LOGICAL :: CylindricSymmetry,GotIt
 
      CHARACTER(LEN=MAX_NAME_LEN) :: eq,RadiationFlag, &

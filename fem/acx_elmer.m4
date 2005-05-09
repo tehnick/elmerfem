@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.4 2005/04/29 10:58:25 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.2 2005/04/29 08:04:53 vierinen Exp $
 dnl @author juha.vierinen@csc.fi
 dnl
 
@@ -271,12 +271,12 @@ AC_FC_FUNC(umf4def)
 
 acx_umfpack_save_LIBS="$LIBS"
 
-LIBS="$LIBS $BLAS_LIBS $LAPACK_LIBS $FCLIBS $FLIBS"
+LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
 
 # First, check UMFPACK_LIBS environment variable
 if test $acx_umfpack_ok = no; then
 if test "x$UMFPACK_LIBS" != x; then
-	save_LIBS="$LIBS"; LIBS="$LIBS $UMFPACK_LIBS -lamd"
+	save_LIBS="$LIBS"; LIBS="$UMFPACK_LIBS $LIBS"
 	AC_MSG_CHECKING([for $umf4def in $UMFPACK_LIBS])
 	AC_TRY_LINK_FUNC($umf4def, [acx_umfpack_ok=yes], [UMFPACK_LIBS=""])
 	AC_MSG_RESULT($acx_umfpack_ok)
