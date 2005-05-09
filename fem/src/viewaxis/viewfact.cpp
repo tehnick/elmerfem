@@ -1,0 +1,388 @@
+/* This subroutine computes the viewfactors for an axisymmetric
+   geometry. The code is written by Juha Katajamäki while
+   working for CSC. */
+
+#include <math.h>
+#include <stdio.h>
+#include "viewfact.h"
+
+static Real r1, r2, z1, z2;     /* Katseltavan pinnan koordinaatit */
+static Real r3, r4, z3, z4;     /* Katselevan pinnan koordinaatit */
+static Real r12, r34, z12, z34; /* Keskilinjojen koordinaatit */
+static Real zd1, zd3, zd;
+static Real rd1, rd3;
+
+static Real g1, g3, d1, d3, t, rratio;
+
+static const Real eps = 1e-7, eps2 = 1.0e-14; /* eps*eps; */
+static const Real delta = 1e-6; /* Suurin kosinien ero, joka aiheuttaa */
+/* integroinnin */
+static int nsurf,inode;
+static Real * coord;
+static int *surfEltop;
+
+#ifdef AIX
+  extern "C" void viewfactorsaxis
+#else
+#if defined(UNICOS) | defined(WIN32)
+  extern "C" void VIEWFACTORSAXIS
+#else
+  extern "C" void viewfactorsaxis_
+#endif
+#endif
+     (int *n,int *surf, Real *crd, Real *vf, int *idiv)
+{
+  int i, j, ii, jj,div;
+  Real a, sum, viewint;
+  Real c1, c2;    /* Kiertokulman kosinin ylä- ja alaraja */
+  Real _r1, _r2, _r3, _r4, _z1, _z2, _z3, _z4;
+
+  nsurf = *n;
+  coord = crd;
+  surfEltop = surf; 
+  
+  div = *idiv;
+
+  
+  for (i=0; i<nsurf; i++) {
+
+    inode = i;    
+    sum = 0.;
+    
+    _r3 = coord[2 * surfEltop[2*i+1]];
+    _r4 = coord[2 * surfEltop[2*i+0]];
+    
+    _z3 = coord[2 * surfEltop[2*i+1]+1];
+    _z4 = coord[2 * surfEltop[2*i+0]+1];
+    
+    a = Area(_r3, _r4, _z3, _z4);
+    for (j=0; j<nsurf; j++) {
+
+      _r1 = coord[2 * surfEltop[2*j+1]];
+      _r2 = coord[2 * surfEltop[2*j+0]];
+      
+      _z1 = coord[2 * surfEltop[2*j+1]+1];
+      _z2 = coord[2 * surfEltop[2*j+0]+1];
+      
+      vf[i*nsurf+j] = 0.;
+      
+      if (a < eps) continue;
+      for (ii=0; ii<div; ii++) {
+	r3 = _r3 * (div - ii)/div + _r4 * ii/div;
+	r4 = _r3 * (div - ii - 1)/div + _r4 * (ii + 1)/div;
+	z3 = _z3 * (div - ii)/div + _z4 * ii/div;
+	z4 = _z3 * (div - ii - 1)/div + _z4 * (ii + 1)/div;
+	r34 = .5*(r3+r4);
+	z34 = .5*(z3+z4);
+	zd3=z3-z4;
+	rd3=r3-r4;
+	
+	for (jj=0; jj<div; jj++) {
+	  r1 = _r1 * (div - jj)/div + _r2 * jj/div;
+	  r2 = _r1 * (div - jj - 1)/div + _r2 * (jj + 1)/div;
+	  z1 = _z1 * (div - jj)/div + _z2 * jj/div;
+	  z2 = _z1 * (div - jj - 1)/div + _z2 * (jj + 1)/div;
+	  r12 = .5*(r1+r2);
+	  if ( r12 < eps || r34 < eps) continue;
+	  else {
+	    if (r1 < eps) r1 = eps;
+	    if (r2 < eps) r2 = eps;
+	    if (r3 < eps) r3 = eps;
+	    if (r4 < eps) r4 = eps;
+	    zd1=z1-z2;
+	    rd1=r1-r2; 
+	    z12 = .5*(z1+z2);
+	    zd = z12-z34;
+
+	    if (!InitialInterval(&c1, &c2));
+	    else {
+	      viewint = ViewIntegral(c1, c2, 0);
+	      vf[i*nsurf+j] += 4. * viewint;
+	    }
+	    /* Kerroin 4 koostuu tekijöistä 2 (peilisymmetria), 2pi */
+            /* (kiertosymmetria) ja 1/pi (integraalin lausekkeessa esiintyvä */
+            /* vakio) */
+	  }
+	}
+      }
+      sum += (vf[i*nsurf+j] /= a);
+      /* fprintf(stderr,"a: %d %d %g\n", i, j, vf[i*nsurf+j]); */
+    }
+    
+    /* fprintf(stderr,"HERE: \t\t%d %g\n", i, sum); */
+  }
+}
+
+
+BOOL InitialInterval(Real *c1, Real *c2)
+{
+  /* Määrää rajat katseltavan pisteen kiertokulman kosinille ehdosta, että */
+  /* yhdysjanan ja pintojen normaalien välisten kulmien on oltava < pi/2.  */
+  /* Palauta FALSE, jos ratkaisujoukko on tyhjä tai nollamittainen, */
+  /* muutoin TRUE. */
+  /* Funktio olettaa, että r12 ja r34 eivät ole nollia. */ 
+  
+  Real cc1, cc3; 
+  
+  *c1 = -1.; *c2 = 1.;
+  if ( fabs(zd1) > eps ) {
+    cc1 = (- zd * rd1 + r12 * zd1) / (r34 * zd1);        
+    if ( fabs(zd3) > eps ) {
+      cc3 = (zd * rd3 + r34 * zd3) / (r12 * zd3);        
+      if (zd1 > 0.) {
+	if (zd3 > 0.) *c1 = max(cc1, cc3);
+	else { *c1 = cc1; *c2 = cc3; }
+      } else {
+	if (zd3 < 0.) *c2 = min(cc1, cc3);
+	else { *c1 = cc3; *c2 = cc1; }
+      }
+    } else {
+      if ( sgn(rd3) && sgn(rd3) == -sgn(zd) ) {
+	if (zd1 > 0.) *c1 = cc1;
+	else *c2 = cc1;
+      } else { *c1 = 1.; *c2 = -1.; } /* Joukko tyhjä */
+    }
+  } else {
+    if ( fabs(zd3) > eps ) {
+      cc3 = (zd * rd3 + r34 * zd3) / (r12 * zd3);
+      if ( sgn(rd1) && sgn(rd1) == sgn(zd) ) {
+	if (zd3 > 0.) *c1 = cc3;
+	else *c2 = cc3;
+      } else { *c1 = 1.; *c2 = -1.; } /* Joukko tyhjä */
+    } else {
+      if ( !sgn(rd1) || sgn(rd1) != sgn(zd) || sgn(rd1) != -sgn(rd3) )
+	{ *c1 = 1.; *c2 = -1.; }  /* Muutoin joukko = [-1, 1] */
+    }
+  }
+  
+  *c1 = max(-1.+eps, *c1); *c2 = min(1.-eps, *c2);
+  /* Epsilonilla estetään nollalla jako integroinnissa */
+  if (*c2 - *c1 < eps) return FALSE;
+  return TRUE;
+}
+
+
+Real ViewIntegral (Real c1, Real c2, int k)
+{
+  /*
+    Tämä funktio laskee view factorin yhdelle elementtiparille.
+    Integrointialuetta rajoitetaan tutkimalla kartiopintojen aiheuttama
+    varjostus. Jos integrointialue jakautuu kahtia, suoritetaan rekursiivinen
+    kutsu molemmille osille. Jos integrointialue kutistuu mitättömäksi
+    tai tyhjäksi, palautetaan nolla.
+    Funktio olettaa globaalit muuttujat r12 ja r34 nollasta poikkeaviksi.
+    */
+
+  static Real r5, r6, z5, z6;    /* Varjostavan pinnan reunojen koordinaatit */
+  static Real zd5, t1, tt1, t2, tt2, t0;
+  Real cc1,cc2;
+  rratio = r34/r12;
+
+  while (k < nsurf) {
+    
+    r5 = coord[2 * surfEltop[2*k+1]];
+    r6 = coord[2 * surfEltop[2*k+0]];
+    
+    z5 = coord[2 * surfEltop[2*k+1]+1];
+    z6 = coord[2 * surfEltop[2*k+0]+1];
+    k++;
+
+    if (r5+r6 < eps) continue;
+
+    zd5 = z5-z6;
+    if ( fabs(zd5) < eps ) {
+      /* Varjostava pinta on tasorengas */
+      
+      /* Tasorengas ei voi varjostaa itseään */
+      /* Tämä lisäys korjaa alirutiinissa pitkään ollen bugin (P.R. 23.4.2004) */
+      if(inode == k-1) continue;
+
+      if ( fabs(zd) < eps ) continue;
+
+      t1 = (z12-z5)/zd; tt1 = 1.-t1;
+      if (t1 < eps || tt1 < eps) continue;
+
+
+      t = rratio * t1/tt1;
+      cc1 = .5*(r5*r5/(r12*r34*t1*tt1) - t - 1./t);
+      cc2 = .5*(r6*r6/(r12*r34*t1*tt1) - t - 1./t);
+
+      if (cc1 > cc2) { t = cc1; cc1 = cc2; cc2 = t; }
+    } 
+    else  {
+      /* Varjostava pinta on kartio tai lieriö       */
+      /* Laske yhdysjanasta varjoon jäävä väli z-suunnassa  */
+
+      if ( fabs(zd) < eps ) {
+	if ( (z12-z5 < eps && z12-z6 > eps) ||
+	     (z12-z5 > eps && z12-z6 < eps) )
+	  { t1 = 0.; t2 = 1; }
+	else continue;
+      } else {
+	t1 = (z12-z5)/zd; t2 = t1 + zd5/zd;
+	if (t1 > t2) { t = t1; t1 = t2; t2 = t; }
+      }
+
+      if (! IntervalIsect(0., 1., t1, t2, &t1, &t2)) continue;
+      tt1 = 1.-t1; tt2 = 1.-t2;
+      
+      /* Laske, mitä arvoja kiertokulman kosini saa välillä [t1, t2] */
+      cc1 = 1.; cc2 = -1.;
+      g1 = (r5 * (z12-z6) - r6 * (z12-z5)) / (r12 * zd5);
+      g3 = (r5 * (z34-z6) - r6 * (z34-z5)) / (r34 * zd5);
+      d1 = g1*g1 - 1; d3 = g3*g3 - 1;  /* Nämä ilmaisevat, kummalla */
+      /* puolen kartiota ovat katseleva ja katseltava piste */
+      /* Tutki välin päätepistee */
+
+      ExaminePoint (t1, &cc1, &cc2);
+      ExaminePoint (t2, &cc1, &cc2);
+
+      /* Jos kumpikin piste kartion ulkopuolella, tutki derivaatan */
+      /* nollakohta, mikäli se on välillä [t1, t2] */
+      if (d1 <= -eps && d3 <= -eps) {
+	t0 = 1. / (1. + sqrt(rratio * d3/d1));
+	if (t0 - t1 > eps && t2 - t0 > eps) {
+	  ExaminePoint(t0, &cc1, &cc2);
+	}
+      }
+      if (cc1 > cc2) {
+	cc1 = cc2; /* Näin voi käydä pyöristysvirheiden takia */
+      }
+
+    }
+
+    if (IntervalIsect(c1, c2, cc1, cc2, &cc1, &cc2)) {
+      
+      if (cc1 - c1 < delta) {
+	if (c2 - cc2 < delta) {
+	  return 0.;
+	}
+	else {
+	  c1 = cc2;
+	}
+      }
+      else if (c2 - cc2 < delta) {
+	c2 = cc1;
+      }
+      else {
+	return ViewIntegral(c1, cc1, k) + ViewIntegral(cc2, c2, k);
+      }
+    }
+  }
+  return Integrate(c1, c2);
+}
+
+
+BOOL IntervalIsect(Real x1, Real x2, Real y1, Real y2, Real *z1, Real *z2)
+{
+  /* Laske välien [x1, x2] ja [y1, y2] leikkaus ja palauta FALSE, jos */
+  /* tämä on tyhjä tai mitätön. Input-parametrien järjestyksen on oltava */
+  /* oikea.*/
+  
+  *z1 = x1; *z2 = x2;
+  if (x2 - y1 < eps) return FALSE;
+  if (y1 - x1 > eps) *z1 = y1;
+  if (y2 - x1 < eps) return FALSE;
+  if (x2 - y2 > eps) *z2 = y2;
+  return (*z2 - *z1 >= eps);
+}
+
+
+void ExaminePoint (Real x, Real *mi, Real *ma)
+{
+  Real y;
+  if (x > eps) {
+    if (1.-x > eps) {
+      t = rratio*x/(1.-x);
+      y = .5*(d1/t + d3*t) + g1*g3;
+    } else 
+      if ( fabs(d3) < eps ) y = g1*g3;
+      else y = sgn(d3);
+  } else
+    if ( fabs(d1) < eps ) y = g1*g3;
+    else y = sgn(d1);
+  if (y > *ma) *ma = y;
+  if (y < *mi) *mi = y;
+}
+
+
+Real Integrate(Real c1, Real c2)
+{
+  /* c1 ja c2 ovat integrointivälin kulman kosinin rajat. */ 
+  /* Integraali lasketaan ilman nimittäjän pi-tekijää. */
+  
+  /* Ensimmäinen ja viimeinen integrointipiste eivät saa olla tasan */
+  /* 0 ja 1, jottei vierekkäisten elementtien tapauksessa tule */
+  /* nollalla jakoa */
+  /*	static const Real qp[] = { 1e-6, .25, .5, .75, 1.-1e-6 }, */
+  /*    					w[] = { 1./12., 1./3., 1./6., 1./3., 1./12. }; */
+  /*  static const Real qp[] = { 0.211324865, 0.788675134 }, */
+  /*	    w[] = { .5, .5 }; */
+  static const Real qp[] = { 0.112701665, 0.5, 0.887298334 },
+			     w[] = { 0.277777777, 0.444444444, 0.277777777 };
+  static const int nqp = 3;
+    
+  int i;
+  Real c = zd1*zd1 + rd1*rd1;
+  if (c < eps2) return 0.; /* Pinta kutistunut ympyränkaareksi; tämä testi */
+  /* tarvitaan nollalla jaon välttämiseksi */
+  
+  Real z, r, h, hh1, hh2, g1, g2, gg1, gg2, value, integral;
+  Real d1, d2, e1, e2, f1, f2;
+  Real zrd = r2*z1-r1*z2;
+  Real a1 = rd3*r1, a2 = rd3*r2;
+  Real b1 = zd3*z1, b2 = zd3*z2; 
+  Real s1 = sqrt(1. - c1*c1), s2 = sqrt(1. - c2*c2);
+  /* kosineissa ja sineissä indeksit 1 ja 2 toisin päin kuin */
+  /* muissa muuttujissa! */
+  Real cs = (1.+c1)*(1.+c2), cd = (1.-c1)*(1.-c2);
+
+  
+  integral = 0.;
+  for (i=0; i<nqp; i++) {
+    z = z3 - qp[i] * zd3;  /* qp on integroimismuuttuja */
+    r = r3 - qp[i] * rd3;
+    e1 = (z1-z)*(z1-z) + r1*r1 + r*r;
+    f1 = (z2-z)*(z2-z) + r2*r2 + r*r;
+    hh1 = 2*r1*r;
+    hh2 = 2*r2*r;
+    g1 = - e1 / hh1;
+    g2 = - f1 / hh2;
+    e2 = e1 - c1*hh1;
+    f2 = f1 - c1*hh2;
+    e1 -= c2*hh1;
+    f1 -= c2*hh2;
+    h = zd3*z + rd3*r;
+    gg1 = (g1+c2)*(g1+c1);
+    gg2 = (g2+c2)*(g2+c1);
+    
+    /* Kaarien osuus: */
+    value  = (-.5 * (a1 + (h-b1)*g1) / sqrt(g1*g1-1) ) *
+      acos( .5 * ( (1.-g1) * sqrt(cd/gg1) - 
+		   (1.+g1) * sqrt(cs/gg1) ) );
+    value -= (-.5 * (a2 + (h-b2)*g2) / sqrt(g2*g2-1) ) *
+      acos( .5 * ( (1.-g2) * sqrt(cd/gg2) - 
+		   (1.+g2) * sqrt(cs/gg2) ) );
+    value += .25 * (b1-b2) * acos(c1*c2 + s1*s2);
+
+    /* Suorien sivujen osuus: */
+    gg1 = e1+f1-c; gg2 = e2+f2-c;
+    hh1 = 4*e1*f1; hh2 = 4*e2*f2;
+    d1 = hh1 - gg1*gg1; d2 = hh2 - gg2*gg2;
+    h = r * (rd1*h + zrd*zd3);
+    value -= h * (s1 / sqrt(d2)) * acos( gg2 / sqrt(hh2) );
+    value += h * (s2 / sqrt(d1)) * acos( gg1 / sqrt(hh1) );
+
+    integral += w[i] * value;
+  }
+
+  return integral;
+}
+
+Real Area(Real r1, Real r2, Real z1, Real z2)
+{
+    return 3.1415926535 * (r1+r2) *
+        sqrt( (z1-z2)*(z1-z2) + (r1-r2)*(r1-r2) );
+}
+
+
