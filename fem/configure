@@ -12879,12 +12879,12 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 acx_umfpack_save_LIBS="$LIBS"
 
-LIBS="$LIBS $BLAS_LIBS $LAPACK_LIBS $FCLIBS $FLIBS"
+LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
 
 # First, check UMFPACK_LIBS environment variable
 if test $acx_umfpack_ok = no; then
 if test "x$UMFPACK_LIBS" != x; then
-	save_LIBS="$LIBS"; LIBS="$LIBS $UMFPACK_LIBS -lamd"
+	save_LIBS="$LIBS"; LIBS="$UMFPACK_LIBS $LIBS"
 	echo "$as_me:$LINENO: checking for $umf4def in $UMFPACK_LIBS" >&5
 echo $ECHO_N "checking for $umf4def in $UMFPACK_LIBS... $ECHO_C" >&6
 	cat >conftest.$ac_ext <<_ACEOF
@@ -14401,10 +14401,12 @@ echo "${ECHO_T}defining LIBSOLVER_DEPS to be $LIBSOLVER_DEPS" >&6
 
 
 
+
+
           ac_config_headers="$ac_config_headers config.h"
 
 
-                                        ac_config_files="$ac_config_files Makefile src/Makefile src/view3d/Makefile src/viewaxis/Makefile"
+                                                  ac_config_files="$ac_config_files Makefile src/Makefile src/arpack/Makefile src/view3d/Makefile src/viewaxis/Makefile"
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
 # tests run on this system so they can be shared between configure
@@ -14973,6 +14975,7 @@ do
   # Handling of arguments.
   "Makefile" ) CONFIG_FILES="$CONFIG_FILES Makefile" ;;
   "src/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
+  "src/arpack/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/arpack/Makefile" ;;
   "src/view3d/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/view3d/Makefile" ;;
   "src/viewaxis/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/viewaxis/Makefile" ;;
   "depfiles" ) CONFIG_COMMANDS="$CONFIG_COMMANDS depfiles" ;;
@@ -15915,7 +15918,7 @@ Libs:
   UMFPACK                   $UMFPACK_LIBS
   ARPACK		    $ARPACK_LIBS
   HUTI			    $HUTI_LIBS
-  EIO			    $EIO_LIBS
+  EIO			    $EIOF_LIBS
 
 MPI:
   $HAVE_MPI
@@ -15942,7 +15945,7 @@ Libs:
   UMFPACK                   $UMFPACK_LIBS
   ARPACK		    $ARPACK_LIBS
   HUTI			    $HUTI_LIBS
-  EIO			    $EIO_LIBS
+  EIO			    $EIOF_LIBS
 
 MPI:
   $HAVE_MPI
