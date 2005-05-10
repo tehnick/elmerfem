@@ -23,6 +23,9 @@ AC_CANONICAL_TARGET
 
 AM_INIT_AUTOMAKE(elmer, 1.0.0)
 
+dnl never attempt to regenerate configure in stupid situations...
+AM_MAINTAINER_MODE
+
 if test -z "$host"; then
   host=unknown
 fi
@@ -32,17 +35,19 @@ if test "$host" = unknown; then
 fi
 AC_SUBST(canonical_host_type)
 
+
+
 AC_LANG_COMPILER
 AC_PROG_RANLIB
 sinclude(acx_elmer.m4)
 
 ACX_PROG_AR
 
-AC_ISC_POSIX
-AC_PROG_INSTALL
-AC_PROG_MAKE_SET
-AC_HEADER_STDC
-AC_C_BIGENDIAN
+dnl AC_ISC_POSIX
+dnl AC_PROG_INSTALL
+dnl AC_PROG_MAKE_SET
+dnl AC_HEADER_STDC
+dnl AC_C_BIGENDIAN
 
 AC_PROG_CC
 AC_PROG_CPP
@@ -50,9 +55,9 @@ AC_PROG_CXX
 
 AC_CHECK_FUNCS([gettimeofday mkdir sqrt])
 AC_CHECK_HEADERS([stdlib.h strings.h sys/param.h sys/time.h])
-AC_FUNC_MALLOC
-AC_HEADER_TIME
-AC_STDC_HEADERS
+dnl AC_FUNC_MALLOC
+dnl AC_HEADER_TIME
+dnl AC_STDC_HEADERS
 
 AC_EXEEXT
 AC_OBJEXT
@@ -66,7 +71,7 @@ AC_F77_LIBRARY_LDFLAGS
 AC_FC_LIBRARY_LDFLAGS
 AC_F77_DUMMY_MAIN
 AC_FC_DUMMY_MAIN
-AC_ISC_POSIX
+dnl AC_ISC_POSIX
 
 dnl create macros in config.h for obfuscating fortran-type function symbols
 AC_F77_WRAPPERS
@@ -125,8 +130,6 @@ dnl see if arpack has to be built locally
 if test x"$acx_arpack_ok" = xno; then
    ARPACK_LIBS="arpack/libarpack.a"
 fi
-
-
 
 dnl  
 dnl OS-specific stuff that hasn't been (or can't be) done in a clean way.
@@ -225,6 +228,7 @@ case "$canonical_host_type" in
     CXXPICFLAG=
     FPICFLAG=
     DLFCN_DIR=dlfcn
+    SH_LDFLAGS="-G"
   ;;
   hppa*-hp-hpux*)
     if test "$ac_cv_f77_compiler_gnu" = yes; then
