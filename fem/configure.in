@@ -35,8 +35,6 @@ if test "$host" = unknown; then
 fi
 AC_SUBST(canonical_host_type)
 
-
-
 AC_LANG_COMPILER
 AC_PROG_RANLIB
 sinclude(acx_elmer.m4)
@@ -148,6 +146,7 @@ SHLLINKEXT=
 LIBEXT=a
 SH_LD='$(CXX)'
 SH_LDFLAGS=-shared
+SH_LDTOFLAGS=
 DL_LD='$(SH_LD)'
 DL_LDFLAGS='$(SH_LDFLAGS)'
 MKOCTFILE_DL_LDFLAGS='$(DL_LDFLAGS)'
@@ -229,6 +228,7 @@ case "$canonical_host_type" in
     FPICFLAG=
     DLFCN_DIR=dlfcn
     SH_LDFLAGS="-G"
+    SH_LDTOFLAGS="-brtl -bdynamic"
   ;;
   hppa*-hp-hpux*)
     if test "$ac_cv_f77_compiler_gnu" = yes; then
