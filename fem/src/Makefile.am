@@ -50,7 +50,7 @@ SUFFIXES: .f90 .so
 	@CP@ $< $*.fpp
 	@CPP@ @FCPPFLAGS@ @CFLAGS@ $*.fpp > $*.F90
 	@FC@ @FCFLAGS@ -c $*.F90
-	@SH_LD@ @SH_LDFLAGS@ @SONAME_FLAGS@ -o $@ $*$(OBJ_EXT)  -lsolver -L. @LIBS@
+	@SH_LD@ @SH_LDFLAGS@ @SH_LDTOFLAGS@ @SONAME_FLAGS@ -o $@ $*$(OBJ_EXT)  -lsolver -L. @LIBS@
 
 ###############################
 # libsolver.so
@@ -63,13 +63,13 @@ libsolver$(SHL_EXT): ElmerSolver$(OBJ_EXT) $(OBJS)
 # The executables
 #
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
-	@FC@ -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT)
+	@FC@ @SH_LDTOFLAGS@ -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT)
 
 ViewFactors$(EXE_EXT): libsolver$(SHL_EXT) ViewFactors$(OBJ_EXT)
-	@FC@ -lsolver -o ViewFactors$(EXE_EXT) -L. ViewFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a
+	@FC@ @SH_LDTOFLAGS@ -lsolver -o ViewFactors$(EXE_EXT) -L. ViewFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a
 
 GebhardtFactors$(EXE_EXT): libsolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT)
-	@FC@ -lsolver -o GebhardtFactors$(EXE_EXT) -L. GebhardtFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a
+	@FC@ @SH_LDTOFLAGS@ -lsolver -o GebhardtFactors$(EXE_EXT) -L. GebhardtFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a
 
 ################################33
 # Local installation rules
