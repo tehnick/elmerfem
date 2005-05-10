@@ -25,7 +25,7 @@ dnl library is found, and ACTION-IF-NOT-FOUND is a list of commands
 dnl to run it if it is not found.  If ACTION-IF-FOUND is not specified,
 dnl the default action will define HAVE_LAPACK.
 dnl
-dnl @version $Id: acx_lapack.m4,v 1.3 2002/02/25 19:05:51 stevenj Exp $
+dnl @version $Id: acx_lapack.m4,v 1.1.1.1 2005/04/21 13:29:01 vierinen Exp $
 dnl @author Steven G. Johnson <stevenj@alum.mit.edu>
 
 AC_DEFUN([ACX_LAPACK], [
@@ -42,7 +42,7 @@ case $with_lapack in
 esac
 
 # Get fortran linker name of LAPACK function to check for.
-AC_F77_FUNC(cheev)
+AC_FC_FUNC(cheev)
 
 # We cannot use LAPACK if BLAS is not found
 if test "x$acx_blas_ok" != xyes; then
