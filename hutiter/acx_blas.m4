@@ -27,12 +27,13 @@ dnl the default action will define HAVE_BLAS.
 dnl
 dnl This macro requires autoconf 2.50 or later.
 dnl
-dnl @version $Id: acx_blas.m4,v 1.1.1.1 2005/04/21 13:29:01 vierinen Exp $
+dnl @version $Id: acx_blas.m4,v 1.2 2005/05/10 12:33:31 vierinen Exp $
 dnl @author Steven G. Johnson <stevenj@alum.mit.edu>
 
 AC_DEFUN([ACX_BLAS], [
 AC_PREREQ(2.50)
 AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])
+AC_REQUIRE([AC_F77_LIBRARY_LDFLAGS])
 acx_blas_ok=no
 
 AC_ARG_WITH(blas,
@@ -49,7 +50,7 @@ AC_FC_FUNC(sgemm)
 AC_FC_FUNC(dgemm)
 
 acx_blas_save_LIBS="$LIBS"
-LIBS="$LIBS $FLIBS"
+LIBS="$LIBS $FCLIBS $FLIBS"
 
 # First, check BLAS_LIBS environment variable
 if test $acx_blas_ok = no; then
