@@ -99,7 +99,10 @@ AC_CHECK_LIB(g2c, e_wsfe)
 ACX_BLAS([], [AC_MSG_ERROR([BLAS was not found!])])
 ACX_LAPACK([], [AC_MSG_ERROR([LAPACK was not found!])])
 ACX_HUTI([], [AC_MSG_ERROR([Libhuti wasn't found])])
+
+
 ACX_EIOF([], [AC_MSG_ERROR([libeiof $ELMER_LIBERRORMSG])])
+
 ACX_ARPACK([], [AC_MSG_WARN([Using local ARPACK])])
 ACX_UMFPACK([], [AC_MSG_ERROR([libumfpack $ELMER_LIBERRORMSG])])
 ACX_MATC([], [AC_MSG_ERROR([libmatc $ELMER_LIBERRORMSG])])
@@ -209,6 +212,7 @@ case "$canonical_host_type" in
     DLFCN_DIR=dlfcn
     SH_LDFLAGS="-G"
     SH_LDTOFLAGS="-brtl -bdynamic"
+    FCPPFLAGS="-C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
   ;;
   hppa*-hp-hpux*)
     if test "$ac_cv_f77_compiler_gnu" = yes; then
@@ -235,6 +239,7 @@ case "$canonical_host_type" in
     SH_LD=ld
     SH_LDFLAGS="-assert nodefinitions"
     RLD_FLAG='-L$(octlibdir)'
+
   ;;
   sparc-sun-solaris2* | i386-pc-solaris2*)
     if test "$ac_cv_f77_compiler_gnu" = yes; then
@@ -262,6 +267,7 @@ case "$canonical_host_type" in
       TEMPLATE_AR='$(CXX)'
       TEMPLATE_ARFLAGS="-xar -o"
     fi
+    FCPPFLAGS="-C -P -traditional-cpp -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
   ;;
 esac
 
