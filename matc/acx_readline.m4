@@ -17,10 +17,14 @@ AC_ARG_ENABLE(readline,
       LIBREADLINE="-lreadline"
       LIBS="$LIBREADLINE $LIBS"
       AC_DEFINE(USE_READLINE, 1, [Define to use the readline library.])
+ 
+      dnl figure out where the they have hidden the header...
+      AC_CHECK_HEADERS([readline.h])
+      AC_CHECK_HEADERS([readline/readline.h])
+
     ], [
-      AC_MSG_WARN([I need GNU Readline 4.2 or later])
-      AC_MSG_ERROR([this is fatal unless you specify --disable-readline])
-    ],"-lncurses")
+      AC_MSG_WARN([I need GNU Readline 4.2 or later... trying to do without...])
+    ],"-lcurses")
   fi
   AC_SUBST(LIBREADLINE)
 ])
@@ -28,7 +32,7 @@ AC_ARG_ENABLE(readline,
 
 AC_DEFUN([ACX_GET_TERM], [
 acx_found_termlib=no
-for termlib in ncurses; do
+for termlib in ncurses curses termcap terminfo termlib; do
   AC_CHECK_LIB(${termlib}, tputs, [TERMLIBS="${TERMLIBS} -l${termlib}"])
   case "${TERMLIBS}" in
     *-l${termlib}*)
@@ -41,7 +45,8 @@ for termlib in ncurses; do
 done
 
 if test "$acx_found_termlib" = no; then
-  warn_termlibs="I couldn't find -lncurses (patch this to look for others)!"
+  warn_termlibs="I couldn't find -ltermcap, -lterminfo, -lncurses, -lcurses, o\
+r -ltermlib!"
   AC_MSG_WARN($warn_termlibs)
 fi
 ])

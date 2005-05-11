@@ -4,7 +4,7 @@
 # libtoolize --force --copy
 aclocal
 automake -afc --foreign
-# autoheader
+autoheader
 autoconf
 
 # Run configure for this platform

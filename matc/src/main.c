@@ -1,8 +1,11 @@
 
 /*
- * $Id: main.c,v 1.2 2005/04/15 06:54:30 vierinen Exp $ 
+ * $Id: main.c,v 1.3 2005/04/29 11:19:16 vierinen Exp $ 
  *
  * $Log: main.c,v $
+ * Revision 1.3  2005/04/29 11:19:16  vierinen
+ * stupid comment line fix
+ *
  * Revision 1.2  2005/04/15 06:54:30  vierinen
  * added gnu readline support
  *
@@ -19,9 +22,18 @@
 #include <stdio.h>
 #include <signal.h>
 
+#include "../config.h"
+
 #ifdef USE_READLINE
-#include <readline/readline.h>
-#include <readline/history.h>
+# ifdef HAVE_READLINE_READLINE_H
+#  include <readline/readline.h>
+#  include <readline/history.h>
+# else
+#  ifdef HAVE_READLINE_H
+#   include <readline.h>
+#   include <history.h>
+#  endif
+# endif
 #endif 
 
 void main( int argc, char **argv )

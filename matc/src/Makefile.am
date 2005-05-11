@@ -37,5 +37,3 @@ matc_SOURCES = $(COMMON_SRCS) main.c
 
 lib_LIBRARIES = libmatc.a
 libmatc_a_SOURCES = $(COMMON_SRCS)
-
-
