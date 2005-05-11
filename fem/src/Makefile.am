@@ -30,9 +30,10 @@ SUFFIXES: .f90 .so
 # Rules for building stuff
 #
 # a bit kludgy way to do the cpp, but hopefully portable enough
+# 
 .f90.@OBJEXT@:
 	@CP@ $< $*.fpp
-	@CPP@ @FCPPFLAGS@ @CFLAGS@ $*.fpp > $*.F90
+	@CPP@ @FCPPFLAGS@ $*.fpp > $*.F90
 	@FC@ @FCFLAGS@ -c $*.F90
 
 # a bit kludgy way to do the cpp, but hopefully portable enough

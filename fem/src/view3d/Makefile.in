@@ -132,6 +132,9 @@ LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LIBSOLVER_DEPS = @LIBSOLVER_DEPS@
 LTLIBOBJS = @LTLIBOBJS@
+MAINT = @MAINT@
+MAINTAINER_MODE_FALSE = @MAINTAINER_MODE_FALSE@
+MAINTAINER_MODE_TRUE = @MAINTAINER_MODE_TRUE@
 MAKEINFO = @MAKEINFO@
 MATC_LIBS = @MATC_LIBS@
 MKDIR = @MKDIR@
@@ -162,10 +165,12 @@ SHLLIB_VER = @SHLLIB_VER@
 SHLLINKEXT = @SHLLINKEXT@
 SH_LD = @SH_LD@
 SH_LDFLAGS = @SH_LDFLAGS@
+SH_LDTOFLAGS = @SH_LDTOFLAGS@
 SONAME_FLAGS = @SONAME_FLAGS@
 STRIP = @STRIP@
 TEMPLATE_AR = @TEMPLATE_AR@
 TEMPLATE_ARFLAGS = @TEMPLATE_ARFLAGS@
+TRADITIONAL_CPP = @TRADITIONAL_CPP@
 UMFPACK_LIBS = @UMFPACK_LIBS@
 VERSION = @VERSION@
 ac_ct_CC = @ac_ct_CC@
@@ -244,7 +249,7 @@ all: all-am
 
 .SUFFIXES:
 .SUFFIXES: .c .o .obj
-$(srcdir)/Makefile.in:  $(srcdir)/Makefile.am  $(am__configure_deps)
+$(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
 	    *$$dep*) \
@@ -269,9 +274,9 @@ Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 $(top_builddir)/config.status: $(top_srcdir)/configure $(CONFIG_STATUS_DEPENDENCIES)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 
-$(top_srcdir)/configure:  $(am__configure_deps)
+$(top_srcdir)/configure: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
-$(ACLOCAL_M4):  $(am__aclocal_m4_deps)
+$(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 
 clean-noinstLIBRARIES:

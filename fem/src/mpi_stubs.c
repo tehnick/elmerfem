@@ -8,7 +8,7 @@
  * this will most likely be screwed before it is tested on different platforms
  */
 #include "../config.h"
-#ifndef HAVE_MPI
+/* #ifndef HAVE_MPI */
 
 void FC_FUNC_(mpi_init,MPI_INIT) 
      (int *p) { *p = 0; }
@@ -35,4 +35,4 @@ void FC_FUNC(pdneupd,PDNEUPD) () {}
 void FC_FUNC(pdseupd,PDSEUPD) () {}
 void FC_FUNC(pdsaupd,PDSAUPD) () {}
 void FC_FUNC(pdnaupd,PDNAUPD) () {}
-#endif
+/* #endif */

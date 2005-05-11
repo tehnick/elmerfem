@@ -61,8 +61,8 @@ OBJS	=	mpi_stubs$(OBJ_EXT) 				\
 		MGPrec$(OBJ_EXT)				\
 		DefUtils$(OBJ_EXT)				\
 		LUDecomposition$(OBJ_EXT) 			\
-	        RadiationFactors$(OBJ_EXT)                      \
-		ResultToResult$(OBJ_EXT)
+	        RadiationFactors$(OBJ_EXT)                      
+
 
 
 #
@@ -388,15 +388,6 @@ SParIterPrecond$(OBJ_EXT):			\
 SParIterComm$(OBJ_EXT):				\
 	CRSMatrix$(OBJ_EXT)			\
 	SParIterGlobals$(OBJ_EXT)
-
-ResultToResult$(OBJ_EXT): 			\
-	SParIterComm$(OBJ_EXT)			\
-	Types$(OBJ_EXT) \
-	Lists$(OBJ_EXT) \
-	Integration$(OBJ_EXT) \
-	Interpolation$(OBJ_EXT) \
-	MainUtils$(OBJ_EXT) \
-	CoordinateSystems$(OBJ_EXT) 
 
 MEMReynolds$(SHL_EXT): \
 	MEMUtilities$(OBJ_EXT)
