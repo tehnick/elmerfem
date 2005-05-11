@@ -7619,7 +7619,6 @@ ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
-
 ac_ext=f
 ac_compile='$F77 -c $FFLAGS conftest.$ac_ext >&5'
 ac_link='$F77 -o conftest$ac_exeext $FFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
@@ -8891,6 +8890,97 @@ _ACEOF
 else
   { echo "$as_me:$LINENO: WARNING: elmer might need libstc++" >&5
 echo "$as_me: WARNING: elmer might need libstc++" >&2;}
+fi
+
+
+
+echo "$as_me:$LINENO: checking for e_wsfe in -lg2c" >&5
+echo $ECHO_N "checking for e_wsfe in -lg2c... $ECHO_C" >&6
+if test "${ac_cv_lib_g2c_e_wsfe+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lg2c  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char e_wsfe ();
+#ifdef F77_DUMMY_MAIN
+
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int F77_DUMMY_MAIN() { return 1; }
+
+#endif
+#ifdef FC_DUMMY_MAIN
+#ifndef FC_DUMMY_MAIN_EQ_F77
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int FC_DUMMY_MAIN() { return 1; }
+#endif
+#endif
+int
+main ()
+{
+e_wsfe ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_g2c_e_wsfe=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_lib_g2c_e_wsfe=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+echo "$as_me:$LINENO: result: $ac_cv_lib_g2c_e_wsfe" >&5
+echo "${ECHO_T}$ac_cv_lib_g2c_e_wsfe" >&6
+if test $ac_cv_lib_g2c_e_wsfe = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_LIBG2C 1
+_ACEOF
+
+  LIBS="-lg2c $LIBS"
+
 fi
 
 
@@ -10603,9 +10693,9 @@ echo "${ECHO_T}$acx_lapack_ok" >&6
 	fi
 fi
 
-# LAPACK linked to by default?  (is sometimes included in BLAS lib)
+# LAPACK linked to by default?  (is sometimes included with BLAS)
 if test $acx_lapack_ok = no; then
-	save_LIBS="$LIBS"; LIBS="$LIBS $BLAS_LIBS $FLIBS"
+	save_LIBS="$LIBS"; LIBS="$LIBS $BLAS_LIBS $FLIBS $FCLIBS"
 	as_ac_var=`echo "ac_cv_func_$cheev" | $as_tr_sh`
 echo "$as_me:$LINENO: checking for $cheev" >&5
 echo $ECHO_N "checking for $cheev... $ECHO_C" >&6
@@ -10731,7 +10821,7 @@ if eval "test \"\${$as_ac_Lib+set}\" = set"; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
   ac_check_lib_save_LIBS=$LIBS
-LIBS="-l$lapack $FLIBS $LIBS"
+LIBS="-l$lapack $FLIBS $FCLIBS $LIBS"
 cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -11084,7 +11174,15 @@ fi
 
 
 
+
 acx_eiof_ok=no
+
+ac_ext=cc
+ac_cpp='$CXXCPP $CPPFLAGS'
+ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
+
 
 
 # Check whether --with-eiof or --without-eiof was given.
@@ -11114,11 +11212,11 @@ case $ac_cv_fc_mangling in *," extra underscore"*) ac_val="$ac_val"_ ;; esac
 
 eio_init="$ac_val"
 
-ac_ext=c
-ac_cpp='$CPP $CPPFLAGS'
-ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_c_compiler_gnu
+ac_ext=cc
+ac_cpp='$CXXCPP $CPPFLAGS'
+ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
 
 
 acx_eiof_save_LIBS="$LIBS"
@@ -11178,7 +11276,7 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   cat conftest.err >&5
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); } &&
-	 { ac_try='test -z "$ac_c_werror_flag"
+	 { ac_try='test -z "$ac_cxx_werror_flag"
 			 || test ! -s conftest.err'
   { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
   (eval $ac_try) 2>&5
@@ -11263,7 +11361,7 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   cat conftest.err >&5
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); } &&
-	 { ac_try='test -z "$ac_c_werror_flag"
+	 { ac_try='test -z "$ac_cxx_werror_flag"
 			 || test ! -s conftest.err'
   { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
   (eval $ac_try) 2>&5
@@ -11313,6 +11411,12 @@ else
 echo "$as_me: error: libeiof $ELMER_LIBERRORMSG" >&2;}
    { (exit 1); exit 1; }; }
 fi
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
 
 
 
@@ -14626,6 +14730,7 @@ ELMER build options:
   CPPFLAGS                  $CPPFLAGS
   FCPPFLAGS                 $FCPPFLAGS
   CFLAGS                    $CFLAGS
+  FCFLAGS                    $FCFLAGS
   LDFLAGS                   $LDFLAGS
   LIBS                      $LIBS
 
@@ -14653,6 +14758,7 @@ ELMER build options:
   CPPFLAGS                  $CPPFLAGS
   FCPPFLAGS                 $FCPPFLAGS
   CFLAGS                    $CFLAGS
+  FCFLAGS                    $FCFLAGS
   LDFLAGS                   $LDFLAGS
   LIBS                      $LIBS
 
