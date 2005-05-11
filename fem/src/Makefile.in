@@ -366,8 +366,7 @@ OBJS = mpi_stubs$(OBJ_EXT) 				\
 		MGPrec$(OBJ_EXT)				\
 		DefUtils$(OBJ_EXT)				\
 		LUDecomposition$(OBJ_EXT) 			\
-	        RadiationFactors$(OBJ_EXT)                      \
-		ResultToResult$(OBJ_EXT)
+	        RadiationFactors$(OBJ_EXT)                      
 
 SC2Elmer_SOURCES = SC2Elmer.c
 all: all-recursive
@@ -1049,15 +1048,6 @@ SParIterComm$(OBJ_EXT):				\
 	CRSMatrix$(OBJ_EXT)			\
 	SParIterGlobals$(OBJ_EXT)
 
-ResultToResult$(OBJ_EXT): 			\
-	SParIterComm$(OBJ_EXT)			\
-	Types$(OBJ_EXT) \
-	Lists$(OBJ_EXT) \
-	Integration$(OBJ_EXT) \
-	Interpolation$(OBJ_EXT) \
-	MainUtils$(OBJ_EXT) \
-	CoordinateSystems$(OBJ_EXT) 
-
 MEMReynolds$(SHL_EXT): \
 	MEMUtilities$(OBJ_EXT)
 
@@ -1070,9 +1060,10 @@ SUFFIXES: .f90 .so
 # Rules for building stuff
 #
 # a bit kludgy way to do the cpp, but hopefully portable enough
+# 
 .f90.@OBJEXT@:
 	@CP@ $< $*.fpp
-	@CPP@ @FCPPFLAGS@ @CFLAGS@ $*.fpp > $*.F90
+	@CPP@ @FCPPFLAGS@ $*.fpp > $*.F90
 	@FC@ @FCFLAGS@ -c $*.F90
 
 # a bit kludgy way to do the cpp, but hopefully portable enough
@@ -1103,13 +1094,13 @@ libsolver$(SHL_EXT): ElmerSolver$(OBJ_EXT) $(OBJS)
 # The executables
 #
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
-	@FC@ @SH_LDTOFLAGS@ -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT)
+	@FC@ @SH_LDTOFLAGS@ -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT) @LIBS@
 
 ViewFactors$(EXE_EXT): libsolver$(SHL_EXT) ViewFactors$(OBJ_EXT)
-	@FC@ @SH_LDTOFLAGS@ -lsolver -o ViewFactors$(EXE_EXT) -L. ViewFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a
+	@FC@ @SH_LDTOFLAGS@ -lsolver -o ViewFactors$(EXE_EXT) -L. ViewFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a  @LIBS@
 
 GebhardtFactors$(EXE_EXT): libsolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT)
-	@FC@ @SH_LDTOFLAGS@ -lsolver -o GebhardtFactors$(EXE_EXT) -L. GebhardtFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a
+	@FC@ @SH_LDTOFLAGS@ -lsolver -o GebhardtFactors$(EXE_EXT) -L. GebhardtFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a  @LIBS@
 
 ################################33
 # Local installation rules
