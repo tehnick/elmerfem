@@ -10,33 +10,25 @@ AC_CANONICAL_TARGET
 
 AM_INIT_AUTOMAKE(matc, 1.0.0)
 
-dnl look for default cc
-AC_PROG_CC
-AC_ISC_POSIX
+AC_LANG_COMPILER
 
 dnl Checks for programs.
 AC_PROG_RANLIB
 
-AM_SANITY_CHECK
-AC_ISC_POSIX
-AC_PROG_INSTALL
-AC_PROG_MAKE_SET
-AC_HEADER_STDC
+AC_PROG_CC
+AC_STDC_HEADERS
 
 AC_CHECK_LIB(m,main)
-AC_CHECK_LIB(ncurses,main)
+AC_CHECK_LIB(curses,main)
 AC_HAVE_HEADERS(math.h)
 
 sinclude(acx_readline.m4)
 ACX_GET_TERM
 ACX_ENABLE_READLINE
 
-dnl AC_PROG_LIBTOOL
-
 AM_MAINTAINER_MODE
 
-dnl Checks for header files.
-AC_STDC_HEADERS
+AC_CONFIG_HEADER(config.h) 
 
 AC_OUTPUT([
 Makefile
