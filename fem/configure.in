@@ -267,7 +267,13 @@ case "$canonical_host_type" in
       TEMPLATE_AR='$(CXX)'
       TEMPLATE_ARFLAGS="-xar -o"
     fi
+    # sun mpcc -E leaves nasty # comment that chokes the fortran compiler
+    AC_CHECK_PROG(TRADITIONAL_CPP, cpp, yes, no)
+    if test "$TRADITIONAL_CPP" = yes; then
+       CPP=cpp       
+    fi
     FCPPFLAGS="-C -P -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
+
   ;;
 esac
 
@@ -484,6 +490,7 @@ Compilers:
   Fortran 77 compiler       $F77
   CC                        $CC
   C++                       $CXX
+  CPP                       $CPP
 
 Libs:  
   BLAS                      $BLAS_LIBS
