@@ -5590,10 +5590,6 @@ if test $ac_cv_lib_readline_rl_set_keyboard_input_timeout = yes; then
       LIBREADLINE="-lreadline"
       LIBS="$LIBREADLINE $LIBS"
 
-cat >>confdefs.h <<\_ACEOF
-#define USE_READLINE 1
-_ACEOF
-
 
 
 for ac_header in readline.h
@@ -5741,9 +5737,7 @@ if test `eval echo '${'$as_ac_Header'}'` = yes; then
 #define `echo "HAVE_$ac_header" | $as_tr_cpp` 1
 _ACEOF
 
-fi
-
-done
+else
 
 
 for ac_header in readline/readline.h
@@ -5891,11 +5885,28 @@ if test `eval echo '${'$as_ac_Header'}'` = yes; then
 #define `echo "HAVE_$ac_header" | $as_tr_cpp` 1
 _ACEOF
 
+else
+  USE_READLINE=false
 fi
 
 done
 
 
+fi
+
+done
+
+
+      if test $USE_READLINE == true; then
+
+cat >>confdefs.h <<\_ACEOF
+#define USE_READLINE 1
+_ACEOF
+
+      else
+        { echo "$as_me:$LINENO: WARNING: Headers not found, disabling readline support." >&5
+echo "$as_me: WARNING: Headers not found, disabling readline support." >&2;}
+      fi
 
 else
 

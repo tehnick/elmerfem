@@ -16,12 +16,19 @@ AC_ARG_ENABLE(readline,
     AC_CHECK_LIB(readline, rl_set_keyboard_input_timeout, [
       LIBREADLINE="-lreadline"
       LIBS="$LIBREADLINE $LIBS"
-      AC_DEFINE(USE_READLINE, 1, [Define to use the readline library.])
- 
-      dnl figure out where the they have hidden the header...
-      AC_CHECK_HEADERS([readline.h])
-      AC_CHECK_HEADERS([readline/readline.h])
 
+       
+      dnl figure out where the they have hidden the header...
+      AC_CHECK_HEADERS([readline.h],[],
+	[
+	   AC_CHECK_HEADERS([readline/readline.h],[],USE_READLINE=false)
+	])
+
+      if test $USE_READLINE == true; then
+        AC_DEFINE(USE_READLINE, 1, [Define to use the readline library.])
+      else 
+        AC_MSG_WARN([Headers not found, disabling readline support.])
+      fi
     ], [
       AC_MSG_WARN([I need GNU Readline 4.2 or later... trying to do without...])
     ],"-lcurses")
