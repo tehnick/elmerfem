@@ -2,7 +2,7 @@
 /* config.h.in.  Generated from configure.in by autoheader.  */
 
 /* "Mangling: lower case */
-#define ELMER_LINKTYP 4
+#define ELMER_LINKTYP 1
 
 /* Define if using dynamic linking */
 #define ENABLE_DYNAMIC_LINKING 1
@@ -16,7 +16,7 @@
 #define F77_FUNC(name,NAME) name ## _
 
 /* As F77_FUNC, but for C identifiers containing underscores. */
-#define F77_FUNC_(name,NAME) name ## __
+#define F77_FUNC_(name,NAME) name ## _
 
 /* Define to dummy `main' function (if any) required to link to the Fortran
    libraries. */
@@ -78,6 +78,9 @@
 /* Define to 1 if you have the `dld' library (-ldld). */
 /* #undef HAVE_LIBDLD */
 
+/* Define to 1 if you have the `g2c' library (-lg2c). */
+#define HAVE_LIBG2C 1
+
 /* Define to 1 if you have the `stdc++' library (-lstdc++). */
 #define HAVE_LIBSTDC__ 1
 
@@ -89,10 +92,6 @@
 
 /* Define if your system has LoadLibrary for dynamic linking */
 /* #undef HAVE_LOADLIBRARY_API */
-
-/* Define to 1 if your system has a GNU libc compatible `malloc' function, and
-   to 0 otherwise. */
-#define HAVE_MALLOC 1
 
 /* Define if you have a MATC library. */
 #define HAVE_MATC 1
@@ -116,7 +115,7 @@
 /* #undef HAVE_SHL_LOAD_API */
 
 /* Define to 1 if you have the `sqrt' function. */
-/* #undef HAVE_SQRT */
+#define HAVE_SQRT 1
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #define HAVE_STDINT_H 1
@@ -172,15 +171,5 @@
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1
 
-/* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
-#define TIME_WITH_SYS_TIME 1
-
 /* Version number of package */
 #define VERSION "1.0.0"
-
-/* Define to 1 if your processor stores words with the most significant byte
-   first (like Motorola and SPARC, unlike Intel and VAX). */
-/* #undef WORDS_BIGENDIAN */
-
-/* Define to rpl_malloc if the replacement function should be used. */
-/* #undef malloc */

@@ -25,7 +25,7 @@ dnl library is found, and ACTION-IF-NOT-FOUND is a list of commands
 dnl to run it if it is not found.  If ACTION-IF-FOUND is not specified,
 dnl the default action will define HAVE_LAPACK.
 dnl
-dnl @version $Id: acx_lapack.m4,v 1.1.1.1 2005/04/15 10:31:18 vierinen Exp $
+dnl @version $Id: acx_lapack.m4,v 1.2 2005/05/10 12:33:32 vierinen Exp $
 dnl @author Steven G. Johnson <stevenj@alum.mit.edu>
 
 AC_DEFUN([ACX_LAPACK], [
@@ -42,7 +42,7 @@ case $with_lapack in
 esac
 
 # Get fortran linker name of LAPACK function to check for.
-AC_F77_FUNC(cheev)
+AC_FC_FUNC(cheev)
 
 # We cannot use LAPACK if BLAS is not found
 if test "x$acx_blas_ok" != xyes; then
@@ -51,7 +51,7 @@ fi
 
 # First, check LAPACK_LIBS environment variable
 if test "x$LAPACK_LIBS" != x; then
-	save_LIBS="$LIBS"; LIBS="$LAPACK_LIBS $BLAS_LIBS $LIBS $FLIBS"
+	save_LIBS="$LIBS"; LIBS="$LAPACK_LIBS $BLAS_LIBS $LIBS $FLIBS $FCLIBS"
 	AC_MSG_CHECKING([for $cheev in $LAPACK_LIBS])
 	AC_TRY_LINK_FUNC($cheev, [acx_lapack_ok=yes], [LAPACK_LIBS=""])
 	AC_MSG_RESULT($acx_lapack_ok)
@@ -61,9 +61,9 @@ if test "x$LAPACK_LIBS" != x; then
 	fi
 fi
 
-# LAPACK linked to by default?  (is sometimes included in BLAS lib)
+# LAPACK linked to by default?  (is sometimes included with BLAS)
 if test $acx_lapack_ok = no; then
-	save_LIBS="$LIBS"; LIBS="$LIBS $BLAS_LIBS $FLIBS"
+	save_LIBS="$LIBS"; LIBS="$LIBS $BLAS_LIBS $FLIBS $FCLIBS"
 	AC_CHECK_FUNC($cheev, [acx_lapack_ok=yes])
 	LIBS="$save_LIBS"
 fi
@@ -73,7 +73,7 @@ for lapack in lapack lapack_rs6k; do
 	if test $acx_lapack_ok = no; then
 		save_LIBS="$LIBS"; LIBS="$BLAS_LIBS $LIBS"
 		AC_CHECK_LIB($lapack, $cheev,
-		    [acx_lapack_ok=yes; LAPACK_LIBS="-l$lapack"], [], [$FLIBS])
+		    [acx_lapack_ok=yes; LAPACK_LIBS="-l$lapack"], [], [$FLIBS $FCLIBS])
 		LIBS="$save_LIBS"
 	fi
 done

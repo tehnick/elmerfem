@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.2 2005/04/29 08:04:53 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.6 2005/05/09 13:02:52 vierinen Exp $
 dnl @author juha.vierinen@csc.fi
 dnl
 
@@ -87,6 +87,8 @@ AC_DEFUN([ACX_EIOF], [
 AC_PREREQ(2.50)
 acx_eiof_ok=no
 
+AC_LANG_PUSH(C++)
+
 AC_ARG_WITH(eiof,
 	[AC_HELP_STRING([--with-eiof=<lib>], [use EIOF library <lib>])])
 case $with_eiof in
@@ -131,6 +133,7 @@ else
         acx_eiof_ok=no
         $2
 fi
+AC_LANG_POP(C++)
 ])dnl ACX_EIO
 
 
@@ -145,6 +148,7 @@ AC_DEFUN([ACX_EIOC],
 AC_PREREQ(2.50)
 acx_eioc_ok=no
 
+AC_LANG_PUSH(C++)
 AC_ARG_WITH(eioc,
 	[AC_HELP_STRING([--with-eioc=<lib>], [use EIOC library <lib>])])
 case $with_eioc in
@@ -186,6 +190,7 @@ else
         acx_eioc_ok=no
         $2
 fi
+AC_LANG_POP(C++)
 ])dnl ACX_EIOC
 
 

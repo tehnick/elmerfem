@@ -49,7 +49,7 @@ SUFFIXES: .f90 .so
 # build seperate solvers as shared libs
 .f90.@SHLEXT@:
 	@CP@ $< $*.fpp
-	@CPP@ @FCPPFLAGS@ @CFLAGS@ $*.fpp > $*.F90
+	@CPP@ @FCPPFLAGS@ $*.fpp > $*.F90
 	@FC@ @FCFLAGS@ -c $*.F90
 	@SH_LD@ @SH_LDFLAGS@ @SH_LDTOFLAGS@ @SONAME_FLAGS@ -o $@ $*$(OBJ_EXT)  -lsolver -L. @LIBS@
 

@@ -27,11 +27,12 @@ dnl the default action will define HAVE_BLAS.
 dnl
 dnl This macro requires autoconf 2.50 or later.
 dnl
-dnl @version $Id: acx_blas.m4,v 1.1.1.1 2005/04/15 10:31:18 vierinen Exp $
+dnl @version $Id: acx_blas.m4,v 1.3 2005/05/11 07:05:26 vierinen Exp $
 dnl @author Steven G. Johnson <stevenj@alum.mit.edu>
 
 AC_DEFUN([ACX_BLAS], [
 AC_PREREQ(2.50)
+AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])
 AC_REQUIRE([AC_F77_LIBRARY_LDFLAGS])
 acx_blas_ok=no
 
@@ -45,11 +46,11 @@ case $with_blas in
 esac
 
 # Get fortran linker names of BLAS functions to check for.
-AC_F77_FUNC(sgemm)
-AC_F77_FUNC(dgemm)
+AC_FC_FUNC(sgemm)
+AC_FC_FUNC(dgemm)
 
 acx_blas_save_LIBS="$LIBS"
-LIBS="$LIBS $FLIBS"
+LIBS="$LIBS $FCLIBS $FLIBS"
 
 # First, check BLAS_LIBS environment variable
 if test $acx_blas_ok = no; then
