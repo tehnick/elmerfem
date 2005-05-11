@@ -3740,7 +3740,6 @@ fi
 
 
 
-
 ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
@@ -6229,7 +6228,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:6232:" \
+echo "$as_me:6231:" \
      "checking for Fortran compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -6476,7 +6475,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:6479:" \
+echo "$as_me:6478:" \
      "checking for Fortran 77 compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -6673,7 +6672,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_verb"
-(eval echo $as_me:6676: \"$ac_link\") >&5
+(eval echo $as_me:6675: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -6757,7 +6756,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_cv_prog_fc_v"
-(eval echo $as_me:6760: \"$ac_link\") >&5
+(eval echo $as_me:6759: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -6990,7 +6989,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_verb"
-(eval echo $as_me:6993: \"$ac_link\") >&5
+(eval echo $as_me:6992: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -7074,7 +7073,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_cv_prog_f77_v"
-(eval echo $as_me:7077: \"$ac_link\") >&5
+(eval echo $as_me:7076: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -8897,6 +8896,7 @@ fi
 
 
 
+
 acx_blas_ok=no
 
 
@@ -8953,7 +8953,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 acx_blas_save_LIBS="$LIBS"
-LIBS="$LIBS $FLIBS"
+LIBS="$LIBS $FCLIBS $FLIBS"
 
 # First, check BLAS_LIBS environment variable
 if test $acx_blas_ok = no; then
@@ -10523,7 +10523,7 @@ fi
 
 # First, check LAPACK_LIBS environment variable
 if test "x$LAPACK_LIBS" != x; then
-	save_LIBS="$LIBS"; LIBS="$LAPACK_LIBS $BLAS_LIBS $LIBS $FLIBS"
+	save_LIBS="$LIBS"; LIBS="$LAPACK_LIBS $BLAS_LIBS $LIBS $FLIBS $FCLIBS"
 	echo "$as_me:$LINENO: checking for $cheev in $LAPACK_LIBS" >&5
 echo $ECHO_N "checking for $cheev in $LAPACK_LIBS... $ECHO_C" >&6
 	cat >conftest.$ac_ext <<_ACEOF
@@ -12144,7 +12144,8 @@ case "$FC" in
   gfortran | g95 )
         FCPPFLAGS="$FCPPFLAGS -DDLLEXPORT=\"!\""
   ;;
-  xlf*)
+  *xlf*)
+    FCFLAGS="$FCFLAGS -qsuffix=cpp=F90"
     FCPPFLAGS="$FCPPFLAGS -DDLLEXPORT=\"!\""
   ;;
   ifort | ifc )
