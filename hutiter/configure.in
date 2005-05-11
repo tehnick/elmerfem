@@ -53,9 +53,16 @@ ACX_LAPACK([], [AC_MSG_ERROR([LAPACK was not found!])])
 
 LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
 
+case "$FC" in
+  *xlf*)
+    FCFLAGS="$FCFLAGS -qsuffix=cpp=F90"
+  ;;
+esac
+
 AC_CONFIG_HEADER(config.h) 
 
 AC_SUBST(AM_FCFLAGS) 
+AC_SUBST(FCFLAGS)
 
 AC_OUTPUT([
 Makefile
