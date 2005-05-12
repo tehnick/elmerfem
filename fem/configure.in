@@ -151,7 +151,6 @@ NO_OCT_FILE_STRIP=false
 TEMPLATE_AR='$(AR)'
 TEMPLATE_ARFLAGS="$ARFLAGS"
 library_path_var=LD_LIBRARY_PATH
-FCPPFLAGS=''
 CP='cp'
 RM='rm -f'
 MV='mv'
@@ -211,7 +210,7 @@ case "$canonical_host_type" in
     MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
     SONAME_FLAGS='-Wl,-soname -Wl,$@'
     RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
-    FCPPFLAGS="-C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
+    FCPPFLAGS="-C -P -traditional-cpp $FCPPFLAGS -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
   ;;
   i[[3456]]86-*-sco3.2v5*)
     SONAME_FLAGS='-Wl,-h -Wl,$@'
