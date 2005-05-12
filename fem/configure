@@ -693,6 +693,8 @@ MPIF77
 MPIF90
 MPIFC
 MPILIBS
+USE_MPI_TRUE
+USE_MPI_FALSE
 BLAS_LIBS
 LAPACK_LIBS
 HUTI_LIBS
@@ -1403,6 +1405,7 @@ Optional Features:
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
+  --with-mpi              Specify if to use mpi
   --with-blas=<lib>       use BLAS library <lib>
   --with-lapack=<lib>     use LAPACK library <lib>
   --with-huti=<lib>       use HUTI library <lib>
@@ -6240,7 +6243,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:6243:" \
+echo "$as_me:6246:" \
      "checking for Fortran compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -6487,7 +6490,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:6490:" \
+echo "$as_me:6493:" \
      "checking for Fortran 77 compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -6684,7 +6687,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_verb"
-(eval echo $as_me:6687: \"$ac_link\") >&5
+(eval echo $as_me:6690: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -6768,7 +6771,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_cv_prog_fc_v"
-(eval echo $as_me:6771: \"$ac_link\") >&5
+(eval echo $as_me:6774: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -7001,7 +7004,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_verb"
-(eval echo $as_me:7004: \"$ac_link\") >&5
+(eval echo $as_me:7007: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -7085,7 +7088,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_cv_prog_f77_v"
-(eval echo $as_me:7088: \"$ac_link\") >&5
+(eval echo $as_me:7091: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -8385,6 +8388,7 @@ esac
 
 
 
+
 LIBS="$LIBS -L$prefix/lib"
 CFLAGS="$CFLAGS -I$prefix/include"
 FCFLAGS="$FCFLAGS -I. -I$prefix/include"
@@ -8395,6 +8399,21 @@ ELMER_LIBERRORMSG="wasn't found, make sure it is in the prefix, or CFLAGS and LI
 
 
 ac_mpi_save_LIBS=$LIBS
+
+
+# Check whether --with-mpi or --without-mpi was given.
+if test "${with_mpi+set}" = set; then
+  withval="$with_mpi"
+
+fi;
+case $with_mpi in
+	yes | "") ;;
+	no | disable) acx_mpi_ok=disable ;;
+	-* | */* | *.a | *.so | *.so.* | *.o) MPILIBS="$with_mpi" ;;
+	*) MPILIBS="-l$with_mpi" ;;
+esac
+
+if test x"$acx_mpi_ok" != xdisable; then
 
 
 
@@ -8745,21 +8764,35 @@ fi
 
 
 
+fi
+
 LIBS=$ac_mpi_save_LIBS
 
 # Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
 if test x = x"$MPILIBS"; then
         { echo "$as_me:$LINENO: WARNING: MPI was not found, using stubs!" >&5
 echo "$as_me: WARNING: MPI was not found, using stubs!" >&2;}
-	HAVE_MPI="No MPI found"
+	HAVE_MPI="No MPI"
         :
 else
+	acx_mpi_ok=yes
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_MPI 1
 _ACEOF
  HAVE_MPI="Using MPI"
         :
+fi
+
+
+
+
+if test "$acx_mpi_ok" == "yes"; then
+  USE_MPI_TRUE=
+  USE_MPI_FALSE='#'
+else
+  USE_MPI_TRUE='#'
+  USE_MPI_FALSE=
 fi
 
 
@@ -12195,7 +12228,9 @@ if test x"$acx_arpack_ok" = xno; then
 fi
 
 if test x"$acx_parpack_ok" = xno; then
+if test x"$acx_mpi_ok" = xyes; then
    PARPACK_LIBS="parpack/libparpack.a"
+fi
 fi
 
 DLFCN_DIR=
@@ -13520,6 +13555,13 @@ echo "$as_me: error: conditional \"am__fastdepCXX\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
+if test -z "${USE_MPI_TRUE}" && test -z "${USE_MPI_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"USE_MPI\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"USE_MPI\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
 
 : ${CONFIG_STATUS=./config.status}
 ac_clean_files_save=$ac_clean_files
@@ -14149,6 +14191,8 @@ s,@MPIF77@,$MPIF77,;t t
 s,@MPIF90@,$MPIF90,;t t
 s,@MPIFC@,$MPIFC,;t t
 s,@MPILIBS@,$MPILIBS,;t t
+s,@USE_MPI_TRUE@,$USE_MPI_TRUE,;t t
+s,@USE_MPI_FALSE@,$USE_MPI_FALSE,;t t
 s,@BLAS_LIBS@,$BLAS_LIBS,;t t
 s,@LAPACK_LIBS@,$LAPACK_LIBS,;t t
 s,@HUTI_LIBS@,$HUTI_LIBS,;t t
@@ -14933,7 +14977,7 @@ Libs:
   MPI                       $MPILIBS
 
 MPI:
-  $HAVE_MPI
+  $acx_mpi_ok
 " >&5
 echo "${ECHO_T}
 ELMER build options:
@@ -14964,5 +15008,5 @@ Libs:
   MPI                       $MPILIBS
 
 MPI:
-  $HAVE_MPI
+  $acx_mpi_ok
 " >&6;
