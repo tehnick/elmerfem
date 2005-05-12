@@ -95,6 +95,8 @@ ELMER_LIBERRORMSG="wasn't found, make sure it is in the prefix, or CFLAGS and LI
 ACX_MPI([], 
         [AC_MSG_WARN([MPI was not found, using stubs!])])
 
+AM_CONDITIONAL(USE_MPI, test "$acx_mpi_ok" == "yes")
+
 AC_CHECK_LIB(stdc++, main,,AC_MSG_WARN(elmer might need libstc++))
 dnl through in obsolete fortran runtime if found. otherwise hope for the best. (netlib blas and lapack might need this)
 dnl AC_CHECK_LIB(g2c, e_wsfe)
@@ -115,9 +117,11 @@ if test x"$acx_arpack_ok" = xno; then
    ARPACK_LIBS="arpack/libarpack.a"
 fi
 
-dnl see if parpack has to be built locally
+dnl see if parpack has to be built locally (only when mpi is fine)
 if test x"$acx_parpack_ok" = xno; then
+if test x"$acx_mpi_ok" = xyes; then
    PARPACK_LIBS="parpack/libparpack.a"
+fi
 fi
 
 dnl  
@@ -522,5 +526,5 @@ Libs:
   MPI                       $MPILIBS
 
 MPI:
-  $HAVE_MPI
+  $acx_mpi_ok
 ]);

@@ -12263,6 +12263,7 @@ RM='rm -f'
 MV='mv'
 MKDIR='mkdir -p'
 LIBSOLVER_DEPS=$LIBS
+FCPPFLAGS="$FCPPFLAGS -DDLLEXPORT=\"!\""
 
 ELMER_OSNAME="LINUX_PC"
 
@@ -12308,7 +12309,7 @@ case "$canonical_host_type" in
     SHLLINKEXT=.dll
     SONAME_FLAGS='-Wl,--out-implib=$@.a'
     library_path_var=PATH
-    FCPPFLAGS="$FCPPFLAGS -DWIN32"
+    FCPPFLAGS="-DWIN32"
   ;;
   *-*-linux* | *-*-gnu*)
     MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
@@ -12439,15 +12440,12 @@ esac
 SH_LD2=$SH_LD
 case "$FC" in
   gfortran | g95 )
-        FCPPFLAGS="$FCPPFLAGS -DDLLEXPORT=\"!\""
-    SH_LD2=$FC
+        SH_LD2=$FC
   ;;
   *xlf*)
     FCFLAGS="$FCFLAGS -qsuffix=cpp=F90"
-    FCPPFLAGS="$FCPPFLAGS -DDLLEXPORT=\"!\""
   ;;
   ifort | ifc )
-    FCPPFLAGS="$FCPPFLAGS -DDLLEXPORT=\"!\""
     SH_LD2=$FC
     if test "$ac_cv_f77_compiler_gnu" = yes; then
        { echo "$as_me:$LINENO: WARNING: Intel Fortran 90 compiler and g77 really don't mix that well, I hope you know what you are doing." >&5
@@ -12455,8 +12453,7 @@ echo "$as_me: WARNING: Intel Fortran 90 compiler and g77 really don't mix that w
     fi
   ;;
   mpf90 | f90 | f95 | mpf95 | mpf77 )
-        FCPPFLAGS="$FCPPFLAGS -DDLLEXPORT=\"!\""
-  ;;
+      ;;
 
 esac
 
