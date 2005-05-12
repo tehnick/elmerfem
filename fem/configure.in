@@ -1,3 +1,6 @@
+dnl
+dnl Juha.Vierinen@csc.fi 5/2005
+dnl 
 AC_INIT(src/Solver.f90)
 
 AC_CANONICAL_HOST
@@ -103,12 +106,18 @@ ACX_HUTI([], [AC_MSG_ERROR([Libhuti wasn't found])])
 ACX_EIOF([], [AC_MSG_ERROR([libeiof $ELMER_LIBERRORMSG])])
 
 ACX_ARPACK([], [AC_MSG_RESULT([..using internal arpack])])
+ACX_PARPACK([], [AC_MSG_RESULT([..using internal parpack])])
 ACX_UMFPACK([], [AC_MSG_ERROR([libumfpack $ELMER_LIBERRORMSG])])
 ACX_MATC([], [AC_MSG_ERROR([libmatc $ELMER_LIBERRORMSG])])
 
 dnl see if arpack has to be built locally
 if test x"$acx_arpack_ok" = xno; then
    ARPACK_LIBS="arpack/libarpack.a"
+fi
+
+dnl see if parpack has to be built locally
+if test x"$acx_parpack_ok" = xno; then
+   PARPACK_LIBS="parpack/libparpack.a"
 fi
 
 dnl  
@@ -294,6 +303,7 @@ case "$FC" in
   gfortran | g95 )
     dnl Get rid of unwanted DLLEXPORT declarations
     FCPPFLAGS="$FCPPFLAGS -DDLLEXPORT=\"!\""
+    SH_LD2=$FC
   ;;
   *xlf*)
     FCFLAGS="$FCFLAGS -qsuffix=cpp=F90"
@@ -301,7 +311,7 @@ case "$FC" in
   ;;
   ifort | ifc )
     FCPPFLAGS="$FCPPFLAGS -DDLLEXPORT=\"!\""
-    SH_LD2=ifort
+    SH_LD2=$FC
     if test "$ac_cv_f77_compiler_gnu" = yes; then
        AC_MSG_WARN([Intel Fortran 90 compiler and g77 really don't mix that well, I hope you know what you are doing.])
     fi
@@ -405,7 +415,7 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
   AC_DEFINE_UNQUOTED(SHL_EXTENSION, ".$SHLEXT",[Shared lib filename extension])
 fi
 
-LIBS="$ARPACK_LIBS $LAPACK_LIBS $BLAS_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $MATC_LIBS $LIBS $FCLIBS $FLIBS"
+LIBS="$ARPACK_LIBS $PARPACK_LIBS $LAPACK_LIBS $BLAS_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $MATC_LIBS $LIBS $FCLIBS $FLIBS $MPILIBS"
 
 AC_MSG_RESULT([defining FPICFLAG to be $FPICFLAG])
 AC_MSG_RESULT([defining CPICFLAG to be $CPICFLAG])
@@ -477,6 +487,7 @@ Makefile
 Makeconf
 src/Makefile
 src/arpack/Makefile
+src/parpack/Makefile
 src/view3d/Makefile
 src/viewaxis/Makefile
 ]
@@ -505,8 +516,10 @@ Libs:
   LAPACK                    $LAPACK_LIBS
   UMFPACK                   $UMFPACK_LIBS
   ARPACK		    $ARPACK_LIBS
+  PARPACK		    $PARPACK_LIBS
   HUTI			    $HUTI_LIBS
   EIO			    $EIOF_LIBS
+  MPI                       $MPILIBS
 
 MPI:
   $HAVE_MPI

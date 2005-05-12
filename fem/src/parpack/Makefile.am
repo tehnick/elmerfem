@@ -57,7 +57,17 @@ COMMON_SRCS =  \
 	pzneupd.f\
 	pzngets.f\
 	debug.h \
-	stat.h
+	pcmout.f \
+	pcvout.f \
+	pdmout.f \
+	pdvout.f \
+	pivout.f \
+	psmout.f \
+	psvout.f \
+	pzmout.f \
+	pzvout.f \
+	stat.h \
+	mpif.h
 
 noinst_LIBRARIES = libparpack.a
 

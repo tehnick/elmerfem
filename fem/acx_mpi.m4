@@ -24,77 +24,54 @@ dnl library is found, and ACTION-IF-NOT-FOUND is a list of commands
 dnl to run it if it is not found.  If ACTION-IF-FOUND is not specified,
 dnl the default action will define HAVE_MPI.
 dnl
-dnl @version $Id: acx_mpi.m4,v 1.1.1.1 2005/04/21 13:29:01 vierinen Exp $
+dnl @version $Id: acx_mpi.m4,v 1.2 2005/04/22 12:53:17 vierinen Exp $
 dnl @author Steven G. Johnson <stevenj@alum.mit.edu>
 
 AC_DEFUN([ACX_MPI], [
 AC_PREREQ(2.50) dnl for AC_LANG_CASE
 
-AC_LANG_CASE(
-[C], [
-	AC_REQUIRE([AC_PROG_CC])
-	AC_CHECK_PROGS(MPICC, mpicc hcc mpcc mpcc_r mpxlc, $CC)
-	acx_mpi_save_CC="$CC"
-	CC="$MPICC"
-	AC_SUBST(MPICC)
-],
-[C++], [
-	AC_REQUIRE([AC_PROG_CXX])
-	AC_CHECK_PROGS(MPICXX, mpiCC mpCC, $CXX)
-	acx_mpi_save_CXX="$CXX"
-	CXX="$MPICXX"
-	AC_SUBST(MPICXX)
-],
-[Fortran 77], [
-	AC_REQUIRE([AC_PROG_F77])
-	AC_CHECK_PROGS(MPIF77, mpif77 hf77 mpxlf mpf77 mpif90 mpf90 mpxlf90 mpxlf95 mpxlf_r, $F77)
-	acx_mpi_save_F77="$F77"
-	F77="$MPIF77"
-	AC_SUBST(MPIF77)
-],
-[Fortran 90], [
-	AC_REQUIRE([AC_PROG_FC])
-	AC_CHECK_PROGS(MPIF90, mpf90 mpf95, $FC)
-	acx_mpi_save_FC="$FC"
-	FC="$MPIFC"
-	AC_SUBST(MPIFC)])
+ac_mpi_save_LIBS=$LIBS
+
+dnl
+dnl just check for these... we might not needs them anyway :) 
+dnl
+
+AC_REQUIRE([AC_PROG_CC])
+AC_CHECK_PROGS(MPICC, mpicc hcc mpcc mpcc_r mpxlc mpxlC)
+AC_SUBST(MPICC)
+
+AC_REQUIRE([AC_PROG_CXX])
+AC_CHECK_PROGS(MPICXX, mpiCC mpCC mpxlC)
+AC_SUBST(MPICXX)
+
+AC_REQUIRE([AC_PROG_F77])
+AC_CHECK_PROGS(MPIF77, mpif77 hf77 mpxlf mpf77 mpif90 mpf90 mpxlf90 mpxlf95 mpxlf_r)
+AC_SUBST(MPIF77)
+
+AC_REQUIRE([AC_PROG_FC])
+AC_CHECK_PROGS(MPIF90, mpf90 mpf95 mpxlf95)
+AC_SUBST(MPIFC)
+
+dnl if test x = x"$MPILIBS"; then
+dnl 	AC_LANG_CASE(
+dnl	        [C], [AC_CHECK_FUNC(MPI_Init, [MPILIBS=" "])],
+dnl		[C++], [AC_CHECK_FUNC(MPI_Init, [MPILIBS=" "])],
+dnl		[Fortran 77], [AC_MSG_CHECKING([for MPI_Init])
+dnl			       AC_TRY_LINK([],[call MPI_Init], [MPILIBS=" " AC_MSG_RESULT(yes)], [AC_MSG_RESULT(no)])],
+dnl		[Fortran 90], [AC_MSG_CHECKING([for MPI_Init])
+dnl			       AC_TRY_LINK([],[call MPI_Init], [MPILIBS=" " AC_MSG_RESULT(yes)], [AC_MSG_RESULT(no)])])
+dnl fi
 
 if test x = x"$MPILIBS"; then
-	AC_LANG_CASE(
-	        [C], [AC_CHECK_FUNC(MPI_Init, [MPILIBS=" "])],
-		[C++], [AC_CHECK_FUNC(MPI_Init, [MPILIBS=" "])],
-		[Fortran 77], [AC_MSG_CHECKING([for MPI_Init])
-			       AC_TRY_LINK([],[call MPI_Init], [MPILIBS=" " AC_MSG_RESULT(yes)], [AC_MSG_RESULT(no)])],
-		[Fortran 90], [AC_MSG_CHECKING([for MPI_Init])
-			       AC_TRY_LINK([],[call MPI_Init], [MPILIBS=" " AC_MSG_RESULT(yes)], [AC_MSG_RESULT(no)])])
-
+	AC_CHECK_LIB(mpi, MPI_Init, MPILIBS="-lmpi")
 fi
 if test x = x"$MPILIBS"; then
-	AC_CHECK_LIB(mpi, MPI_Init, [MPILIBS="-lmpi"])
+	AC_CHECK_LIB(mpich, MPI_Init, MPILIBS="-lmpich")
 fi
-if test x = x"$MPILIBS"; then
-	AC_CHECK_LIB(mpich, MPI_Init, [MPILIBS="-lmpich"])
-fi
-
-dnl We have to use AC_TRY_COMPILE and not AC_CHECK_HEADER because the
-dnl latter uses $CPP, not $CC (which may be mpicc).
-AC_LANG_CASE([C], [if test x != x"$MPILIBS"; then
-	AC_MSG_CHECKING([for mpi.h])
-	AC_TRY_COMPILE([#include <mpi.h>],[],[AC_MSG_RESULT(yes)], [MPILIBS=""
-		AC_MSG_RESULT(no)])
-fi],
-[C++], [if test x != x"$MPILIBS"; then
-	AC_MSG_CHECKING([for mpi.h])
-	AC_TRY_COMPILE([#include <mpi.h>],[],[AC_MSG_RESULT(yes)], [MPILIBS=""
-		AC_MSG_RESULT(no)])
-fi])
-
-AC_LANG_CASE([C], [CC="$acx_mpi_save_CC"],
-	[C++], [CXX="$acx_mpi_save_CXX"],
-	[Fortran 77], [F77="$acx_mpi_save_F77"],
-	[Fortran 90], [FC="$acx_mpi_save_FC"])
 
 AC_SUBST(MPILIBS)
+
+LIBS=$ac_mpi_save_LIBS
 
 # Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
 if test x = x"$MPILIBS"; then

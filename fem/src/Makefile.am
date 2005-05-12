@@ -56,7 +56,7 @@ SUFFIXES: .f90 .so
 ###############################
 # libsolver.so
 #
-libsolver$(SHL_EXT): ElmerSolver$(OBJ_EXT) $(OBJS)
+libsolver$(SHL_EXT): ElmerSolver$(OBJ_EXT) $(OBJS) arpack parpack
 	@RM@ $@
 	@SH_LD@ @SH_LDFLAGS@ @SONAME_FLAGS@ -o $@ ElmerSolver$(OBJ_EXT) $(OBJS) @LIBS@ -L. 
 

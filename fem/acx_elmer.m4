@@ -1,8 +1,8 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.6 2005/05/09 13:02:52 vierinen Exp $
-dnl @author juha.vierinen@csc.fi
+dnl @version $Id: acx_elmer.m4,v 1.7 2005/05/11 13:33:50 vierinen Exp $
+dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
 dnl
@@ -249,6 +249,64 @@ else
         $2
 fi
 ])dnl ACX_ARPACK
+
+
+
+dnl
+dnl @synopsis ACX_PARPACK([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
+dnl
+dnl Look for PARPACK library
+dnl
+AC_DEFUN([ACX_PARPACK], [
+AC_PREREQ(2.50)
+AC_REQUIRE([AC_F77_LIBRARY_LDFLAGS])
+acx_parpack_ok=no
+
+AC_ARG_WITH(parpack,
+	[AC_HELP_STRING([--with-parpack=<lib>], [Specify location of PARPACK])])
+case $with_parpack in
+	yes | "") ;;
+	no) acx_parpack_ok=disable ;;
+	-* | */* | *.a | *.so | *.so.* | *.o) PARPACK_LIBS="$with_parpack" ;;
+	*) PARPACK_LIBS="-l$with_parpack" ;;
+esac
+
+# Get fortran linker names of PARPACK functions to check for.
+AC_FC_FUNC(pdneupd)
+
+acx_parpack_save_LIBS="$LIBS"
+
+LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
+
+# First, check PARPACK_LIBS environment variable
+if test $acx_parpack_ok = no; then
+if test "x$PARPACK_LIBS" != x; then
+	save_LIBS="$LIBS"; LIBS="$PARPACK_LIBS $LIBS"
+	AC_MSG_CHECKING([for $pdneupd in $PARPACK_LIBS])
+	AC_TRY_LINK_FUNC($pdneupd, [acx_parpack_ok=yes], [PARPACK_LIBS=""])
+	AC_MSG_RESULT($acx_parpack_ok)
+	LIBS="$save_LIBS"
+fi
+fi
+
+# Generic PARPACK library?
+if test $acx_parpack_ok = no; then
+	AC_CHECK_LIB(parpack, $pdneupd, [acx_parpack_ok=yes; PARPACK_LIBS="-lparpack"])
+fi
+
+AC_SUBST(PARPACK_LIBS)
+
+LIBS="$acx_parpack_save_LIBS"
+
+# Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
+if test x"$acx_parpack_ok" = xyes; then
+        ifelse([$1],,AC_DEFINE(HAVE_PARPACK,1,[Define if you have a PARPACK library.]),[$1])
+        :
+else
+        acx_parpack_ok=no
+        $2
+fi
+])dnl ACX_PARPACK
 
 
 

@@ -2,7 +2,7 @@
 /* config.h.in.  Generated from configure.in by autoheader.  */
 
 /* "Mangling: lower case */
-#define ELMER_LINKTYP 1
+#define ELMER_LINKTYP 4
 
 /* Define if using dynamic linking */
 #define ENABLE_DYNAMIC_LINKING 1
@@ -16,7 +16,7 @@
 #define F77_FUNC(name,NAME) name ## _
 
 /* As F77_FUNC, but for C identifiers containing underscores. */
-#define F77_FUNC_(name,NAME) name ## _
+#define F77_FUNC_(name,NAME) name ## __
 
 /* Define to dummy `main' function (if any) required to link to the Fortran
    libraries. */
@@ -30,7 +30,7 @@
 #define FC_FUNC(name,NAME) name ## _
 
 /* As FC_FUNC, but for C identifiers containing underscores. */
-#define FC_FUNC_(name,NAME) name ## _
+#define FC_FUNC_(name,NAME) name ## __
 
 /* Define if you have a ARPACK library. */
 /* #undef HAVE_ARPACK */
@@ -100,7 +100,10 @@
 #define HAVE_MKDIR 1
 
 /* Define if you have the MPI library. */
-/* #undef HAVE_MPI */
+#define HAVE_MPI 1
+
+/* Define if you have a PARPACK library. */
+/* #undef HAVE_PARPACK */
 
 /* Define to 1 if you have the `shl_findsym' function. */
 /* #undef HAVE_SHL_FINDSYM */
@@ -112,7 +115,7 @@
 /* #undef HAVE_SHL_LOAD_API */
 
 /* Define to 1 if you have the `sqrt' function. */
-#define HAVE_SQRT 1
+/* #undef HAVE_SQRT */
 
 /* Define to 1 if you have the <stdint.h> header file. */
 #define HAVE_STDINT_H 1

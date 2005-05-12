@@ -159,6 +159,7 @@ PACKAGE_NAME = @PACKAGE_NAME@
 PACKAGE_STRING = @PACKAGE_STRING@
 PACKAGE_TARNAME = @PACKAGE_TARNAME@
 PACKAGE_VERSION = @PACKAGE_VERSION@
+PARPACK_LIBS = @PARPACK_LIBS@
 PATH_SEPARATOR = @PATH_SEPARATOR@
 RANLIB = @RANLIB@
 RLD_FLAG = @RLD_FLAG@
@@ -239,7 +240,7 @@ target_alias = @target_alias@
 target_cpu = @target_cpu@
 target_os = @target_os@
 target_vendor = @target_vendor@
-SUBDIRS = arpack view3d viewaxis
+SUBDIRS = arpack parpack view3d viewaxis
 
 #*******************************************************************************
 # Elmer Makefile.in 
@@ -1092,7 +1093,7 @@ SUFFIXES: .f90 .so
 ###############################
 # libsolver.so
 #
-libsolver$(SHL_EXT): ElmerSolver$(OBJ_EXT) $(OBJS)
+libsolver$(SHL_EXT): ElmerSolver$(OBJ_EXT) $(OBJS) arpack parpack
 	@RM@ $@
 	@SH_LD@ @SH_LDFLAGS@ @SONAME_FLAGS@ -o $@ ElmerSolver$(OBJ_EXT) $(OBJS) @LIBS@ -L. 
 
