@@ -31,11 +31,10 @@ void FC_FUNC_(mpi_buffer_detach,MPI_BUFFER_DETACH) () {}
 void FC_FUNC_(mpi_bsend,MPI_BSEND) () {}
 void FC_FUNC_(mpi_null_delete_fn,MPI_NULL_DELETE_FN) () {}
 void FC_FUNC_(mpi_buffer_attach,MPI_BUFFER_ATTACH) () {}
-#endif 
 
-/* jv: parpack is compiled by default...
 void FC_FUNC(pdneupd,PDNEUPD) () {}
 void FC_FUNC(pdseupd,PDSEUPD) () {}
 void FC_FUNC(pdsaupd,PDSAUPD) () {}
 void FC_FUNC(pdnaupd,PDNAUPD) () {}
-*/
+
+#endif 
