@@ -78,9 +78,6 @@
 /* Define to 1 if you have the `dld' library (-ldld). */
 /* #undef HAVE_LIBDLD */
 
-/* Define to 1 if you have the `g2c' library (-lg2c). */
-#define HAVE_LIBG2C 1
-
 /* Define to 1 if you have the `stdc++' library (-lstdc++). */
 #define HAVE_LIBSTDC__ 1
 

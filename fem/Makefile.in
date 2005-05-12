@@ -36,10 +36,10 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
-DIST_COMMON = $(am__configure_deps) $(srcdir)/Makefile.am \
-	$(srcdir)/Makefile.in $(srcdir)/config.h.in \
-	$(top_srcdir)/configure config.guess config.sub depcomp \
-	install-sh missing
+DIST_COMMON = $(am__configure_deps) $(srcdir)/Makeconf.in \
+	$(srcdir)/Makefile.am $(srcdir)/Makefile.in \
+	$(srcdir)/config.h.in $(top_srcdir)/configure config.guess \
+	config.sub depcomp install-sh missing
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/acx_mpi.m4 \
@@ -53,7 +53,7 @@ am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
  configure.lineno configure.status.lineno
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = config.h
-CONFIG_CLEAN_FILES =
+CONFIG_CLEAN_FILES = Makeconf
 SOURCES =
 DIST_SOURCES =
 RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
@@ -112,6 +112,7 @@ ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 EIOF_LIBS = @EIOF_LIBS@
 EXEEXT = @EXEEXT@
+EXTRA_LIBS = @EXTRA_LIBS@
 F77 = @F77@
 FC = @FC@
 FCFLAGS = @FCFLAGS@
@@ -165,6 +166,7 @@ SHLLIB = @SHLLIB@
 SHLLIB_VER = @SHLLIB_VER@
 SHLLINKEXT = @SHLLINKEXT@
 SH_LD = @SH_LD@
+SH_LD2 = @SH_LD2@
 SH_LDFLAGS = @SH_LDFLAGS@
 SH_LDTOFLAGS = @SH_LDTOFLAGS@
 SONAME_FLAGS = @SONAME_FLAGS@
@@ -285,6 +287,8 @@ $(srcdir)/config.h.in: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
 
 distclean-hdr:
 	-rm -f config.h stamp-h1
+Makeconf: $(top_builddir)/config.status $(srcdir)/Makeconf.in
+	cd $(top_builddir) && $(SHELL) ./config.status $@
 uninstall-info-am:
 
 # This directory's subdirectories are mostly independent; you can cd
@@ -422,6 +426,7 @@ distclean-tags:
 distdir: $(DISTFILES)
 	$(am__remove_distdir)
 	mkdir $(distdir)
+	$(mkdir_p) $(distdir)/.
 	@srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`; \
 	topsrcdirstrip=`echo "$(top_srcdir)" | sed 's|.|.|g'`; \
 	list='$(DISTFILES)'; for file in $$list; do \

@@ -93,9 +93,8 @@ ACX_MPI([],
         [AC_MSG_WARN([MPI was not found, using stubs!])])
 
 AC_CHECK_LIB(stdc++, main,,AC_MSG_WARN(elmer might need libstc++))
-
 dnl through in obsolete fortran runtime if found. otherwise hope for the best. (netlib blas and lapack might need this)
-AC_CHECK_LIB(g2c, e_wsfe)
+dnl AC_CHECK_LIB(g2c, e_wsfe)
 ACX_BLAS([], [AC_MSG_ERROR([BLAS was not found!])])
 ACX_LAPACK([], [AC_MSG_ERROR([LAPACK was not found!])])
 ACX_HUTI([], [AC_MSG_ERROR([Libhuti wasn't found])])
@@ -103,7 +102,7 @@ ACX_HUTI([], [AC_MSG_ERROR([Libhuti wasn't found])])
 
 ACX_EIOF([], [AC_MSG_ERROR([libeiof $ELMER_LIBERRORMSG])])
 
-ACX_ARPACK([], [AC_MSG_WARN([Using local ARPACK])])
+ACX_ARPACK([], [AC_MSG_RESULT([..using internal arpack])])
 ACX_UMFPACK([], [AC_MSG_ERROR([libumfpack $ELMER_LIBERRORMSG])])
 ACX_MATC([], [AC_MSG_ERROR([libmatc $ELMER_LIBERRORMSG])])
 
@@ -247,6 +246,13 @@ case "$canonical_host_type" in
     else
       FPICFLAG=-KPIC
     fi
+    if test "$ac_cv_fc_compiler_gnu" = yes; then
+      FPICFLAG=-fPIC
+    else
+      FPICFLAG=-KPIC
+      # sun compilers want to see "-lsunmath -lsunperf -lfsu" way too often..
+      EXTRA_LIBS=$LIBS
+    fi
     if test "$GCC" = yes; then
       CPICFLAG=-fPIC
     else
@@ -267,7 +273,8 @@ case "$canonical_host_type" in
       TEMPLATE_AR='$(CXX)'
       TEMPLATE_ARFLAGS="-xar -o"
     fi
-    # sun mpcc -E leaves nasty # comment that chokes the fortran compiler
+    # sun mpcc -E leaves nasty # comment that chokes the fortran compiler, so we have to hope
+    # that ye olde cpp is present.
     AC_CHECK_PROG(TRADITIONAL_CPP, cpp, yes, no)
     if test "$TRADITIONAL_CPP" = yes; then
        CPP=cpp       
@@ -280,21 +287,8 @@ esac
 dnl
 dnl Compiler specific stuff
 dnl
-dnl Known compilers:
-dnl  f77/f90/f95: generic compiler names
-dnl  g77: GNU Fortran 77 compiler
-dnl  gfortran: putative GNU Fortran 95+ compiler (in progress)
-dnl  fort77: native F77 compiler under HP-UX (and some older Crays)
-dnl  frt: Fujitsu F77 compiler
-dnl  pgf77/pgf90/pgf95: Portland Group F77/F90/F95 compilers
-dnl  xlf/xlf90/xlf95: IBM (AIX) F77/F90/F95 compilers
-dnl  lf95: Lahey-Fujitsu F95 compiler
-dnl  fl32: Microsoft Fortran 77 "PowerStation" compiler
-dnl  af77: Apogee F77 compiler for Intergraph hardware running CLIX
-dnl  epcf90: "Edinburgh Portable Compiler" F90
-dnl  fort: Compaq (now HP) Fortran 90/95 compiler for Tru64 and Linux/Alpha
-dnl  ifc: Intel Fortran 95 compiler for Linux/x86 (also known as ifort)
-dnl  efc: Intel Fortran 95 compiler for IA64
+dnl Troubles with intel compiler (ElmerSolver does not link with icc and libsolver doesn't link with ifort :)
+SH_LD2=$SH_LD
 dnl
 case "$FC" in
   gfortran | g95 )
@@ -307,6 +301,10 @@ case "$FC" in
   ;;
   ifort | ifc )
     FCPPFLAGS="$FCPPFLAGS -DDLLEXPORT=\"!\""
+    SH_LD2=ifort
+    if test "$ac_cv_f77_compiler_gnu" = yes; then
+       AC_MSG_WARN([Intel Fortran 90 compiler and g77 really don't mix that well, I hope you know what you are doing.])
+    fi
   ;;	
   mpf90 | f90 | f95 | mpf95 | mpf77 ) 
     dnl sun compilers
@@ -446,6 +444,8 @@ AC_SUBST(SHLBIN_VER)
 AC_SUBST(SHLLINKEXT)
 AC_SUBST(DLFCN_DIR)
 AC_SUBST(SH_LD)
+AC_SUBST(SH_LD2)
+AC_SUBST(EXTRA_LIBS)
 AC_SUBST(SH_LDFLAGS)
 AC_SUBST(SH_LDTOFLAGS)
 AC_SUBST(DL_LD)
@@ -474,6 +474,7 @@ AC_CONFIG_HEADER(config.h)
 
 AC_OUTPUT([
 Makefile
+Makeconf
 src/Makefile
 src/arpack/Makefile
 src/view3d/Makefile
@@ -488,7 +489,7 @@ ELMER build options:
   CPPFLAGS                  $CPPFLAGS
   FCPPFLAGS                 $FCPPFLAGS
   CFLAGS                    $CFLAGS
-  FCFLAGS                    $FCFLAGS
+  FCFLAGS                   $FCFLAGS
   LDFLAGS                   $LDFLAGS
   LIBS                      $LIBS
 
