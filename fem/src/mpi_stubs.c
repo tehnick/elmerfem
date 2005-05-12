@@ -8,8 +8,8 @@
  * this will most likely be screwed before it is tested on different platforms
  */
 #include "../config.h"
-/* #ifndef HAVE_MPI */
 
+#ifndef HAVE_MPI 
 void FC_FUNC_(mpi_init,MPI_INIT) 
      (int *p) { *p = 0; }
 void FC_FUNC_(mpi_comm_size,MPI_COMM_SIZE) 
@@ -31,8 +31,11 @@ void FC_FUNC_(mpi_buffer_detach,MPI_BUFFER_DETACH) () {}
 void FC_FUNC_(mpi_bsend,MPI_BSEND) () {}
 void FC_FUNC_(mpi_null_delete_fn,MPI_NULL_DELETE_FN) () {}
 void FC_FUNC_(mpi_buffer_attach,MPI_BUFFER_ATTACH) () {}
+#endif 
+
+#ifndef HAVE_PARPACK
 void FC_FUNC(pdneupd,PDNEUPD) () {}
 void FC_FUNC(pdseupd,PDSEUPD) () {}
 void FC_FUNC(pdsaupd,PDSAUPD) () {}
 void FC_FUNC(pdnaupd,PDNAUPD) () {}
-/* #endif */
+#endif

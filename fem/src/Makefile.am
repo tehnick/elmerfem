@@ -1,4 +1,4 @@
-SUBDIRS=arpack view3d viewaxis
+SUBDIRS=arpack parpack view3d viewaxis
 
 #*******************************************************************************
 # Elmer Makefile.in 
