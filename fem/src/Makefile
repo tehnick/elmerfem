@@ -118,7 +118,7 @@ EXEEXT =
 EXTRA_LIBS = 
 F77 = ifort
 FC = ifort
-FCFLAGS = -g -I. -I/tmp/elmer/ifc/include -fPIC
+FCFLAGS = -O3 -I. -I/tmp/elmer/ifc/include -fPIC
 FCLIBS =  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s
 FCPPFLAGS = -C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -DDLLEXPORT="!"
 FFLAGS = -O3
@@ -1066,7 +1066,7 @@ SUFFIXES: .f90 .so
 .f90.o:
 	cp $< $*.fpp
 	icc -E -C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -DDLLEXPORT="!" -O3 -I/tmp/elmer/ifc/include -fPIC $*.fpp > $*.F90
-	ifort -g -I. -I/tmp/elmer/ifc/include -fPIC -c $*.F90
+	ifort -O3 -I. -I/tmp/elmer/ifc/include -fPIC -c $*.F90
 
 # a bit kludgy way to do the cpp, but hopefully portable enough
 .f.o:
@@ -1082,7 +1082,7 @@ SUFFIXES: .f90 .so
 .f90.so:
 	cp $< $*.fpp
 	icc -E -C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -DDLLEXPORT="!" -O3 -I/tmp/elmer/ifc/include -fPIC $*.fpp > $*.F90
-	ifort -g -I. -I/tmp/elmer/ifc/include -fPIC -c $*.F90
+	ifort -O3 -I. -I/tmp/elmer/ifc/include -fPIC -c $*.F90
 	$(CXX) -shared  -Wl,-soname -Wl,$@ -o $@ $*$(OBJ_EXT)  -lsolver -L. 
 
 ###############################
