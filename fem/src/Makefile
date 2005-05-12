@@ -94,14 +94,14 @@ BLAS_LIBS = -lblas
 CC = icc
 CCC = 
 CCDEPMODE = depmode=gcc3
-CFLAGS = -O3 -I/tmp/elmer/ifc/include -fPIC
+CFLAGS = -g -O2 -I/tmp/elmer/ifc/include -fPIC
 CP = cp
 CPICFLAG = -fPIC
 CPP = icc -E
 CPPFLAGS = 
 CXX = icc
 CXXDEPMODE = depmode=gcc3
-CXXFLAGS = -O3 -fPIC
+CXXFLAGS = -g -O2 -fPIC
 CXXPICFLAG = -fPIC
 CYGPATH_W = echo
 DEFS = -DHAVE_CONFIG_H
@@ -117,10 +117,10 @@ EIOF_LIBS = -leiof
 EXEEXT = 
 F77 = ifort
 FC = ifort
-FCFLAGS = -O3 -I. -I/tmp/elmer/ifc/include -fPIC
+FCFLAGS = -g -I. -I/tmp/elmer/ifc/include -fPIC
 FCLIBS =  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s
 FCPPFLAGS = -C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -DDLLEXPORT="!"
-FFLAGS = -O3
+FFLAGS = -g
 FLIBS =  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s
 FPICFLAG = -fPIC
 GREP = /bin/grep
@@ -174,6 +174,7 @@ SONAME_FLAGS = -Wl,-soname -Wl,$@
 STRIP = 
 TEMPLATE_AR = $(AR)
 TEMPLATE_ARFLAGS = rc
+TRADITIONAL_CPP = 
 UMFPACK_LIBS = /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a
 VERSION = 1.0.0
 ac_ct_CC = icc
@@ -365,8 +366,7 @@ OBJS = mpi_stubs$(OBJ_EXT) 				\
 		MGPrec$(OBJ_EXT)				\
 		DefUtils$(OBJ_EXT)				\
 		LUDecomposition$(OBJ_EXT) 			\
-	        RadiationFactors$(OBJ_EXT)                      \
-		ResultToResult$(OBJ_EXT)
+	        RadiationFactors$(OBJ_EXT)                      
 
 SC2Elmer_SOURCES = SC2Elmer.c
 all: all-recursive
@@ -1048,15 +1048,6 @@ SParIterComm$(OBJ_EXT):				\
 	CRSMatrix$(OBJ_EXT)			\
 	SParIterGlobals$(OBJ_EXT)
 
-ResultToResult$(OBJ_EXT): 			\
-	SParIterComm$(OBJ_EXT)			\
-	Types$(OBJ_EXT) \
-	Lists$(OBJ_EXT) \
-	Integration$(OBJ_EXT) \
-	Interpolation$(OBJ_EXT) \
-	MainUtils$(OBJ_EXT) \
-	CoordinateSystems$(OBJ_EXT) 
-
 MEMReynolds$(SHL_EXT): \
 	MEMUtilities$(OBJ_EXT)
 
@@ -1069,16 +1060,17 @@ SUFFIXES: .f90 .so
 # Rules for building stuff
 #
 # a bit kludgy way to do the cpp, but hopefully portable enough
+# 
 .f90.o:
 	cp $< $*.fpp
-	icc -E -C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -DDLLEXPORT="!" -O3 -I/tmp/elmer/ifc/include -fPIC $*.fpp > $*.F90
-	ifort -O3 -I. -I/tmp/elmer/ifc/include -fPIC -c $*.F90
+	icc -E -C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -DDLLEXPORT="!" -g -O2 -I/tmp/elmer/ifc/include -fPIC $*.fpp > $*.F90
+	ifort -g -I. -I/tmp/elmer/ifc/include -fPIC -c $*.F90
 
 # a bit kludgy way to do the cpp, but hopefully portable enough
 .f.o:
 	cp $< $*.fpp
-	icc -E -C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -DDLLEXPORT="!" -O3 -I/tmp/elmer/ifc/include -fPIC $*.fpp > $*.FOR
-	ifort -O3 -c $*.FOR
+	icc -E -C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -DDLLEXPORT="!" -g -O2 -I/tmp/elmer/ifc/include -fPIC $*.fpp > $*.FOR
+	ifort -g -c $*.FOR
 
 # mpi stubs and load.c
 #.c.o:
@@ -1087,8 +1079,8 @@ SUFFIXES: .f90 .so
 # build seperate solvers as shared libs
 .f90.so:
 	cp $< $*.fpp
-	icc -E -C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -DDLLEXPORT="!" -O3 -I/tmp/elmer/ifc/include -fPIC $*.fpp > $*.F90
-	ifort -O3 -I. -I/tmp/elmer/ifc/include -fPIC -c $*.F90
+	icc -E -C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -DDLLEXPORT="!" -g -O2 -I/tmp/elmer/ifc/include -fPIC $*.fpp > $*.F90
+	ifort -g -I. -I/tmp/elmer/ifc/include -fPIC -c $*.F90
 	$(CXX) -shared  -Wl,-soname -Wl,$@ -o $@ $*$(OBJ_EXT)  -lsolver -L. arpack/libarpack.a -llapack -lblas /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a -lhuti -lmatc -leiof -lmatc -ldl -lg2c -lstdc++  -L/tmp/elmer/ifc/lib  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s
 
 ###############################
@@ -1102,13 +1094,13 @@ libsolver$(SHL_EXT): ElmerSolver$(OBJ_EXT) $(OBJS)
 # The executables
 #
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
-	ifort  -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT)
+	$(CXX)  -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT) arpack/libarpack.a -llapack -lblas /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a -lhuti -lmatc -leiof -lmatc -ldl -lg2c -lstdc++  -L/tmp/elmer/ifc/lib  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s
 
 ViewFactors$(EXE_EXT): libsolver$(SHL_EXT) ViewFactors$(OBJ_EXT)
-	ifort  -lsolver -o ViewFactors$(EXE_EXT) -L. ViewFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a
+	$(CXX)  -lsolver -o ViewFactors$(EXE_EXT) -L. ViewFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a  arpack/libarpack.a -llapack -lblas /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a -lhuti -lmatc -leiof -lmatc -ldl -lg2c -lstdc++  -L/tmp/elmer/ifc/lib  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s
 
 GebhardtFactors$(EXE_EXT): libsolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT)
-	ifort  -lsolver -o GebhardtFactors$(EXE_EXT) -L. GebhardtFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a
+	$(CXX)  -lsolver -o GebhardtFactors$(EXE_EXT) -L. GebhardtFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a  arpack/libarpack.a -llapack -lblas /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a -lhuti -lmatc -leiof -lmatc -ldl -lg2c -lstdc++  -L/tmp/elmer/ifc/lib  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s
 
 ################################33
 # Local installation rules
