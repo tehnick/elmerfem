@@ -8370,11 +8370,11 @@ echo "$as_me:$LINENO: checking for 64 bit compilation flags" >&5
 echo $ECHO_N "checking for 64 bit compilation flags... $ECHO_C" >&6
 
 if test "$with_64bits" = no; then
-   echo "$as_me:$LINENO: result: nope" >&5
-echo "${ECHO_T}nope" >&6
+   echo "$as_me:$LINENO: result: not even going to try" >&5
+echo "${ECHO_T}not even going to try" >&6
 else
-   echo "$as_me:$LINENO: result: let's just see what happens" >&5
-echo "${ECHO_T}let's just see what happens" >&6
+   echo "$as_me:$LINENO: result: let's see what happens" >&5
+echo "${ECHO_T}let's see what happens" >&6
 fi
 
 case "$canonical_host_type" in
@@ -8996,9 +8996,15 @@ _ACEOF
 esac
 
 if test "$with_64bits" != no; then
-   if test "$ac_cv_sizeof_voidp" -lt 8; then
-      echo "$as_me:$LINENO: result: Couldn't find out how to do 64 bits on this platform, reverting to 32 bits." >&5
-echo "${ECHO_T}Couldn't find out how to do 64 bits on this platform, reverting to 32 bits." >&6
+   echo "$as_me:$LINENO: checking to see if we got 64 bits" >&5
+echo $ECHO_N "checking to see if we got 64 bits... $ECHO_C" >&6
+
+   if test "$ac_cv_sizeof_voidp" -ne 8; then
+      echo "$as_me:$LINENO: result: nope" >&5
+echo "${ECHO_T}nope" >&6 
+   else
+      echo "$as_me:$LINENO: result: oh yes" >&5
+echo "${ECHO_T}oh yes" >&6 
    fi
 fi
 
@@ -9428,8 +9434,8 @@ LIBS=$ac_mpi_save_LIBS
 
 # Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
 if test x = x"$MPILIBS"; then
-        { echo "$as_me:$LINENO: WARNING: MPI was not found, using stubs!" >&5
-echo "$as_me: WARNING: MPI was not found, using stubs!" >&2;}
+        { echo "$as_me:$LINENO: WARNING: Not using MPI" >&5
+echo "$as_me: WARNING: Not using MPI" >&2;}
 	HAVE_MPI="No MPI"
         :
 else

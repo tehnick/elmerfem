@@ -386,9 +386,9 @@ B64CXXFLAGS=
 AC_MSG_CHECKING([for 64 bit compilation flags])
 
 if test "$with_64bits" = no; then
-   AC_MSG_RESULT(nope)
+   AC_MSG_RESULT(not even going to try)
 else
-   AC_MSG_RESULT([let's just see what happens])
+   AC_MSG_RESULT([let's see what happens])
 fi
 
 case "$canonical_host_type" in
@@ -478,8 +478,12 @@ case "$ac_cv_sizeof_voidp" in
 esac
 
 if test "$with_64bits" != no; then
-   if test "$ac_cv_sizeof_voidp" -lt 8; then
-      AC_MSG_RESULT([Couldn't find out how to do 64 bits on this platform, reverting to 32 bits.])
+   AC_MSG_CHECKING(to see if we got 64 bits)
+
+   if test "$ac_cv_sizeof_voidp" -ne 8; then
+      AC_MSG_RESULT([nope]) 
+   else
+      AC_MSG_RESULT([oh yes]) 
    fi
 fi
 
