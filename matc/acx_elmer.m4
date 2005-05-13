@@ -377,6 +377,15 @@ AC_REQUIRE([AC_PROG_CXX])
 AC_ARG_WITH(64bits,
 	[AC_HELP_STRING([--with-64bits=yes(/no)], [Try to compile using 64 bits (default)])])
 
+
+if test -z "$host"; then
+  host=unknown
+fi
+canonical_host_type=$host
+if test "$host" = unknown; then
+  AC_MSG_ERROR([unknown system type, your build will most likely be screwed. quitting.])
+fi
+
 dnl by default, use no flags at all
 B64CFLAGS=
 B64FCFLAGS=
