@@ -33,7 +33,7 @@
 ! *       Date of modification:
 ! *
 ! *****************************************************************************/
-
+#include "../config.h"
 MODULE Types
  
    USE Messages
