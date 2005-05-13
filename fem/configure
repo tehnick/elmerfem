@@ -1406,7 +1406,7 @@ Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --with-64bits=yes(/no)  Try to compile using 64 bits (default)
-  --with-mpi              Specify if to use mpi
+  --with-mpi=<yes|lib(s)> Specify if to use mpi (by default disabled)
   --with-blas=<lib>       use BLAS library <lib>
   --with-lapack=<lib>     use LAPACK library <lib>
   --with-huti=<lib>       use HUTI library <lib>
@@ -8739,20 +8739,35 @@ ELMER_LIBERRORMSG="wasn't found, make sure it is in the prefix, or CFLAGS and LI
 
 ac_mpi_save_LIBS=$LIBS
 
+acx_mpi_ok=disabled
+
 
 # Check whether --with-mpi or --without-mpi was given.
 if test "${with_mpi+set}" = set; then
   withval="$with_mpi"
 
-fi;
 case $with_mpi in
-	yes | "") ;;
-	no | disable) acx_mpi_ok=disable ;;
-	-* | */* | *.a | *.so | *.so.* | *.o) MPILIBS="$with_mpi" ;;
-	*) MPILIBS="-l$with_mpi" ;;
+	yes | "")
+	    acx_mpi_ok=no
+	;;
+	no | disabled)
+            acx_mpi_ok=disabled
+        ;;
+	-* | */* | *.a | *.so | *.so.* | *.o)
+	    acx_mpi_ok=no
+            MPILIBS="$with_mpi"
+        ;;
+	l*)
+	    acx_mpi_ok=no
+            MPILIBS="-l$with_mpi"
+        ;;
 esac
 
-if test x"$acx_mpi_ok" != xdisable; then
+fi;
+
+
+
+if test x"$acx_mpi_ok" != xdisabled; then
 
 
 

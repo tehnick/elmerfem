@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.12 2005/05/13 12:38:45 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.13 2005/05/13 13:16:16 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -549,7 +549,7 @@ fi
 ])dnl ACX_MATC
 
 dnl
-dnl we really need the old style cpp for preprocessing fortran.
+dnl We really need the old style cpp for preprocessing fortran.
 dnl 
 AC_DEFUN([ACX_PROG_TRADITIONAL_CPP], [
 # sun mpcc -E leaves nasty # comment that chokes the fortran compiler, so we have to hope
