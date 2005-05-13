@@ -7,7 +7,7 @@
 !
 ! Author: Jouni Malinen, Juha Ruokolainen 
 !
-! $Id: SParIterComm.f90,v 1.9 2005/01/03 07:52:06 jpr Exp $
+! $Id: SParIterComm.f90,v 1.2 2005/05/04 09:16:26 vierinen Exp $
 !
 !*********************************************************************
 
@@ -68,15 +68,19 @@ CONTAINS
 
     ParallelEnv => ParEnv
 
+    ParEnv % MyPE = 0
+    ParEnv % PEs  = 1
+
     ierr = 0
     CALL MPI_INIT( ierr )
+    IF ( ierr /= 0 ) RETURN
 
     CALL MPI_COMM_SIZE( MPI_COMM_WORLD, ParEnv % PEs, ierr )
-    CALL MPI_COMM_RANK( MPI_COMM_WORLD, ParEnv % MyPE, ierr )
-
-    IF ( ParEnv % PEs <= 1 ) THEN
+    IF ( ierr /= 0 .OR. ParEnv % PEs <= 1 ) THEN
        CALL MPI_Finalize( ierr )
     ELSE
+       CALL MPI_COMM_RANK( MPI_COMM_WORLD, ParEnv % MyPE, ierr )
+
        WRITE( Message, * ) 'Initialize: ', ParEnv % PEs, ParEnv % MyPE
        CALL Info( 'ParCommInit', Message, Level=5 )
     
