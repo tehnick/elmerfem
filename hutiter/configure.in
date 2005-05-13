@@ -20,6 +20,11 @@ AC_PROG_RANLIB
 
 AC_PROG_FC
 AC_PROG_F77
+
+sinclude(acx_elmer.m4)
+dnl It is important to do this before *_WRAPPERS, because the ldflags might be different for 32 and 64 bits
+ACX_CHECK_B64FLAGS
+
 AC_F77_WRAPPERS
 AC_FC_WRAPPERS
 
@@ -48,11 +53,15 @@ FCFLAGS="$FCFLAGS -I. -I$prefix/include"
 
 sinclude(acx_blas.m4)
 sinclude(acx_lapack.m4)
+
+dnl through in obsolete fortran runtime if found. otherwise hope for the best. (netlib blas and lapack might need this)
+AC_CHECK_LIB(g2c, e_wsfe)
 ACX_BLAS([], [AC_MSG_ERROR([BLAS was not found!])])
 ACX_LAPACK([], [AC_MSG_ERROR([LAPACK was not found!])])
 
 LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
 
+dnl aix xl* compiler family needs some help with preprocessing
 case "$FC" in
   *xlf*)
     FCFLAGS="$FCFLAGS -qsuffix=cpp=F90"

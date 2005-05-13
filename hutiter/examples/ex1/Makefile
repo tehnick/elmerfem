@@ -18,9 +18,9 @@ SOURCES = $(hutiex_SOURCES)
 srcdir = .
 top_srcdir = ../..
 
-pkgdatadir = $(datadir)/hutiter
-pkglibdir = $(libdir)/hutiter
-pkgincludedir = $(includedir)/hutiter
+pkgdatadir = $(datadir)/eio
+pkglibdir = $(libdir)/eio
+pkgincludedir = $(includedir)/eio
 top_builddir = ../..
 am__cd = CDPATH="$${ZSH_VERSION+.}$(PATH_SEPARATOR)" && cd
 INSTALL = /usr/bin/install -c
@@ -43,7 +43,9 @@ subdir = examples/ex1
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/acx_lapack.m4 \
-	$(top_srcdir)/acx_blas.m4 $(top_srcdir)/configure.in
+	$(top_srcdir)/acx_blas.m4 $(top_srcdir)/acx_elmer.m4 \
+	$(top_srcdir)/acx_elmer.m4 $(top_srcdir)/acx_blas.m4 \
+	$(top_srcdir)/acx_lapack.m4 $(top_srcdir)/configure.in
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
@@ -80,12 +82,16 @@ AUTOCONF = ${SHELL} /home/vierinen/src/newelmer/hutiter/missing --run autoconf
 AUTOHEADER = ${SHELL} /home/vierinen/src/newelmer/hutiter/missing --run autoheader
 AUTOMAKE = ${SHELL} /home/vierinen/src/newelmer/hutiter/missing --run automake-1.9
 AWK = gawk
-BLAS_LIBS = /home/vierinen/lib/libf77blas.a /home/vierinen/lib/libatlas.a
+BLAS_LIBS = -lblas
 CC = gcc
+CCC = 
 CCDEPMODE = depmode=gcc3
-CFLAGS = -g -O2
+CFLAGS = -g -O2  -I/tmp/elmer/g95/include
 CPP = gcc -E
 CPPFLAGS = 
+CXX = g++
+CXXDEPMODE = depmode=gcc3
+CXXFLAGS = -g -O2  -I/tmp/elmer/g95/include
 CYGPATH_W = echo
 DEFS = -DHAVE_CONFIG_H
 DEPDIR = .deps
@@ -94,12 +100,12 @@ ECHO_N = -n
 ECHO_T = 
 EGREP = /bin/grep -E
 EXEEXT = 
-F77 = ifort
-FC = ifort
-FCFLAGS = -g
-FCLIBS =  -lg2c -L/opt/intel_fc_80/lib -lm -lgcc_s -L/usr/lib -lifport -lifcore -limf -lcxa -lirc -lunwind -lirc_s
-FFLAGS = -g
-FLIBS =  -lg2c -L/opt/intel_fc_80/lib -lm -lgcc_s -L/usr/lib -lifport -lifcore -limf -lcxa -lirc -lunwind -lirc_s
+F77 = g77
+FC = g95
+FCFLAGS = -g  -I. -I/tmp/elmer/g95/include
+FCLIBS =  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm
+FFLAGS = -g -O2 
+FLIBS =  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s
 GREP = /bin/grep
 INSTALL_DATA = ${INSTALL} -m 644
 INSTALL_PROGRAM = ${INSTALL}
@@ -108,14 +114,14 @@ INSTALL_STRIP_PROGRAM = ${SHELL} $(install_sh) -c -s
 LAPACK_LIBS = -llapack
 LDFLAGS = 
 LIBOBJS = 
-LIBS = /home/vierinen/lib/libf77blas.a /home/vierinen/lib/libatlas.a -llapack -lg2c -lm -lgcc_s  -lg2c -L/opt/intel_fc_80/lib -lm -lgcc_s -L/usr/lib -lifport -lifcore -limf -lcxa -lirc -lunwind -lirc_s  -lg2c -L/opt/intel_fc_80/lib -lm -lgcc_s -L/usr/lib -lifport -lifcore -limf -lcxa -lirc -lunwind -lirc_s
+LIBS = -lblas -llapack -lg2c  -L/tmp/elmer/g95/lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s
 LTLIBOBJS = 
 MAINT = #
 MAINTAINER_MODE_FALSE = 
 MAINTAINER_MODE_TRUE = #
 MAKEINFO = ${SHELL} /home/vierinen/src/newelmer/hutiter/missing --run makeinfo
 OBJEXT = o
-PACKAGE = hutiter
+PACKAGE = eio
 PACKAGE_BUGREPORT = 
 PACKAGE_NAME = 
 PACKAGE_STRING = 
@@ -128,12 +134,15 @@ SHELL = /bin/sh
 STRIP = 
 VERSION = 1.0.0
 ac_ct_CC = gcc
-ac_ct_F77 = 
+ac_ct_CXX = g++
+ac_ct_F77 = g77
 ac_ct_FC = 
 ac_ct_RANLIB = ranlib
 ac_ct_STRIP = 
 am__fastdepCC_FALSE = #
 am__fastdepCC_TRUE = 
+am__fastdepCXX_FALSE = #
+am__fastdepCXX_TRUE = 
 am__include = include
 am__leading_dot = .
 am__quote = 
@@ -167,7 +176,7 @@ mandir = ${datarootdir}/man
 mkdir_p = mkdir -p --
 oldincludedir = /usr/include
 pdfdir = ${docdir}
-prefix = /tmp/elmer/ifc
+prefix = /tmp/elmer/g95
 program_transform_name = s,x,x,
 psdir = ${docdir}
 sbindir = ${exec_prefix}/sbin
@@ -204,9 +213,9 @@ $(srcdir)/Makefile.in: # $(srcdir)/Makefile.am  $(am__configure_deps)
 	      exit 1;; \
 	  esac; \
 	done; \
-	echo ' cd $(top_srcdir) && $(AUTOMAKE) --gnu  examples/ex1/Makefile'; \
+	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign  examples/ex1/Makefile'; \
 	cd $(top_srcdir) && \
-	  $(AUTOMAKE) --gnu  examples/ex1/Makefile
+	  $(AUTOMAKE) --foreign  examples/ex1/Makefile
 .PRECIOUS: Makefile
 Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
 	@case '$?' in \
