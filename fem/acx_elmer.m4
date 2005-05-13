@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.8 2005/05/12 11:04:52 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.9 2005/05/13 09:14:49 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -366,29 +366,124 @@ else
 fi
 ])dnl ACX_UMFPACK
 
-dnl sizeof void pointer
-AC_DEFUN([ACX_VOID_PTR_SIZE], 
+dnl find out the flags that enable 64 bit compilation
+AC_DEFUN([ACX_CHECK_B64FLAGS],
 [
 AC_PREREQ([2.50])
+AC_REQUIRE([AC_PROG_FC])
 AC_REQUIRE([AC_PROG_CC])
+AC_REQUIRE([AC_PROG_CXX])
 
-acx_void_ptr_size_bytes=8
-AC_MSG_CHECKING([Checking for sizeof(void *)])
+AC_ARG_WITH(64bits,
+	[AC_HELP_STRING([--with-64bits=yes(/no)], [Try to compile using 64 bits (default)])])
 
-AC_TRY_RUN(
-[
-int main(int c, char**v)
-{
-printf("%d",sizeof(void*));
-exit(0); 
-}
-],acx_void_ptr_size_bytes=$1) 
+dnl by default, use no flags at all
+B64CFLAGS=
+B64FCFLAGS=
+B64F77FLAGS=
+B64CXXFLAGS=
 
-AC_MSG_RESULT([$acx_void_ptr_size_bytes bytes])
-VOID_PTR_SIZE="jep jep $acx_void_ptr_size_bytes"
-AC_SUBST(VOID_PTR_SIZE)
+AC_MSG_CHECKING([for 64 bit compilation flags])
 
-])dnl ACX_VOID_PTR_SIZE
+if test "$with_64bits" = no; then
+   AC_MSG_RESULT(nope)
+else
+   AC_MSG_RESULT([let's just see what happens])
+fi
+
+case "$canonical_host_type" in
+  *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
+  ;;
+  *-*-freebsd*)
+  ;;
+  alpha*-dec-osf*)
+  ;;
+  *-*-darwin*)
+  ;;
+  *-*-cygwin* | *-*-mingw*)
+  ;;
+  *-*-linux* | *-*-gnu*)
+	case "$FC" in
+  	  ifort | ifc)
+ 		;;
+	  g95 | gfortran)
+		;;
+	  *)
+		;;
+        esac
+  ;;
+  rs6000-ibm-aix* | powerpc-ibm-aix*)
+  ;;
+  hppa*-hp-hpux*)
+  ;;
+  *-sgi-*)
+  ;;
+  sparc-sun-sunos4*)
+  ;;
+  sparc-sun-solaris2* | i386-pc-solaris2*)
+	SUN_64BIT_FLAGS="-xtarget=native64 -xcode=abs64"
+	case "$FC" in 
+	  mpf* | f*)
+		B64FCFLAGS=$SUN_64BIT_FLAGS
+	  ;;
+ 	esac
+
+	case "$F77" in
+	  mpf* | f*)
+		B64FFLAGS=$SUN_64BIT_FLAGS
+	  ;;
+	esac
+	
+	case "$CC" in
+	  mpcc | mp*)
+	        B64CFLAGS=$SUN_64BIT_FLAGS
+	  ;;
+ 	esac
+	
+	case "$CXX" in 
+	  mpCC | CC)
+		B64CXXFLAGS=$SUN_64BIT_FLAGS
+	  ;;
+	esac
+  ;;
+esac
+
+if test "$with_64bits" != no; then
+        AC_MSG_CHECKING([for 64 bit CFLAGS])
+        AC_MSG_RESULT($B64CFLAGS)
+	CFLAGS="$CFLAGS $B64CFLAGS"
+
+        AC_MSG_CHECKING([for 64 bit FCFLAGS])
+        AC_MSG_RESULT($B64FCFLAGS)
+	FCFLAGS="$FCFLAGS $B64FCFLAGS"
+
+        AC_MSG_CHECKING([for 64 bit CXXFLAGS])
+        AC_MSG_RESULT($B64CXXFLAGS)
+	CXXFLAGS="$CXXFLAGS $B64CXXFLAGS"
+
+        AC_MSG_CHECKING([for 64 bit FFLAGS])
+        AC_MSG_RESULT($B64FFLAGS)
+	FFLAGS="$FFLAGS $B64FFLAGS"
+fi
+
+dnl let's see if it works...
+AC_CHECK_SIZEOF(void*)
+case "$ac_cv_sizeof_voidp" in
+  "8")
+    AC_DEFINE(ARCH_64_BITS, 1,[64 bit arch.]) 
+  ;;
+  "4")
+    AC_DEFINE(ARCH_32_BITS, 1,[32 bit arch.]) 
+  ;;
+esac
+
+if test "$with_64bits" != no; then
+   if test "$ac_cv_sizeof_voidp" -lt 8; then
+      AC_MSG_RESULT([Couldn't find out how to do 64 bits on this platform, reverting to 32 bits.])
+   fi
+fi
+
+])dnl ACX_CHECK_B64FLAGS
 
 dnl
 dnl @synopsis ACX_MATC([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])

@@ -54,15 +54,8 @@ dnl create macros in config.h for obfuscating fortran-type function symbols
 AC_F77_WRAPPERS
 AC_FC_WRAPPERS
 
-AC_CHECK_SIZEOF(void*)
-case "$ac_cv_sizeof_voidp" in
-  "8")
-    AC_DEFINE(ARCH_64_BITS, 1,[64 bit arch.]) 
-  ;;
-  "4")
-    AC_DEFINE(ARCH_32_BITS, 1,[32 bit arch.]) 
-  ;;
-esac
+dnl Look for 64 bit compiler flags and see if they work.
+ACX_CHECK_B64FLAGS
 
 dnl setup name mangling
 case "$ac_cv_fc_mangling" in
@@ -81,6 +74,8 @@ case "$ac_cv_fc_mangling" in
   *)
     AC_MSG_ERROR([Unknown sort of Fortran name mangling]) ;;
 esac
+
+dnl do we want to enable 64 bits?
 
 dnl ******************************************************
 dnl Library checks (juha vierinen,25,tkk,tietokoneita,kiinnostunut kaikesta.)
@@ -302,7 +297,6 @@ case "$canonical_host_type" in
        CPP=cpp       
     fi
     FCPPFLAGS="-C -P $FCPPFLAGS"
-
   ;;
 esac
 
@@ -428,7 +422,7 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
   AC_DEFINE_UNQUOTED(SHL_EXTENSION, ".$SHLEXT",[Shared lib filename extension])
 fi
 
-LIBS="$ARPACK_LIBS $PARPACK_LIBS $LAPACK_LIBS $BLAS_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $MATC_LIBS $LIBS $FCLIBS $FLIBS $MPILIBS"
+LIBS="$ARPACK_LIBS $PARPACK_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $MPILIBS $LAPACK_LIBS $BLAS_LIBS $FCLIBS $FLIBS"
 
 AC_MSG_RESULT([defining FPICFLAG to be $FPICFLAG])
 AC_MSG_RESULT([defining CPICFLAG to be $CPICFLAG])

@@ -1405,6 +1405,7 @@ Optional Features:
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
+  --with-64bits=yes(/no)  Try to compile using 64 bits (default)
   --with-mpi              Specify if to use mpi
   --with-blas=<lib>       use BLAS library <lib>
   --with-lapack=<lib>     use LAPACK library <lib>
@@ -6243,7 +6244,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:6246:" \
+echo "$as_me:6247:" \
      "checking for Fortran compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -6490,7 +6491,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:6493:" \
+echo "$as_me:6494:" \
      "checking for Fortran 77 compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -6687,7 +6688,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_verb"
-(eval echo $as_me:6690: \"$ac_link\") >&5
+(eval echo $as_me:6691: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -6771,7 +6772,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_cv_prog_fc_v"
-(eval echo $as_me:6774: \"$ac_link\") >&5
+(eval echo $as_me:6775: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -7004,7 +7005,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_verb"
-(eval echo $as_me:7007: \"$ac_link\") >&5
+(eval echo $as_me:7008: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -7088,7 +7089,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_cv_prog_f77_v"
-(eval echo $as_me:7091: \"$ac_link\") >&5
+(eval echo $as_me:7092: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -8347,6 +8348,118 @@ ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
+
+
+
+
+
+
+
+# Check whether --with-64bits or --without-64bits was given.
+if test "${with_64bits+set}" = set; then
+  withval="$with_64bits"
+
+fi;
+
+B64CFLAGS=
+B64FCFLAGS=
+B64F77FLAGS=
+B64CXXFLAGS=
+
+echo "$as_me:$LINENO: checking for 64 bit compilation flags" >&5
+echo $ECHO_N "checking for 64 bit compilation flags... $ECHO_C" >&6
+
+if test "$with_64bits" = no; then
+   echo "$as_me:$LINENO: result: nope" >&5
+echo "${ECHO_T}nope" >&6
+else
+   echo "$as_me:$LINENO: result: let's just see what happens" >&5
+echo "${ECHO_T}let's just see what happens" >&6
+fi
+
+case "$canonical_host_type" in
+  *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
+  ;;
+  *-*-freebsd*)
+  ;;
+  alpha*-dec-osf*)
+  ;;
+  *-*-darwin*)
+  ;;
+  *-*-cygwin* | *-*-mingw*)
+  ;;
+  *-*-linux* | *-*-gnu*)
+	case "$FC" in
+  	  ifort | ifc)
+ 		;;
+	  g95 | gfortran)
+		;;
+	  *)
+		;;
+        esac
+  ;;
+  rs6000-ibm-aix* | powerpc-ibm-aix*)
+  ;;
+  hppa*-hp-hpux*)
+  ;;
+  *-sgi-*)
+  ;;
+  sparc-sun-sunos4*)
+  ;;
+  sparc-sun-solaris2* | i386-pc-solaris2*)
+	SUN_64BIT_FLAGS="-xtarget=native64 -xcode=abs64"
+	case "$FC" in
+	  mpf* | f*)
+		B64FCFLAGS=$SUN_64BIT_FLAGS
+	  ;;
+ 	esac
+
+	case "$F77" in
+	  mpf* | f*)
+		B64FFLAGS=$SUN_64BIT_FLAGS
+	  ;;
+	esac
+
+	case "$CC" in
+	  mpcc | mp*)
+	        B64CFLAGS=$SUN_64BIT_FLAGS
+	  ;;
+ 	esac
+
+	case "$CXX" in
+	  mpCC | CC)
+		B64CXXFLAGS=$SUN_64BIT_FLAGS
+	  ;;
+	esac
+  ;;
+esac
+
+if test "$with_64bits" != no; then
+        echo "$as_me:$LINENO: checking for 64 bit CFLAGS" >&5
+echo $ECHO_N "checking for 64 bit CFLAGS... $ECHO_C" >&6
+        echo "$as_me:$LINENO: result: $B64CFLAGS" >&5
+echo "${ECHO_T}$B64CFLAGS" >&6
+	CFLAGS="$CFLAGS $B64CFLAGS"
+
+        echo "$as_me:$LINENO: checking for 64 bit FCFLAGS" >&5
+echo $ECHO_N "checking for 64 bit FCFLAGS... $ECHO_C" >&6
+        echo "$as_me:$LINENO: result: $B64FCFLAGS" >&5
+echo "${ECHO_T}$B64FCFLAGS" >&6
+	FCFLAGS="$FCFLAGS $B64FCFLAGS"
+
+        echo "$as_me:$LINENO: checking for 64 bit CXXFLAGS" >&5
+echo $ECHO_N "checking for 64 bit CXXFLAGS... $ECHO_C" >&6
+        echo "$as_me:$LINENO: result: $B64CXXFLAGS" >&5
+echo "${ECHO_T}$B64CXXFLAGS" >&6
+	CXXFLAGS="$CXXFLAGS $B64CXXFLAGS"
+
+        echo "$as_me:$LINENO: checking for 64 bit FFLAGS" >&5
+echo $ECHO_N "checking for 64 bit FFLAGS... $ECHO_C" >&6
+        echo "$as_me:$LINENO: result: $B64FFLAGS" >&5
+echo "${ECHO_T}$B64FFLAGS" >&6
+	FFLAGS="$FFLAGS $B64FFLAGS"
+fi
+
 echo "$as_me:$LINENO: checking for void*" >&5
 echo $ECHO_N "checking for void*... $ECHO_C" >&6
 if test "${ac_cv_type_voidp+set}" = set; then
@@ -8882,6 +8995,15 @@ _ACEOF
   ;;
 esac
 
+if test "$with_64bits" != no; then
+   if test "$ac_cv_sizeof_voidp" -lt 8; then
+      echo "$as_me:$LINENO: result: Couldn't find out how to do 64 bits on this platform, reverting to 32 bits." >&5
+echo "${ECHO_T}Couldn't find out how to do 64 bits on this platform, reverting to 32 bits." >&6
+   fi
+fi
+
+
+
 case "$ac_cv_fc_mangling" in
   "upper case, no underscore, no extra underscore" | \
   "upper case, no underscores")
@@ -8916,6 +9038,7 @@ _ACEOF
 echo "$as_me: error: Unknown sort of Fortran name mangling" >&2;}
    { (exit 1); exit 1; }; } ;;
 esac
+
 
 
 
@@ -12966,7 +13089,6 @@ fi
        CPP=cpp
     fi
     FCPPFLAGS="-C -P $FCPPFLAGS"
-
   ;;
 esac
 
@@ -13868,7 +13990,7 @@ _ACEOF
 
 fi
 
-LIBS="$ARPACK_LIBS $PARPACK_LIBS $LAPACK_LIBS $BLAS_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $MATC_LIBS $LIBS $FCLIBS $FLIBS $MPILIBS"
+LIBS="$ARPACK_LIBS $PARPACK_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $MPILIBS $LAPACK_LIBS $BLAS_LIBS $FCLIBS $FLIBS"
 
 echo "$as_me:$LINENO: result: defining FPICFLAG to be $FPICFLAG" >&5
 echo "${ECHO_T}defining FPICFLAG to be $FPICFLAG" >&6
