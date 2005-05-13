@@ -6313,6 +6313,17 @@ if test "${with_64bits+set}" = set; then
 
 fi;
 
+
+if test -z "$host"; then
+  host=unknown
+fi
+canonical_host_type=$host
+if test "$host" = unknown; then
+  { { echo "$as_me:$LINENO: error: unknown system type, your build will most likely be screwed. quitting." >&5
+echo "$as_me: error: unknown system type, your build will most likely be screwed. quitting." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+
 B64CFLAGS=
 B64FCFLAGS=
 B64F77FLAGS=
@@ -6902,7 +6913,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_verb"
-(eval echo $as_me:6905: \"$ac_link\") >&5
+(eval echo $as_me:6916: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -6986,7 +6997,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_cv_prog_f77_v"
-(eval echo $as_me:6989: \"$ac_link\") >&5
+(eval echo $as_me:7000: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -7733,7 +7744,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_verb"
-(eval echo $as_me:7736: \"$ac_link\") >&5
+(eval echo $as_me:7747: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -7817,7 +7828,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_cv_prog_fc_v"
-(eval echo $as_me:7820: \"$ac_link\") >&5
+(eval echo $as_me:7831: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
