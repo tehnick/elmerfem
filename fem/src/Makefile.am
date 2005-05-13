@@ -33,13 +33,13 @@ SUFFIXES: .f90 .so
 # 
 .f90.@OBJEXT@:
 	@CP@ $< $*.fpp
-	@CPP@ @FCPPFLAGS@ @CFLAGS@ $*.fpp > $*.F90
+	@CPP@ @FCPPFLAGS@ $*.fpp > $*.F90
 	@FC@ @FCFLAGS@ -c $*.F90
 
 # a bit kludgy way to do the cpp, but hopefully portable enough
 .f.@OBJEXT@:
 	@CP@ $< $*.fpp
-	@CPP@ @FCPPFLAGS@ @CFLAGS@ $*.fpp > $*.FOR
+	@CPP@ @FCPPFLAGS@ $*.fpp > $*.FOR
 	@F77@ @FFLAGS@ -c $*.FOR
 
 # mpi stubs and load.c
@@ -49,9 +49,9 @@ SUFFIXES: .f90 .so
 # build seperate solvers as shared libs
 .f90.@SHLEXT@:
 	@CP@ $< $*.fpp
-	@CPP@ @FCPPFLAGS@ @CFLAGS@ $*.fpp > $*.F90
+	@CPP@ @FCPPFLAGS@ $*.fpp > $*.F90
 	@FC@ @FCFLAGS@ -c $*.F90
-	@SH_LD@ @SH_LDFLAGS@ @SH_LDTOFLAGS@ @SONAME_FLAGS@ -o $@ $*$(OBJ_EXT)  -lsolver -L. @EXTRA_LIBS@
+	@SH_LD2@ @SH_LDFLAGS@ @SH_LDTOFLAGS@ @SONAME_FLAGS@ -o $@ $*$(OBJ_EXT)  -lsolver -L. @EXTRA_LIBS@
 
 ###############################
 # libsolver.so

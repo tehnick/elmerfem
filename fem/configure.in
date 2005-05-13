@@ -27,7 +27,7 @@ sinclude(acx_elmer.m4)
 ACX_PROG_AR
 
 AC_PROG_CC
-AC_PROG_CPP
+ACX_PROG_TRADITIONAL_CPP
 AC_PROG_CXX
 AC_PROG_FC
 AC_PROG_F77
@@ -80,6 +80,9 @@ CFLAGS="$CFLAGS -I$prefix/include"
 dnl order is important, because prefix/include might include bogus .mods or headers
 FCFLAGS="$FCFLAGS -I. -I$prefix/include"
 FFFLAGS="$FCFLAGS -I. -I$prefix/include"
+
+dnl hmm. how would it be best to handle -I flags needed for cpp?
+FCPPFLAGS="-I. -I$prefix/include -DDLLEXPORT=\"!\"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
 
 ELMER_LIBERRORMSG="wasn't found, make sure it is in the prefix, or CFLAGS and LIBS are correct if they are somewhere else."
 
@@ -144,7 +147,7 @@ RM='rm -f'
 MV='mv'
 MKDIR='mkdir -p'
 LIBSOLVER_DEPS=$LIBS
-FCPPFLAGS="$FCPPFLAGS -DDLLEXPORT=\"!\"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
+
 
 dnl 
 dnl Host specific stuff
@@ -197,10 +200,11 @@ case "$canonical_host_type" in
     MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
     SONAME_FLAGS='-Wl,-soname -Wl,$@'
     RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
-    FCPPFLAGS="-C -P -traditional-cpp $FCPPFLAGS"
+    FCPPFLAGS="-C -P $FCPPFLAGS"
     CPICFLAG="-fPIC"
     CXXPICFLAG="-fPIC"
     FPICFLAG="-fPIC"
+    FCPPFLAGS="-traditional-cpp $FCPPFLAGS"
   ;;
   i[[3456]]86-*-sco3.2v5*)
     SONAME_FLAGS='-Wl,-h -Wl,$@'
@@ -214,7 +218,7 @@ case "$canonical_host_type" in
     DLFCN_DIR=dlfcn
     SH_LDFLAGS="-G"
     SH_LDTOFLAGS="-brtl -bdynamic"
-    FCPPFLAGS="-C -P -traditional-cpp $FCPPFLAGS"
+    FCPPFLAGS="-C -P $FCPPFLAGS"
   ;;
   hppa*-hp-hpux*)
     if test "$ac_cv_f77_compiler_gnu" = yes; then
@@ -276,12 +280,7 @@ case "$canonical_host_type" in
       TEMPLATE_AR='$(CXX)'
       TEMPLATE_ARFLAGS="-xar -o"
     fi
-    # sun mpcc -E leaves nasty # comment that chokes the fortran compiler, so we have to hope
-    # that ye olde cpp is present.
-    AC_CHECK_PROG(TRADITIONAL_CPP, cpp, yes, no)
-    if test "$TRADITIONAL_CPP" = yes; then
-       CPP=cpp       
-    fi
+
     FCPPFLAGS="-C -P $FCPPFLAGS"
   ;;
 esac

@@ -66,9 +66,6 @@
 /* Define if you have a EIOF library. */
 #define HAVE_EIOF 1
 
-/* Define to 1 if you have the `gettimeofday' function. */
-#define HAVE_GETTIMEOFDAY 1
-
 /* Define if you have a HUTI library. */
 #define HAVE_HUTI 1
 
@@ -102,9 +99,6 @@
 /* Define to 1 if you have the <memory.h> header file. */
 #define HAVE_MEMORY_H 1
 
-/* Define to 1 if you have the `mkdir' function. */
-#define HAVE_MKDIR 1
-
 /* Define if you have the MPI library. */
 /* #undef HAVE_MPI */
 
@@ -120,9 +114,6 @@
 /* Define if your system has shl_load and shl_findsym for dynamic linking */
 /* #undef HAVE_SHL_LOAD_API */
 
-/* Define to 1 if you have the `sqrt' function. */
-/* #undef HAVE_SQRT */
-
 /* Define to 1 if you have the <stdint.h> header file. */
 #define HAVE_STDINT_H 1
 
@@ -135,14 +126,8 @@
 /* Define to 1 if you have the <string.h> header file. */
 #define HAVE_STRING_H 1
 
-/* Define to 1 if you have the <sys/param.h> header file. */
-#define HAVE_SYS_PARAM_H 1
-
 /* Define to 1 if you have the <sys/stat.h> header file. */
 #define HAVE_SYS_STAT_H 1
-
-/* Define to 1 if you have the <sys/time.h> header file. */
-#define HAVE_SYS_TIME_H 1
 
 /* Define to 1 if you have the <sys/types.h> header file. */
 #define HAVE_SYS_TYPES_H 1
