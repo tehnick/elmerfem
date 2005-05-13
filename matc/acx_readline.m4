@@ -2,7 +2,8 @@ dnl
 dnl Allow the user disable support for command line editing using GNU
 dnl readline.
 dnl
-dnl OCTAVE_ENABLE_READLINE
+dnl derived from OCTAVE_READLINE...
+dnl 
 AC_DEFUN([ACX_ENABLE_READLINE], [
 USE_READLINE=true
 LIBREADLINE=

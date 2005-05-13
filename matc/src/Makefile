@@ -47,6 +47,7 @@ DIST_COMMON = $(include_HEADERS) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/acx_readline.m4 \
+	$(top_srcdir)/acx_elmer.m4 $(top_srcdir)/acx_elmer.m4 \
 	$(top_srcdir)/acx_readline.m4 $(top_srcdir)/configure.in
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
@@ -104,10 +105,14 @@ AUTOHEADER = ${SHELL} /home/vierinen/src/newelmer/matc/missing --run autoheader
 AUTOMAKE = ${SHELL} /home/vierinen/src/newelmer/matc/missing --run automake-1.9
 AWK = gawk
 CC = gcc
+CCC = 
 CCDEPMODE = depmode=gcc3
-CFLAGS = -g -O2
+CFLAGS = -g -O2 
 CPP = gcc -E
 CPPFLAGS = 
+CXX = g++
+CXXDEPMODE = depmode=gcc3
+CXXFLAGS = -g -O2 
 CYGPATH_W = echo
 DEFS = -DHAVE_CONFIG_H
 DEPDIR = .deps
@@ -116,6 +121,8 @@ ECHO_N = -n
 ECHO_T = 
 EGREP = /bin/grep -E
 EXEEXT = 
+FC = g95
+FCFLAGS = -g 
 GREP = /bin/grep
 INSTALL_DATA = ${INSTALL} -m 644
 INSTALL_PROGRAM = ${INSTALL}
@@ -145,10 +152,14 @@ STRIP =
 TERMLIBS =  -lncurses
 VERSION = 1.0.0
 ac_ct_CC = gcc
+ac_ct_CXX = g++
+ac_ct_FC = 
 ac_ct_RANLIB = ranlib
 ac_ct_STRIP = 
 am__fastdepCC_FALSE = #
 am__fastdepCC_TRUE = 
+am__fastdepCXX_FALSE = #
+am__fastdepCXX_TRUE = 
 am__include = include
 am__leading_dot = .
 am__quote = 
@@ -182,7 +193,7 @@ mandir = ${datarootdir}/man
 mkdir_p = mkdir -p --
 oldincludedir = /usr/include
 pdfdir = ${docdir}
-prefix = /usr/local
+prefix = /tmp/elmer/g95
 program_transform_name = s,x,x,
 psdir = ${docdir}
 sbindir = ${exec_prefix}/sbin
