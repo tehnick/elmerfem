@@ -40,7 +40,7 @@ MODULE Types
 
    INTEGER, PARAMETER :: MAX_NAME_LEN = 128
 
-#if defined(WIN32) || defined(LINUX_PC) || defined(LINUX_FFC)
+#if defined(ARCH_32_BITS)
    INTEGER, PARAMETER :: AddrInt = SELECTED_INT_KIND(9)
 #else
   INTEGER, PARAMETER :: AddrInt = SELECTED_INT_KIND(18)

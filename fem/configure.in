@@ -54,6 +54,16 @@ dnl create macros in config.h for obfuscating fortran-type function symbols
 AC_F77_WRAPPERS
 AC_FC_WRAPPERS
 
+AC_CHECK_SIZEOF(void*)
+case "$ac_cv_sizeof_voidp" in
+  "8")
+    AC_DEFINE(ARCH_64_BITS, 1,[64 bit arch.]) 
+  ;;
+  "4")
+    AC_DEFINE(ARCH_32_BITS, 1,[32 bit arch.]) 
+  ;;
+esac
+
 dnl setup name mangling
 case "$ac_cv_fc_mangling" in
   "upper case, no underscore, no extra underscore" | \
@@ -97,16 +107,13 @@ ACX_MPI([],
 
 AM_CONDITIONAL(USE_MPI, test "$acx_mpi_ok" == "yes")
 
+dnl We should need this, if we link with CC
 AC_CHECK_LIB(stdc++, main,,AC_MSG_WARN(elmer might need libstc++))
-dnl through in obsolete fortran runtime if found. otherwise hope for the best. (netlib blas and lapack might need this)
-dnl AC_CHECK_LIB(g2c, e_wsfe)
+
 ACX_BLAS([], [AC_MSG_ERROR([BLAS was not found!])])
 ACX_LAPACK([], [AC_MSG_ERROR([LAPACK was not found!])])
 ACX_HUTI([], [AC_MSG_ERROR([Libhuti wasn't found])])
-
-
 ACX_EIOF([], [AC_MSG_ERROR([libeiof $ELMER_LIBERRORMSG])])
-
 ACX_ARPACK([], [AC_MSG_RESULT([..using internal arpack])])
 ACX_PARPACK([], [AC_MSG_RESULT([..using internal parpack])])
 ACX_UMFPACK([], [AC_MSG_ERROR([libumfpack $ELMER_LIBERRORMSG])])
@@ -158,10 +165,9 @@ MKDIR='mkdir -p'
 LIBSOLVER_DEPS=$LIBS
 FCPPFLAGS="$FCPPFLAGS -DDLLEXPORT=\"!\""
 
-dnl Should we use canonical host name or something more coarse grained?
-ELMER_OSNAME="LINUX_PC"
-dnl ELMER_CHARMANGLING = "char *"
-
+dnl 
+dnl Host specific stuff
+dnl
 case "$canonical_host_type" in
   *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
     SH_LD=ld
@@ -210,7 +216,10 @@ case "$canonical_host_type" in
     MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
     SONAME_FLAGS='-Wl,-soname -Wl,$@'
     RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
-    FCPPFLAGS="-C -P -traditional-cpp $FCPPFLAGS -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
+    FCPPFLAGS="-C -P -traditional-cpp $FCPPFLAGS -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
+    CPICFLAG="-fPIC"
+    CXXPICFLAG="-fPIC"
+    FPICFLAG="-fPIC"
   ;;
   i[[3456]]86-*-sco3.2v5*)
     SONAME_FLAGS='-Wl,-h -Wl,$@'
@@ -224,7 +233,7 @@ case "$canonical_host_type" in
     DLFCN_DIR=dlfcn
     SH_LDFLAGS="-G"
     SH_LDTOFLAGS="-brtl -bdynamic"
-    FCPPFLAGS="-C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
+    FCPPFLAGS="-C -P -traditional-cpp -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
   ;;
   hppa*-hp-hpux*)
     if test "$ac_cv_f77_compiler_gnu" = yes; then
@@ -319,12 +328,16 @@ case "$FC" in
   ;;	
   mpf90 | f90 | f95 | mpf95 | mpf77 ) 
     dnl sun compilers
-  ;;	
+  ;;
+  pathf* )
+    dnl pathf90 wants to link fortran programs with the fortran compiler
+    SH_LD2=$FC
 
 esac
 
-dnl kludge.. this affects preprocessor and fucks stuff up in some cases.
+dnl kludge.. this affects preprocessor and fucks stuff up in some cases...
 FCFLAGS="$FCFLAGS $FPICFLAG"
+FFLAGS="$FFLAGS $FPICFLAG"
 CFLAGS="$CFLAGS $CPICFLAG"
 CXXFLAGS="$CXXFLAGS $CXXPICFLAG"
 

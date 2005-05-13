@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.7 2005/05/11 13:33:50 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.8 2005/05/12 11:04:52 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -366,6 +366,29 @@ else
 fi
 ])dnl ACX_UMFPACK
 
+dnl sizeof void pointer
+AC_DEFUN([ACX_VOID_PTR_SIZE], 
+[
+AC_PREREQ([2.50])
+AC_REQUIRE([AC_PROG_CC])
+
+acx_void_ptr_size_bytes=8
+AC_MSG_CHECKING([Checking for sizeof(void *)])
+
+AC_TRY_RUN(
+[
+int main(int c, char**v)
+{
+printf("%d",sizeof(void*));
+exit(0); 
+}
+],acx_void_ptr_size_bytes=$1) 
+
+AC_MSG_RESULT([$acx_void_ptr_size_bytes bytes])
+VOID_PTR_SIZE="jep jep $acx_void_ptr_size_bytes"
+AC_SUBST(VOID_PTR_SIZE)
+
+])dnl ACX_VOID_PTR_SIZE
 
 dnl
 dnl @synopsis ACX_MATC([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])

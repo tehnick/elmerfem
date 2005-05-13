@@ -24,13 +24,28 @@ dnl library is found, and ACTION-IF-NOT-FOUND is a list of commands
 dnl to run it if it is not found.  If ACTION-IF-FOUND is not specified,
 dnl the default action will define HAVE_MPI.
 dnl
-dnl @version $Id: acx_mpi.m4,v 1.2 2005/04/22 12:53:17 vierinen Exp $
+dnl @version $Id: acx_mpi.m4,v 1.3 2005/05/12 11:04:53 vierinen Exp $
 dnl @author Steven G. Johnson <stevenj@alum.mit.edu>
+
+dnl 
+dnl check for header.
+dnl
 
 AC_DEFUN([ACX_MPI], [
 AC_PREREQ(2.50) dnl for AC_LANG_CASE
 
 ac_mpi_save_LIBS=$LIBS
+
+AC_ARG_WITH(mpi,
+	[AC_HELP_STRING([--with-mpi], [Specify if to use mpi])])
+case $with_mpi in
+	yes | "") ;;
+	no | disable) acx_mpi_ok=disable ;;
+	-* | */* | *.a | *.so | *.so.* | *.o) MPILIBS="$with_mpi" ;;
+	*) MPILIBS="-l$with_mpi" ;;
+esac
+
+if test x"$acx_mpi_ok" != xdisable; then 
 
 dnl
 dnl just check for these... we might not needs them anyway :) 
@@ -71,14 +86,18 @@ fi
 
 AC_SUBST(MPILIBS)
 
+dnl if not disabled ... fi
+fi 
+
 LIBS=$ac_mpi_save_LIBS
 
 # Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
 if test x = x"$MPILIBS"; then
         $2
-	HAVE_MPI="No MPI found"
+	HAVE_MPI="No MPI"
         :
 else
+	acx_mpi_ok=yes
         ifelse([$1],,[AC_DEFINE(HAVE_MPI,1,[Define if you have the MPI library.]) HAVE_MPI="Using MPI"],[$1])
         :
 fi

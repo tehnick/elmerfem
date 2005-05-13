@@ -66,9 +66,14 @@ void corename_()
 /* WIN32 needs some redundant attributes */
 #ifdef WIN32
 #define STDCALLBULL __stdcall
-#define f_ptr int *
 #else
 #define STDCALLBULL 
+#endif
+
+/* pc needs more bits on 64bit arch  */
+#ifdef ARCH_32_BITS
+#define f_ptr int *
+#else 
 #define f_ptr long int *
 #endif
 
@@ -222,8 +227,7 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION)
       fprintf( stderr, "Load: FATAL: Can't find procedure [%s]\n", NewName );
       exit(0);
    }
-#else
-#if defined(HAVE_LOADLIBRARY_API)
+#elif defined(HAVE_LOADLIBRARY_API)
 
    if ( ( Handle = (void *)LoadLibrary( Library ) ) == NULL )
    { 
@@ -241,7 +245,6 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION)
      fprintf( stderr,"Load: FATAL: Can't find procedure [%s]\n", Name );
      exit(0);
    }
-#endif 
 #endif 
    
    if ( Quiet == 0 ) 

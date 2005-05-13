@@ -120,8 +120,8 @@ F77 = g77
 FC = g95
 FCFLAGS = -g -I. -I/tmp/elmer/g95/include -fPIC
 FCLIBS =  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm
-FCPPFLAGS = -C -P -traditional-cpp  -DDLLEXPORT="!" -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK
-FFLAGS = -g -O2
+FCPPFLAGS = -C -P -traditional-cpp  -DDLLEXPORT="!" -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK
+FFLAGS = -g -O2 -fPIC
 FLIBS =  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s
 FPICFLAG = -fPIC
 GREP = /bin/grep
@@ -1072,14 +1072,14 @@ SUFFIXES: .f90 .so
 # 
 .f90.o:
 	cp $< $*.fpp
-	gcc -E -C -P -traditional-cpp  -DDLLEXPORT="!" -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -g -O2 -I/tmp/elmer/g95/include -fPIC $*.fpp > $*.F90
+	gcc -E -C -P -traditional-cpp  -DDLLEXPORT="!" -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -g -O2 -I/tmp/elmer/g95/include -fPIC $*.fpp > $*.F90
 	g95 -g -I. -I/tmp/elmer/g95/include -fPIC -c $*.F90
 
 # a bit kludgy way to do the cpp, but hopefully portable enough
 .f.o:
 	cp $< $*.fpp
-	gcc -E -C -P -traditional-cpp  -DDLLEXPORT="!" -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -g -O2 -I/tmp/elmer/g95/include -fPIC $*.fpp > $*.FOR
-	g77 -g -O2 -c $*.FOR
+	gcc -E -C -P -traditional-cpp  -DDLLEXPORT="!" -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -g -O2 -I/tmp/elmer/g95/include -fPIC $*.fpp > $*.FOR
+	g77 -g -O2 -fPIC -c $*.FOR
 
 # mpi stubs and load.c
 #.c.o:
@@ -1088,7 +1088,7 @@ SUFFIXES: .f90 .so
 # build seperate solvers as shared libs
 .f90.so:
 	cp $< $*.fpp
-	gcc -E -C -P -traditional-cpp  -DDLLEXPORT="!" -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -g -O2 -I/tmp/elmer/g95/include -fPIC $*.fpp > $*.F90
+	gcc -E -C -P -traditional-cpp  -DDLLEXPORT="!" -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -g -O2 -I/tmp/elmer/g95/include -fPIC $*.fpp > $*.F90
 	g95 -g -I. -I/tmp/elmer/g95/include -fPIC -c $*.F90
 	$(CXX) -shared  -Wl,-soname -Wl,$@ -o $@ $*$(OBJ_EXT)  -lsolver -L. 
 
