@@ -98,6 +98,11 @@ clean-local:
 bin_PROGRAMS = SC2Elmer 
 SC2Elmer_SOURCES = SC2Elmer.c
 
+if USE_MPI
+mpif.h:
+	@CP@ mpif_stub.h mpif.h
+endif
+
 
 # static fem lib
 # libfem$(LIB_EXT): $(OBJS)

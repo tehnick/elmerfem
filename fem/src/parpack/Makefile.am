@@ -74,5 +74,7 @@ if USE_MPI
 
 noinst_LIBRARIES = libparpack.a
 libparpack_a_SOURCES = $(COMMON_SRCS)
+mpif.h:
+	@CP@ mpif_stub.h mpif.h
 
 endif
