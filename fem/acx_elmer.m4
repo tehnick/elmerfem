@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.13 2005/05/13 13:16:16 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.14 2005/05/13 13:34:20 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -430,7 +430,8 @@ case "$canonical_host_type" in
   sparc-sun-sunos4*)
   ;;
   sparc-sun-solaris2* | i386-pc-solaris2*)
-	SUN_64BIT_FLAGS="-xtarget=native64 -xcode=abs64"
+        B64FLAGS="-xtarget=native64 -xcode=abs64"
+	SUN_64BIT_FLAGS=$B64FLAGS
 	case "$FC" in 
 	  mpf* | f*)
 		B64FCFLAGS=$SUN_64BIT_FLAGS
@@ -496,6 +497,7 @@ if test "$with_64bits" != no; then
    fi
 fi
 
+AC_SUBST(B64FLAGS)
 ])dnl ACX_CHECK_B64FLAGS
 
 dnl

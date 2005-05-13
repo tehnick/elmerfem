@@ -686,6 +686,7 @@ FFLAGS
 ac_ct_F77
 GREP
 EGREP
+B64FLAGS
 FLIBS
 FCLIBS
 MPICC
@@ -5396,7 +5397,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:5399:" \
+echo "$as_me:5400:" \
      "checking for Fortran compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -5643,7 +5644,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:5646:" \
+echo "$as_me:5647:" \
      "checking for Fortran 77 compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -6497,7 +6498,8 @@ case "$canonical_host_type" in
   sparc-sun-sunos4*)
   ;;
   sparc-sun-solaris2* | i386-pc-solaris2*)
-	SUN_64BIT_FLAGS="-xtarget=native64 -xcode=abs64"
+        B64FLAGS="-xtarget=native64 -xcode=abs64"
+	SUN_64BIT_FLAGS=$B64FLAGS
 	case "$FC" in
 	  mpf* | f*)
 		B64FCFLAGS=$SUN_64BIT_FLAGS
@@ -6989,6 +6991,7 @@ fi
 
 
 
+
 ac_ext=f
 ac_compile='$F77 -c $FFLAGS conftest.$ac_ext >&5'
 ac_link='$F77 -o conftest$ac_exeext $FFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
@@ -7040,7 +7043,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_verb"
-(eval echo $as_me:7043: \"$ac_link\") >&5
+(eval echo $as_me:7046: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -7124,7 +7127,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_cv_prog_f77_v"
-(eval echo $as_me:7127: \"$ac_link\") >&5
+(eval echo $as_me:7130: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -7871,7 +7874,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_verb"
-(eval echo $as_me:7874: \"$ac_link\") >&5
+(eval echo $as_me:7877: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -7955,7 +7958,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_cv_prog_fc_v"
-(eval echo $as_me:7958: \"$ac_link\") >&5
+(eval echo $as_me:7961: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -14496,6 +14499,7 @@ s,@FFLAGS@,$FFLAGS,;t t
 s,@ac_ct_F77@,$ac_ct_F77,;t t
 s,@GREP@,$GREP,;t t
 s,@EGREP@,$EGREP,;t t
+s,@B64FLAGS@,$B64FLAGS,;t t
 s,@FLIBS@,$FLIBS,;t t
 s,@FCLIBS@,$FCLIBS,;t t
 s,@MPICC@,$MPICC,;t t
