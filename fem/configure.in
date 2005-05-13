@@ -38,13 +38,12 @@ AC_CHECK_HEADERS([stdlib.h strings.h sys/param.h sys/time.h])
 AC_EXEEXT
 AC_OBJEXT
 
+dnl it is important to do this before wrappers, because the ldflags might be different for 32 and 64 bits
 ACX_CHECK_B64FLAGS
-dnl look for default fortran compiler (should we also define the standard?)
-dnl others to look for: F77, 
 
-AC_FC_LIBRARY_LDFLAGS
-AC_F77_DUMMY_MAIN
-AC_FC_DUMMY_MAIN
+dnl AC_FC_LIBRARY_LDFLAGS
+dnl AC_F77_DUMMY_MAIN
+dnl AC_FC_DUMMY_MAIN
 
 dnl create macros in config.h for obfuscating fortran-type function symbols
 AC_F77_WRAPPERS
