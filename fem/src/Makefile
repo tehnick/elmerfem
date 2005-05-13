@@ -120,7 +120,7 @@ F77 = g77
 FC = g95
 FCFLAGS = -g -I. -I/tmp/elmer/g95/include -fPIC
 FCLIBS =  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm
-FCPPFLAGS = -C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -DDLLEXPORT="!"
+FCPPFLAGS = -C -P -traditional-cpp  -DDLLEXPORT="!" -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK
 FFLAGS = -g -O2
 FLIBS =  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s
 FPICFLAG = -fPIC
@@ -134,7 +134,7 @@ LAPACK_LIBS = -llapack
 LDFLAGS = 
 LIBEXT = a
 LIBOBJS = 
-LIBS = arpack/libarpack.a parpack/libparpack.a -llapack -lblas /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a -lhuti -lmatc -leiof -lmatc -ldl -lstdc++  -L/tmp/elmer/g95/lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s -lmpich
+LIBS = arpack/libarpack.a  -llapack -lblas /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a -lhuti -lmatc -leiof -lmatc -ldl -lstdc++  -L/tmp/elmer/g95/lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s 
 LIBSOLVER_DEPS = -lstdc++  -L/tmp/elmer/g95/lib
 LTLIBOBJS = 
 MAINT = #
@@ -144,12 +144,12 @@ MAKEINFO = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run makeinfo
 MATC_LIBS = -lmatc
 MKDIR = mkdir -p
 MKOCTFILE_DL_LDFLAGS = -shared -Wl,-Bsymbolic
-MPICC = mpicc
+MPICC = 
 MPICXX = 
-MPIF77 = mpif77
+MPIF77 = 
 MPIF90 = 
 MPIFC = 
-MPILIBS = -lmpich
+MPILIBS = 
 MV = mv
 NO_OCT_FILE_STRIP = false
 OBJEXT = o
@@ -159,7 +159,7 @@ PACKAGE_NAME =
 PACKAGE_STRING = 
 PACKAGE_TARNAME = 
 PACKAGE_VERSION = 
-PARPACK_LIBS = parpack/libparpack.a
+PARPACK_LIBS = 
 PATH_SEPARATOR = :
 RANLIB = ranlib
 RLD_FLAG = -Wl,-rpath -Wl,$(octlibdir)
@@ -183,10 +183,12 @@ TEMPLATE_AR = $(AR)
 TEMPLATE_ARFLAGS = rc
 TRADITIONAL_CPP = 
 UMFPACK_LIBS = /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a
+USE_MPI_FALSE = 
+USE_MPI_TRUE = #
 VERSION = 1.0.0
 ac_ct_CC = gcc
 ac_ct_CXX = g++
-ac_ct_F77 = 
+ac_ct_F77 = g77
 ac_ct_FC = 
 ac_ct_RANLIB = ranlib
 ac_ct_STRIP = 
@@ -1070,13 +1072,13 @@ SUFFIXES: .f90 .so
 # 
 .f90.o:
 	cp $< $*.fpp
-	gcc -E -C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -DDLLEXPORT="!" -g -O2 -I/tmp/elmer/g95/include -fPIC $*.fpp > $*.F90
+	gcc -E -C -P -traditional-cpp  -DDLLEXPORT="!" -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -g -O2 -I/tmp/elmer/g95/include -fPIC $*.fpp > $*.F90
 	g95 -g -I. -I/tmp/elmer/g95/include -fPIC -c $*.F90
 
 # a bit kludgy way to do the cpp, but hopefully portable enough
 .f.o:
 	cp $< $*.fpp
-	gcc -E -C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -DDLLEXPORT="!" -g -O2 -I/tmp/elmer/g95/include -fPIC $*.fpp > $*.FOR
+	gcc -E -C -P -traditional-cpp  -DDLLEXPORT="!" -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -g -O2 -I/tmp/elmer/g95/include -fPIC $*.fpp > $*.FOR
 	g77 -g -O2 -c $*.FOR
 
 # mpi stubs and load.c
@@ -1086,7 +1088,7 @@ SUFFIXES: .f90 .so
 # build seperate solvers as shared libs
 .f90.so:
 	cp $< $*.fpp
-	gcc -E -C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -DDLLEXPORT="!" -g -O2 -I/tmp/elmer/g95/include -fPIC $*.fpp > $*.F90
+	gcc -E -C -P -traditional-cpp  -DDLLEXPORT="!" -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -g -O2 -I/tmp/elmer/g95/include -fPIC $*.fpp > $*.F90
 	g95 -g -I. -I/tmp/elmer/g95/include -fPIC -c $*.F90
 	$(CXX) -shared  -Wl,-soname -Wl,$@ -o $@ $*$(OBJ_EXT)  -lsolver -L. 
 
@@ -1095,7 +1097,7 @@ SUFFIXES: .f90 .so
 #
 libsolver$(SHL_EXT): ElmerSolver$(OBJ_EXT) $(OBJS) arpack parpack
 	rm -f $@
-	$(CXX) -shared -Wl,-soname -Wl,$@ -o $@ ElmerSolver$(OBJ_EXT) $(OBJS) arpack/libarpack.a parpack/libparpack.a -llapack -lblas /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a -lhuti -lmatc -leiof -lmatc -ldl -lstdc++  -L/tmp/elmer/g95/lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s -lmpich -L. 
+	$(CXX) -shared -Wl,-soname -Wl,$@ -o $@ ElmerSolver$(OBJ_EXT) $(OBJS) arpack/libarpack.a  -llapack -lblas /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a -lhuti -lmatc -leiof -lmatc -ldl -lstdc++  -L/tmp/elmer/g95/lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s  -L. 
 
 #########################
 # The executables

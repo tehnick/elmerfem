@@ -69,7 +69,10 @@ COMMON_SRCS =  \
 	stat.h \
 	mpif.h
 
-noinst_LIBRARIES = libparpack.a
+# disable parpack, if it MPI not found
+if USE_MPI
 
+noinst_LIBRARIES = libparpack.a
 libparpack_a_SOURCES = $(COMMON_SRCS)
 
+endif
