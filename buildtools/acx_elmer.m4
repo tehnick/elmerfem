@@ -1,8 +1,8 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.6 2005/05/09 13:02:52 vierinen Exp $
-dnl @author juha.vierinen@csc.fi
+dnl @version $Id: acx_elmer.m4,v 1.11 2005/05/13 11:48:27 vierinen Exp $
+dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
 dnl
@@ -253,6 +253,64 @@ fi
 
 
 dnl
+dnl @synopsis ACX_PARPACK([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
+dnl
+dnl Look for PARPACK library
+dnl
+AC_DEFUN([ACX_PARPACK], [
+AC_PREREQ(2.50)
+AC_REQUIRE([AC_F77_LIBRARY_LDFLAGS])
+acx_parpack_ok=no
+
+AC_ARG_WITH(parpack,
+	[AC_HELP_STRING([--with-parpack=<lib>], [Specify location of PARPACK])])
+case $with_parpack in
+	yes | "") ;;
+	no) acx_parpack_ok=disable ;;
+	-* | */* | *.a | *.so | *.so.* | *.o) PARPACK_LIBS="$with_parpack" ;;
+	*) PARPACK_LIBS="-l$with_parpack" ;;
+esac
+
+# Get fortran linker names of PARPACK functions to check for.
+AC_FC_FUNC(pdneupd)
+
+acx_parpack_save_LIBS="$LIBS"
+
+LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
+
+# First, check PARPACK_LIBS environment variable
+if test $acx_parpack_ok = no; then
+if test "x$PARPACK_LIBS" != x; then
+	save_LIBS="$LIBS"; LIBS="$PARPACK_LIBS $LIBS"
+	AC_MSG_CHECKING([for $pdneupd in $PARPACK_LIBS])
+	AC_TRY_LINK_FUNC($pdneupd, [acx_parpack_ok=yes], [PARPACK_LIBS=""])
+	AC_MSG_RESULT($acx_parpack_ok)
+	LIBS="$save_LIBS"
+fi
+fi
+
+# Generic PARPACK library?
+if test $acx_parpack_ok = no; then
+	AC_CHECK_LIB(parpack, $pdneupd, [acx_parpack_ok=yes; PARPACK_LIBS="-lparpack"])
+fi
+
+AC_SUBST(PARPACK_LIBS)
+
+LIBS="$acx_parpack_save_LIBS"
+
+# Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
+if test x"$acx_parpack_ok" = xyes; then
+        ifelse([$1],,AC_DEFINE(HAVE_PARPACK,1,[Define if you have a PARPACK library.]),[$1])
+        :
+else
+        acx_parpack_ok=no
+        $2
+fi
+])dnl ACX_PARPACK
+
+
+
+dnl
 dnl @synopsis ACX_UMFPACK([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
 dnl
 dnl Look for UMFPACK library
@@ -308,6 +366,128 @@ else
 fi
 ])dnl ACX_UMFPACK
 
+dnl find out the flags that enable 64 bit compilation
+AC_DEFUN([ACX_CHECK_B64FLAGS],
+[
+AC_PREREQ([2.50])
+AC_REQUIRE([AC_PROG_FC])
+AC_REQUIRE([AC_PROG_CC])
+AC_REQUIRE([AC_PROG_CXX])
+
+AC_ARG_WITH(64bits,
+	[AC_HELP_STRING([--with-64bits=yes(/no)], [Try to compile using 64 bits (default)])])
+
+dnl by default, use no flags at all
+B64CFLAGS=
+B64FCFLAGS=
+B64F77FLAGS=
+B64CXXFLAGS=
+
+AC_MSG_CHECKING([for 64 bit compilation flags])
+
+if test "$with_64bits" = no; then
+   AC_MSG_RESULT(not even going to try)
+else
+   AC_MSG_RESULT([let's see what happens])
+fi
+
+case "$canonical_host_type" in
+  *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
+  ;;
+  *-*-freebsd*)
+  ;;
+  alpha*-dec-osf*)
+  ;;
+  *-*-darwin*)
+  ;;
+  *-*-cygwin* | *-*-mingw*)
+  ;;
+  *-*-linux* | *-*-gnu*)
+	case "$FC" in
+  	  ifort | ifc)
+ 		;;
+	  g95 | gfortran)
+		;;
+	  *)
+		;;
+        esac
+  ;;
+  rs6000-ibm-aix* | powerpc-ibm-aix*)
+  ;;
+  hppa*-hp-hpux*)
+  ;;
+  *-sgi-*)
+  ;;
+  sparc-sun-sunos4*)
+  ;;
+  sparc-sun-solaris2* | i386-pc-solaris2*)
+	SUN_64BIT_FLAGS="-xtarget=native64 -xcode=abs64"
+	case "$FC" in 
+	  mpf* | f*)
+		B64FCFLAGS=$SUN_64BIT_FLAGS
+	  ;;
+ 	esac
+
+	case "$F77" in
+	  mpf* | f*)
+		B64FFLAGS=$SUN_64BIT_FLAGS
+	  ;;
+	esac
+	
+	case "$CC" in
+	  mpcc | mp*)
+	        B64CFLAGS=$SUN_64BIT_FLAGS
+	  ;;
+ 	esac
+	
+	case "$CXX" in 
+	  mpCC | CC)
+		B64CXXFLAGS=$SUN_64BIT_FLAGS
+	  ;;
+	esac
+  ;;
+esac
+
+if test "$with_64bits" != no; then
+        AC_MSG_CHECKING([for 64 bit CFLAGS])
+        AC_MSG_RESULT($B64CFLAGS)
+	CFLAGS="$CFLAGS $B64CFLAGS"
+
+        AC_MSG_CHECKING([for 64 bit FCFLAGS])
+        AC_MSG_RESULT($B64FCFLAGS)
+	FCFLAGS="$FCFLAGS $B64FCFLAGS"
+
+        AC_MSG_CHECKING([for 64 bit CXXFLAGS])
+        AC_MSG_RESULT($B64CXXFLAGS)
+	CXXFLAGS="$CXXFLAGS $B64CXXFLAGS"
+
+        AC_MSG_CHECKING([for 64 bit FFLAGS])
+        AC_MSG_RESULT($B64FFLAGS)
+	FFLAGS="$FFLAGS $B64FFLAGS"
+fi
+
+dnl let's see if it works...
+AC_CHECK_SIZEOF(void*)
+case "$ac_cv_sizeof_voidp" in
+  "8")
+    AC_DEFINE(ARCH_64_BITS, 1,[64 bit arch.]) 
+  ;;
+  "4")
+    AC_DEFINE(ARCH_32_BITS, 1,[32 bit arch.]) 
+  ;;
+esac
+
+if test "$with_64bits" != no; then
+   AC_MSG_CHECKING(to see if we got 64 bits)
+
+   if test "$ac_cv_sizeof_voidp" -ne 8; then
+      AC_MSG_RESULT([nope]) 
+   else
+      AC_MSG_RESULT([oh yes]) 
+   fi
+fi
+
+])dnl ACX_CHECK_B64FLAGS
 
 dnl
 dnl @synopsis ACX_MATC([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
