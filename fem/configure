@@ -8882,7 +8882,6 @@ _ACEOF
   ;;
 esac
 
-
 case "$ac_cv_fc_mangling" in
   "upper case, no underscore, no extra underscore" | \
   "upper case, no underscores")
@@ -12796,7 +12795,7 @@ RM='rm -f'
 MV='mv'
 MKDIR='mkdir -p'
 LIBSOLVER_DEPS=$LIBS
-FCPPFLAGS="$FCPPFLAGS -DDLLEXPORT=\"!\""
+FCPPFLAGS="$FCPPFLAGS -DDLLEXPORT=\"!\"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
 
 case "$canonical_host_type" in
   *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
@@ -12846,7 +12845,7 @@ case "$canonical_host_type" in
     MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
     SONAME_FLAGS='-Wl,-soname -Wl,$@'
     RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
-    FCPPFLAGS="-C -P -traditional-cpp $FCPPFLAGS -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
+    FCPPFLAGS="-C -P -traditional-cpp $FCPPFLAGS"
     CPICFLAG="-fPIC"
     CXXPICFLAG="-fPIC"
     FPICFLAG="-fPIC"
@@ -12863,7 +12862,7 @@ case "$canonical_host_type" in
     DLFCN_DIR=dlfcn
     SH_LDFLAGS="-G"
     SH_LDTOFLAGS="-brtl -bdynamic"
-    FCPPFLAGS="-C -P -traditional-cpp -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
+    FCPPFLAGS="-C -P -traditional-cpp $FCPPFLAGS"
   ;;
   hppa*-hp-hpux*)
     if test "$ac_cv_f77_compiler_gnu" = yes; then
@@ -12966,7 +12965,7 @@ fi
     if test "$TRADITIONAL_CPP" = yes; then
        CPP=cpp
     fi
-    FCPPFLAGS="-C -P -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
+    FCPPFLAGS="-C -P $FCPPFLAGS"
 
   ;;
 esac

@@ -693,6 +693,8 @@ MPIF77
 MPIF90
 MPIFC
 MPILIBS
+USE_MPI_TRUE
+USE_MPI_FALSE
 BLAS_LIBS
 LAPACK_LIBS
 HUTI_LIBS
@@ -1403,6 +1405,7 @@ Optional Features:
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
+  --with-mpi              Specify if to use mpi
   --with-blas=<lib>       use BLAS library <lib>
   --with-lapack=<lib>     use LAPACK library <lib>
   --with-huti=<lib>       use HUTI library <lib>
@@ -8344,6 +8347,541 @@ ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
+echo "$as_me:$LINENO: checking for void*" >&5
+echo $ECHO_N "checking for void*... $ECHO_C" >&6
+if test "${ac_cv_type_voidp+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+#ifdef F77_DUMMY_MAIN
+
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int F77_DUMMY_MAIN() { return 1; }
+
+#endif
+#ifdef FC_DUMMY_MAIN
+#ifndef FC_DUMMY_MAIN_EQ_F77
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int FC_DUMMY_MAIN() { return 1; }
+#endif
+#endif
+int
+main ()
+{
+if ((void* *) 0)
+  return 0;
+if (sizeof (void*))
+  return 0;
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_type_voidp=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_type_voidp=no
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+echo "$as_me:$LINENO: result: $ac_cv_type_voidp" >&5
+echo "${ECHO_T}$ac_cv_type_voidp" >&6
+
+echo "$as_me:$LINENO: checking size of void*" >&5
+echo $ECHO_N "checking size of void*... $ECHO_C" >&6
+if test "${ac_cv_sizeof_voidp+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  if test "$ac_cv_type_voidp" = yes; then
+  # The cast to long int works around a bug in the HP C Compiler
+  # version HP92453-01 B.11.11.23709.GP, which incorrectly rejects
+  # declarations like `int a3[[(sizeof (unsigned char)) >= 0]];'.
+  # This bug is HP SR number 8606223364.
+  if test "$cross_compiling" = yes; then
+  # Depending upon the size, compute the lo and hi bounds.
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+#ifdef F77_DUMMY_MAIN
+
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int F77_DUMMY_MAIN() { return 1; }
+
+#endif
+#ifdef FC_DUMMY_MAIN
+#ifndef FC_DUMMY_MAIN_EQ_F77
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int FC_DUMMY_MAIN() { return 1; }
+#endif
+#endif
+int
+main ()
+{
+static int test_array @<:@1 - 2 * !(((long int) (sizeof (void*))) >= 0)@:>@;
+test_array @<:@0@:>@ = 0
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_lo=0 ac_mid=0
+  while :; do
+    cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+#ifdef F77_DUMMY_MAIN
+
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int F77_DUMMY_MAIN() { return 1; }
+
+#endif
+#ifdef FC_DUMMY_MAIN
+#ifndef FC_DUMMY_MAIN_EQ_F77
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int FC_DUMMY_MAIN() { return 1; }
+#endif
+#endif
+int
+main ()
+{
+static int test_array @<:@1 - 2 * !(((long int) (sizeof (void*))) <= $ac_mid)@:>@;
+test_array @<:@0@:>@ = 0
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_hi=$ac_mid; break
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_lo=`expr $ac_mid + 1`
+			if test $ac_lo -le $ac_mid; then
+			  ac_lo= ac_hi=
+			  break
+			fi
+			ac_mid=`expr 2 '*' $ac_mid + 1`
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+  done
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+#ifdef F77_DUMMY_MAIN
+
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int F77_DUMMY_MAIN() { return 1; }
+
+#endif
+#ifdef FC_DUMMY_MAIN
+#ifndef FC_DUMMY_MAIN_EQ_F77
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int FC_DUMMY_MAIN() { return 1; }
+#endif
+#endif
+int
+main ()
+{
+static int test_array @<:@1 - 2 * !(((long int) (sizeof (void*))) < 0)@:>@;
+test_array @<:@0@:>@ = 0
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_hi=-1 ac_mid=-1
+  while :; do
+    cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+#ifdef F77_DUMMY_MAIN
+
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int F77_DUMMY_MAIN() { return 1; }
+
+#endif
+#ifdef FC_DUMMY_MAIN
+#ifndef FC_DUMMY_MAIN_EQ_F77
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int FC_DUMMY_MAIN() { return 1; }
+#endif
+#endif
+int
+main ()
+{
+static int test_array @<:@1 - 2 * !(((long int) (sizeof (void*))) >= $ac_mid)@:>@;
+test_array @<:@0@:>@ = 0
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_lo=$ac_mid; break
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_hi=`expr '(' $ac_mid ')' - 1`
+			if test $ac_mid -le $ac_hi; then
+			  ac_lo= ac_hi=
+			  break
+			fi
+			ac_mid=`expr 2 '*' $ac_mid`
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+  done
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_lo= ac_hi=
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+# Binary search between lo and hi bounds.
+while test "x$ac_lo" != "x$ac_hi"; do
+  ac_mid=`expr '(' $ac_hi - $ac_lo ')' / 2 + $ac_lo`
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+#ifdef F77_DUMMY_MAIN
+
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int F77_DUMMY_MAIN() { return 1; }
+
+#endif
+#ifdef FC_DUMMY_MAIN
+#ifndef FC_DUMMY_MAIN_EQ_F77
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int FC_DUMMY_MAIN() { return 1; }
+#endif
+#endif
+int
+main ()
+{
+static int test_array @<:@1 - 2 * !(((long int) (sizeof (void*))) <= $ac_mid)@:>@;
+test_array @<:@0@:>@ = 0
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_hi=$ac_mid
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_lo=`expr '(' $ac_mid ')' + 1`
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+done
+case $ac_lo in
+?*) ac_cv_sizeof_voidp=$ac_lo;;
+'') { { echo "$as_me:$LINENO: error: cannot compute sizeof (void*), 77
+See \`config.log' for more details." >&5
+echo "$as_me: error: cannot compute sizeof (void*), 77
+See \`config.log' for more details." >&2;}
+   { (exit 1); exit 1; }; } ;;
+esac
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+$ac_includes_default
+static long int longval () { return (long int) (sizeof (void*)); }
+static unsigned long int ulongval () { return (long int) (sizeof (void*)); }
+@%:@include <stdio.h>
+@%:@include <stdlib.h>
+#ifdef F77_DUMMY_MAIN
+
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int F77_DUMMY_MAIN() { return 1; }
+
+#endif
+#ifdef FC_DUMMY_MAIN
+#ifndef FC_DUMMY_MAIN_EQ_F77
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int FC_DUMMY_MAIN() { return 1; }
+#endif
+#endif
+int
+main ()
+{
+
+  FILE *f = fopen ("conftest.val", "w");
+  if (! f)
+    exit (1);
+  if (((long int) (sizeof (void*))) < 0)
+    {
+      long int i = longval ();
+      if (i != ((long int) (sizeof (void*))))
+	exit (1);
+      fprintf (f, "%ld\n", i);
+    }
+  else
+    {
+      unsigned long int i = ulongval ();
+      if (i != ((long int) (sizeof (void*))))
+	exit (1);
+      fprintf (f, "%lu\n", i);
+    }
+  exit (ferror (f) || fclose (f) != 0);
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && { ac_try='./conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_sizeof_voidp=`cat conftest.val`
+else
+  echo "$as_me: program exited with status $ac_status" >&5
+echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+( exit $ac_status )
+{ { echo "$as_me:$LINENO: error: cannot compute sizeof (void*), 77
+See \`config.log' for more details." >&5
+echo "$as_me: error: cannot compute sizeof (void*), 77
+See \`config.log' for more details." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext conftest.$ac_objext conftest.$ac_ext
+fi
+rm -f conftest.val
+else
+  ac_cv_sizeof_voidp=0
+fi
+fi
+echo "$as_me:$LINENO: result: $ac_cv_sizeof_voidp" >&5
+echo "${ECHO_T}$ac_cv_sizeof_voidp" >&6
+cat >>confdefs.h <<_ACEOF
+@%:@define SIZEOF_VOIDP $ac_cv_sizeof_voidp
+_ACEOF
+
+
+case "$ac_cv_sizeof_voidp" in
+  "8")
+    
+cat >>confdefs.h <<\_ACEOF
+@%:@define ARCH_64_BITS 1
+_ACEOF
+ 
+  ;;
+  "4")
+    
+cat >>confdefs.h <<\_ACEOF
+@%:@define ARCH_32_BITS 1
+_ACEOF
+ 
+  ;;
+esac
+
 case "$ac_cv_fc_mangling" in
   "upper case, no underscore, no extra underscore" | \
   "upper case, no underscores")
@@ -8385,6 +8923,7 @@ esac
 
 
 
+
 LIBS="$LIBS -L$prefix/lib"
 CFLAGS="$CFLAGS -I$prefix/include"
 FCFLAGS="$FCFLAGS -I. -I$prefix/include"
@@ -8395,6 +8934,21 @@ ELMER_LIBERRORMSG="wasn't found, make sure it is in the prefix, or CFLAGS and LI
 
  
 ac_mpi_save_LIBS=$LIBS
+
+
+# Check whether --with-mpi or --without-mpi was given.
+if test "${with_mpi+set}" = set; then
+  withval="$with_mpi"
+  
+fi; 
+case $with_mpi in
+	yes | "") ;;
+	no | disable) acx_mpi_ok=disable ;;
+	-* | */* | *.a | *.so | *.so.* | *.o) MPILIBS="$with_mpi" ;;
+	*) MPILIBS="-l$with_mpi" ;;
+esac
+
+if test x"$acx_mpi_ok" != xdisable; then 
 
 
 
@@ -8745,21 +9299,35 @@ fi
 
 
 
+fi 
+
 LIBS=$ac_mpi_save_LIBS
 
 # Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
 if test x = x"$MPILIBS"; then
         { echo "$as_me:$LINENO: WARNING: MPI was not found, using stubs!" >&5
 echo "$as_me: WARNING: MPI was not found, using stubs!" >&2;}
-	HAVE_MPI="No MPI found"
+	HAVE_MPI="No MPI"
         :
 else
+	acx_mpi_ok=yes
         
 cat >>confdefs.h <<\_ACEOF
 @%:@define HAVE_MPI 1
 _ACEOF
  HAVE_MPI="Using MPI"
         :
+fi
+
+
+ 
+
+if test "$acx_mpi_ok" == "yes"; then
+  USE_MPI_TRUE=
+  USE_MPI_FALSE='#'
+else
+  USE_MPI_TRUE='#'
+  USE_MPI_FALSE=
 fi
 
 
@@ -8849,6 +9417,7 @@ else
   { echo "$as_me:$LINENO: WARNING: elmer might need libstc++" >&5
 echo "$as_me: WARNING: elmer might need libstc++" >&2;}
 fi
+
 
 
 
@@ -11042,8 +11611,6 @@ fi
 
 
 
-
-
 acx_eiof_ok=no
 
 ac_ext=cc
@@ -11285,7 +11852,6 @@ ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
-
 
 
 
@@ -12195,7 +12761,9 @@ if test x"$acx_arpack_ok" = xno; then
 fi
 
 if test x"$acx_parpack_ok" = xno; then
+if test x"$acx_mpi_ok" = xyes; then
    PARPACK_LIBS="parpack/libparpack.a"
+fi
 fi
 
 DLFCN_DIR=
@@ -12222,14 +12790,12 @@ NO_OCT_FILE_STRIP=false
 TEMPLATE_AR='$(AR)'
 TEMPLATE_ARFLAGS="$ARFLAGS"
 library_path_var=LD_LIBRARY_PATH
-FCPPFLAGS=''
 CP='cp'
 RM='rm -f'
 MV='mv'
 MKDIR='mkdir -p'
 LIBSOLVER_DEPS=$LIBS
-
-ELMER_OSNAME="LINUX_PC"
+FCPPFLAGS="$FCPPFLAGS -DDLLEXPORT=\"!\"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
 
 case "$canonical_host_type" in
   *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
@@ -12273,13 +12839,16 @@ case "$canonical_host_type" in
     SHLLINKEXT=.dll
     SONAME_FLAGS='-Wl,--out-implib=$@.a'
     library_path_var=PATH
-    FCPPFLAGS="$FCPPFLAGS -DWIN32"
+    FCPPFLAGS="-DWIN32"
   ;;
   *-*-linux* | *-*-gnu*)
     MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
     SONAME_FLAGS='-Wl,-soname -Wl,$@'
     RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
-    FCPPFLAGS="-C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
+    FCPPFLAGS="-C -P -traditional-cpp $FCPPFLAGS"
+    CPICFLAG="-fPIC"
+    CXXPICFLAG="-fPIC"
+    FPICFLAG="-fPIC"
   ;;
   i[3456]86-*-sco3.2v5*)
     SONAME_FLAGS='-Wl,-h -Wl,$@'
@@ -12293,7 +12862,7 @@ case "$canonical_host_type" in
     DLFCN_DIR=dlfcn
     SH_LDFLAGS="-G"
     SH_LDTOFLAGS="-brtl -bdynamic"
-    FCPPFLAGS="-C -P -traditional-cpp -DLINUX_PC -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
+    FCPPFLAGS="-C -P -traditional-cpp $FCPPFLAGS"
   ;;
   hppa*-hp-hpux*)
     if test "$ac_cv_f77_compiler_gnu" = yes; then
@@ -12396,7 +12965,7 @@ fi
     if test "$TRADITIONAL_CPP" = yes; then
        CPP=cpp       
     fi
-    FCPPFLAGS="-C -P -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
+    FCPPFLAGS="-C -P $FCPPFLAGS"
 
   ;;
 esac
@@ -12404,15 +12973,12 @@ esac
 SH_LD2=$SH_LD
 case "$FC" in
   gfortran | g95 )
-        FCPPFLAGS="$FCPPFLAGS -DDLLEXPORT=\"!\""
-    SH_LD2=$FC
+        SH_LD2=$FC
   ;;
   *xlf*)
     FCFLAGS="$FCFLAGS -qsuffix=cpp=F90"
-    FCPPFLAGS="$FCPPFLAGS -DDLLEXPORT=\"!\""
   ;;
   ifort | ifc )
-    FCPPFLAGS="$FCPPFLAGS -DDLLEXPORT=\"!\""
     SH_LD2=$FC
     if test "$ac_cv_f77_compiler_gnu" = yes; then
        { echo "$as_me:$LINENO: WARNING: Intel Fortran 90 compiler and g77 really don't mix that well, I hope you know what you are doing." >&5
@@ -12420,12 +12986,14 @@ echo "$as_me: WARNING: Intel Fortran 90 compiler and g77 really don't mix that w
     fi
   ;;	
   mpf90 | f90 | f95 | mpf95 | mpf77 ) 
-        FCPPFLAGS="$FCPPFLAGS -DDLLEXPORT=\"!\""
-  ;;	
+      ;;
+  pathf* )
+        SH_LD2=$FC
 
 esac
 
 FCFLAGS="$FCFLAGS $FPICFLAG"
+FFLAGS="$FFLAGS $FPICFLAG"
 CFLAGS="$CFLAGS $CPICFLAG"
 CXXFLAGS="$CXXFLAGS $CXXPICFLAG"
 
@@ -13520,6 +14088,13 @@ echo "$as_me: error: conditional \"am__fastdepCXX\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
+if test -z "${USE_MPI_TRUE}" && test -z "${USE_MPI_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"USE_MPI\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"USE_MPI\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
 
 : ${CONFIG_STATUS=./config.status}
 ac_clean_files_save=$ac_clean_files
@@ -14149,6 +14724,8 @@ s,@MPIF77@,$MPIF77,;t t
 s,@MPIF90@,$MPIF90,;t t
 s,@MPIFC@,$MPIFC,;t t
 s,@MPILIBS@,$MPILIBS,;t t
+s,@USE_MPI_TRUE@,$USE_MPI_TRUE,;t t
+s,@USE_MPI_FALSE@,$USE_MPI_FALSE,;t t
 s,@BLAS_LIBS@,$BLAS_LIBS,;t t
 s,@LAPACK_LIBS@,$LAPACK_LIBS,;t t
 s,@HUTI_LIBS@,$HUTI_LIBS,;t t
@@ -14933,7 +15510,7 @@ Libs:
   MPI                       $MPILIBS
 
 MPI:
-  $HAVE_MPI
+  $acx_mpi_ok
 " >&5
 echo "${ECHO_T}
 ELMER build options:
@@ -14964,5 +15541,5 @@ Libs:
   MPI                       $MPILIBS
 
 MPI:
-  $HAVE_MPI
+  $acx_mpi_ok
 " >&6;
