@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.9 2005/05/13 09:14:49 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.11 2005/05/13 11:48:27 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -376,6 +376,15 @@ AC_REQUIRE([AC_PROG_CXX])
 
 AC_ARG_WITH(64bits,
 	[AC_HELP_STRING([--with-64bits=yes(/no)], [Try to compile using 64 bits (default)])])
+
+
+if test -z "$host"; then
+  host=unknown
+fi
+canonical_host_type=$host
+if test "$host" = unknown; then
+  AC_MSG_ERROR([unknown system type, your build will most likely be screwed. quitting.])
+fi
 
 dnl by default, use no flags at all
 B64CFLAGS=
