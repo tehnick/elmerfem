@@ -29,23 +29,19 @@ ACX_PROG_AR
 AC_PROG_CC
 AC_PROG_CPP
 AC_PROG_CXX
+AC_PROG_FC
+AC_PROG_F77
 
 AC_CHECK_FUNCS([gettimeofday mkdir sqrt])
 AC_CHECK_HEADERS([stdlib.h strings.h sys/param.h sys/time.h])
-dnl AC_FUNC_MALLOC
-dnl AC_HEADER_TIME
-dnl AC_STDC_HEADERS
 
 AC_EXEEXT
 AC_OBJEXT
 
+ACX_CHECK_B64FLAGS
 dnl look for default fortran compiler (should we also define the standard?)
 dnl others to look for: F77, 
-AC_PROG_FC
-AC_PROG_F77
-dnl ([g95 f90 f77 xlf77 cf77 fort77 f90 xlf90])
-AC_LANG_PREPROC(Fortran 90)
-dnl AC_F77_LIBRARY_LDFLAGS
+
 AC_FC_LIBRARY_LDFLAGS
 AC_F77_DUMMY_MAIN
 AC_FC_DUMMY_MAIN
@@ -55,7 +51,7 @@ AC_F77_WRAPPERS
 AC_FC_WRAPPERS
 
 dnl Look for 64 bit compiler flags and see if they work.
-ACX_CHECK_B64FLAGS
+
 
 dnl setup name mangling
 case "$ac_cv_fc_mangling" in
