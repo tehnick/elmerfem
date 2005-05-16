@@ -395,6 +395,9 @@ MEMReynolds$(SHL_EXT): \
 MEMStatElecReduced$(SHL_EXT): \
 	MEMUtilities$(OBJ_EXT)
 
+MEMUtilities$(OBJ_EXT) : MEMUtilities.F90 SolverUtils.o ElementDescription.o Integration.o Lists.o Types.o
+
+
 
 
 

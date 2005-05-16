@@ -22,10 +22,10 @@ EXE_EXT=@EXEEXT@
 # dependencies
 include make.bin
 # automatic object dependencies for .f90 files
-include make.dep
+include make.inc
 
 # attach to automake all target
-all-local:   mpif $(FOBJ) libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
+all-local:   mpif libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
 
 SUFFIXES: .f90 .so .F90
 

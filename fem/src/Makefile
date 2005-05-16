@@ -14,8 +14,6 @@
 
 
 
-# deps created with makedef90 http://www.helsinki.fi/~eedelman/makedepf90.html
-
 SOURCES = $(SC2Elmer_SOURCES)
 
 srcdir = .
@@ -42,7 +40,7 @@ build_triplet = i686-pc-linux-gnu
 host_triplet = i686-pc-linux-gnu
 target_triplet = i686-pc-linux-gnu
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
-	$(srcdir)/make.bin $(srcdir)/make.dep
+	$(srcdir)/make.bin $(srcdir)/make.inc
 bin_PROGRAMS = SC2Elmer$(EXEEXT)
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -330,21 +328,21 @@ FOBJ = Acoustics.o Adaptive.o AdvectionDiffusion.o ApertureAmplitude.o \
 	IrrotationalVelocity.o IterSolve.o KESolver.o LinearAlgebra.o \
 	Lists.o LUDecomposition.o MagneticSolve.o MainUtils.o \
 	MaterialModels.o MaxwellAxiS.o Maxwell.o MaxwellGeneral.o \
-	MEMLumping.o MEMReynolds.o MEMStatElecReduced.o MEMUtilities.o \
+	MEMUtilities.o MEMLumping.o MEMReynolds.o MEMStatElecReduced.o \
 	MeshSolve.o MeshUtils.o Messages.o MGPrec.o ModelDescription.o \
 	Multigrid.o NavierStokesCylindrical.o NavierStokes.o \
 	NavierStokesGeneral.o ParallelEigenSolve.o ParallelUtils.o \
 	PElementBase.o PElementMaps.o PhaseChange.o PoissonBEM.o \
 	PoissonBoltzmannSolve.o Radiation.o RadiationFactors.o \
 	RateOfChange.o ReloadInput.o ResultToPost.o ResultToResult.o \
-	ReynoldsEquation.o ReynoldsUtilities.o RigidBodyReduction.o \
-	SaveData.o ShearWave.o Smitc.o SolveBand.o solve_cmplx.o \
-	solve_real.o SolverUtils.o SolveSBand.o SParIterComm.o \
-	SParIterGlobals.o SParIterPrecond.o SParIterSolver.o \
-	SparseMatrix.o StatCurrentSolve.o StatElecReduced.o \
-	StatElecSolve.o StatMagSolve.o StreamSolver.o Stress.o \
-	StressGeneral.o StressSolve.o TimeIntegrate.o \
-	TransportEquation.o Types.o ViewFactors.o Walls.o
+	RigidBodyReduction.o SaveData.o ShearWave.o Smitc.o \
+	SolveBand.o solve_cmplx.o solve_real.o SolverUtils.o \
+	SolveSBand.o SParIterComm.o SParIterGlobals.o \
+	SParIterPrecond.o SParIterSolver.o SparseMatrix.o \
+	StatCurrentSolve.o StatElecReduced.o StatElecSolve.o \
+	StatMagSolve.o StreamSolver.o Stress.o StressGeneral.o \
+	StressSolve.o TimeIntegrate.o TransportEquation.o Types.o \
+	ViewFactors.o Walls.o
 SOLVEROBJS = mpi_stubs.o                                     \
 		NavierStokes$(OBJ_EXT)				\
 		NavierStokesGeneral$(OBJ_EXT)	     		\
@@ -410,6 +408,71 @@ SOLVEROBJS = mpi_stubs.o                                     \
 		LUDecomposition$(OBJ_EXT) 			\
 	        RadiationFactors$(OBJ_EXT)                      \
 		ElmerSolver$(OBJ_EXT)
+
+OBJS = mpi_stubs$(OBJ_EXT) 				\
+		NavierStokes$(OBJ_EXT)				\
+		NavierStokesGeneral$(OBJ_EXT)	     		\
+		NavierStokesCylindrical$(OBJ_EXT)		\
+		Lists$(OBJ_EXT)					\
+		DiffuseConvectiveAnisotropic$(OBJ_EXT)		\
+		DiffuseConvectiveGeneralAnisotropic$(OBJ_EXT)	\
+		PElementMaps$(OBJ_EXT)				\
+		PElementBase$(OBJ_EXT)				\
+		ElementDescription$(OBJ_EXT)			\
+		Integration$(OBJ_EXT)				\
+		ModelDescription$(OBJ_EXT)			\
+		GeneralUtils$(OBJ_EXT)				\
+		Stress$(OBJ_EXT)				\
+		StressGeneral$(OBJ_EXT)				\
+		LinearAlgebra$(OBJ_EXT)		 	        \
+		CoordinateSystems$(OBJ_EXT)			\
+		CRSMatrix$(OBJ_EXT)				\
+		BandMatrix$(OBJ_EXT)				\
+		BandwidthOptimize$(OBJ_EXT)			\
+		MaterialModels$(OBJ_EXT)			\
+		FlowSolve$(OBJ_EXT)				\
+		HeatSolve$(OBJ_EXT)				\
+		StressSolve$(OBJ_EXT)				\
+		DirectSolve$(OBJ_EXT)				\
+		IterSolve$(OBJ_EXT)				\
+		TimeIntegrate$(OBJ_EXT)				\
+		Types$(OBJ_EXT)					\
+		SolveBand$(OBJ_EXT)				\
+		ElementUtils$(OBJ_EXT)				\
+		Radiation$(OBJ_EXT)				\
+		Load$(OBJ_EXT)					\
+		Differentials$(OBJ_EXT)				\
+		FreeSurface$(OBJ_EXT)				\
+		Maxwell$(OBJ_EXT)				\
+		MaxwellAxiS$(OBJ_EXT)				\
+		MaxwellGeneral$(OBJ_EXT)			\
+		MagneticSolve$(OBJ_EXT)				\
+		Walls$(OBJ_EXT)					\
+		SolverUtils$(OBJ_EXT)				\
+		SolveSBand$(OBJ_EXT)				\
+		CPUTime$(OBJ_EXT)				\
+		Interpolation$(OBJ_EXT)				\
+		IMeshToMesh$(OBJ_EXT)				\
+		MainUtils$(OBJ_EXT)				\
+		MeshSolve$(OBJ_EXT)				\
+		Adaptive$(OBJ_EXT)				\
+		EigenSolve$(OBJ_EXT)				\
+		HashTable$(OBJ_EXT)				\
+		MeshUtils$(OBJ_EXT)				\
+		SParIterGlobals$(OBJ_EXT)			\
+		SParIterComm$(OBJ_EXT)				\
+		SParIterPrecond$(OBJ_EXT)			\
+		SParIterSolver$(OBJ_EXT)			\
+		Messages$(OBJ_EXT)				\
+		Multigrid$(OBJ_EXT)				\
+		ParallelUtils$(OBJ_EXT)                         \
+                ParallelEigenSolve$(OBJ_EXT)			\
+		solve_cmplx$(OBJ_EXT)				\
+		solve_real$(OBJ_EXT)				\
+		MGPrec$(OBJ_EXT)				\
+		DefUtils$(OBJ_EXT)				\
+		LUDecomposition$(OBJ_EXT) 			\
+	        RadiationFactors$(OBJ_EXT)                      
 
 SC2Elmer_SOURCES = SC2Elmer.c
 
@@ -540,7 +603,7 @@ all: all-recursive
 
 .SUFFIXES:
 .SUFFIXES: .o .so .F90 .c .f90 .o .obj
-$(srcdir)/Makefile.in: # $(srcdir)/Makefile.am $(srcdir)/make.bin $(srcdir)/make.dep $(am__configure_deps)
+$(srcdir)/Makefile.in: # $(srcdir)/Makefile.am $(srcdir)/make.bin $(srcdir)/make.inc $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
 	    *$$dep*) \
@@ -892,124 +955,339 @@ uninstall-info: uninstall-info-recursive
 	uninstall-binPROGRAMS uninstall-info-am
 
 
-Acoustics.o : Acoustics.F90 LinearAlgebra.o DefUtils.o 
-Adaptive.o : Adaptive.F90 CRSMatrix.o Types.o ModelDescription.o SolverUtils.o GeneralUtils.o 
-AdvectionDiffusion.o : AdvectionDiffusion.F90 Integration.o DefUtils.o Differentials.o SolverUtils.o 
-ApertureAmplitude.o : ApertureAmplitude.F90 SolverUtils.o ElementDescription.o Integration.o Lists.o Types.o 
-AplacExport.o : AplacExport.F90 SolverUtils.o ElementDescription.o Integration.o Lists.o Types.o 
-ArtificialCompressibility.o : ArtificialCompressibility.F90 SolverUtils.o ElementDescription.o Integration.o Lists.o Types.o 
-BandMatrix.o : BandMatrix.F90 GeneralUtils.o Types.o 
-BandwidthOptimize.o : BandwidthOptimize.F90 ElementDescription.o 
-CoordinateSystems.o : CoordinateSystems.F90 Types.o 
-CRSMatrix.o : CRSMatrix.F90 GeneralUtils.o 
-DCRComplexSolve.o : DCRComplexSolve.F90 CoordinateSystems.o Radiation.o LinearAlgebra.o SolverUtils.o ElementDescription.o Integration.o Adaptive.o Lists.o Types.o 
-DefUtils.o : DefUtils.F90 Integration.o PElementMaps.o LinearAlgebra.o SolverUtils.o Adaptive.o 
-Differentials.o : Differentials.F90 ElementDescription.o LinearAlgebra.o Types.o 
-DiffuseConvectiveAnisotropic.o : DiffuseConvectiveAnisotropic.F90 Differentials.o Integration.o 
-DiffuseConvectiveGeneralAnisotropic.o : DiffuseConvectiveGeneralAnisotropic.F90 Differentials.o Integration.o 
-DirectSolve.o : DirectSolve.F90 Types.o Lists.o BandMatrix.o CRSMatrix.o 
-DissipativeHelmholtz.o : DissipativeHelmholtz.F90 SolverUtils.o ElementDescription.o Integration.o Lists.o Types.o 
-EigenSolve.o : EigenSolve.F90 Types.o Multigrid.o IterSolve.o CRSMatrix.o 
-ElasticSolve.o : ElasticSolve.F90 CoordinateSystems.o ElementDescription.o LinearAlgebra.o Integration.o Types.o DefUtils.o Adaptive.o 
-ElectricForce.o : ElectricForce.F90 DefUtils.o SolverUtils.o ElementDescription.o Integration.o MeshUtils.o Lists.o Types.o 
-Electrokinetics.o : Electrokinetics.F90 CoordinateSystems.o Lists.o Types.o DefUtils.o 
-ElementDescription.o : ElementDescription.F90 PElementBase.o PElementMaps.o CoordinateSystems.o LinearAlgebra.o GeneralUtils.o Integration.o Lists.o 
-ElementUtils.o : ElementUtils.F90 BandwidthOptimize.o Interpolation.o CRSMatrix.o BandMatrix.o Integration.o 
-EliminateDirichlet.o : EliminateDirichlet.F90 GeneralUtils.o CRSMatrix.o SolverUtils.o Lists.o Types.o 
-EliminatePeriodic.o : EliminatePeriodic.F90 GeneralUtils.o CRSMatrix.o SolverUtils.o Lists.o Types.o 
-ElmerSolver.o : ElmerSolver.F90 MainUtils.o 
-EnergyRelease.o : EnergyRelease.F90 DefUtils.o 
-FDiffusion3D.o : FDiffusion3D.F90 LinearAlgebra.o SolverUtils.o ElementDescription.o Integration.o Lists.o Types.o 
-FDiffusion.o : FDiffusion.F90 LinearAlgebra.o SolverUtils.o ElementDescription.o Integration.o Lists.o Types.o 
-FindOptimum.o : FindOptimum.F90 SolverUtils.o ElementDescription.o Integration.o MeshUtils.o Lists.o Types.o 
-FlowSolve.o : FlowSolve.F90 CoordinateSystems.o ElementDescription.o Radiation.o Types.o DefUtils.o FreeSurface.o Adaptive.o NavierStokesCylindrical.o NavierStokesGeneral.o NavierStokes.o 
-FluidicForce.o : FluidicForce.F90 SolverUtils.o ElementDescription.o Integration.o DefUtils.o MeshUtils.o Lists.o Types.o 
-FreeSurface.o : FreeSurface.F90 ElementUtils.o IterSolve.o DirectSolve.o 
-FreeSurfaceReduced.o : FreeSurfaceReduced.F90 MeshUtils.o ElementUtils.o SolverUtils.o Differentials.o ElementDescription.o Integration.o Lists.o Types.o 
-FreeSurfaceSolver.o : FreeSurfaceSolver.F90 DefUtils.o 
-GebhardtFactors.o : GebhardtFactors.F90 ElementDescription.o ModelDescription.o MainUtils.o SolverUtils.o CoordinateSystems.o Lists.o Types.o 
-GeneralUtils.o : GeneralUtils.F90 Types.o 
-HashTable.o : HashTable.F90 Lists.o 
-HeatSolve.o : HeatSolve.F90 CoordinateSystems.o ElementDescription.o Types.o DefUtils.o Adaptive.o Radiation.o Differentials.o DiffuseConvectiveGeneralAnisotropic.o DiffuseConvectiveAnisotropic.o 
-HelmholtzBEM.o : HelmholtzBEM.F90  DefUtils.o PoissonBEM.o Types.o 
-HelmholtzSolve.o : HelmholtzSolve.F90 LinearAlgebra.o DefUtils.o 
-IMeshToMesh.o : IMeshToMesh.F90 CoordinateSystems.o CRSMatrix.o Interpolation.o 
-Integration.o : Integration.F90 Types.o 
-Interpolation.o : Interpolation.F90 ElementDescription.o CoordinateSystems.o Lists.o Types.o 
-IrrotationalVelocity.o : IrrotationalVelocity.F90 LinearAlgebra.o SolverUtils.o ElementDescription.o Integration.o Lists.o Types.o 
-IterSolve.o : IterSolve.F90 BandMatrix.o CRSMatrix.o Lists.o 
-KESolver.o : KESolver.F90 DefUtils.o 
-LinearAlgebra.o : LinearAlgebra.F90 Types.o 
-Lists.o : Lists.F90 Types.o GeneralUtils.o Messages.o 
-LUDecomposition.o : LUDecomposition.F90 Types.o 
-MagneticSolve.o : MagneticSolve.F90 SolverUtils.o DirectSolve.o IterSolve.o FreeSurface.o Differentials.o TimeIntegrate.o ElementUtils.o BandwidthOptimize.o ElementDescription.o CoordinateSystems.o Lists.o Types.o 
-MainUtils.o : MainUtils.F90 ModelDescription.o SolverUtils.o 
-MaterialModels.o : MaterialModels.F90 Types.o ModelDescription.o ElementDescription.o LinearAlgebra.o Integration.o CoordinateSystems.o 
-MaxwellAxiS.o : MaxwellAxiS.F90 ElementDescription.o Integration.o Types.o 
-Maxwell.o : Maxwell.F90 ElementDescription.o Integration.o 
-MaxwellGeneral.o : MaxwellGeneral.F90 ElementDescription.o Integration.o 
-MEMLumping.o : MEMLumping.F90 DefUtils.o SolverUtils.o ElementDescription.o Integration.o Lists.o Types.o MEMUtilities.o
-MEMReynolds.o : MEMReynolds.F90 DefUtils.o SolverUtils.o ElementDescription.o Integration.o Lists.o Types.o MEMUtilities.o
-MEMStatElecReduced.o : MEMStatElecReduced.F90 DefUtils.o ElementUtils.o SolverUtils.o Differentials.o ElementDescription.o Integration.o Lists.o Types.o MEMUtilities.o
-MEMUtilities.o : MEMUtilities.F90 SolverUtils.o ElementDescription.o Integration.o Lists.o Types.o 
-MeshSolve.o : MeshSolve.F90 DefUtils.o Differentials.o SolverUtils.o CoordinateSystems.o 
-MeshUtils.o : MeshUtils.F90 PElementBase.o PElementMaps.o ParallelUtils.o ElementDescription.o ElementUtils.o 
-Messages.o : Messages.F90 
-MGPrec.o : MGPrec.F90 Multigrid.o 
-ModelDescription.o : ModelDescription.F90 HashTable.o Types.o ElementDescription.o MeshUtils.o 
-Multigrid.o : Multigrid.F90 CoordinateSystems.o Interpolation.o ModelDescription.o DirectSolve.o IterSolve.o CRSMatrix.o 
-NavierStokesCylindrical.o : NavierStokesCylindrical.F90 ElementUtils.o Differentials.o Integration.o CoordinateSystems.o 
-NavierStokes.o : NavierStokes.F90 ElementUtils.o Differentials.o Integration.o MaterialModels.o
-NavierStokesGeneral.o : NavierStokesGeneral.F90 Differentials.o Integration.o CoordinateSystems.o MaterialModels.o
-ParallelEigenSolve.o : ParallelEigenSolve.F90 mpif.h ParallelUtils.o SParIterSolver.o SParIterGlobals.o Multigrid.o IterSolve.o CRSMatrix.o 
-ParallelUtils.o : ParallelUtils.F90 SParIterSolver.o 
-PElementBase.o : PElementBase.F90 Types.o Messages.o PElementMaps.o 
-PElementMaps.o : PElementMaps.F90 Types.o Messages.o 
-PhaseChange.o : PhaseChange.F90 DefUtils.o GeneralUtils.o ElementDescription.o Integration.o Lists.o Types.o Differentials.o SolverUtils.o CoordinateSystems.o 
-PoissonBEM.o : PoissonBEM.F90 DefUtils.o Types.o 
-PoissonBoltzmannSolve.o : PoissonBoltzmannSolve.F90 DefUtils.o Adaptive.o ElementUtils.o SolverUtils.o Differentials.o ElementDescription.o Integration.o Lists.o Types.o 
-Radiation.o : Radiation.F90 CoordinateSystems.o ElementUtils.o 
-RadiationFactors.o : RadiationFactors.F90 GeneralUtils.o ElementUtils.o ElementDescription.o ModelDescription.o MainUtils.o SolverUtils.o CoordinateSystems.o Lists.o Types.o IterSolve.o CRSMatrix.o 
-RateOfChange.o : RateOfChange.F90 ElementUtils.o SolverUtils.o ElementDescription.o Integration.o Lists.o Types.o 
-ReloadInput.o : ReloadInput.F90 ModelDescription.o Lists.o Types.o 
-ResultToPost.o : ResultToPost.F90 MainUtils.o 
-ResultToResult.o : ResultToResult.F90 SParIterGlobals.o SParIterComm.o SParIterSolver.o ElementDescription.o ModelDescription.o CoordinateSystems.o MainUtils.o Interpolation.o Integration.o Lists.o Types.o 
-ReynoldsEquation.o : ReynoldsEquation.F90 ReynoldsUtilities.o SolverUtils.o ElementDescription.o Integration.o Lists.o Types.o 
-ReynoldsUtilities.o : ReynoldsUtilities.F90 Types.o 
-RigidBodyReduction.o : RigidBodyReduction.F90 DefUtils.o Integration.o GeneralUtils.o CRSMatrix.o SolverUtils.o Lists.o Types.o 
-SaveData.o : SaveData.F90 MeshUtils.o SolverUtils.o ElementDescription.o Integration.o Lists.o Types.o DefUtils.o 
-ShearWave.o : ShearWave.F90 LinearAlgebra.o SolverUtils.o ElementDescription.o Integration.o Lists.o Types.o 
-Smitc.o : Smitc.F90 DefUtils.o 
-SolveBand.o : SolveBand.F90 
-solve_cmplx.o : solve_cmplx.F90 
-solve_real.o : solve_real.F90 
-Solver.o : Solver.F90 GeneralUtils.o Types.o 
-SolverUtils.o : SolverUtils.F90 LinearAlgebra.o EigenSolve.o Types.o ParallelEigenSolve.o SParIterGlobals.o SParIterSolver.o MeshUtils.o ModelDescription.o ParallelUtils.o TimeIntegrate.o ElementUtils.o IterSolve.o Multigrid.o DirectSolve.o 
-SolveSBand.o : SolveSBand.F90 
-SParIterComm.o : SParIterComm.F90 mpif.h  GeneralUtils.o SParIterGlobals.o Types.o 
-SParIterGlobals.o : SParIterGlobals.F90 Types.o 
-SParIterPrecond.o : SParIterPrecond.F90  SParIterComm.o SParIterGlobals.o Types.o 
-SParIterSolver.o : SParIterSolver.F90  CRSMatrix.o SParIterPrecond.o SParIterComm.o SParIterGlobals.o Lists.o Types.o 
-SparseMatrix.o : SparseMatrix.F90 GeneralUtils.o 
-StatCurrentSolve.o : StatCurrentSolve.F90 ElementUtils.o SolverUtils.o DefUtils.o Differentials.o ElementDescription.o Integration.o Lists.o Types.o 
-StatElecReduced.o : StatElecReduced.F90 ElementUtils.o SolverUtils.o Differentials.o ElementDescription.o Integration.o Lists.o Types.o 
-StatElecSolve.o : StatElecSolve.F90 CoordinateSystems.o DefUtils.o Adaptive.o ElementUtils.o SolverUtils.o Differentials.o ElementDescription.o Integration.o Lists.o Types.o 
-StatMagSolve.o : StatMagSolve.F90 ElementDescription.o Integration.o Types.o Differentials.o DefUtils.o 
-StreamSolver.o : StreamSolver.F90 DefUtils.o 
-Stress.o : Stress.F90 ElementUtils.o ElementDescription.o Integration.o 
-StressGeneral.o : StressGeneral.F90 ElementDescription.o Integration.o CoordinateSystems.o 
-StressSolve.o : StressSolve.F90 Types.o ElementDescription.o DefUtils.o Adaptive.o StressGeneral.o Stress.o CoordinateSystems.o 
-TimeIntegrate.o : TimeIntegrate.F90 Lists.o Types.o 
-TransportEquation.o : TransportEquation.F90 ElementUtils.o SolverUtils.o ElementDescription.o Integration.o Lists.o Types.o 
-Types.o : Types.F90 ../config.h Messages.o 
-ViewFactors.o : ViewFactors.F90 DefUtils.o Types.o 
-Walls.o : Walls.F90 
+#
+#
+#  Dependencies ... !
+#
+Types$(OBJ_EXT):				\
+	Messages$(OBJ_EXT)
+
+ElementDescription$(OBJ_EXT):			\
+	Types$(OBJ_EXT)				\
+	Lists$(OBJ_EXT)				\
+	PElementBase$(OBJ_EXT)			\
+	Integration$(OBJ_EXT)			\
+	GeneralUtils$(OBJ_EXT)			\
+	CoordinateSystems$(OBJ_EXT)		\
+	LUDecomposition$(OBJ_EXT)               \
+	LinearAlgebra$(OBJ_EXT)
+
+PElementBase$(OBJ_EXT):				\
+	Types$(OBJ_EXT)				\
+	PElementMaps$(OBJ_EXT)			
+
+LUDecomposition$(OBJ_EXT):  			\
+	Types$(OBJ_EXT)
+
+Integration$(OBJ_EXT):				\
+	Types$(OBJ_EXT)
+
+CRSMatrix$(OBJ_EXT):				\
+	Types$(OBJ_EXT)				\
+	GeneralUtils$(OBJ_EXT)			\
+	ElementDescription$(OBJ_EXT)
+
+BandMatrix$(OBJ_EXT):				\
+	Types$(OBJ_EXT)				\
+	GeneralUtils$(OBJ_EXT)			\
+	ElementDescription$(OBJ_EXT)
+
+ModelDescription$(OBJ_EXT):			\
+	Types$(OBJ_EXT)				\
+	ElementDescription$(OBJ_EXT)		\
+	HashTable$(OBJ_EXT)			\
+	MeshUtils$(OBJ_EXT)			\
+	Lists$(OBJ_EXT)
+
+GeneralUtils$(OBJ_EXT):				\
+	Types$(OBJ_EXT)
+
+BandwidthOptimize$(OBJ_EXT):			\
+	Types$(OBJ_EXT)				\
+	Lists$(OBJ_EXT)				\
+	ElementDescription$(OBJ_EXT)
+
+ElementUtils$(OBJ_EXT):				\
+	Types$(OBJ_EXT)				\
+	BandwidthOptimize$(OBJ_EXT)		\
+	CRSMatrix$(OBJ_EXT)			\
+	BandMatrix$(OBJ_EXT)			\
+	Integration$(OBJ_EXT)			\
+	Interpolation$(OBJ_EXT)			\
+	SParIterGlobals$(OBJ_EXT)		\
+	ElementDescription$(OBJ_EXT)
+
+DiffuseConvectiveAnisotropic$(OBJ_EXT):		\
+	Types$(OBJ_EXT)				\
+	Integration$(OBJ_EXT)			\
+	ElementDescription$(OBJ_EXT)		\
+	Differentials$(OBJ_EXT)			\
+	GeneralUtils$(OBJ_EXT)
+
+DiffuseConvectiveGeneralAnisotropic$(OBJ_EXT):	\
+	Types$(OBJ_EXT)				\
+	Integration$(OBJ_EXT)			\
+	ElementDescription$(OBJ_EXT)		\
+	GeneralUtils$(OBJ_EXT)			\
+	Differentials$(OBJ_EXT)			\
+	CoordinateSystems$(OBJ_EXT)
+
+NavierStokes$(OBJ_EXT):				\
+	Types$(OBJ_EXT)				\
+	Integration$(OBJ_EXT)			\
+	ElementUtils$(OBJ_EXT)			\
+	ElementDescription$(OBJ_EXT)		\
+	MaterialModels$(OBJ_EXT)		\
+	Differentials$(OBJ_EXT)			\
+	GeneralUtils$(OBJ_EXT)
+
+NavierStokes_C$(OBJ_EXT):			\
+	Types$(OBJ_EXT)				\
+	Integration$(OBJ_EXT)			\
+	ElementDescription$(OBJ_EXT)		\
+	GeneralUtils$(OBJ_EXT)
+
+NavierStokesGeneral$(OBJ_EXT):			\
+	Types$(OBJ_EXT)				\
+	Integration$(OBJ_EXT)			\
+	ElementDescription$(OBJ_EXT)		\
+	GeneralUtils$(OBJ_EXT)			\
+	Differentials$(OBJ_EXT)			\
+	CoordinateSystems$(OBJ_EXT)
+
+NavierStokesDiagonalMetric$(OBJ_EXT):		\
+	Types$(OBJ_EXT)				\
+	Integration$(OBJ_EXT)			\
+	ElementDescription$(OBJ_EXT)		\
+	GeneralUtils$(OBJ_EXT)			\
+	CoordinateSystems$(OBJ_EXT)
+
+NavierStokesCylindrical$(OBJ_EXT):		\
+	Types$(OBJ_EXT)				\
+	Integration$(OBJ_EXT)			\
+	ElementDescription$(OBJ_EXT)		\
+	GeneralUtils$(OBJ_EXT)			\
+	Differentials$(OBJ_EXT)			\
+	CoordinateSystems$(OBJ_EXT)
+
+Maxwell$(OBJ_EXT):				\
+	Types$(OBJ_EXT)				\
+	Integration$(OBJ_EXT)			\
+	ElementDescription$(OBJ_EXT)		\
+	GeneralUtils$(OBJ_EXT)
+
+MaxwellAxiS$(OBJ_EXT):				\
+	Types$(OBJ_EXT)				\
+	Integration$(OBJ_EXT)			\
+	ElementDescription$(OBJ_EXT)		\
+	GeneralUtils$(OBJ_EXT)
+
+MaxwellGeneral$(OBJ_EXT):				\
+	Types$(OBJ_EXT)				\
+	Integration$(OBJ_EXT)			\
+	ElementDescription$(OBJ_EXT)		\
+	GeneralUtils$(OBJ_EXT)
+
+Stress$(OBJ_EXT):				\
+	Types$(OBJ_EXT)				\
+	Integration$(OBJ_EXT)			\
+	ElementDescription$(OBJ_EXT)		\
+	GeneralUtils$(OBJ_EXT)
+
+StressGeneral$(OBJ_EXT):			\
+	Types$(OBJ_EXT)				\
+	Integration$(OBJ_EXT)			\
+	ElementDescription$(OBJ_EXT)		\
+	GeneralUtils$(OBJ_EXT)
+
+FreeSurface$(OBJ_EXT):				\
+	Differentials$(OBJ_EXT)			\
+	IterSolve$(OBJ_EXT)			\
+	ElementUtils$(OBJ_EXT)
+
+FlowSolve$(OBJ_EXT):				\
+	Types$(OBJ_EXT)				\
+	Adaptive$(OBJ_EXT)			\
+	ElementUtils$(OBJ_EXT)			\
+	ElementDescription$(OBJ_EXT)		\
+	TimeIntegrate$(OBJ_EXT)			\
+	GeneralUtils$(OBJ_EXT)			\
+	DefUtils$(OBJ_EXT)			\
+	SolverUtils$(OBJ_EXT)			\
+	CoordinateSystems$(OBJ_EXT)		\
+	FreeSurface$(OBJ_EXT)			\
+	Differentials$(OBJ_EXT)			\
+	NavierStokes$(OBJ_EXT)			\
+	NavierStokesGeneral$(OBJ_EXT)		\
+	NavierStokesCylindrical$(OBJ_EXT)	\
+	Lists$(OBJ_EXT)
+
+HeatSolve$(OBJ_EXT):				\
+	Types$(OBJ_EXT)				\
+	Adaptive$(OBJ_EXT)			\
+	ElementUtils$(OBJ_EXT)			\
+	ElementDescription$(OBJ_EXT)		\
+	TimeIntegrate$(OBJ_EXT)			\
+	GeneralUtils$(OBJ_EXT)			\
+	DefUtils$(OBJ_EXT)			\
+	SolverUtils$(OBJ_EXT)			\
+	Radiation$(OBJ_EXT)			\
+	CoordinateSystems$(OBJ_EXT)		\
+	DiffuseConvectiveAnisotropic$(OBJ_EXT)		\
+	DiffuseConvectiveGeneralAnisotropic$(OBJ_EXT)	\
+	Lists$(OBJ_EXT)
+
+StressSolve$(OBJ_EXT):				\
+	Types$(OBJ_EXT)				\
+	ElementUtils$(OBJ_EXT)			\
+	ElementDescription$(OBJ_EXT)		\
+	TimeIntegrate$(OBJ_EXT)			\
+	GeneralUtils$(OBJ_EXT)			\
+	DefUtils$(OBJ_EXT)			\
+	SolverUtils$(OBJ_EXT)			\
+	CoordinateSystems$(OBJ_EXT)		\
+	Stress$(OBJ_EXT)			\
+	StressGeneral$(OBJ_EXT)			\
+	Lists$(OBJ_EXT)
+
+MeshSolve$(OBJ_EXT):				\
+	Types$(OBJ_EXT)				\
+	ElementUtils$(OBJ_EXT)			\
+	ElementDescription$(OBJ_EXT)		\
+	TimeIntegrate$(OBJ_EXT)			\
+	GeneralUtils$(OBJ_EXT)			\
+	DefUtils$(OBJ_EXT)			\
+	SolverUtils$(OBJ_EXT)			\
+	CoordinateSystems$(OBJ_EXT)		\
+	Stress$(OBJ_EXT)			\
+	Lists$(OBJ_EXT)
+
+MagneticSolve$(OBJ_EXT):			\
+	Types$(OBJ_EXT)				\
+	ElementUtils$(OBJ_EXT)			\
+	ElementDescription$(OBJ_EXT)		\
+	TimeIntegrate$(OBJ_EXT)			\
+	GeneralUtils$(OBJ_EXT)			\
+	DefUtils$(OBJ_EXT)			\
+	SolverUtils$(OBJ_EXT)			\
+	CoordinateSystems$(OBJ_EXT)		\
+	Maxwell$(OBJ_EXT)			\
+	MaxwellAxiS$(OBJ_EXT)			\
+	MaxwellGeneral$(OBJ_EXT)		\
+	Lists$(OBJ_EXT)
+
+DirectSolve$(OBJ_EXT):				\
+	Types$(OBJ_EXT)				\
+	BandMatrix$(OBJ_EXT)			\
+	CRSMatrix$(OBJ_EXT)
+
+IterSolve$(OBJ_EXT):				\
+	Types$(OBJ_EXT)				\
+	BandMatrix$(OBJ_EXT)			\
+	CRSMatrix$(OBJ_EXT)
+
+Multigrid$(OBJ_EXT):				\
+	ParallelUtils$(OBJ_EXT)			\
+	DirectSolve$(OBJ_EXT)
+
+MGPrec$(OBJ_EXT):				\
+	Multigrid$(OBJ_EXT)
+
+EigenSolve$(OBJ_EXT):				\
+	Multigrid$(OBJ_EXT)			\
+	CRSMatrix$(OBJ_EXT)
+
+ParallelEigenSolve$(OBJ_EXT):			\
+	Multigrid$(OBJ_EXT)			\
+	ParallelUtils$(OBJ_EXT)			\
+	CRSMatrix$(OBJ_EXT)
+
+SolverUtils$(OBJ_EXT):				\
+	ElementUtils$(OBJ_EXT)			\
+	TimeIntegrate$(OBJ_EXT)			\
+	BandMatrix$(OBJ_EXT)			\
+	IterSolve$(OBJ_EXT)			\
+	EigenSolve$(OBJ_EXT)			\
+	ParallelEigenSolve$(OBJ_EXT)		\
+	Multigrid$(OBJ_EXT)			\
+	MeshUtils$(OBJ_EXT)			\
+	ParallelUtils$(OBJ_EXT)			\
+	DirectSolve$(OBJ_EXT)
+
+DefUtils$(OBJ_EXT):				\
+	SolverUtils$(OBJ_EXT)
+
+MaterialModels$(OBJ_EXT):			\
+	Types$(OBJ_EXT)				\
+        ModelDescription$(OBJ_EXT)		\
+	ElementDescription$(OBJ_EXT)		\
+	CoordinateSystems$(OBJ_EXT)
+
+Lists$(OBJ_EXT):				\
+	Types$(OBJ_EXT)				\
+	GeneralUtils$(OBJ_EXT)
+
+IMeshToMesh$(OBJ_EXT):				\
+	Types$(OBJ_EXT)				\
+	Interpolation$(OBJ_EXT)
+
+Interpolation$(OBJ_EXT):			\
+	ElementDescription$(OBJ_EXT)		\
+	Integration$(OBJ_EXT)
+
+ElmerSolver$(OBJ_EXT):				\
+	MainUtils$(OBJ_EXT)
+
+Adaptive$(OBJ_EXT):				\
+	Types$(OBJ_EXT)				\
+	ElementDescription$(OBJ_EXT)		\
+	Radiation$(OBJ_EXT)			\
+	SolverUtils$(OBJ_EXT)			\
+	Lists$(OBJ_EXT)
+
+MainUtils$(OBJ_EXT):				\
+	ModelDescription$(OBJ_EXT)		\
+	SolverUtils$(OBJ_EXT)
+
+Radiation$(OBJ_EXT):				\
+	Types$(OBJ_EXT)				\
+	ElementUtils$(OBJ_EXT)			\
+	CoordinateSystems$(OBJ_EXT)
+
+HashTable$(OBJ_EXT):				\
+	Lists$(OBJ_EXT)
+
+MeshUtils$(OBJ_EXT):				\
+	ElementUtils$(OBJ_EXT)			\
+	ParallelUtils$(OBJ_EXT)
+
+ParallelUtils$(OBJ_EXT):			\
+	SParIterSolver$(OBJ_EXT)
+
+SParIterSolver$(OBJ_EXT):			\
+	SParIterPrecond$(OBJ_EXT)		\
+	SParIterComm$(OBJ_EXT)
+
+SParIterPrecond$(OBJ_EXT):			\
+	SParIterComm$(OBJ_EXT)
+
+SParIterComm$(OBJ_EXT):				\
+	CRSMatrix$(OBJ_EXT)			\
+	SParIterGlobals$(OBJ_EXT)
+
+MEMReynolds$(SHL_EXT): \
+	MEMUtilities$(OBJ_EXT)
+
+MEMStatElecReduced$(SHL_EXT): \
+	MEMUtilities$(OBJ_EXT)
+
+MEMUtilities$(OBJ_EXT) : MEMUtilities.F90 SolverUtils.o ElementDescription.o Integration.o Lists.o Types.o
 
 # dependencies
 # automatic object dependencies for .f90 files
 
 # attach to automake all target
-all-local:   mpif $(FOBJ) libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
+all-local:   mpif libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
 
 SUFFIXES: .f90 .so .F90
 
