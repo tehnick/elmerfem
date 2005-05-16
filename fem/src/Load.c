@@ -368,7 +368,7 @@ static int DoLinSolveProcs(
    Call lin. solver routines at given address
    -------------------------------------------------------------------------*/
 int STDCALLBULL FC_FUNC(execlinsolveprocs,EXECLINSOLVEPROCS)
-     ( int *SolverProc, void *Model, void *Solver, void *Matrix, void *b, void *x, void *n, void *DOFs, void *Norm )
+     ( f_ptr *SolverProc, void *Model, void *Solver, void *Matrix, void *b, void *x, void *n, void *DOFs, void *Norm )
 {
    return DoLinSolveProcs( (int (*)())*SolverProc,Model,Solver,Matrix,b,x,n,DOFs,Norm );
 }
