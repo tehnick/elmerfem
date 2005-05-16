@@ -24,8 +24,7 @@ include make.bin
 # attach to automake all target
 all-local:	 mpif libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
 
-
-include make.inc
+include make.dep
 
 SUFFIXES: .f90 .so
 
@@ -35,44 +34,28 @@ SUFFIXES: .f90 .so
 # a bit kludgy way to do the cpp, but hopefully portable enough
 # 
 .f90.@OBJEXT@:
-	@CP@ $< $*.fpp
-	@CPP@ @FCPPFLAGS@ $*.fpp > $*.F90
-	@FC@ @FCFLAGS@ -c $*.F90
+	@FC@ @FCFLAGS@ -cpp @FCPPFLAGS@ -c $<
 
-# a bit kludgy way to do the cpp, but hopefully portable enough
-.f.@OBJEXT@:
-	@CP@ $< $*.fpp
-	@CPP@ @FCPPFLAGS@ $*.fpp > $*.FOR
-	@F77@ @FFLAGS@ -c $*.FOR
-
-# mpi stubs and load.c
-#.c.@OBJEXT@:
-#	$(CC) -c -O  $<
-
-# build seperate solvers as shared libs
-.f90.@SHLEXT@:
-	@CP@ $< $*.fpp
-	@CPP@ @FCPPFLAGS@ $*.fpp > $*.F90
-	@FC@ @FCFLAGS@ -c $*.F90
+.f90.@SHLEXT@: 
 	@SH_LD@ @SH_LDFLAGS@ @B64FLAGS@ @SH_LDTOFLAGS@ @SONAME_FLAGS@ -o $@ $*$(OBJ_EXT)  -lsolver -L. @EXTRA_LIBS@
 
 ###############################
 # libsolver.so
 #
-libsolver$(SHL_EXT): ElmerSolver$(OBJ_EXT) $(OBJS) arpack parpack
+libsolver$(SHL_EXT): $(SOLVEROBJS) arpack parpack  
 	@RM@ $@
-	@SH_LD2@ @SH_LDFLAGS@ @B64FLAGS@ @SONAME_FLAGS@ -o $@ ElmerSolver$(OBJ_EXT) $(OBJS) @LIBS@ -L.
+	@SH_LD2@ @SH_LDFLAGS@ @B64FLAGS@ @SONAME_FLAGS@ -o $@ $(SOLVEROBJS) @LIBS@ -L.
 
 #########################
 # The executables
 #
-ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
+ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)  
 	@SH_LD@ @SH_LDTOFLAGS@ @B64FLAGS@ -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT) @EXTRA_LIBS@
 
-ViewFactors$(EXE_EXT): libsolver$(SHL_EXT) ViewFactors$(OBJ_EXT)
+ViewFactors$(EXE_EXT): libsolver$(SHL_EXT) ViewFactors$(OBJ_EXT)  
 	@SH_LD@ @SH_LDTOFLAGS@ @B64FLAGS@ -lsolver -o ViewFactors$(EXE_EXT) -L. ViewFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a  @EXTRA_LIBS@
 
-GebhardtFactors$(EXE_EXT): libsolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT)
+GebhardtFactors$(EXE_EXT): libsolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT)  
 	@SH_LD@ @SH_LDTOFLAGS@ @B64FLAGS@ -lsolver -o GebhardtFactors$(EXE_EXT) -L. GebhardtFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a  @EXTRA_LIBS@
 
 ################################33
@@ -93,7 +76,7 @@ install-exec-local:
 	@CP@ SOLVER.KEYWORDS @prefix@/lib
 
 clean-local:
-	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so \#*
+	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so \#* mpif
 
 ####################################
 # Automake knows how to do this

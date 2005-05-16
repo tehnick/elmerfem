@@ -55,7 +55,7 @@ CONFIG_CLEAN_FILES =
 LIBRARIES = $(noinst_LIBRARIES)
 libparpack_a_AR = $(AR) $(ARFLAGS)
 libparpack_a_LIBADD =
-am__libparpack_a_SOURCES_DIST = pcgetv0.f pclarnv.f pcnaitr.f \
+am__libparpack_a_SOURCES_DIST = mpif pcgetv0.f pclarnv.f pcnaitr.f \
 	pcnapps.f pcnaup2.f pcnaupd.f pcneigh.f pcneupd.f pcngets.f \
 	pdgetv0.f pdlamch.f pdlarnv.f pdnaitr.f pdnapps.f pdnaup2.f \
 	pdnaupd.f pdneigh.f pdneupd.f pdngets.f pdnorm2.f pdsaitr.f \
@@ -342,7 +342,7 @@ EXTRA_DIST = mpif_stub.h
 
 # disable parpack, if it MPI not found
 @USE_MPI_TRUE@noinst_LIBRARIES = libparpack.a
-@USE_MPI_TRUE@libparpack_a_SOURCES = $(COMMON_SRCS)
+@USE_MPI_TRUE@libparpack_a_SOURCES = mpif $(COMMON_SRCS)
 all: all-am
 
 .SUFFIXES:
@@ -559,10 +559,10 @@ uninstall-am: uninstall-info-am
 	uninstall-am uninstall-info-am
 
 
-@USE_MPI_TRUE@libarpack_a-local:
+@USE_MPI_TRUE@mpif:
 @USE_MPI_TRUE@	@CP@ mpif_stub.h mpif.h
 @USE_MPI_TRUE@	@CP@ mpif_stub.h mpif
-@USE_MPI_FALSE@libarpack_a-local:
+@USE_MPI_FALSE@mpif:
 @USE_MPI_FALSE@	@CP@ mpif_stub.h mpif
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
