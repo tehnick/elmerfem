@@ -25,21 +25,24 @@ include make.bin
 include make.dep
 
 # attach to automake all target
-all-local:	 mpif libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
+all-local:   mpif $(FOBJ) libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
 
 
 
-SUFFIXES: .f90 .so
+SUFFIXES: .f90 .so .F90
 
 ##########################
 # Rules for building stuff
 #
 # a bit kludgy way to do the cpp, but hopefully portable enough
 # 
-.f90.@OBJEXT@:
-	@FC@ @FCFLAGS@ -cpp @FCPPFLAGS@ -c $<
+.f90.F90:
+	@CPP@ @FCPPFLAGS@ $< > $*.F90
 
-.f90.@SHLEXT@: $(FOBJ)
+.F90.@OBJEXT@:
+	@FC@ @FCFLAGS@ @FCPPFLAGS@ -c $<
+
+.@OBJEXT@.@SHLEXT@: libsolver$(SHL_EXT)
 	@SH_LD@ @SH_LDFLAGS@ @B64FLAGS@ @SH_LDTOFLAGS@ @SONAME_FLAGS@ -o $@ $*$(OBJ_EXT)  -lsolver -L. @EXTRA_LIBS@
 
 ###############################
@@ -52,7 +55,7 @@ libsolver$(SHL_EXT): $(SOLVEROBJS) arpack parpack
 #########################
 # The executables
 #
-ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)  
+ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT) 
 	@SH_LD@ @SH_LDTOFLAGS@ @B64FLAGS@ -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT) @EXTRA_LIBS@
 
 ViewFactors$(EXE_EXT): libsolver$(SHL_EXT) ViewFactors$(OBJ_EXT)  

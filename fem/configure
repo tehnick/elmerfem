@@ -12940,11 +12940,9 @@ case "$canonical_host_type" in
       EXTRA_LIBS="$BLAS_LIBS $LAPACK_LIBS"
     fi
     if test "$GCC" = yes; then
-      CPICFLAG=-fPIC
-      FCPPFLAGS="-cpp"
+      CPICFLAG="-fPIC"
     else
       CPICFLAG=-KPIC
-      FCPPFLAGS="-fpp $FCPPFLAGS"
     fi
     if test "$GXX" = yes; then
       CXXPICFLAG=-fPIC
@@ -12961,6 +12959,7 @@ case "$canonical_host_type" in
       TEMPLATE_AR='$(CXX)'
       TEMPLATE_ARFLAGS="-xar -o"
     fi
+    FCPPFLAGS="-P -C $FCPPFLAGS"
   ;;
 esac
 
