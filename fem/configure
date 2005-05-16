@@ -12941,8 +12941,10 @@ case "$canonical_host_type" in
     fi
     if test "$GCC" = yes; then
       CPICFLAG=-fPIC
+      FCPPFLAGS="-cpp"
     else
       CPICFLAG=-KPIC
+      FCPPFLAGS="-fpp $FCPPFLAGS"
     fi
     if test "$GXX" = yes; then
       CXXPICFLAG=-fPIC
@@ -12959,8 +12961,6 @@ case "$canonical_host_type" in
       TEMPLATE_AR='$(CXX)'
       TEMPLATE_ARFLAGS="-xar -o"
     fi
-
-    FCPPFLAGS="-C -P $FCPPFLAGS"
   ;;
 esac
 

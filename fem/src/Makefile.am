@@ -19,12 +19,15 @@ SHL_EXT=.@SHLEXT@
 LIB_EXT=.@LIBEXT@
 EXE_EXT=@EXEEXT@
 
+# dependencies
 include make.bin
+# automatic object dependencies for .f90 files
+include make.dep
 
 # attach to automake all target
 all-local:	 mpif libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
 
-include make.dep
+
 
 SUFFIXES: .f90 .so
 
@@ -36,7 +39,7 @@ SUFFIXES: .f90 .so
 .f90.@OBJEXT@:
 	@FC@ @FCFLAGS@ -cpp @FCPPFLAGS@ -c $<
 
-.f90.@SHLEXT@: 
+.f90.@SHLEXT@: $(FOBJ)
 	@SH_LD@ @SH_LDFLAGS@ @B64FLAGS@ @SH_LDTOFLAGS@ @SONAME_FLAGS@ -o $@ $*$(OBJ_EXT)  -lsolver -L. @EXTRA_LIBS@
 
 ###############################

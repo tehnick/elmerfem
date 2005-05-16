@@ -14,8 +14,6 @@
 
 
 
-# deps created with makedef90 http://www.helsinki.fi/~eedelman/makedepf90.html
-
 SOURCES = $(SC2Elmer_SOURCES)
 
 srcdir = .
@@ -42,7 +40,7 @@ build_triplet = i686-pc-linux-gnu
 host_triplet = i686-pc-linux-gnu
 target_triplet = i686-pc-linux-gnu
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
-	$(srcdir)/make.bin $(srcdir)/make.dep
+	$(srcdir)/make.dep
 bin_PROGRAMS = SC2Elmer$(EXEEXT)
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -303,8 +301,6 @@ ELECTROKIN = Electrokinetics$(SHL_EXT)
 STRESS = StressSolve$(SHL_EXT)
 ENERGYRELEASE = EnergyRelease$(SHL_EXT)
 POISBOLTZ = PoissonBoltzmannSolve$(SHL_EXT)
-
-# 
 BINARIES_ODD = $(RESULT) $(HELMHOLTZ_BEM) $(SC2ELMER)  \
 	$(MEMREYNO) $(MEMELSTAT) $(POISSON_BEM)
 
@@ -542,7 +538,7 @@ all: all-recursive
 
 .SUFFIXES:
 .SUFFIXES: .o .so .c .f90 .o .obj
-$(srcdir)/Makefile.in: # $(srcdir)/Makefile.am $(srcdir)/make.bin $(srcdir)/make.dep $(am__configure_deps)
+$(srcdir)/Makefile.in: # $(srcdir)/Makefile.am $(srcdir)/make.dep $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
 	    *$$dep*) \
@@ -894,8 +890,12 @@ uninstall-info: uninstall-info-recursive
 	uninstall-binPROGRAMS uninstall-info-am
 
 
+# include make.bin
+
 # attach to automake all target
 all-local:	 mpif libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
+
+# deps created with makedef90 http://www.helsinki.fi/~eedelman/makedepf90.html
 
 Acoustics.o : Acoustics.f90 LinearAlgebra.o DefUtils.o 
 Adaptive.o : Adaptive.f90 CRSMatrix.o Types.o ModelDescription.o SolverUtils.o GeneralUtils.o 
@@ -1020,7 +1020,7 @@ SUFFIXES: .f90 .so
 .f90.o:
 	g95 -g  -I. -I/tmp/elmer/g95//include -fPIC -cpp -traditional-cpp -C -P -I. -I/tmp/elmer/g95//include -DDLLEXPORT="!"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -c $<
 
-.f90.so: 
+.f90.so: $(FOBJ)
 	$(FC) -shared   -Wl,-soname -Wl,$@ -o $@ $*$(OBJ_EXT)  -lsolver -L. 
 
 ###############################

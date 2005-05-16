@@ -303,8 +303,6 @@ ELECTROKIN = Electrokinetics$(SHL_EXT)
 STRESS = StressSolve$(SHL_EXT)
 ENERGYRELEASE = EnergyRelease$(SHL_EXT)
 POISBOLTZ = PoissonBoltzmannSolve$(SHL_EXT)
-
-# 
 BINARIES_ODD = $(RESULT) $(HELMHOLTZ_BEM) $(SC2ELMER)  \
 	$(MEMREYNO) $(MEMELSTAT) $(POISSON_BEM)
 
@@ -894,9 +892,6 @@ uninstall-info: uninstall-info-recursive
 	uninstall-binPROGRAMS uninstall-info-am
 
 
-# attach to automake all target
-all-local:	 mpif libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
-
 Acoustics.o : Acoustics.f90 LinearAlgebra.o DefUtils.o 
 Adaptive.o : Adaptive.f90 CRSMatrix.o Types.o ModelDescription.o SolverUtils.o GeneralUtils.o 
 AdvectionDiffusion.o : AdvectionDiffusion.f90 Integration.o DefUtils.o Differentials.o SolverUtils.o 
@@ -1010,6 +1005,12 @@ Types.o : Types.f90 ../config.h Messages.o
 ViewFactors.o : ViewFactors.f90 DefUtils.o Types.o 
 Walls.o : Walls.f90 
 
+# dependencies
+# automatic object dependencies for .f90 files
+
+# attach to automake all target
+all-local:	 mpif libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
+
 SUFFIXES: .f90 .so
 
 ##########################
@@ -1020,7 +1021,7 @@ SUFFIXES: .f90 .so
 .f90.@OBJEXT@:
 	@FC@ @FCFLAGS@ -cpp @FCPPFLAGS@ -c $<
 
-.f90.@SHLEXT@: 
+.f90.@SHLEXT@: $(FOBJ)
 	@SH_LD@ @SH_LDFLAGS@ @B64FLAGS@ @SH_LDTOFLAGS@ @SONAME_FLAGS@ -o $@ $*$(OBJ_EXT)  -lsolver -L. @EXTRA_LIBS@
 
 ###############################
