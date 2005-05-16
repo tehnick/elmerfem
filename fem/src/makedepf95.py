@@ -68,7 +68,7 @@ class SimpleF90Parser:
                 if p:
                     self.definedModules[token]=1
                 else:
-                    sys.stderr.write("no module")
+                    sys.stderr.write("Warning: no module\n")
 
             if self.usest.search(self.history):
                 p=self.usest.search(self.history)
@@ -76,7 +76,7 @@ class SimpleF90Parser:
                 if p:
                     self.usedModules[token]=1
                 else:
-                    sys.stderr.write("no use")
+                    sys.stderr.write("Warning: no use\n")
 
 
 
@@ -110,7 +110,7 @@ if __name__ == "__main__":
     usedbyfile = {}
     
     for f in sys.argv[1:]:
-        sys.stderr.write(f + "...")   
+        sys.stderr.write(f + "...\n")   
         (um,dm)=p.parseFile(f)
         oname=f
         for module in dm:
@@ -132,7 +132,7 @@ if __name__ == "__main__":
             if modtofile.has_key(used):
                 line=line + " " + p.getObjectName(modtofile[used])
             else:
-                sys.stderr.write("Warning, module "+used+" undefined")
+                sys.stderr.write("Warning, module "+used+" undefined\n")
         print line
     
 

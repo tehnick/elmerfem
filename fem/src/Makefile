@@ -24,7 +24,7 @@ pkglibdir = $(libdir)/elmer
 pkgincludedir = $(includedir)/elmer
 top_builddir = ..
 am__cd = CDPATH="$${ZSH_VERSION+.}$(PATH_SEPARATOR)" && cd
-INSTALL = /usr/bin/install -c
+INSTALL = /bin/install -c
 install_sh_DATA = $(install_sh) -c -m 644
 install_sh_PROGRAM = $(install_sh) -c
 install_sh_SCRIPT = $(install_sh) -c
@@ -40,7 +40,7 @@ build_triplet = i686-pc-linux-gnu
 host_triplet = i686-pc-linux-gnu
 target_triplet = i686-pc-linux-gnu
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
-	$(srcdir)/make.bin $(srcdir)/make.deps2
+	$(srcdir)/make.bin $(srcdir)/make.dep
 bin_PROGRAMS = SC2Elmer$(EXEEXT)
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -79,28 +79,28 @@ ETAGS = etags
 CTAGS = ctags
 DIST_SUBDIRS = $(SUBDIRS)
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
-ACLOCAL = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run aclocal-1.9
+ACLOCAL = ${SHELL} /home/jvierine/Projects/elmer/fem/missing --run aclocal-1.9
 AMDEP_FALSE = #
 AMDEP_TRUE = 
-AMTAR = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run tar
+AMTAR = ${SHELL} /home/jvierine/Projects/elmer/fem/missing --run tar
 AR = ar
 ARFLAGS = rc
 ARPACK_LIBS = arpack/libarpack.a
-AUTOCONF = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run autoconf
-AUTOHEADER = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run autoheader
-AUTOMAKE = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run automake-1.9
+AUTOCONF = ${SHELL} /home/jvierine/Projects/elmer/fem/missing --run autoconf
+AUTOHEADER = ${SHELL} /home/jvierine/Projects/elmer/fem/missing --run autoheader
+AUTOMAKE = ${SHELL} /home/jvierine/Projects/elmer/fem/missing --run automake-1.9
 AWK = gawk
 B64FLAGS = 
 BLAS_LIBS = -lblas
-CC = icc
+CC = gcc
 CCC = 
 CCDEPMODE = depmode=gcc3
-CFLAGS = -g -O2  -I/tmp/elmer/ifc/include -fPIC
+CFLAGS = -g -O2  -I/tmp/elmer/g95/include -fPIC
 CP = cp
 CPICFLAG = -fPIC
 CPP = cpp
 CPPFLAGS = 
-CXX = icc
+CXX = g++
 CXXDEPMODE = depmode=gcc3
 CXXFLAGS = -g -O2  -fPIC
 CXXPICFLAG = -fPIC
@@ -117,13 +117,13 @@ EGREP = /bin/grep -E
 EIOF_LIBS = -leiof
 EXEEXT = 
 EXTRA_LIBS = 
-F77 = ifort
-FC = ifort
-FCFLAGS = -g  -I. -I/tmp/elmer/ifc/include -fPIC
-FCLIBS =  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s
-FCPPFLAGS = -traditional-cpp -C -P -I. -I/tmp/elmer/ifc/include -DDLLEXPORT="!"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK
-FFLAGS = -g  -fPIC
-FLIBS =  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s
+F77 = g77
+FC = g95
+FCFLAGS = -g  -I. -I/tmp/elmer/g95/include -fPIC
+FCLIBS =  -L/home/jvierine/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/jvierine/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/jvierine/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm
+FCPPFLAGS = -traditional-cpp -C -P -I. -I/tmp/elmer/g95/include -DDLLEXPORT="!"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK
+FFLAGS = -g -O2  -fPIC
+FLIBS =  -L/usr/lib/gcc-lib/i686-pc-linux-gnu/3.3.5-20050130 -L/usr/lib/gcc-lib/i686-pc-linux-gnu/3.3.5-20050130/../../../../i686-pc-linux-gnu/lib -L/usr/lib/gcc-lib/i686-pc-linux-gnu/3.3.5-20050130/../../.. -lfrtbegin -lg2c -lm -lgcc_s
 FPICFLAG = -fPIC
 GREP = /bin/grep
 HUTI_LIBS = -lhuti
@@ -135,13 +135,13 @@ LAPACK_LIBS = -llapack
 LDFLAGS = 
 LIBEXT = a
 LIBOBJS = 
-LIBS = arpack/libarpack.a  /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a -lhuti -lmatc -leiof -ldl  -L/tmp/elmer/ifc/lib -llapack -lblas   -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s -lstdc++
-LIBSOLVER_DEPS =  -L/tmp/elmer/ifc/lib
+LIBS = arpack/libarpack.a  /home/jvierine/lib/libumfpack.a /home/jvierine/lib/libamd.a -lhuti -lmatc -leiof -ldl  -L/tmp/elmer/g95/lib -llapack -lblas   -L/home/jvierine/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/jvierine/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/jvierine/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i686-pc-linux-gnu/3.3.5-20050130 -L/usr/lib/gcc-lib/i686-pc-linux-gnu/3.3.5-20050130/../../../../i686-pc-linux-gnu/lib -L/usr/lib/gcc-lib/i686-pc-linux-gnu/3.3.5-20050130/../../.. -lfrtbegin -lg2c -lm -lgcc_s -lstdc++
+LIBSOLVER_DEPS =  -L/tmp/elmer/g95/lib
 LTLIBOBJS = 
 MAINT = #
 MAINTAINER_MODE_FALSE = 
 MAINTAINER_MODE_TRUE = #
-MAKEINFO = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run makeinfo
+MAKEINFO = ${SHELL} /home/jvierine/Projects/elmer/fem/missing --run makeinfo
 MATC_LIBS = -lmatc
 MKDIR = mkdir -p
 MKOCTFILE_DL_LDFLAGS = -shared -Wl,-Bsymbolic
@@ -183,13 +183,13 @@ STRIP =
 TEMPLATE_AR = $(AR)
 TEMPLATE_ARFLAGS = rc
 TRADITIONAL_CPP = yes
-UMFPACK_LIBS = /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a
+UMFPACK_LIBS = /home/jvierine/lib/libumfpack.a /home/jvierine/lib/libamd.a
 USE_MPI_FALSE = 
 USE_MPI_TRUE = #
 VERSION = 1.0.0
-ac_ct_CC = icc
+ac_ct_CC = gcc
 ac_ct_CXX = 
-ac_ct_F77 = 
+ac_ct_F77 = g77
 ac_ct_FC = 
 ac_ct_RANLIB = ranlib
 ac_ct_STRIP = 
@@ -222,7 +222,7 @@ host_vendor = pc
 htmldir = ${docdir}
 includedir = ${prefix}/include
 infodir = ${datarootdir}/info
-install_sh = /home/vierinen/src/newelmer/fem/install-sh
+install_sh = /home/jvierine/Projects/elmer/fem/install-sh
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
 library_path_var = LD_LIBRARY_PATH
@@ -232,7 +232,7 @@ mandir = ${datarootdir}/man
 mkdir_p = mkdir -p --
 oldincludedir = /usr/include
 pdfdir = ${docdir}
-prefix = /tmp/elmer/ifc
+prefix = /tmp/elmer/g95
 program_transform_name = s,x,x,
 psdir = ${docdir}
 sbindir = ${exec_prefix}/sbin
@@ -538,7 +538,7 @@ all: all-recursive
 
 .SUFFIXES:
 .SUFFIXES: .o .so .F90 .c .f90 .o .obj
-$(srcdir)/Makefile.in: # $(srcdir)/Makefile.am $(srcdir)/make.bin $(srcdir)/make.deps2 $(am__configure_deps)
+$(srcdir)/Makefile.in: # $(srcdir)/Makefile.am $(srcdir)/make.bin $(srcdir)/make.dep $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
 	    *$$dep*) \
@@ -889,116 +889,61 @@ uninstall-info: uninstall-info-recursive
 	tags tags-recursive uninstall uninstall-am \
 	uninstall-binPROGRAMS uninstall-info-am
 
-NavierStokesCylindrical.o:  MaterialModels.o NavierStokesCylindrical.F90 ElementUtils.o Differentials.o Integration.o CoordinateSystems.o
-SparseMatrix.o:  SparseMatrix.F90 GeneralUtils.o
-SParIterComm.o:  GeneralUtils.o SParIterGlobals.o SParIterComm.F90 Types.o
-MeshSolve.o:  Differentials.o MeshSolve.F90 SolverUtils.o CoordinateSystems.o DefUtils.o
-StatElecReduced.o:  Lists.o ElementDescription.o ElementUtils.o Differentials.o Types.o Integration.o SolverUtils.o StatElecReduced.F90
-FreeSurfaceReduced.o:  MeshUtils.o Lists.o FreeSurfaceReduced.F90 ElementDescription.o ElementUtils.o Differentials.o Types.o Integration.o SolverUtils.o
-IterSolve.o:  BandMatrix.o CRSMatrix.o IterSolve.F90 Lists.o
-ElasticSolve.o:  MaterialModels.o ElementDescription.o Adaptive.o DefUtils.o ElasticSolve.F90 Types.o Integration.o CoordinateSystems.o LinearAlgebra.o
-RadiationFactors.o:  ElementUtils.o RadiationFactors.F90 Lists.o RadiationFactors.o MainUtils.o ElementDescription.o ModelDescription.o CRSMatrix.o SolverUtils.o Types.o GeneralUtils.o IterSolve.o CoordinateSystems.o
-DissipativeHelmholtz.o:  Lists.o ElementDescription.o SolverUtils.o Types.o Integration.o DissipativeHelmholtz.F90
-CoordinateSystems.o:  Types.o CoordinateSystems.F90
-RateOfChange.o:  Lists.o ElementDescription.o ElementUtils.o SolverUtils.o Types.o Integration.o RateOfChange.F90
-Stress.o:  ElementUtils.o Stress.F90 Integration.o ElementDescription.o
-MEMLumping.o:  Lists.o ElementDescription.o SolverUtils.o Types.o Integration.o MEMLumping.F90 DefUtils.o
-Messages.o:  Messages.F90
-IMeshToMesh.o:  Interpolation.o CoordinateSystems.o CRSMatrix.o IMeshToMesh.F90
-MaxwellGeneral.o:  ElementDescription.o Integration.o MaxwellGeneral.F90
-FreeSurface.o:  ElementUtils.o IterSolve.o FreeSurface.F90 DirectSolve.o
-LUDecomposition.o:  BandwidthOptimize.o Types.o LUDecomposition.F90
-RigidBodyReduction.o:  Lists.o DefUtils.o GeneralUtils.o CRSMatrix.o SolverUtils.o RigidBodyReduction.F90 Integration.o Types.o
-EliminateDirichlet.o:  EliminateDirichlet.F90 Lists.o GeneralUtils.o CRSMatrix.o SolverUtils.o Types.o
-Multigrid.o:  Interpolation.o ModelDescription.o CRSMatrix.o Multigrid.F90 IterSolve.o CoordinateSystems.o DirectSolve.o
-DefUtils.o:  DefUtils.F90 SolverUtils.o Adaptive.o Integration.o LinearAlgebra.o
-ResultToResult.o:  Lists.o SParIterSolver.o Interpolation.o ResultToResult.F90 MainUtils.o ElementDescription.o ModelDescription.o SParIterGlobals.o Types.o Integration.o CoordinateSystems.o SParIterComm.o
-ElectricForce.o:  MeshUtils.o Lists.o ElectricForce.F90 ElementDescription.o SolverUtils.o Types.o Integration.o DefUtils.o
-TimeIntegrate.o:  TimeIntegrate.F90 Types.o Lists.o
-FlowSolve.o:  NavierStokesGeneral.o Radiation.o FlowSolve.F90 NavierStokesCylindrical.o Adaptive.o NavierStokes.o DefUtils.o Types.o CoordinateSystems.o FreeSurface.o ElementDescription.o
-FreeSurfaceSolver.o:  FreeSurfaceSolver.F90 DefUtils.o
-StatCurrentSolve.o:  Lists.o ElementDescription.o ElementUtils.o Differentials.o Types.o Integration.o SolverUtils.o DefUtils.o StatCurrentSolve.F90
-ParallelUtils.o:  SParIterSolver.o ParallelUtils.F90
-ResultToPost.o:  MainUtils.o ResultToPost.F90
-Radiation.o:  ElementUtils.o CoordinateSystems.o Radiation.F90
-MainUtils.o:  ModelDescription.o SolverUtils.o MainUtils.F90
-GeneralUtils.o:  GeneralUtils.F90
-EigenSolve.o:  EigenSolve.F90 IterSolve.o CRSMatrix.o Types.o Multigrid.o
-MGPrec.o:  Multigrid.o MGPrec.F90
-SaveData.o:  MeshUtils.o Lists.o ElementDescription.o SaveData.F90 SolverUtils.o Types.o Integration.o DefUtils.o
-PoissonBEM.o:  PoissonBEM.F90 Types.o HelmholtzBEM.o DefUtils.o
-Adaptive.o:  GeneralUtils.o ModelDescription.o SolverUtils.o Adaptive.F90 Types.o
-Acoustics.o:  Acoustics.F90 LinearAlgebra.o DefUtils.o
-ElementDescription.o:  Lists.o PElementBase.o ElementDescription.F90 LinearAlgebra.o GeneralUtils.o Integration.o CoordinateSystems.o
-MaxwellAxiS.o:  ElementDescription.o MaxwellAxiS.F90 Integration.o Types.o
-Differentials.o:  ElementDescription.o Differentials.F90 Types.o LinearAlgebra.o
-MEMUtilities.o:  Lists.o ElementDescription.o SolverUtils.o Types.o Integration.o MEMUtilities.F90
-Walls.o:  Walls.F90
-ReloadInput.o:  ModelDescription.o ReloadInput.F90 Types.o Lists.o
-AplacExport.o:  Lists.o AplacExport.F90 ElementDescription.o SolverUtils.o Types.o Integration.o
-MeshUtils.o:  ElementUtils.o ParallelUtils.o MeshUtils.F90 ElementDescription.o
-EnergyRelease.o:  EnergyRelease.F90 DefUtils.o
-DiffuseConvectiveGeneralAnisotropic.o:  Differentials.o MaterialModels.o DiffuseConvectiveGeneralAnisotropic.F90 Integration.o
-PElementMaps.o:  PElementMaps.F90 Messages.o
-SolverUtils.o:  ModelDescription.o ParallelUtils.o SolverUtils.F90 SParIterSolver.o Multigrid.o MeshUtils.o LinearAlgebra.o ElementUtils.o ParallelEigenSolve.o SParIterGlobals.o EigenSolve.o Types.o TimeIntegrate.o IterSolve.o DirectSolve.o
-FluidicForce.o:  MeshUtils.o Lists.o DefUtils.o SolverUtils.o Types.o Integration.o MaterialModels.o ElementDescription.o FluidicForce.F90
-NavierStokesGeneral.o:  MaterialModels.o CoordinateSystems.o Differentials.o Integration.o NavierStokesGeneral.F90
-TransportEquation.o:  Lists.o TransportEquation.F90 ElementDescription.o ElementUtils.o SolverUtils.o Types.o Integration.o
-ParallelEigenSolve.o:  ParallelUtils.o Multigrid.o ParallelEigenSolve.F90 SParIterGlobals.o CRSMatrix.o SParIterSolver.o IterSolve.o
-IrrotationalVelocity.o:  IrrotationalVelocity.F90 ElementDescription.o SolverUtils.o Types.o Integration.o LinearAlgebra.o Lists.o
-LinearAlgebra.o:  Types.o LinearAlgebra.F90
-PElementBase.o:  PElementBase.o Messages.o PElementBase.F90
-HelmholtzSolve.o:  HelmholtzSolve.F90 LinearAlgebra.o DefUtils.o
-PhaseChange.o:  Lists.o ElementDescription.o GeneralUtils.o PhaseChange.F90 Differentials.o Types.o Integration.o SolverUtils.o CoordinateSystems.o DefUtils.o
-FDiffusion.o:  FDiffusion.F90 Lists.o ElementDescription.o SolverUtils.o Types.o Integration.o LinearAlgebra.o
-StressGeneral.o:  StressGeneral.F90 CoordinateSystems.o Integration.o ElementDescription.o
-solve_cmplx.o:  solve_cmplx.F90
-KESolver.o:  MaterialModels.o KESolver.F90 DefUtils.o
-DirectSolve.o:  CRSMatrix.o DirectSolve.F90 Lists.o Types.o BandMatrix.o
-Solver.o:  GeneralUtils.o Solver.F90 Types.o
-Interpolation.o:  Interpolation.F90 CoordinateSystems.o ElementDescription.o Types.o Lists.o
-ModelDescription.o:  MeshUtils.o HashTable.o ModelDescription.F90 Types.o ElementDescription.o
-NavierStokes.o:  ElementUtils.o NavierStokes.F90 MaterialModels.o Differentials.o Integration.o
-MagneticSolve.o:  BandwidthOptimize.o MagneticSolve.F90 Lists.o SolverUtils.o Maxwell.o MaxwellGeneral.o ElementDescription.o ElementUtils.o MaxwellAxiS.o Differentials.o Types.o TimeIntegrate.o IterSolve.o CoordinateSystems.o FreeSurface.o DirectSolve.o
-solve_real.o:  solve_real.F90
-Electrokinetics.o:  Lists.o CoordinateSystems.o Electrokinetics.F90 Types.o DefUtils.o
-Types.o:  Types.F90 Messages.o
-StreamSolver.o:  StreamSolver.F90 DefUtils.o
-StatMagSolve.o:  StatMagSolve.F90 ElementDescription.o Differentials.o Types.o Integration.o DefUtils.o
-Maxwell.o:  Integration.o Maxwell.F90 ElementDescription.o
-MEMStatElecReduced.o:  MEMUtilities.o Lists.o ElementDescription.o ElementUtils.o Differentials.o Types.o Integration.o SolverUtils.o DefUtils.o MEMStatElecReduced.F90
-StressSolve.o:  Stress.o Adaptive.o StressGeneral.o DefUtils.o StressSolve.F90 CoordinateSystems.o ElementDescription.o Types.o
-FDiffusion3D.o:  Lists.o ElementDescription.o SolverUtils.o Types.o Integration.o LinearAlgebra.o FDiffusion3D.F90
-SolveSBand.o:  SolveSBand.F90
-Lists.o:  GeneralUtils.o Lists.F90 Messages.o Types.o
-DCRComplexSolve.o:  Lists.o Radiation.o Adaptive.o DCRComplexSolve.F90 ElementDescription.o SolverUtils.o Types.o Integration.o CoordinateSystems.o LinearAlgebra.o
-EliminatePeriodic.o:  Lists.o GeneralUtils.o CRSMatrix.o SolverUtils.o Types.o EliminatePeriodic.F90
-MaterialModels.o:  MaterialModels.F90 ElementDescription.o ModelDescription.o Types.o Integration.o CoordinateSystems.o LinearAlgebra.o
-SParIterPrecond.o:  SParIterPrecond.F90 SParIterGlobals.o Types.o SParIterComm.o
-Smitc.o:  Smitc.F90 DefUtils.o
-SParIterGlobals.o:  Types.o SParIterGlobals.F90
-ElmerSolver.o:  MainUtils.o ElmerSolver.F90
-ApertureAmplitude.o:  Lists.o ElementDescription.o SolverUtils.o Types.o Integration.o ApertureAmplitude.F90
-SParIterSolver.o:  SParIterComm.o SParIterPrecond.o SParIterGlobals.o CRSMatrix.o Types.o SParIterSolver.F90 Lists.o
-PoissonBoltzmannSolve.o:  Lists.o Adaptive.o ElementDescription.o ElementUtils.o DefUtils.o Differentials.o Types.o Integration.o SolverUtils.o PoissonBoltzmannSolve.F90
-ViewFactors.o:  ViewFactors.o ViewFactors.F90 Types.o DefUtils.o
-FindOptimum.o:  FindOptimum.F90 MeshUtils.o Lists.o ElementDescription.o SolverUtils.o Types.o Integration.o
-StatElecSolve.o:  Lists.o Adaptive.o ElementDescription.o ElementUtils.o Differentials.o Types.o Integration.o StatElecSolve.F90 SolverUtils.o CoordinateSystems.o DefUtils.o
-MEMReynolds.o:  MEMUtilities.o MEMReynolds.F90 Lists.o ElementDescription.o SolverUtils.o Types.o Integration.o DefUtils.o
-ElementUtils.o:  BandwidthOptimize.o Interpolation.o CRSMatrix.o ElementUtils.F90 Integration.o BandMatrix.o
-DiffuseConvectiveAnisotropic.o:  Differentials.o DiffuseConvectiveAnisotropic.F90 MaterialModels.o Integration.o
-BandwidthOptimize.o:  BandwidthOptimize.F90 ElementDescription.o
-HashTable.o:  Lists.o HashTable.F90
-AdvectionDiffusion.o:  MaterialModels.o DefUtils.o Differentials.o Integration.o AdvectionDiffusion.F90 SolverUtils.o
-SolveBand.o:  SolveBand.F90
-Integration.o:  Integration.F90 Types.o
-GebhardtFactors.o:  Lists.o MainUtils.o GebhardtFactors.F90 ElementDescription.o ModelDescription.o CRSMatrix.o SolverUtils.o Types.o GebhardtFactors.o IterSolve.o CoordinateSystems.o
-ShearWave.o:  ShearWave.F90 Lists.o ElementDescription.o SolverUtils.o Types.o Integration.o LinearAlgebra.o
-CRSMatrix.o:  GeneralUtils.o CRSMatrix.F90
-ArtificialCompressibility.o:  Lists.o ArtificialCompressibility.F90 ElementDescription.o SolverUtils.o Types.o Integration.o
-HelmholtzBEM.o:  HelmholtzBEM.o Types.o HelmholtzBEM.F90 DefUtils.o
-BandMatrix.o:  GeneralUtils.o BandMatrix.F90 Types.o
-HeatSolve.o:  MaterialModels.o Radiation.o DiffuseConvectiveGeneralAnisotropic.o Adaptive.o DefUtils.o HeatSolve.F90 Differentials.o Types.o DiffuseConvectiveAnisotropic.o ElementDescription.o CoordinateSystems.o
+ElementUtils.o: ElementUtils.F90 CRSMatrix.o BandwidthOptimize.o BandMatrix.o Integration.o Interpolation.o
+ParallelUtils.o: ParallelUtils.F90 SParIterSolver.o
+Maxwell.o: Maxwell.F90 ElementDescription.o Integration.o
+Differentials.o: Differentials.F90 ElementDescription.o LinearAlgebra.o Types.o
+NavierStokesGeneral.o: NavierStokesGeneral.F90 MaterialModels.o Differentials.o CoordinateSystems.o Integration.o
+RadiationFactors.o: RadiationFactors.F90 ModelDescription.o GeneralUtils.o ElementUtils.o RadiationFactors.o Lists.o IterSolve.o ElementDescription.o CoordinateSystems.o CRSMatrix.o MainUtils.o Types.o SolverUtils.o
+MeshUtils.o: MeshUtils.F90 PElementBase.o ParallelUtils.o PElementMaps.o ElementUtils.o ElementDescription.o
+SParIterPrecond.o: SParIterPrecond.F90 SParIterGlobals.o SParIterComm.o Types.o
+MEMUtilities.o: MEMUtilities.F90 SolverUtils.o ElementDescription.o Lists.o Types.o Integration.o
+MaxwellAxiS.o: MaxwellAxiS.F90 ElementDescription.o Integration.o Types.o
+MaterialModels.o: MaterialModels.F90 Integration.o ElementDescription.o CoordinateSystems.o LinearAlgebra.o ModelDescription.o Types.o
+DiffuseConvectiveAnisotropic.o: DiffuseConvectiveAnisotropic.F90 MaterialModels.o Differentials.o Integration.o
+LinearAlgebra.o: LinearAlgebra.F90 Types.o
+GebhardtFactors.o: GebhardtFactors.F90 ModelDescription.o GebhardtFactors.o Lists.o IterSolve.o ElementDescription.o CoordinateSystems.o CRSMatrix.o MainUtils.o Types.o SolverUtils.o
+Radiation.o: Radiation.F90 ElementUtils.o CoordinateSystems.o
+Integration.o: Integration.F90 Types.o
+BandwidthOptimize.o: BandwidthOptimize.F90 ElementDescription.o
+MaxwellGeneral.o: MaxwellGeneral.F90 ElementDescription.o Integration.o
+ParallelEigenSolve.o: ParallelEigenSolve.F90 SParIterGlobals.o Multigrid.o ParallelUtils.o SParIterSolver.o IterSolve.o CRSMatrix.o
+ElementDescription.o: ElementDescription.F90 PElementBase.o GeneralUtils.o Integration.o Lists.o PElementMaps.o LinearAlgebra.o CoordinateSystems.o
+CoordinateSystems.o: CoordinateSystems.F90 Types.o
+LUDecomposition.o: LUDecomposition.F90 Types.o
+Adaptive.o: Adaptive.F90 CRSMatrix.o ModelDescription.o GeneralUtils.o Types.o SolverUtils.o
+MainUtils.o: MainUtils.F90 ModelDescription.o SolverUtils.o
+Interpolation.o: Interpolation.F90 ElementDescription.o Lists.o Types.o CoordinateSystems.o
+Multigrid.o: Multigrid.F90 DirectSolve.o IterSolve.o CoordinateSystems.o CRSMatrix.o ModelDescription.o Interpolation.o
+Messages.o: Messages.F90
+NavierStokes.o: NavierStokes.F90 MaterialModels.o ElementUtils.o Differentials.o Integration.o
+DefUtils.o: DefUtils.F90 PElementMaps.o Adaptive.o LinearAlgebra.o Integration.o SolverUtils.o
+GeneralUtils.o: GeneralUtils.F90 Types.o
+Lists.o: Lists.F90 GeneralUtils.o Messages.o Types.o
+StressGeneral.o: StressGeneral.F90 ElementDescription.o CoordinateSystems.o Integration.o
+IterSolve.o: IterSolve.F90 CRSMatrix.o BandMatrix.o Lists.o
+FreeSurface.o: FreeSurface.F90 IterSolve.o ElementUtils.o DirectSolve.o
+HashTable.o: HashTable.F90 Lists.o
+TimeIntegrate.o: TimeIntegrate.F90 Lists.o Types.o
+CRSMatrix.o: CRSMatrix.F90 GeneralUtils.o
+ReynoldsUtilities.o: ReynoldsUtilities.F90 Types.o
+SParIterComm.o: SParIterComm.F90 SParIterGlobals.o GeneralUtils.o Types.o
+Types.o: Types.F90 Messages.o
+SolverUtils.o: SolverUtils.F90 SParIterGlobals.o Multigrid.o ParallelEigenSolve.o ParallelUtils.o DirectSolve.o ElementUtils.o SParIterSolver.o IterSolve.o MeshUtils.o LinearAlgebra.o TimeIntegrate.o ModelDescription.o Types.o EigenSolve.o
+SParIterGlobals.o: SParIterGlobals.F90 Types.o
+ModelDescription.o: ModelDescription.F90 MeshUtils.o ElementDescription.o HashTable.o Types.o
+Stress.o: Stress.F90 ElementUtils.o ElementDescription.o Integration.o
+DiffuseConvectiveGeneralAnisotropic.o: DiffuseConvectiveGeneralAnisotropic.F90 MaterialModels.o Differentials.o Integration.o
+DirectSolve.o: DirectSolve.F90 CRSMatrix.o BandMatrix.o Types.o Lists.o
+ViewFactors.o: ViewFactors.F90 DefUtils.o Types.o ViewFactors.o
+BandMatrix.o: BandMatrix.F90 GeneralUtils.o Types.o
+SParIterSolver.o: SParIterSolver.F90 SParIterGlobals.o Lists.o CRSMatrix.o SParIterComm.o SParIterPrecond.o Types.o
+PoissonBEM.o: PoissonBEM.F90 DefUtils.o Types.o PoissonBEM.o
+NavierStokesCylindrical.o: NavierStokesCylindrical.F90 MaterialModels.o ElementUtils.o Differentials.o CoordinateSystems.o Integration.o
+PElementBase.o: PElementBase.F90 PElementMaps.o Messages.o Types.o
+EigenSolve.o: EigenSolve.F90 CRSMatrix.o IterSolve.o Multigrid.o Types.o
+SparseMatrix.o: SparseMatrix.F90 GeneralUtils.o
+PElementMaps.o: PElementMaps.F90 Messages.o Types.o
 
 # dependencies
 # automatic object dependencies for .f90 files
@@ -1009,14 +954,14 @@ all-local:   mpif libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARI
 SUFFIXES: .f90 .so .F90
 
 .f90.F90:
-	cpp -traditional-cpp -C -P -I. -I/tmp/elmer/ifc/include -DDLLEXPORT="!"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK $< > $*.F90
+	cpp -traditional-cpp -C -P -I. -I/tmp/elmer/g95/include -DDLLEXPORT="!"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK $< > $*.F90
 
 .F90.o:
-	ifort -g  -I. -I/tmp/elmer/ifc/include -fPIC -c $<
+	g95 -g  -I. -I/tmp/elmer/g95/include -fPIC -c $<
 
 libsolver$(SHL_EXT): $(SOLVEROBJS) arpack parpack  
 	rm -f $@
-	$(CXX) -shared  -Wl,-soname -Wl,$@ -o $@ $(SOLVEROBJS) arpack/libarpack.a  /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a -lhuti -lmatc -leiof -ldl  -L/tmp/elmer/ifc/lib -llapack -lblas   -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s -lstdc++ -L.
+	$(CXX) -shared  -Wl,-soname -Wl,$@ -o $@ $(SOLVEROBJS) arpack/libarpack.a  /home/jvierine/lib/libumfpack.a /home/jvierine/lib/libamd.a -lhuti -lmatc -leiof -ldl  -L/tmp/elmer/g95/lib -llapack -lblas   -L/home/jvierine/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/jvierine/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/jvierine/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i686-pc-linux-gnu/3.3.5-20050130 -L/usr/lib/gcc-lib/i686-pc-linux-gnu/3.3.5-20050130/../../../../i686-pc-linux-gnu/lib -L/usr/lib/gcc-lib/i686-pc-linux-gnu/3.3.5-20050130/../../.. -lfrtbegin -lg2c -lm -lgcc_s -lstdc++ -L.
 
 .o.so: 
 	$(FC) -shared   -Wl,-soname -Wl,$@ -o $@ $*$(OBJ_EXT)  -lsolver -L. 
@@ -1033,18 +978,18 @@ GebhardtFactors$(EXE_EXT): libsolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT)
 	$(FC)   -lsolver -o GebhardtFactors$(EXE_EXT) -L. GebhardtFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a  
 
 install-exec-local:
-	@echo "Installing stuff to $(prefix),/tmp/elmer/ifc"
-	mkdir -p /tmp/elmer/ifc/lib
-	mkdir -p /tmp/elmer/ifc/include
-	mkdir -p /tmp/elmer/ifc/bin
-	cp ElmerSolver$(EXEEXT) /tmp/elmer/ifc/bin
-	cp ElmerSolver$(EXEEXT) /tmp/elmer/ifc/bin/Solver$(EXEEXT)
-	cp ViewFactors$(EXEEXT) /tmp/elmer/ifc/bin
-	cp GebhardtFactors$(EXEEXT) /tmp/elmer/ifc/bin
-	cp *$(SHL_EXT) /tmp/elmer/ifc/lib
-	cp *.mod /tmp/elmer/ifc/include
-	cp elements.def /tmp/elmer/ifc/lib
-	cp SOLVER.KEYWORDS /tmp/elmer/ifc/lib
+	@echo "Installing stuff to $(prefix),/tmp/elmer/g95"
+	mkdir -p /tmp/elmer/g95/lib
+	mkdir -p /tmp/elmer/g95/include
+	mkdir -p /tmp/elmer/g95/bin
+	cp ElmerSolver$(EXEEXT) /tmp/elmer/g95/bin
+	cp ElmerSolver$(EXEEXT) /tmp/elmer/g95/bin/Solver$(EXEEXT)
+	cp ViewFactors$(EXEEXT) /tmp/elmer/g95/bin
+	cp GebhardtFactors$(EXEEXT) /tmp/elmer/g95/bin
+	cp *$(SHL_EXT) /tmp/elmer/g95/lib
+	cp *.mod /tmp/elmer/g95/include
+	cp elements.def /tmp/elmer/g95/lib
+	cp SOLVER.KEYWORDS /tmp/elmer/g95/lib
 
 clean-local:
 	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so \#* mpif
