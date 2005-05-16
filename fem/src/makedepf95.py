@@ -12,7 +12,7 @@ import os
 
 class F90DepFinder:
     def __init__(self,files):
-        usewhat = re.compile('USE ([^ ]*)[\n ]')
+        usewhat = re.compile('use ([^ ]*)[ ^a-zA-Z0-9]*')
         self.fileToObject = re.compile('^([a-zA-Z0-9_-]+).[a-zA-Z0-9]+$')
         self.files=files
         
@@ -22,7 +22,7 @@ class F90DepFinder:
         for f in files:
             # get object name
             oname=self.getObjectName(f)
-            print f
+            print "Searching in file: " , f
             deps = {}
             self.objects[oname]=deps
             deps[f]=1
@@ -36,6 +36,7 @@ class F90DepFinder:
                 if m:
                     module = m.group(1).lower()
 
+                    print "found module ", module
                     depFileName=self.findFile(module)
 
                     if depFileName != None:
