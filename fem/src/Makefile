@@ -97,14 +97,14 @@ BLAS_LIBS = -lblas
 CC = icc
 CCC = 
 CCDEPMODE = depmode=gcc3
-CFLAGS = -O3  -I/tmp/elmer/ifc/include -fPIC
+CFLAGS = -g -O2  -I/tmp/elmer/ifc/include -fPIC
 CP = cp
 CPICFLAG = -fPIC
 CPP = cpp
 CPPFLAGS = 
 CXX = icc
 CXXDEPMODE = depmode=gcc3
-CXXFLAGS = -O3  -fPIC
+CXXFLAGS = -g -O2  -fPIC
 CXXPICFLAG = -fPIC
 CYGPATH_W = echo
 DEFS = -DHAVE_CONFIG_H
@@ -121,10 +121,10 @@ EXEEXT =
 EXTRA_LIBS = 
 F77 = ifort
 FC = ifort
-FCFLAGS = -O3  -I. -I/tmp/elmer/ifc/include -fPIC
+FCFLAGS = -g  -I. -I/tmp/elmer/ifc/include -fPIC
 FCLIBS =  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s
 FCPPFLAGS = -traditional-cpp -C -P -I. -I/tmp/elmer/ifc/include -DDLLEXPORT="!"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK
-FFLAGS = -O3  -fPIC
+FFLAGS = -g  -fPIC
 FLIBS =  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s
 FPICFLAG = -fPIC
 GREP = /bin/grep
@@ -948,9 +948,9 @@ MaterialModels.o : MaterialModels.F90 Types.o ModelDescription.o ElementDescript
 MaxwellAxiS.o : MaxwellAxiS.F90 ElementDescription.o Integration.o Types.o 
 Maxwell.o : Maxwell.F90 ElementDescription.o Integration.o 
 MaxwellGeneral.o : MaxwellGeneral.F90 ElementDescription.o Integration.o 
-MEMLumping.o : MEMLumping.F90 DefUtils.o SolverUtils.o ElementDescription.o Integration.o Lists.o Types.o 
-MEMReynolds.o : MEMReynolds.F90 DefUtils.o SolverUtils.o ElementDescription.o Integration.o Lists.o Types.o 
-MEMStatElecReduced.o : MEMStatElecReduced.F90 DefUtils.o ElementUtils.o SolverUtils.o Differentials.o ElementDescription.o Integration.o Lists.o Types.o 
+MEMLumping.o : MEMLumping.F90 DefUtils.o SolverUtils.o ElementDescription.o Integration.o Lists.o Types.o MEMUtilities.o
+MEMReynolds.o : MEMReynolds.F90 DefUtils.o SolverUtils.o ElementDescription.o Integration.o Lists.o Types.o MEMUtilities.o
+MEMStatElecReduced.o : MEMStatElecReduced.F90 DefUtils.o ElementUtils.o SolverUtils.o Differentials.o ElementDescription.o Integration.o Lists.o Types.o MEMUtilities.o
 MEMUtilities.o : MEMUtilities.F90 SolverUtils.o ElementDescription.o Integration.o Lists.o Types.o 
 MeshSolve.o : MeshSolve.F90 DefUtils.o Differentials.o SolverUtils.o CoordinateSystems.o 
 MeshUtils.o : MeshUtils.F90 PElementBase.o PElementMaps.o ParallelUtils.o ElementDescription.o ElementUtils.o 
@@ -959,8 +959,8 @@ MGPrec.o : MGPrec.F90 Multigrid.o
 ModelDescription.o : ModelDescription.F90 HashTable.o Types.o ElementDescription.o MeshUtils.o 
 Multigrid.o : Multigrid.F90 CoordinateSystems.o Interpolation.o ModelDescription.o DirectSolve.o IterSolve.o CRSMatrix.o 
 NavierStokesCylindrical.o : NavierStokesCylindrical.F90 ElementUtils.o Differentials.o Integration.o CoordinateSystems.o 
-NavierStokes.o : NavierStokes.F90 ElementUtils.o Differentials.o Integration.o 
-NavierStokesGeneral.o : NavierStokesGeneral.F90 Differentials.o Integration.o CoordinateSystems.o 
+NavierStokes.o : NavierStokes.F90 ElementUtils.o Differentials.o Integration.o MaterialModels.o
+NavierStokesGeneral.o : NavierStokesGeneral.F90 Differentials.o Integration.o CoordinateSystems.o MaterialModels.o
 ParallelEigenSolve.o : ParallelEigenSolve.F90 mpif.h ParallelUtils.o SParIterSolver.o SParIterGlobals.o Multigrid.o IterSolve.o CRSMatrix.o 
 ParallelUtils.o : ParallelUtils.F90 SParIterSolver.o 
 PElementBase.o : PElementBase.F90 Types.o Messages.o PElementMaps.o 
@@ -1017,7 +1017,7 @@ SUFFIXES: .f90 .so .F90
 	cpp -traditional-cpp -C -P -I. -I/tmp/elmer/ifc/include -DDLLEXPORT="!"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK $< > $*.F90
 
 .F90.o:
-	ifort -O3  -I. -I/tmp/elmer/ifc/include -fPIC -c $<
+	ifort -g  -I. -I/tmp/elmer/ifc/include -fPIC -c $<
 
 libsolver$(SHL_EXT): $(SOLVEROBJS) arpack parpack  
 	rm -f $@
@@ -1028,9 +1028,6 @@ libsolver$(SHL_EXT): $(SOLVEROBJS) arpack parpack
 
 $(BINARIES) $(BINARIES_ODD): libsolver$(SHL_EXT)
 
-#########################
-# The executables
-#
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT) 
 	$(FC)   -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT) 
 
@@ -1040,9 +1037,6 @@ ViewFactors$(EXE_EXT): libsolver$(SHL_EXT) ViewFactors$(OBJ_EXT)
 GebhardtFactors$(EXE_EXT): libsolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT)  
 	$(FC)   -lsolver -o GebhardtFactors$(EXE_EXT) -L. GebhardtFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a  
 
-################################33
-# Local installation rules
-#
 install-exec-local:
 	@echo "Installing stuff to $(prefix),/tmp/elmer/ifc"
 	mkdir -p /tmp/elmer/ifc/lib
@@ -1060,6 +1054,9 @@ install-exec-local:
 clean-local:
 	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so \#* mpif
 
+###############################
+# If no mpi, use local stubs
+#
 #mpif:
 #	cp mpif_stub.h mpif.h
 #	cp mpif_stub.h mpif
