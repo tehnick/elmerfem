@@ -12,7 +12,7 @@ import os
 
 class F90DepFinder:
     def __init__(self,files):
-        usewhat = re.compile('use ([^ ]*)[\n ]',re.I)
+        usewhat = re.compile('USE ([^ ]*)[\n ]')
         self.fileToObject = re.compile('^([a-zA-Z0-9_-]+).[a-zA-Z0-9]+$')
         self.files=files
         
@@ -22,7 +22,7 @@ class F90DepFinder:
         for f in files:
             # get object name
             oname=self.getObjectName(f)
-
+            print f
             deps = {}
             self.objects[oname]=deps
             deps[f]=1
