@@ -81,9 +81,6 @@
 /* Define to 1 if you have the `dld' library (-ldld). */
 /* #undef HAVE_LIBDLD */
 
-/* Define to 1 if you have the `stdc++' library (-lstdc++). */
-#define HAVE_LIBSTDC__ 1
-
 /* Define to 1 if you have the `wsock32' library (-lwsock32). */
 /* #undef HAVE_LIBWSOCK32 */
 

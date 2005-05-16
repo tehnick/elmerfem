@@ -32,6 +32,8 @@ AC_PROG_CXX
 AC_PROG_FC
 AC_PROG_F77
 
+ACX_CHECK_STDCXXLIB
+
 AC_EXEEXT
 AC_OBJEXT
 
@@ -92,7 +94,7 @@ ACX_MPI([],
 AM_CONDITIONAL(USE_MPI, test "$acx_mpi_ok" == "yes")
 
 dnl We should need this, if we link with CC
-AC_CHECK_LIB(stdc++, main,,AC_MSG_WARN(elmer might need libstc++))
+
 
 ACX_BLAS([], [AC_MSG_ERROR([BLAS was not found!])])
 ACX_LAPACK([], [AC_MSG_ERROR([LAPACK was not found!])])
@@ -130,7 +132,8 @@ SHLLIB_VER='$(SHLLIB).$(version)'
 SHLBIN_VER='$(SHLBIN).$(version)'
 SHLLINKEXT=
 LIBEXT=a
-SH_LD='$(CXX)'
+SH_LD2='$(CXX)'
+SH_LD='$(FC)'
 SH_LDFLAGS=-shared
 SH_LDTOFLAGS=
 DL_LD='$(SH_LD)'
@@ -289,18 +292,14 @@ dnl
 dnl Compiler specific stuff
 dnl
 dnl Troubles with intel compiler (ElmerSolver does not link with icc and libsolver doesn't link with ifort :)
-SH_LD2=$SH_LD
 dnl
 case "$FC" in
   gfortran | g95 )
-    dnl Get rid of unwanted DLLEXPORT declarations
-    SH_LD2=$FC
   ;;
   *xlf*)
     FCFLAGS="$FCFLAGS -qsuffix=cpp=F90"
   ;;
   ifort | ifc )
-    SH_LD2=$FC
     if test "$ac_cv_f77_compiler_gnu" = yes; then
        AC_MSG_WARN([Intel Fortran 90 compiler and g77 really don't mix that well, I hope you know what you are doing.])
     fi
@@ -310,8 +309,6 @@ case "$FC" in
   ;;
   pathf* )
     dnl pathf90 wants to link fortran programs with the fortran compiler
-    SH_LD2=$FC
-
 esac
 
 dnl kludge.. this affects preprocessor and fucks stuff up in some cases...
@@ -407,7 +404,7 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
   AC_DEFINE_UNQUOTED(SHL_EXTENSION, ".$SHLEXT",[Shared lib filename extension])
 fi
 
-LIBS="$ARPACK_LIBS $PARPACK_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $LAPACK_LIBS $BLAS_LIBS $MPILIBS $FCLIBS $FLIBS"
+LIBS="$ARPACK_LIBS $PARPACK_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $LAPACK_LIBS $BLAS_LIBS $MPILIBS $FCLIBS $FLIBS $STDCXX_LIBS"
 
 AC_MSG_RESULT([defining FPICFLAG to be $FPICFLAG])
 AC_MSG_RESULT([defining CPICFLAG to be $CPICFLAG])

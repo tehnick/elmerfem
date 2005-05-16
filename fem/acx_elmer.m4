@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.15 2005/05/13 13:50:54 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.16 2005/05/16 07:47:02 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -367,16 +367,66 @@ fi
 ])dnl ACX_UMFPACK
 
 dnl 
-dnl look for the std c libraries.
+dnl look for the std c libraries:
 dnl
-AC_DEFUN([ACX_CHECK_STDCLIB],
+dnl stdc++ (gnu)
+dnl Cstd   (sun)
+dnl C      (aix)
+dnl 
+dnl
+AC_DEFUN([ACX_CHECK_STDCXXLIB],
 [
 AC_REQUIRE([AC_PROG_CXX])
+acx_check_stdcxxlib_save_LIBS=$LIBS
+acx_stdcxxlib_ok=no
 
-dnl 
-dnl stdc++      (gnu, intel cc)
-dnl Cstd Crun   (sun)
-dnl 
+AC_ARG_WITH(stdcxxlib,
+	[AC_HELP_STRING([--with-stdcxxlib=<lib>], [use std c++ library <lib>])])
+
+case $with_stdcxxlib in
+	yes | "") ;;
+	no) acx_stdcxxlib_ok=disable ;;
+	-* | */* | *.a | *.so | *.so.* | *.o) STDCXX_LIBS="$with_stdcxxlib" ;;
+	*) STDCXX_LIBS="-l$with_stdcxxlib" ;;
+esac
+
+if test x$STDCXX_LIBS != x; then
+	save_LIBS="$LIBS"; LIBS="$STDCXX_LIBS $LIBS"
+	AC_MSG_CHECKING([for main in $STDCXX_LIBS])
+	AC_TRY_LINK_FUNC(main, [acx_stdcxx_lib_ok=yes], [STDCXX_LIBS=""])
+	AC_MSG_RESULT($acx_stdcxx_lib_ok)
+	LIBS="$save_LIBS"
+fi
+
+dnl check for stdc++
+if test $acx_stdcxxlib_ok = no; then
+	AC_CHECK_LIB(stdc++, main,[
+				   STDCXX_LIBS="-lstdc++"
+			           acx_stdcxxlib_ok=yes
+                                  ])			
+fi
+
+dnl check for stdc++
+if test $acx_stdcxxlib_ok = no; then
+	AC_CHECK_LIB(Cstd, main,[
+				   STDCXX_LIBS="-lCstd"
+			           acx_stdcxxlib_ok=yes
+                                  ])
+fi
+
+dnl check for stdc++
+if test $acx_stdcxxlib_ok = no; then
+	AC_CHECK_LIB(C, main,[
+				   STDCXX_LIBS="-lC"
+			           acx_stdcxxlib_ok=yes
+                                  ])
+fi
+
+if test $acx_stdcxxlib_ok = no; then
+	AC_MSG_ERROR([Couldn't find std c++ library that is needed for linking.])
+fi
+
+LIBS=$acx_check_stdcxxlib_save_LIBS
 ])
 
 dnl find out the flags that enable 64 bit compilation
