@@ -1,6 +1,6 @@
 #!/usr/bin/python
 """
- makedepf90 doesn't work. A down to earth solution "grep" based solution :)
+ slow and simple  parser/hashtable hack for computing f90 makefile dependencies
  usage:
  makedepf95 *.f90 (and cross you fingers it'll work)
 
@@ -10,73 +10,86 @@ import sys
 import re
 import os
 
-class F90DepFinder:
-    def __init__(self,files):
-        usewhat = re.compile('use ([^ ]*)[ ^a-zA-Z0-9]*')
+class SimpleF90Parser:
+    """ A simple parser that known only use and module """
+    def __init__(self):
         self.fileToObject = re.compile('^([a-zA-Z0-9_-]+).[a-zA-Z0-9]+$')
-        self.files=files
         
-        self.modToFileHash = {}
-        self.objects = {}
-
-        for f in files:
-            # get object name
-            oname=self.getObjectName(f)
-            print "Searching in file: " , f
-            deps = {}
-            self.objects[oname]=deps
-            deps[f]=1
-
-            input = open(f,'r')
-            
-            # get use statements
-            a=input.readline()
-            while a:
-                m = usewhat.search(a,re.I)
-                if m:
-                    module = m.group(1).lower()
-
-                    print "found module ", module
-                    depFileName=self.findFile(module)
-
-                    if depFileName != None:
-                        deps[self.getObjectName(depFileName)]=1
-
-                a=input.readline()
-            input.close()
+    def parseFile(self,file):
+        """ return a tuple (define_modules,used_modules) """
+        self.inComment=False
+        self.inUseStatement=False
+        self.inModuleStatement=False
+        self.history=" "
+        self.separator = re.compile('[\t, ;]')
+        self.comment = re.compile('!')
+        self.newline = re.compile('\n')
+        self.usest = re.compile('use[ \t]+([a-zA-Z0-9]+)[ \t,\n;:]',re.I)
+        self.modulest = re.compile('module[ \t]+([a-zA-Z0-9]+)[ \t]*\n$',re.I)
+        self.endst = re.compile('end',re.I)
+        self.prevWord = re.compile('[\t, ;\n]+([a-zA-Z0-9]+)[\t, ;\n]+$')
         
-    def findFile(self,module):
-        """ find file that contains module. """
-        # sanity check
-        if len(module) <= 1:
-            return None
+        self.usedModules={}
+        self.definedModules={}
+        input = open(file, 'r')
+        self.reset()
         
-        if self.modToFileHash.has_key(module):
-            return self.modToFileHash[module]
+        a=input.read(1)
+        while a:
+            self.history=self.history+a
+
+            if self.separator.search(a):
+                self.token()
+                    
+            if self.comment.search(a):
+                self.inComment=True
+                
+            if self.newline.search(a):
+                self.token()
+                self.reset()
+
+            a=input.read(1)
         
-        moduleName = re.compile('module ([^ ]*)[\n ]',re.I)
-
-        for f in self.files:
-            input = open(f,'r')
-
-            # get module statements
-            a=input.readline()
-            while a:
-                m = moduleName.search(a,re.I)
-                if m:
-                    modFound = m.group(1).lower()
-                    if modFound == module:
-
-                        self.modToFileHash[module]=f
-                        input.close()
-                        return f
-                a=input.readline()
-                m=None
-
-        print "Warning, file not found for module ", module
         input.close()
-        return None
-    
+        return (self.usedModules,self.definedModules)
+
+
+    def token(self):
+        if len(self.history) > 3 and not self.inComment:
+            p=self.prevWord.search(self.history)
+            if p:
+                token=p.group(1).lower()
+#                print token
+                if self.endst.search(token):
+                    self.inComment = True
+
+            if self.modulest.search(self.history):
+                p=self.modulest.search(self.history)
+                if p:
+                    self.definedModules[token]=1
+                else:
+                    sys.stderr.write("no module")
+
+            if self.usest.search(self.history):
+                p=self.usest.search(self.history)
+                token=p.group(1).lower()
+                if p:
+                    self.usedModules[token]=1
+                else:
+                    sys.stderr.write("no use")
+
+
+
+                    
+            #print "no token found"
+
+
+    def reset(self):
+        self.inComment=False
+        self.inUseStatement=False
+        self.inModuleStatement=False
+        self.history=""
+
     def getObjectName(self,fname):
         """ simple regexp to create object name from blah.f90 """
         # get object name 
@@ -86,17 +99,40 @@ class F90DepFinder:
             return oname
         else:
             print "fatal, name couldn't be created " , fname
-
             return None
 
 if __name__ == "__main__":
-    depfinder = F90DepFinder(sys.argv[1:])
-    print "Found dependencies: "
-    for k in depfinder.objects:
-        line = k + ": "
+#    depfinder = F90DepFinder(sys.argv[1:])
+    p = SimpleF90Parser()
 
-        for ok in depfinder.objects[k]:
-            line = line + " " + ok 
+
+    modtofile = {}
+    usedbyfile = {}
+    
+    for f in sys.argv[1:]:
+        sys.stderr.write(f + "...")   
+        (um,dm)=p.parseFile(f)
+        oname=f
+        for module in dm:
+            modtofile[module]=oname
+
+        used=[]
+        usedbyfile[oname]=used
+
+        for module in um:
+            used.append(module)
+            
+    for k in modtofile:
+        file=modtofile[k]
+        object=p.getObjectName(file)
+
+        line= object + ": " + file
+
+        for used in usedbyfile[file]:
+            if modtofile.has_key(used):
+                line=line + " " + p.getObjectName(modtofile[used])
+            else:
+                sys.stderr.write("Warning, module "+used+" undefined")
         print line
     
 
