@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.16 2005/05/16 07:47:02 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.17 2005/05/16 08:48:12 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -627,4 +627,52 @@ else
      AC_MSG_ERROR([Traditional cpp not found, just have to exit for for now.])
 fi
 AC_SUBST(CPP)
+])
+
+
+
+AC_DEFUN([ACX_FC_CHAR_MANGLING], [
+AC_PREREQ(2.50)
+AC_REQUIRE(AC_FC_FUNC)
+AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])
+
+ac_cv_[]_AC_LANG_ABBREV[]_char_mangling="unknown"
+AC_FC_FUNC(barf)
+acx_fc_char_param_barf=$barf
+
+AC_MSG_CHECKING([for fortran char mangling scheme])
+
+AC_LANG_PUSH(C)
+AC_COMPILE_IFELSE([
+void $acx_fc_char_param_barf(char *name, int *l2, int *l3)
+{
+  printf("%d",*l2);
+}],
+[
+   mv conftest.$ac_objext cfortran_test.$ac_objext
+],
+[
+   ac_cv_[]_AC_LANG_ABBREV[]_char_mangling="unknown"
+])
+AC_LANG_POP(C)
+AC_LANG_PUSH(Fortran)
+AC_COMPILE_IFELSE
+([    program foobar
+        character(len=7) :: str
+        str='my ass'
+        str(7:7)=char(0)
+        call barf(str,42)
+     end program foobar
+ ]
+,
+ [
+   $FC -o conftest$ac_exeext cfortran_test.$ac_objext $conftest$ac_objext 
+   AC_TRY_COMMAND(./conftest$ac_exeext)
+   AC_MSG_RESULT($2)
+ ]
+,
+ [
+ AC_MSG_RESULT("unknown")
+ ])
+AC_LANG_POP(Fortran)
 ])
