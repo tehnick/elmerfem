@@ -736,7 +736,7 @@ uninstall-info: uninstall-info-recursive
 
 
 # libfem$(LIB_EXT)
-all:	 libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
+all:	 mpif.h libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
 
 #
 #
@@ -1131,6 +1131,10 @@ install-exec-local:
 
 clean-local:
 	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so \#*
+
+@USE_MPI_TRUE@mpif.h:
+@USE_MPI_TRUE@	@CP@ mpif_stub.h mpif.h
+@USE_MPI_FALSE@mpif.h:
 
 # static fem lib
 # libfem$(LIB_EXT): $(OBJS)

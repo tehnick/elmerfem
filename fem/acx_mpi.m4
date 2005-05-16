@@ -24,7 +24,7 @@ dnl library is found, and ACTION-IF-NOT-FOUND is a list of commands
 dnl to run it if it is not found.  If ACTION-IF-FOUND is not specified,
 dnl the default action will define HAVE_MPI.
 dnl
-dnl @version $Id: acx_mpi.m4,v 1.4 2005/05/13 09:14:50 vierinen Exp $
+dnl @version $Id: acx_mpi.m4,v 1.5 2005/05/13 13:34:20 vierinen Exp $
 dnl @author Steven G. Johnson <stevenj@alum.mit.edu>
 
 dnl 
@@ -62,6 +62,15 @@ esac
 
 
 if test x"$acx_mpi_ok" != xdisabled; then 
+
+dnl
+dnl look for fortran mpif header
+dnl
+dnl AC_MSG_CHECKING([mpif.h])
+dnl AC_PREPROC_IFELSE([AC_LANG_SOURCE([#include <mpif.h>])],
+dnl		  [ac_header_preproc=yes],
+dnl		  [ac_header_preproc=no])
+dnl AC_MSG_RESULT([$ac_header_preproc])
 
 dnl
 dnl just check for these... we might not needs them anyway :) 

@@ -20,7 +20,7 @@ EXE_EXT=@EXEEXT@
 include make.bin
 
 # libfem$(LIB_EXT)
-all:	 libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
+all:	 mpif.h libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
 
 include make.inc
 
@@ -101,6 +101,8 @@ SC2Elmer_SOURCES = SC2Elmer.c
 if USE_MPI
 mpif.h:
 	@CP@ mpif_stub.h mpif.h
+else
+mpif.h:
 endif
 
 

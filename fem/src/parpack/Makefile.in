@@ -55,7 +55,7 @@ CONFIG_CLEAN_FILES =
 LIBRARIES = $(noinst_LIBRARIES)
 libparpack_a_AR = $(AR) $(ARFLAGS)
 libparpack_a_LIBADD =
-am__libparpack_a_SOURCES_DIST = pcgetv0.f pclarnv.f pcnaitr.f \
+am__libparpack_a_SOURCES_DIST = mpif.h pcgetv0.f pclarnv.f pcnaitr.f \
 	pcnapps.f pcnaup2.f pcnaupd.f pcneigh.f pcneupd.f pcngets.f \
 	pdgetv0.f pdlamch.f pdlarnv.f pdnaitr.f pdnapps.f pdnaup2.f \
 	pdnaupd.f pdneigh.f pdneupd.f pdngets.f pdnorm2.f pdsaitr.f \
@@ -66,7 +66,7 @@ am__libparpack_a_SOURCES_DIST = pcgetv0.f pclarnv.f pcnaitr.f \
 	psseupd.f pssgets.f pzgetv0.f pzlarnv.f pznaitr.f pznapps.f \
 	pznaup2.f pznaupd.f pzneigh.f pzneupd.f pzngets.f debug.h \
 	pcmout.f pcvout.f pdmout.f pdvout.f pivout.f psmout.f psvout.f \
-	pzmout.f pzvout.f stat.h mpif.h
+	pzmout.f pzvout.f stat.h
 am__objects_1 = pcgetv0.$(OBJEXT) pclarnv.$(OBJEXT) pcnaitr.$(OBJEXT) \
 	pcnapps.$(OBJEXT) pcnaup2.$(OBJEXT) pcnaupd.$(OBJEXT) \
 	pcneigh.$(OBJEXT) pcneupd.$(OBJEXT) pcngets.$(OBJEXT) \
@@ -342,7 +342,7 @@ COMMON_SRCS = \
 
 # disable parpack, if it MPI not found
 @USE_MPI_TRUE@noinst_LIBRARIES = libparpack.a
-@USE_MPI_TRUE@libparpack_a_SOURCES = $(COMMON_SRCS)
+@USE_MPI_TRUE@libparpack_a_SOURCES = mpif.h $(COMMON_SRCS)
 all: all-am
 
 .SUFFIXES:
@@ -558,6 +558,8 @@ uninstall-am: uninstall-info-am
 	mostlyclean-generic pdf pdf-am ps ps-am tags uninstall \
 	uninstall-am uninstall-info-am
 
+@USE_MPI_TRUE@mpif.h:
+@USE_MPI_TRUE@	@CP@ mpif_stub.h mpif.h
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

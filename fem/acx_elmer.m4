@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.14 2005/05/13 13:34:20 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.15 2005/05/13 13:50:54 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -366,6 +366,19 @@ else
 fi
 ])dnl ACX_UMFPACK
 
+dnl 
+dnl look for the std c libraries.
+dnl
+AC_DEFUN([ACX_CHECK_STDCLIB],
+[
+AC_REQUIRE([AC_PROG_CXX])
+
+dnl 
+dnl stdc++      (gnu, intel cc)
+dnl Cstd Crun   (sun)
+dnl 
+])
+
 dnl find out the flags that enable 64 bit compilation
 AC_DEFUN([ACX_CHECK_B64FLAGS],
 [
@@ -412,6 +425,7 @@ case "$canonical_host_type" in
   *-*-cygwin* | *-*-mingw*)
   ;;
   *-*-linux* | *-*-gnu*)
+        dnl -M64
 	case "$FC" in
   	  ifort | ifc)
  		;;
@@ -430,7 +444,7 @@ case "$canonical_host_type" in
   sparc-sun-sunos4*)
   ;;
   sparc-sun-solaris2* | i386-pc-solaris2*)
-        B64FLAGS="-xtarget=native64 -xcode=abs64"
+        B64FLAGS="-xtarget=native64 -KPIC"
 	SUN_64BIT_FLAGS=$B64FLAGS
 	case "$FC" in 
 	  mpf* | f*)

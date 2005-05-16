@@ -27,7 +27,7 @@ dnl the default action will define HAVE_BLAS.
 dnl
 dnl This macro requires autoconf 2.50 or later.
 dnl
-dnl @version $Id: acx_blas.m4,v 1.3 2005/05/11 07:05:26 vierinen Exp $
+dnl @version $Id: acx_blas.m4,v 1.2 2005/05/11 13:33:50 vierinen Exp $
 dnl @author Steven G. Johnson <stevenj@alum.mit.edu>
 
 AC_DEFUN([ACX_BLAS], [
@@ -106,7 +106,7 @@ if test $acx_blas_ok = no; then
 	if test "x$GCC" != xyes; then # only works with Sun CC
 		AC_CHECK_LIB(sunmath, acosp,
 			[AC_CHECK_LIB(sunperf, $sgemm,
-        			[BLAS_LIBS="-xlic_lib=sunperf -lsunmath"
+        			[BLAS_LIBS="-lsunperf -lsunmath"
                                  acx_blas_ok=yes],[],[-lsunmath])])
 	fi
 fi
