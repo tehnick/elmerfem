@@ -27,34 +27,23 @@ include make.dep
 # attach to automake all target
 all-local:   mpif $(FOBJ) libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
 
-
-
 SUFFIXES: .f90 .so .F90
 
-##########################
-# Rules for building stuff
-#
-# a bit kludgy way to do the cpp, but hopefully portable enough
-# 
 .f90.F90:
 	@CPP@ @FCPPFLAGS@ $< > $*.F90
 
 .F90.@OBJEXT@:
-	@FC@ @FCFLAGS@ @FCPPFLAGS@ -c $<
+	@FC@ @FCFLAGS@ -c $<
 
-.@OBJEXT@.@SHLEXT@: libsolver$(SHL_EXT)
-	@SH_LD@ @SH_LDFLAGS@ @B64FLAGS@ @SH_LDTOFLAGS@ @SONAME_FLAGS@ -o $@ $*$(OBJ_EXT)  -lsolver -L. @EXTRA_LIBS@
-
-###############################
-# libsolver.so
-#
 libsolver$(SHL_EXT): $(SOLVEROBJS) arpack parpack  
 	@RM@ $@
 	@SH_LD2@ @SH_LDFLAGS@ @B64FLAGS@ @SONAME_FLAGS@ -o $@ $(SOLVEROBJS) @LIBS@ -L.
 
-#########################
-# The executables
-#
+.@OBJEXT@.@SHLEXT@: 
+	@SH_LD@ @SH_LDFLAGS@ @B64FLAGS@ @SH_LDTOFLAGS@ @SONAME_FLAGS@ -o $@ $*$(OBJ_EXT)  -lsolver -L. @EXTRA_LIBS@
+
+$(BINARIES) $(BINARIES_ODD): libsolver$(SHL_EXT)
+
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT) 
 	@SH_LD@ @SH_LDTOFLAGS@ @B64FLAGS@ -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT) @EXTRA_LIBS@
 
@@ -64,9 +53,6 @@ ViewFactors$(EXE_EXT): libsolver$(SHL_EXT) ViewFactors$(OBJ_EXT)
 GebhardtFactors$(EXE_EXT): libsolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT)  
 	@SH_LD@ @SH_LDTOFLAGS@ @B64FLAGS@ -lsolver -o GebhardtFactors$(EXE_EXT) -L. GebhardtFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a  @EXTRA_LIBS@
 
-################################33
-# Local installation rules
-#
 install-exec-local:
 	@echo "Installing stuff to $(prefix),@prefix@"
 	@MKDIR@ @prefix@/lib
@@ -84,18 +70,22 @@ install-exec-local:
 clean-local:
 	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so \#* mpif
 
-####################################
-# Automake knows how to do this
+###############################
+# Automake knows how to do this 
 #
 bin_PROGRAMS = SC2Elmer 
 SC2Elmer_SOURCES = SC2Elmer.c
 
+###############################
+# If no mpi, use local stubs
+#
 if USE_MPI
 mpif:
 	@CP@ mpif_stub.h mpif.h
 	@CP@ mpif_stub.h mpif
 else
 mpif:
+	@CP@ mpif_stub.h mpif.h
 	@CP@ mpif_stub.h mpif
 endif
 

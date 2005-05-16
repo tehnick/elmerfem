@@ -39,7 +39,7 @@ GebhardtFactors.o : GebhardtFactors.F90 ElementDescription.o ModelDescription.o 
 GeneralUtils.o : GeneralUtils.F90 Types.o 
 HashTable.o : HashTable.F90 Lists.o 
 HeatSolve.o : HeatSolve.F90 CoordinateSystems.o ElementDescription.o Types.o DefUtils.o Adaptive.o Radiation.o Differentials.o DiffuseConvectiveGeneralAnisotropic.o DiffuseConvectiveAnisotropic.o 
-HelmholtzBEM.o : HelmholtzBEM.F90 huti_fdefs.h DefUtils.o PoissonBEM.o Types.o 
+HelmholtzBEM.o : HelmholtzBEM.F90  DefUtils.o PoissonBEM.o Types.o 
 HelmholtzSolve.o : HelmholtzSolve.F90 LinearAlgebra.o DefUtils.o 
 IMeshToMesh.o : IMeshToMesh.F90 CoordinateSystems.o CRSMatrix.o Interpolation.o 
 Integration.o : Integration.F90 Types.o 
@@ -56,9 +56,9 @@ MaterialModels.o : MaterialModels.F90 Types.o ModelDescription.o ElementDescript
 MaxwellAxiS.o : MaxwellAxiS.F90 ElementDescription.o Integration.o Types.o 
 Maxwell.o : Maxwell.F90 ElementDescription.o Integration.o 
 MaxwellGeneral.o : MaxwellGeneral.F90 ElementDescription.o Integration.o 
-MEMLumping.o : MEMLumping.F90 DefUtils.o SolverUtils.o ElementDescription.o Integration.o Lists.o Types.o 
-MEMReynolds.o : MEMReynolds.F90 DefUtils.o SolverUtils.o ElementDescription.o Integration.o Lists.o Types.o 
-MEMStatElecReduced.o : MEMStatElecReduced.F90 DefUtils.o ElementUtils.o SolverUtils.o Differentials.o ElementDescription.o Integration.o Lists.o Types.o 
+MEMLumping.o : MEMLumping.F90 DefUtils.o SolverUtils.o ElementDescription.o Integration.o Lists.o Types.o MEMUtilities.o
+MEMReynolds.o : MEMReynolds.F90 DefUtils.o SolverUtils.o ElementDescription.o Integration.o Lists.o Types.o MEMUtilities.o
+MEMStatElecReduced.o : MEMStatElecReduced.F90 DefUtils.o ElementUtils.o SolverUtils.o Differentials.o ElementDescription.o Integration.o Lists.o Types.o MEMUtilities.o
 MEMUtilities.o : MEMUtilities.F90 SolverUtils.o ElementDescription.o Integration.o Lists.o Types.o 
 MeshSolve.o : MeshSolve.F90 DefUtils.o Differentials.o SolverUtils.o CoordinateSystems.o 
 MeshUtils.o : MeshUtils.F90 PElementBase.o PElementMaps.o ParallelUtils.o ElementDescription.o ElementUtils.o 
@@ -67,7 +67,7 @@ MGPrec.o : MGPrec.F90 Multigrid.o
 ModelDescription.o : ModelDescription.F90 HashTable.o Types.o ElementDescription.o MeshUtils.o 
 Multigrid.o : Multigrid.F90 CoordinateSystems.o Interpolation.o ModelDescription.o DirectSolve.o IterSolve.o CRSMatrix.o 
 NavierStokesCylindrical.o : NavierStokesCylindrical.F90 ElementUtils.o Differentials.o Integration.o CoordinateSystems.o 
-NavierStokes.o : NavierStokes.F90 ElementUtils.o Differentials.o Integration.o 
+NavierStokes.o : NavierStokes.F90 ElementUtils.o Differentials.o Integration.o MaterialModels.o
 NavierStokesGeneral.o : NavierStokesGeneral.F90 Differentials.o Integration.o CoordinateSystems.o 
 ParallelEigenSolve.o : ParallelEigenSolve.F90 mpif.h ParallelUtils.o SParIterSolver.o SParIterGlobals.o Multigrid.o IterSolve.o CRSMatrix.o 
 ParallelUtils.o : ParallelUtils.F90 SParIterSolver.o 
@@ -94,10 +94,10 @@ solve_real.o : solve_real.F90
 Solver.o : Solver.F90 GeneralUtils.o Types.o 
 SolverUtils.o : SolverUtils.F90 LinearAlgebra.o EigenSolve.o Types.o ParallelEigenSolve.o SParIterGlobals.o SParIterSolver.o MeshUtils.o ModelDescription.o ParallelUtils.o TimeIntegrate.o ElementUtils.o IterSolve.o Multigrid.o DirectSolve.o 
 SolveSBand.o : SolveSBand.F90 
-SParIterComm.o : SParIterComm.F90 mpif.h huti_fdefs.h GeneralUtils.o SParIterGlobals.o Types.o 
+SParIterComm.o : SParIterComm.F90 mpif.h  GeneralUtils.o SParIterGlobals.o Types.o 
 SParIterGlobals.o : SParIterGlobals.F90 Types.o 
-SParIterPrecond.o : SParIterPrecond.F90 huti_fdefs.h SParIterComm.o SParIterGlobals.o Types.o 
-SParIterSolver.o : SParIterSolver.F90 huti_fdefs.h CRSMatrix.o SParIterPrecond.o SParIterComm.o SParIterGlobals.o Lists.o Types.o 
+SParIterPrecond.o : SParIterPrecond.F90  SParIterComm.o SParIterGlobals.o Types.o 
+SParIterSolver.o : SParIterSolver.F90  CRSMatrix.o SParIterPrecond.o SParIterComm.o SParIterGlobals.o Lists.o Types.o 
 SparseMatrix.o : SparseMatrix.F90 GeneralUtils.o 
 StatCurrentSolve.o : StatCurrentSolve.F90 ElementUtils.o SolverUtils.o DefUtils.o Differentials.o ElementDescription.o Integration.o Lists.o Types.o 
 StatElecReduced.o : StatElecReduced.F90 ElementUtils.o SolverUtils.o Differentials.o ElementDescription.o Integration.o Lists.o Types.o 

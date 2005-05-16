@@ -94,17 +94,17 @@ AUTOMAKE = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run automake-1.9
 AWK = gawk
 B64FLAGS = 
 BLAS_LIBS = -lblas
-CC = gcc
+CC = icc
 CCC = 
 CCDEPMODE = depmode=gcc3
-CFLAGS = -g -O2  -I/tmp/elmer/g95//include -fPIC
+CFLAGS = -O3  -I/tmp/elmer/ifc/include -fPIC
 CP = cp
 CPICFLAG = -fPIC
 CPP = cpp
 CPPFLAGS = 
-CXX = g++
+CXX = icc
 CXXDEPMODE = depmode=gcc3
-CXXFLAGS = -g -O2  -fPIC
+CXXFLAGS = -O3  -fPIC
 CXXPICFLAG = -fPIC
 CYGPATH_W = echo
 DEFS = -DHAVE_CONFIG_H
@@ -119,13 +119,13 @@ EGREP = /bin/grep -E
 EIOF_LIBS = -leiof
 EXEEXT = 
 EXTRA_LIBS = 
-F77 = g77
-FC = g95
-FCFLAGS = -g  -I. -I/tmp/elmer/g95//include -fPIC
-FCLIBS =  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm
-FCPPFLAGS = -traditional-cpp -C -P -I. -I/tmp/elmer/g95//include -DDLLEXPORT="!"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK
-FFLAGS = -g -O2  -fPIC
-FLIBS =  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s
+F77 = ifort
+FC = ifort
+FCFLAGS = -O3  -I. -I/tmp/elmer/ifc/include -fPIC
+FCLIBS =  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s
+FCPPFLAGS = -traditional-cpp -C -P -I. -I/tmp/elmer/ifc/include -DDLLEXPORT="!"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK
+FFLAGS = -O3  -fPIC
+FLIBS =  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s
 FPICFLAG = -fPIC
 GREP = /bin/grep
 HUTI_LIBS = -lhuti
@@ -137,8 +137,8 @@ LAPACK_LIBS = -llapack
 LDFLAGS = 
 LIBEXT = a
 LIBOBJS = 
-LIBS = arpack/libarpack.a  /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a -lhuti -lmatc -leiof -ldl  -L/tmp/elmer/g95//lib -llapack -lblas   -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s -lstdc++
-LIBSOLVER_DEPS =  -L/tmp/elmer/g95//lib
+LIBS = arpack/libarpack.a  /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a -lhuti -lmatc -leiof -ldl  -L/tmp/elmer/ifc/lib -llapack -lblas   -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s -lstdc++
+LIBSOLVER_DEPS =  -L/tmp/elmer/ifc/lib
 LTLIBOBJS = 
 MAINT = #
 MAINTAINER_MODE_FALSE = 
@@ -189,9 +189,9 @@ UMFPACK_LIBS = /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a
 USE_MPI_FALSE = 
 USE_MPI_TRUE = #
 VERSION = 1.0.0
-ac_ct_CC = gcc
-ac_ct_CXX = g++
-ac_ct_F77 = g77
+ac_ct_CC = icc
+ac_ct_CXX = 
+ac_ct_F77 = 
 ac_ct_FC = 
 ac_ct_RANLIB = ranlib
 ac_ct_STRIP = 
@@ -234,7 +234,7 @@ mandir = ${datarootdir}/man
 mkdir_p = mkdir -p --
 oldincludedir = /usr/include
 pdfdir = ${docdir}
-prefix = /tmp/elmer/g95/
+prefix = /tmp/elmer/ifc
 program_transform_name = s,x,x,
 psdir = ${docdir}
 sbindir = ${exec_prefix}/sbin
@@ -931,7 +931,7 @@ GebhardtFactors.o : GebhardtFactors.F90 ElementDescription.o ModelDescription.o 
 GeneralUtils.o : GeneralUtils.F90 Types.o 
 HashTable.o : HashTable.F90 Lists.o 
 HeatSolve.o : HeatSolve.F90 CoordinateSystems.o ElementDescription.o Types.o DefUtils.o Adaptive.o Radiation.o Differentials.o DiffuseConvectiveGeneralAnisotropic.o DiffuseConvectiveAnisotropic.o 
-HelmholtzBEM.o : HelmholtzBEM.F90 huti_fdefs.h DefUtils.o PoissonBEM.o Types.o 
+HelmholtzBEM.o : HelmholtzBEM.F90  DefUtils.o PoissonBEM.o Types.o 
 HelmholtzSolve.o : HelmholtzSolve.F90 LinearAlgebra.o DefUtils.o 
 IMeshToMesh.o : IMeshToMesh.F90 CoordinateSystems.o CRSMatrix.o Interpolation.o 
 Integration.o : Integration.F90 Types.o 
@@ -986,10 +986,10 @@ solve_real.o : solve_real.F90
 Solver.o : Solver.F90 GeneralUtils.o Types.o 
 SolverUtils.o : SolverUtils.F90 LinearAlgebra.o EigenSolve.o Types.o ParallelEigenSolve.o SParIterGlobals.o SParIterSolver.o MeshUtils.o ModelDescription.o ParallelUtils.o TimeIntegrate.o ElementUtils.o IterSolve.o Multigrid.o DirectSolve.o 
 SolveSBand.o : SolveSBand.F90 
-SParIterComm.o : SParIterComm.F90 mpif.h huti_fdefs.h GeneralUtils.o SParIterGlobals.o Types.o 
+SParIterComm.o : SParIterComm.F90 mpif.h  GeneralUtils.o SParIterGlobals.o Types.o 
 SParIterGlobals.o : SParIterGlobals.F90 Types.o 
-SParIterPrecond.o : SParIterPrecond.F90 huti_fdefs.h SParIterComm.o SParIterGlobals.o Types.o 
-SParIterSolver.o : SParIterSolver.F90 huti_fdefs.h CRSMatrix.o SParIterPrecond.o SParIterComm.o SParIterGlobals.o Lists.o Types.o 
+SParIterPrecond.o : SParIterPrecond.F90  SParIterComm.o SParIterGlobals.o Types.o 
+SParIterSolver.o : SParIterSolver.F90  CRSMatrix.o SParIterPrecond.o SParIterComm.o SParIterGlobals.o Lists.o Types.o 
 SparseMatrix.o : SparseMatrix.F90 GeneralUtils.o 
 StatCurrentSolve.o : StatCurrentSolve.F90 ElementUtils.o SolverUtils.o DefUtils.o Differentials.o ElementDescription.o Integration.o Lists.o Types.o 
 StatElecReduced.o : StatElecReduced.F90 ElementUtils.o SolverUtils.o Differentials.o ElementDescription.o Integration.o Lists.o Types.o 
@@ -1013,26 +1013,20 @@ all-local:   mpif $(FOBJ) libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) 
 
 SUFFIXES: .f90 .so .F90
 
-##########################
-# Rules for building stuff
-#
-# a bit kludgy way to do the cpp, but hopefully portable enough
-# 
 .f90.F90:
-	cpp -traditional-cpp -C -P -I. -I/tmp/elmer/g95//include -DDLLEXPORT="!"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK $< > $*.F90
+	cpp -traditional-cpp -C -P -I. -I/tmp/elmer/ifc/include -DDLLEXPORT="!"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK $< > $*.F90
 
 .F90.o:
-	g95 -g  -I. -I/tmp/elmer/g95//include -fPIC -traditional-cpp -C -P -I. -I/tmp/elmer/g95//include -DDLLEXPORT="!"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -c $<
+	ifort -O3  -I. -I/tmp/elmer/ifc/include -fPIC -c $<
 
-.o.so: libsolver$(SHL_EXT)
-	$(FC) -shared   -Wl,-soname -Wl,$@ -o $@ $*$(OBJ_EXT)  -lsolver -L. 
-
-###############################
-# libsolver.so
-#
 libsolver$(SHL_EXT): $(SOLVEROBJS) arpack parpack  
 	rm -f $@
-	$(CXX) -shared  -Wl,-soname -Wl,$@ -o $@ $(SOLVEROBJS) arpack/libarpack.a  /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a -lhuti -lmatc -leiof -ldl  -L/tmp/elmer/g95//lib -llapack -lblas   -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s -lstdc++ -L.
+	$(CXX) -shared  -Wl,-soname -Wl,$@ -o $@ $(SOLVEROBJS) arpack/libarpack.a  /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a -lhuti -lmatc -leiof -ldl  -L/tmp/elmer/ifc/lib -llapack -lblas   -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s -lstdc++ -L.
+
+.o.so: 
+	$(FC) -shared   -Wl,-soname -Wl,$@ -o $@ $*$(OBJ_EXT)  -lsolver -L. 
+
+$(BINARIES) $(BINARIES_ODD): libsolver$(SHL_EXT)
 
 #########################
 # The executables
@@ -1050,18 +1044,18 @@ GebhardtFactors$(EXE_EXT): libsolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT)
 # Local installation rules
 #
 install-exec-local:
-	@echo "Installing stuff to $(prefix),/tmp/elmer/g95/"
-	mkdir -p /tmp/elmer/g95//lib
-	mkdir -p /tmp/elmer/g95//include
-	mkdir -p /tmp/elmer/g95//bin
-	cp ElmerSolver$(EXEEXT) /tmp/elmer/g95//bin
-	cp ElmerSolver$(EXEEXT) /tmp/elmer/g95//bin/Solver$(EXEEXT)
-	cp ViewFactors$(EXEEXT) /tmp/elmer/g95//bin
-	cp GebhardtFactors$(EXEEXT) /tmp/elmer/g95//bin
-	cp *$(SHL_EXT) /tmp/elmer/g95//lib
-	cp *.mod /tmp/elmer/g95//include
-	cp elements.def /tmp/elmer/g95//lib
-	cp SOLVER.KEYWORDS /tmp/elmer/g95//lib
+	@echo "Installing stuff to $(prefix),/tmp/elmer/ifc"
+	mkdir -p /tmp/elmer/ifc/lib
+	mkdir -p /tmp/elmer/ifc/include
+	mkdir -p /tmp/elmer/ifc/bin
+	cp ElmerSolver$(EXEEXT) /tmp/elmer/ifc/bin
+	cp ElmerSolver$(EXEEXT) /tmp/elmer/ifc/bin/Solver$(EXEEXT)
+	cp ViewFactors$(EXEEXT) /tmp/elmer/ifc/bin
+	cp GebhardtFactors$(EXEEXT) /tmp/elmer/ifc/bin
+	cp *$(SHL_EXT) /tmp/elmer/ifc/lib
+	cp *.mod /tmp/elmer/ifc/include
+	cp elements.def /tmp/elmer/ifc/lib
+	cp SOLVER.KEYWORDS /tmp/elmer/ifc/lib
 
 clean-local:
 	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so \#* mpif
@@ -1070,6 +1064,7 @@ clean-local:
 #	cp mpif_stub.h mpif.h
 #	cp mpif_stub.h mpif
 mpif:
+	cp mpif_stub.h mpif.h
 	cp mpif_stub.h mpif
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
