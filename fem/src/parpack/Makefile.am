@@ -66,14 +66,20 @@ COMMON_SRCS =  \
 	psvout.f \
 	pzmout.f \
 	pzvout.f \
-	stat.h \
-	mpif.h
+	stat.h 
+
+EXTRA_DIST=mpif_stub.h
 
 # disable parpack, if it MPI not found
-if USE_MPI
 
+if USE_MPI
 noinst_LIBRARIES = libparpack.a
-libparpack_a_SOURCES = mpif.h $(COMMON_SRCS)
-mpif.h:
+libparpack_a_SOURCES = mpif $(COMMON_SRCS)
+
+mpif:
 	@CP@ mpif_stub.h mpif.h
+	@CP@ mpif_stub.h mpif
+else
+mpif:
+	@CP@ mpif_stub.h mpif
 endif

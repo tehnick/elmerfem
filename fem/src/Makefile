@@ -174,8 +174,8 @@ SHLEXT_VER = $(SHLEXT).$(version)
 SHLLIB = $(SHLEXT)
 SHLLIB_VER = $(SHLLIB).$(version)
 SHLLINKEXT = 
-SH_LD = $(CXX)
-SH_LD2 = g95
+SH_LD = $(FC)
+SH_LD2 = $(CXX)
 SH_LDFLAGS = -shared
 SH_LDTOFLAGS = 
 SONAME_FLAGS = -Wl,-soname -Wl,$@
@@ -379,6 +379,130 @@ OBJS = mpi_stubs$(OBJ_EXT) 				\
 	        RadiationFactors$(OBJ_EXT)                      
 
 SC2Elmer_SOURCES = SC2Elmer.c
+
+# all source files that automake doesn't know about in this directory.
+EXTRA_DIST = \
+	Acoustics.f90 \
+	Adaptive.f90 \
+	AdvectionDiffusion.f90 \
+	ApertureAmplitude.f90 \
+	AplacExport.f90 \
+	ArtificialCompressibility.f90 \
+	BandMatrix.f90 \
+	BandwidthOptimize.f90 \
+	CoordinateSystems.f90 \
+	CPUTime.c \
+	CRSMatrix.f90 \
+	DCRComplexSolve.f90 \
+	DefUtils.f90 \
+	Differentials.f90 \
+	DiffuseConvectiveAnisotropic.f90 \
+	DiffuseConvectiveGeneralAnisotropic.f90 \
+	DirectSolve.f90 \
+	DissipativeHelmholtz.f90 \
+	EigenSolve.f90 \
+	ElasticSolve.f90 \
+	ElectricForce.f90 \
+	Electrokinetics.f90 \
+	ElementDescription.f90 \
+	ElementUtils.f90 \
+	EliminateDirichlet.f90 \
+	EliminatePeriodic.f90 \
+	ElmerSolver.f90 \
+	EnergyRelease.f90 \
+	FDiffusion3D.f90 \
+	FDiffusion.f90 \
+	FindOptimum.f90 \
+	FlowSolve.f90 \
+	FluidicForce.f90 \
+	FreeSurface.f90 \
+	FreeSurfaceReduced.f90 \
+	FreeSurfaceSolver.f90 \
+	GebhardtFactors.f90 \
+	GeneralUtils.f90 \
+	HashTable.f90 \
+	HeatSolve.f90 \
+	HelmholtzBEM.f90 \
+	HelmholtzSolve.f90 \
+	huti_fdefs.h \
+	IMeshToMesh.f90 \
+	Integration.f90 \
+	Interpolation.f90 \
+	IrrotationalVelocity.f90 \
+	IterSolve.f90 \
+	KESolver.f90 \
+	LinearAlgebra.f90 \
+	Lists.f90 \
+	Load.c \
+	LUDecomposition.f90 \
+	MagneticSolve.f90 \
+	MagneticW1Solve.f90 \
+	MainUtils.f90 \
+	MaterialModels.f90 \
+	MaxwellAxiS.f90 \
+	Maxwell.f90 \
+	MaxwellGeneral.f90 \
+	MEMLumping.f90 \
+	MEMReynolds.f90 \
+	MEMStatElecReduced.f90 \
+	MEMUtilities.f90 \
+	MeshSolve.f90 \
+	MeshUtils.f90 \
+	Messages.f90 \
+	MGPrec.f90 \
+	ModelDescription.f90 \
+	mpif_linux.h \
+	mpif_stub.h \
+	mpi_stubs.c \
+	Multigrid.f90 \
+	NavierStokesCylindrical.f90 \
+	NavierStokes.f90 \
+	NavierStokesGeneral.f90 \
+	ParallelEigenSolve.f90 \
+	ParallelUtils.f90 \
+	PElementBase.f90 \
+	PElementMaps.f90 \
+	PhaseChange.f90 \
+	PoissonBEM.f90 \
+	PoissonBoltzmannSolve.f90 \
+	Radiation.f90 \
+	RadiationFactors.f90 \
+	RateOfChange.f90 \
+	ReloadInput.f90 \
+	ResultToPost.f90 \
+	ResultToResult.f90 \
+	ReynoldsEquation.f90 \
+	ReynoldsUtilities.f90 \
+	RigidBodyReduction.f90 \
+	SaveData.f90 \
+	ShearWave.f90 \
+	Smitc.f90 \
+	SolveBand.f90 \
+	solve_cmplx.f90 \
+	solve.f90 \
+	solve_real.f90 \
+	Solver.f90 \
+	SolverUtils.f90 \
+	SolveSBand.f90 \
+	SParIterComm.f90 \
+	SParIterGlobals.f90 \
+	SParIterPrecond.f90 \
+	SParIterSolver.f90 \
+	SparseMatrix.f90 \
+	StatCurrentSolve.f90 \
+	StatElecReduced.f90 \
+	StatElecSolve.f90 \
+	StatMagSolve.f90 \
+	StreamSolver.f90 \
+	Stress.f90 \
+	StressGeneral.f90 \
+	StressSolve.f90 \
+	TimeIntegrate.f90 \
+	TransportEquation.f90 \
+	Types.f90 \
+	ViewFactors.f90 \
+	Walls.f90 
+
 all: all-recursive
 
 .SUFFIXES:
@@ -638,7 +762,7 @@ distdir: $(DISTFILES)
 	done
 check-am: all-am
 check: check-recursive
-all-am: Makefile $(PROGRAMS)
+all-am: Makefile $(PROGRAMS) all-local
 installdirs: installdirs-recursive
 installdirs-am:
 	for dir in "$(DESTDIR)$(bindir)"; do \
@@ -719,8 +843,8 @@ uninstall-am: uninstall-binPROGRAMS uninstall-info-am
 
 uninstall-info: uninstall-info-recursive
 
-.PHONY: $(RECURSIVE_TARGETS) CTAGS GTAGS all all-am check check-am \
-	clean clean-binPROGRAMS clean-generic clean-local \
+.PHONY: $(RECURSIVE_TARGETS) CTAGS GTAGS all all-am all-local check \
+	check-am clean clean-binPROGRAMS clean-generic clean-local \
 	clean-recursive ctags ctags-recursive distclean \
 	distclean-compile distclean-generic distclean-recursive \
 	distclean-tags distdir dvi dvi-am html html-am info info-am \
@@ -735,8 +859,8 @@ uninstall-info: uninstall-info-recursive
 	uninstall-binPROGRAMS uninstall-info-am
 
 
-# libfem$(LIB_EXT)
-all:	 mpif.h libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
+# attach to automake all target
+all-local:	 mpif libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
 
 #
 #
@@ -1091,26 +1215,26 @@ SUFFIXES: .f90 .so
 	cp $< $*.fpp
 	cpp -traditional-cpp -C -P -I. -I/tmp/elmer/g95/include -DDLLEXPORT="!"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK $*.fpp > $*.F90
 	g95 -g  -I. -I/tmp/elmer/g95/include -fPIC -c $*.F90
-	g95 -shared   -Wl,-soname -Wl,$@ -o $@ $*$(OBJ_EXT)  -lsolver -L. 
+	$(FC) -shared   -Wl,-soname -Wl,$@ -o $@ $*$(OBJ_EXT)  -lsolver -L. 
 
 ###############################
 # libsolver.so
 #
 libsolver$(SHL_EXT): ElmerSolver$(OBJ_EXT) $(OBJS) arpack parpack
 	rm -f $@
-	$(CXX) -shared  -Wl,-soname -Wl,$@ -o $@ ElmerSolver$(OBJ_EXT) $(OBJS) arpack/libarpack.a  /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a -lhuti -lmatc -leiof -ldl  -L/tmp/elmer/g95/lib -llapack -lblas   -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s -lstdc++ -L. 
+	$(CXX) -shared  -Wl,-soname -Wl,$@ -o $@ ElmerSolver$(OBJ_EXT) $(OBJS) arpack/libarpack.a  /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a -lhuti -lmatc -leiof -ldl  -L/tmp/elmer/g95/lib -llapack -lblas   -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s -lstdc++ -L.
 
 #########################
 # The executables
 #
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
-	g95   -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT) 
+	$(FC)   -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT) 
 
 ViewFactors$(EXE_EXT): libsolver$(SHL_EXT) ViewFactors$(OBJ_EXT)
-	g95   -lsolver -o ViewFactors$(EXE_EXT) -L. ViewFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a  
+	$(FC)   -lsolver -o ViewFactors$(EXE_EXT) -L. ViewFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a  
 
 GebhardtFactors$(EXE_EXT): libsolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT)
-	g95   -lsolver -o GebhardtFactors$(EXE_EXT) -L. GebhardtFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a  
+	$(FC)   -lsolver -o GebhardtFactors$(EXE_EXT) -L. GebhardtFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a  
 
 ################################33
 # Local installation rules
@@ -1132,15 +1256,11 @@ install-exec-local:
 clean-local:
 	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so \#*
 
-#mpif.h:
+#mpif:
 #	cp mpif_stub.h mpif.h
-mpif.h:
-
-# static fem lib
-# libfem$(LIB_EXT): $(OBJS)
-#	rm -f $@
-#	$(AR) rc $@ $(OBJS) 
-#	ranlib $@
+#	cp mpif_stub.h mpif
+mpif:
+	cp mpif_stub.h mpif
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

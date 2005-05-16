@@ -1,5 +1,7 @@
 SUBDIRS=arpack parpack view3d viewaxis
 
+
+
 #*******************************************************************************
 # Elmer Makefile.in 
 #
@@ -19,8 +21,9 @@ EXE_EXT=@EXEEXT@
 
 include make.bin
 
-# libfem$(LIB_EXT)
-all:	 mpif.h libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
+# attach to automake all target
+all-local:	 mpif libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
+
 
 include make.inc
 
@@ -99,16 +102,134 @@ bin_PROGRAMS = SC2Elmer
 SC2Elmer_SOURCES = SC2Elmer.c
 
 if USE_MPI
-mpif.h:
+mpif:
 	@CP@ mpif_stub.h mpif.h
+	@CP@ mpif_stub.h mpif
 else
-mpif.h:
+mpif:
+	@CP@ mpif_stub.h mpif
 endif
 
 
-# static fem lib
-# libfem$(LIB_EXT): $(OBJS)
-#	@RM@ $@
-#	@TEMPLATE_AR@ @TEMPLATE_ARFLAGS@ $@ $(OBJS) 
-#	@RANLIB@ $@
-
+# all source files that automake doesn't know about in this directory.
+EXTRA_DIST = \
+	Acoustics.f90 \
+	Adaptive.f90 \
+	AdvectionDiffusion.f90 \
+	ApertureAmplitude.f90 \
+	AplacExport.f90 \
+	ArtificialCompressibility.f90 \
+	BandMatrix.f90 \
+	BandwidthOptimize.f90 \
+	CoordinateSystems.f90 \
+	CPUTime.c \
+	CRSMatrix.f90 \
+	DCRComplexSolve.f90 \
+	DefUtils.f90 \
+	Differentials.f90 \
+	DiffuseConvectiveAnisotropic.f90 \
+	DiffuseConvectiveGeneralAnisotropic.f90 \
+	DirectSolve.f90 \
+	DissipativeHelmholtz.f90 \
+	EigenSolve.f90 \
+	ElasticSolve.f90 \
+	ElectricForce.f90 \
+	Electrokinetics.f90 \
+	ElementDescription.f90 \
+	ElementUtils.f90 \
+	EliminateDirichlet.f90 \
+	EliminatePeriodic.f90 \
+	ElmerSolver.f90 \
+	EnergyRelease.f90 \
+	FDiffusion3D.f90 \
+	FDiffusion.f90 \
+	FindOptimum.f90 \
+	FlowSolve.f90 \
+	FluidicForce.f90 \
+	FreeSurface.f90 \
+	FreeSurfaceReduced.f90 \
+	FreeSurfaceSolver.f90 \
+	GebhardtFactors.f90 \
+	GeneralUtils.f90 \
+	HashTable.f90 \
+	HeatSolve.f90 \
+	HelmholtzBEM.f90 \
+	HelmholtzSolve.f90 \
+	huti_fdefs.h \
+	IMeshToMesh.f90 \
+	Integration.f90 \
+	Interpolation.f90 \
+	IrrotationalVelocity.f90 \
+	IterSolve.f90 \
+	KESolver.f90 \
+	LinearAlgebra.f90 \
+	Lists.f90 \
+	Load.c \
+	LUDecomposition.f90 \
+	MagneticSolve.f90 \
+	MagneticW1Solve.f90 \
+	MainUtils.f90 \
+	MaterialModels.f90 \
+	MaxwellAxiS.f90 \
+	Maxwell.f90 \
+	MaxwellGeneral.f90 \
+	MEMLumping.f90 \
+	MEMReynolds.f90 \
+	MEMStatElecReduced.f90 \
+	MEMUtilities.f90 \
+	MeshSolve.f90 \
+	MeshUtils.f90 \
+	Messages.f90 \
+	MGPrec.f90 \
+	ModelDescription.f90 \
+	mpif_linux.h \
+	mpif_stub.h \
+	mpi_stubs.c \
+	Multigrid.f90 \
+	NavierStokesCylindrical.f90 \
+	NavierStokes.f90 \
+	NavierStokesGeneral.f90 \
+	ParallelEigenSolve.f90 \
+	ParallelUtils.f90 \
+	PElementBase.f90 \
+	PElementMaps.f90 \
+	PhaseChange.f90 \
+	PoissonBEM.f90 \
+	PoissonBoltzmannSolve.f90 \
+	Radiation.f90 \
+	RadiationFactors.f90 \
+	RateOfChange.f90 \
+	ReloadInput.f90 \
+	ResultToPost.f90 \
+	ResultToResult.f90 \
+	ReynoldsEquation.f90 \
+	ReynoldsUtilities.f90 \
+	RigidBodyReduction.f90 \
+	SaveData.f90 \
+	ShearWave.f90 \
+	Smitc.f90 \
+	SolveBand.f90 \
+	solve_cmplx.f90 \
+	solve.f90 \
+	solve_real.f90 \
+	Solver.f90 \
+	SolverUtils.f90 \
+	SolveSBand.f90 \
+	SParIterComm.f90 \
+	SParIterGlobals.f90 \
+	SParIterPrecond.f90 \
+	SParIterSolver.f90 \
+	SparseMatrix.f90 \
+	StatCurrentSolve.f90 \
+	StatElecReduced.f90 \
+	StatElecSolve.f90 \
+	StatMagSolve.f90 \
+	StreamSolver.f90 \
+	Stress.f90 \
+	StressGeneral.f90 \
+	StressSolve.f90 \
+	TimeIntegrate.f90 \
+	TransportEquation.f90 \
+	Types.f90 \
+	ViewFactors.f90 \
+	Walls.f90 
