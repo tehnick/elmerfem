@@ -107,32 +107,34 @@ if __name__ == "__main__":
 
 
     modtofile = {}
-    usedbyfile = {}
+    fileuses = {}
+    files=[]
     
     for f in sys.argv[1:]:
         sys.stderr.write(f + "...\n")   
         (um,dm)=p.parseFile(f)
-        oname=f
-        for module in dm:
-            modtofile[module]=oname
 
-        used=[]
-        usedbyfile[oname]=used
+        for module in dm:
+            modtofile[module]=f
+        
+        uses=[]
+        fileuses[f]=uses
+
+        files.append(f)
 
         for module in um:
-            used.append(module)
+            uses.append(module)
             
-    for k in modtofile:
-        file=modtofile[k]
-        object=p.getObjectName(file)
+    for f in files:
+        object=p.getObjectName(f)
 
-        line= object + ": " + file
+        line= object + ": " + f
 
-        for used in usedbyfile[file]:
-            if modtofile.has_key(used):
-                line=line + " " + p.getObjectName(modtofile[used])
+        for use in fileuses[f]:
+            if modtofile.has_key(use):
+                line=line + " " + p.getObjectName(modtofile[use])
             else:
-                sys.stderr.write("Warning, module "+used+" undefined\n")
+                sys.stderr.write("Warning, module "+use+" undefined\n")
         print line
     
 
