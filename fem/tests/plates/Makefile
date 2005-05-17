@@ -1,8 +1,8 @@
 # Reissner-Mindlin plate (Smitc) test in 2D
 #
 run:
-	$(ELMER_HOME)/bin/ElmerGrid 1 2 plates
-	$(ELMER_HOME)/bin/Solver
+	$(ELMER_GRID) 1 2 plates
+	$(ELMER_SOLVER)
 
 clean:
 	/bin/rm test.log temp.log mon.out

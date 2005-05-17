@@ -1,8 +1,8 @@
 # Transient advection-diffusion test with diffusion through material interface
 #
 run:
-	$(ELMER_HOME)/bin/ElmerGrid 1 2 Step2
-	$(ELMER_HOME)/bin/Solver
+	$(ELMER_GRID) 1 2 Step2
+	$(ELMER_SOLVER)
 
 
 clean:

@@ -13,7 +13,7 @@
 run:
 	$(F90) -c Stokes.f90
 	$(LD) -o Stokes$(SHL_EXT) Stokes.o $(LIBS)
-	$(ELMER_HOME)/bin/Solver
+	$(ELMER_SOLVER)
 
 clean:
 	/bin/rm test.log temp.log mon.out Stokes$(SHL_EXT) Stokes.o so_locations

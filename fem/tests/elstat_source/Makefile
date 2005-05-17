@@ -1,8 +1,8 @@
 # Electrostatics with a source term
 #
 run:
-	$(ELMER_HOME)/bin/ElmerGrid 1 2 Step
-	$(ELMER_HOME)/bin/Solver
+	$(ELMER_GRID) 1 2 Step
+	$(ELMER_SOLVER)
 
 
 clean:

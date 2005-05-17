@@ -3,7 +3,7 @@
 run:
 	$(F90) -c BentoniteSolver.f90
 	$(LD) -o BentoniteSolver$(SHL_EXT) BentoniteSolver.o $(LIBS)
-	$(ELMER_HOME)/bin/Solver
+	$(ELMER_SOLVER)
 
 
 clean:

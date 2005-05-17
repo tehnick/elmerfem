@@ -1,8 +1,8 @@
 # Test for rotating elasticity matrix
 #
 run:
-	$(ELMER_HOME)/bin/ElmerGrid 1 2 beam3d
-	$(ELMER_HOME)/bin/Solver
+	$(ELMER_GRID) 1 2 beam3d
+	$(ELMER_SOLVER)
 
 
 clean:

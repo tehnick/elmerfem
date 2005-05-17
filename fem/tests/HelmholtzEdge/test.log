@@ -1,98 +1,56 @@
-ifc -I/tmp/elmer/ifc/include -c Hrot.f90
-ifc: warning: The Intel Fortran driver is now named ifort.  You can suppress this message with '-quiet'
-fortcom: Error: Hrot.f90, line 35: Error in opening the Library module file.   [DEFUTILS]
-  USE DefUtils
-------^
-fortcom: Error: Hrot.f90, line 39: This derived type name has not been declared.   [SOLVER_T]
-  TYPE(Solver_t) :: Solver
--------^
-fortcom: Error: Hrot.f90, line 40: This derived type name has not been declared.   [MODEL_T]
-  TYPE(Model_t) :: Model
--------^
-fortcom: Error: Hrot.f90, line 42: A kind type parameter must be a compile-time constant.   [DP]
-  REAL(KIND=dp) :: dt
-------------^
-fortcom: Error: Hrot.f90, line 48: This derived type name has not been declared.   [ELEMENT_T]
-  TYPE(Element_t),POINTER :: Element, Edge, Parent
--------^
-fortcom: Error: Hrot.f90, line 49: This derived type name has not been declared.   [NODES_T]
-  TYPE(Nodes_t) :: Nodes, EdgeNodes
--------^
-fortcom: Error: Hrot.f90, line 50: This derived type name has not been declared.   [VALUELIST_T]
-  TYPE(ValueList_t), POINTER :: BodyForce, Material, BC
--------^
-fortcom: Error: Hrot.f90, line 51: This derived type name has not been declared.   [VARIABLE_T]
-  TYPE(Variable_t), POINTER :: Var
--------^
-fortcom: Error: Hrot.f90, line 53: A kind type parameter must be a compile-time constant.   [DP]
-  REAL(KIND=dp) :: Norm, Normal(3), Normal2(3), &
-------------^
-fortcom: Error: Hrot.f90, line 58: A kind type parameter must be a compile-time constant.   [DP]
-  REAL(KIND=dp),    ALLOCATABLE :: LOAD(:,:), Acoef(:,:), Bcoef(:,:)
-------------^
-fortcom: Error: Hrot.f90, line 59: A kind type parameter must be a compile-time constant.   [DP]
-  COMPLEX(KIND=dp), ALLOCATABLE :: STIFF(:,:), MASS(:,:), FORCE(:)
----------------^
-fortcom: Info: Hrot.f90, line 2: DLL IMPORT/EXPORT is not supported on this platform.   [DLLEXPORT]
-!DEC$ATTRIBUTES DLLEXPORT :: HrotSolver
-----------------^
-fortcom: Error: Hrot.f90, line 189: A kind type parameter must be a compile-time constant.   [DP]
-    REAL(KIND=dp) :: LOAD(:,:), Acoef(:,:)
---------------^
-fortcom: Error: Hrot.f90, line 190: A kind type parameter must be a compile-time constant.   [DP]
-    COMPLEX(KIND=dp) :: STIFF(:,:), FORCE(:), MASS(:,:)
------------------^
-fortcom: Error: Hrot.f90, line 192: This derived type name has not been declared.   [ELEMENT_T]
-    TYPE(Element_t), POINTER :: Element
----------^
-fortcom: Error: Hrot.f90, line 194: A kind type parameter must be a compile-time constant.   [DP]
-    REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3),ddBasisddx(nd,3,3),DetJ,L1,L2
---------------^
-fortcom: Error: Hrot.f90, line 195: A kind type parameter must be a compile-time constant.   [DP]
-    REAL(KIND=dp) :: WhitneyBasis(3,2), RotWhitneyBasis(3), A1, A2
---------------^
-fortcom: Error: Hrot.f90, line 198: This derived type name has not been declared.   [GAUSSINTEGRATIONPOINTS_T]
-    TYPE(GaussIntegrationPoints_t) :: IP
----------^
-fortcom: Error: Hrot.f90, line 200: This derived type name has not been declared.   [NODES_T]
-    TYPE(Nodes_t) :: Nodes
----------^
-fortcom: Error: Hrot.f90, line 187: This name does not have a type, and must have an explicit type.   [ELEMENT]
-  SUBROUTINE LocalMatrix(  STIFF, MASS, FORCE, LOAD, Acoef, Element, n, nd )
-------------------------------------------------------------^
-fortcom: Error: Hrot.f90, line 252: A kind type parameter must be a compile-time constant.   [DP]
-    REAL(KIND=dp) :: u, v, w, Ratkaisu(2), Ratkaisu2(2), WhitneyBasis(3,2), &
---------------^
-fortcom: Error: Hrot.f90, line 346: This derived type name has not been declared.   [SOLVER_T]
-     TYPE(Solver_t), OPTIONAL, TARGET :: USolver
-----------^
-fortcom: Error: Hrot.f90, line 348: This derived type name has not been declared.   [MATRIX_T]
-     TYPE(Matrix_t), POINTER   :: A
-----------^
-fortcom: Error: Hrot.f90, line 349: This derived type name has not been declared.   [VARIABLE_T]
-     TYPE(Variable_t), POINTER :: x
-----------^
-fortcom: Error: Hrot.f90, line 350: This derived type name has not been declared.   [SOLVER_T]
-     TYPE(Solver_t), POINTER :: Solver
-----------^
-fortcom: Error: Hrot.f90, line 351: A kind type parameter must be a compile-time constant.   [DP]
-     REAL(KIND=dp), POINTER    :: b(:)
----------------^
-fortcom: Error: Hrot.f90, line 353: A kind type parameter must be a compile-time constant.   [DP]
-     REAL(KIND=dp) :: xx
----------------^
-fortcom: Error: Hrot.f90, line 355: This derived type name has not been declared.   [VALUELIST_T]
-     TYPE(ValueList_t), POINTER :: BC
-----------^
-fortcom: Error: Hrot.f90, line 356: This derived type name has not been declared.   [ELEMENT_T]
-     TYPE(Element_t), POINTER :: Element, Parent, Edge, Face, SaveElement
-----------^
-fortcom: Error: Hrot.f90, line 362: A kind type parameter must be a compile-time constant.   [DP]
-     REAL(KIND=dp) :: BoundaryData(2), Edgeh
----------------^
-fortcom: Error: Hrot.f90, line 342: This name does not have a type, and must have an explicit type.   [USOLVER]
- SUBROUTINE MyDirichletBCs( USolver )
-----------------------------^
-fortcom: Severe: Too many errors, exiting
-compilation aborted for Hrot.f90 (code 1)
-make: *** [run] Error 1
+mpf95 -M. -M/wrk/vierinen/sun/v9/include -g -I. -I/wrk/vierinen/sun/v9/include -KPIC -c Hrot.f90
+mpf95 -G -o Hrot.so Hrot.o 
+../../src/elmergrid/ElmerGrid 1 2 square.grd -triangles
+
+Starting program Elmergrid
+Elmergrid reading in-line arguments
+The rectangles will be split to triangles.
+Output will be saved to file square.
+
+Elmergrid loading data:
+Loading the geometry from file 'square.grd'.
+Loading ElmerGrid file version: 210903
+Defining the coordinate system (2-DIM).
+Loading [3] subcell limits in X-direction
+Loading [3] subcell limits in Y-direction
+Loading material structure
+End of field
+Loading boundary conditions
+Found 4 boundaries
+Unknown command: ADVANCED ELEMENTS
+End of field
+Loading minimum number of elements
+Reached the end of command file
+Found 1 divisions for grid
+SetElementDivision
+The mesh is devided into 1 separate subcells.
+Created 95 radial and 96 axial divisions, total of 1024 elements.
+Loading ElmerGrid commands from file 'square.grd'.
+Loading advanced element definitions
+Found 1 definitions for p-elements.
+Reached the end of command file
+Read commands from a file
+
+Elmergrid creating and manipulating meshes:
+1 cells were created.
+Numbered 1089 knots in 1024 4-node elements.
+Numbering order was <x><y> and max levelwidth 35.
+Maximum elementsize is 3.125e-02 and minimum 3.125e-02.
+32 element sides between materials 2 and 1 were located to type 1.
+32 element sides between materials 3 and 1 were located to type 2.
+32 element sides between materials 4 and 1 were located to type 3.
+32 element sides between materials 5 and 1 were located to type 4.
+The mesh was reconstructed from 2048 triangles
+Setting element of material 1 to have advanced settings [0 1 0 0 0]
+Creating advanced elements finished
+
+Elmergrid saving data:
+Saving mesh in ElmerSolver format to directory square.
+Saving 1089 coordinates to mesh.nodes.
+Saving 2048 element topologies to mesh.elements.
+Saving boundary elements to mesh.boundary.
+Saving header info to mesh.header.
+
+Thank you for using Elmergrid!
+Send bug reports and feature wishes to Peter Råback, raback@csc.fi
+../../src/ElmerSolver

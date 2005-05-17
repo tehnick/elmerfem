@@ -1,58 +1,72 @@
-#!/bin/csh -f
+#!/bin/sh
 #
 # Autoconf substitutes @VAR@ definitions to come up with a 
 # semi-valid test script
 # 
-set SHL_EXT = ".so"
-set OBJ_EXT = ".o"
+if test "$SHL_EXT" = ""; then
+    export SHL_EXT=".so"
+fi
+if test "$OBJ_EXT" = ""; then
+    export OBJ_EXT=".o"
+fi
+if test "$ELMER_HOME" = ""; then
+    # assume that we are testing local version
+    printf "\$ELMER_HOME undefined, setting it to ../src\n"
+    export ELMER_HOME="../../src"
+    export ELMER_LIB="../../src"
+    export ELMER_GRID="../../src/elmergrid/ElmerGrid"
+    export ELMER_SOLVER="../../src/ElmerSolver"
+    export LD_LIBRARY_PATH=".:$ELMER_HOME:$LD_LIBRARY_PATH"
+else 
+    # ELMER_HOME is defined, so we'll just use that
+    printf "\$ELMER_HOME=%s\n" $ELMER_HOME
+    export ELMER_LIB="$ELMER_HOME/lib"
+    export ELMER_GRID="$ELMER_HOME/bin/ElmerGrid"
+    export ELMER_SOLVER="$ELMER_HOME/bin/ElmerSolver"
+    export LD_LIBRARY_PATH=".:$ELMER_HOME/lib:$LD_LIBRARY_PATH"
+fi
 
-set ELMER_HOME = "/tmp/elmer/ifc"
-setenv LD_LIBRARY_PATH=$ELMER_HOME/lib:.:$LD_LIBRARY_PATH
-
-set F90  = "ifort -I. -I/tmp/elmer/ifc/include -g  -I. -I/tmp/elmer/ifc/include -fPIC"
-set LD   = "ifort -shared"
-set LIBS = ""
+export F90="mpf95 -M. -M/wrk/vierinen/sun/v9/include -g -I. -I/wrk/vierinen/sun/v9/include -KPIC"
+export LD="mpf95 -G"
+export LIBS=""
 
 cc -o findnorm findnorm.c
 cc -o compare compare.c -lm
 chmod 775 findnorm compare
 
-if ( $1 == "" ) then
-   set dirs = *
+total=0
+passed=0
+
+if test "$1" == ""; then
+   dirs=`find . -type d |sed -e 's/\// /g' |gawk '{print $2}' |uniq |grep -v CVS`
 else
-   set dirs = "$*"
-endif
+   dirs="$*"
+fi
 
-@ total  = 0
-@ passed = 0
+for dir in $dirs; do
 
-foreach dir ( $dirs )
-   if ( -d $dir ) then
-      @ total++
-      set ccwd = `pwd`
+      total=`expr $total + 1`
+      cwd=`pwd`
       cd $dir
-      echo -n "testing: " $dir
-      make "SHL_EXT=$SHL_EXT" "F90=$F90" "LD=$LD" "LIBS=$LIBS" >&! test.log
+      printf "testing:  %20s " $dir
+      make  > test.log 2>&1
 
-      set success = `grep "ALL DONE" test.log | wc -l`
-      if ( $success ) then
-         set orig_norm = `cat TEST.RESULT`
-         grep "(NRM,RELC)" test.log >! temp.log
-         set res_norm = `../findnorm temp.log`
-         set success  = `../compare $res_norm $orig_norm`
-      endif
+      success=`grep "ALL DONE" test.log | wc -l`
+      if test $success -ge 1; then
+	  correctResult=`cat TEST.RESULT`
+	  grep "(NRM,RELC)" test.log > temp.log
+	  resultNorm=`../findnorm temp.log`
+	  success=`../compare $resultNorm $correctResult`
+      fi
 
-      if ( $success ) then
-         @ passed++
-         echo "			[PASSED]"
-         make -i clean >&! /dev/null
+      if test $success -ge 1; then
+	  passed=`expr $passed + 1`
+          printf "			[PASSED]\n"
+	  make -i clean > /dev/null 2>&1
       else
-         echo " [FAILED] look at $dir/test.log for details"
-      endif
-      chmod -R 775 * >&! /dev/null
-      cd $ccwd
-   endif
-end
+          printf " [FAILED] look at %20s/test.log for details\n" $dir
+      fi
+      cd $cwd
+done
 
-#/bin/rm -f running_runtests
 echo "Tests completed, passed: $passed out of total $total tests"

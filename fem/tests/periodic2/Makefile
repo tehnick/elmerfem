@@ -1,8 +1,8 @@
 # A periodic boundary condition test
 #
 run:
-	$(ELMER_HOME)/bin/ElmerGrid 1 2 test
-	$(ELMER_HOME)/bin/ElmerSolver
+	$(ELMER_GRID) 1 2 test
+	$(ELMER_SOLVER)
 
 
 clean:

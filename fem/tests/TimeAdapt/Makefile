@@ -1,7 +1,7 @@
 # Test adaptive time integration / runge-kutta time stepping
 #
 run:
-	$(ELMER_HOME)/bin/Solver
+	$(ELMER_SOLVER)
 
 
 clean:

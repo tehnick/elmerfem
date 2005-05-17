@@ -3,8 +3,8 @@
 run:
 	$(F90) -c Helmholtz.f90
 	$(LD) -o Helmholtz$(SHL_EXT) Helmholtz.o $(LIBS)
-	$(ELMER_HOME)/bin/ElmerGrid 1 2 square.grd -triangles
-	$(ELMER_HOME)/bin/Solver
+	$(ELMER_GRID) 1 2 square.grd -triangles
+	$(ELMER_SOLVER)
 
 
 clean:

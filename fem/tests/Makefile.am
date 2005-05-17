@@ -1,52 +1,5 @@
-SUBDIRS= \
-	1dtests \
-	1sttime \
-	2ndtime \
-	acoustics \
-	adaptivity1 \
-	adaptivity2 \
-	adv_diff1 \
-	adv_diff2 \
-	adv_diff3 \
-	adv_diff4 \
-	AdvReactDG \
-	beam-springs \
-	bentonite \
-	buckling \
-	coating \
-	el_adaptivity \
-	elasticity \
-	elstat \
-	elstat_source \
-	freesurf \
-	fsi_beam \
-	geomstiff \
-	gmultg \
-	heateq \
-	heateq-par \
-	HeatGap \
-	HelmholtzBEM \
-	HelmholtzEdge \
-	HelmholtzFace \
-	HelmholtzFEM \
-	periodic1 \
-	periodic2 \
-	phase \
-	piezo \
-	plates \
-	PoissonBEM \
-	PoissonDG \
-	PoissonPFEM \
-	PorousPipe \
-	radiation \
-	radiation2 \
-	rgdblock \
-	rot_aniso \
-	StaticMag \
-	Step_ke \
-	Step_ns \
-	StokesPFEM \
-	StokesProj \
-	streamlines \
-	ThermalCompress \
-	TimeAdapt 
+TESTS = 1dtests 
+
+
+1dtests:
+	sh runtests 1dtests

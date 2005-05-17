@@ -3,8 +3,8 @@
 run:
 	$(F90) -c FsiStuff.f90
 	$(LD) -o FsiStuff$(SHL_EXT) FsiStuff.o $(LIBS)
-	$(ELMER_HOME)/bin/ElmerGrid 1 2 fsi
-	$(ELMER_HOME)/bin/Solver
+	$(ELMER_GRID) 1 2 fsi
+	$(ELMER_SOLVER)
 
 clean:
 	/bin/rm FsiStuff.o FsiStuff$(SHL_EXT) test.log temp.log mon.out so_locations

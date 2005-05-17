@@ -1,7 +1,7 @@
 # A simple heat equation test
 #
 run:
-	$(ELMER_HOME)/bin/Solver
+	$(ELMER_SOLVER)
 
 
 clean:

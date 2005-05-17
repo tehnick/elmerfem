@@ -1,8 +1,8 @@
 # Streamline solver test
 #
 run:
-	$(ELMER_HOME)/bin/ElmerGrid 1 2 step
-	$(ELMER_HOME)/bin/Solver
+	$(ELMER_GRID) 1 2 step
+	$(ELMER_SOLVER)
 
 
 clean:

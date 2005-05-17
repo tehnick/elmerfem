@@ -2,8 +2,8 @@
 #
 
 run:
-	$(ELMER_HOME)/bin/ElmerGrid 1 2 Ldomain
-	$(ELMER_HOME)/bin/Solver
+	$(ELMER_GRID) 1 2 Ldomain
+	$(ELMER_SOLVER)
 
 clean:
 	/bin/rm test.log temp.log fort.12 mon.out

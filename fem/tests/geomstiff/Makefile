@@ -2,8 +2,8 @@
 #
 run:
 	$(F90) check.f90 -o check
-	$(ELMER_HOME)/bin/ElmerGrid 1 2 geomstiff
-	$(ELMER_HOME)/bin/Solver
+	$(ELMER_GRID) 1 2 geomstiff
+	$(ELMER_SOLVER)
 	grep -i '(' test.log > out2.txt
 	grep -i 'eigen' out2.txt > out3.txt
 	./check

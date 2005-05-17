@@ -4,7 +4,7 @@ run:
 	$(F90) -c TimeIntegrate.f90 Source.f90
 	$(LD) -o TimeIntegrate$(SHL_EXT) TimeIntegrate.o $(LIBS)
 	$(LD) -o Source$(SHL_EXT) Source.o $(LIBS)
-	$(ELMER_HOME)/bin/Solver
+	$(ELMER_SOLVER)
 
 
 clean:

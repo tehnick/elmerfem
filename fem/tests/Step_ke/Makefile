@@ -1,8 +1,8 @@
 # Backward facing step / k-epsilon model test
 #
 run:
-	$(ELMER_HOME)/bin/ElmerGrid 1 2 Step_ke;
-	$(ELMER_HOME)/bin/ElmerSolver
+	$(ELMER_GRID) 1 2 Step_ke;
+	$(ELMER_SOLVER)
 
 clean:
 	/bin/rm test.log temp.log mon.out

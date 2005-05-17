@@ -1,8 +1,8 @@
 # Electrostatics module test
 #
 run:
-	$(ELMER_HOME)/bin/ElmerGrid 1 2 elmesh
-	$(ELMER_HOME)/bin/Solver
+	$(ELMER_GRID) 1 2 elmesh
+	$(ELMER_SOLVER)
 
 
 clean:

@@ -1,8 +1,8 @@
 # heat radiation test
 #
 run:
-	$(ELMER_HOME)/bin/ElmerGrid 1 2 Pipe
-	$(ELMER_HOME)/bin/ElmerSolver
+	$(ELMER_GRID) 1 2 Pipe
+	$(ELMER_SOLVER)
 
 clean:
 	/bin/rm test.log temp.log mon.out

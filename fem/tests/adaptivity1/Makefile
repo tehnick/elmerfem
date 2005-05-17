@@ -6,7 +6,7 @@ run:
 	$(ELMER_HOME)/bin/Mesh2D Ldomain.mif .
 	/bin/mv mesh.* Ldomain
 	/bin/cp Ldomain.mif Ldomain
-	$(ELMER_HOME)/bin/Solver
+	$(ELMER_SOLVER)
 
 clean:
 	/bin/rm test.log temp.log bgmesh fort.12 mon.out

@@ -24,7 +24,7 @@ pkglibdir = $(libdir)/elmer
 pkgincludedir = $(includedir)/elmer
 top_builddir = ../../..
 am__cd = CDPATH="$${ZSH_VERSION+.}$(PATH_SEPARATOR)" && cd
-INSTALL = /usr/bin/install -c
+INSTALL = /p/gnu/bin/install -c
 install_sh_DATA = $(install_sh) -c -m 644
 install_sh_PROGRAM = $(install_sh) -c
 install_sh_SCRIPT = $(install_sh) -c
@@ -36,9 +36,9 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-build_triplet = i686-pc-linux-gnu
-host_triplet = i686-pc-linux-gnu
-target_triplet = i686-pc-linux-gnu
+build_triplet = sparc-sun-solaris2.9
+host_triplet = sparc-sun-solaris2.9
+target_triplet = sparc-sun-solaris2.9
 subdir = src/elmergrid/metis
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -87,31 +87,31 @@ DIST_SOURCES = $(libmetis_a_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
-ACLOCAL = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run aclocal-1.9
+ACLOCAL = ${SHELL} /wrk/vierinen/src/fem/missing --run aclocal-1.9
 AMDEP_FALSE = #
 AMDEP_TRUE = 
-AMTAR = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run tar
+AMTAR = ${SHELL} /wrk/vierinen/src/fem/missing --run tar
 AR = ar
 ARFLAGS = rc
 ARPACK_LIBS = arpack/libarpack.a
-AUTOCONF = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run autoconf
-AUTOHEADER = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run autoheader
-AUTOMAKE = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run automake-1.9
+AUTOCONF = ${SHELL} /wrk/vierinen/src/fem/missing --run autoconf
+AUTOHEADER = ${SHELL} /wrk/vierinen/src/fem/missing --run autoheader
+AUTOMAKE = ${SHELL} /wrk/vierinen/src/fem/missing --run automake-1.9
 AWK = gawk
 B64FLAGS = 
-BLAS_LIBS = -lblas
-CC = icc
+BLAS_LIBS = -lsunperf -lsunmath
+CC = mpcc
 CCC = 
-CCDEPMODE = depmode=gcc3
-CFLAGS = -g -O2  -I/tmp/elmer/ifc/include -fPIC
+CCDEPMODE = depmode=none
+CFLAGS = -g -I/wrk/vierinen/sun/v9/include -KPIC
 CP = cp
-CPICFLAG = -fPIC
+CPICFLAG = -KPIC
 CPP = cpp
 CPPFLAGS = 
-CXX = icc
-CXXDEPMODE = depmode=gcc3
-CXXFLAGS = -g -O2  -fPIC
-CXXPICFLAG = -fPIC
+CXX = mpCC
+CXXDEPMODE = depmode=none
+CXXFLAGS = -g -KPIC
+CXXPICFLAG = -KPIC
 CYGPATH_W = echo
 DEFS = -DHAVE_CONFIG_H
 DEPDIR = .deps
@@ -121,40 +121,40 @@ DL_LDFLAGS = $(SH_LDFLAGS)
 ECHO_C = 
 ECHO_N = -n
 ECHO_T = 
-EGREP = /bin/grep -E
+EGREP = /usr/local/bin/grep -E
 EIOF_LIBS = -leiof
-ELMER_HOME = /tmp/elmer/ifc
+ELMER_HOME = /wrk/vierinen/sun/v9
 EXEEXT = 
-EXTRA_LIBS = 
-F77 = ifort
-FC = ifort
-FCFLAGS = -g  -I. -I/tmp/elmer/ifc/include -fPIC
-FCLIBS =  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s
-FCPPFLAGS = -traditional-cpp -C -P -I. -I/tmp/elmer/ifc/include -DDLLEXPORT="!"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK
-FFLAGS = -g  -fPIC
-FLIBS =  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s
-FPICFLAG = -fPIC
-GREP = /bin/grep
+EXTRA_LIBS = -lsunperf -lsunmath 
+F77 = mpf77
+FC = mpf95
+FCFLAGS = -g -I. -I/wrk/vierinen/sun/v9/include -KPIC
+FCLIBS =  -R/opt/SUNWhpc/lib -L/opt/SUNWhpc/lib -R/opt/Studio9/SUNWspro/lib/v8plus:/opt/Studio9/SUNWspro/lib:/opt/SUNWspro/lib/v8plus:/opt/SUNWspro/lib -L/opt/Studio9/SUNWspro/lib/v8plus -L/opt/Studio9/SUNWspro/prod/lib/v8plus -L/opt/Studio9/SUNWspro/lib -L/opt/Studio9/SUNWspro/prod/lib -L/usr/ccs/lib -L/lib -L/usr/lib -zallextract -lompstubs -zdefaultextract -lfui -lfai -lfai2 -lfsumai -lfprodai -lfminlai -lfmaxlai -lfminvai -lfmaxvai -lfsu -lsunmath -lm
+FCPPFLAGS = -C -P -I. -I/wrk/vierinen/sun/v9/include -DDLLEXPORT="!"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK
+FFLAGS = -g -KPIC
+FLIBS =  -R/opt/SUNWhpc/lib -L/opt/SUNWhpc/lib -lf77compat -R/opt/Studio9/SUNWspro/lib/v8plus:/opt/Studio9/SUNWspro/lib:/opt/SUNWspro/lib/v8plus:/opt/SUNWspro/lib -L/opt/Studio9/SUNWspro/lib/v8plus -L/opt/Studio9/SUNWspro/prod/lib/v8plus -L/opt/Studio9/SUNWspro/lib -L/opt/Studio9/SUNWspro/prod/lib -L/usr/ccs/lib -L/lib -L/usr/lib -zallextract -lompstubs -zdefaultextract -lfui -lfai -lfai2 -lfsumai -lfprodai -lfminlai -lfmaxlai -lfminvai -lfmaxvai -lfsu -lsunmath -lm
+FPICFLAG = -KPIC
+GREP = /usr/local/bin/grep
 HUTI_LIBS = -lhuti
 INSTALL_DATA = ${INSTALL} -m 644
 INSTALL_PROGRAM = ${INSTALL}
 INSTALL_SCRIPT = ${INSTALL}
 INSTALL_STRIP_PROGRAM = ${SHELL} $(install_sh) -c -s
-LAPACK_LIBS = -llapack
+LAPACK_LIBS = 
 LDFLAGS = 
 LIBEXT = a
 LIBOBJS = 
-LIBS = -ldl -lm  -L/tmp/elmer/ifc/lib
-LIBSOLVER_DEPS = -lm  -L/tmp/elmer/ifc/lib
+LIBS = -ldl -lm  -L/wrk/vierinen/sun/v9/lib
+LIBSOLVER_DEPS = -lm  -L/wrk/vierinen/sun/v9/lib
 LTLIBOBJS = 
 MAINT = #
 MAINTAINER_MODE_FALSE = 
 MAINTAINER_MODE_TRUE = #
-MAKEINFO = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run makeinfo
+MAKEINFO = ${SHELL} /wrk/vierinen/src/fem/missing --run makeinfo
 MATC_LIBS = -lmatc
-MESHGEN2D_LIBS = -ldl -lm  -L/tmp/elmer/ifc/lib -lstdc++
+MESHGEN2D_LIBS = -ldl -lm  -L/wrk/vierinen/sun/v9/lib -lCstd
 MKDIR = mkdir -p
-MKOCTFILE_DL_LDFLAGS = -shared -Wl,-Bsymbolic
+MKOCTFILE_DL_LDFLAGS = $(DL_LDFLAGS)
 MPICC = 
 MPICXX = 
 MPIF77 = 
@@ -173,10 +173,10 @@ PACKAGE_VERSION =
 PARPACK_LIBS = 
 PATH_SEPARATOR = :
 RANLIB = ranlib
-RLD_FLAG = -Wl,-rpath -Wl,$(octlibdir)
+RLD_FLAG = -R $(octlibdir)
 RM = rm -f
 SET_MAKE = 
-SHELL = /bin/sh
+SHELL = /bin/bash
 SHLBIN = 
 SHLBIN_VER = $(SHLBIN).$(version)
 SHLEXT = so
@@ -184,77 +184,77 @@ SHLEXT_VER = $(SHLEXT).$(version)
 SHLLIB = $(SHLEXT)
 SHLLIB_VER = $(SHLLIB).$(version)
 SHLLINKEXT = 
-SH_LD = ifort
-SH_LD2 = icc
-SH_LDFLAGS = -shared
+SH_LD = mpf95
+SH_LD2 = mpCC
+SH_LDFLAGS = -G
 SH_LDTOFLAGS = 
-SOLVER_LIBS = arpack/libarpack.a  /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a -lhuti -lmatc -leiof -ldl -lm  -L/tmp/elmer/ifc/lib -llapack -lblas   -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s -lstdc++
-SONAME_FLAGS = -Wl,-soname -Wl,$@
+SOLVER_LIBS = arpack/libarpack.a  -lumfpack -lamd -lhuti -lmatc -leiof -ldl -lm  -L/wrk/vierinen/sun/v9/lib  -lsunperf -lsunmath   -R/opt/SUNWhpc/lib -L/opt/SUNWhpc/lib -R/opt/Studio9/SUNWspro/lib/v8plus:/opt/Studio9/SUNWspro/lib:/opt/SUNWspro/lib/v8plus:/opt/SUNWspro/lib -L/opt/Studio9/SUNWspro/lib/v8plus -L/opt/Studio9/SUNWspro/prod/lib/v8plus -L/opt/Studio9/SUNWspro/lib -L/opt/Studio9/SUNWspro/prod/lib -L/usr/ccs/lib -L/lib -L/usr/lib -zallextract -lompstubs -zdefaultextract -lfui -lfai -lfai2 -lfsumai -lfprodai -lfminlai -lfmaxlai -lfminvai -lfmaxvai -lfsu -lsunmath -lm  -R/opt/SUNWhpc/lib -L/opt/SUNWhpc/lib -lf77compat -R/opt/Studio9/SUNWspro/lib/v8plus:/opt/Studio9/SUNWspro/lib:/opt/SUNWspro/lib/v8plus:/opt/SUNWspro/lib -L/opt/Studio9/SUNWspro/lib/v8plus -L/opt/Studio9/SUNWspro/prod/lib/v8plus -L/opt/Studio9/SUNWspro/lib -L/opt/Studio9/SUNWspro/prod/lib -L/usr/ccs/lib -L/lib -L/usr/lib -zallextract -lompstubs -zdefaultextract -lfui -lfai -lfai2 -lfsumai -lfprodai -lfminlai -lfmaxlai -lfminvai -lfmaxvai -lfsu -lsunmath -lm -lCstd
+SONAME_FLAGS = 
 STRIP = 
-TEMPLATE_AR = $(AR)
-TEMPLATE_ARFLAGS = rc
-TESTS_FCFLAGS = -I. -I/tmp/elmer/ifc/include -g  -I. -I/tmp/elmer/ifc/include -fPIC
+TEMPLATE_AR = $(CXX)
+TEMPLATE_ARFLAGS = -xar -o
+TESTS_FCFLAGS = -M. -M/wrk/vierinen/sun/v9/include -g -I. -I/wrk/vierinen/sun/v9/include -KPIC
 TRADITIONAL_CPP = yes
-UMFPACK_LIBS = /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a
+UMFPACK_LIBS = -lumfpack -lamd
 USE_MPI_FALSE = 
 USE_MPI_TRUE = #
 VERSION = 1.0.0
-ac_ct_CC = icc
+ac_ct_CC = mpcc
 ac_ct_CXX = 
 ac_ct_F77 = 
 ac_ct_FC = 
 ac_ct_RANLIB = ranlib
 ac_ct_STRIP = 
-am__fastdepCC_FALSE = #
-am__fastdepCC_TRUE = 
-am__fastdepCXX_FALSE = #
-am__fastdepCXX_TRUE = 
+am__fastdepCC_FALSE = 
+am__fastdepCC_TRUE = #
+am__fastdepCXX_FALSE = 
+am__fastdepCXX_TRUE = #
 am__include = include
 am__leading_dot = .
 am__quote = 
 am__tar = ${AMTAR} chof - "$$tardir"
 am__untar = ${AMTAR} xf -
 bindir = ${exec_prefix}/bin
-build = i686-pc-linux-gnu
+build = sparc-sun-solaris2.9
 build_alias = 
-build_cpu = i686
-build_os = linux-gnu
-build_vendor = pc
-canonical_host_type = i686-pc-linux-gnu
+build_cpu = sparc
+build_os = solaris2.9
+build_vendor = sun
+canonical_host_type = sparc-sun-solaris2.9
 datadir = ${datarootdir}
 datarootdir = ${prefix}/share
 docdir = ${datarootdir}/doc/${PACKAGE}
 dvidir = ${docdir}
 exec_prefix = ${prefix}
-host = i686-pc-linux-gnu
+host = sparc-sun-solaris2.9
 host_alias = 
-host_cpu = i686
-host_os = linux-gnu
-host_vendor = pc
+host_cpu = sparc
+host_os = solaris2.9
+host_vendor = sun
 htmldir = ${docdir}
 includedir = ${prefix}/include
 infodir = ${datarootdir}/info
-install_sh = /home/vierinen/src/newelmer/fem/install-sh
+install_sh = /wrk/vierinen/src/fem/install-sh
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
 library_path_var = LD_LIBRARY_PATH
 localedir = ${datarootdir}/locale
 localstatedir = ${prefix}/var
 mandir = ${datarootdir}/man
-mkdir_p = mkdir -p --
+mkdir_p = $(install_sh) -d
 oldincludedir = /usr/include
 pdfdir = ${docdir}
-prefix = /tmp/elmer/ifc
+prefix = /wrk/vierinen/sun/v9
 program_transform_name = s,x,x,
 psdir = ${docdir}
 sbindir = ${exec_prefix}/sbin
 sharedstatedir = ${prefix}/com
 sysconfdir = ${prefix}/etc
-target = i686-pc-linux-gnu
+target = sparc-sun-solaris2.9
 target_alias = 
-target_cpu = i686
-target_os = linux-gnu
-target_vendor = pc
+target_cpu = sparc
+target_os = solaris2.9
+target_vendor = sun
 COMMON_SRCS = \
 	balance.c \
 	bucketsort.c \
@@ -418,18 +418,18 @@ include ./$(DEPDIR)/timing.Po
 include ./$(DEPDIR)/util.Po
 
 .c.o:
-	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ $<; \
-	then mv -f "$(DEPDIR)/$*.Tpo" "$(DEPDIR)/$*.Po"; else rm -f "$(DEPDIR)/$*.Tpo"; exit 1; fi
-#	source='$<' object='$@' libtool=no \
-#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
-#	$(COMPILE) -c $<
+#	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ $<; \
+#	then mv -f "$(DEPDIR)/$*.Tpo" "$(DEPDIR)/$*.Po"; else rm -f "$(DEPDIR)/$*.Tpo"; exit 1; fi
+	source='$<' object='$@' libtool=no \
+	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+	$(COMPILE) -c $<
 
 .c.obj:
-	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ `$(CYGPATH_W) '$<'`; \
-	then mv -f "$(DEPDIR)/$*.Tpo" "$(DEPDIR)/$*.Po"; else rm -f "$(DEPDIR)/$*.Tpo"; exit 1; fi
-#	source='$<' object='$@' libtool=no \
-#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
-#	$(COMPILE) -c `$(CYGPATH_W) '$<'`
+#	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ `$(CYGPATH_W) '$<'`; \
+#	then mv -f "$(DEPDIR)/$*.Tpo" "$(DEPDIR)/$*.Po"; else rm -f "$(DEPDIR)/$*.Tpo"; exit 1; fi
+	source='$<' object='$@' libtool=no \
+	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+	$(COMPILE) -c `$(CYGPATH_W) '$<'`
 uninstall-info-am:
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)

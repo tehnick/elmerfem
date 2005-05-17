@@ -3,8 +3,8 @@
 run:
 	$(F90) -c Poisson.f90
 	$(LD) -o Poisson$(SHL_EXT) Poisson.o $(LIBS)
-#	$(ELMER_HOME)/bin/ElmerGrid 1 2 square
-	$(ELMER_HOME)/bin/Solver
+#	$(ELMER_GRID) 1 2 square
+	$(ELMER_SOLVER)
 
 
 clean:

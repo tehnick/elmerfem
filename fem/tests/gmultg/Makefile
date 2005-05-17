@@ -1,7 +1,7 @@
 # Geometric multigrid solver for heat equation
 #
 run:
-	$(ELMER_HOME)/bin/Solver
+	$(ELMER_SOLVER)
 
 
 clean:

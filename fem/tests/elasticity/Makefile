@@ -2,8 +2,8 @@
 #
 
 run:
-	$(ELMER_HOME)/bin/ElmerGrid 1 2 elasticity
-	$(ELMER_HOME)/bin/Solver
+	$(ELMER_GRID) 1 2 elasticity
+	$(ELMER_SOLVER)
 
 clean:
 	/bin/rm test.log temp.log mon.out

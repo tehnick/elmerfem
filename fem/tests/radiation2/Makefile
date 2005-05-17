@@ -1,8 +1,8 @@
 # heat radiation test with two cavities
 #
 run:
-	$(ELMER_HOME)/bin/ElmerGrid 1 2 radiation2
-	$(ELMER_HOME)/bin/ElmerSolver
+	$(ELMER_GRID) 1 2 radiation2
+	$(ELMER_SOLVER)
 
 clean:
 	/bin/rm test.log temp.log mon.out

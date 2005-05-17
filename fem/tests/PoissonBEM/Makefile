@@ -1,8 +1,8 @@
 # Test the BEM solver for Laplace (Poisson) equation
 #
 run:
-	$(ELMER_HOME)/bin/ElmerGrid 1 2 heater
-	$(ELMER_HOME)/bin/Solver
+	$(ELMER_GRID) 1 2 heater
+	$(ELMER_SOLVER)
 
 
 clean:

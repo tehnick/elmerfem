@@ -4,7 +4,7 @@ run:
 	$(F90) -c Velocity.f90 Pressure.f90
 	$(LD) -o Velocity$(SHL_EXT) Velocity.o $(LIBS)
 	$(LD) -o Pressure$(SHL_EXT) Pressure.o $(LIBS)
-	$(ELMER_HOME)/bin/Solver
+	$(ELMER_SOLVER)
 
 
 clean:

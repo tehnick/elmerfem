@@ -1,7 +1,7 @@
 # Free surface solver test
 #
 run:
-	$(ELMER_HOME)/bin/Solver
+	$(ELMER_SOLVER)
 
 clean:
 	/bin/rm test.log temp.log mon.out
