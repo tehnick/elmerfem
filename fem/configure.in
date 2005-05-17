@@ -406,13 +406,16 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
   AC_DEFINE_UNQUOTED(SHL_EXTENSION, ".$SHLEXT",[Shared lib filename extension])
 fi
 
-LIBS="$ARPACK_LIBS $PARPACK_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $LAPACK_LIBS $BLAS_LIBS $MPILIBS $FCLIBS $FLIBS $STDCXX_LIBS"
+SOLVER_LIBS="$ARPACK_LIBS $PARPACK_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $LAPACK_LIBS $BLAS_LIBS $MPILIBS $FCLIBS $FLIBS $STDCXX_LIBS"
+MESHGEN2D_LIBS="$STDCXX_LIBS"
 
-dnl
+dnl TESTS 
 dnl Variables for tests. These are substituted into runtests.in to 
 dnl produce runtests
 dnl
 TESTS_FCFLAGS="$INCLUDE_MODULE_FLAG. $INCLUDE_MODULE_FLAG$prefix/include $FCFLAGS"
+
+dnl END TESTS
 
 AC_MSG_RESULT([defining FPICFLAG to be $FPICFLAG])
 AC_MSG_RESULT([defining CPICFLAG to be $CPICFLAG])
@@ -440,6 +443,7 @@ AC_MSG_RESULT([defining library_path_var to be $library_path_var])
 AC_MSG_RESULT([defining FCPPFLAGS to be $FCPPFLAGS])
 AC_MSG_RESULT([defining LIBSOLVER_DEPS to be $LIBSOLVER_DEPS])
 AC_SUBST(TESTS_FCFLAGS)
+AC_SUBST(MESHGEN2D_LIBS)
 AC_SUBST(FPICFLAG)
 AC_SUBST(CPICFLAG)
 AC_SUBST(CXXPICFLAG)
@@ -475,6 +479,7 @@ AC_SUBST(F77)
 AC_SUBST(CPP)
 AC_SUBST(FC)
 AC_SUBST(MKDIR)
+AC_SUBST(SOLVER_LIBS)
 AC_SUBST(LIBS)
 AC_SUBST(FCFLAGS)
 AC_SUBST(ELMER_HOME)
@@ -490,6 +495,9 @@ src/parpack/Makefile
 src/view3d/Makefile
 src/viewaxis/Makefile
 tests/runtests
+src/elmergrid/Makefile
+src/elmergrid/metis/Makefile
+src/meshgen2d/Makefile
 ]
 )
 

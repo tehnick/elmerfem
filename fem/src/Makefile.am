@@ -1,4 +1,4 @@
-SUBDIRS=arpack parpack view3d viewaxis
+SUBDIRS=elmergrid meshgen2d arpack parpack view3d viewaxis
 
 
 
@@ -37,7 +37,7 @@ SUFFIXES: .f90 .so .F90
 
 libsolver$(SHL_EXT): $(SOLVEROBJS) arpack parpack  
 	@RM@ $@
-	@SH_LD2@ @SH_LDFLAGS@ @B64FLAGS@ @SONAME_FLAGS@ -o $@ $(SOLVEROBJS) @LIBS@ -L.
+	@SH_LD2@ @SH_LDFLAGS@ @B64FLAGS@ @SONAME_FLAGS@ -o $@ $(SOLVEROBJS) @SOLVER_LIBS@ -L.
 
 .@OBJEXT@.@SHLEXT@: 
 	@SH_LD@ @SH_LDFLAGS@ @B64FLAGS@ @SH_LDTOFLAGS@ @SONAME_FLAGS@ -o $@ $*$(OBJ_EXT)  -lsolver -L. @EXTRA_LIBS@

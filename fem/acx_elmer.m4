@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.18 2005/05/16 12:18:51 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.19 2005/05/17 09:40:31 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -539,14 +539,16 @@ if test "$with_64bits" != no; then
         AC_MSG_RESULT($B64FFLAGS)
 	FFLAGS="$FFLAGS $B64FFLAGS"
 fi
-
 fi
 
 dnl let's see if it works...
 AC_CHECK_SIZEOF(void*)
 case "$ac_cv_sizeof_voidp" in
   "8")
-    AC_DEFINE(ARCH_64_BITS, 1,[64 bit arch.]) 
+    AC_DEFINE(ARCH_64_BITS, 1,[64 bit arch.])
+    if test x"$with_64bits" = xno; then
+	AC_MSG_WARN([Explicitely requested 32 bits, but got 64 bits.])
+    fi	
   ;;
   "4")
     AC_DEFINE(ARCH_32_BITS, 1,[32 bit arch.]) 

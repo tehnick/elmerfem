@@ -3,17 +3,14 @@
 # Autoconf substitutes @VAR@ definitions to come up with a 
 # semi-valid test script
 # 
-#
 set SHL_EXT = ".so"
 set OBJ_EXT = ".o"
 
-# user can override
-if( $ELMER_HOME == "") then
-    set ELMER_HOME = "/tmp/elmer/ifc"
-endif
+set ELMER_HOME = "/tmp/elmer/ifc"
+setenv LD_LIBRARY_PATH=$ELMER_HOME/lib:.:$LD_LIBRARY_PATH
 
 set F90  = "ifort -I. -I/tmp/elmer/ifc/include -g  -I. -I/tmp/elmer/ifc/include -fPIC"
-set LD   = "icc -shared"
+set LD   = "ifort -shared"
 set LIBS = ""
 
 cc -o findnorm findnorm.c

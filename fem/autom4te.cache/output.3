@@ -706,6 +706,7 @@ PARPACK_LIBS
 UMFPACK_LIBS
 MATC_LIBS
 TESTS_FCFLAGS
+MESHGEN2D_LIBS
 FPICFLAG
 CPICFLAG
 CXXPICFLAG
@@ -738,6 +739,7 @@ RM
 CP
 MV
 MKDIR
+SOLVER_LIBS
 ELMER_HOME
 LIB@&t@OBJS
 LTLIBOBJS'
@@ -6848,7 +6850,6 @@ echo $ECHO_N "checking for 64 bit FFLAGS... $ECHO_C" >&6
 echo "${ECHO_T}$B64FFLAGS" >&6
 	FFLAGS="$FFLAGS $B64FFLAGS"
 fi
-
 fi
 
 echo "$as_me:$LINENO: checking for void*" >&5
@@ -7263,7 +7264,11 @@ case "$ac_cv_sizeof_voidp" in
 cat >>confdefs.h <<\_ACEOF
 @%:@define ARCH_64_BITS 1
 _ACEOF
- 
+
+    if test x"$with_64bits" = xno; then
+	{ echo "$as_me:$LINENO: WARNING: Explicitely requested 32 bits, but got 64 bits." >&5
+echo "$as_me: WARNING: Explicitely requested 32 bits, but got 64 bits." >&2;}
+    fi	
   ;;
   "4")
     
@@ -13862,9 +13867,11 @@ _ACEOF
 
 fi
 
-LIBS="$ARPACK_LIBS $PARPACK_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $LAPACK_LIBS $BLAS_LIBS $MPILIBS $FCLIBS $FLIBS $STDCXX_LIBS"
+SOLVER_LIBS="$ARPACK_LIBS $PARPACK_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $LAPACK_LIBS $BLAS_LIBS $MPILIBS $FCLIBS $FLIBS $STDCXX_LIBS"
+MESHGEN2D_LIBS="$STDCXX_LIBS"
 
 TESTS_FCFLAGS="$INCLUDE_MODULE_FLAG. $INCLUDE_MODULE_FLAG$prefix/include $FCFLAGS"
+
 
 echo "$as_me:$LINENO: result: defining FPICFLAG to be $FPICFLAG" >&5
 echo "${ECHO_T}defining FPICFLAG to be $FPICFLAG" >&6
@@ -13956,10 +13963,12 @@ echo "${ECHO_T}defining LIBSOLVER_DEPS to be $LIBSOLVER_DEPS" >&6
 
 
 
+
+
           ac_config_headers="$ac_config_headers config.h"
 
 
-                                                                                ac_config_files="$ac_config_files Makefile Makeconf src/Makefile src/arpack/Makefile src/parpack/Makefile src/view3d/Makefile src/viewaxis/Makefile tests/runtests"
+                                                                                                              ac_config_files="$ac_config_files Makefile Makeconf src/Makefile src/arpack/Makefile src/parpack/Makefile src/view3d/Makefile src/viewaxis/Makefile tests/runtests src/elmergrid/Makefile src/elmergrid/metis/Makefile src/meshgen2d/Makefile"
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
 # tests run on this system so they can be shared between configure
@@ -14548,6 +14557,9 @@ do
   "src/view3d/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/view3d/Makefile" ;;
   "src/viewaxis/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/viewaxis/Makefile" ;;
   "tests/runtests" ) CONFIG_FILES="$CONFIG_FILES tests/runtests" ;;
+  "src/elmergrid/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/elmergrid/Makefile" ;;
+  "src/elmergrid/metis/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/elmergrid/metis/Makefile" ;;
+  "src/meshgen2d/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/meshgen2d/Makefile" ;;
   "depfiles" ) CONFIG_COMMANDS="$CONFIG_COMMANDS depfiles" ;;
   "config.h" ) CONFIG_HEADERS="$CONFIG_HEADERS config.h" ;;
   *) { { echo "$as_me:$LINENO: error: invalid argument: $ac_config_target" >&5
@@ -14736,6 +14748,7 @@ s,@PARPACK_LIBS@,$PARPACK_LIBS,;t t
 s,@UMFPACK_LIBS@,$UMFPACK_LIBS,;t t
 s,@MATC_LIBS@,$MATC_LIBS,;t t
 s,@TESTS_FCFLAGS@,$TESTS_FCFLAGS,;t t
+s,@MESHGEN2D_LIBS@,$MESHGEN2D_LIBS,;t t
 s,@FPICFLAG@,$FPICFLAG,;t t
 s,@CPICFLAG@,$CPICFLAG,;t t
 s,@CXXPICFLAG@,$CXXPICFLAG,;t t
@@ -14768,6 +14781,7 @@ s,@RM@,$RM,;t t
 s,@CP@,$CP,;t t
 s,@MV@,$MV,;t t
 s,@MKDIR@,$MKDIR,;t t
+s,@SOLVER_LIBS@,$SOLVER_LIBS,;t t
 s,@ELMER_HOME@,$ELMER_HOME,;t t
 s,@LIB@&t@OBJS@,$LIB@&t@OBJS,;t t
 s,@LTLIBOBJS@,$LTLIBOBJS,;t t

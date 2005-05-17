@@ -136,7 +136,7 @@ LAPACK_LIBS = -llapack
 LDFLAGS = 
 LIBEXT = a
 LIBOBJS = 
-LIBS = arpack/libarpack.a  /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a -lhuti -lmatc -leiof -ldl  -L/tmp/elmer/ifc/lib -llapack -lblas   -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s -lstdc++
+LIBS = -ldl  -L/tmp/elmer/ifc/lib
 LIBSOLVER_DEPS =  -L/tmp/elmer/ifc/lib
 LTLIBOBJS = 
 MAINT = #
@@ -144,6 +144,7 @@ MAINTAINER_MODE_FALSE =
 MAINTAINER_MODE_TRUE = #
 MAKEINFO = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run makeinfo
 MATC_LIBS = -lmatc
+MESHGEN2D_LIBS = -lstdc++
 MKDIR = mkdir -p
 MKOCTFILE_DL_LDFLAGS = -shared -Wl,-Bsymbolic
 MPICC = 
@@ -179,6 +180,7 @@ SH_LD = ifort
 SH_LD2 = icc
 SH_LDFLAGS = -shared
 SH_LDTOFLAGS = 
+SOLVER_LIBS = arpack/libarpack.a  /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a -lhuti -lmatc -leiof -ldl  -L/tmp/elmer/ifc/lib -llapack -lblas   -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s -lstdc++
 SONAME_FLAGS = -Wl,-soname -Wl,$@
 STRIP = 
 TEMPLATE_AR = $(AR)
@@ -245,7 +247,7 @@ target_alias =
 target_cpu = i686
 target_os = linux-gnu
 target_vendor = pc
-SUBDIRS = arpack parpack view3d viewaxis
+SUBDIRS = elmergrid meshgen2d arpack parpack view3d viewaxis
 
 #*******************************************************************************
 # Elmer Makefile.in 

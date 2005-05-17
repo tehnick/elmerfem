@@ -3,17 +3,14 @@
 # Autoconf substitutes @VAR@ definitions to come up with a 
 # semi-valid test script
 # 
-#
 set SHL_EXT = ".@SHLEXT@"
 set OBJ_EXT = ".@OBJEXT@"
 
-# user can override
-if( $ELMER_HOME == "") then
-    set ELMER_HOME = "@ELMER_HOME@"
-endif
+set ELMER_HOME = "@ELMER_HOME@"
+setenv LD_LIBRARY_PATH=$ELMER_HOME/lib:.:$LD_LIBRARY_PATH
 
 set F90  = "@FC@ @TESTS_FCFLAGS@"
-set LD   = "@SH_LD2@ @SH_LDFLAGS@"
+set LD   = "@SH_LD@ @SH_LDFLAGS@"
 set LIBS = ""
 
 cc -o findnorm findnorm.c
