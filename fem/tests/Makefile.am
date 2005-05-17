@@ -1,5 +1,2 @@
-TESTS = 1dtests 
+TESTS = runtests
 
-
-1dtests:
-	sh runtests 1dtests
