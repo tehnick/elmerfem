@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.17 2005/05/16 08:48:12 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.18 2005/05/16 12:18:51 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -450,6 +450,7 @@ if test "$host" = unknown; then
 fi
 
 dnl by default, use no flags at all
+B64FLAGS=
 B64CFLAGS=
 B64FCFLAGS=
 B64F77FLAGS=
@@ -461,7 +462,6 @@ if test "$with_64bits" = no; then
    AC_MSG_RESULT(not even going to try)
 else
    AC_MSG_RESULT([let's see what happens])
-fi
 
 case "$canonical_host_type" in
   *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
@@ -538,6 +538,8 @@ if test "$with_64bits" != no; then
         AC_MSG_CHECKING([for 64 bit FFLAGS])
         AC_MSG_RESULT($B64FFLAGS)
 	FFLAGS="$FFLAGS $B64FFLAGS"
+fi
+
 fi
 
 dnl let's see if it works...
