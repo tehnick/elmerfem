@@ -295,7 +295,7 @@ DLLEXPORT BandSolver
   INTEGER :: n
   REAL(KIND=dp) :: x(*), b(*)
 
-#ifdef HAVE_UMPFACK
+#ifdef HAVE_UMFPACK
   INTEGER :: status, sys
   INTEGER(KIND=AddrInt) :: numeric, symbolic
   REAL(KIND=dp) :: Control(20), iInfo(90)
