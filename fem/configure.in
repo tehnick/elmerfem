@@ -105,6 +105,7 @@ ACX_ARPACK([], [AC_MSG_RESULT([..using internal arpack])])
 ACX_PARPACK([], [AC_MSG_RESULT([..using internal parpack])])
 ACX_UMFPACK([], [AC_MSG_ERROR([libumfpack $ELMER_LIBERRORMSG])])
 ACX_MATC([], [AC_MSG_ERROR([libmatc $ELMER_LIBERRORMSG])])
+AC_CHECK_LIB(m,main)
 
 dnl see if arpack has to be built locally
 if test x"$acx_arpack_ok" = xno; then
@@ -407,7 +408,8 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
 fi
 
 SOLVER_LIBS="$ARPACK_LIBS $PARPACK_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $LAPACK_LIBS $BLAS_LIBS $MPILIBS $FCLIBS $FLIBS $STDCXX_LIBS"
-MESHGEN2D_LIBS="$STDCXX_LIBS"
+ELMERGRID_LIBS="$LIBS"
+MESHGEN2D_LIBS="$LIBS $STDCXX_LIBS"
 
 dnl TESTS 
 dnl Variables for tests. These are substituted into runtests.in to 

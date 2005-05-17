@@ -136,15 +136,15 @@ LAPACK_LIBS = -llapack
 LDFLAGS = 
 LIBEXT = a
 LIBOBJS = 
-LIBS = -ldl  -L/tmp/elmer/ifc/lib
-LIBSOLVER_DEPS =  -L/tmp/elmer/ifc/lib
+LIBS = -ldl -lm  -L/tmp/elmer/ifc/lib
+LIBSOLVER_DEPS = -lm  -L/tmp/elmer/ifc/lib
 LTLIBOBJS = 
 MAINT = #
 MAINTAINER_MODE_FALSE = 
 MAINTAINER_MODE_TRUE = #
 MAKEINFO = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run makeinfo
 MATC_LIBS = -lmatc
-MESHGEN2D_LIBS = -lstdc++
+MESHGEN2D_LIBS = -ldl -lm  -L/tmp/elmer/ifc/lib -lstdc++
 MKDIR = mkdir -p
 MKOCTFILE_DL_LDFLAGS = -shared -Wl,-Bsymbolic
 MPICC = 
@@ -180,7 +180,7 @@ SH_LD = ifort
 SH_LD2 = icc
 SH_LDFLAGS = -shared
 SH_LDTOFLAGS = 
-SOLVER_LIBS = arpack/libarpack.a  /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a -lhuti -lmatc -leiof -ldl  -L/tmp/elmer/ifc/lib -llapack -lblas   -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s -lstdc++
+SOLVER_LIBS = arpack/libarpack.a  /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a -lhuti -lmatc -leiof -ldl -lm  -L/tmp/elmer/ifc/lib -llapack -lblas   -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s -lstdc++
 SONAME_FLAGS = -Wl,-soname -Wl,$@
 STRIP = 
 TEMPLATE_AR = $(AR)
@@ -1023,7 +1023,7 @@ SUFFIXES: .f90 .so .F90
 
 libsolver$(SHL_EXT): $(SOLVEROBJS) arpack parpack  
 	rm -f $@
-	icc -shared  -Wl,-soname -Wl,$@ -o $@ $(SOLVEROBJS) arpack/libarpack.a  /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a -lhuti -lmatc -leiof -ldl  -L/tmp/elmer/ifc/lib -llapack -lblas   -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s -lstdc++ -L.
+	icc -shared  -Wl,-soname -Wl,$@ -o $@ $(SOLVEROBJS) arpack/libarpack.a  /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a -lhuti -lmatc -leiof -ldl -lm  -L/tmp/elmer/ifc/lib -llapack -lblas   -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s -lstdc++ -L.
 
 .o.so: 
 	ifort -shared   -Wl,-soname -Wl,$@ -o $@ $*$(OBJ_EXT)  -lsolver -L. 
