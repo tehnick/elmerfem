@@ -8,7 +8,7 @@
 /* #undef ARCH_64_BITS */
 
 /* "Mangling: lower case */
-#define ELMER_LINKTYP 4
+#define ELMER_LINKTYP 1
 
 /* Define if using dynamic linking */
 #define ENABLE_DYNAMIC_LINKING 1
@@ -22,7 +22,7 @@
 #define F77_FUNC(name,NAME) name ## _
 
 /* As F77_FUNC, but for C identifiers containing underscores. */
-#define F77_FUNC_(name,NAME) name ## __
+#define F77_FUNC_(name,NAME) name ## _
 
 /* Define to dummy `main' function (if any) required to link to the Fortran
    libraries. */
@@ -36,7 +36,7 @@
 #define FC_FUNC(name,NAME) name ## _
 
 /* As FC_FUNC, but for C identifiers containing underscores. */
-#define FC_FUNC_(name,NAME) name ## __
+#define FC_FUNC_(name,NAME) name ## _
 
 /* Define if you have a ARPACK library. */
 /* #undef HAVE_ARPACK */

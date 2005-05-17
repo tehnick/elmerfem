@@ -40,7 +40,8 @@ build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
-	$(srcdir)/make.bin $(srcdir)/make.dep
+	$(srcdir)/make.bin $(srcdir)/make.bin.in $(srcdir)/make.dep \
+	$(srcdir)/make.dep.in
 bin_PROGRAMS = SC2Elmer$(EXEEXT)
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -53,7 +54,7 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
-CONFIG_CLEAN_FILES =
+CONFIG_CLEAN_FILES = make.dep make.bin
 am__installdirs = "$(DESTDIR)$(bindir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
@@ -115,6 +116,7 @@ ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 EIOF_LIBS = @EIOF_LIBS@
+ELMER_HOME = @ELMER_HOME@
 EXEEXT = @EXEEXT@
 EXTRA_LIBS = @EXTRA_LIBS@
 F77 = @F77@
@@ -567,6 +569,10 @@ $(top_srcdir)/configure: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
+make.dep: $(top_builddir)/config.status $(srcdir)/make.dep.in
+	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
+make.bin: $(top_builddir)/config.status $(srcdir)/make.bin.in
+	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
 install-binPROGRAMS: $(bin_PROGRAMS)
 	@$(NORMAL_INSTALL)
 	test -z "$(bindir)" || $(mkdir_p) "$(DESTDIR)$(bindir)"

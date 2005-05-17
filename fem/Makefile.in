@@ -38,8 +38,9 @@ host_triplet = @host@
 target_triplet = @target@
 DIST_COMMON = $(am__configure_deps) $(srcdir)/Makeconf.in \
 	$(srcdir)/Makefile.am $(srcdir)/Makefile.in \
-	$(srcdir)/config.h.in $(top_srcdir)/configure config.guess \
-	config.sub depcomp install-sh missing
+	$(srcdir)/config.h.in $(top_srcdir)/configure \
+	$(top_srcdir)/tests/runtests.in config.guess config.sub \
+	depcomp install-sh missing
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/acx_mpi.m4 \
@@ -53,7 +54,7 @@ am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
  configure.lineno configure.status.lineno
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = config.h
-CONFIG_CLEAN_FILES = Makeconf
+CONFIG_CLEAN_FILES = Makeconf tests/runtests
 SOURCES =
 DIST_SOURCES =
 RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
@@ -112,6 +113,7 @@ ECHO_N = @ECHO_N@
 ECHO_T = @ECHO_T@
 EGREP = @EGREP@
 EIOF_LIBS = @EIOF_LIBS@
+ELMER_HOME = @ELMER_HOME@
 EXEEXT = @EXEEXT@
 EXTRA_LIBS = @EXTRA_LIBS@
 F77 = @F77@
@@ -298,6 +300,8 @@ distclean-hdr:
 	-rm -f config.h stamp-h1
 Makeconf: $(top_builddir)/config.status $(srcdir)/Makeconf.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
+tests/runtests: $(top_builddir)/config.status $(top_srcdir)/tests/runtests.in
+	cd $(top_builddir) && $(SHELL) ./config.status $@
 uninstall-info-am:
 
 # This directory's subdirectories are mostly independent; you can cd
@@ -435,7 +439,7 @@ distclean-tags:
 distdir: $(DISTFILES)
 	$(am__remove_distdir)
 	mkdir $(distdir)
-	$(mkdir_p) $(distdir)/.
+	$(mkdir_p) $(distdir)/. $(distdir)/src $(distdir)/tests
 	@srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`; \
 	topsrcdirstrip=`echo "$(top_srcdir)" | sed 's|.|.|g'`; \
 	list='$(DISTFILES)'; for file in $$list; do \

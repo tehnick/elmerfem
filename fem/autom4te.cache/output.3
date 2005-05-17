@@ -737,6 +737,7 @@ RM
 CP
 MV
 MKDIR
+ELMER_HOME
 LIB@&t@OBJS
 LTLIBOBJS'
 ac_subst_files=''
@@ -9029,6 +9030,7 @@ LIBS="$LIBS -L$prefix/lib"
 CFLAGS="$CFLAGS -I$prefix/include"
 FCFLAGS="$FCFLAGS -I. -I$prefix/include"
 FFFLAGS="$FCFLAGS -I. -I$prefix/include"
+ELMER_HOME="$prefix"
 
 FCPPFLAGS="-I. -I$prefix/include -DDLLEXPORT=\"!\"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
 
@@ -9448,7 +9450,6 @@ else
   USE_MPI_TRUE='#'
   USE_MPI_FALSE=
 fi
-
 
 
 
@@ -12811,8 +12812,8 @@ SHLLIB_VER='$(SHLLIB).$(version)'
 SHLBIN_VER='$(SHLBIN).$(version)'
 SHLLINKEXT=
 LIBEXT=a
-SH_LD2='$(CXX)'
-SH_LD='$(FC)'
+SH_LD2=$CXX
+SH_LD=$FC
 SH_LDFLAGS=-shared
 SH_LDTOFLAGS=
 DL_LD='$(SH_LD)'
@@ -12959,7 +12960,7 @@ case "$canonical_host_type" in
       TEMPLATE_AR='$(CXX)'
       TEMPLATE_ARFLAGS="-xar -o"
     fi
-    FCPPFLAGS="-C $FCPPFLAGS"
+    FCPPFLAGS="-C -P $FCPPFLAGS"
   ;;
 esac
 
@@ -13946,10 +13947,11 @@ echo "${ECHO_T}defining LIBSOLVER_DEPS to be $LIBSOLVER_DEPS" >&6
 
 
 
+
           ac_config_headers="$ac_config_headers config.h"
 
 
-                                                                      ac_config_files="$ac_config_files Makefile Makeconf src/Makefile src/arpack/Makefile src/parpack/Makefile src/view3d/Makefile src/viewaxis/Makefile"
+                                                                                                    ac_config_files="$ac_config_files Makefile Makeconf src/Makefile src/make.dep src/make.bin src/arpack/Makefile src/parpack/Makefile src/view3d/Makefile src/viewaxis/Makefile tests/runtests"
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
 # tests run on this system so they can be shared between configure
@@ -14533,10 +14535,13 @@ do
   "Makefile" ) CONFIG_FILES="$CONFIG_FILES Makefile" ;;
   "Makeconf" ) CONFIG_FILES="$CONFIG_FILES Makeconf" ;;
   "src/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
+  "src/make.dep" ) CONFIG_FILES="$CONFIG_FILES src/make.dep" ;;
+  "src/make.bin" ) CONFIG_FILES="$CONFIG_FILES src/make.bin" ;;
   "src/arpack/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/arpack/Makefile" ;;
   "src/parpack/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/parpack/Makefile" ;;
   "src/view3d/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/view3d/Makefile" ;;
   "src/viewaxis/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/viewaxis/Makefile" ;;
+  "tests/runtests" ) CONFIG_FILES="$CONFIG_FILES tests/runtests" ;;
   "depfiles" ) CONFIG_COMMANDS="$CONFIG_COMMANDS depfiles" ;;
   "config.h" ) CONFIG_HEADERS="$CONFIG_HEADERS config.h" ;;
   *) { { echo "$as_me:$LINENO: error: invalid argument: $ac_config_target" >&5
@@ -14756,6 +14761,7 @@ s,@RM@,$RM,;t t
 s,@CP@,$CP,;t t
 s,@MV@,$MV,;t t
 s,@MKDIR@,$MKDIR,;t t
+s,@ELMER_HOME@,$ELMER_HOME,;t t
 s,@LIB@&t@OBJS@,$LIB@&t@OBJS,;t t
 s,@LTLIBOBJS@,$LTLIBOBJS,;t t
 CEOF

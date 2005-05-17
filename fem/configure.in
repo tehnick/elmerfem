@@ -84,6 +84,7 @@ CFLAGS="$CFLAGS -I$prefix/include"
 dnl order is important, because prefix/include might include bogus .mods or headers
 FCFLAGS="$FCFLAGS -I. -I$prefix/include"
 FFFLAGS="$FCFLAGS -I. -I$prefix/include"
+ELMER_HOME="$prefix"
 
 dnl hmm. how would it be best to handle -I flags needed for cpp?
 FCPPFLAGS="-I. -I$prefix/include -DDLLEXPORT=\"!\"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
@@ -96,7 +97,6 @@ ACX_MPI([],
 AM_CONDITIONAL(USE_MPI, test "$acx_mpi_ok" == "yes")
 
 dnl We should need this, if we link with CC
-
 
 ACX_BLAS([], [AC_MSG_ERROR([BLAS was not found!])])
 ACX_LAPACK([], [AC_MSG_ERROR([LAPACK was not found!])])
@@ -134,8 +134,8 @@ SHLLIB_VER='$(SHLLIB).$(version)'
 SHLBIN_VER='$(SHLBIN).$(version)'
 SHLLINKEXT=
 LIBEXT=a
-SH_LD2='$(CXX)'
-SH_LD='$(FC)'
+SH_LD2=$CXX
+SH_LD=$FC
 SH_LDFLAGS=-shared
 SH_LDTOFLAGS=
 DL_LD='$(SH_LD)'
@@ -469,6 +469,7 @@ AC_SUBST(FC)
 AC_SUBST(MKDIR)
 AC_SUBST(LIBS)
 AC_SUBST(FCFLAGS)
+AC_SUBST(ELMER_HOME)
 
 AC_CONFIG_HEADER(config.h)
 
@@ -476,10 +477,13 @@ AC_OUTPUT([
 Makefile
 Makeconf
 src/Makefile
+src/make.dep
+src/make.bin
 src/arpack/Makefile
 src/parpack/Makefile
 src/view3d/Makefile
 src/viewaxis/Makefile
+tests/runtests
 ]
 )
 
