@@ -42,6 +42,8 @@ libsolver$(SHL_EXT): $(SOLVEROBJS) arpack parpack
 
 $(BINARIES) $(BINARIES_ODD): libsolver$(SHL_EXT)
 
+$(SOLVEROBJS): mpif
+
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT) 
 	@SH_LD@ @SH_LDTOFLAGS@ @B64FLAGS@ -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT) @EXTRA_LIBS@
 

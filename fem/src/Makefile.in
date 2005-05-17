@@ -928,7 +928,7 @@ FluidicForce.o: FluidicForce.F90 MaterialModels.o DefUtils.o Integration.o Lists
 FreeSurface.o: FreeSurface.F90 IterSolve.o ElementUtils.o DirectSolve.o
 FreeSurfaceReduced.o: FreeSurfaceReduced.F90 ElementUtils.o Differentials.o Integration.o Lists.o MeshUtils.o ElementDescription.o Types.o SolverUtils.o
 FreeSurfaceSolver.o: FreeSurfaceSolver.F90 DefUtils.o
-GebhardtFactors.o: GebhardtFactors.F90 ModelDescription.o GebhardtFactors.o Lists.o IterSolve.o ElementDescription.o CoordinateSystems.o CRSMatrix.o MainUtils.o Types.o SolverUtils.o
+GebhardtFactors.o: GebhardtFactors.F90 ModelDescription.o Lists.o IterSolve.o ElementDescription.o CoordinateSystems.o CRSMatrix.o MainUtils.o Types.o SolverUtils.o
 GeneralUtils.o: GeneralUtils.F90 Types.o
 HashTable.o: HashTable.F90 Lists.o
 HeatSolve.o: HeatSolve.F90 MaterialModels.o DiffuseConvectiveGeneralAnisotropic.o DiffuseConvectiveAnisotropic.o DefUtils.o Differentials.o Radiation.o ElementDescription.o CoordinateSystems.o Adaptive.o Types.o
@@ -968,10 +968,10 @@ PElementMaps.o: PElementMaps.F90 Messages.o Types.o
 ParallelEigenSolve.o: ParallelEigenSolve.F90 SParIterGlobals.o Multigrid.o ParallelUtils.o SParIterSolver.o IterSolve.o CRSMatrix.o
 ParallelUtils.o: ParallelUtils.F90 SParIterSolver.o
 PhaseChange.o: PhaseChange.F90 GeneralUtils.o DefUtils.o Differentials.o Integration.o Lists.o ElementDescription.o CoordinateSystems.o Types.o SolverUtils.o
-PoissonBEM.o: PoissonBEM.F90 DefUtils.o Types.o PoissonBEM.o
+PoissonBEM.o: PoissonBEM.F90 DefUtils.o Types.o 
 PoissonBoltzmannSolve.o: PoissonBoltzmannSolve.F90 ElementUtils.o DefUtils.o Differentials.o Integration.o Lists.o ElementDescription.o Adaptive.o Types.o SolverUtils.o
 Radiation.o: Radiation.F90 ElementUtils.o CoordinateSystems.o
-RadiationFactors.o: RadiationFactors.F90 ModelDescription.o GeneralUtils.o ElementUtils.o RadiationFactors.o Lists.o IterSolve.o ElementDescription.o CoordinateSystems.o CRSMatrix.o MainUtils.o Types.o SolverUtils.o
+RadiationFactors.o: RadiationFactors.F90 ModelDescription.o GeneralUtils.o ElementUtils.o Lists.o IterSolve.o ElementDescription.o CoordinateSystems.o CRSMatrix.o MainUtils.o Types.o SolverUtils.o
 RateOfChange.o: RateOfChange.F90 ElementUtils.o Integration.o Lists.o ElementDescription.o Types.o SolverUtils.o
 ReloadInput.o: ReloadInput.F90 ModelDescription.o Lists.o Types.o
 ResultToPost.o: ResultToPost.F90 MainUtils.o
@@ -1002,7 +1002,7 @@ StressSolve.o: StressSolve.F90 Stress.o DefUtils.o StressGeneral.o ElementDescri
 TimeIntegrate.o: TimeIntegrate.F90 Lists.o Types.o
 TransportEquation.o: TransportEquation.F90 ElementUtils.o Integration.o Lists.o ElementDescription.o Types.o SolverUtils.o
 Types.o: Types.F90 Messages.o
-ViewFactors.o: ViewFactors.F90 DefUtils.o Types.o ViewFactors.o
+ViewFactors.o: ViewFactors.F90 DefUtils.o Types.o 
 Walls.o: Walls.F90
 solve_cmplx.o: solve_cmplx.F90
 solve_real.o: solve_real.F90
@@ -1029,6 +1029,8 @@ libsolver$(SHL_EXT): $(SOLVEROBJS) arpack parpack
 	@SH_LD@ @SH_LDFLAGS@ @B64FLAGS@ @SH_LDTOFLAGS@ @SONAME_FLAGS@ -o $@ $*$(OBJ_EXT) -L. -lsolver @EXTRA_LIBS@
 
 $(BINARIES) $(BINARIES_ODD): libsolver$(SHL_EXT)
+
+$(SOLVEROBJS): mpif
 
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT) 
 	@SH_LD@ @SH_LDTOFLAGS@ @B64FLAGS@ -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT) @EXTRA_LIBS@
