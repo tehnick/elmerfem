@@ -2,7 +2,6 @@
 #
 # Autoconf substitutes @VAR@ definitions to come up with a 
 # semi-valid test script
-# 
 #
 set SHL_EXT = ".so"
 set OBJ_EXT = ".o"
@@ -11,8 +10,14 @@ if( $ELMER_HOME == "") then
     set ELMER_HOME = "/tmp/elmer/ifc"
 endif
 
-set F90  = "ifort -g  -I. -I/tmp/elmer/ifc/include -fPIC"
-set LD   = "icc -shared"
+if( $F90 == "" ) then
+    set F90  = "ifort -g  -I. -I/tmp/elmer/ifc/include -fPIC"
+endif
+
+if( $LD == "") then
+    set LD   = "icc -shared"
+endif
+
 set LIBS = ""
 
 cc -o findnorm findnorm.c
