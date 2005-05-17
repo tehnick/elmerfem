@@ -259,6 +259,7 @@ DLLEXPORT BandSolver
 !------------------------------------------------------------------------------
   SUBROUTINE UMFPack_SolveSystem( Solver,A,x,b )
 !------------------------------------------------------------------------------
+#ifdef HAVE_UMFPACK
   INTERFACE
     SUBROUTINE umf4def( control )
        USE Types
@@ -286,13 +287,18 @@ DLLEXPORT BandSolver
        REAL(KIND=dp) :: x(*), b(*), control(*), iinfo(*)
     END SUBROUTINE umf4sol
   END INTERFACE
+#endif
 
 
   TYPE(Matrix_t), POINTER :: A
   TYPE(Solver_t) :: Solver
-  INTEGER :: status, n, sys
+  INTEGER :: n
+  REAL(KIND=dp) :: x(*), b(*)
+
+#ifdef HAVE_UMPFACK
+  INTEGER :: status, sys
   INTEGER(KIND=AddrInt) :: numeric, symbolic
-  REAL(KIND=dp) :: x(*),b(*), Control(20), iInfo(90)
+  REAL(KIND=dp) :: Control(20), iInfo(90)
 
   SAVE Control, iInfo, Symbolic, Numeric
  
@@ -339,6 +345,9 @@ DLLEXPORT BandSolver
 
    A % Rows = A % Rows+1
    A % Cols = A % Cols+1
+#else
+   CALL Fatal( 'UMFPack_SolveSystem', 'UMFPACK Solver has not been installed.' )
+#endif
 !------------------------------------------------------------------------------
   END SUBROUTINE UMFPack_SolveSystem
 !------------------------------------------------------------------------------

@@ -33,6 +33,9 @@
 ! *       Date of modification:
 ! *
 ! * $Log: MainUtils.f90,v $
+! * Revision 1.2  2005/05/04 09:16:04  vierinen
+! * minor modifications
+! *
 ! * Revision 1.157  2005/04/14 11:36:15  jpr
 ! * Removed the Sparse library interface.
 ! *
@@ -48,7 +51,7 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.f90,v 1.157 2005/04/14 11:36:15 jpr Exp $
+! * $Id: MainUtils.f90,v 1.2 2005/05/04 09:16:04 vierinen Exp $
 ! *****************************************************************************/
 
 
@@ -107,7 +110,11 @@ CONTAINS
                    FORMAT = MATRIX_CRS
 
                 CASE( 'umfpack' )
+#ifdef HAVE_UMFPACK
                    FORMAT = MATRIX_CRS
+#else
+                   CALL Fatal( 'GetMatrixFormat', 'UMPACK solver has not been installed.' )
+#endif
 
                 CASE DEFAULT
                   
