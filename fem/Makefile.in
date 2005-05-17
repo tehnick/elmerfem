@@ -38,9 +38,8 @@ host_triplet = @host@
 target_triplet = @target@
 DIST_COMMON = $(am__configure_deps) $(srcdir)/Makeconf.in \
 	$(srcdir)/Makefile.am $(srcdir)/Makefile.in \
-	$(srcdir)/config.h.in $(top_srcdir)/configure \
-	$(top_srcdir)/tests/runtests.in config.guess config.sub \
-	depcomp install-sh missing
+	$(srcdir)/config.h.in $(top_srcdir)/configure config.guess \
+	config.sub depcomp install-sh missing
 subdir = .
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/acx_mpi.m4 \
@@ -54,7 +53,7 @@ am__CONFIG_DISTCLEAN_FILES = config.status config.cache config.log \
  configure.lineno configure.status.lineno
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = config.h
-CONFIG_CLEAN_FILES = Makeconf tests/runtests
+CONFIG_CLEAN_FILES = Makeconf
 SOURCES =
 DIST_SOURCES =
 RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
@@ -302,8 +301,6 @@ $(srcdir)/config.h.in: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
 distclean-hdr:
 	-rm -f config.h stamp-h1
 Makeconf: $(top_builddir)/config.status $(srcdir)/Makeconf.in
-	cd $(top_builddir) && $(SHELL) ./config.status $@
-tests/runtests: $(top_builddir)/config.status $(top_srcdir)/tests/runtests.in
 	cd $(top_builddir) && $(SHELL) ./config.status $@
 uninstall-info-am:
 

@@ -1,7 +1,5 @@
 SUBDIRS=elmergrid meshgen2d arpack parpack view3d viewaxis
 
-
-
 #*******************************************************************************
 # Elmer Makefile.in 
 #
@@ -40,7 +38,7 @@ libsolver$(SHL_EXT): $(SOLVEROBJS) arpack parpack
 	@SH_LD2@ @SH_LDFLAGS@ @B64FLAGS@ @SONAME_FLAGS@ -o $@ $(SOLVEROBJS) @SOLVER_LIBS@ -L.
 
 .@OBJEXT@.@SHLEXT@: 
-	@SH_LD@ @SH_LDFLAGS@ @B64FLAGS@ @SH_LDTOFLAGS@ @SONAME_FLAGS@ -o $@ $*$(OBJ_EXT)  -lsolver -L. @EXTRA_LIBS@
+	@SH_LD@ @SH_LDFLAGS@ @B64FLAGS@ @SH_LDTOFLAGS@ @SONAME_FLAGS@ -o $@ $*$(OBJ_EXT) -L. -lsolver @EXTRA_LIBS@
 
 $(BINARIES) $(BINARIES_ODD): libsolver$(SHL_EXT)
 
