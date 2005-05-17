@@ -1,0 +1,61 @@
+#!/bin/csh -f
+#
+# Autoconf substitutes @VAR@ definitions to come up with a 
+# semi-valid test script
+# 
+#
+set SHL_EXT = ".@SHLEXT@"
+set OBJ_EXT = ".@OBJEXT@"
+
+# user can override
+if( $ELMER_HOME == "") then
+    set ELMER_HOME = "@ELMER_HOME@"
+endif
+
+set F90  = "@FC@ @FCFLAGS@"
+set LD   = "@SH_LD2@ @SH_LDFLAGS@"
+set LIBS = ""
+
+cc -o findnorm findnorm.c
+cc -o compare compare.c -lm
+chmod 775 findnorm compare
+
+if ( $1 == "" ) then
+   set dirs = *
+else
+   set dirs = "$*"
+endif
+
+@ total  = 0
+@ passed = 0
+
+foreach dir ( $dirs )
+   if ( -d $dir ) then
+      @ total++
+      set ccwd = `pwd`
+      cd $dir
+      echo -n "testing: " $dir
+      make "SHL_EXT=$SHL_EXT" "F90=$F90" "LD=$LD" "LIBS=$LIBS" >&! test.log
+
+      set success = `grep "ALL DONE" test.log | wc -l`
+      if ( $success ) then
+         set orig_norm = `cat TEST.RESULT`
+         grep "(NRM,RELC)" test.log >! temp.log
+         set res_norm = `../findnorm temp.log`
+         set success  = `../compare $res_norm $orig_norm`
+      endif
+
+      if ( $success ) then
+         @ passed++
+         echo "			[PASSED]"
+         make -i clean >&! /dev/null
+      else
+         echo " [FAILED] look at $dir/test.log for details"
+      endif
+      chmod -R 775 * >&! /dev/null
+      cd $ccwd
+   endif
+end
+
+#/bin/rm -f running_runtests
+echo "Tests completed, passed: $passed out of total $total tests"

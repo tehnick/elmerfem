@@ -1,0 +1,98 @@
+ifc -I/tmp/elmer/ifc/include -c PoissonDG.f90
+ifc: warning: The Intel Fortran driver is now named ifort.  You can suppress this message with '-quiet'
+fortcom: Error: PoissonDG.f90, line 58: Error in opening the Library module file.   [DEFUTILS]
+     USE DefUtils
+---------^
+fortcom: Error: PoissonDG.f90, line 62: This derived type name has not been declared.   [MODEL_T]
+     TYPE(Model_t) :: Model
+----------^
+fortcom: Error: PoissonDG.f90, line 63: This derived type name has not been declared.   [SOLVER_T]
+     TYPE(Solver_t), TARGET :: Solver
+----------^
+fortcom: Error: PoissonDG.f90, line 64: A kind type parameter must be a compile-time constant.   [DP]
+     REAL(KIND=dp) :: dt
+---------------^
+fortcom: Error: PoissonDG.f90, line 69: This derived type name has not been declared.   [VALUELIST_T]
+     TYPE(ValueList_t), POINTER :: BC, BodyForce
+----------^
+fortcom: Error: PoissonDG.f90, line 71: This derived type name has not been declared.   [ELEMENT_T]
+     TYPE(Element_t), POINTER :: Element, Edge, &
+----------^
+fortcom: Error: PoissonDG.f90, line 76: A kind type parameter must be a compile-time constant.   [DP]
+     REAL(KIND=dp) :: Norm, at, st, CPUTime, Gamma
+---------------^
+fortcom: Error: PoissonDG.f90, line 77: A kind type parameter must be a compile-time constant.   [DP]
+     REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), LOAD(:), &
+---------------^
+fortcom: Error: PoissonDG.f90, line 83: This derived type name has not been declared.   [ELEMENT_T]
+     TYPE( Element_t ), POINTER :: Edges(:), Faces(:)
+-----------^
+fortcom: Error: PoissonDG.f90, line 84: This derived type name has not been declared.   [NODES_T]
+     TYPE(Nodes_t) :: ElementNodes
+----------^
+fortcom: Error: PoissonDG.f90, line 86: A kind type parameter must be a compile-time constant.   [DP]
+     REAL(KIND=dp), POINTER :: LocalSolution(:)
+---------------^
+fortcom: Info: PoissonDG.f90, line 37: DLL IMPORT/EXPORT is not supported on this platform.   [DLLEXPORT]
+   !DEC$ATTRIBUTES DLLEXPORT :: PoissonSolver
+-------------------^
+fortcom: Error: PoissonDG.f90, line 229: This derived type name has not been declared.   [NODES_T]
+      TYPE( Nodes_t ) :: EdgeNodes, ParentNodes
+------------^
+fortcom: Error: PoissonDG.f90, line 231: A kind type parameter must be a compile-time constant.   [DP]
+      REAL( KIND=dp ) :: U, V, W, EdgeBasis(:)
+-----------------^
+fortcom: Error: PoissonDG.f90, line 234: A kind type parameter must be a compile-time constant.   [DP]
+      REAL(KIND=dp) :: Dist, DistTolerance
+----------------^
+fortcom: Error: PoissonDG.f90, line 235: A kind type parameter must be a compile-time constant.   [DP]
+      REAL(KIND=dp) :: NodalParentU(nEdge), &
+----------------^
+fortcom: Error: PoissonDG.f90, line 225: This name does not have a type, and must have an explicit type.   [EDGENODES]
+    SUBROUTINE FindParentUVW( EdgeNodes, nEdge, &
+------------------------------^
+fortcom: Error: PoissonDG.f90, line 226: This name does not have a type, and must have an explicit type.   [PARENTNODES]
+         ParentNodes, nParent, U, V, W, EdgeBasis )
+---------^
+fortcom: Error: PoissonDG.f90, line 269: A kind type parameter must be a compile-time constant.   [DP]
+       REAL(KIND=dp) :: STIFF(:,:), gamma
+-----------------^
+fortcom: Error: PoissonDG.f90, line 271: This derived type name has not been declared.   [ELEMENT_T]
+       TYPE(Element_t), POINTER :: Edge, LeftParent, RightParent
+------------^
+fortcom: Error: PoissonDG.f90, line 274: A kind type parameter must be a compile-time constant.   [DP]
+       REAL(KIND=dp) :: EdgeBasis(n), EdgedBasisdx(n,3), EdgeddBasisddx(n,3,3)
+-----------------^
+fortcom: Error: PoissonDG.f90, line 275: A kind type parameter must be a compile-time constant.   [DP]
+       REAL(KIND=dp) :: LeftBasis(n+1), LeftdBasisdx(n+1,3), LeftddBasisddx(n+1,3,3)
+-----------------^
+fortcom: Error: PoissonDG.f90, line 276: A kind type parameter must be a compile-time constant.   [DP]
+       REAL(KIND=dp) :: RightBasis(n+1), RightdBasisdx(n+1,3), RightddBasisddx(n+1,3,3)
+-----------------^
+fortcom: Error: PoissonDG.f90, line 277: A kind type parameter must be a compile-time constant.   [DP]
+       REAL(KIND=dp) :: LeftdBasisdn(n+1), RightdBasisdn(n+1)
+-----------------^
+fortcom: Error: PoissonDG.f90, line 278: A kind type parameter must be a compile-time constant.   [DP]
+       REAL(KIND=dp) :: Jump(2*(n+1)), AverageFlux(2*(n+1))
+-----------------^
+fortcom: Error: PoissonDG.f90, line 279: A kind type parameter must be a compile-time constant.   [DP]
+       REAL(KIND=dp) :: SqrtElementMetric, U, V, W, S
+-----------------^
+fortcom: Error: PoissonDG.f90, line 282: This derived type name has not been declared.   [GAUSSINTEGRATIONPOINTS_T]
+       TYPE(GaussIntegrationPoints_t) :: IntegStuff
+------------^
+fortcom: Error: PoissonDG.f90, line 283: A kind type parameter must be a compile-time constant.   [DP]
+       REAL(KIND=dp) :: hE, Normal(3)
+-----------------^
+fortcom: Error: PoissonDG.f90, line 285: This derived type name has not been declared.   [NODES_T]
+       TYPE(Nodes_t) :: EdgeNodes, LeftParentNodes, RightParentNodes
+------------^
+fortcom: Error: PoissonDG.f90, line 267: This name does not have a type, and must have an explicit type.   [EDGE]
+     SUBROUTINE LocalJumps( STIFF,Edge,n,LeftParent,RightParent,gamma )
+----------------------------------^
+fortcom: Error: PoissonDG.f90, line 267: This name does not have a type, and must have an explicit type.   [LEFTPARENT]
+     SUBROUTINE LocalJumps( STIFF,Edge,n,LeftParent,RightParent,gamma )
+-----------------------------------------^
+fortcom: Severe: Too many errors, exiting
+compilation aborted for PoissonDG.f90 (code 1)
+make: *** [run] Error 1
