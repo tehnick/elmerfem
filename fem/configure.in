@@ -81,7 +81,6 @@ dnl you always want configure to do this by default, but maybe it's anti-GPL or 
 dnl 
 LIBS="$LIBS -L$prefix/lib"
 CFLAGS="$CFLAGS -I$prefix/include"
-dnl order is important, because prefix/include might include bogus .mods or headers
 FCFLAGS="$FCFLAGS -I. -I$prefix/include"
 FFFLAGS="$FCFLAGS -I. -I$prefix/include"
 ELMER_HOME="$prefix"
@@ -152,6 +151,7 @@ RM='rm -f'
 MV='mv'
 MKDIR='mkdir -p'
 LIBSOLVER_DEPS=$LIBS
+INCLUDE_MODULE_FLAG="-I"
 
 
 dnl 
@@ -264,6 +264,7 @@ case "$canonical_host_type" in
       FPICFLAG=-KPIC
       # sun compilers want to see "-lsunmath -lsunperf -lfsu" way too often..
       EXTRA_LIBS="$BLAS_LIBS $LAPACK_LIBS"
+      INCLUDE_MODULE_FLAG="-M"
     fi
     if test "$GCC" = yes; then
       CPICFLAG="-fPIC"
@@ -306,7 +307,7 @@ case "$FC" in
     fi
   ;;	
   mpf90 | f90 | f95 | mpf95 | mpf77 ) 
-    dnl sun compilers
+    dnl sun/generic compilers
   ;;
   pathf* )
     dnl pathf90 wants to link fortran programs with the fortran compiler
@@ -407,6 +408,12 @@ fi
 
 LIBS="$ARPACK_LIBS $PARPACK_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $LAPACK_LIBS $BLAS_LIBS $MPILIBS $FCLIBS $FLIBS $STDCXX_LIBS"
 
+dnl
+dnl Variables for tests. These are substituted into runtests.in to 
+dnl produce runtests
+dnl
+TESTS_FCFLAGS="$INCLUDE_MODULE_FLAG. $INCLUDE_MODULE_FLAG$prefix/include $FCFLAGS"
+
 AC_MSG_RESULT([defining FPICFLAG to be $FPICFLAG])
 AC_MSG_RESULT([defining CPICFLAG to be $CPICFLAG])
 AC_MSG_RESULT([defining CXXPICFLAG to be $CXXPICFLAG])
@@ -432,6 +439,7 @@ AC_MSG_RESULT([defining TEMPLATE_ARFLAGS to be $TEMPLATE_ARFLAGS])
 AC_MSG_RESULT([defining library_path_var to be $library_path_var])
 AC_MSG_RESULT([defining FCPPFLAGS to be $FCPPFLAGS])
 AC_MSG_RESULT([defining LIBSOLVER_DEPS to be $LIBSOLVER_DEPS])
+AC_SUBST(TESTS_FCFLAGS)
 AC_SUBST(FPICFLAG)
 AC_SUBST(CPICFLAG)
 AC_SUBST(CXXPICFLAG)

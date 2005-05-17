@@ -40,8 +40,7 @@ build_triplet = i686-pc-linux-gnu
 host_triplet = i686-pc-linux-gnu
 target_triplet = i686-pc-linux-gnu
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
-	$(srcdir)/make.bin $(srcdir)/make.bin.in $(srcdir)/make.dep \
-	$(srcdir)/make.dep.in
+	$(srcdir)/make.bin $(srcdir)/make.dep
 bin_PROGRAMS = SC2Elmer$(EXEEXT)
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -54,7 +53,7 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
-CONFIG_CLEAN_FILES = make.dep make.bin
+CONFIG_CLEAN_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
@@ -184,6 +183,7 @@ SONAME_FLAGS = -Wl,-soname -Wl,$@
 STRIP = 
 TEMPLATE_AR = $(AR)
 TEMPLATE_ARFLAGS = rc
+TESTS_FCFLAGS = -I. -I/tmp/elmer/ifc/include -g  -I. -I/tmp/elmer/ifc/include -fPIC
 TRADITIONAL_CPP = yes
 UMFPACK_LIBS = /home/vierinen/lib/libumfpack.a /home/vierinen/lib/libamd.a
 USE_MPI_FALSE = 
@@ -569,10 +569,6 @@ $(top_srcdir)/configure: # $(am__configure_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(ACLOCAL_M4): # $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
-make.dep: $(top_builddir)/config.status $(srcdir)/make.dep.in
-	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
-make.bin: $(top_builddir)/config.status $(srcdir)/make.bin.in
-	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
 install-binPROGRAMS: $(bin_PROGRAMS)
 	@$(NORMAL_INSTALL)
 	test -z "$(bindir)" || $(mkdir_p) "$(DESTDIR)$(bindir)"

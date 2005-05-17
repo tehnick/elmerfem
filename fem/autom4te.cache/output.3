@@ -705,6 +705,7 @@ ARPACK_LIBS
 PARPACK_LIBS
 UMFPACK_LIBS
 MATC_LIBS
+TESTS_FCFLAGS
 FPICFLAG
 CPICFLAG
 CXXPICFLAG
@@ -12830,6 +12831,7 @@ RM='rm -f'
 MV='mv'
 MKDIR='mkdir -p'
 LIBSOLVER_DEPS=$LIBS
+INCLUDE_MODULE_FLAG="-I"
 
 
 case "$canonical_host_type" in
@@ -12939,6 +12941,7 @@ case "$canonical_host_type" in
       FPICFLAG=-KPIC
       # sun compilers want to see "-lsunmath -lsunperf -lfsu" way too often..
       EXTRA_LIBS="$BLAS_LIBS $LAPACK_LIBS"
+      INCLUDE_MODULE_FLAG="-M"
     fi
     if test "$GCC" = yes; then
       CPICFLAG="-fPIC"
@@ -13858,6 +13861,7 @@ _ACEOF
 fi
 
 LIBS="$ARPACK_LIBS $PARPACK_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $LAPACK_LIBS $BLAS_LIBS $MPILIBS $FCLIBS $FLIBS $STDCXX_LIBS"
+TESTS_FCFLAGS="$INCLUDE_MODULE_FLAG. $INCLUDE_MODULE_FLAG$prefix/include $FCFLAGS"
 
 echo "$as_me:$LINENO: result: defining FPICFLAG to be $FPICFLAG" >&5
 echo "${ECHO_T}defining FPICFLAG to be $FPICFLAG" >&6
@@ -13909,6 +13913,7 @@ echo "$as_me:$LINENO: result: defining FCPPFLAGS to be $FCPPFLAGS" >&5
 echo "${ECHO_T}defining FCPPFLAGS to be $FCPPFLAGS" >&6
 echo "$as_me:$LINENO: result: defining LIBSOLVER_DEPS to be $LIBSOLVER_DEPS" >&5
 echo "${ECHO_T}defining LIBSOLVER_DEPS to be $LIBSOLVER_DEPS" >&6
+
 
 
 
@@ -14727,6 +14732,7 @@ s,@ARPACK_LIBS@,$ARPACK_LIBS,;t t
 s,@PARPACK_LIBS@,$PARPACK_LIBS,;t t
 s,@UMFPACK_LIBS@,$UMFPACK_LIBS,;t t
 s,@MATC_LIBS@,$MATC_LIBS,;t t
+s,@TESTS_FCFLAGS@,$TESTS_FCFLAGS,;t t
 s,@FPICFLAG@,$FPICFLAG,;t t
 s,@CPICFLAG@,$CPICFLAG,;t t
 s,@CXXPICFLAG@,$CXXPICFLAG,;t t
