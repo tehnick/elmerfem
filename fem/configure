@@ -740,7 +740,6 @@ CP
 MV
 MKDIR
 SOLVER_LIBS
-ELMER_HOME
 LIBOBJS
 LTLIBOBJS'
 ac_subst_files=''
@@ -3757,8 +3756,6 @@ fi
 
 
 
-
-
 if test -z "$AR"; then
   AR=ar
 fi
@@ -5408,7 +5405,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:5411:" \
+echo "$as_me:5408:" \
      "checking for Fortran compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -5655,7 +5652,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:5658:" \
+echo "$as_me:5655:" \
      "checking for Fortran 77 compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -7347,7 +7344,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_verb"
-(eval echo $as_me:7350: \"$ac_link\") >&5
+(eval echo $as_me:7347: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -7431,7 +7428,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_cv_prog_f77_v"
-(eval echo $as_me:7434: \"$ac_link\") >&5
+(eval echo $as_me:7431: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -8178,7 +8175,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_verb"
-(eval echo $as_me:8181: \"$ac_link\") >&5
+(eval echo $as_me:8178: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -8262,7 +8259,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_cv_prog_fc_v"
-(eval echo $as_me:8265: \"$ac_link\") >&5
+(eval echo $as_me:8262: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -9025,6 +9022,173 @@ _ACEOF
 echo "$as_me: error: Unknown sort of Fortran name mangling" >&2;}
    { (exit 1); exit 1; }; } ;;
 esac
+
+
+
+
+acx_cv_fc_char_mangling="char_ptr"
+
+ac_ext=${ac_fc_srcext-f}
+ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
+ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_fc_compiler_gnu
+case $ac_cv_fc_mangling in
+  upper*) ac_val="BARF" ;;
+  lower*) ac_val="barf" ;;
+  *)      ac_val="unknown" ;;
+esac
+case $ac_cv_fc_mangling in *," underscore"*) ac_val="$ac_val"_ ;; esac
+
+barf="$ac_val"
+
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+echo "$as_me:$LINENO: checking for Fortran char* mangling scheme" >&5
+echo $ECHO_N "checking for Fortran char* mangling scheme... $ECHO_C" >&6
+
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+cat >conftest.$ac_ext <<_ACEOF
+
+void $barf(char *name, int *l2, int *l3)
+{
+   printf("%d",*l2);
+ }
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+
+    mv conftest.$ac_objext cfortran_test.$ac_objext
+
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+    ac_cv_c_char_mangling="unknown"
+
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+ac_ext=${ac_fc_srcext-f}
+ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
+ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_fc_compiler_gnu
+
+cat >conftest.$ac_ext <<_ACEOF
+      program testingit
+       character s
+       parameter (s='my ass')
+       call barf(s,42)
+       end
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_fc_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+
+$FC -o testi$ac_exeext conftest.$ac_objext cfortran_test.$ac_objext
+the_answer=`./testi$ac_exeext`
+
+case $the_answer in
+	42)
+	       acx_cv_fc_char_mangling="char_ptr"
+        ;;
+	*)
+   	       acx_cv_fc_char_mangling="char_ptr_and_len_int"
+	;;
+esac
+echo "$as_me:$LINENO: result: $acx_cv_fc_char_mangling" >&5
+echo "${ECHO_T}$acx_cv_fc_char_mangling" >&6
+
+rm testi$ac_exeext conftest.$ac_objext cfortran_test.$ac_objext
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+echo "$as_me:$LINENO: result: test failed, assuming char_ptr" >&5
+echo "${ECHO_T}test failed, assuming char_ptr" >&6
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+
+
+
+
+
+case $acx_cv_fc_char_mangling in
+	char_ptr)
+		cat >>confdefs.h <<\_ACEOF
+#define FC_CHAR_PTR(P,L) char *P
+_ACEOF
+
+	;;
+	*)
+		cat >>confdefs.h <<\_ACEOF
+#define FC_CHAR_PTR(P,L) char *P, int L
+_ACEOF
+
+	;;
+esac
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
 
 
 
@@ -12585,9 +12749,8 @@ _ACEOF
         :
 else
         acx_umfpack_ok=no
-        { { echo "$as_me:$LINENO: error: libumfpack $ELMER_LIBERRORMSG" >&5
-echo "$as_me: error: libumfpack $ELMER_LIBERRORMSG" >&2;}
-   { (exit 1); exit 1; }; }
+        { echo "$as_me:$LINENO: WARNING: UMFPACK not found, some functionaly will be disabled." >&5
+echo "$as_me: WARNING: UMFPACK not found, some functionaly will be disabled." >&2;}
 fi
 
 
@@ -14049,11 +14212,19 @@ echo "${ECHO_T}defining LIBSOLVER_DEPS to be $LIBSOLVER_DEPS" >&6
 
 
 
+cat >>confdefs.h <<\_ACEOF
+#define ELMER_HOME $ELMER_HOME
+_ACEOF
+
 
           ac_config_headers="$ac_config_headers config.h"
 
 
-                                                                                                                        ac_config_files="$ac_config_files Makefile Makeconf src/Makefile src/arpack/Makefile src/parpack/Makefile src/view3d/Makefile src/viewaxis/Makefile tests/runtests tests/Makefile src/elmergrid/Makefile src/elmergrid/metis/Makefile src/meshgen2d/Makefile"
+# runtests needs to be runnable
+          ac_config_files="$ac_config_files tests/runtests"
+
+
+                                                                                                              ac_config_files="$ac_config_files Makefile Makeconf src/Makefile src/arpack/Makefile src/parpack/Makefile src/view3d/Makefile src/viewaxis/Makefile tests/Makefile src/elmergrid/Makefile src/elmergrid/metis/Makefile src/meshgen2d/Makefile"
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
 # tests run on this system so they can be shared between configure
@@ -14634,6 +14805,7 @@ for ac_config_target in $ac_config_targets
 do
   case "$ac_config_target" in
   # Handling of arguments.
+  "tests/runtests" ) CONFIG_FILES="$CONFIG_FILES tests/runtests" ;;
   "Makefile" ) CONFIG_FILES="$CONFIG_FILES Makefile" ;;
   "Makeconf" ) CONFIG_FILES="$CONFIG_FILES Makeconf" ;;
   "src/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
@@ -14641,7 +14813,6 @@ do
   "src/parpack/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/parpack/Makefile" ;;
   "src/view3d/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/view3d/Makefile" ;;
   "src/viewaxis/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/viewaxis/Makefile" ;;
-  "tests/runtests" ) CONFIG_FILES="$CONFIG_FILES tests/runtests" ;;
   "tests/Makefile" ) CONFIG_FILES="$CONFIG_FILES tests/Makefile" ;;
   "src/elmergrid/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/elmergrid/Makefile" ;;
   "src/elmergrid/metis/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/elmergrid/metis/Makefile" ;;
@@ -14868,7 +15039,6 @@ s,@CP@,$CP,;t t
 s,@MV@,$MV,;t t
 s,@MKDIR@,$MKDIR,;t t
 s,@SOLVER_LIBS@,$SOLVER_LIBS,;t t
-s,@ELMER_HOME@,$ELMER_HOME,;t t
 s,@LIBOBJS@,$LIBOBJS,;t t
 s,@LTLIBOBJS@,$LTLIBOBJS,;t t
 CEOF
@@ -15107,6 +15277,10 @@ s,@INSTALL@,$ac_INSTALL,;t t
     rm -f "$tmp/out"
   fi
 
+  # Run the commands associated with the file.
+  case $ac_file in
+    tests/runtests ) chmod 755 tests/runtests ;;
+  esac
 done
 _ACEOF
 cat >>$CONFIG_STATUS <<\_ACEOF

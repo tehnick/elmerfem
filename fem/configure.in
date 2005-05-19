@@ -65,6 +65,8 @@ case "$ac_cv_fc_mangling" in
     AC_MSG_ERROR([Unknown sort of Fortran name mangling]) ;;
 esac
 
+ACX_FC_CHAR_MANGLING
+
 dnl do we want to enable 64 bits?
 
 dnl ******************************************************
@@ -103,7 +105,7 @@ ACX_HUTI([], [AC_MSG_ERROR([Libhuti wasn't found])])
 ACX_EIOF([], [AC_MSG_ERROR([libeiof $ELMER_LIBERRORMSG])])
 ACX_ARPACK([], [AC_MSG_RESULT([..using internal arpack])])
 ACX_PARPACK([], [AC_MSG_RESULT([..using internal parpack])])
-ACX_UMFPACK([], [AC_MSG_ERROR([libumfpack $ELMER_LIBERRORMSG])])
+ACX_UMFPACK([], [AC_MSG_WARN([UMFPACK not found, some functionaly will be disabled.])])
 ACX_MATC([], [AC_MSG_ERROR([libmatc $ELMER_LIBERRORMSG])])
 AC_CHECK_LIB(m,main)
 
@@ -484,13 +486,13 @@ AC_SUBST(MKDIR)
 AC_SUBST(SOLVER_LIBS)
 AC_SUBST(LIBS)
 AC_SUBST(FCFLAGS)
-AC_SUBST(ELMER_HOME)
+AC_DEFINE(ELMER_HOME,$ELMER_HOME,[The configured home directory for elmer.])
 
 AC_CONFIG_HEADER(config.h)
 
 # runtests needs to be runnable
 AC_CONFIG_FILES([tests/runtests],
-                [chmod +x tests/runtests])
+                [chmod 755 tests/runtests])
 
 AC_OUTPUT([
 Makefile

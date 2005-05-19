@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.19 2005/05/17 09:40:31 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.20 2005/05/17 10:21:20 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -633,50 +633,66 @@ fi
 AC_SUBST(CPP)
 ])
 
-
-
+dnl
+dnl Determine if fortran compiler expects (char *str1, int len1) or (char *str1)
+dnl
 AC_DEFUN([ACX_FC_CHAR_MANGLING], [
 AC_PREREQ(2.50)
-AC_REQUIRE(AC_FC_FUNC)
-AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])
 
-ac_cv_[]_AC_LANG_ABBREV[]_char_mangling="unknown"
+acx_cv_fc_char_mangling="char_ptr"
+
 AC_FC_FUNC(barf)
-acx_fc_char_param_barf=$barf
 
-AC_MSG_CHECKING([for fortran char mangling scheme])
+AC_MSG_CHECKING([for Fortran char* mangling scheme])
 
 AC_LANG_PUSH(C)
 AC_COMPILE_IFELSE([
-void $acx_fc_char_param_barf(char *name, int *l2, int *l3)
+void $barf(char *name, int *l2, int *l3)
 {
-  printf("%d",*l2);
-}],
-[
-   mv conftest.$ac_objext cfortran_test.$ac_objext
-],
-[
-   ac_cv_[]_AC_LANG_ABBREV[]_char_mangling="unknown"
+   printf("%d",*l2);
+ }],
+ [
+    mv conftest.$ac_objext cfortran_test.$ac_objext
+ ],
+ [
+    ac_cv_[]_AC_LANG_ABBREV[]_char_mangling="unknown"
 ])
 AC_LANG_POP(C)
+
 AC_LANG_PUSH(Fortran)
-AC_COMPILE_IFELSE
-([    program foobar
-        character(len=7) :: str
-        str='my ass'
-        str(7:7)=char(0)
-        call barf(str,42)
-     end program foobar
- ]
-,
- [
-   $FC -o conftest$ac_exeext cfortran_test.$ac_objext $conftest$ac_objext 
-   AC_TRY_COMMAND(./conftest$ac_exeext)
-   AC_MSG_RESULT($2)
- ]
-,
- [
- AC_MSG_RESULT("unknown")
- ])
+AC_COMPILE_IFELSE(
+[      program testingit                                                                   
+       character s                                                                         
+       parameter (s='my ass')                                                              
+       call barf(s,42)                                                                     
+       end],
+[
+$FC -o testi$ac_exeext conftest.$ac_objext cfortran_test.$ac_objext
+the_answer=`./testi$ac_exeext`
+
+case $the_answer in 
+	42)  
+	       acx_cv_fc_char_mangling="char_ptr"
+        ;;
+	*)
+   	       acx_cv_fc_char_mangling="char_ptr_and_len_int"
+	;;
+esac
+AC_MSG_RESULT($acx_cv_fc_char_mangling)
+
+rm testi$ac_exeext conftest.$ac_objext cfortran_test.$ac_objext],
+[AC_MSG_RESULT([test failed, assuming char_ptr])])
+
+
+AH_TEMPLATE(_AC_FC[_CHAR_PTR],[Char pointer mangling])
+
+case $acx_cv_fc_char_mangling in
+	char_ptr)
+		AC_DEFINE(_AC_FC[_CHAR_PTR(P,L)],[char *P])
+	;;
+	*)
+		AC_DEFINE(_AC_FC[_CHAR_PTR(P,L)],[char *P, int L])
+	;;
+esac
 AC_LANG_POP(Fortran)
 ])
