@@ -1,4 +1,5 @@
 Check Keywords "Warn"
+echo on
 
 Header
   Mesh DB "." "square"
@@ -7,14 +8,16 @@ End
 Simulation
   Coordinate System = "Cartesian 2D"
   Simulation Type = Transient
-  Timestep Sizes = 1
-  Timestep Intervals = 10000
+  Timestep Sizes = 25
+  Timestep Intervals = 80
   Timestepping Method = BDF
-  BDF Order = 1
+  BDF Order = 2
   Output Intervals(1) = 10
-  Steady State Max Iterations = 30
+  Steady State Max Iterations = 50
   Post File   = "ptest.ep"
   Output File = "ptest.dat"
+  Max Output Level = 3
+  Output Caller = False
 End
 
 Body 1
@@ -25,11 +28,8 @@ Body 1
 End
 
 Initial Condition 1
-  Potential 1 = Variable Time
-     Real Procedure "file" "proc1"
-
-  Potential 2 = Variable Time
-     Real Procedure "file" "proc2"
+  Potential 1 = Real MATC "2e-3*(rand(1)-0.5)"
+  Potential 2 = Real MATC "2e-3*(rand(1)-0.5)"
 End
 
 Equation 1
@@ -41,7 +41,7 @@ Material 1
   alpha = Real  1.112
   beta  = Real -1.01
   gamma = Real -1
-  C     = Real  1.0
+  C     = Real  1
   du = Real 0.516
   dv = Real 1
 End
@@ -55,11 +55,10 @@ Solver 1
 
   Linear System Solver = "Iterative"
   Linear System Iterative Method = BiCGStab
-  Linear System Preconditioning = ILU
-  Linear System Max Iterations  = 100
-  Linear System Convergence Tolerance = 1.0e-8
-  Steady State Convergence Tolerance = 1e-05
-  Nonlinear System Relaxation Factor = 1.0
+  Linear System Preconditioning = ILU1
+  Linear System Max Iterations  = 300
+  Steady State Convergence Tolerance = 1e-06
+  Linear System Convergence Tolerance = 1.0e-9
 End
 
 Boundary Condition 1
@@ -87,4 +86,3 @@ Boundary Condition 4
   Periodic BC Potential 1 = Logical True
   Periodic BC Potential 2 = Logical True
 End
-

@@ -76,7 +76,6 @@ SUBROUTINE PoissonSolver( Model,Solver,dt,TransientSimulation )
      Element => GetActiveElement(t)
      n  = GetElementNOFNodes()
      nd = GetElementNOFDOFs()
-     nb = GetElementNOFBDOFs()
 
      CALL GetVectorLocalSolution( Solution )
 
@@ -91,7 +90,7 @@ SUBROUTINE PoissonSolver( Model,Solver,dt,TransientSimulation )
 
      ! Get element local matrix and rhs vector:
      ! ----------------------------------------
-     CALL LocalMatrix(  MASS, STIFF, FORCE, LOAD, Element, n, nd+nb )
+     CALL LocalMatrix(  MASS, STIFF, FORCE, LOAD, Element, n, nd )
 
      IF ( TransientSimulation ) CALL Default1stOrderTime( MASS, STIFF, FORCE )
      CALL DefaultUpdateEquations( STIFF, FORCE )
@@ -119,7 +118,7 @@ CONTAINS
     REAL(KIND=dp), POINTER :: M(:,:), A(:,:), F(:)
     TYPE(GaussIntegrationPoints_t) :: IP
 
-    REAL(KIND=dp) :: du,dv,nu,alpha,beta,gamma,uprev,vprev,C,s
+    REAL(KIND=dp) :: du,dv,nu,alpha,beta,gamma,uprev,vprev,C,s, Base, Grad
 
     TYPE(Nodes_t) :: Nodes
     SAVE Nodes
@@ -131,8 +130,8 @@ CONTAINS
     STIFF = 0.0d0
     FORCE = 0.0d0
 
-    !Numerical integration:
-    !----------------------
+    ! Numerical integration:
+    ! ----------------------
     IP = GaussPoints( Element )
     DO t=1,IP % n
       ! Basis function values & derivatives at the integration point:
@@ -155,30 +154,33 @@ CONTAINS
 
       ! Finally, the elemental matrix & vector:
       !----------------------------------------
-      DO p=1,nd
-        DO q=1,nd
-          i = 2*(p-1)+1
-          j = 2*(q-1)+1
-          M =>  MASS( i:i+1, j:j+1 )
-          A => STIFF( i:i+1, j:j+1 )
+     DO p=1,nd
+       DO q=1,nd
+         i = 2*(p-1)+1
+         j = 2*(q-1)+1
+         M =>  MASS(i:i+1, j:j+1)
+         A => STIFF(i:i+1, j:j+1)
 
-          M(1,1) = M(1,1) + s * Basis(q) * Basis(p)
-          M(2,2) = M(2,2) + s * Basis(q) * Basis(p)
+         Base = s * Basis(q) * Basis(p)
+         Grad = s * SUM( dBasisdx(q,:) * dBasisdx(p,:) )
 
-          DO i=1,dim
-             A(1,1) = A(1,1) + s * du * dBasisdx(q,i) * dBasisdx(p,i)
-             A(2,2) = A(2,2) + s * dv * dBasisdx(q,i) * dBasisdx(p,i)
-          END DO
+         M(1,1) = M(1,1) + Base
+         M(2,2) = M(2,2) + Base
+         A(1,1) = A(1,1) + du*Grad + nu*((vprev+C)*vprev-1)    * Base
+         A(1,2) = A(1,2) + nu*((vprev+C)*uprev-alpha) * Base
+         A(2,1) = A(2,1) - nu*((vprev+C)*vprev+gamma) * Base
+         A(2,2) = A(2,2) + dv*Grad - nu*((vprev+C)*uprev+beta) * Base
 
-          A(1,1) = A(1,1) + s * nu*((vprev+C)*vprev-1)     * Basis(q) * Basis(p)
-          A(1,2) = A(1,2) + s * nu*((vprev+C)*uprev-alpha) * Basis(q) * Basis(p)
-          A(2,1) = A(2,1) - s * nu*((vprev+C)*vprev+gamma) * Basis(q) * Basis(p)
-          A(2,2) = A(2,2) - s * nu*((vprev+C)*uprev+beta)  * Basis(q) * Basis(p)
+         A(1,2) = A(1,2) + 2*nu*uprev*vprev * Base
+         A(2,2) = A(2,2) - 2*nu*uprev*vprev * Base
        END DO
        i = 2*(p-1)+1
-       F => FORCE( i:i+1 )
+       F => FORCE(i:i+1)
        F(1) = F(1) + s * nu*(vprev+C)*uprev*vprev * Basis(p)
        F(2) = F(2) - s * nu*(vprev+C)*uprev*vprev * Basis(p)
+
+       F(1) = F(1) + s * 2*nu*vprev**2*uprev * Basis(p)
+       F(2) = F(2) - s * 2*nu*vprev**2*uprev * Basis(p)
      END DO
     END DO
 !------------------------------------------------------------------------------
