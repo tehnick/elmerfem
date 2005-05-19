@@ -9411,7 +9411,7 @@ if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
 echo "${ECHO_T}seems ok" >&6
 
 cat >>confdefs.h <<\_ACEOF
-#define HAVE_MPI
+#define HAVE_MPI 1
 _ACEOF
 
    acx_mpi_ok=yes
@@ -9448,7 +9448,7 @@ echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_File'}'`" >&5
 echo "${ECHO_T}`eval echo '${'$as_ac_File'}'`" >&6
 if test `eval echo '${'$as_ac_File'}'` = yes; then
   acx_mpif_h_found=yes
- MPI_INCLUDE_DIR=""
+ MPI_INCLUDE_DIR=$mpi_inc_dir
 else
   acx_mpif_h_found=no
  MPI_INCLUDE_DIR=""
@@ -9480,8 +9480,10 @@ else
   USE_LOCAL_MPIF_H_FALSE=
 fi
 
-FCPPFLAGS="$FCPPFLAGS -I$MPI_INCLUDE_DIR"
-FFLAGS="$FFLAGS -I$MPI_INCLUDE_DIR"
+if test "$MPI_INCLUDE_DIR" != ""; then
+   FCPPFLAGS="$FCPPFLAGS -I$MPI_INCLUDE_DIR"
+   FFLAGS="$FFLAGS -I$MPI_INCLUDE_DIR"
+fi
 
 
 
