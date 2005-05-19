@@ -95,8 +95,10 @@ sinclude(acx_mpi.m4)
 ACX_MPI
 AM_CONDITIONAL(USE_MPI, test "$acx_mpi_ok" = "yes")
 AM_CONDITIONAL(USE_LOCAL_MPIF_H, test "$acx_mpif_h_found" = "no")
-FCPPFLAGS="$FCPPFLAGS -I$MPI_INCLUDE_DIR"
-FFLAGS="$FFLAGS -I$MPI_INCLUDE_DIR"
+if test "$MPI_INCLUDE_DIR" != ""; then
+   FCPPFLAGS="$FCPPFLAGS -I$MPI_INCLUDE_DIR"
+   FFLAGS="$FFLAGS -I$MPI_INCLUDE_DIR"
+fi
 
 sinclude(acx_lapack.m4)
 sinclude(acx_blas.m4)
