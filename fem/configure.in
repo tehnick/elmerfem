@@ -68,62 +68,6 @@ esac
 
 ACX_FC_CHAR_MANGLING
 
-dnl do we want to enable 64 bits?
-
-dnl ******************************************************
-dnl Library checks (juha vierinen,25,tkk,tietokoneita,kiinnostunut kaikesta.)
-dnl
-dnl blas, lapack, arpack, umfpack, hutiter, eio, matc
-dnl
-
-dnl
-dnl Also, we'll look for libs and includes in the installation prefix,
-dnl you always want configure to do this by default, but maybe it's anti-GPL or something.
-dnl 
-LIBS="$LIBS -L$prefix/lib"
-CFLAGS="$CFLAGS -I$prefix/include"
-FCFLAGS="$FCFLAGS -I. -I$prefix/include"
-FFFLAGS="$FCFLAGS -I. -I$prefix/include"
-ELMER_HOME="$prefix"
-
-dnl hmm. how would it be best to handle -I flags needed for cpp?
-FCPPFLAGS="-I. -I$prefix/include -DDLLEXPORT=\"!\"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
-
-ELMER_LIBERRORMSG="wasn't found, make sure it is in the prefix, or CFLAGS and LIBS are correct if they are somewhere else."
-
-sinclude(acx_mpi.m4)
-ACX_MPI
-AM_CONDITIONAL(USE_MPI, test "$acx_mpi_ok" = "yes")
-AM_CONDITIONAL(USE_LOCAL_MPIF_H, test "$acx_mpif_h_found" = "no")
-if test "$MPI_INCLUDE_DIR" != ""; then
-   FCPPFLAGS="$FCPPFLAGS -I$MPI_INCLUDE_DIR"
-   FFLAGS="$FFLAGS -I$MPI_INCLUDE_DIR"
-fi
-
-sinclude(acx_lapack.m4)
-sinclude(acx_blas.m4)
-ACX_BLAS([], [AC_MSG_ERROR([BLAS was not found!])])
-ACX_LAPACK([], [AC_MSG_ERROR([LAPACK was not found!])])
-ACX_HUTI([], [AC_MSG_ERROR([Libhuti wasn't found])])
-ACX_EIOF([], [AC_MSG_ERROR([libeiof $ELMER_LIBERRORMSG])])
-ACX_ARPACK([], [AC_MSG_RESULT([..using internal arpack])])
-ACX_PARPACK([], [AC_MSG_RESULT([..using internal parpack])])
-ACX_UMFPACK([], [AC_MSG_WARN([UMFPACK not found, some functionaly will be disabled.])])
-ACX_MATC([], [AC_MSG_ERROR([libmatc $ELMER_LIBERRORMSG])])
-AC_CHECK_LIB(m,main)
-
-dnl see if arpack has to be built locally
-if test x"$acx_arpack_ok" = xno; then
-   ARPACK_LIBS="arpack/libarpack.a"
-fi
-
-dnl see if parpack has to be built locally (only when mpi is fine)
-if test x"$acx_parpack_ok" = xno; then
-if test x"$acx_mpi_ok" = xyes; then
-   PARPACK_LIBS="parpack/libparpack.a"
-fi
-fi
-
 dnl  
 dnl OS-specific stuff that hasn't been (or can't be) done in a clean way.
 dnl
@@ -158,7 +102,7 @@ MV='mv'
 MKDIR='mkdir -p'
 LIBSOLVER_DEPS=$LIBS
 INCLUDE_MODULE_FLAG="-I"
-
+FCPPFLAGS="-I. -I$prefix/include -DDLLEXPORT=\"!\"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
 
 dnl 
 dnl Host specific stuff
@@ -211,11 +155,10 @@ case "$canonical_host_type" in
     MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
     SONAME_FLAGS='-Wl,-soname -Wl,$@'
     RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
-    FCPPFLAGS="-C -P $FCPPFLAGS"
     CPICFLAG="-fPIC"
     CXXPICFLAG="-fPIC"
     FPICFLAG="-fPIC"
-    FCPPFLAGS="-traditional-cpp $FCPPFLAGS"
+    FCPPFLAGS="-traditional-cpp -C -P $FCPPFLAGS"
   ;;
   i[[3456]]86-*-sco3.2v5*)
     SONAME_FLAGS='-Wl,-h -Wl,$@'
@@ -295,6 +238,48 @@ case "$canonical_host_type" in
     FCPPFLAGS="-C -P $FCPPFLAGS"
   ;;
 esac
+
+LIBS="$LIBS -L$prefix/lib"
+CFLAGS="$CFLAGS -I$prefix/include"
+FCFLAGS="$FCFLAGS -I. -I$prefix/include"
+FFFLAGS="$FCFLAGS -I. -I$prefix/include"
+ELMER_HOME="$prefix"
+
+ELMER_LIBERRORMSG="wasn't found, make sure it is in the prefix, or CFLAGS and LIBS are correct if they are somewhere else."
+
+sinclude(acx_mpi.m4)
+ACX_MPI
+AM_CONDITIONAL(USE_MPI, test "$acx_mpi_ok" = "yes")
+AM_CONDITIONAL(USE_LOCAL_MPIF_H, test "$acx_mpif_h_found" = "no")
+if test "$MPI_INCLUDE_DIR" != ""; then
+   FCPPFLAGS="$FCPPFLAGS -I$MPI_INCLUDE_DIR"
+   FFLAGS="$FFLAGS -I$MPI_INCLUDE_DIR"
+   FCFLAGS="$FCFLAGS -I$MPI_INCLUDE_DIR"
+fi
+
+sinclude(acx_lapack.m4)
+sinclude(acx_blas.m4)
+ACX_BLAS([], [AC_MSG_ERROR([BLAS was not found!])])
+ACX_LAPACK([], [AC_MSG_ERROR([LAPACK was not found!])])
+ACX_HUTI([], [AC_MSG_ERROR([Libhuti wasn't found])])
+ACX_EIOF([], [AC_MSG_ERROR([libeiof $ELMER_LIBERRORMSG])])
+ACX_ARPACK([], [AC_MSG_RESULT([..using internal arpack])])
+ACX_PARPACK([], [AC_MSG_RESULT([..using internal parpack])])
+ACX_UMFPACK([], [AC_MSG_WARN([UMFPACK not found, some functionaly will be disabled.])])
+ACX_MATC([], [AC_MSG_ERROR([libmatc $ELMER_LIBERRORMSG])])
+AC_CHECK_LIB(m,main)
+
+dnl see if arpack has to be built locally
+if test x"$acx_arpack_ok" = xno; then
+   ARPACK_LIBS="arpack/libarpack.a"
+fi
+
+dnl see if parpack has to be built locally (only when mpi is fine)
+if test x"$acx_parpack_ok" = xno; then
+if test x"$acx_mpi_ok" = xyes; then
+   PARPACK_LIBS="parpack/libparpack.a"
+fi
+fi
 
 dnl
 dnl Compiler specific stuff
@@ -412,7 +397,7 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
   AC_DEFINE_UNQUOTED(SHL_EXTENSION, ".$SHLEXT",[Shared lib filename extension])
 fi
 
-SOLVER_LIBS="$ARPACK_LIBS $PARPACK_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $LAPACK_LIBS $BLAS_LIBS $MPILIBS $FCLIBS $FLIBS $STDCXX_LIBS"
+SOLVER_LIBS="$ARPACK_LIBS $PARPACK_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $LAPACK_LIBS $BLAS_LIBS $MPI_LIBS $FCLIBS $FLIBS $STDCXX_LIBS"
 ELMERGRID_LIBS="$LIBS"
 MESHGEN2D_LIBS="$LIBS $STDCXX_LIBS"
 
@@ -520,8 +505,10 @@ ELMER build options:
   FCPPFLAGS                 $FCPPFLAGS
   CFLAGS                    $CFLAGS
   FCFLAGS                   $FCFLAGS
+  FFLAGS                    $FFLAGS
   LDFLAGS                   $LDFLAGS
   LIBS                      $LIBS
+  SOLVER_LIBS               $SOLVER_LIBS
 
 Compilers:
   Fortran 90 compiler       $FC
@@ -538,7 +525,7 @@ Libs:
   PARPACK		    $PARPACK_LIBS
   HUTI			    $HUTI_LIBS
   EIO			    $EIOF_LIBS
-  MPI                       $MPILIBS
+  MPI                       $MPI_LIBS
 
 MPI:
   $acx_mpi_ok

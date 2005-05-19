@@ -670,6 +670,7 @@ ac_ct_RANLIB
 AR
 ARFLAGS
 TRADITIONAL_CPP
+BASIC_CPP
 CPP
 CXX
 CXXFLAGS
@@ -4686,8 +4687,8 @@ fi
 
 # sun mpcc -E leaves nasty # comment that chokes the fortran compiler, so we have to hope
 # that ye olde cpp is present.
-# Extract the first word of "cpp", so it can be a program name with args.
-set dummy cpp; ac_word=$2
+# Extract the first word of "/lib/cpp", so it can be a program name with args.
+set dummy /lib/cpp; ac_word=$2
 echo "$as_me:$LINENO: checking for $ac_word" >&5
 echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
 if test "${ac_cv_prog_TRADITIONAL_CPP+set}" = set; then
@@ -4722,13 +4723,55 @@ else
 echo "${ECHO_T}no" >&6
 fi
 
-if test "$TRADITIONAL_CPP" = yes; then
-     CPP=cpp
+
+if test "$TRADITIONAL_CPP" = no; then
+   # Extract the first word of "cpp", so it can be a program name with args.
+set dummy cpp; ac_word=$2
+echo "$as_me:$LINENO: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+if test "${ac_cv_prog_BASIC_CPP+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
 else
-     { { echo "$as_me:$LINENO: error: Traditional cpp not found, just have to exit for for now." >&5
+  if test -n "$BASIC_CPP"; then
+  ac_cv_prog_BASIC_CPP="$BASIC_CPP" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+  for ac_exec_ext in '' $ac_executable_extensions; do
+  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_executable_p "$as_dir/$ac_word$ac_exec_ext"; }; then
+    ac_cv_prog_BASIC_CPP="yes"
+    echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+done
+
+  test -z "$ac_cv_prog_BASIC_CPP" && ac_cv_prog_BASIC_CPP="no"
+fi
+fi
+BASIC_CPP=$ac_cv_prog_BASIC_CPP
+if test -n "$BASIC_CPP"; then
+  echo "$as_me:$LINENO: result: $BASIC_CPP" >&5
+echo "${ECHO_T}$BASIC_CPP" >&6
+else
+  echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+
+   if test "$BASIC_CPP" = yes; then
+       CPP=cpp
+   else
+       { { echo "$as_me:$LINENO: error: Traditional cpp not found, just have to exit for for now." >&5
 echo "$as_me: error: Traditional cpp not found, just have to exit for for now." >&2;}
    { (exit 1); exit 1; }; }
+   fi
+else
+   CPP=/lib/cpp
 fi
+
 
 
 ac_ext=cc
@@ -5409,7 +5452,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:5412:" \
+echo "$as_me:5455:" \
      "checking for Fortran compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -5656,7 +5699,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:5659:" \
+echo "$as_me:5702:" \
      "checking for Fortran 77 compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -7348,7 +7391,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_verb"
-(eval echo $as_me:7351: \"$ac_link\") >&5
+(eval echo $as_me:7394: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -7432,7 +7475,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_cv_prog_f77_v"
-(eval echo $as_me:7435: \"$ac_link\") >&5
+(eval echo $as_me:7478: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -8179,7 +8222,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_verb"
-(eval echo $as_me:8182: \"$ac_link\") >&5
+(eval echo $as_me:8225: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -8263,7 +8306,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_cv_prog_fc_v"
-(eval echo $as_me:8266: \"$ac_link\") >&5
+(eval echo $as_me:8309: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -9195,15 +9238,176 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+DLFCN_DIR=
+CPICFLAG=-fPIC
+CXXPICFLAG=-fPIC
+FPICFLAG=-fPIC
+SHLEXT=so
+SHLLIB='$(SHLEXT)'
+SHLBIN=
+SHLEXT_VER='$(SHLEXT).$(version)'
+SHLLIB_VER='$(SHLLIB).$(version)'
+SHLBIN_VER='$(SHLBIN).$(version)'
+SHLLINKEXT=
+LIBEXT=a
+SH_LD2=$CXX
+SH_LD=$FC
+SH_LDFLAGS=-shared
+SH_LDTOFLAGS=
+DL_LD='$(SH_LD)'
+DL_LDFLAGS='$(SH_LDFLAGS)'
+MKOCTFILE_DL_LDFLAGS='$(DL_LDFLAGS)'
+SONAME_FLAGS=
+RLD_FLAG=
+NO_OCT_FILE_STRIP=false
+TEMPLATE_AR='$(AR)'
+TEMPLATE_ARFLAGS="$ARFLAGS"
+library_path_var=LD_LIBRARY_PATH
+CP='cp'
+RM='rm -f'
+MV='mv'
+MKDIR='mkdir -p'
+LIBSOLVER_DEPS=$LIBS
+INCLUDE_MODULE_FLAG="-I"
+FCPPFLAGS="-I. -I$prefix/include -DDLLEXPORT=\"!\"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
 
+case "$canonical_host_type" in
+  *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
+    SH_LD=ld
+    SH_LDFLAGS=-Bshareable
+  ;;
+  *-*-freebsd*)
+    SH_LD='$(CC)'
+    SH_LDFLAGS=-shared -Wl,-x
+  ;;
+  alpha*-dec-osf*)
+    CPICFLAG=
+    CXXPICFLAG=
+    FPICFLAG=
+    SH_LDFLAGS="-shared -Wl,-expect_unresolved -Wl,'*'"
+    RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
+  ;;
+  *-*-darwin*)
+    DL_LDFLAGS='-bundle -bundle_loader $(TOPDIR)/src/octave $(LDFLAGS)'
+    MKOCTFILE_DL_LDFLAGS='-bundle -bundle_loader $(bindir)/octave-$(version)$(EXEEXT)'
+    SH_LDFLAGS='-dynamiclib -single_module $(LDFLAGS)'
+    CXXPICFLAG=
+    CPICFLAG=
+    FPICFLAG=
+    SHLEXT=dylib
+    SHLLIB='$(SHLEXT)'
+    SHLEXT_VER='$(version).$(SHLEXT)'
+    SHLLIB_VER='$(version).$(SHLLIB)'
+    NO_OCT_FILE_STRIP=true
+    SONAME_FLAGS='-install_name $(octlibdir)/$@'
+    library_path_var=DYLD_LIBRARY_PATH
+  ;;
+  *-*-cygwin* | *-*-mingw*)
+    CXXPICFLAG=
+    CPICFLAG=
+    FPICFLAG=
+    SHLEXT=dll
+    SHLLIB=dll.a
+    SHLBIN=dll
+    SH_LDFLAGS="-shared -Wl,--export-all-symbols -Wl,--enable-auto-import"
+    SHLLINKEXT=.dll
+    SONAME_FLAGS='-Wl,--out-implib=$@.a'
+    library_path_var=PATH
+    FCPPFLAGS="-DWIN32"
+  ;;
+  *-*-linux* | *-*-gnu*)
+    MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
+    SONAME_FLAGS='-Wl,-soname -Wl,$@'
+    RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
+    CPICFLAG="-fPIC"
+    CXXPICFLAG="-fPIC"
+    FPICFLAG="-fPIC"
+    FCPPFLAGS="-traditional-cpp -C -P $FCPPFLAGS"
+  ;;
+  i[3456]86-*-sco3.2v5*)
+    SONAME_FLAGS='-Wl,-h -Wl,$@'
+    RLD_FLAG=
+    SH_LDFLAGS=-G
+  ;;
+  rs6000-ibm-aix* | powerpc-ibm-aix*)
+    CPICFLAG=
+    CXXPICFLAG=
+    FPICFLAG=
+    DLFCN_DIR=dlfcn
+    SH_LDFLAGS="-G"
+    SH_LDTOFLAGS="-brtl -bdynamic"
+    FCPPFLAGS="-C -P $FCPPFLAGS"
+  ;;
+  hppa*-hp-hpux*)
+    if test "$ac_cv_f77_compiler_gnu" = yes; then
+      FPICFLAG=-fPIC
+    else
+      FPICFLAG=+Z
+    fi
+    SHLEXT=sl
+    SH_LDFLAGS="-shared -fPIC"
+    RLD_FLAG='-Wl,+b -Wl,$(octlibdir)'
+  ;;
+  *-sgi-*)
+    CPICFLAG=
+    CXXPICFLAG=
+    FPICFLAG=
+    RLD_FLAG='-rpath $(octlibdir)'
+  ;;
+  sparc-sun-sunos4*)
+    if test "$ac_cv_f77_compiler_gnu" = yes; then
+      FPICFLAG=-fPIC
+    else
+      FPICFLAG=-PIC
+    fi
+    SH_LD=ld
+    SH_LDFLAGS="-assert nodefinitions"
+    RLD_FLAG='-L$(octlibdir)'
+
+  ;;
+  sparc-sun-solaris2* | i386-pc-solaris2*)
+    if test "$ac_cv_f77_compiler_gnu" = yes; then
+      FPICFLAG=-fPIC
+    else
+      FPICFLAG=-KPIC
+    fi
+    if test "$ac_cv_fc_compiler_gnu" = yes; then
+      FPICFLAG=-fPIC
+    else
+      FPICFLAG=-KPIC
+      # sun compilers want to see "-lsunmath -lsunperf -lfsu" way too often..
+      EXTRA_LIBS="$BLAS_LIBS $LAPACK_LIBS"
+      INCLUDE_MODULE_FLAG="-M"
+    fi
+    if test "$GCC" = yes; then
+      CPICFLAG="-fPIC"
+    else
+      CPICFLAG=-KPIC
+    fi
+    if test "$GXX" = yes; then
+      CXXPICFLAG=-fPIC
+      SH_LDFLAGS=-shared
+    else
+      CXXPICFLAG=-KPIC
+      SH_LDFLAGS=-G
+    fi
+    RLD_FLAG='-R $(octlibdir)'
+    # Template closures in archive libraries need a different mechanism.
+    if test "$GXX" = yes; then
+      true
+    else
+      TEMPLATE_AR='$(CXX)'
+      TEMPLATE_ARFLAGS="-xar -o"
+    fi
+    FCPPFLAGS="-C -P $FCPPFLAGS"
+  ;;
+esac
 
 LIBS="$LIBS -L$prefix/lib"
 CFLAGS="$CFLAGS -I$prefix/include"
 FCFLAGS="$FCFLAGS -I. -I$prefix/include"
 FFFLAGS="$FCFLAGS -I. -I$prefix/include"
 ELMER_HOME="$prefix"
-
-FCPPFLAGS="-I. -I$prefix/include -DDLLEXPORT=\"!\"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
 
 ELMER_LIBERRORMSG="wasn't found, make sure it is in the prefix, or CFLAGS and LIBS are correct if they are somewhere else."
 
@@ -9455,6 +9659,9 @@ else
 fi
 
 
+
+MPI_LIBS="-L$mpi_lib_dir -l$lib_mpi"
+
 else
 # use local mpif.h
 acx_mpif_h_found=no
@@ -9483,6 +9690,7 @@ fi
 if test "$MPI_INCLUDE_DIR" != ""; then
    FCPPFLAGS="$FCPPFLAGS -I$MPI_INCLUDE_DIR"
    FFLAGS="$FFLAGS -I$MPI_INCLUDE_DIR"
+   FCFLAGS="$FCFLAGS -I$MPI_INCLUDE_DIR"
 fi
 
 
@@ -12919,172 +13127,6 @@ if test x"$acx_mpi_ok" = xyes; then
 fi
 fi
 
-DLFCN_DIR=
-CPICFLAG=-fPIC
-CXXPICFLAG=-fPIC
-FPICFLAG=-fPIC
-SHLEXT=so
-SHLLIB='$(SHLEXT)'
-SHLBIN=
-SHLEXT_VER='$(SHLEXT).$(version)'
-SHLLIB_VER='$(SHLLIB).$(version)'
-SHLBIN_VER='$(SHLBIN).$(version)'
-SHLLINKEXT=
-LIBEXT=a
-SH_LD2=$CXX
-SH_LD=$FC
-SH_LDFLAGS=-shared
-SH_LDTOFLAGS=
-DL_LD='$(SH_LD)'
-DL_LDFLAGS='$(SH_LDFLAGS)'
-MKOCTFILE_DL_LDFLAGS='$(DL_LDFLAGS)'
-SONAME_FLAGS=
-RLD_FLAG=
-NO_OCT_FILE_STRIP=false
-TEMPLATE_AR='$(AR)'
-TEMPLATE_ARFLAGS="$ARFLAGS"
-library_path_var=LD_LIBRARY_PATH
-CP='cp'
-RM='rm -f'
-MV='mv'
-MKDIR='mkdir -p'
-LIBSOLVER_DEPS=$LIBS
-INCLUDE_MODULE_FLAG="-I"
-
-
-case "$canonical_host_type" in
-  *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
-    SH_LD=ld
-    SH_LDFLAGS=-Bshareable
-  ;;
-  *-*-freebsd*)
-    SH_LD='$(CC)'
-    SH_LDFLAGS=-shared -Wl,-x
-  ;;
-  alpha*-dec-osf*)
-    CPICFLAG=
-    CXXPICFLAG=
-    FPICFLAG=
-    SH_LDFLAGS="-shared -Wl,-expect_unresolved -Wl,'*'"
-    RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
-  ;;
-  *-*-darwin*)
-    DL_LDFLAGS='-bundle -bundle_loader $(TOPDIR)/src/octave $(LDFLAGS)'
-    MKOCTFILE_DL_LDFLAGS='-bundle -bundle_loader $(bindir)/octave-$(version)$(EXEEXT)'
-    SH_LDFLAGS='-dynamiclib -single_module $(LDFLAGS)'
-    CXXPICFLAG=
-    CPICFLAG=
-    FPICFLAG=
-    SHLEXT=dylib
-    SHLLIB='$(SHLEXT)'
-    SHLEXT_VER='$(version).$(SHLEXT)'
-    SHLLIB_VER='$(version).$(SHLLIB)'
-    NO_OCT_FILE_STRIP=true
-    SONAME_FLAGS='-install_name $(octlibdir)/$@'
-    library_path_var=DYLD_LIBRARY_PATH
-  ;;
-  *-*-cygwin* | *-*-mingw*)
-    CXXPICFLAG=
-    CPICFLAG=
-    FPICFLAG=
-    SHLEXT=dll
-    SHLLIB=dll.a
-    SHLBIN=dll
-    SH_LDFLAGS="-shared -Wl,--export-all-symbols -Wl,--enable-auto-import"
-    SHLLINKEXT=.dll
-    SONAME_FLAGS='-Wl,--out-implib=$@.a'
-    library_path_var=PATH
-    FCPPFLAGS="-DWIN32"
-  ;;
-  *-*-linux* | *-*-gnu*)
-    MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
-    SONAME_FLAGS='-Wl,-soname -Wl,$@'
-    RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
-    FCPPFLAGS="-C -P $FCPPFLAGS"
-    CPICFLAG="-fPIC"
-    CXXPICFLAG="-fPIC"
-    FPICFLAG="-fPIC"
-    FCPPFLAGS="-traditional-cpp $FCPPFLAGS"
-  ;;
-  i[3456]86-*-sco3.2v5*)
-    SONAME_FLAGS='-Wl,-h -Wl,$@'
-    RLD_FLAG=
-    SH_LDFLAGS=-G
-  ;;
-  rs6000-ibm-aix* | powerpc-ibm-aix*)
-    CPICFLAG=
-    CXXPICFLAG=
-    FPICFLAG=
-    DLFCN_DIR=dlfcn
-    SH_LDFLAGS="-G"
-    SH_LDTOFLAGS="-brtl -bdynamic"
-    FCPPFLAGS="-C -P $FCPPFLAGS"
-  ;;
-  hppa*-hp-hpux*)
-    if test "$ac_cv_f77_compiler_gnu" = yes; then
-      FPICFLAG=-fPIC
-    else
-      FPICFLAG=+Z
-    fi
-    SHLEXT=sl
-    SH_LDFLAGS="-shared -fPIC"
-    RLD_FLAG='-Wl,+b -Wl,$(octlibdir)'
-  ;;
-  *-sgi-*)
-    CPICFLAG=
-    CXXPICFLAG=
-    FPICFLAG=
-    RLD_FLAG='-rpath $(octlibdir)'
-  ;;
-  sparc-sun-sunos4*)
-    if test "$ac_cv_f77_compiler_gnu" = yes; then
-      FPICFLAG=-fPIC
-    else
-      FPICFLAG=-PIC
-    fi
-    SH_LD=ld
-    SH_LDFLAGS="-assert nodefinitions"
-    RLD_FLAG='-L$(octlibdir)'
-
-  ;;
-  sparc-sun-solaris2* | i386-pc-solaris2*)
-    if test "$ac_cv_f77_compiler_gnu" = yes; then
-      FPICFLAG=-fPIC
-    else
-      FPICFLAG=-KPIC
-    fi
-    if test "$ac_cv_fc_compiler_gnu" = yes; then
-      FPICFLAG=-fPIC
-    else
-      FPICFLAG=-KPIC
-      # sun compilers want to see "-lsunmath -lsunperf -lfsu" way too often..
-      EXTRA_LIBS="$BLAS_LIBS $LAPACK_LIBS"
-      INCLUDE_MODULE_FLAG="-M"
-    fi
-    if test "$GCC" = yes; then
-      CPICFLAG="-fPIC"
-    else
-      CPICFLAG=-KPIC
-    fi
-    if test "$GXX" = yes; then
-      CXXPICFLAG=-fPIC
-      SH_LDFLAGS=-shared
-    else
-      CXXPICFLAG=-KPIC
-      SH_LDFLAGS=-G
-    fi
-    RLD_FLAG='-R $(octlibdir)'
-    # Template closures in archive libraries need a different mechanism.
-    if test "$GXX" = yes; then
-      true
-    else
-      TEMPLATE_AR='$(CXX)'
-      TEMPLATE_ARFLAGS="-xar -o"
-    fi
-    FCPPFLAGS="-C -P $FCPPFLAGS"
-  ;;
-esac
-
 case "$FC" in
   gfortran | g95 )
   ;;
@@ -13978,7 +14020,7 @@ _ACEOF
 
 fi
 
-SOLVER_LIBS="$ARPACK_LIBS $PARPACK_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $LAPACK_LIBS $BLAS_LIBS $MPILIBS $FCLIBS $FLIBS $STDCXX_LIBS"
+SOLVER_LIBS="$ARPACK_LIBS $PARPACK_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $LAPACK_LIBS $BLAS_LIBS $MPI_LIBS $FCLIBS $FLIBS $STDCXX_LIBS"
 ELMERGRID_LIBS="$LIBS"
 MESHGEN2D_LIBS="$LIBS $STDCXX_LIBS"
 
@@ -14840,6 +14882,7 @@ s,@ac_ct_RANLIB@,$ac_ct_RANLIB,;t t
 s,@AR@,$AR,;t t
 s,@ARFLAGS@,$ARFLAGS,;t t
 s,@TRADITIONAL_CPP@,$TRADITIONAL_CPP,;t t
+s,@BASIC_CPP@,$BASIC_CPP,;t t
 s,@CPP@,$CPP,;t t
 s,@CXX@,$CXX,;t t
 s,@CXXFLAGS@,$CXXFLAGS,;t t
@@ -15637,8 +15680,10 @@ ELMER build options:
   FCPPFLAGS                 $FCPPFLAGS
   CFLAGS                    $CFLAGS
   FCFLAGS                   $FCFLAGS
+  FFLAGS                    $FFLAGS
   LDFLAGS                   $LDFLAGS
   LIBS                      $LIBS
+  SOLVER_LIBS               $SOLVER_LIBS
 
 Compilers:
   Fortran 90 compiler       $FC
@@ -15655,7 +15700,7 @@ Libs:
   PARPACK		    $PARPACK_LIBS
   HUTI			    $HUTI_LIBS
   EIO			    $EIOF_LIBS
-  MPI                       $MPILIBS
+  MPI                       $MPI_LIBS
 
 MPI:
   $acx_mpi_ok
@@ -15668,8 +15713,10 @@ ELMER build options:
   FCPPFLAGS                 $FCPPFLAGS
   CFLAGS                    $CFLAGS
   FCFLAGS                   $FCFLAGS
+  FFLAGS                    $FFLAGS
   LDFLAGS                   $LDFLAGS
   LIBS                      $LIBS
+  SOLVER_LIBS               $SOLVER_LIBS
 
 Compilers:
   Fortran 90 compiler       $FC
@@ -15686,7 +15733,7 @@ Libs:
   PARPACK		    $PARPACK_LIBS
   HUTI			    $HUTI_LIBS
   EIO			    $EIOF_LIBS
-  MPI                       $MPILIBS
+  MPI                       $MPI_LIBS
 
 MPI:
   $acx_mpi_ok
