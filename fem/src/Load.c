@@ -86,8 +86,8 @@ void STDCALLBULL FC_FUNC(makedirectory,MAKEDIRECTORY)
 #ifdef WIN32
     if ( _mkdir( Name ) != 0 ) {
 #else
-    if ( mkdir( Name, 0x700 ) != 0 ) {
-      chmod( Name, 0x700 );
+    if ( mkdir( Name, 0700 ) != 0 ) {
+      chmod( Name, 0700 );
 #endif
     }
 }
