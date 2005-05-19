@@ -44,11 +44,11 @@ DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
 bin_PROGRAMS = SC2Elmer$(EXEEXT)
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/acx_mpi.m4 \
-	$(top_srcdir)/acx_blas.m4 $(top_srcdir)/acx_lapack.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/acx_blas.m4 \
+	$(top_srcdir)/acx_lapack.m4 $(top_srcdir)/acx_mpi.m4 \
 	$(top_srcdir)/acx_elmer.m4 $(top_srcdir)/acx_elmer.m4 \
-	$(top_srcdir)/acx_lapack.m4 $(top_srcdir)/acx_blas.m4 \
-	$(top_srcdir)/acx_mpi.m4 $(top_srcdir)/configure.in
+	$(top_srcdir)/acx_mpi.m4 $(top_srcdir)/acx_lapack.m4 \
+	$(top_srcdir)/acx_blas.m4 $(top_srcdir)/configure.in
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
@@ -146,12 +146,6 @@ MATC_LIBS = @MATC_LIBS@
 MESHGEN2D_LIBS = @MESHGEN2D_LIBS@
 MKDIR = @MKDIR@
 MKOCTFILE_DL_LDFLAGS = @MKOCTFILE_DL_LDFLAGS@
-MPICC = @MPICC@
-MPICXX = @MPICXX@
-MPIF77 = @MPIF77@
-MPIF90 = @MPIF90@
-MPIFC = @MPIFC@
-MPILIBS = @MPILIBS@
 MV = @MV@
 NO_OCT_FILE_STRIP = @NO_OCT_FILE_STRIP@
 OBJEXT = @OBJEXT@
@@ -187,6 +181,8 @@ TEMPLATE_ARFLAGS = @TEMPLATE_ARFLAGS@
 TESTS_FCFLAGS = @TESTS_FCFLAGS@
 TRADITIONAL_CPP = @TRADITIONAL_CPP@
 UMFPACK_LIBS = @UMFPACK_LIBS@
+USE_LOCAL_MPIF_H_FALSE = @USE_LOCAL_MPIF_H_FALSE@
+USE_LOCAL_MPIF_H_TRUE = @USE_LOCAL_MPIF_H_TRUE@
 USE_MPI_FALSE = @USE_MPI_FALSE@
 USE_MPI_TRUE = @USE_MPI_TRUE@
 VERSION = @VERSION@
@@ -226,6 +222,7 @@ htmldir = @htmldir@
 includedir = @includedir@
 infodir = @infodir@
 install_sh = @install_sh@
+lib_mpi = @lib_mpi@
 libdir = @libdir@
 libexecdir = @libexecdir@
 library_path_var = @library_path_var@
@@ -233,6 +230,10 @@ localedir = @localedir@
 localstatedir = @localstatedir@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
+mpi_dir = @mpi_dir@
+mpi_inc_dir = @mpi_inc_dir@
+mpi_lib_dir = @mpi_lib_dir@
+mpirun_cmd = @mpirun_cmd@
 oldincludedir = @oldincludedir@
 pdfdir = @pdfdir@
 prefix = @prefix@
@@ -1055,17 +1056,15 @@ install-exec-local:
 	@CP@ SOLVER.KEYWORDS @prefix@/lib
 
 clean-local:
-	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so \#* mpif
+	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so \#* mpif mpif.h
 
 ###############################
-# If no mpi, use local stubs
-#
-@USE_MPI_TRUE@mpif:
-@USE_MPI_TRUE@	@CP@ mpif_stub.h mpif.h
-@USE_MPI_TRUE@	@CP@ mpif_stub.h mpif
-@USE_MPI_FALSE@mpif:
-@USE_MPI_FALSE@	@CP@ mpif_stub.h mpif.h
-@USE_MPI_FALSE@	@CP@ mpif_stub.h mpif
+# If no mpif.h found, but mpi still seems kosher, then use a stub mpif.h
+@USE_LOCAL_MPIF_H_TRUE@mpif:
+@USE_LOCAL_MPIF_H_TRUE@	@CP@ mpif_stub.h mpif.h
+@USE_LOCAL_MPIF_H_TRUE@	@CP@ mpif_stub.h mpif
+@USE_LOCAL_MPIF_H_FALSE@mpif:
+@USE_LOCAL_MPIF_H_FALSE@	@CP@ mpif_stub.h mpif
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

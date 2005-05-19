@@ -42,11 +42,11 @@ target_triplet = i686-pc-linux-gnu
 subdir = src/elmergrid/metis
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/acx_mpi.m4 \
-	$(top_srcdir)/acx_blas.m4 $(top_srcdir)/acx_lapack.m4 \
+am__aclocal_m4_deps = $(top_srcdir)/acx_blas.m4 \
+	$(top_srcdir)/acx_lapack.m4 $(top_srcdir)/acx_mpi.m4 \
 	$(top_srcdir)/acx_elmer.m4 $(top_srcdir)/acx_elmer.m4 \
-	$(top_srcdir)/acx_lapack.m4 $(top_srcdir)/acx_blas.m4 \
-	$(top_srcdir)/acx_mpi.m4 $(top_srcdir)/configure.in
+	$(top_srcdir)/acx_mpi.m4 $(top_srcdir)/acx_lapack.m4 \
+	$(top_srcdir)/acx_blas.m4 $(top_srcdir)/configure.in
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
@@ -129,8 +129,8 @@ F77 = ifort
 FC = ifort
 FCFLAGS = -g  -I. -I/tmp/elmer/ifc/include -fPIC
 FCLIBS =  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s
-FCPPFLAGS = -traditional-cpp -C -P -I. -I/tmp/elmer/ifc/include -DDLLEXPORT="!"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK
-FFLAGS = -g  -fPIC
+FCPPFLAGS = -traditional-cpp -C -P -I. -I/tmp/elmer/ifc/include -DDLLEXPORT="!"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK -I
+FFLAGS = -g  -I -fPIC
 FLIBS =  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s
 FPICFLAG = -fPIC
 GREP = /bin/grep
@@ -154,12 +154,6 @@ MATC_LIBS = -lmatc
 MESHGEN2D_LIBS = -ldl -lm  -L/tmp/elmer/ifc/lib -lstdc++
 MKDIR = mkdir -p
 MKOCTFILE_DL_LDFLAGS = -shared -Wl,-Bsymbolic
-MPICC = 
-MPICXX = 
-MPIF77 = 
-MPIF90 = 
-MPIFC = 
-MPILIBS = 
 MV = mv
 NO_OCT_FILE_STRIP = false
 OBJEXT = o
@@ -169,7 +163,7 @@ PACKAGE_NAME =
 PACKAGE_STRING = 
 PACKAGE_TARNAME = 
 PACKAGE_VERSION = 
-PARPACK_LIBS = 
+PARPACK_LIBS = parpack/libparpack.a
 PATH_SEPARATOR = :
 RANLIB = ranlib
 RLD_FLAG = -Wl,-rpath -Wl,$(octlibdir)
@@ -187,7 +181,7 @@ SH_LD = ifort
 SH_LD2 = icc
 SH_LDFLAGS = -shared
 SH_LDTOFLAGS = 
-SOLVER_LIBS = arpack/libarpack.a   -lhuti -lmatc -leiof -ldl -lm  -L/tmp/elmer/ifc/lib -llapack -lblas   -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s -lstdc++
+SOLVER_LIBS = arpack/libarpack.a parpack/libparpack.a  -lhuti -lmatc -leiof -ldl -lm  -L/tmp/elmer/ifc/lib -llapack -lblas   -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s -lstdc++
 SONAME_FLAGS = -Wl,-soname -Wl,$@
 STRIP = 
 TEMPLATE_AR = $(AR)
@@ -195,8 +189,10 @@ TEMPLATE_ARFLAGS = rc
 TESTS_FCFLAGS = -I. -I/tmp/elmer/ifc/include -g  -I. -I/tmp/elmer/ifc/include -fPIC
 TRADITIONAL_CPP = yes
 UMFPACK_LIBS = 
-USE_MPI_FALSE = 
-USE_MPI_TRUE = #
+USE_LOCAL_MPIF_H_FALSE = 
+USE_LOCAL_MPIF_H_TRUE = #
+USE_MPI_FALSE = #
+USE_MPI_TRUE = 
 VERSION = 1.0.0
 ac_ct_CC = icc
 ac_ct_CXX = 
@@ -234,6 +230,7 @@ htmldir = ${docdir}
 includedir = ${prefix}/include
 infodir = ${datarootdir}/info
 install_sh = /home/vierinen/src/newelmer/fem/install-sh
+lib_mpi = mpich
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
 library_path_var = LD_LIBRARY_PATH
@@ -241,6 +238,10 @@ localedir = ${datarootdir}/locale
 localstatedir = ${prefix}/var
 mandir = ${datarootdir}/man
 mkdir_p = mkdir -p --
+mpi_dir = /usr
+mpi_inc_dir = /usr/include
+mpi_lib_dir = /usr/lib
+mpirun_cmd = mpirun
 oldincludedir = /usr/include
 pdfdir = ${docdir}
 prefix = /tmp/elmer/ifc

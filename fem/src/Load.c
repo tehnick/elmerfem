@@ -422,7 +422,9 @@ double STDCALLBULL FC_FUNC(materialuserfunction,MATERIALUSERFUNCTION)
   INTERNAL: execute user material function
   -------------------------------------------------------------------------*/
 static void DoSimulationProc( void (*SimulationProc)(), void *Model )
-{ (*SimulationProc)( Model ); }
+{ 
+  (*SimulationProc)( Model ); 
+}
 
 /*--------------------------------------------------------------------------
   This routine will call user defined material def. function

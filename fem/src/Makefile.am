@@ -68,7 +68,7 @@ install-exec-local:
 	@CP@ SOLVER.KEYWORDS @prefix@/lib
 
 clean-local:
-	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so \#* mpif
+	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so \#* mpif mpif.h
 
 ###############################
 # Automake knows how to do this 
@@ -77,15 +77,13 @@ bin_PROGRAMS = SC2Elmer
 SC2Elmer_SOURCES = SC2Elmer.c
 
 ###############################
-# If no mpi, use local stubs
-#
-if USE_MPI
+# If no mpif.h found, but mpi still seems kosher, then use a stub mpif.h
+if USE_LOCAL_MPIF_H
 mpif:
 	@CP@ mpif_stub.h mpif.h
 	@CP@ mpif_stub.h mpif
-else
+else 
 mpif:
-	@CP@ mpif_stub.h mpif.h
 	@CP@ mpif_stub.h mpif
 endif
 
