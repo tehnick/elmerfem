@@ -33,6 +33,9 @@
 ! *       Date of modification:
 ! *
 ! * $Log: MainUtils.f90,v $
+! * Revision 1.3  2005/05/17 07:28:05  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.2  2005/05/04 09:16:04  vierinen
 ! * minor modifications
 ! *
@@ -51,7 +54,7 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.f90,v 1.2 2005/05/04 09:16:04 vierinen Exp $
+! * $Id: MainUtils.f90,v 1.3 2005/05/17 07:28:05 jpr Exp $
 ! *****************************************************************************/
 
 
@@ -306,7 +309,7 @@ DLLEXPORT AddEquation
        Solver % Matrix => CreateMatrix( CurrentModel, Solver % Mesh, Perm, &
             DOFs+1, MatrixFormat, BandwidthOptimize, 'Navier-Stokes', GlobalBubbles=GlobalBubbles )
 
-       Nrows = Ndeg
+       Nrows =(DOFs+1)* Ndeg
        IF ( ASSOCIATED( Solver % Matrix ) ) Nrows = Solver % Matrix % NumberOfRows
        IF ( .NOT. ASSOCIATED( Solver % Variable ) ) THEN
           ALLOCATE( Solution(Nrows), STAT=istat )
@@ -365,7 +368,7 @@ DLLEXPORT AddEquation
        Solver % Matrix => CreateMatrix( CurrentModel, Solver % Mesh, &
             Perm,3, MatrixFormat, BandwidthOptimize, 'Magnetic Induction', GlobalBubbles=GlobalBubbles )
 
-       Nrows = Ndeg
+       Nrows = 3*Ndeg
        IF ( ASSOCIATED( Solver % Matrix ) ) Nrows = Solver % Matrix % NumberOfRows
        IF ( .NOT. ASSOCIATED( Solver % Variable ) ) THEN
           ALLOCATE( Solution(Nrows), STAT=istat )
@@ -436,7 +439,7 @@ DLLEXPORT AddEquation
        Solver % Matrix => CreateMatrix( CurrentModel, Solver % Mesh, &
             Perm, DOFs, MatrixFormat, BandwidthOptimize, 'Stress Analysis', GlobalBubbles=GlobalBubbles )
 
-       Nrows = Ndeg
+       Nrows = DOFs*Ndeg
        IF ( ASSOCIATED( Solver % Matrix ) ) Nrows = Solver % Matrix % NumberOfRows
        IF ( .NOT.ASSOCIATED( Solver % Variable ) ) THEN
           ALLOCATE( Solution(Nrows), STAT=istat )
@@ -490,7 +493,7 @@ DLLEXPORT AddEquation
             Perm, DOFs, MatrixFormat, BandwidthOptimize, 'Mesh Update', GlobalBubbles=GlobalBubbles )
        IF ( .NOT. ASSOCIATED( Solver % Matrix ) )  RETURN
  
-       Nrows = Ndeg
+       Nrows = DOFs*Ndeg
        IF ( ASSOCIATED( Solver % Matrix ) ) Nrows = Solver % Matrix % NumberOfRows
        IF (.NOT. ASSOCIATED( Solver % Variable ) ) THEN
           ALLOCATE( Solution(Nrows), STAT=istat )
@@ -635,11 +638,12 @@ DLLEXPORT AddEquation
              END IF
 
              Solver % Matrix => CreateMatrix( CurrentModel, Solver % Mesh, &
-                  Perm,DOFs, MatrixFormat, BandwidthOptimize, eq(1:LEN_TRIM(eq)), &
+                  Perm, DOFs, MatrixFormat, BandwidthOptimize, eq(1:LEN_TRIM(eq)), &
                   ListGetLogical( Solver % Values, 'Discontinuous Galerkin', GotIt ), GlobalBubbles=GlobalBubbles )
 
-             Nrows = Ndeg
+             Nrows = DOFs * Ndeg
              IF ( ASSOCIATED( Solver % Matrix ) ) Nrows = Solver % Matrix % NumberOfRows
+
              IF ( .NOT. ASSOCIATED( Solver % Variable ) ) THEN
                 ALLOCATE( Solution( Nrows ) )
                 Solution = 0.0d0

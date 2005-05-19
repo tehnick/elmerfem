@@ -285,7 +285,7 @@
 !
 !                  Check for rounding errors:
 !                  --------------------------
-                   WHERE( OldPerm( NodeIndexes ) /= 0 )
+                   WHERE( OldPerm( NodeIndexes ) > 0 )
                       ElementValues(1:n) = OldValue(OldPerm(NodeIndexes))
                    ELSEWHERE
                       ElementValues(1:n) = 0.0d0
