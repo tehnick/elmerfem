@@ -34,6 +34,9 @@
 ! *       Date of modification:
 ! *
 ! * $Log: DefUtils.f90,v $
+! * Revision 1.2  2005/05/04 09:15:44  vierinen
+! * minor modifications
+! *
 ! * Revision 1.54  2005/04/19 08:53:45  jpr
 ! * Renamed module LUDecomposition as LinearAlgebra.
 ! *
@@ -74,7 +77,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.f90,v 1.54 2005/04/19 08:53:45 jpr Exp $
+! * $Id: DefUtils.f90,v 1.2 2005/05/04 09:15:44 vierinen Exp $
 ! *
 ! *****************************************************************************/
 
@@ -1643,7 +1646,7 @@ DLLEXPORT DefaultDirichletBCs
         CALL SetDirichletBoundaries( CurrentModel,A, b, x % Name,-1,x % DOFs,x % Perm )
      END IF
 
-     CALL Info('DefUtils::DefaultDirichletBCs','Setting Diriclet boundary conditions')
+     CALL Info('DefUtils::DefaultDirichletBCs','Setting Diriclet boundary conditions', Level=5)
 
      DO DOF=1,x % DOFs
         name = x % name
@@ -1837,7 +1840,7 @@ DLLEXPORT DefaultDirichletBCs
         CurrentModel % CurrentElement => SaveElement
      END DO
 
-     CALL Info('DefUtils::DefaultDirichletBCs','Dirichlet boundary conditions set')
+     CALL Info('DefUtils::DefaultDirichletBCs','Dirichlet boundary conditions set', Level=5)
 
 !------------------------------------------------------------------------------
   END SUBROUTINE DefaultDirichletBCs
