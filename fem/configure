@@ -689,14 +689,15 @@ EGREP
 B64FLAGS
 FLIBS
 FCLIBS
-MPICC
-MPICXX
-MPIF77
-MPIF90
-MPIFC
-MPILIBS
+mpi_dir
+mpi_lib_dir
+mpi_inc_dir
+mpirun_cmd
+lib_mpi
 USE_MPI_TRUE
 USE_MPI_FALSE
+USE_LOCAL_MPIF_H_TRUE
+USE_LOCAL_MPIF_H_FALSE
 BLAS_LIBS
 LAPACK_LIBS
 HUTI_LIBS
@@ -1411,7 +1412,10 @@ Optional Packages:
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --with-stdcxxlib=<lib>  use std c++ library <lib>
   --with-64bits=yes(/no)  Try to compile using 64 bits (default)
-  --with-mpi=<yes|lib(s)> Specify if to use mpi (by default disabled)
+  --with-mpi=yes  Use mpi (by default disabled)
+  --with-mpi-dir=MPIDIR   give the path for MPI /usr/local/mpich
+  --with-mpi-lib-dir=dir  give the path for MPI-libraries MPI_DIR/lib
+  --with-mpi-inc-dir=dir  give the path for MPI-include-files MPI_DIR/include
   --with-blas=<lib>       use BLAS library <lib>
   --with-lapack=<lib>     use LAPACK library <lib>
   --with-huti=<lib>       use HUTI library <lib>
@@ -5405,7 +5409,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:5408:" \
+echo "$as_me:5412:" \
      "checking for Fortran compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -5652,7 +5656,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:5655:" \
+echo "$as_me:5659:" \
      "checking for Fortran 77 compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -7344,7 +7348,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_verb"
-(eval echo $as_me:7347: \"$ac_link\") >&5
+(eval echo $as_me:7351: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -7428,7 +7432,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_cv_prog_f77_v"
-(eval echo $as_me:7431: \"$ac_link\") >&5
+(eval echo $as_me:7435: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -8175,7 +8179,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_verb"
-(eval echo $as_me:8178: \"$ac_link\") >&5
+(eval echo $as_me:8182: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -8259,7 +8263,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_cv_prog_fc_v"
-(eval echo $as_me:8262: \"$ac_link\") >&5
+(eval echo $as_me:8266: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -8989,38 +8993,39 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 case "$ac_cv_fc_mangling" in
-  "upper case, no underscore, no extra underscore" | \
-  "upper case, no underscores")
+  "upper case, no underscore, no extra underscore" | "upper case, no underscores")
 
 cat >>confdefs.h <<\_ACEOF
 #define ELMER_LINKTYP 2
 _ACEOF
- ;;
-  "lower case, no underscore, no extra underscore" | \
-  "lower case, no underscores" )
+
+  ;;
+  "lower case, no underscore, no extra underscore" | "lower case, no underscores" )
 
 cat >>confdefs.h <<\_ACEOF
 #define ELMER_LINKTYP 3
 _ACEOF
- ;;
-  "lower case, underscore, no extra underscore" | \
-  "lower case, single underscores")
+
+  ;;
+  "lower case, underscore, no extra underscore" | "lower case, single underscores")
 
 cat >>confdefs.h <<\_ACEOF
 #define ELMER_LINKTYP 1
 _ACEOF
- ;;
-  "lower case, underscore, extra underscore" | \
-  "lower case, double underscores")
+
+  ;;
+  "lower case, underscore, extra underscore" | "lower case, double underscores")
 
 cat >>confdefs.h <<\_ACEOF
 #define ELMER_LINKTYP 4
 _ACEOF
- ;;
+
+  ;;
   *)
     { { echo "$as_me:$LINENO: error: Unknown sort of Fortran name mangling" >&5
 echo "$as_me: error: Unknown sort of Fortran name mangling" >&2;}
-   { (exit 1); exit 1; }; } ;;
+   { (exit 1); exit 1; }; }
+  ;;
 esac
 
 
@@ -9192,12 +9197,6 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
-
-
-
-
-
-
 LIBS="$LIBS -L$prefix/lib"
 CFLAGS="$CFLAGS -I$prefix/include"
 FCFLAGS="$FCFLAGS -I. -I$prefix/include"
@@ -9210,7 +9209,18 @@ ELMER_LIBERRORMSG="wasn't found, make sure it is in the prefix, or CFLAGS and LI
 
 
 
-ac_mpi_save_LIBS=$LIBS
+
+
+
+
+
+
+
+
+
+
+
+
 
 acx_mpi_ok=disabled
 
@@ -9218,227 +9228,136 @@ acx_mpi_ok=disabled
 # Check whether --with-mpi or --without-mpi was given.
 if test "${with_mpi+set}" = set; then
   withval="$with_mpi"
-
-case $with_mpi in
-	yes | "")
-	    acx_mpi_ok=no
-	;;
-	no | disabled)
-            acx_mpi_ok=disabled
-        ;;
-	-* | */* | *.a | *.so | *.so.* | *.o)
-	    acx_mpi_ok=no
-            MPILIBS="$with_mpi"
-        ;;
-	l*)
-	    acx_mpi_ok=no
-            MPILIBS="-l$with_mpi"
-        ;;
-esac
-
+  acx_mpi_ok=no
+else
+  acx_mpi_ok=disabled
 fi;
 
+echo "$as_me:$LINENO: checking for mpi-directory" >&5
+echo $ECHO_N "checking for mpi-directory... $ECHO_C" >&6
 
-
-if test x"$acx_mpi_ok" != xdisabled; then
-
-
-
-
-for ac_prog in mpicc hcc mpcc mpcc_r mpxlc mpxlC
-do
-  # Extract the first word of "$ac_prog", so it can be a program name with args.
-set dummy $ac_prog; ac_word=$2
-echo "$as_me:$LINENO: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
-if test "${ac_cv_prog_MPICC+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
+# Check whether --with-mpi_dir or --without-mpi_dir was given.
+if test "${with_mpi_dir+set}" = set; then
+  withval="$with_mpi_dir"
+  acx_mpi_ok=no; mpi_dir="$withval"
 else
-  if test -n "$MPICC"; then
-  ac_cv_prog_MPICC="$MPICC" # Let the user override the test.
-else
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-  for ac_exec_ext in '' $ac_executable_extensions; do
-  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_executable_p "$as_dir/$ac_word$ac_exec_ext"; }; then
-    ac_cv_prog_MPICC="$ac_prog"
-    echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-done
+  mpi_dir="/usr/local/mpich"
+fi;
+echo "$as_me:$LINENO: result: $mpi_dir" >&5
+echo "${ECHO_T}$mpi_dir" >&6
 
+
+echo "$as_me:$LINENO: checking for mpi-lib-directory" >&5
+echo $ECHO_N "checking for mpi-lib-directory... $ECHO_C" >&6
+
+# Check whether --with-mpi_lib_dir or --without-mpi_lib_dir was given.
+if test "${with_mpi_lib_dir+set}" = set; then
+  withval="$with_mpi_lib_dir"
+  acx_mpi_ok=no; mpi_lib_dir="$withval"
+else
+  mpi_lib_dir="$mpi_dir/lib"
+fi;
+echo "$as_me:$LINENO: result: $mpi_lib_dir" >&5
+echo "${ECHO_T}$mpi_lib_dir" >&6
+
+
+echo "$as_me:$LINENO: checking for mpi-inc-directory" >&5
+echo $ECHO_N "checking for mpi-inc-directory... $ECHO_C" >&6
+
+# Check whether --with-mpi_inc_dir or --without-mpi_inc_dir was given.
+if test "${with_mpi_inc_dir+set}" = set; then
+  withval="$with_mpi_inc_dir"
+  acx_mpi_ok=no; mpi_inc_dir="$withval"
+else
+  mpi_inc_dir="$mpi_dir/include"
+fi;
+echo "$as_me:$LINENO: result: $mpi_inc_dir" >&5
+echo "${ECHO_T}$mpi_inc_dir" >&6
+
+
+
+if test "$acx_mpi_ok" != disabled; then
+
+
+
+echo "$as_me:$LINENO: checking for the mpirun command" >&5
+echo $ECHO_N "checking for the mpirun command... $ECHO_C" >&6
+mpirun_cmd="Not found"
+if test -x "$mpi_dir/bin/mpirun" ; then
+  mpirun_cmd="mpirun"
+elif test -x "$mpi_dir/bin/mprun" ; then
+  mpirun_cmd="mprun"
 fi
-fi
-MPICC=$ac_cv_prog_MPICC
-if test -n "$MPICC"; then
-  echo "$as_me:$LINENO: result: $MPICC" >&5
-echo "${ECHO_T}$MPICC" >&6
-else
-  echo "$as_me:$LINENO: result: no" >&5
-echo "${ECHO_T}no" >&6
-fi
-
-  test -n "$MPICC" && break
-done
+echo "$as_me:$LINENO: result: found $mpirun_cmd" >&5
+echo "${ECHO_T}found $mpirun_cmd" >&6
 
 
 
 
-for ac_prog in mpiCC mpCC mpxlC
-do
-  # Extract the first word of "$ac_prog", so it can be a program name with args.
-set dummy $ac_prog; ac_word=$2
-echo "$as_me:$LINENO: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
-if test "${ac_cv_prog_MPICXX+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  if test -n "$MPICXX"; then
-  ac_cv_prog_MPICXX="$MPICXX" # Let the user override the test.
-else
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-  for ac_exec_ext in '' $ac_executable_extensions; do
-  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_executable_p "$as_dir/$ac_word$ac_exec_ext"; }; then
-    ac_cv_prog_MPICXX="$ac_prog"
-    echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-done
-
-fi
-fi
-MPICXX=$ac_cv_prog_MPICXX
-if test -n "$MPICXX"; then
-  echo "$as_me:$LINENO: result: $MPICXX" >&5
-echo "${ECHO_T}$MPICXX" >&6
-else
-  echo "$as_me:$LINENO: result: no" >&5
-echo "${ECHO_T}no" >&6
-fi
-
-  test -n "$MPICXX" && break
-done
-
-
-
-
-for ac_prog in mpif77 hf77 mpxlf mpf77 mpif90 mpf90 mpxlf90 mpxlf95 mpxlf_r
-do
-  # Extract the first word of "$ac_prog", so it can be a program name with args.
-set dummy $ac_prog; ac_word=$2
-echo "$as_me:$LINENO: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
-if test "${ac_cv_prog_MPIF77+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  if test -n "$MPIF77"; then
-  ac_cv_prog_MPIF77="$MPIF77" # Let the user override the test.
-else
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-  for ac_exec_ext in '' $ac_executable_extensions; do
-  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_executable_p "$as_dir/$ac_word$ac_exec_ext"; }; then
-    ac_cv_prog_MPIF77="$ac_prog"
-    echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-done
-
-fi
-fi
-MPIF77=$ac_cv_prog_MPIF77
-if test -n "$MPIF77"; then
-  echo "$as_me:$LINENO: result: $MPIF77" >&5
-echo "${ECHO_T}$MPIF77" >&6
-else
-  echo "$as_me:$LINENO: result: no" >&5
-echo "${ECHO_T}no" >&6
-fi
-
-  test -n "$MPIF77" && break
-done
+echo "$as_me:$LINENO: checking for MPI library" >&5
+echo $ECHO_N "checking for MPI library... $ECHO_C" >&6
+libmpi=""
+case "$host" in
+  *-ibm-aix*)
+    echo "$as_me:$LINENO: checking whether to use signal-based MPI library" >&5
+echo $ECHO_N "checking whether to use signal-based MPI library... $ECHO_C" >&6
+    echo "$as_me:$LINENO: result: $PACX_SIGNAL" >&5
+echo "${ECHO_T}$PACX_SIGNAL" >&6
+    if test "x$PACX_SIGNAL" = "xyes" ; then
+      if test -f "$mpi_lib_dir/libmpi.a" ; then
+        lib_mpi="mpi"
+      elif test -f "$mpi_lib_dir/libmpi.so" ; then
+        lib_mpi="mpi"
+      elif test -f "$mpi_lib_dir/libmpich.a" ; then
+        lib_mpi="mpich"
+      else
+        { { echo "$as_me:$LINENO: error: neither libmpi nor libmpich found; check path for MPI package first..." >&5
+echo "$as_me: error: neither libmpi nor libmpich found; check path for MPI package first..." >&2;}
+   { (exit 1); exit 1; }; }
+      fi
+    else
+      if test -f "$mpi_lib_dir/libmpi_r.a" ; then
+         lib_mpi="mpi_r"
+      else
+         { { echo "$as_me:$LINENO: error: libmpi_r not found; check path for MPI package..." >&5
+echo "$as_me: error: libmpi_r not found; check path for MPI package..." >&2;}
+   { (exit 1); exit 1; }; }
+      fi
+    fi
+    echo "$as_me:$LINENO: result: found $lib_mpi" >&5
+echo "${ECHO_T}found $lib_mpi" >&6
+  ;;
+  *)                             if test -f "$mpi_lib_dir/libmpi.a" ; then
+      lib_mpi="mpi"
+    elif test -f "$mpi_lib_dir/libmpi.so" ; then
+      lib_mpi="mpi"
+    elif test -f "$mpi_lib_dir/libmpich.a" ; then
+      lib_mpi="mpich"
+    else
+      { { echo "$as_me:$LINENO: error: neither libmpi nor libmpich found; check path for MPI package first..." >&5
+echo "$as_me: error: neither libmpi nor libmpich found; check path for MPI package first..." >&2;}
+   { (exit 1); exit 1; }; }
+    fi
+    echo "$as_me:$LINENO: result: found $lib_mpi" >&5
+echo "${ECHO_T}found $lib_mpi" >&6
+  ;;
+esac
 
 
 
-
-for ac_prog in mpf90 mpf95 mpxlf95
-do
-  # Extract the first word of "$ac_prog", so it can be a program name with args.
-set dummy $ac_prog; ac_word=$2
-echo "$as_me:$LINENO: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
-if test "${ac_cv_prog_MPIF90+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  if test -n "$MPIF90"; then
-  ac_cv_prog_MPIF90="$MPIF90" # Let the user override the test.
-else
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-  for ac_exec_ext in '' $ac_executable_extensions; do
-  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_executable_p "$as_dir/$ac_word$ac_exec_ext"; }; then
-    ac_cv_prog_MPIF90="$ac_prog"
-    echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-done
-
-fi
-fi
-MPIF90=$ac_cv_prog_MPIF90
-if test -n "$MPIF90"; then
-  echo "$as_me:$LINENO: result: $MPIF90" >&5
-echo "${ECHO_T}$MPIF90" >&6
-else
-  echo "$as_me:$LINENO: result: no" >&5
-echo "${ECHO_T}no" >&6
-fi
-
-  test -n "$MPIF90" && break
-done
-
-
-
-
-if test x = x"$MPILIBS"; then
-	echo "$as_me:$LINENO: checking for MPI_Init in -lmpi" >&5
-echo $ECHO_N "checking for MPI_Init in -lmpi... $ECHO_C" >&6
-if test "${ac_cv_lib_mpi_MPI_Init+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lmpi  $LIBS"
+echo "$as_me:$LINENO: checking for compilation of an MPI program" >&5
+echo $ECHO_N "checking for compilation of an MPI program... $ECHO_C" >&6
+old_CFLAGS=${CFLAGS}
+old_LIBS=${LIBS}
+CFLAGS="-I$mpi_inc_dir"
+LIBS="-L$mpi_lib_dir -l$lib_mpi $SYS_LDFLAGS"
 cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
 cat confdefs.h >>conftest.$ac_ext
 cat >>conftest.$ac_ext <<_ACEOF
 /* end confdefs.h.  */
-
-/* Override any gcc2 internal prototype to avoid an error.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-/* We use char because int might match the return type of a gcc2
-   builtin and then its argument prototype would still apply.  */
-char MPI_Init ();
+#include <mpi.h>
 #ifdef F77_DUMMY_MAIN
 
 #  ifdef __cplusplus
@@ -9458,100 +9377,17 @@ char MPI_Init ();
 int
 main ()
 {
-MPI_Init ();
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
-if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
-  (eval $ac_link) 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-	 { ac_try='test -z "$ac_c_werror_flag"
-			 || test ! -s conftest.err'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; } &&
-	 { ac_try='test -s conftest$ac_exeext'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  ac_cv_lib_mpi_MPI_Init=yes
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-ac_cv_lib_mpi_MPI_Init=no
-fi
-rm -f conftest.err conftest.$ac_objext \
-      conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-echo "$as_me:$LINENO: result: $ac_cv_lib_mpi_MPI_Init" >&5
-echo "${ECHO_T}$ac_cv_lib_mpi_MPI_Init" >&6
-if test $ac_cv_lib_mpi_MPI_Init = yes; then
-  MPILIBS="-lmpi"
-fi
-
-fi
-if test x = x"$MPILIBS"; then
-	echo "$as_me:$LINENO: checking for MPI_Init in -lmpich" >&5
-echo $ECHO_N "checking for MPI_Init in -lmpich... $ECHO_C" >&6
-if test "${ac_cv_lib_mpich_MPI_Init+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lmpich  $LIBS"
-cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-
-/* Override any gcc2 internal prototype to avoid an error.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-/* We use char because int might match the return type of a gcc2
-   builtin and then its argument prototype would still apply.  */
-char MPI_Init ();
-#ifdef F77_DUMMY_MAIN
-
-#  ifdef __cplusplus
-     extern "C"
-#  endif
-   int F77_DUMMY_MAIN() { return 1; }
-
-#endif
-#ifdef FC_DUMMY_MAIN
-#ifndef FC_DUMMY_MAIN_EQ_F77
-#  ifdef __cplusplus
-     extern "C"
-#  endif
-   int FC_DUMMY_MAIN() { return 1; }
-#endif
-#endif
-int
-main ()
 {
-MPI_Init ();
+  MPI_Finalize();
+  exit(0);
+}
   ;
   return 0;
 }
 _ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
-if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
-  (eval $ac_link) 2>conftest.er1
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
   ac_status=$?
   grep -v '^ *+' conftest.er1 >conftest.err
   rm -f conftest.er1
@@ -9565,63 +9401,89 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; } &&
-	 { ac_try='test -s conftest$ac_exeext'
+	 { ac_try='test -s conftest.$ac_objext'
   { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
   (eval $ac_try) 2>&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  ac_cv_lib_mpich_MPI_Init=yes
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-ac_cv_lib_mpich_MPI_Init=no
-fi
-rm -f conftest.err conftest.$ac_objext \
-      conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-echo "$as_me:$LINENO: result: $ac_cv_lib_mpich_MPI_Init" >&5
-echo "${ECHO_T}$ac_cv_lib_mpich_MPI_Init" >&6
-if test $ac_cv_lib_mpich_MPI_Init = yes; then
-  MPILIBS="-lmpich"
-fi
-
-fi
-
-
-
-fi
-
-LIBS=$ac_mpi_save_LIBS
-
-# Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
-if test x = x"$MPILIBS"; then
-        { echo "$as_me:$LINENO: WARNING: Not using MPI" >&5
-echo "$as_me: WARNING: Not using MPI" >&2;}
-	HAVE_MPI="No MPI"
-        :
-else
-	acx_mpi_ok=yes
+    echo "$as_me:$LINENO: result: seems ok" >&5
+echo "${ECHO_T}seems ok" >&6
 
 cat >>confdefs.h <<\_ACEOF
-#define HAVE_MPI 1
+#define HAVE_MPI
 _ACEOF
- HAVE_MPI="Using MPI"
-        :
+
+   acx_mpi_ok=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+  { { echo "$as_me:$LINENO: error: MPI not found; check paths for MPI package first..." >&5
+echo "$as_me: error: MPI not found; check paths for MPI package first..." >&2;}
+   { (exit 1); exit 1; }; }
+
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+CFLAGS=${old_CFLAGS}
+LIBS=${old_LIBS}
+
+as_ac_File=`echo "ac_cv_file_$mpi_inc_dir/mpif.h" | $as_tr_sh`
+echo "$as_me:$LINENO: checking for $mpi_inc_dir/mpif.h" >&5
+echo $ECHO_N "checking for $mpi_inc_dir/mpif.h... $ECHO_C" >&6
+if eval "test \"\${$as_ac_File+set}\" = set"; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  test "$cross_compiling" = yes &&
+  { { echo "$as_me:$LINENO: error: cannot check for file existence when cross compiling" >&5
+echo "$as_me: error: cannot check for file existence when cross compiling" >&2;}
+   { (exit 1); exit 1; }; }
+if test -r "$mpi_inc_dir/mpif.h"; then
+  eval "$as_ac_File=yes"
+else
+  eval "$as_ac_File=no"
+fi
+fi
+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_File'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_File'}'`" >&6
+if test `eval echo '${'$as_ac_File'}'` = yes; then
+  acx_mpif_h_found=yes
+ MPI_INCLUDE_DIR=""
+else
+  acx_mpif_h_found=no
+ MPI_INCLUDE_DIR=""
+fi
+
+
+else
+# use local mpif.h
+acx_mpif_h_found=no
 fi
 
 
 
-
-if test "$acx_mpi_ok" == "yes"; then
+if test "$acx_mpi_ok" = "yes"; then
   USE_MPI_TRUE=
   USE_MPI_FALSE='#'
 else
   USE_MPI_TRUE='#'
   USE_MPI_FALSE=
 fi
+
+
+
+if test "$acx_mpif_h_found" = "no"; then
+  USE_LOCAL_MPIF_H_TRUE=
+  USE_LOCAL_MPIF_H_FALSE='#'
+else
+  USE_LOCAL_MPIF_H_TRUE='#'
+  USE_LOCAL_MPIF_H_FALSE=
+fi
+
+FCPPFLAGS="$FCPPFLAGS -I$MPI_INCLUDE_DIR"
+FFLAGS="$FFLAGS -I$MPI_INCLUDE_DIR"
+
+
 
 
 
@@ -14358,6 +14220,13 @@ echo "$as_me: error: conditional \"USE_MPI\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
+if test -z "${USE_LOCAL_MPIF_H_TRUE}" && test -z "${USE_LOCAL_MPIF_H_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"USE_LOCAL_MPIF_H\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"USE_LOCAL_MPIF_H\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
 
 : ${CONFIG_STATUS=./config.status}
 ac_clean_files_save=$ac_clean_files
@@ -14988,14 +14857,15 @@ s,@EGREP@,$EGREP,;t t
 s,@B64FLAGS@,$B64FLAGS,;t t
 s,@FLIBS@,$FLIBS,;t t
 s,@FCLIBS@,$FCLIBS,;t t
-s,@MPICC@,$MPICC,;t t
-s,@MPICXX@,$MPICXX,;t t
-s,@MPIF77@,$MPIF77,;t t
-s,@MPIF90@,$MPIF90,;t t
-s,@MPIFC@,$MPIFC,;t t
-s,@MPILIBS@,$MPILIBS,;t t
+s,@mpi_dir@,$mpi_dir,;t t
+s,@mpi_lib_dir@,$mpi_lib_dir,;t t
+s,@mpi_inc_dir@,$mpi_inc_dir,;t t
+s,@mpirun_cmd@,$mpirun_cmd,;t t
+s,@lib_mpi@,$lib_mpi,;t t
 s,@USE_MPI_TRUE@,$USE_MPI_TRUE,;t t
 s,@USE_MPI_FALSE@,$USE_MPI_FALSE,;t t
+s,@USE_LOCAL_MPIF_H_TRUE@,$USE_LOCAL_MPIF_H_TRUE,;t t
+s,@USE_LOCAL_MPIF_H_FALSE@,$USE_LOCAL_MPIF_H_FALSE,;t t
 s,@BLAS_LIBS@,$BLAS_LIBS,;t t
 s,@LAPACK_LIBS@,$LAPACK_LIBS,;t t
 s,@HUTI_LIBS@,$HUTI_LIBS,;t t

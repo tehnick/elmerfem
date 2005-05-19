@@ -49,20 +49,21 @@ dnl ACX_FC_CHAR_MANGLING
 
 dnl setup name mangling
 case "$ac_cv_fc_mangling" in
-  "upper case, no underscore, no extra underscore" | \
-  "upper case, no underscores")
-    AC_DEFINE(ELMER_LINKTYP, 2, "Mangling: upper case, no underscore, no extra underscore") ;;
-  "lower case, no underscore, no extra underscore" | \
-  "lower case, no underscores" )
-    AC_DEFINE(ELMER_LINKTYP, 3, "Mangling: lower case, no underscore, no extra underscore") ;;
-  "lower case, underscore, no extra underscore" | \
-  "lower case, single underscores")
-    AC_DEFINE(ELMER_LINKTYP, 1, "Mangling: lower case, underscore, no extra underscore") ;;
-  "lower case, underscore, extra underscore" | \
-  "lower case, double underscores")
-    AC_DEFINE(ELMER_LINKTYP, 4, "Mangling: lower case, underscore, extra underscore") ;;
+  "upper case, no underscore, no extra underscore" | "upper case, no underscores")
+    AC_DEFINE(ELMER_LINKTYP, 2, "Mangling: upper case, no underscore, no extra underscore") 
+  ;;
+  "lower case, no underscore, no extra underscore" | "lower case, no underscores" )
+    AC_DEFINE(ELMER_LINKTYP, 3, "Mangling: lower case, no underscore, no extra underscore") 
+  ;;
+  "lower case, underscore, no extra underscore" | "lower case, single underscores")
+    AC_DEFINE(ELMER_LINKTYP, 1, "Mangling: lower case, underscore, no extra underscore") 
+  ;;
+  "lower case, underscore, extra underscore" | "lower case, double underscores")
+    AC_DEFINE(ELMER_LINKTYP, 4, "Mangling: lower case, underscore, extra underscore") 
+  ;;
   *)
-    AC_MSG_ERROR([Unknown sort of Fortran name mangling]) ;;
+    AC_MSG_ERROR([Unknown sort of Fortran name mangling]) 
+  ;;
 esac
 
 ACX_FC_CHAR_MANGLING
@@ -74,9 +75,7 @@ dnl Library checks (juha vierinen,25,tkk,tietokoneita,kiinnostunut kaikesta.)
 dnl
 dnl blas, lapack, arpack, umfpack, hutiter, eio, matc
 dnl
-sinclude(acx_lapack.m4)
-sinclude(acx_blas.m4)
-sinclude(acx_mpi.m4)
+
 dnl
 dnl Also, we'll look for libs and includes in the installation prefix,
 dnl you always want configure to do this by default, but maybe it's anti-GPL or something.
@@ -92,13 +91,15 @@ FCPPFLAGS="-I. -I$prefix/include -DDLLEXPORT=\"!\"  -DCYLSYM -DFULL_INDUCTION -D
 
 ELMER_LIBERRORMSG="wasn't found, make sure it is in the prefix, or CFLAGS and LIBS are correct if they are somewhere else."
 
-ACX_MPI([], 
-        [AC_MSG_WARN([Not using MPI])])
+sinclude(acx_mpi.m4)
+ACX_MPI
+AM_CONDITIONAL(USE_MPI, test "$acx_mpi_ok" = "yes")
+AM_CONDITIONAL(USE_LOCAL_MPIF_H, test "$acx_mpif_h_found" = "no")
+FCPPFLAGS="$FCPPFLAGS -I$MPI_INCLUDE_DIR"
+FFLAGS="$FFLAGS -I$MPI_INCLUDE_DIR"
 
-AM_CONDITIONAL(USE_MPI, test "$acx_mpi_ok" == "yes")
-
-dnl We should need this, if we link with CC
-
+sinclude(acx_lapack.m4)
+sinclude(acx_blas.m4)
 ACX_BLAS([], [AC_MSG_ERROR([BLAS was not found!])])
 ACX_LAPACK([], [AC_MSG_ERROR([LAPACK was not found!])])
 ACX_HUTI([], [AC_MSG_ERROR([Libhuti wasn't found])])
