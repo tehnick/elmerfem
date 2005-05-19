@@ -1411,6 +1411,7 @@ Optional Features:
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
+  --with-debug            Use debugging flags (environment variables override)
   --with-stdcxxlib=<lib>  use std c++ library <lib>
   --with-64bits=yes(/no)  Try to compile using 64 bits (default)
   --with-mpi=yes  Use mpi (by default disabled)
@@ -2451,6 +2452,86 @@ if test "$host" = unknown; then
 echo "$as_me: error: configuring for unknown system type, your build will most likely be screwed." >&2;}
    { (exit 1); exit 1; }; }
 fi
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+acx_debug=no
+
+
+# Check whether --with-debug or --without-debug was given.
+if test "${with_debug+set}" = set; then
+  withval="$with_debug"
+  acx_debug=yes
+fi;
+
+echo "$as_me:$LINENO: checking for default compilation flags" >&5
+echo $ECHO_N "checking for default compilation flags... $ECHO_C" >&6
+
+if test "$acx_debug" = yes; then
+echo "$as_me:$LINENO: result: debugging" >&5
+echo "${ECHO_T}debugging" >&6
+  if test "$CFLAGS" = ""; then
+	CFLAGS="-g"
+  fi
+
+  if test "$FCFLAGS" = ""; then
+	FCFLAGS="-g"
+  fi
+
+  if test "$FFLAGS" = ""; then
+	FFLAGS="-g"
+  fi
+
+  if test "$CXXFLAGS" = ""; then
+	CXXFLAGS="-g"
+  fi
+else
+echo "$as_me:$LINENO: result: optimized" >&5
+echo "${ECHO_T}optimized" >&6
+  if test "$CFLAGS" = ""; then
+	CFLAGS="-O"
+  fi
+
+  if test "$FCFLAGS" = ""; then
+	FCFLAGS="-O"
+  fi
+
+  if test "$FFLAGS" = ""; then
+	FFLAGS="-O"
+  fi
+
+  if test "$CXXFLAGS" = ""; then
+	CXXFLAGS="-O"
+  fi
+fi
+
 
 
 DEPDIR="${am__leading_dot}deps"
@@ -3736,31 +3817,6 @@ else
 fi
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 if test -z "$AR"; then
   AR=ar
 fi
@@ -3769,6 +3825,7 @@ fi
 if test -z "$ARFLAGS"; then
   ARFLAGS="rc"
 fi
+
 
 
 
@@ -4685,7 +4742,7 @@ fi
 
 
 
-# sun mpcc -E leaves nasty # comment that chokes the fortran compiler, so we have to hope
+# sun cc -E leaves nasty # comment that chokes the fortran compiler, so we have to hope
 # that ye olde cpp is present.
 # Extract the first word of "/lib/cpp", so it can be a program name with args.
 set dummy /lib/cpp; ac_word=$2
@@ -4724,7 +4781,7 @@ echo "${ECHO_T}no" >&6
 fi
 
 
-if test "$TRADITIONAL_CPP" = no; then
+if test "$TRADITIONAL_CPP" != "yes"; then
    # Extract the first word of "cpp", so it can be a program name with args.
 set dummy cpp; ac_word=$2
 echo "$as_me:$LINENO: checking for $ac_word" >&5
@@ -4769,7 +4826,7 @@ echo "$as_me: error: Traditional cpp not found, just have to exit for for now." 
    { (exit 1); exit 1; }; }
    fi
 else
-   CPP=/lib/cpp
+   CPP="/lib/cpp"
 fi
 
 
@@ -5452,7 +5509,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:5455:" \
+echo "$as_me:5512:" \
      "checking for Fortran compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -5699,7 +5756,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:5702:" \
+echo "$as_me:5759:" \
      "checking for Fortran 77 compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -6800,6 +6857,11 @@ B64CFLAGS=
 B64FCFLAGS=
 B64F77FLAGS=
 B64CXXFLAGS=
+orig_CFLAGS=$CFLAGS
+orig_FFLAGS=$FFLAGS
+orig_FCFLAGS=$FCFLAGS
+orig_CXXFLAGS=$CXXFLAGS
+
 
 echo "$as_me:$LINENO: checking for 64 bit compilation flags" >&5
 echo $ECHO_N "checking for 64 bit compilation flags... $ECHO_C" >&6
@@ -6823,14 +6885,29 @@ case "$canonical_host_type" in
   *-*-cygwin* | *-*-mingw*)
   ;;
   *-*-linux* | *-*-gnu*)
+	B64FLAGS="-m64 -fPIC"
         	case "$FC" in
   	  ifort | ifc)
  		;;
 	  g95 | gfortran)
+       		B64FCFLAGS=$SUN_64BIT_FLAGS
 		;;
 	  *)
 		;;
         esac
+
+        if test "$ac_cv_f77_compiler_gnu" = yes; then
+       		B64FFLAGS=$B64FLAGS
+        fi
+
+        if test "$ac_cv_c_compiler_gnu" = yes; then
+       		B64CFLAGS=$B64FLAGS
+        fi
+
+        if test "$ac_cv_cxx_compiler_gnu" = yes; then
+       		B64CXXFLAGS=$B64FLAGS
+        fi
+
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
   ;;
@@ -7328,13 +7405,19 @@ if test "$with_64bits" != no; then
 echo $ECHO_N "checking to see if we got 64 bits... $ECHO_C" >&6
 
    if test "$ac_cv_sizeof_voidp" -ne 8; then
-      echo "$as_me:$LINENO: result: nope" >&5
-echo "${ECHO_T}nope" >&6
+      echo "$as_me:$LINENO: result: nope, reverting compiler flags" >&5
+echo "${ECHO_T}nope, reverting compiler flags" >&6
+
+            CFLAGS=$orig_CFLAGS
+      FFLAGS=$orig_FFLAGS
+      FCFLAGS=$orig_FCFLAGS
+      CXXFLAGS=$orig_CXXFLAGS
    else
       echo "$as_me:$LINENO: result: oh yes" >&5
 echo "${ECHO_T}oh yes" >&6
    fi
 fi
+
 
 
 
@@ -7391,7 +7474,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_verb"
-(eval echo $as_me:7394: \"$ac_link\") >&5
+(eval echo $as_me:7477: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -7475,7 +7558,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_cv_prog_f77_v"
-(eval echo $as_me:7478: \"$ac_link\") >&5
+(eval echo $as_me:7561: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -8222,7 +8305,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_verb"
-(eval echo $as_me:8225: \"$ac_link\") >&5
+(eval echo $as_me:8308: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -8306,7 +8389,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_cv_prog_fc_v"
-(eval echo $as_me:8309: \"$ac_link\") >&5
+(eval echo $as_me:8392: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -15678,9 +15761,12 @@ ELMER build options:
   Install prefix            $prefix
   CPPFLAGS                  $CPPFLAGS
   FCPPFLAGS                 $FCPPFLAGS
+
   CFLAGS                    $CFLAGS
+  CXXFLAGS                  $CXXFLAGS
   FCFLAGS                   $FCFLAGS
   FFLAGS                    $FFLAGS
+
   LDFLAGS                   $LDFLAGS
   LIBS                      $LIBS
   SOLVER_LIBS               $SOLVER_LIBS
@@ -15711,9 +15797,12 @@ ELMER build options:
   Install prefix            $prefix
   CPPFLAGS                  $CPPFLAGS
   FCPPFLAGS                 $FCPPFLAGS
+
   CFLAGS                    $CFLAGS
+  CXXFLAGS                  $CXXFLAGS
   FCFLAGS                   $FCFLAGS
   FFLAGS                    $FFLAGS
+
   LDFLAGS                   $LDFLAGS
   LIBS                      $LIBS
   SOLVER_LIBS               $SOLVER_LIBS

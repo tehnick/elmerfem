@@ -3,7 +3,7 @@
 
 run:
 	/bin/mkdir -p kulma
-	$(ELMER_HOME)/bin/Mesh2D kulma.mif kulma
+	$(ELMER_MESH2D) kulma.mif kulma
 	/bin/cp kulma.mif kulma
 	$(ELMER_SOLVER)
 

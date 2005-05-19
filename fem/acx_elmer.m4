@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.21 2005/05/19 10:00:36 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.22 2005/05/19 12:31:35 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -19,6 +19,56 @@ if test -z "$ARFLAGS"; then
   ARFLAGS="rc"
 fi
 AC_SUBST(ARFLAGS)
+])
+
+dnl
+dnl Default optimization flags
+dnl
+AC_DEFUN([ACX_DEBUG],
+[
+acx_debug=no
+
+AC_ARG_WITH(debug,
+	   [AC_HELP_STRING([--with-debug], [Use debugging flags (environment variables override)])],[acx_debug=yes])
+
+AC_MSG_CHECKING([for default compilation flags])
+
+if test "$acx_debug" = yes; then
+AC_MSG_RESULT([debugging])
+  if test "$CFLAGS" = ""; then
+	CFLAGS="-g"
+  fi
+
+  if test "$FCFLAGS" = ""; then
+	FCFLAGS="-g"
+  fi
+
+  if test "$FFLAGS" = ""; then
+	FFLAGS="-g"
+  fi
+
+  if test "$CXXFLAGS" = ""; then
+	CXXFLAGS="-g"
+  fi
+else
+AC_MSG_RESULT([optimized])
+  if test "$CFLAGS" = ""; then
+	CFLAGS="-O"
+  fi
+
+  if test "$FCFLAGS" = ""; then
+	FCFLAGS="-O"
+  fi
+
+  if test "$FFLAGS" = ""; then
+	FFLAGS="-O"
+  fi
+
+  if test "$CXXFLAGS" = ""; then
+	CXXFLAGS="-O"
+  fi
+fi
+
 ])
 
 dnl
@@ -455,6 +505,11 @@ B64CFLAGS=
 B64FCFLAGS=
 B64F77FLAGS=
 B64CXXFLAGS=
+orig_CFLAGS=$CFLAGS
+orig_FFLAGS=$FFLAGS
+orig_FCFLAGS=$FCFLAGS
+orig_CXXFLAGS=$CXXFLAGS
+
 
 AC_MSG_CHECKING([for 64 bit compilation flags])
 
@@ -475,15 +530,30 @@ case "$canonical_host_type" in
   *-*-cygwin* | *-*-mingw*)
   ;;
   *-*-linux* | *-*-gnu*)
+	B64FLAGS="-m64 -fPIC"
         dnl -M64
 	case "$FC" in
   	  ifort | ifc)
  		;;
 	  g95 | gfortran)
+       		B64FCFLAGS=$SUN_64BIT_FLAGS
 		;;
 	  *)
 		;;
         esac
+
+        if test "$ac_cv_f77_compiler_gnu" = yes; then
+       		B64FFLAGS=$B64FLAGS
+        fi
+
+        if test "$ac_cv_c_compiler_gnu" = yes; then
+       		B64CFLAGS=$B64FLAGS
+        fi
+
+        if test "$ac_cv_cxx_compiler_gnu" = yes; then
+       		B64CXXFLAGS=$B64FLAGS
+        fi
+ 
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
   ;;
@@ -559,11 +629,18 @@ if test "$with_64bits" != no; then
    AC_MSG_CHECKING(to see if we got 64 bits)
 
    if test "$ac_cv_sizeof_voidp" -ne 8; then
-      AC_MSG_RESULT([nope]) 
+      AC_MSG_RESULT([nope, reverting compiler flags]) 
+
+      dnl FIXME: test that all compilers are 64 bit
+      CFLAGS=$orig_CFLAGS
+      FFLAGS=$orig_FFLAGS
+      FCFLAGS=$orig_FCFLAGS
+      CXXFLAGS=$orig_CXXFLAGS
    else
       AC_MSG_RESULT([oh yes]) 
    fi
 fi
+
 
 AC_SUBST(B64FLAGS)
 ])dnl ACX_CHECK_B64FLAGS
@@ -622,11 +699,11 @@ dnl
 dnl We really need the old style cpp for preprocessing fortran.
 dnl 
 AC_DEFUN([ACX_PROG_TRADITIONAL_CPP], [
-# sun mpcc -E leaves nasty # comment that chokes the fortran compiler, so we have to hope
+# sun cc -E leaves nasty # comment that chokes the fortran compiler, so we have to hope
 # that ye olde cpp is present.
 AC_CHECK_PROG(TRADITIONAL_CPP,[/lib/cpp], yes, no)
 
-if test "$TRADITIONAL_CPP" = no; then
+if test "$TRADITIONAL_CPP" != "yes"; then
    AC_CHECK_PROG(BASIC_CPP,[cpp], yes, no)
    if test "$BASIC_CPP" = yes; then
        CPP=cpp

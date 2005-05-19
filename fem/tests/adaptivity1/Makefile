@@ -3,7 +3,7 @@
 
 run:
 	/bin/mkdir -p Ldomain
-	$(ELMER_HOME)/bin/Mesh2D Ldomain.mif .
+	$(ELMER_MESH2D) Ldomain.mif .
 	/bin/mv mesh.* Ldomain
 	/bin/cp Ldomain.mif Ldomain
 	$(ELMER_SOLVER)

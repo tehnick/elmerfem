@@ -7,6 +7,9 @@
 /* 64 bit arch. */
 /* #undef ARCH_64_BITS */
 
+/* The configured home directory for elmer. */
+#define ELMER_HOME $ELMER_HOME
+
 /* "Mangling: lower case */
 #define ELMER_LINKTYP 1
 
@@ -23,6 +26,9 @@
 
 /* As F77_FUNC, but for C identifiers containing underscores. */
 #define F77_FUNC_(name,NAME) name ## _
+
+/* Char pointer mangling */
+#define FC_CHAR_PTR(P,L) char *P
 
 /* Define to dummy `main' function (if any) required to link to the Fortran
    libraries. */
@@ -99,8 +105,8 @@
 /* Define to 1 if you have the <memory.h> header file. */
 #define HAVE_MEMORY_H 1
 
-/* Define if you have the MPI library. */
-/* #undef HAVE_MPI */
+/* hey hey hey */
+#define HAVE_MPI 1
 
 /* Define if you have a PARPACK library. */
 /* #undef HAVE_PARPACK */
@@ -115,7 +121,7 @@
 /* #undef HAVE_SHL_LOAD_API */
 
 /* Define to 1 if you have the <stdint.h> header file. */
-/* #undef HAVE_STDINT_H */
+#define HAVE_STDINT_H 1
 
 /* Define to 1 if you have the <stdlib.h> header file. */
 #define HAVE_STDLIB_H 1
@@ -133,7 +139,7 @@
 #define HAVE_SYS_TYPES_H 1
 
 /* Define if you have a UMFPACK library. */
-#define HAVE_UMFPACK 1
+/* #undef HAVE_UMFPACK */
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #define HAVE_UNISTD_H 1

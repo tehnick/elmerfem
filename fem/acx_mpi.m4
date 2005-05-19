@@ -1,129 +1,234 @@
-dnl @synopsis ACX_MPI([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
 dnl
-dnl This macro tries to find out how to compile programs that
-dnl use MPI (Message Passing Interface), a standard API for
-dnl parallel process communication (see http://www-unix.mcs.anl.gov/mpi/)
+dnl Partly copied from http://www.hlrs.de/people/keller/configure_scripts.html
 dnl
-dnl On success, it sets the MPICC, MPICXX, or MPIF77 output variable to
-dnl the name of the MPI compiler, depending upon the current language.
-dnl (This may just be $CC/$CXX/$F77, but is more often something like
-dnl mpicc/mpiCC/mpif77.)  It also sets MPILIBS to any libraries that are
-dnl needed for linking MPI (e.g. -lmpi, if a special MPICC/MPICXX/MPIF77
-dnl was not found).
-dnl
-dnl If you want to compile everything with MPI, you should set:
-dnl
-dnl     CC="$MPICC" #OR# CXX="$MPICXX" #OR# F77="$MPIF77"
-dnl     LIBS="$MPILIBS $LIBS"
-dnl
-dnl The user can force a particular library/compiler by setting the
-dnl MPICC/MPICXX/MPIF77 and/or MPILIBS environment variables.
-dnl
-dnl ACTION-IF-FOUND is a list of shell commands to run if an MPI
-dnl library is found, and ACTION-IF-NOT-FOUND is a list of commands
-dnl to run it if it is not found.  If ACTION-IF-FOUND is not specified,
-dnl the default action will define HAVE_MPI.
-dnl
-dnl @version $Id: acx_mpi.m4,v 1.5 2005/05/13 13:34:20 vierinen Exp $
-dnl @author Steven G. Johnson <stevenj@alum.mit.edu>
-
-dnl 
-dnl check for header.
 dnl
 
 AC_DEFUN([ACX_MPI], [
 AC_PREREQ(2.50) dnl for AC_LANG_CASE
 
-ac_mpi_save_LIBS=$LIBS
-
+dnl ac_mpi_save_LIBS=$LIBS
 acx_mpi_ok=disabled
 
+dnl Letting user specify MPI-Library directories
 AC_ARG_WITH(mpi,
-	[AC_HELP_STRING([--with-mpi=<yes|lib(s)>], [Specify if to use mpi (by default disabled)])],
-	[
-case $with_mpi in
-	yes | "") 
-	    acx_mpi_ok=no
-	;;
-	no | disabled) 
-            acx_mpi_ok=disabled
-        ;;
-	-* | */* | *.a | *.so | *.so.* | *.o) 
-	    acx_mpi_ok=no
-            MPILIBS="$with_mpi" 
-        ;;
-	l*) 
-	    acx_mpi_ok=no
-            MPILIBS="-l$with_mpi" 
-        ;;
+  [  --with-mpi[=yes]  Use mpi (by default disabled)],
+     acx_mpi_ok=no, acx_mpi_ok=disabled)
+
+AC_MSG_CHECKING([for mpi-directory])
+AC_ARG_WITH(mpi_dir,
+  [  --with-mpi-dir=MPIDIR   give the path for MPI [/usr/local/mpich]],
+  acx_mpi_ok=no; mpi_dir="$withval", mpi_dir="/usr/local/mpich")
+AC_MSG_RESULT([$mpi_dir])
+AC_SUBST([mpi_dir])
+
+AC_MSG_CHECKING([for mpi-lib-directory])
+AC_ARG_WITH(mpi_lib_dir,
+  [  --with-mpi-lib-dir=dir  give the path for MPI-libraries [MPI_DIR/lib]],
+  acx_mpi_ok=no; mpi_lib_dir="$withval", mpi_lib_dir="$mpi_dir/lib")
+AC_MSG_RESULT([$mpi_lib_dir])
+AC_SUBST([mpi_lib_dir])
+
+AC_MSG_CHECKING([for mpi-inc-directory])
+AC_ARG_WITH(mpi_inc_dir,
+  [  --with-mpi-inc-dir=dir  give the path for MPI-include-files [MPI_DIR/include]],
+  acx_mpi_ok=no; mpi_inc_dir="$withval", mpi_inc_dir="$mpi_dir/include")
+AC_MSG_RESULT([$mpi_inc_dir])
+AC_SUBST([mpi_inc_dir])
+
+
+if test "$acx_mpi_ok" != disabled; then
+
+
+dnl Checking for MPIrun-executable name (depends on variables $mpi_dir)
+
+AC_MSG_CHECKING([for the mpirun command])
+mpirun_cmd="Not found"
+if test -x "$mpi_dir/bin/mpirun" ; then
+  mpirun_cmd="mpirun"
+elif test -x "$mpi_dir/bin/mprun" ; then
+  mpirun_cmd="mprun"
+fi
+AC_MSG_RESULT(found $mpirun_cmd)
+AC_SUBST(mpirun_cmd)
+
+
+dnl MPI-Library name (depends on variables $mpi_lib_dir and user-defined argument PACX_SIGNAL on IBMs) 
+
+AC_MSG_CHECKING([for MPI library])
+libmpi=""
+case "$host" in
+  *-ibm-aix*)                dnl IBM/SP2 machines
+    dnl checking whether to use signal-based MPI
+
+    AC_MSG_CHECKING([whether to use signal-based MPI library])
+    AC_MSG_RESULT([$PACX_SIGNAL])
+    if test "x$PACX_SIGNAL" = "xyes" ; then
+      if test -f "$mpi_lib_dir/libmpi.a" ; then
+        lib_mpi="mpi"
+      elif test -f "$mpi_lib_dir/libmpi.so" ; then
+        lib_mpi="mpi"
+      elif test -f "$mpi_lib_dir/libmpich.a" ; then
+        lib_mpi="mpich"
+      else
+        AC_MSG_ERROR([neither libmpi nor libmpich found; check path for MPI package first...])
+      fi
+    else
+      if test -f "$mpi_lib_dir/libmpi_r.a" ; then
+         lib_mpi="mpi_r"
+      else
+         AC_MSG_ERROR([libmpi_r not found; check path for MPI package...])
+      fi
+    fi
+    AC_MSG_RESULT(found $lib_mpi)
+  ;;
+  *)                         dnl All other machines
+    if test -f "$mpi_lib_dir/libmpi.a" ; then
+      lib_mpi="mpi"
+    elif test -f "$mpi_lib_dir/libmpi.so" ; then
+      lib_mpi="mpi"
+    elif test -f "$mpi_lib_dir/libmpich.a" ; then
+      lib_mpi="mpich"
+    else
+      AC_MSG_ERROR([neither libmpi nor libmpich found; check path for MPI package first...])
+    fi
+    AC_MSG_RESULT(found $lib_mpi)
+  ;;
 esac
-	])
+AC_SUBST(lib_mpi)
+
+dnl Compilation of a MPI program (depends on above macro)
+
+AC_MSG_CHECKING([for compilation of an MPI program])
+old_CFLAGS=${CFLAGS}
+old_LIBS=${LIBS}
+CFLAGS="-I$mpi_inc_dir"
+LIBS="-L$mpi_lib_dir -l$lib_mpi $SYS_LDFLAGS"
+AC_TRY_COMPILE([#include <mpi.h>],
+[{
+  MPI_Finalize();
+  exit(0);
+}],
+
+[  AC_MSG_RESULT([seems ok])
+   AC_DEFINE([HAVE_MPI],[1],[hey hey hey])
+   acx_mpi_ok=yes],
+
+[  AC_MSG_ERROR([MPI not found; check paths for MPI package first...])]
+)
+CFLAGS=${old_CFLAGS}
+LIBS=${old_LIBS}
+
+AC_CHECK_FILE($mpi_inc_dir/mpif.h, 
+[acx_mpif_h_found=yes
+ MPI_INCLUDE_DIR=$mpi_inc_dir], 
+[acx_mpif_h_found=no
+ MPI_INCLUDE_DIR=""])
 
 
+MPI_LIBS="-L$mpi_lib_dir -l$lib_mpi"
 
-if test x"$acx_mpi_ok" != xdisabled; then 
-
-dnl
-dnl look for fortran mpif header
-dnl
-dnl AC_MSG_CHECKING([mpif.h])
-dnl AC_PREPROC_IFELSE([AC_LANG_SOURCE([#include <mpif.h>])],
-dnl		  [ac_header_preproc=yes],
-dnl		  [ac_header_preproc=no])
-dnl AC_MSG_RESULT([$ac_header_preproc])
-
-dnl
-dnl just check for these... we might not needs them anyway :) 
-dnl
-
-AC_REQUIRE([AC_PROG_CC])
-AC_CHECK_PROGS(MPICC, mpicc hcc mpcc mpcc_r mpxlc mpxlC)
-AC_SUBST(MPICC)
-
-AC_REQUIRE([AC_PROG_CXX])
-AC_CHECK_PROGS(MPICXX, mpiCC mpCC mpxlC)
-AC_SUBST(MPICXX)
-
-AC_REQUIRE([AC_PROG_F77])
-AC_CHECK_PROGS(MPIF77, mpif77 hf77 mpxlf mpf77 mpif90 mpf90 mpxlf90 mpxlf95 mpxlf_r)
-AC_SUBST(MPIF77)
-
-AC_REQUIRE([AC_PROG_FC])
-AC_CHECK_PROGS(MPIF90, mpf90 mpf95 mpxlf95)
-AC_SUBST(MPIFC)
-
-dnl if test x = x"$MPILIBS"; then
-dnl 	AC_LANG_CASE(
-dnl	        [C], [AC_CHECK_FUNC(MPI_Init, [MPILIBS=" "])],
-dnl		[C++], [AC_CHECK_FUNC(MPI_Init, [MPILIBS=" "])],
-dnl		[Fortran 77], [AC_MSG_CHECKING([for MPI_Init])
-dnl			       AC_TRY_LINK([],[call MPI_Init], [MPILIBS=" " AC_MSG_RESULT(yes)], [AC_MSG_RESULT(no)])],
-dnl		[Fortran 90], [AC_MSG_CHECKING([for MPI_Init])
-dnl			       AC_TRY_LINK([],[call MPI_Init], [MPILIBS=" " AC_MSG_RESULT(yes)], [AC_MSG_RESULT(no)])])
-dnl fi
-
-if test x = x"$MPILIBS"; then
-	AC_CHECK_LIB(mpi, MPI_Init, MPILIBS="-lmpi")
-fi
-if test x = x"$MPILIBS"; then
-	AC_CHECK_LIB(mpich, MPI_Init, MPILIBS="-lmpich")
-fi
-
-AC_SUBST(MPILIBS)
-
-dnl if not disabled ... fi
-fi 
-
-LIBS=$ac_mpi_save_LIBS
-
-# Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
-if test x = x"$MPILIBS"; then
-        $2
-	HAVE_MPI="No MPI"
-        :
-else
-	acx_mpi_ok=yes
-        ifelse([$1],,[AC_DEFINE(HAVE_MPI,1,[Define if you have the MPI library.]) HAVE_MPI="Using MPI"],[$1])
-        :
+else  
+# use local mpif.h
+acx_mpif_h_found=no
 fi
 ])dnl ACX_MPI
+
+
+dnl Macro AC_CHECK_MPI_VERSION to check for version number of MPI
+
+AC_DEFUN([AC_CHECK_MPI_VERSION],
+[AC_CACHE_CHECK([version of MPI implementation], [ac_cv_mpi_version],
+  [ old_CFLAGS=${CFLAGS}
+    old_LIBS=${LIBS}
+    CFLAGS="-I$mpi_inc_dir"
+    LIBS="-L$mpi_lib_dir -l$lib_mpi $SYS_LDFLAGS"
+    AC_TRY_RUN([
+#include <stdio.h>
+#include <mpi.h>
+int main (){
+  FILE * f =fopen("conftestval", "w");
+  if (!f) return 1;
+#ifdef MPI_VERSION
+  fprintf (f, "%d.%d\n", MPI_VERSION, MPI_SUBVERSION);
+#else
+  fprintf (f, "unkown\n");
+#endif
+  return 0;
+}],
+  [
+    VAL=`cat ./conftestval`
+    if test "x$VAL" = "x" ; then
+      ac_cv_mpi_version="unkown"
+    else
+      ac_cv_mpi_version="$VAL"
+    fi
+    ], [ac_cv_mpi_version="unknown"])
+    rm -f conftestval
+  ])
+])
+      
+
+
+
+dnl Optional MPI-Datatypes for Fortran
+dnl This macro is a little more complex; it checks for the availability of the optional Fortran datatype, like MPI_INTEGER1 or MPI_REAL8.
+dnl Usage: AC_CHECK_FORTRAN_MPI_DATATYPE (DATATYPE, [ACTION-IF-FOUND, [ACTION-IF-NOT-FOUND])
+
+AC_DEFUN([AC_CHECK_FORTRAN_MPI_DATATYPE],
+  [
+  AC_CACHE_CHECK([whether MPI has (opt.) Fortran [$1]], [ac_cv_have_mpi_fortran_[$1]],
+  [
+    AC_LANG_PUSH([Fortran 77])
+    dnl This gets hard -- we're looking for a F77 compiler, which supports MPI!
+    dnl We have to jump through a hoop, to get it running on all systems!
+    ac_link=""
+    if test -z "$ac_link" ; then
+      if test -x $mpi_dir/bin/mpif77 ; then
+        ac_link='$mpi_dir/bin/mpif77 -o conftest conftest.f'
+      fi
+    fi
+    if test -z "$ac_link" ; then
+      if test -x $mpi_dir/bin/mpif90 ; then
+        ac_link='$mpi_dir/bin/mpif90 -o conftest conftest.f'
+      fi
+    fi
+    if test -z "$ac_link" ; then
+      if test -x $mpi_dir/bin/mpf77 ; then
+        ac_link='$mpi_dir/bin/mpf77 -o conftest conftest.f'
+      fi
+    fi
+
+    if test -z "$ac_link" ; then
+      if test -x $mpi_dir/bin/mpf90 ; then
+        ac_link='$mpi_dir/bin/mpf90 -o conftest conftest.f'
+      fi
+    fi
+
+    if test -z "$ac_link" ; then
+      dnl This is our last resort -- do it by hand
+      dnl This might mean, that the test-program will not run on the cpu, configure runs on!
+      ac_link='$F77 $FFLAGS -I${mpi_inc_dir} -o conftest conftest.f -L${mpi_lib_dir} -l${lib_mpi} $SYS_LDFLAGS'
+    fi
+
+    AC_TRY_RUN([
+          implicit none
+          include 'mpif.h'
+
+          open (unit=44, file='conftestval')
+          write (44,*) ' ', $1
+          close (44)
+          end
+    ], [
+    dnl MPIch defines those Variables, but sets them to 0, if they are not available.
+      VAL=`cat ./conftestval`
+      if test $VAL = 0 ; then
+        ac_cv_have_mpi_fortran_$1="no"
+      else
+        ac_cv_have_mpi_fortran_$1="yes"
+      fi
+    ], [ac_cv_have_mpi_fortran_$1="no"])
+    AC_LANG_POP()
+    rm -f conftest conftest.f conftestval
+  ])
+])
+
