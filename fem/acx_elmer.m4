@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.25 2005/05/20 08:06:48 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.26 2005/05/20 08:10:06 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -712,7 +712,7 @@ dnl
 AC_DEFUN([ACX_PROG_TRADITIONAL_CPP], [
 # sun cc -E leaves nasty # comment that chokes the fortran compiler, so we have to hope
 # that ye olde cpp is present.
-AC_CHECK_PROG(TRADITIONAL_CPP,[/lib/cpp], yes, no)
+AC_CHECK_FILE([/lib/cpp],[TRADITIONAL_CPP=yes],[TRADITIONAL_CPP=no])
 
 if test "$TRADITIONAL_CPP" != "yes"; then
    AC_CHECK_PROG(BASIC_CPP,[cpp], yes, no)

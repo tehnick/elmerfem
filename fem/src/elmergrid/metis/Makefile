@@ -99,7 +99,7 @@ AUTOHEADER = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run autoheader
 AUTOMAKE = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run automake-1.9
 AWK = gawk
 B64FLAGS = -m64 -fPIC
-BASIC_CPP = yes
+BASIC_CPP = 
 BLAS_LIBS = -lblas
 CC = gcc
 CCC = 
@@ -107,7 +107,7 @@ CCDEPMODE = depmode=gcc3
 CFLAGS = -O -I/tmp/elmer/g95/include -fPIC
 CP = cp
 CPICFLAG = -fPIC
-CPP = cpp
+CPP = /lib/cpp
 CPPFLAGS = 
 CXX = g++
 CXXDEPMODE = depmode=gcc3
@@ -188,7 +188,6 @@ STRIP =
 TEMPLATE_AR = $(AR)
 TEMPLATE_ARFLAGS = rc
 TESTS_FCFLAGS = -I. -I/tmp/elmer/g95/include -O -I. -I/tmp/elmer/g95/include -fPIC
-TRADITIONAL_CPP = no
 UMFPACK_LIBS = 
 USE_LDAIX_FALSE = 
 USE_LDAIX_TRUE = #

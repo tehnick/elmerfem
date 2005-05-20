@@ -33,7 +33,7 @@ SUFFIXES: .f90 .so .F90
 .F90.@OBJEXT@:
 	@FC@ @FCFLAGS@ -c $<
 
-libsolver$(SHL_EXT): $(SOLVEROBJS) arpack parpack lib.exp
+libsolver$(SHL_EXT): $(SOLVEROBJS) arpack parpack 
 	@RM@ $@
 	@SH_LD2@ @SH_LDFLAGS@ @B64FLAGS@ @SONAME_FLAGS@ -o $@ $(SOLVEROBJS) @SOLVER_LIBS@ -L.
 
