@@ -727,7 +727,7 @@ SH_LD
 SH_LD2
 EXTRA_LIBS
 SH_LDFLAGS
-SH_LDTOFLAGS
+SH_LINKING_TO_FLAGS
 DL_LD
 DL_LDFLAGS
 MKOCTFILE_DL_LDFLAGS
@@ -9485,7 +9485,7 @@ LIBEXT=a
 SH_LD2=$CXX
 SH_LD=$FC
 SH_LDFLAGS=-shared
-SH_LDTOFLAGS=-shared
+SH_LINKING_TO_FLAGS=
 DL_LD='$(SH_LD)'
 DL_LDFLAGS='$(SH_LDFLAGS)'
 MKOCTFILE_DL_LDFLAGS='$(DL_LDFLAGS)'
@@ -9508,26 +9508,22 @@ case "$canonical_host_type" in
   *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
     SH_LD="ld"
     SH_LDFLAGS="-Bshareable"
-    SH_LDTOFLAGS="-Bshareable"
   ;;
   *-*-freebsd*)
     SH_LD='$(CC)'
     SH_LDFLAGS="-shared -Wl,-x"
-    SH_LDTOFLAGS="-shared -Wl,-x"
   ;;
   alpha*-dec-osf*)
     CPICFLAG=
     CXXPICFLAG=
     FPICFLAG=
     SH_LDFLAGS="-shared -Wl,-expect_unresolved -Wl,'*'"
-    SH_LDTOFLAGS="-shared -Wl,-expect_unresolved -Wl,'*'"
     RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
   ;;
   *-*-darwin*)
     DL_LDFLAGS='-bundle -bundle_loader $(TOPDIR)/src/octave $(LDFLAGS)'
     MKOCTFILE_DL_LDFLAGS='-bundle -bundle_loader $(bindir)/octave-$(version)$(EXEEXT)'
     SH_LDFLAGS='-dynamiclib -single_module $(LDFLAGS)'
-    SH_LDTOFLAGS='-dynamiclib -single_module $(LDFLAGS)'
     CXXPICFLAG=
     CPICFLAG=
     FPICFLAG=
@@ -9547,7 +9543,6 @@ case "$canonical_host_type" in
     SHLLIB=dll.a
     SHLBIN=dll
     SH_LDFLAGS="-shared -Wl,--export-all-symbols -Wl,--enable-auto-import"
-    SH_LDTOFLAGS="-shared -Wl,--export-all-symbols -Wl,--enable-auto-import"
     SHLLINKEXT=".dll"
     SONAME_FLAGS='-Wl,--out-implib=$@.a'
     library_path_var=PATH
@@ -9566,15 +9561,14 @@ case "$canonical_host_type" in
     SONAME_FLAGS='-Wl,-h -Wl,$@'
     RLD_FLAG=
     SH_LDFLAGS=-G
-    SH_LDTOFLAGS=-G
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
     CPICFLAG=
     CXXPICFLAG=
     FPICFLAG=
     DLFCN_DIR=dlfcn
-    SH_LDFLAGS="-G -brtl -bshared $ACX_LOPT_FLAGS"
-    SH_LDTOFLAGS="-brtl -bexpall -bshared"
+    SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
+    SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared"
     use_ldaix="yes"
 
     FCPPFLAGS="-P $FCPPFLAGS"
@@ -9587,7 +9581,6 @@ case "$canonical_host_type" in
     fi
     SHLEXT=sl
     SH_LDFLAGS="-shared -fPIC"
-    SH_LDTOFLAGS="-shared -fPIC"
     RLD_FLAG='-Wl,+b -Wl,$(octlibdir)'
   ;;
   *-sgi-*)
@@ -9604,7 +9597,6 @@ case "$canonical_host_type" in
     fi
     SH_LD=ld
     SH_LDFLAGS="-assert nodefinitions"
-    SH_LDTOFLAGS="-assert nodefinitions"
     RLD_FLAG='-L$(octlibdir)'
 
   ;;
@@ -14313,8 +14305,8 @@ echo "$as_me:$LINENO: result: defining SH_LD to be $SH_LD" >&5
 echo "${ECHO_T}defining SH_LD to be $SH_LD" >&6
 echo "$as_me:$LINENO: result: defining SH_LDFLAGS to be $SH_LDFLAGS" >&5
 echo "${ECHO_T}defining SH_LDFLAGS to be $SH_LDFLAGS" >&6
-echo "$as_me:$LINENO: result: defining SH_LDTOFLAGS to be $SH_LDTOFLAGS" >&5
-echo "${ECHO_T}defining SH_LDTOFLAGS to be $SH_LDTOFLAGS" >&6
+echo "$as_me:$LINENO: result: defining SH_LINKING_TO_FLAGS to be $SH_LINKING_TO_FLAGS" >&5
+echo "${ECHO_T}defining SH_LINKING_TO_FLAGS to be $SH_LINKING_TO_FLAGS" >&6
 echo "$as_me:$LINENO: result: defining DL_LD to be $DL_LD" >&5
 echo "${ECHO_T}defining DL_LD to be $DL_LD" >&6
 echo "$as_me:$LINENO: result: defining DL_LDFLAGS to be $DL_LDFLAGS" >&5
@@ -15206,7 +15198,7 @@ s,@SH_LD@,$SH_LD,;t t
 s,@SH_LD2@,$SH_LD2,;t t
 s,@EXTRA_LIBS@,$EXTRA_LIBS,;t t
 s,@SH_LDFLAGS@,$SH_LDFLAGS,;t t
-s,@SH_LDTOFLAGS@,$SH_LDTOFLAGS,;t t
+s,@SH_LINKING_TO_FLAGS@,$SH_LINKING_TO_FLAGS,;t t
 s,@DL_LD@,$DL_LD,;t t
 s,@DL_LDFLAGS@,$DL_LDFLAGS,;t t
 s,@MKOCTFILE_DL_LDFLAGS@,$MKOCTFILE_DL_LDFLAGS,;t t

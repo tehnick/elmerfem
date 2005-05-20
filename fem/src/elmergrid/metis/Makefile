@@ -24,7 +24,7 @@ pkglibdir = $(libdir)/elmer
 pkgincludedir = $(includedir)/elmer
 top_builddir = ../../..
 am__cd = CDPATH="$${ZSH_VERSION+.}$(PATH_SEPARATOR)" && cd
-INSTALL = /p/gnu/bin/install -c
+INSTALL = /usr/bin/install -c
 install_sh_DATA = $(install_sh) -c -m 644
 install_sh_PROGRAM = $(install_sh) -c
 install_sh_SCRIPT = $(install_sh) -c
@@ -36,9 +36,9 @@ POST_INSTALL = :
 NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
-build_triplet = sparc-sun-solaris2.9
-host_triplet = sparc-sun-solaris2.9
-target_triplet = sparc-sun-solaris2.9
+build_triplet = i686-pc-linux-gnu
+host_triplet = i686-pc-linux-gnu
+target_triplet = i686-pc-linux-gnu
 subdir = src/elmergrid/metis
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -87,33 +87,33 @@ DIST_SOURCES = $(libmetis_a_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
-ACLOCAL = ${SHELL} /tmp/jpr/fem/missing --run aclocal-1.9
+ACLOCAL = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run aclocal-1.9
 AMDEP_FALSE = #
 AMDEP_TRUE = 
-AMTAR = ${SHELL} /tmp/jpr/fem/missing --run tar
+AMTAR = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run tar
 AR = ar
 ARFLAGS = rc
 ARPACK_LIBS = arpack/libarpack.a
-AUTOCONF = ${SHELL} /tmp/jpr/fem/missing --run autoconf
-AUTOHEADER = ${SHELL} /tmp/jpr/fem/missing --run autoheader
-AUTOMAKE = ${SHELL} /tmp/jpr/fem/missing --run automake-1.9
+AUTOCONF = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run autoconf
+AUTOHEADER = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run autoheader
+AUTOMAKE = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run automake-1.9
 AWK = gawk
-B64FLAGS = -xtarget=native64 -KPIC
+B64FLAGS = 
 BASIC_CPP = 
 BLAS_LIBS = -lblas
-BOURNE_SHELL = bash
-CC = cc
+BOURNE_SHELL = sh
+CC = gcc
 CCC = 
-CCDEPMODE = depmode=none
-CFLAGS = -O -KPIC -xtarget=native64  -I/tmp/jpr/include -KPIC
+CCDEPMODE = depmode=gcc3
+CFLAGS = -O -fPIC -I/tmp/elmer/g95/include
 CP = cp
-CPICFLAG = -KPIC
+CPICFLAG = -fPIC
 CPP = /lib/cpp
 CPPFLAGS = 
-CXX = CC
-CXXDEPMODE = depmode=none
-CXXFLAGS = -O -KPIC -xtarget=native64 -xtarget=native64 -KPIC -KPIC
-CXXPICFLAG = -KPIC
+CXX = g++
+CXXDEPMODE = depmode=gcc3
+CXXFLAGS = -O -fPIC
+CXXPICFLAG = -fPIC
 CYGPATH_W = echo
 DEFS = -DHAVE_CONFIG_H
 DEPDIR = .deps
@@ -123,39 +123,39 @@ DL_LDFLAGS = $(SH_LDFLAGS)
 ECHO_C = 
 ECHO_N = -n
 ECHO_T = 
-EGREP = /usr/local/bin/grep -E
+EGREP = /bin/grep -E
 EIOF_LIBS = -leiof
 EXEEXT = 
-EXTRA_LIBS =  
-F77 = f90
-FC = f90
-FCFLAGS = -O -KPIC -xtarget=native64 -xtarget=native64 -KPIC -I. -I/tmp/jpr/include -KPIC
-FCLIBS =  -L/tmp/jpr/lib -R/opt/Studio9/SUNWspro/lib/v9b:/opt/Studio9/SUNWspro/lib/v9:/opt/SUNWspro/lib/v9b:/opt/SUNWspro/lib/v9 -L/opt/Studio9/SUNWspro/lib/v9b -L/opt/Studio9/SUNWspro/prod/lib/v9b -L/opt/Studio9/SUNWspro/lib/v9 -L/opt/Studio9/SUNWspro/prod/lib/v9 -L/usr/ccs/lib/sparcv9 -L/lib/sparcv9 -L/usr/lib/sparcv9 -zallextract -lompstubs -zdefaultextract -lfui -lfai -lfai2 -lfsumai -lfprodai -lfminlai -lfmaxlai -lfminvai -lfmaxvai -lfsu -lsunmath -lm
-FCPPFLAGS = -P -I. -I/tmp/jpr/include -DDLLEXPORT="!"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK
-FFLAGS = -O -KPIC -xtarget=native64 -xtarget=native64 -KPIC -KPIC
-FLIBS =  -L/tmp/jpr/lib -R/opt/Studio9/SUNWspro/lib/v9b:/opt/Studio9/SUNWspro/lib/v9:/opt/SUNWspro/lib/v9b:/opt/SUNWspro/lib/v9 -L/opt/Studio9/SUNWspro/lib/v9b -L/opt/Studio9/SUNWspro/prod/lib/v9b -L/opt/Studio9/SUNWspro/lib/v9 -L/opt/Studio9/SUNWspro/prod/lib/v9 -L/usr/ccs/lib/sparcv9 -L/lib/sparcv9 -L/usr/lib/sparcv9 -zallextract -lompstubs -zdefaultextract -lfui -lfai -lfai2 -lfsumai -lfprodai -lfminlai -lfmaxlai -lfminvai -lfmaxvai -lfsu -lsunmath -lm
-FPICFLAG = -KPIC
-GREP = /usr/local/bin/grep
+EXTRA_LIBS = 
+F77 = g77
+FC = g95
+FCFLAGS = -O -fPIC -I. -I/tmp/elmer/g95/include
+FCLIBS =  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm
+FCPPFLAGS = -traditional-cpp -P -I. -I/tmp/elmer/g95/include -DDLLEXPORT="!" -DFULL_INDUCTION -DUSE_ARPACK
+FFLAGS = -O -fPIC
+FLIBS =  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s
+FPICFLAG = -fPIC
+GREP = /bin/grep
 HUTI_LIBS = -lhuti
 INSTALL_DATA = ${INSTALL} -m 644
 INSTALL_PROGRAM = ${INSTALL}
 INSTALL_SCRIPT = ${INSTALL}
 INSTALL_STRIP_PROGRAM = ${SHELL} $(install_sh) -c -s
 LAPACK_LIBS = -llapack
-LDFLAGS = -L/tmp/jpr/lib
+LDFLAGS = 
 LIBEXT = a
 LIBOBJS = 
-LIBS = -ldl -lm  -L/tmp/jpr/lib
+LIBS = -ldl -lm  -L/tmp/elmer/g95/lib
 LIBSOLVER_DEPS = 
 LTLIBOBJS = 
 MAINT = #
 MAINTAINER_MODE_FALSE = 
 MAINTAINER_MODE_TRUE = #
-MAKEINFO = ${SHELL} /tmp/jpr/fem/missing --run makeinfo
+MAKEINFO = ${SHELL} /home/vierinen/src/newelmer/fem/missing --run makeinfo
 MATC_LIBS = -lmatc
-MESHGEN2D_LIBS = -ldl -lm  -L/tmp/jpr/lib -lCstd
+MESHGEN2D_LIBS = -ldl -lm  -L/tmp/elmer/g95/lib -lstdc++
 MKDIR = mkdir -p
-MKOCTFILE_DL_LDFLAGS = $(DL_LDFLAGS)
+MKOCTFILE_DL_LDFLAGS = -shared -Wl,-Bsymbolic
 MV = mv
 NO_OCT_FILE_STRIP = false
 OBJEXT = o
@@ -168,10 +168,10 @@ PACKAGE_VERSION =
 PARPACK_LIBS = 
 PATH_SEPARATOR = :
 RANLIB = ranlib
-RLD_FLAG = -R $(octlibdir)
+RLD_FLAG = -Wl,-rpath -Wl,$(octlibdir)
 RM = rm -f
 SET_MAKE = 
-SHELL = /bin/bash
+SHELL = /bin/sh
 SHLBIN = 
 SHLBIN_VER = $(SHLBIN).$(version)
 SHLEXT = so
@@ -179,16 +179,16 @@ SHLEXT_VER = $(SHLEXT).$(version)
 SHLLIB = $(SHLEXT)
 SHLLIB_VER = $(SHLLIB).$(version)
 SHLLINKEXT = 
-SH_LD = f90
-SH_LD2 = CC
-SH_LDFLAGS = -G
-SH_LDTOFLAGS = 
-SOLVER_LIBS = arpack/libarpack.a   -lhuti -lmatc -leiof -ldl -lm  -L/tmp/jpr/lib -llapack -lblas   -L/tmp/jpr/lib -R/opt/Studio9/SUNWspro/lib/v9b:/opt/Studio9/SUNWspro/lib/v9:/opt/SUNWspro/lib/v9b:/opt/SUNWspro/lib/v9 -L/opt/Studio9/SUNWspro/lib/v9b -L/opt/Studio9/SUNWspro/prod/lib/v9b -L/opt/Studio9/SUNWspro/lib/v9 -L/opt/Studio9/SUNWspro/prod/lib/v9 -L/usr/ccs/lib/sparcv9 -L/lib/sparcv9 -L/usr/lib/sparcv9 -zallextract -lompstubs -zdefaultextract -lfui -lfai -lfai2 -lfsumai -lfprodai -lfminlai -lfmaxlai -lfminvai -lfmaxvai -lfsu -lsunmath -lm  -L/tmp/jpr/lib -R/opt/Studio9/SUNWspro/lib/v9b:/opt/Studio9/SUNWspro/lib/v9:/opt/SUNWspro/lib/v9b:/opt/SUNWspro/lib/v9 -L/opt/Studio9/SUNWspro/lib/v9b -L/opt/Studio9/SUNWspro/prod/lib/v9b -L/opt/Studio9/SUNWspro/lib/v9 -L/opt/Studio9/SUNWspro/prod/lib/v9 -L/usr/ccs/lib/sparcv9 -L/lib/sparcv9 -L/usr/lib/sparcv9 -zallextract -lompstubs -zdefaultextract -lfui -lfai -lfai2 -lfsumai -lfprodai -lfminlai -lfmaxlai -lfminvai -lfmaxvai -lfsu -lsunmath -lm -lCstd
-SONAME_FLAGS = 
+SH_LD = g95
+SH_LD2 = g++
+SH_LDFLAGS = -shared
+SH_LINKING_TO_FLAGS = 
+SOLVER_LIBS = arpack/libarpack.a   -lhuti -lmatc -leiof -ldl -lm  -L/tmp/elmer/g95/lib -llapack -lblas   -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s -lstdc++
+SONAME_FLAGS = -Wl,-soname -Wl,$@
 STRIP = 
-TEMPLATE_AR = $(CXX)
-TEMPLATE_ARFLAGS = -xar -o
-TESTS_FCFLAGS = -M. -M/tmp/jpr/include -O -KPIC -xtarget=native64 -xtarget=native64 -KPIC -I. -I/tmp/jpr/include -KPIC
+TEMPLATE_AR = $(AR)
+TEMPLATE_ARFLAGS = rc
+TESTS_FCFLAGS =  -I. -I../../src -I/tmp/elmer/g95/include
 UMFPACK_LIBS = 
 USE_LDAIX_FALSE = 
 USE_LDAIX_TRUE = #
@@ -197,42 +197,42 @@ USE_LOCAL_MPIF_H_TRUE =
 USE_MPI_FALSE = 
 USE_MPI_TRUE = #
 VERSION = 1.0.0
-ac_ct_CC = cc
-ac_ct_CXX = 
-ac_ct_F77 = 
+ac_ct_CC = gcc
+ac_ct_CXX = g++
+ac_ct_F77 = g77
 ac_ct_FC = 
 ac_ct_RANLIB = ranlib
 ac_ct_STRIP = 
-am__fastdepCC_FALSE = 
-am__fastdepCC_TRUE = #
-am__fastdepCXX_FALSE = 
-am__fastdepCXX_TRUE = #
+am__fastdepCC_FALSE = #
+am__fastdepCC_TRUE = 
+am__fastdepCXX_FALSE = #
+am__fastdepCXX_TRUE = 
 am__include = include
 am__leading_dot = .
 am__quote = 
 am__tar = ${AMTAR} chof - "$$tardir"
 am__untar = ${AMTAR} xf -
 bindir = ${exec_prefix}/bin
-build = sparc-sun-solaris2.9
+build = i686-pc-linux-gnu
 build_alias = 
-build_cpu = sparc
-build_os = solaris2.9
-build_vendor = sun
-canonical_host_type = sparc-sun-solaris2.9
+build_cpu = i686
+build_os = linux-gnu
+build_vendor = pc
+canonical_host_type = i686-pc-linux-gnu
 datadir = ${datarootdir}
 datarootdir = ${prefix}/share
 docdir = ${datarootdir}/doc/${PACKAGE}
 dvidir = ${docdir}
 exec_prefix = ${prefix}
-host = sparc-sun-solaris2.9
+host = i686-pc-linux-gnu
 host_alias = 
-host_cpu = sparc
-host_os = solaris2.9
-host_vendor = sun
+host_cpu = i686
+host_os = linux-gnu
+host_vendor = pc
 htmldir = ${docdir}
 includedir = ${prefix}/include
 infodir = ${datarootdir}/info
-install_sh = /tmp/jpr/fem/install-sh
+install_sh = /home/vierinen/src/newelmer/fem/install-sh
 lib_mpi = 
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
@@ -240,24 +240,24 @@ library_path_var = LD_LIBRARY_PATH
 localedir = ${datarootdir}/locale
 localstatedir = ${prefix}/var
 mandir = ${datarootdir}/man
-mkdir_p = $(install_sh) -d
+mkdir_p = mkdir -p --
 mpi_dir = /usr/local/mpich
 mpi_inc_dir = /usr/local/mpich/include
 mpi_lib_dir = /usr/local/mpich/lib
 mpirun_cmd = 
 oldincludedir = /usr/include
 pdfdir = ${docdir}
-prefix = /tmp/jpr
+prefix = /tmp/elmer/g95
 program_transform_name = s,x,x,
 psdir = ${docdir}
 sbindir = ${exec_prefix}/sbin
 sharedstatedir = ${prefix}/com
 sysconfdir = ${prefix}/etc
-target = sparc-sun-solaris2.9
+target = i686-pc-linux-gnu
 target_alias = 
-target_cpu = sparc
-target_os = solaris2.9
-target_vendor = sun
+target_cpu = i686
+target_os = linux-gnu
+target_vendor = pc
 use_ldaix = 
 COMMON_SRCS = \
 	balance.c \
@@ -422,18 +422,18 @@ include ./$(DEPDIR)/timing.Po
 include ./$(DEPDIR)/util.Po
 
 .c.o:
-#	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ $<; \
-#	then mv -f "$(DEPDIR)/$*.Tpo" "$(DEPDIR)/$*.Po"; else rm -f "$(DEPDIR)/$*.Tpo"; exit 1; fi
-	source='$<' object='$@' libtool=no \
-	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
-	$(COMPILE) -c $<
+	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ $<; \
+	then mv -f "$(DEPDIR)/$*.Tpo" "$(DEPDIR)/$*.Po"; else rm -f "$(DEPDIR)/$*.Tpo"; exit 1; fi
+#	source='$<' object='$@' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(COMPILE) -c $<
 
 .c.obj:
-#	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ `$(CYGPATH_W) '$<'`; \
-#	then mv -f "$(DEPDIR)/$*.Tpo" "$(DEPDIR)/$*.Po"; else rm -f "$(DEPDIR)/$*.Tpo"; exit 1; fi
-	source='$<' object='$@' libtool=no \
-	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
-	$(COMPILE) -c `$(CYGPATH_W) '$<'`
+	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ `$(CYGPATH_W) '$<'`; \
+	then mv -f "$(DEPDIR)/$*.Tpo" "$(DEPDIR)/$*.Po"; else rm -f "$(DEPDIR)/$*.Tpo"; exit 1; fi
+#	source='$<' object='$@' libtool=no \
+#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
+#	$(COMPILE) -c `$(CYGPATH_W) '$<'`
 uninstall-info-am:
 
 ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
