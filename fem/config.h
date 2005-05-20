@@ -72,6 +72,9 @@
 /* Define if you have a EIOF library. */
 #define HAVE_EIOF 1
 
+/* Does the fortran environment implement etime */
+#define HAVE_F_ETIME 1
+
 /* Define if you have a HUTI library. */
 #define HAVE_HUTI 1
 

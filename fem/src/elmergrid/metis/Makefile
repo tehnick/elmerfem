@@ -131,7 +131,7 @@ FC = g95
 FCFLAGS = -O -I. -I/tmp/elmer/g95/include -fPIC
 FCLIBS =  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm
 FCPPFLAGS = -traditional-cpp -P -I. -I/tmp/elmer/g95/include -DDLLEXPORT="!"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK
-FFLAGS = -O3 -fPIC
+FFLAGS = -O -fPIC
 FLIBS =  -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2 -L/usr/lib/gcc-lib/i386-redhat-linux/3.2.2/../../.. -lfrtbegin -lg2c -lm -lgcc_s
 FPICFLAG = -fPIC
 GREP = /bin/grep
@@ -190,6 +190,8 @@ TEMPLATE_ARFLAGS = rc
 TESTS_FCFLAGS = -I. -I/tmp/elmer/g95/include -O -I. -I/tmp/elmer/g95/include -fPIC
 TRADITIONAL_CPP = no
 UMFPACK_LIBS = 
+USE_LDAIX_FALSE = 
+USE_LDAIX_TRUE = #
 USE_LOCAL_MPIF_H_FALSE = #
 USE_LOCAL_MPIF_H_TRUE = 
 USE_MPI_FALSE = 
@@ -197,7 +199,7 @@ USE_MPI_TRUE = #
 VERSION = 1.0.0
 ac_ct_CC = gcc
 ac_ct_CXX = g++
-ac_ct_F77 = 
+ac_ct_F77 = g77
 ac_ct_FC = 
 ac_ct_RANLIB = ranlib
 ac_ct_STRIP = 
@@ -256,6 +258,7 @@ target_alias =
 target_cpu = i686
 target_os = linux-gnu
 target_vendor = pc
+use_ldaix = 
 COMMON_SRCS = \
 	balance.c \
 	bucketsort.c \
