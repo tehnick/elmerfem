@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.23 2005/05/19 13:45:31 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.24 2005/05/20 08:02:55 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -749,6 +749,20 @@ AC_COMPILE_IFELSE(
      AC_MSG_RESULT([missing])
 ]
 AC_LANG_POP(Fortran)
+])
+
+AC_DEFUN([ACX_BOURNE_SHELL],[
+
+case "$canonical_host_type" in
+  *solaris* | *sun*)	
+	dnl Sun harbours a defunct sh?
+	BOURNE_SHELL="bash"
+  ;;
+  *) 
+	BOURNE_SHELL="sh"
+  ;;
+esac
+AC_SUBST(BOURNE_SHELL)
 ])
 
 dnl
