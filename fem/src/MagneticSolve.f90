@@ -341,13 +341,13 @@
          ExBz=0
 ! If you want to use time-domain solution for high-frequendy part,
 ! leave external field out. Better to use frequency-domain solver!
-#if 1
+!#if 1
          IF ( ASSOCIATED( ExMagSol ) ) THEN
-           ExBx(1:n) = ExB(3*ExMagPerm(NodeIndexes)-2)
-           ExBy(1:n) = ExB(3*ExMagPerm(NodeIndexes)-1)
-           ExBz(1:n) = ExB(3*ExMagPerm(NodeIndexes))
+           ExBx(1:n) = ExB( 3*ExMagPerm(NodeIndexes)-2 )
+           ExBy(1:n) = ExB( 3*ExMagPerm(NodeIndexes)-1 )
+           ExBz(1:n) = ExB( 3*ExMagPerm(NodeIndexes) )
          END IF
-#endif
+!#endif
 
          Mx(1:n) = Mx(1:n) + ExBx(1:n)
          My(1:n) = My(1:n) + ExBy(1:n)
@@ -358,7 +358,7 @@
          W = 0.0D0
 
 ! For high-f part (in time-domain), leave velocity contribution out.
-#if 1
+!#if 1
          IF ( ASSOCIATED( FlowSol ) ) THEN
            DO i=1,n
              k = FlowPerm(NodeIndexes(i))
@@ -399,7 +399,7 @@
            W(1:n) = GetReal( Material, 'MHD Velocity 3', gotIt )
 
         END IF
-#endif
+!#endif
 
 !------------------------------------------------------------------------------
 !        Set body forces
