@@ -9570,7 +9570,6 @@ case "$canonical_host_type" in
     use_ldaix="yes"
 
     FCPPFLAGS="-P $FCPPFLAGS"
-    EXTRA_LIBS="$HUTI_LIBS $BLAS_LIBS"
   ;;
   hppa*-hp-hpux*)
     if test "$ac_cv_f77_compiler_gnu" = yes; then
@@ -9609,8 +9608,6 @@ case "$canonical_host_type" in
       FPICFLAG=-fPIC
     else
       FPICFLAG=-KPIC
-      # sun compilers want to see "-lsunmath -lsunperf -lfsu" way too often..
-      EXTRA_LIBS="$BLAS_LIBS $LAPACK_LIBS"
       INCLUDE_MODULE_FLAG="-M"
     fi
     if test "$GCC" = yes; then
@@ -14273,7 +14270,7 @@ MESHGEN2D_LIBS="$LIBS $STDCXX_LIBS"
 
 case "$canonical_host_type" in
   rs6000-ibm-aix* | powerpc-ibm-aix*)
-    EXTRA_LIBS="$HUTI_LIBS $BLAS_LIBS"
+    EXTRA_LIBS="-L$prefix/lib $HUTI_LIBS $BLAS_LIBS"
   ;;
 esac
 
