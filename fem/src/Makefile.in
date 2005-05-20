@@ -308,6 +308,7 @@ PHASECHANGE = PhaseChange$(SHL_EXT)
 ELECTROKIN = Electrokinetics$(SHL_EXT)
 STRESS = StressSolve$(SHL_EXT)
 ENERGYRELEASE = EnergyRelease$(SHL_EXT)
+MAGNETIC_IND = MagneticSolve$(SHL_EXT)
 POISBOLTZ = PoissonBoltzmannSolve$(SHL_EXT)
 BINARIES_ODD = $(RESULT) $(HELMHOLTZ_BEM) $(SC2ELMER)  \
 	$(MEMREYNO) $(MEMELSTAT) $(POISSON_BEM)
@@ -317,7 +318,7 @@ BINARIES = $(ADVDIFF) $(STATMAG) $(STATELEC) $(STATCUR) $(ELASTIC) $(HELMHOLTZ) 
 	$(FDIFF) $(FDIFF3D) $(SAVEDATA) $(INPUT) $(FREERED) $(ARTIF) $(DCRCOMPLEX) \
 	$(RIGIDBODY) $(DIRICHLET) $(PERIODIC) $(FORCE) $(FREESURF) $(ELECFORCE)    \
 	$(SMITC) $(STREAM) $(KE) $(MEMLUMP) $(PHASECHANGE) $(POISBOLTZ) $(ELECTROKIN) \
-	$(STRESS) $(ENERGYRELEASE) 
+	$(STRESS) $(ENERGYRELEASE) $(MAGNETIC_IND)
 
 FOBJ = Acoustics.o Adaptive.o AdvectionDiffusion.o ApertureAmplitude.o \
 	AplacExport.o ArtificialCompressibility.o BandMatrix.o \
@@ -1037,13 +1038,13 @@ $(BINARIES) $(BINARIES_ODD): libsolver$(SHL_EXT)
 $(SOLVEROBJS): mpif
 
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT) 
-	@SH_LD@ @SH_LDTOFLAGS@ @B64FLAGS@ -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT) @EXTRA_LIBS@
+	@SH_LD@ @SH_LDTOFLAGS@ @B64FLAGS@ -o ElmerSolver$(EXE_EXT) -L. -lsolver @EXTRA_LIBS@ Solver$(OBJ_EXT)
 
 ViewFactors$(EXE_EXT): libsolver$(SHL_EXT) ViewFactors$(OBJ_EXT)  
-	@SH_LD@ @SH_LDTOFLAGS@ @B64FLAGS@ -lsolver -o ViewFactors$(EXE_EXT) -L. ViewFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a @EXTRA_LIBS@
+	@SH_LD@ @SH_LDTOFLAGS@ @B64FLAGS@ -o ViewFactors$(EXE_EXT) -L. -lsolver @EXTRA_LIBS@ viewaxis/libviewaxis.a view3d/libview3d.a  ViewFactors$(OBJ_EXT)
 
 GebhardtFactors$(EXE_EXT): libsolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT)  
-	@SH_LD@ @SH_LDTOFLAGS@ @B64FLAGS@ -lsolver -o GebhardtFactors$(EXE_EXT) -L. GebhardtFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a @EXTRA_LIBS@
+	@SH_LD@ @SH_LDTOFLAGS@ @B64FLAGS@ -o GebhardtFactors$(EXE_EXT) -L. -lsolver @EXTRA_LIBS@ viewaxis/libviewaxis.a view3d/libview3d.a  GebhardtFactors$(OBJ_EXT)
 
 install-exec-local:
 	@echo "Installing stuff to $(prefix),@prefix@"
