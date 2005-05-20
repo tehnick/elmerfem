@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.26 2005/05/20 08:10:06 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.27 2005/05/20 08:19:36 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -750,6 +750,27 @@ AC_COMPILE_IFELSE(
 ])
 AC_LANG_POP(Fortran)
 ])
+
+AC_DEFUN([ACX_FC_FLUSH],[
+AC_MSG_CHECKING([for fortran intrinsic flush])
+
+AC_LANG_PUSH(Fortran)
+
+AC_LINK_IFELSE(
+[    
+      PROGRAM TEST                                                                        
+      CALL FLUSH(1)                                                                    
+      END     
+],
+[
+     AC_MSG_RESULT([found])
+     AC_DEFINE(HAVE_F_FLUSH,1,[Does the fortran environment implement flush])
+],
+[
+     AC_MSG_RESULT([missing])
+])
+AC_LANG_POP(Fortran)
+])dnl ACX_FC_FLUSH
 
 AC_DEFUN([ACX_BOURNE_SHELL],[
 

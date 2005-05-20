@@ -64,6 +64,13 @@ float tt[2];
 }
 #endif
 
+#ifndef HAVE_F_FLUSH
+void FC_FUNC(flush,FLUSH) (int n)
+{
+  // might as well flush a toilet...?
+}
+#endif
+
 double FC_FUNC(cputime,CPUTIME) ()
 {
   getrusage( RUSAGE_SELF, &usage );

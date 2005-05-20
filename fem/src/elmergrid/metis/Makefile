@@ -101,6 +101,7 @@ AWK = gawk
 B64FLAGS = -m64 -fPIC
 BASIC_CPP = 
 BLAS_LIBS = -lblas
+BOURNE_SHELL = sh
 CC = gcc
 CCC = 
 CCDEPMODE = depmode=gcc3
