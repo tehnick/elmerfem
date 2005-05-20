@@ -9500,7 +9500,7 @@ MV='mv'
 MKDIR='mkdir -p'
 LIBSOLVER_DEPS=$LIBS
 INCLUDE_MODULE_FLAG="-I"
-FCPPFLAGS="-I. -I$prefix/include -DDLLEXPORT=\"!\"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
+FCPPFLAGS="-I. -I$prefix/include -DDLLEXPORT=\"!\" -DFULL_INDUCTION -DUSE_ARPACK"
 
 case "$canonical_host_type" in
   *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
@@ -9565,8 +9565,8 @@ case "$canonical_host_type" in
     CXXPICFLAG=
     FPICFLAG=
     DLFCN_DIR=dlfcn
-    SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
-    SH_LDTOFLAGS="-brtl -bdynamic"
+    SH_LDFLAGS="-G -btrl -bexpall $ACX_LOPT_FLAGS"
+    SH_LDTOFLAGS="-brtl -bexpall"
     use_ldaix="yes"
 
     FCPPFLAGS="-P $FCPPFLAGS"
@@ -13375,7 +13375,7 @@ case "$FC" in
   gfortran | g95 )
   ;;
   *xlf*)
-    FCFLAGS="$FCFLAGS -qsuffix=cpp=F90"
+    FCFLAGS="$FCFLAGS -qsuffix=cpp=F90 "
   ;;
   ifort | ifc )
     if test "$ac_cv_f77_compiler_gnu" = yes; then
@@ -14275,7 +14275,6 @@ case "$canonical_host_type" in
 esac
 
 TESTS_FCFLAGS="$INCLUDE_MODULE_FLAG. $INCLUDE_MODULE_FLAG$prefix/include $FCFLAGS"
-
 
 echo "$as_me:$LINENO: result: defining FPICFLAG to be $FPICFLAG" >&5
 echo "${ECHO_T}defining FPICFLAG to be $FPICFLAG" >&6
