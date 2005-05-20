@@ -48,8 +48,6 @@ dnl as a by-product, we get the ldflags needed for both compilers.
 AC_F77_WRAPPERS
 AC_FC_WRAPPERS
 
-dnl ACX_FC_CHAR_MANGLING
-
 dnl setup name mangling
 case "$ac_cv_fc_mangling" in
   "upper case, no underscore, no extra underscore" | "upper case, no underscores")
@@ -75,10 +73,10 @@ dnl
 dnl OS-specific stuff that hasn't been (or can't be) done in a clean way.
 dnl
 DLFCN_DIR=
-CPICFLAG=-fPIC
-CXXPICFLAG=-fPIC
-FPICFLAG=-fPIC
-SHLEXT=so
+CPICFLAG="-fPIC"
+CXXPICFLAG="-fPIC"
+FPICFLAG="-fPIC"
+SHLEXT="so"
 SHLLIB='$(SHLEXT)'
 SHLBIN=
 SHLEXT_VER='$(SHLEXT).$(version)'
@@ -112,12 +110,12 @@ dnl Host specific stuff
 dnl
 case "$canonical_host_type" in
   *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
-    SH_LD=ld
-    SH_LDFLAGS=-Bshareable
+    SH_LD="ld"
+    SH_LDFLAGS="-Bshareable"
   ;;
   *-*-freebsd*)
     SH_LD='$(CC)'
-    SH_LDFLAGS=-shared -Wl,-x
+    SH_LDFLAGS="-shared -Wl,-x"
   ;;
   alpha*-dec-osf*)
     CPICFLAG=
@@ -133,11 +131,11 @@ case "$canonical_host_type" in
     CXXPICFLAG=
     CPICFLAG=
     FPICFLAG=
-    SHLEXT=dylib 
+    SHLEXT="dylib"
     SHLLIB='$(SHLEXT)'
     SHLEXT_VER='$(version).$(SHLEXT)'
     SHLLIB_VER='$(version).$(SHLLIB)'
-    NO_OCT_FILE_STRIP=true
+    NO_OCT_FILE_STRIP="true"
     SONAME_FLAGS='-install_name $(octlibdir)/$@'
     library_path_var=DYLD_LIBRARY_PATH	
   ;;
@@ -149,7 +147,7 @@ case "$canonical_host_type" in
     SHLLIB=dll.a
     SHLBIN=dll
     SH_LDFLAGS="-shared -Wl,--export-all-symbols -Wl,--enable-auto-import"
-    SHLLINKEXT=.dll
+    SHLLINKEXT=".dll"
     SONAME_FLAGS='-Wl,--out-implib=$@.a'
     library_path_var=PATH
     FCPPFLAGS="-DWIN32"
@@ -175,7 +173,7 @@ case "$canonical_host_type" in
     DLFCN_DIR=dlfcn
     SH_LDFLAGS="-G"
     SH_LDTOFLAGS="-brtl -bdynamic"
-    FCPPFLAGS=-P $FCPPFLAGS"
+    FCPPFLAGS="-P $FCPPFLAGS"
   ;;
   hppa*-hp-hpux*)
     if test "$ac_cv_f77_compiler_gnu" = yes; then
