@@ -161,7 +161,7 @@ EXTRA_DIST = \
 	ModelDescription.f90 \
 	mpif_linux.h \
 	mpif_stub.h \
-	mpi_stubs.c \
+	stubut.c \
 	Multigrid.f90 \
 	NavierStokesCylindrical.f90 \
 	NavierStokes.f90 \
