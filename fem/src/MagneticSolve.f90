@@ -36,10 +36,9 @@
 ! *****************************************************************************/
 
 
-
 !------------------------------------------------------------------------------
    SUBROUTINE MagneticSolver( Model,Solver,dt,TransientSimulation )
-DLLEXPORT MagneticSolver
+!DEC$ATTRIBUTES DLLEXPORT :: MagneticSolver
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -58,28 +57,12 @@ DLLEXPORT MagneticSolver
 !
 !******************************************************************************
 
-    USE Types
-    USE Lists
-
-    USE CoordinateSystems
-
     USE Maxwell
-    USE MaxwellGeneral
     USE MaxwellAxiS
+    USE MaxwellGeneral
 
-    USE ElementDescription
-    USE BandwidthOptimize
-
-    USE ElementUtils
-    USE TimeIntegrate
-
+    USE DefUtils
     USE Differentials
-    USE FreeSurface
-
-    USE IterSolve
-    USE DirectSolve
-
-    USE SolverUtils
 !------------------------------------------------------------------------------
 
     IMPLICIT NONE
@@ -96,7 +79,7 @@ DLLEXPORT MagneticSolver
      TYPE(Matrix_t),POINTER :: StiffMatrix
      INTEGER :: i,j,k,l,n,t,iter,LocalNodes,k1,k2,istat
 
-     TYPE(ValueList_t),POINTER :: Material
+     TYPE(ValueList_t),POINTER :: Material, Equation, BF
      TYPE(Nodes_t) :: ElementNodes
      TYPE(Element_t),POINTER :: CurrentElement
 
@@ -119,7 +102,7 @@ DLLEXPORT MagneticSolver
      INTEGER :: body_id,bf_id,eq_id
      INTEGER, POINTER :: NodeIndexes(:)
 !
-     LOGICAL :: AllocationsDone = .FALSE., FreeSurfaceFlag
+     LOGICAL :: AllocationsDone = .FALSE., FreeSurfaceFlag, UserDefinedVelo
 
      REAL(KIND=dp),ALLOCATABLE:: LocalMassMatrix(:,:),LocalStiffMatrix(:,:),&
        LoadVector(:,:),LocalForce(:), &
@@ -150,7 +133,7 @@ DLLEXPORT MagneticSolver
      IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
      dim = CoordinateSystemDimension()
 
-     MagneticSol => VariableGet( Model % Variables, 'Magnetic Field' )
+     MagneticSol => Solver % Variable
      MagneticPerm  => MagneticSol % Perm
      MagneticField => MagneticSol % Values
 
@@ -217,35 +200,35 @@ DLLEXPORT MagneticSolver
 ! Add extra variables to *.result and *.ep files
 
 ! div B for the divergence check
-#if 0
-      IF (.NOT. ASSOCIATED(VariableGet(Model % Variables, 'div B'))) THEN
-        SolverPointer => Solver
-        CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, &
-              SolverPointer, 'div B', 1, divB, MagneticPerm)
-      END IF
-#endif
+!#if 0
+!      IF (.NOT. ASSOCIATED(VariableGet(Model % Variables, 'div B'))) THEN
+!        SolverPointer => Solver
+!        CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, &
+!              SolverPointer, 'div B', 1, divB, MagneticPerm)
+!      END IF
+!#endif
 
 ! Lorentz force, either total or the high-f part
-#if 0
-     IF (.NOT. ASSOCIATED(VariableGet(Model % Variables, 'Lorentz Force'))) THEN
-        SolverPointer => Solver
-
-        LrFr => LrF(1:3*LocalNodes-2:3)
-        CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, &
-             SolverPointer, 'Lorentz Force 1', 1, LrFr, MagneticPerm)
-
-        LrFz => LrF(2:3*LocalNodes-1:3)
-        CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, &
-             SolverPointer, 'Lorentz Force 2', 1, LrFz, MagneticPerm)
-
-        LrFp => LrF(3:3*LocalNodes:3)
-        CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, &
-             SolverPointer, 'Lorentz Force 3', 1, LrFp, MagneticPerm)
-
-        CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, &
-              SolverPointer, 'Lorentz Force', 3, LrF, MagneticPerm)
-      END IF
-#endif
+!#if 0
+!     IF (.NOT. ASSOCIATED(VariableGet(Model % Variables, 'Lorentz Force'))) THEN
+!        SolverPointer => Solver
+!
+!        LrFr => LrF(1:3*LocalNodes-2:3)
+!        CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, &
+!             SolverPointer, 'Lorentz Force 1', 1, LrFr, MagneticPerm)
+!
+!        LrFz => LrF(2:3*LocalNodes-1:3)
+!        CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, &
+!             SolverPointer, 'Lorentz Force 2', 1, LrFz, MagneticPerm)
+!
+!        LrFp => LrF(3:3*LocalNodes:3)
+!        CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, &
+!             SolverPointer, 'Lorentz Force 3', 1, LrFp, MagneticPerm)
+!
+!        CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, &
+!              SolverPointer, 'Lorentz Force', 3, LrF, MagneticPerm)
+!      END IF
+!#endif
 
 !------------------------------------------------------------------------------
 !    Check for normal/tangetial coordinate system defined velocities
@@ -281,9 +264,8 @@ DLLEXPORT MagneticSolver
 !------------------------------------------------------------------------------
      FreeSurfaceFlag = .FALSE.
      DO i=1,Model % NumberOfBCs
-       FreeSurfaceFlag = FreeSurfaceFlag.OR. ListGetLogical( Model % BCs(i) % Values, &
-                         'Free Surface', GotIt )
-
+       FreeSurfaceFlag = FreeSurfaceFlag.OR. &
+          ListGetLogical( Model % BCs(i) % Values, 'Free Surface', GotIt )
        IF ( FreeSurfaceFlag ) EXIT
      END DO
 !------------------------------------------------------------------------------
@@ -309,7 +291,7 @@ DLLEXPORT MagneticSolver
 !      Compute average normals for boundaries having the normal & tangetial
 !      field components specified on the boundaries
 !------------------------------------------------------------------------------
-       IF ( (iter == 1 .OR. FreeSurfaceFlag) .AND. NumberOfBoundaryNodes > 0 ) THEN
+       IF ( (iter == 1.OR.FreeSurfaceFlag).AND.NumberOfBoundaryNodes>0 )  THEN
           CALL AverageBoundaryNormals( Model, &
              'Normal-Tangential Magnetic Field',NumberOfBoundaryNodes, &
             BoundaryReorder, BoundaryNormals, BoundaryTangent1, &
@@ -319,74 +301,40 @@ DLLEXPORT MagneticSolver
 
        CALL InitializeToZero( StiffMatrix, ForceVector )
 
-       t = 1
-       DO WHILE( t <= Model % NumberOfBulkElements )
+       DO t=1,Solver % NumberOFActiveElements
 
          IF ( RealTime() - at0 > 1.0 ) THEN
            WRITE(Message,'(a,i3,a)' ) '   Assembly: ', INT(100.0 - 100.0 * &
             (Model % NumberOfBulkElements-t) / &
-               (1.0*Model % NumberOfBulkElements)), ' % done'
+               (1.0*Solver % NumberOfActiveElements)), ' % done'
                        
            CALL Info( 'MagneticSolve', Message, Level=5 )
            at0 = RealTime()
          END IF
-!------------------------------------------------------------------------------
-!        Check if this element belongs to a body where the MHD equations
-!        should be calculated
-!------------------------------------------------------------------------------
-!
-!
-         DO WHILE( t <= Model % NumberOfBulkElements )
-           CurrentElement => Model % Elements(t)
 
-           IF ( CheckElementEquation( Model, &
-                              CurrentElement,'Magnetic Induction' ) ) EXIT
-
-           t = t + 1
-         END DO
-
-         IF ( t > Model % NumberOfBulkElements ) EXIT
-
-!------------------------------------------------------------------------------
-!        ok, we´ve got one for Maxwell equations
-!------------------------------------------------------------------------------
+         CurrentElement => GetActiveElement(t)
 !
 !------------------------------------------------------------------------------
-!        Set also the current element pointer in the model structure to
-!        reflect the element being processed
-!------------------------------------------------------------------------------
-         Model % CurrentElement => Model % Elements(t)
-!------------------------------------------------------------------------------
-         body_id = CurrentElement % BodyId
-
-         n = CurrentElement % TYPE % NumberOfNodes
+         n = GetElementNOFNodes()
          NodeIndexes => CurrentElement % NodeIndexes
 
-         eq_id = ListGetInteger( Model % Bodies(body_id) % Values, 'Equation', &
-                     minv=1, maxv=Model % NumberOFEquations )
+         Equation => GetEquation()
 
+         UserDefinedVelo = .FALSE.
+         UserDefinedVelo = GetLogical(Equation,'User Defined Velocity', gotIt)
+         
          ElementNodes % x(1:n) = Model % Nodes % x(NodeIndexes)
          ElementNodes % y(1:n) = Model % Nodes % y(NodeIndexes)
          ElementNodes % z(1:n) = Model % Nodes % z(NodeIndexes)
 
-         k = ListGetInteger( Model % Bodies(body_id) % Values, 'Material', &
-                  minv=1, maxv=Model % NumberOFEquations )
-         Material => Model % Materials(k) % Values
+         Material => GetMaterial()
 
-         Conductivity(1:n) = ListGetReal(Material, &
-                 'Electrical Conductivity',n,NodeIndexes)
+         Conductivity(1:n) = GetReal(Material, 'Electrical Conductivity' )
+         Permeability(1:n) = GetReal(Material, 'Magnetic Permeability'   )
 
-         Permeability(1:n) = ListGetReal(Material, &
-                 'Magnetic Permeability',n,NodeIndexes)
-
-         Mx = ListGetReal( Material,  &
-                'Applied Magnetic Field 1',n,NodeIndexes, Gotit )
-
-         My = ListGetReal( Material,  &
-                'Applied Magnetic Field 2',n,NodeIndexes, Gotit )
-
-         Mz = ListGetReal( Material,  &
-                'Applied Magnetic Field 3',n,NodeIndexes, Gotit )
+         Mx = GetReal( Material, 'Applied Magnetic Field 1', Gotit )
+         My = GetReal( Material, 'Applied Magnetic Field 2', Gotit )
+         Mz = GetReal( Material, 'Applied Magnetic Field 3', Gotit )
 
          ExBx=0
          ExBy=0
@@ -441,28 +389,31 @@ DLLEXPORT MagneticSolver
                END SELECT
              END IF
            END DO
-         END IF
+        END IF
+
+        IF ( UserDefinedVelo ) THEN     
+           ! check for given constant velocity
+
+           U(1:n) = GetReal( Material, 'MHD Velocity 1', gotIt )
+           V(1:n) = GetReal( Material, 'MHD Velocity 2', gotIt )
+           W(1:n) = GetReal( Material, 'MHD Velocity 3', gotIt )
+
+        END IF
 #endif
 
 !------------------------------------------------------------------------------
 !        Set body forces
 !------------------------------------------------------------------------------
-         bf_id = ListGetInteger( Model % Bodies(body_id) % Values, &
-             'Body Force',gotIt, 1, Model % NumberOfBodyForces )
-
+         BF => getBodyForce()
+ 
          LoadVector = 0.0D0
-         IF ( bf_id > 0  ) THEN
-           LoadVector(1,1:n) = LoadVector(1,1:n) + ListGetReal( &
-            Model % BodyForces(bf_id) % Values, &
-                       'Magnetic Bodyforce 1',n,NodeIndexes,gotIt )
-
-           LoadVector(2,1:n) = LoadVector(2,1:n) + ListGetReal( &
-            Model % BodyForces(bf_id) % Values, &
-                       'Magnetic Bodyforce 2',n,NodeIndexes,gotIt )
-
-           LoadVector(3,1:n) = LoadVector(3,1:n) + ListGetReal( &
-            Model % BodyForces(bf_id) % Values, &
-                     'Magnetic Bodyforce 3',n,NodeIndexes,gotIt )
+         IF ( ASSOCIATED(BF) ) THEN
+           LoadVector(1,1:n) = LoadVector(1,1:n) + GetReal( &
+                   BF, 'Magnetic Bodyforce 1', GotIt )
+           LoadVector(2,1:n) = LoadVector(2,1:n) + GetReal( &
+                   BF, 'Magnetic Bodyforce 2', GotIt )
+           LoadVector(3,1:n) = LoadVector(3,1:n) + GetReal( &
+                   BF, 'Magnetic Bodyforce 3', GotIt )
          END IF
 !------------------------------------------------------------------------------
 !        Get element local stiffness & mass matrices
@@ -472,14 +423,11 @@ DLLEXPORT MagneticSolver
                 LocalMassMatrix,LocalStiffMatrix,LocalForce, &
                     LoadVector,Conductivity*Permeability,Mx,My,Mz,U,V,W, &
                         CurrentElement,n,ElementNodes )
-#ifdef CYLSYM
           ELSE IF ( CurrentCoordinateSystem() == CylindricSymmetric ) THEN
             CALL MaxwellAxiSCompose( &
                 LocalMassMatrix,LocalStiffMatrix,LocalForce, &
                     LoadVector,Conductivity*Permeability,Mx,My,Mz,U,V,W, &
                        CurrentElement,n,ElementNodes )
-#endif
-
          ELSE 
             CALL MaxwellGeneralCompose( &
                 LocalMassMatrix,LocalStiffMatrix,LocalForce, &
@@ -496,7 +444,7 @@ DLLEXPORT MagneticSolver
 !          NOTE: This will replace LocalStiffMatrix and LocalForce with the
 !                combined information...
 !------------------------------------------------------------------------------
-            CALL Add1stOrderTime(LocalMassMatrix, LocalStiffMatrix, LocalForce, &
+            CALL Add1stOrderTime(LocalMassMatrix,LocalStiffMatrix,LocalForce, &
                     dt, n, 3, MagneticPerm(NodeIndexes), Solver )
          END IF
 
@@ -517,7 +465,6 @@ DLLEXPORT MagneticSolver
          CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
            ForceVector, LocalForce, n, 3, MagneticPerm(NodeIndexes) )
 !------------------------------------------------------------------------------
-         t = t + 1
       END DO
 
       CALL Info( 'MagneticSolve', 'Assembly done', Level=4 )
@@ -611,7 +558,7 @@ DLLEXPORT MagneticSolver
 !------------------------------------------------------------------------------
               IF ( TransientSimulation ) THEN
                 LocalMassMatrix = 0.0d0
-                CALL Add1stOrderTime(LocalMassMatrix, LocalStiffMatrix, LocalForce, &
+                CALL Add1stOrderTime(LocalMassMatrix,LocalStiffMatrix,LocalForce, &
                        dt, n, 3, MagneticPerm(NodeIndexes), Solver )
               END IF
 
@@ -631,16 +578,9 @@ DLLEXPORT MagneticSolver
 !------------------------------------------------------------------------------
 !     Dirichlet boundary conditions
 !------------------------------------------------------------------------------
-      CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, &
-               'Magnetic Field 1', 1, 3, MagneticPerm )
+      CALL DefaultDirichletBCs()
 
-      CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, &
-               'Magnetic Field 2', 2, 3, MagneticPerm )
-
-      CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, &
-               'Magnetic Field 3', 3, 3, MagneticPerm )
 !------------------------------------------------------------------------------
-
 
       CALL Info( 'MagneticSolve', 'Set boundaries done', Level=4 )
 !------------------------------------------------------------------------------
@@ -648,8 +588,7 @@ DLLEXPORT MagneticSolver
 !------------------------------------------------------------------------------
       PrevUNorm = UNorm
 
-      CALL SolveSystem( StiffMatrix, ParMatrix, ForceVector, &
-                   MagneticField, UNorm, 3, Solver )
+      UNorm = DefaultSolve()
 
       st = CPUTIme()-st
       totat = totat + at
@@ -706,12 +645,12 @@ DLLEXPORT MagneticSolver
 
 !------------------------
 ! Calculate div B
-#if 0
-    M1 => ExB(1:3*Model%NumberOfNodes-2:3)
-    M2 => ExB(2:3*Model%NumberOfNodes-1:3)
-    M3 => ExB(3:3*Model%NumberOfNodes-0:3)
-    CALL Divergence(divB,M1,M2,M3,ExMagPerm)
-#endif
+!#if 0
+!    M1 => ExB(1:3*Model%NumberOfNodes-2:3)
+!    M2 => ExB(2:3*Model%NumberOfNodes-1:3)
+!    M3 => ExB(3:3*Model%NumberOfNodes-0:3)
+!    CALL Divergence(divB,M1,M2,M3,ExMagPerm)
+!#endif
 !---------------------------
 
     M1 => MagneticField(1:3*LocalNodes-2:3)
@@ -726,29 +665,25 @@ DLLEXPORT MagneticSolver
 !   Compute the magnetic flux density from the vector potential: B = curl A
 !------------------------------------------------------------------------------
 
-#ifdef CYLSYM
     IF (CurrentCoordinateSystem() == CylindricSymmetric) THEN
       CALL AxiSCurl( M1,M2,M3,E1,E2,E3,MagneticPerm )
     ELSE
-#endif
       CALL Curl( M1,M2,M3,E1,E2,E3,MagneticPerm )
-#ifdef CYLSYM
     END IF
-#endif
-    CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Current' )
+    CALL InvalidateVariable( Model % Meshes, Solver % Mesh,'Electric Current' )
 
 !------------------------------------------------------------------------------
 !   Compute the Lorentz force 
 !   (high-frequency B_i contribution or total)
 !------------------------------------------------------------------------------
 
-#if 0
-    LrFr => LrF(1:3*LocalNodes-2:3)
-    LrFz => LrF(2:3*LocalNodes-1:3)
-    LrFp => LrF(3:3*LocalNodes:3)
-
-    CALL LorentzForceNodal(LrFr,LrFz,LrFp,M1,M2,M3,MagneticPerm)
-#endif
+!#if 0
+!    LrFr => LrF(1:3*LocalNodes-2:3)
+!    LrFz => LrF(2:3*LocalNodes-1:3)
+!    LrFp => LrF(3:3*LocalNodes:3)
+!
+!    CALL LorentzForceNodal(LrFr,LrFz,LrFp,M1,M2,M3,MagneticPerm)
+!#endif
 
   CONTAINS
 

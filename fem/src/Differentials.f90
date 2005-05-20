@@ -498,7 +498,6 @@ CONTAINS
 
     r = SqrtMetric
 
-#ifdef CYLSYM
     IF ( CurrentCoordinateSystem()  == CylindricSymmetric ) THEN
       Ji(1) = -dHdx(3,2)
       Ji(2) =  dHdx(3,1)
@@ -525,7 +524,6 @@ CONTAINS
 #endif
       RETURN
     END IF
-#endif
 
     Perm = 0
     Perm(1,2,3) = -1.0d0 / SqrtMetric
@@ -716,7 +714,6 @@ CONTAINS
       RETURN
     END IF
 
-#ifdef CYLCYM
     IF ( CurrentCoordinateSystem() == CylindricSymmetric ) THEN
       r = SqrtMetric
       Ji(1) = -dHdx(3,2)
@@ -725,7 +722,6 @@ CONTAINS
       JH = Ji(1)*Ji(1) + Ji(2)*Ji(2) + Ji(3)*Ji(3)
       RETURN
     END IF
-#endif
 
     Perm = 0
     Perm(1,2,3) = -1.0d0 / SqrtMetric
