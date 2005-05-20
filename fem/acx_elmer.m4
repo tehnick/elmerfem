@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.28 2005/05/20 08:40:29 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.29 2005/05/20 09:01:44 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -643,6 +643,7 @@ if test "$with_64bits" != no; then
       AC_MSG_RESULT([nope, reverting compiler flags]) 
 
       dnl FIXME: test that all compilers are 64 bit
+      B64FLAGS=""
       CFLAGS=$orig_CFLAGS
       FFLAGS=$orig_FFLAGS
       FCFLAGS=$orig_FCFLAGS

@@ -1038,13 +1038,13 @@ $(BINARIES) $(BINARIES_ODD): libsolver$(SHL_EXT)
 $(SOLVEROBJS): mpif
 
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT) 
-	@SH_LD@ @SH_LINKING_TO_FLAGS@ @B64FLAGS@ -o ElmerSolver$(EXE_EXT) -L. -lsolver @EXTRA_LIBS@ Solver$(OBJ_EXT)
+	@SH_LD@ @SH_LINKING_TO_FLAGS@ @B64FLAGS@ -o ElmerSolver$(EXE_EXT) Solver$(OBJ_EXT) -L. -lsolver @EXTRA_LIBS@ 
 
 ViewFactors$(EXE_EXT): libsolver$(SHL_EXT) ViewFactors$(OBJ_EXT)  
-	@SH_LD@ @SH_LINKING_TO_FLAGS@ @B64FLAGS@ -o ViewFactors$(EXE_EXT) -L. -lsolver @EXTRA_LIBS@ viewaxis/libviewaxis.a view3d/libview3d.a  ViewFactors$(OBJ_EXT)
+	@SH_LD@ @SH_LINKING_TO_FLAGS@ @B64FLAGS@ -o ViewFactors$(EXE_EXT) ViewFactors$(OBJ_EXT) -L. -lsolver @EXTRA_LIBS@ viewaxis/libviewaxis.a view3d/libview3d.a  
 
 GebhardtFactors$(EXE_EXT): libsolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT)  
-	@SH_LD@ @SH_LINKING_TO_FLAGS@ @B64FLAGS@ -o GebhardtFactors$(EXE_EXT) -L. -lsolver @EXTRA_LIBS@ viewaxis/libviewaxis.a view3d/libview3d.a  GebhardtFactors$(OBJ_EXT)
+	@SH_LD@ @SH_LINKING_TO_FLAGS@ @B64FLAGS@ -o GebhardtFactors$(EXE_EXT) GebhardtFactors$(OBJ_EXT) -L. -lsolver @EXTRA_LIBS@ viewaxis/libviewaxis.a view3d/libview3d.a  
 
 install-exec-local:
 	@echo "Installing stuff to $(prefix),@prefix@"

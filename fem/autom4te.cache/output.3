@@ -727,7 +727,7 @@ SH_LD
 SH_LD2
 EXTRA_LIBS
 SH_LDFLAGS
-SH_LDTOFLAGS
+SH_LINKING_TO_FLAGS
 DL_LD
 DL_LDFLAGS
 MKOCTFILE_DL_LDFLAGS
@@ -7424,7 +7424,8 @@ echo $ECHO_N "checking to see if we got 64 bits... $ECHO_C" >&6
       echo "$as_me:$LINENO: result: nope, reverting compiler flags" >&5
 echo "${ECHO_T}nope, reverting compiler flags" >&6 
 
-            CFLAGS=$orig_CFLAGS
+            B64FLAGS=""
+      CFLAGS=$orig_CFLAGS
       FFLAGS=$orig_FFLAGS
       FCFLAGS=$orig_FCFLAGS
       CXXFLAGS=$orig_CXXFLAGS
@@ -9484,7 +9485,7 @@ LIBEXT=a
 SH_LD2=$CXX
 SH_LD=$FC
 SH_LDFLAGS=-shared
-SH_LDTOFLAGS=
+SH_LINKING_TO_FLAGS=
 DL_LD='$(SH_LD)'
 DL_LDFLAGS='$(SH_LDFLAGS)'
 MKOCTFILE_DL_LDFLAGS='$(DL_LDFLAGS)'
@@ -9500,7 +9501,8 @@ MV='mv'
 MKDIR='mkdir -p'
 LIBSOLVER_DEPS=$LIBS
 INCLUDE_MODULE_FLAG="-I"
-FCPPFLAGS="-I. -I$prefix/include -DDLLEXPORT=\"!\"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
+FCPPFLAGS="-I. -I$prefix/include -DDLLEXPORT=\"!\" -DFULL_INDUCTION -DUSE_ARPACK"
+TESTS_FCFLAGS=""
 
 case "$canonical_host_type" in
   *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
@@ -9566,11 +9568,10 @@ case "$canonical_host_type" in
     FPICFLAG=
     DLFCN_DIR=dlfcn
     SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
-    SH_LDTOFLAGS="-brtl -bdynamic"
+    SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared"
     use_ldaix="yes"
     
     FCPPFLAGS="-P $FCPPFLAGS"
-    EXTRA_LIBS="$HUTI_LIBS $BLAS_LIBS"
   ;;
   hppa*-hp-hpux*)
     if test "$ac_cv_f77_compiler_gnu" = yes; then
@@ -9609,8 +9610,6 @@ case "$canonical_host_type" in
       FPICFLAG=-fPIC
     else
       FPICFLAG=-KPIC
-      # sun compilers want to see "-lsunmath -lsunperf -lfsu" way too often..
-      EXTRA_LIBS="$BLAS_LIBS $LAPACK_LIBS"
       INCLUDE_MODULE_FLAG="-M"
     fi
     if test "$GCC" = yes; then
@@ -9620,7 +9619,6 @@ case "$canonical_host_type" in
     fi
     if test "$GXX" = yes; then
       CXXPICFLAG=-fPIC
-      SH_LDFLAGS=-shared
     else
       CXXPICFLAG=-KPIC
       SH_LDFLAGS=-G
@@ -9636,6 +9634,11 @@ case "$canonical_host_type" in
     FCPPFLAGS="-P $FCPPFLAGS"
   ;;
 esac
+
+FCFLAGS="$FCFLAGS $FPICFLAG"
+FFLAGS="$FFLAGS $FPICFLAG"
+CFLAGS="$CFLAGS $CPICFLAG"
+CXXFLAGS="$CXXFLAGS $CXXPICFLAG"
 
 LIBS="$LIBS -L$prefix/lib"
 CFLAGS="$CFLAGS -I$prefix/include"
@@ -13374,10 +13377,12 @@ if test x"$acx_mpi_ok" = xyes; then
 fi
 fi
 
+
 case "$FC" in
   gfortran | g95 )
   ;;
   *xlf*)
+    TESTS_FCFLAGS="$FCFLAGS -qsuffix=cpp=f90"
     FCFLAGS="$FCFLAGS -qsuffix=cpp=F90"
   ;;
   ifort | ifc )
@@ -13390,11 +13395,6 @@ echo "$as_me: WARNING: Intel Fortran 90 compiler and g77 really don't mix that w
       ;;
   pathf* )
     esac
-
-FCFLAGS="$FCFLAGS $FPICFLAG"
-FFLAGS="$FFLAGS $FPICFLAG"
-CFLAGS="$CFLAGS $CPICFLAG"
-CXXFLAGS="$CXXFLAGS $CXXPICFLAG"
 
 if $use_rpath; then
   if test -n "$enable_rpath_arg"; then
@@ -14271,8 +14271,13 @@ SOLVER_LIBS="$ARPACK_LIBS $PARPACK_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIO
 ELMERGRID_LIBS="$LIBS"
 MESHGEN2D_LIBS="$LIBS $STDCXX_LIBS"
 
-TESTS_FCFLAGS="$INCLUDE_MODULE_FLAG. $INCLUDE_MODULE_FLAG$prefix/include $FCFLAGS"
+case "$canonical_host_type" in
+  rs6000-ibm-aix* | powerpc-ibm-aix*)
+    EXTRA_LIBS="-L$prefix/lib $HUTI_LIBS $BLAS_LIBS"
+  ;;
+esac
 
+TESTS_FCFLAGS="$TESTS_FCFLAGS $INCLUDE_MODULE_FLAG. $INCLUDE_MODULE_FLAG../../src $INCLUDE_MODULE_FLAG$prefix/include"
 
 echo "$as_me:$LINENO: result: defining FPICFLAG to be $FPICFLAG" >&5
 echo "${ECHO_T}defining FPICFLAG to be $FPICFLAG" >&6
@@ -14300,8 +14305,8 @@ echo "$as_me:$LINENO: result: defining SH_LD to be $SH_LD" >&5
 echo "${ECHO_T}defining SH_LD to be $SH_LD" >&6
 echo "$as_me:$LINENO: result: defining SH_LDFLAGS to be $SH_LDFLAGS" >&5
 echo "${ECHO_T}defining SH_LDFLAGS to be $SH_LDFLAGS" >&6
-echo "$as_me:$LINENO: result: defining SH_LDTOFLAGS to be $SH_LDTOFLAGS" >&5
-echo "${ECHO_T}defining SH_LDTOFLAGS to be $SH_LDTOFLAGS" >&6
+echo "$as_me:$LINENO: result: defining SH_LINKING_TO_FLAGS to be $SH_LINKING_TO_FLAGS" >&5
+echo "${ECHO_T}defining SH_LINKING_TO_FLAGS to be $SH_LINKING_TO_FLAGS" >&6
 echo "$as_me:$LINENO: result: defining DL_LD to be $DL_LD" >&5
 echo "${ECHO_T}defining DL_LD to be $DL_LD" >&6
 echo "$as_me:$LINENO: result: defining DL_LDFLAGS to be $DL_LDFLAGS" >&5
@@ -15193,7 +15198,7 @@ s,@SH_LD@,$SH_LD,;t t
 s,@SH_LD2@,$SH_LD2,;t t
 s,@EXTRA_LIBS@,$EXTRA_LIBS,;t t
 s,@SH_LDFLAGS@,$SH_LDFLAGS,;t t
-s,@SH_LDTOFLAGS@,$SH_LDTOFLAGS,;t t
+s,@SH_LINKING_TO_FLAGS@,$SH_LINKING_TO_FLAGS,;t t
 s,@DL_LD@,$DL_LD,;t t
 s,@DL_LDFLAGS@,$DL_LDFLAGS,;t t
 s,@MKOCTFILE_DL_LDFLAGS@,$MKOCTFILE_DL_LDFLAGS,;t t
