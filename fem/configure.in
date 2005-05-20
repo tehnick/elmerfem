@@ -88,7 +88,7 @@ LIBEXT=a
 SH_LD2=$CXX
 SH_LD=$FC
 SH_LDFLAGS=-shared
-SH_LDTOFLAGS=
+SH_LDTOFLAGS=-shared
 DL_LD='$(SH_LD)'
 DL_LDFLAGS='$(SH_LDFLAGS)'
 MKOCTFILE_DL_LDFLAGS='$(DL_LDFLAGS)'
@@ -114,22 +114,26 @@ case "$canonical_host_type" in
   *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
     SH_LD="ld"
     SH_LDFLAGS="-Bshareable"
+    SH_LDTOFLAGS="-Bshareable"
   ;;
   *-*-freebsd*)
     SH_LD='$(CC)'
     SH_LDFLAGS="-shared -Wl,-x"
+    SH_LDTOFLAGS="-shared -Wl,-x"
   ;;
   alpha*-dec-osf*)
     CPICFLAG=
     CXXPICFLAG=
     FPICFLAG=
     SH_LDFLAGS="-shared -Wl,-expect_unresolved -Wl,'*'"
+    SH_LDTOFLAGS="-shared -Wl,-expect_unresolved -Wl,'*'"
     RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
   ;;
   *-*-darwin*)
     DL_LDFLAGS='-bundle -bundle_loader $(TOPDIR)/src/octave $(LDFLAGS)'
     MKOCTFILE_DL_LDFLAGS='-bundle -bundle_loader $(bindir)/octave-$(version)$(EXEEXT)'
     SH_LDFLAGS='-dynamiclib -single_module $(LDFLAGS)'
+    SH_LDTOFLAGS='-dynamiclib -single_module $(LDFLAGS)'
     CXXPICFLAG=
     CPICFLAG=
     FPICFLAG=
@@ -149,6 +153,7 @@ case "$canonical_host_type" in
     SHLLIB=dll.a
     SHLBIN=dll
     SH_LDFLAGS="-shared -Wl,--export-all-symbols -Wl,--enable-auto-import"
+    SH_LDTOFLAGS="-shared -Wl,--export-all-symbols -Wl,--enable-auto-import"
     SHLLINKEXT=".dll"
     SONAME_FLAGS='-Wl,--out-implib=$@.a'
     library_path_var=PATH
@@ -167,6 +172,7 @@ case "$canonical_host_type" in
     SONAME_FLAGS='-Wl,-h -Wl,$@'
     RLD_FLAG=
     SH_LDFLAGS=-G
+    SH_LDTOFLAGS=-G
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
     CPICFLAG=
@@ -174,7 +180,7 @@ case "$canonical_host_type" in
     FPICFLAG=
     DLFCN_DIR=dlfcn
     SH_LDFLAGS="-G -brtl -bshared $ACX_LOPT_FLAGS"
-    SH_LDTOFLAGS="-brtl -bshared"
+    SH_LDTOFLAGS="-brtl -bexpall -bshared"
     use_ldaix="yes"
     AC_SUBST(use_ldaix)
     FCPPFLAGS="-P $FCPPFLAGS"
@@ -187,6 +193,7 @@ case "$canonical_host_type" in
     fi
     SHLEXT=sl
     SH_LDFLAGS="-shared -fPIC"
+    SH_LDTOFLAGS="-shared -fPIC"
     RLD_FLAG='-Wl,+b -Wl,$(octlibdir)'
   ;;
   *-sgi-*)
@@ -203,6 +210,7 @@ case "$canonical_host_type" in
     fi
     SH_LD=ld
     SH_LDFLAGS="-assert nodefinitions"
+    SH_LDTOFLAGS="-assert nodefinitions"
     RLD_FLAG='-L$(octlibdir)'
 
   ;;
@@ -225,7 +233,6 @@ case "$canonical_host_type" in
     fi
     if test "$GXX" = yes; then
       CXXPICFLAG=-fPIC
-      SH_LDFLAGS=-shared
     else
       CXXPICFLAG=-KPIC
       SH_LDFLAGS=-G
