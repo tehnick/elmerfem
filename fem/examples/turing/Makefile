@@ -1,4 +1,4 @@
-# A poisson equation solver using p elements
+# A generic turing system
 #
 run:
 	$(F90) -c Turing.f90

@@ -17,8 +17,8 @@ Simulation
 
   Steady State Max Iterations = 50
 
-  Post File   = "ptest.ep"
-  Output File = "ptest.dat"
+  Post File   = "turing.ep"
+  Output File = "turing.dat"
 
   Max Output Level = 3
   Output Caller = False
@@ -32,8 +32,8 @@ Body 1
 End
 
 Initial Condition 1
-  Potential 1 = Real MATC "2e-3*(rand(1)-0.5)"
-  Potential 2 = Real MATC "2e-3*(rand(1)-0.5)"
+  Quant 1 = Real MATC "2e-3*(rand(1)-0.5)"
+  Quant 2 = Real MATC "2e-3*(rand(1)-0.5)"
 End
 
 Equation 1
@@ -51,16 +51,16 @@ Material 1
 End
 
 Solver 1
-  Equation = "Poisson"
+  Equation = "Turing"
 
-  Variable = "Potential"
+  Variable = "Quant"
   Variable DOFs = 2
-  Procedure = "Poisson" "PoissonSolver"
+  Procedure = "Turing" "TuringSolver"
 
   Linear System Solver = "Iterative"
   Linear System Iterative Method = BiCGStab
-  Linear System Preconditioning = ILU1
-  Linear System Max Iterations  = 300
+  Linear System Preconditioning = ILU2
+  Linear System Max Iterations  = 500
   Steady State Convergence Tolerance = 1e-06
   Linear System Convergence Tolerance = 1.0e-9
 End
@@ -70,8 +70,8 @@ Boundary Condition 1
 
   Periodic BC = 3
   Periodic BC Translate(3) = 100 0 0
-  Periodic BC Potential 1 = Logical True
-  Periodic BC Potential 2 = Logical True
+  Periodic BC Quant 1 = Logical True
+  Periodic BC Quant 2 = Logical True
 End
 
 Boundary Condition 2
@@ -87,6 +87,6 @@ Boundary Condition 4
 
   Periodic BC = 2
   Periodic BC Translate(3) = 0 100 0
-  Periodic BC Potential 1 = Logical True
-  Periodic BC Potential 2 = Logical True
+  Periodic BC Quant 1 = Logical True
+  Periodic BC Quant 2 = Logical True
 End

@@ -167,14 +167,14 @@ CONTAINS
          M(1,1) = M(1,1) + Base
          M(2,2) = M(2,2) + Base
          A(1,1) = A(1,1) + du*Grad + nu*((vprev+C)*vprev-1)    * Base
-         A(1,2) = A(1,2) + nu*((2*vprev+C)*uprev-alpha) * Base
+         A(1,2) = A(1,2) + nu*((3*vprev+C)*uprev-alpha) * Base
          A(2,1) = A(2,1) - nu*((vprev+C)*vprev+gamma) * Base
-         A(2,2) = A(2,2) + dv*Grad - nu*((2*vprev+C)*uprev+beta) * Base
+         A(2,2) = A(2,2) + dv*Grad - nu*((3*vprev+C)*uprev+beta) * Base
        END DO
        i = 2*(p-1)+1
        F => FORCE(i:i+1)
-       F(1) = F(1) + s * nu*(2*vprev+C)*uprev*vprev * Basis(p)
-       F(2) = F(2) - s * nu*(2*vprev+C)*uprev*vprev * Basis(p)
+       F(1) = F(1) + s * nu*(3*vprev+C)*uprev*vprev * Basis(p)
+       F(2) = F(2) - s * nu*(3*vprev+C)*uprev*vprev * Basis(p)
      END DO
     END DO
 !------------------------------------------------------------------------------
