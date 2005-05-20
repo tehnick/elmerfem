@@ -407,13 +407,16 @@ SOLVER_LIBS="$ARPACK_LIBS $PARPACK_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIO
 ELMERGRID_LIBS="$LIBS"
 MESHGEN2D_LIBS="$LIBS $STDCXX_LIBS"
 
-dnl TESTS 
-dnl Variables for tests. These are substituted into runtests.in to 
-dnl produce runtests
+dnl Host specific hacks.
 dnl
+case "$canonical_host_type" in
+  rs6000-ibm-aix* | powerpc-ibm-aix*)
+    EXTRA_LIBS="$HUTI_LIBS $BLAS_LIBS"
+  ;;
+esac
+
 TESTS_FCFLAGS="$INCLUDE_MODULE_FLAG. $INCLUDE_MODULE_FLAG$prefix/include $FCFLAGS"
 
-dnl END TESTS
 
 AC_MSG_RESULT([defining FPICFLAG to be $FPICFLAG])
 AC_MSG_RESULT([defining CPICFLAG to be $CPICFLAG])
