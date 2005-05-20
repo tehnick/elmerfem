@@ -2,7 +2,7 @@
 /* config.h.in.  Generated from configure.in by autoheader.  */
 
 /* 32 bit arch. */
-#define ARCH_32_BITS 1
+/* #undef ARCH_32_BITS */
 
 /* 64 bit arch. */
 /* #undef ARCH_64_BITS */
@@ -11,7 +11,7 @@
 #define ELMER_HOME $ELMER_HOME
 
 /* "Mangling: lower case */
-#define ELMER_LINKTYP 1
+#define ELMER_LINKTYP 4
 
 /* Define if using dynamic linking */
 #define ENABLE_DYNAMIC_LINKING 1
@@ -25,7 +25,7 @@
 #define F77_FUNC(name,NAME) name ## _
 
 /* As F77_FUNC, but for C identifiers containing underscores. */
-#define F77_FUNC_(name,NAME) name ## _
+#define F77_FUNC_(name,NAME) name ## __
 
 /* Char pointer mangling */
 #define FC_CHAR_PTR(P,L) char *P
@@ -42,7 +42,7 @@
 #define FC_FUNC(name,NAME) name ## _
 
 /* As FC_FUNC, but for C identifiers containing underscores. */
-#define FC_FUNC_(name,NAME) name ## _
+#define FC_FUNC_(name,NAME) name ## __
 
 /* Define if you have a ARPACK library. */
 /* #undef HAVE_ARPACK */
@@ -105,8 +105,8 @@
 /* Define to 1 if you have the <memory.h> header file. */
 #define HAVE_MEMORY_H 1
 
-/* hey hey hey */
-#define HAVE_MPI 1
+/* ... */
+/* #undef HAVE_MPI */
 
 /* Define if you have a PARPACK library. */
 /* #undef HAVE_PARPACK */
@@ -166,7 +166,7 @@
 #define SHL_EXTENSION ".so"
 
 /* The size of `void*', as computed by sizeof. */
-#define SIZEOF_VOIDP 4
+#define SIZEOF_VOIDP 0
 
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1

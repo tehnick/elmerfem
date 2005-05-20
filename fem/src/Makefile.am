@@ -33,7 +33,7 @@ SUFFIXES: .f90 .so .F90
 .F90.@OBJEXT@:
 	@FC@ @FCFLAGS@ -c $<
 
-libsolver$(SHL_EXT): $(SOLVEROBJS) arpack parpack  
+libsolver$(SHL_EXT): $(SOLVEROBJS) arpack parpack lib.exp
 	@RM@ $@
 	@SH_LD2@ @SH_LDFLAGS@ @B64FLAGS@ @SONAME_FLAGS@ -o $@ $(SOLVEROBJS) @SOLVER_LIBS@ -L.
 
@@ -48,10 +48,10 @@ ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
 	@SH_LD@ @SH_LDTOFLAGS@ @B64FLAGS@ -lsolver -o ElmerSolver$(EXE_EXT) -L. Solver$(OBJ_EXT) @EXTRA_LIBS@
 
 ViewFactors$(EXE_EXT): libsolver$(SHL_EXT) ViewFactors$(OBJ_EXT)  
-	@SH_LD@ @SH_LDTOFLAGS@ @B64FLAGS@ -lsolver -o ViewFactors$(EXE_EXT) -L. ViewFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a  @EXTRA_LIBS@
+	@SH_LD@ @SH_LDTOFLAGS@ @B64FLAGS@ -lsolver -o ViewFactors$(EXE_EXT) -L. ViewFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a @EXTRA_LIBS@
 
 GebhardtFactors$(EXE_EXT): libsolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT)  
-	@SH_LD@ @SH_LDTOFLAGS@ @B64FLAGS@ -lsolver -o GebhardtFactors$(EXE_EXT) -L. GebhardtFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a  @EXTRA_LIBS@
+	@SH_LD@ @SH_LDTOFLAGS@ @B64FLAGS@ -lsolver -o GebhardtFactors$(EXE_EXT) -L. GebhardtFactors$(OBJ_EXT) viewaxis/libviewaxis.a view3d/libview3d.a @EXTRA_LIBS@
 
 install-exec-local:
 	@echo "Installing stuff to $(prefix),@prefix@"

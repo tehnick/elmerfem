@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.22 2005/05/19 12:31:35 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.23 2005/05/19 13:45:31 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -52,20 +52,31 @@ AC_MSG_RESULT([debugging])
   fi
 else
 AC_MSG_RESULT([optimized])
+  case "$canonical_host_type" in
+     rs6000-ibm-aix* | powerpc-ibm-aix*)
+	ACX_COPT_FLAG="-O -qmaxmem=-1 -qstrict"
+	ACX_LOPT_FLAGS="-bmaxdata:2000000000 -bmaxstack:2000000000"
+     ;;
+     *)
+	ACX_OPT_FLAG="-O"
+	ACX_LOPT_FLAG=""
+     ;;
+  esac
+
   if test "$CFLAGS" = ""; then
-	CFLAGS="-O"
+	CFLAGS=$ACX_OPT_FLAG
   fi
 
   if test "$FCFLAGS" = ""; then
-	FCFLAGS="-O"
+	FCFLAGS=$ACX_OPT_FLAG
   fi
 
   if test "$FFLAGS" = ""; then
-	FFLAGS="-O"
+	FFLAGS=$ACX_OPT_FLAG
   fi
 
   if test "$CXXFLAGS" = ""; then
-	CXXFLAGS="-O"
+	CXXFLAGS=$ACX_OPT_FLAG
   fi
 fi
 
@@ -715,6 +726,29 @@ else
 fi
 
 AC_SUBST(CPP)
+])
+
+AC_DEFUN([ACX_FC_ETIME],[
+
+AC_MSG_CHECKING([for fortran intrinsic etime])
+
+AC_LANG_PUSH(Fortran)
+AC_COMPILE_IFELSE(
+[    
+      PROGRAM TEST                                                                        
+      INTRINSIC ETIME                                                                     
+      REAL ETIME, T1, TARRAY(2)                                                           
+      T1=ETIME(TARRAY)                                                                    
+      END     
+],
+[
+     AC_MSG_RESULT([found])
+     AC_DEFINE(HAVE_F_ETIME,1,[Does the fortran environment implement etime])
+],
+[
+     AC_MSG_RESULT([missing])
+]
+AC_LANG_POP(Fortran)
 ])
 
 dnl

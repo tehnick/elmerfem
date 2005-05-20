@@ -50,6 +50,20 @@ static struct rusage usage;
 static struct timeval tp;
 static struct timezone tzp;
 
+#ifndef HAVE_F_ETIME
+float FC_FUNC(etime,ETIME)(tt)
+float tt[2];
+{
+   int who;
+   struct rusage used;
+   who = 0;
+   getrusage(who,&used);
+   tt[0] = used.ru_utime.tv_sec+((used.ru_utime.tv_usec)/1000000.);
+   tt[1] = used.ru_stime.tv_sec+((used.ru_stime.tv_usec)/1000000.);
+   return(tt[0]+tt[1]);
+}
+#endif
+
 double FC_FUNC(cputime,CPUTIME) ()
 {
   getrusage( RUSAGE_SELF, &usage );

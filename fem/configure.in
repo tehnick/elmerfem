@@ -25,9 +25,7 @@ ACX_DEBUG
 
 AC_LANG_COMPILER
 AC_PROG_RANLIB
-
 ACX_PROG_AR
-
 
 AC_PROG_CC
 ACX_PROG_TRADITIONAL_CPP
@@ -68,6 +66,7 @@ case "$ac_cv_fc_mangling" in
 esac
 
 ACX_FC_CHAR_MANGLING
+ACX_FC_ETIME
 
 dnl  
 dnl OS-specific stuff that hasn't been (or can't be) done in a clean way.
@@ -171,9 +170,12 @@ case "$canonical_host_type" in
     CXXPICFLAG=
     FPICFLAG=
     DLFCN_DIR=dlfcn
-    SH_LDFLAGS="-G"
+    SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
     SH_LDTOFLAGS="-brtl -bdynamic"
+    use_ldaix="yes"
+    AC_SUBST(use_ldaix)
     FCPPFLAGS="-P $FCPPFLAGS"
+    EXTRA_LIBS="$BLAS_LIBS"
   ;;
   hppa*-hp-hpux*)
     if test "$ac_cv_f77_compiler_gnu" = yes; then
@@ -252,6 +254,7 @@ sinclude(acx_mpi.m4)
 ACX_MPI
 AM_CONDITIONAL(USE_MPI, test "$acx_mpi_ok" = "yes")
 AM_CONDITIONAL(USE_LOCAL_MPIF_H, test "$acx_mpif_h_found" = "no")
+AM_CONDITIONAL(USE_LDAIX, test "$use_ldaix" = "yes")
 if test "$MPI_INCLUDE_DIR" != ""; then
    FCPPFLAGS="$FCPPFLAGS -I$MPI_INCLUDE_DIR"
    FFLAGS="$FFLAGS -I$MPI_INCLUDE_DIR"

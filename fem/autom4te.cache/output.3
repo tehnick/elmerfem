@@ -690,6 +690,7 @@ EGREP
 B64FLAGS
 FLIBS
 FCLIBS
+use_ldaix
 mpi_dir
 mpi_lib_dir
 mpi_inc_dir
@@ -699,6 +700,8 @@ USE_MPI_TRUE
 USE_MPI_FALSE
 USE_LOCAL_MPIF_H_TRUE
 USE_LOCAL_MPIF_H_FALSE
+USE_LDAIX_TRUE
+USE_LDAIX_FALSE
 BLAS_LIBS
 LAPACK_LIBS
 HUTI_LIBS
@@ -2482,6 +2485,8 @@ fi
 
 
 
+
+
 acx_debug=no
 
 
@@ -2515,20 +2520,31 @@ echo "${ECHO_T}debugging" >&6
 else
 echo "$as_me:$LINENO: result: optimized" >&5
 echo "${ECHO_T}optimized" >&6
+  case "$canonical_host_type" in
+     rs6000-ibm-aix* | powerpc-ibm-aix*)
+	ACX_COPT_FLAG="-O -qmaxmem=-1 -qstrict"
+	ACX_LOPT_FLAGS="-bmaxdata:2000000000 -bmaxstack:2000000000"
+     ;;
+     *)
+	ACX_OPT_FLAG="-O"
+	ACX_LOPT_FLAG=""
+     ;;
+  esac
+
   if test "$CFLAGS" = ""; then
-	CFLAGS="-O"
+	CFLAGS=$ACX_OPT_FLAG
   fi
 
   if test "$FCFLAGS" = ""; then
-	FCFLAGS="-O"
+	FCFLAGS=$ACX_OPT_FLAG
   fi
 
   if test "$FFLAGS" = ""; then
-	FFLAGS="-O"
+	FFLAGS=$ACX_OPT_FLAG
   fi
 
   if test "$CXXFLAGS" = ""; then
-	CXXFLAGS="-O"
+	CXXFLAGS=$ACX_OPT_FLAG
   fi
 fi
 
@@ -9117,7 +9133,6 @@ ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
-
 case "$ac_cv_fc_mangling" in
   "upper case, no underscore, no extra underscore" | "upper case, no underscores")
     
@@ -9321,11 +9336,76 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
+echo "$as_me:$LINENO: checking for fortran intrinsic etime" >&5
+echo $ECHO_N "checking for fortran intrinsic etime... $ECHO_C" >&6
+
+ac_ext=${ac_fc_srcext-f}
+ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
+ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_fc_compiler_gnu
+
+cat >conftest.$ac_ext <<_ACEOF
+    
+      PROGRAM TEST                                                                        
+      INTRINSIC ETIME                                                                     
+      REAL ETIME, T1, TARRAY(2)                                                           
+      T1=ETIME(TARRAY)                                                                    
+      END     
+
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  
+     echo "$as_me:$LINENO: result: found" >&5
+echo "${ECHO_T}found" >&6
+     
+cat >>confdefs.h <<\_ACEOF
+@%:@define HAVE_F_ETIME 1
+_ACEOF
+
+
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+     echo "$as_me:$LINENO: result: missing" >&5
+echo "${ECHO_T}missing" >&6
+
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+
 DLFCN_DIR=
-CPICFLAG=-fPIC
-CXXPICFLAG=-fPIC
-FPICFLAG=-fPIC
-SHLEXT=so
+CPICFLAG="-fPIC"
+CXXPICFLAG="-fPIC"
+FPICFLAG="-fPIC"
+SHLEXT="so"
 SHLLIB='$(SHLEXT)'
 SHLBIN=
 SHLEXT_VER='$(SHLEXT).$(version)'
@@ -9355,13 +9435,15 @@ INCLUDE_MODULE_FLAG="-I"
 FCPPFLAGS="-I. -I$prefix/include -DDLLEXPORT=\"!\"  -DCYLSYM -DFULL_INDUCTION -DUSE_ARPACK"
 
 case "$canonical_host_type" in
-  *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
-    SH_LD=ld
-    SH_LDFLAGS=-Bshareable
+  *-*-386bsd* | *-*-openbsd* | *-*-netbsd*
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+    SH_LD="ld"
+    SH_LDFLAGS="-Bshareable"
   ;;
   *-*-freebsd*)
     SH_LD='$(CC)'
-    SH_LDFLAGS=-shared -Wl,-x
+    SH_LDFLAGS="-shared -Wl,-x"
   ;;
   alpha*-dec-osf*)
     CPICFLAG=
@@ -9377,11 +9459,11 @@ case "$canonical_host_type" in
     CXXPICFLAG=
     CPICFLAG=
     FPICFLAG=
-    SHLEXT=dylib 
+    SHLEXT="dylib"
     SHLLIB='$(SHLEXT)'
     SHLEXT_VER='$(version).$(SHLEXT)'
     SHLLIB_VER='$(version).$(SHLLIB)'
-    NO_OCT_FILE_STRIP=true
+    NO_OCT_FILE_STRIP="true"
     SONAME_FLAGS='-install_name $(octlibdir)/$@'
     library_path_var=DYLD_LIBRARY_PATH	
   ;;
@@ -9393,7 +9475,7 @@ case "$canonical_host_type" in
     SHLLIB=dll.a
     SHLBIN=dll
     SH_LDFLAGS="-shared -Wl,--export-all-symbols -Wl,--enable-auto-import"
-    SHLLINKEXT=.dll
+    SHLLINKEXT=".dll"
     SONAME_FLAGS='-Wl,--out-implib=$@.a'
     library_path_var=PATH
     FCPPFLAGS="-DWIN32"
@@ -9405,7 +9487,7 @@ case "$canonical_host_type" in
     CPICFLAG="-fPIC"
     CXXPICFLAG="-fPIC"
     FPICFLAG="-fPIC"
-    FCPPFLAGS="-traditional-cpp -C -P $FCPPFLAGS"
+    FCPPFLAGS="-traditional-cpp -P $FCPPFLAGS"
   ;;
   i[3456]86-*-sco3.2v5*)
     SONAME_FLAGS='-Wl,-h -Wl,$@'
@@ -9417,9 +9499,11 @@ case "$canonical_host_type" in
     CXXPICFLAG=
     FPICFLAG=
     DLFCN_DIR=dlfcn
-    SH_LDFLAGS="-G"
+    SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
     SH_LDTOFLAGS="-brtl -bdynamic"
-    FCPPFLAGS="-C -P $FCPPFLAGS"
+    use_ldaix="yes"
+    
+    FCPPFLAGS="-P $FCPPFLAGS"
   ;;
   hppa*-hp-hpux*)
     if test "$ac_cv_f77_compiler_gnu" = yes; then
@@ -9482,7 +9566,7 @@ case "$canonical_host_type" in
       TEMPLATE_AR='$(CXX)'
       TEMPLATE_ARFLAGS="-xar -o"
     fi
-    FCPPFLAGS="-C -P $FCPPFLAGS"
+    FCPPFLAGS="-P $FCPPFLAGS"
   ;;
 esac
 
@@ -9495,11 +9579,10 @@ ELMER_HOME="$prefix"
 ELMER_LIBERRORMSG="wasn't found, make sure it is in the prefix, or CFLAGS and LIBS are correct if they are somewhere else."
 
 
+# ACX_MPI
 
 
-
-
-      
+# Macro AC_CHECK_MPI_VERSION to check for version number of MPI
 
 
 
@@ -9565,7 +9648,7 @@ echo "${ECHO_T}$mpi_inc_dir" >&6
 
 if test "$acx_mpi_ok" != disabled; then
 
-
+# Checking for MPIrun-executable name (depends on variables $mpi_dir)
 
 echo "$as_me:$LINENO: checking for the mpirun command" >&5
 echo $ECHO_N "checking for the mpirun command... $ECHO_C" >&6
@@ -9579,13 +9662,15 @@ echo "$as_me:$LINENO: result: found $mpirun_cmd" >&5
 echo "${ECHO_T}found $mpirun_cmd" >&6
 
 
-
+# MPI-Library name (depends on variables $mpi_lib_dir and user-defined argument PACX_SIGNAL on IBMs) 
 
 echo "$as_me:$LINENO: checking for MPI library" >&5
 echo $ECHO_N "checking for MPI library... $ECHO_C" >&6
 libmpi=""
 case "$host" in
-  *-ibm-aix*)                    
+  *-ibm-aix*)                # IBM/SP2 machines
+    # checking whether to use signal-based MPI
+
     echo "$as_me:$LINENO: checking whether to use signal-based MPI library" >&5
 echo $ECHO_N "checking whether to use signal-based MPI library... $ECHO_C" >&6
     echo "$as_me:$LINENO: result: $PACX_SIGNAL" >&5
@@ -9614,7 +9699,8 @@ echo "$as_me: error: libmpi_r not found; check path for MPI package..." >&2;}
     echo "$as_me:$LINENO: result: found $lib_mpi" >&5
 echo "${ECHO_T}found $lib_mpi" >&6
   ;;
-  *)                             if test -f "$mpi_lib_dir/libmpi.a" ; then
+  *)                         # All other machines
+    if test -f "$mpi_lib_dir/libmpi.a" ; then
       lib_mpi="mpi"
     elif test -f "$mpi_lib_dir/libmpi.so" ; then
       lib_mpi="mpi"
@@ -9631,6 +9717,7 @@ echo "${ECHO_T}found $lib_mpi" >&6
 esac
 
 
+# Compilation of a MPI program (depends on above macro)
 
 echo "$as_me:$LINENO: checking for compilation of an MPI program" >&5
 echo $ECHO_N "checking for compilation of an MPI program... $ECHO_C" >&6
@@ -9694,14 +9781,14 @@ if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-    echo "$as_me:$LINENO: result: seems ok" >&5
+  echo "$as_me:$LINENO: result: seems ok" >&5
 echo "${ECHO_T}seems ok" >&6
-   
+    
 cat >>confdefs.h <<\_ACEOF
 @%:@define HAVE_MPI 1
 _ACEOF
 
-   acx_mpi_ok=yes
+    acx_mpi_ok=yes
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
@@ -9709,9 +9796,9 @@ sed 's/^/| /' conftest.$ac_ext >&5
   { { echo "$as_me:$LINENO: error: MPI not found; check paths for MPI package first..." >&5
 echo "$as_me: error: MPI not found; check paths for MPI package first..." >&2;}
    { (exit 1); exit 1; }; }
-
 fi
 rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+
 CFLAGS=${old_CFLAGS}
 LIBS=${old_LIBS}
 
@@ -9744,10 +9831,10 @@ fi
 
 
 MPI_LIBS="-L$mpi_lib_dir -l$lib_mpi"
-
 else  
 # use local mpif.h
 acx_mpif_h_found=no
+MPI_LIBS=""
 fi
 
  
@@ -9768,6 +9855,16 @@ if test "$acx_mpif_h_found" = "no"; then
 else
   USE_LOCAL_MPIF_H_TRUE='#'
   USE_LOCAL_MPIF_H_FALSE=
+fi
+
+ 
+
+if test "$use_ldaix" = "yes"; then
+  USE_LDAIX_TRUE=
+  USE_LDAIX_FALSE='#'
+else
+  USE_LDAIX_TRUE='#'
+  USE_LDAIX_FALSE=
 fi
 
 if test "$MPI_INCLUDE_DIR" != ""; then
@@ -14354,6 +14451,13 @@ echo "$as_me: error: conditional \"USE_LOCAL_MPIF_H\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
+if test -z "${USE_LDAIX_TRUE}" && test -z "${USE_LDAIX_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"USE_LDAIX\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"USE_LDAIX\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
 
 : ${CONFIG_STATUS=./config.status}
 ac_clean_files_save=$ac_clean_files
@@ -14985,6 +15089,7 @@ s,@EGREP@,$EGREP,;t t
 s,@B64FLAGS@,$B64FLAGS,;t t
 s,@FLIBS@,$FLIBS,;t t
 s,@FCLIBS@,$FCLIBS,;t t
+s,@use_ldaix@,$use_ldaix,;t t
 s,@mpi_dir@,$mpi_dir,;t t
 s,@mpi_lib_dir@,$mpi_lib_dir,;t t
 s,@mpi_inc_dir@,$mpi_inc_dir,;t t
@@ -14994,6 +15099,8 @@ s,@USE_MPI_TRUE@,$USE_MPI_TRUE,;t t
 s,@USE_MPI_FALSE@,$USE_MPI_FALSE,;t t
 s,@USE_LOCAL_MPIF_H_TRUE@,$USE_LOCAL_MPIF_H_TRUE,;t t
 s,@USE_LOCAL_MPIF_H_FALSE@,$USE_LOCAL_MPIF_H_FALSE,;t t
+s,@USE_LDAIX_TRUE@,$USE_LDAIX_TRUE,;t t
+s,@USE_LDAIX_FALSE@,$USE_LDAIX_FALSE,;t t
 s,@BLAS_LIBS@,$BLAS_LIBS,;t t
 s,@LAPACK_LIBS@,$LAPACK_LIBS,;t t
 s,@HUTI_LIBS@,$HUTI_LIBS,;t t

@@ -38,8 +38,7 @@ AC_SUBST([mpi_inc_dir])
 
 if test "$acx_mpi_ok" != disabled; then
 
-
-dnl Checking for MPIrun-executable name (depends on variables $mpi_dir)
+# Checking for MPIrun-executable name (depends on variables $mpi_dir)
 
 AC_MSG_CHECKING([for the mpirun command])
 mpirun_cmd="Not found"
@@ -51,14 +50,13 @@ fi
 AC_MSG_RESULT(found $mpirun_cmd)
 AC_SUBST(mpirun_cmd)
 
-
-dnl MPI-Library name (depends on variables $mpi_lib_dir and user-defined argument PACX_SIGNAL on IBMs) 
+# MPI-Library name (depends on variables $mpi_lib_dir and user-defined argument PACX_SIGNAL on IBMs) 
 
 AC_MSG_CHECKING([for MPI library])
 libmpi=""
 case "$host" in
-  *-ibm-aix*)                dnl IBM/SP2 machines
-    dnl checking whether to use signal-based MPI
+  *-ibm-aix*)                # IBM/SP2 machines
+    # checking whether to use signal-based MPI
 
     AC_MSG_CHECKING([whether to use signal-based MPI library])
     AC_MSG_RESULT([$PACX_SIGNAL])
@@ -81,7 +79,7 @@ case "$host" in
     fi
     AC_MSG_RESULT(found $lib_mpi)
   ;;
-  *)                         dnl All other machines
+  *)                         # All other machines
     if test -f "$mpi_lib_dir/libmpi.a" ; then
       lib_mpi="mpi"
     elif test -f "$mpi_lib_dir/libmpi.so" ; then
@@ -96,7 +94,7 @@ case "$host" in
 esac
 AC_SUBST(lib_mpi)
 
-dnl Compilation of a MPI program (depends on above macro)
+# Compilation of a MPI program (depends on above macro)
 
 AC_MSG_CHECKING([for compilation of an MPI program])
 old_CFLAGS=${CFLAGS}
@@ -107,14 +105,11 @@ AC_TRY_COMPILE([#include <mpi.h>],
 [{
   MPI_Finalize();
   exit(0);
-}],
+}],[AC_MSG_RESULT([seems ok])
+    AC_DEFINE([HAVE_MPI],[1],[...])
+    acx_mpi_ok=yes],
+[  AC_MSG_ERROR([MPI not found; check paths for MPI package first...])])
 
-[  AC_MSG_RESULT([seems ok])
-   AC_DEFINE([HAVE_MPI],[1],[hey hey hey])
-   acx_mpi_ok=yes],
-
-[  AC_MSG_ERROR([MPI not found; check paths for MPI package first...])]
-)
 CFLAGS=${old_CFLAGS}
 LIBS=${old_LIBS}
 
@@ -126,15 +121,15 @@ AC_CHECK_FILE($mpi_inc_dir/mpif.h,
 
 
 MPI_LIBS="-L$mpi_lib_dir -l$lib_mpi"
-
 else  
 # use local mpif.h
 acx_mpif_h_found=no
+MPI_LIBS=""
 fi
-])dnl ACX_MPI
+])# ACX_MPI
 
 
-dnl Macro AC_CHECK_MPI_VERSION to check for version number of MPI
+# Macro AC_CHECK_MPI_VERSION to check for version number of MPI
 
 AC_DEFUN([AC_CHECK_MPI_VERSION],
 [AC_CACHE_CHECK([version of MPI implementation], [ac_cv_mpi_version],
@@ -166,9 +161,6 @@ int main (){
     rm -f conftestval
   ])
 ])
-      
-
-
 
 dnl Optional MPI-Datatypes for Fortran
 dnl This macro is a little more complex; it checks for the availability of the optional Fortran datatype, like MPI_INTEGER1 or MPI_REAL8.
