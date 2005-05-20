@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.27 2005/05/20 08:19:36 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.28 2005/05/20 08:40:29 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -732,8 +732,7 @@ AC_DEFUN([ACX_FC_ETIME],[
 AC_MSG_CHECKING([for fortran intrinsic etime])
 
 AC_LANG_PUSH(Fortran)
-
-AC_COMPILE_IFELSE(
+AC_LINK_IFELSE(
 [    
       PROGRAM TEST                                                                        
       INTRINSIC ETIME                                                                     
