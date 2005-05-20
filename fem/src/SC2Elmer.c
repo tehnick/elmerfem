@@ -21,6 +21,7 @@
 
 #include <stdio.h>
 #include <math.h>
+#include <stdlib.h>
 
 #define MAX_LEN 1000
 char buf[MAX_LEN+1];

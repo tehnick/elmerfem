@@ -2,6 +2,8 @@
 #include <math.h>
 #include <stdarg.h>
 #include <stdlib.h>
+#include <ctype.h>
+#include <string.h>
 
 #include "nrutil.h"
 #include "common.h"
