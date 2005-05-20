@@ -242,6 +242,12 @@ case "$canonical_host_type" in
   ;;
 esac
 
+dnl kludge.. this affects preprocessor and fucks stuff up in some cases...
+FCFLAGS="$FCFLAGS $FPICFLAG"
+FFLAGS="$FFLAGS $FPICFLAG"
+CFLAGS="$CFLAGS $CPICFLAG"
+CXXFLAGS="$CXXFLAGS $CXXPICFLAG"
+
 LIBS="$LIBS -L$prefix/lib"
 CFLAGS="$CFLAGS -I$prefix/include"
 FCFLAGS="$FCFLAGS -I. -I$prefix/include"
@@ -285,6 +291,7 @@ if test x"$acx_mpi_ok" = xyes; then
 fi
 fi
 
+
 dnl
 dnl Compiler specific stuff
 dnl
@@ -308,12 +315,6 @@ case "$FC" in
   pathf* )
     dnl pathf90 wants to link fortran programs with the fortran compiler
 esac
-
-dnl kludge.. this affects preprocessor and fucks stuff up in some cases...
-FCFLAGS="$FCFLAGS $FPICFLAG"
-FFLAGS="$FFLAGS $FPICFLAG"
-CFLAGS="$CFLAGS $CPICFLAG"
-CXXFLAGS="$CXXFLAGS $CXXPICFLAG"
 
 if $use_rpath; then
   if test -n "$enable_rpath_arg"; then
@@ -414,7 +415,7 @@ case "$canonical_host_type" in
   ;;
 esac
 
-TESTS_FCFLAGS="$TESTS_FCFLAGS $INCLUDE_MODULE_FLAG. $INCLUDE_MODULE_FLAG../../src $INCLUDE_MODULE_FLAG$prefix/include $FCFLAGS"
+TESTS_FCFLAGS="$TESTS_FCFLAGS $INCLUDE_MODULE_FLAG. $INCLUDE_MODULE_FLAG../../src $INCLUDE_MODULE_FLAG$prefix/include"
 
 AC_MSG_RESULT([defining FPICFLAG to be $FPICFLAG])
 AC_MSG_RESULT([defining CPICFLAG to be $CPICFLAG])
