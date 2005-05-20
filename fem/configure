@@ -9117,7 +9117,6 @@ ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
-
 case "$ac_cv_fc_mangling" in
   "upper case, no underscore, no extra underscore" | "upper case, no underscores")
 
@@ -9322,10 +9321,10 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 DLFCN_DIR=
-CPICFLAG=-fPIC
-CXXPICFLAG=-fPIC
-FPICFLAG=-fPIC
-SHLEXT=so
+CPICFLAG="-fPIC"
+CXXPICFLAG="-fPIC"
+FPICFLAG="-fPIC"
+SHLEXT="so"
 SHLLIB='$(SHLEXT)'
 SHLBIN=
 SHLEXT_VER='$(SHLEXT).$(version)'
@@ -9356,12 +9355,12 @@ FCPPFLAGS="-I. -I$prefix/include -DDLLEXPORT=\"!\"  -DCYLSYM -DFULL_INDUCTION -D
 
 case "$canonical_host_type" in
   *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
-    SH_LD=ld
-    SH_LDFLAGS=-Bshareable
+    SH_LD="ld"
+    SH_LDFLAGS="-Bshareable"
   ;;
   *-*-freebsd*)
     SH_LD='$(CC)'
-    SH_LDFLAGS=-shared -Wl,-x
+    SH_LDFLAGS="-shared -Wl,-x"
   ;;
   alpha*-dec-osf*)
     CPICFLAG=
@@ -9377,11 +9376,11 @@ case "$canonical_host_type" in
     CXXPICFLAG=
     CPICFLAG=
     FPICFLAG=
-    SHLEXT=dylib
+    SHLEXT="dylib"
     SHLLIB='$(SHLEXT)'
     SHLEXT_VER='$(version).$(SHLEXT)'
     SHLLIB_VER='$(version).$(SHLLIB)'
-    NO_OCT_FILE_STRIP=true
+    NO_OCT_FILE_STRIP="true"
     SONAME_FLAGS='-install_name $(octlibdir)/$@'
     library_path_var=DYLD_LIBRARY_PATH
   ;;
@@ -9393,7 +9392,7 @@ case "$canonical_host_type" in
     SHLLIB=dll.a
     SHLBIN=dll
     SH_LDFLAGS="-shared -Wl,--export-all-symbols -Wl,--enable-auto-import"
-    SHLLINKEXT=.dll
+    SHLLINKEXT=".dll"
     SONAME_FLAGS='-Wl,--out-implib=$@.a'
     library_path_var=PATH
     FCPPFLAGS="-DWIN32"
@@ -9419,7 +9418,7 @@ case "$canonical_host_type" in
     DLFCN_DIR=dlfcn
     SH_LDFLAGS="-G"
     SH_LDTOFLAGS="-brtl -bdynamic"
-    FCPPFLAGS=-P $FCPPFLAGS"
+    FCPPFLAGS="-P $FCPPFLAGS"
   ;;
   hppa*-hp-hpux*)
     if test "$ac_cv_f77_compiler_gnu" = yes; then
@@ -9495,11 +9494,10 @@ ELMER_HOME="$prefix"
 ELMER_LIBERRORMSG="wasn't found, make sure it is in the prefix, or CFLAGS and LIBS are correct if they are somewhere else."
 
 
+# ACX_MPI
 
 
-
-
-
+# Macro AC_CHECK_MPI_VERSION to check for version number of MPI
 
 
 
@@ -9565,7 +9563,7 @@ echo "${ECHO_T}$mpi_inc_dir" >&6
 
 if test "$acx_mpi_ok" != disabled; then
 
-
+# Checking for MPIrun-executable name (depends on variables $mpi_dir)
 
 echo "$as_me:$LINENO: checking for the mpirun command" >&5
 echo $ECHO_N "checking for the mpirun command... $ECHO_C" >&6
@@ -9579,13 +9577,15 @@ echo "$as_me:$LINENO: result: found $mpirun_cmd" >&5
 echo "${ECHO_T}found $mpirun_cmd" >&6
 
 
-
+# MPI-Library name (depends on variables $mpi_lib_dir and user-defined argument PACX_SIGNAL on IBMs)
 
 echo "$as_me:$LINENO: checking for MPI library" >&5
 echo $ECHO_N "checking for MPI library... $ECHO_C" >&6
 libmpi=""
 case "$host" in
-  *-ibm-aix*)
+  *-ibm-aix*)                # IBM/SP2 machines
+    # checking whether to use signal-based MPI
+
     echo "$as_me:$LINENO: checking whether to use signal-based MPI library" >&5
 echo $ECHO_N "checking whether to use signal-based MPI library... $ECHO_C" >&6
     echo "$as_me:$LINENO: result: $PACX_SIGNAL" >&5
@@ -9614,7 +9614,8 @@ echo "$as_me: error: libmpi_r not found; check path for MPI package..." >&2;}
     echo "$as_me:$LINENO: result: found $lib_mpi" >&5
 echo "${ECHO_T}found $lib_mpi" >&6
   ;;
-  *)                             if test -f "$mpi_lib_dir/libmpi.a" ; then
+  *)                         # All other machines
+    if test -f "$mpi_lib_dir/libmpi.a" ; then
       lib_mpi="mpi"
     elif test -f "$mpi_lib_dir/libmpi.so" ; then
       lib_mpi="mpi"
@@ -9631,6 +9632,7 @@ echo "${ECHO_T}found $lib_mpi" >&6
 esac
 
 
+# Compilation of a MPI program (depends on above macro)
 
 echo "$as_me:$LINENO: checking for compilation of an MPI program" >&5
 echo $ECHO_N "checking for compilation of an MPI program... $ECHO_C" >&6
@@ -9694,14 +9696,14 @@ if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-    echo "$as_me:$LINENO: result: seems ok" >&5
+  echo "$as_me:$LINENO: result: seems ok" >&5
 echo "${ECHO_T}seems ok" >&6
 
 cat >>confdefs.h <<\_ACEOF
 #define HAVE_MPI 1
 _ACEOF
 
-   acx_mpi_ok=yes
+    acx_mpi_ok=yes
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
@@ -9709,9 +9711,9 @@ sed 's/^/| /' conftest.$ac_ext >&5
   { { echo "$as_me:$LINENO: error: MPI not found; check paths for MPI package first..." >&5
 echo "$as_me: error: MPI not found; check paths for MPI package first..." >&2;}
    { (exit 1); exit 1; }; }
-
 fi
 rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+
 CFLAGS=${old_CFLAGS}
 LIBS=${old_LIBS}
 
@@ -9744,10 +9746,10 @@ fi
 
 
 MPI_LIBS="-L$mpi_lib_dir -l$lib_mpi"
-
 else
 # use local mpif.h
 acx_mpif_h_found=no
+MPI_LIBS=""
 fi
 
 
