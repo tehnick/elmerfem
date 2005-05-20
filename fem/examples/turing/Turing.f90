@@ -1,9 +1,9 @@
-SUBROUTINE PoissonSolver( Model,Solver,dt,TransientSimulation )
-!DEC$ATTRIBUTES DLLEXPORT :: PoissonSolver
+SUBROUTINE TuringSolver( Model,Solver,dt,TransientSimulation )
+!DEC$ATTRIBUTES DLLEXPORT :: TuringSolver
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
-!  Solve the Poisson equation!
+!  Solve the Turing equation!
 !
 !  ARGUMENTS:
 !
@@ -64,7 +64,7 @@ SUBROUTINE PoissonSolver( Model,Solver,dt,TransientSimulation )
      ALLOCATE( Solution(2,1:N), stat=istat )
 
      IF ( istat /= 0 ) THEN
-        CALL Fatal( 'PoissonSolve', 'Memory allocation error.' )
+        CALL Fatal( 'TuringSolve', 'Memory allocation error.' )
      END IF
      AllocationsDone = .TRUE.
   END IF
@@ -182,5 +182,5 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-END SUBROUTINE PoissonSolver
+END SUBROUTINE TuringSolver
 !------------------------------------------------------------------------------
