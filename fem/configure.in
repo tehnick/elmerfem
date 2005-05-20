@@ -173,8 +173,8 @@ case "$canonical_host_type" in
     CXXPICFLAG=
     FPICFLAG=
     DLFCN_DIR=dlfcn
-    SH_LDFLAGS="-G -bexpall $ACX_LOPT_FLAGS"
-    SH_LDTOFLAGS="-bexpall"
+    SH_LDFLAGS="-G -brtl -bshared $ACX_LOPT_FLAGS"
+    SH_LDTOFLAGS="-brtl -bshared"
     use_ldaix="yes"
     AC_SUBST(use_ldaix)
     FCPPFLAGS="-P $FCPPFLAGS"
@@ -294,8 +294,8 @@ case "$FC" in
   gfortran | g95 )
   ;;
   *xlf*)
-    FCFLAGS="$FCFLAGS -qsuffix=cpp=F90"
     TESTS_FCFLAGS="$FCFLAGS -qsuffix=cpp=f90"
+    FCFLAGS="$FCFLAGS -qsuffix=cpp=F90"
   ;;
   ifort | ifc )
     if test "$ac_cv_f77_compiler_gnu" = yes; then
