@@ -37,6 +37,7 @@
 
 MODULE Integration
    USE Types
+   USE LinearAlgebra
 
    IMPLICIT NONE
 
@@ -406,8 +407,10 @@ MODULE Integration
      DO i=1,np
        A(np,i) = -P(np+2-i) / P(1)
      END DO
+!    CALL DGEEV( 'N','N',np,A,n/2,Points,P0,Work,1,Work,1,Work,8*n,info )
+     CALL EigenValues( A, np, Eigs )
+     Points(1:np) = REAL( Eigs(1:np) )
 
-     CALL DGEEV( 'N','N',np,A,n/2,Points,P0,Work,1,Work,1,Work,8*n,info )
 !------------------------------------------------------------------------------
      DO i=1,np
        s = EvalPoly( np,P,Points(i) )
