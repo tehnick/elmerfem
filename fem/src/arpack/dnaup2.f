@@ -227,7 +227,8 @@ c     | Local array arguments |
 c     %-----------------------%
 c
       integer    kp(4)
-      save
+      save wprime, cnorm, getv0, initv, update, ushift, ierr, iter, j, kplusp, 
+     &     msglvl, nconv, nevbef, nev0, np0, nptemp, numcnv, rnorm, temp, eps23
 c
 c     %----------------------%
 c     | External Subroutines |
