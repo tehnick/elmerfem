@@ -1,0 +1,228 @@
+!
+!  NOTE:  not correct parameter values
+!
+
+Header
+  Mesh DB "." "Czmesh"
+  Include Path ""
+  Results Directory ""
+End
+
+
+Simulation
+  Coordinate System =  Cylindric Symmetric
+  Coordinate Mapping(3) = 1 2 3
+
+  Simulation Type = Transient
+  Steady State Max Iterations = 10
+
+  Timestepping Method = BDF
+  BDF Order = 2
+  Timestep Sizes = 1
+  Timestep Intervals = 4
+
+  Output Intervals = 1
+  Post File = "mcz4.ep"
+  Output File = "mcz4.dat"
+End
+
+
+Constants
+  Gravity(4) = 0 -1 0 9.82
+  Stefan Boltzmann = 5.67e-8
+End
+
+
+Body 1
+  Name = "melt"
+  Equation = 1
+  Material = 1
+  Body Force = 1
+End
+
+
+Body 2
+  Name = "crystal"
+  Equation = 2
+  Material = 2
+  Body Force = 1
+End
+
+
+Equation 1
+  Active Solvers(2) = 1 2
+End
+
+Equation 2
+  Active Solvers = 2
+  User Defined Velocity = Logical True
+End
+
+Body Force 1
+  Lorentz Force = True
+  Magnetic Bodyforce 2
+    Variable Time
+      Real Procedure "exmag" "acvt"
+End
+
+Solver 1
+   Equation = "Navier-Stokes"
+
+   Linear System Solver = Iterative
+   Linear System Iterative Method = BiCGStab
+   Linear System Max Iterations = 500
+
+   Linear System Convergence Tolerance = 1.0e-6
+   Linear System Preconditioning = ILU3
+   Linear System Residual Output = 10
+   Steady State Convergence Tolerance = 1.0e-4
+   Stabilize = True
+
+   Nonlinear System Convergence Tolerance = 1.0e-5
+   Nonlinear System Max Iterations = 1
+   Nonlinear System Newton After Iterations = 3
+   Nonlinear System Newton After Tolerance = 1.0e-2
+   Nonlinear System Relaxation Factor = 0.8
+End
+
+
+Solver 2
+!  Exec Solver = Never
+   Equation = "Magnetic field solver"
+
+   Procedure = "MagneticSolve" "MagneticSolver"
+   Variable = Magnetic Field
+   Variable DOFs = 3
+
+   Exported Variable 1 = -dofs 3 electric current
+
+   Linear System Solver = Direct
+   Linear System Direct Method = UMFPack
+   Linear System Iterative Method = BiCGStab
+   Linear System Max Iterations = 500
+
+   Linear System Convergence Tolerance = 1.03e-5
+   Linear System Preconditioning = ILU3
+   Linear System Residual Output = 1
+   Steady State Convergence Tolerance = 1.0e-4
+   Stabilize = True
+
+   Nonlinear System Convergence Tolerance = 1.0e-5
+   Nonlinear System Max Iterations = 1
+   Nonlinear System Newton After Iterations = 3
+   Nonlinear System Newton After Tolerance = 1.0e-2
+   Nonlinear System Relaxation Factor = 1.0
+End
+
+
+
+Material 1
+  Density = 2600
+  Viscosity = 0.01  
+
+  Magnetic Permeability = 1.006e-5
+  Electrical Conductivity = 1055000
+
+  Applied Magnetic Field 2
+    Variable Time
+      Real Procedure "exmag" "acvx"
+End
+
+Material 2
+  Density = 2300
+  Viscosity = 1000
+  Magnetic Permeability = 1.006e-5
+  Electrical Conductivity = 1020000
+
+  MHD Velocity 1 = Real 0
+  MHD Velocity 2 = Real 0
+  MHD Velocity 3 = Real 0.45
+
+  Applied Magnetic Field 2
+    Variable Time
+      Real Procedure "exmag" "acvx"
+End
+
+
+Boundary Condition 1
+  Target Boundaries = 1
+
+  Velocity 1 = 0
+  Velocity 2 = 0
+  Velocity 3 = 0.45
+
+End
+
+Boundary Condition 2
+  Target Boundaries = 2
+
+  Velocity 2 = 0
+!  Velocity 3 = 0
+
+  Magnetic Field 1 = Real 0
+  Magnetic Field 2 = Real 0
+  Magnetic Field 3 = Real 0
+
+End
+
+Boundary Condition 3
+  Target Boundaries = 3
+
+  Velocity 1 = Variable Coordinate 1
+    Real
+     0.0   0.0
+     0.1   0.3
+     0.2   0.0
+    End
+
+  Velocity 2 = 0
+  Velocity 3 = -1.07
+
+  Magnetic Field 1 = Real 0
+  Magnetic Field 2 = Real 0
+  Magnetic Field 3 = Real 0
+End
+
+Boundary Condition 4
+  Target Boundaries = 4
+
+  Velocity 1 = 0
+  Velocity 2 = 0
+  Velocity 3 = -1.07
+
+  Magnetic Field 1 = Real 0
+  Magnetic Field 2 = Real 0
+  Magnetic Field 3 = Real 0
+End
+
+Boundary Condition 5
+  Target Boundaries = 5
+
+  Velocity 1 = 0
+
+  Magnetic Field 1 = Real 0
+  Magnetic Field 3 = Real 0
+End
+
+Boundary Condition 6
+  Target Boundaries(2) = 6 7
+
+!  Velocity 1 = 0
+!  Velocity 2 = 0
+!  Velocity 3 = 0.45
+
+  Magnetic Field 1 = Real 0
+  Magnetic Field 2 = Real 0
+  Magnetic Field 3 = Real 0
+End
+
+Boundary Condition 7
+  Target Boundaries = 8
+
+!  Velocity 1 = 0
+
+  Magnetic Field 1 = Real 0
+  Magnetic Field 3 = Real 0
+End
+
+!End of File
