@@ -33,6 +33,9 @@
 ! *       Date of modification: 27.8.2002
 ! *
 ! * $Log: MeshUtils.f90,v $
+! * Revision 1.2  2005/05/04 09:16:13  vierinen
+! * minor modifications
+! *
 ! * Revision 1.56  2005/04/19 08:53:47  jpr
 ! * Renamed module LUDecomposition as LinearAlgebra.
 ! *
@@ -86,7 +89,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.f90,v 1.56 2005/04/19 08:53:47 jpr Exp $
+! * $Id: MeshUtils.f90,v 1.2 2005/05/04 09:16:13 vierinen Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -649,6 +652,7 @@ DLLEXPORT LoadMesh
 
         Mesh % Elements(i) % BDOFs  = 0
         Mesh % Elements(i) % DGDOFs = 0
+        NULLIFY( Mesh % Elements(i) % PDefs )
         NULLIFY( Mesh % Elements(i) % DGIndexes )
         NULLIFY( Mesh % Elements(i) % EdgeIndexes )
         NULLIFY( Mesh % Elements(i) % FaceIndexes )
@@ -784,7 +788,6 @@ DLLEXPORT LoadMesh
          IF (ASSOCIATED(Element % BoundaryInfo % Right)) THEN
             ! Local edges are only assigned for p elements
             IF (ASSOCIATED(Element % BoundaryInfo % Right % PDefs)) THEN
-
                CALL AllocatePDefinitions(Element)
                Element % PDefs % isEdge = .TRUE.
                CALL AssignLocalNumber(Element, Element % BoundaryInfo % Right, Mesh)
