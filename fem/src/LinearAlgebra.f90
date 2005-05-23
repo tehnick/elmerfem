@@ -439,7 +439,7 @@ DLLEXPORT LUDecomp
         j = j + 1
         Vals(j) = A(i,i)
       ELSE
-        b = ( A(i,i)+A(i+1,i+1) )**2
+        b = ( A(i,i)+A(i+1,i+1) ); s=b*b
         t = A(i,i)*A(i+1,i+1) - A(i,i+1)*A(i+1,i)
         s = s - 4*t
         IF  (s >= 0) THEN
