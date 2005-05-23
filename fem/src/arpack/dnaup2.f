@@ -180,9 +180,44 @@ c     %----------------------------------------------------%
 c     | Include files for debugging and timing information |
 c     %----------------------------------------------------%
 c
-      include   'debug.h'
-      include   'stat.h'
 c
+c
+c\SCCS Information: @(#) 
+c FILE: debug.h   SID: 2.3   DATE OF SID: 11/16/95   RELEASE: 2 
+c
+c     %---------------------------------%
+c     | See debug.doc for documentation |
+c     %---------------------------------%
+      integer  logfil, ndigit, mgetv0,
+     &         msaupd, msaup2, msaitr, mseigt, msapps, msgets, mseupd,
+     &         mnaupd, mnaup2, mnaitr, mneigh, mnapps, mngets, mneupd,
+     &         mcaupd, mcaup2, mcaitr, mceigh, mcapps, mcgets, mceupd
+      common /debug/ 
+     &         logfil, ndigit, mgetv0,
+     &         msaupd, msaup2, msaitr, mseigt, msapps, msgets, mseupd,
+     &         mnaupd, mnaup2, mnaitr, mneigh, mnapps, mngets, mneupd,
+     &         mcaupd, mcaup2, mcaitr, mceigh, mcapps, mcgets, mceupd
+c     %--------------------------------%
+c     | See stat.doc for documentation |
+c     %--------------------------------%
+c
+c\SCCS Information: @(#) 
+c FILE: stat.h   SID: 2.2   DATE OF SID: 11/16/95   RELEASE: 2 
+c
+      real       t0, t1, t2, t3, t4, t5
+c     save       t0, t1, t2, t3, t4, t5
+c
+      integer    nopx, nbx, nrorth, nitref, nrstrt
+      real       tsaupd, tsaup2, tsaitr, tseigt, tsgets, tsapps, tsconv,
+     &           tnaupd, tnaup2, tnaitr, tneigh, tngets, tnapps, tnconv,
+     &           tcaupd, tcaup2, tcaitr, tceigh, tcgets, tcapps, tcconv,
+     &           tmvopx, tmvbx, tgetv0, titref, trvec
+      common /timing/ 
+     &           nopx, nbx, nrorth, nitref, nrstrt,
+     &           tsaupd, tsaup2, tsaitr, tseigt, tsgets, tsapps, tsconv,
+     &           tnaupd, tnaup2, tnaitr, tneigh, tngets, tnapps, tnconv,
+     &           tcaupd, tcaup2, tcaitr, tceigh, tcgets, tcapps, tcconv,
+     &           tmvopx, tmvbx, tgetv0, titref, trvec
 c     %------------------%
 c     | Scalar Arguments |
 c     %------------------%
@@ -227,8 +262,8 @@ c     | Local array arguments |
 c     %-----------------------%
 c
       integer    kp(4)
-      save wprime, cnorm, getv0, initv, update, ushift, ierr, iter, j, kplusp, 
-     &     msglvl, nconv, nevbef, nev0, np0, nptemp, numcnv, rnorm, temp, eps23
+      save
+
 c
 c     %----------------------%
 c     | External Subroutines |
