@@ -27,7 +27,7 @@ float tt[2];
 #ifndef HAVE_F_FLUSH
 void FC_FUNC(flush,FLUSH) (int n)
 {
-  // might as well flush a toilet...?
+  /*  might as well flush a toilet...? */
 }
 #endif
 
