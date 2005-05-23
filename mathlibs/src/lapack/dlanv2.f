@@ -102,7 +102,8 @@
          TEMP = A - D
          P = HALF*TEMP
          BCMAX = MAX( ABS( B ), ABS( C ) )
-         BCMIS = MIN( ABS( B ), ABS( C ) )*SIGN( ONE, B )*SIGN( ONE, C )
+         BCMIS = MIN( ABS(B), ABS(C) )
+         BCMIS = BCMIS*SIGN( ONE, B )*SIGN( ONE, C )
          SCALE = MAX( ABS( P ), BCMAX )
          Z = ( P / SCALE )*P + ( BCMAX / SCALE )*BCMIS
 *
