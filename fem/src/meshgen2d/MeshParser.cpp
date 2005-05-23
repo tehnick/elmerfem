@@ -472,6 +472,8 @@ readExplicitBGMesh(BGMeshToken *bg)
 		if( !readDouble( nd.delta ) ) return 0;
 		bg->nodes.push_back( nd );
 	}
+
+        return 1;
 }
 
 int MeshParser::

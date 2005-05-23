@@ -7,7 +7,7 @@
 !
 ! Author: Jouni Malinen, Juha Ruokolainen
 !
-! $Id: SParIterSolver.f90,v 1.7 2005/04/04 06:18:31 jpr Exp $
+! $Id: SParIterSolver.f90,v 1.2 2005/05/04 09:16:29 vierinen Exp $
 !
 !********************************************************************
 
@@ -511,16 +511,12 @@ real(kind=dp) :: cputime,st
   ! the interface blocks already at this processor.
   !
   !----------------------------------------------------------------------
-st = cputime()
   CALL ExchangeInterfaces( NbsIfMatrix, RecvdIfMatrix )
 
   !----------------------------------------------------------------------
   ! Insert matrix elements to splittedmatrix if got from the
   ! exchange operation.
   !----------------------------------------------------------------------
-print*,'exchangeif ', parenv % mype, cputime()-st
-call flush(6)
-st = cputime()
   n = SplittedMatrix % InsideMatrix % NumberOfRows
 
   DO i=1,n
@@ -532,9 +528,6 @@ st = cputime()
 
   ALLOCATE( RowBuffer( n+1 ) )
   RowBuffer = SplittedMatrix % InsideMatrix % Rows
-print*,'initinsert: ', parenv % mype, cputime()-st
-call flush(6)
-st = cputime()
 
   GotNewCol = .FALSE.
   DO i=1,ParEnv % PEs
@@ -586,9 +579,6 @@ st = cputime()
         END IF
      END DO
   END DO
-print*,'rowinsert: ', parenv % mype, cputime()-st
-call flush(6)
-st = cputime()
 
   IF ( GotNewCol ) THEN
   ALLOCATE( ColBuffer( SplittedMatrix % InsideMatrix % Rows(n+1)-1 ) )
@@ -609,9 +599,6 @@ st = cputime()
   ALLOCATE( ColBuffer( SIZE(SplittedMatrix % InsideMatrix % Cols) ) )
   NewCol    = 0
   ColBuffer = 0
-print*,'initcolinsert: ', parenv % mype, cputime()-st
-call flush(6)
-st = cputime()
 
   DO i=1,ParEnv % PEs
      DO j=1,RecvdIfMatrix(i) % NumberOfRows
@@ -693,8 +680,6 @@ st = cputime()
         END IF
      END DO
   END DO
-print*,'colinsert: ', parenv % mype, cputime()-st
-call flush(6)
 
 !-----------------------------------------------------------------------------
 
@@ -711,12 +696,8 @@ call flush(6)
 
 !-----------------------------------------------------------------------------
 
-st = cputime()
   CALL ClearInsideC( SourceMatrix, SplittedMatrix % InsideMatrix, &
              RecvdIfMatrix, Nodes, DOFs )
-print*,'clear: ', parenv % mype, cputime()-st
-call flush(6)
-st = cputime()
 
   SplittedMatrix % IfMatrix(:) % NumberOfRows = 0
   DO i = 1, ParEnv % PEs
@@ -726,9 +707,6 @@ st = cputime()
                  SplittedMatrix % IfMatrix(i) )
      END IF
   END DO
-print*,'combine: ', parenv % mype, cputime()-st
-call flush(6)
-st = cputime()
 
 
   ALLOCATE( SplittedMatrix % IfLCols(ParEnv % PEs)  )
@@ -759,9 +737,6 @@ st = cputime()
   !
   !----------------------------------------------------------------------
   CALL RenumberDOFs( SourceMatrix, SplittedMatrix, Nodes, DOFs )
-print*,'renumber: ', parenv % mype, cputime()-st
-call flush(6)
-st = cputime()
 
   !----------------------------------------------------------------------
   !
@@ -769,9 +744,6 @@ st = cputime()
   !
   !----------------------------------------------------------------------
   CALL BuildRevVecIndices( SplittedMatrix )
-print*,'buildrev: ', parenv % mype, cputime()-st
-call flush(6)
-st = cputime()
 
   !----------------------------------------------------------------------
   !
