@@ -2372,6 +2372,9 @@ echo "$as_me:$LINENO: checking for ar" >&5
 echo $ECHO_N "checking for ar... $ECHO_C" >&6
 if test -z "$AR"; then
         AR='ar'
+	acx_ar_userdefined=no
+else
+	acx_ar_userdefined=yes
 fi
 
 echo "$as_me:$LINENO: result: $AR" >&5
@@ -4399,9 +4402,16 @@ case "$canonical_host_type" in
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
         B64FLAGS="-q64"
-	# aix has problems with 64 bits and ar, this fixes it
-        AR='ar -Xall'
 
+	if test "$acx_ar_userdefined" = no; then
+   	  # aix has problems with 64 bits and ar, this fixes it
+          AR='ar -Xall'
+
+	  echo "$as_me:$LINENO: checking for 64 bit ar" >&5
+echo $ECHO_N "checking for 64 bit ar... $ECHO_C" >&6
+	  echo "$as_me:$LINENO: result: $AR" >&5
+echo "${ECHO_T}$AR" >&6
+	fi
 
 	if test x"$FC" != x; then
 	case "$FC" in
