@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.6 2005/05/24 12:49:32 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.32 2005/05/24 18:44:02 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -934,7 +934,7 @@ AC_COMPILE_IFELSE(
        call barf(s,42)                                                                     
        end],
 [
-$FC -o testi$ac_exeext conftest.$ac_objext cfortran_test.$ac_objext
+$FC $FCFLAGS -o testi$ac_exeext conftest.$ac_objext cfortran_test.$ac_objext
 the_answer=`./testi$ac_exeext`
 
 case $the_answer in 
