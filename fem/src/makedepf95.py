@@ -10,6 +10,9 @@ import sys
 import re
 import os
 
+# kludge. if you want to use this for your own project, set ELMER=False :)
+ELMER=True
+
 class SimpleF90Parser:
     """ A simple parser that known only use and module """
     def __init__(self):
@@ -78,9 +81,6 @@ class SimpleF90Parser:
                 else:
                     sys.stderr.write("Warning: no use\n")
 
-
-
-                    
             #print "no token found"
 
 
@@ -119,7 +119,7 @@ if __name__ == "__main__":
         
         uses=[]
         fileuses[f]=uses
-
+        
         files.append(f)
 
         for module in um:
@@ -128,8 +128,11 @@ if __name__ == "__main__":
     for f in files:
         object=p.getObjectName(f)
 
-        line= object + ": " + f
-
+        if ELMER:
+            line= object + ": " + re.sub('.f90','.F90',f)
+        else:
+            line= object + ": " + f
+            
         for use in fileuses[f]:
             if modtofile.has_key(use):
                 line=line + " " + p.getObjectName(modtofile[use])
