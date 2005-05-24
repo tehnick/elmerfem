@@ -25,7 +25,7 @@ dnl library is found, and ACTION-IF-NOT-FOUND is a list of commands
 dnl to run it if it is not found.  If ACTION-IF-FOUND is not specified,
 dnl the default action will define HAVE_LAPACK.
 dnl
-dnl @version $Id: acx_lapack.m4,v 1.2 2005/05/10 12:33:32 vierinen Exp $
+dnl @version $Id: acx_lapack.m4,v 1.2 2005/05/11 13:33:50 vierinen Exp $
 dnl @author Steven G. Johnson <stevenj@alum.mit.edu>
 
 AC_DEFUN([ACX_LAPACK], [
@@ -61,19 +61,19 @@ if test "x$LAPACK_LIBS" != x; then
 	fi
 fi
 
-# LAPACK linked to by default?  (is sometimes included in BLAS lib)
+# LAPACK linked to by default?  (is sometimes included with BLAS)
 if test $acx_lapack_ok = no; then
-	save_LIBS="$LIBS"; LIBS="$LIBS $BLAS_LIBS $FLIBS"
+	save_LIBS="$LIBS"; LIBS="$LIBS $BLAS_LIBS $FLIBS $FCLIBS"
 	AC_CHECK_FUNC($cheev, [acx_lapack_ok=yes])
 	LIBS="$save_LIBS"
 fi
 
 # Generic LAPACK library?
-for lapack in lapack lapack_rs6k; do
+for lapack in lapack lapack_rs6k lapack_64; do
 	if test $acx_lapack_ok = no; then
 		save_LIBS="$LIBS"; LIBS="$BLAS_LIBS $LIBS"
 		AC_CHECK_LIB($lapack, $cheev,
-		    [acx_lapack_ok=yes; LAPACK_LIBS="-l$lapack"], [], [$FLIBS])
+		    [acx_lapack_ok=yes; LAPACK_LIBS="-l$lapack"], [], [$FLIBS $FCLIBS])
 		LIBS="$save_LIBS"
 	fi
 done
