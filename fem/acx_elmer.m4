@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.32 2005/05/24 18:44:02 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.33 2005/05/24 19:11:40 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -73,7 +73,7 @@ else
 AC_MSG_RESULT([optimized])
   case "$canonical_host_type" in
      rs6000-ibm-aix* | powerpc-ibm-aix*)
-	ACX_COPT_FLAG="-O -qmaxmem=-1 -qstrict"
+	ACX_OPT_FLAG="-O -qmaxmem=-1 -qstrict"
      ;;
      *)
 	ACX_OPT_FLAG="-O"
