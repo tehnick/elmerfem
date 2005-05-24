@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.11 2005/05/13 11:48:27 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.30 2005/05/20 13:56:46 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -19,6 +19,67 @@ if test -z "$ARFLAGS"; then
   ARFLAGS="rc"
 fi
 AC_SUBST(ARFLAGS)
+])
+
+dnl
+dnl Default optimization flags
+dnl
+AC_DEFUN([ACX_DEBUG],
+[
+acx_debug=no
+
+AC_ARG_WITH(debug,
+	   [AC_HELP_STRING([--with-debug], [Use debugging flags (environment variables override)])],[acx_debug=yes])
+
+AC_MSG_CHECKING([for default compilation flags])
+
+if test "$acx_debug" = yes; then
+AC_MSG_RESULT([debugging])
+  if test "$CFLAGS" = ""; then
+	CFLAGS="-g"
+  fi
+
+  if test "$FCFLAGS" = ""; then
+	FCFLAGS="-g"
+  fi
+
+  if test "$FFLAGS" = ""; then
+	FFLAGS="-g"
+  fi
+
+  if test "$CXXFLAGS" = ""; then
+	CXXFLAGS="-g"
+  fi
+else
+AC_MSG_RESULT([optimized])
+  case "$canonical_host_type" in
+     rs6000-ibm-aix* | powerpc-ibm-aix*)
+	ACX_COPT_FLAG="-O -qmaxmem=-1 -qstrict"
+	ACX_LOPT_FLAGS="-bmaxdata:2000000000 -bmaxstack:2000000000"
+     ;;
+     *)
+	ACX_OPT_FLAG="-O"
+	ACX_LOPT_FLAG=""
+     ;;
+  esac
+
+  if test "$CFLAGS" = ""; then
+	CFLAGS=$ACX_OPT_FLAG
+  fi
+
+  if test "$FCFLAGS" = ""; then
+	FCFLAGS=$ACX_OPT_FLAG
+  fi
+
+  if test "$FFLAGS" = ""; then
+	FFLAGS=$ACX_OPT_FLAG
+  fi
+
+  if test "$CXXFLAGS" = ""; then
+	CXXFLAGS=$ACX_OPT_FLAG
+  fi
+fi
+
 ])
 
 dnl
@@ -366,6 +427,69 @@ else
 fi
 ])dnl ACX_UMFPACK
 
+dnl 
+dnl look for the std c libraries:
+dnl
+dnl stdc++ (gnu)
+dnl Cstd   (sun)
+dnl C      (aix)
+dnl 
+dnl
+AC_DEFUN([ACX_CHECK_STDCXXLIB],
+[
+AC_REQUIRE([AC_PROG_CXX])
+acx_check_stdcxxlib_save_LIBS=$LIBS
+acx_stdcxxlib_ok=no
+
+AC_ARG_WITH(stdcxxlib,
+	[AC_HELP_STRING([--with-stdcxxlib=<lib>], [use std c++ library <lib>])])
+
+case $with_stdcxxlib in
+	yes | "") ;;
+	no) acx_stdcxxlib_ok=disable ;;
+	-* | */* | *.a | *.so | *.so.* | *.o) STDCXX_LIBS="$with_stdcxxlib" ;;
+	*) STDCXX_LIBS="-l$with_stdcxxlib" ;;
+esac
+
+if test x$STDCXX_LIBS != x; then
+	save_LIBS="$LIBS"; LIBS="$STDCXX_LIBS $LIBS"
+	AC_MSG_CHECKING([for main in $STDCXX_LIBS])
+	AC_TRY_LINK_FUNC(main, [acx_stdcxx_lib_ok=yes], [STDCXX_LIBS=""])
+	AC_MSG_RESULT($acx_stdcxx_lib_ok)
+	LIBS="$save_LIBS"
+fi
+
+dnl check for stdc++
+if test $acx_stdcxxlib_ok = no; then
+	AC_CHECK_LIB(stdc++, main,[
+				   STDCXX_LIBS="-lstdc++"
+			           acx_stdcxxlib_ok=yes
+                                  ])			
+fi
+
+dnl check for stdc++
+if test $acx_stdcxxlib_ok = no; then
+	AC_CHECK_LIB(Cstd, main,[
+				   STDCXX_LIBS="-lCstd"
+			           acx_stdcxxlib_ok=yes
+                                  ])
+fi
+
+dnl check for stdc++
+if test $acx_stdcxxlib_ok = no; then
+	AC_CHECK_LIB(C, main,[
+				   STDCXX_LIBS="-lC"
+			           acx_stdcxxlib_ok=yes
+                                  ])
+fi
+
+if test $acx_stdcxxlib_ok = no; then
+	AC_MSG_ERROR([Couldn't find std c++ library that is needed for linking.])
+fi
+
+LIBS=$acx_check_stdcxxlib_save_LIBS
+])
+
 dnl find out the flags that enable 64 bit compilation
 AC_DEFUN([ACX_CHECK_B64FLAGS],
 [
@@ -387,10 +511,16 @@ if test "$host" = unknown; then
 fi
 
 dnl by default, use no flags at all
+B64FLAGS=
 B64CFLAGS=
 B64FCFLAGS=
 B64F77FLAGS=
 B64CXXFLAGS=
+orig_CFLAGS=$CFLAGS
+orig_FFLAGS=$FFLAGS
+orig_FCFLAGS=$FCFLAGS
+orig_CXXFLAGS=$CXXFLAGS
+
 
 AC_MSG_CHECKING([for 64 bit compilation flags])
 
@@ -398,7 +528,6 @@ if test "$with_64bits" = no; then
    AC_MSG_RESULT(not even going to try)
 else
    AC_MSG_RESULT([let's see what happens])
-fi
 
 case "$canonical_host_type" in
   *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
@@ -412,14 +541,30 @@ case "$canonical_host_type" in
   *-*-cygwin* | *-*-mingw*)
   ;;
   *-*-linux* | *-*-gnu*)
+	B64FLAGS="-m64 -fPIC"
+        dnl -M64
 	case "$FC" in
   	  ifort | ifc)
  		;;
 	  g95 | gfortran)
+       		B64FCFLAGS=$SUN_64BIT_FLAGS
 		;;
 	  *)
 		;;
         esac
+
+        if test "$ac_cv_f77_compiler_gnu" = yes; then
+       		B64FFLAGS=$B64FLAGS
+        fi
+
+        if test "$ac_cv_c_compiler_gnu" = yes; then
+       		B64CFLAGS=$B64FLAGS
+        fi
+
+        if test "$ac_cv_cxx_compiler_gnu" = yes; then
+       		B64CXXFLAGS=$B64FLAGS
+        fi
+ 
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
   ;;
@@ -430,26 +575,39 @@ case "$canonical_host_type" in
   sparc-sun-sunos4*)
   ;;
   sparc-sun-solaris2* | i386-pc-solaris2*)
-	SUN_64BIT_FLAGS="-xtarget=native64 -xcode=abs64"
+        B64FLAGS="-xtarget=native64 -KPIC"
+	SUN_64BIT_FLAGS=$B64FLAGS
 	case "$FC" in 
+          g*)
+          	B64CFLAGS="-m64"
+ 	  ;;
 	  mpf* | f*)
 		B64FCFLAGS=$SUN_64BIT_FLAGS
 	  ;;
  	esac
 
 	case "$F77" in
+          g*)
+          	B64CFLAGS="-m64"
+ 	  ;;
 	  mpf* | f*)
 		B64FFLAGS=$SUN_64BIT_FLAGS
 	  ;;
 	esac
 	
 	case "$CC" in
-	  mpcc | mp*)
+          g*)
+          	B64CFLAGS="-m64"
+	  ;;
+	  *)
 	        B64CFLAGS=$SUN_64BIT_FLAGS
 	  ;;
  	esac
 	
 	case "$CXX" in 
+          g*)
+          	B64CFLAGS="-m64"
+ 	  ;;
 	  mpCC | CC)
 		B64CXXFLAGS=$SUN_64BIT_FLAGS
 	  ;;
@@ -474,12 +632,16 @@ if test "$with_64bits" != no; then
         AC_MSG_RESULT($B64FFLAGS)
 	FFLAGS="$FFLAGS $B64FFLAGS"
 fi
+fi
 
 dnl let's see if it works...
 AC_CHECK_SIZEOF(void*)
 case "$ac_cv_sizeof_voidp" in
   "8")
-    AC_DEFINE(ARCH_64_BITS, 1,[64 bit arch.]) 
+    AC_DEFINE(ARCH_64_BITS, 1,[64 bit arch.])
+    if test x"$with_64bits" = xno; then
+	AC_MSG_WARN([Explicitely requested 32 bits, but got 64 bits.])
+    fi	
   ;;
   "4")
     AC_DEFINE(ARCH_32_BITS, 1,[32 bit arch.]) 
@@ -490,12 +652,21 @@ if test "$with_64bits" != no; then
    AC_MSG_CHECKING(to see if we got 64 bits)
 
    if test "$ac_cv_sizeof_voidp" -ne 8; then
-      AC_MSG_RESULT([nope]) 
+      AC_MSG_RESULT([nope, reverting compiler flags]) 
+
+      dnl FIXME: test that all compilers are 64 bit
+      B64FLAGS=""
+      CFLAGS=$orig_CFLAGS
+      FFLAGS=$orig_FFLAGS
+      FCFLAGS=$orig_FCFLAGS
+      CXXFLAGS=$orig_CXXFLAGS
    else
       AC_MSG_RESULT([oh yes]) 
    fi
 fi
 
+
+AC_SUBST(B64FLAGS)
 ])dnl ACX_CHECK_B64FLAGS
 
 dnl
@@ -547,3 +718,146 @@ else
         $2
 fi
 ])dnl ACX_MATC
+
+dnl
+dnl We really need the old style cpp for preprocessing fortran.
+dnl 
+AC_DEFUN([ACX_PROG_TRADITIONAL_CPP], [
+# sun cc -E leaves nasty # comment that chokes the fortran compiler, so we have to hope
+# that ye olde cpp is present.
+AC_CHECK_FILE([/lib/cpp],[TRADITIONAL_CPP=yes],[TRADITIONAL_CPP=no])
+
+if test "$TRADITIONAL_CPP" != "yes"; then
+   AC_CHECK_PROG(BASIC_CPP,[cpp], yes, no)
+   if test "$BASIC_CPP" = yes; then
+       CPP=cpp
+   else 
+       AC_MSG_ERROR([Traditional cpp not found, just have to exit for for now.])	
+   fi
+else
+   CPP="/lib/cpp"
+fi
+
+AC_SUBST(CPP)
+])
+
+AC_DEFUN([ACX_FC_ETIME],[
+AC_MSG_CHECKING([for fortran intrinsic etime])
+
+AC_LANG_PUSH(Fortran)
+AC_LINK_IFELSE(
+[    
+      PROGRAM TEST                                                                        
+      INTRINSIC ETIME                                                                     
+      REAL ETIME, T1, TARRAY(2)                                                           
+      T1=ETIME(TARRAY)                                                                    
+      END     
+],
+[
+     AC_MSG_RESULT([found])
+     AC_DEFINE(HAVE_F_ETIME,1,[Does the fortran environment implement etime])
+],
+[
+     AC_MSG_RESULT([missing])
+])
+AC_LANG_POP(Fortran)
+])
+
+AC_DEFUN([ACX_FC_FLUSH],[
+AC_MSG_CHECKING([for fortran intrinsic flush])
+
+AC_LANG_PUSH(Fortran)
+
+AC_LINK_IFELSE(
+[    
+      PROGRAM TEST                                                                        
+      CALL FLUSH(1)                                                                    
+      END     
+],
+[
+     AC_MSG_RESULT([found])
+     AC_DEFINE(HAVE_F_FLUSH,1,[Does the fortran environment implement flush])
+],
+[
+     AC_MSG_RESULT([missing])
+])
+AC_LANG_POP(Fortran)
+])dnl ACX_FC_FLUSH
+
+AC_DEFUN([ACX_BOURNE_SHELL],[
+
+case "$canonical_host_type" in
+  *solaris* | *sun*)	
+	dnl Sun harbours a defunct sh?
+	BOURNE_SHELL="bash"
+  ;;
+  *) 
+	BOURNE_SHELL="sh"
+  ;;
+esac
+AC_SUBST(BOURNE_SHELL)
+])
+
+dnl
+dnl Determine if fortran compiler expects (char *str1, int len1) or (char *str1)
+dnl
+AC_DEFUN([ACX_FC_CHAR_MANGLING], [
+AC_PREREQ(2.50)
+
+acx_cv_fc_char_mangling="char_ptr"
+
+AC_FC_FUNC(barf)
+
+AC_MSG_CHECKING([for Fortran char* mangling scheme])
+
+AC_LANG_PUSH(C)
+AC_COMPILE_IFELSE([
+void $barf(char *name, int *l2, int *l3)
+{
+   printf("%d",*l2);
+ }],
+ [
+    mv conftest.$ac_objext cfortran_test.$ac_objext
+ ],
+ [
+    ac_cv_[]_AC_LANG_ABBREV[]_char_mangling="unknown"
+])
+AC_LANG_POP(C)
+
+AC_LANG_PUSH(Fortran)
+AC_COMPILE_IFELSE(
+[      program testingit                                                                   
+       character s                                                                         
+       parameter (s='my ass')                                                              
+       call barf(s,42)                                                                     
+       end],
+[
+$FC -o testi$ac_exeext conftest.$ac_objext cfortran_test.$ac_objext
+the_answer=`./testi$ac_exeext`
+
+case $the_answer in 
+	42)  
+	       acx_cv_fc_char_mangling="char_ptr"
+        ;;
+	*)
+   	       acx_cv_fc_char_mangling="char_ptr_and_len_int"
+	;;
+esac
+AC_MSG_RESULT($acx_cv_fc_char_mangling)
+
+rm testi$ac_exeext conftest.$ac_objext cfortran_test.$ac_objext],
+[AC_MSG_RESULT([test failed, assuming char_ptr])])
+
+
+AH_TEMPLATE(_AC_FC[_CHAR_PTR],[Char pointer mangling])
+
+case $acx_cv_fc_char_mangling in
+	char_ptr)
+		AC_DEFINE(_AC_FC[_CHAR_PTR(P,L)],[char *P])
+	;;
+	*)
+		AC_DEFINE(_AC_FC[_CHAR_PTR(P,L)],[char *P, int L])
+	;;
+esac
+AC_LANG_POP(Fortran)
+])
