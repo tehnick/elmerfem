@@ -577,7 +577,7 @@ case "$canonical_host_type" in
  
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
-        B64FLAGS="-q64 -KPIC"
+        B64FLAGS="-q64"
 
 	if test x"$FC" != x; then
 	case "$FC" in 
@@ -719,6 +719,9 @@ case "$ac_cv_sizeof_voidp" in
   "4")
     AC_DEFINE(ARCH_32_BITS, 1,[32 bit arch.]) 
   ;;
+  *)
+    AC_DEFINE(ARCH_64_BITS, 1,[Couldn't determine. sticking with 64 just in case.])
+  ;;
 esac
 
 if test "$with_64bits" != no; then
@@ -737,7 +740,6 @@ if test "$with_64bits" != no; then
       AC_MSG_RESULT([oh yes]) 
    fi
 fi
-
 
 AC_SUBST(B64FLAGS)
 ])dnl ACX_CHECK_B64FLAGS
