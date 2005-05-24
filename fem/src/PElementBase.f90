@@ -3421,7 +3421,7 @@ MODULE PElementBase
       INTEGER, INTENT(IN) :: node
       REAL(KIND=dp), INTENT(IN) :: u,v,w
       ! Variables
-      REAL(KIND=dp) :: Ta, Tb, Tc
+      REAL(KIND=dp) :: Ta, Tb, Tc, Temp(2)
       REAL(KIND=dp), DIMENSION(3) :: dTa, dTb, dTc, grad
 
       grad = 0
@@ -3431,26 +3431,34 @@ MODULE PElementBase
       CASE (1)
          Ta = PyramidT(0,u,w)
          Tb = PyramidT(0,v,w)
-         dTa((/ 1,3 /)) = dPyramidT(0,u,w)
-         dTb((/ 2,3 /)) = dPyramidT(0,v,w)
+         temp = dPyramidT(0,u,w)
+         dTa(1) = temp(1)
+         dTa(3) = temp(2)
+         dTb(2:3) = dPyramidT(0,v,w)
       CASE (2)
          Ta = PyramidT(1,u,w)
          Tb = PyramidT(0,v,w)
-         dTa((/ 1,3 /)) = dPyramidT(1,u,w)
-         dTb((/ 2,3 /)) = dPyramidT(0,v,w)
+         temp = dPyramidT(1,u,w)
+         dTa(1) = temp(1)
+         dTa(3) = temp(2)
+         dTb(2:3) = dPyramidT(0,v,w)
       CASE (3)
          Ta = PyramidT(1,u,w)
          Tb = PyramidT(1,v,w)
-         dTa((/ 1,3 /)) = dPyramidT(1,u,w)
-         dTb((/ 2,3 /)) = dPyramidT(1,v,w)
+         temp = dPyramidT(1,u,w)
+         dTa(1) = temp(1)
+         dTa(3) = temp(2)
+         dTb(2:3) = dPyramidT(1,v,w)
       CASE (4)
          Ta = PyramidT(0,u,w)
          Tb = PyramidT(1,v,w)
-         dTa((/ 1,3 /)) = dPyramidT(0,u,w)
-         dTb((/ 2,3 /)) = dPyramidT(1,v,w)
+         temp = dPyramidT(0,u,w)
+         dTa(1) = temp(1)
+         dTa(3) = temp(2)
+         dTb(2:3) = dPyramidT(1,v,w)
       CASE (5)
          ! Calculate value of gradient and return
-         grad(3) = 1/SQRT(2d0)
+         grad(3) = 1d0/SQRT(2d0)
          RETURN
       CASE DEFAULT
          CALL Fatal('PElementBase::dPyramidNodalPBasis','Unknown node for pyramid')
