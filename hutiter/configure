@@ -6424,6 +6424,52 @@ case "$canonical_host_type" in
 
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
+        B64FLAGS="-q64 -KPIC"
+
+	if test x"$FC" != x; then
+	case "$FC" in
+          g*)
+          	B64CFLAGS="-m64"
+ 	  ;;
+	  *)
+	  # hopefully ibm visual age
+		B64FCFLAGS=$B64FLAGS
+	  ;;
+ 	esac
+	fi
+
+	if test x"$F77" != x; then
+	case "$F77" in
+          g*)
+          	B64FFLAGS="-m64"
+ 	  ;;
+	  *)
+		B64FFLAGS=$B64FLAGS
+	  ;;
+	esac
+	fi
+
+	if test x"$CC" != x; then
+	case "$CC" in
+          g*)
+          	B64CFLAGS="-m64"
+	  ;;
+	  *)
+	        B64CFLAGS=$B64FLAGS
+	  ;;
+ 	esac
+	fi
+
+	if test x"$CXX" != x; then
+	case "$CXX" in
+          g*)
+          	B64CFLAGS="-m64"
+ 	  ;;
+	  *)
+		B64CXXFLAGS=$B64FLAGS
+	  ;;
+	esac
+	fi
   ;;
   hppa*-hp-hpux*)
   ;;
@@ -7018,7 +7064,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_verb"
-(eval echo $as_me:7021: \"$ac_link\") >&5
+(eval echo $as_me:7067: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -7102,7 +7148,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_cv_prog_f77_v"
-(eval echo $as_me:7105: \"$ac_link\") >&5
+(eval echo $as_me:7151: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -7849,7 +7895,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_verb"
-(eval echo $as_me:7852: \"$ac_link\") >&5
+(eval echo $as_me:7898: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -7933,7 +7979,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_cv_prog_fc_v"
-(eval echo $as_me:7936: \"$ac_link\") >&5
+(eval echo $as_me:7982: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS

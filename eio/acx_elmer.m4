@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.3 2005/05/24 07:10:55 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.3 2005/05/24 07:54:19 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -577,6 +577,52 @@ case "$canonical_host_type" in
  
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
+        B64FLAGS="-q64 -KPIC"
+
+	if test x"$FC" != x; then
+	case "$FC" in 
+          g*)
+          	B64CFLAGS="-m64"
+ 	  ;;
+	  *)
+	  # hopefully ibm visual age
+		B64FCFLAGS=$B64FLAGS
+	  ;;
+ 	esac
+	fi
+
+	if test x"$F77" != x; then
+	case "$F77" in
+          g*)
+          	B64FFLAGS="-m64"
+ 	  ;;
+	  *)
+		B64FFLAGS=$B64FLAGS
+	  ;;
+	esac
+	fi
+	
+	if test x"$CC" != x; then
+	case "$CC" in
+          g*)
+          	B64CFLAGS="-m64"
+	  ;;
+	  *)
+	        B64CFLAGS=$B64FLAGS
+	  ;;
+ 	esac
+	fi
+	
+	if test x"$CXX" != x; then
+	case "$CXX" in 
+          g*)
+          	B64CFLAGS="-m64"
+ 	  ;;
+	  *)
+		B64CXXFLAGS=$B64FLAGS
+	  ;;
+	esac
+	fi
   ;;
   hppa*-hp-hpux*)
   ;;
