@@ -676,6 +676,8 @@ ac_ct_RANLIB
 FC
 FCFLAGS
 ac_ct_FC
+AR
+ARFLAGS
 CPP
 GREP
 EGREP
@@ -2282,6 +2284,8 @@ INSTALL_STRIP_PROGRAM="\${SHELL} \$(install_sh) -c -s"
 AMTAR=${AMTAR-"${am_missing_run}tar"}
 
 am__tar='${AMTAR} chof - "$$tardir"'; am__untar='${AMTAR} xf -'
+
+
 
 
 
@@ -4371,7 +4375,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:4374:" \
+echo "$as_me:4378:" \
      "checking for Fortran compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -4515,6 +4519,29 @@ ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
+
+
+# fixme: do something more intelligent here
+echo "$as_me:$LINENO: checking for ar" >&5
+echo $ECHO_N "checking for ar... $ECHO_C" >&6
+if test -z "$AR"; then
+        AR='ar'
+	acx_ar_userdefined=no
+else
+	acx_ar_userdefined=yes
+fi
+
+echo "$as_me:$LINENO: result: $AR" >&5
+echo "${ECHO_T}$AR" >&6
+
+echo "$as_me:$LINENO: checking for ar flags" >&5
+echo $ECHO_N "checking for ar flags... $ECHO_C" >&6
+if test -z "$ARFLAGS"; then
+  ARFLAGS="cru"
+fi
+
+echo "$as_me:$LINENO: result: $ARFLAGS" >&5
+echo "${ECHO_T}$ARFLAGS" >&6
 
 ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
@@ -5158,7 +5185,6 @@ done
 
 
 
-
 # Check whether --with-64bits or --without-64bits was given.
 if test "${with_64bits+set}" = set; then
   withval="$with_64bits"
@@ -5179,7 +5205,7 @@ fi
 B64FLAGS=
 B64CFLAGS=
 B64FCFLAGS=
-B64F77FLAGS=
+B64FFLAGS=
 B64CXXFLAGS=
 orig_CFLAGS=$CFLAGS
 orig_FFLAGS=$FFLAGS
@@ -5244,7 +5270,17 @@ case "$canonical_host_type" in
 
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
-        B64FLAGS="-q64 -KPIC"
+        B64FLAGS="-q64"
+
+	if test "$acx_ar_userdefined" = no; then
+   	  # aix has problems with 64 bits and ar, this fixes it
+          AR='ar -Xany'
+
+	  echo "$as_me:$LINENO: checking for 64 bit ar" >&5
+echo $ECHO_N "checking for 64 bit ar... $ECHO_C" >&6
+	  echo "$as_me:$LINENO: result: $AR" >&5
+echo "${ECHO_T}$AR" >&6
+	fi
 
 	if test x"$FC" != x; then
 	case "$FC" in
@@ -5807,6 +5843,13 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
   ;;
+  *)
+
+cat >>confdefs.h <<\_ACEOF
+#define ARCH_64_BITS 1
+_ACEOF
+
+  ;;
 esac
 
 if test "$with_64bits" != no; then
@@ -5827,7 +5870,6 @@ echo "${ECHO_T}nope, reverting compiler flags" >&6
 echo "${ECHO_T}oh yes" >&6
    fi
 fi
-
 
 
 
@@ -5884,7 +5926,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_verb"
-(eval echo $as_me:5887: \"$ac_link\") >&5
+(eval echo $as_me:5929: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -5968,7 +6010,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_cv_prog_fc_v"
-(eval echo $as_me:5971: \"$ac_link\") >&5
+(eval echo $as_me:6013: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -7748,6 +7790,8 @@ s,@ac_ct_RANLIB@,$ac_ct_RANLIB,;t t
 s,@FC@,$FC,;t t
 s,@FCFLAGS@,$FCFLAGS,;t t
 s,@ac_ct_FC@,$ac_ct_FC,;t t
+s,@AR@,$AR,;t t
+s,@ARFLAGS@,$ARFLAGS,;t t
 s,@CPP@,$CPP,;t t
 s,@GREP@,$GREP,;t t
 s,@EGREP@,$EGREP,;t t
