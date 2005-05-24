@@ -1,24 +1,43 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.29 2005/05/20 09:01:44 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.6 2005/05/24 12:49:32 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
 dnl
-dnl @synopsis ACX_PROG_AR([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
-dnl 
+dnl define host variable
 dnl
-AC_DEFUN([ACX_PROG_AR],
-[if test -z "$AR"; then
-  AR=ar
+AC_DEFUN([ACX_HOST],
+[
+if test -z "$host"; then
+  host=unknown
+fi
+canonical_host_type=$host
+if test "$host" = unknown; then
+  AC_MSG_ERROR([configuring for unknown system type, your build will most likely be screwed.])
+fi
+AC_SUBST(canonical_host_type)
+])
+
+AC_DEFUN([ACX_PROG_AR],[
+# fixme: do something more intelligent here
+AC_MSG_CHECKING([for ar])
+if test -z "$AR"; then
+        AR='ar'
+	acx_ar_userdefined=no
+else
+	acx_ar_userdefined=yes
 fi
 AC_SUBST(AR)
+AC_MSG_RESULT($AR)
 
+AC_MSG_CHECKING([for ar flags])
 if test -z "$ARFLAGS"; then
-  ARFLAGS="rc"
+  ARFLAGS="cru"
 fi
 AC_SUBST(ARFLAGS)
+AC_MSG_RESULT($ARFLAGS)
 ])
 
 dnl
@@ -195,7 +214,7 @@ else
         $2
 fi
 AC_LANG_POP(C++)
-])dnl ACX_EIO
+	])dnl ACX_EIO
 
 
 
@@ -494,9 +513,10 @@ dnl find out the flags that enable 64 bit compilation
 AC_DEFUN([ACX_CHECK_B64FLAGS],
 [
 AC_PREREQ([2.50])
-AC_REQUIRE([AC_PROG_FC])
+dnl AC_REQUIRE([AC_PROG_FC])
 AC_REQUIRE([AC_PROG_CC])
-AC_REQUIRE([AC_PROG_CXX])
+AC_REQUIRE([ACX_PROG_AR])
+dnl AC_REQUIRE([AC_PROG_CXX])
 
 AC_ARG_WITH(64bits,
 	[AC_HELP_STRING([--with-64bits=yes(/no)], [Try to compile using 64 bits (default)])])
@@ -514,7 +534,7 @@ dnl by default, use no flags at all
 B64FLAGS=
 B64CFLAGS=
 B64FCFLAGS=
-B64F77FLAGS=
+B64FFLAGS=
 B64CXXFLAGS=
 orig_CFLAGS=$CFLAGS
 orig_FFLAGS=$FFLAGS
@@ -543,30 +563,94 @@ case "$canonical_host_type" in
   *-*-linux* | *-*-gnu*)
 	B64FLAGS="-m64 -fPIC"
         dnl -M64
+	if test x"$FC" != x; then
 	case "$FC" in
   	  ifort | ifc)
  		;;
 	  g95 | gfortran)
-       		B64FCFLAGS=$SUN_64BIT_FLAGS
+	        B64FCFLAGS=$B64FLAGS
 		;;
 	  *)
 		;;
         esac
+	fi
 
-        if test "$ac_cv_f77_compiler_gnu" = yes; then
-       		B64FFLAGS=$B64FLAGS
-        fi
+	if test x"$F77" != x; then
+ 	case "$F77" in 
+          g*)
+	      B64FFLAGS=$B64FLAGS
+          ;;
+	esac
+	fi
 
+	if test x"$CC" != x; then
         if test "$ac_cv_c_compiler_gnu" = yes; then
        		B64CFLAGS=$B64FLAGS
         fi
+	fi
 
+	if test x"$CXX" != x; then
         if test "$ac_cv_cxx_compiler_gnu" = yes; then
        		B64CXXFLAGS=$B64FLAGS
         fi
+	fi
  
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
+        B64FLAGS="-q64"
+
+	if test "$acx_ar_userdefined" = no; then
+   	  # aix has problems with 64 bits and ar, this fixes it
+          AR='ar -Xany'
+	  AC_SUBST(AR)
+	  AC_MSG_CHECKING([for 64 bit ar])
+	  AC_MSG_RESULT($AR)
+	fi
+
+	if test x"$FC" != x; then
+	case "$FC" in 
+          g*)
+          	B64CFLAGS="-m64"
+ 	  ;;
+	  *)
+	  # hopefully ibm visual age
+		B64FCFLAGS=$B64FLAGS
+	  ;;
+ 	esac
+	fi
+
+	if test x"$F77" != x; then
+	case "$F77" in
+          g*)
+          	B64FFLAGS="-m64"
+ 	  ;;
+	  *)
+		B64FFLAGS=$B64FLAGS
+	  ;;
+	esac
+	fi
+	
+	if test x"$CC" != x; then
+	case "$CC" in
+          g*)
+          	B64CFLAGS="-m64"
+	  ;;
+	  *)
+	        B64CFLAGS=$B64FLAGS
+	  ;;
+ 	esac
+	fi
+	
+	if test x"$CXX" != x; then
+	case "$CXX" in 
+          g*)
+          	B64CFLAGS="-m64"
+ 	  ;;
+	  *)
+		B64CXXFLAGS=$B64FLAGS
+	  ;;
+	esac
+	fi
   ;;
   hppa*-hp-hpux*)
   ;;
@@ -577,48 +661,77 @@ case "$canonical_host_type" in
   sparc-sun-solaris2* | i386-pc-solaris2*)
         B64FLAGS="-xtarget=native64 -KPIC"
 	SUN_64BIT_FLAGS=$B64FLAGS
+
+	if test x"$FC" != x; then
 	case "$FC" in 
+          g*)
+          	B64CFLAGS="-m64"
+ 	  ;;
 	  mpf* | f*)
 		B64FCFLAGS=$SUN_64BIT_FLAGS
 	  ;;
  	esac
+	fi
 
+	if test x"$F77" != x; then
 	case "$F77" in
+          g*)
+          	B64FFLAGS="-m64"
+ 	  ;;
 	  mpf* | f*)
 		B64FFLAGS=$SUN_64BIT_FLAGS
 	  ;;
 	esac
+	fi
 	
+	if test x"$CC" != x; then
 	case "$CC" in
-	  mpcc | mp*)
+          g*)
+          	B64CFLAGS="-m64"
+	  ;;
+	  *)
 	        B64CFLAGS=$SUN_64BIT_FLAGS
 	  ;;
  	esac
+	fi
 	
+	if test x"$CXX" != x; then
 	case "$CXX" in 
+          g*)
+          	B64CFLAGS="-m64"
+ 	  ;;
 	  mpCC | CC)
 		B64CXXFLAGS=$SUN_64BIT_FLAGS
 	  ;;
 	esac
+	fi
   ;;
 esac
 
 if test "$with_64bits" != no; then
-        AC_MSG_CHECKING([for 64 bit CFLAGS])
-        AC_MSG_RESULT($B64CFLAGS)
-	CFLAGS="$CFLAGS $B64CFLAGS"
+	if test x"$CC" != x; then
+           AC_MSG_CHECKING([for 64 bit CFLAGS])
+           AC_MSG_RESULT($B64CFLAGS)
+  	   CFLAGS="$CFLAGS $B64CFLAGS"
+	fi
 
-        AC_MSG_CHECKING([for 64 bit FCFLAGS])
-        AC_MSG_RESULT($B64FCFLAGS)
-	FCFLAGS="$FCFLAGS $B64FCFLAGS"
+	if test x"$FC" != x; then
+           AC_MSG_CHECKING([for 64 bit FCFLAGS])
+           AC_MSG_RESULT($B64FCFLAGS)
+	   FCFLAGS="$FCFLAGS $B64FCFLAGS"
+	fi
 
-        AC_MSG_CHECKING([for 64 bit CXXFLAGS])
-        AC_MSG_RESULT($B64CXXFLAGS)
-	CXXFLAGS="$CXXFLAGS $B64CXXFLAGS"
+	if test x"$CXX" != x; then
+           AC_MSG_CHECKING([for 64 bit CXXFLAGS])
+           AC_MSG_RESULT($B64CXXFLAGS)
+	   CXXFLAGS="$CXXFLAGS $B64CXXFLAGS"
+	fi
 
-        AC_MSG_CHECKING([for 64 bit FFLAGS])
-        AC_MSG_RESULT($B64FFLAGS)
-	FFLAGS="$FFLAGS $B64FFLAGS"
+	if test x"$F77" != x; then
+          AC_MSG_CHECKING([for 64 bit FFLAGS])
+          AC_MSG_RESULT($B64FFLAGS)
+	  FFLAGS="$FFLAGS $B64FFLAGS"
+	fi
 fi
 fi
 
@@ -633,6 +746,9 @@ case "$ac_cv_sizeof_voidp" in
   ;;
   "4")
     AC_DEFINE(ARCH_32_BITS, 1,[32 bit arch.]) 
+  ;;
+  *)
+    AC_DEFINE(ARCH_64_BITS, 1,[Couldn't determine. sticking with 64 just in case.])
   ;;
 esac
 
@@ -652,7 +768,6 @@ if test "$with_64bits" != no; then
       AC_MSG_RESULT([oh yes]) 
    fi
 fi
-
 
 AC_SUBST(B64FLAGS)
 ])dnl ACX_CHECK_B64FLAGS

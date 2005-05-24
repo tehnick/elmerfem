@@ -51,7 +51,7 @@ am__aclocal_m4_deps = $(top_srcdir)/acx_blas.m4 \
 	$(top_srcdir)/acx_blas.m4 $(top_srcdir)/configure.in
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
-mkinstalldirs = $(install_sh) -d
+mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
@@ -418,6 +418,7 @@ SOLVEROBJS = stubut$(OBJ_EXT)                                \
 	        RadiationFactors$(OBJ_EXT)                      \
 		ElmerSolver$(OBJ_EXT)
 
+SUFFIXES = ".f90 .so .F90"
 SC2Elmer_SOURCES = SC2Elmer.c
 
 # all source files that automake doesn't know about in this directory.
@@ -546,7 +547,7 @@ EXTRA_DIST = \
 all: all-recursive
 
 .SUFFIXES:
-.SUFFIXES: .@OBJEXT@ .@SHLEXT@ .F90 .c .f90 .o .obj
+.SUFFIXES: ".f90 .so .F90" .@OBJEXT@ .@SHLEXT@ .F90 .c .f90 .o .obj
 $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am $(srcdir)/make.bin $(srcdir)/make.dep $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -1011,13 +1012,12 @@ TransportEquation.o: TransportEquation.f90 ElementDescription.o Types.o ElementU
 Types.o: Types.f90 Messages.o
 ViewFactors.o: ViewFactors.f90 DefUtils.o Types.o ViewFactors.o
 Walls.o: Walls.f90
+
 # dependencies
 # automatic object dependencies for .f90 files
 
 # attach to automake all target
 all-local:   mpif libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
-
-SUFFIXES: .f90 .so .F90
 
 .f90.F90:
 	@CPP@ @FCPPFLAGS@ $< > $*.F90

@@ -11,16 +11,9 @@ AM_INIT_AUTOMAKE(elmer, 1.0.0)
 dnl never attempt to regenerate configure in stupid situations...
 AM_MAINTAINER_MODE
 
-if test -z "$host"; then
-  host=unknown
-fi
-canonical_host_type=$host
-if test "$host" = unknown; then
-  AC_MSG_ERROR([configuring for unknown system type, your build will most likely be screwed.])
-fi
-AC_SUBST(canonical_host_type)
 
 sinclude(acx_elmer.m4)
+ACX_HOST
 ACX_DEBUG
 ACX_BOURNE_SHELL
 
