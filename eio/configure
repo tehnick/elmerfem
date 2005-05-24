@@ -4399,6 +4399,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
 ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
@@ -5093,27 +5094,37 @@ case "$canonical_host_type" in
   ;;
   *-*-linux* | *-*-gnu*)
 	B64FLAGS="-m64 -fPIC"
-        	case "$FC" in
+        	if test x"$FC" != x; then
+	case "$FC" in
   	  ifort | ifc)
  		;;
 	  g95 | gfortran)
-       		B64FCFLAGS=$SUN_64BIT_FLAGS
+	        B64FCFLAGS=$B64FLAGS
 		;;
 	  *)
 		;;
         esac
+	fi
 
-        if test "$ac_cv_f77_compiler_gnu" = yes; then
-       		B64FFLAGS=$B64FLAGS
-        fi
+	if test x"$F77" != x; then
+ 	case "$F77" in
+          g*)
+	      B64FFLAGS=$B64FLAGS
+          ;;
+	esac
+	fi
 
+	if test x"$CC" != x; then
         if test "$ac_cv_c_compiler_gnu" = yes; then
        		B64CFLAGS=$B64FLAGS
         fi
+	fi
 
+	if test x"$CXX" != x; then
         if test "$ac_cv_cxx_compiler_gnu" = yes; then
        		B64CXXFLAGS=$B64FLAGS
         fi
+	fi
 
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
@@ -5127,6 +5138,8 @@ case "$canonical_host_type" in
   sparc-sun-solaris2* | i386-pc-solaris2*)
         B64FLAGS="-xtarget=native64 -KPIC"
 	SUN_64BIT_FLAGS=$B64FLAGS
+
+	if test x"$FC" != x; then
 	case "$FC" in
           g*)
           	B64CFLAGS="-m64"
@@ -5135,16 +5148,20 @@ case "$canonical_host_type" in
 		B64FCFLAGS=$SUN_64BIT_FLAGS
 	  ;;
  	esac
+	fi
 
+	if test x"$F77" != x; then
 	case "$F77" in
           g*)
-          	B64CFLAGS="-m64"
+          	B64FFLAGS="-m64"
  	  ;;
 	  mpf* | f*)
 		B64FFLAGS=$SUN_64BIT_FLAGS
 	  ;;
 	esac
+	fi
 
+	if test x"$CC" != x; then
 	case "$CC" in
           g*)
           	B64CFLAGS="-m64"
@@ -5153,7 +5170,9 @@ case "$canonical_host_type" in
 	        B64CFLAGS=$SUN_64BIT_FLAGS
 	  ;;
  	esac
+	fi
 
+	if test x"$CXX" != x; then
 	case "$CXX" in
           g*)
           	B64CFLAGS="-m64"
@@ -5162,33 +5181,42 @@ case "$canonical_host_type" in
 		B64CXXFLAGS=$SUN_64BIT_FLAGS
 	  ;;
 	esac
+	fi
   ;;
 esac
 
 if test "$with_64bits" != no; then
-        echo "$as_me:$LINENO: checking for 64 bit CFLAGS" >&5
+	if test x"$CC" != x; then
+           echo "$as_me:$LINENO: checking for 64 bit CFLAGS" >&5
 echo $ECHO_N "checking for 64 bit CFLAGS... $ECHO_C" >&6
-        echo "$as_me:$LINENO: result: $B64CFLAGS" >&5
+           echo "$as_me:$LINENO: result: $B64CFLAGS" >&5
 echo "${ECHO_T}$B64CFLAGS" >&6
-	CFLAGS="$CFLAGS $B64CFLAGS"
+  	   CFLAGS="$CFLAGS $B64CFLAGS"
+	fi
 
-        echo "$as_me:$LINENO: checking for 64 bit FCFLAGS" >&5
+	if test x"$FC" != x; then
+           echo "$as_me:$LINENO: checking for 64 bit FCFLAGS" >&5
 echo $ECHO_N "checking for 64 bit FCFLAGS... $ECHO_C" >&6
-        echo "$as_me:$LINENO: result: $B64FCFLAGS" >&5
+           echo "$as_me:$LINENO: result: $B64FCFLAGS" >&5
 echo "${ECHO_T}$B64FCFLAGS" >&6
-	FCFLAGS="$FCFLAGS $B64FCFLAGS"
+	   FCFLAGS="$FCFLAGS $B64FCFLAGS"
+	fi
 
-        echo "$as_me:$LINENO: checking for 64 bit CXXFLAGS" >&5
+	if test x"$CXX" != x; then
+           echo "$as_me:$LINENO: checking for 64 bit CXXFLAGS" >&5
 echo $ECHO_N "checking for 64 bit CXXFLAGS... $ECHO_C" >&6
-        echo "$as_me:$LINENO: result: $B64CXXFLAGS" >&5
+           echo "$as_me:$LINENO: result: $B64CXXFLAGS" >&5
 echo "${ECHO_T}$B64CXXFLAGS" >&6
-	CXXFLAGS="$CXXFLAGS $B64CXXFLAGS"
+	   CXXFLAGS="$CXXFLAGS $B64CXXFLAGS"
+	fi
 
-        echo "$as_me:$LINENO: checking for 64 bit FFLAGS" >&5
+	if test x"$F77" != x; then
+          echo "$as_me:$LINENO: checking for 64 bit FFLAGS" >&5
 echo $ECHO_N "checking for 64 bit FFLAGS... $ECHO_C" >&6
-        echo "$as_me:$LINENO: result: $B64FFLAGS" >&5
+          echo "$as_me:$LINENO: result: $B64FFLAGS" >&5
 echo "${ECHO_T}$B64FFLAGS" >&6
-	FFLAGS="$FFLAGS $B64FFLAGS"
+	  FFLAGS="$FFLAGS $B64FFLAGS"
+	fi
 fi
 fi
 
@@ -5694,7 +5722,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_verb"
-(eval echo $as_me:5697: \"$ac_link\") >&5
+(eval echo $as_me:5725: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -5778,7 +5806,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_cv_prog_fc_v"
-(eval echo $as_me:5781: \"$ac_link\") >&5
+(eval echo $as_me:5809: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS

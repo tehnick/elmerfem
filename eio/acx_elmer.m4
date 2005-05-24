@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.30 2005/05/20 13:56:46 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.3 2005/05/24 07:10:55 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -543,27 +543,37 @@ case "$canonical_host_type" in
   *-*-linux* | *-*-gnu*)
 	B64FLAGS="-m64 -fPIC"
         dnl -M64
+	if test x"$FC" != x; then
 	case "$FC" in
   	  ifort | ifc)
  		;;
 	  g95 | gfortran)
-       		B64FCFLAGS=$SUN_64BIT_FLAGS
+	        B64FCFLAGS=$B64FLAGS
 		;;
 	  *)
 		;;
         esac
+	fi
 
-        if test "$ac_cv_f77_compiler_gnu" = yes; then
-       		B64FFLAGS=$B64FLAGS
-        fi
+	if test x"$F77" != x; then
+ 	case "$F77" in 
+          g*)
+	      B64FFLAGS=$B64FLAGS
+          ;;
+	esac
+	fi
 
+	if test x"$CC" != x; then
         if test "$ac_cv_c_compiler_gnu" = yes; then
        		B64CFLAGS=$B64FLAGS
         fi
+	fi
 
+	if test x"$CXX" != x; then
         if test "$ac_cv_cxx_compiler_gnu" = yes; then
        		B64CXXFLAGS=$B64FLAGS
         fi
+	fi
  
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
@@ -577,6 +587,8 @@ case "$canonical_host_type" in
   sparc-sun-solaris2* | i386-pc-solaris2*)
         B64FLAGS="-xtarget=native64 -KPIC"
 	SUN_64BIT_FLAGS=$B64FLAGS
+
+	if test x"$FC" != x; then
 	case "$FC" in 
           g*)
           	B64CFLAGS="-m64"
@@ -585,16 +597,20 @@ case "$canonical_host_type" in
 		B64FCFLAGS=$SUN_64BIT_FLAGS
 	  ;;
  	esac
+	fi
 
+	if test x"$F77" != x; then
 	case "$F77" in
           g*)
-          	B64CFLAGS="-m64"
+          	B64FFLAGS="-m64"
  	  ;;
 	  mpf* | f*)
 		B64FFLAGS=$SUN_64BIT_FLAGS
 	  ;;
 	esac
+	fi
 	
+	if test x"$CC" != x; then
 	case "$CC" in
           g*)
           	B64CFLAGS="-m64"
@@ -603,7 +619,9 @@ case "$canonical_host_type" in
 	        B64CFLAGS=$SUN_64BIT_FLAGS
 	  ;;
  	esac
+	fi
 	
+	if test x"$CXX" != x; then
 	case "$CXX" in 
           g*)
           	B64CFLAGS="-m64"
@@ -612,25 +630,34 @@ case "$canonical_host_type" in
 		B64CXXFLAGS=$SUN_64BIT_FLAGS
 	  ;;
 	esac
+	fi
   ;;
 esac
 
 if test "$with_64bits" != no; then
-        AC_MSG_CHECKING([for 64 bit CFLAGS])
-        AC_MSG_RESULT($B64CFLAGS)
-	CFLAGS="$CFLAGS $B64CFLAGS"
+	if test x"$CC" != x; then
+           AC_MSG_CHECKING([for 64 bit CFLAGS])
+           AC_MSG_RESULT($B64CFLAGS)
+  	   CFLAGS="$CFLAGS $B64CFLAGS"
+	fi
 
-        AC_MSG_CHECKING([for 64 bit FCFLAGS])
-        AC_MSG_RESULT($B64FCFLAGS)
-	FCFLAGS="$FCFLAGS $B64FCFLAGS"
+	if test x"$FC" != x; then
+           AC_MSG_CHECKING([for 64 bit FCFLAGS])
+           AC_MSG_RESULT($B64FCFLAGS)
+	   FCFLAGS="$FCFLAGS $B64FCFLAGS"
+	fi
 
-        AC_MSG_CHECKING([for 64 bit CXXFLAGS])
-        AC_MSG_RESULT($B64CXXFLAGS)
-	CXXFLAGS="$CXXFLAGS $B64CXXFLAGS"
+	if test x"$CXX" != x; then
+           AC_MSG_CHECKING([for 64 bit CXXFLAGS])
+           AC_MSG_RESULT($B64CXXFLAGS)
+	   CXXFLAGS="$CXXFLAGS $B64CXXFLAGS"
+	fi
 
-        AC_MSG_CHECKING([for 64 bit FFLAGS])
-        AC_MSG_RESULT($B64FFLAGS)
-	FFLAGS="$FFLAGS $B64FFLAGS"
+	if test x"$F77" != x; then
+          AC_MSG_CHECKING([for 64 bit FFLAGS])
+          AC_MSG_RESULT($B64FFLAGS)
+	  FFLAGS="$FFLAGS $B64FFLAGS"
+	fi
 fi
 fi
 
