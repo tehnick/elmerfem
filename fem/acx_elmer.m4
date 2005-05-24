@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.33 2005/05/24 19:11:40 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.34 2005/05/24 19:32:19 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -990,6 +990,8 @@ esac
 
 AC_DEFUN([ACX_FC_INCLUDE_MODULE_FLAG],[
 
+INCLUDE_MODULE_FLAG="-I"
+
 case "$canonical_host_type" in
   sparc-sun-solaris2* | i386-pc-solaris2*)
     if test "$ac_cv_fc_compiler_gnu" != yes; then
@@ -1003,6 +1005,8 @@ esac
 AC_DEFUN([ACX_PIC_FLAGS],[
 dnl 
 dnl Host specific stuff
+dnl fixme: if 64 bits, then start looking for pic flags, not by default?
+dnl 
 dnl
 case "$canonical_host_type" in
   *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
@@ -1108,7 +1112,7 @@ TEMPLATE_AR='$(AR)'
 TEMPLATE_ARFLAGS="$ARFLAGS"
 library_path_var=LD_LIBRARY_PATH
 LIBSOLVER_DEPS=$LIBS
-INCLUDE_MODULE_FLAG="-I"
+
 FCPPFLAGS="-I. -I$prefix/include -DDLLEXPORT=\"!\" -DFULL_INDUCTION -DUSE_ARPACK"
 TESTS_FCFLAGS=""
 
@@ -1221,7 +1225,6 @@ case "$canonical_host_type" in
       FPICFLAG=-fPIC
     else
       FPICFLAG=-KPIC
-      INCLUDE_MODULE_FLAG="-M"
     fi
     if test "$GCC" = yes; then
       CPICFLAG="-fPIC"

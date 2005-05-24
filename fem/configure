@@ -9625,6 +9625,8 @@ CXXFLAGS="$CXXFLAGS $CXXPICFLAG"
 
 
 
+INCLUDE_MODULE_FLAG="-I"
+
 case "$canonical_host_type" in
   sparc-sun-solaris2* | i386-pc-solaris2*)
     if test "$ac_cv_fc_compiler_gnu" != yes; then
@@ -9661,7 +9663,7 @@ TEMPLATE_AR='$(AR)'
 TEMPLATE_ARFLAGS="$ARFLAGS"
 library_path_var=LD_LIBRARY_PATH
 LIBSOLVER_DEPS=$LIBS
-INCLUDE_MODULE_FLAG="-I"
+
 FCPPFLAGS="-I. -I$prefix/include -DDLLEXPORT=\"!\" -DFULL_INDUCTION -DUSE_ARPACK"
 TESTS_FCFLAGS=""
 
@@ -9771,7 +9773,6 @@ case "$canonical_host_type" in
       FPICFLAG=-fPIC
     else
       FPICFLAG=-KPIC
-      INCLUDE_MODULE_FLAG="-M"
     fi
     if test "$GCC" = yes; then
       CPICFLAG="-fPIC"
@@ -14492,10 +14493,14 @@ case "$FC" in
     FCFLAGS="$FCFLAGS -qsuffix=cpp=F90"
   ;;
   ifort | ifc )
+    TESTS_FCFLAGS="$FCFLAGS"
     if test "$ac_cv_f77_compiler_gnu" = yes; then
        { echo "$as_me:$LINENO: WARNING: Intel Fortran 90 compiler and g77 really don't mix that well, I hope you know what you are doing." >&5
 echo "$as_me: WARNING: Intel Fortran 90 compiler and g77 really don't mix that well, I hope you know what you are doing." >&2;}
     fi
+  ;;
+  *)
+    TESTS_FCFLAGS="$FCFLAGS"
   ;;
 esac
 
