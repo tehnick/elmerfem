@@ -33,6 +33,9 @@
 ! *       Date of modification: 27.8.2002
 ! *
 ! * $Log: MeshUtils.f90,v $
+! * Revision 1.3  2005/05/23 11:04:22  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.2  2005/05/04 09:16:13  vierinen
 ! * minor modifications
 ! *
@@ -89,7 +92,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.f90,v 1.2 2005/05/04 09:16:13 vierinen Exp $
+! * $Id: MeshUtils.f90,v 1.3 2005/05/23 11:04:22 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -122,6 +125,7 @@ DLLEXPORT AllocateElement
      Element % hK = 0
      Element % StabilizationMk = 0
      NULLIFY( Element % TYPE )
+     NULLIFY( Element % PDefs )
      NULLIFY( Element % BubbleIndexes )
      NULLIFY( Element % DGIndexes )
      NULLIFY( Element % NodeIndexes )
