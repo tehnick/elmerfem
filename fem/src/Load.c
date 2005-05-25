@@ -119,7 +119,7 @@ void STDCALLBULL FC_FUNC(envir,ENVIR) ( FC_CHAR_PTR(Name,l1), FC_CHAR_PTR(Value,
   Internal: convert function names into to fortran mangled form for dynamical
   loading
   ---------------------------------------------------------------------------*/
-void fortranMangle(char *orig, char *mangled)
+static void fortranMangle(char *orig, char *mangled)
 {
   int uscore, i;
   
