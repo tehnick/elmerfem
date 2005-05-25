@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.36 2005/05/25 11:30:37 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.37 2005/05/25 12:01:22 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -84,7 +84,6 @@ AC_MSG_RESULT([optimized])
   if test "$CFLAGS" = ""; then
 	CFLAGS=$ACX_OPT_FLAG
   fi
-  
 
   if test "$FCFLAGS" = ""; then
 	FCFLAGS=$ACX_OPT_FLAG
@@ -125,12 +124,12 @@ AC_FC_FUNC(huti_d_gmres)
 AC_FC_FUNC(huti_d_cgs)
 
 acx_huti_save_LIBS="$LIBS"
-LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
+dnl LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
 
 # First, check HUTI_LIBS environment variable
 if test $acx_huti_ok = no; then
 if test "x$HUTI_LIBS" != x; then
-	save_LIBS="$LIBS"; LIBS="$HUTI_LIBS $LIBS"
+	save_LIBS="$LIBS"; LIBS="$LIBS $HUTI_LIBS $BLAS_LIBS $FCLIBS $FLIBS"
 	AC_MSG_CHECKING([for $huti_d_gmres in $HUTI_LIBS])
 	AC_TRY_LINK_FUNC($huti_d_gmres, [acx_huti_ok=yes], [HUTI_LIBS=""])
 	AC_MSG_RESULT($acx_huti_ok)
@@ -140,7 +139,9 @@ fi
 
 # Generic HUTI library?
 if test $acx_huti_ok = no; then
+	save_LIBS="$LIBS"; LIBS="$LIBS $HUTI_LIBS $BLAS_LIBS $FCLIBS $FLIBS"
 	AC_CHECK_LIB(huti, $huti_d_gmres, [acx_huti_ok=yes; HUTI_LIBS="-lhuti"])
+	LIBS="$save_LIBS"
 fi
 
 AC_SUBST(HUTI_LIBS)
@@ -1129,121 +1130,72 @@ case "$canonical_host_type" in
   ;;
   *-*-freebsd*)
     SH_LD='$(CC)'
-    SH_LDFLAGS="-shared -Wl,-x"
+    SH_LDFLAGS="-shared"
   ;;
   alpha*-dec-osf*)
-    CPICFLAG=
-    CXXPICFLAG=
-    FPICFLAG=
-    SH_LDFLAGS="-shared -Wl,-expect_unresolved -Wl,'*'"
-    RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
+    SH_LDFLAGS="-shared"
   ;;
   *-*-darwin*)
-    DL_LDFLAGS='-bundle -bundle_loader $(TOPDIR)/src/octave $(LDFLAGS)'
-    MKOCTFILE_DL_LDFLAGS='-bundle -bundle_loader $(bindir)/octave-$(version)$(EXEEXT)'
     SH_LDFLAGS='-dynamiclib -single_module $(LDFLAGS)'
-    CXXPICFLAG=
-    CPICFLAG=
-    FPICFLAG=
-    SHLEXT="dylib"
-    SHLLIB='$(SHLEXT)'
-    SHLEXT_VER='$(version).$(SHLEXT)'
-    SHLLIB_VER='$(version).$(SHLLIB)'
-    NO_OCT_FILE_STRIP="true"
-    SONAME_FLAGS='-install_name $(octlibdir)/$@'
-    library_path_var=DYLD_LIBRARY_PATH	
+dnl    SHLEXT="dylib"
+dnl    SHLLIB='$(SHLEXT)'
+dnl    SHLEXT_VER='$(version).$(SHLEXT)'
+dnl    SHLLIB_VER='$(version).$(SHLLIB)'
+dnl    NO_OCT_FILE_STRIP="true"
+dnl    SONAME_FLAGS='-install_name $(octlibdir)/$@'
+dnl    library_path_var=DYLD_LIBRARY_PATH	
   ;;
   *-*-cygwin* | *-*-mingw*)
-    CXXPICFLAG=
-    CPICFLAG=
-    FPICFLAG=
-    SHLEXT=dll
-    SHLLIB=dll.a
-    SHLBIN=dll
+dnl    SHLEXT=dll
+dnl    SHLLIB=dll.a
+dnl    SHLBIN=dll
     SH_LDFLAGS="-shared"
-    SHLLINKEXT=".dll"
-    SONAME_FLAGS='-Wl,--out-implib=$@.a'
-    library_path_var=PATH
+dnl    SHLLINKEXT=".dll"
+dnl    SONAME_FLAGS='-Wl,--out-implib=$@.a'
+dnl    library_path_var=PATH
   ;;
   *-*-linux* | *-*-gnu*)
-    MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
-    SONAME_FLAGS=''
-    RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
-    CPICFLAG="-fPIC"
-    CXXPICFLAG="-fPIC"
-    FPICFLAG="-fPIC"
+dnl    MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
+dnl    SONAME_FLAGS=''
+dnl    RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
+dnl     CPICFLAG="-fPIC"
+dnl    CXXPICFLAG="-fPIC"
+dnl    FPICFLAG="-fPIC"
   ;;
   i[[3456]]86-*-sco3.2v5*)
-    SONAME_FLAGS='-Wl,-h -Wl,$@'
-    RLD_FLAG=
-    SH_LDFLAGS=-G
+dnl    SONAME_FLAGS='-Wl,-h -Wl,$@'
+dnl    RLD_FLAG=
+    SH_LDFLAGS="-G"
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
-    CPICFLAG=
-    CXXPICFLAG=
-    FPICFLAG=
-    DLFCN_DIR=dlfcn
+dnl    CPICFLAG=
+dnl    CXXPICFLAG=
+dnl    FPICFLAG=
+dnl    DLFCN_DIR=dlfcn
     SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
     SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared"
-    use_ldaix="yes"
-    AC_SUBST(use_ldaix)
+dnl    use_ldaix="yes"
+dnl    AC_SUBST(use_ldaix)
   ;;
   hppa*-hp-hpux*)
-    if test "$ac_cv_f77_compiler_gnu" = yes; then
-      FPICFLAG=-fPIC
-    else
-      FPICFLAG=+Z
-    fi
-    SHLEXT=sl
+dnl    if test "$ac_cv_f77_compiler_gnu" = yes; then
+dnl      FPICFLAG=-fPIC
+dnl    else
+dnl      FPICFLAG=+Z
+dnl    fi
+dnl    SHLEXT=sl
     SH_LDFLAGS="-shared -fPIC"
-    RLD_FLAG='-Wl,+b -Wl,$(octlibdir)'
   ;;
   *-sgi-*)
-    CPICFLAG=
-    CXXPICFLAG=
-    FPICFLAG=
-    RLD_FLAG='-rpath $(octlibdir)'
+      true
   ;;
   sparc-sun-sunos4*)
-    if test "$ac_cv_f77_compiler_gnu" = yes; then
-      FPICFLAG=-fPIC
-    else
-      FPICFLAG=-PIC
-    fi
     SH_LD=ld
     SH_LDFLAGS="-assert nodefinitions"
-    RLD_FLAG='-L$(octlibdir)'
-
   ;;
   sparc-sun-solaris2* | i386-pc-solaris2*)
-    if test "$ac_cv_f77_compiler_gnu" = yes; then
-      FPICFLAG=-fPIC
-    else
-      FPICFLAG=-KPIC
-    fi
-    if test "$ac_cv_fc_compiler_gnu" = yes; then
-      FPICFLAG=-fPIC
-    else
-      FPICFLAG=-KPIC
-    fi
-    if test "$GCC" = yes; then
-      CPICFLAG="-fPIC"
-    else
-      CPICFLAG=-KPIC
-    fi
-    if test "$GXX" = yes; then
-      CXXPICFLAG=-fPIC
-    else
-      CXXPICFLAG=-KPIC
+    if test "$GXX" != yes; then
       SH_LDFLAGS=-G
-    fi
-    RLD_FLAG='-R $(octlibdir)'
-    # Template closures in archive libraries need a different mechanism.
-    if test "$GXX" = yes; then
-      true
-    else
-      TEMPLATE_AR='$(CXX)'
-      TEMPLATE_ARFLAGS="-xar -o"
     fi
   ;;
 esac

@@ -690,7 +690,6 @@ EGREP
 B64FLAGS
 FLIBS
 FCLIBS
-use_ldaix
 mpi_dir
 mpi_lib_dir
 mpi_inc_dir
@@ -2546,7 +2545,6 @@ echo "${ECHO_T}optimized" >&6
   if test "$CFLAGS" = ""; then
 	CFLAGS=$ACX_OPT_FLAG
   fi
-
 
   if test "$FCFLAGS" = ""; then
 	FCFLAGS=$ACX_OPT_FLAG
@@ -5557,7 +5555,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:5560:" \
+echo "$as_me:5558:" \
      "checking for Fortran compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -5804,7 +5802,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:5807:" \
+echo "$as_me:5805:" \
      "checking for Fortran 77 compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -7623,7 +7621,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_verb"
-(eval echo $as_me:7626: \"$ac_link\") >&5
+(eval echo $as_me:7624: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -7707,7 +7705,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_cv_prog_f77_v"
-(eval echo $as_me:7710: \"$ac_link\") >&5
+(eval echo $as_me:7708: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -8454,7 +8452,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_verb"
-(eval echo $as_me:8457: \"$ac_link\") >&5
+(eval echo $as_me:8455: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -8538,7 +8536,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_cv_prog_fc_v"
-(eval echo $as_me:8541: \"$ac_link\") >&5
+(eval echo $as_me:8539: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -9724,121 +9722,39 @@ case "$canonical_host_type" in
   ;;
   *-*-freebsd*)
     SH_LD='$(CC)'
-    SH_LDFLAGS="-shared -Wl,-x"
+    SH_LDFLAGS="-shared"
   ;;
   alpha*-dec-osf*)
-    CPICFLAG=
-    CXXPICFLAG=
-    FPICFLAG=
-    SH_LDFLAGS="-shared -Wl,-expect_unresolved -Wl,'*'"
-    RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
+    SH_LDFLAGS="-shared"
   ;;
   *-*-darwin*)
-    DL_LDFLAGS='-bundle -bundle_loader $(TOPDIR)/src/octave $(LDFLAGS)'
-    MKOCTFILE_DL_LDFLAGS='-bundle -bundle_loader $(bindir)/octave-$(version)$(EXEEXT)'
     SH_LDFLAGS='-dynamiclib -single_module $(LDFLAGS)'
-    CXXPICFLAG=
-    CPICFLAG=
-    FPICFLAG=
-    SHLEXT="dylib"
-    SHLLIB='$(SHLEXT)'
-    SHLEXT_VER='$(version).$(SHLEXT)'
-    SHLLIB_VER='$(version).$(SHLLIB)'
-    NO_OCT_FILE_STRIP="true"
-    SONAME_FLAGS='-install_name $(octlibdir)/'
-    library_path_var=DYLD_LIBRARY_PATH
   ;;
   *-*-cygwin* | *-*-mingw*)
-    CXXPICFLAG=
-    CPICFLAG=
-    FPICFLAG=
-    SHLEXT=dll
-    SHLLIB=dll.a
-    SHLBIN=dll
     SH_LDFLAGS="-shared"
-    SHLLINKEXT=".dll"
-    SONAME_FLAGS='-Wl,--out-implib=.a'
-    library_path_var=PATH
   ;;
   *-*-linux* | *-*-gnu*)
-    MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
-    SONAME_FLAGS=''
-    RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
-    CPICFLAG="-fPIC"
-    CXXPICFLAG="-fPIC"
-    FPICFLAG="-fPIC"
   ;;
   i[3456]86-*-sco3.2v5*)
-    SONAME_FLAGS='-Wl,-h -Wl,'
-    RLD_FLAG=
-    SH_LDFLAGS=-G
+    SH_LDFLAGS="-G"
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
-    CPICFLAG=
-    CXXPICFLAG=
-    FPICFLAG=
-    DLFCN_DIR=dlfcn
     SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
     SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared"
-    use_ldaix="yes"
-
   ;;
   hppa*-hp-hpux*)
-    if test "$ac_cv_f77_compiler_gnu" = yes; then
-      FPICFLAG=-fPIC
-    else
-      FPICFLAG=+Z
-    fi
-    SHLEXT=sl
     SH_LDFLAGS="-shared -fPIC"
-    RLD_FLAG='-Wl,+b -Wl,$(octlibdir)'
   ;;
   *-sgi-*)
-    CPICFLAG=
-    CXXPICFLAG=
-    FPICFLAG=
-    RLD_FLAG='-rpath $(octlibdir)'
+      true
   ;;
   sparc-sun-sunos4*)
-    if test "$ac_cv_f77_compiler_gnu" = yes; then
-      FPICFLAG=-fPIC
-    else
-      FPICFLAG=-PIC
-    fi
     SH_LD=ld
     SH_LDFLAGS="-assert nodefinitions"
-    RLD_FLAG='-L$(octlibdir)'
-
   ;;
   sparc-sun-solaris2* | i386-pc-solaris2*)
-    if test "$ac_cv_f77_compiler_gnu" = yes; then
-      FPICFLAG=-fPIC
-    else
-      FPICFLAG=-KPIC
-    fi
-    if test "$ac_cv_fc_compiler_gnu" = yes; then
-      FPICFLAG=-fPIC
-    else
-      FPICFLAG=-KPIC
-    fi
-    if test "$GCC" = yes; then
-      CPICFLAG="-fPIC"
-    else
-      CPICFLAG=-KPIC
-    fi
-    if test "$GXX" = yes; then
-      CXXPICFLAG=-fPIC
-    else
-      CXXPICFLAG=-KPIC
+    if test "$GXX" != yes; then
       SH_LDFLAGS=-G
-    fi
-    RLD_FLAG='-R $(octlibdir)'
-    # Template closures in archive libraries need a different mechanism.
-    if test "$GXX" = yes; then
-      true
-    else
-      TEMPLATE_AR='$(CXX)'
-      TEMPLATE_ARFLAGS="-xar -o"
     fi
   ;;
 esac
@@ -13103,12 +13019,11 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 acx_huti_save_LIBS="$LIBS"
-LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
 
 # First, check HUTI_LIBS environment variable
 if test $acx_huti_ok = no; then
 if test "x$HUTI_LIBS" != x; then
-	save_LIBS="$LIBS"; LIBS="$HUTI_LIBS $LIBS"
+	save_LIBS="$LIBS"; LIBS="$LIBS $HUTI_LIBS $BLAS_LIBS $FCLIBS $FLIBS"
 	echo "$as_me:$LINENO: checking for $huti_d_gmres in $HUTI_LIBS" >&5
 echo $ECHO_N "checking for $huti_d_gmres in $HUTI_LIBS... $ECHO_C" >&6
 	cat >conftest.$ac_ext <<_ACEOF
@@ -13188,6 +13103,7 @@ fi
 
 # Generic HUTI library?
 if test $acx_huti_ok = no; then
+	save_LIBS="$LIBS"; LIBS="$LIBS $HUTI_LIBS $BLAS_LIBS $FCLIBS $FLIBS"
 	as_ac_Lib=`echo "ac_cv_lib_huti_$huti_d_gmres" | $as_tr_sh`
 echo "$as_me:$LINENO: checking for $huti_d_gmres in -lhuti" >&5
 echo $ECHO_N "checking for $huti_d_gmres in -lhuti... $ECHO_C" >&6
@@ -13273,6 +13189,7 @@ if test `eval echo '${'$as_ac_Lib'}'` = yes; then
   acx_huti_ok=yes; HUTI_LIBS="-lhuti"
 fi
 
+	LIBS="$save_LIBS"
 fi
 
 
@@ -15451,7 +15368,6 @@ s,@EGREP@,$EGREP,;t t
 s,@B64FLAGS@,$B64FLAGS,;t t
 s,@FLIBS@,$FLIBS,;t t
 s,@FCLIBS@,$FCLIBS,;t t
-s,@use_ldaix@,$use_ldaix,;t t
 s,@mpi_dir@,$mpi_dir,;t t
 s,@mpi_lib_dir@,$mpi_lib_dir,;t t
 s,@mpi_inc_dir@,$mpi_inc_dir,;t t

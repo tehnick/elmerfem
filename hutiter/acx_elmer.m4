@@ -124,12 +124,12 @@ AC_FC_FUNC(huti_d_gmres)
 AC_FC_FUNC(huti_d_cgs)
 
 acx_huti_save_LIBS="$LIBS"
-LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
+dnl LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
 
 # First, check HUTI_LIBS environment variable
 if test $acx_huti_ok = no; then
 if test "x$HUTI_LIBS" != x; then
-	save_LIBS="$LIBS"; LIBS="$HUTI_LIBS $LIBS"
+	save_LIBS="$LIBS"; LIBS="$LIBS $HUTI_LIBS $BLAS_LIBS $FCLIBS $FLIBS"
 	AC_MSG_CHECKING([for $huti_d_gmres in $HUTI_LIBS])
 	AC_TRY_LINK_FUNC($huti_d_gmres, [acx_huti_ok=yes], [HUTI_LIBS=""])
 	AC_MSG_RESULT($acx_huti_ok)
@@ -139,7 +139,9 @@ fi
 
 # Generic HUTI library?
 if test $acx_huti_ok = no; then
+	save_LIBS="$LIBS"; LIBS="$LIBS $HUTI_LIBS $BLAS_LIBS $FCLIBS $FLIBS"
 	AC_CHECK_LIB(huti, $huti_d_gmres, [acx_huti_ok=yes; HUTI_LIBS="-lhuti"])
+	LIBS="$save_LIBS"
 fi
 
 AC_SUBST(HUTI_LIBS)
