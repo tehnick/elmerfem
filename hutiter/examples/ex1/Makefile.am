@@ -2,7 +2,7 @@ INCLUDES = \
 	-I$(top_builddir)/include       \
 	-I$(top_srcdir)/include         
 
-check_PROGRAMS = hutiex
+noinst_PROGRAMS=hutiex
 
 hutiex_SOURCES = \
 	globals_module.f90 \
@@ -12,4 +12,4 @@ hutiex_SOURCES = \
 hutiex_LDADD = \
 	../../src/libhuti.a
 
-TESTS = testmat.script
+
