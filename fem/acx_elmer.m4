@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.34 2005/05/24 19:32:19 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.35 2005/05/24 21:29:52 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -73,6 +73,7 @@ else
 AC_MSG_RESULT([optimized])
   case "$canonical_host_type" in
      rs6000-ibm-aix* | powerpc-ibm-aix*)
+	dnl better optimization on ibm
 	ACX_OPT_FLAG="-O -qmaxmem=-1 -qstrict"
      ;;
      *)
@@ -840,6 +841,15 @@ else
    CPP="/lib/cpp"
 fi
 
+case "$canonical_host_type" in
+  *-*-linux* | *-*-gnu*)
+	TRADITIONAL_CPP_FLAGS="-traditional-cpp"
+  ;;
+  *)
+	TRADITIONAL_CPP_FLAGS=""
+  ;;
+esac
+
 AC_SUBST(CPP)
 ])
 
@@ -1106,15 +1116,8 @@ DL_LD='$(SH_LD)'
 DL_LDFLAGS='$(SH_LDFLAGS)'
 MKOCTFILE_DL_LDFLAGS='$(DL_LDFLAGS)'
 SONAME_FLAGS=
-RLD_FLAG=
-NO_OCT_FILE_STRIP=false
-TEMPLATE_AR='$(AR)'
-TEMPLATE_ARFLAGS="$ARFLAGS"
 library_path_var=LD_LIBRARY_PATH
 LIBSOLVER_DEPS=$LIBS
-
-FCPPFLAGS="-I. -I$prefix/include -DDLLEXPORT=\"!\" -DFULL_INDUCTION -DUSE_ARPACK"
-TESTS_FCFLAGS=""
 
 dnl 
 dnl Host specific stuff
@@ -1161,7 +1164,6 @@ case "$canonical_host_type" in
     SHLLINKEXT=".dll"
     SONAME_FLAGS='-Wl,--out-implib=$@.a'
     library_path_var=PATH
-    FCPPFLAGS="-DWIN32"
   ;;
   *-*-linux* | *-*-gnu*)
     MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
@@ -1170,7 +1172,6 @@ case "$canonical_host_type" in
     CPICFLAG="-fPIC"
     CXXPICFLAG="-fPIC"
     FPICFLAG="-fPIC"
-    FCPPFLAGS="-traditional-cpp -P $FCPPFLAGS"
   ;;
   i[[3456]]86-*-sco3.2v5*)
     SONAME_FLAGS='-Wl,-h -Wl,$@'
@@ -1186,7 +1187,6 @@ case "$canonical_host_type" in
     SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared"
     use_ldaix="yes"
     AC_SUBST(use_ldaix)
-    FCPPFLAGS="-P $FCPPFLAGS"
   ;;
   hppa*-hp-hpux*)
     if test "$ac_cv_f77_compiler_gnu" = yes; then
@@ -1245,7 +1245,6 @@ case "$canonical_host_type" in
       TEMPLATE_AR='$(CXX)'
       TEMPLATE_ARFLAGS="-xar -o"
     fi
-    FCPPFLAGS="-P $FCPPFLAGS"
   ;;
 esac
 

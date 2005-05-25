@@ -50,6 +50,8 @@ CFLAGS="$CFLAGS -I$prefix/include"
 FCFLAGS="$FCFLAGS -I. -I$prefix/include"
 FFFLAGS="$FCFLAGS -I. -I$prefix/include"
 ELMER_HOME="$prefix"
+FCPPFLAGS="-P $TRADITIONAL_CPP_FLAGS -I. -I$prefix/include -DDLLEXPORT=\"!\" -DFULL_INDUCTION -DUSE_ARPACK"
+TESTS_FCFLAGS=""
 
 ELMER_LIBERRORMSG="wasn't found, make sure it is in the prefix, or CFLAGS and LIBS are correct if they are somewhere else."
 
@@ -96,7 +98,7 @@ dnl
 case "$FC" in
   *xlf*)
     TESTS_FCFLAGS="$FCFLAGS -qsuffix=cpp=f90"
-    FCFLAGS="$FCFLAGS -qsuffix=cpp=F90"
+    FCFLAGS="$FCFLAGS -qsuffix=cpp=F95"
   ;;
   ifort | ifc )
     TESTS_FCFLAGS="$FCFLAGS"

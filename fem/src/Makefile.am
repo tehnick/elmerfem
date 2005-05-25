@@ -25,12 +25,12 @@ include make.dep
 # attach to automake all target
 all-local:   mpif libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
 
-SUFFIXES: .f90 .so .F90
+SUFFIXES: .f90 .so .F95
 
-.f90.F90:
-	@CPP@ @FCPPFLAGS@ $< > $*.F90
+.f90.F95:
+	@CPP@ @FCPPFLAGS@ $< > $*.F95
 
-.F90.@OBJEXT@:
+.F95.@OBJEXT@:
 	@FC@ @FCFLAGS@ -c $<
 
 libsolver$(SHL_EXT): $(SOLVEROBJS) arpack parpack 

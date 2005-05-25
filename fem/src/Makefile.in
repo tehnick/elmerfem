@@ -51,7 +51,7 @@ am__aclocal_m4_deps = $(top_srcdir)/acx_blas.m4 \
 	$(top_srcdir)/acx_blas.m4 $(top_srcdir)/configure.in
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
-mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
+mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
@@ -546,7 +546,7 @@ EXTRA_DIST = \
 all: all-recursive
 
 .SUFFIXES:
-.SUFFIXES: .@OBJEXT@ .@SHLEXT@ .F90 .c .f90 .o .obj
+.SUFFIXES: .@OBJEXT@ .@SHLEXT@ .F95 .c .f90 .o .obj
 $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am $(srcdir)/make.bin $(srcdir)/make.dep $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -898,119 +898,119 @@ uninstall-info: uninstall-info-recursive
 	tags tags-recursive uninstall uninstall-am \
 	uninstall-binPROGRAMS uninstall-info-am
 
-Acoustics.o: Acoustics.F90 DefUtils.o LinearAlgebra.o
-Adaptive.o: Adaptive.F90 CRSMatrix.o ModelDescription.o GeneralUtils.o Types.o SolverUtils.o
-AdvectionDiffusion.o: AdvectionDiffusion.F90 MaterialModels.o DefUtils.o Differentials.o Integration.o SolverUtils.o
-ApertureAmplitude.o: ApertureAmplitude.F90 SolverUtils.o ElementDescription.o Lists.o Types.o Integration.o
-AplacExport.o: AplacExport.F90 SolverUtils.o ElementDescription.o Lists.o Types.o Integration.o
-ArtificialCompressibility.o: ArtificialCompressibility.F90 SolverUtils.o ElementDescription.o Lists.o Types.o Integration.o
-BandMatrix.o: BandMatrix.F90 GeneralUtils.o Types.o
-BandwidthOptimize.o: BandwidthOptimize.F90 ElementDescription.o
-CRSMatrix.o: CRSMatrix.F90 GeneralUtils.o
-CoordinateSystems.o: CoordinateSystems.F90 Types.o
-DCRComplexSolve.o: DCRComplexSolve.F90 Radiation.o Integration.o Lists.o ElementDescription.o CoordinateSystems.o LinearAlgebra.o Adaptive.o Types.o SolverUtils.o
-DefUtils.o: DefUtils.F90 PElementMaps.o Adaptive.o LinearAlgebra.o Integration.o SolverUtils.o
-Differentials.o: Differentials.F90 ElementDescription.o LinearAlgebra.o Types.o
-DiffuseConvectiveAnisotropic.o: DiffuseConvectiveAnisotropic.F90 MaterialModels.o Differentials.o Integration.o
-DiffuseConvectiveGeneralAnisotropic.o: DiffuseConvectiveGeneralAnisotropic.F90 MaterialModels.o Differentials.o Integration.o
-DirectSolve.o: DirectSolve.F90 CRSMatrix.o BandMatrix.o Types.o Lists.o
-DissipativeHelmholtz.o: DissipativeHelmholtz.F90 SolverUtils.o ElementDescription.o Lists.o Types.o Integration.o
-EigenSolve.o: EigenSolve.F90 CRSMatrix.o IterSolve.o Multigrid.o Types.o
-ElasticSolve.o: ElasticSolve.F90 MaterialModels.o DefUtils.o Integration.o LinearAlgebra.o CoordinateSystems.o ElementDescription.o Adaptive.o Types.o
-ElectricForce.o: ElectricForce.F90 DefUtils.o Integration.o Lists.o MeshUtils.o ElementDescription.o Types.o SolverUtils.o
-Electrokinetics.o: Electrokinetics.F90 DefUtils.o Lists.o Types.o CoordinateSystems.o
-ElementDescription.o: ElementDescription.F90 PElementBase.o GeneralUtils.o Integration.o Lists.o PElementMaps.o LinearAlgebra.o CoordinateSystems.o
-ElementUtils.o: ElementUtils.F90 CRSMatrix.o BandwidthOptimize.o BandMatrix.o Integration.o Interpolation.o
-EliminateDirichlet.o: EliminateDirichlet.F90 CRSMatrix.o GeneralUtils.o Lists.o Types.o SolverUtils.o
-EliminatePeriodic.o: EliminatePeriodic.F90 CRSMatrix.o GeneralUtils.o Lists.o Types.o SolverUtils.o
-ElmerSolver.o: ElmerSolver.F90 MainUtils.o
-EnergyRelease.o: EnergyRelease.F90 DefUtils.o
-FDiffusion.o: FDiffusion.F90 Integration.o Lists.o LinearAlgebra.o ElementDescription.o Types.o SolverUtils.o
-FDiffusion3D.o: FDiffusion3D.F90 Integration.o Lists.o LinearAlgebra.o ElementDescription.o Types.o SolverUtils.o
-FindOptimum.o: FindOptimum.F90 Integration.o Lists.o MeshUtils.o ElementDescription.o Types.o SolverUtils.o
-FlowSolve.o: FlowSolve.F90 NavierStokes.o NavierStokesCylindrical.o DefUtils.o Radiation.o NavierStokesGeneral.o FreeSurface.o CoordinateSystems.o ElementDescription.o Adaptive.o Types.o
-FluidicForce.o: FluidicForce.F90 MaterialModels.o DefUtils.o Integration.o Lists.o MeshUtils.o ElementDescription.o Types.o SolverUtils.o
-FreeSurface.o: FreeSurface.F90 IterSolve.o ElementUtils.o DirectSolve.o
-FreeSurfaceReduced.o: FreeSurfaceReduced.F90 ElementUtils.o Differentials.o Integration.o Lists.o MeshUtils.o ElementDescription.o Types.o SolverUtils.o
-FreeSurfaceSolver.o: FreeSurfaceSolver.F90 DefUtils.o
-GebhardtFactors.o: GebhardtFactors.F90 ModelDescription.o Lists.o IterSolve.o ElementDescription.o CoordinateSystems.o CRSMatrix.o MainUtils.o Types.o SolverUtils.o
-GeneralUtils.o: GeneralUtils.F90 Types.o
-HashTable.o: HashTable.F90 Lists.o
-HeatSolve.o: HeatSolve.F90 MaterialModels.o DiffuseConvectiveGeneralAnisotropic.o DiffuseConvectiveAnisotropic.o DefUtils.o Differentials.o Radiation.o ElementDescription.o CoordinateSystems.o Adaptive.o Types.o
-HelmholtzBEM.o: HelmholtzBEM.F90 DefUtils.o Types.o PoissonBEM.o
-HelmholtzSolve.o: HelmholtzSolve.F90 DefUtils.o LinearAlgebra.o
-IMeshToMesh.o: IMeshToMesh.F90 CRSMatrix.o CoordinateSystems.o Interpolation.o
-Integration.o: Integration.F90 LinearAlgebra.o Types.o
-Interpolation.o: Interpolation.F90 ElementDescription.o Lists.o Types.o CoordinateSystems.o
-IrrotationalVelocity.o: IrrotationalVelocity.F90 Integration.o Lists.o LinearAlgebra.o ElementDescription.o Types.o SolverUtils.o
-IterSolve.o: IterSolve.F90 CRSMatrix.o BandMatrix.o Lists.o
-KESolver.o: KESolver.F90 DefUtils.o MaterialModels.o
-LUDecomposition.o: LUDecomposition.F90 Types.o
-LinearAlgebra.o: LinearAlgebra.F90 Types.o
-Lists.o: Lists.F90 GeneralUtils.o Messages.o Types.o
-MEMLumping.o: MEMLumping.F90 DefUtils.o Integration.o Lists.o ElementDescription.o Types.o SolverUtils.o
-MEMReynolds.o: MEMReynolds.F90 DefUtils.o Integration.o Lists.o ElementDescription.o MEMUtilities.o Types.o SolverUtils.o
-MEMStatElecReduced.o: MEMStatElecReduced.F90 ElementUtils.o DefUtils.o Differentials.o Integration.o Lists.o ElementDescription.o MEMUtilities.o Types.o SolverUtils.o
-MEMUtilities.o: MEMUtilities.F90 SolverUtils.o ElementDescription.o Lists.o Types.o Integration.o
-MGPrec.o: MGPrec.F90 Multigrid.o
-MagneticSolve.o: MagneticSolve.F90 MaxwellGeneral.o Maxwell.o Differentials.o DefUtils.o MaxwellAxiS.o Types.o
-MagneticW1Solve.o: MagneticW1Solve.F90 Differentials.o DirectSolve.o ElementUtils.o Integration.o Lists.o BandwidthOptimize.o IterSolve.o FreeSurface.o ElementDescription.o CoordinateSystems.o TimeIntegrate.o Types.o SolverUtils.o
-MainUtils.o: MainUtils.F90 ModelDescription.o SolverUtils.o
-MaterialModels.o: MaterialModels.F90 Integration.o ElementDescription.o CoordinateSystems.o LinearAlgebra.o ModelDescription.o Types.o
-Maxwell.o: Maxwell.F90 ElementDescription.o Integration.o
-MaxwellAxiS.o: MaxwellAxiS.F90 ElementDescription.o Integration.o Types.o
-MaxwellGeneral.o: MaxwellGeneral.F90 ElementDescription.o Integration.o
-MeshSolve.o: MeshSolve.F90 DefUtils.o Differentials.o CoordinateSystems.o SolverUtils.o
-MeshUtils.o: MeshUtils.F90 PElementBase.o ParallelUtils.o PElementMaps.o ElementUtils.o ElementDescription.o
-Messages.o: Messages.F90
-ModelDescription.o: ModelDescription.F90 MeshUtils.o ElementDescription.o HashTable.o Types.o
-Multigrid.o: Multigrid.F90 DirectSolve.o IterSolve.o CoordinateSystems.o CRSMatrix.o ModelDescription.o Interpolation.o
-NavierStokes.o: NavierStokes.F90 MaterialModels.o ElementUtils.o Differentials.o Integration.o
-NavierStokesCylindrical.o: NavierStokesCylindrical.F90 MaterialModels.o ElementUtils.o Differentials.o CoordinateSystems.o Integration.o
-NavierStokesGeneral.o: NavierStokesGeneral.F90 MaterialModels.o Differentials.o CoordinateSystems.o Integration.o
-PElementBase.o: PElementBase.F90 PElementMaps.o Messages.o Types.o
-PElementMaps.o: PElementMaps.F90 Messages.o Types.o
-ParallelEigenSolve.o: ParallelEigenSolve.F90 SParIterGlobals.o Multigrid.o ParallelUtils.o SParIterSolver.o IterSolve.o CRSMatrix.o
-ParallelUtils.o: ParallelUtils.F90 SParIterSolver.o
-PhaseChange.o: PhaseChange.F90 GeneralUtils.o DefUtils.o Differentials.o Integration.o Lists.o ElementDescription.o CoordinateSystems.o Types.o SolverUtils.o
-PoissonBEM.o: PoissonBEM.F90 DefUtils.o Types.o
-PoissonBoltzmannSolve.o: PoissonBoltzmannSolve.F90 ElementUtils.o DefUtils.o Differentials.o Integration.o Lists.o ElementDescription.o Adaptive.o Types.o SolverUtils.o
-Radiation.o: Radiation.F90 ElementUtils.o CoordinateSystems.o
-RadiationFactors.o: RadiationFactors.F90 ModelDescription.o GeneralUtils.o ElementUtils.o Lists.o IterSolve.o ElementDescription.o CoordinateSystems.o CRSMatrix.o MainUtils.o Types.o SolverUtils.o
-RateOfChange.o: RateOfChange.F90 ElementUtils.o Integration.o Lists.o ElementDescription.o Types.o SolverUtils.o
-ReloadInput.o: ReloadInput.F90 ModelDescription.o Lists.o Types.o
-ResultToPost.o: ResultToPost.F90 MainUtils.o
-ResultToResult.o: ResultToResult.F90 SParIterGlobals.o ModelDescription.o Integration.o Lists.o SParIterSolver.o ElementDescription.o CoordinateSystems.o SParIterComm.o MainUtils.o Types.o Interpolation.o
-ReynoldsEquation.o: ReynoldsEquation.F90 Integration.o Lists.o ElementDescription.o ReynoldsUtilities.o Types.o SolverUtils.o
-ReynoldsUtilities.o: ReynoldsUtilities.F90 Types.o
-RigidBodyReduction.o: RigidBodyReduction.F90 DefUtils.o GeneralUtils.o Integration.o Lists.o CRSMatrix.o Types.o SolverUtils.o
-SParIterComm.o: SParIterComm.F90 SParIterGlobals.o GeneralUtils.o Types.o
-SParIterGlobals.o: SParIterGlobals.F90 Types.o
-SParIterPrecond.o: SParIterPrecond.F90 SParIterGlobals.o SParIterComm.o Types.o
-SParIterSolver.o: SParIterSolver.F90 SParIterGlobals.o Lists.o CRSMatrix.o SParIterComm.o SParIterPrecond.o Types.o
-SaveData.o: SaveData.F90 DefUtils.o Integration.o Lists.o MeshUtils.o ElementDescription.o Types.o SolverUtils.o
-ShearWave.o: ShearWave.F90 Integration.o Lists.o LinearAlgebra.o ElementDescription.o Types.o SolverUtils.o
-Smitc.o: Smitc.F90 DefUtils.o
-SolveBand.o: SolveBand.F90
-SolveSBand.o: SolveSBand.F90
-Solver.o: Solver.F90 GeneralUtils.o Types.o
-SolverUtils.o: SolverUtils.F90 SParIterGlobals.o Multigrid.o ParallelEigenSolve.o ParallelUtils.o DirectSolve.o ElementUtils.o SParIterSolver.o IterSolve.o MeshUtils.o LinearAlgebra.o TimeIntegrate.o ModelDescription.o Types.o EigenSolve.o
-SparseMatrix.o: SparseMatrix.F90 GeneralUtils.o
-StatCurrentSolve.o: StatCurrentSolve.F90 ElementUtils.o DefUtils.o Differentials.o Integration.o Lists.o ElementDescription.o Types.o SolverUtils.o
-StatElecReduced.o: StatElecReduced.F90 ElementUtils.o Differentials.o Integration.o Lists.o ElementDescription.o Types.o SolverUtils.o
-StatElecSolve.o: StatElecSolve.F90 ElementUtils.o DefUtils.o Differentials.o Integration.o Lists.o ElementDescription.o CoordinateSystems.o Adaptive.o Types.o SolverUtils.o
-StatMagSolve.o: StatMagSolve.F90 DefUtils.o Differentials.o ElementDescription.o Integration.o Types.o
-StreamSolver.o: StreamSolver.F90 DefUtils.o
-Stress.o: Stress.F90 ElementUtils.o ElementDescription.o Integration.o
-StressGeneral.o: StressGeneral.F90 ElementDescription.o CoordinateSystems.o Integration.o
-StressSolve.o: StressSolve.F90 Stress.o DefUtils.o StressGeneral.o ElementDescription.o CoordinateSystems.o Adaptive.o Types.o
-TimeIntegrate.o: TimeIntegrate.F90 Lists.o Types.o
-TransportEquation.o: TransportEquation.F90 ElementUtils.o Integration.o Lists.o ElementDescription.o Types.o SolverUtils.o
-Types.o: Types.F90 Messages.o
-ViewFactors.o: ViewFactors.F90 DefUtils.o Types.o
-Walls.o: Walls.F90
-solve_cmplx.o: solve_cmplx.F90
-solve_real.o: solve_real.F90
+Acoustics.o: Acoustics.F95 DefUtils.o LinearAlgebra.o
+Adaptive.o: Adaptive.F95 CRSMatrix.o ModelDescription.o GeneralUtils.o Types.o SolverUtils.o
+AdvectionDiffusion.o: AdvectionDiffusion.F95 MaterialModels.o DefUtils.o Differentials.o Integration.o SolverUtils.o
+ApertureAmplitude.o: ApertureAmplitude.F95 SolverUtils.o ElementDescription.o Lists.o Types.o Integration.o
+AplacExport.o: AplacExport.F95 SolverUtils.o ElementDescription.o Lists.o Types.o Integration.o
+ArtificialCompressibility.o: ArtificialCompressibility.F95 SolverUtils.o ElementDescription.o Lists.o Types.o Integration.o
+BandMatrix.o: BandMatrix.F95 GeneralUtils.o Types.o
+BandwidthOptimize.o: BandwidthOptimize.F95 ElementDescription.o
+CRSMatrix.o: CRSMatrix.F95 GeneralUtils.o
+CoordinateSystems.o: CoordinateSystems.F95 Types.o
+DCRComplexSolve.o: DCRComplexSolve.F95 Radiation.o Integration.o Lists.o ElementDescription.o CoordinateSystems.o LinearAlgebra.o Adaptive.o Types.o SolverUtils.o
+DefUtils.o: DefUtils.F95 PElementMaps.o Adaptive.o LinearAlgebra.o Integration.o SolverUtils.o
+Differentials.o: Differentials.F95 ElementDescription.o LinearAlgebra.o Types.o
+DiffuseConvectiveAnisotropic.o: DiffuseConvectiveAnisotropic.F95 MaterialModels.o Differentials.o Integration.o
+DiffuseConvectiveGeneralAnisotropic.o: DiffuseConvectiveGeneralAnisotropic.F95 MaterialModels.o Differentials.o Integration.o
+DirectSolve.o: DirectSolve.F95 CRSMatrix.o BandMatrix.o Types.o Lists.o
+DissipativeHelmholtz.o: DissipativeHelmholtz.F95 SolverUtils.o ElementDescription.o Lists.o Types.o Integration.o
+EigenSolve.o: EigenSolve.F95 CRSMatrix.o IterSolve.o Multigrid.o Types.o
+ElasticSolve.o: ElasticSolve.F95 MaterialModels.o DefUtils.o Integration.o LinearAlgebra.o CoordinateSystems.o ElementDescription.o Adaptive.o Types.o
+ElectricForce.o: ElectricForce.F95 DefUtils.o Integration.o Lists.o MeshUtils.o ElementDescription.o Types.o SolverUtils.o
+Electrokinetics.o: Electrokinetics.F95 DefUtils.o Lists.o Types.o CoordinateSystems.o
+ElementDescription.o: ElementDescription.F95 PElementBase.o GeneralUtils.o Integration.o Lists.o PElementMaps.o LinearAlgebra.o CoordinateSystems.o
+ElementUtils.o: ElementUtils.F95 CRSMatrix.o BandwidthOptimize.o BandMatrix.o Integration.o Interpolation.o
+EliminateDirichlet.o: EliminateDirichlet.F95 CRSMatrix.o GeneralUtils.o Lists.o Types.o SolverUtils.o
+EliminatePeriodic.o: EliminatePeriodic.F95 CRSMatrix.o GeneralUtils.o Lists.o Types.o SolverUtils.o
+ElmerSolver.o: ElmerSolver.F95 MainUtils.o
+EnergyRelease.o: EnergyRelease.F95 DefUtils.o
+FDiffusion.o: FDiffusion.F95 Integration.o Lists.o LinearAlgebra.o ElementDescription.o Types.o SolverUtils.o
+FDiffusion3D.o: FDiffusion3D.F95 Integration.o Lists.o LinearAlgebra.o ElementDescription.o Types.o SolverUtils.o
+FindOptimum.o: FindOptimum.F95 Integration.o Lists.o MeshUtils.o ElementDescription.o Types.o SolverUtils.o
+FlowSolve.o: FlowSolve.F95 NavierStokes.o NavierStokesCylindrical.o DefUtils.o Radiation.o NavierStokesGeneral.o FreeSurface.o CoordinateSystems.o ElementDescription.o Adaptive.o Types.o
+FluidicForce.o: FluidicForce.F95 MaterialModels.o DefUtils.o Integration.o Lists.o MeshUtils.o ElementDescription.o Types.o SolverUtils.o
+FreeSurface.o: FreeSurface.F95 IterSolve.o ElementUtils.o DirectSolve.o
+FreeSurfaceReduced.o: FreeSurfaceReduced.F95 ElementUtils.o Differentials.o Integration.o Lists.o MeshUtils.o ElementDescription.o Types.o SolverUtils.o
+FreeSurfaceSolver.o: FreeSurfaceSolver.F95 DefUtils.o
+GebhardtFactors.o: GebhardtFactors.F95 ModelDescription.o Lists.o IterSolve.o ElementDescription.o CoordinateSystems.o CRSMatrix.o MainUtils.o Types.o SolverUtils.o
+GeneralUtils.o: GeneralUtils.F95 Types.o
+HashTable.o: HashTable.F95 Lists.o
+HeatSolve.o: HeatSolve.F95 MaterialModels.o DiffuseConvectiveGeneralAnisotropic.o DiffuseConvectiveAnisotropic.o DefUtils.o Differentials.o Radiation.o ElementDescription.o CoordinateSystems.o Adaptive.o Types.o
+HelmholtzBEM.o: HelmholtzBEM.F95 DefUtils.o Types.o PoissonBEM.o
+HelmholtzSolve.o: HelmholtzSolve.F95 DefUtils.o LinearAlgebra.o
+IMeshToMesh.o: IMeshToMesh.F95 CRSMatrix.o CoordinateSystems.o Interpolation.o
+Integration.o: Integration.F95 LinearAlgebra.o Types.o
+Interpolation.o: Interpolation.F95 ElementDescription.o Lists.o Types.o CoordinateSystems.o
+IrrotationalVelocity.o: IrrotationalVelocity.F95 Integration.o Lists.o LinearAlgebra.o ElementDescription.o Types.o SolverUtils.o
+IterSolve.o: IterSolve.F95 CRSMatrix.o BandMatrix.o Lists.o
+KESolver.o: KESolver.F95 DefUtils.o MaterialModels.o
+LUDecomposition.o: LUDecomposition.F95 Types.o
+LinearAlgebra.o: LinearAlgebra.F95 Types.o
+Lists.o: Lists.F95 GeneralUtils.o Messages.o Types.o
+MEMLumping.o: MEMLumping.F95 DefUtils.o Integration.o Lists.o ElementDescription.o Types.o SolverUtils.o
+MEMReynolds.o: MEMReynolds.F95 DefUtils.o Integration.o Lists.o ElementDescription.o MEMUtilities.o Types.o SolverUtils.o
+MEMStatElecReduced.o: MEMStatElecReduced.F95 ElementUtils.o DefUtils.o Differentials.o Integration.o Lists.o ElementDescription.o MEMUtilities.o Types.o SolverUtils.o
+MEMUtilities.o: MEMUtilities.F95 SolverUtils.o ElementDescription.o Lists.o Types.o Integration.o
+MGPrec.o: MGPrec.F95 Multigrid.o
+MagneticSolve.o: MagneticSolve.F95 MaxwellGeneral.o Maxwell.o Differentials.o DefUtils.o MaxwellAxiS.o Types.o
+MagneticW1Solve.o: MagneticW1Solve.F95 Differentials.o DirectSolve.o ElementUtils.o Integration.o Lists.o BandwidthOptimize.o IterSolve.o FreeSurface.o ElementDescription.o CoordinateSystems.o TimeIntegrate.o Types.o SolverUtils.o
+MainUtils.o: MainUtils.F95 ModelDescription.o SolverUtils.o
+MaterialModels.o: MaterialModels.F95 Integration.o ElementDescription.o CoordinateSystems.o LinearAlgebra.o ModelDescription.o Types.o
+Maxwell.o: Maxwell.F95 ElementDescription.o Integration.o
+MaxwellAxiS.o: MaxwellAxiS.F95 ElementDescription.o Integration.o Types.o
+MaxwellGeneral.o: MaxwellGeneral.F95 ElementDescription.o Integration.o
+MeshSolve.o: MeshSolve.F95 DefUtils.o Differentials.o CoordinateSystems.o SolverUtils.o
+MeshUtils.o: MeshUtils.F95 PElementBase.o ParallelUtils.o PElementMaps.o ElementUtils.o ElementDescription.o
+Messages.o: Messages.F95
+ModelDescription.o: ModelDescription.F95 MeshUtils.o ElementDescription.o HashTable.o Types.o
+Multigrid.o: Multigrid.F95 DirectSolve.o IterSolve.o CoordinateSystems.o CRSMatrix.o ModelDescription.o Interpolation.o
+NavierStokes.o: NavierStokes.F95 MaterialModels.o ElementUtils.o Differentials.o Integration.o
+NavierStokesCylindrical.o: NavierStokesCylindrical.F95 MaterialModels.o ElementUtils.o Differentials.o CoordinateSystems.o Integration.o
+NavierStokesGeneral.o: NavierStokesGeneral.F95 MaterialModels.o Differentials.o CoordinateSystems.o Integration.o
+PElementBase.o: PElementBase.F95 PElementMaps.o Messages.o Types.o
+PElementMaps.o: PElementMaps.F95 Messages.o Types.o
+ParallelEigenSolve.o: ParallelEigenSolve.F95 SParIterGlobals.o Multigrid.o ParallelUtils.o SParIterSolver.o IterSolve.o CRSMatrix.o
+ParallelUtils.o: ParallelUtils.F95 SParIterSolver.o
+PhaseChange.o: PhaseChange.F95 GeneralUtils.o DefUtils.o Differentials.o Integration.o Lists.o ElementDescription.o CoordinateSystems.o Types.o SolverUtils.o
+PoissonBEM.o: PoissonBEM.F95 DefUtils.o Types.o
+PoissonBoltzmannSolve.o: PoissonBoltzmannSolve.F95 ElementUtils.o DefUtils.o Differentials.o Integration.o Lists.o ElementDescription.o Adaptive.o Types.o SolverUtils.o
+Radiation.o: Radiation.F95 ElementUtils.o CoordinateSystems.o
+RadiationFactors.o: RadiationFactors.F95 ModelDescription.o GeneralUtils.o ElementUtils.o Lists.o IterSolve.o ElementDescription.o CoordinateSystems.o CRSMatrix.o MainUtils.o Types.o SolverUtils.o
+RateOfChange.o: RateOfChange.F95 ElementUtils.o Integration.o Lists.o ElementDescription.o Types.o SolverUtils.o
+ReloadInput.o: ReloadInput.F95 ModelDescription.o Lists.o Types.o
+ResultToPost.o: ResultToPost.F95 MainUtils.o
+ResultToResult.o: ResultToResult.F95 SParIterGlobals.o ModelDescription.o Integration.o Lists.o SParIterSolver.o ElementDescription.o CoordinateSystems.o SParIterComm.o MainUtils.o Types.o Interpolation.o
+ReynoldsEquation.o: ReynoldsEquation.F95 Integration.o Lists.o ElementDescription.o ReynoldsUtilities.o Types.o SolverUtils.o
+ReynoldsUtilities.o: ReynoldsUtilities.F95 Types.o
+RigidBodyReduction.o: RigidBodyReduction.F95 DefUtils.o GeneralUtils.o Integration.o Lists.o CRSMatrix.o Types.o SolverUtils.o
+SParIterComm.o: SParIterComm.F95 SParIterGlobals.o GeneralUtils.o Types.o
+SParIterGlobals.o: SParIterGlobals.F95 Types.o
+SParIterPrecond.o: SParIterPrecond.F95 SParIterGlobals.o SParIterComm.o Types.o
+SParIterSolver.o: SParIterSolver.F95 SParIterGlobals.o Lists.o CRSMatrix.o SParIterComm.o SParIterPrecond.o Types.o
+SaveData.o: SaveData.F95 DefUtils.o Integration.o Lists.o MeshUtils.o ElementDescription.o Types.o SolverUtils.o
+ShearWave.o: ShearWave.F95 Integration.o Lists.o LinearAlgebra.o ElementDescription.o Types.o SolverUtils.o
+Smitc.o: Smitc.F95 DefUtils.o
+SolveBand.o: SolveBand.F95
+SolveSBand.o: SolveSBand.F95
+Solver.o: Solver.F95 GeneralUtils.o Types.o
+SolverUtils.o: SolverUtils.F95 SParIterGlobals.o Multigrid.o ParallelEigenSolve.o ParallelUtils.o DirectSolve.o ElementUtils.o SParIterSolver.o IterSolve.o MeshUtils.o LinearAlgebra.o TimeIntegrate.o ModelDescription.o Types.o EigenSolve.o
+SparseMatrix.o: SparseMatrix.F95 GeneralUtils.o
+StatCurrentSolve.o: StatCurrentSolve.F95 ElementUtils.o DefUtils.o Differentials.o Integration.o Lists.o ElementDescription.o Types.o SolverUtils.o
+StatElecReduced.o: StatElecReduced.F95 ElementUtils.o Differentials.o Integration.o Lists.o ElementDescription.o Types.o SolverUtils.o
+StatElecSolve.o: StatElecSolve.F95 ElementUtils.o DefUtils.o Differentials.o Integration.o Lists.o ElementDescription.o CoordinateSystems.o Adaptive.o Types.o SolverUtils.o
+StatMagSolve.o: StatMagSolve.F95 DefUtils.o Differentials.o ElementDescription.o Integration.o Types.o
+StreamSolver.o: StreamSolver.F95 DefUtils.o
+Stress.o: Stress.F95 ElementUtils.o ElementDescription.o Integration.o
+StressGeneral.o: StressGeneral.F95 ElementDescription.o CoordinateSystems.o Integration.o
+StressSolve.o: StressSolve.F95 Stress.o DefUtils.o StressGeneral.o ElementDescription.o CoordinateSystems.o Adaptive.o Types.o
+TimeIntegrate.o: TimeIntegrate.F95 Lists.o Types.o
+TransportEquation.o: TransportEquation.F95 ElementUtils.o Integration.o Lists.o ElementDescription.o Types.o SolverUtils.o
+Types.o: Types.F95 Messages.o
+ViewFactors.o: ViewFactors.F95 DefUtils.o Types.o
+Walls.o: Walls.F95
+solve_cmplx.o: solve_cmplx.F95
+solve_real.o: solve_real.F95
 
 # dependencies
 # automatic object dependencies for .f90 files
@@ -1018,12 +1018,12 @@ solve_real.o: solve_real.F90
 # attach to automake all target
 all-local:   mpif libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
 
-SUFFIXES: .f90 .so .F90
+SUFFIXES: .f90 .so .F95
 
-.f90.F90:
-	@CPP@ @FCPPFLAGS@ $< > $*.F90
+.f90.F95:
+	@CPP@ @FCPPFLAGS@ $< > $*.F95
 
-.F90.@OBJEXT@:
+.F95.@OBJEXT@:
 	@FC@ @FCFLAGS@ -c $<
 
 libsolver$(SHL_EXT): $(SOLVEROBJS) arpack parpack 
