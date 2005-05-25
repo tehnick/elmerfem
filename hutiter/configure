@@ -681,7 +681,6 @@ B64FLAGS
 FLIBS
 FCLIBS
 BLAS_LIBS
-LAPACK_LIBS
 AM_FCFLAGS
 LIBOBJS
 LTLIBOBJS'
@@ -1077,18 +1076,28 @@ if test -n "$ac_prev"; then
 fi
 
 # Be sure to have absolute directory names.
-for ac_var in	exec_prefix prefix bindir sbindir libexecdir datarootdir \
-		datadir sysconfdir sharedstatedir localstatedir includedir \
-		oldincludedir docdir infodir htmldir dvidir pdfdir psdir \
-		libdir localedir mandir
+for ac_var in exec_prefix prefix
 do
   eval ac_val=$`echo $ac_var`
   case $ac_val in
-    [\\/$]* | ?:[\\/]* )  continue;;
-    NONE | '' ) case $ac_var in *prefix ) continue;; esac;;
+    [\\/$]* | ?:[\\/]* | NONE | '' ) ;;
+    *)  { echo "$as_me: error: expected an absolute directory name for --$ac_var: $ac_val" >&2
+   { (exit 1); exit 1; }; };;
   esac
-  { echo "$as_me: error: expected an absolute directory name for --$ac_var: $ac_val" >&2
-   { (exit 1); exit 1; }; }
+done
+
+# Be sure to have absolute directory names.
+for ac_var in bindir sbindir libexecdir datarootdir datadir sysconfdir \
+              sharedstatedir localstatedir includedir oldincludedir \
+              docdir infodir htmldir dvidir pdfdir psdir libdir \
+              localedir mandir
+do
+  eval ac_val=$`echo $ac_var`
+  case $ac_val in
+    [\\/$]* | ?:[\\/]* ) ;;
+    *)  { echo "$as_me: error: expected an absolute directory name for --$ac_var: $ac_val" >&2
+   { (exit 1); exit 1; }; };;
+  esac
 done
 
 # There might be people who depend on the old broken behavior: `$host'
@@ -1263,6 +1272,9 @@ Configuration:
   -n, --no-create         do not create output files
       --srcdir=DIR        find the sources in DIR [configure dir or \`..']
 
+_ACEOF
+
+  cat <<_ACEOF
 Installation directories:
   --prefix=PREFIX         install architecture-independent files in PREFIX
 			  [$ac_default_prefix]
@@ -1330,7 +1342,6 @@ Optional Packages:
   --with-debug            Use debugging flags (environment variables override)
   --with-64bits=yes(/no)  Try to compile using 64 bits (default)
   --with-blas=<lib>       use BLAS library <lib>
-  --with-lapack=<lib>     use LAPACK library <lib>
 
 Some influential environment variables:
   CC          C compiler command
@@ -1358,37 +1369,68 @@ if test "$ac_init_help" = "recursive"; then
     test -d $ac_dir || continue
     ac_builddir=.
 
-case "$ac_dir" in
-.) ac_dir_suffix= ac_top_builddir_sub=. ac_top_build_prefix= ;;
-*)
+if test "$ac_dir" != .; then
   ac_dir_suffix=/`echo "$ac_dir" | sed 's,^\.[\\/],,'`
-  # A ".." for each directory in $ac_dir_suffix.
-  ac_top_builddir_sub=`echo "$ac_dir_suffix" | sed 's,/[^\\/]*,/..,g;s,/,,'`
-  case $ac_top_builddir_sub in
-  "") ac_top_builddir_sub=. ac_top_build_prefix= ;;
-  *)  ac_top_build_prefix=$ac_top_builddir_sub/ ;;
-  esac ;;
-esac
-ac_abs_top_builddir=$ac_pwd
-ac_abs_builddir=$ac_pwd$ac_dir_suffix
-# for backward compatibility:
-ac_top_builddir=$ac_top_build_prefix
+  # A "../" for each directory in $ac_dir_suffix.
+  ac_top_builddir=`echo "$ac_dir_suffix" | sed 's,/[^\\/]*,../,g'`
+else
+  ac_dir_suffix= ac_top_builddir=
+fi
 
 case $srcdir in
   .)  # No --srcdir option.  We are building in place.
     ac_srcdir=.
-    ac_top_srcdir=$ac_top_builddir_sub
-    ac_abs_top_srcdir=$ac_pwd ;;
+    if test -z "$ac_top_builddir"; then
+       ac_top_srcdir=.
+    else
+       ac_top_srcdir=`echo $ac_top_builddir | sed 's,/$,,'`
+    fi ;;
   [\\/]* | ?:[\\/]* )  # Absolute name.
     ac_srcdir=$srcdir$ac_dir_suffix;
-    ac_top_srcdir=$srcdir
-    ac_abs_top_srcdir=$srcdir ;;
+    ac_top_srcdir=$srcdir ;;
   *) # Relative name.
-    ac_srcdir=$ac_top_build_prefix$srcdir$ac_dir_suffix
-    ac_top_srcdir=$ac_top_build_prefix$srcdir
-    ac_abs_top_srcdir=$ac_pwd/$srcdir ;;
+    ac_srcdir=$ac_top_builddir$srcdir$ac_dir_suffix
+    ac_top_srcdir=$ac_top_builddir$srcdir ;;
 esac
-ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
+
+# Do not use `cd foo && pwd` to compute absolute names, because
+# the directories may not exist.
+case $ac_pwd in
+.) ac_abs_builddir="$ac_dir";;
+*)
+  case "$ac_dir" in
+  .) ac_abs_builddir=$ac_pwd;;
+  [\\/]* | ?:[\\/]* ) ac_abs_builddir="$ac_dir";;
+  *) ac_abs_builddir=$ac_pwd/"$ac_dir";;
+  esac;;
+esac
+case $ac_abs_builddir in
+.) ac_abs_top_builddir=${ac_top_builddir}.;;
+*)
+  case ${ac_top_builddir}. in
+  .) ac_abs_top_builddir=$ac_abs_builddir;;
+  [\\/]* | ?:[\\/]* ) ac_abs_top_builddir=${ac_top_builddir}.;;
+  *) ac_abs_top_builddir=$ac_abs_builddir/${ac_top_builddir}.;;
+  esac;;
+esac
+case $ac_abs_builddir in
+.) ac_abs_srcdir=$ac_srcdir;;
+*)
+  case $ac_srcdir in
+  .) ac_abs_srcdir=$ac_abs_builddir;;
+  [\\/]* | ?:[\\/]* ) ac_abs_srcdir=$ac_srcdir;;
+  *) ac_abs_srcdir=$ac_abs_builddir/$ac_srcdir;;
+  esac;;
+esac
+case $ac_abs_builddir in
+.) ac_abs_top_srcdir=$ac_top_srcdir;;
+*)
+  case $ac_top_srcdir in
+  .) ac_abs_top_srcdir=$ac_abs_builddir;;
+  [\\/]* | ?:[\\/]* ) ac_abs_top_srcdir=$ac_top_srcdir;;
+  *) ac_abs_top_srcdir=$ac_abs_builddir/$ac_top_srcdir;;
+  esac;;
+esac
 
     cd $ac_dir || { ac_status=$?; continue; }
     # Check for guested configure; otherwise get Cygnus style configure.
@@ -1613,6 +1655,10 @@ ac_signal=0
 
 # confdefs.h avoids OS command line length limits that DEFS can exceed.
 rm -f -r conftest* confdefs.h
+# AIX cpp loses on an empty file, so make sure it contains at least a newline.
+# NextStep 3.3 (patch 3) loses unless the first echo outputs at least 14 bytes.
+ac_space=' '
+echo "$ac_space$ac_space$ac_space$ac_space$ac_space$ac_space$ac_space$ac_space$ac_space$ac_space$ac_space$ac_space$ac_space" >confdefs.h
 
 # Predefined preprocessor variables.
 
@@ -1806,9 +1852,9 @@ fi
 echo "$as_me:$LINENO: result: $ac_cv_build" >&5
 echo "${ECHO_T}$ac_cv_build" >&6
 build=$ac_cv_build
-build_cpu=`expr "X$ac_cv_build" : 'X\([^-]*\)'`
-build_vendor=`expr "X$ac_cv_build" : 'X[^-]*-\([^-]*\)'`
-build_os=`expr "X$ac_cv_build" : 'X[^-]*-[^-]*-\(.*\)'`
+build_cpu=`echo $ac_cv_build | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\1/'`
+build_vendor=`echo $ac_cv_build | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\2/'`
+build_os=`echo $ac_cv_build | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\3/'`
 
 
 echo "$as_me:$LINENO: checking host system type" >&5
@@ -1828,9 +1874,9 @@ fi
 echo "$as_me:$LINENO: result: $ac_cv_host" >&5
 echo "${ECHO_T}$ac_cv_host" >&6
 host=$ac_cv_host
-host_cpu=`expr "X$ac_cv_host" : 'X\([^-]*\)'`
-host_vendor=`expr "X$ac_cv_host" : 'X[^-]*-\([^-]*\)'`
-host_os=`expr "X$ac_cv_host" : 'X[^-]*-[^-]*-\(.*\)'`
+host_cpu=`echo $ac_cv_host | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\1/'`
+host_vendor=`echo $ac_cv_host | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\2/'`
+host_os=`echo $ac_cv_host | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\3/'`
 
 
 echo "$as_me:$LINENO: checking target system type" >&5
@@ -1850,9 +1896,9 @@ fi
 echo "$as_me:$LINENO: result: $ac_cv_target" >&5
 echo "${ECHO_T}$ac_cv_target" >&6
 target=$ac_cv_target
-target_cpu=`expr "X$ac_cv_target" : 'X\([^-]*\)'`
-target_vendor=`expr "X$ac_cv_target" : 'X[^-]*-\([^-]*\)'`
-target_os=`expr "X$ac_cv_target" : 'X[^-]*-[^-]*-\(.*\)'`
+target_cpu=`echo $ac_cv_target | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\1/'`
+target_vendor=`echo $ac_cv_target | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\2/'`
+target_os=`echo $ac_cv_target | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\3/'`
 
 
 # The aliases save the names the user supplied, while $host etc.
@@ -2322,6 +2368,14 @@ am__tar='${AMTAR} chof - "$$tardir"'; am__untar='${AMTAR} xf -'
 
 
 
+
+
+
+
+
+
+
+
 acx_debug=no
 
 
@@ -2357,12 +2411,10 @@ echo "$as_me:$LINENO: result: optimized" >&5
 echo "${ECHO_T}optimized" >&6
   case "$canonical_host_type" in
      rs6000-ibm-aix* | powerpc-ibm-aix*)
-	ACX_COPT_FLAG="-O -qmaxmem=-1 -qstrict"
-	ACX_LOPT_FLAGS="-bmaxdata:2000000000 -bmaxstack:2000000000"
+		ACX_OPT_FLAG="-O -qmaxmem=-1 -qstrict"
      ;;
      *)
 	ACX_OPT_FLAG="-O"
-	ACX_LOPT_FLAG=""
      ;;
   esac
 
@@ -5276,7 +5328,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:5279:" \
+echo "$as_me:5331:" \
      "checking for Fortran compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -5523,7 +5575,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:5526:" \
+echo "$as_me:5578:" \
      "checking for Fortran 77 compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -5666,7 +5718,6 @@ ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
-
 
 
 
@@ -6511,7 +6562,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_verb"
-(eval echo $as_me:6514: \"$ac_link\") >&5
+(eval echo $as_me:6565: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -6595,7 +6646,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_cv_prog_f77_v"
-(eval echo $as_me:6598: \"$ac_link\") >&5
+(eval echo $as_me:6649: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -7342,7 +7393,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_verb"
-(eval echo $as_me:7345: \"$ac_link\") >&5
+(eval echo $as_me:7396: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -7426,7 +7477,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_cv_prog_fc_v"
-(eval echo $as_me:7429: \"$ac_link\") >&5
+(eval echo $as_me:7480: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -8159,7 +8210,6 @@ LIBS="$LIBS -L$prefix/lib"
 CFLAGS="$CFLAGS -I$prefix/include"
 CXXFLAGS="$CXXFLAGS -I$prefix/include"
 FCFLAGS="$FCFLAGS -I. -I$prefix/include"
-
 
 
 
@@ -9931,359 +9981,7 @@ echo "$as_me: error: BLAS was not found!" >&2;}
 fi
 
 
-
-acx_lapack_ok=no
-
-
-# Check whether --with-lapack or --without-lapack was given.
-if test "${with_lapack+set}" = set; then
-  withval="$with_lapack"
-
-fi;
-case $with_lapack in
-	yes | "") ;;
-	no) acx_lapack_ok=disable ;;
-	-* | */* | *.a | *.so | *.so.* | *.o) LAPACK_LIBS="$with_lapack" ;;
-	*) LAPACK_LIBS="-l$with_lapack" ;;
-esac
-
-# Get fortran linker name of LAPACK function to check for.
-ac_ext=${ac_fc_srcext-f}
-ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
-ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_fc_compiler_gnu
-case $ac_cv_fc_mangling in
-  upper*) ac_val="CHEEV" ;;
-  lower*) ac_val="cheev" ;;
-  *)      ac_val="unknown" ;;
-esac
-case $ac_cv_fc_mangling in *," underscore"*) ac_val="$ac_val"_ ;; esac
-
-cheev="$ac_val"
-
-ac_ext=c
-ac_cpp='$CPP $CPPFLAGS'
-ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
-ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
-ac_compiler_gnu=$ac_cv_c_compiler_gnu
-
-
-# We cannot use LAPACK if BLAS is not found
-if test "x$acx_blas_ok" != xyes; then
-	acx_lapack_ok=noblas
-fi
-
-# First, check LAPACK_LIBS environment variable
-if test "x$LAPACK_LIBS" != x; then
-	save_LIBS="$LIBS"; LIBS="$LAPACK_LIBS $BLAS_LIBS $LIBS $FLIBS $FCLIBS"
-	echo "$as_me:$LINENO: checking for $cheev in $LAPACK_LIBS" >&5
-echo $ECHO_N "checking for $cheev in $LAPACK_LIBS... $ECHO_C" >&6
-	cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-
-/* Override any gcc2 internal prototype to avoid an error.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-/* We use char because int might match the return type of a gcc2
-   builtin and then its argument prototype would still apply.  */
-char $cheev ();
-#ifdef F77_DUMMY_MAIN
-
-#  ifdef __cplusplus
-     extern "C"
-#  endif
-   int F77_DUMMY_MAIN() { return 1; }
-
-#endif
-#ifdef FC_DUMMY_MAIN
-#ifndef FC_DUMMY_MAIN_EQ_F77
-#  ifdef __cplusplus
-     extern "C"
-#  endif
-   int FC_DUMMY_MAIN() { return 1; }
-#endif
-#endif
-int
-main ()
-{
-$cheev ();
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
-if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
-  (eval $ac_link) 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-	 { ac_try='test -z "$ac_c_werror_flag"
-			 || test ! -s conftest.err'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; } &&
-	 { ac_try='test -s conftest$ac_exeext'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  acx_lapack_ok=yes
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-LAPACK_LIBS=""
-fi
-rm -f conftest.err conftest.$ac_objext \
-      conftest$ac_exeext conftest.$ac_ext
-	echo "$as_me:$LINENO: result: $acx_lapack_ok" >&5
-echo "${ECHO_T}$acx_lapack_ok" >&6
-	LIBS="$save_LIBS"
-	if test acx_lapack_ok = no; then
-		LAPACK_LIBS=""
-	fi
-fi
-
-# LAPACK linked to by default?  (is sometimes included with BLAS)
-if test $acx_lapack_ok = no; then
-	save_LIBS="$LIBS"; LIBS="$LIBS $BLAS_LIBS $FLIBS $FCLIBS"
-	as_ac_var=`echo "ac_cv_func_$cheev" | $as_tr_sh`
-echo "$as_me:$LINENO: checking for $cheev" >&5
-echo $ECHO_N "checking for $cheev... $ECHO_C" >&6
-if eval "test \"\${$as_ac_var+set}\" = set"; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-/* Define $cheev to an innocuous variant, in case <limits.h> declares $cheev.
-   For example, HP-UX 11i <limits.h> declares gettimeofday.  */
-#define $cheev innocuous_$cheev
-
-/* System header to define __stub macros and hopefully few prototypes,
-    which can conflict with char $cheev (); below.
-    Prefer <limits.h> to <assert.h> if __STDC__ is defined, since
-    <limits.h> exists even on freestanding compilers.  */
-
-#ifdef __STDC__
-# include <limits.h>
-#else
-# include <assert.h>
-#endif
-
-#undef $cheev
-
-/* Override any gcc2 internal prototype to avoid an error.  */
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-/* We use char because int might match the return type of a gcc2
-   builtin and then its argument prototype would still apply.  */
-char $cheev ();
-/* The GNU C library defines this for functions which it implements
-    to always fail with ENOSYS.  Some functions are actually named
-    something starting with __ and the normal name is an alias.  */
-#if defined (__stub_$cheev) || defined (__stub___$cheev)
-choke me
-#else
-char (*f) () = $cheev;
-#endif
-#ifdef __cplusplus
-}
-#endif
-
-#ifdef F77_DUMMY_MAIN
-
-#  ifdef __cplusplus
-     extern "C"
-#  endif
-   int F77_DUMMY_MAIN() { return 1; }
-
-#endif
-#ifdef FC_DUMMY_MAIN
-#ifndef FC_DUMMY_MAIN_EQ_F77
-#  ifdef __cplusplus
-     extern "C"
-#  endif
-   int FC_DUMMY_MAIN() { return 1; }
-#endif
-#endif
-int
-main ()
-{
-return f != $cheev;
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
-if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
-  (eval $ac_link) 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-	 { ac_try='test -z "$ac_c_werror_flag"
-			 || test ! -s conftest.err'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; } &&
-	 { ac_try='test -s conftest$ac_exeext'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  eval "$as_ac_var=yes"
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-eval "$as_ac_var=no"
-fi
-rm -f conftest.err conftest.$ac_objext \
-      conftest$ac_exeext conftest.$ac_ext
-fi
-echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_var'}'`" >&5
-echo "${ECHO_T}`eval echo '${'$as_ac_var'}'`" >&6
-if test `eval echo '${'$as_ac_var'}'` = yes; then
-  acx_lapack_ok=yes
-fi
-
-	LIBS="$save_LIBS"
-fi
-
-# Generic LAPACK library?
-for lapack in lapack lapack_rs6k lapack_64; do
-	if test $acx_lapack_ok = no; then
-		save_LIBS="$LIBS"; LIBS="$BLAS_LIBS $LIBS"
-		as_ac_Lib=`echo "ac_cv_lib_$lapack''_$cheev" | $as_tr_sh`
-echo "$as_me:$LINENO: checking for $cheev in -l$lapack" >&5
-echo $ECHO_N "checking for $cheev in -l$lapack... $ECHO_C" >&6
-if eval "test \"\${$as_ac_Lib+set}\" = set"; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-l$lapack $FLIBS $FCLIBS $LIBS"
-cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-
-/* Override any gcc2 internal prototype to avoid an error.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-/* We use char because int might match the return type of a gcc2
-   builtin and then its argument prototype would still apply.  */
-char $cheev ();
-#ifdef F77_DUMMY_MAIN
-
-#  ifdef __cplusplus
-     extern "C"
-#  endif
-   int F77_DUMMY_MAIN() { return 1; }
-
-#endif
-#ifdef FC_DUMMY_MAIN
-#ifndef FC_DUMMY_MAIN_EQ_F77
-#  ifdef __cplusplus
-     extern "C"
-#  endif
-   int FC_DUMMY_MAIN() { return 1; }
-#endif
-#endif
-int
-main ()
-{
-$cheev ();
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
-if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
-  (eval $ac_link) 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-	 { ac_try='test -z "$ac_c_werror_flag"
-			 || test ! -s conftest.err'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; } &&
-	 { ac_try='test -s conftest$ac_exeext'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  eval "$as_ac_Lib=yes"
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-eval "$as_ac_Lib=no"
-fi
-rm -f conftest.err conftest.$ac_objext \
-      conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Lib'}'`" >&5
-echo "${ECHO_T}`eval echo '${'$as_ac_Lib'}'`" >&6
-if test `eval echo '${'$as_ac_Lib'}'` = yes; then
-  acx_lapack_ok=yes; LAPACK_LIBS="-l$lapack"
-fi
-
-		LIBS="$save_LIBS"
-	fi
-done
-
-
-
-# Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
-if test x"$acx_lapack_ok" = xyes; then
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_LAPACK 1
-_ACEOF
-
-        :
-else
-        acx_lapack_ok=no
-        { { echo "$as_me:$LINENO: error: LAPACK was not found!" >&5
-echo "$as_me: error: LAPACK was not found!" >&2;}
-   { (exit 1); exit 1; }; }
-fi
-
-
-LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
+LIBS="$BLAS_LIBS $LIBS $FCLIBS $FLIBS"
 
 case "$FC" in
   *xlf*)
@@ -10380,10 +10078,9 @@ for ac_i in : $LIBOBJS; do test "x$ac_i" = x: && continue
   # 1. Remove the extension, and $U if already installed.
   ac_script='s/\$U\././;s/\.o$//;s/\.obj$//'
   ac_i=`echo "$ac_i" | sed "$ac_script"`
-  # 2. Prepend LIBOBJDIR.  When used with automake>=1.10 LIBOBJDIR
-  #    will be set to the directory where LIBOBJS objects are built.
-  ac_libobjs="$ac_libobjs \${LIBOBJDIR}$ac_i\$U.$ac_objext"
-  ac_ltlibobjs="$ac_ltlibobjs \${LIBOBJDIR}$ac_i"'$U.lo'
+  # 2. Add them.
+  ac_libobjs="$ac_libobjs $ac_i\$U.$ac_objext"
+  ac_ltlibobjs="$ac_ltlibobjs $ac_i"'$U.lo'
 done
 LIBOBJS=$ac_libobjs
 
@@ -10774,8 +10471,8 @@ while test $# != 0
 do
   case $1 in
   --*=*)
-    ac_option=`expr "X$1" : 'X\([^=]*\)='`
-    ac_optarg=`expr "X$1" : 'X[^=]*=\(.*\)'`
+    ac_option=`expr "x$1" : 'x\([^=]*\)='`
+    ac_optarg=`expr "x$1" : 'x[^=]*=\(.*\)'`
     ac_shift=:
     ;;
   -*)
@@ -10795,7 +10492,7 @@ _ACEOF
 cat >>$CONFIG_STATUS <<\_ACEOF
   -recheck | --recheck | --rechec | --reche | --rech | --rec | --re | --r)
     ac_cs_recheck=: ;;
-  --version | --versio | --versi | --vers | --ver | --ve | --v | -V )
+  --version | --vers* | -V )
     echo "$ac_cs_version"; exit ;;
   --he | --h)
     # Conflict between --help and --header
@@ -10806,7 +10503,7 @@ Try \`$0 --help' for more information." >&2;}
    { (exit 1); exit 1; }; };;
   --help | --hel | -h )
     echo "$ac_cs_usage"; exit ;;
-  --debug | --debu | --deb | --de | --d | -d )
+  --debug | --d* | -d )
     debug=: ;;
   --file | --fil | --fi | --f )
     $ac_shift
@@ -11033,7 +10730,6 @@ s,@B64FLAGS@,$B64FLAGS,;t t
 s,@FLIBS@,$FLIBS,;t t
 s,@FCLIBS@,$FCLIBS,;t t
 s,@BLAS_LIBS@,$BLAS_LIBS,;t t
-s,@LAPACK_LIBS@,$LAPACK_LIBS,;t t
 s,@AM_FCFLAGS@,$AM_FCFLAGS,;t t
 s,@LIBOBJS@,$LIBOBJS,;t t
 s,@LTLIBOBJS@,$LTLIBOBJS,;t t
@@ -11086,14 +10782,13 @@ for ac_file in : $CONFIG_FILES; do test "x$ac_file" = x: && continue
   # Support "outfile[:infile[:infile...]]", defaulting infile="outfile.in".
   case $ac_file in
   - | *:- | *:-:* ) # input from stdin
-	cat >"$tmp/stdin" ;;
+	cat >"$tmp/stdin"
+	ac_file_in=`echo "$ac_file" | sed 's,[^:]*:,,'`
+	ac_file=`echo "$ac_file" | sed 's,:.*,,'` ;;
+  *:* ) ac_file_in=`echo "$ac_file" | sed 's,[^:]*:,,'`
+	ac_file=`echo "$ac_file" | sed 's,:.*,,'` ;;
+  * )   ac_file_in=$ac_file.in ;;
   esac
-  case $ac_file in
-  *:*)		ac_file_in=`expr "X$ac_file" : 'X[^:]*:\(.*\)'`
-	ac_file=`expr "X$ac_file" : 'X\([^:]*\)'` ;;
-  -)	ac_file_in=- ;;
-  *)	ac_file_in=$ac_file.in ;;
-esac
 
   # Compute @srcdir@, @top_srcdir@, and @INSTALL@ for subdirectories.
   ac_dir=`(dirname "$ac_file") 2>/dev/null ||
@@ -11135,42 +10830,73 @@ echo "$as_me: error: cannot create directory \"$ac_dir\"" >&2;}
 
   ac_builddir=.
 
-case "$ac_dir" in
-.) ac_dir_suffix= ac_top_builddir_sub=. ac_top_build_prefix= ;;
-*)
+if test "$ac_dir" != .; then
   ac_dir_suffix=/`echo "$ac_dir" | sed 's,^\.[\\/],,'`
-  # A ".." for each directory in $ac_dir_suffix.
-  ac_top_builddir_sub=`echo "$ac_dir_suffix" | sed 's,/[^\\/]*,/..,g;s,/,,'`
-  case $ac_top_builddir_sub in
-  "") ac_top_builddir_sub=. ac_top_build_prefix= ;;
-  *)  ac_top_build_prefix=$ac_top_builddir_sub/ ;;
-  esac ;;
-esac
-ac_abs_top_builddir=$ac_pwd
-ac_abs_builddir=$ac_pwd$ac_dir_suffix
-# for backward compatibility:
-ac_top_builddir=$ac_top_build_prefix
+  # A "../" for each directory in $ac_dir_suffix.
+  ac_top_builddir=`echo "$ac_dir_suffix" | sed 's,/[^\\/]*,../,g'`
+else
+  ac_dir_suffix= ac_top_builddir=
+fi
 
 case $srcdir in
   .)  # No --srcdir option.  We are building in place.
     ac_srcdir=.
-    ac_top_srcdir=$ac_top_builddir_sub
-    ac_abs_top_srcdir=$ac_pwd ;;
+    if test -z "$ac_top_builddir"; then
+       ac_top_srcdir=.
+    else
+       ac_top_srcdir=`echo $ac_top_builddir | sed 's,/$,,'`
+    fi ;;
   [\\/]* | ?:[\\/]* )  # Absolute name.
     ac_srcdir=$srcdir$ac_dir_suffix;
-    ac_top_srcdir=$srcdir
-    ac_abs_top_srcdir=$srcdir ;;
+    ac_top_srcdir=$srcdir ;;
   *) # Relative name.
-    ac_srcdir=$ac_top_build_prefix$srcdir$ac_dir_suffix
-    ac_top_srcdir=$ac_top_build_prefix$srcdir
-    ac_abs_top_srcdir=$ac_pwd/$srcdir ;;
+    ac_srcdir=$ac_top_builddir$srcdir$ac_dir_suffix
+    ac_top_srcdir=$ac_top_builddir$srcdir ;;
 esac
-ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
+
+# Do not use `cd foo && pwd` to compute absolute names, because
+# the directories may not exist.
+case $ac_pwd in
+.) ac_abs_builddir="$ac_dir";;
+*)
+  case "$ac_dir" in
+  .) ac_abs_builddir=$ac_pwd;;
+  [\\/]* | ?:[\\/]* ) ac_abs_builddir="$ac_dir";;
+  *) ac_abs_builddir=$ac_pwd/"$ac_dir";;
+  esac;;
+esac
+case $ac_abs_builddir in
+.) ac_abs_top_builddir=${ac_top_builddir}.;;
+*)
+  case ${ac_top_builddir}. in
+  .) ac_abs_top_builddir=$ac_abs_builddir;;
+  [\\/]* | ?:[\\/]* ) ac_abs_top_builddir=${ac_top_builddir}.;;
+  *) ac_abs_top_builddir=$ac_abs_builddir/${ac_top_builddir}.;;
+  esac;;
+esac
+case $ac_abs_builddir in
+.) ac_abs_srcdir=$ac_srcdir;;
+*)
+  case $ac_srcdir in
+  .) ac_abs_srcdir=$ac_abs_builddir;;
+  [\\/]* | ?:[\\/]* ) ac_abs_srcdir=$ac_srcdir;;
+  *) ac_abs_srcdir=$ac_abs_builddir/$ac_srcdir;;
+  esac;;
+esac
+case $ac_abs_builddir in
+.) ac_abs_top_srcdir=$ac_top_srcdir;;
+*)
+  case $ac_top_srcdir in
+  .) ac_abs_top_srcdir=$ac_abs_builddir;;
+  [\\/]* | ?:[\\/]* ) ac_abs_top_srcdir=$ac_top_srcdir;;
+  *) ac_abs_top_srcdir=$ac_abs_builddir/$ac_top_srcdir;;
+  esac;;
+esac
 
 
   case $INSTALL in
   [\\/$]* | ?:[\\/]* ) ac_INSTALL=$INSTALL ;;
-  *) ac_INSTALL=$ac_top_build_prefix$INSTALL ;;
+  *) ac_INSTALL=$ac_top_builddir$INSTALL ;;
   esac
 
   if test x"$ac_file" != x-; then
@@ -11231,7 +10957,7 @@ s|@top_srcdir@|$ac_top_srcdir|;t t
 s|@abs_top_srcdir@|$ac_abs_top_srcdir|;t t
 s|@builddir@|$ac_builddir|;t t
 s|@abs_builddir@|$ac_abs_builddir|;t t
-s|@top_builddir@|$ac_top_builddir_sub|;t t
+s|@top_builddir@|$ac_top_builddir|;t t
 s|@abs_top_builddir@|$ac_abs_top_builddir|;t t
 s,@INSTALL@,$ac_INSTALL,;t t
 " $ac_file_inputs | (eval "$ac_sed_cmds") >"$tmp/out"
@@ -11248,7 +10974,7 @@ _ACEOF
 cat >>$CONFIG_STATUS <<\_ACEOF
 
 #
-# CONFIG_HEADERS section.
+# CONFIG_HEADER section.
 #
 
 # These sed commands are passed to sed as "A NAME B NAME C VALUE D", where
@@ -11269,14 +10995,13 @@ for ac_file in : $CONFIG_HEADERS; do test "x$ac_file" = x: && continue
   # Support "outfile[:infile[:infile...]]", defaulting infile="outfile.in".
   case $ac_file in
   - | *:- | *:-:* ) # input from stdin
-	cat >"$tmp/stdin" ;;
+	cat >"$tmp/stdin"
+	ac_file_in=`echo "$ac_file" | sed 's,[^:]*:,,'`
+	ac_file=`echo "$ac_file" | sed 's,:.*,,'` ;;
+  *:* ) ac_file_in=`echo "$ac_file" | sed 's,[^:]*:,,'`
+	ac_file=`echo "$ac_file" | sed 's,:.*,,'` ;;
+  * )   ac_file_in=$ac_file.in ;;
   esac
-  case $ac_file in
-  *:*)		ac_file_in=`expr "X$ac_file" : 'X[^:]*:\(.*\)'`
-	ac_file=`expr "X$ac_file" : 'X\([^:]*\)'` ;;
-  -)	ac_file_in=- ;;
-  *)	ac_file_in=$ac_file.in ;;
-esac
 
   test x"$ac_file" != x- && { echo "$as_me:$LINENO: creating $ac_file" >&5
 echo "$as_me: creating $ac_file" >&6;}
@@ -11493,11 +11218,8 @@ cat >>$CONFIG_STATUS <<\_ACEOF
 # CONFIG_COMMANDS section.
 #
 for ac_file in : $CONFIG_COMMANDS; do test "x$ac_file" = x: && continue
-  case $ac_file in
-  *:*)		ac_source=`expr "X$ac_file" : 'X[^:]*:\(.*\)'`
-	ac_dest=`expr "X$ac_file" : 'X\([^:]*\)'` ;;
-  *)	ac_dest=$ac_file ac_source=$ac_file ;;
-esac
+  ac_dest=`echo "$ac_file" | sed 's,:.*,,'`
+  ac_source=`echo "$ac_file" | sed 's,[^:]*:,,'`
   ac_dir=`(dirname "$ac_dest") 2>/dev/null ||
 $as_expr X"$ac_dest" : 'X\(.*[^/]\)//*[^/][^/]*/*$' \| \
 	 X"$ac_dest" : 'X\(//\)[^/]' \| \
@@ -11537,37 +11259,68 @@ echo "$as_me: error: cannot create directory \"$ac_dir\"" >&2;}
 
   ac_builddir=.
 
-case "$ac_dir" in
-.) ac_dir_suffix= ac_top_builddir_sub=. ac_top_build_prefix= ;;
-*)
+if test "$ac_dir" != .; then
   ac_dir_suffix=/`echo "$ac_dir" | sed 's,^\.[\\/],,'`
-  # A ".." for each directory in $ac_dir_suffix.
-  ac_top_builddir_sub=`echo "$ac_dir_suffix" | sed 's,/[^\\/]*,/..,g;s,/,,'`
-  case $ac_top_builddir_sub in
-  "") ac_top_builddir_sub=. ac_top_build_prefix= ;;
-  *)  ac_top_build_prefix=$ac_top_builddir_sub/ ;;
-  esac ;;
-esac
-ac_abs_top_builddir=$ac_pwd
-ac_abs_builddir=$ac_pwd$ac_dir_suffix
-# for backward compatibility:
-ac_top_builddir=$ac_top_build_prefix
+  # A "../" for each directory in $ac_dir_suffix.
+  ac_top_builddir=`echo "$ac_dir_suffix" | sed 's,/[^\\/]*,../,g'`
+else
+  ac_dir_suffix= ac_top_builddir=
+fi
 
 case $srcdir in
   .)  # No --srcdir option.  We are building in place.
     ac_srcdir=.
-    ac_top_srcdir=$ac_top_builddir_sub
-    ac_abs_top_srcdir=$ac_pwd ;;
+    if test -z "$ac_top_builddir"; then
+       ac_top_srcdir=.
+    else
+       ac_top_srcdir=`echo $ac_top_builddir | sed 's,/$,,'`
+    fi ;;
   [\\/]* | ?:[\\/]* )  # Absolute name.
     ac_srcdir=$srcdir$ac_dir_suffix;
-    ac_top_srcdir=$srcdir
-    ac_abs_top_srcdir=$srcdir ;;
+    ac_top_srcdir=$srcdir ;;
   *) # Relative name.
-    ac_srcdir=$ac_top_build_prefix$srcdir$ac_dir_suffix
-    ac_top_srcdir=$ac_top_build_prefix$srcdir
-    ac_abs_top_srcdir=$ac_pwd/$srcdir ;;
+    ac_srcdir=$ac_top_builddir$srcdir$ac_dir_suffix
+    ac_top_srcdir=$ac_top_builddir$srcdir ;;
 esac
-ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
+
+# Do not use `cd foo && pwd` to compute absolute names, because
+# the directories may not exist.
+case $ac_pwd in
+.) ac_abs_builddir="$ac_dir";;
+*)
+  case "$ac_dir" in
+  .) ac_abs_builddir=$ac_pwd;;
+  [\\/]* | ?:[\\/]* ) ac_abs_builddir="$ac_dir";;
+  *) ac_abs_builddir=$ac_pwd/"$ac_dir";;
+  esac;;
+esac
+case $ac_abs_builddir in
+.) ac_abs_top_builddir=${ac_top_builddir}.;;
+*)
+  case ${ac_top_builddir}. in
+  .) ac_abs_top_builddir=$ac_abs_builddir;;
+  [\\/]* | ?:[\\/]* ) ac_abs_top_builddir=${ac_top_builddir}.;;
+  *) ac_abs_top_builddir=$ac_abs_builddir/${ac_top_builddir}.;;
+  esac;;
+esac
+case $ac_abs_builddir in
+.) ac_abs_srcdir=$ac_srcdir;;
+*)
+  case $ac_srcdir in
+  .) ac_abs_srcdir=$ac_abs_builddir;;
+  [\\/]* | ?:[\\/]* ) ac_abs_srcdir=$ac_srcdir;;
+  *) ac_abs_srcdir=$ac_abs_builddir/$ac_srcdir;;
+  esac;;
+esac
+case $ac_abs_builddir in
+.) ac_abs_top_srcdir=$ac_top_srcdir;;
+*)
+  case $ac_top_srcdir in
+  .) ac_abs_top_srcdir=$ac_abs_builddir;;
+  [\\/]* | ?:[\\/]* ) ac_abs_top_srcdir=$ac_top_srcdir;;
+  *) ac_abs_top_srcdir=$ac_abs_builddir/$ac_top_srcdir;;
+  esac;;
+esac
 
 
   { echo "$as_me:$LINENO: executing $ac_dest commands" >&5
