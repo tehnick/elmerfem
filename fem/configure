@@ -4867,6 +4867,9 @@ else
 fi
 
 case "$canonical_host_type" in
+  *-*-cygwin* | *-*-mingw*)
+	TRADITIONAL_CPP_FLAGS="-traditional-cpp"
+  ;;
   *-*-linux* | *-*-gnu*)
 	TRADITIONAL_CPP_FLAGS="-traditional-cpp"
   ;;
@@ -5555,7 +5558,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:5558:" \
+echo "$as_me:5561:" \
      "checking for Fortran compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -5802,7 +5805,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:5805:" \
+echo "$as_me:5808:" \
      "checking for Fortran 77 compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -7621,7 +7624,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_verb"
-(eval echo $as_me:7624: \"$ac_link\") >&5
+(eval echo $as_me:7627: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -7705,7 +7708,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_cv_prog_f77_v"
-(eval echo $as_me:7708: \"$ac_link\") >&5
+(eval echo $as_me:7711: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -8452,7 +8455,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_verb"
-(eval echo $as_me:8455: \"$ac_link\") >&5
+(eval echo $as_me:8458: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -8536,7 +8539,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_cv_prog_fc_v"
-(eval echo $as_me:8539: \"$ac_link\") >&5
+(eval echo $as_me:8542: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -10624,6 +10627,7 @@ fi
 
 
 LIBS="$LIBS -L$prefix/lib"
+LDFLAGS="$LDFLAGS -L$prefix/lib"
 CFLAGS="$CFLAGS -I$prefix/include"
 FCFLAGS="$FCFLAGS -I. -I$prefix/include"
 FFFLAGS="$FCFLAGS -I. -I$prefix/include"
@@ -13103,7 +13107,7 @@ fi
 
 # Generic HUTI library?
 if test $acx_huti_ok = no; then
-	save_LIBS="$LIBS"; LIBS="$LIBS $HUTI_LIBS $BLAS_LIBS $FCLIBS $FLIBS"
+	save_LIBS="$LIBS"; LIBS="$LIBS $BLAS_LIBS $FCLIBS $FLIBS"
 	as_ac_Lib=`echo "ac_cv_lib_huti_$huti_d_gmres" | $as_tr_sh`
 echo "$as_me:$LINENO: checking for $huti_d_gmres in -lhuti" >&5
 echo $ECHO_N "checking for $huti_d_gmres in -lhuti... $ECHO_C" >&6

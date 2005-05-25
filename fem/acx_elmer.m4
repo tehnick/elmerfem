@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.37 2005/05/25 12:01:22 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.38 2005/05/25 13:02:37 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -139,7 +139,7 @@ fi
 
 # Generic HUTI library?
 if test $acx_huti_ok = no; then
-	save_LIBS="$LIBS"; LIBS="$LIBS $HUTI_LIBS $BLAS_LIBS $FCLIBS $FLIBS"
+	save_LIBS="$LIBS"; LIBS="$LIBS $BLAS_LIBS $FCLIBS $FLIBS"
 	AC_CHECK_LIB(huti, $huti_d_gmres, [acx_huti_ok=yes; HUTI_LIBS="-lhuti"])
 	LIBS="$save_LIBS"
 fi
@@ -843,6 +843,9 @@ else
 fi
 
 case "$canonical_host_type" in
+  *-*-cygwin* | *-*-mingw*)
+	TRADITIONAL_CPP_FLAGS="-traditional-cpp"
+  ;;
   *-*-linux* | *-*-gnu*)
 	TRADITIONAL_CPP_FLAGS="-traditional-cpp"
   ;;
