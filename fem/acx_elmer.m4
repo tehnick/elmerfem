@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.35 2005/05/24 21:29:52 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.36 2005/05/25 11:30:37 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1160,14 +1160,14 @@ case "$canonical_host_type" in
     SHLEXT=dll
     SHLLIB=dll.a
     SHLBIN=dll
-    SH_LDFLAGS="-shared -Wl,--export-all-symbols -Wl,--enable-auto-import"
+    SH_LDFLAGS="-shared"
     SHLLINKEXT=".dll"
     SONAME_FLAGS='-Wl,--out-implib=$@.a'
     library_path_var=PATH
   ;;
   *-*-linux* | *-*-gnu*)
     MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
-    SONAME_FLAGS='-Wl,-soname -Wl,$@'
+    SONAME_FLAGS=''
     RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
     CPICFLAG="-fPIC"
     CXXPICFLAG="-fPIC"
