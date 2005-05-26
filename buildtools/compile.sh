@@ -1,18 +1,23 @@
-#!/bin/sh
+#!/bin/bash
 
-#
-# Kludge: copying umfpack to dest dir.
-#
-mkdir -p $(TESTPREFIX)/lib; cp libumfpack.a libamd.a $(TESTPREFIX)/lib
-./banner -w 30 "MATC"
-cd matc; ./configure --prefix=$TESTPREFIX; make clean ; make ; make install ; cd ..
-./banner -w 30 "EIO"
-cd eio; ./configure --prefix=$TESTPREFIX; make clean ; make ; make install ; cd ..
-./banner -w 30 "HUTI"
-cd hutiter; ./configure --prefix=$TESTPREFIX ; make clean ; make ; make install ; cd ..
-./banner -w 30 "GRID"
-cd elmergrid; ./configure --prefix=$TESTPREFIX ; make clean ; make ; make install ; cd ..
-./banner -w 30 "MESHGEN"
-cd meshgen2d; ./configure --prefix=$TESTPREFIX ; make clean ; make ; make install ; cd ..
-./banner -w 30 "FEM"
-cd fem; ./configure --prefix=$TESTPREFIX ; make clean ; make ; make install ; cd ..
+modules="matc mathlibs eio hutiter fem"
+
+TESTPREFIX=/tmp/vierinen/elmer
+rm -Rf $TESTPREFIX
+
+export CVSROOT="vierinen@corona.csc.fi:/home/csc/vierinen/cvsroot"
+export CVS_RSH="ssh"
+
+rm -Rf $modules
+cvs co $modules
+
+for m in $modules; do
+    cd $m
+    ./configure --prefix=$TESTPREFIX
+    gmake -j42
+    make install
+    if test "$m" = fem; then
+	make check
+    fi
+    cd ..
+done
