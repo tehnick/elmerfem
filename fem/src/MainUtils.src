@@ -32,7 +32,10 @@
 ! *
 ! *       Date of modification:
 ! *
-! * $Log: MainUtils.f90,v $
+! * $Log: MainUtils.src,v $
+! * Revision 1.1  2005/05/26 08:24:30  vierinen
+! * moved .f90 to .src because .f90 is needed for preprosessed files
+! *
 ! * Revision 1.4  2005/05/19 12:59:03  jpr
 ! * *** empty log message ***
 ! *
@@ -57,7 +60,7 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.f90,v 1.4 2005/05/19 12:59:03 jpr Exp $
+! * $Id: MainUtils.src,v 1.1 2005/05/26 08:24:30 vierinen Exp $
 ! *****************************************************************************/
 
 
@@ -116,6 +119,7 @@ CONTAINS
                    FORMAT = MATRIX_CRS
 
                 CASE( 'umfpack' )
+#include "../config.h"
 #ifdef HAVE_UMFPACK
                    FORMAT = MATRIX_CRS
 #else
