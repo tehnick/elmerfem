@@ -1,8 +1,11 @@
 
 /*
- * $Id: main.c,v 1.3 2005/04/29 11:19:16 vierinen Exp $ 
+ * $Id: main.c,v 1.4 2005/05/11 06:45:37 vierinen Exp $ 
  *
  * $Log: main.c,v $
+ * Revision 1.4  2005/05/11 06:45:37  vierinen
+ * stupid readline update
+ *
  * Revision 1.3  2005/04/29 11:19:16  vierinen
  * stupid comment line fix
  *
@@ -59,12 +62,13 @@ void main( int argc, char **argv )
       str = strt;      
 #endif
       if ( *str ) fprintf( stdout, "%s\n", mtc_domath( str ) );
-      
+#ifndef WIN32      
       /* kludge to enable exit. */
       if( strcasecmp( str, "exit") == 0  || strcasecmp( str, "quit") == 0 )
       {
 	return;
       }
+#endif
       
 #ifdef USE_READLINE
       free(str);

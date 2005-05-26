@@ -38,7 +38,7 @@
 |  EVAL.C - Last Edited 6. 8. 1988
 |
 ***********************************************************************/
-
+#include "../config.h"
 /*======================================================================
 |Syntax of the manual pages:
 |
@@ -56,9 +56,12 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: eval.c,v 1.6 2003/03/19 10:12:59 jpr Exp $ 
+ * $Id: eval.c,v 1.1.1.1 2005/04/14 13:29:14 vierinen Exp $ 
  *
  * $Log: eval.c,v $
+ * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
+ * initial matc automake package
+ *
  * Revision 1.6  2003/03/19 10:12:59  jpr
  * *** empty log message ***
  *
