@@ -4,7 +4,7 @@
 #
 
 EPREFIX=/tmp/`whoami`/elmer
-modules="matc mathlibs eio hutiter fem"
+modules="umfpack matc mathlibs eio hutiter fem"
 export CVSROOT="vierinen@corona.csc.fi:/home/csc/vierinen/cvsroot"
 export CVS_RSH="ssh"
 
@@ -43,8 +43,7 @@ for m in $modules; do
 	make check
     fi
     cd ..
-#    rm -Rf $m
 done
 
 cd $topdir
-# rm -Rf $tmpdir
+
