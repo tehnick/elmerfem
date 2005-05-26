@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.40 2005/05/26 08:25:41 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.8 2005/05/26 12:38:56 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1312,45 +1312,43 @@ AC_DEFUN([ACX_PLATFORM_DEFS],
 [
 AC_REQUIRE([ACX_HOST])
 
-PLATFORM_DEF="UNKNOWN"
-
 case "$canonical_host_type" in
   *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
-	PLATFORM_DEF="BSD"
+        AC_DEFINE([BSD],1,[Detected platform.])
   ;;
   *-*-freebsd*)
-	PLATFORM_DEF="BSD"
+        AC_DEFINE([BSD],1,[Detected platform.])
   ;;
   alpha*-dec-osf*)
-	PLATFORM_DEF="DEC_ALPHA"
+        AC_DEFINE([DEC_ALPHA],1,[Detected platform.])
   ;;
   *-*-darwin*)
-	PLATFORM_DEF="DARWIN"
+        AC_DEFINE([DARWIN],1,[Detected platform.])
   ;;
   *-*-cygwin* | *-*-mingw*)
-	PLATFORM_DEF="WIN32"
+        AC_DEFINE([WIN32],1,[Detected platform.])
   ;;
   *-*-linux* | *-*-gnu*)
-	PLATFORM_DEF="LINUX"
+        AC_DEFINE([LINUX],1,[Detected platform.])
   ;;
   i[[3456]]86-*-sco3.2v5*)
-	PLATFORM_DEF="BASTARDS"
+        AC_DEFINE([BASTARDS],1,[Detected platform.])
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
-	PLATFORM_DEF="AIX"
+        AC_DEFINE([AIX],1,[Detected platform.])
   ;;
   hppa*-hp-hpux*)
-	PLATFORM_DEF="HPUX"
+        AC_DEFINE([HPUX],1,[Detected platform.])
   ;;
   *-sgi-*)
-	PLATFORM_DEF="SGI"
+        AC_DEFINE([SGI],1,[Detected platform.])
   ;;
   sparc-sun-sunos4*)
-	PLATFORM_DEF="SUNOS"
+        AC_DEFINE([SUNOS],1,[Detected platform.])
   ;;
   sparc-sun-solaris2* | i386-pc-solaris2*)
-	PLATFORM_DEF="SOLARIS"
+        AC_DEFINE([SOLARIS],1,[Detected platform.])
   ;;
 esac
-AC_DEFINE($PLATFORM_DEFS,1,[Detected platform.])
+
 ])
