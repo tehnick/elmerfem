@@ -2,6 +2,7 @@
 #
 # Always compile into tmp
 #
+
 EPREFIX=/tmp/`whoami`/elmer
 modules="matc mathlibs eio hutiter fem"
 export CVSROOT="vierinen@corona.csc.fi:/home/csc/vierinen/cvsroot"
@@ -31,7 +32,11 @@ cvs co $modules
 
 for m in $modules; do
     cd $m
-    ./configure --prefix=$TESTPREFIX $CONFFLAGS
+    if test "$USE_OWN_MATHLIBS" = yes; then
+	./configure --prefix=$TESTPREFIX $CONFFLAGS --with-blas=$TESTPREFIX/lib/libblas.a --with-blas=$TESTPREFIX/lib/liblapack.a
+    else
+	./configure --prefix=$TESTPREFIX $CONFFLAGS 
+    fi
     gmake -j$NPROCS
     make install
     if test "$m" = fem; then
