@@ -33,7 +33,10 @@
 ! *
 ! *       Date of modification:
 ! *
-! * $Log: DefUtils.f90,v $
+! * $Log: DefUtils.src,v $
+! * Revision 1.1  2005/05/26 08:24:07  vierinen
+! * moved .f90 to .src because .f90 is needed for preprosessed files
+! *
 ! * Revision 1.3  2005/05/19 06:51:54  jpr
 ! * Added level argument to Info-calls in DefaultDirichletBCs...
 ! *
@@ -80,7 +83,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.f90,v 1.3 2005/05/19 06:51:54 jpr Exp $
+! * $Id: DefUtils.src,v 1.1 2005/05/26 08:24:07 vierinen Exp $
 ! *
 ! *****************************************************************************/
 
@@ -121,7 +124,6 @@ CONTAINS
 
 
   SUBROUTINE GetScalarLocalSolution( x,name,UElement,USolver )
-DLLEXPORT GetScalarLocalSolution
      REAL(KIND=dp) :: x(:)
      CHARACTER(LEN=*), OPTIONAL :: name
      TYPE(Solver_t)  , OPTIONAL, TARGET :: USolver
@@ -170,7 +172,6 @@ DLLEXPORT GetScalarLocalSolution
 
 
   SUBROUTINE GetVectorLocalSolution( x,name,UElement,USolver )
-DLLEXPORT GetVectorLocalSolution
      REAL(KIND=dp) :: x(:,:)
      CHARACTER(LEN=*), OPTIONAL :: name
      TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
@@ -225,7 +226,6 @@ DLLEXPORT GetVectorLocalSolution
 
 
   FUNCTION GetString( List, Name, Found ) RESULT(str)
-DLLEXPORT GetString
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
      LOGICAL, OPTIONAL :: Found
@@ -243,7 +243,6 @@ DLLEXPORT GetString
 
 
   FUNCTION GetInteger( List, Name, Found ) RESULT(i)
-DLLEXPORT GetInteger
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
      LOGICAL, OPTIONAL :: Found
@@ -260,7 +259,6 @@ DLLEXPORT GetInteger
 
 
   FUNCTION GetLogical( List, Name, Found ) RESULT(l)
-DLLEXPORT GetLogical
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
      LOGICAL, OPTIONAL :: Found
@@ -277,7 +275,6 @@ DLLEXPORT GetLogical
 
 
   RECURSIVE FUNCTION GetConstReal( List, Name, Found,x,y,z ) RESULT(r)
-DLLEXPORT GetConstReal
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
      LOGICAL, OPTIONAL :: Found
@@ -302,7 +299,6 @@ DLLEXPORT GetConstReal
 
 
   RECURSIVE FUNCTION GetReal( List, Name, Found, UElement ) RESULT(x)
-DLLEXPORT GetReal
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
      LOGICAL, OPTIONAL :: Found
@@ -333,7 +329,6 @@ DLLEXPORT GetReal
 
 
   RECURSIVE SUBROUTINE GetConstRealArray( List, x, Name, Found, UElement )
-DLLEXPORT GetConstRealArray
      TYPE(ValueList_t), POINTER :: List
      REAL(KIND=dp), POINTER :: x(:,:)
      CHARACTER(LEN=*) :: Name
@@ -363,7 +358,6 @@ DLLEXPORT GetConstRealArray
 
 
   RECURSIVE SUBROUTINE GetRealArray( List, x, Name, Found, UElement )
-DLLEXPORT GetRealArray
      REAL(KIND=dp), POINTER :: x(:,:,:)
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
@@ -392,7 +386,6 @@ DLLEXPORT GetRealArray
 
 
   FUNCTION GetActiveElement(t,USolver) RESULT(Element)
-DLLEXPORT GetActiveElement
      INTEGER :: t
      TYPE(Element_t), POINTER :: Element
      TYPE( Solver_t ), OPTIONAL, TARGET :: USolver
@@ -414,7 +407,6 @@ DLLEXPORT GetActiveElement
 
 
   FUNCTION GetBoundaryElement(t,USolver) RESULT(Element)
-DLLEXPORT GetBoundaryElement
      INTEGER :: t
      TYPE(Element_t), POINTER :: Element
      TYPE( Solver_t ), OPTIONAL, TARGET :: USolver
@@ -436,7 +428,6 @@ DLLEXPORT GetBoundaryElement
 
 
   FUNCTION ActiveBoundaryElement(UElement,USolver) RESULT(l)
-DLLEXPORT ActiveBoundaryElement
      TYPE(Element_t), OPTIONAL,  TARGET :: UElement
      TYPE(Solver_t),  OPTIONAL,  TARGET :: USolver
 
@@ -459,7 +450,6 @@ DLLEXPORT ActiveBoundaryElement
 
 
   FUNCTION GetElementCode( Element )  RESULT(type)
-DLLEXPORT GetElementCode
      INTEGER :: type
      TYPE(Element_t), OPTIONAL :: Element
 
@@ -473,7 +463,6 @@ DLLEXPORT GetElementCode
 
 
   FUNCTION GetElementFamily( Element )  RESULT(family)
-DLLEXPORT GetElementFamily
      INTEGER :: family
      TYPE(Element_t), OPTIONAL :: Element
 
@@ -487,7 +476,6 @@ DLLEXPORT GetElementFamily
 
 
   FUNCTION GetElementNOFNodes( Element ) RESULT(n)
-DLLEXPORT GetElementNOFNodes
      INTEGER :: n
      TYPE(Element_t), OPTIONAL :: Element
 
@@ -501,7 +489,6 @@ DLLEXPORT GetElementNOFNodes
 
 
   FUNCTION GetElementNOFDOFs( UElement,USolver ) RESULT(n)
-DLLEXPORT GetElementNOFDofs
      INTEGER :: n
      TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
      TYPE(Element_t), OPTIONAL, TARGET :: UElement
@@ -552,7 +539,6 @@ DLLEXPORT GetElementNOFDofs
 
 
   FUNCTION GetElementDOFs( Indexes, UElement, USolver )  RESULT(NB)
-DLLEXPORT GetElementDOFs
      TYPE(Element_t), OPTIONAL, TARGET :: UElement
      TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
      INTEGER :: Indexes(:)
@@ -647,7 +633,6 @@ DLLEXPORT GetElementDOFs
 
 
   FUNCTION GetElementNOFBDOFs( Element, USolver ) RESULT(n)
-DLLEXPORT GetElementNOFBDOFs
     INTEGER :: n
     TYPE(Solver_t), OPTIONAL, POINTER :: USolver
     TYPE(Element_t), OPTIONAL, POINTER :: Element
@@ -675,7 +660,6 @@ DLLEXPORT GetElementNOFBDOFs
 
 
   SUBROUTINE GetElementNodes( ElementNodes, UElement, USolver )
-DLLEXPORT GetElementNodes
      TYPE(Nodes_t) :: ElementNodes
      TYPE(Solver_t), OPTIONAL, TARGET :: USolver
      TYPE(Element_t), OPTIONAL, TARGET :: UElement
@@ -796,7 +780,6 @@ DLLEXPORT GetElementNodes
 
 
   FUNCTION GetBodyForceId(  Element, Found ) RESULT(bf_id)
-DLLEXPORT GetBodyForceId
      LOGICAL, OPTIONAL :: Found
      TYPE(Element_t), OPTIONAL :: Element
 
@@ -820,7 +803,6 @@ DLLEXPORT GetBodyForceId
 
 
   FUNCTION GetMaterialId( Element, Found ) RESULT(mat_id)
-DLLEXPORT GetMaterialId
      LOGICAL, OPTIONAL :: Found
      TYPE(Element_t), OPTIONAL :: Element
 
@@ -844,7 +826,6 @@ DLLEXPORT GetMaterialId
 
 
   FUNCTION GetEquationId( Element, Found ) RESULT(eq_id)
-DLLEXPORT GetEquationId
      LOGICAL, OPTIONAL :: Found
      TYPE(Element_t), OPTIONAL :: Element
 
@@ -868,7 +849,6 @@ DLLEXPORT GetEquationId
 
 
   FUNCTION GetSimulation() RESULT(Simulation)
-DLLEXPORT GetSimulation
      TYPE(ValueList_t), POINTER :: Simulation
      Simulation => CurrentModel % Simulation
   END FUNCTION GetSimulation
@@ -876,7 +856,6 @@ DLLEXPORT GetSimulation
 
 
   FUNCTION GetConstants() RESULT(Constants)
-DLLEXPORT GetConstants
      TYPE(ValueList_t), POINTER :: Constants
      Constants => CurrentModel % Constants
   END FUNCTION GetConstants
@@ -884,7 +863,6 @@ DLLEXPORT GetConstants
 
 
   FUNCTION GetSolverParams() RESULT(SolverParam)
-DLLEXPORT GetSolverParams
      TYPE(ValueList_t), POINTER :: SolverParam
      SolverParam => CurrentModel % Solver % Values
   END FUNCTION GetSolverParams
@@ -892,7 +870,6 @@ DLLEXPORT GetSolverParams
 
 
   FUNCTION GetMaterial(  Element, Found ) RESULT(Material)
-DLLEXPORT GetMaterial
     TYPE(Element_t), OPTIONAL :: Element
     LOGICAL, OPTIONAL :: Found
 
@@ -915,7 +892,6 @@ DLLEXPORT GetMaterial
 
 
   FUNCTION GetBodyForce( Element, Found ) RESULT(BodyForce)
-DLLEXPORT GetBodyForce
     TYPE(Element_t), OPTIONAL :: Element
     LOGICAL, OPTIONAL :: Found
 
@@ -938,7 +914,6 @@ DLLEXPORT GetBodyForce
 
 
   FUNCTION GetEquation( Element, Found ) RESULT(Equation)
-DLLEXPORT GetEquation
     TYPE(Element_t), OPTIONAL :: Element
     LOGICAL, OPTIONAL :: Found
 
@@ -962,7 +937,6 @@ DLLEXPORT GetEquation
 
 
   FUNCTION GetBCId( UElement ) RESULT(bc_id)
-DLLEXPORT GetBCId
      TYPE(Element_t), OPTIONAL, TARGET :: UElement
 
      INTEGER :: bc_id
@@ -981,7 +955,6 @@ DLLEXPORT GetBCId
 
 
   FUNCTION GetBC( UElement ) RESULT(bc)
-DLLEXPORT GetBC
      TYPE(Element_t), OPTIONAL, TARGET :: UElement
      TYPE(ValueList_t), POINTER :: BC
 
@@ -1000,7 +973,6 @@ DLLEXPORT GetBC
 
 
   FUNCTION GetICId( Element, Found ) RESULT(ic_id)
-DLLEXPORT GetICId
      LOGICAL, OPTIONAL :: Found
      TYPE(Element_t), OPTIONAL :: Element
 
@@ -1023,7 +995,6 @@ DLLEXPORT GetICId
 
 
   FUNCTION GetIC(  Element, Found ) RESULT(IC)
-DLLEXPORT GetIC
     TYPE(Element_t), OPTIONAL :: Element
     LOGICAL, OPTIONAL :: Found
 
@@ -1045,7 +1016,6 @@ DLLEXPORT GetIC
 
 
   SUBROUTINE Default1stOrderTimeR( M, A, F, UElement, USolver )
-DLLEXPORT Default1stOrderTimeR
     REAL(KIND=dp) :: M(:,:),A(:,:), F(:)
     TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
     TYPE(Element_t), OPTIONAL, TARGET :: UElement
@@ -1074,7 +1044,6 @@ DLLEXPORT Default1stOrderTimeR
 
 
   SUBROUTINE Default1stOrderTimeC( MC, AC, FC, UElement, USolver )
-DLLEXPORT Default1stOrderTimeC
     COMPLEX(KIND=dp) :: MC(:,:),AC(:,:), FC(:)
     TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
     TYPE(Element_t), OPTIONAL, TARGET :: UElement
@@ -1133,7 +1102,6 @@ DLLEXPORT Default1stOrderTimeC
 
 
   SUBROUTINE Default2ndOrderTimeR( M, B, A, F, UElement, USolver )
-DLLEXPORT Default2ndOrderTimeR
     REAL(KIND=dp) :: M(:,:), B(:,:), A(:,:), F(:)
     TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
     TYPE(Element_t), OPTIONAL, TARGET :: UElement
@@ -1163,7 +1131,6 @@ DLLEXPORT Default2ndOrderTimeR
 
 
   SUBROUTINE Default2ndOrderTimeC( MC, BC, AC, FC, UElement, USolver )
-DLLEXPORT Default2ndOrderTime
     COMPLEX(KIND=dp) :: MC(:,:), BC(:,:), AC(:,:), FC(:)
     TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
     TYPE(Element_t), OPTIONAL, TARGET :: UElement
@@ -1227,7 +1194,6 @@ DLLEXPORT Default2ndOrderTime
 
 
   SUBROUTINE DefaultInitialize( Solver )
-DLLEXPORT DefaultInitialize
      TYPE(Solver_t), OPTIONAL :: Solver
 
      IF ( PRESENT( Solver ) ) THEN
@@ -1241,7 +1207,6 @@ DLLEXPORT DefaultInitialize
 
 
   FUNCTION DefaultSolve( USolver ) RESULT(Norm)
-DLLEXPORT DefaultSolve
     TYPE(Solver_t), OPTIONAL, TARGET :: USolver
     REAL(KIND=dp) :: Norm
 
@@ -1264,7 +1229,6 @@ DLLEXPORT DefaultSolve
 
 
   SUBROUTINE DefaultUpdateEquationsR( G, F, UElement, USolver ) 
-DLLEXPORT DefaultUpdateEquationsR
      TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
      TYPE(Element_t), OPTIONAL, TARGET :: UElement
      REAL(KIND=dp)   :: G(:,:), f(:)
@@ -1299,7 +1263,6 @@ DLLEXPORT DefaultUpdateEquationsR
 
 
   SUBROUTINE DefaultUpdateEquationsC( GC, FC, UElement, USolver ) 
-DLLEXPORT DefaultUpdateEquationsC
      TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
      TYPE(Element_t), OPTIONAL, TARGET :: UElement
      COMPLEX(KIND=dp)   :: GC(:,:), FC(:)
@@ -1353,7 +1316,6 @@ DLLEXPORT DefaultUpdateEquationsC
 
 
   SUBROUTINE DefaultUpdateForceR( F, UElement, USolver )
-DLLEXPORT DefaultUpdateForceR
     REAL(KIND=dp) :: F(:)
     TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
     TYPE(Element_t), OPTIONAL, TARGET :: UElement
@@ -1380,7 +1342,6 @@ DLLEXPORT DefaultUpdateForceR
 
 
   SUBROUTINE DefaultUpdateForceC( FC, UElement, USolver )
-DLLEXPORT DefaultUpdateForceC
     COMPLEX(KIND=dp) :: FC(:)
     TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
     TYPE(Element_t), OPTIONAL, TARGET :: UElement
@@ -1418,7 +1379,6 @@ DLLEXPORT DefaultUpdateForceC
 
 
   SUBROUTINE DefaultUpdateMassR( M, UElement, USolver ) 
-DLLEXPORT DefaultUpdateMassR
      TYPE(Solver_t), OPTIONAL,TARGET   :: USolver
      TYPE(Element_t), OPTIONAL, TARGET :: UElement
      REAL(KIND=dp)   :: M(:,:)
@@ -1459,7 +1419,6 @@ DLLEXPORT DefaultUpdateMassR
 
 
   SUBROUTINE DefaultUpdateMassC( MC, UElement, USolver ) 
-DLLEXPORT DefaultUpdateMassC
      TYPE(Solver_t), OPTIONAL,TARGET   :: USolver
      TYPE(Element_t), OPTIONAL, TARGET :: UElement
      COMPLEX(KIND=dp)   :: MC(:,:)
@@ -1514,7 +1473,6 @@ DLLEXPORT DefaultUpdateMassC
 
 
   SUBROUTINE DefaultUpdateDampR( B, UElement, USolver ) 
-DLLEXPORT DefaultUpdateDampR
      TYPE(Solver_t), OPTIONAL,  TARGET :: USolver
      TYPE(Element_t), OPTIONAL, TARGET :: UElement
      REAL(KIND=dp)   :: B(:,:)
@@ -1559,7 +1517,6 @@ DLLEXPORT DefaultUpdateDampR
 
 
   SUBROUTINE DefaultUpdateDampC( BC, UElement, USolver ) 
-DLLEXPORT DefaultUpdateDampC
      TYPE(Solver_t), OPTIONAL,  TARGET :: USolver
      TYPE(Element_t), OPTIONAL, TARGET :: UElement
      COMPLEX(KIND=dp)   :: BC(:,:)
@@ -1619,7 +1576,6 @@ DLLEXPORT DefaultUpdateDampC
 
 
   SUBROUTINE DefaultDirichletBCs( USolver )
-DLLEXPORT DefaultDirichletBCs
      TYPE(Solver_t), OPTIONAL, TARGET :: USolver
 
      TYPE(Matrix_t), POINTER   :: A
@@ -2035,7 +1991,6 @@ DLLEXPORT DefaultDirichletBCs
 !------------------------------------------------------------------------------
   SUBROUTINE DefaultFinishAssembly( Solver )
 !------------------------------------------------------------------------------
-DLLEXPORT DefaultFinishAssembly
     TYPE(Solver_t), OPTIONAL :: Solver
 
     IF ( PRESENT( Solver ) ) THEN

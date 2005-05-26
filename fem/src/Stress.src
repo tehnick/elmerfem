@@ -33,7 +33,10 @@
 ! *
 ! *       Date of modification:
 ! *
-! * $Log: Stress.f90,v $
+! * $Log: Stress.src,v $
+! * Revision 1.1  2005/05/26 08:24:55  vierinen
+! * moved .f90 to .src because .f90 is needed for preprosessed files
+! *
 ! * Revision 1.2  2005/05/04 09:16:35  vierinen
 ! * minor modifications
 ! *
@@ -89,7 +92,7 @@
 ! * Modified StressBoundary to work in axisymmetric cases.
 ! *
 ! *
-! * $Id: Stress.f90,v 1.2 2005/05/04 09:16:35 vierinen Exp $
+! * $Id: Stress.src,v 1.1 2005/05/26 08:24:55 vierinen Exp $
 ! *****************************************************************************/
 
 MODULE StressLocal
@@ -109,7 +112,6 @@ MODULE StressLocal
      NodalPreStress, NodalPreStrain, NodalStressLoad, NodalStrainLoad,           &
      NodalHeatExpansion, NodalTemperature, Element, n, Nodes, StabilityAnalysis, &
      GeometricStiffness, NodalDisplacement, RotateC, TransformMatrix )
-DLLEXPORT StressCompose
 !------------------------------------------------------------------------------
      REAL(KIND=dp) :: STIFF(:,:), MASS(:,:), DAMP(:,:), FORCE(:), LOAD(:,:)
      REAL(KIND=dp) :: NodalTemperature(:),ElasticModulus(:,:,:)
@@ -529,7 +531,6 @@ DLLEXPORT StressCompose
 !------------------------------------------------------------------------------
  SUBROUTINE StressBoundary( STIFF,DAMP,FORCE,LOAD, NodalSpring,NodalDamp, &
              NodalBeta,NodalStress,NormalTangential,Element,n,Nodes )
-DLLEXPORT StressBoundary
    USE ElementUtils
 !------------------------------------------------------------------------------
    REAL(KIND=dp) :: NodalSpring(:),NodalDamp(:),NodalBeta(:),LOAD(:,:)

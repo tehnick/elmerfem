@@ -43,7 +43,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Lists.f90,v 1.2 2005/05/04 09:15:58 vierinen Exp $
+! * $Id: Lists.src,v 1.1 2005/05/26 08:24:26 vierinen Exp $
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
@@ -335,7 +335,6 @@ CONTAINS
 !   should be solved
 !---------------------------------------------------------------------------
     FUNCTION CheckElementEquation( Model,Element,Equation ) Result(Flag)
-DLLEXPORT CheckElementEquation
 
       TYPE(Element_t), POINTER :: Element
       TYPE(Model_t) :: Model
@@ -361,7 +360,6 @@ DLLEXPORT CheckElementEquation
 
 !------------------------------------------------------------------------------
     FUNCTION StringToLowerCase( to,from ) RESULT(n)
-DLLEXPORT StringToLowerCase
 !------------------------------------------------------------------------------
       CHARACTER(LEN=*) :: to,from
       INTEGER :: n
@@ -385,7 +383,6 @@ DLLEXPORT StringToLowerCase
 
 !------------------------------------------------------------------------------
     SUBROUTINE VariableAdd( Variables,Mesh,Solver,Name,DOFs,Values,Perm,Output )
-DLLEXPORT VariableAdd
 !------------------------------------------------------------------------------
       TYPE(Variable_t), POINTER :: Variables
       TYPE(Mesh_t), POINTER :: Mesh
@@ -449,7 +446,6 @@ DLLEXPORT VariableAdd
 !------------------------------------------------------------------------------
     FUNCTION MeshProjector( Mesh1, Mesh2, &
          UseQuadrantTree, Trans ) RESULT( ProjectorMatrix )
-DLLEXPORT MeshProjector
 !------------------------------------------------------------------------------
        TYPE(Mesh_t) :: Mesh1, Mesh2
        LOGICAL, OPTIONAL :: UseQuadrantTree,Trans
@@ -489,7 +485,6 @@ DLLEXPORT MeshProjector
 
 !------------------------------------------------------------------------------
     RECURSIVE FUNCTION VariableGet( Variables, Name, ThisOnly ) RESULT(Var)
-DLLEXPORT VariableGet
 !------------------------------------------------------------------------------
       TYPE(Variable_t), POINTER :: Variables
       CHARACTER(LEN=*) :: Name
@@ -721,7 +716,6 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
 !------------------------------------------------------------------------------
   FUNCTION ListAllocate() RESULT(ptr)
-DLLEXPORT ListAllocate
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: ptr
 
@@ -743,7 +737,6 @@ DLLEXPORT ListAllocate
 
 !------------------------------------------------------------------------------
   SUBROUTINE ListDelete( ptr )
-DLLEXPORT ListDelete
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: ptr
 
@@ -757,7 +750,6 @@ DLLEXPORT ListDelete
 
 !------------------------------------------------------------------------------
   SUBROUTINE ListRemove( List, Name )
-DLLEXPORT ListRemove
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
@@ -792,7 +784,6 @@ DLLEXPORT ListRemove
 
 !------------------------------------------------------------------------------
    FUNCTION ListCheckPresent( List,Name ) RESULT(Found)
-DLLEXPORT ListCheckPresent
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
@@ -821,7 +812,6 @@ DLLEXPORT ListCheckPresent
 
 !------------------------------------------------------------------------------
     SUBROUTINE ListAddString( List,Name,CValue,CaseConversion )
-DLLEXPORT ListAddString
 !------------------------------------------------------------------------------
       TYPE(ValueList_t), POINTER :: List
       CHARACTER(LEN=*) :: Name
@@ -862,7 +852,6 @@ DLLEXPORT ListAddString
 
 !------------------------------------------------------------------------------
     SUBROUTINE ListAddLogical( List,Name,LValue )
-DLLEXPORT ListAddLogical
 !------------------------------------------------------------------------------
       TYPE(ValueList_t), POINTER :: List
       CHARACTER(LEN=*) :: Name
@@ -892,7 +881,6 @@ DLLEXPORT ListAddLogical
 
 !------------------------------------------------------------------------------
     SUBROUTINE ListAddInteger( List,Name,IValue,Proc )
-DLLEXPORT ListAddInteger
 !------------------------------------------------------------------------------
       TYPE(ValueList_t), POINTER :: List
       CHARACTER(LEN=*) :: Name
@@ -926,7 +914,6 @@ DLLEXPORT ListAddInteger
 
 !------------------------------------------------------------------------------
     SUBROUTINE ListAddIntegerArray( List,Name,N,IValues,Proc )
-DLLEXPORT ListAddIntegerArray
 !------------------------------------------------------------------------------
       TYPE(ValueList_t), POINTER :: List
       CHARACTER(LEN=*) :: Name
@@ -962,7 +949,6 @@ DLLEXPORT ListAddIntegerArray
 
 !------------------------------------------------------------------------------
     SUBROUTINE ListAddConstReal( List,Name,FValue,Proc,CValue )
-DLLEXPORT ListAddConstReal
 !------------------------------------------------------------------------------
       TYPE(ValueList_t), POINTER :: List
       CHARACTER(LEN=*) :: Name
@@ -1004,7 +990,6 @@ DLLEXPORT ListAddConstReal
 
 !------------------------------------------------------------------------------
     SUBROUTINE ListAddDepReal(List,Name,DependName,N,TValues,FValues,Proc,CValue)
-DLLEXPORT ListAddDepReal
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name,DependName
@@ -1055,7 +1040,6 @@ DLLEXPORT ListAddDepReal
 
 !------------------------------------------------------------------------------
     SUBROUTINE ListAddConstRealArray( List,Name,N,M,FValues,Proc,CValue )
-DLLEXPORT ListAddConstRealArray
 !------------------------------------------------------------------------------
       TYPE(ValueList_t), POINTER :: List
       CHARACTER(LEN=*) :: Name
@@ -1099,7 +1083,6 @@ DLLEXPORT ListAddConstRealArray
 !------------------------------------------------------------------------------
     SUBROUTINE ListAddDepRealArray(List,Name,DependName, &
                N,TValues,N1,N2,FValues,Proc,Cvalue)
-DLLEXPORT ListAddDepRealArray
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name,DependName
@@ -1148,7 +1131,6 @@ DLLEXPORT ListAddDepRealArray
 
 !------------------------------------------------------------------------------
    RECURSIVE FUNCTION ListGetInteger( List,Name,gotIt,minv,maxv ) RESULT(L)
-DLLEXPORT ListGetInteger
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
@@ -1214,7 +1196,6 @@ DLLEXPORT ListGetInteger
 
 !------------------------------------------------------------------------------
    RECURSIVE FUNCTION ListGetIntegerArray( List,Name,GotIt ) RESULT( IValues )
-DLLEXPORT ListGetIntegerArray
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*)  :: Name
@@ -1269,7 +1250,6 @@ DLLEXPORT ListGetIntegerArray
 
 !------------------------------------------------------------------------------
    RECURSIVE FUNCTION ListGetLogical( List,Name,gotIt ) RESULT(L)
-DLLEXPORT ListGetLogical
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
@@ -1315,7 +1295,6 @@ DLLEXPORT ListGetLogical
 
 !------------------------------------------------------------------------------
    RECURSIVE FUNCTION ListGetString( List,Name,gotIt ) RESULT(S)
-DLLEXPORT ListGetString
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
@@ -1362,7 +1341,6 @@ DLLEXPORT ListGetString
 
 !------------------------------------------------------------------------------
    RECURSIVE FUNCTION ListGetConstReal( List,Name,gotIt,x,y,z,minv,maxv ) RESULT(F)
-DLLEXPORT ListGetConstReal
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
@@ -1446,7 +1424,6 @@ DLLEXPORT ListGetConstReal
 
 !------------------------------------------------------------------------------
    RECURSIVE FUNCTION ListGetReal( List,Name,N,NodeIndexes,gotIt,minv,maxv ) RESULT(F)
-DLLEXPORT ListGetReal
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*)  :: Name
@@ -1645,7 +1622,6 @@ DLLEXPORT ListGetReal
 
 !------------------------------------------------------------------------------
    RECURSIVE FUNCTION ListGetConstRealArray( List,Name,GotIt ) RESULT( F )
-DLLEXPORT ListGetConstRealArray
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
@@ -1705,7 +1681,6 @@ DLLEXPORT ListGetConstRealArray
 
 !------------------------------------------------------------------------------
    RECURSIVE SUBROUTINE ListGetRealArray( List,Name,F,N,NodeIndexes,gotIt )
-DLLEXPORT ListGetRealArray
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
@@ -1841,7 +1816,6 @@ DLLEXPORT ListGetRealArray
 
 !------------------------------------------------------------------------------
    RECURSIVE FUNCTION ListGetDerivValue(List,Name,N,NodeIndexes) RESULT(F)
-DLLEXPORT ListGetDerivValue
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER ::  List
      CHARACTER(LEN=*) :: Name

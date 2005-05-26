@@ -1,5 +1,4 @@
 SUBROUTINE HelmholtzHDIVSolver( Model,Solver,dt,TransientSimulation )
-!DEC$ATTRIBUTES DLLEXPORT :: HelmholtzHDIVSolver
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -362,7 +361,6 @@ CONTAINS
 
 !------------------------------------------------------------------------
  SUBROUTINE MyDirichletBCs( USolver )
-!DLLEXPORT MyDirichletBCs
 !------------------------------------------------------------------------
      TYPE(Solver_t), OPTIONAL, TARGET :: USolver
 

@@ -34,7 +34,10 @@
 ! *       Date of modification: 31 Jan 2001
 ! *
 ! *
-! * $Log: ElementDescription.f90,v $
+! * $Log: ElementDescription.src,v $
+! * Revision 1.1  2005/05/26 08:24:12  vierinen
+! * moved .f90 to .src because .f90 is needed for preprosessed files
+! *
 ! * Revision 1.2  2005/05/04 09:15:49  vierinen
 ! * minor modifications
 ! *
@@ -74,7 +77,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: ElementDescription.f90,v 1.2 2005/05/04 09:15:49 vierinen Exp $
+! * $Id: ElementDescription.src,v 1.1 2005/05/26 08:24:12 vierinen Exp $
 ! ******************************************************************************/
 
 MODULE ElementDescription
@@ -105,7 +108,6 @@ CONTAINS
 
 !------------------------------------------------------------------------------
    SUBROUTINE AddElementDescription( element,BasisTerms )
-DLLEXPORT AddElementDescription
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -417,7 +419,6 @@ CONTAINS
 
 !------------------------------------------------------------------------------
    SUBROUTINE InitializeElementDescriptions
-DLLEXPORT InitializeElementDescriptions
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -570,7 +571,6 @@ DLLEXPORT InitializeElementDescriptions
 
 !------------------------------------------------------------------------------
    FUNCTION GetElementType( code,CompStabFlag ) RESULT(element)
-DLLEXPORT GetElementType
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -643,7 +643,6 @@ DLLEXPORT GetElementType
 !
 !
 !------------------------------------------------------------------------------
-DLLEXPORT StabParam
 !------------------------------------------------------------------------------
       IMPLICIT NONE
 
@@ -739,7 +738,6 @@ DLLEXPORT StabParam
 
 !------------------------------------------------------------------------------
    FUNCTION InterpolateInElement1D( element,x,u ) RESULT(y)
-DLLEXPORT InterpolateInElement1D
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -808,7 +806,6 @@ DLLEXPORT InterpolateInElement1D
 
 !------------------------------------------------------------------------------
    FUNCTION FirstDerivative1D( element,x,u ) RESULT(y)
-DLLEXPORT FirstDerivative1D
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -878,7 +875,6 @@ DLLEXPORT FirstDerivative1D
 
 !------------------------------------------------------------------------------
    FUNCTION SecondDerivatives1D( element,x,u ) RESULT(y)
-DLLEXPORT SecondDerivatives1D
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -948,7 +944,6 @@ DLLEXPORT SecondDerivatives1D
 
 !------------------------------------------------------------------------------
    FUNCTION InterpolateInElement2D( element,x,u,v ) RESULT(y)
-DLLEXPORT InterpolateInElement2D
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -1021,7 +1016,6 @@ DLLEXPORT InterpolateInElement2D
 
 !------------------------------------------------------------------------------
    FUNCTION FirstDerivativeInU2D( element,x,u,v ) RESULT(y)
-DLLEXPORT FirstDerivativeInU2D
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -1097,7 +1091,6 @@ DLLEXPORT FirstDerivativeInU2D
 
 !------------------------------------------------------------------------------
    FUNCTION FirstDerivativeInV2D( element,x,u,v ) RESULT(y)
-DLLEXPORT FirstDerivativeInV2D
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -1171,7 +1164,6 @@ DLLEXPORT FirstDerivativeInV2D
 
 !------------------------------------------------------------------------------
    FUNCTION SecondDerivatives2D( element,x,u,v ) RESULT(ddx)
-DLLEXPORT SecondDerivatives2D
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -1271,7 +1263,6 @@ DLLEXPORT SecondDerivatives2D
 
 !------------------------------------------------------------------------------
    FUNCTION InterpolateInElement3D( element,x,u,v,w ) RESULT(y)
-DLLEXPORT InterpolateInElement3D
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -1379,7 +1370,6 @@ END IF
 
 !------------------------------------------------------------------------------
    FUNCTION FirstDerivativeInU3D( element,x,u,v,w ) RESULT(y)
-DLLEXPORT FirstDerivativeInU3D
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -1498,7 +1488,6 @@ END IF
 
 !------------------------------------------------------------------------------
    FUNCTION FirstDerivativeInV3D( element,x,u,v,w ) RESULT(y)
-DLLEXPORT FirstDerivativeInV3D
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -1617,7 +1606,6 @@ END IF
 
 !------------------------------------------------------------------------------
    FUNCTION FirstDerivativeInW3D( element,x,u,v,w ) RESULT(y)
-DLLEXPORT FirstDerivativeInW3D
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -1744,7 +1732,6 @@ END IF
 
 !------------------------------------------------------------------------------
    FUNCTION SecondDerivatives3D( element,x,u,v,w ) RESULT(ddx)
-DLLEXPORT SecondDerivatives3D
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -1884,7 +1871,6 @@ DLLEXPORT SecondDerivatives3D
 !------------------------------------------------------------------------------
    RECURSIVE FUNCTION ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
      Basis,dBasisdx,ddBasisddx,SecondDerivatives,Bubbles ) RESULT(stat)
-DLLEXPORT ElementInfo
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -2973,7 +2959,6 @@ DLLEXPORT ElementInfo
 !------------------------------------------------------------------------------
    FUNCTION WhitneyElementInfo( Element,Basis,dBasisdx, &
       nedges, WhitneyBasis,dWhitneyBasisdx ) RESULT(stat)
-DLLEXPORT WhitneyElementInfo
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -3126,7 +3111,6 @@ DLLEXPORT WhitneyElementInfo
 !------------------------------------------------------------------------------
    FUNCTION Whitney2ElementInfo( Element,Basis,dBasisdx, &
       nfaces, WhitneyBasis,dWhitneyBasisdx ) RESULT(stat)
-DLLEXPORT WhitneyElementInfo
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -3277,7 +3261,6 @@ DLLEXPORT WhitneyElementInfo
 
 !------------------------------------------------------------------------------
    FUNCTION ElementMetric(Elm,Nodes,Metric,DetG,dLBasisdx,LtoGMap) RESULT(Success)
-DLLEXPORT ElementMetric
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -3433,7 +3416,6 @@ DLLEXPORT ElementMetric
 !------------------------------------------------------------------------------
    SUBROUTINE GlobalFirstDerivativesInternal( elm,nodes,df,gx,gy,gz, &
                        Metric,dLBasisdx )
-DLLEXPORT GlobalFirstDerivativesInternal
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -3558,7 +3540,6 @@ DLLEXPORT GlobalFirstDerivativesInternal
 !------------------------------------------------------------------------------
    SUBROUTINE GlobalFirstDerivatives( Elm, Nodes, df, gx, gy, gz, &
                     Metric, dLBasisdx )
-DLLEXPORT GlobalFirstDerivatives
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -3617,7 +3598,6 @@ DLLEXPORT GlobalFirstDerivatives
 
 !------------------------------------------------------------------------------
    FUNCTION InterpolateInElement( elm,f,u,v,w,Basis ) RESULT(value)
-DLLEXPORT InterpolateInElement
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -3685,7 +3665,6 @@ DLLEXPORT InterpolateInElement
 
 !------------------------------------------------------------------------------
    SUBROUTINE GlobalSecondDerivatives(elm,nodes,f,values,u,v,w,Metric,dBasisdx)
-DLLEXPORT GlobalSecondDerivatives
 !------------------------------------------------------------------------------
 !******************************************************************************
 !  
@@ -3891,7 +3870,6 @@ DLLEXPORT GlobalSecondDerivatives
 
 !------------------------------------------------------------------------------
    FUNCTION ElementDiameter( elm, nodes ) RESULT(hK)
-DLLEXPORT ElementDiameter
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -4129,7 +4107,6 @@ DLLEXPORT ElementDiameter
 
 !------------------------------------------------------------------------------
   FUNCTION TriangleInside( nx,ny,nz,x,y,z ) RESULT(inside)
-DLLEXPORT TriangleInside
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -4202,7 +4179,6 @@ DLLEXPORT TriangleInside
 
 !------------------------------------------------------------------------------
    FUNCTION QuadInside( nx,ny,nz,x,y,z ) RESULT(inside)
-DLLEXPORT QuadInside
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -4300,7 +4276,6 @@ DLLEXPORT QuadInside
 
 !------------------------------------------------------------------------------
   FUNCTION TetraInside( nx,ny,nz,x,y,z ) RESULT(inside)
-DLLEXPORT TetraInside
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -4395,7 +4370,6 @@ DLLEXPORT TetraInside
 
 !------------------------------------------------------------------------------
   FUNCTION BrickInside( nx,ny,nz,x,y,z ) RESULT(inside)
-DLLEXPORT BrickInside
 !******************************************************************************
 !
 !  DESCRIPTION:
@@ -4459,7 +4433,6 @@ DLLEXPORT BrickInside
 !   or outwards, if no elements on the other side
 !------------------------------------------------------------------------------
   SUBROUTINE CheckNormalDirection( Boundary,Normal,x,y,z,turn )
-DLLEXPORT CheckNormalDirection
 !------------------------------------------------------------------------------
 
     Type(Element_t), POINTER :: Boundary
@@ -4573,7 +4546,6 @@ DLLEXPORT CheckNormalDirection
 !
 !------------------------------------------------------------------------------
   FUNCTION NormalVector( Boundary,BoundaryNodes,u,v,Check ) RESULT(Normal)
-DLLEXPORT NormalVector
 !------------------------------------------------------------------------------
     Type(Element_t), POINTER :: Boundary
     Type(Nodes_t)   :: BoundaryNodes
@@ -4654,7 +4626,6 @@ DLLEXPORT NormalVector
 !------------------------------------------------------------------------------
 ! @todo Change to support p elements
   SUBROUTINE GlobalToLocal( u,v,w,x,y,z,Element,ElementNodes )
-DLLEXPORT  GlobalToLocal
 !------------------------------------------------------------------------------
 !
 ! Convert global coordinates x,y,z inside element to local coordinates

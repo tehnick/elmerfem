@@ -38,7 +38,6 @@
 ! Solver the Harmonic version of the Reynolds equation
 !------------------------------------------------------------------------------
 SUBROUTINE HarmonicReynoldsSolver( Model,Solver,dt,TransientSimulation )
-!DEC$ATTRIBUTES DLLEXPORT :: HarmonicReynoldsSolver
 
   USE Types
   USE Lists
@@ -104,7 +103,7 @@ SUBROUTINE HarmonicReynoldsSolver( Model,Solver,dt,TransientSimulation )
   REAL (KIND=dp) ::  Values(MaxNoValues) 
   CHARACTER(LEN=MAX_NAME_LEN) :: ValueNames(MaxNoValues), ValueUnits(MaxNoValues)
   LOGICAL :: ValueSaveLocal(MaxNoValues),ValueSaveRes(MaxNoValues)
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: MEMReynolds.f90,v 1.2 2005/05/04 09:16:01 vierinen Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: MEMReynolds.src,v 1.1 2005/05/26 08:24:27 vierinen Exp $"
 
 
   SAVE LocalMassMatrix, LocalStiffMatrix, Work, LocalForce, ElementNodes, &
@@ -1123,7 +1122,6 @@ CONTAINS
 !------------------------------------------------------------------------------
   SUBROUTINE ReynoldsLinearForce( Model, NoElements, IntegrandFunction, &
       Reorder, Fsum, Pave, dofs, GapMode) 
-    !DLLEXPORT ReynoldsLinearForce
 !------------------------------------------------------------------------------
     TYPE(Model_t) :: Model
     INTEGER :: NoElements, dofs, GapMode
@@ -1266,7 +1264,6 @@ END SUBROUTINE HarmonicReynoldsSolver
 ! Solves the transient version of the Reynolds equation
 !------------------------------------------------------------------------------
 SUBROUTINE TransientReynoldsSolver( Model,Solver,dt,TransientSimulation )
-!DEC$ATTRIBUTES DLLEXPORT :: TransientReynoldsSolver
 !------------------------------------------------------------------------------
 
   USE MEMUtilities
@@ -2177,7 +2174,6 @@ CONTAINS
 !------------------------------------------------------------------------------
   SUBROUTINE ReynoldsNonlinearForce( Model, NoElements, Pressure, &
       Reorder, Pint)
-    !DLLEXPORT ReynoldsNonlinearForce
 !------------------------------------------------------------------------------
     TYPE(Model_t) :: Model
     INTEGER :: NoElements

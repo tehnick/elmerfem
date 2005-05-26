@@ -32,7 +32,10 @@
 ! *
 ! *       Date of modification:
 ! *
-! * $Log: GeneralUtils.f90,v $
+! * $Log: GeneralUtils.src,v $
+! * Revision 1.1  2005/05/26 08:24:19  vierinen
+! * moved .f90 to .src because .f90 is needed for preprosessed files
+! *
 ! * Revision 1.2  2005/05/04 09:15:52  vierinen
 ! * minor modifications
 ! *
@@ -51,7 +54,7 @@
 ! * Added AllocateVector/AllocateArray.
 ! *
 ! *
-! * $Id: GeneralUtils.f90,v 1.2 2005/05/04 09:15:52 vierinen Exp $
+! * $Id: GeneralUtils.src,v 1.1 2005/05/26 08:24:19 vierinen Exp $
 ! ******************************************************************************/
 
 
@@ -78,7 +81,6 @@ CONTAINS
 
 !------------------------------------------------------------------------------
   SUBROUTINE SystemCommand( cmd ) 
-DLLEXPORT SystemCommand
 !------------------------------------------------------------------------------
     CHARACTER(LEN=*) :: cmd
     CALL SystemC( TRIM(cmd) // CHAR(0) )
@@ -89,7 +91,6 @@ DLLEXPORT SystemCommand
 
 !------------------------------------------------------------------------------
   FUNCTION FormatDate() RESULT( date )
-DLLEXPORT FormatDate
 !------------------------------------------------------------------------------
     CHARACTER( LEN=20 ) :: date
     INTEGER :: dates(8)
@@ -106,7 +107,6 @@ DLLEXPORT FormatDate
 !------------------------------------------------------------------------------
    SUBROUTINE Sort( n,a )
 !------------------------------------------------------------------------------
-DLLEXPORT Sort
      INTEGER :: n,a(:)
 !------------------------------------------------------------------------------
 
@@ -155,7 +155,6 @@ DLLEXPORT Sort
 
 !------------------------------------------------------------------------------
    SUBROUTINE SortI( n,a,b )
-DLLEXPORT SortI
 !------------------------------------------------------------------------------
      INTEGER :: n,a(:),b(:)
 !------------------------------------------------------------------------------
@@ -210,7 +209,6 @@ DLLEXPORT SortI
 
 !------------------------------------------------------------------------------
    SUBROUTINE SortF( n,a,b )
-DLLEXPORT SortF
 !------------------------------------------------------------------------------
      INTEGER :: n,a(:)
      REAL(KIND=dp) :: b(:)
@@ -268,7 +266,6 @@ DLLEXPORT SortF
 
 !------------------------------------------------------------------------------
    SUBROUTINE SortC( n,a,b )
-DLLEXPORT SortC
 !------------------------------------------------------------------------------
      INTEGER :: n,b(:)
      COMPLEX(KIND=dp):: a(:)
@@ -328,7 +325,6 @@ DLLEXPORT SortC
 ! of indexes in a.
 !------------------------------------------------------------------------------
    SUBROUTINE SortR( n,a,b )
-DLLEXPORT SortR
 !------------------------------------------------------------------------------
      INTEGER :: n,a(:)
      REAL(KIND=dp) :: b(:)
@@ -385,7 +381,6 @@ DLLEXPORT SortR
 
 !------------------------------------------------------------------------------
   FUNCTION Search( N,Array,Value ) RESULT ( INDEX )
-DLLEXPORT Search
 !------------------------------------------------------------------------------
 
     INTEGER :: N,Value,Array(:)
@@ -436,7 +431,6 @@ DLLEXPORT Search
 
 !------------------------------------------------------------------------------
    FUNCTION ReadAndTrim( Unit,str,echo ) RESULT(l)
-DLLEXPORT ReadAndTrim
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -642,7 +636,6 @@ DLLEXPORT ReadAndTrim
 
 !------------------------------------------------------------------------------
   FUNCTION IntegerToString( input ) RESULT(str)
-DLLEXPORT IntegerToString
 !------------------------------------------------------------------------------
     CHARACTER(LEN=16) :: str
     INTEGER :: i,j,k,n,input
@@ -663,7 +656,6 @@ DLLEXPORT IntegerToString
 
 !------------------------------------------------------------------------------
   FUNCTION ComponentName( BaseName, Component ) RESULT(str)
-DLLEXPORT ComponentName
 !------------------------------------------------------------------------------
     INTEGER :: Component
     CHARACTER(LEN=*) :: BaseName
@@ -680,7 +672,6 @@ DLLEXPORT ComponentName
 
 !------------------------------------------------------------------------------
    FUNCTION InterpolateCurve( TValues,FValues,T ) RESULT( F )
-DLLEXPORT InterpolateCurve
 !------------------------------------------------------------------------------
      REAL(KIND=dp) :: TValues(:),FValues(:),T,F
 !------------------------------------------------------------------------------
@@ -704,7 +695,6 @@ DLLEXPORT InterpolateCurve
 !------------------------------------------------------------------------------
    FUNCTION DerivateCurve( TValues,FValues,T ) RESULT( F )
 !------------------------------------------------------------------------------
-DLLEXPORT DerivateCurve
      REAL(KIND=dp) :: TValues(:),FValues(:),T,F
 !------------------------------------------------------------------------------
      INTEGER :: i,n
@@ -810,7 +800,6 @@ DLLEXPORT DerivateCurve
 !------------------------------------------------------------------------------
    FUNCTION AllocateMatrix() RESULT(Matrix)
 !------------------------------------------------------------------------------
-DLLEXPORT AllocateMatrix
       TYPE(Matrix_t), POINTER :: Matrix
 !------------------------------------------------------------------------------
       ALLOCATE( Matrix )
@@ -874,7 +863,6 @@ DLLEXPORT AllocateMatrix
 !------------------------------------------------------------------------------
    RECURSIVE SUBROUTINE FreeMatrix( Matrix )
 !------------------------------------------------------------------------------
-DLLEXPORT FreeMatrix
      TYPE(Matrix_t), POINTER :: Matrix
 !------------------------------------------------------------------------------
 
@@ -964,7 +952,6 @@ DLLEXPORT FreeMatrix
 
 !------------------------------------------------------------------------------
   SUBROUTINE AllocateRealVector( F, n, From, FailureMessage )
-DLLEXPORT AllocateRealVector
 !------------------------------------------------------------------------------
     REAL(KIND=dp), POINTER :: F(:)
     INTEGER :: n
@@ -997,7 +984,6 @@ DLLEXPORT AllocateRealVector
 
 !------------------------------------------------------------------------------
   SUBROUTINE AllocateComplexVector( f, n, From, FailureMessage )
-DLLEXPORT AllocateComplexVector
 !------------------------------------------------------------------------------
     COMPLEX(KIND=dp), POINTER :: f(:)
     INTEGER :: n
@@ -1030,7 +1016,6 @@ DLLEXPORT AllocateComplexVector
 
 !------------------------------------------------------------------------------
   SUBROUTINE AllocateIntegerVector( f, n, From, FailureMessage )
-DLLEXPORT AllocateIntegerVector
 !------------------------------------------------------------------------------
     INTEGER, POINTER :: f(:)
     INTEGER :: n
@@ -1063,7 +1048,6 @@ DLLEXPORT AllocateIntegerVector
 
 !------------------------------------------------------------------------------
   SUBROUTINE AllocateLogicalVector( f, n, From, FailureMessage )
-DLLEXPORT AllocateLogicalVector
 !------------------------------------------------------------------------------
     LOGICAL, POINTER :: f(:)
     INTEGER :: n
@@ -1096,7 +1080,6 @@ DLLEXPORT AllocateLogicalVector
 
 !------------------------------------------------------------------------------
   SUBROUTINE AllocateElementVector( f, n, From, FailureMessage )
-DLLEXPORT AllocateElementVector
 !------------------------------------------------------------------------------
     TYPE(Element_t), POINTER :: f(:)
     INTEGER :: n
@@ -1129,7 +1112,6 @@ DLLEXPORT AllocateElementVector
 
 !------------------------------------------------------------------------------
   SUBROUTINE AllocateRealArray( f, n1, n2, From, FailureMessage )
-DLLEXPORT AllocateRealArray
 !------------------------------------------------------------------------------
     REAL(KIND=dp), POINTER :: f(:,:)
     INTEGER :: n1,n2
@@ -1161,7 +1143,6 @@ DLLEXPORT AllocateRealArray
 
 !------------------------------------------------------------------------------
   SUBROUTINE AllocateComplexArray( f, n1, n2, From, FailureMessage )
-DLLEXPORT AllocateComplexArray
 !------------------------------------------------------------------------------
     COMPLEX(KIND=dp), POINTER :: f(:,:)
     INTEGER :: n1,n2
@@ -1194,7 +1175,6 @@ DLLEXPORT AllocateComplexArray
 
 !------------------------------------------------------------------------------
   SUBROUTINE AllocateIntegerArray( f, n1, n2, From, FailureMessage )
-DLLEXPORT AllocateIntegerArray
 !------------------------------------------------------------------------------
     INTEGER, POINTER :: f(:,:)
     INTEGER :: n1,n2
@@ -1228,7 +1208,6 @@ DLLEXPORT AllocateIntegerArray
 
 !------------------------------------------------------------------------------
   SUBROUTINE AllocateLogicalArray( f, n1, n2, From, FailureMessage )
-DLLEXPORT AllocateLogicalArray
 !------------------------------------------------------------------------------
     LOGICAL, POINTER :: f(:,:)
     INTEGER :: n1,n2

@@ -32,7 +32,10 @@
 ! *
 ! *       Date of modification:
 ! *
-! * $Log: SolverUtils.f90,v $
+! * $Log: SolverUtils.src,v $
+! * Revision 1.1  2005/05/26 08:24:51  vierinen
+! * moved .f90 to .src because .f90 is needed for preprosessed files
+! *
 ! * Revision 1.2  2005/05/04 09:16:32  vierinen
 ! * minor modifications
 ! *
@@ -76,7 +79,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.f90,v 1.2 2005/05/04 09:16:32 vierinen Exp $
+! * $Id: SolverUtils.src,v 1.1 2005/05/26 08:24:51 vierinen Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -101,7 +104,6 @@ CONTAINS
 
 !------------------------------------------------------------------------------
    SUBROUTINE InitializeToZero( StiffMatrix, ForceVector )
-DLLEXPORT InitializeToZero
 !------------------------------------------------------------------------------
 !******************************************************************************
 ! 
@@ -147,7 +149,6 @@ DLLEXPORT InitializeToZero
 
 !------------------------------------------------------------------------------
    SUBROUTINE SetMatrixElement( StiffMatrix, i, j, Value )
-DLLEXPORT SetMatrixElement
 !------------------------------------------------------------------------------
      TYPE(Matrix_t), POINTER :: StiffMatrix
      INTEGER :: i,j
@@ -168,7 +169,6 @@ DLLEXPORT SetMatrixElement
 
 !------------------------------------------------------------------------------
    SUBROUTINE AddToMatrixElement( StiffMatrix, i, j,Value )
-DLLEXPORT AddToMatrixElement
 !------------------------------------------------------------------------------
      TYPE(Matrix_t), POINTER :: StiffMatrix
      INTEGER :: i,j
@@ -189,7 +189,6 @@ DLLEXPORT AddToMatrixElement
 
 !------------------------------------------------------------------------------
    SUBROUTINE ZeroRow( StiffMatrix, n )
-DLLEXPORT ZeroRow
 !------------------------------------------------------------------------------
      TYPE(Matrix_t), POINTER :: StiffMatrix
       INTEGER :: n
@@ -210,7 +209,6 @@ DLLEXPORT ZeroRow
 
 !------------------------------------------------------------------------------
    SUBROUTINE MatrixVectorMultiply( StiffMatrix,u,v )
-DLLEXPORT MatrixVectorMultiply
 !------------------------------------------------------------------------------
      TYPE(Matrix_t), POINTER :: StiffMatrix
      INTEGER :: n
@@ -234,7 +232,6 @@ DLLEXPORT MatrixVectorMultiply
 !------------------------------------------------------------------------------
    SUBROUTINE Add1stOrderTime( MassMatrix, StiffMatrix,  &
           Force, dt, n, DOFs, NodeIndexes, Solver )
-DLLEXPORT Add1stOrderTime
 !------------------------------------------------------------------------------
 !******************************************************************************
 ! 
@@ -360,7 +357,6 @@ DLLEXPORT Add1stOrderTime
 !------------------------------------------------------------------------------
    SUBROUTINE Add2ndOrderTime( MassMatrix, DampMatrix, StiffMatrix,  &
                 Force, dt, n, DOFs, NodeIndexes, Solver )
-DLLEXPORT Add2ndOrderTime
 !------------------------------------------------------------------------------
 !******************************************************************************
 ! 
@@ -515,7 +511,6 @@ DLLEXPORT Add2ndOrderTime
 !------------------------------------------------------------------------------
    SUBROUTINE UpdateTimeForce( StiffMatrix, &
            ForceVector, LocalForce, n, NDOFs, NodeIndexes )
-DLLEXPORT UpdateTimeForce
 !------------------------------------------------------------------------------
 !******************************************************************************
 ! 
@@ -564,7 +559,6 @@ DLLEXPORT UpdateTimeForce
 !------------------------------------------------------------------------------
    SUBROUTINE UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
            ForceVector, LocalForce, n, NDOFs, NodeIndexes )
-DLLEXPORT UpdateGlobalEquations
 !------------------------------------------------------------------------------
 !******************************************************************************
 ! 
@@ -625,7 +619,6 @@ DLLEXPORT UpdateGlobalEquations
 !------------------------------------------------------------------------------
    SUBROUTINE UpdateMassMatrix( StiffMatrix, LocalMassMatrix, &
                   n, NDOFs, NodeIndexes )
-DLLEXPORT UpdateMassMatrix
 !------------------------------------------------------------------------------
 !******************************************************************************
 ! 
@@ -694,7 +687,6 @@ DLLEXPORT UpdateMassMatrix
 
 !------------------------------------------------------------------------------
    SUBROUTINE SetDirichletBoundaries( Model, A, b, Name, DOF, NDOFs, Perm )
-DLLEXPORT SetDirichletBoundaries
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -807,7 +799,6 @@ DLLEXPORT SetDirichletBoundaries
 !------------------------------------------------------------------------------
    SUBROUTINE SetPeriodicBoundariesPass1( Model, StiffMatrix, ForceVector, &
                       Name, DOF, NDOFs, Perm, This )
-DLLEXPORT SetPeriodicBoundariesPass1
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -892,7 +883,6 @@ DLLEXPORT SetPeriodicBoundariesPass1
 !------------------------------------------------------------------------------
    SUBROUTINE SetPeriodicBoundariesPass2( Model, StiffMatrix, ForceVector, &
                       Name, DOF, NDOFs, Perm, This )
-DLLEXPORT SetPeriodicBoundariesPass2
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -977,7 +967,6 @@ DLLEXPORT SetPeriodicBoundariesPass2
    SUBROUTINE CheckNormalTangentialBoundary( Model, VariableName, &
      NumberOfBoundaryNodes, BoundaryReorder, BoundaryNormals,     &
         BoundaryTangent1, BoundaryTangent2, dim )
-DLLEXPORT CheckNormalTangentialBoundary
 !******************************************************************************
 !
 ! Check if Normal / Tangential vector boundary conditions present and
@@ -1064,7 +1053,6 @@ DLLEXPORT CheckNormalTangentialBoundary
    SUBROUTINE AverageBoundaryNormals( Model, VariableName,    &
      NumberOfBoundaryNodes, BoundaryReorder, BoundaryNormals, &
        BoundaryTangent1, BoundaryTangent2, dim )
-DLLEXPORT AverageBoundaryNormals
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -1169,7 +1157,6 @@ DLLEXPORT AverageBoundaryNormals
 
 !------------------------------------------------------------------------------
   SUBROUTINE InitializeTimestep( Solver )
-DLLEXPORT InitializeTimestep
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -1312,7 +1299,6 @@ DLLEXPORT InitializeTimestep
 
 !------------------------------------------------------------------------------
   SUBROUTINE FinishAssembly( Solver, ForceVector )
-DLLEXPORT FinishAssembly
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -1387,7 +1373,6 @@ DLLEXPORT FinishAssembly
 
 !------------------------------------------------------------------------------
   RECURSIVE SUBROUTINE InvalidateVariable( TopMesh,PrimaryMesh,Name )
-DLLEXPORT InvalidateVariable
 !------------------------------------------------------------------------------
     CHARACTER(LEN=*) :: Name
     TYPE(Mesh_t),  POINTER :: TopMesh,PrimaryMesh
@@ -1456,7 +1441,6 @@ DLLEXPORT InvalidateVariable
 !------------------------------------------------------------------------------
   RECURSIVE SUBROUTINE SolveLinearSystem( StiffMatrix, ForceVector, &
                   Solution, Norm, DOFs, Solver )
-DLLEXPORT SolveLinearSystem
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: ForceVector(:), Solution(:), Norm
     TYPE(Matrix_t), POINTER :: StiffMatrix
@@ -1742,7 +1726,6 @@ scalesystem = .false.
 !------------------------------------------------------------------------------
   RECURSIVE SUBROUTINE SolveSystem( StiffMatrix,ParMatrix,ForceVector, &
                     Solution,Norm,DOFs,Solver )
-DLLEXPORT SolveSystem
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -1863,7 +1846,6 @@ DLLEXPORT SolveSystem
 !------------------------------------------------------------------------------
   SUBROUTINE SolveEigenSystem( StiffMatrix, NOFEigen, &
           EigenValues, EigenVectors,Solver )
-DLLEXPORT SolveEigenSystem
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -1904,7 +1886,6 @@ DLLEXPORT SolveEigenSystem
 
 !------------------------------------------------------------------------------
     SUBROUTINE NSCondensate( N, Nb, dim, K, F, F1 )
-DLLEXPORT NSCondensate
 !------------------------------------------------------------------------------
       USE LinearAlgebra
       INTEGER :: N, Nb, dim
@@ -1949,7 +1930,6 @@ DLLEXPORT NSCondensate
 
 !------------------------------------------------------------------------------
     SUBROUTINE Condensate( N, K, F, F1 )
-DLLEXPORT Condensate
 !------------------------------------------------------------------------------
       USE LinearAlgebra
       INTEGER :: N, dim
@@ -2038,7 +2018,6 @@ DLLEXPORT Condensate
 !------------------------------------------------------------------------------
 SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
         Norm, DOFs, Solver )
-DLLEXPORT SolveWithLinearRestriction
 !------------------------------------------------------------------------------  
 !******************************************************************************
 !  This subroutine will solve the system with some linear restriction.
