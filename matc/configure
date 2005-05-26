@@ -669,6 +669,8 @@ am__fastdepCC_FALSE
 CPP
 GREP
 EGREP
+USE_64BIT_ARCH_TRUE
+USE_64BIT_ARCH_FALSE
 B64FLAGS
 TERMLIBS
 LIBREADLINE
@@ -2299,6 +2301,13 @@ INSTALL_STRIP_PROGRAM="\${SHELL} \$(install_sh) -c -s"
 AMTAR=${AMTAR-"${am_missing_run}tar"}
 
 am__tar='${AMTAR} chof - "$$tardir"'; am__untar='${AMTAR} xf -'
+
+
+
+
+
+
+
 
 
 
@@ -5030,6 +5039,7 @@ cat >>confdefs.h <<\_ACEOF
 #define ARCH_64_BITS 1
 _ACEOF
 
+
     if test x"$with_64bits" = xno; then
 	{ echo "$as_me:$LINENO: WARNING: Explicitely requested 32 bits, but got 64 bits." >&5
 echo "$as_me: WARNING: Explicitely requested 32 bits, but got 64 bits." >&2;}
@@ -5050,6 +5060,17 @@ _ACEOF
 
   ;;
 esac
+
+
+
+if test "$ac_cv_sizeof_voidp" -eq "8"; then
+  USE_64BIT_ARCH_TRUE=
+  USE_64BIT_ARCH_FALSE='#'
+else
+  USE_64BIT_ARCH_TRUE='#'
+  USE_64BIT_ARCH_FALSE=
+fi
+
 
 if test "$with_64bits" != no; then
    echo "$as_me:$LINENO: checking to see if we got 64 bits" >&5
@@ -5998,6 +6019,13 @@ echo "$as_me: error: conditional \"am__fastdepCC\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
+if test -z "${USE_64BIT_ARCH_TRUE}" && test -z "${USE_64BIT_ARCH_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"USE_64BIT_ARCH\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"USE_64BIT_ARCH\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
 if test -z "${MAINTAINER_MODE_TRUE}" && test -z "${MAINTAINER_MODE_FALSE}"; then
   { { echo "$as_me:$LINENO: error: conditional \"MAINTAINER_MODE\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
@@ -6605,6 +6633,8 @@ s,@am__fastdepCC_FALSE@,$am__fastdepCC_FALSE,;t t
 s,@CPP@,$CPP,;t t
 s,@GREP@,$GREP,;t t
 s,@EGREP@,$EGREP,;t t
+s,@USE_64BIT_ARCH_TRUE@,$USE_64BIT_ARCH_TRUE,;t t
+s,@USE_64BIT_ARCH_FALSE@,$USE_64BIT_ARCH_FALSE,;t t
 s,@B64FLAGS@,$B64FLAGS,;t t
 s,@TERMLIBS@,$TERMLIBS,;t t
 s,@LIBREADLINE@,$LIBREADLINE,;t t

@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.39 2005/05/25 13:13:35 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.40 2005/05/26 08:25:41 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -274,6 +274,12 @@ fi
 AC_LANG_POP(C++)
 ])dnl ACX_EIOC
 
+
+
+AC_DEFUN([ACX_MEANING], [
+AC_MSG_CHECKING([for answer to meaning of life])
+AC_MSG_RESULT([42])
+])
 
 dnl
 dnl @synopsis ACX_ARPACK([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
@@ -755,6 +761,7 @@ AC_CHECK_SIZEOF(void*)
 case "$ac_cv_sizeof_voidp" in
   "8")
     AC_DEFINE(ARCH_64_BITS, 1,[64 bit arch.])
+
     if test x"$with_64bits" = xno; then
 	AC_MSG_WARN([Explicitely requested 32 bits, but got 64 bits.])
     fi	
@@ -766,6 +773,8 @@ case "$ac_cv_sizeof_voidp" in
     AC_DEFINE(ARCH_64_BITS, 1,[Couldn't determine. sticking with 64 just in case.])
   ;;
 esac
+
+AM_CONDITIONAL(USE_64BIT_ARCH, test "$ac_cv_sizeof_voidp" -eq "8")
 
 if test "$with_64bits" != no; then
    AC_MSG_CHECKING(to see if we got 64 bits)
@@ -1295,4 +1304,53 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
   fi
   AC_DEFINE_UNQUOTED(SHL_EXTENSION, ".$SHLEXT",[Shared lib filename extension])
 fi
+])
+
+
+
+AC_DEFUN([ACX_PLATFORM_DEFS],
+[
+AC_REQUIRE([ACX_HOST])
+
+PLATFORM_DEF="UNKNOWN"
+
+case "$canonical_host_type" in
+  *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
+	PLATFORM_DEF="BSD"
+  ;;
+  *-*-freebsd*)
+	PLATFORM_DEF="BSD"
+  ;;
+  alpha*-dec-osf*)
+	PLATFORM_DEF="DEC_ALPHA"
+  ;;
+  *-*-darwin*)
+	PLATFORM_DEF="DARWIN"
+  ;;
+  *-*-cygwin* | *-*-mingw*)
+	PLATFORM_DEF="WIN32"
+  ;;
+  *-*-linux* | *-*-gnu*)
+	PLATFORM_DEF="LINUX"
+  ;;
+  i[[3456]]86-*-sco3.2v5*)
+	PLATFORM_DEF="BASTARDS"
+  ;;
+  rs6000-ibm-aix* | powerpc-ibm-aix*)
+	PLATFORM_DEF="AIX"
+  ;;
+  hppa*-hp-hpux*)
+	PLATFORM_DEF="HPUX"
+  ;;
+  *-sgi-*)
+	PLATFORM_DEF="SGI"
+  ;;
+  sparc-sun-sunos4*)
+	PLATFORM_DEF="SUNOS"
+  ;;
+  sparc-sun-solaris2* | i386-pc-solaris2*)
+	PLATFORM_DEF="SOLARIS"
+  ;;
+esac
+AC_DEFINE($PLATFORM_DEFS,1,[Detected platform.])
 ])
