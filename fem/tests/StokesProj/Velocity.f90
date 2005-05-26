@@ -194,7 +194,8 @@ CONTAINS
 
         i = (dim) * (p-1)
         F => FORCE(i+1:i+dim)
-        F = F + s * ( LoadAtIP * Basis(p) + Pressure * dBasisdx(p,:) )
+        F(1:dim) = F(1:dim) +  &
+            s * ( LoadAtIP * Basis(p) + Pressure * dBasisdx(p,1:dim) )
       END DO
     END DO
 !------------------------------------------------------------------------------
