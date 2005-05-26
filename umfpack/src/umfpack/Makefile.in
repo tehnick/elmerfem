@@ -307,7 +307,6 @@ AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
 B64FLAGS = @B64FLAGS@
-BASIC_CPP = @BASIC_CPP@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
@@ -2135,16 +2134,16 @@ clean-local:
 #
 
 @USE_64BIT_ARCH_TRUE@umf4_f_f77wrapper.c: umf4_f77wrapper.c
-@USE_64BIT_ARCH_TRUE@	$(CPP) $(INCLUDES) umf4_f77wrapper.c > umf4_f_f77wrapper.c
+@USE_64BIT_ARCH_TRUE@	$(CPP) -P $(INCLUDES) umf4_f77wrapper.c > umf4_f_f77wrapper.c
 
 @USE_64BIT_ARCH_TRUE@umf4_f_f77zwrapper.c: umf4_f77zwrapper.c
-@USE_64BIT_ARCH_TRUE@	$(CPP) $(INCLUDES) umf4_f77zwrapper.c > umf4_f_f77zwrapper.c
+@USE_64BIT_ARCH_TRUE@	$(CPP) -P $(INCLUDES) umf4_f77zwrapper.c > umf4_f_f77zwrapper.c
 
 @USE_64BIT_ARCH_FALSE@umf4_f_f77wrapper.c: umf4_f77wrapper.c
-@USE_64BIT_ARCH_FALSE@	$(CPP) $(INCLUDES) -DLONG umf4_f77wrapper.c > umf4_f_f77wrapper.c
+@USE_64BIT_ARCH_FALSE@	$(CPP) -P $(INCLUDES) -DLONG umf4_f77wrapper.c > umf4_f_f77wrapper.c
 
 @USE_64BIT_ARCH_FALSE@umf4_f_f77zwrapper.c: umf4_f77zwrapper.c
-@USE_64BIT_ARCH_FALSE@	$(CPP) $(INCLUDES) -DLONG umf4_f77zwrapper.c > umf4_f_f77zwrapper.c
+@USE_64BIT_ARCH_FALSE@	$(CPP) -P $(INCLUDES) -DLONG umf4_f77zwrapper.c > umf4_f_f77zwrapper.c
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:
