@@ -4,13 +4,15 @@
  usage:
  makedepf95 *.f90 (and cross you fingers it'll work)
 
+ or with elmer:
+ makedepf95 *.src
+ 
  juha.vierinen@csc.fi
 """
 import sys
 import re
 import os
 
-# kludge. if you want to use this for your own project, set ELMER=False :)
 ELMER=True
 
 class SimpleF90Parser:
@@ -129,7 +131,7 @@ if __name__ == "__main__":
         object=p.getObjectName(f)
 
         if ELMER:
-            line= object + ": " + re.sub('.f90','.F90',f)
+            line= object + ": " + re.sub('.src','.f90',f)
         else:
             line= object + ": " + f
             
