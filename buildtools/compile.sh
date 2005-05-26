@@ -17,7 +17,7 @@ fi
 if test "$NPROCS" = ""; then
     NPROCS=1
 fi
-datestr=`date '+%Y%M%S'`
+datestr=`date '+%Y-%m-%d-%H-%M-%S'`
 tmpdir=build.`hostname`.$datestr
 mkdir -p $tmpdir
 tmpname=build.`hostname`.$datestr
