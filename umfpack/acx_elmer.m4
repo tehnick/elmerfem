@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.1.1.1 2005/05/26 10:54:06 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.2 2005/05/26 11:29:38 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -851,12 +851,12 @@ AC_CHECK_FILE([/lib/cpp],[TRADITIONAL_CPP=yes],[TRADITIONAL_CPP=no])
 if test "$TRADITIONAL_CPP" != "yes"; then
    AC_CHECK_PROG(BASIC_CPP,[cpp], yes, no)
    if test "$BASIC_CPP" = yes; then
-       CPP=cpp
+       CPP="cpp -P"
    else 
        AC_MSG_ERROR([Traditional cpp not found, just have to exit for for now.])	
    fi
 else
-   CPP="/lib/cpp"
+   CPP="/lib/cpp -P"
 fi
 
 case "$canonical_host_type" in

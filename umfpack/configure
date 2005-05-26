@@ -2524,14 +2524,14 @@ echo "${ECHO_T}no" >&6
 fi
 
    if test "$BASIC_CPP" = yes; then
-       CPP=cpp
+       CPP="cpp -P"
    else
        { { echo "$as_me:$LINENO: error: Traditional cpp not found, just have to exit for for now." >&5
 echo "$as_me: error: Traditional cpp not found, just have to exit for for now." >&2;}
    { (exit 1); exit 1; }; }
    fi
 else
-   CPP="/lib/cpp"
+   CPP="/lib/cpp -P"
 fi
 
 case "$canonical_host_type" in
@@ -2548,7 +2548,6 @@ esac
 
 
 
-INCLUDES="-P $INCLUDES"
 
 if test -n "$ac_tool_prefix"; then
   # Extract the first word of "${ac_tool_prefix}ranlib", so it can be a program name with args.
@@ -3936,7 +3935,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:3939:" \
+echo "$as_me:3938:" \
      "checking for Fortran 77 compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
