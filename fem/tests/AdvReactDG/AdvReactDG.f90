@@ -114,7 +114,7 @@
         n = GetElementNOfNodes( Element )
         
         BodyForce => GetBodyForce( Element )
-        LOAD = GetReal( BodyForce, 'Source', Found )
+        LOAD(1:n) = GetReal( BodyForce, 'Source', Found )
         
         Material => GetMaterial()
         Velo(1,1:n) = GetReal( Material, 'u 1', Found )

@@ -110,7 +110,7 @@
         n = GetElementNOfNodes( Element )
         
         BodyForce => GetBodyForce( Element )
-        LOAD = GetReal( BodyForce, 'Source', GotIt )
+        LOAD(1:n) = GetReal( BodyForce, 'Source', GotIt )
         
         CALL LocalMatrix( STIFF, FORCE, LOAD, Element, n ) 
         CALL DefaultUpdateEquations( STIFF, FORCE )
