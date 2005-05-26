@@ -32,7 +32,10 @@
 ! *
 ! *       Date of modification: 
 ! *
-! * $Log: Adaptive.f90,v $
+! * $Log: Adaptive.src,v $
+! * Revision 1.1  2005/05/26 08:24:01  vierinen
+! * moved .f90 to .src because .f90 is needed for preprosessed files
+! *
 ! * Revision 1.2  2005/05/04 09:15:42  vierinen
 ! * minor modifications
 ! *
@@ -45,7 +48,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Adaptive.f90,v 1.2 2005/05/04 09:15:42 vierinen Exp $
+! * $Id: Adaptive.src,v 1.1 2005/05/26 08:24:01 vierinen Exp $
 ! *****************************************************************************/
 
 
@@ -649,7 +652,7 @@ CONTAINS
              END DO
           END IF
 #else
-          Work = Solver % Variable % Values(i::n)
+          Work = Solver % Variable % Values(i+1::n)
           DO j=1,SIZE(Permutation)
              IF ( Permutation(j) > 0 ) THEN
                 Solver % Variable % Values(n*Permutation(j)-i) = &
@@ -658,7 +661,7 @@ CONTAINS
           END DO
           IF ( ASSOCIATED( Solver % Variable % PrevValues ) ) THEN
              DO j=1,SIZE( Solver % Variable % PrevValues,2)
-               Work = Solver % Variable % PrevValues(i::n,j)
+               Work = Solver % Variable % PrevValues(i+1::n,j)
                DO k=1,SIZE(Permutation)
                   IF ( Permutation(k) > 0 ) THEN
                      Solver % Variable % PrevValues(n*Permutation(k)-i,j) = &
