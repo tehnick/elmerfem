@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.40 2005/05/26 08:25:41 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.1.1.1 2005/05/26 10:54:06 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -861,10 +861,10 @@ fi
 
 case "$canonical_host_type" in
   *-*-cygwin* | *-*-mingw*)
-	TRADITIONAL_CPP_FLAGS="-traditional-cpp"
+	TRADITIONAL_CPP_FLAGS=" -traditional-cpp"
   ;;
   *-*-linux* | *-*-gnu*)
-	TRADITIONAL_CPP_FLAGS="-traditional-cpp"
+	TRADITIONAL_CPP_FLAGS=" -traditional-cpp"
   ;;
   *)
 	TRADITIONAL_CPP_FLAGS=""
