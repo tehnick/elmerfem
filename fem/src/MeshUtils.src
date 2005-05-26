@@ -32,7 +32,10 @@
 ! *
 ! *       Date of modification: 27.8.2002
 ! *
-! * $Log: MeshUtils.f90,v $
+! * $Log: MeshUtils.src,v $
+! * Revision 1.1  2005/05/26 08:24:34  vierinen
+! * moved .f90 to .src because .f90 is needed for preprosessed files
+! *
 ! * Revision 1.4  2005/05/24 09:19:05  jpr
 ! * *** empty log message ***
 ! *
@@ -95,7 +98,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.f90,v 1.4 2005/05/24 09:19:05 jpr Exp $
+! * $Id: MeshUtils.src,v 1.1 2005/05/26 08:24:34 vierinen Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -4291,8 +4294,7 @@ DLLEXPORT DisplaceMesh
 
           ! Change ordering of global nodes to match that of element
           bMap = getElementBoundaryMap( Element, edgeNumber )
-          EdgeElement % NodeIndexes(1:EdgeElement % Type % NumberOfNodes) = &
-               Element % NodeIndexes(bMap)
+          EdgeElement % NodeIndexes(1:n) = Element % NodeIndexes(bMap(1:n))
 
           ! Copy attributes of edge element to boundary element
           ! Misc attributes
