@@ -1,5 +1,11 @@
 lib_LIBRARIES = liblapack.a
 
+dlamch.o: dlamch.f
+	$(F77COMPILE) -O0 -c dlamch.f -o $@
+
+slamch.o: slamch.f
+	$(F77COMPILE) -O0 -c slamch.f -o $@
+
 liblapack_a_SOURCES = \
 	cbdsqr.f\
 	cgbbrd.f\
