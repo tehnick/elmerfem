@@ -33,7 +33,7 @@ cvs co $modules
 for m in $modules; do
     cd $m
     if test "$USE_OWN_MATHLIBS" = yes; then
-	./configure --prefix=$TESTPREFIX $CONFFLAGS --with-blas=$TESTPREFIX/lib/libblas.a --with-blas=$TESTPREFIX/lib/liblapack.a
+	./configure --prefix=$TESTPREFIX $CONFFLAGS --with-blas=$TESTPREFIX/lib/libblas.a --with-lapack=$TESTPREFIX/lib/liblapack.a
     else
 	./configure --prefix=$TESTPREFIX $CONFFLAGS 
     fi
