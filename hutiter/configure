@@ -5875,35 +5875,49 @@ case "$canonical_host_type" in
         	if test x"$FC" != x; then
 	case "$FC" in
   	  ifort | ifc)
+		true
  		;;
 	  g95 | gfortran)
 	        B64FCFLAGS=$B64FLAGS
 		;;
 	  *)
+	        B64FCFLAGS=$B64FLAGS
 		;;
         esac
 	fi
 
 	if test x"$F77" != x; then
  	case "$F77" in
-          g*)
+	  ifort | ifc)
+		true
+	  ;;
+          *)
 	      B64FFLAGS=$B64FLAGS
           ;;
 	esac
 	fi
 
 	if test x"$CC" != x; then
-        if test "$ac_cv_c_compiler_gnu" = yes; then
-       		B64CFLAGS=$B64FLAGS
-        fi
+ 	case "$CC" in
+	  icc | icc)
+		true
+	  ;;
+          *)
+	      B64CFLAGS=$B64FLAGS
+          ;;
+	esac
 	fi
 
 	if test x"$CXX" != x; then
-        if test "$ac_cv_cxx_compiler_gnu" = yes; then
+ 	case "$CC" in
+	  icc | icc)
+		true
+	  ;;
+	  *)
        		B64CXXFLAGS=$B64FLAGS
-        fi
+	  ;;
+	esac
 	fi
-
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
         B64FLAGS="-q64"
@@ -6562,7 +6576,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_verb"
-(eval echo $as_me:6565: \"$ac_link\") >&5
+(eval echo $as_me:6579: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -6646,7 +6660,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_cv_prog_f77_v"
-(eval echo $as_me:6649: \"$ac_link\") >&5
+(eval echo $as_me:6663: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -7393,7 +7407,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_verb"
-(eval echo $as_me:7396: \"$ac_link\") >&5
+(eval echo $as_me:7410: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -7477,7 +7491,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_cv_prog_fc_v"
-(eval echo $as_me:7480: \"$ac_link\") >&5
+(eval echo $as_me:7494: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -8206,7 +8220,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
-LIBS="$LIBS -L$prefix/lib"
+LIBS="-L. $LIBS -L$prefix/lib"
 CFLAGS="$CFLAGS -I$prefix/include"
 CXXFLAGS="$CXXFLAGS -I$prefix/include"
 FCFLAGS="$FCFLAGS -I. -I$prefix/include"

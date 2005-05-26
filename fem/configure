@@ -537,7 +537,7 @@ PACKAGE_VERSION=
 PACKAGE_STRING=
 PACKAGE_BUGREPORT=
 
-ac_unique_file="src/Solver.f90"
+ac_unique_file="src/Solver.src"
 # Factoring default headers for most tests.
 ac_includes_default="\
 #include <stdio.h>
@@ -6937,35 +6937,49 @@ case "$canonical_host_type" in
         	if test x"$FC" != x; then
 	case "$FC" in
   	  ifort | ifc)
+		true
  		;;
 	  g95 | gfortran)
 	        B64FCFLAGS=$B64FLAGS
 		;;
 	  *)
+	        B64FCFLAGS=$B64FLAGS
 		;;
         esac
 	fi
 
 	if test x"$F77" != x; then
  	case "$F77" in
-          g*)
+	  ifort | ifc)
+		true
+	  ;;
+          *)
 	      B64FFLAGS=$B64FLAGS
           ;;
 	esac
 	fi
 
 	if test x"$CC" != x; then
-        if test "$ac_cv_c_compiler_gnu" = yes; then
-       		B64CFLAGS=$B64FLAGS
-        fi
+ 	case "$CC" in
+	  icc | icc)
+		true
+	  ;;
+          *)
+	      B64CFLAGS=$B64FLAGS
+          ;;
+	esac
 	fi
 
 	if test x"$CXX" != x; then
-        if test "$ac_cv_cxx_compiler_gnu" = yes; then
+ 	case "$CC" in
+	  icc | icc)
+		true
+	  ;;
+	  *)
        		B64CXXFLAGS=$B64FLAGS
-        fi
+	  ;;
+	esac
 	fi
-
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
         B64FLAGS="-q64"
@@ -7624,7 +7638,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_verb"
-(eval echo $as_me:7627: \"$ac_link\") >&5
+(eval echo $as_me:7641: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -7708,7 +7722,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_cv_prog_f77_v"
-(eval echo $as_me:7711: \"$ac_link\") >&5
+(eval echo $as_me:7725: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -8455,7 +8469,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_verb"
-(eval echo $as_me:8458: \"$ac_link\") >&5
+(eval echo $as_me:8472: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -8539,7 +8553,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_cv_prog_fc_v"
-(eval echo $as_me:8542: \"$ac_link\") >&5
+(eval echo $as_me:8556: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -14463,7 +14477,7 @@ fi
 case "$FC" in
   *xlf*)
     TESTS_FCFLAGS="$FCFLAGS -qsuffix=cpp=f90"
-    FCFLAGS="$FCFLAGS -qsuffix=cpp=F95"
+    FCFLAGS="$FCFLAGS -qsuffix=cpp=f90"
   ;;
   ifort | ifc )
     TESTS_FCFLAGS="$FCFLAGS"

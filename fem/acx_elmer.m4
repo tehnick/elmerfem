@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.38 2005/05/25 13:02:37 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.39 2005/05/25 13:13:35 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -567,35 +567,49 @@ case "$canonical_host_type" in
 	if test x"$FC" != x; then
 	case "$FC" in
   	  ifort | ifc)
+		true
  		;;
 	  g95 | gfortran)
 	        B64FCFLAGS=$B64FLAGS
 		;;
 	  *)
+	        B64FCFLAGS=$B64FLAGS
 		;;
         esac
 	fi
 
 	if test x"$F77" != x; then
  	case "$F77" in 
-          g*)
+	  ifort | ifc)
+		true
+	  ;;
+          *)
 	      B64FFLAGS=$B64FLAGS
           ;;
 	esac
 	fi
 
 	if test x"$CC" != x; then
-        if test "$ac_cv_c_compiler_gnu" = yes; then
-       		B64CFLAGS=$B64FLAGS
-        fi
+ 	case "$CC" in 
+	  icc | icc)
+		true
+	  ;;
+          *)
+	      B64CFLAGS=$B64FLAGS
+          ;;
+	esac
 	fi
 
 	if test x"$CXX" != x; then
-        if test "$ac_cv_cxx_compiler_gnu" = yes; then
+ 	case "$CC" in 
+	  icc | icc)
+		true
+	  ;;
+	  *)
        		B64CXXFLAGS=$B64FLAGS
-        fi
+	  ;;
+	esac
 	fi
- 
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
         B64FLAGS="-q64"
