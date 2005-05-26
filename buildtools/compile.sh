@@ -2,10 +2,14 @@
 #
 # Always compile into tmp
 #
-EPREFIX=/tmp/vierinen/elmer
+EPREFIX=/tmp/`whoami`/elmer
 
 if test "$1" = "clean"; then
     rm -Rf $EPREFIX
+fi
+
+if test "$NPROCS" = ""; then
+    NPROCS=1
 fi
 
 modules="matc mathlibs eio hutiter fem"
@@ -23,7 +27,7 @@ cvs co $modules
 for m in $modules; do
     cd $m
     ./configure --prefix=$TESTPREFIX $CONFFLAGS
-    gmake -j42
+    gmake -j$NPROCS
     make install
     if test "$m" = fem; then
 	make check
