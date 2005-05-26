@@ -3,6 +3,9 @@
 # Always compile into tmp
 #
 EPREFIX=/tmp/`whoami`/elmer
+modules="matc mathlibs eio hutiter fem"
+export CVSROOT="vierinen@corona.csc.fi:/home/csc/vierinen/cvsroot"
+export CVS_RSH="ssh"
 
 if test "$1" = "clean"; then
     rm -Rf $EPREFIX
@@ -12,16 +15,14 @@ if test "$NPROCS" = ""; then
     NPROCS=1
 fi
 
-modules="matc mathlibs eio hutiter fem"
-
+tmpdir=`mktemp -d build.XXXXXX`
 tmpname=`hostname``date '+%Y%M%S'`
+
 TESTPREFIX=$EPREFIX/$tmpname
 rm -Rf $TESTPREFIX
 
-export CVSROOT="vierinen@corona.csc.fi:/home/csc/vierinen/cvsroot"
-export CVS_RSH="ssh"
-
-rm -Rf $modules
+topdir=`pwd`
+cd $tmpdir
 cvs co $modules
 
 for m in $modules; do
@@ -34,3 +35,6 @@ for m in $modules; do
     fi
     cd ..
 done
+
+cd $topdir
+rm -Rf $tmpdir
