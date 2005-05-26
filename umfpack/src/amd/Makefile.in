@@ -18,7 +18,7 @@
 # AMD Makefile for compiling on Unix systems (for GNU make only)
 #-------------------------------------------------------------------------------
 
-SOURCES = $(libamd_a_SOURCES) $(libamdf77_a_SOURCES)
+SOURCES = $(libamd_a_SOURCES) $(nodist_libamd_a_SOURCES) $(libamdf77_a_SOURCES)
 
 srcdir = @srcdir@
 top_srcdir = @top_srcdir@
@@ -65,7 +65,9 @@ libLIBRARIES_INSTALL = $(INSTALL_DATA)
 LIBRARIES = $(lib_LIBRARIES)
 libamd_a_AR = $(AR) $(ARFLAGS)
 libamd_a_LIBADD =
-am__objects_1 = amd_i_aat.$(OBJEXT) amd_i_1.$(OBJEXT) \
+am__objects_1 =
+am_libamd_a_OBJECTS = $(am__objects_1)
+am__objects_2 = amd_i_aat.$(OBJEXT) amd_i_1.$(OBJEXT) \
 	amd_i_2.$(OBJEXT) amd_i_dump.$(OBJEXT) \
 	amd_i_postorder.$(OBJEXT) amd_i_post_tree.$(OBJEXT) \
 	amd_i_defaults.$(OBJEXT) amd_i_order.$(OBJEXT) \
@@ -77,9 +79,8 @@ am__objects_1 = amd_i_aat.$(OBJEXT) amd_i_1.$(OBJEXT) \
 	amd_l_order.$(OBJEXT) amd_l_control.$(OBJEXT) \
 	amd_l_info.$(OBJEXT) amd_l_valid.$(OBJEXT) \
 	amd_l_preprocess.$(OBJEXT)
-am__objects_2 = $(am__objects_1)
-am_libamd_a_OBJECTS = $(am__objects_2)
-libamd_a_OBJECTS = $(am_libamd_a_OBJECTS)
+nodist_libamd_a_OBJECTS = $(am__objects_2)
+libamd_a_OBJECTS = $(am_libamd_a_OBJECTS) $(nodist_libamd_a_OBJECTS)
 libamdf77_a_AR = $(AR) $(ARFLAGS)
 libamdf77_a_LIBADD =
 am__objects_3 = amd.$(OBJEXT) amdbar.$(OBJEXT)
@@ -96,7 +97,8 @@ F77COMPILE = $(F77) $(AM_FFLAGS) $(FFLAGS)
 F77LD = $(F77)
 F77LINK = $(F77LD) $(AM_FFLAGS) $(FFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o \
 	$@
-SOURCES = $(libamd_a_SOURCES) $(libamdf77_a_SOURCES)
+SOURCES = $(libamd_a_SOURCES) $(nodist_libamd_a_SOURCES) \
+	$(libamdf77_a_SOURCES)
 DIST_SOURCES = $(libamd_a_SOURCES) $(libamdf77_a_SOURCES)
 ETAGS = etags
 CTAGS = ctags
@@ -236,7 +238,7 @@ AMD_CPP_SOURCES = \
 #-------------------------------------------------------------------------------
 # source files
 #-------------------------------------------------------------------------------
-AMD_SOURCES = amd_internal.h $(AMD_CPP_SOURCES)
+AMD_SOURCES = amd_internal.h 
 INCLUDES = \
 	-I./include/       \
 	-I.         
@@ -247,6 +249,7 @@ lib_LIBRARIES = libamd.a libamdf77.a
 # Create the libamd.a library (C versions only)
 #-------------------------------------------------------------------------------
 libamd_a_SOURCES = $(AMD_SOURCES)
+nodist_libamd_a_SOURCES = $(AMD_CPP_SOURCES)
 
 #-------------------------------------------------------------------------------
 # compile the Fortran versions and the libamdf77.a library

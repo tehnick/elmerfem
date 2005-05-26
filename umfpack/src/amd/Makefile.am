@@ -8,7 +8,8 @@
 #-------------------------------------------------------------------------------
 include make.dep
 
-AMD_SOURCES = amd_internal.h $(AMD_CPP_SOURCES)
+AMD_SOURCES = amd_internal.h 
+
 
 INCLUDES = \
 	-I./include/       \
@@ -21,6 +22,7 @@ lib_LIBRARIES = libamd.a libamdf77.a
 #-------------------------------------------------------------------------------
 
 libamd_a_SOURCES = $(AMD_SOURCES)
+nodist_libamd_a_SOURCES = $(AMD_CPP_SOURCES)
 
 #-------------------------------------------------------------------------------
 # compile the Fortran versions and the libamdf77.a library
