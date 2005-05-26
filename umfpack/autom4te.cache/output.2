@@ -649,6 +649,8 @@ MAINTAINER_MODE_TRUE
 MAINTAINER_MODE_FALSE
 MAINT
 canonical_host_type
+BASIC_CPP
+CPP
 RANLIB
 ac_ct_RANLIB
 CC
@@ -672,7 +674,6 @@ FFLAGS
 ac_ct_F77
 AR
 ARFLAGS
-CPP
 GREP
 EGREP
 USE_64BIT_ARCH_TRUE
@@ -2456,6 +2457,95 @@ echo "${ECHO_T}optimized" >&6
 	CXXFLAGS=$ACX_OPT_FLAG
   fi
 fi
+
+
+
+# sun cc -E leaves nasty # comment that chokes the fortran compiler, so we have to hope
+# that ye olde cpp is present.
+echo "$as_me:$LINENO: checking for /lib/cpp" >&5
+echo $ECHO_N "checking for /lib/cpp... $ECHO_C" >&6
+if test "${ac_cv_file__lib_cpp+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  test "$cross_compiling" = yes &&
+  { { echo "$as_me:$LINENO: error: cannot check for file existence when cross compiling" >&5
+echo "$as_me: error: cannot check for file existence when cross compiling" >&2;}
+   { (exit 1); exit 1; }; }
+if test -r "/lib/cpp"; then
+  ac_cv_file__lib_cpp=yes
+else
+  ac_cv_file__lib_cpp=no
+fi
+fi
+echo "$as_me:$LINENO: result: $ac_cv_file__lib_cpp" >&5
+echo "${ECHO_T}$ac_cv_file__lib_cpp" >&6
+if test $ac_cv_file__lib_cpp = yes; then
+  TRADITIONAL_CPP=yes
+else
+  TRADITIONAL_CPP=no
+fi
+
+
+if test "$TRADITIONAL_CPP" != "yes"; then
+   # Extract the first word of "cpp", so it can be a program name with args.
+set dummy cpp; ac_word=$2
+echo "$as_me:$LINENO: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
+if test "${ac_cv_prog_BASIC_CPP+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  if test -n "$BASIC_CPP"; then
+  ac_cv_prog_BASIC_CPP="$BASIC_CPP" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+  for ac_exec_ext in '' $ac_executable_extensions; do
+  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_executable_p "$as_dir/$ac_word$ac_exec_ext"; }; then
+    ac_cv_prog_BASIC_CPP="yes"
+    echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+done
+
+  test -z "$ac_cv_prog_BASIC_CPP" && ac_cv_prog_BASIC_CPP="no"
+fi
+fi
+BASIC_CPP=$ac_cv_prog_BASIC_CPP
+if test -n "$BASIC_CPP"; then
+  echo "$as_me:$LINENO: result: $BASIC_CPP" >&5
+echo "${ECHO_T}$BASIC_CPP" >&6
+else
+  echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
+fi
+
+   if test "$BASIC_CPP" = yes; then
+       CPP=cpp
+   else 
+       { { echo "$as_me:$LINENO: error: Traditional cpp not found, just have to exit for for now." >&5
+echo "$as_me: error: Traditional cpp not found, just have to exit for for now." >&2;}
+   { (exit 1); exit 1; }; }	
+   fi
+else
+   CPP="/lib/cpp"
+fi
+
+case "$canonical_host_type" in
+  *-*-cygwin* | *-*-mingw*)
+	TRADITIONAL_CPP_FLAGS="-traditional-cpp"
+  ;;
+  *-*-linux* | *-*-gnu*)
+	TRADITIONAL_CPP_FLAGS="-traditional-cpp"
+  ;;
+  *)
+	TRADITIONAL_CPP_FLAGS=""
+  ;;
+esac
+
 
 
 
@@ -6245,6 +6335,8 @@ s,@MAINTAINER_MODE_TRUE@,$MAINTAINER_MODE_TRUE,;t t
 s,@MAINTAINER_MODE_FALSE@,$MAINTAINER_MODE_FALSE,;t t
 s,@MAINT@,$MAINT,;t t
 s,@canonical_host_type@,$canonical_host_type,;t t
+s,@BASIC_CPP@,$BASIC_CPP,;t t
+s,@CPP@,$CPP,;t t
 s,@RANLIB@,$RANLIB,;t t
 s,@ac_ct_RANLIB@,$ac_ct_RANLIB,;t t
 s,@CC@,$CC,;t t
@@ -6268,7 +6360,6 @@ s,@FFLAGS@,$FFLAGS,;t t
 s,@ac_ct_F77@,$ac_ct_F77,;t t
 s,@AR@,$AR,;t t
 s,@ARFLAGS@,$ARFLAGS,;t t
-s,@CPP@,$CPP,;t t
 s,@GREP@,$GREP,;t t
 s,@EGREP@,$EGREP,;t t
 s,@USE_64BIT_ARCH_TRUE@,$USE_64BIT_ARCH_TRUE,;t t
