@@ -2369,6 +2369,55 @@ fi
 
 
 
+
+
+PLATFORM_DEF="UNKNOWN"
+
+case "$canonical_host_type" in
+  *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
+	PLATFORM_DEF="BSD"
+  ;;
+  *-*-freebsd*)
+	PLATFORM_DEF="BSD"
+  ;;
+  alpha*-dec-osf*)
+	PLATFORM_DEF="DEC_ALPHA"
+  ;;
+  *-*-darwin*)
+	PLATFORM_DEF="DARWIN"
+  ;;
+  *-*-cygwin* | *-*-mingw*)
+	PLATFORM_DEF="WIN32"
+  ;;
+  *-*-linux* | *-*-gnu*)
+	PLATFORM_DEF="LINUX"
+  ;;
+  i[3456]86-*-sco3.2v5*)
+	PLATFORM_DEF="BASTARDS"
+  ;;
+  rs6000-ibm-aix* | powerpc-ibm-aix*)
+	PLATFORM_DEF="AIX"
+  ;;
+  hppa*-hp-hpux*)
+	PLATFORM_DEF="HPUX"
+  ;;
+  *-sgi-*)
+	PLATFORM_DEF="SGI"
+  ;;
+  sparc-sun-sunos4*)
+	PLATFORM_DEF="SUNOS"
+  ;;
+  sparc-sun-solaris2* | i386-pc-solaris2*)
+	PLATFORM_DEF="SOLARIS"
+  ;;
+esac
+
+cat >>confdefs.h <<\_ACEOF
+#define $PLATFORM_DEFS 1
+_ACEOF
+
+
+
 acx_debug=no
 
 
