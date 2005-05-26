@@ -43,7 +43,7 @@ for m in $modules; do
 	make check
     fi
     cd ..
-    rm -Rf $m
+#    rm -Rf $m
 done
 
 cd $topdir
