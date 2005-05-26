@@ -17,10 +17,10 @@ fi
 if test "$NPROCS" = ""; then
     NPROCS=1
 fi
-
-tmpdir=build.`hostname``date '+%Y%M%S'`
+datestr=`date '+%Y%M%S'`
+tmpdir=build.`hostname`.$datestr
 mkdir -p $tmpdir
-tmpname=`hostname``date '+%Y%M%S'`
+tmpname=build.`hostname`.$datestr
 
 TESTPREFIX=$EPREFIX/$tmpname
 rm -Rf $TESTPREFIX
