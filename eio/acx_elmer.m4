@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.6 2005/05/24 12:49:32 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.39 2005/05/25 13:13:35 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -73,12 +73,11 @@ else
 AC_MSG_RESULT([optimized])
   case "$canonical_host_type" in
      rs6000-ibm-aix* | powerpc-ibm-aix*)
-	ACX_COPT_FLAG="-O -qmaxmem=-1 -qstrict"
-	ACX_LOPT_FLAGS="-bmaxdata:2000000000 -bmaxstack:2000000000"
+	dnl better optimization on ibm
+	ACX_OPT_FLAG="-O -qmaxmem=-1 -qstrict"
      ;;
      *)
 	ACX_OPT_FLAG="-O"
-	ACX_LOPT_FLAG=""
      ;;
   esac
 
@@ -125,12 +124,12 @@ AC_FC_FUNC(huti_d_gmres)
 AC_FC_FUNC(huti_d_cgs)
 
 acx_huti_save_LIBS="$LIBS"
-LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
+dnl LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
 
 # First, check HUTI_LIBS environment variable
 if test $acx_huti_ok = no; then
 if test "x$HUTI_LIBS" != x; then
-	save_LIBS="$LIBS"; LIBS="$HUTI_LIBS $LIBS"
+	save_LIBS="$LIBS"; LIBS="$LIBS $HUTI_LIBS $BLAS_LIBS $FCLIBS $FLIBS"
 	AC_MSG_CHECKING([for $huti_d_gmres in $HUTI_LIBS])
 	AC_TRY_LINK_FUNC($huti_d_gmres, [acx_huti_ok=yes], [HUTI_LIBS=""])
 	AC_MSG_RESULT($acx_huti_ok)
@@ -140,7 +139,9 @@ fi
 
 # Generic HUTI library?
 if test $acx_huti_ok = no; then
+	save_LIBS="$LIBS"; LIBS="$LIBS $BLAS_LIBS $FCLIBS $FLIBS"
 	AC_CHECK_LIB(huti, $huti_d_gmres, [acx_huti_ok=yes; HUTI_LIBS="-lhuti"])
+	LIBS="$save_LIBS"
 fi
 
 AC_SUBST(HUTI_LIBS)
@@ -566,35 +567,49 @@ case "$canonical_host_type" in
 	if test x"$FC" != x; then
 	case "$FC" in
   	  ifort | ifc)
+		true
  		;;
 	  g95 | gfortran)
 	        B64FCFLAGS=$B64FLAGS
 		;;
 	  *)
+	        B64FCFLAGS=$B64FLAGS
 		;;
         esac
 	fi
 
 	if test x"$F77" != x; then
  	case "$F77" in 
-          g*)
+	  ifort | ifc)
+		true
+	  ;;
+          *)
 	      B64FFLAGS=$B64FLAGS
           ;;
 	esac
 	fi
 
 	if test x"$CC" != x; then
-        if test "$ac_cv_c_compiler_gnu" = yes; then
-       		B64CFLAGS=$B64FLAGS
-        fi
+ 	case "$CC" in 
+	  icc | icc)
+		true
+	  ;;
+          *)
+	      B64CFLAGS=$B64FLAGS
+          ;;
+	esac
 	fi
 
 	if test x"$CXX" != x; then
-        if test "$ac_cv_cxx_compiler_gnu" = yes; then
+ 	case "$CC" in 
+	  icc | icc)
+		true
+	  ;;
+	  *)
        		B64CXXFLAGS=$B64FLAGS
-        fi
+	  ;;
+	esac
 	fi
- 
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
         B64FLAGS="-q64"
@@ -841,6 +856,18 @@ else
    CPP="/lib/cpp"
 fi
 
+case "$canonical_host_type" in
+  *-*-cygwin* | *-*-mingw*)
+	TRADITIONAL_CPP_FLAGS="-traditional-cpp"
+  ;;
+  *-*-linux* | *-*-gnu*)
+	TRADITIONAL_CPP_FLAGS="-traditional-cpp"
+  ;;
+  *)
+	TRADITIONAL_CPP_FLAGS=""
+  ;;
+esac
+
 AC_SUBST(CPP)
 ])
 
@@ -935,7 +962,7 @@ AC_COMPILE_IFELSE(
        call barf(s,42)                                                                     
        end],
 [
-$FC -o testi$ac_exeext conftest.$ac_objext cfortran_test.$ac_objext
+$FC $FCFLAGS -o testi$ac_exeext conftest.$ac_objext cfortran_test.$ac_objext
 the_answer=`./testi$ac_exeext`
 
 case $the_answer in 
@@ -963,4 +990,309 @@ case $acx_cv_fc_char_mangling in
 	;;
 esac
 AC_LANG_POP(Fortran)
+])
+
+AC_DEFUN([ACX_FC_LINKTYP], [
+AC_PREREQ(2.50)
+AC_REQUIRE([AC_FC_WRAPPERS])
+dnl setup name mangling defines
+case "$ac_cv_fc_mangling" in
+  "upper case, no underscore, no extra underscore" | "upper case, no underscores")
+    AC_DEFINE(ELMER_LINKTYP, 2, "Mangling: upper case, no underscore, no extra underscore") 
+  ;;
+  "lower case, no underscore, no extra underscore" | "lower case, no underscores" )
+    AC_DEFINE(ELMER_LINKTYP, 3, "Mangling: lower case, no underscore, no extra underscore") 
+  ;;
+  "lower case, underscore, no extra underscore" | "lower case, single underscores")
+    AC_DEFINE(ELMER_LINKTYP, 1, "Mangling: lower case, underscore, no extra underscore") 
+  ;;
+  "lower case, underscore, extra underscore" | "lower case, double underscores")
+    AC_DEFINE(ELMER_LINKTYP, 4, "Mangling: lower case, underscore, extra underscore") 
+  ;;
+  *)
+    AC_MSG_ERROR([Unknown sort of Fortran name mangling]) 
+  ;;
+esac
+
+])
+
+AC_DEFUN([ACX_FC_INCLUDE_MODULE_FLAG],[
+
+INCLUDE_MODULE_FLAG="-I"
+
+case "$canonical_host_type" in
+  sparc-sun-solaris2* | i386-pc-solaris2*)
+    if test "$ac_cv_fc_compiler_gnu" != yes; then
+      INCLUDE_MODULE_FLAG="-M"
+    fi
+  ;;
+esac
+
+])
+
+AC_DEFUN([ACX_PIC_FLAGS],[
+dnl 
+dnl Host specific stuff
+dnl fixme: if 64 bits, then start looking for pic flags, not by default?
+dnl 
+dnl
+case "$canonical_host_type" in
+  *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
+	true
+  ;;
+  *-*-freebsd*)
+	true
+  ;;
+  alpha*-dec-osf*)
+	true
+  ;;
+  *-*-darwin*)
+	true
+  ;;
+  *-*-cygwin* | *-*-mingw*)
+	true
+  ;;
+  *-*-linux* | *-*-gnu*)
+    CPICFLAG="-fPIC"
+    CXXPICFLAG="-fPIC"
+    FPICFLAG="-fPIC"
+    FCPICFLAG="-fPIC"
+  ;;
+  i[[3456]]86-*-sco3.2v5*)
+	true
+  ;;
+  rs6000-ibm-aix* | powerpc-ibm-aix*)
+	true
+  ;;
+  hppa*-hp-hpux*)
+    if test "$ac_cv_f77_compiler_gnu" = yes; then
+      FPICFLAG=-fPIC
+    else
+      FPICFLAG=+Z
+    fi
+  ;;
+  *-sgi-*)
+	true
+  ;;
+  sparc-sun-sunos4*)
+    if test "$ac_cv_f77_compiler_gnu" = yes; then
+      FPICFLAG=-fPIC
+    else
+      FPICFLAG=-PIC
+    fi
+  ;;
+  sparc-sun-solaris2* | i386-pc-solaris2*)
+    if test "$ac_cv_f77_compiler_gnu" = yes; then
+      FPICFLAG=-fPIC
+    else
+      FPICFLAG=-KPIC
+    fi
+    if test "$ac_cv_fc_compiler_gnu" = yes; then
+      FPICFLAG=-fPIC
+    else
+      FPICFLAG=-KPIC
+    fi
+    if test "$GCC" = yes; then
+      CPICFLAG="-fPIC"
+    else
+      CPICFLAG=-KPIC
+    fi
+    if test "$GXX" = yes; then
+      CXXPICFLAG=-fPIC
+    else
+      CXXPICFLAG=-KPIC
+    fi
+  ;;
+esac
+FCFLAGS="$FCFLAGS $FPICFLAG"
+FFLAGS="$FFLAGS $FPICFLAG"
+CFLAGS="$CFLAGS $CPICFLAG"
+CXXFLAGS="$CXXFLAGS $CXXPICFLAG"
+])
+
+AC_DEFUN([ACX_SHLIB_STUFF],[
+dnl  
+dnl OS-specific stuff that hasn't been (or can't be) done in a clean way.
+dnl
+DLFCN_DIR=
+CPICFLAG="-fPIC"
+CXXPICFLAG="-fPIC"
+FPICFLAG="-fPIC"
+SHLEXT="so"
+SHLLIB='$(SHLEXT)'
+SHLBIN=
+SHLEXT_VER='$(SHLEXT).$(version)'
+SHLLIB_VER='$(SHLLIB).$(version)'
+SHLBIN_VER='$(SHLBIN).$(version)'
+SHLLINKEXT=
+LIBEXT=a
+SH_LD2=$CXX
+SH_LD=$FC
+SH_LDFLAGS=-shared
+SH_LINKING_TO_FLAGS=
+DL_LD='$(SH_LD)'
+DL_LDFLAGS='$(SH_LDFLAGS)'
+MKOCTFILE_DL_LDFLAGS='$(DL_LDFLAGS)'
+SONAME_FLAGS=
+library_path_var=LD_LIBRARY_PATH
+LIBSOLVER_DEPS=$LIBS
+
+dnl 
+dnl Host specific stuff
+dnl
+case "$canonical_host_type" in
+  *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
+    SH_LD="ld"
+    SH_LDFLAGS="-Bshareable"
+  ;;
+  *-*-freebsd*)
+    SH_LD='$(CC)'
+    SH_LDFLAGS="-shared"
+  ;;
+  alpha*-dec-osf*)
+    SH_LDFLAGS="-shared"
+  ;;
+  *-*-darwin*)
+    SH_LDFLAGS='-dynamiclib -single_module $(LDFLAGS)'
+dnl    SHLEXT="dylib"
+dnl    SHLLIB='$(SHLEXT)'
+dnl    SHLEXT_VER='$(version).$(SHLEXT)'
+dnl    SHLLIB_VER='$(version).$(SHLLIB)'
+dnl    NO_OCT_FILE_STRIP="true"
+dnl    SONAME_FLAGS='-install_name $(octlibdir)/$@'
+dnl    library_path_var=DYLD_LIBRARY_PATH	
+  ;;
+  *-*-cygwin* | *-*-mingw*)
+dnl    SHLEXT=dll
+dnl    SHLLIB=dll.a
+dnl    SHLBIN=dll
+    SH_LDFLAGS="-shared"
+dnl    SHLLINKEXT=".dll"
+dnl    SONAME_FLAGS='-Wl,--out-implib=$@.a'
+dnl    library_path_var=PATH
+  ;;
+  *-*-linux* | *-*-gnu*)
+dnl    MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
+dnl    SONAME_FLAGS=''
+dnl    RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
+dnl     CPICFLAG="-fPIC"
+dnl    CXXPICFLAG="-fPIC"
+dnl    FPICFLAG="-fPIC"
+  ;;
+  i[[3456]]86-*-sco3.2v5*)
+dnl    SONAME_FLAGS='-Wl,-h -Wl,$@'
+dnl    RLD_FLAG=
+    SH_LDFLAGS="-G"
+  ;;
+  rs6000-ibm-aix* | powerpc-ibm-aix*)
+dnl    CPICFLAG=
+dnl    CXXPICFLAG=
+dnl    FPICFLAG=
+dnl    DLFCN_DIR=dlfcn
+    SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
+    SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared"
+dnl    use_ldaix="yes"
+dnl    AC_SUBST(use_ldaix)
+  ;;
+  hppa*-hp-hpux*)
+dnl    if test "$ac_cv_f77_compiler_gnu" = yes; then
+dnl      FPICFLAG=-fPIC
+dnl    else
+dnl      FPICFLAG=+Z
+dnl    fi
+dnl    SHLEXT=sl
+    SH_LDFLAGS="-shared -fPIC"
+  ;;
+  *-sgi-*)
+      true
+  ;;
+  sparc-sun-sunos4*)
+    SH_LD=ld
+    SH_LDFLAGS="-assert nodefinitions"
+  ;;
+  sparc-sun-solaris2* | i386-pc-solaris2*)
+    if test "$GXX" != yes; then
+      SH_LDFLAGS=-G
+    fi
+  ;;
+esac
+
+### Dynamic linking is now enabled only if we are building shared
+### libs and some API for dynamic linking is detected.
+
+LD_CXX='$(CXX)'
+LIBDLFCN=
+DLFCN_INCFLAGS=
+RDYNAMIC_FLAG=
+DL_API_MSG=""
+dlopen_api=false
+shl_load_api=false
+loadlibrary_api=false
+dyld_api=false
+
+### yes atleast now
+SHARED_LIBS=true
+if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
+
+  ### Check for dyld first since OS X can have a non-standard libdl	
+
+  AC_CHECK_HEADER(Mach-O/dyld.h)  
+  if test "$ac_cv_header_Mach_O_dyld_h" = yes; then
+    dyld_api=true
+  else 
+    AC_CHECK_LIB(dld, shl_load)
+    AC_CHECK_FUNCS(shl_load shl_findsym)
+    if test "$ac_cv_func_shl_load" = yes \
+      && test "$ac_cv_func_shl_findsym" = yes; then
+      shl_load_api=true
+    else
+      AC_CHECK_LIB(wsock32, LoadLibrary)
+      AC_CHECK_FUNCS(LoadLibrary)
+      if test "$ac_cv_func_loadlibrary" = yes; then
+        loadlibrary_api=true
+      else
+        AC_CHECK_LIB(dl, dlopen)
+        AC_CHECK_FUNCS(dlopen dlsym dlerror dlclose)
+        if test "$ac_cv_func_dlclose" = yes \
+          && test "$ac_cv_func_dlerror" = yes \
+          && test "$ac_cv_func_dlopen" = yes \
+          && test "$ac_cv_func_dlsym" = yes; then
+          dlopen_api=true
+        else
+	  case "$canonical_host_type" in
+	    rs6000-ibm-aix* | powerpc-ibm-aix*)
+	      LIBDLFCN="-ldlfcn -ll -lld"
+	      DLFCN_INCFLAGS='-I$(top_srcdir)/dlfcn -I$(TOPDIR)/dlfcn'
+	      dlopen_api=true
+	    ;;
+	    i[[3456]]86-*-sco3.2v5*)
+	      LD_CXX='LD_RUN_PATH=$LD_RUN_PATH:$(octlibdir) $(CXX)'
+	      dlopen_api=true
+	    ;;
+	  esac
+	fi
+      fi
+    fi
+  fi
+
+  if $dlopen_api; then
+    DL_API_MSG="(dlopen)"
+    AC_DEFINE(HAVE_DLOPEN_API, 1, [Define if your system has dlopen, dlsym, dlerror, and dlclose for dynamic linking])
+  elif $shl_load_api; then
+    DL_API_MSG="(shl_load)"
+    AC_DEFINE(HAVE_SHL_LOAD_API, 1, [Define if your system has shl_load and shl_findsym for dynamic linking])
+  elif $loadlibrary_api; then
+    DL_API_MSG="(LoadLibrary)"
+    AC_DEFINE(HAVE_LOADLIBRARY_API, 1, [Define if your system has LoadLibrary for dynamic linking])
+  elif $dyld_api; then
+    DL_API_MSG="(dyld)"
+    AC_DEFINE(HAVE_DYLD_API, 1, [Define if your system has dyld for dynamic linking])
+  fi
+
+  if $dlopen_api || $shl_load_api || $loadlibrary_api || $dyld_api; then
+    ENABLE_DYNAMIC_LINKING=true
+    AC_DEFINE(ENABLE_DYNAMIC_LINKING, 1, [Define if using dynamic linking])
+  fi
+  AC_DEFINE_UNQUOTED(SHL_EXTENSION, ".$SHLEXT",[Shared lib filename extension])
+fi
 ])
