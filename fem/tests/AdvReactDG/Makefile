@@ -3,7 +3,7 @@
 run:
 	$(ELMER_GRID) 1 2 square
 	$(F90) -c AdvReactDG.f90
-	$(LD) -o AdvReactDG$(SHL_EXT) AdvReactDG.o
+	$(LD) -o AdvReactDG$(SHL_EXT) AdvReactDG.o $(LIBS)
 	$(ELMER_SOLVER)
 
 clean:
