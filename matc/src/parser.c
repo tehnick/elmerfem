@@ -56,9 +56,12 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: parser.c,v 1.7 2004/09/09 10:31:38 jpr Exp $ 
+ * $Id: parser.c,v 1.1.1.1 2005/04/14 13:29:14 vierinen Exp $ 
  *
  * $Log: parser.c,v $
+ * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
+ * initial matc automake package
+ *
  * Revision 1.7  2004/09/09 10:31:38  jpr
  * *** empty log message ***
  *
@@ -81,7 +84,7 @@ $  usage of the function and type of the parameters
  *
  */
 
-#include "matc.h"
+#include "elmer/matc.h"
 
 static SYMTYPE symbol, bendsym;
 static char *str, csymbol[4096], buf[4096];

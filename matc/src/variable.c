@@ -56,9 +56,12 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: variable.c,v 1.5 2003/03/19 10:28:58 jpr Exp $ 
+ * $Id: variable.c,v 1.1.1.1 2005/04/14 13:29:14 vierinen Exp $ 
  *
  * $Log: variable.c,v $
+ * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
+ * initial matc automake package
+ *
  * Revision 1.5  2003/03/19 10:28:58  jpr
  * *** empty log message ***
  *
@@ -75,7 +78,7 @@ $  usage of the function and type of the parameters
  *
  */
 
-#include "matc.h"
+#include "elmer/matc.h"
 
 VARIABLE *const_new(name, type, nrow, ncol) int type, ncol, nrow; char *name;
 /*======================================================================

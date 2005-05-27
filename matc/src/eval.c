@@ -56,9 +56,12 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: eval.c,v 1.1.1.1 2005/04/14 13:29:14 vierinen Exp $ 
+ * $Id: eval.c,v 1.2 2005/05/26 12:34:53 vierinen Exp $ 
  *
  * $Log: eval.c,v $
+ * Revision 1.2  2005/05/26 12:34:53  vierinen
+ * windows stuff
+ *
  * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
  * initial matc automake package
  *
@@ -81,7 +84,7 @@ $  usage of the function and type of the parameters
  *
  */
 
-#include "matc.h"
+#include "elmer/matc.h"
 
 VARIABLE *evaltree(root) TREE *root;
 /*======================================================================

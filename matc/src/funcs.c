@@ -56,9 +56,12 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: funcs.c,v 1.3 2003/05/06 09:14:49 jpr Exp $ 
+ * $Id: funcs.c,v 1.1.1.1 2005/04/14 13:29:14 vierinen Exp $ 
  *
  * $Log: funcs.c,v $
+ * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
+ * initial matc automake package
+ *
  * Revision 1.3  2003/05/06 09:14:49  jpr
  * *** empty log message ***
  *
@@ -69,7 +72,7 @@ $  usage of the function and type of the parameters
  *
  */
 
-#include "matc.h"
+#include "elmer/matc.h"
 
 FUNCTION *fnc_check(name) char *name;
 /*======================================================================

@@ -56,9 +56,12 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: lu.c,v 1.2 1998/08/01 12:34:45 jpr Exp $ 
+ * $Id: lu.c,v 1.1.1.1 2005/04/14 13:29:14 vierinen Exp $ 
  *
  * $Log: lu.c,v $
+ * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
+ * initial matc automake package
+ *
  * Revision 1.2  1998/08/01 12:34:45  jpr
  *
  * Added Id, started Log.
@@ -66,7 +69,7 @@ $  usage of the function and type of the parameters
  *
  */
 
-#include "matc.h"
+#include "elmer/matc.h"
 
 #define A(i,j) a[n * (i) + (j)]
 

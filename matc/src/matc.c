@@ -56,9 +56,12 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: matc.c,v 1.3 2002/10/09 10:28:04 jpr Exp $ 
+ * $Id: matc.c,v 1.1.1.1 2005/04/14 13:29:14 vierinen Exp $ 
  *
  * $Log: matc.c,v $
+ * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
+ * initial matc automake package
+ *
  * Revision 1.3  2002/10/09 10:28:04  jpr
  * *** empty log message ***
  *
@@ -70,7 +73,7 @@ $  usage of the function and type of the parameters
  */
 
 #define MODULE_MATC
-#include "matc.h"
+#include "elmer/matc.h"
 #include "str.h"
 
 #ifdef DEBUG

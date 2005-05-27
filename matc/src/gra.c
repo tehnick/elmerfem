@@ -35,9 +35,12 @@
  ******************************************************************************/
 
 /*
- * $Id: gra.c,v 1.2 1998/08/01 12:34:40 jpr Exp $ 
+ * $Id: gra.c,v 1.1.1.1 2005/04/14 13:29:14 vierinen Exp $ 
  *
  * $Log: gra.c,v $
+ * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
+ * initial matc automake package
+ *
  * Revision 1.2  1998/08/01 12:34:40  jpr
  *
  * Added Id, started Log.
@@ -45,7 +48,7 @@
  *
  */
 
-#include "matc.h"
+#include "elmer/matc.h"
 
 static double gra_vsx, gra_vsy,
              gra_vtx, gra_vty;

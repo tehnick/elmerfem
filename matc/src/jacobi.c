@@ -35,9 +35,12 @@
  ******************************************************************************/
 
 /*
- * $Id: jacobi.c,v 1.2 1998/08/01 12:34:43 jpr Exp $ 
+ * $Id: jacobi.c,v 1.1.1.1 2005/04/14 13:29:14 vierinen Exp $ 
  *
  * $Log: jacobi.c,v $
+ * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
+ * initial matc automake package
+ *
  * Revision 1.2  1998/08/01 12:34:43  jpr
  *
  * Added Id, started Log.
@@ -45,7 +48,7 @@
  *
  */
 
-#include "matc.h"
+#include "elmer/matc.h"
 
 VARIABLE *mtr_jacob(a) VARIABLE *a;
 {

@@ -35,9 +35,12 @@
  ******************************************************************************/
 
 /*
- * $Id: error.c,v 1.2 1998/08/01 12:34:34 jpr Exp $ 
+ * $Id: error.c,v 1.1.1.1 2005/04/14 13:29:14 vierinen Exp $ 
  *
  * $Log: error.c,v $
+ * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
+ * initial matc automake package
+ *
  * Revision 1.2  1998/08/01 12:34:34  jpr
  *
  * Added Id, started Log.
@@ -45,7 +48,7 @@
  *
  */
 
-#include "matc.h"
+#include "elmer/matc.h"
 #include "str.h"
 
 void sig_trap()

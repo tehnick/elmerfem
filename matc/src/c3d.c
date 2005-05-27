@@ -48,9 +48,12 @@
 
 
 /*
- * $Id: c3d.c,v 1.2 1998/08/01 12:34:30 jpr Exp $ 
+ * $Id: c3d.c,v 1.1.1.1 2005/04/14 13:29:14 vierinen Exp $ 
  *
  * $Log: c3d.c,v $
+ * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
+ * initial matc automake package
+ *
  * Revision 1.2  1998/08/01 12:34:30  jpr
  *
  * Added Id, started Log.
@@ -58,7 +61,7 @@
  *
  */
 
-#include "matc.h"
+#include "elmer/matc.h"
 
 #define C3D_MASK 9
 #define C3D_HALFMASK (1 << (C3D_MASK - 1))

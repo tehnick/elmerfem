@@ -73,9 +73,12 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: lists.c,v 1.2 1998/08/01 12:34:44 jpr Exp $ 
+ * $Id: lists.c,v 1.1.1.1 2005/04/14 13:29:14 vierinen Exp $ 
  *
  * $Log: lists.c,v $
+ * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
+ * initial matc automake package
+ *
  * Revision 1.2  1998/08/01 12:34:44  jpr
  *
  * Added Id, started Log.
@@ -83,7 +86,7 @@ $  usage of the function and type of the parameters
  *
  */
 
-#include "matc.h"
+#include "elmer/matc.h"
 
 void lst_addtail(list, item) int list; LIST *item;
 /*======================================================================

@@ -56,9 +56,12 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: matrix.c,v 1.2 1998/08/01 12:34:50 jpr Exp $ 
+ * $Id: matrix.c,v 1.1.1.1 2005/04/14 13:29:14 vierinen Exp $ 
  *
  * $Log: matrix.c,v $
+ * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
+ * initial matc automake package
+ *
  * Revision 1.2  1998/08/01 12:34:50  jpr
  *
  * Added Id, started Log.
@@ -66,7 +69,7 @@ $  usage of the function and type of the parameters
  *
  */
 
-#include "matc.h"
+#include "elmer/matc.h"
 
 #define MA(i,j) a[(i) * ncola + (j)]
 #define MB(i,j) b[(i) * ncolb + (j)]

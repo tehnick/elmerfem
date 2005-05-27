@@ -6,9 +6,12 @@
 
 
 /*
- * $Id: matc.h,v 1.3 2001/06/08 09:20:29 jpr Exp $ 
+ * $Id: matc.h,v 1.1.1.1 2005/04/14 13:29:14 vierinen Exp $ 
  *
  * $Log: matc.h,v $
+ * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
+ * initial matc automake package
+ *
  * Revision 1.3  2001/06/08 09:20:29  jpr
  * *** empty log message ***
  *
