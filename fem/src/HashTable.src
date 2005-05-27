@@ -203,7 +203,7 @@ CONTAINS
    FUNCTION HashFind( hash, key, n ) RESULT( entry )
 
      TYPE(HashTable_t), POINTER :: Hash
-     TYPE(HashEntry_t), POINTER :: Entry
+     TYPE(HashEntry_t), POINTER :: Entry, ptr
      INTEGER :: n
      CHARACTER(LEN=*) :: key
 
@@ -215,11 +215,12 @@ CONTAINS
 !    /*
 !     * Now go through bucket entries, and check if it is to be found
 !     */
-    entry => Hash % Bucket(n) % Head
-    DO WHILE( ASSOCIATED(entry) )
-       IF ( HashEqualKeys( key, entry % key ) ) EXIT
-       entry => entry % Next
+    ptr => Hash % Bucket(n) % Head
+    DO WHILE( ASSOCIATED(ptr) )
+       IF ( HashEqualKeys( key, ptr % key ) ) EXIT
+       ptr => ptr % Next
     END DO
+    Entry => ptr
   END FUNCTION HashFind
 
 !/*************************************************************************
