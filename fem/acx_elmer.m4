@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.41 2005/05/27 07:08:51 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.42 2005/05/27 07:15:39 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1355,22 +1355,18 @@ esac
 
 AC_DEFUN([ACX_COMPILER_FIXES],
 [
+AC_REQUIRE([ACX_SHLIB_STUFF])
 case "$FC" in
    ifc)
-	FCFLAGS="-Vaxlib $FCFLAGS"
-
 	if test "$ac_cv_cxx_compiler_gnu" = yes; then
 		dnl remove intel c++ stuff
 		FCLIBS=`echo $FCLIBS | sed -e 's/-lintrins//g'`
 	fi
-
    ;;
 esac
 
 case "$F77" in
    ifc)
-	FFLAGS="-Vaxlib $FFLAGS"
-
 	if test "$ac_cv_cxx_compiler_gnu" = yes; then
 		dnl remove intel c++ stuff
 		FLIBS=`echo $FLIBS | sed -e 's/-lintrins//g'`
@@ -1378,4 +1374,9 @@ case "$F77" in
    ;;
 esac
 
+case "$SH_LD" in
+   ifc)
+	SH_LD="$SH_LD -Vaxlib"
+   ;;
+esac
 ])
