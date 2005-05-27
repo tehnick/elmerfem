@@ -27,6 +27,9 @@ if test "`echo $* |grep "\-h"`" != ""; then
     exit
 fi
 
+#
+# Try to use ELMER_USER as cvs user, otherwise revert to whoami
+#
 if test "$ELMER_USER" != ""; then
     printf "Fetching source from CVS using CVSROOT=%s\n" "$ELMER_USER@corona.csc.fi:/home/csc/vierinen/cvsroot"
     export CVSROOT=$ELMER_USER@corona.csc.fi:/home/csc/vierinen/cvsroot
@@ -36,7 +39,9 @@ else
 fi
 export CVS_RSH="ssh"
 
+#
 # uset ELMER_HOME and remove it from ld_library_path to avoid confusion
+#
 if test "$ELMER_HOME" != ""; then
     printf "Variable ELMER_HOME, will be cleared for the duration of the build.\n"
     printf "Also, \$ELMER_HOME/lib will be removed from LD_LIBRARY_PATH.\n"
@@ -50,11 +55,18 @@ if test "$ELMER_HOME" != ""; then
     printf "Original values will be restored after the compilation.\n"
 fi
 
+#
+# Unset ELMER_LIB to avoid confusion
+#
 if test "$ELMER_LIB" != ""; then
     OLD_ELMER_LIB=$ELMER_LIB
     unset ELMER_LIB
 fi
 
+
+#
+# If clean parameter given, cleanup build directories /tmp/user/build*
+#
 if test "$1" = "clean"; then
     # remove all temp files
     printf "Removing all temp files from %s\n" $EPREFIX
@@ -62,11 +74,17 @@ if test "$1" = "clean"; then
     exit
 fi
 
+#
+# If no processor number set, use only 1 (useful on clusters)
+#
 if test "$NPROCS" = ""; then
     NPROCS=1
 fi
 printf "Using %s processors for compiling\n" $NPROCS
 
+#
+# Create temp names
+#
 datestr=`date '+%Y-%m-%d-%H-%M-%S'`
 tmpdir=build.`hostname`.$datestr
 mkdir -p $tmpdir
@@ -78,8 +96,11 @@ printf "Using %s as build name\n" $tmpname
 
 topdir=`pwd`
 cd $tmpdir
-cvs co $modules
 
+#
+# Get modules from cvs, configure ; make ; make install into temp directory
+#
+cvs co $modules
 for m in $modules; do
     cd $m
     if test "$USE_OWN_MATHLIBS" = yes; then
@@ -97,13 +118,14 @@ done
 
 cd $topdir
 
+#
 # reset ELMER* variables if necessary
+#
 if test "$OLD_ELMER_HOME" != ""; then
     printf "Restoring old ELMER_HOME and LD_LIBRARY_PATH\n"
     export ELMER_HOME=$OLD_ELMER_HOME
     export LD_LIBRARY_PATH=$OLD_LD_LIBRRARY_PATH
 fi
-
 if test "$ELMER_LIB" != ""; then
     printf "Restoring old ELMER_LIB\n"
     export ELMER_LIB=$OLD_ELMER_LIB
