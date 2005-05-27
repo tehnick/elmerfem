@@ -687,6 +687,8 @@ FFLAGS
 ac_ct_F77
 GREP
 EGREP
+USE_64BIT_ARCH_TRUE
+USE_64BIT_ARCH_FALSE
 B64FLAGS
 FLIBS
 FCLIBS
@@ -2488,6 +2490,21 @@ fi
 
 
 
+
+
+
+
+
+
+
+
+
+echo "$as_me:$LINENO: checking for answer to meaning of life" >&5
+echo $ECHO_N "checking for answer to meaning of life... $ECHO_C" >&6
+echo "$as_me:$LINENO: result: 42" >&5
+echo "${ECHO_T}42" >&6
+
+
 if test -z "$host"; then
   host=unknown
 fi
@@ -2497,6 +2514,97 @@ if test "$host" = unknown; then
 echo "$as_me: error: configuring for unknown system type, your build will most likely be screwed." >&2;}
    { (exit 1); exit 1; }; }
 fi
+
+
+
+
+
+case "$canonical_host_type" in
+  *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
+
+cat >>confdefs.h <<\_ACEOF
+#define BSD 1
+_ACEOF
+
+  ;;
+  *-*-freebsd*)
+
+cat >>confdefs.h <<\_ACEOF
+#define BSD 1
+_ACEOF
+
+  ;;
+  alpha*-dec-osf*)
+
+cat >>confdefs.h <<\_ACEOF
+#define DEC_ALPHA 1
+_ACEOF
+
+  ;;
+  *-*-darwin*)
+
+cat >>confdefs.h <<\_ACEOF
+#define DARWIN 1
+_ACEOF
+
+  ;;
+  *-*-cygwin* | *-*-mingw*)
+
+cat >>confdefs.h <<\_ACEOF
+#define WIN32 1
+_ACEOF
+
+  ;;
+  *-*-linux* | *-*-gnu*)
+
+cat >>confdefs.h <<\_ACEOF
+#define LINUX 1
+_ACEOF
+
+  ;;
+  i[3456]86-*-sco3.2v5*)
+
+cat >>confdefs.h <<\_ACEOF
+#define BASTARDS 1
+_ACEOF
+
+  ;;
+  rs6000-ibm-aix* | powerpc-ibm-aix*)
+
+cat >>confdefs.h <<\_ACEOF
+#define AIX 1
+_ACEOF
+
+  ;;
+  hppa*-hp-hpux*)
+
+cat >>confdefs.h <<\_ACEOF
+#define HPUX 1
+_ACEOF
+
+  ;;
+  *-sgi-*)
+
+cat >>confdefs.h <<\_ACEOF
+#define SGI 1
+_ACEOF
+
+  ;;
+  sparc-sun-sunos4*)
+
+cat >>confdefs.h <<\_ACEOF
+#define SUNOS 1
+_ACEOF
+
+  ;;
+  sparc-sun-solaris2* | i386-pc-solaris2*)
+
+cat >>confdefs.h <<\_ACEOF
+#define SOLARIS 1
+_ACEOF
+
+  ;;
+esac
 
 
 
@@ -5558,7 +5666,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:5561:" \
+echo "$as_me:5669:" \
      "checking for Fortran compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -5805,7 +5913,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:5808:" \
+echo "$as_me:5916:" \
      "checking for Fortran 77 compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -7543,6 +7651,7 @@ cat >>confdefs.h <<\_ACEOF
 #define ARCH_64_BITS 1
 _ACEOF
 
+
     if test x"$with_64bits" = xno; then
 	{ echo "$as_me:$LINENO: WARNING: Explicitely requested 32 bits, but got 64 bits." >&5
 echo "$as_me: WARNING: Explicitely requested 32 bits, but got 64 bits." >&2;}
@@ -7563,6 +7672,17 @@ _ACEOF
 
   ;;
 esac
+
+
+
+if test "$ac_cv_sizeof_voidp" -eq "8"; then
+  USE_64BIT_ARCH_TRUE=
+  USE_64BIT_ARCH_FALSE='#'
+else
+  USE_64BIT_ARCH_TRUE='#'
+  USE_64BIT_ARCH_FALSE=
+fi
+
 
 if test "$with_64bits" != no; then
    echo "$as_me:$LINENO: checking to see if we got 64 bits" >&5
@@ -7638,7 +7758,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_verb"
-(eval echo $as_me:7641: \"$ac_link\") >&5
+(eval echo $as_me:7761: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -7722,7 +7842,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FFLAGS
 FFLAGS="$FFLAGS $ac_cv_prog_f77_v"
-(eval echo $as_me:7725: \"$ac_link\") >&5
+(eval echo $as_me:7845: \"$ac_link\") >&5
 ac_f77_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_f77_v_output" >&5
 FFLAGS=$ac_save_FFLAGS
@@ -8469,7 +8589,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_verb"
-(eval echo $as_me:8472: \"$ac_link\") >&5
+(eval echo $as_me:8592: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -8553,7 +8673,7 @@ _ACEOF
 # flags.
 ac_save_FFLAGS=$FCFLAGS
 FCFLAGS="$FCFLAGS $ac_cv_prog_fc_v"
-(eval echo $as_me:8556: \"$ac_link\") >&5
+(eval echo $as_me:8676: \"$ac_link\") >&5
 ac_fc_v_output=`eval $ac_link 5>&1 2>&1 | grep -v 'Driving:'`
 echo "$ac_fc_v_output" >&5
 FCFLAGS=$ac_save_FFLAGS
@@ -14491,6 +14611,30 @@ echo "$as_me: WARNING: Intel Fortran 90 compiler and g77 really don't mix that w
   ;;
 esac
 
+
+case "$FC" in
+   ifc)
+	FCLIBS="-Vaxlib $FCLIBS"
+
+	if test "$ac_cv_cxx_compiler_gnu" = yes; then
+				FCLIBS=`echo $FCLIBS | sed -e 's/-lintrins//g'`
+	fi
+
+   ;;
+esac
+
+case "$F77" in
+   ifc)
+	FLIBS="-Vaxlib $FLIBS"
+
+	if test "$ac_cv_cxx_compiler_gnu" = yes; then
+				FLIBS=`echo $FLIBS | sed -e 's/-lintrins//g'`
+	fi
+   ;;
+esac
+
+
+
 SOLVER_LIBS="$LIBS $ARPACK_LIBS $PARPACK_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $LAPACK_LIBS $BLAS_LIBS $MPI_LIBS $FCLIBS $FLIBS $STDCXX_LIBS"
 ELMERGRID_LIBS="$LIBS"
 MESHGEN2D_LIBS="$LIBS $STDCXX_LIBS"
@@ -14735,6 +14879,13 @@ if test -z "${am__fastdepCXX_TRUE}" && test -z "${am__fastdepCXX_FALSE}"; then
   { { echo "$as_me:$LINENO: error: conditional \"am__fastdepCXX\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
 echo "$as_me: error: conditional \"am__fastdepCXX\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+if test -z "${USE_64BIT_ARCH_TRUE}" && test -z "${USE_64BIT_ARCH_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"USE_64BIT_ARCH\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"USE_64BIT_ARCH\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
@@ -15387,6 +15538,8 @@ s,@FFLAGS@,$FFLAGS,;t t
 s,@ac_ct_F77@,$ac_ct_F77,;t t
 s,@GREP@,$GREP,;t t
 s,@EGREP@,$EGREP,;t t
+s,@USE_64BIT_ARCH_TRUE@,$USE_64BIT_ARCH_TRUE,;t t
+s,@USE_64BIT_ARCH_FALSE@,$USE_64BIT_ARCH_FALSE,;t t
 s,@B64FLAGS@,$B64FLAGS,;t t
 s,@FLIBS@,$FLIBS,;t t
 s,@FCLIBS@,$FCLIBS,;t t

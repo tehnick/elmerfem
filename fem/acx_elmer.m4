@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.39 2005/05/25 13:13:35 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.8 2005/05/26 12:38:56 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -274,6 +274,12 @@ fi
 AC_LANG_POP(C++)
 ])dnl ACX_EIOC
 
+
+
+AC_DEFUN([ACX_MEANING], [
+AC_MSG_CHECKING([for answer to meaning of life])
+AC_MSG_RESULT([42])
+])
 
 dnl
 dnl @synopsis ACX_ARPACK([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
@@ -755,6 +761,7 @@ AC_CHECK_SIZEOF(void*)
 case "$ac_cv_sizeof_voidp" in
   "8")
     AC_DEFINE(ARCH_64_BITS, 1,[64 bit arch.])
+
     if test x"$with_64bits" = xno; then
 	AC_MSG_WARN([Explicitely requested 32 bits, but got 64 bits.])
     fi	
@@ -766,6 +773,8 @@ case "$ac_cv_sizeof_voidp" in
     AC_DEFINE(ARCH_64_BITS, 1,[Couldn't determine. sticking with 64 just in case.])
   ;;
 esac
+
+AM_CONDITIONAL(USE_64BIT_ARCH, test "$ac_cv_sizeof_voidp" -eq "8")
 
 if test "$with_64bits" != no; then
    AC_MSG_CHECKING(to see if we got 64 bits)
@@ -1295,4 +1304,78 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
   fi
   AC_DEFINE_UNQUOTED(SHL_EXTENSION, ".$SHLEXT",[Shared lib filename extension])
 fi
+])
+
+
+
+AC_DEFUN([ACX_PLATFORM_DEFS],
+[
+AC_REQUIRE([ACX_HOST])
+
+case "$canonical_host_type" in
+  *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
+        AC_DEFINE([BSD],1,[Detected platform.])
+  ;;
+  *-*-freebsd*)
+        AC_DEFINE([BSD],1,[Detected platform.])
+  ;;
+  alpha*-dec-osf*)
+        AC_DEFINE([DEC_ALPHA],1,[Detected platform.])
+  ;;
+  *-*-darwin*)
+        AC_DEFINE([DARWIN],1,[Detected platform.])
+  ;;
+  *-*-cygwin* | *-*-mingw*)
+        AC_DEFINE([WIN32],1,[Detected platform.])
+  ;;
+  *-*-linux* | *-*-gnu*)
+        AC_DEFINE([LINUX],1,[Detected platform.])
+  ;;
+  i[[3456]]86-*-sco3.2v5*)
+        AC_DEFINE([BASTARDS],1,[Detected platform.])
+  ;;
+  rs6000-ibm-aix* | powerpc-ibm-aix*)
+        AC_DEFINE([AIX],1,[Detected platform.])
+  ;;
+  hppa*-hp-hpux*)
+        AC_DEFINE([HPUX],1,[Detected platform.])
+  ;;
+  *-sgi-*)
+        AC_DEFINE([SGI],1,[Detected platform.])
+  ;;
+  sparc-sun-sunos4*)
+        AC_DEFINE([SUNOS],1,[Detected platform.])
+  ;;
+  sparc-sun-solaris2* | i386-pc-solaris2*)
+        AC_DEFINE([SOLARIS],1,[Detected platform.])
+  ;;
+esac
+
+])
+
+AC_DEFUN([ACX_COMPILER_FIXES],
+[
+case "$FC" in
+   ifc)
+	FCLIBS="-Vaxlib $FCLIBS"
+
+	if test "$ac_cv_cxx_compiler_gnu" = yes; then
+		dnl remove intel c++ stuff
+		FCLIBS=`echo $FCLIBS | sed -e 's/-lintrins//g'`
+	fi
+
+   ;;
+esac
+
+case "$F77" in
+   ifc)
+	FLIBS="-Vaxlib $FLIBS"
+
+	if test "$ac_cv_cxx_compiler_gnu" = yes; then
+		dnl remove intel c++ stuff
+		FLIBS=`echo $FLIBS | sed -e 's/-lintrins//g'`
+	fi
+   ;;
+esac
+
 ])
