@@ -38,6 +38,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+/* #include <elmer/matc.h> maybe in the future */
 
 /* eg. FC_CHAR_PTR and FC_FUNC is defined here */
 #include "../config.h"

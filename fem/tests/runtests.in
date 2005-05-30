@@ -4,10 +4,10 @@
 # semi-valid test script
 # 
 if test "$SHL_EXT" = ""; then
-    SHL_EXT=".so"
+    SHL_EXT=".@SHLEXT@"
 fi
 if test "$OBJ_EXT" = ""; then
-    OBJ_EXT=".o"
+    OBJ_EXT=".@OBJEXT@"
 fi
 
 export SHL_EXT
@@ -39,7 +39,7 @@ fi
 #
 export F90="@FC@ @TESTS_FCFLAGS@"
 export LD="@SH_LD@ @SH_LDFLAGS@ @SH_LINKING_TO_FLAGS@ @B64FLAGS@"
-export LIBS=""
+export LIBS="-L$ELMER_LIB -lsolver"
 
 cc -o findnorm findnorm.c
 cc -o compare compare.c -lm

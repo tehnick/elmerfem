@@ -22,6 +22,7 @@ if test "$ELMER_HOME" = ""; then
     export ELMER_SOLVER="../../src/ElmerSolver"
     export ELMER_MESH2D="../../src/meshgen2d/Mesh2D"
     export LD_LIBRARY_PATH=".:$ELMER_HOME:$LD_LIBRARY_PATH"
+    export PATH=$ELMER_HOME:$ELMER_HOME/meshgen2d:$PATH
 else 
     # ELMER_HOME is defined, so we'll just use that
     printf "\$ELMER_HOME=%s\n" $ELMER_HOME
@@ -30,14 +31,15 @@ else
     export ELMER_SOLVER="$ELMER_HOME/bin/ElmerSolver"
     export ELMER_MESH2D="$ELMER_HOME/bin/Mesh2D"
     export LD_LIBRARY_PATH=".:$ELMER_HOME/lib:$LD_LIBRARY_PATH"
+    export PATH=$ELMER_HOME/bin:$PATH
 fi
 
 #
 # Autoconf substitutes these variables with correct values.
 #
-export F90="g95  -I. -I../../src -I/tmp/elmer/g95/include"
+export F90="g95 -I. -I../../src -I/tmp/elmer/g95//include -O -fPIC -I. -I/tmp/elmer/g95//include"
 export LD="g95 -shared  "
-export LIBS=""
+export LIBS="-L$ELMER_LIB -lsolver"
 
 cc -o findnorm findnorm.c
 cc -o compare compare.c -lm

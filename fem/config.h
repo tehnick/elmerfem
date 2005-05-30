@@ -4,8 +4,8 @@
 /* 32 bit arch. */
 /* #undef ARCH_32_BITS */
 
-/* 64 bit arch. */
-/* #undef ARCH_64_BITS */
+/* Couldn't determine. sticking with 64 just in case. */
+#define ARCH_64_BITS 1
 
 /* The configured home directory for elmer. */
 #define ELMER_HOME $ELMER_HOME

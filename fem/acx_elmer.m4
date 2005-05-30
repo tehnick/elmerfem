@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.42 2005/05/27 07:15:39 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.43 2005/05/27 07:24:37 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1172,13 +1172,9 @@ dnl    SONAME_FLAGS='-install_name $(octlibdir)/$@'
 dnl    library_path_var=DYLD_LIBRARY_PATH	
   ;;
   *-*-cygwin* | *-*-mingw*)
-dnl    SHLEXT=dll
-dnl    SHLLIB=dll.a
-dnl    SHLBIN=dll
-    SH_LDFLAGS="-shared"
-dnl    SHLLINKEXT=".dll"
-dnl    SONAME_FLAGS='-Wl,--out-implib=$@.a'
-dnl    library_path_var=PATH
+       SHLEXT=dll
+       SH_LDFLAGS="-shared"
+       SH_LD=$CC
   ;;
   *-*-linux* | *-*-gnu*)
 dnl    MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
