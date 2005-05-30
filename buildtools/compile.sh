@@ -111,7 +111,7 @@ for m in $modules; do
     if test "`which gmake`" != ""; then
 	gmake -j$NPROCS
     else
-	gmake -j$NPROCS
+	make -j$NPROCS
     fi
     make install
     if test "$m" = fem; then
