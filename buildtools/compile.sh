@@ -31,11 +31,11 @@ fi
 # Try to use ELMER_USER as cvs user, otherwise revert to whoami
 #
 if test "$ELMER_USER" != ""; then
-    printf "Fetching source from CVS using CVSROOT=%s\n" "$ELMER_USER@corona.csc.fi:/home/csc/vierinen/cvsroot"
-    export CVSROOT=$ELMER_USER@corona.csc.fi:/home/csc/vierinen/cvsroot
+    printf "Fetching source from CVS using CVSROOT=%s\n" "$ELMER_USER@sampo3.csc.fi:/home/csc/vierinen/cvsroot"
+    export CVSROOT=$ELMER_USER@sampo3.csc.fi:/home/csc/vierinen/cvsroot
 else
-    printf "Fetching source from CVS using CVSROOT=%s\n" `whoami`@corona.csc.fi:/home/csc/vierinen/cvsroot
-    export CVSROOT=`whoami`@corona.csc.fi:/home/csc/vierinen/cvsroot
+    printf "Fetching source from CVS using CVSROOT=%s\n" `whoami`@sampo3.csc.fi:/home/csc/vierinen/cvsroot
+    export CVSROOT=`whoami`@sampo3.csc.fi:/home/csc/vierinen/cvsroot
 fi
 export CVS_RSH="ssh"
 
@@ -108,7 +108,11 @@ for m in $modules; do
     else
 	./configure --prefix=$TESTPREFIX $CONFFLAGS 
     fi
-    gmake -j$NPROCS
+    if test "`which gmake`" != ""; then
+	gmake -j$NPROCS
+    else
+	gmake -j$NPROCS
+    fi
     make install
     if test "$m" = fem; then
 	make check
