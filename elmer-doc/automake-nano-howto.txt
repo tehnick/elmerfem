@@ -45,7 +45,7 @@ make distclean - Remove automatically generated autoconf/automake files.
 make dist - Create a tar.gz file containing source ready for distribution.
 make install - Install software to you kit.
 
-Other useful ones:
+Other useful targets:
 
 make tags - Generate etags files for the source.
 make dist-zip - Create a zip file (great for windows people)
@@ -101,7 +101,7 @@ autoconf - Go through configure.in and create the configure script.
 
 Still can't figure out what to run and in which order? Try running
 automake, aclocal, autoconf and autoheader in random combinations, and
-you'll usually end up with something usefull after a couple of
+you'll usually end up with something useful after a couple of
 iterations. When you get a feeling of what is needed, write it down
 into autogen.sh, so you'll remember it next time.
 
@@ -110,15 +110,20 @@ Writing custom tests
 
 You can write tests directly into configure.in. The language is an
 obscure macro-language called M4, which expands to Bourne shell
-script. 
+script. So you basically write in a mixture of sh and M4. Eg.
 
-AC_MSG_CHECKING([for answer to meaning of life])
-answer="42"
-AC_MSG_RESULT($answer)
+AC_MSG_CHECKING([for answer to meaning of life]) # M4 function call
+answer="42"                                      # sh variable assignment
+AC_MSG_RESULT($answer)                           # M4 function call
+
+Even writing pseudo object oriented M4 sh is possible, just take a
+look at the autoconf source for the default AC_* macros.
 
 If you intend to write a lot of tests, it is beneficial to write them
-into separate .m4 files. Eg. you might have a file acx_blas.m4 that
-contains a routine that gives an blas library argument to ./configure:
+into separate .m4 files. This has an advantage of keeping configure.in
+more understandable and better structured. Eg. you might have a file
+acx_blas.m4 that contains a routine that gives an blas library
+argument to ./configure:
 
 AC_DEFUN([ACX_BLAS], 
 [
@@ -133,9 +138,8 @@ case $with_blas in
 	*) BLAS_LIBS="-l$with_blas" ;;
 esac
 
-# Get fortran linker names of BLAS functions to check for.
+# Get fortran symbol name of sgemm (a blas routine).
 AC_FC_FUNC(sgemm)
-AC_FC_FUNC(dgemm)
 
 acx_blas_save_LIBS="$LIBS"
 LIBS="$LIBS $FCLIBS $FLIBS"
@@ -148,12 +152,44 @@ if test "x$BLAS_LIBS" != x; then
 	AC_MSG_RESULT($acx_blas_ok)
 	LIBS="$save_LIBS"
 fi
+# restore the libs variable
+LIBS=$acx_blas_save_LIBS
 ])
 
 This can be then added to configure.in like this:
 
 sinclude([acx_blas.m4])
 ACX_BLAS
+
+
+CVS and autotools
+-----------------
+
+CVS and autotools is an evil combination. AM_MAINTAINER_MODE is the
+key many of the problems with mixed up timestamps, but there are other
+things to know as well.
+
+CVS updates often break autotools managed files files beyond
+repair. This can be seen as weird errors in while using make. One way
+to proceed might be to rerun configure to create everything -- or if
+even configure is broken a 
+
+rm configure ; cvs update configure ; ./configure 
+
+will be a sure fix.
+
+Alternatively, you can regenerate the configure yourself, if you have
+autotools installed:
+
+sh autogen.sh ; ./configure 
+
+Troubleshooting
+---------------
+
+When a test fails and configure fails to give a reasonable explanation
+of what went wrong (the usual case), searching config.log will often
+give more detailed information about what went wrong.
+
 
 More information
 ----------------
