@@ -30,10 +30,10 @@ clean-local:
 	rm *.so
 
 screensave.so: screensave.$(OBJEXT)
-	$(CC) @SH_LDFLAGS@ -o $@ $<
+	$(CC) @SH_LDFLAGS@ -o $@ $< $(LIBS)
 
 window.so: window.$(OBJEXT)
-	$(CC) @SH_LDFLAGS@ -o $@ $<
+	$(CC) @SH_LDFLAGS@ -o $@ $< $(LIBS)
 
 ELMER_POST_DATADIR=$(prefix)/share/elmerpost
 install-data-local:
