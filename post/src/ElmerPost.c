@@ -35,6 +35,7 @@
 
 #define MODULE_MAIN
 #include "elmerpost.h"
+#include "../config.h"
 
 #include <tcl.h>
 #include <tk.h>
@@ -2076,6 +2077,13 @@ int main(int argc,char **argv)
 {
     static char init[1024],initcommands[1024],tmp[1024];
     int i,size[4];
+    
+    if ( getenv("ELMER_POST_HOME") == NULL )
+    {
+      /* use default installation directory just if nothing is set */
+      setenv("ELMER_POST_HOME", ELMER_POST_HOME, 1 );
+    }
+
 
     Tcl_FindExecutable( *argv++ );
     TCLInterp = Tcl_CreateInterp();
@@ -2328,6 +2336,7 @@ int main(int argc,char **argv)
         strncat( init,getenv("ELMER_POST_HOME"),511);
         strncat( init,"/",511 );
     }
+
     strncat( init,"tcl/init.tcl",511 );
     fprintf( stdout, "Initialization File: [%s]\n", init );
     Tcl_EvalFile( TCLInterp,init );

@@ -8,10 +8,9 @@ elmerpost_SOURCES=\
 	geometry.c \
 	geometry.h \
 	LUDecomp.c \
-	screensave.c \
 	second.c \
-	teksti.c \
-	window.c 
+	teksti.c 
+
 
 elmerpost_LDADD=\
 	./camera/libcamera.a \
@@ -24,4 +23,39 @@ elmerpost_LDADD=\
 	./tk/libtk.a
 
 QueryGLXExt_SOURCES=QueryGLXExt.c 
+
+all-local: screensave.so window.so
+
+screensave.so: screensave.$(OBJEXT)
+	$(CC) @SH_LDFLAGS@ -o $@ $<
+
+window.so: window.$(OBJEXT)
+	$(CC) @SH_LDFLAGS@ -o $@ $<
+
+ELMER_POST_DATADIR=$(prefix)/share/elmerpost
+install-data-local:
+	@echo "Instaling modules to ${ELMER_POST_DATADIR}/modules"
+
+	mkdir -p $(ELMER_POST_DATADIR)/modules
+	cp screensave.so $(ELMER_POST_DATADIR)/modules 
+	cp window.so $(ELMER_POST_DATADIR)/modules
+
+	@echo "Instaling help to ${ELMER_POST_DATADIR}/help"
+	mkdir -p $(ELMER_POST_DATADIR)/help
+	cp -r help/* $(ELMER_POST_DATADIR)/help
+
+	@echo "Instaling tcl scripts to ${ELMER_POST_DATADIR}/tcl"
+	mkdir -p $(ELMER_POST_DATADIR)/tcl
+	cp -r tcl/* $(ELMER_POST_DATADIR)/tcl
+
+	@echo "Instaling initialization scripts to ${ELMER_POST_DATADIR}/lib"
+	mkdir -p $(ELMER_POST_DATADIR)/lib
+	cp -r lib/* $(ELMER_POST_DATADIR)/lib
+
+
+
+
+
+
+
 

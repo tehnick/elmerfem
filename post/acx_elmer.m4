@@ -1402,7 +1402,17 @@ if test $acx_tcltk_ok = no; then
 if test "x$TCLTK_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$TCLTK_LIBS $LIBS"
 	AC_MSG_CHECKING([for TkGetDisplay in $TCLTK_LIBS])
-	AC_TRY_LINK_FUNC(TkGetDisplay, [acx_tcltk_ok=yes], [TCLTK_LIBS=""])
+	AC_TRY_LINK_FUNC(TkGetDisplay, [acx_tk_ok=yes], [TCLTK_LIBS=""])
+
+	AC_MSG_CHECKING([for TclInvoke in $TCLTK_LIBS])
+	AC_TRY_LINK_FUNC(TclInvoke, [acx_tcl_ok=yes], [TCLTK_LIBS=""])
+
+	if test "$acx_tk_ok" = yes; then
+	if test "$acx_tcl_ok" = yes; then
+		acx_tcltk_ok=yes
+	fi
+	fi	
+
 	AC_MSG_RESULT($acx_tcltk_ok)
 	LIBS="$save_LIBS"
 fi
