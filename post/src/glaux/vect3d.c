@@ -7,7 +7,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+
+#ifdef __APPLE__
+#include <OpenGL/gl.h>
+#include <OpenGL/glu.h>
+#else
 #include <GL/gl.h>
+#include <GL/glu.h>
+#endif
+
 #include "3d.h"
 
 #if defined(__cplusplus) || defined(c_plusplus)

@@ -32,9 +32,12 @@
  *
  *       Date of modification:
  *
- * $Id: graphics.h,v 1.4 2001/06/29 12:00:05 jpr Exp $
+ * $Id: graphics.h,v 1.1.1.1 2005/05/31 06:29:21 vierinen Exp $
  *
  * $Log: graphics.h,v $
+ * Revision 1.1.1.1  2005/05/31 06:29:21  vierinen
+ * ads
+ *
  * Revision 1.4  2001/06/29 12:00:05  jpr
  * *** empty log message ***
  *
@@ -58,7 +61,14 @@
 
 #include "../glaux/glaux.h"
 
+#ifdef __APPLE__
+#include <OpenGL/gl.h>
+#include <OpenGL/glu.h>
+#else
 #include <GL/gl.h>
+#include <GL/glu.h>
+#endif
+
 
 /*
  *  Material for lightning computations
