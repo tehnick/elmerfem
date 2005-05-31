@@ -2,8 +2,8 @@
 # - which are needed? 
 # - should it be <matc.h> or <matc/matc.h>
 # 
-nobase_include_HEADERS=elmer/matc.h
-noinst_HEADERS=fnames.h gra.h str.h
+nobase_include_HEADERS=elmer/matc.h elmer/fnames.h elmer/gra.h 
+noinst_HEADERS=str.h
 
 COMMON_SRCS =  \
 	c3d.c \

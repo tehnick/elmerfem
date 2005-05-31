@@ -66,9 +66,12 @@
 
 
 /*
- * $Id: gra.h,v 1.2 1998/08/01 12:34:41 jpr Exp $ 
+ * $Id: gra.h,v 1.1.1.1 2005/04/14 13:29:14 vierinen Exp $ 
  *
  * $Log: gra.h,v $
+ * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
+ * initial matc automake package
+ *
  * Revision 1.2  1998/08/01 12:34:41  jpr
  *
  * Added Id, started Log.
