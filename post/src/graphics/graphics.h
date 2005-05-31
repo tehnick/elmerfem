@@ -32,9 +32,12 @@
  *
  *       Date of modification:
  *
- * $Id: graphics.h,v 1.1.1.1 2005/05/31 06:29:21 vierinen Exp $
+ * $Id: graphics.h,v 1.2 2005/05/31 10:39:03 vierinen Exp $
  *
  * $Log: graphics.h,v $
+ * Revision 1.2  2005/05/31 10:39:03  vierinen
+ * apple?
+ *
  * Revision 1.1.1.1  2005/05/31 06:29:21  vierinen
  * ads
  *
@@ -61,13 +64,9 @@
 
 #include "../glaux/glaux.h"
 
-#ifdef __APPLE__
-#include <OpenGL/gl.h>
-#include <OpenGL/glu.h>
-#else
 #include <GL/gl.h>
 #include <GL/glu.h>
-#endif
+
 
 
 /*

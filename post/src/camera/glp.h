@@ -1,5 +1,5 @@
 //
-// "$Id: glp.h,v 1.1.1.1 2005/05/31 06:29:21 vierinen Exp $"
+// "$Id: glp.h,v 1.2 2005/05/31 10:39:03 vierinen Exp $"
 //
 //   Header file for the GLP library, an OpenGL printing toolkit.
 //
@@ -12,6 +12,9 @@
 // Revision History:
 //
 //   $Log: glp.h,v $
+//   Revision 1.2  2005/05/31 10:39:03  vierinen
+//   apple?
+//
 //   Revision 1.1.1.1  2005/05/31 06:29:21  vierinen
 //   ads
 //
@@ -33,11 +36,8 @@
 //
 // Include necessary headers.
 //
-#ifdef __APPLE__
-#include <OpenGL/gl.h>
-#else
 #include <GL/gl.h>
-#endif
+
 
 #  include <iostream.h>
 #  include <fstream.h>
@@ -147,5 +147,5 @@ class GLPcontext	//// GLPcontext class
 #endif // !_GL_GLP_H_
 
 //
-// End of "$Id: glp.h,v 1.1.1.1 2005/05/31 06:29:21 vierinen Exp $".
+// End of "$Id: glp.h,v 1.2 2005/05/31 10:39:03 vierinen Exp $".
 //

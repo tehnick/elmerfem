@@ -41,11 +41,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-#include <malloc.h>
+/* #include <malloc.h> */
 #include <math.h>
 
 #ifndef WIN32
-#include <termio.h>
+/* #include <termio.h> */
 #endif
 #include <sys/types.h>
 
