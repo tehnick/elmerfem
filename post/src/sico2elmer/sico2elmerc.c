@@ -1548,7 +1548,11 @@ void FC_FUNC(asciidata,ASCIIDATA) (float  *xi, /* unscaled x coordinate index i:
       fprintf(ptFile,"# written on  %s", ctime(&how_late_is_it));
     }
     /* replace with getpwuid(geteuid())  */
+#ifdef __APPLE__
+    if ( 1 )
+#else
     if (cuserid(user_name)==NULL)
+#endif
       fprintf(ptFile,"# no user id was able to be inquiered\n");
     else 
       fprintf(ptFile,"# by %10s\n", user_name);
@@ -1623,7 +1627,12 @@ void FC_FUNC(asciidata,ASCIIDATA) (float  *xi, /* unscaled x coordinate index i:
     }else{      
       fprintf(ptFile,"# written on  %s", ctime(&how_late_is_it));
     }
+
+#ifdef __APPLE__
+    if ( 1 )
+#else
     if (cuserid(user_name)==NULL)
+#endif
       fprintf(ptFile,"# no user id was able to be inquiered\n");
     else 
       fprintf(ptFile,"# by %10s\n", user_name);
