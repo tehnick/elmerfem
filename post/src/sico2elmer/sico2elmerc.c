@@ -513,33 +513,33 @@ void FC_FUNC(postgrid,POSTGRID) (float  *xi, /* unscaled x coordinate index i: 0
 /*******************************************************
 	      write data for ELMER post 
 ********************************************************/
-void elmerdata_(int   *imax_in, /* grid steps in xi-direction */
-		int   *jmax_in, /* grid steps in eta-direction */
-		int   *kcmax_in, /* grid steps in z-direction in cold ice layer */
-		int   *ktmax_in, /* grid steps in z-direction in temperate ice layer */
-		float *z_c, /* z-coordinate in cold layer for given i,j-position in plane  and kc in vertical*/
-		float *z_t, /* z-coordinate in  temperate  layer for given i,j-position in plane  and kc in vertical*/
-		float *vx_c, /* velocity component in x for cold region for given i,j-position in plane and kc in vertical */
-		float *vy_c, /* velocity component in y for cold region for given i,j-position in plane and kc in vertical */
-		float *vz_c, /* velocity component in z for cold region for given i,j-position in plane and kc in vertical */
-		float *age_c, /* age in cold region for given i,j-position in plane and kc in vertical */
-		float *temp_c, /* temperature in cold region for given i,j-position in plane and kt in vertical */
-		float *vx_t, /* velocity component in x for temperated region for given i,j-position in plane and kt in vertical */
-		float *vy_t, /* velocity component in y for temperated region for given i,j-position in plane and kt in vertical */
-		float *vz_t, /* velocity component in z for temperated region for given i,j-position in plane and kt in vertical */
-		float *temp_t_m, /* melting temperature in temperate ice region for given i,j-position in plane and kt in vertical */
-		float *age_t, /* age in temperate region for given i,j-position in plane and kc in vertical */
-		float *omega_t, /* H2O mass fraction in temperated region for given i,j-position in plane and kt in vertical */
-		float *Q_bm, /* production rate of melting-water at bottom for given i,j-position in plane */
-		float *Q_tld, /*  water drainage rate from the temperated region for given i,j-position in plane */
-		float *am_perp, /* ice volume flux through CTS for given i,j-position in plane */
-		float *qx, /* mass-flux in x-direction for given i,j-position in plane */
-		float *qy, /* mass-flux in y-direction for given i,j-position in plane */
-		int   *n_cts, /* polythermal conditions for given i,j-position at base (-1 cold ice; 0 temp. ice base with cold ice above; 1 temp. ice base with temperate ice above; */
-		int   *maske, /* glaciation information for given i,j-position at base (glaciated=0, ice-free=1, 2=sea-point, 3=floating ice) */
-		char  *runname, /*name of run*/
-		char  *ergnum, /*number of file*/
-		int   *flag){
+void FC_FUNC(elmerdata,ELMERDATA) (int   *imax_in, /* grid steps in xi-direction */
+				    int   *jmax_in, /* grid steps in eta-direction */
+				    int   *kcmax_in, /* grid steps in z-direction in cold ice layer */
+				    int   *ktmax_in, /* grid steps in z-direction in temperate ice layer */
+				    float *z_c, /* z-coordinate in cold layer for given i,j-position in plane  and kc in vertical*/
+				    float *z_t, /* z-coordinate in  temperate  layer for given i,j-position in plane  and kc in vertical*/
+				    float *vx_c, /* velocity component in x for cold region for given i,j-position in plane and kc in vertical */
+				    float *vy_c, /* velocity component in y for cold region for given i,j-position in plane and kc in vertical */
+				    float *vz_c, /* velocity component in z for cold region for given i,j-position in plane and kc in vertical */
+				    float *age_c, /* age in cold region for given i,j-position in plane and kc in vertical */
+				    float *temp_c, /* temperature in cold region for given i,j-position in plane and kt in vertical */
+				    float *vx_t, /* velocity component in x for temperated region for given i,j-position in plane and kt in vertical */
+				    float *vy_t, /* velocity component in y for temperated region for given i,j-position in plane and kt in vertical */
+				    float *vz_t, /* velocity component in z for temperated region for given i,j-position in plane and kt in vertical */
+				    float *temp_t_m, /* melting temperature in temperate ice region for given i,j-position in plane and kt in vertical */
+				    float *age_t, /* age in temperate region for given i,j-position in plane and kc in vertical */
+				    float *omega_t, /* H2O mass fraction in temperated region for given i,j-position in plane and kt in vertical */
+				    float *Q_bm, /* production rate of melting-water at bottom for given i,j-position in plane */
+				    float *Q_tld, /*  water drainage rate from the temperated region for given i,j-position in plane */
+				    float *am_perp, /* ice volume flux through CTS for given i,j-position in plane */
+				    float *qx, /* mass-flux in x-direction for given i,j-position in plane */
+				    float *qy, /* mass-flux in y-direction for given i,j-position in plane */
+				    int   *n_cts, /* polythermal conditions for given i,j-position at base (-1 cold ice; 0 temp. ice base with cold ice above; 1 temp. ice base with temperate ice above; */
+				    int   *maske, /* glaciation information for given i,j-position at base (glaciated=0, ice-free=1, 2=sea-point, 3=floating ice) */
+				    FC_CHAR_PTR(runname,runname_l), /*name of run*/
+				    FC_CHAR_PTR(ergnum,ergnum_l), /*number of file*/
+				    int   *flag){
   register int i, j, k, n;
   int   imax, jmax, kcmax, ktmax, kcmin, offset, nodes_in_temp, nodes_in_cold, elements_in_layer, number_of_iced_nodes, number_of_written_nodes, *gridmap, ok;
   int nodes_in_one_layer, number_of_nodes, nodes_in_layer_of_staggered_grid, number_of_iced_collums, *iced, auxiliary, number_of_properties;
@@ -876,19 +876,20 @@ void elmerdata_(int   *imax_in, /* grid steps in xi-direction */
 /******************************************************
    Output of SICOPOLIS grid in ELMER Solver format
 *******************************************************/
-void pregrid_(float  *xi, /* unscaled x coordinate index i: 0,imax */
-	      float  *eta, /* unscaled y coordinate index j from 0,jmax */
-	      float  *z_c, /* unscaled z coordinate index i: 0,imax, j: 0,jmax, kc: 0,kcmax */
-	      float  *z_t, /* unscaled y coordinate index i: 0,imax, j: 0,jmax, kt: 0,kcmax */
-	      int    *imax_in, /* grid steps in xi-direction */
-	      int    *jmax_in, /* grid steps in eta-direction */
-	      int    *kcmax_in, /* grid steps in z-direction in cold ice layer */
-	      int    *ktmax_in, /* grid steps in z-direction in temperate ice layer */
-	      char   *runname, /*name of run*/
-	      char   *ergnum, /*number of file*/
-	      int    *maske, /*mask of vertex type */
-	      float  *deltaX, /* stepsize of grid */
-	      int    *flag){
+void FC_FUNC(pregrid,PREGRID) (float  *xi, /* unscaled x coordinate index i: 0,imax */
+			       float  *eta, /* unscaled y coordinate index j from 0,jmax */
+			       float  *z_c, /* unscaled z coordinate index i: 0,imax, j: 0,jmax, kc: 0,kcmax */
+			       float  *z_t, /* unscaled y coordinate index i: 0,imax, j: 0,jmax, kt: 0,kcmax */
+			       int    *imax_in, /* grid steps in xi-direction */
+			       int    *jmax_in, /* grid steps in eta-direction */
+			       int    *kcmax_in, /* grid steps in z-direction in cold ice layer */
+			       int    *ktmax_in, /* grid steps in z-direction in temperate ice layer */
+			       FC_CHAR_PTR(runname,runname_l) /*name of run*/
+			       FC_CHAR_PTR(ergnum,ergnum_l) /*number of file*/
+			       int    *maske, /*mask of vertex type */
+			       float  *deltaX, /* stepsize of grid */
+			       int    *flag)
+{
   register int i, j, k, n, element_nr, boundary_nr,kn;
   int   number_of_layers[2], number_of_bulk_elements, number_of_boundary_elements, elements_in_one_layer, number_of_iced_nodes, number_of_nodes[2], nodes_of_element[8], *nodes_of_side_element, *parent_of_side_element, number_of_iced_collums, nodes_in_one_layer, number_of_ice_boundaries, *iced, *boundary,  *gridmap, auxiliary, idnr, min_max_i_j[2][2];
   int   imax, jmax, kcmax, ktmax;
@@ -2037,20 +2038,20 @@ void  make_float_from_integer_scalar_field(int   *input_property,
 /****************************************************************
    Output of SICOPOLIS grid (not staggerd) in ELMER Solver format
 *****************************************************************/
-void solvergrid_(float  *xi, /* unscaled x coordinate index i: 0,imax */
-		 float  *eta, /* unscaled y coordinate index j from 0,jmax */
-		 float  *z_c, /* unscaled z coordinate index i: 0,imax, j: 0,jmax, kc: 0,kcmax */
-		 float  *z_t, /* unscaled y coordinate index i: 0,imax, j: 0,jmax, kt: 0,kcmax */
-		 int    *imax_in, /* grid steps in xi-direction */
-		 int    *jmax_in, /* grid steps in eta-direction */
-		 int    *kcmax_in, /* grid steps in z-direction in cold ice layer */
-		 int    *ktmax_in, /* grid steps in z-direction in temperate ice layer */
-		 char   *runname, /*name of run*/
-		 char   *ergnum, /*number of file*/
-		 int    *maske, /*mask of vertex type */
-		 float  *deltaX, /* stepsize of grid */
-		 int    *flag){
-
+void FC_FUNC(solvergrid,SOLVERGRID)(float  *xi, /* unscaled x coordinate index i: 0,imax */
+				    float  *eta, /* unscaled y coordinate index j from 0,jmax */
+				    float  *z_c, /* unscaled z coordinate index i: 0,imax, j: 0,jmax, kc: 0,kcmax */
+				    float  *z_t, /* unscaled y coordinate index i: 0,imax, j: 0,jmax, kt: 0,kcmax */
+				    int    *imax_in, /* grid steps in xi-direction */
+				    int    *jmax_in, /* grid steps in eta-direction */
+				    int    *kcmax_in, /* grid steps in z-direction in cold ice layer */
+				    int    *ktmax_in, /* grid steps in z-direction in temperate ice layer */
+				    FC_CHAR_PTR(runname,runname_l), /*name of run*/
+				    FC_CHAR_PTR(ergnum,ergnum_l), /*number of file*/
+				    int    *maske, /*mask of vertex type */
+				    float  *deltaX, /* stepsize of grid */
+				    int    *flag)
+{
   register int i, j, k, l, m, n;
   int   number_of_bulk_elements, number_of_boundary_elements, number_of_iced_collums, elements_in_one_layer, number_of_nodes, nodes_of_element[8], *nodes_of_side_element, *parent_of_side_element, nodes_in_one_layer, *iced, idnr, parent_element, sidebulk=0;
   int   imax, jmax, kcmax, ktmax, kmax = 0;
