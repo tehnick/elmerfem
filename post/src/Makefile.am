@@ -25,7 +25,8 @@ elmerpost_LDADD=\
 QueryGLXExt_SOURCES=QueryGLXExt.c 
 
 all-local: screensave.so window.so
-clean-local: rm *.so
+clean-local: 
+	rm *.so
 
 screensave.so: screensave.$(OBJEXT)
 	$(CC) @SH_LDFLAGS@ -o $@ $<
