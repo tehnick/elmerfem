@@ -625,6 +625,7 @@ target
 target_cpu
 target_vendor
 target_os
+canonical_host_type
 INSTALL_PROGRAM
 INSTALL_SCRIPT
 INSTALL_DATA
@@ -678,7 +679,6 @@ FCFLAGS
 ac_ct_FC
 RANLIB
 ac_ct_RANLIB
-canonical_host_type
 FCLIBS
 MATC_LIBS
 CPP
@@ -1345,6 +1345,7 @@ Optional Features:
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
+  --with-debug            Use debugging flags (environment variables override)
   --with-matc=<lib>       use MATC library <lib>
   --with-x                use the X Window System
   --with-apple-opengl-framework
@@ -1894,6 +1895,150 @@ test -n "$target_alias" &&
   test "$program_prefix$program_suffix$program_transform_name" = \
     NONENONEs,x,x, &&
   program_prefix=${target_alias}-
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+acx_debug=no
+
+
+# Check whether --with-debug or --without-debug was given.
+if test "${with_debug+set}" = set; then
+  withval="$with_debug"
+  acx_debug=yes
+fi;
+
+{ echo "$as_me:$LINENO: checking for default compilation flags" >&5
+echo $ECHO_N "checking for default compilation flags... $ECHO_C" >&6; }
+
+if test "$acx_debug" = yes; then
+{ echo "$as_me:$LINENO: result: debugging" >&5
+echo "${ECHO_T}debugging" >&6; }
+  if test "$CFLAGS" = ""; then
+	CFLAGS="-g"
+  fi
+
+  if test "$FCFLAGS" = ""; then
+	FCFLAGS="-g"
+  fi
+
+  if test "$FFLAGS" = ""; then
+	FFLAGS="-g"
+  fi
+
+  if test "$CXXFLAGS" = ""; then
+	CXXFLAGS="-g"
+  fi
+else
+{ echo "$as_me:$LINENO: result: optimized" >&5
+echo "${ECHO_T}optimized" >&6; }
+  case "$canonical_host_type" in
+     rs6000-ibm-aix* | powerpc-ibm-aix*)
+		ACX_OPT_FLAG="-O -qmaxmem=-1 -qstrict"
+     ;;
+     *)
+	ACX_OPT_FLAG="-O"
+     ;;
+  esac
+
+  if test "$CFLAGS" = ""; then
+	CFLAGS=$ACX_OPT_FLAG
+  fi
+
+  if test "$FCFLAGS" = ""; then
+	FCFLAGS=$ACX_OPT_FLAG
+  fi
+
+  if test "$FFLAGS" = ""; then
+	FFLAGS=$ACX_OPT_FLAG
+  fi
+
+  if test "$CXXFLAGS" = ""; then
+	CXXFLAGS=$ACX_OPT_FLAG
+  fi
+fi
+
+
+
+
+
+
+if test -z "$host"; then
+  host=unknown
+fi
+canonical_host_type=$host
+if test "$host" = unknown; then
+  { { echo "$as_me:$LINENO: error: configuring for unknown system type, your build will most likely be screwed." >&5
+echo "$as_me: error: configuring for unknown system type, your build will most likely be screwed." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+
+case "$canonical_host_type" in
+  *-*-darwin*)
+	if test x"$LDFLAGS" = x; then
+		LDFLAGS="-L/sw/lib"
+	fi
+	if test x"$CFLAGS" = x; then
+		CFLAGS="-I/sw/include"
+	fi
+	if test x"$CXXFLAGS" = x; then
+		CXXFLAGS="-I/sw/include"
+	fi
+  ;;
+esac
+
+
+
 
 am__api_version="1.9"
 # Find a good install program.  We prefer a C program (faster),
@@ -4444,88 +4589,6 @@ configuration is useful to you, please write to autoconf@gnu.org." >&2;}
 else
   RANLIB="$ac_cv_prog_RANLIB"
 fi
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-if test -z "$host"; then
-  host=unknown
-fi
-canonical_host_type=$host
-if test "$host" = unknown; then
-  { { echo "$as_me:$LINENO: error: configuring for unknown system type, your build will most likely be screwed." >&5
-echo "$as_me: error: configuring for unknown system type, your build will most likely be screwed." >&2;}
-   { (exit 1); exit 1; }; }
-fi
-
-case "$canonical_host_type" in
-  *-*-darwin*)
-	if test x"$LDFLAGS" = x; then
-		LDFLAGS="-L/sw/lib"
-	fi
-	if test x"$CFLAGS" = x; then
-		CFLAGS="-I/sw/include"
-	fi
-	if test x"$CXXFLAGS" = x; then
-		CXXFLAGS="-I/sw/include"
-	fi
-  ;;
-esac
-
 
 
 
@@ -10908,6 +10971,7 @@ s,@target@,$target,;t t
 s,@target_cpu@,$target_cpu,;t t
 s,@target_vendor@,$target_vendor,;t t
 s,@target_os@,$target_os,;t t
+s,@canonical_host_type@,$canonical_host_type,;t t
 s,@INSTALL_PROGRAM@,$INSTALL_PROGRAM,;t t
 s,@INSTALL_SCRIPT@,$INSTALL_SCRIPT,;t t
 s,@INSTALL_DATA@,$INSTALL_DATA,;t t
@@ -10961,7 +11025,6 @@ s,@FCFLAGS@,$FCFLAGS,;t t
 s,@ac_ct_FC@,$ac_ct_FC,;t t
 s,@RANLIB@,$RANLIB,;t t
 s,@ac_ct_RANLIB@,$ac_ct_RANLIB,;t t
-s,@canonical_host_type@,$canonical_host_type,;t t
 s,@FCLIBS@,$FCLIBS,;t t
 s,@MATC_LIBS@,$MATC_LIBS,;t t
 s,@CPP@,$CPP,;t t
