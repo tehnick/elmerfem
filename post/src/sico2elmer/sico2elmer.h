@@ -129,7 +129,6 @@ void  make_float_from_integer_scalar_field(int   *input_property,
 					   int   number_of_nodes,
 					   int   reorder_ice_land_sea_mask);
 void readlog_c_(char   *runname,
-		float  *version,
 		int    *imax,
 		int    *jmax,
 		int    *kcmax,
