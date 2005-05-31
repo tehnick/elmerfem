@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.2 2005/05/31 09:06:07 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.44 2005/05/30 06:34:05 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -10,6 +10,9 @@ dnl define host variable
 dnl
 AC_DEFUN([ACX_HOST],
 [
+AC_REQUIRE([AC_CANONICAL_HOST])
+AC_REQUIRE([AC_CANONICAL_TARGET])
+
 if test -z "$host"; then
   host=unknown
 fi
@@ -17,6 +20,13 @@ canonical_host_type=$host
 if test "$host" = unknown; then
   AC_MSG_ERROR([configuring for unknown system type, your build will most likely be screwed.])
 fi
+
+case "$canonical_host_type" in
+  *-*-darwin*)
+	LDFLAGS="-L/sw/"
+  ;;
+esac
+
 AC_SUBST(canonical_host_type)
 ])
 
@@ -1375,13 +1385,15 @@ case "$SH_LD" in
 	SH_LD="$SH_LD -Vaxlib"
    ;;
 esac
+
+AC_SUBST(SH_LDFLAGS)
+AC_SUBST(SH_LD)
 ])
 
 dnl
 dnl @synopsis ACX_TCLTK([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
 dnl
 dnl Look for tcl/tk libraries 
-dnl Look for tcl/tk headers tk.h tcl.h
 dnl
 AC_DEFUN([ACX_TCLTK], [
 AC_PREREQ(2.50)

@@ -9,6 +9,7 @@ elmerpost_SOURCES=\
 	geometry.h \
 	LUDecomp.c \
 	second.c \
+	cplusplus.cc \
 	teksti.c 
 
 
