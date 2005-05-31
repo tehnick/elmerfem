@@ -24,6 +24,8 @@ fi
 case "$canonical_host_type" in
   *-*-darwin*)
 	LDFLAGS="-L/sw/lib"
+	CFLAGS="-I/sw/include"
+	CXXFLAGS="-I/sw/include"
   ;;
 esac
 
