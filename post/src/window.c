@@ -30,14 +30,35 @@
 #include <GL/gl.h>
 #include <GL/glu.h>
 
-
-#include "tcl.h"
+#include <tcl.h>
 
 #if !(defined(WIN32) || defined(win32))
 #include <string.h>
 extern int errno;
 #include <X11/Xlib.h>
 #endif
+
+Display *tkXDisplay()
+{
+    Display *ptr = NULL;
+#ifndef WIN32
+    ptr = auxXDisplay();
+#endif
+    return ptr;
+}
+
+Window tkXWindow()
+{
+    Window ptr = 0;
+
+#ifdef WIN32
+    ptr = auxGetHWND();
+#else
+    ptr = auxXWindow();
+#endif
+
+    return ptr;
+}
 
 static int WindowSize( ClientData cl,Tcl_Interp *interp,int argc,char **argv )
 {
