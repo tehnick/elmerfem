@@ -1,6 +1,6 @@
 #include <stdio.h>
 #include <math.h>
-#include <malloc.h>
+/* #include <malloc.h> */
 
 #define MAX(x,y) ( (x) > (y) ? (x) : (y) )
 #define MIN(x,y) ( (x) > (y) ? (y) : (x) )
