@@ -1,0 +1,185 @@
+Autotools nano-HOWTO
+
+Juha Vierinen <juha.vierinen("#parse&this%#]csc.fi>
+
+Building autotools managed software
+-----------------------------------
+
+The normal way is this:
+
+./configure ; make ; make install
+
+Controlling stuff. Usually there are also many custom options provided
+by the package maintainer.
+
+./configure --help
+
+Eg. the following will install the software into the home directory of
+the user instead of the default location (/usr or /usr/local).
+
+./configure --prefix=/home/user
+
+Common environment variables are CFLAGS, CXXFLAGS, FFLAGS, FCFLAGS,
+LIBS, LDFLAGS. These are processed and tested by configure and added
+to the flags that configure comes up with. For example:
+
+export CFLAGS="-O42 -g --funny-compiler-flag -I/hard/to/guess/directory" 
+./configure ; make (will usually use your CFLAGS for compiling)
+
+On more obscure (ie. AIX or OSX) platforms, you will often have to come up with CFLAGS and
+LIBS that will give the right libraries. Sometimes, a package might also
+include custom arguments to do this as well eg.:
+
+./configure --with-blas="-L/home/user -lblas"
+./configure --with-blas="/a/very/odd/place/supafastblaswithstripesandachrometailpipe.a"
+
+
+Automake provided default targets
+---------------------------------
+
+The commonly used targets are:
+
+make - Compile everything.
+make clean - Remove all objects, temporary files and such.
+make distclean - Remove automatically generated autoconf/automake files.
+make dist - Create a tar.gz file containing source ready for distribution.
+make install - Install software to you kit.
+
+Other useful ones:
+
+make tags - Generate etags files for the source.
+make dist-zip - Create a zip file (great for windows people)
+make uninstall - Uninstall the files installed with make install
+make check - Run tests bundled with the project
+
+The anatomy of a automake and autoconf governed project 
+-------------------------------------------------------
+
+autogen.sh - Semi-standard script for generating the configure script and possibly the Makefile.in files
+configure.in or configure.ac - The template used for producing configure
+Makefile.in - Autoconf makefile template
+Makefile.am - Automake makefile template
+
+Maintaining an autoconf project
+--------------------------------
+
+If only autoconf is used, then Makefile.in is the file to
+edit. Autoconf variables appear as @VARIABLE@ like definitions (these
+are replaced with the found values by the configure script). It is
+also possible to use autoconf definitions in Makefile.am files, this
+is especially useful for situations where automake functionality runs
+short. A snippet of Makefile.in can look like:
+
+screensave.@SHEXT@: screensave.@OBJEXT@
+	@CC@ @SH_LDFLAGS@ -o $@ $< @LIBS@
+
+When making modifications to the makefiles, you should run autogen.sh,
+or aclocal;automake;autoheader;autoconf in a corrct order. There is
+also a maintainer mode available that automatically regenerates the
+makefiles when necessary. This is enabled by default, but is usually
+switched of with the AM_MAINTAINER_MODE macro, but can be re-enabled
+using the --enable-maintainer-mode flag to ./configure.
+
+Maintaining an autoconf+automake project
+----------------------------------------
+
+If automake is used the file to edit is Makefile.am. You can also mix
+custom Makefile directives in here, but stick with automake
+definitions whenever possible, as it will save a lot of time. A simple
+Makefile.am could look like this:
+
+bin_PROGRAMS=hello
+hello_SOURCES=hello.c hello.h someotherfile.f waytoocomplex.cpp
+
+Commands
+--------
+
+autoscan - Scan your source code to detect which tests might be needed and create a  configure.scan, which can be used as a basis of configure.in.
+autoheader - Scan configure.in and create a config.h.in file, that will be used as a basis of your config.h (if you use one)
+automake - Go through configure.in and Makefile.am files and create Makefile.in files.
+autoconf - Go through configure.in and create the configure script.
+
+Still can't figure out what to run and in which order? Try running
+automake, aclocal, autoconf and autoheader in random combinations, and
+you'll usually end up with something usefull after a couple of
+iterations. When you get a feeling of what is needed, write it down
+into autogen.sh, so you'll remember it next time.
+
+Writing custom tests
+--------------------
+
+You can write tests directly into configure.in. The language is an
+obscure macro-language called M4, which expands to Bourne shell
+script. 
+
+AC_MSG_CHECKING([for answer to meaning of life])
+answer="42"
+AC_MSG_RESULT($answer)
+
+If you intend to write a lot of tests, it is beneficial to write them
+into separate .m4 files. Eg. you might have a file acx_blas.m4 that
+contains a routine that gives an blas library argument to ./configure:
+
+AC_DEFUN([ACX_BLAS], 
+[
+acx_blas_ok=no
+
+AC_ARG_WITH(blas,
+	[AC_HELP_STRING([--with-blas=<lib>], [use BLAS library <lib>])])
+case $with_blas in
+	yes | "") ;;
+	no) acx_blas_ok=disable ;;
+	-* | */* | *.a | *.so | *.so.* | *.o) BLAS_LIBS="$with_blas" ;;
+	*) BLAS_LIBS="-l$with_blas" ;;
+esac
+
+# Get fortran linker names of BLAS functions to check for.
+AC_FC_FUNC(sgemm)
+AC_FC_FUNC(dgemm)
+
+acx_blas_save_LIBS="$LIBS"
+LIBS="$LIBS $FCLIBS $FLIBS"
+
+# First, check BLAS_LIBS environment variable
+if test "x$BLAS_LIBS" != x; then
+	save_LIBS="$LIBS"; LIBS="$BLAS_LIBS $LIBS"
+	AC_MSG_CHECKING([for $sgemm in $BLAS_LIBS])
+	AC_TRY_LINK_FUNC($sgemm, [acx_blas_ok=yes], [BLAS_LIBS=""])
+	AC_MSG_RESULT($acx_blas_ok)
+	LIBS="$save_LIBS"
+fi
+])
+
+This can be then added to configure.in like this:
+
+sinclude([acx_blas.m4])
+ACX_BLAS
+
+More information
+----------------
+
+The best way to learn is to study (ie. steal) code from others -- just
+search for projects that use the same libraries and programming
+languages that you do. Still, reference guides are also useful, luckily the
+documentation that comes with automake and autoconf is extremely good:
+
+http://www.gnu.org/software/autoconf/manual/index.html
+http://www.gnu.org/software/automake/manual/index.html
+
+There is also a semi-official autoconf macro index contains a wide
+range of test. They might not be perfect, but usually are a good
+starting point.
+
+http://autoconf-archive.cryp.to/macros-by-category.html
+
+Another useful reference is the code itself. Need to know a variable
+that is produced by some test? Look it up with grep -ri from the
+autoconf/lib/autoconf directory of autoconf source.
+
+Misc
+----
+
+autoproject (creates a skeleton autotools managed project directory)
+
+http://directory.fsf.org/All_Packages_in_Directory/autoproject.html
+
