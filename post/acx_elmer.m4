@@ -23,7 +23,7 @@ fi
 
 case "$canonical_host_type" in
   *-*-darwin*)
-	LDFLAGS="-L/sw/"
+	LDFLAGS="-L/sw/lib"
   ;;
 esac
 
