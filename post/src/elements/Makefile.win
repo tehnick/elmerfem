@@ -1,0 +1,77 @@
+#*******************************************************************************
+#*
+#*       ELMER, A Computational Fluid Dynamics Program.
+#*
+#*       Copyright 1st April 1995 - , Center for Scientific Computing,
+#*                                    Finland.
+#*
+#*       All rights reserved. No part of this program may be used,
+#*       reproduced or transmitted in any form or by any means
+#*       without the written permission of CSC.
+#*
+#*******************************************************************************
+
+#*******************************************************************************
+#*
+#*  Makefile for objects subdirectory of ElmerPost
+#*
+#*******************************************************************************
+#*
+#*                     Author:       Juha Ruokolainen
+#*
+#*                    Address: Center for Scientific Computing
+#*                                Tietotie 6, P.O. BOX 405
+#*                                  02101 Espoo, Finland
+#*                                  Tel. +358 0 457 2723
+#*                                Telefax: +358 0 457 2302
+#*                              EMail: Juha.Ruokolainen@csc.fi
+#*
+#*                       Date: 1 Oct 1995
+#*
+#*                Modified by:
+#*
+#*       Date of modification:
+#*
+#*******************************************************************************
+
+LIB	=	../lib/libelements.lib
+
+OBJS	=	elements.obj       \
+                math.obj           \
+                2node_bar.obj      \
+                3node_bar.obj      \
+                4node_bar.obj      \
+                3node_triangle.obj \
+                4node_triangle.obj \
+                6node_triangle.obj \
+                10node_triangle.obj \
+                4node_quad.obj     \
+                5node_quad.obj     \
+                8node_quad.obj     \
+                9node_quad.obj     \
+                12node_quad.obj    \
+                16node_quad.obj    \
+                8node_brick.obj    \
+                20node_brick.obj   \
+                27node_brick.obj   \
+                4node_tetra.obj    \
+                8node_tetra.obj    \
+                10node_tetra.obj   \
+                6node_wedge.obj
+
+AR	=	lib
+RM	=	del
+CC	=	cl -Ox -I./ -I../ -DWIN32
+
+ALL: $(LIB)
+
+.SUFFIXES:	.obj
+
+.c.obj:
+	$(CC) $(CFLAGS) -c $<
+
+$(LIB): $(OBJS)
+	$(AR) -out:$(LIB) $(OBJS)
+
+clean:
+	$(RM) *.obj

@@ -1,0 +1,55 @@
+#*******************************************************************************
+#*
+#*       ELMER, A Computational Fluid Dynamics Program.
+#*
+#*       Copyright 1st April 1995 - , Center for Scientific Computing,
+#*                                    Finland.
+#*
+#*       All rights reserved. No part of this program may be used,
+#*       reproduced or transmitted in any form or by any means
+#*       without the written permission of CSC.
+#*
+#*******************************************************************************
+
+#*******************************************************************************
+#*
+#*  Makefile for objects subdirectory of ElmerPost
+#*
+#*******************************************************************************
+#*
+#*                     Author:       Juha Ruokolainen
+#*
+#*                    Address: Center for Scientific Computing
+#*                                Tietotie 6, P.O. BOX 405
+#*                                  02101 Espoo, Finland
+#*                                  Tel. +358 0 457 2723
+#*                                Telefax: +358 0 457 2302
+#*                              EMail: Juha.Ruokolainen@csc.fi
+#*
+#*                       Date: 1 Oct 1995
+#*
+#*                Modified by:
+#*
+#*       Date of modification:
+#*
+#*******************************************************************************
+
+LIB	=	../lib/libcamera.a
+
+OBJS	=	camera.o glp.o
+
+F77	=	f77
+CC	=	cc  -I./  -I../ -I/usr/local/include
+C++	=	cxx  -I./ -I../libGLP -I../ -I/usr/local/include
+
+$(LIB): $(OBJS)
+
+
+camera.o: camera.c
+	$(CC) $(CFLAGS) -c -O  $<
+	ar r $(LIB) $@
+
+glp.o: glp.cc
+	$(C++) $(CFLAGS) -c -O glp.cc
+	ar r $(LIB) $@
+

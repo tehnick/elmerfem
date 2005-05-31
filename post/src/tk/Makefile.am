@@ -1,0 +1,12 @@
+noinst_LIBRARIES=libtk.a
+
+libtk_a_SOURCES=\
+	cursor.c \
+	event.c \
+	font.c \
+	getset.c \
+	image.c \
+	private.h \
+	window.c \
+	shapes.c 
+
