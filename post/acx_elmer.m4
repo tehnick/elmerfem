@@ -23,15 +23,9 @@ fi
 
 case "$canonical_host_type" in
   *-*-darwin*)
-	if test x"$LDFLAGS" = x; then
-		LDFLAGS="-L/sw/lib"
-	fi
-	if test x"$CFLAGS" = x; then
-		CFLAGS="-I/sw/include"
-	fi
-	if test x"$CXXFLAGS" = x; then
-		CXXFLAGS="-I/sw/include"
-	fi
+	LDFLAGS="$LDFLAGS -L/sw/lib"
+	CFLAGS="$CFLAGS -I/sw/include"
+	CXXFLAGS="$CXXFLAGS -I/sw/include"
   ;;
 esac
 
