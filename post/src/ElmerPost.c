@@ -2075,13 +2075,14 @@ void TestTkEvent()
 
 int main(int argc,char **argv)
 {
-    static char init[1024],initcommands[1024],tmp[1024];
+    static char init[1024],initcommands[1024],tmp[1024],ephome[512];
     int i,size[4];
     
     if ( getenv("ELMER_POST_HOME") == NULL )
     {
       /* use default installation directory just if nothing is set */
-      setenv("ELMER_POST_HOME", ELMER_POST_HOME, 1 );
+      snprintf( ephome, 512, "ELMER_POST_HOME=%s", ELMER_POST_HOME );
+      putenv( ephome );
     }
 
 
