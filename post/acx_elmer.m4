@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.44 2005/05/30 06:34:05 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.2 2005/05/31 09:06:07 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1381,6 +1381,7 @@ dnl
 dnl @synopsis ACX_TCLTK([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
 dnl
 dnl Look for tcl/tk libraries 
+dnl Look for tcl/tk headers tk.h tcl.h
 dnl
 AC_DEFUN([ACX_TCLTK], [
 AC_PREREQ(2.50)
