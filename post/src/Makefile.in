@@ -612,14 +612,14 @@ uninstall-info: uninstall-info-recursive
 
 
 all-local: screensave.so window.so
-clean-local: 
+clean-local:
 	rm *.so
 
 screensave.so: screensave.$(OBJEXT)
 	$(CC) @SH_LDFLAGS@ -o $@ $< $(LIBS)
 
 window.so: window.$(OBJEXT)
-	$(CC) @SH_LDFLAGS@ -o $@ $< $(LIBS)
+	$(CC) @SH_LDFLAGS@ -o $@ $< glaux/libglaux.a tk/libtk.a $(LIBS) 
 install-data-local:
 	@echo "Instaling modules to ${ELMER_POST_DATADIR}/modules"
 
