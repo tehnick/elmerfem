@@ -8,6 +8,7 @@ Includes
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <unistd.h>
 /*
 Constants
 */
