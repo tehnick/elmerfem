@@ -884,8 +884,8 @@ void FC_FUNC(pregrid,PREGRID) (float  *xi, /* unscaled x coordinate index i: 0,i
 			       int    *jmax_in, /* grid steps in eta-direction */
 			       int    *kcmax_in, /* grid steps in z-direction in cold ice layer */
 			       int    *ktmax_in, /* grid steps in z-direction in temperate ice layer */
-			       FC_CHAR_PTR(runname,runname_l) /*name of run*/
-			       FC_CHAR_PTR(ergnum,ergnum_l) /*number of file*/
+			       FC_CHAR_PTR(runname,runname_l), /*name of run*/
+			       FC_CHAR_PTR(ergnum,ergnum_l), /*number of file*/
 			       int    *maske, /*mask of vertex type */
 			       float  *deltaX, /* stepsize of grid */
 			       int    *flag)
