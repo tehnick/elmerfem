@@ -29,7 +29,7 @@
 #include "tcl.h"
 
 #if !(defined(WIN32) || defined(win32))
-#include <string.h>
+#include <errno.h>
 extern int errno;
 #endif
 
