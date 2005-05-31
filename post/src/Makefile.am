@@ -3,7 +3,7 @@ SUBDIRS=tk glaux camera graphics modules sico2elmer objects visuals tcl elements
 bin_PROGRAMS=elmerpost QueryGLXExt
 
 elmerpost_SOURCES=\
-	ElmerPost.c \
+	ElmerPost.cc \
 	elmerpost.h \
 	geometry.c \
 	geometry.h \
