@@ -30,10 +30,10 @@ clean-local:
 	rm *.so
 
 screensave.so: screensave.$(OBJEXT)
-	$(CC) @SH_LDFLAGS@ -o $@ $< $(LIBS)
+	$(CC) $(CFLAGS) @SH_LDFLAGS@ -o $@ $< $(LIBS)
 
 window.so: window.$(OBJEXT)
-	$(CC) @SH_LDFLAGS@ -o $@ $< glaux/libglaux.a tk/libtk.a $(LIBS) 
+	$(CC) $(CFLAGS) @SH_LDFLAGS@ -o $@ $< glaux/libglaux.a tk/libtk.a $(LIBS) 
 
 ELMER_POST_DATADIR=$(prefix)/share/elmerpost
 install-data-local:
