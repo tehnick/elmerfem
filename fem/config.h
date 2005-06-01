@@ -208,7 +208,7 @@
 /* #undef SUNOS */
 
 /* Version number of package */
-#define VERSION "1.0.0"
+#define VERSION "4.0.1"
 
 /* Detected platform. */
 /* #undef WIN32 */

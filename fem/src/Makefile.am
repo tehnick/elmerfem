@@ -136,7 +136,6 @@ EXTRA_DIST = \
 	HeatSolve.src \
 	HelmholtzBEM.src \
 	HelmholtzSolve.src \
-	huti_fdefs.h \
 	IMeshToMesh.src \
 	Integration.src \
 	Interpolation.src \
@@ -163,7 +162,6 @@ EXTRA_DIST = \
 	Messages.src \
 	MGPrec.src \
 	ModelDescription.src \
-	mpif_linux.h \
 	mpif_stub.h \
 	stubut.c \
 	Multigrid.src \
@@ -191,7 +189,6 @@ EXTRA_DIST = \
 	Smitc.src \
 	SolveBand.src \
 	solve_cmplx.src \
-	solve.src \
 	solve_real.src \
 	Solver.src \
 	SolverUtils.src \
