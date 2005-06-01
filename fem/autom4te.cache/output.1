@@ -711,6 +711,8 @@ ARPACK_LIBS
 PARPACK_LIBS
 UMFPACK_LIBS
 MATC_LIBS
+SH_LDFLAGS
+SH_LD
 TESTS_FCFLAGS
 MESHGEN2D_LIBS
 FPICFLAG
@@ -724,10 +726,8 @@ SHLLIB_VER
 SHLBIN_VER
 SHLLINKEXT
 DLFCN_DIR
-SH_LD
 SH_LD2
 EXTRA_LIBS
-SH_LDFLAGS
 SH_LINKING_TO_FLAGS
 DL_LD
 DL_LDFLAGS
@@ -2447,10 +2447,14 @@ fi
 
 
 
+
 { echo "$as_me:$LINENO: checking for answer to meaning of life" >&5
 echo $ECHO_N "checking for answer to meaning of life... $ECHO_C" >&6; }
 { echo "$as_me:$LINENO: result: 42" >&5
 echo "${ECHO_T}42" >&6; }
+
+
+
 
 
 if test -z "$host"; then
@@ -2462,6 +2466,15 @@ if test "$host" = unknown; then
 echo "$as_me: error: configuring for unknown system type, your build will most likely be screwed." >&2;}
    { (exit 1); exit 1; }; }
 fi
+
+case "$canonical_host_type" in
+  *-*-darwin*)
+	LDFLAGS="$LDFLAGS -L/sw/lib"
+	CFLAGS="$CFLAGS -I/sw/include"
+	CXXFLAGS="$CXXFLAGS -I/sw/include"
+  ;;
+esac
+
 
 
 
@@ -9562,7 +9575,7 @@ ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
-
+ 
 
 { echo "$as_me:$LINENO: checking for fortran intrinsic etime" >&5
 echo $ECHO_N "checking for fortran intrinsic etime... $ECHO_C" >&6; }
@@ -14619,6 +14632,9 @@ case "$SH_LD" in
 esac
 
 
+
+
+
 SOLVER_LIBS="$LIBS $ARPACK_LIBS $PARPACK_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $LAPACK_LIBS $BLAS_LIBS $MPI_LIBS $FCLIBS $FLIBS $STDCXX_LIBS"
 ELMERGRID_LIBS="$LIBS"
 MESHGEN2D_LIBS="$LIBS $STDCXX_LIBS"
@@ -15547,6 +15563,8 @@ s,@ARPACK_LIBS@,$ARPACK_LIBS,;t t
 s,@PARPACK_LIBS@,$PARPACK_LIBS,;t t
 s,@UMFPACK_LIBS@,$UMFPACK_LIBS,;t t
 s,@MATC_LIBS@,$MATC_LIBS,;t t
+s,@SH_LDFLAGS@,$SH_LDFLAGS,;t t
+s,@SH_LD@,$SH_LD,;t t
 s,@TESTS_FCFLAGS@,$TESTS_FCFLAGS,;t t
 s,@MESHGEN2D_LIBS@,$MESHGEN2D_LIBS,;t t
 s,@FPICFLAG@,$FPICFLAG,;t t
@@ -15560,10 +15578,8 @@ s,@SHLLIB_VER@,$SHLLIB_VER,;t t
 s,@SHLBIN_VER@,$SHLBIN_VER,;t t
 s,@SHLLINKEXT@,$SHLLINKEXT,;t t
 s,@DLFCN_DIR@,$DLFCN_DIR,;t t
-s,@SH_LD@,$SH_LD,;t t
 s,@SH_LD2@,$SH_LD2,;t t
 s,@EXTRA_LIBS@,$EXTRA_LIBS,;t t
-s,@SH_LDFLAGS@,$SH_LDFLAGS,;t t
 s,@SH_LINKING_TO_FLAGS@,$SH_LINKING_TO_FLAGS,;t t
 s,@DL_LD@,$DL_LD,;t t
 s,@DL_LDFLAGS@,$DL_LDFLAGS,;t t

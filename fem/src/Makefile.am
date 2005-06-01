@@ -53,22 +53,27 @@ ViewFactors$(EXE_EXT): libsolver$(SHL_EXT) ViewFactors$(OBJ_EXT)
 GebhardtFactors$(EXE_EXT): libsolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT)  
 	@SH_LD@ @SH_LINKING_TO_FLAGS@ @B64FLAGS@ @LDFLAGS@ -o GebhardtFactors$(EXE_EXT) GebhardtFactors$(OBJ_EXT) -L. -lsolver @EXTRA_LIBS@ viewaxis/libviewaxis.a view3d/libview3d.a  
 
+ELMER_SOLVER_DATADIR=$(prefix)/share/elmersolver
+install-data-local:
+	@echo "Instaling solvers to ${ELMER_SOLVER_DATADIR}/lib"
+
+	mkdir -p $(ELMER_SOLVER_DATADIR)/lib
+	@CP@ *$(SHL_EXT) $(ELMER_SOLVER_DATADIR)/lib
+	mkdir -p $(ELMER_SOLVER_DATADIR)/include
+	@CP@ *.mod $(ELMER_SOLVER_DATADIR)/include
+	@CP@ elements.def $(ELMER_SOLVER_DATADIR)/lib
+	@CP@ SOLVER.KEYWORDS $(ELMER_SOLVER_DATADIR)/lib
+
 install-exec-local:
-	@echo "Installing stuff to $(prefix),@prefix@"
-	@MKDIR@ @prefix@/lib
-	@MKDIR@ @prefix@/include
+	@echo "Installing stuff to @prefix@/bin"
 	@MKDIR@ @prefix@/bin
 	@CP@ ElmerSolver$(EXEEXT) @prefix@/bin
 	@CP@ ElmerSolver$(EXEEXT) @prefix@/bin/Solver$(EXEEXT)
 	@CP@ ViewFactors$(EXEEXT) @prefix@/bin
 	@CP@ GebhardtFactors$(EXEEXT) @prefix@/bin
-	@CP@ *$(SHL_EXT) @prefix@/lib
-	@CP@ *.mod @prefix@/include
-	@CP@ elements.def @prefix@/lib
-	@CP@ SOLVER.KEYWORDS @prefix@/lib
 
 clean-local:
-	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so \#* mpif mpif.h
+	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so *.dll \#* mpif mpif.h
 
 ###############################
 # Automake knows how to do this 
@@ -86,7 +91,6 @@ else
 mpif:
 	@CP@ mpif_stub.h mpif
 endif
-
 
 # all source files that automake doesn't know about in this directory.
 EXTRA_DIST = \

@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.43 2005/05/27 07:24:37 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.44 2005/05/30 06:34:05 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -10,6 +10,9 @@ dnl define host variable
 dnl
 AC_DEFUN([ACX_HOST],
 [
+AC_REQUIRE([AC_CANONICAL_HOST])
+AC_REQUIRE([AC_CANONICAL_TARGET])
+
 if test -z "$host"; then
   host=unknown
 fi
@@ -17,6 +20,15 @@ canonical_host_type=$host
 if test "$host" = unknown; then
   AC_MSG_ERROR([configuring for unknown system type, your build will most likely be screwed.])
 fi
+
+case "$canonical_host_type" in
+  *-*-darwin*)
+	LDFLAGS="$LDFLAGS -L/sw/lib"
+	CFLAGS="$CFLAGS -I/sw/include"
+	CXXFLAGS="$CXXFLAGS -I/sw/include"
+  ;;
+esac
+
 AC_SUBST(canonical_host_type)
 ])
 
@@ -1375,4 +1387,82 @@ case "$SH_LD" in
 	SH_LD="$SH_LD -Vaxlib"
    ;;
 esac
+
+AC_SUBST(SH_LDFLAGS)
+AC_SUBST(SH_LD)
 ])
+
+dnl
+dnl @synopsis ACX_TCLTK([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
+dnl
+dnl Look for tcl/tk libraries 
+dnl
+AC_DEFUN([ACX_TCLTK], [
+AC_PREREQ(2.50)
+acx_tcltk_ok=no
+
+AC_ARG_WITH(tcltk,
+	[AC_HELP_STRING([--with-tcltk=<lib>], [Specify tcl & tk libraries])])
+case $with_tcltk in
+	yes | "") ;;
+	no) acx_tcltk_ok=disable ;;
+	-* | */* | *.a | *.so | *.so.* | *.o) TCLTK_LIBS="$with_tcltk" ;;
+	*) TCLTK_LIBS="-l$with_tcltk" ;;
+esac
+
+acx_tcltk_save_LIBS="$LIBS"
+
+# First, check TCLTK_LIBS environment variable
+if test $acx_tcltk_ok = no; then
+if test "x$TCLTK_LIBS" != x; then
+	save_LIBS="$LIBS"; LIBS="$TCLTK_LIBS $LIBS"
+	AC_MSG_CHECKING([for TkGetDisplay in $TCLTK_LIBS])
+	AC_TRY_LINK_FUNC(TkGetDisplay, [acx_tk_ok=yes], [TCLTK_LIBS=""])
+
+	AC_MSG_CHECKING([for TclInvoke in $TCLTK_LIBS])
+	AC_TRY_LINK_FUNC(TclInvoke, [acx_tcl_ok=yes], [TCLTK_LIBS=""])
+
+	if test "$acx_tk_ok" = yes; then
+	if test "$acx_tcl_ok" = yes; then
+		acx_tcltk_ok=yes
+	fi
+	fi	
+
+	AC_MSG_RESULT($acx_tcltk_ok)
+	LIBS="$save_LIBS"
+fi
+fi
+
+acx_tcltk_lib_versions="8.4 8.3 8.2 8.1"
+
+# Generic TCLTK library?
+if test "$acx_tcltk_ok" = no; then
+	for v in $acx_tcltk_lib_versions; do
+		acx_tcl_ok="no"
+		acx_tk_ok="no"
+
+		AC_CHECK_LIB(tcl$v, TclInvoke, [acx_tcl_ok=yes; TCL_LIBS="-ltcl$v"])
+		AC_CHECK_LIB(tk$v, TkGetDisplay, [acx_tk_ok=yes; TK_LIBS="-ltk$v"])
+		
+		if test "$acx_tcl_ok" = yes; then
+  		   if test "$acx_tk_ok" = yes; then
+		     acx_tcltk_ok="yes"
+  		     TCLTK_LIBS="$TK_LIBS $TCL_LIBS"
+		     break
+		   fi
+		fi
+	done
+fi
+
+AC_SUBST(TCLTK_LIBS)
+LIBS=$acx_tcltk_save_LIBS
+
+# Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
+if test x"$acx_tcltk_ok" = xyes; then
+        ifelse([$1],,AC_DEFINE(HAVE_MATC,1,[Define if you have a MATC library.]),[$1])
+        :
+else
+        acx_tcltk_ok=no
+        $2
+fi
+])dnl ACX_TCLTK
