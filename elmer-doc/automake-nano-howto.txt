@@ -9,8 +9,8 @@ The normal way is this:
 
 ./configure ; make ; make install
 
-Controlling stuff. Usually there are also many custom options provided
-by the package maintainer.
+Usually there are also many custom options provided by the package
+maintainer. The help option usually lists these.
 
 ./configure --help
 
@@ -20,14 +20,14 @@ the user instead of the default location (/usr or /usr/local).
 ./configure --prefix=/home/user
 
 Common environment variables are CFLAGS, CXXFLAGS, FFLAGS, FCFLAGS,
-LIBS, LDFLAGS. These are processed and tested by configure and added
+LIBS and LDFLAGS. These are processed and tested by configure and added
 to the flags that configure comes up with. For example:
 
 export CFLAGS="-O42 -g --funny-compiler-flag -I/hard/to/guess/directory" 
-./configure ; make (will usually use your CFLAGS for compiling)
+./configure ; make  # will usually use your CFLAGS for compiling
 
 On more obscure (ie. AIX or OSX) platforms, you will often have to come up with CFLAGS and
-LIBS that will give the right libraries. Sometimes, a package might also
+LDFLAGS that will give the right libraries. Sometimes, a package might also
 include custom arguments to do this as well eg.:
 
 ./configure --with-blas="-L/home/user -lblas"
@@ -39,33 +39,33 @@ Automake provided default targets
 
 The commonly used targets are:
 
-make - Compile everything.
-make clean - Remove all objects, temporary files and such.
-make distclean - Remove automatically generated autoconf/automake files.
-make dist - Create a tar.gz file containing source ready for distribution.
-make install - Install software to you kit.
+make           # Compile everything.
+make clean     # Remove all objects, temporary files and such.
+make distclean # Remove automatically generated autoconf/automake files.
+make dist      # Create a tar.gz file containing source ready for distribution.
+make install   # Install software to you kit.
 
 Other useful targets:
 
-make tags - Generate etags files for the source.
-make dist-zip - Create a zip file (great for windows people)
-make uninstall - Uninstall the files installed with make install
-make check - Run tests bundled with the project
+make tags      #  Generate etags files for the source.
+make dist-zip  # Create a zip file (great for windows people)
+make uninstall # Uninstall the files installed with make install
+make check     # Run tests bundled with the project
 
 The anatomy of a automake and autoconf governed project 
 -------------------------------------------------------
 
-autogen.sh - Semi-standard script for generating the configure script and possibly the Makefile.in files
-configure.in or configure.ac - The template used for producing configure
-Makefile.in - Autoconf makefile template
-Makefile.am - Automake makefile template
+autogen.sh        # Semi-standard script for generating the configure script and possibly the Makefile.in files
+configure.[in,ac] # The template used for producing configure
+Makefile.in       # Autoconf makefile template
+Makefile.am       # Automake makefile template
 
 Maintaining an autoconf project
---------------------------------
+-------------------------------
 
 If only autoconf is used, then Makefile.in is the file to
 edit. Autoconf variables appear as @VARIABLE@ like definitions (these
-are replaced with the found values by the configure script). It is
+are replaced with values found by the configure script). It is
 also possible to use autoconf definitions in Makefile.am files, this
 is especially useful for situations where automake functionality runs
 short. A snippet of Makefile.in can look like:
@@ -78,12 +78,16 @@ or aclocal;automake;autoheader;autoconf in a corrct order. There is
 also a maintainer mode available that automatically regenerates the
 makefiles when necessary. This is enabled by default, but is usually
 switched of with the AM_MAINTAINER_MODE macro, but can be re-enabled
-using the --enable-maintainer-mode flag to ./configure.
+by giving the --enable-maintainer-mode flag to ./configure.
+
+The end result of both autoconf and automake is a set of portable
+Makefiles, which should be kept in mind when creating
+definitions.
 
 Maintaining an autoconf+automake project
 ----------------------------------------
 
-If automake is used the file to edit is Makefile.am. You can also mix
+If automake is used, the file to edit is Makefile.am. You can also mix
 custom Makefile directives in here, but stick with automake
 definitions whenever possible, as it will save a lot of time. A simple
 Makefile.am could look like this:
@@ -94,10 +98,10 @@ hello_SOURCES=hello.c hello.h someotherfile.f waytoocomplex.cpp
 Commands
 --------
 
-autoscan - Scan your source code to detect which tests might be needed and create a  configure.scan, which can be used as a basis of configure.in.
-autoheader - Scan configure.in and create a config.h.in file, that will be used as a basis of your config.h (if you use one)
-automake - Go through configure.in and Makefile.am files and create Makefile.in files.
-autoconf - Go through configure.in and create the configure script.
+autoscan   # Scan your source code to detect which tests might be needed and create a  configure.scan, which can be used as a basis of configure.in.
+autoheader # Scan configure.in and create a config.h.in file, that will be used as a basis of your config.h (if you use one)
+automake   # Go through configure.in and Makefile.am files and create Makefile.in files.
+autoconf   # Go through configure.in and create the configure script.
 
 Still can't figure out what to run and in which order? Try running
 automake, aclocal, autoconf and autoheader in random combinations, and
