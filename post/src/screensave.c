@@ -24,6 +24,8 @@
 
 #include <stdio.h>
 #include <math.h>
+#include <stdlib.h>
+#include <strings.h>
 
   
 #include <GL/gl.h>
@@ -47,7 +49,7 @@ static int ScreenSave( ClientData cl,Tcl_Interp *interp,int argc,char **argv )
    if ( argc < 2 ) {
       strcpy( fname, "elmerpost.ppm" );
    } else {
-      strcpy( fname, argv[1] );
+      strncpy( fname,argv[1], 256 );
    }
    if ( !(fp = fopen( fname, "wb" ) ) ) {
 #if defined(WIN32) || defined(win32)

@@ -9,6 +9,7 @@ Includes
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
+#include <stdlib.h>
 /*
 Constants
 */
