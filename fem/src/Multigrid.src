@@ -2168,7 +2168,7 @@ CONTAINS
     END DO
     
 
-    WRITE(Message,'(A,I)') 'Coarse mesh nodes ',cnods
+    WRITE(Message,'(A,I4)') 'Coarse mesh nodes ',cnods
     CALL Info('ChooseCoarseNodes',Message)
 
     WRITE(Message,'(A,F5.1,A)') 'Coarse node fraction',(100.0*cnods)/nods,' %'
@@ -2290,7 +2290,7 @@ CONTAINS
       END IF
 
       IF(k > 0) THEN
-        WRITE(Message,'(A,I)') 'Number of added nodes using CR ',k
+        WRITE(Message,'(A,I4)') 'Number of added nodes using CR ',k
         CALL Info('ChooseCoarseNodes',Message)
         
         GOTO 100
@@ -2308,7 +2308,7 @@ CONTAINS
         END IF
       END DO
 
-      WRITE(Message,'(A,I)') 'Coarse mesh nodes after CR ',cnods
+      WRITE(Message,'(A,I4)') 'Coarse mesh nodes after CR ',cnods
       CALL Info('ChooseCoarseNodes',Message)
       
       WRITE(Message,'(A,F5.1,A)') 'Coarse node fraction after CR ',(100.0*cnods)/nods,' %'
@@ -2533,7 +2533,7 @@ CONTAINS
     END DO
 
 
-    WRITE(Message,'(A,I)') 'Number of eliminated nodes',elimnods
+    WRITE(Message,'(A,I4)') 'Number of eliminated nodes',elimnods
     CALL Info('AMGBonds',Message)
     j = posbonds + negbonds
     WRITE(Message,'(A,I9,A,I9,A)') 'Number of strong connections',j,' (',posbonds,' positive)'
@@ -2684,7 +2684,7 @@ CONTAINS
       negbonds = negbonds + negnew
     END DO
 
-    WRITE(Message,'(A,I)') 'Number of eliminated nodes',elimnods
+    WRITE(Message,'(A,I4)') 'Number of eliminated nodes',elimnods
     CALL Info('AMGBondsComplex',Message)
     j = negbonds
     WRITE(Message,'(A,I9)') 'Number of strong connections',j
@@ -2770,7 +2770,7 @@ CONTAINS
         
     END DO
 
-    WRITE(Message,'(A,I)') 'Number of added positive connection nodes',posnods
+    WRITE(Message,'(A,I9)') 'Number of added positive connection nodes',posnods
     CALL Info('AMGPositiveBonds',Message)
 
   END SUBROUTINE AMGPositiveBonds
@@ -3028,16 +3028,16 @@ CONTAINS
       ind = maxi
     END DO
 
-    WRITE(Message,'(A,i)') 'Coarsening algorhitm starts',newstarts
+    WRITE(Message,'(A,I4)') 'Coarsening algorhitm starts',newstarts
     CALL Info('AMGCoarse',Message)
-    WRITE(Message,'(A,i)') 'Coarsening algorhitm tests',loops
+    WRITE(Message,'(A,I4)') 'Coarsening algorhitm tests',loops
     CALL Info('AMGCoarse',Message)
-    WRITE(Message,'(A,i)') 'Coarsening algorhitm tests per start',loops/newstarts
+    WRITE(Message,'(A,I4)') 'Coarsening algorhitm tests per start',loops/newstarts
     CALL Info('AMGCoarse',Message)
 
-    WRITE(Message,'(A,i)') 'Coarsening algorhitm c-nodes',cind
+    WRITE(Message,'(A,I4)') 'Coarsening algorhitm c-nodes',cind
     CALL Info('AMGCoarse',Message)
-    WRITE(Message,'(A,i)') 'Coarsening algorhitm f-nodes',find
+    WRITE(Message,'(A,I4)') 'Coarsening algorhitm f-nodes',find
     CALL Info('AMGCoarse',Message)
 
   END SUBROUTINE AMGCoarse
