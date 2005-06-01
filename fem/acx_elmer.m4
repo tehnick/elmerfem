@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.44 2005/05/30 06:34:05 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.45 2005/06/01 07:20:28 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1174,7 +1174,7 @@ case "$canonical_host_type" in
     SH_LDFLAGS="-shared"
   ;;
   *-*-darwin*)
-    SH_LDFLAGS='-dynamiclib -single_module $(LDFLAGS)'
+    SH_LDFLAGS='-dynamiclib -undefined dynamic_lookup -single_module $(LDFLAGS)'
 dnl    SHLEXT="dylib"
 dnl    SHLLIB='$(SHLEXT)'
 dnl    SHLEXT_VER='$(version).$(SHLEXT)'
