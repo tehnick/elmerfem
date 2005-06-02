@@ -3,7 +3,7 @@
 # Always compile into tmp
 #
 
-EPREFIX=/tmp/`whoami`/elmer
+EPREFIX=/tmp/$USER/elmer
 modules="umfpack matc mathlibs eio hutiter fem"
 
 #
@@ -34,8 +34,12 @@ if test "$ELMER_USER" != ""; then
     printf "Fetching source from CVS using CVSROOT=%s\n" "$ELMER_USER@sampo3.csc.fi:/home/csc/vierinen/cvsroot"
     export CVSROOT=$ELMER_USER@sampo3.csc.fi:/home/csc/vierinen/cvsroot
 else
+if test "$ELMER_CVSROOT" != ""; then
+    export CVSROOT=$ELMER_CVSROOT
+else
     printf "Fetching source from CVS using CVSROOT=%s\n" `whoami`@sampo3.csc.fi:/home/csc/vierinen/cvsroot
-    export CVSROOT=`whoami`@sampo3.csc.fi:/home/csc/vierinen/cvsroot
+    export CVSROOT=$USER@sampo3.csc.fi:/home/csc/vierinen/cvsroot
+fi
 fi
 export CVS_RSH="ssh"
 
