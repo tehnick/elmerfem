@@ -692,6 +692,7 @@ USE_64BIT_ARCH_FALSE
 B64FLAGS
 FLIBS
 FCLIBS
+LD_LIBRARY_PATH_VAR
 mpi_dir
 mpi_lib_dir
 mpi_inc_dir
@@ -9825,7 +9826,7 @@ DL_LD='$(SH_LD)'
 DL_LDFLAGS='$(SH_LDFLAGS)'
 MKOCTFILE_DL_LDFLAGS='$(DL_LDFLAGS)'
 SONAME_FLAGS=
-library_path_var=LD_LIBRARY_PATH
+LD_LIBRARY_PATH_VAR=LD_LIBRARY_PATH
 LIBSOLVER_DEPS=$LIBS
 
 case "$canonical_host_type" in
@@ -9842,6 +9843,7 @@ case "$canonical_host_type" in
   ;;
   *-*-darwin*)
     SH_LDFLAGS='-dynamiclib -undefined dynamic_lookup -single_module $(LDFLAGS)'
+    LD_LIBRARY_PATH_VAR=DYLD_LIBRARY_PATH	
   ;;
   *-*-cygwin* | *-*-mingw*)
        SHLEXT=dll
@@ -9856,6 +9858,7 @@ case "$canonical_host_type" in
   rs6000-ibm-aix* | powerpc-ibm-aix*)
     SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
     SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared"
+    LD_LIBRARY_PATH_VAR=LIBPATH
   ;;
   hppa*-hp-hpux*)
     SH_LDFLAGS="-shared -fPIC"
@@ -9873,6 +9876,8 @@ case "$canonical_host_type" in
     fi
   ;;
 esac
+
+
 
 ### Dynamic linking is now enabled only if we are building shared
 ### libs and some API for dynamic linking is detected.
@@ -15552,6 +15557,7 @@ s,@USE_64BIT_ARCH_FALSE@,$USE_64BIT_ARCH_FALSE,;t t
 s,@B64FLAGS@,$B64FLAGS,;t t
 s,@FLIBS@,$FLIBS,;t t
 s,@FCLIBS@,$FCLIBS,;t t
+s,@LD_LIBRARY_PATH_VAR@,$LD_LIBRARY_PATH_VAR,;t t
 s,@mpi_dir@,$mpi_dir,;t t
 s,@mpi_lib_dir@,$mpi_lib_dir,;t t
 s,@mpi_inc_dir@,$mpi_inc_dir,;t t

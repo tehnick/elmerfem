@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.46 2005/06/01 11:16:09 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.47 2005/06/02 06:58:18 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1161,7 +1161,7 @@ DL_LD='$(SH_LD)'
 DL_LDFLAGS='$(SH_LDFLAGS)'
 MKOCTFILE_DL_LDFLAGS='$(DL_LDFLAGS)'
 SONAME_FLAGS=
-library_path_var=LD_LIBRARY_PATH
+LD_LIBRARY_PATH_VAR=LD_LIBRARY_PATH
 LIBSOLVER_DEPS=$LIBS
 
 dnl 
@@ -1187,7 +1187,7 @@ dnl    SHLEXT_VER='$(version).$(SHLEXT)'
 dnl    SHLLIB_VER='$(version).$(SHLLIB)'
 dnl    NO_OCT_FILE_STRIP="true"
 dnl    SONAME_FLAGS='-install_name $(octlibdir)/$@'
-dnl    library_path_var=DYLD_LIBRARY_PATH	
+    LD_LIBRARY_PATH_VAR=DYLD_LIBRARY_PATH	
   ;;
   *-*-cygwin* | *-*-mingw*)
        SHLEXT=dll
@@ -1208,14 +1208,9 @@ dnl    RLD_FLAG=
     SH_LDFLAGS="-G"
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
-dnl    CPICFLAG=
-dnl    CXXPICFLAG=
-dnl    FPICFLAG=
-dnl    DLFCN_DIR=dlfcn
     SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
     SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared"
-dnl    use_ldaix="yes"
-dnl    AC_SUBST(use_ldaix)
+    LD_LIBRARY_PATH_VAR=LIBPATH
   ;;
   hppa*-hp-hpux*)
 dnl    if test "$ac_cv_f77_compiler_gnu" = yes; then
@@ -1239,6 +1234,8 @@ dnl    SHLEXT=sl
     fi
   ;;
 esac
+
+AC_SUBST(LD_LIBRARY_PATH_VAR)
 
 ### Dynamic linking is now enabled only if we are building shared
 ### libs and some API for dynamic linking is detected.
