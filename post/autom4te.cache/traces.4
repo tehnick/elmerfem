@@ -1771,7 +1771,7 @@ case "$ac_cv_fc_mangling" in
 esac
 
 ])
-m4trace:acx_elmer.m4:1052: -1- AC_DEFUN([ACX_FC_INCLUDE_MODULE_FLAG], [
+m4trace:acx_elmer.m4:1058: -1- AC_DEFUN([ACX_FC_INCLUDE_MODULE_FLAG], [
 
 INCLUDE_MODULE_FLAG="-I"
 
@@ -1781,10 +1781,16 @@ case "$canonical_host_type" in
       INCLUDE_MODULE_FLAG="-M"
     fi
   ;;
+  *darwin*)
+    #absoft
+    if test "$FC" = "f90"; then
+      INCLUDE_MODULE_FLAG="-p"
+    fi
+  ;;
 esac
 
 ])
-m4trace:acx_elmer.m4:1132: -1- AC_DEFUN([ACX_PIC_FLAGS], [
+m4trace:acx_elmer.m4:1138: -1- AC_DEFUN([ACX_PIC_FLAGS], [
 dnl 
 dnl Host specific stuff
 dnl fixme: if 64 bits, then start looking for pic flags, not by default?
@@ -1863,7 +1869,7 @@ FFLAGS="$FFLAGS $FPICFLAG"
 CFLAGS="$CFLAGS $CPICFLAG"
 CXXFLAGS="$CXXFLAGS $CXXPICFLAG"
 ])
-m4trace:acx_elmer.m4:1315: -1- AC_DEFUN([ACX_SHLIB_STUFF], [
+m4trace:acx_elmer.m4:1298: -1- AC_DEFUN([ACX_SHLIB_STUFF], [
 dnl  
 dnl OS-specific stuff that hasn't been (or can't be) done in a clean way.
 dnl
@@ -1887,7 +1893,7 @@ DL_LD='$(SH_LD)'
 DL_LDFLAGS='$(SH_LDFLAGS)'
 MKOCTFILE_DL_LDFLAGS='$(DL_LDFLAGS)'
 SONAME_FLAGS=
-library_path_var=LD_LIBRARY_PATH
+LD_LIBRARY_PATH_VAR=LD_LIBRARY_PATH
 LIBSOLVER_DEPS=$LIBS
 
 dnl 
@@ -1906,14 +1912,9 @@ case "$canonical_host_type" in
     SH_LDFLAGS="-shared"
   ;;
   *-*-darwin*)
-    SH_LDFLAGS='-dynamiclib -single_module $(LDFLAGS)'
-dnl    SHLEXT="dylib"
-dnl    SHLLIB='$(SHLEXT)'
-dnl    SHLEXT_VER='$(version).$(SHLEXT)'
-dnl    SHLLIB_VER='$(version).$(SHLLIB)'
-dnl    NO_OCT_FILE_STRIP="true"
-dnl    SONAME_FLAGS='-install_name $(octlibdir)/$@'
-dnl    library_path_var=DYLD_LIBRARY_PATH	
+    SH_LDFLAGS='-dynamiclib -undefined dynamic_lookup -single_module $(LDFLAGS)'
+    SHLEXT="dylib"
+    LD_LIBRARY_PATH_VAR=DYLD_LIBRARY_PATH	
   ;;
   *-*-cygwin* | *-*-mingw*)
        SHLEXT=dll
@@ -1921,35 +1922,19 @@ dnl    library_path_var=DYLD_LIBRARY_PATH
        SH_LD=$CC
   ;;
   *-*-linux* | *-*-gnu*)
-dnl    MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
-dnl    SONAME_FLAGS=''
-dnl    RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
-dnl     CPICFLAG="-fPIC"
-dnl    CXXPICFLAG="-fPIC"
-dnl    FPICFLAG="-fPIC"
+	SH_LDFLAGS="-shared"
+	SH_EXPALL_FLAG="-Wl,-export-dynamic"
   ;;
   i[[3456]]86-*-sco3.2v5*)
-dnl    SONAME_FLAGS='-Wl,-h -Wl,$@'
-dnl    RLD_FLAG=
     SH_LDFLAGS="-G"
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
-dnl    CPICFLAG=
-dnl    CXXPICFLAG=
-dnl    FPICFLAG=
-dnl    DLFCN_DIR=dlfcn
     SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
     SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared"
-dnl    use_ldaix="yes"
-dnl    AC_SUBST(use_ldaix)
+    LD_LIBRARY_PATH_VAR=LIBPATH
   ;;
   hppa*-hp-hpux*)
-dnl    if test "$ac_cv_f77_compiler_gnu" = yes; then
-dnl      FPICFLAG=-fPIC
-dnl    else
-dnl      FPICFLAG=+Z
-dnl    fi
-dnl    SHLEXT=sl
+    SHLEXT=sl
     SH_LDFLAGS="-shared -fPIC"
   ;;
   *-sgi-*)
@@ -1965,6 +1950,9 @@ dnl    SHLEXT=sl
     fi
   ;;
 esac
+
+AC_SUBST(LD_LIBRARY_PATH_VAR)
+AC_SUBST(SH_EXPALL_FLAG)
 
 ### Dynamic linking is now enabled only if we are building shared
 ### libs and some API for dynamic linking is detected.
@@ -1985,10 +1973,6 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
 
   ### Check for dyld first since OS X can have a non-standard libdl	
 
-  AC_CHECK_HEADER(Mach-O/dyld.h)  
-  if test "$ac_cv_header_Mach_O_dyld_h" = yes; then
-    dyld_api=true
-  else 
     AC_CHECK_LIB(dld, shl_load)
     AC_CHECK_FUNCS(shl_load shl_findsym)
     if test "$ac_cv_func_shl_load" = yes \
@@ -2022,7 +2006,6 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
 	fi
       fi
     fi
-  fi
 
   if $dlopen_api; then
     DL_API_MSG="(dlopen)"
@@ -2045,7 +2028,7 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
   AC_DEFINE_UNQUOTED(SHL_EXTENSION, ".$SHLEXT",[Shared lib filename extension])
 fi
 ])
-m4trace:acx_elmer.m4:1362: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
+m4trace:acx_elmer.m4:1345: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
 AC_REQUIRE([ACX_HOST])
 
 case "$canonical_host_type" in
@@ -2088,7 +2071,7 @@ case "$canonical_host_type" in
 esac
 
 ])
-m4trace:acx_elmer.m4:1393: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
+m4trace:acx_elmer.m4:1376: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
 AC_REQUIRE([ACX_SHLIB_STUFF])
 case "$FC" in
    ifc)
@@ -2117,7 +2100,7 @@ esac
 AC_SUBST(SH_LDFLAGS)
 AC_SUBST(SH_LD)
 ])
-m4trace:acx_elmer.m4:1468: -1- AC_DEFUN([ACX_TCLTK], [
+m4trace:acx_elmer.m4:1451: -1- AC_DEFUN([ACX_TCLTK], [
 AC_PREREQ(2.50)
 acx_tcltk_ok=no
 
@@ -3259,7 +3242,7 @@ case "$ac_cv_fc_mangling" in
 esac
 
 ])
-m4trace:acx_elmer.m4:1052: -1- AC_DEFUN([ACX_FC_INCLUDE_MODULE_FLAG], [
+m4trace:acx_elmer.m4:1058: -1- AC_DEFUN([ACX_FC_INCLUDE_MODULE_FLAG], [
 
 INCLUDE_MODULE_FLAG="-I"
 
@@ -3269,10 +3252,16 @@ case "$canonical_host_type" in
       INCLUDE_MODULE_FLAG="-M"
     fi
   ;;
+  *darwin*)
+    #absoft
+    if test "$FC" = "f90"; then
+      INCLUDE_MODULE_FLAG="-p"
+    fi
+  ;;
 esac
 
 ])
-m4trace:acx_elmer.m4:1132: -1- AC_DEFUN([ACX_PIC_FLAGS], [
+m4trace:acx_elmer.m4:1138: -1- AC_DEFUN([ACX_PIC_FLAGS], [
 dnl 
 dnl Host specific stuff
 dnl fixme: if 64 bits, then start looking for pic flags, not by default?
@@ -3351,7 +3340,7 @@ FFLAGS="$FFLAGS $FPICFLAG"
 CFLAGS="$CFLAGS $CPICFLAG"
 CXXFLAGS="$CXXFLAGS $CXXPICFLAG"
 ])
-m4trace:acx_elmer.m4:1315: -1- AC_DEFUN([ACX_SHLIB_STUFF], [
+m4trace:acx_elmer.m4:1298: -1- AC_DEFUN([ACX_SHLIB_STUFF], [
 dnl  
 dnl OS-specific stuff that hasn't been (or can't be) done in a clean way.
 dnl
@@ -3375,7 +3364,7 @@ DL_LD='$(SH_LD)'
 DL_LDFLAGS='$(SH_LDFLAGS)'
 MKOCTFILE_DL_LDFLAGS='$(DL_LDFLAGS)'
 SONAME_FLAGS=
-library_path_var=LD_LIBRARY_PATH
+LD_LIBRARY_PATH_VAR=LD_LIBRARY_PATH
 LIBSOLVER_DEPS=$LIBS
 
 dnl 
@@ -3394,14 +3383,9 @@ case "$canonical_host_type" in
     SH_LDFLAGS="-shared"
   ;;
   *-*-darwin*)
-    SH_LDFLAGS='-dynamiclib -single_module $(LDFLAGS)'
-dnl    SHLEXT="dylib"
-dnl    SHLLIB='$(SHLEXT)'
-dnl    SHLEXT_VER='$(version).$(SHLEXT)'
-dnl    SHLLIB_VER='$(version).$(SHLLIB)'
-dnl    NO_OCT_FILE_STRIP="true"
-dnl    SONAME_FLAGS='-install_name $(octlibdir)/$@'
-dnl    library_path_var=DYLD_LIBRARY_PATH	
+    SH_LDFLAGS='-dynamiclib -undefined dynamic_lookup -single_module $(LDFLAGS)'
+    SHLEXT="dylib"
+    LD_LIBRARY_PATH_VAR=DYLD_LIBRARY_PATH	
   ;;
   *-*-cygwin* | *-*-mingw*)
        SHLEXT=dll
@@ -3409,35 +3393,19 @@ dnl    library_path_var=DYLD_LIBRARY_PATH
        SH_LD=$CC
   ;;
   *-*-linux* | *-*-gnu*)
-dnl    MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
-dnl    SONAME_FLAGS=''
-dnl    RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
-dnl     CPICFLAG="-fPIC"
-dnl    CXXPICFLAG="-fPIC"
-dnl    FPICFLAG="-fPIC"
+	SH_LDFLAGS="-shared"
+	SH_EXPALL_FLAG="-Wl,-export-dynamic"
   ;;
   i[[3456]]86-*-sco3.2v5*)
-dnl    SONAME_FLAGS='-Wl,-h -Wl,$@'
-dnl    RLD_FLAG=
     SH_LDFLAGS="-G"
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
-dnl    CPICFLAG=
-dnl    CXXPICFLAG=
-dnl    FPICFLAG=
-dnl    DLFCN_DIR=dlfcn
     SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
     SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared"
-dnl    use_ldaix="yes"
-dnl    AC_SUBST(use_ldaix)
+    LD_LIBRARY_PATH_VAR=LIBPATH
   ;;
   hppa*-hp-hpux*)
-dnl    if test "$ac_cv_f77_compiler_gnu" = yes; then
-dnl      FPICFLAG=-fPIC
-dnl    else
-dnl      FPICFLAG=+Z
-dnl    fi
-dnl    SHLEXT=sl
+    SHLEXT=sl
     SH_LDFLAGS="-shared -fPIC"
   ;;
   *-sgi-*)
@@ -3453,6 +3421,9 @@ dnl    SHLEXT=sl
     fi
   ;;
 esac
+
+AC_SUBST(LD_LIBRARY_PATH_VAR)
+AC_SUBST(SH_EXPALL_FLAG)
 
 ### Dynamic linking is now enabled only if we are building shared
 ### libs and some API for dynamic linking is detected.
@@ -3473,10 +3444,6 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
 
   ### Check for dyld first since OS X can have a non-standard libdl	
 
-  AC_CHECK_HEADER(Mach-O/dyld.h)  
-  if test "$ac_cv_header_Mach_O_dyld_h" = yes; then
-    dyld_api=true
-  else 
     AC_CHECK_LIB(dld, shl_load)
     AC_CHECK_FUNCS(shl_load shl_findsym)
     if test "$ac_cv_func_shl_load" = yes \
@@ -3510,7 +3477,6 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
 	fi
       fi
     fi
-  fi
 
   if $dlopen_api; then
     DL_API_MSG="(dlopen)"
@@ -3533,7 +3499,7 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
   AC_DEFINE_UNQUOTED(SHL_EXTENSION, ".$SHLEXT",[Shared lib filename extension])
 fi
 ])
-m4trace:acx_elmer.m4:1362: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
+m4trace:acx_elmer.m4:1345: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
 AC_REQUIRE([ACX_HOST])
 
 case "$canonical_host_type" in
@@ -3576,7 +3542,7 @@ case "$canonical_host_type" in
 esac
 
 ])
-m4trace:acx_elmer.m4:1393: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
+m4trace:acx_elmer.m4:1376: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
 AC_REQUIRE([ACX_SHLIB_STUFF])
 case "$FC" in
    ifc)
@@ -3605,7 +3571,7 @@ esac
 AC_SUBST(SH_LDFLAGS)
 AC_SUBST(SH_LD)
 ])
-m4trace:acx_elmer.m4:1468: -1- AC_DEFUN([ACX_TCLTK], [
+m4trace:acx_elmer.m4:1451: -1- AC_DEFUN([ACX_TCLTK], [
 AC_PREREQ(2.50)
 acx_tcltk_ok=no
 
@@ -4413,7 +4379,7 @@ m4trace:configure.in:48: -1- ACX_TCLTK([], [AC_MSG_ERROR([Tcl/tk not found, use 
 m4trace:configure.in:48: -1- _m4_warn([obsolete], [The macro `AC_HELP_STRING' is obsolete.
 You should run autoupdate.], [autoconf/general.m4:219: AC_HELP_STRING is expanded from...
 autoconf/general.m4:1416: AC_ARG_WITH is expanded from...
-acx_elmer.m4:1468: ACX_TCLTK is expanded from...
+acx_elmer.m4:1451: ACX_TCLTK is expanded from...
 configure.in:48: the top level])
 m4trace:configure.in:48: -1- AC_CHECK_LIB([tcl$v], [TclInvoke], [acx_tcl_ok=yes; TCL_LIBS="-ltcl$v"])
 m4trace:configure.in:48: -1- AC_CHECK_LIB([tk$v], [TkGetDisplay], [acx_tk_ok=yes; TK_LIBS="-ltk$v"])
@@ -4505,6 +4471,10 @@ m4trace:configure.in:62: -1- AH_OUTPUT([HAVE_SQRT], [/* Define to 1 if you have 
 m4trace:configure.in:62: -1- AH_OUTPUT([HAVE_STRERROR], [/* Define to 1 if you have the `strerror\' function. */
 #undef HAVE_STRERROR])
 m4trace:configure.in:64: -1- ACX_SHLIB_STUFF
+m4trace:configure.in:64: -1- AC_SUBST([LD_LIBRARY_PATH_VAR])
+m4trace:configure.in:64: -1- m4_pattern_allow([^LD_LIBRARY_PATH_VAR$])
+m4trace:configure.in:64: -1- AC_SUBST([SH_EXPALL_FLAG])
+m4trace:configure.in:64: -1- m4_pattern_allow([^SH_EXPALL_FLAG$])
 m4trace:configure.in:64: -1- AC_CHECK_LIB([dld], [shl_load])
 m4trace:configure.in:64: -1- AH_OUTPUT([HAVE_LIBDLD], [/* Define to 1 if you have the `dld\' library (-ldld). */
 #undef HAVE_LIBDLD])

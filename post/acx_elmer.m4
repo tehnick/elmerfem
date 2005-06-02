@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.44 2005/05/30 06:34:05 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.48 2005/06/02 08:20:01 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1047,6 +1047,12 @@ case "$canonical_host_type" in
       INCLUDE_MODULE_FLAG="-M"
     fi
   ;;
+  *darwin*)
+    #absoft
+    if test "$FC" = "f90"; then
+      INCLUDE_MODULE_FLAG="-p"
+    fi
+  ;;
 esac
 
 ])
@@ -1155,7 +1161,7 @@ DL_LD='$(SH_LD)'
 DL_LDFLAGS='$(SH_LDFLAGS)'
 MKOCTFILE_DL_LDFLAGS='$(DL_LDFLAGS)'
 SONAME_FLAGS=
-library_path_var=LD_LIBRARY_PATH
+LD_LIBRARY_PATH_VAR=LD_LIBRARY_PATH
 LIBSOLVER_DEPS=$LIBS
 
 dnl 
@@ -1174,14 +1180,9 @@ case "$canonical_host_type" in
     SH_LDFLAGS="-shared"
   ;;
   *-*-darwin*)
-    SH_LDFLAGS='-dynamiclib -single_module $(LDFLAGS)'
-dnl    SHLEXT="dylib"
-dnl    SHLLIB='$(SHLEXT)'
-dnl    SHLEXT_VER='$(version).$(SHLEXT)'
-dnl    SHLLIB_VER='$(version).$(SHLLIB)'
-dnl    NO_OCT_FILE_STRIP="true"
-dnl    SONAME_FLAGS='-install_name $(octlibdir)/$@'
-dnl    library_path_var=DYLD_LIBRARY_PATH	
+    SH_LDFLAGS='-dynamiclib -undefined dynamic_lookup -single_module $(LDFLAGS)'
+    SHLEXT="dylib"
+    LD_LIBRARY_PATH_VAR=DYLD_LIBRARY_PATH	
   ;;
   *-*-cygwin* | *-*-mingw*)
        SHLEXT=dll
@@ -1189,35 +1190,19 @@ dnl    library_path_var=DYLD_LIBRARY_PATH
        SH_LD=$CC
   ;;
   *-*-linux* | *-*-gnu*)
-dnl    MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
-dnl    SONAME_FLAGS=''
-dnl    RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
-dnl     CPICFLAG="-fPIC"
-dnl    CXXPICFLAG="-fPIC"
-dnl    FPICFLAG="-fPIC"
+	SH_LDFLAGS="-shared"
+	SH_EXPALL_FLAG="-Wl,-export-dynamic"
   ;;
   i[[3456]]86-*-sco3.2v5*)
-dnl    SONAME_FLAGS='-Wl,-h -Wl,$@'
-dnl    RLD_FLAG=
     SH_LDFLAGS="-G"
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
-dnl    CPICFLAG=
-dnl    CXXPICFLAG=
-dnl    FPICFLAG=
-dnl    DLFCN_DIR=dlfcn
     SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
     SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared"
-dnl    use_ldaix="yes"
-dnl    AC_SUBST(use_ldaix)
+    LD_LIBRARY_PATH_VAR=LIBPATH
   ;;
   hppa*-hp-hpux*)
-dnl    if test "$ac_cv_f77_compiler_gnu" = yes; then
-dnl      FPICFLAG=-fPIC
-dnl    else
-dnl      FPICFLAG=+Z
-dnl    fi
-dnl    SHLEXT=sl
+    SHLEXT=sl
     SH_LDFLAGS="-shared -fPIC"
   ;;
   *-sgi-*)
@@ -1233,6 +1218,9 @@ dnl    SHLEXT=sl
     fi
   ;;
 esac
+
+AC_SUBST(LD_LIBRARY_PATH_VAR)
+AC_SUBST(SH_EXPALL_FLAG)
 
 ### Dynamic linking is now enabled only if we are building shared
 ### libs and some API for dynamic linking is detected.
@@ -1253,10 +1241,6 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
 
   ### Check for dyld first since OS X can have a non-standard libdl	
 
-  AC_CHECK_HEADER(Mach-O/dyld.h)  
-  if test "$ac_cv_header_Mach_O_dyld_h" = yes; then
-    dyld_api=true
-  else 
     AC_CHECK_LIB(dld, shl_load)
     AC_CHECK_FUNCS(shl_load shl_findsym)
     if test "$ac_cv_func_shl_load" = yes \
@@ -1290,7 +1274,6 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
 	fi
       fi
     fi
-  fi
 
   if $dlopen_api; then
     DL_API_MSG="(dlopen)"

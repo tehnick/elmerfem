@@ -23,6 +23,8 @@ elmerpost_LDADD=\
 	./glaux/libglaux.a \
 	./tk/libtk.a
 
+elmerpost_LDFLAGS=$(SH_EXPALL_FLAG)
+
 QueryGLXExt_SOURCES=QueryGLXExt.c 
 
 all-local: screensave.so window.so
