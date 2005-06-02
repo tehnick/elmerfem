@@ -1,18 +1,17 @@
-
 !
 ! Subroutine to implement BiConjugate Gradient Stabilised iteration
 !
-! $Id: huti_bicgstab.src,v 1.2 2000/10/19 07:48:29 jpr Exp $
+! $Id: huti_bicgstab.src,v 1.1.1.1 2005/04/15 10:31:18 vierinen Exp $
 
 #include "huti_intdefs.h"
-MAKE_INCLUDE(#,include, "huti_fdefs.h" )
+#include  "huti_fdefs.h" 
 
 !*************************************************************************
 !*************************************************************************
 !
 ! This subroutine is based on a book by Barret et al.:
-! "Templates for the Solution of Linear Systems: Building Blocks for
-!  Iterative Methods", 1993.
+! Templates for the Solution of Linear Systems: Building Blocks for
+!  Iterative Methods, 1993.
 !
 ! All matrix-vector operations are done externally, so we do not need
 ! to know about the matrix structure (sparse or dense). Memory allocation
@@ -34,25 +33,25 @@ MAKE_INCLUDE(#,include, "huti_fdefs.h" )
 ! like the pseudo code
 !
 
-MAKE_DEFINE(#,define, X, xvec )
-MAKE_DEFINE(#,define, B, rhsvec )
+#define X xvec 
+#define B rhsvec 
 
-MAKE_DEFINE(#,define, RTLD, work(:,1) )
-MAKE_DEFINE(#,define, RTLD_ind, 1 )
-MAKE_DEFINE(#,define, P, work(:,2) )
-MAKE_DEFINE(#,define, P_ind, 2 )
-MAKE_DEFINE(#,define, T1V, work(:,3) )
-MAKE_DEFINE(#,define, T1V_ind, 3 )
-MAKE_DEFINE(#,define, V, work(:,4) )
-MAKE_DEFINE(#,define, V_ind, 4 )
-MAKE_DEFINE(#,define, S, work(:,5) )
-MAKE_DEFINE(#,define, S_ind, 5 )
-MAKE_DEFINE(#,define, T2V, work(:,6) )
-MAKE_DEFINE(#,define, T2V_ind, 6 )
-MAKE_DEFINE(#,define, T, work(:,7) )
-MAKE_DEFINE(#,define, T_ind, 7 )
-MAKE_DEFINE(#,define, R, work(:,8) )
-MAKE_DEFINE(#,define, R_ind, 8 )
+#define RTLD work(:,1) 
+#define RTLD_ind 1 
+#define P work(:,2) 
+#define P_ind 2 
+#define T1V work(:,3) 
+#define T1V_ind 3 
+#define V work(:,4) 
+#define V_ind 4 
+#define S work(:,5) 
+#define S_ind 5 
+#define T2V work(:,6) 
+#define T2V_ind 6 
+#define T work(:,7) 
+#define T_ind 7 
+#define R work(:,8) 
+#define R_ind 8 
   
 !*************************************************************************
 !*************************************************************************
@@ -94,7 +93,7 @@ subroutine MAKE_SUBRN( huti_,bicgstabsolv ) ( ndim, wrkdim, xvec, rhsvec, &
 
   !*********************************************************************
   ! The actual BiCGSTAB begins here (look the pseudo code in the
-  ! "Templates..."-book, page 27)
+  ! Templates...-book, page 27)
   !
   ! First the initialization part
   !

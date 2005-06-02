@@ -1,51 +1,24 @@
+# 1 "huti_cg.src"
+# 1 "<built-in>"
+# 1 "<command line>"
+# 1 "huti_cg.src"
 
 !
 ! Subroutines to implement Conjugate Gradient iterative method
 !
 ! $Id: huti_cg.src,v 1.1.1.1 2005/04/15 10:31:18 vierinen Exp $
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#include  "huti_fdefs.h" 
+# 1 "huti_intdefs.h" 1
+# 8 "huti_cg.src" 2
+# 1 "huti_fdefs.h" 1
+# 9 "huti_cg.src" 2
 
 !*************************************************************************
 !*************************************************************************
 !
 ! These subroutines are based on a book by Barret et al.:
-! "Templates for the Solution of Linear Systems: Building Blocks for
-!  Iterative Methods", 1993.
+! Templates for the Solution of Linear Systems: Building Blocks for
+! Iterative Methods, 1993.
 !
 ! All matrix-vector operations are done externally, so we do not need
 ! to know about the matrix structure (sparse or dense). So has the
@@ -61,27 +34,16 @@
 ! Definitions to make the code more understandable and to make it look
 ! like the pseudo code (these are commond to all precisions)
 !
-
-#define  X  xvec 
-#define  B  rhsvec 
-
-#define  Z  work(:,1) 
-#define  Z_ind  1 
-#define  P  work(:,2) 
-#define  P_ind  2 
-#define  Q  work(:,3) 
-#define  Q_ind  3 
-#define  R  work(:,4) 
-#define  R_ind  4 
+# 43 "huti_cg.src"
 !*************************************************************************
-  
+
 !*************************************************************************
 !*************************************************************************
 ! Complex version
 !*************************************************************************
 !*************************************************************************
 
-subroutine  huti_ccgsolv  ( ndim, wrkdim, xvec, rhsvec, &
+subroutine huti_ccgsolv ( ndim, wrkdim, xvec, rhsvec, &
                           ipar, dpar, work, matvecsubr, pcondlsubr, &
                           pcondrsubr, dotprodfun, normfun, stopcfun )
 
@@ -98,8 +60,8 @@ subroutine  huti_ccgsolv  ( ndim, wrkdim, xvec, rhsvec, &
 
   integer :: ndim, wrkdim
   complex, dimension(ndim) :: xvec, rhsvec
-  integer, dimension(HUTI_IPAR_DFLTSIZE) :: ipar
-  double precision, dimension(HUTI_DPAR_DFLTSIZE) :: dpar
+  integer, dimension(50) :: ipar
+  double precision, dimension(10) :: dpar
   complex, dimension(ndim,wrkdim) :: work
 
   ! Local variables
@@ -114,7 +76,7 @@ subroutine  huti_ccgsolv  ( ndim, wrkdim, xvec, rhsvec, &
 
   !*********************************************************************
   ! The actual CG begins here (look the pseudo code in the
-  ! "Templates..."-book, page 15)
+  ! Templates...-book, page 15)
   !
   ! First the initialization part
   !
@@ -123,30 +85,30 @@ subroutine  huti_ccgsolv  ( ndim, wrkdim, xvec, rhsvec, &
 
   ! Norms of right-hand side vector are used in convergence tests
 
-  if ( HUTI_STOPC .eq. HUTI_TRESID_SCALED_BYB .or. & 
-       HUTI_STOPC .eq. HUTI_PRESID_SCALED_BYB ) then
-     rhsnorm = normfun( HUTI_NDIM, B, 1 )
+  if ( ipar(12) .eq. 1 .or. &
+       ipar(12) .eq. 3 ) then
+     rhsnorm = normfun( ipar(3), rhsvec, 1 )
   end if
-  if ( HUTI_STOPC .eq. HUTI_PRESID_SCALED_BYPRECB ) then
-     call pcondlsubr( P, B, ipar )
-     precrhsnorm = normfun( HUTI_NDIM, P, 1 )
+  if ( ipar(12) .eq. 4 ) then
+     call pcondlsubr( work(:,2), rhsvec, ipar )
+     precrhsnorm = normfun( ipar(3), work(:,2), 1 )
   end if
 
   ! The following applies for all matrix operations in this solver
 
-  HUTI_EXTOP_MATTYPE = HUTI_MAT_NOTTRPSED
+  ipar(6) = 0
 
-  ! Generate vector X if needed
+  ! Generate vector xvec if needed
 
-  if ( HUTI_INITIALX .eq. HUTI_RANDOMX ) then
-     call  huti_crandvec   ( X, ipar )
-  else if ( HUTI_INITIALX .ne. HUTI_USERSUPPLIEDX ) then
-     X = 1
+  if ( ipar(14) .eq. 0 ) then
+     call huti_crandvec ( xvec, ipar )
+  else if ( ipar(14) .ne. 1 ) then
+     xvec = 1
   end if
 
-  call matvecsubr( X, R, ipar )
+  call matvecsubr( xvec, work(:,4), ipar )
 
-  R = B - R
+  work(:,4) = rhsvec - work(:,4)
 
   !
   ! This is where the loop starts (that is we continue from here after
@@ -155,71 +117,71 @@ subroutine  huti_ccgsolv  ( ndim, wrkdim, xvec, rhsvec, &
 
 300 continue
 
-  call pcondlsubr( Q, R, ipar )
-  call pcondrsubr( Z, Q, ipar )
+  call pcondlsubr( work(:,3), work(:,4), ipar )
+  call pcondrsubr( work(:,1), work(:,3), ipar )
 
-  rho = dotprodfun( HUTI_NDIM, R, 1, Z, 1 )
+  rho = dotprodfun( ipar(3), work(:,4), 1, work(:,1), 1 )
   if ( rho .eq. 0 ) then
-     HUTI_INFO = HUTI_CG_RHO
+     ipar(30) = 20
      go to 1000
   end if
 
   if ( iter_count .eq. 1 ) then
-     P = Z
+     work(:,2) = work(:,1)
   else
      beta = rho / oldrho
-     P = Z + beta * P
+     work(:,2) = work(:,1) + beta * work(:,2)
   end if
 
-  call matvecsubr( P, Q, ipar )
+  call matvecsubr( work(:,2), work(:,3), ipar )
 
-  alpha = rho / dotprodfun( HUTI_NDIM, P, 1, Q, 1 )
+  alpha = rho / dotprodfun( ipar(3), work(:,2), 1, work(:,3), 1 )
 
-  X = X + alpha * P
-  R = R - alpha * Q
+  xvec = xvec + alpha * work(:,2)
+  work(:,4) = work(:,4) - alpha * work(:,3)
 
   !
   ! Check the convergence against selected stopping criterion
   !
 
-  select case (HUTI_STOPC)
-  case (HUTI_TRUERESIDUAL)
-     call matvecsubr( X, Z, ipar )
-     Z = Z - B
-     residual = normfun( HUTI_NDIM, Z, 1 )
-  case (HUTI_TRESID_SCALED_BYB)
-     call matvecsubr( X, Z, ipar )
-     Z = Z - B
-     residual = normfun( HUTI_NDIM, Z, 1 ) / rhsnorm
-  case (HUTI_PSEUDORESIDUAL)
-     residual = normfun( HUTI_NDIM, R, 1 )
-  case (HUTI_PRESID_SCALED_BYB)
-     residual = normfun( HUTI_NDIM, R, 1 ) / rhsnorm
-  case (HUTI_PRESID_SCALED_BYPRECB)
-     residual = normfun( HUTI_NDIM, R, 1 ) / precrhsnorm
-  case (HUTI_XDIFF_NORM)
-     Z = alpha * P
-     residual = normfun( HUTI_NDIM, Z, 1 )
-  case (HUTI_USUPPLIED_STOPC)
-     residual = stopcfun( X, B, R, ipar, dpar )
+  select case (ipar(12))
+  case (0)
+     call matvecsubr( xvec, work(:,1), ipar )
+     work(:,1) = work(:,1) - rhsvec
+     residual = normfun( ipar(3), work(:,1), 1 )
+  case (1)
+     call matvecsubr( xvec, work(:,1), ipar )
+     work(:,1) = work(:,1) - rhsvec
+     residual = normfun( ipar(3), work(:,1), 1 ) / rhsnorm
+  case (2)
+     residual = normfun( ipar(3), work(:,4), 1 )
+  case (3)
+     residual = normfun( ipar(3), work(:,4), 1 ) / rhsnorm
+  case (4)
+     residual = normfun( ipar(3), work(:,4), 1 ) / precrhsnorm
+  case (5)
+     work(:,1) = alpha * work(:,2)
+     residual = normfun( ipar(3), work(:,1), 1 )
+  case (10)
+     residual = stopcfun( xvec, rhsvec, work(:,4), ipar, dpar )
   case default
-     call matvecsubr( X, Z, ipar )
-     Z = Z - B
-     residual = normfun( HUTI_NDIM, Z, 1 )
+     call matvecsubr( xvec, work(:,1), ipar )
+     work(:,1) = work(:,1) - rhsvec
+     residual = normfun( ipar(3), work(:,1), 1 )
   end select
 
   !
   ! Print debugging output if desired
   !
 
-  if ( HUTI_DBUGLVL .ne. HUTI_NO_DEBUG ) then
-     if ( mod(iter_count, HUTI_DBUGLVL) .eq. 0 ) then
+  if ( ipar(5) .ne. 0 ) then
+     if ( mod(iter_count, ipar(5)) .eq. 0 ) then
         write (*, '(I8, E11.4)') iter_count, residual
      end if
   end if
 
-  if ( residual .lt. HUTI_TOLERANCE ) then
-     HUTI_INFO = HUTI_CONVERGENCE
+  if ( residual .lt. dpar(1) ) then
+     ipar(30) = 1
      go to 1000
   end if
 
@@ -230,8 +192,8 @@ subroutine  huti_ccgsolv  ( ndim, wrkdim, xvec, rhsvec, &
   !
 
   iter_count = iter_count + 1
-  if ( iter_count .gt. HUTI_MAXIT ) then
-     HUTI_INFO = HUTI_MAXITER
+  if ( iter_count .gt. ipar(10) ) then
+     ipar(30) = 2
      go to 1000
   end if
 
@@ -242,16 +204,16 @@ subroutine  huti_ccgsolv  ( ndim, wrkdim, xvec, rhsvec, &
   !
 
 1000 continue
-  if ( HUTI_DBUGLVL .ne. HUTI_NO_DEBUG ) then
+  if ( ipar(5) .ne. 0 ) then
      write (*, '(I8, E11.4)') iter_count, residual
   end if
 
-  HUTI_ITERS = iter_count
+  ipar(31) = iter_count
   return
 
   ! End of execution
   !*********************************************************************
 
-end subroutine  huti_ccgsolv 
+end subroutine huti_ccgsolv
 
 !*************************************************************************

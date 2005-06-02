@@ -2,17 +2,17 @@
 !
 ! Subroutines to implement Generalized Minimum Residual iterative method
 !
-! $Id: huti_gmres.src,v 1.3 2003/03/07 10:52:26 jpr Exp $
+! $Id: huti_gmres.src,v 1.1.1.1 2005/04/15 10:31:18 vierinen Exp $
 
 #include "huti_intdefs.h"
-MAKE_INCLUDE(#,include, "huti_fdefs.h" )
+#include "huti_fdefs.h" 
 
 !*************************************************************************
 !*************************************************************************
 !
 ! These subroutines are based on a book by Barret et al.:
-! "Templates for the Solution of Linear Systems: Building Blocks for
-!  Iterative Methods", 1993.
+! Templates for the Solution of Linear Systems: Building Blocks for
+!  Iterative Methods, 1993.
 !
 ! All matrix-vector operations are done externally, so we do not need
 ! to know about the matrix structure (sparse or dense). So has the
@@ -29,21 +29,21 @@ MAKE_INCLUDE(#,include, "huti_fdefs.h" )
 ! like the pseudo code (these are commond to all precisions)
 !
 
-MAKE_DEFINE(#,define, X, xvec )
-MAKE_DEFINE(#,define, B, rhsvec )
+#define X xvec 
+#define B rhsvec 
 
-MAKE_DEFINE(#,define, W, work(:,1) )
-MAKE_DEFINE(#,define, W_ind, 1 )
-MAKE_DEFINE(#,define, R, work(:,2) )
-MAKE_DEFINE(#,define, R_ind, 2 )
-MAKE_DEFINE(#,define, S, work(:,3) )
-MAKE_DEFINE(#,define, S_ind, 3 )
-MAKE_DEFINE(#,define, VTMP, work(:,4) )
-MAKE_DEFINE(#,define, VTMP_ind, 4 )
-MAKE_DEFINE(#,define, T1V, work(:,5) )
-MAKE_DEFINE(#,define, T1V_ind, 5 )
-MAKE_DEFINE(#,define, V, work(:,6) )
-MAKE_DEFINE(#,define, V_ind, 6 )
+#define W work(:,1) 
+#define W_ind 1 
+#define R work(:,2) 
+#define R_ind 2 
+#define S work(:,3) 
+#define S_ind 3 
+#define VTMP work(:,4) 
+#define VTMP_ind 4 
+#define T1V work(:,5) 
+#define T1V_ind 5 
+#define V work(:,6) 
+#define V_ind 6 
 
 #define Varr2(ind1,ind2) work(:,V_ind+ind1-1:V_ind+ind2-1)
 #define Varr(ind) work(:,V_ind+ind-1)
@@ -101,7 +101,7 @@ subroutine MAKE_SUBRN( huti_,gmressolv ) ( ndim, wrkdim, xvec, rhsvec, &
 
   !*********************************************************************
   ! The actual GMRES begins here (look the pseudo code in the
-  ! "Templates..."-book, page 20)
+  ! Templates...-book, page 20)
   !
   ! First the initialization part
   !

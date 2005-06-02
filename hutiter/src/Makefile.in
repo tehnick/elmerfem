@@ -42,10 +42,10 @@ target_triplet = @target@
 subdir = src
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/acx_lapack.m4 \
-	$(top_srcdir)/acx_blas.m4 $(top_srcdir)/acx_elmer.m4 \
-	$(top_srcdir)/acx_elmer.m4 $(top_srcdir)/acx_blas.m4 \
-	$(top_srcdir)/acx_lapack.m4 $(top_srcdir)/configure.in
+am__aclocal_m4_deps = $(top_srcdir)/acx_blas.m4 \
+	$(top_srcdir)/acx_elmer.m4 $(top_srcdir)/acx_elmer.m4 \
+	$(top_srcdir)/acx_blas.m4 $(top_srcdir)/acx_lapack.m4 \
+	$(top_srcdir)/configure.in
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
@@ -76,9 +76,9 @@ am__objects_1 = huti_aux_C.$(OBJEXT) huti_aux_D.$(OBJEXT) \
 	huti_qmr_C.$(OBJEXT) huti_qmr_D.$(OBJEXT) huti_qmr_S.$(OBJEXT) \
 	huti_qmr_Z.$(OBJEXT) huti_tfqmr_C.$(OBJEXT) \
 	huti_tfqmr_D.$(OBJEXT) huti_tfqmr_S.$(OBJEXT) \
-	huti_main.$(OBJEXT) huti_sfe_c_D.$(OBJEXT) \
-	huti_sfe_c_S.$(OBJEXT) huti_sfe_c_Z.$(OBJEXT) \
-	huti_tfqmr_Z.$(OBJEXT)
+	huti_main.$(OBJEXT) huti_sfe_c_C.$(OBJEXT) \
+	huti_sfe_c_D.$(OBJEXT) huti_sfe_c_S.$(OBJEXT) \
+	huti_sfe_c_Z.$(OBJEXT) huti_tfqmr_Z.$(OBJEXT)
 am_libhuti_a_OBJECTS = $(am__objects_1)
 libhuti_a_OBJECTS = $(am_libhuti_a_OBJECTS)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
@@ -110,6 +110,7 @@ AUTOHEADER = @AUTOHEADER@
 AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
 B64FLAGS = @B64FLAGS@
+BASIC_CPP = @BASIC_CPP@
 BLAS_LIBS = @BLAS_LIBS@
 CC = @CC@
 CCDEPMODE = @CCDEPMODE@
@@ -135,7 +136,6 @@ INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
-LAPACK_LIBS = @LAPACK_LIBS@
 LDFLAGS = @LDFLAGS@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
@@ -210,6 +210,7 @@ target_os = @target_os@
 target_vendor = @target_vendor@
 INCLUDES = \
 	-I$(top_builddir)/include       \
+	-I.                             \
 	-I$(top_srcdir)/include         
 
 COMMON_SRCS = \
@@ -248,7 +249,7 @@ COMMON_SRCS = \
 	huti_tfqmr_S.F90 \
 	huti_defs.h \
 	huti_main.c \
-	huti_sfe_c_C.\
+	huti_sfe_c_C.c \
 	huti_sfe_c_D.c \
 	huti_sfe_c_S.c \
 	huti_sfe_c_Z.c \
@@ -256,15 +257,6 @@ COMMON_SRCS = \
 
 lib_LIBRARIES = libhuti.a
 libhuti_a_SOURCES = $(COMMON_SRCS)
-
-#################################################################################
-# If sources are missing generate them with the preprocessor.
-# this is the section to watch out for, when compiling on more exotic (non-linux) 
-# platforms.
-#
-#
-HUTI_CPP = cpp
-HUTI_PPFLAGS = -traditional -P
 all: all-am
 
 .SUFFIXES:
@@ -339,6 +331,7 @@ distclean-compile:
 	-rm -f *.tab.c
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/huti_main.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/huti_sfe_c_C.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/huti_sfe_c_D.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/huti_sfe_c_S.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/huti_sfe_c_Z.Po@am__quote@
@@ -530,79 +523,86 @@ uninstall-am: uninstall-info-am uninstall-libLIBRARIES
 	mostlyclean-generic pdf pdf-am ps ps-am tags uninstall \
 	uninstall-am uninstall-info-am uninstall-libLIBRARIES
 
+
+#################################################################################
+# If sources are missing generate them with the preprocessor.
+# this is the section to watch out for, when compiling on more exotic (non-linux) 
+# platforms.
+#
+#
 # and now for some sed generated makefile...
-huti_aux_C.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DC_PRE huti_aux.src huti_aux_C.F90
-huti_aux_D.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DD_PRE huti_aux.src huti_aux_D.F90
-huti_aux_S.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DS_PRE huti_aux.src huti_aux_S.F90
-huti_aux_Z.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DZ_PRE huti_aux.src huti_aux_Z.F90
-huti_bicgstab_2_C.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DC_PRE huti_bicgstab_2.src huti_bicgstab_2_C.F90
-huti_bicgstab_2_D.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DD_PRE huti_bicgstab_2.src huti_bicgstab_2_D.F90
-huti_bicgstab_2_S.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DS_PRE huti_bicgstab_2.src huti_bicgstab_2_S.F90
-huti_bicgstab_2_Z.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DZ_PRE huti_bicgstab_2.src huti_bicgstab_2_Z.F90
-huti_bicgstab_C.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DC_PRE huti_bicgstab.src huti_bicgstab_C.F90
-huti_bicgstab_D.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DD_PRE huti_bicgstab.src huti_bicgstab_D.F90
-huti_bicgstab_S.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DS_PRE huti_bicgstab.src huti_bicgstab_S.F90
-huti_bicgstab_Z.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DZ_PRE huti_bicgstab.src huti_bicgstab_Z.F90
-huti_cg_C.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DC_PRE huti_cg.src huti_cg_C.F90
-huti_cg_D.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DD_PRE huti_cg.src huti_cg_D.F90
-huti_cgs_C.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DC_PRE huti_cgs.src huti_cgs_C.F90
-huti_cgs_D.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DD_PRE huti_cgs.src huti_cgs_D.F90
-huti_cg_S.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DS_PRE huti_cg.src huti_cg_S.F90
-huti_cgs_S.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DS_PRE huti_cgs.src huti_cgs_S.F90
-huti_cgs_Z.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DZ_PRE huti_cgs.src huti_cgs_Z.F90
-huti_cg_Z.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DZ_PRE huti_cg.src huti_cg_Z.F90
-huti_gmres_C.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DC_PRE huti_gmres.src huti_gmres_C.F90
-huti_gmres_D.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DD_PRE huti_gmres.src huti_gmres_D.F90
-huti_gmres_S.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DS_PRE huti_gmres.src huti_gmres_S.F90
-huti_gmres_Z.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DZ_PRE huti_gmres.src huti_gmres_Z.F90
-huti_qmr_C.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DC_PRE huti_qmr.src huti_qmr_C.F90
-huti_qmr_D.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DD_PRE huti_qmr.src huti_qmr_D.F90
-huti_qmr_S.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DS_PRE huti_qmr.src huti_qmr_S.F90
-huti_qmr_Z.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DZ_PRE huti_qmr.src huti_qmr_Z.F90
-huti_tfqmr_C.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DC_PRE huti_tfqmr.src huti_tfqmr_C.F90
-huti_tfqmr_D.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DD_PRE huti_tfqmr.src huti_tfqmr_D.F90
-huti_tfqmr_S.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DS_PRE huti_tfqmr.src huti_tfqmr_S.F90
-huti_tfqmr_Z.F90:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DZ_PRE huti_tfqmr.src huti_tfqmr_Z.F90
-huti_sfe_c_C.c:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DC_PRE huti_sfe_c.src huti_sfe_c_C.c
-huti_sfe_c_D.c:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DD_PRE huti_sfe_c.src huti_sfe_c_D.c
-huti_sfe_c_S.c:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DS_PRE huti_sfe_c.src huti_sfe_c_S.c
-huti_sfe_c_Z.c:
-	$(HUTI_CPP) $(HUTI_PPFLAGS) -DZ_PRE huti_sfe_c.src huti_sfe_c_Z.c
+huti_aux_C.F90: huti_aux.src
+	$(CPP) -DC_PRE huti_aux.src huti_aux_C.F90
+huti_aux_D.F90: huti_aux.src
+	$(CPP) -DD_PRE huti_aux.src huti_aux_D.F90
+huti_aux_S.F90: huti_aux.src
+	$(CPP) -DS_PRE huti_aux.src huti_aux_S.F90
+huti_aux_Z.F90: huti_aux.src
+	$(CPP)  -DZ_PRE huti_aux.src huti_aux_Z.F90
+huti_bicgstab_2_C.F90: huti_bicgstab_2.src
+	$(CPP)  -DC_PRE huti_bicgstab_2.src huti_bicgstab_2_C.F90
+huti_bicgstab_2_D.F90: huti_bicgstab_2.src
+	$(CPP)  -DD_PRE huti_bicgstab_2.src huti_bicgstab_2_D.F90
+huti_bicgstab_2_S.F90: huti_bicgstab_2.src
+	$(CPP)  -DS_PRE huti_bicgstab_2.src huti_bicgstab_2_S.F90
+huti_bicgstab_2_Z.F90: huti_bicgstab_2.src
+	$(CPP)  -DZ_PRE huti_bicgstab_2.src huti_bicgstab_2_Z.F90
+huti_bicgstab_C.F90: huti_bicgstab.src
+	$(CPP)  -DC_PRE huti_bicgstab.src huti_bicgstab_C.F90
+huti_bicgstab_D.F90: huti_bicgstab.src
+	$(CPP)  -DD_PRE huti_bicgstab.src huti_bicgstab_D.F90
+huti_bicgstab_S.F90: huti_bicgstab.src
+	$(CPP)  -DS_PRE huti_bicgstab.src huti_bicgstab_S.F90
+huti_bicgstab_Z.F90: huti_bicgstab.src
+	$(CPP)  -DZ_PRE huti_bicgstab.src huti_bicgstab_Z.F90
+huti_cg_C.F90: huti_cg.src
+	$(CPP)  -DC_PRE huti_cg.src huti_cg_C.F90
+huti_cg_D.F90: huti_cg.src
+	$(CPP)  -DD_PRE huti_cg.src huti_cg_D.F90
+huti_cgs_C.F90: huti_cgs.src
+	$(CPP)  -DC_PRE huti_cgs.src huti_cgs_C.F90
+huti_cgs_D.F90: huti_cgs.src
+	$(CPP)  -DD_PRE huti_cgs.src huti_cgs_D.F90
+huti_cg_S.F90: huti_cg.src
+	$(CPP)  -DS_PRE huti_cg.src huti_cg_S.F90
+huti_cgs_S.F90: huti_cgs.src
+	$(CPP)  -DS_PRE huti_cgs.src huti_cgs_S.F90
+huti_cgs_Z.F90: huti_cgs.src
+	$(CPP)  -DZ_PRE huti_cgs.src huti_cgs_Z.F90
+huti_cg_Z.F90: huti_cg.src
+	$(CPP)  -DZ_PRE huti_cg.src huti_cg_Z.F90
+huti_gmres_C.F90: huti_gmres.src
+	$(CPP)  -DC_PRE huti_gmres.src huti_gmres_C.F90
+huti_gmres_D.F90: huti_gmres.src
+	$(CPP)  -DD_PRE huti_gmres.src huti_gmres_D.F90
+huti_gmres_S.F90: huti_gmres.src
+	$(CPP)  -DS_PRE huti_gmres.src huti_gmres_S.F90
+huti_gmres_Z.F90: huti_gmres.src
+	$(CPP)  -DZ_PRE huti_gmres.src huti_gmres_Z.F90
+huti_qmr_C.F90: huti_qmr.src
+	$(CPP)  -DC_PRE huti_qmr.src huti_qmr_C.F90
+huti_qmr_D.F90: huti_qmr.src
+	$(CPP)  -DD_PRE huti_qmr.src huti_qmr_D.F90
+huti_qmr_S.F90: huti_qmr.src
+	$(CPP)  -DS_PRE huti_qmr.src huti_qmr_S.F90
+huti_qmr_Z.F90: huti_qmr.src
+	$(CPP)  -DZ_PRE huti_qmr.src huti_qmr_Z.F90
+huti_tfqmr_C.F90: huti_tfqmr.src
+	$(CPP)  -DC_PRE huti_tfqmr.src huti_tfqmr_C.F90
+huti_tfqmr_D.F90: huti_tfqmr.src
+	$(CPP)  -DD_PRE huti_tfqmr.src huti_tfqmr_D.F90
+huti_tfqmr_S.F90: huti_tfqmr.src
+	$(CPP)  -DS_PRE huti_tfqmr.src huti_tfqmr_S.F90
+huti_tfqmr_Z.F90: huti_tfqmr.src
+	$(CPP)  -DZ_PRE huti_tfqmr.src huti_tfqmr_Z.F90
+huti_sfe_c_C.c: huti_sfe_c.src
+	$(CPP)  -DC_PRE huti_sfe_c.src huti_sfe_c_C.c
+huti_sfe_c_D.c: huti_sfe_c.src
+	$(CPP)  -DD_PRE huti_sfe_c.src huti_sfe_c_D.c
+huti_sfe_c_S.c: huti_sfe_c.src
+	$(CPP)  -DS_PRE huti_sfe_c.src huti_sfe_c_S.c
+huti_sfe_c_Z.c: huti_sfe_c.src
+	$(CPP)  -DZ_PRE huti_sfe_c.src huti_sfe_c_Z.c
 
 ##########################################################
 # The old for loop (which screwed up the dependencies, but was nicer anyway)
@@ -625,8 +625,8 @@ huti_sfe_c_Z.c:
 #	  for p in $(PRECS); do \
 #	    for pd in $(precdf90); do \
 #		$(RM) $${pd}_$${p}.F90; \
-#		echo $(HUTI_CPP) $(HUTI_PPFLAGS) -D$${p}_PRE $${pd}.src $${pd}_$${p}.F90; \
-#		$(HUTI_CPP) $(HUTI_PPFLAGS) -D$${p}_PRE $${pd}.src $${pd}_$${p}.F90; \
+#		echo $(CPP)  -D$${p}_PRE $${pd}.src $${pd}_$${p}.F90; \
+#		$(CPP)  -D$${p}_PRE $${pd}.src $${pd}_$${p}.F90; \
 #	    done; \
 #	  done; \
 #	fi 
@@ -637,7 +637,7 @@ huti_sfe_c_Z.c:
 #	  for p in $(PRECS); do \
 #	    for pd in $(precdc); do \
 #		$(RM) $${pd}_$${p}.c; \
-#		$(HUTI_CPP)  $(HUTI_PPFLAGS) -D$${p}_PRE $${pd}.src $${pd}_$${p}.c; \
+#		$(CPP)   -D$${p}_PRE $${pd}.src $${pd}_$${p}.c; \
 #	    done; \
 #	  done; \
 #	fi 

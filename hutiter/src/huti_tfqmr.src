@@ -1,18 +1,17 @@
-
 !
 ! Subroutines to implement Transpose Free QMR iteration
 !
-! $Id: huti_tfqmr.src,v 1.2 2000/10/19 07:48:30 jpr Exp $
+! $Id: huti_tfqmr.src,v 1.1.1.1 2005/04/15 10:31:18 vierinen Exp $
 
 #include "huti_intdefs.h"
-MAKE_INCLUDE(#,include, "huti_fdefs.h" )
+#include "huti_fdefs.h" 
 
 !*************************************************************************
 !*************************************************************************
 !
 ! These subroutines are based on a paper by Roland W. Freund:
-! "A Transpose-Free Quasi-Minimal Residual Algorithm for Non-Hermitian
-!  Linear Systems", 1993 (SIAM J. Sci. Comput, March 1993)
+! A Transpose-Free Quasi-Minimal Residual Algorithm for Non-Hermitian
+!  Linear Systems, 1993 (SIAM J. Sci. Comput, March 1993)
 !
 ! All matrix-vector operations are done externally, so we do not need
 ! to know about the matrix structure (sparse or dense). Memory allocation
@@ -35,33 +34,33 @@ MAKE_INCLUDE(#,include, "huti_fdefs.h" )
 ! Definitions to make the code more understandable and to make it look
 ! like the pseudo code
 !
-MAKE_DEFINE(#,define, X, xvec )
-MAKE_DEFINE(#,define, B, rhsvec )
+#define X xvec 
+#define B rhsvec 
 
-MAKE_DEFINE(#,define, V, work(:,1) )
-MAKE_DEFINE(#,define, V_ind, 1 )
-MAKE_DEFINE(#,define, Y, work(:,2) )
-MAKE_DEFINE(#,define, Y_ind, 2 )
-MAKE_DEFINE(#,define, YNEW, work(:,3) )
-MAKE_DEFINE(#,define, YNEW_ind, 3 )
-MAKE_DEFINE(#,define, RTLD, work(:,4) )
-MAKE_DEFINE(#,define, RTLD_ind, 4 )
-MAKE_DEFINE(#,define, T1V, work(:,5) )
-MAKE_DEFINE(#,define, T1V_ind, 5 )
-MAKE_DEFINE(#,define, T2V, work(:,6) )
-MAKE_DEFINE(#,define, T2V_ind, 6 )
-MAKE_DEFINE(#,define, W, work(:,7) )
-MAKE_DEFINE(#,define, W_ind, 7 )
-MAKE_DEFINE(#,define, D, work(:,8) )
-MAKE_DEFINE(#,define, D_ind, 8 )
-MAKE_DEFINE(#,define, R, work(:,9) )
-MAKE_DEFINE(#,define, R_ind, 9 )
-MAKE_DEFINE(#,define, TRV, work(:,10) )
-MAKE_DEFINE(#,define, TRV_ind, 10 )
+#define V work(:,1) 
+#define V_ind 1 
+#define Y work(:,2) 
+#define Y_ind 2 
+#define YNEW work(:,3) 
+#define YNEW_ind 3 
+#define RTLD work(:,4) 
+#define RTLD_ind 4 
+#define T1V work(:,5) 
+#define T1V_ind 5 
+#define T2V work(:,6) 
+#define T2V_ind 6 
+#define W work(:,7) 
+#define W_ind 7 
+#define D work(:,8) 
+#define D_ind 8 
+#define R work(:,9) 
+#define R_ind 9 
+#define TRV work(:,10) 
+#define TRV_ind 10 
 
 ! This is the magic ratio for upperb and tolerance used in upper bound
 ! convergence test
-MAKE_DEFINE(#,define, UPPERB_TOL_RATIO, 10.0 )
+#define UPPERB_TOL_RATIO 10.0 
 
 !*************************************************************************
 !*************************************************************************
@@ -104,7 +103,7 @@ subroutine MAKE_SUBRN( huti_,tfqmrsolv ) ( ndim, wrkdim, xvec, rhsvec, ipar,&
 
   !*********************************************************************
   ! The actual TFQMR begins here (look the pseudo code in the
-  ! "A Transpose-Free..."-paper, algorithm 5.1)
+  ! A Transpose-Free...-paper, algorithm 5.1)
   !
   ! First the initialization part
   !

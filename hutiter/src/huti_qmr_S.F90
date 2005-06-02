@@ -1,54 +1,27 @@
+# 1 "huti_qmr.src"
+# 1 "<built-in>"
+# 1 "<command line>"
+# 1 "huti_qmr.src"
 
 !
 ! Subroutine to implement QMR iterative method (double complex)
 !
 ! $Id: huti_qmr.src,v 1.1.1.1 2005/04/15 10:31:18 vierinen Exp $
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#include  "huti_fdefs.h" 
+# 1 "huti_intdefs.h" 1
+# 8 "huti_qmr.src" 2
+# 1 "huti_fdefs.h" 1
+# 9 "huti_qmr.src" 2
 
 !*************************************************************************
 !
 ! This subroutine is based on a paper by Freund and Nachtigal:
-! "An Implementation of the QMR Method Based on Coupled Two-Term
-!  Recurrences", 1994 (SIAM J. Sci. Comput, March 1994)
+! An Implementation of the QMR Method Based on Coupled Two-Term
+! Recurrences, 1994 (SIAM J. Sci. Comput, March 1994)
 ! and a book by Barret et al.:
-! "Templates for the Solution of Linear Systems: Building Blocks for
-!  Iterative Methods", 1993.
-! 
+! Templates for the Solution of Linear Systems: Building Blocks for
+! Iterative Methods, 1993.
+!
 ! All matrix-vector operations are done externally, so we do not need
 ! to know about the matrix structure (sparse or dense). Memory allocation
 ! for the working arrays has also been done externally.
@@ -74,46 +47,16 @@
 ! Definitions to make the code more understandable and to make it look
 ! like the pseudo code
 !
-#define  X  xvec 
-#define  B  rhsvec 
-
-#define  V  work(:,1) 
-#define  V_ind  1 
-#define  VTLD  work(:,2) 
-#define  VTLD_ind  2 
-#define  Y  work(:,3) 
-#define  Y_ind  3 
-#define  YTLD  work(:,4) 
-#define  YTLD_ind  4 
-#define  W  work(:,5) 
-#define  W_ind  5 
-#define  WTLD  work(:,6) 
-#define  WTLD_ind  6 
-#define  Z  work(:,7) 
-#define  Z_ind  7 
-#define  ZTLD  work(:,8) 
-#define  ZTLD_ind  8 
-#define  P  work(:,9) 
-#define  P_ind  9 
-#define  PTLD  work(:,10) 
-#define  PTLD_ind  10 
-#define  Q  work(:,11) 
-#define  Q_ind  11 
-#define  D  work(:,12) 
-#define  D_ind  12 
-#define  S  work(:,13) 
-#define  S_ind  13 
-#define  R  work(:,14) 
-#define  R_ind  14 
+# 75 "huti_qmr.src"
 !*************************************************************************
-  
+
 !*************************************************************************
 !*************************************************************************
 ! Single precision version
 !*************************************************************************
 !*************************************************************************
 
-subroutine  huti_sqmrsolv  ( ndim, wrkdim, xvec, rhsvec, &
+subroutine huti_sqmrsolv ( ndim, wrkdim, xvec, rhsvec, &
                           ipar, dpar, work, matvecsubr, pcondlsubr, &
                           pcondrsubr, dotprodfun, normfun, stopcfun )
 
@@ -129,8 +72,8 @@ subroutine  huti_sqmrsolv  ( ndim, wrkdim, xvec, rhsvec, &
 
   integer :: ndim, wrkdim
   real, dimension(ndim) :: xvec, rhsvec
-  integer, dimension(HUTI_IPAR_DFLTSIZE) :: ipar
-  double precision, dimension(HUTI_DPAR_DFLTSIZE) :: dpar
+  integer, dimension(50) :: ipar
+  double precision, dimension(10) :: dpar
   real, dimension(ndim,wrkdim) :: work
 
   ! Local variables
@@ -146,7 +89,7 @@ subroutine  huti_sqmrsolv  ( ndim, wrkdim, xvec, rhsvec, &
 
   !*********************************************************************
   ! The actual QMR begins here (look the pseudo code in the
-  ! "Templates.."-book on page 24)
+  ! Templates..-book on page 24)
   !
   ! First the initialization part
   !
@@ -155,36 +98,36 @@ subroutine  huti_sqmrsolv  ( ndim, wrkdim, xvec, rhsvec, &
 
   ! Norms of right-hand side vector are used in convergence tests
 
-  if ( HUTI_STOPC .eq. HUTI_TRESID_SCALED_BYB .or. & 
-       HUTI_STOPC .eq. HUTI_PRESID_SCALED_BYB ) then
-     rhsnorm = normfun( HUTI_NDIM, B, 1 )
+  if ( ipar(12) .eq. 1 .or. &
+       ipar(12) .eq. 3 ) then
+     rhsnorm = normfun( ipar(3), rhsvec, 1 )
   end if
-  if ( HUTI_STOPC .eq. HUTI_PRESID_SCALED_BYPRECB ) then
-     call pcondlsubr( P, B, ipar )
-     precrhsnorm = normfun( HUTI_NDIM, P, 1 )
-  end if
-
-  ! Generate vector X if needed
-
-  if ( HUTI_INITIALX .eq. HUTI_RANDOMX ) then
-     call  huti_srandvec   ( X, ipar )
-  else if ( HUTI_INITIALX .ne. HUTI_USERSUPPLIEDX ) then
-     X = 1
+  if ( ipar(12) .eq. 4 ) then
+     call pcondlsubr( work(:,9), rhsvec, ipar )
+     precrhsnorm = normfun( ipar(3), work(:,9), 1 )
   end if
 
-  HUTI_EXTOP_MATTYPE = HUTI_MAT_NOTTRPSED
-  call matvecsubr( X, R, ipar )
-  R = B - R
-  VTLD = R
-  HUTI_EXTOP_MATTYPE = HUTI_MAT_NOTTRPSED
-  call pcondlsubr( Y, VTLD, ipar )
+  ! Generate vector xvec if needed
 
-  WTLD = R
-  HUTI_EXTOP_MATTYPE = HUTI_MAT_NOTTRPSED
-  call pcondrsubr( Z, WTLD, ipar )
+  if ( ipar(14) .eq. 0 ) then
+     call huti_srandvec ( xvec, ipar )
+  else if ( ipar(14) .ne. 1 ) then
+     xvec = 1
+  end if
 
-  rho = normfun( HUTI_NDIM, Y, 1 )
-  psi = normfun( HUTI_NDIM, Z, 1 )
+  ipar(6) = 0
+  call matvecsubr( xvec, work(:,14), ipar )
+  work(:,14) = rhsvec - work(:,14)
+  work(:,2) = work(:,14)
+  ipar(6) = 0
+  call pcondlsubr( work(:,3), work(:,2), ipar )
+
+  work(:,6) = work(:,14)
+  ipar(6) = 0
+  call pcondrsubr( work(:,7), work(:,6), ipar )
+
+  rho = normfun( ipar(3), work(:,3), 1 )
+  psi = normfun( ipar(3), work(:,7), 1 )
   oldgamma = 1
   eta = -1
 
@@ -196,125 +139,125 @@ subroutine  huti_sqmrsolv  ( ndim, wrkdim, xvec, rhsvec, &
 300 continue
 
   if (( rho .eq. 0 ) .or. ( psi .eq. 0 )) then
-     HUTI_INFO = HUTI_QMR_RHO_PSI
+     ipar(30) = 10
      go to 1000
   end if
 
-  V = VTLD / rho
-  Y = Y / rho
-  W = WTLD / psi
-  Z = Z / psi
-  delta = dotprodfun( HUTI_NDIM, Z, 1, Y, 1 )
+  work(:,1) = work(:,2) / rho
+  work(:,3) = work(:,3) / rho
+  work(:,5) = work(:,6) / psi
+  work(:,7) = work(:,7) / psi
+  delta = dotprodfun( ipar(3), work(:,7), 1, work(:,3), 1 )
 
   if ( delta .eq. 0 ) then
-     HUTI_INFO = HUTI_QMR_DELTA
+     ipar(30) = 11
      go to 1000
   end if
 
-  HUTI_EXTOP_MATTYPE = HUTI_MAT_NOTTRPSED
-  call pcondrsubr( YTLD, Y, ipar )
+  ipar(6) = 0
+  call pcondrsubr( work(:,4), work(:,3), ipar )
 
-  HUTI_EXTOP_MATTYPE = HUTI_MAT_TRPSED
-  call pcondlsubr( ZTLD, Z, ipar )
+  ipar(6) = 1
+  call pcondlsubr( work(:,8), work(:,7), ipar )
 
   if ( iter_count .eq. 1 ) then
-     P = YTLD
-     Q = ZTLD
+     work(:,9) = work(:,4)
+     work(:,11) = work(:,8)
   else
-     P = YTLD - ((psi * delta)/epsilon) * P
-     Q = ZTLD - ((rho * delta)/epsilon) * Q
+     work(:,9) = work(:,4) - ((psi * delta)/epsilon) * work(:,9)
+     work(:,11) = work(:,8) - ((rho * delta)/epsilon) * work(:,11)
   end if
 
-  HUTI_EXTOP_MATTYPE = HUTI_MAT_NOTTRPSED
-  call matvecsubr( P, PTLD, ipar )
-  epsilon = dotprodfun( HUTI_NDIM, Q, 1, PTLD, 1 )
+  ipar(6) = 0
+  call matvecsubr( work(:,9), work(:,10), ipar )
+  epsilon = dotprodfun( ipar(3), work(:,11), 1, work(:,10), 1 )
   if ( epsilon .eq. 0 ) then
-     HUTI_INFO = HUTI_QMR_EPSILON
+     ipar(30) = 12
      go to 1000
   end if
 
   beta = epsilon / delta
   if ( beta .eq. 0 ) then
-     HUTI_INFO = HUTI_QMR_BETA
+     ipar(30) = 13
      go to 1000
   end if
 
-  VTLD = PTLD - beta * V
+  work(:,2) = work(:,10) - beta * work(:,1)
 
-  HUTI_EXTOP_MATTYPE = HUTI_MAT_NOTTRPSED
-  call pcondlsubr( Y, VTLD, ipar )
+  ipar(6) = 0
+  call pcondlsubr( work(:,3), work(:,2), ipar )
 
-  rhonext = normfun( ndim, Y, 1 )
+  rhonext = normfun( ndim, work(:,3), 1 )
 
-  HUTI_EXTOP_MATTYPE = HUTI_MAT_TRPSED
-  call matvecsubr( Q, WTLD, ipar )
+  ipar(6) = 1
+  call matvecsubr( work(:,11), work(:,6), ipar )
 
-  WTLD = WTLD - beta * W
+  work(:,6) = work(:,6) - beta * work(:,5)
 
-  HUTI_EXTOP_MATTYPE = HUTI_MAT_TRPSED
-  call pcondrsubr( Z, WTLD, ipar )
+  ipar(6) = 1
+  call pcondrsubr( work(:,7), work(:,6), ipar )
 
-  psi = normfun( HUTI_NDIM, Z, 1 )
+  psi = normfun( ipar(3), work(:,7), 1 )
   theta = rhonext / (oldgamma * abs( beta ))
   gamma = 1 / sqrt( 1 + theta * theta )
   if ( gamma .eq. 0 ) then
-     HUTI_INFO = HUTI_QMR_GAMMA
+     ipar(30) = 14
      go to 1000
   end if
 
   eta = -1 * ( eta * rho * gamma * gamma ) / ( beta * oldgamma * oldgamma )
 
   if ( iter_count .eq. 1 ) then
-     D = eta * P
-     S = eta * PTLD
+     work(:,12) = eta * work(:,9)
+     work(:,13) = eta * work(:,10)
   else
-     D = eta * P + ( oldtheta * gamma ) * ( oldtheta * gamma ) * D
-     S = eta * PTLD + ( oldtheta * gamma ) * ( oldtheta * gamma ) * S
+     work(:,12) = eta * work(:,9) + ( oldtheta * gamma ) * ( oldtheta * gamma ) * work(:,12)
+     work(:,13) = eta * work(:,10) + ( oldtheta * gamma ) * ( oldtheta * gamma ) * work(:,13)
   end if
-  X = X + D
-  R = R - S
+  xvec = xvec + work(:,12)
+  work(:,14) = work(:,14) - work(:,13)
 
   !
   ! Check the convergence against selected stopping criterion
   !
 
-  select case (HUTI_STOPC)
-  case (HUTI_TRUERESIDUAL)
-     call matvecsubr( X, YTLD, ipar )
-     YTLD = YTLD - B
-     residual = normfun( HUTI_NDIM, YTLD, 1 )
-  case (HUTI_TRESID_SCALED_BYB)
-     call matvecsubr( X, YTLD, ipar )
-     YTLD = YTLD - B
-     residual = normfun( HUTI_NDIM, YTLD, 1 ) / rhsnorm
-  case (HUTI_PSEUDORESIDUAL)
-     residual = normfun( HUTI_NDIM, R, 1 )
-  case (HUTI_PRESID_SCALED_BYB)
-     residual = normfun( HUTI_NDIM, R, 1 ) / rhsnorm
-  case (HUTI_PRESID_SCALED_BYPRECB)
-     residual = normfun( HUTI_NDIM, R, 1 ) / precrhsnorm
-  case (HUTI_XDIFF_NORM)
-     residual = normfun( HUTI_NDIM, D, 1 )
-  case (HUTI_USUPPLIED_STOPC)
-     residual = stopcfun( X, B, R, ipar, dpar )
+  select case (ipar(12))
+  case (0)
+     call matvecsubr( xvec, work(:,4), ipar )
+     work(:,4) = work(:,4) - rhsvec
+     residual = normfun( ipar(3), work(:,4), 1 )
+  case (1)
+     call matvecsubr( xvec, work(:,4), ipar )
+     work(:,4) = work(:,4) - rhsvec
+     residual = normfun( ipar(3), work(:,4), 1 ) / rhsnorm
+  case (2)
+     residual = normfun( ipar(3), work(:,14), 1 )
+  case (3)
+     residual = normfun( ipar(3), work(:,14), 1 ) / rhsnorm
+  case (4)
+     residual = normfun( ipar(3), work(:,14), 1 ) / precrhsnorm
+  case (5)
+     residual = normfun( ipar(3), work(:,12), 1 )
+  case (10)
+     residual = stopcfun( xvec, rhsvec, work(:,14), ipar, dpar )
   case default
-     call matvecsubr( X, YTLD, ipar )
-     YTLD = YTLD - B
-     residual = normfun( HUTI_NDIM, YTLD, 1 )
+     call matvecsubr( xvec, work(:,4), ipar )
+     work(:,4) = work(:,4) - rhsvec
+     residual = normfun( ipar(3), work(:,4), 1 )
   end select
 
   !
   ! Print debugging output if desired
   !
 
-  if ( HUTI_DBUGLVL .ne. HUTI_NO_DEBUG ) then
-     if ( mod(iter_count, HUTI_DBUGLVL) .eq. 0 ) then
+  if ( ipar(5) .ne. 0 ) then
+     if ( mod(iter_count, ipar(5)) .eq. 0 ) then
         write (*, '(I8, E11.4)') iter_count, residual
      end if
   end if
 
-  if ( residual .lt. HUTI_TOLERANCE ) then
-     HUTI_INFO = HUTI_CONVERGENCE
+  if ( residual .lt. dpar(1) ) then
+     ipar(30) = 1
      go to 1000
   end if
 
@@ -327,8 +270,8 @@ subroutine  huti_sqmrsolv  ( ndim, wrkdim, xvec, rhsvec, &
   !
 
   iter_count = iter_count + 1
-  if ( iter_count .gt. HUTI_MAXIT ) then
-     HUTI_INFO = HUTI_MAXITER
+  if ( iter_count .gt. ipar(10) ) then
+     ipar(30) = 2
      go to 1000
   end if
 
@@ -339,16 +282,16 @@ subroutine  huti_sqmrsolv  ( ndim, wrkdim, xvec, rhsvec, &
   !
 
 1000 continue
-  if ( HUTI_DBUGLVL .ne. HUTI_NO_DEBUG ) then
+  if ( ipar(5) .ne. 0 ) then
      write (*, '(I8, E11.4)') iter_count, residual
   end if
 
-  HUTI_ITERS = iter_count
+  ipar(31) = iter_count
   return
 
   ! End of execution
   !*********************************************************************
 
-end subroutine  huti_sqmrsolv 
+end subroutine huti_sqmrsolv
 
 !*********************************************************************

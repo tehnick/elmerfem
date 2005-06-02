@@ -2,19 +2,19 @@
 !
 ! Subroutine to implement QMR iterative method (double complex)
 !
-! $Id: huti_qmr.src,v 1.2 2000/10/19 07:48:29 jpr Exp $
+! $Id: huti_qmr.src,v 1.1.1.1 2005/04/15 10:31:18 vierinen Exp $
 
 #include "huti_intdefs.h"
-MAKE_INCLUDE(#,include, "huti_fdefs.h" )
+#include "huti_fdefs.h" 
 
 !*************************************************************************
 !
 ! This subroutine is based on a paper by Freund and Nachtigal:
-! "An Implementation of the QMR Method Based on Coupled Two-Term
-!  Recurrences", 1994 (SIAM J. Sci. Comput, March 1994)
+! An Implementation of the QMR Method Based on Coupled Two-Term
+!  Recurrences, 1994 (SIAM J. Sci. Comput, March 1994)
 ! and a book by Barret et al.:
-! "Templates for the Solution of Linear Systems: Building Blocks for
-!  Iterative Methods", 1993.
+! Templates for the Solution of Linear Systems: Building Blocks for
+!  Iterative Methods, 1993.
 ! 
 ! All matrix-vector operations are done externally, so we do not need
 ! to know about the matrix structure (sparse or dense). Memory allocation
@@ -41,37 +41,37 @@ MAKE_INCLUDE(#,include, "huti_fdefs.h" )
 ! Definitions to make the code more understandable and to make it look
 ! like the pseudo code
 !
-MAKE_DEFINE(#,define, X, xvec )
-MAKE_DEFINE(#,define, B, rhsvec )
+#define X xvec 
+#define B rhsvec 
 
-MAKE_DEFINE(#,define, V, work(:,1) )
-MAKE_DEFINE(#,define, V_ind, 1 )
-MAKE_DEFINE(#,define, VTLD, work(:,2) )
-MAKE_DEFINE(#,define, VTLD_ind, 2 )
-MAKE_DEFINE(#,define, Y, work(:,3) )
-MAKE_DEFINE(#,define, Y_ind, 3 )
-MAKE_DEFINE(#,define, YTLD, work(:,4) )
-MAKE_DEFINE(#,define, YTLD_ind, 4 )
-MAKE_DEFINE(#,define, W, work(:,5) )
-MAKE_DEFINE(#,define, W_ind, 5 )
-MAKE_DEFINE(#,define, WTLD, work(:,6) )
-MAKE_DEFINE(#,define, WTLD_ind, 6 )
-MAKE_DEFINE(#,define, Z, work(:,7) )
-MAKE_DEFINE(#,define, Z_ind, 7 )
-MAKE_DEFINE(#,define, ZTLD, work(:,8) )
-MAKE_DEFINE(#,define, ZTLD_ind, 8 )
-MAKE_DEFINE(#,define, P, work(:,9) )
-MAKE_DEFINE(#,define, P_ind, 9 )
-MAKE_DEFINE(#,define, PTLD, work(:,10) )
-MAKE_DEFINE(#,define, PTLD_ind, 10 )
-MAKE_DEFINE(#,define, Q, work(:,11) )
-MAKE_DEFINE(#,define, Q_ind, 11 )
-MAKE_DEFINE(#,define, D, work(:,12) )
-MAKE_DEFINE(#,define, D_ind, 12 )
-MAKE_DEFINE(#,define, S, work(:,13) )
-MAKE_DEFINE(#,define, S_ind, 13 )
-MAKE_DEFINE(#,define, R, work(:,14) )
-MAKE_DEFINE(#,define, R_ind, 14 )
+#define V work(:,1) 
+#define V_ind 1 
+#define VTLD work(:,2) 
+#define VTLD_ind 2 
+#define Y work(:,3) 
+#define Y_ind 3 
+#define YTLD work(:,4) 
+#define YTLD_ind 4 
+#define W work(:,5) 
+#define W_ind 5 
+#define WTLD work(:,6) 
+#define WTLD_ind 6 
+#define Z work(:,7) 
+#define Z_ind 7 
+#define ZTLD work(:,8) 
+#define ZTLD_ind 8 
+#define P work(:,9) 
+#define P_ind 9 
+#define PTLD work(:,10) 
+#define PTLD_ind 10 
+#define Q work(:,11) 
+#define Q_ind 11 
+#define D work(:,12) 
+#define D_ind 12 
+#define S work(:,13) 
+#define S_ind 13 
+#define R work(:,14) 
+#define R_ind 14 
 !*************************************************************************
   
 !*************************************************************************
@@ -113,7 +113,7 @@ subroutine MAKE_SUBRN( huti_,qmrsolv ) ( ndim, wrkdim, xvec, rhsvec, &
 
   !*********************************************************************
   ! The actual QMR begins here (look the pseudo code in the
-  ! "Templates.."-book on page 24)
+  ! Templates..-book on page 24)
   !
   ! First the initialization part
   !
