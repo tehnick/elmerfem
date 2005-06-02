@@ -17,9 +17,9 @@
 srcdir = .
 top_srcdir = ..
 
-pkgdatadir = $(datadir)/eio
-pkglibdir = $(libdir)/eio
-pkgincludedir = $(includedir)/eio
+pkgdatadir = $(datadir)/hutiter
+pkglibdir = $(libdir)/hutiter
+pkgincludedir = $(includedir)/hutiter
 top_builddir = ..
 am__cd = CDPATH="$${ZSH_VERSION+.}$(PATH_SEPARATOR)" && cd
 INSTALL = /usr/bin/install -c
@@ -41,10 +41,10 @@ subdir = include
 DIST_COMMON = $(include_HEADERS) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/acx_lapack.m4 \
-	$(top_srcdir)/acx_blas.m4 $(top_srcdir)/acx_elmer.m4 \
-	$(top_srcdir)/acx_elmer.m4 $(top_srcdir)/acx_blas.m4 \
-	$(top_srcdir)/acx_lapack.m4 $(top_srcdir)/configure.in
+am__aclocal_m4_deps = $(top_srcdir)/acx_blas.m4 \
+	$(top_srcdir)/acx_elmer.m4 $(top_srcdir)/acx_elmer.m4 \
+	$(top_srcdir)/acx_blas.m4 $(top_srcdir)/acx_lapack.m4 \
+	$(top_srcdir)/configure.in
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
@@ -64,23 +64,24 @@ HEADERS = $(include_HEADERS)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
-ACLOCAL = ${SHELL} /home/vierinen/src/newelmer/buildtools/hutiter/missing --run aclocal-1.9
+ACLOCAL = ${SHELL} /home/vierinen/src/elmer/buildtools/tbuild.17:06:35/hutiter/missing --run aclocal-1.9
 AMDEP_FALSE = #
 AMDEP_TRUE = 
-AMTAR = ${SHELL} /home/vierinen/src/newelmer/buildtools/hutiter/missing --run tar
+AMTAR = ${SHELL} /home/vierinen/src/elmer/buildtools/tbuild.17:06:35/hutiter/missing --run tar
 AM_FCFLAGS = 
 AR = ar
 ARFLAGS = cru
-AUTOCONF = ${SHELL} /home/vierinen/src/newelmer/buildtools/hutiter/missing --run autoconf
-AUTOHEADER = ${SHELL} /home/vierinen/src/newelmer/buildtools/hutiter/missing --run autoheader
-AUTOMAKE = ${SHELL} /home/vierinen/src/newelmer/buildtools/hutiter/missing --run automake-1.9
+AUTOCONF = ${SHELL} /home/vierinen/src/elmer/buildtools/tbuild.17:06:35/hutiter/missing --run autoconf
+AUTOHEADER = ${SHELL} /home/vierinen/src/elmer/buildtools/tbuild.17:06:35/hutiter/missing --run autoheader
+AUTOMAKE = ${SHELL} /home/vierinen/src/elmer/buildtools/tbuild.17:06:35/hutiter/missing --run automake-1.9
 AWK = gawk
 B64FLAGS = 
+BASIC_CPP = 
 BLAS_LIBS = -lblas
 CC = gcc
 CCDEPMODE = depmode=gcc3
-CFLAGS = -O -I/tmp/vierinen/elmer/dhcp1-114.csc.fi20054018/include
-CPP = gcc -E
+CFLAGS = -O -I/home/vierinen/src/elmer/buildtools/tbuild.17:06:35/dist//include
+CPP = /lib/cpp
 CPPFLAGS = 
 CYGPATH_W = echo
 DEFS = -DHAVE_CONFIG_H
@@ -90,28 +91,27 @@ ECHO_N = -n
 ECHO_T = 
 EGREP = /bin/grep -E
 EXEEXT = 
-F77 = ifort
-FC = ifort
-FCFLAGS = -O -I. -I/tmp/vierinen/elmer/dhcp1-114.csc.fi20054018/include
-FCLIBS =  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s
+F77 = g77
+FC = g95
+FCFLAGS = -O -I. -I/home/vierinen/src/elmer/buildtools/tbuild.17:06:35/dist//include
+FCLIBS =  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm
 FFLAGS = -O
-FLIBS =  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s
+FLIBS =  -L/usr/lib/gcc-lib/i486-linux/3.3.5 -L/usr/lib/gcc-lib/i486-linux/3.3.5/../../.. -lfrtbegin -lg2c -lm -lgcc_s
 GREP = /bin/grep
 INSTALL_DATA = ${INSTALL} -m 644
 INSTALL_PROGRAM = ${INSTALL}
 INSTALL_SCRIPT = ${INSTALL}
 INSTALL_STRIP_PROGRAM = ${SHELL} $(install_sh) -c -s
-LAPACK_LIBS = @LAPACK_LIBS@
 LDFLAGS = 
 LIBOBJS = 
-LIBS = -lblas -lg2c  -L/tmp/vierinen/elmer/dhcp1-114.csc.fi20054018/lib  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s
+LIBS = -lblas -lg2c -L.  -L/home/vierinen/src/elmer/buildtools/tbuild.17:06:35/dist//lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i486-linux/3.3.5 -L/usr/lib/gcc-lib/i486-linux/3.3.5/../../.. -lfrtbegin -lg2c -lm -lgcc_s
 LTLIBOBJS = 
 MAINT = #
 MAINTAINER_MODE_FALSE = 
 MAINTAINER_MODE_TRUE = #
-MAKEINFO = ${SHELL} /home/vierinen/src/newelmer/buildtools/hutiter/missing --run makeinfo
+MAKEINFO = ${SHELL} /home/vierinen/src/elmer/buildtools/tbuild.17:06:35/hutiter/missing --run makeinfo
 OBJEXT = o
-PACKAGE = eio
+PACKAGE = hutiter
 PACKAGE_BUGREPORT = 
 PACKAGE_NAME = 
 PACKAGE_STRING = 
@@ -122,6 +122,7 @@ RANLIB = ranlib
 SET_MAKE = 
 SHELL = /bin/sh
 STRIP = 
+TRADITIONAL_CPP_FLAGS = 
 VERSION = 1.0.0
 ac_ct_CC = gcc
 ac_ct_F77 = 
@@ -154,7 +155,7 @@ host_vendor = pc
 htmldir = ${docdir}
 includedir = ${prefix}/include
 infodir = ${datarootdir}/info
-install_sh = /home/vierinen/src/newelmer/buildtools/hutiter/install-sh
+install_sh = /home/vierinen/src/elmer/buildtools/tbuild.17:06:35/hutiter/install-sh
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
 localedir = ${datarootdir}/locale
@@ -163,7 +164,7 @@ mandir = ${datarootdir}/man
 mkdir_p = mkdir -p --
 oldincludedir = /usr/include
 pdfdir = ${docdir}
-prefix = /tmp/vierinen/elmer/dhcp1-114.csc.fi20054018
+prefix = /home/vierinen/src/elmer/buildtools/tbuild.17:06:35/dist/
 program_transform_name = s,x,x,
 psdir = ${docdir}
 sbindir = ${exec_prefix}/sbin

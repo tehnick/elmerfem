@@ -1,27 +1,168 @@
-# 1 "huti_qmr.src"
-# 1 "<built-in>"
-# 1 "<command line>"
-# 1 "huti_qmr.src"
 
 !
 ! Subroutine to implement QMR iterative method (double complex)
 !
-! $Id: huti_qmr.src,v 1.1.1.1 2005/04/15 10:31:18 vierinen Exp $
+! $Id: huti_qmr.src,v 1.2 2005/06/02 14:53:41 vierinen Exp $
 
-# 1 "huti_intdefs.h" 1
-# 8 "huti_qmr.src" 2
-# 1 "huti_fdefs.h" 1
-# 9 "huti_qmr.src" 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 !*************************************************************************
 !
 ! This subroutine is based on a paper by Freund and Nachtigal:
 ! An Implementation of the QMR Method Based on Coupled Two-Term
-! Recurrences, 1994 (SIAM J. Sci. Comput, March 1994)
+!  Recurrences, 1994 (SIAM J. Sci. Comput, March 1994)
 ! and a book by Barret et al.:
 ! Templates for the Solution of Linear Systems: Building Blocks for
-! Iterative Methods, 1993.
-!
+!  Iterative Methods, 1993.
+! 
 ! All matrix-vector operations are done externally, so we do not need
 ! to know about the matrix structure (sparse or dense). Memory allocation
 ! for the working arrays has also been done externally.
@@ -47,16 +188,18 @@
 ! Definitions to make the code more understandable and to make it look
 ! like the pseudo code
 !
-# 75 "huti_qmr.src"
-!*************************************************************************
 
+
+
+!*************************************************************************
+  
 !*************************************************************************
 !*************************************************************************
 ! Double complex version
 !*************************************************************************
 !*************************************************************************
 
-subroutine huti_zqmrsolv ( ndim, wrkdim, xvec, rhsvec, &
+subroutine  huti_zqmrsolv  ( ndim, wrkdim, xvec, rhsvec, &
                           ipar, dpar, work, matvecsubr, pcondlsubr, &
                           pcondrsubr, dotprodfun, normfun, stopcfun )
 
@@ -98,7 +241,7 @@ subroutine huti_zqmrsolv ( ndim, wrkdim, xvec, rhsvec, &
 
   ! Norms of right-hand side vector are used in convergence tests
 
-  if ( ipar(12) .eq. 1 .or. &
+  if ( ipar(12) .eq. 1 .or. & 
        ipar(12) .eq. 3 ) then
      rhsnorm = normfun( ipar(3), rhsvec, 1 )
   end if
@@ -110,7 +253,7 @@ subroutine huti_zqmrsolv ( ndim, wrkdim, xvec, rhsvec, &
   ! Generate vector xvec if needed
 
   if ( ipar(14) .eq. 0 ) then
-     call huti_zrandvec ( xvec, ipar )
+     call  huti_zrandvec   ( xvec, ipar )
   else if ( ipar(14) .ne. 1 ) then
      xvec = 1
   end if
@@ -292,6 +435,6 @@ subroutine huti_zqmrsolv ( ndim, wrkdim, xvec, rhsvec, &
   ! End of execution
   !*********************************************************************
 
-end subroutine huti_zqmrsolv
+end subroutine  huti_zqmrsolv 
 
 !*********************************************************************

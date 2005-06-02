@@ -1,24 +1,165 @@
-# 1 "huti_cg.src"
-# 1 "<built-in>"
-# 1 "<command line>"
-# 1 "huti_cg.src"
 
 !
 ! Subroutines to implement Conjugate Gradient iterative method
 !
-! $Id: huti_cg.src,v 1.1.1.1 2005/04/15 10:31:18 vierinen Exp $
+! $Id: huti_cg.src,v 1.2 2005/06/02 14:53:40 vierinen Exp $
 
-# 1 "huti_intdefs.h" 1
-# 8 "huti_cg.src" 2
-# 1 "huti_fdefs.h" 1
-# 9 "huti_cg.src" 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 !*************************************************************************
 !*************************************************************************
 !
 ! These subroutines are based on a book by Barret et al.:
 ! Templates for the Solution of Linear Systems: Building Blocks for
-! Iterative Methods, 1993.
+!  Iterative Methods, 1993.
 !
 ! All matrix-vector operations are done externally, so we do not need
 ! to know about the matrix structure (sparse or dense). So has the
@@ -34,16 +175,19 @@
 ! Definitions to make the code more understandable and to make it look
 ! like the pseudo code (these are commond to all precisions)
 !
-# 43 "huti_cg.src"
-!*************************************************************************
 
+
+
+
+!*************************************************************************
+  
 !*************************************************************************
 !*************************************************************************
 ! Complex version
 !*************************************************************************
 !*************************************************************************
 
-subroutine huti_ccgsolv ( ndim, wrkdim, xvec, rhsvec, &
+subroutine  huti_ccgsolv  ( ndim, wrkdim, xvec, rhsvec, &
                           ipar, dpar, work, matvecsubr, pcondlsubr, &
                           pcondrsubr, dotprodfun, normfun, stopcfun )
 
@@ -85,7 +229,7 @@ subroutine huti_ccgsolv ( ndim, wrkdim, xvec, rhsvec, &
 
   ! Norms of right-hand side vector are used in convergence tests
 
-  if ( ipar(12) .eq. 1 .or. &
+  if ( ipar(12) .eq. 1 .or. & 
        ipar(12) .eq. 3 ) then
      rhsnorm = normfun( ipar(3), rhsvec, 1 )
   end if
@@ -101,7 +245,7 @@ subroutine huti_ccgsolv ( ndim, wrkdim, xvec, rhsvec, &
   ! Generate vector xvec if needed
 
   if ( ipar(14) .eq. 0 ) then
-     call huti_crandvec ( xvec, ipar )
+     call  huti_crandvec   ( xvec, ipar )
   else if ( ipar(14) .ne. 1 ) then
      xvec = 1
   end if
@@ -214,6 +358,6 @@ subroutine huti_ccgsolv ( ndim, wrkdim, xvec, rhsvec, &
   ! End of execution
   !*********************************************************************
 
-end subroutine huti_ccgsolv
+end subroutine  huti_ccgsolv 
 
 !*************************************************************************

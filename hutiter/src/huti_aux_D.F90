@@ -1,23 +1,164 @@
-# 1 "huti_aux.src"
-# 1 "<built-in>"
-# 1 "<command line>"
-# 1 "huti_aux.src"
 
 ! Auxiliary routines for HUTI
 !
-! $Id: huti_aux.src,v 1.1.1.1 2005/04/15 10:31:18 vierinen Exp $
+! $Id: huti_aux.src,v 1.2 2005/06/02 14:53:39 vierinen Exp $
 
-# 1 "huti_intdefs.h" 1
-# 7 "huti_aux.src" 2
-# 1 "huti_fdefs.h" 1
-# 8 "huti_aux.src" 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 !*************************************************************************
 !*************************************************************************
 !
 ! This is a dummy preconditioning routine copying only the vector
 
-subroutine huti_ddummy_pcondfun ( u, v, ipar )
+subroutine  huti_ddummy_pcondfun  ( u, v, ipar )
 
   implicit none
 
@@ -27,14 +168,14 @@ subroutine huti_ddummy_pcondfun ( u, v, ipar )
   integer :: i
 
   !*************************************************************************
-
+  
   do i = 1, ipar(3)
      u(i) = v(i)
   end do
 
   return
 
-end subroutine huti_ddummy_pcondfun
+end subroutine  huti_ddummy_pcondfun 
 
 !*************************************************************************
 
@@ -43,7 +184,7 @@ end subroutine huti_ddummy_pcondfun
 !
 ! This routine fills a vector with pseudo random numbers
 
-subroutine huti_drandvec ( u, ipar )
+subroutine  huti_drandvec  ( u, ipar )
 
   implicit none
 
@@ -66,7 +207,7 @@ subroutine huti_drandvec ( u, ipar )
 
   return
 
-end subroutine huti_drandvec
+end subroutine  huti_drandvec 
 
 !*************************************************************************
 !*************************************************************************
@@ -74,7 +215,7 @@ end subroutine huti_drandvec
 ! Construct LU decompostion of the given matrix and solve LUu = v
 !
 
-subroutine huti_dlusolve ( n, lumat, u, v )
+subroutine  huti_dlusolve  ( n, lumat, u, v )
 
   implicit none
 
@@ -85,7 +226,7 @@ subroutine huti_dlusolve ( n, lumat, u, v )
   integer :: i, j, k
 
   !*************************************************************************
-
+  
   !
   ! This is from Saad''s book, Algorithm 10.4
   !
@@ -93,22 +234,22 @@ subroutine huti_dlusolve ( n, lumat, u, v )
   do i = 2,n
      do k = 1, i - 1
 
-        ! Check for small pivot
+	! Check for small pivot
 
-        if ( abs(lumat(k,k)) .lt. 1.0e-16 ) then
-           print *, '(libhuti.a) GMRES: small pivot', lumat(k,k)
-        end if
+	if ( abs(lumat(k,k)) .lt. 1.0e-16 ) then
+	   print *, '(libhuti.a) GMRES: small pivot', lumat(k,k)
+	end if
 
-        ! Compute a_ik = a_ik / a_kk
+	! Compute a_ik = a_ik / a_kk
 
-        lumat(i,k) = lumat(i,k) / lumat(k,k)
+	lumat(i,k) = lumat(i,k) / lumat(k,k)
 
-        do j = k + 1, n
+	do j = k + 1, n
 
-           ! Compute a_ij = a_ij - a_ik * a_kj
+	   ! Compute a_ij = a_ij - a_ik * a_kj
 
-           lumat(i,j) = lumat(i,j) - lumat(i,k) * lumat(k,j)
-        end do
+	   lumat(i,j) = lumat(i,j) - lumat(i,k) * lumat(k,j)
+	end do
 
      end do
   end do
@@ -132,14 +273,15 @@ subroutine huti_dlusolve ( n, lumat, u, v )
      ! Compute u(i) = u(i) - sum U(i,j) u(j)
 
      do k = i + 1, n
-        u(i) = u(i) - lumat(i,k) * u(k)
+	u(i) = u(i) - lumat(i,k) * u(k)
      end do
 
      ! Compute u(i) = u(i) / U(i,i)
 
-     u(i) = u(i) / lumat(i,i)
+     u(i) = u(i) / lumat(i,i) 
   end do
 
   return
 
-end subroutine huti_dlusolve
+end subroutine  huti_dlusolve 
+

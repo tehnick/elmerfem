@@ -13,14 +13,26 @@
 # PARTICULAR PURPOSE.
 
 
-SOURCES = $(hutiex_SOURCES)
 
+#INCLUDES = \
+#	-I$(top_builddir)/include       \
+#	-I$(top_srcdir)/include         
+
+#noinst_PROGRAMS=hutiex
+#
+#hutiex_SOURCES = \
+#	globals_module.f90 \
+#	dummymain.c \
+#	huti-ex.F90 
+#
+#hutiex_LDADD = \
+#	../../src/libhuti.a
 srcdir = .
 top_srcdir = ../..
 
-pkgdatadir = $(datadir)/eio
-pkglibdir = $(libdir)/eio
-pkgincludedir = $(includedir)/eio
+pkgdatadir = $(datadir)/hutiter
+pkglibdir = $(libdir)/hutiter
+pkgincludedir = $(includedir)/hutiter
 top_builddir = ../..
 am__cd = CDPATH="$${ZSH_VERSION+.}$(PATH_SEPARATOR)" && cd
 INSTALL = /usr/bin/install -c
@@ -38,58 +50,39 @@ POST_UNINSTALL = :
 build_triplet = i686-pc-linux-gnu
 host_triplet = i686-pc-linux-gnu
 target_triplet = i686-pc-linux-gnu
-check_PROGRAMS = hutiex$(EXEEXT)
 subdir = examples/ex1
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
-am__aclocal_m4_deps = $(top_srcdir)/acx_lapack.m4 \
-	$(top_srcdir)/acx_blas.m4 $(top_srcdir)/acx_elmer.m4 \
-	$(top_srcdir)/acx_elmer.m4 $(top_srcdir)/acx_blas.m4 \
-	$(top_srcdir)/acx_lapack.m4 $(top_srcdir)/configure.in
+am__aclocal_m4_deps = $(top_srcdir)/acx_blas.m4 \
+	$(top_srcdir)/acx_elmer.m4 $(top_srcdir)/acx_elmer.m4 \
+	$(top_srcdir)/acx_blas.m4 $(top_srcdir)/acx_lapack.m4 \
+	$(top_srcdir)/configure.in
 am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = $(top_builddir)/config.h
 CONFIG_CLEAN_FILES =
-am_hutiex_OBJECTS = globals_module.$(OBJEXT) dummymain.$(OBJEXT) \
-	huti-ex.$(OBJEXT)
-hutiex_OBJECTS = $(am_hutiex_OBJECTS)
-hutiex_DEPENDENCIES = ../../src/libhuti.a
-DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
-depcomp = $(SHELL) $(top_srcdir)/depcomp
-am__depfiles_maybe = depfiles
-PPFCCOMPILE = $(FC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
-	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_FCFLAGS) $(FCFLAGS)
-FCLD = $(FC)
-FCLINK = $(FCLD) $(AM_FCFLAGS) $(FCFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o \
-	$@
-COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
-	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
-CCLD = $(CC)
-LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
-FCCOMPILE = $(FC) $(AM_FCFLAGS) $(FCFLAGS)
-SOURCES = $(hutiex_SOURCES)
-DIST_SOURCES = $(hutiex_SOURCES)
-ETAGS = etags
-CTAGS = ctags
+SOURCES =
+DIST_SOURCES =
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
-ACLOCAL = ${SHELL} /home/vierinen/src/newelmer/buildtools/hutiter/missing --run aclocal-1.9
+ACLOCAL = ${SHELL} /home/vierinen/src/elmer/buildtools/tbuild.17:06:35/hutiter/missing --run aclocal-1.9
 AMDEP_FALSE = #
 AMDEP_TRUE = 
-AMTAR = ${SHELL} /home/vierinen/src/newelmer/buildtools/hutiter/missing --run tar
+AMTAR = ${SHELL} /home/vierinen/src/elmer/buildtools/tbuild.17:06:35/hutiter/missing --run tar
 AM_FCFLAGS = 
 AR = ar
 ARFLAGS = cru
-AUTOCONF = ${SHELL} /home/vierinen/src/newelmer/buildtools/hutiter/missing --run autoconf
-AUTOHEADER = ${SHELL} /home/vierinen/src/newelmer/buildtools/hutiter/missing --run autoheader
-AUTOMAKE = ${SHELL} /home/vierinen/src/newelmer/buildtools/hutiter/missing --run automake-1.9
+AUTOCONF = ${SHELL} /home/vierinen/src/elmer/buildtools/tbuild.17:06:35/hutiter/missing --run autoconf
+AUTOHEADER = ${SHELL} /home/vierinen/src/elmer/buildtools/tbuild.17:06:35/hutiter/missing --run autoheader
+AUTOMAKE = ${SHELL} /home/vierinen/src/elmer/buildtools/tbuild.17:06:35/hutiter/missing --run automake-1.9
 AWK = gawk
 B64FLAGS = 
+BASIC_CPP = 
 BLAS_LIBS = -lblas
 CC = gcc
 CCDEPMODE = depmode=gcc3
-CFLAGS = -O -I/tmp/vierinen/elmer/dhcp1-114.csc.fi20054018/include
-CPP = gcc -E
+CFLAGS = -O -I/home/vierinen/src/elmer/buildtools/tbuild.17:06:35/dist//include
+CPP = /lib/cpp
 CPPFLAGS = 
 CYGPATH_W = echo
 DEFS = -DHAVE_CONFIG_H
@@ -99,28 +92,27 @@ ECHO_N = -n
 ECHO_T = 
 EGREP = /bin/grep -E
 EXEEXT = 
-F77 = ifort
-FC = ifort
-FCFLAGS = -O -I. -I/tmp/vierinen/elmer/dhcp1-114.csc.fi20054018/include
-FCLIBS =  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s
+F77 = g77
+FC = g95
+FCFLAGS = -O -I. -I/home/vierinen/src/elmer/buildtools/tbuild.17:06:35/dist//include
+FCLIBS =  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm
 FFLAGS = -O
-FLIBS =  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s
+FLIBS =  -L/usr/lib/gcc-lib/i486-linux/3.3.5 -L/usr/lib/gcc-lib/i486-linux/3.3.5/../../.. -lfrtbegin -lg2c -lm -lgcc_s
 GREP = /bin/grep
 INSTALL_DATA = ${INSTALL} -m 644
 INSTALL_PROGRAM = ${INSTALL}
 INSTALL_SCRIPT = ${INSTALL}
 INSTALL_STRIP_PROGRAM = ${SHELL} $(install_sh) -c -s
-LAPACK_LIBS = @LAPACK_LIBS@
 LDFLAGS = 
 LIBOBJS = 
-LIBS = -lblas -lg2c  -L/tmp/vierinen/elmer/dhcp1-114.csc.fi20054018/lib  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s  -L/opt/intel_fc_80/lib -L/usr/lib -lifport -lifcore -limf -lm -lcxa -lirc -lunwind -lirc_s
+LIBS = -lblas -lg2c -L.  -L/home/vierinen/src/elmer/buildtools/tbuild.17:06:35/dist//lib  -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/ -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0 -L/lib// -L/home/vierinen/src/g95-install/bin/../lib/gcc-lib/i686-pc-linux-gnu/4.0.0/// -L/usr/lib// -lf95 -lm  -L/usr/lib/gcc-lib/i486-linux/3.3.5 -L/usr/lib/gcc-lib/i486-linux/3.3.5/../../.. -lfrtbegin -lg2c -lm -lgcc_s
 LTLIBOBJS = 
 MAINT = #
 MAINTAINER_MODE_FALSE = 
 MAINTAINER_MODE_TRUE = #
-MAKEINFO = ${SHELL} /home/vierinen/src/newelmer/buildtools/hutiter/missing --run makeinfo
+MAKEINFO = ${SHELL} /home/vierinen/src/elmer/buildtools/tbuild.17:06:35/hutiter/missing --run makeinfo
 OBJEXT = o
-PACKAGE = eio
+PACKAGE = hutiter
 PACKAGE_BUGREPORT = 
 PACKAGE_NAME = 
 PACKAGE_STRING = 
@@ -131,6 +123,7 @@ RANLIB = ranlib
 SET_MAKE = 
 SHELL = /bin/sh
 STRIP = 
+TRADITIONAL_CPP_FLAGS = 
 VERSION = 1.0.0
 ac_ct_CC = gcc
 ac_ct_F77 = 
@@ -163,7 +156,7 @@ host_vendor = pc
 htmldir = ${docdir}
 includedir = ${prefix}/include
 infodir = ${datarootdir}/info
-install_sh = /home/vierinen/src/newelmer/buildtools/hutiter/install-sh
+install_sh = /home/vierinen/src/elmer/buildtools/tbuild.17:06:35/hutiter/install-sh
 libdir = ${exec_prefix}/lib
 libexecdir = ${exec_prefix}/libexec
 localedir = ${datarootdir}/locale
@@ -172,7 +165,7 @@ mandir = ${datarootdir}/man
 mkdir_p = mkdir -p --
 oldincludedir = /usr/include
 pdfdir = ${docdir}
-prefix = /tmp/vierinen/elmer/dhcp1-114.csc.fi20054018
+prefix = /home/vierinen/src/elmer/buildtools/tbuild.17:06:35/dist/
 program_transform_name = s,x,x,
 psdir = ${docdir}
 sbindir = ${exec_prefix}/sbin
@@ -183,23 +176,9 @@ target_alias =
 target_cpu = i686
 target_os = linux-gnu
 target_vendor = pc
-INCLUDES = \
-	-I$(top_builddir)/include       \
-	-I$(top_srcdir)/include         
-
-hutiex_SOURCES = \
-	globals_module.f90 \
-	dummymain.c \
-	huti-ex.F90 
-
-hutiex_LDADD = \
-	../../src/libhuti.a
-
-TESTS = testmat.script
 all: all-am
 
 .SUFFIXES:
-.SUFFIXES: .F90 .c .f90 .o .obj
 $(srcdir)/Makefile.in: # $(srcdir)/Makefile.am  $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -229,168 +208,13 @@ $(top_srcdir)/configure: # $(am__configure_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(ACLOCAL_M4): # $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
-
-clean-checkPROGRAMS:
-	-test -z "$(check_PROGRAMS)" || rm -f $(check_PROGRAMS)
-hutiex$(EXEEXT): $(hutiex_OBJECTS) $(hutiex_DEPENDENCIES) 
-	@rm -f hutiex$(EXEEXT)
-	$(FCLINK) $(hutiex_LDFLAGS) $(hutiex_OBJECTS) $(hutiex_LDADD) $(LIBS)
-
-mostlyclean-compile:
-	-rm -f *.$(OBJEXT)
-
-distclean-compile:
-	-rm -f *.tab.c
-
-include ./$(DEPDIR)/dummymain.Po
-
-.F90.o:
-	$(PPFCCOMPILE) -c -o $@ $<
-
-.F90.obj:
-	$(PPFCCOMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
-
-.c.o:
-	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ $<; \
-	then mv -f "$(DEPDIR)/$*.Tpo" "$(DEPDIR)/$*.Po"; else rm -f "$(DEPDIR)/$*.Tpo"; exit 1; fi
-#	source='$<' object='$@' libtool=no \
-#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
-#	$(COMPILE) -c $<
-
-.c.obj:
-	if $(COMPILE) -MT $@ -MD -MP -MF "$(DEPDIR)/$*.Tpo" -c -o $@ `$(CYGPATH_W) '$<'`; \
-	then mv -f "$(DEPDIR)/$*.Tpo" "$(DEPDIR)/$*.Po"; else rm -f "$(DEPDIR)/$*.Tpo"; exit 1; fi
-#	source='$<' object='$@' libtool=no \
-#	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) \
-#	$(COMPILE) -c `$(CYGPATH_W) '$<'`
-
-.f90.o:
-	$(FCCOMPILE) -c -o $@ $<
-
-.f90.obj:
-	$(FCCOMPILE) -c -o $@ `$(CYGPATH_W) '$<'`
 uninstall-info-am:
-
-ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
-	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \
-	unique=`for i in $$list; do \
-	    if test -f "$$i"; then echo $$i; else echo $(srcdir)/$$i; fi; \
-	  done | \
-	  $(AWK) '    { files[$$0] = 1; } \
-	       END { for (i in files) print i; }'`; \
-	mkid -fID $$unique
 tags: TAGS
+TAGS:
 
-TAGS:  $(HEADERS) $(SOURCES)  $(TAGS_DEPENDENCIES) \
-		$(TAGS_FILES) $(LISP)
-	tags=; \
-	here=`pwd`; \
-	list='$(SOURCES) $(HEADERS)  $(LISP) $(TAGS_FILES)'; \
-	unique=`for i in $$list; do \
-	    if test -f "$$i"; then echo $$i; else echo $(srcdir)/$$i; fi; \
-	  done | \
-	  $(AWK) '    { files[$$0] = 1; } \
-	       END { for (i in files) print i; }'`; \
-	if test -z "$(ETAGS_ARGS)$$tags$$unique"; then :; else \
-	  test -n "$$unique" || unique=$$empty_fix; \
-	  $(ETAGS) $(ETAGSFLAGS) $(AM_ETAGSFLAGS) $(ETAGS_ARGS) \
-	    $$tags $$unique; \
-	fi
 ctags: CTAGS
-CTAGS:  $(HEADERS) $(SOURCES)  $(TAGS_DEPENDENCIES) \
-		$(TAGS_FILES) $(LISP)
-	tags=; \
-	here=`pwd`; \
-	list='$(SOURCES) $(HEADERS)  $(LISP) $(TAGS_FILES)'; \
-	unique=`for i in $$list; do \
-	    if test -f "$$i"; then echo $$i; else echo $(srcdir)/$$i; fi; \
-	  done | \
-	  $(AWK) '    { files[$$0] = 1; } \
-	       END { for (i in files) print i; }'`; \
-	test -z "$(CTAGS_ARGS)$$tags$$unique" \
-	  || $(CTAGS) $(CTAGSFLAGS) $(AM_CTAGSFLAGS) $(CTAGS_ARGS) \
-	     $$tags $$unique
+CTAGS:
 
-GTAGS:
-	here=`$(am__cd) $(top_builddir) && pwd` \
-	  && cd $(top_srcdir) \
-	  && gtags -i $(GTAGS_ARGS) $$here
-
-distclean-tags:
-	-rm -f TAGS ID GTAGS GRTAGS GSYMS GPATH tags
-
-check-TESTS: $(TESTS)
-	@failed=0; all=0; xfail=0; xpass=0; skip=0; \
-	srcdir=$(srcdir); export srcdir; \
-	list='$(TESTS)'; \
-	if test -n "$$list"; then \
-	  for tst in $$list; do \
-	    if test -f ./$$tst; then dir=./; \
-	    elif test -f $$tst; then dir=; \
-	    else dir="$(srcdir)/"; fi; \
-	    if $(TESTS_ENVIRONMENT) $${dir}$$tst; then \
-	      all=`expr $$all + 1`; \
-	      case " $(XFAIL_TESTS) " in \
-	      *" $$tst "*) \
-		xpass=`expr $$xpass + 1`; \
-		failed=`expr $$failed + 1`; \
-		echo "XPASS: $$tst"; \
-	      ;; \
-	      *) \
-		echo "PASS: $$tst"; \
-	      ;; \
-	      esac; \
-	    elif test $$? -ne 77; then \
-	      all=`expr $$all + 1`; \
-	      case " $(XFAIL_TESTS) " in \
-	      *" $$tst "*) \
-		xfail=`expr $$xfail + 1`; \
-		echo "XFAIL: $$tst"; \
-	      ;; \
-	      *) \
-		failed=`expr $$failed + 1`; \
-		echo "FAIL: $$tst"; \
-	      ;; \
-	      esac; \
-	    else \
-	      skip=`expr $$skip + 1`; \
-	      echo "SKIP: $$tst"; \
-	    fi; \
-	  done; \
-	  if test "$$failed" -eq 0; then \
-	    if test "$$xfail" -eq 0; then \
-	      banner="All $$all tests passed"; \
-	    else \
-	      banner="All $$all tests behaved as expected ($$xfail expected failures)"; \
-	    fi; \
-	  else \
-	    if test "$$xpass" -eq 0; then \
-	      banner="$$failed of $$all tests failed"; \
-	    else \
-	      banner="$$failed of $$all tests did not behave as expected ($$xpass unexpected passes)"; \
-	    fi; \
-	  fi; \
-	  dashes="$$banner"; \
-	  skipped=""; \
-	  if test "$$skip" -ne 0; then \
-	    skipped="($$skip tests were not run)"; \
-	    test `echo "$$skipped" | wc -c` -le `echo "$$banner" | wc -c` || \
-	      dashes="$$skipped"; \
-	  fi; \
-	  report=""; \
-	  if test "$$failed" -ne 0 && test -n "$(PACKAGE_BUGREPORT)"; then \
-	    report="Please report to $(PACKAGE_BUGREPORT)"; \
-	    test `echo "$$report" | wc -c` -le `echo "$$banner" | wc -c` || \
-	      dashes="$$report"; \
-	  fi; \
-	  dashes=`echo "$$dashes" | sed s/./=/g`; \
-	  echo "$$dashes"; \
-	  echo "$$banner"; \
-	  test -z "$$skipped" || echo "$$skipped"; \
-	  test -z "$$report" || echo "$$report"; \
-	  echo "$$dashes"; \
-	  test "$$failed" -eq 0; \
-	else :; fi
 
 distdir: $(DISTFILES)
 	@srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`; \
@@ -420,8 +244,6 @@ distdir: $(DISTFILES)
 	  fi; \
 	done
 check-am: all-am
-	$(MAKE) $(AM_MAKEFLAGS) $(check_PROGRAMS)
-	$(MAKE) $(AM_MAKEFLAGS) check-TESTS
 check: check-am
 all-am: Makefile
 installdirs:
@@ -451,13 +273,11 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-am
 
-clean-am: clean-checkPROGRAMS clean-generic mostlyclean-am
+clean-am: clean-generic mostlyclean-am
 
 distclean: distclean-am
-	-rm -rf ./$(DEPDIR)
 	-rm -f Makefile
-distclean-am: clean-am distclean-compile distclean-generic \
-	distclean-tags
+distclean-am: clean-am distclean-generic
 
 dvi: dvi-am
 
@@ -480,13 +300,12 @@ install-man:
 installcheck-am:
 
 maintainer-clean: maintainer-clean-am
-	-rm -rf ./$(DEPDIR)
 	-rm -f Makefile
 maintainer-clean-am: distclean-am maintainer-clean-generic
 
 mostlyclean: mostlyclean-am
 
-mostlyclean-am: mostlyclean-compile mostlyclean-generic
+mostlyclean-am: mostlyclean-generic
 
 pdf: pdf-am
 
@@ -498,16 +317,14 @@ ps-am:
 
 uninstall-am: uninstall-info-am
 
-.PHONY: CTAGS GTAGS all all-am check check-TESTS check-am clean \
-	clean-checkPROGRAMS clean-generic ctags distclean \
-	distclean-compile distclean-generic distclean-tags distdir dvi \
-	dvi-am html html-am info info-am install install-am \
-	install-data install-data-am install-exec install-exec-am \
-	install-info install-info-am install-man install-strip \
-	installcheck installcheck-am installdirs maintainer-clean \
-	maintainer-clean-generic mostlyclean mostlyclean-compile \
-	mostlyclean-generic pdf pdf-am ps ps-am tags uninstall \
-	uninstall-am uninstall-info-am
+.PHONY: all all-am check check-am clean clean-generic distclean \
+	distclean-generic distdir dvi dvi-am html html-am info info-am \
+	install install-am install-data install-data-am install-exec \
+	install-exec-am install-info install-info-am install-man \
+	install-strip installcheck installcheck-am installdirs \
+	maintainer-clean maintainer-clean-generic mostlyclean \
+	mostlyclean-generic pdf pdf-am ps ps-am uninstall uninstall-am \
+	uninstall-info-am
 
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.

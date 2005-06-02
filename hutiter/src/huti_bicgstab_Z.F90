@@ -1,23 +1,164 @@
-# 1 "huti_bicgstab.src"
-# 1 "<built-in>"
-# 1 "<command line>"
-# 1 "huti_bicgstab.src"
 !
 ! Subroutine to implement BiConjugate Gradient Stabilised iteration
 !
-! $Id: huti_bicgstab.src,v 1.1.1.1 2005/04/15 10:31:18 vierinen Exp $
+! $Id: huti_bicgstab.src,v 1.2 2005/06/02 14:53:39 vierinen Exp $
 
-# 1 "huti_intdefs.h" 1
-# 7 "huti_bicgstab.src" 2
-# 1 "huti_fdefs.h" 1
-# 8 "huti_bicgstab.src" 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 !*************************************************************************
 !*************************************************************************
 !
 ! This subroutine is based on a book by Barret et al.:
 ! Templates for the Solution of Linear Systems: Building Blocks for
-! Iterative Methods, 1993.
+!  Iterative Methods, 1993.
 !
 ! All matrix-vector operations are done externally, so we do not need
 ! to know about the matrix structure (sparse or dense). Memory allocation
@@ -38,14 +179,18 @@
 ! Definitions to make the code more understandable and to make it look
 ! like the pseudo code
 !
-# 56 "huti_bicgstab.src"
+
+
+
+
+  
 !*************************************************************************
 !*************************************************************************
 ! Double complex version
 !*************************************************************************
 !*************************************************************************
 
-subroutine huti_zbicgstabsolv ( ndim, wrkdim, xvec, rhsvec, &
+subroutine  huti_zbicgstabsolv  ( ndim, wrkdim, xvec, rhsvec, &
                             ipar, dpar, work, matvecsubr, pcondlsubr, &
                             pcondrsubr, dotprodfun, normfun, stopcfun )
 
@@ -92,7 +237,7 @@ subroutine huti_zbicgstabsolv ( ndim, wrkdim, xvec, rhsvec, &
 
   ! Norms of right-hand side vector are used in convergence tests
 
-  if ( ipar(12) .eq. 1 .or. &
+  if ( ipar(12) .eq. 1 .or. & 
        ipar(12) .eq. 3 ) then
      rhsnorm = normfun( ipar(3), rhsvec, 1 )
   end if
@@ -104,7 +249,7 @@ subroutine huti_zbicgstabsolv ( ndim, wrkdim, xvec, rhsvec, &
   ! Generate vector xvec if needed
 
   if ( ipar(14) .eq. 0 ) then
-     call huti_zrandvec ( xvec, ipar )
+     call  huti_zrandvec   ( xvec, ipar )
   else if ( ipar(14) .ne. 1 ) then
      xvec = 1
   end if
@@ -233,6 +378,6 @@ subroutine huti_zbicgstabsolv ( ndim, wrkdim, xvec, rhsvec, &
   ! End of execution
   !*********************************************************************
 
-end subroutine huti_zbicgstabsolv
+end subroutine  huti_zbicgstabsolv 
 
 !*************************************************************************

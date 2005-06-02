@@ -1,23 +1,164 @@
-# 1 "huti_tfqmr.src"
-# 1 "<built-in>"
-# 1 "<command line>"
-# 1 "huti_tfqmr.src"
 !
 ! Subroutines to implement Transpose Free QMR iteration
 !
-! $Id: huti_tfqmr.src,v 1.1.1.1 2005/04/15 10:31:18 vierinen Exp $
+! $Id: huti_tfqmr.src,v 1.2 2005/06/02 14:53:42 vierinen Exp $
 
-# 1 "huti_intdefs.h" 1
-# 7 "huti_tfqmr.src" 2
-# 1 "huti_fdefs.h" 1
-# 8 "huti_tfqmr.src" 2
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 !*************************************************************************
 !*************************************************************************
 !
 ! These subroutines are based on a paper by Roland W. Freund:
 ! A Transpose-Free Quasi-Minimal Residual Algorithm for Non-Hermitian
-! Linear Systems, 1993 (SIAM J. Sci. Comput, March 1993)
+!  Linear Systems, 1993 (SIAM J. Sci. Comput, March 1993)
 !
 ! All matrix-vector operations are done externally, so we do not need
 ! to know about the matrix structure (sparse or dense). Memory allocation
@@ -40,7 +181,10 @@
 ! Definitions to make the code more understandable and to make it look
 ! like the pseudo code
 !
-# 61 "huti_tfqmr.src"
+
+
+
+
 ! This is the magic ratio for upperb and tolerance used in upper bound
 ! convergence test
 
@@ -51,7 +195,7 @@
 !*************************************************************************
 !*************************************************************************
 
-subroutine huti_ztfqmrsolv ( ndim, wrkdim, xvec, rhsvec, ipar,&
+subroutine  huti_ztfqmrsolv  ( ndim, wrkdim, xvec, rhsvec, ipar,&
                             dpar, work, matvecsubr, pcondlsubr, pcondrsubr, &
                             dotprodfun, normfun, stopcfun )
 
@@ -99,7 +243,7 @@ subroutine huti_ztfqmrsolv ( ndim, wrkdim, xvec, rhsvec, ipar,&
 
   ! Norms of right-hand side vector are used in convergence tests
 
-  if ( ipar(12) .eq. 1 .or. &
+  if ( ipar(12) .eq. 1 .or. & 
        ipar(12) .eq. 3 .or. &
        ipar(12) .eq. 6 ) then
      rhsnorm = normfun( ipar(3), rhsvec, 1 )
@@ -116,7 +260,7 @@ subroutine huti_ztfqmrsolv ( ndim, wrkdim, xvec, rhsvec, ipar,&
   ! Generate vector xvec if needed
 
   if ( ipar(14) .eq. 0 ) then
-     call huti_zrandvec ( xvec, ipar )
+     call  huti_zrandvec   ( xvec, ipar )
   else if ( ipar(14) .ne. 1 ) then
      xvec = 1
   end if
@@ -157,7 +301,7 @@ subroutine huti_ztfqmrsolv ( ndim, wrkdim, xvec, rhsvec, ipar,&
   work(:,3) = work(:,2) - alpha * work(:,1)
 
   !
-  ! Part 2B
+  ! Part 2rhsvec
   !
   !
   ! This is the inner loop from 2n-1 to 2n
@@ -216,10 +360,10 @@ subroutine huti_ztfqmrsolv ( ndim, wrkdim, xvec, rhsvec, ipar,&
   case (6)
      upperb = real( sqrt( 2.0 * iter_count ) * tau / rhsnorm)
      if ( ( upperb / dpar(1) ) .lt. 10.0 ) then
-        call pcondrsubr( work(:,10), xvec, ipar )
+	call pcondrsubr( work(:,10), xvec, ipar )
         call matvecsubr( work(:,10), work(:,9), ipar )
         work(:,10) = work(:,9) - rhsvec
-        call pcondlsubr( work(:,9), work(:,10), ipar )
+	call pcondlsubr( work(:,9), work(:,10), ipar )
         residual = normfun( ipar(3), work(:,9), 1 ) / rhsnorm
      else
         residual = upperb
@@ -296,10 +440,10 @@ subroutine huti_ztfqmrsolv ( ndim, wrkdim, xvec, rhsvec, ipar,&
   case (6)
      upperb = real( sqrt( 2.0 * iter_count ) * tau / rhsnorm)
      if ( ( upperb / dpar(1) ) .lt. 10.0 ) then
-        call pcondrsubr( work(:,10), xvec, ipar )
+	call pcondrsubr( work(:,10), xvec, ipar )
         call matvecsubr( work(:,10), work(:,9), ipar )
         work(:,10) = work(:,9) - rhsvec
-        call pcondlsubr( work(:,9), work(:,10), ipar )
+	call pcondlsubr( work(:,9), work(:,10), ipar )
         residual = normfun( ipar(3), work(:,9), 1 ) / rhsnorm
      else
         residual = upperb
@@ -376,9 +520,9 @@ subroutine huti_ztfqmrsolv ( ndim, wrkdim, xvec, rhsvec, ipar,&
 
   if ( ipar(5) .ne. 0 ) then
      if ( ipar(12) .eq. 6 ) then
-        write (*, '(I8, 2E17.7)') iter_count, residual, upperb
+	write (*, '(I8, 2E17.7)') iter_count, residual, upperb
      else
-        write (*, '(I8, E17.7)') iter_count, residual
+	write (*, '(I8, E17.7)') iter_count, residual
      end if
   end if
   ipar(31) = iter_count
@@ -388,6 +532,6 @@ subroutine huti_ztfqmrsolv ( ndim, wrkdim, xvec, rhsvec, ipar,&
   ! End of execution
   !*********************************************************************
 
-end subroutine huti_ztfqmrsolv
+end subroutine  huti_ztfqmrsolv 
 
 !*************************************************************************

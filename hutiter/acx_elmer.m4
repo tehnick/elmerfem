@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.40 2005/05/26 08:25:41 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.8 2005/05/26 08:26:11 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -869,6 +869,7 @@ case "$canonical_host_type" in
 esac
 
 AC_SUBST(CPP)
+AC_SUBST(TRADITIONAL_CPP_FLAGS)
 ])
 
 AC_DEFUN([ACX_FC_ETIME],[
