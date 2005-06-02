@@ -39,7 +39,7 @@ extern int errno;
 #include <X11/Xlib.h>
 #endif
 
-Display *tkXDisplay()
+static Display *tkXDisplay()
 {
     Display *ptr = NULL;
 #ifndef WIN32
@@ -48,7 +48,7 @@ Display *tkXDisplay()
     return ptr;
 }
 
-Window tkXWindow()
+static Window tkXWindow()
 {
     Window ptr = 0;
 
