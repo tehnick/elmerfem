@@ -32,12 +32,12 @@ fi
 # Try to use ELMER_USER as cvs user, otherwise revert to whoami
 #
 if test "$ELMER_USER" != ""; then
-    export CVSROOT=$ELMER_USER@sampo3.csc.fi:/fs/proj1/elmer/elmer-opensource    
+    export CVSROOT=$ELMER_USER@ibmsc.csc.fi:/fs/proj1/elmer/elmer-opensource    
 else
 if test "$ELMER_CVSROOT" != ""; then
     export CVSROOT=$ELMER_CVSROOT
 else
-    export CVSROOT=$USER@sampo3.csc.fi:/fs/proj1/elmer/elmer-opensource
+    export CVSROOT=$USER@ibmsc.csc.fi:/fs/proj1/elmer/elmer-opensource
 fi
 fi
 
