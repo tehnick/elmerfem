@@ -2,7 +2,7 @@
 !
 ! Subroutines to implement Generalized Minimum Residual iterative method
 !
-! $Id: huti_gmres.src,v 1.2 2005/06/02 14:53:41 vierinen Exp $
+! $Id: huti_gmres_S.F90,v 1.5 2005/05/04 09:57:40 vierinen Exp $
 
 
 
@@ -38,128 +38,14 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#include  "huti_fdefs.h" 
 
 !*************************************************************************
 !*************************************************************************
 !
 ! These subroutines are based on a book by Barret et al.:
-! Templates for the Solution of Linear Systems: Building Blocks for
-!  Iterative Methods, 1993.
+! "Templates for the Solution of Linear Systems: Building Blocks for
+!  Iterative Methods", 1993.
 !
 ! All matrix-vector operations are done externally, so we do not need
 ! to know about the matrix structure (sparse or dense). So has the
@@ -176,9 +62,21 @@
 ! like the pseudo code (these are commond to all precisions)
 !
 
+#define  X  xvec 
+#define  B  rhsvec 
 
-
-
+#define  W  work(:,1) 
+#define  W_ind  1 
+#define  R  work(:,2) 
+#define  R_ind  2 
+#define  S  work(:,3) 
+#define  S_ind  3 
+#define  VTMP  work(:,4) 
+#define  VTMP_ind  4 
+#define  T1V  work(:,5) 
+#define  T1V_ind  5 
+#define  V  work(:,6) 
+#define  V_ind  6 
 
 
 
@@ -209,8 +107,8 @@ subroutine  huti_sgmressolv  ( ndim, wrkdim, xvec, rhsvec, &
 
   integer :: ndim, wrkdim
   real, dimension(ndim) :: xvec, rhsvec
-  integer, dimension(50) :: ipar
-  double precision, dimension(10) :: dpar
+  integer, dimension(HUTI_IPAR_DFLTSIZE) :: ipar
+  double precision, dimension(HUTI_DPAR_DFLTSIZE) :: dpar
   real, dimension(ndim,wrkdim) :: work
 
   ! Local variables
@@ -225,10 +123,10 @@ subroutine  huti_sgmressolv  ( ndim, wrkdim, xvec, rhsvec, &
 
   ! Local arrays
 
-  real, DIMENSION(ipar(15)+1,ipar(15)+1) :: H
+  real, DIMENSION(HUTI_GMRES_RESTART+1,HUTI_GMRES_RESTART+1) :: H
   real, &
-       DIMENSION((ipar(15)+1)*(ipar(15)+1)) :: HLU
-  real, DIMENSION(ipar(15)+1) :: CS, SN, Y
+       DIMENSION((HUTI_GMRES_RESTART+1)*(HUTI_GMRES_RESTART+1)) :: HLU
+  real, DIMENSION(HUTI_GMRES_RESTART+1) :: CS, SN, Y
 
   !
   ! End of variable declarations
@@ -236,50 +134,50 @@ subroutine  huti_sgmressolv  ( ndim, wrkdim, xvec, rhsvec, &
 
   !*********************************************************************
   ! The actual GMRES begins here (look the pseudo code in the
-  ! Templates...-book, page 20)
+  ! "Templates..."-book, page 20)
   !
   ! First the initialization part
   !
 
   iter_count = 1
 
-  bnrm = normfun( ipar(3), rhsvec, 1 )
+  bnrm = normfun( HUTI_NDIM, B, 1 )
 
   ! Norms of right-hand side vector are used in convergence tests
 
-  if ( ipar(12) .eq. 1 .or. & 
-       ipar(12) .eq. 3 ) then
+  if ( HUTI_STOPC .eq. HUTI_TRESID_SCALED_BYB .or. & 
+       HUTI_STOPC .eq. HUTI_PRESID_SCALED_BYB ) then
      rhsnorm = bnrm
   end if
-  if ( ipar(12) .eq. 4 ) then
-     call pcondlsubr( work(:,5), rhsvec, ipar )
-     precrhsnorm = normfun( ipar(3), work(:,5), 1 )
+  if ( HUTI_STOPC .eq. HUTI_PRESID_SCALED_BYPRECB ) then
+     call pcondlsubr( T1V, B, ipar )
+     precrhsnorm = normfun( HUTI_NDIM, T1V, 1 )
   end if
 
   ! The following applies for all matrix operations in this solver
 
-  ipar(6) = 0
+  HUTI_EXTOP_MATTYPE = HUTI_MAT_NOTTRPSED
 
-  ! Generate vector xvec if needed
+  ! Generate vector X if needed
 
-  if ( ipar(14) .eq. 0 ) then
-     call  huti_srandvec   ( xvec, ipar )
-  else if ( ipar(14) .ne. 1 ) then
-     xvec = 1
+  if ( HUTI_INITIALX .eq. HUTI_RANDOMX ) then
+     call  huti_srandvec   ( X, ipar )
+  else if ( HUTI_INITIALX .ne. HUTI_USERSUPPLIEDX ) then
+     X = 1
   end if
 
-  call pcondrsubr( work(:,5), xvec, ipar )
-  call matvecsubr( work(:,5), work(:,2), ipar )
-  work(:,5) = rhsvec - work(:,2)
-  call pcondlsubr( work(:,2), work(:,5), ipar )
+  call pcondrsubr( T1V, X, ipar )
+  call matvecsubr( T1V, R, ipar )
+  T1V = B - R
+  call pcondlsubr( R, T1V, ipar )
 
-  m = ipar(15)
-  work(:,6+1-1:6+m+1-1) = 0
+  m = HUTI_GMRES_RESTART
+  work(:,V_ind+1-1:V_ind+m+1-1) = 0
   H = 0
   CS = 0
   SN = 0
-  work(:,4) = 0
-  work(1,4) = 1.0
+  VTMP = 0
+  work(1,VTMP_ind) = 1.0
 
   !
   ! This is where the loop starts (that is we continue from here after
@@ -288,42 +186,42 @@ subroutine  huti_sgmressolv  ( ndim, wrkdim, xvec, rhsvec, &
 
 300 continue
 
-  call pcondrsubr( work(:,5), xvec, ipar )
-  call matvecsubr( work(:,5), work(:,2), ipar )
-  work(:,5) = rhsvec - work(:,2)
-  call pcondlsubr( work(:,2), work(:,5), ipar )
+  call pcondrsubr( T1V, X, ipar )
+  call matvecsubr( T1V, R, ipar )
+  T1V = B - R
+  call pcondlsubr( R, T1V, ipar )
 
-  alpha = normfun( ipar(3), work(:,2), 1 )
+  alpha = normfun( HUTI_NDIM, R, 1 )
   if ( alpha .eq. 0 ) then
-     ipar(30) = 40
+     HUTI_INFO = HUTI_GMRES_ALPHA
      go to 1000
   end if
 
-  work(:,6+1-1) = work(:,2) / alpha
-  work(:,3) = alpha * work(:,4)
+  work(:,V_ind+1-1) = R / alpha
+  S = alpha * VTMP
 
   !
   ! Construct orthonormal
   !
 
   DO i = 1, m
-     call pcondrsubr( work(:,1), work(:,6+i-1), ipar )
-     call matvecsubr( work(:,1), work(:,5), ipar )
-     call pcondlsubr( work(:,1), work(:,5), ipar )
+     call pcondrsubr( W, work(:,V_ind+i-1), ipar )
+     call matvecsubr( W, T1V, ipar )
+     call pcondlsubr( W, T1V, ipar )
 
      DO k = 1, i
-	H(k,i) = dotprodfun( ipar(3), work(:,1), 1, work(:,6+k-1), 1 )
-	work(:,1) = work(:,1) - H(k,i) * work(:,6+k-1)
+	H(k,i) = dotprodfun( HUTI_NDIM, W, 1, work(:,V_ind+k-1), 1 )
+	W = W - H(k,i) * work(:,V_ind+k-1)
      END DO
 
-     beta = normfun( ipar(3), work(:,1), 1 )
+     beta = normfun( HUTI_NDIM, W, 1 )
      if ( beta .eq. 0 ) then
-	ipar(30) = 41
+	HUTI_INFO = HUTI_GMRES_BETA
 	go to 1000
      end if
 
      H(i+1,i) = beta
-     work(:,6+i+1-1) = work(:,1) / H(i+1, i)
+     work(:,V_ind+i+1-1) = W / H(i+1, i)
 
      !
      ! Compute the Givens rotation
@@ -349,15 +247,15 @@ subroutine  huti_sgmressolv  ( ndim, wrkdim, xvec, rhsvec, &
 	END IF
      END IF
 
-     temp = CS(i) * work(i,3)
-     work(i+1,3) = -1 * SN(i) * work(i,3)
-     work(i,3) = temp
+     temp = CS(i) * work(i,S_ind)
+     work(i+1,S_ind) = -1 * SN(i) * work(i,S_ind)
+     work(i,S_ind) = temp
 
      H(i,i) = ( CS(i) * H(i,i) ) + ( SN(i) * H(i+1,i) )
      H(i+1,i) = 0
 
-     error = abs( work(i+1,3) ) / bnrm 
-     IF ( REAL( error ) .lt.  dpar(1) ) THEN
+     error = abs( work(i+1,S_ind) ) / bnrm 
+     IF ( REAL( error ) .lt.  HUTI_TOLERANCE ) THEN
 
 	HLU = 0; j = 1
 	do k = 1, i
@@ -367,16 +265,16 @@ subroutine  huti_sgmressolv  ( ndim, wrkdim, xvec, rhsvec, &
 	   end do
 	end do
 
-	call  huti_slusolve  ( i, HLU, Y, work(:,3) )
+	call  huti_slusolve  ( i, HLU, Y, work(:,S_ind) )
 
-	xvec = xvec + MATMUL( work(:,6+1-1:6+i-1), Y(1:i) )
+	X = X + MATMUL( work(:,V_ind+1-1:V_ind+i-1), Y(1:i) )
 
 	EXIT
      END IF
 
   END DO
 
-  IF ( REAL( error ) .lt. dpar(1) ) THEN
+  IF ( REAL( error ) .lt. HUTI_TOLERANCE ) THEN
      GOTO 500
   END IF
 
@@ -388,9 +286,9 @@ subroutine  huti_sgmressolv  ( ndim, wrkdim, xvec, rhsvec, &
      end do
   end do
   
-  call  huti_slusolve  ( m, HLU, Y, work(:,3) )
+  call  huti_slusolve  ( m, HLU, Y, work(:,S_ind) )
 
-  xvec = xvec + MATMUL( work(:,6+1-1:6+m-1), Y(1:m) )
+  X = X + MATMUL( work(:,V_ind+1-1:V_ind+m-1), Y(1:m) )
 
 500 CONTINUE
 
@@ -398,61 +296,61 @@ subroutine  huti_sgmressolv  ( ndim, wrkdim, xvec, rhsvec, &
   ! Check the convergence
   !
 
-  select case (ipar(12))
-  case (0)
-     call pcondrsubr( work(:,5), xvec, ipar )
-     call matvecsubr( work(:,5), work(:,2), ipar )
-     work(:,5) = rhsvec - work(:,2)
-     call pcondlsubr( work(:,2), work(:,5), ipar )
-     residual = normfun( ipar(3), work(:,2), 1 )
-  case (1)
-     call pcondrsubr( work(:,5), xvec, ipar )
-     call matvecsubr( work(:,5), work(:,2), ipar )
-     work(:,5) = rhsvec - work(:,2)
-     call pcondlsubr( work(:,2), work(:,5), ipar )
-     residual = normfun( ipar(3), work(:,2), 1 ) / rhsnorm
-  case (2)
-     call matvecsubr( xvec, work(:,2), ipar )
-     work(:,2) = work(:,2) - rhsvec
-     call pcondlsubr( work(:,5), work(:,2), ipar )
-     residual = normfun( ipar(3), work(:,5), 1 )
-  case (3)
-     call matvecsubr( xvec, work(:,2), ipar )
-     work(:,2) = work(:,2) - rhsvec
-     call pcondlsubr( work(:,5), work(:,2), ipar )
-     residual = normfun( ipar(3), work(:,5), 1 ) / rhsnorm
-  case (4)
-     call matvecsubr( xvec, work(:,2), ipar )
-     work(:,2) = work(:,2) - rhsvec
-     call pcondlsubr( work(:,5), work(:,2), ipar )
-     residual = normfun( ipar(3), work(:,5), 1 ) / precrhsnorm
-  case (5)
-     work(:,5) = MATMUL( work(:,6+1-1:6+m-1), Y(1:m) )
-     residual = normfun( ipar(3), work(:,5), 1 )
-  case (10)
-     residual = stopcfun( xvec, rhsvec, work(:,2), ipar, dpar )
+  select case (HUTI_STOPC)
+  case (HUTI_TRUERESIDUAL)
+     call pcondrsubr( T1V, X, ipar )
+     call matvecsubr( T1V, R, ipar )
+     T1V = B - R
+     call pcondlsubr( R, T1V, ipar )
+     residual = normfun( HUTI_NDIM, R, 1 )
+  case (HUTI_TRESID_SCALED_BYB)
+     call pcondrsubr( T1V, X, ipar )
+     call matvecsubr( T1V, R, ipar )
+     T1V = B - R
+     call pcondlsubr( R, T1V, ipar )
+     residual = normfun( HUTI_NDIM, R, 1 ) / rhsnorm
+  case (HUTI_PSEUDORESIDUAL)
+     call matvecsubr( X, R, ipar )
+     R = R - B
+     call pcondlsubr( T1V, R, ipar )
+     residual = normfun( HUTI_NDIM, T1V, 1 )
+  case (HUTI_PRESID_SCALED_BYB)
+     call matvecsubr( X, R, ipar )
+     R = R - B
+     call pcondlsubr( T1V, R, ipar )
+     residual = normfun( HUTI_NDIM, T1V, 1 ) / rhsnorm
+  case (HUTI_PRESID_SCALED_BYPRECB)
+     call matvecsubr( X, R, ipar )
+     R = R - B
+     call pcondlsubr( T1V, R, ipar )
+     residual = normfun( HUTI_NDIM, T1V, 1 ) / precrhsnorm
+  case (HUTI_XDIFF_NORM)
+     T1V = MATMUL( work(:,V_ind+1-1:V_ind+m-1), Y(1:m) )
+     residual = normfun( HUTI_NDIM, T1V, 1 )
+  case (HUTI_USUPPLIED_STOPC)
+     residual = stopcfun( X, B, R, ipar, dpar )
   case default
-     call pcondrsubr( work(:,5), xvec, ipar )
-     call matvecsubr( work(:,5), work(:,2), ipar )
-     work(:,5) = work(:,2) - rhsvec
-     call pcondlsubr( work(:,2), work(:,5), ipar )
-     residual = normfun( ipar(3), work(:,2), 1 )
+     call pcondrsubr( T1V, X, ipar )
+     call matvecsubr( T1V, R, ipar )
+     T1V = R - B
+     call pcondlsubr( R, T1V, ipar )
+     residual = normfun( HUTI_NDIM, R, 1 )
   end select
      
-  work(m+1,3) = normfun( ipar(3), work(:,2), 1 )
+  work(m+1,S_ind) = normfun( HUTI_NDIM, R, 1 )
 
   !
   ! Print debugging output if desired
   !
 
-  if ( ipar(5) .ne. 0 ) then
-     if ( mod(iter_count, ipar(5)) .eq. 0 ) then
+  if ( HUTI_DBUGLVL .ne. HUTI_NO_DEBUG ) then
+     if ( mod(iter_count, HUTI_DBUGLVL) .eq. 0 ) then
         write (*, '(I8, E11.4)') iter_count, residual
      end if
   end if
 
-  if ( residual .lt. dpar(1) ) then
-     ipar(30) = 1
+  if ( residual .lt. HUTI_TOLERANCE ) then
+     HUTI_INFO = HUTI_CONVERGENCE
      go to 1000
   end if
 
@@ -461,8 +359,8 @@ subroutine  huti_sgmressolv  ( ndim, wrkdim, xvec, rhsvec, &
   !
 
   iter_count = iter_count + 1
-  if ( iter_count .gt. ipar(10) ) then
-     ipar(30) = 2
+  if ( iter_count .gt. HUTI_MAXIT ) then
+     HUTI_INFO = HUTI_MAXITER
      go to 1000
   end if
 
@@ -473,11 +371,11 @@ subroutine  huti_sgmressolv  ( ndim, wrkdim, xvec, rhsvec, &
   !
 
 1000 continue
-  if ( ipar(5) .ne. 0 ) then
+  if ( HUTI_DBUGLVL .ne. HUTI_NO_DEBUG ) then
      write (*, '(I8, E11.4)') iter_count, residual
   end if
 
-  ipar(31) = iter_count
+  HUTI_ITERS = iter_count
   return
 
   ! End of execution

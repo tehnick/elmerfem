@@ -2,7 +2,7 @@
 !
 ! Subroutine to implement BiConjugate Gradient Stabilised (2) iteration
 !
-! $Id: huti_bicgstab_2.src,v 1.2 2005/06/02 14:53:39 vierinen Exp $
+! $Id: huti_bicgstab_2_Z.F90,v 1.5 2005/05/04 09:57:31 vierinen Exp $
 
 
 
@@ -38,128 +38,14 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#include  "huti_fdefs.h" 
 
 !*************************************************************************
 !*************************************************************************
 !
 ! This subroutine is based on a paper by Henk A. Van der Vorst:
-! Parallel Iterative Solution Methods for Linear Systems arising from
-!  Discretized PDEs. This is the Bi-CGSTAB(2) version.
+! "Parallel Iterative Solution Methods for Linear Systems arising from
+!  Discretized PDE's". This is the Bi-CGSTAB(2) version.
 !
 ! All matrix-vector operations are done externally, so we do not need
 ! to know about the matrix structure (sparse or dense). Memory allocation
@@ -181,9 +67,25 @@
 ! like the pseudo code
 !
 
+#define  X  xvec 
+#define  B  rhsvec 
 
-
-
+#define  RTLD  work(:,1) 
+#define  RTLD_ind  1 
+#define  U  work(:,2) 
+#define  U_ind  2 
+#define  T1V  work(:,3) 
+#define  T1V_ind  3 
+#define  V  work(:,4) 
+#define  V_ind  4 
+#define  S  work(:,5) 
+#define  S_ind  5 
+#define  W  work(:,6) 
+#define  W_ind  6 
+#define  T  work(:,7) 
+#define  T_ind  7 
+#define  R  work(:,8) 
+#define  R_ind  8 
   
 !*************************************************************************
 !*************************************************************************
@@ -208,8 +110,8 @@ subroutine  huti_zbicgstab_2solv  ( ndim, wrkdim, xvec, rhsvec, &
 
   integer :: ndim, wrkdim
   double complex, dimension(ndim) :: xvec, rhsvec
-  integer, dimension(50) :: ipar
-  double precision, dimension(10) :: dpar
+  integer, dimension(HUTI_IPAR_DFLTSIZE) :: ipar
+  double precision, dimension(HUTI_DPAR_DFLTSIZE) :: dpar
   double complex, dimension(ndim,wrkdim) :: work
 
   ! Local variables
@@ -226,7 +128,7 @@ subroutine  huti_zbicgstab_2solv  ( ndim, wrkdim, xvec, rhsvec, &
 
   !*********************************************************************
   ! The actual BiCGSTAB begins here (look the pseudo code in the
-  ! Templates...-book, page 27)
+  ! "Templates..."-book, page 27)
   !
   ! First the initialization part
   !
@@ -235,33 +137,33 @@ subroutine  huti_zbicgstab_2solv  ( ndim, wrkdim, xvec, rhsvec, &
 
   ! The following applies for all matrix operations in this solver
 
-  ipar(6) = 0
+  HUTI_EXTOP_MATTYPE = HUTI_MAT_NOTTRPSED
 
   ! Norms of right-hand side vector are used in convergence tests
 
-  if ( ipar(12) .eq. 1 .or. & 
-       ipar(12) .eq. 3 ) then
-     rhsnorm = normfun( ipar(3), rhsvec, 1 )
+  if ( HUTI_STOPC .eq. HUTI_TRESID_SCALED_BYB .or. & 
+       HUTI_STOPC .eq. HUTI_PRESID_SCALED_BYB ) then
+     rhsnorm = normfun( HUTI_NDIM, B, 1 )
   end if
-  if ( ipar(12) .eq. 4 ) then
-     call pcondlsubr( work(:,3), rhsvec, ipar )
-     precrhsnorm = normfun( ipar(3), work(:,3), 1 )
-  end if
-
-  ! Generate vector xvec if needed
-
-  if ( ipar(14) .eq. 0 ) then
-     call  huti_zrandvec   ( xvec, ipar )
-  else if ( ipar(14) .ne. 1 ) then
-     xvec = 1
+  if ( HUTI_STOPC .eq. HUTI_PRESID_SCALED_BYPRECB ) then
+     call pcondlsubr( T1V, B, ipar )
+     precrhsnorm = normfun( HUTI_NDIM, T1V, 1 )
   end if
 
-  call pcondrsubr( work(:,2), xvec, ipar )
-  call matvecsubr( work(:,2), work(:,8), ipar )
-  work(:,2) = rhsvec - work(:,8)
-  call pcondlsubr( work(:,8), work(:,2), ipar )
-  work(:,1) = work(:,8)
-  work(:,2) = 0
+  ! Generate vector X if needed
+
+  if ( HUTI_INITIALX .eq. HUTI_RANDOMX ) then
+     call  huti_zrandvec   ( X, ipar )
+  else if ( HUTI_INITIALX .ne. HUTI_USERSUPPLIEDX ) then
+     X = 1
+  end if
+
+  call pcondrsubr( U, X, ipar )
+  call matvecsubr( U, R, ipar )
+  U = B - R
+  call pcondlsubr( R, U, ipar )
+  RTLD = R
+  U = 0
   oldrho = 1; omega2 = 1; alpha = 0
 
   !
@@ -277,133 +179,133 @@ subroutine  huti_zbicgstab_2solv  ( ndim, wrkdim, xvec, rhsvec, &
   ! This is the even BiCG step
   !
 
-  rho = dotprodfun( ipar(3), work(:,1), 1, work(:,8), 1 )
+  rho = dotprodfun( HUTI_NDIM, RTLD, 1, R, 1 )
   if ( rho .eq. 0 ) then
-     ipar(30) = 45
+     HUTI_INFO = HUTI_BICGSTAB_2_RHO
      go to 1000
   end if
 
   beta = ( rho * alpha ) / oldrho
   oldrho = rho
-  work(:,2) = work(:,8) - beta * work(:,2)
+  U = R - beta * U
 
-  call pcondrsubr( work(:,4), work(:,2), ipar )
-  call matvecsubr( work(:,4), work(:,3), ipar )
-  call pcondlsubr( work(:,4), work(:,3), ipar )
+  call pcondrsubr( V, U, ipar )
+  call matvecsubr( V, T1V, ipar )
+  call pcondlsubr( V, T1V, ipar )
 
-  alpha = oldrho / dotprodfun( ipar(3), work(:,1), 1, work(:,4), 1 )
-  work(:,8) = work(:,8) - alpha * work(:,4)
+  alpha = oldrho / dotprodfun( HUTI_NDIM, RTLD, 1, V, 1 )
+  R = R - alpha * V
 
-  call pcondrsubr( work(:,5), work(:,8), ipar )
-  call matvecsubr( work(:,5), work(:,3), ipar )
-  call pcondlsubr( work(:,5), work(:,3), ipar )
+  call pcondrsubr( S, R, ipar )
+  call matvecsubr( S, T1V, ipar )
+  call pcondlsubr( S, T1V, ipar )
 
-  xvec = xvec + alpha * work(:,2)
+  X = X + alpha * U
 
   !
   ! This is the odd BiCG step
   !
 
-  rho = dotprodfun( ipar(3), work(:,1), 1, work(:,5), 1 )
+  rho = dotprodfun( HUTI_NDIM, RTLD, 1, S, 1 )
   if ( rho .eq. 0 ) then
-     ipar(30) = 45
+     HUTI_INFO = HUTI_BICGSTAB_2_RHO
      go to 1000
   end if
 
   beta = ( rho * alpha ) / oldrho
   oldrho = rho
-  work(:,4) = work(:,5) - beta * work(:,4)
+  V = S - beta * V
 
-  call pcondrsubr( work(:,6), work(:,4), ipar )
-  call matvecsubr( work(:,6), work(:,3), ipar )
-  call pcondlsubr( work(:,6), work(:,3), ipar )
+  call pcondrsubr( W, V, ipar )
+  call matvecsubr( W, T1V, ipar )
+  call pcondlsubr( W, T1V, ipar )
 
-  alpha = oldrho / dotprodfun( ipar(3), work(:,1), 1, work(:,6), 1 )
-  work(:,2) = work(:,8) - beta * work(:,2)
-  work(:,8) = work(:,8) - alpha * work(:,4)
-  work(:,5) = work(:,5) - alpha * work(:,6)
+  alpha = oldrho / dotprodfun( HUTI_NDIM, RTLD, 1, W, 1 )
+  U = R - beta * U
+  R = R - alpha * V
+  S = S - alpha * W
 
-  call pcondrsubr( work(:,7), work(:,5), ipar )
-  call matvecsubr( work(:,7), work(:,3), ipar )
-  call pcondlsubr( work(:,7), work(:,3), ipar )
+  call pcondrsubr( T, S, ipar )
+  call matvecsubr( T, T1V, ipar )
+  call pcondlsubr( T, T1V, ipar )
 
   !
   ! This is the GCR(2) part
   !
 
-  omega1 = dotprodfun( ipar(3), work(:,8), 1, work(:,5), 1 )
-  myy = dotprodfun( ipar(3), work(:,5), 1, work(:,5), 1 )
-  delta = dotprodfun( ipar(3), work(:,5), 1, work(:,7), 1 )
-  tau = dotprodfun( ipar(3), work(:,7), 1, work(:,7), 1 )
-  omega2 = dotprodfun( ipar(3), work(:,8), 1, work(:,7), 1 )
+  omega1 = dotprodfun( HUTI_NDIM, R, 1, S, 1 )
+  myy = dotprodfun( HUTI_NDIM, S, 1, S, 1 )
+  delta = dotprodfun( HUTI_NDIM, S, 1, T, 1 )
+  tau = dotprodfun( HUTI_NDIM, T, 1, T, 1 )
+  omega2 = dotprodfun( HUTI_NDIM, R, 1, T, 1 )
 
   tau = tau - ( delta * delta ) / myy
   omega2 = ( omega2 - ( delta * omega1 ) / myy ) / tau
   omega1 = ( omega1 - delta * omega2 ) / myy
 
-  xvec = xvec + omega1 * work(:,8) + omega2 * work(:,5) + alpha * work(:,2)
-  work(:,8) = work(:,8) - omega1 * work(:,5) - omega2 * work(:,7)
+  X = X + omega1 * R + omega2 * S + alpha * U
+  R = R - omega1 * S - omega2 * T
 
   !
   ! Check the convergence against selected stopping criterion
   !
 
-  select case (ipar(12))
-  case (0)
-     call pcondrsubr( work(:,5), xvec, ipar )
-     call matvecsubr( work(:,5), work(:,3), ipar )
-     work(:,3) = work(:,3) - rhsvec
-     call pcondlsubr( work(:,5), work(:,3), ipar )
-     residual = normfun( ipar(3), work(:,5), 1 )
-  case (1)
-     call pcondrsubr( work(:,5), xvec, ipar )
-     call matvecsubr( work(:,5), work(:,3), ipar )
-     work(:,3) = work(:,3) - rhsvec
-     call pcondlsubr( work(:,5), work(:,3), ipar )
-     residual = normfun( ipar(3), work(:,5), 1 ) / rhsnorm
-  case (2)
-     residual = normfun( ipar(3), work(:,8), 1 )
-  case (3)
-     residual = normfun( ipar(3), work(:,8), 1 ) / rhsnorm
-  case (4)
-     residual = normfun( ipar(3), work(:,8), 1 ) / precrhsnorm
-  case (5)
-     work(:,3) = omega1 * work(:,8) + omega2 * work(:,5) + alpha * work(:,2)
-     residual = normfun( ipar(3), work(:,3), 1 )
-  case (10)
-     residual = stopcfun( xvec, rhsvec, work(:,8), ipar, dpar )
+  select case (HUTI_STOPC)
+  case (HUTI_TRUERESIDUAL)
+     call pcondrsubr( S, X, ipar )
+     call matvecsubr( S, T1V, ipar )
+     T1V = T1V - B
+     call pcondlsubr( S, T1V, ipar )
+     residual = normfun( HUTI_NDIM, S, 1 )
+  case (HUTI_TRESID_SCALED_BYB)
+     call pcondrsubr( S, X, ipar )
+     call matvecsubr( S, T1V, ipar )
+     T1V = T1V - B
+     call pcondlsubr( S, T1V, ipar )
+     residual = normfun( HUTI_NDIM, S, 1 ) / rhsnorm
+  case (HUTI_PSEUDORESIDUAL)
+     residual = normfun( HUTI_NDIM, R, 1 )
+  case (HUTI_PRESID_SCALED_BYB)
+     residual = normfun( HUTI_NDIM, R, 1 ) / rhsnorm
+  case (HUTI_PRESID_SCALED_BYPRECB)
+     residual = normfun( HUTI_NDIM, R, 1 ) / precrhsnorm
+  case (HUTI_XDIFF_NORM)
+     T1V = omega1 * R + omega2 * S + alpha * U
+     residual = normfun( HUTI_NDIM, T1V, 1 )
+  case (HUTI_USUPPLIED_STOPC)
+     residual = stopcfun( X, B, R, ipar, dpar )
   case default
-     call pcondrsubr( work(:,5), xvec, ipar )
-     call matvecsubr( work(:,5), work(:,3), ipar )
-     work(:,3) = work(:,3) - rhsvec
-     call pcondlsubr( work(:,5), work(:,3), ipar )
-     residual = normfun( ipar(3), work(:,5), 1 )
+     call pcondrsubr( S, X, ipar )
+     call matvecsubr( S, T1V, ipar )
+     T1V = T1V - B
+     call pcondlsubr( S, T1V, ipar )
+     residual = normfun( HUTI_NDIM, S, 1 )
   end select
 
   !
   ! Print debugging output if desired
   !
 
-  if ( ipar(5) .ne. 0 ) then
-     if ( mod(iter_count, ipar(5)) .eq. 0 ) then
+  if ( HUTI_DBUGLVL .ne. HUTI_NO_DEBUG ) then
+     if ( mod(iter_count, HUTI_DBUGLVL) .eq. 0 ) then
         write (*, '(I8, E11.4)') iter_count, residual
      end if
   end if
 
-  if ( residual .lt. dpar(1) ) then
-     ipar(30) = 1
+  if ( residual .lt. HUTI_TOLERANCE ) then
+     HUTI_INFO = HUTI_CONVERGENCE
      go to 1000
   end if
 
-  work(:,2) = work(:,2) - omega1 * work(:,4) - omega2 * work(:,6)
+  U = U - omega1 * V - omega2 * W
 
   !
   ! Return back to the iteration loop (without initialization)
   !
 
   iter_count = iter_count + 1
-  if ( iter_count .gt. ipar(10) ) then
-     ipar(30) = 2
+  if ( iter_count .gt. HUTI_MAXIT ) then
+     HUTI_INFO = HUTI_MAXITER
      go to 1000
   end if
 
@@ -414,11 +316,11 @@ subroutine  huti_zbicgstab_2solv  ( ndim, wrkdim, xvec, rhsvec, &
   !
 
 1000 continue
-  if ( ipar(5) .ne. 0 ) then
+  if ( HUTI_DBUGLVL .ne. HUTI_NO_DEBUG ) then
      write (*, '(I8, E11.4)') iter_count, residual
   end if
 
-  ipar(31) = iter_count
+  HUTI_ITERS = iter_count
   return
 
   ! End of execution

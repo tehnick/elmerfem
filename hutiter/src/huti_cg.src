@@ -5,14 +5,14 @@
 ! $Id: huti_cg.src,v 1.1.1.1 2005/04/15 10:31:18 vierinen Exp $
 
 #include "huti_intdefs.h"
-#include "huti_fdefs.h" 
+MAKE_INCLUDE(#,include, "huti_fdefs.h" )
 
 !*************************************************************************
 !*************************************************************************
 !
 ! These subroutines are based on a book by Barret et al.:
-! Templates for the Solution of Linear Systems: Building Blocks for
-!  Iterative Methods, 1993.
+! "Templates for the Solution of Linear Systems: Building Blocks for
+!  Iterative Methods", 1993.
 !
 ! All matrix-vector operations are done externally, so we do not need
 ! to know about the matrix structure (sparse or dense). So has the
@@ -29,17 +29,17 @@
 ! like the pseudo code (these are commond to all precisions)
 !
 
-#define X xvec 
-#define B rhsvec 
+MAKE_DEFINE(#,define, X, xvec )
+MAKE_DEFINE(#,define, B, rhsvec )
 
-#define Z work(:,1) 
-#define Z_ind 1 
-#define P work(:,2) 
-#define P_ind 2 
-#define Q work(:,3)
-#define Q_ind 3 
-#define R work(:,4) 
-#define R_ind 4 
+MAKE_DEFINE(#,define, Z, work(:,1) )
+MAKE_DEFINE(#,define, Z_ind, 1 )
+MAKE_DEFINE(#,define, P, work(:,2) )
+MAKE_DEFINE(#,define, P_ind, 2 )
+MAKE_DEFINE(#,define, Q, work(:,3) )
+MAKE_DEFINE(#,define, Q_ind, 3 )
+MAKE_DEFINE(#,define, R, work(:,4) )
+MAKE_DEFINE(#,define, R_ind, 4 )
 !*************************************************************************
   
 !*************************************************************************
@@ -81,7 +81,7 @@ subroutine MAKE_SUBRN( huti_,cgsolv ) ( ndim, wrkdim, xvec, rhsvec, &
 
   !*********************************************************************
   ! The actual CG begins here (look the pseudo code in the
-  ! Templates...-book, page 15)
+  ! "Templates..."-book, page 15)
   !
   ! First the initialization part
   !

@@ -2,7 +2,7 @@
 !
 ! Subroutines to implement Conjugate Gradient Squared iteration
 !
-! $Id: huti_cgs.src,v 1.2 2005/06/02 14:53:40 vierinen Exp $
+! $Id: huti_cgs_Z.F90,v 1.5 2005/05/04 09:57:38 vierinen Exp $
 
 
 
@@ -38,128 +38,14 @@
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+#include  "huti_fdefs.h" 
 
 !*************************************************************************
 !*************************************************************************
 !
 ! This subroutine is based on a book by Barret et al.:
-! Templates for the Solution of Linear Systems: Building Blocks for
-!  Iterative Methods, 1993.
+! "Templates for the Solution of Linear Systems: Building Blocks for
+!  Iterative Methods", 1993.
 !
 ! All matrix-vector operations are done externally, so we do not need
 ! to know about the matrix structure (sparse or dense). Memory allocation
@@ -180,9 +66,23 @@
 ! like the pseudo code
 !
 
+#define  X  xvec 
+#define  B  rhsvec 
 
-
-
+#define  RTLD  work(:,1) 
+#define  RTLD_ind  1 
+#define  P  work(:,2) 
+#define  P_ind  2 
+#define  Q  work(:,3) 
+#define  Q_ind  3 
+#define  U  work(:,4) 
+#define  U_ind  4 
+#define  T1V  work(:,5) 
+#define  T1V_ind  5 
+#define  T2V  work(:,6) 
+#define  T2V_ind  6 
+#define  R  work(:,7) 
+#define  R_ind  7 
   
 !*************************************************************************
 !*************************************************************************
@@ -207,8 +107,8 @@ subroutine  huti_zcgssolv  ( ndim, wrkdim, xvec, rhsvec, ipar,&
 
   integer :: ndim, wrkdim
   double complex, dimension(ndim) :: xvec, rhsvec
-  integer, dimension(50) :: ipar
-  double precision, dimension(10) :: dpar
+  integer, dimension(HUTI_IPAR_DFLTSIZE) :: ipar
+  double precision, dimension(HUTI_DPAR_DFLTSIZE) :: dpar
   double complex, dimension(ndim,wrkdim) :: work
 
   ! Local variables
@@ -224,7 +124,7 @@ subroutine  huti_zcgssolv  ( ndim, wrkdim, xvec, rhsvec, ipar,&
 
   !*********************************************************************
   ! The actual CGS begins here (look the pseudo code in the
-  ! Templates...-book, page 26)
+  ! "Templates..."-book, page 26)
   !
   ! First the initialization part
   !
@@ -233,30 +133,30 @@ subroutine  huti_zcgssolv  ( ndim, wrkdim, xvec, rhsvec, ipar,&
 
   ! The following applies for all matrix operations in this solver
 
-  ipar(6) = 0
+  HUTI_EXTOP_MATTYPE = HUTI_MAT_NOTTRPSED
 
   ! Norms of right-hand side vector are used in convergence tests
 
-  if ( ipar(12) .eq. 1 .or. & 
-       ipar(12) .eq. 3 ) then
-     rhsnorm = normfun( ipar(3), rhsvec, 1 )
+  if ( HUTI_STOPC .eq. HUTI_TRESID_SCALED_BYB .or. & 
+       HUTI_STOPC .eq. HUTI_PRESID_SCALED_BYB ) then
+     rhsnorm = normfun( HUTI_NDIM, B, 1 )
   end if
-  if ( ipar(12) .eq. 4 ) then
-     call pcondlsubr( work(:,2), rhsvec, ipar )
-     precrhsnorm = normfun( ipar(3), work(:,2), 1 )
-  end if
-
-  ! Generate vector xvec if needed
-
-  if ( ipar(14) .eq. 0 ) then
-     call  huti_zrandvec   ( xvec, ipar )
-  else if ( ipar(14) .ne. 1 ) then
-     xvec = 1
+  if ( HUTI_STOPC .eq. HUTI_PRESID_SCALED_BYPRECB ) then
+     call pcondlsubr( P, B, ipar )
+     precrhsnorm = normfun( HUTI_NDIM, P, 1 )
   end if
 
-  call matvecsubr( xvec, work(:,7), ipar )
-  work(:,7) = rhsvec - work(:,7)
-  work(:,1) = work(:,7)
+  ! Generate vector X if needed
+
+  if ( HUTI_INITIALX .eq. HUTI_RANDOMX ) then
+     call  huti_zrandvec   ( X, ipar )
+  else if ( HUTI_INITIALX .ne. HUTI_USERSUPPLIEDX ) then
+     X = 1
+  end if
+
+  call matvecsubr( X, R, ipar )
+  R = B - R
+  RTLD = R
 
   !
   ! This is where the loop starts (that is we continue from here after
@@ -265,80 +165,80 @@ subroutine  huti_zcgssolv  ( ndim, wrkdim, xvec, rhsvec, ipar,&
 
 300 continue
 
-  rho = dotprodfun( ipar(3), work(:,1), 1, work(:,7), 1 )
+  rho = dotprodfun( HUTI_NDIM, RTLD, 1, R, 1 )
   if ( rho .eq. 0 ) then
-     ipar(30) = 25
+     HUTI_INFO = HUTI_CGS_RHO
      go to 1000
   end if
 
   if ( iter_count .eq. 1 ) then
-     work(:,4) = work(:,7)
-     work(:,2) = work(:,4)
+     U = R
+     P = U
   else
      beta = rho / oldrho
-     work(:,4) = work(:,7) + beta * work(:,3)
-     work(:,2) = work(:,4) + beta * work(:,3) + beta * beta * work(:,2)
+     U = R + beta * Q
+     P = U + beta * Q + beta * beta * P
   end if
 
-  call pcondlsubr( work(:,6), work(:,2), ipar )
-  call pcondrsubr( work(:,5), work(:,6), ipar )
+  call pcondlsubr( T2V, P, ipar )
+  call pcondrsubr( T1V, T2V, ipar )
 
-  call matvecsubr( work(:,5), work(:,6), ipar )
+  call matvecsubr( T1V, T2V, ipar )
 
-  alpha = rho / dotprodfun( ipar(3), work(:,1), 1, work(:,6), 1 )
-  work(:,3) = work(:,4) - alpha * work(:,6)
+  alpha = rho / dotprodfun( HUTI_NDIM, RTLD, 1, T2V, 1 )
+  Q = U - alpha * T2V
 
-  work(:,6) = work(:,4) + work(:,3)
+  T2V = U + Q
 
-  call pcondlsubr( work(:,4), work(:,6), ipar )
-  call pcondrsubr( work(:,5), work(:,4), ipar )
-  xvec = xvec + alpha * work(:,5)
+  call pcondlsubr( U, T2V, ipar )
+  call pcondrsubr( T1V, U, ipar )
+  X = X + alpha * T1V
 
-  call matvecsubr( work(:,5), work(:,6), ipar )
-  work(:,7) = work(:,7) - alpha * work(:,6)
+  call matvecsubr( T1V, T2V, ipar )
+  R = R - alpha * T2V
 
   !
   ! Check the convergence against selected stopping criterion
   !
 
-  select case (ipar(12))
-  case (0)
-     call matvecsubr( xvec, work(:,5), ipar )
-     work(:,5) = work(:,5) - rhsvec
-     residual = normfun( ipar(3), work(:,5), 1 )
-  case (1)
-     call matvecsubr( xvec, work(:,5), ipar )
-     work(:,5) = work(:,5) - rhsvec
-     residual = normfun( ipar(3), work(:,5), 1 ) / rhsnorm
-  case (2)
-     residual = normfun( ipar(3), work(:,7), 1 )
-  case (3)
-     residual = normfun( ipar(3), work(:,7), 1 ) / rhsnorm
-  case (4)
-     residual = normfun( ipar(3), work(:,7), 1 ) / precrhsnorm
-  case (5)
-     work(:,5) = alpha * work(:,5)
-     residual = normfun( ipar(3), work(:,5), 1 )
-  case (10)
-     residual = stopcfun( xvec, rhsvec, work(:,7), ipar, dpar )
+  select case (HUTI_STOPC)
+  case (HUTI_TRUERESIDUAL)
+     call matvecsubr( X, T1V, ipar )
+     T1V = T1V - B
+     residual = normfun( HUTI_NDIM, T1V, 1 )
+  case (HUTI_TRESID_SCALED_BYB)
+     call matvecsubr( X, T1V, ipar )
+     T1V = T1V - B
+     residual = normfun( HUTI_NDIM, T1V, 1 ) / rhsnorm
+  case (HUTI_PSEUDORESIDUAL)
+     residual = normfun( HUTI_NDIM, R, 1 )
+  case (HUTI_PRESID_SCALED_BYB)
+     residual = normfun( HUTI_NDIM, R, 1 ) / rhsnorm
+  case (HUTI_PRESID_SCALED_BYPRECB)
+     residual = normfun( HUTI_NDIM, R, 1 ) / precrhsnorm
+  case (HUTI_XDIFF_NORM)
+     T1V = alpha * T1V
+     residual = normfun( HUTI_NDIM, T1V, 1 )
+  case (HUTI_USUPPLIED_STOPC)
+     residual = stopcfun( X, B, R, ipar, dpar )
   case default
-     call matvecsubr( xvec, work(:,5), ipar )
-     work(:,5) = work(:,5) - rhsvec
-     residual = normfun( ipar(3), work(:,5), 1 )
+     call matvecsubr( X, T1V, ipar )
+     T1V = T1V - B
+     residual = normfun( HUTI_NDIM, T1V, 1 )
   end select
 
   !
   ! Print debugging output if desired
   !
 
-  if ( ipar(5) .ne. 0 ) then
-     if ( mod(iter_count, ipar(5)) .eq. 0 ) then
+  if ( HUTI_DBUGLVL .ne. HUTI_NO_DEBUG ) then
+     if ( mod(iter_count, HUTI_DBUGLVL) .eq. 0 ) then
         write (*, '(I8, E11.4)') iter_count, residual
      end if
   end if
 
-  if ( residual .lt. dpar(1) ) then
-     ipar(30) = 1
+  if ( residual .lt. HUTI_TOLERANCE ) then
+     HUTI_INFO = HUTI_CONVERGENCE
      go to 1000
   end if
 
@@ -349,8 +249,8 @@ subroutine  huti_zcgssolv  ( ndim, wrkdim, xvec, rhsvec, ipar,&
   !
 
   iter_count = iter_count + 1
-  if ( iter_count .gt. ipar(10) ) then
-     ipar(30) = 2
+  if ( iter_count .gt. HUTI_MAXIT ) then
+     HUTI_INFO = HUTI_MAXITER
      go to 1000
   end if
 
@@ -361,11 +261,11 @@ subroutine  huti_zcgssolv  ( ndim, wrkdim, xvec, rhsvec, ipar,&
   !
 
 1000 continue
-  if ( ipar(5) .ne. 0 ) then
+  if ( HUTI_DBUGLVL .ne. HUTI_NO_DEBUG ) then
      write (*, '(I8, E11.4)') iter_count, residual
   end if
 
-  ipar(31) = iter_count
+  HUTI_ITERS = iter_count
   return
 
   ! End of execution

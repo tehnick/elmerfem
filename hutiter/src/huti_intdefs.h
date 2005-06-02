@@ -2,12 +2,15 @@
 /*
  Internal definitions for HUTIter library
 
- $Id: huti_intdefs.h,v 1.3 2005/06/02 14:53:41 vierinen Exp $
+ $Id: huti_intdefs.h,v 1.2 2005/04/19 08:28:32 vierinen Exp $
 */
 
 #define AUTOC "!!! This file is generated automatically, do not edit !!!"
 
 #define _CONCAT(x,y)x/**/y
+
+#define MAKE_INCLUDE(nsign,inc,incfile)nsign/**/inc incfile
+#define MAKE_DEFINE(nsign,def,dname,dvalue)nsign/**/def dname dvalue
 
 # ifdef S_PRE
 #  define PRECISIONC s
