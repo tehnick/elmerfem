@@ -3,7 +3,8 @@
 # Always compile into tmp
 #
 
-EPREFIX=/tmp/$USER/elmer
+EPREFIX="/tmp/${USER}/elmer"
+printf "build dest ${EPREFIX}"
 modules="umfpack matc mathlibs eio hutiter fem"
 
 #
