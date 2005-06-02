@@ -37,8 +37,9 @@ libsolver$(SHL_EXT): $(SOLVEROBJS) arpack parpack
 	$(RM) $@
 	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) -L.
 
+# create shared solver objects
 .$(OBJEXT).$(SHLEXT): 
-	$(SH_LD) $(SH_LDFLAGS) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) -o $@ $*$(OBJ_EXT) -L. -lsolver $(EXTRA_LIBS)
+	$(SH_LD) $(SH_LDFLAGS) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) -o $@ $*$(OBJ_EXT) $(EXTRA_LIBS)
 
 $(BINARIES) $(BINARIES_ODD): libsolver$(SHL_EXT)
 
