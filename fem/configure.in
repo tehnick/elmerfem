@@ -54,8 +54,8 @@ fi
 LIBS="-L. $LIBS -L$prefix/lib"
 LDFLAGS="-L. $LDFLAGS -L$prefix/lib"
 CFLAGS="$CFLAGS -I$prefix/include"
-FCFLAGS="$FCFLAGS -I. -I$prefix/include"
-FFFLAGS="$FCFLAGS -I. -I$prefix/include"
+FCFLAGS="$FCFLAGS -I."
+FFLAGS="$FCFLAGS -I."
 ELMER_HOME="$prefix"
 FCPPFLAGS="-P $TRADITIONAL_CPP_FLAGS -I. -I$prefix/include -DDLLEXPORT=\"!\" -DFULL_INDUCTION -DUSE_ARPACK"
 TESTS_FCFLAGS=""
@@ -132,7 +132,7 @@ case "$canonical_host_type" in
   ;;
 esac
 
-TESTS_FCFLAGS="$INCLUDE_MODULE_FLAG. $TESTS_FCFLAGS"
+TESTS_FCFLAGS="$TESTS_FCFLAGS $INCLUDE_MODULE_FLAG."
 
 CP='cp'
 RM='rm -f'
@@ -205,8 +205,8 @@ AC_SUBST(MKDIR)
 AC_SUBST(SOLVER_LIBS)
 AC_SUBST(LIBS)
 AC_SUBST(FCFLAGS)
-AC_DEFINE(ELMER_HOME,$ELMER_HOME,[The configured home directory for elmer.])
 
+AC_DEFINE_UNQUOTED(ELMER_SOLVER_HOME,"${prefix}/share/elmersolver", [Elmer solver default install directory])
 AC_CONFIG_HEADER(config.h)
 
 # runtests needs to be runnable

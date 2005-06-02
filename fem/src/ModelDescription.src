@@ -769,16 +769,25 @@ CONTAINS
 !
 !         First time in, read the SOLVER.KEYWORDS database, and
 !         build up a local hash table for it:
+! 
+!         Priority is in ELMER_LIB, ELMER_HOME, and finally, if all else fails
+!         use the compilation time prefix.
 !         ------------------------------------------------------
+#include "../config.h"
+
           str = 'ELMER_LIB'; str(10:10) = CHAR(0)
           CALL envir( str,str1,k ) 
 
           IF ( k > 0  ) THEN
             str1 = str1(1:k) // '/SOLVER.KEYWORDS'
           ELSE
-            str = 'ELMER_HOME'; str(11:11) = CHAR(0)
-            CALL envir( str,str1,k ) 
-            str1 = str1(1:k) // '/lib/' // 'SOLVER.KEYWORDS'
+             str = 'ELMER_HOME'; str(11:11) = CHAR(0)
+             CALL envir( str,str1,k ) 
+             IF ( k > 0 ) THEN
+                str1 = str1(1:k) // '/share/elmersolver/lib/' // 'SOLVER.KEYWORDS'
+             ELSE
+                str1 = ELMER_SOLVER_HOME // '/share/elmersolver/lib' // 'SOLVER_KEYWORDS'
+             END IF
           END IF
           OPEN( 1, FILE=TRIM(str1), STATUS='OLD', ERR=10 )
 

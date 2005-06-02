@@ -22,11 +22,11 @@
 /* Detected platform. */
 /* #undef DEC_ALPHA */
 
-/* The configured home directory for elmer. */
-#define ELMER_HOME $ELMER_HOME
-
 /* "Mangling: lower case */
 #define ELMER_LINKTYP 4
+
+/* Elmer solver default install directory */
+#define ELMER_SOLVER_HOME "/home/vierinen//share/elmersolver"
 
 /* Define if using dynamic linking */
 #define ENABLE_DYNAMIC_LINKING 1

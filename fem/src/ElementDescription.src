@@ -35,6 +35,9 @@
 ! *
 ! *
 ! * $Log: ElementDescription.src,v $
+! * Revision 1.2  2005/05/26 12:33:10  jpr
+! * Removed explicit DLLEXPORT definitions
+! *
 ! * Revision 1.1  2005/05/26 08:24:12  vierinen
 ! * moved .f90 to .src because .f90 is needed for preprosessed files
 ! *
@@ -77,7 +80,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: ElementDescription.src,v 1.1 2005/05/26 08:24:12 vierinen Exp $
+! * $Id: ElementDescription.src,v 1.2 2005/05/26 12:33:10 jpr Exp $
 ! ******************************************************************************/
 
 MODULE ElementDescription
@@ -476,11 +479,13 @@ CONTAINS
       ELSE
         str = 'ELMER_HOME'; str(11:11) = CHAR(0)
         CALL envir( str,elmer_home,k ) 
+        
+#include "../config.h"
 
         IF ( k > 0 ) THEN
-          WRITE( str, '(a,a)' ) elmer_home(1:k),'/lib/elements.def'
+           WRITE( str, '(a,a)' ) elmer_home(1:k),'/share/elmersolver/lib/elements.def'
         ELSE
-          WRITE( str, '(a)' )   'lib/elements.def'
+           WRITE( str, '(a,a)' )   ELMER_SOLVER_HOME,'/share/elmersolver/lib/elements.def'
         END IF
       END IF
 

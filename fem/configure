@@ -714,6 +714,7 @@ MATC_LIBS
 SH_LDFLAGS
 SH_LD
 TESTS_FCFLAGS
+INCLUDE_MODULE_FLAG
 MESHGEN2D_LIBS
 FPICFLAG
 CPICFLAG
@@ -9794,6 +9795,12 @@ case "$canonical_host_type" in
       INCLUDE_MODULE_FLAG="-M"
     fi
   ;;
+  *darwin*)
+    #absoft
+    if test "$FC" = "f90"; then
+      INCLUDE_MODULE_FLAG="-p"
+    fi
+  ;;
 esac
 
 
@@ -9834,7 +9841,7 @@ case "$canonical_host_type" in
     SH_LDFLAGS="-shared"
   ;;
   *-*-darwin*)
-    SH_LDFLAGS='-dynamiclib -single_module $(LDFLAGS)'
+    SH_LDFLAGS='-dynamiclib -undefined dynamic_lookup -single_module $(LDFLAGS)'
   ;;
   *-*-cygwin* | *-*-mingw*)
        SHLEXT=dll
@@ -10741,8 +10748,8 @@ fi
 LIBS="-L. $LIBS -L$prefix/lib"
 LDFLAGS="-L. $LDFLAGS -L$prefix/lib"
 CFLAGS="$CFLAGS -I$prefix/include"
-FCFLAGS="$FCFLAGS -I. -I$prefix/include"
-FFFLAGS="$FCFLAGS -I. -I$prefix/include"
+FCFLAGS="$FCFLAGS -I."
+FFLAGS="$FCFLAGS -I."
 ELMER_HOME="$prefix"
 FCPPFLAGS="-P $TRADITIONAL_CPP_FLAGS -I. -I$prefix/include -DDLLEXPORT=\"!\" -DFULL_INDUCTION -DUSE_ARPACK"
 TESTS_FCFLAGS=""
@@ -14645,7 +14652,7 @@ case "$canonical_host_type" in
   ;;
 esac
 
-TESTS_FCFLAGS="$INCLUDE_MODULE_FLAG. $INCLUDE_MODULE_FLAG../../src $INCLUDE_MODULE_FLAG$prefix/include $TESTS_FCFLAGS"
+TESTS_FCFLAGS="$TESTS_FCFLAGS $INCLUDE_MODULE_FLAG."
 
 CP='cp'
 RM='rm -f'
@@ -14743,10 +14750,11 @@ echo "${ECHO_T}defining LIBSOLVER_DEPS to be $LIBSOLVER_DEPS" >&6; }
 
 
 
-cat >>confdefs.h <<\_ACEOF
-#define ELMER_HOME $ELMER_HOME
-_ACEOF
 
+
+cat >>confdefs.h <<_ACEOF
+#define ELMER_SOLVER_HOME "${prefix}/share/elmersolver"
+_ACEOF
 
           ac_config_headers="$ac_config_headers config.h"
 
@@ -15566,6 +15574,7 @@ s,@MATC_LIBS@,$MATC_LIBS,;t t
 s,@SH_LDFLAGS@,$SH_LDFLAGS,;t t
 s,@SH_LD@,$SH_LD,;t t
 s,@TESTS_FCFLAGS@,$TESTS_FCFLAGS,;t t
+s,@INCLUDE_MODULE_FLAG@,$INCLUDE_MODULE_FLAG,;t t
 s,@MESHGEN2D_LIBS@,$MESHGEN2D_LIBS,;t t
 s,@FPICFLAG@,$FPICFLAG,;t t
 s,@CPICFLAG@,$CPICFLAG,;t t

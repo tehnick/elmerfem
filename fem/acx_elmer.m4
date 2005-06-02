@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.45 2005/06/01 07:20:28 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.46 2005/06/01 11:16:09 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1045,6 +1045,12 @@ case "$canonical_host_type" in
   sparc-sun-solaris2* | i386-pc-solaris2*)
     if test "$ac_cv_fc_compiler_gnu" != yes; then
       INCLUDE_MODULE_FLAG="-M"
+    fi
+  ;;
+  *darwin*)
+    #absoft
+    if test "$FC" = "f90"; then
+      INCLUDE_MODULE_FLAG="-p"
     fi
   ;;
 esac
