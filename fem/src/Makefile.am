@@ -182,6 +182,7 @@ EXTRA_DIST = \
 	RadiationFactors.src \
 	RateOfChange.src \
 	ReloadInput.src \
+	ResultOutputSolve.src \
 	ResultToPost.src \
 	ResultToResult.src \
 	ReynoldsEquation.src \
