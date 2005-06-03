@@ -1,4 +1,5 @@
 SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
+!DEC$ATTRIBUTES DLLEXPORT :: PoissonSolver
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -53,24 +54,27 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
        ScalarFieldName, VectorFieldName, TensorFieldName, CompName
   CHARACTER(LEN=1024) :: Txt2, Txt3
 
-  INTEGER :: PyramidMap(14,4)
+  INTEGER :: PyramidMap613(14,4), PyramidMap605(2,4)
 
   SAVE AllocationsDone, FirstTimeStep
 !------------------------------------------------------------------------------
-  PyramidMap(1,:)  = (/ 7, 8, 3, 12 /)
-  PyramidMap(2,:)  = (/ 10, 11, 12, 5 /)
-  PyramidMap(3,:)  = (/ 10, 13, 12, 5 /)
-  PyramidMap(4,:)  = (/ 9, 10, 13, 11 /)
-  PyramidMap(5,:)  = (/ 9, 13, 11, 12 /)
-  PyramidMap(6,:)  = (/ 9, 10, 11, 1 /)
-  PyramidMap(7,:)  = (/ 9, 6, 11, 1 /)
-  PyramidMap(8,:)  = (/ 9, 6, 11, 12 /)
-  PyramidMap(9,:)  = (/ 9, 8, 12, 4 /)
-  PyramidMap(10,:) = (/ 9, 13, 12, 4 /)
-  PyramidMap(11,:) = (/ 7, 9, 8, 12 /)
-  PyramidMap(12,:) = (/ 7, 9, 6, 12 /)
-  PyramidMap(13,:) = (/ 7, 6, 11, 12 /)
-  PyramidMap(14,:) = (/ 7, 6, 11, 2 /)
+  PyramidMap605(1,:) = (/ 3, 5, 4, 1 /)
+  PyramidMap605(2,:) = (/ 3, 5, 2, 1 /)
+
+  PyramidMap613(1,:)  = (/ 7, 8, 3, 12 /)
+  PyramidMap613(2,:)  = (/ 10, 11, 12, 5 /)
+  PyramidMap613(3,:)  = (/ 10, 13, 12, 5 /)
+  PyramidMap613(4,:)  = (/ 9, 10, 13, 11 /)
+  PyramidMap613(5,:)  = (/ 9, 13, 11, 12 /)
+  PyramidMap613(6,:)  = (/ 9, 10, 11, 1 /)
+  PyramidMap613(7,:)  = (/ 9, 6, 11, 1 /)
+  PyramidMap613(8,:)  = (/ 9, 6, 11, 12 /)
+  PyramidMap613(9,:)  = (/ 9, 8, 12, 4 /)
+  PyramidMap613(10,:) = (/ 9, 13, 12, 4 /)
+  PyramidMap613(11,:) = (/ 7, 9, 8, 12 /)
+  PyramidMap613(12,:) = (/ 7, 9, 6, 12 /)
+  PyramidMap613(13,:) = (/ 7, 6, 11, 12 /)
+  PyramidMap613(14,:) = (/ 7, 6, 11, 2 /)
 
   SolverParams => GetSolverParams()
   EigenAnalysis = GetLogical( SolverParams, 'Eigen Analysis', Found )
@@ -160,15 +164,26 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
         Code = Element % Type % ElementCode
         IF( Code /= i ) CYCLE
         body_id = Element % BodyId
+
         IF( Code == 613 ) THEN
            ! 13 noded pyramids will be splitted into 14 linear tetraheda
+           !------------------------------------------------------------
            DO m = 1,14
               ElementCounter = ElementCounter + 1
               WRITE(10,'(100I10)') ElementCounter, &
-                   Element % NodeIndexes(PyramidMap(m,:)), body_id
+                   Element % NodeIndexes(PyramidMap613(m,:)), body_id
            END DO
+        ELSEIF( Code == 605 ) THEN
+           ! 5 noded pyramids will be splitted into 2 linear tetraheda
+           !----------------------------------------------------------
+           DO m = 1,2
+              ElementCounter = ElementCounter + 1
+              WRITE(10,'(100I10)') ElementCounter, &
+                   Element % NodeIndexes(PyramidMap605(m,:)), body_id
+           END DO           
         ELSE
-           ! Standard elements for GiD
+           ! Standard elements understood by GiD as such
+           !--------------------------------------------
            ElementCounter = ElementCounter + 1 
            WRITE(10,'(100I10)') ElementCounter, Element % NodeIndexes, body_id
         END IF
