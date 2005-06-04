@@ -1069,28 +1069,18 @@ if test -n "$ac_prev"; then
 fi
 
 # Be sure to have absolute directory names.
-for ac_var in exec_prefix prefix
+for ac_var in	exec_prefix prefix bindir sbindir libexecdir datarootdir \
+		datadir sysconfdir sharedstatedir localstatedir includedir \
+		oldincludedir docdir infodir htmldir dvidir pdfdir psdir \
+		libdir localedir mandir
 do
   eval ac_val=$`echo $ac_var`
   case $ac_val in
-    [\\/$]* | ?:[\\/]* | NONE | '' ) ;;
-    *)  { echo "$as_me: error: expected an absolute directory name for --$ac_var: $ac_val" >&2
-   { (exit 1); exit 1; }; };;
+    [\\/$]* | ?:[\\/]* )  continue;;
+    NONE | '' ) case $ac_var in *prefix ) continue;; esac;;
   esac
-done
-
-# Be sure to have absolute directory names.
-for ac_var in bindir sbindir libexecdir datarootdir datadir sysconfdir \
-              sharedstatedir localstatedir includedir oldincludedir \
-              docdir infodir htmldir dvidir pdfdir psdir libdir \
-              localedir mandir
-do
-  eval ac_val=$`echo $ac_var`
-  case $ac_val in
-    [\\/$]* | ?:[\\/]* ) ;;
-    *)  { echo "$as_me: error: expected an absolute directory name for --$ac_var: $ac_val" >&2
-   { (exit 1); exit 1; }; };;
-  esac
+  { echo "$as_me: error: expected an absolute directory name for --$ac_var: $ac_val" >&2
+   { (exit 1); exit 1; }; }
 done
 
 # There might be people who depend on the old broken behavior: `$host'
@@ -1257,9 +1247,6 @@ Configuration:
   -n, --no-create         do not create output files
       --srcdir=DIR        find the sources in DIR [configure dir or \`..']
 
-_ACEOF
-
-  cat <<_ACEOF
 Installation directories:
   --prefix=PREFIX         install architecture-independent files in PREFIX
 			  [$ac_default_prefix]
@@ -1351,68 +1338,37 @@ if test "$ac_init_help" = "recursive"; then
     test -d $ac_dir || continue
     ac_builddir=.
 
-if test "$ac_dir" != .; then
+case "$ac_dir" in
+.) ac_dir_suffix= ac_top_builddir_sub=. ac_top_build_prefix= ;;
+*)
   ac_dir_suffix=/`echo "$ac_dir" | sed 's,^\.[\\/],,'`
-  # A "../" for each directory in $ac_dir_suffix.
-  ac_top_builddir=`echo "$ac_dir_suffix" | sed 's,/[^\\/]*,../,g'`
-else
-  ac_dir_suffix= ac_top_builddir=
-fi
+  # A ".." for each directory in $ac_dir_suffix.
+  ac_top_builddir_sub=`echo "$ac_dir_suffix" | sed 's,/[^\\/]*,/..,g;s,/,,'`
+  case $ac_top_builddir_sub in
+  "") ac_top_builddir_sub=. ac_top_build_prefix= ;;
+  *)  ac_top_build_prefix=$ac_top_builddir_sub/ ;;
+  esac ;;
+esac
+ac_abs_top_builddir=$ac_pwd
+ac_abs_builddir=$ac_pwd$ac_dir_suffix
+# for backward compatibility:
+ac_top_builddir=$ac_top_build_prefix
 
 case $srcdir in
   .)  # No --srcdir option.  We are building in place.
     ac_srcdir=.
-    if test -z "$ac_top_builddir"; then
-       ac_top_srcdir=.
-    else
-       ac_top_srcdir=`echo $ac_top_builddir | sed 's,/$,,'`
-    fi ;;
+    ac_top_srcdir=$ac_top_builddir_sub
+    ac_abs_top_srcdir=$ac_pwd ;;
   [\\/]* | ?:[\\/]* )  # Absolute name.
     ac_srcdir=$srcdir$ac_dir_suffix;
-    ac_top_srcdir=$srcdir ;;
+    ac_top_srcdir=$srcdir
+    ac_abs_top_srcdir=$srcdir ;;
   *) # Relative name.
-    ac_srcdir=$ac_top_builddir$srcdir$ac_dir_suffix
-    ac_top_srcdir=$ac_top_builddir$srcdir ;;
+    ac_srcdir=$ac_top_build_prefix$srcdir$ac_dir_suffix
+    ac_top_srcdir=$ac_top_build_prefix$srcdir
+    ac_abs_top_srcdir=$ac_pwd/$srcdir ;;
 esac
-
-# Do not use `cd foo && pwd` to compute absolute names, because
-# the directories may not exist.
-case $ac_pwd in
-.) ac_abs_builddir="$ac_dir";;
-*)
-  case "$ac_dir" in
-  .) ac_abs_builddir=$ac_pwd;;
-  [\\/]* | ?:[\\/]* ) ac_abs_builddir="$ac_dir";;
-  *) ac_abs_builddir=$ac_pwd/"$ac_dir";;
-  esac;;
-esac
-case $ac_abs_builddir in
-.) ac_abs_top_builddir=${ac_top_builddir}.;;
-*)
-  case ${ac_top_builddir}. in
-  .) ac_abs_top_builddir=$ac_abs_builddir;;
-  [\\/]* | ?:[\\/]* ) ac_abs_top_builddir=${ac_top_builddir}.;;
-  *) ac_abs_top_builddir=$ac_abs_builddir/${ac_top_builddir}.;;
-  esac;;
-esac
-case $ac_abs_builddir in
-.) ac_abs_srcdir=$ac_srcdir;;
-*)
-  case $ac_srcdir in
-  .) ac_abs_srcdir=$ac_abs_builddir;;
-  [\\/]* | ?:[\\/]* ) ac_abs_srcdir=$ac_srcdir;;
-  *) ac_abs_srcdir=$ac_abs_builddir/$ac_srcdir;;
-  esac;;
-esac
-case $ac_abs_builddir in
-.) ac_abs_top_srcdir=$ac_top_srcdir;;
-*)
-  case $ac_top_srcdir in
-  .) ac_abs_top_srcdir=$ac_abs_builddir;;
-  [\\/]* | ?:[\\/]* ) ac_abs_top_srcdir=$ac_top_srcdir;;
-  *) ac_abs_top_srcdir=$ac_abs_builddir/$ac_top_srcdir;;
-  esac;;
-esac
+ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
 
     cd $ac_dir || { ac_status=$?; continue; }
     # Check for guested configure; otherwise get Cygnus style configure.
@@ -1637,10 +1593,6 @@ ac_signal=0
 
 # confdefs.h avoids OS command line length limits that DEFS can exceed.
 rm -f -r conftest* confdefs.h
-# AIX cpp loses on an empty file, so make sure it contains at least a newline.
-# NextStep 3.3 (patch 3) loses unless the first echo outputs at least 14 bytes.
-ac_space=' '
-echo "$ac_space$ac_space$ac_space$ac_space$ac_space$ac_space$ac_space$ac_space$ac_space$ac_space$ac_space$ac_space$ac_space" >confdefs.h
 
 # Predefined preprocessor variables.
 
@@ -1833,9 +1785,9 @@ fi
 echo "$as_me:$LINENO: result: $ac_cv_build" >&5
 echo "${ECHO_T}$ac_cv_build" >&6
 build=$ac_cv_build
-build_cpu=`echo $ac_cv_build | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\1/'`
-build_vendor=`echo $ac_cv_build | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\2/'`
-build_os=`echo $ac_cv_build | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\3/'`
+build_cpu=`expr "X$ac_cv_build" : 'X\([^-]*\)'`
+build_vendor=`expr "X$ac_cv_build" : 'X[^-]*-\([^-]*\)'`
+build_os=`expr "X$ac_cv_build" : 'X[^-]*-[^-]*-\(.*\)'`
 
 
 echo "$as_me:$LINENO: checking host system type" >&5
@@ -1855,9 +1807,9 @@ fi
 echo "$as_me:$LINENO: result: $ac_cv_host" >&5
 echo "${ECHO_T}$ac_cv_host" >&6
 host=$ac_cv_host
-host_cpu=`echo $ac_cv_host | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\1/'`
-host_vendor=`echo $ac_cv_host | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\2/'`
-host_os=`echo $ac_cv_host | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\3/'`
+host_cpu=`expr "X$ac_cv_host" : 'X\([^-]*\)'`
+host_vendor=`expr "X$ac_cv_host" : 'X[^-]*-\([^-]*\)'`
+host_os=`expr "X$ac_cv_host" : 'X[^-]*-[^-]*-\(.*\)'`
 
 
 echo "$as_me:$LINENO: checking target system type" >&5
@@ -1877,9 +1829,9 @@ fi
 echo "$as_me:$LINENO: result: $ac_cv_target" >&5
 echo "${ECHO_T}$ac_cv_target" >&6
 target=$ac_cv_target
-target_cpu=`echo $ac_cv_target | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\1/'`
-target_vendor=`echo $ac_cv_target | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\2/'`
-target_os=`echo $ac_cv_target | sed 's/^\([^-]*\)-\([^-]*\)-\(.*\)$/\3/'`
+target_cpu=`expr "X$ac_cv_target" : 'X\([^-]*\)'`
+target_vendor=`expr "X$ac_cv_target" : 'X[^-]*-\([^-]*\)'`
+target_os=`expr "X$ac_cv_target" : 'X[^-]*-[^-]*-\(.*\)'`
 
 
 # The aliases save the names the user supplied, while $host etc.
@@ -2539,7 +2491,7 @@ ac_compile='$F77 -c $FFLAGS conftest.$ac_ext >&5'
 ac_link='$F77 -o conftest$ac_exeext $FFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_f77_compiler_gnu
 if test -n "$ac_tool_prefix"; then
-  for ac_prog in g77 f77 xlf frt pgf77 cf77 fort77 fl32 af77 f90 xlf90 pgf90 pghpf epcf90 f95 fort xlf95 ifort ifc efc pgf95 lf95 gfortran ftn
+  for ac_prog in xlf pathf90 ifort f77 g77
   do
     # Extract the first word of "$ac_tool_prefix$ac_prog", so it can be a program name with args.
 set dummy $ac_tool_prefix$ac_prog; ac_word=$2
@@ -2581,7 +2533,7 @@ fi
 fi
 if test -z "$F77"; then
   ac_ct_F77=$F77
-  for ac_prog in g77 f77 xlf frt pgf77 cf77 fort77 fl32 af77 f90 xlf90 pgf90 pghpf epcf90 f95 fort xlf95 ifort ifc efc pgf95 lf95 gfortran ftn
+  for ac_prog in xlf pathf90 ifort f77 g77
 do
   # Extract the first word of "$ac_prog", so it can be a program name with args.
 set dummy $ac_prog; ac_word=$2
@@ -2638,7 +2590,7 @@ fi
 
 
 # Provide some information about the compiler.
-echo "$as_me:2641:" \
+echo "$as_me:2593:" \
      "checking for Fortran 77 compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
@@ -5436,9 +5388,10 @@ for ac_i in : $LIBOBJS; do test "x$ac_i" = x: && continue
   # 1. Remove the extension, and $U if already installed.
   ac_script='s/\$U\././;s/\.o$//;s/\.obj$//'
   ac_i=`echo "$ac_i" | sed "$ac_script"`
-  # 2. Add them.
-  ac_libobjs="$ac_libobjs $ac_i\$U.$ac_objext"
-  ac_ltlibobjs="$ac_ltlibobjs $ac_i"'$U.lo'
+  # 2. Prepend LIBOBJDIR.  When used with automake>=1.10 LIBOBJDIR
+  #    will be set to the directory where LIBOBJS objects are built.
+  ac_libobjs="$ac_libobjs \${LIBOBJDIR}$ac_i\$U.$ac_objext"
+  ac_ltlibobjs="$ac_ltlibobjs \${LIBOBJDIR}$ac_i"'$U.lo'
 done
 LIBOBJS=$ac_libobjs
 
@@ -5817,8 +5770,8 @@ while test $# != 0
 do
   case $1 in
   --*=*)
-    ac_option=`expr "x$1" : 'x\([^=]*\)='`
-    ac_optarg=`expr "x$1" : 'x[^=]*=\(.*\)'`
+    ac_option=`expr "X$1" : 'X\([^=]*\)='`
+    ac_optarg=`expr "X$1" : 'X[^=]*=\(.*\)'`
     ac_shift=:
     ;;
   -*)
@@ -5838,7 +5791,7 @@ _ACEOF
 cat >>$CONFIG_STATUS <<\_ACEOF
   -recheck | --recheck | --rechec | --reche | --rech | --rec | --re | --r)
     ac_cs_recheck=: ;;
-  --version | --vers* | -V )
+  --version | --versio | --versi | --vers | --ver | --ve | --v | -V )
     echo "$ac_cs_version"; exit ;;
   --he | --h)
     # Conflict between --help and --header
@@ -5849,7 +5802,7 @@ Try \`$0 --help' for more information." >&2;}
    { (exit 1); exit 1; }; };;
   --help | --hel | -h )
     echo "$ac_cs_usage"; exit ;;
-  --debug | --d* | -d )
+  --debug | --debu | --deb | --de | --d | -d )
     debug=: ;;
   --file | --fil | --fi | --f )
     $ac_shift
@@ -6118,13 +6071,14 @@ for ac_file in : $CONFIG_FILES; do test "x$ac_file" = x: && continue
   # Support "outfile[:infile[:infile...]]", defaulting infile="outfile.in".
   case $ac_file in
   - | *:- | *:-:* ) # input from stdin
-	cat >"$tmp/stdin"
-	ac_file_in=`echo "$ac_file" | sed 's,[^:]*:,,'`
-	ac_file=`echo "$ac_file" | sed 's,:.*,,'` ;;
-  *:* ) ac_file_in=`echo "$ac_file" | sed 's,[^:]*:,,'`
-	ac_file=`echo "$ac_file" | sed 's,:.*,,'` ;;
-  * )   ac_file_in=$ac_file.in ;;
+	cat >"$tmp/stdin" ;;
   esac
+  case $ac_file in
+  *:*)		ac_file_in=`expr "X$ac_file" : 'X[^:]*:\(.*\)'`
+	ac_file=`expr "X$ac_file" : 'X\([^:]*\)'` ;;
+  -)	ac_file_in=- ;;
+  *)	ac_file_in=$ac_file.in ;;
+esac
 
   # Compute @srcdir@, @top_srcdir@, and @INSTALL@ for subdirectories.
   ac_dir=`(dirname "$ac_file") 2>/dev/null ||
@@ -6166,73 +6120,42 @@ echo "$as_me: error: cannot create directory \"$ac_dir\"" >&2;}
 
   ac_builddir=.
 
-if test "$ac_dir" != .; then
+case "$ac_dir" in
+.) ac_dir_suffix= ac_top_builddir_sub=. ac_top_build_prefix= ;;
+*)
   ac_dir_suffix=/`echo "$ac_dir" | sed 's,^\.[\\/],,'`
-  # A "../" for each directory in $ac_dir_suffix.
-  ac_top_builddir=`echo "$ac_dir_suffix" | sed 's,/[^\\/]*,../,g'`
-else
-  ac_dir_suffix= ac_top_builddir=
-fi
+  # A ".." for each directory in $ac_dir_suffix.
+  ac_top_builddir_sub=`echo "$ac_dir_suffix" | sed 's,/[^\\/]*,/..,g;s,/,,'`
+  case $ac_top_builddir_sub in
+  "") ac_top_builddir_sub=. ac_top_build_prefix= ;;
+  *)  ac_top_build_prefix=$ac_top_builddir_sub/ ;;
+  esac ;;
+esac
+ac_abs_top_builddir=$ac_pwd
+ac_abs_builddir=$ac_pwd$ac_dir_suffix
+# for backward compatibility:
+ac_top_builddir=$ac_top_build_prefix
 
 case $srcdir in
   .)  # No --srcdir option.  We are building in place.
     ac_srcdir=.
-    if test -z "$ac_top_builddir"; then
-       ac_top_srcdir=.
-    else
-       ac_top_srcdir=`echo $ac_top_builddir | sed 's,/$,,'`
-    fi ;;
+    ac_top_srcdir=$ac_top_builddir_sub
+    ac_abs_top_srcdir=$ac_pwd ;;
   [\\/]* | ?:[\\/]* )  # Absolute name.
     ac_srcdir=$srcdir$ac_dir_suffix;
-    ac_top_srcdir=$srcdir ;;
+    ac_top_srcdir=$srcdir
+    ac_abs_top_srcdir=$srcdir ;;
   *) # Relative name.
-    ac_srcdir=$ac_top_builddir$srcdir$ac_dir_suffix
-    ac_top_srcdir=$ac_top_builddir$srcdir ;;
+    ac_srcdir=$ac_top_build_prefix$srcdir$ac_dir_suffix
+    ac_top_srcdir=$ac_top_build_prefix$srcdir
+    ac_abs_top_srcdir=$ac_pwd/$srcdir ;;
 esac
-
-# Do not use `cd foo && pwd` to compute absolute names, because
-# the directories may not exist.
-case $ac_pwd in
-.) ac_abs_builddir="$ac_dir";;
-*)
-  case "$ac_dir" in
-  .) ac_abs_builddir=$ac_pwd;;
-  [\\/]* | ?:[\\/]* ) ac_abs_builddir="$ac_dir";;
-  *) ac_abs_builddir=$ac_pwd/"$ac_dir";;
-  esac;;
-esac
-case $ac_abs_builddir in
-.) ac_abs_top_builddir=${ac_top_builddir}.;;
-*)
-  case ${ac_top_builddir}. in
-  .) ac_abs_top_builddir=$ac_abs_builddir;;
-  [\\/]* | ?:[\\/]* ) ac_abs_top_builddir=${ac_top_builddir}.;;
-  *) ac_abs_top_builddir=$ac_abs_builddir/${ac_top_builddir}.;;
-  esac;;
-esac
-case $ac_abs_builddir in
-.) ac_abs_srcdir=$ac_srcdir;;
-*)
-  case $ac_srcdir in
-  .) ac_abs_srcdir=$ac_abs_builddir;;
-  [\\/]* | ?:[\\/]* ) ac_abs_srcdir=$ac_srcdir;;
-  *) ac_abs_srcdir=$ac_abs_builddir/$ac_srcdir;;
-  esac;;
-esac
-case $ac_abs_builddir in
-.) ac_abs_top_srcdir=$ac_top_srcdir;;
-*)
-  case $ac_top_srcdir in
-  .) ac_abs_top_srcdir=$ac_abs_builddir;;
-  [\\/]* | ?:[\\/]* ) ac_abs_top_srcdir=$ac_top_srcdir;;
-  *) ac_abs_top_srcdir=$ac_abs_builddir/$ac_top_srcdir;;
-  esac;;
-esac
+ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
 
 
   case $INSTALL in
   [\\/$]* | ?:[\\/]* ) ac_INSTALL=$INSTALL ;;
-  *) ac_INSTALL=$ac_top_builddir$INSTALL ;;
+  *) ac_INSTALL=$ac_top_build_prefix$INSTALL ;;
   esac
 
   if test x"$ac_file" != x-; then
@@ -6293,7 +6216,7 @@ s|@top_srcdir@|$ac_top_srcdir|;t t
 s|@abs_top_srcdir@|$ac_abs_top_srcdir|;t t
 s|@builddir@|$ac_builddir|;t t
 s|@abs_builddir@|$ac_abs_builddir|;t t
-s|@top_builddir@|$ac_top_builddir|;t t
+s|@top_builddir@|$ac_top_builddir_sub|;t t
 s|@abs_top_builddir@|$ac_abs_top_builddir|;t t
 s,@INSTALL@,$ac_INSTALL,;t t
 " $ac_file_inputs | (eval "$ac_sed_cmds") >"$tmp/out"
@@ -6313,8 +6236,11 @@ cat >>$CONFIG_STATUS <<\_ACEOF
 # CONFIG_COMMANDS section.
 #
 for ac_file in : $CONFIG_COMMANDS; do test "x$ac_file" = x: && continue
-  ac_dest=`echo "$ac_file" | sed 's,:.*,,'`
-  ac_source=`echo "$ac_file" | sed 's,[^:]*:,,'`
+  case $ac_file in
+  *:*)		ac_source=`expr "X$ac_file" : 'X[^:]*:\(.*\)'`
+	ac_dest=`expr "X$ac_file" : 'X\([^:]*\)'` ;;
+  *)	ac_dest=$ac_file ac_source=$ac_file ;;
+esac
   ac_dir=`(dirname "$ac_dest") 2>/dev/null ||
 $as_expr X"$ac_dest" : 'X\(.*[^/]\)//*[^/][^/]*/*$' \| \
 	 X"$ac_dest" : 'X\(//\)[^/]' \| \
@@ -6354,68 +6280,37 @@ echo "$as_me: error: cannot create directory \"$ac_dir\"" >&2;}
 
   ac_builddir=.
 
-if test "$ac_dir" != .; then
+case "$ac_dir" in
+.) ac_dir_suffix= ac_top_builddir_sub=. ac_top_build_prefix= ;;
+*)
   ac_dir_suffix=/`echo "$ac_dir" | sed 's,^\.[\\/],,'`
-  # A "../" for each directory in $ac_dir_suffix.
-  ac_top_builddir=`echo "$ac_dir_suffix" | sed 's,/[^\\/]*,../,g'`
-else
-  ac_dir_suffix= ac_top_builddir=
-fi
+  # A ".." for each directory in $ac_dir_suffix.
+  ac_top_builddir_sub=`echo "$ac_dir_suffix" | sed 's,/[^\\/]*,/..,g;s,/,,'`
+  case $ac_top_builddir_sub in
+  "") ac_top_builddir_sub=. ac_top_build_prefix= ;;
+  *)  ac_top_build_prefix=$ac_top_builddir_sub/ ;;
+  esac ;;
+esac
+ac_abs_top_builddir=$ac_pwd
+ac_abs_builddir=$ac_pwd$ac_dir_suffix
+# for backward compatibility:
+ac_top_builddir=$ac_top_build_prefix
 
 case $srcdir in
   .)  # No --srcdir option.  We are building in place.
     ac_srcdir=.
-    if test -z "$ac_top_builddir"; then
-       ac_top_srcdir=.
-    else
-       ac_top_srcdir=`echo $ac_top_builddir | sed 's,/$,,'`
-    fi ;;
+    ac_top_srcdir=$ac_top_builddir_sub
+    ac_abs_top_srcdir=$ac_pwd ;;
   [\\/]* | ?:[\\/]* )  # Absolute name.
     ac_srcdir=$srcdir$ac_dir_suffix;
-    ac_top_srcdir=$srcdir ;;
+    ac_top_srcdir=$srcdir
+    ac_abs_top_srcdir=$srcdir ;;
   *) # Relative name.
-    ac_srcdir=$ac_top_builddir$srcdir$ac_dir_suffix
-    ac_top_srcdir=$ac_top_builddir$srcdir ;;
+    ac_srcdir=$ac_top_build_prefix$srcdir$ac_dir_suffix
+    ac_top_srcdir=$ac_top_build_prefix$srcdir
+    ac_abs_top_srcdir=$ac_pwd/$srcdir ;;
 esac
-
-# Do not use `cd foo && pwd` to compute absolute names, because
-# the directories may not exist.
-case $ac_pwd in
-.) ac_abs_builddir="$ac_dir";;
-*)
-  case "$ac_dir" in
-  .) ac_abs_builddir=$ac_pwd;;
-  [\\/]* | ?:[\\/]* ) ac_abs_builddir="$ac_dir";;
-  *) ac_abs_builddir=$ac_pwd/"$ac_dir";;
-  esac;;
-esac
-case $ac_abs_builddir in
-.) ac_abs_top_builddir=${ac_top_builddir}.;;
-*)
-  case ${ac_top_builddir}. in
-  .) ac_abs_top_builddir=$ac_abs_builddir;;
-  [\\/]* | ?:[\\/]* ) ac_abs_top_builddir=${ac_top_builddir}.;;
-  *) ac_abs_top_builddir=$ac_abs_builddir/${ac_top_builddir}.;;
-  esac;;
-esac
-case $ac_abs_builddir in
-.) ac_abs_srcdir=$ac_srcdir;;
-*)
-  case $ac_srcdir in
-  .) ac_abs_srcdir=$ac_abs_builddir;;
-  [\\/]* | ?:[\\/]* ) ac_abs_srcdir=$ac_srcdir;;
-  *) ac_abs_srcdir=$ac_abs_builddir/$ac_srcdir;;
-  esac;;
-esac
-case $ac_abs_builddir in
-.) ac_abs_top_srcdir=$ac_top_srcdir;;
-*)
-  case $ac_top_srcdir in
-  .) ac_abs_top_srcdir=$ac_abs_builddir;;
-  [\\/]* | ?:[\\/]* ) ac_abs_top_srcdir=$ac_top_srcdir;;
-  *) ac_abs_top_srcdir=$ac_abs_builddir/$ac_top_srcdir;;
-  esac;;
-esac
+ac_abs_srcdir=$ac_abs_top_srcdir$ac_dir_suffix
 
 
   { echo "$as_me:$LINENO: executing $ac_dest commands" >&5
