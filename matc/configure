@@ -1133,9 +1133,13 @@ else
   ac_srcdir_defaulted=no
 fi
 if test ! -r $srcdir/$ac_unique_file; then
-  test "$ac_srcdir_defaulted" = yes && srcdir="$ac_confdir or .."
-  { echo "$as_me: error: cannot find sources ($ac_unique_file) in $srcdir" >&2
+  if test "$ac_srcdir_defaulted" = yes; then
+    { echo "$as_me: error: cannot find sources ($ac_unique_file) in $ac_confdir or .." >&2
    { (exit 1); exit 1; }; }
+  else
+    { echo "$as_me: error: cannot find sources ($ac_unique_file) in $srcdir" >&2
+   { (exit 1); exit 1; }; }
+  fi
 fi
 (cd $srcdir && test -r ./$ac_unique_file) 2>/dev/null ||
   { echo "$as_me: error: sources are in $srcdir, but \`cd $srcdir' does not work" >&2
@@ -1753,8 +1757,8 @@ $ac_config_sub sun4 >/dev/null 2>&1 ||
 echo "$as_me: error: cannot run $ac_config_sub" >&2;}
    { (exit 1); exit 1; }; }
 
-{ echo "$as_me:$LINENO: checking build system type" >&5
-echo $ECHO_N "checking build system type... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking build system type" >&5
+echo $ECHO_N "checking build system type... $ECHO_C" >&6
 if test "${ac_cv_build+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -1771,16 +1775,16 @@ echo "$as_me: error: $ac_config_sub $ac_cv_build_alias failed" >&2;}
    { (exit 1); exit 1; }; }
 
 fi
-{ echo "$as_me:$LINENO: result: $ac_cv_build" >&5
-echo "${ECHO_T}$ac_cv_build" >&6; }
+echo "$as_me:$LINENO: result: $ac_cv_build" >&5
+echo "${ECHO_T}$ac_cv_build" >&6
 build=$ac_cv_build
 build_cpu=`expr "X$ac_cv_build" : 'X\([^-]*\)'`
 build_vendor=`expr "X$ac_cv_build" : 'X[^-]*-\([^-]*\)'`
 build_os=`expr "X$ac_cv_build" : 'X[^-]*-[^-]*-\(.*\)'`
 
 
-{ echo "$as_me:$LINENO: checking host system type" >&5
-echo $ECHO_N "checking host system type... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking host system type" >&5
+echo $ECHO_N "checking host system type... $ECHO_C" >&6
 if test "${ac_cv_host+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -1793,16 +1797,16 @@ echo "$as_me: error: $ac_config_sub $ac_cv_host_alias failed" >&2;}
    { (exit 1); exit 1; }; }
 
 fi
-{ echo "$as_me:$LINENO: result: $ac_cv_host" >&5
-echo "${ECHO_T}$ac_cv_host" >&6; }
+echo "$as_me:$LINENO: result: $ac_cv_host" >&5
+echo "${ECHO_T}$ac_cv_host" >&6
 host=$ac_cv_host
 host_cpu=`expr "X$ac_cv_host" : 'X\([^-]*\)'`
 host_vendor=`expr "X$ac_cv_host" : 'X[^-]*-\([^-]*\)'`
 host_os=`expr "X$ac_cv_host" : 'X[^-]*-[^-]*-\(.*\)'`
 
 
-{ echo "$as_me:$LINENO: checking target system type" >&5
-echo $ECHO_N "checking target system type... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking target system type" >&5
+echo $ECHO_N "checking target system type... $ECHO_C" >&6
 if test "${ac_cv_target+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -1815,8 +1819,8 @@ echo "$as_me: error: $ac_config_sub $ac_cv_target_alias failed" >&2;}
    { (exit 1); exit 1; }; }
 
 fi
-{ echo "$as_me:$LINENO: result: $ac_cv_target" >&5
-echo "${ECHO_T}$ac_cv_target" >&6; }
+echo "$as_me:$LINENO: result: $ac_cv_target" >&5
+echo "${ECHO_T}$ac_cv_target" >&6
 target=$ac_cv_target
 target_cpu=`expr "X$ac_cv_target" : 'X\([^-]*\)'`
 target_vendor=`expr "X$ac_cv_target" : 'X[^-]*-\([^-]*\)'`
@@ -1844,8 +1848,8 @@ am__api_version="1.9"
 # SVR4 /usr/ucb/install, which tries to use the nonexistent group "staff"
 # OS/2's system install, which has a completely different semantic
 # ./install, which can be erroneously created by make from ./install.sh.
-{ echo "$as_me:$LINENO: checking for a BSD-compatible install" >&5
-echo $ECHO_N "checking for a BSD-compatible install... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for a BSD-compatible install" >&5
+echo $ECHO_N "checking for a BSD-compatible install... $ECHO_C" >&6
 if test -z "$INSTALL"; then
 if test "${ac_cv_path_install+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
@@ -1899,8 +1903,8 @@ fi
     INSTALL=$ac_install_sh
   fi
 fi
-{ echo "$as_me:$LINENO: result: $INSTALL" >&5
-echo "${ECHO_T}$INSTALL" >&6; }
+echo "$as_me:$LINENO: result: $INSTALL" >&5
+echo "${ECHO_T}$INSTALL" >&6
 
 # Use test -z because SunOS4 sh mishandles braces in ${var-val}.
 # It thinks the first close brace ends the variable substitution.
@@ -1910,8 +1914,8 @@ test -z "$INSTALL_SCRIPT" && INSTALL_SCRIPT='${INSTALL}'
 
 test -z "$INSTALL_DATA" && INSTALL_DATA='${INSTALL} -m 644'
 
-{ echo "$as_me:$LINENO: checking whether build environment is sane" >&5
-echo $ECHO_N "checking whether build environment is sane... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking whether build environment is sane" >&5
+echo $ECHO_N "checking whether build environment is sane... $ECHO_C" >&6
 # Just in case
 sleep 1
 echo timestamp > conftest.file
@@ -1953,8 +1957,8 @@ echo "$as_me: error: newly created file is older than distributed files!
 Check your system clock" >&2;}
    { (exit 1); exit 1; }; }
 fi
-{ echo "$as_me:$LINENO: result: yes" >&5
-echo "${ECHO_T}yes" >&6; }
+echo "$as_me:$LINENO: result: yes" >&5
+echo "${ECHO_T}yes" >&6
 test "$program_prefix" != NONE &&
   program_transform_name="s|^|$program_prefix|;$program_transform_name"
 # Use a double $ so make ignores it.
@@ -2018,8 +2022,8 @@ for ac_prog in gawk mawk nawk awk
 do
   # Extract the first word of "$ac_prog", so it can be a program name with args.
 set dummy $ac_prog; ac_word=$2
-{ echo "$as_me:$LINENO: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
 if test "${ac_cv_prog_AWK+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -2044,18 +2048,18 @@ fi
 fi
 AWK=$ac_cv_prog_AWK
 if test -n "$AWK"; then
-  { echo "$as_me:$LINENO: result: $AWK" >&5
-echo "${ECHO_T}$AWK" >&6; }
+  echo "$as_me:$LINENO: result: $AWK" >&5
+echo "${ECHO_T}$AWK" >&6
 else
-  { echo "$as_me:$LINENO: result: no" >&5
-echo "${ECHO_T}no" >&6; }
+  echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
 fi
 
   test -n "$AWK" && break
 done
 
-{ echo "$as_me:$LINENO: checking whether ${MAKE-make} sets \$(MAKE)" >&5
-echo $ECHO_N "checking whether ${MAKE-make} sets \$(MAKE)... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking whether ${MAKE-make} sets \$(MAKE)" >&5
+echo $ECHO_N "checking whether ${MAKE-make} sets \$(MAKE)... $ECHO_C" >&6
 set dummy ${MAKE-make}; ac_make=`echo "$2" | sed 'y,:./+-,___p_,'`
 if eval "test \"\${ac_cv_prog_make_${ac_make}_set+set}\" = set"; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
@@ -2075,12 +2079,12 @@ fi
 rm -f conftest.make
 fi
 if eval "test \"`echo '$ac_cv_prog_make_'${ac_make}_set`\" = yes"; then
-  { echo "$as_me:$LINENO: result: yes" >&5
-echo "${ECHO_T}yes" >&6; }
+  echo "$as_me:$LINENO: result: yes" >&5
+echo "${ECHO_T}yes" >&6
   SET_MAKE=
 else
-  { echo "$as_me:$LINENO: result: no" >&5
-echo "${ECHO_T}no" >&6; }
+  echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
   SET_MAKE="MAKE=${MAKE-make}"
 fi
 
@@ -2151,8 +2155,8 @@ if test "$cross_compiling" != no; then
   if test -n "$ac_tool_prefix"; then
   # Extract the first word of "${ac_tool_prefix}strip", so it can be a program name with args.
 set dummy ${ac_tool_prefix}strip; ac_word=$2
-{ echo "$as_me:$LINENO: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
 if test "${ac_cv_prog_STRIP+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -2177,11 +2181,11 @@ fi
 fi
 STRIP=$ac_cv_prog_STRIP
 if test -n "$STRIP"; then
-  { echo "$as_me:$LINENO: result: $STRIP" >&5
-echo "${ECHO_T}$STRIP" >&6; }
+  echo "$as_me:$LINENO: result: $STRIP" >&5
+echo "${ECHO_T}$STRIP" >&6
 else
-  { echo "$as_me:$LINENO: result: no" >&5
-echo "${ECHO_T}no" >&6; }
+  echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
 fi
 
 fi
@@ -2189,8 +2193,8 @@ if test -z "$ac_cv_prog_STRIP"; then
   ac_ct_STRIP=$STRIP
   # Extract the first word of "strip", so it can be a program name with args.
 set dummy strip; ac_word=$2
-{ echo "$as_me:$LINENO: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
 if test "${ac_cv_prog_ac_ct_STRIP+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -2215,11 +2219,11 @@ fi
 fi
 ac_ct_STRIP=$ac_cv_prog_ac_ct_STRIP
 if test -n "$ac_ct_STRIP"; then
-  { echo "$as_me:$LINENO: result: $ac_ct_STRIP" >&5
-echo "${ECHO_T}$ac_ct_STRIP" >&6; }
+  echo "$as_me:$LINENO: result: $ac_ct_STRIP" >&5
+echo "${ECHO_T}$ac_ct_STRIP" >&6
 else
-  { echo "$as_me:$LINENO: result: no" >&5
-echo "${ECHO_T}no" >&6; }
+  echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
 fi
 
   if test "x$ac_ct_STRIP" = x; then
@@ -2417,12 +2421,12 @@ if test "${with_debug+set}" = set; then
   acx_debug=yes
 fi;
 
-{ echo "$as_me:$LINENO: checking for default compilation flags" >&5
-echo $ECHO_N "checking for default compilation flags... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for default compilation flags" >&5
+echo $ECHO_N "checking for default compilation flags... $ECHO_C" >&6
 
 if test "$acx_debug" = yes; then
-{ echo "$as_me:$LINENO: result: debugging" >&5
-echo "${ECHO_T}debugging" >&6; }
+echo "$as_me:$LINENO: result: debugging" >&5
+echo "${ECHO_T}debugging" >&6
   if test "$CFLAGS" = ""; then
 	CFLAGS="-g"
   fi
@@ -2439,8 +2443,8 @@ echo "${ECHO_T}debugging" >&6; }
 	CXXFLAGS="-g"
   fi
 else
-{ echo "$as_me:$LINENO: result: optimized" >&5
-echo "${ECHO_T}optimized" >&6; }
+echo "$as_me:$LINENO: result: optimized" >&5
+echo "${ECHO_T}optimized" >&6
   case "$canonical_host_type" in
      rs6000-ibm-aix* | powerpc-ibm-aix*)
 		ACX_OPT_FLAG="-O -qmaxmem=-1 -qstrict"
@@ -2470,8 +2474,8 @@ fi
 
 
 # fixme: do something more intelligent here
-{ echo "$as_me:$LINENO: checking for ar" >&5
-echo $ECHO_N "checking for ar... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for ar" >&5
+echo $ECHO_N "checking for ar... $ECHO_C" >&6
 if test -z "$AR"; then
         AR='ar'
 	acx_ar_userdefined=no
@@ -2479,24 +2483,24 @@ else
 	acx_ar_userdefined=yes
 fi
 
-{ echo "$as_me:$LINENO: result: $AR" >&5
-echo "${ECHO_T}$AR" >&6; }
+echo "$as_me:$LINENO: result: $AR" >&5
+echo "${ECHO_T}$AR" >&6
 
-{ echo "$as_me:$LINENO: checking for ar flags" >&5
-echo $ECHO_N "checking for ar flags... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for ar flags" >&5
+echo $ECHO_N "checking for ar flags... $ECHO_C" >&6
 if test -z "$ARFLAGS"; then
   ARFLAGS="cru"
 fi
 
-{ echo "$as_me:$LINENO: result: $ARFLAGS" >&5
-echo "${ECHO_T}$ARFLAGS" >&6; }
+echo "$as_me:$LINENO: result: $ARFLAGS" >&5
+echo "${ECHO_T}$ARFLAGS" >&6
 
 
 if test -n "$ac_tool_prefix"; then
   # Extract the first word of "${ac_tool_prefix}ranlib", so it can be a program name with args.
 set dummy ${ac_tool_prefix}ranlib; ac_word=$2
-{ echo "$as_me:$LINENO: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
 if test "${ac_cv_prog_RANLIB+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -2521,11 +2525,11 @@ fi
 fi
 RANLIB=$ac_cv_prog_RANLIB
 if test -n "$RANLIB"; then
-  { echo "$as_me:$LINENO: result: $RANLIB" >&5
-echo "${ECHO_T}$RANLIB" >&6; }
+  echo "$as_me:$LINENO: result: $RANLIB" >&5
+echo "${ECHO_T}$RANLIB" >&6
 else
-  { echo "$as_me:$LINENO: result: no" >&5
-echo "${ECHO_T}no" >&6; }
+  echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
 fi
 
 fi
@@ -2533,8 +2537,8 @@ if test -z "$ac_cv_prog_RANLIB"; then
   ac_ct_RANLIB=$RANLIB
   # Extract the first word of "ranlib", so it can be a program name with args.
 set dummy ranlib; ac_word=$2
-{ echo "$as_me:$LINENO: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
 if test "${ac_cv_prog_ac_ct_RANLIB+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -2559,11 +2563,11 @@ fi
 fi
 ac_ct_RANLIB=$ac_cv_prog_ac_ct_RANLIB
 if test -n "$ac_ct_RANLIB"; then
-  { echo "$as_me:$LINENO: result: $ac_ct_RANLIB" >&5
-echo "${ECHO_T}$ac_ct_RANLIB" >&6; }
+  echo "$as_me:$LINENO: result: $ac_ct_RANLIB" >&5
+echo "${ECHO_T}$ac_ct_RANLIB" >&6
 else
-  { echo "$as_me:$LINENO: result: no" >&5
-echo "${ECHO_T}no" >&6; }
+  echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
 fi
 
   if test "x$ac_ct_RANLIB" = x; then
@@ -2590,197 +2594,12 @@ ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 if test -n "$ac_tool_prefix"; then
-  # Extract the first word of "${ac_tool_prefix}gcc", so it can be a program name with args.
-set dummy ${ac_tool_prefix}gcc; ac_word=$2
-{ echo "$as_me:$LINENO: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6; }
-if test "${ac_cv_prog_CC+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  if test -n "$CC"; then
-  ac_cv_prog_CC="$CC" # Let the user override the test.
-else
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-  for ac_exec_ext in '' $ac_executable_extensions; do
-  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_executable_p "$as_dir/$ac_word$ac_exec_ext"; }; then
-    ac_cv_prog_CC="${ac_tool_prefix}gcc"
-    echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-done
-
-fi
-fi
-CC=$ac_cv_prog_CC
-if test -n "$CC"; then
-  { echo "$as_me:$LINENO: result: $CC" >&5
-echo "${ECHO_T}$CC" >&6; }
-else
-  { echo "$as_me:$LINENO: result: no" >&5
-echo "${ECHO_T}no" >&6; }
-fi
-
-fi
-if test -z "$ac_cv_prog_CC"; then
-  ac_ct_CC=$CC
-  # Extract the first word of "gcc", so it can be a program name with args.
-set dummy gcc; ac_word=$2
-{ echo "$as_me:$LINENO: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6; }
-if test "${ac_cv_prog_ac_ct_CC+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  if test -n "$ac_ct_CC"; then
-  ac_cv_prog_ac_ct_CC="$ac_ct_CC" # Let the user override the test.
-else
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-  for ac_exec_ext in '' $ac_executable_extensions; do
-  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_executable_p "$as_dir/$ac_word$ac_exec_ext"; }; then
-    ac_cv_prog_ac_ct_CC="gcc"
-    echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-done
-
-fi
-fi
-ac_ct_CC=$ac_cv_prog_ac_ct_CC
-if test -n "$ac_ct_CC"; then
-  { echo "$as_me:$LINENO: result: $ac_ct_CC" >&5
-echo "${ECHO_T}$ac_ct_CC" >&6; }
-else
-  { echo "$as_me:$LINENO: result: no" >&5
-echo "${ECHO_T}no" >&6; }
-fi
-
-  if test "x$ac_ct_CC" = x; then
-    CC=""
-  else
-    if test "$build" != "$host"; then
-      { echo "$as_me:$LINENO: WARNING: In the future, Autoconf will not detect cross-tools
-whose name does not start with the host triplet.  If you think this
-configuration is useful to you, please write to autoconf@gnu.org." >&5
-echo "$as_me: WARNING: In the future, Autoconf will not detect cross-tools
-whose name does not start with the host triplet.  If you think this
-configuration is useful to you, please write to autoconf@gnu.org." >&2;}
-    fi
-    CC=$ac_ct_CC
-  fi
-else
-  CC="$ac_cv_prog_CC"
-fi
-
-if test -z "$CC"; then
-          if test -n "$ac_tool_prefix"; then
-    # Extract the first word of "${ac_tool_prefix}cc", so it can be a program name with args.
-set dummy ${ac_tool_prefix}cc; ac_word=$2
-{ echo "$as_me:$LINENO: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6; }
-if test "${ac_cv_prog_CC+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  if test -n "$CC"; then
-  ac_cv_prog_CC="$CC" # Let the user override the test.
-else
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-  for ac_exec_ext in '' $ac_executable_extensions; do
-  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_executable_p "$as_dir/$ac_word$ac_exec_ext"; }; then
-    ac_cv_prog_CC="${ac_tool_prefix}cc"
-    echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-done
-
-fi
-fi
-CC=$ac_cv_prog_CC
-if test -n "$CC"; then
-  { echo "$as_me:$LINENO: result: $CC" >&5
-echo "${ECHO_T}$CC" >&6; }
-else
-  { echo "$as_me:$LINENO: result: no" >&5
-echo "${ECHO_T}no" >&6; }
-fi
-
-  fi
-fi
-if test -z "$CC"; then
-  # Extract the first word of "cc", so it can be a program name with args.
-set dummy cc; ac_word=$2
-{ echo "$as_me:$LINENO: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6; }
-if test "${ac_cv_prog_CC+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  if test -n "$CC"; then
-  ac_cv_prog_CC="$CC" # Let the user override the test.
-else
-  ac_prog_rejected=no
-as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
-for as_dir in $PATH
-do
-  IFS=$as_save_IFS
-  test -z "$as_dir" && as_dir=.
-  for ac_exec_ext in '' $ac_executable_extensions; do
-  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_executable_p "$as_dir/$ac_word$ac_exec_ext"; }; then
-    if test "$as_dir/$ac_word$ac_exec_ext" = "/usr/ucb/cc"; then
-       ac_prog_rejected=yes
-       continue
-     fi
-    ac_cv_prog_CC="cc"
-    echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
-    break 2
-  fi
-done
-done
-
-if test $ac_prog_rejected = yes; then
-  # We found a bogon in the path, so make sure we never use it.
-  set dummy $ac_cv_prog_CC
-  shift
-  if test $# != 0; then
-    # We chose a different compiler from the bogus one.
-    # However, it has the same basename, so the bogon will be chosen
-    # first if we set CC to just the basename; use the full file name.
-    shift
-    ac_cv_prog_CC="$as_dir/$ac_word${1+' '}$@"
-  fi
-fi
-fi
-fi
-CC=$ac_cv_prog_CC
-if test -n "$CC"; then
-  { echo "$as_me:$LINENO: result: $CC" >&5
-echo "${ECHO_T}$CC" >&6; }
-else
-  { echo "$as_me:$LINENO: result: no" >&5
-echo "${ECHO_T}no" >&6; }
-fi
-
-fi
-if test -z "$CC"; then
-  if test -n "$ac_tool_prefix"; then
-  for ac_prog in cl.exe
+  for ac_prog in xlc pathcc icc cc gcc
   do
     # Extract the first word of "$ac_tool_prefix$ac_prog", so it can be a program name with args.
 set dummy $ac_tool_prefix$ac_prog; ac_word=$2
-{ echo "$as_me:$LINENO: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
 if test "${ac_cv_prog_CC+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -2805,11 +2624,11 @@ fi
 fi
 CC=$ac_cv_prog_CC
 if test -n "$CC"; then
-  { echo "$as_me:$LINENO: result: $CC" >&5
-echo "${ECHO_T}$CC" >&6; }
+  echo "$as_me:$LINENO: result: $CC" >&5
+echo "${ECHO_T}$CC" >&6
 else
-  { echo "$as_me:$LINENO: result: no" >&5
-echo "${ECHO_T}no" >&6; }
+  echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
 fi
 
     test -n "$CC" && break
@@ -2817,12 +2636,12 @@ fi
 fi
 if test -z "$CC"; then
   ac_ct_CC=$CC
-  for ac_prog in cl.exe
+  for ac_prog in xlc pathcc icc cc gcc
 do
   # Extract the first word of "$ac_prog", so it can be a program name with args.
 set dummy $ac_prog; ac_word=$2
-{ echo "$as_me:$LINENO: checking for $ac_word" >&5
-echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6
 if test "${ac_cv_prog_ac_ct_CC+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -2847,11 +2666,11 @@ fi
 fi
 ac_ct_CC=$ac_cv_prog_ac_ct_CC
 if test -n "$ac_ct_CC"; then
-  { echo "$as_me:$LINENO: result: $ac_ct_CC" >&5
-echo "${ECHO_T}$ac_ct_CC" >&6; }
+  echo "$as_me:$LINENO: result: $ac_ct_CC" >&5
+echo "${ECHO_T}$ac_ct_CC" >&6
 else
-  { echo "$as_me:$LINENO: result: no" >&5
-echo "${ECHO_T}no" >&6; }
+  echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6
 fi
 
   test -n "$ac_ct_CC" && break
@@ -2872,8 +2691,6 @@ configuration is useful to you, please write to autoconf@gnu.org." >&2;}
   fi
 fi
 
-fi
-
 
 test -z "$CC" && { { echo "$as_me:$LINENO: error: no acceptable C compiler found in \$PATH
 See \`config.log' for more details." >&5
@@ -2882,7 +2699,8 @@ See \`config.log' for more details." >&2;}
    { (exit 1); exit 1; }; }
 
 # Provide some information about the compiler.
-echo "$as_me:$LINENO: checking for C compiler version" >&5
+echo "$as_me:$LINENO:" \
+     "checking for C compiler version" >&5
 ac_compiler=`set X $ac_compile; echo $2`
 { (eval echo "$as_me:$LINENO: \"$ac_compiler --version >&5\"") >&5
   (eval $ac_compiler --version >&5) 2>&5
@@ -2920,8 +2738,8 @@ ac_clean_files="$ac_clean_files a.out a.exe b.out"
 # Try to create an executable without -o first, disregard a.out.
 # It will help us diagnose broken compilers, and finding out an intuition
 # of exeext.
-{ echo "$as_me:$LINENO: checking for C compiler default output file name" >&5
-echo $ECHO_N "checking for C compiler default output file name... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for C compiler default output file name" >&5
+echo $ECHO_N "checking for C compiler default output file name... $ECHO_C" >&6
 ac_link_default=`echo "$ac_link" | sed 's/ -o *conftest[^ ]*//'`
 #
 # List of possible output files, starting from the most likely.
@@ -2983,13 +2801,13 @@ See \`config.log' for more details." >&2;}
 fi
 
 ac_exeext=$ac_cv_exeext
-{ echo "$as_me:$LINENO: result: $ac_file" >&5
-echo "${ECHO_T}$ac_file" >&6; }
+echo "$as_me:$LINENO: result: $ac_file" >&5
+echo "${ECHO_T}$ac_file" >&6
 
 # Check the compiler produces executables we can run.  If not, either
 # the compiler is broken, or we cross compile.
-{ echo "$as_me:$LINENO: checking whether the C compiler works" >&5
-echo $ECHO_N "checking whether the C compiler works... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking whether the C compiler works" >&5
+echo $ECHO_N "checking whether the C compiler works... $ECHO_C" >&6
 # FIXME: These cross compiler hacks should be removed for Autoconf 3.0
 # If not cross compiling, check that we can run a simple program.
 if test "$cross_compiling" != yes; then
@@ -3014,20 +2832,20 @@ See \`config.log' for more details." >&2;}
     fi
   fi
 fi
-{ echo "$as_me:$LINENO: result: yes" >&5
-echo "${ECHO_T}yes" >&6; }
+echo "$as_me:$LINENO: result: yes" >&5
+echo "${ECHO_T}yes" >&6
 
 rm -f a.out a.exe conftest$ac_cv_exeext b.out
 ac_clean_files=$ac_clean_files_save
 # Check the compiler produces executables we can run.  If not, either
 # the compiler is broken, or we cross compile.
-{ echo "$as_me:$LINENO: checking whether we are cross compiling" >&5
-echo $ECHO_N "checking whether we are cross compiling... $ECHO_C" >&6; }
-{ echo "$as_me:$LINENO: result: $cross_compiling" >&5
-echo "${ECHO_T}$cross_compiling" >&6; }
+echo "$as_me:$LINENO: checking whether we are cross compiling" >&5
+echo $ECHO_N "checking whether we are cross compiling... $ECHO_C" >&6
+echo "$as_me:$LINENO: result: $cross_compiling" >&5
+echo "${ECHO_T}$cross_compiling" >&6
 
-{ echo "$as_me:$LINENO: checking for suffix of executables" >&5
-echo $ECHO_N "checking for suffix of executables... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for suffix of executables" >&5
+echo $ECHO_N "checking for suffix of executables... $ECHO_C" >&6
 if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   (eval $ac_link) 2>&5
   ac_status=$?
@@ -3056,14 +2874,14 @@ See \`config.log' for more details." >&2;}
 fi
 
 rm -f conftest$ac_cv_exeext
-{ echo "$as_me:$LINENO: result: $ac_cv_exeext" >&5
-echo "${ECHO_T}$ac_cv_exeext" >&6; }
+echo "$as_me:$LINENO: result: $ac_cv_exeext" >&5
+echo "${ECHO_T}$ac_cv_exeext" >&6
 
 rm -f conftest.$ac_ext
 EXEEXT=$ac_cv_exeext
 ac_exeext=$EXEEXT
-{ echo "$as_me:$LINENO: checking for suffix of object files" >&5
-echo $ECHO_N "checking for suffix of object files... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for suffix of object files" >&5
+echo $ECHO_N "checking for suffix of object files... $ECHO_C" >&6
 if test "${ac_cv_objext+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -3109,12 +2927,12 @@ fi
 
 rm -f conftest.$ac_cv_objext conftest.$ac_ext
 fi
-{ echo "$as_me:$LINENO: result: $ac_cv_objext" >&5
-echo "${ECHO_T}$ac_cv_objext" >&6; }
+echo "$as_me:$LINENO: result: $ac_cv_objext" >&5
+echo "${ECHO_T}$ac_cv_objext" >&6
 OBJEXT=$ac_cv_objext
 ac_objext=$OBJEXT
-{ echo "$as_me:$LINENO: checking whether we are using the GNU C compiler" >&5
-echo $ECHO_N "checking whether we are using the GNU C compiler... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking whether we are using the GNU C compiler" >&5
+echo $ECHO_N "checking whether we are using the GNU C compiler... $ECHO_C" >&6
 if test "${ac_cv_c_compiler_gnu+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -3169,13 +2987,13 @@ rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
 ac_cv_c_compiler_gnu=$ac_compiler_gnu
 
 fi
-{ echo "$as_me:$LINENO: result: $ac_cv_c_compiler_gnu" >&5
-echo "${ECHO_T}$ac_cv_c_compiler_gnu" >&6; }
+echo "$as_me:$LINENO: result: $ac_cv_c_compiler_gnu" >&5
+echo "${ECHO_T}$ac_cv_c_compiler_gnu" >&6
 GCC=`test $ac_compiler_gnu = yes && echo yes`
 ac_test_CFLAGS=${CFLAGS+set}
 ac_save_CFLAGS=$CFLAGS
-{ echo "$as_me:$LINENO: checking whether $CC accepts -g" >&5
-echo $ECHO_N "checking whether $CC accepts -g... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking whether $CC accepts -g" >&5
+echo $ECHO_N "checking whether $CC accepts -g... $ECHO_C" >&6
 if test "${ac_cv_prog_cc_g+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -3320,8 +3138,8 @@ fi
 rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
    ac_c_werror_flag=$ac_save_c_werror_flag
 fi
-{ echo "$as_me:$LINENO: result: $ac_cv_prog_cc_g" >&5
-echo "${ECHO_T}$ac_cv_prog_cc_g" >&6; }
+echo "$as_me:$LINENO: result: $ac_cv_prog_cc_g" >&5
+echo "${ECHO_T}$ac_cv_prog_cc_g" >&6
 if test "$ac_test_CFLAGS" = set; then
   CFLAGS=$ac_save_CFLAGS
 elif test $ac_cv_prog_cc_g = yes; then
@@ -3337,8 +3155,8 @@ else
     CFLAGS=
   fi
 fi
-{ echo "$as_me:$LINENO: checking for $CC option to accept ISO C89" >&5
-echo $ECHO_N "checking for $CC option to accept ISO C89... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for $CC option to accept ISO C89" >&5
+echo $ECHO_N "checking for $CC option to accept ISO C89... $ECHO_C" >&6
 if test "${ac_cv_prog_cc_c89+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -3438,15 +3256,15 @@ fi
 # AC_CACHE_VAL
 case "x$ac_cv_prog_cc_c89" in
   x)
-    { echo "$as_me:$LINENO: result: none needed" >&5
-echo "${ECHO_T}none needed" >&6; } ;;
+    echo "$as_me:$LINENO: result: none needed" >&5
+echo "${ECHO_T}none needed" >&6 ;;
   xno)
-    { echo "$as_me:$LINENO: result: unsupported" >&5
-echo "${ECHO_T}unsupported" >&6; } ;;
+    echo "$as_me:$LINENO: result: unsupported" >&5
+echo "${ECHO_T}unsupported" >&6 ;;
   *)
     CC="$CC $ac_cv_prog_cc_c89"
-    { echo "$as_me:$LINENO: result: $ac_cv_prog_cc_c89" >&5
-echo "${ECHO_T}$ac_cv_prog_cc_c89" >&6; } ;;
+    echo "$as_me:$LINENO: result: $ac_cv_prog_cc_c89" >&5
+echo "${ECHO_T}$ac_cv_prog_cc_c89" >&6 ;;
 esac
 
 
@@ -3610,8 +3428,8 @@ am__doit:
 .PHONY: am__doit
 END
 # If we don't find an include directive, just comment out the code.
-{ echo "$as_me:$LINENO: checking for style of include used by $am_make" >&5
-echo $ECHO_N "checking for style of include used by $am_make... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for style of include used by $am_make" >&5
+echo $ECHO_N "checking for style of include used by $am_make... $ECHO_C" >&6
 am__include="#"
 am__quote=
 _am_result=none
@@ -3638,8 +3456,8 @@ if test "$am__include" = "#"; then
 fi
 
 
-{ echo "$as_me:$LINENO: result: $_am_result" >&5
-echo "${ECHO_T}$_am_result" >&6; }
+echo "$as_me:$LINENO: result: $_am_result" >&5
+echo "${ECHO_T}$_am_result" >&6
 rm -f confinc confmf
 
 # Check whether --enable-dependency-tracking or --disable-dependency-tracking was given.
@@ -3666,8 +3484,8 @@ fi
 
 depcc="$CC"   am_compiler_list=
 
-{ echo "$as_me:$LINENO: checking dependency style of $depcc" >&5
-echo $ECHO_N "checking dependency style of $depcc... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking dependency style of $depcc" >&5
+echo $ECHO_N "checking dependency style of $depcc... $ECHO_C" >&6
 if test "${am_cv_CC_dependencies_compiler_type+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -3756,8 +3574,8 @@ else
 fi
 
 fi
-{ echo "$as_me:$LINENO: result: $am_cv_CC_dependencies_compiler_type" >&5
-echo "${ECHO_T}$am_cv_CC_dependencies_compiler_type" >&6; }
+echo "$as_me:$LINENO: result: $am_cv_CC_dependencies_compiler_type" >&5
+echo "${ECHO_T}$am_cv_CC_dependencies_compiler_type" >&6
 CCDEPMODE=depmode=$am_cv_CC_dependencies_compiler_type
 
 
@@ -3774,13 +3592,14 @@ fi
 
 
 
+
 ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
-{ echo "$as_me:$LINENO: checking how to run the C preprocessor" >&5
-echo $ECHO_N "checking how to run the C preprocessor... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking how to run the C preprocessor" >&5
+echo $ECHO_N "checking how to run the C preprocessor... $ECHO_C" >&6
 # On Suns, sometimes $CPP names a directory.
 if test -n "$CPP" && test -d "$CPP"; then
   CPP=
@@ -3897,8 +3716,8 @@ fi
 else
   ac_cv_prog_CPP=$CPP
 fi
-{ echo "$as_me:$LINENO: result: $CPP" >&5
-echo "${ECHO_T}$CPP" >&6; }
+echo "$as_me:$LINENO: result: $CPP" >&5
+echo "${ECHO_T}$CPP" >&6
 ac_preproc_ok=false
 for ac_c_preproc_warn_flag in '' yes
 do
@@ -4009,8 +3828,8 @@ ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
-{ echo "$as_me:$LINENO: checking for grep that handles long lines and -e" >&5
-echo $ECHO_N "checking for grep that handles long lines and -e... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for grep that handles long lines and -e" >&5
+echo $ECHO_N "checking for grep that handles long lines and -e... $ECHO_C" >&6
 if test "${ac_cv_path_GREP+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -4083,13 +3902,13 @@ fi
 
 
 fi
-{ echo "$as_me:$LINENO: result: $ac_cv_path_GREP" >&5
-echo "${ECHO_T}$ac_cv_path_GREP" >&6; }
+echo "$as_me:$LINENO: result: $ac_cv_path_GREP" >&5
+echo "${ECHO_T}$ac_cv_path_GREP" >&6
  GREP="$ac_cv_path_GREP"
 
 
-{ echo "$as_me:$LINENO: checking for egrep" >&5
-echo $ECHO_N "checking for egrep... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for egrep" >&5
+echo $ECHO_N "checking for egrep... $ECHO_C" >&6
 if test "${ac_cv_path_EGREP+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -4166,13 +3985,13 @@ fi
 
    fi
 fi
-{ echo "$as_me:$LINENO: result: $ac_cv_path_EGREP" >&5
-echo "${ECHO_T}$ac_cv_path_EGREP" >&6; }
+echo "$as_me:$LINENO: result: $ac_cv_path_EGREP" >&5
+echo "${ECHO_T}$ac_cv_path_EGREP" >&6
  EGREP="$ac_cv_path_EGREP"
 
 
-{ echo "$as_me:$LINENO: checking for ANSI C header files" >&5
-echo $ECHO_N "checking for ANSI C header files... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for ANSI C header files" >&5
+echo $ECHO_N "checking for ANSI C header files... $ECHO_C" >&6
 if test "${ac_cv_header_stdc+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -4328,8 +4147,8 @@ rm -f core *.core core.conftest.* gmon.out bb.out conftest$ac_exeext conftest.$a
 fi
 fi
 fi
-{ echo "$as_me:$LINENO: result: $ac_cv_header_stdc" >&5
-echo "${ECHO_T}$ac_cv_header_stdc" >&6; }
+echo "$as_me:$LINENO: result: $ac_cv_header_stdc" >&5
+echo "${ECHO_T}$ac_cv_header_stdc" >&6
 if test $ac_cv_header_stdc = yes; then
 
 cat >>confdefs.h <<\_ACEOF
@@ -4353,8 +4172,8 @@ for ac_header in sys/types.h sys/stat.h stdlib.h string.h memory.h strings.h \
 		  inttypes.h stdint.h unistd.h
 do
 as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
-{ echo "$as_me:$LINENO: checking for $ac_header" >&5
-echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for $ac_header" >&5
+echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6
 if eval "test \"\${$as_ac_Header+set}\" = set"; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -4399,9 +4218,8 @@ eval "$as_ac_Header=no"
 fi
 rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
 fi
-ac_res=`eval echo '${'$as_ac_Header'}'`
-	       { echo "$as_me:$LINENO: result: $ac_res" >&5
-echo "${ECHO_T}$ac_res" >&6; }
+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Header'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_Header'}'`" >&6
 if test `eval echo '${'$as_ac_Header'}'` = yes; then
   cat >>confdefs.h <<_ACEOF
 #define `echo "HAVE_$ac_header" | $as_tr_cpp` 1
@@ -4446,15 +4264,15 @@ orig_FCFLAGS=$FCFLAGS
 orig_CXXFLAGS=$CXXFLAGS
 
 
-{ echo "$as_me:$LINENO: checking for 64 bit compilation flags" >&5
-echo $ECHO_N "checking for 64 bit compilation flags... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for 64 bit compilation flags" >&5
+echo $ECHO_N "checking for 64 bit compilation flags... $ECHO_C" >&6
 
 if test "$with_64bits" = no; then
-   { echo "$as_me:$LINENO: result: not even going to try" >&5
-echo "${ECHO_T}not even going to try" >&6; }
+   echo "$as_me:$LINENO: result: not even going to try" >&5
+echo "${ECHO_T}not even going to try" >&6
 else
-   { echo "$as_me:$LINENO: result: let's see what happens" >&5
-echo "${ECHO_T}let's see what happens" >&6; }
+   echo "$as_me:$LINENO: result: let's see what happens" >&5
+echo "${ECHO_T}let's see what happens" >&6
 
 case "$canonical_host_type" in
   *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
@@ -4523,10 +4341,10 @@ case "$canonical_host_type" in
    	  # aix has problems with 64 bits and ar, this fixes it
           AR='ar -Xany'
 
-	  { echo "$as_me:$LINENO: checking for 64 bit ar" >&5
-echo $ECHO_N "checking for 64 bit ar... $ECHO_C" >&6; }
-	  { echo "$as_me:$LINENO: result: $AR" >&5
-echo "${ECHO_T}$AR" >&6; }
+	  echo "$as_me:$LINENO: checking for 64 bit ar" >&5
+echo $ECHO_N "checking for 64 bit ar... $ECHO_C" >&6
+	  echo "$as_me:$LINENO: result: $AR" >&5
+echo "${ECHO_T}$AR" >&6
 	fi
 
 	if test x"$FC" != x; then
@@ -4632,41 +4450,41 @@ esac
 
 if test "$with_64bits" != no; then
 	if test x"$CC" != x; then
-           { echo "$as_me:$LINENO: checking for 64 bit CFLAGS" >&5
-echo $ECHO_N "checking for 64 bit CFLAGS... $ECHO_C" >&6; }
-           { echo "$as_me:$LINENO: result: $B64CFLAGS" >&5
-echo "${ECHO_T}$B64CFLAGS" >&6; }
+           echo "$as_me:$LINENO: checking for 64 bit CFLAGS" >&5
+echo $ECHO_N "checking for 64 bit CFLAGS... $ECHO_C" >&6
+           echo "$as_me:$LINENO: result: $B64CFLAGS" >&5
+echo "${ECHO_T}$B64CFLAGS" >&6
   	   CFLAGS="$CFLAGS $B64CFLAGS"
 	fi
 
 	if test x"$FC" != x; then
-           { echo "$as_me:$LINENO: checking for 64 bit FCFLAGS" >&5
-echo $ECHO_N "checking for 64 bit FCFLAGS... $ECHO_C" >&6; }
-           { echo "$as_me:$LINENO: result: $B64FCFLAGS" >&5
-echo "${ECHO_T}$B64FCFLAGS" >&6; }
+           echo "$as_me:$LINENO: checking for 64 bit FCFLAGS" >&5
+echo $ECHO_N "checking for 64 bit FCFLAGS... $ECHO_C" >&6
+           echo "$as_me:$LINENO: result: $B64FCFLAGS" >&5
+echo "${ECHO_T}$B64FCFLAGS" >&6
 	   FCFLAGS="$FCFLAGS $B64FCFLAGS"
 	fi
 
 	if test x"$CXX" != x; then
-           { echo "$as_me:$LINENO: checking for 64 bit CXXFLAGS" >&5
-echo $ECHO_N "checking for 64 bit CXXFLAGS... $ECHO_C" >&6; }
-           { echo "$as_me:$LINENO: result: $B64CXXFLAGS" >&5
-echo "${ECHO_T}$B64CXXFLAGS" >&6; }
+           echo "$as_me:$LINENO: checking for 64 bit CXXFLAGS" >&5
+echo $ECHO_N "checking for 64 bit CXXFLAGS... $ECHO_C" >&6
+           echo "$as_me:$LINENO: result: $B64CXXFLAGS" >&5
+echo "${ECHO_T}$B64CXXFLAGS" >&6
 	   CXXFLAGS="$CXXFLAGS $B64CXXFLAGS"
 	fi
 
 	if test x"$F77" != x; then
-          { echo "$as_me:$LINENO: checking for 64 bit FFLAGS" >&5
-echo $ECHO_N "checking for 64 bit FFLAGS... $ECHO_C" >&6; }
-          { echo "$as_me:$LINENO: result: $B64FFLAGS" >&5
-echo "${ECHO_T}$B64FFLAGS" >&6; }
+          echo "$as_me:$LINENO: checking for 64 bit FFLAGS" >&5
+echo $ECHO_N "checking for 64 bit FFLAGS... $ECHO_C" >&6
+          echo "$as_me:$LINENO: result: $B64FFLAGS" >&5
+echo "${ECHO_T}$B64FFLAGS" >&6
 	  FFLAGS="$FFLAGS $B64FFLAGS"
 	fi
 fi
 fi
 
-{ echo "$as_me:$LINENO: checking for void*" >&5
-echo $ECHO_N "checking for void*... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for void*" >&5
+echo $ECHO_N "checking for void*... $ECHO_C" >&6
 if test "${ac_cv_type_voidp+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -4719,11 +4537,11 @@ ac_cv_type_voidp=no
 fi
 rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
 fi
-{ echo "$as_me:$LINENO: result: $ac_cv_type_voidp" >&5
-echo "${ECHO_T}$ac_cv_type_voidp" >&6; }
+echo "$as_me:$LINENO: result: $ac_cv_type_voidp" >&5
+echo "${ECHO_T}$ac_cv_type_voidp" >&6
 
-{ echo "$as_me:$LINENO: checking size of void*" >&5
-echo $ECHO_N "checking size of void*... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking size of void*" >&5
+echo $ECHO_N "checking size of void*... $ECHO_C" >&6
 if test "${ac_cv_sizeof_voidp+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -5064,8 +4882,8 @@ else
   ac_cv_sizeof_voidp=0
 fi
 fi
-{ echo "$as_me:$LINENO: result: $ac_cv_sizeof_voidp" >&5
-echo "${ECHO_T}$ac_cv_sizeof_voidp" >&6; }
+echo "$as_me:$LINENO: result: $ac_cv_sizeof_voidp" >&5
+echo "${ECHO_T}$ac_cv_sizeof_voidp" >&6
 cat >>confdefs.h <<_ACEOF
 #define SIZEOF_VOIDP $ac_cv_sizeof_voidp
 _ACEOF
@@ -5112,12 +4930,12 @@ fi
 
 
 if test "$with_64bits" != no; then
-   { echo "$as_me:$LINENO: checking to see if we got 64 bits" >&5
-echo $ECHO_N "checking to see if we got 64 bits... $ECHO_C" >&6; }
+   echo "$as_me:$LINENO: checking to see if we got 64 bits" >&5
+echo $ECHO_N "checking to see if we got 64 bits... $ECHO_C" >&6
 
    if test "$ac_cv_sizeof_voidp" -ne 8; then
-      { echo "$as_me:$LINENO: result: nope, reverting compiler flags" >&5
-echo "${ECHO_T}nope, reverting compiler flags" >&6; }
+      echo "$as_me:$LINENO: result: nope, reverting compiler flags" >&5
+echo "${ECHO_T}nope, reverting compiler flags" >&6
 
             B64FLAGS=""
       CFLAGS=$orig_CFLAGS
@@ -5125,8 +4943,8 @@ echo "${ECHO_T}nope, reverting compiler flags" >&6; }
       FCFLAGS=$orig_FCFLAGS
       CXXFLAGS=$orig_CXXFLAGS
    else
-      { echo "$as_me:$LINENO: result: oh yes" >&5
-echo "${ECHO_T}oh yes" >&6; }
+      echo "$as_me:$LINENO: result: oh yes" >&5
+echo "${ECHO_T}oh yes" >&6
    fi
 fi
 
@@ -5134,8 +4952,8 @@ fi
 
 
 
-{ echo "$as_me:$LINENO: checking for main in -lm" >&5
-echo $ECHO_N "checking for main in -lm... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for main in -lm" >&5
+echo $ECHO_N "checking for main in -lm... $ECHO_C" >&6
 if test "${ac_cv_lib_m_main+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -5190,8 +5008,8 @@ rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
 LIBS=$ac_check_lib_save_LIBS
 fi
-{ echo "$as_me:$LINENO: result: $ac_cv_lib_m_main" >&5
-echo "${ECHO_T}$ac_cv_lib_m_main" >&6; }
+echo "$as_me:$LINENO: result: $ac_cv_lib_m_main" >&5
+echo "${ECHO_T}$ac_cv_lib_m_main" >&6
 if test $ac_cv_lib_m_main = yes; then
   cat >>confdefs.h <<_ACEOF
 #define HAVE_LIBM 1
@@ -5202,8 +5020,8 @@ _ACEOF
 fi
 
 
-{ echo "$as_me:$LINENO: checking for main in -lcurses" >&5
-echo $ECHO_N "checking for main in -lcurses... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for main in -lcurses" >&5
+echo $ECHO_N "checking for main in -lcurses... $ECHO_C" >&6
 if test "${ac_cv_lib_curses_main+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -5258,8 +5076,8 @@ rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
 LIBS=$ac_check_lib_save_LIBS
 fi
-{ echo "$as_me:$LINENO: result: $ac_cv_lib_curses_main" >&5
-echo "${ECHO_T}$ac_cv_lib_curses_main" >&6; }
+echo "$as_me:$LINENO: result: $ac_cv_lib_curses_main" >&5
+echo "${ECHO_T}$ac_cv_lib_curses_main" >&6
 if test $ac_cv_lib_curses_main = yes; then
   cat >>confdefs.h <<_ACEOF
 #define HAVE_LIBCURSES 1
@@ -5274,18 +5092,17 @@ for ac_header in math.h
 do
 as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
 if eval "test \"\${$as_ac_Header+set}\" = set"; then
-  { echo "$as_me:$LINENO: checking for $ac_header" >&5
-echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6; }
+  echo "$as_me:$LINENO: checking for $ac_header" >&5
+echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6
 if eval "test \"\${$as_ac_Header+set}\" = set"; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 fi
-ac_res=`eval echo '${'$as_ac_Header'}'`
-	       { echo "$as_me:$LINENO: result: $ac_res" >&5
-echo "${ECHO_T}$ac_res" >&6; }
+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Header'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_Header'}'`" >&6
 else
   # Is the header compilable?
-{ echo "$as_me:$LINENO: checking $ac_header usability" >&5
-echo $ECHO_N "checking $ac_header usability... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking $ac_header usability" >&5
+echo $ECHO_N "checking $ac_header usability... $ECHO_C" >&6
 cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -5325,12 +5142,12 @@ sed 's/^/| /' conftest.$ac_ext >&5
 ac_header_compiler=no
 fi
 rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
-{ echo "$as_me:$LINENO: result: $ac_header_compiler" >&5
-echo "${ECHO_T}$ac_header_compiler" >&6; }
+echo "$as_me:$LINENO: result: $ac_header_compiler" >&5
+echo "${ECHO_T}$ac_header_compiler" >&6
 
 # Is the header present?
-{ echo "$as_me:$LINENO: checking $ac_header presence" >&5
-echo $ECHO_N "checking $ac_header presence... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking $ac_header presence" >&5
+echo $ECHO_N "checking $ac_header presence... $ECHO_C" >&6
 cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -5365,8 +5182,8 @@ sed 's/^/| /' conftest.$ac_ext >&5
   ac_header_preproc=no
 fi
 rm -f conftest.err conftest.$ac_ext
-{ echo "$as_me:$LINENO: result: $ac_header_preproc" >&5
-echo "${ECHO_T}$ac_header_preproc" >&6; }
+echo "$as_me:$LINENO: result: $ac_header_preproc" >&5
+echo "${ECHO_T}$ac_header_preproc" >&6
 
 # So?  What about this header?
 case $ac_header_compiler:$ac_header_preproc:$ac_c_preproc_warn_flag in
@@ -5400,16 +5217,15 @@ _ASBOX
       sed "s/^/$as_me: WARNING:     /" >&2
     ;;
 esac
-{ echo "$as_me:$LINENO: checking for $ac_header" >&5
-echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for $ac_header" >&5
+echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6
 if eval "test \"\${$as_ac_Header+set}\" = set"; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
   eval "$as_ac_Header=\$ac_header_preproc"
 fi
-ac_res=`eval echo '${'$as_ac_Header'}'`
-	       { echo "$as_me:$LINENO: result: $ac_res" >&5
-echo "${ECHO_T}$ac_res" >&6; }
+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Header'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_Header'}'`" >&6
 
 fi
 if test `eval echo '${'$as_ac_Header'}'` = yes; then
@@ -5431,8 +5247,8 @@ done
 acx_found_termlib=no
 for termlib in ncurses curses termcap terminfo termlib; do
   as_ac_Lib=`echo "ac_cv_lib_${termlib}''_tputs" | $as_tr_sh`
-{ echo "$as_me:$LINENO: checking for tputs in -l${termlib}" >&5
-echo $ECHO_N "checking for tputs in -l${termlib}... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for tputs in -l${termlib}" >&5
+echo $ECHO_N "checking for tputs in -l${termlib}... $ECHO_C" >&6
 if eval "test \"\${$as_ac_Lib+set}\" = set"; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -5493,9 +5309,8 @@ rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
 LIBS=$ac_check_lib_save_LIBS
 fi
-ac_res=`eval echo '${'$as_ac_Lib'}'`
-	       { echo "$as_me:$LINENO: result: $ac_res" >&5
-echo "${ECHO_T}$ac_res" >&6; }
+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Lib'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_Lib'}'`" >&6
 if test `eval echo '${'$as_ac_Lib'}'` = yes; then
   TERMLIBS="${TERMLIBS} -l${termlib}"
 fi
@@ -5529,8 +5344,8 @@ if test "${enable_readline+set}" = set; then
      fi
 fi;
   if $USE_READLINE; then
-    { echo "$as_me:$LINENO: checking for rl_set_keyboard_input_timeout in -lreadline" >&5
-echo $ECHO_N "checking for rl_set_keyboard_input_timeout in -lreadline... $ECHO_C" >&6; }
+    echo "$as_me:$LINENO: checking for rl_set_keyboard_input_timeout in -lreadline" >&5
+echo $ECHO_N "checking for rl_set_keyboard_input_timeout in -lreadline... $ECHO_C" >&6
 if test "${ac_cv_lib_readline_rl_set_keyboard_input_timeout+set}" = set; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
@@ -5591,8 +5406,8 @@ rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
 LIBS=$ac_check_lib_save_LIBS
 fi
-{ echo "$as_me:$LINENO: result: $ac_cv_lib_readline_rl_set_keyboard_input_timeout" >&5
-echo "${ECHO_T}$ac_cv_lib_readline_rl_set_keyboard_input_timeout" >&6; }
+echo "$as_me:$LINENO: result: $ac_cv_lib_readline_rl_set_keyboard_input_timeout" >&5
+echo "${ECHO_T}$ac_cv_lib_readline_rl_set_keyboard_input_timeout" >&6
 if test $ac_cv_lib_readline_rl_set_keyboard_input_timeout = yes; then
 
       LIBREADLINE="-lreadline"
@@ -5604,18 +5419,17 @@ for ac_header in readline.h
 do
 as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
 if eval "test \"\${$as_ac_Header+set}\" = set"; then
-  { echo "$as_me:$LINENO: checking for $ac_header" >&5
-echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6; }
+  echo "$as_me:$LINENO: checking for $ac_header" >&5
+echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6
 if eval "test \"\${$as_ac_Header+set}\" = set"; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 fi
-ac_res=`eval echo '${'$as_ac_Header'}'`
-	       { echo "$as_me:$LINENO: result: $ac_res" >&5
-echo "${ECHO_T}$ac_res" >&6; }
+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Header'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_Header'}'`" >&6
 else
   # Is the header compilable?
-{ echo "$as_me:$LINENO: checking $ac_header usability" >&5
-echo $ECHO_N "checking $ac_header usability... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking $ac_header usability" >&5
+echo $ECHO_N "checking $ac_header usability... $ECHO_C" >&6
 cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -5655,12 +5469,12 @@ sed 's/^/| /' conftest.$ac_ext >&5
 ac_header_compiler=no
 fi
 rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
-{ echo "$as_me:$LINENO: result: $ac_header_compiler" >&5
-echo "${ECHO_T}$ac_header_compiler" >&6; }
+echo "$as_me:$LINENO: result: $ac_header_compiler" >&5
+echo "${ECHO_T}$ac_header_compiler" >&6
 
 # Is the header present?
-{ echo "$as_me:$LINENO: checking $ac_header presence" >&5
-echo $ECHO_N "checking $ac_header presence... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking $ac_header presence" >&5
+echo $ECHO_N "checking $ac_header presence... $ECHO_C" >&6
 cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -5695,8 +5509,8 @@ sed 's/^/| /' conftest.$ac_ext >&5
   ac_header_preproc=no
 fi
 rm -f conftest.err conftest.$ac_ext
-{ echo "$as_me:$LINENO: result: $ac_header_preproc" >&5
-echo "${ECHO_T}$ac_header_preproc" >&6; }
+echo "$as_me:$LINENO: result: $ac_header_preproc" >&5
+echo "${ECHO_T}$ac_header_preproc" >&6
 
 # So?  What about this header?
 case $ac_header_compiler:$ac_header_preproc:$ac_c_preproc_warn_flag in
@@ -5730,16 +5544,15 @@ _ASBOX
       sed "s/^/$as_me: WARNING:     /" >&2
     ;;
 esac
-{ echo "$as_me:$LINENO: checking for $ac_header" >&5
-echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for $ac_header" >&5
+echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6
 if eval "test \"\${$as_ac_Header+set}\" = set"; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
   eval "$as_ac_Header=\$ac_header_preproc"
 fi
-ac_res=`eval echo '${'$as_ac_Header'}'`
-	       { echo "$as_me:$LINENO: result: $ac_res" >&5
-echo "${ECHO_T}$ac_res" >&6; }
+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Header'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_Header'}'`" >&6
 
 fi
 if test `eval echo '${'$as_ac_Header'}'` = yes; then
@@ -5754,18 +5567,17 @@ for ac_header in readline/readline.h
 do
 as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
 if eval "test \"\${$as_ac_Header+set}\" = set"; then
-  { echo "$as_me:$LINENO: checking for $ac_header" >&5
-echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6; }
+  echo "$as_me:$LINENO: checking for $ac_header" >&5
+echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6
 if eval "test \"\${$as_ac_Header+set}\" = set"; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 fi
-ac_res=`eval echo '${'$as_ac_Header'}'`
-	       { echo "$as_me:$LINENO: result: $ac_res" >&5
-echo "${ECHO_T}$ac_res" >&6; }
+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Header'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_Header'}'`" >&6
 else
   # Is the header compilable?
-{ echo "$as_me:$LINENO: checking $ac_header usability" >&5
-echo $ECHO_N "checking $ac_header usability... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking $ac_header usability" >&5
+echo $ECHO_N "checking $ac_header usability... $ECHO_C" >&6
 cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -5805,12 +5617,12 @@ sed 's/^/| /' conftest.$ac_ext >&5
 ac_header_compiler=no
 fi
 rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
-{ echo "$as_me:$LINENO: result: $ac_header_compiler" >&5
-echo "${ECHO_T}$ac_header_compiler" >&6; }
+echo "$as_me:$LINENO: result: $ac_header_compiler" >&5
+echo "${ECHO_T}$ac_header_compiler" >&6
 
 # Is the header present?
-{ echo "$as_me:$LINENO: checking $ac_header presence" >&5
-echo $ECHO_N "checking $ac_header presence... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking $ac_header presence" >&5
+echo $ECHO_N "checking $ac_header presence... $ECHO_C" >&6
 cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -5845,8 +5657,8 @@ sed 's/^/| /' conftest.$ac_ext >&5
   ac_header_preproc=no
 fi
 rm -f conftest.err conftest.$ac_ext
-{ echo "$as_me:$LINENO: result: $ac_header_preproc" >&5
-echo "${ECHO_T}$ac_header_preproc" >&6; }
+echo "$as_me:$LINENO: result: $ac_header_preproc" >&5
+echo "${ECHO_T}$ac_header_preproc" >&6
 
 # So?  What about this header?
 case $ac_header_compiler:$ac_header_preproc:$ac_c_preproc_warn_flag in
@@ -5880,16 +5692,15 @@ _ASBOX
       sed "s/^/$as_me: WARNING:     /" >&2
     ;;
 esac
-{ echo "$as_me:$LINENO: checking for $ac_header" >&5
-echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking for $ac_header" >&5
+echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6
 if eval "test \"\${$as_ac_Header+set}\" = set"; then
   echo $ECHO_N "(cached) $ECHO_C" >&6
 else
   eval "$as_ac_Header=\$ac_header_preproc"
 fi
-ac_res=`eval echo '${'$as_ac_Header'}'`
-	       { echo "$as_me:$LINENO: result: $ac_res" >&5
-echo "${ECHO_T}$ac_res" >&6; }
+echo "$as_me:$LINENO: result: `eval echo '${'$as_ac_Header'}'`" >&5
+echo "${ECHO_T}`eval echo '${'$as_ac_Header'}'`" >&6
 
 fi
 if test `eval echo '${'$as_ac_Header'}'` = yes; then
@@ -5931,8 +5742,8 @@ fi
 
 
 
-{ echo "$as_me:$LINENO: checking whether to enable maintainer-specific portions of Makefiles" >&5
-echo $ECHO_N "checking whether to enable maintainer-specific portions of Makefiles... $ECHO_C" >&6; }
+echo "$as_me:$LINENO: checking whether to enable maintainer-specific portions of Makefiles" >&5
+echo $ECHO_N "checking whether to enable maintainer-specific portions of Makefiles... $ECHO_C" >&6
     # Check whether --enable-maintainer-mode or --disable-maintainer-mode was given.
 if test "${enable_maintainer_mode+set}" = set; then
   enableval="$enable_maintainer_mode"
@@ -5940,8 +5751,8 @@ if test "${enable_maintainer_mode+set}" = set; then
 else
   USE_MAINTAINER_MODE=no
 fi;
-  { echo "$as_me:$LINENO: result: $USE_MAINTAINER_MODE" >&5
-echo "${ECHO_T}$USE_MAINTAINER_MODE" >&6; }
+  echo "$as_me:$LINENO: result: $USE_MAINTAINER_MODE" >&5
+echo "${ECHO_T}$USE_MAINTAINER_MODE" >&6
 
 
 if test $USE_MAINTAINER_MODE = yes; then
