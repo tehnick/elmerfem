@@ -137,9 +137,14 @@ if __name__ == "__main__":
             
         for use in fileuses[f]:
             if modtofile.has_key(use):
-                line=line + " " + p.getObjectName(modtofile[use])
+                depobj=p.getObjectName(modtofile[use])
+                if object != depobj:
+                    line=line + " " + depobj
+                else:
+                    sys.stderr.write("Warning, removing circular dependency from: "+object+"\n")
             else:
                 sys.stderr.write("Warning, module "+use+" undefined\n")
+                
         print line
     
 
