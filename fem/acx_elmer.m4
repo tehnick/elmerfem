@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.47 2005/06/02 06:58:18 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.48 2005/06/02 08:20:01 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -31,6 +31,7 @@ esac
 
 AC_SUBST(canonical_host_type)
 ])
+
 
 AC_DEFUN([ACX_PROG_AR],[
 # fixme: do something more intelligent here
