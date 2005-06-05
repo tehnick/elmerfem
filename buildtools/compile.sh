@@ -3,7 +3,7 @@
 # Always compile into tmp
 #
 
-EPREFIX="/tmp/${USER}/elmer"
+# EPREFIX="/tmp/${USER}/elmer"
 printf "build dest ${EPREFIX}"
 modules="umfpack matc mathlibs eio hutiter fem"
 
@@ -68,17 +68,6 @@ if test "$ELMER_LIB" != ""; then
     unset ELMER_LIB
 fi
 
-
-#
-# If clean parameter given, cleanup build directories /tmp/user/build*
-#
-if test "$1" = "clean"; then
-    # remove all temp files
-    printf "Removing all temp files from %s\n" $EPREFIX
-    rm -Rf $EPREFIX
-    exit
-fi
-
 #
 # If no processor number set, use only 1 (useful on clusters)
 #
@@ -93,11 +82,9 @@ printf "Using %s processors for compiling\n" $NPROCS
 datestr=`date '+%Y-%m-%d-%H-%M-%S'`
 tmpdir=build.`hostname`.$datestr
 mkdir -p $tmpdir
-tmpname=build.`hostname`.$datestr
+TESTPREFIX=build.`hostname`."${datestr}/dist"
 
-TESTPREFIX=$EPREFIX/$tmpname
-rm -Rf $TESTPREFIX
-printf "Using %s as build name\n" $tmpname
+printf "Using %s as build name\n" $TESTPREFIX
 
 topdir=`pwd`
 cd $tmpdir
