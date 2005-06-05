@@ -82,11 +82,13 @@ printf "Using %s processors for compiling\n" $NPROCS
 datestr=`date '+%Y-%m-%d-%H-%M-%S'`
 tmpdir=build.`hostname`.$datestr
 mkdir -p $tmpdir
-TESTPREFIX=build.`hostname`."${datestr}/dist"
+
+topdir=`pwd`
+
+TESTPREFIX="${topdir}/${tmpdir}/dist"
 
 printf "Using %s as build name\n" $TESTPREFIX
 
-topdir=`pwd`
 cd $tmpdir
 
 #
