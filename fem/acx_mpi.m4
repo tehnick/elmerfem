@@ -40,15 +40,18 @@ if test "$acx_mpi_ok" != disabled; then
 
 # Checking for MPIrun-executable name (depends on variables $mpi_dir)
 
-AC_MSG_CHECKING([for the mpirun command])
-mpirun_cmd="Not found"
-if test -x "$mpi_dir/bin/mpirun" ; then
-  mpirun_cmd="mpirun"
-elif test -x "$mpi_dir/bin/mprun" ; then
-  mpirun_cmd="mprun"
-fi
-AC_MSG_RESULT(found $mpirun_cmd)
-AC_SUBST(mpirun_cmd)
+#
+# 
+#
+#AC_MSG_CHECKING([for the mpirun command])
+#mpirun_cmd="Not found"
+#if test -x "$mpi_dir/bin/mpirun" ; then
+#  mpirun_cmd="mpirun"
+#elif test -x "$mpi_dir/bin/mprun" ; then
+#  mpirun_cmd="mprun"
+#fi
+#AC_MSG_RESULT($mpirun_cmd)
+#AC_SUBST(mpirun_cmd)
 
 # MPI-Library name (depends on variables $mpi_lib_dir and user-defined argument PACX_SIGNAL on IBMs) 
 

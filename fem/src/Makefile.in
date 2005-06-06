@@ -150,6 +150,8 @@ MATC_LIBS = @MATC_LIBS@
 MESHGEN2D_LIBS = @MESHGEN2D_LIBS@
 MKDIR = @MKDIR@
 MKOCTFILE_DL_LDFLAGS = @MKOCTFILE_DL_LDFLAGS@
+MPI_INCLUDE_DIR = @MPI_INCLUDE_DIR@
+MPI_LIBS = @MPI_LIBS@
 MV = @MV@
 NO_OCT_FILE_STRIP = @NO_OCT_FILE_STRIP@
 OBJEXT = @OBJEXT@
@@ -240,7 +242,6 @@ mkdir_p = @mkdir_p@
 mpi_dir = @mpi_dir@
 mpi_inc_dir = @mpi_inc_dir@
 mpi_lib_dir = @mpi_lib_dir@
-mpirun_cmd = @mpirun_cmd@
 oldincludedir = @oldincludedir@
 pdfdir = @pdfdir@
 prefix = @prefix@
@@ -255,19 +256,6 @@ target_cpu = @target_cpu@
 target_os = @target_os@
 target_vendor = @target_vendor@
 SUBDIRS = arpack parpack view3d viewaxis
-
-#*******************************************************************************
-# Elmer Makefile.in 
-#
-# 1. build objects using dependencies from make.inc.
-# 2. create libsolver.so using objects.
-# 3. build individual solvers as dynamically linked libraries.
-# 
-# mpi_stubs, solver, binaries, odd binaries 
-# 
-# LIB	   = libfem.a
-#
-# make ext variables look better in makefile-mode than autoconf replacements
 OBJ_EXT = .$(OBJEXT)
 SHL_EXT = .$(SHLEXT)
 LIB_EXT = .$(LIBEXT)
@@ -356,7 +344,7 @@ FOBJ = Acoustics.o Adaptive.o AdvectionDiffusion.o ApertureAmplitude.o \
 	StatElecSolve.o StatMagSolve.o StreamSolver.o Stress.o \
 	StressGeneral.o StressSolve.o TimeIntegrate.o \
 	TransportEquation.o Types.o ViewFactors.o Walls.o
-SOLVEROBJS = stubut$(OBJ_EXT)                                \
+SOLVEROBJS = \
 		NavierStokes$(OBJ_EXT)				\
 		NavierStokesGeneral$(OBJ_EXT)	     		\
 		NavierStokesCylindrical$(OBJ_EXT)		\
@@ -423,10 +411,12 @@ SOLVEROBJS = stubut$(OBJ_EXT)                                \
 		MEMUtilities$(OBJ_EXT)  			\
 		ElmerSolver$(OBJ_EXT)
 
+NORMAL_TARGETS = mpif libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
+MPI_TARGETS = libsolver_mpi$(SHL_EXT) ElmerSolver_mpi$(EXE_EXT)
+@USE_MPI_FALSE@ELMER_TARGETS = $(NORMAL_TARGETS)
+@USE_MPI_TRUE@ELMER_TARGETS = $(NORMAL_TARGETS) $(MPI_TARGETS)
 ELMER_SOLVER_DATADIR = $(prefix)/share/elmersolver
 SC2Elmer_SOURCES = SC2Elmer.c
-
-# all source files that automake doesn't know about in this directory.
 EXTRA_DIST = \
 	Acoustics.src \
 	Adaptive.src \
@@ -1019,11 +1009,7 @@ Walls.o: Walls.f90
 solve_cmplx.o: solve_cmplx.f90
 solve_real.o: solve_real.f90
 
-# dependencies
-# automatic object dependencies for .f90 files
-
-# attach to automake all target
-all-local:   mpif libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
+all-local: $(ELMER_TARGETS)
 
 SUFFIXES: .f90 .so .src
 
@@ -1033,17 +1019,23 @@ SUFFIXES: .f90 .so .src
 .f90.$(OBJEXT):
 	$(FC) $(FCFLAGS) -c $<
 
-libsolver$(SHL_EXT): $(SOLVEROBJS) arpack parpack
+libsolver$(SHL_EXT): $(SOLVEROBJS) arpack stubut.$(OBJEXT)
 	$(RM) $@
-	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) -L.
+	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) stubut.$(OBJEXT) $(SOLVER_LIBS) -L.
 
-# create shared solver objects
 .$(OBJEXT).$(SHLEXT): 
 	$(SH_LD) $(SH_LDFLAGS) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) -o $@ $*$(OBJ_EXT) $(EXTRA_LIBS)
 
 $(BINARIES) $(BINARIES_ODD): libsolver$(SHL_EXT)
 
 $(SOLVEROBJS): mpif
+
+ElmerSolver_mpi$(EXE_EXT): Solver$(OBJ_EXT) libsolver_mpi$(SHL_EXT)
+	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver$(EXE_EXT) Solver$(OBJ_EXT) -L. -lsolver_mpi $(EXTRA_LIBS)
+
+libsolver_mpi$(SHL_EXT): $(SOLVEROBJS) arpack parpack
+	$(RM) $@
+	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) $(MPI_LIBS) -L.
 
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT) 
 	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver$(EXE_EXT) Solver$(OBJ_EXT) -L. -lsolver $(EXTRA_LIBS)
@@ -1076,8 +1068,6 @@ install-exec-local:
 clean-local:
 	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so *.dll \#* mpif mpif.h
 
-###############################
-# If no mpif.h found, but mpi still seems kosher, then use a stub mpif.h
 @USE_LOCAL_MPIF_H_TRUE@mpif:
 @USE_LOCAL_MPIF_H_TRUE@	$(CP) mpif_stub.h mpif.h
 @USE_LOCAL_MPIF_H_TRUE@	$(CP) mpif_stub.h mpif

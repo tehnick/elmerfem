@@ -127,7 +127,7 @@
 #define HAVE_MEMORY_H 1
 
 /* ... */
-/* #undef HAVE_MPI */
+#define HAVE_MPI 1
 
 /* Define if you have a PARPACK library. */
 /* #undef HAVE_PARPACK */

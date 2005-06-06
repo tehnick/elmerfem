@@ -1,29 +1,23 @@
 SUBDIRS=arpack parpack view3d viewaxis
 
-#*******************************************************************************
-# Elmer Makefile.in 
-#
-# 1. build objects using dependencies from make.inc.
-# 2. create libsolver.so using objects.
-# 3. build individual solvers as dynamically linked libraries.
-# 
-# mpi_stubs, solver, binaries, odd binaries 
-# 
-# LIB	   = libfem.a
-#
-# make ext variables look better in makefile-mode than autoconf replacements
 OBJ_EXT=.$(OBJEXT)
 SHL_EXT=.$(SHLEXT)
 LIB_EXT=.$(LIBEXT)
 EXE_EXT=$(EXEEXT)
 
-# dependencies
 include make.bin
-# automatic object dependencies for .f90 files
 include make.dep
 
-# attach to automake all target
-all-local:   mpif libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
+NORMAL_TARGETS=mpif libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
+MPI_TARGETS=libsolver_mpi$(SHL_EXT) ElmerSolver_mpi$(EXE_EXT)
+
+if USE_MPI
+ELMER_TARGETS=$(NORMAL_TARGETS) $(MPI_TARGETS)
+else
+ELMER_TARGETS=$(NORMAL_TARGETS)
+endif
+
+all-local: $(ELMER_TARGETS)
 
 SUFFIXES: .f90 .so .src
 
@@ -33,12 +27,10 @@ SUFFIXES: .f90 .so .src
 .f90.$(OBJEXT):
 	$(FC) $(FCFLAGS) -c $<
 
-# use stubs to satisfy mpi symbols
 libsolver$(SHL_EXT): $(SOLVEROBJS) arpack stubut.$(OBJEXT)
 	$(RM) $@
 	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) stubut.$(OBJEXT) $(SOLVER_LIBS) -L.
 
-# create shared solver objects
 .$(OBJEXT).$(SHLEXT): 
 	$(SH_LD) $(SH_LDFLAGS) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) -o $@ $*$(OBJ_EXT) $(EXTRA_LIBS)
 
@@ -46,15 +38,12 @@ $(BINARIES) $(BINARIES_ODD): libsolver$(SHL_EXT)
 
 $(SOLVEROBJS): mpif
 
-# create extra MPI enabled version
-if USE_MPI
-ElmerSolver_mpi$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT) 
-	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver$(EXE_EXT) Solver$(OBJ_EXT) -L. -lsolver_mpi $(EXTRA_LIBS)
+ElmerSolver_mpi$(EXE_EXT): Solver$(OBJ_EXT) libsolver_mpi$(SHL_EXT)
+	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver_mpi$(EXE_EXT) Solver$(OBJ_EXT) -L. -lsolver_mpi $(EXTRA_LIBS)
 
-libsolver_mpi$(SHL_EXT): $(SOLVEROBJS) arpack parpack 
+libsolver_mpi$(SHL_EXT): $(SOLVEROBJS) arpack parpack
 	$(RM) $@
 	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) $(MPI_LIBS) -L.
-endif
 
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT) 
 	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver$(EXE_EXT) Solver$(OBJ_EXT) -L. -lsolver $(EXTRA_LIBS)
@@ -89,14 +78,9 @@ install-exec-local:
 clean-local:
 	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so *.dll \#* mpif mpif.h
 
-###############################
-# Automake knows how to do this 
-#
 bin_PROGRAMS = SC2Elmer 
 SC2Elmer_SOURCES = SC2Elmer.c
 
-###############################
-# If no mpif.h found, but mpi still seems kosher, then use a stub mpif.h
 if USE_LOCAL_MPIF_H
 mpif:
 	$(CP) mpif_stub.h mpif.h
@@ -106,7 +90,6 @@ mpif:
 	$(CP) mpif_stub.h mpif
 endif
 
-# all source files that automake doesn't know about in this directory.
 EXTRA_DIST = \
 	Acoustics.src \
 	Adaptive.src \
