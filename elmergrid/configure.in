@@ -1,0 +1,32 @@
+AC_INIT(src/common.c)
+
+AC_CANONICAL_HOST
+AC_CANONICAL_TARGET
+
+AM_INIT_AUTOMAKE(elmergrid, 1.0.0)
+
+dnl default optimization flags
+sinclude(acx_elmer.m4)
+ACX_HOST
+ACX_PLATFORM_DEFS
+ACX_DEBUG
+ACX_PROG_AR
+
+dnl Checks for programs.
+AC_PROG_RANLIB
+
+AC_PROG_CC
+AC_STDC_HEADERS
+AC_CHECK_LIB(m,sqrt)
+
+ACX_CHECK_B64FLAGS
+
+AM_MAINTAINER_MODE
+
+AC_CONFIG_HEADER(config.h) 
+
+AC_OUTPUT([
+Makefile
+src/Makefile
+src/metis/Makefile
+])
