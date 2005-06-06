@@ -214,4 +214,6 @@ EXTRA_DIST = \
 	TransportEquation.src \
 	Types.src \
 	ViewFactors.src \
-	Walls.src 
+	Walls.src \
+	elements.def \
+	SOLVER.KEYWORDS
