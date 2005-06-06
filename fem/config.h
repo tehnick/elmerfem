@@ -5,10 +5,10 @@
 /* #undef AIX */
 
 /* 32 bit arch. */
-/* #undef ARCH_32_BITS */
+#define ARCH_32_BITS 1
 
 /* Couldn't determine. sticking with 64 just in case. */
-#define ARCH_64_BITS 1
+/* #undef ARCH_64_BITS */
 
 /* Detected platform. */
 /* #undef BASTARDS */
@@ -23,10 +23,10 @@
 /* #undef DEC_ALPHA */
 
 /* "Mangling: lower case */
-#define ELMER_LINKTYP 4
+#define ELMER_LINKTYP 1
 
 /* Elmer solver default install directory */
-#define ELMER_SOLVER_HOME '/home/vierinen/src/elmer/buildtools/build.laatikko.2005-06-06-14-04-01/dist/share/elmersolver'
+#define ELMER_SOLVER_HOME '/home/vierinen/share/elmersolver'
 
 /* Define if using dynamic linking */
 #define ENABLE_DYNAMIC_LINKING 1
@@ -40,7 +40,7 @@
 #define F77_FUNC(name,NAME) name ## _
 
 /* As F77_FUNC, but for C identifiers containing underscores. */
-#define F77_FUNC_(name,NAME) name ## __
+#define F77_FUNC_(name,NAME) name ## _
 
 /* Char pointer mangling */
 #define FC_CHAR_PTR(P,L) char *P
@@ -57,7 +57,7 @@
 #define FC_FUNC(name,NAME) name ## _
 
 /* As FC_FUNC, but for C identifiers containing underscores. */
-#define FC_FUNC_(name,NAME) name ## __
+#define FC_FUNC_(name,NAME) name ## _
 
 /* Define if you have a ARPACK library. */
 /* #undef HAVE_ARPACK */
@@ -88,7 +88,7 @@
 #define HAVE_EIOF 1
 
 /* Does the fortran environment implement etime */
-#define HAVE_F_ETIME 1
+/* #undef HAVE_F_ETIME */
 
 /* Does the fortran environment implement flush */
 #define HAVE_F_FLUSH 1
@@ -196,7 +196,7 @@
 #define SHL_EXTENSION ".so"
 
 /* The size of `void*', as computed by sizeof. */
-#define SIZEOF_VOIDP 0
+#define SIZEOF_VOIDP 4
 
 /* Detected platform. */
 /* #undef SOLARIS */

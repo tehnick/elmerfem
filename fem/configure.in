@@ -10,7 +10,6 @@ AM_INIT_AUTOMAKE(fem, 4.0.1)
 
 AM_MAINTAINER_MODE
 
-
 sinclude(acx_elmer.m4)
 ACX_MEANING
 ACX_HOST
@@ -69,10 +68,11 @@ ACX_MPI
 AM_CONDITIONAL(USE_MPI, test "$acx_mpi_ok" = "yes")
 AM_CONDITIONAL(USE_LOCAL_MPIF_H, test "$acx_mpif_h_found" = "no")
 AM_CONDITIONAL(USE_LDAIX, test "$use_ldaix" = "yes")
+
 if test "$MPI_INCLUDE_DIR" != ""; then
-   FCPPFLAGS="$FCPPFLAGS -I$MPI_INCLUDE_DIR"
-   FFLAGS="$FFLAGS -I$MPI_INCLUDE_DIR"
-   FCFLAGS="$FCFLAGS -I$MPI_INCLUDE_DIR"
+   FCPPFLAGS="$FCPPFLAGS $INCLUDE_MODULE_FLAG$MPI_INCLUDE_DIR"
+   FFLAGS="$FFLAGS $INCLUDE_MODULE_FLAG$MPI_INCLUDE_DIR"
+   FCFLAGS="$FCFLAGS $INCLUDE_MODULE_FLAG$MPI_INCLUDE_DIR"
 fi
 
 sinclude(acx_lapack.m4)
@@ -224,10 +224,6 @@ src/parpack/Makefile
 src/view3d/Makefile
 src/viewaxis/Makefile
 tests/Makefile
-src/elmergrid/Makefile
-src/elmergrid/metis/Makefile
-src/meshgen2d/Makefile
-src/meshgen2d/include/Makefile
 ]
 )
 

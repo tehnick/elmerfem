@@ -1,4 +1,4 @@
-SUBDIRS=elmergrid meshgen2d arpack parpack view3d viewaxis
+SUBDIRS=arpack parpack view3d viewaxis
 
 #*******************************************************************************
 # Elmer Makefile.in 
@@ -33,9 +33,10 @@ SUFFIXES: .f90 .so .src
 .f90.$(OBJEXT):
 	$(FC) $(FCFLAGS) -c $<
 
-libsolver$(SHL_EXT): $(SOLVEROBJS) arpack parpack
+# use stubs to satisfy mpi symbols
+libsolver$(SHL_EXT): $(SOLVEROBJS) arpack stubut.$(OBJEXT)
 	$(RM) $@
-	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) -L.
+	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) stubut.$(OBJEXT) $(SOLVER_LIBS) -L.
 
 # create shared solver objects
 .$(OBJEXT).$(SHLEXT): 
@@ -44,6 +45,16 @@ libsolver$(SHL_EXT): $(SOLVEROBJS) arpack parpack
 $(BINARIES) $(BINARIES_ODD): libsolver$(SHL_EXT)
 
 $(SOLVEROBJS): mpif
+
+# create extra MPI enabled version
+if USE_MPI
+ElmerSolver_mpi$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT) 
+	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver$(EXE_EXT) Solver$(OBJ_EXT) -L. -lsolver_mpi $(EXTRA_LIBS)
+
+libsolver_mpi$(SHL_EXT): $(SOLVEROBJS) arpack parpack 
+	$(RM) $@
+	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) $(MPI_LIBS) -L.
+endif
 
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT) 
 	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver$(EXE_EXT) Solver$(OBJ_EXT) -L. -lsolver $(EXTRA_LIBS)

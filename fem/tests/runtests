@@ -19,11 +19,14 @@ if test "$ELMER_HOME" = ""; then
     export ELMER_HOME="../../src"
     export ELMER_LIB="../../src"
     export ELMER_INCLUDE="../../src"
-    export ELMER_GRID="../../src/elmergrid/ElmerGrid"
+    # elmergrid must be in path
+    export ELMER_GRID="ElmerGrid"
     export ELMER_SOLVER="../../src/ElmerSolver"
-    export ELMER_MESH2D="../../src/meshgen2d/Mesh2D"
+    # elmergrid must be in path
+    export ELMER_MESH2D="Mesh2D"
     export LD_LIBRARY_PATH=".:$ELMER_HOME:$LD_LIBRARY_PATH"
-    export PATH=$ELMER_HOME:$ELMER_HOME/meshgen2d:$PATH
+    # assume that stuff has been installed here
+    export PATH=/home/vierinen/bin:$PATH
 else 
     # ELMER_HOME is defined, so we'll just use that
     printf "\$ELMER_HOME=%s\n" $ELMER_HOME
@@ -39,8 +42,8 @@ fi
 #
 # Autoconf substitutes these variables with correct values.
 #
-export F90="g95 -O -fPIC -I. -I. -I$ELMER_INCLUDE"
-export LD="g95 -shared  "
+export F90="ifort -O -fPIC -I. -I. -I$ELMER_INCLUDE"
+export LD="ifort -shared  "
 export LIBS=""
 
 cc -o findnorm findnorm.c

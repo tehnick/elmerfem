@@ -31,7 +31,11 @@ void FC_FUNC(flush,FLUSH) (int n)
 }
 #endif
 
-#ifndef HAVE_MPI 
+/* 
+   #ifndef HAVE_MPI  
+   
+   These are always used for the non-mpi version.
+ */
 void FC_FUNC_(mpi_init,MPI_INIT) 
      (int *p) { *p = 0; }
 void FC_FUNC_(mpi_comm_size,MPI_COMM_SIZE) 
@@ -60,4 +64,4 @@ void FC_FUNC(pdseupd,PDSEUPD) () {}
 void FC_FUNC(pdsaupd,PDSAUPD) () {}
 void FC_FUNC(pdnaupd,PDNAUPD) () {}
 
-#endif 
+/* #endif  */
