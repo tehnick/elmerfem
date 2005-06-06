@@ -6,7 +6,11 @@
 #
 # Modules to fetch and build (in this order)
 #
-modules="umfpack matc mathlibs eio hutiter fem"
+if test "$ELMER_MODULES" = ""; then
+    modules="umfpack matc mathlibs eio hutiter fem"
+else
+    modules=$ELMER_MODULES
+fi
 
 #
 # if anything resembling a help flag is given, we print help 
