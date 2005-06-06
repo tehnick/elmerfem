@@ -40,7 +40,7 @@ COMMON_SRCS =  \
 	huti_tfqmr_S.F90 \
 	huti_defs.h \
 	huti_main.c \
-	huti_sfe_c_C.\
+	huti_sfe_c_C.c \
 	huti_sfe_c_D.c \
 	huti_sfe_c_S.c \
 	huti_sfe_c_Z.c \
