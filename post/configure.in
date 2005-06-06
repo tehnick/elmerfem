@@ -15,8 +15,9 @@ AM_INIT_AUTOMAKE
 AM_MAINTAINER_MODE
 
 # Checks for programs.
-AC_PROG_CXX
 AC_PROG_CC
+AC_PROG_CXX
+AC_PROG_CPP
 AC_PROG_FC
 
 AC_PROG_RANLIB
@@ -46,7 +47,7 @@ sinclude(acx_gl.m4)
 ACX_CHECK_GL
 ACX_CHECK_GLU
 ACX_TCLTK([],[AC_MSG_ERROR([Tcl/tk not found, use TCLTK_LIBS environment variable or --with-tcltk="-L/path/to/ -ltcl8.4 -ltk8.4" to point to it's location.])])
-
+CPPFLAGS="$CPPFLAGS $TCLTK_INCLUDE"
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_SIZE_T

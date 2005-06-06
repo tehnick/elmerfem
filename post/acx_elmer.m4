@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.48 2005/06/02 08:20:01 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.49 2005/06/04 19:39:50 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -31,6 +31,7 @@ esac
 
 AC_SUBST(canonical_host_type)
 ])
+
 
 AC_DEFUN([ACX_PROG_AR],[
 # fixme: do something more intelligent here
@@ -1181,7 +1182,12 @@ case "$canonical_host_type" in
   ;;
   *-*-darwin*)
     SH_LDFLAGS='-dynamiclib -undefined dynamic_lookup -single_module $(LDFLAGS)'
-    SHLEXT="dylib"
+dnl    SHLEXT="dylib"
+dnl    SHLLIB='$(SHLEXT)'
+dnl    SHLEXT_VER='$(version).$(SHLEXT)'
+dnl    SHLLIB_VER='$(version).$(SHLLIB)'
+dnl    NO_OCT_FILE_STRIP="true"
+dnl    SONAME_FLAGS='-install_name $(octlibdir)/$@'
     LD_LIBRARY_PATH_VAR=DYLD_LIBRARY_PATH	
   ;;
   *-*-cygwin* | *-*-mingw*)
@@ -1190,10 +1196,16 @@ case "$canonical_host_type" in
        SH_LD=$CC
   ;;
   *-*-linux* | *-*-gnu*)
-	SH_LDFLAGS="-shared"
-	SH_EXPALL_FLAG="-Wl,-export-dynamic"
+dnl    MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
+dnl    SONAME_FLAGS=''
+dnl    RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
+dnl     CPICFLAG="-fPIC"
+dnl    CXXPICFLAG="-fPIC"
+dnl    FPICFLAG="-fPIC"
   ;;
   i[[3456]]86-*-sco3.2v5*)
+dnl    SONAME_FLAGS='-Wl,-h -Wl,$@'
+dnl    RLD_FLAG=
     SH_LDFLAGS="-G"
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
@@ -1202,7 +1214,12 @@ case "$canonical_host_type" in
     LD_LIBRARY_PATH_VAR=LIBPATH
   ;;
   hppa*-hp-hpux*)
-    SHLEXT=sl
+dnl    if test "$ac_cv_f77_compiler_gnu" = yes; then
+dnl      FPICFLAG=-fPIC
+dnl    else
+dnl      FPICFLAG=+Z
+dnl    fi
+dnl    SHLEXT=sl
     SH_LDFLAGS="-shared -fPIC"
   ;;
   *-sgi-*)
@@ -1220,7 +1237,6 @@ case "$canonical_host_type" in
 esac
 
 AC_SUBST(LD_LIBRARY_PATH_VAR)
-AC_SUBST(SH_EXPALL_FLAG)
 
 ### Dynamic linking is now enabled only if we are building shared
 ### libs and some API for dynamic linking is detected.
@@ -1241,6 +1257,10 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
 
   ### Check for dyld first since OS X can have a non-standard libdl	
 
+  AC_CHECK_HEADER(Mach-O/dyld.h)  
+  if test "$ac_cv_header_Mach_O_dyld_h" = yes; then
+    dyld_api=true
+  else 
     AC_CHECK_LIB(dld, shl_load)
     AC_CHECK_FUNCS(shl_load shl_findsym)
     if test "$ac_cv_func_shl_load" = yes \
@@ -1274,6 +1294,7 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
 	fi
       fi
     fi
+  fi
 
   if $dlopen_api; then
     DL_API_MSG="(dlopen)"
@@ -1375,6 +1396,7 @@ AC_SUBST(SH_LDFLAGS)
 AC_SUBST(SH_LD)
 ])
 
+
 dnl
 dnl @synopsis ACX_TCLTK([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
 dnl
@@ -1439,6 +1461,50 @@ fi
 
 AC_SUBST(TCLTK_LIBS)
 LIBS=$acx_tcltk_save_LIBS
+
+# Search for tcl.h and tk.h
+acx_tcltk_tcl_h_locs="/usr/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2 /include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
+
+acx_tcltk_CPPFLAGS_save=$CPPFLAGS
+acx_tcltk_CFLAGS_save=$CFLAGS
+
+AC_LANG_PUSH(C)
+
+if test "$acx_tcltk_ok" = yes; then
+for v in $acx_tcltk_tcl_h_locs; do
+	acx_tcl_h_ok="no"
+	acx_tk_h_ok="no"
+
+	CPPFLAGS="-I$v $CPPFLAGS"
+
+	AC_MSG_CHECKING([for tcl.h in -I$v])
+	AC_PREPROC_IFELSE(
+	   [AC_LANG_PROGRAM([#include <tcl.h>])],
+	   [
+		AC_MSG_RESULT([ok])
+		AC_MSG_CHECKING([for tk.h in -I$v])
+        	AC_PREPROC_IFELSE(
+		   [AC_LANG_PROGRAM([#include <tk.h>])],
+		   [
+			AC_MSG_RESULT([ok])
+	   	        TCLTK_INCLUDE="-I$v"
+			acx_tcltk_h_ok=yes
+			break
+		   ],
+	  	   [AC_MSG_RESULT([no])])
+	   ],
+	   [AC_MSG_RESULT([no])])
+done
+fi
+AC_LANG_POP(C)
+
+CPPFLAGS=$acx_tcltk_CPPFLAGS_save
+CFLAGS=$acx_tcltk_CFLAGS_save
+
+if test "$acx_tcltk_h_ok" != yes; then
+	AC_MSG_WARN([Couldn't determine tcl.h and tk.h location. Specify it manually with CFLAGS and CXXFLAGS])
+fi
+
 
 # Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
 if test x"$acx_tcltk_ok" = xyes; then
