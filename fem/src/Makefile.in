@@ -180,6 +180,7 @@ SH_LD2 = @SH_LD2@
 SH_LDFLAGS = @SH_LDFLAGS@
 SH_LINKING_TO_FLAGS = @SH_LINKING_TO_FLAGS@
 SOLVER_LIBS = @SOLVER_LIBS@
+SOLVER_MPI_LIBS = @SOLVER_MPI_LIBS@
 SONAME_FLAGS = @SONAME_FLAGS@
 STRIP = @STRIP@
 TEMPLATE_AR = @TEMPLATE_AR@
@@ -1035,7 +1036,7 @@ ElmerSolver_mpi$(EXE_EXT): Solver$(OBJ_EXT) libsolver_mpi$(SHL_EXT)
 
 libsolver_mpi$(SHL_EXT): $(SOLVEROBJS) arpack parpack
 	$(RM) $@
-	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) $(MPI_LIBS) -L.
+	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_MPI_LIBS) -L.
 
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT) 
 	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver$(EXE_EXT) Solver$(OBJ_EXT) -L. -lsolver $(EXTRA_LIBS)
@@ -1064,6 +1065,7 @@ install-exec-local:
 	$(CP) ElmerSolver$(EXEEXT) $(prefix)/bin/Solver$(EXEEXT)
 	$(CP) ViewFactors$(EXEEXT) $(prefix)/bin
 	$(CP) GebhardtFactors$(EXEEXT) $(prefix)/bin
+@USE_MPI_TRUE@	$(CP) ElmerSolver_mpi$(EXEEXT) $(prefix)/bin
 
 clean-local:
 	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so *.dll \#* mpif mpif.h

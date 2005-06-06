@@ -43,7 +43,7 @@ ElmerSolver_mpi$(EXE_EXT): Solver$(OBJ_EXT) libsolver_mpi$(SHL_EXT)
 
 libsolver_mpi$(SHL_EXT): $(SOLVEROBJS) arpack parpack
 	$(RM) $@
-	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) $(MPI_LIBS) -L.
+	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_MPI_LIBS) -L.
 
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT) 
 	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver$(EXE_EXT) Solver$(OBJ_EXT) -L. -lsolver $(EXTRA_LIBS)
@@ -67,6 +67,7 @@ install-data-local:
 	mkdir -p $(ELMER_SOLVER_DATADIR)/include
 	$(CP) *.mod $(ELMER_SOLVER_DATADIR)/include
 
+
 install-exec-local:
 	@echo "Installing stuff to ${prefix}/bin"
 	$(MKDIR) $(prefix)/bin
@@ -74,6 +75,9 @@ install-exec-local:
 	$(CP) ElmerSolver$(EXEEXT) $(prefix)/bin/Solver$(EXEEXT)
 	$(CP) ViewFactors$(EXEEXT) $(prefix)/bin
 	$(CP) GebhardtFactors$(EXEEXT) $(prefix)/bin
+if USE_MPI
+	$(CP) ElmerSolver_mpi$(EXEEXT) $(prefix)/bin
+endif
 
 clean-local:
 	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so *.dll \#* mpif mpif.h
