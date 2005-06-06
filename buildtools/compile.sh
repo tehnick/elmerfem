@@ -1,10 +1,9 @@
 #!/bin/bash
 #
-# Always compile into tmp
+# Juha Vierinen 2005
+#
 #
 
-# EPREFIX="/tmp/${USER}/elmer"
-printf "build dest ${EPREFIX}"
 modules="umfpack matc mathlibs eio hutiter fem"
 
 #
@@ -116,15 +115,3 @@ done
 
 cd $topdir
 
-#
-# reset ELMER* variables if necessary
-#
-if test "$OLD_ELMER_HOME" != ""; then
-    printf "Restoring old ELMER_HOME and LD_LIBRARY_PATH\n"
-    export ELMER_HOME=$OLD_ELMER_HOME
-    export LD_LIBRARY_PATH=$OLD_LD_LIBRRARY_PATH
-fi
-if test "$ELMER_LIB" != ""; then
-    printf "Restoring old ELMER_LIB\n"
-    export ELMER_LIB=$OLD_ELMER_LIB
-fi
