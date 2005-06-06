@@ -55,6 +55,7 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   CHARACTER(LEN=1024) :: Txt2, Txt3
 
   INTEGER :: PyramidMap613(14,4), PyramidMap605(2,4)
+  INTEGER :: WedgeMap706(3,4), WedgeMap715(21,4)
 
   SAVE AllocationsDone, FirstTimeStep
 !------------------------------------------------------------------------------
@@ -76,19 +77,45 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   PyramidMap613(13,:) = (/ 7, 6, 11, 12 /)
   PyramidMap613(14,:) = (/ 7, 6, 11, 2 /)
 
+  WedgeMap706(1,:) = (/ 5, 4, 3, 1 /)
+  WedgeMap706(2,:) = (/ 5, 3, 2, 1 /)
+  WedgeMap706(3,:) = (/ 5, 6, 4, 3 /)
+
+  WedgeMap715(1,:) = (/ 10, 11, 5, 2 /)
+  WedgeMap715(2,:) = (/ 12, 11, 6, 3 /)
+  WedgeMap715(3,:) = (/ 12, 10, 4, 1 /)
+  WedgeMap715(4,:) = (/ 7, 8, 11, 2 /)
+  WedgeMap715(5,:) = (/ 7, 10, 11, 2 /)
+  WedgeMap715(6,:) = (/ 13, 14, 11, 5 /)
+  WedgeMap715(7,:) = (/ 13, 10, 11, 5 /)
+  WedgeMap715(8,:) = (/ 9, 10, 8, 11 /)
+  WedgeMap715(9,:) = (/ 9, 7, 10, 8 /)
+  WedgeMap715(10,:) = (/ 9, 12, 10, 11 /)
+  WedgeMap715(11,:) = (/ 9, 12, 10, 1 /)
+  WedgeMap715(12,:) = (/ 9, 7, 10, 1 /)
+  WedgeMap715(13,:) = (/ 9, 8, 11, 3 /)
+  WedgeMap715(14,:) = (/ 9, 12, 11, 3 /)
+  WedgeMap715(15,:) = (/ 15, 12, 10, 11 /)
+  WedgeMap715(16,:) = (/ 15, 12, 10, 4 /)
+  WedgeMap715(17,:) = (/ 15, 10, 14, 11 /)
+  WedgeMap715(18,:) = (/ 15, 13, 10, 14 /)
+  WedgeMap715(19,:) = (/ 15, 13, 10, 4 /)
+  WedgeMap715(20,:) = (/ 15, 14, 11, 6 /)
+  WedgeMap715(21,:) = (/ 15, 12, 11, 6 /)
+
   SolverParams => GetSolverParams()
   EigenAnalysis = GetLogical( SolverParams, 'Eigen Analysis', Found )
 
   OutputFile = GetString( Solver % Values, 'Output File Name', Found )
   IF( .NOT.Found ) THEN
-     PRINT *,'Output File Name undefined'
-  ELSE
-     PRINT *,'Output File Name = ',TRIM(OutputFile)
-     WRITE(ResFile,'(A,A)') TRIM(OutputFile),'.flavia.res'
-     WRITE(MshFile,'(A,A)') TRIM(OutputFile),'.flavia.msh'
-     PRINT *,'res-file = ',TRIM(ResFile)
-     PRINT *,'msh-file = ',TRIM(MshFile)
+     PRINT *,'Output File Name undefined.'
+     OutputFile = 'Output'
   END IF
+  PRINT *,'Output File Name = ',TRIM(OutputFile)
+  WRITE(ResFile,'(A,A)') TRIM(OutputFile),'.flavia.res'
+  WRITE(MshFile,'(A,A)') TRIM(OutputFile),'.flavia.msh'
+  PRINT *,'res-file = ',TRIM(ResFile)
+  PRINT *,'msh-file = ',TRIM(MshFile)
 
   ! Write the GiD msh-file:
   !------------------------
@@ -124,6 +151,10 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
      IF( INT(i/100) == 5 ) Family = 'Tetrahedra'
      IF( INT(i/100) == 6 ) THEN
         Family = 'Tetrahedra' ! PYRAMIDS WILL BE SPLITTED
+        n = 4                 ! INTO LINEAR TETRAHEDRA
+     END IF
+     IF( INT(i/100) == 7 ) THEN
+        Family = 'Tetrahedra' ! WEDGES WILL BE SPLITTED
         n = 4                 ! INTO LINEAR TETRAHEDRA
      END IF
      IF( INT(i/100) == 8 ) Family = 'Hexahedra'
@@ -181,9 +212,25 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
               WRITE(10,'(100I10)') ElementCounter, &
                    Element % NodeIndexes(PyramidMap605(m,:)), body_id
            END DO           
+        ELSEIF( Code == 706 ) THEN
+           ! 6 noded wedges will be splitted into 3 linear tetraheda
+           !---------------------------------------------------------
+           DO m = 1,3
+              ElementCounter = ElementCounter + 1
+              WRITE(10,'(100I10)') ElementCounter, &
+                   Element % NodeIndexes(WedgeMap706(m,:)), body_id
+           END DO           
+        ELSEIF( Code == 715 ) THEN
+           ! 15 noded wedges will be splitted into 21 linear tetraheda
+           !----------------------------------------------------------
+           DO m = 1,21
+              ElementCounter = ElementCounter + 1
+              WRITE(10,'(100I10)') ElementCounter, &
+                   Element % NodeIndexes(WedgeMap715(m,:)), body_id
+           END DO           
         ELSE
-           ! Standard elements understood by GiD as such
-           !--------------------------------------------
+           ! Standard elements are understood by GiD as such
+           !------------------------------------------------
            ElementCounter = ElementCounter + 1 
            WRITE(10,'(100I10)') ElementCounter, Element % NodeIndexes, body_id
         END IF

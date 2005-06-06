@@ -26,7 +26,7 @@
 #define ELMER_LINKTYP 4
 
 /* Elmer solver default install directory */
-#define ELMER_SOLVER_HOME '/home/vierinen/src/elmer/buildtools/build.laatikko.2005-06-06-13-44-00/dist/share/elmersolver'
+#define ELMER_SOLVER_HOME '/home/vierinen/src/elmer/buildtools/build.laatikko.2005-06-06-14-04-01/dist/share/elmersolver'
 
 /* Define if using dynamic linking */
 #define ENABLE_DYNAMIC_LINKING 1
@@ -172,7 +172,7 @@
 #define LINUX 1
 
 /* Name of package */
-#define PACKAGE "elmer"
+#define PACKAGE "fem"
 
 /* Define to the address where bug reports for this package should be sent. */
 #define PACKAGE_BUGREPORT ""

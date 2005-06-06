@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.48 2005/06/02 08:20:01 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.10 2005/06/06 11:54:59 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1396,6 +1396,7 @@ AC_SUBST(SH_LDFLAGS)
 AC_SUBST(SH_LD)
 ])
 
+
 dnl
 dnl @synopsis ACX_TCLTK([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
 dnl
@@ -1460,6 +1461,50 @@ fi
 
 AC_SUBST(TCLTK_LIBS)
 LIBS=$acx_tcltk_save_LIBS
+
+# Search for tcl.h and tk.h
+acx_tcltk_tcl_h_locs="/usr/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2 /include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
+
+acx_tcltk_CPPFLAGS_save=$CPPFLAGS
+acx_tcltk_CFLAGS_save=$CFLAGS
+
+AC_LANG_PUSH(C)
+
+if test "$acx_tcltk_ok" = yes; then
+for v in $acx_tcltk_tcl_h_locs; do
+	acx_tcl_h_ok="no"
+	acx_tk_h_ok="no"
+
+	CPPFLAGS="-I$v $CPPFLAGS"
+
+	AC_MSG_CHECKING([for tcl.h in -I$v])
+	AC_PREPROC_IFELSE(
+	   [AC_LANG_PROGRAM([#include <tcl.h>])],
+	   [
+		AC_MSG_RESULT([ok])
+		AC_MSG_CHECKING([for tk.h in -I$v])
+        	AC_PREPROC_IFELSE(
+		   [AC_LANG_PROGRAM([#include <tk.h>])],
+		   [
+			AC_MSG_RESULT([ok])
+	   	        TCLTK_INCLUDE="-I$v"
+			acx_tcltk_h_ok=yes
+			break
+		   ],
+	  	   [AC_MSG_RESULT([no])])
+	   ],
+	   [AC_MSG_RESULT([no])])
+done
+fi
+AC_LANG_POP(C)
+
+CPPFLAGS=$acx_tcltk_CPPFLAGS_save
+CFLAGS=$acx_tcltk_CFLAGS_save
+
+if test "$acx_tcltk_h_ok" != yes; then
+	AC_MSG_WARN([Couldn't determine tcl.h and tk.h location. Specify it manually with CFLAGS and CXXFLAGS])
+fi
+
 
 # Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
 if test x"$acx_tcltk_ok" = xyes; then
