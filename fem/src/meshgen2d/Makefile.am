@@ -1,4 +1,6 @@
 ## Makefile.am for meshgen2d/src
+SUBDIRS=include
+
 INCLUDES = \
         -I./include       
 
