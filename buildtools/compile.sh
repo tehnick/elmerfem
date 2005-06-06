@@ -2,8 +2,10 @@
 #
 # Juha Vierinen 2005
 #
-#
 
+#
+# Modules to fetch and build (in this order)
+#
 modules="umfpack matc mathlibs eio hutiter fem"
 
 #
@@ -107,11 +109,29 @@ for m in $modules; do
 	make -j$NPROCS
     fi
     make install
+    make dist
     if test "$m" = fem; then
+    if test "$ELMER_CHECK" != "no"; then
 	make check
+    fi
     fi
     cd ..
 done
 
-cd $topdir
+if test "$ELMER_SOURCEDIST" = "yes"; then
+#
+# Copy source distribution files to dist dir
+#
+cp `find . -name *.gz` dist
+fi
 
+if test "$ELMER_BINDIST" = "yes"; then
+#
+# Create binary distribution
+#
+distArch=`uname -m`
+cd dist; tar cvfz "elmer-bin-${distArch}.tar.gz" bin include lib share
+cd ..
+fi
+
+cd $topdir
