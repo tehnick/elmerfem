@@ -133,7 +133,7 @@ void normal( double *n, int p1, int p2, double cx, double cy )
     if ( n[0]*cx + n[1]*cy > 0 ) { n[0] = -n[0]; n[1] = -n[1]; }
 }
 
-void main( int argc, char **argv )
+int main( int argc, char **argv )
 {
    FILE *fp = fopen( argv[1], "r" ), *fp_out, *fp_grp;
 

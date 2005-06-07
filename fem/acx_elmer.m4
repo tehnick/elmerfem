@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.10 2005/06/06 11:54:59 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.50 2005/06/06 11:55:27 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -302,6 +302,7 @@ dnl
 AC_DEFUN([ACX_ARPACK], [
 AC_PREREQ(2.50)
 AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])
+AC_REQUIRE([AC_F77_LIBRARY_LDFLAGS])
 acx_arpack_ok=no
 
 AC_ARG_WITH(arpack,
@@ -318,7 +319,7 @@ AC_FC_FUNC(dseupd)
 
 acx_arpack_save_LIBS="$LIBS"
 
-LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
+LIBS="$LAPACK_LIBS $BLAS_LIBS $LIBS $FCLIBS $FLIBS"
 
 # First, check ARPACK_LIBS environment variable
 if test $acx_arpack_ok = no; then
@@ -350,8 +351,6 @@ else
 fi
 ])dnl ACX_ARPACK
 
-
-
 dnl
 dnl @synopsis ACX_PARPACK([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
 dnl
@@ -360,6 +359,9 @@ dnl
 AC_DEFUN([ACX_PARPACK], [
 AC_PREREQ(2.50)
 AC_REQUIRE([AC_F77_LIBRARY_LDFLAGS])
+AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])
+AC_REQUIRE([ACX_MPI])
+AC_REQUIRE([ACX_ARPACK])
 acx_parpack_ok=no
 
 AC_ARG_WITH(parpack,
@@ -376,7 +378,7 @@ AC_FC_FUNC(pdneupd)
 
 acx_parpack_save_LIBS="$LIBS"
 
-LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
+LIBS="$MPI_LIBS $ARPACK_LIBS $LAPACK_LIBS $BLAS_LIBS $LIBS $FCLIBS $FLIBS"
 
 # First, check PARPACK_LIBS environment variable
 if test $acx_parpack_ok = no; then

@@ -26,7 +26,7 @@
 #define ELMER_LINKTYP 4
 
 /* Elmer solver default install directory */
-#define ELMER_SOLVER_HOME '/home/vierinen/src/elmer/buildtools/build.laatikko.2005-06-06-16-51-02/dist/share/elmersolver'
+#define ELMER_SOLVER_HOME '/home/vierinen/share/elmersolver'
 
 /* Define if using dynamic linking */
 #define ENABLE_DYNAMIC_LINKING 1
@@ -60,7 +60,7 @@
 #define FC_FUNC_(name,NAME) name ## __
 
 /* Define if you have a ARPACK library. */
-/* #undef HAVE_ARPACK */
+#define HAVE_ARPACK 1
 
 /* Define if you have a BLAS library. */
 #define HAVE_BLAS 1
@@ -130,7 +130,7 @@
 #define HAVE_MPI 1
 
 /* Define if you have a PARPACK library. */
-/* #undef HAVE_PARPACK */
+#define HAVE_PARPACK 1
 
 /* Define to 1 if you have the `shl_findsym' function. */
 /* #undef HAVE_SHL_FINDSYM */

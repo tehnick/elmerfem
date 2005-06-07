@@ -189,8 +189,6 @@ TESTS_FCFLAGS = @TESTS_FCFLAGS@
 UMFPACK_LIBS = @UMFPACK_LIBS@
 USE_64BIT_ARCH_FALSE = @USE_64BIT_ARCH_FALSE@
 USE_64BIT_ARCH_TRUE = @USE_64BIT_ARCH_TRUE@
-USE_LDAIX_FALSE = @USE_LDAIX_FALSE@
-USE_LDAIX_TRUE = @USE_LDAIX_TRUE@
 USE_LOCAL_MPIF_H_FALSE = @USE_LOCAL_MPIF_H_FALSE@
 USE_LOCAL_MPIF_H_TRUE = @USE_LOCAL_MPIF_H_TRUE@
 USE_MPI_FALSE = @USE_MPI_FALSE@
@@ -256,7 +254,7 @@ target_alias = @target_alias@
 target_cpu = @target_cpu@
 target_os = @target_os@
 target_vendor = @target_vendor@
-SUBDIRS = arpack parpack view3d viewaxis
+SUBDIRS = view3d viewaxis
 OBJ_EXT = .$(OBJEXT)
 SHL_EXT = .$(SHLEXT)
 LIB_EXT = .$(LIBEXT)
@@ -410,10 +408,11 @@ SOLVEROBJS = \
 		LUDecomposition$(OBJ_EXT) 			\
 	        RadiationFactors$(OBJ_EXT)                      \
 		MEMUtilities$(OBJ_EXT)  			\
+		f_stubs$(OBJ_EXT)				\
 		ElmerSolver$(OBJ_EXT)
 
 NORMAL_TARGETS = mpif libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
-MPI_TARGETS = libsolver_mpi$(SHL_EXT) ElmerSolver_mpi$(EXE_EXT)
+MPI_TARGETS = ElmerSolver_mpi$(EXE_EXT)
 @USE_MPI_FALSE@ELMER_TARGETS = $(NORMAL_TARGETS)
 @USE_MPI_TRUE@ELMER_TARGETS = $(NORMAL_TARGETS) $(MPI_TARGETS)
 ELMER_SOLVER_DATADIR = $(prefix)/share/elmersolver
@@ -1020,9 +1019,9 @@ SUFFIXES: .f90 .so .src
 .f90.$(OBJEXT):
 	$(FC) $(FCFLAGS) -c $<
 
-libsolver$(SHL_EXT): $(SOLVEROBJS) arpack stubut.$(OBJEXT)
+libsolver$(SHL_EXT): $(SOLVEROBJS) arpack
 	$(RM) $@
-	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) stubut.$(OBJEXT) $(SOLVER_LIBS) -L.
+	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) -L.
 
 .$(OBJEXT).$(SHLEXT): 
 	$(SH_LD) $(SH_LDFLAGS) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) -o $@ $*$(OBJ_EXT) $(EXTRA_LIBS)
@@ -1031,21 +1030,17 @@ $(BINARIES) $(BINARIES_ODD): libsolver$(SHL_EXT)
 
 $(SOLVEROBJS): mpif
 
-ElmerSolver_mpi$(EXE_EXT): Solver$(OBJ_EXT) libsolver_mpi$(SHL_EXT)
-	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver_mpi$(EXE_EXT) Solver$(OBJ_EXT) -L. -lsolver_mpi $(EXTRA_LIBS)
+ElmerSolver_mpi$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
+	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver_mpi$(EXE_EXT) Solver$(OBJ_EXT) $(MPI_LIBS) -L. -lsolver $(PARPACK_LIBS) $(EXTRA_LIBS)
 
-libsolver_mpi$(SHL_EXT): $(SOLVEROBJS) arpack parpack
-	$(RM) $@
-	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_MPI_LIBS) -L.
+ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT) mpi_stubs$(OBJ_EXT)
+	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver$(EXE_EXT) Solver$(OBJ_EXT) mpi_stubs$(OBJ_EXT) -L. -lsolver $(EXTRA_LIBS)
 
-ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT) 
-	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver$(EXE_EXT) Solver$(OBJ_EXT) -L. -lsolver $(EXTRA_LIBS)
+ViewFactors$(EXE_EXT): libsolver$(SHL_EXT) ViewFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT)
+	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) $(LDFLAGS) -o ViewFactors$(EXE_EXT) ViewFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT) -L. -lsolver $(EXTRA_LIBS) viewaxis/libviewaxis.a view3d/libview3d.a
 
-ViewFactors$(EXE_EXT): libsolver$(SHL_EXT) ViewFactors$(OBJ_EXT)  
-	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) $(LDFLAGS) -o ViewFactors$(EXE_EXT) ViewFactors$(OBJ_EXT) -L. -lsolver $(EXTRA_LIBS) viewaxis/libviewaxis.a view3d/libview3d.a
-
-GebhardtFactors$(EXE_EXT): libsolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT)  
-	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) $(LDFLAGS) -o GebhardtFactors$(EXE_EXT) GebhardtFactors$(OBJ_EXT) -L. -lsolver $(EXTRA_LIBS) viewaxis/libviewaxis.a view3d/libview3d.a
+GebhardtFactors$(EXE_EXT): libsolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT)
+	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) $(LDFLAGS) -o GebhardtFactors$(EXE_EXT) GebhardtFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT) -L. -lsolver $(EXTRA_LIBS) viewaxis/libviewaxis.a view3d/libview3d.a
 install-data-local:
 	@echo "Instaling solvers to ${ELMER_SOLVER_DATADIR}/lib"
 
@@ -1068,7 +1063,7 @@ install-exec-local:
 @USE_MPI_TRUE@	$(CP) ElmerSolver_mpi$(EXEEXT) $(prefix)/bin
 
 clean-local:
-	$(RM) $(ALL) *.o *.mod *.F90 *.F *.fpp *~ *.a *.so *.dll \#* mpif mpif.h
+	$(RM) $(ALL) *.o *.mod *.f90 *.F *.fpp *~ *.a *.so *.dll \#* mpif mpif.h ElmerSolver ElmerSolver_mpi
 
 @USE_LOCAL_MPIF_H_TRUE@mpif:
 @USE_LOCAL_MPIF_H_TRUE@	$(CP) mpif_stub.h mpif.h

@@ -1,6 +1,7 @@
 dnl
 dnl Partly copied from http://www.hlrs.de/people/keller/configure_scripts.html
 dnl
+dnl TODO: test fortran-mpi linkage...
 dnl
 
 AC_DEFUN([ACX_MPI], [

@@ -699,12 +699,6 @@ mpi_inc_dir
 lib_mpi
 MPI_LIBS
 MPI_INCLUDE_DIR
-USE_MPI_TRUE
-USE_MPI_FALSE
-USE_LOCAL_MPIF_H_TRUE
-USE_LOCAL_MPIF_H_FALSE
-USE_LDAIX_TRUE
-USE_LDAIX_FALSE
 BLAS_LIBS
 LAPACK_LIBS
 HUTI_LIBS
@@ -713,6 +707,10 @@ ARPACK_LIBS
 PARPACK_LIBS
 UMFPACK_LIBS
 MATC_LIBS
+USE_MPI_TRUE
+USE_MPI_FALSE
+USE_LOCAL_MPIF_H_TRUE
+USE_LOCAL_MPIF_H_FALSE
 SH_LDFLAGS
 SH_LD
 TESTS_FCFLAGS
@@ -2397,8 +2395,6 @@ fi
 
   MAINT=$MAINTAINER_MODE_TRUE
   
-
-
 
 
 
@@ -9933,36 +9929,6 @@ fi
 
 
 
- 
-
-if test "$acx_mpi_ok" = "yes"; then
-  USE_MPI_TRUE=
-  USE_MPI_FALSE='#'
-else
-  USE_MPI_TRUE='#'
-  USE_MPI_FALSE=
-fi
-
- 
-
-if test "$acx_mpif_h_found" = "no"; then
-  USE_LOCAL_MPIF_H_TRUE=
-  USE_LOCAL_MPIF_H_FALSE='#'
-else
-  USE_LOCAL_MPIF_H_TRUE='#'
-  USE_LOCAL_MPIF_H_FALSE=
-fi
-
- 
-
-if test "$use_ldaix" = "yes"; then
-  USE_LDAIX_TRUE=
-  USE_LDAIX_FALSE='#'
-else
-  USE_LDAIX_TRUE='#'
-  USE_LDAIX_FALSE=
-fi
-
 
 if test "$MPI_INCLUDE_DIR" != ""; then
    FCPPFLAGS="$FCPPFLAGS $INCLUDE_MODULE_FLAG$MPI_INCLUDE_DIR"
@@ -12520,6 +12486,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
+
 acx_arpack_ok=no
 
 
@@ -12558,7 +12525,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 acx_arpack_save_LIBS="$LIBS"
 
-LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
+LIBS="$LAPACK_LIBS $BLAS_LIBS $LIBS $FCLIBS $FLIBS"
 
 # First, check ARPACK_LIBS environment variable
 if test $acx_arpack_ok = no; then
@@ -12745,9 +12712,13 @@ _ACEOF
         :
 else
         acx_arpack_ok=no
-        { echo "$as_me:$LINENO: result: ..using internal arpack" >&5
-echo "${ECHO_T}..using internal arpack" >&6; }
+        { { echo "$as_me:$LINENO: error: We need arpack!" >&5
+echo "$as_me: error: We need arpack!" >&2;}
+   { (exit 1); exit 1; }; }
 fi
+
+
+
 
 
 
@@ -12790,7 +12761,7 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 acx_parpack_save_LIBS="$LIBS"
 
-LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
+LIBS="$MPI_LIBS $ARPACK_LIBS $LAPACK_LIBS $BLAS_LIBS $LIBS $FCLIBS $FLIBS"
 
 # First, check PARPACK_LIBS environment variable
 if test $acx_parpack_ok = no; then
@@ -12977,8 +12948,8 @@ _ACEOF
         :
 else
         acx_parpack_ok=no
-        { echo "$as_me:$LINENO: result: ..using internal parpack" >&5
-echo "${ECHO_T}..using internal parpack" >&6; }
+        { echo "$as_me:$LINENO: WARNING: No parallel arpack found." >&5
+echo "$as_me: WARNING: No parallel arpack found." >&2;}
 fi
 
 
@@ -13505,15 +13476,35 @@ _ACEOF
 fi
 
 
-if test x"$acx_arpack_ok" = xno; then
-   ARPACK_LIBS="arpack/libarpack.a"
-fi
-
 if test x"$acx_parpack_ok" = xno; then
 if test x"$acx_mpi_ok" = xyes; then
-   PARPACK_LIBS="parpack/libparpack.a"
+   { { echo "$as_me:$LINENO: error: The MPI version needs parpack. Disabling MPI." >&5
+echo "$as_me: error: The MPI version needs parpack. Disabling MPI." >&2;}
+   { (exit 1); exit 1; }; }
+   acx_mpi_ok=no
 fi
 fi
+
+ 
+
+if test "$acx_mpi_ok" = "yes"; then
+  USE_MPI_TRUE=
+  USE_MPI_FALSE='#'
+else
+  USE_MPI_TRUE='#'
+  USE_MPI_FALSE=
+fi
+
+ 
+
+if test "$acx_mpif_h_found" = "no"; then
+  USE_LOCAL_MPIF_H_TRUE=
+  USE_LOCAL_MPIF_H_FALSE='#'
+else
+  USE_LOCAL_MPIF_H_TRUE='#'
+  USE_LOCAL_MPIF_H_FALSE=
+fi
+
 
 case "$FC" in
   *xlf*)
@@ -13561,7 +13552,6 @@ esac
 
 
 SOLVER_LIBS="$LIBS $ARPACK_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $LAPACK_LIBS $BLAS_LIBS $FCLIBS $FLIBS $STDCXX_LIBS"
-SOLVER_MPI_LIBS="$LIBS $ARPACK_LIBS $PARPACK_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $LAPACK_LIBS $BLAS_LIBS $MPI_LIBS $FCLIBS $FLIBS $STDCXX_LIBS"
 
 case "$canonical_host_type" in
   rs6000-ibm-aix* | powerpc-ibm-aix*)
@@ -13681,7 +13671,7 @@ _ACEOF
           ac_config_files="$ac_config_files tests/runtests"
 
 
-                                                                                ac_config_files="$ac_config_files Makefile Makeconf src/Makefile src/arpack/Makefile src/parpack/Makefile src/view3d/Makefile src/viewaxis/Makefile tests/Makefile"
+                                                            ac_config_files="$ac_config_files Makefile Makeconf src/Makefile src/view3d/Makefile src/viewaxis/Makefile tests/Makefile"
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
 # tests run on this system so they can be shared between configure
@@ -13820,13 +13810,6 @@ if test -z "${USE_LOCAL_MPIF_H_TRUE}" && test -z "${USE_LOCAL_MPIF_H_FALSE}"; th
   { { echo "$as_me:$LINENO: error: conditional \"USE_LOCAL_MPIF_H\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
 echo "$as_me: error: conditional \"USE_LOCAL_MPIF_H\" was never defined.
-Usually this means the macro was only invoked conditionally." >&2;}
-   { (exit 1); exit 1; }; }
-fi
-if test -z "${USE_LDAIX_TRUE}" && test -z "${USE_LDAIX_FALSE}"; then
-  { { echo "$as_me:$LINENO: error: conditional \"USE_LDAIX\" was never defined.
-Usually this means the macro was only invoked conditionally." >&5
-echo "$as_me: error: conditional \"USE_LDAIX\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
@@ -14281,8 +14264,6 @@ do
   "Makefile" ) CONFIG_FILES="$CONFIG_FILES Makefile" ;;
   "Makeconf" ) CONFIG_FILES="$CONFIG_FILES Makeconf" ;;
   "src/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/Makefile" ;;
-  "src/arpack/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/arpack/Makefile" ;;
-  "src/parpack/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/parpack/Makefile" ;;
   "src/view3d/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/view3d/Makefile" ;;
   "src/viewaxis/Makefile" ) CONFIG_FILES="$CONFIG_FILES src/viewaxis/Makefile" ;;
   "tests/Makefile" ) CONFIG_FILES="$CONFIG_FILES tests/Makefile" ;;
@@ -14467,12 +14448,6 @@ s,@mpi_inc_dir@,$mpi_inc_dir,;t t
 s,@lib_mpi@,$lib_mpi,;t t
 s,@MPI_LIBS@,$MPI_LIBS,;t t
 s,@MPI_INCLUDE_DIR@,$MPI_INCLUDE_DIR,;t t
-s,@USE_MPI_TRUE@,$USE_MPI_TRUE,;t t
-s,@USE_MPI_FALSE@,$USE_MPI_FALSE,;t t
-s,@USE_LOCAL_MPIF_H_TRUE@,$USE_LOCAL_MPIF_H_TRUE,;t t
-s,@USE_LOCAL_MPIF_H_FALSE@,$USE_LOCAL_MPIF_H_FALSE,;t t
-s,@USE_LDAIX_TRUE@,$USE_LDAIX_TRUE,;t t
-s,@USE_LDAIX_FALSE@,$USE_LDAIX_FALSE,;t t
 s,@BLAS_LIBS@,$BLAS_LIBS,;t t
 s,@LAPACK_LIBS@,$LAPACK_LIBS,;t t
 s,@HUTI_LIBS@,$HUTI_LIBS,;t t
@@ -14481,6 +14456,10 @@ s,@ARPACK_LIBS@,$ARPACK_LIBS,;t t
 s,@PARPACK_LIBS@,$PARPACK_LIBS,;t t
 s,@UMFPACK_LIBS@,$UMFPACK_LIBS,;t t
 s,@MATC_LIBS@,$MATC_LIBS,;t t
+s,@USE_MPI_TRUE@,$USE_MPI_TRUE,;t t
+s,@USE_MPI_FALSE@,$USE_MPI_FALSE,;t t
+s,@USE_LOCAL_MPIF_H_TRUE@,$USE_LOCAL_MPIF_H_TRUE,;t t
+s,@USE_LOCAL_MPIF_H_FALSE@,$USE_LOCAL_MPIF_H_FALSE,;t t
 s,@SH_LDFLAGS@,$SH_LDFLAGS,;t t
 s,@SH_LD@,$SH_LD,;t t
 s,@TESTS_FCFLAGS@,$TESTS_FCFLAGS,;t t
