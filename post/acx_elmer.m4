@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.51 2005/06/07 08:15:09 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.52 2005/06/07 09:07:10 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1408,7 +1408,9 @@ dnl @synopsis ACX_TCLTK([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
 dnl
 dnl Look for tcl/tk libraries 
 dnl
-AC_DEFUN([ACX_TCLTK], [
+AC_DEFUN([ACX_TCLTK], 
+[
+AC_REQUIRE([AC_PATH_X])
 AC_PREREQ(2.50)
 acx_tcltk_ok=no
 
@@ -1481,7 +1483,7 @@ for v in $acx_tcltk_tcl_h_locs; do
 	acx_tcl_h_ok="no"
 	acx_tk_h_ok="no"
 
-	CPPFLAGS="-I$v $CPPFLAGS"
+	CPPFLAGS="-I$v $CPPFLAGS -I${x_includes}"
 
 	AC_MSG_CHECKING([for tcl.h in -I$v])
 	AC_PREPROC_IFELSE(
