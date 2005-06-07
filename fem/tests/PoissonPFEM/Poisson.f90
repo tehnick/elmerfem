@@ -129,7 +129,7 @@ CONTAINS
 !------------------------------------------------------------------------------
   SUBROUTINE LCondensate( N, Nb, K, F )
 !------------------------------------------------------------------------------
-    USE LUDecomposition
+    USE LinearAlgebra
     INTEGER :: N, Nb
     REAL(KIND=dp) :: K(:,:),F(:),Kbb(Nb,Nb), &
          Kbl(Nb,N), Klb(N,Nb), Fb(Nb)
