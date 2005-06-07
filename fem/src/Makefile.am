@@ -160,7 +160,7 @@ EXTRA_DIST = \
 	MGPrec.src \
 	ModelDescription.src \
 	mpif_stub.h \
-	stubut.c \
+	mpi_stubs.c \
 	Multigrid.src \
 	NavierStokesCylindrical.src \
 	NavierStokes.src \
@@ -210,4 +210,5 @@ EXTRA_DIST = \
 	ViewFactors.src \
 	Walls.src \
 	elements.def \
+	f_stubs.c \
 	SOLVER.KEYWORDS
