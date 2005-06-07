@@ -85,7 +85,7 @@ COMMON_SRCS =  \
 	zmout.f \
 	zvout.f 
 
-noinst_LIBRARIES = libarpack.a
+lib_LIBRARIES = libarpack.a
 
 libarpack_a_SOURCES = $(COMMON_SRCS)
 

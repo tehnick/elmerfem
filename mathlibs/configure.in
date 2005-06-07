@@ -11,20 +11,35 @@ sinclude(acx_elmer.m4)
 ACX_DEBUG
 
 AC_PROG_RANLIB
+
 AC_PROG_F77([xlf pathf90 ifort f77 g77])
 
 ACX_CHECK_B64FLAGS
+
+ACX_FC_INCLUDE_MODULE_FLAG
+
+sinclude(acx_mpi.m4)
+ACX_MPI
+
+if test "$MPI_INCLUDE_DIR" != ""; then
+   FFLAGS="$FFLAGS $INCLUDE_MODULE_FLAG$MPI_INCLUDE_DIR"
+fi
+
+AM_CONDITIONAL(USE_MPI, test "$acx_mpi_ok" = "yes")
+AM_CONDITIONAL(USE_LOCAL_MPIF_H, test "$acx_mpif_h_found" = "no")
 
 AC_OUTPUT([
 Makefile
 src/Makefile
 src/blas/Makefile
 src/lapack/Makefile
+src/arpack/Makefile
+src/parpack/Makefile
 ]
 )
 
 AC_MSG_RESULT([
-BLAS and LAPACK build options:
+BLAS, LAPACK, ARPACK and PARPACK build options:
 
 Use environment variables F77 and FFLAGS to 
 change these.
@@ -32,4 +47,6 @@ change these.
 Compiler:
   Fortran compiler          $F77
   Fortran flags             $FFLAGS
+  MPI (compile parpack)     $acx_mpi_ok
+
 ]);

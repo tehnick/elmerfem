@@ -74,7 +74,7 @@ EXTRA_DIST=mpif_stub.h
 
 if USE_MPI
 
-noinst_LIBRARIES = libparpack.a
+lib_LIBRARIES = libparpack.a
 libparpack_a_SOURCES = mpif $(COMMON_SRCS)
 $(COMMON_SRCS): mpif
 
@@ -82,11 +82,11 @@ endif
 
 if USE_LOCAL_MPIF_H
 mpif:
-	@CP@ mpif_stub.h mpif.h
-	@CP@ mpif_stub.h mpif
+	cp mpif_stub.h mpif.h
+	cp mpif_stub.h mpif
 else
 mpif:
-	@CP@ mpif_stub.h mpif
+	cp mpif_stub.h mpif
 endif
 
 

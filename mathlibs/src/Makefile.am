@@ -1,1 +1,1 @@
-SUBDIRS=blas lapack
+SUBDIRS=blas lapack arpack parpack
