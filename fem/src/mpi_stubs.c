@@ -21,6 +21,7 @@ void FC_FUNC_(mpi_buffer_detach,MPI_BUFFER_DETACH) () {}
 void FC_FUNC_(mpi_bsend,MPI_BSEND) () {}
 void FC_FUNC_(mpi_null_delete_fn,MPI_NULL_DELETE_FN) () {}
 void FC_FUNC_(mpi_buffer_attach,MPI_BUFFER_ATTACH) () {}
+void FC_FUNC_(mpi_allreduce,MPI_ALLREDUCE) () {}
 
 /* parpack */
 void FC_FUNC(pdneupd,PDNEUPD) () {}
