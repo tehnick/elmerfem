@@ -15,7 +15,18 @@ COMMON_SRCS =  \
 	EIOPartWriter.cpp \
 	EIOSolverAgent.cpp 
 
-lib_LIBRARIES = libeioc.a libeiof.a
 libeioc_a_SOURCES = $(COMMON_SRCS) eio_api_c.cpp
 libeiof_a_SOURCES = $(COMMON_SRCS) eio_api_f.cpp
 
+if USE_SHARED_LIBS
+noinst_LIBRARIES = libeioc.a libeiof.a
+all-local: libeioc.$(SHLEXT) libeiof.$(SHLEXT)
+
+libeioc.$(SHLEXT): libeioc.a
+	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ libeioc.a
+
+libeiof.$(SHLEXT): libeiof.a
+	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ libeiof.a
+else
+lib_LIBRARIES = libeioc.a libeiof.a
+endif

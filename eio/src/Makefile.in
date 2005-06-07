@@ -57,7 +57,7 @@ am__vpath_adj = case $$p in \
 am__strip_dir = `echo $$p | sed -e 's|^.*/||'`;
 am__installdirs = "$(DESTDIR)$(libdir)"
 libLIBRARIES_INSTALL = $(INSTALL_DATA)
-LIBRARIES = $(lib_LIBRARIES)
+LIBRARIES = $(lib_LIBRARIES) $(noinst_LIBRARIES)
 libeioc_a_AR = $(AR) $(ARFLAGS)
 libeioc_a_LIBADD =
 am__objects_1 = EIOConstraintAgent.$(OBJEXT) \
@@ -125,6 +125,7 @@ INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
 INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
 LDFLAGS = @LDFLAGS@
+LD_LIBRARY_PATH_VAR = @LD_LIBRARY_PATH_VAR@
 LIBOBJS = @LIBOBJS@
 LIBS = @LIBS@
 LTLIBOBJS = @LTLIBOBJS@
@@ -144,6 +145,10 @@ RANLIB = @RANLIB@
 SET_MAKE = @SET_MAKE@
 SHELL = @SHELL@
 STRIP = @STRIP@
+USE_64BIT_ARCH_FALSE = @USE_64BIT_ARCH_FALSE@
+USE_64BIT_ARCH_TRUE = @USE_64BIT_ARCH_TRUE@
+USE_SHARED_LIBS_FALSE = @USE_SHARED_LIBS_FALSE@
+USE_SHARED_LIBS_TRUE = @USE_SHARED_LIBS_TRUE@
 VERSION = @VERSION@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
@@ -165,6 +170,7 @@ build_alias = @build_alias@
 build_cpu = @build_cpu@
 build_os = @build_os@
 build_vendor = @build_vendor@
+canonical_host_type = @canonical_host_type@
 datadir = @datadir@
 datarootdir = @datarootdir@
 docdir = @docdir@
@@ -213,9 +219,10 @@ COMMON_SRCS = \
 	EIOPartWriter.cpp \
 	EIOSolverAgent.cpp 
 
-lib_LIBRARIES = libeioc.a libeiof.a
 libeioc_a_SOURCES = $(COMMON_SRCS) eio_api_c.cpp
 libeiof_a_SOURCES = $(COMMON_SRCS) eio_api_f.cpp
+@USE_SHARED_LIBS_TRUE@noinst_LIBRARIES = libeioc.a libeiof.a
+@USE_SHARED_LIBS_FALSE@lib_LIBRARIES = libeioc.a libeiof.a
 all: all-am
 
 .SUFFIXES:
@@ -278,6 +285,9 @@ uninstall-libLIBRARIES:
 
 clean-libLIBRARIES:
 	-test -z "$(lib_LIBRARIES)" || rm -f $(lib_LIBRARIES)
+
+clean-noinstLIBRARIES:
+	-test -z "$(noinst_LIBRARIES)" || rm -f $(noinst_LIBRARIES)
 libeioc.a: $(libeioc_a_OBJECTS) $(libeioc_a_DEPENDENCIES) 
 	-rm -f libeioc.a
 	$(libeioc_a_AR) libeioc.a $(libeioc_a_OBJECTS) $(libeioc_a_LIBADD)
@@ -396,7 +406,8 @@ distdir: $(DISTFILES)
 	done
 check-am: all-am
 check: check-am
-all-am: Makefile $(LIBRARIES)
+@USE_SHARED_LIBS_FALSE@all-local:
+all-am: Makefile $(LIBRARIES) all-local
 installdirs:
 	for dir in "$(DESTDIR)$(libdir)"; do \
 	  test -z "$$dir" || $(mkdir_p) "$$dir"; \
@@ -427,7 +438,8 @@ maintainer-clean-generic:
 	@echo "it deletes files that may require special tools to rebuild."
 clean: clean-am
 
-clean-am: clean-generic clean-libLIBRARIES mostlyclean-am
+clean-am: clean-generic clean-libLIBRARIES clean-noinstLIBRARIES \
+	mostlyclean-am
 
 distclean: distclean-am
 	-rm -rf ./$(DEPDIR)
@@ -474,17 +486,25 @@ ps-am:
 
 uninstall-am: uninstall-info-am uninstall-libLIBRARIES
 
-.PHONY: CTAGS GTAGS all all-am check check-am clean clean-generic \
-	clean-libLIBRARIES ctags distclean distclean-compile \
-	distclean-generic distclean-tags distdir dvi dvi-am html \
-	html-am info info-am install install-am install-data \
-	install-data-am install-exec install-exec-am install-info \
-	install-info-am install-libLIBRARIES install-man install-strip \
-	installcheck installcheck-am installdirs maintainer-clean \
+.PHONY: CTAGS GTAGS all all-am all-local check check-am clean \
+	clean-generic clean-libLIBRARIES clean-noinstLIBRARIES ctags \
+	distclean distclean-compile distclean-generic distclean-tags \
+	distdir dvi dvi-am html html-am info info-am install \
+	install-am install-data install-data-am install-exec \
+	install-exec-am install-info install-info-am \
+	install-libLIBRARIES install-man install-strip installcheck \
+	installcheck-am installdirs maintainer-clean \
 	maintainer-clean-generic mostlyclean mostlyclean-compile \
 	mostlyclean-generic pdf pdf-am ps ps-am tags uninstall \
 	uninstall-am uninstall-info-am uninstall-libLIBRARIES
 
+@USE_SHARED_LIBS_TRUE@all-local: libeioc.$(SHLEXT) libeiof.$(SHLEXT)
+
+@USE_SHARED_LIBS_TRUE@libeioc.$(SHLEXT): libeioc.a
+@USE_SHARED_LIBS_TRUE@	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ libeioc.a
+
+@USE_SHARED_LIBS_TRUE@libeiof.$(SHLEXT): libeiof.a
+@USE_SHARED_LIBS_TRUE@	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ libeiof.a
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

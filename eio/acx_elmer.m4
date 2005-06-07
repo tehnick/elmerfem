@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.39 2005/05/25 13:13:35 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.51 2005/06/07 08:15:09 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -10,6 +10,9 @@ dnl define host variable
 dnl
 AC_DEFUN([ACX_HOST],
 [
+AC_REQUIRE([AC_CANONICAL_HOST])
+AC_REQUIRE([AC_CANONICAL_TARGET])
+
 if test -z "$host"; then
   host=unknown
 fi
@@ -17,8 +20,18 @@ canonical_host_type=$host
 if test "$host" = unknown; then
   AC_MSG_ERROR([configuring for unknown system type, your build will most likely be screwed.])
 fi
+
+case "$canonical_host_type" in
+  *-*-darwin*)
+	LDFLAGS="$LDFLAGS -L/sw/lib"
+	CFLAGS="$CFLAGS -I/sw/include"
+	CXXFLAGS="$CXXFLAGS -I/sw/include"
+  ;;
+esac
+
 AC_SUBST(canonical_host_type)
 ])
+
 
 AC_DEFUN([ACX_PROG_AR],[
 # fixme: do something more intelligent here
@@ -275,6 +288,12 @@ AC_LANG_POP(C++)
 ])dnl ACX_EIOC
 
 
+
+AC_DEFUN([ACX_MEANING], [
+AC_MSG_CHECKING([for answer to meaning of life])
+AC_MSG_RESULT([42])
+])
+
 dnl
 dnl @synopsis ACX_ARPACK([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
 dnl
@@ -283,6 +302,7 @@ dnl
 AC_DEFUN([ACX_ARPACK], [
 AC_PREREQ(2.50)
 AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])
+AC_REQUIRE([AC_F77_LIBRARY_LDFLAGS])
 acx_arpack_ok=no
 
 AC_ARG_WITH(arpack,
@@ -299,7 +319,7 @@ AC_FC_FUNC(dseupd)
 
 acx_arpack_save_LIBS="$LIBS"
 
-LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
+LIBS="$LAPACK_LIBS $BLAS_LIBS $LIBS $FCLIBS $FLIBS"
 
 # First, check ARPACK_LIBS environment variable
 if test $acx_arpack_ok = no; then
@@ -331,8 +351,6 @@ else
 fi
 ])dnl ACX_ARPACK
 
-
-
 dnl
 dnl @synopsis ACX_PARPACK([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
 dnl
@@ -341,6 +359,9 @@ dnl
 AC_DEFUN([ACX_PARPACK], [
 AC_PREREQ(2.50)
 AC_REQUIRE([AC_F77_LIBRARY_LDFLAGS])
+AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])
+AC_REQUIRE([ACX_MPI])
+AC_REQUIRE([ACX_ARPACK])
 acx_parpack_ok=no
 
 AC_ARG_WITH(parpack,
@@ -357,7 +378,7 @@ AC_FC_FUNC(pdneupd)
 
 acx_parpack_save_LIBS="$LIBS"
 
-LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
+LIBS="$MPI_LIBS $ARPACK_LIBS $LAPACK_LIBS $BLAS_LIBS $LIBS $FCLIBS $FLIBS"
 
 # First, check PARPACK_LIBS environment variable
 if test $acx_parpack_ok = no; then
@@ -755,6 +776,7 @@ AC_CHECK_SIZEOF(void*)
 case "$ac_cv_sizeof_voidp" in
   "8")
     AC_DEFINE(ARCH_64_BITS, 1,[64 bit arch.])
+
     if test x"$with_64bits" = xno; then
 	AC_MSG_WARN([Explicitely requested 32 bits, but got 64 bits.])
     fi	
@@ -766,6 +788,8 @@ case "$ac_cv_sizeof_voidp" in
     AC_DEFINE(ARCH_64_BITS, 1,[Couldn't determine. sticking with 64 just in case.])
   ;;
 esac
+
+AM_CONDITIONAL(USE_64BIT_ARCH, test "$ac_cv_sizeof_voidp" -eq "8")
 
 if test "$with_64bits" != no; then
    AC_MSG_CHECKING(to see if we got 64 bits)
@@ -1026,6 +1050,12 @@ case "$canonical_host_type" in
       INCLUDE_MODULE_FLAG="-M"
     fi
   ;;
+  *darwin*)
+    #absoft
+    if test "$FC" = "f90"; then
+      INCLUDE_MODULE_FLAG="-p"
+    fi
+  ;;
 esac
 
 ])
@@ -1134,7 +1164,7 @@ DL_LD='$(SH_LD)'
 DL_LDFLAGS='$(SH_LDFLAGS)'
 MKOCTFILE_DL_LDFLAGS='$(DL_LDFLAGS)'
 SONAME_FLAGS=
-library_path_var=LD_LIBRARY_PATH
+LD_LIBRARY_PATH_VAR=LD_LIBRARY_PATH
 LIBSOLVER_DEPS=$LIBS
 
 dnl 
@@ -1153,23 +1183,19 @@ case "$canonical_host_type" in
     SH_LDFLAGS="-shared"
   ;;
   *-*-darwin*)
-    SH_LDFLAGS='-dynamiclib -single_module $(LDFLAGS)'
+    SH_LDFLAGS='-dynamiclib -undefined dynamic_lookup -single_module $(LDFLAGS)'
 dnl    SHLEXT="dylib"
 dnl    SHLLIB='$(SHLEXT)'
 dnl    SHLEXT_VER='$(version).$(SHLEXT)'
 dnl    SHLLIB_VER='$(version).$(SHLLIB)'
 dnl    NO_OCT_FILE_STRIP="true"
 dnl    SONAME_FLAGS='-install_name $(octlibdir)/$@'
-dnl    library_path_var=DYLD_LIBRARY_PATH	
+    LD_LIBRARY_PATH_VAR=DYLD_LIBRARY_PATH	
   ;;
   *-*-cygwin* | *-*-mingw*)
-dnl    SHLEXT=dll
-dnl    SHLLIB=dll.a
-dnl    SHLBIN=dll
-    SH_LDFLAGS="-shared"
-dnl    SHLLINKEXT=".dll"
-dnl    SONAME_FLAGS='-Wl,--out-implib=$@.a'
-dnl    library_path_var=PATH
+       SHLEXT=dll
+       SH_LDFLAGS="-shared"
+       SH_LD=$CC
   ;;
   *-*-linux* | *-*-gnu*)
 dnl    MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
@@ -1185,14 +1211,9 @@ dnl    RLD_FLAG=
     SH_LDFLAGS="-G"
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
-dnl    CPICFLAG=
-dnl    CXXPICFLAG=
-dnl    FPICFLAG=
-dnl    DLFCN_DIR=dlfcn
     SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
     SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared"
-dnl    use_ldaix="yes"
-dnl    AC_SUBST(use_ldaix)
+    LD_LIBRARY_PATH_VAR=LIBPATH
   ;;
   hppa*-hp-hpux*)
 dnl    if test "$ac_cv_f77_compiler_gnu" = yes; then
@@ -1216,6 +1237,8 @@ dnl    SHLEXT=sl
     fi
   ;;
 esac
+
+AC_SUBST(LD_LIBRARY_PATH_VAR)
 
 ### Dynamic linking is now enabled only if we are building shared
 ### libs and some API for dynamic linking is detected.
@@ -1296,3 +1319,205 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
   AC_DEFINE_UNQUOTED(SHL_EXTENSION, ".$SHLEXT",[Shared lib filename extension])
 fi
 ])
+
+
+
+AC_DEFUN([ACX_PLATFORM_DEFS],
+[
+AC_REQUIRE([ACX_HOST])
+acx_platform_def="GENERIC"
+case "$canonical_host_type" in
+  *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
+	acx_platform_def="BSD"
+        AC_DEFINE([BSD],1,[Detected platform.])
+  ;;
+  *-*-freebsd*)
+	acx_platform_def="BSD"
+        AC_DEFINE([BSD],1,[Detected platform.])
+  ;;
+  alpha*-dec-osf*)
+	acx_platform_def="DEC_ALPHA"
+        AC_DEFINE([DEC_ALPHA],1,[Detected platform.])
+  ;;
+  *-*-darwin*)
+        AC_DEFINE([DARWIN],1,[Detected platform.])
+  ;;
+  *-*-cygwin* | *-*-mingw*)
+	acx_platform_def="WIN32"
+        AC_DEFINE([WIN32],1,[Detected platform.])
+  ;;
+  *-*-linux* | *-*-gnu*)
+        AC_DEFINE([LINUX],1,[Detected platform.])
+  ;;
+  i[[3456]]86-*-sco3.2v5*)
+        AC_DEFINE([BASTARDS],1,[Detected platform.])
+  ;;
+  rs6000-ibm-aix* | powerpc-ibm-aix*)
+        AC_DEFINE([AIX],1,[Detected platform.])
+  ;;
+  hppa*-hp-hpux*)
+        AC_DEFINE([HPUX],1,[Detected platform.])
+  ;;
+  *-sgi-*)
+        AC_DEFINE([SGI],1,[Detected platform.])
+  ;;
+  sparc-sun-sunos4*)
+        AC_DEFINE([SUNOS],1,[Detected platform.])
+  ;;
+  sparc-sun-solaris2* | i386-pc-solaris2*)
+        AC_DEFINE([SOLARIS],1,[Detected platform.])
+  ;;
+esac
+
+])
+
+AC_DEFUN([ACX_COMPILER_FIXES],
+[
+AC_REQUIRE([ACX_SHLIB_STUFF])
+case "$FC" in
+   ifc)
+	if test "$ac_cv_cxx_compiler_gnu" = yes; then
+		dnl remove intel c++ stuff
+		FCLIBS=`echo $FCLIBS | sed -e 's/-lintrins//g'`
+	fi
+   ;;
+esac
+
+case "$F77" in
+   ifc)
+	if test "$ac_cv_cxx_compiler_gnu" = yes; then
+		dnl remove intel c++ stuff
+		FLIBS=`echo $FLIBS | sed -e 's/-lintrins//g'`
+	fi
+   ;;
+esac
+
+case "$SH_LD" in
+   ifc)
+	SH_LD="$SH_LD -Vaxlib"
+   ;;
+esac
+
+AC_SUBST(SH_LDFLAGS)
+AC_SUBST(SH_LD)
+])
+
+
+dnl
+dnl @synopsis ACX_TCLTK([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
+dnl
+dnl Look for tcl/tk libraries 
+dnl
+AC_DEFUN([ACX_TCLTK], [
+AC_PREREQ(2.50)
+acx_tcltk_ok=no
+
+AC_ARG_WITH(tcltk,
+	[AC_HELP_STRING([--with-tcltk=<lib>], [Specify tcl & tk libraries])])
+case $with_tcltk in
+	yes | "") ;;
+	no) acx_tcltk_ok=disable ;;
+	-* | */* | *.a | *.so | *.so.* | *.o) TCLTK_LIBS="$with_tcltk" ;;
+	*) TCLTK_LIBS="-l$with_tcltk" ;;
+esac
+
+acx_tcltk_save_LIBS="$LIBS"
+
+# First, check TCLTK_LIBS environment variable
+if test $acx_tcltk_ok = no; then
+if test "x$TCLTK_LIBS" != x; then
+	save_LIBS="$LIBS"; LIBS="$TCLTK_LIBS $LIBS"
+	AC_MSG_CHECKING([for TkGetDisplay in $TCLTK_LIBS])
+	AC_TRY_LINK_FUNC(TkGetDisplay, [acx_tk_ok=yes], [TCLTK_LIBS=""])
+
+	AC_MSG_CHECKING([for TclInvoke in $TCLTK_LIBS])
+	AC_TRY_LINK_FUNC(TclInvoke, [acx_tcl_ok=yes], [TCLTK_LIBS=""])
+
+	if test "$acx_tk_ok" = yes; then
+	if test "$acx_tcl_ok" = yes; then
+		acx_tcltk_ok=yes
+	fi
+	fi	
+
+	AC_MSG_RESULT($acx_tcltk_ok)
+	LIBS="$save_LIBS"
+fi
+fi
+
+acx_tcltk_lib_versions="8.4 8.3 8.2 8.1"
+
+# Generic TCLTK library?
+if test "$acx_tcltk_ok" = no; then
+	for v in $acx_tcltk_lib_versions; do
+		acx_tcl_ok="no"
+		acx_tk_ok="no"
+
+		AC_CHECK_LIB(tcl$v, TclInvoke, [acx_tcl_ok=yes; TCL_LIBS="-ltcl$v"])
+		AC_CHECK_LIB(tk$v, TkGetDisplay, [acx_tk_ok=yes; TK_LIBS="-ltk$v"])
+		
+		if test "$acx_tcl_ok" = yes; then
+  		   if test "$acx_tk_ok" = yes; then
+		     acx_tcltk_ok="yes"
+  		     TCLTK_LIBS="$TK_LIBS $TCL_LIBS"
+		     break
+		   fi
+		fi
+	done
+fi
+
+AC_SUBST(TCLTK_LIBS)
+LIBS=$acx_tcltk_save_LIBS
+
+# Search for tcl.h and tk.h
+acx_tcltk_tcl_h_locs="/usr/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2 /include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
+
+acx_tcltk_CPPFLAGS_save=$CPPFLAGS
+acx_tcltk_CFLAGS_save=$CFLAGS
+
+AC_LANG_PUSH(C)
+
+if test "$acx_tcltk_ok" = yes; then
+for v in $acx_tcltk_tcl_h_locs; do
+	acx_tcl_h_ok="no"
+	acx_tk_h_ok="no"
+
+	CPPFLAGS="-I$v $CPPFLAGS"
+
+	AC_MSG_CHECKING([for tcl.h in -I$v])
+	AC_PREPROC_IFELSE(
+	   [AC_LANG_PROGRAM([#include <tcl.h>])],
+	   [
+		AC_MSG_RESULT([ok])
+		AC_MSG_CHECKING([for tk.h in -I$v])
+        	AC_PREPROC_IFELSE(
+		   [AC_LANG_PROGRAM([#include <tk.h>])],
+		   [
+			AC_MSG_RESULT([ok])
+	   	        TCLTK_INCLUDE="-I$v"
+			acx_tcltk_h_ok=yes
+			break
+		   ],
+	  	   [AC_MSG_RESULT([no])])
+	   ],
+	   [AC_MSG_RESULT([no])])
+done
+fi
+AC_LANG_POP(C)
+
+CPPFLAGS=$acx_tcltk_CPPFLAGS_save
+CFLAGS=$acx_tcltk_CFLAGS_save
+
+if test "$acx_tcltk_h_ok" != yes; then
+	AC_MSG_WARN([Couldn't determine tcl.h and tk.h location. Specify it manually with CFLAGS and CXXFLAGS])
+fi
+
+
+# Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
+if test x"$acx_tcltk_ok" = xyes; then
+        ifelse([$1],,AC_DEFINE(HAVE_MATC,1,[Define if you have a MATC library.]),[$1])
+        :
+else
+        acx_tcltk_ok=no
+        $2
+fi
+])dnl ACX_TCLTK

@@ -25,32 +25,16 @@ ACX_CHECK_B64FLAGS
 AC_FC_WRAPPERS
 AC_FC_DUMMY_MAIN
 
-dnl case "$ac_cv_fc_mangling" in
-dnl   "upper case, no underscore, no extra underscore" | \
-dnl   "upper case, no underscores")
-dnl     AC_DEFINE(LINKTYP, 2, "Mangling: upper case, no underscore, no extra underscore") ;;
-dnl   "lower case, no underscore, no extra underscore" | \
-dnl   "lower case, no underscores" )
-dnl     AC_DEFINE(LINKTYP, 3, "Mangling: lower case, no underscore, no extra underscore") ;;
-dnl   "lower case, underscore, no extra underscore" | \
-dnl   "lower case, single underscores")
-dnl     AC_DEFINE(LINKTYP, 1, "Mangling: lower case, underscore, no extra underscore") ;;
-dnl   "lower case, underscore, extra underscore" | \
-dnl   "lower case, double underscores")
-dnl     AC_DEFINE(LINKTYP, 1, "Mangling: lower case, underscore, extra underscore") ;;
-dnl   *)
-dnl     AC_MSG_ERROR([Unknown sort of Fortran name mangling. You compiler is most likely not worthy of existence, all attempts to use is are futile.]) ;;
-dnl esac
-
-dnl AC_SUBST(AM_FCFLAGS) 
+ACX_SHLIB_STUFF
+ACX_PLATFORM_DEFS
 
 AC_STDC_HEADERS
+
+AM_CONDITIONAL(USE_SHARED_LIBS, test "$acx_platform_def" = "WIN32")
 
 AC_CONFIG_HEADER(config.h) 
 
 AC_OUTPUT([
 Makefile
-
 include/Makefile
-
 src/Makefile])
