@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.52 2005/06/07 09:07:10 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.53 2005/06/07 10:05:22 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1195,7 +1195,6 @@ dnl    SONAME_FLAGS='-install_name $(octlibdir)/$@'
   *-*-cygwin* | *-*-mingw*)
        SHLEXT=dll
        SH_LDFLAGS="-shared"
-       SH_LD=$CC
   ;;
   *-*-linux* | *-*-gnu*)
 dnl    MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
@@ -1339,7 +1338,7 @@ case "$canonical_host_type" in
   ;;
   *-*-cygwin* | *-*-mingw*)
 	acx_platform_def="WIN32"
-        AC_DEFINE([WIN32],1,[Detected platform.])
+        AC_DEFINE([GWIN],1,[Detected platform.])
   ;;
   *-*-linux* | *-*-gnu*)
         AC_DEFINE([LINUX],1,[Detected platform.])

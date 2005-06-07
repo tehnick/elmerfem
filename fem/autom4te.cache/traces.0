@@ -1943,7 +1943,7 @@ FFLAGS="$FFLAGS $FPICFLAG"
 CFLAGS="$CFLAGS $CPICFLAG"
 CXXFLAGS="$CXXFLAGS $CXXPICFLAG"
 ])
-m4trace:acx_elmer.m4:1321: -1- AC_DEFUN([ACX_SHLIB_STUFF], [
+m4trace:acx_elmer.m4:1315: -1- AC_DEFUN([ACX_SHLIB_STUFF], [
 dnl  
 dnl OS-specific stuff that hasn't been (or can't be) done in a clean way.
 dnl
@@ -1998,7 +1998,6 @@ dnl    SONAME_FLAGS='-install_name $(octlibdir)/$@'
   *-*-cygwin* | *-*-mingw*)
        SHLEXT=dll
        SH_LDFLAGS="-shared"
-       SH_LD=$CC
   ;;
   *-*-linux* | *-*-gnu*)
 dnl    MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
@@ -2062,10 +2061,6 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
 
   ### Check for dyld first since OS X can have a non-standard libdl	
 
-  AC_CHECK_HEADER(Mach-O/dyld.h)  
-  if test "$ac_cv_header_Mach_O_dyld_h" = yes; then
-    dyld_api=true
-  else 
     AC_CHECK_LIB(dld, shl_load)
     AC_CHECK_FUNCS(shl_load shl_findsym)
     if test "$ac_cv_func_shl_load" = yes \
@@ -2099,7 +2094,6 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
 	fi
       fi
     fi
-  fi
 
   if $dlopen_api; then
     DL_API_MSG="(dlopen)"
@@ -2122,7 +2116,7 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
   AC_DEFINE_UNQUOTED(SHL_EXTENSION, ".$SHLEXT",[Shared lib filename extension])
 fi
 ])
-m4trace:acx_elmer.m4:1372: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
+m4trace:acx_elmer.m4:1366: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
 AC_REQUIRE([ACX_HOST])
 acx_platform_def="GENERIC"
 case "$canonical_host_type" in
@@ -2143,7 +2137,7 @@ case "$canonical_host_type" in
   ;;
   *-*-cygwin* | *-*-mingw*)
 	acx_platform_def="WIN32"
-        AC_DEFINE([WIN32],1,[Detected platform.])
+        AC_DEFINE([GWIN],1,[Detected platform.])
   ;;
   *-*-linux* | *-*-gnu*)
         AC_DEFINE([LINUX],1,[Detected platform.])
@@ -2169,7 +2163,7 @@ case "$canonical_host_type" in
 esac
 
 ])
-m4trace:acx_elmer.m4:1403: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
+m4trace:acx_elmer.m4:1397: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
 AC_REQUIRE([ACX_SHLIB_STUFF])
 case "$FC" in
    ifc)
@@ -2198,7 +2192,7 @@ esac
 AC_SUBST(SH_LDFLAGS)
 AC_SUBST(SH_LD)
 ])
-m4trace:acx_elmer.m4:1525: -1- AC_DEFUN([ACX_TCLTK], [
+m4trace:acx_elmer.m4:1519: -1- AC_DEFUN([ACX_TCLTK], [
 AC_REQUIRE([AC_PATH_X])
 AC_PREREQ(2.50)
 acx_tcltk_ok=no
@@ -3584,7 +3578,7 @@ FFLAGS="$FFLAGS $FPICFLAG"
 CFLAGS="$CFLAGS $CPICFLAG"
 CXXFLAGS="$CXXFLAGS $CXXPICFLAG"
 ])
-m4trace:acx_elmer.m4:1321: -1- AC_DEFUN([ACX_SHLIB_STUFF], [
+m4trace:acx_elmer.m4:1315: -1- AC_DEFUN([ACX_SHLIB_STUFF], [
 dnl  
 dnl OS-specific stuff that hasn't been (or can't be) done in a clean way.
 dnl
@@ -3639,7 +3633,6 @@ dnl    SONAME_FLAGS='-install_name $(octlibdir)/$@'
   *-*-cygwin* | *-*-mingw*)
        SHLEXT=dll
        SH_LDFLAGS="-shared"
-       SH_LD=$CC
   ;;
   *-*-linux* | *-*-gnu*)
 dnl    MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
@@ -3703,10 +3696,6 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
 
   ### Check for dyld first since OS X can have a non-standard libdl	
 
-  AC_CHECK_HEADER(Mach-O/dyld.h)  
-  if test "$ac_cv_header_Mach_O_dyld_h" = yes; then
-    dyld_api=true
-  else 
     AC_CHECK_LIB(dld, shl_load)
     AC_CHECK_FUNCS(shl_load shl_findsym)
     if test "$ac_cv_func_shl_load" = yes \
@@ -3740,7 +3729,6 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
 	fi
       fi
     fi
-  fi
 
   if $dlopen_api; then
     DL_API_MSG="(dlopen)"
@@ -3763,7 +3751,7 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
   AC_DEFINE_UNQUOTED(SHL_EXTENSION, ".$SHLEXT",[Shared lib filename extension])
 fi
 ])
-m4trace:acx_elmer.m4:1372: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
+m4trace:acx_elmer.m4:1366: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
 AC_REQUIRE([ACX_HOST])
 acx_platform_def="GENERIC"
 case "$canonical_host_type" in
@@ -3784,7 +3772,7 @@ case "$canonical_host_type" in
   ;;
   *-*-cygwin* | *-*-mingw*)
 	acx_platform_def="WIN32"
-        AC_DEFINE([WIN32],1,[Detected platform.])
+        AC_DEFINE([GWIN],1,[Detected platform.])
   ;;
   *-*-linux* | *-*-gnu*)
         AC_DEFINE([LINUX],1,[Detected platform.])
@@ -3810,7 +3798,7 @@ case "$canonical_host_type" in
 esac
 
 ])
-m4trace:acx_elmer.m4:1403: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
+m4trace:acx_elmer.m4:1397: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
 AC_REQUIRE([ACX_SHLIB_STUFF])
 case "$FC" in
    ifc)
@@ -3839,7 +3827,7 @@ esac
 AC_SUBST(SH_LDFLAGS)
 AC_SUBST(SH_LD)
 ])
-m4trace:acx_elmer.m4:1525: -1- AC_DEFUN([ACX_TCLTK], [
+m4trace:acx_elmer.m4:1519: -1- AC_DEFUN([ACX_TCLTK], [
 AC_REQUIRE([AC_PATH_X])
 AC_PREREQ(2.50)
 acx_tcltk_ok=no
@@ -3970,9 +3958,9 @@ m4trace:configure.in:16: -1- AH_OUTPUT([DEC_ALPHA], [/* Detected platform. */
 m4trace:configure.in:16: -1- AC_DEFINE_TRACE_LITERAL([DARWIN])
 m4trace:configure.in:16: -1- AH_OUTPUT([DARWIN], [/* Detected platform. */
 #undef DARWIN])
-m4trace:configure.in:16: -1- AC_DEFINE_TRACE_LITERAL([WIN32])
-m4trace:configure.in:16: -1- AH_OUTPUT([WIN32], [/* Detected platform. */
-#undef WIN32])
+m4trace:configure.in:16: -1- AC_DEFINE_TRACE_LITERAL([GWIN])
+m4trace:configure.in:16: -1- AH_OUTPUT([GWIN], [/* Detected platform. */
+#undef GWIN])
 m4trace:configure.in:16: -1- AC_DEFINE_TRACE_LITERAL([LINUX])
 m4trace:configure.in:16: -1- AH_OUTPUT([LINUX], [/* Detected platform. */
 #undef LINUX])
