@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.49 2005/06/04 19:39:50 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.51 2005/06/07 08:15:09 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -302,6 +302,7 @@ dnl
 AC_DEFUN([ACX_ARPACK], [
 AC_PREREQ(2.50)
 AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])
+AC_REQUIRE([AC_F77_LIBRARY_LDFLAGS])
 acx_arpack_ok=no
 
 AC_ARG_WITH(arpack,
@@ -318,7 +319,7 @@ AC_FC_FUNC(dseupd)
 
 acx_arpack_save_LIBS="$LIBS"
 
-LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
+LIBS="$LAPACK_LIBS $BLAS_LIBS $LIBS $FCLIBS $FLIBS"
 
 # First, check ARPACK_LIBS environment variable
 if test $acx_arpack_ok = no; then
@@ -350,8 +351,6 @@ else
 fi
 ])dnl ACX_ARPACK
 
-
-
 dnl
 dnl @synopsis ACX_PARPACK([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
 dnl
@@ -360,6 +359,9 @@ dnl
 AC_DEFUN([ACX_PARPACK], [
 AC_PREREQ(2.50)
 AC_REQUIRE([AC_F77_LIBRARY_LDFLAGS])
+AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])
+AC_REQUIRE([ACX_MPI])
+AC_REQUIRE([ACX_ARPACK])
 acx_parpack_ok=no
 
 AC_ARG_WITH(parpack,
@@ -376,7 +378,7 @@ AC_FC_FUNC(pdneupd)
 
 acx_parpack_save_LIBS="$LIBS"
 
-LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
+LIBS="$MPI_LIBS $ARPACK_LIBS $LAPACK_LIBS $BLAS_LIBS $LIBS $FCLIBS $FLIBS"
 
 # First, check PARPACK_LIBS environment variable
 if test $acx_parpack_ok = no; then
@@ -1323,21 +1325,25 @@ fi
 AC_DEFUN([ACX_PLATFORM_DEFS],
 [
 AC_REQUIRE([ACX_HOST])
-
+acx_platform_def="GENERIC"
 case "$canonical_host_type" in
   *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
+	acx_platform_def="BSD"
         AC_DEFINE([BSD],1,[Detected platform.])
   ;;
   *-*-freebsd*)
+	acx_platform_def="BSD"
         AC_DEFINE([BSD],1,[Detected platform.])
   ;;
   alpha*-dec-osf*)
+	acx_platform_def="DEC_ALPHA"
         AC_DEFINE([DEC_ALPHA],1,[Detected platform.])
   ;;
   *-*-darwin*)
         AC_DEFINE([DARWIN],1,[Detected platform.])
   ;;
   *-*-cygwin* | *-*-mingw*)
+	acx_platform_def="WIN32"
         AC_DEFINE([WIN32],1,[Detected platform.])
   ;;
   *-*-linux* | *-*-gnu*)
@@ -1438,7 +1444,7 @@ if test "x$TCLTK_LIBS" != x; then
 fi
 fi
 
-acx_tcltk_lib_versions="8.4 8.3 8.2 8.1"
+acx_tcltk_lib_versions="8.4 8.3 8.2 8.1 84 83 82 81"
 
 # Generic TCLTK library?
 if test "$acx_tcltk_ok" = no; then
