@@ -2122,23 +2122,27 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
   AC_DEFINE_UNQUOTED(SHL_EXTENSION, ".$SHLEXT",[Shared lib filename extension])
 fi
 ])
-m4trace:acx_elmer.m4:1368: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
+m4trace:acx_elmer.m4:1372: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
 AC_REQUIRE([ACX_HOST])
-
+acx_platform_def="GENERIC"
 case "$canonical_host_type" in
   *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
+	acx_platform_def="BSD"
         AC_DEFINE([BSD],1,[Detected platform.])
   ;;
   *-*-freebsd*)
+	acx_platform_def="BSD"
         AC_DEFINE([BSD],1,[Detected platform.])
   ;;
   alpha*-dec-osf*)
+	acx_platform_def="DEC_ALPHA"
         AC_DEFINE([DEC_ALPHA],1,[Detected platform.])
   ;;
   *-*-darwin*)
         AC_DEFINE([DARWIN],1,[Detected platform.])
   ;;
   *-*-cygwin* | *-*-mingw*)
+	acx_platform_def="WIN32"
         AC_DEFINE([WIN32],1,[Detected platform.])
   ;;
   *-*-linux* | *-*-gnu*)
@@ -2165,7 +2169,7 @@ case "$canonical_host_type" in
 esac
 
 ])
-m4trace:acx_elmer.m4:1399: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
+m4trace:acx_elmer.m4:1403: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
 AC_REQUIRE([ACX_SHLIB_STUFF])
 case "$FC" in
    ifc)
@@ -2194,7 +2198,8 @@ esac
 AC_SUBST(SH_LDFLAGS)
 AC_SUBST(SH_LD)
 ])
-m4trace:acx_elmer.m4:1519: -1- AC_DEFUN([ACX_TCLTK], [
+m4trace:acx_elmer.m4:1525: -1- AC_DEFUN([ACX_TCLTK], [
+AC_REQUIRE([AC_PATH_X])
 AC_PREREQ(2.50)
 acx_tcltk_ok=no
 
@@ -2230,7 +2235,7 @@ if test "x$TCLTK_LIBS" != x; then
 fi
 fi
 
-acx_tcltk_lib_versions="8.4 8.3 8.2 8.1"
+acx_tcltk_lib_versions="8.4 8.3 8.2 8.1 84 83 82 81"
 
 # Generic TCLTK library?
 if test "$acx_tcltk_ok" = no; then
@@ -2267,7 +2272,7 @@ for v in $acx_tcltk_tcl_h_locs; do
 	acx_tcl_h_ok="no"
 	acx_tk_h_ok="no"
 
-	CPPFLAGS="-I$v $CPPFLAGS"
+	CPPFLAGS="-I$v $CPPFLAGS -I${x_includes}"
 
 	AC_MSG_CHECKING([for tcl.h in -I$v])
 	AC_PREPROC_IFELSE(
@@ -3758,23 +3763,27 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
   AC_DEFINE_UNQUOTED(SHL_EXTENSION, ".$SHLEXT",[Shared lib filename extension])
 fi
 ])
-m4trace:acx_elmer.m4:1368: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
+m4trace:acx_elmer.m4:1372: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
 AC_REQUIRE([ACX_HOST])
-
+acx_platform_def="GENERIC"
 case "$canonical_host_type" in
   *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
+	acx_platform_def="BSD"
         AC_DEFINE([BSD],1,[Detected platform.])
   ;;
   *-*-freebsd*)
+	acx_platform_def="BSD"
         AC_DEFINE([BSD],1,[Detected platform.])
   ;;
   alpha*-dec-osf*)
+	acx_platform_def="DEC_ALPHA"
         AC_DEFINE([DEC_ALPHA],1,[Detected platform.])
   ;;
   *-*-darwin*)
         AC_DEFINE([DARWIN],1,[Detected platform.])
   ;;
   *-*-cygwin* | *-*-mingw*)
+	acx_platform_def="WIN32"
         AC_DEFINE([WIN32],1,[Detected platform.])
   ;;
   *-*-linux* | *-*-gnu*)
@@ -3801,7 +3810,7 @@ case "$canonical_host_type" in
 esac
 
 ])
-m4trace:acx_elmer.m4:1399: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
+m4trace:acx_elmer.m4:1403: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
 AC_REQUIRE([ACX_SHLIB_STUFF])
 case "$FC" in
    ifc)
@@ -3830,7 +3839,8 @@ esac
 AC_SUBST(SH_LDFLAGS)
 AC_SUBST(SH_LD)
 ])
-m4trace:acx_elmer.m4:1519: -1- AC_DEFUN([ACX_TCLTK], [
+m4trace:acx_elmer.m4:1525: -1- AC_DEFUN([ACX_TCLTK], [
+AC_REQUIRE([AC_PATH_X])
 AC_PREREQ(2.50)
 acx_tcltk_ok=no
 
@@ -3866,7 +3876,7 @@ if test "x$TCLTK_LIBS" != x; then
 fi
 fi
 
-acx_tcltk_lib_versions="8.4 8.3 8.2 8.1"
+acx_tcltk_lib_versions="8.4 8.3 8.2 8.1 84 83 82 81"
 
 # Generic TCLTK library?
 if test "$acx_tcltk_ok" = no; then
@@ -3903,7 +3913,7 @@ for v in $acx_tcltk_tcl_h_locs; do
 	acx_tcl_h_ok="no"
 	acx_tk_h_ok="no"
 
-	CPPFLAGS="-I$v $CPPFLAGS"
+	CPPFLAGS="-I$v $CPPFLAGS -I${x_includes}"
 
 	AC_MSG_CHECKING([for tcl.h in -I$v])
 	AC_PREPROC_IFELSE(
