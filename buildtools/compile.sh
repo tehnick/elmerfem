@@ -7,7 +7,7 @@
 # Modules to fetch and build (in this order)
 #
 if test "$ELMER_MODULES" = ""; then
-    modules="umfpack matc mathlibs eio hutiter fem"
+    modules="umfpack matc meshgen2d elmergrid mathlibs eio hutiter fem"
 else
     modules=$ELMER_MODULES
 fi
@@ -122,20 +122,16 @@ for m in $modules; do
     cd ..
 done
 
-if test "$ELMER_SOURCEDIST" = "yes"; then
 #
 # Copy source distribution files to dist dir
 #
-cp `find . -name *.gz` dist
-fi
+cp `find . -name *.tar.gz` dist
 
-if test "$ELMER_BINDIST" = "yes"; then
 #
 # Create binary distribution
 #
 distArch=`uname -m`
-cd dist; tar cvfz "elmer-bin-${distArch}.tar.gz" bin include lib share
+cd dist; tar cv bin include lib share |gzip > "elmer-bin-${distArch}.tar.gz"
 cd ..
-fi
 
 cd $topdir
