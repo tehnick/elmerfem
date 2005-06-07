@@ -27,7 +27,7 @@ SUFFIXES: .f90 .so .src
 .f90.$(OBJEXT):
 	$(FC) $(FCFLAGS) -c $<
 
-libsolver$(SHL_EXT): $(SOLVEROBJS) arpack
+libsolver$(SHL_EXT): $(SOLVEROBJS) 
 	$(RM) $@
 	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) -L.
 
@@ -39,7 +39,7 @@ $(BINARIES) $(BINARIES_ODD): libsolver$(SHL_EXT)
 $(SOLVEROBJS): mpif
 
 ElmerSolver_mpi$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
-	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver_mpi$(EXE_EXT) Solver$(OBJ_EXT) $(MPI_LIBS) -L. -lsolver $(PARPACK_LIBS) $(EXTRA_LIBS)
+	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver_mpi$(EXE_EXT) Solver$(OBJ_EXT) -L. -lsolver $(PARPACK_LIBS) $(MPI_LIBS) $(EXTRA_LIBS)
 
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT) mpi_stubs$(OBJ_EXT)
 	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver$(EXE_EXT) Solver$(OBJ_EXT) mpi_stubs$(OBJ_EXT) -L. -lsolver $(EXTRA_LIBS)
