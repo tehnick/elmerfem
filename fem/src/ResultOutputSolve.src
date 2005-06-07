@@ -1,5 +1,4 @@
 SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
-!DEC$ATTRIBUTES DLLEXPORT :: PoissonSolver
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
