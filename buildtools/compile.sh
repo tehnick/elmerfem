@@ -131,7 +131,7 @@ cp `find . -name *.tar.gz` dist
 # Create binary distribution
 #
 distArch=`uname -m`
-cd dist; tar cv bin include lib share |gzip > "elmer-bin-${distArch}.tar.gz"
+cd dist; tar cvf - bin include lib share |gzip > "elmer-bin-${distArch}.tar.gz"
 cd ..
 
 cd $topdir
