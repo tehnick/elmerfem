@@ -5439,14 +5439,14 @@ esac
 
 
 # Compilation of a MPI program (depends on above macro)
-
-{ echo "$as_me:$LINENO: checking for compilation of an MPI program" >&5
+if test "$acx_mpi_try_c_compile" != "no"
+	{ echo "$as_me:$LINENO: checking for compilation of an MPI program" >&5
 echo $ECHO_N "checking for compilation of an MPI program... $ECHO_C" >&6; }
-old_CFLAGS=${CFLAGS}
-old_LIBS=${LIBS}
-CFLAGS="-I$mpi_inc_dir"
-LIBS="-L$mpi_lib_dir -l$lib_mpi $SYS_LDFLAGS"
-cat >conftest.$ac_ext <<_ACEOF
+	old_CFLAGS=${CFLAGS}
+	old_LIBS=${LIBS}
+	CFLAGS="-I$mpi_inc_dir"
+	LIBS="-L$mpi_lib_dir -l$lib_mpi $SYS_LDFLAGS"
+	cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
 cat confdefs.h >>conftest.$ac_ext
@@ -5457,9 +5457,9 @@ int
 main ()
 {
 {
-  MPI_Finalize();
-  exit(0);
-}
+	  MPI_Finalize();
+	  exit(0);
+	}
   ;
   return 0;
 }
@@ -5493,7 +5493,7 @@ cat >>confdefs.h <<\_ACEOF
 #define HAVE_MPI 1
 _ACEOF
 
-    acx_mpi_ok=yes
+	    acx_mpi_ok=yes
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
@@ -5504,8 +5504,9 @@ echo "$as_me: error: MPI not found; check paths for MPI package first..." >&2;}
 fi
 rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
 
-CFLAGS=${old_CFLAGS}
-LIBS=${old_LIBS}
+	CFLAGS=${old_CFLAGS}
+	LIBS=${old_LIBS}
+fi
 
 as_ac_File=`echo "ac_cv_file_$mpi_inc_dir/mpif.h" | $as_tr_sh`
 { echo "$as_me:$LINENO: checking for $mpi_inc_dir/mpif.h" >&5
