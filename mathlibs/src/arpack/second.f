@@ -26,7 +26,7 @@
 *     .. Executable Statements ..
 *
 
-      T1 = ETIME( TARRAY )
+*     T1 = ETIME( TARRAY )
       T  = TARRAY( 1 )
 
       RETURN
