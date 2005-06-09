@@ -99,23 +99,28 @@ esac
 AC_SUBST(lib_mpi)
 
 # Compilation of a MPI program (depends on above macro)
+if test "$acx_mpi_try_c_compile" != "no"; then
+	AC_LANG_PUSH(C)
+	AC_MSG_CHECKING([for compilation of an MPI program])
+	old_CFLAGS=${CFLAGS}
+	old_LIBS=${LIBS}
+	CFLAGS="-I$mpi_inc_dir"
+	LIBS="-L$mpi_lib_dir -l$lib_mpi $SYS_LDFLAGS"
+	AC_TRY_COMPILE([#include <mpi.h>],
+	[{
+	  MPI_Finalize();
+	  exit(0);
+	}],[AC_MSG_RESULT([seems ok])
+	    AC_DEFINE([HAVE_MPI],[1],[...])
+	    acx_mpi_ok=yes],
+	[  AC_MSG_ERROR([MPI not found; check paths for MPI package first...])])
 
-AC_MSG_CHECKING([for compilation of an MPI program])
-old_CFLAGS=${CFLAGS}
-old_LIBS=${LIBS}
-CFLAGS="-I$mpi_inc_dir"
-LIBS="-L$mpi_lib_dir -l$lib_mpi $SYS_LDFLAGS"
-AC_TRY_COMPILE([#include <mpi.h>],
-[{
-  MPI_Finalize();
-  exit(0);
-}],[AC_MSG_RESULT([seems ok])
-    AC_DEFINE([HAVE_MPI],[1],[...])
-    acx_mpi_ok=yes],
-[  AC_MSG_ERROR([MPI not found; check paths for MPI package first...])])
-
-CFLAGS=${old_CFLAGS}
-LIBS=${old_LIBS}
+	CFLAGS=${old_CFLAGS}
+	LIBS=${old_LIBS}
+	AC_LANG_POP(C)
+else
+	acx_mpi_ok=yes
+fi
 
 AC_CHECK_FILE($mpi_inc_dir/mpif.h, 
 [acx_mpif_h_found=yes

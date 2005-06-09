@@ -9666,14 +9666,20 @@ esac
 
 
 # Compilation of a MPI program (depends on above macro)
+if test "$acx_mpi_try_c_compile" != "no"; then
+	ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
-{ echo "$as_me:$LINENO: checking for compilation of an MPI program" >&5
+	{ echo "$as_me:$LINENO: checking for compilation of an MPI program" >&5
 echo $ECHO_N "checking for compilation of an MPI program... $ECHO_C" >&6; }
-old_CFLAGS=${CFLAGS}
-old_LIBS=${LIBS}
-CFLAGS="-I$mpi_inc_dir"
-LIBS="-L$mpi_lib_dir -l$lib_mpi $SYS_LDFLAGS"
-cat >conftest.$ac_ext <<_ACEOF
+	old_CFLAGS=${CFLAGS}
+	old_LIBS=${LIBS}
+	CFLAGS="-I$mpi_inc_dir"
+	LIBS="-L$mpi_lib_dir -l$lib_mpi $SYS_LDFLAGS"
+	cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
 cat confdefs.h >>conftest.$ac_ext
@@ -9700,9 +9706,9 @@ int
 main ()
 {
 {
-  MPI_Finalize();
-  exit(0);
-}
+	  MPI_Finalize();
+	  exit(0);
+	}
   ;
   return 0;
 }
@@ -9731,12 +9737,12 @@ if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   (exit $ac_status); }; }; then
   { echo "$as_me:$LINENO: result: seems ok" >&5
 echo "${ECHO_T}seems ok" >&6; }
-    
+	    
 cat >>confdefs.h <<\_ACEOF
 @%:@define HAVE_MPI 1
 _ACEOF
 
-    acx_mpi_ok=yes
+	    acx_mpi_ok=yes
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
@@ -9747,8 +9753,17 @@ echo "$as_me: error: MPI not found; check paths for MPI package first..." >&2;}
 fi
 rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
 
-CFLAGS=${old_CFLAGS}
-LIBS=${old_LIBS}
+	CFLAGS=${old_CFLAGS}
+	LIBS=${old_LIBS}
+	ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+else
+	acx_mpi_ok=yes
+fi
 
 as_ac_File=`echo "ac_cv_file_$mpi_inc_dir/mpif.h" | $as_tr_sh`
 { echo "$as_me:$LINENO: checking for $mpi_inc_dir/mpif.h" >&5
@@ -13521,7 +13536,7 @@ echo "${ECHO_T}defining LIBSOLVER_DEPS to be $LIBSOLVER_DEPS" >&6; }
 
 
 cat >>confdefs.h <<_ACEOF
-@%:@define ELMER_SOLVER_HOME '${prefix}/share/elmersolver'
+@%:@define ELMER_SOLVER_HOME "${prefix}/share/elmersolver"
 _ACEOF
 
           ac_config_headers="$ac_config_headers config.h"

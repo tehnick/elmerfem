@@ -26,7 +26,7 @@
 #define ELMER_LINKTYP 4
 
 /* Elmer solver default install directory */
-#define ELMER_SOLVER_HOME '/home/vierinen/share/elmersolver'
+#define ELMER_SOLVER_HOME "/home/vierinen//share/elmersolver"
 
 /* Define if using dynamic linking */
 #define ENABLE_DYNAMIC_LINKING 1
@@ -58,6 +58,9 @@
 
 /* As FC_FUNC, but for C identifiers containing underscores. */
 #define FC_FUNC_(name,NAME) name ## __
+
+/* Detected platform. */
+/* #undef GWIN */
 
 /* Define if you have a ARPACK library. */
 #define HAVE_ARPACK 1
@@ -127,10 +130,10 @@
 #define HAVE_MEMORY_H 1
 
 /* ... */
-#define HAVE_MPI 1
+/* #undef HAVE_MPI */
 
 /* Define if you have a PARPACK library. */
-#define HAVE_PARPACK 1
+/* #undef HAVE_PARPACK */
 
 /* Define to 1 if you have the `shl_findsym' function. */
 /* #undef HAVE_SHL_FINDSYM */
@@ -209,6 +212,3 @@
 
 /* Version number of package */
 #define VERSION "4.0.1"
-
-/* Detected platform. */
-/* #undef WIN32 */
