@@ -183,24 +183,9 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
    strncpy( NewLibName, Library, 3*MAX_NAME_LEN );
 
    if ( *Quiet==0 ) 
-     fprintf(stdout,"Loading user function library: [%s]...[%s]", Library, Name );
+     fprintf(stderr,"Loading user function library: [%s]...[%s]", Library, Name );
    
 #ifdef HAVE_DLOPEN_API
-
-   ElmerLib[0] = '\0';
-   cptr = (char *)getenv( "ELMER_LIB" );
-   if ( cptr != NULL ) {
-      strncpy( ElmerLib, cptr, MAX_NAME_LEN );
-   } else {
-      cptr = (char *)getenv("ELMER_HOME");
-      if ( cptr != NULL  ) {
-         strncpy( ElmerLib, cptr, MAX_NAME_LEN );
-         strncat( ElmerLib, "/share/elmersolver/lib", MAX_NAME_LEN );
-      } else {
-         strncpy( ElmerLib, ELMER_SOLVER_HOME, MAX_NAME_LEN );
-         strncat( ElmerLib, "/lib", MAX_NAME_LEN );
-      }
-   }
 
    if ( ( Handle = dlopen( NewLibName , RTLD_NOW ) ) == NULL )
      { 
@@ -213,6 +198,22 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
            strncpy( dl_err_msg[1], dlerror(), MAX_NAME_LEN );
 
            /* Try again with explict ELMER_LIB dir */
+
+           ElmerLib[0] = '\0';
+           cptr = (char *)getenv( "ELMER_LIB" );
+           if ( cptr != NULL ) {
+              strncpy( ElmerLib, cptr, MAX_NAME_LEN );
+           } else {
+              cptr = (char *)getenv("ELMER_HOME");
+              if ( cptr != NULL  ) {
+                 strncpy( ElmerLib, cptr, MAX_NAME_LEN );
+                 strncat( ElmerLib, "/share/elmersolver/lib", MAX_NAME_LEN );
+              } else {
+                 strncpy( ElmerLib, ELMER_SOLVER_HOME, MAX_NAME_LEN );
+                 strncat( ElmerLib, "/lib", MAX_NAME_LEN );
+              }
+           }
+
            sprintf( NewLibName, "%s/%s", ElmerLib, Library );
            if ( ( Handle = dlopen( NewLibName , RTLD_NOW ) ) == NULL )
              { 
@@ -267,8 +268,7 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
    }
 #endif 
    
-   if ( *Quiet == 0 ) 
-     fprintf( stdout, "...done.\n" );
+   if ( *Quiet == 0 ) fprintf( stderr, "...done.\n" );
 
    return (void *)Function;
 }
