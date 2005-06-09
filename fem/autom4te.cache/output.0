@@ -649,6 +649,8 @@ MAINTAINER_MODE_TRUE
 MAINTAINER_MODE_FALSE
 MAINT
 canonical_host_type
+IBM_IS_PIECE_OF_SHIT_TRUE
+IBM_IS_PIECE_OF_SHIT_FALSE
 CC
 CFLAGS
 LDFLAGS
@@ -699,6 +701,7 @@ mpi_inc_dir
 lib_mpi
 MPI_LIBS
 MPI_INCLUDE_DIR
+MPI_F90
 BLAS_LIBS
 LAPACK_LIBS
 HUTI_LIBS
@@ -2537,6 +2540,7 @@ _ACEOF
 
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
+	acx_platform_def="AIX"
         
 cat >>confdefs.h <<\_ACEOF
 @%:@define AIX 1
@@ -2572,6 +2576,16 @@ _ACEOF
 
   ;;
 esac
+
+ 
+
+if test "$acx_platform_def" = "AIX"; then
+  IBM_IS_PIECE_OF_SHIT_TRUE=
+  IBM_IS_PIECE_OF_SHIT_FALSE='#'
+else
+  IBM_IS_PIECE_OF_SHIT_TRUE='#'
+  IBM_IS_PIECE_OF_SHIT_FALSE=
+fi
 
 
 
@@ -4703,6 +4717,7 @@ ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
 
 
 
@@ -9528,6 +9543,8 @@ ELMER_LIBERRORMSG="wasn't found, make sure it is in the prefix, or CFLAGS and LI
 
 # ACX_MPI
 
+# fixme: implement all mpi compilers when needed
+
 
 # Macro AC_CHECK_MPI_VERSION to check for version number of MPI
 
@@ -9538,8 +9555,17 @@ ELMER_LIBERRORMSG="wasn't found, make sure it is in the prefix, or CFLAGS and LI
 
 
 
+
+
  
 acx_mpi_ok=disabled
+
+case  $host in 
+ rs6000-ibm-aix* | powerpc-ibm-aix*)
+     acx_mpi_try_c_compile=no
+ ;;
+esac
+
 
 
 # Check whether --with-mpi or --without-mpi was given.
@@ -9590,6 +9616,7 @@ else
 fi; 
 { echo "$as_me:$LINENO: result: $mpi_inc_dir" >&5
 echo "${ECHO_T}$mpi_inc_dir" >&6; }
+
 
 
 
@@ -9801,6 +9828,55 @@ else
 fi
 
 
+
+
+
+
+
+acx_mpi_f90_compilers="mpf90 mpxlf90"
+acx_mpi_f90_ok=no
+
+
+for c in $acx_mpi_f90_compilers; do
+	# Extract the first word of "$c", so it can be a program name with args.
+set dummy $c; ac_word=$2
+{ echo "$as_me:$LINENO: checking for $ac_word" >&5
+echo $ECHO_N "checking for $ac_word... $ECHO_C" >&6; }
+if test "${ac_cv_prog_MPI_F90+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  if test -n "$MPI_F90"; then
+  ac_cv_prog_MPI_F90="$MPI_F90" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+  for ac_exec_ext in '' $ac_executable_extensions; do
+  if { test -f "$as_dir/$ac_word$ac_exec_ext" && $as_executable_p "$as_dir/$ac_word$ac_exec_ext"; }; then
+    ac_cv_prog_MPI_F90="acx_mpi_f90_ok=yes"
+    echo "$as_me:$LINENO: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+done
+
+fi
+fi
+MPI_F90=$ac_cv_prog_MPI_F90
+if test -n "$MPI_F90"; then
+  { echo "$as_me:$LINENO: result: $MPI_F90" >&5
+echo "${ECHO_T}$MPI_F90" >&6; }
+else
+  { echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6; }
+fi
+
+	if test "$acx_mpi_f90_ok" = "yes"; then
+		break
+	fi
+done
 
 
 
@@ -13646,6 +13722,13 @@ echo "$as_me: error: conditional \"MAINTAINER_MODE\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
+if test -z "${IBM_IS_PIECE_OF_SHIT_TRUE}" && test -z "${IBM_IS_PIECE_OF_SHIT_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"IBM_IS_PIECE_OF_SHIT\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"IBM_IS_PIECE_OF_SHIT\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
 if test -z "${AMDEP_TRUE}" && test -z "${AMDEP_FALSE}"; then
   { { echo "$as_me:$LINENO: error: conditional \"AMDEP\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
@@ -14273,6 +14356,8 @@ s,@MAINTAINER_MODE_TRUE@,$MAINTAINER_MODE_TRUE,;t t
 s,@MAINTAINER_MODE_FALSE@,$MAINTAINER_MODE_FALSE,;t t
 s,@MAINT@,$MAINT,;t t
 s,@canonical_host_type@,$canonical_host_type,;t t
+s,@IBM_IS_PIECE_OF_SHIT_TRUE@,$IBM_IS_PIECE_OF_SHIT_TRUE,;t t
+s,@IBM_IS_PIECE_OF_SHIT_FALSE@,$IBM_IS_PIECE_OF_SHIT_FALSE,;t t
 s,@CC@,$CC,;t t
 s,@CFLAGS@,$CFLAGS,;t t
 s,@LDFLAGS@,$LDFLAGS,;t t
@@ -14323,6 +14408,7 @@ s,@mpi_inc_dir@,$mpi_inc_dir,;t t
 s,@lib_mpi@,$lib_mpi,;t t
 s,@MPI_LIBS@,$MPI_LIBS,;t t
 s,@MPI_INCLUDE_DIR@,$MPI_INCLUDE_DIR,;t t
+s,@MPI_F90@,$MPI_F90,;t t
 s,@BLAS_LIBS@,$BLAS_LIBS,;t t
 s,@LAPACK_LIBS@,$LAPACK_LIBS,;t t
 s,@HUTI_LIBS@,$HUTI_LIBS,;t t

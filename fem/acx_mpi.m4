@@ -10,6 +10,13 @@ AC_PREREQ(2.50) dnl for AC_LANG_CASE
 dnl ac_mpi_save_LIBS=$LIBS
 acx_mpi_ok=disabled
 
+case  $host in 
+ rs6000-ibm-aix* | powerpc-ibm-aix*)
+     acx_mpi_try_c_compile=no
+ ;;
+esac
+
+
 dnl Letting user specify MPI-Library directories
 AC_ARG_WITH(mpi,
   [  --with-mpi[=yes]  Use mpi (by default disabled)],
@@ -35,6 +42,7 @@ AC_ARG_WITH(mpi_inc_dir,
   acx_mpi_ok=no; mpi_inc_dir="$withval", mpi_inc_dir="$mpi_dir/include")
 AC_MSG_RESULT([$mpi_inc_dir])
 AC_SUBST([mpi_inc_dir])
+
 
 
 if test "$acx_mpi_ok" != disabled; then
