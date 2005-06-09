@@ -168,22 +168,22 @@ static void fortranMangle(char *orig, char *mangled)
   This routine will return address of a function given path to a dynamically
   loaded library and name of the routine.
   -------------------------------------------------------------------------*/
-void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int Quiet,
-      FC_CHAR_PTR(Library,l1),FC_CHAR_PTR(Name,l2) )
+void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
+      FC_CHAR_PTR(Library,l1), FC_CHAR_PTR(Name,l2) )
 {
 /*--------------------------------------------------------------------------*/
    void (*Function)(),*Handle;
    int i;
-   char cptr;
+   char *cptr;
    static char ElmerLib[2*MAX_NAME_LEN], NewLibName[3*MAX_NAME_LEN],
                NewName[MAX_NAME_LEN],   dl_err_msg[3][MAX_NAME_LEN];
 /*--------------------------------------------------------------------------*/
    
    fortranMangle( Name, NewName );
-   strcpy( NewLibName, Library );
+   strncpy( NewLibName, Library, 3*MAX_NAME_LEN );
 
-   if ( Quiet==0 ) 
-     fprintf(stdout,"Loading user function library: [%s]...[%s]", NewLibName, NewName);
+   if ( *Quiet==0 ) 
+     fprintf(stdout,"Loading user function library: [%s]...[%s]", Library, Name );
    
 #ifdef HAVE_DLOPEN_API
 
@@ -223,18 +223,18 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int Quiet,
                if ( ( Handle = dlopen( NewLibName , RTLD_NOW ) ) == NULL )
                  {
                    fprintf( stderr, "Load: Unable to load shared image [%s]\n", Library );
-                   fprintf( stderr, "Load: [%s]\n\n", dl_err_msg[0] );
+                   fprintf( stderr, "%s\n\n", dl_err_msg[0] );
 
                    fprintf( stderr, "Load: Unable to load shared image [%s%s]\n",
                                Library,SHL_EXTENSION);
-                   fprintf( stderr, "Load: [%s]\n\n", dl_err_msg[1] );
+                   fprintf( stderr, "%s\n\n", dl_err_msg[1] );
 
                    fprintf( stderr, "Load: Unable to load shared image [%s/%s]\n",
                                ElmerLib, Library );
-                   fprintf( stderr, "Load: [%s]\n\n", dl_err_msg[2] );
+                   fprintf( stderr, "%s\n\n", dl_err_msg[2] );
 
                    fprintf( stderr, "Load: FATAL: Unable to load shared image [%s]\n", NewLibName );
-                   fprintf( stderr, "Load: [%s]\n", dlerror() );
+                   fprintf( stderr, "%s\n", dlerror() );
 
                    exit(0);
                  }
@@ -267,7 +267,7 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int Quiet,
    }
 #endif 
    
-   if ( Quiet == 0 ) 
+   if ( *Quiet == 0 ) 
      fprintf( stdout, "...done.\n" );
 
    return (void *)Function;
