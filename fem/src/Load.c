@@ -176,7 +176,7 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
    int i;
    char *cptr;
    static char ElmerLib[2*MAX_NAME_LEN], NewLibName[3*MAX_NAME_LEN],
-               NewName[MAX_NAME_LEN],   dl_err_msg[3][MAX_NAME_LEN];
+               NewName[MAX_NAME_LEN],   dl_err_msg[6][MAX_NAME_LEN];
 /*--------------------------------------------------------------------------*/
    
    fortranMangle( Name, NewName );
@@ -187,60 +187,70 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
    
 #ifdef HAVE_DLOPEN_API
 
-   if ( ( Handle = dlopen( NewLibName , RTLD_NOW ) ) == NULL )
-     { 
-       strncpy( dl_err_msg[0], dlerror(), MAX_NAME_LEN );
+   /* Try again with explict ELMER_LIB dir */
+   ElmerLib[0] = '\0';
+   cptr = (char *)getenv( "ELMER_LIB" );
+   if ( cptr != NULL ) {
+      strncpy( ElmerLib, cptr, 2*MAX_NAME_LEN );
+      strncat( ElmerLib, "/", 2*MAX_NAME_LEN  );
+   } else {
+      cptr = (char *)getenv("ELMER_HOME");
+      if ( cptr != NULL  ) {
+         strncpy( ElmerLib, cptr, 2*MAX_NAME_LEN );
+         strncat( ElmerLib, "/share/elmersolver/lib/", 2*MAX_NAME_LEN );
+      } else {
+         strncpy( ElmerLib, ELMER_SOLVER_HOME, 2*MAX_NAME_LEN );
+         strncat( ElmerLib, "/lib/", 2*MAX_NAME_LEN );
+      }
+   }
 
-       /* Try again with shared library extension */
-       strcat( NewLibName, SHL_EXTENSION );
-       if ( ( Handle = dlopen( NewLibName , RTLD_NOW ) ) == NULL )
-         { 
-           strncpy( dl_err_msg[1], dlerror(), MAX_NAME_LEN );
+   for( i=0; i<6; i++ )
+     {
+        switch(i) 
+        {
+          case 0: strncpy( NewLibName, Library, 3*MAX_NAME_LEN );
+                  break;
+          case 1: case 3: case 5:
+                  strncat( NewLibName, SHL_EXTENSION, 3*MAX_NAME_LEN );
+                  break;
+          case 2: strcpy( NewLibName, "./");
+                  strncat( NewLibName, Library, 3*MAX_NAME_LEN );
+                  break;
+          case 4: strncpy( NewLibName, ElmerLib, 3*MAX_NAME_LEN );
+                  strncat( NewLibName, Library, 3*MAX_NAME_LEN );
+                  break;
+        }
+        if ( ( Handle = dlopen( NewLibName , RTLD_NOW ) ) == NULL )
+          {
+             strncpy( dl_err_msg[i], dlerror(), MAX_NAME_LEN );
+          } else {
+             break;
+          }
+     }
 
-           /* Try again with explict ELMER_LIB dir */
-
-           ElmerLib[0] = '\0';
-           cptr = (char *)getenv( "ELMER_LIB" );
-           if ( cptr != NULL ) {
-              strncpy( ElmerLib, cptr, MAX_NAME_LEN );
-           } else {
-              cptr = (char *)getenv("ELMER_HOME");
-              if ( cptr != NULL  ) {
-                 strncpy( ElmerLib, cptr, MAX_NAME_LEN );
-                 strncat( ElmerLib, "/share/elmersolver/lib", MAX_NAME_LEN );
-              } else {
-                 strncpy( ElmerLib, ELMER_SOLVER_HOME, MAX_NAME_LEN );
-                 strncat( ElmerLib, "/lib", MAX_NAME_LEN );
-              }
-           }
-
-           sprintf( NewLibName, "%s/%s", ElmerLib, Library );
-           if ( ( Handle = dlopen( NewLibName , RTLD_NOW ) ) == NULL )
-             { 
-               strncpy( dl_err_msg[2], dlerror(), MAX_NAME_LEN );
-
-               /* ..and with shared extension */
-               strcat( NewLibName, SHL_EXTENSION );
-               if ( ( Handle = dlopen( NewLibName , RTLD_NOW ) ) == NULL )
-                 {
-                   fprintf( stderr, "Load: Unable to load shared image [%s]\n", Library );
-                   fprintf( stderr, "%s\n\n", dl_err_msg[0] );
-
-                   fprintf( stderr, "Load: Unable to load shared image [%s%s]\n",
-                               Library,SHL_EXTENSION);
-                   fprintf( stderr, "%s\n\n", dl_err_msg[1] );
-
-                   fprintf( stderr, "Load: Unable to load shared image [%s/%s]\n",
-                               ElmerLib, Library );
-                   fprintf( stderr, "%s\n\n", dl_err_msg[2] );
-
-                   fprintf( stderr, "Load: FATAL: Unable to load shared image [%s]\n", NewLibName );
-                   fprintf( stderr, "%s\n", dlerror() );
-
-                   exit(0);
-                 }
+   if ( Handle == NULL ) 
+     {
+        for( i=0; i<6; i++ )
+          {
+             switch(i) 
+             {
+               case 0: strncpy( NewLibName, Library, 3*MAX_NAME_LEN );
+                       break;
+               case 1: case 3: case 5:
+                       strncat( NewLibName, SHL_EXTENSION, 3*MAX_NAME_LEN );
+                       break;
+               case 2: strcpy( NewLibName, "./");
+                       strncat( NewLibName, Library, 3*MAX_NAME_LEN );
+                       break;
+               case 4: strncpy( NewLibName, ElmerLib, 3*MAX_NAME_LEN );
+                       strncat( NewLibName, "/",  3*MAX_NAME_LEN );
+                       strncat( NewLibName, Library, 3*MAX_NAME_LEN );
+                       break;
              }
-         }
+             fprintf( stderr, "\nLoad: Unable to open shared library: [%s]\n", NewLibName );
+             fprintf( stderr, "%s\n", dl_err_msg[i] );
+           }
+         exit(0);
      }
 
    if ( (Function = (void(*)())dlsym( Handle,NewName ) ) == NULL )
