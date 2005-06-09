@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.53 2005/06/07 10:05:22 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.54 2005/06/07 11:08:42 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1347,6 +1347,7 @@ case "$canonical_host_type" in
         AC_DEFINE([BASTARDS],1,[Detected platform.])
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
+	acx_platform_def="AIX"
         AC_DEFINE([AIX],1,[Detected platform.])
   ;;
   hppa*-hp-hpux*)
@@ -1363,6 +1364,7 @@ case "$canonical_host_type" in
   ;;
 esac
 
+AM_CONDITIONAL(IBM_IS_PIECE_OF_SHIT, test "$acx_platform_def" = "AIX")
 ])
 
 AC_DEFUN([ACX_COMPILER_FIXES],

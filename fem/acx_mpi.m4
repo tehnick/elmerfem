@@ -140,6 +140,23 @@ AC_SUBST(MPI_INCLUDE_DIR)
 
 ])# ACX_MPI
 
+# fixme: implement all mpi compilers when needed
+AC_DEFUN([ACX_MPI_COMPILERS],
+[
+
+acx_mpi_f90_compilers="mpf90 mpxlf90"
+acx_mpi_f90_ok=no
+
+
+for c in $acx_mpi_f90_compilers; do
+	AC_CHECK_PROG(MPI_F90, $c, acx_mpi_f90_ok=yes)
+	if test "$acx_mpi_f90_ok" = "yes"; then
+		break
+	fi
+done
+
+AC_SUBST(MPI_F90)
+])
 
 # Macro AC_CHECK_MPI_VERSION to check for version number of MPI
 
@@ -173,6 +190,8 @@ int main (){
     rm -f conftestval
   ])
 ])
+
+
 
 dnl Optional MPI-Datatypes for Fortran
 dnl This macro is a little more complex; it checks for the availability of the optional Fortran datatype, like MPI_INTEGER1 or MPI_REAL8.
