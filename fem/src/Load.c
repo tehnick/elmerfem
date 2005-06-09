@@ -175,7 +175,8 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int Quiet,
    void (*Function)(),*Handle;
    int i;
    char cptr;
-   static char ElmerLib[2*MAX_NAME_LEN], NewLibName[3*MAX_NAME_LEN], NewName[MAX_NAME_LEN];
+   static char ElmerLib[2*MAX_NAME_LEN], NewLibName[3*MAX_NAME_LEN],
+               NewName[MAX_NAME_LEN],   dl_err_msg[3][MAX_NAME_LEN];
 /*--------------------------------------------------------------------------*/
    
    fortranMangle( Name, NewName );
@@ -203,32 +204,38 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int Quiet,
 
    if ( ( Handle = dlopen( NewLibName , RTLD_NOW ) ) == NULL )
      { 
-       fprintf( stderr, "Load: WARNING: Can't load shared image [%s]\n", NewLibName );
-       fprintf( stderr, "Load: [%s]\n", dlerror() );
+       strncpy( dl_err_msg[0], dlerror(), MAX_NAME_LEN );
 
        /* Try again with shared library extension */
        strcat( NewLibName, SHL_EXTENSION );
-       fprintf( stderr, "Trying %s\n", NewLibName );
        if ( ( Handle = dlopen( NewLibName , RTLD_NOW ) ) == NULL )
          { 
-	   fprintf( stderr, "Load: WARNING: Can't load shared image [%s]\n", NewLibName );
-	   fprintf( stderr, "Load: [%s]\n", dlerror() );
+           strncpy( dl_err_msg[1], dlerror(), MAX_NAME_LEN );
 
            /* Try again with explict ELMER_LIB dir */
            sprintf( NewLibName, "%s/%s", ElmerLib, Library );
-           fprintf( stderr, "Trying %s\n", NewLibName );
            if ( ( Handle = dlopen( NewLibName , RTLD_NOW ) ) == NULL )
              { 
-               fprintf( stderr, "Load: WARNING: Can't load shared image [%s]\n", NewLibName );
-               fprintf( stderr, "Load: [%s]\n", dlerror() );
+               strncpy( dl_err_msg[2], dlerror(), MAX_NAME_LEN );
 
                /* ..and with shared extension */
                strcat( NewLibName, SHL_EXTENSION );
-               fprintf( stderr, "Trying %s\n", NewLibName );
                if ( ( Handle = dlopen( NewLibName , RTLD_NOW ) ) == NULL )
                  {
-                   fprintf( stderr, "Load: FATAL: Can't load shared image [%s]\n", NewLibName );
+                   fprintf( stderr, "Load: Unable to load shared image [%s]\n", Library );
+                   fprintf( stderr, "Load: [%s]\n\n", dl_err_msg[0] );
+
+                   fprintf( stderr, "Load: Unable to load shared image [%s%s]\n",
+                               Library,SHL_EXTENSION);
+                   fprintf( stderr, "Load: [%s]\n\n", dl_err_msg[1] );
+
+                   fprintf( stderr, "Load: Unable to load shared image [%s/%s]\n",
+                               ElmerLib, Library );
+                   fprintf( stderr, "Load: [%s]\n\n", dl_err_msg[2] );
+
+                   fprintf( stderr, "Load: FATAL: Unable to load shared image [%s]\n", NewLibName );
                    fprintf( stderr, "Load: [%s]\n", dlerror() );
+
                    exit(0);
                  }
              }
