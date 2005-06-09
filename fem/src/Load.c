@@ -168,13 +168,14 @@ static void fortranMangle(char *orig, char *mangled)
   This routine will return address of a function given path to a dynamically
   loaded library and name of the routine.
   -------------------------------------------------------------------------*/
-void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int Quiet, FC_CHAR_PTR(Library,l1),FC_CHAR_PTR(Name,l2) )
+void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int Quiet,
+      FC_CHAR_PTR(Library,l1),FC_CHAR_PTR(Name,l2) )
 {
 /*--------------------------------------------------------------------------*/
    void (*Function)(),*Handle;
    int i;
-   char NewName[MAX_NAME_LEN];
-   char NewLibName[MAX_NAME_LEN];
+   char cptr;
+   static char ElmerLib[2*MAX_NAME_LEN], NewLibName[3*MAX_NAME_LEN], NewName[MAX_NAME_LEN];
 /*--------------------------------------------------------------------------*/
    
    fortranMangle( Name, NewName );
@@ -184,21 +185,52 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int Quiet, FC_CHAR_PTR(Li
      fprintf(stdout,"Loading user function library: [%s]...[%s]", NewLibName, NewName);
    
 #ifdef HAVE_DLOPEN_API
+
+   ElmerLib[0] = '\0';
+   cptr = (char *)getenv( "ELMER_LIB" );
+   if ( cptr != NULL ) {
+      strncpy( ElmerLib, cptr, MAX_NAME_LEN );
+   } else {
+      cptr = (char *)getenv("ELMER_HOME");
+      if ( cptr != NULL  ) {
+         strncpy( ElmerLib, cptr, MAX_NAME_LEN );
+         strncat( ElmerLib, "/share/elmersolver/lib", MAX_NAME_LEN );
+      } else {
+         strncpy( ElmerLib, ELMER_SOLVER_HOME, MAX_NAME_LEN );
+         strncat( ElmerLib, "/lib", MAX_NAME_LEN );
+      }
+   }
+
    if ( ( Handle = dlopen( NewLibName , RTLD_NOW ) ) == NULL )
      { 
-       fprintf( stderr, "Load: WARNING: Can't load shared image [%s]\n", NewLibName );
-       fprintf( stderr, "Load: [%s]\n", dlerror() );
-
        /* Try again with shared library extension */
        strcat( NewLibName, SHL_EXTENSION );
        fprintf( stderr, "Trying %s\n", NewLibName );
        if ( ( Handle = dlopen( NewLibName , RTLD_NOW ) ) == NULL )
-       { 
-	   fprintf( stderr, "Load: FATAL: Can't load shared image [%s]\n", NewLibName );
+         { 
+	   fprintf( stderr, "Load: WARNING: Can't load shared image [%s]\n", NewLibName );
 	   fprintf( stderr, "Load: [%s]\n", dlerror() );
-	   exit(0);
-       }
-   }
+
+           /* Try again with explict ELMER_LIB dir */
+           sprintf( NewLibName, "%s/%s", ElmerLib, Library );
+           fprintf( stderr, "Trying %s\n", NewLibName );
+           if ( ( Handle = dlopen( NewLibName , RTLD_NOW ) ) == NULL )
+             { 
+               fprintf( stderr, "Load: WARNING: Can't load shared image [%s]\n", NewLibName );
+               fprintf( stderr, "Load: [%s]\n", dlerror() );
+
+               /* ..and with shared extension */
+               strcat( NewLibName, SHL_EXTENSION );
+               fprintf( stderr, "Trying %s\n", NewLibName );
+               if ( ( Handle = dlopen( NewLibName , RTLD_NOW ) ) == NULL )
+                 {
+                   fprintf( stderr, "Load: FATAL: Can't load shared image [%s]\n", NewLibName );
+                   fprintf( stderr, "Load: [%s]\n", dlerror() );
+                   exit(0);
+                 }
+             }
+         }
+     }
 
    if ( (Function = (void(*)())dlsym( Handle,NewName ) ) == NULL )
    {
