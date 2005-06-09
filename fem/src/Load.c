@@ -203,6 +203,9 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int Quiet,
 
    if ( ( Handle = dlopen( NewLibName , RTLD_NOW ) ) == NULL )
      { 
+       fprintf( stderr, "Load: WARNING: Can't load shared image [%s]\n", NewLibName );
+       fprintf( stderr, "Load: [%s]\n", dlerror() );
+
        /* Try again with shared library extension */
        strcat( NewLibName, SHL_EXTENSION );
        fprintf( stderr, "Trying %s\n", NewLibName );
