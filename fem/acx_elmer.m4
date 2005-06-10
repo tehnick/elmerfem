@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.54 2005/06/07 11:08:42 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.55 2005/06/09 14:38:11 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1162,11 +1162,11 @@ SH_LDFLAGS=-shared
 SH_LINKING_TO_FLAGS=
 DL_LD='$(SH_LD)'
 DL_LDFLAGS='$(SH_LDFLAGS)'
-MKOCTFILE_DL_LDFLAGS='$(DL_LDFLAGS)'
 SONAME_FLAGS=
 LD_LIBRARY_PATH_VAR=LD_LIBRARY_PATH
 LIBSOLVER_DEPS=$LIBS
-
+RPATH_FLAG=
+SH_EXPALL_FLAG=
 dnl 
 dnl Host specific stuff
 dnl
@@ -1184,12 +1184,7 @@ case "$canonical_host_type" in
   ;;
   *-*-darwin*)
     SH_LDFLAGS='-dynamiclib -undefined dynamic_lookup -single_module $(LDFLAGS)'
-dnl    SHLEXT="dylib"
-dnl    SHLLIB='$(SHLEXT)'
-dnl    SHLEXT_VER='$(version).$(SHLEXT)'
-dnl    SHLLIB_VER='$(version).$(SHLLIB)'
-dnl    NO_OCT_FILE_STRIP="true"
-dnl    SONAME_FLAGS='-install_name $(octlibdir)/$@'
+    SHLEXT="dylib"
     LD_LIBRARY_PATH_VAR=DYLD_LIBRARY_PATH	
   ;;
   *-*-cygwin* | *-*-mingw*)
@@ -1197,30 +1192,19 @@ dnl    SONAME_FLAGS='-install_name $(octlibdir)/$@'
        SH_LDFLAGS="-shared"
   ;;
   *-*-linux* | *-*-gnu*)
-dnl    MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
-dnl    SONAME_FLAGS=''
-dnl    RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
-dnl     CPICFLAG="-fPIC"
-dnl    CXXPICFLAG="-fPIC"
-dnl    FPICFLAG="-fPIC"
+	RPATH_FLAG="-rpath"
+	SH_EXPALL_FLAG="-Wl,-export_dynamic"
   ;;
   i[[3456]]86-*-sco3.2v5*)
-dnl    SONAME_FLAGS='-Wl,-h -Wl,$@'
-dnl    RLD_FLAG=
     SH_LDFLAGS="-G"
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
     SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
     SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared"
     LD_LIBRARY_PATH_VAR=LIBPATH
+    RPATH_FLAG="-blibpath:"
   ;;
   hppa*-hp-hpux*)
-dnl    if test "$ac_cv_f77_compiler_gnu" = yes; then
-dnl      FPICFLAG=-fPIC
-dnl    else
-dnl      FPICFLAG=+Z
-dnl    fi
-dnl    SHLEXT=sl
     SH_LDFLAGS="-shared -fPIC"
   ;;
   *-sgi-*)
@@ -1229,15 +1213,18 @@ dnl    SHLEXT=sl
   sparc-sun-sunos4*)
     SH_LD=ld
     SH_LDFLAGS="-assert nodefinitions"
+
   ;;
   sparc-sun-solaris2* | i386-pc-solaris2*)
     if test "$GXX" != yes; then
       SH_LDFLAGS=-G
+      RPATH_FLAG="-R"
     fi
   ;;
 esac
 
 AC_SUBST(LD_LIBRARY_PATH_VAR)
+AC_SUBST(RPATH_FLAG)
 
 ### Dynamic linking is now enabled only if we are building shared
 ### libs and some API for dynamic linking is detected.
@@ -1312,6 +1299,9 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
   fi
   AC_DEFINE_UNQUOTED(SHL_EXTENSION, ".$SHLEXT",[Shared lib filename extension])
 fi
+
+AC_SUBST(SH_EXPALL_FLAG)
+
 ])
 
 
@@ -1443,31 +1433,51 @@ fi
 fi
 
 acx_tcltk_lib_versions="8.4 8.3 8.2 8.1 84 83 82 81"
+acx_tcltk_locations="/usr/lib /usr/local/lib /usr/swf/lib"
 
 # Generic TCLTK library?
 if test "$acx_tcltk_ok" = no; then
+   for l in $acx_tcltk_locations; do
 	for v in $acx_tcltk_lib_versions; do
 		acx_tcl_ok="no"
 		acx_tk_ok="no"
+		
+		acx_tcltk_LDFLAGS_save=$LDFLAGS
+		acx_tcltk_LIBS_save=$LIBS
+		LDFLAGS="$LDFLAGS -L$l"
+		LIBS="-ltcl$v -ltk$v"
+		AC_MSG_CHECKING([for -ltcl$v -ltk$v libs in -L$l])
+		
+		AC_TRY_LINK_FUNC(TclInvoke, [acx_tcl_ok=yes; TCL_LIBS="-ltcl$v"])
+		AC_TRY_LINK_FUNC(TkGetDisplay, [acx_tk_ok=yes; TK_LIBS="-ltk$v"])
 
-		AC_CHECK_LIB(tcl$v, TclInvoke, [acx_tcl_ok=yes; TCL_LIBS="-ltcl$v"])
-		AC_CHECK_LIB(tk$v, TkGetDisplay, [acx_tk_ok=yes; TK_LIBS="-ltk$v"])
+		LDFLAGS=$acx_tcltk_LDFLAGS_save
+		LIBS=$acx_tcltk_LIBS_save
 		
 		if test "$acx_tcl_ok" = yes; then
   		   if test "$acx_tk_ok" = yes; then
 		     acx_tcltk_ok="yes"
-  		     TCLTK_LIBS="$TK_LIBS $TCL_LIBS"
+  		     TCLTK_LIBS="-L$l $TK_LIBS $TCL_LIBS"
+  		     AC_MSG_RESULT($acx_tcltk_ok)
 		     break
 		   fi
 		fi
+		AC_MSG_RESULT($acx_tcltk_ok)
 	done
+	# break again
+	if test "$acx_tcl_ok" = yes; then
+ 	   if test "$acx_tk_ok" = yes; then
+ 	     break
+ 	   fi
+	fi
+   done
 fi
 
 AC_SUBST(TCLTK_LIBS)
 LIBS=$acx_tcltk_save_LIBS
 
 # Search for tcl.h and tk.h
-acx_tcltk_tcl_h_locs="/usr/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2 /include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
+acx_tcltk_tcl_h_locs="/usr/include /usr/local/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2 /include /usr/swf/include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
 
 acx_tcltk_CPPFLAGS_save=$CPPFLAGS
 acx_tcltk_CFLAGS_save=$CFLAGS
