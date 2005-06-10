@@ -1467,6 +1467,12 @@ if test "$acx_tcltk_ok" = no; then
 		   fi
 		fi
 	done
+	# break again
+	if test "$acx_tcl_ok" = yes; then
+ 	   if test "$acx_tk_ok" = yes; then
+ 	     break
+ 	   fi
+	fi
    done
 fi
 
