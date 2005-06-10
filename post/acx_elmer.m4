@@ -1456,7 +1456,7 @@ if test "$acx_tcltk_ok" = no; then
 		acx_tcltk_LIBS_save=$LIBS
 		LDFLAGS="$LDFLAGS -L$l"
 		LIBS="-ltcl$v -ltk$v"
-		AC_MSG_CHECKING([for tcl/tk libs in -L$l])
+		AC_MSG_CHECKING([for -ltcl$v -ltk$v libs in -L$l])
 		
 		AC_TRY_LINK_FUNC(TclInvoke, [acx_tcl_ok=yes; TCL_LIBS="-ltcl$v"])
 		AC_TRY_LINK_FUNC(TkGetDisplay, [acx_tk_ok=yes; TK_LIBS="-ltk$v"])
