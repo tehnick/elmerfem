@@ -1162,11 +1162,11 @@ SH_LDFLAGS=-shared
 SH_LINKING_TO_FLAGS=
 DL_LD='$(SH_LD)'
 DL_LDFLAGS='$(SH_LDFLAGS)'
-MKOCTFILE_DL_LDFLAGS='$(DL_LDFLAGS)'
 SONAME_FLAGS=
 LD_LIBRARY_PATH_VAR=LD_LIBRARY_PATH
 LIBSOLVER_DEPS=$LIBS
-
+RPATH_FLAG=
+SH_EXPALL_FLAG=
 dnl 
 dnl Host specific stuff
 dnl
@@ -1184,12 +1184,7 @@ case "$canonical_host_type" in
   ;;
   *-*-darwin*)
     SH_LDFLAGS='-dynamiclib -undefined dynamic_lookup -single_module $(LDFLAGS)'
-dnl    SHLEXT="dylib"
-dnl    SHLLIB='$(SHLEXT)'
-dnl    SHLEXT_VER='$(version).$(SHLEXT)'
-dnl    SHLLIB_VER='$(version).$(SHLLIB)'
-dnl    NO_OCT_FILE_STRIP="true"
-dnl    SONAME_FLAGS='-install_name $(octlibdir)/$@'
+    SHLEXT="dylib"
     LD_LIBRARY_PATH_VAR=DYLD_LIBRARY_PATH	
   ;;
   *-*-cygwin* | *-*-mingw*)
@@ -1197,30 +1192,19 @@ dnl    SONAME_FLAGS='-install_name $(octlibdir)/$@'
        SH_LDFLAGS="-shared"
   ;;
   *-*-linux* | *-*-gnu*)
-dnl    MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
-dnl    SONAME_FLAGS=''
-dnl    RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
-dnl     CPICFLAG="-fPIC"
-dnl    CXXPICFLAG="-fPIC"
-dnl    FPICFLAG="-fPIC"
+	RPATH_FLAG="-rpath"
+	SH_EXPALL_FLAG="-Wl,-export_dynamic"
   ;;
   i[[3456]]86-*-sco3.2v5*)
-dnl    SONAME_FLAGS='-Wl,-h -Wl,$@'
-dnl    RLD_FLAG=
     SH_LDFLAGS="-G"
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
     SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
     SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared"
     LD_LIBRARY_PATH_VAR=LIBPATH
+    RPATH_FLAG="-blibpath:"
   ;;
   hppa*-hp-hpux*)
-dnl    if test "$ac_cv_f77_compiler_gnu" = yes; then
-dnl      FPICFLAG=-fPIC
-dnl    else
-dnl      FPICFLAG=+Z
-dnl    fi
-dnl    SHLEXT=sl
     SH_LDFLAGS="-shared -fPIC"
   ;;
   *-sgi-*)
@@ -1229,15 +1213,18 @@ dnl    SHLEXT=sl
   sparc-sun-sunos4*)
     SH_LD=ld
     SH_LDFLAGS="-assert nodefinitions"
+
   ;;
   sparc-sun-solaris2* | i386-pc-solaris2*)
     if test "$GXX" != yes; then
       SH_LDFLAGS=-G
+      RPATH_FLAG="-R"
     fi
   ;;
 esac
 
 AC_SUBST(LD_LIBRARY_PATH_VAR)
+AC_SUBST(RPATH_FLAG)
 
 ### Dynamic linking is now enabled only if we are building shared
 ### libs and some API for dynamic linking is detected.
@@ -1312,6 +1299,9 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
   fi
   AC_DEFINE_UNQUOTED(SHL_EXTENSION, ".$SHLEXT",[Shared lib filename extension])
 fi
+
+AC_SUBST(SH_EXPALL_FLAG)
+
 ])
 
 

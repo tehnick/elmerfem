@@ -1873,7 +1873,7 @@ FFLAGS="$FFLAGS $FPICFLAG"
 CFLAGS="$CFLAGS $CPICFLAG"
 CXXFLAGS="$CXXFLAGS $CXXPICFLAG"
 ])
-m4trace:acx_elmer.m4:1315: -1- AC_DEFUN([ACX_SHLIB_STUFF], [
+m4trace:acx_elmer.m4:1305: -1- AC_DEFUN([ACX_SHLIB_STUFF], [
 dnl  
 dnl OS-specific stuff that hasn't been (or can't be) done in a clean way.
 dnl
@@ -1895,11 +1895,11 @@ SH_LDFLAGS=-shared
 SH_LINKING_TO_FLAGS=
 DL_LD='$(SH_LD)'
 DL_LDFLAGS='$(SH_LDFLAGS)'
-MKOCTFILE_DL_LDFLAGS='$(DL_LDFLAGS)'
 SONAME_FLAGS=
 LD_LIBRARY_PATH_VAR=LD_LIBRARY_PATH
 LIBSOLVER_DEPS=$LIBS
-
+RPATH_FLAG=
+SH_EXPALL_FLAG=
 dnl 
 dnl Host specific stuff
 dnl
@@ -1917,12 +1917,7 @@ case "$canonical_host_type" in
   ;;
   *-*-darwin*)
     SH_LDFLAGS='-dynamiclib -undefined dynamic_lookup -single_module $(LDFLAGS)'
-dnl    SHLEXT="dylib"
-dnl    SHLLIB='$(SHLEXT)'
-dnl    SHLEXT_VER='$(version).$(SHLEXT)'
-dnl    SHLLIB_VER='$(version).$(SHLLIB)'
-dnl    NO_OCT_FILE_STRIP="true"
-dnl    SONAME_FLAGS='-install_name $(octlibdir)/$@'
+    SHLEXT="dylib"
     LD_LIBRARY_PATH_VAR=DYLD_LIBRARY_PATH	
   ;;
   *-*-cygwin* | *-*-mingw*)
@@ -1930,30 +1925,19 @@ dnl    SONAME_FLAGS='-install_name $(octlibdir)/$@'
        SH_LDFLAGS="-shared"
   ;;
   *-*-linux* | *-*-gnu*)
-dnl    MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
-dnl    SONAME_FLAGS=''
-dnl    RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
-dnl     CPICFLAG="-fPIC"
-dnl    CXXPICFLAG="-fPIC"
-dnl    FPICFLAG="-fPIC"
+	RPATH_FLAG="-rpath"
+	SH_EXPALL_FLAG="-Wl,-export_dynamic"
   ;;
   i[[3456]]86-*-sco3.2v5*)
-dnl    SONAME_FLAGS='-Wl,-h -Wl,$@'
-dnl    RLD_FLAG=
     SH_LDFLAGS="-G"
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
     SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
     SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared"
     LD_LIBRARY_PATH_VAR=LIBPATH
+    RPATH_FLAG="-blibpath:"
   ;;
   hppa*-hp-hpux*)
-dnl    if test "$ac_cv_f77_compiler_gnu" = yes; then
-dnl      FPICFLAG=-fPIC
-dnl    else
-dnl      FPICFLAG=+Z
-dnl    fi
-dnl    SHLEXT=sl
     SH_LDFLAGS="-shared -fPIC"
   ;;
   *-sgi-*)
@@ -1962,15 +1946,18 @@ dnl    SHLEXT=sl
   sparc-sun-sunos4*)
     SH_LD=ld
     SH_LDFLAGS="-assert nodefinitions"
+
   ;;
   sparc-sun-solaris2* | i386-pc-solaris2*)
     if test "$GXX" != yes; then
       SH_LDFLAGS=-G
+      RPATH_FLAG="-R"
     fi
   ;;
 esac
 
 AC_SUBST(LD_LIBRARY_PATH_VAR)
+AC_SUBST(RPATH_FLAG)
 
 ### Dynamic linking is now enabled only if we are building shared
 ### libs and some API for dynamic linking is detected.
@@ -2045,8 +2032,11 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
   fi
   AC_DEFINE_UNQUOTED(SHL_EXTENSION, ".$SHLEXT",[Shared lib filename extension])
 fi
+
+AC_SUBST(SH_EXPALL_FLAG)
+
 ])
-m4trace:acx_elmer.m4:1368: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
+m4trace:acx_elmer.m4:1358: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
 AC_REQUIRE([ACX_HOST])
 acx_platform_def="GENERIC"
 case "$canonical_host_type" in
@@ -2095,7 +2085,7 @@ esac
 
 AM_CONDITIONAL(IBM_IS_PIECE_OF_SHIT, test "$acx_platform_def" = "AIX")
 ])
-m4trace:acx_elmer.m4:1399: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
+m4trace:acx_elmer.m4:1389: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
 AC_REQUIRE([ACX_SHLIB_STUFF])
 case "$FC" in
    ifc)
@@ -2124,7 +2114,7 @@ esac
 AC_SUBST(SH_LDFLAGS)
 AC_SUBST(SH_LD)
 ])
-m4trace:acx_elmer.m4:1541: -1- AC_DEFUN([ACX_TCLTK], [
+m4trace:acx_elmer.m4:1531: -1- AC_DEFUN([ACX_TCLTK], [
 AC_REQUIRE([AC_PATH_X])
 AC_PREREQ(2.50)
 acx_tcltk_ok=no
@@ -3433,7 +3423,7 @@ FFLAGS="$FFLAGS $FPICFLAG"
 CFLAGS="$CFLAGS $CPICFLAG"
 CXXFLAGS="$CXXFLAGS $CXXPICFLAG"
 ])
-m4trace:acx_elmer.m4:1315: -1- AC_DEFUN([ACX_SHLIB_STUFF], [
+m4trace:acx_elmer.m4:1305: -1- AC_DEFUN([ACX_SHLIB_STUFF], [
 dnl  
 dnl OS-specific stuff that hasn't been (or can't be) done in a clean way.
 dnl
@@ -3455,11 +3445,11 @@ SH_LDFLAGS=-shared
 SH_LINKING_TO_FLAGS=
 DL_LD='$(SH_LD)'
 DL_LDFLAGS='$(SH_LDFLAGS)'
-MKOCTFILE_DL_LDFLAGS='$(DL_LDFLAGS)'
 SONAME_FLAGS=
 LD_LIBRARY_PATH_VAR=LD_LIBRARY_PATH
 LIBSOLVER_DEPS=$LIBS
-
+RPATH_FLAG=
+SH_EXPALL_FLAG=
 dnl 
 dnl Host specific stuff
 dnl
@@ -3477,12 +3467,7 @@ case "$canonical_host_type" in
   ;;
   *-*-darwin*)
     SH_LDFLAGS='-dynamiclib -undefined dynamic_lookup -single_module $(LDFLAGS)'
-dnl    SHLEXT="dylib"
-dnl    SHLLIB='$(SHLEXT)'
-dnl    SHLEXT_VER='$(version).$(SHLEXT)'
-dnl    SHLLIB_VER='$(version).$(SHLLIB)'
-dnl    NO_OCT_FILE_STRIP="true"
-dnl    SONAME_FLAGS='-install_name $(octlibdir)/$@'
+    SHLEXT="dylib"
     LD_LIBRARY_PATH_VAR=DYLD_LIBRARY_PATH	
   ;;
   *-*-cygwin* | *-*-mingw*)
@@ -3490,30 +3475,19 @@ dnl    SONAME_FLAGS='-install_name $(octlibdir)/$@'
        SH_LDFLAGS="-shared"
   ;;
   *-*-linux* | *-*-gnu*)
-dnl    MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
-dnl    SONAME_FLAGS=''
-dnl    RLD_FLAG='-Wl,-rpath -Wl,$(octlibdir)'
-dnl     CPICFLAG="-fPIC"
-dnl    CXXPICFLAG="-fPIC"
-dnl    FPICFLAG="-fPIC"
+	RPATH_FLAG="-rpath"
+	SH_EXPALL_FLAG="-Wl,-export_dynamic"
   ;;
   i[[3456]]86-*-sco3.2v5*)
-dnl    SONAME_FLAGS='-Wl,-h -Wl,$@'
-dnl    RLD_FLAG=
     SH_LDFLAGS="-G"
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
     SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
     SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared"
     LD_LIBRARY_PATH_VAR=LIBPATH
+    RPATH_FLAG="-blibpath:"
   ;;
   hppa*-hp-hpux*)
-dnl    if test "$ac_cv_f77_compiler_gnu" = yes; then
-dnl      FPICFLAG=-fPIC
-dnl    else
-dnl      FPICFLAG=+Z
-dnl    fi
-dnl    SHLEXT=sl
     SH_LDFLAGS="-shared -fPIC"
   ;;
   *-sgi-*)
@@ -3522,15 +3496,18 @@ dnl    SHLEXT=sl
   sparc-sun-sunos4*)
     SH_LD=ld
     SH_LDFLAGS="-assert nodefinitions"
+
   ;;
   sparc-sun-solaris2* | i386-pc-solaris2*)
     if test "$GXX" != yes; then
       SH_LDFLAGS=-G
+      RPATH_FLAG="-R"
     fi
   ;;
 esac
 
 AC_SUBST(LD_LIBRARY_PATH_VAR)
+AC_SUBST(RPATH_FLAG)
 
 ### Dynamic linking is now enabled only if we are building shared
 ### libs and some API for dynamic linking is detected.
@@ -3605,8 +3582,11 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
   fi
   AC_DEFINE_UNQUOTED(SHL_EXTENSION, ".$SHLEXT",[Shared lib filename extension])
 fi
+
+AC_SUBST(SH_EXPALL_FLAG)
+
 ])
-m4trace:acx_elmer.m4:1368: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
+m4trace:acx_elmer.m4:1358: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
 AC_REQUIRE([ACX_HOST])
 acx_platform_def="GENERIC"
 case "$canonical_host_type" in
@@ -3655,7 +3635,7 @@ esac
 
 AM_CONDITIONAL(IBM_IS_PIECE_OF_SHIT, test "$acx_platform_def" = "AIX")
 ])
-m4trace:acx_elmer.m4:1399: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
+m4trace:acx_elmer.m4:1389: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
 AC_REQUIRE([ACX_SHLIB_STUFF])
 case "$FC" in
    ifc)
@@ -3684,7 +3664,7 @@ esac
 AC_SUBST(SH_LDFLAGS)
 AC_SUBST(SH_LD)
 ])
-m4trace:acx_elmer.m4:1541: -1- AC_DEFUN([ACX_TCLTK], [
+m4trace:acx_elmer.m4:1531: -1- AC_DEFUN([ACX_TCLTK], [
 AC_REQUIRE([AC_PATH_X])
 AC_PREREQ(2.50)
 acx_tcltk_ok=no
@@ -4549,7 +4529,7 @@ m4trace:configure.in:50: -1- ACX_TCLTK([], [AC_MSG_ERROR([Tcl/tk not found, use 
 m4trace:configure.in:50: -1- _m4_warn([obsolete], [The macro `AC_HELP_STRING' is obsolete.
 You should run autoupdate.], [autoconf/general.m4:219: AC_HELP_STRING is expanded from...
 autoconf/general.m4:1416: AC_ARG_WITH is expanded from...
-acx_elmer.m4:1541: ACX_TCLTK is expanded from...
+acx_elmer.m4:1531: ACX_TCLTK is expanded from...
 configure.in:50: the top level])
 m4trace:configure.in:50: -1- AC_SUBST([TCLTK_LIBS])
 m4trace:configure.in:50: -1- m4_pattern_allow([^TCLTK_LIBS$])
@@ -4641,6 +4621,8 @@ m4trace:configure.in:64: -1- AH_OUTPUT([HAVE_STRERROR], [/* Define to 1 if you h
 m4trace:configure.in:66: -1- ACX_SHLIB_STUFF
 m4trace:configure.in:66: -1- AC_SUBST([LD_LIBRARY_PATH_VAR])
 m4trace:configure.in:66: -1- m4_pattern_allow([^LD_LIBRARY_PATH_VAR$])
+m4trace:configure.in:66: -1- AC_SUBST([RPATH_FLAG])
+m4trace:configure.in:66: -1- m4_pattern_allow([^RPATH_FLAG$])
 m4trace:configure.in:66: -1- AC_CHECK_LIB([dld], [shl_load])
 m4trace:configure.in:66: -1- AH_OUTPUT([HAVE_LIBDLD], [/* Define to 1 if you have the `dld\' library (-ldld). */
 #undef HAVE_LIBDLD])
@@ -4689,6 +4671,8 @@ m4trace:configure.in:66: -1- AH_OUTPUT([ENABLE_DYNAMIC_LINKING], [/* Define if u
 m4trace:configure.in:66: -1- AC_DEFINE_TRACE_LITERAL([SHL_EXTENSION])
 m4trace:configure.in:66: -1- AH_OUTPUT([SHL_EXTENSION], [/* Shared lib filename extension */
 #undef SHL_EXTENSION])
+m4trace:configure.in:66: -1- AC_SUBST([SH_EXPALL_FLAG])
+m4trace:configure.in:66: -1- m4_pattern_allow([^SH_EXPALL_FLAG$])
 m4trace:configure.in:67: -1- AC_SUBST([SH_LDFLAGS])
 m4trace:configure.in:67: -1- m4_pattern_allow([^SH_LDFLAGS$])
 m4trace:configure.in:68: -1- AC_SUBST([SH_LD])
