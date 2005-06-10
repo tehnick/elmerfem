@@ -208,16 +208,16 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
      {
         switch(i) 
         {
-          case 0: strncpy( NewLibName, Library, 3*MAX_NAME_LEN );
+          case 0: strncpy( NewLibName, Library,  3*MAX_NAME_LEN );
                   break;
           case 1: case 3: case 5:
                   strncat( NewLibName, SHL_EXTENSION, 3*MAX_NAME_LEN );
                   break;
           case 2: strcpy( NewLibName, "./");
-                  strncat( NewLibName, Library, 3*MAX_NAME_LEN );
+                  strncat( NewLibName, Library,  3*MAX_NAME_LEN );
                   break;
           case 4: strncpy( NewLibName, ElmerLib, 3*MAX_NAME_LEN );
-                  strncat( NewLibName, Library, 3*MAX_NAME_LEN );
+                  strncat( NewLibName, Library,  3*MAX_NAME_LEN );
                   break;
         }
         if ( ( Handle = dlopen( NewLibName , RTLD_NOW ) ) == NULL )
@@ -234,17 +234,16 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
           {
              switch(i) 
              {
-               case 0: strncpy( NewLibName, Library, 3*MAX_NAME_LEN );
+               case 0: strncpy( NewLibName, Library,  3*MAX_NAME_LEN );
                        break;
                case 1: case 3: case 5:
                        strncat( NewLibName, SHL_EXTENSION, 3*MAX_NAME_LEN );
                        break;
                case 2: strcpy( NewLibName, "./");
-                       strncat( NewLibName, Library, 3*MAX_NAME_LEN );
+                       strncat( NewLibName, Library,  3*MAX_NAME_LEN );
                        break;
                case 4: strncpy( NewLibName, ElmerLib, 3*MAX_NAME_LEN );
-                       strncat( NewLibName, "/",  3*MAX_NAME_LEN );
-                       strncat( NewLibName, Library, 3*MAX_NAME_LEN );
+                       strncat( NewLibName, Library,  3*MAX_NAME_LEN );
                        break;
              }
              fprintf( stderr, "\nLoad: Unable to open shared library: [%s]\n", NewLibName );
