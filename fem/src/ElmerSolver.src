@@ -96,7 +96,7 @@
      !
      ! If parallel execution requested, initialize parallel environment:
      !------------------------------------------------------------------
-     ParallelEnv => ParCommInit()
+     ParallelEnv => ParallelInit()
      OutputPE = ParEnv % MyPE
 
      !
@@ -342,7 +342,7 @@
 !    THIS IS THE END (...,at last, the end, my friend,...)
 !------------------------------------------------------------------------------
      CALL Info( '', '*** Elmer Solver: ALL DONE ***' )
-     IF ( ParEnv % PEs > 1 ) CALL ParEnvFinalize()
+     IF ( ParEnv % PEs > 1 ) CALL ParallelFinalize()
 
      RETURN
 

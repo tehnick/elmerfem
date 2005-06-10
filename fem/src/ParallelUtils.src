@@ -42,6 +42,33 @@ MODULE ParallelUtils
 
 CONTAINS
 
+#define PARALLEL_FOR_REAL
+!-------------------------------------------------------------------------------
+  FUNCTION ParallelInit() RESULT ( ParallelEnv )
+!-------------------------------------------------------------------------------
+    TYPE (ParEnv_t), POINTER :: ParallelEnv
+                                                                                                                               
+#ifdef PARALLEL_FOR_REAL
+    ParallelEnv => ParCommInit( )
+#else
+    ParEnv % MyPE = 0
+    ParEnv % PEs  = 1
+    ParallelEnv => ParEnv
+#endif
+!-------------------------------------------------------------------------------
+  END FUNCTION ParallelInit
+!-------------------------------------------------------------------------------
+
+!-------------------------------------------------------------------------------
+  SUBROUTINE ParallelFinalize()
+!-------------------------------------------------------------------------------
+#ifdef PARALLEL_FOR_REAL
+    CALL ParEnvFinalize()
+#endif
+!-------------------------------------------------------------------------------
+  END SUBROUTINE ParallelFinalize
+!-------------------------------------------------------------------------------
+                                                                                                                               
 !-------------------------------------------------------------------------------
     SUBROUTINE ParallelInitMatrix( Solver, Matrix )
 !-------------------------------------------------------------------------------
@@ -51,6 +78,7 @@ CONTAINS
        INTEGER :: i, j, DOFs
 !-------------------------------------------------------------------------------
 
+#ifdef PARALLEL_FOR_REAL
        IF ( ParEnv % PEs <= 1 .OR. .NOT. ASSOCIATED(Solver % Matrix) ) RETURN
        DOFs = Solver % Variable % DOFs
 
@@ -77,6 +105,7 @@ CONTAINS
 
        Matrix % ParMatrix => &
           ParInitMatrix( Matrix, Solver % Mesh % Nodes, DOFs )
+#endif
 !-------------------------------------------------------------------------------
     END SUBROUTINE ParallelInitMatrix
 !-------------------------------------------------------------------------------
@@ -90,7 +119,9 @@ CONTAINS
        REAL(KIND=dp) :: x(:), b(:), r(:)
        TYPE(Matrix_t), POINTER :: Matrix
 !-------------------------------------------------------------------------------
+#ifdef PARALLEL_FOR_REAL
        CALL SParInitSolve( Matrix, x, b, r, DOFs, Mesh % Nodes )
+#endif
 !-------------------------------------------------------------------------------
     END SUBROUTINE ParallelInitSolve
 !-------------------------------------------------------------------------------
@@ -102,7 +133,9 @@ CONTAINS
        REAL(KIND=dp) :: x(:), r(:)
        TYPE(Matrix_t), POINTER :: Matrix
 !-------------------------------------------------------------------------------
+#ifdef PARALLEL_FOR_REAL
        CALL SParUpdateSolve( Matrix, x, r )
+#endif
 !-------------------------------------------------------------------------------
     END SUBROUTINE ParallelUpdateSolve
 !-------------------------------------------------------------------------------
@@ -121,6 +154,7 @@ CONTAINS
       TYPE(SplittedMatrixT), POINTER :: SP
       TYPE(Matrix_t), POINTER :: saveptrif(:), saveptrnb(:), saveptrin
 !-------------------------------------------------------------------------------
+#ifdef PARALLEL_FOR_REAL
       GlobalData => Matrix % ParMatrix
       IF ( PRESENT( Update ) ) THEN
          IF ( Update ) THEN
@@ -233,6 +267,7 @@ CONTAINS
       ELSE
          CALL SParMatrixVector( x, b, ipar )
       END IF
+#endif
 !-------------------------------------------------------------------------------
     END SUBROUTINE ParallelMatrixVector
 !-------------------------------------------------------------------------------
@@ -244,7 +279,9 @@ CONTAINS
        REAL(KIND=dp) :: x(:), r(:)
        TYPE(Matrix_t), POINTER :: Matrix
 !-------------------------------------------------------------------------------
+#ifdef PARALLEL_FOR_REAL
        CALL SParUpdateResult( Matrix, x, r, .TRUE. )
+#endif
 !-------------------------------------------------------------------------------
     END SUBROUTINE ParallelUpdateResult
 !-------------------------------------------------------------------------------
@@ -257,13 +294,15 @@ CONTAINS
        TYPE(Matrix_t), POINTER :: A, M
        REAL(KIND=dp),  POINTER, OPTIONAL :: x(:),b(:),r(:)
 !-------------------------------------------------------------------------------
-
+       M => NULL()
+#ifdef PARALLEL_FOR_REAL
        M => A % ParMatrix % SplittedMatrix % InsideMatrix
        IF ( PRESENT(x) ) THEN
           b => M % RHS
           x => A % ParMatrix % SplittedMatrix % TmpXVec
           r => A % ParMatrix % SplittedMatrix % TmpRVec
        END IF
+#endif
 !-------------------------------------------------------------------------------
     END FUNCTION ParallelMatrix
 !-------------------------------------------------------------------------------
@@ -275,7 +314,10 @@ CONTAINS
       INTEGER :: n
       REAL(KIND=dp) :: x(:),s
 !-------------------------------------------------------------------------------
+      s = 0.0d0
+#ifdef PARALLEL_FOR_REAL
       s = SParNorm( n, x, 1 )
+#endif
 !-------------------------------------------------------------------------------
     END FUNCTION ParallelNorm
 !-------------------------------------------------------------------------------
@@ -287,7 +329,10 @@ CONTAINS
       INTEGER :: n
       REAL(KIND=dp) :: x(:),y(:),s
 !-------------------------------------------------------------------------------
+#ifdef PARALLEL_FOR_REAL
+      s = 0.0d0
       s = SParDotProd( n, x, 1, y, 1 )
+#endif
 !-------------------------------------------------------------------------------
     END FUNCTION ParallelDOT
 !-------------------------------------------------------------------------------
@@ -299,9 +344,32 @@ CONTAINS
        TYPE(Nodes_t) :: Nodes
        INTEGER :: NewNodes,IntCnts(:),IntArray(:),Reorder(:)
 !-------------------------------------------------------------------------------
+#ifdef PARALLEL_FOR_REAL
         CALL SparGlobalNumbering( Nodes,NewNodes,IntCnts,IntArray,Reorder )
+#endif
 !-------------------------------------------------------------------------------
     END SUBROUTINE ParallelGlobalNumbering
 !-------------------------------------------------------------------------------
+
+!-------------------------------------------------------------------------------
+    SUBROUTINE ParallelIter( SourceMatrix, Nodes, DOFs, XVec, &
+              RHSVec, Solver, SParMatrixDesc )
+!-------------------------------------------------------------------------------
+                                                                                                                               
+       TYPE (Matrix_t) :: SourceMatrix
+       TYPE (Nodes_t) :: Nodes
+       INTEGER :: DOFs
+       REAL(KIND=dp), DIMENSION(:) :: XVec, RHSVec
+       TYPE (Solver_t) :: Solver
+       TYPE (SParIterSolverGlobalD_t), POINTER :: SParMatrixDesc
+                                                                                                                               
+#ifdef PARALLEL_FOR_REAL
+       CALL SParIterSolver( SourceMatrix, Nodes, DOFs, XVec, &
+                 RHSVec, Solver, SParMatrixDesc )
+#endif
+!-------------------------------------------------------------------------------
+    END SUBROUTINE ParallelIter
+!-------------------------------------------------------------------------------
+
 
 END MODULE ParallelUtils
