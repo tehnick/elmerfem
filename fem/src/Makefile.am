@@ -8,7 +8,7 @@ EXE_EXT=$(EXEEXT)
 include make.bin
 include make.dep
 
-NORMAL_TARGETS=mpif libsolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
+NORMAL_TARGETS=mpif libelmersolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
 MPI_TARGETS=ElmerSolver_mpi$(EXE_EXT)
 
 if USE_MPI
@@ -27,34 +27,34 @@ SUFFIXES: .f90 .so .src
 .f90.$(OBJEXT):
 	$(FC) $(FCFLAGS) -c $<
 
-libsolver$(SHL_EXT): $(SOLVEROBJS) 
+libelmersolver$(SHL_EXT): $(SOLVEROBJS) 
 	$(RM) $@
-	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) -L.
+	$(SH_LD2) $(RPATH_ELMER) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) -L.
 
 .$(OBJEXT).$(SHLEXT): 
 	$(SH_LD) $(SH_LDFLAGS) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) -o $@ $*$(OBJ_EXT) $(EXTRA_LIBS)
 
-$(BINARIES) $(BINARIES_ODD): libsolver$(SHL_EXT)
+$(BINARIES) $(BINARIES_ODD): libelmersolver$(SHL_EXT)
 
 $(SOLVEROBJS): mpif
 
-# ibm has problems with libsolver.so and mpi
+# ibm has problems with libelmersolver.so and mpi
 if IBM_IS_PIECE_OF_SHIT
 ElmerSolver_mpi$(EXE_EXT): Solver$(OBJ_EXT) $(SOLVEROBJS)
 	$(MPI_F90) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver_mpi$(EXE_EXT) Solver$(OBJ_EXT) $(SOLVEROBJS) $(SOLVER_LIBS) $(PARPACK_LIBS) $(MPI_LIBS) $(EXTRA_LIBS) 
 else
-ElmerSolver_mpi$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
-	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver_mpi$(EXE_EXT) Solver$(OBJ_EXT) -L. -lsolver $(PARPACK_LIBS) $(MPI_LIBS) $(EXTRA_LIBS)
+ElmerSolver_mpi$(EXE_EXT): Solver$(OBJ_EXT) libelmersolver$(SHL_EXT)
+	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver_mpi$(EXE_EXT) Solver$(OBJ_EXT) -L. -lelmersolver $(PARPACK_LIBS) $(MPI_LIBS) $(EXTRA_LIBS)
 endif
 
-ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT) mpi_stubs$(OBJ_EXT)
-	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver$(EXE_EXT) Solver$(OBJ_EXT) mpi_stubs$(OBJ_EXT) -L. -lsolver $(EXTRA_LIBS)
+ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libelmersolver$(SHL_EXT) mpi_stubs$(OBJ_EXT)
+	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver$(EXE_EXT) Solver$(OBJ_EXT) mpi_stubs$(OBJ_EXT) -L. -lelmersolver $(EXTRA_LIBS)
 
-ViewFactors$(EXE_EXT): libsolver$(SHL_EXT) ViewFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT)
-	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) $(LDFLAGS) -o ViewFactors$(EXE_EXT) ViewFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT) -L. -lsolver $(EXTRA_LIBS) viewaxis/libviewaxis.a view3d/libview3d.a
+ViewFactors$(EXE_EXT): libelmersolver$(SHL_EXT) ViewFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT)
+	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) -o ViewFactors$(EXE_EXT) ViewFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT) -L. -lsolver $(EXTRA_LIBS) viewaxis/libviewaxis.a view3d/libview3d.a
 
-GebhardtFactors$(EXE_EXT): libsolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT)
-	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) $(LDFLAGS) -o GebhardtFactors$(EXE_EXT) GebhardtFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT) -L. -lsolver $(EXTRA_LIBS) viewaxis/libviewaxis.a view3d/libview3d.a
+GebhardtFactors$(EXE_EXT): libelmersolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT)
+	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) -o GebhardtFactors$(EXE_EXT) GebhardtFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT) -L. -lelmersolver $(EXTRA_LIBS) viewaxis/libviewaxis.a view3d/libview3d.a
 
 ELMER_SOLVER_DATADIR=$(prefix)/share/elmersolver
 install-data-local:
@@ -77,6 +77,7 @@ install-exec-local:
 	$(CP) ElmerSolver$(EXEEXT) $(prefix)/bin/Solver$(EXEEXT)
 	$(CP) ViewFactors$(EXEEXT) $(prefix)/bin
 	$(CP) GebhardtFactors$(EXEEXT) $(prefix)/bin
+	$(CP) libelmersolver$(SHL_EXT) $(prefix)/lib
 if USE_MPI
 	$(CP) ElmerSolver_mpi$(EXEEXT) $(prefix)/bin
 endif

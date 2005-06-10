@@ -695,6 +695,9 @@ B64FLAGS
 FLIBS
 FCLIBS
 LD_LIBRARY_PATH_VAR
+RPATH_FLAG
+SH_EXPALL_FLAG
+RPATH_ELMER
 mpi_dir
 mpi_lib_dir
 mpi_inc_dir
@@ -8747,11 +8750,11 @@ SH_LDFLAGS=-shared
 SH_LINKING_TO_FLAGS=
 DL_LD='$(SH_LD)'
 DL_LDFLAGS='$(SH_LDFLAGS)'
-MKOCTFILE_DL_LDFLAGS='$(DL_LDFLAGS)'
 SONAME_FLAGS=
 LD_LIBRARY_PATH_VAR=LD_LIBRARY_PATH
 LIBSOLVER_DEPS=$LIBS
-
+RPATH_FLAG=
+SH_EXPALL_FLAG=
 case "$canonical_host_type" in
   *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
     SH_LD="ld"
@@ -8766,6 +8769,7 @@ case "$canonical_host_type" in
   ;;
   *-*-darwin*)
     SH_LDFLAGS='-dynamiclib -undefined dynamic_lookup -single_module $(LDFLAGS)'
+    SHLEXT="dylib"
     LD_LIBRARY_PATH_VAR=DYLD_LIBRARY_PATH
   ;;
   *-*-cygwin* | *-*-mingw*)
@@ -8773,6 +8777,8 @@ case "$canonical_host_type" in
        SH_LDFLAGS="-shared"
   ;;
   *-*-linux* | *-*-gnu*)
+	RPATH_FLAG="-Wl,-rpath "
+	SH_EXPALL_FLAG="-Wl,-export_dynamic"
   ;;
   i[3456]86-*-sco3.2v5*)
     SH_LDFLAGS="-G"
@@ -8781,6 +8787,8 @@ case "$canonical_host_type" in
     SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
     SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared"
     LD_LIBRARY_PATH_VAR=LIBPATH
+    RPATH_FLAG="-blibpath:"
+    SH_EXPALL_FLAG="-bexpall"
   ;;
   hppa*-hp-hpux*)
     SH_LDFLAGS="-shared -fPIC"
@@ -8791,13 +8799,21 @@ case "$canonical_host_type" in
   sparc-sun-sunos4*)
     SH_LD=ld
     SH_LDFLAGS="-assert nodefinitions"
+    if test "$GXX" != yes; then
+      SH_LDFLAGS=-G
+      RPATH_FLAG="-R"
+    fi
+
+
   ;;
   sparc-sun-solaris2* | i386-pc-solaris2*)
     if test "$GXX" != yes; then
       SH_LDFLAGS=-G
+      RPATH_FLAG="-R"
     fi
   ;;
 esac
+
 
 
 
@@ -9522,6 +9538,16 @@ cat >>confdefs.h <<_ACEOF
 #define SHL_EXTENSION ".$SHLEXT"
 _ACEOF
 
+fi
+
+
+
+
+
+if test "RPATH_FLAG" != ""; then
+	RPATH_ELMER="${RPATH_FLAG}$prefix/lib"
+else
+	RPATH_ELMER=""
 fi
 
 
@@ -14400,6 +14426,9 @@ s,@B64FLAGS@,$B64FLAGS,;t t
 s,@FLIBS@,$FLIBS,;t t
 s,@FCLIBS@,$FCLIBS,;t t
 s,@LD_LIBRARY_PATH_VAR@,$LD_LIBRARY_PATH_VAR,;t t
+s,@RPATH_FLAG@,$RPATH_FLAG,;t t
+s,@SH_EXPALL_FLAG@,$SH_EXPALL_FLAG,;t t
+s,@RPATH_ELMER@,$RPATH_ELMER,;t t
 s,@mpi_dir@,$mpi_dir,;t t
 s,@mpi_lib_dir@,$mpi_lib_dir,;t t
 s,@mpi_inc_dir@,$mpi_inc_dir,;t t
