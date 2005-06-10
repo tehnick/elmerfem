@@ -41,7 +41,7 @@ $(SOLVEROBJS): mpif
 # ibm has problems with libsolver.so and mpi
 if IBM_IS_PIECE_OF_SHIT
 ElmerSolver_mpi$(EXE_EXT): Solver$(OBJ_EXT) $(SOLVEROBJS)
-	$(MPI_F90) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver_mpi$(EXE_EXT) Solver$(OBJ_EXT) $(SOLVEROBJS) $(PARPACK_LIBS) $(MPI_LIBS) $(EXTRA_LIBS)
+	$(MPI_F90) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver_mpi$(EXE_EXT) Solver$(OBJ_EXT) $(SOLVEROBJS) $(SOLVER_LIBS) $(PARPACK_LIBS) $(MPI_LIBS) $(EXTRA_LIBS) 
 else
 ElmerSolver_mpi$(EXE_EXT): Solver$(OBJ_EXT) libsolver$(SHL_EXT)
 	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver_mpi$(EXE_EXT) Solver$(OBJ_EXT) -L. -lsolver $(PARPACK_LIBS) $(MPI_LIBS) $(EXTRA_LIBS)

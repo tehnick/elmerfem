@@ -151,14 +151,12 @@ AC_SUBST(MPI_INCLUDE_DIR)
 # fixme: implement all mpi compilers when needed
 AC_DEFUN([ACX_MPI_COMPILERS],
 [
-
+MPI_F90=
 acx_mpi_f90_compilers="mpf90 mpxlf90"
-acx_mpi_f90_ok=no
-
 
 for c in $acx_mpi_f90_compilers; do
-	AC_CHECK_PROG(MPI_F90, $c, acx_mpi_f90_ok=yes)
-	if test "$acx_mpi_f90_ok" = "yes"; then
+	AC_CHECK_PROG(MPI_F90, $c, $c)
+	if test "$MPI_F90" = "$c"; then
 		break
 	fi
 done
