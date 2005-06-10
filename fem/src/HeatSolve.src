@@ -54,11 +54,14 @@
 !
 !******************************************************************************
 ! $Log: HeatSolve.src,v $
+! Revision 1.2  2005/05/26 12:33:12  jpr
+! Removed explicit DLLEXPORT definitions
+!
 ! Revision 1.1  2005/05/26 08:24:20  vierinen
 ! moved .f90 to .src because .f90 is needed for preprosessed files
 !
-! Revision 1.2  2005/05/04 09:15:53  vierinen
-! minor modifications
+! Revision 1.105  2005/05/25 09:22:24  raback
+! *** empty log message ***
 !
 ! Revision 1.104  2005/04/19 08:53:46  jpr
 ! Renamed module LUDecomposition as LinearAlgebra.
@@ -156,16 +159,19 @@
 
      LOGICAL :: AllocationsDone = .FALSE.,PhaseSpatial=.FALSE., &
         PhaseChange=.FALSE., CheckLatentHeatRelease=.FALSE., FirstTime, &
-        HeaterControl, HeaterControlLocal, SmartTolReached=.FALSE.
+        HeaterControl, HeaterControlLocal, SmartTolReached=.FALSE., &
+        TransientHeaterControl, SmartHeaterAverage
 
      TYPE(Variable_t), POINTER :: TempSol,FlowSol,CurrentSol, MeshSol, DensitySol
      TYPE(ValueList_t), POINTER :: Equation,Material,SolverParams,BodyForce,BC,Constants
 
      INTEGER, POINTER :: TempPerm(:),FlowPerm(:),CurrentPerm(:),MeshPerm(:), ControlHeaters(:)
 
-     INTEGER :: NSDOFs,NewtonIter,NonlinearIter,MDOFs, NOFControlHeaters
+     INTEGER :: NSDOFs,NewtonIter,NonlinearIter,MDOFs, NOFControlHeaters, &
+         SmartHeaterBC, SmartHeaterNode, DoneTime=0
      REAL(KIND=dp) :: NonlinearTol,NewtonTol,SmartTol,Relax, &
-            SaveRelax,dt,CumulativeTime, VisibleFraction
+            SaveRelax,dt,CumulativeTime, VisibleFraction, PowerScaling=1.0, PrevPowerScaling, &
+            PowerRelax, PowerTimeScale, PowerSensitivity, xave, yave
 
      REAL(KIND=dp), POINTER :: Temperature(:),FlowSolution(:), &
        ElectricCurrent(:), PhaseChangeIntervals(:,:),ForceVector(:), &
@@ -192,7 +198,8 @@
        Permeability, TSolution, TSolution1, C0, Pressure, &
        GasConstant,AText,Hwrk, XX, YY, ForceHeater, Power, HeaterArea,  &
        HeaterDensity, HeaterSource, ControlHeaters, SmartTolReached,    &
-       ReferenceTemperature, HeatExpansionCoeff
+       ReferenceTemperature, HeatExpansionCoeff, PrevPowerScaling, PowerScaling, &
+       MeltPoint, DoneTime, SmartHeaterNode, SmartHeaterBC, SmartHeaterAverage
 
 
      INTERFACE
@@ -226,7 +233,7 @@
 
      REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
 
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HeatSolve.src,v 1.1 2005/05/26 08:24:20 vierinen Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HeatSolve.f90,v 1.105 2005/05/25 09:22:24 raback Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -277,16 +284,58 @@
         IF ( .NOT. AllocationsDone ) ALLOCATE( ControlHeaters(Model % NumberOfBodyForces) )
 
         DO i = 1,Model % NumberOfBodyForces
-           HeaterControlLocal = ListGetLogical( &
-               Model % BodyForces(i) % Values, 'Smart Heater Control', Found )
-           HeaterControl = HeaterControl .OR. HeaterControlLocal
-
-           IF ( HeaterControlLocal ) THEN
-              NOFControlHeaters = NOFControlHeaters + 1
-              ControlHeaters(i) = NOFControlHeaters
-           END IF
+          IF( ListGetLogical( Model % BodyForces(i) % Values, &
+              'Smart Heater Control', Found ) ) THEN
+            HeaterControl = .TRUE.
+            NOFControlHeaters = NOFControlHeaters + 1
+            ControlHeaters(i) = NOFControlHeaters
+          END IF
         END DO
-        HeaterControlLocal = .FALSE.
+
+        IF(HeaterControl) THEN
+          DO i=1,Model % NumberOfBCs
+            GotIt = ListGetLogical( Model % BCs(i) % Values,'Smart Heater Boundary', Found ) 
+            IF(GotIt) THEN
+              SmartHeaterBC = i
+              MeltPoint = ListGetConstReal( Model % BCs(i) % Values,'Smart Heater Temperature')
+              EXIT
+            END IF
+          END DO
+        
+          IF(.NOT. GotIt) THEN
+            DO i=1,Model % NumberOfBCs
+              GotIt = ListGetLogical( Model % BCs(i) % Values,'Phase Change', Found ) 
+              IF(GotIt) SmartHeaterBC = i
+            END DO
+            DO k=1, Model % NumberOfMaterials
+              MeltPoint = ListGetConstReal( Model % Materials(k) % Values, &
+                  'Melting Point', Found )
+              IF(Found) EXIT
+            END DO
+          END IF
+        END IF
+
+        SmartHeaterNode = 0
+        SmartHeaterAverage = ListGetLogical(Solver % Values,'Smart Heater Average', Found)
+        IF(.NOT. SmartHeaterAverage) THEN
+          jx = -1.0d20
+          DO k = Model % Mesh % NumberOfBulkElements + 1, &
+              Model % Mesh % NumberOfBulkElements + Model % Mesh % NumberOfBoundaryElements
+            
+            Element => Model % Mesh % Elements(k)
+            
+            IF ( Element % BoundaryInfo % Constraint == SmartHeaterBC ) THEN
+              DO l=1,Element % TYPE % NumberOfNodes
+                IF ( Model % Mesh % Nodes % x(Element % NodeIndexes(l)) >= jx ) THEN
+                  j = Element % NodeIndexes(l) 
+                  jx = Model % Mesh % Nodes % x(Element % NodeIndexes(l))
+                END IF
+              END DO
+            END IF
+          END DO
+          SmartHeaterNode = j
+        END IF
+        
      END IF
 !------------------------------------------------------------------------------
 !    Allocate some permanent storage, this is done first time only
@@ -368,6 +417,7 @@
 !------------------------------------------------------------------------------
 !    Do some additional initialization, and go for it
 !------------------------------------------------------------------------------
+     dt = Timestep
      Constants => GetConstants()
      StefanBoltzmann = ListGetConstReal( Model % Constants, &
                      'Stefan Boltzmann' )
@@ -400,12 +450,26 @@
        SmartTol  = GetConstReal( SolverParams, &
            'Smart Heater Control After Tolerance',  Found )
        IF(.NOT. Found) SmartTol = 1.0
-     END IF
+       
+       PowerTimeScale = ListGetConstReal(Solver % Values,'Smart Heater Time Scale',Found)
+       IF(TransientSimulation .AND. dt < PowerTimeScale) THEN
+         TransientHeaterControl = .TRUE.
+         CALL Info( 'HeatSolve', 'Using Transient Heater Control')
+        ELSE
+         TransientHeaterControl = .FALSE.
+         CALL Info( 'HeatSolve', 'Using Steady-state Heater Control')
+       END IF
+
+       IF(Solver % DoneTime /= DoneTime) THEN
+         PrevPowerScaling = PowerScaling
+         DoneTime = Solver % DoneTime
+       END IF
+
+    END IF
 
 !------------------------------------------------------------------------------
 
      SaveRelax = Relax
-     dt = Timestep
      CumulativeTime = 0.0d0
 
 !------------------------------------------------------------------------------
@@ -676,20 +740,22 @@
 !------------------------------------------------------------------------------
            LOAD(1:n) = LOAD(1:n) + Density(1:n) *  &
               GetReal( BodyForce, 'Heat Source', Found )
-
+           
            IF ( HeaterControl .AND. NewtonLinearization .AND. SmartTolReached) THEN
-             HeaterControlLocal = GetLogical( BodyForce, 'Smart Heater Control', Found )
 
-             IF (  HeaterControlLocal ) THEN
-               LOAD(1:n) = -LOAD(1:n)
+             IF( GetLogical( BodyForce, 'Smart Heater Control', Found ) ) THEN
+               HeaterControlLocal = .TRUE.
                k = ControlHeaters(bf_id)
                s = ElementArea( Solver % Mesh, Element, n )
                HeaterDensity(k) = SUM( Density(1:n) ) / n
                HeaterArea(k) = HeaterArea(k) + s
-               HeaterSource(k) = HeaterSource(k) - s * SUM(LOAD(1:n))/n
+               HeaterSource(k) = HeaterSource(k) + s * SUM(LOAD(1:n))/n
+               IF( TransientHeaterControl ) THEN
+                 Load(1:n) = PrevPowerScaling * Load(1:n)
+               END IF
              END IF
            END IF
-
+             
          END IF
 
 !------------------------------------------------------------------------------
@@ -726,7 +792,7 @@
          END IF
 !------------------------------------------------------------------------------
 
-         IF ( HeaterControlLocal ) THEN
+         IF ( HeaterControlLocal .AND. .NOT. TransientHeaterControl) THEN
            IF ( TransientSimulation ) THEN
              TimeForce  = 0.0d0
              CALL Default1stOrderTime( MASS, STIFF, TimeForce )
@@ -894,62 +960,59 @@
       PrevNorm = Norm
 
       IF(HeaterControl .AND. NewtonLinearization .AND. SmartTolReached) THEN
-        Relax = GetConstReal( SolverParams, &
-            'Nonlinear System Relaxation Factor', Found )
-        
-        IF ( Found .AND. Relax /= 1.0d0 ) THEN
-          CALL ListAddConstReal( Solver % Values, &
-              'Nonlinear System Relaxation Factor', 1.0d0 )
-        ELSE
-          Relax = 1.0d0
-        END IF
-        
-        CALL SolveSystem( Solver % Matrix, ParMatrix, &
-            ForceHeater, XX, Norm, 1, Solver )
-        
-        CALL SolveSystem( Solver % Matrix, ParMatrix, &
-            Solver % Matrix % RHS, YY, Norm, 1, Solver )
-        
-        DO i=1,Model % NumberOfBCs
-          GotIt = ListGetLogical( Model % BCs(i) % Values,'Smart Heater Boundary', Found ) 
-          IF(GotIt) THEN
-            MeltPoint = ListGetConstReal( Model % BCs(i) % Values,'Smart Heater Temperature')
-            EXIT
-          END IF
-        END DO
-        
-        IF(.NOT. GotIt) THEN
-          DO i=1,Model % NumberOfBCs
-            GotIt = ListGetLogical( Model % BCs(i) % Values,'Phase Change', Found ) 
-            IF(GotIt) EXIT
-          END DO
-          DO k=1, Model % NumberOfMaterials
-            MeltPoint = ListGetConstReal( Model % Materials(k) % Values, &
-                'Melting Point', Found )
-            IF(Found) EXIT
-          END DO
+      
+        IF(.NOT. TransientHeaterControl) THEN
+          Relax = GetConstReal( SolverParams, &
+              'Nonlinear System Relaxation Factor', Found )
+          
+          IF ( Found .AND. Relax /= 1.0d0 ) THEN
+            CALL ListAddConstReal( Solver % Values, &
+                'Nonlinear System Relaxation Factor', 1.0d0 )
+          ELSE
+            Relax = 1.0d0
+          END IF          
+
+          CALL SolveSystem( Solver % Matrix, ParMatrix, &
+              ForceHeater, XX, Norm, 1, Solver )
+          
+          CALL SolveSystem( Solver % Matrix, ParMatrix, &
+              Solver % Matrix % RHS, YY, Norm, 1, Solver )
+        ELSE          
+          CALL SolveSystem( Solver % Matrix, ParMatrix, &
+              Solver % Matrix % RHS, Temperature, Norm, 1, Solver )
+          YY = Temperature
         END IF
 
-        jx = -1.0d20
-        DO k = Model % Mesh % NumberOfBulkElements + 1, &
-            Model % Mesh % NumberOfBulkElements + Model % Mesh % NumberOfBoundaryElements
+        IF(.NOT. SmartHeaterAverage) THEN
+          xave = XX(TempPerm(SmartHeaterNode))
+          yave = YY(TempPerm(SmartHeaterNode))
+        ELSE          
+          xave = 0.0d0
+          yave = 0.0d0
+          j = 0
           
-          Element => Model % Mesh % Elements(k)
-          
-          IF ( Element % BoundaryInfo % Constraint == i ) THEN
-            DO l=1,Element % TYPE % NumberOfNodes
-              IF ( Model % Mesh % Nodes % x(Element % NodeIndexes(l)) >= jx ) THEN
-                j = Element % NodeIndexes(l) 
-                jx = Model % Mesh % Nodes % x(Element % NodeIndexes(l))
-              END IF
-            END DO
-          END IF
-        END DO
+          DO k = Model % Mesh % NumberOfBulkElements + 1, &
+              Model % Mesh % NumberOfBulkElements + Model % Mesh % NumberOfBoundaryElements            
 
-        Power = ( YY(TempPerm(j)) - MeltPoint ) / XX(TempPerm(j))
-        Temperature = YY - Power * XX
-        
-        Power = Power * SUM( HeaterSource(1:NOFControlHeaters) ) &
+            Element => Model % Mesh % Elements(k)            
+            IF ( Element % BoundaryInfo % Constraint == SmartHeaterBC ) THEN
+              l = Element % TYPE % NumberOfNodes
+              j = j + l
+              xave = xave + SUM( XX(TempPerm(Element % NodeIndexes)) )
+              yave = yave + SUM( YY(TempPerm(Element % NodeIndexes)) )
+            END IF
+          END DO
+          xave = xave / j
+          yave = yave / j 
+          CALL ListAddConstReal(Model % Simulation,'res: Smart Heater Temperature',yave)
+        END IF
+
+        IF(.NOT. TransientHeaterControl) THEN
+          PowerScaling = (MeltPoint - yave) / xave 
+          Temperature = YY + PowerScaling * XX
+        END IF
+
+        Power = PowerScaling * SUM( HeaterSource(1:NOFControlHeaters) ) &
             / SUM( HeaterArea(1:NOFControlHeaters ) )
 
         SELECT CASE( CurrentCoordinateSystem() )
@@ -957,9 +1020,11 @@
           HeaterArea(1:NOFControlHeaters) = 2*PI*HeaterArea(1:NOFControlHeaters)
         END SELECT 
 
+        CALL Info( 'HeaterControl', ' ', Level=4 )
+        WRITE( Message, * ) 'Heater power scaling:     ', PowerScaling
+        CALL Info( 'HeaterControl', Message, Level=4 )
         DO i=1,NOFControlHeaters
-          s = Power * SUM( HeaterArea ) * HeaterSource(i) / ( SUM( HeaterSource ) )
-          CALL Info( 'HeaterControl', ' ', Level=4 )
+          s = PowerScaling * HeaterSource(i) 
           WRITE( Message, * ) 'Controlled Heater: ', i
           CALL Info( 'HeaterControl', Message, Level=4 )
           WRITE( Message, * ) 'Heater Volume (m^3):     ', HeaterArea(i)
@@ -970,7 +1035,8 @@
           CALL Info( 'HeaterControl', Message, Level=4 )
           CALL Info( 'HeaterControl', ' ', Level=4 )
         END DO
-        
+         
+        CALL ListAddConstReal(Model % Simulation,'res: Heater Power Scaling',PowerScaling)
         IF(NOFControlHeaters == 1) THEN
           CALL ListAddConstReal(Model % Simulation,'res: Heater Power Density',&
               s/(HeaterDensity(1) * HeaterArea(1)))
@@ -978,10 +1044,12 @@
 
         Norm = SQRT( SUM( Temperature**2 ) / LocalNodes )
         Solver % Variable % Norm = Norm
-        
-        IF ( Relax /= 1.0d0 ) THEN
-          CALL ListAddConstReal( Solver % Values,  &
-              'Nonlinear System Relaxation Factor', Relax )
+
+        IF(dt > PowerTimeScale) THEN
+          IF ( Relax /= 1.0d0 ) THEN
+            CALL ListAddConstReal( Solver % Values,  &
+                'Nonlinear System Relaxation Factor', Relax )
+          END IF
         END IF
       ELSE
         Norm = DefaultSolve()
@@ -1052,6 +1120,16 @@
 !------------------------------------------------------------------------------
     END DO ! of the nonlinear iteration
 !------------------------------------------------------------------------------
+
+    IF(TransientHeaterControl) THEN
+      PowerRelax = ListGetConstReal(Solver % Values,'Smart Heater Relaxation Factor')
+      PowerSensitivity = ListGetConstReal(Solver % Values,'Smart Heater Power Sensivity',GotIt)
+      IF(.NOT. GotIt) PowerSensitivity = 4.0d0
+      PowerScaling = PowerScaling * (1 + PowerSensitivity * PowerRelax * (MeltPoint/yave - 1.0d0) ) 
+      Temperature = Temperature * (1 + PowerRelax * (MeltPoint/yave - 1.0d0)   )     
+      YY = Temperature
+    END IF
+
 
     IF ( TransientSimulation .AND. PhaseChange ) THEN
       IF ( .NOT.ALLOCATED(TSolution) ) THEN
@@ -1516,7 +1594,7 @@ CONTAINS
         x0 = ElementNodes % x(i)
         y0 = ElementNodes % y(i)
         z0 = ElementNodes % z(i)
-        DO j=1,Parent % Type % NumberOfNodes
+        DO j=1,Parent % TYPE % NumberOfNodes
           k = Parent % NodeIndexes(j)
           x = Solver % Mesh % Nodes % x(k) - x0
           y = Solver % Mesh % Nodes % y(k) - y0
@@ -2038,6 +2116,7 @@ CONTAINS
 
      DEALLOCATE( Nodes % x, Nodes % y, Nodes % z)
      DEALLOCATE( EdgeNodes % x, EdgeNodes % y, EdgeNodes % z)
+
 !------------------------------------------------------------------------------
   END FUNCTION HeatEdgeResidual
 !------------------------------------------------------------------------------
