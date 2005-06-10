@@ -72,13 +72,15 @@ CONTAINS
 
       IMPLICIT NONE
 
-INCLUDE "mpif.h"
 
       TYPE(Matrix_t), POINTER :: Matrix
       TYPE(Solver_t), TARGET :: Solver
       INTEGER :: N, NEIG, DPERM(n)
       COMPLEX(KIND=dp) :: EigValues(:), EigVectors(:,:)
 
+#define PARALLEL_FOR_REAL
+#ifdef PARALLEL_FOR_REAL
+INCLUDE "mpif.h"
 #ifdef USE_ARPACK
 !
 !     %--------------%
@@ -524,6 +526,7 @@ INCLUDE "mpif.h"
       DEALLOCATE( WORKL, D, WORKEV, V, CHOOSE, Perm )
 #else
       CALL Fatal( 'EigenSolve', 'Arpack Eigen System Solver not available.' )
+#endif
 #endif
 !
 !------------------------------------------------------------------------------

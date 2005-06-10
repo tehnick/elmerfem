@@ -33,6 +33,9 @@
 ! *       Date of modification:
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.2  2005/05/26 12:33:18  jpr
+! * Removed explicit DLLEXPORT definitions
+! *
 ! * Revision 1.1  2005/05/26 08:24:51  vierinen
 ! * moved .f90 to .src because .f90 is needed for preprosessed files
 ! *
@@ -79,7 +82,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.1 2005/05/26 08:24:51 vierinen Exp $
+! * $Id: SolverUtils.src,v 1.2 2005/05/26 12:33:18 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -90,12 +93,9 @@ MODULE SolverUtils
    USE ElementUtils
    USE TimeIntegrate
 
-   USE ParallelUtils
    USE ModelDescription
    USE MeshUtils
-   USE SParIterSolve
-   USE SParIterGlobals
-
+   USE ParallelUtils
    USE ParallelEigenSolve
 
    IMPLICIT NONE
@@ -1706,7 +1706,7 @@ scalesystem = .false.
           CALL MultiGridSolve( StiffMatrix, Solution, ForceVector, &
                  DOFs, PSolver, Solver % MultiGridLevel )
        ELSE
-          CALL SParIterSolver( StiffMatrix, Solver % Mesh % Nodes, DOFs, &
+          CALL ParallelIter( StiffMatrix, Solver % Mesh % Nodes, DOFs, &
             Solution, ForceVector, Solver, StiffMatrix % ParMatrix )
        END IF
 !------------------------------------------------------------------------------
