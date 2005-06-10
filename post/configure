@@ -8875,16 +8875,13 @@ if test "$acx_tcltk_ok" = no; then
 		acx_tk_ok="no"
 
 		acx_tcltk_LDFLAGS_save=$LDFLAGS
+		acx_tcltk_LIBS_save=$LIBS
 		LDFLAGS="$LDFLAGS -L$l"
-		as_ac_Lib=`echo "ac_cv_lib_tcl$v''_TclInvoke" | $as_tr_sh`
-{ echo "$as_me:$LINENO: checking for TclInvoke in -ltcl$v" >&5
-echo $ECHO_N "checking for TclInvoke in -ltcl$v... $ECHO_C" >&6; }
-if eval "test \"\${$as_ac_Lib+set}\" = set"; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-ltcl$v  $LIBS"
-cat >conftest.$ac_ext <<_ACEOF
+		LIBS="-ltcl$v -ltk$v"
+		{ echo "$as_me:$LINENO: checking for tcl/tk libs in -L$l" >&5
+echo $ECHO_N "checking for tcl/tk libs in -L$l... $ECHO_C" >&6; }
+
+		cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
 cat confdefs.h >>conftest.$ac_ext
@@ -8936,33 +8933,15 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  eval "$as_ac_Lib=yes"
+  acx_tcl_ok=yes; TCL_LIBS="-ltcl$v"
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-eval "$as_ac_Lib=no"
 fi
 rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-ac_res=`eval echo '${'$as_ac_Lib'}'`
-	       { echo "$as_me:$LINENO: result: $ac_res" >&5
-echo "${ECHO_T}$ac_res" >&6; }
-if test `eval echo '${'$as_ac_Lib'}'` = yes; then
-  acx_tcl_ok=yes; TCL_LIBS="-ltcl$v"
-fi
-
-		as_ac_Lib=`echo "ac_cv_lib_tk$v''_TkGetDisplay" | $as_tr_sh`
-{ echo "$as_me:$LINENO: checking for TkGetDisplay in -ltk$v" >&5
-echo $ECHO_N "checking for TkGetDisplay in -ltk$v... $ECHO_C" >&6; }
-if eval "test \"\${$as_ac_Lib+set}\" = set"; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-ltk$v  $LIBS"
-cat >conftest.$ac_ext <<_ACEOF
+		cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
 cat confdefs.h >>conftest.$ac_ext
@@ -9014,34 +8993,29 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  eval "$as_ac_Lib=yes"
+  acx_tk_ok=yes; TK_LIBS="-ltk$v"
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-eval "$as_ac_Lib=no"
 fi
 rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-ac_res=`eval echo '${'$as_ac_Lib'}'`
-	       { echo "$as_me:$LINENO: result: $ac_res" >&5
-echo "${ECHO_T}$ac_res" >&6; }
-if test `eval echo '${'$as_ac_Lib'}'` = yes; then
-  acx_tk_ok=yes; TK_LIBS="-ltk$v"
-fi
-
 
 		LDFLAGS=$acx_tcltk_LDFLAGS_save
+		LIBS=$acx_tcltk_LIBS_save
 
 		if test "$acx_tcl_ok" = yes; then
   		   if test "$acx_tk_ok" = yes; then
 		     acx_tcltk_ok="yes"
-  		     TCLTK_LIBS="$TK_LIBS $TCL_LIBS"
+  		     TCLTK_LIBS="-L$l $TK_LIBS $TCL_LIBS"
+  		     { echo "$as_me:$LINENO: result: $acx_tcltk_ok" >&5
+echo "${ECHO_T}$acx_tcltk_ok" >&6; }
 		     break
 		   fi
 		fi
+		{ echo "$as_me:$LINENO: result: $acx_tcltk_ok" >&5
+echo "${ECHO_T}$acx_tcltk_ok" >&6; }
 	done
 	# break again
 	if test "$acx_tcl_ok" = yes; then
