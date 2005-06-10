@@ -1090,7 +1090,7 @@ int PartitionSimple(struct FemType *data,int dimpart[],int dimper[],
 	if(arrange[j] > arrange0) arrange[j] -= arrange0;
       }
     }
-    NRindexx(noelements,arrange,indx);
+    SortIndex(noelements,arrange,indx);
     
     for(i=1;i<=noelements;i++) 
       part1[indx[i]] = (i*partitions1-1)/noelements+1;
@@ -1126,7 +1126,7 @@ int PartitionSimple(struct FemType *data,int dimpart[],int dimper[],
 	if(arrange[j] > arrange0) arrange[j] -= arrange0;
       }
     }
-    NRindexx(noelements,arrange,indx);
+    SortIndex(noelements,arrange,indx);
     
     for(i=1;i<=partitions;i++)
       nopart[i] = 0;
@@ -1173,7 +1173,7 @@ int PartitionSimple(struct FemType *data,int dimpart[],int dimper[],
 	if(arrange[j] > arrange0) arrange[j] -= arrange0;
       }
     }
-    NRindexx(noelements,arrange,indx);
+    SortIndex(noelements,arrange,indx);
 
     for(i=1;i<=partitions;i++)
       nopart[i] = 0;
@@ -1322,7 +1322,7 @@ int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
 	if(arrange[j] > arrange0) arrange[j] -= arrange0;
       }
     }
-    NRindexx(noknots,arrange,indx);
+    SortIndex(noknots,arrange,indx);
     
     for(i=1;i<=noknots;i++) 
       part1[indx[i]] = (i*partitions1-1)/noknots+1;
@@ -1354,7 +1354,7 @@ int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
 	if(arrange[j] > arrange0) arrange[j] -= arrange0;
       }
     }
-    NRindexx(noknots,arrange,indx);
+    SortIndex(noknots,arrange,indx);
     
     for(i=1;i<=partitions;i++)
       nopart[i] = 0;
@@ -1397,7 +1397,7 @@ int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
 	if(arrange[j] > arrange0) arrange[j] -= arrange0;
       }
     }
-    NRindexx(noknots,arrange,indx);
+    SortIndex(noknots,arrange,indx);
 
     for(i=1;i<=partitions;i++)
       nopart[i] = 0;

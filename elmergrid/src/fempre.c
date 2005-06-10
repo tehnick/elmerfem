@@ -8,7 +8,9 @@
 *  with 8, 20 and 27-node cubes and 6-node prisms.                          *
 *                                                                           *
 *  Note: this software was initially part of Pirfem code, then later        *
-*  called Quickmesh, and finally renamed to Elmergrid.                      *
+*  called Quickmesh, and finally renamed to Elmergrid. The code has never   *
+*  been designed and with new features the code has eventually become very  *
+*  dirty.                                                                   *
 *                                                                           *
 *  (c) Peter Råback, CSC - Scientific Computing, 1996-2005                  *
 *                                                                           *
@@ -140,7 +142,7 @@ static void Instructions()
 static void Goodbye()
 {
   printf("\nThank you for using Elmergrid!\n");
-  printf("Send bug reports and feature wishes to Peter Råback, raback@csc.fi\n");
+  printf("Send bug reports and feature wishes to peter.raback@csc.fi\n");
   exit(0);
 }
 

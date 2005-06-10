@@ -3121,7 +3121,7 @@ static void ReorderAutomatic(struct FemType *data,int iterations,
       }
     }    
 
-    NRindexx(nolocal,localdist,localorder);
+    SortIndex(nolocal,localdist,localorder);
     
     for(l=1;l<=nolocal;l++) 
       neighbours[j][l] = localtmp[localorder[l]];
@@ -3276,7 +3276,7 @@ void ReorderElements(struct FemType *data,struct BoundaryType *bound,
     arrange[i] = cx*data->x[i] + cy*data->y[i];
     if(data->dim == 3) arrange[i] += cz*data->z[i];  
   }
-  NRindexx(noknots,arrange,indx);
+  SortIndex(noknots,arrange,indx);
 
   if(manual == 2) ReorderAutomatic(data,0,indx,corder,TRUE);
 
@@ -3294,7 +3294,7 @@ void ReorderElements(struct FemType *data,struct BoundaryType *bound,
     }
   }
 
-  NRindexx(noelements,arrange,elemindx);
+  SortIndex(noelements,arrange,elemindx);
   for(i=1;i<=noelements;i++) 
     revelemindx[elemindx[i]] = i;
 
@@ -3509,7 +3509,7 @@ static void FindEdges(struct FemType *data,struct BoundaryType *bound,
     arrange[i] = edgetable[i][0];
   indx = Ivector(1,noknots);
 
-  NRindexx(noknots,arrange,indx);
+  SortIndex(noknots,arrange,indx);
 
 #if 0
   printf("noknots = %d\n",noknots);
@@ -4300,7 +4300,7 @@ int IncreaseElementOrder(struct FemType *data,int info)
     arrange[i] = edgetable[i][0];
   indx = Ivector(1,noedges);
 
-  NRindexx(noedges,arrange,indx);
+  SortIndex(noedges,arrange,indx);
 
 #if 0
   printf("noknots = %d\n",noknots);

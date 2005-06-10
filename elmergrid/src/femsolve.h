@@ -4,11 +4,8 @@
    normalizing matrices. These are needed to correct the 
    discretization errors of the view factor calculations. */
 
-void NRindexx(int n,double *arr,int *indx);
-void NRgaussj(Real **a,int n,Real **b,int m);
-void NRludcmp(Real **a, int n, int *indx, Real *d);
-void NRlubksb(Real **a, int n, int *indx, Real b[]);
-void NRcholdc(Real **a, int n, Real p[]);
-void NRcholsl(Real **a, int n, Real p[], Real b[], Real x[]);
+void SortIndex(int n,double *arr,int *indx);
+void ludcmp(Real **a, int n, int *indx, Real *d);
+void lubksb(Real **a, int n, int *indx, Real b[]);
 void Symmetrize(Real **vf,int sides);
 void Normalize(Real **vf, const Real *b,int sides);

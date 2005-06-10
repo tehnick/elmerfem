@@ -11,77 +11,12 @@
 #include "nrutil.h"
 #include "femdef.h"
 #include "femsolve.h"
+
+
+/* LU Decomposition */
 #define TINY 1.0e-20;
 
-
-/* Gauss-Jordan Elimination
-   Numerical Recipes in C, Second Edition ss. 39 */
-
-#define SWAP(a,b) {temp=(a);(a)=(b);(b)=temp;}
-void NRgaussj(Real **a,int n,Real **b,int m)
-{
-  int *indxc,*indxr,*ipiv;
-  int i,icol,irow,j,k,l,ll;
-  Real big,dum,pivinv,temp;
-
-  indxc = ivector(1,n);
-  indxr = ivector(1,n);
-  ipiv = ivector(1,n);
-  for(j=1;j<=n;j++) ipiv[j]=0;
-
-  for(i=1;i<=n;i++) {
-    big = 0.0;
-    for(j=1;j<=n;j++)
-      if(ipiv[j] != 1)
-	for(k=1;k<=n;k++) {
-	  if(ipiv[k] == 0) {
-	    if(fabs(a[j][k]) >= big) {
-	      big = fabs(a[j][k]);
-	      irow = j;
-	      icol = k;
-	    }
-	  } else if(ipiv[k] >1) nrerror("gaussj: Singular Matrix-1");
-	}
-    ++(ipiv[icol]);
-
-    if(irow != icol) {
-      for(l=1;l<=n;l++) SWAP(a[irow][l],a[icol][l])
-      for(l=1;l<=m;l++) SWAP(b[irow][l],b[icol][l])
-    }
-    indxr[i]=irow;
-    indxc[i]=icol;
-    if(a[icol][icol] == 0.0) nrerror("gaussj: Singular Matrix-2");
-    pivinv = 1.0/a[icol][icol];
-    a[icol][icol] = 1.0;
-    for(l=1;l<=n;l++) a[icol][l] *= pivinv;
-    for(l=1;l<=m;l++) b[icol][l] *= pivinv;
-
-    for(ll=1;ll<=n;ll++)
-      if(ll != icol) {
-	dum = a[ll][icol];
-	a[ll][icol] = 0.0;
-	for(l=1;l<=n;l++) a[ll][l] -= a[icol][l]*dum;
-	for(l=1;l<=m;l++) b[ll][l] -= b[icol][l]*dum;
-      }
-  }
-
-  for(l=n;l>=1;l--) {
-    if(indxr[l] != indxc[l])
-      for(k=1;k<=n;k++) 
-	SWAP(a[k][indxr[l]],a[k][indxc[l]]);
-  }
-  free_ivector(ipiv,1,n);
-  free_ivector(indxr,1,n);
-  free_ivector(indxc,1,n);
-}
-
-
-
-/* LU Decomposition
-   Numerical Recipes in C, Second Edition ss. 46 */
-#define TINY 1.0e-20;
-
-void NRludcmp(Real **a, int n, int *indx, Real *d)
+void ludcmp(Real **a, int n, int *indx, Real *d)
 {
   int i,imax,j,k;
   Real big,dum,sum,temp;
@@ -136,7 +71,7 @@ void NRludcmp(Real **a, int n, int *indx, Real *d)
 
 
 
-void NRlubksb(Real **a, int n, int *indx, Real b[])
+void lubksb(Real **a, int n, int *indx, Real b[])
 {
   int i,ii=0,ip,j;
   Real sum;
@@ -156,44 +91,6 @@ void NRlubksb(Real **a, int n, int *indx, Real b[])
     b[i]=sum/a[i][i];
   }
 }
-
-
-
-/* Cholesky Decomposition ,
-   Numerical Recipes in C++, Second Edition ss. 97 */
-
-void NRcholdc(Real **a, int n, Real p[])
-{
-  int i,j,k;
-  Real sum;
-  
-  for (i=1;i<=n;i++) {
-    for (j=i;j<=n;j++) {
-      for (sum=a[i][j],k=i-1;k>=1;k--) sum -= a[i][k]*a[j][k];
-      if (i == j) {
-	if (sum <= 0.0) nrerror("choldc failed");
-	p[i]=sqrt(sum);
-      } else a[j][i]=sum/p[i];
-    }
-  }
-}
-   
-
-void NRcholsl(Real **a, int n, Real p[], Real b[], Real x[])
-{
-  int i,k;
-  Real sum;
-
-  for (i=1;i<=n;i++) { 
-    for (sum=b[i],k=i-1;k>=1;k--) sum -= a[i][k]*x[k];
-    x[i]=sum/p[i];
-  }
-  for (i=n;i>=1;i--) {
-    for (sum=x[i],k=k+1;k<=n;k++) sum -= a[k][i]*x[k];
-    x[i]=sum/p[i];
-  }
-}
-
 
 
 /*******************************************************************************/
@@ -265,8 +162,8 @@ void Normalize(Real **vf, const Real *b,int sides)
     }
 
     /* Solve the equation jac * x = rest using Numerical Recipes routines. */     
-    NRludcmp(jac,sides,indx,&evenodd);
-    NRlubksb(jac,sides,indx,rest);
+    ludcmp(jac,sides,indx,&evenodd);
+    lubksb(jac,sides,indx,rest);
 
     /* New approximation. */
     for (i=1; i<=sides; i++)
@@ -286,14 +183,12 @@ void Normalize(Real **vf, const Real *b,int sides)
 
 
 
-/* Indexing algorithm,
-   Numerical Recipes in C, Second Edition ss. 338 
-   Creates an index table */
+/* Indexing algorithm, Creates an index table */
 #define SWAPI(a,b) itemp=(a);(a)=(b);(b)=itemp;
 #define M 7
 #define NSTACK 50
 
-void NRindexx(int n,double *arr,int *indx)
+void SortIndex(int n,double *arr,int *indx)
 {
   int i,indxt,ir,itemp,j,k,l;
   int jstack,*istack;
@@ -347,7 +242,7 @@ void NRindexx(int n,double *arr,int *indx)
       indx[l] = indx[j];
       indx[j] = indxt;
       jstack += 2;
-      if(jstack > NSTACK) printf("NSTACK too small in NRindexx.");
+      if(jstack > NSTACK) printf("NSTACK too small in SortIndex.");
       if(ir-i+1 >= j-l) {
 	istack[jstack]   = ir;
 	istack[jstack-1] = i;
