@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.56 2005/06/10 12:45:27 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.57 2005/06/10 13:14:00 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1202,7 +1202,7 @@ case "$canonical_host_type" in
     SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
     SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared"
     LD_LIBRARY_PATH_VAR=LIBPATH
-    RPATH_FLAG="-blibpath:"
+#    RPATH_FLAG="-blibpath:"
     SH_EXPALL_FLAG="-bexpall"
   ;;
   hppa*-hp-hpux*)
