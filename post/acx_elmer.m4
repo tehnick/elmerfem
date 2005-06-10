@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.52 2005/06/07 09:07:10 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.55 2005/06/09 14:38:11 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1195,7 +1195,6 @@ dnl    SONAME_FLAGS='-install_name $(octlibdir)/$@'
   *-*-cygwin* | *-*-mingw*)
        SHLEXT=dll
        SH_LDFLAGS="-shared"
-       SH_LD=$CC
   ;;
   *-*-linux* | *-*-gnu*)
 dnl    MKOCTFILE_DL_LDFLAGS="-shared -Wl,-Bsymbolic"
@@ -1259,10 +1258,6 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
 
   ### Check for dyld first since OS X can have a non-standard libdl	
 
-  AC_CHECK_HEADER(Mach-O/dyld.h)  
-  if test "$ac_cv_header_Mach_O_dyld_h" = yes; then
-    dyld_api=true
-  else 
     AC_CHECK_LIB(dld, shl_load)
     AC_CHECK_FUNCS(shl_load shl_findsym)
     if test "$ac_cv_func_shl_load" = yes \
@@ -1296,7 +1291,6 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
 	fi
       fi
     fi
-  fi
 
   if $dlopen_api; then
     DL_API_MSG="(dlopen)"
@@ -1344,7 +1338,7 @@ case "$canonical_host_type" in
   ;;
   *-*-cygwin* | *-*-mingw*)
 	acx_platform_def="WIN32"
-        AC_DEFINE([WIN32],1,[Detected platform.])
+        AC_DEFINE([GWIN],1,[Detected platform.])
   ;;
   *-*-linux* | *-*-gnu*)
         AC_DEFINE([LINUX],1,[Detected platform.])
@@ -1353,6 +1347,7 @@ case "$canonical_host_type" in
         AC_DEFINE([BASTARDS],1,[Detected platform.])
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
+	acx_platform_def="AIX"
         AC_DEFINE([AIX],1,[Detected platform.])
   ;;
   hppa*-hp-hpux*)
@@ -1369,6 +1364,7 @@ case "$canonical_host_type" in
   ;;
 esac
 
+AM_CONDITIONAL(IBM_IS_PIECE_OF_SHIT, test "$acx_platform_def" = "AIX")
 ])
 
 AC_DEFUN([ACX_COMPILER_FIXES],
@@ -1471,7 +1467,7 @@ AC_SUBST(TCLTK_LIBS)
 LIBS=$acx_tcltk_save_LIBS
 
 # Search for tcl.h and tk.h
-acx_tcltk_tcl_h_locs="/usr/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2 /include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
+acx_tcltk_tcl_h_locs="/usr/include /usr/local/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2 /include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
 
 acx_tcltk_CPPFLAGS_save=$CPPFLAGS
 acx_tcltk_CFLAGS_save=$CFLAGS
