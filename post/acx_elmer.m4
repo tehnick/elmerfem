@@ -1443,15 +1443,21 @@ fi
 fi
 
 acx_tcltk_lib_versions="8.4 8.3 8.2 8.1 84 83 82 81"
+acx_tcltk_locations="/usr/lib /usr/local/lib /usr/swf/lib"
 
 # Generic TCLTK library?
 if test "$acx_tcltk_ok" = no; then
+   for l in $acx_tcltk_locations; do
 	for v in $acx_tcltk_lib_versions; do
 		acx_tcl_ok="no"
 		acx_tk_ok="no"
-
+		
+		acx_tcltk_LDFLAGS_save=$LDFLAGS
+		LDFLAGS="$LDFLAGS -L$l"
 		AC_CHECK_LIB(tcl$v, TclInvoke, [acx_tcl_ok=yes; TCL_LIBS="-ltcl$v"])
 		AC_CHECK_LIB(tk$v, TkGetDisplay, [acx_tk_ok=yes; TK_LIBS="-ltk$v"])
+
+		LDFLAGS=$acx_tcltk_LDFLAGS_save
 		
 		if test "$acx_tcl_ok" = yes; then
   		   if test "$acx_tk_ok" = yes; then
@@ -1461,13 +1467,14 @@ if test "$acx_tcltk_ok" = no; then
 		   fi
 		fi
 	done
+   done
 fi
 
 AC_SUBST(TCLTK_LIBS)
 LIBS=$acx_tcltk_save_LIBS
 
 # Search for tcl.h and tk.h
-acx_tcltk_tcl_h_locs="/usr/include /usr/local/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2 /include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
+acx_tcltk_tcl_h_locs="/usr/include /usr/local/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2 /include /usr/swf/include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
 
 acx_tcltk_CPPFLAGS_save=$CPPFLAGS
 acx_tcltk_CFLAGS_save=$CFLAGS

@@ -2124,7 +2124,7 @@ esac
 AC_SUBST(SH_LDFLAGS)
 AC_SUBST(SH_LD)
 ])
-m4trace:acx_elmer.m4:1521: -1- AC_DEFUN([ACX_TCLTK], [
+m4trace:acx_elmer.m4:1528: -1- AC_DEFUN([ACX_TCLTK], [
 AC_REQUIRE([AC_PATH_X])
 AC_PREREQ(2.50)
 acx_tcltk_ok=no
@@ -2162,15 +2162,21 @@ fi
 fi
 
 acx_tcltk_lib_versions="8.4 8.3 8.2 8.1 84 83 82 81"
+acx_tcltk_locations="/usr/lib /usr/local/lib /usr/swf/lib"
 
 # Generic TCLTK library?
 if test "$acx_tcltk_ok" = no; then
+   for l in $acx_tcltk_locations; do
 	for v in $acx_tcltk_lib_versions; do
 		acx_tcl_ok="no"
 		acx_tk_ok="no"
-
+		
+		acx_tcltk_LDFLAGS_save=$LDFLAGS
+		LDFLAGS="$LDFLAGS -L$l"
 		AC_CHECK_LIB(tcl$v, TclInvoke, [acx_tcl_ok=yes; TCL_LIBS="-ltcl$v"])
 		AC_CHECK_LIB(tk$v, TkGetDisplay, [acx_tk_ok=yes; TK_LIBS="-ltk$v"])
+
+		LDFLAGS=$acx_tcltk_LDFLAGS_save
 		
 		if test "$acx_tcl_ok" = yes; then
   		   if test "$acx_tk_ok" = yes; then
@@ -2180,13 +2186,14 @@ if test "$acx_tcltk_ok" = no; then
 		   fi
 		fi
 	done
+   done
 fi
 
 AC_SUBST(TCLTK_LIBS)
 LIBS=$acx_tcltk_save_LIBS
 
 # Search for tcl.h and tk.h
-acx_tcltk_tcl_h_locs="/usr/include /usr/local/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2 /include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
+acx_tcltk_tcl_h_locs="/usr/include /usr/local/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2 /include /usr/swf/include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
 
 acx_tcltk_CPPFLAGS_save=$CPPFLAGS
 acx_tcltk_CFLAGS_save=$CFLAGS
@@ -3664,7 +3671,7 @@ esac
 AC_SUBST(SH_LDFLAGS)
 AC_SUBST(SH_LD)
 ])
-m4trace:acx_elmer.m4:1521: -1- AC_DEFUN([ACX_TCLTK], [
+m4trace:acx_elmer.m4:1528: -1- AC_DEFUN([ACX_TCLTK], [
 AC_REQUIRE([AC_PATH_X])
 AC_PREREQ(2.50)
 acx_tcltk_ok=no
@@ -3702,15 +3709,21 @@ fi
 fi
 
 acx_tcltk_lib_versions="8.4 8.3 8.2 8.1 84 83 82 81"
+acx_tcltk_locations="/usr/lib /usr/local/lib /usr/swf/lib"
 
 # Generic TCLTK library?
 if test "$acx_tcltk_ok" = no; then
+   for l in $acx_tcltk_locations; do
 	for v in $acx_tcltk_lib_versions; do
 		acx_tcl_ok="no"
 		acx_tk_ok="no"
-
+		
+		acx_tcltk_LDFLAGS_save=$LDFLAGS
+		LDFLAGS="$LDFLAGS -L$l"
 		AC_CHECK_LIB(tcl$v, TclInvoke, [acx_tcl_ok=yes; TCL_LIBS="-ltcl$v"])
 		AC_CHECK_LIB(tk$v, TkGetDisplay, [acx_tk_ok=yes; TK_LIBS="-ltk$v"])
+
+		LDFLAGS=$acx_tcltk_LDFLAGS_save
 		
 		if test "$acx_tcl_ok" = yes; then
   		   if test "$acx_tk_ok" = yes; then
@@ -3720,13 +3733,14 @@ if test "$acx_tcltk_ok" = no; then
 		   fi
 		fi
 	done
+   done
 fi
 
 AC_SUBST(TCLTK_LIBS)
 LIBS=$acx_tcltk_save_LIBS
 
 # Search for tcl.h and tk.h
-acx_tcltk_tcl_h_locs="/usr/include /usr/local/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2 /include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
+acx_tcltk_tcl_h_locs="/usr/include /usr/local/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2 /include /usr/swf/include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
 
 acx_tcltk_CPPFLAGS_save=$CPPFLAGS
 acx_tcltk_CFLAGS_save=$CFLAGS
@@ -4517,7 +4531,7 @@ m4trace:configure.in:49: -1- ACX_TCLTK([], [AC_MSG_ERROR([Tcl/tk not found, use 
 m4trace:configure.in:49: -1- _m4_warn([obsolete], [The macro `AC_HELP_STRING' is obsolete.
 You should run autoupdate.], [autoconf/general.m4:219: AC_HELP_STRING is expanded from...
 autoconf/general.m4:1416: AC_ARG_WITH is expanded from...
-acx_elmer.m4:1521: ACX_TCLTK is expanded from...
+acx_elmer.m4:1528: ACX_TCLTK is expanded from...
 configure.in:49: the top level])
 m4trace:configure.in:49: -1- AC_CHECK_LIB([tcl$v], [TclInvoke], [acx_tcl_ok=yes; TCL_LIBS="-ltcl$v"])
 m4trace:configure.in:49: -1- AC_CHECK_LIB([tk$v], [TkGetDisplay], [acx_tk_ok=yes; TK_LIBS="-ltk$v"])
