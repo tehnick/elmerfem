@@ -2014,6 +2014,8 @@ CONTAINS
                IF ( k > 0 ) Var % Values(Var % Perm(j)) = value
             END IF
           END DO
+
+          CALL InvalidateVariable( CurrentModel % Meshes, Mesh, TRIM(Row) )
         END IF
       END DO
       n = n + 1
@@ -2026,6 +2028,74 @@ CONTAINS
     CALL Info( 'LoadRestartFile', 'Done', Level=3 )
     CALL Info( 'LoadRestartFile', '---------------------', Level = 3)
     CALL Info( 'LoadRestartFile', ' ', Level = 3 )
+
+CONTAINS
+
+!------------------------------------------------------------------------------
+  RECURSIVE SUBROUTINE InvalidateVariable( TopMesh,PrimaryMesh,Name )
+!------------------------------------------------------------------------------
+    CHARACTER(LEN=*) :: Name
+    TYPE(Mesh_t),  POINTER :: TopMesh,PrimaryMesh
+!------------------------------------------------------------------------------
+    CHARACTER(LEN=MAX_NAME_LEN) :: tmpname
+    INTEGER :: i
+    TYPE(Mesh_t), POINTER :: Mesh
+    TYPE(Variable_t), POINTER :: Var,Var1
+!------------------------------------------------------------------------------
+    Mesh => TopMesh
+
+    DO WHILE( ASSOCIATED(Mesh) )
+      IF ( .NOT.ASSOCIATED( PrimaryMesh, Mesh) ) THEN
+        Var => VariableGet( Mesh % Variables, Name, .TRUE.)
+        IF ( ASSOCIATED( Var ) ) THEN
+          Var % Valid = .FALSE.
+          Var % PrimaryMesh => PrimaryMesh
+          IF ( Var % DOFs > 1 ) THEN
+            IF ( Var % Name == 'flow solution' ) THEN
+              Var1 => VariableGet( Mesh % Variables, 'Velocity 1', .TRUE.)
+              IF ( ASSOCIATED( Var1 ) ) THEN
+                 Var1 % Valid = .FALSE.
+                 Var1 % PrimaryMesh => PrimaryMesh
+              END IF
+              Var1 => VariableGet( Mesh % Variables, 'Velocity 2', .TRUE.)
+              IF ( ASSOCIATED( Var1 ) ) THEN
+                 Var1 % Valid = .FALSE.
+                 Var1 % PrimaryMesh => PrimaryMesh
+              END IF
+              Var1 => VariableGet( Mesh % Variables, 'Velocity 3', .TRUE.)
+              IF ( ASSOCIATED( Var1 ) ) THEN
+                 Var1 % Valid = .FALSE.
+                 Var1 % PrimaryMesh => PrimaryMesh
+              END IF
+              Var1 => VariableGet( Mesh % Variables, 'Pressure', .TRUE.)
+              IF ( ASSOCIATED( Var1 ) ) THEN
+                 Var1 % Valid = .FALSE.
+                 Var1 % PrimaryMesh => PrimaryMesh
+              END IF
+              Var1 => VariableGet( Mesh % Variables, 'Surface', .TRUE.)
+              IF ( ASSOCIATED( Var1 ) ) THEN
+                 Var1 % Valid = .FALSE.
+                 Var1 % PrimaryMesh => PrimaryMesh
+              END IF
+            ELSE
+              DO i=1,Var % DOFs
+                tmpname = ComponentName( Name, i )
+                Var1 => VariableGet( Mesh % Variables, tmpname, .TRUE. )
+                IF ( ASSOCIATED( Var1 ) ) THEN
+                   Var1 % Valid = .FALSE.
+                   Var1 % PrimaryMesh => PrimaryMesh
+                END IF
+              END DO
+            END IF
+          END IF
+        END IF
+      END IF
+!     CALL InvalidateVariable( Mesh % Child, PrimaryMesh, Name )
+      Mesh => Mesh % Next
+    END DO 
+!------------------------------------------------------------------------------
+  END SUBROUTINE InvalidateVariable
+!------------------------------------------------------------------------------
   END SUBROUTINE LoadRestartFile
 !------------------------------------------------------------------------------
 
