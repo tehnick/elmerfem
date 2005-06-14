@@ -40,7 +40,7 @@ build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
-	$(srcdir)/make.bin $(srcdir)/make.dep
+	$(srcdir)/elmerf90.in $(srcdir)/make.bin $(srcdir)/make.dep
 bin_PROGRAMS = SC2Elmer$(EXEEXT)
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -53,7 +53,7 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
-CONFIG_CLEAN_FILES =
+CONFIG_CLEAN_FILES = elmerf90
 am__installdirs = "$(DESTDIR)$(bindir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
@@ -265,7 +265,9 @@ OBJ_EXT = .$(OBJEXT)
 SHL_EXT = .$(SHLEXT)
 LIB_EXT = .$(LIBEXT)
 EXE_EXT = $(EXEEXT)
-SOLVER = ElmerSolver
+SOLVER = ElmerSolver$(EXE_EXT)
+SC2ELMER = SC2Elmer$(EXE_EXT)
+RES2RES = ResultToResult$(EXE_EXT)
 ADVDIFF = AdvectionDiffusion$(SHL_EXT)
 STATMAG = StatMagSolve$(SHL_EXT)
 STATELEC = StatElecSolve$(SHL_EXT)
@@ -292,7 +294,6 @@ INPUT = ReloadInput$(SHL_EXT)
 ARTIF = ArtificialCompressibility$(SHL_EXT)
 POISSON_BEM = PoissonBEM$(SHL_EXT)
 HELMHOLTZ_BEM = HelmholtzBEM$(SHL_EXT)
-SC2ELMER = SC2Elmer$(EXE_EXT)
 FREESURF = FreeSurfaceSolver$(SHL_EXT)
 SMITC = Smitc$(SHL_EXT)
 STREAM = StreamSolver$(SHL_EXT)
@@ -315,7 +316,7 @@ BINARIES = $(ADVDIFF) $(STATMAG) $(STATELEC) $(STATCUR) $(ELASTIC) $(HELMHOLTZ) 
 	$(FDIFF) $(FDIFF3D) $(SAVEDATA) $(INPUT) $(FREERED) $(ARTIF) $(DCRCOMPLEX) \
 	$(RIGIDBODY) $(DIRICHLET) $(PERIODIC) $(FORCE) $(FREESURF) $(ELECFORCE)    \
 	$(SMITC) $(STREAM) $(KE) $(MEMLUMP) $(PHASECHANGE) $(POISBOLTZ) $(ELECTROKIN) \
-	$(STRESS) $(ENERGYRELEASE) $(MAGNETIC_IND) $(RESULTOUTPUT)
+	$(STRESS) $(ENERGYRELEASE) $(MAGNETIC_IND) $(RESULTOUTPUT) $(RES2RES)
 
 SOLVEROBJS = \
 		NavierStokes$(OBJ_EXT)				\
@@ -512,6 +513,7 @@ EXTRA_DIST = \
 	Walls.src \
 	elements.def \
 	f_stubs.c \
+	elmerf90.in \
 	SOLVER.KEYWORDS
 
 all: all-recursive
@@ -547,6 +549,8 @@ $(top_srcdir)/configure: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 $(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
+elmerf90: $(top_builddir)/config.status $(srcdir)/elmerf90.in
+	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
 install-binPROGRAMS: $(bin_PROGRAMS)
 	@$(NORMAL_INSTALL)
 	test -z "$(bindir)" || $(mkdir_p) "$(DESTDIR)$(bindir)"
@@ -1019,6 +1023,9 @@ ViewFactors$(EXE_EXT): libelmersolver$(SHL_EXT) ViewFactors$(OBJ_EXT) mpi_stubs$
 
 GebhardtFactors$(EXE_EXT): libelmersolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT)
 	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) -o GebhardtFactors$(EXE_EXT) GebhardtFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT) -L. -lelmersolver $(EXTRA_LIBS) viewaxis/libviewaxis.a view3d/libview3d.a
+
+ResultToResult$(EXE_EXT): libelmersolver$(SHL_EXT) ResultToResult$(OBJ_EXT)
+	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) -o ResultToResult$(EXE_EXT) ResultToResult$(OBJ_EXT) -L. -lelmersolver $(EXTRA_LIBS) mpi_stubs$(OBJ_EXT)
 install-data-local:
 	@echo "Instaling solvers to ${ELMER_SOLVER_DATADIR}/lib"
 
@@ -1039,6 +1046,7 @@ install-exec-local:
 	$(CP) ViewFactors$(EXEEXT) $(prefix)/bin
 	$(CP) GebhardtFactors$(EXEEXT) $(prefix)/bin
 	$(CP) libelmersolver$(SHL_EXT) $(prefix)/lib
+	$(CP) elmerf90 $(prefix)/bin
 @USE_MPI_TRUE@	$(CP) ElmerSolver_mpi$(EXEEXT) $(prefix)/bin
 
 clean-local:

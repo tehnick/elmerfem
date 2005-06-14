@@ -56,6 +56,9 @@ ViewFactors$(EXE_EXT): libelmersolver$(SHL_EXT) ViewFactors$(OBJ_EXT) mpi_stubs$
 GebhardtFactors$(EXE_EXT): libelmersolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT)
 	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) -o GebhardtFactors$(EXE_EXT) GebhardtFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT) -L. -lelmersolver $(EXTRA_LIBS) viewaxis/libviewaxis.a view3d/libview3d.a
 
+ResultToResult$(EXE_EXT): libelmersolver$(SHL_EXT) ResultToResult$(OBJ_EXT)
+	$(SH_LD) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) -o ResultToResult$(EXE_EXT) ResultToResult$(OBJ_EXT) -L. -lelmersolver $(EXTRA_LIBS) mpi_stubs$(OBJ_EXT)
+
 ELMER_SOLVER_DATADIR=$(prefix)/share/elmersolver
 install-data-local:
 	@echo "Instaling solvers to ${ELMER_SOLVER_DATADIR}/lib"
@@ -78,6 +81,7 @@ install-exec-local:
 	$(CP) ViewFactors$(EXEEXT) $(prefix)/bin
 	$(CP) GebhardtFactors$(EXEEXT) $(prefix)/bin
 	$(CP) libelmersolver$(SHL_EXT) $(prefix)/lib
+	$(CP) elmerf90 $(prefix)/bin
 if USE_MPI
 	$(CP) ElmerSolver_mpi$(EXEEXT) $(prefix)/bin
 endif
@@ -218,4 +222,5 @@ EXTRA_DIST = \
 	Walls.src \
 	elements.def \
 	f_stubs.c \
+	elmerf90.in \
 	SOLVER.KEYWORDS
