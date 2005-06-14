@@ -45,7 +45,7 @@ struct emf_ObjectData_X;
 class InputFront : public Input
 {
 public:
-  InputFront(enum ecif_modelDimension m_dim, ifstream& infile, const char* filename);
+  InputFront(enum ecif_modelDimension m_dim, ifstream& infile, char* filename);
   static bool geometryIsChecked() { return isChecked;}
 protected:
   static bool addElementComponent(ecif_Element_X& tx, ecif_geometryType gtype);

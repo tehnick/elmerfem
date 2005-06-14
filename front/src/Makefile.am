@@ -66,5 +66,6 @@ Front_SOURCES = \
 	ecif_timer.cpp \
 	ecif_timestep.cpp \
 	ecif_userinterface_TCL.cpp \
+	frontlib.cpp \
 	ecif_userSettings.cpp 
 

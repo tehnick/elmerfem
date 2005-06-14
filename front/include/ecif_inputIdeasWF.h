@@ -40,7 +40,7 @@ class InputIdeasWF : public InputIdeas
 {
 public:        
   InputIdeasWF(enum ecif_modelDimension m_dim,
-               ifstream& in_file, const char* in_filename);  
+               ifstream& in_file, char* in_filename);  
 protected:
   IdNumberTable bodyNumbers;
   bool readCadGeometry(); 

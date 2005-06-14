@@ -45,7 +45,7 @@ struct emf_ObjectData_X;
 class InputEgf : public InputFront
 {       
 public:        
-  InputEgf(enum ecif_modelDimension m_dim, ifstream& infile, const char* filename);   
+  InputEgf(enum ecif_modelDimension m_dim, ifstream& infile, char* filename);   
 protected:
   bool readCadGeometry();
   static int readEgfGeometryCB(void** user_data);

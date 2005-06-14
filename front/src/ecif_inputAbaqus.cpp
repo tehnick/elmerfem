@@ -48,7 +48,7 @@ extern char read_buffer[];
 
 InputAbaqus::InputAbaqus(enum ecif_modelDimension m_dim,
                        ifstream& in_file, char* in_filename):
-Input(m_dim, in_file, (const char *)in_filename)
+Input(m_dim, in_file, in_filename)
 {
   for (short i = 0; i < 1 + MAX_NOF_ELEM_CODES; i++) {
     elementCodeCounters[i] = 0;

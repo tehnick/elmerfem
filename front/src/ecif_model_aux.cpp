@@ -923,7 +923,7 @@ ModelData::purgeIdContainer(T*& container)
 // MODEL INFO
 // **********
 
-ModelInfo::ModelInfo(const char* model_name, ecif_modelSource source, const char* in_file_name)
+ModelInfo::ModelInfo(char* model_name, ecif_modelSource source, char* in_file_name)
 {
   create_dyna_string(modelFileTs, NULL);
 

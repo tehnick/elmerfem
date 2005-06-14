@@ -56,7 +56,7 @@ extern bool operator==(const Ids3& p1, const Ids3& p2);
 #include <string>
 #include <vector>
 
-typedef std::basic_string<char> string;
+typedef std::basic_string<char> stringPrkele;
 
 //*** STL datastructures with names making their purpose a bit clearer (we hope).
 typedef std::list<BodyElement*> BodyElementList;
@@ -76,8 +76,8 @@ typedef std::map<int, BodyElementLoop*, std::less<int> > BodyElementLoopTable;
 typedef std::map<int, BodyForce*, std::less<int> > BodyForceTable;
 typedef std::map<int, Body*, std::less<int> > BodyTable;
 typedef std::map<int, RGBfloat*, std::less<int> > ColorTable;
-typedef std::map<string, Color4*, std::less<string> > RGBColorTable;
-typedef std::map<string, char*, std::less<string> > MatcValueTable;
+typedef std::map<stringPrkele, Color4*, std::less<stringPrkele> > RGBColorTable;
+typedef std::map<stringPrkele, char*, std::less<stringPrkele> > MatcValueTable;
 typedef std::map<int, IdList*, std::less<int> > IdListTable;
 typedef std::map<int, int, std::less<int> > IdNumberTable;
 typedef std::map<int, int, std::less<int> > IdTable;
@@ -103,7 +103,7 @@ typedef std::set<int, std::less<int> > IdsSet;
 typedef std::set<Ids1, std::less<Ids1> > Ids1Set;
 typedef std::set<Ids2, std::less<Ids2> > Ids2Set;
 typedef std::set<Ids3, std::less<Ids3> > Ids3Set;
-typedef std::set<string, std::less<string> > NameSet;
+typedef std::set<stringPrkele, std::less<stringPrkele> > NameSet;
 
 typedef std::stack <int  > IdsStack;
 typedef std::stack <Ids1 > Ids1Stack;

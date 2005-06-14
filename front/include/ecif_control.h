@@ -68,8 +68,8 @@ public:
   bool processStart(Process* process);
   bool processStop(int process_nbr);
   bool processSuspend(int process_nbr);
-  bool readCADFile(const char* CAD_filename,
-                   const char* CAD_type = NULL,
+  bool readCADFile(char* CAD_filename,
+                   char* CAD_type = NULL,
                    ecif_modelDimension m_dim = ECIF_ND);
   bool readMeshFile(char* mesh_filename,
                     char* mesh_type = NULL,

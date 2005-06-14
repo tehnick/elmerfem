@@ -87,7 +87,7 @@ NameTable* Model::colorNameTable = new NameTable;
 RGBColorTable* Model::colorValueTable = new RGBColorTable;
 double Model::meshInputUnit = 1.0;
 
-Model::Model(const char* model_name, ecif_modelSource source, const char* in_file_name)
+Model::Model(char* model_name, ecif_modelSource source, char* in_file_name)
 {
   id = 1;
   lastObjectId = 0; // System-wide unique object id (for anyone who needs it)

@@ -44,7 +44,7 @@ class Input
 public:
   friend class Control;
   Input(enum ecif_modelDimension m_dim,
-        ifstream& infile, const char* filename);
+        ifstream& infile, char* filename);
   ~Input();
   bool doBreak();
   void eat_white(istream& strm);

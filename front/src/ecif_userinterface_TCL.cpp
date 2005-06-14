@@ -73,7 +73,7 @@ Abstract:   Implementation
 
 void Tcl_MainLoop();
 int My_Tcl_AppInit(Tcl_Interp* interp);
-void WishPanic _ANSI_ARGS_(TCL_VARARGS(const char *,format));
+void WishPanic _ANSI_ARGS_(TCL_VARARGS(char *,format));
 int TkTest_Init(Tcl_Interp *interp);
 
 void tcl_DisplayIdleProc(ClientData data);
@@ -111,7 +111,7 @@ const int isOK = 0;
 // =========================================
 
 void
-UserInterface::errMsg(int err_level, char* str1, const char* str2, char* str3, char* str4)
+UserInterface::errMsg(int err_level, char* str1, char* str2, char* str3, char* str4)
 {
   strstream strm;
 
@@ -470,136 +470,136 @@ UserInterface_TCL::createTclCommand(Tcl_Interp* interp, char* tcl_command, Tcl_C
    Tcl_CreateCommand(interp, tcl_command, cpp_func, (ClientData) NULL, (Tcl_CmdDeleteProc*) NULL);
 }
 
-
+#define TCL_FUNC_PROTO (int (*)(void*,Tcl_Interp*,int,const char**))
 // For each command, there is also a cpp-function defined!!!
 void
 UserInterface_TCL::createTclCommands( Tcl_Interp* interp)
 {
-  createTclCommand(interp, "cpp_doMatc", from_tk_DoMatc);
+  createTclCommand(interp, "cpp_doMatc",  TCL_FUNC_PROTO from_tk_DoMatc);
 
   // ------ File menu commands ------
-  createTclCommand(interp, "cpp_openCadFile", from_tk_OpenCadFile);
-  createTclCommand(interp, "cpp_openModelFile", from_tk_OpenModelFile);
-  createTclCommand(interp, "cpp_openMeshFile", from_tk_OpenMeshFile);
-  createTclCommand(interp, "cpp_loadMesh", from_tk_LoadMesh);
-  createTclCommand(interp, "cpp_unloadMesh", from_tk_UnloadMesh);
-  createTclCommand(interp, "cpp_saveModelFile", from_tk_SaveModelFile);
-  createTclCommand(interp, "cpp_saveMeshInputFile", from_tk_SaveMeshInputFile);
-  createTclCommand(interp, "cpp_saveSolverInputFile", from_tk_SaveSolverInputFile);
-  createTclCommand(interp, "cpp_saveElmerMeshFile", from_tk_SaveElmerMeshFile);
-  createTclCommand(interp, "cpp_saveElmerPostMeshFile", from_tk_SaveElmerPostMeshFile);
-  createTclCommand(interp, "cpp_saveThetisMeshFile", from_tk_SaveThetisMeshFile);
-  createTclCommand(interp, "cpp_copyParameters", from_tk_CopyParameters);
+  createTclCommand(interp, "cpp_openCadFile", TCL_FUNC_PROTO from_tk_OpenCadFile);
+  createTclCommand(interp, "cpp_openModelFile", TCL_FUNC_PROTO from_tk_OpenModelFile);
+  createTclCommand(interp, "cpp_openMeshFile", TCL_FUNC_PROTO from_tk_OpenMeshFile);
+  createTclCommand(interp, "cpp_loadMesh", TCL_FUNC_PROTO from_tk_LoadMesh);
+  createTclCommand(interp, "cpp_unloadMesh", TCL_FUNC_PROTO from_tk_UnloadMesh);
+  createTclCommand(interp, "cpp_saveModelFile", TCL_FUNC_PROTO from_tk_SaveModelFile);
+  createTclCommand(interp, "cpp_saveMeshInputFile", TCL_FUNC_PROTO from_tk_SaveMeshInputFile);
+  createTclCommand(interp, "cpp_saveSolverInputFile", TCL_FUNC_PROTO from_tk_SaveSolverInputFile);
+  createTclCommand(interp, "cpp_saveElmerMeshFile", TCL_FUNC_PROTO from_tk_SaveElmerMeshFile);
+  createTclCommand(interp, "cpp_saveElmerPostMeshFile", TCL_FUNC_PROTO from_tk_SaveElmerPostMeshFile);
+  createTclCommand(interp, "cpp_saveThetisMeshFile", TCL_FUNC_PROTO from_tk_SaveThetisMeshFile);
+  createTclCommand(interp, "cpp_copyParameters", TCL_FUNC_PROTO from_tk_CopyParameters);
   // Program exit.
-  createTclCommand(interp, "cpp_exit", from_tk_Exit);
+  createTclCommand(interp, "cpp_exit", TCL_FUNC_PROTO from_tk_Exit);
 
   //------ Edit menu commands -------
-  createTclCommand(interp, "cpp_removeCadGeometry", from_tk_RemoveCadGeometry);
-  createTclCommand(interp, "cpp_setMatcInputFileEmf", from_tk_SetMatcInputFileEmf);
-  createTclCommand(interp, "cpp_setMatcInputFileSif", from_tk_SetMatcInputFileSif);
-  createTclCommand(interp, "cpp_saveUserSettingsFile", from_tk_SaveUserSettingsFile);
-  createTclCommand(interp, "cpp_updateCadGeometry", from_tk_UpdateCadGeometry);
-  createTclCommand(interp, "cpp_setMeshInputUnit", from_tk_SetMeshInputUnit);
+  createTclCommand(interp, "cpp_removeCadGeometry", TCL_FUNC_PROTO from_tk_RemoveCadGeometry);
+  createTclCommand(interp, "cpp_setMatcInputFileEmf", TCL_FUNC_PROTO from_tk_SetMatcInputFileEmf);
+  createTclCommand(interp, "cpp_setMatcInputFileSif", TCL_FUNC_PROTO from_tk_SetMatcInputFileSif);
+  createTclCommand(interp, "cpp_saveUserSettingsFile", TCL_FUNC_PROTO from_tk_SaveUserSettingsFile);
+  createTclCommand(interp, "cpp_updateCadGeometry", TCL_FUNC_PROTO from_tk_UpdateCadGeometry);
+  createTclCommand(interp, "cpp_setMeshInputUnit", TCL_FUNC_PROTO from_tk_SetMeshInputUnit);
 
   //------ Display menu commands ------
-  createTclCommand(interp, "cpp_bodyDisplayPanelOk", from_tk_ReadBodyDisplayData);
-  createTclCommand(interp, "cpp_boundaryDisplayPanelOk", from_tk_ReadBoundaryDisplayData);
-  createTclCommand(interp, "cpp_rendererDisplayModel", from_tk_RendererDisplayModel);
-  createTclCommand(interp, "cpp_rendererResetModel", from_tk_RendererResetModel);
-  createTclCommand(interp, "cpp_rendererRotateModel", from_tk_RendererRotateModel);
-  createTclCommand(interp, "cpp_rendererScaleModel", from_tk_RendererScaleModel);
-  createTclCommand(interp, "cpp_rendererSetEditBoundaries", from_tk_RendererSetEditBoundaries);
-  createTclCommand(interp, "cpp_rendererSetRotatePriorities", from_tk_RendererSetRotatePriorities);
-  createTclCommand(interp, "cpp_rendererTranslateModel", from_tk_RendererTranslateModel);
-  createTclCommand(interp, "cpp_vertexDisplayPanelOk", from_tk_ReadVertexDisplayData);
+  createTclCommand(interp, "cpp_bodyDisplayPanelOk", TCL_FUNC_PROTO from_tk_ReadBodyDisplayData);
+  createTclCommand(interp, "cpp_boundaryDisplayPanelOk", TCL_FUNC_PROTO from_tk_ReadBoundaryDisplayData);
+  createTclCommand(interp, "cpp_rendererDisplayModel", TCL_FUNC_PROTO from_tk_RendererDisplayModel);
+  createTclCommand(interp, "cpp_rendererResetModel", TCL_FUNC_PROTO from_tk_RendererResetModel);
+  createTclCommand(interp, "cpp_rendererRotateModel", TCL_FUNC_PROTO from_tk_RendererRotateModel);
+  createTclCommand(interp, "cpp_rendererScaleModel", TCL_FUNC_PROTO from_tk_RendererScaleModel);
+  createTclCommand(interp, "cpp_rendererSetEditBoundaries", TCL_FUNC_PROTO from_tk_RendererSetEditBoundaries);
+  createTclCommand(interp, "cpp_rendererSetRotatePriorities", TCL_FUNC_PROTO from_tk_RendererSetRotatePriorities);
+  createTclCommand(interp, "cpp_rendererTranslateModel", TCL_FUNC_PROTO from_tk_RendererTranslateModel);
+  createTclCommand(interp, "cpp_vertexDisplayPanelOk", TCL_FUNC_PROTO from_tk_ReadVertexDisplayData);
 
   //------ Data transfer and update from GUI ------
   // Panel Ok
-  createTclCommand(interp, "cpp_bodyForcePanelOk", from_tk_ReadBodyForceData);
-  createTclCommand(interp, "cpp_bodyParameterPanelOk", from_tk_ReadBodyParameterData);
-  createTclCommand(interp, "cpp_bodyPropertyPanelOk", from_tk_ReadBodyData);
-  createTclCommand(interp, "cpp_bodyPropertyPanelColorsOk", from_tk_ReadBodyColors);
-  createTclCommand(interp, "cpp_bodyPropertyPanelNamesOk", from_tk_ReadBodyNames);
-  createTclCommand(interp, "cpp_bodyPropertyPanelDeleteBodyOk", from_tk_ReadBodyDeleteData);
-  createTclCommand(interp, "cpp_boundariesPanelOk", from_tk_ReadBoundariesData);
-  createTclCommand(interp, "cpp_boundaryConditionPanelOk", from_tk_ReadBoundaryConditionData);
-  createTclCommand(interp, "cpp_boundaryParameterPanelOk", from_tk_ReadBoundaryParameterData);
-  createTclCommand(interp, "cpp_calculatorPanelOk", from_tk_ReadCalculatorData);
-  createTclCommand(interp, "cpp_constantPanelOk", from_tk_ReadConstantData);
-  createTclCommand(interp, "cpp_coordinatePanelOk", from_tk_ReadCoordinateData);
-  createTclCommand(interp, "cpp_datafilePanelOk", from_tk_ReadDatafileData);
-  createTclCommand(interp, "cpp_equationPanelOk", from_tk_ReadEquationData);
-  createTclCommand(interp, "cpp_equationVariablesPanelOk", from_tk_ReadEquationVariablesData);
-  createTclCommand(interp, "cpp_gridHPanelOk", from_tk_ReadGridHData);
-  createTclCommand(interp, "cpp_gridParameterPanelOk", from_tk_ReadGridParameterData);
-  createTclCommand(interp, "cpp_initialConditionPanelOk", from_tk_ReadInitialConditionData);
-  createTclCommand(interp, "cpp_materialPanelOk", from_tk_ReadMaterialData);
-  createTclCommand(interp, "cpp_meshDefinePanelOk", from_tk_ReadMeshDefineData);
-  createTclCommand(interp, "cpp_modelParameterPanelOk", from_tk_ReadModelParameterData);
-  createTclCommand(interp, "cpp_modelPropertyPanelOk", from_tk_ReadModelPropertyData);
-  createTclCommand(interp, "cpp_processorPanelOk", from_tk_ReadProcessorData);
-  createTclCommand(interp, "cpp_simulationParameterPanelOk", from_tk_ReadSimulationParameterData);
-  createTclCommand(interp, "cpp_solverParameterPanelOk", from_tk_ReadSolverData);
-  createTclCommand(interp, "cpp_solverControlPanelOk", from_tk_ReadSolverControlData);
-  createTclCommand(interp, "cpp_timestepPanelOk", from_tk_ReadTimestepData);
-  createTclCommand(interp, "cpp_userSettingPanelOk", from_tk_ReadUserSettingsData);
+  createTclCommand(interp, "cpp_bodyForcePanelOk", TCL_FUNC_PROTO from_tk_ReadBodyForceData);
+  createTclCommand(interp, "cpp_bodyParameterPanelOk", TCL_FUNC_PROTO from_tk_ReadBodyParameterData);
+  createTclCommand(interp, "cpp_bodyPropertyPanelOk", TCL_FUNC_PROTO from_tk_ReadBodyData);
+  createTclCommand(interp, "cpp_bodyPropertyPanelColorsOk", TCL_FUNC_PROTO from_tk_ReadBodyColors);
+  createTclCommand(interp, "cpp_bodyPropertyPanelNamesOk", TCL_FUNC_PROTO from_tk_ReadBodyNames);
+  createTclCommand(interp, "cpp_bodyPropertyPanelDeleteBodyOk", TCL_FUNC_PROTO from_tk_ReadBodyDeleteData);
+  createTclCommand(interp, "cpp_boundariesPanelOk", TCL_FUNC_PROTO from_tk_ReadBoundariesData);
+  createTclCommand(interp, "cpp_boundaryConditionPanelOk", TCL_FUNC_PROTO from_tk_ReadBoundaryConditionData);
+  createTclCommand(interp, "cpp_boundaryParameterPanelOk", TCL_FUNC_PROTO from_tk_ReadBoundaryParameterData);
+  createTclCommand(interp, "cpp_calculatorPanelOk", TCL_FUNC_PROTO from_tk_ReadCalculatorData);
+  createTclCommand(interp, "cpp_constantPanelOk", TCL_FUNC_PROTO from_tk_ReadConstantData);
+  createTclCommand(interp, "cpp_coordinatePanelOk", TCL_FUNC_PROTO from_tk_ReadCoordinateData);
+  createTclCommand(interp, "cpp_datafilePanelOk", TCL_FUNC_PROTO from_tk_ReadDatafileData);
+  createTclCommand(interp, "cpp_equationPanelOk", TCL_FUNC_PROTO from_tk_ReadEquationData);
+  createTclCommand(interp, "cpp_equationVariablesPanelOk", TCL_FUNC_PROTO from_tk_ReadEquationVariablesData);
+  createTclCommand(interp, "cpp_gridHPanelOk", TCL_FUNC_PROTO from_tk_ReadGridHData);
+  createTclCommand(interp, "cpp_gridParameterPanelOk", TCL_FUNC_PROTO from_tk_ReadGridParameterData);
+  createTclCommand(interp, "cpp_initialConditionPanelOk", TCL_FUNC_PROTO from_tk_ReadInitialConditionData);
+  createTclCommand(interp, "cpp_materialPanelOk", TCL_FUNC_PROTO from_tk_ReadMaterialData);
+  createTclCommand(interp, "cpp_meshDefinePanelOk", TCL_FUNC_PROTO from_tk_ReadMeshDefineData);
+  createTclCommand(interp, "cpp_modelParameterPanelOk", TCL_FUNC_PROTO from_tk_ReadModelParameterData);
+  createTclCommand(interp, "cpp_modelPropertyPanelOk", TCL_FUNC_PROTO from_tk_ReadModelPropertyData);
+  createTclCommand(interp, "cpp_processorPanelOk", TCL_FUNC_PROTO from_tk_ReadProcessorData);
+  createTclCommand(interp, "cpp_simulationParameterPanelOk", TCL_FUNC_PROTO from_tk_ReadSimulationParameterData);
+  createTclCommand(interp, "cpp_solverParameterPanelOk", TCL_FUNC_PROTO from_tk_ReadSolverData);
+  createTclCommand(interp, "cpp_solverControlPanelOk", TCL_FUNC_PROTO from_tk_ReadSolverControlData);
+  createTclCommand(interp, "cpp_timestepPanelOk", TCL_FUNC_PROTO from_tk_ReadTimestepData);
+  createTclCommand(interp, "cpp_userSettingPanelOk", TCL_FUNC_PROTO from_tk_ReadUserSettingsData);
 
   // Older version data conversion save procs
-  createTclCommand(interp, "cpp_readConvertedEquationData", from_tk_ReadConvertedEquationData);
+  createTclCommand(interp, "cpp_readConvertedEquationData", TCL_FUNC_PROTO from_tk_ReadConvertedEquationData);
 
   // Flags and states
-  createTclCommand(interp, "cpp_checkMeshCornerElements", from_tk_CheckMeshCornerElements);
-  createTclCommand(interp, "cpp_correctMeshZeroVelocityElements", from_tk_CorrectMeshZeroVelocityElements);
-  createTclCommand(interp, "cpp_checkModelStatus", from_tk_CheckModelStatus);
-  createTclCommand(interp, "cpp_putModelStatusMessage", from_tk_PutModelStatusMessage);
-  createTclCommand(interp, "cpp_setFlagValue", from_tk_SetFlagValue);
-  createTclCommand(interp, "cpp_setModelStatus", from_tk_SetModelStatus);
+  createTclCommand(interp, "cpp_checkMeshCornerElements", TCL_FUNC_PROTO from_tk_CheckMeshCornerElements);
+  createTclCommand(interp, "cpp_correctMeshZeroVelocityElements", TCL_FUNC_PROTO from_tk_CorrectMeshZeroVelocityElements);
+  createTclCommand(interp, "cpp_checkModelStatus", TCL_FUNC_PROTO from_tk_CheckModelStatus);
+  createTclCommand(interp, "cpp_putModelStatusMessage", TCL_FUNC_PROTO from_tk_PutModelStatusMessage);
+  createTclCommand(interp, "cpp_setFlagValue", TCL_FUNC_PROTO from_tk_SetFlagValue);
+  createTclCommand(interp, "cpp_setModelStatus", TCL_FUNC_PROTO from_tk_SetModelStatus);
   // Other
-  createTclCommand(interp, "cpp_deleteParameters", from_tk_ReadDeletedParamIds);
-  createTclCommand(interp, "cpp_readActiveMeshIndices", from_tk_ReadActiveMeshIndices);
-  createTclCommand(interp, "cpp_readModelFileCreated", from_tk_ReadModelFileCreated);
-  createTclCommand(interp, "cpp_readModelFileModified", from_tk_ReadModelFileModified);
-  createTclCommand(interp, "cpp_readModelHasUserDefinitions", from_tk_ReadModelHasUserDefinitions);
-  createTclCommand(interp, "cpp_readModelFileTime", from_tk_ReadModelFileTime);
-  createTclCommand(interp, "cpp_readSelectionTolerances", from_tk_ReadSelectionTolerances);
-  createTclCommand(interp, "cpp_readTimestamp", from_tk_ReadTimestamp);
-  createTclCommand(interp, "cpp_resetAllBoundarySelections", from_tk_ResetAllBoundarySelections);
-  createTclCommand(interp, "cpp_resetBoundarySelections", from_tk_ResetBoundarySelections);
-  createTclCommand(interp, "cpp_setSelectionsToGui", from_tk_SetSelectionsToGui);
-  createTclCommand(interp, "cpp_selectMeshBoundaryElements", from_tk_SelectMeshBoundaryElements);
+  createTclCommand(interp, "cpp_deleteParameters", TCL_FUNC_PROTO from_tk_ReadDeletedParamIds);
+  createTclCommand(interp, "cpp_readActiveMeshIndices", TCL_FUNC_PROTO from_tk_ReadActiveMeshIndices);
+  createTclCommand(interp, "cpp_readModelFileCreated", TCL_FUNC_PROTO from_tk_ReadModelFileCreated);
+  createTclCommand(interp, "cpp_readModelFileModified", TCL_FUNC_PROTO from_tk_ReadModelFileModified);
+  createTclCommand(interp, "cpp_readModelHasUserDefinitions", TCL_FUNC_PROTO from_tk_ReadModelHasUserDefinitions);
+  createTclCommand(interp, "cpp_readModelFileTime", TCL_FUNC_PROTO from_tk_ReadModelFileTime);
+  createTclCommand(interp, "cpp_readSelectionTolerances", TCL_FUNC_PROTO from_tk_ReadSelectionTolerances);
+  createTclCommand(interp, "cpp_readTimestamp", TCL_FUNC_PROTO from_tk_ReadTimestamp);
+  createTclCommand(interp, "cpp_resetAllBoundarySelections", TCL_FUNC_PROTO from_tk_ResetAllBoundarySelections);
+  createTclCommand(interp, "cpp_resetBoundarySelections", TCL_FUNC_PROTO from_tk_ResetBoundarySelections);
+  createTclCommand(interp, "cpp_setSelectionsToGui", TCL_FUNC_PROTO from_tk_SetSelectionsToGui);
+  createTclCommand(interp, "cpp_selectMeshBoundaryElements", TCL_FUNC_PROTO from_tk_SelectMeshBoundaryElements);
 
-  createTclCommand(interp, "cpp_combineBoundaries", from_tk_CombineBoundaries);
-  createTclCommand(interp, "cpp_boundaryPanelNamesOk", from_tk_ReadBoundaryNames);
-  createTclCommand(interp, "cpp_splitCombineBoundariesRedo", from_tk_SplitCombineBoundariesRedo);
-  createTclCommand(interp, "cpp_splitCombineBoundariesUndo", from_tk_SplitCombineBoundariesUndo);
-  createTclCommand(interp, "cpp_splitBoundary", from_tk_SplitBoundary);
-  createTclCommand(interp, "cpp_stopEditMeshBoundaries", from_tk_StopEditMeshBoundaries);
-  createTclCommand(interp, "cpp_restoreBoundaryNames", from_tk_RestoreBoundaryNames);
-  createTclCommand(interp, "cpp_storeBoundaryNames", from_tk_StoreBoundaryNames);
+  createTclCommand(interp, "cpp_combineBoundaries", TCL_FUNC_PROTO from_tk_CombineBoundaries);
+  createTclCommand(interp, "cpp_boundaryPanelNamesOk", TCL_FUNC_PROTO from_tk_ReadBoundaryNames);
+  createTclCommand(interp, "cpp_splitCombineBoundariesRedo", TCL_FUNC_PROTO from_tk_SplitCombineBoundariesRedo);
+  createTclCommand(interp, "cpp_splitCombineBoundariesUndo", TCL_FUNC_PROTO from_tk_SplitCombineBoundariesUndo);
+  createTclCommand(interp, "cpp_splitBoundary", TCL_FUNC_PROTO from_tk_SplitBoundary);
+  createTclCommand(interp, "cpp_stopEditMeshBoundaries", TCL_FUNC_PROTO from_tk_StopEditMeshBoundaries);
+  createTclCommand(interp, "cpp_restoreBoundaryNames", TCL_FUNC_PROTO from_tk_RestoreBoundaryNames);
+  createTclCommand(interp, "cpp_storeBoundaryNames", TCL_FUNC_PROTO from_tk_StoreBoundaryNames);
 
   //------ List box selection routines ------
-  createTclCommand(interp, "cpp_bodySelected", from_tk_BodySelected);
-  createTclCommand(interp, "cpp_boundarySelected", from_tk_BoundarySelected);
-  createTclCommand(interp, "cpp_boundariesSelected", from_tk_BoundariesSelected);
+  createTclCommand(interp, "cpp_bodySelected", TCL_FUNC_PROTO from_tk_BodySelected);
+  createTclCommand(interp, "cpp_boundarySelected", TCL_FUNC_PROTO from_tk_BoundarySelected);
+  createTclCommand(interp, "cpp_boundariesSelected", TCL_FUNC_PROTO from_tk_BoundariesSelected);
 
   //------ Misc ------
-  createTclCommand(interp, "cpp_processExists", from_tk_ProcessExists);
-  createTclCommand(interp, "cpp_processResume", from_tk_ProcessResume);
-  createTclCommand(interp, "cpp_processSetPriorityLevel", from_tk_ProcessSetPriorityLevel);
-  createTclCommand(interp, "cpp_processStart", from_tk_ProcessStart);
-  createTclCommand(interp, "cpp_processStop", from_tk_ProcessStop);
-  createTclCommand(interp, "cpp_processSuspend", from_tk_ProcessSuspend);
-  createTclCommand(interp, "cpp_readUserSettingFiles", from_tk_ReadUserSettingFiles);
-  createTclCommand(interp, "cpp_setCurrentDirectory", from_tk_SetCurrentDirectory);
-  createTclCommand(interp, "cpp_readColorFile", from_tk_ReadColorFile);
-  createTclCommand(interp, "cpp_readMatcFile", from_tk_ReadMatcFile);
-  createTclCommand(interp, "cpp_updateMatcFile", from_tk_UpdateMatcFile);
+  createTclCommand(interp, "cpp_processExists", TCL_FUNC_PROTO from_tk_ProcessExists);
+  createTclCommand(interp, "cpp_processResume", TCL_FUNC_PROTO from_tk_ProcessResume);
+  createTclCommand(interp, "cpp_processSetPriorityLevel", TCL_FUNC_PROTO from_tk_ProcessSetPriorityLevel);
+  createTclCommand(interp, "cpp_processStart", TCL_FUNC_PROTO from_tk_ProcessStart);
+  createTclCommand(interp, "cpp_processStop", TCL_FUNC_PROTO from_tk_ProcessStop);
+  createTclCommand(interp, "cpp_processSuspend", TCL_FUNC_PROTO from_tk_ProcessSuspend);
+  createTclCommand(interp, "cpp_readUserSettingFiles", TCL_FUNC_PROTO from_tk_ReadUserSettingFiles);
+  createTclCommand(interp, "cpp_setCurrentDirectory", TCL_FUNC_PROTO from_tk_SetCurrentDirectory);
+  createTclCommand(interp, "cpp_readColorFile", TCL_FUNC_PROTO from_tk_ReadColorFile);
+  createTclCommand(interp, "cpp_readMatcFile", TCL_FUNC_PROTO from_tk_ReadMatcFile);
+  createTclCommand(interp, "cpp_updateMatcFile", TCL_FUNC_PROTO from_tk_UpdateMatcFile);
 
   // Stop Front processing
-  createTclCommand(interp, "cpp_doBreak", from_tk_DoBreak);
+  createTclCommand(interp, "cpp_doBreak", TCL_FUNC_PROTO from_tk_DoBreak);
 
   // Find color name for a hex-value color id
-  createTclCommand(interp, "cpp_colorHex2Name", from_tk_ColorHex2Name);
+  createTclCommand(interp, "cpp_colorHex2Name", TCL_FUNC_PROTO from_tk_ColorHex2Name);
 
 }
 
@@ -609,7 +609,7 @@ Tcl_Interp*
 UserInterface_TCL::createTclEnvironment(Hinst application)
 {
 
-  Tcl_SetPanicProc(WishPanic);
+  Tcl_SetPanicProc((void (*)(const char *, ...)) WishPanic);
 
   // *** Create Tcl-interpreter and register command procedures
   Tcl_FindExecutable( (char*) application );
@@ -634,7 +634,7 @@ UserInterface_TCL::createTclEnvironment(Hinst application)
 // NOTE: Use "////n" in cpp-side to deliver new lines into message-box
 //
 void
-UserInterface_TCL::errMsg(int err_level, char* str1, const char* str2, char* str3, char* str4)
+UserInterface_TCL::errMsg(int err_level, char* str1, char* str2, char* str3, char* str4)
 {
   ostrstream strm;
   strm.unsetf(ios:: skipws);
@@ -670,8 +670,9 @@ UserInterface_TCL::fieldNameSifToGui(const char* sif_name, char* gui_name_buffer
 
 
 // Call Elmer MATC from Gui
-int UserInterface_TCL::from_tk_DoMatc(ClientData clientData, Tcl_Interp *interp,
-                                  int argc, const char* argv[])
+int
+UserInterface_TCL::from_tk_DoMatc(ClientData clientData, Tcl_Interp *interp,
+                                  int argc, char* argv[])
 {
   char* data = getCommandArguments(interp);
 
@@ -691,7 +692,7 @@ int UserInterface_TCL::from_tk_DoMatc(ClientData clientData, Tcl_Interp *interp,
 // A body was selected in the bodylist.
 int
 UserInterface_TCL::from_tk_BodySelected(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   istrstream in(getCommandArguments(interp));
   int bd_id, lr_id;
@@ -704,7 +705,7 @@ UserInterface_TCL::from_tk_BodySelected(ClientData clientData, Tcl_Interp *inter
 // One boundary was selected in the listbox
 int
 UserInterface_TCL::from_tk_BoundarySelected(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   //NOTE: For testing only one element at atime.
   istrstream in(getCommandArguments(interp));
@@ -723,7 +724,7 @@ UserInterface_TCL::from_tk_BoundarySelected(ClientData clientData, Tcl_Interp *i
 // NOTE !!!Works currently only for one boundary!!!
 int
 UserInterface_TCL::from_tk_BoundariesSelected(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   // NOTE: For testing only one element at a time.
   istrstream in(getCommandArguments(interp));
@@ -758,7 +759,7 @@ UserInterface_TCL::from_tk_BoundariesSelected(ClientData clientData, Tcl_Interp 
 // resulting boundary conditions etc.
 int
 UserInterface_TCL::from_tk_CheckMeshCornerElements(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -776,7 +777,7 @@ UserInterface_TCL::from_tk_CheckMeshCornerElements(ClientData clientData, Tcl_In
 // Function ask from the model the status and saves it (also into Gui side)!
 int
 UserInterface_TCL::from_tk_CheckModelStatus(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -801,7 +802,7 @@ UserInterface_TCL::from_tk_CheckModelStatus(ClientData clientData, Tcl_Interp *i
 // Function starts boundary splitting
 int
 UserInterface_TCL::from_tk_CombineBoundaries(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -823,7 +824,7 @@ UserInterface_TCL::from_tk_CombineBoundaries(ClientData clientData, Tcl_Interp *
 // Copy parameters from an emf-file.
 int
 UserInterface_TCL::from_tk_CopyParameters(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   char* emf_filename = getCommandArguments(interp);
 
@@ -847,7 +848,7 @@ UserInterface_TCL::from_tk_CopyParameters(ClientData clientData, Tcl_Interp *int
 // Function calls the model to correct all zero-velocity (corner) elements
 int
 UserInterface_TCL::from_tk_CorrectMeshZeroVelocityElements(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -865,7 +866,7 @@ UserInterface_TCL::from_tk_CorrectMeshZeroVelocityElements(ClientData clientData
 // Function closes renderer window.
 int
 UserInterface_TCL::from_tk_Exit(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   theControlCenter->Exit();
   return TCL_OK;
@@ -875,7 +876,7 @@ UserInterface_TCL::from_tk_Exit(ClientData clientData, Tcl_Interp *interp,
 // Read mesh for the (CAD) model from Elmer DB
 int
 UserInterface_TCL::from_tk_LoadMesh(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -889,20 +890,23 @@ UserInterface_TCL::from_tk_LoadMesh(ClientData clientData, Tcl_Interp *interp,
   return TCL_OK;
 }
 
+
+
 // Read a CAD-file.
-int UserInterface_TCL::from_tk_OpenCadFile(ClientData clientData, Tcl_Interp *interp, int argc, const char* argv[])
+int
+UserInterface_TCL::from_tk_OpenCadFile(ClientData clientData, Tcl_Interp *interp,
+          int argc, char* argv[])
 {
   // First argument: cad filepath
   // Second argument: cad type (Elmer etc.)
   char* data = getCommandArguments(interp);
   int oc_argc;
-  const char** oc_argv;
-  int code = Tcl_SplitList(interp, data, &oc_argc, &oc_argv);
+  char** oc_argv;
+  int code = Tcl_SplitList(interp, data, &oc_argc, (const char ***) &oc_argv);
 
   if (code != TCL_OK) return TCL_ERROR;
 
 #if defined(FRONT_DEBUG)
-
   theControlCenter->readCADFile(oc_argv[0], oc_argv[1]);
 
 #else
@@ -922,7 +926,7 @@ int UserInterface_TCL::from_tk_OpenCadFile(ClientData clientData, Tcl_Interp *in
 // Read a mesh file.
 int
 UserInterface_TCL::from_tk_OpenMeshFile(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
 
   // First argument is open mode: 1 = create new model, 0 do not create
@@ -931,8 +935,8 @@ UserInterface_TCL::from_tk_OpenMeshFile(ClientData clientData, Tcl_Interp *inter
 
   char* data = getCommandArguments(interp);
   int om_argc;
-  const char** om_argv;
-  int code = Tcl_SplitList(interp, data, &om_argc, &om_argv);
+  char** om_argv;
+  int code = Tcl_SplitList(interp, data, &om_argc, (const char ***) &om_argv);
 
   if (code != TCL_OK)
     return TCL_ERROR;
@@ -942,11 +946,11 @@ UserInterface_TCL::from_tk_OpenMeshFile(ClientData clientData, Tcl_Interp *inter
 #if defined(FRONT_DEBUG)
   // Create new model
   if ( mode == 1 ) {
-    theControlCenter->readMeshFile((char *)om_argv[1], (char *)om_argv[2], true);
+    theControlCenter->readMeshFile(om_argv[1], om_argv[2], true);
 
   // Add new mesh (or update existing)
   } else {
-    theControlCenter->readMeshFile((char *)om_argv[1], (char *)om_argv[2], false);
+    theControlCenter->readMeshFile(om_argv[1], om_argv[2], false);
   }
 
 #else
@@ -973,11 +977,11 @@ UserInterface_TCL::from_tk_OpenMeshFile(ClientData clientData, Tcl_Interp *inter
 // Reads a ecif model file.
 int
 UserInterface_TCL::from_tk_OpenModelFile(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   char* in_filename = getCommandArguments(interp);
 
-  const char* auto_load_mesh = Tcl_GetVar2(interp, "UserSetting", "AUTO_LOAD_MESH", glob_flag);
+  char* auto_load_mesh = (char *) Tcl_GetVar2(interp, "UserSetting", "AUTO_LOAD_MESH",  glob_flag);
 
   bool load_mesh = true;
 
@@ -993,7 +997,7 @@ UserInterface_TCL::from_tk_OpenModelFile(ClientData clientData, Tcl_Interp *inte
 // Function checks if process  with id 'nbr' exists
 int
 UserInterface_TCL::from_tk_ProcessExists(ClientData clientData, Tcl_Interp *interp,
-                                       int argc, const char* argv[])
+                                       int argc, char* argv[])
 {
   int nbr = atoi(getCommandArguments(interp));
 
@@ -1010,7 +1014,7 @@ UserInterface_TCL::from_tk_ProcessExists(ClientData clientData, Tcl_Interp *inte
 // Function restarts a suspended external process with id 'nbr'
 int
 UserInterface_TCL::from_tk_ProcessResume(ClientData clientData, Tcl_Interp *interp,
-                                       int argc, const char* argv[])
+                                       int argc, char* argv[])
 {
   int nbr = atoi(getCommandArguments(interp));
 
@@ -1023,12 +1027,12 @@ UserInterface_TCL::from_tk_ProcessResume(ClientData clientData, Tcl_Interp *inte
 // Function restarts a suspended external process with id 'nbr'
 int
 UserInterface_TCL::from_tk_ProcessSetPriorityLevel(ClientData clientData, Tcl_Interp *interp,
-                                       int argc, const char* argv[])
+                                       int argc, char* argv[])
 {
   char* data = getCommandArguments(interp);
   int pl_argc;
-  const char** pl_argv;
-  int code = Tcl_SplitList(interp, data, &pl_argc, &pl_argv);
+  char** pl_argv;
+  int code = Tcl_SplitList(interp, data, &pl_argc, (const char ***)&pl_argv);
 
   if (code != TCL_OK)
     return TCL_ERROR;
@@ -1036,7 +1040,7 @@ UserInterface_TCL::from_tk_ProcessSetPriorityLevel(ClientData clientData, Tcl_In
   int nbr = atoi(pl_argv[0]);
 
   priorityLevel priority;
-  char* plevel = (char *)pl_argv[1];
+  char* plevel = pl_argv[1];
   if ( 0 == strcmp(plevel, "LOW_PRIORITY") )
     priority = ECIF_LOW_PRIORITY;
   else if ( 0 == strcmp(plevel, "LOWER_THAN_NORMAL_PRIORITY") )
@@ -1056,24 +1060,24 @@ UserInterface_TCL::from_tk_ProcessSetPriorityLevel(ClientData clientData, Tcl_In
 // Function starts external process
 int
 UserInterface_TCL::from_tk_ProcessStart(ClientData clientData, Tcl_Interp *interp,
-                                        int argc, const char* argv[])
+                                        int argc, char* argv[])
 {
   //---Get process start-data
   char* data = getCommandArguments(interp);
   int pr_argc;
-  const char** pr_argv;
-  int code = Tcl_SplitList(interp, data, &pr_argc, &pr_argv);
+  char** pr_argv;
+  int code = Tcl_SplitList(interp, data, &pr_argc, (const char ***) &pr_argv);
 
   if (code != TCL_OK)
     return TCL_ERROR;
 
-  char* command = (char *)pr_argv[0];
-  char* args = (char *)pr_argv[1];
+  char* command = pr_argv[0];
+  char* args = pr_argv[1];
   int nbr = atoi(pr_argv[2]);
-  char* name = (char *)pr_argv[3];
+  char* name = pr_argv[3];
 
   priorityLevel priority;
-  char* plevel = (char *)pr_argv[4];
+  char* plevel = pr_argv[4];
   if ( 0 == strcmp(plevel, "LOW_PRIORITY") )
     priority = ECIF_LOW_PRIORITY;
   else if ( 0 == strcmp(plevel, "LOWER_THAN_NORMAL_PRIORITY") )
@@ -1085,7 +1089,7 @@ UserInterface_TCL::from_tk_ProcessStart(ClientData clientData, Tcl_Interp *inter
   else if ( 0 == strcmp(plevel, "HIGH_PRIORITY") )
     priority = ECIF_HIGH_PRIORITY;
 
-  char* logfile = (char *)pr_argv[5];
+  char* logfile = pr_argv[5];
   bool show_console = false;
 
   if ( 0 == strcmp(logfile, "none") )
@@ -1120,7 +1124,7 @@ UserInterface_TCL::from_tk_ProcessStart(ClientData clientData, Tcl_Interp *inter
       ch_timer.stop();
 
       if (channel != NULL) {
-        const char* channel_name = Tcl_GetChannelName(channel);
+        char* channel_name = (char *) Tcl_GetChannelName(channel);
         writeIdVariable(interp, "ProcessTable", process->ID(), "channel", channel_name);
 
       } else {
@@ -1143,7 +1147,7 @@ UserInterface_TCL::from_tk_ProcessStart(ClientData clientData, Tcl_Interp *inter
 // Function stops external process with id 'nbr'
 int
 UserInterface_TCL::from_tk_ProcessStop(ClientData clientData, Tcl_Interp *interp,
-                                       int argc, const char* argv[])
+                                       int argc, char* argv[])
 {
   int nbr = atoi(getCommandArguments(interp));
 
@@ -1156,7 +1160,7 @@ UserInterface_TCL::from_tk_ProcessStop(ClientData clientData, Tcl_Interp *interp
 // Function suspends external process with id 'nbr'
 int
 UserInterface_TCL::from_tk_ProcessSuspend(ClientData clientData, Tcl_Interp *interp,
-                                       int argc, const char* argv[])
+                                       int argc, char* argv[])
 {
   int nbr = atoi(getCommandArguments(interp));
 
@@ -1170,7 +1174,7 @@ UserInterface_TCL::from_tk_ProcessSuspend(ClientData clientData, Tcl_Interp *int
 // Gets model status message from the model
 int
 UserInterface_TCL::from_tk_PutModelStatusMessage(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -1188,7 +1192,7 @@ UserInterface_TCL::from_tk_PutModelStatusMessage(ClientData clientData, Tcl_Inte
 // Gets active Solver mesh indices from gui
 int
 UserInterface_TCL::from_tk_ReadActiveMeshIndices(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -1214,7 +1218,7 @@ UserInterface_TCL::from_tk_ReadActiveMeshIndices(ClientData clientData, Tcl_Inte
 // is pressed in Tk/GUI body-names dialog.
 int
 UserInterface_TCL::from_tk_ReadBodyColors(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -1261,7 +1265,7 @@ UserInterface_TCL::from_tk_ReadBodyColors(ClientData clientData, Tcl_Interp *int
 // is pressed in Tk/GUI edit bodies dialog.
 int
 UserInterface_TCL::from_tk_ReadBodyData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -1285,7 +1289,7 @@ UserInterface_TCL::from_tk_ReadBodyData(ClientData clientData, Tcl_Interp *inter
 
 int
 UserInterface_TCL::from_tk_ReadBodyDeleteData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -1317,7 +1321,7 @@ UserInterface_TCL::from_tk_ReadBodyDeleteData(ClientData clientData, Tcl_Interp 
 // Read body display list (from the BodyDisplay panel).
 int
 UserInterface_TCL::from_tk_ReadBodyDisplayData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -1355,7 +1359,7 @@ UserInterface_TCL::from_tk_ReadBodyDisplayData(ClientData clientData, Tcl_Interp
 // is pressed in Tk/GUI body-forces dialog.
 int
 UserInterface_TCL::from_tk_ReadBodyForceData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -1408,7 +1412,7 @@ UserInterface_TCL::from_tk_ReadBodyForceData(ClientData clientData, Tcl_Interp *
 // is pressed in Tk/GUI body-parameter dialog.
 int
 UserInterface_TCL::from_tk_ReadBodyParameterData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -1461,7 +1465,7 @@ UserInterface_TCL::from_tk_ReadBodyParameterData(ClientData clientData, Tcl_Inte
 // is pressed in Tk/GUI body-names dialog.
 int
 UserInterface_TCL::from_tk_ReadBodyNames(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -1498,7 +1502,7 @@ UserInterface_TCL::from_tk_ReadBodyNames(ClientData clientData, Tcl_Interp *inte
 // operation when OK-button is pressed in Edit/Boundaries panel.
 int
 UserInterface_TCL::from_tk_ReadBoundariesData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -1597,7 +1601,7 @@ UserInterface_TCL::from_tk_ReadBoundariesData(ClientData clientData, Tcl_Interp 
 // is pressed in Tk/GUI boundary-condition dialog.
 int
 UserInterface_TCL::from_tk_ReadBoundaryConditionData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
 
   Model* model = theControlCenter->getModel();
@@ -1661,7 +1665,7 @@ UserInterface_TCL::from_tk_ReadBoundaryConditionData(ClientData clientData, Tcl_
 // Read boundary display list
 int
 UserInterface_TCL::from_tk_ReadBoundaryDisplayData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -1694,7 +1698,7 @@ UserInterface_TCL::from_tk_ReadBoundaryDisplayData(ClientData clientData, Tcl_In
 // is pressed in Tk/GUI edit boundaries dialog.
 int
 UserInterface_TCL::from_tk_ReadBoundaryNames(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -1730,7 +1734,7 @@ UserInterface_TCL::from_tk_ReadBoundaryNames(ClientData clientData, Tcl_Interp *
 // is pressed in Tk/GUI boundary-parameter dialog.
 int
 UserInterface_TCL::from_tk_ReadBoundaryParameterData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -1786,7 +1790,7 @@ UserInterface_TCL::from_tk_ReadBoundaryParameterData(ClientData clientData, Tcl_
 // Function reads calulator solvers data from Tk.
 int
 UserInterface_TCL::from_tk_ReadCalculatorData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -1804,7 +1808,7 @@ UserInterface_TCL::from_tk_ReadCalculatorData(ClientData clientData, Tcl_Interp 
 // Activate a color file read via Tk.
 int
 UserInterface_TCL::from_tk_ReadColorFile(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   //---Get tcl-data
   char* fname = getCommandArguments(interp);
@@ -1818,7 +1822,7 @@ UserInterface_TCL::from_tk_ReadColorFile(ClientData clientData, Tcl_Interp *inte
 // Function reads physical constants data from Tk.
 int
 UserInterface_TCL::from_tk_ReadConstantData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -1837,7 +1841,7 @@ UserInterface_TCL::from_tk_ReadConstantData(ClientData clientData, Tcl_Interp *i
 // is pressed in Tk/GUI equations dialog.
 int
 UserInterface_TCL::from_tk_ReadConvertedEquationData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -1856,7 +1860,7 @@ UserInterface_TCL::from_tk_ReadConvertedEquationData(ClientData clientData, Tcl_
 // Function reads coordinate system definition data from Tk.
 int
 UserInterface_TCL::from_tk_ReadCoordinateData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -1875,7 +1879,7 @@ UserInterface_TCL::from_tk_ReadCoordinateData(ClientData clientData, Tcl_Interp 
 // Function reads datafile (result and input files) definition data from Tk.
 int
 UserInterface_TCL::from_tk_ReadDatafileData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -1894,7 +1898,7 @@ UserInterface_TCL::from_tk_ReadDatafileData(ClientData clientData, Tcl_Interp *i
 // where parameters were deleted.
 int
 UserInterface_TCL::from_tk_ReadDeletedParamIds(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   //---Get data-string  as a "structured" list from Tcl.
   //--First part of the data is panelt-type
@@ -1905,7 +1909,7 @@ UserInterface_TCL::from_tk_ReadDeletedParamIds(ClientData clientData, Tcl_Interp
   //the two parts mentioned above.
   int all_argc;
   char** all_argv;
-  int code = Tcl_SplitList(interp, deletedList, &all_argc, (const char ***)&all_argv);
+  int code = Tcl_SplitList(interp, deletedList, &all_argc, (const char ***) &all_argv);
   if (code != TCL_OK)
     return TCL_ERROR;
 
@@ -1937,7 +1941,7 @@ UserInterface_TCL::from_tk_ReadDeletedParamIds(ClientData clientData, Tcl_Interp
 
   int ids_argc;
   char** ids_argv;
-  code = Tcl_SplitList(interp, all_argv[1], &ids_argc, (const char ***)&ids_argv);
+  code = Tcl_SplitList(interp, all_argv[1], &ids_argc, (const char ***) &ids_argv);
   if (code != TCL_OK)
     return TCL_ERROR;
   for (int i=0; i<ids_argc; i++) {
@@ -1958,7 +1962,7 @@ UserInterface_TCL::from_tk_ReadDeletedParamIds(ClientData clientData, Tcl_Interp
 // is pressed in Tk/GUI equations dialog.
 int
 UserInterface_TCL::from_tk_ReadEquationData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -2017,7 +2021,7 @@ UserInterface_TCL::from_tk_ReadEquationData(ClientData clientData, Tcl_Interp *i
 // Function reads equation variables (like Advection Diffusion variables) definition data from Tk.
 int
 UserInterface_TCL::from_tk_ReadEquationVariablesData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -2037,7 +2041,7 @@ UserInterface_TCL::from_tk_ReadEquationVariablesData(ClientData clientData, Tcl_
 // is pressed in Tk/GUI grid-control dialog.
 int
 UserInterface_TCL::from_tk_ReadGridHData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
 
   Model* model = theControlCenter->getModel();
@@ -2097,7 +2101,7 @@ UserInterface_TCL::from_tk_ReadGridHData(ClientData clientData, Tcl_Interp *inte
 // is pressed in Tk/GUI grid-param dialog.
 int
 UserInterface_TCL::from_tk_ReadGridParameterData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -2161,7 +2165,7 @@ UserInterface_TCL::from_tk_ReadGridParameterData(ClientData clientData, Tcl_Inte
 // is pressed in Tk/GUI init-condition dialog.
 int
 UserInterface_TCL::from_tk_ReadInitialConditionData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -2213,7 +2217,7 @@ UserInterface_TCL::from_tk_ReadInitialConditionData(ClientData clientData, Tcl_I
 // NOTE: No model is needed
 int
 UserInterface_TCL::from_tk_ReadMatcFile(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   //---Get tcl-data
   char* fname = getCommandArguments(interp);
@@ -2228,7 +2232,7 @@ UserInterface_TCL::from_tk_ReadMatcFile(ClientData clientData, Tcl_Interp *inter
 // is pressed in Tk/GUI material-parameters dialog.
 int
 UserInterface_TCL::from_tk_ReadMaterialData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -2279,7 +2283,7 @@ UserInterface_TCL::from_tk_ReadMaterialData(ClientData clientData, Tcl_Interp *i
 // Function reads model created info from Tk.
 int
 UserInterface_TCL::from_tk_ReadModelFileCreated(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -2301,7 +2305,7 @@ UserInterface_TCL::from_tk_ReadModelFileCreated(ClientData clientData, Tcl_Inter
 // Function reads model modified info from Tk.
 int
 UserInterface_TCL::from_tk_ReadModelFileModified(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -2323,7 +2327,7 @@ UserInterface_TCL::from_tk_ReadModelFileModified(ClientData clientData, Tcl_Inte
 // Function reads model outfile save timestamp from Tk.
 int
 UserInterface_TCL::from_tk_ReadModelFileTime(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -2344,7 +2348,7 @@ UserInterface_TCL::from_tk_ReadModelFileTime(ClientData clientData, Tcl_Interp *
 // Function reads model modified info from Tk.
 int
 UserInterface_TCL::from_tk_ReadModelHasUserDefinitions(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -2367,7 +2371,7 @@ UserInterface_TCL::from_tk_ReadModelHasUserDefinitions(ClientData clientData, Tc
 // is pressed in Tk/GUI meshdefine dialog.
 int
 UserInterface_TCL::from_tk_ReadMeshDefineData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   int i;
   Model* model = theControlCenter->getModel();
@@ -2461,7 +2465,7 @@ UserInterface_TCL::from_tk_ReadMeshDefineData(ClientData clientData, Tcl_Interp 
 // Function reads user defined model parameters data from Tk.
 int
 UserInterface_TCL::from_tk_ReadModelParameterData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -2479,7 +2483,7 @@ UserInterface_TCL::from_tk_ReadModelParameterData(ClientData clientData, Tcl_Int
 // Function reads and updates model properties (paths etc.)
 int
 UserInterface_TCL::from_tk_ReadModelPropertyData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -2553,7 +2557,7 @@ UserInterface_TCL::from_tk_ReadModelPropertyData(ClientData clientData, Tcl_Inte
 // Function reads processor (for parallel processing) settings from Tk.
 int
 UserInterface_TCL::from_tk_ReadProcessorData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   //---Get tcl-data
   Model* model = theControlCenter->getModel();
@@ -2567,7 +2571,7 @@ UserInterface_TCL::from_tk_ReadProcessorData(ClientData clientData, Tcl_Interp *
   int all_argc;
   char **all_argv;
   char* allData = getCommandArguments(interp);
-  int code = Tcl_SplitList(interp, allData, &all_argc, (const char ***)&all_argv);
+  int code = Tcl_SplitList(interp, allData, &all_argc, (const char ***) &all_argv);
   if (code != TCL_OK)
     return TCL_ERROR;
   int index = 0;
@@ -2582,7 +2586,7 @@ UserInterface_TCL::from_tk_ReadProcessorData(ClientData clientData, Tcl_Interp *
 // Function set selection method in the renderer
 int
 UserInterface_TCL::from_tk_ReadSelectionTolerances(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Renderer* renderer = theControlCenter->getRenderer();
 
@@ -2592,8 +2596,8 @@ UserInterface_TCL::from_tk_ReadSelectionTolerances(ClientData clientData, Tcl_In
 
   // Read toleracnes from gui, check values and
   // store them in the model and update gui
-  char* normal_tol = (char *)Tcl_GetVar2(interp, "Info", "normalTolerance", TCL_GLOBAL_ONLY);
-  char* distance_tol = (char *)Tcl_GetVar2(interp, "Info", "distanceTolerance", TCL_GLOBAL_ONLY);
+  char* normal_tol = (char *) Tcl_GetVar2(interp, "Info", "normalTolerance", TCL_GLOBAL_ONLY);
+  char* distance_tol = (char *) Tcl_GetVar2(interp, "Info", "distanceTolerance", TCL_GLOBAL_ONLY);
 
   // Normal tolerance is degrees (0-45)
   double normal_tolerance = atof(normal_tol);
@@ -2628,7 +2632,7 @@ UserInterface_TCL::from_tk_ReadSelectionTolerances(ClientData clientData, Tcl_In
 // Function reads user defined model parameters data from Tk.
 int
 UserInterface_TCL::from_tk_ReadSimulationParameterData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -2646,7 +2650,7 @@ UserInterface_TCL::from_tk_ReadSimulationParameterData(ClientData clientData, Tc
 // Function reads solver parameter data from Tk.
 int
 UserInterface_TCL::from_tk_ReadSolverData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -2664,7 +2668,7 @@ UserInterface_TCL::from_tk_ReadSolverData(ClientData clientData, Tcl_Interp *int
 // Function reads solverControl parameter data from Tk.
 int
 UserInterface_TCL::from_tk_ReadSolverControlData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -2682,7 +2686,7 @@ UserInterface_TCL::from_tk_ReadSolverControlData(ClientData clientData, Tcl_Inte
 // Function reads timestep parameter settings from Tk.
 int
 UserInterface_TCL::from_tk_ReadTimestepData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -2707,7 +2711,7 @@ UserInterface_TCL::from_tk_ReadTimestepData(ClientData clientData, Tcl_Interp *i
 // Function reads model data related timestamp from Tk.
 int
 UserInterface_TCL::from_tk_ReadTimestamp(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -2720,7 +2724,7 @@ UserInterface_TCL::from_tk_ReadTimestamp(ClientData clientData, Tcl_Interp *inte
   char* data = getCommandArguments(interp);
   int ts_argc;
   char** ts_argv;
-  int code = Tcl_SplitList(interp, data, &ts_argc, (const char ***)&ts_argv);
+  int code = Tcl_SplitList(interp, data, &ts_argc, (const char ***) &ts_argv);
   if (code != TCL_OK)
     return TCL_ERROR;
 
@@ -2733,7 +2737,7 @@ UserInterface_TCL::from_tk_ReadTimestamp(ClientData clientData, Tcl_Interp *inte
 // Function reads user settings parameter values from Tk.
 int
 UserInterface_TCL::from_tk_ReadUserSettingsData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -2752,7 +2756,7 @@ UserInterface_TCL::from_tk_ReadUserSettingsData(ClientData clientData, Tcl_Inter
 // Read vertex display list
 int
 UserInterface_TCL::from_tk_ReadVertexDisplayData(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -2784,19 +2788,19 @@ UserInterface_TCL::from_tk_ReadVertexDisplayData(ClientData clientData, Tcl_Inte
 // Function for the user settings file reading
 int
 UserInterface_TCL::from_tk_ReadUserSettingFiles(ClientData clientData, Tcl_Interp* interp,
-                                                int argc, const char* argv[])
+                                                int argc, char* argv[])
 {
   // NOTE: These are needed for emf_readDataCB callback function
   //
   struct emf_ObjectData_X my_ObjectData;
   emf_ObjectData  = &my_ObjectData;
 
-  char* files = (char *)Tcl_GetVar2(interp, "Info", "userSettingFiles", glob_flag);
+  char* files = (char *) Tcl_GetVar2(interp, "Info", "userSettingFiles", glob_flag);
 
   //---Break this list into an array of strings (paths)
   int all_argc;
   char** all_argv;
-  int code = Tcl_SplitList(interp, files, &all_argc, (const char ***)&all_argv);
+  int code = Tcl_SplitList(interp, files, &all_argc, (const char ***) &all_argv);
 
   if (code != TCL_OK) {
     return TCL_ERROR;
@@ -2824,7 +2828,7 @@ UserInterface_TCL::from_tk_ReadUserSettingFiles(ClientData clientData, Tcl_Inter
 // Function removove Cad geometry from the model
 int
 UserInterface_TCL::from_tk_RemoveCadGeometry(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -2842,7 +2846,7 @@ UserInterface_TCL::from_tk_RemoveCadGeometry(ClientData clientData, Tcl_Interp *
 // Function draws model when option is selected from menu.
 int
 UserInterface_TCL::from_tk_RendererDisplayModel(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   theControlCenter->displayModel();
   return TCL_OK;
@@ -2852,7 +2856,7 @@ UserInterface_TCL::from_tk_RendererDisplayModel(ClientData clientData, Tcl_Inter
 // Function rotates model in the display.
 int
 UserInterface_TCL::from_tk_RendererRotateModel(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Renderer* renderer = theControlCenter->getRenderer();
   if (renderer == NULL)
@@ -2861,7 +2865,7 @@ UserInterface_TCL::from_tk_RendererRotateModel(ClientData clientData, Tcl_Interp
   int all_argc;
   char **all_argv;
   char* allData = getCommandArguments(interp);
-  int code = Tcl_SplitList(interp, allData, &all_argc, (const char ***)&all_argv);
+  int code = Tcl_SplitList(interp, allData, &all_argc, (const char ***) &all_argv);
   if (code != TCL_OK)
     return TCL_ERROR;
 
@@ -2875,7 +2879,7 @@ UserInterface_TCL::from_tk_RendererRotateModel(ClientData clientData, Tcl_Interp
 // Function resets model display.
 int
 UserInterface_TCL::from_tk_RendererResetModel(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Renderer* renderer = theControlCenter->getRenderer();
 
@@ -2891,7 +2895,7 @@ UserInterface_TCL::from_tk_RendererResetModel(ClientData clientData, Tcl_Interp 
 // Function scales model in the display.
 int
 UserInterface_TCL::from_tk_RendererScaleModel(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Renderer* renderer = theControlCenter->getRenderer();
   if (renderer == NULL)
@@ -2900,7 +2904,7 @@ UserInterface_TCL::from_tk_RendererScaleModel(ClientData clientData, Tcl_Interp 
   int all_argc;
   char **all_argv;
   char* allData = getCommandArguments(interp);
-  int code = Tcl_SplitList(interp, allData, &all_argc, (const char ***)&all_argv);
+  int code = Tcl_SplitList(interp, allData, &all_argc, (const char ***) &all_argv);
   if (code != TCL_OK)
     return TCL_ERROR;
 
@@ -2914,7 +2918,7 @@ UserInterface_TCL::from_tk_RendererScaleModel(ClientData clientData, Tcl_Interp 
 // Set boundary edit mode
 int
 UserInterface_TCL::from_tk_RendererSetEditBoundaries(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Renderer* renderer = theControlCenter->getRenderer();
   if (renderer == NULL)
@@ -2931,7 +2935,7 @@ UserInterface_TCL::from_tk_RendererSetEditBoundaries(ClientData clientData, Tcl_
 // Set rotation priorities in the renderer
 int
 UserInterface_TCL::from_tk_RendererSetRotatePriorities(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Renderer* renderer = theControlCenter->getRenderer();
   if (renderer == NULL)
@@ -2940,7 +2944,7 @@ UserInterface_TCL::from_tk_RendererSetRotatePriorities(ClientData clientData, Tc
   int all_argc;
   char **all_argv;
   char* allData = getCommandArguments(interp);
-  int code = Tcl_SplitList(interp, allData, &all_argc, (const char ***)&all_argv);
+  int code = Tcl_SplitList(interp, allData, &all_argc,(const char ***) &all_argv);
   if (code != TCL_OK)
     return TCL_ERROR;
 
@@ -2957,7 +2961,7 @@ UserInterface_TCL::from_tk_RendererSetRotatePriorities(ClientData clientData, Tc
 // Function tranlates model in the display.
 int
 UserInterface_TCL::from_tk_RendererTranslateModel(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Renderer* renderer = theControlCenter->getRenderer();
   if (renderer == NULL)
@@ -2966,7 +2970,7 @@ UserInterface_TCL::from_tk_RendererTranslateModel(ClientData clientData, Tcl_Int
   int all_argc;
   char **all_argv;
   char* allData = getCommandArguments(interp);
-  int code = Tcl_SplitList(interp, allData, &all_argc, (const char ***)&all_argv);
+  int code = Tcl_SplitList(interp, allData, &all_argc, (const char ***) &all_argv);
   if (code != TCL_OK)
     return TCL_ERROR;
 
@@ -2981,7 +2985,7 @@ UserInterface_TCL::from_tk_RendererTranslateModel(ClientData clientData, Tcl_Int
 // Reset all boundary selctions
 int
 UserInterface_TCL::from_tk_ResetAllBoundarySelections(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -2999,7 +3003,7 @@ UserInterface_TCL::from_tk_ResetAllBoundarySelections(ClientData clientData, Tcl
 // Reset boundary selctions when a new boundary is selected
 int
 UserInterface_TCL::from_tk_ResetBoundarySelections(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -3017,7 +3021,7 @@ UserInterface_TCL::from_tk_ResetBoundarySelections(ClientData clientData, Tcl_In
 // Function sets original names for boundaries
 int
 UserInterface_TCL::from_tk_RestoreBoundaryNames(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -3037,7 +3041,7 @@ UserInterface_TCL::from_tk_RestoreBoundaryNames(ClientData clientData, Tcl_Inter
 // Function saves external mesh in Elmer (DB) format
 int
 UserInterface_TCL::from_tk_SaveElmerMeshFile(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
 
   char* mesh_dir = getCommandArguments(interp);
@@ -3050,7 +3054,7 @@ UserInterface_TCL::from_tk_SaveElmerMeshFile(ClientData clientData, Tcl_Interp *
 // (ie. activates its construction and saving by the model)
 int
 UserInterface_TCL::from_tk_SaveElmerPostMeshFile(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   char* out_filename = getCommandArguments(interp);
   theControlCenter->saveElmerPostMeshFile(out_filename);
@@ -3061,7 +3065,7 @@ UserInterface_TCL::from_tk_SaveElmerPostMeshFile(ClientData clientData, Tcl_Inte
 // Function saves model file (emf-file)
 int
 UserInterface_TCL::from_tk_SaveModelFile(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -3090,7 +3094,7 @@ UserInterface_TCL::from_tk_SaveModelFile(ClientData clientData, Tcl_Interp *inte
 // Function saves mesh input file (mif-file)
 int
 UserInterface_TCL::from_tk_SaveMeshInputFile(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   char* mif_filename = getCommandArguments(interp);
   theControlCenter->saveMeshInputFile(mif_filename);
@@ -3101,7 +3105,7 @@ UserInterface_TCL::from_tk_SaveMeshInputFile(ClientData clientData, Tcl_Interp *
 // Function saves solver input file.(sif-file)
 int
 UserInterface_TCL::from_tk_SaveSolverInputFile(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   char* sif_filename = getCommandArguments(interp);
   theControlCenter->saveSolverInputFile(sif_filename);
@@ -3113,7 +3117,7 @@ UserInterface_TCL::from_tk_SaveSolverInputFile(ClientData clientData, Tcl_Interp
 // (ie. activates its construction and saving by the model)
 int
 UserInterface_TCL::from_tk_SaveThetisMeshFile(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   char* out_filename = getCommandArguments(interp);
   theControlCenter->saveThetisMeshFile(out_filename);
@@ -3124,7 +3128,7 @@ UserInterface_TCL::from_tk_SaveThetisMeshFile(ClientData clientData, Tcl_Interp 
 // Function saves user settings into (default) file
 int
 UserInterface_TCL::from_tk_SaveUserSettingsFile(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   char* filename = getCommandArguments(interp);
   theControlCenter->saveUserSettingsFile(filename);
@@ -3135,7 +3139,7 @@ UserInterface_TCL::from_tk_SaveUserSettingsFile(ClientData clientData, Tcl_Inter
 // Function saves model ecf-file.
 int
 UserInterface_TCL::from_tk_SelectMeshBoundaryElements(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -3160,7 +3164,7 @@ UserInterface_TCL::from_tk_SelectMeshBoundaryElements(ClientData clientData, Tcl
 // Change current working diredctory
 int
 UserInterface_TCL::from_tk_SetCurrentDirectory(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   char* dir = getCommandArguments(interp);
 
@@ -3183,7 +3187,7 @@ UserInterface_TCL::from_tk_SetCurrentDirectory(ClientData clientData, Tcl_Interp
 // using corresponding strings "DRAW_TARGET" and "DRAW_TARGET_BODIES"
 int
 UserInterface_TCL::from_tk_SetFlagValue(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -3196,7 +3200,7 @@ UserInterface_TCL::from_tk_SetFlagValue(ClientData clientData, Tcl_Interp *inter
   int all_argc;
   char **all_argv;
   char* allData = getCommandArguments(interp);
-  int code = Tcl_SplitList(interp, allData, &all_argc, (const char ***)&all_argv);
+  int code = Tcl_SplitList(interp, allData, &all_argc, (const char ***) &all_argv);
   if (code != TCL_OK)
     return TCL_ERROR;
 
@@ -3324,7 +3328,7 @@ UserInterface_TCL::from_tk_SetFlagValue(ClientData clientData, Tcl_Interp *inter
 // Set Matc emf-input file name
 int
 UserInterface_TCL::from_tk_SetMatcInputFileEmf(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -3344,7 +3348,7 @@ UserInterface_TCL::from_tk_SetMatcInputFileEmf(ClientData clientData, Tcl_Interp
 // Set Matc sif-input file name
 int
 UserInterface_TCL::from_tk_SetMatcInputFileSif(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -3366,7 +3370,7 @@ UserInterface_TCL::from_tk_SetMatcInputFileSif(ClientData clientData, Tcl_Interp
 //
 int
 UserInterface_TCL::from_tk_SetMeshInputUnit(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   char* value = getCommandArguments(interp);
 
@@ -3385,7 +3389,7 @@ UserInterface_TCL::from_tk_SetMeshInputUnit(ClientData clientData, Tcl_Interp *i
 // Function set model status data from Tk.
 int
 UserInterface_TCL::from_tk_SetModelStatus(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -3398,7 +3402,7 @@ UserInterface_TCL::from_tk_SetModelStatus(ClientData clientData, Tcl_Interp *int
   char* data = getCommandArguments(interp);
   int st_argc;
   char** st_argv;
-  int code = Tcl_SplitList(interp, data, &st_argc, (const char ***)&st_argv);
+  int code = Tcl_SplitList(interp, data, &st_argc, (const char ***) &st_argv);
   if (code != TCL_OK)
     return TCL_ERROR;
   //---Set model status
@@ -3412,7 +3416,7 @@ UserInterface_TCL::from_tk_SetModelStatus(ClientData clientData, Tcl_Interp *int
 // Function reads model outfile save timestamp from Tk.
 int
 UserInterface_TCL::from_tk_SetSelectionsToGui(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -3431,7 +3435,7 @@ UserInterface_TCL::from_tk_SetSelectionsToGui(ClientData clientData, Tcl_Interp 
 // Function starts boundary splitting
 int
 UserInterface_TCL::from_tk_SplitBoundary(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -3453,7 +3457,7 @@ UserInterface_TCL::from_tk_SplitBoundary(ClientData clientData, Tcl_Interp *inte
 // Function redes boundary splitting/combining
 int
 UserInterface_TCL::from_tk_SplitCombineBoundariesRedo(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -3471,7 +3475,7 @@ UserInterface_TCL::from_tk_SplitCombineBoundariesRedo(ClientData clientData, Tcl
 // Function undoes boundary splitting/combining
 int
 UserInterface_TCL::from_tk_SplitCombineBoundariesUndo(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -3489,7 +3493,7 @@ UserInterface_TCL::from_tk_SplitCombineBoundariesUndo(ClientData clientData, Tcl
 // Function send the stop editing message to the model
 int
 UserInterface_TCL::from_tk_StopEditMeshBoundaries(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -3514,7 +3518,7 @@ UserInterface_TCL::from_tk_StopEditMeshBoundaries(ClientData clientData, Tcl_Int
 // Function accepts current names for boundaries
 int
 UserInterface_TCL::from_tk_StoreBoundaryNames(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -3532,7 +3536,7 @@ UserInterface_TCL::from_tk_StoreBoundaryNames(ClientData clientData, Tcl_Interp 
 // Function initiates interrupts processing by setting a proper stop flag on
 int
 UserInterface_TCL::from_tk_DoBreak(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   theControlCenter->setBreakValue(MESH_INPUT, true);
 
@@ -3543,7 +3547,7 @@ UserInterface_TCL::from_tk_DoBreak(ClientData clientData, Tcl_Interp *interp,
 // Delete mesh from the model data
 int
 UserInterface_TCL::from_tk_UnloadMesh(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -3563,7 +3567,7 @@ UserInterface_TCL::from_tk_UnloadMesh(ClientData clientData, Tcl_Interp *interp,
 // Update CAD geometry (based on Matc parameters)
 int
 UserInterface_TCL::from_tk_UpdateCadGeometry(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -3581,12 +3585,12 @@ UserInterface_TCL::from_tk_UpdateCadGeometry(ClientData clientData, Tcl_Interp *
 // Function updates a matc file with user selcted definitions
 int
 UserInterface_TCL::from_tk_UpdateMatcFile(ClientData clientData, Tcl_Interp *interp,
-                                          int argc, const char* argv[])
+                                          int argc, char* argv[])
 {
   char* ud_data = getCommandArguments(interp);
   int ud_argc;
   char** ud_argv;
-  int code = Tcl_SplitList(interp, ud_data, &ud_argc, (const char ***)&ud_argv);
+  int code = Tcl_SplitList(interp, ud_data, &ud_argc, (const char ***) &ud_argv);
 
   if (code != TCL_OK)
     return TCL_ERROR;
@@ -3597,7 +3601,7 @@ UserInterface_TCL::from_tk_UpdateMatcFile(ClientData clientData, Tcl_Interp *int
   char* mc_data = ud_argv[2];
   int mc_argc;
   char** mc_argv;
-  code = Tcl_SplitList(interp, mc_data, &mc_argc, (const char ***)&mc_argv);
+  code = Tcl_SplitList(interp, mc_data, &mc_argc, (const char ***) &mc_argv);
 
   Model::updateMatcFile(filename, mode, mc_argc, mc_argv);
 
@@ -3613,16 +3617,17 @@ UserInterface_TCL::generateEvent()
 }
 
 
-char* UserInterface_TCL::getCommandArguments(Tcl_Interp* interp)
+char*
+UserInterface_TCL::getCommandArguments(Tcl_Interp* interp)
 {
-  return (char *)Tcl_GetVar2(interp, "Info", "arguments", glob_flag);
+  return (char *) Tcl_GetVar2(interp, "Info", "arguments", glob_flag);
 }
 
 
 char*
 UserInterface_TCL::getCommandResults(Tcl_Interp* interp)
 {
-  return (char *)Tcl_GetVar2(interp, "Info", "results", glob_flag);
+  return (char *) Tcl_GetVar2(interp, "Info", "results", glob_flag);
 }
 
 
@@ -3638,7 +3643,7 @@ UserInterface_TCL::getCurrentTimestamp(char* buffer)
 {
   sendCommandToGui(theInterp, "Interface::setCurrentTimestamp");
 
-  char* ts = (char *)Tcl_GetVar2(theInterp, "Info", "currentTimestamp", glob_flag);
+  char* ts = (char *) Tcl_GetVar2(theInterp, "Info", "currentTimestamp", glob_flag);
 
   strcpy(buffer, ts);
 }
@@ -3689,7 +3694,7 @@ UserInterface_TCL::getIsSolverTargetField(const char* equation_name, const char*
   char* data = getCommandResults(theInterp);
   int tf_argc;
   char** tf_argv;
-  int code = Tcl_SplitList(theInterp, data, &tf_argc, (const char ***)&tf_argv);
+  int code = Tcl_SplitList(theInterp, data, &tf_argc, (const char ***) &tf_argv);
 
   if ( tf_argc == 0 ) {
     return false;
@@ -3761,7 +3766,7 @@ UserInterface_TCL::getParameterFieldInfo(const char* parameter, const char* fiel
   char* data = getCommandResults(theInterp);
   int fi_argc;
   char** fi_argv;
-  int code = Tcl_SplitList(theInterp, data, &fi_argc, (const char ***)&fi_argv);
+  int code = Tcl_SplitList(theInterp, data, &fi_argc, (const char ***) &fi_argv);
 
   if ( fi_argc == 0 ) {
     return false;
@@ -3798,7 +3803,7 @@ UserInterface_TCL::getSolverKeywordTypeGiven(const char* parameter, const char* 
   char* data = getCommandResults(theInterp);
   int fi_argc;
   char** fi_argv;
-  int code = Tcl_SplitList(theInterp, data, &fi_argc, (const char ***)&fi_argv);
+  int code = Tcl_SplitList(theInterp, data, &fi_argc, (const char ***) &fi_argv);
 
   if ( fi_argc == 0 ) {
     return false;
@@ -4949,8 +4954,8 @@ UserInterface_TCL::setParameterData(Model* model, ecif_parameterType param_type,
   model->processParametersBeforeUpdate(param_type);
 
 
-  char* data_buffer = NULL;
-  char* name_buffer = NULL;
+  char* data_buffer = "";
+  char* name_buffer = "";
 
   int oid = NO_INDEX;
   int prtag = NO_INDEX;
@@ -5008,11 +5013,12 @@ UserInterface_TCL::setParameterData(Model* model, ecif_parameterType param_type,
 
     //---Save data into model
     //model->setParameter(param_type, pid, oid, prtag, prtype, data_buffer, name_buffer);
+    
     model->setParameter(param_type, pid, oid, data_buffer, name_buffer);
 
-    delete[] data_buffer; data_buffer = NULL;
+    /*    delete[] data_buffer; data_buffer = NULL;
     delete[] name_buffer; name_buffer = NULL;
-    delete[] prtp; prtp = NULL;
+    delete[] prtp; prtp = NULL; */
   }
 
   // Delete "old" parameters, ie. those which were not set in this update
@@ -5183,8 +5189,8 @@ UserInterface_TCL::showUsedTimeMsg(double time, char* text1, int nof_objects, ch
 void
 UserInterface_TCL::start(int argc, char** argv)
 {
-  char* elmer_home = (char *)Tcl_GetVar2(theInterp, "env", "ELMER_HOME", glob_flag);
-  char* elmer_front_home = (char *)Tcl_GetVar2(theInterp, "env", "ELMER_FRONT_HOME", glob_flag);
+  char* elmer_home = (char *) Tcl_GetVar2(theInterp, "env", "ELMER_HOME", glob_flag);
+  char* elmer_front_home = (char *) Tcl_GetVar2(theInterp, "env", "ELMER_FRONT_HOME", glob_flag);
 
   char front_tcl_path[] = "/tcl";
 
@@ -5395,7 +5401,7 @@ UserInterface_TCL::start_Tcl_MainLoop()
 
 int
 UserInterface_TCL::from_tk_ColorHex2Name(ClientData clientData, Tcl_Interp *interp,
-          int argc, const char* argv[])
+          int argc, char* argv[])
 {
   Model* model = theControlCenter->getModel();
 
@@ -7505,13 +7511,13 @@ tcl_InterruptIdleProc(ClientData data)
 
 // *** WishPanic
 void
-WishPanic TCL_VARARGS_DEF(const char *,arg1)
+WishPanic TCL_VARARGS_DEF(char *,arg1)
 {
   va_list argList;
   char buf[1024];
   char *format;
 
-  format = (char *)TCL_VARARGS_START(char *,arg1,argList);
+  format = TCL_VARARGS_START(char *,arg1,argList);
   vsprintf(buf, format, argList);
 
 #if defined(WIN32)

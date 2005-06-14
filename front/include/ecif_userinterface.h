@@ -48,7 +48,7 @@ public:
   virtual void configureButtonOption(char* button, char* option, char* value) {}
   virtual void configureMenuButtons(char* menu, char* buttons, int state) {}
   virtual void configureMenuButtonOption(char* menu, char* button, char* option, char* value) {}
-  virtual void errMsg(int err_level, char* str1, const char* str2 = NULL, char* str3 = NULL, char* str4 = NULL);
+  virtual void errMsg(int err_level, char* str1, char* str2 = NULL, char* str3 = NULL, char* str4 = NULL);
   virtual void fieldNameGuiToSif(const char* gui_name, char* sif_name_buffer) {}
   virtual void fieldNameSifToGui(const char* sif_name, char* gui_name_buffer) {}
   virtual void generateEvent() {}
