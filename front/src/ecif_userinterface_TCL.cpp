@@ -93,9 +93,9 @@ const int int_ro_flag = TCL_LINK_INT | TCL_LINK_READ_ONLY;
 const int str_ro_flag =   TCL_LINK_STRING | TCL_LINK_READ_ONLY;
 
 const char tclObjectSeparator = '!';
-const char tclFieldSeparator = '&';
-const char tclCmdSeparator = '@';
-const char tclArgSeparator = '£';
+const char tclFieldSeparator =  '&';
+const char tclCmdSeparator =    '@';
+const char tclArgSeparator =    '£';
 
 const char subIdSep = '.';
 const char sis = subIdSep;
@@ -4662,22 +4662,25 @@ UserInterface_TCL::sendCommandToGui(Tcl_Interp* interp, const char* cmd, const c
 
   char* exec = "gui_exec ";
 
-  if (arg == NULL) {
-    rc = Tcl_VarEval(interp, exec, cmd, (char*) NULL);
-
-  //--Send all the rest within " "
-  } else {
+  {
+    Tcl_DString dstring;
+    char *buf;
     ostrstream strm;
+
     strm << exec;
     strm << "\"";
     strm << cmd;
-    if ( arg != NULL && arg[0] != '\0' ) {
-      strm << tclCmdSeparator << arg;
+    if ( arg != NULL ) {
+      if ( arg[0] != '\0' ) {
+         strm << tclCmdSeparator << arg;
+      }
     }
     strm << "\"";
     strm << ends;
 
-    rc = Tcl_VarEval(interp, strm.str(), (char*) NULL);
+    buf = Tcl_ExternalToUtfDString(NULL, strm.str(), strlen(strm.str()), &dstring );
+    rc = Tcl_Eval( interp, buf );
+    Tcl_DStringFree( &dstring );
   }
 
   if (interp->result[0] != '\0') {
@@ -7218,7 +7221,7 @@ UserInterface_TCL::unknownFieldMsg(emf_ObjectData_X* object_data, bool is_fatal)
 void
 UserInterface_TCL::update()
 {
-  Tcl_VarEval(theInterp, "update idletasks", (char*) NULL);
+  Tcl_Eval(theInterp, "update idletasks" );
 }
 
 
@@ -7226,7 +7229,7 @@ UserInterface_TCL::update()
 void
 UserInterface_TCL::update(Tcl_Interp* interp)
 {
-  Tcl_VarEval(interp, "update idletasks", (char*) NULL);
+  Tcl_Eval(interp, "update idletasks" );
 }
 
 
