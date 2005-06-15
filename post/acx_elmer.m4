@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.55 2005/06/09 14:38:11 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.58 2005/06/10 14:22:39 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1192,8 +1192,8 @@ case "$canonical_host_type" in
        SH_LDFLAGS="-shared"
   ;;
   *-*-linux* | *-*-gnu*)
-	RPATH_FLAG="-rpath"
-	SH_EXPALL_FLAG="-Wl,-export_dynamic"
+	RPATH_FLAG="-Wl,-rpath "
+	SH_EXPALL_FLAG="-Wl,--export-dynamic"
   ;;
   i[[3456]]86-*-sco3.2v5*)
     SH_LDFLAGS="-G"
@@ -1202,7 +1202,8 @@ case "$canonical_host_type" in
     SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
     SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared"
     LD_LIBRARY_PATH_VAR=LIBPATH
-    RPATH_FLAG="-blibpath:"
+#    RPATH_FLAG="-blibpath:"
+    SH_EXPALL_FLAG="-bexpall"
   ;;
   hppa*-hp-hpux*)
     SH_LDFLAGS="-shared -fPIC"
@@ -1213,6 +1214,11 @@ case "$canonical_host_type" in
   sparc-sun-sunos4*)
     SH_LD=ld
     SH_LDFLAGS="-assert nodefinitions"
+    if test "$GXX" != yes; then
+      SH_LDFLAGS=-G
+      RPATH_FLAG="-R"
+    fi
+
 
   ;;
   sparc-sun-solaris2* | i386-pc-solaris2*)

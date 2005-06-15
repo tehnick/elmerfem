@@ -1873,7 +1873,7 @@ FFLAGS="$FFLAGS $FPICFLAG"
 CFLAGS="$CFLAGS $CPICFLAG"
 CXXFLAGS="$CXXFLAGS $CXXPICFLAG"
 ])
-m4trace:acx_elmer.m4:1305: -1- AC_DEFUN([ACX_SHLIB_STUFF], [
+m4trace:acx_elmer.m4:1311: -1- AC_DEFUN([ACX_SHLIB_STUFF], [
 dnl  
 dnl OS-specific stuff that hasn't been (or can't be) done in a clean way.
 dnl
@@ -1925,8 +1925,8 @@ case "$canonical_host_type" in
        SH_LDFLAGS="-shared"
   ;;
   *-*-linux* | *-*-gnu*)
-	RPATH_FLAG="-rpath"
-	SH_EXPALL_FLAG="-Wl,-export_dynamic"
+	RPATH_FLAG="-Wl,-rpath "
+	SH_EXPALL_FLAG="-Wl,--export-dynamic"
   ;;
   i[[3456]]86-*-sco3.2v5*)
     SH_LDFLAGS="-G"
@@ -1935,7 +1935,8 @@ case "$canonical_host_type" in
     SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
     SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared"
     LD_LIBRARY_PATH_VAR=LIBPATH
-    RPATH_FLAG="-blibpath:"
+#    RPATH_FLAG="-blibpath:"
+    SH_EXPALL_FLAG="-bexpall"
   ;;
   hppa*-hp-hpux*)
     SH_LDFLAGS="-shared -fPIC"
@@ -1946,6 +1947,11 @@ case "$canonical_host_type" in
   sparc-sun-sunos4*)
     SH_LD=ld
     SH_LDFLAGS="-assert nodefinitions"
+    if test "$GXX" != yes; then
+      SH_LDFLAGS=-G
+      RPATH_FLAG="-R"
+    fi
+
 
   ;;
   sparc-sun-solaris2* | i386-pc-solaris2*)
@@ -2036,7 +2042,7 @@ fi
 AC_SUBST(SH_EXPALL_FLAG)
 
 ])
-m4trace:acx_elmer.m4:1358: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
+m4trace:acx_elmer.m4:1364: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
 AC_REQUIRE([ACX_HOST])
 acx_platform_def="GENERIC"
 case "$canonical_host_type" in
@@ -2085,7 +2091,7 @@ esac
 
 AM_CONDITIONAL(IBM_IS_PIECE_OF_SHIT, test "$acx_platform_def" = "AIX")
 ])
-m4trace:acx_elmer.m4:1389: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
+m4trace:acx_elmer.m4:1395: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
 AC_REQUIRE([ACX_SHLIB_STUFF])
 case "$FC" in
    ifc)
@@ -2114,7 +2120,7 @@ esac
 AC_SUBST(SH_LDFLAGS)
 AC_SUBST(SH_LD)
 ])
-m4trace:acx_elmer.m4:1531: -1- AC_DEFUN([ACX_TCLTK], [
+m4trace:acx_elmer.m4:1537: -1- AC_DEFUN([ACX_TCLTK], [
 AC_REQUIRE([AC_PATH_X])
 AC_PREREQ(2.50)
 acx_tcltk_ok=no
@@ -3423,7 +3429,7 @@ FFLAGS="$FFLAGS $FPICFLAG"
 CFLAGS="$CFLAGS $CPICFLAG"
 CXXFLAGS="$CXXFLAGS $CXXPICFLAG"
 ])
-m4trace:acx_elmer.m4:1305: -1- AC_DEFUN([ACX_SHLIB_STUFF], [
+m4trace:acx_elmer.m4:1311: -1- AC_DEFUN([ACX_SHLIB_STUFF], [
 dnl  
 dnl OS-specific stuff that hasn't been (or can't be) done in a clean way.
 dnl
@@ -3475,8 +3481,8 @@ case "$canonical_host_type" in
        SH_LDFLAGS="-shared"
   ;;
   *-*-linux* | *-*-gnu*)
-	RPATH_FLAG="-rpath"
-	SH_EXPALL_FLAG="-Wl,-export_dynamic"
+	RPATH_FLAG="-Wl,-rpath "
+	SH_EXPALL_FLAG="-Wl,--export-dynamic"
   ;;
   i[[3456]]86-*-sco3.2v5*)
     SH_LDFLAGS="-G"
@@ -3485,7 +3491,8 @@ case "$canonical_host_type" in
     SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
     SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared"
     LD_LIBRARY_PATH_VAR=LIBPATH
-    RPATH_FLAG="-blibpath:"
+#    RPATH_FLAG="-blibpath:"
+    SH_EXPALL_FLAG="-bexpall"
   ;;
   hppa*-hp-hpux*)
     SH_LDFLAGS="-shared -fPIC"
@@ -3496,6 +3503,11 @@ case "$canonical_host_type" in
   sparc-sun-sunos4*)
     SH_LD=ld
     SH_LDFLAGS="-assert nodefinitions"
+    if test "$GXX" != yes; then
+      SH_LDFLAGS=-G
+      RPATH_FLAG="-R"
+    fi
+
 
   ;;
   sparc-sun-solaris2* | i386-pc-solaris2*)
@@ -3586,7 +3598,7 @@ fi
 AC_SUBST(SH_EXPALL_FLAG)
 
 ])
-m4trace:acx_elmer.m4:1358: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
+m4trace:acx_elmer.m4:1364: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
 AC_REQUIRE([ACX_HOST])
 acx_platform_def="GENERIC"
 case "$canonical_host_type" in
@@ -3635,7 +3647,7 @@ esac
 
 AM_CONDITIONAL(IBM_IS_PIECE_OF_SHIT, test "$acx_platform_def" = "AIX")
 ])
-m4trace:acx_elmer.m4:1389: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
+m4trace:acx_elmer.m4:1395: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
 AC_REQUIRE([ACX_SHLIB_STUFF])
 case "$FC" in
    ifc)
@@ -3664,7 +3676,7 @@ esac
 AC_SUBST(SH_LDFLAGS)
 AC_SUBST(SH_LD)
 ])
-m4trace:acx_elmer.m4:1531: -1- AC_DEFUN([ACX_TCLTK], [
+m4trace:acx_elmer.m4:1537: -1- AC_DEFUN([ACX_TCLTK], [
 AC_REQUIRE([AC_PATH_X])
 AC_PREREQ(2.50)
 acx_tcltk_ok=no
@@ -4529,7 +4541,7 @@ m4trace:configure.in:50: -1- ACX_TCLTK([], [AC_MSG_ERROR([Tcl/tk not found, use 
 m4trace:configure.in:50: -1- _m4_warn([obsolete], [The macro `AC_HELP_STRING' is obsolete.
 You should run autoupdate.], [autoconf/general.m4:219: AC_HELP_STRING is expanded from...
 autoconf/general.m4:1416: AC_ARG_WITH is expanded from...
-acx_elmer.m4:1531: ACX_TCLTK is expanded from...
+acx_elmer.m4:1537: ACX_TCLTK is expanded from...
 configure.in:50: the top level])
 m4trace:configure.in:50: -1- AC_SUBST([TCLTK_LIBS])
 m4trace:configure.in:50: -1- m4_pattern_allow([^TCLTK_LIBS$])
