@@ -2360,7 +2360,14 @@ int main(int argc,char **argv)
 
     MakeRasterFont( "-adobe-helvetica-bold-r-normal--17-120-100-100-p-88-iso8859-1" );
 
-    Tcl_Eval( TCLInterp,initcommands );
+    {
+      Tcl_DString dstring;
+      char *buf;
+
+      buf = Tcl_ExternalToUtfDString( NULL, initcommands,strlen(initcommands),&dstring);
+      Tcl_Eval( TCLInterp, buf );
+      Tcl_DStringFree( &dstring );
+    }
 
 #ifdef WIN32
     auxMainLoop( (AUXMAINPROC)DrawItSomeTimeWhenIdle );
