@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.60 2005/06/16 07:37:39 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.61 2005/06/16 07:52:07 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1551,7 +1551,7 @@ AC_PREREQ(2.50)
 acx_fortran_cpp_ok=no
 
 case "$FC" in
-	*g95* | ifort | ifc)
+	*g95*)
 		FORTRAN_CPP_FLAG="-cpp"
 		acx_fortran_cpp_ok=yes
 	;;
