@@ -53,8 +53,8 @@
      INTEGER :: i,j,k,n,l,t,k1,k2,iter,Ndeg,Time,istat,nproc
 
      REAL(KIND=dp) :: s,dt,dtfunc,Work(MAX_NODES)
-     REAL(KIND=dp), TARGET :: SimulationTime(1)
      REAL(KIND=dP), POINTER :: WorkA(:,:,:) => NULL()
+     REAL(KIND=dp), POINTER :: sTime(:), sStep(:), sInterval(:), sSize(:)
 
      TYPE(Element_t),POINTER :: CurrentElement
      REAL(KIND=dp), POINTER ::  TimeVariable(:)
@@ -248,9 +248,14 @@
          CoupledMaxIter = 1
        END IF
 
-       SimulationTime(1) = 0.0d0
+       ALLOCATE( sTime(1), sStep(1), sInterval(1), sSize(1) )
+
        Time = 0
        dt   = 0.0d0
+       sStep(1) = 0
+       sSize(1) = dt
+       sTime(1) = Time
+       sInterval(1) = 0
 
        CoupledMinIter = ListGetInteger( CurrentModel % Simulation, &
                   'Steady State Min Iterations', GotIt )
@@ -404,7 +409,6 @@
 !------------------------------------------------------------------------------
   SUBROUTINE AddMeshCoordinatesAndTime
 !------------------------------------------------------------------------------
-     TimeVariable => SimulationTime
      NULLIFY( Solver )
 
      Mesh => CurrentModel % Meshes 
@@ -418,7 +422,10 @@
        CALL VariableAdd(Mesh % Variables,Mesh,Solver, &
              'Coordinate 3',1,Mesh % Nodes % z )
 
-       CALL VariableAdd( Mesh % Variables,Mesh,Solver,'Time',1,TimeVariable )
+       CALL VariableAdd( Mesh % Variables,Mesh,Solver,'Time',1,sTime )
+       CALL VariableAdd( Mesh % Variables,Mesh,Solver,'Timestep',1,sStep )
+       CALL VariableAdd( Mesh % Variables,Mesh,Solver,'Timestep size',1,sSize )
+       CALL VariableAdd( Mesh % Variables,Mesh,Solver,'Timestep interval',1,sInterval )
        Mesh => Mesh % Next
      END DO
 !------------------------------------------------------------------------------
@@ -609,15 +616,18 @@
          IF(GotIt) dt = dtfunc
 
 !------------------------------------------------------------------------------
-         SimulationTime(1) = SimulationTime(1) + dt
          Time = Time + 1
+         sTime(1) = sTime(1) + dt
+         sStep(1) = Time
+         sSize(1) = dt
+         sInterval(1) = interval
 !------------------------------------------------------------------------------
          IF ( ParEnv % MyPE == 0 ) THEN
            CALL Info( 'MAIN', ' ', Level=3 )
            CALL Info( 'MAIN', '-------------------------------------', Level=3 )
 
            IF ( TransientSimulation ) THEN
-             WRITE( Message, * ) 'Time: ',Time,SimulationTime(1)
+             WRITE( Message, * ) 'Time: ',Time, sTime(1)
              CALL Info( 'MAIN', Message, Level=3 )
            ELSE
              WRITE( Message, * ) 'Steady state iteration: ',Time
@@ -672,7 +682,7 @@
             CumTime = 0.0d0
             IF ( ddt == 0.0d0 .OR. ddt > AdaptiveMaxTimestep ) ddt = AdaptiveMaxTimestep
 
-            s = SimulationTime(1) - dt
+            s = sTime(1) - dt
             SmallestCount = 0
             DO WHILE( CumTime < dt-1.0d-12 )
                ddt = MIN( dt - CumTime, ddt )
@@ -691,7 +701,8 @@
                   END IF
                END DO
 
-               SimulationTime(1) = s + CumTime + ddt
+               sTime(1) = s + CumTime + ddt
+               sSize(1) = ddt
                CALL SolveEquations( CurrentModel, ddt, TransientSimulation, &
                  CoupledMinIter, CoupledMaxIter, SteadyStateReached )
 
@@ -712,11 +723,12 @@
                   END IF
                END DO
 
-               SimulationTime(1) = s + CumTime + ddt/2
+               sStep(1) = ddt / 2
+               sTime(1) = s + CumTime + ddt/2
                CALL SolveEquations( CurrentModel, ddt/2, TransientSimulation, &
                   CoupledMinIter, CoupledMaxIter, SteadyStateReached )
 
-               SimulationTime(1) = s + CumTime + ddt
+               sTime(1) = s + CumTime + ddt
                CALL SolveEquations( CurrentModel, ddt/2, TransientSimulation, &
                   CoupledMinIter, CoupledMaxIter, SteadyStateReached )
 
@@ -764,7 +776,8 @@
                END IF
                WRITE(*,'(a,3e20.12)') 'Adaptive(cum,ddt,err): ', cumtime, ddt, maxerr
             END DO
-            SimulationTime(1) = s + dt
+            sSize(1) = dt
+            sTime(1) = s + dt
   
             DEALLOCATE( xx, xxnrm, yynrm )
          ELSE ! Adaptive timestepping
@@ -854,7 +867,7 @@
                                Var % Values = REAL( Var % EigenVectors(j,:) )
                             END IF
                             SavedSteps = SaveResult( OutputName, Mesh, &
-                                   j, SimulationTime(1) )
+                                   j, sTime(1) )
                          END DO
                       ELSE
                          j = MIN( CurrentStep, SIZE( Var % EigenVectors,1 ) )
@@ -867,7 +880,7 @@
                             Var % Values = REAL(Var % EigenVectors(j,:))
                          END IF
                          SavedSteps = SaveResult( OutputName, Mesh, &
-                              CurrentStep, SimulationTime(1) )
+                              CurrentStep, sTime(1) )
                       END IF
                       Var % Values = 0.0d0
                    END IF
@@ -876,7 +889,7 @@
           END DO
 
           IF ( .NOT. EigAnal ) THEN
-             SavedSteps = SaveResult( OutputName,Mesh,Time,SimulationTime(1) )
+             SavedSteps = SaveResult( OutputName,Mesh,Time, sTime(1) )
           END IF
        END IF
        Mesh => Mesh % Next

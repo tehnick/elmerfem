@@ -204,6 +204,15 @@ CONTAINS
           TimeVar => VariableGet( Mesh1 % Variables, 'Time' )
           CALL VariableAdd( Mesh2 % Variables, Mesh2, Solver, &
                   'Time', 1, TimeVar % Values )
+          TimeVar => VariableGet( Mesh1 % Variables, 'Timestep' )
+          CALL VariableAdd( Mesh2 % Variables, Mesh2, Solver, &
+                  'Timestep', 1, TimeVar % Values )
+          TimeVar => VariableGet( Mesh1 % Variables, 'Timestep size' )
+          CALL VariableAdd( Mesh2 % Variables, Mesh2, Solver, &
+                  'Timestep size', 1, TimeVar % Values )
+          TimeVar => VariableGet( Mesh1 % Variables, 'Timestep interval' )
+          CALL VariableAdd( Mesh2 % Variables, Mesh2, Solver, &
+                  'Timestep interval', 1, TimeVar % Values )
 
           CALL VariableAdd( Mesh2 % Variables, Mesh2, Solver, &
                 'Coordinate 1', 1, Mesh2 % Nodes % x )

@@ -33,6 +33,9 @@
 ! *       Date of modification: 
 ! *
 ! * $Log: Adaptive.src,v $
+! * Revision 1.4  2005/05/26 12:33:08  jpr
+! * Removed explicit DLLEXPORT definitions
+! *
 ! * Revision 1.3  2005/05/26 10:34:16  jpr
 ! * a bug fix in bandwidth optimization reordering
 ! *
@@ -47,7 +50,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Adaptive.src,v 1.3 2005/05/26 10:34:16 jpr Exp $
+! * $Id: Adaptive.src,v 1.4 2005/05/26 12:33:08 jpr Exp $
 ! *****************************************************************************/
 
 
@@ -489,6 +492,15 @@ CONTAINS
     Var => VariableGet( RefMesh % Variables,'Time',ThisOnly=.TRUE. )
     CALL VariableAdd( NewMesh % Variables, NewMesh, PSolver, &
                      'Time', 1, Var % Values )
+    Var => VariableGet( RefMesh % Variables,'Timestep',ThisOnly=.TRUE. )
+    CALL VariableAdd( NewMesh % Variables, NewMesh, PSolver, &
+                     'Timestep', 1, Var % Values )
+    Var => VariableGet( RefMesh % Variables,'Timestep size',ThisOnly=.TRUE. )
+    CALL VariableAdd( NewMesh % Variables, NewMesh, PSolver, &
+                     'Timestep size', 1, Var % Values )
+    Var => VariableGet( RefMesh % Variables,'Timestep interval',ThisOnly=.TRUE. )
+    CALL VariableAdd( NewMesh % Variables, NewMesh, PSolver, &
+                 'Timestep interval', 1, Var % Values )
 
     ! Initialize the field variables for the new mesh. These are
     ! interpolated from the old meshes variables. Vector variables

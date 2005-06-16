@@ -1839,7 +1839,7 @@ CONTAINS
     INTEGER ::i,j,k,n,Node,DOFs,SavedCount,Timestep,NSDOFs
 
     TYPE(Solver_t),   POINTER :: Solver
-    TYPE(Variable_t), POINTER :: TimeVar
+    TYPE(Variable_t), POINTER :: TimeVar, tStepVar
 
     LOGICAL :: RestartFileOpen = .FALSE., Cont
 
@@ -1977,7 +1977,8 @@ CONTAINS
 !------------------------------------------------------------------------------
 !   ...read one timestep to memory...
 !------------------------------------------------------------------------------
-    TimeVar => VariableGet( Mesh % Variables, 'Time' )
+    TimeVar  => VariableGet( Mesh % Variables, 'Time' )
+    tStepVar => VariableGet( Mesh % Variables, 'Timestep' )
     n = 1
     IF ( Cont ) n = TimeCount
     DO WHILE( n <= TimeCount .OR. TimeCount == 0 )
@@ -1995,7 +1996,8 @@ CONTAINS
       END IF
 
       READ( Row(7:),* ) SavedCount,Timestep,Time
-      IF ( ASSOCIATED( TimeVar ) ) TimeVar % Values(1) = Time
+      IF ( ASSOCIATED( TimeVar ) )  TimeVar % Values(1)  = Time
+      IF ( ASSOCIATED( tStepVar ) ) tStepVar % Values(1) = Timestep
 
       DO i=1,DOFs
         READ( RestartUnit,'(a)' ) Row
