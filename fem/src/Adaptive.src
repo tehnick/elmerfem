@@ -33,6 +33,9 @@
 ! *       Date of modification: 
 ! *
 ! * $Log: Adaptive.src,v $
+! * Revision 1.5  2005/06/16 07:38:32  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.4  2005/05/26 12:33:08  jpr
 ! * Removed explicit DLLEXPORT definitions
 ! *
@@ -50,7 +53,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Adaptive.src,v 1.4 2005/05/26 12:33:08 jpr Exp $
+! * $Id: Adaptive.src,v 1.5 2005/06/16 07:38:32 jpr Exp $
 ! *****************************************************************************/
 
 
@@ -490,15 +493,22 @@ CONTAINS
 !   Time must always be there:
 !   --------------------------
     Var => VariableGet( RefMesh % Variables,'Time',ThisOnly=.TRUE. )
+print*,'t0: ', associated( var )
     CALL VariableAdd( NewMesh % Variables, NewMesh, PSolver, &
                      'Time', 1, Var % Values )
+
     Var => VariableGet( RefMesh % Variables,'Timestep',ThisOnly=.TRUE. )
+print*,'t1: ', associated( var )
     CALL VariableAdd( NewMesh % Variables, NewMesh, PSolver, &
                      'Timestep', 1, Var % Values )
+
     Var => VariableGet( RefMesh % Variables,'Timestep size',ThisOnly=.TRUE. )
+print*,'t2: ', associated( var )
     CALL VariableAdd( NewMesh % Variables, NewMesh, PSolver, &
                      'Timestep size', 1, Var % Values )
+
     Var => VariableGet( RefMesh % Variables,'Timestep interval',ThisOnly=.TRUE. )
+print*,'t3: ', associated( var )
     CALL VariableAdd( NewMesh % Variables, NewMesh, PSolver, &
                  'Timestep interval', 1, Var % Values )
 
@@ -539,7 +549,8 @@ CONTAINS
     Var => RefMesh % Variables
     DO WHILE( ASSOCIATED( Var ) )
        SELECT CASE( Var % Name )
-       CASE( 'coordinate 1', 'coordinate 2', 'coordinate 3', 'time' )
+       CASE( 'coordinate 1', 'coordinate 2', 'coordinate 3', 'time' , &
+             'timestep', 'timestep size', 'timestep interval' )
        CASE DEFAULT
           IF ( Var % DOFs == 1 ) THEN
              gotit = .FALSE.
