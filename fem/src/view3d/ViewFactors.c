@@ -47,7 +47,7 @@ Juha Ruokolainen/CSC - 24 Aug 1995
 #include <ViewFactors.h>
 #include "../../config.h"
 
-extern ShapeFunctionMatrix3[3][3],ShapeFunctionMatrix4[4][4];
+extern double ShapeFunctionMatrix3[3][3],ShapeFunctionMatrix4[4][4];
 
 
 static int MaxLev;

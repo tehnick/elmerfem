@@ -46,7 +46,7 @@ void elm_4node_quad_shape_functions(double a[4][4]);
 static double GeomNodes[MAX_GEOM_NODES][3],GeomNorms[MAX_GEOM_NODES][3];
 static int    GeomElem[MAX_GEOM_ELEM][4],Type[MAX_GEOM_ELEM];
 
-double ShapeFunctionMatrix[16][16],ShapeFunctionMatrix4[4][4],ShapeFunctionMatrix3[3][3];
+extern double ShapeFunctionMatrix[16][16],ShapeFunctionMatrix4[4][4],ShapeFunctionMatrix3[3][3];
 
 void MakeTestModelCubic()
 {
