@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.58 2005/06/10 14:22:39 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.59 2005/06/16 07:18:52 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1541,19 +1541,18 @@ fi
 
 dnl
 dnl see how well fortran cpp does
+dnl explicitely set acx_fortran_cpp_ok=yes, if we know that the fortran compiler can handle 
+dnl our C/Fortran preprocessing intructions
 dnl
 AC_DEFUN([ACX_FORTRAN_CPP], 
 [
 AC_PREREQ(2.50)
-acx_fortran_cpp_ok=yes
+acx_fortran_cpp_ok=no
 
 case "$FC" in
 	*g95* | ifort | ifc)
 		FORTRAN_CPP_FLAG="-cpp"
-	;;
-
-	xlf9* | mpxlf9*)
-		FORTRAN_CPP_FLAG="-qsuffix=cpp=f90"
+		acx_fortran_cpp_ok=yes
 	;;
 esac
 AC_SUBST(FORTRAN_CPP_FLAG)
