@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.57 2005/06/10 13:14:00 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.58 2005/06/10 14:22:39 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1193,7 +1193,7 @@ case "$canonical_host_type" in
   ;;
   *-*-linux* | *-*-gnu*)
 	RPATH_FLAG="-Wl,-rpath "
-	SH_EXPALL_FLAG="-Wl,-export_dynamic"
+	SH_EXPALL_FLAG="-Wl,--export-dynamic"
   ;;
   i[[3456]]86-*-sco3.2v5*)
     SH_LDFLAGS="-G"
@@ -1535,3 +1535,26 @@ else
         $2
 fi
 ])dnl ACX_TCLTK
+
+
+
+
+dnl
+dnl see how well fortran cpp does
+dnl
+AC_DEFUN([ACX_FORTRAN_CPP], 
+[
+AC_PREREQ(2.50)
+acx_fortran_cpp_ok=yes
+
+case "$FC" in
+	*g95* | ifort | ifc)
+		FORTRAN_CPP_FLAG="-cpp"
+	;;
+
+	xlf9* | mpxlf9*)
+		FORTRAN_CPP_FLAG="-qsuffix=cpp=f90"
+	;;
+esac
+AC_SUBST(FORTRAN_CPP_FLAG)
+])

@@ -26,7 +26,7 @@
 #define ELMER_LINKTYP 4
 
 /* Elmer solver default install directory */
-#define ELMER_SOLVER_HOME "/home/vierinen/share/elmersolver"
+#define ELMER_SOLVER_HOME "/home/vierinen//share/elmersolver"
 
 /* Define if using dynamic linking */
 #define ENABLE_DYNAMIC_LINKING 1

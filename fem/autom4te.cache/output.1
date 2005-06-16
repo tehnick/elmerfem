@@ -713,8 +713,11 @@ ARPACK_LIBS
 PARPACK_LIBS
 UMFPACK_LIBS
 MATC_LIBS
+FORTRAN_CPP_FLAG
 USE_MPI_TRUE
 USE_MPI_FALSE
+USE_CPP_TRUE
+USE_CPP_FALSE
 USE_LOCAL_MPIF_H_TRUE
 USE_LOCAL_MPIF_H_FALSE
 SH_LDFLAGS
@@ -2401,6 +2404,11 @@ fi
 
   MAINT=$MAINTAINER_MODE_TRUE
   
+
+
+
+
+
 
 
 
@@ -8778,7 +8786,7 @@ case "$canonical_host_type" in
   ;;
   *-*-linux* | *-*-gnu*)
 	RPATH_FLAG="-Wl,-rpath "
-	SH_EXPALL_FLAG="-Wl,-export_dynamic"
+	SH_EXPALL_FLAG="-Wl,--export-dynamic"
   ;;
   i[3456]86-*-sco3.2v5*)
     SH_LDFLAGS="-G"
@@ -13460,6 +13468,22 @@ echo "$as_me: error: The MPI version needs parpack. Disabling MPI." >&2;}
 fi
 fi
 
+
+
+acx_fortran_cpp_ok=yes
+
+case "$FC" in
+	*g95* | ifort | ifc)
+		FORTRAN_CPP_FLAG="-cpp"
+	;;
+
+	xlf9* | mpxlf9*)
+		FORTRAN_CPP_FLAG="-qsuffix=cpp=f90"
+	;;
+esac
+
+
+
  
 
 if test "$acx_mpi_ok" = "yes"; then
@@ -13468,6 +13492,16 @@ if test "$acx_mpi_ok" = "yes"; then
 else
   USE_MPI_TRUE='#'
   USE_MPI_FALSE=
+fi
+
+ 
+
+if test "$acx_fortran_cpp_ok" != "yes"; then
+  USE_CPP_TRUE=
+  USE_CPP_FALSE='#'
+else
+  USE_CPP_TRUE='#'
+  USE_CPP_FALSE=
 fi
 
  
@@ -13787,6 +13821,13 @@ if test -z "${USE_MPI_TRUE}" && test -z "${USE_MPI_FALSE}"; then
   { { echo "$as_me:$LINENO: error: conditional \"USE_MPI\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
 echo "$as_me: error: conditional \"USE_MPI\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+if test -z "${USE_CPP_TRUE}" && test -z "${USE_CPP_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"USE_CPP\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"USE_CPP\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
@@ -14447,8 +14488,11 @@ s,@ARPACK_LIBS@,$ARPACK_LIBS,;t t
 s,@PARPACK_LIBS@,$PARPACK_LIBS,;t t
 s,@UMFPACK_LIBS@,$UMFPACK_LIBS,;t t
 s,@MATC_LIBS@,$MATC_LIBS,;t t
+s,@FORTRAN_CPP_FLAG@,$FORTRAN_CPP_FLAG,;t t
 s,@USE_MPI_TRUE@,$USE_MPI_TRUE,;t t
 s,@USE_MPI_FALSE@,$USE_MPI_FALSE,;t t
+s,@USE_CPP_TRUE@,$USE_CPP_TRUE,;t t
+s,@USE_CPP_FALSE@,$USE_CPP_FALSE,;t t
 s,@USE_LOCAL_MPIF_H_TRUE@,$USE_LOCAL_MPIF_H_TRUE,;t t
 s,@USE_LOCAL_MPIF_H_FALSE@,$USE_LOCAL_MPIF_H_FALSE,;t t
 s,@SH_LDFLAGS@,$SH_LDFLAGS,;t t

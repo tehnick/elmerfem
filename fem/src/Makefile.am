@@ -21,11 +21,21 @@ all-local: $(ELMER_TARGETS)
 
 SUFFIXES: .f90 .so .src
 
+if USE_CPP
+# Use basic CPP
 .src.f90:
 	$(CPP) $(FCPPFLAGS) $< > $*.f90
 
 .f90.$(OBJEXT):
 	$(FC) $(FCFLAGS) -c $<
+else
+# Use fortran built-in cpp
+.src.f90:
+	$(CP) $< $*.f90
+
+.f90.$(OBJEXT):
+	$(FC) $(FCFLAGS) $(FORTRAN_CPP_FLAG) $(FCPPFLAGS) -c $<
+endif
 
 libelmersolver$(SHL_EXT): $(SOLVEROBJS) 
 	$(RM) $@
