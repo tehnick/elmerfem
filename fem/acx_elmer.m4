@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.62 2005/06/16 09:36:57 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.63 2005/06/16 10:38:37 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1388,6 +1388,12 @@ esac
 case "$SH_LD" in
    ifc)
 	SH_LD="$SH_LD -Vaxlib"
+   ;;
+esac
+
+case "$SH_LD2" in
+   ifc)
+	SH_LD2="$SH_LD2 -Vaxlib"
    ;;
 esac
 

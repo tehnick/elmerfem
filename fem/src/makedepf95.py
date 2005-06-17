@@ -97,7 +97,7 @@ class SimpleF90Parser:
         # get object name 
         om=self.fileToObject.search(fname)
         if om:
-            oname = om.group(1) + ".o"
+            oname = om.group(1) + ".$(OBJEXT)"
             return oname
         else:
             print "fatal, name couldn't be created " , fname
