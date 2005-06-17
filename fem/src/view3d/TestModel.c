@@ -194,6 +194,10 @@ void MakeTestModelCubic()
     fprintf( stderr, "ELEMENTS: %d\n", s );
 }
 
+fprintf( stderr, "%d\n", 1 );
+   Elements = malloc( NElements*sizeof(Geometry_t) );
+
+fprintf( stderr, "%d\n", 2 );
    for( i=0; i<NElements; i++ )
    {
         XMin = YMin = ZMin =  DBL_MAX;
@@ -235,10 +239,13 @@ void MakeTestModelCubic()
         Elements[i].BBox.ZMax = ZMax;
    }
 
+fprintf( stderr, "%d\n", 3 );
 #if 1
    fprintf( stderr, "SIZE: %d\n", NElements*sizeof(Geometry_t) );
+   Geometry = malloc( NElements*sizeof(Geometry_t) );
    memcpy( Geometry,Elements,NElements*sizeof(Geometry_t) );
 
+fprintf( stderr, "%d\n", 4 );
    for( i=0; i<NElements; i++ )
    {
        Geometry[i].GeometryType = GEOMETRY_BICUBIC;
@@ -253,6 +260,7 @@ void MakeTestModelCubic()
        Geometry[i].BiCubic = (BiCubic_t *)calloc( sizeof(BiCubic_t),1 );
        memcpy( Geometry[i].BiCubic,Elements[i].BiCubic,sizeof(BiCubic_t) );
    }
+fprintf( stderr, "%d\n", 5 );
 #endif
 
    NGeomElem = NElements;

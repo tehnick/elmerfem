@@ -200,12 +200,6 @@ static void IntegrateFromGeometry(int N,double *Factors)
     while( i<N )
     {
         Elements[i].Area = (*AreaCompute[Elements[i].GeometryType])(&Elements[i]);
-#if 0
-        if ( Elements[i].Area < 1.0e-5 )
-        {
-          fprintf( stderr, "ääh %d %g %d\n",i,Elements[i].Area,Elements[i].GeometryType );
-        }
-#endif
         Elements[i].Flags |= GEOMETRY_FLAG_LEAF;
         i++;
     }
@@ -216,20 +210,9 @@ static void IntegrateFromGeometry(int N,double *Factors)
     k = 0;
     for( i=0; i<N; i++ )
     {
-#ifdef WIN32
-#include <time.h>
-#endif
-        static double t1=0,t2=0;
-        extern double second();
+         if ( Elements[i].Area<1.0e-10 ) continue;
 
-        if ( Elements[i].Area<1.0e-10 ) continue;
-#ifdef WIN32
-        t1 = clock() / (double)CLOCKS_PER_SEC;
-#else
-        t1 = second();
-#endif
-
-         fprintf( stderr, "row = % 4d of %d, ",i+1,N );
+         fprintf( stderr, "row = % 4d of %d\n",i+1,N );
          for( j=i; j<N; j++ )
          { 
             if ( Elements[j].Area<1.0e-10 ) continue;
@@ -249,15 +232,7 @@ static void IntegrateFromGeometry(int N,double *Factors)
 
          fflush( stdout );
 
-#ifdef WIN32
-         t1 = clock() / (double)CLOCKS_PER_SEC - t1;
-         t2 += t1;
-#else
-         t1  = second() - t1;
-         t2 += t1;
-#endif
          PrintMesh( &Elements[i] );
-
          FreeChilds( Elements[i].Left );
          Elements[i].Left = NULL;
 
@@ -276,7 +251,7 @@ static void IntegrateFromGeometry(int N,double *Factors)
 
          if ( s < Fmin )
          {
-             Fmin = s;
+            Fmin = s;
             Imin = i+1;
          }
 
@@ -289,12 +264,13 @@ static void IntegrateFromGeometry(int N,double *Factors)
          Favg += s;
          k++;
 
-         fprintf( stderr, "sum=%-4.2f, (min(%d)=%-4.2f, max(%d)=%-4.2f, avg=%-4.2f) %4.2f %4.2f\n",
-                        s,Imin,Fmin,Imax,Fmax,Favg/k,t1,t2 );
+         fprintf( stderr, "sum=%-4.2f, (min(%d)=%-4.2f, max(%d)=%-4.2f, avg=%-4.2f)\n", 
+                        s,Imin,Fmin,Imax,Fmax,Favg/k );
     }
 
     free( RowSums );
 
+#if 0
     for( i=0;i<N; i++ )
     {
       fprintf( stdout, "%g %g %g\n",
@@ -319,9 +295,7 @@ static void IntegrateFromGeometry(int N,double *Factors)
 
     }
 
-
-#if 0
-    for( i=0; i<N; i++ )
+   for( i=0; i<N; i++ )
        fprintf( stdout, "1 404 %d %d %d %d\n", 4*i+0,4*i+1,4*i+2,4*i+3 );
           i=123;
 
@@ -565,11 +539,16 @@ void main( int argc,char **argv)
     ReadParams();
 
     InitGeometryTypes();
+fprintf( stderr, "make model\n" );
     MakeTestModelLinear();
 
+fprintf( stderr, "init vol\n" );
     InitVolumeBounds( 1,NElements,Elements );
 
+fprintf( stderr, "alloc fact\n" );
     Factors = calloc( NElements,sizeof(double) );
+fprintf( stderr, "make view\n" );
     MakeViewFactorMatrix( NElements,Factors,4,3 );
+fprintf( stderr, "done \n" );
 }
 #endif
