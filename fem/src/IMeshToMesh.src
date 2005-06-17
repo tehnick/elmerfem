@@ -253,9 +253,12 @@
           Var => NewVariables
           DO WHILE( ASSOCIATED( Var ) )
 
-             IF ( (Var % DOFs == 1) .AND. &
-                 (Var % Name(1:10) /= 'coordinate') .AND. &
-                    (Var % Name(1:4) /= 'time') ) THEN
+             IF ( Var % DOFs == 1 .AND. &
+                  Var % Name(1:10) /= 'coordinate' .AND. &
+                  Var % Name /= 'time'             .AND. &
+                  Var % Name /= 'timestep'         .AND. &
+                  Var % Name /= 'timestep size'    .AND. &
+                  Var % Name /= 'timestep interval' ) THEN
 
 !------------------------------------------------------------------------------
 !
@@ -425,8 +428,11 @@ CONTAINS
         Var => OldVariables
         DO WHILE( ASSOCIATED(Var) )
            IF ( Var % DOFs == 1 .AND. &
-              (Var % Name(1:10) /= 'coordinate') .AND. &
-                 (Var % Name(1:4) /= 'time') ) THEN
+                Var % Name(1:10) /= 'coordinate' .AND. &
+                Var % Name /= 'time'             .AND. &
+                Var % Name /= 'timestep'         .AND. &
+                Var % Name /= 'timestep size'    .AND. &
+                Var % Name /= 'timestep interval' ) THEN
  
               OldSol => VariableGet( OldMesh % Variables, Var % Name, .TRUE. )
               NewSol => VariableGet( NewMesh % Variables, Var % Name, .TRUE. )

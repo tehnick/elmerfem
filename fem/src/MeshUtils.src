@@ -33,6 +33,9 @@
 ! *       Date of modification: 27.8.2002
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.5  2005/05/26 12:33:15  jpr
+! * Removed explicit DLLEXPORT definitions
+! *
 ! * Revision 1.4  2005/05/26 10:41:21  jpr
 ! * a minor bug fix in AssignLocalNumber
 ! *
@@ -62,7 +65,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.4 2005/05/26 10:41:21 jpr Exp $
+! * $Id: MeshUtils.src,v 1.5 2005/05/26 12:33:15 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -3734,7 +3737,8 @@ CONTAINS
     DO WHILE( ASSOCIATED( Var ) ) 
 
        SELECT CASE( Var % Name )
-         CASE( 'time', 'coordinate 1', 'coordinate 2', 'coordinate 3' )
+         CASE( 'time', 'timestep', 'timestep size', 'timestep interval', &
+                   'coordinate 1', 'coordinate 2', 'coordinate 3' )
             NULLIFY( Var % Values )
             NULLIFY( Var % Perm )
             NULLIFY( Var % PrevValues )
