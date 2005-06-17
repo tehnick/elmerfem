@@ -4,7 +4,7 @@ AC_INIT(src/ecif_main.cpp)
 AC_CANONICAL_HOST
 AC_CANONICAL_TARGET
 
-AM_INIT_AUTOMAKE(front, 1.0.0)
+AM_INIT_AUTOMAKE(front, 4.0.1)
 
 dnl Checks for programs.
 AC_LANG_COMPILER
@@ -24,37 +24,55 @@ AC_STDC_HEADERS
 
 AC_PATH_X
 
-LIBS="$LIBS -lX11 -L$x_libraries -L$prefix/lib "
-CFLAGS="$CFLAGS -I$prefix/include -I$x_includes"
-CXXFLAGS="$CXXFLAGS -I$prefix/include $CXXFLAGS -I$x_includes -I$x_includes/X11"
+LIBS="$LIBS -L$prefix/lib "
+CFLAGS="$CFLAGS -I$prefix/include"
+CXXFLAGS="$CXXFLAGS -I$prefix/include"
+
+AC_SUBST(prefix)
+AC_DEFINE_UNQUOTED(ELMER_FRONT_PREFIX,"${prefix}", [Elmer Front installation prefix...])
 
 sinclude(acx_elmer.m4)
-sinclude(ax_check_gl.m4)
-sinclude(ax_check_glu.m4)
-sinclude(ax_lang_compiler_ms.m4)
-sinclude(acx_pthread.m4)
-sinclude(acx_check_tcltk.m4)
+sinclude(acx_gl.m4)
 
-AC_CHECK_LIB(stdc++, main,,AC_MSG_WARN(libstdc++ not found))
 AC_CHECK_LIB(m, sin,,AC_MSG_ERROR(elmer fron the math library))
-ACX_EIOC([], [AC_MSG_ERROR([libeioc not found, using local one instead])])
+ACX_EIOC([], [AC_MSG_ERROR([libeioc not found, install it first.])])
 ACX_MATC([], [AC_MSG_ERROR([libmatc $ELMER_LIBERRORMSG])])
-AC_CHECK_LIB(front, emf_readDataCB,,AC_MSG_ERROR(elmer requires libfront),[$MATC_LIBS $EIO_LIBS -lm])
-AX_CHECK_GL([],[AC_MSG_ERROR([OpenGL not found.])])
-AX_CHECK_GLU([],[AC_MSG_ERROR([GLU not found.])])
-dnl ACX_CHECK_TCL([],[AC_MSG_ERROR([Tcl not found.])])
-dnl ACX_CHECK_TK([],[AC_MSG_ERROR([Tk not found.])])
+ACX_CHECK_GL([],[AC_MSG_ERROR([OpenGL not found.])])
+ACX_CHECK_GLU([],[AC_MSG_ERROR([GLU not found.])])
+ACX_TCLTK([],[AC_MSG_ERROR([Tcl/tk not found.])])
 
-
-LIBS="$MATC_LIBS $EIOC_LIBS -lfront $LIBS $GL_LIBS $GLU_LIBS"
-CFLAGS="$CFLAGS $GL_CFLAGS $GLU_CFLAGS"
-CXXFLAGS="$CXXFLAGS $GL_CFLAGS $GLU_CFLAGS"
+LIBS="$LIBS $MATC_LIBS $EIOC_LIBS $LIBS $GL_LIBS $GLU_LIBS $TCLTK_LIBS"
+CFLAGS="$CFLAGS $GL_CFLAGS $GLU_CFLAGS $TCLTK_INCLUDE"
+CXXFLAGS="$CXXFLAGS $GL_CFLAGS $GLU_CFLAGS $TCLTK_INCLUDE"
 
 dnl Checks for header files.
 
 AC_CONFIG_HEADER(config.h) 
 AC_OUTPUT([
 Makefile
+src/tcl/ecif_tcl_mainScript.tcl
 include/Makefile
 src/Makefile
+])
+
+AC_MSG_RESULT([
+ElmerFront build options:
+  Version                   $VERSION
+  Install prefix            $prefix
+  CFLAGS                    $CFLAGS
+  CXXFLAGS                  $CXXFLAGS
+  FCFLAGS                   $FCFLAGS
+
+  LDFLAGS                   $LDFLAGS
+  LIBS                      $LIBS
+
+Compilers:
+  Fortran 90 compiler       $FC
+  CC                        $CC
+  C++                       $CXX
+
+Libs:  
+  OpenGL                    $GL_LIBS $GLU_LIBS
+  MATC			    $MATC_LIBS
+  Tcl/Tk		    $TCLTK_LIBS
 ])

@@ -30,6 +30,8 @@ Abstract:   Implementation
 
 ************************************************************************/
 
+#include "../config.h"
+
 #if defined(WIN32)
   #include <direct.h>
 #else
@@ -5016,8 +5018,12 @@ UserInterface_TCL::setParameterData(Model* model, ecif_parameterType param_type,
 
     //---Save data into model
     //model->setParameter(param_type, pid, oid, prtag, prtype, data_buffer, name_buffer);
-    
-    model->setParameter(param_type, pid, oid, data_buffer, name_buffer);
+    if((int)name_buffer == 0x1) 
+    {
+      printf("shit\n");
+    } else {
+	  model->setParameter(param_type, pid, oid, data_buffer, name_buffer);
+    }
 
     /*    delete[] data_buffer; data_buffer = NULL;
     delete[] name_buffer; name_buffer = NULL;
@@ -5223,6 +5229,7 @@ UserInterface_TCL::start(int argc, char** argv)
     lib_strm  <<  "./"
               << ends;
     // Try to open start-script!
+    printf("Trying %s\n",file_buffer);
     if ( NULL != fopen(file_buffer, "r") ) {
       path_found = true;
     }
@@ -5238,6 +5245,7 @@ UserInterface_TCL::start(int argc, char** argv)
     lib_strm  << "./tcl/"
               << ends;
     // Try to open start-script!
+    printf("Trying %s\n",file_buffer);
     if ( NULL != fopen(file_buffer, "r") ) {
       path_found = true;
     }
@@ -5255,6 +5263,7 @@ UserInterface_TCL::start(int argc, char** argv)
       lib_strm  << elmer_front_home
                 << "/"
                 << ends;
+      printf("Trying %s\n",file_buffer);
       // Try to open start-script!
       if ( NULL != fopen(file_buffer, "r") ) {
         path_found = true;
@@ -5267,7 +5276,7 @@ UserInterface_TCL::start(int argc, char** argv)
     if (elmer_front_home != NULL) {
       file_strm.seekp(0);
       lib_strm.seekp(0);
-      file_strm << elmer_front_home << "/"
+      file_strm << elmer_front_home
                 << front_tcl_path << "/"
                 << controlSideScript
                 << ends;
@@ -5275,12 +5284,35 @@ UserInterface_TCL::start(int argc, char** argv)
                 << front_tcl_path
                 << "/"
                 << ends;
+      printf("Trying %s\n",file_buffer);
       // Try to open start-script!
       if ( NULL != fopen(file_buffer, "r") ) {
         path_found = true;
       }
     }
   }
+
+  //-5. try TCL-path via installation prefix
+  if (!path_found) {
+    file_strm.seekp(0);
+    lib_strm.seekp(0);
+    
+    file_strm << ELMER_FRONT_PREFIX 
+              << "share/elmerfront"
+	      << front_tcl_path  << "/"
+	      << controlSideScript
+	      << ends;
+    lib_strm  << ELMER_FRONT_PREFIX 
+	      << "share/elmerfront/tcl/"
+	      << ends;
+    // Try to open start-script!
+    printf("Trying %s\n",file_buffer);
+    if ( NULL != fopen(file_buffer, "r") ) 
+    {
+      path_found = true;
+    }
+  }
+
 
   //---Message to the user
   // ERROR

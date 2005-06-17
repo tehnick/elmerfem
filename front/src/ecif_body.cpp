@@ -910,7 +910,7 @@ Body::canHaveZeroVelocityElements()
   ParameterField* pf = eq->getFieldBySifName("Navier-Stokes");
 
   if ( pf != NULL ) {
-    const char** data = pf->getDataStrings();
+    char** data = pf->getDataStrings();
 
     if ( LibFront::ncEqual((char*)data[0], "true") ) {
       return true;

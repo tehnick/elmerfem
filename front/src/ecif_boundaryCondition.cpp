@@ -123,7 +123,7 @@ BoundaryCondition::hasZeroVelocity()
     pf->getDataDimension(dim1, dim2, nofVars);
 
     // Get constraint data package
-    const char** data = pf->getDataStrings();
+    char** data = pf->getDataStrings();
 
     double value;
 

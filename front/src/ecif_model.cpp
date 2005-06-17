@@ -3502,7 +3502,7 @@ Model::getNofTimestepSteps()
 
     int ts_count = 0;
 
-    const char** data = ts_intervals->getDataStrings();
+    char** data = ts_intervals->getDataStrings();
     int nof_entries = ts_intervals->getNofDataStrings();
 
     if (nof_entries > 0) {
@@ -3778,7 +3778,7 @@ Model::getSymmetryAxis(double start[3], double end1[3], double end2[3] )
   if (param_field == NULL)
     return false;
 
-  const char** symmetry_data = param_field->getDataStrings();
+  char** symmetry_data = param_field->getDataStrings();
   char* symmetry = (char*)symmetry_data[0];
 
   //-Ok, find symmetry axis based on model box
@@ -7291,16 +7291,31 @@ Model::setParameter(ecif_parameterType parameter_type,
   if (parameter_type == ECIF_COORDINATE) {
 
     ParameterField* pf;
-    const char** data = NULL;
+    char** data = NULL;
 
     pf = parameter->getFieldBySifName("Coordinate System");
-    data = pf->getDataStrings();
-    modelInfo->updateCoordinateType(data[0]);
-    modelInfo->updateSimulationDimension(data[0]);
+
+    if(pf != NULL) 
+    {
+      data = pf->getDataStrings();
+
+      modelInfo->updateCoordinateType(data[0]);
+      modelInfo->updateSimulationDimension(data[0]);
+
+    } else {
+      printf("Shit. pf is null, something went wrong\n");
+    }
+
 
     pf = parameter->getFieldBySifName("Coordinate Mapping");
-    data = pf->getDataStrings();
-    modelInfo->updateCoordinateMapping(data[0]);
+
+    if(pf != NULL) 
+    {
+      data = pf->getDataStrings();
+      modelInfo->updateCoordinateMapping(data[0]);
+    } else {
+      printf("Shit. pf is null, something went wrong\n");
+    }
 
     Renderer* renderer = theControlCenter->getRenderer();
 

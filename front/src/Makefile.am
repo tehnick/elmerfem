@@ -69,3 +69,13 @@ Front_SOURCES = \
 	frontlib.cpp \
 	ecif_userSettings.cpp 
 
+install-data-local:
+	@echo "Installing tcl scripts to ${prefix}/share/elmerfront/tcl"
+
+	mkdir -p "${prefix}/share/elmerfront/tcl"
+	cp -r ./tcl/* "${prefix}/share/elmerfront/tcl"
+
+	@echo "Installing *.edf *.rgb to ${prefix}/share/elmerfront/lib"
+	mkdir -p "${prefix}/share/elmerfront/lib"
+	cp -r ./lib/* "${prefix}/share/elmerfront/lib"
+

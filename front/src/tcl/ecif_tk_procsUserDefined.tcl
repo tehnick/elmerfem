@@ -2057,7 +2057,7 @@ proc UserDefined::addToDefinitionLog { line {indent_level 0} } {
 
 
 ############################
-# SOLVER.KEYWORDS file stuff
+# SOLVER.KEYWODSDS file stuff
 ############################
 
 # Load all possible (updated) SOLVER.KEYWORD files
@@ -2067,6 +2067,18 @@ proc UserDefined::loadSolverKeywordsFiles {} {
 
 	#--Possible ELMER_HOME/lib version
 	set kwd_file "$Info(ELMER_HOME)/lib/SOLVER.KEYWORDS"
+
+	if { [file exists $kwd_file] } {
+		set mtm [file mtime $kwd_file]
+		if { $kwd_file != $Info(file_SKWD_lib) || $mtm != $Info(mtime_SKWD_lib) } {
+			set Info(file_SKWD_lib) $kwd_file
+			set Info(mtime_SKWD_lib) $mtm
+			UserDefined::readSolverKeywordsFile $kwd_file "lib"
+		}
+	}
+
+	#--Possible ELMER_FRONT_PREFIX/lib version
+	set kwd_file "$Info(ELMER_FRONT_INSTALL_LIB)/SOLVER.KEYWORDS"
 
 	if { [file exists $kwd_file] } {
 		set mtm [file mtime $kwd_file]

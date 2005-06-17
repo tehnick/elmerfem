@@ -100,7 +100,7 @@ Timestep::output_sif(ostream& out, short indent_size, short indent_level, SifOut
   bool is_steady = true;
   ParameterField* pf = getFieldBySifName("Simulation Type");
 
-  const char** data = pf->getDataStrings();
+  char** data = pf->getDataStrings();
   if ( LibFront::in("transient", data[0]) ) {
     is_steady = false;
   }

@@ -4516,16 +4516,28 @@ proc MenuExec::readColorFile { {type "front"} } {
   
   set path ""
   set fn "rgb.txt"
+  set places {ELMER_FRONT_BUILD_LIB ELMER_FRONT_INSTALL_LIB}
 
   #-Search in Front-lib
   #
   if { $type == "front" } {
+
     if { [info exists Info(ELMER_FRONT_HOME)] &&
          $Info(ELMER_FRONT_HOME) != ""
        } {
       set path [file join $Info(ELMER_FRONT_HOME) lib]
-    }
 
+    }
+  } elseif {$type == "elmer"} {
+	foreach place $places {
+
+	    if { [info exists Info($place)] && $Info($place) != "" } {
+		set path [file join $Info($place) $fn]
+		if { [file exist $path] } {
+		    set path $Info($place)
+		}
+	    }
+	}
   #-Search in elmer-user's home directory
   #
   } elseif { $type == "user" } {

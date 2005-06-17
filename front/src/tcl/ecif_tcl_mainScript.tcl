@@ -182,6 +182,15 @@ proc startGUI {} {
 }
 
 
+proc setElmerFrontPaths {} {
+    global Info
+    set Info(ELMER_FRONT_INSTALL_LIB) "/home/vierinen//share/elmerfront/lib"
+    set Info(ELMER_FRONT_INSTALL_TCL) "/home/vierinen//share/elmerfront/tcl"
+    set Info(ELMER_FRONT_BUILD_LIB) "./lib"
+    set Info(ELMER_FRONT_BUILD_TCL) "./tcl"
+}
+
+
 ##################### 
 # Set platform info #
 #####################
@@ -248,6 +257,8 @@ proc initEnvironment {} {
   set Info(workingDirectory) [pwd] ;# This is the PWD when it is needed
   set Info(currentDirectory) [pwd] ;# This is for "debugging" (monitoring)
 
+  puts "Setting up paths"
+  setElmerFrontPaths
 
   # Init script-path if not defined
   if { 0 == [info exists Info(frontScriptPath)] } {
@@ -419,7 +430,7 @@ proc initEnvironment {} {
       set Info($special) 0
     }
   }
-
+   
 } ;# End initEnvironment
 
 
@@ -479,7 +490,7 @@ proc checkDefaultSettingFiles {} {
 proc checkDefaultDefinitionFiles {} {
   global Info Model
 
-  set evs {ELMER_FRONT_DEFINITIONS ELMER_USER_HOME}
+  set evs {ELMER_FRONT_DEFINITIONS ELMER_USER_HOME ELMER_FRONT_BUILD_LIB ELMER_FRONT_INSTALL_LIB}
   set fn "front.edf"
 
   if { [info exists Info(ELMER_HOME)] &&
@@ -501,7 +512,6 @@ proc checkDefaultDefinitionFiles {} {
       }
     }
   }
-
 }
 
 

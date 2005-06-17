@@ -631,7 +631,6 @@ Parameter::getFieldBySifName(const char* fname, bool only_active)
       }
     }
   }
-
   return NULL;
 }
 
@@ -649,7 +648,7 @@ Parameter::getFieldValueBySifName(const char* name, bool& value, bool only_activ
   if (pf == NULL)
     return false;
 
-  const char** data_strings = pf->getDataStrings();
+  char** data_strings = pf->getDataStrings();
 
   if ( 0 == strcmp(data_strings[0], "True") )
     value = true;
@@ -684,7 +683,7 @@ Parameter::getFieldValueBySifName(const char* name, int& nof_values, bool*& valu
 
   values = new bool[nof_values];
 
-  const char** data_strings = pf->getDataStrings();
+  char** data_strings = pf->getDataStrings();
 
   strstream strm;
   strm << data_strings[0] << ends;
@@ -715,7 +714,7 @@ Parameter::getFieldValueBySifName(const char* name, int max_buffer_len, char* bu
   if (pf == NULL)
     return false;
 
-  const char** data = pf->getDataStrings();
+  char** data = pf->getDataStrings();
 
   strncpy(buffer, (char*)data[0], max_buffer_len);
 
@@ -737,7 +736,7 @@ Parameter::getFieldValueBySifName(const char* name, int& value, bool only_active
   if (pf == NULL)
     return false;
 
-  const char** data = pf->getDataStrings();
+  char** data = pf->getDataStrings();
 
   if ( !LibFront::isNumber(data[0]) )
     return false;
@@ -770,7 +769,7 @@ Parameter::getFieldValueBySifName(const char* name, int& nof_values, int*& value
 
   values = new int[nof_values];
 
-  const char** data_strings = pf->getDataStrings();
+  char** data_strings = pf->getDataStrings();
 
   strstream strm;
   strm << data_strings[0];
@@ -795,7 +794,7 @@ Parameter::getFieldValueBySifName(const char* name, double& value, bool only_act
   if (pf == NULL)
     return false;
 
-  const char** data = pf->getDataStrings();
+  char** data = pf->getDataStrings();
 
   if ( !LibFront::isNumber(data[0]) )
     return false;
@@ -828,7 +827,7 @@ Parameter::getFieldValueBySifName(const char* name, int& nof_values, double*& va
 
   values = new double[nof_values];
 
-  const char** data_strings = pf->getDataStrings();
+  char** data_strings = pf->getDataStrings();
 
   strstream strm;
   strm << data_strings[0];
@@ -930,8 +929,8 @@ Parameter::getFieldValueStateBySifName(const char* name, bool& has_value, bool& 
 
   // If string-pairs are not similar
   // NOTE: again not reliable test !!!***!!!
-  const char** ds_previous = pf_previous->getDataStrings();
-  const char** ds_current = pf->getDataStrings();
+  char** ds_previous = pf_previous->getDataStrings();
+  char** ds_current = pf->getDataStrings();
   for (int i = 0; i < nof_ds_current; i++) {
       if ( !strcmp(ds_previous[i], ds_current[i]) )
         return;
@@ -1016,7 +1015,7 @@ Parameter::hasFieldValueBySifName(const char* name, char* value)
     return false;
 
   int nof_ds = pf->getNofDataStrings();
-  const char** data_strings = pf->getDataStrings();
+  char** data_strings = pf->getDataStrings();
 
   for (int i = 0; i < nof_ds; i++) {
     if ( 0 == strcmp(value, data_strings[i]) ) {
@@ -1042,7 +1041,7 @@ Parameter::IsActive()
     return true;
   }
 
-  const char** data = pf->getDataStrings();
+  char** data = pf->getDataStrings();
 
   if ( !LibFront::ncEqual((char*)data[0], "true") ) {
     return false;

@@ -45,7 +45,7 @@ public:
                  short nof_variables,
                  short nof_data_strings, char** data_value_strings);
   ~ParameterField();
-  const char** getDataStrings() { return (const char**)dataStrings;}
+  char** getDataStrings() { return dataStrings;}
   void getDataDimension(short& dim1, short& dim2, short& nof_variables)
                           { dim1 = dimension1;
                             dim2 = dimension2;

@@ -156,7 +156,7 @@ Equation::output_equationWithVariables_sif(ostream& out, short indent_size, shor
                                            ParameterField* equation_vars_pf)
 {
   const int var_count =  equation_vars_pf->getNofDataStrings();
-  const char** var_names = equation_vars_pf->getDataStrings();
+  char** var_names = equation_vars_pf->getDataStrings();
 
   for ( int i = 0; i < var_count; i++) {
 
