@@ -191,17 +191,15 @@ or radiosity, if requested.
 *******************************************************************************/
 static void IntegrateFromGeometry(int N,double *Factors)
 {
-    double T,s,F,Fmin=DBL_MAX,Fmax=-DBL_MAX,Favg=0.0,*RowSums;
+    double T,s,F,Fmin=DBL_MAX,Fmax=-DBL_MAX,Favg=0.0,*RowSums,Fact;
     int i,j,k,Imin,Imax;
 
     GeometryList_t *Link;
 
-    i=0;
-    while( i<N )
+    for( i=0; i<N; i++ )
     {
         Elements[i].Area = (*AreaCompute[Elements[i].GeometryType])(&Elements[i]);
         Elements[i].Flags |= GEOMETRY_FLAG_LEAF;
-        i++;
     }
 
     RowSums = (double *)calloc( N,sizeof(double) );
@@ -225,42 +223,45 @@ static void IntegrateFromGeometry(int N,double *Factors)
 
             (*ViewFactorCompute[Elements[i].GeometryType])( &Elements[i],&Elements[j],0,0 );
   
-            Factors[j] = ComputeViewFactorValue(&Elements[i],0) / Elements[i].Area;
+            Fact = ComputeViewFactorValue( &Elements[i],0 );
+            Factors[i*N+j] = Fact / Elements[i].Area;
+            Factors[j*N+i] = Fact / Elements[j].Area;
   
+#if 0
             if ( Factors[j] != 0.0 ) fprintf( stdout, "%d %d %g\n", i+1,j+1, Factors[j]);
+#endif
          }
 
          fflush( stdout );
 
+#if 0
          PrintMesh( &Elements[i] );
+#endif
          FreeChilds( Elements[i].Left );
          Elements[i].Left = NULL;
 
          FreeChilds( Elements[i].Right );
          Elements[i].Right = NULL;
 
-         RowSums[i] += Factors[i];
+         RowSums[i] += Factors[i*N+i];
          for( j=i+1; j<N; j++ )
          {
            if ( Elements[j].Area < 1.0e-10 ) continue;
 
-           RowSums[i] += Factors[j];
-           RowSums[j] += Factors[j] * Elements[i].Area / Elements[j].Area;
+           RowSums[i] += Factors[i*N+j];
+           RowSums[j] += Factors[j*N+i];
          }
          s = RowSums[i];
-
          if ( s < Fmin )
          {
             Fmin = s;
             Imin = i+1;
          }
-
          if ( s > Fmax )
          {
             Fmax = s;
             Imax = i+1;
          }
-  
          Favg += s;
          k++;
 
@@ -479,6 +480,21 @@ void FC_FUNC(viewfactors3d,VIEWFACTORS3D)
    RayEPS    = *Reps; 
    FactorEPS = *Feps; 
 
+   elm_4node_quad_shape_functions(  ShapeFunctionMatrix4 );
+                                                                                                                                     
+   ShapeFunctionMatrix3[0][0] =  1.0;
+   ShapeFunctionMatrix3[0][1] = -1.0;
+   ShapeFunctionMatrix3[0][2] = -1.0;
+                                                                                                                                     
+   ShapeFunctionMatrix3[1][0] =  0.0;
+   ShapeFunctionMatrix3[1][1] =  1.0;
+   ShapeFunctionMatrix3[1][2] =  0.0;
+                                                                                                                                     
+   ShapeFunctionMatrix3[2][0] =  0.0;
+   ShapeFunctionMatrix3[2][1] =  0.0;
+   ShapeFunctionMatrix3[2][2] =  1.0;
+
+
    Elements = (Geometry_t *)calloc( *N,sizeof(Geometry_t) );
 
    for( i=0; i<*N; i++ )
@@ -493,9 +509,9 @@ void FC_FUNC(viewfactors3d,VIEWFACTORS3D)
            for( k=0; k<4; k++ )
            for( n=0; n<3; n++ )
            {
-              l = 3*(Topo[4*i+k]-1) + n;
+              l = 3*Topo[4*i+k]+n;
               Elements[i].BiLinear->PolyFactors[n][j]   += ShapeFunctionMatrix4[k][j]*Coord[l];
-              Elements[i].BiLinear->PolyFactors[n+3][j] += ShapeFunctionMatrix4[k][j]*Normals[l];
+              Elements[i].BiLinear->PolyFactors[n+3][j] += ShapeFunctionMatrix4[k][j]*Normals[3*i+n];
             }
          }
       } else if ( Type[i] == 303 )
@@ -508,15 +524,16 @@ void FC_FUNC(viewfactors3d,VIEWFACTORS3D)
            for( k=0; k<3; k++ )
            for( n=0; n<3; n++ )
            {
-              l = 3*(Topo[4*i+k]-1) + n;
+              l = 3*Topo[4*i+k] + n;
               Elements[i].Triangle->PolyFactors[n][j]   += ShapeFunctionMatrix3[k][j]*Coord[l];
-              Elements[i].Triangle->PolyFactors[n+3][j] += ShapeFunctionMatrix3[k][j]*Normals[l];
+              Elements[i].Triangle->PolyFactors[n+3][j] += ShapeFunctionMatrix3[k][j]*Normals[3*i+n];
             }
-         }
+        }
       }
    }
 
    InitGeometryTypes();
+   InitVolumeBounds( 1,*N, Elements );
    MakeViewFactorMatrix( *N,Factors,*NInteg,*NInteg3 );
 }
 
@@ -539,16 +556,11 @@ void main( int argc,char **argv)
     ReadParams();
 
     InitGeometryTypes();
-fprintf( stderr, "make model\n" );
     MakeTestModelLinear();
 
-fprintf( stderr, "init vol\n" );
     InitVolumeBounds( 1,NElements,Elements );
 
-fprintf( stderr, "alloc fact\n" );
     Factors = calloc( NElements,sizeof(double) );
-fprintf( stderr, "make view\n" );
     MakeViewFactorMatrix( NElements,Factors,4,3 );
-fprintf( stderr, "done \n" );
 }
 #endif

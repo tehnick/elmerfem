@@ -1318,6 +1318,7 @@ void VolumeDivide( VolumeBounds_t *Volume,int NBounds,Geometry_t *Elements,int L
     RightVolume->BBox.ZMax = RightVolume->BBox.ZMax + 
         MAX(1.0e-6,0.001*(RightVolume->BBox.ZMax-RightVolume->BBox.ZMin));
 
+#if 0
     fprintf( stdout, "1 %d %g %g %g %g %g %g\n", Level,
       LeftVolume->BBox.XMin,LeftVolume->BBox.YMin,
       LeftVolume->BBox.ZMin,LeftVolume->BBox.XMax,
@@ -1327,6 +1328,7 @@ void VolumeDivide( VolumeBounds_t *Volume,int NBounds,Geometry_t *Elements,int L
       RightVolume->BBox.XMin,RightVolume->BBox.YMin,
       RightVolume->BBox.ZMin,RightVolume->BBox.XMax,
       RightVolume->BBox.YMax,RightVolume->BBox.ZMax );
+#endif
 }
 
 

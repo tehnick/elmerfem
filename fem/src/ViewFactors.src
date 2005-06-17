@@ -75,6 +75,7 @@
      REAL(KIND=dp) :: NX,NY,NZ,NRM(3),DensL,DensR
 
      INTEGER :: divide
+     REAL(KIND=dp) :: AreaEPS, RayEPS, FactEPS
 
      INTEGER, POINTER :: Timesteps(:)
      INTEGER :: TimeIntervals,interval,timestep
@@ -330,7 +331,7 @@
        ElementNodes % y(1:k) = Model % Nodes % y( CurrentElement % NodeIndexes )
        ElementNodes % z(1:k) = Model % Nodes % z( CurrentElement % NodeIndexes )
 
-       IF ( CurrentElement % TYPE % ElementCode / 100 == 3 ) THEN
+       IF ( CurrentElement % Type % ElementCode / 100 == 3 ) THEN
          nrm = NormalVector( CurrentElement,ElementNodes, &
                  1.0d0 / 3.0d0, 1.0d0 / 3.0d0 )
        ELSE
@@ -399,8 +400,8 @@
            Surfaces(4*(t-1)+i) = CurrentElement % NodeIndexes(i) - 1
          END DO
 
-         TYPE(t) = 404
-         IF ( CurrentElement % TYPE % ElementCode / 100 == 3 ) TYPE(t) = 303
+         Type(t) = 404
+         IF ( CurrentElement % Type % ElementCode / 100 == 3 ) TYPE(t) = 303
 
          IF ( Nrm(1)*Nx + Nrm(2)*Ny + Nrm(3)*nz > 0 ) THEN
            Normals(3*(t-1)+1:3*(t-1)+3) = -Nrm
@@ -419,8 +420,14 @@
        IF ( .NOT. GotIt ) Divide = 1
        CALL ViewFactorsAxis( N, Surfaces, Coords, Factors, divide )
      ELSE
-       CALL ViewFactors3D( N, Surfaces, TYPE, Coords, Normals, &
-              Factors, 1.0d-1, 1.0d-2, 1.0d-5, 16, 3 )
+       AreaEPS = GetConstReal( GetSolverParams(), 'Viewfactor Area Tolerance',  GotIt )
+       IF ( .NOT. GotIt ) AreaEPS = 1.0d-1
+       FactEPS = GetConstReal( GetSolverParams(), 'Viewfactor Factor Tolerance ', GotIt )
+       IF ( .NOT. GotIt ) FactEPS = 1.0d-2
+       RayEPS = GetConstReal( GetSolverParams(), 'Viewfactor Raytrace Tolerace',  GotIt )
+       IF ( .NOT. GotIt ) RayEPS = 1.0d-5
+       CALL ViewFactors3D( N, Surfaces, Type, Coords, Normals, &
+              Factors, AreaEPS, FactEPS, RayEPS, 4, 3 )
      END IF
      CALL Info( 'ViewFactors', '...Done.', Level=4 )
 
