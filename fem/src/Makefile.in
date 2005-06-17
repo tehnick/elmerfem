@@ -876,6 +876,8 @@ uninstall-info: uninstall-info-recursive
 	mostlyclean-recursive pdf pdf-am ps ps-am tags tags-recursive \
 	uninstall uninstall-am uninstall-binPROGRAMS uninstall-info-am
 
+
+# FORTRAN_DEPENDENCIES
 Acoustics.o: Acoustics.f90 DefUtils.o LinearAlgebra.o
 Adaptive.o: Adaptive.f90 CRSMatrix.o ModelDescription.o GeneralUtils.o Types.o SolverUtils.o
 AdvectionDiffusion.o: AdvectionDiffusion.f90 MaterialModels.o DefUtils.o Differentials.o Integration.o SolverUtils.o
@@ -990,6 +992,7 @@ ViewFactors.o: ViewFactors.f90 DefUtils.o Types.o
 Walls.o: Walls.f90
 solve_cmplx.o: solve_cmplx.f90
 solve_real.o: solve_real.f90
+# FORTRAN_DEPENDENCIES
 
 all-local: $(ELMER_TARGETS)
 
@@ -1007,6 +1010,16 @@ SUFFIXES: .f90 .so .src
 
 @USE_CPP_FALSE@.f90.$(OBJEXT):
 @USE_CPP_FALSE@	$(FC) $(FCFLAGS) $(FORTRAN_CPP_FLAG) $(FCPPFLAGS) -c $<
+
+# remove cross dependencies from fortran files
+nofdeps:
+	sed -e 's/^\([^:]*.o: \)/#\1/g' Makefile > Makefile.nodeps
+	mv Makefile.nodeps Makefile
+
+# remove cross dependencies from fortran files
+fdeps:
+	sed -e 's/^#\([^:]*.o: \)/\1/g' Makefile > Makefile.deps
+	mv Makefile.deps Makefile
 
 libelmersolver$(SHL_EXT): $(SOLVEROBJS) 
 	$(RM) $@

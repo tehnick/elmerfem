@@ -37,6 +37,17 @@ else
 	$(FC) $(FCFLAGS) $(FORTRAN_CPP_FLAG) $(FCPPFLAGS) -c $<
 endif
 
+# remove cross dependencies from fortran files
+nofdeps:
+	sed -e 's/^\([^:]*.o: \)/#\1/g' Makefile > Makefile.nodeps
+	mv Makefile.nodeps Makefile
+
+# remove cross dependencies from fortran files
+fdeps:
+	sed -e 's/^#\([^:]*.o: \)/\1/g' Makefile > Makefile.deps
+	mv Makefile.deps Makefile
+
+
 libelmersolver$(SHL_EXT): $(SOLVEROBJS) 
 	$(RM) $@
 	$(SH_LD2) $(RPATH_ELMER) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) -L.
