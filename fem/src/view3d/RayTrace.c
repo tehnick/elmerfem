@@ -1263,7 +1263,7 @@ void VolumeDivide( VolumeBounds_t *Volume,int NBounds,Geometry_t *Elements,int L
     }
 
     count += 2;
-    if ( VolV-VolL>1.0e-12 || VolV-VolR>-1.0e-12 )
+    if ( VolL-VolV>-1.0e-12 || VolR-VolV>-1.0e-12 )
     {
         free( LeftVolume->Elements );
         free( LeftVolume );
