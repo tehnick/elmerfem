@@ -1137,8 +1137,8 @@ void VolumeDivide( VolumeBounds_t *Volume,int NBounds,Geometry_t *Elements,int L
     static int count;
     double VolV,VolL,VolR;
 
-    LeftVolume  = Volume->Left  = (VolumeBounds_t *)calloc( 1,sizeof(VolumeBounds_t) );
-    RightVolume = Volume->Right = (VolumeBounds_t *)calloc( 1,sizeof(VolumeBounds_t) );
+    LeftVolume  = Volume->Left  = (VolumeBounds_t *)calloc(1,sizeof(VolumeBounds_t));
+    RightVolume = Volume->Right = (VolumeBounds_t *)calloc(1,sizeof(VolumeBounds_t));
 
     LeftVolume->BBox  = Volume->BBox;
     RightVolume->BBox = Volume->BBox;
@@ -1263,7 +1263,7 @@ void VolumeDivide( VolumeBounds_t *Volume,int NBounds,Geometry_t *Elements,int L
     }
 
     count += 2;
-    if ( VolL-VolV>-1.0e-12 || VolR-VolV>-1.0e-12 )
+    if ( VolV-VolL>1.0e-12 || VolV-VolR>-1.0e-12 )
     {
         free( LeftVolume->Elements );
         free( LeftVolume );
@@ -1279,8 +1279,8 @@ void VolumeDivide( VolumeBounds_t *Volume,int NBounds,Geometry_t *Elements,int L
         return;
     }
 
-    if ( LeftVolume->n  > NBounds && Level<MAX_LEVEL ) VolumeDivide( LeftVolume,NBounds,Elements, Level+1 );
-    if ( RightVolume->n > NBounds && Level<MAX_LEVEL ) VolumeDivide( RightVolume,NBounds,Elements,Level+1 );
+    if ( LeftVolume->n >NBounds && Level<MAX_LEVEL ) VolumeDivide( LeftVolume,NBounds,Elements, Level+1 );
+    if ( RightVolume->n>NBounds && Level<MAX_LEVEL ) VolumeDivide( RightVolume,NBounds,Elements,Level+1 );
 
     LeftVolume->BBox.XMin = LeftVolume->BBox.XMin - 
         0.001*(LeftVolume->BBox.XMax-LeftVolume->BBox.XMin);
