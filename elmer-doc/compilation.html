@@ -14,17 +14,22 @@ wrong). Then pick an installation directory, I recommend something
 like: /opt/elmer, ~/elmer or /usr (default). Then compile the elmer source
 packages in the following order: matc, mathlibs, elmergrid, meshgen2d,
 eio, hutiter, fem using the normal procedure of ./configure ; make ;
-make install. Use ./configure --help for some brief instructions.
+make install, or use the following convenience script:
 </p>
 
 <pre>
+#!/bin/sh -f
+#
 # Fetch sources from CVS, compile each module and install it
+#
+export CVSROOT="anonymous@cvs.csc.fi:/elmer"
+export CVS_RSH="ssh"
 
-> modules="matc mathlibs elmergrid meshgen2d eio hutiter fem" 
-> cvs co $modules
-> for m in $modules; do 
-    cd $m ; ./configure --prefix=/opt ; make; make install ; cd .. 
-  done
+modules="matc mathlibs elmergrid meshgen2d eio hutiter fem" 
+cvs co $modules
+for m in $modules; do 
+   cd $m ; ./configure --prefix=/opt ; make; make install ; cd .. 
+done
 </pre>
 
 <p>
@@ -32,6 +37,13 @@ If you don't want to use the CVS, alternatively untar source tarballs
 and compile them in a similar manner (unpack, ./configure ; make ;
 make install)
 </p>
+
+<h2>Step by step instructions</h2>
+
+<p>First, check out the list of supported platforms and compilers to
+get a feeling of the chances you have of compiling Elmer. If your
+platform and compiler isn't listed, there is a chance that you won't
+be able to compile Elmer.</p>
 
 <p>
 Mathlibs contains netlib BLAS, LAPACK, ARPACK and PARPACK. To install
@@ -44,6 +56,8 @@ BLAS and LAPACK, do a normal configure, and then:
 > cd mathlibs ; ./configure
 > cd src/arpack ; make ; make install.
 </pre>
+
+
 
 <h2>Specifying libraries</h2>
 
@@ -175,8 +189,18 @@ mpirun/mprun is needed</p>
 <h2>Compilers known to work</h2>
 
 <p>
-G95, pathscale, ifort 7.1 and 8.1, Sun compilers, and IBM compilers.
+<table class="elmerTable">
+  <tr><td class="tableHead">Compiler</td><td class="tableHead">Remarks</td></tr>
+  <tr><td>GNU (gcc, g++, g77, <a href="http://g95.sf.net">g95</a>)</td><td>ok</td></tr>
+  <tr><td>Intel (icc, ifort)</td><td>ok</td></tr>
+  <tr><td>Pathscale (pathcc, pathCC, pathf90)</td><td>ok</td></tr>
+  <tr><td>Absoft</td><td>barely compiles</td></tr>
+  <tr><td>Sun Studio</td><td>ok</td></tr>
+  <tr><td>XL Fortran</td><td>ok</td></tr>
+</table>
+</p>
 
+<p>
 A good rule is to try compiling everything with compilers of the same
 vendor. The only exception is maybe ifort and pathscale, which work
 fairly well together with the gnu c and c++ compilers.
@@ -184,14 +208,21 @@ fairly well together with the gnu c and c++ compilers.
 
 <h2>Platforms known to work</h2>
 
-<pre>
-S=Solver P=Post F=Front
+<p>Elmer has been known to compile and function on the following platforms:</p>
 
-Linux x86 x86-64, g95, pathscale, ifort 7.1 &amp; 8.1  [SPF]
-Sun sparcv7 sparv9, sun compilers [SPF]
-IBM AIX power5, IBM compilers [S]
-Apple OS X 10.3, g95 and absoft (with some pain) [S]
-</pre>
+<p>
+<table class="elmerTable">
+  <tr><td class="tableHead">OS</td><td class="tableHead">Architecture</td><td class="tableHead">Working modules</td></tr>
+  <tr><td>Linux</td><td>x86, x86-64</td><td>S,P,F</td></tr>
+  <tr><td>Sun Solaris</td><td>sparcv7, sparcv9</td><td>S,P,F</td></tr>
+  <tr><td>IBM AIX</td><td>PPC</td><td>S</td></tr>
+  <tr><td>Apple OS X 10.3</td><td>PPC</td><td>S</td></tr>
+</table>
+<p>Legend: S=Solver P=Post F=Front</p>
+</p>
+
+
+
 
 </body>
 </html>
