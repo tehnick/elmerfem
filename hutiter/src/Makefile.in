@@ -264,6 +264,72 @@ libhuti_a_SOURCES = $(COMMON_SRCS)
 #
 HUTI_CPP = cpp
 HUTI_PPFLAGS = -traditional -P
+
+##########################################################
+# The old for loop (which screwed up the dependencies, but was nicer anyway)
+#
+# $(PP_SRCS): preprocess
+#PRECS	=	S D C Z
+#precdf90=huti_cg huti_tfqmr huti_cgs huti_qmr huti_bicgstab \
+#	 huti_gmres huti_bicgstab_2 huti_aux
+#precdc=huti_sfe_c
+#
+#
+#preprocess:
+#	@echo
+#	@echo 'Generating source files from *.src files, WARNING, only known to work on Linux :)'
+#	@echo
+#
+# First make the precision dependent Fortran90 files
+#
+#	@if [ "$(precdf90)X" != "X" ]; then \
+#	  for p in $(PRECS); do \
+#	    for pd in $(precdf90); do \
+#		$(RM) $${pd}_$${p}.F90; \
+#		echo $(HUTI_CPP) $(HUTI_PPFLAGS) -D$${p}_PRE $${pd}.src $${pd}_$${p}.F90; \
+#		$(HUTI_CPP) $(HUTI_PPFLAGS) -D$${p}_PRE $${pd}.src $${pd}_$${p}.F90; \
+#	    done; \
+#	  done; \
+#	fi 
+#
+# Third make the precision dependent C files
+#
+#	@if [ "$(precdc)X" != "X" ]; then \
+#	  for p in $(PRECS); do \
+#	    for pd in $(precdc); do \
+#		$(RM) $${pd}_$${p}.c; \
+#		$(HUTI_CPP)  $(HUTI_PPFLAGS) -D$${p}_PRE $${pd}.src $${pd}_$${p}.c; \
+#	    done; \
+#	  done; \
+#	fi 
+
+# if LOCAL_BLAS_AND_LAPACK
+#libhuti_a_LIBADD = \
+#        ../blas/libblas.a \
+#        ../lapack/liblapack.a
+#else 
+#if LOCAL_BLAS
+#libhuti_a_LIBADD = \
+#	../blas/libblas.a
+#else 
+#if LOCAL_LAPACK
+#libhuti_a_LIBADD = \
+#	../lapack/liblapack.a
+#
+#endif
+#endif
+#endif
+EXTRA_DIST = \
+	huti_aux.src \
+	huti_bicgstab.src \
+	huti_bicgstab_2.src \
+	huti_cg.src \
+	huti_cgs.src \
+	huti_gmres.src \
+	huti_qmr.src \
+	huti_sfe_c.src \
+	huti_tfqmr.src 
+
 all: all-am
 
 .SUFFIXES:
@@ -603,61 +669,6 @@ huti_sfe_c_S.c:
 	$(HUTI_CPP) $(HUTI_PPFLAGS) -DS_PRE huti_sfe_c.src huti_sfe_c_S.c
 huti_sfe_c_Z.c:
 	$(HUTI_CPP) $(HUTI_PPFLAGS) -DZ_PRE huti_sfe_c.src huti_sfe_c_Z.c
-
-##########################################################
-# The old for loop (which screwed up the dependencies, but was nicer anyway)
-#
-# $(PP_SRCS): preprocess
-#PRECS	=	S D C Z
-#precdf90=huti_cg huti_tfqmr huti_cgs huti_qmr huti_bicgstab \
-#	 huti_gmres huti_bicgstab_2 huti_aux
-#precdc=huti_sfe_c
-#
-#
-#preprocess:
-#	@echo
-#	@echo 'Generating source files from *.src files, WARNING, only known to work on Linux :)'
-#	@echo
-#
-# First make the precision dependent Fortran90 files
-#
-#	@if [ "$(precdf90)X" != "X" ]; then \
-#	  for p in $(PRECS); do \
-#	    for pd in $(precdf90); do \
-#		$(RM) $${pd}_$${p}.F90; \
-#		echo $(HUTI_CPP) $(HUTI_PPFLAGS) -D$${p}_PRE $${pd}.src $${pd}_$${p}.F90; \
-#		$(HUTI_CPP) $(HUTI_PPFLAGS) -D$${p}_PRE $${pd}.src $${pd}_$${p}.F90; \
-#	    done; \
-#	  done; \
-#	fi 
-#
-# Third make the precision dependent C files
-#
-#	@if [ "$(precdc)X" != "X" ]; then \
-#	  for p in $(PRECS); do \
-#	    for pd in $(precdc); do \
-#		$(RM) $${pd}_$${p}.c; \
-#		$(HUTI_CPP)  $(HUTI_PPFLAGS) -D$${p}_PRE $${pd}.src $${pd}_$${p}.c; \
-#	    done; \
-#	  done; \
-#	fi 
-
-# if LOCAL_BLAS_AND_LAPACK
-#libhuti_a_LIBADD = \
-#        ../blas/libblas.a \
-#        ../lapack/liblapack.a
-#else 
-#if LOCAL_BLAS
-#libhuti_a_LIBADD = \
-#	../blas/libblas.a
-#else 
-#if LOCAL_LAPACK
-#libhuti_a_LIBADD = \
-#	../lapack/liblapack.a
-#
-#endif
-#endif
-#endif
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

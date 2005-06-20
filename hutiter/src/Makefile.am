@@ -186,3 +186,14 @@ huti_sfe_c_Z.c:
 #endif
 #endif
 #endif
+
+EXTRA_DIST=\
+	huti_aux.src \
+	huti_bicgstab.src \
+	huti_bicgstab_2.src \
+	huti_cg.src \
+	huti_cgs.src \
+	huti_gmres.src \
+	huti_qmr.src \
+	huti_sfe_c.src \
+	huti_tfqmr.src 
