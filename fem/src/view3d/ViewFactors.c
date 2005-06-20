@@ -210,7 +210,7 @@ static void IntegrateFromGeometry(int N,double *Factors)
     {
          if ( Elements[i].Area<1.0e-10 ) continue;
 
-         fprintf( stderr, "row = % 4d of %d\n",i+1,N );
+         fprintf( stderr, "row = % 4d of %d: ",i+1,N );
          for( j=i; j<N; j++ )
          { 
             if ( Elements[j].Area<1.0e-10 ) continue;
