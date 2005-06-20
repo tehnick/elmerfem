@@ -1,40 +1,198 @@
-[Compilation instructions]
 
+<html>
+<head><title></title></head>
 
-[[Quick start]]
+<body>
+<h1>Compilation instructions</h1>
 
+<h2>Quick start</h2>
+
+<p>
 Make sure you have a working blas, lapack and umfpack that work with
-your compiler (the configure scripts will tell you if somethings
+your compiler (the configure scripts will tell you if something is
 wrong). Then pick an installation directory, I recommend something
-like ~/bin/elmer or ~/elmer. Then compiler the elmer source packages
-in the following order: matc, eio, hutiter, elmergrid, meshgen2d,
-fem using the normal procedure of ./configure ; make ; make
-install. Use ./configure --help for some brief instructions
+like: /opt/elmer, ~/elmer or /usr (default). Then compile the elmer source
+packages in the following order: matc, mathlibs, elmergrid, meshgen2d,
+eio, hutiter, fem using the normal procedure of ./configure ; make ;
+make install. Use ./configure --help for some brief instructions.
+</p>
 
-!gunzip hutiter-x.x.x.tar.gz ; tar xvf hutiter-x.x.x.tar!
-!cd hutiter-x.x.x ; ./configure --prefix=~/elmer ; make ; make install!
+<pre>
+# Fetch sources from CVS, compile each module and install it
 
-[[Specifying libraries]]
+> modules="matc mathlibs elmergrid meshgen2d eio hutiter fem" 
+> cvs co $modules
+> for m in $modules; do 
+    cd $m ; ./configure --prefix=/opt ; make; make install ; cd .. 
+  done
+</pre>
 
+<p>
+If you don't want to use the CVS, alternatively untar source tarballs
+and compile them in a similar manner (unpack, ./configure ; make ;
+make install)
+</p>
 
+<p>
+Mathlibs contains netlib BLAS, LAPACK, ARPACK and PARPACK. To install
+only seperate parts, eg., say only ARPACK, because you have a faster
+BLAS and LAPACK, do a normal configure, and then: 
+</p>
+
+<pre>
+> cvs co mathlibs  
+> cd mathlibs ; ./configure
+> cd src/arpack ; make ; make install.
+</pre>
+
+<h2>Specifying libraries</h2>
+
+<p>
 If you want to specify your own blas and lapack, you can eg.
+</p>
 
-!./configure --with-blas="~/lib/libblas.a"!
+<pre>
+> ./configure --with-blas="~/lib/libblas.a"!
+</pre>
 
+<p>
 or use the environment variable:
+</p>
 
-!BLAS_LIBS="-L/some/convoluted/path/lib -lblas3.1.03"!
+<pre>
+> BLAS_LIBS="-L/some/convoluted/path/lib -lblas3.1.03"!
+</pre>
 
+<p>
 a similar procedure works for most of the libraries that are detected
 using 
+</p>
 
-[[Testing the build]]
+<h2>Testing the build</h2>
 
-Get the newest elmer-tests package. Run the tests.
+<p>
+The fem module contains a set of tests that can be used to test that
+the solver really works. The tests can be invoked with <code>make
+check</code>:
+</p>
 
-[[Common errors]]
+<pre>
+> cd fem
+> make check
+-- cut --
+testing:               1dtests                  [PASSED]
+testing:               1sttime                  [PASSED]
+testing:               2ndtime                  [PASSED]
+-- cut --
+testing:           streamlines                  [PASSED]
+testing:       ThermalCompress                  [PASSED]
+testing:             TimeAdapt                  [PASSED]
+Tests completed, passed: 52 out of total 52 tests
+</pre>
+
+<p>but also seperately from the tests subdirectory of the fem
+module using the runtests script:</p>
+
+<pre>
+> cd fem/tests
+> ./runtests PoissonBEM
+$ELMER_HOME undefined, setting it to ../src
+testing:           PoissonBEM                  [PASSED]
+Tests completed, passed: 1 out of total 1 tests
+</pre>
+
+<p>If a test fails, a test.log file will be left in the test directory
+for debugging purposes.</p>
+
+<h2>MPI</h2>
+
+<p>
+There are two packages that need special care, if you intend to use
+the MPI version of elmer: mathlibs (parpack) and fem. If the mpi
+libraries are not in a trivial place (/usr/lib), then you will need
+specify the location to the configure script. For this purpose there
+are several command line arguments provided: 
+</p>
+
+<pre>
+--with-mpi-dir            # Specify a dir that contains lib/, include/ and bin/
+--with-mpi-lib-dir	  # Specify location of libmpi.{a|so}* or libmpich.{a|so} 
+--with-mpi-inc-dir	  # Specify location of mpif.h
+--with-mpi-bin-dir	  # Specify location of mprun
+</pre>
+
+<p>
+Usually, the --with-mpi-dir will suffice, eg. on Sun:
+</p>
+
+<pre>
+./configure --with-mpi-dir=/opt/SUNWhpc/
+</pre>
+
+<p>
+But sometimes there is a tricky situation (in this case, for 64 bit
+mpi libs), and you will need something like this:
+</p>
+
+<pre>
+./configure --with-mpi-lib-dir=/opt/SUNWhpc/lib/sparcv9 \
+	     --with-mpi-inc-dir=/opt/SUNWhpc/include/v9 
+</pre>
+
+<p>
+A good way to look for MPI library directory is to `locate libmpi` or
+compiling a simple test program with mpf90 (if provided) with verbose
+compilation options to see which directories and libraries are used.
+</p>
+
+<h3>Testing MPI</h3>
+
+<p>There are many different MPI environments, so it is difficult to
+give a set of commands.</p>
+
+<p>Basic MPICH2 style test</p>
+
+<pre>
+> cd tests/heateq-par
+> mpirun -np 2 ../../src/ElmerSolver_mpi 
+</pre>
+
+
+<p>On IBM, the solver executable is linked with mpxlf90, so no
+mpirun/mprun is needed</p>
+
+<pre>
+> ../../src/ElmerSolver_mpi -nprocs 4 -pfile hosts.lst
+</pre>
+
+<h2>Common errors</h2>
 
 - blas not found
 - lapack not found
 - mpi fucked
 - umfpack fucked
+
+<h2>Compilers known to work</h2>
+
+<p>
+G95, pathscale, ifort 7.1 and 8.1, Sun compilers, and IBM compilers.
+
+A good rule is to try compiling everything with compilers of the same
+vendor. The only exception is maybe ifort and pathscale, which work
+fairly well together with the gnu c and c++ compilers.
+</p>
+
+<h2>Platforms known to work</h2>
+
+<pre>
+S=Solver P=Post F=Front
+
+Linux x86 x86-64, g95, pathscale, ifort 7.1 &amp; 8.1  [SPF]
+Sun sparcv7 sparv9, sun compilers [SPF]
+IBM AIX power5, IBM compilers [S]
+Apple OS X 10.3, g95 and absoft (with some pain) [S]
+</pre>
+
+</body>
+</html>
+
