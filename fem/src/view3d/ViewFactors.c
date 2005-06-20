@@ -533,7 +533,7 @@ void FC_FUNC(viewfactors3d,VIEWFACTORS3D)
    }
 
    InitGeometryTypes();
-   InitVolumeBounds( 1,*N, Elements );
+   InitVolumeBounds( 1, *N, Elements );
    MakeViewFactorMatrix( *N,Factors,*NInteg,*NInteg3 );
 }
 

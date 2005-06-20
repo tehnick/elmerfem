@@ -45,6 +45,7 @@ Juha Ruokolainen/CSC - 23 Aug 1995
 #include <ViewFactors.h>
 
 static double REPS = 3.0E-3;
+#define MAX_LEVEL 16
 
 /*******************************************************************************
 
@@ -1243,7 +1244,7 @@ void VolumeDivide( VolumeBounds_t *Volume,int NBounds,Geometry_t *Elements,int L
         else if ( right ) RightVolume->Elements[RightVolume->n++] = k;
     }
 
-    VolumeBBox( LeftVolume,Elements );
+    VolumeBBox( LeftVolume, Elements );
     VolumeBBox( RightVolume,Elements );
 
     if ( L1 > L2 && L1 > L3 )
@@ -1262,7 +1263,7 @@ void VolumeDivide( VolumeBounds_t *Volume,int NBounds,Geometry_t *Elements,int L
     }
 
     count += 2;
-    if ( VolL >= VolV || VolR >= VolV )
+    if ( VolL-VolV>-1.0e-12 || VolR-VolV>-1.0e-12 )
     {
         free( LeftVolume->Elements );
         free( LeftVolume );
@@ -1278,45 +1279,45 @@ void VolumeDivide( VolumeBounds_t *Volume,int NBounds,Geometry_t *Elements,int L
         return;
     }
 
-    if ( LeftVolume->n  > NBounds ) VolumeDivide( LeftVolume,NBounds,Elements, Level+1 );
-    if ( RightVolume->n > NBounds ) VolumeDivide( RightVolume,NBounds,Elements,Level+1 );
+    if ( LeftVolume->n  > NBounds && Level<MAX_LEVEL ) VolumeDivide( LeftVolume,NBounds,Elements, Level+1 );
+    if ( RightVolume->n > NBounds && Level<MAX_LEVEL ) VolumeDivide( RightVolume,NBounds,Elements,Level+1 );
 
     LeftVolume->BBox.XMin = LeftVolume->BBox.XMin - 
-        MAX(1.0e-6,0.001*(LeftVolume->BBox.XMax-LeftVolume->BBox.XMin));
+        0.001*(LeftVolume->BBox.XMax-LeftVolume->BBox.XMin);
 
     LeftVolume->BBox.XMax = LeftVolume->BBox.XMax +
-        MAX(1.0e-6,0.001*(LeftVolume->BBox.XMax-LeftVolume->BBox.XMin));
+        0.001*(LeftVolume->BBox.XMax-LeftVolume->BBox.XMin);
 
     LeftVolume->BBox.YMin = LeftVolume->BBox.YMin - 
-        MAX(1.0e-6,0.001*(LeftVolume->BBox.YMax-LeftVolume->BBox.YMin));
+        0.001*(LeftVolume->BBox.YMax-LeftVolume->BBox.YMin);
 
     LeftVolume->BBox.YMax = LeftVolume->BBox.YMax +
-        MAX(1.0e-6,0.001*(LeftVolume->BBox.YMax-LeftVolume->BBox.YMin));
+        0.001*(LeftVolume->BBox.YMax-LeftVolume->BBox.YMin);
 
     LeftVolume->BBox.ZMin = LeftVolume->BBox.ZMin - 
-        MAX(1.0e-6,0.001*(LeftVolume->BBox.ZMax-LeftVolume->BBox.ZMin));
+        0.001*(LeftVolume->BBox.ZMax-LeftVolume->BBox.ZMin);
 
     LeftVolume->BBox.ZMax = LeftVolume->BBox.ZMax + 
-        MAX(1.0e-6,0.001*(LeftVolume->BBox.ZMax-LeftVolume->BBox.ZMin));
+        0.001*(LeftVolume->BBox.ZMax-LeftVolume->BBox.ZMin);
 
 
     RightVolume->BBox.XMin = RightVolume->BBox.XMin - 
-        MAX(1.0e-6,0.001*(RightVolume->BBox.XMax-RightVolume->BBox.XMin));
+        0.001*(RightVolume->BBox.XMax-RightVolume->BBox.XMin);
 
     RightVolume->BBox.XMax = RightVolume->BBox.XMax + 
-        MAX(1.0e-6,0.001*(RightVolume->BBox.XMax-RightVolume->BBox.XMin));
+        0.001*(RightVolume->BBox.XMax-RightVolume->BBox.XMin);
 
     RightVolume->BBox.YMin = RightVolume->BBox.YMin -
-        MAX(1.0e-6,0.001*(RightVolume->BBox.YMax-RightVolume->BBox.YMin));
+        0.001*(RightVolume->BBox.YMax-RightVolume->BBox.YMin);
 
     RightVolume->BBox.YMax = RightVolume->BBox.YMax +
-        MAX(1.0e-6,0.001*(RightVolume->BBox.YMax-RightVolume->BBox.YMin));
+        0.001*(RightVolume->BBox.YMax-RightVolume->BBox.YMin);
 
     RightVolume->BBox.ZMin = RightVolume->BBox.ZMin -
-        MAX(1.0e-6,0.001*(RightVolume->BBox.ZMax-RightVolume->BBox.ZMin));
+        0.001*(RightVolume->BBox.ZMax-RightVolume->BBox.ZMin);
 
     RightVolume->BBox.ZMax = RightVolume->BBox.ZMax + 
-        MAX(1.0e-6,0.001*(RightVolume->BBox.ZMax-RightVolume->BBox.ZMin));
+        0.001*(RightVolume->BBox.ZMax-RightVolume->BBox.ZMin);
 
 #if 0
     fprintf( stdout, "1 %d %g %g %g %g %g %g\n", Level,
