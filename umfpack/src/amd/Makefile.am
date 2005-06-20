@@ -34,3 +34,16 @@ libamdf77_a_SOURCES = $(AMDF77_SOURCES)
 clean-local:
 	-rm -f $(AMD_CPP_SOURCES)
 
+EXTRA_DIST= \
+	amd_aat.c \
+	amd_1.c \
+	amd_2.c \
+	amd_dump.c \
+	amd_postorder.c \
+	amd_post_tree.c \
+	amd_defaults.c \
+	amd_order.c \
+	amd_control.c \
+	amd_info.c \
+	amd_valid.c \
+	amd_preprocess.c
