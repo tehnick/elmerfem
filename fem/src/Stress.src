@@ -34,6 +34,9 @@
 ! *       Date of modification:
 ! *
 ! * $Log: Stress.src,v $
+! * Revision 1.2  2005/05/26 12:33:19  jpr
+! * Removed explicit DLLEXPORT definitions
+! *
 ! * Revision 1.1  2005/05/26 08:24:55  vierinen
 ! * moved .f90 to .src because .f90 is needed for preprosessed files
 ! *
@@ -92,7 +95,7 @@
 ! * Modified StressBoundary to work in axisymmetric cases.
 ! *
 ! *
-! * $Id: Stress.src,v 1.1 2005/05/26 08:24:55 vierinen Exp $
+! * $Id: Stress.src,v 1.2 2005/05/26 12:33:19 jpr Exp $
 ! *****************************************************************************/
 
 MODULE StressLocal
@@ -110,7 +113,7 @@ MODULE StressLocal
    SUBROUTINE StressCompose( MASS, DAMP, STIFF, FORCE, LOAD, ElasticModulus,     &
      NodalPoisson, NodalDensity, NodalDamping, PlaneStress, Isotropic,           &
      NodalPreStress, NodalPreStrain, NodalStressLoad, NodalStrainLoad,           &
-     NodalHeatExpansion, NodalTemperature, Element, n, Nodes, StabilityAnalysis, &
+     NodalHeatExpansion, NodalTemperature, Element, n, ntot, Nodes, StabilityAnalysis, &
      GeometricStiffness, NodalDisplacement, RotateC, TransformMatrix )
 !------------------------------------------------------------------------------
      REAL(KIND=dp) :: STIFF(:,:), MASS(:,:), DAMP(:,:), FORCE(:), LOAD(:,:)
@@ -127,10 +130,10 @@ MODULE StressLocal
      TYPE(Nodes_t) :: Nodes
      TYPE(Element_t) :: Element
 
-     INTEGER :: n
+     INTEGER :: n, ntot
 !------------------------------------------------------------------------------
-     REAL(KIND=dp) :: Basis(n),ddBasisddx(1,1,1)
-     REAL(KIND=dp) :: dBasisdx(n,3),detJ
+     REAL(KIND=dp) :: Basis(ntot),ddBasisddx(1,1,1)
+     REAL(KIND=dp) :: dBasisdx(ntot,3),detJ
 
      REAL(KIND=dp) :: LoadAtIp(3), Poisson, Young
 
@@ -170,7 +173,7 @@ MODULE StressLocal
      !    
      ! Integration stuff:
      ! ------------------  
-     NBasis = n
+     NBasis = ntot
      IntegStuff = GaussPoints( element )
 
      U_Integ => IntegStuff % u
