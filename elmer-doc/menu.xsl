@@ -62,13 +62,15 @@ News
 Contact information
 
           -->
-            <a href="front.html">Front page</a><br/>
+            <a href="front.html">Elmer</a><br/>
             <a href="download.html">Download</a><br/>
             <a href="compilation.html">Compiling</a><br/>
-            <a href="manuals.html">Documentation</a><br/>
+            <a href="manuals.html">Documentation</a><br/><!-- tutorials, manuals, papers etc. -->
             <a href="screenshots.html">Screenshots</a><br/>
             <a href="lists.html">Mailing lists</a><br/>
+            <a href="contributors.html">Contributors</a><br/>
             <a href="faq.html">FAQ</a><br/>
+            <a href="contact.html">Contact</a><br/>
 
         </div>
 
