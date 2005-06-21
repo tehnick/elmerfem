@@ -34,6 +34,9 @@
 ! *       Date of modification:
 ! *
 ! * $Log: Stress.src,v $
+! * Revision 1.3  2005/06/21 09:05:18  jpr
+! * Initial support for p-elements
+! *
 ! * Revision 1.2  2005/05/26 12:33:19  jpr
 ! * Removed explicit DLLEXPORT definitions
 ! *
@@ -95,7 +98,7 @@
 ! * Modified StressBoundary to work in axisymmetric cases.
 ! *
 ! *
-! * $Id: Stress.src,v 1.2 2005/05/26 12:33:19 jpr Exp $
+! * $Id: Stress.src,v 1.3 2005/06/21 09:05:18 jpr Exp $
 ! *****************************************************************************/
 
 MODULE StressLocal
@@ -198,22 +201,22 @@ MODULE StressLocal
        s = detJ * S_Integ(t)
 !------------------------------------------------------------------------------
 
-       Density = SUM( NodalDensity(1:n)*Basis )
-       Damping = SUM( NodalDamping(1:n)*Basis )
+       Density = SUM( NodalDensity(1:n)*Basis(1:n) )
+       Damping = SUM( NodalDamping(1:n)*Basis(1:n) )
        IF ( NeedHeat ) THEN
          ! Temperature at the integration point:
          !-------------------------------------- 
-         Temperature = SUM( NodalTemperature(1:n)*Basis )
+         Temperature = SUM( NodalTemperature(1:ntot)*Basis(1:ntot) )
  
          ! Heat expansion tensor values at the integration point:
          !-------------------------------------------------------
          HeatExpansion = 0.0d0
          DO i=1,3
            IF ( Isotropic ) THEN
-              HeatExpansion(i,i) = SUM( NodalHeatExpansion(1,1,1:n)*Basis )
+              HeatExpansion(i,i) = SUM( NodalHeatExpansion(1,1,1:n)*Basis(1:n) )
            ELSE
               DO j=1,3
-                HeatExpansion(i,j) = SUM( NodalHeatExpansion(i,j,1:n)*Basis )
+                HeatExpansion(i,j) = SUM( NodalHeatExpansion(i,j,1:n)*Basis(1:n) )
               END DO
            END IF
          END DO
