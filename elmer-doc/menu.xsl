@@ -20,6 +20,7 @@
 
         <div class="menu">
           <ul>
+            <li><a href="front.html">Front page</a></li>
             <li><a href="download.html">Download</a></li>
             <li><a href="compilation.html">Compiling</a></li>
             <li><a href="manuals.html">Demos</a></li>
