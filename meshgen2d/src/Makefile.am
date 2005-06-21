@@ -4,7 +4,7 @@ SUBDIRS=include
 INCLUDES = \
         -I./include       
 
-bin_PROGRAMS = ElmerMesh2d Mesh2D
+bin_PROGRAMS = ElmerMesh2D Mesh2D
 
 COMMON_SRCS =  \
 	BGGridMesh.cpp \
@@ -33,10 +33,10 @@ COMMON_SRCS =  \
 	VoronoiVertex.cpp \
 	VSVertex.cpp 
 
-ElmerMesh2d_SOURCES=$(COMMON_SRCS)
+ElmerMesh2D_SOURCES=$(COMMON_SRCS)
 Mesh2D_SOURCES=$(COMMON_SRCS)
 
-ElmerMesh2d_LDADD = \
+ElmerMesh2D_LDADD = \
 	$(MESHGEN2D_LIBS)
 Mesh2D_LDADD = \
 	$(MESHGEN2D_LIBS)
