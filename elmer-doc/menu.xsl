@@ -65,8 +65,7 @@ Contact information
             <a href="front.html">Front page</a><br/>
             <a href="download.html">Download</a><br/>
             <a href="compilation.html">Compiling</a><br/>
-            <a href="manuals.html">Demos</a><br/>
-            <a href="manuals.html">Manuals</a><br/>
+            <a href="manuals.html">Documentation</a><br/>
             <a href="screenshots.html">Screenshots</a><br/>
             <a href="lists.html">Mailing lists</a><br/>
             <a href="faq.html">FAQ</a><br/>

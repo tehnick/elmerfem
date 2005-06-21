@@ -5,7 +5,7 @@
 <!-- <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"> -->
 
 <body>
-<h1>Compilation instructions</h1>
+<h1>Compiling Elmer</h1>
 
 <h2>Quick start</h2>
 
@@ -14,13 +14,24 @@ Make sure you have a working f90 compiler (preferably one that is
 listed in <a href="#compilers">this</a> table). Then pick an
 installation directory, I recommend something like: /opt/elmer,
 ~/elmer or /usr (default). Then compile the elmer source packages in
-the following order: matc, mathlibs, elmergrid, meshgen2d, eio,
+the following order: matc, umfpack, mathlibs, elmergrid, meshgen2d, eio,
 hutiter, fem using the normal procedure of <code>./configure ; make ; make
 install</code>, or use the following convenience script:
 </p>
 
 <pre>
-<div class="comment">#!/bin/sh -f<br/>#<br/># Fetch sources from CVS, compile each module and install it<br/>#<br/></div>export CVSROOT="anonymous@cvs.csc.fi:/elmer"<br/>export CVS_RSH="ssh"<br/><br/>modules="matc mathlibs elmergrid meshgen2d eio hutiter fem" <br/>cvs co $modules<br/>for m in $modules; do <br/> cd $m ; ./configure --prefix=/opt &amp;&amp; make &amp;&amp; make install &amp;&amp; cd .. <br/>done<br/></pre>
+<span class="comment">#!/bin/sh -f
+# Fetch sources from CVS, compile each module and install it
+#</span>
+export CVSROOT="username@corona.csc.fi:/fs/proj1/elmer/elmer-opensource"
+export CVS_RSH="ssh"
+
+modules="matc umfpack mathlibs elmergrid meshgen2d eio hutiter fem" 
+cvs co $modules
+for m in $modules; do
+  cd $m ; ./configure --prefix=/opt &amp;&amp; make &amp;&amp; make install &amp;&amp; cd .. 
+done
+</pre>
 
 <p>
 If you don't want to use the CVS, alternatively untar source tarballs
