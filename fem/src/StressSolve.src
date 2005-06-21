@@ -33,6 +33,9 @@
 ! *       Date of modification:
 ! *
 ! * $Log: StressSolve.src,v $
+! * Revision 1.6  2005/06/21 10:04:43  jpr
+! * Force BC:s with p-elements should work now.
+! *
 ! * Revision 1.5  2005/06/21 09:38:28  jpr
 ! * still about the p-stuff
 ! *
@@ -277,7 +280,7 @@
         END FUNCTION StressInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.5 2005/06/21 09:38:28 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.6 2005/06/21 10:04:43 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -740,7 +743,6 @@
         IF ( .NOT. ActiveBoundaryElement() .OR. GetElementFamily() == 1 ) CYCLE
         n = GetElementNOFNodes()
         ntot = GetElementNOFDOFs()
-print*,n,ntot
 
         BC => GetBC()
         IF ( ASSOCIATED( BC ) ) THEN
@@ -1030,7 +1032,7 @@ CONTAINS
 
 !------------------------------------------------------------------------------
    SUBROUTINE ComputeStress( Displacement, NodalStress, &
-                 VonMises, DisplPerm, StressPerm )
+              VonMises, DisplPerm, StressPerm )
 !------------------------------------------------------------------------------
      INTEGER :: DisplPerm(:)
      INTEGEr, POINTER :: StressPerm(:)
