@@ -1,8 +1,8 @@
 SUBDIRS=tk glaux camera graphics modules sico2elmer objects visuals tcl elements 
 
-bin_PROGRAMS=elmerpost QueryGLXExt
+bin_PROGRAMS=ElmerPost QueryGLXExt
 
-elmerpost_SOURCES=\
+ElmerPost_SOURCES=\
 	ElmerPost.c \
 	elmerpost.h \
 	geometry.c \
@@ -13,7 +13,7 @@ elmerpost_SOURCES=\
 	teksti.c 
 
 
-elmerpost_LDADD=\
+ElmerPost_LDADD=\
 	./camera/libcamera.a \
 	./elements/libelements.a \
 	./modules/libmodule.a \
@@ -23,7 +23,7 @@ elmerpost_LDADD=\
 	./glaux/libglaux.a \
 	./tk/libtk.a
 
-elmerpost_LDFLAGS=$(SH_EXPALL_FLAG)
+ElmerPost_LDFLAGS=$(SH_EXPALL_FLAG)
 
 QueryGLXExt_SOURCES=QueryGLXExt.c 
 

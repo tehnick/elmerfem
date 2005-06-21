@@ -14,7 +14,7 @@
 
 @SET_MAKE@
 
-SOURCES = $(QueryGLXExt_SOURCES) $(elmerpost_SOURCES)
+SOURCES = $(ElmerPost_SOURCES) $(QueryGLXExt_SOURCES)
 
 srcdir = @srcdir@
 top_srcdir = @top_srcdir@
@@ -39,7 +39,7 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
-bin_PROGRAMS = elmerpost$(EXEEXT) QueryGLXExt$(EXEEXT)
+bin_PROGRAMS = ElmerPost$(EXEEXT) QueryGLXExt$(EXEEXT)
 subdir = src
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -54,17 +54,17 @@ CONFIG_CLEAN_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
-am_QueryGLXExt_OBJECTS = QueryGLXExt.$(OBJEXT)
-QueryGLXExt_OBJECTS = $(am_QueryGLXExt_OBJECTS)
-QueryGLXExt_LDADD = $(LDADD)
-am_elmerpost_OBJECTS = ElmerPost.$(OBJEXT) geometry.$(OBJEXT) \
+am_ElmerPost_OBJECTS = ElmerPost.$(OBJEXT) geometry.$(OBJEXT) \
 	LUDecomp.$(OBJEXT) second.$(OBJEXT) cplusplus.$(OBJEXT) \
 	teksti.$(OBJEXT)
-elmerpost_OBJECTS = $(am_elmerpost_OBJECTS)
-elmerpost_DEPENDENCIES = ./camera/libcamera.a ./elements/libelements.a \
+ElmerPost_OBJECTS = $(am_ElmerPost_OBJECTS)
+ElmerPost_DEPENDENCIES = ./camera/libcamera.a ./elements/libelements.a \
 	./modules/libmodule.a ./objects/libobjects.a \
 	./visuals/libvisuals.a ./graphics/libgraphics.a \
 	./glaux/libglaux.a ./tk/libtk.a
+am_QueryGLXExt_OBJECTS = QueryGLXExt.$(OBJEXT)
+QueryGLXExt_OBJECTS = $(am_QueryGLXExt_OBJECTS)
+QueryGLXExt_LDADD = $(LDADD)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -77,8 +77,8 @@ CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 CXXLD = $(CXX)
 CXXLINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) $(LDFLAGS) \
 	-o $@
-SOURCES = $(QueryGLXExt_SOURCES) $(elmerpost_SOURCES)
-DIST_SOURCES = $(QueryGLXExt_SOURCES) $(elmerpost_SOURCES)
+SOURCES = $(ElmerPost_SOURCES) $(QueryGLXExt_SOURCES)
+DIST_SOURCES = $(ElmerPost_SOURCES) $(QueryGLXExt_SOURCES)
 RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
 	html-recursive info-recursive install-data-recursive \
 	install-exec-recursive install-info-recursive \
@@ -218,7 +218,7 @@ target_cpu = @target_cpu@
 target_os = @target_os@
 target_vendor = @target_vendor@
 SUBDIRS = tk glaux camera graphics modules sico2elmer objects visuals tcl elements 
-elmerpost_SOURCES = \
+ElmerPost_SOURCES = \
 	ElmerPost.c \
 	elmerpost.h \
 	geometry.c \
@@ -228,7 +228,7 @@ elmerpost_SOURCES = \
 	cplusplus.cpp \
 	teksti.c 
 
-elmerpost_LDADD = \
+ElmerPost_LDADD = \
 	./camera/libcamera.a \
 	./elements/libelements.a \
 	./modules/libmodule.a \
@@ -238,7 +238,7 @@ elmerpost_LDADD = \
 	./glaux/libglaux.a \
 	./tk/libtk.a
 
-elmerpost_LDFLAGS = $(SH_EXPALL_FLAG)
+ElmerPost_LDFLAGS = $(SH_EXPALL_FLAG)
 QueryGLXExt_SOURCES = QueryGLXExt.c 
 ELMER_POST_DATADIR = $(prefix)/share/elmerpost
 all: all-recursive
@@ -297,12 +297,12 @@ uninstall-binPROGRAMS:
 
 clean-binPROGRAMS:
 	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
+ElmerPost$(EXEEXT): $(ElmerPost_OBJECTS) $(ElmerPost_DEPENDENCIES) 
+	@rm -f ElmerPost$(EXEEXT)
+	$(CXXLINK) $(ElmerPost_LDFLAGS) $(ElmerPost_OBJECTS) $(ElmerPost_LDADD) $(LIBS)
 QueryGLXExt$(EXEEXT): $(QueryGLXExt_OBJECTS) $(QueryGLXExt_DEPENDENCIES) 
 	@rm -f QueryGLXExt$(EXEEXT)
 	$(LINK) $(QueryGLXExt_LDFLAGS) $(QueryGLXExt_OBJECTS) $(QueryGLXExt_LDADD) $(LIBS)
-elmerpost$(EXEEXT): $(elmerpost_OBJECTS) $(elmerpost_DEPENDENCIES) 
-	@rm -f elmerpost$(EXEEXT)
-	$(CXXLINK) $(elmerpost_LDFLAGS) $(elmerpost_OBJECTS) $(elmerpost_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
