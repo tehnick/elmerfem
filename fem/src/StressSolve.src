@@ -33,6 +33,9 @@
 ! *       Date of modification:
 ! *
 ! * $Log: StressSolve.src,v $
+! * Revision 1.5  2005/06/21 09:38:28  jpr
+! * still about the p-stuff
+! *
 ! * Revision 1.4  2005/06/21 09:23:26  jpr
 ! * p-element corrections... force bc:s need more work.
 ! *
@@ -274,7 +277,7 @@
         END FUNCTION StressInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.4 2005/06/21 09:23:26 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.5 2005/06/21 09:38:28 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -736,6 +739,8 @@
         Element => GetBoundaryElement(t)
         IF ( .NOT. ActiveBoundaryElement() .OR. GetElementFamily() == 1 ) CYCLE
         n = GetElementNOFNodes()
+        ntot = GetElementNOFDOFs()
+print*,n,ntot
 
         BC => GetBC()
         IF ( ASSOCIATED( BC ) ) THEN
@@ -790,7 +795,7 @@
            SELECT CASE( CurrentCoordinateSystem() )
            CASE( Cartesian, AxisSymmetric, CylindricSymmetric )
               CALL StressBoundary( STIFF,DAMP,FORCE,LOAD,SpringCoeff,DampCoeff, &
-                Beta, StressLoad, NormalTangential, Element,n,ElementNodes )
+               Beta, StressLoad, NormalTangential, Element,n,ntot,ElementNodes )
            CASE DEFAULT
               DAMP = 0.0d0
               CALL StressGeneralBoundary( STIFF,FORCE, LOAD, SpringCoeff,Beta, &

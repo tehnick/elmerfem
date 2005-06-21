@@ -34,6 +34,9 @@
 ! *       Date of modification:
 ! *
 ! * $Log: Stress.src,v $
+! * Revision 1.5  2005/06/21 09:38:28  jpr
+! * still about the p-stuff
+! *
 ! * Revision 1.4  2005/06/21 09:23:26  jpr
 ! * p-element corrections... force bc:s need more work.
 ! *
@@ -101,7 +104,7 @@
 ! * Modified StressBoundary to work in axisymmetric cases.
 ! *
 ! *
-! * $Id: Stress.src,v 1.4 2005/06/21 09:23:26 jpr Exp $
+! * $Id: Stress.src,v 1.5 2005/06/21 09:38:28 jpr Exp $
 ! *****************************************************************************/
 
 MODULE StressLocal
@@ -539,7 +542,7 @@ MODULE StressLocal
 
 !------------------------------------------------------------------------------
  SUBROUTINE StressBoundary( STIFF,DAMP,FORCE,LOAD, NodalSpring,NodalDamp, &
-             NodalBeta,NodalStress,NormalTangential,Element,n,Nodes )
+             NodalBeta,NodalStress,NormalTangential,Element,n,ntot,Nodes )
    USE ElementUtils
 !------------------------------------------------------------------------------
    REAL(KIND=dp) :: NodalSpring(:),NodalDamp(:),NodalBeta(:),LOAD(:,:)
@@ -547,11 +550,11 @@ MODULE StressLocal
    TYPE(Nodes_t)    :: Nodes
    REAL(KIND=dp) :: STIFF(:,:),DAMP(:,:),FORCE(:), NodalStress(:,:)
 
-   INTEGER :: n
+   INTEGER :: n,ntot
    LOGICAL :: NormalTangential
 !------------------------------------------------------------------------------
-   REAL(KIND=dp) :: Basis(n),ddBasisddx(1,1,1)
-   REAL(KIND=dp) :: dBasisdx(n,3),detJ
+   REAL(KIND=dp) :: Basis(ntot),ddBasisddx(1,1,1)
+   REAL(KIND=dp) :: dBasisdx(ntot,3),detJ
 
    REAL(KIND=dp) :: u,v,w,s
    REAL(KIND=dp) :: LoadAtIp(3),SpringCoeff(3),DampCoeff(3),Beta,Normal(3),&
@@ -601,11 +604,11 @@ MODULE StressLocal
 
      LoadAtIp = 0.0d0
      DO i=1,dim
-       LoadAtIp(i) = SUM( LOAD(i,1:n)*Basis )
+       LoadAtIp(i) = SUM( LOAD(i,1:n)*Basis(1:n) )
      END DO
 
      Normal = NormalVector( Element,Nodes,u,v,.TRUE. )
-     LoadAtIp = LoadAtIp + SUM( NodalBeta(1:n)*Basis ) * Normal
+     LoadAtIp = LoadAtIp + SUM( NodalBeta(1:n)*Basis(1:n) ) * Normal
 
      Stress = 0.0d0
      SELECT CASE(dim)
@@ -638,11 +641,11 @@ MODULE StressLocal
         END SELECT
      END IF
 
-     DampCoeff(1:3)   = SUM( NodalDamp(1:n)*Basis )   * Normal
-     SpringCoeff(1:3) = SUM( NodalSpring(1:n)*Basis ) * Normal
+     DampCoeff(1:3)   = SUM( NodalDamp(1:n)*Basis(1:n) )   * Normal
+     SpringCoeff(1:3) = SUM( NodalSpring(1:n)*Basis(1:n) ) * Normal
 
-     DO p=1,N
-       DO q=1,N
+     DO p=1,Ntot
+       DO q=1,Ntot
          DO i=1,dim
            IF ( NormalTangential ) THEN
              SELECT CASE(i)
@@ -676,7 +679,7 @@ MODULE StressLocal
        END DO
      END DO
 
-     DO q=1,N
+     DO q=1,Ntot
        DO i=1,dim
          IF ( NormalTangential ) THEN
             SELECT CASE(i)
