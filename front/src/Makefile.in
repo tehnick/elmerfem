@@ -14,7 +14,7 @@
 
 @SET_MAKE@
 
-SOURCES = $(Front_SOURCES)
+SOURCES = $(ElmerFront_SOURCES)
 
 srcdir = @srcdir@
 top_srcdir = @top_srcdir@
@@ -39,7 +39,7 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
-bin_PROGRAMS = Front$(EXEEXT)
+bin_PROGRAMS = ElmerFront$(EXEEXT)
 subdir = src
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -54,7 +54,7 @@ CONFIG_CLEAN_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
-am_Front_OBJECTS = ecif_body2D.$(OBJEXT) ecif_body3D.$(OBJEXT) \
+am_ElmerFront_OBJECTS = ecif_body2D.$(OBJEXT) ecif_body3D.$(OBJEXT) \
 	ecif_body.$(OBJEXT) ecif_bodyElement1D.$(OBJEXT) \
 	ecif_bodyElement2D.$(OBJEXT) ecif_bodyElement3D.$(OBJEXT) \
 	ecif_bodyElement.$(OBJEXT) ecif_bodyElementGroup.$(OBJEXT) \
@@ -87,8 +87,8 @@ am_Front_OBJECTS = ecif_body2D.$(OBJEXT) ecif_body3D.$(OBJEXT) \
 	ecif_timer.$(OBJEXT) ecif_timestep.$(OBJEXT) \
 	ecif_userinterface_TCL.$(OBJEXT) frontlib.$(OBJEXT) \
 	ecif_userSettings.$(OBJEXT)
-Front_OBJECTS = $(am_Front_OBJECTS)
-Front_LDADD = $(LDADD)
+ElmerFront_OBJECTS = $(am_ElmerFront_OBJECTS)
+ElmerFront_LDADD = $(LDADD)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
@@ -97,8 +97,8 @@ CXXCOMPILE = $(CXX) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
 CXXLD = $(CXX)
 CXXLINK = $(CXXLD) $(AM_CXXFLAGS) $(CXXFLAGS) $(AM_LDFLAGS) $(LDFLAGS) \
 	-o $@
-SOURCES = $(Front_SOURCES)
-DIST_SOURCES = $(Front_SOURCES)
+SOURCES = $(ElmerFront_SOURCES)
+DIST_SOURCES = $(ElmerFront_SOURCES)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -219,7 +219,7 @@ INCLUDES = \
         -I$(top_builddir)/include       \
         -I$(top_srcdir)/include         
 
-Front_SOURCES = \
+ElmerFront_SOURCES = \
 	ecif_body2D.cpp \
 	ecif_body3D.cpp \
 	ecif_body.cpp \
@@ -340,9 +340,9 @@ uninstall-binPROGRAMS:
 
 clean-binPROGRAMS:
 	-test -z "$(bin_PROGRAMS)" || rm -f $(bin_PROGRAMS)
-Front$(EXEEXT): $(Front_OBJECTS) $(Front_DEPENDENCIES) 
-	@rm -f Front$(EXEEXT)
-	$(CXXLINK) $(Front_LDFLAGS) $(Front_OBJECTS) $(Front_LDADD) $(LIBS)
+ElmerFront$(EXEEXT): $(ElmerFront_OBJECTS) $(ElmerFront_DEPENDENCIES) 
+	@rm -f ElmerFront$(EXEEXT)
+	$(CXXLINK) $(ElmerFront_LDFLAGS) $(ElmerFront_OBJECTS) $(ElmerFront_LDADD) $(LIBS)
 
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)

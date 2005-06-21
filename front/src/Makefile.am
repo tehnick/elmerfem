@@ -2,9 +2,9 @@ INCLUDES = \
         -I$(top_builddir)/include       \
         -I$(top_srcdir)/include         
 
-bin_PROGRAMS=Front
+bin_PROGRAMS=ElmerFront
 
-Front_SOURCES = \
+ElmerFront_SOURCES = \
 	ecif_body2D.cpp \
 	ecif_body3D.cpp \
 	ecif_body.cpp \
@@ -78,4 +78,6 @@ install-data-local:
 	@echo "Installing *.edf *.rgb to ${prefix}/share/elmerfront/lib"
 	mkdir -p "${prefix}/share/elmerfront/lib"
 	cp -r ./lib/* "${prefix}/share/elmerfront/lib"
+
+
 
