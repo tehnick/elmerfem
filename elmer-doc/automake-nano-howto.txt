@@ -1,99 +1,134 @@
-Autotools nano-HOWTO
+<html>
+<head>
 
-Juha Vierinen <juha.vierinen("#parse&this%#]csc.fi>
+<title>Autotools nano-HOWTO</title>
+</head>
 
-Building autotools managed software
------------------------------------
+(c) 2005 Juha Vierinen <juha.vierinen("#parse&this%#]csc.fi>
 
-The normal way is this:
+<h2>Building autotools managed software</h2>
 
+<p>The normal way is this:</p>
+
+<pre>
 ./configure ; make ; make install
+</pre>
 
+<p>
 Usually there are also many custom options provided by the package
 maintainer. The help option usually lists these.
+</p>
 
+<pre>
 ./configure --help
+</pre>
 
+<p>
 Eg. the following will install the software into the home directory of
 the user instead of the default location (/usr or /usr/local).
+</p>
 
+<pre>
 ./configure --prefix=/home/user
+</pre>
 
+<p>
 Common environment variables are CFLAGS, CXXFLAGS, FFLAGS, FCFLAGS,
 LIBS and LDFLAGS. These are processed and tested by configure and added
 to the flags that configure comes up with. For example:
+</p>
 
+<pre>
 export CFLAGS="-O42 -g --funny-compiler-flag -I/hard/to/guess/directory" 
 ./configure ; make  # will usually use your CFLAGS for compiling
+</pre>
 
+<p>
 On more obscure (ie. AIX or OSX) platforms, you will often have to come up with CFLAGS and
 LDFLAGS that will give the right libraries. Sometimes, a package might also
 include custom arguments to do this as well eg.:
+</p>
 
+<pre>
 ./configure --with-blas="-L/home/user -lblas"
 ./configure --with-blas="/a/very/odd/place/supafastblaswithstripesandachrometailpipe.a"
+</pre>
 
 
-Automake provided default targets
----------------------------------
+<h2>Automake provided default targets</h2>
 
-The commonly used targets are:
+<p>The commonly used targets are:</p>
 
+<pre>
 make           # Compile everything.
 make clean     # Remove all objects, temporary files and such.
 make distclean # Remove automatically generated autoconf/automake files.
 make dist      # Create a tar.gz file containing source ready for distribution.
 make install   # Install software to you kit.
+</pre>
 
-Other useful targets:
+<p>Other useful targets:</p>
 
+<pre>
 make tags      #  Generate etags files for the source.
 make dist-zip  # Create a zip file (great for windows people)
 make uninstall # Uninstall the files installed with make install
 make check     # Run tests bundled with the project
+</pre>
 
-The anatomy of a automake and autoconf governed project 
--------------------------------------------------------
+<h2>The anatomy of a automake and autoconf governed project</h2>
 
+<pre>
 autogen.sh        # Semi-standard script for generating the configure script and possibly the Makefile.in files
 configure.[in,ac] # The template used for producing configure
 Makefile.in       # Autoconf makefile template
 Makefile.am       # Automake makefile template
+</pre>
 
-Maintaining an autoconf project
--------------------------------
+<h2>Maintaining an autoconf project</h2>
 
+<p>
 If only autoconf is used, then Makefile.in is the file to
 edit. Autoconf variables appear as @VARIABLE@ like definitions (these
 are replaced with values found by the configure script). It is
 also possible to use autoconf definitions in Makefile.am files, this
 is especially useful for situations where automake functionality runs
 short. A snippet of Makefile.in can look like:
+</p>
 
+<pre>
 screensave.@SHEXT@: screensave.@OBJEXT@
 	@CC@ @SH_LDFLAGS@ -o $@ $< @LIBS@
+</pre>
 
+<p>
 When making modifications to the makefiles, you should run autogen.sh,
 or aclocal;automake;autoheader;autoconf in a corrct order. There is
 also a maintainer mode available that automatically regenerates the
 makefiles when necessary. This is enabled by default, but is usually
 switched of with the AM_MAINTAINER_MODE macro, but can be re-enabled
-by giving the --enable-maintainer-mode flag to ./configure.
+by giving the <code>--enable-maintainer-mode</code> flag to <code>./configure</code>.
+</p>
 
+<p>
 The end result of both autoconf and automake is a set of portable
 Makefiles, which should be kept in mind when creating
 definitions.
+</p>
 
-Maintaining an autoconf+automake project
-----------------------------------------
+<h2>Maintaining an autoconf+automake project</h2>
 
+<p>
 If automake is used, the file to edit is Makefile.am. You can also mix
 custom Makefile directives in here, but stick with automake
 definitions whenever possible, as it will save a lot of time. A simple
 Makefile.am could look like this:
+</p>
 
+<pre>
 bin_PROGRAMS=hello
 hello_SOURCES=hello.c hello.h someotherfile.f waytoocomplex.cpp
+</pre>
 
 Commands
 --------
