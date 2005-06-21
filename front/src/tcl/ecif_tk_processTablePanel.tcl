@@ -1370,9 +1370,14 @@ proc Process::exists {number} {
         }
 
       } else {
-        if { [file size /proc/$pid] > 0 } {
-          set ProcessTable($number,exists) 1
+        if { ![catch { set stat [exec ps -p $pid | grep $pid] } msg] } {
+          if { [lsearch $stat "<defunct>"] < 0 } {
+            set ProcessTable($number,exists) 1
+          }
         }
+#       if { [file size /proc/$pid] > 0 } {
+#         set ProcessTable($number,exists) 1
+#       }
       }
 
     #-Check process state by calling ps

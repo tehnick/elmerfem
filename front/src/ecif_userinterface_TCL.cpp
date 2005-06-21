@@ -5298,12 +5298,12 @@ UserInterface_TCL::start(int argc, char** argv)
     lib_strm.seekp(0);
     
     file_strm << ELMER_FRONT_PREFIX 
-              << "share/elmerfront"
+              << "/share/elmerfront"
 	      << front_tcl_path  << "/"
 	      << controlSideScript
 	      << ends;
     lib_strm  << ELMER_FRONT_PREFIX 
-	      << "share/elmerfront/tcl/"
+	      << "/share/elmerfront/tcl/"
 	      << ends;
     // Try to open start-script!
     printf("Trying %s\n",file_buffer);
