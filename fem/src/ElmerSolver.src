@@ -106,6 +106,7 @@
      CALL Info( 'MAIN', '===========================================================', Level=3 )
      CALL Info( 'MAIN', ' E L M E R   S O L V E R   S T A R T I N G,  W E L C O M E',  Level=3  )
      CALL Info( 'MAIN', '===========================================================', Level=3 )
+
      !
      ! Read input file name:
      !----------------------
@@ -158,17 +159,17 @@
              'Initialization Phase', .TRUE. )
 
 !------------------------------------------------------------------------------
-!    Check for transient case
+!      Check for transient case
 !------------------------------------------------------------------------------
-     eq = ListGetString( CurrentModel % Simulation, 'Simulation Type', GotIt )
-     TransientSimulation = .FALSE.
-     IF ( eq == 'transient' ) TransientSimulation= .TRUE.
+       eq = ListGetString( CurrentModel % Simulation, 'Simulation Type', GotIt )
+       TransientSimulation = .FALSE.
+       IF ( eq == 'transient' ) TransientSimulation= .TRUE.
 
 !------------------------------------------------------------------------------
 !      Initialize the log file output system
 !------------------------------------------------------------------------------
        MinOutputLevel = ListGetInteger( CurrentModel % Simulation, &
-                 'Min Output Level', GotIt )
+                  'Min Output Level', GotIt )
 
        MaxOutputLevel = ListGetInteger( CurrentModel % Simulation, &
                  'Max Output Level', GotIt )
@@ -252,9 +253,9 @@
 
        Time = 0
        dt   = 0.0d0
-       sStep(1) = 0
+       sTime(1) = 0.0d0
+       sStep(1) = Time
        sSize(1) = dt
-       sTime(1) = Time
        sInterval(1) = 0
 
        CoupledMinIter = ListGetInteger( CurrentModel % Simulation, &
@@ -422,10 +423,10 @@
        CALL VariableAdd(Mesh % Variables,Mesh,Solver, &
              'Coordinate 3',1,Mesh % Nodes % z )
 
-       CALL VariableAdd( Mesh % Variables,Mesh,Solver,'Time',1,sTime )
-       CALL VariableAdd( Mesh % Variables,Mesh,Solver,'Timestep',1,sStep )
-       CALL VariableAdd( Mesh % Variables,Mesh,Solver,'Timestep size',1,sSize )
-       CALL VariableAdd( Mesh % Variables,Mesh,Solver,'Timestep interval',1,sInterval )
+       CALL VariableAdd( Mesh % Variables, Mesh, Solver, 'Time', 1, sTime )
+       CALL VariableAdd( Mesh % Variables, Mesh, Solver, 'Timestep', 1, sStep )
+       CALL VariableAdd( Mesh % Variables, Mesh, Solver, 'Timestep size', 1, sSize )
+       CALL VariableAdd( Mesh % Variables, Mesh, Solver, 'Timestep interval', 1, sInterval )
        Mesh => Mesh % Next
      END DO
 !------------------------------------------------------------------------------
@@ -835,8 +836,7 @@
     LOGICAL :: EigAnal, GotIt
     CHARACTER(LEN=MAX_NAME_LEN) :: Simul
     
-    Simul = ListGetString( CurrentModel % Simulation, &
-         'Simulation Type' )
+    Simul = ListGetString( CurrentModel % Simulation, 'Simulation Type' )
     
     Mesh => CurrentModel % Meshes
     DO WHILE( ASSOCIATED( Mesh ) ) 

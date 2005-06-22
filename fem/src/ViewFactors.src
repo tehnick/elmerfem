@@ -89,10 +89,11 @@
      INTEGER :: RadiationBody, MaxRadiationBody, Lelement
      LOGICAL :: RadiationOpen
 
+     CALL Info( 'ViewFactors', ' ', Level=3 )
+     CALL Info( 'ViewFactors', '==================================================', Level=3 )
+     CALL Info( 'ViewFactors', ' E L M E R  V I E W F A C T O R S,  W E L C O M E',  Level=3  )
+     CALL Info( 'ViewFactors', '==================================================', Level=3 )
 
-     PRINT*, '------------------------------------------------'
-     PRINT*,' Elmer Viewfactor computation program, welcome'
-     PRINT*, '------------------------------------------------'
 !------------------------------------------------------------------------------
 !    Read element definition file, and initialize element types
 !------------------------------------------------------------------------------
@@ -100,18 +101,16 @@
 !------------------------------------------------------------------------------
 !    Read Model from Elmer Data Base
 !------------------------------------------------------------------------------
-     PRINT*, ' '
-     PRINT*, ' '
-     PRINT*,'Reading Model ...       '
+     CALL Info( 'ViewFactors', ' ', Level=3 )
+     CALL Info( 'ViewFactors', ' ', Level=3 )
+     CALL Info( 'ViewFactors', 'Reading Model... ', Level=3 )
 
 !------------------------------------------------------------------------------
-                                                                                                                 
      OPEN( 1,file='ELMERSOLVER_STARTINFO', STATUS='OLD', ERR=10 )
      GOTO 20
                      
                                                                                          
 10   CONTINUE
-                                                                                                              
      CALL Fatal( 'ElmerSolver', 'Unable to find ELMERSOLVER_STARTINFO, cant execute.' )
                                                                                                               
 20   CONTINUE
@@ -140,8 +139,8 @@
      END IF
      CALL SetCurrentMesh( Model,Mesh )
 
-     PRINT*,'... Done'
-     PRINT*,' '
+     CALL Info( 'ViewFactors', '... Done',Level=3 )
+     CALL Info( 'ViewFactors', ' ',Level=3 )
 
 !------------------------------------------------------------------------------
 !    Figure out requested coordinate system
@@ -185,8 +184,7 @@
        END DO
      END IF
      IF ( istat /= 0 ) THEN
-       PRINT*,'ERROR: Viewfactors: Memory allocation error. Aborting'
-       STOP
+       CALL Fatal('Viewfactors', 'Memory allocation error. Aborting' )
      END IF
 
      ! The routine originally plays with the element list and therefore
@@ -300,11 +298,11 @@
      N = RadiationSurfaces
 
      IF ( N == 0 ) THEN
-       PRINT*,'WARNING: Viewfactors: No surfaces participating in radiation?'
+       CALL Warn( 'Viewfactors', 'No surfaces participating in radiation?' )
        IF(RadiationBody < MaxRadiationBody) THEN
          GOTO 100
        ELSE
-         PRINT*,'WARNING: Viewfactors: Stopping cause nothing to be done...'
+         CALL Warn( 'Viewfactors', 'Stopping cause nothing to be done...' )
          STOP
        END IF
      END IF
@@ -318,8 +316,7 @@
        ALLOCATE( Normals(3*N), Factors(N*N),Surfaces(4*N), TYPE(N), STAT=istat )
      END IF
      IF ( istat /= 0 ) THEN
-       PRINT*,'ERROR: Viewfactors: Memory allocation error. Aborting'
-       STOP
+       CALL Fatal( 'Viewfactors', 'Memory allocation error. Aborting' )
      END IF
 
 
@@ -353,9 +350,9 @@
        END IF
 
        IF ( RadBody > 0 .AND. (RadBody /= RightBody .AND. RadBody /= LeftBody) ) THEN
-         PRINT*,'ERROR: ViewFactors: Inconsistent direction information (Radiation Target Body)'
-         PRINT*,'Radiation Target: ', RadBody, ' Left, Right: ', LeftBody, RightBody
-         STOP
+         CALL Error( 'ViewFactors', 'Inconsistent direction information (Radiation Target Body)' )
+         WRITE( Message, * ) 'Radiation Target: ', RadBody, ' Left, Right: ', LeftBody, RightBody
+         CALL Fatal( 'ViewFactors', Message )
        END IF
 
        IF ( .NOT.GotIt ) THEN
@@ -533,8 +530,8 @@
        GOTO 100
      END IF
 
-     PRINT*,'*** ViewFactors: ALL DONE ***'
-!    CALL FLUSH(6)
+     CALL Info( 'ViewFactors', '*** ALL DONE ***' )
+     CALL FLUSH(6)
 
    CONTAINS
    
