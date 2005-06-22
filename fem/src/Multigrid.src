@@ -1107,8 +1107,10 @@ CONTAINS
     
 !------------------------------------------------------------------------------
 
-    WRITE(Message,'(A,I2)') 'Starting level ',Level
-    CALL Info('AMGSolve',Message)
+    IF(.FALSE.) THEN 
+      WRITE(Message,'(A,I2)') 'Starting level ',Level
+      CALL Info('AMGSolve',Message)
+    END IF
 
     Mesh => Solver % Mesh    
 
@@ -1120,7 +1122,7 @@ CONTAINS
     Parallel = ParEnv % PEs > 1
 
     ! This is a counter that for the first full resursive round keeps the 
-    ! flag NewLinerSystem true.
+    ! flag NewLinearSystem true.
     IF ( Level == Solver % MultiGridLevel ) THEN
       NewLinearSystem = .TRUE.
       MinLevel = Solver % MultiGridLevel
@@ -1208,6 +1210,7 @@ CONTAINS
         ALLOCATE(AMG(Solver % MultiGridTotal))
       END IF
 
+      CALL Info('AMGSolve','')
       WRITE( Message, '(A,I3)' ) 'Creating a new matrix and projector for level',Level
       CALL Info('AMGSolve', Message)
       MinLevel = MIN(MinLevel,Level)
@@ -1269,7 +1272,7 @@ CONTAINS
       Matrix2 % Child  => Matrix1
       Matrix1 % Parent => Matrix2
 
-      WRITE( Message, '(A,ES15.4)' ) 'MG coarse matrix projection time: ', CPUTime() - tt2
+      WRITE( Message, '(A,ES15.4)' ) 'Coarse matrix projection time', CPUTime() - tt2
       CALL Info( 'AMGSolve', Message, Level=5 )
 
       IF( ListGetLogical(Solver % Values,'MG Coarse Nodes Save', GotIt) ) THEN
@@ -2097,18 +2100,12 @@ CONTAINS
           GotIt,minv=1,maxv=Components)
       IF(.NOT. GotIt) Component1 = 1
     END IF
-	
-	print *,'Amat % complex',Amat % complex
 
     CompMat = ListGetLogical(Solver % Values,'MG Complex Matrix',GotIt)
     CompMat = (CompMat .OR. .NOT. GotIt) .AND. Amat % Complex	
     IF(CompMat) THEN
-      CALL Info('ChooseCoarseNodes','Assuming COMPLEX valued matrix')
+      CALL Info('ChooseCoarseNodes','Assuming complex valued matrix')
     END IF
-
-	print *,'compmat',compmat
-
-
 
     IF(CompMat) THEN
       NoComponents = 2
@@ -2140,7 +2137,7 @@ CONTAINS
       CALL AMGBonds(Amat, Bonds, CandList)      
     END IF
 
-    WRITE( Message,'(A,ES15.4)') 'MG strong bond definition time: ', CPUTime() - tt2
+    WRITE( Message,'(A,ES15.4)') 'MG strong bond definition time', CPUTime() - tt2
     CALL Info( 'ChooseCoarseNodes', Message, Level=5 )
 
     tt2 = CPUTime()
@@ -2162,7 +2159,7 @@ CONTAINS
       END DO
     END IF    
 
-    WRITE( Message, '(A,ES15.4)' ) 'MG coarse nodes selection time: ', CPUTime() - tt2
+    WRITE( Message, '(A,ES15.4)' ) 'MG coarse nodes selection time', CPUTime() - tt2
     CALL Info( 'ChooseCoarseNodes', Message, Level=5 )
 
     cnods = 0
@@ -2176,7 +2173,7 @@ CONTAINS
     END DO
     
 
-    WRITE(Message,'(A,I4)') 'Coarse mesh nodes ',cnods
+    WRITE(Message,'(A,I)') 'Coarse mesh nodes ',cnods
     CALL Info('ChooseCoarseNodes',Message)
 
     WRITE(Message,'(A,F5.1,A)') 'Coarse node fraction',(100.0*cnods)/nods,' %'
@@ -2298,7 +2295,7 @@ CONTAINS
       END IF
 
       IF(k > 0) THEN
-        WRITE(Message,'(A,I4)') 'Number of added nodes using CR ',k
+        WRITE(Message,'(A,I)') 'Number of added nodes using CR ',k
         CALL Info('ChooseCoarseNodes',Message)
         
         GOTO 100
@@ -2316,10 +2313,10 @@ CONTAINS
         END IF
       END DO
 
-      WRITE(Message,'(A,I4)') 'Coarse mesh nodes after CR ',cnods
+      WRITE(Message,'(A,I)') 'Coarse mesh nodes after CR ',cnods
       CALL Info('ChooseCoarseNodes',Message)
       
-      WRITE(Message,'(A,F5.1,A)') 'Coarse node fraction after CR ',(100.0*cnods)/nods,' %'
+      WRITE(Message,'(A,F5.1)') 'Coarse node percentage after CR ',(100.0*cnods)/nods
       CALL Info('ChooseCoarseNodes',Message)      
 
     END IF
@@ -2371,8 +2368,8 @@ CONTAINS
     REAL(KIND=dp), POINTER :: Values(:), measures(:)
     REAL(KIND=dp) :: maxbond, minbond, dirlim, meas, measlim
 
-    CALL Info('AMGBonds','Making a list of strong matrix connections')
     debug = .FALSE.
+    IF(debug) CALL Info('AMGBonds','Making a list of strong matrix connections')
 
     NegLim = ListGetConstReal(Solver % Values,'MG Strong Connection Limit',GotIt)
     IF(.NOT. GotIt) NegLim = 0.25
@@ -2407,6 +2404,7 @@ CONTAINS
     Bonds = .FALSE.
     posbonds = 0
     negbonds = 0
+    elimnods = 0
 
     DO ind=1,nods
 
@@ -2541,15 +2539,23 @@ CONTAINS
     END DO
 
 
-    WRITE(Message,'(A,I4)') 'Number of eliminated nodes',elimnods
-    CALL Info('AMGBonds',Message)
+    IF(elimnods > 0) THEN
+      WRITE(Message,'(A,I)') 'Number of eliminated nodes',elimnods
+      CALL Info('AMGBonds',Message)
+    END IF
     j = posbonds + negbonds
-    WRITE(Message,'(A,I9,A,I9,A)') 'Number of strong connections',j,' (',posbonds,' positive)'
+    WRITE(Message,'(A,I)') 'Number of strong connections',j
     CALL Info('AMGBonds',Message)
-    WRITE(Message,'(A,F8.3)') 'Average number of strong bonds for each dof',1.0*j/nods
+    IF(posbonds > 0) THEN
+      WRITE(Message,'(A,I)') 'Number of positive connections',posbonds
+      CALL Info('AMGBonds',Message)	
+    END IF
+    WRITE(Message,'(A,F8.3)') 'Strong bonds for each dof',1.0*j/nods
     CALL Info('AMGBonds',Message)
-    WRITE(Message,'(A,F8.3)') 'Fraction of strong bonds in sparse matrix',1.0*j/SIZE(Bonds)
-    CALL Info('AMGBonds',Message)
+    IF(.FALSE.) THEN
+      WRITE(Message,'(A,F8.3)') 'Fraction of strong bonds',1.0*j/SIZE(Bonds)
+      CALL Info('AMGBonds',Message)
+    END IF  
 
   END SUBROUTINE AMGBonds
 
@@ -2692,10 +2698,10 @@ CONTAINS
       negbonds = negbonds + negnew
     END DO
 
-    WRITE(Message,'(A,I4)') 'Number of eliminated nodes',elimnods
+    WRITE(Message,'(A,I)') 'Number of eliminated nodes',elimnods
     CALL Info('AMGBondsComplex',Message)
     j = negbonds
-    WRITE(Message,'(A,I9)') 'Number of strong connections',j
+    WRITE(Message,'(A,I)') 'Number of strong connections',j
     CALL Info('AMGBondsComplex',Message)
     WRITE(Message,'(A,F8.3)') 'Average number of strong bonds for each dof',2.0*j/nods
     CALL Info('AMGBondsComplex',Message)
@@ -2830,6 +2836,7 @@ CONTAINS
     cnods = 0
     loops = 0
     cind = 0
+    find = 0
 
     ! Make the tightly bonded neighbours of of C-nodes to have value -1
     DO ind = 1, nods
@@ -3036,16 +3043,13 @@ CONTAINS
       ind = maxi
     END DO
 
-    WRITE(Message,'(A,T35,I10)') 'Coarsening algorhitm starts',newstarts
+    WRITE(Message,'(A,I)') 'Coarsening algorhitm starts',newstarts
     CALL Info('AMGCoarse',Message)
-    WRITE(Message,'(A,T35,I10)') 'Coarsening algorhitm tests',loops
+    WRITE(Message,'(A,I)') 'Coarsening algorhitm tests',loops
     CALL Info('AMGCoarse',Message)
-    WRITE(Message,'(A,T35,I10)') 'Coarsening algorhitm tests per start',loops/newstarts
+    WRITE(Message,'(A,I)') 'Coarsening algorhitm c-nodes',cind
     CALL Info('AMGCoarse',Message)
-
-    WRITE(Message,'(A,T35,I10)') 'Coarsening algorhitm c-nodes',cind
-    CALL Info('AMGCoarse',Message)
-    WRITE(Message,'(A,T35,I10)') 'Coarsening algorhitm f-nodes',find
+    WRITE(Message,'(A,I)') 'Coarsening algorhitm f-nodes',find
     CALL Info('AMGCoarse',Message)
 
   END SUBROUTINE AMGCoarse
@@ -3081,7 +3085,7 @@ CONTAINS
 
        Debug = .FALSE.
 
-       CALL Info('InterpolateF2C','Starting interpolation')
+       IF(Debug) CALL Info('InterpolateF2C','Starting interpolation')
        
        ProjLim = ListGetConstReal(Solver % Values,'MG Projection Limit',GotIt)
        IF(.NOT. GotIt) ProjLim = 0.1
@@ -3854,6 +3858,8 @@ CONTAINS
       nods2 = Matrix2 % NumberOfRows
 
       SaveLimit = ListGetInteger(Solver % Values,'MG Coarse Nodes Save Limit',GotIt) 
+      IF(.NOT. GotIt) SaveLimit = nods2	
+
       IF(nods2 > SaveLimit) RETURN
 
 !      Project the fine dofs to the coarse dofs
