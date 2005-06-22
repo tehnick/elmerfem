@@ -10,3 +10,4 @@ libtk_a_SOURCES=\
 	window.c \
 	shapes.c 
 
+noinst_HEADERS=tk.h private.h

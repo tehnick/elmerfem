@@ -31,6 +31,8 @@ all-local: screensave.so window.so
 clean-local:
 	rm *.so
 
+EXTRA_DIST=screensave.c window.c
+
 screensave.so: screensave.$(OBJEXT)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(SH_LDFLAGS) -o $@ $< $(LIBS)
 

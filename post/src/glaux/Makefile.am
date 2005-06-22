@@ -8,4 +8,5 @@ libglaux_a_SOURCES=\
 	shapes.c \
 	teapot.c \
 	vect3d.c \
+	glaux.h \
 	xform.c 

@@ -14,6 +14,7 @@
 
 @SET_MAKE@
 
+
 SOURCES = $(libtk_a_SOURCES)
 
 srcdir = @srcdir@
@@ -40,7 +41,8 @@ build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
 subdir = src/tk
-DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
+DIST_COMMON = $(noinst_HEADERS) $(srcdir)/Makefile.am \
+	$(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/acx_gl.m4 \
 	$(top_srcdir)/acx_elmer.m4 $(top_srcdir)/acx_elmer.m4 \
@@ -66,6 +68,7 @@ CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 SOURCES = $(libtk_a_SOURCES)
 DIST_SOURCES = $(libtk_a_SOURCES)
+HEADERS = $(noinst_HEADERS)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -208,6 +211,7 @@ libtk_a_SOURCES = \
 	window.c \
 	shapes.c 
 
+noinst_HEADERS = tk.h private.h
 all: all-am
 
 .SUFFIXES:
@@ -355,7 +359,7 @@ distdir: $(DISTFILES)
 	done
 check-am: all-am
 check: check-am
-all-am: Makefile $(LIBRARIES)
+all-am: Makefile $(LIBRARIES) $(HEADERS)
 installdirs:
 install: install-am
 install-exec: install-exec-am
