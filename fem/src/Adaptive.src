@@ -33,6 +33,9 @@
 ! *       Date of modification: 
 ! *
 ! * $Log: Adaptive.src,v $
+! * Revision 1.6  2005/06/16 11:10:33  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.5  2005/06/16 07:38:32  jpr
 ! * *** empty log message ***
 ! *
@@ -53,7 +56,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Adaptive.src,v 1.5 2005/06/16 07:38:32 jpr Exp $
+! * $Id: Adaptive.src,v 1.6 2005/06/16 11:10:33 jpr Exp $
 ! *****************************************************************************/
 
 
@@ -123,7 +126,7 @@ CONTAINS
     TYPE( Variable_t ), POINTER :: Var, Var1, NewVar
     REAL(KIND=dp) :: MaxError, ErrorLimit, minH, maxH, MaxChangeFactor, &
       LocalIndicator,ErrorEstimate,t,TotalTime,CPUTime,RealTime,RemeshTime,s
-    LOGICAL :: BandwidthOptimize, GotIt, Coarsening, GlobalBubbles
+    LOGICAL :: BandwidthOptimize, Found, Coarsening, GlobalBubbles
     INTEGER :: MaxDepth
     CHARACTER(LEN=1024) :: Path
     REAL(KIND=dp), POINTER  :: Time(:), NodalError(:), PrevValues(:), &
@@ -140,8 +143,8 @@ CONTAINS
 
     RefMesh => Solver % Mesh
 
-    MaxDepth = ListGetInteger( Solver % Values, 'Adaptive Max Depth', GotIt )
-    IF ( GotIt .AND. Refmesh % AdaptiveDepth > MaxDepth ) THEN
+    MaxDepth = ListGetInteger( Solver % Values, 'Adaptive Max Depth', Found )
+    IF ( Found .AND. Refmesh % AdaptiveDepth > MaxDepth ) THEN
        WRITE( Message, * ) 'Max adaptive depth reached.'
        CALL Info( 'RefineMesh', Message, Level = 6 )
        GOTO 20
@@ -293,8 +296,8 @@ CONTAINS
 !
 !   Smooth error, if requested:
 !   ---------------------------
-    k = ListGetInteger( Solver % Values, 'Adaptive Pre Smoothing', GotIt )
-    IF ( GotIt .AND. k > 0 ) THEN 
+    k = ListGetInteger( Solver % Values, 'Adaptive Pre Smoothing', Found )
+    IF ( Found .AND. k > 0 ) THEN 
        CALL AllocateVector( eRef, nn )
        DO j=1,k
           eRef(1:nn) = NodalError(1:nn)
@@ -362,9 +365,9 @@ CONTAINS
 !   Check for convergence:
 !   ----------------------
     ErrorLimit = ListGetConstReal( Solver % Values, &
-        'Adaptive Error Limit', GotIt )
+        'Adaptive Error Limit', Found )
 
-    IF ( .NOT.GotIt ) ErrorLimit = 0.5d0
+    IF ( .NOT.Found ) ErrorLimit = 0.5d0
 
     IF ( MaxError < ErrorLimit ) THEN ! ErrorEstimate < ErrorLimit ) THEN
        CALL Info( 'RefineMesh', &
@@ -375,15 +378,15 @@ CONTAINS
 !
 !   Get additional parameters:
 !   --------------------------
-    minH = ListGetConstReal( Solver % Values, 'Adaptive Min H', GotIt )
-    maxH = ListGetConstReal( Solver % Values, 'Adaptive Max H', GotIt )
+    minH = ListGetConstReal( Solver % Values, 'Adaptive Min H', Found )
+    maxH = ListGetConstReal( Solver % Values, 'Adaptive Max H', Found )
 
     MaxChangeFactor = ListGetConstReal( Solver % Values, &
-            'Adaptive Max Change', GotIt )
-    IF ( .NOT.GotIt .OR. MaxChangeFactor <= AEPS ) MaxChangeFactor = 3.0d0
+            'Adaptive Max Change', Found )
+    IF ( .NOT.Found .OR. MaxChangeFactor <= AEPS ) MaxChangeFactor = 3.0d0
 
-    Coarsening = ListGetLogical( Solver % Values, 'Adaptive Coarsening', GotIt )
-    if( .not.GotIt ) Coarsening = .TRUE.
+    Coarsening = ListGetLogical( Solver % Values, 'Adaptive Coarsening', Found )
+    if( .not.Found ) Coarsening = .TRUE.
 !
 !   Compute local convergence of the solution with respect to h:
 !   ------------------------------------------------------------
@@ -407,7 +410,7 @@ CONTAINS
 
 !   Generate the new mesh:
 !   ----------------------
-    IF ( ListGetLogical( Solver % Values, 'Adaptive Remesh', GotIt ) ) THEN
+    IF ( ListGetLogical( Solver % Values, 'Adaptive Remesh', Found ) ) THEN
        t = RealTime()
        NewMesh => ReMesh( RefMesh, ErrorLimit/3, HValue, &
           NodalError, hConvergence, minH, maxH, MaxChangeFactor, Coarsening )
@@ -453,8 +456,8 @@ CONTAINS
     NULLIFY( NewMesh % Child )
 
     NewMesh % Name = ListGetString( Solver % Values, &
-         'Adaptive Mesh Name', GotIt )
-    IF ( .NOT. GotIt ) NewMesh % Name = 'RefinedMesh'
+         'Adaptive Mesh Name', Found )
+    IF ( .NOT. Found ) NewMesh % Name = 'RefinedMesh'
 
     NewMesh % AdaptiveDepth = RefMesh % AdaptiveDepth + 1
 
@@ -473,7 +476,7 @@ CONTAINS
     END IF
     CALL MakeDirectory( TRIM(path) // CHAR(0) )
 
-    IF ( ListGetLogical( Solver % Values, 'Adaptive Save Mesh', GotIt ) ) &
+    IF ( ListGetLogical( Solver % Values, 'Adaptive Save Mesh', Found ) ) &
          CALL WriteMeshToDisk( NewMesh, Path )
 !
 !   Initialize local variables for the new mesh:
@@ -611,11 +614,12 @@ print*,'t3: ', associated( var )
 !   Try to account for the reordering of DOFs
 !   due to bandwidth optimization:
 !   -----------------------------------------
-    GlobalBubbles = ListGetLogical(Solver % Values, 'Global Bubbles',Gotit)
+    GlobalBubbles = ListGetLogical(Solver % Values, 'Global Bubbles',Found)
+    IF (.NOT.Found) GlobalBubbles=.TRUE.
 
     BandwidthOptimize = ListGetLogical( Solver % Values, &
-         'Optimize Bandwidth', GotIt )
-    IF ( .NOT. GotIt ) BandwidthOptimize = .TRUE.
+         'Optimize Bandwidth', Found )
+    IF ( .NOT. Found ) BandwidthOptimize = .TRUE.
 
     IF ( BandwidthOptimize ) THEN
        n = NewMesh % NumberOfNodes
@@ -701,10 +705,10 @@ print*,'t3: ', associated( var )
 !   -----------------------------------
 
     Solver % Matrix % Lumped = ListGetLogical( Solver % Values, &
-            'Lumped Mass Matrix', GotIt )
+            'Lumped Mass Matrix', Found )
 
     Solver % Matrix % Symmetric = ListGetLogical( Solver % Values, &
-            'Linear System Symmetric', GotIt )
+            'Linear System Symmetric', Found )
 
     CALL AllocateVector( Solver % Matrix % RHS, SIZE(Solver % Variable % Values) )
     Solver % Matrix % RHS = 0.0d0
@@ -723,7 +727,7 @@ print*,'t3: ', associated( var )
 
 !   Eigen analysis case additional allocations:
 !   --------------------------------------------
-    IF ( ListGetLogical(Solver % Values, 'Eigen Analysis', GotIt ) ) THEN
+    IF ( ListGetLogical(Solver % Values, 'Eigen Analysis', Found ) ) THEN
        n = SIZE( Solver % Variable % Values )
        CALL AllocateArray( Solver % Variable % EigenVectors, &
                  Solver % NOFEigenValues, n )
@@ -843,8 +847,8 @@ CONTAINS
     WRITE(11,*) 0
     CLOSE(11)
 
-    Path = ListGetString( Solver % Values, 'Adaptive Mesh Name', GotIt )
-    IF ( .NOT. GotIt ) Path = 'RefinedMesh'
+    Path = ListGetString( Solver % Values, 'Adaptive Mesh Name', Found )
+    IF ( .NOT. Found ) Path = 'RefinedMesh'
 
     i = RefMesh % AdaptiveDepth + 1
     n = FLOOR(LOG10(REAL(i))) + 1.5d0 
@@ -869,9 +873,9 @@ CONTAINS
        Mesh => Mesh % Parent
     END DO
 
-    MeshInputFile = ListGetString( Solver % Values, 'Mesh Input File', GotIt )
+    MeshInputFile = ListGetString( Solver % Values, 'Mesh Input File', Found )
 
-    IF ( .NOT. GotIt ) THEN
+    IF ( .NOT. Found ) THEN
        MeshInputFile = ListGetString( Model % Simulation, 'Mesh Input File' )
     END IF
 
@@ -893,8 +897,8 @@ CONTAINS
     NewMesh => LoadMesh( Model, OutPutPath, Path, .FALSE., 1, 0 )
 
     IF ( Solver % Variable % Name == 'temperature' ) THEN
-       Name = ListGetString( Model % Simulation, 'Gebhardt Factors', Gotit )
-       IF ( GotIt ) THEN
+       Name = ListGetString( Model % Simulation, 'Gebhardt Factors', Found )
+       IF ( Found ) THEN
           MeshCommand = 'View ' // TRIM(OutputPath) // &
                 '/' // TRIM(Mesh % Name) // ' ' // TRIM(Path)
 

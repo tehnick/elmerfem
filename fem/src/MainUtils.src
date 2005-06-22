@@ -33,6 +33,9 @@
 ! *       Date of modification:
 ! *
 ! * $Log: MainUtils.src,v $
+! * Revision 1.3  2005/05/26 12:33:14  jpr
+! * Removed explicit DLLEXPORT definitions
+! *
 ! * Revision 1.2  2005/05/26 11:32:55  vierinen
 ! * umfpack changes
 ! *
@@ -63,7 +66,7 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.src,v 1.2 2005/05/26 11:32:55 vierinen Exp $
+! * $Id: MainUtils.src,v 1.3 2005/05/26 12:33:14 jpr Exp $
 ! *****************************************************************************/
 
 
@@ -93,7 +96,7 @@ CONTAINS
     INTEGER :: FORMAT
 
     INTEGER :: i
-    LOGICAL :: GotIt
+    LOGICAL :: Found
     CHARACTER(LEN=MAX_NAME_LEN) :: str
 !------------------------------------------------------------------------------
 !
@@ -106,15 +109,15 @@ CONTAINS
             ) THEN
 
           str = ListGetString( Model % Solvers(i) % Values, & 
-                  'Linear System Solver', GotIt )
-          IF ( .NOT. GotIt ) str = 'direct'
+                  'Linear System Solver', Found )
+          IF ( .NOT. Found ) str = 'direct'
 
           IF ( TRIM(str) == 'direct' ) THEN
 
              str = ListGetString(Model % Solvers(i) % Values, &
-                  'Linear System Direct Method', GotIt )
+                  'Linear System Direct Method', Found )
 
-             IF ( .NOT. GotIt ) THEN
+             IF ( .NOT. Found ) THEN
                 FORMAT = MATRIX_CRS
              ELSE
                 SELECT CASE( TRIM(str) )
@@ -190,7 +193,7 @@ CONTAINS
     INTEGER :: i,j,k,NDeg,Nrows,nSize,n,DOFs,MatrixFormat,istat
     INTEGER :: MaxDGDOFs, MaxNDOFs, MaxEDOFs, MaxFDOFs, MaxBDOFs
 
-    LOGICAL :: GotIt, BandwidthOptimize, EigAnal, ComplexFlag, &
+    LOGICAL :: Found, BandwidthOptimize, EigAnal, ComplexFlag, &
         MultigridActive, VariableOutput, GlobalBubbles
 
     CHARACTER(LEN=MAX_NAME_LEN) :: str,eq,var_name, tmpname
@@ -230,7 +233,8 @@ CONTAINS
        MaxBDOFs  = MAX( MaxFDOFs,  CurrentElement % BDOFs )
     END DO
 
-   GlobalBubbles = ListGetLogical( Solver % Values, 'Global Bubbles', GotIt )
+    GlobalBubbles = ListGetLogical( Solver % Values, 'Bubbles in Global System', Found )
+    IF (.NOT.Found) GlobalBubbles=.TRUE.
 
     Ndeg = 0
     Ndeg = Ndeg + Solver % Mesh % NumberOfNodes 
@@ -243,30 +247,30 @@ CONTAINS
     Solver % Order = 1
 
     IF ( Transient ) THEN
-       str = ListGetString( Solver % Values, 'Timestepping Method',GotIt )
-       IF ( .NOT. GotIt ) THEN
-          str = ListGetString( CurrentModel % Simulation, 'Timestepping Method',GotIt )
-          IF ( GotIt ) THEN
+       str = ListGetString( Solver % Values, 'Timestepping Method',Found )
+       IF ( .NOT. Found ) THEN
+          str = ListGetString( CurrentModel % Simulation, 'Timestepping Method',Found )
+          IF ( Found ) THEN
              CALL ListAddString( Solver % Values, 'Timestepping Method', str )
           END IF
        END IF
 
-       IF ( GotIt ) THEN
+       IF ( Found ) THEN
           IF (str=='bdf') THEN
              Solver % Order = ListGetInteger( Solver % Values, &
-                   'BDF Order', GotIt, minv=1, maxv=5 )
-             IF ( .NOT. GotIt ) THEN
+                   'BDF Order', Found, minv=1, maxv=5 )
+             IF ( .NOT. Found ) THEN
                 Solver % Order = ListGetInteger( CurrentModel % &
-                   Simulation, 'BDF Order', GotIt, minv=1, maxv=5 )
+                   Simulation, 'BDF Order', Found, minv=1, maxv=5 )
              END IF
-             IF ( .NOT.GotIt ) THEN
+             IF ( .NOT.Found ) THEN
                 Solver % Order = 2
                 CALL Warn( 'AddEquation', 'BDF order defaulted to 2.' )
              END IF
           ELSE IF ( str=='runge-kutta') THEN
              Solver % Order = ListGetInteger( CurrentModel % &
-                   Simulation, 'Runge-Kutta Order', GotIt, minv=2, maxv=4 )
-             IF ( .NOT.GotIt ) Solver % Order = 2
+                   Simulation, 'Runge-Kutta Order', Found, minv=2, maxv=4 )
+             IF ( .NOT.Found ) Solver % Order = 2
           END IF
        ELSE
           CALL Warn( 'AddEquation', 'Time stepping method defaulted to IMPLICIT EULER' )
@@ -283,14 +287,14 @@ CONTAINS
     MatrixFormat = GetMatrixFormat( CurrentModel, Name )
 
     BandwidthOptimize = ListGetLogical( Solver % Values, &
-           'Optimize Bandwidth', GotIt )
-    IF ( .NOT. GotIt ) BandwidthOptimize = .TRUE.
+           'Optimize Bandwidth', Found )
+    IF ( .NOT. Found ) BandwidthOptimize = .TRUE.
 
-    VariableOutput = ListGetLogical( Solver % Values, 'Variable Output', gotit )
-    IF ( .NOT. Gotit ) VariableOutput = .TRUE.
+    VariableOutput = ListGetLogical( Solver % Values, 'Variable Output', Found )
+    IF ( .NOT. Found ) VariableOutput = .TRUE.
 
-    var_name = ListGetString( Solver % Values, 'Variable', gotit )
-    IF ( gotIt ) THEN
+    var_name = ListGetString( Solver % Values, 'Variable', Found )
+    IF ( Found ) THEN
        IF ( var_name(1:9) == '-nooutput' ) THEN
           VariableOutput = .FALSE.
           var_name(1:LEN(var_name)-10) = var_name(11:)
@@ -575,8 +579,8 @@ CONTAINS
           ALLOCATE( Perm(Ndeg),STAT=istat )
        END IF
 
-       eq = ListGetString( CurrentModel % Simulation, 'Gebhardt Factors',GotIt )
-       IF ( GotIt ) THEN
+       eq = ListGetString( CurrentModel % Simulation, 'Gebhardt Factors',Found )
+       IF ( Found ) THEN
          CALL LoadGebhardtFactors( Solver % Mesh,eq )
        ELSE
          CALL RadiationFactors( Solver, .TRUE.)
@@ -609,16 +613,16 @@ CONTAINS
        NULLIFY( Solver % Variable )
        Solver % TimeOrder = 0
 
-       eq = ListGetString( Solver  % Values, 'Equation', GotIt )
+       eq = ListGetString( Solver  % Values, 'Equation', Found )
 
-       IF ( GotIt ) THEN
-          DOFs = ListGetInteger( Solver % Values, 'Variable DOFs', GotIt, minv=1 )
-          IF ( .NOT.GotIt ) DOFs = 1
-          var_name = ListGetString( Solver % Values, 'Variable', gotit )
+       IF ( Found ) THEN
+          DOFs = ListGetInteger( Solver % Values, 'Variable DOFs', Found, minv=1 )
+          IF ( .NOT.Found ) DOFs = 1
+          var_name = ListGetString( Solver % Values, 'Variable', Found )
 
-          IF ( Ndeg >= 1 .AND. gotit ) THEN
-             VariableOutput = ListGetLogical( Solver % Values, 'Variable Output', gotit )
-             IF ( .NOT. Gotit ) VariableOutput = .TRUE.
+          IF ( Ndeg >= 1 .AND. Found ) THEN
+             VariableOutput = ListGetLogical( Solver % Values, 'Variable Output', Found )
+             IF ( .NOT. Found ) VariableOutput = .TRUE.
 
              DO WHILE( var_name(1:1) == '-' )
                 IF ( var_name(1:10) == '-nooutput ' ) THEN
@@ -647,8 +651,9 @@ CONTAINS
              END IF
 
              Solver % Matrix => CreateMatrix( CurrentModel, Solver % Mesh, &
-                  Perm, DOFs, MatrixFormat, BandwidthOptimize, eq(1:LEN_TRIM(eq)), &
-                  ListGetLogical( Solver % Values, 'Discontinuous Galerkin', GotIt ), GlobalBubbles=GlobalBubbles )
+               Perm, DOFs, MatrixFormat, BandwidthOptimize, eq(1:LEN_TRIM(eq)), &
+                  ListGetLogical( Solver % Values, &
+                     'Discontinuous Galerkin', Found ), GlobalBubbles=GlobalBubbles )
 
              Nrows = DOFs * Ndeg
              IF ( ASSOCIATED( Solver % Matrix ) ) Nrows = Solver % Matrix % NumberOfRows
@@ -686,16 +691,16 @@ CONTAINS
        i = 1
        DO WHILE( .TRUE. )
           str = ComponentName( 'exported variable', i )
-          var_name = ListGetString( Solver % Values, str, gotit )
+          var_name = ListGetString( Solver % Values, str, Found )
 
-          IF ( gotit ) THEN
+          IF ( Found ) THEN
              str = TRIM( ComponentName( 'exported variable', i ) ) // ' Output'
-             VariableOutput = ListGetLogical( Solver % Values, str, gotit )
-             IF ( .NOT. Gotit ) VariableOutput = .TRUE.
+             VariableOutput = ListGetLogical( Solver % Values, str, Found )
+             IF ( .NOT. Found ) VariableOutput = .TRUE.
 
              str = TRIM( ComponentName( 'exported variable', i ) ) // ' DOFs'
-             DOFs = ListGetInteger( Solver % Values, str, gotit )
-             IF ( .NOT. gotit ) DOFs = 1
+             DOFs = ListGetInteger( Solver % Values, str, Found )
+             IF ( .NOT. Found ) DOFs = 1
 
              VariableOutput = .TRUE.
              DO WHILE( var_name(1:1) == '-' )
@@ -767,7 +772,7 @@ CONTAINS
 
     Solver % SolverExecWhen = SOLVER_EXEC_ALWAYS
 
-    SELECT CASE( ListGetString( Solver % Values, 'Exec Solver', GotIt )  )
+    SELECT CASE( ListGetString( Solver % Values, 'Exec Solver', Found )  )
       CASE( 'never' )
          Solver % SolverExecWhen = SOLVER_EXEC_NEVER
       CASE( 'always' )
@@ -784,27 +789,27 @@ CONTAINS
          Solver % SolverExecWhen = SOLVER_EXEC_ALWAYS
     END SELECT
 
-    IF ( ListGetLogical( Solver % Values, 'Before All', GotIt ) ) THEN
+    IF ( ListGetLogical( Solver % Values, 'Before All', Found ) ) THEN
        Solver % SolverExecWhen = SOLVER_EXEC_AHEAD_ALL
-    ELSE IF ( ListGetLogical( Solver % Values, 'Before Simulation', GotIt ) ) THEN
+    ELSE IF ( ListGetLogical( Solver % Values, 'Before Simulation', Found ) ) THEN
        Solver % SolverExecWhen = SOLVER_EXEC_AHEAD_ALL
-    ELSE IF ( ListGetLogical( Solver % Values, 'After All', GotIt ) ) THEN
+    ELSE IF ( ListGetLogical( Solver % Values, 'After All', Found ) ) THEN
        Solver % SolverExecWhen = SOLVER_EXEC_AFTER_ALL
-    ELSE IF ( ListGetLogical( Solver % Values, 'After Simulation', GotIt ) ) THEN
+    ELSE IF ( ListGetLogical( Solver % Values, 'After Simulation', Found ) ) THEN
        Solver % SolverExecWhen = SOLVER_EXEC_AFTER_ALL
-    ELSE IF ( ListGetLogical( Solver % Values, 'Before Timestep', GotIt ) ) THEN
+    ELSE IF ( ListGetLogical( Solver % Values, 'Before Timestep', Found ) ) THEN
        Solver % SolverExecWhen = SOLVER_EXEC_AHEAD_TIME
-    ELSE IF ( ListGetLogical( Solver % Values, 'After Timestep', GotIt ) ) THEN
+    ELSE IF ( ListGetLogical( Solver % Values, 'After Timestep', Found ) ) THEN
        Solver % SolverExecWhen = SOLVER_EXEC_AFTER_TIME
     END IF
 
     Solver % LinAfterProc  = 0
     Solver % LinBeforeProc = 0
-    str = ListGetString( Solver  % Values, 'Before Linsolve', GotIt )
-    IF ( GotIt ) Solver % LinBeforeProc = GetProcAddr( str )
+    str = ListGetString( Solver  % Values, 'Before Linsolve', Found )
+    IF ( Found ) Solver % LinBeforeProc = GetProcAddr( str )
 
-    str = ListGetString( Solver  % Values, 'After Linsolve', GotIt )
-    IF ( GotIt ) Solver % LinAfterProc = GetProcAddr( str )
+    str = ListGetString( Solver  % Values, 'After Linsolve', Found )
+    IF ( Found ) Solver % LinAfterProc = GetProcAddr( str )
 
 !------------------------------------------------------------------------------
     IF ( .NOT. ASSOCIATED( Solver % Variable % Values ) ) RETURN
@@ -816,13 +821,13 @@ CONTAINS
     END IF
 !------------------------------------------------------------------------------
 
-    EigAnal = ListGetLogical( Solver % Values, 'Eigen Analysis', GotIt )
+    EigAnal = ListGetLogical( Solver % Values, 'Eigen Analysis', Found )
 
     IF ( Transient .AND. .NOT. EigAnal ) THEN
-       k = ListGetInteger( Solver % Values, 'Time Derivative Order', GotIt, &
+       k = ListGetInteger( Solver % Values, 'Time Derivative Order', Found, &
                   minv=0, maxv=2 )
        Solver % TimeOrder = 1
-       IF ( GotIt ) Solver % TimeOrder = MIN(MAX(1,k),2)
+       IF ( Found ) Solver % TimeOrder = MIN(MAX(1,k),2)
 
        IF ( ASSOCIATED( Solver % Matrix ) ) THEN
           ALLOCATE( Solver % Matrix % Force(Solver % Matrix % NumberOFRows, &
@@ -870,11 +875,11 @@ CONTAINS
     ELSE
        Solver % TimeOrder = 0
        IF ( EigAnal ) THEN
-          ComplexFlag = ListGetLogical( Solver % Values,  'Eigen System Complex', GotIt )
-          IF ( .NOT. GotIt ) ComplexFlag = .FALSE.
+          ComplexFlag = ListGetLogical( Solver % Values,  'Eigen System Complex', Found )
+          IF ( .NOT. Found ) ComplexFlag = .FALSE.
 
-          n = ListGetInteger( Solver % Values,  'Eigen System Values', GotIt )
-          IF ( GotIt .AND. n > 0 ) THEN
+          n = ListGetInteger( Solver % Values,  'Eigen System Values', Found )
+          IF ( Found .AND. n > 0 ) THEN
              Solver % NOFEigenValues = n
              IF ( .NOT. ASSOCIATED( Solver % Variable % EigenValues ) ) THEN
                ALLOCATE( Solver % Variable % EigenValues(n) )
@@ -908,14 +913,14 @@ CONTAINS
 
     IF ( ASSOCIATED( Solver % Matrix ) ) THEN
        Solver % Matrix % Symmetric = ListGetLogical( Solver % Values, &
-                  'Linear System Symmetric', GotIt )
+                  'Linear System Symmetric', Found )
 
        Solver % Matrix % Lumped = ListGetLogical( Solver % Values, &
-                  'Lumped Mass Matrix', GotIt )
+                  'Lumped Mass Matrix', Found )
 
        MultigridActive = &
-         ListGetString( Solver % Values, 'Linear System Solver', gotIt ) == 'multigrid' .OR. &
-         ListGetString( Solver % Values, 'Linear System Preconditioning', gotIt ) == 'multigrid'
+         ListGetString( Solver % Values, 'Linear System Solver', Found ) == 'multigrid' .OR. &
+         ListGetString( Solver % Values, 'Linear System Preconditioning', Found ) == 'multigrid'
 
 
 !      Check for multigrid solver:
@@ -923,18 +928,18 @@ CONTAINS
        IF ( MultigridActive ) THEN
 
           Solver % MultiGridTotal = ListGetInteger( Solver % Values, &
-                        'MG Levels', GotIt, minv=1 )
+                        'MG Levels', Found, minv=1 )
 
-          IF ( .NOT. GotIt ) THEN
+          IF ( .NOT. Found ) THEN
              Solver % MultiGridTotal = ListGetInteger( Solver % Values, &
-                     'Multigrid Levels', GotIt, minv=1 )
+                     'Multigrid Levels', Found, minv=1 )
           END IF
-          IF ( .NOT. GotIt ) Solver % MultiGridTotal = 1
+          IF ( .NOT. Found ) Solver % MultiGridTotal = 1
 !
 !         Check if h/2 splitting of mesh requested:
 !         ------------------------------------------
           Solver % MultiGridEqualSplit = ListGetLogical( &
-             Solver % Values, 'MG Equal Split', GotIt )
+             Solver % Values, 'MG Equal Split', Found )
 
           IF ( Solver % MultiGridEqualSplit ) THEN
              CALL ParallelInitMatrix( Solver, Solver % Matrix )
@@ -974,7 +979,7 @@ CONTAINS
           END IF
           CALL MeshStabParams( Solver % Mesh )
           Solver % MultiGridSolver = ListGetString(Solver % Values, &
-             'Linear System Solver', GotIt ) == 'multigrid'
+             'Linear System Solver', Found ) == 'multigrid'
           Solver % MultiGridLevel  = Solver % MultiGridTotal
        END IF
     END IF
@@ -996,7 +1001,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: PrevNorm, RelativeChange, Tolerance, PrevDT = 0.0d0
     INTEGER :: i,j,k,n
-    LOGICAL :: gotit, AbsNorm, Convergence, RungeKutta
+    LOGICAL :: Found, AbsNorm, Convergence, RungeKutta
     LOGICAL, ALLOCATABLE :: DoneThis(:)
     TYPE(Solver_t), POINTER :: Solver
     TYPE(Mesh_t),   POINTER :: Mesh
@@ -1017,8 +1022,8 @@ CONTAINS
 
     DO k=1,Model % NumberOfSolvers
       Solver => Model % Solvers(k)
-      when  = ListGetString( Solver % Values, 'Exec Solver', GotIt )
-      IF ( GotIt ) THEN
+      when  = ListGetString( Solver % Values, 'Exec Solver', Found )
+      IF ( Found ) THEN
          IF ( When == 'before timestep' ) THEN
            CALL SolverActivate( Model,Solver,dt,TransientSimulation )
          END IF
@@ -1060,8 +1065,8 @@ CONTAINS
 !------------------------------------------------------------------------------
           Solver => Model % Solvers(k)
 
-          When = ListGetString( Solver % Values, 'Exec Solver', GotIt )
-          IF ( GotIt ) THEN
+          When = ListGetString( Solver % Values, 'Exec Solver', Found )
+          IF ( Found ) THEN
              IF ( When /= 'always' ) THEN
                 DoneThis(k) = .TRUE.
                 CYCLE
@@ -1077,7 +1082,7 @@ CONTAINS
           RungeKutta = .FALSE.
           IF ( TransientSimulation .AND. Solver % TimeOrder == 1 ) THEN
              RungeKutta = ListGetString( Solver % Values, &
-                    'Timestepping Method', GotIt ) == 'runge-kutta'
+                    'Timestepping Method', Found ) == 'runge-kutta'
           END IF
 
           PrevNorm = Solver % Variable % Norm
@@ -1142,17 +1147,17 @@ CONTAINS
                       '  ) :: ' // TRIM(ListGetString( Solver % Values, 'Equation'))
                 CALL Info( 'SolveEquations', Message, Level=3 )
 
-                absnorm = ListGetLogical( Solver % Values, 'Use Absolute Norm for Convergence', GotIt )
-                IF ( .NOT. Gotit ) absnorm = .FALSE.
+                absnorm = ListGetLogical( Solver % Values, 'Use Absolute Norm for Convergence', Found )
+                IF ( .NOT. Found ) absnorm = .FALSE.
 
                 Tolerance = ListGetConstReal( Solver % Values,   &
-                              'Steady State Convergence Tolerance', gotIt ) 
+                              'Steady State Convergence Tolerance', Found ) 
 
                 Convergence = .FALSE.
                 Convergence = Convergence .OR. (RelativeChange < Tolerance) .AND. .NOT. Absnorm
                 Convergence = Convergence .OR. (Solver % Variable % Norm < Tolerance) .AND. Absnorm
 
-                IF ( GotIt .AND. .NOT. Convergence ) THEN
+                IF ( Found .AND. .NOT. Convergence ) THEN
                    DoneThis(k) = .FALSE.
                 ELSE
                    DoneThis(k) = .TRUE.
@@ -1170,7 +1175,7 @@ CONTAINS
 
     IF ( TransientSimulation .AND. .NOT. ALL(DoneThis) ) THEN
        IF ( ListGetLogical( Model % Simulation,  &
-               'Coupled System Abort Not Converged', gotIt ) ) THEN
+               'Coupled System Abort Not Converged', Found ) ) THEN
           CALL Error( 'SolveEquations', ' ' )
           WRITE( Message, * ) 'Coupled system iteration: ', i
           CALL Error( 'SolveEquations', Message )
@@ -1187,8 +1192,8 @@ CONTAINS
 
     DO k=1,Model % NumberOfSolvers
       Solver => Model % Solvers(k)
-      When = ListGetString( Solver % Values, 'Exec Solver', GotIt )
-      IF (  GotIt ) THEN
+      When = ListGetString( Solver % Values, 'Exec Solver', Found )
+      IF (  Found ) THEN
          IF ( When == 'after timestep' ) THEN
              CALL SolverActivate( Model,Solver,dt,TransientSimulation )
          END IF
@@ -1235,7 +1240,8 @@ CONTAINS
            ALLOCATE( Solver % ActiveElements( Solver % Mesh % NumberOfBulkElements + &
                         Solver % Mesh % NumberOFBoundaryElements ) )
 
-           GB = ListGetLogical( Solver % Values,'Global Bubbles', Found )
+           GB = ListGetLogical( Solver % Values,'Bubbles in Global System', Found )
+           IF (.NOT.Found) GB=.TRUE.
            BDOFs  = 0
            DO i=1,Solver % Mesh % NumberOfBulkElements+Solver % Mesh % NumberOFBoundaryElements
               CurrentElement => Solver % Mesh % Elements(i)
