@@ -62,15 +62,97 @@ News
 Contact information
 
           -->
-            <a href="front.html">Elmer</a><br/>
-            <a href="download.html">Download</a><br/>
-            <a href="compilation.html">Compiling</a><br/>
-            <a href="manuals.html">Documentation</a><br/><!-- tutorials, manuals, papers etc. -->
-            <a href="screenshots.html">Screenshots</a><br/>
-            <a href="lists.html">Mailing lists</a><br/>
-            <a href="contributors.html">Contributors</a><br/>
-            <a href="faq.html">FAQ</a><br/>
-            <a href="contact.html">Contact</a><br/>
+            
+            <xsl:choose>
+              <xsl:when test="/html/head/meta/@category = 'front'">
+                <a class="catsel" href="front.html">Elmer</a><br/>
+              </xsl:when>
+              <xsl:otherwise>
+                <a class="cat" href="front.html">Elmer</a><br/>
+              </xsl:otherwise>
+            </xsl:choose>
+
+            <xsl:choose>
+              <xsl:when test="/html/head/meta/@category = 'download'">
+                <a class="catsel" href="download.html">Download</a><br/>
+              </xsl:when>
+              <xsl:otherwise>
+                <a class="cat" href="download.html">Download</a><br/>
+              </xsl:otherwise>
+            </xsl:choose>
+
+            <xsl:choose>
+              <xsl:when test="/html/head/meta/@category = 'compiling'">
+                <a class="catsel" href="compilation.html">Compiling</a><br/>
+                <a class="subcat" href="automake-nano-howto.html">Autotools HOWTO</a><br/>
+              </xsl:when>
+              <xsl:otherwise>
+                <a class="cat" href="compilation.html">Compiling</a><br/>
+              </xsl:otherwise>
+            </xsl:choose>
+
+
+            <xsl:choose>
+              <xsl:when test="/html/head/meta/@category = 'documentation'">
+                <a class="catsel" href="manuals.html">Documentation</a><br/>
+                <a class="subcat" href="http://www.csc.fi/elmer/tutorials/index.phtml">Tutorials</a><br/>
+                <a class="subcat" href="http://www.csc.fi/elmer/papers/index.phtml">Papers</a><br/>
+                <a class="subcat" href="http://www.csc.fi/elmer/examples/index.phtml">Examples</a><br/>
+              </xsl:when>
+              <xsl:otherwise>
+                <a href="manuals.html">Documentation</a><br/>
+              </xsl:otherwise>
+            </xsl:choose>
+
+
+            <xsl:choose>
+              <xsl:when test="/html/head/meta/@category = 'screenshots'">
+                <a class="catsel" href="screenshots.html">Screenshots</a><br/>
+              </xsl:when>
+              <xsl:otherwise>
+                <a class ="cat" href="screenshots.html">Screenshots</a><br/>
+              </xsl:otherwise>
+            </xsl:choose>
+
+
+            <xsl:choose>
+              <xsl:when test="/html/head/meta/@category = 'lists'">
+                <a class="catsel" href="lists.html">Mailing lists</a><br/>
+              </xsl:when>
+              <xsl:otherwise>
+                <a class="cat" href="lists.html">Mailing lists</a><br/>
+              </xsl:otherwise>
+            </xsl:choose>
+
+
+            <xsl:choose>
+              <xsl:when test="/html/head/meta/@category = 'contributors'">
+                <a class="catsel" href="contributors.html">Contributors</a><br/>
+              </xsl:when>
+              <xsl:otherwise>
+                <a class="cat" href="contributors.html">Contributors</a><br/>
+              </xsl:otherwise>
+            </xsl:choose>
+
+
+            <xsl:choose>
+              <xsl:when test="/html/head/meta/@category = 'faq'">
+                <a class="catsel" href="faq.html">FAQ</a><br/>
+              </xsl:when>
+              <xsl:otherwise>
+                <a class="cat" href="faq.html">FAQ</a><br/>
+              </xsl:otherwise>
+            </xsl:choose>
+
+
+            <xsl:choose>
+              <xsl:when test="/html/head/meta/@category = 'contact'">
+                <a class="catsel" href="contact.html">Contact info</a><br/>
+              </xsl:when>
+              <xsl:otherwise>
+                <a class="cat" href="contact.html">Contact info</a><br/>
+              </xsl:otherwise>
+            </xsl:choose>
 
         </div>
 

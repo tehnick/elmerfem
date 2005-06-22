@@ -1,7 +1,7 @@
 <html><head>
   <title>Autotools nano-HOWTO</title>
   <link rel="stylesheet" href="elmer.css" />
-<!-- <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"> -->
+  <meta category="compiling"/>
 </head>
 <body>
 
@@ -11,11 +11,17 @@
 2005 Juha Vierinen
 &lt;juha.vierinen(#parsethis%#]csc.fi&gt;</p>
 
-<h2>Building autotools managed
-software</h2>
+<h2>Building autotools managed software</h2>
 
+<p>One often gets a warm fuzzy feeling seeing the autoconf generated
+configure file after unpacking a source tarball -- this is because
+your chances of easily compiling the piece of software have grown by
+atleast a decade. This doesn't mean that you won't have any problems
+-- you will have problems with compiling software sooner or later --
+it just means that things tend to go more smoothly when autoconf and
+automake (referred to as autotools in this text) are involved.</p>
 
-<p>The normal way is this:</p>
+<p>The normal way to proceed after untarring a source package is this:</p>
 
 <pre>./configure ; make ; make install<br/></pre>
 
@@ -27,19 +33,23 @@ maintainer. The help option usually lists these.
 <pre>./configure --help<br/></pre>
 
 <p>
-Eg. the following will install the software into the home directory of
-the user instead of the default location (/usr or /usr/local).
+For example, --prefix will install the software into the home
+directory of the user instead of the default location (/usr or /usr/local).
 </p>
 
 <pre>./configure --prefix=/home/user<br/></pre>
 
+<a name="flags"/>
 <p>
 Common environment variables are CFLAGS, CXXFLAGS, FFLAGS, FCFLAGS,
 LIBS and LDFLAGS. These are processed and tested by configure and added
 to the flags that configure comes up with. For example:
 </p>
 
-<pre>export CFLAGS="-O42 -g --funny-compiler-flag -I/hard/to/guess/directory" <br/>./configure ; make <span class="comment"># will usually use your CFLAGS for compiling</span><br/></pre>
+<pre>
+&gt; export CFLAGS="-O42 -g --funny-compiler-flag -I/hard/to/guess/directory"
+&gt; ./configure ; make <span class="comment"># will usually use your CFLAGS for compiling</span>
+</pre>
 
 <p>
 On more obscure (ie. AIX or OSX) platforms, you will often have to come
@@ -49,23 +59,41 @@ also
 include custom arguments to do this as well eg.:
 </p>
 
-<pre>./configure --with-blas="-L/home/user -lblas"<br/>./configure --with-blas="/opt/supafastblaswithstripesandachrometailpipe.a"<br/></pre>
+<pre>
+&gt; ./configure --with-blas="-L/home/user -lblas"
+&gt; ./configure --with-blas="/opt/supafastblaswithstripesandachrometailpipe.a"
+</pre>
 
-<h2>Automake provided default
-targets</h2>
+<h2>Automake provided default targets</h2>
 
 <p>The commonly used targets are:</p>
 
-<pre>make <span class="comment"># Compile everything.</span><br/>make clean <span class="comment"># Remove all objects, temporary files and such.</span><br/>make distclean <span class="comment"># Remove automatically generated autoconf/automake files.</span><br/>make dist <span class="comment"># Create a tar.gz file containing source ready for distribution.</span><br/>make install <span class="comment"># Install software to you kit.</span><br/></pre>
+<pre>
+make           <span class="comment"># Compile everything.</span>
+make clean     <span class="comment"># Remove all objects, temporary files and such.</span>
+make distclean <span class="comment"># Remove automatically generated autoconf/automake files.</span>
+make dist      <span class="comment"># Create a tar.gz file containing source ready for distribution.</span>
+make install   <span class="comment"># Install software to you kit.</span>
+</pre>
 
 <p>Other useful targets:</p>
 
-<pre>make tags <span class="comment"># Generate etags files for the source.</span><br/>make dist-zip <span class="comment"># Create a zip file (great for windows people)</span><br/>make uninstall <span class="comment"># Uninstall the files installed with make install</span><br/>make check <span class="comment"># Run tests bundled with the project</span><br/></pre>
+<pre>
+make tags      <span class="comment"># Generate etags files for the source.</span>
+make dist-zip  <span class="comment"># Create a zip file (great for windows people)</span>
+make uninstall <span class="comment"># Uninstall the files installed with make install</span>
+make check     <span class="comment"># Run tests bundled with the project</span>
+</pre>
 
-<h2>The anatomy of a automake and
-autoconf governed project</h2>
+<h2>The anatomy of a automake and autoconf governed project</h2>
 
-<pre>autogen.sh <span class="comment"># Semi-standard script for generating the configure <br/> # script and possibly the Makefile.in files</span><br/>configure.[in,ac] <span class="comment"># The template used for producing configure</span><br/>Makefile.in <span class="comment"># Autoconf makefile template</span><br/>Makefile.am <span class="comment"># Automake makefile template</span><br/></pre>
+<pre>
+autogen.sh <span class="comment"># Semi-standard script for generating the configure 
+           # script and possibly the Makefile.in files</span>
+configure.[in,ac] <span class="comment"># The template used for producing configure</span>
+Makefile.in <span class="comment"># Autoconf makefile template</span>
+Makefile.am <span class="comment"># Automake makefile template</span>
+</pre>
 
 <h2>Maintaining an autoconf project</h2>
 
@@ -85,7 +113,7 @@ When making modifications to the makefiles, you should run autogen.sh,
 or aclocal;automake;autoheader;autoconf in a corrct order. There is
 also a maintainer mode available that automatically regenerates the
 makefiles when necessary. This is enabled by default, but is usually
-switched of with the AM_MAINTAINER_MODE macro, but can be re-enabled
+switched off with the AM_MAINTAINER_MODE macro, but can be re-enabled
 by giving the <code>--enable-maintainer-mode</code>
 flag to <code>./configure</code>.
 </p>
@@ -110,7 +138,16 @@ Makefile.am could look like this:
 
 <h2>Commands</h2>
 
-<pre>autoscan <span class="comment"># Scan your source code to detect which tests might be needed and <br/> # create a configure.scan, which can be used as a basis of <br/>	# configure.in.</span><br/>autoheader <span class="comment"># Scan configure.in and create a config.h.in file, that will </span><br/> <span class="comment"># </span><span class="comment">be used as a basis of your config.h (if you use one)</span><br/>automake <span class="comment"># Go through configure.in and Makefile.am files and create </span><br/> <span class="comment"># Makefile.in files.</span><br/>autoconf <span class="comment"># Go through configure.in and create the configure script.</span><br/></pre>
+<pre>
+autoscan    <span class="comment"># Scan your source code to detect which tests might be needed and 
+            # create a configure.scan, which can be used as a basis of 
+	    # configure.in.</span>
+autoheader  <span class="comment"># Scan configure.in and create a config.h.in file, that will 
+            # be used as a basis of your config.h (if you use one)</span>
+automake    <span class="comment"># Go through configure.in and Makefile.am files and create 
+            # Makefile.in files.</span>
+autoconf    <span class="comment"># Go through configure.in and create the configure script.</span>
+</pre>
 
 <p>
 Still can't figure out what to run and in which order? Try running
