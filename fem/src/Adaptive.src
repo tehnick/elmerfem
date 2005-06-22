@@ -33,12 +33,6 @@
 ! *       Date of modification: 
 ! *
 ! * $Log: Adaptive.src,v $
-! * Revision 1.6  2005/06/16 11:10:33  jpr
-! * *** empty log message ***
-! *
-! * Revision 1.5  2005/06/16 07:38:32  jpr
-! * *** empty log message ***
-! *
 ! * Revision 1.4  2005/05/26 12:33:08  jpr
 ! * Removed explicit DLLEXPORT definitions
 ! *
@@ -56,7 +50,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Adaptive.src,v 1.6 2005/06/16 11:10:33 jpr Exp $
+! * $Id: Adaptive.src,v 1.7 2005/06/22 04:40:53 jpr Exp $
 ! *****************************************************************************/
 
 
@@ -556,11 +550,11 @@ print*,'t3: ', associated( var )
              'timestep', 'timestep size', 'timestep interval' )
        CASE DEFAULT
           IF ( Var % DOFs == 1 ) THEN
-             gotit = .FALSE.
-             gotit = gotit .OR. INDEX( Var % Name, '.error'  ) > 0
-             gotit = gotit .OR. INDEX( Var % Name, '.eref'   ) > 0
-             gotit = gotit .OR. INDEX( Var % Name, '.perror' ) > 0
-             IF ( gotit ) THEN
+             Found = .FALSE.
+             Found = Found .OR. INDEX( Var % Name, '.error'  ) > 0
+             Found = Found .OR. INDEX( Var % Name, '.eref'   ) > 0
+             Found = Found .OR. INDEX( Var % Name, '.perror' ) > 0
+             IF ( Found ) THEN
                 k = LEN_TRIM( Solver % Variable % Name )
                 IF ( Var % Name(1:k) /= Solver % Variable % Name ) THEN
                    Var => Var % Next

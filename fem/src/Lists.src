@@ -43,7 +43,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Lists.src,v 1.1 2005/05/26 08:24:26 vierinen Exp $
+! * $Id: Lists.src,v 1.2 2005/05/26 12:33:13 jpr Exp $
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
@@ -555,7 +555,9 @@ double precision :: t1,CPUTime
 !------------------------------------------------------------------------------
 
       IF ( .NOT.ASSOCIATED( Tmp ) ) THEN
-         GlobalBubbles=ListGetLogical(Pvar % Solver % Values, 'Global Bubbles', Found)
+         GlobalBubbles=ListGetLogical(Pvar % Solver % Values, &
+               'Bubbles in Global System', Found)
+         IF (.NOT.Found) GlobalBubbles=.TRUE.
          DOFs = CurrentModel % Mesh % NumberOfNodes * PVar % DOFs
          IF ( GlobalBubbles ) &
             DOFs = DOFs+CurrentModel % Mesh % NumberOfBulkElements * PVar % DOFs
