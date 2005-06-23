@@ -133,9 +133,8 @@
      END DO
   
      IF ( .NOT. ASSOCIATED(Mesh) ) THEN
-       PRINT*,'ERROR: ViewFactors: No heat equation definition. ' // &
-                  'Cannot compute factors.'
-       STOP
+       CALL Fatal( 'ViewFactors', 'No heat equation definition. ' // &
+                  'Cannot compute factors.' )
      END IF
      CALL SetCurrentMesh( Model,Mesh )
 
@@ -551,9 +550,8 @@
         ALLOCATE( RHS(N),SOL(N),PSOL(N),Areas(N),Jacobian(N,N),STAT=istat )
 
         IF ( istat /= 0 ) THEN
-          PRINT*,'Viewfactors: Memory allocation error in NormalizeFactors.'
-          PRINT*,'Aborting'
-          STOP
+          CALL Fatal( 'Viewfactors', &
+              'Memory allocation error in NormalizeFactors.Aborting.' )
         END IF
 
 !------------------------------------------------------------------------------
@@ -561,7 +559,7 @@
 !------------------------------------------------------------------------------
         DO i=1,N
           Areas(i) = ElementArea( Model % Mesh, RadElements(i), &
-             RadElements(i) % TYPE % NumberOfNodes )
+               RadElements(i) % Type % NumberOfNodes )
         END DO
 
         DO i=1,N
