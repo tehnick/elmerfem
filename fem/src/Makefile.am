@@ -8,7 +8,7 @@ EXE_EXT=$(EXEEXT)
 include make.bin
 include make.dep
 
-NORMAL_TARGETS=mpif libelmersolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) $(BINARIES_ODD) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
+NORMAL_TARGETS=mpif libelmersolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
 MPI_TARGETS=ElmerSolver_mpi$(EXE_EXT)
 
 if USE_MPI
