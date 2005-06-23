@@ -54,6 +54,9 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
 !     INPUT: Steady state or transient simulation
 !
 ! $Log: HelmholtzSolve.src,v $
+! Revision 1.2  2005/05/26 12:33:13  jpr
+! Removed explicit DLLEXPORT definitions
+!
 ! Revision 1.1  2005/05/26 08:24:21  vierinen
 ! moved .f90 to .src because .f90 is needed for preprosessed files
 !
@@ -62,10 +65,6 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
 !
 ! Revision 1.53  2005/04/19 08:53:46  jpr
 ! Renamed module LUDecomposition as LinearAlgebra.
-!
-! Revision 1.52  2005/04/04 06:18:28  jpr
-! *** empty log message ***
-!
 !
 ! Revision 1.48  2004/03/30 12:02:45  jpr
 ! Changes due to changed interface for complex system in DefUtils.
@@ -95,7 +94,7 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
 
   LOGICAL :: AllocationsDone = .FALSE., Bubbles, Found
 
-  INTEGER :: iter, i, j, k, n, t, istat, eq, LocalNodes
+  INTEGER :: iter, i, j, k, n, nd, t, istat, eq, LocalNodes
   REAL(KIND=dp) :: Norm, PrevNorm, RelativeChange, AngularFrequency
 
   TYPE(ValueList_t), POINTER :: Equation, Material, BodyForce, &
@@ -114,7 +113,7 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
 
   REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HelmholtzSolve.src,v 1.1 2005/05/26 08:24:21 vierinen Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HelmholtzSolve.src,v 1.2 2005/05/26 12:33:13 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -127,12 +126,11 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
         END IF
      END IF
 
-
 !------------------------------------------------------------------------------
 ! Allocate some permanent storage, this is done first time only
 !------------------------------------------------------------------------------
   IF ( .NOT. AllocationsDone .OR. Solver % Mesh % Changed ) THEN
-     N = Solver % Mesh % MaxElementNodes
+     N = Solver % Mesh % MaxElementDOFs
 
      IF ( AllocationsDone ) THEN
         DEALLOCATE(            &
@@ -238,7 +236,8 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
         END IF
 !------------------------------------------------------------------------------
         Element => GetActiveElement(t)
-        n = GetElementNOFNodes()
+        n  = GetElementNOFNodes()
+        nd = GetElementNOFDOFs()
 
 !       Get equation & material parameters:
 !       -----------------------------------
@@ -267,7 +266,7 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
 !       Get element local matrix and rhs vector:
 !       ----------------------------------------
         CALL LocalMatrix(  STIFF, FORCE, AngularFrequency, &
-           SoundSpeed, ConvVelo, Damping, Load, Bubbles, Element, n )
+           SoundSpeed, ConvVelo, Damping, Load, Bubbles, Element, n, nd )
 
 !       Update global matrix and rhs vector from local matrix & vector:
 !       ---------------------------------------------------------------
@@ -281,7 +280,8 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
         Element => GetBoundaryElement(t)
         IF ( .NOT.ActiveBoundaryElement() ) CYCLE
 
-        n = GetElementNOFNodes()
+        n  = GetElementNOFNodes()
+        nd = GetElementNOFDOFs()
         IF ( GetElementFamily() == 1 ) CYCLE
 
         BC => GetBC()
@@ -292,7 +292,7 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
           Impedance(2,1:n) = GetReal( BC, 'Wave Impedance 2', Found )
 
           CALL LocalMatrixBoundary(  STIFF, FORCE, AngularFrequency, &
-                  Impedance, Load, Element, n, ConvVelo )
+                 Impedance, Load, Element, n, nd, ConvVelo )
 
           CALL DefaultUpdateEquations( STIFF, FORCE )
         END IF
@@ -343,16 +343,16 @@ CONTAINS
 
 !------------------------------------------------------------------------------
   SUBROUTINE LocalMatrix(  STIFF, FORCE, AngularFrequency, SoundSpeed, &
-       ConvVelo, Damping, Load, Bubbles, Element, n )
+       ConvVelo, Damping, Load, Bubbles, Element, n, nd )
 !------------------------------------------------------------------------------
     REAL(KIND=dp) ::  AngularFrequency, &
          SoundSpeed(:), Damping(:), Load(:,:), ConvVelo(:,:)
     COMPLEX(KIND=dp) :: STIFF(:,:), FORCE(:)
     LOGICAL :: Bubbles
-    INTEGER :: n
+    INTEGER :: n, nd
     TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: Basis(2*n),dBasisdx(2*n,3),ddBasisddx(n,3,3)
+    REAL(KIND=dp) :: Basis(2*nd),dBasisdx(2*nd,3),ddBasisddx(nd,3,3)
     REAL(KIND=dp) :: SqrtElementMetric,U,V,W,S,WaveNumber,M,D,L1,L2
     REAL(KIND=dp) :: DiffCoef(3,3), Velo(3)
     COMPLEX(KIND=dp) :: A, ConvCoef
@@ -380,10 +380,10 @@ CONTAINS
     CALL GetElementNodes( Nodes )
 
     IF ( Bubbles ) THEN
-       IntegStuff = GaussPoints( Element, Element % TYPE % GaussPoints2 )
+       IntegStuff = GaussPoints( Element, Element % Type % GaussPoints2 )
        NBasis = 2*n
     ELSE
-       NBasis = n
+       NBasis = nd
        IntegStuff = GaussPoints( Element )
     END IF
 !------------------------------------------------------------------------------
@@ -465,16 +465,16 @@ CONTAINS
 
 !------------------------------------------------------------------------------
   SUBROUTINE LocalMatrixBoundary(  STIFF, FORCE, AngularFrequency, &
-              Impedance, Load, Element, n, ConvVelo )
+              Impedance, Load, Element, n, nd, ConvVelo )
 !------------------------------------------------------------------------------
     COMPLEX(KIND=dp) :: STIFF(:,:), FORCE(:)
     REAL(KIND=dp) :: Impedance(:,:),Load(:,:)
     REAL(KIND=dp) :: AngularFrequency, ConvVelo(:,:)
-    INTEGER :: n
+    INTEGER :: n,nd
     TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: SqrtElementMetric,U,V,W,S,Impedance1,Impedance2,L1,L2
-    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3),X,Y,Z
+    REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3),ddBasisddx(nd,3,3),X,Y,Z
     REAL(KIND=dp) :: Normal(3), Velo(3), NormVelo, TangVelo(3)
     COMPLEX(KIND=dp) :: A, Admittance
     LOGICAL :: Stat
@@ -528,11 +528,11 @@ CONTAINS
        TangVelo = Velo - Normal * NormVelo
 
 !------------------------------------------------------------------------------
-       L1 = SUM( Load(1,1:n) * Basis )
-       L2 = SUM( Load(2,1:n) * Basis )
+       L1 = SUM( Load(1,1:n) * Basis(1:n) )
+       L2 = SUM( Load(2,1:n) * Basis(1:n) )
 !------------------------------------------------------------------------------
-       DO p=1,n
-          DO q=1,n
+       DO p=1,nd
+          DO q=1,nd
              A = (1.0d0-NormVelo) * Admittance * Basis(q)*Basis(p)
              A = A + SUM( TangVelo(1:dim) * dBasisdx(q,1:dim) ) * Basis(p)
              STIFF(p,q) = STIFF(p,q) + s * A
