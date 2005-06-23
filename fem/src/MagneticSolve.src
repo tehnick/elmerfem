@@ -82,18 +82,14 @@
      TYPE(Element_t),POINTER :: Element
 
      REAL(KIND=dp) :: RelativeChange,UNorm,PrevUNorm,Gravity(3), &
-         Tdiff,Normal(3),s,r,NewtonTol,NonlinearTol
+                      Tdiff,Normal(3),s,r,NewtonTol,NonlinearTol
 
+     TYPE(Variable_t), POINTER :: ElectricSol
      INTEGER :: NSDOFs,NewtonIter,NonlinearIter, dim
 
-     TYPE(Variable_t), POINTER :: MagneticSol, ElectricSol, FlowSol, &
-         ExMagSol, MeshSol
-     INTEGER, POINTER :: MagneticPerm(:),FlowPerm(:),ExMagPerm(:),MeshPerm(:)
-
      REAL(KIND=dp), POINTER :: MagneticField(:),ElectricCurrent(:), &
-      FlowSolution(:),Work(:,:), M1(:),M2(:),M3(:),E1(:),E2(:),E3(:), &
-      ForceVector(:), divB(:),ExB(:), MeshVelocity(:), &
-      LrF(:), LrFr(:), LrFz(:), LrFp(:)
+      Work(:,:), M1(:),M2(:),M3(:),E1(:),E2(:),E3(:), &
+      ForceVector(:), divB(:),ExB(:), LrF(:), LrFr(:), LrFz(:), LrFp(:)
 
      LOGICAL :: Stabilize,NewtonLinearization = .FALSE.,GotForceBC,GotIt
 
@@ -102,15 +98,14 @@
 !
      LOGICAL :: AllocationsDone = .FALSE., FreeSurfaceFlag, UserDefinedVelo
 
-     REAL(KIND=dp),ALLOCATABLE:: MASS(:,:),STIFF(:,:),&
-       LoadVector(:,:),FORCE(:), &
-          Conductivity(:),Mx(:),My(:),Mz(:),U(:),V(:),W(:),Alpha(:),Beta(:), &
-            Permeability(:),ExBx(:),ExBy(:),ExBz(:),B1(:),B2(:),B3(:)
+     REAL(KIND=dp),ALLOCATABLE:: MASS(:,:),STIFF(:,:), LoadVector(:,:),FORCE(:), &
+      Conductivity(:),Mx(:),My(:),Mz(:),U(:),V(:),W(:),Alpha(:),Beta(:), &
+         Permeability(:),ExBx(:),ExBy(:),ExBz(:),B1(:),B2(:),B3(:),MU(:),MV(:),MW(:)
 
      SAVE Mx,My,Mz,U,V,W,MASS,STIFF,LoadVector, &
        FORCE,ElementNodes,Alpha,Beta, &
          Conductivity, AllocationsDone,LocalNodes, &
-           Permeability, divB, ExBx,ExBy,ExBz,B1,B2,B3, LrF
+           Permeability, divB, ExBx,ExBy,ExBz,B1,B2,B3, LrF,MU,MV,MW
 !------------------------------------------------------------------------------
      INTEGER :: NumberOfBoundaryNodes
      INTEGER, POINTER :: BoundaryReorder(:)
@@ -118,8 +113,6 @@
      REAL(KIND=dp) :: Bu,Bv,Bw,RM(3,3)
      REAL(KIND=dp), POINTER :: BoundaryNormals(:,:), &
            BoundaryTangent1(:,:), BoundaryTangent2(:,:)
-
-     TYPE(Solver_t), POINTER :: SolverPointer
 
      SAVE NumberOfBoundaryNodes,BoundaryReorder,BoundaryNormals, &
               BoundaryTangent1, BoundaryTangent2
@@ -131,36 +124,8 @@
      IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
      dim = CoordinateSystemDimension()
 
-     MagneticSol => Solver % Variable
-     MagneticPerm  => MagneticSol % Perm
-     MagneticField => MagneticSol % Values
-
-     LocalNodes = COUNT( MagneticPerm > 0 )
-     IF ( LocalNodes <= 0 ) RETURN
-
-     ExMagSol => VariableGet( Model % Variables, &
-         'Magnetic Flux Density' )
-     IF ( ASSOCIATED( ExMagSol ) ) THEN
-       ExMagPerm => ExMagSol % Perm
-       ExB => ExMagSol % Values
-     END IF
-
      ElectricSol   => VariableGet( Model % Variables, 'Electric Current' )
-     ElectricCurrent => ElectricSol % Values
-
-     FlowSol => VariableGet( Model % Variables, 'Flow Solution' )
-     IF ( ASSOCIATED( FlowSol ) ) THEN
-       NSDOFs       =  FlowSol % DOFs
-       FlowPerm     => FlowSol % Perm
-       FlowSolution => FlowSol % Values
-     END IF
-
-     MeshSol => VariableGet( Solver % Mesh % Variables, 'Mesh Velocity' )
-     NULLIFY( MeshVelocity )
-     IF ( ASSOCIATED( MeshSol ) ) THEN
-       MeshPerm => MeshSol % Perm
-       MeshVelocity => MeshSol % Values
-     END IF
+     IF ( ASSOCIATED(ElectricSol) ) ElectricCurrent => ElectricSol % Values
 
      UNorm = Solver % Variable % Norm
 !------------------------------------------------------------------------------
@@ -170,7 +135,9 @@
      IF ( .NOT.AllocationsDone ) THEN
        N = Solver % Mesh % MaxElementDOFs
 
-       ALLOCATE( U(N), V(N), W(N), MX(N), MY(N), MZ(N), &
+       ALLOCATE( U(N), V(N), W(N),    &
+                 MU(N), MV(N), MW(N), &
+                 MX(N), MY(N), MZ(N), &
                  ExBx(N),ExBy(N),ExBz(N), &
                  ElementNodes % x( N ), &
                  ElementNodes % y( N ), &
@@ -190,39 +157,6 @@
        IF ( istat /= 0 ) THEN
          CALL Fatal( 'MagneticSolve', 'Memory allocation error.' )
        END IF
-
-! Add extra variables to *.result and *.ep files
-
-! div B for the divergence check
-!#if 0
-!      IF (.NOT. ASSOCIATED(VariableGet(Model % Variables, 'div B'))) THEN
-!        SolverPointer => Solver
-!        CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, &
-!              SolverPointer, 'div B', 1, divB, MagneticPerm)
-!      END IF
-!#endif
-
-! Lorentz force, either total or the high-f part
-!#if 0
-!     IF (.NOT. ASSOCIATED(VariableGet(Model % Variables, 'Lorentz Force'))) THEN
-!        SolverPointer => Solver
-!
-!        LrFr => LrF(1:3*LocalNodes-2:3)
-!        CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, &
-!             SolverPointer, 'Lorentz Force 1', 1, LrFr, MagneticPerm)
-!
-!        LrFz => LrF(2:3*LocalNodes-1:3)
-!        CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, &
-!             SolverPointer, 'Lorentz Force 2', 1, LrFz, MagneticPerm)
-!
-!        LrFp => LrF(3:3*LocalNodes:3)
-!        CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, &
-!             SolverPointer, 'Lorentz Force 3', 1, LrFp, MagneticPerm)
-!
-!        CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, &
-!              SolverPointer, 'Lorentz Force', 3, LrF, MagneticPerm)
-!      END IF
-!#endif
 
 !------------------------------------------------------------------------------
 !    Check for normal/tangetial coordinate system defined velocities
@@ -325,8 +259,8 @@
 
          Material => GetMaterial()
 
-         Conductivity(1:n) = GetReal(Material, 'Electrical Conductivity' )
          Permeability(1:n) = GetReal(Material, 'Magnetic Permeability'   )
+         Conductivity(1:n) = GetReal(Material, 'Electrical Conductivity' )
 
          Mx = GetReal( Material, 'Applied Magnetic Field 1', Gotit )
          My = GetReal( Material, 'Applied Magnetic Field 2', Gotit )
@@ -338,64 +272,41 @@
 ! If you want to use time-domain solution for high-frequendy part,
 ! leave external field out. Better to use frequency-domain solver!
 !#if 1
-         IF ( ASSOCIATED( ExMagSol ) ) THEN
-           ExBx(1:n) = ExB( 3*ExMagPerm(NodeIndexes)-2 )
-           ExBy(1:n) = ExB( 3*ExMagPerm(NodeIndexes)-1 )
-           ExBz(1:n) = ExB( 3*ExMagPerm(NodeIndexes) )
-         END IF
+         CALL GetScalarLocalSolution( ExBx, 'Magnetic Flux Density 1' )
+         CALL GetScalarLocalSolution( ExBy, 'Magnetic Flux Density 2' )
+         CALL GetScalarLocalSolution( ExBz, 'Magnetic Flux Density 3' )
 !#endif
 
          Mx(1:n) = Mx(1:n) + ExBx(1:n)
          My(1:n) = My(1:n) + ExBy(1:n)
          Mz(1:n) = Mz(1:n) + ExBz(1:n)
 
-         U = 0.0D0
-         V = 0.0D0
-         W = 0.0D0
-
+         U  = 0.0d0
+         V  = 0.0d0
+         W  = 0.0d0
+         MU = 0.0d0
+         MU = 0.0d0
+         MU = 0.0d0
 ! For high-f part (in time-domain), leave velocity contribution out.
 !#if 1
-         IF ( ASSOCIATED( FlowSol ) ) THEN
-           DO i=1,n
-             k = FlowPerm(NodeIndexes(i))
-             IF ( k > 0 ) THEN
-               SELECT CASE( NSDOFs )
-                 CASE(3)
-                   U(i) = FlowSolution( NSDOFs*k-2 )
-                   V(i) = FlowSolution( NSDOFs*k-1 )
-                   W(i) = 0.0D0
-                   IF ( ASSOCIATED( MeshVelocity ) ) THEN
-                     IF ( MeshPerm(NodeIndexes(i)) > 0 ) THEN
-                       U(i) = U(i) - MeshVelocity( 2*MeshPerm(NodeIndexes(i))-1 )
-                       V(i) = V(i) - MeshVelocity( 2*MeshPerm(NodeIndexes(i))-0 )
-                     END IF
-                   END IF
-
-                 CASE(4)
-                   U(i) = FlowSolution( NSDOFs*k-3 )
-                   V(i) = FlowSolution( NSDOFs*k-2 )
-                   W(i) = FlowSolution( NSDOFs*k-1 )
-                   IF ( ASSOCIATED( MeshVelocity ) ) THEN
-                     IF ( MeshPerm(NodeIndexes(i)) > 0 ) THEN
-                       U(i) = U(i) - MeshVelocity( 3*MeshPerm(NodeIndexes(i))-2 )
-                       V(i) = V(i) - MeshVelocity( 3*MeshPerm(NodeIndexes(i))-1 )
-                       W(i) = W(i) - MeshVelocity( 3*MeshPerm(NodeIndexes(i))-0 )
-                     END IF
-                   END IF
-               END SELECT
-             END IF
-           END DO
-        END IF
-
-        IF ( UserDefinedVelo ) THEN     
+         IF ( UserDefinedVelo ) THEN     
            ! check for given constant velocity
-
            U(1:n) = GetReal( Material, 'MHD Velocity 1', gotIt )
            V(1:n) = GetReal( Material, 'MHD Velocity 2', gotIt )
            W(1:n) = GetReal( Material, 'MHD Velocity 3', gotIt )
-        END IF
-!#endif
+         ELSE
+           CALL GetScalarLocalSolution( U, 'Velocity 1' )
+           CALL GetScalarLocalSolution( V, 'Velocity 2' )
+           CALL GetScalarLocalSolution( W, 'Velocity 3' )
 
+           CALL GetScalarLocalSolution( MU, 'Mesh Velocity 1' )
+           CALL GetScalarLocalSolution( MV, 'Mesh Velocity 2' )
+           CALL GetScalarLocalSolution( MW, 'Mesh Velocity 3' )
+         END IF
+!#endif
+         U = U - MU
+         V = V - MV
+         W = W - MW
 !------------------------------------------------------------------------------
 !        Set body forces
 !------------------------------------------------------------------------------
@@ -543,13 +454,9 @@
       CALL DefaultDirichletBCs()
 
 !------------------------------------------------------------------------------
-
-      CALL Info( 'MagneticSolve', 'Set boundaries done', Level=4 )
-!------------------------------------------------------------------------------
 !     Solve the system and check for convergence
 !------------------------------------------------------------------------------
       PrevUNorm = UNorm
-
       UNorm = DefaultSolve()
 
       st = CPUTIme()-st
@@ -568,7 +475,7 @@
           k = BoundaryReorder(i)
 
           IF ( k > 0 ) THEN
-            j = MagneticPerm(i)
+            j = Solver % Variable % Perm(i)
 
             IF ( j > 0 ) THEN
               Bu = MagneticField( 3*(j-1)+1 )
@@ -615,24 +522,24 @@
 !#endif
 !---------------------------
 
-    M1 => MagneticField(1:3*LocalNodes-2:3)
-    M2 => MagneticField(2:3*LocalNodes-1:3)
-    M3 => MagneticField(3:3*LocalNodes-0:3)
+    M1 => Solver % Variable %  Values(1:3*LocalNodes-2:3)
+    M2 => Solver % Variable %  Values(2:3*LocalNodes-1:3)
+    M3 => Solver % Variable %  Values(3:3*LocalNodes-0:3)
 
-    E1 => ElectricCurrent(1:3*LocalNodes-2:3)
-    E2 => ElectricCurrent(2:3*LocalNodes-1:3)
-    E3 => ElectricCurrent(3:3*LocalNodes-0:3)
+    IF ( ASSOCIATED( ElectricSol ) ) THEN
+      E1 => ElectricCurrent(1:3*LocalNodes-2:3)
+      E2 => ElectricCurrent(2:3*LocalNodes-1:3)
+      E3 => ElectricCurrent(3:3*LocalNodes-0:3)
 
-!------------------------------------------------------------------------------
-!   Compute the magnetic flux density from the vector potential: B = curl A
-!------------------------------------------------------------------------------
-
-    IF (CurrentCoordinateSystem() == CylindricSymmetric) THEN
-      CALL AxiSCurl( M1,M2,M3,E1,E2,E3,MagneticPerm )
-    ELSE
-      CALL Curl( M1,M2,M3,E1,E2,E3,MagneticPerm )
+      ! Compute the electric current from the magnetic field
+      !------------------------------------------------------
+      IF ( CurrentCoordinateSystem() == CylindricSymmetric ) THEN
+        CALL AxiSCurl( M1,M2,M3,E1,E2,E3,Solver % Variable % Perm)
+      ELSE
+        CALL Curl( M1,M2,M3,E1,E2,E3,Solver % Variable % Perm )
+      END IF
+      CALL InvalidateVariable( Model % Meshes, Solver % Mesh,'Electric Current' )
     END IF
-    CALL InvalidateVariable( Model % Meshes, Solver % Mesh,'Electric Current' )
 
 !------------------------------------------------------------------------------
 !   Compute the Lorentz force 
