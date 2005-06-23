@@ -6,20 +6,20 @@ End
 
 
 Simulation
-  Coordinate System =  Cylindric Symmetric
+  Coordinate System =  Cartesian 2D
   Coordinate Mapping(3) = 1 2 3
 
   Simulation Type = Transient
-  Steady State Max Iterations = 10
+  Steady State Max Iterations = 20
 
   Timestepping Method = BDF
   BDF Order = 2
-  Timestep Sizes = 1
-  Timestep Intervals = 1
+  Timestep Sizes = 0.5
+  Timestep Intervals = 2
 
   Output Intervals = 1
-  Post File = "mhd4.ep"
-  Output File = "mhd4.dat"
+  Post File = "mhd.ep"
+  Output File = "mhd.dat"
 End
 
 
@@ -36,27 +36,15 @@ Body 1
 End
 
 
-Body 2
-  Equation = 2
-  Material = 2
-  Body Force = 1
-End
-
-
 Equation 1
   Active Solvers(2) = 1 2
-End
-
-Equation 2
-  Active Solvers = 2
-  User Defined Velocity = Logical True
 End
 
 Body Force 1
   Lorentz Force = True
   Magnetic Bodyforce 2
     Variable Time
-      Real Procedure "exmag" "acvt"
+      Real Procedure "exmag" "applied_dBdt
 End
 
 Solver 1
@@ -111,112 +99,44 @@ End
 
 
 Material 1
-  Density = 2600
-  Viscosity = 0.01  
+  Density = 1
+  Viscosity = 1e-2  
 
-  Magnetic Permeability = 1.006e-5
-  Electrical Conductivity = 1055000
-
-  Applied Magnetic Field 2
-    Variable Time
-      Real Procedure "exmag" "acvx"
-End
-
-Material 2
-  Density = 2300
-  Viscosity = 1000
-  Magnetic Permeability = 1.006e-5
-  Electrical Conductivity = 1020000
-
-  MHD Velocity 1 = Real 0
-  MHD Velocity 2 = Real 0
-  MHD Velocity 3 = Real 0.45
+  Magnetic Permeability = 1e-5
+  Electrical Conductivity = 1000
 
   Applied Magnetic Field 2
     Variable Time
-      Real Procedure "exmag" "acvx"
+      Real Procedure "exmag" "applied_B
 End
-
 
 Boundary Condition 1
   Target Boundaries = 1
 
-  Velocity 1 = 0
-  Velocity 2 = 0
-  Velocity 3 = 0.45
-
-End
-
-Boundary Condition 2
-  Target Boundaries = 2
-
-  Velocity 2 = 0
-!  Velocity 3 = 0
-
-  Magnetic Field 1 = Real 0
-  Magnetic Field 2 = Real 0
-  Magnetic Field 3 = Real 0
-
-End
-
-Boundary Condition 3
-  Target Boundaries = 3
-
   Velocity 1 = Variable Coordinate 1
     Real
-     0.0   0.0
-     0.1   0.3
-     0.2   0.0
+      0    0
+      0.5  0.01
+      1    0
     End
 
   Velocity 2 = 0
-  Velocity 3 = -1.07
 
   Magnetic Field 1 = Real 0
   Magnetic Field 2 = Real 0
   Magnetic Field 3 = Real 0
 End
 
-Boundary Condition 4
-  Target Boundaries = 4
+Boundary Condition 2
+  Target Boundaries(3) = 2 3 4
 
   Velocity 1 = 0
   Velocity 2 = 0
-  Velocity 3 = -1.07
 
   Magnetic Field 1 = Real 0
   Magnetic Field 2 = Real 0
   Magnetic Field 3 = Real 0
-End
 
-Boundary Condition 5
-  Target Boundaries = 5
-
-  Velocity 1 = 0
-
-  Magnetic Field 1 = Real 0
-  Magnetic Field 3 = Real 0
-End
-
-Boundary Condition 6
-  Target Boundaries(2) = 6 7
-
-!  Velocity 1 = 0
-!  Velocity 2 = 0
-!  Velocity 3 = 0.45
-
-  Magnetic Field 1 = Real 0
-  Magnetic Field 2 = Real 0
-  Magnetic Field 3 = Real 0
-End
-
-Boundary Condition 7
-  Target Boundaries = 8
-
-!  Velocity 1 = 0
-
-  Magnetic Field 1 = Real 0
-  Magnetic Field 3 = Real 0
 End
 
 !End of File
