@@ -75,12 +75,11 @@
 !------------------------------------------------------------------------------
 !    Local variables
 !------------------------------------------------------------------------------
-     TYPE(Matrix_t),POINTER :: StiffMatrix
-     INTEGER :: i,j,k,l,n,t,iter,LocalNodes,k1,k2,istat
+     INTEGER :: i,j,k,l,n,nd,t,iter,LocalNodes,k1,k2,istat
 
-     TYPE(ValueList_t),POINTER :: Material, Equation, BF
+     TYPE(ValueList_t),POINTER :: Material, Equation, BF, BC, SolverParams
      TYPE(Nodes_t) :: ElementNodes
-     TYPE(Element_t),POINTER :: CurrentElement
+     TYPE(Element_t),POINTER :: Element
 
      REAL(KIND=dp) :: RelativeChange,UNorm,PrevUNorm,Gravity(3), &
          Tdiff,Normal(3),s,r,NewtonTol,NonlinearTol
@@ -103,13 +102,13 @@
 !
      LOGICAL :: AllocationsDone = .FALSE., FreeSurfaceFlag, UserDefinedVelo
 
-     REAL(KIND=dp),ALLOCATABLE:: LocalMassMatrix(:,:),LocalStiffMatrix(:,:),&
-       LoadVector(:,:),LocalForce(:), &
+     REAL(KIND=dp),ALLOCATABLE:: MASS(:,:),STIFF(:,:),&
+       LoadVector(:,:),FORCE(:), &
           Conductivity(:),Mx(:),My(:),Mz(:),U(:),V(:),W(:),Alpha(:),Beta(:), &
             Permeability(:),ExBx(:),ExBy(:),ExBz(:),B1(:),B2(:),B3(:)
 
-     SAVE Mx,My,Mz,U,V,W,LocalMassMatrix,LocalStiffMatrix,LoadVector, &
-       LocalForce,ElementNodes,Alpha,Beta, &
+     SAVE Mx,My,Mz,U,V,W,MASS,STIFF,LoadVector, &
+       FORCE,ElementNodes,Alpha,Beta, &
          Conductivity, AllocationsDone,LocalNodes, &
            Permeability, divB, ExBx,ExBy,ExBz,B1,B2,B3, LrF
 !------------------------------------------------------------------------------
@@ -163,17 +162,13 @@
        MeshVelocity => MeshSol % Values
      END IF
 
-     StiffMatrix => Solver % Matrix
-     ForceVector => StiffMatrix % RHS
- 
      UNorm = Solver % Variable % Norm
 !------------------------------------------------------------------------------
 !    Allocate some permanent storage, this is done first time only
 !------------------------------------------------------------------------------
 
      IF ( .NOT.AllocationsDone ) THEN
-
-       N = Model % MaxElementNodes
+       N = Solver % Mesh % MaxElementDOFs
 
        ALLOCATE( U(N), V(N), W(N), MX(N), MY(N), MZ(N), &
                  ExBx(N),ExBy(N),ExBz(N), &
@@ -182,9 +177,9 @@
                  ElementNodes % z( N ), &
                  Conductivity( N ),  &
                  Permeability( N ),  &
-                 LocalForce( 3*N ), &
-                 LocalMassMatrix(  3*N,3*N ),  &
-                 LocalStiffMatrix( 3*N,3*N ),  &
+                 FORCE( 3*N ), &
+                 MASS(  3*N,3*N ),  &
+                 STIFF( 3*N,3*N ),  &
                  divB(Model % NumberOfNodes), &
                  LrF(3 * Model % NumberOfNodes), &
                  B1(LocalNodes), &
@@ -243,19 +238,21 @@
 
 !------------------------------------------------------------------------------
 
-     Stabilize = ListGetLogical( Solver % Values,'Stabilize',GotIt )
+     SolverParams => GetSolverParams()
+
+     Stabilize = GetLogical( SolverParams,'Stabilize',GotIt )
      IF ( .NOT.GotIt ) Stabilize = .TRUE.
 
-     NonlinearTol = ListGetConstReal( Solver % Values, &
+     NonlinearTol = GetConstReal( SolverParams, &
         'Nonlinear System Convergence Tolerance' )
 
-     NewtonTol = ListGetConstReal( Solver % Values, &
+     NewtonTol = GetConstReal( SolverParams, &
         'Nonlinear System Newton After Tolerance' )
 
-     NewtonIter = ListGetInteger( Solver % Values, &
+     NewtonIter = GetInteger( SolverParams,  &
         'Nonlinear System Newton After Iterations' )
 
-     NonlinearIter = ListGetInteger( Solver % Values, &
+     NonlinearIter = GetInteger( SolverParams, &
         'Nonlinear System Max Iterations' )
 
 !------------------------------------------------------------------------------
@@ -264,7 +261,7 @@
      FreeSurfaceFlag = .FALSE.
      DO i=1,Model % NumberOfBCs
        FreeSurfaceFlag = FreeSurfaceFlag.OR. &
-          ListGetLogical( Model % BCs(i) % Values, 'Free Surface', GotIt )
+          GetLogical( Model % BCs(i) % Values, 'Free Surface', GotIt )
        IF ( FreeSurfaceFlag ) EXIT
      END DO
 !------------------------------------------------------------------------------
@@ -297,8 +294,7 @@
                BoundaryTangent2, dim )
        END IF
 !------------------------------------------------------------------------------
-
-       CALL InitializeToZero( StiffMatrix, ForceVector )
+       CALL DefaultInitialize()
 
        DO t=1,Solver % NumberOFActiveElements
 
@@ -311,11 +307,12 @@
            at0 = RealTime()
          END IF
 
-         CurrentElement => GetActiveElement(t)
+         Element => GetActiveElement(t)
 !
 !------------------------------------------------------------------------------
-         n = GetElementNOFNodes()
-         NodeIndexes => CurrentElement % NodeIndexes
+         n  = GetElementNOFNodes()
+         nd = GetElementNOFDOFs()
+         NodeIndexes => Element % NodeIndexes
 
          Equation => GetEquation()
 
@@ -396,7 +393,6 @@
            U(1:n) = GetReal( Material, 'MHD Velocity 1', gotIt )
            V(1:n) = GetReal( Material, 'MHD Velocity 2', gotIt )
            W(1:n) = GetReal( Material, 'MHD Velocity 3', gotIt )
-
         END IF
 !#endif
 
@@ -419,33 +415,26 @@
 !------------------------------------------------------------------------------
          IF ( CurrentCoordinateSystem() == Cartesian ) THEN
             CALL MaxwellCompose( &
-                LocalMassMatrix,LocalStiffMatrix,LocalForce, &
+                MASS,STIFF,FORCE, &
                     LoadVector,Conductivity*Permeability,Mx,My,Mz,U,V,W, &
-                        CurrentElement,n,ElementNodes )
+                        Element,n,ElementNodes )
           ELSE IF ( CurrentCoordinateSystem() == CylindricSymmetric ) THEN
             CALL MaxwellAxiSCompose( &
-                LocalMassMatrix,LocalStiffMatrix,LocalForce, &
+                MASS,STIFF,FORCE, &
                     LoadVector,Conductivity*Permeability,Mx,My,Mz,U,V,W, &
-                       CurrentElement,n,ElementNodes )
+                       Element,n,ElementNodes )
          ELSE 
             CALL MaxwellGeneralCompose( &
-                LocalMassMatrix,LocalStiffMatrix,LocalForce, &
+                MASS,STIFF,FORCE, &
                     LoadVector,Conductivity*Permeability,Mx,My,Mz,U,V,W, &
-                        CurrentElement,n,ElementNodes )
+                        Element,n,ElementNodes )
          END IF
 
 !------------------------------------------------------------------------------
 !        If time dependent simulation, add mass matrix to global 
 !        matrix and global RHS vector
 !------------------------------------------------------------------------------
-         IF ( TransientSimulation ) THEN
-!------------------------------------------------------------------------------
-!          NOTE: This will replace LocalStiffMatrix and LocalForce with the
-!                combined information...
-!------------------------------------------------------------------------------
-            CALL Add1stOrderTime(LocalMassMatrix,LocalStiffMatrix,LocalForce, &
-                    dt, n, 3, MagneticPerm(NodeIndexes), Solver )
-         END IF
+         IF ( TransientSimulation ) CALL Default1stOrderTime(MASS,STIFF,FORCE)
 
 !------------------------------------------------------------------------------
 !        If boundary fields have been defined in normal/tangetial
@@ -453,7 +442,7 @@
 !        to that coordinate system
 !------------------------------------------------------------------------------
          IF ( NumberOfBoundaryNodes > 0 ) THEN
-           CALL RotateMatrix( LocalStiffMatrix,LocalForce,n,3,3, &
+           CALL RotateMatrix( STIFF,FORCE,n,3,3, &
             BoundaryReorder(NodeIndexes),BoundaryNormals,BoundaryTangent1,   &
                               BoundaryTangent2 )
          END IF
@@ -461,8 +450,7 @@
 !------------------------------------------------------------------------------
 !        Update global matrices from local matrices
 !------------------------------------------------------------------------------
-         CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
-           ForceVector, LocalForce, n, 3, MagneticPerm(NodeIndexes) )
+         CALL DefaultUpdateEquations( STIFF, FORCE )
 !------------------------------------------------------------------------------
       END DO
 
@@ -474,105 +462,80 @@
 !------------------------------------------------------------------------------
 !     Neumann & Newton boundary conditions
 !------------------------------------------------------------------------------
-      DO t = Model % NumberOfBulkElements+1, &
-                Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+      DO t = 1,Solver % Mesh % NumberOFBoundaryElements
 
-        CurrentElement => Model % Elements(t)
-!------------------------------------------------------------------------------
-!        Set also the current element pointer in the model structure to 
-!        reflect the element being processed
-!------------------------------------------------------------------------------
-        Model % CurrentElement => Model % Elements(t)
-!------------------------------------------------------------------------------
-        n = CurrentElement % TYPE % NumberOfNodes
-        NodeIndexes => CurrentElement % NodeIndexes
-!
-!       The element type 101 (point element) can only be used
-!       to set Dirichlet BCs, so skip ´em at this stage.
-!
-        IF ( ANY( MagneticPerm(NodeIndexes) <= 0 ) ) CYCLE 
+        Element => GetBoundaryElement(t)
+        IF ( GetElementFamily()==1 .OR. .NOT.ActiveBoundaryElement() ) CYCLE
 
-        IF ( CurrentElement % TYPE % ElementCode /= 101 ) THEN
+        BC => GetBC()
+        IF (.NOT.ASSOCIATED(BC) )  CYCLE
+
+        nd = GetElementNOFDOFs()
+        n  = GetElementNOFNodes()
+        NodeIndexes => Element % NodeIndexes
 
         ElementNodes % x(1:n) = Model % Nodes % x(NodeIndexes)
         ElementNodes % y(1:n) = Model % Nodes % y(NodeIndexes)
         ElementNodes % z(1:n) = Model % Nodes % z(NodeIndexes)
 
-        DO i=1,Model % NumberOfBCs
-          IF ( CurrentElement % BoundaryInfo % Constraint == &
-                 Model % BCs(i) % Tag ) THEN
 !------------------------------------------------------------------------------
 !           (at the moment the following is done...)
 !           BC: \tau \cdot n = \alpha n +  @\beta/@t + F
 !------------------------------------------------------------------------------
-            LoadVector = 0.0D0
-            Alpha      = 0.0D0
-            Beta       = 0.0D0
+        LoadVector = 0.0D0
+        Alpha      = 0.0D0
+        Beta       = 0.0D0
 
-            GotForceBC = ListGetLogical(Model % BCs(i) % Values, &
-                       'Magnetic Force BC',gotIt )
-            IF ( GotForceBC ) THEN
+        GotForceBC = GetLogical( BC, 'Magnetic Force BC',gotIt )
+        IF ( GotForceBC ) THEN
 !------------------------------------------------------------------------------
-!             normal force BC: \tau\cdot n = \alpha n
-!------------------------------------------------------------------------------
-!------------------------------------------------------------------------------
-!             tangential force BC:
-!             \tau\cdot n = @\beta/@t (tangential derivative of something)
+!         normal force BC: \tau\cdot n = \alpha n
 !------------------------------------------------------------------------------
 !------------------------------------------------------------------------------
-!            force in given direction BC: \tau\cdot n = F
+!         tangential force BC:
+!         \tau\cdot n = @\beta/@t (tangential derivative of something)
 !------------------------------------------------------------------------------
-              LoadVector(1,1:n) =  ListGetReal( Model % BCs(i) % Values, &
-                        'Magnetic Force 1',n,NodeIndexes,GotIt )
-
-              LoadVector(2,1:n) =  ListGetReal( Model % BCs(i) % Values, &
-                        'Magnetic Force 2',n,NodeIndexes,GotIt )
-
-              LoadVector(3,1:n) =  ListGetReal( Model % BCs(i) % Values, &
-                        'Magnetic Force 3',n,NodeIndexes,GotIt )
+!         force in given direction BC: \tau\cdot n = F
+!------------------------------------------------------------------------------
+          LoadVector(1,1:n) =  GetReal( BC, 'Magnetic Force 1',GotIt )
+          LoadVector(2,1:n) =  GetReal( BC, 'Magnetic Force 2',GotIt )
+          LoadVector(3,1:n) =  GetReal( BC, 'Magnetic Force 3',GotIt )
 
 !------------------------------------------------------------------------------
-              IF ( CurrentCoordinateSystem() == Cartesian ) THEN
-                CALL MaxwellBoundary( LocalStiffMatrix,LocalForce, &
-                 LoadVector,Alpha,Beta,CurrentElement,n,ElementNodes )
-              ELSE
-                CALL MaxwellGeneralBoundary( LocalStiffMatrix,LocalForce, &
-                 LoadVector,Alpha,Beta,CurrentElement,n,ElementNodes )
-              END IF
-
-!------------------------------------------------------------------------------
-!             If boundary field components have been defined in normal/tangetial
-!             coordinate systems, we´ll have to rotate the matrix & force vector
-!             to that coordinate system
-!------------------------------------------------------------------------------
-
-              IF ( NumberOfBoundaryNodes > 0 ) THEN
-                CALL RotateMatrix( LocalStiffMatrix,LocalForce,n,3,3, &
-                 BoundaryReorder(NodeIndexes),BoundaryNormals,BoundaryTangent1,&
-                                   BoundaryTangent2 )
-              END IF
-
-!------------------------------------------------------------------------------
-!             Update global matrices from local matrices
-!------------------------------------------------------------------------------
-              IF ( TransientSimulation ) THEN
-                LocalMassMatrix = 0.0d0
-                CALL Add1stOrderTime(LocalMassMatrix,LocalStiffMatrix,LocalForce, &
-                       dt, n, 3, MagneticPerm(NodeIndexes), Solver )
-              END IF
-
-              CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
-                ForceVector, LocalForce, n, 3, MagneticPerm(NodeIndexes) )
-!------------------------------------------------------------------------------
-            END IF
-!------------------------------------------------------------------------------
+          IF ( CurrentCoordinateSystem() == Cartesian ) THEN
+            CALL MaxwellBoundary( STIFF,FORCE, &
+                LoadVector,Alpha,Beta,Element,n,ElementNodes )
+          ELSE
+            CALL MaxwellGeneralBoundary( STIFF,FORCE, &
+                LoadVector,Alpha,Beta,Element,n,ElementNodes )
           END IF
-        END DO
+
+!------------------------------------------------------------------------------
+!         If boundary field components have been defined in normal/tangetial
+!         coordinate systems, we´ll have to rotate the matrix & force vector
+!         to that coordinate system
+!------------------------------------------------------------------------------
+
+          IF ( NumberOfBoundaryNodes > 0 ) THEN
+            CALL RotateMatrix( STIFF,FORCE,n,3,3, &
+             BoundaryReorder(NodeIndexes),BoundaryNormals,BoundaryTangent1,&
+                               BoundaryTangent2 )
+          END IF
+!------------------------------------------------------------------------------
+!         Update global matrices from local matrices
+!------------------------------------------------------------------------------
+          IF ( TransientSimulation ) THEN
+            MASS = 0.0d0
+            CALL Default1stOrderTime(MASS,STIFF,FORCE)
+          END IF
+
+          CALL DefaultUpdateEquations( STIFF, FORCE )
+!------------------------------------------------------------------------------
         END IF
       END DO
 !------------------------------------------------------------------------------
 
-      CALL FinishAssembly( Solver,ForceVector )
+      CALL DefaultFinishAssembly()
 
 !------------------------------------------------------------------------------
 !     Dirichlet boundary conditions
