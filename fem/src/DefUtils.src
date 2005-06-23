@@ -34,6 +34,9 @@
 ! *       Date of modification:
 ! *
 ! * $Log: DefUtils.src,v $
+! * Revision 1.2  2005/05/26 12:33:09  jpr
+! * Removed explicit DLLEXPORT definitions
+! *
 ! * Revision 1.1  2005/05/26 08:24:07  vierinen
 ! * moved .f90 to .src because .f90 is needed for preprosessed files
 ! *
@@ -83,7 +86,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.1 2005/05/26 08:24:07 vierinen Exp $
+! * $Id: DefUtils.src,v 1.2 2005/05/26 12:33:09 jpr Exp $
 ! *
 ! *****************************************************************************/
 
@@ -497,7 +500,7 @@ CONTAINS
      TYPE(Solver_t),  POINTER :: Solver
 
      INTEGER :: i,j
-     LOGICAL :: Found
+     LOGICAL :: Found, GB
 
      IF ( PRESENT( UElement ) ) THEN
         Element => UElement
@@ -530,10 +533,9 @@ CONTAINS
         END DO
      END IF
 
-     IF ( ListGetLogical( Solver % Values, 'Global Bubbles', Found )) THEN
-        n = n + Element % BDOFs
-     END IF
-
+     GB = ListGetLogical( Solver % Values, 'Bubbles in Global System', Found )
+     IF (.NOT.Found) GB = .TRUE.
+     IF ( GB ) n = n + Element % BDOFs
   END FUNCTION GetElementNOFDOFs
 
 
@@ -546,7 +548,7 @@ CONTAINS
      TYPE(Solver_t),  POINTER :: Solver
      TYPE(Element_t), POINTER :: Element
 
-     LOGICAL :: Found
+     LOGICAL :: Found, GB
      INTEGER :: nb,i,j,EDOFs, FDOFs, BDOFs,FaceDOFs, EdgeDOFs, BubbleDOFs
 
      IF ( PRESENT( UElement ) ) THEN
@@ -618,7 +620,9 @@ CONTAINS
         END DO
      END IF
 
-     IF ( ListGetLogical( Solver % Values, 'Global Bubbles', Found ) ) THEN
+     GB = ListGetLogical( Solver % Values, 'Bubbles in Global System', Found )
+     IF (.NOT.Found) GB = .TRUE.
+     IF ( GB ) THEN
         IF ( ASSOCIATED( Element % BubbleIndexes ) ) THEN
            DO i=1,Element % BDOFs
               NB = NB + 1
@@ -639,7 +643,7 @@ CONTAINS
 
     TYPE(Solver_t), POINTER :: Solver
 
-    LOGICAL :: Found
+    LOGICAL :: Found, GB
 
     IF ( PRESENT( USolver ) ) THEN
        Solver => USolver
@@ -647,8 +651,11 @@ CONTAINS
        Solver => CurrentModel % Solver
     END IF
 
+    GB = ListGetLogical( Solver % Values, 'Bubbles in Global System', Found )
+    IF (.NOT.Found) GB = .TRUE.
+
     n = 0
-    IF ( .NOT. ListGetLogical( Solver % Values, 'Global Bubbles', Found ) ) THEN
+    IF ( .NOT. GB ) THEN
       IF ( PRESENT( Element ) ) THEN
          n = Element % BDOFs
       ELSE

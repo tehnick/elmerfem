@@ -33,6 +33,9 @@
 ! *       Date of modification: 
 ! *
 ! * $Log: Adaptive.src,v $
+! * Revision 1.8  2005/06/22 04:43:06  jpr
+! * Bubbles to global system by default.
+! *
 ! * Revision 1.4  2005/05/26 12:33:08  jpr
 ! * Removed explicit DLLEXPORT definitions
 ! *
@@ -50,7 +53,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Adaptive.src,v 1.7 2005/06/22 04:40:53 jpr Exp $
+! * $Id: Adaptive.src,v 1.8 2005/06/22 04:43:06 jpr Exp $
 ! *****************************************************************************/
 
 
@@ -608,8 +611,9 @@ print*,'t3: ', associated( var )
 !   Try to account for the reordering of DOFs
 !   due to bandwidth optimization:
 !   -----------------------------------------
-    GlobalBubbles = ListGetLogical(Solver % Values, 'Global Bubbles',Found)
-    IF (.NOT.Found) GlobalBubbles=.TRUE.
+    GlobalBubbles = ListGetLogical( Solver % Values, &
+          'Bubbles in Global System', Found )
+    IF ( .NOT. Found ) GlobalBubbles = .TRUE.
 
     BandwidthOptimize = ListGetLogical( Solver % Values, &
          'Optimize Bandwidth', Found )
