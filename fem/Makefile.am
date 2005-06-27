@@ -9,8 +9,11 @@ dist-hook:
 	cp -r tests $(distdir)
 	rm -rf `find $(distdir)/ -name CVS`
 	rm -rf `find $(distdir)/ -name \#*`
-	rm -rf `find $(distdir)/ -name *~`
-	rm -rf `find $(distdir)/ -name *.so`
+	rm -rf `find $(distdir)/ -name \*~`
+	rm -rf `find $(distdir)/ -name \*.so`
+#	if test `ls nodist.sh` != ""; then     \
+#	  sh nodist.sh;                        \
+#	fi
 
 
 
