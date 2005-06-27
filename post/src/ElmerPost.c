@@ -1335,7 +1335,7 @@ Window tkXWindow()
     return ptr;
 }
 
-#ifdef WIN32
+/*  #ifdef WIN32  */
 
 static GLubyte rasterFont[][13] = {
     {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
@@ -1436,7 +1436,7 @@ static GLubyte rasterFont[][13] = {
     {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x06, 0x8f, 0xf1, 0x60, 0x00, 0x00, 0x00}
 };
 
-void MakeRasterFont( char *name )
+void MakeRasterFontDefault()
 {
     GLuint i;
 
@@ -1450,48 +1450,48 @@ void MakeRasterFont( char *name )
     }
 }
 
-#else
+/* #else  */
+
+#ifndef WIN32
+void InitializeXFonts()
+{
+    static char str[32], here = 0;
+    int i,n;
+    char **FontNames;
+
+     FontNames = XListFonts( tkXDisplay(), "*", 10000, &n );
+     for( i=0; i<n; i++ )
+     {
+       sprintf( str, "%d", i );
+       Tcl_SetVar2( TCLInterp, "FontNames", str,FontNames[i], TCL_GLOBAL_ONLY );
+     }
+     sprintf( str, "%d", i );
+     Tcl_SetVar( TCLInterp, "NumberOfFonts", str, TCL_GLOBAL_ONLY );
+}
+#endif
+
 void MakeRasterFont( char *name )
 {
     unsigned int first, last;
 
     XFontStruct *fontInfo;
-
-    int n,i;
     static char str[32], here = 0;
-
-    char **FontNames;
-
-    if ( !here )
-    {
-        FontNames = XListFonts( tkXDisplay(),"*",10000, &n );
-        for( i=0; i<n; i++ )
-        {
-            sprintf( str, "%d", i );
-            Tcl_SetVar2( TCLInterp,"FontNames", str,FontNames[i], TCL_GLOBAL_ONLY );
-        }
-        sprintf( str, "%d", i );
-        Tcl_SetVar( TCLInterp,"NumberOfFonts",str, TCL_GLOBAL_ONLY );
-
-        here = 1;
-    }
 
     CurrentXFont = fontInfo = XLoadQueryFont( tkXDisplay(),name );
     if ( fontInfo == NULL )
     {
-        fprintf( stderr, "Can´t find font: [%s]\n", name );
+        fprintf( stderr, "Can not find font: [%s]\n", name );
         return;
     }
 
     first = fontInfo->min_char_or_byte2;
     last  = fontInfo->max_char_or_byte2;
-    
     ColorScaleFontSize = fontInfo->max_bounds.rbearing - fontInfo->min_bounds.lbearing;
 
     FontBase = glGenLists( last + 1 );
     glXUseXFont( fontInfo->fid,first,last-first+1,FontBase+first );
 }
-#endif
+/*  #endif */
 
 void PrintString( char *s )
 {
@@ -1560,7 +1560,11 @@ static int SetFont( ClientData cl,Tcl_Interp *interp,int argc,char **argv )
         return TCL_ERROR;
     }
 
+#ifdef WIN32
+    MakeRasterFontDefault();
+#else
     MakeRasterFont( argv[1] );
+#endif
 
     return TCL_OK;
 }
@@ -2358,7 +2362,10 @@ int main(int argc,char **argv)
 
     gra_init();
 
-    MakeRasterFont( "-adobe-helvetica-bold-r-normal--17-120-100-100-p-88-iso8859-1" );
+#ifndef WIN32
+    InitializeXFonts();
+#endif
+    MakeRasterFontDefault();
 
     {
       Tcl_DString dstring;
