@@ -133,7 +133,6 @@ mpif:
 endif
 
 EXTRA_DIST = \
-	Acoustics.src \
 	Adaptive.src \
 	AdvectionDiffusion.src \
 	ApertureAmplitude.src \
@@ -211,7 +210,6 @@ EXTRA_DIST = \
 	ParallelUtils.src \
 	PElementBase.src \
 	PElementMaps.src \
-	PhaseChange.src \
 	PoissonBEM.src \
 	PoissonBoltzmannSolve.src \
 	Radiation.src \
@@ -241,7 +239,6 @@ EXTRA_DIST = \
 	StatCurrentSolve.src \
 	StatElecReduced.src \
 	StatElecSolve.src \
-	StatMagSolve.src \
 	StreamSolver.src \
 	Stress.src \
 	StressGeneral.src \
