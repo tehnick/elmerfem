@@ -135,8 +135,6 @@ endif
 EXTRA_DIST = \
 	Adaptive.src \
 	AdvectionDiffusion.src \
-	ApertureAmplitude.src \
-	AplacExport.src \
 	ArtificialCompressibility.src \
 	BandMatrix.src \
 	BandwidthOptimize.src \
@@ -149,7 +147,6 @@ EXTRA_DIST = \
 	DiffuseConvectiveAnisotropic.src \
 	DiffuseConvectiveGeneralAnisotropic.src \
 	DirectSolve.src \
-	DissipativeHelmholtz.src \
 	EigenSolve.src \
 	ElasticSolve.src \
 	ElectricForce.src \
@@ -177,7 +174,6 @@ EXTRA_DIST = \
 	IMeshToMesh.src \
 	Integration.src \
 	Interpolation.src \
-	IrrotationalVelocity.src \
 	IterSolve.src \
 	KESolver.src \
 	LinearAlgebra.src \
@@ -219,11 +215,8 @@ EXTRA_DIST = \
 	ResultOutputSolve.src \
 	ResultToPost.src \
 	ResultToResult.src \
-	ReynoldsEquation.src \
-	ReynoldsUtilities.src \
 	RigidBodyReduction.src \
 	SaveData.src \
-	ShearWave.src \
 	Smitc.src \
 	SolveBand.src \
 	solve_cmplx.src \

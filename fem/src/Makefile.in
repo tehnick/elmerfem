@@ -269,12 +269,10 @@ SHL_EXT = .$(SHLEXT)
 LIB_EXT = .$(LIBEXT)
 EXE_EXT = $(EXEEXT)
 BINARIES = AdvectionDiffusion$(SHL_EXT) \
-	StatMagSolve$(SHL_EXT) \
 	StatElecSolve$(SHL_EXT) \
 	StatCurrentSolve$(SHL_EXT) \
 	ElasticSolve$(SHL_EXT) \
 	HelmholtzSolve$(SHL_EXT) \
-	Acoustics$(SHL_EXT) \
 	DissipativeHelmholtz$(SHL_EXT) \
 	IrrotationalVelocity$(SHL_EXT) \
 	ShearWave$(SHL_EXT) \
@@ -297,7 +295,6 @@ BINARIES = AdvectionDiffusion$(SHL_EXT) \
 	StreamSolver$(SHL_EXT) \
 	KESolver$(SHL_EXT) \
 	MEMLumping$(SHL_EXT) \
-	PhaseChange$(SHL_EXT) \
 	PoissonBoltzmannSolve$(SHL_EXT) \
 	Electrokinetics$(SHL_EXT) \
 	StressSolve$(SHL_EXT) \
@@ -386,7 +383,6 @@ MPI_TARGETS = ElmerSolver_mpi$(EXE_EXT)
 ELMER_SOLVER_DATADIR = $(prefix)/share/elmersolver
 SC2Elmer_SOURCES = SC2Elmer.c
 EXTRA_DIST = \
-	Acoustics.src \
 	Adaptive.src \
 	AdvectionDiffusion.src \
 	ApertureAmplitude.src \
@@ -464,7 +460,6 @@ EXTRA_DIST = \
 	ParallelUtils.src \
 	PElementBase.src \
 	PElementMaps.src \
-	PhaseChange.src \
 	PoissonBEM.src \
 	PoissonBoltzmannSolve.src \
 	Radiation.src \
@@ -494,7 +489,6 @@ EXTRA_DIST = \
 	StatCurrentSolve.src \
 	StatElecReduced.src \
 	StatElecSolve.src \
-	StatMagSolve.src \
 	StreamSolver.src \
 	Stress.src \
 	StressGeneral.src \
@@ -867,7 +861,6 @@ uninstall-info: uninstall-info-recursive
 	uninstall uninstall-am uninstall-binPROGRAMS uninstall-info-am
 
 
-Acoustics.$(OBJEXT): Acoustics.f90 DefUtils.$(OBJEXT) LinearAlgebra.$(OBJEXT)
 Adaptive.$(OBJEXT): Adaptive.f90 CRSMatrix.$(OBJEXT) ModelDescription.$(OBJEXT) GeneralUtils.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
 AdvectionDiffusion.$(OBJEXT): AdvectionDiffusion.f90 MaterialModels.$(OBJEXT) DefUtils.$(OBJEXT) Differentials.$(OBJEXT) Integration.$(OBJEXT) SolverUtils.$(OBJEXT)
 ApertureAmplitude.$(OBJEXT): ApertureAmplitude.f90 SolverUtils.$(OBJEXT) ElementDescription.$(OBJEXT) Lists.$(OBJEXT) Types.$(OBJEXT) Integration.$(OBJEXT)
@@ -941,7 +934,6 @@ PElementBase.$(OBJEXT): PElementBase.f90 PElementMaps.$(OBJEXT) Messages.$(OBJEX
 PElementMaps.$(OBJEXT): PElementMaps.f90 Messages.$(OBJEXT) Types.$(OBJEXT)
 ParallelEigenSolve.$(OBJEXT): ParallelEigenSolve.f90 SParIterGlobals.$(OBJEXT) Multigrid.$(OBJEXT) ParallelUtils.$(OBJEXT) SParIterSolver.$(OBJEXT) IterSolve.$(OBJEXT) CRSMatrix.$(OBJEXT)
 ParallelUtils.$(OBJEXT): ParallelUtils.f90 SParIterSolver.$(OBJEXT)
-PhaseChange.$(OBJEXT): PhaseChange.f90 GeneralUtils.$(OBJEXT) DefUtils.$(OBJEXT) Differentials.$(OBJEXT) Integration.$(OBJEXT) Lists.$(OBJEXT) ElementDescription.$(OBJEXT) CoordinateSystems.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
 PoissonBEM.$(OBJEXT): PoissonBEM.f90 DefUtils.$(OBJEXT) Types.$(OBJEXT)
 PoissonBoltzmannSolve.$(OBJEXT): PoissonBoltzmannSolve.f90 ElementUtils.$(OBJEXT) DefUtils.$(OBJEXT) Differentials.$(OBJEXT) Integration.$(OBJEXT) Lists.$(OBJEXT) ElementDescription.$(OBJEXT) Adaptive.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
 Radiation.$(OBJEXT): Radiation.f90 ElementUtils.$(OBJEXT) CoordinateSystems.$(OBJEXT)
@@ -969,7 +961,6 @@ SparseMatrix.$(OBJEXT): SparseMatrix.f90 GeneralUtils.$(OBJEXT)
 StatCurrentSolve.$(OBJEXT): StatCurrentSolve.f90 ElementUtils.$(OBJEXT) DefUtils.$(OBJEXT) Differentials.$(OBJEXT) Integration.$(OBJEXT) Lists.$(OBJEXT) ElementDescription.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
 StatElecReduced.$(OBJEXT): StatElecReduced.f90 ElementUtils.$(OBJEXT) Differentials.$(OBJEXT) Integration.$(OBJEXT) Lists.$(OBJEXT) ElementDescription.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
 StatElecSolve.$(OBJEXT): StatElecSolve.f90 ElementUtils.$(OBJEXT) DefUtils.$(OBJEXT) Differentials.$(OBJEXT) Integration.$(OBJEXT) Lists.$(OBJEXT) ElementDescription.$(OBJEXT) CoordinateSystems.$(OBJEXT) Adaptive.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
-StatMagSolve.$(OBJEXT): StatMagSolve.f90 DefUtils.$(OBJEXT) Differentials.$(OBJEXT) ElementDescription.$(OBJEXT) Integration.$(OBJEXT) Types.$(OBJEXT)
 StreamSolver.$(OBJEXT): StreamSolver.f90 DefUtils.$(OBJEXT)
 Stress.$(OBJEXT): Stress.f90 ElementUtils.$(OBJEXT) ElementDescription.$(OBJEXT) Integration.$(OBJEXT)
 StressGeneral.$(OBJEXT): StressGeneral.f90 ElementDescription.$(OBJEXT) CoordinateSystems.$(OBJEXT) Integration.$(OBJEXT)
