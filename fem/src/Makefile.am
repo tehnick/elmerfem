@@ -93,14 +93,14 @@ ResultToResult$(EXE_EXT): libelmersolver$(SHL_EXT) ResultToResult$(OBJ_EXT)
 
 ELMER_SOLVER_DATADIR=$(prefix)/share/elmersolver
 install-data-local:
-	@echo "Instaling solvers to ${ELMER_SOLVER_DATADIR}/lib"
+	@echo "Installing solvers to ${ELMER_SOLVER_DATADIR}/lib"
 
 	mkdir -p $(ELMER_SOLVER_DATADIR)/lib
 	$(CP) *$(SHL_EXT) $(ELMER_SOLVER_DATADIR)/lib
 	$(CP) elements.def $(ELMER_SOLVER_DATADIR)/lib
 	$(CP) SOLVER.KEYWORDS $(ELMER_SOLVER_DATADIR)/lib
 
-	@echo "Instaling *.mod to ${ELMER_SOLVER_DATADIR}/include"
+	@echo "Installing *.mod to ${ELMER_SOLVER_DATADIR}/include"
 	mkdir -p $(ELMER_SOLVER_DATADIR)/include
 	$(CP) *.mod $(ELMER_SOLVER_DATADIR)/include
 
