@@ -33,6 +33,9 @@
 ! *       Date of modification: 27.8.2002
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.6  2005/06/17 05:21:56  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.5  2005/05/26 12:33:15  jpr
 ! * Removed explicit DLLEXPORT definitions
 ! *
@@ -65,7 +68,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.5 2005/05/26 12:33:15 jpr Exp $
+! * $Id: MeshUtils.src,v 1.6 2005/06/17 05:21:56 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -285,19 +288,19 @@ CONTAINS
 
     Mesh % MaxElementNodes = 0
     Mesh % MaxElementDOFs  = 0
-    Mesh % MaxEdgeDOFs = 0
-    Mesh % MaxFaceDOFs = 0
-    Mesh % MaxBDOFs = 0
+    Mesh % MaxEdgeDOFs     = 0
+    Mesh % MaxFaceDOFs     = 0
+    Mesh % MaxBDOFs        = 0
     DO i=1,TypeCount
       Mesh % MaxElementNodes = MAX( &
-                 Mesh % MaxElementNodes,Types(i)-100*(Types(i)/100))
+                 Mesh % MaxElementNodes,Types(i)-100*(Types(i)/100) )
     END DO
 
     CALL AllocateVector( Mesh % Nodes % x, Mesh % NumberOfNodes, 'LoadMesh' )
     CALL AllocateVector( Mesh % Nodes % y, Mesh % NumberOfNodes, 'LoadMesh' )
     CALL AllocateVector( Mesh % Nodes % z, Mesh % NumberOfNodes, 'LoadMesh' )
     CALL AllocateVector( Mesh % Elements, Mesh % NumberOfBulkElements + &
-                    Mesh % NumberOfBoundaryElements, 'LoadMesh' )
+              Mesh % NumberOfBoundaryElements, 'LoadMesh' )
 !
 !------------------------------------------------------------------------------
 !    Mesh nodes
@@ -341,9 +344,7 @@ CONTAINS
     IF ( ANY( Mesh % Nodes % z /= Mesh % Nodes % z(1) ) ) mesh_dim=mesh_dim+1
 
     save_dim = Model % DIMENSION
-    IF ( Model % DIMENSION <= 0 ) THEN
-       Model % DIMENSION = mesh_dim
-    END IF
+    IF ( Model % DIMENSION <= 0 ) Model % DIMENSION = mesh_dim
  
     DEALLOCATE( cCoord )
 
@@ -447,7 +448,7 @@ CONTAINS
         END IF
 
         Mesh % MaxElementNodes = MAX( &
-                 Mesh % MaxElementNodes,Element % TYPE % NumberOfNodes )
+                 Mesh % MaxElementNodes,Element % Type % NumberOfNodes )
 
       ELSE
         WRITE( Message, * ) 'Unknown element type ',TYPE,' ignoring element.'
@@ -557,7 +558,7 @@ CONTAINS
 
         ! Set local to global mapping for boundary element
         DO j=1,n
-              Mesh % Elements(i) % NodeIndexes(j) = LocalPerm(nodes(j) - MinIndex + 1)
+          Mesh % Elements(i) % NodeIndexes(j) = LocalPerm(nodes(j) - MinIndex + 1)
         END DO
 
         NULLIFY( Mesh % Elements(i) % EdgeIndexes )
@@ -570,31 +571,20 @@ CONTAINS
         Mesh % Elements(i) % BoundaryInfo % RElement = right
 
         NULLIFY( Mesh % Elements(i) % BoundaryInfo % Left )
-        IF ( Left >= 1 ) THEN
-          Mesh % Elements(i) % BoundaryInfo % Left => &
-                  Mesh % Elements(left)
-        END IF
+        IF ( Left >= 1 ) &
+          Mesh % Elements(i) % BoundaryInfo % Left => Mesh % Elements(left)
 
         NULLIFY( Mesh % Elements(i) % BoundaryInfo % Right )
-        IF ( Right >= 1 ) THEN
-          Mesh % Elements(i) % BoundaryInfo % Right => &
-                 Mesh % Elements(right)
-        END IF
+        IF ( Right >= 1 ) &
+          Mesh % Elements(i) % BoundaryInfo % Right => Mesh % Elements(right)
 
-        NULLIFY( Mesh % Elements(i) % Boundaryinfo %  &
-               GebhardtFactors % Elements )
+        NULLIFY( Mesh % Elements(i) % Boundaryinfo % GebhardtFactors % Elements )
+        NULLIFY( Mesh % Elements(i) % Boundaryinfo % GebhardtFactors % Factors ) 
+        Mesh % Elements(i) % BoundaryInfo % GebhardtFactors % NumberOfFactors = 0
 
-        NULLIFY( Mesh % Elements(i) % Boundaryinfo %  &
-              GebhardtFactors % Factors ) 
-
-        NULLIFY( Mesh % Elements(i) % Boundaryinfo %  &
-               ViewFactors % Elements )
-
-        NULLIFY( Mesh % Elements(i) % Boundaryinfo %  &
-              ViewFactors % Factors ) 
-
-        Mesh % Elements(i) % BoundaryInfo % &
-            GebhardtFactors % NumberOfFactors = 0
+        NULLIFY( Mesh % Elements(i) % Boundaryinfo % ViewFactors % Factors ) 
+        NULLIFY( Mesh % Elements(i) % Boundaryinfo % ViewFactors % Elements )
+        Mesh % Elements(i) % BoundaryInfo % ViewFactors % NumberOfFactors = 0
 
         Mesh % Elements(i) % NDOFs  = n
         IF ( ASSOCIATED(Mesh % Elements(i) % BoundaryInfo % Left) ) THEN
@@ -611,7 +601,7 @@ CONTAINS
         END IF
 
         IF ( ASSOCIATED(Mesh % Elements(i) % BoundaryInfo % Right) ) THEN
-           IF( Mesh % Elements(i) % BoundaryInfo % Right % NDOFs == 0 )  &
+           IF ( Mesh % Elements(i) % BoundaryInfo % Right % NDOFs == 0 )  &
               Mesh % Elements(i) % NDOFs = 0
 
            IF ( Mesh % Elements(i) % TYPE % DIMENSION == 1 ) THEN
@@ -709,6 +699,12 @@ CONTAINS
                ! Get gauss points for edge. If no dofs 2 gauss points are 
                ! still needed for integration of linear equation!
                Edge % PDefs % GaussPoints = (Edge % BDOFs+2) ** Edge % Type % Dimension  
+
+               IF (ASSOCIATED(Edge % BoundaryInfo % Left) ) THEN
+                 CALL AssignLocalNumber(Edge, Edge % BoundaryInfo % Left, Mesh)
+               ELSE
+                 CALL AssignLocalNumber(Edge, Edge % BoundaryInfo % Right, Mesh)
+               END IF
                
             ! Other element types, which need edge dofs
             ELSE
@@ -731,6 +727,11 @@ CONTAINS
                Face % BDOFs = getFaceDOFs(Element, Face % PDefs % P, j)
                Face % PDefs % isEdge = .TRUE.
                Face % PDefs % GaussPoints = getNumberOfGaussPointsFace( Face, Mesh )
+               IF (ASSOCIATED(Face % BoundaryInfo % Left) ) THEN
+                 CALL AssignLocalNumber(Face, Face % BoundaryInfo % Left, Mesh)
+               ELSE
+                 CALL AssignLocalNumber(Face, Face % BoundaryInfo % Right, Mesh)
+               END IF
             ELSE
                Face % BDOFs = MAX(FaceDOFs(i), Face % BDOFs)
             END IF
@@ -771,52 +772,79 @@ CONTAINS
 
    ! Set gauss points for each p element
    DO i=1,Mesh % NumberOfBulkElements
-      Element => Mesh % Elements(i)
-      IF ( ASSOCIATED(Element % PDefs) ) THEN
-         Element % PDefs % GaussPoints = getNumberOfGaussPoints( Element, Mesh )
-      END IF
+     Element => Mesh % Elements(i)
+     IF ( ASSOCIATED(Element % PDefs) ) THEN
+        Element % PDefs % GaussPoints = getNumberOfGaussPoints( Element, Mesh )
+     END IF
 
-      ! Set max element dofs here (because element size may have changed
-      ! when edges and faces have been set). This is the absolute worst case.
-      ! Element which has MaxElementDOFs may not even be present as a 
-      ! real element
-      Mesh % MaxElementDOFs = MAX( Mesh % MaxElementDOFs, &
-           Element % Type % NumberOfNodes + &
-           Element % Type % NumberOfEdges * Mesh % MaxEdgeDOFs + &
-           Element % Type % NumberOfFaces * Mesh % MaxFaceDOFs + &
-           Element % BDOFs, &
-           Element % DGDOFs)
+     ! Set max element dofs here (because element size may have changed
+     ! when edges and faces have been set). This is the absolute worst case.
+     ! Element which has MaxElementDOFs may not even be present as a 
+     ! real element
+     Mesh % MaxElementDOFs = MAX( Mesh % MaxElementDOFs, &
+          Element % Type % NumberOfNodes + &
+          Element % Type % NumberOfEdges * Mesh % MaxEdgeDOFs + &
+          Element % Type % NumberOfFaces * Mesh % MaxFaceDOFs + &
+          Element % BDOFs, &
+          Element % DGDOFs)
 
-      Mesh % MaxBDOFs = MAX( Element % BDOFs, Mesh % MaxBDOFs )
+     Mesh % MaxBDOFs = MAX( Element % BDOFs, Mesh % MaxBDOFs )
    END DO
 
    DO i=1,Mesh % NumberOFBulkElements
      Element => Mesh % Elements(i)
      IF ( Element % BDOFs > 0 ) THEN
-        ALLOCATE( Element % BubbleIndexes(Element % BDOFs) )
-        DO j=1,Element % BDOFs
-          Element % BubbleIndexes(j) = Mesh % MaxBDOFs*(i-1)+j
-        END DO
+       ALLOCATE( Element % BubbleIndexes(Element % BDOFs) )
+       DO j=1,Element % BDOFs
+         Element % BubbleIndexes(j) = Mesh % MaxBDOFs*(i-1)+j
+       END DO
      END IF
    END DO
+
+
+   ! Reallocate coordinate arrays for iso-parametric p-elements:
+   ! -----------------------------------------------------------
+   n = Mesh % NumberOfNodes + &
+       Mesh % MaxEdgeDOFs * Mesh % NumberOFEdges + &
+       Mesh % MaxFaceDOFs * Mesh % NumberOFFaces
+
+   IF ( n>Mesh % NumberOfNodes ) THEN
+     cCoord => Mesh % Nodes % x
+     ALLOCATE( Mesh % Nodes % x(n) )
+     Mesh % Nodes % x = 0.0d0
+     Mesh % Nodes % x(1:Mesh % NumberOFNodes) = cCoord
+     DEALLOCATE( cCoord )
+
+     cCoord => Mesh % Nodes % y
+     ALLOCATE( Mesh % Nodes % y(n) )
+     Mesh % Nodes % y = 0.0d0
+     Mesh % Nodes % y(1:Mesh % NumberOFNodes) = cCoord
+     DEALLOCATE( cCoord )
+
+     cCoord => Mesh % Nodes % z
+     ALLOCATE( Mesh % Nodes % z(n) )
+     Mesh % Nodes % z = 0.0d0
+     Mesh % Nodes % z(1:Mesh % NumberOFNodes) = cCoord
+     DEALLOCATE( cCoord )
+   END IF
  
    DEALLOCATE( EdgeDOFs, FaceDOFs )
 
-    ! DO i=1,Mesh % NumberOfBoundaryElements
-    !   j = Mesh % NumberOfBulkElements + i
-    !  Element => Mesh % Elements(j)
-    ! END DO
+   ! DO i=1,Mesh % NumberOfBoundaryElements
+   !   j = Mesh % NumberOfBulkElements + i
+   !  Element => Mesh % Elements(j)
+   ! END DO
 
-!
-!   If periodic BC given, compute boundary mesh projector:
-!   ------------------------------------------------------
-    DO i = 1,Model % NumberOfBCs
-       k = ListGetInteger( Model % BCs(i) % Values, 'Periodic BC', GotIt, &
-                     minv=1, maxv=Model % NumberOFBCs )
-       Model % BCs(i) % PMatrix => PeriodicProjector( Model, Mesh, i, k )
-    END DO
+   !
+   ! If periodic BC given, compute boundary mesh projector:
+   ! ------------------------------------------------------
+   DO i = 1,Model % NumberOfBCs
+      k = ListGetInteger( Model % BCs(i) % Values, 'Periodic BC', GotIt, &
+                    minv=1, maxv=Model % NumberOFBCs )
+      Model % BCs(i) % PMatrix => PeriodicProjector( Model, Mesh, i, k )
+   END DO
 
-    Model % DIMENSION = save_dim
+   Model % DIMENSION = save_dim
 !------------------------------------------------------------------------------
   END FUNCTION LoadMesh
 !------------------------------------------------------------------------------
@@ -1408,7 +1436,8 @@ CONTAINS
                NULLIFY( Edges(Edge) % PDefs )
              END IF
 
-             Edges(Edge) % NDOFs  = 0
+             IF (Element % NDOFs /= 0 ) &
+                Edges(Edge) % NDOFs  = Edges(Edge) % Type % NumberOfNodes
              Edges(Edge) % BDOFs  = 0
              Edges(Edge) % DGDOFs = 0
              NULLIFY( Edges(Edge) % EdgeIndexes )
@@ -1715,7 +1744,8 @@ CONTAINS
                NULLIFY( Faces(Face) % PDefs )
              END IF
              
-             Faces(Face) % NDOFs  = 0
+             IF (Element % NDOFs /= 0 ) &
+                Faces(Face) % NDOFs  = Faces(Face) % Type % NumberOfNodes
              Faces(Face) % BDOFs  = 0
              Faces(Face) % DGDOFs = 0
              NULLIFY( Faces(Face) % EdgeIndexes )
@@ -1991,7 +2021,8 @@ CONTAINS
 !            -----------------------------------------------
              Edges(Edge) % TYPE => GetElementType( 201 + degree, .FALSE.)
 
-             Edges(Edge) % NDOFs  = 0
+             IF (Element % NDOFs /= 0 ) &
+                Edges(Edge) % NDOFs  = Edges(Edge) % Type % NumberOfNodes
              Edges(Edge) % BDOFs  = 0
              Edges(Edge) % DGDOFs = 0
              NULLIFY( Edges(Edge) % EdgeIndexes )

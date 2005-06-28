@@ -34,6 +34,9 @@
 ! *       Date of modification:
 ! *
 ! * $Log: DefUtils.src,v $
+! * Revision 1.3  2005/06/23 08:44:32  jpr
+! * P-bubbles in global system by default....
+! *
 ! * Revision 1.2  2005/05/26 12:33:09  jpr
 ! * Removed explicit DLLEXPORT definitions
 ! *
@@ -48,16 +51,6 @@
 ! *
 ! * Revision 1.54  2005/04/19 08:53:45  jpr
 ! * Renamed module LUDecomposition as LinearAlgebra.
-! *
-! * Revision 1.53  2005/04/14 08:48:28  jpr
-! * *** empty log message ***
-! *
-! * Revision 1.52  2005/04/04 06:31:41  jpr
-! * *** empty log message ***
-! *
-! * Revision 1.51  2005/04/04 06:18:27  jpr
-! * *** empty log message ***
-! *
 ! *
 ! * Revision 1.46  2004/09/03 09:16:47  byckling
 ! * Added p elements
@@ -86,7 +79,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.2 2005/05/26 12:33:09 jpr Exp $
+! * $Id: DefUtils.src,v 1.3 2005/06/23 08:44:32 jpr Exp $
 ! *
 ! *****************************************************************************/
 
@@ -523,7 +516,7 @@ CONTAINS
      n = Element % NDOFs
      IF ( ASSOCIATED( Element % EdgeIndexes ) ) THEN
         DO j=1,Element % Type % NumberOFEdges
-           n =  n + Solver % Mesh % Edges( Element % EdgeIndexes(j) ) % BDOFs
+           n =  n + Solver % Mesh % Edges(Element % EdgeIndexes(j)) % BDOFs
         END DO
      END IF
 
@@ -535,7 +528,7 @@ CONTAINS
 
      GB = ListGetLogical( Solver % Values, 'Bubbles in Global System', Found )
      IF (.NOT.Found) GB = .TRUE.
-     IF ( GB ) n = n + Element % BDOFs
+     IF ( GB .OR. ASSOCIATED(Element % BoundaryInfo) ) n = n + Element % BDOFs
   END FUNCTION GetElementNOFDOFs
 
 
@@ -546,7 +539,7 @@ CONTAINS
      INTEGER :: Indexes(:)
 
      TYPE(Solver_t),  POINTER :: Solver
-     TYPE(Element_t), POINTER :: Element
+     TYPE(Element_t), POINTER :: Element, Parent
 
      LOGICAL :: Found, GB
      INTEGER :: nb,i,j,EDOFs, FDOFs, BDOFs,FaceDOFs, EdgeDOFs, BubbleDOFs
@@ -622,12 +615,38 @@ CONTAINS
 
      GB = ListGetLogical( Solver % Values, 'Bubbles in Global System', Found )
      IF (.NOT.Found) GB = .TRUE.
-     IF ( GB ) THEN
+
+     IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
+       IF (.NOT. isPElement(Element) ) RETURN
+
+       Parent => Element % BoundaryInfo % Left
+       IF (.NOT.ASSOCIATED(Parent) ) &
+         Parent => Element % BoundaryInfo % Right
+       IF (.NOT.ASSOCIATED(Parent) ) RETURN
+
+       IF ( ASSOCIATED( Parent % EdgeIndexes ) ) THEN
+         EDOFs = Element % BDOFs
+         DO i=1,EDOFs
+           NB = NB + 1
+           Indexes(NB) = EdgeDOFs*(Parent % EdgeIndexes(Element % PDefs % LocalNumber)-1) + &
+                    i + Solver % Mesh % NumberOfNodes
+         END DO
+       END IF
+
+       IF ( ASSOCIATED( Parent % FaceIndexes ) ) THEN
+         FDOFs = Element % BDOFs
+         DO i=1,FDOFs
+           NB = NB + 1
+           Indexes(NB) = FaceDOFs*(Element % FaceIndexes(Element % PDefs % LocalNumber)-1) + i + &
+              Solver % Mesh % NumberOfNodes + EdgeDOFs*Solver % Mesh % NumberOfEdges
+         END DO
+       END IF
+     ELSE IF ( GB ) THEN
         IF ( ASSOCIATED( Element % BubbleIndexes ) ) THEN
            DO i=1,Element % BDOFs
               NB = NB + 1
               Indexes(NB) = FaceDOFs*Solver % Mesh % NumberOfFaces + &
-                 Solver % Mesh % NumberOfNodes + EdgeDOFs*Solver % Mesh % NumberOfEdges+ &
+                 Solver % Mesh % NumberOfNodes + EdgeDOFs*Solver % Mesh % NumberOfEdges + &
                    Element % BubbleIndexes(i)
            END DO
         END IF
@@ -671,9 +690,9 @@ CONTAINS
      TYPE(Solver_t), OPTIONAL, TARGET :: USolver
      TYPE(Element_t), OPTIONAL, TARGET :: UElement
 
-     INTEGER :: n
+     INTEGER :: i,n,nd,sz
 
-     TYPE(Solver_t), POINTER  :: Solver
+     TYPE(Solver_t),  POINTER  :: Solver
      TYPE(Element_t), POINTER :: Element
 
      Solver => CurrentModel % Solver
@@ -683,7 +702,7 @@ CONTAINS
      IF ( PRESENT( UElement ) ) Element => UElement
 
      IF ( .NOT. ASSOCIATED( ElementNodes % x ) ) THEN
-        n = Solver % Mesh % MaxElementNodes
+        n = MAX(Solver % Mesh % MaxElementNodes,Solver % Mesh % MaxElementDOFs)
         ALLOCATE( ElementNodes % x(n) )
         ALLOCATE( ElementNodes % y(n) )
         ALLOCATE( ElementNodes % z(n) )
@@ -693,7 +712,26 @@ CONTAINS
      ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(Element % NodeIndexes)
      ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(Element % NodeIndexes)
      ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(Element % NodeIndexes)
+
+     sz = SIZE(ElementNodes % x)
+     ElementNodes % x(n+1:sz) = 0.0d0
+     ElementNodes % y(n+1:sz) = 0.0d0
+     ElementNodes % z(n+1:sz) = 0.0d0
+
+     sz = SIZE(Solver % Mesh % Nodes % x)
+     IF ( sz > Solver % Mesh % NumberOfNodes ) THEN
+        nd = GetElementDOFs( Indexes )
+        DO i=n+1,nd
+           IF ( Indexes(i)<=sz ) THEN
+             ElementNodes % x(i) = Solver % Mesh % Nodes % x(Indexes(i))
+             ElementNodes % y(i) = Solver % Mesh % Nodes % y(Indexes(i))
+             ElementNodes % z(i) = Solver % Mesh % Nodes % z(Indexes(i))
+           END IF
+        END DO
+     END IF
+!------------------------------------------------------------------------------
   END SUBROUTINE GetElementNodes
+!------------------------------------------------------------------------------
 
   
 !------------------------------------------------------------------------------
@@ -727,7 +765,7 @@ CONTAINS
       INTEGER :: i, n
 
       ! If element is not p element return
-      IF (.NOT. ASSOCIATED( Element % PDefs ) ) THEN 
+      IF (.NOT. isPElement(Element) ) THEN 
          CALL Warn('DefUtils::GetRefPElementNodes','Element given not a p element')
          RETURN
       END IF
@@ -753,7 +791,7 @@ CONTAINS
       ! Triangle
       CASE(3)
          ElementNodes % x(:) = (/ -1d0,1d0,0d0 /)
-         ElementNodes % y(:) = (/ 0d0,0d0,1.732050808d0 /)
+         ElementNodes % y(:) = (/ 0d0,0d0,SQRT(3.0d0) /)
          ElementNodes % z = 0
       ! Quad
       CASE(4)
@@ -763,17 +801,17 @@ CONTAINS
       ! Tetrahedron
       CASE(5)
          ElementNodes % x(:) = (/ -1d0,1d0,0d0,0d0 /)
-         ElementNodes % y(:) = (/ 0d0,0d0,1.732050808d0,0.5773502693d0 /)
-         ElementNodes % z(:) = (/ 0d0,0d0,0d0,1.632993162d0 /)
+         ElementNodes % y(:) = (/ 0d0,0d0,SQRT(3.0d0),1.0d0/SQRT(3.0d0) /)
+         ElementNodes % z(:) = (/ 0d0,0d0,0d0,2*SQRT(2.0d0/3.0d0) /)
       ! Pyramid
       CASE(6)
          ElementNodes % x(:) = (/ -1d0,1d0,1d0,-1d0,0d0 /)
          ElementNodes % y(:) = (/ -1d0,-1d0,1d0,1d0,0d0 /)
-         ElementNodes % z(:) = (/ 0d0,0d0,0d0,0d0,1.414213562d0 /)
+         ElementNodes % z(:) = (/ 0d0,0d0,0d0,0d0,SQRT(2.0d0) /)
       ! Wedge
       CASE(7)
          ElementNodes % x(:) = (/ -1d0,1d0,0d0,-1d0,1d0,0d0 /)
-         ElementNodes % y(:) = (/ 0d0,0d0,1.732050808d0,0d0,0d0,1.732050808d0 /)
+         ElementNodes % y(:) = (/ 0d0,0d0,SQRT(3.0d0),0d0,0d0,SQRT(3.0d0) /)
          ElementNodes % z(:) = (/ -1d0,-1d0,-1d0,1d0,1d0,1d0 /)
       ! Brick
       CASE(8)
@@ -1648,7 +1686,7 @@ CONTAINS
                    END DO
                  END DO
 
-                 IF ( n == Edge % Type % NumberOfNodes ) THEN
+                 IF ( n ==  Edge % Type % NumberOfNodes ) THEN
                    DO k=1,Edge % BDOFs
                       n = Solver % Mesh % NumberofNodes + &
                           (Parent % EdgeIndexes(j)-1)*Solver % Mesh % MaxEdgeDOFs+k

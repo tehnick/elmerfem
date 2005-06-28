@@ -35,6 +35,9 @@
 ! *
 ! *
 ! * $Log: ElementDescription.src,v $
+! * Revision 1.7  2005/06/09 11:51:23  vierinen
+! * elmer solver home changed a bit
+! *
 ! * Revision 1.6  2005/06/07 10:07:05  vierinen
 ! * removed mach-0
 ! *
@@ -92,7 +95,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: ElementDescription.src,v 1.6 2005/06/07 10:07:05 vierinen Exp $
+! * $Id: ElementDescription.src,v 1.7 2005/06/09 11:51:23 vierinen Exp $
 ! ******************************************************************************/
 
 MODULE ElementDescription
@@ -1889,7 +1892,7 @@ END IF
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-   RECURSIVE FUNCTION ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
+   RECURSIVE FUNCTION ElementInfo( Element,Nodes,u,v,w,detJ, &
      Basis,dBasisdx,ddBasisddx,SecondDerivatives,Bubbles ) RESULT(stat)
 !------------------------------------------------------------------------------
 !******************************************************************************
@@ -1910,7 +1913,7 @@ END IF
 !  REAL(KIND=dp) :: u,v,w
 !    INPUT: Point at which to evaluate the basis functions
 !
-!  REAL(KIND=dp) :: SqrtElementMetric
+!  REAL(KIND=dp) :: detJ
 !    OUTPUT: Square root of determinant of element coordinate
 !            system metric
 !
@@ -1941,7 +1944,7 @@ END IF
 
      Type(Element_t), TARGET :: Element
      Type(Nodes_t)   :: Nodes
-     REAL(KIND=dp) :: u,v,w,SqrtElementMetric
+     REAL(KIND=dp) :: u,v,w,detJ
      REAL(KIND=dp) :: Basis(:),dBasisdx(:,:),ddBasisddx(:,:,:)
 !    INTEGER, OPTIONAL :: BasisDegree(:)
      LOGICAL, OPTIONAL :: SecondDerivatives, Bubbles
@@ -1955,7 +1958,7 @@ END IF
      LOGICAL :: invert, inverti, invertj, degrees
      INTEGER :: i,j,k,l,q,p,n,nb,dim,cdim,f, locali, localj, localMin, localPrev, &
           edge1, edge2, tmp(4), ii, jj, direction(4), BasisDegree(16)
-     REAL(KIND=dp) :: detJ,LinBasis(16),dLinBasisdx(16,3),ElmMetric(3,3)
+     REAL(KIND=dp) :: LinBasis(16), dLinBasisdx(16,3), ElmMetric(3,3)
 
      Type(Element_t) :: Bubble
      TYPE(Element_t), POINTER :: Edge, Face
@@ -1971,7 +1974,7 @@ END IF
         dBasisdx(1,1) = 0
         dBasisdx(1,2) = 0
         dBasisdx(1,3) = 0
-        SqrtElementMetric = 1
+        detJ = 1
         RETURN
      END IF
 
@@ -2011,15 +2014,6 @@ END IF
         END SELECT
         NodalBasis(q) = 0.0d0
      END DO
-
-!------------------------------------------------------------------------------
-!    Element (contravariant) metric and square root of determinant
-!------------------------------------------------------------------------------
-     stat = ElementMetric(Element,Nodes,ElmMetric,SqrtElementMetric,dLBasisdx,LtoGMap)
-!------------------------------------------------------------------------------
-!    If degenerate element, dont even try it...
-!------------------------------------------------------------------------------
-     IF ( .NOT.stat ) RETURN
 
 !------------------------------------------------------------------------------
 !    Basis function values and global derivatives
@@ -2790,9 +2784,19 @@ END IF
      END SELECT
      END IF ! P element flag check
 !------------------------------------------------------------------------------
-     ! Get global first derivatives 
-      dBasisdx(1:q,1:cdim) = MATMUL(dlBasisdx(1:q,1:dim), &
-            TRANSPOSE(LtoGMap(1:cdim,1:dim)))
+
+     ! Element (contravariant) metric and square root of determinant
+     !--------------------------------------------------------------
+     stat = ElementMetric( q, Element, Nodes, ElmMetric, detJ, dLBasisdx, LtoGMap)
+
+     ! If degenerate element, dont even try it:
+     !-----------------------------------------
+     IF ( .NOT.stat ) RETURN
+
+     ! Get global first derivatives:
+     !------------------------------
+     dBasisdx(1:q,1:cdim) = MATMUL( dlBasisdx(1:q,1:dim), &
+            TRANSPOSE( LtoGMap(1:cdim,1:dim)) )
 
 !------------------------------------------------------------------------------
 !    Get matrix of second derivatives, if needed
@@ -3280,7 +3284,7 @@ END IF
 
 
 !------------------------------------------------------------------------------
-   FUNCTION ElementMetric(Elm,Nodes,Metric,DetG,dLBasisdx,LtoGMap) RESULT(Success)
+   FUNCTION ElementMetric(nDOFs,Elm,Nodes,Metric,DetG,dLBasisdx,LtoGMap) RESULT(Success)
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -3314,6 +3318,7 @@ END IF
 !******************************************************************************
 !------------------------------------------------------------------------------
 
+      INTEGER :: nDOFs
       Type(Element_t)  :: Elm
       Type(Nodes_t)    :: Nodes
       REAL(KIND=dp) :: Metric(:,:),dLBasisdx(:,:),DetG, LtoGMap(3,3)
@@ -3329,13 +3334,13 @@ END IF
 !------------------------------------------------------------------------------
      success = .TRUE.
 
-     x => nodes % x
-     y => nodes % y
-     z => nodes % z
+     x => Nodes % x
+     y => Nodes % y
+     z => Nodes % z
 
      cdim = CoordinateSystemDimension()
      dim  = elm % Type % Dimension
-     n    = elm % Type % NumberOfNodes
+     n = MIN( SIZE(x), nDOFs )
 
 !------------------------------------------------------------------------------
 !    Partial derivatives of global coordinates with respect to local coordinates

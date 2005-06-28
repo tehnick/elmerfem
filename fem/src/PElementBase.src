@@ -4017,9 +4017,36 @@ MODULE PElementBase
 
     ! HELPER FUNCTIONS
 
-    ! FUNCTION isPTriangle checks if given triangle is a p 
-    ! element triangle.
+
+    ! FUNCTION isPElement checks if given element is a p element
     
+!------------------------------------------------------------------------------
+    FUNCTION isPElement( Element ) RESULT(retVal)
+!******************************************************************************
+!
+!  DESCRIPTION:
+!    Function checks if given element is p element triangle
+!
+!  ARGUMENTS:
+!    Type(Element_t) :: Element
+!      INPUT: Element to check
+!
+!  FUNCTION VALUE:
+!    LOGICAL :: retVal
+!       .TRUE. if given element is a p triangle, .FALSE. otherwise
+!    
+!******************************************************************************
+!------------------------------------------------------------------------------
+      IMPLICIT NONE
+
+      Type(Element_t), INTENT(IN) :: Element
+      LOGICAL :: retVal
+      retVal = ASSOCIATED(Element % PDefs)
+!------------------------------------------------------------------------------
+    END FUNCTION isPElement
+!------------------------------------------------------------------------------
+    
+
 !------------------------------------------------------------------------------
     FUNCTION isPTriangle( Element ) RESULT(retVal)
 !******************************************************************************
@@ -4043,14 +4070,11 @@ MODULE PElementBase
       LOGICAL :: retVal
       INTEGER :: elementCode 
 
-      retVal = .FALSE.
       ! Check elementcode and p element flag
-      elementCode = Element % Type % ElementCode
-      IF ((elementCode == 303 .OR. elementCode == 306) .AND. &
-           ASSOCIATED(Element % PDefs)) THEN
-         retVal = .TRUE.
-      END IF
+      retVal = Element % Type % ElementCode/100==3 .AND. isPElement(Element)
+!------------------------------------------------------------------------------
     END FUNCTION isPTriangle
+!------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
@@ -4075,13 +4099,10 @@ MODULE PElementBase
       Type(Element_t), INTENT(IN) :: Element
       LOGICAL :: retVal
 
-      retVal = .FALSE.
-      ! Check elementcode and p element flag
-      IF (Element % Type % ElementCode == 504 .AND. &
-          ASSOCIATED(Element % PDefs)) THEN
-         retVal = .TRUE.
-      END IF
+      retVal = Element % Type % ElementCode/100==5 .AND. isPElement(Element)
+!------------------------------------------------------------------------------
     END FUNCTION isPTetra
+!------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
@@ -4106,13 +4127,10 @@ MODULE PElementBase
       Type(Element_t), INTENT(IN) :: Element
       LOGICAL :: retVal
 
-      retVal = .FALSE.
-      ! Check elementcode and p element flag
-      IF (Element % Type % ElementCode == 706 .AND.&
-          ASSOCIATED(Element % PDefs)) THEN
-         retVal = .TRUE.
-      END IF
+      retVal = Element % Type % ElementCode/100==7 .AND. isPElement(Element)
+!------------------------------------------------------------------------------
     END FUNCTION isPWedge
+!------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
@@ -4137,13 +4155,10 @@ MODULE PElementBase
       Type(Element_t), INTENT(IN) :: ELement
       LOGICAL :: retVal
 
-      retVal = .FALSE.
-      ! Check elementcode and p element flag
-      IF (Element % Type % ElementCode == 605 .AND.&
-          ASSOCIATED(Element % PDefs)) THEN
-         retVal = .TRUE.
-      END IF
+      retVal = Element % Type % ElementCode/100==6 .AND. isPElement(Element)
+!------------------------------------------------------------------------------
     END FUNCTION isPPyramid
+!------------------------------------------------------------------------------
 
 
 
