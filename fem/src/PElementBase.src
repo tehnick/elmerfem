@@ -4167,7 +4167,8 @@ MODULE PElementBase
       
       TYPE(Element_t) :: Element
       TYPE(Mesh_t), POINTER :: Mesh 
-      INTEGER :: edgeP, faceP, bubbleP, ngp, k, nb
+      REAL(KIND=dp) :: k
+      INTEGER :: edgeP, faceP, bubbleP, ngp, nb
 
       IF (.NOT. ASSOCIATED(Element % PDefs)) THEN
          CALL Warn('PElementBase::getNumberOfGaussPoints','Element not p element')
@@ -4204,23 +4205,23 @@ MODULE PElementBase
 
          CASE(5)
              nb = MAX( GetBubbleDOFs(Element, bubbleP ), Element % BDOFs )
-             k = 81*nb + 3 * (729*nb**2 - 3)
-             bubbleP = NINT( k**(1.0d0/3.0d0)/3.0d0 + 1.0d0/(k**(1.0d0/3.0d0)) + 2 )
+             bubbleP=NINT(1/3d0*(81*nb+3*SQRT(-3d0+729*nb**2))**(1/3d0)+1d0/ &
+                    (81*nb+3*SQRT(-3d0+729*nb**2))**(1/3d0)+2)
 
          CASE(6)
              nb = MAX( GetBubbleDOFs(Element, bubbleP ), Element % BDOFs )
-             k = 81*nb + 3 * (729*nb**2 - 3)
-             bubbleP = NINT( k**(1.0d0/3.0d0)/3.0d0 + 1.0d0/(k**(1.0d0/3.0d0)) + 2 )
+             bubbleP=NINT(1/3d0*(81*nb+3*SQRT(-3d0+729*nb**2))**(1/3d0)+1d0/ &
+                    (81*nb+3*SQRT(-3d0+729*nb**2))**(1/3d0)+3)
 
          CASE(7)
              nb = MAX( GetBubbleDOFs( Element, bubbleP ), Element % BDOFs )
-             k = 81*nb + 3*(729*nb**2 - 3)
-             bubbleP = NINT( k**(1.0d0/3.0d0)/3.0d0 + 1.0d0/(k**(1.0d0/3.0d0)) + 3 )
+             bubbleP=NINT(1/3d0*(81*nb+3*SQRT(-3d0+729*nb**2))**(1/3d0)+1d0/ &
+                    (81*nb+3*SQRT(-3d0+729*nb**2))**(1/3d0)+2)
 
          CASE(8)
              nb = MAX( GetBubbleDOFs(Element, bubbleP ), Element % BDOFs )
-             k = 81*nb + 3 * (729*nb**2 - 3)
-             bubbleP = NINT( k**(1.0d0/3.0d0)/3.0d0 + 1.0d0/(k**(1.0d0/3.0d0)) + 3 )
+             bubbleP=NINT(1/3d0*(81*nb+3*SQRT(-3d0+729*nb**2))**(1/3d0)+1d0/ &
+                    (81*nb+3*SQRT(-3d0+729*nb**2))**(1/3d0)+4)
          END SELECT
       END IF
 

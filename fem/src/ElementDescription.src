@@ -35,6 +35,9 @@
 ! *
 ! *
 ! * $Log: ElementDescription.src,v $
+! * Revision 1.9  2005/06/28 09:48:01  jpr
+! * Just formatting
+! *
 ! * Revision 1.8  2005/06/28 07:29:08  jpr
 ! * Added isoparametric p-elements.
 ! *
@@ -71,7 +74,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: ElementDescription.src,v 1.8 2005/06/28 07:29:08 jpr Exp $
+! * $Id: ElementDescription.src,v 1.9 2005/06/28 09:48:01 jpr Exp $
 ! ******************************************************************************/
 
 MODULE ElementDescription
@@ -2307,8 +2310,8 @@ END IF
            p = Element % PDefs % P
 
            nb = MAX( GetBubbleDOFs(Element, p), Element % BDOFs )
-           k = 81*nb + 3 * (729*nb**2 - 3)
-           p = NINT( k**(1.0d0/3.0d0)/3.0d0 + 1.0d0/(k**(1.0d0/3.0d0)) + 2 )
+           p=NINT(1/3d0*(81*nb+3*SQRT(-3d0+729*nb**2))**(1/3d0)+1d0/ &
+                   (81*nb+3*SQRT(-3d0+729*nb**2))**(1/3d0)+2)
 
            ! For each DOF in bubbles calculate value of bubble functions
            ! and their derivatives for index pairs
@@ -2451,8 +2454,8 @@ END IF
            ! Get element p
            p = Element % PDefs % p
            nb = MAX( GetBubbleDOFs(Element, p), Element % BDOFs )
-           k = 81*nb + 3 * (729*nb**2 - 3)
-           p = NINT( k**(1.0d0/3.0d0)/3.0d0 + 1.0d0/(k**(1.0d0/3.0d0)) + 2 )
+           p=NINT(1/3d0*(81*nb+3*SQRT(-3d0+729*nb**2))**(1/3d0)+1d0/ &
+                   (81*nb+3*SQRT(-3d0+729*nb**2))**(1/3d0)+3)
 
            ! Calculate value of bubble functions from indexes
            ! i,j,k=0,..,p-4 i+j+k=0,..,p-4
@@ -2612,8 +2615,8 @@ END IF
            ! Get p from element
            p = Element % PDefs % P
            nb = MAX( GetBubbleDOFs( Element, p ), Element % BDOFs )
-           k = 81*nb + 3*(729*nb**2 - 3)
-           p = NINT( k**(1.0d0/3.0d0)/3.0d0 + 1.0d0/(k**(1.0d0/3.0d0)) + 3 )
+           p=NINT(1/3d0*(81*nb+3*SQRT(-3d0+729*nb**2))**(1/3d0)+1d0/ &
+                   (81*nb+3*SQRT(-3d0+729*nb**2))**(1/3d0)+2)
            
            ! For each bubble calculate value of basis function and its derivative
            ! for index pairs i,j=0,..,p-5 k=2,..,p-3 i+j+k=2,..,p-3
@@ -2732,8 +2735,8 @@ END IF
            ! Get p from bubble DOFs 
            p = Element % PDefs % P
            nb = MAX( GetBubbleDOFs(Element, p), Element % BDOFs )
-           k = 81*nb + 3 * (729*nb**2 - 3)
-           p = NINT( k**(1.0d0/3.0d0)/3.0d0 + 1.0d0/(k**(1.0d0/3.0d0)) + 3 )
+           p=NINT(1/3d0*(81*nb+3*SQRT(-3d0+729*nb**2))**(1/3d0)+1d0/ &
+                   (81*nb+3*SQRT(-3d0+729*nb**2))**(1/3d0)+4)
            
            ! For each bubble calculate value of basis function and its derivative
            ! for index pairs i,j,k=2,..,p-4, i+j+k=6,..,p
