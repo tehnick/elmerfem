@@ -34,6 +34,9 @@
 ! *       Date of modification:
 ! *
 ! * $Log: DefUtils.src,v $
+! * Revision 1.4  2005/06/28 07:29:08  jpr
+! * Added isoparametric p-elements.
+! *
 ! * Revision 1.3  2005/06/23 08:44:32  jpr
 ! * P-bubbles in global system by default....
 ! *
@@ -79,7 +82,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.3 2005/06/23 08:44:32 jpr Exp $
+! * $Id: DefUtils.src,v 1.4 2005/06/28 07:29:08 jpr Exp $
 ! *
 ! *****************************************************************************/
 
@@ -105,6 +108,10 @@ MODULE DefUtils
 
    INTERFACE DefaultUpdateForce
      MODULE PROCEDURE DefaultUpdateForceR, DefaultUpdateForceC
+   END INTERFACE
+
+   INTERFACE DefaultUpdateTimeForce
+     MODULE PROCEDURE DefaultUpdateTimeForceR, DefaultUpdateTimeForceC
    END INTERFACE
 
    INTERFACE Default1stOrderTime
@@ -1359,8 +1366,68 @@ CONTAINS
   END SUBROUTINE DefaultUpdateEquationsC
 
 
-
   SUBROUTINE DefaultUpdateForceR( F, UElement, USolver )
+    REAL(KIND=dp) :: F(:)
+    TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
+    TYPE(Element_t), OPTIONAL, TARGET :: UElement
+
+    TYPE(Solver_t), POINTER :: Solver
+    TYPE(Variable_t), POINTER :: x
+    TYPE(Element_t), POINTER :: Element
+
+    INTEGER :: n
+
+    Solver => CurrentModel % Solver
+    IF ( PRESENT(USolver) ) Solver => USolver
+
+    Element => CurrentModel % CurrentElement
+    IF ( PRESENT(UElement) ) Element => UElement
+
+    x => Solver % Variable
+    n = GetElementDOFs( Indexes, Element, Solver )
+
+    CALL UpdateGlobalForce( Solver % Matrix % RHS, &
+       F, n, x % DOFs, x % Perm(Indexes(1:n)) )
+  END SUBROUTINE DefaultUpdateForceR
+
+
+  SUBROUTINE DefaultUpdateForceC( FC, UElement, USolver )
+    COMPLEX(KIND=dp) :: FC(:)
+    TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
+    TYPE(Element_t), OPTIONAL, TARGET :: UElement
+
+    TYPE(Solver_t), POINTER :: Solver
+    TYPE(Variable_t), POINTER :: x
+    TYPE(Element_t), POINTER :: Element
+
+    REAL(KIND=dp), ALLOCATABLE :: F(:)
+
+    INTEGER :: i,n,DOFs
+
+    Solver => CurrentModel % Solver
+    IF ( PRESENT(USolver) ) Solver => USolver
+
+    Element => CurrentModel % CurrentElement
+    IF ( PRESENT(UElement) ) Element => UElement
+
+    x => Solver % Variable
+    DOFs = x % DOFs
+    n = GetElementDOFs( Indexes, Element, Solver )
+
+    ALLOCATE( F(DOFs*n) )
+    DO i=1,n*DOFs/2
+       F( 2*(i-1) + 1 ) =   REAL(FC(i))
+       F( 2*(i-1) + 2 ) = -AIMAG(FC(i))
+    END DO
+
+    CALL UpdateGlobalForce( Solver % Matrix % RHS, &
+        F, n, x % DOFs, x % Perm(Indexes(1:n)) )
+
+    DEALLOCATE( F ) 
+  END SUBROUTINE DefaultUpdateForceC
+
+
+  SUBROUTINE DefaultUpdateTimeForceR( F, UElement, USolver )
     REAL(KIND=dp) :: F(:)
     TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
     TYPE(Element_t), OPTIONAL, TARGET :: UElement
@@ -1382,11 +1449,11 @@ CONTAINS
 
     CALL UpdateTimeForce( Solver % Matrix,Solver % Matrix % RHS, &
          F, n, x % DOFs, x % Perm(Indexes(1:n)) )
-  END SUBROUTINE DefaultUpdateForceR
+  END SUBROUTINE DefaultUpdateTimeForceR
 
 
 
-  SUBROUTINE DefaultUpdateForceC( FC, UElement, USolver )
+  SUBROUTINE DefaultUpdateTimeForceC( FC, UElement, USolver )
     COMPLEX(KIND=dp) :: FC(:)
     TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
     TYPE(Element_t), OPTIONAL, TARGET :: UElement
@@ -1419,7 +1486,7 @@ CONTAINS
              F, n, x % DOFs, x % Perm(Indexes(1:n)) )
 
     DEALLOCATE( F ) 
-  END SUBROUTINE DefaultUpdateForceC
+  END SUBROUTINE DefaultUpdateTimeForceC
 
 
 

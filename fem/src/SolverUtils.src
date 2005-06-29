@@ -33,6 +33,9 @@
 ! *       Date of modification:
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.3  2005/06/10 11:22:46  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.2  2005/05/26 12:33:18  jpr
 ! * Removed explicit DLLEXPORT definitions
 ! *
@@ -82,7 +85,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.2 2005/05/26 12:33:18 jpr Exp $
+! * $Id: SolverUtils.src,v 1.3 2005/06/10 11:22:46 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -507,7 +510,6 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
-
 !------------------------------------------------------------------------------
    SUBROUTINE UpdateTimeForce( StiffMatrix, &
            ForceVector, LocalForce, n, NDOFs, NodeIndexes )
@@ -612,6 +614,50 @@ CONTAINS
      END DO
 !------------------------------------------------------------------------------
    END SUBROUTINE UpdateGlobalEquations
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+   SUBROUTINE UpdateGlobalForce(ForceVector, LocalForce, n, NDOFs, NodeIndexes)
+!------------------------------------------------------------------------------
+!******************************************************************************
+! 
+! Add element local matrices & vectors to global matrices and vectors
+!
+! TYPE(Matrix_t), POINTER :: StiffMatrix
+!   INOUT: The global matrix
+!
+! REAL(KIND=dp) :: LocalStiffMatrix(:,:)
+!   INPUT: Local matrix to be added to the global matrix
+!
+! REAL(KIND=dp) :: ForceVector(:)
+!   INOUT: The global RHS vector
+!
+! REAL(KIND=dp) :: LocalForce(:)
+!   INPUT: Element local force vector
+!
+! INTEGER :: n, NDOFs
+!   INPUT :: number of nodes / element and number of DOFs / node
+!
+! INTEGER :: NodeIndexes(:)
+!   INPUT: Element node to global node numbering mapping
+! 
+!******************************************************************************
+!------------------------------------------------------------------------------
+     REAL(KIND=dp) :: LocalForce(:),ForceVector(:)
+     INTEGER :: n, NDOFs, NodeIndexes(:)
+!------------------------------------------------------------------------------
+     INTEGER :: i,j,k
+!------------------------------------------------------------------------------
+!    Update global matrix and rhs vector....
+!------------------------------------------------------------------------------
+     DO i=1,n
+       DO j=1,NDOFs
+         k = NDOFs * (NodeIndexes(i)-1) + j
+         ForceVector(k) = ForceVector(k) + LocalForce(NDOFs*(i-1)+j)
+       END DO
+     END DO
+!------------------------------------------------------------------------------
+   END SUBROUTINE UpdateGlobalForce
 !------------------------------------------------------------------------------
 
 
