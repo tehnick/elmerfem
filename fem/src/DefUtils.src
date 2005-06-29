@@ -34,6 +34,9 @@
 ! *       Date of modification:
 ! *
 ! * $Log: DefUtils.src,v $
+! * Revision 1.5  2005/06/29 09:17:38  jpr
+! * Added update for global force vector separate from global matrix update.
+! *
 ! * Revision 1.4  2005/06/28 07:29:08  jpr
 ! * Added isoparametric p-elements.
 ! *
@@ -82,7 +85,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.4 2005/06/28 07:29:08 jpr Exp $
+! * $Id: DefUtils.src,v 1.5 2005/06/29 09:17:38 jpr Exp $
 ! *
 ! *****************************************************************************/
 
@@ -1961,25 +1964,25 @@ CONTAINS
     SAVE Nodes
 !------------------------------------------------------------------------------
 
-     n = Element % Type % NumberOfNodes    
+    n = Element % Type % NumberOfNodes    
 
-     ! Get nodes of boundary elements parent and gauss points for boundary
-     CALL GetElementNodes( Nodes, Element )
-     IP = GaussPoints( Element )
+    ! Get nodes of boundary elements parent and gauss points for boundary
+    CALL GetElementNodes( Nodes, Element )
+    IP = GaussPoints( Element )
 
-     STIFF(1:nd,1:nd) = 0.0d0
-     Force(1:nd) = 0.0d0
+    STIFF(1:nd,1:nd) = 0.0d0
+    Force(1:nd) = 0.0d0
 
-     DO t=1,IP % n
+    DO t=1,IP % n
        stat = ElementInfo( Element, Nodes, IP % u(t), IP % v(t), IP % w(t), &
                DetJ, Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
 
        s = IP % s(t) * DetJ
 
        ! Get value of boundary condition
-       xip = SUM( Basis(1:n) * Nodes % x(1:n) )
-       yip = SUM( Basis(1:n) * Nodes % y(1:n) )
-       zip = SUM( Basis(1:n) * Nodes % z(1:n) )
+       xip = SUM( Basis(1:nd) * Nodes % x(1:nd) )
+       yip = SUM( Basis(1:nd) * Nodes % y(1:nd) )
+       zip = SUM( Basis(1:nd) * Nodes % z(1:nd) )
        Load = ListGetConstReal( BC, Name, x=xip,y=yip,z=zip )
 
        ! Build local stiffness matrix and force vector
