@@ -1,5 +1,34 @@
-These are external scripts that are used for building ELMER. The
-directory is mainly a central place for files common for all 
-seperate modules of ELMER, these are eg. autoconf m4 scripts,
-compilation instructions etc.
+These are external scripts that are used for building ELMER. The main
+purpose is to test the source on different platforms in an automated
+way. As a side product, binaries and source tarballs are produced. 
 
+Important scripts:
+
+compile.sh     # Pull elmer from CVS and compile everything. Create
+	       # source packages.
+	       #
+	       # Influental env variables:
+	       # ELMER_USER      
+	       # ELMER_CVSROOT
+	       # NPROCS
+	       # ELMER_MODULES
+	       # ELMER_CHECK
+
+testpkgs.sh    # Test that elmer compiles from source packages. (all
+	       # have to be under pwd)
+
+*.sh	       # Set platform specific environment variables and call
+	       # compile.sh
+
+Release check list:
+
+compile.sh:
+- See that it builds on all platforms
+- Tests are passed
+- Create binary distro
+- Create paranoid binary distro
+  - copy libs that ldd points to
+- Test relocated binary distro
+
+testpkgs.sh:
+- Test that packages also work
