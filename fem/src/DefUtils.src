@@ -34,6 +34,9 @@
 ! *       Date of modification:
 ! *
 ! * $Log: DefUtils.src,v $
+! * Revision 1.6  2005/06/29 12:10:42  jpr
+! * Update of p-element Dirichlet BCs
+! *
 ! * Revision 1.5  2005/06/29 09:17:38  jpr
 ! * Added update for global force vector separate from global matrix update.
 ! *
@@ -85,7 +88,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.5 2005/06/29 09:17:38 jpr Exp $
+! * $Id: DefUtils.src,v 1.6 2005/06/29 12:10:42 jpr Exp $
 ! *
 ! *****************************************************************************/
 
@@ -647,7 +650,7 @@ CONTAINS
          FDOFs = Element % BDOFs
          DO i=1,FDOFs
            NB = NB + 1
-           Indexes(NB) = FaceDOFs*(Element % FaceIndexes(Element % PDefs % LocalNumber)-1) + i + &
+           Indexes(NB) = FaceDOFs*(Parent % FaceIndexes(Element % PDefs % LocalNumber)-1) + i + &
               Solver % Mesh % NumberOfNodes + EdgeDOFs*Solver % Mesh % NumberOfEdges
          END DO
        END IF
