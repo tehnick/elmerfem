@@ -33,6 +33,9 @@
 ! *       Date of modification: 27.8.2002
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.8  2005/06/29 05:03:45  jpr
+! * More modifications for isoparametric p-elements
+! *
 ! * Revision 1.7  2005/06/28 07:29:08  jpr
 ! * Added isoparametric p-elements.
 ! *
@@ -71,7 +74,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.7 2005/06/28 07:29:08 jpr Exp $
+! * $Id: MeshUtils.src,v 1.8 2005/06/29 05:03:45 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -4083,48 +4086,46 @@ CONTAINS
     TYPE(Nodes_t) :: ElementNodes
     TYPE(Element_t), POINTER :: Element
 
-     DO i=1,Mesh % NumberOfNodes
+print*,size(perm),size(mesh % nodes % x),mesh % Numberofnodes
+    DO i=1,MIN( SIZE(Perm), SIZE(Mesh % Nodes % x) )
        k = Perm(i)
-       IF ( k /= 0 ) THEN
+       IF ( k > 0 ) THEN
          k = DOFs * (k-1)
-
-         Mesh % Nodes % x(i) =  Mesh % Nodes % x(i) + SIGN * Update(k+1)
-
+         Mesh % Nodes % x(i)   = Mesh % Nodes % x(i) + SIGN * Update(k+1)
          IF ( DOFs > 1 ) &
            Mesh % Nodes % y(i) = Mesh % Nodes % y(i) + SIGN * Update(k+2)
-
          IF ( DOFs > 2 ) &
            Mesh % Nodes % z(i) = Mesh % Nodes % z(i) + SIGN * Update(k+3)
-       END IF
-     END DO
+        END IF
+    END DO
 
-     StabFlag = .TRUE.
-     IF ( PRESENT( StabRecomp ) ) StabFlag = StabRecomp
+    StabFlag = .TRUE.
+    IF ( PRESENT( StabRecomp ) ) StabFlag = StabRecomp
 
-     IF ( SIGN == 1 .AND. StabFlag ) THEN
-        k = Mesh % MaxElementNodes
-        CALL AllocateVector( ElementNodes % x,k )
-        CALL AllocateVector( ElementNodes % y,k )
-        CALL AllocateVector( ElementNodes % z,k )
+    IF ( SIGN == 1 .AND. StabFlag ) THEN
+       k = Mesh % MaxElementDOFs
+       CALL AllocateVector( ElementNodes % x,k )
+       CALL AllocateVector( ElementNodes % y,k )
+       CALL AllocateVector( ElementNodes % z,k )
 
-        DO i=1,Mesh % NumberOfBulkElements
-           Element => Mesh % Elements(i)
-           IF ( ANY( Perm( Element % NodeIndexes ) == 0 ) ) CYCLE
+       DO i=1,Mesh % NumberOfBulkElements
+          Element => Mesh % Elements(i)
+          IF ( ANY( Perm( Element % NodeIndexes ) == 0 ) ) CYCLE
 
-           k = Element % TYPE % NumberOfNodes
-           ElementNodes % x(1:k) = Mesh % Nodes % x(Element % NodeIndexes)
-           ElementNodes % y(1:k) = Mesh % Nodes % y(Element % NodeIndexes)
-           ElementNodes % z(1:k) = Mesh % Nodes % z(Element % NodeIndexes)
-           IF ( Mesh % Stabilize ) THEN
-              CALL StabParam( Element,ElementNodes,k, &
-                           Element % StabilizationMk, Element % Hk )
-           ELSE
-              Element % hK = ElementDiameter( Element, ElementNodes )
-           END IF
-        END DO
+          k = Element % Type % NumberOfNodes
+          ElementNodes % x(1:k) = Mesh % Nodes % x(Element % NodeIndexes)
+          ElementNodes % y(1:k) = Mesh % Nodes % y(Element % NodeIndexes)
+          ElementNodes % z(1:k) = Mesh % Nodes % z(Element % NodeIndexes)
+          IF ( Mesh % Stabilize ) THEN
+             CALL StabParam( Element,ElementNodes,k, &
+                          Element % StabilizationMk, Element % Hk )
+          ELSE
+             Element % hK = ElementDiameter( Element, ElementNodes )
+          END IF
+       END DO
 
-        DEALLOCATE( ElementNodes % x, ElementNodes % y, ElementNodes % z)
-     END IF
+       DEALLOCATE( ElementNodes % x, ElementNodes % y, ElementNodes % z)
+    END IF
 !------------------------------------------------------------------------------
   END SUBROUTINE DisplaceMesh
 !------------------------------------------------------------------------------

@@ -37,10 +37,6 @@
 !------------------------------------------------------------------------------
  SUBROUTINE MeshSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
-  USE CoordinateSystems
-
-  USE SolverUtils
-  USE Differentials
   USE DefUtils
 
   IMPLICIT NONE
@@ -72,40 +68,32 @@
 !------------------------------------------------------------------------------
   TYPE(Matrix_t),POINTER :: StiffMatrix
 
-  INTEGER :: i,j,k,l,n,t,iter,NDeg,k1,k2,STDOFs,LocalNodes,istat
+  INTEGER :: i,j,k,l,n,nd,t,iter,NDeg,k1,k2,STDOFs,LocalNodes,istat
 
-  TYPE(ValueList_t),POINTER :: Material
-  TYPE(Nodes_t) :: ElementNodes
-  TYPE(Element_t),POINTER :: CurrentElement
+  TYPE(Element_t),POINTER :: Element
+  TYPE(ValueList_t),POINTER :: Material, BC
 
-  REAL(KIND=dp) :: RelativeChange,UNorm,PrevUNorm,Gravity(3), &
+  REAL(KIND=dp) :: RelativeChange,UNorm,PrevUNorm, &
        Tdiff,Normal(3),NewtonTol,NonlinearTol,s, maxu
-
-  INTEGER :: NewtonIter,NonlinearIter
 
   TYPE(Variable_t), POINTER :: StressSol, MeshSol
 
   REAL(KIND=dp), POINTER :: MeshUpdate(:),Displacement(:),Work(:,:), &
-       ForceVector(:), MeshVelocity(:), Velo(:), Density(:)
+       MeshVelocity(:)
 
-  INTEGER, POINTER :: TPerm(:),MeshPerm(:),StressPerm(:),NodeIndexes(:)
+  INTEGER, POINTER :: TPerm(:),MeshPerm(:),StressPerm(:)
 
-  INTEGER :: body_id
-!
   LOGICAL :: AllocationsDone = .FALSE., Isotropic = .TRUE., &
             GotForceBC, Found, ComputeMeshVelocity
 
   TYPE(Solver_t), POINTER :: PSolver
 
-  REAL(KIND=dp),ALLOCATABLE:: LocalMassMatrix(:,:),LocalStiffMatrix(:,:),&
-       LoadVector(:,:),LocalForce(:), &
-       LocalTemperature(:),ElasticModulus(:,:,:),PoissonRatio(:), &
-       HeatExpansionCoeff(:,:,:), Alpha(:,:), Beta(:), PrevUpdate(:)
+  REAL(KIND=dp),ALLOCATABLE:: STIFF(:,:),&
+       LOAD(:,:),FORCE(:), ElasticModulus(:,:,:),PoissonRatio(:), &
+       Alpha(:,:), Beta(:), PrevUpdate(:)
 
-  SAVE LocalMassMatrix,LocalStiffMatrix,LoadVector, &
-       LocalForce,ElementNodes, MeshVelocity, &
-       LocalTemperature,AllocationsDone, Density, PrevUpdate, &
-       ElasticModulus, PoissonRatio,HeatExpansionCoeff, TPerm, Alpha, Beta
+  SAVE STIFF,LOAD, FORCE, MeshVelocity, AllocationsDone, PrevUpdate, &
+       ElasticModulus, PoissonRatio, TPerm, Alpha, Beta
 
 !------------------------------------------------------------------------------
   INTEGER :: NumberOfBoundaryNodes
@@ -115,7 +103,7 @@
   REAL(KIND=dp), POINTER :: BoundaryNormals(:,:), &
        BoundaryTangent1(:,:), BoundaryTangent2(:,:)
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: MeshSolve.src,v 1.1 2005/05/26 08:24:33 vierinen Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: MeshSolve.src,v 1.2 2005/05/26 12:33:15 jpr Exp $"
 
   SAVE NumberOfBoundaryNodes,BoundaryReorder,BoundaryNormals, &
        BoundaryTangent1, BoundaryTangent2
@@ -185,45 +173,25 @@
      END IF
   END IF
 
-
 !------------------------------------------------------------------------------
 
-  StiffMatrix => Solver % Matrix
-  ForceVector => StiffMatrix % RHS
   UNorm = Solver % Variable % Norm
-
 !------------------------------------------------------------------------------
 ! Allocate some permanent storage, this is done first time only
 !------------------------------------------------------------------------------
   IF ( .NOT. AllocationsDone .OR. Solver % Mesh % Changed ) THEN
-     N = Solver % Mesh % MaxElementNodes
+     N = Solver % Mesh % MaxElementDOFs
 
      IF ( AllocationsDone ) THEN
-        DEALLOCATE( ElementNodes % x, &
-             ElementNodes % y, &
-             ElementNodes % z, &
-             HeatExpansionCoeff,   &
-             LocalTemperature, &
-             Density, &
-             ElasticModulus, PoissonRatio, &
-             LocalForce, &
-             Alpha, Beta, &
-             LocalMassMatrix,  &
-             LocalStiffMatrix,  &
-             LoadVector,STAT=istat )
+        DEALLOCATE(  ElasticModulus, PoissonRatio, &
+             FORCE, Alpha, Beta, STIFF, LOAD, STAT=istat )
      END IF
 
-     ALLOCATE( ElementNodes % x( N ), &
-          ElementNodes % y( N ), &
-          ElementNodes % z( N ), &
-          HeatExpansionCoeff( 3,3,N ),   &
-          LocalTemperature( N ), &
-          Density( N ), Alpha(3,N), Beta(N), &
+     ALLOCATE( &
+          Alpha(3,N), Beta(N), &
           ElasticModulus( 6,6,N ), PoissonRatio( N ), &
-          LocalForce( STDOFs*N ), &
-          LocalMassMatrix(  STDOFs*N,STDOFs*N ),  &
-          LocalStiffMatrix( STDOFs*N,STDOFs*N ),  &
-          LoadVector( 4,N ),STAT=istat )
+          FORCE( STDOFs*N ), STIFF( STDOFs*N,STDOFs*N ),  &
+          LOAD( 4,N ),STAT=istat )
 
      maxu = ListGetConstReal( Solver % Values, 'Max Mesh Update', Found )
      IF ( Found ) ALLOCATE( PRevUpdate( SIZE(MeshUpdate) ) )
@@ -241,9 +209,6 @@
           BoundaryTangent2, CoordinateSystemDimension() )
 
 !------------------------------------------------------------------------------
-     Density = 0.0d0
-     LocalTemperature   = 0.0d0
-     HeatExpansionCoeff = 0.0d0
      AllocationsDone = .TRUE.
 !------------------------------------------------------------------------------
   END IF
@@ -269,7 +234,7 @@
   CALL Info( 'MeshSolve', ' ', Level=4 )
   CALL Info( 'MeshSolve', 'Starting assembly...', Level=4 )
 !------------------------------------------------------------------------------
-  CALL InitializeToZero( StiffMatrix, ForceVector )
+  CALL DefaultInitialize()
 !------------------------------------------------------------------------------
   DO t=1,Solver % NumberOfActiveElements
 
@@ -282,204 +247,132 @@
                      
         at0 = RealTime()
      END IF
-!------------------------------------------------------------------------------
-!    Check if this element belongs to a body where mesh update
-!    should be calculated
-!------------------------------------------------------------------------------
-     CurrentElement => Solver % Mesh % Elements( Solver % ActiveElements(t) )
-     NodeIndexes => CurrentElement % NodeIndexes
 
-!    IF ( .NOT.CheckElementEquation( Model, &
-!         CurrentElement,'Mesh Update' ) ) CYCLE
-!------------------------------------------------------------------------------
-!    Ok, we have got one for mesh computations
-!------------------------------------------------------------------------------
-!------------------------------------------------------------------------------
-!    Set the current element pointer in the model structure to
-!    reflect the element being processed
-!------------------------------------------------------------------------------
-     Model % CurrentElement => CurrentElement
-!------------------------------------------------------------------------------
-     body_id = CurrentElement % BodyId
-     n = CurrentElement % Type % NumberOfNodes
+     Element => GetActiveElement(t)
+     nd = GetElementNOFDOFs()
+     n  = GetElementNOFNodes()
 
-     ElementNodes % x(1:n) = Model % Nodes % x(NodeIndexes)
-     ElementNodes % y(1:n) = Model % Nodes % y(NodeIndexes)
-     ElementNodes % z(1:n) = Model % Nodes % z(NodeIndexes)
+     Material => GetMaterial()
 
-     k = ListGetInteger( Model % Bodies(body_id) % Values,'Material', &
-           minv=1, maxv=Model % NumberOfMaterials )
-        
-     Material => Model % Materials(k) % Values
-
-     ElasticModulus(1,1,1:n) = ListGetReal( Material, &
-          'Mesh Elastic Modulus',n,NodeIndexes, Found )
+     ElasticModulus(1,1,1:n) = GetReal( Material, &
+          'Mesh Elastic Modulus', Found )
      IF ( .NOT. Found ) THEN
-        ElasticModulus(1,1,1:n) = ListGetReal( Material, &
-             'Youngs Modulus',n,NodeIndexes, Found )
+        ElasticModulus(1,1,1:n) = GetReal( Material, &
+             'Youngs Modulus', Found )
      END IF
      IF ( .NOT. Found ) ElasticModulus(1,1,1:n) = 1.0d0
 
-     PoissonRatio(1:n) = ListGetReal( Material, &
-          'Mesh Poisson Ratio', n, NodeIndexes, Found )
+     PoissonRatio(1:n) = GetReal( Material, &
+          'Mesh Poisson Ratio', Found )
      IF ( .NOT. Found ) THEN
-        PoissonRatio(1:n) = ListGetReal( Material, &
-          'Poisson Ratio', n, NodeIndexes, Found )
+        PoissonRatio(1:n) = GetReal( Material, &
+          'Poisson Ratio', Found )
      END IF
      IF ( .NOT. Found ) PoissonRatio(1:n) = 0.25d0
 !------------------------------------------------------------------------------
 !    Set body forces
 !------------------------------------------------------------------------------
-     LoadVector = 0.0d0
+     LOAD = 0.0d0
+
 !------------------------------------------------------------------------------
 !    Get element local stiffness & mass matrices
 !------------------------------------------------------------------------------
-     CALL LocalMatrix( LocalMassMatrix, &
-          LocalStiffMatrix, LocalForce, LoadVector, ElasticModulus, &
-          PoissonRatio, Density, .FALSE., Isotropic, HeatExpansionCoeff, &
-          LocalTemperature, CurrentElement, n, ElementNodes )
+     CALL LocalMatrix( STIFF, FORCE, LOAD, ElasticModulus, &
+       PoissonRatio, .FALSE., Isotropic, Element, n, nd )
 
-     IF ( TransientSimulation ) THEN
-!------------------------------------------------------------------------------
-!        NOTE: This will replace LocalStiffMatrix and LocalForce with the
-!              combined information...
-!------------------------------------------------------------------------------
-!        CALL Add2ndOrderTime( LocalMassMatrix, 0*LocalMassMatrix, &
-!             LocalStiffMatrix, LocalForce, dt, n, STDOFs, &
-!                 MeshPerm(NodeIndexes), Solver )
-!------------------------------------------------------------------------------
-!        Update global matrices from local matrices
-!------------------------------------------------------------------------------
-     END IF
 !------------------------------------------------------------------------------
 !    If boundary fields have been defined in normal/tangential coordinate
 !    systems, we will have to rotate the matrix & force vector to that
 !    coordinate system
 !------------------------------------------------------------------------------
      IF ( NumberOfBoundaryNodes > 0 ) THEN
-        CALL RotateMatrix( LocalStiffMatrix,LocalForce,n,STDOFs,STDOFs, &
-             BoundaryReorder(NodeIndexes),BoundaryNormals,BoundaryTangent1, &
+        CALL RotateMatrix( STIFF,FORCE,n,STDOFs,STDOFs, &
+             BoundaryReorder(Element % NodeIndexes),BoundaryNormals,BoundaryTangent1, &
              BoundaryTangent2 )
      END IF
 
 !------------------------------------------------------------------------------
 !    Update global matrices from local matrices 
 !------------------------------------------------------------------------------
-     CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
-          ForceVector, LocalForce, n, STDOFs, MeshPerm(NodeIndexes) )
+     CALL DefaultUpdateEquations( STIFF, FORCE )
   END DO
 
 
 !------------------------------------------------------------------------------
 !     Neumann & Newton boundary conditions
 !------------------------------------------------------------------------------
-  DO t = Model % NumberOfBulkElements+1, &
-            Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+  DO t = 1, Solver % Mesh % NumberOfBoundaryElements
 
-    CurrentElement => Model % Elements(t)
-!------------------------------------------------------------------------------
-!   Set also the current element pointer in the model structure to
-!   reflect the element being processed
-!------------------------------------------------------------------------------
-    Model % CurrentElement => Model % Elements(t)
-!------------------------------------------------------------------------------
-    n = CurrentElement % Type % NumberOfNodes
-    NodeIndexes => CurrentElement % NodeIndexes
-    IF ( ANY( MeshPerm(NodeIndexes) <= 0 ) ) CYCLE
+    Element => GetBoundaryElement(t)
+    IF ( .NOT.ActiveBoundaryElement() ) CYCLE
+
+    nd = GetElementNOFDOFs()
+    n  = GetElementNOFNodes()
 !
-!   The element type 101 (point element) can only be used
-!   to set Dirichlet BCs, so skip ´em.
+    IF ( GetElementFamily() == 1 ) CYCLE
 
-    IF ( CurrentElement % Type % ElementCode == 101 ) CYCLE
+    BC => GetBC()
+    IF ( .NOT. ASSOCIATED(BC) ) CYCLE
 
-    ElementNodes % x(1:n) = Model % Nodes % x(NodeIndexes)
-    ElementNodes % y(1:n) = Model % Nodes % y(NodeIndexes)
-    ElementNodes % z(1:n) = Model % Nodes % z(NodeIndexes)
-
-    DO i=1,Model % NumberOfBCs
-      IF ( CurrentElement % BoundaryInfo % Constraint == &
-               Model % BCs(i) % Tag ) THEN
 !------------------------------------------------------------------------------
 !        Force in given direction BC: \tau\cdot n = F
 !------------------------------------------------------------------------------
-         LoadVector = 0.0D0
-         Alpha      = 0.0D0
-         Beta       = 0.0D0
+     LOAD = 0.0D0
+     Alpha      = 0.0D0
+     Beta       = 0.0D0
 
-         GotForceBC = .FALSE.
-         LoadVector(1,1:n) =  ListGetReal( Model % BCs(i) % Values, &
-                   'Mesh Force 1',n,NodeIndexes,Found )
-         GotForceBC = GotForceBC.OR.Found
+     GotForceBC = .FALSE.
+     LOAD(1,1:n) =  GetReal( BC, 'Mesh Force 1', Found )
+     GotForceBC = GotForceBC.OR.Found
+     LOAD(2,1:n) =  GetReal( BC, 'Mesh Force 2', Found )
+     GotForceBC = GotForceBC.OR.Found
+     LOAD(3,1:n) =  GetReal( BC, 'Mesh Force 3', Found )
+     GotForceBC = GotForceBC.OR.Found
 
-         LoadVector(2,1:n) =  ListGetReal( Model % BCs(i) % Values, &
-                   'Mesh Force 2',n,NodeIndexes,Found )
-         GotForceBC = GotForceBC.OR.Found
+     Beta(1:n) = GetReal( BC, 'Mesh Normal Force',Found )
+     GotForceBC = GotForceBC.OR.Found
 
-         LoadVector(3,1:n) =  ListGetReal( Model % BCs(i) % Values, &
-                   'Mesh Force 3',n,NodeIndexes,Found )
-         GotForceBC = GotForceBC.OR.Found
+     IF ( .NOT.GotForceBC ) CYCLE
 
-         Beta(1:n) =  ListGetReal( Model % BCs(i) % Values, &
-                   'Mesh Normal Force',n,NodeIndexes,Found )
-         GotForceBC = GotForceBC.OR.Found
+     CALL MeshBoundary( STIFF,FORCE, LOAD,Alpha,Beta,Element,n,nd )
 
-         IF ( .NOT.GotForceBC ) CYCLE
-!------------------------------------------------------------------------------
-         CALL MeshBoundary( LocalStiffMatrix,LocalForce, &
-               LoadVector,Alpha,Beta,CurrentElement,n,ElementNodes )
 !------------------------------------------------------------------------------
 !        If boundary fields have been defined in normal/tangetial coordinate
 !        systems, we´ll have to rotate the matrix & force vector to that
 !        coordinate system
 !------------------------------------------------------------------------------
-         IF ( NumberOfBoundaryNodes > 0 ) THEN
-            CALL RotateMatrix( LocalStiffMatrix,LocalForce,n,STDOFs,STDOFs, &
-             BoundaryReorder(NodeIndexes),BoundaryNormals,BoundaryTangent1, &
-                               BoundaryTangent2 )
-         END IF
+     IF ( NumberOfBoundaryNodes > 0 ) THEN
+        CALL RotateMatrix( STIFF,FORCE,n,STDOFs,STDOFs, &
+         BoundaryReorder(Element % NodeIndexes),BoundaryNormals,BoundaryTangent1, &
+                           BoundaryTangent2 )
+     END IF
 !------------------------------------------------------------------------------
-         CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
-           ForceVector, LocalForce, n, STDOFs, MeshPerm(NodeIndexes) )
-!------------------------------------------------------------------------------
-       END IF
-     END DO
+
+     CALL DefaultUpdateEquations( STIFF, FORCE )
   END DO
 !------------------------------------------------------------------------------
 
+  CALL DefaultFinishAssembly()
   CALL Info( 'MeshSolve', 'Assembly done', Level=4 )
-!------------------------------------------------------------------------------
-!
-! CALL FinishAssembly( Solver, ForceVector )
-!
+
 !------------------------------------------------------------------------------
 ! Dirichlet boundary conditions
 !------------------------------------------------------------------------------
-  CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, &
-       'Mesh Update 1', 1, STDOFs, MeshPerm )
+  CALL DefaultDirichletBCs()
 
-  CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, &
-       'Mesh Update 2', 2, STDOFs,MeshPerm )
-
-  IF ( STDOFs >= 3 ) THEN
-     CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, &
-          'Mesh Update 3', 3, STDOFs, MeshPerm )
-  END IF
 !------------------------------------------------------------------------------
-
   CALL Info( 'MeshSolve', 'Set boundaries done', Level=4 )
-
 !------------------------------------------------------------------------------
 ! Solve the system and check for convergence
 !------------------------------------------------------------------------------
   PrevUNorm = UNorm
 
-  maxu = ListGetConstReal( Solver % Values, 'Max Mesh Update', Found )
+  maxu = GetConstReal( Solver % Values, 'Max Mesh Update', Found )
   IF ( Found ) THEN
      PrevUpdate = MeshUpdate
   END IF
 
-  CALL SolveSystem( StiffMatrix, ParMatrix, ForceVector, &
-           MeshUpdate, UNorm, STDOFs, Solver )
+  UNorm = DefaultSolve()
 
   IF ( UNorm + PrevUNorm  /= 0.0d0 ) THEN
      RelativeChange = 2*ABS( PrevUNorm - UNorm ) / (PrevUNorm + UNorm)
@@ -593,47 +486,41 @@
   CONTAINS
 
 !------------------------------------------------------------------------------
-   SUBROUTINE LocalMatrix( MassMatrix,StiffMatrix,ForceVector,LoadVector,  &
-     NodalYoung, NodalPoisson, NodalDensity, PlaneStress, Isotropic, &
-          NodalHeatExpansion, NodalTemperature, Element,n,Nodes )
+   SUBROUTINE LocalMatrix( STIFF,FORCE,LOAD,NodalYoung, NodalPoisson, &
+              PlaneStress, Isotropic, Element,n, nd )
 !------------------------------------------------------------------------------
+     IMPLICIT NONE
 
-     REAL(KIND=dp) :: StiffMatrix(:,:),MassMatrix(:,:),NodalHeatExpansion(:,:,:)
-     REAL(KIND=dp) :: NodalTemperature(:),LoadVector(:,:),NodalYoung(:,:,:)
-     REAL(KIND=dp), DIMENSION(:) :: ForceVector,NodalPoisson, &
-                     NodalDensity
+     REAL(KIND=dp) :: LOAD(:,:), NodalYoung(:,:,:)
+     REAL(KIND=dp) :: STIFF(:,:)
+     REAL(KIND=dp), DIMENSION(:) :: FORCE, NodalPoisson
 
      LOGICAL :: PlaneStress, Isotropic
 
      TYPE(Element_t) :: Element
-     TYPE(Nodes_t) :: Nodes
 
-     INTEGER :: n
+     INTEGER :: n,nd
 !------------------------------------------------------------------------------
 !
-     REAL(KIND=dp) :: Basis(n),ddBasisddx(1,1,1)
-     REAL(KIND=dp) :: dBasisdx(n,3),SqrtElementMetric
+     REAL(KIND=dp) :: Basis(nd),ddBasisddx(1,1,1)
+     REAL(KIND=dp) :: dBasisdx(nd,3),detJ
 
-     REAL(KIND=dp) :: Force(3),NodalLame1(n),NodalLame2(n),Lame1,Lame2, &
-                      Poisson, Young
+     REAL(KIND=dp) :: NodalLame1(n),NodalLame2(n),Lame1,Lame2, &
+                      Poisson, Young,LoadAtIP(3)
 
-     REAL(KIND=dp), DIMENSION(3,3) :: A,M,HeatExpansion
-     REAL(KIND=dp) :: Load(3),Temperature,Density, C(6,6)
-
-     INTEGER :: i,j,k,p,q,t,dim, ind(3)
+     REAL(KIND=dp), DIMENSION(3,3) :: A,M
+     INTEGER :: i,j,k,p,q,t,dim
 
      REAL(KIND=dp) :: s,u,v,w
   
-     REAL(KIND=dp) :: dDispldx(3,3)
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
-
-     INTEGER :: N_Integ
-
-     REAL(KIND=dp), DIMENSION(:), POINTER :: U_Integ,V_Integ,W_Integ,S_Integ
-
      LOGICAL :: stat
+
+     TYPE(Nodes_t) :: Nodes
+     SAVE  Nodes
 !------------------------------------------------------------------------------
 
+     CALL GetElementNodes( Nodes )
      dim = CoordinateSystemDimension()
 
      IF ( PlaneStress ) THEN
@@ -646,42 +533,35 @@
 
      NodalLame2(1:n) = NodalYoung(1,1,1:n) / (2* (1.0d0 + NodalPoisson(1:n)))
 
-     ForceVector = 0.0D0
-     StiffMatrix = 0.0D0
-     MassMatrix  = 0.0D0
-
+     STIFF = 0.0D0
+     FORCE = 0.0D0
 !    
 !    Integration stuff
 !    
      IntegStuff = GaussPoints( element )
-     U_Integ => IntegStuff % u
-     V_Integ => IntegStuff % v
-     W_Integ => IntegStuff % w
-     S_Integ => IntegStuff % s
-     N_Integ =  IntegStuff % n
 !
 !   Now we start integrating
 !
-    DO t=1,N_Integ
+    DO t=1,IntegStuff % n
 
-      u = U_Integ(t)
-      v = V_Integ(t)
-      w = W_Integ(t)
+      u = IntegStuff % u(t)
+      v = IntegStuff % v(t)
+      w = IntegStuff % w(t)
 
 !------------------------------------------------------------------------------
 !     Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
-      stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-                 Basis,dBasisdx,ddBasisddx,.FALSE. )
+      stat = ElementInfo( Element,Nodes, u, v, w, detJ, &
+            Basis, dBasisdx, ddBasisddx, .FALSE. )
 
-      s = SqrtElementMetric * S_Integ(t)
+      s = detJ * IntegStuff % s(t)
 !------------------------------------------------------------------------------
 !  
 !     Force at integration point
 !   
-      Force = 0.0d0
+      LoadAtIP = 0.0d0
       DO i=1,dim
-         Force(i) = SUM( LoadVector(i,1:n)*Basis(1:n) )
+         LoadAtIP(i) = SUM( LOAD(i,1:n)*Basis(1:n) )
       END DO
 !
 !     Lame parameters at the integration point
@@ -690,20 +570,11 @@
       Lame2 = SUM( NodalLame2(1:n)*Basis(1:n) )
 
 !
-!     Coefficient Matrix:
-!
-      Density = SUM( Basis(1:n) * NodalDensity(1:n) )
-!
 !    Loop over basis functions (of both unknowns and weights)
 !
-     DO p=1,N
-     DO q=1,N
+     DO p=1,nd
+     DO q=1,nd
         A = 0.0
-        M = 0.0
-
-        DO i=1,dim
-           M(i,i) = Density * Basis(p) * Basis(q)
-        END DO
 !
 !      Stiffness matrix:
 !------------------------------
@@ -719,11 +590,8 @@
 !
         DO i=1,dim
            DO j=1,dim
-              StiffMatrix( dim*(p-1)+i,dim*(q-1)+j ) =  &
-                  StiffMatrix( dim*(p-1)+i,dim*(q-1)+j ) + s*A(i,j)
-
-              MassMatrix( dim*(p-1)+i,dim*(q-1)+j ) =  &
-                  MassMatrix( dim*(p-1)+i,dim*(q-1)+j ) + s*M(i,j)
+              STIFF( dim*(p-1)+i,dim*(q-1)+j ) =  &
+                  STIFF( dim*(p-1)+i,dim*(q-1)+j ) + s*A(i,j)
            END DO
         END DO
      END DO
@@ -731,15 +599,9 @@
 !
 ! The righthand side...
 !
-     DO p=1,N
-       Load = 0.0d0
-  
+     DO p=1,nd
        DO i=1,dim
-          Load(i) = Load(i) + Force(i) * Basis(p)
-       END DO
-
-       DO i=1,dim
-         ForceVector(dim*(p-1)+i) = ForceVector(dim*(p-1)+i) + s*Load(i)
+         FORCE(dim*(p-1)+i) = FORCE(dim*(p-1)+i) + s*LoadAtIP(i) * Basis(p)
        END DO
      END DO
 
@@ -750,83 +612,78 @@
 
 
 !------------------------------------------------------------------------------
- SUBROUTINE MeshBoundary( BoundaryMatrix,BoundaryVector,LoadVector, &
-                      NodalAlpha,NodalBeta,Element,n,Nodes )
+ SUBROUTINE MeshBoundary( STIFF,FORCE,LOAD,NodalAlpha,NodalBeta,Element,n,nd )
 !------------------------------------------------------------------------------
-   REAL(KIND=dp) :: BoundaryMatrix(:,:),BoundaryVector(:)
-   REAL(KIND=dp) :: NodalAlpha(:,:),NodalBeta(:),LoadVector(:,:)
+   REAL(KIND=dp) :: STIFF(:,:),FORCE(:)
+   REAL(KIND=dp) :: NodalAlpha(:,:),NodalBeta(:),LOAD(:,:)
    TYPE(Element_t),POINTER  :: Element
-   TYPE(Nodes_t)    :: Nodes
-
-   INTEGER :: n
+   INTEGER :: n,nd
 !------------------------------------------------------------------------------
-   REAL(KIND=dp) :: Basis(n),ddBasisddx(1,1,1)
-   REAL(KIND=dp) :: dBasisdx(n,3),SqrtElementMetric
+   REAL(KIND=dp) :: Basis(nd),ddBasisddx(1,1,1)
+   REAL(KIND=dp) :: dBasisdx(nd,3),detJ
 
    REAL(KIND=dp) :: u,v,w,s
-   REAL(KIND=dp) :: Force(3),Alpha(3),Beta,Normal(3)
-   REAL(KIND=dp), POINTER :: U_Integ(:),V_Integ(:),W_Integ(:),S_Integ(:)
+   REAL(KIND=dp) :: Alpha(3),Beta,Normal(3),LoadAtIP(3)
 
-   INTEGER :: i,t,q,p,dim,N_Integ
+   INTEGER :: i,t,q,p,dim
 
    LOGICAL :: stat
 
    TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
+
+   TYPE(Nodes_t)    :: Nodes
+   SAVE Nodes
 !------------------------------------------------------------------------------
 
    dim = Element % Type % Dimension + 1
+   CALL GetElementNodes( Nodes )
 
-   BoundaryVector = 0.0D0
-   BoundaryMatrix = 0.0D0
+   FORCE = 0.0D0
+   STIFF = 0.0D0
 !
 !  Integration stuff
 !
    IntegStuff = GaussPoints( element )
-   U_Integ => IntegStuff % u
-   V_Integ => IntegStuff % v
-   W_Integ => IntegStuff % w
-   S_Integ => IntegStuff % s
-   N_Integ =  IntegStuff % n
 !
 !  Now we start integrating
 !
-   DO t=1,N_Integ
+   DO t=1,IntegStuff % n
 
-     u = U_Integ(t)
-     v = V_Integ(t)
-     w = W_Integ(t)
+     u = IntegStuff % u(t)
+     v = IntegStuff % v(t)
+     w = IntegStuff % w(t)
 
 !------------------------------------------------------------------------------
 !     Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
-      stat = ElementInfo( Element, Nodes, u, v, w, SqrtElementMetric, &
+      stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
                  Basis, dBasisdx, ddBasisddx, .FALSE. )
 
-      s = SqrtElementMetric * S_Integ(t)
+      s = detJ * IntegStuff % s(t)
 !------------------------------------------------------------------------------
-     Force = 0.0D0
+     LoadAtIP = 0.0D0
      DO i=1,dim
-       Force(i) = SUM( LoadVector(i,1:n)*Basis )
+       LoadAtIP(i) = SUM( LOAD(i,1:n)*Basis )
        Alpha(i) = SUM( NodalAlpha(i,1:n)*Basis )
      END DO
 
      Normal = NormalVector( Element,Nodes,u,v,.TRUE. )
-     Force = Force + SUM( NodalBeta(1:n)*Basis ) * Normal
+     LoadAtIP = LoadAtIP + SUM( NodalBeta(1:n)*Basis ) * Normal
 
-     DO p=1,N
-       DO q=1,N
+     DO p=1,nd
+       DO q=1,nd
          DO i=1,dim
-           BoundaryMatrix((p-1)*dim+i,(q-1)*dim+i) =  &
-             BoundaryMatrix((p-1)*dim+i,(q-1)*dim+i) + &
+           STIFF((p-1)*dim+i,(q-1)*dim+i) =  &
+             STIFF((p-1)*dim+i,(q-1)*dim+i) + &
                s * Alpha(i) * Basis(q) * Basis(p)
          END DO
        END DO
      END DO
 
-     DO q=1,N
+     DO q=1,nd
        DO i=1,dim
-         BoundaryVector((q-1)*dim+i) = BoundaryVector((q-1)*dim+i) + &
-                   s * Basis(q) * Force(i)
+         FORCE((q-1)*dim+i) = FORCE((q-1)*dim+i) + &
+                   s * Basis(q) * LoadAtIP(i)
        END DO
      END DO
 
