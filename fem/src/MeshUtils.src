@@ -33,6 +33,9 @@
 ! *       Date of modification: 27.8.2002
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.7  2005/06/28 07:29:08  jpr
+! * Added isoparametric p-elements.
+! *
 ! * Revision 1.6  2005/06/17 05:21:56  jpr
 ! * *** empty log message ***
 ! *
@@ -68,7 +71,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.6 2005/06/17 05:21:56 jpr Exp $
+! * $Id: MeshUtils.src,v 1.7 2005/06/28 07:29:08 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -806,7 +809,8 @@ CONTAINS
    ! -----------------------------------------------------------
    n = Mesh % NumberOfNodes + &
        Mesh % MaxEdgeDOFs * Mesh % NumberOFEdges + &
-       Mesh % MaxFaceDOFs * Mesh % NumberOFFaces
+       Mesh % MaxFaceDOFs * Mesh % NumberOFFaces + &
+       Mesh % MaxBDOFs    * Mesh % NumberOFBulkElements
 
    IF ( n>Mesh % NumberOfNodes ) THEN
      cCoord => Mesh % Nodes % x
