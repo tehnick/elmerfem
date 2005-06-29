@@ -187,10 +187,6 @@ EXTRA_DIST = \
 	MaxwellAxiS.src \
 	Maxwell.src \
 	MaxwellGeneral.src \
-	MEMLumping.src \
-	MEMReynolds.src \
-	MEMStatElecReduced.src \
-	MEMUtilities.src \
 	MeshSolve.src \
 	MeshUtils.src \
 	Messages.src \

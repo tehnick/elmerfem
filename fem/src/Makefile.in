@@ -291,7 +291,6 @@ BINARIES = AdvectionDiffusion$(SHL_EXT) \
 	Smitc$(SHL_EXT) \
 	StreamSolver$(SHL_EXT) \
 	KESolver$(SHL_EXT) \
-	MEMLumping$(SHL_EXT) \
 	PoissonBoltzmannSolve$(SHL_EXT) \
 	Electrokinetics$(SHL_EXT) \
 	StressSolve$(SHL_EXT) \
@@ -300,8 +299,6 @@ BINARIES = AdvectionDiffusion$(SHL_EXT) \
 	ResultOutputSolve$(SHL_EXT) \
 	ResultToResult$(EXE_EXT) \
 	HelmholtzBEM$(SHL_EXT) \
-	MEMReynolds$(SHL_EXT) \
-	MEMStatElecReduced$(SHL_EXT) \
 	ElmerSolver$(EXE_EXT) \
 	PoissonBEM$(SHL_EXT)
 
@@ -369,7 +366,6 @@ SOLVEROBJS = \
 		DefUtils$(OBJ_EXT)				\
 		LUDecomposition$(OBJ_EXT) 			\
 	        RadiationFactors$(OBJ_EXT)                      \
-		MEMUtilities$(OBJ_EXT)  			\
 		f_stubs$(OBJ_EXT)				\
 		ElmerSolver$(OBJ_EXT)
 
@@ -434,10 +430,6 @@ EXTRA_DIST = \
 	MaxwellAxiS.src \
 	Maxwell.src \
 	MaxwellGeneral.src \
-	MEMLumping.src \
-	MEMReynolds.src \
-	MEMStatElecReduced.src \
-	MEMUtilities.src \
 	MeshSolve.src \
 	MeshUtils.src \
 	Messages.src \
@@ -1030,14 +1022,14 @@ ResultToResult$(EXE_EXT): libelmersolver$(SHL_EXT) ResultToResult$(OBJ_EXT)
 	      -o ResultToResult$(EXE_EXT) ResultToResult$(OBJ_EXT) \
 	      -L. -lelmersolver mpi_stubs$(OBJ_EXT) $(EXTRA_LIBS)
 install-data-local:
-	@echo "Instaling solvers to ${ELMER_SOLVER_DATADIR}/lib"
+	@echo "Installing solvers to ${ELMER_SOLVER_DATADIR}/lib"
 
 	mkdir -p $(ELMER_SOLVER_DATADIR)/lib
 	$(CP) *$(SHL_EXT) $(ELMER_SOLVER_DATADIR)/lib
 	$(CP) elements.def $(ELMER_SOLVER_DATADIR)/lib
 	$(CP) SOLVER.KEYWORDS $(ELMER_SOLVER_DATADIR)/lib
 
-	@echo "Instaling *.mod to ${ELMER_SOLVER_DATADIR}/include"
+	@echo "Installing *.mod to ${ELMER_SOLVER_DATADIR}/include"
 	mkdir -p $(ELMER_SOLVER_DATADIR)/include
 	$(CP) *.mod $(ELMER_SOLVER_DATADIR)/include
 
