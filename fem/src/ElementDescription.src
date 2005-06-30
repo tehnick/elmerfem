@@ -35,6 +35,9 @@
 ! *
 ! *
 ! * $Log: ElementDescription.src,v $
+! * Revision 1.10  2005/06/29 14:34:27  jpr
+! * Corrected a few bugs in code for #bubbles => p-degree
+! *
 ! * Revision 1.9  2005/06/28 09:48:01  jpr
 ! * Just formatting
 ! *
@@ -74,7 +77,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: ElementDescription.src,v 1.9 2005/06/28 09:48:01 jpr Exp $
+! * $Id: ElementDescription.src,v 1.10 2005/06/29 14:34:27 jpr Exp $
 ! ******************************************************************************/
 
 MODULE ElementDescription
@@ -2455,7 +2458,7 @@ END IF
            p = Element % PDefs % p
            nb = MAX( GetBubbleDOFs(Element, p), Element % BDOFs )
            p=NINT(1/3d0*(81*nb+3*SQRT(-3d0+729*nb**2))**(1/3d0)+1d0/ &
-                   (81*nb+3*SQRT(-3d0+729*nb**2))**(1/3d0)+3)
+                   (81*nb+3*SQRT(-3d0+729*nb**2))**(1/3d0)+2)
 
            ! Calculate value of bubble functions from indexes
            ! i,j,k=0,..,p-4 i+j+k=0,..,p-4
@@ -2616,7 +2619,7 @@ END IF
            p = Element % PDefs % P
            nb = MAX( GetBubbleDOFs( Element, p ), Element % BDOFs )
            p=NINT(1/3d0*(81*nb+3*SQRT(-3d0+729*nb**2))**(1/3d0)+1d0/ &
-                   (81*nb+3*SQRT(-3d0+729*nb**2))**(1/3d0)+2)
+                   (81*nb+3*SQRT(-3d0+729*nb**2))**(1/3d0)+3)
            
            ! For each bubble calculate value of basis function and its derivative
            ! for index pairs i,j=0,..,p-5 k=2,..,p-3 i+j+k=2,..,p-3
