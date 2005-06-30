@@ -35,6 +35,9 @@
 ! *
 ! *
 ! * $Log: ElementDescription.src,v $
+! * Revision 1.11  2005/06/30 08:28:17  jpr
+! * Still a bug in #bubbles => p-degree.
+! *
 ! * Revision 1.10  2005/06/29 14:34:27  jpr
 ! * Corrected a few bugs in code for #bubbles => p-degree
 ! *
@@ -77,7 +80,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: ElementDescription.src,v 1.10 2005/06/29 14:34:27 jpr Exp $
+! * $Id: ElementDescription.src,v 1.11 2005/06/30 08:28:17 jpr Exp $
 ! ******************************************************************************/
 
 MODULE ElementDescription
@@ -1875,7 +1878,7 @@ END IF
 
 !------------------------------------------------------------------------------
    RECURSIVE FUNCTION ElementInfo( Element,Nodes,u,v,w,detJ, &
-     Basis,dBasisdx,ddBasisddx,SecondDerivatives,Bubbles ) RESULT(stat)
+     Basis,dBasisdx,ddBasisddx,SecondDerivatives,Bubbles,BasisDegree ) RESULT(stat)
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -1928,7 +1931,7 @@ END IF
      Type(Nodes_t)   :: Nodes
      REAL(KIND=dp) :: u,v,w,detJ
      REAL(KIND=dp) :: Basis(:),dBasisdx(:,:),ddBasisddx(:,:,:)
-!    INTEGER, OPTIONAL :: BasisDegree(:)
+     INTEGER, OPTIONAL :: BasisDegree(:)
      LOGICAL, OPTIONAL :: SecondDerivatives, Bubbles
 
 !------------------------------------------------------------------------------
@@ -1939,7 +1942,7 @@ END IF
                       BubbleValue, dBubbledx(3), t, s, ds, pTest, LtoGMap(3,3)
      LOGICAL :: invert, inverti, invertj, degrees
      INTEGER :: i,j,k,l,q,p,n,nb,dim,cdim,f, locali, localj, localMin, localPrev, &
-          edge1, edge2, tmp(4), ii, jj, direction(4), BasisDegree(16)
+          edge1, edge2, tmp(4), ii, jj, direction(4)
      REAL(KIND=dp) :: LinBasis(16), dLinBasisdx(16,3), ElmMetric(3,3)
 
      Type(Element_t) :: Bubble
@@ -2036,12 +2039,11 @@ END IF
       ! linear basis if vector asked:
       ! ---------------------------------------------------
       degrees = .FALSE.
-
-      ! IF (PRESENT(BasisDegree)) THEN 
-      !    degrees = .TRUE.
-      !    BasisDegree = 0
-      !    BasisDegree(1:Element % Type % NumberOfNodes) = 1
-      ! END IF
+      IF ( PRESENT(BasisDegree)) THEN 
+         degrees = .TRUE.
+         BasisDegree = 0
+         BasisDegree(1:n) = 1
+      END IF
 
 !------------------------------------------------------------------------------
      SELECT CASE( Element % Type % ElementCode ) 
