@@ -33,6 +33,9 @@
 ! *       Date of modification: 
 ! *
 ! * $Log: Adaptive.src,v $
+! * Revision 1.9  2005/06/23 08:44:33  jpr
+! * P-bubbles in global system by default....
+! *
 ! * Revision 1.8  2005/06/22 04:43:06  jpr
 ! * Bubbles to global system by default.
 ! *
@@ -53,7 +56,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Adaptive.src,v 1.8 2005/06/22 04:43:06 jpr Exp $
+! * $Id: Adaptive.src,v 1.9 2005/06/23 08:44:33 jpr Exp $
 ! *****************************************************************************/
 
 
@@ -493,22 +496,18 @@ CONTAINS
 !   Time must always be there:
 !   --------------------------
     Var => VariableGet( RefMesh % Variables,'Time',ThisOnly=.TRUE. )
-print*,'t0: ', associated( var )
     CALL VariableAdd( NewMesh % Variables, NewMesh, PSolver, &
                      'Time', 1, Var % Values )
 
     Var => VariableGet( RefMesh % Variables,'Timestep',ThisOnly=.TRUE. )
-print*,'t1: ', associated( var )
     CALL VariableAdd( NewMesh % Variables, NewMesh, PSolver, &
                      'Timestep', 1, Var % Values )
 
     Var => VariableGet( RefMesh % Variables,'Timestep size',ThisOnly=.TRUE. )
-print*,'t2: ', associated( var )
     CALL VariableAdd( NewMesh % Variables, NewMesh, PSolver, &
                      'Timestep size', 1, Var % Values )
 
     Var => VariableGet( RefMesh % Variables,'Timestep interval',ThisOnly=.TRUE. )
-print*,'t3: ', associated( var )
     CALL VariableAdd( NewMesh % Variables, NewMesh, PSolver, &
                  'Timestep interval', 1, Var % Values )
 
