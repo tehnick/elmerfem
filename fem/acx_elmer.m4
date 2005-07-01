@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.63 2005/06/16 10:38:37 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.64 2005/06/17 11:31:21 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1373,6 +1373,7 @@ case "$FC" in
 		dnl remove intel c++ stuff
 		FCLIBS=`echo $FCLIBS | sed -e 's/-lintrins//g'`
 	fi
+	FC="$FC -Vaxlib"
    ;;
 esac
 
