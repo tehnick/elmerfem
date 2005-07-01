@@ -37,6 +37,7 @@
 
 MODULE Integration
    USE Types
+   USE PElementBase
    USE LinearAlgebra
 
    IMPLICIT NONE
@@ -1176,8 +1177,7 @@ END FUNCTION GaussPointsPTetra
      n = elmt % GaussPoints
 
      ! For p elements use different number of gauss points 
-     pElement = ASSOCIATED(elm % PDefs)
-     IF (pElement) n = elm % PDefs % GaussPoints
+     IF (ispElement(elm)) n = elm % PDefs % GaussPoints
 
      IF ( PRESENT(np) ) n = np
      
