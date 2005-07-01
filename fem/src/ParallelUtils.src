@@ -75,20 +75,20 @@ CONTAINS
        TYPE(Solver_t) :: Solver
        TYPE(Matrix_t), POINTER :: Matrix
 !-------------------------------------------------------------------------------
-       INTEGER :: i, j, DOFs
+       INTEGER :: i, j, n, DOFs
 !-------------------------------------------------------------------------------
 
 #ifdef PARALLEL_FOR_REAL
        IF ( ParEnv % PEs <= 1 .OR. .NOT. ASSOCIATED(Solver % Matrix) ) RETURN
        DOFs = Solver % Variable % DOFs
+       n = SIZE( Solver % Variable % Perm)
 
-       ALLOCATE( Matrix % Perm( Solver % Mesh % NumberOfNodes * DOFs) )
-       ALLOCATE( Matrix % INVPerm( Solver % Mesh % NumberOfNodes * DOFs) )
+       ALLOCATE( Matrix % Perm(DOFs*n), Matrix % InvPerm(DOFs*n) )
 
        Matrix % Perm    = 0
        Matrix % INVPerm = 0
 
-       DO i=1,Solver % Mesh % NumberOfNodes
+       DO i=1,n
           IF ( Solver % Variable % Perm(i) /= 0 )  THEN
              DO j=1,DOFs
                 Matrix % Perm( (i-1)*DOFs+j ) = &
@@ -97,7 +97,7 @@ CONTAINS
           END IF
        END DO
 
-       DO i=1,Solver % Mesh % NumberOfNodes * DOFs
+       DO i=1,DOFs*n
           IF ( Matrix % Perm(i) /= 0 ) THEN
              Matrix % INVPerm(Matrix % Perm(i)) = i
           END IF
