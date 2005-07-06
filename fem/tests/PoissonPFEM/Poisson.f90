@@ -105,7 +105,7 @@ CONTAINS
 
     !Numerical integration:
     !----------------------
-    IP = GaussPoints( Element, 2*nd )
+    IP = GaussPoints( Element )
     DO t=1,IP % n
       ! Basis function values & derivatives at the integration point:
       !--------------------------------------------------------------
