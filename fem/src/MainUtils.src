@@ -33,6 +33,9 @@
 ! *       Date of modification:
 ! *
 ! * $Log: MainUtils.src,v $
+! * Revision 1.4  2005/06/22 04:40:52  jpr
+! * Bubbles to global system by default.
+! *
 ! * Revision 1.3  2005/05/26 12:33:14  jpr
 ! * Removed explicit DLLEXPORT definitions
 ! *
@@ -42,21 +45,11 @@
 ! * Revision 1.1  2005/05/26 08:24:30  vierinen
 ! * moved .f90 to .src because .f90 is needed for preprosessed files
 ! *
-! * Revision 1.4  2005/05/19 12:59:03  jpr
-! * *** empty log message ***
-! *
-! * Revision 1.3  2005/05/17 07:28:05  jpr
-! * *** empty log message ***
-! *
 ! * Revision 1.2  2005/05/04 09:16:04  vierinen
 ! * minor modifications
 ! *
 ! * Revision 1.157  2005/04/14 11:36:15  jpr
 ! * Removed the Sparse library interface.
-! *
-! * Revision 1.156  2005/04/04 06:40:54  jpr
-! * *** empty log message ***
-! *
 ! *
 ! * Revision 1.148  2004/03/03 10:22:37  jpr
 ! * Corrected bug in radiation factors&matrix structured introduced
@@ -66,7 +59,7 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.src,v 1.3 2005/05/26 12:33:14 jpr Exp $
+! * $Id: MainUtils.src,v 1.4 2005/06/22 04:40:52 jpr Exp $
 ! *****************************************************************************/
 
 
@@ -103,6 +96,10 @@ CONTAINS
 !
     FORMAT = MATRIX_CRS
 
+!
+! TODO: The following code always selects the MATRIX_CRS as format
+! and should be removed...
+! -----------------------------------------------------------------
     DO i=1,Model % NumberOfSolvers
        IF (  &
             ListGetString(Model % Solvers(i) % Values, 'Equation') == Equation &
@@ -133,27 +130,18 @@ CONTAINS
 #endif
 
                 CASE DEFAULT
-                  
                    CALL Warn( 'GetMatrixFormat', 'Unknown direct solver method: ' // TRIM(str) )
                    CALL Warn( 'GetMatrixFormat', 'band solver (LAPACK) will be used.' )
                    FORMAT = MATRIX_CRS
- 
                 END SELECT
              END IF
-
           ELSE IF ( TRIM(str) == 'iterative' ) THEN
-
              FORMAT = MATRIX_CRS
-
           ELSE IF ( TRIM(str) == 'multigrid' ) THEN
-
              FORMAT = MATRIX_CRS
-
           ELSE
-
              CALL Fatal( 'GetMatrixFormat', 'Unknown linear system solver: ' // TRIM(str) )
              STOP
-
           END IF
 
           EXIT
