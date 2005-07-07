@@ -112,7 +112,7 @@ CONTAINS
     INTEGER :: n, nd
     TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3),ddBasisddx(nd,3,3),DetJ,LoadAtIP
+    REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3),DetJ,LoadAtIP
     LOGICAL :: Stat
     INTEGER :: i,j,t,p,q,dim
     REAL(KIND=dp), POINTER :: M(:,:), A(:,:), F(:)
@@ -137,7 +137,7 @@ CONTAINS
       ! Basis function values & derivatives at the integration point:
       !--------------------------------------------------------------
       stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
-       IP % W(t), detJ, Basis, dBasisdx, ddBasisddx, .FALSE. )
+            IP % W(t), detJ, Basis, dBasisdx )
 
       s = IP % s(t) * DetJ
 
