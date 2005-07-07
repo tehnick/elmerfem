@@ -35,6 +35,9 @@
 ! *
 ! *
 ! * $Log: ElementDescription.src,v $
+! * Revision 1.14  2005/07/07 11:14:24  jpr
+! * Reorganizing the parallel structs.
+! *
 ! * Revision 1.13  2005/07/07 09:12:25  jpr
 ! * Changed ElementInfo to have dBasisdx,ddBasisddx as OPTIONAL arguments. Changed all calls to ElementInfo accordingly.
 ! *
@@ -87,7 +90,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: ElementDescription.src,v 1.13 2005/07/07 09:12:25 jpr Exp $
+! * $Id: ElementDescription.src,v 1.14 2005/07/07 11:14:24 jpr Exp $
 ! ******************************************************************************/
 
 MODULE ElementDescription
@@ -798,8 +801,8 @@ ELMER_SOLVER_HOME,&
 !------------------------------------------------------------------------------
 
      elt => element % Type
+     k = Elt % NumberOfNodes
      BasisFunctions => elt % BasisFunctions
-     k = Elt % NumberOfNodes + Element % BDOFs
 
      y = 0.0d0
      DO n=1,k
@@ -865,8 +868,8 @@ ELMER_SOLVER_HOME,&
      TYPE(BasisFunctions_t), POINTER :: BasisFunctions(:)
 
      elt => element % Type
+     k = Elt % NumberOfNodes
      BasisFunctions => elt % BasisFunctions
-     k = Elt % NumberOfNodes + Element % BDOFs
 
      y = 0.0d0
      DO n=1,k
@@ -934,8 +937,8 @@ ELMER_SOLVER_HOME,&
      TYPE(BasisFunctions_t), POINTER :: BasisFunctions(:)
 
      elt => element % Type
+     k = Elt % NumberOfNodes
      BasisFunctions => elt % BasisFunctions
-     k = Elt % NumberOfNodes + Element % BDOFs
 
      y = 0.0d0
      DO n=1,k
@@ -1974,7 +1977,7 @@ END IF
 !------------------------------------------------------------------------------
 !    Basis function derivatives with respect to local coordinates
 !------------------------------------------------------------------------------
-     DO q=1,N
+     DO q=1,n
         NodalBasis(q)  = 1.0d0
         dLBasisdx(q,:) = 0.0d0
         SELECT CASE(dim)
@@ -1986,8 +1989,8 @@ END IF
            IF (isPTriangle(Element)) THEN
               dLBasisdx(q,1:2) = dTriangleNodalPBasis(q, u, v)
            ELSE 
-              dLBasisdx(q,1) = FirstDerivativeInU2D( element,NodalBasis,u,v )
-              dLBasisdx(q,2) = FirstDerivativeInV2D( element,NodalBasis,u,v )
+              dLBasisdx(q,1) = FirstDerivativeInU2D(element,NodalBasis,u,v)
+              dLBasisdx(q,2) = FirstDerivativeInV2D(element,NodalBasis,u,v)
            END IF
         CASE (3)
            ! For tetras, wedges and pyramids with p elements reference element
@@ -1999,9 +2002,9 @@ END IF
            ELSE IF (isPPyramid( Element )) THEN
               dLBasisdx(q,1:3) = dPyramidNodalPBasis(q, u, v, w)
            ELSE
-              dLBasisdx(q,1) = FirstDerivativeInU3D( element,NodalBasis,u,v,w )
-              dLBasisdx(q,2) = FirstDerivativeInV3D( element,NodalBasis,u,v,w )
-              dLBasisdx(q,3) = FirstDerivativeInW3D( element,NodalBasis,u,v,w )
+              dLBasisdx(q,1) = FirstDerivativeInU3D(element,NodalBasis,u,v,w)
+              dLBasisdx(q,2) = FirstDerivativeInV3D(element,NodalBasis,u,v,w)
+              dLBasisdx(q,3) = FirstDerivativeInW3D(element,NodalBasis,u,v,w)
            END IF
         END SELECT
         NodalBasis(q) = 0.0d0
