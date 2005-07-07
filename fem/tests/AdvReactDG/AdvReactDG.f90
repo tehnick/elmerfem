@@ -235,7 +235,7 @@
        INTEGER :: n
        TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
-       REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
+       REAL(KIND=dp) :: Basis(n),dBasisdx(n,3)
        REAL(KIND=dp) :: detJ,U,V,W,S,A,L,cu(3),g
        LOGICAL :: Stat
        INTEGER :: i,p,q,t,dim
@@ -262,7 +262,7 @@
 !        Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
          stat = ElementInfo( Element, Nodes, U, V, W, detJ, &
-                 Basis, dBasisdx, ddBasisddx, .FALSE. )
+                 Basis, dBasisdx )
 
          S = S * detJ
          L = SUM( LOAD(1:n) *  Basis(1:n) )
@@ -328,9 +328,9 @@
       INTEGER :: n,n1,n2
       TYPE(Element_t), POINTER :: Face, LeftParent, RightParent
 !------------------------------------------------------------------------------
-      REAL(KIND=dp) :: FaceBasis(n), FacedBasisdx(n,3), FaceddBasisddx(n,3,3)
-      REAL(KIND=dp) :: LeftBasis(n1), LeftdBasisdx(n1,3), LeftddBasisddx(n1,3,3)
-      REAL(KIND=dp) :: RightBasis(n2), RightdBasisdx(n2,3), RightddBasisddx(n2,3,3)
+      REAL(KIND=dp) :: FaceBasis(n), FacedBasisdx(n,3)
+      REAL(KIND=dp) :: LeftBasis(n1), LeftdBasisdx(n1,3)
+      REAL(KIND=dp) :: RightBasis(n2), RightdBasisdx(n2,3)
       REAL(KIND=dp) :: Jump(n1+n2), Average(n1+n2)
       REAL(KIND=dp) :: detJ, U, V, W, S, Udotn, xx, yy
       LOGICAL :: Stat
@@ -368,7 +368,7 @@
         ! Basis function values & derivatives at the integration point:
         !--------------------------------------------------------------
         stat = ElementInfo( Face, FaceNodes, U, V, W, detJ, &
-             FaceBasis, FacedBasisdx, FaceddBasisddx, .FALSE. )
+             FaceBasis, FacedBasisdx )
 
         S = S * detJ
 
@@ -379,11 +379,11 @@
         ! ---------------------------------------------
         CALL FindParentUVW( Face,n,LeftParent,n1,U,V,W,FaceBasis )
         stat = ElementInfo( LeftParent, LeftParentNodes, U, V, W, detJ, &
-                LeftBasis, LeftdBasisdx, LeftddBasisddx, .FALSE. )
+                LeftBasis, LeftdBasisdx )
 
         CALL FindParentUVW( Face,n,RightParent,n2,U,V,W,FaceBasis )
         stat = ElementInfo( RightParent, RightParentNodes, U, V, W, detJ, &
-              RightBasis, RightdBasisdx, RightddBasisddx, .FALSE. )
+              RightBasis, RightdBasisdx )
 
         ! Integrate jump terms:
         ! ---------------------
@@ -421,9 +421,8 @@
      LOGICAL :: InFlowBC
      TYPE(Element_t), POINTER :: Element, ParentElement
 !------------------------------------------------------------------------------
-     REAL(KIND=dp) :: Basis(n), dBasisdx(n,3), ddBasisddx(n,3,3)
-     REAL(KIND=dp) :: ParentBasis(np), ParentdBasisdx(np,3), &
-                      ParentddBasisddx(np,3,3)
+     REAL(KIND=dp) :: Basis(n), dBasisdx(n,3)
+     REAL(KIND=dp) :: ParentBasis(np), ParentdBasisdx(np,3)
      INTEGER :: i,j,p,q,t,dim
 
      REAL(KIND=dp) :: Normal(3), g, L, Udotn, cu(3), cu1(3), detJ,U,V,W,S
@@ -461,12 +460,12 @@
        ! Basis function values & derivatives at the integration point:
        ! -------------------------------------------------------------
        stat = ElementInfo( Element, Nodes, U, V, W, detJ, &
-               Basis, dBasisdx, ddBasisddx, .FALSE. )
+               Basis, dBasisdx )
        S = S * detJ
 
        CALL FindParentUVW( Element, n, ParentElement, np, U, V, W, Basis )
        stat = ElementInfo( ParentElement, ParentNodes, U, V, W, &
-            detJ, ParentBasis, ParentdBasisdx, ParentddBasisddx, .FALSE. )
+            detJ, ParentBasis, ParentdBasisdx )
 
        L = SUM( LOAD(1:n) * Basis(1:n) )
        cu = 0.0d0

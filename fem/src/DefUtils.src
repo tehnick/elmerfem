@@ -34,6 +34,9 @@
 ! *       Date of modification:
 ! *
 ! * $Log: DefUtils.src,v $
+! * Revision 1.7  2005/06/29 13:27:08  jpr
+! * Correted a bug in GetElementDOFs.
+! *
 ! * Revision 1.6  2005/06/29 12:10:42  jpr
 ! * Update of p-element Dirichlet BCs
 ! *
@@ -88,7 +91,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.6 2005/06/29 12:10:42 jpr Exp $
+! * $Id: DefUtils.src,v 1.7 2005/06/29 13:27:08 jpr Exp $
 ! *
 ! *****************************************************************************/
 
@@ -1960,8 +1963,8 @@ CONTAINS
 !------------------------------------------------------------------------------
     TYPE(GaussIntegrationPoints_t) :: IP
     INTEGER :: i,j,p,q,t,n
+    REAL(KIND=dp) :: Basis(nd)
     REAL(KIND=dp) :: xip,yip,zip,s,DetJ,Load
-    REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3),ddBasisddx(nd,3,3)
     LOGICAL :: stat
     TYPE(Nodes_t) :: Nodes
     SAVE Nodes
@@ -1974,11 +1977,11 @@ CONTAINS
     IP = GaussPoints( Element )
 
     STIFF(1:nd,1:nd) = 0.0d0
-    Force(1:nd) = 0.0d0
+    FORCE(1:nd) = 0.0d0
 
     DO t=1,IP % n
-       stat = ElementInfo( Element, Nodes, IP % u(t), IP % v(t), IP % w(t), &
-               DetJ, Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+       stat = ElementInfo( Element, Nodes, IP % u(t), &
+          IP % v(t), IP % w(t), DetJ, Basis )
 
        s = IP % s(t) * DetJ
 
@@ -1993,116 +1996,11 @@ CONTAINS
           DO q=1,nd
              STIFF(p,q) = STIFF(p,q) + s * Basis(p)*Basis(q)
           END DO
-          FORCE(p) = Force(p) + s * Load * Basis(p)
+          FORCE(p) = FORCE(p) + s * Load * Basis(p)
        END DO
     END DO
 !------------------------------------------------------------------------------
   END SUBROUTINE LocalBcBDOFs
-!------------------------------------------------------------------------------
-
-!------------------------------------------------------------------------------
-  SUBROUTINE LocalBcBDOFsOld( BC, Parent, Edge, nd, Name, localInd, numEdgeDofs, STIFF, Force )
-!------------------------------------------------------------------------------
-    IMPLICIT NONE
-    TYPE(Element_t), POINTER :: Parent, Edge
-    INTEGER :: nd, numEdgeDofs, localInd(:)
-    REAL(KIND=dp) :: FORCE(:), STIFF(:,:)
-    TYPE(ValueList_t), POINTER :: BC
-    CHARACTER(LEN=MAX_NAME_LEN) :: Name
-!------------------------------------------------------------------------------
-    TYPE(GaussIntegrationPoints_t) :: IP
-    INTEGER :: i,j,p,q,t, n, boundary
-    REAL(KIND=dp) :: xip,yip,zip,s,DetJ,Load
-    REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3),ddBasisddx(nd,3,3), &
-         lBasis(numEdgeDofs)
-    LOGICAL :: stat
-    TYPE(Nodes_t) :: Nodes
-    SAVE Nodes
-!------------------------------------------------------------------------------
-
-     n = Parent % Type % NumberOfNodes
-     boundary = Edge % PDefs % localNumber
-     
-     ! Get nodes of boundary elements parent and gauss points for boundary
-     CALL GetElementNodes( Nodes, Parent )
-     IP = GaussPointsBoundary(Parent, boundary, Edge % PDefs % GaussPoints)
-
-     STIFF(1:nd,1:nd) = 0.0d0
-     FORCE(1:nd) = 0.0d0
-
-     DO t=1,IP % n
-       stat = ElementInfo( Parent, Nodes, IP % u(t), IP % v(t), IP % w(t), &
-               DetJ, Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
-
-       s = IP % s(t) * DetJ
-
-       ! Get value of boundary condition
-       xip = SUM( Basis(1:n) * Nodes % x(1:n) )
-       yip = SUM( Basis(1:n) * Nodes % y(1:n) )
-       zip = SUM( Basis(1:n) * Nodes % z(1:n) )
-       Load = ListGetConstReal( BC, Name, x=xip,y=yip,z=zip )
-
-       ! Build vector containing ONLY basis functions on boundary
-       lBasis(1:numEdgeDofs) = Basis(localInd)
-
-       DO p=1,numEdgeDofs
-          DO q=1,numEdgeDofs
-             STIFF(p,q) = STIFF(p,q) + s * lBasis(p)*lBasis(q)
-          END DO
-          FORCE(p) = Force(p) + s * Load * lBasis(p)
-       END DO
-    END DO
-
-!------------------------------------------------------------------------------
-  END SUBROUTINE LocalBcBDOFsOld
-!------------------------------------------------------------------------------
-
-
-!------------------------------------------------------------------------------
-  SUBROUTINE SolveBcBDOFs( BC, Element, n,nd, Name, Work )
-!------------------------------------------------------------------------------
-     TYPE(Element_t), POINTER :: Element, Parent
-     INTEGER :: n, nd
-     REAL(KIND=dp) :: Work(nd)
-     TYPE(ValueList_t), POINTER :: BC
-     CHARACTER(LEN=MAX_NAME_LEN) :: Name
-!------------------------------------------------------------------------------
-     INTEGER :: i
-     REAL(KIND=dp) :: STIFF(nd,nd), F(nd)
-!------------------------------------------------------------------------------
-     ! CALL LocalBcBDOFs( BC, Element, Parent, n,nd, Name, STIFF, F )
-     DO i=1,n
-        STIFF(i,i) = 1.0d0
-        F(i) = Work(i)
-     END DO
-     CALL BCCondensate( n, nd-n, STIFF, F, Work(n+1:nd) )
-!------------------------------------------------------------------------------
-  END SUBROUTINE SolveBcBDOFs
-!------------------------------------------------------------------------------
-
-
-!------------------------------------------------------------------------------
-  SUBROUTINE BCCondensate( n, nb, K, F, Work )
-!------------------------------------------------------------------------------
-    USE LinearAlgebra
-!------------------------------------------------------------------------------
-    INTEGER :: n,nb
-    REAL(KIND=dp) :: K(:,:), F(:), Kbb(nb,nb), &
-         Kbl(nb,n), Klb(n,nb), Fb(nb), Work(:)
-
-    INTEGER :: i, Ldofs(n), Bdofs(nb)
-
-    Ldofs = (/ (i, i=1,n) /)
-    Bdofs = (/ (i, i=n+1,n+nb) /)
-
-    Kbb = K(Bdofs,Bdofs)
-    Kbl = K(Bdofs,Ldofs)
-    Klb = K(Ldofs,Bdofs)
-
-    Work(1:nb) = F(Bdofs) - MATMUL( Kbl, F(1:n) )
-    CALL LUSolve( nb, Kbb, Work )
-!------------------------------------------------------------------------------
-  END SUBROUTINE BCCondensate
 !------------------------------------------------------------------------------
 
 
@@ -2119,6 +2017,8 @@ CONTAINS
 !------------------------------------------------------------------------------
   END SUBROUTINE DefaultFinishAssembly
 !------------------------------------------------------------------------------
+
+
 
   ! Return integration points for edge or face of p element
   
@@ -2203,6 +2103,7 @@ CONTAINS
      DEALLOCATE(bNodes % x, bNodes % y, bNodes % z, mapElement % NodeIndexes)
    END FUNCTION GaussPointsBoundary
 
+
    SUBROUTINE MapGaussPoints( Element, n, gaussP, Nodes )
      IMPLICIT NONE
 
@@ -2213,13 +2114,13 @@ CONTAINS
 
      INTEGER :: i
      REAL(KIND=dp) :: xh,yh,zh,sh, DetJ
-     REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
+     REAL(KIND=dp) :: Basis(n)
      LOGICAL :: stat
      
      ! Map each gauss point from reference element to given nodes
      DO i=1,gaussP % n
         stat = ElementInfo( Element, Nodes, gaussP % u(i), gaussP % v(i), gaussP % w(i), &
-             DetJ, Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+             DetJ, Basis )
 
         IF (.NOT. stat) THEN
            WRITE (*,*) 'DefUtils::MapGaussPoints: Element to map degenerate'

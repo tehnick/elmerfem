@@ -2,7 +2,7 @@
 
 if test "$ELMER_LIB" = ""; then
   if  test "$ELMER_HOME" = ""; then
-     INCLUDE=/home/vierinen/src/elmer/buildtools/build.laatikko.2005-07-01-10-16-34/dist/share/elmersolver/include
+     INCLUDE=/tmp/jpr/share/elmersolver/include
   else
      INCLUDE=$ELMER_HOME/share/elmersolver/include
   fi
@@ -10,8 +10,8 @@ else
   INCLUDE=$ELMER_LIB/../include
 fi
 
-cmd="ifc -Vaxlib -O -fPIC -I. -I$INCLUDE  -shared $*"
+cmd="f90 -fast -KPIC -I. -M$INCLUDE  -G $*"
 printf "%s " $cmd
 printf "\n"
-ifc -Vaxlib -O -fPIC -I. -I$INCLUDE  -shared $*
+f90 -fast -KPIC -I. -M$INCLUDE  -G $*
 

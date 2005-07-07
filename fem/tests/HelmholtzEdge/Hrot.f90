@@ -190,7 +190,7 @@ CONTAINS
     INTEGER :: n, nd
     TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3),ddBasisddx(nd,3,3),DetJ,L1,L2
+    REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3),DetJ,L1,L2
     REAL(KIND=dp) :: WhitneyBasis(3,2), RotWhitneyBasis(3), A1, A2
     LOGICAL :: Stat
     INTEGER :: t, i, j, k
@@ -214,7 +214,7 @@ CONTAINS
 !      Haetaan ensin normaalit solmukantafunktiot:
 !      -------------------------------------------
        stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
-            IP % W(t),  detJ, Basis, dBasisdx, ddBasisddx, .FALSE. )
+            IP % W(t),  detJ, Basis, dBasisdx )
 
        L1 = SUM( Basis(1:n) * LOAD(1,1:n) )
        L2 = SUM( Basis(1:n) * LOAD(2,1:n) )
@@ -497,13 +497,13 @@ CONTAINS
 !------------------------------------------------------------------------
      TYPE(Nodes_t) :: Nodes
      SAVE Nodes
-     REAL(KIND=dp) :: detJ, Basis(3), dBasisdx(3,3), ddBasisddx(3,3,3)
+     REAL(KIND=dp) :: detJ, Basis(3), dBasisdx(3,3)
      LOGICAL :: stat
 !------------------------------------------------------------------------
      CALL GetElementNodes( Nodes )
      
      stat = ElementInfo( Element, Nodes, u, v, w, &
-          detJ, Basis, dBasisdx, ddBasisddx, .FALSE. )
+          detJ, Basis, dBasisdx )
 
      WhitneyBasis(1,1) = Basis(1) * dBasisdx(2,1) - Basis(2) * dBasisdx(1,1)
      WhitneyBasis(1,2) = Basis(1) * dBasisdx(2,2) - Basis(2) * dBasisdx(1,2)

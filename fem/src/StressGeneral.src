@@ -62,7 +62,7 @@ MODULE StressGeneral
 
      INTEGER :: n
 !------------------------------------------------------------------------------
-     REAL(KIND=dp) :: Basis(n),ddBasisddx(1,1,1)
+     REAL(KIND=dp) :: Basis(n)
      REAL(KIND=dp) :: dBasisdx(n,3),SqrtElementMetric
 
      REAL(KIND=dp) :: Force(3),NodalLame1(n),NodalLame2(n),Lame1,Lame2
@@ -128,7 +128,7 @@ MODULE StressGeneral
 !     Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
       stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-                 Basis,dBasisdx,ddBasisddx,.FALSE. )
+                 Basis,dBasisdx )
 !------------------------------------------------------------------------------
 !
 !      Coordinatesystem dependent info
@@ -314,8 +314,8 @@ MODULE StressGeneral
 
    INTEGER :: n
 !------------------------------------------------------------------------------
+   REAL(KIND=dp) :: Basis(n)
    REAL(KIND=dp) :: dBasisdx(n,3),SqrtElementMetric
-   REAL(KIND=dp) :: Basis(n),ddBasisddx(3,3,3)
 
    REAL(KIND=dp) :: u,v,w,s
    REAL(KIND=dp) :: Force(3),Alpha(3),Beta,Normal(3)
@@ -357,7 +357,7 @@ MODULE StressGeneral
 !     Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
       stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-                 Basis,dBasisdx,ddBasisddx,.FALSE. )
+                 Basis,dBasisdx )
 !------------------------------------------------------------------------------
 !
 !    Coordinatesystem dependent info

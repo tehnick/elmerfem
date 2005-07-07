@@ -1186,7 +1186,6 @@ CONTAINS
      REAL(KIND=dp), DIMENSION(:), POINTER :: &
          U_Integ,V_Integ,W_Integ,S_Integ
      REAL(KIND=dp) :: s,ug,vg,wg
-     REAL(KIND=dp) :: ddBasisddx(Model % MaxElementNodes,3,3)
      REAL(KIND=dp) :: Basis(Model % MaxElementNodes)
      REAL(KIND=dp) :: dBasisdx(Model % MaxElementNodes,3),SqrtElementMetric
      REAL(KIND=dp) :: dV, Amplitudei, Amplitudej
@@ -1216,7 +1215,7 @@ CONTAINS
 ! Need SqrtElementMetric and Basis at the integration point
 !------------------------------------------------------------------------------
        stat = ElementInfo( CurrentElement,ElementNodes,ug,vg,wg, &
-           SqrtElementMetric,Basis,dBasisdx,ddBasisddx,.FALSE. )
+           SqrtElementMetric,Basis,dBasisdx )
 
        s = SqrtElementMetric * S_Integ(tg)
  

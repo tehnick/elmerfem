@@ -112,7 +112,7 @@
                      DampingCoef(:), HoleFraction(:), HoleSize(:), SpringCoef(:)
 
      CHARACTER(LEN=MAX_NAME_LEN) :: HoleType
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: Smitc.src,v 1.1 2005/05/26 08:24:49 vierinen Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: Smitc.src,v 1.2 2005/05/26 12:33:18 jpr Exp $"
  
      REAL(KIND=dp) :: at,st,CPUTime
 
@@ -332,7 +332,7 @@
        TYPE(Nodes_t) :: Nodes
        TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
-       REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3), &
+       REAL(KIND=dp) :: Basis(n),dBasisdx(n,3), &
                            Curvature(3,100), ShearStrain(2,100), &
                            Ematrix(3,3), Gmatrix(2,2), Tmatrix(2,2)
        REAL(KIND=dp) :: SqrtElementMetric,U,V,W,S,Kappa,rho,h,qeff
@@ -365,7 +365,7 @@
 !------------------------------------------------------------------------------
 
          stat = ElementInfo( Element,Nodes,U,V,W,SqrtElementMetric, &
-                    Basis,dBasisdx,ddBasisddx,.FALSE. )
+                    Basis,dBasisdx )
 
          S = S * SqrtElementMetric
 

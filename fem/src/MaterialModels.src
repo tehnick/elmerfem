@@ -127,7 +127,7 @@ CONTAINS
      TYPE(Nodes_t)     :: Nodes
      TYPE(Element_t)   :: Element
 !------------------------------------------------------------------------------
-     REAL(KIND=dp) :: Basis(MAX_NODES),dBasisdx(MAX_NODES,3),ddBasisddx(1,1,1)
+     REAL(KIND=dp) :: Basis(MAX_NODES),dBasisdx(MAX_NODES,3)
      REAL(KIND=dp) :: s,u,v,w,SqrtMetric,SqrtElementMetric,Velo(3)
      REAL(KIND=dp) :: Metric(3,3),dVelodx(3,3), &
                            CtrMetric(3,3),Symb(3,3,3),dSymb(3,3,3,3)
@@ -145,7 +145,7 @@ CONTAINS
 !       Basis function values & derivatives at the calculation point
 !------------------------------------------------------------------------------
         stat = ElementInfo( Element,Nodes, u, v, w, &
-          SqrtElementMetric, Basis,dBasisdx,ddBasisddx,.FALSE. )
+          SqrtElementMetric, Basis,dBasisdx )
 !------------------------------------------------------------------------------
 !       Coordinate system dependent information
 !------------------------------------------------------------------------------
@@ -184,7 +184,7 @@ CONTAINS
      TYPE(Element_t),POINTER :: Element
 
 !------------------------------------------------------------------------------
-     REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3),ddBasisddx(1,1,1)
+     REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3)
      REAL(KIND=dp) :: ss,s,SqrtMetric,SqrtElementMetric,Velo(3)
      REAL(KIND=dp) :: Metric(3,3), dVelodx(3,3), CtrMetric(3,3), &
                       Symb(3,3,3), dSymb(3,3,3,3)
@@ -237,7 +237,7 @@ CONTAINS
 !    Basis function values & derivatives at the calculation point
 !------------------------------------------------------------------------------
      stat = ElementInfo( Element,Nodes,u,v,w, &
-         SqrtElementMetric, Basis,dBasisdx,ddBasisddx,.FALSE. )
+         SqrtElementMetric, Basis,dBasisdx )
 !------------------------------------------------------------------------------
 !   Coordinate system dependent information
 !------------------------------------------------------------------------------
@@ -407,7 +407,7 @@ CONTAINS
      TYPE(Element_t)   :: Element
 
 !------------------------------------------------------------------------------
-     REAL(KIND=dp) :: Basis(MAX_NODES),dBasisdx(MAX_NODES,3),ddBasisddx(1,1,1)
+     REAL(KIND=dp) :: Basis(MAX_NODES),dBasisdx(MAX_NODES,3)
      REAL(KIND=dp) :: s,u,v,w,SqrtMetric,SqrtElementMetric,Velo(3)
      REAL(KIND=dp) :: Metric(3,3),dVelodx(3,3), &
                            CtrMetric(3,3),Symb(3,3,3),dSymb(3,3,3,3)
@@ -427,7 +427,7 @@ CONTAINS
         w = Element % TYPE % NodeW(i)
 
         stat = ElementInfo( Element,Nodes,u,v,w, &
-          SqrtElementMetric, Basis,dBasisdx,ddBasisddx,.FALSE. )
+          SqrtElementMetric, Basis,dBasisdx )
 !------------------------------------------------------------------------------
 !       Coordinate system dependent information
 !------------------------------------------------------------------------------
@@ -479,7 +479,7 @@ CONTAINS
        END FUNCTION MaterialUserFunction
      END INTERFACE
 !------------------------------------------------------------------------------
-     REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3),ddBasisddx(1,1,1)
+     REAL(KIND=dp) :: Basis(nd),dBasisdx(nd,3)
      REAL(KIND=dp) :: ss,s,SqrtMetric,SqrtElementMetric,Velo(3)
      REAL(KIND=dp) :: Metric(3,3), dVelodx(3,3), CtrMetric(3,3), &
                       Symb(3,3,3), dSymb(3,3,3,3)
@@ -516,7 +516,7 @@ CONTAINS
 !    Basis function values & derivatives at the calculation point
 !------------------------------------------------------------------------------
      stat = ElementInfo( Element,Nodes,u,v,w, &
-         SqrtElementMetric, Basis,dBasisdx,ddBasisddx,.FALSE. )
+         SqrtElementMetric, Basis,dBasisdx )
 !------------------------------------------------------------------------------
 !   Coordinate system dependent information
 !------------------------------------------------------------------------------

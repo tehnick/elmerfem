@@ -113,7 +113,7 @@
         PotentialKnown, PotentialPerm, BoundaryPerm, BoundaryNodes, &
            Pot, Flx, P1, P2, Potential, ForceVector, Diagonal
 
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HelmholtzBEM.src,v 1.1 2005/05/26 08:24:21 vierinen Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HelmholtzBEM.src,v 1.2 2005/05/26 12:33:12 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version numer output is requested
@@ -399,7 +399,7 @@
        TYPE(Nodes_t) :: Nodes
        TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
-       REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
+       REAL(KIND=dp) :: Basis(n),dBasisdx(n,3)
        REAL(KIND=dp) :: LX,LY,LZ,x,y,z
        LOGICAL :: Stat, CheckNormals
        COMPLEX(KIND=dp) :: R, dGdN, G, GradG(3), i
@@ -439,7 +439,7 @@
 !         Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
           stat = ElementInfo( Element, Nodes, U, V, W, detJ, &
-                 Basis, dBasisdx, ddBasisddx, .FALSE. )
+                 Basis, dBasisdx )
  
           S = S * detJ
 
@@ -631,7 +631,7 @@
        TYPE(Nodes_t) :: Nodes
        TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
-       REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
+       REAL(KIND=dp) :: Basis(n),dBasisdx(n,3)
        REAL(KIND=dp) :: LX,LY,LZ,x,y,z
        LOGICAL :: Stat, CheckNormals
        REAL(KIND=dp) :: detJ,U,V,W,S,A,L,Normal(3)
@@ -670,7 +670,7 @@
 !         Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
           stat = ElementInfo( Element, Nodes, U, V, W, detJ, &
-                 Basis, dBasisdx, ddBasisddx, .FALSE. )
+                 Basis, dBasisdx )
 
           S = S * detJ
           Normal = NormalVector( Element, Nodes, u,v, CheckNormals )

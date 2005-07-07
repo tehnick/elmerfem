@@ -270,9 +270,9 @@
        TYPE(Element_t), POINTER :: Edge, LeftParent, RightParent
 
 !------------------------------------------------------------------------------
-       REAL(KIND=dp) :: EdgeBasis(n), EdgedBasisdx(n,3), EdgeddBasisddx(n,3,3)
-       REAL(KIND=dp) :: LeftBasis(n+1), LeftdBasisdx(n+1,3), LeftddBasisddx(n+1,3,3)
-       REAL(KIND=dp) :: RightBasis(n+1), RightdBasisdx(n+1,3), RightddBasisddx(n+1,3,3)
+       REAL(KIND=dp) :: EdgeBasis(n), EdgedBasisdx(n,3)
+       REAL(KIND=dp) :: LeftBasis(n+1), LeftdBasisdx(n+1,3)
+       REAL(KIND=dp) :: RightBasis(n+1), RightdBasisdx(n+1,3)
        REAL(KIND=dp) :: LeftdBasisdn(n+1), RightdBasisdn(n+1)
        REAL(KIND=dp) :: Jump(2*(n+1)), AverageFlux(2*(n+1))
        REAL(KIND=dp) :: SqrtElementMetric, U, V, W, S
@@ -308,7 +308,7 @@
 !        Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
          stat = ElementInfo( Edge, EdgeNodes, U, V, W, SqrtElementMetric, &
-              EdgeBasis, EdgedBasisdx, EdgeddBasisddx, .FALSE. )
+              EdgeBasis, EdgedBasisdx )
 
          S = S * SqrtElementMetric
 
@@ -320,15 +320,13 @@
               nParent, U, V, W, EdgeBasis )
 
          stat = ElementInfo( LeftParent, LeftParentNodes, &
-              U, V, W, SqrtElementMetric, LeftBasis, LeftdBasisdx, &
-              LeftddBasisddx, .FALSE. )
+              U, V, W, SqrtElementMetric, LeftBasis, LeftdBasisdx )
 
          CALL FindParentUVW( EdgeNodes, nEdge, RightParentNodes, &
               nParent, U, V, W, EdgeBasis )
 
          stat = ElementInfo( RightParent, RightParentNodes, &
-              U, V, W, SqrtElementMetric, RightBasis, RightdBasisdx, &
-              RightddBasisddx, .FALSE. )
+              U, V, W, SqrtElementMetric, RightBasis, RightdBasisdx )
 
 !        Integrate jump terms:
 !        ---------------------
@@ -363,7 +361,7 @@
        INTEGER :: n
        TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
-       REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
+       REAL(KIND=dp) :: Basis(n),dBasisdx(n,3)
        REAL(KIND=dp) :: SqrtElementMetric,U,V,W,S,A,L
        LOGICAL :: Stat
 
@@ -393,7 +391,7 @@
 !        Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
          stat = ElementInfo( Element,Nodes,U,V,W,SqrtElementMetric, &
-                    Basis, dBasisdx, ddBasisddx, .FALSE. )
+                    Basis, dBasisdx )
 
          S = S * SqrtElementMetric
 
@@ -421,9 +419,9 @@
        INTEGER :: n, k
        TYPE(Element_t), POINTER :: Element, ParentElement
 !------------------------------------------------------------------------------
-       REAL(KIND=dp) :: Basis(n), dBasisdx(n,3), ddBasisddx(n,3,3)
+       REAL(KIND=dp) :: Basis(n), dBasisdx(n,3)
        REAL(KIND=dp) :: ParentBasis(k), ParentdBasisdx(k,3), &
-            ParentddBasisddx(k,3,3), ParentdBasisdn(k)
+             ParentdBasisdn(k)
        INTEGER :: i,j,p,q,t,dim
 
        REAL(KIND=dp) :: Normal(3), ParentU, ParentV, ParentW
@@ -461,7 +459,7 @@
 !        Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
          stat = ElementInfo( Element,Nodes,U,V,W,SqrtElementMetric, &
-                    Basis,dBasisdx,ddBasisddx,.FALSE. )
+                    Basis,dBasisdx )
          S = S * SqrtElementMetric
 
          ParentNodalU = 0.0d0
@@ -482,7 +480,7 @@
 
          stat = ElementInfo( ParentElement, ParentNodes, &
               ParentU, ParentV, ParentW, SqrtElementMetric, &
-              ParentBasis, ParentdBasisdx, ParentddBasisddx, .FALSE. )
+              ParentBasis, ParentdBasisdx )
 
          L = SUM( LOAD(1:n) * Basis(1:n) )
          e = SUM( EpsilonBoundary(1:n) * Basis(1:n) )

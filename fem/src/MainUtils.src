@@ -33,6 +33,9 @@
 ! *       Date of modification:
 ! *
 ! * $Log: MainUtils.src,v $
+! * Revision 1.5  2005/07/06 08:38:00  jpr
+! * Some comments added.
+! *
 ! * Revision 1.4  2005/06/22 04:40:52  jpr
 ! * Bubbles to global system by default.
 ! *
@@ -59,7 +62,7 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.src,v 1.4 2005/06/22 04:40:52 jpr Exp $
+! * $Id: MainUtils.src,v 1.5 2005/07/06 08:38:00 jpr Exp $
 ! *****************************************************************************/
 
 
@@ -1224,12 +1227,11 @@ CONTAINS
 
         IF ( Stat ) THEN
            IF (  ASSOCIATED( Solver % ActiveElements ) ) DEALLOCATE( Solver % ActiveElements )
-
            ALLOCATE( Solver % ActiveElements( Solver % Mesh % NumberOfBulkElements + &
                         Solver % Mesh % NumberOFBoundaryElements ) )
 
            GB = ListGetLogical( Solver % Values,'Bubbles in Global System', Found )
-           IF (.NOT.Found) GB=.TRUE.
+           IF ( .NOT.Found ) GB=.TRUE.
            BDOFs  = 0
            DO i=1,Solver % Mesh % NumberOfBulkElements+Solver % Mesh % NumberOFBoundaryElements
               CurrentElement => Solver % Mesh % Elements(i)

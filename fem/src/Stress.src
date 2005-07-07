@@ -34,6 +34,9 @@
 ! *       Date of modification:
 ! *
 ! * $Log: Stress.src,v $
+! * Revision 1.6  2005/06/21 10:04:43  jpr
+! * Force BC:s with p-elements should work now.
+! *
 ! * Revision 1.5  2005/06/21 09:38:28  jpr
 ! * still about the p-stuff
 ! *
@@ -104,7 +107,7 @@
 ! * Modified StressBoundary to work in axisymmetric cases.
 ! *
 ! *
-! * $Id: Stress.src,v 1.5 2005/06/21 09:38:28 jpr Exp $
+! * $Id: Stress.src,v 1.6 2005/06/21 10:04:43 jpr Exp $
 ! *****************************************************************************/
 
 MODULE StressLocal
@@ -141,7 +144,7 @@ MODULE StressLocal
 
      INTEGER :: n, ntot
 !------------------------------------------------------------------------------
-     REAL(KIND=dp) :: Basis(ntot),ddBasisddx(1,1,1)
+     REAL(KIND=dp) :: Basis(ntot)
      REAL(KIND=dp) :: dBasisdx(ntot,3),detJ
 
      REAL(KIND=dp) :: LoadAtIp(3), Poisson, Young
@@ -202,7 +205,7 @@ MODULE StressLocal
 !      Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
        stat = ElementInfo( Element,Nodes,u,v,w,detJ, &
-                Basis,dBasisdx,ddBasisddx,.FALSE.,.FALSE. )
+                Basis,dBasisdx )
 
        s = detJ * S_Integ(t)
 !------------------------------------------------------------------------------
@@ -553,7 +556,7 @@ MODULE StressLocal
    INTEGER :: n,ntot
    LOGICAL :: NormalTangential
 !------------------------------------------------------------------------------
-   REAL(KIND=dp) :: Basis(ntot),ddBasisddx(1,1,1)
+   REAL(KIND=dp) :: Basis(ntot)
    REAL(KIND=dp) :: dBasisdx(ntot,3),detJ
 
    REAL(KIND=dp) :: u,v,w,s
@@ -595,7 +598,7 @@ MODULE StressLocal
      ! Basis function values & derivatives at the integration point:
      !--------------------------------------------------------------
      stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
-        Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+        Basis, dBasisdx )
 
      s = detJ * S_Integ(t)
      IF ( Csymm ) s = s * SUM( Nodes % x(1:n) * Basis(1:n) )

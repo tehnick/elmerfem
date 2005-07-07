@@ -106,7 +106,7 @@
      LOGICAL :: CalculateCurrent, CalculateHeating, CalculateConductivity
 
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatCurrentSolve.src,v 1.1 2005/05/26 08:24:52 vierinen Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatCurrentSolve.src,v 1.2 2005/05/26 12:33:18 jpr Exp $"
 
 
      SAVE LocalStiffMatrix, Load, LocalForce, Density, &
@@ -488,7 +488,6 @@
     REAL(KIND=dp), POINTER :: U_Integ(:), V_Integ(:), W_Integ(:), S_Integ(:)
     REAL(KIND=dp), ALLOCATABLE :: SumOfWeights(:)
     REAL(KIND=dp) :: Conductivity(3,3,Model % MaxElementNodes)
-    REAL(KIND=dp) :: ddBasisddx(Model % MaxElementNodes,3,3)
     REAL(KIND=dp) :: Basis(Model % MaxElementNodes)
     REAL(KIND=dp) :: dBasisdx(Model % MaxElementNodes,3)
     REAL(KIND=DP) :: SqrtElementMetric, ECond, ElemVol
@@ -602,7 +601,7 @@
 ! Need SqrtElementMetric and Basis at the integration point
 !------------------------------------------------------------------------------
           stat = ElementInfo( Element, Nodes,ug,vg,wg, &
-               SqrtElementMetric,Basis,dBasisdx,ddBasisddx,.FALSE. )
+               SqrtElementMetric,Basis,dBasisdx )
 
 !------------------------------------------------------------------------------
 !      Coordinatesystem dependent info
@@ -719,7 +718,7 @@
 !------------------------------------------------------------------------------
  
        REAL(KIND=dp) :: SqrtMetric,Metric(3,3),Symb(3,3,3),dSymb(3,3,3,3)
-       REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
+       REAL(KIND=dp) :: Basis(n),dBasisdx(n,3)
        REAL(KIND=dp) :: SqrtElementMetric,U,V,W,S,A,L,C(3,3),x,y,z
        LOGICAL :: Stat
 
@@ -748,7 +747,7 @@
 !        Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
          stat = ElementInfo( Element,Nodes,U,V,W,SqrtElementMetric, &
-                    Basis,dBasisdx,ddBasisddx,.FALSE. )
+                    Basis,dBasisdx )
 !------------------------------------------------------------------------------
 !      Coordinatesystem dependent info
 !------------------------------------------------------------------------------
@@ -826,7 +825,6 @@
 
      INTEGER :: n
 
-     REAL(KIND=dp) :: ddBasisddx(n,3,3)
      REAL(KIND=dp) :: Basis(n)
      REAL(KIND=dp) :: dBasisdx(n,3),SqrtElementMetric
      REAL(KIND=dp) :: SqrtMetric,Metric(3,3),Symb(3,3,3),dSymb(3,3,3,3)
@@ -865,7 +863,7 @@
 !     Basis function values & derivates at the integration point
 !------------------------------------------------------------------------------
       stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-                 Basis,dBasisdx,ddBasisddx,.FALSE. )
+                 Basis,dBasisdx )
 
 !------------------------------------------------------------------------------
 !      Coordinatesystem dependent info

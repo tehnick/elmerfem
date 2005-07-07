@@ -363,7 +363,7 @@
        TYPE(Nodes_t) :: Nodes
        TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
-       REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
+       REAL(KIND=dp) :: Basis(n),dBasisdx(n,3)
        REAL(KIND=dp) :: SqrtElementMetric,U,V,W,S,temp
        LOGICAL :: Stat
 
@@ -389,7 +389,7 @@
 !        Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
          stat = ElementInfo( Element,Nodes, U, V, W, SqrtElementMetric, &
-                    Basis, dBasisdx, ddBasisddx, .FALSE. )
+                    Basis, dBasisdx )
  
          S = S * SqrtElementMetric
          vel(1) = SUM( V1(1:n) * Basis(1:n) )

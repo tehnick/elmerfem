@@ -124,7 +124,7 @@
      LOGICAL :: PiezoMaterial
 
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, CapMatrixFile, Name
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.1 2005/05/26 08:24:53 vierinen Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.2 2005/05/26 12:33:19 jpr Exp $"
 
 
      SAVE LocalStiffMatrix, Load, LocalForce, Pwrk, PotDiff, &
@@ -866,7 +866,6 @@
     REAL(KIND=dp), ALLOCATABLE :: SumOfWeights(:)
     REAL(KIND=dp) :: PermittivityOfVacuum
     REAL(KIND=dp) :: Permittivity(3,3,Model % MaxElementNodes)
-    REAL(KIND=dp) :: ddBasisddx(Model % MaxElementNodes,3,3)
     REAL(KIND=dp) :: Basis(Model % MaxElementNodes)
     REAL(KIND=dp) :: dBasisdx(Model % MaxElementNodes,3)
     REAL(KIND=DP) :: SqrtElementMetric
@@ -977,7 +976,7 @@
 ! Need SqrtElementMetric and Basis at the integration point
 !------------------------------------------------------------------------------
         stat = ElementInfo( Element, Nodes,ug,vg,wg, &
-            SqrtElementMetric,Basis,dBasisdx,ddBasisddx,.FALSE. )
+            SqrtElementMetric,Basis,dBasisdx )
         
 !------------------------------------------------------------------------------
 !      Coordinatesystem dependent info
@@ -1124,7 +1123,7 @@
 !------------------------------------------------------------------------------
  
        REAL(KIND=dp) :: SqrtMetric,Metric(3,3),Symb(3,3,3),dSymb(3,3,3,3)
-       REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
+       REAL(KIND=dp) :: Basis(n),dBasisdx(n,3)
        REAL(KIND=dp) :: SqrtElementMetric,U,V,W,S,A,L,C(3,3),x,y,z
        REAL(KIND=dp) :: PiezoForce(n), LocalStrain(6), PiezoLoad(3)
 
@@ -1157,7 +1156,7 @@
 !        Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
          stat = ElementInfo( Element,Nodes,U,V,W,SqrtElementMetric, &
-                    Basis,dBasisdx,ddBasisddx,.FALSE. )
+                    Basis,dBasisdx )
 !------------------------------------------------------------------------------
 !      Coordinatesystem dependent info
 !------------------------------------------------------------------------------
@@ -1403,7 +1402,6 @@
 
      INTEGER :: n
 
-     REAL(KIND=dp) :: ddBasisddx(n,3,3)
      REAL(KIND=dp) :: Basis(n)
      REAL(KIND=dp) :: dBasisdx(n,3),SqrtElementMetric
      REAL(KIND=dp) :: SqrtMetric,Metric(3,3),Symb(3,3,3),dSymb(3,3,3,3)
@@ -1442,7 +1440,7 @@
 !     Basis function values & derivates at the integration point
 !------------------------------------------------------------------------------
       stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-                 Basis,dBasisdx,ddBasisddx,.FALSE. )
+                 Basis,dBasisdx )
 
 !------------------------------------------------------------------------------
 !      Coordinatesystem dependent info
@@ -1510,7 +1508,7 @@
           x(MAX_NODES), y(MAX_NODES), z(MAX_NODES)
 
      REAL(KIND=dp) :: u, v, w, s, detJ, EdgeBasis(MAX_NODES), Basis(MAX_NODES), &
-         dBasisdx(MAX_NODES,3), ddBasisddx(MAX_NODES,3,3), Potential(MAX_NODES)
+         dBasisdx(MAX_NODES,3), Potential(MAX_NODES)
 
      REAL(KIND=dp) :: Residual, ResidualNorm, Flux(MAX_NODES)
 
@@ -1643,7 +1641,7 @@
            w = IntegStuff % w(t)
 
            stat = ElementInfo( Edge, EdgeNodes, u, v, w, detJ, &
-               EdgeBasis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+               EdgeBasis, dBasisdx )
 
            Normal = NormalVector( Edge, EdgeNodes, u, v, .TRUE. )
 
@@ -1669,7 +1667,7 @@
            w = SUM( EdgeBasis(1:En) * z(1:En) )
 
            stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
-                 Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+                 Basis, dBasisdx )
 !
 !          Heat conductivity at the integration point:
 !          --------------------------------------------
@@ -1754,8 +1752,7 @@
                 x(MAX_NODES),y(MAX_NODES),z(MAX_NODES)
 
      REAL(KIND=dp) :: u, v, w, s, detJ, EdgeBasis(MAX_NODES), &
-          Basis(MAX_NODES), dBasisdx(MAX_NODES,3), &
-             ddBasisddx(MAX_NODES,3,3), Potential(MAX_NODES)
+          Basis(MAX_NODES), dBasisdx(MAX_NODES,3), Potential(MAX_NODES)
 
      REAL(KIND=dp) :: Residual, ResidualNorm
 
@@ -1821,7 +1818,7 @@
         w = IntegStuff % w(t)
 
         stat = ElementInfo( Edge, EdgeNodes, u, v, w, detJ, &
-             EdgeBasis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+             EdgeBasis, dBasisdx )
 
         Normal = NormalVector( Edge, EdgeNodes, u, v, .FALSE. )
 
@@ -1880,7 +1877,7 @@
            Nodes % z(1:Pn) = Mesh % Nodes % z(Element % NodeIndexes)
 
            stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
-             Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+             Basis, dBasisdx )
 !
 !          Material parameters:
 !          --------------------

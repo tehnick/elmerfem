@@ -819,7 +819,7 @@
 !------------------------------------------------------------------------------
 !   Local variables
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
+    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3)
     REAL(KIND=dp) :: SqrtElementMetric
     REAL (KIND=dp) :: WhitneyBasis(nedges,3), dWhitneyBasisdx(nedges,3,3)
 
@@ -878,7 +878,7 @@
 !      Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
        stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-            Basis,dBasisdx,ddBasisddx,.FALSE. )
+            Basis,dBasisdx )
 
        stat = WhitneyElementInfo( Element,Basis,dBasisdx,&
                  nedges,WhitneyBasis,dWhitneyBasisdx )
@@ -1064,7 +1064,7 @@
 !------------------------------------------------------------------------------
 !  Local variables
 !------------------------------------------------------------------------------
-   REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3),BoundaryBasis(n)
+   REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),BoundaryBasis(n)
    REAL(KIND=dp) :: SqrtElementMetric
    REAL (KIND=dp) :: WhitneyBasis(nedges,3), dWhitneyBasisdx(nedges,3,3)
 
@@ -1147,7 +1147,7 @@
      Normal = NormalVector( El_ptr,Nodes,u,v,.TRUE. )
 
      stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-         BoundaryBasis(1:bnodes),dBasisdx,ddBasisddx,.FALSE. )
+         BoundaryBasis(1:bnodes),dBasisdx )
 
      u = SUM( BoundaryBasis(1:bnodes)*x(1:bnodes) )
      v = SUM( BoundaryBasis(1:bnodes)*y(1:bnodes) )
@@ -1158,7 +1158,7 @@
 !------------------------------------------------------------------------------
 ! Get Basis for the parent element
      stat = ElementInfo( Parent,ParentNodes,u,v,w,SqrtElementMetric, &
-         Basis,dBasisdx,ddBasisddx,.FALSE. )
+         Basis,dBasisdx )
 
 ! Whitney basis of the parent element at the boundary element's int. pts
      stat = WhitneyElementInfo( Parent,Basis,dBasisdx,&
@@ -1245,7 +1245,7 @@
 !    Local variables
 !------------------------------------------------------------------------------
 
-      REAL (KIND=DP) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
+      REAL (KIND=DP) :: Basis(n),dBasisdx(n,3)
       REAL (KIND=DP) :: SqrtElementMetric
       REAL (KIND=DP) :: WhitneyBasis(NEdges,3), &
           dWhitneyBasisdx(NEdges,3,3)
@@ -1274,7 +1274,7 @@
         ElementNodes % z(1:n) = Model % Nodes % z(Element % NodeIndexes(1:n))
 
         stat = ElementInfo( Element, ElementNodes, 0.25d0,0.25d0,0.25d0, &
-              SqrtElementMetric, Basis, dBasisdx, ddBasisddx, .FALSE. )
+              SqrtElementMetric, Basis, dBasisdx )
 
         IF ( w12 == 1 ) THEN
            stat = WhitneyElementInfo( Element, Basis, dBasisdx,&

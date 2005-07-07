@@ -27,6 +27,9 @@
 ! *                              EMail: Juha.Ruokolainen@csc.fi
 ! *
 ! * $Log: FlowSolve.src,v $
+! * Revision 1.2  2005/05/26 12:33:12  jpr
+! * Removed explicit DLLEXPORT definitions
+! *
 ! * Revision 1.1  2005/05/26 08:24:16  vierinen
 ! * moved .f90 to .src because .f90 is needed for preprosessed files
 ! *
@@ -229,7 +232,7 @@
         END FUNCTION FlowInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.1 2005/05/26 08:24:16 vierinen Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.2 2005/05/26 12:33:12 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -1489,8 +1492,7 @@ CONTAINS
                       ExtPressure(MAX_NODES)
 
      REAL(KIND=dp) :: u, v, w, s, detJ, EdgeBasis(MAX_NODES), &
-         dEdgeBasisdx(MAX_NODES,3), Basis(MAX_NODES),dBasisdx(MAX_NODES,3), &
-         ddBasisddx(MAX_NODES,3,3)
+         dEdgeBasisdx(MAX_NODES,3), Basis(MAX_NODES),dBasisdx(MAX_NODES,3)
 
      REAL(KIND=dp) :: Source, Residual(3), ResidualNorm, Area
 
@@ -1694,7 +1696,7 @@ CONTAINS
            w = IntegStuff % w(t)
 
            stat = ElementInfo( Edge, EdgeNodes, u, v, w, detJ, &
-               EdgeBasis, dEdgeBasisdx, ddBasisddx, .FALSE., .FALSE. )
+               EdgeBasis, dEdgeBasisdx )
 
            IF ( CurrentCoordinateSystem() == Cartesian ) THEN
               s = IntegStuff % s(t) * detJ
@@ -1716,7 +1718,7 @@ CONTAINS
            w = SUM( EdgeBasis(1:En) * z(1:En) )
 
            stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
-              Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+              Basis, dBasisdx )
 
            Viscosity = SUM( NodalViscosity(1:En) * EdgeBasis(1:En) )
 
@@ -1860,7 +1862,7 @@ CONTAINS
      REAL(KIND=dp) :: Velocity(3,MAX_NODES), Pressure(MAX_NODES)
 
      REAL(KIND=dp) :: u, v, w, s, detJ, EdgeBasis(MAX_NODES), Basis(MAX_NODES), &
-              dBasisdx(MAX_NODES,3), ddBasisddx(MAX_NODES,3,3)
+              dBasisdx(MAX_NODES,3)
 
      REAL(KIND=dp) :: Residual, ResidualNorm, EdgeLength
 
@@ -1918,7 +1920,7 @@ CONTAINS
         w = IntegStuff % w(t)
 
         stat = ElementInfo( Edge, EdgeNodes, u, v, w, detJ, &
-             EdgeBasis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+             EdgeBasis, dBasisdx )
 
         Normal = NormalVector( Edge, EdgeNodes, u, v, .FALSE. )
 
@@ -1965,7 +1967,7 @@ CONTAINS
            w = SUM( EdgeBasis(1:En) * z(1:En) )
 
            stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
-               Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+               Basis, dBasisdx )
 
            k = ListGetInteger( Model % Bodies( Element % BodyId) % Values, 'Material', &
                             minv=1, maxv=Model % NumberOfMaterials )
@@ -2315,7 +2317,7 @@ CONTAINS
         w = IntegStuff % w(t)
 
         stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
-            Basis, dBasisdx, ddBasisddx, .TRUE., .FALSE. )
+            Basis, dBasisdx, ddBasisddx, .TRUE. )
 
         IF ( CurrentCoordinateSystem() == Cartesian ) THEN
            s = IntegStuff % s(t) * detJ

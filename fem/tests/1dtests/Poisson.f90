@@ -90,7 +90,7 @@ CONTAINS
     INTEGER :: n
     TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3),DetJ,LoadAtIP
+    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),DetJ,LoadAtIP
     LOGICAL :: Stat
     INTEGER :: t
     TYPE(GaussIntegrationPoints_t) :: IP
@@ -109,7 +109,7 @@ CONTAINS
        ! Basis function values & derivatives at the integration point:
        !--------------------------------------------------------------
        stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
-        IP % W(t),  detJ, Basis, dBasisdx, ddBasisddx, .FALSE. )
+               IP % W(t),  detJ, Basis, dBasisdx )
 
        ! The source term at the integration point:
        !------------------------------------------

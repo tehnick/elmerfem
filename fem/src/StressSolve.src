@@ -33,6 +33,9 @@
 ! *       Date of modification:
 ! *
 ! * $Log: StressSolve.src,v $
+! * Revision 1.8  2005/06/22 04:40:53  jpr
+! * Bubbles to global system by default.
+! *
 ! * Revision 1.7  2005/06/21 10:49:57  jpr
 ! * Removed debug prints...
 ! *
@@ -283,7 +286,7 @@
         END FUNCTION StressInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.7 2005/06/21 10:49:57 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.8 2005/06/22 04:40:53 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -1051,7 +1054,7 @@ CONTAINS
      REAL(KIND=dp) :: u,v,w,x,y,z,Strain(3,3),Stress(3,3),LGrad(3,3),detJ, &
             Young, Poisson, Ident(3,3), C(6,6), S(6), weight, st, Work(9), Principal(3)
      REAL(KIND=dp), ALLOCATABLE :: Basis(:),dBasisdx(:,:),  FORCE(:), ForceG(:), &
-        ddBasisddx(:,:,:), SBasis(:,:), LocalDisplacement(:,:), MASS(:,:)
+        SBasis(:,:), LocalDisplacement(:,:), MASS(:,:)
 
      REAL(KIND=dp), POINTER :: StressTemp(:)
 
@@ -1068,7 +1071,7 @@ CONTAINS
      n = MAX( Solver % Mesh % MaxElementDOFs, Solver % Mesh % MaxElementNodes )
      ALLOCATE( Indexes(n), LocalDisplacement(3,n) )
      ALLOCATE( MASS(n,n), FORCE(6*n) )
-     ALLOCATE( Basis(n), dBasisdx(n,3), ddBasisddx(n,3,3) )
+     ALLOCATE( Basis(n), dBasisdx(n,3) )
 
      IF ( FirstTime .OR. Solver % Mesh % Changed ) THEN
        IF ( FirstTime ) THEN
@@ -1170,7 +1173,7 @@ CONTAINS
           Weight = IntegStuff % s(t)
 
           stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
-             Basis, dBasisdx, ddBasisddx, .FALSE. ,.FALSE. )
+             Basis, dBasisdx )
 
           Weight = Weight * detJ
           IF ( CSymmetry ) Weight = Weight * SUM( Basis(1:n) * Nodes % x(1:n) )
@@ -1254,7 +1257,7 @@ CONTAINS
 
       VonMises = SQRT( 3.0d0 * VonMises / 2.0d0 )
 
-      DEALLOCATE( Basis, dBasisdx, ddBasisddx )
+      DEALLOCATE( Basis, dBasisdx )
       DEALLOCATE( Indexes, LocalDisplacement, MASS, FORCE )
 
       Model % Solver => Solver
@@ -1287,7 +1290,7 @@ CONTAINS
      REAL(KIND=dp) :: Coords(3)
      INTEGER :: power
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
-     REAL(KIND=dp) :: Basis(maxnodes),ddBasisddx(1,1,1)
+     REAL(KIND=dp) :: Basis(maxnodes)
      REAL(KIND=dp) :: dBasisdx(maxnodes,3),detJ,u,v,w
      REAL(KIND=dp), DIMENSION(:), POINTER :: U_Integ,V_Integ,W_Integ,S_Integ
      INTEGER :: N_Integ
@@ -1329,7 +1332,7 @@ CONTAINS
            ! Basis function values & derivatives at the integration point:
            !--------------------------------------------------------------
            stat = ElementInfo( Element, ElementNodes, u, v, w, detJ, &
-               Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+               Basis, dBasisdx )
            
            s = detJ * S_Integ(k)
            IF ( CurrentCoordinateSystem() == AxisSymmetric .OR. &
@@ -1529,7 +1532,7 @@ CONTAINS
      REAL(KIND=dp) :: Area, Center(:), Moments(:,:)
 !------------------------------------------------------------------------------
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
-     REAL(KIND=dp) :: Basis(maxnodes),ddBasisddx(1,1,1)
+     REAL(KIND=dp) :: Basis(maxnodes)
      REAL(KIND=dp) :: dBasisdx(maxnodes,3),detJ,u,v,w
      REAL(KIND=dp), DIMENSION(:), POINTER :: U_Integ,V_Integ,W_Integ,S_Integ
      REAL(KIND=dp) :: LocalDisp(DIM,maxnodes),Kmat(6,6),up, vp, wp, &
@@ -1628,7 +1631,7 @@ CONTAINS
          ! Basis function values & derivatives at the integration point:
          !--------------------------------------------------------------
          stat = ElementInfo( Element, ElementNodes, u, v, w, detJ, &
-             Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+             Basis, dBasisdx )
          Normal = NormalVector( Element, ElementNodes, U, V, .TRUE. )    
 
          IF(FixDisplacement) THEN
@@ -1653,7 +1656,7 @@ CONTAINS
          Wp = SUM( zp(1:n) * Basis(1:n) )
  
          stat = ElementInfo( Parent,ParentNodes, Up, Vp, Wp, detJ, &
-             Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+             Basis, dBasisdx )
 
          IF(FixDisplacement) THEN
            CALL LocalStress( Stress, Strain, PoissonRatio, &
@@ -1803,7 +1806,7 @@ CONTAINS
      REAL(KIND=dp) :: Normal(3), EdgeLength, x(4), y(4), z(4), ExtPressure(MAX_NODES)
 
      REAL(KIND=dp) :: u, v, w, s, detJ, EdgeBasis(4), dEdgeBasisdx(4,3), &
-         Basis(MAX_NODES),dBasisdx(MAX_NODES,3), ddBasisddx(MAX_NODES,3,3)
+         Basis(MAX_NODES),dBasisdx(MAX_NODES,3)
 
      REAL(KIND=dp) :: Residual(3), ResidualNorm, Area
      REAL(KIND=dp) :: Force(3,MAX_NODES), ForceSolved(3)
@@ -1932,7 +1935,7 @@ CONTAINS
         w = IntegStuff % w(t)
 
         stat = ElementInfo( Edge, EdgeNodes, u, v, w, detJ, &
-            EdgeBasis, dEdgeBasisdx, ddBasisddx, .FALSE., .FALSE. )
+            EdgeBasis, dEdgeBasisdx )
 
         IF ( CurrentCoordinateSystem() == Cartesian ) THEN
            s = IntegStuff % s(t) * detJ
@@ -1954,7 +1957,7 @@ CONTAINS
         w = SUM( EdgeBasis(1:En) * z(1:En) )
 
         stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
-           Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+           Basis, dBasisdx )
 
         ! Stress tensor on the edge:
         ! --------------------------
@@ -2020,7 +2023,7 @@ CONTAINS
      TYPE(ValueList_t), POINTER :: Material, Equation
 
      REAL(KIND=dp) :: u, v, w, s, detJ, EdgeBasis(MAX_NODES), Basis(MAX_NODES), &
-              dBasisdx(MAX_NODES,3), ddBasisddx(MAX_NODES,3,3)
+              dBasisdx(MAX_NODES,3)
 
      REAL(KIND=dp) :: Residual, ResidualNorm, EdgeLength
 
@@ -2069,7 +2072,7 @@ CONTAINS
         w = IntegStuff % w(t)
 
         stat = ElementInfo( Edge, EdgeNodes, u, v, w, detJ, &
-             EdgeBasis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+             EdgeBasis, dBasisdx )
 
         Normal = NormalVector( Edge, EdgeNodes, u, v, .FALSE. )
 
@@ -2114,7 +2117,7 @@ CONTAINS
            w = SUM( EdgeBasis(1:En) * z(1:En) )
 
            stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
-               Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+               Basis, dBasisdx )
 
            ! Logical parameters:
            ! -------------------
@@ -2198,7 +2201,7 @@ CONTAINS
      LOGICAL :: PlaneStress, CSymmetry, Isotropic, Transient
 
      REAL(KIND=dp) :: u, v, w, s, detJ, Basis(MAX_NODES), &
-        dBasisdx(MAX_NODES,3), ddBasisddx(MAX_NODES,3,3)
+        dBasisdx(MAX_NODES,3)
      REAL(KIND=dp) :: Residual(3), ResidualNorm, Area
 
      TYPE(ValueList_t), POINTER :: Material, BodyForce, Equation
@@ -2315,7 +2318,7 @@ CONTAINS
          w = Element % Type % NodeW(i)
 
          stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
-             Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+             Basis, dBasisdx )
 
          CALL LocalStress( Stressi(:,:,i), Strain, NodalPoissonRatio, &
                    ElasticModulus, Isotropic, CSymmetry, PlaneStress, &
@@ -2339,7 +2342,7 @@ CONTAINS
         w = IntegStuff % w(t)
 
         stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
-            Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+            Basis, dBasisdx )
 
         IF ( CurrentCoordinateSystem() == Cartesian ) THEN
            s = IntegStuff % s(t) * detJ

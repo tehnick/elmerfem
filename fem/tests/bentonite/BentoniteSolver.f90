@@ -356,7 +356,7 @@ CONTAINS
     TYPE(Nodes_t) :: Nodes
     TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
+    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3)
     REAL(KIND=dp) :: detJ,U,V,W,S
     REAL(KIND=dp) :: LMASS(3,3), LSTIFF(3,3), LFORCE(3)
     LOGICAL :: Stat
@@ -397,7 +397,7 @@ CONTAINS
 !      Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
        stat = ElementInfo( Element, Nodes, U, V, W, detJ, &
-               Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+               Basis, dBasisdx )
 
        s = s * detJ
        IF ( CoordSys /= Cartesian ) THEN
@@ -562,7 +562,7 @@ CONTAINS
     TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: detJ,U,V,W,S,LFORCE(3), LSTIFF(3,3)
-    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3),X,Y,Z
+    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),X,Y,Z
     REAL(KIND=dp) :: Normal(3)
     LOGICAL :: Stat
     TYPE(GaussIntegrationPoints_t) :: IntegStuff
@@ -605,7 +605,7 @@ CONTAINS
 !      Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
        stat = ElementInfo( Element, Nodes, U, V, W, detJ, &
-               Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+               Basis, dBasisdx )
 
        s = s * detJ
        IF ( CoordSys /= Cartesian ) THEN

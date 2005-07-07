@@ -141,7 +141,7 @@
 
 
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ElasticSolve.src,v 1.1 2005/05/26 08:24:10 vierinen Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ElasticSolve.src,v 1.2 2005/05/26 12:33:10 jpr Exp $"
 
 
      INTERFACE
@@ -887,7 +887,7 @@
      INTEGER :: n
 !------------------------------------------------------------------------------
 !
-     REAL(KIND=dp) :: Basis(n),ddBasisddx(1,1,1)
+     REAL(KIND=dp) :: Basis(n)
      REAL(KIND=dp) :: dBasisdx(n,3),SqrtElementMetric
 
      REAL(KIND=dp) :: Force(3),NodalLame1(n),NodalLame2(n),Density, &
@@ -1030,7 +1030,7 @@
 !     Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
       stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-                 Basis,dBasisdx,ddBasisddx,.FALSE. )
+                 Basis,dBasisdx )
 
       s = SqrtElementMetric * S_Integ(t)
 
@@ -1193,7 +1193,7 @@
      INTEGER :: n
 !------------------------------------------------------------------------------
 !
-     REAL(KIND=dp) :: Basis(n),ddBasisddx(1,1,1)
+     REAL(KIND=dp) :: Basis(n)
      REAL(KIND=dp) :: dBasisdx(n,3),SqrtElementMetric
 
      REAL(KIND=dp) :: Force(3),NodalLame1(n),NodalLame2(n),Density, &
@@ -1348,7 +1348,7 @@
 !     Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
       stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-                 Basis,dBasisdx,ddBasisddx,.FALSE. )
+                 Basis,dBasisdx )
 
       IF( CoordinateSystem /= Cartesian ) THEN
          X = SUM( nodes % x(1:n)*Basis )
@@ -1465,7 +1465,7 @@
      INTEGER :: n, Bound
 !------------------------------------------------------------------------------
 !
-     REAL(KIND=dp) :: Basis(n),ddBasisddx(1,1,1)
+     REAL(KIND=dp) :: Basis(n)
      REAL(KIND=dp) :: dBasisdx(n,3),SqrtElementMetric
 
      REAL(KIND=dp) :: Force(3),NodalLame1(n),NodalLame2(n),NodalDensity(n), &
@@ -1617,7 +1617,7 @@
 !     Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
       stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-                 Basis,dBasisdx,ddBasisddx,.FALSE. )
+                 Basis,dBasisdx )
 
 !------------------------------------------------------------------------------
 !     Coordinate system dependent info
@@ -1860,7 +1860,7 @@
    INTEGER :: n,pn,fn
    LOGICAL :: CompressibilityDefined
 !------------------------------------------------------------------------------
-   REAL(KIND=dp) :: Basis(n),ddBasisddx(1,1,1)
+   REAL(KIND=dp) :: Basis(n)
    REAL(KIND=dp) :: dBasisdx(n,3),SqrtElementMetric
    REAL(KIND=dp) :: x(n),y(n),z(n), Density
 
@@ -1915,7 +1915,7 @@
 !     Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
       stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-                 Basis,dBasisdx,ddBasisddx,.FALSE. )
+                 Basis,dBasisdx )
 
       s = SqrtElementMetric * S_Integ(t)
 
@@ -1936,7 +1936,7 @@
       ParentW = SUM( Basis(1:n)*z(1:n) )
 
       Pstat= ElementInfo( Parent,ParentNodes,ParentU,ParentV,ParentW, &
-           PSqrtElementMetric,PBasis,PdBasisdx,ddBasisddx,.FALSE. )
+           PSqrtElementMetric,PBasis,PdBasisdx )
 
 !     Computes the cofactor matrix of the deformation gradient:
 !     ---------------------------------------------------------
@@ -1974,7 +1974,7 @@
         ParentW = SUM( Basis(1:n)*z(1:n) )
 
         Pstat = ElementInfo( Flow,FlowNodes,ParentU,ParentV,ParentW, &
-          FSqrtElementMetric,FBasis,FdBasisdx,ddBasisddx,.FALSE. )
+          FSqrtElementMetric,FBasis,FdBasisdx )
 
         Grad = MATMUL( Velocity(:,1:fn),FdBasisdx )
         Density    = SUM( NodalDensity(1:fn) * FBasis )
@@ -2060,7 +2060,7 @@
    INTEGER :: n,pn,fn
    LOGICAL :: CompressibilityDefined
 !------------------------------------------------------------------------------
-   REAL(KIND=dp) :: Basis(n),ddBasisddx(1,1,1)
+   REAL(KIND=dp) :: Basis(n)
    REAL(KIND=dp) :: dBasisdx(n,3),SqrtElementMetric
    REAL(KIND=dp) :: x(n),y(n),z(n), Density
 
@@ -2111,7 +2111,7 @@
 !     Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
       stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-                 Basis,dBasisdx,ddBasisddx,.FALSE. )
+                 Basis,dBasisdx )
 
 !------------------------------------------------------------------------------
 !
@@ -2145,7 +2145,7 @@
       ParentW = SUM( Basis(1:n)*z(1:n) )
 
       Pstat= ElementInfo( Parent,ParentNodes,ParentU,ParentV,ParentW, &
-           PSqrtElementMetric,PBasis,PdBasisdx,ddBasisddx,.FALSE. )
+           PSqrtElementMetric,PBasis,PdBasisdx )
 
 !     Calculate traction from the flow solution:
 !     ------------------------------------------
@@ -2166,7 +2166,7 @@
         ParentW = SUM( Basis(1:n)*z(1:n) )
 
         Pstat = ElementInfo( Flow,FlowNodes,ParentU,ParentV,ParentW, &
-          FSqrtElementMetric,FBasis,FdBasisdx,ddBasisddx,.FALSE. )
+          FSqrtElementMetric,FBasis,FdBasisdx )
 
         Grad = MATMUL( Velocity(:,1:fn),FdBasisdx )
         Density    = SUM( NodalDensity(1:fn) * FBasis )
@@ -2501,7 +2501,7 @@
            w = IntegStuff % w(t)
 
            stat = ElementInfo( Edge, EdgeNodes, u, v, w, detJ, &
-               EdgeBasis, dEdgeBasisdx, ddBasisddx, .FALSE., .FALSE. )
+               EdgeBasis, dEdgeBasisdx )
 
            IF ( CurrentCoordinateSystem() == Cartesian ) THEN
               s = IntegStuff % s(t) * detJ
@@ -2523,7 +2523,7 @@
            w = SUM( EdgeBasis(1:En) * z(1:En) )
 
            stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
-              Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+              Basis, dBasisdx )
 
            Lame1 = SUM( NodalLame1(1:En) * EdgeBasis(1:En) )
            Lame2 = SUM( NodalLame2(1:En) * EdgeBasis(1:En) )
@@ -2687,7 +2687,7 @@ CONTAINS
         w = IntegStuff % w(t)
 
         stat = ElementInfo( Edge, EdgeNodes, u, v, w, detJ, &
-             EdgeBasis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+             EdgeBasis, dBasisdx )
 
         Normal = NormalVector( Edge, EdgeNodes, u, v, .FALSE. )
 
@@ -3069,7 +3069,7 @@ CONTAINS
         w = IntegStuff % w(t)
 
         stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
-            Basis, dBasisdx, ddBasisddx, .TRUE., .FALSE. )
+            Basis, dBasisdx, ddBasisddx, .TRUE. )
 
         IF ( CurrentCoordinateSystem() == Cartesian ) THEN
            s = IntegStuff % s(t) * detJ

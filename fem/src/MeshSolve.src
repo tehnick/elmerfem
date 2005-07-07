@@ -98,7 +98,7 @@
   REAL(KIND=dp), POINTER :: BoundaryNormals(:,:), &
        BoundaryTangent1(:,:), BoundaryTangent2(:,:)
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: MeshSolve.src,v 1.4 2005/07/07 04:53:00 jpr Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: MeshSolve.src,v 1.5 2005/07/07 04:58:53 jpr Exp $"
 
   SAVE NumberOfBoundaryNodes,BoundaryReorder,BoundaryNormals, &
        BoundaryTangent1, BoundaryTangent2
@@ -490,7 +490,7 @@
      LOGICAL :: PlaneStress, Isotropic
 !------------------------------------------------------------------------------
 !
-     REAL(KIND=dp) :: Basis(nd),ddBasisddx(1,1,1)
+     REAL(KIND=dp) :: Basis(nd)
      REAL(KIND=dp) :: dBasisdx(nd,3),detJ
 
      REAL(KIND=dp) :: NodalLame1(n),NodalLame2(n),Lame1,Lame2, &
@@ -537,7 +537,7 @@
        ! Basis function values & derivatives at the integration point:
        !--------------------------------------------------------------
        stat = ElementInfo( Element,Nodes, u, v, w, detJ, &
-             Basis, dBasisdx, ddBasisddx, .FALSE. )
+             Basis, dBasisdx )
 
        s = detJ * IntegStuff % s(t)
 
@@ -583,7 +583,7 @@
    TYPE(Element_t),POINTER  :: Element
    INTEGER :: n,nd
 !------------------------------------------------------------------------------
-   REAL(KIND=dp) :: Basis(nd),ddBasisddx(1,1,1)
+   REAL(KIND=dp) :: Basis(nd)
    REAL(KIND=dp) :: dBasisdx(nd,3),detJ
 
    REAL(KIND=dp) :: u,v,w,s
@@ -621,7 +621,7 @@
 !     Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
       stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
-                 Basis, dBasisdx, ddBasisddx, .FALSE. )
+                 Basis, dBasisdx )
 
       s = detJ * IntegStuff % s(t)
 !------------------------------------------------------------------------------

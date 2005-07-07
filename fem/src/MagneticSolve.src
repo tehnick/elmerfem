@@ -574,7 +574,6 @@
 
      REAL(KIND=dp) :: u,v,w
 
-     REAL(KIND=dp) :: ddBasisddx(MAX_NODES,3,3)
      REAL(KIND=dp) :: Basis(MAX_NODES)
      REAL(KIND=dp) :: dBasisdx(MAX_NODES,3),SqrtElementMetric
   
@@ -615,7 +614,7 @@
               END IF
 
               stat = ElementInfo( Element, Nodes, u, v, w, SqrtElementMetric, &
-                   Basis, dBasisdx, ddBasisddx, .FALSE. )
+                   Basis, dBasisdx )
 
 ! Call LorentzForce from here (and zero B_e, B_ac for high-f part)
 ! For r < 1.0d-10, avoid the 1/r term in ComputeLorentz (if CylindricSymmetric)

@@ -26,7 +26,7 @@ if test "$ELMER_HOME" = ""; then
     export ELMER_MESH2D="Mesh2D"
     export LD_LIBRARY_PATH=".:$ELMER_HOME:$LD_LIBRARY_PATH"
     # assume that stuff has been installed here
-    export PATH=/home/vierinen/src/elmer/buildtools/build.laatikko.2005-07-01-10-16-34/dist/bin:$PATH
+    export PATH=/tmp/jpr/bin:$PATH
 else 
     # ELMER_HOME is defined, so we'll just use that
     printf "\$ELMER_HOME=%s\n" $ELMER_HOME
@@ -42,8 +42,8 @@ fi
 #
 # Autoconf substitutes these variables with correct values.
 #
-export F90="ifc -Vaxlib -O -fPIC -I. -I. -I$ELMER_INCLUDE"
-export LD="ifc -Vaxlib -shared  "
+export F90="f90 -fast -KPIC -I. -M. -M$ELMER_INCLUDE"
+export LD="f90 -G  "
 export LIBS=""
 
 cc -o findnorm findnorm.c

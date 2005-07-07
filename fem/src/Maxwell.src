@@ -102,7 +102,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 !   Local variables
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
+    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3)
     REAL(KIND=dp) :: SqrtElementMetric
 
     REAL(KIND=dp) :: Velo(3),dVelodx(3,3),Force(3),Metric(3,3),Symb(3,3,3)
@@ -152,7 +152,7 @@ CONTAINS
 !      Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
        stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-            Basis,dBasisdx,ddBasisddx,.FALSE. )
+            Basis,dBasisdx )
 
        s = SqrtElementMetric * S_Integ(t)
 !------------------------------------------------------------------------------
@@ -325,7 +325,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 !  Local variables
 !------------------------------------------------------------------------------
-   REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
+   REAL(KIND=dp) :: Basis(n),dBasisdx(n,3)
    REAL(KIND=dp) :: SqrtElementMetric
 
    REAL(KIND=dp) :: u,v,w,s
@@ -365,7 +365,7 @@ CONTAINS
 !    Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
      stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-                 Basis,dBasisdx,ddBasisddx,.FALSE. )
+                 Basis,dBasisdx )
 
      s = SqrtElementMetric * S_Integ(t)
 !------------------------------------------------------------------------------

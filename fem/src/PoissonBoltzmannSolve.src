@@ -577,7 +577,7 @@ CONTAINS
 !------------------------------------------------------------------------------
  
     REAL(KIND=dp) :: SqrtMetric,Metric(3,3),Symb(3,3,3),dSymb(3,3,3,3)
-    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
+    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3)
     REAL(KIND=dp) :: SqrtElementMetric,U,V,W,S,A,B,L,C,x,y,z
     REAL(KIND=dp) :: Csinh, Ccosh, Pot
     LOGICAL :: Stat    
@@ -604,7 +604,7 @@ CONTAINS
 !        Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
       stat = ElementInfo( Element,Nodes,U,V,W,SqrtElementMetric, &
-          Basis,dBasisdx,ddBasisddx,.FALSE. )
+          Basis,dBasisdx )
 !------------------------------------------------------------------------------
 !      Coordinatesystem dependent info
 !------------------------------------------------------------------------------
@@ -682,7 +682,6 @@ CONTAINS
     TYPE(Element_t) :: Element
     INTEGER :: n
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: ddBasisddx(n,3,3)
     REAL(KIND=dp) :: Basis(n)
     REAL(KIND=dp) :: dBasisdx(n,3),SqrtElementMetric
     REAL(KIND=dp) :: SqrtMetric,Metric(3,3),Symb(3,3,3),dSymb(3,3,3,3)       
@@ -717,7 +716,7 @@ CONTAINS
 !     Basis function values & derivates at the integration point
 !------------------------------------------------------------------------------
       stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-          Basis,dBasisdx,ddBasisddx,.FALSE. )
+          Basis,dBasisdx )
 
 !------------------------------------------------------------------------------
 !      Coordinatesystem dependent info
@@ -760,7 +759,6 @@ CONTAINS
        REAL(KIND=dp), POINTER :: U_Integ(:), V_Integ(:), W_Integ(:), S_Integ(:)
        REAL(KIND=dp), ALLOCATABLE :: SumOfWeights(:)
        REAL(KIND=dp) :: PermittivityOfVacuum
-       REAL(KIND=dp) :: ddBasisddx(Model % MaxElementNodes,3,3)
        REAL(KIND=dp) :: Basis(Model % MaxElementNodes)
        REAL(KIND=dp) :: dBasisdx(Model % MaxElementNodes,3)
        REAL(KIND=DP) :: SqrtElementMetric
@@ -868,7 +866,7 @@ CONTAINS
 ! Need SqrtElementMetric and Basis at the integration point
 !------------------------------------------------------------------------------
            stat = ElementInfo( Element, Nodes,ug,vg,wg, &
-               SqrtElementMetric,Basis,dBasisdx,ddBasisddx,.FALSE. )
+               SqrtElementMetric,Basis,dBasisdx )
         
 !------------------------------------------------------------------------------
 !      Coordinatesystem dependent info

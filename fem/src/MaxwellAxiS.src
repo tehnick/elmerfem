@@ -103,7 +103,7 @@ MODULE MaxwellAxiS
 !------------------------------------------------------------------------------
 !    Local variables
 !------------------------------------------------------------------------------
-     REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
+     REAL(KIND=dp) :: Basis(n),dBasisdx(n,3)
      REAL(KIND=dp) :: SqrtElementMetric
 
      REAL(KIND=dp) :: Velo(3),dVelodx(3,3),Force(3),Metric(3,3),Symb(3,3,3)
@@ -153,7 +153,7 @@ MODULE MaxwellAxiS
 !     Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
       stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-                 Basis,dBasisdx,ddBasisddx,.FALSE. )
+                 Basis,dBasisdx )
 
       r = SUM( basis*nodes%x(1:n) )
       s = r * SqrtElementMetric * S_Integ(t)
@@ -337,7 +337,7 @@ MODULE MaxwellAxiS
 !------------------------------------------------------------------------------
 !  Local variables
 !------------------------------------------------------------------------------
-   REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
+   REAL(KIND=dp) :: Basis(n),dBasisdx(n,3)
    REAL(KIND=dp) :: SqrtElementMetric
 
    REAL(KIND=dp) :: u,v,w,s
@@ -377,7 +377,7 @@ MODULE MaxwellAxiS
 !    Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
      stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-                 Basis,dBasisdx,ddBasisddx,.FALSE. )
+                 Basis,dBasisdx )
 
      s = SqrtElementMetric * S_Integ(t)
 !------------------------------------------------------------------------------

@@ -165,7 +165,7 @@ nodes % z => nz(1:n)
             dydu(j) = dydu(j) + FirstDerivative1D( Boundary,ny(1:n),u )
 #else
 stat = ElementInfo( Boundary, Nodes, u, 0.0d0, 0.0d0, detA, &
-     Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+     Basis, dBasisdx )
 dydu(j) = dydu(j) + SUM( dBasisdx(1:n,1) * ny(1:n) )
 #endif
           ELSE
@@ -285,7 +285,7 @@ nodes % z => nz(1:n)
                 0.5d0 * Auu * ( ddxddu*Nrm(1) + ddyddu*Nrm(2) )
 #else
 stat = ElementInfo( Boundary, Nodes, u, 0.0d0, 0.0d0, detA, &
-     Basis, dBasisdx, ddBasisddx, .TRUE., .FALSE. )
+     Basis, dBasisdx, ddBasisddx, .TRUE. )
 ddyddu = SUM( dBasisdx(1:n,1) * dydu(Reorder(NodeIndexes(1:n))) )
 Curvature(j) = Curvature(j) + ( y * ddyddu - (1+dydu(j)**2) ) / ( y * ( 1+dydu(j)**2 )**(3.0d0/2.0d0) )
 #endif
@@ -825,7 +825,7 @@ print*,'----------------------'
 !       Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
         stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-                   Basis,dBasisdx,ddBasisddx,.FALSE. )
+                   Basis,dBasisdx )
 
         s = SqrtElementMetric * S_Integ(t)
         DO p=1,N

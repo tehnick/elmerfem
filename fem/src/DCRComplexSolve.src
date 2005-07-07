@@ -548,7 +548,7 @@ CONTAINS
     TYPE(Nodes_t) :: Nodes
     TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: Basis(2*n),dBasisdx(2*n,3),ddBasisddx(n,3,3)
+    REAL(KIND=dp) :: Basis(2*n),dBasisdx(2*n,3)
     REAL(KIND=dp) :: SqrtElementMetric,U,V,W,S,M,D,L1,L2
     REAL(KIND=dp) :: DiffCoef(3,3), Velo(3)
     COMPLEX(KIND=dp) :: LSTIFF(2*n,2*n), LFORCE(2*n), A
@@ -589,7 +589,7 @@ CONTAINS
 !      Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
        stat = ElementInfo( Element, Nodes, U, V, W, SqrtElementMetric, &
-            Basis, dBasisdx, ddBasisddx, .FALSE., Bubbles )
+            Basis, dBasisdx, Bubbles=Bubbles )
 
        s = s * SqrtElementMetric
        IF ( CoordSys /= Cartesian ) THEN
@@ -682,7 +682,7 @@ CONTAINS
     TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: SqrtElementMetric,U,V,W,S,L1,L2
-    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3),X,Y,Z
+    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),X,Y,Z
     REAL(KIND=dp) :: Normal(3), Velo(3), NormVelo, TangVelo(3)
     REAL(kind=dp) :: A2(3,3), A1r(3), A1i(3), A0r, A0i, B1(3), B0r, B0i, &
          C1(3), C0
@@ -710,7 +710,7 @@ CONTAINS
 !      Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
        stat = ElementInfo( Element, Nodes, U, V, W, SqrtElementMetric, &
-              Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+              Basis, dBasisdx )
 
        s = s * SqrtElementMetric
 
@@ -847,7 +847,7 @@ END SUBROUTINE DCRComplexSolver
           x(MAX_NODES), y(MAX_NODES), z(MAX_NODES)
 
      REAL(KIND=dp) :: u, v, w, s, detJ, EdgeBasis(MAX_NODES), Basis(MAX_NODES), &
-         dBasisdx(MAX_NODES,3), ddBasisddx(MAX_NODES,3,3), &
+         dBasisdx(MAX_NODES,3), &
          Pressure(2,MAX_NODES), FluxReal(MAX_NODES), FluxImag(MAX_NODES), &
          ResidualReal, ResidualImag, WaveFlux(2), Work(MAX_NODES)
 
@@ -969,7 +969,7 @@ END SUBROUTINE DCRComplexSolver
            w = IntegStuff % w(t)
 
            stat = ElementInfo( Edge, EdgeNodes, u, v, w, detJ, &
-               EdgeBasis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+               EdgeBasis, dBasisdx )
 
            IF ( CurrentCoordinateSystem() == Cartesian ) THEN
               s = IntegStuff % s(t) * detJ
@@ -995,7 +995,7 @@ END SUBROUTINE DCRComplexSolver
            w = SUM( EdgeBasis(1:En) * z(1:En) )
 
            stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
-                 Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+                 Basis, dBasisdx )
 !
 !          Flux and parameters at integration point:
 !          ----------------------------------------
@@ -1173,8 +1173,7 @@ contains
 
      REAL(KIND=dp) :: u, v, w, s, detJ, EdgeBasis(MAX_NODES), &
           Basis(MAX_NODES), dBasisdx(MAX_NODES,3), &
-             ddBasisddx(MAX_NODES,3,3), Temperature(MAX_NODES), &
-             Pressure(2,MAX_NODES)
+             Temperature(MAX_NODES), Pressure(2,MAX_NODES)
 
      REAL(KIND=dp) :: Residual, ResidualNorm, Area, Flux(MAX_NODES)
 
@@ -1247,7 +1246,7 @@ contains
         w = IntegStuff % w(t)
 
         stat = ElementInfo( Edge, EdgeNodes, u, v, w, detJ, &
-             EdgeBasis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+             EdgeBasis, dBasisdx )
 
         Normal = NormalVector( Edge, EdgeNodes, u, v, .FALSE. )
 
@@ -1306,7 +1305,7 @@ contains
            Nodes % z(1:Pn) = Mesh % Nodes % z(Element % NodeIndexes)
 
            stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
-             Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+             Basis, dBasisdx )
 !
 !          Material parameters:
 !          --------------------
@@ -1633,7 +1632,7 @@ contains
         w = IntegStuff % w(t)
 
         stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
-            Basis, dBasisdx, ddBasisddx, .TRUE., .FALSE. )
+            Basis, dBasisdx, ddBasisddx, .TRUE. )
 
         IF ( CurrentCoordinateSystem() == Cartesian ) THEN
            s = IntegStuff % s(t) * detJ

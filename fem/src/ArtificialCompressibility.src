@@ -255,7 +255,7 @@ CONTAINS
     TYPE(Element_t), POINTER :: Element
 
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
+    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3)
     REAL(KIND=dp) :: u,v,w,s,x,y,z, Pres
     REAL(KIND=dp) :: Grad(3,3), Stress(3,3), Normal(3), Ident(3,3)
     REAL(KIND=dp) :: NormalDisplacement,Symb(3,3,3),dSymb(3,3,3,3)
@@ -290,7 +290,7 @@ CONTAINS
 !      Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
        stat = ElementInfo( Element, Nodes, u, v, w, &
-           SqrtElementMetric, Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+           SqrtElementMetric, Basis, dBasisdx )
        
        s = SqrtElementMetric * IntegStuff % s(t)
 
@@ -332,7 +332,7 @@ CONTAINS
     TYPE(Element_t), POINTER :: Element
     REAL(KIND=dp) :: Compressibility(:), TotalVolume, TotalVolumeCompress
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
+    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3)
     REAL(KIND=dp) :: SqrtElementMetric, U, V, W, S, C
     LOGICAL :: Stat
     INTEGER :: i,p,q,t,DIM, NBasis, CoordSys
@@ -365,7 +365,7 @@ CONTAINS
 !      Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
       stat = ElementInfo( Element, Nodes, U, V, W, SqrtElementMetric, &
-          Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+          Basis, dBasisdx )
       s = IntegStuff % s(t) * SqrtElementMetric
 
       IF ( CoordSys /= Cartesian ) THEN

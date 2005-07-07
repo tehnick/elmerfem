@@ -74,7 +74,6 @@ CONTAINS
     INTEGER :: Perm(3,3,3)
     INTEGER, POINTER :: NodeIndexes(:),Visited(:)
 
-    REAL(KIND=dp) :: ddBasisddx(MAX_NODES,3,3)
     REAL(KIND=dp) :: Basis(MAX_NODES)
     REAL(KIND=dp) :: dBasisdx(MAX_NODES,3),SqrtElementMetric
 
@@ -214,7 +213,7 @@ CONTAINS
 !       to global coordinates.
 !------------------------------------------------------------------------------
         stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-                  Basis,dBasisdx,ddBasisddx,.FALSE. )
+                  Basis,dBasisdx )
 
         DO k=1,3
           dx(1,k) = SUM( dBasisdx(1:n,k) * DispX(StressPerm(NodeIndexes)) )
@@ -276,7 +275,6 @@ CONTAINS
     INTEGER :: Perm(3,3,3)
     INTEGER, POINTER :: NodeIndexes(:),Visited(:)
 
-    REAL(KIND=dp) :: ddBasisddx(MAX_NODES,3,3)
     REAL(KIND=dp) :: Basis(MAX_NODES)
     REAL(KIND=dp) :: dBasisdx(MAX_NODES,3),SqrtElementMetric
 
@@ -338,7 +336,7 @@ CONTAINS
 !       to global coordinates.
 !------------------------------------------------------------------------------
           stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-                    Basis,dBasisdx,ddBasisddx,.FALSE. )
+                    Basis,dBasisdx )
 
           Bx(q) = Bx(q) + SUM( dBasisdx(1:n,1)*Ax(Reorder(NodeIndexes)) )
           By(q) = By(q) + SUM( dBasisdx(1:n,2)*Ax(Reorder(NodeIndexes)) )
@@ -380,7 +378,7 @@ CONTAINS
 
     TYPE(ValueList_t), POINTER :: Material
 
-    REAL(KIND=dp) :: ddBasisddx(MAX_NODES,3,3),B(3),dHdx(3,3)
+    REAL(KIND=dp) :: B(3),dHdx(3,3)
     REAL(KIND=dp) :: dBasisdx(MAX_NODES,3),SqrtElementMetric
     REAL(KIND=dp) :: Basis(MAX_NODES),Permeability(MAX_NODES),mu
 
@@ -442,7 +440,7 @@ CONTAINS
 !   Get element info 
 !------------------------------------------------------------------------------
     stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-               Basis,dBasisdx,ddBasisddx,.FALSE. )
+               Basis,dBasisdx )
 !------------------------------------------------------------------------------
     B(1) = SUM( Basis(1:n)*Mx % Values(Mx % Perm(NodeIndexes)) )
     B(2) = SUM( Basis(1:n)*My % Values(My % Perm(NodeIndexes)) )
@@ -599,7 +597,7 @@ CONTAINS
 
     TYPE(ValueList_t), POINTER :: Material
 
-    REAL(KIND=dp) :: ddBasisddx(MAX_NODES,3,3),B(3),dHdx(3,3)
+    REAL(KIND=dp) :: B(3),dHdx(3,3)
     REAL(KIND=dp) :: dBasisdx(MAX_NODES,3),SqrtElementMetric
     REAL(KIND=dp) :: Basis(MAX_NODES),Permeability(MAX_NODES), &
              ElectricConductivity(MAX_NODES)
@@ -661,7 +659,7 @@ CONTAINS
 !   Get element info 
 !------------------------------------------------------------------------------
     stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-               Basis,dBasisdx,ddBasisddx,.FALSE. )
+               Basis,dBasisdx )
 !------------------------------------------------------------------------------
     B(1) = SUM( Basis(1:n)*Mx % Values(Mx % Perm(NodeIndexes)) )
     B(2) = SUM( Basis(1:n)*My % Values(My % Perm(NodeIndexes)) )
@@ -796,7 +794,6 @@ CONTAINS
     INTEGER :: Perm(3,3,3)
     INTEGER, POINTER :: NodeIndexes(:),Visited(:)
 
-    REAL(KIND=dp) :: ddBasisddx(MAX_NODES,3,3)
     REAL(KIND=dp) :: Basis(MAX_NODES),aaz(MAX_NODES)
     REAL(KIND=dp) :: dBasisdx(MAX_NODES,3),SqrtElementMetric
 
@@ -856,7 +853,7 @@ CONTAINS
 !       to global coordinates.
 !------------------------------------------------------------------------------
         stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-                  Basis,dBasisdx,ddBasisddx,.FALSE. )
+                  Basis,dBasisdx )
 !------------------------------------------------------------------------------
 !       Get coordinate system info
 !------------------------------------------------------------------------------
@@ -956,7 +953,6 @@ SUBROUTINE AxiSCurl( Ar,Az,Ap,Br,Bz,Bp,Reorder )
 
   REAL(KIND=dp) :: u,v,w,r
 
-  REAL(KIND=dp) :: ddBasisddx(MAX_NODES,3,3)
   REAL(KIND=dp) :: Basis(MAX_NODES)
   REAL(KIND=dp) :: dBasisdx(MAX_NODES,3),SqrtElementMetric
   
@@ -997,7 +993,7 @@ SUBROUTINE AxiSCurl( Ar,Az,Ap,Br,Bz,Bp,Reorder )
            END IF
 
            stat = ElementInfo( Element, Nodes, u, v, w, SqrtElementMetric, &
-                          Basis, dBasisdx, ddBasisddx, .FALSE. )
+                          Basis, dBasisdx )
 
            r = SUM( Basis(1:n) * Nodes % x(1:n) )
 
@@ -1054,7 +1050,6 @@ SUBROUTINE WhitneyCurl( Ae,Bx,By,Bz,Reorder,nedges )
 
     INTEGER, POINTER :: NodeIndexes(:),Visited(:)
 
-    REAL(KIND=dp) :: ddBasisddx(MAX_NODES,3,3)
     REAL(KIND=dp) :: Basis(MAX_NODES),aaz(MAX_NODES)
     REAL(KIND=dp) :: dBasisdx(MAX_NODES,3),SqrtElementMetric
     REAL(KIND=dp) :: WhitneyBasis(nedges,3)
@@ -1111,7 +1106,7 @@ SUBROUTINE WhitneyCurl( Ae,Bx,By,Bz,Reorder,nedges )
 !       to global coordinates.
 !------------------------------------------------------------------------------
         stat = ElementInfo( Element, Nodes, u, v, w, SqrtElementMetric, &
-                    Basis, dBasisdx, ddBasisddx, .FALSE. )
+                    Basis, dBasisdx )
 
         stat = WhitneyElementInfo( Element, Basis, dBasisdx,&
                nedges, WhitneyBasis, dWhitneyBasisdx )
@@ -1170,7 +1165,6 @@ SUBROUTINE Divergence(dive,Ar,Az,Aphi,Reorder)
 
   INTEGER, POINTER :: NodeIndexes(:),Visited(:)
   
-  REAL(KIND=dp) :: ddBasisddx(MAX_NODES,3,3)
   REAL(KIND=dp) :: Basis(MAX_NODES)
   REAL(KIND=dp) :: dBasisdx(MAX_NODES,3),SqrtElementMetric
 
@@ -1212,7 +1206,7 @@ SUBROUTINE Divergence(dive,Ar,Az,Aphi,Reorder)
      END IF
 
      stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-         Basis,dBasisdx,ddBasisddx,.FALSE. )
+         Basis,dBasisdx )
 
      r = SUM(Basis(1:n)*nodes % x(1:n))
 
@@ -1300,7 +1294,7 @@ END SUBROUTINE Divergence
     INTEGER :: N_Integ
     DOUBLE PRECISION, DIMENSION(:), POINTER :: U_Integ,V_Integ,W_Integ,S_Integ
     INTEGER, POINTER :: NodeIndexes(:)
-    DOUBLE PRECISION :: Basis(27),dBasisdx(27,3),ddBasisddx(27,3,3)
+    DOUBLE PRECISION :: Basis(27),dBasisdx(27,3)
     DOUBLE PRECISION :: u,v,w,SqrtElementMetric,r,s
     DOUBLE PRECISION :: Vr,Vp,Vz,dVdx(3,3),Br,Bp,Bz,dBdx(3,3),divb,vdivb
     DOUBLE PRECISION :: iBr,iBp,iBz,eBr,eBp,eBz,idBdx(3,3),edBdx(3,3)
@@ -1363,7 +1357,7 @@ END SUBROUTINE Divergence
      END IF
 
      stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-         Basis,dBasisdx,ddBasisddx,.FALSE. )
+         Basis,dBasisdx )
 
      r = SUM(Basis(1:n)*nodes % x(1:n))
 
@@ -1398,7 +1392,7 @@ END SUBROUTINE Divergence
         w = W_Integ(i)
       
         stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-            Basis,dBasisdx,ddBasisddx,.FALSE. )
+            Basis,dBasisdx )
 
         r = SUM( Basis(1:n)*nodes%x(1:n) )
         s = r * SqrtElementMetric * S_Integ(i)

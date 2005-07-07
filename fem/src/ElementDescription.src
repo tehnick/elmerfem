@@ -35,6 +35,10 @@
 ! *
 ! *
 ! * $Log: ElementDescription.src,v $
+! * Revision 1.12  2005/06/30 08:34:34  jpr
+! * Reactivated ElementInfo argument BasisDegree that returns degree of
+! * each basis term of p-elements.
+! *
 ! * Revision 1.11  2005/06/30 08:28:17  jpr
 ! * Still a bug in #bubbles => p-degree.
 ! *
@@ -80,7 +84,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: ElementDescription.src,v 1.11 2005/06/30 08:28:17 jpr Exp $
+! * $Id: ElementDescription.src,v 1.12 2005/06/30 08:34:34 jpr Exp $
 ! ******************************************************************************/
 
 MODULE ElementDescription
@@ -1876,9 +1880,10 @@ END IF
    END FUNCTION SecondDerivatives3D
 !------------------------------------------------------------------------------
 
+
 !------------------------------------------------------------------------------
-   RECURSIVE FUNCTION ElementInfo( Element,Nodes,u,v,w,detJ, &
-     Basis,dBasisdx,ddBasisddx,SecondDerivatives,Bubbles,BasisDegree ) RESULT(stat)
+   RECURSIVE FUNCTION ElementInfo( Element, Nodes, u, v, w, detJ, &
+     Basis, dBasisdx, ddBasisddx, SecondDerivatives, Bubbles, BasisDegree ) RESULT(stat)
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -1913,7 +1918,7 @@ END IF
 !            if requested
 !
 !  LOGICAL :: SecondDerivatives
-!    INPUT:  Are the second derivatives needed ?
+!    INPUT:  Are the second derivatives needed? (still present for historical reasons)
 !
 !  INTEGER, OPTIONAL :: BasisDegree
 !    INPUT:  Degree of each basis function in Basis(:) vector. May be used with
@@ -1930,7 +1935,8 @@ END IF
      Type(Element_t), TARGET :: Element
      Type(Nodes_t)   :: Nodes
      REAL(KIND=dp) :: u,v,w,detJ
-     REAL(KIND=dp) :: Basis(:),dBasisdx(:,:),ddBasisddx(:,:,:)
+     REAL(KIND=dp) :: Basis(:)
+     REAL(KIND=dp), OPTIONAL :: dBasisdx(:,:),ddBasisddx(:,:,:)
      INTEGER, OPTIONAL :: BasisDegree(:)
      LOGICAL, OPTIONAL :: SecondDerivatives, Bubbles
 
@@ -1968,7 +1974,7 @@ END IF
 !    Basis function derivatives with respect to local coordinates
 !------------------------------------------------------------------------------
      DO q=1,N
-        NodalBasis(q) = 1.0d0
+        NodalBasis(q)  = 1.0d0
         dLBasisdx(q,:) = 0.0d0
         SELECT CASE(dim)
         CASE (1)
@@ -2003,7 +2009,6 @@ END IF
 !------------------------------------------------------------------------------
 !    Basis function values and global derivatives
 !------------------------------------------------------------------------------
-     dBasisdx = 0.0d0
      DO q=1,N
        NodalBasis(q) = 1.0d0
        SELECT CASE(dim)
@@ -2033,16 +2038,16 @@ END IF
 
      ! P ELEMENT CODE:
      ! ---------------
-     IF (ASSOCIATED(Element % PDefs) ) THEN
+     IF ( isPElement(element) ) THEN
 
       ! Check for need of P basis degrees and set degree of
       ! linear basis if vector asked:
       ! ---------------------------------------------------
       degrees = .FALSE.
       IF ( PRESENT(BasisDegree)) THEN 
-         degrees = .TRUE.
-         BasisDegree = 0
-         BasisDegree(1:n) = 1
+        degrees = .TRUE.
+        BasisDegree = 0
+        BasisDegree(1:n) = 1
       END IF
 
 !------------------------------------------------------------------------------
@@ -2078,7 +2083,7 @@ END IF
 
 !------------------------------------------------------------------------------
 ! P element code for edges and bubbles of triangle
-     CASE(303,306)
+     CASE(303)
         ! Edges of triangle
         IF ( ASSOCIATED( Element % EdgeIndexes ) ) THEN
            ! For each edge calculate the value of edge basis function
@@ -2158,7 +2163,7 @@ END IF
         END IF
 !------------------------------------------------------------------------------
 ! P element code for quadrilateral edges and bubbles 
-     CASE(404,408)
+     CASE(404)
         ! Edges of p quadrilateral
         IF ( ASSOCIATED( Element % EdgeIndexes ) ) THEN
            ! For each edge begin node calculate values of edge functions 
@@ -2246,7 +2251,7 @@ END IF
         END IF
 !------------------------------------------------------------------------------
 ! P element code for tetrahedron edges, faces and bubbles
-     CASE( 504 ) 
+     CASE(504) 
         ! Edges of p tetrahedron
         IF ( ASSOCIATED( Element % EdgeIndexes ) ) THEN   
            ! For each edge calculate value of edge functions
@@ -2344,7 +2349,7 @@ END IF
         END IF
 !------------------------------------------------------------------------------
 ! P element code for pyramid edges, faces and bubbles
-     CASE( 605 )
+     CASE(605)
         ! Edges of P Pyramid
         IF (ASSOCIATED( Element % EdgeIndexes ) ) THEN
            ! For each edge in wedge, calculate values of edge functions
@@ -2487,7 +2492,7 @@ END IF
         
 !------------------------------------------------------------------------------
 ! P element code for wedge edges, faces and bubbles
-     CASE( 706 )
+     CASE(706)
         ! Edges of P Wedge
         IF (ASSOCIATED( Element % EdgeIndexes ) ) THEN
            ! For each edge in wedge, calculate values of edge functions
@@ -2647,7 +2652,7 @@ END IF
 
 !------------------------------------------------------------------------------
 ! P element code for brick edges, faces and bubbles
-     CASE( 808 ) 
+     CASE(808) 
         ! Edges of P brick
         IF ( ASSOCIATED( Element % EdgeIndexes ) ) THEN
            ! For each edge in brick, calculate values of edge functions 
@@ -2771,7 +2776,7 @@ END IF
 
      ! Element (contravariant) metric and square root of determinant
      !--------------------------------------------------------------
-     stat = ElementMetric( q, Element, Nodes, ElmMetric, detJ, dLBasisdx, LtoGMap)
+     stat = ElementMetric( q, Element, Nodes, ElmMetric, detJ, dLBasisdx, LtoGMap )
 
      ! If degenerate element, dont even try it:
      !-----------------------------------------
@@ -2779,20 +2784,24 @@ END IF
 
      ! Get global first derivatives:
      !------------------------------
-     dBasisdx(1:q,1:cdim) = MATMUL( dlBasisdx(1:q,1:dim), &
-            TRANSPOSE( LtoGMap(1:cdim,1:dim)) )
+     IF ( PRESENT(dBasisdx) ) THEN
+       dBasisdx = 0.0d0
+       dBasisdx(1:q,1:cdim) = MATMUL( dLBasisdx(1:q,1:dim), &
+              TRANSPOSE(LtoGMap(1:cdim,1:dim)) )
+     END IF
 
-!------------------------------------------------------------------------------
-!    Get matrix of second derivatives, if needed
-!------------------------------------------------------------------------------
-     IF ( SecondDerivatives ) THEN
-       ddBasisddx(1:n,:,:) = 0.0d0
-       DO q=1,N
-         NodalBasis(q) = 1.0d0
-         CALL GlobalSecondDerivatives(element,nodes,NodalBasis, &
-             ddBasisddx(q,:,:),u,v,w,ElmMetric,dLBasisdx )
-         NodalBasis(q) = 0.0d0
-       END DO
+     ! Get matrix of second derivatives, if needed:
+     !---------------------------------------------
+     IF ( PRESENT(ddBasisddx) .AND. PRESENT(SecondDerivatives) ) THEN
+       IF ( SecondDerivatives ) THEN
+         ddBasisddx(1:n,:,:) = 0.0d0
+         DO q=1,n
+           NodalBasis(q) = 1.0d0
+           CALL GlobalSecondDerivatives(element,nodes,NodalBasis, &
+               ddBasisddx(q,:,:),u,v,w,ElmMetric,dLBasisdx )
+           NodalBasis(q) = 0.0d0
+         END DO
+       END IF
      END IF
 
 !------------------------------------------------------------------------------
@@ -2822,7 +2831,7 @@ END IF
                 Bubble % Type => GetElementType(202)
 
                 stat = ElementInfo( Bubble, nodes, u, v, w, detJ, &
-                  LinBasis, dLinBasisdx, ddBasisddx, .FALSE., .FALSE. )
+                          LinBasis, dLinBasisdx )
               END IF
 
               BubbleValue = LinBasis(1) * LinBasis(2)
@@ -2849,7 +2858,7 @@ END IF
                 Bubble % Type => GetElementType(303)
 
                 stat = ElementInfo( Bubble, nodes, u, v, w, detJ, &
-                  LinBasis, dLinBasisdx, ddBasisddx, .FALSE., .FALSE. )
+                            LinBasis, dLinBasisdx )
               END IF
   
               BubbleValue = LinBasis(1) * LinBasis(2) * LinBasis(3)
@@ -2879,7 +2888,7 @@ END IF
                 Bubble % Type => GetElementType(404)
 
                 stat = ElementInfo( Bubble, nodes, u, v, w, detJ, &
-                  LinBasis, dLinBasisdx, ddBasisddx, .FALSE., .FALSE. )
+                             LinBasis, dLinBasisdx )
               END IF
 
               BubbleValue = LinBasis(1) * LinBasis(3)
@@ -2906,7 +2915,7 @@ END IF
                 Bubble % Type => GetElementType(504)
 
                 stat = ElementInfo( Bubble, nodes, u, v, w, detJ, &
-                   LinBasis, dLinBasisdx, ddBasisddx, .FALSE., .FALSE. )
+                            LinBasis, dLinBasisdx )
               END IF
 
               BubbleValue = LinBasis(1) * LinBasis(2) * LinBasis(3) * LinBasis(4)
@@ -2938,7 +2947,7 @@ END IF
                 Bubble % Type => GetElementType(808)
 
                 stat = ElementInfo( Bubble, nodes, u, v, w, detJ, &
-                  LinBasis, dLinBasisdx, ddBasisddx, .FALSE., .FALSE. )
+                  LinBasis, dLinBasisdx )
               END IF
 
               BubbleValue = LinBasis(1) * LinBasis(7)
@@ -3323,8 +3332,8 @@ END IF
      z => Nodes % z
 
      cdim = CoordinateSystemDimension()
-     dim  = elm % Type % Dimension
      n = MIN( SIZE(x), nDOFs )
+     dim  = elm % Type % Dimension
 
 !------------------------------------------------------------------------------
 !    Partial derivatives of global coordinates with respect to local coordinates
