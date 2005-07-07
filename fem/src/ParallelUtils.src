@@ -104,7 +104,7 @@ CONTAINS
        END DO
 
        Matrix % ParMatrix => &
-          ParInitMatrix( Matrix, Solver % Mesh % Nodes, DOFs )
+          ParInitMatrix( Matrix, Solver % Mesh % ParallelInfo, DOFs )
 #endif
 !-------------------------------------------------------------------------------
     END SUBROUTINE ParallelInitMatrix
@@ -120,7 +120,7 @@ CONTAINS
        TYPE(Matrix_t), POINTER :: Matrix
 !-------------------------------------------------------------------------------
 #ifdef PARALLEL_FOR_REAL
-       CALL SParInitSolve( Matrix, x, b, r, DOFs, Mesh % Nodes )
+       CALL SParInitSolve( Matrix, x, b, r, DOFs, Mesh % ParallelInfo )
 #endif
 !-------------------------------------------------------------------------------
     END SUBROUTINE ParallelInitSolve
@@ -339,32 +339,32 @@ CONTAINS
 
 
 !-------------------------------------------------------------------------------
-    SUBROUTINE ParallelGlobalNumbering(Nodes,NewNodes,IntCnts,IntArray,Reorder)
+    SUBROUTINE ParallelGlobalNumbering(Mesh,NewNodes,IntCnts,IntArray,Reorder)
 !-------------------------------------------------------------------------------
-       TYPE(Nodes_t) :: Nodes
+       TYPE(Mesh_t) :: Mesh
        INTEGER :: NewNodes,IntCnts(:),IntArray(:),Reorder(:)
 !-------------------------------------------------------------------------------
 #ifdef PARALLEL_FOR_REAL
-        CALL SparGlobalNumbering( Nodes,NewNodes,IntCnts,IntArray,Reorder )
+        CALL SparGlobalNumbering( Mesh,NewNodes,IntCnts,IntArray,Reorder )
 #endif
 !-------------------------------------------------------------------------------
     END SUBROUTINE ParallelGlobalNumbering
 !-------------------------------------------------------------------------------
 
 !-------------------------------------------------------------------------------
-    SUBROUTINE ParallelIter( SourceMatrix, Nodes, DOFs, XVec, &
+    SUBROUTINE ParallelIter( SourceMatrix, ParallelInfo, DOFs, XVec, &
               RHSVec, Solver, SParMatrixDesc )
 !-------------------------------------------------------------------------------
                                                                                                                                
        TYPE (Matrix_t) :: SourceMatrix
-       TYPE (Nodes_t) :: Nodes
+       TYPE (ParallelInfo_t) :: ParallelInfo
        INTEGER :: DOFs
        REAL(KIND=dp), DIMENSION(:) :: XVec, RHSVec
        TYPE (Solver_t) :: Solver
        TYPE (SParIterSolverGlobalD_t), POINTER :: SParMatrixDesc
                                                                                                                                
 #ifdef PARALLEL_FOR_REAL
-       CALL SParIterSolver( SourceMatrix, Nodes, DOFs, XVec, &
+       CALL SParIterSolver( SourceMatrix, ParallelInfo, DOFs, XVec, &
                  RHSVec, Solver, SParMatrixDesc )
 #endif
 !-------------------------------------------------------------------------------

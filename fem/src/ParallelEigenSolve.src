@@ -296,7 +296,7 @@ INCLUDE "mpif.h"
                   j = 0
                   DO i=1,n
                      k = (Matrix % INVPerm(i) + DOFs-1) / DOFs
-                     IF ( Solver % Mesh % Nodes % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+                     IF ( Solver % Mesh % ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
                         j = j + 1
                         ForceVector(i) = b(j)
                         Solution(i)    = x(j)
@@ -310,7 +310,7 @@ INCLUDE "mpif.h"
                   j = 0
                   DO i=1,n
                      k = (Matrix % INVPerm(i) + DOFs-1) / DOFs
-                     IF ( Solver % Mesh % Nodes % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+                     IF ( Solver % Mesh % ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
                         j = j + 1
                         x(j) = Solution(i)
                      END IF
@@ -337,7 +337,7 @@ INCLUDE "mpif.h"
                   j = 0
                   DO i=1,n
                      k = (Matrix % INVPerm(i) + DOFs-1) / DOFs
-                     IF ( Solver % Mesh % Nodes % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+                     IF ( Solver % Mesh % ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
                         j = j + 1
                         ForceVector(i) = b(j)
                         Solution(i)    = x(j)
@@ -351,7 +351,7 @@ INCLUDE "mpif.h"
                   j = 0
                   DO i=1,n
                      k = (Matrix % INVPerm(i) + DOFs-1) / DOFs
-                     IF ( Solver % Mesh % Nodes % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+                     IF ( Solver % Mesh % ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
                         j = j + 1
                         x(j) = Solution(i)
                      END IF

@@ -34,6 +34,9 @@
 ! *       Date of modification:
 ! *
 ! * $Log: DefUtils.src,v $
+! * Revision 1.8  2005/07/07 09:12:25  jpr
+! * Changed ElementInfo to have dBasisdx,ddBasisddx as OPTIONAL arguments. Changed all calls to ElementInfo accordingly.
+! *
 ! * Revision 1.7  2005/06/29 13:27:08  jpr
 ! * Correted a bug in GetElementDOFs.
 ! *
@@ -91,7 +94,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.7 2005/06/29 13:27:08 jpr Exp $
+! * $Id: DefUtils.src,v 1.8 2005/07/07 09:12:25 jpr Exp $
 ! *
 ! *****************************************************************************/
 
@@ -1955,6 +1958,7 @@ CONTAINS
 !******************************************************************************
 !------------------------------------------------------------------------------
     IMPLICIT NONE
+
     TYPE(Element_t), POINTER :: Element
     INTEGER :: nd
     REAL(KIND=dp) :: Force(:), STIFF(:,:)
@@ -1962,7 +1966,7 @@ CONTAINS
     CHARACTER(LEN=MAX_NAME_LEN) :: Name
 !------------------------------------------------------------------------------
     TYPE(GaussIntegrationPoints_t) :: IP
-    INTEGER :: i,j,p,q,t,n
+    INTEGER :: p,q,t
     REAL(KIND=dp) :: Basis(nd)
     REAL(KIND=dp) :: xip,yip,zip,s,DetJ,Load
     LOGICAL :: stat
@@ -1970,14 +1974,12 @@ CONTAINS
     SAVE Nodes
 !------------------------------------------------------------------------------
 
-    n = Element % Type % NumberOfNodes    
-
     ! Get nodes of boundary elements parent and gauss points for boundary
     CALL GetElementNodes( Nodes, Element )
     IP = GaussPoints( Element )
 
-    STIFF(1:nd,1:nd) = 0.0d0
     FORCE(1:nd) = 0.0d0
+    STIFF(1:nd,1:nd) = 0.0d0
 
     DO t=1,IP % n
        stat = ElementInfo( Element, Nodes, IP % u(t), &

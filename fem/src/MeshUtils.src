@@ -33,6 +33,9 @@
 ! *       Date of modification: 27.8.2002
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.12  2005/07/07 10:18:18  jpr
+! * Removed unused fields of Nodes_t: Perm,INVPerm
+! *
 ! * Revision 1.11  2005/07/01 07:47:55  vierinen
 ! * updated dependencies
 ! *
@@ -77,7 +80,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.11 2005/07/01 07:47:55 vierinen Exp $
+! * $Id: MeshUtils.src,v 1.12 2005/07/07 10:18:18 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -190,9 +193,10 @@ CONTAINS
      NULLIFY( Mesh % Nodes % x )
      NULLIFY( Mesh % Nodes % y )
      NULLIFY( Mesh % Nodes % z )
-     NULLIFY( Mesh % Nodes % INTERFACE )
-     NULLIFY( Mesh % Nodes % NeighbourList )
-     NULLIFY( Mesh % Nodes % GlobalNodeNumber )
+     Mesh % ParallelInfo % NumberOfIfDOFs =  0
+     NULLIFY( Mesh % ParallelInfo % GlobalDOFs )
+     NULLIFY( Mesh % ParallelInfo % INTERFACE )
+     NULLIFY( Mesh % ParallelInfo % NeighbourList )
 !------------------------------------------------------------------------------
    END FUNCTION AllocateMesh
 !------------------------------------------------------------------------------
@@ -315,9 +319,9 @@ CONTAINS
 !    Mesh nodes
 !------------------------------------------------------------------------------
     CALL AllocateVector( cCoord, 3*Mesh % NumberOfNodes, 'LoadMesh' )
-    CALL AllocateVector( Mesh % Nodes % GlobalNodeNumber, Mesh % NumberOfNodes, 'LoadMesh' )
+    CALL AllocateVector( Mesh % ParallelInfo % GlobalDOFs, Mesh % NumberOfNodes, 'LoadMesh' )
 
-    NodeTags => Mesh % Nodes % GlobalNodeNumber
+    NodeTags => Mesh % ParallelInfo % GlobalDOFs
     CALL eio_get_mesh_nodes( NodeTags,cCoord,eio_info )
 
     CoordMap => ListGetIntegerArray( Model % Simulation, &
@@ -643,20 +647,20 @@ CONTAINS
     NULLIFY( Model % BoundaryCurvatures )
 !------------------------------------------------------------------------------
 
-    Mesh % Nodes % NumberOfIfNodes = 0
+    Mesh % ParallelInfo % NumberOfIfDOFs = 0
 
     IF ( parallel ) THEN
       CALL eio_get_part_description( fields,eio_info )
 
-      ALLOCATE( Mesh % Nodes % NeighbourList(Mesh % NumberOfNodes), STAT=istat )
+      ALLOCATE( Mesh % ParallelInfo % NeighbourList(Mesh % NumberOfNodes), STAT=istat )
       IF ( istat /= 0 ) CALL Fatal( 'LoadMesh', 'Unable to allocate mesh arrays.' )
 
       DO i=1,Mesh % NumberOfNodes
-        NULLIFY( Mesh % Nodes % NeighbourList(i) % Neighbours )
+        NULLIFY( Mesh % ParallelInfo % NeighbourList(i) % Neighbours )
       END DO
 
-      CALL AllocateVector( Mesh % Nodes % INTERFACE, Mesh % NumberOfNodes, 'LoadMesh')
-      Mesh % Nodes % INTERFACE = .FALSE.
+      CALL AllocateVector( Mesh % ParallelInfo % INTERFACE, Mesh % NumberOfNodes, 'LoadMesh')
+      Mesh % ParallelInfo % INTERFACE = .FALSE.
 
       DO i=1,fields
         CALL eio_get_part_node( tag,bndry,coord,npart,parts,eio_info )
@@ -664,18 +668,18 @@ CONTAINS
            CALL Fatal( 'LoadMesh', 'Error in shared nodes definition.' )
         k = LocalPerm( tag-MinIndex+1 )
 
-        Mesh % Nodes % INTERFACE(k) = .TRUE.
-        CALL AllocateVector( Mesh % Nodes % NeighbourList(k) % Neighbours, npart )
-        Mesh % Nodes % NeighbourList(k) % Neighbours = parts(1:npart) - 1
+        Mesh % ParallelInfo % INTERFACE(k) = .TRUE.
+        CALL AllocateVector( Mesh % ParallelInfo % NeighbourList(k) % Neighbours, npart )
+        Mesh % ParallelInfo % NeighbourList(k) % Neighbours = parts(1:npart) - 1
 
-        IF ( parts(1)-1 /= mype ) Mesh % Nodes % NumberOfIfNodes = &
-                  Mesh % Nodes % NumberOfIfNodes + 1
+        IF ( parts(1)-1 /= mype ) Mesh % ParallelInfo % NumberOfIfDOFs = &
+                  Mesh % ParallelInfo % NumberOfIfDOFs + 1
       END DO
 
       DO i=1,Mesh % NumberOfNodes
-        IF ( .NOT.ASSOCIATED( Mesh % Nodes % NeighbourList(i) % Neighbours) ) THEN
-           CALL AllocateVector(Mesh % Nodes % NeighbourList(i) % Neighbours, 1 )
-           Mesh % Nodes % NeighbourList(i) % Neighbours(1) = mype
+        IF ( .NOT.ASSOCIATED( Mesh % ParallelInfo % NeighbourList(i) % Neighbours) ) THEN
+           CALL AllocateVector(Mesh % ParallelInfo % NeighbourList(i) % Neighbours, 1 )
+           Mesh % ParallelInfo % NeighbourList(i) % Neighbours(1) = mype
         END IF
       END DO
     END IF
@@ -3625,21 +3629,21 @@ CONTAINS
 !      execution:
 !      ----------------------------------------------------
        n = NewMesh % NumberOfNodes
-       ALLOCATE( NewMesh % Nodes % NeighbourList(n) )
-       CALL AllocateVector( NewMesh % Nodes % INTERFACE,n  )
-       CALL AllocateVector( NewMesh % Nodes % GlobalNodeNumber,n )
+       ALLOCATE( NewMesh % ParallelInfo % NeighbourList(n) )
+       CALL AllocateVector( NewMesh % ParallelInfo % INTERFACE,n  )
+       CALL AllocateVector( NewMesh % ParallelInfo % GlobalDOFs,n )
 
        DO i=1,n
-          NULLIFY( NewMesh % Nodes % NeighbourList(i) % Neighbours )
+          NULLIFY( NewMesh % ParallelInfo % NeighbourList(i) % Neighbours )
        END DO
 
        n = Mesh % NumberOfNodes
-       NewMesh % Nodes % INTERFACE = .FALSE.
-       NewMesh % Nodes % INTERFACE(1:n) = Mesh % Nodes % INTERFACE
+       NewMesh % ParallelInfo % INTERFACE = .FALSE.
+       NewMesh % ParallelInfo % INTERFACE(1:n) = Mesh % ParallelInfo % INTERFACE
 
-       NewMesh % Nodes % GlobalNodeNumber = 0
-       NewMesh % Nodes % GlobalNodeNumber(1:n) = &
-           Mesh % Nodes % GlobalNodeNumber
+       NewMesh % ParallelInfo % GlobalDOFs = 0
+       NewMesh % ParallelInfo % GlobalDOFs(1:n) = &
+          Mesh % ParallelInfo % GlobalDOFs
 !
 !      My theory is, that a new node will be an
 !      interface node only if all the edge or face
@@ -3652,8 +3656,8 @@ CONTAINS
        k = 0 ! For memory allocation
        DO i = 1,Mesh % NumberOfEdges
           Edge => Mesh % Edges(i)
-          IF ( ALL(Mesh % Nodes % INTERFACE(Edge % NodeIndexes)) ) THEN
-             NewMesh % Nodes % INTERFACE(Mesh % NumberOfNodes+i) = .TRUE.
+          IF ( ALL(Mesh % ParallelInfo % INTERFACE(Edge % NodeIndexes)) ) THEN
+             NewMesh % ParallelInfo % INTERFACE(Mesh % NumberOfNodes+i) = .TRUE.
              j = j + 1
              k = k + Edge % TYPE % NumberOfNodes
           END IF
@@ -3667,8 +3671,8 @@ CONTAINS
        DO i = 1,Mesh % NumberOfFaces
           Face => Mesh % Faces(i) 
           IF( Face % TYPE % NumberOfNodes == 4 ) THEN
-             IF ( ALL( Mesh % Nodes % INTERFACE( Face % NodeIndexes ) ) ) THEN
-                NewMesh % Nodes % INTERFACE( Mesh % NumberOfNodes &
+             IF ( ALL( Mesh % ParallelInfo % INTERFACE( Face % NodeIndexes ) ) ) THEN
+                NewMesh % ParallelInfo % INTERFACE( Mesh % NumberOfNodes &
                      + Mesh % NumberOfEdges + i ) = .TRUE.
                 j = j + 1
                 k = k + Face % TYPE % NumberOfNodes
@@ -3684,11 +3688,11 @@ CONTAINS
 !      Old mesh nodes were copied as is...
 !      -----------------------------------
        DO i=1,Mesh % NumberOfNodes
-          CALL AllocateVector( NewMesh % Nodes % NeighbourList(i) % Neighbours, &
-             SIZE( Mesh % Nodes % Neighbourlist(i) % Neighbours ) )
+          CALL AllocateVector( NewMesh % ParallelInfo % NeighbourList(i) % Neighbours, &
+             SIZE( Mesh % ParallelInfo % Neighbourlist(i) % Neighbours ) )
 
-          NewMesh % Nodes % NeighbourList(i) % Neighbours = &
-             Mesh % Nodes % NeighbourList(i) % Neighbours
+          NewMesh % ParallelInfo % NeighbourList(i) % Neighbours = &
+             Mesh % ParallelInfo % NeighbourList(i) % Neighbours
        END DO
 !
 !      Take care of the new mesh internal nodes.
@@ -3696,9 +3700,9 @@ CONTAINS
 !      of the interface nodes:
 !      ----------------------------------------
        DO i=Mesh % NumberOfNodes+1, NewMesh % NumberOfNodes
-          IF ( .NOT. NewMesh % Nodes % INTERFACE(i) ) THEN
-             CALL AllocateVector( NewMesh % Nodes % NeighbourList(i) % Neighbours,1 )
-             NewMesh % Nodes % NeighbourList(i) %  Neighbours(1) = ParEnv % MyPE
+          IF ( .NOT. NewMesh % ParallelInfo % INTERFACE(i) ) THEN
+             CALL AllocateVector( NewMesh % ParallelInfo % NeighbourList(i) % Neighbours,1 )
+             NewMesh % ParallelInfo % NeighbourList(i) %  Neighbours(1) = ParEnv % MyPE
           END IF
        END DO
 !
@@ -3710,11 +3714,11 @@ CONTAINS
        k = 0
        DO i = 1,Mesh % NumberOfEdges
           Edge => Mesh % Edges(i)
-          IF ( ALL(Mesh % Nodes % INTERFACE(Edge % NodeIndexes)) ) THEN
+          IF ( ALL(Mesh % ParallelInfo % INTERFACE(Edge % NodeIndexes)) ) THEN
              j = j + 1
              IntCnts(j) = Edge % TYPE % NumberOfNodes
              IntArray( k+1:k+IntCnts(j) ) = &
-                Mesh % Nodes % GlobalNodeNumber(Edge % NodeIndexes)
+                Mesh % Parallelinfo % GlobalDOFs(Edge % NodeIndexes)
              CALL Sort( IntCnts(j), IntArray(k+1:k+IntCnts(j)) )
              k = k + IntCnts(j)
           END IF
@@ -3725,11 +3729,11 @@ CONTAINS
        DO i = 1,Mesh % NumberOfFaces
           Face => Mesh % Faces(i)
           IF( Face % TYPE % NumberOfNodes == 4 ) THEN
-             IF ( ALL( Mesh % Nodes % INTERFACE(Face % NodeIndexes) ) ) THEN
+             IF ( ALL( Mesh % ParallelInfo % INTERFACE(Face % NodeIndexes) ) ) THEN
                 j = j + 1
                 IntCnts(j) = Face % TYPE % NumberOfNodes
                 IntArray(k+1:k+IntCnts(j)) = &
-                     Mesh % Nodes % GlobalNodeNumber(Face % NodeIndexes)
+                     Mesh % ParallelInfo % GlobalDOFs(Face % NodeIndexes)
                 CALL Sort( IntCnts(j), IntArray(k+1:k+IntCnts(j)) )
                 k = k + IntCnts(j)
              END IF
@@ -3745,8 +3749,7 @@ CONTAINS
        Reorder = (/ (i, i=1,NewMesh % NumberOfNodes) /)
 
        k = NewMesh % Nodes % NumberOfNodes - Mesh % Nodes % NumberOfNodes
-       CALL ParallelGlobalNumbering( NewMesh % Nodes, k, &
-                 IntCnts, IntArray, Reorder )
+       CALL ParallelGlobalNumbering( NewMesh, k, IntCnts, IntArray, Reorder )
 
 !      Account for the reordering of the nodes:
 !      ----------------------------------------
@@ -3896,8 +3899,8 @@ CONTAINS
         IF ( ASSOCIATED( Mesh % Nodes % y ) ) DEALLOCATE( Mesh % Nodes % y )
         IF ( ASSOCIATED( Mesh % Nodes % z ) ) DEALLOCATE( Mesh % Nodes % z )
 
-        IF ( ASSOCIATED( Mesh % Nodes % GlobalNodeNumber ) ) &
-           DEALLOCATE( Mesh % Nodes % GlobalNodeNumber )
+        IF ( ASSOCIATED( Mesh % ParallelInfo % GlobalDOFs ) ) &
+           DEALLOCATE( Mesh % ParallelInfo % GlobalDOFs )
 
         DEALLOCATE( Mesh % Nodes )
      END IF

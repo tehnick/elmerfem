@@ -35,6 +35,9 @@
 ! *
 ! *
 ! * $Log: ElementDescription.src,v $
+! * Revision 1.13  2005/07/07 09:12:25  jpr
+! * Changed ElementInfo to have dBasisdx,ddBasisddx as OPTIONAL arguments. Changed all calls to ElementInfo accordingly.
+! *
 ! * Revision 1.12  2005/06/30 08:34:34  jpr
 ! * Reactivated ElementInfo argument BasisDegree that returns degree of
 ! * each basis term of p-elements.
@@ -84,7 +87,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: ElementDescription.src,v 1.12 2005/06/30 08:34:34 jpr Exp $
+! * $Id: ElementDescription.src,v 1.13 2005/07/07 09:12:25 jpr Exp $
 ! ******************************************************************************/
 
 MODULE ElementDescription
@@ -1910,14 +1913,14 @@ END IF
 !  REAL(KIND=dp) :: Basis(:)
 !    OUTPUT: Basis function values at (u,v,w)
 !
-!  REAL(KIND=dp) :: dBasisdx(:,:)
+!  REAL(KIND=dp), OPTIONAL :: dBasisdx(:,:)
 !    OUTPUT: Global first derivatives of basis functions at (u,v,w)
 !
-!  REAL(KIND=dp) :: ddBasisddx(:,:)
+!  REAL(KIND=dp), OPTIONAL :: ddBasisddx(:,:)
 !    OUTPUT: Global second derivatives of basis functions at (u,v,w),
 !            if requested
 !
-!  LOGICAL :: SecondDerivatives
+!  LOGICAL, OPTIONAL :: SecondDerivatives
 !    INPUT:  Are the second derivatives needed? (still present for historical reasons)
 !
 !  INTEGER, OPTIONAL :: BasisDegree
@@ -1961,15 +1964,13 @@ END IF
      cdim = CoordinateSystemDimension()
 
      IF ( Element % Type % ElementCode == 101 ) THEN
-        Basis(1)      = 1
-        dBasisdx(1,1) = 0
-        dBasisdx(1,2) = 0
-        dBasisdx(1,3) = 0
-        detJ = 1
+        detJ = 1.0d0
+        Basis(1) = 1.0d0
+        IF ( PRESENT(dBasisdx) ) dBasisdx(1,:) = 0.0d0
         RETURN
      END IF
 
-     NodalBasis = 0.0d0
+     NodalBasis(1:n) = 0.0d0
 !------------------------------------------------------------------------------
 !    Basis function derivatives with respect to local coordinates
 !------------------------------------------------------------------------------
@@ -2226,7 +2227,7 @@ END IF
            DO i=2,(p-2)
               DO j=2,(p-i)
                  q = q + 1
-                 IF ( q > SIZE(Basis) .OR. q > SIZE(dBasisdx,1) ) THEN
+                 IF ( q > SIZE(Basis) ) THEN
 !                   WRITE (*,*) 'Not enough space reserved for bubble p basis'
                     CYCLE
                  END IF

@@ -161,7 +161,7 @@ MODULE Types
   TYPE SParIterSolverGlobalD_t
      TYPE (SplittedMatrixT), POINTER :: SplittedMatrix
      TYPE (Matrix_t), POINTER :: Matrix
-     TYPE (Nodes_t), POINTER :: Nodes
+     TYPE (ParallelInfo_t), POINTER :: ParallelInfo
      TYPE(ParEnv_t) :: ParEnv
      INTEGER :: DOFs, RelaxIters
   END TYPE SParIterSolverGlobalD_t
@@ -341,12 +341,12 @@ MODULE Types
 
    TYPE Element_t
      TYPE(ElementType_t), POINTER :: TYPE
-     INTEGER :: BodyId
+
+     INTEGER :: BodyId, Splitted
      REAL(KIND=dp) :: StabilizationMK,hK,hConvergence
 
-     INTEGER :: Splitted
-
      TYPE(BoundaryInfo_t),  POINTER :: BoundaryInfo
+
      INTEGER :: NDOFs, BDOFs, DGDOFs
      INTEGER, DIMENSION(:), POINTER :: &
          NodeIndexes,   EdgeIndexes, FaceIndexes, &
@@ -379,12 +379,8 @@ MODULE Types
    ! prior to use of variables of this type.
    !
    TYPE Nodes_t
-     INTEGER :: NumberOfNodes,TotalNodes
+     INTEGER :: NumberOfNodes
      REAL(KIND=dp), POINTER      :: x(:),y(:),z(:)
-     LOGICAL, POINTER               :: INTERFACE(:)
-     TYPE(NeighbourList_t),POINTER  :: NeighbourList(:)
-     INTEGER, POINTER               :: GlobalNodeNumber(:)
-     INTEGER :: NumberOfIfNodes
    END TYPE Nodes_t
 
 !------------------------------------------------------------------------------
@@ -410,6 +406,16 @@ MODULE Types
      TYPE(Matrix_t), POINTER :: Matrix, TMatrix
    END TYPE Projector_t
 
+
+!------------------------------------------------------------------------------
+
+   TYPE ParallelInfo_t
+     INTEGER :: NumberOfIfDOFs
+     LOGICAL, POINTER               :: Interface(:)
+     INTEGER, POINTER               :: GlobalDOFs(:)
+     TYPE(NeighbourList_t),POINTER  :: NeighbourList(:)
+   END TYPE ParallelInfo_t
+
 !------------------------------------------------------------------------------
 
    TYPE Mesh_t
@@ -421,7 +427,8 @@ MODULE Types
 
      LOGICAL :: Changed, OutputActive, Stabilize
      INTEGER :: SavesDone, AdaptiveDepth
-     
+
+     TYPE(ParallelInfo_t) :: ParallelInfo
      TYPE(Variable_t), POINTER :: Variables
 
      TYPE(Nodes_t), POINTER :: Nodes

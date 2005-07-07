@@ -7,7 +7,7 @@
 !
 ! Author: Jouni Malinen, Juha Ruokolainen 
 !
-! $Id: SParIterComm.f90,v 1.3 2005/05/13 09:52:36 jpr Exp $
+! $Id: SParIterComm.src,v 1.1 2005/05/26 08:24:46 vierinen Exp $
 !
 !*********************************************************************
 
@@ -103,11 +103,11 @@ CONTAINS
   ! Initialize parallel execution environment
   !
 !-----------------------------------------------------------------------
-  SUBROUTINE ParEnvInit( SPMatrix, Nodes, SourceMatrix, DOFs  )
+  SUBROUTINE ParEnvInit( SPMatrix, ParallelInfo, SourceMatrix, DOFs  )
 !-----------------------------------------------------------------------
 
     TYPE(SparIterSolverGlobalD_t) :: SPMatrix
-    TYPE (Nodes_t) :: Nodes
+    TYPE (ParallelInfo_t) :: ParallelInfo
     INTEGER :: DOFs
     TYPE(Matrix_t) :: SourceMatrix
 
@@ -145,9 +145,9 @@ CONTAINS
     DO i=DOFs, SourceMatrix % NumberOfRows, DOFs
        k = SourceMatrix % INVPerm(i) / DOFs
  
-       IF ( SIZE( Nodes % NeighbourList(k) % Neighbours ) > 1 ) THEN
-          DO j = 1, SIZE( Nodes % NeighbourList(k) % Neighbours )
-             proc = Nodes % NeighbourList(k) % Neighbours(j)
+       IF ( SIZE( ParallelInfo % NeighbourList(k) % Neighbours ) > 1 ) THEN
+          DO j = 1, SIZE( ParallelInfo % NeighbourList(k) % Neighbours )
+             proc = ParallelInfo % NeighbourList(k) % Neighbours(j)
              IF ( proc /= ParEnv % MyPE ) THEN
                 IF ( .NOT. SPMatrix % ParEnv % IsNeighbour(proc+1) ) THEN
                    SPMatrix % ParEnv % IsNeighbour(proc+1) = .TRUE.
@@ -202,12 +202,12 @@ CONTAINS
 ! Try to agree about global numbering of nodes among active
 ! processes.
 !-----------------------------------------------------------------------
-   SUBROUTINE SParGlobalNumbering( Nodes,NewNodeCnt, &
+   SUBROUTINE SParGlobalNumbering( Mesh,NewNodeCnt, &
             OldIntCnts, OldIntArray, Reorder )
 !-----------------------------------------------------------------------
     USE GeneralUtils
 !-----------------------------------------------------------------------
-     TYPE(Nodes_t) :: Nodes
+     TYPE(Mesh_t) :: Mesh
      INTEGER, TARGET :: NewNodeCnt, OldIntArray(:), &
                OldIntCnts(:), Reorder(:)
 !-----------------------------------------------------------------------
@@ -233,9 +233,9 @@ CONTAINS
 !
 !    Our maximum global node index:
 !    -------------------------------
-     MaxLcl = MAXVAL( Nodes % GlobalNodeNumber )
+     MaxLcl = MAXVAL( Mesh % ParallelInfo % GlobalDOFs )
      MaxGlb = MaxLcl
-     n = Nodes % NumberOfNodes - NewNodeCnt + 1
+     n = Mesh % Nodes % NumberOfNodes - NewNodeCnt + 1
 !
 !    Lowest numbered PE will compute the size of
 !    the (old) global node array, and eventually
@@ -290,7 +290,7 @@ CONTAINS
               Lindex = 0
               IntN = IntCnts(j)
               DO k=1,IntN
-                 Lindex(k) = SearchNode( Nodes, IntArray(l+k), 1, n-1 )
+                 Lindex(k) = SearchNode( Mesh % ParallelInfo, IntArray(l+k), 1, n-1 )
               END DO
 
               IF ( ALL( Lindex(1:IntN) > 0 ) ) THEN
@@ -298,14 +298,14 @@ CONTAINS
 !                -------------------------------------
                  k2 = 0
                  k1 = 0
-                 DO k=n,Nodes % NumberOfNodes
-                    IF ( .NOT.Nodes % Interface(k) ) CYCLE
+                 DO k=n,Mesh % Nodes % NumberOfNodes
+                    IF ( .NOT.Mesh % ParallelInfo % Interface(k) ) CYCLE
 
                     k1 = k1 + 1
                     IF ( IntN == OldIntCnts(k1) ) THEN
                        IF ( ALL( IntArray(l+1:l+IntN) == &
                                     OldIntArray(k2+1:k2+IntN)) ) THEN
-                           Nodes % GlobalNodeNumber(k) = GIndices(j)
+                           Mesh % ParallelInfo % GlobalDOFs(k) = GIndices(j)
                            EXIT
                         END IF
                      END IF
@@ -335,23 +335,23 @@ CONTAINS
 !
 !    Renumber our own new set of nodes:
 !    ----------------------------------
-     DO i=n,Nodes % NumberOfNodes
-        IF ( Nodes % GlobalNodeNumber(i) == 0 ) THEN
+     DO i=n,Mesh % Nodes % NumberOfNodes
+        IF ( Mesh % ParallelInfo % GlobalDOFs(i) == 0 ) THEN
            MaxGlb = MaxGlb + 1
-           Nodes % GlobalNodeNumber(i) = MaxGlb
+           Mesh % ParallelInfo % GlobalDOFs(i) = MaxGlb
         END IF
      END DO
 !
 !    Extract interface nodes:
 !    ------------------------
-     InterfaceNodes = COUNT( Nodes % Interface(n:) )
+     InterfaceNodes = COUNT( Mesh % ParallelInfo % Interface(n:) )
      IF ( InterfaceNodes > 0 ) ALLOCATE( Gindices(InterfaceNodes) )
 
      InterfaceNodes = 0
-     DO i=n,Nodes % NumberOfNodes
-        IF ( Nodes % Interface(i) ) THEN
+     DO i=n,Mesh % Nodes % NumberOfNodes
+        IF ( Mesh % ParallelInfo % Interface(i) ) THEN
            InterfaceNodes = InterfaceNodes + 1
-           Gindices(InterfaceNodes) = Nodes % GlobalNodeNumber(i)
+           Gindices(InterfaceNodes) = Mesh % ParallelInfo % GlobalDOFs(i)
         END IF
      END DO
 !
@@ -399,7 +399,7 @@ CONTAINS
         Gorder(i) = i
      END DO
 
-     CALL SortI( NewNodeCnt, Nodes % GlobalNodeNumber(n:), Gorder )
+     CALL SortI( NewNodeCnt, Mesh % ParallelInfo % GlobalDOFs(n:), Gorder )
 
      DO i=1,NewNodeCnt
         IntCnts(Gorder(i)) = i
@@ -416,7 +416,7 @@ CONTAINS
 !    --------------------------------------
      DO i=1,NewNodeCnt
         k = Gorder(i)
-        CALL SwapNodes( Nodes, i+n-1, k+n-1 )
+        CALL SwapNodes( Mesh, i+n-1, k+n-1 )
 
         j = IntCnts(i)
         IntCnts(i) = IntCnts(k)
@@ -432,15 +432,15 @@ CONTAINS
 !    information which PEs share which of the new
 !    interface nodes:
 !    -----------------------------------------------
-     InterfaceNodes = COUNT( Nodes % Interface(n:) )
+     InterfaceNodes = COUNT( Mesh % ParallelInfo % Interface(n:) )
      ALLOCATE( GIndices( InterfaceNodes ) )
      j = 0
-     DO i=n,Nodes % NumberOfNodes
-        IF ( Nodes % Interface(i) ) THEN
+     DO i=n,Mesh % Nodes % NumberOfNodes
+        IF ( Mesh % ParallelInfo % Interface(i) ) THEN
            j = j + 1
-           GIndices(j) = Nodes % GlobalNodeNumber(i)
-           ALLOCATE( Nodes % NeighbourList(i) % Neighbours(ParEnv % PEs) )
-           Nodes % NeighbourList(i) % Neighbours = -1
+           GIndices(j) = Mesh % ParallelInfo % GlobalDOFs(i)
+           ALLOCATE( Mesh % ParallelInfo % NeighbourList(i) % Neighbours(ParEnv % PEs) )
+           Mesh % ParallelInfo % NeighbourList(i) % Neighbours = -1
         END IF
      END DO
 
@@ -457,13 +457,13 @@ CONTAINS
 
      DEALLOCATE( Gindices )
 
-     ALLOCATE( IntCnts( Nodes % NumberOfNodes ) )
+     ALLOCATE( IntCnts( Mesh % Nodes % NumberOfNodes ) )
 
      IntCnts = 0
-     DO i=n,Nodes % NumberOfNodes
-        IF ( Nodes % Interface(i) ) THEN
+     DO i=n,Mesh % Nodes % NumberOfNodes
+        IF ( Mesh % ParallelInfo % Interface(i) ) THEN
            IntCnts(i) = IntCnts(i) + 1
-           Nodes % NeighbourList(i) % Neighbours(1) = ParEnv % MyPE
+           Mesh % ParallelInfo % NeighbourList(i) % Neighbours(1) = ParEnv % MyPE
         END IF
      END DO
 
@@ -479,10 +479,10 @@ CONTAINS
                i-1, 31, MPI_COMM_WORLD, status, ierr )
 
            DO j=1,InterfaceNodes
-              k = SearchNode( Nodes, Gindices(j), n )
+              k = SearchNode( Mesh % ParallelInfo, Gindices(j), n )
               IF ( k <= 0 ) CYCLE
               IntCnts(k) = IntCnts(k) + 1
-              Nodes % NeighbourList(k) % Neighbours(IntCnts(k)) = i-1
+              Mesh % ParallelInfo % NeighbourList(k) % Neighbours(IntCnts(k)) = i-1
            END DO
 
            DEALLOCATE( GIndices )
@@ -492,14 +492,14 @@ CONTAINS
 !    Reallocate the nodal neighbour lists to
 !    correct sizes:
 !    ---------------------------------------
-     DO i=n,Nodes % NumberOfNodes
-        IF ( Nodes % Interface(i) ) THEN
+     DO i=n,Mesh % Nodes % NumberOfNodes
+        IF ( Mesh % ParallelInfo % Interface(i) ) THEN
            k = IntCnts(i)
            ALLOCATE( Gindices(k) ) ! just work space
-           Gindices = Nodes % NeighbourList(i) % Neighbours(1:k)
+           Gindices = Mesh % ParallelInfo % NeighbourList(i) % Neighbours(1:k)
            CALL Sort( k, Gindices )
-           DEALLOCATE( Nodes % NeighbourList(i) % Neighbours )
-           Nodes % NeighbourList(i) % Neighbours => Gindices
+           DEALLOCATE( Mesh % ParallelInfo % NeighbourList(i) % Neighbours )
+           Mesh % ParallelInfo % NeighbourList(i) % Neighbours => Gindices
         END IF
      END DO
      
@@ -510,33 +510,33 @@ CONTAINS
 CONTAINS
 
 !-----------------------------------------------------------------------
-     SUBROUTINE SwapNodes( Nodes, i, k )
+     SUBROUTINE SwapNodes( Mesh, i, k )
 !-----------------------------------------------------------------------
         INTEGER :: i,k
-        TYPE(Nodes_t) :: Nodes
+        TYPE(Mesh_t) :: Mesh
 !-----------------------------------------------------------------------
         REAL(KIND=dp) :: swapx,swapy,swapz
         LOGICAL :: swapi
         INTEGER, POINTER :: swapl(:)
 !-----------------------------------------------------------------------
-        swapx =  Nodes % x(i)
-        swapy =  Nodes % y(i)
-        swapz =  Nodes % z(i)
-        swapi =  Nodes % Interface(i)
-        swapl => Nodes % NeighbourList(i) % Neighbours
+        swapx =  Mesh % Nodes % x(i)
+        swapy =  Mesh % Nodes % y(i)
+        swapz =  Mesh % Nodes % z(i)
+        swapi =  Mesh % ParallelInfo % Interface(i)
+        swapl => Mesh % ParallelInfo % NeighbourList(i) % Neighbours
  
-        Nodes % x(i) = Nodes % x(k)
-        Nodes % y(i) = Nodes % y(k)
-        Nodes % z(i) = Nodes % z(k)
-        Nodes % Interface(i) = Nodes % Interface(k) 
-        Nodes % NeighbourList(i) % Neighbours => &
-                 Nodes % NeighbourList(k) % Neighbours
+        Mesh % Nodes % x(i) = Mesh % Nodes % x(k)
+        Mesh % Nodes % y(i) = Mesh % Nodes % y(k)
+        Mesh % Nodes % z(i) = Mesh % Nodes % z(k)
+        Mesh % ParallelInfo % Interface(i) = Mesh % ParallelInfo % Interface(k) 
+        Mesh % ParallelInfo % NeighbourList(i) % Neighbours => &
+                 Mesh % ParallelInfo % NeighbourList(k) % Neighbours
 
-        Nodes % x(k) = swapx
-        Nodes % y(k) = swapy
-        Nodes % z(k) = swapz
-        Nodes % Interface(k) = swapi
-        Nodes % NeighbourList(k) % Neighbours => swapl
+        Mesh % Nodes % x(k) = swapx
+        Mesh % Nodes % y(k) = swapy
+        Mesh % Nodes % z(k) = swapz
+        Mesh % ParallelInfo % Interface(k) = swapi
+        Mesh % ParallelInfo % NeighbourList(k) % Neighbours => swapl
 !-----------------------------------------------------------------------
      END SUBROUTINE SwapNodes
 !-----------------------------------------------------------------------
@@ -817,11 +817,11 @@ END SUBROUTINE ExchangeIfValues
 !
 
 SUBROUTINE ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
-          Nodes, DOFs, SourceRHS, TargetRHS )
+          ParallelInfo, DOFs, SourceRHS, TargetRHS )
 
   TYPE (SplittedMatrixT) :: SplittedMatrix
   TYPE (Matrix_t) :: SourceMatrix
-  TYPE (Nodes_t) :: Nodes
+  TYPE (ParallelInfo_t) :: ParallelInfo
   INTEGER :: DOFs
   REAL(KIND=dp), DIMENSION(:) :: SourceRHS, TargetRHS
 
@@ -848,13 +848,13 @@ SUBROUTINE ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
   DO i = 1, SourceMatrix % NumberOfRows
 
      k = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
-     owner = Nodes % NeighbourList(k) % Neighbours(1)
+     owner = ParallelInfo % NeighbourList(k) % Neighbours(1)
 
      IF ( owner /= ParEnv % MyPE ) THEN
         DOF = DOFs - 1 - MOD( i-1, DOFs )
 
         SplittedMatrix % RHS(owner+1) % RHSind(RHSbufInds(owner+1)) = &
-              Nodes % GlobalNodeNumber(k) * DOFs - DOF
+              ParallelInfo % GlobalDOFs(k) * DOFs - DOF
 
         SplittedMatrix % RHS(owner+1) % RHSvec(RHSbufInds(owner+1)) = &
              SourceRHS(i)
@@ -909,7 +909,7 @@ SUBROUTINE ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
              sproc, 3002, MPI_COMM_WORLD, status, ierr )
 
         DO j = 1, DataLen
-           Ind = SearchNode( Nodes, (IndBuf(j) + DOFs-1) / DOFs )
+           Ind = SearchNode( ParallelInfo, (IndBuf(j) + DOFs-1) / DOFs )
 
            IF ( Ind /= -1 ) THEN
               DOF = DOFs - 1 - MOD( IndBuf(j)-1, DOFs )
@@ -935,7 +935,7 @@ SUBROUTINE ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
   j = 0
   DO i = 1, SourceMatrix % NumberOfRows
      k = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
-     IF ( Nodes % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+     IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
         j = j + 1
         TargetRHS(j) = SourceRHS(i)
      END IF
@@ -1575,14 +1575,14 @@ END SUBROUTINE ParEnvFinalize
 !
 !
 !*********************************************************************
-SUBROUTINE ExchangeResult( SourceMatrix, SplittedMatrix, Nodes, XVec, DOFs )
+SUBROUTINE ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, XVec, DOFs )
 
   USE types
   IMPLICIT NONE
 
   TYPE(SplittedMatrixT) :: SplittedMatrix
   TYPE(Matrix_t) :: SourceMatrix
-  TYPE (Nodes_t) :: Nodes
+  TYPE (ParallelInfo_t) :: ParallelInfo
   INTEGER :: DOFs
   REAL(KIND=dp), DIMENSION(:) :: XVec
 
@@ -1636,7 +1636,7 @@ SUBROUTINE ExchangeResult( SourceMatrix, SplittedMatrix, Nodes, XVec, DOFs )
              sproc, 9002, MPI_COMM_WORLD, status, ierr )
 
         DO j = 1, BufLen
-           ResInd = SearchNode( Nodes, (IndBuf(j) + DOFs-1) / DOFs )
+           ResInd = SearchNode( ParallelInfo, (IndBuf(j) + DOFs-1) / DOFs )
            IF ( ResInd > 0 ) THEN
               DOF = DOFs-1 - MOD( IndBuf(j)-1, DOFs )
               ResInd = SourceMatrix % Perm( DOFs * ResInd - DOF )
@@ -1664,12 +1664,12 @@ END SUBROUTINE ExchangeResult
 ! Index to Nodes structure. Rerturn value -1 means QueriedNode was
 ! not found.
 !
-FUNCTION SearchNode( Nodes, QueriedNode,First,Last ) RESULT ( Index )
+FUNCTION SearchNode( ParallelInfo, QueriedNode,First,Last ) RESULT ( Index )
 
   USE Types
   IMPLICIT NONE
 
-  TYPE (Nodes_t) :: Nodes
+  TYPE (ParallelInfo_t) :: ParallelInfo
   INTEGER :: QueriedNode, Index
   INTEGER, OPTIONAL :: First,Last
 
@@ -1680,7 +1680,7 @@ FUNCTION SearchNode( Nodes, QueriedNode,First,Last ) RESULT ( Index )
   !*********************************************************************
 
   Index = -1
-  Upper = Nodes % NumberOfNodes
+  Upper = SIZE(ParallelInfo % GlobalDOFs)
   Lower = 1
   IF ( PRESENT( Last  ) ) Upper = Last
   IF ( PRESENT( First ) ) Lower = First
@@ -1690,17 +1690,17 @@ FUNCTION SearchNode( Nodes, QueriedNode,First,Last ) RESULT ( Index )
   IF ( Upper == 0 ) RETURN
 
 10 CONTINUE
-  IF ( Nodes % GlobalNodeNumber(Lower) == QueriedNode ) THEN
+  IF ( ParallelInfo % GlobalDOFs(Lower) == QueriedNode ) THEN
      Index = Lower
      RETURN
-  ELSE IF ( Nodes % GlobalNodeNumber(Upper) == QueriedNode ) THEN
+  ELSE IF ( ParallelInfo % GlobalDOFs(Upper) == QueriedNode ) THEN
      Index = Upper
      RETURN
   END IF
 
   IF ( (Upper - Lower) > 1 ) THEN
      Lou = ISHFT((Upper + Lower), -1)
-     IF ( Nodes % GlobalNodeNumber(Lou) < QueriedNode ) THEN
+     IF ( ParallelInfo % GlobalDOFs(Lou) < QueriedNode ) THEN
         Lower = Lou
         GOTO 10
      ELSE

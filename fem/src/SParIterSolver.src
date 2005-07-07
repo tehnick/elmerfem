@@ -7,7 +7,7 @@
 !
 ! Author: Jouni Malinen, Juha Ruokolainen
 !
-! $Id: SParIterSolver.src,v 1.1 2005/05/26 08:24:48 vierinen Exp $
+! $Id: SParIterSolver.src,v 1.2 2005/07/01 09:05:33 jpr Exp $
 !
 !********************************************************************
 
@@ -50,10 +50,10 @@ CONTAINS
   !
   ! Initialize the Matrix structures for parallel environment
   !
-  FUNCTION ParInitMatrix( SourceMatrix, Nodes, DOFs ) RESULT ( SParMatrixDesc )
+  FUNCTION ParInitMatrix( SourceMatrix, ParallelInfo, DOFs ) RESULT ( SParMatrixDesc )
 
     TYPE (Matrix_t),TARGET :: SourceMatrix
-    TYPE (Nodes_t), TARGET :: Nodes
+    TYPE (ParallelInfo_t), TARGET :: ParallelInfo
     INTEGER :: DOFs
     TYPE (SParIterSolverGlobalD_t), POINTER :: SParMatrixDesc
 
@@ -65,15 +65,15 @@ CONTAINS
     END IF
 
     ALLOCATE( SParMatrixDesc )
-    CALL ParEnvInit( SParMatrixDesc, Nodes, SourceMatrix, DOFs )
+    CALL ParEnvInit( SParMatrixDesc, ParallelInfo, SourceMatrix, DOFs )
 
     SParMatrixDesc % Matrix => SourceMatrix
     SParMatrixDesc % DOFs = DOFs
-    SParMatrixDesc % Nodes => Nodes
+    SParMatrixDesc % ParallelInfo => ParallelInfo
     
     ParEnv = SParMatrixDesc % ParEnv
     SParMatrixDesc % SplittedMatrix => &
-                   SplitMatrix( SourceMatrix, Nodes, DOFs )
+                   SplitMatrix( SourceMatrix, ParallelInfo, DOFs )
 
   END FUNCTION ParInitMatrix
 
@@ -84,14 +84,14 @@ CONTAINS
 ! Split the given matrix (SourceMatrix) to InsideMatrix part (elements
 ! inside a partition) and InterfaceMatrix table (interface blocks).
 !
-  FUNCTION SplitMatrix( SourceMatrix, Nodes, DOFs ) &
+  FUNCTION SplitMatrix( SourceMatrix, ParallelInfo, DOFs ) &
        RESULT ( SplittedMatrix )
 
     USE Types
     IMPLICIT NONE
 
-    TYPE (Matrix_t) :: SourceMatrix     ! Original matrix in this partition
-    TYPE (Nodes_t) :: Nodes             ! All the nodes in this partition
+    TYPE (Matrix_t) :: SourceMatrix       ! Original matrix in this partition
+    TYPE (ParallelInfo_t) :: ParallelInfo
     INTEGER :: DOFs                     ! Degrees of freedom per node
 
     TYPE (SplittedMatrixT), POINTER :: SplittedMatrix
@@ -152,7 +152,7 @@ real(kind=dp) :: cputime,st
     SplittedMatrix % GlueTable % Cols(:) = SourceMatrix % Cols(:)
 
     ALLOCATE( SplittedMatrix % VecIndices( ParEnv % PEs ) )
-    CALL CountNeighbourConns( SourceMatrix, SplittedMatrix, Nodes, DOFs )
+    CALL CountNeighbourConns( SourceMatrix, SplittedMatrix, ParallelInfo, DOFs )
 
   !----------------------------------------------------------------------
   !
@@ -181,7 +181,7 @@ real(kind=dp) :: cputime,st
        AtLeastOneCol = 0; OwnOCOR(:) = 0; NbsOCOR(:) = 0
        RowInd = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
 
-       IF ( Nodes % NeighbourList(RowInd) % Neighbours(1)==ParEnv % MyPE ) THEN
+       IF ( ParallelInfo % NeighbourList(RowInd) % Neighbours(1)==ParEnv % MyPE ) THEN
 !
 !         Connection is local-local or local-if:
 !         --------------------------------------
@@ -190,7 +190,7 @@ real(kind=dp) :: cputime,st
              ColInd = SourceMatrix % Cols(j)
              ColInd = (SourceMatrix % INVPerm(ColInd) + DOFs-1) / DOFs
 
-             IF ( Nodes % NeighbourList(ColInd) % Neighbours(1) == &
+             IF ( ParallelInfo % NeighbourList(ColInd) % Neighbours(1) == &
                                 ParEnv % MyPE ) THEN
 
 	      !----------------------------------------------------------
@@ -209,7 +209,7 @@ real(kind=dp) :: cputime,st
 	      !
 	      !----------------------------------------------------------
 
-                CurrNbsL => Nodes % NeighbourList( ColInd )
+                CurrNbsL => ParallelInfo % NeighbourList( ColInd )
                 NbsIfMCols( CurrNbsL % Neighbours(1) + 1 ) = &
                      NbsIfMCols( CurrNbsL % Neighbours(1) + 1 ) + 1
                 NbsOCOR( CurrNbsL % Neighbours(1) + 1 ) = 1
@@ -229,7 +229,7 @@ real(kind=dp) :: cputime,st
            ColInd = SourceMatrix % Cols(j)
            ColInd = (SourceMatrix % INVPerm(ColInd) + DOFs-1) / DOFs
 
-	   IF ( Nodes % NeighbourList(ColInd) % Neighbours(1) == &
+	   IF ( ParallelInfo % NeighbourList(ColInd) % Neighbours(1) == &
                             ParEnv % MyPE ) THEN
 
 	      !----------------------------------------------------------
@@ -238,7 +238,7 @@ real(kind=dp) :: cputime,st
 	      !
 	      !----------------------------------------------------------
 
-	      CurrNbsL => Nodes % NeighbourList(RowInd)
+	      CurrNbsL => ParallelInfo % NeighbourList(RowInd)
               OwnIfMCols( CurrNbsL % Neighbours(1) + 1) = &
                    OwnIfMCols( CurrNbsL % Neighbours(1) + 1) + 1
               OwnOCOR( CurrNbsL % Neighbours(1) + 1) = 1
@@ -250,7 +250,7 @@ real(kind=dp) :: cputime,st
 	      ! Connection is if-if
 	      !
 	      !----------------------------------------------------------
-	      CurrNbsL => Nodes % NeighbourList(ColInd)
+	      CurrNbsL => ParallelInfo % NeighbourList(ColInd)
               NbsIfMCols( CurrNbsL % Neighbours(1) + 1) = &
                    NbsIfMCols( CurrNbsL % Neighbours(1) + 1) + 1
               NbsOCOR( CurrNbsL % Neighbours(1) + 1) = 1
@@ -348,7 +348,7 @@ real(kind=dp) :: cputime,st
      AtLeastOneCol = 0; NbsOCOR(:) = 0; OwnOCOR(:) = 0
 
      RowInd   = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
-     RowOwner = Nodes % NeighbourList(RowInd) % Neighbours(1)
+     RowOwner = ParallelInfo % NeighbourList(RowInd) % Neighbours(1)
 
      IF ( RowOwner == ParEnv % MyPE ) THEN
 	!----------------------------------------------------------------
@@ -362,7 +362,7 @@ real(kind=dp) :: cputime,st
            ColInd =  SourceMatrix % Cols(j)
            ColInd = (SourceMatrix % INVPerm(ColInd) + DOFs-1)/ DOFs
 
-	   IF ( Nodes % NeighbourList(ColInd) % Neighbours(1) == &
+	   IF ( ParallelInfo % NeighbourList(ColInd) % Neighbours(1) == &
 		ParEnv % MyPE ) THEN
 
 	      !----------------------------------------------------------
@@ -384,10 +384,10 @@ real(kind=dp) :: cputime,st
 	      !
 	      !----------------------------------------------------------
 
-	      currifi = Nodes % NeighbourList(Colind) % Neighbours(1) + 1
+	      currifi = ParallelInfo % NeighbourList(Colind) % Neighbours(1) + 1
 
               NbsIfMatrix(currifi) % Cols(NbsIfMcols(currifi)) =  &
-                  Nodes  % GlobalNodeNumber(ColInd) * DOFs - &
+                  ParallelInfo  % GlobalDOFs(ColInd) * DOFs - &
                       (DOFs - 1 - MOD(SourceMatrix % Cols(j)-1,DOFs))
 
               NbsIfMcols(currifi) = NbsIfMcols(currifi) + 1
@@ -409,7 +409,7 @@ real(kind=dp) :: cputime,st
            ColInd = SourceMatrix % Cols(j)
            ColInd = (SourceMatrix % INVPerm(ColInd) + DOFs-1) / DOFs
 
-	   IF ( Nodes % NeighbourList(ColInd) % Neighbours(1) == &
+	   IF ( ParallelInfo % NeighbourList(ColInd) % Neighbours(1) == &
 		ParEnv % MyPE ) THEN
 
 	      !----------------------------------------------------------
@@ -418,10 +418,10 @@ real(kind=dp) :: cputime,st
 	      !
 	      !----------------------------------------------------------
 
-	      currifi = Nodes % NeighbourList(RowInd) % Neighbours(1) + 1
+	      currifi = ParallelInfo % NeighbourList(RowInd) % Neighbours(1) + 1
 
               OwnIfMatrix(currifi) % Cols(OwnIfMcols(currifi)) =  &
-                  Nodes  % GlobalNodeNumber(ColInd) * DOFs - &
+                  ParallelInfo  % GlobalDOFs(ColInd) * DOFs - &
                       (DOFs - 1 - MOD(SourceMatrix % Cols(j)-1,DOFs))
 
               SplittedMatrix % GlueTable % Inds(j) = -currifi
@@ -435,10 +435,10 @@ real(kind=dp) :: cputime,st
 	      ! Connection is if-if
 	      !
 	      !----------------------------------------------------------
-              currifi = Nodes % NeighbourList(ColInd) % Neighbours(1) + 1
+              currifi = ParallelInfo % NeighbourList(ColInd) % Neighbours(1) + 1
 
               NbsIfMatrix(currifi) % Cols(NbsIfMcols(currifi)) =  &
-                Nodes  % GlobalNodeNumber(ColInd) * DOFs - &
+                ParallelInfo  % GlobalDOFs(ColInd) * DOFs - &
                     (DOFs - 1 - MOD(SourceMatrix % Cols(j)-1,DOFs))
 
               SplittedMatrix % GlueTable % Inds(j) = -(ParEnv % PEs + currifi)
@@ -455,7 +455,7 @@ real(kind=dp) :: cputime,st
      !
      !-------------------------------------------------------------------
 
-     RowInd = Nodes % GlobalNodeNumber(RowInd) * DOFs - (DOFs-1-MOD(i-1, DOFs))
+     RowInd = ParallelInfo % GlobalDOFs(RowInd) * DOFs - (DOFs-1-MOD(i-1, DOFs))
 
      IF ( AtLeastOneCol /= 0 ) THEN
         SplittedMatrix % InsideMatrix % Rows( InsideMRows )  = OldCols
@@ -551,7 +551,7 @@ real(kind=dp) :: cputime,st
 !
 !                Partition nodal numbering to global nodal DOF numbering:
 !                --------------------------------------------------------
-                 GCol = Nodes % GlobalNodeNumber(GCol)
+                 GCol = ParallelInfo % GlobalDOFs(GCol)
                  GCol = DOFs * GCol - (DOFs - 1 - &
                       MOD( SplittedMatrix % InsideMatrix % Cols(l) - 1,DOFs ) )
 
@@ -621,7 +621,7 @@ real(kind=dp) :: cputime,st
 !
 !                Partition nodal numbering to global nodal DOF numbering:
 !                --------------------------------------------------------
-                 GCol = Nodes % GlobalNodeNumber( GCol )
+                 GCol = ParallelInfo % GlobalDOFs( GCol )
 
                  GCol = DOFs * GCol - (DOFs - 1 - &
                       MOD( SplittedMatrix % InsideMatrix % Cols(l) - 1,DOFs ) )
@@ -638,7 +638,7 @@ real(kind=dp) :: cputime,st
                                 SplittedMatrix % InsideMatrix % Gorder )
 
                  IF ( ColInd /= -1 )  THEN
-                    ColInd = SearchNode( Nodes, ( RecvdIfMatrix(i) % Cols(k) - 1 ) / DOFs + 1 )
+                    ColInd = SearchNode( ParallelInfo, ( RecvdIfMatrix(i) % Cols(k) - 1 ) / DOFs + 1 )
                     ColInd = DOFs * ColInd - ( DOFs-1-MOD(RecvdIfMatrix(i) % Cols(k)-1, DOFs) )
                     ColInd = SourceMatrix % Perm( ColInd )
 
@@ -697,7 +697,7 @@ real(kind=dp) :: cputime,st
 !-----------------------------------------------------------------------------
 
   CALL ClearInsideC( SourceMatrix, SplittedMatrix % InsideMatrix, &
-             RecvdIfMatrix, Nodes, DOFs )
+             RecvdIfMatrix, ParallelInfo, DOFs )
 
   SplittedMatrix % IfMatrix(:) % NumberOfRows = 0
   DO i = 1, ParEnv % PEs
@@ -736,7 +736,7 @@ real(kind=dp) :: cputime,st
   ! Renumber the Degrees of Freedom in SplittedMatrix % InsideMatrix
   !
   !----------------------------------------------------------------------
-  CALL RenumberDOFs( SourceMatrix, SplittedMatrix, Nodes, DOFs )
+  CALL RenumberDOFs( SourceMatrix, SplittedMatrix, ParallelInfo, DOFs )
 
   !----------------------------------------------------------------------
   !
@@ -827,13 +827,13 @@ END SUBROUTINE ZeroSplittedMatrix
 
 
 !----------------------------------------------------------------------
-  SUBROUTINE SParInitSolve( SourceMatrix,XVec,RHSVec,RVec,DOFs,Nodes )
+  SUBROUTINE SParInitSolve( SourceMatrix,XVec,RHSVec,RVec,DOFs,ParallelInfo )
 !----------------------------------------------------------------------
 ! Initialize Parallel Solve
 !----------------------------------------------------------------------
 
     TYPE (Matrix_t) :: SourceMatrix
-    TYPE (Nodes_t), TARGET :: Nodes
+    TYPE (ParallelInfo_t), TARGET :: ParallelInfo
     INTEGER :: DOFs
     REAL(KIND=dp), DIMENSION(:) :: XVec, RHSVec,RVec
 
@@ -857,7 +857,7 @@ END SUBROUTINE ZeroSplittedMatrix
     SplittedMatrix => Globaldata % SplittedMatrix
 
     GlobalData % DOFs  =  DOFs
-    GlobalData % Nodes => Nodes
+    GlobalData % ParallelInfo => ParallelInfo
 
     CALL ZeroSplittedMatrix( SplittedMatrix )
 
@@ -874,13 +874,13 @@ END SUBROUTINE ZeroSplittedMatrix
     DO i = 1, SourceMatrix % NumberOfRows
        
        GRow = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
-       GRow = DOFs * Nodes % GlobalNodeNumber(GRow) - (DOFs-1-MOD(i-1,DOFs))
+       GRow = DOFs * ParallelInfo % GlobalDOFs(GRow) - (DOFs-1-MOD(i-1,DOFs))
 
        DO j = SourceMatrix % Rows(i),SourceMatrix % Rows(i+1) - 1
 
           GCol = ( SourceMatrix % INVPerm( SourceMatrix % Cols(j)) + DOFs-1 ) / DOFs
 
-          GCol = DOFs * Nodes % GlobalNodeNumber(GCol) - &
+          GCol = DOFs * ParallelInfo % GlobalDOFs(GCol) - &
                    ( DOFs-1 - MOD(SourceMatrix % Cols(j)-1,DOFs)  )
           
           DO k = GT % Rows(i), GT % Rows(i+1) - 1
@@ -949,7 +949,7 @@ END SUBROUTINE ZeroSplittedMatrix
        END DO
     END DO
 
-    CALL GlueFinalize( SplittedMatrix, Nodes, DOFs )
+    CALL GlueFinalize( SplittedMatrix, ParallelInfo, DOFs )
     !
     ! Initialize Right-Hand-Side:
     ! ---------------------------
@@ -971,7 +971,7 @@ END SUBROUTINE ZeroSplittedMatrix
     TmpRHSVec => SplittedMatrix % InsideMatrix % RHS
 
     CALL ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
-            Nodes, DOFs, RHSVec, TmpRHSVec )
+            ParallelInfo, DOFs, RHSVec, TmpRHSVec )
 
 !   CALL SParUpdateRHS( SourceMatrix, RHSVec, TmpRHSVec )
 
@@ -1001,7 +1001,7 @@ END SUBROUTINE ZeroSplittedMatrix
     ! Local variables
 
     INTEGER, ALLOCATABLE :: VecEPerNB(:)
-    TYPE(Nodes_t), POINTER :: Nodes
+    TYPE(ParallelInfo_t), POINTER :: ParallelInfo
     INTEGER :: i, j, k, nbind, DOFs
     TYPE (SplittedMatrixT), POINTER :: SplittedMatrix
 
@@ -1012,31 +1012,31 @@ END SUBROUTINE ZeroSplittedMatrix
     SplittedMatrix => SourceMatrix % ParMatrix % SplittedMatrix
 
     DOFs  =  SourceMatrix % ParMatrix % DOFs
-    Nodes => SourceMatrix % ParMatrix % Nodes
+    ParallelInfo => SourceMatrix % ParMatrix % ParallelInfo
 
     ALLOCATE( VecEPerNB( ParEnv % PEs ) )
 
     VecEPerNB = 0
     DO i = 1, SourceMatrix % NumberOfRows
        k = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
-       IF ( SIZE(Nodes % NeighbourList(k) % Neighbours) > 1 ) THEN
-          IF ( Nodes % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
-             DO j = 1, SIZE(Nodes % NeighbourList(k) % Neighbours)
-               IF (Nodes % NeighbourList(k) % Neighbours(j)/=ParEnv % MyPE) THEN
-                 nbind = Nodes % NeighbourList(k) % Neighbours(j) + 1
+       IF ( SIZE(ParallelInfo % NeighbourList(k) % Neighbours) > 1 ) THEN
+          IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+             DO j = 1, SIZE(ParallelInfo % NeighbourList(k) % Neighbours)
+               IF (ParallelInfo % NeighbourList(k) % Neighbours(j)/=ParEnv % MyPE) THEN
+                 nbind = ParallelInfo % NeighbourList(k) % Neighbours(j) + 1
                  VecEPerNB(nbind) = VecEPerNB(nbind) + 1
 
                  SplittedMatrix % ResBuf(nbind) % ResVal(VecEPerNB(nbind)) = &
                       RHSVec(i)
                  SplittedMatrix % ResBuf(nbind) % ResInd(VecEPerNB(nbind)) = &
-                   Nodes % GlobalNodeNumber(k)*DOFs - (DOFs-1-MOD( i-1, DOFs))
+                   ParallelInfo % GlobalDOFs(k)*DOFs - (DOFs-1-MOD( i-1, DOFs))
                END IF
              END DO
           END IF
        END IF
     END DO
 
-    CALL ExchangeResult( SourceMatrix, SplittedMatrix, Nodes, RHSVec, DOFs ) 
+    CALL ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, RHSVec, DOFs ) 
 
     ! Clean the work space:
     !----------------------
@@ -1052,11 +1052,11 @@ END SUBROUTINE ZeroSplittedMatrix
     REAL(KIND=dp) :: x(:),r(:)
     TYPE(Matrix_t) :: SourceMatrix
 !----------------------------------------------------------------------
-    TYPE(Nodes_t), POINTER :: Nodes
+    TYPE(ParallelInfo_t), POINTER :: ParallelInfo
     INTEGER :: i,j,k, DOFs
     REAL(KIND=dp), POINTER :: TmpXVec(:),TmpRVec(:)
 !----------------------------------------------------------------------
-    Nodes   => SourceMatrix % ParMatrix % Nodes
+    ParallelInfo => SourceMatrix % ParMatrix % ParallelInfo
     DOFs    =  SourceMatrix % ParMatrix % DOFs
     TmpXVec => SourceMatrix % ParMatrix % SplittedMatrix % TmpXVec
     TmpRVec => SourceMatrix % ParMatrix % SplittedMatrix % TmpRVec
@@ -1064,7 +1064,7 @@ END SUBROUTINE ZeroSplittedMatrix
     j = 0
     DO i = 1, SourceMatrix % NumberOfRows
        k = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
-       IF ( Nodes % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+       IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
           j = j + 1
           TmpXVec(j) = x(i)
           TmpRVec(j) = r(i)
@@ -1086,7 +1086,7 @@ END SUBROUTINE ZeroSplittedMatrix
 
     REAL(KIND=dp), POINTER :: TmpXVec(:), TmpRVec(:)
     INTEGER, ALLOCATABLE :: VecEPerNB(:)
-    TYPE(Nodes_t), POINTER :: Nodes
+    TYPE(ParallelInfo_t), POINTER :: ParallelInfo
     INTEGER :: i, j, k, nbind, DOFs
     TYPE (SplittedMatrixT), POINTER :: SplittedMatrix
 
@@ -1097,7 +1097,7 @@ END SUBROUTINE ZeroSplittedMatrix
     SplittedMatrix => SourceMatrix % ParMatrix % SplittedMatrix
 
     DOFs  =  SourceMatrix % ParMatrix % DOFs
-    Nodes => SourceMatrix % ParMatrix % Nodes
+    ParallelInfo => SourceMatrix % ParMatrix % ParallelInfo
 
     TmpXVec => SplittedMatrix % TmpXVec
     TmpRVec => SplittedMatrix % TmpRVec
@@ -1107,7 +1107,7 @@ END SUBROUTINE ZeroSplittedMatrix
     j = 0
     DO i = 1, SourceMatrix % NumberOfRows
        k = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
-       IF ( Nodes % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+       IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
           j = j + 1
           XVec(i) = TmpXVec(j)
           RVec(i) = TmpRVec(j)
@@ -1121,47 +1121,47 @@ END SUBROUTINE ZeroSplittedMatrix
     VecEPerNB = 0
     DO i = 1, SourceMatrix % NumberOfRows
        k = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
-       IF ( SIZE(Nodes % NeighbourList(k) % Neighbours) > 1 ) THEN
-          IF ( Nodes % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
-             DO j = 1, SIZE(Nodes % NeighbourList(k) % Neighbours)
-               IF (Nodes % NeighbourList(k) % Neighbours(j)/=ParEnv % MyPE) THEN
-                 nbind = Nodes % NeighbourList(k) % Neighbours(j) + 1
+       IF ( SIZE(ParallelInfo % NeighbourList(k) % Neighbours) > 1 ) THEN
+          IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+             DO j = 1, SIZE(ParallelInfo % NeighbourList(k) % Neighbours)
+               IF (ParallelInfo % NeighbourList(k) % Neighbours(j)/=ParEnv % MyPE) THEN
+                 nbind = ParallelInfo % NeighbourList(k) % Neighbours(j) + 1
                  VecEPerNB(nbind) = VecEPerNB(nbind) + 1
 
                  SplittedMatrix % ResBuf(nbind) % ResVal(VecEPerNB(nbind)) = &
                       XVec(i)
                  SplittedMatrix % ResBuf(nbind) % ResInd(VecEPerNB(nbind)) = &
-                   Nodes % GlobalNodeNumber(k)*DOFs - (DOFs-1-MOD( i-1, DOFs))
+                   ParallelInfo % GlobalDOFs(k)*DOFs - (DOFs-1-MOD( i-1, DOFs))
                END IF
              END DO
           END IF
        END IF
     END DO
 
-    CALL ExchangeResult( SourceMatrix, SplittedMatrix, Nodes, XVec, DOFs ) 
+    CALL ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, XVec, DOFs ) 
 
 #if 0
     VecEPerNB = 0
     DO i = 1, SourceMatrix % NumberOfRows
        k = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
-       IF ( SIZE(Nodes % NeighbourList(k) % Neighbours) > 1 ) THEN
-          IF ( Nodes % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
-             DO j = 1, SIZE(Nodes % NeighbourList(k) % Neighbours)
-               IF (Nodes % NeighbourList(k) % Neighbours(j)/=ParEnv % MyPE) THEN
-                 nbind = Nodes % NeighbourList(k) % Neighbours(j) + 1
+       IF ( SIZE(ParallelInfo % NeighbourList(k) % Neighbours) > 1 ) THEN
+          IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+             DO j = 1, SIZE(ParallelInfo % NeighbourList(k) % Neighbours)
+               IF (ParallelInfo % NeighbourList(k) % Neighbours(j)/=ParEnv % MyPE) THEN
+                 nbind = ParallelInfo % NeighbourList(k) % Neighbours(j) + 1
                  VecEPerNB(nbind) = VecEPerNB(nbind) + 1
 
                  SplittedMatrix % ResBuf(nbind) % ResVal(VecEPerNB(nbind)) = &
                       RVec(i)
                  SplittedMatrix % ResBuf(nbind) % ResInd(VecEPerNB(nbind)) = &
-                   Nodes % GlobalNodeNumber(k)*DOFs - (DOFs-1-MOD( i-1, DOFs))
+                   ParallelInfo % GlobalDOFs(k)*DOFs - (DOFs-1-MOD( i-1, DOFs))
                END IF
              END DO
           END IF
        END IF
      END DO
 
-     CALL ExchangeResult( SourceMatrix, SplittedMatrix, Nodes, RVec, DOFs ) 
+     CALL ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, RVec, DOFs ) 
 #endif
      !
      ! Clean the work space:
@@ -1188,11 +1188,11 @@ END SUBROUTINE ZeroSplittedMatrix
   !
   ! Call the iterative solver
   !
-  SUBROUTINE SParIterSolver( SourceMatrix, Nodes, DOFs, XVec, &
+  SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, DOFs, XVec, &
               RHSVec, Solver, SParMatrixDesc )
 
     TYPE (Matrix_t) :: SourceMatrix
-    TYPE (Nodes_t) :: Nodes
+    TYPE (ParallelInfo_t) :: ParallelInfo
     INTEGER :: DOFs
     REAL(KIND=dp), DIMENSION(:) :: XVec, RHSVec
     TYPE (Solver_t) :: Solver
@@ -1230,14 +1230,14 @@ END SUBROUTINE ZeroSplittedMatrix
     DO i = 1, SourceMatrix % NumberOfRows
        
        GRow = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
-       GRow = DOFs * Nodes % GlobalNodeNumber(GRow) - (DOFs-1-MOD(i-1,DOFs))
+       GRow = DOFs * ParallelInfo % GlobalDOFs(GRow) - (DOFs-1-MOD(i-1,DOFs))
 
        DO j = SourceMatrix % Rows(i),SourceMatrix % Rows(i+1) - 1
 
           GCol = ( SourceMatrix % INVPerm( &
                    SourceMatrix % Cols(j)) + DOFs-1 ) / DOFs
 
-          GCol = DOFs * Nodes % GlobalNodeNumber(GCol) - &
+          GCol = DOFs * ParallelInfo % GlobalDOFs(GCol) - &
                    ( DOFs-1 - MOD(SourceMatrix % Cols(j)-1,DOFs)  )
           
           DO k = GT % Rows(i), GT % Rows(i+1) - 1
@@ -1310,7 +1310,7 @@ END SUBROUTINE ZeroSplittedMatrix
        END DO
     END DO
 
-    CALL GlueFinalize( SplittedMatrix, Nodes, DOFs )
+    CALL GlueFinalize( SplittedMatrix, ParallelInfo, DOFs )
 
     !------------------------------------------------------------------
     !
@@ -1318,7 +1318,7 @@ END SUBROUTINE ZeroSplittedMatrix
     !
     !------------------------------------------------------------------
     CALL Solve( SourceMatrix, SParMatrixDesc % SplittedMatrix, &
-           Nodes, RHSVec, XVec, DOFs, Solver, Errinfo )
+           ParallelInfo, RHSVec, XVec, DOFs, Solver, Errinfo )
 
   END SUBROUTINE SParIterSolver
 
@@ -1329,12 +1329,12 @@ END SUBROUTINE ZeroSplittedMatrix
 !
 !
 !
-SUBROUTINE Solve( SourceMatrix, SplittedMatrix, Nodes, &
+SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
          RHSVec, XVec, DOFs, Solver, ErrInfo )
 
   TYPE (SplittedMatrixT), POINTER :: SplittedMatrix
   TYPE(Matrix_t) :: SourceMatrix
-  TYPE (Nodes_t) :: Nodes
+  TYPE (ParallelInfo_t) :: ParallelInfo
   INTEGER :: DOFs
   TYPE (Solver_t) :: Solver
   TYPE (ErrInfoT) :: ErrInfo
@@ -1366,7 +1366,7 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, Nodes, &
   ALLOCATE( TmpRHSVec( SplittedMatrix % InsideMatrix % NumberOfRows ) )
 
   CALL ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
-            Nodes, DOFs, RHSVec, TmpRHSVec )
+            ParallelInfo, DOFs, RHSVec, TmpRHSVec )
 
   !----------------------------------------------------------------------
   !
@@ -1442,7 +1442,7 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, Nodes, &
   j = 1
   DO i = 1, SourceMatrix % NumberOfRows
      k = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
-     IF ( Nodes % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+     IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
 	TmpXVec(j) = XVec(i)
 	j = j + 1
      END IF
@@ -1542,7 +1542,7 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, Nodes, &
   j = 1
   DO i = 1, SourceMatrix % NumberOfRows
      k = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
-     IF ( Nodes % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+     IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
 	XVec(i) = TmpXVec(j)
 	j = j + 1
      END IF
@@ -1550,23 +1550,23 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, Nodes, &
 
   DO i = 1, SourceMatrix % NumberOfRows
      k = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
-     IF ( SIZE(Nodes % NeighbourList(k) % Neighbours) > 1 ) THEN
-        IF ( Nodes % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
-           DO j = 1, SIZE(Nodes % NeighbourList(k) % Neighbours)
-              IF (Nodes % NeighbourList(k) % Neighbours(j)/=ParEnv % MyPE) THEN
-                 nbind = Nodes % NeighbourList(k) % Neighbours(j) + 1
+     IF ( SIZE(ParallelInfo % NeighbourList(k) % Neighbours) > 1 ) THEN
+        IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+           DO j = 1, SIZE(ParallelInfo % NeighbourList(k) % Neighbours)
+              IF (ParallelInfo % NeighbourList(k) % Neighbours(j)/=ParEnv % MyPE) THEN
+                 nbind = ParallelInfo % NeighbourList(k) % Neighbours(j) + 1
                  VecEPerNB(nbind) = VecEPerNB(nbind) + 1
 
                  SplittedMatrix % ResBuf(nbind) % ResVal(VecEPerNB(nbind)) = XVec(i)
                  SplittedMatrix % ResBuf(nbind) % ResInd(VecEPerNB(nbind)) = &
-                   Nodes % GlobalNodeNumber(k)*DOFs - (DOFs-1 - MOD( i-1, DOFs))
+                   ParallelInfo % GlobalDOFs(k)*DOFs - (DOFs-1 - MOD( i-1, DOFs))
               END IF
            END DO
         END IF
      END IF
   END DO
 
-  CALL ExchangeResult( SourceMatrix, SplittedMatrix, Nodes, XVec, DOFs ) 
+  CALL ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, XVec, DOFs ) 
   !----------------------------------------------------------------------
   !
   ! Clean the work space
@@ -2047,13 +2047,13 @@ END SUBROUTINE ParComplexMatrixVector
 ! neighbours the count of connections for neighbour. Then this information
 ! is used to allocate some communication buffers.
 !
-SUBROUTINE CountNeighbourConns( SourceMatrix, SplittedMatrix, Nodes, DOFs )
+SUBROUTINE CountNeighbourConns( SourceMatrix, SplittedMatrix, ParallelInfo, DOFs )
 
   USE Types
   IMPLICIT NONE
 
   TYPE (SplittedMatrixT) :: SplittedMatrix
-  TYPE (Nodes_t) :: Nodes
+  TYPE (ParallelInfo_t) :: ParallelInfo
   INTEGER :: DOFs
   TYPE (Matrix_t) :: SourceMatrix
 
@@ -2084,17 +2084,17 @@ SUBROUTINE CountNeighbourConns( SourceMatrix, SplittedMatrix, Nodes, DOFs )
   DO i = DOFs, SourceMatrix % NumberOfRows, DOFs
      k =  (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
 
-     IF ( Nodes % Interface(k) ) THEN
-        IF ( Nodes % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
-           DO j = 1, SIZE( Nodes % NeighbourList(k) % Neighbours )
-  	     IF ( Nodes % NeighbourList(k) % Neighbours(j)/=ParEnv % MyPE ) THEN
-	        ResEPerNB(Nodes % NeighbourList(k) % Neighbours(j)+1) = &
-	        ResEPerNB(Nodes % NeighbourList(k) % Neighbours(j)+1) + 1
+     IF ( ParallelInfo % Interface(k) ) THEN
+        IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+           DO j = 1, SIZE( ParallelInfo % NeighbourList(k) % Neighbours )
+  	     IF ( ParallelInfo % NeighbourList(k) % Neighbours(j)/=ParEnv % MyPE ) THEN
+	        ResEPerNB(ParallelInfo % NeighbourList(k) % Neighbours(j)+1) = &
+	        ResEPerNB(ParallelInfo % NeighbourList(k) % Neighbours(j)+1) + 1
 	     END IF
   	  END DO
         ELSE
-          RHSEPerNB(Nodes % NeighbourList(k) % Neighbours(1)+1) = &
-             RHSEPerNB(Nodes % NeighbourList(k) % Neighbours(1)+1) + 1
+          RHSEPerNB(ParallelInfo % NeighbourList(k) % Neighbours(1)+1) = &
+             RHSEPerNB(ParallelInfo % NeighbourList(k) % Neighbours(1)+1) + 1
         END IF
      END IF
   END DO
@@ -2337,11 +2337,11 @@ END SUBROUTINE CombineCRSMatIndices
 ! been built.
 !
 
-SUBROUTINE GlueFinalize( SplittedMatrix, Nodes, DOFs )
+SUBROUTINE GlueFinalize( SplittedMatrix, ParallelInfo, DOFs )
   USE Types
   IMPLICIT NONE
 
-  TYPE (Nodes_t) :: Nodes
+  TYPE (ParallelInfo_t) :: ParallelInfo
   INTEGER :: DOFs
   TYPE (SplittedMatrixT) :: SplittedMatrix
 
@@ -2472,7 +2472,7 @@ END SUBROUTINE GlueFinalize
 ! MODIFIES THE STRUCTURE OF INPUT MATRIX RecvdIfMatrix !!
 !
 SUBROUTINE ClearInsideC( SourceMatrix, InsideMatrix, &
-            RecvdIfMatrix, Nodes, DOFs )
+            RecvdIfMatrix, ParallelInfo, DOFs )
 
   USE Types
   IMPLICIT NONE
@@ -2481,7 +2481,7 @@ SUBROUTINE ClearInsideC( SourceMatrix, InsideMatrix, &
 
   TYPE (Matrix_t), DIMENSION(:) :: RecvdIfMatrix
   TYPE (Matrix_t) :: SourceMatrix, InsideMatrix
-  TYPE (Nodes_t) :: Nodes
+  TYPE (ParallelInfo_t) :: ParallelInfo
   INTEGER :: DOFs
 
   ! External routines
@@ -2515,7 +2515,7 @@ SUBROUTINE ClearInsideC( SourceMatrix, InsideMatrix, &
            DO j = RecvdIfMatrix(p) % Rows(i),RecvdIfMatrix(p) % Rows(i+1) - 1
 
               GCol = ( RecvdIfMatrix(p) % Cols(j) + DOFs-1 ) / DOFs
-              GCol = DOFs * SearchNode( Nodes,  GCol ) - &
+              GCol = DOFs * SearchNode( ParallelInfo,  GCol ) - &
                  ( DOFs-1 - MOD(RecvdIfMatrix(p) % Cols(j)-1,DOFs) )
 
               GCol = SourceMatrix % Perm( Gcol )
@@ -2568,14 +2568,14 @@ END SUBROUTINE ClearInsideC
 ! enable direct use of column indices in matrix operations.
 !
 
-SUBROUTINE RenumberDOFs( SourceMatrix, SplittedMatrix, Nodes, DOFs )
+SUBROUTINE RenumberDOFs( SourceMatrix, SplittedMatrix, ParallelInfo, DOFs )
 
   USE Types
 
   IMPLICIT NONE
 
   TYPE (SplittedMatrixT) :: SplittedMatrix
-  TYPE (Nodes_t) :: Nodes
+  TYPE (ParallelInfo_t) :: ParallelInfo
   INTEGER :: DOFs
   TYPE( Matrix_t) :: SourceMatrix
 
@@ -2595,7 +2595,7 @@ SUBROUTINE RenumberDOFs( SourceMatrix, SplittedMatrix, Nodes, DOFs )
   Inside = 0
   DO i = 1, SourceMatrix % NumberOfRows
      k = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
-     IF ( Nodes % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+     IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
 	Inside = Inside + 1
 	RevDofList(i) = Inside
      ELSE
