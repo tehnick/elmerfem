@@ -66,33 +66,28 @@
 !------------------------------------------------------------------------------
 !    Local variables
 !------------------------------------------------------------------------------
-  TYPE(Matrix_t),POINTER :: StiffMatrix
-
-  INTEGER :: i,j,k,l,n,nd,t,iter,NDeg,k1,k2,STDOFs,LocalNodes,istat
+  INTEGER :: i,j,k,n,nd,t,STDOFs,LocalNodes,istat
 
   TYPE(Element_t),POINTER :: Element
   TYPE(ValueList_t),POINTER :: Material, BC
 
-  REAL(KIND=dp) :: RelativeChange,UNorm,PrevUNorm, &
-       Tdiff,Normal(3),NewtonTol,NonlinearTol,s, maxu
+  REAL(KIND=dp) :: RelativeChange, UNorm, PrevUNorm,  maxu
 
   TYPE(Variable_t), POINTER :: StressSol, MeshSol
 
-  REAL(KIND=dp), POINTER :: MeshUpdate(:),Displacement(:),Work(:,:), &
+  REAL(KIND=dp), POINTER :: MeshUpdate(:),Displacement(:), &
        MeshVelocity(:)
 
-  INTEGER, POINTER :: TPerm(:),MeshPerm(:),StressPerm(:)
+  INTEGER, POINTER :: TPerm(:), MeshPerm(:), StressPerm(:)
 
   LOGICAL :: AllocationsDone = .FALSE., Isotropic = .TRUE., &
             GotForceBC, Found, ComputeMeshVelocity
-
-  TYPE(Solver_t), POINTER :: PSolver
 
   REAL(KIND=dp),ALLOCATABLE:: STIFF(:,:),&
        LOAD(:,:),FORCE(:), ElasticModulus(:,:,:),PoissonRatio(:), &
        Alpha(:,:), Beta(:), PrevUpdate(:)
 
-  SAVE STIFF,LOAD, FORCE, MeshVelocity, AllocationsDone, PrevUpdate, &
+  SAVE STIFF, LOAD, FORCE, MeshVelocity, AllocationsDone, PrevUpdate, &
        ElasticModulus, PoissonRatio, TPerm, Alpha, Beta
 
 !------------------------------------------------------------------------------
@@ -103,7 +98,7 @@
   REAL(KIND=dp), POINTER :: BoundaryNormals(:,:), &
        BoundaryTangent1(:,:), BoundaryTangent2(:,:)
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: MeshSolve.src,v 1.3 2005/06/29 11:55:35 jpr Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: MeshSolve.src,v 1.4 2005/07/07 04:53:00 jpr Exp $"
 
   SAVE NumberOfBoundaryNodes,BoundaryReorder,BoundaryNormals, &
        BoundaryTangent1, BoundaryTangent2
