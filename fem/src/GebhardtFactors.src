@@ -290,9 +290,9 @@
           MatrixElements,RowSpace,1,Reorder,.TRUE. )
 
      DO t=1,RadiationSurfaces
-       Cols => ViewFactors(i) % Elements
+       Cols => ViewFactors(t) % Elements
 
-       DO j=1,ViewFactors(i) % NumberOfFactors
+       DO j=1,ViewFactors(t) % NumberOfFactors
          CALL CRS_MakeMatrixIndex( GFactorMatrix,t,Cols(j) )
        END DO
 
@@ -318,10 +318,10 @@
            Emissivity = SUM( ListGetReal( Model % BCs(i) % Values, &
                     'Emissivity', n, NodeIndexes ) ) / n
 
-           Vals => ViewFactors(i) % Factors
-           Cols => ViewFactors(i) % Elements
+           Vals => ViewFactors(t) % Factors
+           Cols => ViewFactors(t) % Elements
 
-           DO j=1,ViewFactors(i) % NumberOfFactors
+           DO j=1,ViewFactors(t) % NumberOfFactors
 #ifdef FULLMATRIX
              GFactorMatrix(t,Cols(j)) = GFactorMatrix(t,Cols(j)) - &
                      (1-Emissivity)*Vals(j)

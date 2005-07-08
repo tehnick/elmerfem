@@ -218,8 +218,6 @@
        CALL Info('RadiationFactors',Message,LEVEL=4)
      END IF
 
-     ViewFactors => Solver % Mesh % ViewFactors
-     
      ! Check that the geometry has really changed before computing the viewfactors 
      IF(.NOT. FirstTime .AND. UpdateViewFactors) THEN
 
@@ -431,7 +429,9 @@
        InvElementNumbers(ElementNumbers(i)-j0) = i
      END DO
 
+     ViewFactors => TSolver % Mesh % ViewFactors
      ! Open the file for ViewFactors
+     
      IF( FirstTime .OR. UpdateViewFactors ) THEN
 
        IF ( .NOT.ASSOCIATED(ViewFactors) ) THEN
@@ -449,6 +449,7 @@
             IF ( istat /= 0 ) CALL Fatal('RadiationFactors','Memory allocation error 5.')
          END IF
        END IF
+       TSOlver % Mesh % ViewFactors => ViewFactors
 
        ViewFactorsFile = ListGetString(Model % Simulation,'View Factors',GotIt)
        
@@ -545,9 +546,9 @@
            MatrixElements,RowSpace,1,Reorder,.TRUE. )
 
        DO t=1,RadiationSurfaces
-         Cols => ViewFactors(i) % Elements
+         Cols => ViewFactors(t) % Elements
          
-         DO j=1,ViewFactors(i) % NumberOfFactors
+         DO j=1,ViewFactors(t) % NumberOfFactors
            Colj = InvElementNumbers(Cols(j)-j0)
            CALL CRS_MakeMatrixIndex( GFactorSP,t,Colj )
          END DO
@@ -581,10 +582,10 @@
            Emissivity = SUM( ListGetReal( Model % BCs(i) % Values, &
                     'Emissivity', n, NodeIndexes ) ) / n
 
-           Vals => ViewFactors(i) % Factors
-           Cols => ViewFactors(i) % Elements
+           Vals => ViewFactors(t) % Factors
+           Cols => ViewFactors(t) % Elements
 
-           DO j=1,ViewFactors(i) % NumberOfFactors
+           DO j=1,ViewFactors(t) % NumberOfFactors
 
              Colj = InvElementNumbers(Cols(j)-j0)
 
