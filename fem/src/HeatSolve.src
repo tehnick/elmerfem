@@ -54,6 +54,9 @@
 !
 !******************************************************************************
 ! $Log: HeatSolve.src,v $
+! Revision 1.6  2005/07/07 09:12:27  jpr
+! Changed ElementInfo to have dBasisdx,ddBasisddx as OPTIONAL arguments. Changed all calls to ElementInfo accordingly.
+!
 ! Revision 1.5  2005/06/29 09:17:38  jpr
 ! Added update for global force vector separate from global matrix update.
 !
@@ -242,7 +245,7 @@
 
      REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
 
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HeatSolve.src,v 1.5 2005/06/29 09:17:38 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HeatSolve.src,v 1.6 2005/07/07 09:12:27 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -1542,22 +1545,20 @@ CONTAINS
       INTEGER :: TempPerm(:)
       REAL(KIND=dp) :: Temperature(:)
 !------------------------------------------------------------------------------
-      TYPE(Element_t), POINTER :: Parent
-      INTEGER :: i,j,k,Left,Right
+      TYPE(Element_t), POINTER :: Parent, Left, Right
+      INTEGER :: i,j,k
       REAL(KIND=dp) :: x0,y0,z0,x,y,z,T(n)
 !------------------------------------------------------------------------------
-      Left  = Element % BoundaryInfo % LElement
-      Right = Element % BoundaryInfo % RElement
+      Left  => Element % BoundaryInfo % Left
+      Right => Element % BoundaryInfo % Right
 
       T = 0.d0
-      IF ( Left <= 0 .OR. Right <= 0 ) RETURN
+      IF ( .NOT. ASSOCIATED(Left) .OR. .NOT.ASSOCIATED(Right) ) RETURN
 
       DO i=1,n
-        Parent => Solver % Mesh % Elements(Left)
+        Parent => Left
         k = Element % NodeIndexes(i)
-
-        IF ( ANY( Parent % NodeIndexes == k ) ) &
-          Parent => Solver % Mesh % Elements(Right)
+        IF ( ANY( Parent % NodeIndexes == k ) ) Parent => Right
 
         x0 = ElementNodes % x(i)
         y0 = ElementNodes % y(i)
@@ -1580,26 +1581,26 @@ CONTAINS
     SUBROUTINE AddHeatGap( Solver, Element, STIFF, TempPerm )
 !------------------------------------------------------------------------------
       TYPE(Solver_t) :: Solver
-      TYPE(Element_t), POINTER :: Element
       REAL(KIND=dp) :: STIFF(:,:)
       INTEGER :: TempPerm(:)
+      TYPE(Element_t) :: Element
 !------------------------------------------------------------------------------
-      TYPE(Element_t), POINTER :: Parent
-      INTEGER :: i,j,k,l,Left,Right, Ind(n)
+      TYPE(Element_t), POINTER :: Parent,Left,Right
+      INTEGER :: i,j,k,l, Ind(n)
       REAL(KIND=dp) :: x0,y0,z0,x,y,z
 !------------------------------------------------------------------------------
-      Left  = Element % BoundaryInfo % LElement
-      Right = Element % BoundaryInfo % RElement
+      Left  => Element % BoundaryInfo % Left
+      Right => Element % BoundaryInfo % Right
 
-      IF ( Left <= 0 .OR. Right <= 0 ) RETURN
+      IF ( .NOT.ASSOCIATED(Left) .OR. .NOT.ASSOCIATED(Right) ) RETURN
 
       l = 0
       DO i=1,n
-        Parent => Solver % Mesh % Elements(Left)
+        Parent => Left
         k = Element % NodeIndexes(i)
 
         IF ( ANY( Parent % NodeIndexes == k ) ) &
-          Parent => Solver % Mesh % Elements(Right)
+          Parent => Right
 
         x0 = ElementNodes % x(i)
         y0 = ElementNodes % y(i)

@@ -80,7 +80,7 @@
 !------------------------------------------------------------------------------
      TYPE(Matrix_t),POINTER :: StiffMatrix
 
-     INTEGER :: i,j,k,l,m,n,t,iter,NDeg,k1,k2,STDOFs,LocalNodes,istat,AdjacentElement
+     INTEGER :: i,j,k,l,m,n,t,iter,NDeg,k1,k2,STDOFs,LocalNodes,istat
 
      TYPE(Solver_t), POINTER :: PSolver
 
@@ -141,7 +141,7 @@
 
 
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ElasticSolve.src,v 1.2 2005/05/26 12:33:10 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ElasticSolve.src,v 1.3 2005/07/07 09:12:25 jpr Exp $"
 
 
      INTERFACE
@@ -609,18 +609,15 @@
 
 !------------------------------------------------------------------------------
 
-           AdjacentElement = CurrentElement % BoundaryInfo % LElement
+           ParentElement => CurrentElement % BoundaryInfo % Left
 
-           IF ( AdjacentElement < 1 ) THEN
-             AdjacentElement = CurrentElement % BoundaryInfo % RElement
+           IF ( .NOT. ASSOCIATED( ParentElement ) ) THEN
+             ParentElement => CurrentElement % BoundaryInfo % Right
            ELSE
-             ParentElement => Solver % Mesh % Elements( AdjacentElement )
-             IF ( ANY(StressPerm(ParentElement % NodeIndexes)==0 )) THEN
-               AdjacentElement = CurrentElement % BoundaryInfo % RElement
-             END IF
+             IF ( ANY(StressPerm(ParentElement % NodeIndexes)==0 )) &
+               ParentElement => CurrentElement % BoundaryInfo % Right
            END IF
 
-           ParentElement => Solver % Mesh % Elements( AdjacentElement )
            k = ParentElement % TYPE % NumberOfNodes
            AdjacentNodes => ParentElement % NodeIndexes
 
@@ -640,21 +637,18 @@
            FlowNOFNodes = 1
 
            IF ( ASSOCIATED( FlowSol  ) ) THEN
-             AdjacentElement = CurrentElement % BoundaryInfo % LElement
+             FlowElement => CurrentElement % BoundaryInfo % Left
 
-             IF ( AdjacentElement < 1 ) THEN
-               AdjacentElement = CurrentElement % BoundaryInfo % RElement
+             IF ( .NOT. ASSOCIATED(FlowElement) ) THEN
+               FlowElement => CurrentElement % BoundaryInfo % Right
              ELSE
-               FlowElement => Solver % Mesh % Elements( AdjacentElement )
                IF ( ANY(FlowPerm(FlowElement % NodeIndexes)==0 )) THEN
-                 AdjacentElement = CurrentElement % BoundaryInfo % RElement
+                 FlowElement => CurrentElement % BoundaryInfo % Right
                END IF
-               NULLIFY(FlowElement)
              END IF
 
-             IF ( AdjacentElement > 0 ) THEN
+             IF ( ASSOCIATED(FlowElement) ) THEN
                 FlowNOFNodes = 0
-                FlowElement => Solver % Mesh % Elements( AdjacentElement )
                 FlowNOFNodes = FlowElement % TYPE % NumberOfNodes
                 AdjacentNodes => FlowElement % NodeIndexes
                 

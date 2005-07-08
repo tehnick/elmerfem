@@ -35,6 +35,9 @@
 ! *
 ! *
 ! * $Log: ElementDescription.src,v $
+! * Revision 1.15  2005/07/07 11:32:45  jpr
+! * Few bugs in recent changes...
+! *
 ! * Revision 1.14  2005/07/07 11:14:24  jpr
 ! * Reorganizing the parallel structs.
 ! *
@@ -90,7 +93,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: ElementDescription.src,v 1.14 2005/07/07 11:14:24 jpr Exp $
+! * $Id: ElementDescription.src,v 1.15 2005/07/07 11:32:45 jpr Exp $
 ! ******************************************************************************/
 
 MODULE ElementDescription
@@ -4480,15 +4483,12 @@ END IF
        IF ( ASSOCIATED( RightElement ) ) THEN
 
          IF ( k > 0 ) THEN
-
-            IF ( Boundary % BoundaryInfo % LBody == k ) THEN
+            IF ( LeftElement % BodyId == k ) THEN
                Element => RightElement
             ELSE
                Element => LeftElement
             END IF
-
          ELSE
-
             LMat = ListGetInteger( CurrentModel % Bodies( &
                    LeftElement % BodyId)  % Values, 'Material', &
                     minv=1, maxv=CurrentModel % NumberOfMaterials )

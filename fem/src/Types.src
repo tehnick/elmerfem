@@ -332,22 +332,22 @@ MODULE Types
 !-------------------------------------------------------------------------------
 
    TYPE BoundaryInfo_t
-     TYPE(Factors_t) :: ViewFactors,GebhardtFactors
+     TYPE(Factors_t), POINTER :: GebhardtFactors
+     INTEGER :: Constraint, OutBody
      TYPE(Element_t), POINTER :: Left,Right
-     INTEGER :: Constraint,LBody,LElement,RBody,RElement,OutBody
    END TYPE BoundaryInfo_t
 
 !-------------------------------------------------------------------------------
 
    TYPE Element_t
-     TYPE(ElementType_t), POINTER :: TYPE
+     TYPE(ElementType_t), POINTER :: Type
 
      INTEGER :: BodyId, Splitted
-     REAL(KIND=dp) :: StabilizationMK,hK,hConvergence
+     REAL(KIND=dp) :: StabilizationMK,hK
 
      TYPE(BoundaryInfo_t),  POINTER :: BoundaryInfo
 
-     INTEGER :: NDOFs, BDOFs, DGDOFs
+     INTEGER :: ElementIndex, NDOFs, BDOFs, DGDOFs
      INTEGER, DIMENSION(:), POINTER :: &
          NodeIndexes,   EdgeIndexes, FaceIndexes, &
          BubbleIndexes, DGIndexes
@@ -427,6 +427,8 @@ MODULE Types
 
      LOGICAL :: Changed, OutputActive, Stabilize
      INTEGER :: SavesDone, AdaptiveDepth
+
+     TYPE(Factors_t), POINTER :: ViewFactors(:)
 
      TYPE(ParallelInfo_t) :: ParallelInfo
      TYPE(Variable_t), POINTER :: Variables

@@ -61,7 +61,7 @@
      INTEGER, ALLOCATABLE ::  Surfaces(:), TYPE(:)
      REAL(KIND=dp), ALLOCATABLE :: Coords(:),Normals(:),Factors(:)
 
-     TYPE(Element_t),POINTER :: CurrentElement, Element
+     TYPE(Element_t),POINTER :: Element, Parent
 
      INTEGER :: BandSize,SubbandSize,RadiationSurfaces,Row,Col
      INTEGER, DIMENSION(:), POINTER :: Perm
@@ -86,7 +86,7 @@
            ViewFactorsFile,OutputName,ModelName
 
      TYPE(Element_t), POINTER :: RadElements(:)
-     INTEGER :: RadiationBody, MaxRadiationBody, Lelement
+     INTEGER :: RadiationBody, MaxRadiationBody
      LOGICAL :: RadiationOpen
 
      CALL Info( 'ViewFactors', ' ', Level=3 )
@@ -194,7 +194,6 @@
      RadiationBody = 0
      MaxRadiationBody = 0
 
- 
 100  RadiationBody = RadiationBody + 1
      WRITE( Message,'(A,I2)') 'Computing view factors for radiation body',RadiationBody
      CALL Info('ViewFactors',Message,Level=3)
@@ -211,61 +210,18 @@
 !    of the elements...
 !------------------------------------------------------------------------------
 
-
-! The first time replace the element neighbour information with node 
-! neigbour information. Other time skip this.
-
      IF(RadiationBody == 1) THEN
-
        DO t= 1, Model % NumberOfBoundaryElements
-         
-         CurrentElement => GetBoundaryElement(t)
+         Element => GetBoundaryElement(t)
          IF ( GetElementFamily() == 1 ) CYCLE
-         
          BC => GetBC()
          IF ( .NOT. ASSOCIATED( BC ) ) CYCLE
-                  
+
          IF ( GetLogical( BC, 'Heat Flux BC', GotIt) ) THEN
            RadiationFlag = GetString( BC, 'Radiation',GotIt )
-           
            IF ( GotIt .AND. RadiationFlag(1:12) == 'diffuse gray' ) THEN
-
              i = MAX(1, GetInteger( BC, 'Radiation Boundary', GotIt ))
              MaxRadiationBody = MAX(i, MaxRadiationBody)
-             
-             j = CurrentElement % BoundaryInfo % LElement
-             IF ( j > 0 ) THEN
-               DO k=1,Model % Elements(j) % TYPE % numberofnodes
-                 gotit = .TRUE.
-                 DO l = 1,currentelement % TYPE % numberofnodes
-                   IF ( model % elements(j) % Nodeindexes(k) == currentelement % nodeindexes(l) ) THEN
-                     gotit = .FALSE.
-                     EXIT
-                   END IF
-                 END DO
-                 IF ( gotit ) THEN
-                   currentelement % boundaryinfo % lelement = model % elements(j) % nodeindexes(k)
-                   EXIT
-                 END IF
-               END DO
-             ENDIF
-
-             j = currentelement % boundaryinfo % relement
-             IF ( j > 0 ) THEN
-               DO k=1,model % elements(j) % TYPE % numberofnodes
-                 gotit = .TRUE.
-                 DO l = 1,currentelement % TYPE % numberofnodes
-                   IF ( model % elements(j) % Nodeindexes(k) == currentelement % nodeindexes(l) ) THEN
-                     gotit = .FALSE.
-                     EXIT
-                   END IF
-                 END DO
-                 IF ( gotit ) THEN
-                   currentelement % boundaryinfo % relement = model % elements(j) % nodeindexes(k)
-                   EXIT
-                 END IF
-               END DO
-             END IF
            END IF
          END IF
        END DO
@@ -273,7 +229,7 @@
 
 
      DO t=1,Model % NumberOfBoundaryElements
-       CurrentElement => GetBoundaryElement(t)
+       Element => GetBoundaryElement(t)
        IF ( GetElementFamily() == 1 ) CYCLE
        
        BC => GetBC()
@@ -320,31 +276,68 @@
 
 
      DO t=1,N
-       CurrentElement => RadElements(t)
-       k = CurrentElement % TYPE % NumberOfNodes
+       Element => RadElements(t)
+       k = Element % Type % NumberOfNodes
+       ElementNodes % x(1:k) = Model % Nodes % x(Element % NodeIndexes)
+       ElementNodes % y(1:k) = Model % Nodes % y(Element % NodeIndexes)
+       ElementNodes % z(1:k) = Model % Nodes % z(Element % NodeIndexes)
 
-       ElementNodes % x(1:k) = Model % Nodes % x( CurrentElement % NodeIndexes )
-       ElementNodes % y(1:k) = Model % Nodes % y( CurrentElement % NodeIndexes )
-       ElementNodes % z(1:k) = Model % Nodes % z( CurrentElement % NodeIndexes )
-
-       IF ( CurrentElement % Type % ElementCode / 100 == 3 ) THEN
-         nrm = NormalVector( CurrentElement,ElementNodes, &
+       IF ( Element % Type % ElementCode / 100 == 3 ) THEN
+         nrm = NormalVector( Element,ElementNodes, &
                  1.0d0 / 3.0d0, 1.0d0 / 3.0d0 )
        ELSE
-         nrm = NormalVector( CurrentElement, ElementNodes, 0.0d0, 0.0d0 )
+         nrm = NormalVector( Element, ElementNodes, 0.0d0, 0.0d0 )
        END IF
           
-       LeftNode  = CurrentElement % BoundaryInfo % LElement
-       RightNode = CurrentElement % BoundaryInfo % RElement
+       LeftBody  = 0
+       IF ( ASSOCIATED(Element % BoundaryInfo % Left) ) &
+         LeftBody  = Element % BoundaryInfo % Left % BodyId
 
-       LeftBody  = CurrentElement % BoundaryInfo % LBody
-       RightBody = CurrentElement % BoundaryInfo % RBody
+       RightBody  = 0
+       IF ( ASSOCIATED(Element % BoundaryInfo % Right) ) &
+         RightBody  = Element % BoundaryInfo % Right % BodyId
 
-       RadBody = ListGetInteger( Model % BCs( CurrentElement %  &
+       LeftNode=-1
+       Parent => Element % BoundaryInfo % Left
+       IF ( ASSOCIATED(Parent) ) THEN
+          DO i=1,Parent % Type % NumberOfNodes
+            gotIt =.TRUE.
+            DO j=1,Element % Type % NumberOfNodes
+               IF ( Element % NodeIndexes(j)==Parent % NodeIndexes(i)) THEN
+                  gotIt=.FALSE.
+                  EXIT
+               END IF
+            END DO
+            IF (gotIt) THEN
+               LeftNode = Parent % NodeIndexes(i)
+               EXIT
+            END IF
+          END DO
+       END IF
+
+       RightNode=-1
+       Parent => Element % BoundaryInfo % Right
+       IF ( ASSOCIATED(Parent) ) THEN
+          DO i=1,Parent % Type % NumberOfNodes
+            gotIt =.TRUE.
+            DO j=1,Element % Type % NumberOfNodes
+               IF ( Element % NodeIndexes(j)==Parent % NodeIndexes(i)) THEN
+                  gotIt=.FALSE.
+                  EXIT
+               END IF
+            END DO
+            IF (gotIt) THEN
+               RightNode = Parent % NodeIndexes(i)
+               EXIT
+            END IF
+          END DO
+       END IF
+
+       RadBody = ListGetInteger( Model % BCs( Element %  &
           BoundaryInfo % Constraint) % Values, 'Radiation Target Body',GotIt )
 
        IF ( .NOT. GotIt ) THEN
-          RadBody = ListGetInteger( Model % BCs( CurrentElement %  &
+          RadBody = ListGetInteger( Model % BCs( Element %  &
              BoundaryInfo % Constraint) % Values, 'Normal Target Body',GotIt )
        END IF
 
@@ -373,31 +366,30 @@
          IF ( RadBody == LeftBody ) Nrm = -Nrm
        END IF
 
-
-       nx = SUM(Model % Nodes % x(CurrentElement % NodeIndexes))/k - &
+       nx = SUM(Model % Nodes % x(Element % NodeIndexes))/k - &
                    Model % Nodes % x(LeftNode)
 
-       ny = SUM(Model % Nodes % y(CurrentElement % NodeIndexes))/k - &
+       ny = SUM(Model % Nodes % y(Element % NodeIndexes))/k - &
                    Model % Nodes % y(LeftNode)
 
-       nz = SUM(Model % Nodes % z(CurrentElement % NodeIndexes))/k - &
+       nz = SUM(Model % Nodes % z(Element % NodeIndexes))/k - &
                    Model % Nodes % z(LeftNode)
 
        IF ( CylindricSymmetry ) THEN
          IF ( Nrm(1)*nx + Nrm(2)*Ny + Nrm(3)*nz > 0 ) THEN
-           Surfaces(2*(t-1)+1) = CurrentElement % NodeIndexes(2) - 1
-           Surfaces(2*(t-1)+2) = CurrentElement % NodeIndexes(1) - 1
+           Surfaces(2*(t-1)+1) = Element % NodeIndexes(2) - 1
+           Surfaces(2*(t-1)+2) = Element % NodeIndexes(1) - 1
          ELSE
-           Surfaces(2*(t-1)+1) = CurrentElement % NodeIndexes(1) - 1
-           Surfaces(2*(t-1)+2) = CurrentElement % NodeIndexes(2) - 1
+           Surfaces(2*(t-1)+1) = Element % NodeIndexes(1) - 1
+           Surfaces(2*(t-1)+2) = Element % NodeIndexes(2) - 1
          END IF
        ELSE
          DO i = 1,MIN(k,4)
-           Surfaces(4*(t-1)+i) = CurrentElement % NodeIndexes(i) - 1
+           Surfaces(4*(t-1)+i) = Element % NodeIndexes(i) - 1
          END DO
 
          Type(t) = 404
-         IF ( CurrentElement % Type % ElementCode / 100 == 3 ) TYPE(t) = 303
+         IF ( Element % Type % ElementCode / 100 == 3 ) TYPE(t) = 303
 
          IF ( Nrm(1)*Nx + Nrm(2)*Ny + Nrm(3)*nz > 0 ) THEN
            Normals(3*(t-1)+1:3*(t-1)+3) =  Nrm
@@ -407,7 +399,6 @@
        END IF
 
      END DO
-
 
      CALL Info( 'ViewFactors', 'Computing viewfactors...', Level=4 )
 

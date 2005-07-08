@@ -74,8 +74,8 @@
 
      DOUBLE PRECISION :: SimulationTime,dt
 
-     TYPE(Element_t),POINTER :: CurrentElement
-     TYPE(Factors_t), POINTER :: ViewFactors
+     TYPE(Element_t), POINTER :: CurrentElement
+     TYPE(Factors_t), ALLOCATABLE :: ViewFactors(:)
 
      INTEGER :: BandSize,SubbandSize,RadiationSurfaces,Row,Col,MatrixElements
 
@@ -222,23 +222,18 @@
 
      OPEN( 1,File=TRIM(OutputName) )
 
+     ALLOCATE( ViewFactors(RadiationSurfaces) )
      MatrixElements = 0
      RowSpace       = 0
      DO i=1,RadiationSurfaces
        READ( 1,* ) RowSpace(i)
 
-       CurrentElement => Model % Elements(i)
-       ALLOCATE( CurrentElement % BoundaryInfo % &
-                         ViewFactors % Elements(RowSpace(i)) )
+       ALLOCATE( ViewFactors(i) % Elements(RowSpace(i)) )
+       ALLOCATE( ViewFactors(i) % Factors(RowSpace(i)) )
 
-       ALLOCATE( CurrentElement % BoundaryInfo % &
-                         ViewFactors % Factors(RowSpace(i)) )
-
-       ViewFactors => CurrentElement % BoundaryInfo % ViewFactors
-
-       ViewFactors % NumberOfFactors = RowSpace(i)
-       Vals => ViewFactors % Factors
-       Cols => ViewFactors % Elements
+       ViewFactors(i) % NumberOfFactors = RowSpace(i)
+       Vals => ViewFactors(i) % Factors
+       Cols => ViewFactors(i) % Elements
 
        DO j=1,RowSpace(i)
          READ(1,*) t,Cols(j),Vals(j)
@@ -252,12 +247,10 @@
 
      DO i=1,RadiationSurfaces
 
-       CurrentElement => Model % Elements(i)
-       ViewFactors => CurrentElement % BoundaryInfo % ViewFactors
-       Cols => ViewFactors % Elements
+       Cols => ViewFactors(i) % Elements
 
        k = 0
-       DO j=1,ViewFactors % NumberOfFactors
+       DO j=1,ViewFactors(i) % NumberOfFactors
          IF ( Cols(j) == i ) THEN
            k = 1
            EXIT
@@ -297,13 +290,9 @@
           MatrixElements,RowSpace,1,Reorder,.TRUE. )
 
      DO t=1,RadiationSurfaces
-       CurrentElement => Model % Elements(t)
+       Cols => ViewFactors(i) % Elements
 
-       ViewFactors => CurrentElement % BoundaryInfo % ViewFactors
-
-       Cols => ViewFactors % Elements
-
-       DO j=1,ViewFactors % NumberOfFactors
+       DO j=1,ViewFactors(i) % NumberOfFactors
          CALL CRS_MakeMatrixIndex( GFactorMatrix,t,Cols(j) )
        END DO
 
@@ -329,11 +318,10 @@
            Emissivity = SUM( ListGetReal( Model % BCs(i) % Values, &
                     'Emissivity', n, NodeIndexes ) ) / n
 
-           ViewFactors => CurrentElement % BoundaryInfo % ViewFactors
-           Vals => ViewFactors % Factors
-           Cols => ViewFactors % Elements
+           Vals => ViewFactors(i) % Factors
+           Cols => ViewFactors(i) % Elements
 
-           DO j=1,ViewFactors % NumberOfFactors
+           DO j=1,ViewFactors(i) % NumberOfFactors
 #ifdef FULLMATRIX
              GFactorMatrix(t,Cols(j)) = GFactorMatrix(t,Cols(j)) - &
                      (1-Emissivity)*Vals(j)
@@ -423,14 +411,11 @@
 
        n = 0
        DO i=1,RadiationSurfaces
-         CurrentElement => Model % Elements(i)
-
-         ViewFactors => CurrentElement % BoundaryInfo % ViewFactors
-         Vals => ViewFactors % Factors
-         Cols => ViewFactors % Elements
+         Vals => ViewFactors(i) % Factors
+         Cols => ViewFactors(i) % Elements
 
          s = 0.0d0
-         DO k=1,ViewFactors % NumberOfFactors
+         DO k=1,ViewFactors(i) % NumberOfFactors
            s = s + Vals(k) * SOL(Cols(k))
          END DO
          Fac(i) = Emissivity * s
@@ -449,6 +434,13 @@
        END DO
 #endif
      END DO
+
+     ! Free allocated temporaries:
+     ! ---------------------------
+     DO i=1,RadiationSurfaces
+        DEALLOCATE( ViewFactors(i) % Factors, ViewFactors(i) % Elements )
+     END DO
+     DEALLOCATE( ViewFactors )
 
      CLOSE(1)
      PRINT*,'...Done'

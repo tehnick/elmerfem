@@ -46,7 +46,7 @@
    END MODULE RadiationFactorGlobals
 
 
-   SUBROUTINE RadiationFactors( TSolver, FirstTime)
+   SUBROUTINE RadiationFactors( TSolver, FirstTime )
 
      USE RadiationFactorGlobals
      USE Types
@@ -71,8 +71,8 @@
      TYPE(Mesh_t), POINTER :: Mesh
      TYPE(Solver_t), POINTER :: Solver
      TYPE(Element_t), POINTER :: CurrentElement
-     TYPE(Factors_t), POINTER :: ViewFactors, GebhardtFactors
      TYPE(Matrix_t), POINTER :: Amatrix
+     TYPE(Factors_t), POINTER :: GebhardtFactors, ViewFactors(:)
 
      INTEGER :: i,j,k,l,t,n,istat,Colj,j0,couplings, sym 
 
@@ -218,6 +218,7 @@
        CALL Info('RadiationFactors',Message,LEVEL=4)
      END IF
 
+     ViewFactors => Solver % Mesh % ViewFactors
      
      ! Check that the geometry has really changed before computing the viewfactors 
      IF(.NOT. FirstTime .AND. UpdateViewFactors) THEN
@@ -431,7 +432,23 @@
      END DO
 
      ! Open the file for ViewFactors
-     IF(FirstTime .OR. UpdateViewFactors) THEN
+     IF( FirstTime .OR. UpdateViewFactors ) THEN
+
+       IF ( .NOT.ASSOCIATED(ViewFactors) ) THEN
+         ALLOCATE( ViewFactors(RadiationSurfaces), STAT=istat )
+         IF ( istat /= 0 ) CALL Fatal('RadiationFactors','Memory allocation error 4.')
+       ELSE
+         IF (RadiationSurfaces /= SIZE(ViewFactors) ) THEN
+            DO i=1,SIZE(ViewFactors)
+               IF (ASSOCIATED(ViewFactors(i) % Factors )) DEALLOCATE(ViewFactors(i) % Factors )
+               IF (ASSOCIATED(ViewFactors(i) % Elements)) DEALLOCATE(ViewFactors(i) % Elements)
+            END DO
+            DEALLOCATE( ViewFactors )
+
+            ALLOCATE( ViewFactors(RadiationSurfaces), STAT=istat )
+            IF ( istat /= 0 ) CALL Fatal('RadiationFactors','Memory allocation error 5.')
+         END IF
+       END IF
 
        ViewFactorsFile = ListGetString(Model % Simulation,'View Factors',GotIt)
        
@@ -462,23 +479,20 @@
        DO i=1,RadiationSurfaces
          READ( 10,* ) n
 
-         CurrentElement => Model % Elements(ElementNumbers(i))
-         ViewFactors => CurrentElement % BoundaryInfo % ViewFactors
-
          IF(FirstTime) THEN
+           ViewFactors(i) % NumberOfFactors = n
+           ALLOCATE( ViewFactors(i) % Elements(n) )
+           ALLOCATE( ViewFactors(i) % Factors(n) )
+         ELSE IF(n /=  ViewFactors(i) % NumberOfFactors) THEN
+           DEALLOCATE( ViewFactors(i) % Elements )
+           DEALLOCATE( ViewFactors(i) % Factors )
            ViewFactors % NumberOfFactors = n
-           ALLOCATE( ViewFactors % Elements(n) )
-           ALLOCATE( ViewFactors % Factors(n) )
-         ELSE IF(n /=  ViewFactors % NumberOfFactors) THEN
-           DEALLOCATE( ViewFactors % Elements )
-           DEALLOCATE( ViewFactors % Factors )
-           ViewFactors % NumberOfFactors = n
-           ALLOCATE( ViewFactors % Elements(n) )
-           ALLOCATE( ViewFactors % Factors(n) )
+           ALLOCATE( ViewFactors(i) % Elements(n) )
+           ALLOCATE( ViewFactors(i) % Factors(n) )
          END IF
 
-         Vals => ViewFactors % Factors
-         Cols => ViewFactors % Elements
+         Vals => ViewFactors(i) % Factors
+         Cols => ViewFactors(i) % Elements
          
          DO j=1,n
            READ(10,*) t,Cols(j),Vals(j)         
@@ -493,11 +507,8 @@
      ! Check whether the element already sees itself, it will when 
      ! gebhardt factors are computed. Also compute matrix size.
      DO i=1,RadiationSurfaces
-       
-       CurrentElement => Model % Elements(ElementNumbers(i))
-       ViewFactors => CurrentElement % BoundaryInfo % ViewFactors
-       Cols => ViewFactors % Elements
-       n = ViewFactors % NumberOfFactors
+       Cols => ViewFactors(i) % Elements
+       n = ViewFactors(i) % NumberOfFactors
        Rowspace(i) = n
        
        k = 0
@@ -534,13 +545,9 @@
            MatrixElements,RowSpace,1,Reorder,.TRUE. )
 
        DO t=1,RadiationSurfaces
-         CurrentElement => Model % Elements(ElementNumbers(t))
+         Cols => ViewFactors(i) % Elements
          
-         ViewFactors => CurrentElement % BoundaryInfo % ViewFactors
-         
-         Cols => ViewFactors % Elements
-         
-         DO j=1,ViewFactors % NumberOfFactors
+         DO j=1,ViewFactors(i) % NumberOfFactors
            Colj = InvElementNumbers(Cols(j)-j0)
            CALL CRS_MakeMatrixIndex( GFactorSP,t,Colj )
          END DO
@@ -564,7 +571,7 @@
      DO t=1,RadiationSurfaces
 
        CurrentElement => Model % Elements(ElementNumbers(t))
-       n = CurrentElement % TYPE % NumberOfNodes
+       n = CurrentElement % Type % NumberOfNodes
        k = CurrentElement % BoundaryInfo % Constraint
        NodeIndexes => CurrentElement % NodeIndexes
 
@@ -574,11 +581,10 @@
            Emissivity = SUM( ListGetReal( Model % BCs(i) % Values, &
                     'Emissivity', n, NodeIndexes ) ) / n
 
-           ViewFactors => CurrentElement % BoundaryInfo % ViewFactors
-           Vals => ViewFactors % Factors
-           Cols => ViewFactors % Elements
+           Vals => ViewFactors(i) % Factors
+           Cols => ViewFactors(i) % Elements
 
-           DO j=1,ViewFactors % NumberOfFactors
+           DO j=1,ViewFactors(i) % NumberOfFactors
 
              Colj = InvElementNumbers(Cols(j)-j0)
 
@@ -662,14 +668,11 @@
        
        n = 0
        DO i=1,RadiationSurfaces
-         CurrentElement => Model % Elements(ElementNumbers(i))
-         
-         ViewFactors => CurrentElement % BoundaryInfo % ViewFactors
-         Vals => ViewFactors % Factors
-         Cols => ViewFactors % Elements
+         Vals => ViewFactors(i) % Factors
+         Cols => ViewFactors(i) % Elements
          
          s = 0.0d0
-         DO k=1,ViewFactors % NumberOfFactors
+         DO k=1,ViewFactors(i) % NumberOfFactors
            Colj = InvElementNumbers(Cols(k)-j0)
            s = s + Vals(k) * SOL(Colj)
          END DO
@@ -720,7 +723,10 @@
        MatrixEntries = MatrixEntries + n
        CurrentElement => Model % Elements(ElementNumbers(t))
        GebhardtFactors => CurrentElement % BoundaryInfo % GebhardtFactors       
-
+       IF ( .NOT. ASSOCIATED( GebhardtFactors ) ) THEN
+         ALLOCATE( GebhardtFactors )
+         CurrentElement % BoundaryInfo % GebhardtFactors => GebhardtFactors
+       END IF
 
        IF(FirstTime) THEN
          GebhardtFactors % NumberOfFactors = n

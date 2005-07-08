@@ -33,6 +33,9 @@
 ! *       Date of modification: 
 ! *
 ! * $Log: Adaptive.src,v $
+! * Revision 1.10  2005/06/30 09:30:52  jpr
+! * Removed debug prints.
+! *
 ! * Revision 1.9  2005/06/23 08:44:33  jpr
 ! * P-bubbles in global system by default....
 ! *
@@ -56,7 +59,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Adaptive.src,v 1.9 2005/06/23 08:44:33 jpr Exp $
+! * $Id: Adaptive.src,v 1.10 2005/06/30 09:30:52 jpr Exp $
 ! *****************************************************************************/
 
 
@@ -1152,6 +1155,7 @@ CONTAINS
 !         -------------------------
           NewElCnt = NewElCnt + 1
           NewMesh % Elements(NewElCnt) = RefElement
+          NewMesh % Elements(NewElCnt) % ElementIndex = NewElCnt
           CALL AllocateVector( NewMesh % Elements(NewElCnt) % NodeIndexes,n )
           NewMesh % Elements(NewElCnt) % NodeIndexes(1:n) = &
                RefElement % NodeIndexes(1:n)
@@ -1180,6 +1184,7 @@ CONTAINS
 !         -------------
           NewElCnt = NewElCnt + 1
           NewMesh % Elements(NewElCnt) = RefElement
+          NewMesh % Elements(NewElCnt) % ElementIndex = NewElCnt
           CALL AllocateVector( NewMesh % Elements(NewElCnt) % NodeIndexes,n )
 
           NewMesh % Elements(NewElCnt) % NodeIndexes(1) = &
@@ -1196,6 +1201,7 @@ CONTAINS
 !----------------------------------------------------
           NewElCnt = NewElCnt + 1
           NewMesh % Elements(NewElCnt) = RefElement
+          NewMesh % Elements(NewElCnt) % ElementIndex = NewElCnt
           CALL AllocateVector( NewMesh % Elements(NewElCnt) % NodeIndexes,n )
 
           NewMesh % Elements(NewElCnt) % NodeIndexes(1) = &
@@ -1234,6 +1240,7 @@ CONTAINS
 !----------------------------------------------------
           NewElCnt = NewElCnt + 1
           NewMesh % Elements(NewElCnt) = RefElement
+          NewMesh % Elements(NewElCnt) % ElementIndex = NewElCnt
           CALL AllocateVector( NewMesh % Elements(NewElCnt) % NodeIndexes,n )
 
           NewMesh % Elements(NewElCnt) % NodeIndexes(1) = &
@@ -1254,6 +1261,7 @@ CONTAINS
 !----------------------------------------------------
           NewElCnt = NewElCnt + 1
           NewMesh % Elements(NewElCnt) = RefElement
+          NewMesh % Elements(NewElCnt) % ElementIndex = NewElCnt
           CALL AllocateVector( NewMesh % Elements(NewElCnt) % NodeIndexes,n )
 
           l = 0
@@ -1302,6 +1310,7 @@ if ( k <= 0 .or. k > 3 ) print*,k
 !----------------------------------------------------
           NewElCnt = NewElCnt + 1
           NewMesh % Elements(NewElCnt) = RefElement
+          NewMesh % Elements(NewElCnt) % ElementIndex = NewElCnt
           CALL AllocateVector( NewMesh % Elements(NewElCnt) % NodeIndexes,n )
 
           DO j = 1,3
@@ -1328,6 +1337,7 @@ if ( k <= 0 .or. k > 3 ) print*,k
 !----------------------------------------------------
           NewElCnt = NewElCnt + 1
           NewMesh % Elements(NewElCnt) = RefElement
+          NewMesh % Elements(NewElCnt) % ElementIndex = NewElCnt
           CALL AllocateVector( NewMesh % Elements(NewElCnt) % NodeIndexes,n )
 
           NewMesh % Elements(NewElCnt) % NodeIndexes(1) = &
@@ -1345,6 +1355,7 @@ if ( k <= 0 .or. k > 3 ) print*,k
 !----------------------------------------------------
           NewElCnt = NewElCnt + 1
           NewMesh % Elements(NewElCnt) = RefElement
+          NewMesh % Elements(NewElCnt) % ElementIndex = NewElCnt
           CALL AllocateVector( NewMesh % Elements(NewElCnt) % NodeIndexes,n )
 
           NewMesh % Elements(NewElCnt) % NodeIndexes(1) = &
@@ -1362,6 +1373,7 @@ if ( k <= 0 .or. k > 3 ) print*,k
 !----------------------------------------------------
           NewElCnt = NewElCnt + 1
           NewMesh % Elements(NewElCnt) = RefElement
+          NewMesh % Elements(NewElCnt) % ElementIndex = NewElCnt
           CALL AllocateVector( NewMesh % Elements(NewElCnt) % NodeIndexes,n )
 
           NewMesh % Elements(NewElCnt) % NodeIndexes(1) = &
@@ -1379,6 +1391,7 @@ if ( k <= 0 .or. k > 3 ) print*,k
 !----------------------------------------------------
           NewElCnt = NewElCnt + 1
           NewMesh % Elements(NewElCnt) = RefElement
+          NewMesh % Elements(NewElCnt) % ElementIndex = NewElCnt
           CALL AllocateVector( NewMesh % Elements(NewElCnt) % NodeIndexes,n )
 
           DO j=1,n
@@ -1436,6 +1449,7 @@ if ( k <= 0 .or. k > 3 ) print*,k
 !            --------------
              NewElCnt = NewElCnt + 1
              NewMesh % Elements(NewElCnt) = RefElement
+             NewMesh % Elements(NewElCnt) % ElementIndex = NewElCnt
              CALL AllocateVector( NewMesh % Elements(NewElCnt) % NodeIndexes,n )
              NewMesh % Elements(NewElCnt) % NodeIndexes(1) = &
                   RefElement % NodeIndexes(1)
@@ -1443,33 +1457,11 @@ if ( k <= 0 .or. k > 3 ) print*,k
                   MarkedOrder(EdgeNumber)
 
              ALLOCATE( NewMesh % Elements(NewElCnt) % BoundaryInfo )
-!            NewMesh % Elements(NewElCnt) % BoundaryInfo = &
-!                 RefElement % BoundaryInfo
-!
-! Have to initialize the structure component by component
-! instead of the above, because of a broken absoft linux
-! f90 compiler.
-!
-             NewMesh % Elements(NewElCnt) % BoundaryInfo  % Constraint = &
-                  RefElement % BoundaryInfo % Constraint
+             NewMesh % Elements(NewElCnt) % BoundaryInfo = &
+                  RefElement % BoundaryInfo
 
-             NewMesh % Elements(NewElCnt) % BoundaryInfo % OutBody = &
-                  RefElement % BoundaryInfo % OutBody
-
-             NULLIFY( NewMesh % Elements(NewElcnt) % BoundaryInfo % &
-                  GebhardtFactors % Factors )
-
-             NULLIFY( NewMesh % Elements(NewElcnt) % BoundaryInfo % &
-                  GebhardtFactors % Elements )
-
-             NewMesh % Elements(NewElCnt) % BoundaryInfo % &
-                  GebhardtFactors % NumberOfFactors = 0
-
-             NULLIFY( NewMesh % Elements(NewElcnt) % BoundaryInfo % &
-                  ViewFactors % Factors )
-
-             NULLIFY( NewMesh % Elements(NewElcnt) % BoundaryInfo % &
-                  ViewFactors % Elements )
+             NULLIFY( NewMesh % Elements(NewElCnt) % &
+                Boundaryinfo % GebhardtFactors )
                
              CALL SetParents( NewMesh % Elements(NewElCnt), &
                   NewMesh, Children, Edge )
@@ -1481,6 +1473,7 @@ if ( k <= 0 .or. k > 3 ) print*,k
 !            --------------
              NewElCnt = NewElCnt + 1
              NewMesh % Elements(NewElCnt) = RefElement
+             NewMesh % Elements(NewElCnt) % ElementIndex = NewElCnt
              CALL AllocateVector( NewMesh % Elements(NewElCnt) % NodeIndexes,n )
              NewMesh % Elements(NewElCnt) % NodeIndexes(1) = &
                   MarkedOrder(EdgeNumber)
@@ -1488,33 +1481,11 @@ if ( k <= 0 .or. k > 3 ) print*,k
                   RefElement % NodeIndexes(2)
 
              ALLOCATE( NewMesh % Elements(NewElCnt) % BoundaryInfo )
-!            NewMesh % Elements(NewElCnt) % BoundaryInfo = &
-!                 RefElement % BoundaryInfo
-!
-! Have to initialize the structure component by component
-! instead of the above, because of a broken absoft linux
-! f90 compiler.
-!
-             NewMesh % Elements(NewElCnt) % BoundaryInfo  % Constraint = &
-                  RefElement % BoundaryInfo % Constraint
+             NewMesh % Elements(NewElCnt) % BoundaryInfo = &
+                  RefElement % BoundaryInfo
 
-             NewMesh % Elements(NewElCnt) % BoundaryInfo % OutBody = &
-                  RefElement % BoundaryInfo % OutBody
-
-             NULLIFY( NewMesh % Elements(NewElcnt) % BoundaryInfo % &
-                  GebhardtFactors % Factors )
-
-             NULLIFY( NewMesh % Elements(NewElcnt) % BoundaryInfo % &
-                  GebhardtFactors % Elements )
-
-             NewMesh % Elements(NewElCnt) % BoundaryInfo % &
-                  GebhardtFactors % NumberOfFactors = 0
-
-             NULLIFY( NewMesh % Elements(NewElcnt) % BoundaryInfo % &
-                  ViewFactors % Factors )
-
-             NULLIFY( NewMesh % Elements(NewElcnt) % BoundaryInfo % &
-                  ViewFactors % Elements )
+             NULLIFY( NewMesh % Elements(NewElCnt) % &
+                Boundaryinfo % GebhardtFactors )
 
              CALL SetParents( NewMesh % Elements(NewElCnt), &
                   NewMesh, Children, Edge )
@@ -1526,39 +1497,18 @@ if ( k <= 0 .or. k > 3 ) print*,k
 !            --------------
              NewElCnt = NewElCnt + 1
              NewMesh % Elements(NewElCnt) = RefElement
+             NewMesh % Elements(NewElCnt) % ElementIndex = NewElCnt
              CALL AllocateVector( NewMesh % Elements(NewElCnt) % NodeIndexes,n )
              NewMesh % Elements(NewElCnt) % NodeIndexes = &
                   RefElement % NodeIndexes
 
              ALLOCATE( NewMesh % Elements(NewElCnt) % BoundaryInfo )
 
-!            NewMesh % Elements(NewElCnt) % BoundaryInfo = &
-!                 RefElement % BoundaryInfo
-!
-! Have to initialize the structure component by component
-! instead of the above, because of a broken absoft linux
-! f90 compiler.
-!
-             NewMesh % Elements(NewElCnt) % BoundaryInfo  % Constraint = &
-                  RefElement % BoundaryInfo % Constraint
+             NewMesh % Elements(NewElCnt) % BoundaryInfo = &
+                  RefElement % BoundaryInfo
 
-             NewMesh % Elements(NewElCnt) % BoundaryInfo % OutBody = &
-                  RefElement % BoundaryInfo % OutBody
-
-             NULLIFY( NewMesh % Elements(NewElcnt) % BoundaryInfo % &
-                  GebhardtFactors % Factors )
-
-             NULLIFY( NewMesh % Elements(NewElcnt) % BoundaryInfo % &
-                  GebhardtFactors % Elements )
-
-             NewMesh % Elements(NewElCnt) % BoundaryInfo % &
-                  GebhardtFactors % NumberOfFactors = 0
-
-             NULLIFY( NewMesh % Elements(NewElcnt) % BoundaryInfo % &
-                  ViewFactors % Factors )
-
-             NULLIFY( NewMesh % Elements(NewElcnt) % BoundaryInfo % &
-                  ViewFactors % Elements )
+             NULLIFY( NewMesh % Elements(NewElCnt) % &
+                Boundaryinfo % GebhardtFactors )
             
              CALL SetParents( NewMesh % Elements(NewElCnt), &
                   NewMesh, Children, Edge )
@@ -1574,39 +1524,19 @@ if ( k <= 0 .or. k > 3 ) print*,k
           n = RefElement % Type % NumberOfNodes
 
           NewMesh % Elements(NewElCnt) = RefElement
+          NewMesh % Elements(NewElCnt) % ElementIndex = NewElCnt
           CALL AllocateVector( NewMesh % Elements(NewElCnt) % NodeIndexes,n )
           NewMesh % Elements(NewElCnt) % NodeIndexes = &
                RefElement % NodeIndexes
                
           ALLOCATE( NewMesh % Elements(NewElCnt) % BoundaryInfo )
 
-!         NewMesh % Elements(NewElCnt) % BoundaryInfo = &
-!              RefElement % BoundaryInfo
-!
-! Have to initialize the structure component by component
-! instead of the above, because of a broken absoft linux
-! f90 compiler.
-!
-          NewMesh % Elements(NewElCnt) % BoundaryInfo  % Constraint = &
-               RefElement % BoundaryInfo % Constraint
+          NewMesh % Elements(NewElCnt) % BoundaryInfo = &
+               RefElement % BoundaryInfo
+ 
+          NULLIFY( NewMesh % Elements(NewElCnt) % &
+             Boundaryinfo % GebhardtFactors )
 
-          NewMesh % Elements(NewElCnt) % BoundaryInfo % OutBody = &
-               RefElement % BoundaryInfo % OutBody
-
-          NULLIFY( NewMesh % Elements(NewElcnt) % BoundaryInfo % &
-               GebhardtFactors % Factors )
-
-          NULLIFY( NewMesh % Elements(NewElcnt) % BoundaryInfo % &
-               GebhardtFactors % Elements )
-
-          NULLIFY( NewMesh % Elements(NewElcnt) % BoundaryInfo % &
-               ViewFactors % Factors )
-
-          NULLIFY( NewMesh % Elements(NewElcnt) % BoundaryInfo % &
-               ViewFactors % Elements )
-
-          NewMesh % Elements(NewElCnt) % BoundaryInfo % &
-               GebhardtFactors % NumberOfFactors = 0
           NULLIFY( NewMesh % Elements(NewElCnt) % BoundaryInfo % Left )
           NULLIFY( NewMesh % Elements(NewElCnt) % BoundaryInfo % Right )
 
@@ -1763,7 +1693,7 @@ if ( k <= 0 .or. k > 3 ) print*,k
 
     n = Element % Type % NumberOfNodes
 
-    k = Edge % BoundaryInfo % LElement
+    k = Edge % BoundaryInfo % Left % ElementIndex
     NULLIFY( Child )
     DO l=1,4
        IF ( Children(k,l)>0 ) THEN
@@ -1781,18 +1711,14 @@ if ( k <= 0 .or. k > 3 ) print*,k
        END IF
     END DO
 
-    IF ( l > 4 ) stop 'parent 1 not found'
+    IF ( l > 4 ) STOP 'Adaptive: parent 1 not found'
         
-    IF ( ASSOCIATED( Child ) ) Element % BoundaryInfo % LBody =  Child % BodyId
     Element % BoundaryInfo % Left  => Child
-    Element % BoundaryInfo % LElement = Children(k,l)
-
-    Element % BoundaryInfo % RElement = 0
     NULLIFY( Element % BoundaryInfo % Right )
         
-    k = Edge % BoundaryInfo % RElement
     NULLIFY( Child )
-    IF ( k > 0 ) THEN
+    IF ( ASSOCIATED(Edge % BoundaryInfo % Right) ) THEN
+       k = Edge % BoundaryInfo % Right % ElementIndex
        DO l=1,4
           IF ( Children(k,l)>0 ) THEN
              Child => Mesh % Elements( Children(k,l) )
@@ -1809,9 +1735,7 @@ if ( k <= 0 .or. k > 3 ) print*,k
           END IF
        END DO
            
-       IF ( ASSOCIATED( Child ) ) Element % BoundaryInfo % RBody =  Child % BodyId
        Element % BoundaryInfo % Right => Child
-       Element % BoundaryInfo % RElement = Children(k,l)
     END IF
 !------------------------------------------------------------------------------
   END SUBROUTINE SetParents
@@ -1835,7 +1759,7 @@ if ( k <= 0 .or. k > 3 ) print*,k
          RefMesh % NumberOfBoundaryElements
 
        Factors => RefMesh % Elements(i) % BoundaryInfo % GebhardtFactors
-       IF ( .NOT. ASSOCIATED( Factors % Elements ) ) CYCLE
+       IF ( .NOT. ASSOCIATED( Factors ) ) CYCLE
 
        NewFactors = 0
        DO k=1,Factors % NumberOfFactors
@@ -1847,10 +1771,18 @@ if ( k <= 0 .or. k > 3 ) print*,k
           END IF
        END DO
 
+       IF (.NOT.ASSOCIATED(NewMesh % Elements(Children(i,1)) % &
+                BoundaryInfo % GebhardtFactors) ) &
+         ALLOCATE(NewMesh % Elements(Children(i,1)) % BoundaryInfo % GebhardtFactors)
+
        NewMesh % Elements(Children(i,1)) % BoundaryInfo % &
             GebhardtFactors % NumberOfFactors = NewFactors
 
        IF ( Children(i,2) > 0 ) THEN
+          IF (.NOT.ASSOCIATED(NewMesh % Elements(Children(i,2)) % &
+                BoundaryInfo % GebhardtFactors) ) &
+            ALLOCATE(NewMesh % Elements(Children(i,2)) % BoundaryInfo % GebhardtFactors)
+
           NewMesh % Elements(Children(i,2)) % BoundaryInfo % &
                GebhardtFactors % NumberOfFactors = NewFactors
        END IF
@@ -1863,7 +1795,7 @@ if ( k <= 0 .or. k > 3 ) print*,k
          RefMesh % NumberOfBoundaryElements
 
        Factors => RefMesh % Elements(i) % BoundaryInfo % GebhardtFactors
-       IF ( .NOT. ASSOCIATED( Factors % Elements ) ) CYCLE
+       IF ( .NOT. ASSOCIATED( Factors ) ) CYCLE
 
        AreaParent = ElementArea( RefMesh, RefMesh % Elements(i), &
             RefMesh % Elements(i) % Type % NumberOfNodes )
@@ -2016,11 +1948,11 @@ use crsmatrix
        IF ( ASSOCIATED( Edge % BoundaryInfo % Right ) ) THEN
           LocalIndicator = EdgeResidual( Model, Edge, RefMesh, Quant, Perm )
 
-          Parent = Edge % BoundaryInfo % LElement
+          Parent = Edge % BoundaryInfo % Left % ElementIndex
           TempIndicator( :,Parent ) = &
                TempIndicator( :,Parent ) + LocalIndicator
           
-          Parent = Edge % BoundaryInfo % RElement
+          Parent = Edge % BoundaryInfo % Right % ElementIndex
           TempIndicator( :,Parent ) = &
                TempIndicator( :,Parent ) + LocalIndicator
        END IF
@@ -2034,13 +1966,15 @@ use crsmatrix
        Edge => RefMesh % Faces(i)
        CurrentModel % CurrentElement => Edge
 
+       IF ( .NOT. ASSOCIATED( Edge % BoundaryInfo ) ) CYCLE
+
        IF ( ASSOCIATED( Edge % BoundaryInfo % Right ) ) THEN
           LocalIndicator = EdgeResidual( Model, Edge, RefMesh, Quant, Perm )
 
-          Parent = Edge % BoundaryInfo % LElement
+          Parent = Edge % BoundaryInfo % Left % ElementIndex
           TempIndicator( :,Parent ) = TempIndicator( :,Parent ) + LocalIndicator
           
-          Parent = Edge % BoundaryInfo % RElement
+          Parent = Edge % BoundaryInfo % Right % ElementIndex
           TempIndicator( :,Parent ) = TempIndicator( :,Parent ) + LocalIndicator
        END IF
     END DO
@@ -2062,13 +1996,17 @@ use crsmatrix
 
        Fnorm = Fnorm + LocalFnorm
 
-       Parent = Edge % BoundaryInfo % LElement
-       IF ( Parent > 0 ) TempIndicator( :,Parent ) = &
-            TempIndicator( :,Parent ) + LocalIndicator
+       IF ( ASSOCIATED( Edge % BoundaryInfo % Left) ) THEN
+         Parent = Edge % BoundaryInfo % Left % ElementIndex
+         IF ( Parent > 0 ) TempIndicator( :,Parent ) = &
+              TempIndicator( :,Parent ) + LocalIndicator
+       END IF
           
-       Parent = Edge % BoundaryInfo % RElement
-       IF ( Parent > 0 ) TempIndicator( :,Parent ) = &
-            TempIndicator( :,Parent ) + LocalIndicator
+       IF ( ASSOCIATED( Edge % BoundaryInfo % RIght) ) THEN
+         Parent = Edge % BoundaryInfo % Right % ElementIndex
+         IF ( Parent > 0 ) TempIndicator( :,Parent ) = &
+              TempIndicator( :,Parent ) + LocalIndicator
+       END IF
     END DO
 
 !
