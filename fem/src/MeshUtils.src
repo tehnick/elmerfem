@@ -33,6 +33,9 @@
 ! *       Date of modification: 27.8.2002
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.14  2005/07/08 08:04:04  jpr
+! * Cleaning some of the type definitions of Types.src.
+! *
 ! * Revision 1.13  2005/07/07 11:14:24  jpr
 ! * Reorganizing the parallel structs.
 ! *
@@ -83,7 +86,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.13 2005/07/07 11:14:24 jpr Exp $
+! * $Id: MeshUtils.src,v 1.14 2005/07/08 08:04:04 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -249,7 +252,9 @@ CONTAINS
     LOGICAL :: parallel
     CHARACTER(LEN=MAX_NAME_LEN) :: MeshDir, MeshName
 !------------------------------------------------------------------------------
-
+    PRINT*,'dadasdsa1'
+    call flush(6)
+    call spariterbarrier
     Mesh => AllocateMesh()
     parallel = .FALSE.
 
@@ -324,9 +329,8 @@ CONTAINS
 !    Mesh nodes
 !------------------------------------------------------------------------------
     CALL AllocateVector( cCoord, 3*Mesh % NumberOfNodes, 'LoadMesh' )
-    CALL AllocateVector( Mesh % ParallelInfo % GlobalDOFs, Mesh % NumberOfNodes, 'LoadMesh' )
+    CALL AllocateVector( NodeTags, Mesh % NumberOfNodes, 'LoadMesh' )
 
-    NodeTags => Mesh % ParallelInfo % GlobalDOFs
     CALL eio_get_mesh_nodes( NodeTags,cCoord,eio_info )
 
     CoordMap => ListGetIntegerArray( Model % Simulation, &
@@ -632,50 +636,6 @@ CONTAINS
     NULLIFY( Model % BoundaryCurvatures )
 !------------------------------------------------------------------------------
 
-    Mesh % ParallelInfo % NumberOfIfDOFs = 0
-
-    IF ( parallel ) THEN
-      CALL eio_get_part_description( fields,eio_info )
-
-      ALLOCATE( Mesh % ParallelInfo % NeighbourList(Mesh % NumberOfNodes), STAT=istat )
-      IF ( istat /= 0 ) CALL Fatal( 'LoadMesh', 'Unable to allocate mesh arrays.' )
-
-      DO i=1,Mesh % NumberOfNodes
-        NULLIFY( Mesh % ParallelInfo % NeighbourList(i) % Neighbours )
-      END DO
-
-      CALL AllocateVector( Mesh % ParallelInfo % INTERFACE, Mesh % NumberOfNodes, 'LoadMesh')
-      Mesh % ParallelInfo % INTERFACE = .FALSE.
-
-      DO i=1,fields
-        CALL eio_get_part_node( tag,bndry,coord,npart,parts,eio_info )
-        IF ( eio_info /= 0 ) &
-           CALL Fatal( 'LoadMesh', 'Error in shared nodes definition.' )
-        k = LocalPerm( tag-MinIndex+1 )
-
-        Mesh % ParallelInfo % INTERFACE(k) = .TRUE.
-        CALL AllocateVector( Mesh % ParallelInfo % NeighbourList(k) % Neighbours, npart )
-        Mesh % ParallelInfo % NeighbourList(k) % Neighbours = parts(1:npart) - 1
-
-        IF ( parts(1)-1 /= mype ) Mesh % ParallelInfo % NumberOfIfDOFs = &
-                  Mesh % ParallelInfo % NumberOfIfDOFs + 1
-      END DO
-
-      DO i=1,Mesh % NumberOfNodes
-        IF ( .NOT.ASSOCIATED( Mesh % ParallelInfo % NeighbourList(i) % Neighbours) ) THEN
-           CALL AllocateVector(Mesh % ParallelInfo % NeighbourList(i) % Neighbours, 1 )
-           Mesh % ParallelInfo % NeighbourList(i) % Neighbours(1) = mype
-        END IF
-      END DO
-    END IF
-
-    DEALLOCATE( LocalPerm )
-    CALL eio_close_mesh( eio_info )
-
-!  not needed anymore
-!   CALL eio_close_model( eio_info )
-
-    CALL eio_close( eio_info )
 
     IF ( NeedEdges ) THEN
       CALL FindMeshEdges( Mesh )
@@ -798,7 +758,7 @@ CONTAINS
        END DO
      END IF
    END DO
-
+   DEALLOCATE( EdgeDOFs, FaceDOFs )
 
    ! Reallocate coordinate arrays for iso-parametric p-elements:
    ! -----------------------------------------------------------
@@ -827,12 +787,62 @@ CONTAINS
      DEALLOCATE( cCoord )
    END IF
  
-   DEALLOCATE( EdgeDOFs, FaceDOFs )
 
-   ! DO i=1,Mesh % NumberOfBoundaryElements
-   !   j = Mesh % NumberOfBulkElements + i
-   !  Element => Mesh % Elements(j)
-   ! END DO
+    Mesh % ParallelInfo % NumberOfIfDOFs = 0
+
+    Mesh % ParallelInfo % GlobalDOFs => NodeTags
+
+    IF ( parallel ) THEN
+      
+      ALLOCATE( Mesh % ParallelInfo % GlobalDOFs(n) )
+
+      Mesh % ParallelInfo % GlobalDOFs = 0
+      Mesh % ParallelInfo % GlobalDOFs(1:Mesh % NumberOfNodes) = NodeTags
+
+      CALL eio_get_part_description( fields,eio_info )
+
+      ALLOCATE( Mesh % ParallelInfo % NeighbourList(n), STAT=istat )
+      IF ( istat /= 0 ) CALL Fatal( 'LoadMesh', 'Unable to allocate mesh arrays.' )
+
+      DO i=1,n
+        NULLIFY( Mesh % ParallelInfo % NeighbourList(i) % Neighbours )
+      END DO
+
+      CALL AllocateVector( Mesh % ParallelInfo % INTERFACE, n, 'LoadMesh')
+      Mesh % ParallelInfo % INTERFACE = .FALSE.
+
+      DO i=1,fields
+        CALL eio_get_part_node( tag,bndry,coord,npart,parts,eio_info )
+        IF ( eio_info /= 0 ) &
+           CALL Fatal( 'LoadMesh', 'Error in shared nodes definition.' )
+        k = LocalPerm( tag-MinIndex+1 )
+
+        Mesh % ParallelInfo % INTERFACE(k) = .TRUE.
+        CALL AllocateVector( Mesh % ParallelInfo % NeighbourList(k) % Neighbours, npart )
+        Mesh % ParallelInfo % NeighbourList(k) % Neighbours = parts(1:npart) - 1
+
+        IF ( parts(1)-1 /= mype ) Mesh % ParallelInfo % NumberOfIfDOFs = &
+                  Mesh % ParallelInfo % NumberOfIfDOFs + 1
+      END DO
+
+      DO i=1,n
+        IF ( .NOT.ASSOCIATED( Mesh % ParallelInfo % NeighbourList(i) % Neighbours) ) THEN
+           CALL AllocateVector(Mesh % ParallelInfo % NeighbourList(i) % Neighbours, 1 )
+           Mesh % ParallelInfo % NeighbourList(i) % Neighbours(1) = mype
+        END IF
+      END DO
+
+      PRINT*,'Starting numbering', n, parenv % mype
+      call flush(6)
+      call spariterbarrier
+      CALL CreateGlobalNumbering( Mesh, n )
+
+   END IF
+
+   DEALLOCATE( LocalPerm )
+   CALL eio_close_mesh( eio_info )
+   
+   CALL eio_close( eio_info )
 
    !
    ! If periodic BC given, compute boundary mesh projector:
@@ -847,6 +857,222 @@ CONTAINS
 !------------------------------------------------------------------------------
   END FUNCTION LoadMesh
 !------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+! Create global numbering of nodes, edge dofs, face dofs and element dofs.needed
+! by the parallel solver.
+!
+SUBROUTINE CreateGlobalNumbering( Mesh, NumberOfDOFs )
+!------------------------------------------------------------------------------
+       TYPE(Mesh_t) :: Mesh
+       INTEGER :: NumberOfDOFs
+!------------------------------------------------------------------------------
+       TYPE(Element_t), POINTER :: Edge, Face, Element
+       INTEGER :: i,j,k,n,l
+       INTEGER, POINTER :: IntCnts(:),IntArray(:),Reorder(:)
+
+       INTEGER :: jedges
+!------------------------------------------------------------------------------
+
+       IF ( ParEnv % PEs <= 1 ) RETURN
+!
+!      Create mesh interfaces for parallel execution.
+!      ==============================================
+!
+       n = Mesh % NumberOfNodes
+
+!      My theory is, that a new node will be an
+!      interface node only if all the edge or face
+!      nodes which contribute to its existence are
+!      interface nodes (the code immediately below
+!      will only count sizes):
+!      -------------------------------------------
+
+       PRINT*,'Checking if edge is interface, number of edges: ', Mesh % NumberOfEdges, ' maxedgedofs: ', Mesh % MaxEdgeDOFs
+       PRINT*,'PE: ', ParEnv % MyPE, ' Interface size: ', SIZE(Mesh % ParallelInfo % Interface), &
+            ' GlobalDOFs size: ', SIZE(Mesh % ParallelInfo % GlobalDOFs)
+       call flush(6)
+       call spariterbarrier
+
+       j = 0 ! Count interface edges
+       k = 0 ! For memory allocation
+       DO i = 1,Mesh % NumberOfEdges
+          Edge => Mesh % Edges(i)
+          IF ( ALL(Mesh % ParallelInfo % Interface(Edge % NodeIndexes)) ) THEN
+             DO l=1,Edge % BDOFs
+                Mesh % ParallelInfo % Interface(Mesh % NumberOfNodes + &
+                     Mesh % MaxEdgeDOFs * (i-1) + l ) = .TRUE.
+             END DO
+             j = j + 1
+             k = k + Edge % BDOFs
+          END IF
+       END DO
+
+       PRINT*,'Found',j,'interface edges and altogether ',k,' dofs'
+       call flush(6)
+       call spariterbarrier
+       
+       jedges = j
+
+!      For bricks, check also the faces:
+!      ---------------------------------
+        DO i = 1,Mesh % NumberOfFaces
+           Face => Mesh % Faces(i) 
+           IF ( ALL( Mesh % ParallelInfo % Interface( Face % NodeIndexes ) ) ) THEN
+              DO l = 1,Face % BDOFs
+                 Mesh % ParallelInfo % Interface( Mesh % NumberOfNodes &
+                      + (Mesh % MaxEdgeDOFs * Mesh % NumberOfEdges)    &
+                      + (Mesh % MaxFaceDOFs) * (i-1) + l ) = .TRUE.
+                 j = j + 1
+                 k = k + Face % BDOFs
+              END DO
+           END IF
+        END DO
+
+       PRINT*,'PE ',ParEnv % MyPE,'Searched for interface faces, j=',j
+       call flush(6)
+       call spariterbarrier
+
+!      For bricks, check also the faces:
+!      ---------------------------------
+        DO i = 1,Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
+           Element => Mesh % Elements(i) 
+           IF ( ALL( Mesh % ParallelInfo % Interface( Element % NodeIndexes ) ) ) THEN
+              DO l = 1,Element % BDOFs
+                 Mesh % ParallelInfo % Interface( Mesh % NumberOfNodes &
+                      + (Mesh % MaxEdgeDOFs * Mesh % NumberOfEdges)    &
+                      + (Mesh % MaxFaceDOFs * Mesh % NumberOfFaces)  &
+                      + (Mesh % MaxElementDOFs) * (i-1) + l ) = .TRUE.
+                 j = j + 1
+                 k = k + Element % BDOFs
+              END DO
+           END IF
+        END DO
+
+       PRINT*,'PE ',ParEnv % MyPE,'Searched for interface elements, SIZE(Mesh%Elements): ',&
+            SIZE(Mesh % Elements),' BulkElements: ',&
+            Mesh % NumberOfBulkElements,' NumberOfBoundaryElements ',&
+            Mesh % NumberOfBoundaryElements,'j=',j
+       call flush(6)
+       call spariterbarrier
+
+       IF( j > 0 .AND. k > 0 ) THEN
+          CALL AllocateVector( IntCnts,  j )
+          CALL AllocateVector( IntArray, k )
+       END IF
+!
+!
+!      Take care of the new mesh internal nodes.
+!      Parallel global numbering will take care
+!      of the interface nodes:
+!      ----------------------------------------
+       print*,3
+       call flush(6)
+       call spariterbarrier
+
+       !
+       ! Doing neighbour lists for non-interface edges
+       ! 
+       ! j = Mesh % NumberOfEdges*Mesh % MaxEdgeDOFs &
+       !        + Mesh % NumberOfFaces * Mesh % MaxFaceDOFs
+       !
+       DO i=Mesh % NumberOfNodes+1, Mesh % NumberOfNodes + j
+          IF ( .NOT. Mesh % ParallelInfo % Interface(i) ) THEN
+             CALL AllocateVector( Mesh % ParallelInfo % NeighbourList(i) % Neighbours,1 )
+             Mesh % ParallelInfo % NeighbourList(i) %  Neighbours(1) = ParEnv % MyPE
+          END IF
+       END DO
+!
+!      Copy global indices of edge and/or face nodes
+!      to temporary work arrays:
+!      ---------------------------------------------
+!
+       print*,4
+       call flush(6)
+       call spariterbarrier
+
+       ! Put interface edge node indices in IntArray so edges may be recognized by the 
+       ! parallel numbering algorithm
+       j = 0
+       k = 0
+       DO i = 1,Mesh % NumberOfEdges
+          Edge => Mesh % Edges(i)
+          IF ( ALL(Mesh % ParallelInfo % Interface(Edge % NodeIndexes)) ) THEN
+             j = j + 1
+             IntCnts(j) = SIZE(Edge % NodeIndexes)
+             IntArray( k+1:k+IntCnts(j) ) = Mesh % ParallelInfo % GlobalDOFs(Edge % NodeIndexes)
+             CALL Sort( IntCnts(j), IntArray(k+1:k+IntCnts(j)) )
+             k = k + IntCnts(j)
+          END IF
+       END DO
+
+       ! The same goes for faces
+       DO i = 1,Mesh % NumberOfFaces
+          Face => Mesh % Faces(i)
+          IF ( ALL( Mesh % ParallelInfo % INTERFACE(Face % NodeIndexes) ) ) THEN
+             j = j + 1
+             IntCnts(j) = SIZE(Face % NodeIndexes)
+             IntArray(k+1:k+IntCnts(j)) = Mesh % ParallelInfo % GlobalDOFs(Face % NodeIndexes)
+             CALL Sort( IntCnts(j), IntArray(k+1:k+IntCnts(j)) )
+             k = k + IntCnts(j)
+          END IF
+       END DO
+
+       ! And elements
+        DO i = 1,Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
+           Element => Mesh % Elements(i) 
+           IF ( ALL( Mesh % ParallelInfo % Interface( Element % NodeIndexes ) ) ) THEN
+              IntCnts(j) = SIZE(Element % NodeIndexes)
+              IntArray(k+1:k+IntCnts(j)) = Mesh % ParallelInfo % GlobalDOFs(Element % NodeIndexes)
+              CALL Sort( IntCnts(j), IntArray(k+1:k+IntCnts(j)) )
+              k = k + IntCnts(j)
+           END IF
+        END DO
+
+!      Finally the beef, do the exchange of new
+!      interfaces. The parallel global numbering
+!      subroutine will also do reordering of the
+!      nodes, hence the reorder array:
+!      -------------------------------------------
+       print*,5
+       call flush(6)
+       call spariterbarrier
+       CALL AllocateVector( Reorder, NumberOfDOFs )
+       Reorder = (/ (i, i=1, NumberOfDOFs) /)
+       
+       print*,'PE: ',ParEnv % MyPE,'FindActivePEs'
+       call flush(6)
+       call spariterbarrier
+       
+       CALL FindActivePEs( Mesh % ParallelInfo )
+       
+       print*,'PE: ',ParEnv % MyPE,' InitialGlobalNumbering'
+       call flush(6)
+       call spariterbarrier
+
+       IF ( j > 0 .AND. k > 0 ) THEN
+          CALL InitialGlobalNumbering( Mesh, NumberOfDOFs, IntCnts,IntArray, Reorder )
+       END IF
+
+       print*,'PE ', ParEnv % MyPE, ' done ' 
+       call flush(6)
+
+       call spariterbarrier
+    
+!      Account for the reordering of the nodes:
+!      ----------------------------------------
+!       DO i=1,Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
+!          Mesh % Elements(i) % EdgeIndexes = Reorder( Mesh % Elements(i) % EdgeIndexes )
+!       END DO
+       
+       IF ( j > 0 .AND. k > 0 ) THEN
+          DEALLOCATE( IntCnts, IntArray )
+       END IF
+
+       DEALLOCATE( Reorder )
+!------------------------------------------------------------------------------
+END SUBROUTINE CreateGlobalNumbering
 
 
 !------------------------------------------------------------------------------

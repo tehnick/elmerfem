@@ -7,7 +7,7 @@
 !
 ! Author: Jouni Malinen, Juha Ruokolainen 
 !
-! $Id: SParIterComm.src,v 1.1 2005/05/26 08:24:46 vierinen Exp $
+! $Id: SParIterComm.src,v 1.2 2005/07/07 11:14:25 jpr Exp $
 !
 !*********************************************************************
 
@@ -110,49 +110,121 @@ CONTAINS
     TYPE (ParallelInfo_t) :: ParallelInfo
     INTEGER :: DOFs
     TYPE(Matrix_t) :: SourceMatrix
-
 !-----------------------------------------------------------------------
 
+    CALL FindActivePEs( ParallelInfo )
+    SPMatrix % ParEnv = ParEnv
+
+!     CALL CheckBuffer( 8*SourceMatrix % NumberOfRows )
+
+!     SPMatrix % ParEnv = ParEnv
+
+!     ALLOCATE( SPMatrix % ParEnv % SendingNB( ParEnv % PEs ) )
+!     ALLOCATE( SPMatrix % ParEnv % Active( ParEnv % PEs ) )
+!     ALLOCATE( SPMatrix % ParEnv % IsNeighbour( ParEnv % PEs ) )
+
+!     SPMatrix % ParEnv % NumOfNeighbours = 0
+!     SPMatrix % ParEnv % Active(:)       = .FALSE.
+!     SPMatrix % ParEnv % SendingNB(:)    = .FALSE.
+!     SPMatrix % ParEnv % IsNeighbour(:)  = .FALSE.
+
+!     !------------------------------------------------------------------
+!     !
+!     ! Count the number of real neighbours for this partition
+!     !
+!     !------------------------------------------------------------------
+
+!     DO i=DOFs, SourceMatrix % NumberOfRows, DOFs
+!        k = SourceMatrix % INVPerm(i) / DOFs
+ 
+!        IF ( SIZE( ParallelInfo % NeighbourList(k) % Neighbours ) > 1 ) THEN
+!           DO j = 1, SIZE( ParallelInfo % NeighbourList(k) % Neighbours )
+!              proc = ParallelInfo % NeighbourList(k) % Neighbours(j)
+!              IF ( proc /= ParEnv % MyPE ) THEN
+!                 IF ( .NOT. SPMatrix % ParEnv % IsNeighbour(proc+1) ) THEN
+!                    SPMatrix % ParEnv % IsNeighbour(proc+1) = .TRUE.
+!                    SPMatrix % ParEnv % NumOfNeighbours = &
+!                             SPMatrix % ParEnv % NumOfNeighbours + 1
+!                 END IF
+!              END IF
+!           END DO
+!        END IF
+!     END DO
+
+!     !------------------------------------------------------------------
+!     !
+!     ! Scan active procs for this specific equation.
+!     ! TODO: wont work for disconnected areas....
+!     !
+!     !------------------------------------------------------------------
+
+!     ALLOCATE( Active( ParEnv % PEs ) )
+!     SPMatrix % ParEnv % Active = SPMatrix % ParEnv % IsNeighbour
+
+!     DO k = 1, ParEnv % PEs
+!        Active = 0
+!        DO i=1,ParEnv % PEs
+!           IF ( SPMatrix % ParEnv % Active(i) ) Active(i) = 1
+!        END DO
+
+!        DO i=1,ParEnv % PEs
+!           IF ( SPMatrix % ParEnv % IsNeighbour(i) ) THEN
+!              CALL MPI_BSEND( Active, ParEnv % PEs, MPI_INTEGER, i-1, &
+!                      k, MPI_COMM_WORLD, ierr )
+!           END IF
+!        END DO
+
+!        DO i=1,ParEnv % PEs
+!           IF ( SPMatrix % ParEnv % IsNeighbour(i) ) THEN
+!              CALL MPI_RECV( Active, ParEnv % PEs, MPI_INTEGER, i-1, &
+!                      k, MPI_COMM_WORLD, status, ierr )
+!              SPMatrix % ParEnv % Active = &
+!                   SPMatrix % ParEnv % Active .OR. Active /= 0
+!           END IF
+!        END DO
+!     END DO
+
+!     DEALLOCATE( Active )
+!-----------------------------------------------------------------------
+  END SUBROUTINE ParEnvInit
+!-----------------------------------------------------------------------
+
+
+!********************************************************************
+! Find active PEs using ParallelInfo % NeighbourList
+!-----------------------------------------------------------------------
+  SUBROUTINE FindActivePEs( ParallelInfo )
+!-----------------------------------------------------------------------
+    TYPE(ParallelInfo_t) :: ParallelInfo
+!-----------------------------------------------------------------------
     ! Local variables
     INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
-
+    
     INTEGER, ALLOCATABLE :: Active(:)
     INTEGER :: i, j, k, ierr, proc, Group
 
-!-----------------------------------------------------------------------
+    CALL CheckBuffer( ParEnv % PEs**2 + MPI_BSEND_OVERHEAD )
 
-    !******************************************************************
+    ALLOCATE( ParEnv % SendingNB( ParEnv % PEs ) )
+    ALLOCATE( ParEnv % Active( ParEnv % PEs ) )
+    ALLOCATE( ParEnv % IsNeighbour( ParEnv % PEs ) )
 
-    CALL CheckBuffer( 8*SourceMatrix % NumberOfRows )
-
-    SPMatrix % ParEnv = ParEnv
-
-    ALLOCATE( SPMatrix % ParEnv % SendingNB( ParEnv % PEs ) )
-    ALLOCATE( SPMatrix % ParEnv % Active( ParEnv % PEs ) )
-    ALLOCATE( SPMatrix % ParEnv % IsNeighbour( ParEnv % PEs ) )
-
-    SPMatrix % ParEnv % NumOfNeighbours = 0
-    SPMatrix % ParEnv % Active(:)       = .FALSE.
-    SPMatrix % ParEnv % SendingNB(:)    = .FALSE.
-    SPMatrix % ParEnv % IsNeighbour(:)  = .FALSE.
+    ParEnv % NumOfNeighbours = 0
+    ParEnv % Active(:)       = .FALSE.
+    ParEnv % SendingNB(:)    = .FALSE.
+    ParEnv % IsNeighbour(:)  = .FALSE.
 
     !------------------------------------------------------------------
-    !
     ! Count the number of real neighbours for this partition
-    !
     !------------------------------------------------------------------
-
-    DO i=DOFs, SourceMatrix % NumberOfRows, DOFs
-       k = SourceMatrix % INVPerm(i) / DOFs
- 
+    DO k=1,SIZE( ParallelInfo % NeighbourList )
        IF ( SIZE( ParallelInfo % NeighbourList(k) % Neighbours ) > 1 ) THEN
-          DO j = 1, SIZE( ParallelInfo % NeighbourList(k) % Neighbours )
+          DO j=1,SIZE( ParallelInfo % NeighbourList(k) % Neighbours )
              proc = ParallelInfo % NeighbourList(k) % Neighbours(j)
              IF ( proc /= ParEnv % MyPE ) THEN
-                IF ( .NOT. SPMatrix % ParEnv % IsNeighbour(proc+1) ) THEN
-                   SPMatrix % ParEnv % IsNeighbour(proc+1) = .TRUE.
-                   SPMatrix % ParEnv % NumOfNeighbours = &
-                            SPMatrix % ParEnv % NumOfNeighbours + 1
+                IF ( .NOT. ParEnv % IsNeighbour(proc+1) ) THEN
+                   ParEnv % IsNeighbour(proc+1) = .TRUE.
+                   ParEnv % NumOfNeighbours = ParEnv % NumOfNeighbours + 1
                 END IF
              END IF
           END DO
@@ -160,43 +232,43 @@ CONTAINS
     END DO
 
     !------------------------------------------------------------------
-    !
-    ! Scan active procs for this specific equation.
+    ! Scan active procs using neighbourlists in GlobalDOFs
     ! TODO: wont work for disconnected areas....
-    !
     !------------------------------------------------------------------
-
     ALLOCATE( Active( ParEnv % PEs ) )
-    SPMatrix % ParEnv % Active = SPMatrix % ParEnv % IsNeighbour
 
+    ! initialize with first order information
+    ParEnv % Active = ParEnv % IsNeighbour
+
+    ! This many exchanges are needed in the worst case for neighbouring 
+    ! information to propagate.
     DO k = 1, ParEnv % PEs
        Active = 0
        DO i=1,ParEnv % PEs
-          IF ( SPMatrix % ParEnv % Active(i) ) Active(i) = 1
+          IF ( ParEnv % Active(i) ) Active(i) = 1
        END DO
 
        DO i=1,ParEnv % PEs
-          IF ( SPMatrix % ParEnv % IsNeighbour(i) ) THEN
+          IF ( ParEnv % IsNeighbour(i) ) THEN
              CALL MPI_BSEND( Active, ParEnv % PEs, MPI_INTEGER, i-1, &
-                     k, MPI_COMM_WORLD, ierr )
+                  k, MPI_COMM_WORLD, ierr )
           END IF
        END DO
 
        DO i=1,ParEnv % PEs
-          IF ( SPMatrix % ParEnv % IsNeighbour(i) ) THEN
+          IF ( ParEnv % IsNeighbour(i) ) THEN
              CALL MPI_RECV( Active, ParEnv % PEs, MPI_INTEGER, i-1, &
-                     k, MPI_COMM_WORLD, status, ierr )
-             SPMatrix % ParEnv % Active = &
-                  SPMatrix % ParEnv % Active .OR. Active /= 0
+                  k, MPI_COMM_WORLD, status, ierr )
+             ParEnv % Active = &
+                  ParEnv % Active .OR. Active /= 0
           END IF
        END DO
     END DO
-
+    
     DEALLOCATE( Active )
 !-----------------------------------------------------------------------
-  END SUBROUTINE ParEnvInit
+  END SUBROUTINE FindActivePEs
 !-----------------------------------------------------------------------
-
 
 !*********************************************************************
 ! Try to agree about global numbering of nodes among active
@@ -222,7 +294,7 @@ CONTAINS
 
 ! XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 ! YOU, YES YOU  DO SOMETHING ABOUT THIS 
-     CALL CheckBuffer(1000000)
+     CALL CheckBuffer(100000)
 ! XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 !
 !    find least numbered of the active procs:
@@ -240,6 +312,8 @@ CONTAINS
 !    Lowest numbered PE will compute the size of
 !    the (old) global node array, and eventually
 !    distribute the knowledge:
+!
+!    Others send their maxlcl to minproc
 !    -------------------------------------------
      IF ( ParEnv % MyPE == MinProc-1 ) THEN
         j = 1
@@ -542,6 +616,402 @@ CONTAINS
 !-----------------------------------------------------------------------
    END SUBROUTINE SParGlobalNumbering
 !-----------------------------------------------------------------------
+
+!*********************************************************************
+! Do global numbering for elements, edges and faces.
+! (now only works for 1 dof edges .)
+!---------------------------------------------------------------------
+   SUBROUTINE InitialGlobalNumbering( Mesh, NumberOfDOFs, &
+            OldIntCnts, OldIntArray, Reorder )
+!---------------------------------------------------------------------
+    USE GeneralUtils
+!---------------------------------------------------------------------
+     TYPE(Mesh_t) :: Mesh
+     INTEGER, TARGET :: NumberOfDOFs, OldIntArray(:), &
+               OldIntCnts(:), Reorder(:)
+!---------------------------------------------------------------------
+     INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
+     INTEGER :: ierr
+
+     INTEGER :: i,j,k,l,n,MinProc,MaxLcl,MaxGlb,InterfaceNodes,NewDOFCnt
+     INTEGER :: LIndex(100), IntN, Gindex, k1, k2
+     INTEGER, POINTER :: IntArray(:),IntCnts(:),GIndices(:),Gorder(:)
+!---------------------------------------------------------------------
+     CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
+
+
+     PRINT*,'Start InitialGlobalNumbering: ',ParEnv % MyPE
+     call flush(6)
+     call spariterbarrier
+
+! XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+! YOU, YES YOU  DO SOMETHING ABOUT THIS 
+! How about (NumberOfDOFs - Mesh % Nodes % NumberOfNodes) for size?
+     CALL CheckBuffer( SIZE(Mesh % ParallelInfo % GlobalDOFs) + MPI_BSEND_OVERHEAD )
+! XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+     PRINT*,'Checked buffer: ',ParEnv % MyPE, ' PEs ', ParEnv % PEs
+     call flush(6)
+     call spariterbarrier
+
+     PRINT*,'PE: ',ParEnv % MyPE, ' GlobalDOFs: ', Mesh % ParallelInfo % GlobalDOFs
+     call flush(6)
+
+     PRINT*,'PE: ',ParEnv % MyPE, ' Active(1) ', ParEnv % Active(1), ' Active(2) ', ParEnv % Active(2)
+     call flush(6)
+     call spariterbarrier
+!
+!    find least numbered of the active procs:
+!    ----------------------------------------
+     DO MinProc = 1,ParEnv % PEs
+        IF ( ParEnv % Active( MinProc ) ) EXIT
+     END DO
+
+     PRINT*,'PE: ',ParEnv % MyPE, ' MinProc ', MinProc 
+     call flush(6)
+     call spariterbarrier
+!
+!    Our maximum global node index:
+!    ------------------------------
+     MaxLcl = MAXVAL( Mesh % ParallelInfo % GlobalDOFs )
+     MaxGlb = MaxLcl
+     n = Mesh % Nodes % NumberOfNodes + 1
+
+     PRINT*,'PE: ',ParEnv % MyPE, 'n: ',n
+     call flush(6)
+     call spariterbarrier
+!
+!    Find out current maximum global DOF number...
+!    (others send their maxlcl to minproc)
+!    --------------------------------------
+     IF ( ParEnv % MyPE == MinProc-1 ) THEN
+        j = 1
+        DO i=MinProc+1,ParEnv % PEs
+           IF ( ParEnv % Active(i) ) THEN
+              CALL MPI_RECV( k, 1, MPI_INTEGER, i-1, &
+                10, MPI_COMM_WORLD, status, ierr )
+              MaxGlb = MAX( MaxGlb, k )
+           END IF
+        END DO
+     ELSE
+        CALL MPI_BSEND( MaxLcl, 1, MPI_INTEGER, &
+          MinProc-1, 10, MPI_COMM_WORLD, ierr )
+     END IF
+
+    PRINT*,'PE: ',ParEnv % MyPE,' MaxGlb ',MaxGlb
+    call flush(6)
+    call spariterbarrier
+!
+!    Recieve new interface nodes from lower
+!    numbered PEs, and check if they are
+!    relevant to us:
+!    ---------------------------------------
+    DO i=MinProc,ParEnv % MyPE
+       IF ( .NOT. (ParEnv % Active(i) .AND. ParEnv % Isneighbour(i)) ) CYCLE
+       
+       ! Get number of interface nodes received from PE i
+       CALL MPI_RECV( InterfaceNodes, 1, MPI_INTEGER, &
+            i-1, 14, MPI_COMM_WORLD, status, ierr )
+       
+       IF ( InterfaceNodes > 0 ) THEN
+          ALLOCATE( GIndices(InterfaceNodes), IntCnts(InterfaceNodes) )
+          
+          CALL MPI_RECV( GIndices, InterfaceNodes, MPI_INTEGER, &
+               i-1, 15, MPI_COMM_WORLD, status, ierr )
+          
+          CALL MPI_RECV( IntCnts, InterfaceNodes, MPI_INTEGER, &
+               i-1, 16, MPI_COMM_WORLD, status, ierr )
+
+          CALL MPI_RECV( k, 1, MPI_INTEGER, &
+               i-1, 17, MPI_COMM_WORLD, status, ierr )
+          
+          ALLOCATE( IntArray(k) )
+
+          CALL MPI_RECV( IntArray, SIZE(IntArray), MPI_INTEGER, &
+               i-1, 18, MPI_COMM_WORLD, status, ierr )
+!
+!          Update our view of the global numbering
+!          at the interface nodes, edges, faces and elements.
+!          ---------------------------------------
+          l = 0
+          DO j=1,InterfaceNodes
+             Lindex = 0
+             IntN = IntCnts(j)
+             DO k=1,IntN
+                Lindex(k) = SearchNode( Mesh % ParallelInfo, IntArray(l+k), 1, n-1 )
+             END DO
+
+             ! it is maybe redundant to check that the IntArrays match, but
+             ! then again, it might be the only way to identify edge, face and element dofs :)
+
+             IF ( ALL( Lindex(1:IntN) > 0 ) ) THEN
+!
+!                This set of interface dofs belongs to us as well
+!                -------------------------------------
+                k2 = 0 ! 
+                k1 = 0 ! interface number 0..InterfaceNodes
+                DO k=n,NumberOfDOFs
+                   IF ( .NOT. Mesh % ParallelInfo % Interface(k) ) CYCLE
+
+                   k1 = k1 + 1
+                   IF ( IntN == OldIntCnts(k1) ) THEN
+                      ! If all edges match, then this is our interface dof.
+                      IF ( ALL( IntArray(l+1:l+IntN) == &
+                           OldIntArray(k2+1:k2+IntN)) ) THEN
+                         Mesh % ParallelInfo % GlobalDOFs(k) = GIndices(j)
+                         EXIT
+                      END IF
+                   END IF
+                   k2 = k2 + OldIntCnts(k1)
+                END DO
+             END IF
+             l = l + IntN
+          END DO
+          DEALLOCATE( Gindices, IntCnts, IntArray )
+       END IF
+    END DO
+!
+!    Update the current numbering from the 
+!    previous PE in line, this will make the
+!    execution strictly serial. Maybe there
+!    would be an easier way?
+!    ---------------------------------------
+     IF ( ParEnv % MyPE > MinProc-1 ) THEN
+        DO i=ParEnv % MyPE, MinProc, -1
+           IF ( ParEnv % Active(i) ) THEN
+              CALL MPI_RECV( MaxGlb, 1, MPI_INTEGER, &
+               i-1, 20, MPI_COMM_WORLD, status, ierr )
+              EXIT
+           END IF
+        END DO
+     END IF
+!
+!    Renumber our own new set of nodes:
+!    ----------------------------------
+     DO i=n,NumberOfDOFs
+        IF ( Mesh % ParallelInfo % GlobalDOFs(i) == 0 ) THEN
+           MaxGlb = MaxGlb + 1
+           Mesh % ParallelInfo % GlobalDOFs(i) = MaxGlb
+        END IF
+     END DO
+!
+!    Extract interface nodes:
+!    ------------------------
+     InterfaceNodes = COUNT( Mesh % ParallelInfo % Interface(n:) )
+     IF ( InterfaceNodes > 0 ) ALLOCATE( Gindices(InterfaceNodes) )
+
+     InterfaceNodes = 0
+     DO i=n,NumberOfDOFs
+        IF ( Mesh % ParallelInfo % Interface(i) ) THEN
+           InterfaceNodes = InterfaceNodes + 1
+           Gindices(InterfaceNodes) = Mesh % ParallelInfo % GlobalDOFs(i)
+        END IF
+     END DO
+!
+!    Send new interface nodes to higher numbered PEs:
+!    ------------------------------------------------
+     DO i=ParEnv % MyPE+2,ParEnv % PEs
+        IF ( .NOT. (ParEnv % Active(i) .AND. ParEnv % Isneighbour(i)) ) CYCLE
+
+        CALL MPI_BSEND( InterfaceNodes, 1, MPI_INTEGER, &
+               i-1, 14, MPI_COMM_WORLD, ierr )
+
+        IF ( InterfaceNodes > 0 ) THEN
+           CALL MPI_BSEND( GIndices, InterfaceNodes, MPI_INTEGER, &
+                    i-1, 15, MPI_COMM_WORLD, ierr )
+
+           CALL MPI_BSEND( OldIntCnts, InterfaceNodes, &
+              MPI_INTEGER, i-1, 16, MPI_COMM_WORLD, ierr )
+
+           CALL MPI_BSEND( SIZE(OldIntArray), 1, &
+              MPI_INTEGER, i-1, 17, MPI_COMM_WORLD, ierr )
+
+           CALL MPI_BSEND( OldIntArray, SIZE(OldIntArray), &
+              MPI_INTEGER, i-1, 18, MPI_COMM_WORLD, ierr )
+
+        END IF
+     END DO
+
+     DEALLOCATE( GIndices )
+!
+!    Send go singal to next PE in line...
+!    ------------------------------------
+     DO i = ParEnv % MyPE+2, ParEnv % PEs
+        IF ( ParEnv % Active(i) ) THEN
+           CALL MPI_BSEND( MaxGlb, 1, MPI_INTEGER, &
+               i-1, 20, MPI_COMM_WORLD, ierr )
+           EXIT
+        END IF
+     END DO
+!
+!    Sort our own nodes according to ascending
+!    global order:
+!    -----------------------------------------
+     NewDOFCnt=NumberOfDOFs - Mesh % Nodes % NumberOfNodes
+
+     ALLOCATE( IntCnts(NewDOFCnt), Gorder(NewDOFCnt) )
+     DO i=1,NewDOFCnt
+        Gorder(i) = i
+     END DO
+
+     CALL SortI( NewDOFCnt, Mesh % ParallelInfo % GlobalDOFs(n:), Gorder )
+
+     DO i=1,NewDOFCnt
+        IntCnts(Gorder(i)) = i
+     END DO
+!
+!    Reorder will return the nodal reordering
+!    to the caller:
+!    ----------------------------------------
+     Reorder(n:) = IntCnts + n - 1
+
+     
+!
+!    Order the whole of the nodal structure
+!    according to the changed order of the 
+!    global numbers:
+!    --------------------------------------     
+     DO i=1,NewDOFCnt
+        k = Gorder(i)
+        CALL SwapEdges( Mesh, i+n-1, k+n-1 )
+
+        j = IntCnts(i)
+        IntCnts(i) = IntCnts(k)
+        IntCnts(k) = j
+
+        Gorder(IntCnts(k)) = k
+     END DO
+
+     DEALLOCATE( IntCnts )
+
+     PRINT*,'PE: ',ParEnv % MyPE, ' GlobalDOFs: ', Mesh % ParallelInfo % GlobalDOFs
+     call flush(6)
+!    Ok, now we have generated the global numbering
+!    of nodes. We still need to distribute the
+!    information which PEs share which of the new
+!    interface nodes:
+!    -----------------------------------------------
+     InterfaceNodes = COUNT( Mesh % ParallelInfo % Interface(n:) )
+
+     ! If interface node, allocate neighbourlist
+     ALLOCATE( GIndices( InterfaceNodes ) )
+     j = 0
+     DO i=n,NumberOfDOFs
+        IF ( Mesh % ParallelInfo % Interface(i) ) THEN
+           j = j + 1
+           GIndices(j) = Mesh % ParallelInfo % GlobalDOFs(i)
+           ALLOCATE( Mesh % ParallelInfo % NeighbourList(i) % Neighbours(ParEnv % PEs) )
+           Mesh % ParallelInfo % NeighbourList(i) % Neighbours = -1
+        END IF
+     END DO
+
+     ! send interface node count and global indice list to neighbouring partitions
+     DO i=MinProc,ParEnv % PEs
+        IF ( ParEnv % MyPE == i-1 ) CYCLE
+        IF ( ParEnv % Active(i) .AND. ParEnv % IsNeighbour(i) ) THEN
+           CALL MPI_BSEND( InterfaceNodes, 1, &
+              MPI_INTEGER, i-1, 30, MPI_COMM_WORLD, ierr )
+
+           CALL MPI_BSEND( GIndices, InterfaceNodes, &
+              MPI_INTEGER, i-1, 31, MPI_COMM_WORLD, ierr )
+        END IF
+     END DO
+
+     DEALLOCATE( Gindices )
+
+     ALLOCATE( IntCnts(NumberOfDOFs ) )
+
+     ! Set our PE in the neighbourlist
+     IntCnts = 0
+     DO i=n,NumberOfDOFs
+        IF ( Mesh % ParallelInfo % Interface(i) ) THEN
+           IntCnts(i) = IntCnts(i) + 1
+           Mesh % ParallelInfo % NeighbourList(i) % Neighbours(1) = ParEnv % MyPE
+        END IF
+     END DO
+
+     ! receive global indices and the number of interface nodes from other partitions
+     DO i=MinProc,ParEnv % PEs
+        IF ( ParEnv % MyPE == i-1 ) CYCLE
+        IF ( ParEnv % Active(i) .AND. ParEnv % IsNeighbour(i) ) THEN
+           CALL MPI_RECV( InterfaceNodes, 1, MPI_INTEGER, &
+               i-1, 30, MPI_COMM_WORLD, status, ierr )
+
+           ALLOCATE( GIndices(InterfaceNodes) )
+
+           CALL MPI_RECV( GIndices, InterfaceNodes, MPI_INTEGER, &
+               i-1, 31, MPI_COMM_WORLD, status, ierr )
+
+           DO j=1,InterfaceNodes
+              k = SearchNode( Mesh % ParallelInfo, Gindices(j), n )
+              ! if we find the global indice in our own globaldofs, then add the sender to neighbourlist
+              IF ( k <= 0 ) CYCLE
+              IntCnts(k) = IntCnts(k) + 1
+              Mesh % ParallelInfo % NeighbourList(k) % Neighbours(IntCnts(k)) = i-1
+           END DO
+
+           DEALLOCATE( GIndices )
+        END IF
+     END DO
+!
+!    Reallocate the nodal neighbour lists to
+!    correct sizes and also sort them (the smallest PE always is owner)
+!    ---------------------------------------
+     DO i=n,NumberOfDOFs
+        IF ( Mesh % ParallelInfo % Interface(i) ) THEN
+           k = IntCnts(i)
+           ALLOCATE( Gindices(k) )
+           Gindices = Mesh % ParallelInfo % NeighbourList(i) % Neighbours(1:k)
+           CALL Sort( k, Gindices )
+           DEALLOCATE( Mesh % ParallelInfo % NeighbourList(i) % Neighbours )
+           Mesh % ParallelInfo % NeighbourList(i) % Neighbours => Gindices
+        END IF
+     END DO
+     
+     DEALLOCATE( IntCnts )
+
+     CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
+
+CONTAINS
+
+!-----------------------------------------------------------------------
+     SUBROUTINE SwapEdges( Mesh, i, k )
+!-----------------------------------------------------------------------
+        INTEGER :: i,k
+        TYPE(Mesh_t) :: Mesh
+!-----------------------------------------------------------------------
+        LOGICAL :: swapi
+        INTEGER, POINTER :: swapl(:)
+        TYPE(Element_t) :: Element
+!-----------------------------------------------------------------------
+        
+        ! don't swap if there is no need to swap...
+        IF( i /= k ) THEN
+           ! Code is broken for multiple dofs.
+           PRINT*,'PE: ',ParEnv % MyPE, ' Swap edges: ', i,',',k
+           call flush(6)
+           
+           Element = Mesh % Edges(i)
+           Mesh % Edges(k) = Mesh % Edges(i)
+           Mesh % Edges(i) = Element
+           
+           swapi =  Mesh % ParallelInfo % Interface(i)
+           swapl => Mesh % ParallelInfo % NeighbourList(i) % Neighbours
+           
+           Mesh % ParallelInfo % Interface(i) = Mesh % ParallelInfo % Interface(k) 
+           Mesh % ParallelInfo % NeighbourList(i) % Neighbours => &
+                Mesh % ParallelInfo % NeighbourList(k) % Neighbours
+
+           Mesh % ParallelInfo % Interface(k) = swapi
+           Mesh % ParallelInfo % NeighbourList(k) % Neighbours => swapl
+        END IF
+!-----------------------------------------------------------------------
+     END SUBROUTINE SwapEdges
+!-----------------------------------------------------------------------
+
+   END SUBROUTINE InitialGlobalNumbering
+!-----------------------------------------------------------------------
+
 
 
 !-----------------------------------------------------------------------
@@ -1661,10 +2131,10 @@ END SUBROUTINE ExchangeResult
 !*********************************************************************
 !
 ! Search an element QueriedNode from an ordered set Nodes and return
-! Index to Nodes structure. Rerturn value -1 means QueriedNode was
+! Index to Nodes structure. Return value -1 means QueriedNode was
 ! not found.
 !
-FUNCTION SearchNode( ParallelInfo, QueriedNode,First,Last ) RESULT ( Index )
+FUNCTION SearchNode( ParallelInfo, QueriedNode, First, Last ) RESULT ( Index )
 
   USE Types
   IMPLICIT NONE
