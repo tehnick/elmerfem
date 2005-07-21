@@ -7,7 +7,7 @@
 !
 ! Author: Jouni Malinen, Juha Ruokolainen 
 !
-! $Id: SParIterComm.src,v 1.2 2005/07/07 11:14:25 jpr Exp $
+! $Id: SParIterComm.src,v 1.3 2005/07/18 15:15:22 vierinen Exp $
 !
 !*********************************************************************
 
@@ -46,7 +46,7 @@ CONTAINS
      ALLOCATE( SendBuffer( n ) )
      CALL MPI_BUFFER_ATTACH( SendBuffer, n, ierr )
 !-----------------------------------------------------------------
-  END SUBROUTINE CheckBuffer
+   END SUBROUTINE CheckBuffer
 !-----------------------------------------------------------------
 
 
@@ -56,9 +56,9 @@ CONTAINS
   ! Initialize parallel execution environment
   !
 
-  FUNCTION ParCommInit( ) RESULT ( ParallelEnv ) 
+   FUNCTION ParCommInit( ) RESULT ( ParallelEnv ) 
 
-    TYPE (ParEnv_t), POINTER :: ParallelEnv
+     TYPE (ParEnv_t), POINTER :: ParallelEnv
 
     ! Local variables
 
@@ -188,7 +188,6 @@ CONTAINS
 !-----------------------------------------------------------------------
   END SUBROUTINE ParEnvInit
 !-----------------------------------------------------------------------
-
 
 !********************************************************************
 ! Find active PEs using ParallelInfo % NeighbourList
@@ -624,40 +623,76 @@ CONTAINS
    SUBROUTINE InitialGlobalNumbering( Mesh, NumberOfDOFs, &
             OldIntCnts, OldIntArray, Reorder )
 !---------------------------------------------------------------------
+     TYPE(Mesh_t) :: Mesh
+     INTEGER, TARGET :: NumberOfDOFs, OldIntArray(:), &
+          OldIntCnts(:), Reorder(:)
+!---------------------------------------------------------------------
+     INTEGER :: nstart, nend, doftype
+!---------------------------------------------------------------------
+
+     ! Number edges, faces and elements seperately so
+     ! that different types of dofs don't get mixed up
+     ! (nodes are already numbered)
+
+     nstart = Mesh % NumberOfNodes+1
+     nend = Mesh % NumberOfNodes + (Mesh % NumberOfEdges * Mesh % MaxEdgeDOFs)
+     doftype = 2
+     CALL ParallelNumbering( Mesh, OldIntCnts, OldIntArray, Reorder, nstart, nend, doftype )
+
+     nstart = nend+1
+     nend = Mesh % NumberOfNodes + (Mesh % NumberOfEdges * Mesh % MaxEdgeDOFs) + &
+          (Mesh % NumberOfFaces * Mesh % MaxFaceDOFs)
+     doftype=3
+     CALL ParallelNumbering( Mesh, OldIntCnts, OldIntArray, Reorder, nstart, nend, doftype )
+
+     nstart = nend+1
+     nend = NumberOfDOFs
+     doftype=4
+     CALL ParallelNumbering( Mesh, OldIntCnts, OldIntArray, Reorder, nstart, nend, doftype )
+
+   END SUBROUTINE InitialGlobalNumbering
+!-----------------------------------------------------------------------
+
+!*********************************************************************
+! A parallel numbering algorithm for global DOFs that identifies 
+! interface elements by their global node numbers (passed in OldIntCnts and OldIntArray)
+!---------------------------------------------------------------------
+   SUBROUTINE ParallelNumbering( Mesh, OldIntCnts, OldIntArray, Reorder, & 
+        nstart, nend, doftype )
+!---------------------------------------------------------------------
     USE GeneralUtils
 !---------------------------------------------------------------------
      TYPE(Mesh_t) :: Mesh
-     INTEGER, TARGET :: NumberOfDOFs, OldIntArray(:), &
-               OldIntCnts(:), Reorder(:)
+     INTEGER, TARGET :: OldIntArray(:), &
+          OldIntCnts(:), Reorder(:), nstart, nend, doftype
 !---------------------------------------------------------------------
      INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
      INTEGER :: ierr
-
-     INTEGER :: i,j,k,l,n,MinProc,MaxLcl,MaxGlb,InterfaceNodes,NewDOFCnt
+     INTEGER :: i,j,k,l,n,MinProc,MaxLcl,MaxGlb,InterfaceNodes,NewDOFCnt,dofs,step
      INTEGER :: LIndex(100), IntN, Gindex, k1, k2
      INTEGER, POINTER :: IntArray(:),IntCnts(:),GIndices(:),Gorder(:)
 !---------------------------------------------------------------------
      CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
 
-
-     PRINT*,'Start InitialGlobalNumbering: ',ParEnv % MyPE
+     PRINT*,'PE: ',ParEnv % MyPE, ' Numbering type ', doftype ,' from ', nstart, ' to ', nend
      call flush(6)
      call spariterbarrier
 
+     ! if no dofs of this type, return
+     IF ( nstart > nend ) THEN
+        RETURN
+     END IF
+
 ! XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-! YOU, YES YOU  DO SOMETHING ABOUT THIS 
-! How about (NumberOfDOFs - Mesh % Nodes % NumberOfNodes) for size?
-     CALL CheckBuffer( SIZE(Mesh % ParallelInfo % GlobalDOFs) + MPI_BSEND_OVERHEAD )
+! It seems that the worst case size for the buffer is way too high
+! so something heuristic should be better, accompanied with a 
+! test to see if buffer is too small...
+! 
+     CALL CheckBuffer( 1000000 )
 ! XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
-     PRINT*,'Checked buffer: ',ParEnv % MyPE, ' PEs ', ParEnv % PEs
-     call flush(6)
-     call spariterbarrier
-
-     PRINT*,'PE: ',ParEnv % MyPE, ' GlobalDOFs: ', Mesh % ParallelInfo % GlobalDOFs
-     call flush(6)
-
-     PRINT*,'PE: ',ParEnv % MyPE, ' Active(1) ', ParEnv % Active(1), ' Active(2) ', ParEnv % Active(2)
+     PRINT*,'PE: ',ParEnv % MyPE, ' SIZE(GlobalDOFs) ', SIZE(Mesh % ParallelInfo % GlobalDOFs)
+     PRINT*,'PE: ',ParEnv % MyPE, ' GlobalDOFs before numbering: ', Mesh % ParallelInfo % GlobalDOFs
      call flush(6)
      call spariterbarrier
 !
@@ -675,12 +710,13 @@ CONTAINS
 !    ------------------------------
      MaxLcl = MAXVAL( Mesh % ParallelInfo % GlobalDOFs )
      MaxGlb = MaxLcl
-     n = Mesh % Nodes % NumberOfNodes + 1
+     n = nstart
 
      PRINT*,'PE: ',ParEnv % MyPE, 'n: ',n
      call flush(6)
      call spariterbarrier
-!
+
+
 !    Find out current maximum global DOF number...
 !    (others send their maxlcl to minproc)
 !    --------------------------------------
@@ -701,15 +737,21 @@ CONTAINS
     PRINT*,'PE: ',ParEnv % MyPE,' MaxGlb ',MaxGlb
     call flush(6)
     call spariterbarrier
+
+!    Recieve global numbers for interface nodes from lower
+!    numbered PEs. 
 !
-!    Recieve new interface nodes from lower
-!    numbered PEs, and check if they are
-!    relevant to us:
+!    Interface dofs are identified 
+!    by the nodes of an edge, face or element.
+!
+!    IntCnts = number of nodes
+!    IntArray = the nodes
 !    ---------------------------------------
+    NewDOFCnt=0
     DO i=MinProc,ParEnv % MyPE
-       IF ( .NOT. (ParEnv % Active(i) .AND. ParEnv % Isneighbour(i)) ) CYCLE
+       IF ( .NOT. (ParEnv % Active(i) .AND. ParEnv % IsNeighbour(i)) ) CYCLE
        
-       ! Get number of interface nodes received from PE i
+       ! Get number of interface nodes to receive from PE i
        CALL MPI_RECV( InterfaceNodes, 1, MPI_INTEGER, &
             i-1, 14, MPI_COMM_WORLD, status, ierr )
        
@@ -729,7 +771,7 @@ CONTAINS
 
           CALL MPI_RECV( IntArray, SIZE(IntArray), MPI_INTEGER, &
                i-1, 18, MPI_COMM_WORLD, status, ierr )
-!
+
 !          Update our view of the global numbering
 !          at the interface nodes, edges, faces and elements.
 !          ---------------------------------------
@@ -738,19 +780,18 @@ CONTAINS
              Lindex = 0
              IntN = IntCnts(j)
              DO k=1,IntN
-                Lindex(k) = SearchNode( Mesh % ParallelInfo, IntArray(l+k), 1, n-1 )
+                Lindex(k) = SearchNode( Mesh % ParallelInfo, IntArray(l+k), 1, Mesh % NumberOfNodes )
              END DO
-
+             
              ! it is maybe redundant to check that the IntArrays match, but
-             ! then again, it might be the only way to identify edge, face and element dofs :)
-
+             ! then again, it might be the only way to identify edge, face and element dofs
              IF ( ALL( Lindex(1:IntN) > 0 ) ) THEN
-!
-!                This set of interface dofs belongs to us as well
-!                -------------------------------------
+                !
+                ! This set of interface dof belongs to us as well
+                ! Now lets find it's position in our GlobalDOFs
                 k2 = 0 ! 
-                k1 = 0 ! interface number 0..InterfaceNodes
-                DO k=n,NumberOfDOFs
+                k1 = 0 ! interface number 1..InterfaceNodes
+                DO k=nstart,nend
                    IF ( .NOT. Mesh % ParallelInfo % Interface(k) ) CYCLE
 
                    k1 = k1 + 1
@@ -759,6 +800,7 @@ CONTAINS
                       IF ( ALL( IntArray(l+1:l+IntN) == &
                            OldIntArray(k2+1:k2+IntN)) ) THEN
                          Mesh % ParallelInfo % GlobalDOFs(k) = GIndices(j)
+                         NewDOFCnt = NewDOFCnt + 1
                          EXIT
                       END IF
                    END IF
@@ -775,33 +817,37 @@ CONTAINS
 !    previous PE in line, this will make the
 !    execution strictly serial. Maybe there
 !    would be an easier way?
+!    (waits here until previous PE has sent Interface nodes and MaxGlb)
 !    ---------------------------------------
-     IF ( ParEnv % MyPE > MinProc-1 ) THEN
-        DO i=ParEnv % MyPE, MinProc, -1
-           IF ( ParEnv % Active(i) ) THEN
-              CALL MPI_RECV( MaxGlb, 1, MPI_INTEGER, &
-               i-1, 20, MPI_COMM_WORLD, status, ierr )
-              EXIT
-           END IF
-        END DO
-     END IF
+    IF ( ParEnv % MyPE > MinProc-1 ) THEN
+       DO i=ParEnv % MyPE, MinProc, -1
+          IF ( ParEnv % Active(i) ) THEN
+             CALL MPI_RECV( MaxGlb, 1, MPI_INTEGER, &
+                  i-1, 20, MPI_COMM_WORLD, status, ierr )
+             EXIT
+          END IF
+       END DO
+    END IF
 !
-!    Renumber our own new set of nodes:
+!    Create global numbering for our dofs that haven't 
+!    been numbered yet.
 !    ----------------------------------
-     DO i=n,NumberOfDOFs
+     DO i=nstart,nend
         IF ( Mesh % ParallelInfo % GlobalDOFs(i) == 0 ) THEN
            MaxGlb = MaxGlb + 1
+           NewDOFCnt = NewDOFCnt + 1
            Mesh % ParallelInfo % GlobalDOFs(i) = MaxGlb
         END IF
      END DO
 !
 !    Extract interface nodes:
 !    ------------------------
-     InterfaceNodes = COUNT( Mesh % ParallelInfo % Interface(n:) )
+     InterfaceNodes = COUNT( Mesh % ParallelInfo % Interface(nstart:nend) )
+
      IF ( InterfaceNodes > 0 ) ALLOCATE( Gindices(InterfaceNodes) )
 
      InterfaceNodes = 0
-     DO i=n,NumberOfDOFs
+     DO i=nstart,nend
         IF ( Mesh % ParallelInfo % Interface(i) ) THEN
            InterfaceNodes = InterfaceNodes + 1
            Gindices(InterfaceNodes) = Mesh % ParallelInfo % GlobalDOFs(i)
@@ -811,7 +857,7 @@ CONTAINS
 !    Send new interface nodes to higher numbered PEs:
 !    ------------------------------------------------
      DO i=ParEnv % MyPE+2,ParEnv % PEs
-        IF ( .NOT. (ParEnv % Active(i) .AND. ParEnv % Isneighbour(i)) ) CYCLE
+        IF ( .NOT. (ParEnv % Active(i) .AND. ParEnv % IsNeighbour(i)) ) CYCLE
 
         CALL MPI_BSEND( InterfaceNodes, 1, MPI_INTEGER, &
                i-1, 14, MPI_COMM_WORLD, ierr )
@@ -828,11 +874,10 @@ CONTAINS
 
            CALL MPI_BSEND( OldIntArray, SIZE(OldIntArray), &
               MPI_INTEGER, i-1, 18, MPI_COMM_WORLD, ierr )
-
         END IF
      END DO
 
-     DEALLOCATE( GIndices )
+     IF ( InterfaceNodes > 0 ) DEALLOCATE( GIndices )
 !
 !    Send go singal to next PE in line...
 !    ------------------------------------
@@ -846,57 +891,70 @@ CONTAINS
 !
 !    Sort our own nodes according to ascending
 !    global order:
-!    -----------------------------------------
-     NewDOFCnt=NumberOfDOFs - Mesh % Nodes % NumberOfNodes
+!
+     ALLOCATE( IntCnts(nend-nstart+1), Gorder(nend-nstart+1) )
 
-     ALLOCATE( IntCnts(NewDOFCnt), Gorder(NewDOFCnt) )
-     DO i=1,NewDOFCnt
+     DO i=1,nend-nstart
         Gorder(i) = i
      END DO
 
-     CALL SortI( NewDOFCnt, Mesh % ParallelInfo % GlobalDOFs(n:), Gorder )
+     CALL SortI( nend-nstart+1, Mesh % ParallelInfo % GlobalDOFs(nstart:nend), Gorder )
 
-     DO i=1,NewDOFCnt
+!     PRINT*,'PE: ',ParEnv % MyPE,' Gorder ', Gorder
+
+     DO i=1,nend-nstart+1
         IntCnts(Gorder(i)) = i
      END DO
+
 !
 !    Reorder will return the nodal reordering
 !    to the caller:
 !    ----------------------------------------
-     Reorder(n:) = IntCnts + n - 1
-
-     
+     Reorder(nstart:nend) = IntCnts + nstart - 1
 !
 !    Order the whole of the nodal structure
 !    according to the changed order of the 
 !    global numbers:
-!    --------------------------------------     
-     DO i=1,NewDOFCnt
-        k = Gorder(i)
-        CALL SwapEdges( Mesh, i+n-1, k+n-1 )
-
-        j = IntCnts(i)
-        IntCnts(i) = IntCnts(k)
-        IntCnts(k) = j
-
-        Gorder(IntCnts(k)) = k
+!
+!    Also take into account the fact that edges, faces 
+!    and elements can have more than 1 dof
+!    -------------------------------------
+     IF (doftype == 1) THEN
+        step = 1
+     ELSE IF (doftype == 2) THEN
+        step = Mesh % MaxEdgeDOFs
+     ELSE IF (doftype == 3) THEN
+        step = Mesh % MaxFaceDOFs
+     ELSE IF (doftype == 4) THEN 
+        step = Mesh % MaxElementDOFs
+     END IF
+      
+     DO i=1,nend-nstart,step
+        DO l=1,step
+           k = Gorder(i)
+           j = IntCnts(i)
+           IntCnts(i) = IntCnts(k)
+           IntCnts(k) = j
+           Gorder(IntCnts(k)) = k
+        END DO
+        CALL Swap( Mesh, i+nstart-1, k+nstart-1, doftype )
      END DO
 
      DEALLOCATE( IntCnts )
 
-     PRINT*,'PE: ',ParEnv % MyPE, ' GlobalDOFs: ', Mesh % ParallelInfo % GlobalDOFs
-     call flush(6)
+     PRINT*,'PE: ',ParEnv % MyPE,' Gorder ',Gorder
+
 !    Ok, now we have generated the global numbering
 !    of nodes. We still need to distribute the
 !    information which PEs share which of the new
 !    interface nodes:
 !    -----------------------------------------------
-     InterfaceNodes = COUNT( Mesh % ParallelInfo % Interface(n:) )
+     InterfaceNodes = COUNT( Mesh % ParallelInfo % Interface(nstart:nend) )
 
      ! If interface node, allocate neighbourlist
      ALLOCATE( GIndices( InterfaceNodes ) )
      j = 0
-     DO i=n,NumberOfDOFs
+     DO i=nstart,nend
         IF ( Mesh % ParallelInfo % Interface(i) ) THEN
            j = j + 1
            GIndices(j) = Mesh % ParallelInfo % GlobalDOFs(i)
@@ -919,11 +977,11 @@ CONTAINS
 
      DEALLOCATE( Gindices )
 
-     ALLOCATE( IntCnts(NumberOfDOFs ) )
+     ALLOCATE( IntCnts(nend-nstart+1) )
 
      ! Set our PE in the neighbourlist
      IntCnts = 0
-     DO i=n,NumberOfDOFs
+     DO i=nstart,nend
         IF ( Mesh % ParallelInfo % Interface(i) ) THEN
            IntCnts(i) = IntCnts(i) + 1
            Mesh % ParallelInfo % NeighbourList(i) % Neighbours(1) = ParEnv % MyPE
@@ -943,7 +1001,7 @@ CONTAINS
                i-1, 31, MPI_COMM_WORLD, status, ierr )
 
            DO j=1,InterfaceNodes
-              k = SearchNode( Mesh % ParallelInfo, Gindices(j), n )
+              k = SearchNode( Mesh % ParallelInfo, Gindices(j), nstart, nend )
               ! if we find the global indice in our own globaldofs, then add the sender to neighbourlist
               IF ( k <= 0 ) CYCLE
               IntCnts(k) = IntCnts(k) + 1
@@ -957,7 +1015,7 @@ CONTAINS
 !    Reallocate the nodal neighbour lists to
 !    correct sizes and also sort them (the smallest PE always is owner)
 !    ---------------------------------------
-     DO i=n,NumberOfDOFs
+     DO i=nstart,nend
         IF ( Mesh % ParallelInfo % Interface(i) ) THEN
            k = IntCnts(i)
            ALLOCATE( Gindices(k) )
@@ -974,53 +1032,125 @@ CONTAINS
 
 CONTAINS
 
+!
+! 
+!
 !-----------------------------------------------------------------------
-     SUBROUTINE SwapEdges( Mesh, i, k )
+  SUBROUTINE Swap( Mesh, i, k, doftype ) 
 !-----------------------------------------------------------------------
-        INTEGER :: i,k
-        TYPE(Mesh_t) :: Mesh
+    INTEGER :: i,k,doftype
+    TYPE(Mesh_t) :: Mesh
 !-----------------------------------------------------------------------
-        LOGICAL :: swapi
-        INTEGER, POINTER :: swapl(:)
-        TYPE(Element_t) :: Element
+    INTEGER :: elementi, elementk
+    REAL(KIND=dp) :: swapx,swapy,swapz
+    TYPE(Element_t) :: Element
 !-----------------------------------------------------------------------
         
-        ! don't swap if there is no need to swap...
-        IF( i /= k ) THEN
-           ! Code is broken for multiple dofs.
-           PRINT*,'PE: ',ParEnv % MyPE, ' Swap edges: ', i,',',k
-           call flush(6)
-           
-           Element = Mesh % Edges(i)
-           Mesh % Edges(k) = Mesh % Edges(i)
-           Mesh % Edges(i) = Element
-           
-           swapi =  Mesh % ParallelInfo % Interface(i)
-           swapl => Mesh % ParallelInfo % NeighbourList(i) % Neighbours
-           
-           Mesh % ParallelInfo % Interface(i) = Mesh % ParallelInfo % Interface(k) 
-           Mesh % ParallelInfo % NeighbourList(i) % Neighbours => &
-                Mesh % ParallelInfo % NeighbourList(k) % Neighbours
+    ! don't swap if there is no need to swap...
+    IF( i /= k ) THEN
+       PRINT*,'PE: ',ParEnv % MyPE, ' Swap: ', i,',',k,' doftype ', doftype
+       call flush(6)
 
-           Mesh % ParallelInfo % Interface(k) = swapi
-           Mesh % ParallelInfo % NeighbourList(k) % Neighbours => swapl
-        END IF
+       IF ( doftype == 1 ) THEN
+          elementi = i
+          elementk = k
+
+          swapx =  Mesh % Nodes % x(i)
+          swapy =  Mesh % Nodes % y(i)
+          swapz =  Mesh % Nodes % z(i)
+ 
+          Mesh % Nodes % x(i) = Mesh % Nodes % x(k)
+          Mesh % Nodes % y(i) = Mesh % Nodes % y(k)
+          Mesh % Nodes % z(i) = Mesh % Nodes % z(k)
+          
+          Mesh % Nodes % x(k) = swapx
+          Mesh % Nodes % y(k) = swapy
+          Mesh % Nodes % z(k) = swapz
+
+          CALL SwapIfaceAndNList( i,k )
+
+       ELSE IF ( doftype == 2 ) THEN
+
+          elementi = (i - Mesh % NumberOfNodes) / Mesh % MaxEdgeDOFs + 1
+          elementk = (k - Mesh % NumberOfNodes) / Mesh % MaxEdgeDOFs + 1
+
+          Element = Mesh % Edges(elementi)
+          Mesh % Edges(elementk) = Mesh % Edges(elementi)
+          Mesh % Edges(elementi) = Element
+
+          DO l=1,Mesh % MaxEdgeDOFs
+             CALL SwapIfaceAndNList( i + l - 1, k + l - 1 )
+          END DO
+
+       ELSE IF ( doftype == 3 ) THEN
+
+          elementi = (i - Mesh % NumberOfNodes - &
+               Mesh % NumberOfEdges * Mesh % MaxEdgeDOFs) / Mesh % MaxFaceDOFs + 1
+          elementi = (k - Mesh % NumberOfNodes - & 
+               Mesh % NumberOfEdges * Mesh % MaxEdgeDOFs) / Mesh % MaxFaceDOFs + 1
+
+          Element = Mesh % Faces(elementi)
+          Mesh % Faces(elementk) = Mesh % Faces(elementi)
+          Mesh % Faces(elementi) = Element
+
+          DO l=1,Mesh % MaxFaceDOFs
+             CALL SwapIfaceAndNList( i + l - 1, k + l - 1 )
+          END DO
+
+       ELSE IF ( doftype == 4 ) THEN
+
+          elementi = (i - Mesh % NumberOfNodes - & 
+               Mesh % NumberOfEdges * Mesh % MaxEdgeDOFs - &
+               Mesh % NumberOfFaces * Mesh % MaxFaceDOFs) / Mesh % MaxElementDOFs + 1
+          elementk = (k - Mesh % NumberOfNodes - & 
+               Mesh % NumberOfEdges * Mesh % MaxEdgeDOFs - &
+               Mesh % NumberOfFaces * Mesh % MaxFaceDOFs) / Mesh % MaxElementDOFs + 1
+
+          Element = Mesh % Elements(elementi)
+          Mesh % Elements(elementk) = Mesh % Elements(elementi)
+          Mesh % Elements(elementi) = Element
+
+          DO l=1,Mesh % MaxElementDOFs
+             CALL SwapIfaceAndNList( i + l - 1, k + l - 1 )
+          END DO
+
+       END IF
+
+    END IF
 !-----------------------------------------------------------------------
-     END SUBROUTINE SwapEdges
+  END SUBROUTINE Swap
+
+  ! Swap interface table and neighbourlists between dofs 
+  !
+  SUBROUTINE SwapIfaceAndNList( i,k )
+!-----------------------------------------------------------------------
+    INTEGER :: i,k
+!-----------------------------------------------------------------------
+    LOGICAL :: swapi
+    INTEGER, POINTER :: swapl(:)
+!-----------------------------------------------------------------------
+    swapi =  Mesh % ParallelInfo % Interface(i)
+    swapl => Mesh % ParallelInfo % NeighbourList(i) % Neighbours
+    
+    Mesh % ParallelInfo % Interface(i) = Mesh % ParallelInfo % Interface(k) 
+    Mesh % ParallelInfo % NeighbourList(i) % Neighbours => &
+         Mesh % ParallelInfo % NeighbourList(k) % Neighbours
+    
+    Mesh % ParallelInfo % Interface(k) = swapi
+    Mesh % ParallelInfo % NeighbourList(k) % Neighbours => swapl
+  END SUBROUTINE SwapIfaceAndNList
+
+!-----------------------------------------------------------------------
+END SUBROUTINE ParallelNumbering
 !-----------------------------------------------------------------------
 
-   END SUBROUTINE InitialGlobalNumbering
 !-----------------------------------------------------------------------
-
-
-
+SUBROUTINE SParIterBarrier
 !-----------------------------------------------------------------------
-   SUBROUTINE SParIterBarrier
+  INTEGER :: ierr
+  CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
 !-----------------------------------------------------------------------
-   INTEGER :: ierr
-   CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
-!-----------------------------------------------------------------------
-   END  SUBROUTINE SParIterBarrier
+END  SUBROUTINE SParIterBarrier
 !-----------------------------------------------------------------------
 
 

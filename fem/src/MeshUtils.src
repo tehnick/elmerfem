@@ -33,6 +33,9 @@
 ! *       Date of modification: 27.8.2002
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.15  2005/07/18 15:15:22  vierinen
+! * experimental changes to MPI (shouldn't affect normal usage)
+! *
 ! * Revision 1.14  2005/07/08 08:04:04  jpr
 ! * Cleaning some of the type definitions of Types.src.
 ! *
@@ -86,7 +89,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.14 2005/07/08 08:04:04 jpr Exp $
+! * $Id: MeshUtils.src,v 1.15 2005/07/18 15:15:22 vierinen Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -767,6 +770,7 @@ CONTAINS
        Mesh % MaxFaceDOFs * Mesh % NumberOFFaces + &
        Mesh % MaxBDOFs    * Mesh % NumberOFBulkElements
 
+
    IF ( n>Mesh % NumberOfNodes ) THEN
      cCoord => Mesh % Nodes % x
      ALLOCATE( Mesh % Nodes % x(n) )
@@ -832,10 +836,11 @@ CONTAINS
         END IF
       END DO
 
-      PRINT*,'Starting numbering', n, parenv % mype
-      call flush(6)
-      call spariterbarrier
+      ! Number edge, face and elements dofs globally.
+      ! juhav: work in progress with global dof numbering
+#if 0
       CALL CreateGlobalNumbering( Mesh, n )
+#endif
 
    END IF
 
@@ -988,7 +993,7 @@ SUBROUTINE CreateGlobalNumbering( Mesh, NumberOfDOFs )
 !      to temporary work arrays:
 !      ---------------------------------------------
 !
-       print*,4
+       print*,'PE ',ParEnv % MyPE,' ',4
        call flush(6)
        call spariterbarrier
 
@@ -1007,6 +1012,11 @@ SUBROUTINE CreateGlobalNumbering( Mesh, NumberOfDOFs )
           END IF
        END DO
 
+       print*,'PE ',ParEnv % MyPE,' ',5
+       call flush(6)
+       call spariterbarrier
+
+
        ! The same goes for faces
        DO i = 1,Mesh % NumberOfFaces
           Face => Mesh % Faces(i)
@@ -1019,58 +1029,80 @@ SUBROUTINE CreateGlobalNumbering( Mesh, NumberOfDOFs )
           END IF
        END DO
 
+       print*,'PE ',ParEnv % MyPE,' SIZE(Elements) ', SIZE(Mesh % Elements)
+       call flush(6)
+       call spariterbarrier
+
        ! And elements
-        DO i = 1,Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
-           Element => Mesh % Elements(i) 
-           IF ( ALL( Mesh % ParallelInfo % Interface( Element % NodeIndexes ) ) ) THEN
-              IntCnts(j) = SIZE(Element % NodeIndexes)
-              IntArray(k+1:k+IntCnts(j)) = Mesh % ParallelInfo % GlobalDOFs(Element % NodeIndexes)
-              CALL Sort( IntCnts(j), IntArray(k+1:k+IntCnts(j)) )
-              k = k + IntCnts(j)
-           END IF
-        END DO
+       DO i = 1,Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
+          Element => Mesh % Elements(i) 
+
+          IF ( ALL( Mesh % ParallelInfo % Interface( Element % NodeIndexes ) ) ) THEN
+             IntCnts(j) = SIZE(Element % NodeIndexes)
+             IntArray(k+1:k+IntCnts(j)) = Mesh % ParallelInfo % GlobalDOFs(Element % NodeIndexes)
+             CALL Sort( IntCnts(j), IntArray(k+1:k+IntCnts(j)) )
+             k = k + IntCnts(j)
+          END IF
+       END DO
 
 !      Finally the beef, do the exchange of new
 !      interfaces. The parallel global numbering
 !      subroutine will also do reordering of the
 !      nodes, hence the reorder array:
 !      -------------------------------------------
-       print*,5
+       print*,'PE', ParEnv % MyPE, ' ndofs ', NumberOfDOFs
        call flush(6)
        call spariterbarrier
+
        CALL AllocateVector( Reorder, NumberOfDOFs )
+
+       print*,'PE', ParEnv % MyPE, ' allocated ndofs ', NumberOfDOFs
+       call flush(6)
+       call spariterbarrier
+
        Reorder = (/ (i, i=1, NumberOfDOFs) /)
+
+       print*,'PE ', ParEnv % MyPE, ' Reorder done ', NumberOfDOFs
+       call flush(6)
+       call spariterbarrier
        
        print*,'PE: ',ParEnv % MyPE,'FindActivePEs'
        call flush(6)
        call spariterbarrier
-       
+
        CALL FindActivePEs( Mesh % ParallelInfo )
-       
+
        print*,'PE: ',ParEnv % MyPE,' InitialGlobalNumbering'
+!       print*,'PE: ',ParEnv % MyPE,' SIZE(Edges) ', SIZE(Mesh % Edges)
+!       print*,'PE: ',ParEnv % MyPE,' SIZE(Faces) ', SIZE(Mesh % Faces)
+!       print*,'PE: ',ParEnv % MyPE,' SIZE(Elements) ', SIZE(Mesh % Elements)
+
        call flush(6)
        call spariterbarrier
-
-       IF ( j > 0 .AND. k > 0 ) THEN
-          CALL InitialGlobalNumbering( Mesh, NumberOfDOFs, IntCnts,IntArray, Reorder )
-       END IF
+       
+       
+       CALL InitialGlobalNumbering( Mesh, NumberOfDOFs, IntCnts,IntArray, Reorder )
 
        print*,'PE ', ParEnv % MyPE, ' done ' 
        call flush(6)
-
        call spariterbarrier
     
 !      Account for the reordering of the nodes:
 !      ----------------------------------------
-!       DO i=1,Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
-!          Mesh % Elements(i) % EdgeIndexes = Reorder( Mesh % Elements(i) % EdgeIndexes )
-!       END DO
+       DO i=1,Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
+          Mesh % Elements(i) % EdgeIndexes = Reorder( Mesh % Elements(i) % EdgeIndexes )
+       END DO
        
        IF ( j > 0 .AND. k > 0 ) THEN
           DEALLOCATE( IntCnts, IntArray )
        END IF
 
        DEALLOCATE( Reorder )
+
+       print*,'PE ', ParEnv % MyPE, ' done ' 
+       call flush(6)
+       call spariterbarrier
+       
 !------------------------------------------------------------------------------
 END SUBROUTINE CreateGlobalNumbering
 
