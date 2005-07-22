@@ -33,6 +33,9 @@
 ! *       Date of modification: 27.8.2002
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.16  2005/07/21 14:54:58  vierinen
+! * *** empty log message ***
+! *
 ! * Revision 1.15  2005/07/18 15:15:22  vierinen
 ! * experimental changes to MPI (shouldn't affect normal usage)
 ! *
@@ -89,7 +92,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.15 2005/07/18 15:15:22 vierinen Exp $
+! * $Id: MeshUtils.src,v 1.16 2005/07/21 14:54:58 vierinen Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -874,34 +877,34 @@ SUBROUTINE CreateGlobalNumbering( Mesh, NumberOfDOFs )
        INTEGER :: NumberOfDOFs
 !------------------------------------------------------------------------------
        TYPE(Element_t), POINTER :: Edge, Face, Element
-       INTEGER :: i,j,k,n,l
-       INTEGER, POINTER :: IntCnts(:),IntArray(:),Reorder(:)
-
+       INTEGER :: i, j, k, n, l, nstart, nend, doftype, istart, iend, iastart, iaend
+       INTEGER, POINTER :: IntCnts(:), IntArray(:), Reorder(:), IfCounts(:), IfNodeCounts(:)
        INTEGER :: jedges
 !------------------------------------------------------------------------------
 
        IF ( ParEnv % PEs <= 1 ) RETURN
-!
-!      Create mesh interfaces for parallel execution.
-!      ==============================================
-!
-       n = Mesh % NumberOfNodes
 
-!      My theory is, that a new node will be an
-!      interface node only if all the edge or face
-!      nodes which contribute to its existence are
-!      interface nodes (the code immediately below
-!      will only count sizes):
-!      -------------------------------------------
+       ! IfCounts, how many intefaces of each type (nodes,edges,faces,elements)
+       ! Size of IntArray for each interface type  
+       !
+       ALLOCATE(IfCounts(4), IfNodeCounts(4))
+       IfCounts=0
+       IfNodeCounts=0
 
-       PRINT*,'Checking if edge is interface, number of edges: ', Mesh % NumberOfEdges, ' maxedgedofs: ', Mesh % MaxEdgeDOFs
-       PRINT*,'PE: ', ParEnv % MyPE, ' Interface size: ', SIZE(Mesh % ParallelInfo % Interface), &
+       ! My theory is, that a new node will be an
+       ! interface node only if all the edge or face
+       ! nodes which contribute to its existence are
+       ! interface nodes (the code immediately below
+       ! will only count sizes):
+       !
+       PRINT*,'Checking if edge is interface, number of edges: ', &
+            Mesh % NumberOfEdges, ' maxedgedofs: ', Mesh % MaxEdgeDOFs
+       PRINT*,'PE: ', ParEnv % MyPE, ' Interface size: ', & 
+            SIZE(Mesh % ParallelInfo % Interface), &
             ' GlobalDOFs size: ', SIZE(Mesh % ParallelInfo % GlobalDOFs)
        call flush(6)
        call spariterbarrier
 
-       j = 0 ! Count interface edges
-       k = 0 ! For memory allocation
        DO i = 1,Mesh % NumberOfEdges
           Edge => Mesh % Edges(i)
           IF ( ALL(Mesh % ParallelInfo % Interface(Edge % NodeIndexes)) ) THEN
@@ -909,16 +912,14 @@ SUBROUTINE CreateGlobalNumbering( Mesh, NumberOfDOFs )
                 Mesh % ParallelInfo % Interface(Mesh % NumberOfNodes + &
                      Mesh % MaxEdgeDOFs * (i-1) + l ) = .TRUE.
              END DO
-             j = j + 1
-             k = k + Edge % BDOFs
+             IfCounts(2) = IfCounts(2) + 1
+             IfNodeCounts(2) = IfNodeCounts(2) + SIZE( Edge % NodeIndexes )
           END IF
        END DO
 
-       PRINT*,'Found',j,'interface edges and altogether ',k,' dofs'
+       PRINT*,'PE ',ParEnv % MyPE,' Found ', IfCounts(2), ' interface edges'
        call flush(6)
        call spariterbarrier
-       
-       jedges = j
 
 !      For bricks, check also the faces:
 !      ---------------------------------
@@ -929,173 +930,162 @@ SUBROUTINE CreateGlobalNumbering( Mesh, NumberOfDOFs )
                  Mesh % ParallelInfo % Interface( Mesh % NumberOfNodes &
                       + (Mesh % MaxEdgeDOFs * Mesh % NumberOfEdges)    &
                       + (Mesh % MaxFaceDOFs) * (i-1) + l ) = .TRUE.
-                 j = j + 1
-                 k = k + Face % BDOFs
               END DO
+              IfCounts(3) = IfCounts(3) + 1
+              IfNodeCounts(3) = IfNodeCounts(3) + SIZE( Face % NodeIndexes )
            END IF
         END DO
 
-       PRINT*,'PE ',ParEnv % MyPE,'Searched for interface faces, j=',j
+       PRINT*,'PE ',ParEnv % MyPE,' Found ', IfCounts(3), ' interface faces'
        call flush(6)
        call spariterbarrier
 
 !      For bricks, check also the faces:
 !      ---------------------------------
-        DO i = 1,Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
-           Element => Mesh % Elements(i) 
-           IF ( ALL( Mesh % ParallelInfo % Interface( Element % NodeIndexes ) ) ) THEN
-              DO l = 1,Element % BDOFs
-                 Mesh % ParallelInfo % Interface( Mesh % NumberOfNodes &
-                      + (Mesh % MaxEdgeDOFs * Mesh % NumberOfEdges)    &
-                      + (Mesh % MaxFaceDOFs * Mesh % NumberOfFaces)  &
-                      + (Mesh % MaxElementDOFs) * (i-1) + l ) = .TRUE.
-                 j = j + 1
-                 k = k + Element % BDOFs
-              END DO
-           END IF
-        END DO
-
-       PRINT*,'PE ',ParEnv % MyPE,'Searched for interface elements, SIZE(Mesh%Elements): ',&
-            SIZE(Mesh % Elements),' BulkElements: ',&
-            Mesh % NumberOfBulkElements,' NumberOfBoundaryElements ',&
-            Mesh % NumberOfBoundaryElements,'j=',j
+       DO i = 1,Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
+          Element => Mesh % Elements(i) 
+          IF ( ALL( Mesh % ParallelInfo % Interface( Element % NodeIndexes ) ) ) THEN
+             DO l = 1,Element % BDOFs
+                Mesh % ParallelInfo % Interface( Mesh % NumberOfNodes &
+                     + (Mesh % MaxEdgeDOFs * Mesh % NumberOfEdges)    &
+                     + (Mesh % MaxFaceDOFs * Mesh % NumberOfFaces)  &
+                     + (Mesh % MaxElementDOFs) * (i-1) + l ) = .TRUE.
+             END DO
+             IfCounts(4) = IfCounts(4) + 1
+             IfNodeCounts(4) = IfNodeCounts(4) + SIZE( Element % NodeIndexes )
+          END IF
+       END DO
+       
+       PRINT*,'PE ',ParEnv % MyPE,' Found ', IfCounts(4), ' interface elements'
        call flush(6)
        call spariterbarrier
+       
+       j = SUM(IfCounts(2:4))
+       k = SUM(IfNodeCounts(2:4))
 
        IF( j > 0 .AND. k > 0 ) THEN
-          CALL AllocateVector( IntCnts,  j )
+          CALL AllocateVector( IntCnts, j )
           CALL AllocateVector( IntArray, k )
        END IF
-!
-!
-!      Take care of the new mesh internal nodes.
-!      Parallel global numbering will take care
-!      of the interface nodes:
-!      ----------------------------------------
-       print*,3
-       call flush(6)
-       call spariterbarrier
 
        !
-       ! Doing neighbour lists for non-interface edges
+       ! Initialize non-interface neighbourlists
        ! 
-       ! j = Mesh % NumberOfEdges*Mesh % MaxEdgeDOFs &
-       !        + Mesh % NumberOfFaces * Mesh % MaxFaceDOFs
-       !
-       DO i=Mesh % NumberOfNodes+1, Mesh % NumberOfNodes + j
+       DO i=Mesh % NumberOfNodes+1, NumberOfDOFs
           IF ( .NOT. Mesh % ParallelInfo % Interface(i) ) THEN
-             CALL AllocateVector( Mesh % ParallelInfo % NeighbourList(i) % Neighbours,1 )
+             CALL AllocateVector( Mesh % ParallelInfo % NeighbourList(i) % Neighbours , 1 )
              Mesh % ParallelInfo % NeighbourList(i) %  Neighbours(1) = ParEnv % MyPE
           END IF
        END DO
-!
-!      Copy global indices of edge and/or face nodes
-!      to temporary work arrays:
-!      ---------------------------------------------
-!
-       print*,'PE ',ParEnv % MyPE,' ',4
-       call flush(6)
-       call spariterbarrier
 
-       ! Put interface edge node indices in IntArray so edges may be recognized by the 
-       ! parallel numbering algorithm
+       !
+       ! Put interface edge node indices in IntArray so edges, faces
+       ! and elements can be recognized by the parallel numbering algorithm
+       ! 
        j = 0
        k = 0
        DO i = 1,Mesh % NumberOfEdges
           Edge => Mesh % Edges(i)
           IF ( ALL(Mesh % ParallelInfo % Interface(Edge % NodeIndexes)) ) THEN
              j = j + 1
-             IntCnts(j) = SIZE(Edge % NodeIndexes)
-             IntArray( k+1:k+IntCnts(j) ) = Mesh % ParallelInfo % GlobalDOFs(Edge % NodeIndexes)
+             IntCnts(j) = SIZE( Edge % NodeIndexes )
+             IntArray( k+1:k+IntCnts(j) ) = Mesh % ParallelInfo % GlobalDOFs( Edge % NodeIndexes )
              CALL Sort( IntCnts(j), IntArray(k+1:k+IntCnts(j)) )
              k = k + IntCnts(j)
           END IF
        END DO
-
-       print*,'PE ',ParEnv % MyPE,' ',5
-       call flush(6)
-       call spariterbarrier
-
 
        ! The same goes for faces
        DO i = 1,Mesh % NumberOfFaces
           Face => Mesh % Faces(i)
           IF ( ALL( Mesh % ParallelInfo % INTERFACE(Face % NodeIndexes) ) ) THEN
              j = j + 1
-             IntCnts(j) = SIZE(Face % NodeIndexes)
+             IntCnts(j) = SIZE( Face % NodeIndexes )
              IntArray(k+1:k+IntCnts(j)) = Mesh % ParallelInfo % GlobalDOFs(Face % NodeIndexes)
              CALL Sort( IntCnts(j), IntArray(k+1:k+IntCnts(j)) )
              k = k + IntCnts(j)
           END IF
        END DO
 
-       print*,'PE ',ParEnv % MyPE,' SIZE(Elements) ', SIZE(Mesh % Elements)
-       call flush(6)
-       call spariterbarrier
-
        ! And elements
        DO i = 1,Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
           Element => Mesh % Elements(i) 
-
           IF ( ALL( Mesh % ParallelInfo % Interface( Element % NodeIndexes ) ) ) THEN
-             IntCnts(j) = SIZE(Element % NodeIndexes)
+             IntCnts(j) = SIZE( Element % NodeIndexes )
              IntArray(k+1:k+IntCnts(j)) = Mesh % ParallelInfo % GlobalDOFs(Element % NodeIndexes)
              CALL Sort( IntCnts(j), IntArray(k+1:k+IntCnts(j)) )
              k = k + IntCnts(j)
           END IF
        END DO
 
-!      Finally the beef, do the exchange of new
-!      interfaces. The parallel global numbering
-!      subroutine will also do reordering of the
-!      nodes, hence the reorder array:
-!      -------------------------------------------
-       print*,'PE', ParEnv % MyPE, ' ndofs ', NumberOfDOFs
-       call flush(6)
-       call spariterbarrier
-
+       ! Finally the beef, do the exchange of new
+       ! interfaces. The parallel global numbering
+       ! subroutine will also do reordering of the
+       ! nodes, hence the reorder array:
        CALL AllocateVector( Reorder, NumberOfDOFs )
-
-       print*,'PE', ParEnv % MyPE, ' allocated ndofs ', NumberOfDOFs
-       call flush(6)
-       call spariterbarrier
-
        Reorder = (/ (i, i=1, NumberOfDOFs) /)
-
-       print*,'PE ', ParEnv % MyPE, ' Reorder done ', NumberOfDOFs
-       call flush(6)
-       call spariterbarrier
-       
-       print*,'PE: ',ParEnv % MyPE,'FindActivePEs'
-       call flush(6)
-       call spariterbarrier
 
        CALL FindActivePEs( Mesh % ParallelInfo )
 
-       print*,'PE: ',ParEnv % MyPE,' InitialGlobalNumbering'
-!       print*,'PE: ',ParEnv % MyPE,' SIZE(Edges) ', SIZE(Mesh % Edges)
-!       print*,'PE: ',ParEnv % MyPE,' SIZE(Faces) ', SIZE(Mesh % Faces)
-!       print*,'PE: ',ParEnv % MyPE,' SIZE(Elements) ', SIZE(Mesh % Elements)
+       nstart = Mesh % NumberOfNodes+1
+       nend = Mesh % NumberOfNodes + (Mesh % NumberOfEdges * Mesh % MaxEdgeDOFs)
+       doftype = 2
 
-       call flush(6)
-       call spariterbarrier
-       
-       
-       CALL InitialGlobalNumbering( Mesh, NumberOfDOFs, IntCnts,IntArray, Reorder )
+       istart=1
+       iend=IfCounts(2)
+       iastart=1
+       iaend=IfNodeCounts(2)
 
-       print*,'PE ', ParEnv % MyPE, ' done ' 
-       call flush(6)
-       call spariterbarrier
-    
-!      Account for the reordering of the nodes:
-!      ----------------------------------------
-       DO i=1,Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
-          Mesh % Elements(i) % EdgeIndexes = Reorder( Mesh % Elements(i) % EdgeIndexes )
-       END DO
+       IF( iend-istart >= 0 ) THEN
+          PRINT*,'PE ',ParEnv % MyPE,' number interfaces ', istart, ' - ', iend, ' doftype ', 2
+          CALL FLUSH(6)
+          CALL ParallelNumbering( Mesh, IntCnts(istart:iend), IntArray(iastart:iaend), &
+               Reorder, nstart, nend, doftype )
+       END IF
+       
+       nstart = nend+1
+       nend = Mesh % NumberOfNodes + (Mesh % NumberOfEdges * Mesh % MaxEdgeDOFs) + &
+            (Mesh % NumberOfFaces * Mesh % MaxFaceDOFs)
+       doftype=3
+
+       istart = istart + IfCounts(2)
+       iend = iend + IfCounts(3)
+       iastart = iastart + IfNodeCounts(2)
+       iaend = iaend + IfNodeCounts(3)
+
+       IF( iend-istart >= 0 ) THEN
+          PRINT*,'PE ',ParEnv % MyPE,' number interfaces ', istart, ' - ', iend, ' doftype ', 3
+          CALL FLUSH(6)
+          CALL ParallelNumbering( Mesh, IntCnts(istart:iend), IntArray(iastart:iaend), &
+               Reorder, nstart, nend, doftype )
+       END IF
+       
+       nstart = nend+1
+       nend = NumberOfDOFs
+       doftype=4
+
+       istart= istart + IfCounts(3)
+       iend= iend + IfCounts(4)
+       iastart = iastart + IfNodeCounts(3)
+       iaend = iaend + IfNodeCounts(4)
+
+       IF( iend-istart >= 0 ) THEN
+          PRINT*,'PE ',ParEnv % MyPE,' number interfaces ', istart, ' - ', iend, ' doftype ', 4
+          CALL FLUSH(6)
+          CALL ParallelNumbering( Mesh, IntCnts(istart:iend), IntArray(iastart:iaend), &
+               Reorder, nstart, nend, doftype )
+       END IF
+
+       ! Account for the reordering of the nodes
+       ! DO i=1,Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
+       ! Mesh % Elements(i) % EdgeIndexes = Reorder( Mesh % Elements(i) % EdgeIndexes )
+       !  END DO
        
        IF ( j > 0 .AND. k > 0 ) THEN
           DEALLOCATE( IntCnts, IntArray )
        END IF
+
+       DEALLOCATE( IfCounts, IfNodeCounts )
 
        DEALLOCATE( Reorder )
 

@@ -7,7 +7,7 @@
 !
 ! Author: Jouni Malinen, Juha Ruokolainen 
 !
-! $Id: SParIterComm.src,v 1.3 2005/07/18 15:15:22 vierinen Exp $
+! $Id: SParIterComm.src,v 1.4 2005/07/21 14:54:58 vierinen Exp $
 !
 !*********************************************************************
 
@@ -634,22 +634,7 @@ CONTAINS
      ! that different types of dofs don't get mixed up
      ! (nodes are already numbered)
 
-     nstart = Mesh % NumberOfNodes+1
-     nend = Mesh % NumberOfNodes + (Mesh % NumberOfEdges * Mesh % MaxEdgeDOFs)
-     doftype = 2
-     CALL ParallelNumbering( Mesh, OldIntCnts, OldIntArray, Reorder, nstart, nend, doftype )
-
-     nstart = nend+1
-     nend = Mesh % NumberOfNodes + (Mesh % NumberOfEdges * Mesh % MaxEdgeDOFs) + &
-          (Mesh % NumberOfFaces * Mesh % MaxFaceDOFs)
-     doftype=3
-     CALL ParallelNumbering( Mesh, OldIntCnts, OldIntArray, Reorder, nstart, nend, doftype )
-
-     nstart = nend+1
-     nend = NumberOfDOFs
-     doftype=4
-     CALL ParallelNumbering( Mesh, OldIntCnts, OldIntArray, Reorder, nstart, nend, doftype )
-
+     ! dead code.
    END SUBROUTINE InitialGlobalNumbering
 !-----------------------------------------------------------------------
 
@@ -668,7 +653,7 @@ CONTAINS
 !---------------------------------------------------------------------
      INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
      INTEGER :: ierr
-     INTEGER :: i,j,k,l,n,MinProc,MaxLcl,MaxGlb,InterfaceNodes,NewDOFCnt,dofs,step
+     INTEGER :: i,j,k,l,n,MinProc,MaxLcl,MaxGlb,Interfaces,dofs,step
      INTEGER :: LIndex(100), IntN, Gindex, k1, k2
      INTEGER, POINTER :: IntArray(:),IntCnts(:),GIndices(:),Gorder(:)
 !---------------------------------------------------------------------
@@ -688,7 +673,7 @@ CONTAINS
 ! so something heuristic should be better, accompanied with a 
 ! test to see if buffer is too small...
 ! 
-     CALL CheckBuffer( 1000000 )
+     CALL CheckBuffer( 5000000 )
 ! XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
      PRINT*,'PE: ',ParEnv % MyPE, ' SIZE(GlobalDOFs) ', SIZE(Mesh % ParallelInfo % GlobalDOFs)
@@ -710,12 +695,6 @@ CONTAINS
 !    ------------------------------
      MaxLcl = MAXVAL( Mesh % ParallelInfo % GlobalDOFs )
      MaxGlb = MaxLcl
-     n = nstart
-
-     PRINT*,'PE: ',ParEnv % MyPE, 'n: ',n
-     call flush(6)
-     call spariterbarrier
-
 
 !    Find out current maximum global DOF number...
 !    (others send their maxlcl to minproc)
@@ -734,9 +713,22 @@ CONTAINS
           MinProc-1, 10, MPI_COMM_WORLD, ierr )
      END IF
 
-    PRINT*,'PE: ',ParEnv % MyPE,' MaxGlb ',MaxGlb
+    PRINT*,'PE: ',ParEnv % MyPE,' Initial MaxGlb ',MaxGlb
     call flush(6)
     call spariterbarrier
+
+    !
+    ! How many dofs per node, edge, face or element
+    ! 
+    IF (doftype == 1) THEN
+       step = 1
+    ELSE IF (doftype == 2) THEN
+       step = Mesh % MaxEdgeDOFs
+    ELSE IF (doftype == 3) THEN
+       step = Mesh % MaxFaceDOFs
+    ELSE IF (doftype == 4) THEN 
+       step = Mesh % MaxElementDOFs
+    END IF
 
 !    Recieve global numbers for interface nodes from lower
 !    numbered PEs. 
@@ -747,21 +739,20 @@ CONTAINS
 !    IntCnts = number of nodes
 !    IntArray = the nodes
 !    ---------------------------------------
-    NewDOFCnt=0
     DO i=MinProc,ParEnv % MyPE
        IF ( .NOT. (ParEnv % Active(i) .AND. ParEnv % IsNeighbour(i)) ) CYCLE
        
-       ! Get number of interface nodes to receive from PE i
-       CALL MPI_RECV( InterfaceNodes, 1, MPI_INTEGER, &
+       ! Get number of interfaces to receive from PE i
+       CALL MPI_RECV( Interfaces, 1, MPI_INTEGER, &
             i-1, 14, MPI_COMM_WORLD, status, ierr )
        
-       IF ( InterfaceNodes > 0 ) THEN
-          ALLOCATE( GIndices(InterfaceNodes), IntCnts(InterfaceNodes) )
+       IF ( Interfaces > 0 ) THEN
+          ALLOCATE( GIndices(Interfaces), IntCnts(Interfaces) )
           
-          CALL MPI_RECV( GIndices, InterfaceNodes, MPI_INTEGER, &
+          CALL MPI_RECV( GIndices, Interfaces, MPI_INTEGER, &
                i-1, 15, MPI_COMM_WORLD, status, ierr )
           
-          CALL MPI_RECV( IntCnts, InterfaceNodes, MPI_INTEGER, &
+          CALL MPI_RECV( IntCnts, Interfaces, MPI_INTEGER, &
                i-1, 16, MPI_COMM_WORLD, status, ierr )
 
           CALL MPI_RECV( k, 1, MPI_INTEGER, &
@@ -776,7 +767,7 @@ CONTAINS
 !          at the interface nodes, edges, faces and elements.
 !          ---------------------------------------
           l = 0
-          DO j=1,InterfaceNodes
+          DO j=1,Interfaces
              Lindex = 0
              IntN = IntCnts(j)
              DO k=1,IntN
@@ -790,7 +781,7 @@ CONTAINS
                 ! This set of interface dof belongs to us as well
                 ! Now lets find it's position in our GlobalDOFs
                 k2 = 0 ! 
-                k1 = 0 ! interface number 1..InterfaceNodes
+                k1 = 0 ! interface number 1..Interfaces 
                 DO k=nstart,nend
                    IF ( .NOT. Mesh % ParallelInfo % Interface(k) ) CYCLE
 
@@ -799,8 +790,12 @@ CONTAINS
                       ! If all edges match, then this is our interface dof.
                       IF ( ALL( IntArray(l+1:l+IntN) == &
                            OldIntArray(k2+1:k2+IntN)) ) THEN
-                         Mesh % ParallelInfo % GlobalDOFs(k) = GIndices(j)
-                         NewDOFCnt = NewDOFCnt + 1
+
+                         ! number all DOFs of this edge.
+                         DO n=1,step
+                            Mesh % ParallelInfo % GlobalDOFs(k+n) = GIndices(j)+n
+                         END DO
+
                          EXIT
                       END IF
                    END IF
@@ -812,12 +807,13 @@ CONTAINS
           DEALLOCATE( Gindices, IntCnts, IntArray )
        END IF
     END DO
+
 !
 !    Update the current numbering from the 
-!    previous PE in line, this will make the
+!    previous PE in line, this will make the 
 !    execution strictly serial. Maybe there
 !    would be an easier way?
-!    (waits here until previous PE has sent Interface nodes and MaxGlb)
+!    (waits here until previous PE has sent Interface nodes and MaxGlb) 
 !    ---------------------------------------
     IF ( ParEnv % MyPE > MinProc-1 ) THEN
        DO i=ParEnv % MyPE, MinProc, -1
@@ -835,22 +831,31 @@ CONTAINS
      DO i=nstart,nend
         IF ( Mesh % ParallelInfo % GlobalDOFs(i) == 0 ) THEN
            MaxGlb = MaxGlb + 1
-           NewDOFCnt = NewDOFCnt + 1
            Mesh % ParallelInfo % GlobalDOFs(i) = MaxGlb
         END IF
      END DO
-!
-!    Extract interface nodes:
-!    ------------------------
-     InterfaceNodes = COUNT( Mesh % ParallelInfo % Interface(nstart:nend) )
 
-     IF ( InterfaceNodes > 0 ) ALLOCATE( Gindices(InterfaceNodes) )
+     !
+     ! count interfaces, with edges, faces etc, we don't need to send all dofs, just the 
+     ! first one. others will be successively numbered
+     !
+     IF ( doftype == 1 ) THEN
+        Interfaces = COUNT( Mesh % ParallelInfo % Interface(nstart:nend) )
+     ELSE IF ( doftype == 2 ) THEN
+        Interfaces = COUNT( Mesh % ParallelInfo % Interface(nstart:nend) ) / Mesh % MaxEdgeDOFs
+     ELSE IF ( doftype == 3 ) THEN
+        Interfaces = COUNT( Mesh % ParallelInfo % Interface(nstart:nend) ) / Mesh % MaxFaceDOFs
+     ELSE IF ( doftype == 4 ) THEN
+        Interfaces = COUNT( Mesh % ParallelInfo % Interface(nstart:nend) ) / Mesh % MaxElementDOFs
+     END IF
 
-     InterfaceNodes = 0
-     DO i=nstart,nend
+     IF ( Interfaces > 0 ) ALLOCATE( Gindices(Interfaces) )
+
+     Interfaces = 0
+     DO i=nstart,nend,step
         IF ( Mesh % ParallelInfo % Interface(i) ) THEN
-           InterfaceNodes = InterfaceNodes + 1
-           Gindices(InterfaceNodes) = Mesh % ParallelInfo % GlobalDOFs(i)
+           Interfaces = Interfaces + 1
+           Gindices(Interfaces) = Mesh % ParallelInfo % GlobalDOFs(i)
         END IF
      END DO
 !
@@ -859,14 +864,14 @@ CONTAINS
      DO i=ParEnv % MyPE+2,ParEnv % PEs
         IF ( .NOT. (ParEnv % Active(i) .AND. ParEnv % IsNeighbour(i)) ) CYCLE
 
-        CALL MPI_BSEND( InterfaceNodes, 1, MPI_INTEGER, &
+        CALL MPI_BSEND( Interfaces, 1, MPI_INTEGER, &
                i-1, 14, MPI_COMM_WORLD, ierr )
 
-        IF ( InterfaceNodes > 0 ) THEN
-           CALL MPI_BSEND( GIndices, InterfaceNodes, MPI_INTEGER, &
+        IF ( Interfaces > 0 ) THEN
+           CALL MPI_BSEND( GIndices, Interfaces, MPI_INTEGER, &
                     i-1, 15, MPI_COMM_WORLD, ierr )
 
-           CALL MPI_BSEND( OldIntCnts, InterfaceNodes, &
+           CALL MPI_BSEND( OldIntCnts, Interfaces, &
               MPI_INTEGER, i-1, 16, MPI_COMM_WORLD, ierr )
 
            CALL MPI_BSEND( SIZE(OldIntArray), 1, &
@@ -877,7 +882,7 @@ CONTAINS
         END IF
      END DO
 
-     IF ( InterfaceNodes > 0 ) DEALLOCATE( GIndices )
+     IF ( Interfaces > 0 ) DEALLOCATE( GIndices )
 !
 !    Send go singal to next PE in line...
 !    ------------------------------------
@@ -919,15 +924,6 @@ CONTAINS
 !    Also take into account the fact that edges, faces 
 !    and elements can have more than 1 dof
 !    -------------------------------------
-     IF (doftype == 1) THEN
-        step = 1
-     ELSE IF (doftype == 2) THEN
-        step = Mesh % MaxEdgeDOFs
-     ELSE IF (doftype == 3) THEN
-        step = Mesh % MaxFaceDOFs
-     ELSE IF (doftype == 4) THEN 
-        step = Mesh % MaxElementDOFs
-     END IF
       
      DO i=1,nend-nstart,step
         DO l=1,step
@@ -942,17 +938,16 @@ CONTAINS
 
      DEALLOCATE( IntCnts )
 
-     PRINT*,'PE: ',ParEnv % MyPE,' Gorder ',Gorder
 
 !    Ok, now we have generated the global numbering
 !    of nodes. We still need to distribute the
 !    information which PEs share which of the new
 !    interface nodes:
 !    -----------------------------------------------
-     InterfaceNodes = COUNT( Mesh % ParallelInfo % Interface(nstart:nend) )
+     Interfaces = COUNT( Mesh % ParallelInfo % Interface(nstart:nend) )
 
      ! If interface node, allocate neighbourlist
-     ALLOCATE( GIndices( InterfaceNodes ) )
+     ALLOCATE( GIndices( Interfaces ) )
      j = 0
      DO i=nstart,nend
         IF ( Mesh % ParallelInfo % Interface(i) ) THEN
@@ -967,10 +962,10 @@ CONTAINS
      DO i=MinProc,ParEnv % PEs
         IF ( ParEnv % MyPE == i-1 ) CYCLE
         IF ( ParEnv % Active(i) .AND. ParEnv % IsNeighbour(i) ) THEN
-           CALL MPI_BSEND( InterfaceNodes, 1, &
+           CALL MPI_BSEND( Interfaces, 1, &
               MPI_INTEGER, i-1, 30, MPI_COMM_WORLD, ierr )
 
-           CALL MPI_BSEND( GIndices, InterfaceNodes, &
+           CALL MPI_BSEND( GIndices, Interfaces, &
               MPI_INTEGER, i-1, 31, MPI_COMM_WORLD, ierr )
         END IF
      END DO
@@ -992,15 +987,15 @@ CONTAINS
      DO i=MinProc,ParEnv % PEs
         IF ( ParEnv % MyPE == i-1 ) CYCLE
         IF ( ParEnv % Active(i) .AND. ParEnv % IsNeighbour(i) ) THEN
-           CALL MPI_RECV( InterfaceNodes, 1, MPI_INTEGER, &
+           CALL MPI_RECV( Interfaces, 1, MPI_INTEGER, &
                i-1, 30, MPI_COMM_WORLD, status, ierr )
 
-           ALLOCATE( GIndices(InterfaceNodes) )
+           ALLOCATE( GIndices(Interfaces) )
 
-           CALL MPI_RECV( GIndices, InterfaceNodes, MPI_INTEGER, &
+           CALL MPI_RECV( GIndices, Interfaces, MPI_INTEGER, &
                i-1, 31, MPI_COMM_WORLD, status, ierr )
 
-           DO j=1,InterfaceNodes
+           DO j=1,Interfaces
               k = SearchNode( Mesh % ParallelInfo, Gindices(j), nstart, nend )
               ! if we find the global indice in our own globaldofs, then add the sender to neighbourlist
               IF ( k <= 0 ) CYCLE
@@ -1027,14 +1022,16 @@ CONTAINS
      END DO
      
      DEALLOCATE( IntCnts )
+     
+     PRINT*,'PE: ',ParEnv % MyPE,' GlobalDOFs after ', Mesh % ParallelInfo % GlobalDOFs
+     call flush(6)
+     call spariterbarrier
 
      CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
 
 CONTAINS
-
 !
-! 
-!
+! Swap a certain dof typex
 !-----------------------------------------------------------------------
   SUBROUTINE Swap( Mesh, i, k, doftype ) 
 !-----------------------------------------------------------------------
