@@ -1,8 +1,11 @@
 
 /*
- * $Id: main.c,v 1.6 2005/06/07 10:55:15 jpr Exp $ 
+ * $Id: main.c,v 1.7 2005/08/10 14:16:59 vierinen Exp $ 
  *
  * $Log: main.c,v $
+ * Revision 1.7  2005/08/10 14:16:59  vierinen
+ * *** empty log message ***
+ *
  * Revision 1.6  2005/06/07 10:55:15  jpr
  * *** empty log message ***
  *
@@ -45,27 +48,6 @@
 # endif
 #endif 
 
-#if !defined( __WINDOWS__ ) && ( defined( _Windows ) || defined( _WINDOWS ) )
-  #define __WINDOWS__
-#endif /* !__WINDOWS__ && ( _Windows || _WINDOWS ) */
-#if !defined( __WIN32__ ) && ( defined( WIN32 ) || defined( _WIN32 ) )
-  #ifndef __WINDOWS__
-    #define __WINDOWS__
-  #endif /* __WINDOWS__ */
-  #define __WIN32__
-#endif /* !__WIN32__ && ( WIN32 || _WIN32 ) */
-#if defined( __WINDOWS__ ) && !defined( __WIN32__ )
-  #define __WIN16__
-#endif /* __WINDOWS__ && !__WIN32__ */
- 
-/* and now I map it to my version of the above define --tjh */
-#ifdef __WINDOWS__
-#ifndef WINDOWS
-#define WINDOWS
-#endif
-#endif /* __WINDOWS__ */
-
-
 void main( int argc, char **argv )
 {
   char strt[2000];
@@ -90,7 +72,7 @@ void main( int argc, char **argv )
 #endif
       
 /* kludge to enable exit. */
-#ifdef WINDOWS
+#ifdef MINGW32
       if( stricmp(str,"exit") == 0  || stricmp(str,"quit") == 0 )
 #else
       if( strcasecmp(str,"exit") == 0  || strcasecmp(str,"quit") == 0 )
