@@ -12,7 +12,7 @@ AMD_SOURCES = amd_internal.h
 
 
 INCLUDES = \
-	-I./include/       \
+	-I./include       \
 	-I.         
 
 lib_LIBRARIES = libamd.a libamdf77.a

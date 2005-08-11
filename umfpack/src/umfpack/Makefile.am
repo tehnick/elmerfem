@@ -9,7 +9,7 @@ EXTRA_DIST = $(UMFPACK_ORIG_SOURCES) umf4_f77wrapper.c umf4_f77zwrapper.c
 UMFPACK_SOURCES = umfpack_timer.c umfpack_tictoc.c
 
 INCLUDES = \
-	-I./include/       \
+	-I./include       \
 	-I$(top_srcdir)/src/amd/include     \
 	-I$(top_srcdir)/src/amd \
 	-I.         
