@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.64 2005/06/17 11:31:21 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.65 2005/07/01 07:12:19 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1333,9 +1333,13 @@ case "$canonical_host_type" in
   *-*-darwin*)
         AC_DEFINE([DARWIN],1,[Detected platform.])
   ;;
-  *-*-cygwin* | *-*-mingw*)
+  *-*-cygwin*)
 	acx_platform_def="WIN32"
-        AC_DEFINE([GWIN],1,[Detected platform.])
+        AC_DEFINE([CYGWIN],1,[Detected platform.])
+  ;;
+  *-*-mingw*)
+	acx_platform_def="WIN32"
+        AC_DEFINE([MINGW32],1,[Detected platform.])
   ;;
   *-*-linux* | *-*-gnu*)
         AC_DEFINE([LINUX],1,[Detected platform.])
