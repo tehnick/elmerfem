@@ -120,6 +120,7 @@
     Gamma = ListGetConstReal( Solver % Values, 'gamma1', GotIt )
     IF( .NOT. GotIt ) Gamma = 1.0d3
 
+    FORCE = 0.0d0
     DO t = 1, Solver % Mesh % NumberOfEdges
        Edge => Edges(t)
        IF ( .NOT. ActiveBoundaryElement(Edge) ) CYCLE
@@ -129,7 +130,6 @@
        IF ( .NOT. ASSOCIATED(RightParent) ) CYCLE
 
        n = GetElementNOFnodes( Edge )
-       FORCE = 0.0d0
        CALL LocalJumps( STIFF, Edge, n, LeftParent, RightParent, gamma )
 
        CALL DefaultUpdateEquations( STIFF, FORCE, Edge )

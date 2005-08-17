@@ -96,7 +96,7 @@
      ! Initialize & allocate some permanent storage, this is done first time only:
      !----------------------------------------------------------------------------
      IF ( .NOT. AllocationsDone ) THEN
-        N = 2 * MAX(Solver % Mesh % MaxElementDOFs, Solver % Mesh % MaxElementNodes)
+        N = 2 * MAX(Solver % Mesh % MaxElementDOFs, Solver % Mesh % MaxElementNodes )
         ALLOCATE( FORCE(N), MASS(n,n), STIFF(N,N), LOAD(N),  &
                   Velo(3,N), Gamma(n), STAT = istat )
         
@@ -128,6 +128,7 @@
 
      ! Assembly of the face terms:
      !----------------------------
+     FORCE = 0.0d0
      DO t=1,NumberOfFaces
         Face => Faces(t)
         IF ( .NOT. ActiveBoundaryElement(Face) ) CYCLE
@@ -144,7 +145,6 @@
           Velo(2,1:n) = GetReal( Material, 'u 2', Found, Face )
           Velo(3,1:n) = GetReal( Material, 'u 3', Found, Face )
 
-          FORCE = 0.0d0
           CALL LocalJumps( STIFF,Face,n,LeftParent,n1,RightParent,n2,Velo )
           CALL DefaultUpdateEquations( STIFF, FORCE, Face )
         END IF
@@ -296,7 +296,7 @@
     SUBROUTINE FindParentUVW(Face, nFace, Parent, nParent, U, V, W, Basis)
 !------------------------------------------------------------------------------
       IMPLICIT NONE
-      TYPE(Element_t), POINTER :: Face, Parent
+      TYPE(Element_t) :: Face, Parent
       INTEGER :: nFace, nParent
       REAL( KIND=dp ) :: U, V, W, Basis(:)
 !------------------------------------------------------------------------------
@@ -324,6 +324,7 @@
 !------------------------------------------------------------------------------
     SUBROUTINE LocalJumps( STIFF,Face,n,LeftParent,n1,RightParent,n2,Velo )
 !------------------------------------------------------------------------------
+      IMPLICIT NONE
       REAL(KIND=dp) :: STIFF(:,:), Velo(:,:)
       INTEGER :: n,n1,n2
       TYPE(Element_t), POINTER :: Face, LeftParent, RightParent

@@ -2,7 +2,7 @@
 
 if test "$ELMER_LIB" = ""; then
   if  test "$ELMER_HOME" = ""; then
-     INCLUDE=/home/vierinen/share/elmersolver/include
+     INCLUDE=/tmp/jpr/share/elmersolver/include
   else
      INCLUDE=$ELMER_HOME/share/elmersolver/include
   fi
@@ -10,8 +10,8 @@ else
   INCLUDE=$ELMER_LIB/../include
 fi
 
-cmd="g95 -O -fPIC -I. -I$INCLUDE  -shared $*"
+cmd="pgf90 -O -m64 -fPIC -fPIC -I. -I$INCLUDE -m64 -fPIC -shared $*"
 printf "%s " $cmd
 printf "\n"
-g95 -O -fPIC -I. -I$INCLUDE  -shared $*
+pgf90 -O -m64 -fPIC -fPIC -I. -I$INCLUDE -m64 -fPIC -shared $*
 

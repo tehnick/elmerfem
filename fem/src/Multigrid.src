@@ -393,6 +393,8 @@ CONTAINS
 !      ------------
        DO iter = 1,MaxIter
           ResidualNorm = MGSweep() / RHSNorm
+!         CALL MGSweep( ResidualNorm )
+!         ResidualNorm = ResidualNorm / RHSNorm
 
           WRITE(Message,'(A,I4,A,I5,A,E20.12E3)') 'MG Residual at level:', &
                  Level, ' iter:', iter,' is:', ResidualNorm
@@ -480,8 +482,8 @@ CONTAINS
       DO i=1,Sweeps
          Work2(1:n2) = Solution2(1:n2)
 
-         CALL GMGSolve( Matrix2, Work2, Residual2, &
-                     DOFs, Solver, Level - 1 )
+         CALL MultigridSolve( Matrix2, Work2, Residual2, &
+             DOFs, Solver, Level-1, NewLinearSystem )
 
 !        Solution2(1:n2) = Solution2(1:n2) + Work2(1:n2)
          Solution2(1:n2) = Work2(1:n2)
@@ -1475,7 +1477,8 @@ CONTAINS
       DO i=1,Sweeps
         Work2(1:n2) = Solution2(1:n2)
 
-        CALL AMGSolve( Matrix2, Work2, Residual2, DOFs, Solver, Level - 1 )
+        CALL MultigridSolve( Matrix2, Work2, Residual2, DOFs, &
+                  Solver, Level-1,NewLinearSystem )
 
         Solution2(1:n2) = Solution2(1:n2) + Work2(1:n2)
       END DO
