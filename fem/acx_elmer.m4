@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.65 2005/07/01 07:12:19 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.66 2005/08/11 14:17:13 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -593,6 +593,10 @@ case "$canonical_host_type" in
 	  g95 | gfortran)
 	        B64FCFLAGS=$B64FLAGS
 		;;
+	  pgf*)
+	        # portland group
+	        B64FCFLAGS="-fPIC"
+	        ;;
 	  *)
 	        B64FCFLAGS=$B64FLAGS
 		;;
@@ -604,6 +608,10 @@ case "$canonical_host_type" in
 	  ifort | ifc)
 		true
 	  ;;
+	  pgf*)
+	        # portland group
+	        B64FCFLAGS="-fPIC"
+	        ;;
           *)
 	      B64FFLAGS=$B64FLAGS
           ;;
@@ -615,6 +623,10 @@ case "$canonical_host_type" in
 	  icc | icc)
 		true
 	  ;;
+	  pgcc*)
+	        # portland group
+	        B64FCFLAGS="-fPIC"
+	        ;;
           *)
 	      B64CFLAGS=$B64FLAGS
           ;;
@@ -626,6 +638,11 @@ case "$canonical_host_type" in
 	  icc | icc)
 		true
 	  ;;
+	  pgCC*)
+	        # portland group
+	        B64FCFLAGS="-fPIC"
+	        ;;
+
 	  *)
        		B64CXXFLAGS=$B64FLAGS
 	  ;;
@@ -1230,6 +1247,13 @@ case "$canonical_host_type" in
   ;;
 esac
 
+case $FC in 
+    pgf*) 
+	# portland group does it differently
+	RPATH_FLAG="-R"
+    ;;
+esac
+
 AC_SUBST(LD_LIBRARY_PATH_VAR)
 AC_SUBST(RPATH_FLAG)
 
@@ -1569,3 +1593,16 @@ case "$FC" in
 esac
 AC_SUBST(FORTRAN_CPP_FLAG)
 ])
+
+
+AC_DEFUN([ACX_LANG_COMPILER_MS],
+[AC_CACHE_CHECK([whether we are using the Microsoft _AC_LANG compiler],
+                [acx_cv_[]_AC_LANG_ABBREV[]_compiler_ms],
+[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([], [[#ifndef _MSC_VER
+       choke me
+#endif
+]])],
+                   [acx_compiler_ms=yes],
+                   [acx_compiler_ms=no])
+acx_cv_[]_AC_LANG_ABBREV[]_compiler_ms=$acx_compiler_ms
+])])

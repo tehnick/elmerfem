@@ -2464,6 +2464,9 @@ fi
 
 
 
+
+
+
 { echo "$as_me:$LINENO: checking for answer to meaning of life" >&5
 echo $ECHO_N "checking for answer to meaning of life... $ECHO_C" >&6; }
 { echo "$as_me:$LINENO: result: 42" >&5
@@ -2528,11 +2531,19 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
   ;;
-  *-*-cygwin* | *-*-mingw*)
+  *-*-cygwin*)
 	acx_platform_def="WIN32"
 
 cat >>confdefs.h <<\_ACEOF
-#define GWIN 1
+#define CYGWIN 1
+_ACEOF
+
+  ;;
+  *-*-mingw*)
+	acx_platform_def="WIN32"
+
+cat >>confdefs.h <<\_ACEOF
+#define MINGW32 1
 _ACEOF
 
   ;;
@@ -5943,6 +5954,10 @@ case "$canonical_host_type" in
 	  g95 | gfortran)
 	        B64FCFLAGS=$B64FLAGS
 		;;
+	  pgf*)
+	        # portland group
+	        B64FCFLAGS="-fPIC"
+	        ;;
 	  *)
 	        B64FCFLAGS=$B64FLAGS
 		;;
@@ -5954,6 +5969,10 @@ case "$canonical_host_type" in
 	  ifort | ifc)
 		true
 	  ;;
+	  pgf*)
+	        # portland group
+	        B64FCFLAGS="-fPIC"
+	        ;;
           *)
 	      B64FFLAGS=$B64FLAGS
           ;;
@@ -5965,6 +5984,10 @@ case "$canonical_host_type" in
 	  icc | icc)
 		true
 	  ;;
+	  pgcc*)
+	        # portland group
+	        B64FCFLAGS="-fPIC"
+	        ;;
           *)
 	      B64CFLAGS=$B64FLAGS
           ;;
@@ -5976,6 +5999,11 @@ case "$canonical_host_type" in
 	  icc | icc)
 		true
 	  ;;
+	  pgCC*)
+	        # portland group
+	        B64FCFLAGS="-fPIC"
+	        ;;
+
 	  *)
        		B64CXXFLAGS=$B64FLAGS
 	  ;;
@@ -8821,6 +8849,13 @@ case "$canonical_host_type" in
       RPATH_FLAG="-R"
     fi
   ;;
+esac
+
+case $FC in
+    pgf*)
+	# portland group does it differently
+	RPATH_FLAG="-R"
+    ;;
 esac
 
 

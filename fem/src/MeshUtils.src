@@ -33,6 +33,9 @@
 ! *       Date of modification: 27.8.2002
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.17  2005/07/22 13:53:37  vierinen
+! * fixed bugs in new global numbering
+! *
 ! * Revision 1.16  2005/07/21 14:54:58  vierinen
 ! * *** empty log message ***
 ! *
@@ -92,7 +95,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.16 2005/07/21 14:54:58 vierinen Exp $
+! * $Id: MeshUtils.src,v 1.17 2005/07/22 13:53:37 vierinen Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -840,7 +843,7 @@ CONTAINS
       END DO
 
       ! Number edge, face and elements dofs globally.
-      ! juhav: work in progress with global dof numbering
+      ! jv: work in progress with global dof numbering
 #if 0
       CALL CreateGlobalNumbering( Mesh, n )
 #endif
@@ -884,8 +887,8 @@ SUBROUTINE CreateGlobalNumbering( Mesh, NumberOfDOFs )
 
        IF ( ParEnv % PEs <= 1 ) RETURN
 
-       ! IfCounts, how many intefaces of each type (nodes,edges,faces,elements)
-       ! Size of IntArray for each interface type  
+       ! IfCounts, how many intefaces of each type (nodes, edges, faces, elements)
+       ! Size of IntArray for each interface type
        !
        ALLOCATE(IfCounts(4), IfNodeCounts(4))
        IfCounts=0
@@ -899,7 +902,7 @@ SUBROUTINE CreateGlobalNumbering( Mesh, NumberOfDOFs )
        !
        PRINT*,'Checking if edge is interface, number of edges: ', &
             Mesh % NumberOfEdges, ' maxedgedofs: ', Mesh % MaxEdgeDOFs
-       PRINT*,'PE: ', ParEnv % MyPE, ' Interface size: ', & 
+       PRINT*,'PE: ', ParEnv % MyPE, ' Interface size: ', &
             SIZE(Mesh % ParallelInfo % Interface), &
             ' GlobalDOFs size: ', SIZE(Mesh % ParallelInfo % GlobalDOFs)
        call flush(6)
@@ -1070,7 +1073,7 @@ SUBROUTINE CreateGlobalNumbering( Mesh, NumberOfDOFs )
        iaend = iaend + IfNodeCounts(4)
 
        IF( iend-istart >= 0 ) THEN
-          PRINT*,'PE ',ParEnv % MyPE,' number interfaces ', istart, ' - ', iend, ' doftype ', 4
+          PRINT*, 'PE ', ParEnv % MyPE, ' number interfaces ', istart, ' - ', iend, ' doftype ', 4
           CALL FLUSH(6)
           CALL ParallelNumbering( Mesh, IntCnts(istart:iend), IntArray(iastart:iaend), &
                Reorder, nstart, nend, doftype )
@@ -1089,7 +1092,7 @@ SUBROUTINE CreateGlobalNumbering( Mesh, NumberOfDOFs )
 
        DEALLOCATE( Reorder )
 
-       print*,'PE ', ParEnv % MyPE, ' done ' 
+       print*, 'PE ', ParEnv % MyPE, ' done ' 
        call flush(6)
        call spariterbarrier
        
