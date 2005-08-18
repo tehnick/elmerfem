@@ -7,7 +7,7 @@
 !
 ! Author: Jouni Malinen, Juha Ruokolainen 
 !
-! $Id: SParIterComm.src,v 1.4 2005/07/21 14:54:58 vierinen Exp $
+! $Id: SParIterComm.src,v 1.5 2005/07/22 13:53:37 vierinen Exp $
 !
 !*********************************************************************
 
@@ -55,7 +55,7 @@ CONTAINS
   !
   ! Initialize parallel execution environment
   !
-
+   
    FUNCTION ParCommInit( ) RESULT ( ParallelEnv ) 
 
      TYPE (ParEnv_t), POINTER :: ParallelEnv
@@ -269,7 +269,7 @@ CONTAINS
   END SUBROUTINE FindActivePEs
 !-----------------------------------------------------------------------
 
-!*********************************************************************
+!***********************************************************************
 ! Try to agree about global numbering of nodes among active
 ! processes.
 !-----------------------------------------------------------------------
@@ -636,7 +636,7 @@ CONTAINS
 
      ! dead code.
    END SUBROUTINE InitialGlobalNumbering
-!-----------------------------------------------------------------------
+!---------------------------------------------------------------------
 
 !*********************************************************************
 ! A parallel numbering algorithm for global DOFs that identifies 
@@ -659,9 +659,8 @@ CONTAINS
 !---------------------------------------------------------------------
      CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
 
-     PRINT*,'PE: ',ParEnv % MyPE, ' Numbering type ', doftype ,' from ', nstart, ' to ', nend
+     PRINT*, 'PE: ', ParEnv % MyPE, ' Numbering type ', doftype, ' from ', nstart, ' to ', nend
      call flush(6)
-     call spariterbarrier
 
      ! if no dofs of this type, return
      IF ( nstart > nend ) THEN
@@ -669,17 +668,15 @@ CONTAINS
      END IF
 
 ! XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-! It seems that the worst case size for the buffer is way too high
-! so something heuristic should be better, accompanied with a 
-! test to see if buffer is too small...
-! 
-     CALL CheckBuffer( 5000000 )
+! todo: figure out some value that is usually large enough (the worst case size is quite high)
+!       This can get awefully large at times.
+     CALL CheckBuffer( 10000000 )
+!
 ! XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 
-     PRINT*,'PE: ',ParEnv % MyPE, ' SIZE(GlobalDOFs) ', SIZE(Mesh % ParallelInfo % GlobalDOFs)
-     PRINT*,'PE: ',ParEnv % MyPE, ' GlobalDOFs before numbering: ', Mesh % ParallelInfo % GlobalDOFs
+     PRINT*, 'PE: ', ParEnv % MyPE, ' SIZE(GlobalDOFs) ', SIZE(Mesh % ParallelInfo % GlobalDOFs)
+!    PRINT*, 'PE: ', ParEnv % MyPE, ' GlobalDOFs before numbering: ', Mesh % ParallelInfo % GlobalDOFs
      call flush(6)
-     call spariterbarrier
 !
 !    find least numbered of the active procs:
 !    ----------------------------------------
@@ -687,9 +684,9 @@ CONTAINS
         IF ( ParEnv % Active( MinProc ) ) EXIT
      END DO
 
-     PRINT*,'PE: ',ParEnv % MyPE, ' MinProc ', MinProc 
+     PRINT*, 'PE: ', ParEnv % MyPE, ' MinProc ', MinProc 
      call flush(6)
-     call spariterbarrier
+
 !
 !    Our maximum global node index:
 !    ------------------------------
@@ -715,7 +712,6 @@ CONTAINS
 
     PRINT*,'PE: ',ParEnv % MyPE,' Initial MaxGlb ',MaxGlb
     call flush(6)
-    call spariterbarrier
 
     !
     ! How many dofs per node, edge, face or element
@@ -741,6 +737,9 @@ CONTAINS
 !    ---------------------------------------
     DO i=MinProc,ParEnv % MyPE
        IF ( .NOT. (ParEnv % Active(i) .AND. ParEnv % IsNeighbour(i)) ) CYCLE
+
+       PRINT*,'PE: ',ParEnv % MyPE,' Receiving dof numbers.'
+       call flush(6)
        
        ! Get number of interfaces to receive from PE i
        CALL MPI_RECV( Interfaces, 1, MPI_INTEGER, &
@@ -809,12 +808,12 @@ CONTAINS
     END DO
 
 !
-!    Update the current numbering from the 
-!    previous PE in line, this will make the 
-!    execution strictly serial. Maybe there
-!    would be an easier way?
-!    (waits here until previous PE has sent Interface nodes and MaxGlb) 
-!    ---------------------------------------
+!   Update the current numbering from the 
+!   previous PE in line, this will make the 
+!   execution strictly serial. Maybe there
+!   would be an easier way?
+!   (waits here until previous PE has sent Interface nodes and MaxGlb) 
+!
     IF ( ParEnv % MyPE > MinProc-1 ) THEN
        DO i=ParEnv % MyPE, MinProc, -1
           IF ( ParEnv % Active(i) ) THEN
@@ -858,6 +857,10 @@ CONTAINS
            Gindices(Interfaces) = Mesh % ParallelInfo % GlobalDOFs(i)
         END IF
      END DO
+
+     PRINT*,'PE: ',ParEnv % MyPE,' Sending interface dof numbers.'
+     call flush(6)
+
 !
 !    Send new interface nodes to higher numbered PEs:
 !    ------------------------------------------------
@@ -883,6 +886,9 @@ CONTAINS
      END DO
 
      IF ( Interfaces > 0 ) DEALLOCATE( GIndices )
+
+     PRINT*,'PE: ',ParEnv % MyPE,' Sending MaxGlb ', MaxGlb
+     call flush(6)
 !
 !    Send go singal to next PE in line...
 !    ------------------------------------
@@ -902,6 +908,9 @@ CONTAINS
      DO i=1,nend-nstart
         Gorder(i) = i
      END DO
+
+     PRINT*,'PE: ',ParEnv % MyPE,' Sorting globaldofs '
+     call flush(6)
 
      CALL SortI( nend-nstart+1, Mesh % ParallelInfo % GlobalDOFs(nstart:nend), Gorder )
 
@@ -925,6 +934,9 @@ CONTAINS
 !    and elements can have more than 1 dof
 !    -------------------------------------
       
+     PRINT*,'PE: ',ParEnv % MyPE,' Swapping '
+     call flush(6)
+
      DO i=1,nend-nstart,step
         DO l=1,step
            k = Gorder(i)
@@ -944,6 +956,8 @@ CONTAINS
 !    information which PEs share which of the new
 !    interface nodes:
 !    -----------------------------------------------
+
+
      Interfaces = COUNT( Mesh % ParallelInfo % Interface(nstart:nend) )
 
      ! If interface node, allocate neighbourlist
@@ -958,10 +972,17 @@ CONTAINS
         END IF
      END DO
 
+     PRINT*,'PE: ',ParEnv % MyPE,' Sending global indices of interface dofs'
+     call flush(6)
+
      ! send interface node count and global indice list to neighbouring partitions
      DO i=MinProc,ParEnv % PEs
         IF ( ParEnv % MyPE == i-1 ) CYCLE
         IF ( ParEnv % Active(i) .AND. ParEnv % IsNeighbour(i) ) THEN
+
+           PRINT*,'PE: ',ParEnv % MyPE,' Sending to ', i-1
+           call flush(6)
+
            CALL MPI_BSEND( Interfaces, 1, &
               MPI_INTEGER, i-1, 30, MPI_COMM_WORLD, ierr )
 
@@ -983,10 +1004,17 @@ CONTAINS
         END IF
      END DO
 
+     PRINT*,'PE: ',ParEnv % MyPE,' Receiving global indices of interface dofs'
+     call flush(6)
+
      ! receive global indices and the number of interface nodes from other partitions
      DO i=MinProc,ParEnv % PEs
         IF ( ParEnv % MyPE == i-1 ) CYCLE
         IF ( ParEnv % Active(i) .AND. ParEnv % IsNeighbour(i) ) THEN
+
+           PRINT*,'PE: ',ParEnv % MyPE,' Receiving from ', i-1
+           call flush(6)
+
            CALL MPI_RECV( Interfaces, 1, MPI_INTEGER, &
                i-1, 30, MPI_COMM_WORLD, status, ierr )
 
@@ -1010,6 +1038,9 @@ CONTAINS
 !    Reallocate the nodal neighbour lists to
 !    correct sizes and also sort them (the smallest PE always is owner)
 !    ---------------------------------------
+     PRINT*,'PE: ',ParEnv % MyPE,' Shrinking neighbourlists'
+     call flush(6)
+
      DO i=nstart,nend
         IF ( Mesh % ParallelInfo % Interface(i) ) THEN
            k = IntCnts(i)
@@ -1023,9 +1054,8 @@ CONTAINS
      
      DEALLOCATE( IntCnts )
      
-     PRINT*,'PE: ',ParEnv % MyPE,' GlobalDOFs after ', Mesh % ParallelInfo % GlobalDOFs
+     PRINT*,'PE: ',ParEnv % MyPE,' Done numbering type ', doftype
      call flush(6)
-     call spariterbarrier
 
      CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
 
@@ -1045,7 +1075,7 @@ CONTAINS
         
     ! don't swap if there is no need to swap...
     IF( i /= k ) THEN
-       PRINT*,'PE: ',ParEnv % MyPE, ' Swap: ', i,',',k,' doftype ', doftype
+!       PRINT*,'PE: ',ParEnv % MyPE, ' Swap: ', i,',',k,' doftype ', doftype
        call flush(6)
 
        IF ( doftype == 1 ) THEN
@@ -1087,7 +1117,7 @@ CONTAINS
                Mesh % NumberOfEdges * Mesh % MaxEdgeDOFs) / Mesh % MaxFaceDOFs + 1
 
           Element = Mesh % Faces(elementi)
-          Mesh % Faces(elementk) = Mesh % Faces(elementi)
+          Mesh % Faces(elementk) = Mesh % Faces( elementi )
           Mesh % Faces(elementi) = Element
 
           DO l=1,Mesh % MaxFaceDOFs

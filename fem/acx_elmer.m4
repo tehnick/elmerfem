@@ -610,7 +610,7 @@ case "$canonical_host_type" in
 	  ;;
 	  pgf*)
 	        # portland group
-	        B64FCFLAGS="-fPIC"
+	        B64FFLAGS="-fPIC"
 	        ;;
           *)
 	      B64FFLAGS=$B64FLAGS
@@ -625,7 +625,7 @@ case "$canonical_host_type" in
 	  ;;
 	  pgcc*)
 	        # portland group
-	        B64FCFLAGS="-fPIC"
+	        B64CFLAGS="-fPIC"
 	        ;;
           *)
 	      B64CFLAGS=$B64FLAGS
@@ -640,7 +640,7 @@ case "$canonical_host_type" in
 	  ;;
 	  pgCC*)
 	        # portland group
-	        B64FCFLAGS="-fPIC"
+	        B64CXXFLAGS="-fPIC"
 	        ;;
 
 	  *)
