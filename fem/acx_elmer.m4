@@ -638,11 +638,10 @@ case "$canonical_host_type" in
 	  icc | icc)
 		true
 	  ;;
-	  pgCC*)
+	  pgC*)
 	        # portland group
 	        B64CXXFLAGS="-fPIC"
-	        ;;
-
+	  ;;
 	  *)
        		B64CXXFLAGS=$B64FLAGS
 	  ;;
@@ -776,7 +775,7 @@ if test "$with_64bits" != no; then
 
 	if test x"$CXX" != x; then
            AC_MSG_CHECKING([for 64 bit CXXFLAGS])
-           AC_MSG_RESULT($B64CXXFLAGS)
+           AC_MSG_RESULT($B64CXXFLAGS	)
 	   CXXFLAGS="$CXXFLAGS $B64CXXFLAGS"
 	fi
 
