@@ -207,8 +207,17 @@
  
              IF ( k > LeafQuadrant % NElemsInQuadrant ) THEN
                 WRITE( Message, * ) 'Point was not found in any of the elements!',i
-                CALL Warn( 'InterpolateMeshToMesh', Message )
-                CYCLE
+!               CALL Warn( 'InterpolateMeshToMesh', Message )
+!                  CurrentElement => OldMesh % Elements(1)
+
+                   NodeIndexes => CurrentElement % NodeIndexes
+                   n = CurrentElement % Type % NumberOfNodes
+
+                   LocalCoordinates = 0.0d0
+                   ElementNodes % x(1:n) = OldMesh % Nodes % x(NodeIndexes)
+                   ElementNodes % y(1:n) = OldMesh % Nodes % y(NodeIndexes)
+                   ElementNodes % z(1:n) = OldMesh % Nodes % z(NodeIndexes)
+!               CYCLE
              END IF
 !------------------------------------------------------------------------------
           ELSE
