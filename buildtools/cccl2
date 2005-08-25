@@ -42,10 +42,17 @@ EOF
 # We'll assume cl to start out
 prog=cl
 # opts specifies the command line to pass to the MSVC program
-clopt="-nologo"
-linkopt=""
+clopt="-nologo "
+linkopt="-force:multiple "
 # gotparam is 0 if we didn't ever see a param, in which case we show usage()
 gotparam=
+# if stuff is piped out, then don't print out the command
+tobepiped=no
+# preprocessing
+preprocessing=no
+#
+fortran_progs=
+c_source=
 
 ### Run through every option and convert it to the proper MS one
 while test $# -gt 0; do
@@ -78,7 +85,19 @@ EOF
 	;;
 
     -O1 | -O2 | -O | -O3)
-	clopt="$clopt -fast"
+        # note also, that fortran compiler has a different opt flag
+        # this is done with sed in the end.
+	clopt="$clopt -Ot"
+	;;
+
+    -E*)
+        # CPP might be piped to a file and we don't want to screw it up
+        # -E -> -EP because fortran doesn't like #, this could be done 
+        # better by grepping and seding..
+	tobepiped=yes
+	clopt="$clopt -EP"
+	linkopt="$linkopt -EP"
+	preprocessing=yes
 	;;
 
     -c)
@@ -91,14 +110,21 @@ EOF
 	clopt="$clopt -Zi"
 	;;
 
+    -I*)
+	path=`echo "$1" | sed 's#/#\\\#g'`
+	linkopt="$linkopt $path"
+	clopt="$clopt $path"
+	;;
+
     -L*)
 	path=`echo "$1" | sed 's/-L//'`
 	linkopt="$linkopt -LIBPATH:$path"
+	clopt="$clopt -LIBPATH:$path"
 	;;
 
     -l*)
 	lib=`echo "$1" | sed 's/-l//'`
-	lib="lib$lib.lib"
+	lib="$lib.lib"
 	
 	clopt="$clopt $lib"
 	linkopt="$linkopt $lib"
@@ -114,6 +140,10 @@ EOF
 
     -mpentium)
 	clopt="$clopt -G5"
+	;;
+
+    -shared)
+	linkopt="$linkopt -dll"
 	;;
 
     -mpentiumpro)
@@ -132,6 +162,10 @@ EOF
 	    clopt="$clopt -Fe$1";
 	    linkopt="$linkopt -out:$1"
 	;;
+	*)
+	    clopt="$clopt -out:$1";
+	    linkopt="$linkopt -out:$1"
+	;;
 	esac;;
 
     -pedantic)
@@ -142,24 +176,45 @@ EOF
         #ignore warnings
         ;;
 
+    *.c)
+        clopt="$clopt $1"
+        c_source="$c_source $1"
+    ;;
     *.cc | *.cxx | *.C)
 	# C++ source file with non .cpp extension, make sure cl understand 
 	# that it is C++
 	clopt="$clopt -Tp$1"
+	c_source="$c_source $1"
 	;;
 
-    *.f | *.f90 | *.fortran)
-	# C++ source file with non .cpp extension, make sure cl understand 
-	# that it is C++
+    *.f90 | *.fortran | *.F90 )
         clopt="$clopt $1"
 	prog="f90"
+
+	fortran_progs="$fortran_progs $1"
 	;;
+    *.F | *.f)
+        clopt="$clopt $1"
+	prog="f90"
+
+	fortran_progs="$fortran_progs $1"
+    
+        ;;
 
     *.o | *.obj | *.a | *.lib)
 	# Object files/libraries seen, this command will require link
 	# Switch the prog to link
 	linkopt="$linkopt $1"
 	clopt="$clopt $1"
+
+	if test "$prog" != "f90"; then
+	if test "$prog" != "f77"; then
+	if test "$c_source" = ""; then
+	    prog="link"
+        fi
+	fi
+	fi
+
 	# prog="link"
 	# fuck link. cl seems to know how to link... this breaks 
 	# up fortran tests in autoconf
@@ -183,20 +238,44 @@ if test x$gotparam = x ; then
     exit 1
 fi
 
+# revert back from any other program, if we are doing preprocessing
+if test x$preprocessing = xyes ; then 
+    prog=cl
+fi
+
+# todo:
+#
+#
 # choose which opts we built up based on which program will actually run
+# 
+#
 case "$prog" in 
 	cl) 
-	    opts=$clopt
+	   # when linking with fortran, we really need everything to be stdcall.
+	   # otherwise fuunctionpointers will have wrong calling conventions
+	    clopt=`echo "$clopt" | sed 's/ -I\\\/ -IC:\\\msys\\\1.0\\\/g'` 
+	    opts="$clopt -link -force:multiple"
 	;;
 	f90)
+	    clopt=`echo "$clopt" | sed 's/ -Ot / -optimize:4 /'` 
 	    opts=$clopt
+	    # visual fortran goes berzerk on this one
+	    unset F90
 	;;
+
+	f77)
+	    clopt=`echo "$clopt" | sed 's/ -Ot / -optimize:4 /'` 
+	    opts=$clopt
+	    # visual fortran goes berzerk on this one
+	    unset F77
+	;;
+
 	*)
 	    opts=$linkopt
 esac 
 
-# Can't print anything. we don't want to fuck up 
-# CPP (eg. cccl2 -E file.c > file2.c) will be broken
-# echo "$prog $opts"
+if test "$tobepiped" = "no"; then
+    echo "$prog $opts"
+fi
 exec $prog $opts
 exit 0
