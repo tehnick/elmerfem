@@ -49,7 +49,7 @@ EIOPartWriter *partitioningWriter = 0;
 
 //#define EIOFC(funname) extern "C" void WITH_BINDING_EXTENSION(funname)
 
-extern "C" void eio_init
+extern "C" void  eio_init
   (int& info)
 {
   paraState.isParallel = 0;
@@ -66,7 +66,7 @@ extern "C" void eio_init
     }
 }
 
-extern "C" void eio_init_parallel
+extern "C" void  eio_init_parallel
   (int& procs, int& me, int& info)
 {
   paraState.isParallel = 1;
@@ -83,32 +83,32 @@ extern "C" void eio_init_parallel
     }
 }
 
-extern "C" void eio_close
+extern "C" void  eio_close
   (int& info)
 {
   delete modelManager;
   info = 0;
 }
 
-extern "C" void eio_create_model
+extern "C" void  eio_create_model
   (const char *directory, int& info)
 {
   info = modelManager->createModel(directory);
 }
 
-extern "C" void eio_open_model
+extern "C" void  eio_open_model
   (const char *directory, int& info)
 {
   info = modelManager->openModel(directory);
 }
 
-extern "C" void eio_close_model
+extern "C" void  eio_close_model
   (int& info)
 {
   info = modelManager->closeModel();
 }
 
-extern "C" void eio_create_geometry
+extern "C" void  eio_create_geometry
   (int& info)
 {
   if(geometryAgent = new EIOGeometryAgent(modelManager))
@@ -121,7 +121,7 @@ extern "C" void eio_create_geometry
     }
 }
 
-extern "C" void eio_open_geometry
+extern "C" void  eio_open_geometry
   (int& info)
 {
   if(geometryAgent = new EIOGeometryAgent(modelManager))
@@ -134,7 +134,7 @@ extern "C" void eio_open_geometry
     }
 }
 
-extern "C" void eio_close_geometry
+extern "C" void  eio_close_geometry
   (int& info)
 {
   geometryAgent->closeGeometry();
@@ -142,7 +142,7 @@ extern "C" void eio_close_geometry
   info = 0;
 }
 
-extern "C" void eio_set_geometry_description
+extern "C" void  eio_set_geometry_description
   (int& bodyC, int& boundaryC, int& outerC, 
    int& innerC, int& vertexC, 
    int& loopC, int& maxLooplen, int& info)
@@ -152,7 +152,7 @@ extern "C" void eio_set_geometry_description
   info = 0;
 }
 
-extern "C" void eio_get_geometry_description
+extern "C" void  eio_get_geometry_description
   (int& bodyC, int& boundaryC, int& outerC, 
    int& innerC, int& vertexC, 
    int& loopC, int& maxLooplen, int& info)
@@ -162,7 +162,7 @@ extern "C" void eio_get_geometry_description
   info = 0;
 }
 
-extern "C" void eio_set_geometry_body
+extern "C" void  eio_set_geometry_body
   (int& tag, int& meshControl, int& loopC,
    int *loops,
    int& info)
@@ -171,7 +171,7 @@ extern "C" void eio_set_geometry_body
   info = 0;
 }
 
-extern "C" void eio_get_geometry_body
+extern "C" void  eio_get_geometry_body
   (int& tag, int& meshControl, int& loopC,
    int *loops,
    int& info)
@@ -182,14 +182,14 @@ extern "C" void eio_get_geometry_body
     info = -1;
 }
 
-extern "C" void eio_set_geometry_body_loop
+extern "C" void  eio_set_geometry_body_loop
   (int& tag, int& field, int *nodes, int& info)
 {
   geometryAgent->writeLoop(tag, field, nodes);
   info = 0;
 }
 
-extern "C" void eio_get_geometry_body_loop
+extern "C" void  eio_get_geometry_body_loop
   (int& tag, int& field, int *nodes, int& info)
 {
   if(geometryAgent->nextLoop(tag, field, nodes) != -1)
@@ -198,7 +198,7 @@ extern "C" void eio_get_geometry_body_loop
     info = -1;
 }
 
-extern "C" void eio_set_geometry_element
+extern "C" void  eio_set_geometry_element
   (int& tag, int& cTag, int& meshControl,
    int& type, int& nodeC, int *nodes, int& info)
 {
@@ -207,7 +207,7 @@ extern "C" void eio_set_geometry_element
   info = 0;
 }
 
-extern "C" void eio_get_geometry_element
+extern "C" void  eio_get_geometry_element
   (int& tag, int& cTag, int& meshControl,
    int& type, int& nodeC, int *nodes, int& info)
 {
@@ -219,7 +219,7 @@ extern "C" void eio_get_geometry_element
 }
 
 // Added: Martti Verho, 17.03.99
-extern "C" void eio_get_geometry_element_description
+extern "C" void  eio_get_geometry_element_description
   (int& tag, int& cTag, int& meshControl,
    int& type, int& nodeC, int& info)
 {
@@ -230,14 +230,14 @@ extern "C" void eio_get_geometry_element_description
     info = -1;
 }
 
-extern "C" void eio_set_geometry_node
+extern "C" void  eio_set_geometry_node
   (int& tag, int& cTag, double *coord, int& info)
 {
   geometryAgent->writeNode(tag, cTag, coord);
   info = 0;
 }
 
-extern "C" void eio_get_geometry_node
+extern "C" void  eio_get_geometry_node
   (int& tag, int& cTag, double *coord, int& info)
 {
   if(geometryAgent->nextNode(tag, cTag, coord) != -1)
@@ -246,14 +246,14 @@ extern "C" void eio_get_geometry_node
     info = -1;
 }
 
-extern "C" void eio_set_geometry_boundary
+extern "C" void  eio_set_geometry_boundary
   (int& tag, int& left, int& right, int& info)
 {
   geometryAgent->writeBoundary(tag, left, right);
   info = 0;
 }
 
-extern "C" void eio_get_geometry_boundary
+extern "C" void  eio_get_geometry_boundary
   (int& tag, int& left, int& right, int& info)
 {
   if(geometryAgent->nextBoundary(tag, left, right) != -1)
@@ -262,7 +262,7 @@ extern "C" void eio_get_geometry_boundary
     info = -1;
 }
 
-extern "C" void eio_create_mesh
+extern "C" void  eio_create_mesh
   (const char *directory, int& info)
 {
   if(meshAgent = new EIOMeshAgent(modelManager))
@@ -275,7 +275,7 @@ extern "C" void eio_create_mesh
     }  
 }
 
-extern "C" void eio_open_mesh
+extern "C" void  eio_open_mesh
   (const char *directory, int& info)
 {
   if(paraState.isParallel)
@@ -294,7 +294,7 @@ extern "C" void eio_open_mesh
     }
 }
 
-extern "C" void eio_close_mesh
+extern "C" void  eio_close_mesh
   (int& info)
 {
   meshAgent->closeMesh();
@@ -302,7 +302,7 @@ extern "C" void eio_close_mesh
   info = 0;
 }
 
-extern "C" void eio_set_mesh_description
+extern "C" void  eio_set_mesh_description
   (int& nodeCount, int& elementCount, 
    int& boundaryElementCount, 
    int& usedElementTypes, int* elementTypeTags,
@@ -315,14 +315,14 @@ extern "C" void eio_set_mesh_description
   info = 0;
 }
 
-extern "C" void eio_set_mesh_node
+extern "C" void  eio_set_mesh_node
   (int &tag, int& type, double *coord, int& info)
 {
   meshAgent->write_node(tag, type, coord);
   info = 0;  
 }
 
-extern "C" void eio_set_mesh_element_conns
+extern "C" void  eio_set_mesh_element_conns
   (int& tag, int& body, 
    int& type, int *nodes, 
    int& info)
@@ -331,7 +331,7 @@ extern "C" void eio_set_mesh_element_conns
   info = 0;
 }
 
-extern "C" void eio_set_mesh_bndry_element
+extern "C" void  eio_set_mesh_bndry_element
   (int& tag, int& boundary,
    int& leftElement, int& rightElement,
    int& type, int* nodes,
@@ -344,7 +344,7 @@ extern "C" void eio_set_mesh_bndry_element
   info = 0;
 }
 
-extern "C" void eio_get_mesh_bndry_element
+extern "C" void  eio_get_mesh_bndry_element
   (int& tag, int& boundary, 
    int& leftElement, int& rightElement,
    int& type, int* nodes, double *coord,
@@ -358,7 +358,7 @@ extern "C" void eio_get_mesh_bndry_element
     info = -1;
 }
 
-extern "C" void eio_get_mesh_description
+extern "C" void  eio_get_mesh_description
   (int& nodeCount, int& elementCount, 
    int& boundaryElementCount, 
    int& usedElementTypes, int* elementTypeTags,
@@ -369,7 +369,7 @@ extern "C" void eio_get_mesh_description
 			     elementCountByType);
   info = 0;
 }
-extern "C" void eio_get_mesh_element_conns
+extern "C" void  eio_get_mesh_element_conns
   (int& tag, int& body, int& type, int *pdofs, int *nodes, 
    int& info)
 {
@@ -378,7 +378,7 @@ extern "C" void eio_get_mesh_element_conns
   else info = -1;
 }
 
-extern "C" void eio_get_mesh_element_coords
+extern "C" void  eio_get_mesh_element_coords
   (int& tag, int& body, int& type, int *nodes, 
    double *coord, int& info)
 {
@@ -387,7 +387,7 @@ extern "C" void eio_get_mesh_element_coords
   else info = -1;
 }
 
-extern "C" void eio_get_mesh_nodes
+extern "C" void  eio_get_mesh_nodes
   (int *tags,double *coord, int& info)
 {
   meshAgent->read_allNodes(tags,coord);
@@ -395,7 +395,7 @@ extern "C" void eio_get_mesh_nodes
 }
 
 
-extern "C" void eio_create_dual_mesh
+extern "C" void  eio_create_dual_mesh
   (const char *dir, int& info)
 {
   if(dualMeshAgent = new EIODualMeshAgent(modelManager))
@@ -408,7 +408,7 @@ extern "C" void eio_create_dual_mesh
     }    
 }
 
-extern "C" void eio_open_dual_mesh
+extern "C" void  eio_open_dual_mesh
   (const char *dir, int& info)
 {
   if(dualMeshAgent = new EIODualMeshAgent(modelManager))
@@ -421,7 +421,7 @@ extern "C" void eio_open_dual_mesh
     }  
 }
 
-extern "C" void eio_close_dual_mesh
+extern "C" void  eio_close_dual_mesh
   (int& info)
 {
   dualMeshAgent->closeMesh();
@@ -429,7 +429,7 @@ extern "C" void eio_close_dual_mesh
   info = 0;
 }
 
-extern "C" void eio_set_dual_mesh_element_conns
+extern "C" void  eio_set_dual_mesh_element_conns
   (int& tag, int& type, int *nodes, int& info)
 {
   if(dualMeshAgent->write_elementConnections(tag, type, nodes) != -1)
@@ -437,7 +437,7 @@ extern "C" void eio_set_dual_mesh_element_conns
   else info = -1;
 }
 
-extern "C" void eio_get_dual_mesh_element_conns
+extern "C" void  eio_get_dual_mesh_element_conns
   (int& tag, int& type, int *nodes, int& info)
 {
   if(dualMeshAgent->read_nextElementConnections(tag, type, nodes) != -1)
@@ -446,7 +446,7 @@ extern "C" void eio_get_dual_mesh_element_conns
 }
 
 
-extern "C" void eio_create_part
+extern "C" void  eio_create_part
   (const char *dir, int& parts, int& info)
 {
   if(partitioningWriter = new EIOPartWriter(parts, modelManager))
@@ -459,7 +459,7 @@ extern "C" void eio_create_part
     }   
 }
 
-extern "C" void eio_close_part
+extern "C" void  eio_close_part
   (int& info)
 {
   if(paraState.isParallel == 0)
@@ -470,7 +470,7 @@ extern "C" void eio_close_part
   info = 0;
 }
 
-extern "C" void eio_set_part_description
+extern "C" void  eio_set_part_description
   (int& nodeCount, 
    int& sharedNodeCount,
    int& elementCount, 
@@ -494,7 +494,7 @@ extern "C" void eio_set_part_description
     info = -1;
 }
 
-extern "C" void eio_get_part_description
+extern "C" void  eio_get_part_description
   (int& sharedNodeCount,
    int& info)
 {
@@ -503,7 +503,7 @@ extern "C" void eio_get_part_description
 }
 
 
-extern "C" void eio_activate_part_part
+extern "C" void  eio_activate_part_part
   (int& part, int& info)
 {
   if(partitioningWriter->activatePart(part) != -1)
@@ -512,7 +512,7 @@ extern "C" void eio_activate_part_part
     info = -1;
 }
 
-extern "C" void eio_deactivate_part_part
+extern "C" void  eio_deactivate_part_part
   (int& info)
 {
   if(partitioningWriter->deactivatePart() != -1)
@@ -521,7 +521,7 @@ extern "C" void eio_deactivate_part_part
     info = -1;
 }
 
-extern "C" void eio_set_part_node
+extern "C" void  eio_set_part_node
   (int& tag, 
    int& type,      
    double *coord, 
@@ -536,7 +536,7 @@ extern "C" void eio_set_part_node
 }
 
 
-extern "C" void eio_get_part_node
+extern "C" void  eio_get_part_node
   (int& tag, 
    int& constraint,      
    double *coord, 
@@ -551,7 +551,7 @@ extern "C" void eio_get_part_node
     info = -1;  
 }
 
-extern "C" void eio_set_part_element
+extern "C" void  eio_set_part_element
   (int& tag, 
    int& body, 
    int& type, 
@@ -567,7 +567,7 @@ extern "C" void eio_set_part_element
 }
 
 
-extern "C" void eio_create_modeldata
+extern "C" void  eio_create_modeldata
   (int& info)
 {
   if(modelDataAgent = new EIOModelDataAgent(modelManager))
@@ -580,7 +580,7 @@ extern "C" void eio_create_modeldata
     }
 }
 
-extern "C" void eio_open_modeldata
+extern "C" void  eio_open_modeldata
   (int& info)
 {
   if(modelDataAgent = new EIOModelDataAgent(modelManager))
@@ -593,7 +593,7 @@ extern "C" void eio_open_modeldata
     }
 }
 
-extern "C" void eio_close_modeldata
+extern "C" void  eio_close_modeldata
   (int& info)
 {
   modelDataAgent->closeModelData();
@@ -602,7 +602,7 @@ extern "C" void eio_close_modeldata
 }
 
 
-extern "C" void eio_set_modeldata_description
+extern "C" void  eio_set_modeldata_description
   (int& bodies,
    int& body_forces,
    int& body_equations,
@@ -622,7 +622,7 @@ extern "C" void eio_set_modeldata_description
   info = 0;
 }
 
-extern "C" void eio_get_modeldata_description
+extern "C" void  eio_get_modeldata_description
   (int& bodies,
    int& body_forces,
    int& body_equations,
@@ -642,7 +642,7 @@ extern "C" void eio_get_modeldata_description
   info = 0;
 }
 
-extern "C" void eio_set_body
+extern "C" void  eio_set_body
   (int& tag, int& body_force_id,
    int& equation_id, int& init_cond_id,
    int& material_id, int& mesh_param_id, int& info)
@@ -653,7 +653,7 @@ extern "C" void eio_set_body
   info = 0;
 }
 
-extern "C" void eio_get_body
+extern "C" void  eio_get_body
   (int& tag, int& body_force_id,
    int& equation_id, int& init_cond_id,
    int& material_id, int& mesh_param_id, int& info)
@@ -664,21 +664,21 @@ extern "C" void eio_get_body
   info = 0;
 }
 
-extern "C" void eio_set_constants
+extern "C" void  eio_set_constants
   (double* gravity, double& boltz, int& info)
 {
   modelDataAgent->writeConstants(gravity, boltz);
   info = 0;
 }
 
-extern "C" void eio_get_constants
+extern "C" void  eio_get_constants
   (double* gravity, double& boltz, int& info)
 {
   modelDataAgent->readConstants(gravity, boltz);
   info = 0;
 }
 
-extern "C" void eio_set_coords
+extern "C" void  eio_set_coords
   (int& dim, int& coordsys, int *mapping,
    int& symmetry,
    double *start,
@@ -691,7 +691,7 @@ extern "C" void eio_set_coords
   info = 0;
 }
 
-extern "C" void eio_get_coords
+extern "C" void  eio_get_coords
   (int& dim, int& coordsys, int *mapping,
    int& symmetry,
    double *start,
@@ -704,14 +704,14 @@ extern "C" void eio_get_coords
   info = 0;
 }
 
-extern "C" void eio_set_material_head
+extern "C" void  eio_set_material_head
   (int& tag, int& fields, int& info)
 {
   modelDataAgent->writeMaterialHead(tag, fields);
   info = 0;
 }
 
-extern "C" void eio_set_material_field
+extern "C" void  eio_set_material_field
   (int& name,
    int& type,
    int& len,
@@ -723,14 +723,14 @@ extern "C" void eio_set_material_field
   info = 0;
 }
 
-extern "C" void eio_set_bndry_condition_head
+extern "C" void  eio_set_bndry_condition_head
   (int& tag, int& fields, int& info)
 {
   modelDataAgent->writeBoundaryConditionHead(tag, fields);
   info = 0;
 }
 
-extern "C" void eio_set_bndry_condition_field
+extern "C" void  eio_set_bndry_condition_field
   (int& name,
    int& type,
    int& len,
@@ -742,14 +742,14 @@ extern "C" void eio_set_bndry_condition_field
   info = 0;
 }
 
-extern "C" void eio_get_material_head
+extern "C" void  eio_get_material_head
   (int& tag, int& fields, int& info)
 {
   modelDataAgent->readMaterialHead(tag, fields);
   info = 0;
 }
 
-extern "C" void eio_get_material_field
+extern "C" void  eio_get_material_field
   (int& name,
    int& type,
    int& len,
@@ -761,14 +761,14 @@ extern "C" void eio_get_material_field
   info = 0;
 }
 
-extern "C" void eio_get_bndry_condition_head
+extern "C" void  eio_get_bndry_condition_head
   (int& tag, int& fields, int& info)
 {
   modelDataAgent->readBoundaryConditionHead(tag, fields);
   info = 0;
 }
 
-extern "C" void eio_get_bndry_condition_field
+extern "C" void  eio_get_bndry_condition_field
   (int& name,
    int& type,
    int& len,
@@ -780,14 +780,14 @@ extern "C" void eio_get_bndry_condition_field
   info = 0;
 }
 
-extern "C" void eio_set_initial_condition_head
+extern "C" void  eio_set_initial_condition_head
   (int& tag, int& fields, int& info)
 {
   modelDataAgent->writeInitialConditionHead(tag, fields);
   info = 0;
 }
 
-extern "C" void eio_set_initial_condition_field
+extern "C" void  eio_set_initial_condition_field
   (int& name,
    int& type,
    int& len,
@@ -799,14 +799,14 @@ extern "C" void eio_set_initial_condition_field
   info = 0;
 }
 
-extern "C" void eio_get_initial_condition_head
+extern "C" void  eio_get_initial_condition_head
   (int& tag, int& fields, int& info)
 {
   modelDataAgent->readInitialConditionHead(tag, fields);
   info = 0;
 }
 
-extern "C" void eio_get_initial_condition_field
+extern "C" void  eio_get_initial_condition_field
   (int& name,
    int& type,
    int& len,
@@ -818,14 +818,14 @@ extern "C" void eio_get_initial_condition_field
   info = 0;
 }
 
-extern "C" void eio_set_body_equation_head
+extern "C" void  eio_set_body_equation_head
   (int& tag, int& fields, int& info)
 {
   modelDataAgent->writeBodyEquationHead(tag, fields);
   info = 0;
 }
 
-extern "C" void eio_set_body_equation_field
+extern "C" void  eio_set_body_equation_field
   (int& name,
    int& type,
    int& len,
@@ -837,14 +837,14 @@ extern "C" void eio_set_body_equation_field
   info = 0;
 }
 
-extern "C" void eio_set_body_force_head
+extern "C" void  eio_set_body_force_head
   (int& tag, int& fields, int& info)
 {
   modelDataAgent->writeBodyForceHead(tag, fields);
   info = 0;
 }
 
-extern "C" void eio_set_body_force_field
+extern "C" void  eio_set_body_force_field
   (int& name,
    int& type,
    int& len,
@@ -857,14 +857,14 @@ extern "C" void eio_set_body_force_field
   info = 0;
 }
 
-extern "C" void eio_set_mesh_parameter_head
+extern "C" void  eio_set_mesh_parameter_head
   (int& tag, int& fields, int& info)
 {
   modelDataAgent->writeMeshParameterHead(tag, fields);
   info = 0;
 }
 
-extern "C" void eio_set_mesh_parameter_field
+extern "C" void  eio_set_mesh_parameter_field
   (int& name,
    int& type,
    int& len,
@@ -876,14 +876,14 @@ extern "C" void eio_set_mesh_parameter_field
   info = 0;
 }
 
-extern "C" void eio_get_mesh_parameter_head
+extern "C" void  eio_get_mesh_parameter_head
   (int& tag, int& fields, int& info)
 {
   modelDataAgent->readMeshParameterHead(tag, fields);
   info = 0;
 }
 
-extern "C" void eio_get_mesh_parameter_field
+extern "C" void  eio_get_mesh_parameter_field
   (int& name,
    int& type,
    int& len,
@@ -895,14 +895,14 @@ extern "C" void eio_get_mesh_parameter_field
   info = 0;
 }
 
-extern "C" void eio_get_body_equation_head
+extern "C" void  eio_get_body_equation_head
   (int& tag, int& fields, int& info)
 {
   modelDataAgent->readBodyEquationHead(tag, fields);
   info = 0;
 }
 
-extern "C" void eio_get_body_equation_field
+extern "C" void  eio_get_body_equation_field
   (int& name,
    int& type,
    int& len,
@@ -914,14 +914,14 @@ extern "C" void eio_get_body_equation_field
   info = 0;
 }
 
-extern "C" void eio_get_body_force_head
+extern "C" void  eio_get_body_force_head
   (int& tag, int& fields, int& info)
 {
   modelDataAgent->readBodyForceHead(tag, fields);
   info = 0;
 }
 
-extern "C" void eio_get_body_force_field
+extern "C" void  eio_get_body_force_field
   (int& name,
    int& type,
    int& len,
@@ -934,7 +934,7 @@ extern "C" void eio_get_body_force_field
 }
 
 
-extern "C" void eio_create_solver
+extern "C" void  eio_create_solver
   (int& info)
 {
   if(solverAgent = new EIOSolverAgent(modelManager))
@@ -947,7 +947,7 @@ extern "C" void eio_create_solver
     }
 }
 
-extern "C" void eio_open_solver
+extern "C" void  eio_open_solver
   (int& info)
 {
   if(solverAgent = new EIOSolverAgent(modelManager))
@@ -960,7 +960,7 @@ extern "C" void eio_open_solver
     }
 }
 
-extern "C" void eio_close_solver
+extern "C" void  eio_close_solver
   (int& info)
 {
   solverAgent->closeSolver();
@@ -968,21 +968,21 @@ extern "C" void eio_close_solver
   info = 0;
 }
 
-extern "C" void eio_set_solver_description
+extern "C" void  eio_set_solver_description
   (int& linsys, int& procs, int& info)
 {
   solverAgent->writeDescription(linsys, procs);
   info = 0;
 }
 
-extern "C" void eio_get_solver_description
+extern "C" void  eio_get_solver_description
   (int& linsys, int& procs, int& info)
 {
   solverAgent->readDescription(linsys, procs);
   info = 0;
 }
 
-extern "C" void eio_set_solver
+extern "C" void  eio_set_solver
   (int& equation,
    int& main_type,
    int& sub_type,
@@ -1018,7 +1018,7 @@ extern "C" void eio_set_solver
   info = 0;
 }
 
-extern "C" void eio_get_solver
+extern "C" void  eio_get_solver
   (int& equation,
    int& main_type,
    int& sub_type,
@@ -1054,21 +1054,21 @@ extern "C" void eio_get_solver
   info = 0;
 }
 
-extern "C" void eio_set_timestep_head
+extern "C" void  eio_set_timestep_head
   (int& dependence, int& len, int& info)
 {
   solverAgent->writeTimestepDescription(dependence, len);
   info = 0;
 }
 
-extern "C" void eio_get_timestep_head
+extern "C" void  eio_get_timestep_head
   (int& dependence, int& len, int& info)
 {
   solverAgent->readTimestepDescription(dependence, len);
   info = 0;
 }
 
-extern "C" void eio_set_timestep_field
+extern "C" void  eio_set_timestep_field
   (int& type,
    int *nof_timesteps,
    double *timestep_sizes,
@@ -1084,7 +1084,7 @@ extern "C" void eio_set_timestep_field
   info = 0;
 }
 
-extern "C" void eio_get_timestep_field
+extern "C" void  eio_get_timestep_field
   (int& type,
    int *nof_timesteps,
    double *timestep_sizes,

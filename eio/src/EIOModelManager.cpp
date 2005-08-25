@@ -36,7 +36,7 @@ using namespace std;
 #include <iostream>
 #include <fstream>
 
-#if defined(WIN32)   
+#if defined(MINGW32) 
   # include <direct.h> 
   # include <io.h>     
 #else                
@@ -69,7 +69,7 @@ int eio_mkdir(const char *dir)
   extern int errno;
   #endif */
 
-#if defined(WIN32)
+#if defined(MINGW32)
   rc = _mkdir(dir);
 #else
   rc = mkdir(dir, S_IRWXU|S_IRWXG);
@@ -100,7 +100,7 @@ int eio_chdir(const char *dir)
   extern int errno;
   #endif */
 
-#if defined(WIN32)
+#if defined(MINGW32)
   rc = _chdir(dir);
 #else
   rc = chdir(dir);
@@ -146,7 +146,7 @@ int eio_checkmodel(const char *model)
   extern int errno;
   #endif */
 
-#if defined(WIN32)
+#if defined(MINGW32)
   struct _stat buf;
   rc = _stat(model, &buf);
 #else
@@ -186,7 +186,7 @@ int eio_checkmodel(const char *model)
     */
   int rc_access;
 
-#if defined(WIN32)
+#if defined(MINGW32)
   rc = buf.st_mode & _S_IFDIR;
   if (rc)
     rc_access = _access(model, 06);
@@ -226,7 +226,7 @@ EIOModelManager::EIOModelManager()
     We should also get the mask and use it in opening the streams.
     TO BE FIXED SOON.
    */
-#if defined(WIN32)
+#if defined(MINGW32)
   _getcwd(rundir, PATH_MAX);
 /*  _umask(_S_IWRITE | _S_IREAD);*/
   _umask(0);

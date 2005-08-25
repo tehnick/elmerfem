@@ -50,7 +50,7 @@ EIOPartWriter *partitioningWriter = 0;
 
 //#define EIOFC(funname) extern "C" void WITH_BINDING_EXTENSION(funname)
 
-extern "C" void FC_FUNC_(eio_init,EIO_INIT)
+extern "C" void STDCALLBULL FC_FUNC_(eio_init,EIO_INIT)
   (int& info)
 {
   paraState.isParallel = 0;
@@ -67,7 +67,7 @@ extern "C" void FC_FUNC_(eio_init,EIO_INIT)
     }
 }
 
-extern "C" void FC_FUNC_(eio_init_parallel,EIO_INIT_PARALLEL)
+extern "C" void STDCALLBULL FC_FUNC_(eio_init_parallel,EIO_INIT_PARALLEL)
   (int& procs, int& me, int& info)
 {
   paraState.isParallel = 1;
@@ -84,32 +84,32 @@ extern "C" void FC_FUNC_(eio_init_parallel,EIO_INIT_PARALLEL)
     }
 }
 
-extern "C" void FC_FUNC_(eio_close,EIO_CLOSE)
+extern "C" void STDCALLBULL FC_FUNC_(eio_close,EIO_CLOSE)
   (int& info)
 {
   delete modelManager;
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_create_model,EIO_CREATE_MODEL)
-  (const char *directory, int& info)
+extern "C" void STDCALLBULL FC_FUNC_(eio_create_model,EIO_CREATE_MODEL)
+  (const FC_CHAR_PTR(directory,dir_len), int& info)
 {
   info = modelManager->createModel(directory);
 }
 
-extern "C" void FC_FUNC_(eio_open_model,EIO_OPEN_MODEL)
-  (const char *directory, int& info)
+extern "C" void STDCALLBULL FC_FUNC_(eio_open_model,EIO_OPEN_MODEL)
+  (const FC_CHAR_PTR(directory,dir_len), int& info)
 {
   info = modelManager->openModel(directory);
 }
 
-extern "C" void FC_FUNC_(eio_close_model,EIO_CLOSE_MODEL)
+extern "C" void STDCALLBULL FC_FUNC_(eio_close_model,EIO_CLOSE_MODEL)
   (int& info)
 {
   info = modelManager->closeModel();
 }
 
-extern "C" void FC_FUNC_(eio_create_geometry,EIO_CREATE_GEOMETRY)
+extern "C" void STDCALLBULL FC_FUNC_(eio_create_geometry,EIO_CREATE_GEOMETRY)
   (int& info)
 {
   if(geometryAgent = new EIOGeometryAgent(modelManager))
@@ -122,7 +122,7 @@ extern "C" void FC_FUNC_(eio_create_geometry,EIO_CREATE_GEOMETRY)
     }
 }
 
-extern "C" void FC_FUNC_(eio_open_geometry,EIO_OPEN_GEOMETRY)
+extern "C" void STDCALLBULL FC_FUNC_(eio_open_geometry,EIO_OPEN_GEOMETRY)
   (int& info)
 {
   if(geometryAgent = new EIOGeometryAgent(modelManager))
@@ -135,7 +135,7 @@ extern "C" void FC_FUNC_(eio_open_geometry,EIO_OPEN_GEOMETRY)
     }
 }
 
-extern "C" void FC_FUNC_(eio_close_geometry,EIO_CLOSE_GEOMETRY)
+extern "C" void STDCALLBULL FC_FUNC_(eio_close_geometry,EIO_CLOSE_GEOMETRY)
   (int& info)
 {
   geometryAgent->closeGeometry();
@@ -143,7 +143,7 @@ extern "C" void FC_FUNC_(eio_close_geometry,EIO_CLOSE_GEOMETRY)
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_set_geometry_description,EIO_SET_GEOMETRY_DESCRIPTION)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_geometry_description,EIO_SET_GEOMETRY_DESCRIPTION)
   (int& bodyC, int& boundaryC, int& outerC, 
    int& innerC, int& vertexC, 
    int& loopC, int& maxLooplen, int& info)
@@ -153,7 +153,7 @@ extern "C" void FC_FUNC_(eio_set_geometry_description,EIO_SET_GEOMETRY_DESCRIPTI
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_get_geometry_description,EIO_GET_GEOMETRY_DESCRIPTION)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_geometry_description,EIO_GET_GEOMETRY_DESCRIPTION)
   (int& bodyC, int& boundaryC, int& outerC, 
    int& innerC, int& vertexC, 
    int& loopC, int& maxLooplen, int& info)
@@ -163,7 +163,7 @@ extern "C" void FC_FUNC_(eio_get_geometry_description,EIO_GET_GEOMETRY_DESCRIPTI
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_set_geometry_body,EIO_SET_GEOMETRY_BODY)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_geometry_body,EIO_SET_GEOMETRY_BODY)
   (int& tag, int& meshControl, int& loopC,
    int *loops,
    int& info)
@@ -172,7 +172,7 @@ extern "C" void FC_FUNC_(eio_set_geometry_body,EIO_SET_GEOMETRY_BODY)
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_get_geometry_body,EIO_GET_GEOMETRY_BODY)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_geometry_body,EIO_GET_GEOMETRY_BODY)
   (int& tag, int& meshControl, int& loopC,
    int *loops,
    int& info)
@@ -183,14 +183,14 @@ extern "C" void FC_FUNC_(eio_get_geometry_body,EIO_GET_GEOMETRY_BODY)
     info = -1;
 }
 
-extern "C" void FC_FUNC_(eio_set_geometry_body_loop,EIO_SET_GEOMETRY_BODY_LOOP)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_geometry_body_loop,EIO_SET_GEOMETRY_BODY_LOOP)
   (int& tag, int& field, int *nodes, int& info)
 {
   geometryAgent->writeLoop(tag, field, nodes);
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_get_geometry_body_loop,EIO_GET_GEOMETRY_BODY_LOOP)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_geometry_body_loop,EIO_GET_GEOMETRY_BODY_LOOP)
   (int& tag, int& field, int *nodes, int& info)
 {
   if(geometryAgent->nextLoop(tag, field, nodes) != -1)
@@ -199,7 +199,7 @@ extern "C" void FC_FUNC_(eio_get_geometry_body_loop,EIO_GET_GEOMETRY_BODY_LOOP)
     info = -1;
 }
 
-extern "C" void FC_FUNC_(eio_set_geometry_element,EIO_SET_GEOMETRY_ELEMENT)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_geometry_element,EIO_SET_GEOMETRY_ELEMENT)
   (int& tag, int& cTag, int& meshControl,
    int& type, int& nodeC, int *nodes, int& info)
 {
@@ -208,7 +208,7 @@ extern "C" void FC_FUNC_(eio_set_geometry_element,EIO_SET_GEOMETRY_ELEMENT)
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_get_geometry_element,EIO_GET_GEOMETRY_ELEMENT)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_geometry_element,EIO_GET_GEOMETRY_ELEMENT)
   (int& tag, int& cTag, int& meshControl,
    int& type, int& nodeC, int *nodes, int& info)
 {
@@ -220,7 +220,7 @@ extern "C" void FC_FUNC_(eio_get_geometry_element,EIO_GET_GEOMETRY_ELEMENT)
 }
 
 // Added: Martti Verho, 17.03.99
-extern "C" void FC_FUNC_(eio_get_geometry_element_description,EIO_GET_GEOMETRY_ELEMENT_DESCRIPTION)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_geometry_element_description,EIO_GET_GEOMETRY_ELEMENT_DESCRIPTION)
   (int& tag, int& cTag, int& meshControl,
    int& type, int& nodeC, int& info)
 {
@@ -231,14 +231,14 @@ extern "C" void FC_FUNC_(eio_get_geometry_element_description,EIO_GET_GEOMETRY_E
     info = -1;
 }
 
-extern "C" void FC_FUNC_(eio_set_geometry_node,EIO_SET_GEOMETRY_NODE)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_geometry_node,EIO_SET_GEOMETRY_NODE)
   (int& tag, int& cTag, double *coord, int& info)
 {
   geometryAgent->writeNode(tag, cTag, coord);
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_get_geometry_node,EIO_GET_GEOMETRY_NODE)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_geometry_node,EIO_GET_GEOMETRY_NODE)
   (int& tag, int& cTag, double *coord, int& info)
 {
   if(geometryAgent->nextNode(tag, cTag, coord) != -1)
@@ -247,14 +247,14 @@ extern "C" void FC_FUNC_(eio_get_geometry_node,EIO_GET_GEOMETRY_NODE)
     info = -1;
 }
 
-extern "C" void FC_FUNC_(eio_set_geometry_boundary,EIO_SET_GEOMETRY_BOUNDARY)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_geometry_boundary,EIO_SET_GEOMETRY_BOUNDARY)
   (int& tag, int& left, int& right, int& info)
 {
   geometryAgent->writeBoundary(tag, left, right);
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_get_geometry_boundary,EIO_GET_GEOMETRY_BOUNDARY)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_geometry_boundary,EIO_GET_GEOMETRY_BOUNDARY)
   (int& tag, int& left, int& right, int& info)
 {
   if(geometryAgent->nextBoundary(tag, left, right) != -1)
@@ -263,8 +263,8 @@ extern "C" void FC_FUNC_(eio_get_geometry_boundary,EIO_GET_GEOMETRY_BOUNDARY)
     info = -1;
 }
 
-extern "C" void FC_FUNC_(eio_create_mesh,EIO_CREATE_MESH)
-  (const char *directory, int& info)
+extern "C" void STDCALLBULL FC_FUNC_(eio_create_mesh,EIO_CREATE_MESH)
+  (const FC_CHAR_PTR(directory,dir_len), int& info)
 {
   if(meshAgent = new EIOMeshAgent(modelManager))
     {
@@ -276,8 +276,8 @@ extern "C" void FC_FUNC_(eio_create_mesh,EIO_CREATE_MESH)
     }  
 }
 
-extern "C" void FC_FUNC_(eio_open_mesh,EIO_OPEN_MESH)
-  (const char *directory, int& info)
+extern "C" void STDCALLBULL FC_FUNC_(eio_open_mesh,EIO_OPEN_MESH)
+  (const FC_CHAR_PTR(directory,directory_len), int& info)
 {
   if(paraState.isParallel)
     meshAgent = new EIOMeshAgent(modelManager, paraState.numProc,
@@ -295,7 +295,7 @@ extern "C" void FC_FUNC_(eio_open_mesh,EIO_OPEN_MESH)
     }
 }
 
-extern "C" void FC_FUNC_(eio_close_mesh,EIO_CLOSE_MESH)
+extern "C" void STDCALLBULL FC_FUNC_(eio_close_mesh,EIO_CLOSE_MESH)
   (int& info)
 {
   meshAgent->closeMesh();
@@ -303,7 +303,7 @@ extern "C" void FC_FUNC_(eio_close_mesh,EIO_CLOSE_MESH)
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_set_mesh_description,EIO_SET_MESH_DESCRIPTION)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_mesh_description,EIO_SET_MESH_DESCRIPTION)
   (int& nodeCount, int& elementCount, 
    int& boundaryElementCount, 
    int& usedElementTypes, int* elementTypeTags,
@@ -316,14 +316,14 @@ extern "C" void FC_FUNC_(eio_set_mesh_description,EIO_SET_MESH_DESCRIPTION)
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_set_mesh_node,EIO_SET_MESH_NODE)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_mesh_node,EIO_SET_MESH_NODE)
   (int &tag, int& type, double *coord, int& info)
 {
   meshAgent->write_node(tag, type, coord);
   info = 0;  
 }
 
-extern "C" void FC_FUNC_(eio_set_mesh_element_conns,EIO_SET_MESH_ELEMENT_CONNS)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_mesh_element_conns,EIO_SET_MESH_ELEMENT_CONNS)
   (int& tag, int& body, 
    int& type, int *nodes, 
    int& info)
@@ -332,7 +332,7 @@ extern "C" void FC_FUNC_(eio_set_mesh_element_conns,EIO_SET_MESH_ELEMENT_CONNS)
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_set_mesh_bndry_element,EIO_SET_MESH_BNDRY_ELEMENT)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_mesh_bndry_element,EIO_SET_MESH_BNDRY_ELEMENT)
   (int& tag, int& boundary,
    int& leftElement, int& rightElement,
    int& type, int* nodes,
@@ -345,7 +345,7 @@ extern "C" void FC_FUNC_(eio_set_mesh_bndry_element,EIO_SET_MESH_BNDRY_ELEMENT)
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_get_mesh_bndry_element,EIO_GET_MESH_BNDRY_ELEMENT)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_mesh_bndry_element,EIO_GET_MESH_BNDRY_ELEMENT)
   (int& tag, int& boundary, 
    int& leftElement, int& rightElement,
    int& type, int* nodes, double *coord,
@@ -359,7 +359,7 @@ extern "C" void FC_FUNC_(eio_get_mesh_bndry_element,EIO_GET_MESH_BNDRY_ELEMENT)
     info = -1;
 }
 
-extern "C" void FC_FUNC_(eio_get_mesh_description,EIO_GET_MESH_DESCRIPTION)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_mesh_description,EIO_GET_MESH_DESCRIPTION)
   (int& nodeCount, int& elementCount, 
    int& boundaryElementCount, 
    int& usedElementTypes, int* elementTypeTags,
@@ -370,7 +370,7 @@ extern "C" void FC_FUNC_(eio_get_mesh_description,EIO_GET_MESH_DESCRIPTION)
 			     elementCountByType);
   info = 0;
 }
-extern "C" void FC_FUNC_(eio_get_mesh_element_conns,EIO_GET_MESH_ELEMENT_CONNS)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_mesh_element_conns,EIO_GET_MESH_ELEMENT_CONNS)
   (int& tag, int& body, int& type, int *pdofs, int *nodes, 
    int& info)
 {
@@ -379,7 +379,7 @@ extern "C" void FC_FUNC_(eio_get_mesh_element_conns,EIO_GET_MESH_ELEMENT_CONNS)
   else info = -1;
 }
 
-extern "C" void FC_FUNC_(eio_get_mesh_element_coords,EIO_GET_MESH_ELEMENT_COORDS)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_mesh_element_coords,EIO_GET_MESH_ELEMENT_COORDS)
   (int& tag, int& body, int& type, int *nodes, 
    double *coord, int& info)
 {
@@ -388,7 +388,7 @@ extern "C" void FC_FUNC_(eio_get_mesh_element_coords,EIO_GET_MESH_ELEMENT_COORDS
   else info = -1;
 }
 
-extern "C" void FC_FUNC_(eio_get_mesh_nodes,EIO_GET_MESH_NODES)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_mesh_nodes,EIO_GET_MESH_NODES)
   (int *tags,double *coord, int& info)
 {
   meshAgent->read_allNodes(tags,coord);
@@ -396,8 +396,8 @@ extern "C" void FC_FUNC_(eio_get_mesh_nodes,EIO_GET_MESH_NODES)
 }
 
 
-extern "C" void FC_FUNC_(eio_create_dual_mesh,EIO_CREATE_DUAL_MESH)
-  (const char *dir, int& info)
+extern "C" void STDCALLBULL FC_FUNC_(eio_create_dual_mesh,EIO_CREATE_DUAL_MESH)
+  (const FC_CHAR_PTR(dir,dir_len), int& info)
 {
   if(dualMeshAgent = new EIODualMeshAgent(modelManager))
     {
@@ -409,8 +409,8 @@ extern "C" void FC_FUNC_(eio_create_dual_mesh,EIO_CREATE_DUAL_MESH)
     }    
 }
 
-extern "C" void FC_FUNC_(eio_open_dual_mesh,EIO_OPEN_DUAL_MESH)
-  (const char *dir, int& info)
+extern "C" void STDCALLBULL FC_FUNC_(eio_open_dual_mesh,EIO_OPEN_DUAL_MESH)
+  (const FC_CHAR_PTR(dir,dir_len), int& info)
 {
   if(dualMeshAgent = new EIODualMeshAgent(modelManager))
     {
@@ -422,7 +422,7 @@ extern "C" void FC_FUNC_(eio_open_dual_mesh,EIO_OPEN_DUAL_MESH)
     }  
 }
 
-extern "C" void FC_FUNC_(eio_close_dual_mesh,EIO_CLOSE_DUAL_MESH)
+extern "C" void STDCALLBULL FC_FUNC_(eio_close_dual_mesh,EIO_CLOSE_DUAL_MESH)
   (int& info)
 {
   dualMeshAgent->closeMesh();
@@ -430,7 +430,7 @@ extern "C" void FC_FUNC_(eio_close_dual_mesh,EIO_CLOSE_DUAL_MESH)
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_set_dual_mesh_element_conns,EIO_SET_DUAL_MESH_ELEMENT_CONNS)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_dual_mesh_element_conns,EIO_SET_DUAL_MESH_ELEMENT_CONNS)
   (int& tag, int& type, int *nodes, int& info)
 {
   if(dualMeshAgent->write_elementConnections(tag, type, nodes) != -1)
@@ -438,7 +438,7 @@ extern "C" void FC_FUNC_(eio_set_dual_mesh_element_conns,EIO_SET_DUAL_MESH_ELEME
   else info = -1;
 }
 
-extern "C" void FC_FUNC_(eio_get_dual_mesh_element_conns,EIO_GET_DUAL_MESH_ELEMENT_CONNS)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_dual_mesh_element_conns,EIO_GET_DUAL_MESH_ELEMENT_CONNS)
   (int& tag, int& type, int *nodes, int& info)
 {
   if(dualMeshAgent->read_nextElementConnections(tag, type, nodes) != -1)
@@ -447,8 +447,8 @@ extern "C" void FC_FUNC_(eio_get_dual_mesh_element_conns,EIO_GET_DUAL_MESH_ELEME
 }
 
 
-extern "C" void FC_FUNC_(eio_create_part,EIO_CREATE_PART)
-  (const char *dir, int& parts, int& info)
+extern "C" void STDCALLBULL FC_FUNC_(eio_create_part,EIO_CREATE_PART)
+  (const FC_CHAR_PTR(dir,dir_len), int& parts, int& info)
 {
   if(partitioningWriter = new EIOPartWriter(parts, modelManager))
     {
@@ -460,7 +460,7 @@ extern "C" void FC_FUNC_(eio_create_part,EIO_CREATE_PART)
     }   
 }
 
-extern "C" void FC_FUNC_(eio_close_part,EIO_CLOSE_PART)
+extern "C" void STDCALLBULL FC_FUNC_(eio_close_part,EIO_CLOSE_PART)
   (int& info)
 {
   if(paraState.isParallel == 0)
@@ -471,7 +471,7 @@ extern "C" void FC_FUNC_(eio_close_part,EIO_CLOSE_PART)
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_set_part_description,EIO_SET_PART_DESCRIPTION)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_part_description,EIO_SET_PART_DESCRIPTION)
   (int& nodeCount, 
    int& sharedNodeCount,
    int& elementCount, 
@@ -495,7 +495,7 @@ extern "C" void FC_FUNC_(eio_set_part_description,EIO_SET_PART_DESCRIPTION)
     info = -1;
 }
 
-extern "C" void FC_FUNC_(eio_get_part_description,EIO_GET_PART_DESCRIPTION)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_part_description,EIO_GET_PART_DESCRIPTION)
   (int& sharedNodeCount,
    int& info)
 {
@@ -504,7 +504,7 @@ extern "C" void FC_FUNC_(eio_get_part_description,EIO_GET_PART_DESCRIPTION)
 }
 
 
-extern "C" void FC_FUNC_(eio_activate_part_part,EIO_ACTIVATE_PART_PART)
+extern "C" void STDCALLBULL FC_FUNC_(eio_activate_part_part,EIO_ACTIVATE_PART_PART)
   (int& part, int& info)
 {
   if(partitioningWriter->activatePart(part) != -1)
@@ -513,7 +513,7 @@ extern "C" void FC_FUNC_(eio_activate_part_part,EIO_ACTIVATE_PART_PART)
     info = -1;
 }
 
-extern "C" void FC_FUNC_(eio_deactivate_part_part,EIO_DEACTIVATE_PART_PART)
+extern "C" void STDCALLBULL FC_FUNC_(eio_deactivate_part_part,EIO_DEACTIVATE_PART_PART)
   (int& info)
 {
   if(partitioningWriter->deactivatePart() != -1)
@@ -522,7 +522,7 @@ extern "C" void FC_FUNC_(eio_deactivate_part_part,EIO_DEACTIVATE_PART_PART)
     info = -1;
 }
 
-extern "C" void FC_FUNC_(eio_set_part_node,EIO_SET_PART_NODE)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_part_node,EIO_SET_PART_NODE)
   (int& tag, 
    int& type,      
    double *coord, 
@@ -537,7 +537,7 @@ extern "C" void FC_FUNC_(eio_set_part_node,EIO_SET_PART_NODE)
 }
 
 
-extern "C" void FC_FUNC_(eio_get_part_node,EIO_GET_PART_NODE)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_part_node,EIO_GET_PART_NODE)
   (int& tag, 
    int& constraint,      
    double *coord, 
@@ -552,7 +552,7 @@ extern "C" void FC_FUNC_(eio_get_part_node,EIO_GET_PART_NODE)
     info = -1;  
 }
 
-extern "C" void FC_FUNC_(eio_set_part_element,EIO_SET_PART_ELEMENT)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_part_element,EIO_SET_PART_ELEMENT)
   (int& tag, 
    int& body, 
    int& type, 
@@ -568,7 +568,7 @@ extern "C" void FC_FUNC_(eio_set_part_element,EIO_SET_PART_ELEMENT)
 }
 
 
-extern "C" void FC_FUNC_(eio_create_modeldata,EIO_CREATE_MODELDATA)
+extern "C" void STDCALLBULL FC_FUNC_(eio_create_modeldata,EIO_CREATE_MODELDATA)
   (int& info)
 {
   if(modelDataAgent = new EIOModelDataAgent(modelManager))
@@ -581,7 +581,7 @@ extern "C" void FC_FUNC_(eio_create_modeldata,EIO_CREATE_MODELDATA)
     }
 }
 
-extern "C" void FC_FUNC_(eio_open_modeldata,EIO_OPEN_MODELDATA)
+extern "C" void STDCALLBULL FC_FUNC_(eio_open_modeldata,EIO_OPEN_MODELDATA)
   (int& info)
 {
   if(modelDataAgent = new EIOModelDataAgent(modelManager))
@@ -594,7 +594,7 @@ extern "C" void FC_FUNC_(eio_open_modeldata,EIO_OPEN_MODELDATA)
     }
 }
 
-extern "C" void FC_FUNC_(eio_close_modeldata,EIO_CLOSE_MODELDATA)
+extern "C" void STDCALLBULL FC_FUNC_(eio_close_modeldata,EIO_CLOSE_MODELDATA)
   (int& info)
 {
   modelDataAgent->closeModelData();
@@ -603,7 +603,7 @@ extern "C" void FC_FUNC_(eio_close_modeldata,EIO_CLOSE_MODELDATA)
 }
 
 
-extern "C" void FC_FUNC_(eio_set_modeldata_description,EIO_SET_MODELDATA_DESCRIPTION)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_modeldata_description,EIO_SET_MODELDATA_DESCRIPTION)
   (int& bodies,
    int& body_forces,
    int& body_equations,
@@ -623,7 +623,7 @@ extern "C" void FC_FUNC_(eio_set_modeldata_description,EIO_SET_MODELDATA_DESCRIP
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_get_modeldata_description,EIO_GET_MODELDATA_DESCRIPTION)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_modeldata_description,EIO_GET_MODELDATA_DESCRIPTION)
   (int& bodies,
    int& body_forces,
    int& body_equations,
@@ -643,7 +643,7 @@ extern "C" void FC_FUNC_(eio_get_modeldata_description,EIO_GET_MODELDATA_DESCRIP
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_set_body,EIO_SET_BODY)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_body,EIO_SET_BODY)
   (int& tag, int& body_force_id,
    int& equation_id, int& init_cond_id,
    int& material_id, int& mesh_param_id, int& info)
@@ -654,7 +654,7 @@ extern "C" void FC_FUNC_(eio_set_body,EIO_SET_BODY)
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_get_body,EIO_GET_BODY)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_body,EIO_GET_BODY)
   (int& tag, int& body_force_id,
    int& equation_id, int& init_cond_id,
    int& material_id, int& mesh_param_id, int& info)
@@ -665,21 +665,21 @@ extern "C" void FC_FUNC_(eio_get_body,EIO_GET_BODY)
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_set_constants,EIO_SET_CONSTANTS)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_constants,EIO_SET_CONSTANTS)
   (double* gravity, double& boltz, int& info)
 {
   modelDataAgent->writeConstants(gravity, boltz);
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_get_constants,EIO_GET_CONSTANTS)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_constants,EIO_GET_CONSTANTS)
   (double* gravity, double& boltz, int& info)
 {
   modelDataAgent->readConstants(gravity, boltz);
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_set_coords,EIO_SET_COORDS)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_coords,EIO_SET_COORDS)
   (int& dim, int& coordsys, int *mapping,
    int& symmetry,
    double *start,
@@ -692,7 +692,7 @@ extern "C" void FC_FUNC_(eio_set_coords,EIO_SET_COORDS)
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_get_coords,EIO_GET_COORDS)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_coords,EIO_GET_COORDS)
   (int& dim, int& coordsys, int *mapping,
    int& symmetry,
    double *start,
@@ -705,14 +705,14 @@ extern "C" void FC_FUNC_(eio_get_coords,EIO_GET_COORDS)
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_set_material_head,EIO_SET_MATERIAL_HEAD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_material_head,EIO_SET_MATERIAL_HEAD)
   (int& tag, int& fields, int& info)
 {
   modelDataAgent->writeMaterialHead(tag, fields);
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_set_material_field,EIO_SET_MATERIAL_FIELD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_material_field,EIO_SET_MATERIAL_FIELD)
   (int& name,
    int& type,
    int& len,
@@ -724,14 +724,14 @@ extern "C" void FC_FUNC_(eio_set_material_field,EIO_SET_MATERIAL_FIELD)
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_set_bndry_condition_head,EIO_SET_BNDRY_CONDITION_HEAD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_bndry_condition_head,EIO_SET_BNDRY_CONDITION_HEAD)
   (int& tag, int& fields, int& info)
 {
   modelDataAgent->writeBoundaryConditionHead(tag, fields);
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_set_bndry_condition_field,EIO_SET_BNDRY_CONDITION_FIELD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_bndry_condition_field,EIO_SET_BNDRY_CONDITION_FIELD)
   (int& name,
    int& type,
    int& len,
@@ -743,14 +743,14 @@ extern "C" void FC_FUNC_(eio_set_bndry_condition_field,EIO_SET_BNDRY_CONDITION_F
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_get_material_head,EIO_GET_MATERIAL_HEAD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_material_head,EIO_GET_MATERIAL_HEAD)
   (int& tag, int& fields, int& info)
 {
   modelDataAgent->readMaterialHead(tag, fields);
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_get_material_field,EIO_GET_MATERIAL_FIELD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_material_field,EIO_GET_MATERIAL_FIELD)
   (int& name,
    int& type,
    int& len,
@@ -762,14 +762,14 @@ extern "C" void FC_FUNC_(eio_get_material_field,EIO_GET_MATERIAL_FIELD)
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_get_bndry_condition_head,EIO_GET_BNDRY_CONDITION_HEAD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_bndry_condition_head,EIO_GET_BNDRY_CONDITION_HEAD)
   (int& tag, int& fields, int& info)
 {
   modelDataAgent->readBoundaryConditionHead(tag, fields);
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_get_bndry_condition_field,EIO_GET_BNDRY_CONDITION_FIELD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_bndry_condition_field,EIO_GET_BNDRY_CONDITION_FIELD)
   (int& name,
    int& type,
    int& len,
@@ -781,14 +781,14 @@ extern "C" void FC_FUNC_(eio_get_bndry_condition_field,EIO_GET_BNDRY_CONDITION_F
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_set_initial_condition_head,EIO_SET_INITIAL_CONDITION_HEAD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_initial_condition_head,EIO_SET_INITIAL_CONDITION_HEAD)
   (int& tag, int& fields, int& info)
 {
   modelDataAgent->writeInitialConditionHead(tag, fields);
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_set_initial_condition_field,EIO_SET_INITIAL_CONDITION_FIELD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_initial_condition_field,EIO_SET_INITIAL_CONDITION_FIELD)
   (int& name,
    int& type,
    int& len,
@@ -800,14 +800,14 @@ extern "C" void FC_FUNC_(eio_set_initial_condition_field,EIO_SET_INITIAL_CONDITI
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_get_initial_condition_head,EIO_GET_INITIAL_CONDITION_HEAD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_initial_condition_head,EIO_GET_INITIAL_CONDITION_HEAD)
   (int& tag, int& fields, int& info)
 {
   modelDataAgent->readInitialConditionHead(tag, fields);
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_get_initial_condition_field,EIO_GET_INITIAL_CONDITION_FIELD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_initial_condition_field,EIO_GET_INITIAL_CONDITION_FIELD)
   (int& name,
    int& type,
    int& len,
@@ -819,14 +819,14 @@ extern "C" void FC_FUNC_(eio_get_initial_condition_field,EIO_GET_INITIAL_CONDITI
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_set_body_equation_head,EIO_SET_BODY_EQUATION_HEAD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_body_equation_head,EIO_SET_BODY_EQUATION_HEAD)
   (int& tag, int& fields, int& info)
 {
   modelDataAgent->writeBodyEquationHead(tag, fields);
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_set_body_equation_field,EIO_SET_BODY_EQUATION_FIELD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_body_equation_field,EIO_SET_BODY_EQUATION_FIELD)
   (int& name,
    int& type,
    int& len,
@@ -838,14 +838,14 @@ extern "C" void FC_FUNC_(eio_set_body_equation_field,EIO_SET_BODY_EQUATION_FIELD
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_set_body_force_head,EIO_SET_BODY_FORCE_HEAD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_body_force_head,EIO_SET_BODY_FORCE_HEAD)
   (int& tag, int& fields, int& info)
 {
   modelDataAgent->writeBodyForceHead(tag, fields);
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_set_body_force_field,EIO_SET_BODY_FORCE_FIELD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_body_force_field,EIO_SET_BODY_FORCE_FIELD)
   (int& name,
    int& type,
    int& len,
@@ -858,14 +858,14 @@ extern "C" void FC_FUNC_(eio_set_body_force_field,EIO_SET_BODY_FORCE_FIELD)
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_set_mesh_parameter_head,EIO_SET_MESH_PARAMETER_HEAD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_mesh_parameter_head,EIO_SET_MESH_PARAMETER_HEAD)
   (int& tag, int& fields, int& info)
 {
   modelDataAgent->writeMeshParameterHead(tag, fields);
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_set_mesh_parameter_field,EIO_SET_MESH_PARAMETER_FIELD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_mesh_parameter_field,EIO_SET_MESH_PARAMETER_FIELD)
   (int& name,
    int& type,
    int& len,
@@ -877,14 +877,14 @@ extern "C" void FC_FUNC_(eio_set_mesh_parameter_field,EIO_SET_MESH_PARAMETER_FIE
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_get_mesh_parameter_head,EIO_GET_MESH_PARAMETER_HEAD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_mesh_parameter_head,EIO_GET_MESH_PARAMETER_HEAD)
   (int& tag, int& fields, int& info)
 {
   modelDataAgent->readMeshParameterHead(tag, fields);
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_get_mesh_parameter_field,EIO_GET_MESH_PARAMETER_FIELD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_mesh_parameter_field,EIO_GET_MESH_PARAMETER_FIELD)
   (int& name,
    int& type,
    int& len,
@@ -896,14 +896,14 @@ extern "C" void FC_FUNC_(eio_get_mesh_parameter_field,EIO_GET_MESH_PARAMETER_FIE
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_get_body_equation_head,EIO_GET_BODY_EQUATION_HEAD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_body_equation_head,EIO_GET_BODY_EQUATION_HEAD)
   (int& tag, int& fields, int& info)
 {
   modelDataAgent->readBodyEquationHead(tag, fields);
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_get_body_equation_field,EIO_GET_BODY_EQUATION_FIELD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_body_equation_field,EIO_GET_BODY_EQUATION_FIELD)
   (int& name,
    int& type,
    int& len,
@@ -915,14 +915,14 @@ extern "C" void FC_FUNC_(eio_get_body_equation_field,EIO_GET_BODY_EQUATION_FIELD
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_get_body_force_head,EIO_GET_BODY_FORCE_HEAD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_body_force_head,EIO_GET_BODY_FORCE_HEAD)
   (int& tag, int& fields, int& info)
 {
   modelDataAgent->readBodyForceHead(tag, fields);
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_get_body_force_field,EIO_GET_BODY_FORCE_FIELD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_body_force_field,EIO_GET_BODY_FORCE_FIELD)
   (int& name,
    int& type,
    int& len,
@@ -935,7 +935,7 @@ extern "C" void FC_FUNC_(eio_get_body_force_field,EIO_GET_BODY_FORCE_FIELD)
 }
 
 
-extern "C" void FC_FUNC_(eio_create_solver,EIO_CREATE_SOLVER)
+extern "C" void STDCALLBULL FC_FUNC_(eio_create_solver,EIO_CREATE_SOLVER)
   (int& info)
 {
   if(solverAgent = new EIOSolverAgent(modelManager))
@@ -948,7 +948,7 @@ extern "C" void FC_FUNC_(eio_create_solver,EIO_CREATE_SOLVER)
     }
 }
 
-extern "C" void FC_FUNC_(eio_open_solver,EIO_OPEN_SOLVER)
+extern "C" void STDCALLBULL FC_FUNC_(eio_open_solver,EIO_OPEN_SOLVER)
   (int& info)
 {
   if(solverAgent = new EIOSolverAgent(modelManager))
@@ -961,7 +961,7 @@ extern "C" void FC_FUNC_(eio_open_solver,EIO_OPEN_SOLVER)
     }
 }
 
-extern "C" void FC_FUNC_(eio_close_solver,EIO_CLOSE_SOLVER)
+extern "C" void STDCALLBULL FC_FUNC_(eio_close_solver,EIO_CLOSE_SOLVER)
   (int& info)
 {
   solverAgent->closeSolver();
@@ -969,21 +969,21 @@ extern "C" void FC_FUNC_(eio_close_solver,EIO_CLOSE_SOLVER)
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_set_solver_description,EIO_SET_SOLVER_DESCRIPTION)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_solver_description,EIO_SET_SOLVER_DESCRIPTION)
   (int& linsys, int& procs, int& info)
 {
   solverAgent->writeDescription(linsys, procs);
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_get_solver_description,EIO_GET_SOLVER_DESCRIPTION)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_solver_description,EIO_GET_SOLVER_DESCRIPTION)
   (int& linsys, int& procs, int& info)
 {
   solverAgent->readDescription(linsys, procs);
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_set_solver,EIO_SET_SOLVER)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_solver,EIO_SET_SOLVER)
   (int& equation,
    int& main_type,
    int& sub_type,
@@ -1019,7 +1019,7 @@ extern "C" void FC_FUNC_(eio_set_solver,EIO_SET_SOLVER)
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_get_solver,EIO_GET_SOLVER)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_solver,EIO_GET_SOLVER)
   (int& equation,
    int& main_type,
    int& sub_type,
@@ -1055,21 +1055,21 @@ extern "C" void FC_FUNC_(eio_get_solver,EIO_GET_SOLVER)
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_set_timestep_head,EIO_SET_TIMESTEP_HEAD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_timestep_head,EIO_SET_TIMESTEP_HEAD)
   (int& dependence, int& len, int& info)
 {
   solverAgent->writeTimestepDescription(dependence, len);
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_get_timestep_head,EIO_GET_TIMESTEP_HEAD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_timestep_head,EIO_GET_TIMESTEP_HEAD)
   (int& dependence, int& len, int& info)
 {
   solverAgent->readTimestepDescription(dependence, len);
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_set_timestep_field,EIO_SET_TIMESTEP_FIELD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_set_timestep_field,EIO_SET_TIMESTEP_FIELD)
   (int& type,
    int *nof_timesteps,
    double *timestep_sizes,
@@ -1085,7 +1085,7 @@ extern "C" void FC_FUNC_(eio_set_timestep_field,EIO_SET_TIMESTEP_FIELD)
   info = 0;
 }
 
-extern "C" void FC_FUNC_(eio_get_timestep_field,EIO_GET_TIMESTEP_FIELD)
+extern "C" void STDCALLBULL FC_FUNC_(eio_get_timestep_field,EIO_GET_TIMESTEP_FIELD)
   (int& type,
    int *nof_timesteps,
    double *timestep_sizes,

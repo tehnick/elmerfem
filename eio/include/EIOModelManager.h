@@ -27,6 +27,7 @@ Author(s):  Harri Hakula 10.03.98
 
 #include "eio_config.h"
 
+
 #include <typeinfo>
 using namespace std;
 
