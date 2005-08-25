@@ -94,7 +94,17 @@ install-data-local:
 	cp -r lib/* $(ELMER_POST_DATADIR)/lib
 
 
-
+#
+# Copy the help and tcl
+#
+dist-hook:
+	cp -r tcl $(distdir)
+	cp -r help $(distdir)
+	cp -r lib $(distdir)
+	rm -rf `find $(distdir)/ -name CVS`
+	rm -rf `find $(distdir)/ -name \#*`
+	rm -rf `find $(distdir)/ -name *~`
+	rm -rf `find $(distdir)/ -name *.so`
 
 
 
