@@ -2081,8 +2081,6 @@ int main(int argc,char **argv)
     static char init[1024],initcommands[1024],tmp[1024],ephome[512];
     int i,size[4];
 
-    printf("hallou");
-    fflush(stdout);
     
     if ( getenv("ELMER_POST_HOME") == NULL )
     {
@@ -2400,8 +2398,6 @@ int main(int argc,char **argv)
       Tcl_DStringFree( &dstring );
     }
     
-    printf("Entering main loop\n");
-    fflush(stdout);
 #ifdef WIN32
     auxMainLoop( (AUXMAINPROC)DrawItSomeTimeWhenIdle );
 #else
