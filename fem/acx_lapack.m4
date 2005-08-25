@@ -25,7 +25,7 @@ dnl library is found, and ACTION-IF-NOT-FOUND is a list of commands
 dnl to run it if it is not found.  If ACTION-IF-FOUND is not specified,
 dnl the default action will define HAVE_LAPACK.
 dnl
-dnl @version $Id: acx_lapack.m4,v 1.2 2005/05/11 13:33:50 vierinen Exp $
+dnl @version $Id: acx_lapack.m4,v 1.3 2005/05/24 13:24:29 vierinen Exp $
 dnl @author Steven G. Johnson <stevenj@alum.mit.edu>
 
 AC_DEFUN([ACX_LAPACK], [
@@ -53,7 +53,29 @@ fi
 if test "x$LAPACK_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$LAPACK_LIBS $BLAS_LIBS $LIBS $FLIBS $FCLIBS"
 	AC_MSG_CHECKING([for $cheev in $LAPACK_LIBS])
-	AC_TRY_LINK_FUNC($cheev, [acx_lapack_ok=yes], [LAPACK_LIBS=""])
+
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+		# windose shite	
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -Gz"
+		AC_LINK_IFELSE(
+		[int main ()
+		 {
+		   $cheev(1,2,3,4,5,6,7,8,9,10,11,12);
+		   return 0;
+		 }
+		],
+		[
+	      		acx_lapack_ok=yes
+		],
+		[
+	 	        LAPACK_LIBS=""	
+		])
+		CFLAGS="$save_CFLAGS"
+	else
+		AC_TRY_LINK_FUNC($cheev, [acx_lapack_ok=yes], [LAPACK_LIBS=""])
+	fi
+
 	AC_MSG_RESULT($acx_lapack_ok)
 	LIBS="$save_LIBS"
 	if test acx_lapack_ok = no; then
@@ -64,7 +86,29 @@ fi
 # LAPACK linked to by default?  (is sometimes included with BLAS)
 if test $acx_lapack_ok = no; then
 	save_LIBS="$LIBS"; LIBS="$LIBS $BLAS_LIBS $FLIBS $FCLIBS"
-	AC_CHECK_FUNC($cheev, [acx_lapack_ok=yes])
+
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+		# windose shite	
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -Gz"
+		AC_LINK_IFELSE(
+		[int main ()
+		 {
+		   $cheev(1,2,3,4,5,6,7,8,9,10,11,12);
+		   return 0;
+		 }
+		],
+		[
+	      		acx_lapack_ok=yes
+		],
+		[
+	 	        LAPACK_LIBS=""	
+		])
+		CFLAGS="$save_CFLAGS"
+	else
+		AC_CHECK_FUNC($cheev, [acx_lapack_ok=yes])
+	fi
+
 	LIBS="$save_LIBS"
 fi
 

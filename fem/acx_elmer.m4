@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.69 2005/08/18 09:29:09 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.70 2005/08/24 16:17:19 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -354,8 +354,6 @@ case $with_eioc in
 esac
 
 acx_eioc_save_LIBS="$LIBS"
-
-LIBS="-leioc $LIBS"
 
 # First, check EIO_LIBS environment variable
 if test $acx_eioc_ok = no; then
@@ -1547,6 +1545,7 @@ case "$canonical_host_type" in
   *-*-mingw*)
 	acx_platform_def="WIN32"
         AC_DEFINE([MINGW32],1,[Detected platform.])
+        AC_DEFINE([WIN32],1,[Detected platform2.])
   ;;
   *-*-linux* | *-*-gnu*)
         AC_DEFINE([LINUX],1,[Detected platform.])
@@ -1702,7 +1701,11 @@ AC_SUBST(TCLTK_LIBS)
 LIBS=$acx_tcltk_save_LIBS
 
 # Search for tcl.h and tk.h
-acx_tcltk_tcl_h_locs="/usr/include /usr/local/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2 /include /usr/swf/include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
+if test "$TCLTK_INCPATH"; then
+	acx_tcltk_tcl_h_locs=$TCLTK_INCPATH
+fi
+acx_tcltk_tcl_h_locs="$acx_tcltk_tcl_h_locs /usr/include /usr/local/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2 /include /usr/swf/include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
+
 
 acx_tcltk_CPPFLAGS_save=$CPPFLAGS
 acx_tcltk_CFLAGS_save=$CFLAGS

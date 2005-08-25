@@ -27,13 +27,14 @@ dnl the default action will define HAVE_BLAS.
 dnl
 dnl This macro requires autoconf 2.50 or later.
 dnl
-dnl @version $Id: acx_blas.m4,v 1.3 2005/05/16 07:47:02 vierinen Exp $
+dnl @version $Id: acx_blas.m4,v 1.4 2005/05/24 13:24:29 vierinen Exp $
 dnl @author Steven G. Johnson <stevenj@alum.mit.edu>
 
 AC_DEFUN([ACX_BLAS], [
 AC_PREREQ(2.50)
 AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])
 AC_REQUIRE([AC_F77_LIBRARY_LDFLAGS])
+AC_REQUIRE([ACX_LANG_COMPILER_MS])
 acx_blas_ok=no
 
 AC_ARG_WITH(blas,
@@ -57,8 +58,32 @@ if test $acx_blas_ok = no; then
 if test "x$BLAS_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$BLAS_LIBS $LIBS"
 	AC_MSG_CHECKING([for $sgemm in $BLAS_LIBS])
-	AC_TRY_LINK_FUNC($sgemm, [acx_blas_ok=yes], [BLAS_LIBS=""])
-	AC_MSG_RESULT($acx_blas_ok)
+
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+		# windose shite	
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -Gz"
+		AC_LINK_IFELSE(
+		[int main ()
+		 {
+		   $sgemm(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
+		   return 0;
+		 }
+		],
+		[
+	      		acx_blas_ok=yes
+		],
+		[
+	 	        BLAS_LIBS=""	
+		])
+		CFLAGS="$save_CFLAGS"
+	else
+		AC_MSG_CHECKING([for $huti_d_gmres in $HUTI_LIBS])
+		AC_TRY_LINK_FUNC($sgemm, [acx_blas_ok=yes], [BLAS_LIBS=""])
+	fi
+
+	AC_MSG_RESULT($acx_blas_ok)	
+
 	LIBS="$save_LIBS"
 fi
 fi
@@ -66,7 +91,31 @@ fi
 # BLAS linked to by default?  (happens on some supercomputers)
 if test $acx_blas_ok = no; then
 	save_LIBS="$LIBS"; LIBS="$LIBS"
-	AC_CHECK_FUNC($sgemm, [acx_blas_ok=yes])
+
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+   	        AC_MSG_CHECKING([for $sgemm in default link])	
+		# windose shite	
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -Gz"
+		AC_LINK_IFELSE(
+		[int main ()
+		 {
+		   $sgemm(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
+		   return 0;
+		 }
+		],
+		[
+	      		acx_blas_ok=yes
+		],
+		[
+	 	        BLAS_LIBS=""	
+		])
+		CFLAGS="$save_CFLAGS"
+   	        AC_MSG_RESULT($acx_blas_ok)
+	else
+		AC_CHECK_FUNC($sgemm, [acx_blas_ok=yes])
+	fi
+
 	LIBS="$save_LIBS"
 fi
 
