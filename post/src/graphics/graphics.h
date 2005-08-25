@@ -32,9 +32,12 @@
  *
  *       Date of modification:
  *
- * $Id: graphics.h,v 1.2 2005/05/31 10:39:03 vierinen Exp $
+ * $Id: graphics.h,v 1.3 2005/05/31 11:28:14 vierinen Exp $
  *
  * $Log: graphics.h,v $
+ * Revision 1.3  2005/05/31 11:28:14  vierinen
+ * ads
+ *
  * Revision 1.2  2005/05/31 10:39:03  vierinen
  * apple?
  *
@@ -54,15 +57,19 @@
  *
  ******************************************************************************/
 
-#include <X11/X.h>
-#if 0
-#include <X11/Xatom.h>
-#include <X11/Intrinsic.h>
-#include <X11/extensions/XInput.h>
-#endif
-#include <X11/keysymdef.h>
+#include "../../config.h"
 
+#ifndef MINGW32
+
+#include <X11/X.h>
+#include <X11/keysymdef.h>
 #include "../glaux/glaux.h"
+
+#else
+
+#include <GL/glaux.h>
+
+#endif
 
 #include <GL/gl.h>
 #include <GL/glu.h>

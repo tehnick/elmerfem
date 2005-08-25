@@ -34,7 +34,9 @@
  *
  ******************************************************************************/
 
-#ifdef WIN32
+#include "../config.h"
+
+#if defined(WIN32) || defined(MINGW32)
 #include <windows.h>
 #endif
 
@@ -44,16 +46,19 @@
 /* #include <malloc.h> */
 #include <math.h>
 
-#ifndef WIN32
-/* #include <termio.h> */
-#endif
 #include <sys/types.h>
 
 #include <signal.h>
 
 #include <elmer/matc.h>
 
+
+#if defined(MINGW32) || defined(WIN32)
+
 #include "tk/tk.h"
+
+#endif
+
 
 #ifdef MODULE_MAIN
 #define EXT 

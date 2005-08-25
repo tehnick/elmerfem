@@ -1,3 +1,6 @@
+
+if NOTWINDOWS
+
 noinst_LIBRARIES=libglaux.a
 
 libglaux_a_SOURCES=\
@@ -10,3 +13,5 @@ libglaux_a_SOURCES=\
 	vect3d.c \
 	glaux.h \
 	xform.c 
+
+endif

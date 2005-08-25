@@ -50,6 +50,10 @@ CFLAGS="$CFLAGS -I$prefix/include"
 CXXFLAGS="$CXXFLAGS -I$prefix/include"
 FCFLAGS="$FCFLAGS -I. -I$prefix/include"
 
+ACX_LANG_COMPILER_MS
+
+AM_CONDITIONAL(USING_MS_C_COMPILER, test "$acx_cv_c_compiler_ms" = "yes")
+
 sinclude(acx_blas.m4)
 sinclude(acx_lapack.m4)
 
@@ -66,6 +70,12 @@ case "$FC" in
     FCFLAGS="$FCFLAGS -qsuffix=cpp=F90"
   ;;
 esac
+
+# there are a lot of function pointers declared (without __stdcall) wrong in the 
+# *.c files. This kludge fixes them for now. 
+if test "$acx_cv_c_compiler_ms" = "yes"; then
+   CFLAGS="$CFLAGS -Gz"
+fi
 
 AC_CONFIG_HEADER(config.h) 
 

@@ -9,7 +9,7 @@
 /******************************************************
       Output of SICOPOLIS grid in ELMER POST format
 *******************************************************/
-void FC_FUNC(postgrid,POSTGRID) (float  *xi, /* unscaled x coordinate index i: 0,imax */
+void STDCALLBULL FC_FUNC(postgrid,POSTGRID) (float  *xi, /* unscaled x coordinate index i: 0,imax */
 	       float  *eta, /* unscaled y coordinate index j from 0,jmax */
 	       float  *z_c, /* unscaled z coordinate index i: 0,imax, j: 0,jmax, kc: 0,kcmax */
 	       float  *z_t, /* unscaled y coordinate index i: 0,imax, j: 0,jmax, kt: 0,kcmax */
@@ -513,7 +513,7 @@ void FC_FUNC(postgrid,POSTGRID) (float  *xi, /* unscaled x coordinate index i: 0
 /*******************************************************
 	      write data for ELMER post 
 ********************************************************/
-void FC_FUNC(elmerdata,ELMERDATA) (int   *imax_in, /* grid steps in xi-direction */
+void STDCALLBULL FC_FUNC(elmerdata,ELMERDATA) (int   *imax_in, /* grid steps in xi-direction */
 				    int   *jmax_in, /* grid steps in eta-direction */
 				    int   *kcmax_in, /* grid steps in z-direction in cold ice layer */
 				    int   *ktmax_in, /* grid steps in z-direction in temperate ice layer */
@@ -876,7 +876,7 @@ void FC_FUNC(elmerdata,ELMERDATA) (int   *imax_in, /* grid steps in xi-direction
 /******************************************************
    Output of SICOPOLIS grid in ELMER Solver format
 *******************************************************/
-void FC_FUNC(pregrid,PREGRID) (float  *xi, /* unscaled x coordinate index i: 0,imax */
+void STDCALLBULL FC_FUNC(pregrid,PREGRID) (float  *xi, /* unscaled x coordinate index i: 0,imax */
 			       float  *eta, /* unscaled y coordinate index j from 0,jmax */
 			       float  *z_c, /* unscaled z coordinate index i: 0,imax, j: 0,jmax, kc: 0,kcmax */
 			       float  *z_t, /* unscaled y coordinate index i: 0,imax, j: 0,jmax, kt: 0,kcmax */
@@ -1371,10 +1371,8 @@ void FC_FUNC(pregrid,PREGRID) (float  *xi, /* unscaled x coordinate index i: 0,i
   free(staggered_grid[0]);free(staggered_grid[1]);free(iced);free(boundary);free(gridmap);free(nodes_of_side_element);free(parent_of_side_element);
   return;  
 }
-/*************************************************************
-            write data in ASCII format 
-**************************************************************/
-void FC_FUNC(asciidata,ASCIIDATA) (float  *xi, /* unscaled x coordinate index i: 0,imax */
+
+void STDCALLBULL FC_FUNC(asciidata,ASCIIDATA) (float  *xi, /* unscaled x coordinate index i: 0,imax */
 		float  *eta, /* unscaled y coordinate index j from 0,jmax */
 		int   *imax_in, /* grid steps in xi-direction */
 		int   *jmax_in, /* grid steps in eta-direction */
@@ -1382,7 +1380,6 @@ void FC_FUNC(asciidata,ASCIIDATA) (float  *xi, /* unscaled x coordinate index i:
 		int   *ktmax_in, /* grid steps in z-direction in temperate ice layer */
 		float *z_c, /* z-coordinate in cold layer for given i,j-position in plane  and kc in vertical*/
 		float *z_t, /* z-coordinate in  temperate  layer for given i,j-position in plane  and kc in vertical*/
-
 		float *vx_c, /* velocity component in x for cold region for given i,j-position in plane and kc in vertical */
 		float *vy_c, /* velocity component in y for cold region for given i,j-position in plane and kc in vertical */
 		float *vz_c, /* velocity component in z for cold region for given i,j-position in plane and kc in vertical */
@@ -1403,7 +1400,8 @@ void FC_FUNC(asciidata,ASCIIDATA) (float  *xi, /* unscaled x coordinate index i:
 		int   *maske, /* glaciation information for given i,j-position at base (glaciated=0, ice-free=1, 2=sea-point, 3=floating ice) */
 		char  *runname, /*name of run*/
 		char  *ergnum,/*number of file*/
-		int   *flag){ 
+		int   *flag)
+{ 
   register int i, j, k, n, current_index;
   int   imax, jmax, kcmax, ktmax, kcmin, offset, nodes_in_temp, nodes_in_cold, elements_in_layer, number_of_iced_nodes, number_of_written_nodes, *gridmap, ok;
   int nodes_in_one_layer, number_of_nodes, nodes_in_layer_of_staggered_grid, number_of_iced_collums, *iced, auxiliary, number_of_properties, outputflags[12], failed=0;
@@ -1548,7 +1546,7 @@ void FC_FUNC(asciidata,ASCIIDATA) (float  *xi, /* unscaled x coordinate index i:
       fprintf(ptFile,"# written on  %s", ctime(&how_late_is_it));
     }
     /* replace with getpwuid(geteuid())  */
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(MINGW32) || defined(WIN32)
     if ( 1 )
 #else
     if (cuserid(user_name)==NULL)
@@ -2047,7 +2045,7 @@ void  make_float_from_integer_scalar_field(int   *input_property,
 /****************************************************************
    Output of SICOPOLIS grid (not staggerd) in ELMER Solver format
 *****************************************************************/
-void FC_FUNC(solvergrid,SOLVERGRID)(float  *xi, /* unscaled x coordinate index i: 0,imax */
+void STDCALLBULL FC_FUNC(solvergrid,SOLVERGRID)(float  *xi, /* unscaled x coordinate index i: 0,imax */
 				    float  *eta, /* unscaled y coordinate index j from 0,jmax */
 				    float  *z_c, /* unscaled z coordinate index i: 0,imax, j: 0,jmax, kc: 0,kcmax */
 				    float  *z_t, /* unscaled y coordinate index i: 0,imax, j: 0,jmax, kt: 0,kcmax */
@@ -2500,7 +2498,7 @@ void FC_FUNC(solvergrid,SOLVERGRID)(float  *xi, /* unscaled x coordinate index i
 /****************************************************************
    Get parameters from log file of SICOPOLIS run
 *****************************************************************/
-void FC_FUNC_(readlog_c,READLOG_C) (FC_CHAR_PTR(runname,l1), /*name of run*/
+void STDCALLBULL FC_FUNC_(readlog_c,READLOG_C) (FC_CHAR_PTR(runname,l1), /*name of run*/
 				    int    *imax, /* grid steps in xi-direction */
 				    int    *jmax, /* grid steps in eta-direction */
 				    int    *kcmax, /* grid steps in z-direction cold ice layer */

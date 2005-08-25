@@ -404,6 +404,7 @@ AC_DEFUN([ACX_ARPACK], [
 AC_PREREQ(2.50)
 AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])
 AC_REQUIRE([AC_F77_LIBRARY_LDFLAGS])
+AC_REQUIRE([ACX_LANG_COMPILER_MS])
 acx_arpack_ok=no
 
 AC_ARG_WITH(arpack,
@@ -427,7 +428,30 @@ if test $acx_arpack_ok = no; then
 if test "x$ARPACK_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$ARPACK_LIBS $LIBS"
 	AC_MSG_CHECKING([for $dseupd in $ARPACK_LIBS])
-	AC_TRY_LINK_FUNC($dseupd, [acx_arpack_ok=yes], [ARPACK_LIBS=""])
+
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+		# windose shite	
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -Gz"
+		AC_LINK_IFELSE(
+		[int main ()
+		 {
+		   $dseupd(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25);
+		   return 0;
+		 }
+		],
+		[
+	      		acx_arpack_ok=yes
+		],
+		[
+	 	        ARPACK_LIBS=""	
+		])
+		AC_MSG_RESULT($acx_arpack_ok)
+		CFLAGS="$save_CFLAGS"
+	else
+		AC_TRY_LINK_FUNC($dseupd, [acx_arpack_ok=yes], [ARPACK_LIBS=""])
+	fi
+
 	AC_MSG_RESULT($acx_arpack_ok)
 	LIBS="$save_LIBS"
 fi
@@ -521,6 +545,7 @@ dnl
 AC_DEFUN([ACX_UMFPACK], [
 AC_PREREQ(2.50)
 AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])
+AC_REQUIRE([ACX_LANG_COMPILER_MS])
 acx_umfpack_ok=no
 
 AC_ARG_WITH(umfpack,
@@ -544,7 +569,31 @@ if test $acx_umfpack_ok = no; then
 if test "x$UMFPACK_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$UMFPACK_LIBS $LIBS"
 	AC_MSG_CHECKING([for $umf4def in $UMFPACK_LIBS])
-	AC_TRY_LINK_FUNC($umf4def, [acx_umfpack_ok=yes], [UMFPACK_LIBS=""])
+
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+		# windose shite	
+		AC_MSG_CHECKING([for $huti_d_gmres[]@44 in $HUTI_LIBS])
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -Gz"
+		AC_LINK_IFELSE(
+		[int main ()
+		 {
+		   HUTI_D_GMRES(1,2,3,4,5,6,7,8,9,10,11);
+		   return 0;
+		 }
+		],
+		[
+	      		acx_umfpack_ok=yes
+		],
+		[
+	 	        UMFPACK_LIBS=""	
+		])
+		AC_MSG_RESULT($acx_umfpack_ok)
+		CFLAGS="$save_CFLAGS"
+	else
+		AC_TRY_LINK_FUNC($umf4def, [acx_umfpack_ok=yes], [UMFPACK_LIBS=""])
+	fi
+
 	AC_MSG_RESULT($acx_umfpack_ok)
 	LIBS="$save_LIBS"
 fi
@@ -936,6 +985,7 @@ dnl Look for matc library
 dnl
 AC_DEFUN([ACX_MATC], [
 AC_PREREQ(2.50)
+AC_REQUIRE([ACX_LANG_COMPILER_MS])
 acx_matc_ok=no
 
 AC_ARG_WITH(matc,
@@ -954,7 +1004,30 @@ if test $acx_matc_ok = no; then
 if test "x$MATC_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$MATC_LIBS $LIBS"
 	AC_MSG_CHECKING([for mtc_init in $MATC_LIBS])
-	AC_TRY_LINK_FUNC(mtc_init, [acx_matc_ok=yes], [MATC_LIBS=""])
+
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+		# windose shite	
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -Gz"
+		AC_LINK_IFELSE(
+		[int main ()
+		 {
+		   mtc_init(1,2,3);
+		   return 0;
+		 }
+		],
+		[
+	      		acx_matc_ok=yes
+		],
+		[
+	 	        MATC_LIBS=""	
+		])
+		AC_MSG_RESULT($acx_matc_ok)
+		CFLAGS="$save_CFLAGS"
+	else
+		AC_TRY_LINK_FUNC(mtc_init, [acx_matc_ok=yes], [MATC_LIBS=""])
+	fi
+
 	AC_MSG_RESULT($acx_matc_ok)
 	LIBS="$save_LIBS"
 fi
@@ -1743,6 +1816,7 @@ acx_cv_[]_AC_LANG_ABBREV[]_compiler_ms=$acx_compiler_ms
 if test "$acx_cv_c_compiler_ms" = "yes"; then
 	AC_DEFINE(STDCALLBULL,[__stdcall],[Standard windows call declaration])
 	AC_DEFINE(C_DLLEXPORT,[__declspec(dllexport)],[Standard windows call declaration])
+	AM_CONDITIONAL(USE_WINDOWS_COMPILER, test "$acx_cv_c_compiler_ms" = "yes")
 else
 	AC_DEFINE(STDCALLBULL,,[Standard windows call declaration])
 	AC_DEFINE(C_DLLEXPORT,,[Standard windows call declaration])

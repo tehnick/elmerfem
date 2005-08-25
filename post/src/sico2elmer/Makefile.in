@@ -39,7 +39,7 @@ POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
-bin_PROGRAMS = sico2elmer$(EXEEXT)
+@NOTWINDOWS_TRUE@bin_PROGRAMS = sico2elmer$(EXEEXT)
 subdir = src/sico2elmer
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -54,7 +54,10 @@ CONFIG_CLEAN_FILES =
 am__installdirs = "$(DESTDIR)$(bindir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
-am_sico2elmer_OBJECTS = sico2elmerc.$(OBJEXT) sico2elmer.$(OBJEXT)
+am__sico2elmer_SOURCES_DIST = sico2elmerc.c sico2elmer.f90 \
+	sico2elmer.h
+@NOTWINDOWS_TRUE@am_sico2elmer_OBJECTS = sico2elmerc.$(OBJEXT) \
+@NOTWINDOWS_TRUE@	sico2elmer.$(OBJEXT)
 sico2elmer_OBJECTS = $(am_sico2elmer_OBJECTS)
 sico2elmer_LDADD = $(LDADD)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
@@ -69,7 +72,7 @@ FCLD = $(FC)
 FCLINK = $(FCLD) $(AM_FCFLAGS) $(FCFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o \
 	$@
 SOURCES = $(sico2elmer_SOURCES)
-DIST_SOURCES = $(sico2elmer_SOURCES)
+DIST_SOURCES = $(am__sico2elmer_SOURCES_DIST)
 ETAGS = etags
 CTAGS = ctags
 DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
@@ -85,7 +88,6 @@ AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
 B64FLAGS = @B64FLAGS@
 CC = @CC@
-CCC = @CCC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
 CPP = @CPP@
@@ -108,7 +110,8 @@ GLU_CFLAGS = @GLU_CFLAGS@
 GLU_LIBS = @GLU_LIBS@
 GL_CFLAGS = @GL_CFLAGS@
 GL_LIBS = @GL_LIBS@
-GREP = @GREP@
+IBM_IS_PIECE_OF_SHIT_FALSE = @IBM_IS_PIECE_OF_SHIT_FALSE@
+IBM_IS_PIECE_OF_SHIT_TRUE = @IBM_IS_PIECE_OF_SHIT_TRUE@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
@@ -123,6 +126,8 @@ MAINTAINER_MODE_FALSE = @MAINTAINER_MODE_FALSE@
 MAINTAINER_MODE_TRUE = @MAINTAINER_MODE_TRUE@
 MAKEINFO = @MAKEINFO@
 MATC_LIBS = @MATC_LIBS@
+NOTWINDOWS_FALSE = @NOTWINDOWS_FALSE@
+NOTWINDOWS_TRUE = @NOTWINDOWS_TRUE@
 OBJEXT = @OBJEXT@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
@@ -145,6 +150,8 @@ STRIP = @STRIP@
 TCLTK_LIBS = @TCLTK_LIBS@
 USE_64BIT_ARCH_FALSE = @USE_64BIT_ARCH_FALSE@
 USE_64BIT_ARCH_TRUE = @USE_64BIT_ARCH_TRUE@
+USE_WINDOWS_COMPILER_FALSE = @USE_WINDOWS_COMPILER_FALSE@
+USE_WINDOWS_COMPILER_TRUE = @USE_WINDOWS_COMPILER_TRUE@
 VERSION = @VERSION@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
@@ -169,30 +176,23 @@ build_os = @build_os@
 build_vendor = @build_vendor@
 canonical_host_type = @canonical_host_type@
 datadir = @datadir@
-datarootdir = @datarootdir@
-docdir = @docdir@
-dvidir = @dvidir@
 exec_prefix = @exec_prefix@
 host = @host@
 host_alias = @host_alias@
 host_cpu = @host_cpu@
 host_os = @host_os@
 host_vendor = @host_vendor@
-htmldir = @htmldir@
 includedir = @includedir@
 infodir = @infodir@
 install_sh = @install_sh@
 libdir = @libdir@
 libexecdir = @libexecdir@
-localedir = @localedir@
 localstatedir = @localstatedir@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
-pdfdir = @pdfdir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
-psdir = @psdir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
@@ -201,10 +201,10 @@ target_alias = @target_alias@
 target_cpu = @target_cpu@
 target_os = @target_os@
 target_vendor = @target_vendor@
-sico2elmer_SOURCES = \
-	sico2elmerc.c \
-	sico2elmer.f90 \
-	sico2elmer.h 
+@NOTWINDOWS_TRUE@sico2elmer_SOURCES = \
+@NOTWINDOWS_TRUE@	sico2elmerc.c \
+@NOTWINDOWS_TRUE@	sico2elmer.f90 \
+@NOTWINDOWS_TRUE@	sico2elmer.h 
 
 all: all-am
 

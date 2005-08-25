@@ -28,9 +28,15 @@ COMMON_SRCS =  \
 	urand.c \
 	variable.c 
 
-bin_PROGRAMS = matc
+if USE_WINDOWS_COMPILER
 
-matc_SOURCES = $(COMMON_SRCS) main.c
+else
+
+bin_PROGRAMS = matc
+matc_SOURCES = main.c
+matc_LDADD = libmatc.a
+
+endif
 
 lib_LIBRARIES = libmatc.a
 libmatc_a_SOURCES = $(COMMON_SRCS)

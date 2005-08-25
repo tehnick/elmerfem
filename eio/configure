@@ -686,7 +686,11 @@ USE_64BIT_ARCH_FALSE
 B64FLAGS
 FCLIBS
 LD_LIBRARY_PATH_VAR
+RPATH_FLAG
+SH_EXPALL_FLAG
 canonical_host_type
+IBM_IS_PIECE_OF_SHIT_TRUE
+IBM_IS_PIECE_OF_SHIT_FALSE
 USE_SHARED_LIBS_TRUE
 USE_SHARED_LIBS_FALSE
 LIBOBJS
@@ -2285,6 +2289,14 @@ INSTALL_STRIP_PROGRAM="\${SHELL} \$(install_sh) -c -s"
 AMTAR=${AMTAR-"${am_missing_run}tar"}
 
 am__tar='${AMTAR} chof - "$$tardir"'; am__untar='${AMTAR} xf -'
+
+
+
+
+
+
+
+
 
 
 
@@ -5070,6 +5082,10 @@ case "$canonical_host_type" in
 	  g95 | gfortran)
 	        B64FCFLAGS=$B64FLAGS
 		;;
+	  pgf*)
+	        # portland group
+	        B64FCFLAGS="-fPIC"
+	        ;;
 	  *)
 	        B64FCFLAGS=$B64FLAGS
 		;;
@@ -5081,6 +5097,10 @@ case "$canonical_host_type" in
 	  ifort | ifc)
 		true
 	  ;;
+	  pgf*)
+	        # portland group
+	        B64FFLAGS="-fPIC"
+	        ;;
           *)
 	      B64FFLAGS=$B64FLAGS
           ;;
@@ -5092,6 +5112,10 @@ case "$canonical_host_type" in
 	  icc | icc)
 		true
 	  ;;
+	  pgcc*)
+	        # portland group
+	        B64CFLAGS="-fPIC"
+	        ;;
           *)
 	      B64CFLAGS=$B64FLAGS
           ;;
@@ -5102,6 +5126,10 @@ case "$canonical_host_type" in
  	case "$CC" in
 	  icc | icc)
 		true
+	  ;;
+	  pgC*)
+	        # portland group
+	        B64CXXFLAGS="-fPIC"
 	  ;;
 	  *)
        		B64CXXFLAGS=$B64FLAGS
@@ -5243,8 +5271,8 @@ echo "${ECHO_T}$B64FCFLAGS" >&6; }
 	if test x"$CXX" != x; then
            { echo "$as_me:$LINENO: checking for 64 bit CXXFLAGS" >&5
 echo $ECHO_N "checking for 64 bit CXXFLAGS... $ECHO_C" >&6; }
-           { echo "$as_me:$LINENO: result: $B64CXXFLAGS" >&5
-echo "${ECHO_T}$B64CXXFLAGS" >&6; }
+           { echo "$as_me:$LINENO: result: $B64CXXFLAGS	" >&5
+echo "${ECHO_T}$B64CXXFLAGS	" >&6; }
 	   CXXFLAGS="$CXXFLAGS $B64CXXFLAGS"
 	fi
 
@@ -6739,118 +6767,45 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 
-DLFCN_DIR=
-CPICFLAG="-fPIC"
-CXXPICFLAG="-fPIC"
-FPICFLAG="-fPIC"
-SHLEXT="so"
-SHLLIB='$(SHLEXT)'
-SHLBIN=
-SHLEXT_VER='$(SHLEXT).$(version)'
-SHLLIB_VER='$(SHLLIB).$(version)'
-SHLBIN_VER='$(SHLBIN).$(version)'
-SHLLINKEXT=
-LIBEXT=a
-SH_LD2=$CXX
-SH_LD=$FC
-SH_LDFLAGS=-shared
-SH_LINKING_TO_FLAGS=
-DL_LD='$(SH_LD)'
-DL_LDFLAGS='$(SH_LDFLAGS)'
-MKOCTFILE_DL_LDFLAGS='$(DL_LDFLAGS)'
-SONAME_FLAGS=
-LD_LIBRARY_PATH_VAR=LD_LIBRARY_PATH
-LIBSOLVER_DEPS=$LIBS
 
-case "$canonical_host_type" in
-  *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
-    SH_LD="ld"
-    SH_LDFLAGS="-Bshareable"
-  ;;
-  *-*-freebsd*)
-    SH_LD='$(CC)'
-    SH_LDFLAGS="-shared"
-  ;;
-  alpha*-dec-osf*)
-    SH_LDFLAGS="-shared"
-  ;;
-  *-*-darwin*)
-    SH_LDFLAGS='-dynamiclib -undefined dynamic_lookup -single_module $(LDFLAGS)'
-    LD_LIBRARY_PATH_VAR=DYLD_LIBRARY_PATH
-  ;;
-  *-*-cygwin* | *-*-mingw*)
-       SHLEXT=dll
-       SH_LDFLAGS="-shared"
-       SH_LD=$CC
-  ;;
-  *-*-linux* | *-*-gnu*)
-  ;;
-  i[3456]86-*-sco3.2v5*)
-    SH_LDFLAGS="-G"
-  ;;
-  rs6000-ibm-aix* | powerpc-ibm-aix*)
-    SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
-    SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared"
-    LD_LIBRARY_PATH_VAR=LIBPATH
-  ;;
-  hppa*-hp-hpux*)
-    SH_LDFLAGS="-shared -fPIC"
-  ;;
-  *-sgi-*)
-      true
-  ;;
-  sparc-sun-sunos4*)
-    SH_LD=ld
-    SH_LDFLAGS="-assert nodefinitions"
-  ;;
-  sparc-sun-solaris2* | i386-pc-solaris2*)
-    if test "$GXX" != yes; then
-      SH_LDFLAGS=-G
-    fi
-  ;;
+
+acx_cv_fc_char_mangling="char_ptr"
+
+ac_ext=${ac_fc_srcext-f}
+ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
+ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_fc_compiler_gnu
+case $ac_cv_fc_mangling in
+  upper*) ac_val="BARF" ;;
+  lower*) ac_val="barf" ;;
+  *)      ac_val="unknown" ;;
 esac
+case $ac_cv_fc_mangling in *," underscore"*) ac_val="$ac_val"_ ;; esac
+
+barf="$ac_val"
+
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
+{ echo "$as_me:$LINENO: checking for Fortran char* mangling scheme" >&5
+echo $ECHO_N "checking for Fortran char* mangling scheme... $ECHO_C" >&6; }
 
-### Dynamic linking is now enabled only if we are building shared
-### libs and some API for dynamic linking is detected.
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
-LD_CXX='$(CXX)'
-LIBDLFCN=
-DLFCN_INCFLAGS=
-RDYNAMIC_FLAG=
-DL_API_MSG=""
-dlopen_api=false
-shl_load_api=false
-loadlibrary_api=false
-dyld_api=false
-
-### yes atleast now
-SHARED_LIBS=true
-if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
-
-  ### Check for dyld first since OS X can have a non-standard libdl
-
-  if test "${ac_cv_header_Mach_O_dyld_h+set}" = set; then
-  { echo "$as_me:$LINENO: checking for Mach-O/dyld.h" >&5
-echo $ECHO_N "checking for Mach-O/dyld.h... $ECHO_C" >&6; }
-if test "${ac_cv_header_Mach_O_dyld_h+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-fi
-{ echo "$as_me:$LINENO: result: $ac_cv_header_Mach_O_dyld_h" >&5
-echo "${ECHO_T}$ac_cv_header_Mach_O_dyld_h" >&6; }
-else
-  # Is the header compilable?
-{ echo "$as_me:$LINENO: checking Mach-O/dyld.h usability" >&5
-echo $ECHO_N "checking Mach-O/dyld.h usability... $ECHO_C" >&6; }
 cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-$ac_includes_default
-#include <Mach-O/dyld.h>
+
+void $barf(char *name, int *l2, int *l3)
+{
+   printf("%d",*l2);
+ }
 _ACEOF
 rm -f conftest.$ac_objext
 if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
@@ -6874,105 +6829,223 @@ if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  ac_header_compiler=yes
+
+    mv conftest.$ac_objext cfortran_test.$ac_objext
+
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-ac_header_compiler=no
+
+    ac_cv_c_char_mangling="unknown"
+
 fi
 rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
-{ echo "$as_me:$LINENO: result: $ac_header_compiler" >&5
-echo "${ECHO_T}$ac_header_compiler" >&6; }
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
-# Is the header present?
-{ echo "$as_me:$LINENO: checking Mach-O/dyld.h presence" >&5
-echo $ECHO_N "checking Mach-O/dyld.h presence... $ECHO_C" >&6; }
+
+ac_ext=${ac_fc_srcext-f}
+ac_compile='$FC -c $FCFLAGS $ac_fcflags_srcext conftest.$ac_ext >&5'
+ac_link='$FC -o conftest$ac_exeext $FCFLAGS $LDFLAGS $ac_fcflags_srcext conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_fc_compiler_gnu
+
 cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
+      program testingit
+       character s
+       parameter (s='my ass')
+       call barf(s,42)
+       end
 _ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-#include <Mach-O/dyld.h>
-_ACEOF
-if { (eval echo "$as_me:$LINENO: \"$ac_cpp conftest.$ac_ext\"") >&5
-  (eval $ac_cpp conftest.$ac_ext) 2>conftest.er1
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
   ac_status=$?
   grep -v '^ *+' conftest.er1 >conftest.err
   rm -f conftest.er1
   cat conftest.err >&5
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } >/dev/null; then
-  if test -s conftest.err; then
-    ac_cpp_err=$ac_c_preproc_warn_flag
-    ac_cpp_err=$ac_cpp_err$ac_c_werror_flag
-  else
-    ac_cpp_err=
-  fi
-else
-  ac_cpp_err=yes
-fi
-if test -z "$ac_cpp_err"; then
-  ac_header_preproc=yes
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_fc_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+
+$FC $FCFLAGS -o testi$ac_exeext conftest.$ac_objext cfortran_test.$ac_objext
+the_answer=`./testi$ac_exeext`
+
+case $the_answer in
+	42)
+	       acx_cv_fc_char_mangling="char_ptr"
+        ;;
+	*)
+   	       acx_cv_fc_char_mangling="char_ptr_and_len_int"
+	;;
+esac
+{ echo "$as_me:$LINENO: result: $acx_cv_fc_char_mangling" >&5
+echo "${ECHO_T}$acx_cv_fc_char_mangling" >&6; }
+
+rm testi$ac_exeext conftest.$ac_objext cfortran_test.$ac_objext
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-  ac_header_preproc=no
+{ echo "$as_me:$LINENO: result: test failed, assuming char_ptr" >&5
+echo "${ECHO_T}test failed, assuming char_ptr" >&6; }
 fi
-rm -f conftest.err conftest.$ac_ext
-{ echo "$as_me:$LINENO: result: $ac_header_preproc" >&5
-echo "${ECHO_T}$ac_header_preproc" >&6; }
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
 
-# So?  What about this header?
-case $ac_header_compiler:$ac_header_preproc:$ac_c_preproc_warn_flag in
-  yes:no: )
-    { echo "$as_me:$LINENO: WARNING: Mach-O/dyld.h: accepted by the compiler, rejected by the preprocessor!" >&5
-echo "$as_me: WARNING: Mach-O/dyld.h: accepted by the compiler, rejected by the preprocessor!" >&2;}
-    { echo "$as_me:$LINENO: WARNING: Mach-O/dyld.h: proceeding with the compiler's result" >&5
-echo "$as_me: WARNING: Mach-O/dyld.h: proceeding with the compiler's result" >&2;}
-    ac_header_preproc=yes
-    ;;
-  no:yes:* )
-    { echo "$as_me:$LINENO: WARNING: Mach-O/dyld.h: present but cannot be compiled" >&5
-echo "$as_me: WARNING: Mach-O/dyld.h: present but cannot be compiled" >&2;}
-    { echo "$as_me:$LINENO: WARNING: Mach-O/dyld.h:     check for missing prerequisite headers?" >&5
-echo "$as_me: WARNING: Mach-O/dyld.h:     check for missing prerequisite headers?" >&2;}
-    { echo "$as_me:$LINENO: WARNING: Mach-O/dyld.h: see the Autoconf documentation" >&5
-echo "$as_me: WARNING: Mach-O/dyld.h: see the Autoconf documentation" >&2;}
-    { echo "$as_me:$LINENO: WARNING: Mach-O/dyld.h:     section \"Present But Cannot Be Compiled\"" >&5
-echo "$as_me: WARNING: Mach-O/dyld.h:     section \"Present But Cannot Be Compiled\"" >&2;}
-    { echo "$as_me:$LINENO: WARNING: Mach-O/dyld.h: proceeding with the preprocessor's result" >&5
-echo "$as_me: WARNING: Mach-O/dyld.h: proceeding with the preprocessor's result" >&2;}
-    { echo "$as_me:$LINENO: WARNING: Mach-O/dyld.h: in the future, the compiler will take precedence" >&5
-echo "$as_me: WARNING: Mach-O/dyld.h: in the future, the compiler will take precedence" >&2;}
-    (
-      cat <<\_ASBOX
-## ------------------------------------------ ##
-## Report this to the AC_PACKAGE_NAME lists.  ##
-## ------------------------------------------ ##
-_ASBOX
-    ) |
-      sed "s/^/$as_me: WARNING:     /" >&2
+
+
+
+
+case $acx_cv_fc_char_mangling in
+	char_ptr)
+		cat >>confdefs.h <<\_ACEOF
+#define FC_CHAR_PTR(P,L) char *P
+_ACEOF
+
+	;;
+	*)
+		cat >>confdefs.h <<\_ACEOF
+#define FC_CHAR_PTR(P,L) char *P, int L
+_ACEOF
+
+	;;
+esac
+ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+
+
+DLFCN_DIR=
+CPICFLAG="-fPIC"
+CXXPICFLAG="-fPIC"
+FPICFLAG="-fPIC"
+SHLEXT="so"
+SHLLIB='$(SHLEXT)'
+SHLBIN=
+SHLEXT_VER='$(SHLEXT).$(version)'
+SHLLIB_VER='$(SHLLIB).$(version)'
+SHLBIN_VER='$(SHLBIN).$(version)'
+SHLLINKEXT=
+LIBEXT=a
+SH_LD2=$CXX
+SH_LD=$FC
+SH_LDFLAGS=-shared
+SH_LINKING_TO_FLAGS=
+DL_LD='$(SH_LD)'
+DL_LDFLAGS='$(SH_LDFLAGS)'
+SONAME_FLAGS=
+LD_LIBRARY_PATH_VAR=LD_LIBRARY_PATH
+LIBSOLVER_DEPS=$LIBS
+RPATH_FLAG=
+SH_EXPALL_FLAG=
+case "$canonical_host_type" in
+  *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
+    SH_LD="ld"
+    SH_LDFLAGS="-Bshareable"
+  ;;
+  *-*-freebsd*)
+    SH_LD='$(CC)'
+    SH_LDFLAGS="-shared"
+  ;;
+  alpha*-dec-osf*)
+    SH_LDFLAGS="-shared"
+  ;;
+  *-*-darwin*)
+    SH_LD="gcc"
+    SH_LDFLAGS='-dynamiclib -undefined dynamic_lookup -single_module ${LDFLAGS}'
+    SHLEXT="dylib"
+    LD_LIBRARY_PATH_VAR=DYLD_LIBRARY_PATH
+  ;;
+  *-*-cygwin* | *-*-mingw*)
+       SHLEXT=dll
+       SH_LDFLAGS="-shared"
+  ;;
+  *-*-linux* | *-*-gnu*)
+	RPATH_FLAG="-Wl,-rpath "
+	SH_EXPALL_FLAG="-Wl,--export-dynamic"
+  ;;
+  i[3456]86-*-sco3.2v5*)
+    SH_LDFLAGS="-G"
+  ;;
+  rs6000-ibm-aix* | powerpc-ibm-aix*)
+    SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
+    SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared"
+    LD_LIBRARY_PATH_VAR=LIBPATH
+#    RPATH_FLAG="-blibpath:"
+    SH_EXPALL_FLAG="-bexpall"
+  ;;
+  hppa*-hp-hpux*)
+    SH_LDFLAGS="-shared -fPIC"
+  ;;
+  *-sgi-*)
+      true
+  ;;
+  sparc-sun-sunos4*)
+    SH_LD=ld
+    SH_LDFLAGS="-assert nodefinitions"
+    if test "$GXX" != yes; then
+      SH_LDFLAGS=-G
+      RPATH_FLAG="-R"
+    fi
+
+
+  ;;
+  sparc-sun-solaris2* | i386-pc-solaris2*)
+    if test "$GXX" != yes; then
+      SH_LDFLAGS=-G
+      RPATH_FLAG="-R"
+    fi
+  ;;
+esac
+
+case $FC in
+    pgf*)
+	# portland group does it differently
+	RPATH_FLAG="-R"
     ;;
 esac
-{ echo "$as_me:$LINENO: checking for Mach-O/dyld.h" >&5
-echo $ECHO_N "checking for Mach-O/dyld.h... $ECHO_C" >&6; }
-if test "${ac_cv_header_Mach_O_dyld_h+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_cv_header_Mach_O_dyld_h=$ac_header_preproc
-fi
-{ echo "$as_me:$LINENO: result: $ac_cv_header_Mach_O_dyld_h" >&5
-echo "${ECHO_T}$ac_cv_header_Mach_O_dyld_h" >&6; }
-
-fi
 
 
-  if test "$ac_cv_header_Mach_O_dyld_h" = yes; then
-    dyld_api=true
-  else
+
+
+### Dynamic linking is now enabled only if we are building shared
+### libs and some API for dynamic linking is detected.
+
+LD_CXX='$(CXX)'
+LIBDLFCN=
+DLFCN_INCFLAGS=
+RDYNAMIC_FLAG=
+DL_API_MSG=""
+dlopen_api=false
+shl_load_api=false
+loadlibrary_api=false
+dyld_api=false
+
+### yes atleast now
+SHARED_LIBS=true
+if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
+
+  ### Check for dyld first since OS X can have a non-standard libdl
+
 
 { echo "$as_me:$LINENO: checking for shl_load in -ldld" >&5
 echo $ECHO_N "checking for shl_load in -ldld... $ECHO_C" >&6; }
@@ -7583,7 +7656,6 @@ done
 	fi
       fi
     fi
-  fi
 
   if $dlopen_api; then
     DL_API_MSG="(dlopen)"
@@ -7629,6 +7701,9 @@ cat >>confdefs.h <<_ACEOF
 _ACEOF
 
 fi
+
+
+
 
 
 
@@ -7689,11 +7764,19 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
   ;;
-  *-*-cygwin* | *-*-mingw*)
+  *-*-cygwin*)
 	acx_platform_def="WIN32"
 
 cat >>confdefs.h <<\_ACEOF
-#define WIN32 1
+#define CYGWIN 1
+_ACEOF
+
+  ;;
+  *-*-mingw*)
+	acx_platform_def="WIN32"
+
+cat >>confdefs.h <<\_ACEOF
+#define MINGW32 1
 _ACEOF
 
   ;;
@@ -7712,6 +7795,7 @@ _ACEOF
 
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
+	acx_platform_def="AIX"
 
 cat >>confdefs.h <<\_ACEOF
 #define AIX 1
@@ -7747,6 +7831,16 @@ _ACEOF
 
   ;;
 esac
+
+
+
+if test "$acx_platform_def" = "AIX"; then
+  IBM_IS_PIECE_OF_SHIT_TRUE=
+  IBM_IS_PIECE_OF_SHIT_FALSE='#'
+else
+  IBM_IS_PIECE_OF_SHIT_TRUE='#'
+  IBM_IS_PIECE_OF_SHIT_FALSE=
+fi
 
 
 
@@ -7926,6 +8020,88 @@ _ACEOF
 fi
 
 
+{ echo "$as_me:$LINENO: checking whether we are using the Microsoft C compiler" >&5
+echo $ECHO_N "checking whether we are using the Microsoft C compiler... $ECHO_C" >&6; }
+if test "${acx_cv_c_compiler_ms+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+#ifdef FC_DUMMY_MAIN
+#ifndef FC_DUMMY_MAIN_EQ_F77
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int FC_DUMMY_MAIN() { return 1; }
+#endif
+#endif
+int
+main ()
+{
+#ifndef _MSC_VER
+       choke me
+#endif
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  acx_compiler_ms=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+acx_compiler_ms=no
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+acx_cv_c_compiler_ms=$acx_compiler_ms
+
+fi
+{ echo "$as_me:$LINENO: result: $acx_cv_c_compiler_ms" >&5
+echo "${ECHO_T}$acx_cv_c_compiler_ms" >&6; }
+
+if test "$acx_cv_c_compiler_ms" = "yes"; then
+
+cat >>confdefs.h <<\_ACEOF
+#define STDCALLBULL __stdcall
+_ACEOF
+
+else
+
+cat >>confdefs.h <<\_ACEOF
+#define STDCALLBULL
+_ACEOF
+
+fi
+
+
 
 
 if test "$acx_platform_def" = "WIN32"; then
@@ -8065,6 +8241,13 @@ if test -z "${USE_64BIT_ARCH_TRUE}" && test -z "${USE_64BIT_ARCH_FALSE}"; then
   { { echo "$as_me:$LINENO: error: conditional \"USE_64BIT_ARCH\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
 echo "$as_me: error: conditional \"USE_64BIT_ARCH\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+if test -z "${IBM_IS_PIECE_OF_SHIT_TRUE}" && test -z "${IBM_IS_PIECE_OF_SHIT_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"IBM_IS_PIECE_OF_SHIT\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"IBM_IS_PIECE_OF_SHIT\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
@@ -8693,7 +8876,11 @@ s,@USE_64BIT_ARCH_FALSE@,$USE_64BIT_ARCH_FALSE,;t t
 s,@B64FLAGS@,$B64FLAGS,;t t
 s,@FCLIBS@,$FCLIBS,;t t
 s,@LD_LIBRARY_PATH_VAR@,$LD_LIBRARY_PATH_VAR,;t t
+s,@RPATH_FLAG@,$RPATH_FLAG,;t t
+s,@SH_EXPALL_FLAG@,$SH_EXPALL_FLAG,;t t
 s,@canonical_host_type@,$canonical_host_type,;t t
+s,@IBM_IS_PIECE_OF_SHIT_TRUE@,$IBM_IS_PIECE_OF_SHIT_TRUE,;t t
+s,@IBM_IS_PIECE_OF_SHIT_FALSE@,$IBM_IS_PIECE_OF_SHIT_FALSE,;t t
 s,@USE_SHARED_LIBS_TRUE@,$USE_SHARED_LIBS_TRUE,;t t
 s,@USE_SHARED_LIBS_FALSE@,$USE_SHARED_LIBS_FALSE,;t t
 s,@LIBOBJS@,$LIBOBJS,;t t

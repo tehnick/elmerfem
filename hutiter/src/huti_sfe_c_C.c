@@ -101,8 +101,8 @@ extern void FC_FUNC_(huti_cdummy_pcondfun, HUTI_CDUMMY_PCONDFUN) (void *u, void 
 
 
 
-extern void FC_FUNC(cdotu,CDOTU) (int *N, void *x, int *xind, void *y, int *yind);
-extern void FC_FUNC(cdotc,CDOTC) (int *N, void *x, int *xind, void *y, int *yind);
+extern void FC_FUNC(cdotu,CDOTU) (int *N, void *x, int *xind, void *y, int *yind, void *blah);
+extern void FC_FUNC(cdotc,CDOTC) (int *N, void *x, int *xind, void *y, int *yind, void *blah);
 extern void FC_FUNC(scnrm2,SCNRM2) (int *N, void *x, int *xind);
 
 
@@ -112,7 +112,7 @@ extern void FC_FUNC(scnrm2,SCNRM2) (int *N, void *x, int *xind);
 
 
 
-void FC_FUNC_(huti_c_cg, HUTI_C_CG) ( void *xvec, void *rhsvec,
+void STDCALLBULL FC_FUNC_(huti_c_cg, HUTI_C_CG) ( void *xvec, void *rhsvec,
 		int *ipar, double *dpar, void *work,
 		void (*matvecsubr)(),
 		void (*pcondlsubr)(),

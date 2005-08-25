@@ -112,7 +112,7 @@ extern void FC_FUNC(dnrm2,DNRM2) (int *N, void *x, int *xind);
 
 
 
-void FC_FUNC_(huti_d_cg, HUTI_D_CG) ( void *xvec, void *rhsvec,
+void  STDCALLBULL FC_FUNC_(huti_d_cg, HUTI_D_CG) ( void *xvec, void *rhsvec,
 		int *ipar, double *dpar, void *work,
 		void (*matvecsubr)(),
 		void (*pcondlsubr)(),
@@ -148,7 +148,7 @@ void FC_FUNC_(huti_d_cg, HUTI_D_CG) ( void *xvec, void *rhsvec,
 
 
 
-void FC_FUNC_(huti_d_tfqmr, HUTI_D_TFQMR) ( void *xvec, void *rhsvec,
+void  STDCALLBULL FC_FUNC_(huti_d_tfqmr, HUTI_D_TFQMR) ( void *xvec, void *rhsvec,
 
 		int *ipar, double *dpar, void *work,
 		void (*matvecsubr)(),
@@ -185,7 +185,7 @@ void FC_FUNC_(huti_d_tfqmr, HUTI_D_TFQMR) ( void *xvec, void *rhsvec,
 
 
 
-void FC_FUNC_(huti_d_cgs, HUTI_D_CGS) ( void *xvec, void *rhsvec,
+void  STDCALLBULL FC_FUNC_(huti_d_cgs, HUTI_D_CGS) ( void *xvec, void *rhsvec,
 		int *ipar, double *dpar, void *work,
 		void (*matvecsubr)(),
 		void (*pcondlsubr)(),
@@ -221,7 +221,7 @@ void FC_FUNC_(huti_d_cgs, HUTI_D_CGS) ( void *xvec, void *rhsvec,
 
 
 
-void FC_FUNC_(huti_d_qmr, HUTI_D_QMR) ( void *xvec, void *rhsvec,
+void  STDCALLBULL FC_FUNC_(huti_d_qmr, HUTI_D_QMR) ( void *xvec, void *rhsvec,
 		int *ipar, double *dpar, void *work,
 		void (*matvecsubr)(),
 		void (*pcondlsubr)(),
@@ -255,7 +255,7 @@ void FC_FUNC_(huti_d_qmr, HUTI_D_QMR) ( void *xvec, void *rhsvec,
 
 
 
-void FC_FUNC_(huti_d_bicgstab, HUTI_D_BICGSTAB) ( void *xvec, void *rhsvec,
+void  STDCALLBULL FC_FUNC_(huti_d_bicgstab, HUTI_D_BICGSTAB) ( void *xvec, void *rhsvec,
 		int *ipar, double *dpar, void *work,
 		void (*matvecsubr)(),
 		void (*pcondlsubr)(),
@@ -291,7 +291,7 @@ void FC_FUNC_(huti_d_bicgstab, HUTI_D_BICGSTAB) ( void *xvec, void *rhsvec,
 
 
 
-void FC_FUNC_(huti_d_gmres, HUTI_D_GMRES) ( void *xvec, void *rhsvec,
+void STDCALLBULL FC_FUNC_(huti_d_gmres, HUTI_D_GMRES) ( void *xvec, void *rhsvec,
 		int *ipar, double *dpar, void *work,
 		void (*matvecsubr)(),
 		void (*pcondlsubr)(),
@@ -326,7 +326,7 @@ void FC_FUNC_(huti_d_gmres, HUTI_D_GMRES) ( void *xvec, void *rhsvec,
 
 
 
-void FC_FUNC_(huti_d_bicgstab_2, HUTI_D_BICGSTAB_2) ( void *xvec, void *rhsvec,
+void STDCALLBULL FC_FUNC_(huti_d_bicgstab_2, HUTI_D_BICGSTAB_2) ( void *xvec, void *rhsvec,
 		int *ipar, double *dpar, void *work,
 		void (*matvecsubr)(),
 		void (*pcondlsubr)(),

@@ -41,7 +41,7 @@ build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
 subdir = src/tk
-DIST_COMMON = $(noinst_HEADERS) $(srcdir)/Makefile.am \
+DIST_COMMON = $(am__noinst_HEADERS_DIST) $(srcdir)/Makefile.am \
 	$(srcdir)/Makefile.in
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/acx_gl.m4 \
@@ -55,9 +55,12 @@ CONFIG_CLEAN_FILES =
 LIBRARIES = $(noinst_LIBRARIES)
 libtk_a_AR = $(AR) $(ARFLAGS)
 libtk_a_LIBADD =
-am_libtk_a_OBJECTS = cursor.$(OBJEXT) event.$(OBJEXT) font.$(OBJEXT) \
-	getset.$(OBJEXT) image.$(OBJEXT) window.$(OBJEXT) \
-	shapes.$(OBJEXT)
+am__libtk_a_SOURCES_DIST = cursor.c event.c font.c getset.c image.c \
+	private.h window.c shapes.c
+@NOTWINDOWS_TRUE@am_libtk_a_OBJECTS = cursor.$(OBJEXT) event.$(OBJEXT) \
+@NOTWINDOWS_TRUE@	font.$(OBJEXT) getset.$(OBJEXT) \
+@NOTWINDOWS_TRUE@	image.$(OBJEXT) window.$(OBJEXT) \
+@NOTWINDOWS_TRUE@	shapes.$(OBJEXT)
 libtk_a_OBJECTS = $(am_libtk_a_OBJECTS)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
 depcomp = $(SHELL) $(top_srcdir)/depcomp
@@ -67,7 +70,8 @@ COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 CCLD = $(CC)
 LINK = $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) $(LDFLAGS) -o $@
 SOURCES = $(libtk_a_SOURCES)
-DIST_SOURCES = $(libtk_a_SOURCES)
+DIST_SOURCES = $(am__libtk_a_SOURCES_DIST)
+am__noinst_HEADERS_DIST = tk.h private.h
 HEADERS = $(noinst_HEADERS)
 ETAGS = etags
 CTAGS = ctags
@@ -84,7 +88,6 @@ AUTOMAKE = @AUTOMAKE@
 AWK = @AWK@
 B64FLAGS = @B64FLAGS@
 CC = @CC@
-CCC = @CCC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
 CPP = @CPP@
@@ -107,7 +110,8 @@ GLU_CFLAGS = @GLU_CFLAGS@
 GLU_LIBS = @GLU_LIBS@
 GL_CFLAGS = @GL_CFLAGS@
 GL_LIBS = @GL_LIBS@
-GREP = @GREP@
+IBM_IS_PIECE_OF_SHIT_FALSE = @IBM_IS_PIECE_OF_SHIT_FALSE@
+IBM_IS_PIECE_OF_SHIT_TRUE = @IBM_IS_PIECE_OF_SHIT_TRUE@
 INSTALL_DATA = @INSTALL_DATA@
 INSTALL_PROGRAM = @INSTALL_PROGRAM@
 INSTALL_SCRIPT = @INSTALL_SCRIPT@
@@ -122,6 +126,8 @@ MAINTAINER_MODE_FALSE = @MAINTAINER_MODE_FALSE@
 MAINTAINER_MODE_TRUE = @MAINTAINER_MODE_TRUE@
 MAKEINFO = @MAKEINFO@
 MATC_LIBS = @MATC_LIBS@
+NOTWINDOWS_FALSE = @NOTWINDOWS_FALSE@
+NOTWINDOWS_TRUE = @NOTWINDOWS_TRUE@
 OBJEXT = @OBJEXT@
 PACKAGE = @PACKAGE@
 PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
@@ -144,6 +150,8 @@ STRIP = @STRIP@
 TCLTK_LIBS = @TCLTK_LIBS@
 USE_64BIT_ARCH_FALSE = @USE_64BIT_ARCH_FALSE@
 USE_64BIT_ARCH_TRUE = @USE_64BIT_ARCH_TRUE@
+USE_WINDOWS_COMPILER_FALSE = @USE_WINDOWS_COMPILER_FALSE@
+USE_WINDOWS_COMPILER_TRUE = @USE_WINDOWS_COMPILER_TRUE@
 VERSION = @VERSION@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
@@ -168,30 +176,23 @@ build_os = @build_os@
 build_vendor = @build_vendor@
 canonical_host_type = @canonical_host_type@
 datadir = @datadir@
-datarootdir = @datarootdir@
-docdir = @docdir@
-dvidir = @dvidir@
 exec_prefix = @exec_prefix@
 host = @host@
 host_alias = @host_alias@
 host_cpu = @host_cpu@
 host_os = @host_os@
 host_vendor = @host_vendor@
-htmldir = @htmldir@
 includedir = @includedir@
 infodir = @infodir@
 install_sh = @install_sh@
 libdir = @libdir@
 libexecdir = @libexecdir@
-localedir = @localedir@
 localstatedir = @localstatedir@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
 oldincludedir = @oldincludedir@
-pdfdir = @pdfdir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
-psdir = @psdir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
@@ -200,18 +201,18 @@ target_alias = @target_alias@
 target_cpu = @target_cpu@
 target_os = @target_os@
 target_vendor = @target_vendor@
-noinst_LIBRARIES = libtk.a
-libtk_a_SOURCES = \
-	cursor.c \
-	event.c \
-	font.c \
-	getset.c \
-	image.c \
-	private.h \
-	window.c \
-	shapes.c 
+@NOTWINDOWS_TRUE@noinst_LIBRARIES = libtk.a
+@NOTWINDOWS_TRUE@libtk_a_SOURCES = \
+@NOTWINDOWS_TRUE@	cursor.c \
+@NOTWINDOWS_TRUE@	event.c \
+@NOTWINDOWS_TRUE@	font.c \
+@NOTWINDOWS_TRUE@	getset.c \
+@NOTWINDOWS_TRUE@	image.c \
+@NOTWINDOWS_TRUE@	private.h \
+@NOTWINDOWS_TRUE@	window.c \
+@NOTWINDOWS_TRUE@	shapes.c 
 
-noinst_HEADERS = tk.h private.h
+@NOTWINDOWS_TRUE@noinst_HEADERS = tk.h private.h
 all: all-am
 
 .SUFFIXES:

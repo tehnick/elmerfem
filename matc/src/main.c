@@ -1,8 +1,10 @@
-
 /*
- * $Id: main.c,v 1.7 2005/08/10 14:16:59 vierinen Exp $ 
+ * $Id: main.c,v 1.8 2005/08/11 14:18:25 vierinen Exp $ 
  *
  * $Log: main.c,v $
+ * Revision 1.8  2005/08/11 14:18:25  vierinen
+ * *** empty log message ***
+ *
  * Revision 1.7  2005/08/10 14:16:59  vierinen
  * *** empty log message ***
  *
@@ -53,12 +55,13 @@ void main( int argc, char **argv )
   char strt[2000];
   char *str;
 
-    mtc_init( stdin,stdout, stderr );
-    mtc_domath( "source(\"mc.ini\")" );
+  mtc_init( stdin, stdout, stderr );
+  mtc_domath( "source(\"mc.ini\")" );
 
-    signal( SIGINT, SIG_IGN );
-    while( 1 )
-    {
+  signal( SIGINT, SIG_IGN );
+
+  while( 1 )
+  {
 #ifdef USE_READLINE
       str = readline ("MATC> ");
       /* add to history */
@@ -66,13 +69,12 @@ void main( int argc, char **argv )
 	add_history (str);
 
 #else
-      fprintf( stdout, "MATC> " );
       fgets( strt,  2000 , stdin);
       str = strt;      
 #endif
       
 /* kludge to enable exit. */
-#ifdef MINGW32
+#if defined(WIN32) || defined(MINGW32)
       if( stricmp(str,"exit") == 0  || stricmp(str,"quit") == 0 )
 #else
       if( strcasecmp(str,"exit") == 0  || strcasecmp(str,"quit") == 0 )

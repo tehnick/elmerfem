@@ -2,7 +2,7 @@
 /*
  Internal definitions for HUTIter library
 
- $Id: huti_intdefs.h,v 1.2 2005/04/19 08:28:32 vierinen Exp $
+ $Id: huti_intdefs.h,v 1.5 2005/06/02 15:35:27 vierinen Exp $
 */
 
 #define AUTOC "!!! This file is generated automatically, do not edit !!!"
@@ -20,8 +20,8 @@
 #  define NORMFUN_PREC_TYPE real
 #  define MAKE_F_SUBRN( bn1, bn2, bn3, bn4 ) FC_FUNC_(bn2/**/s/**/bn4,bn1/**/S/**/bn3)
 #  define MAKE_SUBRN( bn1, bn2 )  bn1/**/s/**/bn2
-#  define PRECD_DUMMY_PCONDFUN FC_FUNC_(huti_sdummy_pcondfun, HUTI_SDUMMY_PCONDFUN)
-#  define PRECD_BLAS_DOTPRODFUN FC_FUNC(sdot,SDOT)
+#  define PRECD_DUMMY_PCONDFUN  FC_FUNC_(huti_sdummy_pcondfun, HUTI_SDUMMY_PCONDFUN)
+#  define PRECD_BLAS_DOTPRODFUN  FC_FUNC(sdot,SDOT)
 #  define PRECD_BLAS_DOTPRODFUN_N FC_FUNC(sdot,SDOT)
 #  define PRECD_BLAS_NORMFUN FC_FUNC(snrm2,SNRM2)
 # endif

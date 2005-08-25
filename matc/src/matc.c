@@ -56,9 +56,12 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: matc.c,v 1.1.1.1 2005/04/14 13:29:14 vierinen Exp $ 
+ * $Id: matc.c,v 1.2 2005/05/27 12:26:20 vierinen Exp $ 
  *
  * $Log: matc.c,v $
+ * Revision 1.2  2005/05/27 12:26:20  vierinen
+ * changed header install location
+ *
  * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
  * initial matc automake package
  *
@@ -75,6 +78,7 @@ $  usage of the function and type of the parameters
 #define MODULE_MATC
 #include "elmer/matc.h"
 #include "str.h"
+#include "../config.h"
 
 #ifdef DEBUG
       FILE *fplog;
@@ -195,7 +199,7 @@ void mtc_init( FILE *input_file, FILE *output_file, FILE *error_file )
   return;   /* done */
 }
 
-char *mtc_domath( char *str )
+char * mtc_domath( char *str )
 {
   VARIABLE *headsave;            /* this should not be here */
 
@@ -213,9 +217,9 @@ char *mtc_domath( char *str )
   savejmp = jmpbuf;
   jmpbuf = &jmp;
 
-#ifdef DEBUG
+#ifdef DEBUG 
   fprintf( stderr, "got [%s]\n", str );
-#endif
+#endif 
   if ( math_out_str ) math_out_str[0] = '\0';
   math_out_count  = 0;
 

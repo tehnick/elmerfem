@@ -6,6 +6,7 @@ AC_REQUIRE([ACX_PTHREAD])dnl
 # There isn't a reliable way to know we should use the Apple OpenGL framework
 # without a configure option.  A Mac OS X user may have installed an
 # alternative GL implementation (e.g., Mesa), which may or may not depend on X.
+# if windows, then also check for: glaux.lib gdi32.lib user32.lib advapi32.lib
 #
 AC_ARG_WITH([apple-opengl-framework],
             [AC_HELP_STRING([--with-apple-opengl-framework],

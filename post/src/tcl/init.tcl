@@ -33,6 +33,7 @@
 #*       Date of modification:
 #*
 #*******************************************************************************
+puts "start init"
 set tcl_interactive 1
 
 set platform $tcl_platform(platform)
@@ -48,6 +49,7 @@ if { $platform == "windows" } {
   tk appname $elmerpost_id
 }
 
+puts "start init2"
 
 if { [info exists env(ELMER_POST_HOME)] } {
    set ELMER_POST_HOME [file join "" $env(ELMER_POST_HOME)]
@@ -60,6 +62,8 @@ if { [info exists env(LD_LIBRARY_PATH)] } {
    set LD_LIBRARY_PATH $env(LD_LIBRARY_PATH)
 
 }
+
+puts "start init3"
 
 set elm_auto_load_packages 1
 set global_limits(MAX_COLORMAP_ENTRIES) 512
@@ -85,6 +89,8 @@ proc display {} { translate -r 0 0 0; ActivateGraphicsWindow; }
 proc p    {} { display }
 proc play {} { display }
 
+puts "start init4"
+
 proc do { var beg end body {doupdate 0} } {
    global errorInfo errorCode BreakLoop
    upvar $var v
@@ -109,6 +115,8 @@ proc do { var beg end body {doupdate 0} } {
    focus $do_focus
 }
 
+puts "start init5"
+
 proc forever { body }  {
     global BreakLoop
 
@@ -126,6 +134,7 @@ proc forever { body }  {
    }
 }
 
+puts "start init6"
 rename scale slider
 proc Exit {} { exit }
 
@@ -145,6 +154,8 @@ proc place_window { win } {
   wm geometry $win $s1[@ $x+100]$s2[@ $y+200]
 }
 
+
+puts "start init7"
 source $ELMER_POST_HOME/tcl/menu.tcl
 source $ELMER_POST_HOME/tcl/readfile.tcl
 source $ELMER_POST_HOME/tcl/math.tcl
@@ -160,6 +171,8 @@ source $ELMER_POST_HOME/tcl/timestep.tcl
 source $ELMER_POST_HOME/tcl/camera.tcl
 source $ELMER_POST_HOME/tcl/clip.tcl
 
+puts "start init8"
+
 source $ELMER_POST_HOME/tcl/mesh.tcl
 source $ELMER_POST_HOME/tcl/vectors.tcl
 source $ELMER_POST_HOME/tcl/contours.tcl
@@ -173,6 +186,7 @@ source $ELMER_POST_HOME/tcl/LoadSicopolis.tcl
 #source $ELMER_POST_HOME/tcl/message.tcl
 
 source $ELMER_POST_HOME/help/help.tcl
+puts "start init9"
 
 material -diffuse 90,90,90 -specular 0,0,0 -opacity 100 -shininess 20
 background 0 0 0
@@ -180,7 +194,12 @@ colormap $ELMER_POST_HOME/lib/colormaps/default.cm
 rotpriority local
 UpdateObject
 
-math "source(\"$ELMER_POST_HOME/lib/mc.ini\")"
+
+puts "start init9.1"
+
+# math "source(\"$ELMER_POST_HOME/lib/mc.ini\")"
+
+puts "start init10"
 
 #
 # load shared modules from post/modules directory

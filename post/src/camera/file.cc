@@ -1,5 +1,5 @@
 //
-// "$Id: file.cc,v 1.2 2004/11/29 08:26:22 jpr Exp $"
+// "$Id: file.cc,v 1.1.1.1 2005/05/31 06:29:21 vierinen Exp $"
 //
 //   GLPfile class function for the GLP library, an OpenGL printing toolkit.
 //
@@ -16,6 +16,9 @@
 // Revision History:
 //
 //   $Log: file.cc,v $
+//   Revision 1.1.1.1  2005/05/31 06:29:21  vierinen
+//   ads
+//
 //   Revision 1.2  2004/11/29 08:26:22  jpr
 //   *** empty log message ***
 //
@@ -46,7 +49,14 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+
+#if defined(HAVE_STRINGS_H)
 #include <strings.h>
+#endif
+
+#if defined(HAVE_STRING_H)
+#include <string.h>
+#endif
 
 #include "glpfile.h"
 
@@ -481,5 +491,5 @@ extern "C" void OutputPSString( double x, double y, double h, double r, double g
 }
 
 //
-// End of "$Id: file.cc,v 1.2 2004/11/29 08:26:22 jpr Exp $".
+// End of "$Id: file.cc,v 1.1.1.1 2005/05/31 06:29:21 vierinen Exp $".
 //

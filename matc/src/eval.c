@@ -56,9 +56,12 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: eval.c,v 1.2 2005/05/26 12:34:53 vierinen Exp $ 
+ * $Id: eval.c,v 1.3 2005/05/27 12:26:20 vierinen Exp $ 
  *
  * $Log: eval.c,v $
+ * Revision 1.3  2005/05/27 12:26:20  vierinen
+ * changed header install location
+ *
  * Revision 1.2  2005/05/26 12:34:53  vierinen
  * windows stuff
  *
@@ -440,7 +443,7 @@ VARIABLE *evalclause(root) CLAUSE *root;
       ************************************************************/
       case systemcall:
       {
-#ifdef WIN32
+#if defined(WIN32) || defined(MINGW32)
            FILE *fp = _popen( SDATA(root->this), "r" );
 #else
            FILE *fp = popen( SDATA(root->this), "r" );
@@ -451,7 +454,7 @@ VARIABLE *evalclause(root) CLAUSE *root;
 
            while( fgets( s, 120, fp ) ) PrintOut( s );
   
-#ifdef WIN32
+#if defined(WIN32) || defined(MINGW32)
            _pclose( fp );
 #else
            pclose( fp );

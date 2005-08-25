@@ -46,6 +46,17 @@ COMMON_SRCS =  \
 	huti_sfe_c_Z.c \
 	huti_tfqmr_Z.F90
 
+
+if USING_MS_C_COMPILER
+# stupid hack around shitty visual fortran CPP
+
+.F90.obj:
+	rm -f tmp.f90
+	$(CPP) $< > tmp.f90
+	$(PPFCCOMPILE) -c -o $@ tmp.f90
+
+endif
+
 lib_LIBRARIES = libhuti.a
 libhuti_a_SOURCES = $(COMMON_SRCS)
 
@@ -55,7 +66,7 @@ libhuti_a_SOURCES = $(COMMON_SRCS)
 # platforms.
 #
 #
-HUTI_CPP=cpp
+HUTI_CPP=$(CPP)
 HUTI_PPFLAGS = -traditional -P
 # and now for some sed generated makefile...
 huti_aux_C.F90:

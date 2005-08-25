@@ -1,7 +1,7 @@
 /* ========================================================================== */
 /* === umf_config.h ========================================================= */
 /* ========================================================================== */
-
+#include "../../config.h"
 /* -------------------------------------------------------------------------- */
 /* UMFPACK Version 4.4, Copyright (c) 2005 by Timothy A. Davis.  CISE Dept,   */
 /* Univ. of Florida.  All Rights Reserved.  See ../Doc/License for License.   */
@@ -625,49 +625,29 @@
 
 #else
 
+/* default, use names snooped with autoconf */ 
+
 #ifdef COMPLEX
 
 /* naming convention (use underscore, or not) */
-#ifdef BLAS_NO_UNDERSCORE
-#define BLAS_GEMM_ROUTINE zgemm
-#define BLAS_TRSM_ROUTINE ztrsm
-#define BLAS_TRSV_ROUTINE ztrsv
-#define BLAS_GEMV_ROUTINE zgemv
-#define BLAS_GER_ROUTINE  zgeru
-#define BLAS_SCAL_ROUTINE zscal
-#define BLAS_COPY_ROUTINE zcopy
-#else
-/* default:  add underscore */
-#define BLAS_GEMM_ROUTINE zgemm_
-#define BLAS_TRSM_ROUTINE ztrsm_
-#define BLAS_TRSV_ROUTINE ztrsv_
-#define BLAS_GEMV_ROUTINE zgemv_
-#define BLAS_GER_ROUTINE  zgeru_
-#define BLAS_SCAL_ROUTINE zscal_
-#define BLAS_COPY_ROUTINE zcopy_
-#endif
+#define BLAS_GEMM_ROUTINE FC_FUNC(zgemm,ZGEMM)
+#define BLAS_TRSM_ROUTINE FC_FUNC(ztrsm,ZTRSM)
+#define BLAS_TRSV_ROUTINE FC_FUNC(ztrsv,ZTRSV)
+#define BLAS_GEMV_ROUTINE FC_FUNC(zgemv,ZGEMV)
+#define BLAS_GER_ROUTINE  FC_FUNC(zgeru,ZGERU)
+#define BLAS_SCAL_ROUTINE FC_FUNC(zscal,ZSCAL)
+#define BLAS_COPY_ROUTINE FC_FUNC(zcopy,ZCOPY)
 
 #else
 
 /* naming convention (use underscore, or not) */
-#ifdef BLAS_NO_UNDERSCORE
-#define BLAS_GEMM_ROUTINE dgemm
-#define BLAS_TRSM_ROUTINE dtrsm
-#define BLAS_TRSV_ROUTINE dtrsv
-#define BLAS_GEMV_ROUTINE dgemv
-#define BLAS_GER_ROUTINE  dger
-#define BLAS_SCAL_ROUTINE dscal
-#define BLAS_COPY_ROUTINE dcopy
-#else
-/* default:  add underscore */
-#define BLAS_GEMM_ROUTINE dgemm_
-#define BLAS_TRSM_ROUTINE dtrsm_
-#define BLAS_TRSV_ROUTINE dtrsv_
-#define BLAS_GEMV_ROUTINE dgemv_
-#define BLAS_GER_ROUTINE  dger_
-#define BLAS_SCAL_ROUTINE dscal_
-#define BLAS_COPY_ROUTINE dcopy_
-#endif
+#define BLAS_GEMM_ROUTINE FC_FUNC(dgemm,DGEMM)
+#define BLAS_TRSM_ROUTINE FC_FUNC(dtrsm,DTRSM)
+#define BLAS_TRSV_ROUTINE FC_FUNC(dtrsv,DTRSV)
+#define BLAS_GEMV_ROUTINE FC_FUNC(dgemv,DGEMV)
+#define BLAS_GER_ROUTINE  FC_FUNC(dger,DGER)
+#define BLAS_SCAL_ROUTINE FC_FUNC(dscal,DSCAL)
+#define BLAS_COPY_ROUTINE FC_FUNC(dcopy,DCOPY)
 
 #endif	/* COMPLEX */
 

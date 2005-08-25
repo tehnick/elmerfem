@@ -1,5 +1,10 @@
 SUBDIRS=tk glaux camera graphics modules sico2elmer objects visuals tcl elements 
 
+
+
+
+if NOTWINDOWS
+
 bin_PROGRAMS=ElmerPost QueryGLXExt
 
 ElmerPost_SOURCES=\
@@ -23,8 +28,6 @@ ElmerPost_LDADD=\
 	./glaux/libglaux.a \
 	./tk/libtk.a
 
-ElmerPost_LDFLAGS=$(SH_EXPALL_FLAG)
-
 QueryGLXExt_SOURCES=QueryGLXExt.c 
 
 all-local: screensave.so window.so
@@ -39,7 +42,38 @@ screensave.so: screensave.$(OBJEXT)
 window.so: window.$(OBJEXT)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(SH_LDFLAGS) -o $@ $< glaux/libglaux.a tk/libtk.a $(LIBS) 
 
+else
+
+# WINDOWS
+
+bin_PROGRAMS=ElmerPost 
+
+ElmerPost_SOURCES=\
+	ElmerPost.c \
+	elmerpost.h \
+	geometry.c \
+	geometry.h \
+	LUDecomp.c \
+	second.c \
+	cplusplus.cpp 
+
+ElmerPost_LDADD=\
+	./camera/libcamera.a \
+	./elements/libelements.a \
+	./modules/libmodule.a \
+	./objects/libobjects.a \
+	./visuals/libvisuals.a \
+	./graphics/libgraphics.a \
+	-lglaux  \
+	-lgdi32 \
+	-luser32 \
+	-ladvapi32
+endif
+
+ElmerPost_LDFLAGS=$(SH_EXPALL_FLAG)
+
 ELMER_POST_DATADIR=$(prefix)/share/elmerpost
+
 install-data-local:
 	@echo "Instaling modules to ${ELMER_POST_DATADIR}/modules"
 

@@ -1,3 +1,6 @@
+
+if NOTWINDOWS
+
 noinst_LIBRARIES=libtk.a
 
 libtk_a_SOURCES=\
@@ -11,3 +14,5 @@ libtk_a_SOURCES=\
 	shapes.c 
 
 noinst_HEADERS=tk.h private.h
+
+endif

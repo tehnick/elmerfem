@@ -1335,7 +1335,7 @@ Window tkXWindow()
     return ptr;
 }
 
-/*  #ifdef WIN32  */
+#ifdef WIN32  
 
 static GLubyte rasterFont[][13] = {
     {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
@@ -1450,9 +1450,8 @@ void MakeRasterFontDefault()
     }
 }
 
-/* #else  */
+#else  
 
-#ifndef WIN32
 void InitializeXFonts()
 {
     static char str[32], here = 0;
@@ -1468,7 +1467,7 @@ void InitializeXFonts()
      sprintf( str, "%d", i );
      Tcl_SetVar( TCLInterp, "NumberOfFonts", str, TCL_GLOBAL_ONLY );
 }
-#endif
+
 
 void MakeRasterFont( char *name )
 {
@@ -1491,7 +1490,7 @@ void MakeRasterFont( char *name )
     FontBase = glGenLists( last + 1 );
     glXUseXFont( fontInfo->fid,first,last-first+1,FontBase+first );
 }
-/*  #endif */
+#endif 
 
 void PrintString( char *s )
 {
@@ -2081,14 +2080,23 @@ int main(int argc,char **argv)
 {
     static char init[1024],initcommands[1024],tmp[1024],ephome[512];
     int i,size[4];
+
+    printf("hallou");
+    fflush(stdout);
     
     if ( getenv("ELMER_POST_HOME") == NULL )
     {
       /* use default installation directory just if nothing is set */
+#if defined(WIN32) || defined(MINGW32)  
+      _snprintf( ephome, 512, "ELMER_POST_HOME=%s", ELMER_POST_HOME );
+#else
       snprintf( ephome, 512, "ELMER_POST_HOME=%s", ELMER_POST_HOME );
+#endif
+
       putenv( ephome );
     }
 
+    printf("Here we go");
 
     Tcl_FindExecutable( *argv++ );
     TCLInterp = Tcl_CreateInterp();
@@ -2332,19 +2340,32 @@ int main(int argc,char **argv)
     Readfile_Init( TCLInterp );
     Matctcl_Init( TCLInterp );
 
+    printf("signaling\n");
+    fflush(stdout);
+
     signal( SIGFPE, SIG_IGN );
     signal( SIGINT, int_sig );
+
+    printf("getenv\n");
+    fflush(stdout);
 
     *init = '\0';
     if ( getenv("ELMER_POST_HOME") )
     {
         strncat( init,getenv("ELMER_POST_HOME"),511);
-        strncat( init,"/",511 );
+        strncat( init,"\\",511 );
     }
 
-    strncat( init,"tcl/init.tcl",511 );
+    printf("TclEvalFile\n");
+    fflush(stdout);
+
+    strncat( init,"tcl\\init.tcl",511 );
     fprintf( stdout, "Initialization File: [%s]\n", init );
+    fflush(stdout);
     Tcl_EvalFile( TCLInterp,init );
+
+    printf("DoOneEvent\n");
+    fflush(stdout);
 
     while( Tk_DoOneEvent(TCL_DONT_WAIT) );
 
@@ -2359,6 +2380,9 @@ int main(int argc,char **argv)
     auxMouseFunc( AUX_LEFTBUTTON,   AUX_MOUSEDOWN, Mouse );
     auxMouseFunc( AUX_MIDDLEBUTTON, AUX_MOUSEDOWN, Mouse );
 #endif
+
+    printf("Entering gra init\n");
+    fflush(stdout);
 
     gra_init();
 
@@ -2375,7 +2399,9 @@ int main(int argc,char **argv)
       Tcl_Eval( TCLInterp, buf );
       Tcl_DStringFree( &dstring );
     }
-
+    
+    printf("Entering main loop\n");
+    fflush(stdout);
 #ifdef WIN32
     auxMainLoop( (AUXMAINPROC)DrawItSomeTimeWhenIdle );
 #else
