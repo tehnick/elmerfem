@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.70 2005/08/24 16:17:19 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.72 2005/08/26 09:54:15 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -354,8 +354,6 @@ case $with_eioc in
 esac
 
 acx_eioc_save_LIBS="$LIBS"
-
-LIBS="-leioc $LIBS"
 
 # First, check EIO_LIBS environment variable
 if test $acx_eioc_ok = no; then
@@ -1798,9 +1796,10 @@ acx_cv_[]_AC_LANG_ABBREV[]_compiler_ms=$acx_compiler_ms
 if test "$acx_cv_c_compiler_ms" = "yes"; then
 	AC_DEFINE(STDCALLBULL,[__stdcall],[Standard windows call declaration])
 	AC_DEFINE(C_DLLEXPORT,[__declspec(dllexport)],[Standard windows call declaration])
-	AM_CONDITIONAL(USE_WINDOWS_COMPILER, test "$acx_cv_c_compiler_ms" = "yes")
+
 else
 	AC_DEFINE(STDCALLBULL,,[Standard windows call declaration])
 	AC_DEFINE(C_DLLEXPORT,,[Standard windows call declaration])
 fi
+AM_CONDITIONAL(USE_WINDOWS_COMPILER, test "$acx_cv_c_compiler_ms" = "yes")
 ])

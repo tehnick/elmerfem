@@ -684,8 +684,6 @@ FLIBS
 FCLIBS
 USE_WINDOWS_COMPILER_TRUE
 USE_WINDOWS_COMPILER_FALSE
-USING_MS_C_COMPILER_TRUE
-USING_MS_C_COMPILER_FALSE
 BLAS_LIBS
 AM_FCFLAGS
 LIBOBJS
@@ -7136,127 +7134,6 @@ CFLAGS="$CFLAGS -I$prefix/include"
 CXXFLAGS="$CXXFLAGS -I$prefix/include"
 FCFLAGS="$FCFLAGS -I. -I$prefix/include"
 
-{ echo "$as_me:$LINENO: checking whether we are using the Microsoft C compiler" >&5
-echo $ECHO_N "checking whether we are using the Microsoft C compiler... $ECHO_C" >&6; }
-if test "${acx_cv_c_compiler_ms+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-
-#ifdef F77_DUMMY_MAIN
-
-#  ifdef __cplusplus
-     extern "C"
-#  endif
-   int F77_DUMMY_MAIN() { return 1; }
-
-#endif
-#ifdef FC_DUMMY_MAIN
-#ifndef FC_DUMMY_MAIN_EQ_F77
-#  ifdef __cplusplus
-     extern "C"
-#  endif
-   int FC_DUMMY_MAIN() { return 1; }
-#endif
-#endif
-int
-main ()
-{
-#ifndef _MSC_VER
-       choke me
-#endif
-
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext
-if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
-  (eval $ac_compile) 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-	 { ac_try='test -z "$ac_c_werror_flag"
-			 || test ! -s conftest.err'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; } &&
-	 { ac_try='test -s conftest.$ac_objext'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  acx_compiler_ms=yes
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-acx_compiler_ms=no
-fi
-rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
-acx_cv_c_compiler_ms=$acx_compiler_ms
-
-fi
-{ echo "$as_me:$LINENO: result: $acx_cv_c_compiler_ms" >&5
-echo "${ECHO_T}$acx_cv_c_compiler_ms" >&6; }
-
-if test "$acx_cv_c_compiler_ms" = "yes"; then
-
-cat >>confdefs.h <<\_ACEOF
-#define STDCALLBULL __stdcall
-_ACEOF
-
-
-cat >>confdefs.h <<\_ACEOF
-#define C_DLLEXPORT __declspec(dllexport)
-_ACEOF
-
-
-
-if test "$acx_cv_c_compiler_ms" = "yes"; then
-  USE_WINDOWS_COMPILER_TRUE=
-  USE_WINDOWS_COMPILER_FALSE='#'
-else
-  USE_WINDOWS_COMPILER_TRUE='#'
-  USE_WINDOWS_COMPILER_FALSE=
-fi
-
-else
-
-cat >>confdefs.h <<\_ACEOF
-#define STDCALLBULL
-_ACEOF
-
-
-cat >>confdefs.h <<\_ACEOF
-#define C_DLLEXPORT
-_ACEOF
-
-fi
-
-
-
-
-if test "$acx_cv_c_compiler_ms" = "yes"; then
-  USING_MS_C_COMPILER_TRUE=
-  USING_MS_C_COMPILER_FALSE='#'
-else
-  USING_MS_C_COMPILER_TRUE='#'
-  USING_MS_C_COMPILER_FALSE=
-fi
-
-
 
 
 
@@ -7351,6 +7228,116 @@ _ACEOF
   LIBS="-lg2c $LIBS"
 
 fi
+
+{ echo "$as_me:$LINENO: checking whether we are using the Microsoft C compiler" >&5
+echo $ECHO_N "checking whether we are using the Microsoft C compiler... $ECHO_C" >&6; }
+if test "${acx_cv_c_compiler_ms+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+#ifdef F77_DUMMY_MAIN
+
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int F77_DUMMY_MAIN() { return 1; }
+
+#endif
+#ifdef FC_DUMMY_MAIN
+#ifndef FC_DUMMY_MAIN_EQ_F77
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int FC_DUMMY_MAIN() { return 1; }
+#endif
+#endif
+int
+main ()
+{
+#ifndef _MSC_VER
+       choke me
+#endif
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  acx_compiler_ms=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+acx_compiler_ms=no
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+acx_cv_c_compiler_ms=$acx_compiler_ms
+
+fi
+{ echo "$as_me:$LINENO: result: $acx_cv_c_compiler_ms" >&5
+echo "${ECHO_T}$acx_cv_c_compiler_ms" >&6; }
+
+if test "$acx_cv_c_compiler_ms" = "yes"; then
+
+cat >>confdefs.h <<\_ACEOF
+#define STDCALLBULL __stdcall
+_ACEOF
+
+
+cat >>confdefs.h <<\_ACEOF
+#define C_DLLEXPORT __declspec(dllexport)
+_ACEOF
+
+
+else
+
+cat >>confdefs.h <<\_ACEOF
+#define STDCALLBULL
+_ACEOF
+
+
+cat >>confdefs.h <<\_ACEOF
+#define C_DLLEXPORT
+_ACEOF
+
+fi
+
+
+if test "$acx_cv_c_compiler_ms" = "yes"; then
+  USE_WINDOWS_COMPILER_TRUE=
+  USE_WINDOWS_COMPILER_FALSE='#'
+else
+  USE_WINDOWS_COMPILER_TRUE='#'
+  USE_WINDOWS_COMPILER_FALSE=
+fi
+
 
 
 
@@ -9161,12 +9148,6 @@ case "$FC" in
   ;;
 esac
 
-# there are a lot of function pointers declared (without __stdcall) wrong in the
-# *.c files. This kludge fixes them for now.
-if test "$acx_cv_c_compiler_ms" = "yes"; then
-   CFLAGS="$CFLAGS -Gz"
-fi
-
           ac_config_headers="$ac_config_headers config.h"
 
 
@@ -9298,13 +9279,6 @@ if test -z "${USE_WINDOWS_COMPILER_TRUE}" && test -z "${USE_WINDOWS_COMPILER_FAL
   { { echo "$as_me:$LINENO: error: conditional \"USE_WINDOWS_COMPILER\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
 echo "$as_me: error: conditional \"USE_WINDOWS_COMPILER\" was never defined.
-Usually this means the macro was only invoked conditionally." >&2;}
-   { (exit 1); exit 1; }; }
-fi
-if test -z "${USING_MS_C_COMPILER_TRUE}" && test -z "${USING_MS_C_COMPILER_FALSE}"; then
-  { { echo "$as_me:$LINENO: error: conditional \"USING_MS_C_COMPILER\" was never defined.
-Usually this means the macro was only invoked conditionally." >&5
-echo "$as_me: error: conditional \"USING_MS_C_COMPILER\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
@@ -9926,8 +9900,6 @@ s,@FLIBS@,$FLIBS,;t t
 s,@FCLIBS@,$FCLIBS,;t t
 s,@USE_WINDOWS_COMPILER_TRUE@,$USE_WINDOWS_COMPILER_TRUE,;t t
 s,@USE_WINDOWS_COMPILER_FALSE@,$USE_WINDOWS_COMPILER_FALSE,;t t
-s,@USING_MS_C_COMPILER_TRUE@,$USING_MS_C_COMPILER_TRUE,;t t
-s,@USING_MS_C_COMPILER_FALSE@,$USING_MS_C_COMPILER_FALSE,;t t
 s,@BLAS_LIBS@,$BLAS_LIBS,;t t
 s,@AM_FCFLAGS@,$AM_FCFLAGS,;t t
 s,@LIBOBJS@,$LIBOBJS,;t t
