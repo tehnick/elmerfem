@@ -684,6 +684,8 @@ FLIBS
 FCLIBS
 USE_WINDOWS_COMPILER_TRUE
 USE_WINDOWS_COMPILER_FALSE
+USING_MS_C_COMPILER_TRUE
+USING_MS_C_COMPILER_FALSE
 BLAS_LIBS
 AM_FCFLAGS
 LIBOBJS
@@ -7134,101 +7136,6 @@ CFLAGS="$CFLAGS -I$prefix/include"
 CXXFLAGS="$CXXFLAGS -I$prefix/include"
 FCFLAGS="$FCFLAGS -I. -I$prefix/include"
 
-
-
-
-
-
-
-{ echo "$as_me:$LINENO: checking for e_wsfe in -lg2c" >&5
-echo $ECHO_N "checking for e_wsfe in -lg2c... $ECHO_C" >&6; }
-if test "${ac_cv_lib_g2c_e_wsfe+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lg2c  $LIBS"
-cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-
-/* Override any gcc2 internal prototype to avoid an error.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-/* We use char because int might match the return type of a gcc2
-   builtin and then its argument prototype would still apply.  */
-char e_wsfe ();
-#ifdef F77_DUMMY_MAIN
-
-#  ifdef __cplusplus
-     extern "C"
-#  endif
-   int F77_DUMMY_MAIN() { return 1; }
-
-#endif
-#ifdef FC_DUMMY_MAIN
-#ifndef FC_DUMMY_MAIN_EQ_F77
-#  ifdef __cplusplus
-     extern "C"
-#  endif
-   int FC_DUMMY_MAIN() { return 1; }
-#endif
-#endif
-int
-main ()
-{
-e_wsfe ();
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
-if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
-  (eval $ac_link) 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-	 { ac_try='test -z "$ac_c_werror_flag"
-			 || test ! -s conftest.err'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; } &&
-	 { ac_try='test -s conftest$ac_exeext'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  ac_cv_lib_g2c_e_wsfe=yes
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-ac_cv_lib_g2c_e_wsfe=no
-fi
-rm -f conftest.err conftest.$ac_objext \
-      conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ echo "$as_me:$LINENO: result: $ac_cv_lib_g2c_e_wsfe" >&5
-echo "${ECHO_T}$ac_cv_lib_g2c_e_wsfe" >&6; }
-if test $ac_cv_lib_g2c_e_wsfe = yes; then
-  cat >>confdefs.h <<_ACEOF
-#define HAVE_LIBG2C 1
-_ACEOF
-
-  LIBS="-lg2c $LIBS"
-
-fi
-
 { echo "$as_me:$LINENO: checking whether we are using the Microsoft C compiler" >&5
 echo $ECHO_N "checking whether we are using the Microsoft C compiler... $ECHO_C" >&6; }
 if test "${acx_cv_c_compiler_ms+set}" = set; then
@@ -7338,6 +7245,113 @@ else
   USE_WINDOWS_COMPILER_FALSE=
 fi
 
+
+
+
+
+if test "$acx_cv_c_compiler_ms" = "yes"; then
+  USING_MS_C_COMPILER_TRUE=
+  USING_MS_C_COMPILER_FALSE='#'
+else
+  USING_MS_C_COMPILER_TRUE='#'
+  USING_MS_C_COMPILER_FALSE=
+fi
+
+
+
+
+
+
+
+
+{ echo "$as_me:$LINENO: checking for e_wsfe in -lg2c" >&5
+echo $ECHO_N "checking for e_wsfe in -lg2c... $ECHO_C" >&6; }
+if test "${ac_cv_lib_g2c_e_wsfe+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lg2c  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any gcc2 internal prototype to avoid an error.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+/* We use char because int might match the return type of a gcc2
+   builtin and then its argument prototype would still apply.  */
+char e_wsfe ();
+#ifdef F77_DUMMY_MAIN
+
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int F77_DUMMY_MAIN() { return 1; }
+
+#endif
+#ifdef FC_DUMMY_MAIN
+#ifndef FC_DUMMY_MAIN_EQ_F77
+#  ifdef __cplusplus
+     extern "C"
+#  endif
+   int FC_DUMMY_MAIN() { return 1; }
+#endif
+#endif
+int
+main ()
+{
+e_wsfe ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_g2c_e_wsfe=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_lib_g2c_e_wsfe=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ echo "$as_me:$LINENO: result: $ac_cv_lib_g2c_e_wsfe" >&5
+echo "${ECHO_T}$ac_cv_lib_g2c_e_wsfe" >&6; }
+if test $ac_cv_lib_g2c_e_wsfe = yes; then
+  cat >>confdefs.h <<_ACEOF
+#define HAVE_LIBG2C 1
+_ACEOF
+
+  LIBS="-lg2c $LIBS"
+
+fi
 
 
 
@@ -9148,6 +9162,12 @@ case "$FC" in
   ;;
 esac
 
+# there are a lot of function pointers declared (without __stdcall) wrong in the
+# *.c files. This kludge fixes them for now.
+if test "$acx_cv_c_compiler_ms" = "yes"; then
+   CFLAGS="$CFLAGS -Gz"
+fi
+
           ac_config_headers="$ac_config_headers config.h"
 
 
@@ -9279,6 +9299,13 @@ if test -z "${USE_WINDOWS_COMPILER_TRUE}" && test -z "${USE_WINDOWS_COMPILER_FAL
   { { echo "$as_me:$LINENO: error: conditional \"USE_WINDOWS_COMPILER\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
 echo "$as_me: error: conditional \"USE_WINDOWS_COMPILER\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+if test -z "${USING_MS_C_COMPILER_TRUE}" && test -z "${USING_MS_C_COMPILER_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"USING_MS_C_COMPILER\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"USING_MS_C_COMPILER\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
@@ -9900,6 +9927,8 @@ s,@FLIBS@,$FLIBS,;t t
 s,@FCLIBS@,$FCLIBS,;t t
 s,@USE_WINDOWS_COMPILER_TRUE@,$USE_WINDOWS_COMPILER_TRUE,;t t
 s,@USE_WINDOWS_COMPILER_FALSE@,$USE_WINDOWS_COMPILER_FALSE,;t t
+s,@USING_MS_C_COMPILER_TRUE@,$USING_MS_C_COMPILER_TRUE,;t t
+s,@USING_MS_C_COMPILER_FALSE@,$USING_MS_C_COMPILER_FALSE,;t t
 s,@BLAS_LIBS@,$BLAS_LIBS,;t t
 s,@AM_FCFLAGS@,$AM_FCFLAGS,;t t
 s,@LIBOBJS@,$LIBOBJS,;t t

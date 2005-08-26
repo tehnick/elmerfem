@@ -602,13 +602,6 @@ uninstall-am: uninstall-info-am uninstall-libLIBRARIES
 	mostlyclean-generic pdf pdf-am ps ps-am tags uninstall \
 	uninstall-am uninstall-info-am uninstall-libLIBRARIES
 
-
-# stupid hack around shitty visual fortran CPP
-
-@USING_MS_C_COMPILER_TRUE@.F90.obj:
-@USING_MS_C_COMPILER_TRUE@	rm -f tmp.f90
-@USING_MS_C_COMPILER_TRUE@	$(CPP) $< > tmp.f90
-@USING_MS_C_COMPILER_TRUE@	$(PPFCCOMPILE) -c -o $@ tmp.f90
 # and now for some sed generated makefile...
 huti_aux_C.F90:
 	$(HUTI_CPP) $(HUTI_PPFLAGS) -DC_PRE huti_aux.src huti_aux_C.F90
@@ -682,6 +675,12 @@ huti_sfe_c_S.c:
 	$(HUTI_CPP) $(HUTI_PPFLAGS) -DS_PRE huti_sfe_c.src huti_sfe_c_S.c
 huti_sfe_c_Z.c:
 	$(HUTI_CPP) $(HUTI_PPFLAGS) -DZ_PRE huti_sfe_c.src huti_sfe_c_Z.c
+
+# stupid hack around shitty visual fortran CPP
+@USING_MS_C_COMPILER_TRUE@.F90.obj:
+@USING_MS_C_COMPILER_TRUE@	rm -f tmp.f90
+@USING_MS_C_COMPILER_TRUE@	$(CPP) $< > tmp.f90
+@USING_MS_C_COMPILER_TRUE@	$(PPFCCOMPILE) -c -o $@ tmp.f90
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

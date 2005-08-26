@@ -47,15 +47,7 @@ COMMON_SRCS =  \
 	huti_tfqmr_Z.F90
 
 
-if USING_MS_C_COMPILER
-# stupid hack around shitty visual fortran CPP
 
-.F90.obj:
-	rm -f tmp.f90
-	$(CPP) $< > tmp.f90
-	$(PPFCCOMPILE) -c -o $@ tmp.f90
-
-endif
 
 lib_LIBRARIES = libhuti.a
 libhuti_a_SOURCES = $(COMMON_SRCS)
@@ -208,3 +200,12 @@ EXTRA_DIST=\
 	huti_qmr.src \
 	huti_sfe_c.src \
 	huti_tfqmr.src 
+
+
+# stupid hack around shitty visual fortran CPP
+if USING_MS_C_COMPILER
+.F90.obj:
+	rm -f tmp.f90
+	$(CPP) $< > tmp.f90
+	$(PPFCCOMPILE) -c -o $@ tmp.f90
+endif
