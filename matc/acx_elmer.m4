@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.69 2005/08/18 09:29:09 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.72 2005/08/26 09:54:15 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -355,8 +355,6 @@ esac
 
 acx_eioc_save_LIBS="$LIBS"
 
-LIBS="-leioc $LIBS"
-
 # First, check EIO_LIBS environment variable
 if test $acx_eioc_ok = no; then
 if test "x$EIOC_LIBS" != x; then
@@ -545,6 +543,7 @@ dnl
 AC_DEFUN([ACX_UMFPACK], [
 AC_PREREQ(2.50)
 AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])
+AC_REQUIRE([ACX_LANG_COMPILER_MS])
 acx_umfpack_ok=no
 
 AC_ARG_WITH(umfpack,
@@ -568,7 +567,29 @@ if test $acx_umfpack_ok = no; then
 if test "x$UMFPACK_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$UMFPACK_LIBS $LIBS"
 	AC_MSG_CHECKING([for $umf4def in $UMFPACK_LIBS])
-	AC_TRY_LINK_FUNC($umf4def, [acx_umfpack_ok=yes], [UMFPACK_LIBS=""])
+
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+		# windose shite	
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -Gz"
+		AC_LINK_IFELSE(
+		[int main ()
+		 {
+		   $umf4def(1);
+		   return 0;
+		 }
+		],
+		[
+	      		acx_umfpack_ok=yes
+		],
+		[
+	 	        UMFPACK_LIBS=""	
+		])
+		CFLAGS="$save_CFLAGS"
+	else
+		AC_TRY_LINK_FUNC($umf4def, [acx_umfpack_ok=yes], [UMFPACK_LIBS=""])
+	fi
+
 	AC_MSG_RESULT($acx_umfpack_ok)
 	LIBS="$save_LIBS"
 fi
@@ -960,6 +981,7 @@ dnl Look for matc library
 dnl
 AC_DEFUN([ACX_MATC], [
 AC_PREREQ(2.50)
+AC_REQUIRE([ACX_LANG_COMPILER_MS])
 acx_matc_ok=no
 
 AC_ARG_WITH(matc,
@@ -978,7 +1000,9 @@ if test $acx_matc_ok = no; then
 if test "x$MATC_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$MATC_LIBS $LIBS"
 	AC_MSG_CHECKING([for mtc_init in $MATC_LIBS])
+
 	AC_TRY_LINK_FUNC(mtc_init, [acx_matc_ok=yes], [MATC_LIBS=""])
+
 	AC_MSG_RESULT($acx_matc_ok)
 	LIBS="$save_LIBS"
 fi
@@ -1521,6 +1545,7 @@ case "$canonical_host_type" in
   *-*-mingw*)
 	acx_platform_def="WIN32"
         AC_DEFINE([MINGW32],1,[Detected platform.])
+        AC_DEFINE([WIN32],1,[Detected platform2.])
   ;;
   *-*-linux* | *-*-gnu*)
         AC_DEFINE([LINUX],1,[Detected platform.])
@@ -1676,7 +1701,11 @@ AC_SUBST(TCLTK_LIBS)
 LIBS=$acx_tcltk_save_LIBS
 
 # Search for tcl.h and tk.h
-acx_tcltk_tcl_h_locs="/usr/include /usr/local/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2 /include /usr/swf/include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
+if test "$TCLTK_INCPATH"; then
+	acx_tcltk_tcl_h_locs=$TCLTK_INCPATH
+fi
+acx_tcltk_tcl_h_locs="$acx_tcltk_tcl_h_locs /usr/include /usr/local/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2 /include /usr/swf/include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
+
 
 acx_tcltk_CPPFLAGS_save=$CPPFLAGS
 acx_tcltk_CFLAGS_save=$CFLAGS
@@ -1767,10 +1796,10 @@ acx_cv_[]_AC_LANG_ABBREV[]_compiler_ms=$acx_compiler_ms
 if test "$acx_cv_c_compiler_ms" = "yes"; then
 	AC_DEFINE(STDCALLBULL,[__stdcall],[Standard windows call declaration])
 	AC_DEFINE(C_DLLEXPORT,[__declspec(dllexport)],[Standard windows call declaration])
-	AM_CONDITIONAL(USE_WINDOWS_COMPILER, test "$acx_cv_c_compiler_ms" = "yes")
 
 else
 	AC_DEFINE(STDCALLBULL,,[Standard windows call declaration])
 	AC_DEFINE(C_DLLEXPORT,,[Standard windows call declaration])
 fi
+AM_CONDITIONAL(USE_WINDOWS_COMPILER, test "$acx_cv_c_compiler_ms" = "yes")
 ])
