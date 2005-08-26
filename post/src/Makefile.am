@@ -1,8 +1,5 @@
 SUBDIRS=tk glaux camera graphics modules sico2elmer objects visuals tcl elements 
 
-
-
-
 if NOTWINDOWS
 
 bin_PROGRAMS=ElmerPost QueryGLXExt
@@ -16,7 +13,6 @@ ElmerPost_SOURCES=\
 	second.c \
 	cplusplus.cpp \
 	teksti.c 
-
 
 ElmerPost_LDADD=\
 	./camera/libcamera.a \

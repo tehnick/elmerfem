@@ -1335,7 +1335,11 @@ Window tkXWindow()
     return ptr;
 }
 
+
+
 #ifdef WIN32  
+
+
 
 static GLubyte rasterFont[][13] = {
     {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
@@ -1449,6 +1453,8 @@ void MakeRasterFontDefault()
         glEndList();
     }
 }
+
+
 
 #else  
 
@@ -2351,13 +2357,13 @@ int main(int argc,char **argv)
     if ( getenv("ELMER_POST_HOME") )
     {
         strncat( init,getenv("ELMER_POST_HOME"),511);
-        strncat( init,"\\",511 );
+        strncat( init,"/",511 );
     }
 
     printf("TclEvalFile\n");
     fflush(stdout);
 
-    strncat( init,"tcl\\init.tcl",511 );
+    strncat( init,"tcl/init.tcl",511 );
     fprintf( stdout, "Initialization File: [%s]\n", init );
     fflush(stdout);
     Tcl_EvalFile( TCLInterp,init );
@@ -2386,8 +2392,9 @@ int main(int argc,char **argv)
 
 #ifndef WIN32
     InitializeXFonts();
-#endif
+#else
     MakeRasterFontDefault();
+#endif
 
     {
       Tcl_DString dstring;
