@@ -685,6 +685,8 @@ RANLIB
 ac_ct_RANLIB
 AR
 ARFLAGS
+USE_WINDOWS_COMPILER_TRUE
+USE_WINDOWS_COMPILER_FALSE
 BASIC_CPP
 CPP
 GREP
@@ -1410,7 +1412,6 @@ Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --with-debug            Use debugging flags (environment variables override)
-  --with-stdcxxlib=<lib>  use std c++ library <lib>
   --with-64bits=yes(/no)  Try to compile using 64 bits (default)
   --with-mpi=yes  Use mpi (by default disabled)
   --with-mpi-dir=MPIDIR   give the path for MPI /usr/local/mpich
@@ -2544,6 +2545,11 @@ _ACEOF
 
 cat >>confdefs.h <<\_ACEOF
 #define MINGW32 1
+_ACEOF
+
+
+cat >>confdefs.h <<\_ACEOF
+#define WIN32 1
 _ACEOF
 
   ;;
@@ -4871,6 +4877,102 @@ echo "${ECHO_T}$ARFLAGS" >&6; }
 
 
 
+{ echo "$as_me:$LINENO: checking whether we are using the Microsoft C compiler" >&5
+echo $ECHO_N "checking whether we are using the Microsoft C compiler... $ECHO_C" >&6; }
+if test "${acx_cv_c_compiler_ms+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+int
+main ()
+{
+#ifndef _MSC_VER
+       choke me
+#endif
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  acx_compiler_ms=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+acx_compiler_ms=no
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+acx_cv_c_compiler_ms=$acx_compiler_ms
+
+fi
+{ echo "$as_me:$LINENO: result: $acx_cv_c_compiler_ms" >&5
+echo "${ECHO_T}$acx_cv_c_compiler_ms" >&6; }
+
+if test "$acx_cv_c_compiler_ms" = "yes"; then
+
+cat >>confdefs.h <<\_ACEOF
+#define STDCALLBULL __stdcall
+_ACEOF
+
+
+cat >>confdefs.h <<\_ACEOF
+#define C_DLLEXPORT __declspec(dllexport)
+_ACEOF
+
+
+else
+
+cat >>confdefs.h <<\_ACEOF
+#define STDCALLBULL
+_ACEOF
+
+
+cat >>confdefs.h <<\_ACEOF
+#define C_DLLEXPORT
+_ACEOF
+
+fi
+
+
+if test "$acx_cv_c_compiler_ms" = "yes"; then
+  USE_WINDOWS_COMPILER_TRUE=
+  USE_WINDOWS_COMPILER_FALSE='#'
+else
+  USE_WINDOWS_COMPILER_TRUE='#'
+  USE_WINDOWS_COMPILER_FALSE=
+fi
+
+
+
+
 # sun cc -E leaves nasty # comment that chokes the fortran compiler, so we have to hope
 # that ye olde cpp is present.
 { echo "$as_me:$LINENO: checking for /lib/cpp" >&5
@@ -4959,294 +5061,6 @@ esac
 
 
 
-
-
-
-
-acx_check_stdcxxlib_save_LIBS=$LIBS
-acx_stdcxxlib_ok=no
-
-
-# Check whether --with-stdcxxlib or --without-stdcxxlib was given.
-if test "${with_stdcxxlib+set}" = set; then
-  withval="$with_stdcxxlib"
-
-fi;
-
-case $with_stdcxxlib in
-	yes | "") ;;
-	no) acx_stdcxxlib_ok=disable ;;
-	-* | */* | *.a | *.so | *.so.* | *.o) STDCXX_LIBS="$with_stdcxxlib" ;;
-	*) STDCXX_LIBS="-l$with_stdcxxlib" ;;
-esac
-
-if test x$STDCXX_LIBS != x; then
-	save_LIBS="$LIBS"; LIBS="$STDCXX_LIBS $LIBS"
-	{ echo "$as_me:$LINENO: checking for main in $STDCXX_LIBS" >&5
-echo $ECHO_N "checking for main in $STDCXX_LIBS... $ECHO_C" >&6; }
-	cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-
-
-int
-main ()
-{
-main ();
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
-if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
-  (eval $ac_link) 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-	 { ac_try='test -z "$ac_c_werror_flag"
-			 || test ! -s conftest.err'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; } &&
-	 { ac_try='test -s conftest$ac_exeext'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  acx_stdcxx_lib_ok=yes
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-STDCXX_LIBS=""
-fi
-rm -f conftest.err conftest.$ac_objext \
-      conftest$ac_exeext conftest.$ac_ext
-	{ echo "$as_me:$LINENO: result: $acx_stdcxx_lib_ok" >&5
-echo "${ECHO_T}$acx_stdcxx_lib_ok" >&6; }
-	LIBS="$save_LIBS"
-fi
-
-if test $acx_stdcxxlib_ok = no; then
-	{ echo "$as_me:$LINENO: checking for main in -lstdc++" >&5
-echo $ECHO_N "checking for main in -lstdc++... $ECHO_C" >&6; }
-if test "${ac_cv_lib_stdcpp_main+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lstdc++  $LIBS"
-cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-
-
-int
-main ()
-{
-main ();
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
-if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
-  (eval $ac_link) 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-	 { ac_try='test -z "$ac_c_werror_flag"
-			 || test ! -s conftest.err'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; } &&
-	 { ac_try='test -s conftest$ac_exeext'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  ac_cv_lib_stdcpp_main=yes
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-ac_cv_lib_stdcpp_main=no
-fi
-rm -f conftest.err conftest.$ac_objext \
-      conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ echo "$as_me:$LINENO: result: $ac_cv_lib_stdcpp_main" >&5
-echo "${ECHO_T}$ac_cv_lib_stdcpp_main" >&6; }
-if test $ac_cv_lib_stdcpp_main = yes; then
-
-				   STDCXX_LIBS="-lstdc++"
-			           acx_stdcxxlib_ok=yes
-
-fi
-
-fi
-
-if test $acx_stdcxxlib_ok = no; then
-	{ echo "$as_me:$LINENO: checking for main in -lCstd" >&5
-echo $ECHO_N "checking for main in -lCstd... $ECHO_C" >&6; }
-if test "${ac_cv_lib_Cstd_main+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lCstd  $LIBS"
-cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-
-
-int
-main ()
-{
-main ();
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
-if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
-  (eval $ac_link) 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-	 { ac_try='test -z "$ac_c_werror_flag"
-			 || test ! -s conftest.err'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; } &&
-	 { ac_try='test -s conftest$ac_exeext'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  ac_cv_lib_Cstd_main=yes
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-ac_cv_lib_Cstd_main=no
-fi
-rm -f conftest.err conftest.$ac_objext \
-      conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ echo "$as_me:$LINENO: result: $ac_cv_lib_Cstd_main" >&5
-echo "${ECHO_T}$ac_cv_lib_Cstd_main" >&6; }
-if test $ac_cv_lib_Cstd_main = yes; then
-
-				   STDCXX_LIBS="-lCstd"
-			           acx_stdcxxlib_ok=yes
-
-fi
-
-fi
-
-if test $acx_stdcxxlib_ok = no; then
-	{ echo "$as_me:$LINENO: checking for main in -lC" >&5
-echo $ECHO_N "checking for main in -lC... $ECHO_C" >&6; }
-if test "${ac_cv_lib_C_main+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lC  $LIBS"
-cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-
-
-int
-main ()
-{
-main ();
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
-if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
-  (eval $ac_link) 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-	 { ac_try='test -z "$ac_c_werror_flag"
-			 || test ! -s conftest.err'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; } &&
-	 { ac_try='test -s conftest$ac_exeext'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  ac_cv_lib_C_main=yes
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-ac_cv_lib_C_main=no
-fi
-rm -f conftest.err conftest.$ac_objext \
-      conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ echo "$as_me:$LINENO: result: $ac_cv_lib_C_main" >&5
-echo "${ECHO_T}$ac_cv_lib_C_main" >&6; }
-if test $ac_cv_lib_C_main = yes; then
-
-				   STDCXX_LIBS="-lC"
-			           acx_stdcxxlib_ok=yes
-
-fi
-
-fi
-
-if test $acx_stdcxxlib_ok = no; then
-	{ { echo "$as_me:$LINENO: error: Couldn't find std c++ library that is needed for linking." >&5
-echo "$as_me: error: Couldn't find std c++ library that is needed for linking." >&2;}
-   { (exit 1); exit 1; }; }
-fi
-
-LIBS=$acx_check_stdcxxlib_save_LIBS
 
 
 
@@ -8376,6 +8190,7 @@ esac
 
 
 
+
 acx_cv_fc_char_mangling="char_ptr"
 
 ac_ext=${ac_fc_srcext-f}
@@ -8398,8 +8213,16 @@ ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
+
+
 { echo "$as_me:$LINENO: checking for Fortran char* mangling scheme" >&5
 echo $ECHO_N "checking for Fortran char* mangling scheme... $ECHO_C" >&6; }
+
+# this test is hopelessly fucked with a windows compiler (on windows t
+# if test "$acx_cv_c_compiler_ms" = "yes"; then
+#	acx_cv_fc_char_mangling="char_ptr_and_len_int"
+# else
+
 
 ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
@@ -8501,6 +8324,11 @@ case $the_answer in
    	       acx_cv_fc_char_mangling="char_ptr_and_len_int"
 	;;
 esac
+
+# fi windows
+# fi
+
+
 { echo "$as_me:$LINENO: result: $acx_cv_fc_char_mangling" >&5
 echo "${ECHO_T}$acx_cv_fc_char_mangling" >&6; }
 
@@ -9093,51 +8921,19 @@ done
       && test "$ac_cv_func_shl_findsym" = yes; then
       shl_load_api=true
     else
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+		# in windows, no generic test seems to work
+		{ echo "$as_me:$LINENO: checking for LoadLibrary in windows" >&5
+echo $ECHO_N "checking for LoadLibrary in windows... $ECHO_C" >&6; }
+		cat >conftest.$ac_ext <<_ACEOF
+#include <stdio.h>
+		 #include <windows.h>
+		 int main ()
+		 {
+			LoadLibrary("kernel32.dll");
+			return 0;
+		 }
 
-{ echo "$as_me:$LINENO: checking for LoadLibrary in -lwsock32" >&5
-echo $ECHO_N "checking for LoadLibrary in -lwsock32... $ECHO_C" >&6; }
-if test "${ac_cv_lib_wsock32_LoadLibrary+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lwsock32  $LIBS"
-cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-
-/* Override any gcc2 internal prototype to avoid an error.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-/* We use char because int might match the return type of a gcc2
-   builtin and then its argument prototype would still apply.  */
-char LoadLibrary ();
-#ifdef F77_DUMMY_MAIN
-
-#  ifdef __cplusplus
-     extern "C"
-#  endif
-   int F77_DUMMY_MAIN() { return 1; }
-
-#endif
-#ifdef FC_DUMMY_MAIN
-#ifndef FC_DUMMY_MAIN_EQ_F77
-#  ifdef __cplusplus
-     extern "C"
-#  endif
-   int FC_DUMMY_MAIN() { return 1; }
-#endif
-#endif
-int
-main ()
-{
-LoadLibrary ();
-  ;
-  return 0;
-}
 _ACEOF
 rm -f conftest.$ac_objext conftest$ac_exeext
 if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
@@ -9161,147 +8957,22 @@ if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
   ac_status=$?
   echo "$as_me:$LINENO: \$? = $ac_status" >&5
   (exit $ac_status); }; }; then
-  ac_cv_lib_wsock32_LoadLibrary=yes
+
+			ac_cv_func_loadlibrary=yes
+
 else
   echo "$as_me: failed program was:" >&5
 sed 's/^/| /' conftest.$ac_ext >&5
 
-ac_cv_lib_wsock32_LoadLibrary=no
+
+			ac_cv_func_loadlibrary=no
+
 fi
 rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ echo "$as_me:$LINENO: result: $ac_cv_lib_wsock32_LoadLibrary" >&5
-echo "${ECHO_T}$ac_cv_lib_wsock32_LoadLibrary" >&6; }
-if test $ac_cv_lib_wsock32_LoadLibrary = yes; then
-  cat >>confdefs.h <<_ACEOF
-#define HAVE_LIBWSOCK32 1
-_ACEOF
-
-  LIBS="-lwsock32 $LIBS"
-
-fi
-
-
-for ac_func in LoadLibrary
-do
-as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
-{ echo "$as_me:$LINENO: checking for $ac_func" >&5
-echo $ECHO_N "checking for $ac_func... $ECHO_C" >&6; }
-if eval "test \"\${$as_ac_var+set}\" = set"; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-/* Define $ac_func to an innocuous variant, in case <limits.h> declares $ac_func.
-   For example, HP-UX 11i <limits.h> declares gettimeofday.  */
-#define $ac_func innocuous_$ac_func
-
-/* System header to define __stub macros and hopefully few prototypes,
-    which can conflict with char $ac_func (); below.
-    Prefer <limits.h> to <assert.h> if __STDC__ is defined, since
-    <limits.h> exists even on freestanding compilers.  */
-
-#ifdef __STDC__
-# include <limits.h>
-#else
-# include <assert.h>
-#endif
-
-#undef $ac_func
-
-/* Override any gcc2 internal prototype to avoid an error.  */
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-/* We use char because int might match the return type of a gcc2
-   builtin and then its argument prototype would still apply.  */
-char $ac_func ();
-/* The GNU C library defines this for functions which it implements
-    to always fail with ENOSYS.  Some functions are actually named
-    something starting with __ and the normal name is an alias.  */
-#if defined (__stub_$ac_func) || defined (__stub___$ac_func)
-choke me
-#else
-char (*f) () = $ac_func;
-#endif
-#ifdef __cplusplus
-}
-#endif
-
-#ifdef F77_DUMMY_MAIN
-
-#  ifdef __cplusplus
-     extern "C"
-#  endif
-   int F77_DUMMY_MAIN() { return 1; }
-
-#endif
-#ifdef FC_DUMMY_MAIN
-#ifndef FC_DUMMY_MAIN_EQ_F77
-#  ifdef __cplusplus
-     extern "C"
-#  endif
-   int FC_DUMMY_MAIN() { return 1; }
-#endif
-#endif
-int
-main ()
-{
-return f != $ac_func;
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
-if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
-  (eval $ac_link) 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } &&
-	 { ac_try='test -z "$ac_c_werror_flag"
-			 || test ! -s conftest.err'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; } &&
-	 { ac_try='test -s conftest$ac_exeext'
-  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
-  (eval $ac_try) 2>&5
-  ac_status=$?
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); }; }; then
-  eval "$as_ac_var=yes"
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-eval "$as_ac_var=no"
-fi
-rm -f conftest.err conftest.$ac_objext \
-      conftest$ac_exeext conftest.$ac_ext
-fi
-ac_res=`eval echo '${'$as_ac_var'}'`
-	       { echo "$as_me:$LINENO: result: $ac_res" >&5
-echo "${ECHO_T}$ac_res" >&6; }
-if test `eval echo '${'$as_ac_var'}'` = yes; then
-  cat >>confdefs.h <<_ACEOF
-#define `echo "HAVE_$ac_func" | $as_tr_cpp` 1
-_ACEOF
-
-fi
-done
-
+		{ echo "$as_me:$LINENO: result: $ac_cv_func_loadlibrary" >&5
+echo "${ECHO_T}$ac_cv_func_loadlibrary" >&6; }
+      fi
       if test "$ac_cv_func_loadlibrary" = yes; then
         loadlibrary_api=true
       else
@@ -12003,6 +11674,7 @@ fi
 
 
 
+
 acx_huti_ok=no
 
 
@@ -12066,9 +11738,63 @@ acx_huti_save_LIBS="$LIBS"
 if test $acx_huti_ok = no; then
 if test "x$HUTI_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$LIBS $HUTI_LIBS $BLAS_LIBS $FCLIBS $FLIBS"
-	{ echo "$as_me:$LINENO: checking for $huti_d_gmres in $HUTI_LIBS" >&5
+
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+		# windose shite
+		{ echo "$as_me:$LINENO: checking for $huti_d_gmres@44 in $HUTI_LIBS" >&5
+echo $ECHO_N "checking for $huti_d_gmres@44 in $HUTI_LIBS... $ECHO_C" >&6; }
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -Gz"
+		cat >conftest.$ac_ext <<_ACEOF
+int main ()
+		 {
+		   HUTI_D_GMRES(1,2,3,4,5,6,7,8,9,10,11);
+		   return 0;
+		 }
+
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+
+	      		acx_huti_ok=yes
+
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+	 	        HUTI_LIBS=""
+
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+		{ echo "$as_me:$LINENO: result: $acx_huti_ok" >&5
+echo "${ECHO_T}$acx_huti_ok" >&6; }
+		CFLAGS="$save_CFLAGS"
+	else
+		{ echo "$as_me:$LINENO: checking for $huti_d_gmres in $HUTI_LIBS" >&5
 echo $ECHO_N "checking for $huti_d_gmres in $HUTI_LIBS... $ECHO_C" >&6; }
-	cat >conftest.$ac_ext <<_ACEOF
+		cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
 cat confdefs.h >>conftest.$ac_ext
@@ -12137,8 +11863,9 @@ HUTI_LIBS=""
 fi
 rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
-	{ echo "$as_me:$LINENO: result: $acx_huti_ok" >&5
+		{ echo "$as_me:$LINENO: result: $acx_huti_ok" >&5
 echo "${ECHO_T}$acx_huti_ok" >&6; }
+	fi
 	LIBS="$save_LIBS"
 fi
 fi
@@ -12146,7 +11873,62 @@ fi
 # Generic HUTI library?
 if test $acx_huti_ok = no; then
 	save_LIBS="$LIBS"; LIBS="$LIBS $BLAS_LIBS $FCLIBS $FLIBS"
-	as_ac_Lib=`echo "ac_cv_lib_huti_$huti_d_gmres" | $as_tr_sh`
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+		# windose shite
+		{ echo "$as_me:$LINENO: checking for $huti_d_gmres@44 in -lhuti" >&5
+echo $ECHO_N "checking for $huti_d_gmres@44 in -lhuti... $ECHO_C" >&6; }
+		LIBS="-lhuti $BLAS_LIBS $FCLIBS $FLIBS"
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -Gz"
+
+		cat >conftest.$ac_ext <<_ACEOF
+int main ()
+		 {
+		   HUTI_D_GMRES(1,2,3,4,5,6,7,8,9,10,11);
+		   return 0;
+		 }
+
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+
+	      		acx_huti_ok=yes
+
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+	 	        HUTI_LIBS=""
+
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+		{ echo "$as_me:$LINENO: result: $acx_huti_ok" >&5
+echo "${ECHO_T}$acx_huti_ok" >&6; }
+		CFLAGS="$save_CFLAGS"
+	else
+		as_ac_Lib=`echo "ac_cv_lib_huti_$huti_d_gmres" | $as_tr_sh`
 { echo "$as_me:$LINENO: checking for $huti_d_gmres in -lhuti" >&5
 echo $ECHO_N "checking for $huti_d_gmres in -lhuti... $ECHO_C" >&6; }
 if eval "test \"\${$as_ac_Lib+set}\" = set"; then
@@ -12232,6 +12014,7 @@ if test `eval echo '${'$as_ac_Lib'}'` = yes; then
   acx_huti_ok=yes; HUTI_LIBS="-lhuti"
 fi
 
+	fi
 	LIBS="$save_LIBS"
 fi
 
@@ -12253,6 +12036,7 @@ else
 echo "$as_me: error: Libhuti wasn't found" >&2;}
    { (exit 1); exit 1; }; }
 fi
+
 
 
 
@@ -12309,9 +12093,76 @@ LIBS="$LIBS"
 if test $acx_eiof_ok = no; then
 if test "x$EIOF_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$EIOF_LIBS $LIBS"
-	{ echo "$as_me:$LINENO: checking for $eio_init in $EIOF_LIBS" >&5
+
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+		# windose shite
+		{ echo "$as_me:$LINENO: checking for $eio_init@4 in $EIOF_LIBS" >&5
+echo $ECHO_N "checking for $eio_init@4 in $EIOF_LIBS... $ECHO_C" >&6; }
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -Gz"
+		ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+		cat >conftest.$ac_ext <<_ACEOF
+int main ()
+		 {
+		   $eio_init(1);
+		   return 0;
+		 }
+
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+
+	      		acx_eiof_ok=yes
+
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+	 	        EIOF_LIBS=""
+
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+		{ echo "$as_me:$LINENO: result: $acx_eiof_ok" >&5
+echo "${ECHO_T}$acx_eiof_ok" >&6; }
+		CFLAGS="$save_CFLAGS"
+		ac_ext=cpp
+ac_cpp='$CXXCPP $CPPFLAGS'
+ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
+
+
+	else
+		{ echo "$as_me:$LINENO: checking for $eio_init in $EIOF_LIBS" >&5
 echo $ECHO_N "checking for $eio_init in $EIOF_LIBS... $ECHO_C" >&6; }
-	cat >conftest.$ac_ext <<_ACEOF
+		cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
 cat confdefs.h >>conftest.$ac_ext
@@ -12380,15 +12231,83 @@ EIOF_LIBS=""
 fi
 rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
-	{ echo "$as_me:$LINENO: result: $acx_eiof_ok" >&5
+		{ echo "$as_me:$LINENO: result: $acx_eiof_ok" >&5
 echo "${ECHO_T}$acx_eiof_ok" >&6; }
+	fi
+
 	LIBS="$save_LIBS"
 fi
 fi
 
 # Generic EIO library?
 if test "$acx_eiof_ok" = no; then
-	as_ac_Lib=`echo "ac_cv_lib_eiof_$eio_init" | $as_tr_sh`
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+		# windose shite
+		{ echo "$as_me:$LINENO: checking for $eio_init@4 in -leiof" >&5
+echo $ECHO_N "checking for $eio_init@4 in -leiof... $ECHO_C" >&6; }
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -Gz"
+		ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+		cat >conftest.$ac_ext <<_ACEOF
+int main ()
+		 {
+		   $eio_init(1);
+		   return 0;
+		 }
+
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+
+	      		acx_eiof_ok=yes
+			EIOF_LIBS="-leiof"
+
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+	 	        EIOF_LIBS=""
+
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+		{ echo "$as_me:$LINENO: result: $acx_eiof_ok" >&5
+echo "${ECHO_T}$acx_eiof_ok" >&6; }
+		CFLAGS="$save_CFLAGS"
+		ac_ext=cpp
+ac_cpp='$CXXCPP $CPPFLAGS'
+ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
+
+	else
+		as_ac_Lib=`echo "ac_cv_lib_eiof_$eio_init" | $as_tr_sh`
 { echo "$as_me:$LINENO: checking for $eio_init in -leiof" >&5
 echo $ECHO_N "checking for $eio_init in -leiof... $ECHO_C" >&6; }
 if eval "test \"\${$as_ac_Lib+set}\" = set"; then
@@ -12474,6 +12393,7 @@ if test `eval echo '${'$as_ac_Lib'}'` = yes; then
   acx_eiof_ok=yes; EIOF_LIBS="-leiof"
 fi
 
+	fi
 fi
 
 
@@ -12499,6 +12419,7 @@ ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
 
 
 
@@ -12551,7 +12472,59 @@ if test "x$ARPACK_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$ARPACK_LIBS $LIBS"
 	{ echo "$as_me:$LINENO: checking for $dseupd in $ARPACK_LIBS" >&5
 echo $ECHO_N "checking for $dseupd in $ARPACK_LIBS... $ECHO_C" >&6; }
-	cat >conftest.$ac_ext <<_ACEOF
+
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+		# windose shite
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -Gz"
+		cat >conftest.$ac_ext <<_ACEOF
+int main ()
+		 {
+		   $dseupd(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25);
+		   return 0;
+		 }
+
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+
+	      		acx_arpack_ok=yes
+
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+	 	        ARPACK_LIBS=""
+
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+		{ echo "$as_me:$LINENO: result: $acx_arpack_ok" >&5
+echo "${ECHO_T}$acx_arpack_ok" >&6; }
+		CFLAGS="$save_CFLAGS"
+	else
+		cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
 cat confdefs.h >>conftest.$ac_ext
@@ -12620,6 +12593,8 @@ ARPACK_LIBS=""
 fi
 rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
+	fi
+
 	{ echo "$as_me:$LINENO: result: $acx_arpack_ok" >&5
 echo "${ECHO_T}$acx_arpack_ok" >&6; }
 	LIBS="$save_LIBS"
@@ -12973,6 +12948,7 @@ fi
 
 
 
+
 acx_umfpack_ok=no
 
 
@@ -13019,7 +12995,57 @@ if test "x$UMFPACK_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$UMFPACK_LIBS $LIBS"
 	{ echo "$as_me:$LINENO: checking for $umf4def in $UMFPACK_LIBS" >&5
 echo $ECHO_N "checking for $umf4def in $UMFPACK_LIBS... $ECHO_C" >&6; }
-	cat >conftest.$ac_ext <<_ACEOF
+
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+		# windose shite
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -Gz"
+		cat >conftest.$ac_ext <<_ACEOF
+int main ()
+		 {
+		   $umf4def(1);
+		   return 0;
+		 }
+
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+
+	      		acx_umfpack_ok=yes
+
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+	 	        UMFPACK_LIBS=""
+
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+		CFLAGS="$save_CFLAGS"
+	else
+		cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
 cat confdefs.h >>conftest.$ac_ext
@@ -13088,6 +13114,8 @@ UMFPACK_LIBS=""
 fi
 rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
+	fi
+
 	{ echo "$as_me:$LINENO: result: $acx_umfpack_ok" >&5
 echo "${ECHO_T}$acx_umfpack_ok" >&6; }
 	LIBS="$save_LIBS"
@@ -13204,6 +13232,7 @@ fi
 
 
 
+
 acx_matc_ok=no
 
 
@@ -13227,6 +13256,7 @@ if test "x$MATC_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$MATC_LIBS $LIBS"
 	{ echo "$as_me:$LINENO: checking for mtc_init in $MATC_LIBS" >&5
 echo $ECHO_N "checking for mtc_init in $MATC_LIBS... $ECHO_C" >&6; }
+
 	cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -13296,6 +13326,7 @@ MATC_LIBS=""
 fi
 rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
+
 	{ echo "$as_me:$LINENO: result: $acx_matc_ok" >&5
 echo "${ECHO_T}$acx_matc_ok" >&6; }
 	LIBS="$save_LIBS"
@@ -13849,6 +13880,13 @@ if test -z "${am__fastdepCXX_TRUE}" && test -z "${am__fastdepCXX_FALSE}"; then
   { { echo "$as_me:$LINENO: error: conditional \"am__fastdepCXX\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
 echo "$as_me: error: conditional \"am__fastdepCXX\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+if test -z "${USE_WINDOWS_COMPILER_TRUE}" && test -z "${USE_WINDOWS_COMPILER_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"USE_WINDOWS_COMPILER\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"USE_WINDOWS_COMPILER\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
@@ -14502,6 +14540,8 @@ s,@RANLIB@,$RANLIB,;t t
 s,@ac_ct_RANLIB@,$ac_ct_RANLIB,;t t
 s,@AR@,$AR,;t t
 s,@ARFLAGS@,$ARFLAGS,;t t
+s,@USE_WINDOWS_COMPILER_TRUE@,$USE_WINDOWS_COMPILER_TRUE,;t t
+s,@USE_WINDOWS_COMPILER_FALSE@,$USE_WINDOWS_COMPILER_FALSE,;t t
 s,@BASIC_CPP@,$BASIC_CPP,;t t
 s,@CPP@,$CPP,;t t
 s,@GREP@,$GREP,;t t
