@@ -798,7 +798,7 @@ else
 fi
 AC_LANG_POP(C++)
 	])
-m4trace:acx_elmer.m4:389: -1- AC_DEFUN([ACX_EIOC], [
+m4trace:acx_elmer.m4:387: -1- AC_DEFUN([ACX_EIOC], [
 AC_PREREQ(2.50)
 acx_eioc_ok=no
 
@@ -813,8 +813,6 @@ case $with_eioc in
 esac
 
 acx_eioc_save_LIBS="$LIBS"
-
-LIBS="-leioc $LIBS"
 
 # First, check EIO_LIBS environment variable
 if test $acx_eioc_ok = no; then
@@ -846,11 +844,11 @@ else
 fi
 AC_LANG_POP(C++)
 ])
-m4trace:acx_elmer.m4:396: -1- AC_DEFUN([ACX_MEANING], [
+m4trace:acx_elmer.m4:394: -1- AC_DEFUN([ACX_MEANING], [
 AC_MSG_CHECKING([for answer to meaning of life])
 AC_MSG_RESULT([42])
 ])
-m4trace:acx_elmer.m4:477: -1- AC_DEFUN([ACX_ARPACK], [
+m4trace:acx_elmer.m4:475: -1- AC_DEFUN([ACX_ARPACK], [
 AC_PREREQ(2.50)
 AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])
 AC_REQUIRE([AC_F77_LIBRARY_LDFLAGS])
@@ -925,7 +923,7 @@ else
         $2
 fi
 ])
-m4trace:acx_elmer.m4:536: -1- AC_DEFUN([ACX_PARPACK], [
+m4trace:acx_elmer.m4:534: -1- AC_DEFUN([ACX_PARPACK], [
 AC_PREREQ(2.50)
 AC_REQUIRE([AC_F77_LIBRARY_LDFLAGS])
 AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])
@@ -978,7 +976,7 @@ else
         $2
 fi
 ])
-m4trace:acx_elmer.m4:619: -1- AC_DEFUN([ACX_UMFPACK], [
+m4trace:acx_elmer.m4:615: -1- AC_DEFUN([ACX_UMFPACK], [
 AC_PREREQ(2.50)
 AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])
 AC_REQUIRE([ACX_LANG_COMPILER_MS])
@@ -1008,13 +1006,12 @@ if test "x$UMFPACK_LIBS" != x; then
 
 	if test "$acx_cv_c_compiler_ms" = "yes"; then
 		# windose shite	
-		AC_MSG_CHECKING([for $huti_d_gmres[]@44 in $HUTI_LIBS])
 		save_CFLAGS="$CFLAGS"
 		CFLAGS="$CFLAGS -Gz"
 		AC_LINK_IFELSE(
 		[int main ()
 		 {
-		   HUTI_D_GMRES(1,2,3,4,5,6,7,8,9,10,11);
+		   $umf4def(1);
 		   return 0;
 		 }
 		],
@@ -1024,7 +1021,6 @@ if test "x$UMFPACK_LIBS" != x; then
 		[
 	 	        UMFPACK_LIBS=""	
 		])
-		AC_MSG_RESULT($acx_umfpack_ok)
 		CFLAGS="$save_CFLAGS"
 	else
 		AC_TRY_LINK_FUNC($umf4def, [acx_umfpack_ok=yes], [UMFPACK_LIBS=""])
@@ -1053,8 +1049,9 @@ else
         $2
 fi
 ])
-m4trace:acx_elmer.m4:683: -1- AC_DEFUN([ACX_CHECK_STDCXXLIB], [
+m4trace:acx_elmer.m4:686: -1- AC_DEFUN([ACX_CHECK_STDCXXLIB], [
 AC_REQUIRE([AC_PROG_CXX])
+AC_REQUIRE([ACX_LANG_COMPILER_MS])
 acx_check_stdcxxlib_save_LIBS=$LIBS
 acx_stdcxxlib_ok=no
 
@@ -1105,8 +1102,14 @@ if test $acx_stdcxxlib_ok = no; then
 fi
 
 LIBS=$acx_check_stdcxxlib_save_LIBS
+
+if test "$acx_cv_c_compiler_ms" = "yes"; then
+	# in windows we never need this for linking, and it actually causes errors
+	STDCXX_LIBS=""
+fi
+
 ])
-m4trace:acx_elmer.m4:979: -1- AC_DEFUN([ACX_CHECK_B64FLAGS], [
+m4trace:acx_elmer.m4:982: -1- AC_DEFUN([ACX_CHECK_B64FLAGS], [
 AC_PREREQ([2.50])
 dnl AC_REQUIRE([AC_PROG_FC])
 AC_REQUIRE([AC_PROG_CC])
@@ -1399,7 +1402,7 @@ fi
 
 AC_SUBST(B64FLAGS)
 ])
-m4trace:acx_elmer.m4:1053: -1- AC_DEFUN([ACX_MATC], [
+m4trace:acx_elmer.m4:1035: -1- AC_DEFUN([ACX_MATC], [
 AC_PREREQ(2.50)
 AC_REQUIRE([ACX_LANG_COMPILER_MS])
 acx_matc_ok=no
@@ -1421,28 +1424,7 @@ if test "x$MATC_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$MATC_LIBS $LIBS"
 	AC_MSG_CHECKING([for mtc_init in $MATC_LIBS])
 
-	if test "$acx_cv_c_compiler_ms" = "yes"; then
-		# windose shite	
-		save_CFLAGS="$CFLAGS"
-		CFLAGS="$CFLAGS -Gz"
-		AC_LINK_IFELSE(
-		[int main ()
-		 {
-		   mtc_init(1,2,3);
-		   return 0;
-		 }
-		],
-		[
-	      		acx_matc_ok=yes
-		],
-		[
-	 	        MATC_LIBS=""	
-		])
-		AC_MSG_RESULT($acx_matc_ok)
-		CFLAGS="$save_CFLAGS"
-	else
-		AC_TRY_LINK_FUNC(mtc_init, [acx_matc_ok=yes], [MATC_LIBS=""])
-	fi
+	AC_TRY_LINK_FUNC(mtc_init, [acx_matc_ok=yes], [MATC_LIBS=""])
 
 	AC_MSG_RESULT($acx_matc_ok)
 	LIBS="$save_LIBS"
@@ -1467,7 +1449,7 @@ else
         $2
 fi
 ])
-m4trace:acx_elmer.m4:1087: -1- AC_DEFUN([ACX_PROG_TRADITIONAL_CPP], [
+m4trace:acx_elmer.m4:1069: -1- AC_DEFUN([ACX_PROG_TRADITIONAL_CPP], [
 # sun cc -E leaves nasty # comment that chokes the fortran compiler, so we have to hope
 # that ye olde cpp is present.
 AC_CHECK_FILE([/lib/cpp],[TRADITIONAL_CPP=yes],[TRADITIONAL_CPP=no])
@@ -1497,7 +1479,7 @@ esac
 
 AC_SUBST(CPP)
 ])
-m4trace:acx_elmer.m4:1109: -1- AC_DEFUN([ACX_FC_ETIME], [
+m4trace:acx_elmer.m4:1091: -1- AC_DEFUN([ACX_FC_ETIME], [
 AC_MSG_CHECKING([for fortran intrinsic etime])
 
 AC_LANG_PUSH(Fortran)
@@ -1518,7 +1500,7 @@ AC_LINK_IFELSE(
 ])
 AC_LANG_POP(Fortran)
 ])
-m4trace:acx_elmer.m4:1130: -1- AC_DEFUN([ACX_FC_FLUSH], [
+m4trace:acx_elmer.m4:1112: -1- AC_DEFUN([ACX_FC_FLUSH], [
 AC_MSG_CHECKING([for fortran intrinsic flush])
 
 AC_LANG_PUSH(Fortran)
@@ -1538,7 +1520,7 @@ AC_LINK_IFELSE(
 ])
 AC_LANG_POP(Fortran)
 ])
-m4trace:acx_elmer.m4:1144: -1- AC_DEFUN([ACX_BOURNE_SHELL], [
+m4trace:acx_elmer.m4:1126: -1- AC_DEFUN([ACX_BOURNE_SHELL], [
 
 case "$canonical_host_type" in
   *solaris* | *sun*)	
@@ -1551,7 +1533,7 @@ case "$canonical_host_type" in
 esac
 AC_SUBST(BOURNE_SHELL)
 ])
-m4trace:acx_elmer.m4:1222: -1- AC_DEFUN([ACX_FC_CHAR_MANGLING], [
+m4trace:acx_elmer.m4:1204: -1- AC_DEFUN([ACX_FC_CHAR_MANGLING], [
 AC_PREREQ(2.50)
 AC_REQUIRE([ACX_LANG_COMPILER_MS])
 
@@ -1625,7 +1607,7 @@ case $acx_cv_fc_char_mangling in
 esac
 AC_LANG_POP(Fortran)
 ])
-m4trace:acx_elmer.m4:1246: -1- AC_DEFUN([ACX_FC_LINKTYP], [
+m4trace:acx_elmer.m4:1228: -1- AC_DEFUN([ACX_FC_LINKTYP], [
 AC_PREREQ(2.50)
 AC_REQUIRE([AC_FC_WRAPPERS])
 dnl setup name mangling defines
@@ -1648,7 +1630,7 @@ case "$ac_cv_fc_mangling" in
 esac
 
 ])
-m4trace:acx_elmer.m4:1266: -1- AC_DEFUN([ACX_FC_INCLUDE_MODULE_FLAG], [
+m4trace:acx_elmer.m4:1248: -1- AC_DEFUN([ACX_FC_INCLUDE_MODULE_FLAG], [
 
 INCLUDE_MODULE_FLAG="-I"
 
@@ -1667,7 +1649,7 @@ case "$canonical_host_type" in
 esac
 
 ])
-m4trace:acx_elmer.m4:1346: -1- AC_DEFUN([ACX_PIC_FLAGS], [
+m4trace:acx_elmer.m4:1328: -1- AC_DEFUN([ACX_PIC_FLAGS], [
 dnl 
 dnl Host specific stuff
 dnl fixme: if 64 bits, then start looking for pic flags, not by default?
@@ -1746,7 +1728,7 @@ FFLAGS="$FFLAGS $FPICFLAG"
 CFLAGS="$CFLAGS $CPICFLAG"
 CXXFLAGS="$CXXFLAGS $CXXPICFLAG"
 ])
-m4trace:acx_elmer.m4:1542: -1- AC_DEFUN([ACX_SHLIB_STUFF], [
+m4trace:acx_elmer.m4:1524: -1- AC_DEFUN([ACX_SHLIB_STUFF], [
 dnl  
 dnl OS-specific stuff that hasn't been (or can't be) done in a clean way.
 dnl
@@ -1941,7 +1923,7 @@ fi
 AC_SUBST(SH_EXPALL_FLAG)
 
 ])
-m4trace:acx_elmer.m4:1599: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
+m4trace:acx_elmer.m4:1582: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
 AC_REQUIRE([ACX_HOST])
 acx_platform_def="GENERIC"
 case "$canonical_host_type" in
@@ -1967,6 +1949,7 @@ case "$canonical_host_type" in
   *-*-mingw*)
 	acx_platform_def="WIN32"
         AC_DEFINE([MINGW32],1,[Detected platform.])
+        AC_DEFINE([WIN32],1,[Detected platform2.])
   ;;
   *-*-linux* | *-*-gnu*)
         AC_DEFINE([LINUX],1,[Detected platform.])
@@ -1994,7 +1977,7 @@ esac
 
 AM_CONDITIONAL(IBM_IS_PIECE_OF_SHIT, test "$acx_platform_def" = "AIX")
 ])
-m4trace:acx_elmer.m4:1637: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
+m4trace:acx_elmer.m4:1620: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
 AC_REQUIRE([ACX_SHLIB_STUFF])
 case "$FC" in
    ifc)
@@ -2030,7 +2013,7 @@ esac
 AC_SUBST(SH_LDFLAGS)
 AC_SUBST(SH_LD)
 ])
-m4trace:acx_elmer.m4:1779: -1- AC_DEFUN([ACX_TCLTK], [
+m4trace:acx_elmer.m4:1766: -1- AC_DEFUN([ACX_TCLTK], [
 AC_REQUIRE([AC_PATH_X])
 AC_PREREQ(2.50)
 acx_tcltk_ok=no
@@ -2112,7 +2095,11 @@ AC_SUBST(TCLTK_LIBS)
 LIBS=$acx_tcltk_save_LIBS
 
 # Search for tcl.h and tk.h
-acx_tcltk_tcl_h_locs="/usr/include /usr/local/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2 /include /usr/swf/include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
+if test "$TCLTK_INCPATH"; then
+	acx_tcltk_tcl_h_locs=$TCLTK_INCPATH
+fi
+acx_tcltk_tcl_h_locs="$acx_tcltk_tcl_h_locs /usr/include /usr/local/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2 /include /usr/swf/include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
+
 
 acx_tcltk_CPPFLAGS_save=$CPPFLAGS
 acx_tcltk_CFLAGS_save=$CFLAGS
@@ -2164,7 +2151,7 @@ else
         $2
 fi
 ])
-m4trace:acx_elmer.m4:1801: -1- AC_DEFUN([ACX_FORTRAN_CPP], [
+m4trace:acx_elmer.m4:1788: -1- AC_DEFUN([ACX_FORTRAN_CPP], [
 AC_PREREQ(2.50)
 acx_fortran_cpp_ok=no
 
@@ -2176,7 +2163,7 @@ case "$FC" in
 esac
 AC_SUBST(FORTRAN_CPP_FLAG)
 ])
-m4trace:acx_elmer.m4:1824: -1- AC_DEFUN([ACX_LANG_COMPILER_MS], [AC_CACHE_CHECK([whether we are using the Microsoft _AC_LANG compiler],
+m4trace:acx_elmer.m4:1812: -1- AC_DEFUN([ACX_LANG_COMPILER_MS], [AC_CACHE_CHECK([whether we are using the Microsoft _AC_LANG compiler],
                 [acx_cv_[]_AC_LANG_ABBREV[]_compiler_ms],
 [AC_COMPILE_IFELSE([AC_LANG_PROGRAM([], [[#ifndef _MSC_VER
        choke me
@@ -2190,11 +2177,12 @@ acx_cv_[]_AC_LANG_ABBREV[]_compiler_ms=$acx_compiler_ms
 if test "$acx_cv_c_compiler_ms" = "yes"; then
 	AC_DEFINE(STDCALLBULL,[__stdcall],[Standard windows call declaration])
 	AC_DEFINE(C_DLLEXPORT,[__declspec(dllexport)],[Standard windows call declaration])
-	AM_CONDITIONAL(USE_WINDOWS_COMPILER, test "$acx_cv_c_compiler_ms" = "yes")
+
 else
 	AC_DEFINE(STDCALLBULL,,[Standard windows call declaration])
 	AC_DEFINE(C_DLLEXPORT,,[Standard windows call declaration])
 fi
+AM_CONDITIONAL(USE_WINDOWS_COMPILER, test "$acx_cv_c_compiler_ms" = "yes")
 ])
 m4trace:configure.in:2: -1- AC_INIT([src/amd/amd.f])
 m4trace:configure.in:2: -1- m4_pattern_forbid([^_?A[CHUM]_])
@@ -2724,7 +2712,7 @@ else
 fi
 AC_LANG_POP(C++)
 	])
-m4trace:acx_elmer.m4:389: -1- AC_DEFUN([ACX_EIOC], [
+m4trace:acx_elmer.m4:387: -1- AC_DEFUN([ACX_EIOC], [
 AC_PREREQ(2.50)
 acx_eioc_ok=no
 
@@ -2739,8 +2727,6 @@ case $with_eioc in
 esac
 
 acx_eioc_save_LIBS="$LIBS"
-
-LIBS="-leioc $LIBS"
 
 # First, check EIO_LIBS environment variable
 if test $acx_eioc_ok = no; then
@@ -2772,11 +2758,11 @@ else
 fi
 AC_LANG_POP(C++)
 ])
-m4trace:acx_elmer.m4:396: -1- AC_DEFUN([ACX_MEANING], [
+m4trace:acx_elmer.m4:394: -1- AC_DEFUN([ACX_MEANING], [
 AC_MSG_CHECKING([for answer to meaning of life])
 AC_MSG_RESULT([42])
 ])
-m4trace:acx_elmer.m4:477: -1- AC_DEFUN([ACX_ARPACK], [
+m4trace:acx_elmer.m4:475: -1- AC_DEFUN([ACX_ARPACK], [
 AC_PREREQ(2.50)
 AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])
 AC_REQUIRE([AC_F77_LIBRARY_LDFLAGS])
@@ -2851,7 +2837,7 @@ else
         $2
 fi
 ])
-m4trace:acx_elmer.m4:536: -1- AC_DEFUN([ACX_PARPACK], [
+m4trace:acx_elmer.m4:534: -1- AC_DEFUN([ACX_PARPACK], [
 AC_PREREQ(2.50)
 AC_REQUIRE([AC_F77_LIBRARY_LDFLAGS])
 AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])
@@ -2904,7 +2890,7 @@ else
         $2
 fi
 ])
-m4trace:acx_elmer.m4:619: -1- AC_DEFUN([ACX_UMFPACK], [
+m4trace:acx_elmer.m4:615: -1- AC_DEFUN([ACX_UMFPACK], [
 AC_PREREQ(2.50)
 AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])
 AC_REQUIRE([ACX_LANG_COMPILER_MS])
@@ -2934,13 +2920,12 @@ if test "x$UMFPACK_LIBS" != x; then
 
 	if test "$acx_cv_c_compiler_ms" = "yes"; then
 		# windose shite	
-		AC_MSG_CHECKING([for $huti_d_gmres[]@44 in $HUTI_LIBS])
 		save_CFLAGS="$CFLAGS"
 		CFLAGS="$CFLAGS -Gz"
 		AC_LINK_IFELSE(
 		[int main ()
 		 {
-		   HUTI_D_GMRES(1,2,3,4,5,6,7,8,9,10,11);
+		   $umf4def(1);
 		   return 0;
 		 }
 		],
@@ -2950,7 +2935,6 @@ if test "x$UMFPACK_LIBS" != x; then
 		[
 	 	        UMFPACK_LIBS=""	
 		])
-		AC_MSG_RESULT($acx_umfpack_ok)
 		CFLAGS="$save_CFLAGS"
 	else
 		AC_TRY_LINK_FUNC($umf4def, [acx_umfpack_ok=yes], [UMFPACK_LIBS=""])
@@ -2979,8 +2963,9 @@ else
         $2
 fi
 ])
-m4trace:acx_elmer.m4:683: -1- AC_DEFUN([ACX_CHECK_STDCXXLIB], [
+m4trace:acx_elmer.m4:686: -1- AC_DEFUN([ACX_CHECK_STDCXXLIB], [
 AC_REQUIRE([AC_PROG_CXX])
+AC_REQUIRE([ACX_LANG_COMPILER_MS])
 acx_check_stdcxxlib_save_LIBS=$LIBS
 acx_stdcxxlib_ok=no
 
@@ -3031,8 +3016,14 @@ if test $acx_stdcxxlib_ok = no; then
 fi
 
 LIBS=$acx_check_stdcxxlib_save_LIBS
+
+if test "$acx_cv_c_compiler_ms" = "yes"; then
+	# in windows we never need this for linking, and it actually causes errors
+	STDCXX_LIBS=""
+fi
+
 ])
-m4trace:acx_elmer.m4:979: -1- AC_DEFUN([ACX_CHECK_B64FLAGS], [
+m4trace:acx_elmer.m4:982: -1- AC_DEFUN([ACX_CHECK_B64FLAGS], [
 AC_PREREQ([2.50])
 dnl AC_REQUIRE([AC_PROG_FC])
 AC_REQUIRE([AC_PROG_CC])
@@ -3325,7 +3316,7 @@ fi
 
 AC_SUBST(B64FLAGS)
 ])
-m4trace:acx_elmer.m4:1053: -1- AC_DEFUN([ACX_MATC], [
+m4trace:acx_elmer.m4:1035: -1- AC_DEFUN([ACX_MATC], [
 AC_PREREQ(2.50)
 AC_REQUIRE([ACX_LANG_COMPILER_MS])
 acx_matc_ok=no
@@ -3347,28 +3338,7 @@ if test "x$MATC_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$MATC_LIBS $LIBS"
 	AC_MSG_CHECKING([for mtc_init in $MATC_LIBS])
 
-	if test "$acx_cv_c_compiler_ms" = "yes"; then
-		# windose shite	
-		save_CFLAGS="$CFLAGS"
-		CFLAGS="$CFLAGS -Gz"
-		AC_LINK_IFELSE(
-		[int main ()
-		 {
-		   mtc_init(1,2,3);
-		   return 0;
-		 }
-		],
-		[
-	      		acx_matc_ok=yes
-		],
-		[
-	 	        MATC_LIBS=""	
-		])
-		AC_MSG_RESULT($acx_matc_ok)
-		CFLAGS="$save_CFLAGS"
-	else
-		AC_TRY_LINK_FUNC(mtc_init, [acx_matc_ok=yes], [MATC_LIBS=""])
-	fi
+	AC_TRY_LINK_FUNC(mtc_init, [acx_matc_ok=yes], [MATC_LIBS=""])
 
 	AC_MSG_RESULT($acx_matc_ok)
 	LIBS="$save_LIBS"
@@ -3393,7 +3363,7 @@ else
         $2
 fi
 ])
-m4trace:acx_elmer.m4:1087: -1- AC_DEFUN([ACX_PROG_TRADITIONAL_CPP], [
+m4trace:acx_elmer.m4:1069: -1- AC_DEFUN([ACX_PROG_TRADITIONAL_CPP], [
 # sun cc -E leaves nasty # comment that chokes the fortran compiler, so we have to hope
 # that ye olde cpp is present.
 AC_CHECK_FILE([/lib/cpp],[TRADITIONAL_CPP=yes],[TRADITIONAL_CPP=no])
@@ -3423,7 +3393,7 @@ esac
 
 AC_SUBST(CPP)
 ])
-m4trace:acx_elmer.m4:1109: -1- AC_DEFUN([ACX_FC_ETIME], [
+m4trace:acx_elmer.m4:1091: -1- AC_DEFUN([ACX_FC_ETIME], [
 AC_MSG_CHECKING([for fortran intrinsic etime])
 
 AC_LANG_PUSH(Fortran)
@@ -3444,7 +3414,7 @@ AC_LINK_IFELSE(
 ])
 AC_LANG_POP(Fortran)
 ])
-m4trace:acx_elmer.m4:1130: -1- AC_DEFUN([ACX_FC_FLUSH], [
+m4trace:acx_elmer.m4:1112: -1- AC_DEFUN([ACX_FC_FLUSH], [
 AC_MSG_CHECKING([for fortran intrinsic flush])
 
 AC_LANG_PUSH(Fortran)
@@ -3464,7 +3434,7 @@ AC_LINK_IFELSE(
 ])
 AC_LANG_POP(Fortran)
 ])
-m4trace:acx_elmer.m4:1144: -1- AC_DEFUN([ACX_BOURNE_SHELL], [
+m4trace:acx_elmer.m4:1126: -1- AC_DEFUN([ACX_BOURNE_SHELL], [
 
 case "$canonical_host_type" in
   *solaris* | *sun*)	
@@ -3477,7 +3447,7 @@ case "$canonical_host_type" in
 esac
 AC_SUBST(BOURNE_SHELL)
 ])
-m4trace:acx_elmer.m4:1222: -1- AC_DEFUN([ACX_FC_CHAR_MANGLING], [
+m4trace:acx_elmer.m4:1204: -1- AC_DEFUN([ACX_FC_CHAR_MANGLING], [
 AC_PREREQ(2.50)
 AC_REQUIRE([ACX_LANG_COMPILER_MS])
 
@@ -3551,7 +3521,7 @@ case $acx_cv_fc_char_mangling in
 esac
 AC_LANG_POP(Fortran)
 ])
-m4trace:acx_elmer.m4:1246: -1- AC_DEFUN([ACX_FC_LINKTYP], [
+m4trace:acx_elmer.m4:1228: -1- AC_DEFUN([ACX_FC_LINKTYP], [
 AC_PREREQ(2.50)
 AC_REQUIRE([AC_FC_WRAPPERS])
 dnl setup name mangling defines
@@ -3574,7 +3544,7 @@ case "$ac_cv_fc_mangling" in
 esac
 
 ])
-m4trace:acx_elmer.m4:1266: -1- AC_DEFUN([ACX_FC_INCLUDE_MODULE_FLAG], [
+m4trace:acx_elmer.m4:1248: -1- AC_DEFUN([ACX_FC_INCLUDE_MODULE_FLAG], [
 
 INCLUDE_MODULE_FLAG="-I"
 
@@ -3593,7 +3563,7 @@ case "$canonical_host_type" in
 esac
 
 ])
-m4trace:acx_elmer.m4:1346: -1- AC_DEFUN([ACX_PIC_FLAGS], [
+m4trace:acx_elmer.m4:1328: -1- AC_DEFUN([ACX_PIC_FLAGS], [
 dnl 
 dnl Host specific stuff
 dnl fixme: if 64 bits, then start looking for pic flags, not by default?
@@ -3672,7 +3642,7 @@ FFLAGS="$FFLAGS $FPICFLAG"
 CFLAGS="$CFLAGS $CPICFLAG"
 CXXFLAGS="$CXXFLAGS $CXXPICFLAG"
 ])
-m4trace:acx_elmer.m4:1542: -1- AC_DEFUN([ACX_SHLIB_STUFF], [
+m4trace:acx_elmer.m4:1524: -1- AC_DEFUN([ACX_SHLIB_STUFF], [
 dnl  
 dnl OS-specific stuff that hasn't been (or can't be) done in a clean way.
 dnl
@@ -3867,7 +3837,7 @@ fi
 AC_SUBST(SH_EXPALL_FLAG)
 
 ])
-m4trace:acx_elmer.m4:1599: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
+m4trace:acx_elmer.m4:1582: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
 AC_REQUIRE([ACX_HOST])
 acx_platform_def="GENERIC"
 case "$canonical_host_type" in
@@ -3893,6 +3863,7 @@ case "$canonical_host_type" in
   *-*-mingw*)
 	acx_platform_def="WIN32"
         AC_DEFINE([MINGW32],1,[Detected platform.])
+        AC_DEFINE([WIN32],1,[Detected platform2.])
   ;;
   *-*-linux* | *-*-gnu*)
         AC_DEFINE([LINUX],1,[Detected platform.])
@@ -3920,7 +3891,7 @@ esac
 
 AM_CONDITIONAL(IBM_IS_PIECE_OF_SHIT, test "$acx_platform_def" = "AIX")
 ])
-m4trace:acx_elmer.m4:1637: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
+m4trace:acx_elmer.m4:1620: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
 AC_REQUIRE([ACX_SHLIB_STUFF])
 case "$FC" in
    ifc)
@@ -3956,7 +3927,7 @@ esac
 AC_SUBST(SH_LDFLAGS)
 AC_SUBST(SH_LD)
 ])
-m4trace:acx_elmer.m4:1779: -1- AC_DEFUN([ACX_TCLTK], [
+m4trace:acx_elmer.m4:1766: -1- AC_DEFUN([ACX_TCLTK], [
 AC_REQUIRE([AC_PATH_X])
 AC_PREREQ(2.50)
 acx_tcltk_ok=no
@@ -4038,7 +4009,11 @@ AC_SUBST(TCLTK_LIBS)
 LIBS=$acx_tcltk_save_LIBS
 
 # Search for tcl.h and tk.h
-acx_tcltk_tcl_h_locs="/usr/include /usr/local/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2 /include /usr/swf/include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
+if test "$TCLTK_INCPATH"; then
+	acx_tcltk_tcl_h_locs=$TCLTK_INCPATH
+fi
+acx_tcltk_tcl_h_locs="$acx_tcltk_tcl_h_locs /usr/include /usr/local/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2 /include /usr/swf/include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
+
 
 acx_tcltk_CPPFLAGS_save=$CPPFLAGS
 acx_tcltk_CFLAGS_save=$CFLAGS
@@ -4090,7 +4065,7 @@ else
         $2
 fi
 ])
-m4trace:acx_elmer.m4:1801: -1- AC_DEFUN([ACX_FORTRAN_CPP], [
+m4trace:acx_elmer.m4:1788: -1- AC_DEFUN([ACX_FORTRAN_CPP], [
 AC_PREREQ(2.50)
 acx_fortran_cpp_ok=no
 
@@ -4102,7 +4077,7 @@ case "$FC" in
 esac
 AC_SUBST(FORTRAN_CPP_FLAG)
 ])
-m4trace:acx_elmer.m4:1824: -1- AC_DEFUN([ACX_LANG_COMPILER_MS], [AC_CACHE_CHECK([whether we are using the Microsoft _AC_LANG compiler],
+m4trace:acx_elmer.m4:1812: -1- AC_DEFUN([ACX_LANG_COMPILER_MS], [AC_CACHE_CHECK([whether we are using the Microsoft _AC_LANG compiler],
                 [acx_cv_[]_AC_LANG_ABBREV[]_compiler_ms],
 [AC_COMPILE_IFELSE([AC_LANG_PROGRAM([], [[#ifndef _MSC_VER
        choke me
@@ -4116,11 +4091,12 @@ acx_cv_[]_AC_LANG_ABBREV[]_compiler_ms=$acx_compiler_ms
 if test "$acx_cv_c_compiler_ms" = "yes"; then
 	AC_DEFINE(STDCALLBULL,[__stdcall],[Standard windows call declaration])
 	AC_DEFINE(C_DLLEXPORT,[__declspec(dllexport)],[Standard windows call declaration])
-	AM_CONDITIONAL(USE_WINDOWS_COMPILER, test "$acx_cv_c_compiler_ms" = "yes")
+
 else
 	AC_DEFINE(STDCALLBULL,,[Standard windows call declaration])
 	AC_DEFINE(C_DLLEXPORT,,[Standard windows call declaration])
 fi
+AM_CONDITIONAL(USE_WINDOWS_COMPILER, test "$acx_cv_c_compiler_ms" = "yes")
 ])
 m4trace:configure.in:14: -1- ACX_HOST
 m4trace:configure.in:14: -1- AC_SUBST([canonical_host_type])
@@ -4193,7 +4169,7 @@ m4trace:configure.in:24: -1- m4_pattern_allow([^ARFLAGS$])
 m4trace:configure.in:24: -1- _m4_warn([obsolete], [The macro `AC_HELP_STRING' is obsolete.
 You should run autoupdate.], [autoconf/general.m4:219: AC_HELP_STRING is expanded from...
 autoconf/general.m4:1416: AC_ARG_WITH is expanded from...
-acx_elmer.m4:979: ACX_CHECK_B64FLAGS is expanded from...
+acx_elmer.m4:982: ACX_CHECK_B64FLAGS is expanded from...
 configure.in:24: the top level])
 m4trace:configure.in:24: -1- AC_SUBST([AR])
 m4trace:configure.in:24: -1- m4_pattern_allow([^AR$])
@@ -4262,17 +4238,17 @@ m4trace:configure.in:26: -1- AH_OUTPUT([STDCALLBULL], [/* Standard windows call 
 m4trace:configure.in:26: -1- AC_DEFINE_TRACE_LITERAL([C_DLLEXPORT])
 m4trace:configure.in:26: -1- AH_OUTPUT([C_DLLEXPORT], [/* Standard windows call declaration */
 #undef C_DLLEXPORT])
-m4trace:configure.in:26: -1- AM_CONDITIONAL([USE_WINDOWS_COMPILER], [test "$acx_cv_c_compiler_ms" = "yes"])
-m4trace:configure.in:26: -1- AC_SUBST([USE_WINDOWS_COMPILER_TRUE])
-m4trace:configure.in:26: -1- m4_pattern_allow([^USE_WINDOWS_COMPILER_TRUE$])
-m4trace:configure.in:26: -1- AC_SUBST([USE_WINDOWS_COMPILER_FALSE])
-m4trace:configure.in:26: -1- m4_pattern_allow([^USE_WINDOWS_COMPILER_FALSE$])
 m4trace:configure.in:26: -1- AC_DEFINE_TRACE_LITERAL([STDCALLBULL])
 m4trace:configure.in:26: -1- AH_OUTPUT([STDCALLBULL], [/* Standard windows call declaration */
 #undef STDCALLBULL])
 m4trace:configure.in:26: -1- AC_DEFINE_TRACE_LITERAL([C_DLLEXPORT])
 m4trace:configure.in:26: -1- AH_OUTPUT([C_DLLEXPORT], [/* Standard windows call declaration */
 #undef C_DLLEXPORT])
+m4trace:configure.in:26: -1- AM_CONDITIONAL([USE_WINDOWS_COMPILER], [test "$acx_cv_c_compiler_ms" = "yes"])
+m4trace:configure.in:26: -1- AC_SUBST([USE_WINDOWS_COMPILER_TRUE])
+m4trace:configure.in:26: -1- m4_pattern_allow([^USE_WINDOWS_COMPILER_TRUE$])
+m4trace:configure.in:26: -1- AC_SUBST([USE_WINDOWS_COMPILER_FALSE])
+m4trace:configure.in:26: -1- m4_pattern_allow([^USE_WINDOWS_COMPILER_FALSE$])
 m4trace:configure.in:28: -1- AC_SUBST([FLIBS])
 m4trace:configure.in:28: -1- m4_pattern_allow([^FLIBS$])
 m4trace:configure.in:28: -1- AC_DEFINE_TRACE_LITERAL([F77_DUMMY_MAIN])
