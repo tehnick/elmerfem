@@ -34,6 +34,9 @@
 ! *       Date of modification:
 ! *
 ! * $Log: Stress.src,v $
+! * Revision 1.7  2005/07/07 09:12:30  jpr
+! * Changed ElementInfo to have dBasisdx,ddBasisddx as OPTIONAL arguments. Changed all calls to ElementInfo accordingly.
+! *
 ! * Revision 1.6  2005/06/21 10:04:43  jpr
 ! * Force BC:s with p-elements should work now.
 ! *
@@ -107,7 +110,7 @@
 ! * Modified StressBoundary to work in axisymmetric cases.
 ! *
 ! *
-! * $Id: Stress.src,v 1.6 2005/06/21 10:04:43 jpr Exp $
+! * $Id: Stress.src,v 1.7 2005/07/07 09:12:30 jpr Exp $
 ! *****************************************************************************/
 
 MODULE StressLocal
@@ -840,7 +843,7 @@ MODULE StressLocal
 
        Radius = SUM( Nodes % x(1:n) * Basis(1:n) )
 
-       IF ( Radius > 10*AEPS ) THEN
+       IF ( Radius > 0.0d0 ) THEN
          Strain(3,3) = SUM( NodalDisp(1,1:nd) * Basis(1:nd) ) / Radius
        END IF
      END IF
