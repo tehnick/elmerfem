@@ -124,7 +124,7 @@
      LOGICAL :: PiezoMaterial
 
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, CapMatrixFile, Name
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.3 2005/07/07 09:12:30 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.4 2005/08/29 09:52:07 apursula Exp $"
 
 
      SAVE LocalStiffMatrix, Load, LocalForce, Pwrk, PotDiff, &
@@ -1084,7 +1084,7 @@
 
    DO i = 1, Model % NumberOfNodes
      IF ( Reorder(i) == 0 )  CYCLE
-     IF ( ABS( SumOfWeights(Reorder(i)) ) > AEPS ) THEN
+     IF ( ABS( SumOfWeights(Reorder(i)) ) > 0.0d0 ) THEN
        IF ( CalculateEnergy )  We(EnergyPerm(i)) = &
             We(EnergyPerm(i)) / SumOfWeights(Reorder(i))
 
