@@ -39,6 +39,7 @@
 #include <math.h>
 #include <float.h>
 #include <limits.h>
+#include "../../config.h"
 
 #include <sys/types.h>
 
@@ -318,12 +319,6 @@ double TriangleIntegrateDiffToArea(Geometry_t *,double,double,double,double,doub
 void TriangleSubdivide(Geometry_t *,int,int);
 void TriangleComputeViewFactors(Geometry_t *GA,Geometry_t *GB,int,int );
 
-#ifdef WIN32
-static double drand48()
-{
-    return rand()/(1.0*(1<<15));
-}
-#endif
 
 static double FunctionValue( Geometry_t *Geom,double U,double V,int N )
 {

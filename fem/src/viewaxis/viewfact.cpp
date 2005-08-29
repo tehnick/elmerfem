@@ -22,7 +22,7 @@ static int nsurf,inode;
 static Real * coord;
 static int *surfEltop;
 
-extern "C" void FC_FUNC(viewfactorsaxis,VIEWFACTORSAXIS) 
+extern "C" void STDCALLBULL FC_FUNC(viewfactorsaxis,VIEWFACTORSAXIS) 
   (int *n,int *surf, Real *crd, Real *vf, int *idiv)
 {
   int i, j, ii, jj,div;

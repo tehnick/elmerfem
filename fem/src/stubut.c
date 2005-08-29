@@ -1,5 +1,5 @@
 /*
-  All kinds of stubs etc that cover up if something is missing from fortran.
+ * All kinds of stubs etc that cover up if something is missing from fortran.
  */
 
 #include <sys/types.h>

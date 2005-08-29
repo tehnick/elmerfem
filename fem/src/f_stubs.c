@@ -1,15 +1,36 @@
 /*
   All kinds of stubs etc that cover up if something is missing from fortran.
  */
-#include <sys/types.h>
-#include <sys/times.h>
-#include <sys/param.h>
-#include <sys/time.h>
-#include <sys/resource.h>
-
 #include "../config.h"
 
+
+#include <sys/types.h>
+
+
+
+
+#if defined(WIN32) | defined(MINGW32)
+
+#else 
+
+#include <sys/resource.h>
+#include <sys/time.h>
+#include <sys/times.h>
+#include <sys/param.h>
+
+#endif
+
+
+
 #ifndef HAVE_F_ETIME
+
+#if defined(WIN32) | defined(MINGW32)
+float STDCALLBULL FC_FUNC(etime,ETIME)(tt)
+float tt[2];
+{
+  return(.0);
+}
+#else
 float FC_FUNC(etime,ETIME)(tt)
 float tt[2];
 {
@@ -21,10 +42,11 @@ float tt[2];
    tt[1] = used.ru_stime.tv_sec+((used.ru_stime.tv_usec)/1000000.);
    return(tt[0]+tt[1]);
 }
-#endif
+#endif // win32
+#endif // etime_defined
 
 #ifndef HAVE_F_FLUSH
-void FC_FUNC(flush,FLUSH) (int n)
+void STDCALLBULL FC_FUNC(flush,FLUSH) (int n)
 {
   /*  might as well flush a toilet...? */
 }

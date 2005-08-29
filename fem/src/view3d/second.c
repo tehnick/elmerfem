@@ -34,7 +34,17 @@
  *
  *****************************************************************************/
 
-#ifndef WIN32
+#include "../../config.h"
+
+#if defined(MINGW32) | defined(WIN32) 
+
+double second() 
+{ 
+  return 0.0; 
+}
+
+
+#else
 #include <sys/types.h>
 #include <sys/times.h>
 #include <sys/param.h>
@@ -58,6 +68,4 @@ double second( )
     gettimeofday(&tp,&tzp);
     return tp.tv_sec + tp.tv_usec/1.0e6;
 }
-#else
-double second() {}
 #endif

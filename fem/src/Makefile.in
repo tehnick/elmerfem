@@ -95,7 +95,6 @@ BASIC_CPP = @BASIC_CPP@
 BLAS_LIBS = @BLAS_LIBS@
 BOURNE_SHELL = @BOURNE_SHELL@
 CC = @CC@
-CCC = @CCC@
 CCDEPMODE = @CCDEPMODE@
 CFLAGS = @CFLAGS@
 CP = @CP@
@@ -128,7 +127,6 @@ FFLAGS = @FFLAGS@
 FLIBS = @FLIBS@
 FORTRAN_CPP_FLAG = @FORTRAN_CPP_FLAG@
 FPICFLAG = @FPICFLAG@
-GREP = @GREP@
 HUTI_LIBS = @HUTI_LIBS@
 IBM_IS_PIECE_OF_SHIT_FALSE = @IBM_IS_PIECE_OF_SHIT_FALSE@
 IBM_IS_PIECE_OF_SHIT_TRUE = @IBM_IS_PIECE_OF_SHIT_TRUE@
@@ -202,6 +200,8 @@ USE_LOCAL_MPIF_H_FALSE = @USE_LOCAL_MPIF_H_FALSE@
 USE_LOCAL_MPIF_H_TRUE = @USE_LOCAL_MPIF_H_TRUE@
 USE_MPI_FALSE = @USE_MPI_FALSE@
 USE_MPI_TRUE = @USE_MPI_TRUE@
+USE_WINDOWS_COMPILER_FALSE = @USE_WINDOWS_COMPILER_FALSE@
+USE_WINDOWS_COMPILER_TRUE = @USE_WINDOWS_COMPILER_TRUE@
 VERSION = @VERSION@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
@@ -226,16 +226,12 @@ build_os = @build_os@
 build_vendor = @build_vendor@
 canonical_host_type = @canonical_host_type@
 datadir = @datadir@
-datarootdir = @datarootdir@
-docdir = @docdir@
-dvidir = @dvidir@
 exec_prefix = @exec_prefix@
 host = @host@
 host_alias = @host_alias@
 host_cpu = @host_cpu@
 host_os = @host_os@
 host_vendor = @host_vendor@
-htmldir = @htmldir@
 includedir = @includedir@
 infodir = @infodir@
 install_sh = @install_sh@
@@ -243,7 +239,6 @@ lib_mpi = @lib_mpi@
 libdir = @libdir@
 libexecdir = @libexecdir@
 library_path_var = @library_path_var@
-localedir = @localedir@
 localstatedir = @localstatedir@
 mandir = @mandir@
 mkdir_p = @mkdir_p@
@@ -251,10 +246,8 @@ mpi_dir = @mpi_dir@
 mpi_inc_dir = @mpi_inc_dir@
 mpi_lib_dir = @mpi_lib_dir@
 oldincludedir = @oldincludedir@
-pdfdir = @pdfdir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
-psdir = @psdir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 sysconfdir = @sysconfdir@
@@ -880,7 +873,7 @@ HeatSolve.$(OBJEXT): HeatSolve.f90 MaterialModels.$(OBJEXT) DiffuseConvectiveGen
 HelmholtzBEM.$(OBJEXT): HelmholtzBEM.f90 DefUtils.$(OBJEXT) Types.$(OBJEXT) PoissonBEM.$(OBJEXT)
 HelmholtzSolve.$(OBJEXT): HelmholtzSolve.f90 DefUtils.$(OBJEXT) LinearAlgebra.$(OBJEXT)
 IMeshToMesh.$(OBJEXT): IMeshToMesh.f90 CRSMatrix.$(OBJEXT) CoordinateSystems.$(OBJEXT) Interpolation.$(OBJEXT)
-Integration.$(OBJEXT): Integration.f90 LinearAlgebra.$(OBJEXT) Types.$(OBJEXT)
+Integration.$(OBJEXT): Integration.f90 LinearAlgebra.$(OBJEXT) Types.$(OBJEXT) PElementBase.$(OBJEXT)
 Interpolation.$(OBJEXT): Interpolation.f90 ElementDescription.$(OBJEXT) Lists.$(OBJEXT) Types.$(OBJEXT) CoordinateSystems.$(OBJEXT)
 IterSolve.$(OBJEXT): IterSolve.f90 CRSMatrix.$(OBJEXT) BandMatrix.$(OBJEXT) Lists.$(OBJEXT)
 KESolver.$(OBJEXT): KESolver.f90 DefUtils.$(OBJEXT) MaterialModels.$(OBJEXT)
@@ -969,12 +962,22 @@ fdeps:
 	sed -e 's/^#\([^:]*\...OBJEXT.: \)/\1/g' Makefile > Makefile.deps
 	mv Makefile.deps Makefile
 
-libelmersolver$(SHL_EXT): $(SOLVEROBJS) 
-	$(RM) $@
-	$(SH_LD2) $(RPATH_ELMER) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) -L.
+@USE_WINDOWS_COMPILER_TRUE@.$(OBJEXT).$(SHLEXT): 
+@USE_WINDOWS_COMPILER_TRUE@	$(SH_LD) $(SH_LDFLAGS) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) -o $@ $*$(OBJ_EXT) $(EXTRA_LIBS) 
 
-.$(OBJEXT).$(SHLEXT): 
-	$(SH_LD) $(SH_LDFLAGS) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) -o $@ $*$(OBJ_EXT) $(EXTRA_LIBS)
+@USE_WINDOWS_COMPILER_TRUE@EliminatePeriodic.$(SHLEXT): EliminateDirichlet$(OBJ_EXT) EliminatePeriodic$(OBJ_EXT)
+@USE_WINDOWS_COMPILER_TRUE@	$(SH_LD) $(SH_LDFLAGS) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) -o $@ $*$(OBJ_EXT) $(EXTRA_LIBS) EliminateDirichlet$(OBJ_EXT)
+
+@USE_WINDOWS_COMPILER_TRUE@libelmersolver$(SHL_EXT): $(SOLVEROBJS) mpi_stubs$(OBJ_EXT)
+@USE_WINDOWS_COMPILER_TRUE@	$(RM) $@
+@USE_WINDOWS_COMPILER_TRUE@	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) mpi_stubs$(OBJ_EXT) -L.
+
+@USE_WINDOWS_COMPILER_FALSE@libelmersolver$(SHL_EXT): $(SOLVEROBJS) 
+@USE_WINDOWS_COMPILER_FALSE@	$(RM) $@
+@USE_WINDOWS_COMPILER_FALSE@	$(SH_LD2) $(RPATH_ELMER) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) -L.
+
+@USE_WINDOWS_COMPILER_FALSE@.$(OBJEXT).$(SHLEXT): 
+@USE_WINDOWS_COMPILER_FALSE@	$(SH_LD) $(SH_LDFLAGS) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) -o $@ $*$(OBJ_EXT) $(EXTRA_LIBS)
 
 $(BINARIES) $(BINARIES_ODD): libelmersolver$(SHL_EXT)
 
@@ -993,7 +996,7 @@ $(SOLVEROBJS): mpif
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libelmersolver$(SHL_EXT) mpi_stubs$(OBJ_EXT)
 	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
 	      -o ElmerSolver$(EXE_EXT) Solver$(OBJ_EXT) mpi_stubs$(OBJ_EXT) \
-	      -L. -lelmersolver $(EXTRA_LIBS)
+	      -L. -lelmersolver $(EXTRA_LIBS) 
 
 ViewFactors$(EXE_EXT): libelmersolver$(SHL_EXT) ViewFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT)
 	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
