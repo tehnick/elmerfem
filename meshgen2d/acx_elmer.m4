@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.50 2005/06/06 11:55:27 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.71 2005/08/25 13:39:22 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -121,6 +121,7 @@ dnl
 AC_DEFUN([ACX_HUTI], [
 AC_PREREQ(2.50)
 AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])
+AC_REQUIRE([ACX_LANG_COMPILER_MS])
 acx_huti_ok=no
 
 AC_ARG_WITH(huti,
@@ -143,9 +144,32 @@ dnl LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
 if test $acx_huti_ok = no; then
 if test "x$HUTI_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$LIBS $HUTI_LIBS $BLAS_LIBS $FCLIBS $FLIBS"
-	AC_MSG_CHECKING([for $huti_d_gmres in $HUTI_LIBS])
-	AC_TRY_LINK_FUNC($huti_d_gmres, [acx_huti_ok=yes], [HUTI_LIBS=""])
-	AC_MSG_RESULT($acx_huti_ok)
+
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+		# windose shite	
+		AC_MSG_CHECKING([for $huti_d_gmres[]@44 in $HUTI_LIBS])
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -Gz"
+		AC_LINK_IFELSE(
+		[int main ()
+		 {
+		   HUTI_D_GMRES(1,2,3,4,5,6,7,8,9,10,11);
+		   return 0;
+		 }
+		],
+		[
+	      		acx_huti_ok=yes
+		],
+		[
+	 	        HUTI_LIBS=""	
+		])
+		AC_MSG_RESULT($acx_huti_ok)
+		CFLAGS="$save_CFLAGS"
+	else
+		AC_MSG_CHECKING([for $huti_d_gmres in $HUTI_LIBS])
+		AC_TRY_LINK_FUNC($huti_d_gmres, [acx_huti_ok=yes], [HUTI_LIBS=""])
+		AC_MSG_RESULT($acx_huti_ok)
+	fi
 	LIBS="$save_LIBS"
 fi
 fi
@@ -153,7 +177,31 @@ fi
 # Generic HUTI library?
 if test $acx_huti_ok = no; then
 	save_LIBS="$LIBS"; LIBS="$LIBS $BLAS_LIBS $FCLIBS $FLIBS"
-	AC_CHECK_LIB(huti, $huti_d_gmres, [acx_huti_ok=yes; HUTI_LIBS="-lhuti"])
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+		# windose shite	
+		AC_MSG_CHECKING([for $huti_d_gmres[]@44 in -lhuti])
+		LIBS="-lhuti $BLAS_LIBS $FCLIBS $FLIBS"
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -Gz"
+
+		AC_LINK_IFELSE(
+		[int main ()
+		 {
+		   HUTI_D_GMRES(1,2,3,4,5,6,7,8,9,10,11);
+		   return 0;
+		 }
+		],
+		[
+	      		acx_huti_ok=yes
+		],
+		[
+	 	        HUTI_LIBS=""	
+		])
+		AC_MSG_RESULT($acx_huti_ok)
+		CFLAGS="$save_CFLAGS"
+	else
+		AC_CHECK_LIB(huti, $huti_d_gmres, [acx_huti_ok=yes; HUTI_LIBS="-lhuti"])
+	fi
 	LIBS="$save_LIBS"
 fi
 
@@ -179,6 +227,7 @@ dnl Look for eio fortran library
 dnl
 AC_DEFUN([ACX_EIOF], [
 AC_PREREQ(2.50)
+AC_REQUIRE([ACX_LANG_COMPILER_MS])
 acx_eiof_ok=no
 
 AC_LANG_PUSH(C++)
@@ -203,16 +252,68 @@ LIBS="$LIBS"
 if test $acx_eiof_ok = no; then
 if test "x$EIOF_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$EIOF_LIBS $LIBS"
-	AC_MSG_CHECKING([for $eio_init in $EIOF_LIBS])
-	AC_TRY_LINK_FUNC($eio_init, [acx_eiof_ok=yes], [EIOF_LIBS=""])
-	AC_MSG_RESULT($acx_eiof_ok)
+
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+		# windose shite	
+		AC_MSG_CHECKING([for $eio_init[]@4 in $EIOF_LIBS])
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -Gz"
+		AC_LANG_PUSH(C)
+		AC_LINK_IFELSE(
+		[int main ()
+		 {
+		   $eio_init(1);
+		   return 0;
+		 }
+		],
+		[
+	      		acx_eiof_ok=yes
+		],
+		[
+	 	        EIOF_LIBS=""
+		])
+		AC_MSG_RESULT($acx_eiof_ok)
+		CFLAGS="$save_CFLAGS"
+		AC_LANG_POP(C)
+
+	else
+		AC_MSG_CHECKING([for $eio_init in $EIOF_LIBS])
+		AC_TRY_LINK_FUNC($eio_init, [acx_eiof_ok=yes], [EIOF_LIBS=""])
+		AC_MSG_RESULT($acx_eiof_ok)
+	fi
+
 	LIBS="$save_LIBS"
 fi
 fi
 
 # Generic EIO library?
 if test "$acx_eiof_ok" = no; then
-	AC_CHECK_LIB(eiof, $eio_init, [acx_eiof_ok=yes; EIOF_LIBS="-leiof"])
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+		# windose shite	
+		AC_MSG_CHECKING([for $eio_init[]@4 in -leiof])
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -Gz"
+		AC_LANG_PUSH(C)
+		AC_LINK_IFELSE(
+		[int main ()
+		 {
+		   $eio_init(1);
+		   return 0;
+		 }
+		],
+		[
+	      		acx_eiof_ok=yes
+			EIOF_LIBS="-leiof"
+		],
+		[
+	 	        EIOF_LIBS=""
+		])
+		AC_MSG_RESULT($acx_eiof_ok)
+		CFLAGS="$save_CFLAGS"
+		AC_LANG_POP(C)
+	else
+		AC_CHECK_LIB(eiof, $eio_init, [acx_eiof_ok=yes; EIOF_LIBS="-leiof"])
+	fi
 fi
 
 AC_SUBST(EIOF_LIBS)
@@ -253,8 +354,6 @@ case $with_eioc in
 esac
 
 acx_eioc_save_LIBS="$LIBS"
-
-LIBS="-leioc $LIBS"
 
 # First, check EIO_LIBS environment variable
 if test $acx_eioc_ok = no; then
@@ -302,6 +401,8 @@ dnl
 AC_DEFUN([ACX_ARPACK], [
 AC_PREREQ(2.50)
 AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])
+AC_REQUIRE([AC_F77_LIBRARY_LDFLAGS])
+AC_REQUIRE([ACX_LANG_COMPILER_MS])
 acx_arpack_ok=no
 
 AC_ARG_WITH(arpack,
@@ -318,14 +419,37 @@ AC_FC_FUNC(dseupd)
 
 acx_arpack_save_LIBS="$LIBS"
 
-LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
+LIBS="$LAPACK_LIBS $BLAS_LIBS $LIBS $FCLIBS $FLIBS"
 
 # First, check ARPACK_LIBS environment variable
 if test $acx_arpack_ok = no; then
 if test "x$ARPACK_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$ARPACK_LIBS $LIBS"
 	AC_MSG_CHECKING([for $dseupd in $ARPACK_LIBS])
-	AC_TRY_LINK_FUNC($dseupd, [acx_arpack_ok=yes], [ARPACK_LIBS=""])
+
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+		# windose shite	
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -Gz"
+		AC_LINK_IFELSE(
+		[int main ()
+		 {
+		   $dseupd(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25);
+		   return 0;
+		 }
+		],
+		[
+	      		acx_arpack_ok=yes
+		],
+		[
+	 	        ARPACK_LIBS=""	
+		])
+		AC_MSG_RESULT($acx_arpack_ok)
+		CFLAGS="$save_CFLAGS"
+	else
+		AC_TRY_LINK_FUNC($dseupd, [acx_arpack_ok=yes], [ARPACK_LIBS=""])
+	fi
+
 	AC_MSG_RESULT($acx_arpack_ok)
 	LIBS="$save_LIBS"
 fi
@@ -350,8 +474,6 @@ else
 fi
 ])dnl ACX_ARPACK
 
-
-
 dnl
 dnl @synopsis ACX_PARPACK([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
 dnl
@@ -360,6 +482,9 @@ dnl
 AC_DEFUN([ACX_PARPACK], [
 AC_PREREQ(2.50)
 AC_REQUIRE([AC_F77_LIBRARY_LDFLAGS])
+AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])
+AC_REQUIRE([ACX_MPI])
+AC_REQUIRE([ACX_ARPACK])
 acx_parpack_ok=no
 
 AC_ARG_WITH(parpack,
@@ -376,7 +501,7 @@ AC_FC_FUNC(pdneupd)
 
 acx_parpack_save_LIBS="$LIBS"
 
-LIBS="$BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
+LIBS="$MPI_LIBS $ARPACK_LIBS $LAPACK_LIBS $BLAS_LIBS $LIBS $FCLIBS $FLIBS"
 
 # First, check PARPACK_LIBS environment variable
 if test $acx_parpack_ok = no; then
@@ -418,6 +543,7 @@ dnl
 AC_DEFUN([ACX_UMFPACK], [
 AC_PREREQ(2.50)
 AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])
+AC_REQUIRE([ACX_LANG_COMPILER_MS])
 acx_umfpack_ok=no
 
 AC_ARG_WITH(umfpack,
@@ -441,7 +567,29 @@ if test $acx_umfpack_ok = no; then
 if test "x$UMFPACK_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$UMFPACK_LIBS $LIBS"
 	AC_MSG_CHECKING([for $umf4def in $UMFPACK_LIBS])
-	AC_TRY_LINK_FUNC($umf4def, [acx_umfpack_ok=yes], [UMFPACK_LIBS=""])
+
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+		# windose shite	
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -Gz"
+		AC_LINK_IFELSE(
+		[int main ()
+		 {
+		   $umf4def(1);
+		   return 0;
+		 }
+		],
+		[
+	      		acx_umfpack_ok=yes
+		],
+		[
+	 	        UMFPACK_LIBS=""	
+		])
+		CFLAGS="$save_CFLAGS"
+	else
+		AC_TRY_LINK_FUNC($umf4def, [acx_umfpack_ok=yes], [UMFPACK_LIBS=""])
+	fi
+
 	AC_MSG_RESULT($acx_umfpack_ok)
 	LIBS="$save_LIBS"
 fi
@@ -473,6 +621,7 @@ dnl stdc++ (gnu)
 dnl Cstd   (sun)
 dnl C      (aix)
 dnl 
+dnl This is probably redundant. 
 dnl
 AC_DEFUN([ACX_CHECK_STDCXXLIB],
 [
@@ -515,12 +664,12 @@ if test $acx_stdcxxlib_ok = no; then
 fi
 
 dnl check for stdc++
-if test $acx_stdcxxlib_ok = no; then
-	AC_CHECK_LIB(C, main,[
-				   STDCXX_LIBS="-lC"
-			           acx_stdcxxlib_ok=yes
-                                  ])
-fi
+dnl if test $acx_stdcxxlib_ok = no; then
+dnl	AC_CHECK_LIB(C, main,[
+dnl				   STDCXX_LIBS="-lC"
+dnl			           acx_stdcxxlib_ok=yes
+dnl                                  ])
+dnl fi
 
 if test $acx_stdcxxlib_ok = no; then
 	AC_MSG_ERROR([Couldn't find std c++ library that is needed for linking.])
@@ -591,6 +740,10 @@ case "$canonical_host_type" in
 	  g95 | gfortran)
 	        B64FCFLAGS=$B64FLAGS
 		;;
+	  pgf*)
+	        # portland group
+	        B64FCFLAGS="-fPIC"
+	        ;;
 	  *)
 	        B64FCFLAGS=$B64FLAGS
 		;;
@@ -602,6 +755,10 @@ case "$canonical_host_type" in
 	  ifort | ifc)
 		true
 	  ;;
+	  pgf*)
+	        # portland group
+	        B64FFLAGS="-fPIC"
+	        ;;
           *)
 	      B64FFLAGS=$B64FLAGS
           ;;
@@ -613,6 +770,10 @@ case "$canonical_host_type" in
 	  icc | icc)
 		true
 	  ;;
+	  pgcc*)
+	        # portland group
+	        B64CFLAGS="-fPIC"
+	        ;;
           *)
 	      B64CFLAGS=$B64FLAGS
           ;;
@@ -623,6 +784,10 @@ case "$canonical_host_type" in
  	case "$CC" in 
 	  icc | icc)
 		true
+	  ;;
+	  pgC*)
+	        # portland group
+	        B64CXXFLAGS="-fPIC"
 	  ;;
 	  *)
        		B64CXXFLAGS=$B64FLAGS
@@ -757,7 +922,7 @@ if test "$with_64bits" != no; then
 
 	if test x"$CXX" != x; then
            AC_MSG_CHECKING([for 64 bit CXXFLAGS])
-           AC_MSG_RESULT($B64CXXFLAGS)
+           AC_MSG_RESULT($B64CXXFLAGS	)
 	   CXXFLAGS="$CXXFLAGS $B64CXXFLAGS"
 	fi
 
@@ -816,6 +981,7 @@ dnl Look for matc library
 dnl
 AC_DEFUN([ACX_MATC], [
 AC_PREREQ(2.50)
+AC_REQUIRE([ACX_LANG_COMPILER_MS])
 acx_matc_ok=no
 
 AC_ARG_WITH(matc,
@@ -834,7 +1000,9 @@ if test $acx_matc_ok = no; then
 if test "x$MATC_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$MATC_LIBS $LIBS"
 	AC_MSG_CHECKING([for mtc_init in $MATC_LIBS])
+
 	AC_TRY_LINK_FUNC(mtc_init, [acx_matc_ok=yes], [MATC_LIBS=""])
+
 	AC_MSG_RESULT($acx_matc_ok)
 	LIBS="$save_LIBS"
 fi
@@ -955,12 +1123,21 @@ dnl Determine if fortran compiler expects (char *str1, int len1) or (char *str1)
 dnl
 AC_DEFUN([ACX_FC_CHAR_MANGLING], [
 AC_PREREQ(2.50)
+AC_REQUIRE([ACX_LANG_COMPILER_MS])
 
 acx_cv_fc_char_mangling="char_ptr"
 
 AC_FC_FUNC(barf)
 
+
+
 AC_MSG_CHECKING([for Fortran char* mangling scheme])
+
+# this test is hopelessly fucked with a windows compiler (on windows t
+# if test "$acx_cv_c_compiler_ms" = "yes"; then 
+#	acx_cv_fc_char_mangling="char_ptr_and_len_int"
+# else
+
 
 AC_LANG_PUSH(C)
 AC_COMPILE_IFELSE([
@@ -995,6 +1172,11 @@ case $the_answer in
    	       acx_cv_fc_char_mangling="char_ptr_and_len_int"
 	;;
 esac
+
+# fi windows 
+# fi
+
+
 AC_MSG_RESULT($acx_cv_fc_char_mangling)
 
 rm testi$ac_exeext conftest.$ac_objext cfortran_test.$ac_objext],
@@ -1160,11 +1342,11 @@ SH_LDFLAGS=-shared
 SH_LINKING_TO_FLAGS=
 DL_LD='$(SH_LD)'
 DL_LDFLAGS='$(SH_LDFLAGS)'
-MKOCTFILE_DL_LDFLAGS='$(DL_LDFLAGS)'
 SONAME_FLAGS=
 LD_LIBRARY_PATH_VAR=LD_LIBRARY_PATH
 LIBSOLVER_DEPS=$LIBS
-
+RPATH_FLAG=
+SH_EXPALL_FLAG=
 dnl 
 dnl Host specific stuff
 dnl
@@ -1181,18 +1363,18 @@ case "$canonical_host_type" in
     SH_LDFLAGS="-shared"
   ;;
   *-*-darwin*)
-    SH_LDFLAGS='-dynamiclib -undefined dynamic_lookup -single_module $(LDFLAGS)'
+    SH_LD="gcc"
+    SH_LDFLAGS='-dynamiclib -undefined dynamic_lookup -single_module ${LDFLAGS}'
     SHLEXT="dylib"
     LD_LIBRARY_PATH_VAR=DYLD_LIBRARY_PATH	
   ;;
   *-*-cygwin* | *-*-mingw*)
        SHLEXT=dll
        SH_LDFLAGS="-shared"
-       SH_LD=$CC
   ;;
   *-*-linux* | *-*-gnu*)
-	SH_LDFLAGS="-shared"
-	SH_EXPALL_FLAG="-Wl,-export-dynamic"
+	RPATH_FLAG="-Wl,-rpath "
+	SH_EXPALL_FLAG="-Wl,--export-dynamic"
   ;;
   i[[3456]]86-*-sco3.2v5*)
     SH_LDFLAGS="-G"
@@ -1201,9 +1383,10 @@ case "$canonical_host_type" in
     SH_LDFLAGS="-G $ACX_LOPT_FLAGS"
     SH_LINKING_TO_FLAGS="-brtl -bexpall -bshared"
     LD_LIBRARY_PATH_VAR=LIBPATH
+#    RPATH_FLAG="-blibpath:"
+    SH_EXPALL_FLAG="-bexpall"
   ;;
   hppa*-hp-hpux*)
-    SHLEXT=sl
     SH_LDFLAGS="-shared -fPIC"
   ;;
   *-sgi-*)
@@ -1212,16 +1395,30 @@ case "$canonical_host_type" in
   sparc-sun-sunos4*)
     SH_LD=ld
     SH_LDFLAGS="-assert nodefinitions"
+    if test "$GXX" != yes; then
+      SH_LDFLAGS=-G
+      RPATH_FLAG="-R"
+    fi
+
+
   ;;
   sparc-sun-solaris2* | i386-pc-solaris2*)
     if test "$GXX" != yes; then
       SH_LDFLAGS=-G
+      RPATH_FLAG="-R"
     fi
   ;;
 esac
 
+case $FC in 
+    pgf*) 
+	# portland group does it differently
+	RPATH_FLAG="-R"
+    ;;
+esac
+
 AC_SUBST(LD_LIBRARY_PATH_VAR)
-AC_SUBST(SH_EXPALL_FLAG)
+AC_SUBST(RPATH_FLAG)
 
 ### Dynamic linking is now enabled only if we are building shared
 ### libs and some API for dynamic linking is detected.
@@ -1248,8 +1445,26 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
       && test "$ac_cv_func_shl_findsym" = yes; then
       shl_load_api=true
     else
-      AC_CHECK_LIB(wsock32, LoadLibrary)
-      AC_CHECK_FUNCS(LoadLibrary)
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+		# in windows, no generic test seems to work 
+		AC_MSG_CHECKING([for LoadLibrary in windows])
+		AC_LINK_IFELSE(
+		[#include <stdio.h>
+		 #include <windows.h>
+		 int main ()
+		 {
+			LoadLibrary("kernel32.dll");
+			return 0;
+		 }
+		],
+		[
+			ac_cv_func_loadlibrary=yes
+		],
+		[
+			ac_cv_func_loadlibrary=no
+		])
+		AC_MSG_RESULT($ac_cv_func_loadlibrary)
+      fi
       if test "$ac_cv_func_loadlibrary" = yes; then
         loadlibrary_api=true
       else
@@ -1296,6 +1511,9 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
   fi
   AC_DEFINE_UNQUOTED(SHL_EXTENSION, ".$SHLEXT",[Shared lib filename extension])
 fi
+
+AC_SUBST(SH_EXPALL_FLAG)
+
 ])
 
 
@@ -1303,22 +1521,31 @@ fi
 AC_DEFUN([ACX_PLATFORM_DEFS],
 [
 AC_REQUIRE([ACX_HOST])
-
+acx_platform_def="GENERIC"
 case "$canonical_host_type" in
   *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
+	acx_platform_def="BSD"
         AC_DEFINE([BSD],1,[Detected platform.])
   ;;
   *-*-freebsd*)
+	acx_platform_def="BSD"
         AC_DEFINE([BSD],1,[Detected platform.])
   ;;
   alpha*-dec-osf*)
+	acx_platform_def="DEC_ALPHA"
         AC_DEFINE([DEC_ALPHA],1,[Detected platform.])
   ;;
   *-*-darwin*)
         AC_DEFINE([DARWIN],1,[Detected platform.])
   ;;
-  *-*-cygwin* | *-*-mingw*)
-        AC_DEFINE([WIN32],1,[Detected platform.])
+  *-*-cygwin*)
+	acx_platform_def="WIN32"
+        AC_DEFINE([CYGWIN],1,[Detected platform.])
+  ;;
+  *-*-mingw*)
+	acx_platform_def="WIN32"
+        AC_DEFINE([MINGW32],1,[Detected platform.])
+        AC_DEFINE([WIN32],1,[Detected platform2.])
   ;;
   *-*-linux* | *-*-gnu*)
         AC_DEFINE([LINUX],1,[Detected platform.])
@@ -1327,6 +1554,7 @@ case "$canonical_host_type" in
         AC_DEFINE([BASTARDS],1,[Detected platform.])
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
+	acx_platform_def="AIX"
         AC_DEFINE([AIX],1,[Detected platform.])
   ;;
   hppa*-hp-hpux*)
@@ -1343,6 +1571,7 @@ case "$canonical_host_type" in
   ;;
 esac
 
+AM_CONDITIONAL(IBM_IS_PIECE_OF_SHIT, test "$acx_platform_def" = "AIX")
 ])
 
 AC_DEFUN([ACX_COMPILER_FIXES],
@@ -1354,6 +1583,7 @@ case "$FC" in
 		dnl remove intel c++ stuff
 		FCLIBS=`echo $FCLIBS | sed -e 's/-lintrins//g'`
 	fi
+	FC="$FC -Vaxlib"
    ;;
 esac
 
@@ -1372,6 +1602,12 @@ case "$SH_LD" in
    ;;
 esac
 
+case "$SH_LD2" in
+   ifc)
+	SH_LD2="$SH_LD2 -Vaxlib"
+   ;;
+esac
+
 AC_SUBST(SH_LDFLAGS)
 AC_SUBST(SH_LD)
 ])
@@ -1382,7 +1618,9 @@ dnl @synopsis ACX_TCLTK([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
 dnl
 dnl Look for tcl/tk libraries 
 dnl
-AC_DEFUN([ACX_TCLTK], [
+AC_DEFUN([ACX_TCLTK], 
+[
+AC_REQUIRE([AC_PATH_X])
 AC_PREREQ(2.50)
 acx_tcltk_ok=no
 
@@ -1418,32 +1656,56 @@ if test "x$TCLTK_LIBS" != x; then
 fi
 fi
 
-acx_tcltk_lib_versions="8.4 8.3 8.2 8.1"
+acx_tcltk_lib_versions="8.4 8.3 8.2 8.1 84 83 82 81"
+acx_tcltk_locations="/usr/lib /usr/local/lib /usr/swf/lib"
 
 # Generic TCLTK library?
 if test "$acx_tcltk_ok" = no; then
+   for l in $acx_tcltk_locations; do
 	for v in $acx_tcltk_lib_versions; do
 		acx_tcl_ok="no"
 		acx_tk_ok="no"
+		
+		acx_tcltk_LDFLAGS_save=$LDFLAGS
+		acx_tcltk_LIBS_save=$LIBS
+		LDFLAGS="$LDFLAGS -L$l"
+		LIBS="-ltcl$v -ltk$v"
+		AC_MSG_CHECKING([for -ltcl$v -ltk$v libs in -L$l])
+		
+		AC_TRY_LINK_FUNC(TclInvoke, [acx_tcl_ok=yes; TCL_LIBS="-ltcl$v"])
+		AC_TRY_LINK_FUNC(TkGetDisplay, [acx_tk_ok=yes; TK_LIBS="-ltk$v"])
 
-		AC_CHECK_LIB(tcl$v, TclInvoke, [acx_tcl_ok=yes; TCL_LIBS="-ltcl$v"])
-		AC_CHECK_LIB(tk$v, TkGetDisplay, [acx_tk_ok=yes; TK_LIBS="-ltk$v"])
+		LDFLAGS=$acx_tcltk_LDFLAGS_save
+		LIBS=$acx_tcltk_LIBS_save
 		
 		if test "$acx_tcl_ok" = yes; then
   		   if test "$acx_tk_ok" = yes; then
 		     acx_tcltk_ok="yes"
-  		     TCLTK_LIBS="$TK_LIBS $TCL_LIBS"
+  		     TCLTK_LIBS="-L$l $TK_LIBS $TCL_LIBS"
+  		     AC_MSG_RESULT($acx_tcltk_ok)
 		     break
 		   fi
 		fi
+		AC_MSG_RESULT($acx_tcltk_ok)
 	done
+	# break again
+	if test "$acx_tcl_ok" = yes; then
+ 	   if test "$acx_tk_ok" = yes; then
+ 	     break
+ 	   fi
+	fi
+   done
 fi
 
 AC_SUBST(TCLTK_LIBS)
 LIBS=$acx_tcltk_save_LIBS
 
 # Search for tcl.h and tk.h
-acx_tcltk_tcl_h_locs="/usr/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2 /include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
+if test "$TCLTK_INCPATH"; then
+	acx_tcltk_tcl_h_locs=$TCLTK_INCPATH
+fi
+acx_tcltk_tcl_h_locs="$acx_tcltk_tcl_h_locs /usr/include /usr/local/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2 /include /usr/swf/include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
+
 
 acx_tcltk_CPPFLAGS_save=$CPPFLAGS
 acx_tcltk_CFLAGS_save=$CFLAGS
@@ -1455,7 +1717,7 @@ for v in $acx_tcltk_tcl_h_locs; do
 	acx_tcl_h_ok="no"
 	acx_tk_h_ok="no"
 
-	CPPFLAGS="-I$v $CPPFLAGS"
+	CPPFLAGS="-I$v $CPPFLAGS -I${x_includes}"
 
 	AC_MSG_CHECKING([for tcl.h in -I$v])
 	AC_PREPROC_IFELSE(
@@ -1495,3 +1757,48 @@ else
         $2
 fi
 ])dnl ACX_TCLTK
+
+
+
+
+dnl
+dnl see how well fortran cpp does
+dnl explicitely set acx_fortran_cpp_ok=yes, if we know that the fortran compiler can handle 
+dnl our C/Fortran preprocessing intructions
+dnl
+AC_DEFUN([ACX_FORTRAN_CPP], 
+[
+AC_PREREQ(2.50)
+acx_fortran_cpp_ok=no
+
+case "$FC" in
+	*g95*)
+		FORTRAN_CPP_FLAG="-cpp"
+		acx_fortran_cpp_ok=yes
+	;;
+esac
+AC_SUBST(FORTRAN_CPP_FLAG)
+])
+
+
+AC_DEFUN([ACX_LANG_COMPILER_MS],
+[AC_CACHE_CHECK([whether we are using the Microsoft _AC_LANG compiler],
+                [acx_cv_[]_AC_LANG_ABBREV[]_compiler_ms],
+[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([], [[#ifndef _MSC_VER
+       choke me
+#endif
+]])],
+                   [acx_compiler_ms=yes],
+                   [acx_compiler_ms=no])
+acx_cv_[]_AC_LANG_ABBREV[]_compiler_ms=$acx_compiler_ms
+])
+
+if test "$acx_cv_c_compiler_ms" = "yes"; then
+	AC_DEFINE(STDCALLBULL,[__stdcall],[Standard windows call declaration])
+	AC_DEFINE(C_DLLEXPORT,[__declspec(dllexport)],[Standard windows call declaration])
+	AM_CONDITIONAL(USE_WINDOWS_COMPILER, test "$acx_cv_c_compiler_ms" = "yes")
+else
+	AC_DEFINE(STDCALLBULL,,[Standard windows call declaration])
+	AC_DEFINE(C_DLLEXPORT,,[Standard windows call declaration])
+fi
+])

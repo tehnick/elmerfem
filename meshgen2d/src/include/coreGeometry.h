@@ -3,7 +3,9 @@
 #include <math.h>
 #include <float.h>
 #include <algorithm>
-#ifdef _NO_STD_MINMAX
+
+#include "../../config.h"
+#if defined(_NO_STD_MINMAX) || defined(WIN32)
 	#include "minmaxpatch.h"
 #endif
 
