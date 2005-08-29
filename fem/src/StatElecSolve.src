@@ -124,7 +124,7 @@
      LOGICAL :: PiezoMaterial
 
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, CapMatrixFile, Name
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.2 2005/05/26 12:33:19 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.3 2005/07/07 09:12:30 jpr Exp $"
 
 
      SAVE LocalStiffMatrix, Load, LocalForce, Pwrk, PotDiff, &
@@ -842,7 +842,22 @@
           CALL RefineMesh( Model, Solver, Potential, PotentialPerm, &
           ElectricInsideResidual, ElectricEdgeResidual, ElectricBoundaryResidual )
 
-!     CALL InvalidateVariable( Model, Solver % Mesh, 'EField')
+     CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Potential')
+     IF ( CalculateField ) THEN
+       CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Field 1')
+       CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Field 2')
+       IF ( Dim == 3 )   CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Field 3')
+     END IF
+
+     IF ( CalculateFlux ) THEN
+       CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Flux 1')
+       CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Flux 2')
+       IF ( Dim == 3 )  CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Flux 3')
+     END IF
+
+     IF ( CalculateEnergy )  &
+	  CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Energy Density')
+
 
 !------------------------------------------------------------------------------
  
