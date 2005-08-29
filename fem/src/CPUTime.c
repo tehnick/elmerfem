@@ -36,7 +36,27 @@
 
 #include "../config.h"
 
-#ifndef WIN32 // posix compliant...
+#if defined(MINGW32) || defined(WIN32) 
+
+#include <sys/types.h>
+#include <time.h> 
+
+double STDCALLBULL FC_FUNC(realtime,REALTIME) ( )
+{
+  return clock() / (double)CLOCKS_PER_SEC;
+}
+
+double STDCALLBULL FC_FUNC(cputime,CPUTIME) ( )
+{
+  return clock() / (double)CLOCKS_PER_SEC;
+}
+
+double STDCALLBULL  FC_FUNC(cpumemory,CPUMEMORY) ( )
+{
+  return 0.0;
+}
+
+#else
 
 #include <sys/types.h>
 #include <sys/times.h>
@@ -66,26 +86,6 @@ double FC_FUNC(cpumemory,CPUMEMORY) ()
 { 
   getrusage( RUSAGE_SELF, &usage );
   return (double) 1.0 * usage.ru_maxrss;
-}
-
-#else // windoze territory...
-
-#include <sys/types.h>
-#include <time.h>
-
-__declspec(dllexport) double __stdcall REALTIME( )
-{
-  return clock() / (double)CLOCKS_PER_SEC;
-}
-
-__declspec(dllexport) double __stdcall CPUTIME( )
-{
-  return clock() / (double)CLOCKS_PER_SEC;
-}
-
-__declspec(dllexport) double __stdcall CPUMEMORY( )
-{
-  return 0.0;
 }
 
 #endif // WIN32

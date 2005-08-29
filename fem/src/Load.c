@@ -43,7 +43,7 @@
 /* eg. FC_CHAR_PTR and FC_FUNC is defined here */
 #include "../config.h"
 
-#ifdef WIN32
+#if defined(WIN32) | defined(MINGW32)
 #  include <direct.h>
 #  include <windows.h>
 #else
@@ -64,13 +64,6 @@ void corename_()
 }
 #endif
 
-/* WIN32 needs some redundant attributes */
-#ifdef WIN32
-#define STDCALLBULL __stdcall
-#else
-#define STDCALLBULL 
-#endif
-
 /* pc needs more bits on 64bit arch  */
 #ifdef ARCH_32_BITS
 #define f_ptr int *
@@ -84,7 +77,7 @@ void corename_()
 void STDCALLBULL FC_FUNC(makedirectory,MAKEDIRECTORY) 
      ( FC_CHAR_PTR(Name,len) )
 {
-#ifdef WIN32
+#if defined(WIN32) || defined(MINGW32)
     if ( _mkdir( Name ) != 0 ) {
 #else
     if ( mkdir( Name, 0700 ) != 0 ) {
@@ -262,8 +255,16 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
    if ( ( Handle = (void *)LoadLibrary( Library ) ) == NULL )
    { 
      fprintf( stderr, "Load: FATAL: Can't load shared image [%s]\n", Library );
-     exit(0);
+
+     /* try .dll */
+     strncat( NewLibName, SHL_EXTENSION, 3*MAX_NAME_LEN );
+     if ( ( Handle = (void *)LoadLibrary( NewLibName ) ) == NULL ) 
+     { 
+       fprintf( stderr, "Load: FATAL: Can't load shared image [%s]. Exiting.\n", NewLibName );
+       exit(0);
+     }
    }
+   if ( *Quiet == 0 ) fprintf( stderr, "got handle: %x\n", Handle);
 
    for( i=0; i<strlen(Name); i++ )
    {
@@ -275,9 +276,10 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
      fprintf( stderr,"Load: FATAL: Can't find procedure [%s]\n", Name );
      exit(0);
    }
+   if ( *Quiet == 0 ) fprintf( stderr, "got pointer: %x\n", Function);
 #endif 
    
-   if ( *Quiet == 0 ) fprintf( stderr, "...done.\n" );
+   if ( *Quiet == 0 ) fprintf( stderr, "...done\n");
 
    return (void *)Function;
 }
@@ -368,9 +370,14 @@ void *STDCALLBULL FC_FUNC(addrfunc,ADDRFUNC) ( void *Function )
    INTERNAL: Call solver routines at given address
   -------------------------------------------------------------------------*/
 static void DoExecSolver(
-  void (*SolverProc)(), void *Model, void *Solver, void *dt, void *Transient)
+  void (STDCALLBULL *SolverProc)(), void *Model, void *Solver, void *dt, void *Transient)
 {
-   (*SolverProc)( Model,Solver,dt,Transient );
+  fprintf(stderr,"doexecsolver %x %x %x\n",SolverProc, Model, Solver);
+  fflush(stderr);
+  (*SolverProc)( Model,Solver,dt,Transient ); 
+  fprintf(stderr,"doexecsolver done %x %x %x\n",SolverProc, Model, Solver);
+  fflush(stderr);
+  return;
 }
 
 /*--------------------------------------------------------------------------
@@ -379,7 +386,11 @@ static void DoExecSolver(
 void STDCALLBULL FC_FUNC(execsolver,EXECSOLVER)
      ( f_ptr *SolverProc, void *Model, void *Solver, void *dt, void *Transient )
 {
-  DoExecSolver( (void (*)())*SolverProc,Model,Solver,dt,Transient );
+  fprintf(stderr,"execsolver %x %x %x\n",SolverProc, Model, Solver);
+  fflush(stderr);
+  DoExecSolver( (void (STDCALLBULL *)())*SolverProc,Model,Solver,dt,Transient );
+  fprintf(stderr,"execsolver done %x %x %x\n",SolverProc, Model, Solver);
+  fflush(stderr);
 }
 
 /*--------------------------------------------------------------------------
@@ -412,28 +423,19 @@ void STDCALLBULL FC_FUNC(matc,MATC) ( FC_CHAR_PTR(cmd,l1), FC_CHAR_PTR(Value,l2)
 {
 #define MAXLEN 8192
 
-    static int been_here = 0;
+  static int been_here = 0;
     char *ptr, cc[32], *cmdcopy;
 
     if ( been_here==0 ) {
-#ifdef WIN32
-       mtc_init_std( NULL, stdout, stderr ); 
-       mtc_domath_std( "format(12,\"rowform\")" );
-#else
        mtc_init( NULL, stdout, stderr ); 
        strcpy( cc, "format( 12,\"rowform\")" );
        mtc_domath( cc );
-#endif
        been_here = 1;
      }
 
     cmd[*len] = '\0';
-
-#ifdef WIN32
-    if ( ptr = (char *)mtc_domath_std( cmd ) ) {
-#else
-    if ( ptr = (char *)mtc_domath( cmd ) ) {
-#endif
+    if ( ptr = (char *)mtc_domath( cmd ) ) 
+    {
       strcpy( Value, (char *)ptr );
       *len = strlen(Value)-1;
 
@@ -445,7 +447,9 @@ void STDCALLBULL FC_FUNC(matc,MATC) ( FC_CHAR_PTR(cmd,l1), FC_CHAR_PTR(Value,l2)
       *len = 0;
       *Value = ' ';
     }
+
 }
+
 
 /*--------------------------------------------------------------------------
   INTERNAL: execute user material function
@@ -463,9 +467,10 @@ static double DoViscFunction(double (*SolverProc)(), void *Model, void *Element,
   This routine will call user defined material def. function
   -------------------------------------------------------------------------*/
 double STDCALLBULL FC_FUNC(materialuserfunction,MATERIALUSERFUNCTION)
-  ( f_ptr Function, void *Model, void *Element, void *Nodes, void *n, void *Basis,
-    void *GradBasis, void *Viscosity, void *Velo, void *gradV )
+  ( f_ptr Function, void *Model, void *Element, void *Nodes, void *n, void *nd, void *Basis, void *GradBasis, void *Viscosity, void *Velo, void *gradV )
 {
+  fprintf(stderr,"entering materialuserfunc\n");
+  fflush(stderr);
    return DoViscFunction( (double (*)())*Function,Model,Element,Nodes,n,Basis,
                   GradBasis,Viscosity,Velo,gradV );
 }
