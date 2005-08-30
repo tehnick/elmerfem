@@ -9633,6 +9633,7 @@ fi
 
 
 
+
 acx_blas_ok=no
 
 
@@ -9697,7 +9698,59 @@ if test "x$BLAS_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$BLAS_LIBS $LIBS"
 	{ echo "$as_me:$LINENO: checking for $sgemm in $BLAS_LIBS" >&5
 echo $ECHO_N "checking for $sgemm in $BLAS_LIBS... $ECHO_C" >&6; }
-	cat >conftest.$ac_ext <<_ACEOF
+
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+		# windose shite
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -Gz"
+		cat >conftest.$ac_ext <<_ACEOF
+int main ()
+		 {
+		   $sgemm(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
+		   return 0;
+		 }
+
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+
+	      		acx_blas_ok=yes
+
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+	 	        BLAS_LIBS=""
+
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+		CFLAGS="$save_CFLAGS"
+	else
+		{ echo "$as_me:$LINENO: checking for $huti_d_gmres in $HUTI_LIBS" >&5
+echo $ECHO_N "checking for $huti_d_gmres in $HUTI_LIBS... $ECHO_C" >&6; }
+		cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
 cat confdefs.h >>conftest.$ac_ext
@@ -9766,8 +9819,11 @@ BLAS_LIBS=""
 fi
 rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
+	fi
+
 	{ echo "$as_me:$LINENO: result: $acx_blas_ok" >&5
 echo "${ECHO_T}$acx_blas_ok" >&6; }
+
 	LIBS="$save_LIBS"
 fi
 fi
@@ -9775,7 +9831,61 @@ fi
 # BLAS linked to by default?  (happens on some supercomputers)
 if test $acx_blas_ok = no; then
 	save_LIBS="$LIBS"; LIBS="$LIBS"
-	as_ac_var=`echo "ac_cv_func_$sgemm" | $as_tr_sh`
+
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+   	        { echo "$as_me:$LINENO: checking for $sgemm in default link" >&5
+echo $ECHO_N "checking for $sgemm in default link... $ECHO_C" >&6; }
+		# windose shite
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -Gz"
+		cat >conftest.$ac_ext <<_ACEOF
+int main ()
+		 {
+		   $sgemm(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15);
+		   return 0;
+		 }
+
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+
+	      		acx_blas_ok=yes
+
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+	 	        BLAS_LIBS=""
+
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+		CFLAGS="$save_CFLAGS"
+   	        { echo "$as_me:$LINENO: result: $acx_blas_ok" >&5
+echo "${ECHO_T}$acx_blas_ok" >&6; }
+	else
+		as_ac_var=`echo "ac_cv_func_$sgemm" | $as_tr_sh`
 { echo "$as_me:$LINENO: checking for $sgemm" >&5
 echo $ECHO_N "checking for $sgemm... $ECHO_C" >&6; }
 if eval "test \"\${$as_ac_var+set}\" = set"; then
@@ -9886,6 +9996,8 @@ echo "${ECHO_T}$ac_res" >&6; }
 if test `eval echo '${'$as_ac_var'}'` = yes; then
   acx_blas_ok=yes
 fi
+
+	fi
 
 	LIBS="$save_LIBS"
 fi
@@ -11365,7 +11477,57 @@ if test "x$LAPACK_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$LAPACK_LIBS $BLAS_LIBS $LIBS $FLIBS $FCLIBS"
 	{ echo "$as_me:$LINENO: checking for $cheev in $LAPACK_LIBS" >&5
 echo $ECHO_N "checking for $cheev in $LAPACK_LIBS... $ECHO_C" >&6; }
-	cat >conftest.$ac_ext <<_ACEOF
+
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+		# windose shite
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -Gz"
+		cat >conftest.$ac_ext <<_ACEOF
+int main ()
+		 {
+		   $cheev(1,2,3,4,5,6,7,8,9,10,11,12);
+		   return 0;
+		 }
+
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+
+	      		acx_lapack_ok=yes
+
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+	 	        LAPACK_LIBS=""
+
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+		CFLAGS="$save_CFLAGS"
+	else
+		cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
 cat confdefs.h >>conftest.$ac_ext
@@ -11434,6 +11596,8 @@ LAPACK_LIBS=""
 fi
 rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
+	fi
+
 	{ echo "$as_me:$LINENO: result: $acx_lapack_ok" >&5
 echo "${ECHO_T}$acx_lapack_ok" >&6; }
 	LIBS="$save_LIBS"
@@ -11445,7 +11609,57 @@ fi
 # LAPACK linked to by default?  (is sometimes included with BLAS)
 if test $acx_lapack_ok = no; then
 	save_LIBS="$LIBS"; LIBS="$LIBS $BLAS_LIBS $FLIBS $FCLIBS"
-	as_ac_var=`echo "ac_cv_func_$cheev" | $as_tr_sh`
+
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+		# windose shite
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -Gz"
+		cat >conftest.$ac_ext <<_ACEOF
+int main ()
+		 {
+		   $cheev(1,2,3,4,5,6,7,8,9,10,11,12);
+		   return 0;
+		 }
+
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+
+	      		acx_lapack_ok=yes
+
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+	 	        LAPACK_LIBS=""
+
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+		CFLAGS="$save_CFLAGS"
+	else
+		as_ac_var=`echo "ac_cv_func_$cheev" | $as_tr_sh`
 { echo "$as_me:$LINENO: checking for $cheev" >&5
 echo $ECHO_N "checking for $cheev... $ECHO_C" >&6; }
 if eval "test \"\${$as_ac_var+set}\" = set"; then
@@ -11556,6 +11770,8 @@ echo "${ECHO_T}$ac_res" >&6; }
 if test `eval echo '${'$as_ac_var'}'` = yes; then
   acx_lapack_ok=yes
 fi
+
+	fi
 
 	LIBS="$save_LIBS"
 fi
@@ -13640,6 +13856,10 @@ case "$canonical_host_type" in
     EXTRA_LIBS="$STDCXX_LIBS"
   ;;
 esac
+
+if test "$acx_cv_c_compiler_ms" = "yes"; then
+    EXTRA_LIBS="libelmersolver.lib -stack:500000000"
+fi
 
 TESTS_FCFLAGS="$TESTS_FCFLAGS $INCLUDE_MODULE_FLAG."
 
