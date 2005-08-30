@@ -33,6 +33,9 @@
 ! *       Date of modification: 
 ! *
 ! * $Log: Adaptive.src,v $
+! * Revision 1.11  2005/07/08 08:04:02  jpr
+! * Cleaning some of the type definitions of Types.src.
+! *
 ! * Revision 1.10  2005/06/30 09:30:52  jpr
 ! * Removed debug prints.
 ! *
@@ -59,7 +62,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Adaptive.src,v 1.10 2005/06/30 09:30:52 jpr Exp $
+! * $Id: Adaptive.src,v 1.11 2005/07/08 08:04:02 jpr Exp $
 ! *****************************************************************************/
 
 
@@ -697,7 +700,8 @@ CONTAINS
           END IF
 #endif
        END DO
-       Solver % Variable % Perm = Permutation
+       k = SIZE(Permutation)
+       Solver % Variable % Perm(1:k) = Permutation
        DEALLOCATE( Permutation, Work )
     END IF
 
