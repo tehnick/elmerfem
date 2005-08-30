@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.71 2005/08/25 13:39:22 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.72 2005/08/26 09:54:15 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -626,6 +626,8 @@ dnl
 AC_DEFUN([ACX_CHECK_STDCXXLIB],
 [
 AC_REQUIRE([AC_PROG_CXX])
+AC_REQUIRE([ACX_LANG_COMPILER_MS])
+
 acx_check_stdcxxlib_save_LIBS=$LIBS
 acx_stdcxxlib_ok=no
 
@@ -676,6 +678,11 @@ if test $acx_stdcxxlib_ok = no; then
 fi
 
 LIBS=$acx_check_stdcxxlib_save_LIBS
+
+if test "$acx_cv_compiler_ms" = "yes"; then
+	STDCXX_LIBS=""
+fi
+
 ])
 
 dnl find out the flags that enable 64 bit compilation
