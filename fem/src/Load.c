@@ -287,7 +287,7 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
 /*--------------------------------------------------------------------------
   INTERNAL: Execute given function returning integer value
   -------------------------------------------------------------------------*/
-static int IntExec( int (*Function)(),void *Model )
+static int IntExec( int (STDCALLBULL *Function)(),void *Model )
 {
    return (*Function)( Model );
 }
@@ -297,13 +297,13 @@ static int IntExec( int (*Function)(),void *Model )
    -------------------------------------------------------------------------*/
 int STDCALLBULL FC_FUNC(execintfunction,EXECINTFUNCTION) ( f_ptr Function,void *Model )
 {
-   return IntExec( (int (*)())*Function,Model );
+  return IntExec( (int (STDCALLBULL *)())*Function,Model );
 }
 
 /*--------------------------------------------------------------------------
    INTERNAL: Execute given function returning double value
   -------------------------------------------------------------------------*/
-static void DoubleArrayExec( double *(*Function)(), void *Model,
+static void DoubleArrayExec( double *(STDCALLBULL *Function)(), void *Model,
                int *Node, double *Value, double *Array )
 {
    (*Function)( Model,Node,Value,Array );
@@ -316,13 +316,13 @@ void STDCALLBULL FC_FUNC(execrealarrayfunction,EXECREALARRAYFUNCTION)
      ( f_ptr Function, void *Model,
        int *Node, double *Value, double *Array )
 {
-   DoubleArrayExec( (double*(*)())*Function,Model,Node,Value, Array );
+   DoubleArrayExec( (double*(STDCALLBULL *)())*Function,Model,Node,Value, Array );
 }
 
 /*--------------------------------------------------------------------------
    INTERNAL: Execute given function returning double value
   -------------------------------------------------------------------------*/
-static double DoubleExec( double (*Function)(), void *Model,
+static double DoubleExec( double (STDCALLBULL *Function)(), void *Model,
                int *Node, double *Value )
 {
    return (*Function)( Model,Node,Value );
@@ -335,13 +335,13 @@ double STDCALLBULL FC_FUNC(execrealfunction,EXECREALFUNCTION)
      ( f_ptr Function, void *Model,
        int *Node, double *Value )
 {
-   return DoubleExec( (double (*)())*Function,Model,Node,Value );
+   return DoubleExec( (double (STDCALLBULL *)())*Function,Model,Node,Value );
 }
 
 /*--------------------------------------------------------------------------
    INTERNAL: Execute given function returning double value
   -------------------------------------------------------------------------*/
-static double ConstDoubleExec( double (*Function)(), void *Model,
+static double ConstDoubleExec( double (STDCALLBULL *Function)(), void *Model,
 			       double *x, double *y, double *z )
 {
    return (*Function)( Model, x,y,z );
@@ -354,7 +354,7 @@ double STDCALLBULL FC_FUNC(execconstrealfunction,EXECCONSTREALFUNCTION)
      ( f_ptr Function, void *Model,
        double *x, double *y, double *z )
 {
-   return ConstDoubleExec( (double (*)())*Function,Model,x,y,z );
+   return ConstDoubleExec( (double (STDCALLBULL *)())*Function,Model,x,y,z );
 }
 
 
@@ -372,11 +372,7 @@ void *STDCALLBULL FC_FUNC(addrfunc,ADDRFUNC) ( void *Function )
 static void DoExecSolver(
   void (STDCALLBULL *SolverProc)(), void *Model, void *Solver, void *dt, void *Transient)
 {
-  fprintf(stderr,"doexecsolver %x %x %x\n",SolverProc, Model, Solver);
-  fflush(stderr);
   (*SolverProc)( Model,Solver,dt,Transient ); 
-  fprintf(stderr,"doexecsolver done %x %x %x\n",SolverProc, Model, Solver);
-  fflush(stderr);
   return;
 }
 
@@ -386,18 +382,14 @@ static void DoExecSolver(
 void STDCALLBULL FC_FUNC(execsolver,EXECSOLVER)
      ( f_ptr *SolverProc, void *Model, void *Solver, void *dt, void *Transient )
 {
-  fprintf(stderr,"execsolver %x %x %x\n",SolverProc, Model, Solver);
-  fflush(stderr);
   DoExecSolver( (void (STDCALLBULL *)())*SolverProc,Model,Solver,dt,Transient );
-  fprintf(stderr,"execsolver done %x %x %x\n",SolverProc, Model, Solver);
-  fflush(stderr);
 }
 
 /*--------------------------------------------------------------------------
    INTERNAL: Call lin. solve routines at given address
   -------------------------------------------------------------------------*/
 static int DoLinSolveProcs(
-  int (*SolverProc)(), void *Model, void *Solver, void *Matrix, void *b, 
+  int (STDCALLBULL *SolverProc)(), void *Model, void *Solver, void *Matrix, void *b, 
                 void *x, void *n, void *DOFs, void *Norm )
 {
    return (*SolverProc)( Model,Solver,Matrix,b,x,n, DOFs,Norm );
@@ -410,7 +402,7 @@ static int DoLinSolveProcs(
 int STDCALLBULL FC_FUNC(execlinsolveprocs,EXECLINSOLVEPROCS)
      ( f_ptr *SolverProc, void *Model, void *Solver, void *Matrix, void *b, void *x, void *n, void *DOFs, void *Norm )
 {
-   return DoLinSolveProcs( (int (*)())*SolverProc,Model,Solver,Matrix,b,x,n,DOFs,Norm );
+   return DoLinSolveProcs( (int (STDCALLBULL *)())*SolverProc,Model,Solver,Matrix,b,x,n,DOFs,Norm );
 }
 
 char *mtc_domath(char *);
@@ -454,7 +446,7 @@ void STDCALLBULL FC_FUNC(matc,MATC) ( FC_CHAR_PTR(cmd,l1), FC_CHAR_PTR(Value,l2)
 /*--------------------------------------------------------------------------
   INTERNAL: execute user material function
   -------------------------------------------------------------------------*/
-static double DoViscFunction(double (*SolverProc)(), void *Model, void *Element, void *Nodes, void *n,
+static double DoViscFunction(double (STDCALLBULL *SolverProc)(), void *Model, void *Element, void *Nodes, void *n,
      void *Basis, void *GradBasis, void *Viscosity, void *Velo, void *GradV )
 {
    double s;
@@ -471,14 +463,14 @@ double STDCALLBULL FC_FUNC(materialuserfunction,MATERIALUSERFUNCTION)
 {
   fprintf(stderr,"entering materialuserfunc\n");
   fflush(stderr);
-   return DoViscFunction( (double (*)())*Function,Model,Element,Nodes,n,Basis,
+   return DoViscFunction( (double (STDCALLBULL *)())*Function,Model,Element,Nodes,n,Basis,
                   GradBasis,Viscosity,Velo,gradV );
 }
 
 /*--------------------------------------------------------------------------
   INTERNAL: execute user material function
   -------------------------------------------------------------------------*/
-static void DoSimulationProc( void (*SimulationProc)(), void *Model )
+static void DoSimulationProc( void (STDCALLBULL *SimulationProc)(), void *Model )
 { 
   (*SimulationProc)( Model ); 
 }
@@ -489,5 +481,5 @@ static void DoSimulationProc( void (*SimulationProc)(), void *Model )
 void STDCALLBULL FC_FUNC(execsimulationproc,EXECSIMULATIONPROC)
      ( f_ptr Function, void *Model )
 {
-   DoSimulationProc( (void (*)())*Function,Model );
+   DoSimulationProc( (void (STDCALLBULL *)())*Function,Model );
 }
