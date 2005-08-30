@@ -140,7 +140,9 @@
           CALL Info( 'MAIN', '-----------------------', Level = 3 )
           CALL Info( 'MAIN', 'Reading Model ... ', Level = 3 )
 
+#ifndef WIN32
           OPEN( Unit=InFileUnit, Action='Read', File=ModelName,Status='OLD', ERR=20 )
+#endif
           CurrentModel => LoadModel( ModelName,.FALSE.,ParEnv % PEs,ParEnv % MyPE )
 
           CALL Info( 'MAIN', 'Done               ', Level = 3 )

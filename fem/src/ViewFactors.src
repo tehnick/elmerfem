@@ -83,7 +83,7 @@
      LOGICAL :: CylindricSymmetry,GotIt
 
      CHARACTER(LEN=MAX_NAME_LEN) :: eq,RadiationFlag, &
-           ViewFactorsFile,OutputName,ModelName
+           ViewFactorsFile,OutputName,ModelName,LMessage
 
      TYPE(Element_t), POINTER :: RadElements(:)
      INTEGER :: RadiationBody, MaxRadiationBody
@@ -198,8 +198,8 @@
      MaxRadiationBody = 0
 
 100  RadiationBody = RadiationBody + 1
-     WRITE( Message,'(A,I2)') 'Computing view factors for radiation body',RadiationBody
-     CALL Info('ViewFactors',Message,Level=3)
+     WRITE( LMessage,'(A,I2)') 'Computing view factors for radiation body',RadiationBody
+     CALL Info('ViewFactors',LMessage,Level=3)
     
 !------------------------------------------------------------------------------
 !    Here we start...
@@ -265,8 +265,8 @@
        END IF
      END IF
 
-     WRITE( Message,'(A,I9)' ) 'Number of surfaces participating in radiation',N
-     CALL Info('ViewFactors',Message)
+     WRITE( LMessage,'(A,I9)' ) 'Number of surfaces participating in radiation',N
+     CALL Info('ViewFactors',LMessage)
 
      IF ( CylindricSymmetry ) THEN
        ALLOCATE( Surfaces(2*N), Factors(N*N), STAT=istat )
@@ -346,8 +346,8 @@
 
        IF ( RadBody > 0 .AND. (RadBody /= RightBody .AND. RadBody /= LeftBody) ) THEN
          CALL Error( 'ViewFactors', 'Inconsistent direction information (Radiation Target Body)' )
-         WRITE( Message, * ) 'Radiation Target: ', RadBody, ' Left, Right: ', LeftBody, RightBody
-         CALL Fatal( 'ViewFactors', Message )
+         WRITE( LMessage, * ) 'Radiation Target: ', RadBody, ' Left, Right: ', LeftBody, RightBody
+         CALL Fatal( 'ViewFactors', LMessage )
        END IF
 
        IF ( .NOT.GotIt ) THEN
@@ -442,10 +442,10 @@
      CALL Info( 'ViewFactors', ' ', Level=3 )
      CALL info( 'ViewFactors', 'Viewfactors before normalizing: ', Level=3 )
      CALL Info( 'ViewFactors', ' ', Level=3 )
-     WRITE( Message, * ) '        Minimum row sum: ',FMin
-     CALL Info( 'ViewFactors', Message, Level=3 )
-     WRITE( Message, * ) '        Maximum row sum: ',FMax
-     CALL Info( 'ViewFactors', Message, Level=3 )
+     WRITE( LMessage, * ) '        Minimum row sum: ',FMin
+     CALL Info( 'ViewFactors', LMessage, Level=3 )
+     WRITE( LMessage, * ) '        Maximum row sum: ',FMax
+     CALL Info( 'ViewFactors', LMessage, Level=3 )
      CALL Info( 'ViewFactors', ' ', Level=3 )
 
      CALL Info( 'ViewFactors', 'Normalizing Factors... ', Level=3 )
@@ -472,10 +472,10 @@
        CALL Info( 'ViewFactors', ' ', Level=3 )
        CALL info( 'ViewFactors', 'Viewfactors after normalizing: ', Level=3 )
        CALL Info( 'ViewFactors', ' ', Level=3 )
-       WRITE( Message, * ) '        Minimum row sum: ',FMin
-       CALL Info( 'ViewFactors', Message, Level=3 )
-       WRITE( Message, * ) '        Minimum row sum: ',FMax
-       CALL Info( 'ViewFactors', Message, Level=3 )
+       WRITE( LMessage, * ) '        Minimum row sum: ',FMin
+       CALL Info( 'ViewFactors', LMessage, Level=3 )
+       WRITE( LMessage, * ) '        Minimum row sum: ',FMax
+       CALL Info( 'ViewFactors', LMessage, Level=3 )
        CALL Info( 'ViewFactors', ' ', Level=3 )
      END IF
 
