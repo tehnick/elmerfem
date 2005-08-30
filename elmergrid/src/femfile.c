@@ -1152,6 +1152,10 @@ int LoadFidapInput(struct FemType *data,char *prefix,int info)
 
 	  ReorderFidapNodes(data,i,nodes,typeflag);
 
+	  if(data->elementtypes[i] == 0) {
+	    printf("******** nolla\n");
+	  }
+
 	  if(entity) data->material[i] = entity;
 	  else data->material[i] = group;
 	}

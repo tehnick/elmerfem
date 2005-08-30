@@ -163,6 +163,7 @@ void GetElementSide(int element,int side,int normal,
       }
     }
     else if(side < 10) {
+      *sideelemtype = 202;
       if(side < 7) {
 	ind[0] = elemind[side-4];
 	ind[1] = elemind[3];
@@ -376,6 +377,8 @@ void GetElementSide(int element,int side,int normal,
     }
 #endif 
   }
+
+
 }
 
 
@@ -6273,7 +6276,10 @@ void ElementsToBoundaryConditions(struct FemType *data,
 	
 	sidenodes2 = sideelemtype%100;	
 	if(sidenodes != sidenodes2) continue;
+	if(sidenodes2 == 1 && sidenodes > 1) break;
 	
+	if(sidenodes2 == 1) printf("elem = %d %d\n",elemind,data->elementtypes[elemind]);
+
 	hit = 0;
 	for(i=0;i<sidenodes;i++) 
 	  for(j=0;j<sidenodes;j++) 
@@ -6308,6 +6314,7 @@ void ElementsToBoundaryConditions(struct FemType *data,
 	else {
 	  sideelem += 1;
 	  same = TRUE;
+	  if(0) printf("sideelem=%d %d %d\n",sideelem,side,parentorder[elemind2]);
 	  bound->parent[sideelem] = parentorder[elemind2];
 	  bound->side[sideelem] = side;
 	  bound->parent2[sideelem] = 0;

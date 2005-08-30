@@ -519,20 +519,13 @@ int SaveSolutionElmer(struct FemType *data,struct BoundaryType *bound,
     for(j=0;j<nobound;j++) {
       if(bound[j].created == FALSE) continue;
       
-#if 0
-      printf("j=%d  nodesd1=%d  sides=%d\n",j,nodesd1,bound[j].nosides);
-#endif      
-
       for(i=1;i<=bound[j].nosides;i++) {
 #if 0
-	printf("types 1 = %d  %d\n",data->elementtypes[bound[j].parent[i]],
-	       sideelemtype);
-	printf("type=%d no=%d parent=%d side=%d\n",
-	       j,i,bound[j].parent[i],bound[j].side[i]);
+	printf("type=%d no=%d parent=%d side=%d elemtype=%d\n",
+	       j,i,bound[j].parent[i],bound[j].side[i],data->elementtypes[bound[j].parent[i]]);
 #endif
-
 	GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],data,ind,&sideelemtype); 
- 
+
 	boundtype = bound[j].types[i];
 
 	if(sideelemtype/100 > 2) 
