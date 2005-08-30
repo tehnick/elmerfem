@@ -41,6 +41,10 @@
 #include <limits.h>
 #include "../../config.h"
 
+#ifdef WIN32
+double drand48();
+#endif
+
 #include <sys/types.h>
 
 #ifdef MODULE_MAIN

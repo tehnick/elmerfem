@@ -1057,7 +1057,8 @@ LAST Modified: 2 Sep 1997
 *******************************************************************************/
 int RayHitGeometry( double FX,double FY,double FZ, double DX,double DY,double DZ )
 {
-    double L = sqrt(DX*DX + DY*DY + DZ*DZ);
+    double L;
+    L = sqrt(DX*DX + DY*DY + DZ*DZ);
     return  RayHitVolumeBounds( VolumeBounds,FX,FY,FZ,DX,DY,DZ,L );
 
 }
