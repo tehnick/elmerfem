@@ -1464,14 +1464,19 @@ void InitializeXFonts()
     int i,n;
     char **FontNames;
 
-     FontNames = XListFonts( tkXDisplay(), "*", 10000, &n );
+    FontNames = XListFonts( tkXDisplay(), "*", 10000, &n );
+    
      for( i=0; i<n; i++ )
      {
        sprintf( str, "%d", i );
        Tcl_SetVar2( TCLInterp, "FontNames", str,FontNames[i], TCL_GLOBAL_ONLY );
      }
+     
      sprintf( str, "%d", i );
      Tcl_SetVar( TCLInterp, "NumberOfFonts", str, TCL_GLOBAL_ONLY );
+     
+     /* by default use the first font in the list! */ 
+     MakeRasterFont( FontNames[0] );
 }
 
 
@@ -1483,6 +1488,7 @@ void MakeRasterFont( char *name )
     static char str[32], here = 0;
 
     CurrentXFont = fontInfo = XLoadQueryFont( tkXDisplay(),name );
+    fprintf( stdout, "Font: [%s] %x\n", name, CurrentXFont );
     if ( fontInfo == NULL )
     {
         fprintf( stderr, "Can not find font: [%s]\n", name );
@@ -1559,6 +1565,7 @@ static int ShowString( ClientData cl,Tcl_Interp *interp,int argc,char **argv )
 
 static int SetFont( ClientData cl,Tcl_Interp *interp,int argc,char **argv )
 {
+  int i;
     if ( argc < 1 )
     {
         sprintf( interp->result, "Set font: Wrong number of arguments.\n" );
