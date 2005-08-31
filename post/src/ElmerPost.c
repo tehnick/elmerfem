@@ -2107,7 +2107,6 @@ int main(int argc,char **argv)
       putenv( ephome );
     }
 
-    printf("Here we go");
 
     Tcl_FindExecutable( *argv++ );
     TCLInterp = Tcl_CreateInterp();
@@ -2351,14 +2350,10 @@ int main(int argc,char **argv)
     Readfile_Init( TCLInterp );
     Matctcl_Init( TCLInterp );
 
-    printf("signaling\n");
-    fflush(stdout);
 
     signal( SIGFPE, SIG_IGN );
     signal( SIGINT, int_sig );
 
-    printf("getenv\n");
-    fflush(stdout);
 
     *init = '\0';
     if ( getenv("ELMER_POST_HOME") )
@@ -2367,16 +2362,12 @@ int main(int argc,char **argv)
         strncat( init,"/",511 );
     }
 
-    printf("TclEvalFile\n");
-    fflush(stdout);
+
 
     strncat( init,"tcl/init.tcl",511 );
     fprintf( stdout, "Initialization File: [%s]\n", init );
     fflush(stdout);
     Tcl_EvalFile( TCLInterp,init );
-
-    printf("DoOneEvent\n");
-    fflush(stdout);
 
     while( Tk_DoOneEvent(TCL_DONT_WAIT) );
 
@@ -2392,8 +2383,6 @@ int main(int argc,char **argv)
     auxMouseFunc( AUX_MIDDLEBUTTON, AUX_MOUSEDOWN, Mouse );
 #endif
 
-    printf("Entering gra init\n");
-    fflush(stdout);
 
     gra_init();
 
