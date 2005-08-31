@@ -1337,7 +1337,6 @@ Window tkXWindow()
 
 
 
-#ifdef WIN32  
 
 
 
@@ -1455,8 +1454,7 @@ void MakeRasterFontDefault()
 }
 
 
-
-#else  
+#ifndef WIN32  
 
 void InitializeXFonts()
 {
@@ -1475,8 +1473,7 @@ void InitializeXFonts()
      sprintf( str, "%d", i );
      Tcl_SetVar( TCLInterp, "NumberOfFonts", str, TCL_GLOBAL_ONLY );
      
-     /* by default use the first font in the list! */ 
-     MakeRasterFont( FontNames[0] );
+     MakeRasterFontDefault();
 }
 
 
