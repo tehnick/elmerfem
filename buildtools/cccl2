@@ -53,6 +53,8 @@ preprocessing=no
 #
 fortran_progs=
 c_source=
+create_def_file=
+objects=
 
 ### Run through every option and convert it to the proper MS one
 while test $# -gt 0; do
@@ -144,6 +146,9 @@ EOF
 
     -shared)
 	linkopt="$linkopt -dll"
+	# 
+	# windows doesn't export all symbols, we have to do it by ourselves
+	create_def_file="yes"
 	;;
 
     -mpentiumpro)
@@ -201,12 +206,15 @@ EOF
     
         ;;
 
-    *.o | *.obj | *.a | *.lib)
+    *.lib)
 	# Object files/libraries seen, this command will require link
 	# Switch the prog to link
 	linkopt="$linkopt $1"
 	clopt="$clopt $1"
 
+	# prog="link"
+	# ¨luckily cl sometimes knows how to link.. 
+	# up fortran tests in autoconf
 	if test "$prog" != "f90"; then
 	if test "$prog" != "f77"; then
 	if test "$c_source" = ""; then
@@ -215,9 +223,26 @@ EOF
 	fi
 	fi
 
+        ;;
+
+    *.o | *.obj | *.a )
+	# Object files/libraries seen, this command will require link
+	# Switch the prog to link
+	linkopt="$linkopt $1"
+	clopt="$clopt $1"
+	objects="$objects $1"
+
 	# prog="link"
-	# fuck link. cl seems to know how to link... this breaks 
+	# ¨luckily cl sometimes knows how to link.. 
 	# up fortran tests in autoconf
+	if test "$prog" != "f90"; then
+	if test "$prog" != "f77"; then
+	if test "$c_source" = ""; then
+	    prog="link"
+        fi
+	fi
+	fi
+
 	;;
 
     *)
@@ -271,6 +296,28 @@ case "$prog" in
 	;;
 
 	*)
+	    if test "$create_def_file" = "yes"; then
+
+	      # foreach object, create def file
+	      dlltool -z tmp.def --export-all-symbols $objects 
+	      # data_symbols=`grep "DATA$" tmp.def |gawk '{print $1}' |grep -v "^?" |grep -v "^_"`
+	      func_symbols=`grep -v "DATA$" tmp.def |gawk '{print $1}' |grep "..*@[0-9][0-9]*" |grep -v "^?" |sed -e 's/.*/_\0/g' `
+
+	      echo "EXPORTS"  > tmp.def
+	      n="1"
+	      # for s in $data_symbols; do
+	      # 	  	echo "$s @ $n DATA"  >> tmp.def
+	      # 		n=`expr $n + 1`
+	      # done
+
+	      for s in $func_symbols; do
+		  echo "$s @ $n"  >> tmp.def
+		  n=`expr $n + 1`
+	      done
+
+	      linkopt="$linkopt -def:tmp.def"
+
+	    fi
 	    opts=$linkopt
 esac 
 
