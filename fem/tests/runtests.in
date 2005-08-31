@@ -10,8 +10,13 @@ if test "$OBJ_EXT" = ""; then
     OBJ_EXT=".@OBJEXT@"
 fi
 
+if test "$EXE_EXT" = ""; then
+    EXE_EXT=".@EXEEXT@"
+fi
+
 export SHL_EXT
 export OBJ_EXT
+export EXE_EXT
 
 if test "$ELMER_HOME" = ""; then
     # assume that we are testing local version
@@ -44,11 +49,7 @@ fi
 #
 export F90="@FC@ @TESTS_FCFLAGS@ @INCLUDE_MODULE_FLAG@$ELMER_INCLUDE"
 export LD="@SH_LD@ @SH_LDFLAGS@ @SH_LINKING_TO_FLAGS@ @B64FLAGS@"
-export LIBS=""
-
-cc -o findnorm findnorm.c
-cc -o compare compare.c -lm
-chmod 775 findnorm compare
+export LIBS="$EXTRA_LIBS@"
 
 total=0
 passed=0
@@ -70,9 +71,10 @@ for dir in $dirs; do
       success=`grep "ALL DONE" test.log | wc -l`
       if test $success -ge 1; then
 	  correctResult=`cat TEST.RESULT`
-	  grep "(NRM,RELC)" test.log > temp.log
-	  resultNorm=`../findnorm temp.log`
-	  success=`../compare $resultNorm $correctResult`
+	  export correctResult
+	  resultNorm=`grep "(NRM,RELC)" test.log |tail -1 |awk "{print \\$4}"`
+	  success=`awk -f ../res.awk TEST.RESULT`
+	  unset correctResult
       fi
 
       if test $success -ge 1; then
