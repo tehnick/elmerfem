@@ -118,6 +118,8 @@ static void int_sig( int sig )
 
 void DrawItSomeTimeWhenIdle()
 {
+    fflush(stdout);
+
     if ( !UpdatePending )
     {
         UpdatePending = TRUE;
@@ -1146,9 +1148,13 @@ static int MathCommand(ClientData cl,Tcl_Interp *interp,int argc,char **argv)
     VARIABLE *var;
     LIST *lst;
 
-    static char name[256],value[256],*result;
+    static char name[256],value[256],*result,buf[1024];
 
     int i,j,k,NodesChanged;
+    char *c;
+
+    Tcl_DString dstring;
+    Tcl_Encoding encoding;
 
     element_model_t *ElementModel = CurrentObject->ElementModel;
 
@@ -1158,7 +1164,7 @@ static int MathCommand(ClientData cl,Tcl_Interp *interp,int argc,char **argv)
      */
     var_reset_status( "nodes" );
 
-    result = (char *)mtc_domath( argv[1] );
+    result = mtc_domath( argv[1] );  
 
     NodesChanged = var_get_status( "nodes" );
 
@@ -2091,7 +2097,26 @@ int main(int argc,char **argv)
     static char init[1024],initcommands[1024],tmp[1024],ephome[512];
     int i,size[4];
 
-    
+#if defined(WIN32) || defined(MINGW32)  
+    /* 
+       In windows the TK_LIBRARY isn't usually set, so we'll expext to have 
+       the necessary files ship with the binaries under $ELMER_POST_HOME/tcl
+       and $ELMER_POST_HOME/tk
+     */
+    if ( getenv("TK_LIBRARY") == NULL )
+    {
+      printf("setting up tk_library to %s\n",getenv("ELMER_TK_LIBRARY"));
+      _snprintf( tmp, 512, "TK_LIBRARY=%s", getenv("ELMER_TK_LIBRARY") );
+      putenv( tmp );
+    }
+    if ( getenv("TCL_LIBRARY") == NULL )
+    {
+      printf("setting up tcl_library to %s\n",getenv("ELMER_TCL_LIBRARY"));
+      _snprintf( tmp, 512, "TCL_LIBRARY=%s", getenv("ELMER_TCL_LIBRARY") );
+      putenv( tmp );
+    }
+#endif
+
     if ( getenv("ELMER_POST_HOME") == NULL )
     {
       /* use default installation directory just if nothing is set */
@@ -2100,10 +2125,20 @@ int main(int argc,char **argv)
 #else
       snprintf( ephome, 512, "ELMER_POST_HOME=%s", ELMER_POST_HOME );
 #endif
-
       putenv( ephome );
     }
 
+
+#if defined(WIN32) || defined(MINGW32)  
+      _snprintf( ephome, 512, "source(\"%s/lib/mc.ini\")", getenv("ELMER_POST_HOME") );
+#else
+      snprintf( ephome, 512, "source(\"%s/lib/mc.ini\")", getenv("ELMER_POST_HOME") );
+#endif
+
+    mtc_init( stdin, stdout, stderr );
+    printf("Reading init file [%s]\n",ephome);
+    fflush(stdout);
+    mtc_domath( ephome ); 
 
     Tcl_FindExecutable( *argv++ );
     TCLInterp = Tcl_CreateInterp();
@@ -2215,7 +2250,7 @@ int main(int argc,char **argv)
         exit( 0 );
     }
 
-    mtc_init( NULL, stdout, stderr );
+
 
     Tcl_LinkVar( TCLInterp, "NumberOfTimesteps", (char *)&ElementModel.NofTimesteps, TCL_LINK_INT );
 
@@ -2348,9 +2383,8 @@ int main(int argc,char **argv)
     Matctcl_Init( TCLInterp );
 
 
-    signal( SIGFPE, SIG_IGN );
-    signal( SIGINT, int_sig );
-
+    signal( SIGFPE, SIG_IGN ); 
+    signal( SIGINT, int_sig ); 
 
     *init = '\0';
     if ( getenv("ELMER_POST_HOME") )
@@ -2358,7 +2392,6 @@ int main(int argc,char **argv)
         strncat( init,getenv("ELMER_POST_HOME"),511);
         strncat( init,"/",511 );
     }
-
 
 
     strncat( init,"tcl/init.tcl",511 );
@@ -2397,7 +2430,6 @@ int main(int argc,char **argv)
       Tcl_Eval( TCLInterp, buf );
       Tcl_DStringFree( &dstring );
     }
-    
 #ifdef WIN32
     auxMainLoop( (AUXMAINPROC)DrawItSomeTimeWhenIdle );
 #else
