@@ -34,6 +34,7 @@
 
 !------------------------------------------------------------------------------
 SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
+!DEC$ATTRIBUTES DLLEXPORT :: SaveScalars
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -95,7 +96,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       NoDims, NoDofs, NoOper, NoElements, NoVar, DIM, MaxVars, NoEigenValues, Ind
   REAL (KIND=DP) :: CPUTime, CPUMemory, MINVAL, MAXVAL
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.6 2005/07/07 09:12:29 jpr Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.7 2005/07/08 08:04:05 jpr Exp $"
 
   SAVE SubroutineVisited, NumberOfVars, MaxNo, &
       NoPoints, PointIndex, CoordinateIndex, CoordinateDist, ResultPrefix, &
@@ -1813,6 +1814,7 @@ END SUBROUTINE SaveScalars
 !------------------------------------------------------------------------------
 
 SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
+!DEC$ATTRIBUTES DLLEXPORT :: SaveLine
 
   USE Types
   USE Lists
@@ -1853,7 +1855,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t), POINTER   :: CurrentElement, NextElement
   CHARACTER(LEN=MAX_NAME_LEN) :: SideFile, SideNamesFile, VarName, CondName
   CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: ValueNames(:)
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.6 2005/07/07 09:12:29 jpr Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.7 2005/07/08 08:04:05 jpr Exp $"
 
   LOGICAL :: cand
 
@@ -2805,6 +2807,7 @@ END SUBROUTINE SaveLine
 !------------------------------------------------------------------------------
 
 SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
+!DEC$ATTRIBUTES DLLEXPORT :: SaveMaterials
   USE Types
   USE Lists
   USE Integration
@@ -2951,6 +2954,7 @@ END SUBROUTINE SaveMaterials
 ! Written by Thomas Zwinger 
 !------------------------------------------------------------------------------
 SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
+!DEC$ATTRIBUTES DLLEXPORT :: SaveBoundaryValues
   USE Types
   USE Lists
   USE Integration
