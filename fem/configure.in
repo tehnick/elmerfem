@@ -93,7 +93,7 @@ ACX_ARPACK([], [AC_MSG_ERROR([We need arpack!])])
 ACX_PARPACK([], [AC_MSG_WARN([No parallel arpack found.])])
 ACX_UMFPACK([], [AC_MSG_WARN([UMFPACK not found, some functionaly will be disabled.])])
 ACX_MATC([], [AC_MSG_ERROR([libmatc $ELMER_LIBERRORMSG])])
-AC_CHECK_LIB(m,main)
+AC_CHECK_LIB(m,main,[UNIX_MATH_LIB="-lm"],[UNIX_MATH_LIB=""])
 
 dnl see if parpack has to be built locally (only when mpi is fine)
 if test x"$acx_parpack_ok" = xno; then
@@ -150,7 +150,7 @@ esac
 
 dnl REALLY REALLY UGLY HACK!!!
 if test "$acx_cv_c_compiler_ms" = "yes"; then
-    EXTRA_LIBS="libelmersolver.lib -stack:500000000"
+    EXTRA_LIBS="-llibelmersolver -stack:500000000"
 fi
 
 TESTS_FCFLAGS="$TESTS_FCFLAGS $INCLUDE_MODULE_FLAG."
@@ -215,6 +215,7 @@ AC_SUBST(TEMPLATE_ARFLAGS)
 AC_SUBST(library_path_var)
 AC_SUBST(FCPPFLAGS)
 AC_SUBST(LIBEXT)
+AC_SUBST(UNIX_MATH_LIB)
 AC_SUBST(LIBSOLVER_DEPS)
 AC_SUBST(RM)
 AC_SUBST(CP)
