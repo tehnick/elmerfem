@@ -82,7 +82,7 @@ if test "$MPI_INCLUDE_DIR" != ""; then
    FFLAGS="$FFLAGS -I$MPI_INCLUDE_DIR"
    FCFLAGS="$FCFLAGS -I$MPI_INCLUDE_DIR"
 fi
-
+   
 sinclude(acx_lapack.m4)
 sinclude(acx_blas.m4)
 ACX_BLAS([], [AC_MSG_ERROR([BLAS was not found!])])
@@ -93,7 +93,7 @@ ACX_ARPACK([], [AC_MSG_ERROR([We need arpack!])])
 ACX_PARPACK([], [AC_MSG_WARN([No parallel arpack found.])])
 ACX_UMFPACK([], [AC_MSG_WARN([UMFPACK not found, some functionaly will be disabled.])])
 ACX_MATC([], [AC_MSG_ERROR([libmatc $ELMER_LIBERRORMSG])])
-AC_CHECK_LIB(m,main,[UNIX_MATH_LIB="-lm"],[UNIX_MATH_LIB=""])
+AC_CHECK_LIB(m,main,[UNIX_MATH_LIB="-lm"; LIBS="$LIBS -lm"],[UNIX_MATH_LIB=""])
 
 dnl see if parpack has to be built locally (only when mpi is fine)
 if test x"$acx_parpack_ok" = xno; then
