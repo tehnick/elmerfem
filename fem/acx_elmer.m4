@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.72 2005/08/26 09:54:15 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.73 2005/08/30 11:38:41 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -673,9 +673,9 @@ dnl			           acx_stdcxxlib_ok=yes
 dnl                                  ])
 dnl fi
 
-if test $acx_stdcxxlib_ok = no; then
-	AC_MSG_ERROR([Couldn't find std c++ library that is needed for linking.])
-fi
+dnl if test $acx_stdcxxlib_ok = no; then
+dnl 	AC_MSG_ERROR([Couldn't find std c++ library that is needed for linking.])
+dnl fi
 
 LIBS=$acx_check_stdcxxlib_save_LIBS
 
