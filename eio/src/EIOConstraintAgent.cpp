@@ -22,9 +22,10 @@ Program:    ELMER Data base interface (EIO)
 Author(s):  Harri Hakula 10.03.98
 ************************************************************************/
 
-#include "EIOConstraintAgent.h"
 #include <string.h>
 #include <ctype.h>
+
+#include "EIOConstraintAgent.h"
 
 extern void make_filename(char *buf, const char *model, const char *suffix);
 
