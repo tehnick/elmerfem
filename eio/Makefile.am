@@ -1,1 +1,2 @@
 SUBDIRS=include src
+EXTRA_DIST=GPL-2
