@@ -244,7 +244,6 @@ EXTRA_DIST = \
 	SParIterSolver.src \
 	SparseMatrix.src \
 	StatCurrentSolve.src \
-	StatElecReduced.src \
 	StatElecSolve.src \
 	StreamSolver.src \
 	Stress.src \
