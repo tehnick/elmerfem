@@ -191,6 +191,7 @@ TEMPLATE_AR = @TEMPLATE_AR@
 TEMPLATE_ARFLAGS = @TEMPLATE_ARFLAGS@
 TESTS_FCFLAGS = @TESTS_FCFLAGS@
 UMFPACK_LIBS = @UMFPACK_LIBS@
+UNIX_MATH_LIB = @UNIX_MATH_LIB@
 USE_64BIT_ARCH_FALSE = @USE_64BIT_ARCH_FALSE@
 USE_64BIT_ARCH_TRUE = @USE_64BIT_ARCH_TRUE@
 USE_CPP_FALSE = @USE_CPP_FALSE@
@@ -199,6 +200,8 @@ USE_LOCAL_MPIF_H_FALSE = @USE_LOCAL_MPIF_H_FALSE@
 USE_LOCAL_MPIF_H_TRUE = @USE_LOCAL_MPIF_H_TRUE@
 USE_MPI_FALSE = @USE_MPI_FALSE@
 USE_MPI_TRUE = @USE_MPI_TRUE@
+USE_WINDOWS_COMPILER_FALSE = @USE_WINDOWS_COMPILER_FALSE@
+USE_WINDOWS_COMPILER_TRUE = @USE_WINDOWS_COMPILER_TRUE@
 VERSION = @VERSION@
 ac_ct_CC = @ac_ct_CC@
 ac_ct_CXX = @ac_ct_CXX@
@@ -260,8 +263,8 @@ target_alias = @target_alias@
 target_cpu = @target_cpu@
 target_os = @target_os@
 target_vendor = @target_vendor@
-SUBDIRS = src tests
-EXTRA_DIST = autogen.sh acx_elmer.m4 acx_blas.m4 acx_lapack.m4 acx_mpi.m4
+SUBDIRS = src tests 
+EXTRA_DIST = autogen.sh acx_elmer.m4 acx_blas.m4 acx_lapack.m4 acx_mpi.m4 GPL-2 LICENSES
 all: config.h
 	$(MAKE) $(AM_MAKEFLAGS) all-recursive
 
@@ -698,6 +701,7 @@ uninstall-info: uninstall-info-recursive
 #
 dist-hook:
 	cp -r tests $(distdir)
+	cp -r examples $(distdir)
 	rm -rf `find $(distdir)/ -name CVS`
 	rm -rf `find $(distdir)/ -name \#*`
 	rm -rf `find $(distdir)/ -name \*~`
