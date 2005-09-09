@@ -67,4 +67,5 @@ noinst_HEADERS = \
 	ecif_timestep.h \
 	ecif_userinterface.h \
 	ecif_userinterface_TCL.h \
-	ecif_userSettings.h 
+	ecif_userSettings.h  \
+	frontlib.h
