@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.71 2005/08/25 13:39:22 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.76 2005/09/09 11:03:18 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -626,6 +626,8 @@ dnl
 AC_DEFUN([ACX_CHECK_STDCXXLIB],
 [
 AC_REQUIRE([AC_PROG_CXX])
+AC_REQUIRE([ACX_LANG_COMPILER_MS])
+
 acx_check_stdcxxlib_save_LIBS=$LIBS
 acx_stdcxxlib_ok=no
 
@@ -664,18 +666,23 @@ if test $acx_stdcxxlib_ok = no; then
 fi
 
 dnl check for stdc++
+if test $acx_stdcxxlib_ok = no; then
+	AC_CHECK_LIB(C, main,[
+				   STDCXX_LIBS="-lC"
+			           acx_stdcxxlib_ok=yes
+                                  ])
+ fi
+
 dnl if test $acx_stdcxxlib_ok = no; then
-dnl	AC_CHECK_LIB(C, main,[
-dnl				   STDCXX_LIBS="-lC"
-dnl			           acx_stdcxxlib_ok=yes
-dnl                                  ])
+dnl 	AC_MSG_ERROR([Couldn't find std c++ library that is needed for linking.])
 dnl fi
 
-if test $acx_stdcxxlib_ok = no; then
-	AC_MSG_ERROR([Couldn't find std c++ library that is needed for linking.])
+LIBS=$acx_check_stdcxxlib_save_LIBS
+
+if test "$acx_cv_compiler_ms" = "yes"; then
+	STDCXX_LIBS=""
 fi
 
-LIBS=$acx_check_stdcxxlib_save_LIBS
 ])
 
 dnl find out the flags that enable 64 bit compilation
@@ -1373,7 +1380,7 @@ case "$canonical_host_type" in
        SH_LDFLAGS="-shared"
   ;;
   *-*-linux* | *-*-gnu*)
-	RPATH_FLAG="-Wl,-rpath "
+	RPATH_FLAG="-Wl,-rpath="
 	SH_EXPALL_FLAG="-Wl,--export-dynamic"
   ;;
   i[[3456]]86-*-sco3.2v5*)
@@ -1796,9 +1803,10 @@ acx_cv_[]_AC_LANG_ABBREV[]_compiler_ms=$acx_compiler_ms
 if test "$acx_cv_c_compiler_ms" = "yes"; then
 	AC_DEFINE(STDCALLBULL,[__stdcall],[Standard windows call declaration])
 	AC_DEFINE(C_DLLEXPORT,[__declspec(dllexport)],[Standard windows call declaration])
-	AM_CONDITIONAL(USE_WINDOWS_COMPILER, test "$acx_cv_c_compiler_ms" = "yes")
+
 else
 	AC_DEFINE(STDCALLBULL,,[Standard windows call declaration])
 	AC_DEFINE(C_DLLEXPORT,,[Standard windows call declaration])
 fi
+AM_CONDITIONAL(USE_WINDOWS_COMPILER, test "$acx_cv_c_compiler_ms" = "yes")
 ])
