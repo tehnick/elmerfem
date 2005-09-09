@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.74 2005/09/05 11:28:14 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.75 2005/09/05 11:30:01 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1380,7 +1380,7 @@ case "$canonical_host_type" in
        SH_LDFLAGS="-shared"
   ;;
   *-*-linux* | *-*-gnu*)
-	RPATH_FLAG="-Wl,-rpath "
+	RPATH_FLAG="-Wl,-rpath="
 	SH_EXPALL_FLAG="-Wl,--export-dynamic"
   ;;
   i[[3456]]86-*-sco3.2v5*)
