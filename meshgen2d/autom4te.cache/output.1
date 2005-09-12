@@ -609,6 +609,9 @@ am__leading_dot
 AMTAR
 am__tar
 am__untar
+canonical_host_type
+IBM_IS_PIECE_OF_SHIT_TRUE
+IBM_IS_PIECE_OF_SHIT_FALSE
 CC
 CFLAGS
 LDFLAGS
@@ -2078,7 +2081,7 @@ fi
 
 # Define the identity of the package.
  PACKAGE=meshgen2d
- VERSION=4.0.1
+ VERSION=4.0.2
 
 
 cat >>confdefs.h <<_ACEOF
@@ -2275,6 +2278,12 @@ am__tar='${AMTAR} chof - "$$tardir"'; am__untar='${AMTAR} xf -'
 
 
 
+
+
+
+
+
+
 acx_debug=no
 
 
@@ -2332,6 +2341,155 @@ echo "${ECHO_T}optimized" >&6; }
   if test "$CXXFLAGS" = ""; then
 	CXXFLAGS=$ACX_OPT_FLAG
   fi
+fi
+
+
+
+{ echo "$as_me:$LINENO: checking for answer to meaning of life" >&5
+echo $ECHO_N "checking for answer to meaning of life... $ECHO_C" >&6; }
+{ echo "$as_me:$LINENO: result: 42" >&5
+echo "${ECHO_T}42" >&6; }
+
+
+
+
+
+if test -z "$host"; then
+  host=unknown
+fi
+canonical_host_type=$host
+if test "$host" = unknown; then
+  { { echo "$as_me:$LINENO: error: configuring for unknown system type, your build will most likely be screwed." >&5
+echo "$as_me: error: configuring for unknown system type, your build will most likely be screwed." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+
+case "$canonical_host_type" in
+  *-*-darwin*)
+	LDFLAGS="$LDFLAGS -L/sw/lib"
+	CFLAGS="$CFLAGS -I/sw/include"
+	CXXFLAGS="$CXXFLAGS -I/sw/include"
+  ;;
+esac
+
+
+
+
+
+acx_platform_def="GENERIC"
+case "$canonical_host_type" in
+  *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
+	acx_platform_def="BSD"
+        
+cat >>confdefs.h <<\_ACEOF
+@%:@define BSD 1
+_ACEOF
+
+  ;;
+  *-*-freebsd*)
+	acx_platform_def="BSD"
+        
+cat >>confdefs.h <<\_ACEOF
+@%:@define BSD 1
+_ACEOF
+
+  ;;
+  alpha*-dec-osf*)
+	acx_platform_def="DEC_ALPHA"
+        
+cat >>confdefs.h <<\_ACEOF
+@%:@define DEC_ALPHA 1
+_ACEOF
+
+  ;;
+  *-*-darwin*)
+        
+cat >>confdefs.h <<\_ACEOF
+@%:@define DARWIN 1
+_ACEOF
+
+  ;;
+  *-*-cygwin*)
+	acx_platform_def="WIN32"
+        
+cat >>confdefs.h <<\_ACEOF
+@%:@define CYGWIN 1
+_ACEOF
+
+  ;;
+  *-*-mingw*)
+	acx_platform_def="WIN32"
+        
+cat >>confdefs.h <<\_ACEOF
+@%:@define MINGW32 1
+_ACEOF
+
+        
+cat >>confdefs.h <<\_ACEOF
+@%:@define WIN32 1
+_ACEOF
+
+  ;;
+  *-*-linux* | *-*-gnu*)
+        
+cat >>confdefs.h <<\_ACEOF
+@%:@define LINUX 1
+_ACEOF
+
+  ;;
+  i[3456]86-*-sco3.2v5*)
+        
+cat >>confdefs.h <<\_ACEOF
+@%:@define BASTARDS 1
+_ACEOF
+
+  ;;
+  rs6000-ibm-aix* | powerpc-ibm-aix*)
+	acx_platform_def="AIX"
+        
+cat >>confdefs.h <<\_ACEOF
+@%:@define AIX 1
+_ACEOF
+
+  ;;
+  hppa*-hp-hpux*)
+        
+cat >>confdefs.h <<\_ACEOF
+@%:@define HPUX 1
+_ACEOF
+
+  ;;
+  *-sgi-*)
+        
+cat >>confdefs.h <<\_ACEOF
+@%:@define SGI 1
+_ACEOF
+
+  ;;
+  sparc-sun-sunos4*)
+        
+cat >>confdefs.h <<\_ACEOF
+@%:@define SUNOS 1
+_ACEOF
+
+  ;;
+  sparc-sun-solaris2* | i386-pc-solaris2*)
+        
+cat >>confdefs.h <<\_ACEOF
+@%:@define SOLARIS 1
+_ACEOF
+
+  ;;
+esac
+
+ 
+
+if test "$acx_platform_def" = "AIX"; then
+  IBM_IS_PIECE_OF_SHIT_TRUE=
+  IBM_IS_PIECE_OF_SHIT_FALSE='#'
+else
+  IBM_IS_PIECE_OF_SHIT_TRUE='#'
+  IBM_IS_PIECE_OF_SHIT_FALSE=
 fi
 
 
@@ -3526,6 +3684,76 @@ fi
 
 
 
+
+{ echo "$as_me:$LINENO: checking for main in -lstdc++" >&5
+echo $ECHO_N "checking for main in -lstdc++... $ECHO_C" >&6; }
+if test "${ac_cv_lib_stdcpp_main+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lstdc++  $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+
+int
+main ()
+{
+main ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (eval echo "$as_me:$LINENO: \"$ac_link\"") >&5
+  (eval $ac_link) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest$ac_exeext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  ac_cv_lib_stdcpp_main=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+ac_cv_lib_stdcpp_main=no
+fi
+rm -f conftest.err conftest.$ac_objext \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ echo "$as_me:$LINENO: result: $ac_cv_lib_stdcpp_main" >&5
+echo "${ECHO_T}$ac_cv_lib_stdcpp_main" >&6; }
+if test $ac_cv_lib_stdcpp_main = yes; then
+  cat >>confdefs.h <<_ACEOF
+@%:@define HAVE_LIBSTDC__ 1
+_ACEOF
+
+  LIBS="-lstdc++ $LIBS"
+
+fi
+
+
+
 ac_ext=cpp
 ac_cpp='$CXXCPP $CPPFLAGS'
 ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
@@ -4223,6 +4451,13 @@ LIB@&t@OBJS=$ac_libobjs
 LTLIBOBJS=$ac_ltlibobjs
 
 
+if test -z "${IBM_IS_PIECE_OF_SHIT_TRUE}" && test -z "${IBM_IS_PIECE_OF_SHIT_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"IBM_IS_PIECE_OF_SHIT\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"IBM_IS_PIECE_OF_SHIT\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
 if test -z "${AMDEP_TRUE}" && test -z "${AMDEP_FALSE}"; then
   { { echo "$as_me:$LINENO: error: conditional \"AMDEP\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
@@ -4828,6 +5063,9 @@ s,@am__leading_dot@,$am__leading_dot,;t t
 s,@AMTAR@,$AMTAR,;t t
 s,@am__tar@,$am__tar,;t t
 s,@am__untar@,$am__untar,;t t
+s,@canonical_host_type@,$canonical_host_type,;t t
+s,@IBM_IS_PIECE_OF_SHIT_TRUE@,$IBM_IS_PIECE_OF_SHIT_TRUE,;t t
+s,@IBM_IS_PIECE_OF_SHIT_FALSE@,$IBM_IS_PIECE_OF_SHIT_FALSE,;t t
 s,@CC@,$CC,;t t
 s,@CFLAGS@,$CFLAGS,;t t
 s,@LDFLAGS@,$LDFLAGS,;t t
