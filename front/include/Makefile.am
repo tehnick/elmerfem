@@ -68,4 +68,8 @@ noinst_HEADERS = \
 	ecif_userinterface.h \
 	ecif_userinterface_TCL.h \
 	ecif_userSettings.h  \
-	frontlib.h
+	frontlib.h \
+	front_CPPdefs.h  \
+	front_Cdefs.h  \
+	front_egfdefs.h  
+
