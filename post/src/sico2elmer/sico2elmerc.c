@@ -1398,8 +1398,8 @@ void STDCALLBULL FC_FUNC(asciidata,ASCIIDATA) (float  *xi, /* unscaled x coordin
 		float *qy, /* mass-flux in y-direction for given i,j-position in plane */
 		int   *n_cts, /* polythermal conditions for given i,j-position at base (-1 cold ice; 0 temp. ice base with cold ice above; 1 temp. ice base with temperate ice above; */
 		int   *maske, /* glaciation information for given i,j-position at base (glaciated=0, ice-free=1, 2=sea-point, 3=floating ice) */
-		char  *runname, /*name of run*/
-		char  *ergnum,/*number of file*/
+		FC_CHAR_PTR(runname,p1), /*name of run*/
+		FC_CHAR_PTR(ergnum,p2),  /*number of file*/
 		int   *flag)
 { 
   register int i, j, k, n, current_index;
