@@ -4,15 +4,12 @@
 # Wrapper around MS's cl.exe and link.exe to make them act more like
 # Unix cc and ld
 #
+# 2005 JuhaV: added fortran support with visual fortran 
+#             - autoconf name mangling tests work now..
+#             
+# FFLAGS="" and FCFLAGS="" FC=cccl2 F77=cccl2 CC=cccl2 CXX=cccl2 ./configure
 #
 # Copyright (C) 2000-2003 Geoffrey Wossum (gwossum@acm.org)
-#
-# Modified by: Juha Vierinen <jvierine (adsat) gmail.com>
-# - added fortran support with visual fortran 
-#         autoconf name mangling tests work now
-#             
-# - FFLAGS="" and FCFLAGS="" FC=cccl2 F77=cccl2 CC=cccl2 CXX=cccl2 ./configure
-#
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -93,6 +90,11 @@ EOF
         # note also, that fortran compiler has a different opt flag
         # this is done with sed in the end.
 	clopt="$clopt -Ot"
+	;;
+
+    -O0)
+        # disable optimizations
+	clopt="$clopt -Od"
 	;;
 
     -E*)
@@ -203,7 +205,7 @@ EOF
 	;;
     *.F | *.f)
         clopt="$clopt $1"
-	prog="f90"
+	prog="f77"
 
 	fortran_progs="$fortran_progs $1"
     
@@ -286,6 +288,7 @@ case "$prog" in
 	;;
 	f90)
 	    clopt=`echo "$clopt" | sed 's/ -Ot / -optimize:4 /'` 
+	    clopt=`echo "$clopt" | sed 's/ -Od / -optimize:0 /'` 
 	    opts=$clopt
 	    # visual fortran goes berzerk on this one
 	    unset F90
@@ -293,6 +296,7 @@ case "$prog" in
 
 	f77)
 	    clopt=`echo "$clopt" | sed 's/ -Ot / -optimize:4 /'` 
+	    clopt=`echo "$clopt" | sed 's/ -Od / -optimize:0 /'` 
 	    opts=$clopt
 	    # visual fortran goes berzerk on this one
 	    unset F77
