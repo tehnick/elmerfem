@@ -264,7 +264,6 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
        exit(0);
      }
    }
-   if ( *Quiet == 0 ) fprintf( stderr, "got handle: %x\n", Handle);
 
    for( i=0; i<strlen(Name); i++ )
    {
@@ -276,10 +275,7 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
      fprintf( stderr,"Load: FATAL: Can't find procedure [%s]\n", Name );
      exit(0);
    }
-   if ( *Quiet == 0 ) fprintf( stderr, "got pointer: %x\n", Function);
 #endif 
-   
-   if ( *Quiet == 0 ) fprintf( stderr, "...done\n");
 
    return (void *)Function;
 }

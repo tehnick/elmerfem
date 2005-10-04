@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.75 2005/09/05 11:30:01 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.76 2005/09/09 11:03:18 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -671,18 +671,17 @@ if test $acx_stdcxxlib_ok = no; then
 				   STDCXX_LIBS="-lC"
 			           acx_stdcxxlib_ok=yes
                                   ])
- fi
+fi
 
-dnl if test $acx_stdcxxlib_ok = no; then
-dnl 	AC_MSG_ERROR([Couldn't find std c++ library that is needed for linking.])
-dnl fi
+if test $acx_stdcxxlib_ok = no; then
+	AC_MSG_WARN([Couldn't find std c++ library that is needed for linking.])
+fi
 
 LIBS=$acx_check_stdcxxlib_save_LIBS
 
 if test "$acx_cv_compiler_ms" = "yes"; then
 	STDCXX_LIBS=""
 fi
-
 ])
 
 dnl find out the flags that enable 64 bit compilation
@@ -1378,6 +1377,7 @@ case "$canonical_host_type" in
   *-*-cygwin* | *-*-mingw*)
        SHLEXT=dll
        SH_LDFLAGS="-shared"
+       LD_LIBRARY_PATH_VAR=PATH
   ;;
   *-*-linux* | *-*-gnu*)
 	RPATH_FLAG="-Wl,-rpath="
