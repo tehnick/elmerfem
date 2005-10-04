@@ -8,7 +8,7 @@
  * Started 8/27/94
  * George
  *
- * $Id: metis.h,v 1.1 2005/05/17 10:21:50 vierinen Exp $
+ * $Id: metis.h,v 1.1.1.1 2005/06/06 12:46:12 vierinen Exp $
  */
 
 
@@ -18,7 +18,10 @@
 #else
 #include <malloc.h>
 #endif
+
+#if HAVE_STRINGS_H
 #include <strings.h>
+#endif
 #include <string.h>
 #include <ctype.h>
 #include <math.h>

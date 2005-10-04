@@ -3,7 +3,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+
+#if HAVE_UNISTD_H
 #include <unistd.h>
+#endif
+
 #include <stdarg.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -15,6 +19,7 @@
 #include "femtypes.h"
 #include "femknot.h"
 #include "femelmer.h"
+#include "../config.h"
 
 
 #define getline fgets(line,MAXLINESIZE,in) 
@@ -603,7 +608,11 @@ int SaveElmerInput(struct FemType *data,
 
   fail = chdir(directoryname);
   if(fail) {
+#ifdef MINGW32
+    fail = mkdir(directoryname);
+#else
     fail = mkdir(directoryname,0700);
+#endif
     if(fail) {
       printf("Could not create a result directory!\n");
       return(1);
@@ -2187,9 +2196,18 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   sprintf(directoryname,"%s",prefix);
   sprintf(subdirectoryname,"%s.%d","partitioning",partitions);
 
+#ifdef MINGW32
+  mkdir(directoryname);
+#else
   mkdir(directoryname,0700);
+#endif
   chdir(directoryname);
+#ifdef MINGW32
+  mkdir(subdirectoryname);
+#else
   mkdir(subdirectoryname,0700);
+#endif
+
   chdir(subdirectoryname);
 
   if(info) printf("Saving mesh in ElmerSolver format to %d partitions in %s/%s.\n",

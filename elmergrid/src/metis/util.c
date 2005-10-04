@@ -8,11 +8,11 @@
  * Started 9/28/95
  * George
  *
- * $Id: util.c,v 1.1 2005/05/17 10:22:04 vierinen Exp $
+ * $Id: util.c,v 1.1.1.1 2005/06/06 12:46:12 vierinen Exp $
  */
 
 #include <metis.h>
-
+#include "../../config.h"
 
 /*************************************************************************
 * This function prints an error message and exits
@@ -493,16 +493,18 @@ int ispow2(int a)
 void InitRandom(int seed)
 {
   if (seed == -1) {
-#ifndef __VC__
+#if defined(__VC__) | defined(MINGW32)
+    srand(4321);  
+#else
     srand48(7654321L);  
 #endif
-    srand(4321);  
   }
   else {
-#ifndef __VC__
+#if defined(__VC__) | defined(MINGW32)
+    srand(seed);  
+#else
     srand48(seed);  
 #endif
-    srand(seed);  
   }
 }
 
