@@ -1,4 +1,5 @@
 SUBROUTINE PoissonSolver( Model,Solver,dt,TransientSimulation )
+!DEC$ATTRIBUTES DLLEXPORT:: PoissonSolver
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -43,6 +44,7 @@ SUBROUTINE PoissonSolver( Model,Solver,dt,TransientSimulation )
 
   SAVE STIFF, LOAD, FORCE, AllocationsDone
 !------------------------------------------------------------------------------
+
 
   !Allocate some permanent storage, this is done first time only:
   !--------------------------------------------------------------

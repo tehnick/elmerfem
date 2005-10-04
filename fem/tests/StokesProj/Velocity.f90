@@ -1,4 +1,5 @@
 SUBROUTINE VelocitySolver( Model,Solver,dt,TransientSimulation )
+!DEC$ATTRIBUTES DLLEXPORT :: VelocitySolver
 !------------------------------------------------------------------------------
 !******************************************************************************
 !

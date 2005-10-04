@@ -1,7 +1,7 @@
 # Linear elasticity solver test in 2D (buckling)
 #
 run:
-	$(F90) check.f90 -o check
+	$(F90) check.f90 -o check$(EXE_EXT)
 	$(ELMER_GRID) 1 2 buckling
 	$(ELMER_SOLVER)
 	grep -i '(' test.log > out2.txt

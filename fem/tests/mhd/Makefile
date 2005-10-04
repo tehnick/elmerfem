@@ -2,11 +2,11 @@
 #
 run:
 	$(F90) -c  exmag.f90
-	$(LD) -o exmag$(SHL_EXT) exmag.o $(LIBS)
+	$(LD) -o exmag$(SHL_EXT) exmag$(OBJ_EXT) $(LIBS)
 	$(ELMER_GRID) 1 2 mesh.grd
 	$(ELMER_SOLVER)
 
 
 clean:
-	/bin/rm test.log temp.log mon.out exmag.o exmag 
+	/bin/rm test.log temp.log mon.out exmag$(OBJ_EXT) exmag 
 	/bin/rm -r mesh

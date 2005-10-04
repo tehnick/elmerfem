@@ -1,17 +1,22 @@
-#!/bin/bash
+#!/bin/sh
 #
 # Autoconf substitutes @VAR@ definitions to come up with a 
 # semi-valid test script
 # 
 if test "$SHL_EXT" = ""; then
-    SHL_EXT=".so"
+    SHL_EXT=".dll"
 fi
 if test "$OBJ_EXT" = ""; then
-    OBJ_EXT=".o"
+    OBJ_EXT=".obj"
+fi
+
+if test "$EXE_EXT" = ""; then
+    EXE_EXT=".exe"
 fi
 
 export SHL_EXT
 export OBJ_EXT
+export EXE_EXT
 
 if test "$ELMER_HOME" = ""; then
     # assume that we are testing local version
@@ -24,9 +29,9 @@ if test "$ELMER_HOME" = ""; then
     export ELMER_SOLVER="../../src/ElmerSolver"
     # elmergrid must be in path
     export ELMER_MESH2D="Mesh2D"
-    export LD_LIBRARY_PATH=".:$ELMER_HOME:$LD_LIBRARY_PATH"
+    export PATH=".:$ELMER_HOME:$PATH"
     # assume that stuff has been installed here
-    export PATH=/tmp/jpr/bin:$PATH
+    export PATH=/home/admin/win32/bin:$PATH
 else 
     # ELMER_HOME is defined, so we'll just use that
     printf "\$ELMER_HOME=%s\n" $ELMER_HOME
@@ -35,20 +40,20 @@ else
     export ELMER_GRID="$ELMER_HOME/bin/ElmerGrid"
     export ELMER_SOLVER="$ELMER_HOME/bin/ElmerSolver"
     export ELMER_MESH2D="$ELMER_HOME/bin/Mesh2D"
-    export LD_LIBRARY_PATH=".:$ELMER_HOME/share/elmersolver/lib:$LD_LIBRARY_PATH"
+    export PATH=".:$ELMER_HOME/share/elmersolver/lib:$PATH"
     export PATH=$ELMER_HOME/bin:$PATH
 fi
 
 #
 # Autoconf substitutes these variables with correct values.
 #
-export F90="f90 -fast -KPIC -I. -M. -M$ELMER_INCLUDE"
-export LD="f90 -G  "
-export LIBS=""
+export F90="cccl2 -O  -I. -I. -I$ELMER_INCLUDE"
+export LD="cccl2 -shared  "
+export LIBS="-L$ELMER_LIB -llibelmersolver -stack:500000000"
 
-cc -o findnorm findnorm.c
-cc -o compare compare.c -lm
-chmod 775 findnorm compare
+cccl2 -o findnorm$EXE_EXT findnorm.c
+cccl2 -o compare$EXE_EXT compare.c 
+chmod 775 findnorm$EXE_EXT compare$EXE_EXT
 
 total=0
 passed=0
@@ -71,8 +76,8 @@ for dir in $dirs; do
       if test $success -ge 1; then
 	  correctResult=`cat TEST.RESULT`
 	  grep "(NRM,RELC)" test.log > temp.log
-	  resultNorm=`../findnorm temp.log`
-	  success=`../compare $resultNorm $correctResult`
+	  resultNorm=`../findnorm$EXE_EXT temp.log`
+	  success=`../compare$EXE_EXT $resultNorm $correctResult`
       fi
 
       if test $success -ge 1; then

@@ -1,4 +1,5 @@
 SUBROUTINE HrotSolver( Model,Solver,dt,TransientSimulation )
+!DEC$ATTRIBUTES DLLEXPORT :: HrotSolver
 !------------------------------------------------------------------------------
 !******************************************************************************
 !

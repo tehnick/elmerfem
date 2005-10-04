@@ -1,4 +1,5 @@
 SUBROUTINE HelmholtzHDIVSolver( Model,Solver,dt,TransientSimulation )
+!DEC$ATTRIBUTES DLLEXPORT :: HelmholtzHDIVSolver
 !------------------------------------------------------------------------------
 !******************************************************************************
 !

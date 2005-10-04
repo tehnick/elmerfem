@@ -5,16 +5,22 @@
 /* #undef AIX */
 
 /* 32 bit arch. */
-/* #undef ARCH_32_BITS */
+#define ARCH_32_BITS 1
 
 /* Couldn't determine. sticking with 64 just in case. */
-#define ARCH_64_BITS 1
+/* #undef ARCH_64_BITS */
 
 /* Detected platform. */
 /* #undef BASTARDS */
 
 /* Detected platform. */
 /* #undef BSD */
+
+/* Detected platform. */
+/* #undef CYGWIN */
+
+/* Standard windows call declaration */
+#define C_DLLEXPORT __declspec(dllexport)
 
 /* Detected platform. */
 /* #undef DARWIN */
@@ -26,7 +32,7 @@
 #define ELMER_LINKTYP 1
 
 /* Elmer solver default install directory */
-#define ELMER_SOLVER_HOME "/home/vierinen/src/elmer/buildtools/build.laatikko.2005-07-01-10-16-34/dist/share/elmersolver"
+#define ELMER_SOLVER_HOME "/home/admin/win32/share/elmersolver"
 
 /* Define if using dynamic linking */
 #define ENABLE_DYNAMIC_LINKING 1
@@ -37,13 +43,13 @@
 
 /* Define to a macro mangling the given C identifier (in lower and upper
    case), which must not contain underscores, for linking with Fortran. */
-#define F77_FUNC(name,NAME) name ## _
+#define F77_FUNC(name,NAME) NAME
 
 /* As F77_FUNC, but for C identifiers containing underscores. */
-#define F77_FUNC_(name,NAME) name ## _
+#define F77_FUNC_(name,NAME) NAME
 
 /* Char pointer mangling */
-#define FC_CHAR_PTR(P,L) char *P
+#define FC_CHAR_PTR(P,L) char *P, int L
 
 /* Define to dummy `main' function (if any) required to link to the Fortran
    libraries. */
@@ -54,13 +60,10 @@
 
 /* Define to a macro mangling the given C identifier (in lower and upper
    case), which must not contain underscores, for linking with Fortran. */
-#define FC_FUNC(name,NAME) name ## _
+#define FC_FUNC(name,NAME) NAME
 
 /* As FC_FUNC, but for C identifiers containing underscores. */
-#define FC_FUNC_(name,NAME) name ## _
-
-/* Detected platform. */
-/* #undef GWIN */
+#define FC_FUNC_(name,NAME) NAME
 
 /* Define if you have a ARPACK library. */
 #define HAVE_ARPACK 1
@@ -69,20 +72,20 @@
 #define HAVE_BLAS 1
 
 /* Define to 1 if you have the `dlclose' function. */
-#define HAVE_DLCLOSE 1
+/* #undef HAVE_DLCLOSE */
 
 /* Define to 1 if you have the `dlerror' function. */
-#define HAVE_DLERROR 1
+/* #undef HAVE_DLERROR */
 
 /* Define to 1 if you have the `dlopen' function. */
-#define HAVE_DLOPEN 1
+/* #undef HAVE_DLOPEN */
 
 /* Define if your system has dlopen, dlsym, dlerror, and dlclose for dynamic
    linking */
-#define HAVE_DLOPEN_API 1
+/* #undef HAVE_DLOPEN_API */
 
 /* Define to 1 if you have the `dlsym' function. */
-#define HAVE_DLSYM 1
+/* #undef HAVE_DLSYM */
 
 /* Define if your system has dyld for dynamic linking */
 /* #undef HAVE_DYLD_API */
@@ -94,34 +97,25 @@
 /* #undef HAVE_F_ETIME */
 
 /* Does the fortran environment implement flush */
-/* #undef HAVE_F_FLUSH */
+#define HAVE_F_FLUSH 1
 
 /* Define if you have a HUTI library. */
 #define HAVE_HUTI 1
 
 /* Define to 1 if you have the <inttypes.h> header file. */
-#define HAVE_INTTYPES_H 1
+/* #undef HAVE_INTTYPES_H */
 
 /* Define if you have LAPACK library. */
 #define HAVE_LAPACK 1
 
 /* Define to 1 if you have the `dl' library (-ldl). */
-#define HAVE_LIBDL 1
+/* #undef HAVE_LIBDL */
 
 /* Define to 1 if you have the `dld' library (-ldld). */
 /* #undef HAVE_LIBDLD */
 
-/* Define to 1 if you have the `m' library (-lm). */
-#define HAVE_LIBM 1
-
-/* Define to 1 if you have the `wsock32' library (-lwsock32). */
-/* #undef HAVE_LIBWSOCK32 */
-
-/* Define to 1 if you have the `LoadLibrary' function. */
-/* #undef HAVE_LOADLIBRARY */
-
 /* Define if your system has LoadLibrary for dynamic linking */
-/* #undef HAVE_LOADLIBRARY_API */
+#define HAVE_LOADLIBRARY_API 1
 
 /* Define if you have a MATC library. */
 #define HAVE_MATC 1
@@ -145,13 +139,13 @@
 /* #undef HAVE_SHL_LOAD_API */
 
 /* Define to 1 if you have the <stdint.h> header file. */
-#define HAVE_STDINT_H 1
+/* #undef HAVE_STDINT_H */
 
 /* Define to 1 if you have the <stdlib.h> header file. */
 #define HAVE_STDLIB_H 1
 
 /* Define to 1 if you have the <strings.h> header file. */
-#define HAVE_STRINGS_H 1
+/* #undef HAVE_STRINGS_H */
 
 /* Define to 1 if you have the <string.h> header file. */
 #define HAVE_STRING_H 1
@@ -166,13 +160,16 @@
 #define HAVE_UMFPACK 1
 
 /* Define to 1 if you have the <unistd.h> header file. */
-#define HAVE_UNISTD_H 1
+/* #undef HAVE_UNISTD_H */
 
 /* Detected platform. */
 /* #undef HPUX */
 
 /* Detected platform. */
-#define LINUX 1
+/* #undef LINUX */
+
+/* Detected platform. */
+#define MINGW32 1
 
 /* Name of package */
 #define PACKAGE "fem"
@@ -196,13 +193,16 @@
 /* #undef SGI */
 
 /* Shared lib filename extension */
-#define SHL_EXTENSION ".so"
+#define SHL_EXTENSION ".dll"
 
-/* The size of `void*', as computed by sizeof. */
-#define SIZEOF_VOIDP 0
+/* The size of a `void*', as computed by sizeof. */
+#define SIZEOF_VOIDP 4
 
 /* Detected platform. */
 /* #undef SOLARIS */
+
+/* Standard windows call declaration */
+#define STDCALLBULL __stdcall
 
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1
@@ -212,3 +212,6 @@
 
 /* Version number of package */
 #define VERSION "4.0.1"
+
+/* Detected platform2. */
+#define WIN32 1

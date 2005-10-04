@@ -1,7 +1,7 @@
 # Modal analysis with geometric stiffness in 2D
 #
 run:
-	$(F90) check.f90 -o check
+	$(F90) check.f90 -o check$(EXE_EXT)
 	$(ELMER_GRID) 1 2 geomstiff
 	$(ELMER_SOLVER)
 	grep -i '(' test.log > out2.txt

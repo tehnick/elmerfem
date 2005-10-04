@@ -2,9 +2,9 @@
 #
 run:
 	$(F90) -c BentoniteSolver.f90
-	$(LD) -o BentoniteSolver$(SHL_EXT) BentoniteSolver.o $(LIBS)
+	$(LD) -o BentoniteSolver$(SHL_EXT) BentoniteSolver$(OBJ_EXT) $(LIBS)
 	$(ELMER_SOLVER)
 
 
 clean:
-	/bin/rm test.log temp.log mon.out BentoniteSolver$(SHL_EXT) BentoniteSolver.o so_locations
+	/bin/rm test.log temp.log mon.out BentoniteSolver$(SHL_EXT) BentoniteSolver$(OBJ_EXT) so_locations
