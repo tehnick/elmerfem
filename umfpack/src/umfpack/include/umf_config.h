@@ -2,6 +2,7 @@
 /* === umf_config.h ========================================================= */
 /* ========================================================================== */
 #include "../../config.h"
+
 /* -------------------------------------------------------------------------- */
 /* UMFPACK Version 4.4, Copyright (c) 2005 by Timothy A. Davis.  CISE Dept,   */
 /* Univ. of Florida.  All Rights Reserved.  See ../Doc/License for License.   */
@@ -827,9 +828,15 @@
 	BLAS_ARRAY (A), BLAS_INT_SCALAR (d)) ; \
 }
 
+
 /* y = y - A*x, where A is m-by-n with leading dimension d,
    x is a column vector with stride 1
    y is a column vector with stride 1 */
+
+#if defined(WIN32) || defined(MINGW32)
+extern void __stdcall FC_FUNC(dgemv,DGEMV) (void *a1,void *a2,void *a3,void *a4,void *a5,void *a6,void *a7,void *a8,void *a9,void *a10,void *a11,void *a12);
+#endif
+
 #define BLAS_GEMV(m,n,A,x,y,d) \
 { \
     Int one = 1 ; \
