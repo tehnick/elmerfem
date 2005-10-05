@@ -4,14 +4,14 @@
 # semi-valid test script
 # 
 if test "$SHL_EXT" = ""; then
-    SHL_EXT=".dll"
+    SHL_EXT=".so"
 fi
 if test "$OBJ_EXT" = ""; then
-    OBJ_EXT=".obj"
+    OBJ_EXT=".o"
 fi
 
 if test "$EXE_EXT" = ""; then
-    EXE_EXT=".exe"
+    EXE_EXT=""
 fi
 
 export SHL_EXT
@@ -29,9 +29,9 @@ if test "$ELMER_HOME" = ""; then
     export ELMER_SOLVER="../../src/ElmerSolver"
     # elmergrid must be in path
     export ELMER_MESH2D="Mesh2D"
-    export PATH=".:$ELMER_HOME:$PATH"
+    export LD_LIBRARY_PATH=".:$ELMER_HOME:$LD_LIBRARY_PATH"
     # assume that stuff has been installed here
-    export PATH=/home/admin/win32/bin:$PATH
+    export PATH=/home/vierinen/src/elmer/buildtools/build.laatikko.2005-10-05-10-33-14/dist/bin:$PATH
 else 
     # ELMER_HOME is defined, so we'll just use that
     printf "\$ELMER_HOME=%s\n" $ELMER_HOME
@@ -40,19 +40,19 @@ else
     export ELMER_GRID="$ELMER_HOME/bin/ElmerGrid"
     export ELMER_SOLVER="$ELMER_HOME/bin/ElmerSolver"
     export ELMER_MESH2D="$ELMER_HOME/bin/Mesh2D"
-    export PATH=".:$ELMER_HOME/share/elmersolver/lib:$PATH"
+    export LD_LIBRARY_PATH=".:$ELMER_HOME/share/elmersolver/lib:$LD_LIBRARY_PATH"
     export PATH=$ELMER_HOME/bin:$PATH
 fi
 
 #
 # Autoconf substitutes these variables with correct values.
 #
-export F90="cccl2 -O  -I. -I. -I$ELMER_INCLUDE"
-export LD="cccl2 -shared  "
-export LIBS="-L$ELMER_LIB -llibelmersolver -stack:500000000"
+export F90="g95 -O -fPIC -I. -I. -I$ELMER_INCLUDE"
+export LD="g95 -shared  "
+export LIBS="-L$ELMER_LIB "
 
-cccl2 -o findnorm$EXE_EXT findnorm.c
-cccl2 -o compare$EXE_EXT compare.c 
+gcc -o findnorm$EXE_EXT findnorm.c
+gcc -o compare$EXE_EXT compare.c -lm
 chmod 775 findnorm$EXE_EXT compare$EXE_EXT
 
 total=0

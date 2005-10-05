@@ -610,6 +610,8 @@ AMTAR
 am__tar
 am__untar
 canonical_host_type
+IBM_IS_PIECE_OF_SHIT_TRUE
+IBM_IS_PIECE_OF_SHIT_FALSE
 AR
 ARFLAGS
 RANLIB
@@ -2270,6 +2272,9 @@ am__tar='${AMTAR} chof - "$$tardir"'; am__untar='${AMTAR} xf -'
 
 
 
+
+
+
 if test -z "$host"; then
   host=unknown
 fi
@@ -2292,9 +2297,10 @@ esac
 
 
 
-
+acx_platform_def="GENERIC"
 case "$canonical_host_type" in
   *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
+	acx_platform_def="BSD"
         
 cat >>confdefs.h <<\_ACEOF
 @%:@define BSD 1
@@ -2302,6 +2308,7 @@ _ACEOF
 
   ;;
   *-*-freebsd*)
+	acx_platform_def="BSD"
         
 cat >>confdefs.h <<\_ACEOF
 @%:@define BSD 1
@@ -2309,6 +2316,7 @@ _ACEOF
 
   ;;
   alpha*-dec-osf*)
+	acx_platform_def="DEC_ALPHA"
         
 cat >>confdefs.h <<\_ACEOF
 @%:@define DEC_ALPHA 1
@@ -2322,10 +2330,19 @@ cat >>confdefs.h <<\_ACEOF
 _ACEOF
 
   ;;
-  *-*-cygwin* | *-*-mingw*)
+  *-*-cygwin*)
+	acx_platform_def="WIN32"
         
 cat >>confdefs.h <<\_ACEOF
-@%:@define WIN32 1
+@%:@define CYGWIN 1
+_ACEOF
+
+  ;;
+  *-*-mingw*)
+	acx_platform_def="WIN32"
+        
+cat >>confdefs.h <<\_ACEOF
+@%:@define MINGW32 1
 _ACEOF
 
   ;;
@@ -2344,6 +2361,7 @@ _ACEOF
 
   ;;
   rs6000-ibm-aix* | powerpc-ibm-aix*)
+	acx_platform_def="AIX"
         
 cat >>confdefs.h <<\_ACEOF
 @%:@define AIX 1
@@ -2379,6 +2397,16 @@ _ACEOF
 
   ;;
 esac
+
+ 
+
+if test "$acx_platform_def" = "AIX"; then
+  IBM_IS_PIECE_OF_SHIT_TRUE=
+  IBM_IS_PIECE_OF_SHIT_FALSE='#'
+else
+  IBM_IS_PIECE_OF_SHIT_TRUE='#'
+  IBM_IS_PIECE_OF_SHIT_FALSE=
+fi
 
 
 
@@ -4510,6 +4538,13 @@ LIB@&t@OBJS=$ac_libobjs
 LTLIBOBJS=$ac_ltlibobjs
 
 
+if test -z "${IBM_IS_PIECE_OF_SHIT_TRUE}" && test -z "${IBM_IS_PIECE_OF_SHIT_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"IBM_IS_PIECE_OF_SHIT\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"IBM_IS_PIECE_OF_SHIT\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
 if test -z "${AMDEP_TRUE}" && test -z "${AMDEP_FALSE}"; then
   { { echo "$as_me:$LINENO: error: conditional \"AMDEP\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
@@ -5109,6 +5144,8 @@ s,@AMTAR@,$AMTAR,;t t
 s,@am__tar@,$am__tar,;t t
 s,@am__untar@,$am__untar,;t t
 s,@canonical_host_type@,$canonical_host_type,;t t
+s,@IBM_IS_PIECE_OF_SHIT_TRUE@,$IBM_IS_PIECE_OF_SHIT_TRUE,;t t
+s,@IBM_IS_PIECE_OF_SHIT_FALSE@,$IBM_IS_PIECE_OF_SHIT_FALSE,;t t
 s,@AR@,$AR,;t t
 s,@ARFLAGS@,$ARFLAGS,;t t
 s,@RANLIB@,$RANLIB,;t t
