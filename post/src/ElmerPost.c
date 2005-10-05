@@ -2397,7 +2397,7 @@ int main(int argc,char **argv)
     }
     
 #if defined(WIN32) || defined(MINGW32)   
-    *init = "\0";
+    /*    *init = '\0';
     if ( getenv("ELMER_POST_HOME") )
     {
         strncat( init,getenv("ELMER_POST_HOME"),511);
@@ -2406,7 +2406,7 @@ int main(int argc,char **argv)
     strncat( init,"lib/mc.ini",511 );
     fprintf( stdout, "MATC Initialization File: [%s]\n", init );
     fflush(stdout);
-    mtc_domath( init );
+    mtc_domath( init ); */
 #endif
     
 #ifdef WIN32

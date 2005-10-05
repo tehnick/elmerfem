@@ -181,6 +181,7 @@ source $ELMER_POST_HOME/tcl/LoadSicopolis.tcl
 
 source $ELMER_POST_HOME/help/help.tcl
 
+puts "loading colormaps"
 
 material -diffuse 90,90,90 -specular 0,0,0 -opacity 100 -shininess 20
 background 0 0 0
@@ -188,12 +189,9 @@ colormap $ELMER_POST_HOME/lib/colormaps/default.cm
 rotpriority local
 UpdateObject
 
-
-
+puts "loading math init"
 
 math "source(\"$ELMER_POST_HOME/lib/mc.ini\")"
-
-
 
 #
 # load shared modules from post/modules directory
@@ -211,6 +209,8 @@ if { [file exists $ELMER_POST_HOME/modules] } {
   }
 }
 
+
+
+
+
 puts "done initializing"
-
-

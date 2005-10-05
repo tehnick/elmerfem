@@ -74,8 +74,8 @@ install-data-local:
 	@echo "Instaling modules to ${ELMER_POST_DATADIR}/modules"
 
 	mkdir -p $(ELMER_POST_DATADIR)/modules
-	cp screensave.so $(ELMER_POST_DATADIR)/modules 
-	cp window.so $(ELMER_POST_DATADIR)/modules
+	-cp screensave.so $(ELMER_POST_DATADIR)/modules 
+	-cp window.so $(ELMER_POST_DATADIR)/modules
 
 	@echo "Instaling help to ${ELMER_POST_DATADIR}/help"
 	mkdir -p $(ELMER_POST_DATADIR)/help
