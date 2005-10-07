@@ -2345,7 +2345,7 @@ esac
 AC_SUBST(SH_LDFLAGS)
 AC_SUBST(SH_LD)
 ])
-m4trace:acx_elmer.m4:1766: -1- AC_DEFUN([ACX_TCLTK], [
+m4trace:acx_elmer.m4:1794: -1- AC_DEFUN([ACX_TCLTK], [
 AC_REQUIRE([AC_PATH_X])
 AC_PREREQ(2.50)
 acx_tcltk_ok=no
@@ -2430,9 +2430,7 @@ LIBS=$acx_tcltk_save_LIBS
 if test "$TCLTK_INCPATH"; then
 	acx_tcltk_tcl_h_locs=$TCLTK_INCPATH
 fi
-acx_tcltk_tcl_h_locs="$acx_tcltk_tcl_h_locs /usr/include /usr/local/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2  /usr/local/include/tcl8.4 /usr/local/include/tcl8.3 /usr/local/include/tcl8.2  /include /usr/swf/include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
-
-
+acx_tcltk_tcl_h_locs="$acx_tcltk_tcl_h_locs /usr/include /usr/local/include /include /usr/swf/include /sw/include /sw/usr/include /really/weird/place /ok/I/quit"
 acx_tcltk_CPPFLAGS_save=$CPPFLAGS
 acx_tcltk_CFLAGS_save=$CFLAGS
 
@@ -2443,7 +2441,7 @@ for v in $acx_tcltk_tcl_h_locs; do
 	acx_tcl_h_ok="no"
 	acx_tk_h_ok="no"
 
-	CPPFLAGS="-I$v $CPPFLAGS -I${x_includes}"
+	CPPFLAGS="-I$v $acx_tcltk_CPPFLAGS_save $acx_tcltk_CFLAGS_save -I${x_includes}"
 
 	AC_MSG_CHECKING([for tcl.h in -I$v])
 	AC_PREPROC_IFELSE(
@@ -2462,6 +2460,36 @@ for v in $acx_tcltk_tcl_h_locs; do
 	  	   [AC_MSG_RESULT([no])])
 	   ],
 	   [AC_MSG_RESULT([no])])
+	
+	for tcl_h_v in $acx_tcltk_lib_versions; do
+
+		acx_tcl_h_ok="no"
+		acx_tk_h_ok="no"
+
+		CPPFLAGS="-I${v}/tk${tcl_h_v} -I${v}/tcl${tcl_h_v} $acx_tcltk_CPPFLAGS_save $acx_tcltk_CFLAGS_save -I${x_includes}"
+
+		AC_MSG_CHECKING([for tcl.h in -I${v}/tcl${tcl_h_v}])
+		AC_PREPROC_IFELSE(
+		   [AC_LANG_PROGRAM([#include <tcl.h>])],
+		   [
+			AC_MSG_RESULT([ok])
+			AC_MSG_CHECKING([for tk.h in -I${v}/tk${tcl_h_v}])
+	        	AC_PREPROC_IFELSE(
+			   [AC_LANG_PROGRAM([#include <tk.h>])],
+			   [
+				AC_MSG_RESULT([ok])
+		   	        TCLTK_INCLUDE="-I${v}/tk${tcl_h_v} -I${v}/tcl${tcl_h_v}"
+				acx_tcltk_h_ok=yes
+				break
+			   ],
+		  	   [AC_MSG_RESULT([no])])
+		   ],
+		   [AC_MSG_RESULT([no])])
+	done
+
+	if test "$acx_tcltk_h_ok" = "yes"; then
+		break
+	fi
 done
 fi
 AC_LANG_POP(C)
@@ -2483,7 +2511,7 @@ else
         $2
 fi
 ])
-m4trace:acx_elmer.m4:1788: -1- AC_DEFUN([ACX_FORTRAN_CPP], [
+m4trace:acx_elmer.m4:1816: -1- AC_DEFUN([ACX_FORTRAN_CPP], [
 AC_PREREQ(2.50)
 acx_fortran_cpp_ok=no
 
@@ -2495,7 +2523,7 @@ case "$FC" in
 esac
 AC_SUBST(FORTRAN_CPP_FLAG)
 ])
-m4trace:acx_elmer.m4:1812: -1- AC_DEFUN([ACX_LANG_COMPILER_MS], [AC_CACHE_CHECK([whether we are using the Microsoft _AC_LANG compiler],
+m4trace:acx_elmer.m4:1840: -1- AC_DEFUN([ACX_LANG_COMPILER_MS], [AC_CACHE_CHECK([whether we are using the Microsoft _AC_LANG compiler],
                 [acx_cv_[]_AC_LANG_ABBREV[]_compiler_ms],
 [AC_COMPILE_IFELSE([AC_LANG_PROGRAM([], [[#ifndef _MSC_VER
        choke me
@@ -2516,7 +2544,7 @@ else
 fi
 AM_CONDITIONAL(USE_WINDOWS_COMPILER, test "$acx_cv_c_compiler_ms" = "yes")
 ])
-m4trace:configure.in:2: -1- AC_INIT([elmerpost], [5.0..1], [jpr@csc.fi])
+m4trace:configure.in:2: -1- AC_INIT([elmerpost], [5.0.1], [jpr@csc.fi])
 m4trace:configure.in:2: -1- m4_pattern_forbid([^_?A[CHUM]_])
 m4trace:configure.in:2: -1- m4_pattern_forbid([_AC_])
 m4trace:configure.in:2: -1- m4_pattern_forbid([^LIBOBJS$], [do not use LIBOBJS directly, use AC_LIBOBJ (see section `AC_LIBOBJ vs LIBOBJS'])
@@ -4162,7 +4190,7 @@ esac
 AC_SUBST(SH_LDFLAGS)
 AC_SUBST(SH_LD)
 ])
-m4trace:acx_elmer.m4:1766: -1- AC_DEFUN([ACX_TCLTK], [
+m4trace:acx_elmer.m4:1794: -1- AC_DEFUN([ACX_TCLTK], [
 AC_REQUIRE([AC_PATH_X])
 AC_PREREQ(2.50)
 acx_tcltk_ok=no
@@ -4247,9 +4275,7 @@ LIBS=$acx_tcltk_save_LIBS
 if test "$TCLTK_INCPATH"; then
 	acx_tcltk_tcl_h_locs=$TCLTK_INCPATH
 fi
-acx_tcltk_tcl_h_locs="$acx_tcltk_tcl_h_locs /usr/include /usr/local/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2  /usr/local/include/tcl8.4 /usr/local/include/tcl8.3 /usr/local/include/tcl8.2  /include /usr/swf/include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
-
-
+acx_tcltk_tcl_h_locs="$acx_tcltk_tcl_h_locs /usr/include /usr/local/include /include /usr/swf/include /sw/include /sw/usr/include /really/weird/place /ok/I/quit"
 acx_tcltk_CPPFLAGS_save=$CPPFLAGS
 acx_tcltk_CFLAGS_save=$CFLAGS
 
@@ -4260,7 +4286,7 @@ for v in $acx_tcltk_tcl_h_locs; do
 	acx_tcl_h_ok="no"
 	acx_tk_h_ok="no"
 
-	CPPFLAGS="-I$v $CPPFLAGS -I${x_includes}"
+	CPPFLAGS="-I$v $acx_tcltk_CPPFLAGS_save $acx_tcltk_CFLAGS_save -I${x_includes}"
 
 	AC_MSG_CHECKING([for tcl.h in -I$v])
 	AC_PREPROC_IFELSE(
@@ -4279,6 +4305,36 @@ for v in $acx_tcltk_tcl_h_locs; do
 	  	   [AC_MSG_RESULT([no])])
 	   ],
 	   [AC_MSG_RESULT([no])])
+	
+	for tcl_h_v in $acx_tcltk_lib_versions; do
+
+		acx_tcl_h_ok="no"
+		acx_tk_h_ok="no"
+
+		CPPFLAGS="-I${v}/tk${tcl_h_v} -I${v}/tcl${tcl_h_v} $acx_tcltk_CPPFLAGS_save $acx_tcltk_CFLAGS_save -I${x_includes}"
+
+		AC_MSG_CHECKING([for tcl.h in -I${v}/tcl${tcl_h_v}])
+		AC_PREPROC_IFELSE(
+		   [AC_LANG_PROGRAM([#include <tcl.h>])],
+		   [
+			AC_MSG_RESULT([ok])
+			AC_MSG_CHECKING([for tk.h in -I${v}/tk${tcl_h_v}])
+	        	AC_PREPROC_IFELSE(
+			   [AC_LANG_PROGRAM([#include <tk.h>])],
+			   [
+				AC_MSG_RESULT([ok])
+		   	        TCLTK_INCLUDE="-I${v}/tk${tcl_h_v} -I${v}/tcl${tcl_h_v}"
+				acx_tcltk_h_ok=yes
+				break
+			   ],
+		  	   [AC_MSG_RESULT([no])])
+		   ],
+		   [AC_MSG_RESULT([no])])
+	done
+
+	if test "$acx_tcltk_h_ok" = "yes"; then
+		break
+	fi
 done
 fi
 AC_LANG_POP(C)
@@ -4300,7 +4356,7 @@ else
         $2
 fi
 ])
-m4trace:acx_elmer.m4:1788: -1- AC_DEFUN([ACX_FORTRAN_CPP], [
+m4trace:acx_elmer.m4:1816: -1- AC_DEFUN([ACX_FORTRAN_CPP], [
 AC_PREREQ(2.50)
 acx_fortran_cpp_ok=no
 
@@ -4312,7 +4368,7 @@ case "$FC" in
 esac
 AC_SUBST(FORTRAN_CPP_FLAG)
 ])
-m4trace:acx_elmer.m4:1812: -1- AC_DEFUN([ACX_LANG_COMPILER_MS], [AC_CACHE_CHECK([whether we are using the Microsoft _AC_LANG compiler],
+m4trace:acx_elmer.m4:1840: -1- AC_DEFUN([ACX_LANG_COMPILER_MS], [AC_CACHE_CHECK([whether we are using the Microsoft _AC_LANG compiler],
                 [acx_cv_[]_AC_LANG_ABBREV[]_compiler_ms],
 [AC_COMPILE_IFELSE([AC_LANG_PROGRAM([], [[#ifndef _MSC_VER
        choke me
@@ -5131,7 +5187,7 @@ m4trace:configure.in:51: -1- ACX_TCLTK([], [AC_MSG_ERROR([Tcl/tk not found, use 
 m4trace:configure.in:51: -1- _m4_warn([obsolete], [The macro `AC_HELP_STRING' is obsolete.
 You should run autoupdate.], [autoconf/general.m4:219: AC_HELP_STRING is expanded from...
 autoconf/general.m4:1416: AC_ARG_WITH is expanded from...
-acx_elmer.m4:1766: ACX_TCLTK is expanded from...
+acx_elmer.m4:1794: ACX_TCLTK is expanded from...
 configure.in:51: the top level])
 m4trace:configure.in:51: -1- AC_SUBST([TCLTK_LIBS])
 m4trace:configure.in:51: -1- m4_pattern_allow([^TCLTK_LIBS$])
