@@ -9121,7 +9121,6 @@ if test "$TCLTK_INCPATH"; then
 	acx_tcltk_tcl_h_locs=$TCLTK_INCPATH
 fi
 acx_tcltk_tcl_h_locs="$acx_tcltk_tcl_h_locs /usr/include /usr/local/include /include /usr/swf/include /sw/include /sw/usr/include /really/weird/place /ok/I/quit"
-
 acx_tcltk_CPPFLAGS_save=$CPPFLAGS
 acx_tcltk_CFLAGS_save=$CFLAGS
 
@@ -9137,7 +9136,7 @@ for v in $acx_tcltk_tcl_h_locs; do
 	acx_tcl_h_ok="no"
 	acx_tk_h_ok="no"
 
-	CPPFLAGS="-I$v $CPPFLAGS -I${x_includes}"
+	CPPFLAGS="-I$v $acx_tcltk_CPPFLAGS_save $acx_tcltk_CFLAGS_save -I${x_includes}"
 
 	{ echo "$as_me:$LINENO: checking for tcl.h in -I$v" >&5
 echo $ECHO_N "checking for tcl.h in -I$v... $ECHO_C" >&6; }
@@ -9258,8 +9257,10 @@ rm -f conftest.err conftest.$ac_ext
 		acx_tcl_h_ok="no"
 		acx_tk_h_ok="no"
 
-		{ echo "$as_me:$LINENO: checking for tcl.h in -I$vtcl$tcl_h_v" >&5
-echo $ECHO_N "checking for tcl.h in -I$vtcl$tcl_h_v... $ECHO_C" >&6; }
+		CPPFLAGS="-I${v}/tk${tcl_h_v} -I${v}/tcl${tcl_h_v} $acx_tcltk_CPPFLAGS_save $acx_tcltk_CFLAGS_save -I${x_includes}"
+
+		{ echo "$as_me:$LINENO: checking for tcl.h in -I${v}/tcl${tcl_h_v}" >&5
+echo $ECHO_N "checking for tcl.h in -I${v}/tcl${tcl_h_v}... $ECHO_C" >&6; }
 		cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -9304,8 +9305,8 @@ if test -z "$ac_cpp_err"; then
 
 			{ echo "$as_me:$LINENO: result: ok" >&5
 echo "${ECHO_T}ok" >&6; }
-			{ echo "$as_me:$LINENO: checking for tk.h in -I$vtk$tcl_h_v" >&5
-echo $ECHO_N "checking for tk.h in -I$vtk$tcl_h_v... $ECHO_C" >&6; }
+			{ echo "$as_me:$LINENO: checking for tk.h in -I${v}/tk${tcl_h_v}" >&5
+echo $ECHO_N "checking for tk.h in -I${v}/tk${tcl_h_v}... $ECHO_C" >&6; }
 	        	cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -9350,7 +9351,7 @@ if test -z "$ac_cpp_err"; then
 
 				{ echo "$as_me:$LINENO: result: ok" >&5
 echo "${ECHO_T}ok" >&6; }
-		   	        TCLTK_INCLUDE="-I$vtk$tcl_h_v -I$vtk$tcl_h_v"
+		   	        TCLTK_INCLUDE="-I${v}/tk${tcl_h_v} -I${v}/tcl${tcl_h_v}"
 				acx_tcltk_h_ok=yes
 				break
 
