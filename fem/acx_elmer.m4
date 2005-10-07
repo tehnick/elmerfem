@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.77 2005/10/04 07:32:22 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.22 2005/10/07 14:06:08 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1711,7 +1711,7 @@ LIBS=$acx_tcltk_save_LIBS
 if test "$TCLTK_INCPATH"; then
 	acx_tcltk_tcl_h_locs=$TCLTK_INCPATH
 fi
-acx_tcltk_tcl_h_locs="$acx_tcltk_tcl_h_locs /usr/include /usr/local/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2 /include /usr/swf/include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
+acx_tcltk_tcl_h_locs="$acx_tcltk_tcl_h_locs /usr/include /usr/local/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2  /usr/local/include/tcl8.4 /usr/local/include/tcl8.3 /usr/local/include/tcl8.2  /include /usr/swf/include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
 
 
 acx_tcltk_CPPFLAGS_save=$CPPFLAGS
