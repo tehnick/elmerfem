@@ -1546,7 +1546,7 @@ void STDCALLBULL FC_FUNC(asciidata,ASCIIDATA) (float  *xi, /* unscaled x coordin
       fprintf(ptFile,"# written on  %s", ctime(&how_late_is_it));
     }
     /* replace with getpwuid(geteuid())  */
-#if defined(__APPLE__) || defined(MINGW32) || defined(WIN32)
+#if defined(__APPLE__) || defined(MINGW32) || defined(WIN32) || defined(BSD)
     if ( 1 )
 #else
     if (cuserid(user_name)==NULL)
@@ -1626,7 +1626,7 @@ void STDCALLBULL FC_FUNC(asciidata,ASCIIDATA) (float  *xi, /* unscaled x coordin
       fprintf(ptFile,"# written on  %s", ctime(&how_late_is_it));
     }
 
-#ifdef __APPLE__
+#if defined(__APPLE__) || defined(MINGW32) || defined(WIN32) || defined(BSD)
     if ( 1 )
 #else
     if (cuserid(user_name)==NULL)
