@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.76 2005/09/09 11:03:18 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.77 2005/10/04 07:32:22 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1362,7 +1362,7 @@ case "$canonical_host_type" in
     SH_LDFLAGS="-Bshareable"
   ;;
   *-*-freebsd*)
-    SH_LD='$(CC)'
+    SH_LD="$CC"
     SH_LDFLAGS="-shared"
   ;;
   alpha*-dec-osf*)
