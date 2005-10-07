@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.25 2005/10/07 14:48:32 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.26 2005/10/07 14:50:13 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1712,7 +1712,6 @@ if test "$TCLTK_INCPATH"; then
 	acx_tcltk_tcl_h_locs=$TCLTK_INCPATH
 fi
 acx_tcltk_tcl_h_locs="$acx_tcltk_tcl_h_locs /usr/include /usr/local/include /include /usr/swf/include /sw/include /sw/usr/include /really/weird/place /ok/I/quit"
-
 acx_tcltk_CPPFLAGS_save=$CPPFLAGS
 acx_tcltk_CFLAGS_save=$CFLAGS
 
@@ -1723,7 +1722,7 @@ for v in $acx_tcltk_tcl_h_locs; do
 	acx_tcl_h_ok="no"
 	acx_tk_h_ok="no"
 
-	CPPFLAGS="-I$v $CPPFLAGS -I${x_includes}"
+	CPPFLAGS="-I$v $acx_tcltk_CPPFLAGS_save $acx_tcltk_CFLAGS_save -I${x_includes}"
 
 	AC_MSG_CHECKING([for tcl.h in -I$v])
 	AC_PREPROC_IFELSE(
@@ -1747,6 +1746,8 @@ for v in $acx_tcltk_tcl_h_locs; do
 
 		acx_tcl_h_ok="no"
 		acx_tk_h_ok="no"
+
+		CPPFLAGS="-I${v}/tk${tcl_h_v} -I${v}/tcl${tcl_h_v} $acx_tcltk_CPPFLAGS_save $acx_tcltk_CFLAGS_save -I${x_includes}"
 
 		AC_MSG_CHECKING([for tcl.h in -I${v}/tcl${tcl_h_v}])
 		AC_PREPROC_IFELSE(
