@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.78 2005/10/07 13:35:24 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.22 2005/10/07 14:06:08 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1711,8 +1711,7 @@ LIBS=$acx_tcltk_save_LIBS
 if test "$TCLTK_INCPATH"; then
 	acx_tcltk_tcl_h_locs=$TCLTK_INCPATH
 fi
-acx_tcltk_tcl_h_locs="$acx_tcltk_tcl_h_locs /usr/include /usr/local/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2  /usr/local/include/tcl8.4 /usr/local/include/tcl8.3 /usr/local/include/tcl8.2  /include /usr/swf/include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
-
+acx_tcltk_tcl_h_locs="$acx_tcltk_tcl_h_locs /usr/include /usr/local/include /include /usr/swf/include /sw/include /sw/usr/include /really/weird/place /ok/I/quit"
 
 acx_tcltk_CPPFLAGS_save=$CPPFLAGS
 acx_tcltk_CFLAGS_save=$CFLAGS
@@ -1743,6 +1742,34 @@ for v in $acx_tcltk_tcl_h_locs; do
 	  	   [AC_MSG_RESULT([no])])
 	   ],
 	   [AC_MSG_RESULT([no])])
+	
+	for tcl_h_v in $acx_tcltk_lib_versions; do
+
+		acx_tcl_h_ok="no"
+		acx_tk_h_ok="no"
+
+		AC_MSG_CHECKING([for tcl.h in -I$v[]tcl[]$tcl_h_v])
+		AC_PREPROC_IFELSE(
+		   [AC_LANG_PROGRAM([#include <tcl.h>])],
+		   [
+			AC_MSG_RESULT([ok])
+			AC_MSG_CHECKING([for tk.h in -I$v[]tk[]$tcl_h_v])
+	        	AC_PREPROC_IFELSE(
+			   [AC_LANG_PROGRAM([#include <tk.h>])],
+			   [
+				AC_MSG_RESULT([ok])
+		   	        TCLTK_INCLUDE="-I$v[]tk[]$tcl_h_v -I$v[]tk[]$tcl_h_v"
+				acx_tcltk_h_ok=yes
+				break
+			   ],
+		  	   [AC_MSG_RESULT([no])])
+		   ],
+		   [AC_MSG_RESULT([no])])
+	done
+
+	if test "$acx_tcltk_h_ok" = "yes"; then
+		break
+	fi
 done
 fi
 AC_LANG_POP(C)
