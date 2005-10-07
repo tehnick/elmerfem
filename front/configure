@@ -676,6 +676,8 @@ MAINTAINER_MODE_TRUE
 MAINTAINER_MODE_FALSE
 MAINT
 EIOC_LIBS
+USE_WINDOWS_COMPILER_TRUE
+USE_WINDOWS_COMPILER_FALSE
 MATC_LIBS
 acx_pthread_config
 PTHREAD_CC
@@ -5937,6 +5939,14 @@ _ACEOF
 
 
 
+
+
+
+
+
+
+
+
 { echo "$as_me:$LINENO: checking for sin in -lm" >&5
 echo $ECHO_N "checking for sin in -lm... $ECHO_C" >&6; }
 if test "${ac_cv_lib_m_sin+set}" = set; then
@@ -6039,8 +6049,6 @@ case $with_eioc in
 esac
 
 acx_eioc_save_LIBS="$LIBS"
-
-LIBS="-leioc $LIBS"
 
 # First, check EIO_LIBS environment variable
 if test $acx_eioc_ok = no; then
@@ -6204,6 +6212,101 @@ ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
+{ echo "$as_me:$LINENO: checking whether we are using the Microsoft C compiler" >&5
+echo $ECHO_N "checking whether we are using the Microsoft C compiler... $ECHO_C" >&6; }
+if test "${acx_cv_c_compiler_ms+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+int
+main ()
+{
+#ifndef _MSC_VER
+       choke me
+#endif
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
+  (eval $ac_compile) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } &&
+	 { ac_try='test -z "$ac_c_werror_flag"
+			 || test ! -s conftest.err'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; } &&
+	 { ac_try='test -s conftest.$ac_objext'
+  { (eval echo "$as_me:$LINENO: \"$ac_try\"") >&5
+  (eval $ac_try) 2>&5
+  ac_status=$?
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); }; }; then
+  acx_compiler_ms=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+acx_compiler_ms=no
+fi
+rm -f conftest.err conftest.$ac_objext conftest.$ac_ext
+acx_cv_c_compiler_ms=$acx_compiler_ms
+
+fi
+{ echo "$as_me:$LINENO: result: $acx_cv_c_compiler_ms" >&5
+echo "${ECHO_T}$acx_cv_c_compiler_ms" >&6; }
+
+if test "$acx_cv_c_compiler_ms" = "yes"; then
+
+cat >>confdefs.h <<\_ACEOF
+#define STDCALLBULL __stdcall
+_ACEOF
+
+
+cat >>confdefs.h <<\_ACEOF
+#define C_DLLEXPORT __declspec(dllexport)
+_ACEOF
+
+
+else
+
+cat >>confdefs.h <<\_ACEOF
+#define STDCALLBULL
+_ACEOF
+
+
+cat >>confdefs.h <<\_ACEOF
+#define C_DLLEXPORT
+_ACEOF
+
+fi
+
+
+if test "$acx_cv_c_compiler_ms" = "yes"; then
+  USE_WINDOWS_COMPILER_TRUE=
+  USE_WINDOWS_COMPILER_FALSE='#'
+else
+  USE_WINDOWS_COMPILER_TRUE='#'
+  USE_WINDOWS_COMPILER_FALSE=
+fi
+
+
+
 
 
 acx_matc_ok=no
@@ -6229,6 +6332,7 @@ if test "x$MATC_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$MATC_LIBS $LIBS"
 	{ echo "$as_me:$LINENO: checking for mtc_init in $MATC_LIBS" >&5
 echo $ECHO_N "checking for mtc_init in $MATC_LIBS... $ECHO_C" >&6; }
+
 	cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -6282,6 +6386,7 @@ MATC_LIBS=""
 fi
 rm -f conftest.err conftest.$ac_objext \
       conftest$ac_exeext conftest.$ac_ext
+
 	{ echo "$as_me:$LINENO: result: $acx_matc_ok" >&5
 echo "${ECHO_T}$acx_matc_ok" >&6; }
 	LIBS="$save_LIBS"
@@ -7566,8 +7671,10 @@ fi
 LIBS=$acx_tcltk_save_LIBS
 
 # Search for tcl.h and tk.h
-acx_tcltk_tcl_h_locs="/usr/include /usr/local/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2 /include /usr/swf/include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
-
+if test "$TCLTK_INCPATH"; then
+	acx_tcltk_tcl_h_locs=$TCLTK_INCPATH
+fi
+acx_tcltk_tcl_h_locs="$acx_tcltk_tcl_h_locs /usr/include /usr/local/include /include /usr/swf/include /sw/include /sw/usr/include /really/weird/place /ok/I/quit"
 acx_tcltk_CPPFLAGS_save=$CPPFLAGS
 acx_tcltk_CFLAGS_save=$CFLAGS
 
@@ -7583,7 +7690,7 @@ for v in $acx_tcltk_tcl_h_locs; do
 	acx_tcl_h_ok="no"
 	acx_tk_h_ok="no"
 
-	CPPFLAGS="-I$v $CPPFLAGS -I${x_includes}"
+	CPPFLAGS="-I$v $acx_tcltk_CPPFLAGS_save $acx_tcltk_CFLAGS_save -I${x_includes}"
 
 	{ echo "$as_me:$LINENO: checking for tcl.h in -I$v" >&5
 echo $ECHO_N "checking for tcl.h in -I$v... $ECHO_C" >&6; }
@@ -7682,6 +7789,116 @@ sed 's/^/| /' conftest.$ac_ext >&5
 echo "${ECHO_T}no" >&6; }
 fi
 rm -f conftest.err conftest.$ac_ext
+
+	for tcl_h_v in $acx_tcltk_lib_versions; do
+
+		acx_tcl_h_ok="no"
+		acx_tk_h_ok="no"
+
+		CPPFLAGS="-I${v}/tk${tcl_h_v} -I${v}/tcl${tcl_h_v} $acx_tcltk_CPPFLAGS_save $acx_tcltk_CFLAGS_save -I${x_includes}"
+
+		{ echo "$as_me:$LINENO: checking for tcl.h in -I${v}/tcl${tcl_h_v}" >&5
+echo $ECHO_N "checking for tcl.h in -I${v}/tcl${tcl_h_v}... $ECHO_C" >&6; }
+		cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <tcl.h>
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if { (eval echo "$as_me:$LINENO: \"$ac_cpp conftest.$ac_ext\"") >&5
+  (eval $ac_cpp conftest.$ac_ext) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } >/dev/null; then
+  if test -s conftest.err; then
+    ac_cpp_err=$ac_c_preproc_warn_flag
+    ac_cpp_err=$ac_cpp_err$ac_c_werror_flag
+  else
+    ac_cpp_err=
+  fi
+else
+  ac_cpp_err=yes
+fi
+if test -z "$ac_cpp_err"; then
+
+			{ echo "$as_me:$LINENO: result: ok" >&5
+echo "${ECHO_T}ok" >&6; }
+			{ echo "$as_me:$LINENO: checking for tk.h in -I${v}/tk${tcl_h_v}" >&5
+echo $ECHO_N "checking for tk.h in -I${v}/tk${tcl_h_v}... $ECHO_C" >&6; }
+	        	cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+#include <tk.h>
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if { (eval echo "$as_me:$LINENO: \"$ac_cpp conftest.$ac_ext\"") >&5
+  (eval $ac_cpp conftest.$ac_ext) 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } >/dev/null; then
+  if test -s conftest.err; then
+    ac_cpp_err=$ac_c_preproc_warn_flag
+    ac_cpp_err=$ac_cpp_err$ac_c_werror_flag
+  else
+    ac_cpp_err=
+  fi
+else
+  ac_cpp_err=yes
+fi
+if test -z "$ac_cpp_err"; then
+
+				{ echo "$as_me:$LINENO: result: ok" >&5
+echo "${ECHO_T}ok" >&6; }
+		   	        TCLTK_INCLUDE="-I${v}/tk${tcl_h_v} -I${v}/tcl${tcl_h_v}"
+				acx_tcltk_h_ok=yes
+				break
+
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+  { echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6; }
+fi
+rm -f conftest.err conftest.$ac_ext
+
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+  { echo "$as_me:$LINENO: result: no" >&5
+echo "${ECHO_T}no" >&6; }
+fi
+rm -f conftest.err conftest.$ac_ext
+	done
+
+	if test "$acx_tcltk_h_ok" = "yes"; then
+		break
+	fi
 done
 fi
 ac_ext=c
@@ -7978,6 +8195,13 @@ if test -z "${MAINTAINER_MODE_TRUE}" && test -z "${MAINTAINER_MODE_FALSE}"; then
   { { echo "$as_me:$LINENO: error: conditional \"MAINTAINER_MODE\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
 echo "$as_me: error: conditional \"MAINTAINER_MODE\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+if test -z "${USE_WINDOWS_COMPILER_TRUE}" && test -z "${USE_WINDOWS_COMPILER_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"USE_WINDOWS_COMPILER\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"USE_WINDOWS_COMPILER\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
@@ -8590,6 +8814,8 @@ s,@MAINTAINER_MODE_TRUE@,$MAINTAINER_MODE_TRUE,;t t
 s,@MAINTAINER_MODE_FALSE@,$MAINTAINER_MODE_FALSE,;t t
 s,@MAINT@,$MAINT,;t t
 s,@EIOC_LIBS@,$EIOC_LIBS,;t t
+s,@USE_WINDOWS_COMPILER_TRUE@,$USE_WINDOWS_COMPILER_TRUE,;t t
+s,@USE_WINDOWS_COMPILER_FALSE@,$USE_WINDOWS_COMPILER_FALSE,;t t
 s,@MATC_LIBS@,$MATC_LIBS,;t t
 s,@acx_pthread_config@,$acx_pthread_config,;t t
 s,@PTHREAD_CC@,$PTHREAD_CC,;t t
