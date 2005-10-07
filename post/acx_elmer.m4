@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.24 2005/10/07 14:47:03 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.25 2005/10/07 14:48:32 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1748,17 +1748,17 @@ for v in $acx_tcltk_tcl_h_locs; do
 		acx_tcl_h_ok="no"
 		acx_tk_h_ok="no"
 
-		AC_MSG_CHECKING([for tcl.h in -I${v}tcl/${tcl_h_v}])
+		AC_MSG_CHECKING([for tcl.h in -I${v}/tcl${tcl_h_v}])
 		AC_PREPROC_IFELSE(
 		   [AC_LANG_PROGRAM([#include <tcl.h>])],
 		   [
 			AC_MSG_RESULT([ok])
-			AC_MSG_CHECKING([for tk.h in -I${v}tk/${tcl_h_v}])
+			AC_MSG_CHECKING([for tk.h in -I${v}/tk${tcl_h_v}])
 	        	AC_PREPROC_IFELSE(
 			   [AC_LANG_PROGRAM([#include <tk.h>])],
 			   [
 				AC_MSG_RESULT([ok])
-		   	        TCLTK_INCLUDE="-I${v}tk/${tcl_h_v} -I${v}tcl/${tcl_h_v}"
+		   	        TCLTK_INCLUDE="-I${v}/tk${tcl_h_v} -I${v}/tcl${tcl_h_v}"
 				acx_tcltk_h_ok=yes
 				break
 			   ],
