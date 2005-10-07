@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.72 2005/08/26 09:54:15 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.78 2005/10/07 13:35:24 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -626,6 +626,8 @@ dnl
 AC_DEFUN([ACX_CHECK_STDCXXLIB],
 [
 AC_REQUIRE([AC_PROG_CXX])
+AC_REQUIRE([ACX_LANG_COMPILER_MS])
+
 acx_check_stdcxxlib_save_LIBS=$LIBS
 acx_stdcxxlib_ok=no
 
@@ -664,18 +666,22 @@ if test $acx_stdcxxlib_ok = no; then
 fi
 
 dnl check for stdc++
-dnl if test $acx_stdcxxlib_ok = no; then
-dnl	AC_CHECK_LIB(C, main,[
-dnl				   STDCXX_LIBS="-lC"
-dnl			           acx_stdcxxlib_ok=yes
-dnl                                  ])
-dnl fi
+if test $acx_stdcxxlib_ok = no; then
+	AC_CHECK_LIB(C, main,[
+				   STDCXX_LIBS="-lC"
+			           acx_stdcxxlib_ok=yes
+                                  ])
+fi
 
 if test $acx_stdcxxlib_ok = no; then
-	AC_MSG_ERROR([Couldn't find std c++ library that is needed for linking.])
+	AC_MSG_WARN([Couldn't find std c++ library that is needed for linking.])
 fi
 
 LIBS=$acx_check_stdcxxlib_save_LIBS
+
+if test "$acx_cv_compiler_ms" = "yes"; then
+	STDCXX_LIBS=""
+fi
 ])
 
 dnl find out the flags that enable 64 bit compilation
@@ -1356,7 +1362,7 @@ case "$canonical_host_type" in
     SH_LDFLAGS="-Bshareable"
   ;;
   *-*-freebsd*)
-    SH_LD='$(CC)'
+    SH_LD="$CC"
     SH_LDFLAGS="-shared"
   ;;
   alpha*-dec-osf*)
@@ -1371,9 +1377,10 @@ case "$canonical_host_type" in
   *-*-cygwin* | *-*-mingw*)
        SHLEXT=dll
        SH_LDFLAGS="-shared"
+       LD_LIBRARY_PATH_VAR=PATH
   ;;
   *-*-linux* | *-*-gnu*)
-	RPATH_FLAG="-Wl,-rpath "
+	RPATH_FLAG="-Wl,-rpath="
 	SH_EXPALL_FLAG="-Wl,--export-dynamic"
   ;;
   i[[3456]]86-*-sco3.2v5*)
@@ -1704,7 +1711,7 @@ LIBS=$acx_tcltk_save_LIBS
 if test "$TCLTK_INCPATH"; then
 	acx_tcltk_tcl_h_locs=$TCLTK_INCPATH
 fi
-acx_tcltk_tcl_h_locs="$acx_tcltk_tcl_h_locs /usr/include /usr/local/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2 /include /usr/swf/include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
+acx_tcltk_tcl_h_locs="$acx_tcltk_tcl_h_locs /usr/include /usr/local/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2  /usr/local/include/tcl8.4 /usr/local/include/tcl8.3 /usr/local/include/tcl8.2  /include /usr/swf/include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
 
 
 acx_tcltk_CPPFLAGS_save=$CPPFLAGS

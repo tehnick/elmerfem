@@ -9120,7 +9120,7 @@ LIBS=$acx_tcltk_save_LIBS
 if test "$TCLTK_INCPATH"; then
 	acx_tcltk_tcl_h_locs=$TCLTK_INCPATH
 fi
-acx_tcltk_tcl_h_locs="$acx_tcltk_tcl_h_locs /usr/include /usr/local/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2 /include /usr/swf/include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
+acx_tcltk_tcl_h_locs="$acx_tcltk_tcl_h_locs /usr/include /usr/local/include /usr/include/tcl8.4 /usr/include/tcl8.3 /usr/include/tcl8.2  /usr/local/include/tcl8.4 /usr/local/include/tcl8.3 /usr/local/include/tcl8.2  /include /usr/swf/include /sw/include /sw/usr/include /sw/usr/include/tcl8.4 /really/weird/place /ok/I/quit"
 
 
 acx_tcltk_CPPFLAGS_save=$CPPFLAGS
@@ -10555,7 +10555,7 @@ case "$canonical_host_type" in
     SH_LDFLAGS="-Bshareable"
   ;;
   *-*-freebsd*)
-    SH_LD='$(CC)'
+    SH_LD="$CC"
     SH_LDFLAGS="-shared"
   ;;
   alpha*-dec-osf*)
@@ -10570,9 +10570,10 @@ case "$canonical_host_type" in
   *-*-cygwin* | *-*-mingw*)
        SHLEXT=dll
        SH_LDFLAGS="-shared"
+       LD_LIBRARY_PATH_VAR=PATH
   ;;
   *-*-linux* | *-*-gnu*)
-	RPATH_FLAG="-Wl,-rpath "
+	RPATH_FLAG="-Wl,-rpath="
 	SH_EXPALL_FLAG="-Wl,--export-dynamic"
   ;;
   i[3456]86-*-sco3.2v5*)
