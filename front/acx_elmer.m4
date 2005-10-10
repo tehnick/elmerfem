@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.27 2005/10/07 14:53:39 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.81 2005/10/10 09:21:14 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
