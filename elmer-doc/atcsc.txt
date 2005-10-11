@@ -1,0 +1,133 @@
+Elmer julkistettiin syyskuun alussa GPL lisenssin alla. Julkistuksen
+tarkoitus on lisätä Elmer:n käyttöä ja helpottaa ohjelmiston
+kääntämistä.
+
+Elmerin open source julkistuksen yhteydessä käännösympäristöksi
+viritettiin standardi automake/autoconf pohjainen ratkaisu, jonka
+avulla kääntäminen sujuu perinteisen "./configure ; make ; make
+install" kaavan mukaan. Elmer:n omien moduulien lisäksi tarjotaan
+BLAS, LAPACK, ARPACK, PARPACK, ja UMFPACK kirjastoista samalla tavalla
+käännettävät paketit.
+
+Seuraavassa esimerkissä tehdään käännös Linux:lla, GNU kääntäjillä
+käyttämällä bash-tulkkia.
+
+Jos koneella ei ole g95 kääntäjää, niin se täytyy erikseen asentaa:
+
+> mkdir -p ~/src ~/bin ; cd ~/src
+> wget -O - http://www.g95.org/g95-x86-linux.tgz | tar xvfz -
+> ln -s ~/src/g95-install/bin/i686-pc-linux-gnu-g95 ~/bin/g95
+> export PATH=$PATH:~/bin
+
+Toimivuuden voi testata vaikka näin:
+
+> g95 -v
+
+Seuraavaksi haetaan kaikki tar.gz paketit ftp palvelimelta elmer
+hakemiston alta:
+
+> ncftpget ftp://ftp.funet.fi/pub/sci/physics/elmer/*.gz
+
+Asetetaan ympäristömuuttujat, jotta configure ei vahingossa löydä
+vääriä kääntäjiä:
+
+> export FC=g95 F77=g95 CC=gcc CXX=g++
+
+Paketit käännetään seuraavassa järjestyksessä: mathlibs, umfpack,
+elmergrid, meshgen2d, matc, eio, hutiter, fem, elmerpost ja
+front. Toistetaan jokaiselle:
+
+> cd paketti-x.x.x.tar.gz 
+> ./configure --prefix=/home/user/elmer
+> make 
+> make install
+> cd ..
+
+Käännöksen toimivuus voidaan testata fem paketista löytyvillä
+testeilla seuraavasti:
+
+> cd fem-x.x.x 
+> make check
+
+Jotta Elmeriä voi alkaa varsinaisesti käyttämään, täytyy vielä asettaa
+ympäristömuuttujat:
+
+> export PATH=/home/user/elmer/bin:$PATH
+> export LD_LIBRARY_PATH=/home/user/elmer/lib:$LD_LIBRARY_PATH
+
+Tämän jälkeen komennot ElmerSolver, ElmerFront ja ElmerPost ovat
+käytössäsi. Omien palikoiden kääntämistä helpottamaan löytyy myös
+elmerf90 komento, jota käytään seuraavalla tavalla:
+
+> elmerf90 -o Palikka.so Palikka.f90
+
+Tällä hetkellä käännös toimii seuraavilla kääntäjillä ja
+alustoilla. ElmerFront:n kanssa on tällä hetkellä hieman ongelmia. Se
+ei esim. toimi gcc 4.0.x kääntäjillä.
+
+Tuetut kääntäjät (taulukko):
+
+Nimi                      Komennot
+----   
+GNU                       gcc, g++, g77, g95
+Intel 7.1,8.1,9.0         icc, {ifort|ifc}
+Pathscale                 pathcc, pathCC, pathf90
+Portlan group 6.0-4       pgcc, pgCC, pgf90
+Sun Studio	          cc,CC,f77,f90
+IBM Fortran               xlc,xlC,xlf,xlf90
+HP Fortran and Visual C++ cl,df
+
+Tuetut käyttöjärjestelmät (taulukko):
+
+Käyttöjärjestelmä	Arkkitehtuuri	  Toimivat moduulit
+-----------------       -------------     -----------------
+Linux	                x86, x86-64       S,P,F
+FreeBSD	                x86	          S,P
+Sun Solaris             sparcv7, sparcv9  S,P,F
+IBM AIX	                Power4	          S
+Apple OS X 10.3,10.4    PPC               S,P
+Windows 2000,XP         x86               S,P
+
+S=Solver, P=Post, F=Front
+
+
+Paketit käännetään seuraavassa järjestyksessä: mathlibs, umfpack,
+elmergrid, meshgen2d, matc, eio, hutiter, fem, elmerpost ja
+front. Toistetaan jokaiselle:
+
+Paketit (taulukko):
+
+Nimi                      Sisältö
+----                      -------
+mathlibs *)               Geneeriset BLAS,LAPACK,ARPACK ja PARPACK toteutukset
+umfpack  *)               UMFPACK 4.4
+meshgen2d                 2D verkkogeneraattori
+matc                      Yksinkertainen Matlab tyylinen tulkki
+eio                       Verkko ja syötetiedostoparseri
+hutiter                   HUTiter iteratiiviset ratkaisijat
+fem                       FEM Ratkaisija (ElmerSolver)
+elmerpost                 ElmerPost
+front                     ElmerFront
+
+*) Eivät kuulu Elmeriin, mutta jaetaan kääntämisen helpottamiseksi. 
+
+Linkkejä
+
+Elmer:n uudistuneet sivut:
+http://www.csc.fi/elmer/
+
+Binäärit:
+http://www.csc.fi/elmer/download
+
+Lähdekoodi:
+ftp://ftp.funet.fi/pub/sci/physics/elmer/
+
+Lisää käännösohjeita:
+http://www.csc.fi/elmer/compiling.phtml
+
+Automatisoitu käännösskripti:
+http://www.csc.fi/elmer/compilepkgs.sh
+
+G95:
+http://g95.sf.net
+
