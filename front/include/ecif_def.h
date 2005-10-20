@@ -631,12 +631,12 @@ typedef float Point4f[4];
 #endif
 
 // Define min/max macros if missing
-#ifndef max
-#define max(a,b)            (((a) > (b)) ? (a) : (b))
-#endif
-#ifndef min
-#define min(a,b)            (((a) < (b)) ? (a) : (b))
-#endif
+// #ifndef max
+// #define max(a,b)            (((a) > (b)) ? (a) : (b))
+// #endif
+// #ifndef min
+// #define min(a,b)            (((a) < (b)) ? (a) : (b))
+// #endif
 
 #include <frontlib.h>
 #include "ecif_const.h"

@@ -42,17 +42,17 @@ Abstract:   A Base class for model.
 #include "ecif_model_aux.h"
 #include "ecif_modelMeshManager.h"
 #include "ecif_modelObject.h"
-
+#include "ecif_modelOutputManager.h"
 
 //enum ecifFieldInfo;
 
 class Model
 {
 public:
-  friend class Control;
+  /*  friend class Control;
   friend class ModelMeshManager;
   friend class ModelOutputManager;
-  friend class Renderer_OGL;
+  friend class Renderer_OGL; */
   Model(char* name = NULL, ecif_modelSource = ECIF_CAD_OR_MESH_FILE, char* in_filename = NULL);
   ~Model();
   struct Units unit; // Muuta tämä suojatuksi !!
@@ -429,7 +429,7 @@ public:
   void variableNameGuiToSif(const char* gui_name, char* sif_name_buffer);
   void variableNameSifToGui(const char* sif_name, char* gui_name_buffer);
 
-protected:
+  /* protected: */
   static Control* theControlCenter;
   static NameTable* colorNameTable;
   static RGBColorTable* colorValueTable;

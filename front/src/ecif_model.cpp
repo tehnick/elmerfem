@@ -64,7 +64,7 @@ Abstract:   Implementation
 #include "ecif_mesh.h"
 #include "ecif_model.h"
 #include "ecif_modelMeshManager.h"
-#include "ecif_modelOutputManager.h"
+// #include "ecif_modelOutputManager.h"
 #include "ecif_modelParameter.h"
 #include "ecif_model_aux.h"
 #include "ecif_modelObject.h"
@@ -139,7 +139,7 @@ Model::Model(char* model_name, ecif_modelSource source, char* in_file_name)
   meshManager->setMeshData(meshData, meshInfo, meshBox);
   meshManager->setModelData(modelData, modelInfo);
 
-  outputManager = new ModelOutputManager;
+  outputManager = new ModelOutputManager();
 
   MeshElementTable::setMeshData(meshData, meshInfo);
 

@@ -45,7 +45,7 @@ Abstract:   Implementation
 #include "ecif_mesh.h"
 #include "ecif_model.h"
 #include "ecif_modelMeshManager.h"
-#include "ecif_modelOutputManager.h"
+// #include "ecif_modelOutputManager.h"
 #include "ecif_process.h"
 #include "ecif_renderer_OGL.h"
 #include "ecif_userinterface.h"

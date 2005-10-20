@@ -32,7 +32,7 @@ Abstract:   Model output manager class. A helper class
 #ifndef _ECIF_MODEL_OUTPUT_MGR_
 #define _ECIF_MODEL_OUTPUT_MGR
 
-#include "ecif_model.h"
+// #include "ecif_model.h"
 
 
 //enum ecifFieldInfo;
@@ -40,14 +40,14 @@ Abstract:   Model output manager class. A helper class
 class ModelOutputManager
 {     
 public:
-  friend class Control;
-  friend class Model;
+  /*  friend class Control;
+  friend class Model; */
 
   ModelOutputManager();
   ~ModelOutputManager();
-public:
+
   static void initClass(Model* model);
-protected:
+  /* protected: */
 
   ostream& emf_output(ostream& out, char* filename);
   ostream& emf_outputBodies(ostream& out);
