@@ -299,9 +299,9 @@ proc DataField::setAllFields {arries} {
 
 # Form mask for a  variable name (= field index)
 #
-# NOTE: We have to use a special stop mark (like "£") to
+# NOTE: We have to use a special stop mark (like "^") to
 # prevent partial matches like AD#species to AD#species2
-# With AD#species£ and AD#species2£ there is no partial match!
+# With AD#species^ and AD#species2^ there is no partial match!
 #
 proc DataField::formVariableMask {variable_name} {
   global Info

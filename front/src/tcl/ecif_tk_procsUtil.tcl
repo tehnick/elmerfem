@@ -171,16 +171,16 @@ proc Util::getMatcVariables { {all 0} } {
   
   # Remove info text
   #
-  regsub -nocase "Constants" $Info(MATC_result) "£" allNames
-  regsub -nocase "currently defined VARIABLES" $allNames "£" allNames
+  regsub -nocase "Constants" $Info(MATC_result) "^" allNames
+  regsub -nocase "currently defined VARIABLES" $allNames "^" allNames
 
   #-Include constants
   if { $all } {
-    set names [lrange [split $allNames "£"] 1 end]
+    set names [lrange [split $allNames "^"] 1 end]
 
   #-Drop constants
   } else {
-    set names [lrange [split $allNames "£"] 2 end]
+    set names [lrange [split $allNames "^"] 2 end]
   }
   
   # Make a flat ws-separated list
@@ -212,16 +212,16 @@ proc Util::getMatcFunctions { {all 0} } {
   
   # Remove info text
   #
-  regsub -nocase "Builtin Functions" $Info(MATC_result) "£" allNames
-  regsub -nocase "User Functions" $allNames "£" allNames
+  regsub -nocase "Builtin Functions" $Info(MATC_result) "^" allNames
+  regsub -nocase "User Functions" $allNames "^" allNames
 
   #-Include internal functions
   if { $all } {
-    set names [lrange [split $allNames "£"] 1 end]
+    set names [lrange [split $allNames "^"] 1 end]
 
   #-Drop internal functions
   } else {
-    set names [lrange [split $allNames "£"] 2 end]
+    set names [lrange [split $allNames "^"] 2 end]
   }
   
   # Make a flat ws-separated list

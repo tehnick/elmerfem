@@ -7303,7 +7303,7 @@ Model::setParameter(ecif_parameterType parameter_type,
       modelInfo->updateSimulationDimension(data[0]);
 
     } else {
-      printf("Shit. pf is null, something went wrong\n");
+      printf("Parameter field is null, something went wrong. Contact <elmerdiscussion@postit.csc.fi>\n");
     }
 
 
@@ -7314,7 +7314,7 @@ Model::setParameter(ecif_parameterType parameter_type,
       data = pf->getDataStrings();
       modelInfo->updateCoordinateMapping(data[0]);
     } else {
-      printf("Shit. pf is null, something went wrong\n");
+      printf("Parameter field is null, something went wrong. Contact <elmerdiscussion@postit.csc.fi>\n");
     }
 
     Renderer* renderer = theControlCenter->getRenderer();

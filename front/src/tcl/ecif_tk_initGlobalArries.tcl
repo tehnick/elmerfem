@@ -486,7 +486,7 @@ proc FRONT_INIT {} {
   # NOTE: Keep these character unique!!!
   set Info(maskStart) "¤"
   set Info(variableMaskStart) "%"
-  set Info(variableMaskStop) "£"
+  set Info(variableMaskStop) "^"
 
   set Info(maskTrueMark) "½"
   set Info(maskFalseMark) "§"

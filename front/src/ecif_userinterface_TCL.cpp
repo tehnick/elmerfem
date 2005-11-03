@@ -97,7 +97,7 @@ const int str_ro_flag =   TCL_LINK_STRING | TCL_LINK_READ_ONLY;
 const char tclObjectSeparator = '!';
 const char tclFieldSeparator =  '&';
 const char tclCmdSeparator =    '@';
-const char tclArgSeparator =    '£';
+const char tclArgSeparator =    '^';
 
 const char subIdSep = '.';
 const char sis = subIdSep;
