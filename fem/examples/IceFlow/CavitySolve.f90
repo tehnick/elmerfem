@@ -71,12 +71,13 @@
                                  nbed1,nbed10, NMAX, Nn2, Node
        REAL(KIND=dp) :: x, y, u, v, Velocity(3),lbed10, lbed20, &
                      LastTime= 0.0, xEnd, xFirst, xf, xd, xbed2, xbed1, &
-                     dMULN, dMUFN, mu1, mu2, Large
-       REAL(KIND=dp) ::  dt1, dt2, dt3, a, b, tanbed(2), dx, TrueTime
-       REAL(KIND=dp) :: EPS, pwater, ds           
-       REAL(KIND=dp) :: taub, ub, fx, fy, pice, deltaFS, Bu, Bv   
-       REAL(KIND=dp) :: Sxx(3),Syy(3),Sxy(3),Velo(3,3), &
-                        normal(3,3), lc, ltot, xa, xb, slope
+                     dMULN, dMUFN, mu1, mu2, Large, Normal(3)
+       REAL(KIND=dp) ::  dt1, dt2, dt3, tanbed(2), dx, TrueTime
+       REAL(KIND=dp) :: aa, bb, cc, dd, s
+       REAL(KIND=dp) :: EPS, pwater, ds, Nvelo, sc           
+       REAL(KIND=dp) :: taub, ub, fx, fy, pice, deltaFS, MaxdeltaFS, Bu, Bv   
+       REAL(KIND=dp) :: Sxx(3),Syy(3),Sxy(3),Velo(3,3), LocalNormal(3,3), &
+                         lc, ltot, xa, xb, slope
        REAL(KIND=dp), ALLOCATABLE ::  xn(:), yn(:), xn0(:), &
                yn0(:), xnew(:), ynew(:), y2new(:), intersept(:),  &
                dMU(:), x0(:), y0(:), y1new(:), y3new(:), Nvector(:)
@@ -86,7 +87,7 @@
                  FirstTime2 = .TRUE., SaveFile = .FALSE.
        LOGICAL :: GotIt, succes, FirstNodeMove
        
-       COMMON /interbed/a,b
+       COMMON /interbed/aa,bb,cc,dd
 
        INTERFACE 
          SUBROUTINE indexx(arr,ind) 
@@ -138,6 +139,11 @@
          USE DefUtils
          REAL(KIND=dp) :: intbed1,x
          END FUNCTION intbed1
+         FUNCTION intbed2(x)
+         USE types
+         USE DefUtils
+         REAL(KIND=dp) :: intbed2,x
+         END FUNCTION intbed2
          FUNCTION curvi(x1,x2,func,N)
          USE types
          USE DefUtils
@@ -188,6 +194,7 @@
 !
 ! Read data from Solver
 ! 
+! IF FIRSTIME ------------------------------------------------------
       IF (FirstTime) THEN
          FirstTime=.FALSE.
          TrueTime = 0.0_dp 
@@ -227,7 +234,11 @@
         WRITE(22,'("# 10 : f_x")')
         WRITE(22,'("# 11 : f_y")')
         WRITE(22,'("# 12 : U.n")')
-        WRITE(22,'("# 13 : Max(slope)")')
+        WRITE(22,'("# 13 : Max(U.n)")')
+        WRITE(22,'("# 14 : Max(slope)")')
+        WRITE(22,'("# 15 : xbed1")')
+        WRITE(22,'("# 16 : xbed2")')
+        WRITE(22,'("# 17 : s_cavity")')
         CLOSE(22)
         END IF
 
@@ -322,7 +333,8 @@
 
         DEALLOCATE(ind) 
        END IF
-!------------------------------------------------------------------------
+! END IF FIRSTIME --------------------------------------------------
+!-------------------------------------------------------------------
 !    Get Velocity from (Navier)-Stokes-Solver or AIFlow Solver
 !------------------------------------------------------------------------
       TimeVar => VariableGet( Model % Variables, 'Time' )
@@ -350,6 +362,43 @@
      END IF
       If ( FirstTime2 ) MHPrev=0.0_dp
       FirstTime2=.FALSE.
+!--------------------------
+!    Compute Normal Vector                                      
+!--------------------------
+      Nvector = 0.0_dp
+      DO p = 1, Model % NumberOfBoundaryElements
+        BCElement => GetBoundaryElement(p) 
+        IF (GetElementFamily(BCElement) == 1 ) CYCLE
+        IF (BCType(p)==0) CYCLE 
+        n = BCElement % Type % NumberOfNodes
+        CALL GetElementNodes( Nodes, BCElement )
+        NodeIndexes => BCElement % NodeIndexes
+
+        DO i=1,n
+          Bu = BCElement % Type % NodeU(i)
+          Bv = 0.0D0
+          k = NodeIndexes( i )
+          Normal =  NormalVector(BCElement, Nodes, Bu, Bv, .TRUE.) 
+          Nvector(DIM*(k-1)+1:DIM*k) = Nvector(DIM*(k-1)+1:DIM*k) + & 
+                   Normal(1:DIM)
+        END DO
+      END DO
+! Norm 
+      DO p = 1, Model % NumberOfBoundaryElements
+        BCElement => GetBoundaryElement(p) 
+        IF (GetElementFamily(BCElement) == 1 ) CYCLE
+        IF (BCType(p)==0) CYCLE 
+        n = BCElement % Type % NumberOfNodes
+        NodeIndexes => BCElement % NodeIndexes
+        DO i=1,n
+          k = NodeIndexes( i )
+          s = SQRT( SUM( Nvector(DIM*(k-1)+1:DIM*k)**2 ) )
+          IF ( s /= 0.0D0 ) THEN
+            Nvector(DIM*(k-1)+1:DIM*k) = Nvector(DIM*(k-1)+1:DIM*k)/s 
+          END IF
+        END DO
+      END DO
+
 
 ! ---------------------------------------
 ! Get the MeshUpdate of the cavity  Nodes 
@@ -364,6 +413,8 @@
 
           intersept = Large
           k = FlowVariable % DOFs
+          deltaFS=0.0_dp
+          MaxdeltaFS=0.0_dp
           DO p = 1, Nn         
             xn0(p) = x0( ordre(p) ) + &
                     MHPrev( DIM*(MHPerm( ordre(p) ) - 1 ) + 1 , 1 )
@@ -371,18 +422,23 @@
                     MHPrev( DIM*(MHPerm( ordre(p) ) - 1 ) + 2 , 1 )
 
 ! Get velocity  node ordre(p)   
-            Velocity = 0.0d0
+            Velocity = 0.0_dp
+            Nvelo = 0.0_dp
             DO i=1,k-1
             Velocity(i) = FlowValues( k*( FlowPerm( ordre(p) )-1 ) +i ) 
+            Nvelo = Nvelo + Velocity(i)*Nvector(DIM*(ordre(p)-1)+i)
             END DO
-            xn(p) = xn0(p) + dt * Velocity(1) 
-            yn(p) = yn0(p) + dt * Velocity(2) 
+            xn(p) = xn0(p) + dt * Velocity(1)                          
+            yn(p) = yn0(p) + dt * Velocity(2)                          
+
+            deltaFS = deltaFS + Nvelo**2 
+            IF (Nvelo**2 > MaxdeltaFS) MaxdeltaFS = Nvelo**2
 
 ! test if node intersept bed
             IF ((yn(p)<=fbed(xn(p))).AND.(p/=1).AND.(p/=Nn))  THEN
-              b = xn0(p) - xn(p)
-              a = (yn0(p) - yn(p))/b
-              b = (yn(p)*xn0(p)-xn(p)*yn0(p))/b
+              bb = xn0(p) - xn(p)
+              aa = (yn0(p) - yn(p))/bb
+              bb = (yn(p)*xn0(p)-xn(p)*yn0(p))/bb
               x = zbrent(intbed,xn0(p),xn(p),1.0e-08_dp)
               intersept(p) = dt * (x-xn0(p))/(xn(p)-xn0(p))
             END IF
@@ -431,18 +487,31 @@
          IF ((nbed10==1).AND.(nbed2==Nn)) THEN
            dt3 = dt
            IF (FirstNodeMove) THEN
-             a = xn(1)
-             b = yn(1)
+             aa = xn(2)
+             bb = yn(2)
+             cc = FlowValues( k*( FlowPerm( ordre(2) )-1 )+1) 
+             dd = FlowValues( k*( FlowPerm( ordre(2) )-1 )+2) 
              xa = xd
-             xb = xn(1)
-             IF (intbed1(xa)*intbed1(xb)<=0.0) THEN
-                xbed1 = zbrent(intbed1,xa,xb,1.0e-8_dp)
+             xb = aa      
+             IF (intbed2(xa)*intbed2(xb)<=0.0_dp) THEN
+                xbed1 = zbrent(intbed2,xa,xb,1.0e-8_dp)
              ELSE
-                xbed1 = xn0(1)
+                xbed1 = xn(1)
              END IF
            END IF
-           xbed2 = xn(nbed2)
-
+           aa = xn(Nn-1)
+           bb = yn(Nn-1) 
+           cc = FlowValues( k*( FlowPerm( ordre(Nn-1) )-1 )+1) 
+           dd = FlowValues( k*( FlowPerm( ordre(Nn-1) )-1 )+2) 
+           xa = aa     
+           xb = xf 
+           IF (intbed2(xa)*intbed2(xb)<=0.0_dp) THEN
+              xbed2 = zbrent(intbed2,xa,xb,1.0e-8_dp)
+           ELSE
+              xbed2 = xn(Nn)
+           END IF
+           write(*,*)'Case 1',dt3,xbed1,xbed2
+           
 !
 ! CASE 2 : intersecting node on right 
 !
@@ -450,24 +519,22 @@
            dt3 = dt2
            IF (dt3 > EPS) THEN
              IF (FirstNodeMove) THEN
-               Velocity = 0.0d0
-               DO i=1,k-1
-                 Velocity(i) = FlowValues( k*( FlowPerm( ordre(1) )-1 )+i) 
-               END DO
-               a = xn0(1) + dt3 * Velocity(1) 
-               b = yn0(1) + dt3 * Velocity(2) 
+               aa = xn(2)
+               bb = yn(2)
+               cc = FlowValues( k*( FlowPerm( ordre(2) )-1 )+1) 
+               dd = FlowValues( k*( FlowPerm( ordre(2) )-1 )+2) 
                xa = xd
-               xb = xn(1)
-               IF (intbed1(xa)*intbed1(xb)<=0.0) THEN
-                  xbed1 = zbrent(intbed1,xa,xb,1.0e-8_dp)
+               xb = aa    
+               IF (intbed2(xa)*intbed2(xb)<=0.0) THEN
+                 xbed1 = zbrent(intbed2,xa,xb,1.0e-8_dp)
                ELSE
-                  xbed1 = xn0(1)
+                  xbed1 = xn(1)
                END IF
              END IF
 
-             b = xn0(nbed2) - xn(nbed2)
-             a = (yn0(nbed2) - yn(nbed2))/b
-             b = (yn(nbed2)*xn0(nbed2)-xn(nbed2)*yn0(nbed2))/b
+             bb = xn0(nbed2) - xn(nbed2)
+             aa = (yn0(nbed2) - yn(nbed2))/bb
+             bb = (yn(nbed2)*xn0(nbed2)-xn(nbed2)*yn0(nbed2))/bb
              xbed2 = zbrent(intbed,xn0(nbed2),xn(nbed2),1.0e-08_dp)
            
            ELSE
@@ -476,6 +543,7 @@
             nbed1 = nbed1 + 1
            END IF
 
+           write(*,*)'Case 2',dt3,xbed1,xbed2
 
 !
 ! CASE 3 : intersecting node on left 
@@ -485,23 +553,29 @@
             
            IF (dt3 > EPS) THEN
              IF (FirstNodeMove) THEN
-               b = xn0(nbed1) - xn(nbed1)
-               a = (yn0(nbed1) - yn(nbed1))/b
-               b = (yn(nbed1)*xn0(nbed1)-xn(nbed1)*yn0(nbed1))/b
+               bb = xn0(nbed1) - xn(nbed1)
+               aa = (yn0(nbed1) - yn(nbed1))/bb
+               bb = (yn(nbed1)*xn0(nbed1)-xn(nbed1)*yn0(nbed1))/bb
                xbed1 = zbrent(intbed,xn0(nbed1),xn(nbed1),1.0e-08_dp)
              END IF
-
-             Velocity = 0.0d0
-             DO i=1,k-1
-               Velocity(i) = FlowValues( k*( FlowPerm( ordre(Nn) )-1 )+i) 
-             END DO
-             xbed2 = xn0(Nn) + dt3 * Velocity(1) 
+             aa = xn(Nn-1)
+             bb = yn(Nn-1) 
+             cc = FlowValues( k*( FlowPerm( ordre(Nn-1) )-1 )+1) 
+             dd = FlowValues( k*( FlowPerm( ordre(Nn-1) )-1 )+2) 
+             xa = aa        
+             xb = xf 
+             IF (intbed2(xa)*intbed2(xb)<=0.0) THEN
+                xbed2 = zbrent(intbed2,xa,xb,1.0e-8_dp)
+             ELSE
+                xbed2 = xn(Nn)
+             END IF
            ELSE
              xbed1 = xn0(nbed1)
              xbed2 = xn0(Nn)
              nbed1 = nbed1 + 1
            END IF
 
+           write(*,*)'Case 3',dt3,xbed1,xbed2
 !
 ! CASE 4 : intersecting node on left and right 
 !
@@ -510,15 +584,15 @@
            
            IF (dt3 < EPS) THEN 
              IF (FirstNodeMove) THEN 
-               b = xn0(nbed1) - xn(nbed1)
-               a = (yn0(nbed1) - yn(nbed1))/b
-               b = (yn(nbed1)*xn0(nbed1)-xn(nbed1)*yn0(nbed1))/b
+               bb = xn0(nbed1) - xn(nbed1)
+               aa = (yn0(nbed1) - yn(nbed1))/bb
+               bb = (yn(nbed1)*xn0(nbed1)-xn(nbed1)*yn0(nbed1))/bb
                xbed1 = zbrent(intbed,xn0(nbed1),xn(nbed1),1.0e-08_dp)
              END IF
 
-             b = xn0(nbed2) - xn(nbed2)
-             a = (yn0(nbed2) - yn(nbed2))/b
-             b = (yn(nbed2)*xn0(nbed2)-xn(nbed2)*yn0(nbed2))/b
+             bb = xn0(nbed2) - xn(nbed2)
+             aa = (yn0(nbed2) - yn(nbed2))/bb
+             bb = (yn(nbed2)*xn0(nbed2)-xn(nbed2)*yn0(nbed2))/bb
              xbed2 = zbrent(intbed,xn0(nbed2),xn(nbed2),1.0e-08_dp)
 
            ELSE
@@ -527,6 +601,7 @@
              nbed1 = nbed1 + 1
            END IF
 
+           write(*,*)'Case 4',dt3,xbed1,xbed2
 
          END IF
 
@@ -537,20 +612,20 @@
                    y1new(nbed2+1-nbed1), y2new(nbed2+1-nbed1), &
                    y3new(nbed2+1-nbed1) )
 ! new position of nbed nodes
-
           xnew(1) = xbed1 
           ynew(1) = fbed(xbed1) 
           k = FlowVariable % DOFs
           n = 2
           lc =0.0_dp
           DO p = 1+nbed1, nbed2
-            Velocity = 0.0d0
+            Velocity = 0.0_dp
             DO i=1,k-1
             Velocity(i) = FlowValues( k*( FlowPerm( ordre(p) )-1 ) +i ) 
             END DO
             
-            xnew(n) = xn0(p) + dt3 * Velocity(1) 
-            ynew(n) = yn0(p) + dt3 * Velocity(2) 
+            xnew(n) = xn0(p) + dt3 * Velocity(1)
+            ynew(n) = yn0(p) + dt3 * Velocity(2)
+
 
 
 ! IF nbed=Nn -> move last node exactly on the bed             
@@ -584,6 +659,7 @@
           y = fbed(x)           
           dMU(2*ordre(1)-1) = x - xn0(1)
           dMU(2*ordre(1)) = y - yn0(1)
+          
 
           DO p = 2, Nn 
 
@@ -732,16 +808,14 @@
       DSValues => DevStressVar % Values  
       END IF
 
-
+      sc = 0.0_dp
       taub = 0.0_dp
       ub = 0.0_dp
       pice = 0.0_dp
       fx = 0.0_dp
       fy = 0.0_dp
-      deltaFS = 0.0_dp
       ltot=0.0_dp 
       slope = 0.0_dp
-      Nvector = 0.0_dp
       DO p = 1, Model % NumberOfBoundaryElements
         BCElement => GetBoundaryElement(p) 
         IF (GetElementFamily(BCElement) == 1 ) CYCLE
@@ -764,27 +838,16 @@
         Sxy(1:n) = DSValues(2*dim*(DSPerm(NodeIndexes(1:n))-1) + 4) 
 
         Velo = 0.0d0
+        LocalNormal=0.0_dp
         DO i=1,DIM         
-          Velo(i,1:n) = FlowValues((DIM+1)*(FlowPerm(NodeIndexes(1:n))-1)+i) 
+         LocalNormal(i,1:n)=Nvector(DIM*(NodeIndexes(1:n)-1)+i)
+         Velo(i,1:n) = FlowValues((DIM+1)*(FlowPerm(NodeIndexes(1:n))-1)+i) 
         END DO
-        Call BCIntegrals(ub,taub,pice,deltaFS,fx,fy,ltot,Sxx,Syy,Sxy,Velo, &
-                            BCType(p),BCElement,n,Nodes)  
+        Call BCIntegrals(ub, taub, pice, fx, fy, ltot, sc, &
+                     Sxx, Syy, Sxy, Velo, LocalNormal,  BCType(p),  &
+                     BCElement, n, Nodes)
+                            
 
-        DO i=1,n
-          Bu = BCElement % Type % NodeU(i)
-          Bv = 0.0D0
-          k = NodeIndexes( i )
-          Nvector(DIM*(k-1)+1:DIM*k) = Nvector(DIM*(k-1)+1:DIM*k) +& 
-             NormalVector(BCElement, Nodes, Bu, Bv, .TRUE.) 
-        END DO
-
-      END DO
-
-      DO p=1, Model % NumberOfBoundaryElements
-        BCElement => GetBoundaryElement(p) 
-        IF (GetElementFamily(BCElement) == 1 ) CYCLE
-        IF (BCType(p)==0) CYCLE 
-        n = BCElement % Type % NumberOfNodes
         DO i = 1, n
           k = NodeIndexes( i )
           IF ( SQRT(SUM(Nvector(DIM*(k-1)+1:DIM*k)**2)) /= 0.0_dp ) THEN
@@ -796,21 +859,23 @@
             END IF
           END IF
         END DO
-      END DO
 
-      
+      END DO
       taub = taub / ltot          
       pice = pice / ltot
       ub = ub / ltot       
+      deltaFS = SQRT(deltaFS) / ( Nn * ub ) 
+      MaxdeltaFS = SQRT(MaxdeltaFS) / ub
 
       IF (SaveFile) THEN
         OPEN(22,File=SaveFileName,POSITION='APPEND') 
-        WRITE(22,'(13(e14.8,2x))')LastTime, TrueTime, dt3, taub, & 
-                       pice, pwater, ub, taub/(pice-pwater),    &
-                       ub/(pice - pwater), fx, fy, deltaFS, slope
+        WRITE(22,'(17(e14.8,2x))')LastTime, TrueTime, dt3, taub, & 
+             pice, pwater, ub, taub/(pice-pwater),  ub/(pice - pwater),&
+             fx, fy, deltaFS, MaxdeltaFS, slope, xbed1, xbed2, sc
+                 
         CLOSE(22)
       CALL Info( 'CavitySolve', '---------------------',Level=4 )
-      WRITE( Message, * ) ' dFS = V . n   : ',deltaFS
+      WRITE( Message, * ) ' dFS = V.n , Max(V.n)  : ',deltaFS, MaxdeltaFS
       CALL Info( 'CavitySolve', Message, Level=4 )
       CALL Info( 'CavitySolve', '---------------------',Level=4 )
       END IF
@@ -824,8 +889,9 @@ CONTAINS
 ! Integration over the Boundary Element of some data
 ! --------------------------------------------------------------------------------------
 !
-         SUBROUTINE BCIntegrals(ub,tau,pice,dFS,fx,fy,l,Sxx,Syy,Sxy,Velo, &
-                                       BCn,Element,n,ElementNodes)  
+         SUBROUTINE BCIntegrals(ub, tau, pice, fx, fy, l, sc, &
+             Sxx, Syy, Sxy, Velo, LocalNormal, BCn, Element, n, ElementNodes)  
+                                
  
 !          USE types
 !          USE DefUtils
@@ -833,8 +899,9 @@ CONTAINS
 !          USE SolverUtils
 !          USE ElementDescription
 !          IMPLICIT NONE
-           REAL(KIND=dp) :: ub, tau, pice, dFS, fx, fy, l
-           REAL(KIND=dp) :: Sxx(3), Syy(3), Sxy(3), Velo(3,3)
+           REAL(KIND=dp) :: ub, tau, pice,  fx, fy, l, sc
+           REAL(KIND=dp) :: Sxx(3), Syy(3), Sxy(3), Velo(3,3), &
+                            LocalNormal(3,3)
            TYPE(Element_t),POINTER  :: Element
            TYPE(Nodes_t)    :: ElementNodes
            INTEGER :: BCn, n
@@ -842,9 +909,9 @@ CONTAINS
            REAL(KIND=dp) :: Basis(n),ddBasisddx(1,1,1)
            REAL(KIND=dp) :: dBasisdx(n,3),SqrtElementMetric
            REAL(KIND=dp) :: u,v,w,s
-           REAL(KIND=dp) :: Normal(3), Sig(3,3)
+           REAL(KIND=dp) :: Sig(3,3)
            REAL(KIND=dp), POINTER :: U_Integ(:),V_Integ(:),W_Integ(:),S_Integ(:)
-           REAL(KIND=dp) :: Velocity(3), Snn
+           REAL(KIND=dp) :: Velocity(3), Snn, norma(3)
            INTEGER :: i,j,t,q,p,DIM,N_Integ
            LOGICAL :: stat
            TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
@@ -884,11 +951,16 @@ CONTAINS
               Sig(1,2) = SUM(Sxy(1:n)*Basis(1:n)) 
               Sig(2,1) = Sig(1,2)
 ! Normal Upward-pointing normal
-              Normal = - NormalVector( Element,ElementNodes,u,v,.TRUE. )
+!             Normal = - NormalVector( Element,ElementNodes,u,v,.TRUE. )
               Snn = 0.0
               Velocity = 0.0
+              normal = 0.0
               DO i=1, DIM
                 Velocity(i) = SUM(Velo(i,1:n)*Basis(1:n) )
+                normal(i) = -SUM(LocalNormal(i,1:n)*Basis(1:n) )
+              END DO
+
+              DO i=1, DIM
                 DO j=1, DIM
                   Snn = Snn + Sig(i,j)*Normal(i)*Normal(j) 
                 END DO
@@ -899,7 +971,9 @@ CONTAINS
               tau  = tau + Snn * Normal(1) * s 
               pice = pice - Snn * Normal(2) * s 
              
-              IF (BCn==1) dFS = dFS + Abs(SUM(Velocity*Normal)) * s
+              IF (BCn==1)  THEN
+                sc = sc + s
+              END IF
               
               IF (BCn==3) THEN
                 fx = fx + Snn * Normal(1) * s 
@@ -920,13 +994,33 @@ END SUBROUTINE CavitySolve
      FUNCTION intbed(x)
        USE types
        USE DefUtils
-     REAL(KIND=dp) :: intbed,x, fbed, a, b
-     COMMON /interbed/a,b
+     REAL(KIND=dp) :: intbed,x, fbed
+     REAL(KIND=dp) :: aa, bb, cc, dd
+     COMMON /interbed/aa,bb,cc,dd
 
-     intbed = fbed(x) - a*x -b 
+     intbed = fbed(x) - aa*x -bb 
       
 
      END FUNCTION intbed
+!
+      FUNCTION intbed2(x)
+       USE types
+       USE DefUtils
+       REAL(KIND=dp) :: intbed2, x, fbed, dbed
+       REAL(KIND=dp) :: aa, bb, cc, dd
+       REAL(KIND=dp) :: EPS, dx
+       COMMON /interbed/aa,bb,cc,dd
+! last node function
+      EPS = 100.0_dp*EPSILON(aa)
+      IF (cc < 0.0) THEN
+         cc = -cc
+         dd = -dd
+      ENDIF
+      IF (cc < EPS) cc = EPS
+      dx = x - aa
+      IF (ABS(dx) < EPS) dx = EPS
+      intbed2 = 2.0_dp/dx*(fbed(x)-bb)-dd/cc-dbed(x) 
+      END FUNCTION intbed2
 
 ! --------------------------------------------------------
       FUNCTION curvi(x0,x1,func,N)
@@ -973,15 +1067,17 @@ END SUBROUTINE CavitySolve
       FUNCTION intbed1(x)
        USE types
        USE DefUtils
-     REAL(KIND=dp) :: intbed1,x, dbed, fbed, a, b, Norm
+     REAL(KIND=dp) :: intbed1,x, dbed, fbed, Norm
      REAL(KIND=dp) :: normal(2),XM(2)
+     REAL(KIND=dp) :: aa, bb, cc, dd
+     COMMON /interbed/aa,bb,cc,dd
      COMMON /interbed/a,b
 
 ! function that return f(x) = XM.n X(x,fbed), M(a,b), n (dbed,-1)
     
      ! Norm of XM 
-      XM(1) = a - x
-      XM(2) = b - fbed(x)
+      XM(1) = aa - x
+      XM(2) = bb - fbed(x)
       Norm = sqrt(XM(1)**2+XM(2)**2)
       XM = XM/Norm
 
