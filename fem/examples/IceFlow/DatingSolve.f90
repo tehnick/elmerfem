@@ -105,12 +105,12 @@
 
      REAL(KIND=dp),ALLOCATABLE:: MASS(:,:),STIFF(:,:),&
        LOAD(:,:),Force(:),  Alpha(:,:),Beta(:), &
-          Velocity(:,:)
+          Velocity(:,:),MeshVelocity(:,:)
              
 
      SAVE MASS,STIFF,LOAD, &
        Force,ElementNodes,Alpha,Beta,  AllocationsDone, &
-           Velocity, old_body
+           Velocity, MeshVelocity,old_body
 !------------------------------------------------------------------------------
 
      REAL(KIND=dp) :: Bu,Bv,Bw,RM(3,3), SaveTime = -1
@@ -138,10 +138,9 @@
 !------------------------------------------------------------------------
 !    Get Velocity from (Navier)-Stokes-Solver or AIFlow Solver
 !------------------------------------------------------------------------
- !    FlowSolverName = GetString( Solver % Values, 'Flow Solver Name', GotIt )    
- !    IF (.NOT.Gotit) FlowSolverName = 'Flow Solution'
- !    FlowVariable => VariableGet( Solver % Mesh % Variables, FlowSolverName )
-     FlowVariable => VariableGet( Solver % Mesh % Variables, 'Flow Solution')
+     FlowSolverName = GetString( Solver % Values, 'Flow Solver Name', GotIt )    
+     IF (.NOT.Gotit) FlowSolverName = 'Flow Solution'
+     FlowVariable => VariableGet( Solver % Mesh % Variables, FlowSolverName )
      IF ( ASSOCIATED( FlowVariable ) ) THEN
        FlowPerm    => FlowVariable % Perm
        FlowValues  => FlowVariable % Values
@@ -162,12 +161,13 @@
 
        IF ( AllocationsDone ) THEN
          DEALLOCATE (Force,     &
-                     MASS,      &
+                     Velocity,MeshVelocity, &
+                     MASS,STIFF,      &
                      LOAD, Alpha, Beta )
        END IF
 
        ALLOCATE( Force( 2*STDOFs*N ), & 
-                 Velocity(4, N ), &
+                 Velocity(4, N ), MeshVelocity(3,N), &
                  MASS( 2*STDOFs*N,2*STDOFs*N ),  &
                  STIFF( 2*STDOFs*N,2*STDOFs*N ),  &
                  LOAD( 4,N ), Alpha( 3,N ), Beta( N ),STAT=istat )
@@ -294,8 +294,13 @@
             Velocity(i,1:n) = FlowValues(k*(FlowPerm(NodeIndexes)-1)+i)
          END DO
 
+!-------------------mesh velo
+         MeshVelocity=0._dp
+         call GetVectorLocalSolution(MeshVelocity,'Mesh Velocity')
+!--------------------------
+
          CALL LocalMatrix( MASS, STIFF, FORCE, LOAD, &
-              Velocity, CurrentElement, CompressibleFlow, &
+              Velocity, MeshVelocity, CurrentElement, CompressibleFlow, &
               n, ElementNodes)
 
 !------------------------------------------------------------------------------
@@ -333,9 +338,14 @@
                Velocity(i,1:n) = FlowValues(k*(FlowPerm(Edge % NodeIndexes)-1)+i)
             END DO
 
+   !-------------------mesh velo
+         MeshVelocity=0._dp
+         call GetVectorLocalSolution(MeshVelocity,'Mesh Velocity')
+    !--------------------------
+
             FORCE = 0.0d0
             MASS  = 0.0d0
-            CALL LocalJumps( STIFF,Edge,n,LeftParent,n1,RightParent,n2,Velocity )
+            CALL LocalJumps( STIFF,Edge,n,LeftParent,n1,RightParent,n2,Velocity,MehVelocity )
             IF ( TransientSimulation )  CALL Default1stOrderTime(MASS, STIFF, FORCE)
             CALL DefaultUpdateEquations( STIFF, FORCE, Edge )
          END IF
@@ -360,9 +370,14 @@
                Velocity(i,1:n) = FlowValues(k*(FlowPerm(Edge % NodeIndexes)-1)+i)
             END DO
 
+   !-------------------mesh velo
+         MeshVelocity=0._dp
+         call GetVectorLocalSolution(MeshVelocity,'Mesh Velocity')
+    !--------------------------
+
             FORCE = 0.0d0
             MASS  = 0.0d0
-            CALL LocalJumps( STIFF,Edge,n,LeftParent,n1,RightParent,n2,Velocity )
+            CALL LocalJumps( STIFF,Edge,n,LeftParent,n1,RightParent,n2,Velocity,MeshVelocity )
             IF ( TransientSimulation )  CALL Default1stOrderTime(MASS, STIFF, FORCE)
             CALL DefaultUpdateEquations( STIFF, FORCE, Edge )
          END IF
@@ -393,6 +408,10 @@
          DO i=1,k-1
             Velocity(i,1:n) = FlowValues(k*(FlowPerm(Element % NodeIndexes)-1)+i)
          END DO
+   !-------------------mesh velo
+         MeshVelocity=0._dp
+         call GetVectorLocalSolution(MeshVelocity,'Mesh Velocity')
+    !--------------------------
 
          BC => GetBC()
          LOAD = 0.0d0
@@ -403,7 +422,7 @@
 
          MASS = 0.0d0
          CALL LocalMatrixBoundary(  STIFF, FORCE, LOAD(1,1:n), &
-                              Element, n, ParentElement, n1, Velocity, GotIt )
+                              Element, n, ParentElement, n1, Velocity,MeshVelocity, GotIt )
 
          IF ( TransientSimulation )  CALL Default1stOrderTime(MASS, STIFF, FORCE)
          CALL DefaultUpdateEquations( STIFF, FORCE )
@@ -477,13 +496,13 @@ CONTAINS
 
 !------------------------------------------------------------------------------
    SUBROUTINE LocalMatrix(  MASS, STIFF, FORCE, LOAD, &
-                            NodalVelo, Element, CompressibleFlow, &
+                            NodalVelo, NodMeshVelo,Element, CompressibleFlow, &
                             n, Nodes)
           
 !------------------------------------------------------------------------------
 
      REAL(KIND=dp) :: STIFF(:,:),MASS(:,:)
-     REAL(KIND=dp) :: LOAD(:,:), NodalVelo(:,:)
+     REAL(KIND=dp) :: LOAD(:,:), NodalVelo(:,:),NodMeshVelo(:,:)
      REAL(KIND=dp), DIMENSION(:) :: FORCE
      LOGICAL :: CompressibleFlow
 
@@ -551,7 +570,7 @@ CONTAINS
 !
       Velo = 0.0d0
       DO i=1,dim
-         Velo(i) = SUM( Basis(1:n) * NodalVelo(i,1:n) )
+         Velo(i) = SUM( Basis(1:n) * (NodalVelo(i,1:n)-NodMeshVelo(i,1:n)) )
       END DO
       Unorm = SQRT( SUM( Velo**2 ) )
 
@@ -641,9 +660,9 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-    SUBROUTINE LocalJumps( STIFF,Edge,n,LeftParent,n1,RightParent,n2,Velo )
+    SUBROUTINE LocalJumps( STIFF,Edge,n,LeftParent,n1,RightParent,n2,Velo,MeshVelo )
 !------------------------------------------------------------------------------
-      REAL(KIND=dp) :: STIFF(:,:), Velo(:,:)
+      REAL(KIND=dp) :: STIFF(:,:), Velo(:,:),MeshVelo(:,:)
       INTEGER :: n,n1,n2
       TYPE(Element_t), POINTER :: Edge, LeftParent, RightParent
 !------------------------------------------------------------------------------
@@ -713,7 +732,7 @@ CONTAINS
 
         cu = 0.0d0
         DO i=1,dim
-          cu(i) = SUM( Velo(i,1:n) * EdgeBasis(1:n) )
+          cu(i) = SUM( (Velo(i,1:n)-MeshVelo(i,1:n)) * EdgeBasis(1:n) )
         END DO
         Udotn = SUM( Normal * cu )
 
@@ -732,9 +751,9 @@ CONTAINS
 
 !------------------------------------------------------------------------------
    SUBROUTINE LocalMatrixBoundary( STIFF, FORCE, LOAD, &
-        Element, n, ParentElement, np, Velo, InFlowBC )
+        Element, n, ParentElement, np, Velo,MeshVelo, InFlowBC )
 !------------------------------------------------------------------------------
-     REAL(KIND=dp) :: STIFF(:,:),  FORCE(:), LOAD(:), Velo(:,:)
+     REAL(KIND=dp) :: STIFF(:,:),  FORCE(:), LOAD(:), Velo(:,:),MeshVelo(:,:)
      INTEGER :: n, np
      LOGICAL :: InFlowBC
      TYPE(Element_t), POINTER :: Element, ParentElement
@@ -779,7 +798,7 @@ CONTAINS
        S = S * detJ
        cu = 0.0d0
        DO i=1,dim
-          cu(i) = SUM( Velo(i,1:n) * Basis(1:n) )
+          cu(i) = SUM( (Velo(i,1:n)-MeshVelo(i,1:n)) * Basis(1:n) )
        END DO
        UdotnA = UdotnA + s*SUM( Normal * cu )
 
@@ -807,7 +826,7 @@ CONTAINS
        L = SUM( LOAD(1:n) * Basis(1:n) )
        cu = 0.0d0
        DO i=1,dim
-          cu(i) = SUM( Velo(i,1:n) * Basis(1:n) )
+          cu(i) = SUM( (Velo(i,1:n)-MeshVelo(i,1:n)) * Basis(1:n) )
        END DO
        Udotn = SUM( Normal * cu )
 
