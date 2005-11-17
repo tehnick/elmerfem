@@ -93,7 +93,7 @@
      INTEGER, POINTER :: TempPerm(:),FabricPerm(:),NodeIndexes(:), &
                         FlowPerm(:)
 
-     REAL(KIND=dp) :: rho   !Interaction parameter
+     REAL(KIND=dp) :: rho,lambda   !Interaction parameter,diffusion parameter
      REAL(KIND=dp) :: A1plusA2
 
      LOGICAL :: GotForceBC,GotIt,NewtonLinearization = .FALSE.
@@ -111,11 +111,11 @@
      REAL(KIND=dp),ALLOCATABLE:: MASS(:,:),STIFF(:,:),&
        LOAD(:,:),Force(:), LocalTemperature(:), Alpha(:,:),Beta(:), &
           K1(:), K2(:), E1(:), E2(:), E3(:), &
-             Velocity(:,:)
+             Velocity(:,:),MeshVelocity(:,:)
 
      SAVE MASS,STIFF,LOAD, &
        Force,ElementNodes,Alpha,Beta, LocalTemperature,  AllocationsDone, &
-         K1, K2, E1, E2, E3, Wn,  FabricGrid, rho, Velocity, old_body, dim,comp
+         K1, K2, E1, E2, E3, Wn,  FabricGrid, rho,lambda, Velocity,MeshVelocity, old_body, dim,comp
 ! *
 !------------------------------------------------------------------------------
      CHARACTER(LEN=MAX_NAME_LEN) :: viscosityFile
@@ -179,15 +179,17 @@
        
        IF ( AllocationsDone ) THEN
          DEALLOCATE( LocalTemperature,     &
+                     K1,K2,E1,E2,E3,   &
                      Force,           &
-                     MASS,      &
+                     Velocity,MeshVelocity, &
+                     MASS,STIFF,      &
                      LOAD, Alpha, Beta )
        END IF
 
        ALLOCATE( LocalTemperature( N ), &
                  K1( N ), K2( N ), E1( N ), E2( N ), E3( N ), &
                  Force( 2*STDOFs*N ), &
-                 Velocity(4, N ), &
+                 Velocity(4, N ),MeshVelocity(3,N), &
                  MASS( 2*STDOFs*N,2*STDOFs*N ),  &
                  STIFF( 2*STDOFs*N,2*STDOFs*N ),  &
                  LOAD( 4,N ), Alpha( 3,N ), Beta( N ),STAT=istat )
@@ -344,10 +346,15 @@
             Velocity(i,1:n) = FlowValues(k*(FlowPerm(NodeIndexes)-1)+i)
          END DO
 
+!------------meshvelocity
+         MeshVelocity=0._dp
+         call GetVectorLocalSolution(MeshVelocity, 'Mesh Velocity')
+!----------------------------------
+
          CALL LocalMatrix( COMP, MASS, &
               STIFF, FORCE, LOAD, K1, K2, E1, E2, E3,LocalTemperature, &
-              Velocity,&
-              CurrentElement, n, ElementNodes, Wn, rho)
+              Velocity,MeshVelocity,&
+              CurrentElement, n, ElementNodes, Wn, rho,lambda)
 
 !------------------------------------------------------------------------------
 !        Update global matrices from local matrices 
@@ -382,9 +389,14 @@
                Velocity(i,1:n) = FlowValues(k*(FlowPerm(Edge % NodeIndexes)-1)+i)
             END DO
 
+!------------meshvelocity
+         MeshVelocity=0._dp
+         call GetVectorLocalSolution(MeshVelocity, 'Mesh Velocity')
+!----------------------------------
+
             FORCE = 0.0d0
             MASS  = 0.0d0
-            CALL LocalJumps( STIFF,Edge,n,LeftParent,n1,RightParent,n2,Velocity )
+            CALL LocalJumps( STIFF,Edge,n,LeftParent,n1,RightParent,n2,Velocity,MeshVelocity )
             IF ( TransientSimulation )  CALL Default1stOrderTime(MASS, STIFF, FORCE)
             CALL DefaultUpdateEquations( STIFF, FORCE, Edge )
          END IF
@@ -410,9 +422,14 @@
                Velocity(i,1:n) = FlowValues(k*(FlowPerm(Edge % NodeIndexes(1:n))-1)+i)
             END DO
 
+!------------meshvelocity
+         MeshVelocity=0._dp
+         call GetVectorLocalSolution(MeshVelocity, 'Mesh Velocity')
+!----------------------------------
+
             FORCE = 0.0d0
             MASS  = 0.0d0
-            CALL LocalJumps( STIFF,Edge,n,LeftParent,n1,RightParent,n2,Velocity )
+            CALL LocalJumps( STIFF,Edge,n,LeftParent,n1,RightParent,n2,Velocity,MeshVelocity )
             IF ( TransientSimulation )  CALL Default1stOrderTime(MASS, STIFF, FORCE)
             CALL DefaultUpdateEquations( STIFF, FORCE, Edge )
          END IF
@@ -443,6 +460,11 @@
             Velocity(i,1:n) = FlowValues(k*(FlowPerm(Element % NodeIndexes(1:n))-1)+i)
          END DO
 
+!------------meshvelocity
+         MeshVelocity=0._dp
+         call GetVectorLocalSolution(MeshVelocity, 'Mesh Velocity')
+!----------------------------------
+
          BC => GetBC()
          LOAD = 0.0d0
          GotIt = .FALSE.
@@ -452,7 +474,7 @@
 
          MASS = 0.0d0
          CALL LocalMatrixBoundary(  STIFF, FORCE, LOAD(1,1:n), &
-                              Element, n, ParentElement, n1, Velocity, GotIt )
+                              Element, n, ParentElement, n1, Velocity,MeshVelocity, GotIt )
 
          IF ( TransientSimulation )  CALL Default1stOrderTime(MASS, STIFF, FORCE)
          CALL DefaultUpdateEquations( STIFF, FORCE )
@@ -508,11 +530,11 @@
       SELECT CASE( Comp ) 
       CASE(1)
       FabricValues( COMP:SIZE(FabricValues):5 ) = &
-          MIN(MAX( FabricValues( COMP:SIZE(FabricValues):5 ) , 0.0025_dp),0.995_dp)
+          MIN(MAX( FabricValues( COMP:SIZE(FabricValues):5 ) , 0._dp),1._dp)
           
       CASE(2)
        FabricValues( COMP:SIZE(FabricValues):5 ) = &
-       MIN(MAX( FabricValues( COMP:SIZE(FabricValues):5 ) , 0.0025_dp),0.995_dp)
+       MIN(MAX( FabricValues( COMP:SIZE(FabricValues):5 ) , 0._dp),1._dp)
        
        DO i=1,SIZE(FabricValues),5 
          IF((FabricValues(i)+FabricValues(i+1)).GT.1._dp) THEN
@@ -599,12 +621,22 @@ CONTAINS
 ! * Fab
        ! Read the interaction parameter for Fabric evolution
        rho = ListGetConstReal( Material, 'Interaction Parameter', GotIt )
+       
        IF (.NOT.GotIt) THEN
            WRITE(Message,'(A)') 'Interaction  Parameter notfound. Setting to the value in ViscosityFile'
            CALL INFO('AIFlowSolve', Message, Level = 20)
            rho = FabricGrid(4879)
        ELSE
            WRITE(Message,'(A,F10.4)') 'Interaction Parameter = ', rho
+           CALL INFO('AIFlowSolve', Message, Level = 20)
+       END IF
+       lambda = ListGetConstReal( Material, 'Diffusion Parameter', GotIt )
+       IF (.NOT.GotIt) THEN
+           WRITE(Message,'(A)') 'Diffusion  Parameter notfound. Setting to 0'
+           CALL INFO('AIFlowSolve', Message, Level = 20)
+           lambda = 0._dp
+       ELSE
+           WRITE(Message,'(A,F10.4)') 'Diffusion Parameter = ', lambda
            CALL INFO('AIFlowSolve', Message, Level = 20)
        END IF
 ! *
@@ -672,11 +704,11 @@ CONTAINS
 !------------------------------------------------------------------------------
    SUBROUTINE LocalMatrix( Comp, MASS, STIFF, FORCE, LOAD, &
      NodalK1, NodalK2, NodalEuler1, NodalEuler2, NodalEuler3, NodalTemperature, &
-          NodalVelo, Element, n, Nodes, Wn, rho )
+          NodalVelo, NodMeshVel, Element, n, Nodes, Wn, rho,lambda )
 !------------------------------------------------------------------------------
 
      REAL(KIND=dp) :: STIFF(:,:),MASS(:,:)
-     REAL(KIND=dp) :: LOAD(:,:), NodalVelo(:,:)
+     REAL(KIND=dp) :: LOAD(:,:), NodalVelo(:,:),NodMeshVel(:,:)
      REAL(KIND=dp), DIMENSION(:) :: FORCE, NodalK1, NodalK2, NodalEuler1, &
                NodalEuler2, NodalEuler3, NodalTemperature
               
@@ -695,7 +727,7 @@ CONTAINS
      REAL(KIND=dp) :: A,M, hK,tau,pe1,pe2,unorm,C0, SU(n), SW(n)
      REAL(KIND=dp) :: LoadAtIp, Temperature
 ! * Fab
-     REAL(KIND=dp) :: rho,ai(6),a4(9),hmax
+     REAL(KIND=dp) :: rho,lambda,Deq, ai(6),a4(9),hmax
     
 
      INTEGER :: i,j,k,p,q,t,dim,NBasis,ind(3), DOFs = 1
@@ -902,12 +934,15 @@ CONTAINS
 
 !     SD=(1-r)D + r psi/2 S :
 !     -----------------------
+      SD=0._dp
       DO i=1,2*dim
         SD(i)= (1._dp - rho)*StrainRate(INDi(i),INDj(i)) + rho * Theta * Stress(INDi(i),INDj(i))
       END DO
       Do i=1,2*dim-3
         Spin(i)=Spin1(INDi(i+3),INDj(i+3))
       End do
+
+      Deq=sqrt(2._dp*(SD(1)*SD(1)+SD(2)*SD(2)+SD(3)*SD(3)+2._dp*(SD(4)*SD(4)+SD(5)*SD(5)+SD(6)*SD(6)))/3._dp)
 ! fin fab 26/08      
 !      write(*,'(10(e13.5,x))')SD(1),SD(2),SD(3),SD(1)+SD(2)+SD(3),ai(1), &
 !        ai(2),ai(3),a4(1),a4(2),a4(3)
@@ -917,7 +952,7 @@ CONTAINS
 !     ----------
       Velo = 0.0d0
       DO i=1,dim
-         Velo(i) = SUM( Basis(1:n) * NodalVelo(i,1:n) )
+         Velo(i) = SUM( Basis(1:n) * (NodalVelo(i,1:n) - NodMeshVel(i,1:N)) )
       END DO
       Unorm = SQRT( SUM( Velo**2._dp ) )
 
@@ -928,13 +963,16 @@ CONTAINS
 
       SELECT CASE(comp)
       CASE(1)
-        C0 = -2._dp*(SD(1)-SD(3))
+        !C0 = -2._dp*(SD(1)-SD(3))
+        C0=-2._dp*SD(1)-3._dp*lambda*Deq
 
       CASE(2)
-        C0 = -2._dp*(SD(2)-SD(3))
+        !C0 = -2._dp*(SD(2)-SD(3))
+        C0 = -2._dp*SD(2)-3._dp*lambda*Deq
        
       CASE(3)
-        C0 = -(SD(1)+SD(2)-2._dp*SD(3))
+        !C0 = -(SD(1)+SD(2)-2._dp*SD(3))
+        C0 = -(SD(1)+SD(2))-3._dp*lambda*Deq
         
       CASE(4)
         C0 = -(SD(1)-SD(3))
@@ -978,9 +1016,12 @@ CONTAINS
          SELECT CASE(comp)
          
          CASE(1)
-          LoadAtIp = 2._dp*( Spin(1)*E1 + SD(4)*(2._dp*a4(7)-E1) + &
-          SD(1)*a4(1) + SD(2)*a4(3) - SD(3)*(a4(1)+a4(3)) ) 
+          !LoadAtIp = 2._dp*( Spin(1)*E1 + SD(4)*(2._dp*a4(7)-E1) + &
+          !SD(1)*a4(1) + SD(2)*a4(3) - SD(3)*(a4(1)+a4(3)) ) 
          
+          LoadAtIp = 2._dp*( Spin(1)*E1 + SD(4)*(2._dp*a4(7)-E1) + &
+          SD(1)*a4(1) + SD(2)*a4(3) - SD(3)*(-A1+a4(1)+a4(3)) ) + lambda*Deq
+
           IF(dim == 3) THEN
             LoadAtIp =  LoadAtIp + 2._dp*( -Spin(3)*E3 + &
             SD(6)*(2._dp*a4(6)-E3) + 2._dp*SD(5)*a4(4) )
@@ -988,8 +1029,10 @@ CONTAINS
           
          
          CASE(2)
+          !LoadAtIp = 2._dp*( -Spin(1)*E1 + SD(4)*(2._dp*a4(9)-E1) + &
+          !SD(2)*a4(2) + SD(1)*a4(3) - SD(3)*(a4(2)+a4(3)) )  
           LoadAtIp = 2._dp*( -Spin(1)*E1 + SD(4)*(2._dp*a4(9)-E1) + &
-          SD(2)*a4(2) + SD(1)*a4(3) - SD(3)*(a4(2)+a4(3)) )  
+          SD(2)*a4(2) + SD(1)*a4(3) - SD(3)*(-A2+a4(2)+a4(3)) )  + lambda*Deq
           
           IF(dim == 3) THEN
             LoadAtIp =  LoadAtIp + 2._dp*( Spin(2)*E2 + &
@@ -998,8 +1041,10 @@ CONTAINS
 
 
          CASE(3)
+          !LoadAtIp = Spin(1)*(A2-A1)  +  SD(4)*(4._dp*a4(3)-A1-A2) + &
+          !2._dp* ( SD(1)*a4(7) + SD(2)*a4(9) - SD(3)*(a4(7)+a4(9)) ) 
           LoadAtIp = Spin(1)*(A2-A1)  +  SD(4)*(4._dp*a4(3)-A1-A2) + &
-          2._dp* ( SD(1)*a4(7) + SD(2)*a4(9) - SD(3)*(a4(7)+a4(9)) ) 
+          2._dp* ( SD(1)*a4(7) + SD(2)*a4(9) - SD(3)*(-E1+a4(7)+a4(9)) ) 
           
           IF(dim == 3) THEN
            LoadAtIp =  LoadAtIp - Spin(3)*E2 + Spin(2)*E3  &
@@ -1069,9 +1114,9 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-    SUBROUTINE LocalJumps( STIFF,Edge,n,LeftParent,n1,RightParent,n2,Velo )
+    SUBROUTINE LocalJumps( STIFF,Edge,n,LeftParent,n1,RightParent,n2,Velo,MeshVelo )
 !------------------------------------------------------------------------------
-      REAL(KIND=dp) :: STIFF(:,:), Velo(:,:)
+      REAL(KIND=dp) :: STIFF(:,:), Velo(:,:),MeshVelo(:,:)
       INTEGER :: n,n1,n2
       TYPE(Element_t), POINTER :: Edge, LeftParent, RightParent
 !------------------------------------------------------------------------------
@@ -1141,7 +1186,7 @@ CONTAINS
 
         cu = 0.0d0
         DO i=1,dim
-          cu(i) = SUM( Velo(i,1:n) * EdgeBasis(1:n) )
+          cu(i) = SUM( (Velo(i,1:n)-MeshVelo(i,1:n)) * EdgeBasis(1:n) )
         END DO
         Udotn = SUM( Normal * cu )
 
@@ -1160,9 +1205,9 @@ CONTAINS
 
 !------------------------------------------------------------------------------
    SUBROUTINE LocalMatrixBoundary( STIFF, FORCE, LOAD, &
-        Element, n, ParentElement, np, Velo, InFlowBC )
+        Element, n, ParentElement, np, Velo,MeshVelo, InFlowBC )
 !------------------------------------------------------------------------------
-     REAL(KIND=dp) :: STIFF(:,:),  FORCE(:), LOAD(:), Velo(:,:)
+     REAL(KIND=dp) :: STIFF(:,:),  FORCE(:), LOAD(:), Velo(:,:),MeshVelo(:,:)
      INTEGER :: n, np
      LOGICAL :: InFlowBC
      TYPE(Element_t), POINTER :: Element, ParentElement
@@ -1207,7 +1252,7 @@ CONTAINS
        S = S * detJ
        cu = 0.0d0
        DO i=1,dim
-          cu(i) = SUM( Velo(i,1:n) * Basis(1:n) )
+          cu(i) = SUM( (Velo(i,1:n)-MeshVelo(i,1:n)) * Basis(1:n) )
        END DO
        UdotnA = UdotnA + s*SUM( Normal * cu )
 
@@ -1234,7 +1279,7 @@ CONTAINS
        L = SUM( LOAD(1:n) * Basis(1:n) )
        cu = 0.0d0
        DO i=1,dim
-          cu(i) = SUM( Velo(i,1:n) * Basis(1:n) )
+          cu(i) = SUM( (Velo(i,1:n)-MeshVelo(i,1:n)) * Basis(1:n) )
        END DO
        Udotn = SUM( Normal * cu )
 
