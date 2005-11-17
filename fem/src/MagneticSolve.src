@@ -85,12 +85,13 @@
      REAL(KIND=dp) :: RelativeChange,UNorm,PrevUNorm,Gravity(3), &
                       Tdiff,Normal(3),s,r,NewtonTol,NonlinearTol
 
-     TYPE(Variable_t), POINTER :: ElectricSol
+     TYPE(Variable_t), POINTER :: ElectricSol, ForceSol, ElecFieldSol
      INTEGER :: NSDOFs,NewtonIter,NonlinearIter, dim
 
      REAL(KIND=dp), POINTER :: MagneticField(:),ElectricCurrent(:), &
       Work(:,:), M1(:),M2(:),M3(:),E1(:),E2(:),E3(:), &
-      ForceVector(:), divB(:),ExB(:), LrF(:), LrFr(:), LrFz(:), LrFp(:)
+      ForceVector(:), divB(:),ExB(:), LrF(:), LrF1(:), LrF2(:), LrF3(:), &
+      ElecField(:), Field1(:), Field2(:), Field3(:)
 
      LOGICAL :: Stabilize,NewtonLinearization = .FALSE.,GotForceBC,GotIt
 
@@ -98,6 +99,7 @@
      INTEGER, POINTER :: NodeIndexes(:)
 !
      LOGICAL :: AllocationsDone = .FALSE., FreeSurfaceFlag, UserDefinedVelo
+     LOGICAL :: CalculateMagneticForce = .FALSE.
 
      REAL(KIND=dp),ALLOCATABLE:: MASS(:,:),STIFF(:,:), LoadVector(:,:),FORCE(:), &
       Conductivity(:),Mx(:),My(:),Mz(:),U(:),V(:),W(:),Alpha(:),Beta(:), &
@@ -106,8 +108,12 @@
      SAVE Mx,My,Mz,U,V,W,MASS,STIFF,LoadVector, &
        FORCE,ElementNodes,Alpha,Beta, &
          Conductivity, AllocationsDone,LocalNodes, &
-           Permeability, divB, ExBx,ExBy,ExBz,B1,B2,B3, LrF,MU,MV,MW
+           Permeability, divB, ExBx,ExBy,ExBz,B1,B2,B3,MU,MV,MW
+
 !------------------------------------------------------------------------------
+     CHARACTER(LEN=MAX_NAME_LEN) :: MessageL
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: MagneticSolve.f90,v 1.28 2005/05/26 13:43:45 apursula Exp $"
+
      INTEGER :: NumberOfBoundaryNodes
      INTEGER, POINTER :: BoundaryReorder(:)
 
@@ -119,6 +125,18 @@
               BoundaryTangent1, BoundaryTangent2
 
      REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
+
+!------------------------------------------------------------------------------
+!    Check if version number output is requested
+!------------------------------------------------------------------------------
+     IF ( .NOT. AllocationsDone ) THEN
+       IF ( ListGetLogical( GetSimulation(), 'Output Version Numbers', GotIt ) ) THEN
+         CALL Info( 'MagneticSolver', 'MagneticSolve version:', Level = 0 ) 
+         CALL Info( 'MagneticSolver', VersionID, Level = 0 ) 
+         CALL Info( 'MagneticSolver', ' ', Level = 0 ) 
+       END IF
+     END IF
+
 !------------------------------------------------------------------------------
 !    Get variables needed for solving the system
 !------------------------------------------------------------------------------
@@ -127,6 +145,12 @@
 
      ElectricSol   => VariableGet( Model % Variables, 'Electric Current' )
      IF ( ASSOCIATED(ElectricSol) ) ElectricCurrent => ElectricSol % Values
+
+     ForceSol => VariableGet( Model % Variables, 'Lorentz Force' )
+     IF ( ASSOCIATED( ForceSol ) ) LrF => ForceSol % Values
+
+     ElecFieldSol => VariableGet( Model % Variables, 'E Field' )
+     IF ( ASSOCIATED( ElecFieldSol ) ) ElecField => ElecFieldSol % Values
 
      LocalNodes = COUNT( Solver % Variable % Perm>0 )
 
@@ -151,7 +175,6 @@
                  MASS(  3*N,3*N ),  &
                  STIFF( 3*N,3*N ),  &
                  divB(Model % NumberOfNodes), &
-                 LrF(3 * Model % NumberOfNodes), &
                  B1(LocalNodes), &
                  B2(LocalNodes), &
                  B3(LocalNodes), &
@@ -248,7 +271,7 @@
 !
 !------------------------------------------------------------------------------
          n  = GetElementNOFNodes()
-         nd = GetElementNOFDOFs()
+!         nd = GetElementNOFDOFs()
          NodeIndexes => Element % NodeIndexes
 
          Equation => GetEquation()
@@ -269,9 +292,9 @@
          My = GetReal( Material, 'Applied Magnetic Field 2', Gotit )
          Mz = GetReal( Material, 'Applied Magnetic Field 3', Gotit )
 
-         ExBx=0
-         ExBy=0
-         ExBz=0
+         ExBx = 0.0d0
+         ExBy = 0.0d0
+         ExBz = 0.0d0
 ! If you want to use time-domain solution for high-frequendy part,
 ! leave external field out. Better to use frequency-domain solver!
 !#if 1
@@ -288,8 +311,8 @@
          V  = 0.0d0
          W  = 0.0d0
          MU = 0.0d0
-         MU = 0.0d0
-         MU = 0.0d0
+         MV = 0.0d0
+         MW = 0.0d0
 ! For high-f part (in time-domain), leave velocity contribution out.
 !#if 1
          IF ( UserDefinedVelo ) THEN     
@@ -379,12 +402,12 @@
       DO t = 1,Solver % Mesh % NumberOFBoundaryElements
 
         Element => GetBoundaryElement(t)
-        IF ( GetElementFamily()==1 .OR. .NOT.ActiveBoundaryElement() ) CYCLE
+        IF ( GetElementFamily()==1 .OR. .NOT. ActiveBoundaryElement() ) CYCLE
 
         BC => GetBC()
-        IF (.NOT.ASSOCIATED(BC) )  CYCLE
+        IF (.NOT. ASSOCIATED(BC) )  CYCLE
 
-        nd = GetElementNOFDOFs()
+!        nd = GetElementNOFDOFs()
         n  = GetElementNOFNodes()
         NodeIndexes => Element % NodeIndexes
 
@@ -545,25 +568,244 @@
     END IF
 
 !------------------------------------------------------------------------------
-!   Compute the Lorentz force 
-!   (high-frequency B_i contribution or total)
+!   Compute the Lorentz force if requested
 !------------------------------------------------------------------------------
 
-!#if 0
-!    LrFr => LrF(1:3*LocalNodes-2:3)
-!    LrFz => LrF(2:3*LocalNodes-1:3)
-!    LrFp => LrF(3:3*LocalNodes:3)
-!
-!    CALL LorentzForceNodal(LrFr,LrFz,LrFp,M1,M2,M3,MagneticPerm)
-!#endif
+    IF ( ASSOCIATED( ForceSol ) ) THEN
+       LrF1 => LrF(1:3*LocalNodes-2:3)
+       LrF2 => LrF(2:3*LocalNodes-1:3)
+       LrF3 => LrF(3:3*LocalNodes:3)
+
+       CALL LorentzForceNodal( LrF1,LrF2,LrF3,M1,M2,M3,Solver % Variable % Perm )
+
+    END IF
+
+!------------------------------------------------------------------------------
+!   Compute the electric field if requested
+!------------------------------------------------------------------------------
+
+    IF ( ASSOCIATED( ElecFieldSol ) ) THEN
+
+       IF ( ASSOCIATED( ElectricSol ) ) THEN
+
+          Field1 => ElecField(1:3*LocalNodes-2:3)
+          Field2 => ElecField(2:3*LocalNodes-1:3)
+          Field3 => ElecField(3:3*LocalNodes:3)
+
+          CALL ComputeNodalField( Field1, Field2, Field3, &
+               M1, M2, M3, E1, E2, E3, Solver % Variable % Perm )
+
+       ELSE
+          CALL Warn( 'MagneticSolve', &
+               'Need also current as exported variable to compute electric field' )
+       END IF
+
+    END IF
+
+!------------------------------------------------------------------------------
+!------------------------------------------------------------------------------
 
   CONTAINS
 
-   SUBROUTINE LorentzForceNodal( LrFr,LrFz,LrFp,Br,Bz,Bp,Reorder )
-     USE Types
+    SUBROUTINE ComputeNodalField( Field1, Field2, Field3, B1,B2,B3, Ji1, Ji2, Ji3, Reorder )
+
+      IMPLICIT NONE
+
+      REAL(KIND=dp) :: B1(:), B2(:), B3(:)
+      REAL(KIND=dp) :: Ji1(:), Ji2(:), Ji3(:)
+      REAL(KIND=dp) :: Field1(:), Field2(:), Field3(:)
+      INTEGER :: Reorder(:)
+
+
+      Type(Nodes_t) :: Nodes
+      Type(Element_t), POINTER :: Element
+      TYPE(ValueList_t), POINTER :: Material
+
+      REAL(KIND=dp), POINTER :: EConductivity(:), MPermeability(:)
+      REAL(KIND=dp), POINTER :: ExBx(:), ExBy(:), ExBz(:)
+      REAL(KIND=dp), POINTER :: ExMx(:), ExMy(:), ExMz(:)
+      REAL(KIND=dp), POINTER :: TotBx(:), TotBy(:), TotBz(:)
+
+      REAL(KIND=dp) :: SqrtMetric,Metric(3,3),Symb(3,3,3),dSymb(3,3,3,3)
+      REAL(KIND=dp) :: EF(3)
+
+      INTEGER, POINTER :: NodeIndexes(:),Visited(:)
+      INTEGER :: p,q,i,t,n, M
+
+      LOGICAL :: gotit
+ 
+!------------------------------------------------------------------------------
+
+     ALLOCATE( Visited(Model % NumberOfNodes) )
+
+     M = Solver % Mesh % MaxElementNodes
+
+     ALLOCATE( Nodes % x( M ), &
+               Nodes % y( M ), &
+               Nodes % z( M ) )
+
+     ALLOCATE( EConductivity( M ), MPermeability( M ),  &
+               ExBx( M ), ExBy( M ), ExBz( M ), &
+               ExMx( M ), ExMy( M ), ExMz( M ), &
+               TotBx( M ), TotBy( M ), TotBz( M ) )
+
+
+     Visited = 0
+
+     Field1 = 0.0d0
+     Field2 = 0.0d0
+     Field3 = 0.0d0
+
+     DO t = 1, Solver % NumberOfActiveElements
+
+        Element => Solver % Mesh % Elements( Solver % ActiveElements(t) )
+        NodeIndexes => Element % NodeIndexes
+
+        n = Element % TYPE % NumberOfNodes
+
+        Nodes % x(1:n) = Solver % Mesh % Nodes % x( NodeIndexes )
+        Nodes % y(1:n) = Solver % Mesh % Nodes % y( NodeIndexes )
+        Nodes % z(1:n) = Solver % Mesh % Nodes % z( NodeIndexes )
+
+        IF ( MINVAL( Reorder( NodeIndexes ) ) > 0 ) THEN
+
+           Material => GetMaterial( Element )
+           EConductivity(1:n) = GetReal( Material, 'Electrical Conductivity', &
+                gotit, Element )
+           MPermeability(1:n) = GetReal( Material, 'Magnetic Permeability', &
+                gotit, Element )
+
+!------------------------------------------------------------------------------
+
+           ExMx = 0.0d0
+           ExMy = 0.0d0
+           ExMz = 0.0d0
+
+           ExMx(1:n) = GetReal( Material, 'Applied Magnetic Field 1', Gotit )
+           ExMy(1:n) = GetReal( Material, 'Applied Magnetic Field 2', Gotit )
+           ExMz(1:n) = GetReal( Material, 'Applied Magnetic Field 3', Gotit )
+
+           ExBx = 0.0d0
+           ExBy = 0.0d0
+           ExBz = 0.0d0
+
+           CALL GetScalarLocalSolution( ExBx, 'Magnetic Flux Density 1' )
+           CALL GetScalarLocalSolution( ExBy, 'Magnetic Flux Density 2' )
+           CALL GetScalarLocalSolution( ExBz, 'Magnetic Flux Density 3' )
+
+           ExMx(1:n) = ExMx(1:n) + ExBx(1:n)
+           ExMy(1:n) = ExMy(1:n) + ExBy(1:n)
+           ExMz(1:n) = ExMz(1:n) + ExBz(1:n)
+
+           TotBx(1:n) = ExMx(1:n) + B1( Reorder( NodeIndexes ) )
+           TotBy(1:n) = ExMy(1:n) + B2( Reorder( NodeIndexes ) )
+           TotBz(1:n) = ExMz(1:n) + B3( Reorder( NodeIndexes ) )
+
+!------------------------------------------------------------------------------
+
+           U  = 0.0d0
+           V  = 0.0d0
+           W  = 0.0d0
+           MU = 0.0d0
+           MV = 0.0d0
+           MW = 0.0d0
+
+           IF ( UserDefinedVelo ) THEN     
+              ! check for given constant velocity
+              U(1:n) = GetReal( Material, 'MHD Velocity 1', gotIt )
+              V(1:n) = GetReal( Material, 'MHD Velocity 2', gotIt )
+              W(1:n) = GetReal( Material, 'MHD Velocity 3', gotIt )
+           ELSE
+              CALL GetScalarLocalSolution( U, 'Velocity 1' )
+              CALL GetScalarLocalSolution( V, 'Velocity 2' )
+              CALL GetScalarLocalSolution( W, 'Velocity 3' )
+
+              CALL GetScalarLocalSolution( MU, 'Mesh Velocity 1' )
+              CALL GetScalarLocalSolution( MV, 'Mesh Velocity 2' )
+              CALL GetScalarLocalSolution( MW, 'Mesh Velocity 3' )
+           END IF
+
+           U = U - MU
+           V = V - MV
+           W = W - MW
+
+!------------------------------------------------------------------------------
+
+           DO p=1,n
+
+              q = Reorder( NodeIndexes(p) )
+
+              IF ( CurrentCoordinateSystem() == Cartesian ) THEN
+                 EF(1) = V(p)* TotBz(p) - W(p)*TotBy(p)
+                 EF(2) = W(p)* TotBx(p) - U(p)*TotBz(p)
+                 EF(3) = U(p)* TotBy(p) - V(p)*TotBx(p)
+
+              ELSE IF ( CurrentCoordinateSystem()  == CylindricSymmetric ) THEN
+
+                 CALL CoordinateSystemInfo( Metric,SqrtMetric,Symb,dSymb,&
+                      Nodes % x(p), Nodes % y(p), Nodes % z(p) )
+ 
+                 EF(1) = W(p)*TotBy(p) - V(p)*TotBz(p)
+                 EF(2) = U(p)*TotBz(p) - W(p)*TotBx(p)
+                 ! You might want to use SI units for the azimuthal component,
+                 ! if you compute electric field at nodal points and symmetry axis,
+                 ! otherwise you divide by zero.
+!#ifdef SI_UNITS
+!                 EF(3) = V(p)*TotBx(p) - U(p)*TotBy(p)
+!#else
+                 IF ( SqrtMetric > 1.0d-10 ) THEN
+                    EF(3) = ( V(p)*TotBx(p) - U(p)*TotBy(p) ) / SqrtMetric
+                 ELSE
+                    EF(3) = 0.d0
+                 END IF
+!#endif
+
+              ELSE
+                 CALL Warn( 'MagneticSolve', & 
+                      'Unsupported coordinate system in computing electric field' )
+
+                 EF = 0.0d0
+              END IF
+
+              Field1(q) = Field1(q) + &
+                   Ji1(q) / ( EConductivity(p) * MPermeability(p) ) - EF(1)
+              Field2(q) = Field2(q) + &
+                   Ji2(q) / ( EConductivity(p) * MPermeability(p) ) - EF(2)
+              Field3(q) = Field3(q) + &
+                   Ji3(q) / ( EConductivity(p) * MPermeability(p) ) - EF(3)
+
+              Visited(q) = Visited(q) + 1
+           
+           END DO
+        END IF
+     END DO
+
+     DO i = 1, Model % NumberOfNodes
+         IF ( Visited(i) > 1 ) THEN
+            Field1(i) = Field1(i) / Visited(i)
+            Field2(i) = Field2(i) / Visited(i)
+            Field3(i) = Field3(i) / Visited(i)
+         END IF
+      END DO
+
+      DEALLOCATE( Visited )
+      DEALLOCATE( Nodes % x, Nodes % y, Nodes % z )
+      DEALLOCATE( EConductivity, MPermeability )
+      DEALLOCATE( ExBx, ExBy, ExBz )
+      DEALLOCATE( ExMx, ExMy, ExMz )
+      DEALLOCATE( TotBx, TotBy, TotBz )
+
+      print*, 'And finishing...'
+
+    END SUBROUTINE ComputeNodalField
+
+!------------------------------------------------------------------------------
+
+   SUBROUTINE LorentzForceNodal( LrF1,LrF2,LrF3,B1,B2,B3,Reorder )
+
      IMPLICIT NONE
-     REAL(KIND=dp) :: Br(:),Bz(:),Bp(:)
-     REAL(KIND=dp) :: LrFr(:),LrFz(:),LrFp(:), Lorentz(3)
+     REAL(KIND=dp) :: B1(:),B2(:),B3(:)
+     REAL(KIND=dp) :: LrF1(:),LrF2(:),LrF3(:), Lorentz(3)
      INTEGER :: Reorder(:)
 
      TYPE(Element_t), POINTER :: Element
@@ -577,30 +819,27 @@
 
      REAL(KIND=dp) :: u,v,w
 
-     REAL(KIND=dp) :: Basis(MAX_NODES)
-     REAL(KIND=dp) :: dBasisdx(MAX_NODES,3),SqrtElementMetric
-  
-!------------------------------------------
+!------------------------------------------------------------------------------
 
-     ALLOCATE( Visited(CurrentModel % NumberOfNodes) )
+     ALLOCATE( Visited(Model % NumberOfNodes) )
 
      ALLOCATE(Nodes % x(MAX_NODES),Nodes % y(MAX_NODES),Nodes % z(MAX_NODES))
 
      Visited = 0
 
-     LrFr = 0.0d0
-     LrFz = 0.0d0
-     LrFp = 0.0d0
+     LrF1 = 0.0d0
+     LrF2 = 0.0d0
+     LrF3 = 0.0d0
 
-     DO t=1,CurrentModel % NumberOfBulkElements
+     DO t=1,Model % NumberOfBulkElements
 
-        Element => CurrentModel % Elements(t)
+        Element => Model % Elements(t)
         n = Element % TYPE % NumberOfNodes
         NodeIndexes => Element % NodeIndexes
 
-        Nodes % x(1:n) = CurrentModel % Nodes % x( NodeIndexes )
-        Nodes % y(1:n) = CurrentModel % Nodes % y( NodeIndexes )
-        Nodes % z(1:n) = CurrentModel % Nodes % z( NodeIndexes )
+        Nodes % x(1:n) = Model % Nodes % x( NodeIndexes )
+        Nodes % y(1:n) = Model % Nodes % y( NodeIndexes )
+        Nodes % z(1:n) = Model % Nodes % z( NodeIndexes )
 
         IF ( MINVAL(Reorder(NodeIndexes)) > 0 ) THEN
 
@@ -616,16 +855,13 @@
                  w = 0.0D0
               END IF
 
-              stat = ElementInfo( Element, Nodes, u, v, w, SqrtElementMetric, &
-                   Basis, dBasisdx )
-
 ! Call LorentzForce from here (and zero B_e, B_ac for high-f part)
 ! For r < 1.0d-10, avoid the 1/r term in ComputeLorentz (if CylindricSymmetric)
 ! by using SI_UNITS
               Lorentz = LorentzForce( Element,Nodes,u,v,w )
-              LrFr(q) = LrFr(q) + Lorentz(1)
-              LrFz(q) = LrFz(q) + Lorentz(2)
-              LrFp(q) = LrFp(q) + Lorentz(3)
+              LrF1(q) = LrF1(q) + Lorentz(1)
+              LrF2(q) = LrF2(q) + Lorentz(2)
+              LrF3(q) = LrF3(q) + Lorentz(3)
 
               Visited(q) = Visited(q) + 1
            
@@ -633,11 +869,11 @@
         END IF
       END DO
 
-      DO i=1,CurrentModel % NumberOfNodes
+      DO i=1,Model % NumberOfNodes
          IF ( Visited(i) > 1 ) THEN
-            LrFr(i) = LrFr(i) / Visited(i)
-            LrFp(i) = LrFp(i) / Visited(i)
-            LrFz(i) = LrFz(i) / Visited(i)
+            LrF1(i) = LrF1(i) / Visited(i)
+            LrF2(i) = LrF2(i) / Visited(i)
+            LrF3(i) = LrF3(i) / Visited(i)
          END IF
       END DO
 
