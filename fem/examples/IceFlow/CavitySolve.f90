@@ -491,7 +491,7 @@
              bb = yn(2)
              cc = FlowValues( k*( FlowPerm( ordre(2) )-1 )+1) 
              dd = FlowValues( k*( FlowPerm( ordre(2) )-1 )+2) 
-             xa = xd
+             xa = xn0(1)
              xb = aa      
              IF (intbed2(xa)*intbed2(xb)<=0.0_dp) THEN
                 xbed1 = zbrent(intbed2,xa,xb,1.0e-8_dp)
@@ -504,7 +504,7 @@
            cc = FlowValues( k*( FlowPerm( ordre(Nn-1) )-1 )+1) 
            dd = FlowValues( k*( FlowPerm( ordre(Nn-1) )-1 )+2) 
            xa = aa     
-           xb = xf 
+           xb = xn(Nn)
            IF (intbed2(xa)*intbed2(xb)<=0.0_dp) THEN
               xbed2 = zbrent(intbed2,xa,xb,1.0e-8_dp)
            ELSE
@@ -523,7 +523,7 @@
                bb = yn(2)
                cc = FlowValues( k*( FlowPerm( ordre(2) )-1 )+1) 
                dd = FlowValues( k*( FlowPerm( ordre(2) )-1 )+2) 
-               xa = xd
+               xa = xn0(1)
                xb = aa    
                IF (intbed2(xa)*intbed2(xb)<=0.0) THEN
                  xbed1 = zbrent(intbed2,xa,xb,1.0e-8_dp)
@@ -563,7 +563,7 @@
              cc = FlowValues( k*( FlowPerm( ordre(Nn-1) )-1 )+1) 
              dd = FlowValues( k*( FlowPerm( ordre(Nn-1) )-1 )+2) 
              xa = aa        
-             xb = xf 
+             xb = xn(Nn)
              IF (intbed2(xa)*intbed2(xb)<=0.0) THEN
                 xbed2 = zbrent(intbed2,xa,xb,1.0e-8_dp)
              ELSE
