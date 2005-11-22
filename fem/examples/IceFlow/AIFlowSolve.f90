@@ -992,8 +992,11 @@ CONTAINS
 ! else use isotropic law
       ELSE
           Bg=BGlenT(Temperature,Wn)
-          Do i=1,6
-            C(i,i)=1.0_dp/Bg
+          Do i=1,3
+            C(i,i)=2.0_dp / Bg
+          End do
+          Do i=4,6
+            C(i,i)=1.0_dp / Bg
           End do
       ENDIF
 
@@ -1302,8 +1305,11 @@ CONTAINS
 
       ELSE
          Bg=BGlenT(Temp,Wn)
-         Do i=1,6
-            C(i,i)=1._dp/Bg
+         Do i=1,3
+            C(i,i)=2._dp/Bg
+         End do
+         Do i=4,6
+            C(i,i)=1.0_dp/Bg
          End do
       END IF
 !
