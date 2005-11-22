@@ -74,20 +74,18 @@
 
      TYPE(Matrix_t),POINTER :: StiffMatrix
 
-     INTEGER :: i,j,k,l,n,t,iter,NDeg,STDOFs,LocalNodes,istat
+     INTEGER :: i, j, k, l, n, t, iter, NDeg, STDOFs, LocalNodes, istat
      INTEGER :: dim, comp 
 
      TYPE(ValueList_t),POINTER :: Material, BC, BodyForce
      TYPE(Nodes_t) :: ElementNodes
      TYPE(Element_t),POINTER :: CurrentElement
 
-     REAL(KIND=dp) :: RelativeChange,UNorm,PrevUNorm,Gravity(3), &
-         Tdiff,Normal(3),NewtonTol,NonlinearTol,s, Wn(7)
+     REAL(KIND=dp) :: RelativeChange, UNorm, PrevUNorm, Gravity(3), &
+         Tdiff, Normal(3), NewtonTol, NonlinearTol, s, Wn(7)
 
      REAL(KIND=dp)  :: NodalStresses(3,3), &
        NodalStrainRate(3,3),  NodalSpin(3,3)   
-
-        
 
      REAL(KIND=dp), ALLOCATABLE :: Basis(:),ddBasisddx(:,:,:)
      REAL(KIND=dp), ALLOCATABLE :: dBasisdx(:,:), SlipCoeff(:,:)
@@ -98,7 +96,7 @@
      INTEGER, PARAMETER :: INDi(1:6) = (/ 1, 2, 3, 1, 2, 3 /) ,&
            INDj(1:6)=(/ 1, 2, 3, 2, 3, 1 /)
 
-     INTEGER :: NewtonIter,NonlinearIter
+     INTEGER :: NewtonIter, NonlinearIter
 
      TYPE(Variable_t), POINTER :: AIFlowSol, TempSol, Var, FabricVariable
      TYPE(Variable_t), POINTER :: SpinVar 
@@ -114,85 +112,88 @@
      INTEGER, POINTER :: SRPerm(:)
 
      REAL(KIND=dp), POINTER :: Temperature(:),AIFlow(:),Work(:,:), &
-           ForceVector(:), VonMises(:), NodalAIFlow(:), AIFlowComp(:), FabricValues(:)
+           ForceVector(:), VonMises(:), NodalAIFlow(:), AIFlowComp(:), &
+           FabricValues(:)
 
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName
 
-     INTEGER, POINTER :: TempPerm(:),AIFlowPerm(:),NodeIndexes(:), FabricPerm(:)
+     INTEGER, POINTER :: TempPerm(:), AIFlowPerm(:), NodeIndexes(:), &
+                         FabricPerm(:)
 
      INTEGER :: AIFlowType
      LOGICAL :: GotForceBC, GotIt, NewtonLinearization = .FALSE., &
-                    NormalTangential=.FALSE.
+                NormalTangential=.FALSE.
 
      INTEGER :: body_id,bf_id
-!
      INTEGER :: old_body = -1
-     LOGICAL :: Isotropic,AllocationsDone = .FALSE., FreeSurface, Requal0
+     LOGICAL :: Isotropic, AllocationsDone = .FALSE., FreeSurface, &
+                Requal0
 
      REAL(KIND=dp) :: FabricGrid(4878)
-     
            
-     REAL(KIND=dp),ALLOCATABLE:: LocalMassMatrix(:,:),LocalStiffMatrix(:,:),&
-       LoadVector(:,:),LocalForce(:), LocalTemperature(:), Alpha(:,:),Beta(:), &
-          ReferenceTemperature(:), BoundaryDispl(:), K1(:), K2(:), E1(:), E2(:), E3(:), &
-            TimeForce(:), RefS(:), RefD(:), RefSpin(:), LocalVelo(:,:)
-
-     SAVE LocalMassMatrix,LocalStiffMatrix,LoadVector, &
-       LocalForce,ElementNodes,Alpha,Beta, &
-         LocalTemperature,Isotropic,AllocationsDone,ReferenceTemperature,BoundaryDispl, &
-            NodalAIFlow, K1, K2, E1, E2, E3, Wn, old_body
-
-      SAVE RefD, RefS, RefSpin, LocalVelo, SlipCoeff 
-!------------------------------------------------------------------------------
+     REAL(KIND=dp), ALLOCATABLE:: LocalMassMatrix(:,:), &
+       LocalStiffMatrix(:,:), LoadVector(:,:), LocalForce(:), &
+       LocalTemperature(:), Alpha(:,:), Beta(:), & 
+       ReferenceTemperature(:), BoundaryDispl(:), K1(:), K2(:), E1(:), &
+       E2(:), E3(:), TimeForce(:), RefS(:), RefD(:), RefSpin(:), &
+       LocalVelo(:,:), LocalFluidity(:)
+            
      INTEGER :: NumberOfBoundaryNodes
      INTEGER, POINTER :: BoundaryReorder(:)
 
-     REAL(KIND=dp) :: Bu,Bv,Bw,RM(3,3)
+     REAL(KIND=dp) :: Bu, Bv, Bw, RM(3,3)
      REAL(KIND=dp), POINTER :: BoundaryNormals(:,:), &
          BoundaryTangent1(:,:), BoundaryTangent2(:,:)
      CHARACTER(LEN=MAX_NAME_LEN) :: viscosityFile
 
+     REAL(KIND=dp) :: at, at0, CPUTime, RealTime
+
+
+!------------------------------------------------------------------------------
      SAVE NumberOfBoundaryNodes,BoundaryReorder,BoundaryNormals, &
               BoundaryTangent1, BoundaryTangent2, FabricGrid, viscosityFile
 
      SAVE TimeForce, Basis, dBasisdx, ddBasisddx
-              
+     SAVE LocalMassMatrix, LocalStiffMatrix, LoadVector, &
+       LocalForce, ElementNodes, Alpha, Beta, LocalTemperature, &
+       Isotropic,AllocationsDone,ReferenceTemperature,BoundaryDispl, &
+       NodalAIFlow, K1, K2, E1, E2, E3, Wn, old_body, LocalFluidity
 
-     REAL(KIND=dp) :: at,at0,CPUTime,RealTime
-     
+     SAVE RefD, RefS, RefSpin, LocalVelo, SlipCoeff 
               
 !------------------------------------------------------------------------------
 !  Read constants from constants section of SIF file
 !------------------------------------------------------------------------------
-     Wn(7) = GetConstReal( Model % Constants, 'Gas Constant', GotIt )
-     IF (.NOT.GotIt) THEN
-        WRITE(Message,'(A)') 'VariableGas Constant  not found. Setting to 8.314'
+      Wn(7) = GetConstReal( Model % Constants, 'Gas Constant', GotIt )
+      IF (.NOT.GotIt) THEN
+        WRITE(Message,'(A)') 'VariableGas Constant  not found. &
+                     &Setting to 8.314'
         CALL INFO('AIFlowSolve', Message, level=20)
         Wn(7) = 8.314
-     ELSE
+      ELSE
         WRITE(Message,'(A,F10.4)') 'Gas Constant = ',   Wn(7)
         CALL INFO('AIFlowSolve', Message , level = 20)
-     END IF
+      END IF
 !------------------------------------------------------------------------------
 !    Get variables needed for solution
 !------------------------------------------------------------------------------
-     IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
+      IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
 
-     AIFlowSol => Solver % Variable
-     AIFlowPerm => AIFlowSol % Perm
-     STDOFs =  AIFlowSol % DOFs
-     AIFlow => AIFlowSol % Values
+      AIFlowSol => Solver % Variable
+      AIFlowPerm => AIFlowSol % Perm
+      STDOFs =  AIFlowSol % DOFs
+      AIFlow => AIFlowSol % Values
 
-     LocalNodes = COUNT( AIFlowPerm > 0 )
-     IF ( LocalNodes <= 0 ) RETURN
+      LocalNodes = COUNT( AIFlowPerm > 0 )
+      IF ( LocalNodes <= 0 ) RETURN
 
-     TempSol => VariableGet( Solver % Mesh % Variables, 'Temperature' )
-     IF ( ASSOCIATED( TempSol) ) THEN
-       TempPerm    => TempSol % Perm
-       Temperature => TempSol % Values
-     END IF
+      TempSol => VariableGet( Solver % Mesh % Variables, 'Temperature' )
+      IF ( ASSOCIATED( TempSol) ) THEN
+        TempPerm    => TempSol % Perm
+        Temperature => TempSol % Values
+      END IF
 
-      FabricVariable => VariableGet( Solver % Mesh % Variables, 'Fabric' )
+      FabricVariable => VariableGet(Solver % Mesh % Variables, 'Fabric')
       IF ( ASSOCIATED( FabricVariable ) ) THEN
        FabricPerm    => FabricVariable % Perm
        FabricValues => FabricVariable % Values
@@ -221,13 +222,12 @@
       ForceVector => StiffMatrix % RHS
       UNorm = Solver % Variable % Norm
 
-
 !------------------------------------------------------------------------------
 !     Allocate some permanent storage, this is done first time only
 !------------------------------------------------------------------------------
-     IF ( .NOT. AllocationsDone .OR. Solver % Mesh % Changed) THEN
-       N = Model % MaxElementNodes
-       dim = CoordinateSystemDimension()
+      IF ( .NOT. AllocationsDone .OR. Solver % Mesh % Changed) THEN
+        N = Model % MaxElementNodes
+        dim = CoordinateSystemDimension()
 
        IF ( AllocationsDone ) THEN
          DEALLOCATE( ElementNodes % x,     &
@@ -242,7 +242,7 @@
                      LocalMassMatrix,      &
                      LocalStiffMatrix,     &
                      LoadVector, Alpha, Beta, &
-                     SlipCoeff )
+                     SlipCoeff, LocalFluidity )
        END IF
 
        ALLOCATE( ElementNodes % x( N ), &
@@ -262,7 +262,7 @@
                  LocalMassMatrix( 2*STDOFs*N,2*STDOFs*N ),  &
                  LocalStiffMatrix( 2*STDOFs*N,2*STDOFs*N ),  &
                  LoadVector( 4,N ), Alpha( 3,N ), Beta( N ), &
-                 SlipCoeff(3,N),    STAT=istat )
+                 SlipCoeff(3,N), LocalFluidity(N), STAT=istat )
 
        IF ( istat /= 0 ) THEN
           CALL Fatal( 'AIFlowSolve', 'Memory allocation error.' )
@@ -277,46 +277,48 @@
 !------------------------------------------------------------------------------
 
        AllocationsDone = .TRUE.
-     END IF
+      END IF
 
 !------------------------------------------------------------------------------
 !    Do some additional initialization, and go for it
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-     NonlinearTol = GetConstReal( Solver % Values, &
+      NonlinearTol = GetConstReal( Solver % Values, &
         'Nonlinear System Convergence Tolerance' )
 
-     NewtonTol = GetConstReal( Solver % Values, &
+      NewtonTol = GetConstReal( Solver % Values, &
         'Nonlinear System Newton After Tolerance' )
 
-     NewtonIter = GetInteger( Solver % Values, &
+      NewtonIter = GetInteger( Solver % Values, &
         'Nonlinear System Newton After Iterations' )
 
-     NonlinearIter = GetInteger( Solver % Values, &
+      NonlinearIter = GetInteger( Solver % Values, &
          'Nonlinear System Max Iterations',GotIt )
 
-     IF ( .NOT.GotIt ) NonlinearIter = 1
+      IF ( .NOT.GotIt ) NonlinearIter = 1
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
 
-     EquationName = GetString( Solver % Values, 'Equation' )
+      EquationName = GetString( Solver % Values, 'Equation' )
 
-     FreeSurface = .FALSE.
+      FreeSurface = .FALSE.
 
 !------------------------------------------------------------------------------
-     DO iter=1,NonlinearIter
+      DO iter=1,NonlinearIter
 
        at  = CPUTime()
        at0 = RealTime()
 
        CALL Info( 'AIFlowSolve', ' ', Level=4 )
        CALL Info( 'AIFlowSolve', ' ', Level=4 )
-       CALL Info( 'AIFlowSolve', '-------------------------------------',Level=4 )
+       CALL Info( 'AIFlowSolve', &
+                   '-------------------------------------',Level=4 )
        WRITE( Message, * ) 'ANISOTROPIC FLOW SOLVER ITERATION', iter
        CALL Info( 'AIFlowSolve', Message,Level=4 )
-       CALL Info( 'AIFlowSolve', '-------------------------------------',Level=4 )
+       CALL Info( 'AIFlowSolve', &
+                   '-------------------------------------',Level=4 )
        CALL Info( 'AIFlowSolve', ' ', Level=4 )
        CALL Info( 'AIFlowSolve', 'Starting assembly...',Level=4 )
 !------------------------------------------------------------------------------
@@ -335,14 +337,12 @@
        DO t=1,Solver % NumberOFActiveElements
 
          IF ( RealTime() - at0 > 1.0 ) THEN
-           WRITE(Message,'(a,i3,a)' ) '   Assembly: ', INT(100.0 - 100.0 * &
-            (Solver % NumberOfActiveElements-t) / &
-               (1.0*Solver % NumberOfActiveElements)), ' % done'
-                       
+           WRITE(Message,'(a,i3,a)' ) '   Assembly: ',  &
+             INT(100.0 - 100.0 * (Solver % NumberOfActiveElements-t) / &
+             (1.0*Solver % NumberOfActiveElements)), ' % done'
            CALL Info( 'AIFlowSolve', Message, Level=5 )
            at0 = RealTime()
          END IF
-
 
          CurrentElement => GetActiveElement(t)
          n = GetElementNOFNodes()
@@ -363,6 +363,15 @@
             Call  GetMaterialDefs()
         END IF
 
+        LocalFluidity(1:n) = ListGetReal( Material, &
+                         'Fluidity Parameter', n, NodeIndexes, GotIt )
+        IF (.NOT.GotIt) THEN
+         WRITE(Message,'(A)') 'Variable Fluidity Parameter not found. &
+                            &Setting to 1.0'
+         CALL INFO('AIFlowSolve', Message, Level = 20)
+         LocalFluidity(1:n) = 1.0
+        END IF
+
 !------------------------------------------------------------------------------
 !        Set body forces
 !------------------------------------------------------------------------------
@@ -370,9 +379,12 @@
 
          BodyForce => GetBodyForce()
          IF ( ASSOCIATED( BodyForce ) ) THEN
-           LoadVector(1,1:n) = LoadVector(1,1:n)+GetReal(BodyForce,'AIFlow Force 1',gotIt)
-           LoadVector(2,1:n) = LoadVector(2,1:n)+GetReal(BodyForce,'AIFlow Force 2',gotIt)
-           LoadVector(3,1:n) = LoadVector(3,1:n)+GetReal(BodyForce,'AIFlow Force 3',gotIt)
+           LoadVector(1,1:n) = LoadVector(1,1:n) + ListGetReal( &
+                   BodyForce, 'AIFlow Force 1', n, NodeIndexes, gotIt)
+           LoadVector(2,1:n) = LoadVector(2,1:n) + ListGetReal( &
+                   BodyForce, 'AIFlow Force 2', n, NodeIndexes, gotIt)
+           LoadVector(3,1:n) = LoadVector(3,1:n) + ListGetReal( & 
+                   BodyForce, 'AIFlow Force 3', n, NodeIndexes, gotIt)
          END IF
 !------------------------------------------------------------------------------
 !        Get element local stiffness & mass matrices
@@ -396,10 +408,10 @@
            E3(1:n) = FabricValues( 5 * (FabricPerm(NodeIndexes(1:n))-1) + 5 )
          ENDIF
 
-
-         CALL LocalMatrix( LocalMassMatrix, &
-           LocalStiffMatrix,LocalForce, LoadVector, K1, K2, E1, E2, E3, &
-                LocalTemperature, CurrentElement, n, ElementNodes,Wn,Isotropic)
+         CALL LocalMatrix( LocalMassMatrix, LocalStiffMatrix, &
+              LocalForce, LoadVector, K1, K2, E1, E2, E3, &
+              LocalTemperature, LocalFluidity, CurrentElement, n, &
+              ElementNodes, Wn, Isotropic)
 
         TimeForce = 0.0d0
          CALL NSCondensate(N, N,STDOFs-1,LocalStiffMatrix,LocalForce,TimeForce )
@@ -449,16 +461,20 @@
 !------------------------------------------------------------------------------
             GotForceBC = .FALSE.
 
-            LoadVector(1,1:n) = GetReal( BC, 'Force 1', GotIt )
+            LoadVector(1,1:n) = &
+                    ListGetReal( BC, 'Force 1', n, NodeIndexes,  GotIt )
             GotForceBC = GotForceBC .OR. gotIt
 
-            LoadVector(2,1:n) = GetReal( BC, 'Force 2',GotIt )
+            LoadVector(2,1:n) = & 
+                     ListGetReal( BC, 'Force 2', n, NodeIndexes, GotIt )
             GotForceBC = GotForceBC .OR. gotIt
 
-            LoadVector(3,1:n) = GetReal( BC, 'Force 3',GotIt )
+            LoadVector(3,1:n) = &
+                     ListGetReal( BC, 'Force 3', n, NodeIndexes, GotIt )
             GotForceBC = GotForceBC .OR. gotIt
 
-            Beta(1:n) = GetReal( BC, 'Normal Force', GotIt )
+            Beta(1:n) = &
+                ListGetReal( BC, 'Normal Force', n, NodeIndexes, GotIt )
             GotForceBC = GotForceBC .OR. gotIt
 
 !------------------------------------------------------------------------------
@@ -466,16 +482,16 @@
 !------------------------------------------------------------------------------
 
               SlipCoeff = 0.0d0
-              SlipCoeff(1,1:n) =  GetReal( BC, &
-                    'AIFlow Slip Coeff 1',GotIt )
+              SlipCoeff(1,1:n) =  ListGetReal( BC, &
+                    'AIFlow Slip Coeff 1', n, NodeIndexes, GotIt )
               GotForceBC = GotForceBC .OR. gotIt
 
-              SlipCoeff(2,1:n) =  GetReal( BC, &
-                    'AIFlow Slip Coeff 2',GotIt )
+              SlipCoeff(2,1:n) =  ListGetReal( BC, &
+                    'AIFlow Slip Coeff 2', n, NodeIndexes, GotIt )
               GotForceBC = GotForceBC .OR. gotIt
 
-              SlipCoeff(3,1:n) =  GetReal( BC, &
-                    'AIFlow Slip Coeff 3',GotIt )
+              SlipCoeff(3,1:n) =  ListGetReal( BC, &
+                    'AIFlow Slip Coeff 3', n, NodeIndexes, GotIt )
               GotForceBC = GotForceBC .OR. gotIt
 
               NormalTangential = ListGetLogical( BC, &
@@ -483,9 +499,9 @@
                
             IF ( .NOT.GotForceBC ) CYCLE
 !------------------------------------------------------------------------------
-            CALL LocalMatrixBoundary( LocalStiffMatrix,LocalForce, &
-                LoadVector,Alpha,Beta,SlipCoeff,NormalTangential, &
-                CurrentElement,n,ElementNodes )
+            CALL LocalMatrixBoundary( LocalStiffMatrix, LocalForce, &
+                 LoadVector, Alpha, Beta, SlipCoeff, NormalTangential, &
+                 CurrentElement, n, ElementNodes )
 !------------------------------------------------------------------------------
 !------------------------------------------------------------------------------
 !           If boundary fields have been defined in normal/tangetial coordinate
@@ -493,10 +509,10 @@
 !           coordinate system
 !------------------------------------------------------------------------------
             IF ( NumberOfBoundaryNodes > 0 ) THEN
-              CALL RotateMatrix( LocalStiffMatrix,LocalForce,n,&
-              CoordinateSystemDimension(), STDOFs, &
-               BoundaryReorder(NodeIndexes),BoundaryNormals,BoundaryTangent1, &
-                                 BoundaryTangent2 )
+              CALL RotateMatrix( LocalStiffMatrix, LocalForce, n,&
+                   CoordinateSystemDimension(), STDOFs, &
+                   BoundaryReorder(NodeIndexes), BoundaryNormals, &
+                   BoundaryTangent1, BoundaryTangent2 )
             END IF
 !------------------------------------------------------------------------------
 !           Update global matrices from local matrices (will also affect
@@ -598,7 +614,7 @@
        IF (ASSOCIATED(devStressVar)) DSValues = 0.
        IF (ASSOCIATED(SPinVar)) SpinValues = 0.
 
-     DO t=1,Solver % NumberOFActiveElements
+      DO t=1,Solver % NumberOFActiveElements
 
          CurrentElement => GetActiveElement(t)
          n = GetElementNOFNodes()
@@ -611,10 +627,19 @@
 !------------------------------------------------------------------------------
 !    Read in material constants from Material section
 !------------------------------------------------------------------------------
-     IF (body_id /= old_body) Then 
+        IF (body_id /= old_body) Then 
               old_body = body_id
               Call  GetMaterialDefs()
-     END IF
+        END IF
+
+        LocalFluidity(1:n) = ListGetReal( Material, &
+                      'Fluidity Parameter', n, NodeIndexes, GotIt )
+        IF (.NOT.GotIt) THEN
+         WRITE(Message,'(A)') 'Variable Fluidity Parameter not found. &
+                            &Setting to 1.0'
+         CALL INFO('AIFlowSolve', Message, Level = 20)
+         LocalFluidity(1:n) = 1.0
+        END IF
 
 
          ElementNodes % x(1:n) = Model % Nodes % x(NodeIndexes(1:n))
@@ -670,7 +695,7 @@
         END IF
 
            CALL LocalSD(NodalStresses, NodalStrainRate, NodalSpin, & 
-                 LocalVelo, LocalTemperature,  &
+                 LocalVelo, LocalTemperature, LocalFluidity,  &
                 K1, K2, E1, E2, E3, CSymmetry, Basis, dBasisdx, &
                 CurrentElement, n, ElementNodes, dim, Wn, Isotropic)
 
@@ -754,21 +779,22 @@
       
 CONTAINS
 
-   SUBROUTINE GetMaterialDefs()
+      SUBROUTINE GetMaterialDefs()
       ! check if we are isotropic or not
-     Isotropic = ListGetLogical( Material , 'Isotropic',Gotit )
-     IF (.NOT.Gotit) Then
+      Isotropic = ListGetLogical( Material , 'Isotropic',Gotit )
+      IF (.NOT.Gotit) Then
           Isotropic = .False.
            WRITE(Message,'(A)') 'Isotropic set to False'
-	   CALL INFO('AIFlowSolve', Message, Level = 20)
-     ELSE
+           CALL INFO('AIFlowSolve', Message, Level = 20)
+      ELSE
            IF ( (ASSOCIATED( FabricVariable )).AND.Isotropic ) Then
-	        WRITE(Message,'(A)') 'Be carefull Isotropic is true and Fabric is defined!'
-		CALL INFO('AIFlowSolve', Message, Level = 1)
-	    END IF
+              WRITE(Message,'(A)') 'Be carefull Isotropic is true &
+                           & and Fabric is defined!'
+              CALL INFO('AIFlowSolve', Message, Level = 1)
+           END IF
       END IF
-	                   
-     IF (.NOT.Isotropic) Then
+
+      IF (.NOT.Isotropic) Then
         ! Get the viscosity file and store the viscosities into FabricGrid
          viscosityFile = ListGetString( Material ,'Viscosity File',GotIt )
          IF (.NOT.GotIt) THEN
@@ -784,93 +810,81 @@ CONTAINS
           END IF
       ENDIF
 
-    Wn(1) = ListGetConstReal( Material, 'Fluidity Parameter', GotIt )
-    IF (.NOT.GotIt) THEN
-       WRITE(Message,'(A)') 'Variable Fluidity Parameter not found. Setting to 1.0'
-       CALL INFO('AIFlowSolve', Message, Level = 20)
-       Wn(1) = 1.0
-    ELSE
-       WRITE(Message,'(A,F10.4)') 'Fluidity Parameter = ',   Wn(1)
-       CALL INFO('AIFlowSolve', Message, Level = 20)
-    END IF
-    Wn(2) = ListGetConstReal( Material , 'Powerlaw Exponent', GotIt )
-    IF (.NOT.GotIt) THEN
-       WRITE(Message,'(A)') 'Variable  Powerlaw Exponent not found. Setting to 1.0'
-       CALL INFO('AIFlowSolve', Message, Level = 20)
-       Wn(2) = 1.0
-    ELSE
+
+      Wn(2) = ListGetConstReal( Material , 'Powerlaw Exponent', GotIt )
+      IF (.NOT.GotIt) THEN
+         WRITE(Message,'(A)') 'Variable  Powerlaw Exponent not found. &
+                                    & Setting to 1.0'
+         CALL INFO('AIFlowSolve', Message, Level = 20)
+         Wn(2) = 1.0
+      ELSE
        WRITE(Message,'(A,F10.4)') 'Powerlaw Exponent = ',   Wn(2)
        CALL INFO('AIFlowSolve', Message, Level = 20)
        END IF
-    Wn(3) = ListGetConstReal( Material, 'Activation Energy 1', GotIt )
-    IF (.NOT.GotIt) THEN
-       WRITE(Message,'(A)') 'Variable Activation Energy 1 not found. Setting to 1.0'
-       CALL INFO('AIFlowSolve', Message, Level = 20)
-       Wn(3) = 1.0
-    ELSE
-       WRITE(Message,'(A,F10.4)') 'Activation Energy 1 = ',   Wn(3)
-       CALL INFO('AIFlowSolve', Message, Level = 20)
-    END IF
-    Wn(4) = ListGetConstReal( Material, 'Activation Energy 2', GotIt )
-    IF (.NOT.GotIt) THEN
-       WRITE(Message,'(A)') 'Variable Activation Energy 2 not found. Setting to 1.0'
-       CALL INFO('AIFlowSolve', Message, Level = 20)
-       Wn(4) = 1.0
-    ELSE
-       WRITE(Message,'(A,F10.4)') 'Activation Energy 2 = ',   Wn(4)
-       CALL INFO('AIFlowSolve', Message, Level = 20)
-    END IF
-    Wn(5) = ListGetConstReal( Material, 'Reference Temperature', GotIt )
-    IF (.NOT.GotIt) THEN
-       WRITE(Message,'(A)') 'Variable Reference Temperature not found. Setting to -10.0 (Celsius)'
-       CALL INFO('AIFlowSolve', Message, Level = 20)
-       Wn(5) = -10.0
-    ELSE
-       WRITE(Message,'(A,F10.4)') 'Reference Temperature = ',   Wn(5)
-       CALL INFO('AIFlowSolve', Message, Level = 20)
-    END IF
-    Wn(6) = ListGetConstReal( Material, 'Limit Temperature', GotIt )
-    IF (.NOT.GotIt) THEN
-       WRITE(Message,'(A)') 'Variable Limit Temperature not found. Setting to -10.0 (Celsius)'
-       CALL INFO('AIFlowSolve', Message, Level = 20)
-       Wn(6) = -10.0
-    ELSE
-       WRITE(Message,'(A,F10.4)') 'Limit Temperature = ',   Wn(6)
-       CALL INFO('AIFlowSolve', Message, Level = 20)
-    END IF
-!------------------------------------------------------------------------------
-   END SUBROUTINE GetMaterialDefs
-!------------------------------------------------------------------------------
-!------------------------------------------------------------------------------
-   FUNCTION TRACE( F, dim ) RESULT(t)
-!------------------------------------------------------------------------------
-     INTEGER :: i, dim
-     REAL(KIND=dp) :: F(:,:), t
 
-     t = 0.0d0
-     DO i=1,dim
-        t = t + F(i,i)
-     END DO
+      Wn(3) = ListGetConstReal( Material, 'Activation Energy 1', GotIt )
+      IF (.NOT.GotIt) THEN
+         WRITE(Message,'(A)') 'Variable Activation Energy 1 not found.&
+                            & Setting to 1.0'
+         CALL INFO('AIFlowSolve', Message, Level = 20)
+         Wn(3) = 1.0
+      ELSE
+         WRITE(Message,'(A,F10.4)') 'Activation Energy 1 = ',   Wn(3)
+         CALL INFO('AIFlowSolve', Message, Level = 20)
+      END IF
+
+      Wn(4) = ListGetConstReal( Material, 'Activation Energy 2', GotIt )
+      IF (.NOT.GotIt) THEN
+         WRITE(Message,'(A)') 'Variable Activation Energy 2 not found. &
+                               &Setting to 1.0'
+         CALL INFO('AIFlowSolve', Message, Level = 20)
+         Wn(4) = 1.0
+      ELSE
+         WRITE(Message,'(A,F10.4)') 'Activation Energy 2 = ',   Wn(4)
+         CALL INFO('AIFlowSolve', Message, Level = 20)
+      END IF
+
+      Wn(5) = ListGetConstReal(Material, 'Reference Temperature', GotIt)
+      IF (.NOT.GotIt) THEN
+         WRITE(Message,'(A)') 'Variable Reference Temperature not found. &
+                               &Setting to -10.0 (Celsius)'
+         CALL INFO('AIFlowSolve', Message, Level = 20)
+         Wn(5) = -10.0
+      ELSE
+         WRITE(Message,'(A,F10.4)') 'Reference Temperature = ',   Wn(5)
+         CALL INFO('AIFlowSolve', Message, Level = 20)
+      END IF
+
+      Wn(6) = ListGetConstReal( Material, 'Limit Temperature', GotIt )
+      IF (.NOT.GotIt) THEN
+         WRITE(Message,'(A)') 'Variable Limit Temperature not found. &
+                               &Setting to -10.0 (Celsius)'
+         CALL INFO('AIFlowSolve', Message, Level = 20)
+         Wn(6) = -10.0
+      ELSE
+         WRITE(Message,'(A,F10.4)') 'Limit Temperature = ',   Wn(6)
+         CALL INFO('AIFlowSolve', Message, Level = 20)
+      END IF
 !------------------------------------------------------------------------------
-   END FUNCTION TRACE
+      END SUBROUTINE GetMaterialDefs
 !------------------------------------------------------------------------------
 
-
 !------------------------------------------------------------------------------
-   SUBROUTINE LocalMatrix( MassMatrix,StiffMatrix,ForceVector,LoadVector,  &
-     NodalK1, NodalK2, NodalEuler1, NodalEuler2, NodalEuler3, NodalTemperature, &
-             Element,n,Nodes, Wn,Isotropic)
+      SUBROUTINE LocalMatrix( MassMatrix, StiffMatrix, ForceVector, &
+              LoadVector, NodalK1, NodalK2, NodalEuler1, NodalEuler2, &
+              NodalEuler3, NodalTemperature, NodalFluidity, Element, n,&
+              Nodes, Wn, Isotropic )
+              
 !------------------------------------------------------------------------------
 
      REAL(KIND=dp) :: StiffMatrix(:,:),MassMatrix(:,:)
      REAL(KIND=dp) :: LoadVector(:,:)
-     REAL(KIND=dp), DIMENSION(:) :: ForceVector, NodalK1, NodalK2, NodalEuler1, &
-                 NodalEuler2, NodalEuler3, NodalTemperature
-
+     REAL(KIND=dp), DIMENSION(:) :: ForceVector, NodalK1, NodalK2, &
+             NodalEuler1, NodalEuler2, NodalEuler3, NodalTemperature, &
+             NodalFluidity
      TYPE(Nodes_t) :: Nodes
      TYPE(Element_t) :: Element
      LOGICAL :: Isotropic
-
      INTEGER :: n
 !------------------------------------------------------------------------------
 !
@@ -912,9 +926,7 @@ CONTAINS
       END INTERFACE
 
 !------------------------------------------------------------------------------
-
       dim = CoordinateSystemDimension()
-
 
       ForceVector = 0.0D0
       StiffMatrix = 0.0D0
@@ -923,18 +935,18 @@ CONTAINS
 !    
 !    Integration stuff
 !    
-     NBasis = 2*n
-     IntegStuff = GaussPoints( Element, Element % Type % GaussPoints2 )
+      NBasis = 2*n
+      IntegStuff = GaussPoints( Element, Element % Type % GaussPoints2 )
 
-     U_Integ => IntegStuff % u
-     V_Integ => IntegStuff % v
-     W_Integ => IntegStuff % w
-     S_Integ => IntegStuff % s
-     N_Integ =  IntegStuff % n
+      U_Integ => IntegStuff % u
+      V_Integ => IntegStuff % v
+      W_Integ => IntegStuff % w
+      S_Integ => IntegStuff % s
+      N_Integ =  IntegStuff % n
 !
 !   Now we start integrating
 !
-     DO t=1,N_Integ
+      DO t=1,N_Integ
 
       u = U_Integ(t)
       v = V_Integ(t)
@@ -962,12 +974,11 @@ CONTAINS
 !     Temperature at the integration point
 !
       Temperature = SUM( NodalTemperature(1:n)*Basis(1:n) )
+      Wn(1) = SUM( NodalFluidity(1:n)*Basis(1:n) )
 
 ! if not isotropic use GOLF
+      C = 0.0_dp
       IF (.NOT.Isotropic) Then
-    !
-    !     Orientation tensor
-    !
          a2(1) = SUM( NodalK1(1:n) * Basis(1:n) ) 
          a2(2) = SUM( NodalK2(1:n) * Basis(1:n) ) 
          a2(3) = 1.d0 - a2(1) - a2(2)
@@ -975,35 +986,27 @@ CONTAINS
          a2(5) = SUM( NodalEuler2(1:n) * Basis(1:n) )
          a2(6) = SUM( NodalEuler3(1:n) * Basis(1:n) )
       
-    ! * Fab 
-    !     A2 expressed in the orthotropic frame
-    !
-         call R2Ro(a2,dim,ai,angle)
-
-
-    !     Get viscosity
-      
+         CALL R2Ro(a2,dim,ai,angle)
          CALL OPILGGE_ai(ai,Angle,Temperature,Wn,FabricGrid,C)
 
 ! else use isotropic law
       ELSE
           Bg=BGlenT(Temperature,Wn)
           Do i=1,6
-            C(i,i)=1._dp/Bg
+            C(i,i)=1.0_dp/Bg
           End do
       ENDIF
-
 
       CSymmetry = CurrentCoordinateSystem() == AxisSymmetric
       IF ( CSymmetry ) s = s * Radius
 !
 !    Loop over basis functions (of both unknowns and weights)
 !
-     A = 0.0d0
-     M = 0.0d0
-     B = 0.0d0
+      A = 0.0d0
+      M = 0.0d0
+      B = 0.0d0
 
-     DO p=1,NBasis
+      DO p=1,NBasis
 
        G = 0.0d0
 
@@ -1050,34 +1053,21 @@ CONTAINS
 
          A(1:3,1:3) = MATMUL( G, B )
 
-!        A = 0.0d0
-!        DO i=1,dim
-!           DO j=1,dim
-!              A(i,i) = A(i,i) + dBasisdx(q,j) * dBasisdx(p,j)
-!              A(i,j) = A(i,j) + dBasisdx(q,i) * dBasisdx(p,j)
-!           END DO
-!        END DO
-!        IF ( CSymmetry ) A(1,1) = A(1,1) + 2 * Basis(q) * Basis(p) / Radius**2
 
-         !  
-         ! Pressure gradient
-         ! --------------------
+! Pressure gradient
          DO i=1,dim
             A(i,dim+1) = -dBasisdx(p,i) * Basis(q)
          END DO
          IF ( CSymmetry ) A(1,dim+1) =  A(1,dim+1) - Basis(p) * Basis(q) / Radius
 
-         !  
-         ! Continuity equation:
-         ! --------------------
+! Continuity equation:
          DO i=1,dim
             A(dim+1,i) = dBasisdx(q,i) * Basis(p)
          END DO
          IF ( CSymmetry ) A(dim+1,1) =  A(dim+1,1) + Basis(p) * Basis(q) / Radius
          A(dim+1, dim+1) = 0.0d0
-!
+
 ! Add nodal matrix to element matrix
-!
          DO i=1,dim+1
             DO j=1,dim+1
                StiffMatrix( (dim+1)*(p-1)+i,(dim+1)*(q-1)+j ) =  &
@@ -1086,9 +1076,8 @@ CONTAINS
          END DO
 
        END DO
-!
+
 ! The righthand side...
-!
         Load = 0.0d0
   
         DO i=1,dim
@@ -1098,100 +1087,100 @@ CONTAINS
         DO i=1,dim
            ForceVector((dim+1)*(p-1)+i) = ForceVector((dim+1)*(p-1)+i) + s*Load(i)
         END DO
-     END DO
+      END DO
 
-   END DO 
+      END DO 
 !------------------------------------------------------------------------------
- END SUBROUTINE LocalMatrix
-!------------------------------------------------------------------------------
-
-
-!------------------------------------------------------------------------------
- SUBROUTINE LocalMatrixBoundary( BoundaryMatrix,BoundaryVector,LoadVector, &
-                      NodalAlpha,NodalBeta,NodalSlipCoeff,NormalTangential, &
-                      Element,n,Nodes )
-!------------------------------------------------------------------------------
-   REAL(KIND=dp) :: BoundaryMatrix(:,:),BoundaryVector(:)
-   REAL(KIND=dp) :: NodalAlpha(:,:),NodalBeta(:),LoadVector(:,:)
-   REAL(KIND=dp) :: NodalSlipCoeff(:,:)
-   TYPE(Element_t),POINTER  :: Element
-   TYPE(Nodes_t)    :: Nodes
-   LOGICAL :: NormalTangential
-   INTEGER :: n
-!------------------------------------------------------------------------------
-   REAL(KIND=dp) :: Basis(n),ddBasisddx(1,1,1)
-   REAL(KIND=dp) :: dBasisdx(n,3),SqrtElementMetric
-
-   REAL(KIND=dp) :: u,v,w,s
-   REAL(KIND=dp) :: Force(3),Alpha(3),Beta,Normal(3)
-   REAL(KIND=dp), POINTER :: U_Integ(:),V_Integ(:),W_Integ(:),S_Integ(:)
-
-   REAL(KIND=dp) :: Tangent(3),Tangent2(3),Vect(3), SlipCoeff
-   INTEGER :: i,t,q,p,dim,N_Integ, c
-
-   LOGICAL :: stat
-
-   TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
+      END SUBROUTINE LocalMatrix
 !------------------------------------------------------------------------------
 
-   dim = CoordinateSystemDimension()
-   c=dim+1
+!------------------------------------------------------------------------------
+      SUBROUTINE LocalMatrixBoundary( BoundaryMatrix, BoundaryVector, &
+                 LoadVector, NodalAlpha, NodalBeta, NodalSlipCoeff, & 
+                  NormalTangential, Element, n, Nodes )
+                      
+!------------------------------------------------------------------------------
+     REAL(KIND=dp) :: BoundaryMatrix(:,:),BoundaryVector(:)
+     REAL(KIND=dp) :: NodalAlpha(:,:),NodalBeta(:),LoadVector(:,:)
+     REAL(KIND=dp) :: NodalSlipCoeff(:,:)
+     TYPE(Element_t),POINTER  :: Element
+     TYPE(Nodes_t)    :: Nodes
+     LOGICAL :: NormalTangential
+     INTEGER :: n
+!------------------------------------------------------------------------------
+     REAL(KIND=dp) :: Basis(n),ddBasisddx(1,1,1)
+     REAL(KIND=dp) :: dBasisdx(n,3),SqrtElementMetric
 
-   BoundaryVector = 0.0D0
-   BoundaryMatrix = 0.0D0
+     REAL(KIND=dp) :: u,v,w,s
+     REAL(KIND=dp) :: Force(3),Alpha(3),Beta,Normal(3)
+     REAL(KIND=dp), POINTER :: U_Integ(:),V_Integ(:),W_Integ(:),S_Integ(:)
+
+     REAL(KIND=dp) :: Tangent(3),Tangent2(3),Vect(3), SlipCoeff
+     INTEGER :: i,t,q,p,dim,N_Integ, c
+
+     LOGICAL :: stat
+
+     TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
+!------------------------------------------------------------------------------
+
+      dim = CoordinateSystemDimension()
+      c=dim+1
+
+      BoundaryVector = 0.0D0
+      BoundaryMatrix = 0.0D0
 !
 !  Integration stuff
 !
-   IntegStuff = GaussPoints( element )
-   U_Integ => IntegStuff % u
-   V_Integ => IntegStuff % v
-   W_Integ => IntegStuff % w
-   S_Integ => IntegStuff % s
-   N_Integ =  IntegStuff % n
+      IntegStuff = GaussPoints( element )
+      U_Integ => IntegStuff % u
+      V_Integ => IntegStuff % v
+      W_Integ => IntegStuff % w
+      S_Integ => IntegStuff % s
+      N_Integ =  IntegStuff % n
 !
 !  Now we start integrating
 !
-   DO t=1,N_Integ
+      DO t=1,N_Integ
 
-     u = U_Integ(t)
-     v = V_Integ(t)
-     w = W_Integ(t)
+       u = U_Integ(t)
+       v = V_Integ(t)
+       w = W_Integ(t)
 
 !------------------------------------------------------------------------------
 !    Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
-     stat = ElementInfo( Element, Nodes, u, v, w, SqrtElementMetric, &
+       stat = ElementInfo( Element, Nodes, u, v, w, SqrtElementMetric, &
                 Basis, dBasisdx, ddBasisddx, .FALSE. )
 
-     s = SqrtElementMetric * S_Integ(t)
-     IF ( CurrentCoordinateSystem() == AxisSymmetric ) &
+       s = SqrtElementMetric * S_Integ(t)
+       IF ( CurrentCoordinateSystem() == AxisSymmetric ) &
         s = s * SUM( Nodes % x(1:n) * Basis(1:n) )
 !------------------------------------------------------------------------------
-     Force = 0.0D0
-     DO i=1,dim
-       Force(i) = SUM( LoadVector(i,1:n)*Basis(1:n) )
-       Alpha(i) = SUM( NodalAlpha(i,1:n)*Basis(1:n) )
-     END DO
+       Force = 0.0D0
+       DO i=1,dim
+         Force(i) = SUM( LoadVector(i,1:n)*Basis(1:n) )
+         Alpha(i) = SUM( NodalAlpha(i,1:n)*Basis(1:n) )
+       END DO
 
-     Normal = NormalVector( Element,Nodes,u,v,.TRUE. )
-     Force = Force + SUM( NodalBeta(1:n)*Basis(1:n) ) * Normal
+       Normal = NormalVector( Element,Nodes,u,v,.TRUE. )
+       Force = Force + SUM( NodalBeta(1:n)*Basis(1:n) ) * Normal
 
-     SELECT CASE( Element % TYPE % DIMENSION )
-     CASE(1)
+       SELECT CASE( Element % TYPE % DIMENSION )
+       CASE(1)
         Tangent(1) =  Normal(2)
         Tangent(2) = -Normal(1)
         Tangent(3) =  0.0d0
-     CASE(2)
+       CASE(2)
         CALL TangentDirections( Normal, Tangent, Tangent2 ) 
-     END SELECT
+       END SELECT
   
-     IF ( ANY( NodalSlipCoeff(:,:) /= 0.0d0 ) ) THEN
-       DO p=1,n
-         DO q=1,n
-           DO i=1,DIM
-            SlipCoeff = SUM( NodalSlipCoeff(i,1:n) * Basis(1:n) )
+       IF ( ANY( NodalSlipCoeff(:,:) /= 0.0d0 ) ) THEN
+         DO p=1,n
+           DO q=1,n
+             DO i=1,DIM
+              SlipCoeff = SUM( NodalSlipCoeff(i,1:n) * Basis(1:n) )
   
-             IF (NormalTangential ) THEN
+              IF (NormalTangential ) THEN
                 SELECT CASE(i)
                    CASE(1)
                      Vect = Normal
@@ -1208,19 +1197,19 @@ CONTAINS
                           s * SlipCoeff * Basis(q) * Basis(p) * Vect(j) * Vect(k)
                    END DO
                 END DO
-             ELSE
+               ELSE
                  BoundaryMatrix( (p-1)*c+i,(q-1)*c+i ) = &
                      BoundaryMatrix( (p-1)*c+i,(q-1)*c+i ) + &
                           s * SlipCoeff * Basis(q) * Basis(p)
-             END IF
+               END IF
+             END DO
            END DO
          END DO
-       END DO
-     END IF
+       END IF
 
 
 
-     DO p=1,N
+      DO p=1,N
        DO q=1,N
          DO i=1,dim
            BoundaryMatrix((p-1)*(dim+1)+i,(q-1)*(dim+1)+i) =  &
@@ -1228,72 +1217,26 @@ CONTAINS
                s * Alpha(i) * Basis(q) * Basis(p)
          END DO
        END DO
-     END DO
+      END DO
 
-     DO q=1,N
+      DO q=1,N
        DO i=1,dim
          BoundaryVector((q-1)*(dim+1)+i) = BoundaryVector((q-1)*(dim+1)+i) + &
                    s * Basis(q) * Force(i)
        END DO
-     END DO
+      END DO
 
-   END DO
+      END DO
 !------------------------------------------------------------------------------
- END SUBROUTINE LocalMatrixBoundary
+      END SUBROUTINE LocalMatrixBoundary
 !------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
-   SUBROUTINE InputTensor( Tensor, IsScalar, Name, Material, n, NodeIndexes )
-!------------------------------------------------------------------------------
-      REAL(KIND=dp) :: Tensor(:,:,:)
-      INTEGER :: n, NodeIndexes(:)
-      LOGICAL :: IsScalar
-      CHARACTER(LEN=*) :: Name
-      TYPE(ValueList_t), POINTER :: Material
-!------------------------------------------------------------------------------
-      LOGICAL :: FirstTime = .TRUE., stat
-      REAL(KIND=dp), POINTER :: Hwrk(:,:,:)
-
-      INTEGER :: i,j
-
-      SAVE FirstTime, Hwrk
-!------------------------------------------------------------------------------
-      IF ( FirstTime ) THEN
-         NULLIFY( Hwrk )
-         FirstTime = .FALSE.
-      END IF
-
-      Tensor = 0.0d0
-
-      CALL ListGetRealArray( Material, Name, Hwrk, n, NodeIndexes, stat )
-      IsScalar = SIZE(HWrk,1) == 1 .AND. SIZE(HWrk,2) == 1
-
-      IF ( .NOT. stat ) RETURN
-
-      IF ( SIZE(Hwrk,1) == 1 ) THEN
-         DO i=1,MIN(6,SIZE(HWrk,2) )
-            Tensor( i,i,1:n ) = Hwrk( 1,1,1:n )
-         END DO
-      ELSE IF ( SIZE(Hwrk,2) == 1 ) THEN
-         DO i=1,MIN(6,SIZE(Hwrk,1))
-            Tensor( i,i,1:n ) = Hwrk( i,1,1:n )
-         END DO
-      ELSE
-        DO i=1,MIN(6,SIZE(Hwrk,1))
-           DO j=1,MIN(6,SIZE(Hwrk,2))
-              Tensor( i,j,1:n ) = Hwrk( i,j,1:n )
-           END DO
-        END DO
-      END IF
-!------------------------------------------------------------------------------
-   END SUBROUTINE InputTensor
-!------------------------------------------------------------------------------
-!------------------------------------------------------------------------------
-   SUBROUTINE LocalSD( Stress, StrainRate, Spin, &
-        NodalVelo, NodalTemp,  &
-       NodalK1, NodalK2, NodalE1, NodalE2, NodalE3, &
-       CSymmetry, Basis, dBasisdx, Element, n,  Nodes, dim,  Wn, Isotropic)
+      SUBROUTINE LocalSD( Stress, StrainRate, Spin, &
+        NodalVelo, NodalTemp, NodalFluidity, NodalK1,  &
+        NodalK2, NodalE1, NodalE2, NodalE3, CSymmetry, &
+        Basis, dBasisdx, Element, n,  Nodes, dim,  Wn, Isotropic)
 !------------------------------------------------------------------------------
 !    Subroutine to computre the nodal Strain-Rate, Stress, ...
 !------------------------------------------------------------------------------
@@ -1301,13 +1244,13 @@ CONTAINS
      INTEGER :: n, dim
      INTEGER :: INDi(6),INDj(6)
      REAL(KIND=dp) :: Stress(:,:), StrainRate(:,:), Spin(:,:)
-     REAL(KIND=dp) :: NodalVelo(:,:), NodalTemp(:)
-     REAL(KIND=dp) :: Basis(2*n),ddBasisddx(1,1,1)
+     REAL(KIND=dp) :: NodalVelo(:,:), NodalTemp(:), NodalFluidity(:)
+     REAL(KIND=dp) :: Basis(2*n), ddBasisddx(1,1,1)
      REAL(KIND=dp) :: dBasisdx(2*n,3)
      REAL(KIND=dp) :: detJ
      REAL(KIND=dp) :: NodalK1(:), NodalK2(:)
      REAL(KIND=dp) :: NodalE1(:), NodalE2(:), NodalE3(:)
-     REAL(KIND=dp) :: u, v, w                                            
+     REAL(KIND=dp) :: u, v, w      
      REAL(KIND=dp) :: Wn(7),  D(6)
      LOGICAL :: Isotropic
       
@@ -1330,24 +1273,23 @@ CONTAINS
                  
       Subroutine OPILGGE_ai(ai,Angle,Tc,W,etaI,eta36)
           USE Types
-          REAL(KIND=dp) :: ai(3), Angle(3), Tc, W(7), EtaI(:),Eta36(6,6)
+          REAL(KIND=dp) :: ai(3), Angle(3), Tc, W(7), EtaI(:), Eta36(6,6)
         END SUBROUTINE OPILGGE_ai
       END INTERFACE
 !------------------------------------------------------------------------------
      
-     Stress = 0.0
-     StrainRate = 0.0
-     Spin = 0.0
+      Stress = 0.0
+      StrainRate = 0.0
+      Spin = 0.0
 
 !
 !     Temperature at the integration point
       Temp = SUM( NodalTemp(1:n)*Basis(1:n) )
-
+      Wn(1) = SUM( NodalFluidity(1:n)*Basis(1:n) )
+      
+      C = 0.0_dp
       IF (.Not.Isotropic) then
-!
 !    Material parameters at that point
-!    ---------------------------------
-!
         a2(1) = SUM( NodalK1(1:n) * Basis(1:n) ) 
         a2(2) = SUM( NodalK2(1:n) * Basis(1:n) ) 
         a2(3) = 1.d0 - a2(1) - a2(2)
@@ -1355,12 +1297,7 @@ CONTAINS
         a2(5) = SUM( NodalE2(1:n) * Basis(1:n) )
         a2(6) = SUM( NodalE3(1:n) * Basis(1:n) )
       
-!     A2 expressed in the orthotropic frame
-!
-        call R2Ro(a2,dim,ai,angle)
-
-!     Get viscosity
-
+        CALL R2Ro(a2,dim,ai,angle)
         CALL OPILGGE_ai(ai,Angle,Temp,Wn,FabricGrid,C)
 
       ELSE
@@ -1368,7 +1305,6 @@ CONTAINS
          Do i=1,6
             C(i,i)=1._dp/Bg
          End do
-
       END IF
 !
 !    Compute strainRate and Spin : 
@@ -1428,13 +1364,10 @@ CONTAINS
        END DO
        IF (k > 3)  Stress( INDj(k),INDi(k) ) = Stress( INDi(k),INDj(k) )
       END DO
-      
-
-
 !------------------------------------------------------------------------------
-   END SUBROUTINE LocalSD      
+      END SUBROUTINE LocalSD      
 !------------------------------------------------------------------------------
 !        
 !------------------------------------------------------------------------------
-  END SUBROUTINE AIFlowSolver
+      END SUBROUTINE AIFlowSolver
 !------------------------------------------------------------------------------

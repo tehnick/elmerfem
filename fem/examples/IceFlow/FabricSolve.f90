@@ -108,20 +108,21 @@
 
      TYPE(Variable_t), POINTER :: TimeVar
 
-     REAL(KIND=dp),ALLOCATABLE:: MASS(:,:),STIFF(:,:),&
-       LOAD(:,:),Force(:), LocalTemperature(:), Alpha(:,:),Beta(:), &
-          K1(:), K2(:), E1(:), E2(:), E3(:), &
-             Velocity(:,:),MeshVelocity(:,:)
+     REAL(KIND=dp), ALLOCATABLE:: MASS(:,:), STIFF(:,:),  &
+       LocalFluidity(:), LOAD(:,:),Force(:), LocalTemperature(:), &
+       Alpha(:,:),Beta(:), K1(:), K2(:), E1(:), E2(:), E3(:), &
+       Velocity(:,:), MeshVelocity(:,:)
 
-     SAVE MASS,STIFF,LOAD, &
-       Force,ElementNodes,Alpha,Beta, LocalTemperature,  AllocationsDone, &
-         K1, K2, E1, E2, E3, Wn,  FabricGrid, rho,lambda, Velocity,MeshVelocity, old_body, dim,comp
-! *
+     SAVE MASS, STIFF, LOAD, Force,ElementNodes,Alpha,Beta, & 
+          LocalTemperature, LocalFluidity,  AllocationsDone, K1, K2, &
+          E1, E2, E3, Wn,  FabricGrid, rho, lambda, Velocity, &
+          MeshVelocity, old_body, dim, comp
 !------------------------------------------------------------------------------
      CHARACTER(LEN=MAX_NAME_LEN) :: viscosityFile
 
      REAL(KIND=dp) :: Bu,Bv,Bw,RM(3,3), SaveTime = -1
-     REAL(KIND=dp), POINTER :: PrevFabric(:),CurrFabric(:),PostFabric(:),TempFabVal(:)
+     REAL(KIND=dp), POINTER :: PrevFabric(:), CurrFabric(:), &
+                  PostFabric(:),TempFabVal(:)
 
      SAVE  ViscosityFile, PrevFabric, CurrFabric,PostFabric,TempFabVal
      REAL(KIND=dp) :: at, at0, CPUTime, RealTime
@@ -133,7 +134,8 @@
          
       Wn(7) = ListGetConstReal( Model % Constants, 'Gas Constant', GotIt )
       IF (.NOT.GotIt) THEN
-  WRITE(Message,'(A)')'VariableGas Constant not found. Setting to 8.314'
+        WRITE(Message,'(A)')'VariableGas Constant not found. &
+                                     &Setting to 8.314'
         CALL INFO('FabricSolve',Message,Level=4)
         Wn(7) = 8.314
       ELSE
@@ -143,28 +145,28 @@
 !------------------------------------------------------------------------------
 !    Get variables needed for solution
 !------------------------------------------------------------------------------
-     IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
+      IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
 
-     Solution => Solver % Variable % Values
-     STDOFs   =  Solver % Variable % DOFs
+      Solution => Solver % Variable % Values
+      STDOFs   =  Solver % Variable % DOFs
 
-     FabricSol    => VariableGet( Solver % Mesh % Variables, 'Fabric' )
-     FabricPerm   => FabricSol % Perm
-     FabricValues => FabricSol % Values
+      FabricSol    => VariableGet( Solver % Mesh % Variables, 'Fabric' )
+      FabricPerm   => FabricSol % Perm
+      FabricValues => FabricSol % Values
 
-     TempSol => VariableGet( Solver % Mesh % Variables, 'Temperature' )
-     IF ( ASSOCIATED( TempSol) ) THEN
+      TempSol => VariableGet( Solver % Mesh % Variables, 'Temperature' )
+      IF ( ASSOCIATED( TempSol) ) THEN
        TempPerm    => TempSol % Perm
        Temperature => TempSol % Values
-     END IF
+      END IF
 
-     FlowVariable => VariableGet( Solver % Mesh % Variables, 'AIFlow' )
-     IF ( ASSOCIATED( FlowVariable ) ) THEN
+      FlowVariable => VariableGet( Solver % Mesh % Variables, 'AIFlow' )
+      IF ( ASSOCIATED( FlowVariable ) ) THEN
        FlowPerm    => FlowVariable % Perm
        FlowValues  => FlowVariable % Values
-     END IF
+      END IF
                                        
-     StiffMatrix => Solver % Matrix
+      StiffMatrix => Solver % Matrix
       ! UNorm = Solver % Variable % Norm
       Unorm = SQRT( SUM( FabricValues**2 ) / SIZE(FabricValues) )
 !------------------------------------------------------------------------------
@@ -172,21 +174,21 @@
 !------------------------------------------------------------------------------
 !     Allocate some permanent storage, this is done first time only
 !------------------------------------------------------------------------------
-     IF ( .NOT. AllocationsDone .OR. Solver % Mesh % Changed) THEN
-       N = Model % MaxElementNodes
+      IF ( .NOT. AllocationsDone .OR. Solver % Mesh % Changed) THEN
+        N = Model % MaxElementNodes
 
        dim = CoordinateSystemDimension()
        
        IF ( AllocationsDone ) THEN
-         DEALLOCATE( LocalTemperature,     &
-                     K1,K2,E1,E2,E3,   &
-                     Force,           &
+         DEALLOCATE( LocalTemperature, &
+                     K1,K2,E1,E2,E3, &
+                     Force, LocalFluidity, &
                      Velocity,MeshVelocity, &
                      MASS,STIFF,      &
                      LOAD, Alpha, Beta )
        END IF
 
-       ALLOCATE( LocalTemperature( N ), &
+       ALLOCATE( LocalTemperature( N ), LocalFluidity( N ), &
                  K1( N ), K2( N ), E1( N ), E2( N ), E3( N ), &
                  Force( 2*STDOFs*N ), &
                  Velocity(4, N ),MeshVelocity(3,N), &
@@ -207,7 +209,6 @@
 
        ALLOCATE( TempFabVal( 5*SIZE(Solver % Variable % Values)) )
        TempFabVal = 0.
-! Fab
        IF ( TransientSimulation ) THEN
           ALLOCATE( PrevFabric( 5*SIZE(Solver % Variable % Values)) )
          PrevFabric = 0.
@@ -222,48 +223,48 @@
           DO COMP=1,5
             IF ( TransientSimulation ) THEN
                PrevFabric(5*(Indexes(1:n)-1)+COMP) = &
-                        FabricValues(5*(FabricPerm(NodeIndexes(1:n))-1)+COMP)
+                   FabricValues(5*(FabricPerm(NodeIndexes(1:n))-1)+COMP)
             END IF
                CurrFabric(5*(Indexes(1:n)-1)+COMP) = &
-                        FabricValues(5*(FabricPerm(NodeIndexes(1:n))-1)+COMP)
+                   FabricValues(5*(FabricPerm(NodeIndexes(1:n))-1)+COMP)
           END DO
        END DO
 
        AllocationsDone = .TRUE.
-     END IF
+      END IF
 
-     IF( TransientSimulation ) THEN
+      IF( TransientSimulation ) THEN
         TimeVar => VariableGet( Solver % Mesh % Variables, 'Time' )
         IF ( SaveTime /= TimeVar % Values(1) ) THEN
            SaveTime = TimeVar % Values(1)
            PrevFabric = CurrFabric
         END IF
-     END IF
+      END IF
 
 !------------------------------------------------------------------------------
 !    Do some additional initialization, and go for it
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-     NonlinearTol = ListGetConstReal( Solver % Values, &
+      NonlinearTol = ListGetConstReal( Solver % Values, &
         'Nonlinear System Convergence Tolerance' )
 
-     NewtonTol = ListGetConstReal( Solver % Values, &
+      NewtonTol = ListGetConstReal( Solver % Values, &
         'Nonlinear System Newton After Tolerance' )
 
-     NewtonIter = ListGetInteger( Solver % Values, &
+      NewtonIter = ListGetInteger( Solver % Values, &
         'Nonlinear System Newton After Iterations' )
 
-     NonlinearIter = ListGetInteger( Solver % Values, &
+      NonlinearIter = ListGetInteger( Solver % Values, &
          'Nonlinear System Max Iterations',GotIt )
 
-     IF ( .NOT.GotIt ) NonlinearIter = 1
+      IF ( .NOT.GotIt ) NonlinearIter = 1
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-     DO iter=1,NonlinearIter
+      DO iter=1,NonlinearIter
 !------------------------------------------------------------------------------
        at  = CPUTime()
        at0 = RealTime()
@@ -271,15 +272,16 @@
 
        CALL Info( 'FabricSolve', ' ', Level=4 )
        CALL Info( 'FabricSolve', ' ', Level=4 )
-       CALL Info( 'FabricSolve', '-------------------------------------',Level=4 )
+       CALL Info( 'FabricSolve', &
+                    '-------------------------------------',Level=4 )
        WRITE( Message, * ) 'Fabric solver  iteration', iter
        CALL Info( 'FabricSolve', Message,Level=4 )
-       CALL Info( 'FabricSolve', '-------------------------------------',Level=4 )
+       CALL Info( 'FabricSolve', &
+                     '-------------------------------------',Level=4 )
        CALL Info( 'FabricSolve', ' ', Level=4 )
        CALL Info( 'FabricSolve', 'Starting assembly...',Level=4 )
 
 !------------------------------------------------------------------------------
-
 
        PrevUNorm = UNorm
        
@@ -321,6 +323,14 @@
            CALL GetMaterialDefs()
          END IF
  
+         LocalFluidity(1:n) = ListGetReal( Material, &
+                         'Fluidity Parameter', n, NodeIndexes, GotIt )
+         IF (.NOT.GotIt) THEN
+           WRITE(Message,'(A)') 'Variable Fluidity Parameter not found.&
+                            &Setting to 1.0'
+           CALL INFO('AIFlowSolve', Message, Level = 20)
+           LocalFluidity(1:n) = 1.0
+         END IF
 !------------------------------------------------------------------------------
 !        Get element local stiffness & mass matrices
 !------------------------------------------------------------------------------
@@ -351,10 +361,9 @@
          call GetVectorLocalSolution(MeshVelocity, 'Mesh Velocity')
 !----------------------------------
 
-         CALL LocalMatrix( COMP, MASS, &
-              STIFF, FORCE, LOAD, K1, K2, E1, E2, E3,LocalTemperature, &
-              Velocity,MeshVelocity,&
-              CurrentElement, n, ElementNodes, Wn, rho,lambda)
+         CALL LocalMatrix( COMP, MASS, STIFF, FORCE, LOAD, K1, K2, E1, &
+           E2, E3, LocalTemperature, LocalFluidity,  Velocity, &
+           MeshVelocity, CurrentElement, n, ElementNodes, Wn, rho, lambda )
 
 !------------------------------------------------------------------------------
 !        Update global matrices from local matrices 
@@ -371,7 +380,7 @@
 !------------------------------------------------------------------------------
 !
 !3D => Edges => Faces
-     If (dim.eq.3) then 
+      If (dim.eq.3) then 
       DO t=1,Solver % Mesh % NumberOfFaces
          Edge => Solver % Mesh % Faces(t)
          IF ( .NOT. ActiveBoundaryElement(Edge) ) CYCLE
@@ -511,7 +520,8 @@
             TempFabVal( 5*(FabricPerm(k)-1) + COMP ) =    & 
             TempFabVal( 5*(FabricPerm(k)-1) + COMP ) + &
             Solver % Variable % Values( Solver % Variable % Perm(Indexes(i)) )
-            FabricValues( 5*(FabricPerm(k)-1) + COMP )=TempFabVal(5*(FabricPerm(k)-1) + COMP ) !fab
+            FabricValues( 5*(FabricPerm(k)-1) + COMP ) = &
+                          TempFabVal(5*(FabricPerm(k)-1) + COMP ) 
             Ref(k) = Ref(k) + 1
          END DO
       END DO
@@ -556,12 +566,9 @@
          END IF
        END DO
       END SELECT
-! *
-
 
       END DO ! End DO Comp
 
-! fab
        DO i=1,Solver % NumberOFActiveElements
           CurrentElement => GetActiveElement(i)   
           n = GetElementDOFs( Indexes )
@@ -599,123 +606,118 @@
 !------------------------------------------------------------------------------
 CONTAINS
 
-
       SUBROUTINE GetMaterialDefs()
-      ! Get the viscosity file and store the viscosities into FabricGrid
-      viscosityFile = ListGetString( Material ,'Viscosity File',GotIt )
-    IF (.NOT.GotIt) THEN
-        WRITE(Message,'(3A)') &
-                      'Viscosity File ', viscosityFile, ' not found'
-       CALL FATAL('AIFlowSolve',Message)
-    ELSE
-       PRINT *, viscosityFile
-       OPEN( 1, File = viscosityFile)
-       DO i=1,813
-          READ( 1, '(6(e14.8))' ) FabricGrid( 6*(i-1)+1:6*(i-1)+6 )
-       END DO
-! * Fab
-          READ(1 , '(e14.8)' ) FabricGrid(4879)
-       CLOSE(1)
-    END IF
 
-! * Fab
-       ! Read the interaction parameter for Fabric evolution
-       rho = ListGetConstReal( Material, 'Interaction Parameter', GotIt )
-       
+      viscosityFile = ListGetString( Material ,'Viscosity File',GotIt )
+      IF (.NOT.GotIt) THEN
+          WRITE(Message,'(3A)') &
+                      'Viscosity File ', viscosityFile, ' not found'
+         CALL FATAL('AIFlowSolve',Message)
+      ELSE
+         OPEN( 1, File = viscosityFile)
+         DO i=1,813
+            READ( 1, '(6(e14.8))' ) FabricGrid( 6*(i-1)+1:6*(i-1)+6 )
+         END DO
+         READ(1 , '(e14.8)' ) FabricGrid(4879)
+         CLOSE(1)
+      END IF
+
+       rho = ListGetConstReal(Material, 'Interaction Parameter', GotIt )
        IF (.NOT.GotIt) THEN
-           WRITE(Message,'(A)') 'Interaction  Parameter notfound. Setting to the value in ViscosityFile'
+           WRITE(Message,'(A)') 'Interaction  Parameter notfound. &
+                         &Setting to the value in ViscosityFile'
            CALL INFO('AIFlowSolve', Message, Level = 20)
            rho = FabricGrid(4879)
        ELSE
            WRITE(Message,'(A,F10.4)') 'Interaction Parameter = ', rho
            CALL INFO('AIFlowSolve', Message, Level = 20)
        END IF
+
        lambda = ListGetConstReal( Material, 'Diffusion Parameter', GotIt )
        IF (.NOT.GotIt) THEN
-           WRITE(Message,'(A)') 'Diffusion  Parameter notfound. Setting to 0'
+           WRITE(Message,'(A)') 'Diffusion  Parameter not found. &
+                                 &Setting to 0'
            CALL INFO('AIFlowSolve', Message, Level = 20)
-           lambda = 0._dp
+           lambda = 0.0_dp
        ELSE
            WRITE(Message,'(A,F10.4)') 'Diffusion Parameter = ', lambda
            CALL INFO('AIFlowSolve', Message, Level = 20)
        END IF
-! *
 
-    Wn(1) = ListGetConstReal( Material, 'Fluidity Parameter', GotIt )
-    IF (.NOT.GotIt) THEN
-       WRITE(Message,'(A)') 'Variable Fluidity Parameter not found. Setting to 1.0'
-       CALL INFO('AIFlowSolve', Message, Level = 20)
-       Wn(1) = 1.0
-    ELSE
-       WRITE(Message,'(A,F10.4)') 'Fluidity Parameter = ',   Wn(1)
-       CALL INFO('AIFlowSolve', Message, Level = 20)
-    END IF
-    Wn(2) = ListGetConstReal( Material , 'Powerlaw Exponent', GotIt )
-    IF (.NOT.GotIt) THEN
-       WRITE(Message,'(A)') 'Variable  Powerlaw Exponent not found. Setting to 1.0'
-       CALL INFO('AIFlowSolve', Message, Level = 20)
-       Wn(2) = 1.0
-    ELSE
+      Wn(2) = ListGetConstReal( Material , 'Powerlaw Exponent', GotIt )
+      IF (.NOT.GotIt) THEN
+         WRITE(Message,'(A)') 'Variable  Powerlaw Exponent not found. &
+                                    & Setting to 1.0'
+         CALL INFO('AIFlowSolve', Message, Level = 20)
+         Wn(2) = 1.0
+      ELSE
        WRITE(Message,'(A,F10.4)') 'Powerlaw Exponent = ',   Wn(2)
        CALL INFO('AIFlowSolve', Message, Level = 20)
        END IF
-    Wn(3) = ListGetConstReal( Material, 'Activation Energy 1', GotIt )
-    IF (.NOT.GotIt) THEN
-       WRITE(Message,'(A)') 'Variable Activation Energy 1 not found. Setting to 1.0'
-       CALL INFO('AIFlowSolve', Message, Level = 20)
-       Wn(3) = 1.0
-    ELSE
-       WRITE(Message,'(A,F10.4)') 'Activation Energy 1 = ',   Wn(3)
-       CALL INFO('AIFlowSolve', Message, Level = 20)
-    END IF
-    Wn(4) = ListGetConstReal( Material, 'Activation Energy 2', GotIt )
-    IF (.NOT.GotIt) THEN
-       WRITE(Message,'(A)') 'Variable Activation Energy 2 not found. Setting to 1.0'
-       CALL INFO('AIFlowSolve', Message, Level = 20)
-       Wn(4) = 1.0
-    ELSE
-       WRITE(Message,'(A,F10.4)') 'Activation Energy 2 = ',   Wn(4)
-       CALL INFO('AIFlowSolve', Message, Level = 20)
-    END IF
-    Wn(5) = ListGetConstReal( Material, 'Reference Temperature', GotIt )
-    IF (.NOT.GotIt) THEN
-       WRITE(Message,'(A)') 'Variable Reference Temperature not found. Setting to -10.0 (Celsius)'
-       CALL INFO('AIFlowSolve', Message, Level = 20)
-       Wn(5) = -10.0
-    ELSE
-       WRITE(Message,'(A,F10.4)') 'Reference Temperature = ',   Wn(5)
-       CALL INFO('AIFlowSolve', Message, Level = 20)
-    END IF
-    Wn(6) = ListGetConstReal( Material, 'Limit Temperature', GotIt )
-    IF (.NOT.GotIt) THEN
-       WRITE(Message,'(A)') 'Variable Limit Temperature not found.', & 
-          'Setting to -10.0 (Celsius)'
-       CALL INFO('AIFlowSolve', Message, Level = 20)
-       Wn(6) = -10.0
-    ELSE
-       WRITE(Message,'(A,F10.4)') 'Limit Temperature = ',   Wn(6)
-       CALL INFO('AIFlowSolve', Message, Level = 20)
-    END IF
+
+      Wn(3) = ListGetConstReal( Material, 'Activation Energy 1', GotIt )
+      IF (.NOT.GotIt) THEN
+         WRITE(Message,'(A)') 'Variable Activation Energy 1 not found.&
+                            & Setting to 1.0'
+         CALL INFO('AIFlowSolve', Message, Level = 20)
+         Wn(3) = 1.0
+      ELSE
+         WRITE(Message,'(A,F10.4)') 'Activation Energy 1 = ',   Wn(3)
+         CALL INFO('AIFlowSolve', Message, Level = 20)
+      END IF
+
+      Wn(4) = ListGetConstReal( Material, 'Activation Energy 2', GotIt )
+      IF (.NOT.GotIt) THEN
+         WRITE(Message,'(A)') 'Variable Activation Energy 2 not found. &
+                               &Setting to 1.0'
+         CALL INFO('AIFlowSolve', Message, Level = 20)
+         Wn(4) = 1.0
+      ELSE
+         WRITE(Message,'(A,F10.4)') 'Activation Energy 2 = ',   Wn(4)
+         CALL INFO('AIFlowSolve', Message, Level = 20)
+      END IF
+
+      Wn(5) = ListGetConstReal(Material, 'Reference Temperature', GotIt)
+      IF (.NOT.GotIt) THEN
+         WRITE(Message,'(A)') 'Variable Reference Temperature not found. &
+                               &Setting to -10.0 (Celsius)'
+         CALL INFO('AIFlowSolve', Message, Level = 20)
+         Wn(5) = -10.0
+      ELSE
+         WRITE(Message,'(A,F10.4)') 'Reference Temperature = ',   Wn(5)
+         CALL INFO('AIFlowSolve', Message, Level = 20)
+      END IF
+
+      Wn(6) = ListGetConstReal( Material, 'Limit Temperature', GotIt )
+      IF (.NOT.GotIt) THEN
+         WRITE(Message,'(A)') 'Variable Limit Temperature not found. &
+                               &Setting to -10.0 (Celsius)'
+         CALL INFO('AIFlowSolve', Message, Level = 20)
+         Wn(6) = -10.0
+      ELSE
+         WRITE(Message,'(A,F10.4)') 'Limit Temperature = ',   Wn(6)
+         CALL INFO('AIFlowSolve', Message, Level = 20)
+      END IF
 !------------------------------------------------------------------------------
-   END SUBROUTINE GetMaterialDefs
+      END SUBROUTINE GetMaterialDefs
 !------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
-   SUBROUTINE LocalMatrix( Comp, MASS, STIFF, FORCE, LOAD, &
-     NodalK1, NodalK2, NodalEuler1, NodalEuler2, NodalEuler3, NodalTemperature, &
-          NodalVelo, NodMeshVel, Element, n, Nodes, Wn, rho,lambda )
+      SUBROUTINE LocalMatrix( Comp, MASS, STIFF, FORCE, LOAD, &
+          NodalK1, NodalK2, NodalEuler1, NodalEuler2, NodalEuler3, & 
+          NodalTemperature, NodalFluidity, NodalVelo, NodMeshVel, &
+          Element, n, Nodes, Wn, rho,lambda )
+          
 !------------------------------------------------------------------------------
 
      REAL(KIND=dp) :: STIFF(:,:),MASS(:,:)
      REAL(KIND=dp) :: LOAD(:,:), NodalVelo(:,:),NodMeshVel(:,:)
      REAL(KIND=dp), DIMENSION(:) :: FORCE, NodalK1, NodalK2, NodalEuler1, &
-               NodalEuler2, NodalEuler3, NodalTemperature
-              
+               NodalEuler2, NodalEuler3, NodalTemperature, NodalFluidity
 
      TYPE(Nodes_t) :: Nodes
      TYPE(Element_t) :: Element
-
      INTEGER :: n, Comp
 !------------------------------------------------------------------------------
 !
@@ -726,16 +728,13 @@ CONTAINS
 
      REAL(KIND=dp) :: A,M, hK,tau,pe1,pe2,unorm,C0, SU(n), SW(n)
      REAL(KIND=dp) :: LoadAtIp, Temperature
-! * Fab
      REAL(KIND=dp) :: rho,lambda,Deq, ai(6),a4(9),hmax
-    
 
      INTEGER :: i,j,k,p,q,t,dim,NBasis,ind(3), DOFs = 1
 
      REAL(KIND=dp) :: s,u,v,w, Radius, B(6,3), G(3,6), C44,C55,C66
      REAL(KIND=dp) :: Wn(:),Velo(3),DStress(6),StrainR(6),Spin(3),SD(6)
 
-! fab 26/08
      REAL(KIND=dp) :: LGrad(3,3),StrainRate(3,3),D(6),angle(3),epsi
      REAL(KIND=dp) :: ap(3),C(6,6),Spin1(3,3),Stress(3,3)
      Integer :: INDi(6),INDj(6)
@@ -774,37 +773,33 @@ CONTAINS
          REAL(KIND=dp) :: a2(3), Angle(3), Tc, W(7),EtaI(:),Eta36(6,6)
         END SUBROUTINE OPILGGE_ai
         
-     END INTERFACE
+      END INTERFACE
 !------------------------------------------------------------------------------
-     Fond=.False.
-     hmax = maxval (Nodes % y(1:n))
-     !If (hmax < 130._dp ) Fond = .True.
-                        
-
-
+      Fond=.False.
+      hmax = maxval (Nodes % y(1:n))
         
      dim = CoordinateSystemDimension()
 
-     FORCE = 0.0D0
-     MASS  = 0.0D0
-     STIFF = 0.0D0
+      FORCE = 0.0D0
+      MASS  = 0.0D0
+      STIFF = 0.0D0
 !    
 !    Integration stuff:
 !    ------------------
-     NBasis = n
-     IntegStuff = GaussPoints( Element  )
+      NBasis = n
+      IntegStuff = GaussPoints( Element  )
 
-     U_Integ => IntegStuff % u
-     V_Integ => IntegStuff % v
-     W_Integ => IntegStuff % w
-     S_Integ => IntegStuff % s
-     N_Integ =  IntegStuff % n
+      U_Integ => IntegStuff % u
+      V_Integ => IntegStuff % v
+      W_Integ => IntegStuff % w
+      S_Integ => IntegStuff % s
+      N_Integ =  IntegStuff % n
 
-     hk = ElementDiameter( Element, Nodes )
+      hk = ElementDiameter( Element, Nodes )
 !
 !   Now we start integrating:
 !   -------------------------
-    DO t=1,N_Integ
+      DO t=1,N_Integ
 
       u = U_Integ(t)
       v = V_Integ(t)
@@ -836,23 +831,21 @@ CONTAINS
 !     Temperature at the integration point:
 !     -------------------------------------
       Temperature = SUM( NodalTemperature(1:n)*Basis(1:n) )
+      Wn(1) = SUM( NodalFluidity(1:n)*Basis(1:n) )
 !
 !     Get theta parameter: (the (fluidity in the basal plane)/2, 
 !     function of the Temperature )
 !     -----------------------------------------------------
-!* Fab
       Theta = 1._dp / ( FabricGrid(5) + FabricGrid(6) )
-      Theta = Theta * BGlenT( Temperature,Wn )
+      Theta = Theta * BGlenT( Temperature, Wn )
 
 !      Strain-Rate, Stresses and Spin
 
-     CSymmetry = CurrentCoordinateSystem() == AxisSymmetric
+      CSymmetry = CurrentCoordinateSystem() == AxisSymmetric
       
-     Stress = 0.0
-     StrainRate = 0.0
-     Spin1 = 0.0
-
-
+      Stress = 0.0
+      StrainRate = 0.0
+      Spin1 = 0.0
 !
 !    Material parameters at that point
 !    ---------------------------------
@@ -873,7 +866,7 @@ CONTAINS
 
 !     Get viscosity
 
-      CALL OPILGGE_ai(ap,Angle,Temperature,Wn,FabricGrid,C)
+      CALL OPILGGE_ai(ap, Angle, Temperature, Wn, FabricGrid, C)
 
 !    Compute strainRate and Spin :
 !    -----------------------------
@@ -936,17 +929,15 @@ CONTAINS
 !     -----------------------
       SD=0._dp
       DO i=1,2*dim
-        SD(i)= (1._dp - rho)*StrainRate(INDi(i),INDj(i)) + rho * Theta * Stress(INDi(i),INDj(i))
+        SD(i)= (1._dp - rho)*StrainRate(INDi(i),INDj(i)) + rho *&
+                                   Theta *  Stress(INDi(i),INDj(i))
       END DO
       Do i=1,2*dim-3
         Spin(i)=Spin1(INDi(i+3),INDj(i+3))
       End do
 
-      Deq=sqrt(2._dp*(SD(1)*SD(1)+SD(2)*SD(2)+SD(3)*SD(3)+2._dp*(SD(4)*SD(4)+SD(5)*SD(5)+SD(6)*SD(6)))/3._dp)
-! fin fab 26/08      
-!      write(*,'(10(e13.5,x))')SD(1),SD(2),SD(3),SD(1)+SD(2)+SD(3),ai(1), &
-!        ai(2),ai(3),a4(1),a4(2),a4(3)
-                
+      Deq=sqrt(2._dp*(SD(1)*SD(1)+SD(2)*SD(2)+SD(3)*SD(3)+2._dp* &
+                            (SD(4)*SD(4)+SD(5)*SD(5)+SD(6)*SD(6)))/3._dp)
 !
 !     Velocity :
 !     ----------
@@ -959,8 +950,6 @@ CONTAINS
 !
 !     Reaction coefficient:
 !     ---------------------
-! * Fab
-
       SELECT CASE(comp)
       CASE(1)
         !C0 = -2._dp*(SD(1)-SD(3))
@@ -1012,15 +1001,13 @@ CONTAINS
 !
 !        The righthand side...:
 !        ----------------------
-! * Fab
          SELECT CASE(comp)
          
          CASE(1)
-          !LoadAtIp = 2._dp*( Spin(1)*E1 + SD(4)*(2._dp*a4(7)-E1) + &
-          !SD(1)*a4(1) + SD(2)*a4(3) - SD(3)*(a4(1)+a4(3)) ) 
          
           LoadAtIp = 2._dp*( Spin(1)*E1 + SD(4)*(2._dp*a4(7)-E1) + &
-          SD(1)*a4(1) + SD(2)*a4(3) - SD(3)*(-A1+a4(1)+a4(3)) ) + lambda*Deq
+          SD(1)*a4(1) + SD(2)*a4(3) - SD(3)*(-A1+a4(1)+a4(3)) ) + & 
+                      lambda*Deq
 
           IF(dim == 3) THEN
             LoadAtIp =  LoadAtIp + 2._dp*( -Spin(3)*E3 + &
@@ -1029,10 +1016,9 @@ CONTAINS
           
          
          CASE(2)
-          !LoadAtIp = 2._dp*( -Spin(1)*E1 + SD(4)*(2._dp*a4(9)-E1) + &
-          !SD(2)*a4(2) + SD(1)*a4(3) - SD(3)*(a4(2)+a4(3)) )  
           LoadAtIp = 2._dp*( -Spin(1)*E1 + SD(4)*(2._dp*a4(9)-E1) + &
-          SD(2)*a4(2) + SD(1)*a4(3) - SD(3)*(-A2+a4(2)+a4(3)) )  + lambda*Deq
+          SD(2)*a4(2) + SD(1)*a4(3) - SD(3)*(-A2+a4(2)+a4(3)) )  +  &
+                        lambda*Deq
           
           IF(dim == 3) THEN
             LoadAtIp =  LoadAtIp + 2._dp*( Spin(2)*E2 + &
@@ -1041,10 +1027,8 @@ CONTAINS
 
 
          CASE(3)
-          !LoadAtIp = Spin(1)*(A2-A1)  +  SD(4)*(4._dp*a4(3)-A1-A2) + &
-          !2._dp* ( SD(1)*a4(7) + SD(2)*a4(9) - SD(3)*(a4(7)+a4(9)) ) 
           LoadAtIp = Spin(1)*(A2-A1)  +  SD(4)*(4._dp*a4(3)-A1-A2) + &
-          2._dp* ( SD(1)*a4(7) + SD(2)*a4(9) - SD(3)*(-E1+a4(7)+a4(9)) ) 
+          2._dp* ( SD(1)*a4(7) + SD(2)*a4(9) - SD(3)*(-E1+a4(7)+a4(9)) )
           
           IF(dim == 3) THEN
            LoadAtIp =  LoadAtIp - Spin(3)*E2 + Spin(2)*E3  &
@@ -1067,22 +1051,18 @@ CONTAINS
          END SELECT
 
         If (Fond) LoadAtIp=0._dp
-
-      
-         LoadAtIp= LoadAtIp * Basis(p)
-         FORCE(p) = FORCE(p) + s*LoadAtIp
+        LoadAtIp= LoadAtIp * Basis(p)
+        FORCE(p) = FORCE(p) + s*LoadAtIp
       END DO
 
               
-   END DO 
+      END DO 
 
  1000 FORMAT((a),x,i2,x,6(e13.5,x)) 
  1001 FORMAT(6(e13.5,x))
 !------------------------------------------------------------------------------
- END SUBROUTINE LocalMatrix
+       END SUBROUTINE LocalMatrix
 !------------------------------------------------------------------------------
-
-
 
 !------------------------------------------------------------------------------
     SUBROUTINE FindParentUVW( Edge, nEdge, Parent, nParent, U, V, W, Basis )
