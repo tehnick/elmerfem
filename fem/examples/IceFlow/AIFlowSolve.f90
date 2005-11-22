@@ -125,10 +125,9 @@
                     NormalTangential=.FALSE.
 
      INTEGER :: body_id,bf_id
-     LOGICAL :: PlaneAIFlow, CalcAIFlow, CalcAIFlowAll, Isotropic = .TRUE.
 !
      INTEGER :: old_body = -1
-     LOGICAL :: AllocationsDone = .FALSE., FreeSurface, Requal0
+     LOGICAL :: Isotropic,AllocationsDone = .FALSE., FreeSurface, Requal0
 
      REAL(KIND=dp) :: FabricGrid(4878)
      
@@ -140,8 +139,8 @@
 
      SAVE LocalMassMatrix,LocalStiffMatrix,LoadVector, &
        LocalForce,ElementNodes,Alpha,Beta, &
-         LocalTemperature,AllocationsDone,ReferenceTemperature,BoundaryDispl, &
-            NodalAIFlow, CalcAIFlow, CalcAIFlowAll, K1, K2, E1, E2, E3, Wn, old_body
+         LocalTemperature,Isotropic,AllocationsDone,ReferenceTemperature,BoundaryDispl, &
+            NodalAIFlow, K1, K2, E1, E2, E3, Wn, old_body
 
       SAVE RefD, RefS, RefSpin, LocalVelo, SlipCoeff 
 !------------------------------------------------------------------------------
@@ -388,15 +387,19 @@
            LocalTemperature(1:n) = 0.0d0
          END IF
 
-         K1(1:n) = FabricValues( 5 * (FabricPerm(NodeIndexes(1:n))-1) + 1 )
-         K2(1:n) = FabricValues( 5 * (FabricPerm(NodeIndexes(1:n))-1) + 2 )
-         E1(1:n) = FabricValues( 5 * (FabricPerm(NodeIndexes(1:n))-1) + 3 )
-         E2(1:n) = FabricValues( 5 * (FabricPerm(NodeIndexes(1:n))-1) + 4 )
-         E3(1:n) = FabricValues( 5 * (FabricPerm(NodeIndexes(1:n))-1) + 5 )
+! fabric not needed if isotropic
+         IF(.NOT.Isotropic) THEN
+           K1(1:n) = FabricValues( 5 * (FabricPerm(NodeIndexes(1:n))-1) + 1 )
+           K2(1:n) = FabricValues( 5 * (FabricPerm(NodeIndexes(1:n))-1) + 2 )
+           E1(1:n) = FabricValues( 5 * (FabricPerm(NodeIndexes(1:n))-1) + 3 )
+           E2(1:n) = FabricValues( 5 * (FabricPerm(NodeIndexes(1:n))-1) + 4 )
+           E3(1:n) = FabricValues( 5 * (FabricPerm(NodeIndexes(1:n))-1) + 5 )
+         ENDIF
+
 
          CALL LocalMatrix( LocalMassMatrix, &
            LocalStiffMatrix,LocalForce, LoadVector, K1, K2, E1, E2, E3, &
-                LocalTemperature, CurrentElement, n, ElementNodes,Wn)
+                LocalTemperature, CurrentElement, n, ElementNodes,Wn,Isotropic)
 
         TimeForce = 0.0d0
          CALL NSCondensate(N, N,STDOFs-1,LocalStiffMatrix,LocalForce,TimeForce )
@@ -630,13 +633,14 @@
            LocalTemperature(1:n) = 0.0d0
          END IF
 
-! n nodales values of the 5 fabric parameters
-
-         K1(1:n) = FabricValues( 5 * (FabricPerm(NodeIndexes(1:n))-1) + 1 ) 
-         K2(1:n) = FabricValues( 5 * (FabricPerm(NodeIndexes(1:n))-1) + 2 )
-         E1(1:n) = FabricValues( 5 * (FabricPerm(NodeIndexes(1:n))-1) + 3 )
-         E2(1:n) = FabricValues( 5 * (FabricPerm(NodeIndexes(1:n))-1) + 4 )
-         E3(1:n) = FabricValues( 5 * (FabricPerm(NodeIndexes(1:n))-1) + 5 )
+! n nodales values of the 5 fabric parameters, not needed if isotropic
+         IF(.NOT.Isotropic) Then
+           K1(1:n) = FabricValues( 5 * (FabricPerm(NodeIndexes(1:n))-1) + 1 ) 
+           K2(1:n) = FabricValues( 5 * (FabricPerm(NodeIndexes(1:n))-1) + 2 )
+           E1(1:n) = FabricValues( 5 * (FabricPerm(NodeIndexes(1:n))-1) + 3 )
+           E2(1:n) = FabricValues( 5 * (FabricPerm(NodeIndexes(1:n))-1) + 4 )
+           E3(1:n) = FabricValues( 5 * (FabricPerm(NodeIndexes(1:n))-1) + 5 )
+         END IF
 
 ! 2D U,V,p    STDOFs=3
 ! 3D U,V,W,p  STDOFs=4
@@ -668,7 +672,7 @@
            CALL LocalSD(NodalStresses, NodalStrainRate, NodalSpin, & 
                  LocalVelo, LocalTemperature,  &
                 K1, K2, E1, E2, E3, CSymmetry, Basis, dBasisdx, &
-                CurrentElement, n, ElementNodes, dim, Wn)
+                CurrentElement, n, ElementNodes, dim, Wn, Isotropic)
 
         IF (Requal0) NodalSpin = 0. 
 
@@ -751,20 +755,34 @@
 CONTAINS
 
    SUBROUTINE GetMaterialDefs()
-    ! Get the viscosity file and store the viscosities into FabricGrid
-    viscosityFile = ListGetString( Material ,'Viscosity File',GotIt )
-    IF (.NOT.GotIt) THEN
-        WRITE(Message,'(3A)') &
+      ! check if we are isotropic or not
+     Isotropic = ListGetLogical( Material , 'Isotropic',Gotit )
+     IF (.NOT.Gotit) Then
+          Isotropic = .False.
+           WRITE(Message,'(A)') 'Isotropic set to False'
+	   CALL INFO('AIFlowSolve', Message, Level = 20)
+     ELSE
+           IF ( (ASSOCIATED( FabricVariable )).AND.Isotropic ) Then
+	        WRITE(Message,'(A)') 'Be carefull Isotropic is true and Fabric is defined!'
+		CALL INFO('AIFlowSolve', Message, Level = 1)
+	    END IF
+      END IF
+	                   
+     IF (.NOT.Isotropic) Then
+        ! Get the viscosity file and store the viscosities into FabricGrid
+         viscosityFile = ListGetString( Material ,'Viscosity File',GotIt )
+         IF (.NOT.GotIt) THEN
+            WRITE(Message,'(3A)') &
                       'Viscosity File ', viscosityFile, ' not found'
-       CALL FATAL('AIFlowSolve',Message)
-    ELSE
-       !PRINT *, viscosityFile
-       OPEN( 1, File = viscosityFile)
-       DO i=1,813
-          READ( 1, '(6(e14.8))' ) FabricGrid( 6*(i-1)+1:6*(i-1)+6 )
-       END DO
-       CLOSE(1)
-    END IF
+           CALL FATAL('AIFlowSolve',Message)
+         ELSE
+             OPEN( 1, File = viscosityFile)
+             DO i=1,813
+                 READ( 1, '(6(e14.8))' ) FabricGrid( 6*(i-1)+1:6*(i-1)+6 )
+             END DO
+             CLOSE(1)
+          END IF
+      ENDIF
 
     Wn(1) = ListGetConstReal( Material, 'Fluidity Parameter', GotIt )
     IF (.NOT.GotIt) THEN
@@ -841,7 +859,7 @@ CONTAINS
 !------------------------------------------------------------------------------
    SUBROUTINE LocalMatrix( MassMatrix,StiffMatrix,ForceVector,LoadVector,  &
      NodalK1, NodalK2, NodalEuler1, NodalEuler2, NodalEuler3, NodalTemperature, &
-             Element,n,Nodes, Wn)
+             Element,n,Nodes, Wn,Isotropic)
 !------------------------------------------------------------------------------
 
      REAL(KIND=dp) :: StiffMatrix(:,:),MassMatrix(:,:)
@@ -851,6 +869,7 @@ CONTAINS
 
      TYPE(Nodes_t) :: Nodes
      TYPE(Element_t) :: Element
+     LOGICAL :: Isotropic
 
      INTEGER :: n
 !------------------------------------------------------------------------------
@@ -859,6 +878,7 @@ CONTAINS
      REAL(KIND=dp) :: dBasisdx(2*n,3),SqrtElementMetric
 
      REAL(KIND=dp) :: Force(3), K1, K2, Euler1, Euler2, Euler3
+     Real(kind=dp) :: Bg,BGlenT
 
      REAL(KIND=dp), DIMENSION(4,4) :: A,M
      REAL(KIND=dp) :: Load(3),Temperature,  C(6,6)
@@ -888,6 +908,7 @@ CONTAINS
           USE Types
           REAL(KIND=dp) :: ai(3), Angle(3), Tc, W(7), EtaI(:),Eta36(6,6)
         END SUBROUTINE OPILGGE_ai
+
       END INTERFACE
 
 !------------------------------------------------------------------------------
@@ -934,20 +955,6 @@ CONTAINS
       DO i=1,dim
          Force(i) = SUM( LoadVector(i,1:n)*Basis(1:n))
       END DO
-!
-!     Orientation tensor
-!
-      a2(1) = SUM( NodalK1(1:n) * Basis(1:n) ) 
-      a2(2) = SUM( NodalK2(1:n) * Basis(1:n) ) 
-      a2(3) = 1.d0 - a2(1) - a2(2)
-      a2(4) = SUM( NodalEuler1(1:n) * Basis(1:n) )
-      a2(5) = SUM( NodalEuler2(1:n) * Basis(1:n) )
-      a2(6) = SUM( NodalEuler3(1:n) * Basis(1:n) )
-      
-! * Fab 
-!     A2 expressed in the orthotropic frame
-!
-      call R2Ro(a2,dim,ai,angle)
 
 
       Radius = SUM( Nodes % x(1:n) * Basis(1:n) )
@@ -956,9 +963,37 @@ CONTAINS
 !
       Temperature = SUM( NodalTemperature(1:n)*Basis(1:n) )
 
-!     Get viscosity
+! if not isotropic use GOLF
+      IF (.NOT.Isotropic) Then
+    !
+    !     Orientation tensor
+    !
+         a2(1) = SUM( NodalK1(1:n) * Basis(1:n) ) 
+         a2(2) = SUM( NodalK2(1:n) * Basis(1:n) ) 
+         a2(3) = 1.d0 - a2(1) - a2(2)
+         a2(4) = SUM( NodalEuler1(1:n) * Basis(1:n) )
+         a2(5) = SUM( NodalEuler2(1:n) * Basis(1:n) )
+         a2(6) = SUM( NodalEuler3(1:n) * Basis(1:n) )
       
-      CALL OPILGGE_ai(ai,Angle,Temperature,Wn,FabricGrid,C)
+    ! * Fab 
+    !     A2 expressed in the orthotropic frame
+    !
+         call R2Ro(a2,dim,ai,angle)
+
+
+    !     Get viscosity
+      
+         CALL OPILGGE_ai(ai,Angle,Temperature,Wn,FabricGrid,C)
+
+! else use isotropic law
+      ELSE
+          Bg=BGlenT(Temperature,Wn)
+          Do i=1,6
+            C(i,i)=1._dp/Bg
+          End do
+      ENDIF
+
+
       CSymmetry = CurrentCoordinateSystem() == AxisSymmetric
       IF ( CSymmetry ) s = s * Radius
 !
@@ -1258,7 +1293,7 @@ CONTAINS
    SUBROUTINE LocalSD( Stress, StrainRate, Spin, &
         NodalVelo, NodalTemp,  &
        NodalK1, NodalK2, NodalE1, NodalE2, NodalE3, &
-       CSymmetry, Basis, dBasisdx, Element, n,  Nodes, dim,  Wn)
+       CSymmetry, Basis, dBasisdx, Element, n,  Nodes, dim,  Wn, Isotropic)
 !------------------------------------------------------------------------------
 !    Subroutine to computre the nodal Strain-Rate, Stress, ...
 !------------------------------------------------------------------------------
@@ -1274,6 +1309,7 @@ CONTAINS
      REAL(KIND=dp) :: NodalE1(:), NodalE2(:), NodalE3(:)
      REAL(KIND=dp) :: u, v, w                                            
      REAL(KIND=dp) :: Wn(7),  D(6)
+     LOGICAL :: Isotropic
       
      TYPE(Nodes_t) :: Nodes
      TYPE(Element_t) :: Element
@@ -1282,6 +1318,7 @@ CONTAINS
      INTEGER :: i,j,k,p,q
      REAL(KIND=dp) :: LGrad(3,3),   Radius, Temp, ai(3), Angle(3),a2(6)
      REAL(KIND=dp) :: C(6,6), epsi
+     Real(kind=dp) :: Bg,BGlenT
 !------------------------------------------------------------------------------
      INTERFACE
       Subroutine R2Ro(a2,dim,ai,angle)
@@ -1302,30 +1339,37 @@ CONTAINS
      StrainRate = 0.0
      Spin = 0.0
 
+!
+!     Temperature at the integration point
+      Temp = SUM( NodalTemp(1:n)*Basis(1:n) )
 
+      IF (.Not.Isotropic) then
 !
 !    Material parameters at that point
 !    ---------------------------------
 !
-      a2(1) = SUM( NodalK1(1:n) * Basis(1:n) ) 
-      a2(2) = SUM( NodalK2(1:n) * Basis(1:n) ) 
-      a2(3) = 1.d0 - a2(1) - a2(2)
-      a2(4) = SUM( NodalE1(1:n) * Basis(1:n) )
-      a2(5) = SUM( NodalE2(1:n) * Basis(1:n) )
-      a2(6) = SUM( NodalE3(1:n) * Basis(1:n) )
+        a2(1) = SUM( NodalK1(1:n) * Basis(1:n) ) 
+        a2(2) = SUM( NodalK2(1:n) * Basis(1:n) ) 
+        a2(3) = 1.d0 - a2(1) - a2(2)
+        a2(4) = SUM( NodalE1(1:n) * Basis(1:n) )
+        a2(5) = SUM( NodalE2(1:n) * Basis(1:n) )
+        a2(6) = SUM( NodalE3(1:n) * Basis(1:n) )
       
 !     A2 expressed in the orthotropic frame
 !
-      call R2Ro(a2,dim,ai,angle)
-
-!     Temperature at the integration point
-!
-      Temp = SUM( NodalTemp(1:n)*Basis(1:n) )
+        call R2Ro(a2,dim,ai,angle)
 
 !     Get viscosity
 
-      CALL OPILGGE_ai(ai,Angle,Temp,Wn,FabricGrid,C)
+        CALL OPILGGE_ai(ai,Angle,Temp,Wn,FabricGrid,C)
 
+      ELSE
+         Bg=BGlenT(Temp,Wn)
+         Do i=1,6
+            C(i,i)=1._dp/Bg
+         End do
+
+      END IF
 !
 !    Compute strainRate and Spin : 
 !    -----------------------------
