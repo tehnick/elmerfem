@@ -97,7 +97,7 @@
      LOGICAL, ALLOCATABLE :: IsBoundaryNode(:), LimitedSolution(:,:)
 
      REAL(KIND=dp) :: NonlinearTol,NewtonTol,NonLinearTolMin,NonLinearTolDegrease, &
-          Relax, RelaxIncrease, RelaxMax, &
+           OldNonlinearTol, Relax, RelaxIncrease, RelaxMax, &
           SaveRelax,dt,CumulativeTime, RelativeChange, &
           Norm,PrevNorm,S,C, &
           ReferencePressure=0.0d0, UzawaParameter, &
@@ -130,7 +130,7 @@
           UpperLimit, LowerLimit,LagrangeMultiplier1, LagrangeMultiplier2, &
           IsBoundaryNode, BoundaryMap, NumberOfBoundaryNodes, &
           LimitSolution, LimitedSolution, M, HeatCapacity, PrevHeatCapacity, Density, &
-          TempExt
+          TempExt, OldNonlinearTol, NonLinearTolMin,NonLinearTolDegrease
 
 !------------------------------------------------------------------------------
 !    Get variables needed for solution
@@ -279,7 +279,7 @@
         
         NULLIFY( Hwrk )
         
-        AllocationsDone = .TRUE.       
+
      END IF
 
 !------------------------------------------------------------------------------
@@ -304,17 +304,20 @@
                      'Nonlinear System Max Iterations', Found )
      IF ( .NOT.Found ) NonlinearIter = 1
 
-     NonlinearTol  = GetConstReal( SolverParams, &
+     IF (.NOT.AllocationsDone) THEN
+        NonlinearTol  = GetConstReal( SolverParams, &
                      'Nonlinear System Convergence Tolerance',    Found )
+        OldNonlinearTol = NonlinearTol
+        AllocationsDone = .TRUE.  
+        NonlinearTolDegrease = GetConstReal( SolverParams, &
+             'Nonlinear System Convergence Tolerance Degrease',    Found )
+        IF (.NOT.Found) NonlinearTolDegrease = 1.0D00
 
-     NonlinearTolDegrease = GetConstReal( SolverParams, &
-                     'Nonlinear System Convergence Tolerance Degrease',    Found )
-     IF (.NOT.Found) NonlinearTolDegrease = 1.0D00
-
-     NonlinearTolMin  = GetConstReal( SolverParams, &
-          'Nonlinear System Convergence Tolerance Min',    Found )
+        NonlinearTolMin  = GetConstReal( SolverParams, &
+             'Nonlinear System Convergence Tolerance Min',    Found )
      
-     IF (.NOT.Found) NonlinearTolDegrease = 1.0D00
+        IF (.NOT.Found) NonlinearTolDegrease = 1.0D00
+     END  IF
 
      NewtonTol     = GetConstReal( SolverParams, &
                       'Nonlinear System Newton After Tolerance',  Found )
@@ -348,7 +351,7 @@
      SaveRelax = Relax
      dt = Timestep
      CumulativeTime = 0.0d0
-     FirstTime = .TRUE.
+!     FirstTime = .TRUE.
 
 !------------------------------------------------------------------------------
 !   time stepping loop.
@@ -378,13 +381,14 @@
         DO iter=1,NonlinearIter
 
            IF (.NOT.FirstTime) THEN
-              WRITE( Message, * ) 'Nonlinear Tolerance: old:',NonLinearTol,&
-                   ' new:', MAX(NonLinearTolMin,NonLinearTol*NonLinearTolDegrease)
+              WRITE( Message, * ) 'Nonlinear Tolerance: old:',OldNonLinearTol,&
+                   ' new:', MAX(NonLinearTolMin,OldNonLinearTol*NonLinearTolDegrease)
               CALL Info( SolverName, Message, Level=4 )
               WRITE( Message, * ) 'Relaxation Factor: old:',Relax,&
                    ' new:', MIN(RelaxMax,Relax * Relaxincrease) 
               CALL Info( SolverName, Message, Level=4 )
-              NonLinearTol = MAX(NonLinearTolMin,NonLinearTol*NonLinearTolDegrease)
+              NonLinearTol = MAX(NonLinearTolMin,OldNonLinearTol*NonLinearTolDegrease)
+              OldNonLinearTol = NonLinearTol
               Relax = MIN(RelaxMax,Relax * Relaxincrease)
            ELSE
               WRITE( Message, * ) 'Nonlinear Tolerance:',NonLinearTol
