@@ -30,7 +30,7 @@
 ! *
 ! *                Modified by: Thomas Zwinger
 ! *
-! *       Date of modification: 07 Mar 2005
+! *       Date of modification: 28 Nov 2005
 ! *
 ! *****************************************************************************/
 
@@ -96,11 +96,12 @@
            LimitSolution
      LOGICAL, ALLOCATABLE :: IsBoundaryNode(:), LimitedSolution(:,:)
 
-     REAL(KIND=dp) :: NonlinearTol,NewtonTol,Relax, RelaxIncrease, RelaxMax, &
-            SaveRelax,dt,CumulativeTime, RelativeChange, &
-            Norm,PrevNorm,S,C, &
-            ReferencePressure=0.0d0, UzawaParameter, &
-            HeatCapacityGradient(3)
+     REAL(KIND=dp) :: NonlinearTol,NewtonTol,NonLinearTolMin,NonLinearTolDegrease, &
+          Relax, RelaxIncrease, RelaxMax, &
+          SaveRelax,dt,CumulativeTime, RelativeChange, &
+          Norm,PrevNorm,S,C, &
+          ReferencePressure=0.0d0, UzawaParameter, &
+          HeatCapacityGradient(3)
      
 
      REAL(KIND=dp), POINTER :: Temp(:),FlowSolution(:), &
@@ -163,13 +164,6 @@
         DIM = CoordinateSystemDimension()
         SolverName = 'HomologousTemp ('// TRIM(Solver % Variable % Name) // ')'
         VariableName = TRIM(Solver % Variable % Name)
-!        SolverName = 'HomologousTemp (' // VariableName // ')'
-!        WRITE (SolverName,'(A,A,A)') 'HomologousTemp (',VariableName,')'
-!        CorrectNegative = ListGetLogical(Solver % Values, &
-!             'Positive Values',  Found)
-!        IF (.NOT.Found) CorrectNegative = .FALSE.
-!        IF (CorrectNegative) &
-!             CALL INFO(SolverName,'Limiting solution to positive values',Level=1)
 
         IF ( AllocationsDone ) THEN
            DEALLOCATE(                 &
@@ -312,6 +306,16 @@
 
      NonlinearTol  = GetConstReal( SolverParams, &
                      'Nonlinear System Convergence Tolerance',    Found )
+
+     NonlinearTolDegrease = GetConstReal( SolverParams, &
+                     'Nonlinear System Convergence Tolerance Degrease',    Found )
+     IF (.NOT.Found) NonlinearTolDegrease = 1.0D00
+
+     NonlinearTolMin  = GetConstReal( SolverParams, &
+          'Nonlinear System Convergence Tolerance Min',    Found )
+     
+     IF (.NOT.Found) NonlinearTolDegrease = 1.0D00
+
      NewtonTol     = GetConstReal( SolverParams, &
                       'Nonlinear System Newton After Tolerance',  Found )
      NewtonIter    = GetInteger(   SolverParams, &
@@ -319,6 +323,7 @@
 
      Relax = GetConstReal( SolverParams, &
                'Nonlinear System Relaxation Factor',Found )
+
      IF ( .NOT.Found ) Relax = 1.0D00
 
      RelaxIncrease = GetConstReal( SolverParams, &
@@ -327,7 +332,7 @@
 
      RelaxMax = GetConstReal( SolverParams, &
           'Nonlinear System Relaxation Factor Max',Found )
-     IF (.NOT.Found) RelaxMax = Relax
+     IF (.NOT.Found) RelaxMax = Relax     
 
      UzawaParameter = GetConstReal( SolverParams, &
                'Uzawa Parameter', Found)
@@ -356,7 +361,7 @@
         IF ( TransientSimulation .AND. .NOT.FirstTime ) THEN
            CALL InitializeTimestep( Solver )
         END IF
-        FirstTime = .FALSE.
+
 !------------------------------------------------------------------------------
 !       Save current solution
 !------------------------------------------------------------------------------
@@ -371,6 +376,25 @@
 !       non-linear system iteration loop
 !------------------------------------------------------------------------------
         DO iter=1,NonlinearIter
+
+           IF (.NOT.FirstTime) THEN
+              WRITE( Message, * ) 'Nonlinear Tolerance: old:',NonLinearTol,&
+                   ' new:', MAX(NonLinearTolMin,NonLinearTol*NonLinearTolDegrease)
+              CALL Info( SolverName, Message, Level=4 )
+              WRITE( Message, * ) 'Relaxation Factor: old:',Relax,&
+                   ' new:', MIN(RelaxMax,Relax * Relaxincrease) 
+              CALL Info( SolverName, Message, Level=4 )
+              NonLinearTol = MAX(NonLinearTolMin,NonLinearTol*NonLinearTolDegrease)
+              Relax = MIN(RelaxMax,Relax * Relaxincrease)
+           ELSE
+              WRITE( Message, * ) 'Nonlinear Tolerance:',NonLinearTol
+              CALL Info( SolverName, Message, Level=4 )
+              WRITE( Message, * ) 'Relaxation Factor:',Relax
+              CALL Info( SolverName, Message, Level=4 )
+           END IF
+
+           FirstTime = .FALSE.
+
 
            at  = CPUTime()
            at0 = RealTime()
@@ -861,12 +885,16 @@
 
            IF ( RelativeChange < NewtonTol .OR. iter > NewtonIter ) &
                 NewtonLinearization = .TRUE.
+
            IF ( RelativeChange < NonlinearTol ) EXIT
-           WRITE( Message, * ) 'Relaxation Factor: old:',Relax,' new:', MIN(RelaxMax,Relax * Relaxincrease) 
-           CALL Info( SolverName, Message, Level=4 )
-           Relax = MIN(RelaxMax,Relax * Relaxincrease)
+           
+
            CALL ListAddConstReal(Solver % Values,  &
                 'Nonlinear System Relaxation Factor', Relax )
+
+
+           CALL ListAddConstReal(Solver % Values,  &
+                'Nonlinear System Relaxation Factor', NonLinearTol)
 
 
 !------------------------------------------------------------------------------
