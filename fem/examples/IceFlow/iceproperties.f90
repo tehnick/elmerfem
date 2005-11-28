@@ -75,7 +75,6 @@ FUNCTION basalSlip( Model, Node, dummyArgument ) RESULT(basalSlipCoefficient)
   !---------------
   ! Initialization
   !---------------
-  basalSlipCoefficient = 1.0D30 ! high value - > no slip by default
   CurrentElementAtBeginning => Model % CurrentElement 
   N = Model % MaxElementNodes 
   ALLOCATE(Temperature(N), &
@@ -86,9 +85,9 @@ FUNCTION basalSlip( Model, Node, dummyArgument ) RESULT(basalSlipCoefficient)
      CALL FATAL('iceproperties (basalSlip)','Allocations failed')
   END IF
 
-  Temperature = 0.0D00
-  TemperateSlipCoefficient = 0.0D00
-  PressureMeltingPoint = 0.0D00
+  Temperature = 273.16D00
+  TemperateSlipCoefficient = 1.0D30 ! high value - > no slip by default
+  PressureMeltingPoint = 273.16D00
 
   !-----------------------------------------------------------------
   ! get some information upon active boundary element and its parent
@@ -183,9 +182,12 @@ FUNCTION basalSlip( Model, Node, dummyArgument ) RESULT(basalSlipCoefficient)
   ! check homologous temperature
   !------------------------------
   TempHom = MIN(Temperature(ParentElementNode) - PressureMeltingPoint(ParentElementNode),0.0D00)
-  
-!  PRINT *, 'Thom =', TempHom,' = ', Temperature(ParentElementNode), '-', PressureMeltingPoint(ParentElementNode)
   basalSlipCoefficient = TemperateSlipCoefficient(BoundaryElementNode)*EXP(-1.0D00*TempHom*ThermalCoefficient) 
+  IF (basalSlipCoefficient < TemperateSlipCoefficient(BoundaryElementNode)) &
+       CALL FATAL('iceproperties (basalSlip)','Unphysical slip coefficient')
+!  PRINT *, 'R =', basalSlipCoefficient,'=', TemperateSlipCoefficient(BoundaryElementNode),'*EXP(-',&
+!      TempHom,'*',ThermalCoefficient,')'
+!  PRINT *, '=', TemperateSlipCoefficient(BoundaryElementNode),'*', EXP(-1.0D00*TempHom*ThermalCoefficient)
   !------------------------------
   ! clean up
   !------------------------------
@@ -215,7 +217,7 @@ FUNCTION basalMelting( Model, Node, dummyArgument ) RESULT(basalMeltingRate)
   INTEGER :: N, NBoundary, NParent, BoundaryElementNode, ParentElementNode, &
        i, DIM, other_body_id, body_id, material_id, istat, NSDOFs
   REAL(KIND=dp) :: U, V, W, gradTemperature(3),  Normal(3), Gravity(3),&
-       grav, InternalHeatFlux, HeatFlux, SqrtElementMetric, pressure
+       grav, InternalHeatFlux, HeatFlux, SqrtElementMetric, pressure, Tolerance
   REAL(KIND=dp), ALLOCATABLE :: Basis(:),dBasisdx(:,:), ddBasisddx(:,:,:),&
        LatentHeat(:), HeatConductivity(:), Density(:), Temperature(:),&
        ExternalHeatFlux(:), ClausiusClapeyron(:),PressureMeltingPoint(:)
@@ -364,8 +366,17 @@ FUNCTION basalMelting( Model, Node, dummyArgument ) RESULT(basalMeltingRate)
   END IF
 
   Model % CurrentElement => BoundaryElement
+  BC => GetBC()
+  Tolerance = GetConstReal(BC, TRIM(TempName) // ' Tolerance', GotIt)
+  IF (.NOT.GotIt) THEN
+     Tolerance = 0.0D00
+     STOP
+  ELSE
+     WRITE(Message,'(A, e10.4)') 'Temperature Tolerance = ', Tolerance
+     CALL INFO('iceproperties (basalMelting)',Message,level=9)
+  END IF
 
-  IF (Temperature(ParentElementNode) .GE. PressureMeltingPoint(ParentElementNode)) THEN
+  IF (Temperature(ParentElementNode) .GE. PressureMeltingPoint(ParentElementNode) - Tolerance) THEN
      !----------------------------
      ! compute internal heat flux
      !----------------------------
@@ -373,7 +384,7 @@ FUNCTION basalMelting( Model, Node, dummyArgument ) RESULT(basalMeltingRate)
      !-------------------------
      ! get external heat flux
      !------------------------
-     BC => GetBC()
+
      ExternalHeatFlux = 0.0D00
      IF (other_body_id < 1) THEN ! we are dealing with an external heat flux
         ExternalHeatFlux(1:NBoundary) = GetReal(BC, TRIM(TempName) // ' Heat Flux', GotIt)
