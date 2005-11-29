@@ -373,22 +373,25 @@
 
         totat = 0.0d0
         totst = 0.0d0
-
-
+        IF (.NOT.FirstTime) THEN
+           WRITE( Message, * ) 'Nonlinear Tolerance: old:',OldNonLinearTol,&
+                ' new:', MAX(NonLinearTolMin,OldNonLinearTol*NonLinearTolDegrease)
+           CALL Info( SolverName, Message, Level=4 )
+           NonLinearTol = MAX(NonLinearTolMin,OldNonLinearTol*NonLinearTolDegrease)
+           OldNonLinearTol = NonLinearTol
+        ELSE
+           WRITE( Message, * ) 'Nonlinear Tolerance:',NonLinearTol
+           CALL Info( SolverName, Message, Level=4 )
+        END IF
 !------------------------------------------------------------------------------
 !       non-linear system iteration loop
 !------------------------------------------------------------------------------
         DO iter=1,NonlinearIter
 
            IF (.NOT.FirstTime) THEN
-              WRITE( Message, * ) 'Nonlinear Tolerance: old:',OldNonLinearTol,&
-                   ' new:', MAX(NonLinearTolMin,OldNonLinearTol*NonLinearTolDegrease)
-              CALL Info( SolverName, Message, Level=4 )
               WRITE( Message, * ) 'Relaxation Factor: old:',Relax,&
                    ' new:', MIN(RelaxMax,Relax * Relaxincrease) 
               CALL Info( SolverName, Message, Level=4 )
-              NonLinearTol = MAX(NonLinearTolMin,OldNonLinearTol*NonLinearTolDegrease)
-              OldNonLinearTol = NonLinearTol
               Relax = MIN(RelaxMax,Relax * Relaxincrease)
            ELSE
               WRITE( Message, * ) 'Nonlinear Tolerance:',NonLinearTol
