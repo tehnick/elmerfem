@@ -766,7 +766,7 @@
                  IF ( .NOT. ASSOCIATED(ParentElement) ) ParentElement => Element % BoundaryInfo % Left
               ELSE ! we are dealing with a body-body boundary and asume that the normal is pointing outwards
                  ParentElement => Element % BoundaryInfo % Right
-                 IF (.NOT.ASSOCIATED(ParentElement) ) THEN ! boundary is declared in input file, but does not exist
+                 IF (.NOT.ASSOCIATED(ParentElement) ) THEN ! boundary is declared in input file, but does not xist
                     ParentElement => Element % BoundaryInfo % Left 
                  ELSE
                     IF (ParentElement % BodyId == other_body_id) ParentElement => Element % BoundaryInfo % Left
@@ -799,15 +799,11 @@
                     !------------------------------
                     TransferCoeff(1:N) = GetReal( BC, TRIM(Solver % Variable % Name) //  ' Transfer Coefficient',Found )
                     IF ( ANY(TransferCoeff(1:N) /= 0.0d0) ) THEN
-                       TempExt(1:N) = GetReal( BC, TRIM(Solver % Variable % Name) // ' External Value',Found )                    
+                       TempExt(1:N) = GetReal( BC, TRIM(Solver % Variable % Name) // ' External Value',Found )   
                        DO j=1,n
                           LOAD(j) = LOAD(j) +  TransferCoeff(j) * TempExt(j)
                        END DO
                     END IF
-
-!                    PRINT *, 'FLUX BOUNDARY', bc_id, GetReal( BC, TRIM(Solver % Variable % Name) // ' Heat Flux', Found ),&
-!                         ListGetReal(BC,TRIM(Solver % Variable % Name) // & 
-!                      ' Heat Flux',n,Element % NodeIndexes, Found)
 
                     !---------------
                     !BC: -k@T/@n = q
