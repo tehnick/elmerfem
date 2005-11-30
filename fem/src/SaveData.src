@@ -96,7 +96,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       NoDims, NoDofs, NoOper, NoElements, NoVar, DIM, MaxVars, NoEigenValues, Ind
   REAL (KIND=DP) :: CPUTime, CPUMemory, MINVAL, MAXVAL
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.8 2005/09/01 15:46:06 vierinen Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.9 2005/11/04 08:49:48 raback Exp $"
 
   SAVE SubroutineVisited, NumberOfVars, MaxNo, &
       NoPoints, PointIndex, CoordinateIndex, CoordinateDist, ResultPrefix, &
@@ -1857,7 +1857,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t), POINTER   :: CurrentElement, NextElement
   CHARACTER(LEN=MAX_NAME_LEN) :: SideFile, SideNamesFile, VarName, CondName
   CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: ValueNames(:)
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.8 2005/09/01 15:46:06 vierinen Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.9 2005/11/04 08:49:48 raback Exp $"
 
   LOGICAL :: cand
 
@@ -2821,6 +2821,15 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
   USE SolverUtils
 
   IMPLICIT NONE
+! Types
+!------------------------------------------------------------------------------
+  TYPE RealPointerList_t
+     REAL(KIND=dp), DIMENSION(:), POINTER :: var
+  END TYPE RealPointerList_t
+
+  TYPE IntPointerList_t
+     INTEGER, DIMENSION(:), POINTER :: perm
+  END TYPE IntPointerList_t
 !------------------------------------------------------------------------------
   TYPE(Solver_t), TARGET :: Solver
   TYPE(Model_t) :: Model
@@ -2833,18 +2842,21 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(Element_t),POINTER :: CurrentElement
   TYPE(ValueList_t), POINTER :: Material
+  TYPE(Variable_t), POINTER :: Var
+  TYPE(RealPointerList_t), POINTER :: PPParam(:)
+  TYPE(IntPointerList_t), POINTER :: PPPerm(:)
   INTEGER :: NoParams, DIM, ParamNo, istat, LocalNodes, body_id, material_id,&
        n, j, i, elementNumber
   INTEGER, POINTER :: Permutation(:),NodeIndexes(:)
   REAL(KIND=dp), ALLOCATABLE, TARGET :: Param(:,:)
   REAL(KIND=dp), POINTER :: PParam(:)
-  CHARACTER(LEN=MAX_NAME_LEN) ::  ParamName(100), Name
+  CHARACTER(LEN=MAX_NAME_LEN) ::  ParamName(199), Name
   LOGICAL :: SubroutineVisited=.FALSE.,FirstTime=.TRUE., MovingMesh, GotCoeff, &
        GotIt, GotOper, GotVar, ExactCoordinates, ParamsExist
 
   CHARACTER(LEN=MAX_NAME_LEN) :: MessageL
 
-  SAVE SubroutineVisited, DIM, LocalNodes, ParamName, Param, Permutation, NoParams
+  SAVE SubroutineVisited, DIM, LocalNodes, ParamName, Param, Permutation, NoParams, PPParam, PPPerm
 
   !-----------------------------------
   ! get pointers to Solver information
@@ -2872,6 +2884,8 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
 
      DO WHILE(GotVar)  
        NoParams = NoParams + 1
+       IF (NoParams > 99) &
+            CALL FATAL('SaveBMaterials','Number of parameters cannot exceed 99')
        IF(NoParams < 10) THEN
          WRITE (Name,'(A,I2)') 'Parameter',NoParams
        ELSE
@@ -2890,14 +2904,16 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
      ! --------------------------------------------
      IF(NoParams > 0) ParamsExist = .TRUE.
      IF (ParamsExist) THEN 
-       ALLOCATE(Param( NoParams, LocalNodes ), &
-           STAT=istat )
-       IF (istat /= 0) THEN 
-         CALL FATAL('SaveMaterials', 'Allocation Error')
-       ELSE
-         CALL INFO('SaveMaterials', 'Allocation done', Level=3)
-         Param(1:NoParams,1:LocalNodes) = 0.0D00
-       END IF
+        ALLOCATE(Param( NoParams, LocalNodes ), &
+             PPParam(NoParams),&
+             PPPerm(NoParams), &
+             STAT=istat )
+        IF (istat /= 0) THEN 
+           CALL FATAL('SaveMaterials', 'Allocation Error')
+        ELSE
+           CALL INFO('SaveMaterials', 'Allocation done', Level=3)
+           Param(1:NoParams,1:LocalNodes) = 0.0D00
+        END IF
      END IF
      SubroutineVisited = .TRUE.
 
@@ -2914,7 +2930,14 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
        CALL WARN( 'SaveMaterials', 'No valid parameters found. Nothing will be written')
      END IF
   END IF
-
+  !------------------------------------------
+  ! Assign Pointer Variables and Permutations
+  !------------------------------------------
+  DO i=1,NoParams  
+     Var => VariableGet( Model % Variables, TRIM(ParamName(i)), .TRUE.)     
+     PPParam(i) % var => Var % Values
+     PPPerm(i) % perm => Var % Perm     
+  END DO
   !-----------------------------------
   ! Loop all active elements of solver
   !------------------------------------------------------
@@ -2942,12 +2965,13 @@ SUBROUTINE SaveMaterials( Model,Solver,dt,TransientSimulation )
      !-------------------------------------
      DO i=1,NoParams
        
-       Param(i,NodeIndexes(1:n)) = ListGetReal(Material, TRIM(ParamName(i)), n, NodeIndexes, GotIt)
-
+       PPParam(i) % var(PPPerm(i) % perm(NodeIndexes(1:n))) = &
+            ListGetReal(Material, TRIM(ParamName(i)), n, NodeIndexes, GotIt)
        IF (.NOT. GotIt) THEN ! post a warning if parameter not found in material section
          WRITE( MessageL,'(A,I3,A,A,A,I3)') 'No entry for Parameter ', i, ': ',&
              TRIM(ParamName(i)),' found in material no. ', material_id
          CALL WARN('SaveMaterials', MessageL)
+         PPParam(i) % var(PPPerm(i) % perm(NodeIndexes(1:n))) = 0.0D00
        END IF
      END DO! end loop over parameters
      !-------------------------------------
@@ -2969,6 +2993,16 @@ SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
   USE DefUtils
 
   IMPLICIT NONE
+! Types
+!------------------------------------------------------------------------------
+  TYPE RealPointerList_t
+     REAL(KIND=dp), DIMENSION(:), POINTER :: var
+  END TYPE RealPointerList_t
+
+  TYPE IntPointerList_t
+     INTEGER, DIMENSION(:), POINTER :: perm
+  END TYPE IntPointerList_t
+
 !------------------------------------------------------------------------------
   TYPE(Solver_t), TARGET :: Solver
   TYPE(Model_t) :: Model
@@ -2981,18 +3015,23 @@ SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(Element_t),POINTER :: BoundaryElement
   TYPE(ValueList_t), POINTER :: BC
+  TYPE(Variable_t), POINTER :: Var
+  TYPE(RealPointerList_t), POINTER :: PPParam(:)
+  TYPE(IntPointerList_t), POINTER :: PPPerm(:)
+
   INTEGER :: NoParams, DIM, ParamNo, istat, LocalNodes, bc_id,&
        n, j, i, t
-  INTEGER, POINTER :: Permutation(:),NodeIndexes(:)
+  INTEGER, POINTER :: Permutation(:),Perm(:),NodeIndexes(:)
   REAL(KIND=dp), ALLOCATABLE, TARGET :: Param(:,:)
   REAL(KIND=dp), POINTER :: PParam(:)
-  CHARACTER(LEN=MAX_NAME_LEN) ::  ParamName(100), Name
+  
+  CHARACTER(LEN=MAX_NAME_LEN) ::  ParamName(99), Name
   LOGICAL :: SubroutineVisited=.FALSE.,FirstTime=.TRUE., MovingMesh, GotCoeff, &
        GotIt, GotOper, GotVar, ExactCoordinates, ParamsExist
 
   CHARACTER(LEN=MAX_NAME_LEN) :: MessageL
 
-  SAVE SubroutineVisited, DIM, LocalNodes, ParamName, Param, Permutation, NoParams
+  SAVE SubroutineVisited, DIM, LocalNodes, ParamName, Param, Permutation, NoParams, PPParam, PPPerm
 
   !-----------------------------------
   ! get pointers to Solver information
@@ -3020,15 +3059,18 @@ SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
 
      DO WHILE(GotVar)  
        NoParams = NoParams + 1
+       IF (NoParams > 99) &
+            CALL FATAL('SaveBoundaryValues','Number of parameters cannot exceed 99')
        IF(NoParams < 10) THEN
-         WRITE (Name,'(A,I2)') 'Parameter',NoParams
+          WRITE (Name,'(A,I1)') 'Parameter ',NoParams
        ELSE
-         WRITE (Name,'(A,I3)') 'Parameter',NoParams    
+          WRITE (Name,'(A,I2)') 'Parameter ',NoParams    
        END IF
        ParamName(NoParams) = ListGetString( Solver % Values, TRIM(Name), GotVar )
+       
        IF(GotVar) THEN
-         WRITE(Message,'(A,A,A)') TRIM(Name),': ', ParamName(NoParams)
-         CALL INFO('SaveBoundaryValues',Message,Level=3)
+          WRITE(Message,'(A,A,A)') TRIM(Name),': ', ParamName(NoParams)
+          CALL INFO('SaveBoundaryValues',Message,Level=3)
        END IF
      END DO
      NoParams = NoParams-1
@@ -3039,7 +3081,9 @@ SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
      IF(NoParams > 0) ParamsExist = .TRUE.
      IF (ParamsExist) THEN 
        ALLOCATE(Param( NoParams, LocalNodes ), &
-           STAT=istat )
+            PPParam(NoParams),&
+            PPPerm(NoParams), &
+            STAT=istat )
        IF (istat /= 0) THEN 
          CALL FATAL('SaveBoundaryValues', 'Allocation Error')
        ELSE
@@ -3056,23 +3100,25 @@ SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
        DO ParamNo = 1, NoParams
          PParam => Param(ParamNo,:)
          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PointerToSolver, &
-             TRIM(ParamName(ParamNo)), 1, PParam, Permutation)           
+             TRIM(ParamName(ParamNo)), 1, PParam, Permutation)
        END DO
      ELSE
        CALL WARN( 'SaveBoundaryValues', 'No valid parameters found. Nothing will be written')
      END IF
   END IF
-
-  !-----------------------------------
-  ! set all values to zero
-  !-----------------------------------
-  DO i = 1, NoParams
-     Param(i,1:LocalNodes) = 0.0d00
+  !------------------------------------------
+  ! Assign Pointer Variables and Permutations
+  !------------------------------------------
+  DO i=1,NoParams  
+     Var => VariableGet( Model % Variables, TRIM(ParamName(i)), .TRUE.)     
+     PPParam(i) % var => Var % Values
+     PPPerm(i) % perm => Var % Perm     
   END DO
-
   !-----------------------------------
   ! Loop all active elements of solver
   !------------------------------------------------------
+
+
   DO t=1,Solver % Mesh % NumberOfBoundaryElements
 
      !--------------------------------
@@ -3090,17 +3136,18 @@ SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
      !-----------------------------------
      ! loop all parameters to be exported
      !-------------------------------------
-     DO i=1,NoParams
-       
-        Param(i,NodeIndexes(1:n)) = ListGetReal(BC, TRIM(ParamName(i)), n, NodeIndexes, GotIt)
+     DO i=1,NoParams        
+        PPParam(i) % var(PPPerm(i) % perm(NodeIndexes(1:n))) = &
+             ListGetReal(BC, TRIM(ParamName(i)), n, NodeIndexes, GotIt)
         IF (.NOT.GotIt) THEN
            WRITE(MessageL,'(a,a,a,i3,a,i10)') 'Boundary property ',TRIM(ParamName(i)),&
                 ' not found on boundary no. ',bc_id,' for element no. ', t
-           CALL INFO('SaveBoundaryValues', MessageL, Level=4)
-           Param(i,NodeIndexes(1:n)) = 0.0D00
+           CALL INFO('SaveBoundaryValues', MessageL, Level=9)
+           PPParam(i) % var(PPPerm(i) % perm(NodeIndexes(1:n))) = 0.0D00
         END IF
      END DO! end loop over parameters
      !-------------------------------------
   END DO! end loop over all boundary element
   
 END SUBROUTINE SaveBoundaryValues
+
