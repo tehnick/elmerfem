@@ -111,7 +111,7 @@
      SAVE Load, ElementNodes, VolumeSource, VolumeForce, AllocationsDone, &
       PotentialKnown, PotentialPerm, BoundaryPerm, BoundaryNodes, Pot, Flx
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: PoissonBEM.src,v 1.5 2005/08/17 11:29:08 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: PoissonBEM.src,v 1.6 2005/09/01 15:46:05 vierinen Exp $"
 
      EXTERNAL Matvec, Precond
 !------------------------------------------------------------------------------
@@ -125,7 +125,6 @@
         END IF
      END IF
 
- 
 !------------------------------------------------------------------------------
 !    Get variables needed for solution
 !------------------------------------------------------------------------------
@@ -332,6 +331,7 @@ at = CPUTime()
 !
 !    now compute potential for all mesh points:
 !    ------------------------------------------
+
      Potential = VolumeForce
      DO i=1,BoundaryNodes
         k = Solver % Variable % Perm( BoundaryPerm(i) )
@@ -347,19 +347,24 @@ at = CPUTime()
         END DO
      END IF
 
-     DO t=1,Solver % NumberOfActiveElements
-        CurrentElement => Solver % Mesh % Elements( Solver % ActiveElements(t) )
-        IF ( .NOT. ASSOCIATED( CurrentElement % BoundaryInfo ) ) CYCLE
+     IF ( .NOT. GetLogical( Solver % Values, 'Skip Volume Computing', gotit) ) THEN
 
-        n = CurrentElement % Type % NumberOfNodes
-        NodeIndexes => CurrentElement % NodeIndexes
+        DO t=1,Solver % NumberOfActiveElements
+           CurrentElement => Solver % Mesh % Elements( Solver % ActiveElements(t) )
+           IF ( .NOT. ASSOCIATED( CurrentElement % BoundaryInfo ) ) CYCLE
 
-        ElementNodes % x(1:n) = Solver % Mesh % Nodes % x( NodeIndexes )
-        ElementNodes % y(1:n) = Solver % Mesh % Nodes % y( NodeIndexes )
-        ElementNodes % z(1:n) = Solver % Mesh % Nodes % z( NodeIndexes )
+           n = CurrentElement % Type % NumberOfNodes
+           NodeIndexes => CurrentElement % NodeIndexes
 
-        CALL ComputePotential( Potential, Pot, Flx, CurrentElement, n, ElementNodes )
-     END DO
+           ElementNodes % x(1:n) = Solver % Mesh % Nodes % x( NodeIndexes )
+           ElementNodes % y(1:n) = Solver % Mesh % Nodes % y( NodeIndexes )
+           ElementNodes % z(1:n) = Solver % Mesh % Nodes % z( NodeIndexes )
+
+           CALL ComputePotential( Potential, Pot, Flx, CurrentElement, n, ElementNodes )
+        END DO
+
+     END IF
+
 !
 !    All done, finalize:
 !    -------------------
