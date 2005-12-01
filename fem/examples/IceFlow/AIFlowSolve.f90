@@ -34,7 +34,6 @@
 ! *                             of  AIFlowSolver_ai.
 ! *
 ! *****************************************************************************/
-
 !------------------------------------------------------------------------------
    RECURSIVE SUBROUTINE AIFlowSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
@@ -82,7 +81,8 @@
      TYPE(Element_t),POINTER :: CurrentElement
 
      REAL(KIND=dp) :: RelativeChange, UNorm, PrevUNorm, Gravity(3), &
-         Tdiff, Normal(3), NewtonTol, NonlinearTol, s, Wn(7)
+         Normal(3), NewtonTol, NonlinearTol, s, Wn(7), MinSRInvariant
+         
 
      REAL(KIND=dp)  :: NodalStresses(3,3), &
        NodalStrainRate(3,3),  NodalSpin(3,3)   
@@ -157,7 +157,8 @@
      SAVE LocalMassMatrix, LocalStiffMatrix, LoadVector, &
        LocalForce, ElementNodes, Alpha, Beta, LocalTemperature, &
        Isotropic,AllocationsDone,ReferenceTemperature,BoundaryDispl, &
-       NodalAIFlow, K1, K2, E1, E2, E3, Wn, old_body, LocalFluidity
+       NodalAIFlow, K1, K2, E1, E2, E3, Wn, MinSRInvariant, old_body, &
+       LocalFluidity
 
      SAVE RefD, RefS, RefSpin, LocalVelo, SlipCoeff 
               
@@ -408,10 +409,15 @@
            E3(1:n) = FabricValues( 5 * (FabricPerm(NodeIndexes(1:n))-1) + 5 )
          ENDIF
 
+         LocalVelo = 0.0d0
+         DO i=1,STDOFs - 1
+            LocalVelo(i,1:n) = AIFlow( STDOFs*(AIFlowPerm(NodeIndexes(1:n))-1) + i)
+         END DO
+
          CALL LocalMatrix( LocalMassMatrix, LocalStiffMatrix, &
-              LocalForce, LoadVector, K1, K2, E1, E2, E3, &
+              LocalForce, LoadVector, K1, K2, E1, E2, E3, LocalVelo, &
               LocalTemperature, LocalFluidity, CurrentElement, n, &
-              ElementNodes, Wn, Isotropic)
+              ElementNodes, Wn, MinSRInvariant, Isotropic)
 
         TimeForce = 0.0d0
          CALL NSCondensate(N, N,STDOFs-1,LocalStiffMatrix,LocalForce,TimeForce )
@@ -547,7 +553,7 @@
          RelativeChange = 0.0d0
       END IF
 
-      WRITE( Message, * ) 'Result Norm   : ',UNorm
+      WRITE( Message, * ) 'Result Norm   : ',UNorm, PrevUNorm
       CALL Info( 'AIFlowSolve', Message, Level=4 )
       WRITE( Message, * ) 'Relative Change : ',RelativeChange
       CALL Info( 'AIFlowSolve', Message, Level=4 )
@@ -697,7 +703,9 @@
            CALL LocalSD(NodalStresses, NodalStrainRate, NodalSpin, & 
                  LocalVelo, LocalTemperature, LocalFluidity,  &
                 K1, K2, E1, E2, E3, CSymmetry, Basis, dBasisdx, &
-                CurrentElement, n, ElementNodes, dim, Wn, Isotropic)
+                CurrentElement, n, ElementNodes, dim, Wn, &
+                MinSRInvariant, Isotropic)
+                
 
         IF (Requal0) NodalSpin = 0. 
 
@@ -865,6 +873,22 @@ CONTAINS
          WRITE(Message,'(A,F10.4)') 'Limit Temperature = ',   Wn(6)
          CALL INFO('AIFlowSolve', Message, Level = 20)
       END IF
+
+! Get the Minimum value of the Effective Strain rate 
+      MinSRInvariant = 100.0*AEPS
+      IF ( Isotropic .AND. (Wn(2) > 1.0 ) ) THEN
+        MinSRInvariant =  &
+             ListGetConstReal( Material, 'Min Second Invariant', GotIt )
+        IF (.NOT.GotIt) THEN
+          WRITE(Message,'(A)') 'Variable Min Second Invariant not &
+                    &found. Setting to 100.0*AEPS )'
+          CALL INFO('AIFlowSolve', Message, Level = 20)
+        ELSE
+          WRITE(Message,'(A,E14.8)') 'Min Second Invariant = ', MinSRInvariant
+          CALL INFO('AIFlowSolve', Message, Level = 20)
+        END IF
+      END IF
+
 !------------------------------------------------------------------------------
       END SUBROUTINE GetMaterialDefs
 !------------------------------------------------------------------------------
@@ -872,13 +896,15 @@ CONTAINS
 !------------------------------------------------------------------------------
       SUBROUTINE LocalMatrix( MassMatrix, StiffMatrix, ForceVector, &
               LoadVector, NodalK1, NodalK2, NodalEuler1, NodalEuler2, &
-              NodalEuler3, NodalTemperature, NodalFluidity, Element, n,&
-              Nodes, Wn, Isotropic )
+              NodalEuler3, NodalVelo, NodalTemperature, NodalFluidity, &
+              Element, n, Nodes, Wn, MinSRInvariant, Isotropic )
+              
               
 !------------------------------------------------------------------------------
 
-     REAL(KIND=dp) :: StiffMatrix(:,:),MassMatrix(:,:)
-     REAL(KIND=dp) :: LoadVector(:,:)
+     REAL(KIND=dp) :: StiffMatrix(:,:), MassMatrix(:,:)
+     REAL(KIND=dp) :: LoadVector(:,:), NodalVelo(:,:)
+     REAL(KIND=dp) :: Wn(7), MinSRInvariant
      REAL(KIND=dp), DIMENSION(:) :: ForceVector, NodalK1, NodalK2, &
              NodalEuler1, NodalEuler2, NodalEuler3, NodalTemperature, &
              NodalFluidity
@@ -892,16 +918,17 @@ CONTAINS
      REAL(KIND=dp) :: dBasisdx(2*n,3),SqrtElementMetric
 
      REAL(KIND=dp) :: Force(3), K1, K2, Euler1, Euler2, Euler3
-     Real(kind=dp) :: Bg,BGlenT
+     Real(kind=dp) :: Bg, BGlenT
 
      REAL(KIND=dp), DIMENSION(4,4) :: A,M
      REAL(KIND=dp) :: Load(3),Temperature,  C(6,6)
+     REAL(KIND=dp) :: nn, ss, LGrad(3,3), SR(3,3), epsi
 
-     INTEGER :: i,j,k,p,q,t,dim,NBasis,ind(3)
+     INTEGER :: i, j, k, p, q, t, dim, NBasis, ind(3)
 
      REAL(KIND=dp) :: s,u,v,w, Radius, B(6,3), G(3,6)
   
-     REAL(KIND=dp) :: dDispldx(3,3), ai(3), Angle(3), Wn(7),a2(6)
+     REAL(KIND=dp) :: dDispldx(3,3), ai(3), Angle(3), a2(6)
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
 
      INTEGER :: N_Integ
@@ -1002,6 +1029,51 @@ CONTAINS
 
       CSymmetry = CurrentCoordinateSystem() == AxisSymmetric
       IF ( CSymmetry ) s = s * Radius
+
+!
+! Case non-linear and ISOTROPIC
+! -----------------------------
+
+      IF ( Isotropic .AND. (Wn(2) > 1.0) ) THEN
+        LGrad = MATMUL( NodalVelo(:,1:n), dBasisdx(1:n,:) )
+        SR = 0.5 * ( LGrad + TRANSPOSE(LGrad) )
+      
+        IF ( CSymmetry ) THEN
+          SR(1,3) = 0.0
+          SR(2,3) = 0.0
+          SR(3,1) = 0.0
+          SR(3,2) = 0.0
+          SR(3,3) = 0.0
+          IF ( Radius > 10*AEPS ) THEN
+            SR(3,3) = SUM( Nodalvelo(1,1:n) * Basis(1:n) ) /Radius
+                 
+          END IF
+          epsi = SR(1,1)+SR(2,2)+SR(3,3)
+          DO i=1,3   
+            SR(i,i) = SR(i,i) - epsi/3.0
+          END DO
+        ELSE
+          epsi = SR(1,1)+SR(2,2)+SR(3,3)
+          DO i=1,dim 
+            SR(i,i) = SR(i,i) - epsi/dim
+          END DO
+        END IF
+
+        ss = 0.0_dp
+        DO i = 1, 3
+          DO j = 1, 3
+            ss = ss + SR(i,j)**2
+          END DO
+        END DO
+        nn =(1.0 - Wn(2))/Wn(2)
+
+        ss = SQRT(2.0_dp * ss)
+        IF (ss < MinSRInvariant ) ss = MinSRInvariant
+        ss =  (ss/Bg)**nn 
+        Do i=1, 6
+        C(i,i) = C(i,i) * ss 
+        End Do
+      END IF
 !
 !    Loop over basis functions (of both unknowns and weights)
 !
@@ -1239,7 +1311,8 @@ CONTAINS
       SUBROUTINE LocalSD( Stress, StrainRate, Spin, &
         NodalVelo, NodalTemp, NodalFluidity, NodalK1,  &
         NodalK2, NodalE1, NodalE2, NodalE3, CSymmetry, &
-        Basis, dBasisdx, Element, n,  Nodes, dim,  Wn, Isotropic)
+        Basis, dBasisdx, Element, n,  Nodes, dim,  Wn, MinSRInvariant, &
+        Isotropic)
 !------------------------------------------------------------------------------
 !    Subroutine to computre the nodal Strain-Rate, Stress, ...
 !------------------------------------------------------------------------------
@@ -1254,7 +1327,7 @@ CONTAINS
      REAL(KIND=dp) :: NodalK1(:), NodalK2(:)
      REAL(KIND=dp) :: NodalE1(:), NodalE2(:), NodalE3(:)
      REAL(KIND=dp) :: u, v, w      
-     REAL(KIND=dp) :: Wn(7),  D(6)
+     REAL(KIND=dp) :: Wn(7),  D(6), MinSRInvariant
      LOGICAL :: Isotropic
       
      TYPE(Nodes_t) :: Nodes
@@ -1264,7 +1337,7 @@ CONTAINS
      INTEGER :: i,j,k,p,q
      REAL(KIND=dp) :: LGrad(3,3),   Radius, Temp, ai(3), Angle(3),a2(6)
      REAL(KIND=dp) :: C(6,6), epsi
-     Real(kind=dp) :: Bg,BGlenT
+     Real(kind=dp) :: Bg, BGlenT, ss, nn
 !------------------------------------------------------------------------------
      INTERFACE
       Subroutine R2Ro(a2,dim,ai,angle)
@@ -1300,7 +1373,7 @@ CONTAINS
         a2(5) = SUM( NodalE2(1:n) * Basis(1:n) )
         a2(6) = SUM( NodalE3(1:n) * Basis(1:n) )
       
-        CALL R2Ro(a2,dim,ai,angle)
+        CALL R2Ro(a2,dim,ai,Angle)
         CALL OPILGGE_ai(ai,Angle,Temp,Wn,FabricGrid,C)
 
       ELSE
@@ -1313,16 +1386,12 @@ CONTAINS
          End do
       END IF
 !
-!    Compute strainRate and Spin : 
-!    -----------------------------
+!    Compute strainRate : 
+!    -------------------
 
-        LGrad = MATMUL( NodalVelo(:,1:n), dBasisdx(1:n,:) )
+      LGrad = MATMUL( NodalVelo(:,1:n), dBasisdx(1:n,:) )
         
-        StrainRate = 0.5 * ( LGrad + TRANSPOSE(LGrad) )
-
-
-        Spin = 0.5 * ( LGrad - TRANSPOSE(LGrad) )
-
+      StrainRate = 0.5 * ( LGrad + TRANSPOSE(LGrad) )
       
       IF ( CSymmetry ) THEN
         StrainRate(1,3) = 0.0
@@ -1330,27 +1399,46 @@ CONTAINS
         StrainRate(3,1) = 0.0
         StrainRate(3,2) = 0.0
         StrainRate(3,3) = 0.0
-
         Radius = SUM( Nodes % x(1:n) * Basis(1:n) )
-
-! what is AEPS ?
         IF ( Radius > 10*AEPS ) THEN
          StrainRate(3,3) = SUM( Nodalvelo(1,1:n) * Basis(1:n) ) / Radius
         END IF
-
         epsi = StrainRate(1,1)+StrainRate(2,2)+StrainRate(3,3)
         DO i=1,3   
           StrainRate(i,i) = StrainRate(i,i) - epsi/3.0
         END DO
-
       ELSE
         epsi = StrainRate(1,1)+StrainRate(2,2)+StrainRate(3,3)
         DO i=1,dim 
           StrainRate(i,i) = StrainRate(i,i) - epsi/dim
         END DO
+      END IF
+ 
+!
+! Case non-linear and ISOTROPIC
+! -----------------------------
 
+      IF ( Isotropic .AND. (Wn(2) > 1.0) ) THEN
+        ss = 0.0_dp
+        DO i = 1, 3
+          DO j = 1, 3
+            ss = ss + StrainRate(i,j)**2
+          END DO
+        END DO
+        nn = (1.0 - Wn(2))/Wn(2)
+        ss = SQRT(2.0_dp * ss)
+         
+        IF (ss < MinSRInvariant ) ss = MinSRInvariant
+        
+        C = C * (ss/Bg)**nn 
       END IF
 
+
+!
+!    Compute Spin : 
+!    --------------
+
+        Spin = 0.5 * ( LGrad - TRANSPOSE(LGrad) )
 !
 !    Compute deviatoric stresses: 
 !    ----------------------------
