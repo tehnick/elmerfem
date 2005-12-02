@@ -103,19 +103,19 @@
 
      TYPE(Variable_t), POINTER :: TimeVar
 
-     REAL(KIND=dp),ALLOCATABLE:: MASS(:,:),STIFF(:,:),&
-       LOAD(:,:),Force(:),  Alpha(:,:),Beta(:), &
-          Velocity(:,:),MeshVelocity(:,:)
+     REAL(KIND=dp),ALLOCATABLE:: MASS(:,:), STIFF(:,:),&
+       LOAD(:,:), Force(:), Alpha(:,:), Beta(:), &
+          Velocity(:,:), MeshVelocity(:,:)
 
-     REAL(KIND=dp) :: Bu,Bv,Bw,RM(3,3), SaveTime = -1
-     REAL(KIND=dp), POINTER :: PrevAge(:),CurrAge(:)
-
+     REAL(KIND=dp) :: Bu, Bv, Bw, RM(3,3), SaveTime = -1
+     REAL(KIND=dp), POINTER :: PrevAge(:), CurrAge(:)
 
      REAL(KIND=dp) :: at, at0, CPUTime, RealTime
 
-     SAVE MASS,STIFF,LOAD, &
-       Force,ElementNodes,Alpha,Beta,  AllocationsDone, &
-       Velocity, MeshVelocity,old_body, PrevAge, CurrAge
+     SAVE MASS, STIFF, LOAD, Force, ElementNodes, & 
+         Alpha, Beta, AllocationsDone, Velocity, MeshVelocity, &
+         old_body, PrevAge, CurrAge
+       
 
 !------------------------------------------------------------------------------
 !  Read constants from constants section of SIF file
@@ -138,8 +138,6 @@
      FlowSolverName = GetString( Solver % Values, 'Flow Solver Name', GotIt )    
      IF (.NOT.Gotit) FlowSolverName = 'flow solution'
      FlowVariable => VariableGet( Solver % Mesh % Variables, FlowSolverName )
-     PRINT *, '***********************************'
-     PRINT *, FlowSolverName, GotIt
 
      IF ( ASSOCIATED( FlowVariable ) ) THEN
        FlowPerm    => FlowVariable % Perm
@@ -185,12 +183,12 @@
            CALL Fatal( 'DatingSolve', 'Memory allocation error.' )
         END IF
 
-        CurrAge = 0
+        CurrAge = 0.0_dp
 
         IF ( TransientSimulation ) THEN
            IF ( AllocationsDone ) DEALLOCATE(PrevAge)             
            ALLOCATE( PrevAge( SIZE(Solver % Variable % Values)) )
-           PrevAge = 0
+           PrevAge = 0.0_dp
         END IF
 
 
@@ -307,7 +305,7 @@
 
 !-------------------mesh velo
          MeshVelocity=0._dp
-!         call GetVectorLocalSolution(MeshVelocity,'Mesh Velocity')
+         CALL GetVectorLocalSolution(MeshVelocity,'Mesh Velocity')
 !--------------------------
 
          CALL LocalMatrix( MASS, STIFF, FORCE, LOAD, &
@@ -446,7 +444,7 @@
 !------------------------------------------------------------------------------
 !     Solve the system and check for convergence
 !------------------------------------------------------------------------------
-!      Unorm = DefaultSolve()
+      Unorm = DefaultSolve()
       CurrAge = Solver % Variable % Values
       WRITE(Message,*) 'solve done', minval( solver % variable % values), maxval( Solver % variable % values)
       CALL Info( 'DatingSolve', Message, Level=4 )
@@ -590,7 +588,6 @@ CONTAINS
 !     Reaction coefficient:
 !     ---------------------
       IF (CompressibleFlow) THEN
-!         Age = SUM(Basis(1:n) * NodalAge(1:n))
          DivVelo = 0.0D00
          DO i=1,dim
             DivVelo = DivVelo + SUM(NodalVelo(i,1:n)*dBasisdx(1:n,i))
@@ -629,7 +626,6 @@ CONTAINS
 !        The righthand side...:
 !        ----------------------
          LoadAtIp = 1.0 * Basis(p) 
-!         LoadAtIp = 3.17098D-07 * Basis(p)
          
          FORCE(p) = FORCE(p) + s*LoadAtIp
 
