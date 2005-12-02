@@ -191,7 +191,6 @@
            PrevAge = 0.0_dp
         END IF
 
-
         DO i=1,Solver % NumberOFActiveElements
            CurrentElement => GetActiveElement(i)   
            NodeIndexes => CurrentElement % NodeIndexes
@@ -305,7 +304,7 @@
 
 !-------------------mesh velo
          MeshVelocity=0._dp
-         CALL GetVectorLocalSolution(MeshVelocity,'Mesh Velocity')
+         call GetVectorLocalSolution(MeshVelocity,'Mesh Velocity',CurrentElement)
 !--------------------------
 
          CALL LocalMatrix( MASS, STIFF, FORCE, LOAD, &
@@ -349,7 +348,7 @@
 
    !-------------------mesh velo
          MeshVelocity=0._dp
-         call GetVectorLocalSolution(MeshVelocity,'Mesh Velocity')
+         call GetVectorLocalSolution(MeshVelocity,'Mesh Velocity',Edge)
     !--------------------------
 
             FORCE = 0.0d0
@@ -381,7 +380,7 @@
 
    !-------------------mesh velo
          MeshVelocity=0._dp
-         call GetVectorLocalSolution(MeshVelocity,'Mesh Velocity')
+         call GetVectorLocalSolution(MeshVelocity,'Mesh Velocity',Edge)
     !--------------------------
 
             FORCE = 0.0d0
@@ -419,7 +418,7 @@
          END DO
    !-------------------mesh velo
          MeshVelocity=0._dp
-         call GetVectorLocalSolution(MeshVelocity,'Mesh Velocity')
+         call GetVectorLocalSolution(MeshVelocity,'Mesh Velocity',Element)
     !--------------------------
 
          BC => GetBC()
