@@ -121,10 +121,9 @@
      CHARACTER(LEN=MAX_NAME_LEN) :: viscosityFile
 
      REAL(KIND=dp) :: Bu,Bv,Bw,RM(3,3), SaveTime = -1
-     REAL(KIND=dp), POINTER :: PrevFabric(:), CurrFabric(:), &
-                  PostFabric(:),TempFabVal(:)
+     REAL(KIND=dp), POINTER :: PrevFabric(:),CurrFabric(:),TempFabVal(:)
 
-     SAVE  ViscosityFile, PrevFabric, CurrFabric,PostFabric,TempFabVal
+     SAVE  ViscosityFile, PrevFabric, CurrFabric,TempFabVal
      REAL(KIND=dp) :: at, at0, CPUTime, RealTime
 
 !------------------------------------------------------------------------------
@@ -185,7 +184,9 @@
                      Force, LocalFluidity, &
                      Velocity,MeshVelocity, &
                      MASS,STIFF,      &
-                     LOAD, Alpha, Beta )
+                     LOAD, Alpha, Beta, &
+                     CurrFabric, TempFabVal, &
+                     LocalFluidity )
        END IF
 
        ALLOCATE( LocalTemperature( N ), LocalFluidity( N ), &
@@ -194,22 +195,21 @@
                  Velocity(4, N ),MeshVelocity(3,N), &
                  MASS( 2*STDOFs*N,2*STDOFs*N ),  &
                  STIFF( 2*STDOFs*N,2*STDOFs*N ),  &
-                 LOAD( 4,N ), Alpha( 3,N ), Beta( N ),STAT=istat )
+                 LOAD( 4,N ), Alpha( 3,N ), Beta( N ), &
+                 CurrFabric( 5*SIZE(Solver % Variable % Values)), &
+                 TempFabVal( 5*SIZE(Solver % Variable % Values)), &
+                 LocalFluidity(N), &
+                 STAT=istat )
 
 
        IF ( istat /= 0 ) THEN
           CALL Fatal( 'FabricSolve', 'Memory allocation error.' )
        END IF
 
-       ALLOCATE( CurrFabric( 5*SIZE(Solver % Variable % Values)) )
        CurrFabric = 0.
-
-       ALLOCATE( PostFabric( 5*SIZE(Solver % Variable % Values)) )
-       PostFabric = 0.
-
-       ALLOCATE( TempFabVal( 5*SIZE(Solver % Variable % Values)) )
        TempFabVal = 0.
        IF ( TransientSimulation ) THEN
+          IF (AllocationsDone ) DEALLOCATE (PrevFabric)
           ALLOCATE( PrevFabric( 5*SIZE(Solver % Variable % Values)) )
          PrevFabric = 0.
        END IF
@@ -322,6 +322,16 @@
            old_body = body_id
            CALL GetMaterialDefs()
          END IF
+      
+         LocalFluidity(1:n) = ListGetReal( Material, &
+                         'Fluidity Parameter', n, NodeIndexes, GotIt )
+        IF (.NOT.GotIt) THEN
+         WRITE(Message,'(A)') 'Variable Fluidity Parameter not found. &
+                            &Setting to 1.0'
+         CALL INFO('AIFlowSolve', Message, Level = 20)
+         LocalFluidity(1:n) = 1.0
+        END IF
+
  
          LocalFluidity(1:n) = ListGetReal( Material, &
                          'Fluidity Parameter', n, NodeIndexes, GotIt )
@@ -358,7 +368,7 @@
 
 !------------meshvelocity
          MeshVelocity=0._dp
-         call GetVectorLocalSolution(MeshVelocity, 'Mesh Velocity')
+         call GetVectorLocalSolution(MeshVelocity, 'Mesh Velocity',CurrentElement)
 !----------------------------------
 
          CALL LocalMatrix( COMP, MASS, STIFF, FORCE, LOAD, K1, K2, E1, &
@@ -400,7 +410,7 @@
 
 !------------meshvelocity
          MeshVelocity=0._dp
-         call GetVectorLocalSolution(MeshVelocity, 'Mesh Velocity')
+         call GetVectorLocalSolution(MeshVelocity, 'Mesh Velocity',Edge)
 !----------------------------------
 
             FORCE = 0.0d0
@@ -433,7 +443,7 @@
 
 !------------meshvelocity
          MeshVelocity=0._dp
-         call GetVectorLocalSolution(MeshVelocity, 'Mesh Velocity')
+         call GetVectorLocalSolution(MeshVelocity, 'Mesh Velocity',Edge)
 !----------------------------------
 
             FORCE = 0.0d0
@@ -471,7 +481,7 @@
 
 !------------meshvelocity
          MeshVelocity=0._dp
-         call GetVectorLocalSolution(MeshVelocity, 'Mesh Velocity')
+         call GetVectorLocalSolution(MeshVelocity, 'Mesh Velocity',Element)
 !----------------------------------
 
          BC => GetBC()
@@ -643,7 +653,6 @@ CONTAINS
            WRITE(Message,'(A,F10.4)') 'Diffusion Parameter = ', lambda
            CALL INFO('AIFlowSolve', Message, Level = 20)
        END IF
-
       Wn(2) = ListGetConstReal( Material , 'Powerlaw Exponent', GotIt )
       IF (.NOT.GotIt) THEN
          WRITE(Message,'(A)') 'Variable  Powerlaw Exponent not found. &
@@ -708,7 +717,6 @@ CONTAINS
           NodalK1, NodalK2, NodalEuler1, NodalEuler2, NodalEuler3, & 
           NodalTemperature, NodalFluidity, NodalVelo, NodMeshVel, &
           Element, n, Nodes, Wn, rho,lambda )
-          
 !------------------------------------------------------------------------------
 
      REAL(KIND=dp) :: STIFF(:,:),MASS(:,:)
@@ -820,18 +828,17 @@ CONTAINS
       A2 = SUM( NodalK2(1:n) * Basis(1:n) )
       A3 = 1._dp - A1 - A2
 
-      A1=MAX(MIN(A1,1._dp),0._dp)
-      A2=MAX(MIN(A2,1._dp),0._dp)
-      A3=1._dp - A1 - A2
-
       E1 = SUM( NodalEuler1(1:n) * Basis(1:n) )
       E2 = SUM( NodalEuler2(1:n) * Basis(1:n) )
       E3 = SUM( NodalEuler3(1:n) * Basis(1:n) )
 !
+!      Fluidity  at the integration point:
+!---------------------------------------------
+       Wn(1)=SUM( NodalFluidity(1:n)*Basis(1:n) )
+!
 !     Temperature at the integration point:
 !     -------------------------------------
       Temperature = SUM( NodalTemperature(1:n)*Basis(1:n) )
-      Wn(1) = SUM( NodalFluidity(1:n)*Basis(1:n) )
 !
 !     Get theta parameter: (the (fluidity in the basal plane)/2, 
 !     function of the Temperature )
@@ -886,7 +893,6 @@ CONTAINS
 
         Radius = SUM( Nodes % x(1:n) * Basis(1:n) )
 
-! what is AEPS ?
         IF ( Radius > 10*AEPS ) THEN
          StrainRate(3,3) = SUM( Nodalvelo(1,1:n) * Basis(1:n) ) / Radius
         END IF
@@ -1111,6 +1117,8 @@ CONTAINS
       REAL(KIND=dp) :: hE, Normal(3), cu(3), LeftOut(3)
 
       TYPE(Nodes_t) :: EdgeNodes, LeftParentNodes, RightParentNodes
+
+      Save EdgeNodes, LeftParentNodes, RightParentNodes
 !------------------------------------------------------------------------------
       dim = CoordinateSystemDimension()
       STIFF = 0.0d0
