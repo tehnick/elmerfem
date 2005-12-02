@@ -110,7 +110,7 @@
 
      SAVE MASS,STIFF,LOAD, &
        Force,ElementNodes,Alpha,Beta,  AllocationsDone, &
-           Velocity, MeshVelocity,old_body
+           Velocity, MeshVelocity,old_body, CurrAge
 !------------------------------------------------------------------------------
 
      REAL(KIND=dp) :: Bu,Bv,Bw,RM(3,3), SaveTime = -1
@@ -163,25 +163,27 @@
          DEALLOCATE (Force,     &
                      Velocity,MeshVelocity, &
                      MASS,STIFF,      &
-                     LOAD, Alpha, Beta )
+                     LOAD, Alpha, Beta, CurrAge)
        END IF
 
        ALLOCATE( Force( 2*STDOFs*N ), & 
                  Velocity(4, N ), MeshVelocity(3,N), &
                  MASS( 2*STDOFs*N,2*STDOFs*N ),  &
                  STIFF( 2*STDOFs*N,2*STDOFs*N ),  &
-                 LOAD( 4,N ), Alpha( 3,N ), Beta( N ),STAT=istat )
-
-
+                 LOAD( 4,N ), Alpha( 3,N ), Beta( N ),&
+                 CurrAge( SIZE(Solver % Variable % Values)),&
+                 STAT=istat )
        IF ( istat /= 0 ) THEN
           CALL Fatal( 'DatingSolve', 'Memory allocation error.' )
        END IF
 
-       ALLOCATE( CurrAge( SIZE(Solver % Variable % Values)) )
        CurrAge = 0
+
        IF ( TransientSimulation ) THEN
-          ALLOCATE( PrevAge( SIZE(Solver % Variable % Values)) )
-          PrevAge = 0
+          IF ( AllocationsDone ) THEN
+             ALLOCATE( PrevAge( SIZE(Solver % Variable % Values)) )
+             PrevAge = 0
+          END IF
        END IF
 
        DO i=1,Solver % NumberOFActiveElements
@@ -345,7 +347,7 @@
 
             FORCE = 0.0d0
             MASS  = 0.0d0
-            CALL LocalJumps( STIFF,Edge,n,LeftParent,n1,RightParent,n2,Velocity,MehVelocity )
+            CALL LocalJumps( STIFF,Edge,n,LeftParent,n1,RightParent,n2,Velocity,MeshVelocity )
             IF ( TransientSimulation )  CALL Default1stOrderTime(MASS, STIFF, FORCE)
             CALL DefaultUpdateEquations( STIFF, FORCE, Edge )
          END IF
