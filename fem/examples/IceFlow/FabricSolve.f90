@@ -185,8 +185,7 @@
                      Velocity,MeshVelocity, &
                      MASS,STIFF,      &
                      LOAD, Alpha, Beta, &
-                     CurrFabric, TempFabVal, &
-                     LocalFluidity )
+                     CurrFabric, TempFabVal )
        END IF
 
        ALLOCATE( LocalTemperature( N ), LocalFluidity( N ), &
@@ -198,7 +197,6 @@
                  LOAD( 4,N ), Alpha( 3,N ), Beta( N ), &
                  CurrFabric( 5*SIZE(Solver % Variable % Values)), &
                  TempFabVal( 5*SIZE(Solver % Variable % Values)), &
-                 LocalFluidity(N), &
                  STAT=istat )
 
 
@@ -331,16 +329,6 @@
          CALL INFO('AIFlowSolve', Message, Level = 20)
          LocalFluidity(1:n) = 1.0
         END IF
-
- 
-         LocalFluidity(1:n) = ListGetReal( Material, &
-                         'Fluidity Parameter', n, NodeIndexes, GotIt )
-         IF (.NOT.GotIt) THEN
-           WRITE(Message,'(A)') 'Variable Fluidity Parameter not found.&
-                            &Setting to 1.0'
-           CALL INFO('AIFlowSolve', Message, Level = 20)
-           LocalFluidity(1:n) = 1.0
-         END IF
 !------------------------------------------------------------------------------
 !        Get element local stiffness & mass matrices
 !------------------------------------------------------------------------------
@@ -593,6 +581,7 @@
 
 
       Unorm = SQRT( SUM( FabricValues**2 ) / SIZE(FabricValues) )
+      Solver % Variable % Norm = Unorm  
 
       IF ( PrevUNorm + UNorm /= 0.0d0 ) THEN
          RelativeChange = 2.0d0 * ABS( PrevUNorm - UNorm) / ( PrevUnorm + UNorm)
