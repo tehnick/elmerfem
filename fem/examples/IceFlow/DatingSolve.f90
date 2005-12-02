@@ -110,7 +110,7 @@
 
      SAVE MASS,STIFF,LOAD, &
        Force,ElementNodes,Alpha,Beta,  AllocationsDone, &
-           Velocity, MeshVelocity,old_body, CurrAge
+           Velocity, MeshVelocity,old_body
 !------------------------------------------------------------------------------
 
      REAL(KIND=dp) :: Bu,Bv,Bw,RM(3,3), SaveTime = -1
