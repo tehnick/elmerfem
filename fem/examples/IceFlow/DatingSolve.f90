@@ -106,20 +106,17 @@
      REAL(KIND=dp),ALLOCATABLE:: MASS(:,:),STIFF(:,:),&
        LOAD(:,:),Force(:),  Alpha(:,:),Beta(:), &
           Velocity(:,:),MeshVelocity(:,:)
-             
-
-     SAVE MASS,STIFF,LOAD, &
-       Force,ElementNodes,Alpha,Beta,  AllocationsDone, &
-           Velocity, MeshVelocity,old_body
-!------------------------------------------------------------------------------
 
      REAL(KIND=dp) :: Bu,Bv,Bw,RM(3,3), SaveTime = -1
      REAL(KIND=dp), POINTER :: PrevAge(:),CurrAge(:)
 
-     SAVE   PrevAge, CurrAge
+
      REAL(KIND=dp) :: at, at0, CPUTime, RealTime
 
-!------------------------------------------------------------------------------
+     SAVE MASS,STIFF,LOAD, &
+       Force,ElementNodes,Alpha,Beta,  AllocationsDone, &
+       Velocity, MeshVelocity,old_body, PrevAge, CurrAge
+
 !------------------------------------------------------------------------------
 !  Read constants from constants section of SIF file
 !------------------------------------------------------------------------------
@@ -139,8 +136,11 @@
 !    Get Velocity from (Navier)-Stokes-Solver or AIFlow Solver
 !------------------------------------------------------------------------
      FlowSolverName = GetString( Solver % Values, 'Flow Solver Name', GotIt )    
-     IF (.NOT.Gotit) FlowSolverName = 'Flow Solution'
+     IF (.NOT.Gotit) FlowSolverName = 'flow solution'
      FlowVariable => VariableGet( Solver % Mesh % Variables, FlowSolverName )
+     PRINT *, '***********************************'
+     PRINT *, FlowSolverName, GotIt
+
      IF ( ASSOCIATED( FlowVariable ) ) THEN
        FlowPerm    => FlowVariable % Perm
        FlowValues  => FlowVariable % Values
@@ -157,56 +157,65 @@
 !     Allocate some permanent storage, this is done first time only
 !------------------------------------------------------------------------------
      IF ( .NOT. AllocationsDone .OR. Solver % Mesh % Changed) THEN
-       N = Model % MaxElementNodes
+        N = Model % MaxElementNodes
+        
+        IF ( AllocationsDone ) THEN
+           DEALLOCATE (Force,     &
+                Velocity, &
+                MeshVelocity, &
+                MASS,&
+                STIFF,&
+                LOAD,&
+                Alpha,&
+                Beta,&
+                CurrAge)
+        END IF
 
-       IF ( AllocationsDone ) THEN
-         DEALLOCATE (Force,     &
-                     Velocity,MeshVelocity, &
-                     MASS,STIFF,      &
-                     LOAD, Alpha, Beta, CurrAge)
-       END IF
+        ALLOCATE( Force( 2*STDOFs*N ), & 
+             Velocity(4, N ),&
+             MeshVelocity(3,N), &
+             MASS( 2*STDOFs*N,2*STDOFs*N ),  &
+             STIFF( 2*STDOFs*N,2*STDOFs*N ),  &
+             LOAD( 4,N ),&
+             Alpha( 3,N ),&
+             Beta( N ),&
+             CurrAge( SIZE(Solver % Variable % Values)),&
+             STAT=istat )
+        IF ( istat /= 0 ) THEN
+           CALL Fatal( 'DatingSolve', 'Memory allocation error.' )
+        END IF
 
-       ALLOCATE( Force( 2*STDOFs*N ), & 
-                 Velocity(4, N ), MeshVelocity(3,N), &
-                 MASS( 2*STDOFs*N,2*STDOFs*N ),  &
-                 STIFF( 2*STDOFs*N,2*STDOFs*N ),  &
-                 LOAD( 4,N ), Alpha( 3,N ), Beta( N ),&
-                 CurrAge( SIZE(Solver % Variable % Values)),&
-                 STAT=istat )
-       IF ( istat /= 0 ) THEN
-          CALL Fatal( 'DatingSolve', 'Memory allocation error.' )
-       END IF
+        CurrAge = 0
 
-       CurrAge = 0
+        IF ( TransientSimulation ) THEN
+           IF ( AllocationsDone ) DEALLOCATE(PrevAge)             
+           ALLOCATE( PrevAge( SIZE(Solver % Variable % Values)) )
+           PrevAge = 0
+        END IF
 
-       IF ( TransientSimulation ) THEN
-          IF ( AllocationsDone ) THEN
-             ALLOCATE( PrevAge( SIZE(Solver % Variable % Values)) )
-             PrevAge = 0
-          END IF
-       END IF
 
-       DO i=1,Solver % NumberOFActiveElements
-          CurrentElement => GetActiveElement(i)   
-          NodeIndexes => CurrentElement % NodeIndexes
-          n = GetElementDOFs( Indexes )
-          Indexes(1:n) = Solver % Variable % Perm( Indexes(1:n) )
-            IF ( TransientSimulation ) THEN
-               PrevAge(Indexes(1:n)) = &
-                        AgeValues(AgePerm(NodeIndexes))
-            END IF
-            CurrAge(Indexes(1:n)) = &
-                        AgeValues(AgePerm(NodeIndexes))
-       END DO
+        DO i=1,Solver % NumberOFActiveElements
+           CurrentElement => GetActiveElement(i)   
+           NodeIndexes => CurrentElement % NodeIndexes
+           n = GetElementDOFs( Indexes )
+           Indexes(1:n) = Solver % Variable % Perm( Indexes(1:n) )
+           IF ( TransientSimulation ) THEN
+              PrevAge(Indexes(1:n)) = &
+                   AgeValues(AgePerm(NodeIndexes))
+           END IF
+           CurrAge(Indexes(1:n)) = &
+                AgeValues(AgePerm(NodeIndexes))
+        END DO
 
-       AllocationsDone = .TRUE.
-     END IF
+        AllocationsDone = .TRUE.
+    
 
-     IF( TransientSimulation ) THEN
-        TimeVar => VariableGet( Solver % Mesh % Variables, 'Time' )
-        IF ( SaveTime /= TimeVar % Values(1) ) THEN
-           SaveTime = TimeVar % Values(1)
-           PrevAge = CurrAge
+        IF( TransientSimulation ) THEN
+           TimeVar => VariableGet( Solver % Mesh % Variables, 'Time' )
+           IF ( SaveTime /= TimeVar % Values(1) ) THEN
+              SaveTime = TimeVar % Values(1)
+              PrevAge = CurrAge
+           END IF
         END IF
      END IF
 
@@ -298,7 +307,7 @@
 
 !-------------------mesh velo
          MeshVelocity=0._dp
-         call GetVectorLocalSolution(MeshVelocity,'Mesh Velocity')
+!         call GetVectorLocalSolution(MeshVelocity,'Mesh Velocity')
 !--------------------------
 
          CALL LocalMatrix( MASS, STIFF, FORCE, LOAD, &
@@ -437,7 +446,7 @@
 !------------------------------------------------------------------------------
 !     Solve the system and check for convergence
 !------------------------------------------------------------------------------
-      Unorm = DefaultSolve()
+!      Unorm = DefaultSolve()
       CurrAge = Solver % Variable % Values
       WRITE(Message,*) 'solve done', minval( solver % variable % values), maxval( Solver % variable % values)
       CALL Info( 'DatingSolve', Message, Level=4 )
@@ -679,6 +688,9 @@ CONTAINS
       REAL(KIND=dp) :: hE, Normal(3), cu(3), LeftOut(3)
 
       TYPE(Nodes_t) :: EdgeNodes, LeftParentNodes, RightParentNodes
+
+      SAVE EdgeNodes, LeftParentNodes, RightParentNodes
+
 !------------------------------------------------------------------------------
       dim = CoordinateSystemDimension()
       STIFF = 0.0d0
