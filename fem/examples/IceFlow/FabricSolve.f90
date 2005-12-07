@@ -85,16 +85,20 @@
 
      INTEGER :: NewtonIter,NonlinearIter
 
-     TYPE(Variable_t), POINTER :: FabricSol, TempSol, FabricVariable, FlowVariable
+     TYPE(Variable_t), POINTER :: FabricSol, TempSol, FabricVariable, FlowVariable, &
+                                  EigenFabricVariable
 
      REAL(KIND=dp), POINTER :: Temperature(:),Fabric(:), &
-           FabricValues(:), FlowValues(:), Solution(:), Ref(:)
+           FabricValues(:), FlowValues(:), EigenFabricValues(:), Solution(:), Ref(:)
 
      INTEGER, POINTER :: TempPerm(:),FabricPerm(:),NodeIndexes(:), &
-                        FlowPerm(:)
+                        FlowPerm(:), EigenFabricPerm(:)
 
      REAL(KIND=dp) :: rho,lambda   !Interaction parameter,diffusion parameter
      REAL(KIND=dp) :: A1plusA2
+     Real(KIND=dp), parameter :: Rad2deg=180._dp/Pi
+     REAL(KIND=dp) :: a2(6)
+     REAL(KIND=dp) :: ai(3), Angle(3)
 
      LOGICAL :: GotForceBC,GotIt,NewtonLinearization = .FALSE.
 
@@ -125,8 +129,15 @@
 
      SAVE  ViscosityFile, PrevFabric, CurrFabric,TempFabVal
      REAL(KIND=dp) :: at, at0, CPUTime, RealTime
-
 !------------------------------------------------------------------------------
+      INTERFACE
+        Subroutine R2Ro(a2,dim,ai,angle)
+        USE Types
+        REAL(KIND=dp),intent(in) :: a2(6)
+        Integer :: dim
+        REAL(KIND=dp),intent(out) :: ai(3), Angle(3)
+       End Subroutine R2Ro
+      End Interface                                                       
 !------------------------------------------------------------------------------
 !  Read constants from constants section of SIF file
 !------------------------------------------------------------------------------
@@ -326,7 +337,7 @@
         IF (.NOT.GotIt) THEN
          WRITE(Message,'(A)') 'Variable Fluidity Parameter not found. &
                             &Setting to 1.0'
-         CALL INFO('AIFlowSolve', Message, Level = 20)
+         CALL INFO('AIFlowSolve', Message, Level = 4)
          LocalFluidity(1:n) = 1.0
         END IF
 !------------------------------------------------------------------------------
@@ -356,7 +367,7 @@
 
 !------------meshvelocity
          MeshVelocity=0._dp
-         call GetVectorLocalSolution(MeshVelocity, 'Mesh Velocity',CurrentElement)
+         !call GetVectorLocalSolution(MeshVelocity, 'Mesh Velocity',CurrentElement)
 !----------------------------------
 
          CALL LocalMatrix( COMP, MASS, STIFF, FORCE, LOAD, K1, K2, E1, &
@@ -398,7 +409,7 @@
 
 !------------meshvelocity
          MeshVelocity=0._dp
-         call GetVectorLocalSolution(MeshVelocity, 'Mesh Velocity',Edge)
+         !call GetVectorLocalSolution(MeshVelocity, 'Mesh Velocity',Edge)
 !----------------------------------
 
             FORCE = 0.0d0
@@ -431,7 +442,7 @@
 
 !------------meshvelocity
          MeshVelocity=0._dp
-         call GetVectorLocalSolution(MeshVelocity, 'Mesh Velocity',Edge)
+         !call GetVectorLocalSolution(MeshVelocity, 'Mesh Velocity',Edge)
 !----------------------------------
 
             FORCE = 0.0d0
@@ -469,7 +480,7 @@
 
 !------------meshvelocity
          MeshVelocity=0._dp
-         call GetVectorLocalSolution(MeshVelocity, 'Mesh Velocity',Element)
+         !call GetVectorLocalSolution(MeshVelocity, 'Mesh Velocity',Element)
 !----------------------------------
 
          BC => GetBC()
@@ -600,6 +611,50 @@
             iter > NewtonIter ) NewtonLinearization = .TRUE.
 
       IF ( RelativeChange < NonLinearTol ) EXIT
+
+!------------------------------------------------------------------------------
+      EigenFabricVariable => &
+       VariableGet( Solver % Mesh % Variables, 'EigenV' )
+     IF ( ASSOCIATED( EigenFabricVariable ) ) THEN
+         EigenFabricPerm    => EigenFabricVariable % Perm
+         EigenFabricValues => EigenFabricVariable % Values
+      
+         DO t=1,Solver % NumberOFActiveElements
+
+           CurrentElement => GetActiveElement(t)
+           n = GetElementNOFNodes()
+           NodeIndexes => CurrentElement % NodeIndexes
+
+           K1(1:n) = FabricValues( 5*(FabricPerm(NodeIndexes(1:n))-1)+1 )
+           K2(1:n) = FabricValues( 5*(FabricPerm(NodeIndexes(1:n))-1)+2 )
+           E1(1:n) = FabricValues( 5*(FabricPerm(NodeIndexes(1:n))-1)+3 )
+           E2(1:n) = FabricValues( 5*(FabricPerm(NodeIndexes(1:n))-1)+4 )
+           E3(1:n) = FabricValues( 5*(FabricPerm(NodeIndexes(1:n))-1)+5 )
+         
+           Do i=1,n
+            a2(1)=K1(i)
+            a2(2)=K2(i)
+            a2(3)=1._dp-a2(1)-a2(2)
+            a2(4)=E1(i)
+            a2(5)=E2(i)
+            a2(6)=E3(i)
+
+            call R2Ro(a2,dim,ai,angle)
+
+            angle(:)=angle(:)*rad2deg
+            If (angle(1).gt.90._dp) angle(1)=angle(1)-180._dp
+            If (angle(1).lt.-90._dp) angle(1)=angle(1)+180._dp
+          
+           EigenFabricValues( 6 * (EigenFabricPerm(NodeIndexes(i))-1) + 1)=ai(1)
+           EigenFabricValues( 6 * (EigenFabricPerm(NodeIndexes(i))-1) + 2)=ai(2)
+           EigenFabricValues( 6 * (EigenFabricPerm(NodeIndexes(i))-1) + 3 )=ai(3)
+           EigenFabricValues( 6 * (EigenFabricPerm(NodeIndexes(i))-1) + 4 )=angle(1)
+           EigenFabricValues( 6 * (EigenFabricPerm(NodeIndexes(i))-1) + 5 )=angle(2)
+           EigenFabricValues( 6 * (EigenFabricPerm(NodeIndexes(i))-1) + 6 )=angle(3)
+           End do
+        END DO
+
+      END IF
 !------------------------------------------------------------------------------
     END DO ! of nonlinear iter
 !------------------------------------------------------------------------------
