@@ -18,7 +18,7 @@
 \newcommand{\btheta}{\bar \theta}
 \newcommand{\bomega}{\bar \omega}
 %--------------------------------------------------------------
-\chapter{Anisotropic Ice Flow Solver (AIFlowSolver$\_$ai)}\\
+\chapter{Anisotropic Ice Flow Solver (AIFlowSolver)}\\
 
 \modinfo{Module name}{AIFlow}
 \modinfo{Module subroutines~:}{AIFlowSolve}
@@ -46,6 +46,7 @@ Where~:\\
 %
 - $()^D$ denotes the deviatoric part,\\
 %
+- the six $\eta_i$ are the viscosities function of the fabric, \\
 and the fluidity of isotropic ice at temperature $T$ follows Arrh\'{e}nius law~:
 \begin{equation} {B}(T) = {B} (T_0) \exp{{Q}({1}/{T_0}-{1}/{T})/R}
 \end{equation}
@@ -59,8 +60,7 @@ angles $(\theta,\phi,\omega)$.\\
 \noindent \textbf{Convention:} Note that in ELMER the isotropic pressure is defined as $p = - tr (\Mat{\sigma}) /3 $,
 so that $\sigma_{ij} = s_{ij} - p \delta_{ij}$. \\
 
-\noindent \textbf{FabricSolver:} Note that the AIFlowSolver cannot be used alone since it needs the Fabric variables as
-an input. Even if the Fabric variables are constants, the FabricSolver must be declared (but not executed). For
+\noindent \textbf{FabricSolver:} Note that the AIFlowSolver cannot be used alone except if the material is isotropic (See Keywords section). Even if the Fabric variables are constants, the FabricSolver must be declared (but not executed). For
 details, see the FabricSolver model manual.\\
 
 \noindent \textbf{Heat Equation Solver:} Same remarks for the temperature variable.
@@ -79,6 +79,10 @@ details, see the FabricSolver model manual.\\
 %
  \sifbegin
 %
+ \sifitem{Isotropic}{Logical}
+%
+ Set to True if the material is isotropic in the whole domain. The fabricSolver as well as the Viscosity File is then not needed. Default value is false. 
+%
  \sifitem{Density}{Real}
 %
  The value of the density is given with this keyword.
@@ -90,7 +94,7 @@ details, see the FabricSolver model manual.\\
 %
  \sifitem{Powerlaw Exponent}{Real}
 %
- The power law exponent in the viscoplastic law ($=1$).
+ The power law exponent in the viscoplastic law. If the material is Isotropic, can take any value, else $n=1$.
 %
  \sifitem{Activation Energy 1}{Real}
 %
@@ -116,6 +120,11 @@ details, see the FabricSolver model manual.\\
 %
  Gives the name of the file which contains the $813 \times 6$ relative viscosities
  calculated on the fabric grid.
+%
+%
+ \sifitem{Min Second Invariant}{Real}
+%
+ The minimal value for the second invariant of the strain-rate. Only used for non-linear isotropic behaviour.
  \sifend
 
 
@@ -213,6 +222,10 @@ A pressure force in the given direction $i=1,2,3$.
 \sifitem{Normal Force }{= Real }
 %
 A pressure boundary condition directed normal to the surface.
+%
+\sifitem{AIFlow Slip Coeff i}{= Real }
+%
+Used to prescribe a sliding boundary condition of the form $C_i u_i = \sigma_{ij}n_j$ where $\Mat{n}$ is the surface normal vector.
 \sifend
 
 \sifbegin
