@@ -92,8 +92,8 @@
 
      LOGICAL :: Stabilize = .TRUE., Bubbles = .TRUE., UseBubbles, &
           NewtonLinearization = .FALSE., Found, FluxBC, Permeable=.TRUE., &
-          AllocationsDone = .FALSE.,  SubroutineVisited = .FALSE., FirstTime, CorrectNegative, &
-           LimitSolution
+          AllocationsDone = .FALSE.,  SubroutineVisited = .FALSE., FirstTime=.TRUE.,&
+          CorrectNegative, LimitSolution
      LOGICAL, ALLOCATABLE :: IsBoundaryNode(:), LimitedSolution(:,:)
 
      REAL(KIND=dp) :: NonlinearTol,NewtonTol,NonLinearTolMin,NonLinearTolDegrease, &
@@ -238,6 +238,7 @@
            CALL INFO(SolverName, 'Memory allocation done', level=1 )
         END IF
         
+        
         LagrangeMultiplier1 = 0.0d0
         LagrangeMultiplier2 = 0.0d0
 
@@ -279,7 +280,7 @@
         
         NULLIFY( Hwrk )
         
-
+        AllocationsDone = .TRUE.
      END IF
 
 !------------------------------------------------------------------------------
@@ -304,11 +305,11 @@
                      'Nonlinear System Max Iterations', Found )
      IF ( .NOT.Found ) NonlinearIter = 1
 
-     IF (.NOT.AllocationsDone) THEN
+     IF (FirstTime) THEN
         NonlinearTol  = GetConstReal( SolverParams, &
                      'Nonlinear System Convergence Tolerance',    Found )
-        OldNonlinearTol = NonlinearTol
-        AllocationsDone = .TRUE.  
+
+        OldNonlinearTol = NonlinearTol  
         NonlinearTolDegrease = GetConstReal( SolverParams, &
              'Nonlinear System Convergence Tolerance Degrease',    Found )
         IF (.NOT.Found) NonlinearTolDegrease = 1.0D00
@@ -317,6 +318,7 @@
              'Nonlinear System Convergence Tolerance Min',    Found )
      
         IF (.NOT.Found) NonlinearTolDegrease = 1.0D00
+        
      END  IF
 
      NewtonTol     = GetConstReal( SolverParams, &
@@ -351,7 +353,7 @@
      SaveRelax = Relax
      dt = Timestep
      CumulativeTime = 0.0d0
-!     FirstTime = .TRUE.
+
 
 !------------------------------------------------------------------------------
 !   time stepping loop.
@@ -380,8 +382,9 @@
            NonLinearTol = MAX(NonLinearTolMin,OldNonLinearTol*NonLinearTolDegrease)
            OldNonLinearTol = NonLinearTol
         ELSE
-           WRITE( Message, * ) 'Nonlinear Tolerance:',NonLinearTol
+           WRITE( Message, * ) 'Nonlinear Tolerance at start:',NonLinearTol
            CALL Info( SolverName, Message, Level=4 )
+           OldNonLinearTol = NonLinearTol
         END IF
 !------------------------------------------------------------------------------
 !       non-linear system iteration loop
@@ -394,8 +397,6 @@
               CALL Info( SolverName, Message, Level=4 )
               Relax = MIN(RelaxMax,Relax * Relaxincrease)
            ELSE
-              WRITE( Message, * ) 'Nonlinear Tolerance:',NonLinearTol
-              CALL Info( SolverName, Message, Level=4 )
               WRITE( Message, * ) 'Relaxation Factor:',Relax
               CALL Info( SolverName, Message, Level=4 )
            END IF
@@ -895,14 +896,12 @@
            CALL ListAddConstReal(Solver % Values,  &
                 'Nonlinear System Relaxation Factor', Relax )
 
-
-           CALL ListAddConstReal(Solver % Values,  &
-                'Nonlinear System Relaxation Factor', NonLinearTol)
-
-
 !------------------------------------------------------------------------------
         END DO ! of the nonlinear iteration
 !------------------------------------------------------------------------------
+
+        CALL ListAddConstReal(Solver % Values,  &
+             'Nonlinear System Tolerance', NonlinearTol)
 
 !------------------------------------------------------------------------------
 !   Compute cumulative time done by now and time remaining
