@@ -86,13 +86,14 @@
      INTEGER :: NewtonIter,NonlinearIter
 
      TYPE(Variable_t), POINTER :: FabricSol, TempSol, FabricVariable, FlowVariable, &
-                                  EigenFabricVariable
+                                  EigenFabricVariable, MeshVeloVariable
 
      REAL(KIND=dp), POINTER :: Temperature(:),Fabric(:), &
-           FabricValues(:), FlowValues(:), EigenFabricValues(:), Solution(:), Ref(:)
+           FabricValues(:), FlowValues(:), EigenFabricValues(:), &
+           MeshVeloValues(:), Solution(:), Ref(:)
 
      INTEGER, POINTER :: TempPerm(:),FabricPerm(:),NodeIndexes(:), &
-                        FlowPerm(:), EigenFabricPerm(:)
+                        FlowPerm(:), MeshVeloPerm(:), EigenFabricPerm(:)
 
      REAL(KIND=dp) :: rho,lambda   !Interaction parameter,diffusion parameter
      REAL(KIND=dp) :: A1plusA2
@@ -175,6 +176,16 @@
        FlowPerm    => FlowVariable % Perm
        FlowValues  => FlowVariable % Values
       END IF
+      
+!!!!! Mesh Velo
+     MeshVeloVariable => VariableGet( Solver % Mesh % Variables, &
+            'Mesh Velocity' )
+
+     IF ( ASSOCIATED( MeshVeloVariable ) ) THEN
+       MeshVeloPerm    => MeshVeloVariable % Perm
+       MeshVeloValues  => MeshVeloVariable % Values
+     END IF
+       
                                        
       StiffMatrix => Solver % Matrix
       ! UNorm = Solver % Variable % Norm
@@ -367,7 +378,12 @@
 
 !------------meshvelocity
          MeshVelocity=0._dp
-         !call GetVectorLocalSolution(MeshVelocity, 'Mesh Velocity',CurrentElement)
+         IF (ASSOCIATED(MeshVeloVariable)) Then
+           k = MeshVeloVariable % DOFs
+           DO i=1,k
+              MeshVelocity(i,1:n) = MeshVeloValues(k*(MeshVeloPerm(NodeIndexes)-1)+i)
+           END DO
+         EndIF
 !----------------------------------
 
          CALL LocalMatrix( COMP, MASS, STIFF, FORCE, LOAD, K1, K2, E1, &
@@ -407,10 +423,15 @@
                Velocity(i,1:n) = FlowValues(k*(FlowPerm(Edge % NodeIndexes)-1)+i)
             END DO
 
-!------------meshvelocity
+     !-------------------mesh velo
          MeshVelocity=0._dp
-         !call GetVectorLocalSolution(MeshVelocity, 'Mesh Velocity',Edge)
-!----------------------------------
+      IF ( ASSOCIATED( MeshVeloVariable ) ) THEN
+            k = MeshVeloVariable % DOFs
+            DO i=1,k
+               MeshVelocity(i,1:n) = MeshVeloValues(k*(MeshVeloPerm(Edge % NodeIndexes)-1)+i)
+            END DO
+      END IF
+     !--------------------------
 
             FORCE = 0.0d0
             MASS  = 0.0d0
@@ -440,10 +461,15 @@
                Velocity(i,1:n) = FlowValues(k*(FlowPerm(Edge % NodeIndexes(1:n))-1)+i)
             END DO
 
-!------------meshvelocity
+     !-------------------mesh velo
          MeshVelocity=0._dp
-         !call GetVectorLocalSolution(MeshVelocity, 'Mesh Velocity',Edge)
-!----------------------------------
+      IF ( ASSOCIATED( MeshVeloVariable ) ) THEN
+            k = MeshVeloVariable % DOFs
+            DO i=1,k
+               MeshVelocity(i,1:n) = MeshVeloValues(k*(MeshVeloPerm(Edge % NodeIndexes)-1)+i)
+            END DO
+      END IF
+     !--------------------------
 
             FORCE = 0.0d0
             MASS  = 0.0d0
@@ -478,10 +504,16 @@
             Velocity(i,1:n) = FlowValues(k*(FlowPerm(Element % NodeIndexes(1:n))-1)+i)
          END DO
 
-!------------meshvelocity
+!-------------------mesh velo
          MeshVelocity=0._dp
-         !call GetVectorLocalSolution(MeshVelocity, 'Mesh Velocity',Element)
-!----------------------------------
+      IF ( ASSOCIATED( MeshVeloVariable ) ) THEN
+        k = MeshVeloVariable % DOFs
+        DO i=1,k
+         MeshVelocity(i,1:n) = MeshVeloValues(k*(MeshVeloPerm(Element % NodeIndexes)-1)+i)
+        End do
+      END IF
+!--------------------------
+
 
          BC => GetBC()
          LOAD = 0.0d0
@@ -555,15 +587,15 @@
        FabricValues( COMP:SIZE(FabricValues):5 ) = &
        MIN(MAX( FabricValues( COMP:SIZE(FabricValues):5 ) , 0._dp),1._dp)
        
-       DO i=1,SIZE(FabricValues),5 
-         IF((FabricValues(i)+FabricValues(i+1)).GT.1._dp) THEN
-             A1plusA2=FabricValues(i)+FabricValues(i+1)
-             FabricValues(i)= &
-               FabricValues(i)/A1plusA2
-             FabricValues(i+1)= &
-               FabricValues(i+1)/A1plusA2
-          END IF
-        END DO
+       !DO i=1,SIZE(FabricValues),5 
+       !  IF((FabricValues(i)+FabricValues(i+1)).GT.1._dp) THEN
+       !      A1plusA2=FabricValues(i)+FabricValues(i+1)
+       !      FabricValues(i)= &
+       !        FabricValues(i)/A1plusA2
+       !      FabricValues(i+1)= &
+       !        FabricValues(i+1)/A1plusA2
+       !   END IF
+       ! END DO
         
 
       CASE(3:5)
@@ -993,7 +1025,7 @@ CONTAINS
 !     ----------
       Velo = 0.0d0
       DO i=1,dim
-         Velo(i) = SUM( Basis(1:n) * (NodalVelo(i,1:n) - NodMeshVel(i,1:N)) )
+         Velo(i) = SUM( Basis(1:n) * (NodalVelo(i,1:n) - NodMeshVel(i,1:n)) )
       END DO
       Unorm = SQRT( SUM( Velo**2._dp ) )
 
