@@ -84,13 +84,13 @@
 
      INTEGER :: NewtonIter,NonlinearIter
 
-     TYPE(Variable_t), POINTER :: AgeSol,  AgeVariable, FlowVariable
+     TYPE(Variable_t), POINTER :: AgeSol,  AgeVariable, FlowVariable, MeshVeloVariable
 
-     REAL(KIND=dp), POINTER :: AgeValues(:), FlowValues(:), Solution(:), Ref(:)
+     REAL(KIND=dp), POINTER :: AgeValues(:), FlowValues(:), Solution(:), Ref(:),  MeshVeloValues(:)
            
      CHARACTER(LEN=MAX_NAME_LEN)  ::  FlowSolverName
 
-     INTEGER, POINTER :: AgePerm(:),NodeIndexes(:), FlowPerm(:)
+     INTEGER, POINTER :: AgePerm(:),NodeIndexes(:), FlowPerm(:),  MeshVeloPerm(:)
                         
 
      LOGICAL :: GotForceBC,GotIt,NewtonLinearization = .FALSE., CompressibleFlow
@@ -145,7 +145,15 @@
      ELSE
        CALL Info('DatingSolver', 'No variable for velocity associated.', Level=4)
      END IF
-       
+!!!!! Mesh Velo
+     MeshVeloVariable => VariableGet( Solver % Mesh % Variables, &
+            'Mesh Velocity' )
+
+     IF ( ASSOCIATED( MeshVeloVariable ) ) THEN
+       MeshVeloPerm    => MeshVeloVariable % Perm
+       MeshVeloValues  => MeshVeloVariable % Values
+     END IF
+      
 
      StiffMatrix => Solver % Matrix
      UNorm = Solver % Variable % Norm
@@ -206,7 +214,8 @@
 
         AllocationsDone = .TRUE.
     
-
+      END IF
+!-----------------------------------------------------
         IF( TransientSimulation ) THEN
            TimeVar => VariableGet( Solver % Mesh % Variables, 'Time' )
            IF ( SaveTime /= TimeVar % Values(1) ) THEN
@@ -214,7 +223,6 @@
               PrevAge = CurrAge
            END IF
         END IF
-     END IF
 
 !------------------------------------------------------------------------------
 !    Do some additional initialization, and go for it
@@ -304,7 +312,12 @@
 
 !-------------------mesh velo
          MeshVelocity=0._dp
-         call GetVectorLocalSolution(MeshVelocity,'Mesh Velocity',CurrentElement)
+         IF (ASSOCIATED(MeshVeloVariable)) Then
+           k = MeshVeloVariable % DOFs
+           DO i=1,k
+              MeshVelocity(i,1:n) = MeshVeloValues(k*(MeshVeloPerm(NodeIndexes)-1)+i)
+           END DO
+         EndIF
 !--------------------------
 
          CALL LocalMatrix( MASS, STIFF, FORCE, LOAD, &
@@ -348,7 +361,12 @@
 
    !-------------------mesh velo
          MeshVelocity=0._dp
-         call GetVectorLocalSolution(MeshVelocity,'Mesh Velocity',Edge)
+      IF ( ASSOCIATED( MeshVeloVariable ) ) THEN
+            k = MeshVeloVariable % DOFs
+            DO i=1,k
+               MeshVelocity(i,1:n) = MeshVeloValues(k*(MeshVeloPerm(Edge % NodeIndexes)-1)+i)
+            END DO
+      END IF
     !--------------------------
 
             FORCE = 0.0d0
@@ -380,7 +398,12 @@
 
    !-------------------mesh velo
          MeshVelocity=0._dp
-         call GetVectorLocalSolution(MeshVelocity,'Mesh Velocity',Edge)
+      IF ( ASSOCIATED( MeshVeloVariable ) ) THEN
+            k = MeshVeloVariable % DOFs
+            DO i=1,k
+               MeshVelocity(i,1:n) = MeshVeloValues(k*(MeshVeloPerm(Edge % NodeIndexes)-1)+i)
+            END DO
+      END IF
     !--------------------------
 
             FORCE = 0.0d0
@@ -418,7 +441,12 @@
          END DO
    !-------------------mesh velo
          MeshVelocity=0._dp
-         call GetVectorLocalSolution(MeshVelocity,'Mesh Velocity',Element)
+      IF ( ASSOCIATED( MeshVeloVariable ) ) THEN
+        k = MeshVeloVariable % DOFs
+        DO i=1,k
+         MeshVelocity(i,1:n) = MeshVeloValues(k*(MeshVeloPerm(Element % NodeIndexes)-1)+i)
+        End do
+      END IF
     !--------------------------
 
          BC => GetBC()
