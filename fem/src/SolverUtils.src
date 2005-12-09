@@ -33,6 +33,11 @@
 ! *       Date of modification:
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.8  2005/12/09 12:07:00  jpr
+! * Added keyword "Set Dirichet BCs by BC Numbering" to simulation section.
+! * This may be set to TRUE, if you want to control the BC set to nodes
+! * common to two or more BCs by sif file BC numbering.
+! *
 ! * Revision 1.5  2005/07/07 11:14:25  jpr
 ! * Reorganizing the parallel structs.
 ! *
@@ -79,7 +84,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.7 2005/12/09 11:28:51 jpr Exp $
+! * $Id: SolverUtils.src,v 1.8 2005/12/09 12:07:00 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -769,6 +774,8 @@ CONTAINS
     REAL(KIND=dp), POINTER :: WorkA(:,:,:) => NULL()
     REAL(KIND=dp) :: Work(Model % MaxElementNodes),s
 
+    LOGICAL :: Conditional
+    CHARACTER(LEN=MAX_NAME_LEN) :: CondName
 !------------------------------------------------------------------------------
 
      OrderByBCNumbering = ListGetLogical( Model % Simulation, &
@@ -782,18 +789,22 @@ CONTAINS
        CALL SetPeriodicBoundariesPass2( Model, A, b, Name, DOF, NDOFs, Perm, BC )
      END DO
 
+     CondName = TRIM(Name) // ' Condition'
+
      IF ( OrderByBCNumbering ) THEN
        DO BC=1,Model % NumberOfBCs
+         Conditional = ListCheckPresent( Model % BCs(BC) % Values, CondName )
          DO t = Model % NumberOfBulkElements + 1, &
            Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
-            CALL SetValues
+            CALL SetValues( n )
          END DO
        END DO
      ELSE
        DO t = Model % NumberOfBulkElements + 1, &
          Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
          DO BC=1,Model % NumberOfBCs
-            CALL SetValues
+            Conditional = ListCheckPresent( Model % BCs(BC) % Values, CondName )
+            CALL SetValues( n )
          END DO
        END DO
      END IF
@@ -801,7 +812,9 @@ CONTAINS
 
 CONTAINS
 
-     SUBROUTINE SetValues
+     SUBROUTINE SetValues(n)
+       INTEGER :: n
+       REAL(KIND=dp) :: Condition(n)
 
        Element => Model % Elements(t)
        Model % CurrentElement => Element
@@ -818,7 +831,13 @@ CONTAINS
                  Model % BCs(BC) % Values, Name, WorkA, n, NodeIndexes, gotIt )
          END IF
          IF ( gotIt ) THEN
+           IF ( Conditional ) THEN
+              Condition(1:n) = ListGetReal( &
+                 Model % BCs(BC) % Values, CondName, n, NodeIndexes, gotIt )
+              Conditional = Conditional .AND. GotIt
+           END IF
            DO j=1,n
+             IF ( Conditional .AND. Condition(j) < 0.0d0 ) CYCLE
              k = Perm(NodeIndexes(j))
              IF ( k > 0 ) THEN
                IF ( DOF>0 ) THEN
