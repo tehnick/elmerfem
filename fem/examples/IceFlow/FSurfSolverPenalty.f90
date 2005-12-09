@@ -63,15 +63,16 @@
 
      REAL(KIND=dp) :: &
           at,st,totat,totst,CPUTime,Norm,PrevNorm,LocalBottom, cv, &
-          Relax, MaxDisp, maxdh, NonlinearTol, UzawaParameter, RelativeChange
-
+          Relax, MaxDisp, maxdh, NonlinearTol, UzawaParameter, RelativeChange, &
+          SteadyTol,SteadyDisp
 
      LOGICAL ::&
           firstTime=.TRUE., GotIt, AllocationsDone = .FALSE., stat, &
           NeedOldValues,  Bubbles = .FALSE.,&
           NormalFlux = .TRUE., SubstantialSurface = .TRUE.,&
           UseBodyForce = .TRUE., LimitedSolution(2) = .FALSE., &
-          Converged = .FALSE.
+          Converged = .FALSE., &
+          LimitDisp,DispSteady
 
 
 
@@ -108,7 +109,7 @@
           ElementNodes, AllocationsDone, Velo, OldFreeSurf, TimeForce, &
           SubroutineVisited, ElemFreeSurf, Flux, SubstantialSurface, NormalFlux,&
           UseBodyForce,  Limit, BoundaryPerm, BoundaryMapping, &
-          auxReal, Norm, PrevNorm, OldDy, LocalLimit, AlreadyDone
+          auxReal, Norm, PrevNorm, OldDy, LocalLimit, AlreadyDone,KMAX
 
 
 !------------------------------------------------------------------------------
@@ -117,6 +118,9 @@
      MMAX = Solver % Mesh % NumberOfNodes
      DIM = CoordinateSystemDimension()
      SolverParams => GetSolverParams()
+     
+     MaxDisp = GetConstReal( SolverParams, 'Maximum Displacement', LimitDisp)
+     NeedOldValues=LimitDisp
 
 
      cv = GetConstReal( SolverParams, 'Velocity Implicity', GotIt)
@@ -127,7 +131,7 @@
 
      Relax = GetConstReal( SolverParams, 'Relaxation Factor', GotIt)
      IF(.NOT. GotIt) Relax = 1.0d0
-     NeedOldValues = (GotIt .AND. (Relax < 1.0d00))
+     NeedOldValues = (NeedOldValues.OR.(GotIt .AND. (Relax < 1.0d00)))
 
 
      NonlinearIter = GetInteger(   SolverParams, &
@@ -141,7 +145,18 @@
         CALL Fatal('FreeSurfaceSolver',&
              'No Value for Nonlinear System Convergence Tolerance found')
      END IF
-     
+
+! pour limiter en deplacement
+     SteadyTol = GetConstReal(   SolverParams, &
+                    'Steady State Convergence Tolerance', GotIt )
+     SteadyDisp = GetConstReal(   SolverParams, &
+                    'Steady State Displacement Tolerance', DispSteady )
+                                                                                                                             
+!!!!!!!!!!!!!!
+ 
+
+
+    
      UzawaParameter = GetConstReal( SolverParams, &
                'Uzawa Parameter', GotIt)
      IF (.NOT.GotIt) THEN                
@@ -326,6 +341,11 @@
      END IF
      
 
+      If (NeedOldValues) Then
+           DO i=1,KMAX
+              OldFreeSurf(i) = FreeSurf(i)
+           END DO
+       End if
 
 
 !------------------------------------------------------------------------------
@@ -574,22 +594,22 @@
 
 
         IF(NeedOldValues) THEN
-!        IF(LimitDisp) THEN 
-!           maxdh = -HUGE(maxdh)         
-!           DO i=1, Model % NumberOfNodes
-!              j = FreeSurfPerm(i)
-!              IF(j > 0) THEN
-!                 maxdh = MAX(maxdh, ABS(FreeSurf(j)-OldFreeSurf(j)))
-!              END IF
-!           END DO
-!           IF(maxdh > MaxDisp) THEN
-!              Relax = Relax * MaxDisp/maxdh
-!           END IF
-!           WRITE(Message,'(a,E8.2)') 'Maximum displacement',maxdh
-!           CALL Info( 'FreeSurfaceSolver', Message, Level=4 )
-!        END IF
-!        WRITE(Message,'(a,F8.2)') 'pp Relaxation factor',Relax
-!        CALL Info( 'FreeSurfaceSolver', Message, Level=4 )
+        IF(LimitDisp) THEN 
+           maxdh = -HUGE(maxdh)         
+           DO i=1, Model % NumberOfNodes
+              j = FreeSurfPerm(i)
+              IF(j > 0) THEN
+                 maxdh = MAX(maxdh, ABS(FreeSurf(j)-OldFreeSurf(j)))
+              END IF
+           END DO
+           IF(maxdh > MaxDisp) THEN
+              Relax = Relax * MaxDisp/maxdh
+           END IF
+           WRITE(Message,'(a,E8.2)') 'Maximum displacement',maxdh
+           CALL Info( 'FreeSurfaceSolver', Message, Level=4 )
+        END IF
+        WRITE(Message,'(a,F8.2)') 'pp Relaxation factor',Relax
+        CALL Info( 'FreeSurfaceSolver', Message, Level=4 )
            DO i=1, Model % NumberOfNodes
               j = FreeSurfPerm(i)
               IF(j > 0) THEN
@@ -621,6 +641,21 @@
         CALL Info( 'Free Surface Solve', Message, Level=4 )
         WRITE( Message, * ) 'Relative Change : ',RelativeChange
         CALL Info( 'Free Surface Solve', Message, Level=4 )
+
+!!!!!!!! !!  pour limiter le deplacement
+     If (NonlinearIter.eq.1) then
+     IF (DispSteady) Then
+      IF(maxdh.GT.SteadyDisp) then
+              SteadyTol= RelativeChange/2._dp
+      else
+              SteadyTol= RelativeChange*2._dp
+      Endif
+      CALL  ListAddConstReal( SolverParams,  &
+                'Steady State Convergence Tolerance', SteadyTol )
+     ENDIF
+     Endif
+     write(*,*) 'Steady State Convergence Tolerance', SteadyTol
+!!!!!!!!!!!!!!!!
 
 
         IF ( RelativeChange < NonlinearTol ) EXIT
