@@ -33,6 +33,9 @@
 ! *       Date of modification:
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.9  2005/12/09 13:00:46  jpr
+! * Added conditional dirichlet settings.
+! *
 ! * Revision 1.8  2005/12/09 12:07:00  jpr
 ! * Added keyword "Set Dirichet BCs by BC Numbering" to simulation section.
 ! * This may be set to TRUE, if you want to control the BC set to nodes
@@ -84,7 +87,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.8 2005/12/09 12:07:00 jpr Exp $
+! * $Id: SolverUtils.src,v 1.9 2005/12/09 13:00:46 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -796,6 +799,11 @@ CONTAINS
          Conditional = ListCheckPresent( Model % BCs(BC) % Values, CondName )
          DO t = Model % NumberOfBulkElements + 1, &
            Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+
+            Element => Model % Elements(t)
+            Model % CurrentElement => Element
+            n = Element % Type % NumberOfNodes
+
             CALL SetValues( n )
          END DO
        END DO
@@ -804,6 +812,11 @@ CONTAINS
          Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
          DO BC=1,Model % NumberOfBCs
             Conditional = ListCheckPresent( Model % BCs(BC) % Values, CondName )
+
+            Element => Model % Elements(t)
+            Model % CurrentElement => Element
+            n = Element % Type % NumberOfNodes
+
             CALL SetValues( n )
          END DO
        END DO
@@ -816,13 +829,9 @@ CONTAINS
        INTEGER :: n
        REAL(KIND=dp) :: Condition(n)
 
-       Element => Model % Elements(t)
-       Model % CurrentElement => Element
-
-       n = Element % Type % NumberOfNodes
-       NodeIndexes => Element % NodeIndexes(1:n)
-
        IF ( Element % BoundaryInfo % Constraint == Model % BCs(BC) % Tag ) THEN
+
+         NodeIndexes => Element % NodeIndexes(1:n)
          IF ( DOF > 0 ) THEN
             Work(1:n) = ListGetReal( &
                  Model % BCs(BC) % Values, Name, n, NodeIndexes, gotIt )
