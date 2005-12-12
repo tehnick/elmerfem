@@ -373,10 +373,10 @@ FUNCTION basalMelting( Model, Node, dummyArgument ) RESULT(basalMeltingRate)
      HeatFlux = ExternalHeatFlux(BoundaryElementNode) + InternalHeatFlux + FrictionalHeatProduction
 
 
-     WRITE(Message,'(A,e10.4,A,e10.4,A,e10.4,A,e10.4)') 'Q=', HeatFlux, &
-          'Q_ext %=', ExternalHeatFlux(BoundaryElementNode)/HeatFlux, &
-          'Q_int %=', InternalHeatFlux/HeatFlux, &
-          'S_frict %=', FrictionalHeatProduction/HeatFlux
+     WRITE(Message,'(A,e10.4,A,e10.4,A,e10.4,A,e10.4,A)') 'Q= ', HeatFlux, &
+          ' = Q_ext (', ExternalHeatFlux(BoundaryElementNode)/HeatFlux, &
+          ' %) + Q_int (', InternalHeatFlux/HeatFlux, &
+          ' %) + S_frict (', FrictionalHeatProduction/HeatFlux,' %)'
      CALL INFO('iceproperties (basalMelting)',Message,Level=5)
 !     HeatFlux = FrictionalHeatProduction
 
