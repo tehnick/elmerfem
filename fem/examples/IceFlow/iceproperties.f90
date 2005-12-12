@@ -43,58 +43,131 @@
 !
 !
 !
-!
+
+
+
 
 !*********************************************************************************************************************************
 !*
-!*  basal slip coefficient as a function of temperature
+!*  basal melting rate as a function of internal and external heat flux and latent heat
 !*
 !*********************************************************************************************************************************
-FUNCTION basalSlip( Model, Node, dummyArgument ) RESULT(basalSlipCoefficient)
+FUNCTION basalMelting( Model, Node, dummyArgument ) RESULT(basalMeltingRate)
+
 !-----------------------------------------------------------
   USE DefUtils
+  USE SolverUtils
 !-----------------------------------------------------------
   IMPLICIT NONE
 !-----------------------------------------------------------
   !external variables
   TYPE(Model_t), TARGET :: Model
   INTEGER :: Node
-  REAL(KIND=dp) :: dummyArgument, basalSlipCoefficient
+  REAL(KIND=dp) :: dummyArgument, basalMeltingRate
   !internal variables
   TYPE(Element_t), POINTER :: CurrentElementAtBeginning, BoundaryElement, ParentElement
+  TYPE(Nodes_t) :: Nodes
   TYPE(ValueList_t), POINTER :: ParentMaterial, BC
   TYPE(Variable_t), POINTER :: varTemperature, varPressure
-  INTEGER :: N, NBoundary, NParent, BoundaryElementNode, ParentElementNode, &
-       i, DIM, other_body_id, body_id, material_id, istat, NSDOFs
-  REAL(KIND=dp) :: TempHom, ThermalCoefficient
-  REAL(KIND=dp), ALLOCATABLE :: Temperature(:),PressureMeltingPoint(:),&
-        TemperateSlipCoefficient(:)
-  CHARACTER(LEN=MAX_NAME_LEN) :: TempName
-  LOGICAL ::  GotIt, stat
+  INTEGER :: N, NBoundary, NumberOfBoundaryNodes, NParent, BoundaryElementNode, ParentElementNode, &
+       i, k, M, DIM, other_body_id, body_id, material_id, istat, NSDOFs
+  INTEGER, POINTER :: BoundaryReorder(:)
+  REAL(KIND=dp) :: U, V, W, gradTemperature(3), Gravity(3),&
+       Normal(3), Tangent1(3), Tangent2(3), NormalVelocity, TangentialVelocity(3),&
+       TangentialVelocity1, TangentialVelocity2,  StressVector(3), FrictionalHeatProduction,&
+       grav, InternalHeatFlux, HeatFlux, SqrtElementMetric, pressure, Tolerance
+  REAL(KIND=dp), ALLOCATABLE :: Basis(:),dBasisdx(:,:), ddBasisddx(:,:,:),&
+       LatentHeat(:), HeatConductivity(:), Density(:), Temperature(:),&
+       ExternalHeatFlux(:), ClausiusClapeyron(:),PressureMeltingPoint(:),&
+       Velocity(:,:), SlipCoefficient(:,:)
+  REAL(KIND=dp), DIMENSION(:,:),  POINTER :: Work, BoundaryNormals,BoundaryTangent1, &
+                       BoundaryTangent2
+  CHARACTER(LEN=MAX_NAME_LEN) :: TempName, VariableName
+  LOGICAL ::  FirstTime = .TRUE., GotIt, stat, ComputeFrictionalHeat, NormalTangentialVelocity
 
-  !---------------
-  ! Initialization
-  !---------------
-  CurrentElementAtBeginning => Model % CurrentElement 
-  N = Model % MaxElementNodes 
-  ALLOCATE(Temperature(N), &
-       TemperateSlipCoefficient(N),&  
-       PressureMeltingPoint(N),&
-       STAT = istat)
-  IF (istat /= 0) THEN
-     CALL FATAL('iceproperties (basalSlip)','Allocations failed')
-  END IF
+  SAVE FirstTime, NumberOfBoundaryNodes,BoundaryReorder,BoundaryNormals, &
+       BoundaryTangent1, BoundaryTangent2, DIM, N, &
+       Nodes, Basis, dBasisdx, ddBasisddx, LatentHeat, &
+       HeatConductivity, Density, PressureMeltingPoint,&
+       Temperature, ExternalHeatFlux, ClausiusClapeyron,&
+       Velocity, SlipCoefficient
+                
+!----------------------------------------------------------  
+  CurrentElementAtBeginning => Model % CurrentElement
+  !--------------------------------
+  ! Allocations
+  !--------------------------------
+ 
+  IF ( FirstTime .OR. Model % Mesh % Changed) THEN
+      DIM = CoordinateSystemDimension()
+      N = Model % MaxElementNodes 
 
-  Temperature = 273.16D00
-  TemperateSlipCoefficient = 1.0D30 ! high value - > no slip by default
-  PressureMeltingPoint = 273.16D00
+      IF (.NOT.FirstTime) THEN
+         DEALLOCATE( Nodes % x, Nodes % y, Nodes % z,&
+              Basis, dBasisdx, ddBasisddx, &
+              LatentHeat,&
+              HeatConductivity,&               
+              Density,&
+              PressureMeltingPoint,&
+              Temperature,&
+              ExternalHeatFlux,&
+              ClausiusClapeyron,&
+              Velocity,&
+              SlipCoefficient)
+      END IF
+      ALLOCATE(Nodes % x(N), Nodes % y(N), Nodes % z(N),&
+           Basis(N), dBasisdx(N,3), ddBasisddx(N,3,3), &
+           LatentHeat( N ),&
+           HeatConductivity( N ),&
+           PressureMeltingPoint( N ),&
+           Density( N ),&
+           Temperature( N ),&
+           ExternalHeatFlux( N ),&
+           ClausiusClapeyron( N),&
+           Velocity(DIM,N), &
+           SlipCoefficient(DIM,N),&       
+           STAT = istat)
+      IF (istat /= 0) THEN
+         CALL FATAL('iceproperties (basalMelting)','Allocations failed')
+      ELSE 
+         CALL INFO('iceproperties (basalMelting)','Allocations done')
+      END IF
+      CALL CheckNormalTangentialBoundary( Model, &
+           'Basal Melting', NumberOfBoundaryNodes, &
+           BoundaryReorder, BoundaryNormals, BoundaryTangent1, &
+           BoundaryTangent2, DIM )
 
+      WRITE(Message,'(A,i6)') &
+          'Number of boundary nodes on boundaries associated with melting:',&
+           NumberOfBoundaryNodes
+      CALL INFO('iceproperties (basalMelting)','Message',Level=3)
+      
+      CALL AverageBoundaryNormals( Model, &
+           'Basal Melting', NumberOfBoundaryNodes, &
+           BoundaryReorder, BoundaryNormals, BoundaryTangent1, &
+           BoundaryTangent2, DIM )
+      FirstTime = .FALSE.
+   END IF
+
+ 
   !-----------------------------------------------------------------
   ! get some information upon active boundary element and its parent
   !-----------------------------------------------------------------
   BoundaryElement => Model % CurrentElement
   IF ( .NOT. ASSOCIATED(BoundaryElement) ) THEN
      CALL FATAL('iceproperties (basalMelting)','No boundary element found')
+  END IF  
+  NBoundary = BoundaryElement % Type % NumberOfNodes
+  DO BoundaryElementNode=1,NBoundary
+     IF (Node .EQ. BoundaryElement % NodeIndexes(BoundaryElementNode)) THEN
+        GotIt = .TRUE.
+        EXIT
+     END IF
+  END DO
+  IF (.NOT.GotIt) THEN
+     CALL WARN('iceproperties (basalMelting)','Node not found in Current Element')
+     BasalMeltingRate = 0.0D00
+     RETURN
   END IF
   other_body_id = BoundaryElement % BoundaryInfo % outbody
   IF (other_body_id < 1) THEN ! only one body in calculation
@@ -111,7 +184,7 @@ FUNCTION basalSlip( Model, Node, dummyArgument ) RESULT(basalSlipCoefficient)
           BoundaryElement % ElementIndex, ' not found'
      CALL FATAL('iceproperties (basalMelting)',Message)
   END IF  
-  Model % CurrentElement => ParentElement
+
   body_id = ParentElement % BodyId
   material_id = ListGetInteger(Model % Bodies(body_id) % Values, 'Material', GotIt)
   ParentMaterial => Model % Materials(material_id) % Values
@@ -120,174 +193,68 @@ FUNCTION basalSlip( Model, Node, dummyArgument ) RESULT(basalSlipCoefficient)
           'No material values found for body no ', body_id,&
           ' under material id ', material_id
      CALL FATAL('iceproperties (basalMelting)',Message)
-  END IF
-  ! number of nodes and node in elements
-  NBoundary = BoundaryElement % Type % NumberOfNodes
-  NParent = ParentElement % Type % NumberOfNodes
-  DO BoundaryElementNode=1,Nboundary
-     IF ( Node == BoundaryElement % NodeIndexes(BoundaryElementNode) ) EXIT
-  END DO
-  DO ParentElementNode=1,NParent
-     IF ( Node == ParentElement % NodeIndexes(ParentElementNode) ) EXIT
-  END DO
-  !-------------------------
-  ! Get Temperature Field
-  !-------------------------
-  TempName =  GetString(ParentMaterial ,'Temperature Name', GotIt)
-  IF (.NOT.GotIt) THEN
-     CALL FATAL('iceproperties (basalSlip)','Keyword >Temperature Name< not found')
-  ELSE
-     WRITE(Message,'(a,a)') 'Variable Name for temperature: ', TempName
-     CALL INFO('iceproperties (basalSlip)',Message,Level=12)
-  END IF
-  VarTemperature => VariableGet( Model % Variables, TempName, .TRUE. )
-  IF ( ASSOCIATED( VarTemperature ) ) THEN
-     Temperature(1:NParent) = VarTemperature % Values(VarTemperature % Perm(ParentElement % NodeIndexes))
-  ELSE
-     CALL FATAL('iceproperties (basalSlip)','No Temperature Variable found')
-  END IF
-  !-------------------------
-  ! Get Pressure Melting Point
-  !-------------------------
-  PressureMeltingPoint(1:NParent) =&
-       ListGetReal( ParentMaterial, TRIM(TempName) // ' Upper Limit',&
-       NParent, ParentElement % NodeIndexes, GotIt)
-  IF (.NOT. GotIt) THEN
-     WRITE(Message,'(a,a,a)') 'No entry for ', TRIM(TempName) // ' Upper Limit', ' found'
-     CALL FATAL('iceproperties (basalMelting)',Message)
-  END IF
-  !-------------------------------------------------------------------
-  ! get slip coefficient if temperature reached pressure melting point
-  !-------------------------------------------------------------------
-  Model % CurrentElement => BoundaryElement
+  END IF  
+  !----------------------
+  ! get boundary values
+  !----------------------  
   BC => GetBC()
-
   IF (.NOT.ASSOCIATED(BC)) THEN
      CALL FATAL('iceproperties (basalSlip)','No Boundary Condition associated')
   ELSE
-     TemperateSlipCoefficient(1:NBoundary) = GetReal(BC, 'Temperate Slip Coefficient', GotIt)
-     IF (.NOT. GotIt) THEN
-        CALL WARN('iceproperties (basalSlip)','Keyword >Temperate Slip Coefficient< not found')
-        CALL WARN('iceproperties (basalSlip)','Asuming Default 5.63D08 [kg /(s m^2)]')
-        TemperateSlipCoefficient(1:NBoundary) = 5.63D08
+     ComputeFrictionalHeat = GetLogical(BC, 'Compute Frictional Heat', GotIt)
+     IF (.NOT.GotIt) THEN
+        ComputeFrictionalHeat = .FALSE.
+        SlipCoefficient(1:3,1:NBoundary) = 0.0D00
+        Velocity(1:DIM,1:NBoundary) = 0.0D00
+     ELSE
+        NormalTangentialVelocity = GetLogical(BC, 'Normal-Tangential Velocity', GotIt)
+        IF (.NOT.GotIt) THEN
+           NormalTangentialVelocity = .FALSE.
+        END IF
+ 
+        DO i=1,DIM
+           WRITE(VariableName, '(A,i1)') 'Slip Coefficient ', i 
+           SlipCoefficient(i,1:NBoundary) = &
+                ListGetReal(BC,TRIM(VariableName),NBoundary, BoundaryElement % NodeIndexes, GotIt)
+           IF (.NOT.GotIt) SlipCoefficient(i,1:NBoundary) = 0.0D00
+        END DO
      END IF
-     ThermalCoefficient = GetConstReal(BC, 'Thermal Coefficient', GotIt)
-     IF (.NOT. GotIt) THEN
-        CALL WARN('iceproperties (basalSlip)','Keyword >Thermal Coefficient< not found')
-        CALL WARN('iceproperties (basalSlip)','Asuming Default 1 [1/K]')
-        ThermalCoefficient =  1.0D00
-     END IF
   END IF
-  !------------------------------
-  ! check homologous temperature
-  !------------------------------
-  TempHom = MIN(Temperature(ParentElementNode) - PressureMeltingPoint(ParentElementNode),0.0D00)
-  basalSlipCoefficient = TemperateSlipCoefficient(BoundaryElementNode)*EXP(-1.0D00*TempHom*ThermalCoefficient) 
-  IF (basalSlipCoefficient < TemperateSlipCoefficient(BoundaryElementNode)) &
-       CALL FATAL('iceproperties (basalSlip)','Unphysical slip coefficient')
-!  PRINT *, 'R =', basalSlipCoefficient,'=', TemperateSlipCoefficient(BoundaryElementNode),'*EXP(-',&
-!      TempHom,'*',ThermalCoefficient,')'
-!  PRINT *, '=', TemperateSlipCoefficient(BoundaryElementNode),'*', EXP(-1.0D00*TempHom*ThermalCoefficient)
-  !------------------------------
-  ! clean up
-  !------------------------------
-  DEALLOCATE(Temperature, TemperateSlipCoefficient, PressureMeltingPoint)
-END FUNCTION basalSlip
-
-!*********************************************************************************************************************************
-!*
-!*  basal melting rate as a function of internal and external heat flux and latent heat
-!*
-!*********************************************************************************************************************************
-FUNCTION basalMelting( Model, Node, dummyArgument ) RESULT(basalMeltingRate)
-!-----------------------------------------------------------
-  USE DefUtils
-!-----------------------------------------------------------
-  IMPLICIT NONE
-!-----------------------------------------------------------
-  !external variables
-  TYPE(Model_t), TARGET :: Model
-  INTEGER :: Node
-  REAL(KIND=dp) :: dummyArgument, basalMeltingRate
-  !internal variables
-  TYPE(Element_t), POINTER :: CurrentElementAtBeginning, BoundaryElement, ParentElement
-  TYPE(Nodes_t) :: Nodes
-  TYPE(ValueList_t), POINTER :: ParentMaterial, BC
-  TYPE(Variable_t), POINTER :: varTemperature, varPressure
-  INTEGER :: N, NBoundary, NParent, BoundaryElementNode, ParentElementNode, &
-       i, DIM, other_body_id, body_id, material_id, istat, NSDOFs
-  REAL(KIND=dp) :: U, V, W, gradTemperature(3),  Normal(3), Gravity(3),&
-       grav, InternalHeatFlux, HeatFlux, SqrtElementMetric, pressure, Tolerance
-  REAL(KIND=dp), ALLOCATABLE :: Basis(:),dBasisdx(:,:), ddBasisddx(:,:,:),&
-       LatentHeat(:), HeatConductivity(:), Density(:), Temperature(:),&
-       ExternalHeatFlux(:), ClausiusClapeyron(:),PressureMeltingPoint(:)
-  REAL(KIND=dp), POINTER :: Work(:,:)
-  CHARACTER(LEN=MAX_NAME_LEN) :: TempName
-  LOGICAL ::  FirstTime = .TRUE., GotIt, stat
-!----------------------------------------------------------  
-  CurrentElementAtBeginning => Model % CurrentElement
-  !--------------------------------
-  ! Allocations
-  !--------------------------------
-  DIM = CoordinateSystemDimension()
-  N = Model % MaxElementNodes 
-  ALLOCATE(Nodes % x(N), Nodes % y(N), Nodes % z(N),&
-       Basis(N), dBasisdx(N,3), ddBasisddx(N,3,3), &
-       LatentHeat( N ),&
-       HeatConductivity( N ),&
-       PressureMeltingPoint( N ),&
-       Density( N ),&
-       Temperature( N ),&
-       ExternalHeatFlux( N ),&
-       ClausiusClapeyron( N),&
-       STAT = istat)
-  IF (istat /= 0) THEN
-     CALL FATAL('iceproperties (basalMelting)','Allocations failed')
+  !----------------------
+  ! get velocities
+  !----------------------  
+  IF (ComputeFrictionalHeat) THEN     
+     DO i=1,DIM
+        WRITE(VariableName,'(A,i1)') 'Velocity ', i 
+        CALL GetScalarLocalSolution( Velocity(i,:), TRIM(VariableName))
+     END DO
+  ELSE
+     Velocity(1:DIM,1:NBoundary) = 0.0D00
   END IF
-  !-----------------------------------------------------------------
-  ! get some information upon active boundary element and its parent
-  !-----------------------------------------------------------------
-  BoundaryElement => Model % CurrentElement
-  IF ( .NOT. ASSOCIATED(BoundaryElement) ) THEN
-     CALL FATAL('iceproperties (basalMelting)','No boundary element found')
-  END IF
-  other_body_id = BoundaryElement % BoundaryInfo % outbody
-  IF (other_body_id < 1) THEN ! only one body in calculation
-     ParentElement => BoundaryElement % BoundaryInfo % Right
-     IF ( .NOT. ASSOCIATED(ParentElement) ) ParentElement => BoundaryElement % BoundaryInfo % Left
-  ELSE ! we are dealing with a body-body boundary and asume that the normal is pointing outwards
-     ParentElement => BoundaryElement % BoundaryInfo % Right
-     IF (ParentElement % BodyId == other_body_id) ParentElement => BoundaryElement % BoundaryInfo % Left
-  END IF
-  ! just to be on the save side, check again
-  IF ( .NOT. ASSOCIATED(ParentElement) ) THEN
-     WRITE(Message,'(A,I10,A)')&
-          'Parent Element for Boundary element no. ',&
-          BoundaryElement % ElementIndex, ' not found'
-     CALL FATAL('iceproperties (basalMelting)',Message)
-  END IF
-  body_id = ParentElement % BodyId
-  material_id = ListGetInteger(Model % Bodies(body_id) % Values, 'Material', GotIt)
-  ParentMaterial => Model % Materials(material_id) % Values
-  IF ((.NOT. ASSOCIATED(ParentMaterial)) .OR. (.NOT. GotIt)) THEN
-     WRITE(Message,'(A,I10,A,I10)')&
-          'No material values found for body no ', body_id,&
-          ' under material id ', material_id
-     CALL FATAL('iceproperties (basalMelting)',Message)
-  END IF
-  !-------------------------------------------
+  !--------------------------------------------------------
   ! Get normal of the boundary element at node
-  !-------------------------------------------
-  Nboundary = BoundaryElement % Type % NumberOfNodes
-  DO BoundaryElementNode=1,Nboundary
-     IF ( Node == BoundaryElement % NodeIndexes(BoundaryElementNode) ) EXIT
-  END DO
-  U = BoundaryElement % Type % NodeU(BoundaryElementNode)
-  V = BoundaryElement % Type % NodeV(BoundaryElementNode)
-  Nodes % x(1:Nboundary) = Model % Nodes % x(BoundaryElement % NodeIndexes)
-  Nodes % y(1:Nboundary) = Model % Nodes % y(BoundaryElement % NodeIndexes)
-  Nodes % z(1:Nboundary) = Model % Nodes % z(BoundaryElement % NodeIndexes)
-  Normal = NormalVector( BoundaryElement, Nodes, U, V,.TRUE. )
+  !--------------------------------------------------------
+  k = BoundaryReorder(Node)
+  Normal(1:DIM) = BoundaryNormals(k,1:DIM)
+  IF (ComputeFrictionalHeat) THEN
+     Tangent1(1:DIM) = BoundaryTangent1(k,1:DIM)
+     Tangent2(1:DIM) = BoundaryTangent1(k,1:DIM)
+     !--------------------------
+     ! Get tangential velocity
+     !--------------------------
+     NormalVelocity = SUM(Velocity(1:DIM,BoundaryElementNode)*Normal(1:DIM))
+     TangentialVelocity(1:DIM) = Velocity(1:DIM,BoundaryElementNode) - NormalVelocity * Normal(1:DIM)
+     IF (NormalTangentialVelocity) THEN
+        TangentialVelocity1 = SUM(Velocity(1:DIM,BoundaryElementNode)*Tangent1(1:DIM))
+        TangentialVelocity2 = SUM(Velocity(1:DIM,BoundaryElementNode)*Tangent2(1:DIM))
+        StressVector(1:DIM) = SlipCoefficient(1,BoundaryElementNode)*TangentialVelocity1*Tangent1(1:DIM) + &
+             SlipCoefficient(2,BoundaryElementNode)*TangentialVelocity2*Tangent2(1:DIM)     
+     ELSE
+        DO i=1,DIM
+           StressVector(i) = SlipCoefficient(i,BoundaryElementNode)*TangentialVelocity(i)
+        END DO
+     END IF
+  END IF
   ! ----------------------------------
   ! Get information on parent element
   ! ----------------------------------
@@ -303,6 +270,7 @@ FUNCTION basalMelting( Model, Node, dummyArgument ) RESULT(basalMeltingRate)
   Nodes % z(1:NParent)  = Model % Nodes % z(ParentElement % NodeIndexes)
   stat = ElementInfo( ParentElement,Nodes,U,V,W,SqrtElementMetric, &
        Basis,dBasisdx,ddBasisddx,.FALSE.,.FALSE. )
+
   !-------------------------
   ! Get Temperature Field
   !-------------------------
@@ -370,13 +338,21 @@ FUNCTION basalMelting( Model, Node, dummyArgument ) RESULT(basalMeltingRate)
   Tolerance = GetConstReal(BC, TRIM(TempName) // ' Tolerance', GotIt)
   IF (.NOT.GotIt) THEN
      Tolerance = 0.0D00
-     STOP
+     WRITE(Message,'(A)') 'No Keyword >'// TRIM(TempName) // ' Tolerance < found'
   ELSE
-     WRITE(Message,'(A, e10.4)') 'Temperature Tolerance = ', Tolerance
-     CALL INFO('iceproperties (basalMelting)',Message,level=9)
+     WRITE(Message,'(A, e10.4)') TRIM(TempName) // ' Tolerance = ', Tolerance
   END IF
-
+  CALL INFO('iceproperties (basalMelting)',Message,level=9)
   IF (Temperature(ParentElementNode) .GE. PressureMeltingPoint(ParentElementNode) - Tolerance) THEN
+     !-----------------------------------
+     ! compute contribution from friction
+     ! u_|| . t = u^2_|| . R
+     !-----------------------------------
+     IF (ComputeFrictionalHeat) THEN
+        FrictionalHeatProduction = SUM(TangentialVelocity(1:DIM)*StressVector(1:DIM)) 
+     ELSE
+        FrictionalHeatProduction = 0.0D00
+     END IF
      !----------------------------
      ! compute internal heat flux
      !----------------------------
@@ -384,7 +360,6 @@ FUNCTION basalMelting( Model, Node, dummyArgument ) RESULT(basalMeltingRate)
      !-------------------------
      ! get external heat flux
      !------------------------
-
      ExternalHeatFlux = 0.0D00
      IF (other_body_id < 1) THEN ! we are dealing with an external heat flux
         ExternalHeatFlux(1:NBoundary) = GetReal(BC, TRIM(TempName) // ' Heat Flux', GotIt)
@@ -395,7 +370,15 @@ FUNCTION basalMelting( Model, Node, dummyArgument ) RESULT(basalMeltingRate)
         CALL FATAL('iceproperties (basalMelting)','Interface condition not implemented!')
      END IF
 
-     HeatFlux = ExternalHeatFlux(BoundaryElementNode) + InternalHeatFlux
+     HeatFlux = ExternalHeatFlux(BoundaryElementNode) + InternalHeatFlux + FrictionalHeatProduction
+
+
+     WRITE(Message,'(A,e10.4,A,e10.4,A,e10.4,A,e10.4)') 'Q=', HeatFlux, &
+          'Q_ext %=', ExternalHeatFlux(BoundaryElementNode)/HeatFlux, &
+          'Q_int %=', InternalHeatFlux/HeatFlux, &
+          'S_frict %=', FrictionalHeatProduction/HeatFlux
+     CALL INFO('iceproperties (basalMelting)',Message,Level=5)
+!     HeatFlux = FrictionalHeatProduction
 
      IF (HeatFlux <= 0.0D00) THEN
         WRITE(Message,'(A, i7, A, e10.4, A, e10.4, A, e10.4, A)') &
@@ -418,17 +401,137 @@ FUNCTION basalMelting( Model, Node, dummyArgument ) RESULT(basalMeltingRate)
   !----------------------------------------------
   ! clean up before leaving
   !----------------------------------------------
-  DEALLOCATE( Nodes % x, Nodes % y, Nodes % z,&
-       Basis, dBasisdx, ddBasisddx, &
-       LatentHeat,&
-       HeatConductivity,&
-       ClausiusClapeyron,&
-       Density,&
-       PressureMeltingPoint,&
-       Temperature,&
-       ExternalHeatFlux)
   Model % CurrentElement => CurrentElementAtBeginning 
 END FUNCTION basalMelting
+
+!*********************************************************************************************************************************
+!*
+!*  basal slip coefficient as a function of temperature
+!*
+!*********************************************************************************************************************************
+
+FUNCTION basalSlip( Model, Node, Temperature ) RESULT(basalSlipCoefficient)
+!-----------------------------------------------------------
+  USE DefUtils
+!-----------------------------------------------------------
+  IMPLICIT NONE
+!-----------------------------------------------------------
+  !external variables
+  TYPE(Model_t), TARGET :: Model
+  INTEGER :: Node
+  REAL(KIND=dp) :: Temperature, basalSlipCoefficient
+  !internal variables
+  TYPE(Element_t), POINTER :: CurrentElementAtBeginning, BoundaryElement, ParentElement
+  TYPE(ValueList_t), POINTER :: ParentMaterial, BC
+  TYPE(Variable_t), POINTER :: varTemperature, varPressure
+  INTEGER :: N, NBoundary, NParent, BoundaryElementNode, ParentElementNode, &
+       i, DIM, other_body_id, body_id, material_id, istat, NSDOFs
+  REAL(KIND=dp) :: TempHom, ThermalCoefficient
+  REAL(KIND=dp), ALLOCATABLE :: PressureMeltingPoint(:), TemperateSlipCoefficient(:)
+  CHARACTER(LEN=MAX_NAME_LEN) :: TempName
+  LOGICAL ::  GotIt, stat, Jump=.FALSE.
+
+  !---------------
+  ! Initialization
+  !---------------
+  CurrentElementAtBeginning => Model % CurrentElement 
+  N = Model % MaxElementNodes 
+  ALLOCATE(TemperateSlipCoefficient(N),&  
+       PressureMeltingPoint(N),&
+       STAT = istat)
+  IF (istat /= 0) THEN
+     CALL FATAL('iceproperties (basalSlip)','Allocations failed')
+  END IF
+
+  TemperateSlipCoefficient = 1.0D30 ! high value - > no slip by default
+  PressureMeltingPoint = 273.16D00
+
+  !-----------------------------------------------------------------
+  ! get some information upon active boundary element and its parent
+  !-----------------------------------------------------------------
+  BoundaryElement => Model % CurrentElement
+  IF ( .NOT. ASSOCIATED(BoundaryElement) ) THEN
+     CALL FATAL('iceproperties (basalMelting)','No boundary element found')
+  END IF
+  other_body_id = BoundaryElement % BoundaryInfo % outbody
+  IF (other_body_id < 1) THEN ! only one body in calculation
+     ParentElement => BoundaryElement % BoundaryInfo % Right
+     IF ( .NOT. ASSOCIATED(ParentElement) ) ParentElement => BoundaryElement % BoundaryInfo % Left
+  ELSE ! we are dealing with a body-body boundary and asume that the normal is pointing outwards
+     ParentElement => BoundaryElement % BoundaryInfo % Right
+     IF (ParentElement % BodyId == other_body_id) ParentElement => BoundaryElement % BoundaryInfo % Left
+  END IF
+  ! just to be on the save side, check again
+  IF ( .NOT. ASSOCIATED(ParentElement) ) THEN
+     WRITE(Message,'(A,I10,A)')&
+          'Parent Element for Boundary element no. ',&
+          BoundaryElement % ElementIndex, ' not found'
+     CALL FATAL('iceproperties (basalMelting)',Message)
+  END IF  
+  Model % CurrentElement => ParentElement
+  body_id = ParentElement % BodyId
+  material_id = ListGetInteger(Model % Bodies(body_id) % Values, 'Material', GotIt)
+  ParentMaterial => Model % Materials(material_id) % Values
+  IF ((.NOT. ASSOCIATED(ParentMaterial)) .OR. (.NOT. GotIt)) THEN
+     WRITE(Message,'(A,I10,A,I10)')&
+          'No material values found for body no ', body_id,&
+          ' under material id ', material_id
+     CALL FATAL('iceproperties (basalMelting)',Message)
+  END IF
+  ! number of nodes and node in elements
+  NBoundary = BoundaryElement % Type % NumberOfNodes
+  NParent = ParentElement % Type % NumberOfNodes
+  DO BoundaryElementNode=1,Nboundary
+     IF ( Node == BoundaryElement % NodeIndexes(BoundaryElementNode) ) EXIT
+  END DO
+  DO ParentElementNode=1,NParent
+     IF ( Node == ParentElement % NodeIndexes(ParentElementNode) ) EXIT
+  END DO
+  !-------------------------
+  ! Get Pressure Melting Point
+  !-------------------------
+  TempName =  GetString(ParentMaterial ,'Temperature Name', GotIt)
+  PressureMeltingPoint(1:NParent) =&
+       ListGetReal( ParentMaterial, TRIM(TempName) // ' Upper Limit',&
+       NParent, ParentElement % NodeIndexes, GotIt)
+  IF (.NOT. GotIt) THEN
+     WRITE(Message,'(a,a,a)') 'No entry for ', TRIM(TempName) // ' Upper Limit', ' found'
+     CALL FATAL('iceproperties (basalMelting)',Message)
+  END IF
+  !-------------------------------------------------------------------
+  ! get slip coefficient if temperature reached pressure melting point
+  !-------------------------------------------------------------------
+  Model % CurrentElement => BoundaryElement
+  BC => GetBC()
+
+  IF (.NOT.ASSOCIATED(BC)) THEN
+     CALL FATAL('iceproperties (basalSlip)','No Boundary Condition associated')
+  ELSE
+     TemperateSlipCoefficient(1:NBoundary) = GetReal(BC, 'Temperate Slip Coefficient', GotIt)
+     IF (.NOT. GotIt) THEN
+        CALL WARN('iceproperties (basalSlip)','Keyword >Temperate Slip Coefficient< not found')
+        CALL WARN('iceproperties (basalSlip)','Asuming Default 5.63D08 [kg /(s m^2)]')
+        TemperateSlipCoefficient(1:NBoundary) = 5.63D08
+     END IF
+     ThermalCoefficient = GetConstReal(BC, 'Thermal Coefficient', GotIt)
+     IF (.NOT. GotIt) THEN
+        CALL WARN('iceproperties (basalSlip)','Keyword >Thermal Coefficient< not found')
+        CALL WARN('iceproperties (basalSlip)','Asuming Default 1 [1/K]')
+        ThermalCoefficient =  1.0D00
+     END IF
+  END IF
+  !------------------------------
+  ! check homologous temperature
+  !------------------------------
+  TempHom = MIN(Temperature - PressureMeltingPoint(ParentElementNode),0.0D00)
+  basalSlipCoefficient = TemperateSlipCoefficient(BoundaryElementNode)*EXP(-1.0D00*TempHom*ThermalCoefficient) 
+  IF (basalSlipCoefficient < TemperateSlipCoefficient(BoundaryElementNode)) &
+       CALL FATAL('iceproperties (basalSlip)','Unphysical slip coefficient')
+  !------------------------------
+  ! clean up
+  !------------------------------
+  DEALLOCATE(TemperateSlipCoefficient, PressureMeltingPoint)
+END FUNCTION basalSlip
 
 !*********************************************************************************************************************************
 !*
@@ -449,17 +552,41 @@ FUNCTION getNormalFlux( Model, Node, dummyArgument ) RESULT(NormalFlux)
   TYPE(Element_t), POINTER :: BoundaryElement
   TYPE(Nodes_t) :: Nodes
   TYPE(ValueList_t), POINTER :: BC
-  INTEGER :: N, NBoundary, BoundaryElementNode, i, DIM, body_id, istat
+  INTEGER :: N, NBoundary, BoundaryElementNode, i, DIM, body_id, NumberOfBoundaryNodes, istat
+  INTEGER, POINTER :: BoundaryReorder(:)
   REAL(KIND=dp) :: U, V, W, Normal(3), Gravity(3), direction(3),&
        HeatFlux, SqrtElementMetric
   REAL(KIND=dp), ALLOCATABLE ::  ExternalHeatFlux(:)
-  REAL(KIND=dp), POINTER :: Work(:,:)
+  REAL(KIND=dp), DIMENSION(:,:),  POINTER :: Work, BoundaryNormals,BoundaryTangent1, &
+       BoundaryTangent2
   LOGICAL ::  FirstTime = .TRUE., GotIt, stat
 !-----------------------------------------------------------
+  SAVE FirstTime, NumberOfBoundaryNodes,BoundaryReorder,BoundaryNormals, &
+       BoundaryTangent1, BoundaryTangent2, DIM
+
+  IF (FirstTime) THEN 
+     DIM = CoordinateSystemDimension()
+     CALL CheckNormalTangentialBoundary( Model, &
+          'Basal Melting', NumberOfBoundaryNodes, &
+          BoundaryReorder, BoundaryNormals, BoundaryTangent1, &
+          BoundaryTangent2, DIM )
+
+     WRITE(Message,'(A,i6)') &
+          'Number of boundary nodes on boundaries associated with melting:',&
+          NumberOfBoundaryNodes
+     CALL INFO('iceproperties (basalMelting)','Message',Level=3)
+     
+     CALL AverageBoundaryNormals( Model, &
+          'Basal Melting', NumberOfBoundaryNodes, &
+          BoundaryReorder, BoundaryNormals, BoundaryTangent1, &
+          BoundaryTangent2, DIM )
+     FirstTime = .FALSE.
+  END IF
+
+
   !--------------------------------
   ! Allocations
   !--------------------------------
-  DIM = CoordinateSystemDimension()
   N = Model % MaxElementNodes 
   ALLOCATE(Nodes % x(N), Nodes % y(N), Nodes % z(N),&
        ExternalHeatFlux( N ),&
@@ -482,12 +609,7 @@ FUNCTION getNormalFlux( Model, Node, dummyArgument ) RESULT(NormalFlux)
   DO BoundaryElementNode=1,Nboundary
      IF ( Node == BoundaryElement % NodeIndexes(BoundaryElementNode) ) EXIT
   END DO
-  U = BoundaryElement % Type % NodeU(BoundaryElementNode)
-  V = BoundaryElement % Type % NodeV(BoundaryElementNode)
-  Nodes % x(1:Nboundary) = Model % Nodes % x(BoundaryElement % NodeIndexes)
-  Nodes % y(1:Nboundary) = Model % Nodes % y(BoundaryElement % NodeIndexes)
-  Nodes % z(1:Nboundary) = Model % Nodes % z(BoundaryElement % NodeIndexes)
-  Normal = NormalVector( BoundaryElement, Nodes, U, V,.TRUE. )
+  Normal(1:DIM) = BoundaryNormals(BoundaryReorder(Node),1:DIM)
   !-------------------------------
   ! get gravitational acceleration
   !-------------------------------
@@ -662,12 +784,14 @@ FUNCTION getViscosityFactor( Model, n, temperature ) RESULT(visFact)
        rateFactor, aToMinusOneThird, gasconst, temphom
   REAL(KIND=dp), POINTER :: Hwrk(:,:,:)
   REAL (KIND=dp), ALLOCATABLE :: activationEnergy(:,:), arrheniusFactor(:,:),&
-       enhancementFactor(:), viscosityExponent(:), PressureMeltingPoint(:)
+       enhancementFactor(:), viscosityExponent(:), PressureMeltingPoint(:),&
+       Ux(:), Uy(:), Uz(:)
   LOGICAL :: FirstTime = .TRUE., GotIt
   CHARACTER(LEN=MAX_NAME_LEN) :: TempName
 !------------ remember this -------------------------------
   Save DIM, FirstTime, gasconst, activationEnergy, arrheniusFactor,&
-       enhancementFactor, viscosityExponent, Hwrk, PressureMeltingPoint
+       enhancementFactor, viscosityExponent, Hwrk, PressureMeltingPoint, &
+       Ux, Uy, Uz
 !-----------------------------------------------------------
   !-----------------------------------------------------------
   ! Read in constants from SIF file and do some allocations
@@ -691,6 +815,9 @@ FUNCTION getViscosityFactor( Model, n, temperature ) RESULT(visFact)
           enhancementFactor(nMax),&
           PressureMeltingPoint( nMax ),&
           viscosityExponent(nMax),&
+          Ux(nMax),&
+          Uy(nMax),&
+          Uz(nMax),&
           STAT=istat)
      IF ( istat /= 0 ) THEN
         CALL Fatal('iceproperties (getViscosityFactor)','Memory allocation error, Aborting.')
@@ -704,6 +831,7 @@ FUNCTION getViscosityFactor( Model, n, temperature ) RESULT(visFact)
   !-------------------------------------------   
   body_id = Model % CurrentElement % BodyId
   material_id = ListGetInteger(Model % Bodies(body_id) % Values, 'Material', GotIt)
+  IF (.NOT.GotIt) CALL FATAL('iceproperties (getViscosityFactor)','No Material ID found')
   elementNodes = Model % CurrentElement % Type % NumberOfNodes
   IF (.NOT. GotIt) THEN
      WRITE(Message,'(a,I2,a,I2,a)') 'No material id for current element of node ',n,', body ',body_id,' found'
@@ -714,7 +842,7 @@ FUNCTION getViscosityFactor( Model, n, temperature ) RESULT(visFact)
   END DO
   Material => Model % Materials(material_id) % Values
   IF (.NOT.ASSOCIATED(Material)) THEN 
-     WRITE(Message,'(a,I2,a,I2,a)') 'No Mterial for current element of node ',n,', body ',body_id,' found'
+     WRITE(Message,'(a,I2,a,I2,a)') 'No Material for current element of node ',n,', body ',body_id,' found'
      CALL FATAL('iceproperties (getViscosityFactor)',Message)
   END IF
   !-------------------------------------------
@@ -800,14 +928,6 @@ FUNCTION getViscosityFactor( Model, n, temperature ) RESULT(visFact)
        arrheniusFactor(i,nodeInElement)*exp(-1.0D00*activationEnergy(i,nodeInElement)/(gasconst*(2.7316D02 + temphom)))
   visFact = 0.5*(enhancementFactor(nodeInElement)&
        *rateFactor)**(-1.0e00*viscosityExponent(nodeInElement))
-!  PRINT *, activationEnergy(i,nodeInElement), temphom, gasconst
-!  PRINT *, 'ratefact=', rateFactor,' = ', arrheniusFactor(i,nodeInElement),&
-! '*', exp(-1.0D00*activationEnergy(i,nodeInElement)/(gasconst*(2.7316D02 + temphom)))
-
-!  PRINT *, 'viscfact=',visFact, '= 1/2*(',&
-!       '*',enhancementFactor(nodeInElement),&
-!       '*',rateFactor,&
-!       ')**(-',viscosityExponent(nodeInElement),')'
 END FUNCTION getViscosityFactor
 
 !*********************************************************************************************************************************
@@ -1302,3 +1422,4 @@ FUNCTION getPressureMeltingPoint( Model, n, Pressure ) RESULT(PressureMeltingPoi
   !-------------------------------
   PressureMeltingPoint = 2.7316D02 - ClausiusClapeyron(nodeInElement)*MAX(Pressure,0.0d00)
 END FUNCTION getPressureMeltingPoint
+
