@@ -83,7 +83,7 @@
      LOGICAL :: CylindricSymmetry,GotIt
 
      CHARACTER(LEN=MAX_NAME_LEN) :: eq,RadiationFlag, &
-           ViewFactorsFile,OutputName,ModelName,LMessage
+           ViewFactorsFile,OutputName,ModelName,LMessage, TempString
 
      TYPE(Element_t), POINTER :: RadElements(:)
      INTEGER :: RadiationBody, MaxRadiationBody
@@ -483,7 +483,8 @@
      ViewFactorsFile = GetString( GetSimulation(),'View Factors',GotIt)
      IF ( .NOT.GotIt ) ViewFactorsFile = 'ViewFactors.dat'
      IF(RadiationBody > 1) THEN
-       WRITE(ViewFactorsFile, '(A,I1)') TRIM(ViewFactorsFile),RadiationBody
+       TempString = ViewFactorsFile
+       WRITE(ViewFactorsFile, '(A,I1)') TRIM(TempString),RadiationBody
      END IF
 
      IF ( LEN_TRIM(Model % Mesh % Name) > 0 ) THEN
