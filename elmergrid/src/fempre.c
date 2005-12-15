@@ -85,7 +85,7 @@ static void Instructions()
   printf("6)  .fil      : Abaqus output format\n");
   printf("7)  .FDNEUT   : Fidap neutral file\n");
   printf("8)  .d        : Easymesh input format\n");
-  printf("9)  .femlab   : Femlab mesh format\n");
+  printf("9)  .femlab   : Comsol/Femlab mesh format\n");
   printf("10) .dat      : Fieldview format\n");
   printf("11) .node,.ele: Triangle 2D mesh format\n");
   printf("12) .mesh     : Medit mesh format\n");
@@ -233,6 +233,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
   else if(strcmp(argv[1],"Fidap") == 0) eg->inmethod = 7;
   else if(strcmp(argv[1],"Easymesh") == 0) eg->inmethod = 8;
   else if(strcmp(argv[1],"Femlab") == 0) eg->inmethod = 9;
+  else if(strcmp(argv[1],"Comsol") == 0) eg->inmethod = 9;
   else if(strcmp(argv[1],"Fieldview") == 0) eg->inmethod = 10;
   else if(strcmp(argv[1],"Triangle") == 0) eg->inmethod = 11;
   else if(strcmp(argv[1],"Medit") == 0) eg->inmethod = 12;
@@ -665,6 +666,7 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
 	if(strstr(params,"FIDAP")) eg->inmethod = 7;
 	if(strstr(params,"EASYMESH")) eg->inmethod = 8;
 	if(strstr(params,"FEMLAB")) eg->inmethod = 9;
+	if(strstr(params,"COMSOL")) eg->inmethod = 9;
 	if(strstr(params,"FIELDVIEW")) eg->inmethod = 10;
 	if(strstr(params,"TRIANGLE")) eg->inmethod = 11;
 	if(strstr(params,"MEDIT")) eg->inmethod = 12;
@@ -1172,19 +1174,24 @@ int main(int argc, char *argv[])
  case 9:
     boundaries[nofile] = (struct BoundaryType*)
       malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
-    if(LoadFemlabMesh(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],info)) 
-      Goodbye();
-    nomeshes = nofile + 1;
-    break;
+    
+    if(LoadComsolMesh(&(data[nofile]),eg.filesin[nofile],info)) {
 
- case 99:
-    boundaries[nofile] = (struct BoundaryType*)
-      malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
-    if(LoadFemlab3Mesh(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],info)) 
-      Goodbye();
-    nomeshes = nofile + 1;
-    break;
+      printf("\n***********************************************************************************\n");
+      printf("The reading of Comsol mesh file seems to have failed\n");
+      printf("Trying out a previous version that requires the use of savemesh.m utility in Matlab\n");
+      printf("The recommended way to export meshes from Femlab to Elmer is the .mphtxt format\n"); 
+      printf("***********************************************************************************\n\n");
 
+      if(LoadFemlabMesh(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],info)) 
+	Goodbye();
+      nomeshes = nofile + 1;      
+    }
+
+    ElementsToBoundaryConditions(&(data[nofile]),boundaries[nofile],TRUE);
+    nomeshes = nofile + 1;
+
+    break;
 
   case 10:
     if(LoadFieldviewInput(&(data[nofile]),eg.filesin[nofile],TRUE))

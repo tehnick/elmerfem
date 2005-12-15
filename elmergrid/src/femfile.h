@@ -18,8 +18,7 @@ int LoadTriangleInput(struct FemType *data,struct BoundaryType *bound,
 		      char *prefix,int info);
 int LoadMeditInput(struct FemType *data,struct BoundaryType *bound,
 		   char *prefix,int info);
-int LoadFemlab3Mesh(struct FemType *data,struct BoundaryType *bound,
-		    char *prefix,int info);
+int LoadComsolMesh(struct FemType *data,char *prefix,int info);
 int LoadGidInput(struct FemType *data,struct BoundaryType *bound,
 		    char *prefix,int info);
 int LoadGmshInput(struct FemType *data,struct BoundaryType *bound,

@@ -76,6 +76,28 @@ static int Getrow(char *line1,FILE *io,int upper)
 }
 
 
+static int Comsolrow(char *line1,FILE *io) 
+{
+  int i,isend;
+  char line0[MAXLINESIZE],*charend;
+
+  for(i=0;i<MAXLINESIZE;i++) 
+    line0[i] = ' ';
+
+ newline:
+
+  charend = fgets(line0,MAXLINESIZE,io);
+  isend = (charend == NULL);
+
+  if(isend) return(1);
+
+  for(i=0;i<MAXLINESIZE;i++) line1[i] = line0[i];    
+
+  return(0);
+}
+
+
+
 static void FindPointParents(struct FemType *data,struct BoundaryType *bound,
 			    int boundarynodes,int *nodeindx,int *boundindx,int info)
 {
@@ -1968,113 +1990,6 @@ int LoadFemlabMesh(struct FemType *data,struct BoundaryType *bound,
 
 
 
-int LoadFemlab3Mesh(struct FemType *data,struct BoundaryType *bound,
-		   char *prefix,int info)
-     /* This procedure reads the FEM mesh as written by Femlab3 */
-{
-  int noknots,noelements,nosides,elemcode,sideelem,sidetype,currenttype;
-  int elementtypes,sideind[MAXNODESD1],tottypes,elementtype;
-  int i,j,k,l,imax,grp,dummyint,**nodeindx,*boundindx,boundarynodes,maxnodes;
-  int dim,nonodes,sidenodes,mode;
-  Real x,y,z,dummy;
-  FILE *in;
-  char *cp,line[MAXLINESIZE],filename[MAXFILESIZE],
-    text[MAXNAMESIZE],directoryname[MAXFILESIZE];
-
-
-  sprintf(filename,"%s",prefix);
-  if ((in = fopen(filename,"r")) == NULL) {
-    sprintf(filename,"%s.p",prefix);
-    if ((in = fopen(filename,"r")) == NULL) {
-      printf("LoadFemlabInput: The opening of the header-file %s failed!\n",
-	     filename);
-      return(1);
-    }
-  }
-
-  mode = 0;
-  for(;;) {
-    getline;
-    
-    if(strstr(line,"Coordinates")) {
-      mode = 1;
-      noknots = 0;
-      getline;
-    }
-
-    if(strstr(line,"Elements")) {
-      mode = 2;
-      noelements= 0;
-      getline;
-    }
-    if(strstr(line,"Data")) {
-      mode = 3;
-    }
-
-    if(mode == 1) noknots = noknots + 1;
-    if(mode == 2) noelements = noelements + 1;
-    if(mode == 3) break;
-  }
-  fclose(in);
-
-  printf("Femlab file has %d elements and %d nodes.\n",noelements,noknots);
-
-  in = fopen(filename,"r");
-
-
-  InitializeKnots(data);
-
-  /* Even 2D elements may form a 3D object! */
-  data->dim = 2;
-  data->maxnodes = 3;
-  data->noknots = noknots;
-  data->noelements = noelements;
-  AllocateKnots(data);
-
-  mode = 0;
-  for(;;) {
-    getline;
-    
-    if(strstr(line,"Coordinates")) {
-      mode = 1;
-      noknots = 0;
-      getline;
-    }
-
-    if(strstr(line,"Elements")) {
-      mode = 2;
-      noelements = 0;
-      getline;
-    }
-    if(strstr(line,"Data")) {
-      mode = 3;
-    }
-
-    if(mode == 1) {
-      noknots = noknots + 1;
-      cp=line;
-      x = next_real(&cp);
-      y = next_real(&cp);
-      data->x[noknots] = x;
-      data->y[noknots] = y;      
-    }
-    if(mode == 2) {
-      cp = line;
-      noelements = noelements + 1;
-      for(i=0;i<3;i++) {
-	data->topology[noelements][i] = next_int(&cp);
-      }      
-      data->elementtypes[noelements] = 303;
-      data->material[noelements] = 1;      
-    }
-    if(mode == 3) break;
-  }
-  fclose(in);
-
-  return(0);
-}
-
-
 
 static void ReorderFieldviewNodes(struct FemType *data,int *oldtopology,
 				  int element,int dim,int nodes) 
@@ -2883,6 +2798,193 @@ end:
   free_Imatrix(usedelem,1,data->noknots,1,usedmax);
 
   if(info) printf("The mesh was loaded from file %s.\n",filename);
+  return(0);
+}
+
+
+int LoadComsolMesh(struct FemType *data,char *prefix,int info)
+/* Load the grid in Comsol Multiphysics mesh format */
+{
+  int noknots,noelements,elemcode,maxnodes,material,foundsame;
+  int mode,allocated,nvalue,maxknot,nosides,sideelemtype;
+  int boundarytype,materialtype,boundarynodes,side,parent,elemsides;
+  int dim, elemnodes, elembasis, elemtype, bulkdone, usedmax,hits;
+  int label,debug,offset,domains;
+  char filename[MAXFILESIZE],line[MAXLINESIZE],*cp;
+  int i,j,k,l,n,ind,inds[MAXNODESD2],sideind[MAXNODESD1];
+  FILE *in;
+  Real x,y,z;
+
+
+  strcpy(filename,prefix);
+  if ((in = fopen(filename,"r")) == NULL) {
+    AddExtension(prefix,filename,"mphtxt");
+    if ((in = fopen(filename,"r")) == NULL) {
+      printf("LoadComsolMesh: opening of the Comsol mesh file '%s' wasn't succesfull !\n",
+	     filename);
+      return(1);
+    }
+  }
+
+  printf("Reading mesh from Comsol mesh file %s.\n",filename);
+  InitializeKnots(data);
+
+  debug = FALSE;
+  allocated = FALSE;
+
+omstart:
+
+  maxnodes = 0;
+  noknots = 0;
+  noelements = 0;
+  elemcode = 0;
+  boundarytype = 0;
+  boundarynodes = 0;
+  material = 0;
+  nosides = 0;
+  bulkdone = FALSE;
+  domains = 0;
+  offset = 1;
+
+
+  for(;;) {
+
+    if(Comsolrow(line,in)) goto end;
+    if(!line) goto end;
+
+    if(strstr(line,"# sdim")) {
+      cp = line;
+      dim = next_int(&cp);
+      if(debug) printf("dim=%d\n",dim);
+    }
+
+    else if(strstr(line,"# number of mesh points")) {
+      cp = line;
+      noknots = next_int(&cp);
+      if(debug) printf("noknots=%d\n",noknots);
+    }
+
+    else if(strstr(line,"# lowest mesh point index")) {
+      cp = line;
+      offset = 1 - next_int(&cp);
+      if(debug) printf("offset=%d\n",offset);
+    }
+
+    else if(strstr(line,"# type name")) {
+      if(strstr(line,"vtx")) elembasis = 100;
+      if(strstr(line,"edg")) elembasis = 200;
+      if(strstr(line,"tri")) elembasis = 300;
+      if(strstr(line,"tet")) elembasis = 500;
+      if(debug) printf("elembasis=%d\n",elembasis);     
+    }
+
+    else if(strstr(line,"# number of nodes per element")) {
+      cp = line;
+      elemnodes = next_int(&cp);
+      if(elemnodes > maxnodes) maxnodes = elemnodes;      
+      if(debug) printf("elemnodes=%d\n",elemnodes);           
+    }
+
+    else if(strstr(line,"# Mesh point coordinates")) {
+      printf("Loading %d coordinates\n",noknots);
+
+      for(i=1;i<=noknots;i++) {
+	Comsolrow(line,in);	
+
+	if(allocated) {
+	  cp = line;
+	  data->x[i] = next_real(&cp);
+	  data->y[i] = next_real(&cp);
+	  if(dim == 3) data->z[i] = next_real(&cp);
+	}
+      }
+    }
+
+    else if(strstr(line,"# number of elements")) {
+
+      cp = line;
+      k = next_int(&cp);
+
+      Comsolrow(line,in);	            
+      elemtype = elemnodes + elembasis;
+
+      if(debug) printf("Loading %d elements of type %d\n",k,elemtype);
+      domains = noelements;
+
+      for(i=1;i<=k;i++) {
+	Comsolrow(line,in);	
+
+	if(dim == 3 && elembasis < 300) continue;
+	if(dim == 2 && elembasis < 200) continue;
+
+	noelements = noelements + 1;
+	if(allocated) {
+	  cp = line;
+	  for(j=0;j<elemnodes;j++)
+	    data->topology[noelements][j] = next_int(&cp) + offset;
+	  data->elementtypes[noelements] = elemtype;
+	  data->material[noelements] = 1;	  
+	}
+      }
+    }
+
+    else if(strstr(line,"# number of domains")) {
+
+      cp = line;
+      k = next_int(&cp);
+
+      Comsolrow(line,in);	            
+      if(debug) printf("Loading %d domains for the elements\n",k);
+
+      for(i=1;i<=k;i++) {
+	Comsolrow(line,in);	
+
+	if(dim == 3 && elembasis < 300) continue;
+	if(dim == 2 && elembasis < 200) continue;
+
+	domains = domains + 1;
+	if(allocated) {
+	  cp = line;
+	  data->material[domains] = next_int(&cp) + offset;	  
+	}
+      }
+    }
+
+    else if(strstr(line,"#")) {
+      if(debug) printf("Unused command:  %s",line);
+    }
+
+  }
+
+end:
+
+  if(!allocated) {
+
+    if(noknots == 0 || noelements == 0 || maxnodes == 0) {
+       printf("Invalid mesh consits of %d knots and %d %d-node elements.\n",
+	     noknots,noelements,maxnodes);     
+       close(in);
+       return(2);
+    }
+
+    rewind(in);
+    data->noknots = noknots;
+    data->noelements = noelements;
+    data->maxnodes = maxnodes;
+    data->dim = dim;
+    
+    if(info) {
+      printf("Allocating for %d knots and %d %d-node elements.\n",
+	     noknots,noelements,maxnodes);
+    }  
+    AllocateKnots(data);
+    allocated = TRUE;
+
+    goto omstart;    
+  }
+  close(in);
+
+  if(info) printf("The Comsol mesh was loaded from file %s.\n\n",filename);
   return(0);
 }
 
