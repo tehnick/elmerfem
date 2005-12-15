@@ -2576,13 +2576,16 @@ CONTAINS
     LOGICAL :: debug, ElimDir, minmaxset
     REAL(KIND=dp), POINTER :: Values(:), measures(:)
     REAL(KIND=dp) :: maxbond, minbond, dirlim, meas, measlim, Neglim, Dirlim, &
-        x0, y0, z0, x1, y1, z1, s2
+        x0, y0, z0, x1, y1, z1, s2, Pow
 
     debug = .FALSE.
     IF(debug) CALL Info('AMGBonds','Making a list of strong matrix connections')
 
     NegLim = ListGetConstReal(Solver % Values,'MG Strong Connection Limit',GotIt)
     IF(.NOT. GotIt) NegLim = 0.25
+    
+    Pow = ListGetConstReal(Solver % Values,'MG Geometric Power',GotIt)
+    IF(.NOT. GotIt) Pow = 1.0d0
 
     ElimDir = EliminateDir
     DirLim = ListGetConstReal(Solver % Values,'MG Eliminate Dirichlet Limit',GotIt)
@@ -2643,7 +2646,7 @@ CONTAINS
         z1 = Mesh % Nodes % z(k)
         
         s2 = (x1-x0)*(x1-x0) + (y1-y0)*(y1-y0) + (z1-z0)*(z1-z0)
-        meas = 1.0/SQRT(s2)
+        meas = s2 ** (-Pow/2)
         
         measures(j-Rows(ind)+1) = meas
         maxbond = MAX(maxbond, meas)
@@ -3904,7 +3907,7 @@ CONTAINS
        INTEGER :: inds(FSIZE), posinds(CSIZE), neginds(CSIZE), no, diag, InfoNode, &
            posno, negno, negi, posi, projnodes, DirectLimit, InfoLevel
        REAL(KIND=dp) :: coeffs(FSIZE), poscoeffs(CSIZE), negcoeffs(CSIZE), wsum, &
-           refbond, posmax, negmax, x0, y0, z0, x1, y1, z1, s2
+           refbond, posmax, negmax, x0, y0, z0, x1, y1, z1, s2, Pow
 
        Debug = .FALSE.
 
@@ -3912,6 +3915,9 @@ CONTAINS
        
        ProjLim = ListGetConstReal(Solver % Values,'MG Projection Limit',GotIt)
        IF(.NOT. GotIt) ProjLim = 0.1
+
+       Pow = ListGetConstReal(Solver % Values,'MG Geometric Power',GotIt)
+       IF(.NOT. GotIt) Pow = 1.0d0
 
        DirectInterpolate = ListGetLogical(Solver % Values,'MG Direct Interpolate',GotIt)
        DirectLimit = ListGetInteger(Solver % Values,'MG Direct Interpolate Limit',GotIt)      
@@ -4016,7 +4022,7 @@ CONTAINS
              z1 = Mesh % Nodes % z(k)
 
              s2 = (x1-x0)*(x1-x0) + (y1-y0)*(y1-y0) + (z1-z0)*(z1-z0)
-             value = 1/SQRT(s2)
+             value = s2 ** (-Pow/2.0)
 
              posmax = MAX(posmax,value)
              no = no + 1
@@ -4051,7 +4057,7 @@ CONTAINS
                  z1 = Mesh % Nodes % z(k)
 
                  s2 = (x1-x0)*(x1-x0) + (y1-y0)*(y1-y0) + (z1-z0)*(z1-z0)
-                 value = 1/SQRT(s2)
+                 value = s2 ** (-Pow/2.0)
 
                  posmax = MAX(posmax,value)
                  no = no + 1
