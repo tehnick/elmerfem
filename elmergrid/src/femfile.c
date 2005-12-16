@@ -2,7 +2,7 @@
    ElmerGrid - A simple mesh generation and manipulation utility  
    Copyright (C) 1995- , CSC - Scientific Computing Ltd.   
 
-   Author: Peter Råback
+   Author: Peter Råback
    Email: Peter.Raback@csc.fi
    Address: CSC - Scientific Computing Ltd.
             Keilaranta 14
@@ -2809,7 +2809,7 @@ int LoadComsolMesh(struct FemType *data,char *prefix,int info)
   int mode,allocated,nvalue,maxknot,nosides,sideelemtype;
   int boundarytype,materialtype,boundarynodes,side,parent,elemsides;
   int dim, elemnodes, elembasis, elemtype, bulkdone, usedmax,hits;
-  int label,debug,offset,domains;
+  int label,debug,offset,domains,mindom,minbc,elemdim;
   char filename[MAXFILESIZE],line[MAXLINESIZE],*cp;
   int i,j,k,l,n,ind,inds[MAXNODESD2],sideind[MAXNODESD1];
   FILE *in;
@@ -2832,19 +2832,18 @@ int LoadComsolMesh(struct FemType *data,char *prefix,int info)
   debug = FALSE;
   allocated = FALSE;
 
+  mindom = 1000;
+  minbc = 1000;
+  offset = 1;
+
 omstart:
 
   maxnodes = 0;
   noknots = 0;
   noelements = 0;
   elemcode = 0;
-  boundarytype = 0;
-  boundarynodes = 0;
   material = 0;
-  nosides = 0;
-  bulkdone = FALSE;
   domains = 0;
-  offset = 1;
 
 
   for(;;) {
@@ -2908,6 +2907,13 @@ omstart:
       Comsolrow(line,in);	            
       elemtype = elemnodes + elembasis;
 
+      if(elembasis > 400) 
+	elemdim = 3;
+      else if(elembasis > 200)
+	elemdim = 2;
+      else 
+	elemdim = 1;
+
       if(debug) printf("Loading %d elements of type %d\n",k,elemtype);
       domains = noelements;
 
@@ -2943,10 +2949,25 @@ omstart:
 	if(dim == 2 && elembasis < 200) continue;
 
 	domains = domains + 1;
+	cp = line;
+	material = next_int(&cp);
+
 	if(allocated) {
-	  cp = line;
-	  data->material[domains] = next_int(&cp) + offset;	  
+	  if(elemdim < dim) 
+	    material = material - minbc + 1;
+	  else 
+	    material = material - mindom + 1;
+	  data->material[domains] = material;	  
 	}
+	else {
+	  if(elemdim < dim) {
+	    if(minbc > material) minbc = material;
+	  }
+	  else {
+	    if(mindom > material) mindom = material;	  
+	  }	  
+	}
+
       }
     }
 
