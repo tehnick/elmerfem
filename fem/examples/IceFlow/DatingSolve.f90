@@ -93,7 +93,7 @@
      INTEGER, POINTER :: AgePerm(:),NodeIndexes(:), FlowPerm(:),  MeshVeloPerm(:)
                         
 
-     LOGICAL :: GotForceBC,GotIt,NewtonLinearization = .FALSE., CompressibleFlow
+     LOGICAL :: GotForceBC,GotIt,NewtonLinearization = .FALSE.
 
      INTEGER :: body_id,bf_id,eq_id, Indexes(128),dim
 !
@@ -243,13 +243,6 @@
 
      IF ( .NOT.GotIt ) NonlinearIter = 1
 !------------------------------------------------------------------------------
-
-     CompressibleFlow =  GetLogical(  Solver % Values, &
-          'Compressible Flow',GotIt )
-     IF ( .NOT.GotIt ) CompressibleFlow = .FALSE.
-
-!------------------------------------------------------------------------------
-
      old_body = -1
 !------------------------------------------------------------------------------
      DO iter=1,NonlinearIter
@@ -321,7 +314,7 @@
 !--------------------------
 
          CALL LocalMatrix( MASS, STIFF, FORCE, LOAD, &
-              Velocity, MeshVelocity, CurrentElement, CompressibleFlow, &
+              Velocity, MeshVelocity, CurrentElement, &
               n, ElementNodes)
 
 !------------------------------------------------------------------------------
@@ -532,7 +525,7 @@ CONTAINS
 
 !------------------------------------------------------------------------------
    SUBROUTINE LocalMatrix(  MASS, STIFF, FORCE, LOAD, &
-                            NodalVelo, NodMeshVelo,Element, CompressibleFlow, &
+                            NodalVelo, NodMeshVelo,Element, &
                             n, Nodes)
           
 !------------------------------------------------------------------------------
@@ -540,7 +533,6 @@ CONTAINS
      REAL(KIND=dp) :: STIFF(:,:),MASS(:,:)
      REAL(KIND=dp) :: LOAD(:,:), NodalVelo(:,:),NodMeshVelo(:,:)
      REAL(KIND=dp), DIMENSION(:) :: FORCE
-     LOGICAL :: CompressibleFlow
 
      TYPE(Nodes_t) :: Nodes
      TYPE(Element_t) :: Element
@@ -614,15 +606,7 @@ CONTAINS
 !
 !     Reaction coefficient:
 !     ---------------------
-      IF (CompressibleFlow) THEN
-         DivVelo = 0.0D00
-         DO i=1,dim
-            DivVelo = DivVelo + SUM(NodalVelo(i,1:n)*dBasisdx(1:n,i))
-         END DO
-         C0 = DivVelo
-      ELSE
          C0 = 0.0   
-      END IF
 
 
 !     Loop over basis functions (of both unknowns and weights):
