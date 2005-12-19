@@ -2011,8 +2011,8 @@ CONTAINS
             READ(RestartUnit,*) Node,k,value
 
             IF ( .NOT. ASSOCIATED( Var % Perm ) ) THEN
-               IF ( k >= 0 ) Var % Values(k) = value
-            ELSE IF ( Var % Perm(j) < 0 ) THEN
+               IF ( k > 0 ) Var % Values(k) = value
+            ELSE IF ( Var % Perm(j) <= 0 ) THEN
                Var % Perm(j) = k
                IF ( k > 0 ) Var % Values(k) = value
             ELSE IF ( Var % Perm(j)>0 ) THEN
