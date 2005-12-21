@@ -44,7 +44,7 @@
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
-!  Solve dating equation for one timestep (da/dt + a.c0 + da/dxi.ui = 1)
+!  Solve dating equation for one timestep (da/dt + da/dxi.ui = 1)
 !
 !  ARGUMENTS:
 !
@@ -95,11 +95,11 @@
 
      LOGICAL :: GotForceBC,GotIt,NewtonLinearization = .FALSE.
 
-     INTEGER :: body_id,bf_id,eq_id, Indexes(128),dim
+     INTEGER :: body_id,bf_id,eq_id, Indexes(128), dim
 !
      INTEGER :: old_body = -1
 
-     LOGICAL :: AllocationsDone = .FALSE., FreeSurface
+     LOGICAL :: AllocationsDone = .FALSE., FreeSurface, Compressible
 
      TYPE(Variable_t), POINTER :: TimeVar
 
@@ -138,6 +138,9 @@
      FlowSolverName = GetString( Solver % Values, 'Flow Solver Name', GotIt )    
      IF (.NOT.Gotit) FlowSolverName = 'flow solution'
      FlowVariable => VariableGet( Solver % Mesh % Variables, FlowSolverName )
+     
+     Compressible = .False. 
+     IF (FlowSolverName=='porous') Compressible = .True.
 
      IF ( ASSOCIATED( FlowVariable ) ) THEN
        FlowPerm    => FlowVariable % Perm
@@ -315,7 +318,7 @@
 
          CALL LocalMatrix( MASS, STIFF, FORCE, LOAD, &
               Velocity, MeshVelocity, CurrentElement, &
-              n, ElementNodes)
+              n, ElementNodes, Compressible)
 
 !------------------------------------------------------------------------------
 !        Update global matrices from local matrices 
@@ -526,7 +529,7 @@ CONTAINS
 !------------------------------------------------------------------------------
    SUBROUTINE LocalMatrix(  MASS, STIFF, FORCE, LOAD, &
                             NodalVelo, NodMeshVelo,Element, &
-                            n, Nodes)
+                            n, Nodes, Compressible)
           
 !------------------------------------------------------------------------------
 
@@ -536,6 +539,7 @@ CONTAINS
 
      TYPE(Nodes_t) :: Nodes
      TYPE(Element_t) :: Element
+     LOGICAL :: Compressible
 
      INTEGER :: n
 !------------------------------------------------------------------------------
@@ -549,7 +553,7 @@ CONTAINS
      INTEGER :: i,j,k,p,q,t,dim,NBasis,ind(3), DOFs = 1
 
      REAL(KIND=dp) :: s,u,v,w, Radius, B(6,3), G(3,6)
-     REAL(KIND=dp) :: Velo(3),hmax,DivVelo
+     REAL(KIND=dp) :: Velo(3), hmax, DivVelo
   
      INTEGER :: N_Integ
      REAL(KIND=dp), DIMENSION(:), POINTER :: U_Integ,V_Integ,W_Integ,S_Integ
@@ -600,8 +604,13 @@ CONTAINS
       DO i=1,dim
          Velo(i) = SUM( Basis(1:n) * (NodalVelo(i,1:n)-NodMeshVelo(i,1:n)) )
       END DO
-      Unorm = SQRT( SUM( Velo**2 ) )
 
+      divVelo = 0.0d0
+      IF (Compressible) THEN
+        DO i=1,dim
+          divVelo = divVelo + SUM( NodalVelo(i,1:n) * dBasisdx(1:n,i) )
+        END DO
+      END IF
 
 !
 !     Reaction coefficient:
@@ -618,14 +627,15 @@ CONTAINS
 !
 !           Reaction terms:
 !           ---------------
-            A = A - C0 * Basis(q) * Basis(p)
+!           A = A - C0 * Basis(q) * Basis(p)
 
             !
             ! Advection terms:
             ! ----------------
             DO j=1,dim
-               A = A - Velo(j) * Basis(q) * dBasisdx(p,j)
+               A = A - Velo(j) * Basis(q) * dBasisdx(p,j) 
             END DO
+               A = A - divVelo * Basis(q) * Basis(p)
 
 !           Add nodal matrix to element matrix:
 !           -----------------------------------
@@ -853,7 +863,6 @@ CONTAINS
 
 
        DO p = 1,np
-!       IF ( InFlowBC ) THEN
         IF (InFlowBC .And. (UdotnA < 0.0) ) THEN
             FORCE(p) = FORCE(p) - s * Udotn*L*ParentBasis(p)
          ELSE
