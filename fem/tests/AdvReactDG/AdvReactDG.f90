@@ -237,7 +237,7 @@
        TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
        REAL(KIND=dp) :: Basis(n),dBasisdx(n,3)
-       REAL(KIND=dp) :: detJ,U,V,W,S,A,L,cu(3),g
+       REAL(KIND=dp) :: detJ,U,V,W,S,A,L,cu(3),divu,g
        LOGICAL :: Stat
        INTEGER :: i,p,q,t,dim
        TYPE(GaussIntegrationPoints_t) :: IntegStuff
@@ -269,9 +269,11 @@
          L = SUM( LOAD(1:n) *  Basis(1:n) )
          g = SUM( Basis(1:n) * Gamma(1:n) )
 
-         cu = 0.0d0
+         cu   = 0.0d0
+         divu = 0.0d0
          DO i=1,dim
-            cu(i) = SUM( Basis(1:n) * Velo(i,1:n) )
+           cu(i) = SUM( Basis(1:n) * Velo(i,1:n) )
+           divu = divu + SUM( Velo(i,1:n) * dBasisdx(1:n,i) )
          END DO
 !------------------------------------------------------------------------------
 !        The advection-reaction equation
@@ -279,7 +281,7 @@
          DO p=1,n
             DO q=1,n
               MASS(p,q)  = MASS(p,q)  + s * Basis(q) * Basis(p)
-              STIFF(p,q) = STIFF(p,q) + s * g * Basis(q) * Basis(p)
+              STIFF(p,q) = STIFF(p,q) + s * (g-divu) * Basis(q) * Basis(p)
               DO i=1,dim
                 STIFF(p,q) = STIFF(p,q) - s * cu(i) * Basis(q) * dBasisdx(p,i)
               END DO
