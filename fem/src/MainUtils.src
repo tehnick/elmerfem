@@ -33,8 +33,12 @@
 ! *       Date of modification:
 ! *
 ! * $Log: MainUtils.src,v $
+! * Revision 1.7  2005/12/07 12:54:15  jpr
+! * Changes to have gfortran happy / bug fix in "exported variable" defs.
+! *
 ! * Revision 1.6  2005/07/07 09:12:27  jpr
-! * Changed ElementInfo to have dBasisdx,ddBasisddx as OPTIONAL arguments. Changed all calls to ElementInfo accordingly.
+! * Changed ElementInfo to have dBasisdx,ddBasisddx as OPTIONAL arguments.
+! * Changed all calls to ElementInfo accordingly.
 ! *
 ! * Revision 1.5  2005/07/06 08:38:00  jpr
 ! * Some comments added.
@@ -65,7 +69,7 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.src,v 1.6 2005/07/07 09:12:27 jpr Exp $
+! * $Id: MainUtils.src,v 1.7 2005/12/07 12:54:15 jpr Exp $
 ! *****************************************************************************/
 
 
@@ -236,7 +240,8 @@ CONTAINS
     IF ( MaxFDOFs > 0 ) Ndeg = Ndeg + MaxFDOFs * Solver % Mesh % NumberOFFaces
     IF ( GlobalBubbles ) &
                  Ndeg = Ndeg + MaxBDOFs * Solver % Mesh % NumberOfBulkElements
-    Ndeg = MAX( NDeg, MaxDGDOFs * Solver % Mesh % NumberOfBulkElements )
+    Ndeg = MAX( NDeg, MaxDGDOFs * (Solver % Mesh % NumberOfBulkElements+ &
+               Solver % Mesh % NumberOfBoundaryElements) )
 
     Solver % Order = 1
 
@@ -1214,8 +1219,8 @@ CONTAINS
 !------------------------------------------------------------------------------
      TYPE(Model_t)  :: Model
      TYPE(Solver_t),POINTER :: Solver
-     REAL(KIND=dp) :: dt
      LOGICAL :: TransientSimulation
+     REAL(KIND=dp) :: dt, OrigDT, DTScal
 !------------------------------------------------------------------------------
      INTEGER :: i, j, SolverAddr, BDOFs
      LOGICAL :: stat, Found, GB
@@ -1262,15 +1267,19 @@ CONTAINS
      END IF
 !------------------------------------------------------------------------------
      Solver % Mesh % OutputActive = .TRUE.
-     Solver % dt = dt
+     OrigDT = dt
+     DTScal = ListGetConstReal( Solver % Values, "Timestep Scale", Found )
+     IF ( .NOT. Found ) DTScal = 1.0d0
+     Solver % dt = DTScal * dt
 
 #ifdef SGIn32
      SolverAddr = Solver % PROCEDURE
-     CALL ExecSolver( SolverAddr, Model, Solver, dt, TransientSimulation )
+     CALL ExecSolver( SolverAddr, Model, Solver, DTScal * dt, TransientSimulation )
 #else
      CALL ExecSolver( &
-              Solver % PROCEDURE, Model, Solver, dt, TransientSimulation )
+              Solver % PROCEDURE, Model, Solver, DTScal * dt, TransientSimulation )
 #endif
+     Solver % dt = OrigDT
 !------------------------------------------------------------------------------
    END SUBROUTINE SolverActivate
 !------------------------------------------------------------------------------
