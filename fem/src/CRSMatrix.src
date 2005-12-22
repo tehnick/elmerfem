@@ -691,9 +691,9 @@ END FUNCTION CRS_RowSum
     Values => A % Values
 
     DO i=1,n
-       rsum = DCMPLX( 0.0d0, 0.0d0 )
+       rsum = CMPLX( 0.0d0, 0.0d0,KIND=dp )
        DO j=Rows(2*i-1),Rows(2*i)-1,2
-          s = DCMPLX( Values(j), -Values(j+1) )
+          s = CMPLX( Values(j), -Values(j+1), KIND=dp )
           rsum = rsum + s * u((Cols(j)+1)/2)
        END DO
        v(i) = rsum
@@ -883,7 +883,7 @@ END FUNCTION CRS_RowSum
     END IF
 
     DO i=1,n/2
-       A = DCMPLX( Values(Diag(2*i-1)), -Values(Diag(2*i-1)+1) )
+       A = CMPLX( Values(Diag(2*i-1)), -Values(Diag(2*i-1)+1), KIND=dp )
        u(i) = v(i) / A
     END DO
 !------------------------------------------------------------------------------
@@ -1314,7 +1314,7 @@ END FUNCTION CRS_RowSum
        END DO
 
        DO k = Rows(2*i-1), Rows(2*i)-1,2
-          S((Cols(k)+1)/2) = DCMPLX( Values(k), -Values(k+1) )
+          S((Cols(k)+1)/2) = CMPLX( Values(k), -Values(k+1), KIND=dp )
        END DO
 
 !
@@ -1804,7 +1804,7 @@ END FUNCTION CRS_RowSum
 !     -----------------------------
       ILURows(1) = 1
       C = .FALSE.
-      S = DCMPLX( 0.0d0, 0.0d0 )
+      S = CMPLX( 0.0d0, 0.0d0, KIND=dp )
 
       DO i=1,n
 !
@@ -1813,7 +1813,7 @@ END FUNCTION CRS_RowSum
 !        -----------------------------------------------
          DO k=Rows(2*i-1), Rows(2*i)-1,2
             C((Cols(k)+1) / 2) = .TRUE.
-            S((Cols(k)+1) / 2) = DCMPLX( Values(k), -Values(k+1) )
+            S((Cols(k)+1) / 2) = CMPLX( Values(k), -Values(k+1), KIND=dp )
          END DO
 !
 !        Check bandwidth for speed, bandwidth optimization
@@ -1860,7 +1860,7 @@ END FUNCTION CRS_RowSum
                   IF ( k == i ) ILUDiag(i) = j
                END IF
                C(k) = .FALSE.
-               S(k) = DCMPLX( 0.0d0, 0.0d0 )
+               S(k) = CMPLX( 0.0d0, 0.0d0, KIND=dp )
             END IF
          END DO
          ILURows(i+1) = j + 1
@@ -2130,7 +2130,7 @@ END FUNCTION CRS_RowSum
        Diag => A % Diag
 
        DO i=1,n/2
-          x = DCMPLX( A % Values(Diag(2*i-1)), -A % Values(Diag(2*i-1)+1) )
+          x = CMPLX( A % Values(Diag(2*i-1)), -A % Values(Diag(2*i-1)+1), KIND=dp )
           b(i) = b(i) / x
        END DO
        RETURN
@@ -2336,19 +2336,19 @@ END FUNCTION CRS_RowSum
 #ifndef SGI
     IF ( HUTI_EXTOP_MATTYPE == HUTI_MAT_NOTTRPSED ) THEN
        DO i=1,n
-          rsum = DCMPLX( 0.0d0, 0.0d0 )
+          rsum = CMPLX( 0.0d0, 0.0d0, KIND=dp )
           DO j=Rows(2*i-1),Rows(2*i)-1,2
-             s = DCMPLX( Values(j), -Values(j+1) )
+             s = CMPLX( Values(j), -Values(j+1), KIND=dp )
              rsum = rsum + s * u((Cols(j)+1)/2)
           END DO
           v(i) = rsum
        END DO
     ELSE
-       v = DCMPLX( 0.0d0, 0.0d0 )
+       v = CMPLX( 0.0d0, 0.0d0, KIND=dp )
        DO i=1,n
           rsum = u(i)
           DO j=Rows(2*i-1),Rows(2*i)-1,2
-             s = DCMPLX( Values(j), -Values(j+1) )
+             s = CMPLX( Values(j), -Values(j+1), KIND=dp )
              v((Cols(j)+1)/2) = v((Cols(j)+1)/2) + s * rsum
           END DO
        END DO
@@ -2369,19 +2369,19 @@ END FUNCTION CRS_RowSum
 
       IF ( HUTI_EXTOP_MATTYPE == HUTI_MAT_NOTTRPSED ) THEN
          DO i=1,n
-            rsum = DCMPLX( 0.0d0, 0.0d0 )
+            rsum = CMPLX( 0.0d0, 0.0d0, KIND=dp )
             DO j=Rows(2*i-1),Rows(2*i)-1,2
-               s = DCMPLX( Values(j), -Values(j+1) )
+               s = CMPLX( Values(j), -Values(j+1), KIND=dp )
                rsum = rsum + s * u((Cols(j)+1)/2)
             END DO
             v(i) = rsum
          END DO
       ELSE
-         v = DCMPLX( 0.0d0, 0.0d0 )
+         v = CMPLX( 0.0d0, 0.0d0, KIND=dp )
          DO i=1,n
             rsum = u(i)
             DO j=Rows(2*i-1),Rows(2*i)-1,2
-               s = DCMPLX( Values(j), -Values(j+1) )
+               s = CMPLX( Values(j), -Values(j+1), KIND=dp )
                v((Cols(j)+1)/2) = v((Cols(j)+1)/2) + s * rsum
             END DO
          END DO
