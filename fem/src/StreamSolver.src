@@ -165,8 +165,8 @@ SUBROUTINE StreamSolver( Model,Solver,dt,TransientSimulation )
      DO i = 1,n
         k = FlowSolPerm( NodeIndexes(i) )
         k = (k-1) * NSDOFs
-        LOAD( (i-1)*2 +1 ) =  FlowSolValues( k+2 )
-        LOAD( (i-1)*2 +2 ) = -FlowSolValues( k+1 )
+        LOAD( (i-1)*2+1 ) = -FlowSolValues( k+2 )
+        LOAD( (i-1)*2+2 ) =  FlowSolValues( k+1 )
      END DO
 !------------------------------------------------------------------------------
 !     Get element local matrix and rhs vector
@@ -188,8 +188,8 @@ SUBROUTINE StreamSolver( Model,Solver,dt,TransientSimulation )
      DO i = 1,n
         k = FlowSolPerm( NodeIndexes(i) )
         k = (k-1) * NSDOFs
-        LOAD( (i-1)*2 +1 ) = -FlowSolValues( k+2 )
-        LOAD( (i-1)*2 +2 ) =  FlowSolValues( k+1 )
+        LOAD( (i-1)*2 +1 ) =  FlowSolValues( k+2 )
+        LOAD( (i-1)*2 +2 ) = -FlowSolValues( k+1 )
      END DO
 !------------------------------------------------------------------------------
 !    Get element local matrix and rhs vector
@@ -244,7 +244,7 @@ CONTAINS
     REAL(KIND=dp) :: Basis(n), dBasisdx(n,3), LoadAtIp(2)
     REAL(KIND=dp) :: DetJ, U, V, W, S, Radius
     LOGICAL :: Stat
-    INTEGER :: t, p, q, dim, nBasis, k
+    INTEGER :: t, p, q, dim, k
     TYPE(GaussIntegrationPoints_t) :: IntegStuff
     TYPE(Nodes_t) :: Nodes
     SAVE Nodes
@@ -256,7 +256,6 @@ CONTAINS
 !------------------------------------------------------------------------------
 !   Numerical integration
 !------------------------------------------------------------------------------
-    nBasis = n
     IntegStuff = GaussPoints( Element )
 
     DO t=1,IntegStuff % n
@@ -268,31 +267,30 @@ CONTAINS
 !------------------------------------------------------------------------------
 !      Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
-       stat = ElementInfo( Element, Nodes, U, V, W, DetJ, &
-            Basis, dBasisdx )
+       stat = ElementInfo( Element, Nodes, U, V, W, DetJ, Basis, dBasisdx )
        s = s * DetJ
-       IF ( StokesStream ) s = s * SUM(Nodes % x(1:n) * Basis(1:n))
        
 !------------------------------------------------------------------------------
 !      Load at the integration point
 !------------------------------------------------------------------------------
-       DO i = 1,dim
-         LoadAtIP(i) = SUM( dBasisdx(1:n,i) * LOAD(i:2*n:2) )
-       END DO
+       IF ( StokesStream ) THEN
+         Radius = SUM(Nodes % x(1:n) * Basis(1:n))
+         DO i = 1,dim
+           LoadAtIP(i) = Radius * SUM( dBasisdx(1:n,i) * LOAD(i:2*n:2) )
+         END DO
+         LoadAtIP(1) = LoadAtIp(1) + SUM( Basis(1:n) * LOAD(1:2*n:2) )
+       ELSE
+         DO i = 1,dim
+           LoadAtIP(i) = SUM( dBasisdx(1:n,i) * LOAD(i:2*n:2) )
+         END DO
+       END IF
 !------------------------------------------------------------------------------
 !      Finally, the elemental matrix & vector
 !------------------------------------------------------------------------------       
-       DO p=1,nBasis
-          DO q=1,nBasis             
-             STIFF(p,q) = STIFF(p,q) &
-                  + s * SUM( dBasisdx( q,1:dim ) * dBasisdx( p,1:dim ) )
-          END DO
-       END DO
+       STIFF(1:n,1:n) = STIFF(1:n,1:n) &
+           + s * MATMUL( dBasisdx, TRANSPOSE(dBasisdx) )
 
-!      FORCE(1:nBasis) = FORCE(1:nBasis) & 
-!             - s * MATMUL( dBasisdx(1:nBasis,1:dim), LoadAtIp(1:dim) )
-       FORCE(1:nBasis) = FORCE(1:nBasis) & 
-                  + s * SUM(LoadAtIp(1:dim)) * Basis(1:nBasis)
+       FORCE(1:n) = FORCE(1:n) + s * SUM(LoadAtIp(1:dim)) * Basis(1:n)
        
     END DO! <- t eli integraatiopisteet
 
@@ -309,9 +307,9 @@ CONTAINS
     LOGICAL :: StokesStream
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: Basis(n), dBasisdx(n,3), LoadAtIp(2)
-    REAL(KIND=dp) :: DetJ, U, V, W, S, Radius, Normal(3)
+    REAL(KIND=dp) :: DetJ, U, V, W, S, L, Normal(3)
     LOGICAL :: Stat
-    INTEGER :: t, p, q, dim, nBasis, k
+    INTEGER :: t, p, q, dim, k
     TYPE(GaussIntegrationPoints_t) :: IntegStuff
     TYPE(Nodes_t) :: Nodes
     SAVE Nodes
@@ -323,7 +321,6 @@ CONTAINS
 !------------------------------------------------------------------------------
 !   Numerical integration
 !------------------------------------------------------------------------------
-    nBasis = n
     IntegStuff = GaussPoints( Element )
 
     DO t=1,IntegStuff % n
@@ -338,7 +335,7 @@ CONTAINS
        stat = ElementInfo( Element, Nodes, U, V, W, DetJ, &
             Basis, dBasisdx )
        s = s * DetJ
-       IF ( StokesStream ) s = s * SUM( Nodes % x(1:n)*Basis(1:n) )
+       IF ( StokesStream ) s = s * SUM(Nodes % x(1:n)*Basis(1:n))
        
 !------------------------------------------------------------------------------
 !      Load at the integration point
@@ -349,9 +346,9 @@ CONTAINS
 !      Finally, the elemental matrix & vector
 !------------------------------------------------------------------------------       
        Normal = NormalVector( Element, Nodes, u, v, .TRUE. )
-       s = s * SUM( LoadAtIp(1:2) * Normal(1:2) )
+       L = SUM( LoadAtIp(1:2) * Normal(1:2) )
 
-       FORCE(1:nBasis) = FORCE(1:nBasis) + s * Basis(1:nBasis)
+       FORCE(1:n) = FORCE(1:n) + s * L * Basis(1:n)
     END DO! <- t eli integraatiopisteet
 
 !------------------------------------------------------------------------------
