@@ -631,9 +631,9 @@ CONTAINS
 !      --------------------------------
        DO p=1,NBasis
           DO q=1,NBasis
-             A = DCMPLX( A0r, A0i ) * Basis(q) * Basis(p)
+             A = CMPLX( A0r, A0i,KIND=dp ) * Basis(q) * Basis(p)
              DO i=1,dim
-                A = A + DCMPLX( A1r(i), A1i(i) ) * dBasisdx(q,i) * basis(p)
+                A = A + CMPLX( A1r(i), A1i(i), KIND=dp ) * dBasisdx(q,i) * basis(p)
                 DO j=1,dim
                    DO k = 1,dim
                       A = A + Metric(i,j) * A2(i,k) * dBasisdx(q,k) * dBasisdx(p,j)
@@ -642,7 +642,7 @@ CONTAINS
              END DO
              LSTIFF(p,q) = LSTIFF(p,q) + s*A
           END DO
-          LFORCE(p) = LFORCE(p) + s * Basis(p) * DCMPLX( L1,L2 )
+          LFORCE(p) = LFORCE(p) + s * Basis(p) * CMPLX( L1,L2,KIND=dp )
        END DO
     END DO
 !------------------------------------------------------------------------------
@@ -766,11 +766,11 @@ CONTAINS
 !------------------------------------------------------------------------------
        DO p=1,n
           DO q=1,n
-             A = DCMPLX( B0r, B0i ) * C0 * Basis(p)*Basis(q)
+             A = CMPLX( B0r, B0i, KIND=dp ) * C0 * Basis(p)*Basis(q)
              A = A + SUM( C1(1:dim) * dBasisdx(q,1:dim) ) * Basis(p)
              LSTIFF(p,q) = LSTIFF(p,q) + s * A
           END DO
-          LFORCE(p) = LFORCE(p) + s * Basis(p) * C0 * DCMPLX( L1, L2 ) 
+          LFORCE(p) = LFORCE(p) + s * Basis(p) * C0 * CMPLX( L1, L2, KIND=dp ) 
        END DO
 !------------------------------------------------------------------------------
     END DO

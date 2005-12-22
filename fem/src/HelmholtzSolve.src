@@ -55,6 +55,9 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
 !     INPUT: Steady state or transient simulation
 !
 ! $Log: HelmholtzSolve.src,v $
+! Revision 1.5  2005/09/01 15:46:05  vierinen
+! windows fixes
+!
 ! Revision 1.4  2005/07/07 09:12:27  jpr
 ! Changed ElementInfo to have dBasisdx,ddBasisddx as OPTIONAL arguments. Changed all calls to ElementInfo accordingly.
 !
@@ -120,7 +123,7 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
 
   REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HelmholtzSolve.src,v 1.4 2005/07/07 09:12:27 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HelmholtzSolve.src,v 1.5 2005/09/01 15:46:05 vierinen Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -446,7 +449,7 @@ CONTAINS
 !      --------------------------------
        DO p=1,NBasis
           DO q=1,NBasis
-             A = DCMPLX( M, D ) * Basis(q) * Basis(p)
+             A = CMPLX( M, D,KIND=dp ) * Basis(q) * Basis(p)
              DO i=1,dim
                 A = A + ConvCoef * Velo(i) * dBasisdx(q,i) * Basis(p)
                 DO j=1,dim
@@ -457,7 +460,7 @@ CONTAINS
              END DO
              STIFF(p,q) = STIFF(p,q) + s*A
           END DO
-          FORCE(p) = FORCE(p) + s * Basis(p) * DCMPLX( L1,L2 )
+          FORCE(p) = FORCE(p) + s * Basis(p) * CMPLX( L1,L2,KIND=dp )
        END DO
     END DO
 !------------------------------------------------------------------------------
@@ -520,9 +523,9 @@ CONTAINS
        Impedance1 = SUM( Impedance(1,1:n) * Basis(1:n) )
        Impedance2 = SUM( Impedance(2,1:n) * Basis(1:n) ) 
        IF ( ABS(Impedance1) < AEPS .AND. ABS(Impedance2) < AEPS) THEN
-         Admittance = DCMPLX(0.0d0,0.0d0)
+         Admittance = CMPLX(0.0d0,0.0d0,KIND=dp)
        ELSE         
-         Admittance = AngularFrequency / DCMPLX(Impedance1, Impedance2)
+         Admittance = AngularFrequency / CMPLX(Impedance1, Impedance2,KIND=dp)
        END IF
 
 !      Scaled convection velocity
@@ -544,7 +547,7 @@ CONTAINS
              A = A + SUM( TangVelo(1:dim) * dBasisdx(q,1:dim) ) * Basis(p)
              STIFF(p,q) = STIFF(p,q) + s * A
           END DO
-          FORCE(p) = FORCE(p) + s * Basis(p) * DCMPLX(L1,L2) 
+          FORCE(p) = FORCE(p) + s * Basis(p) * CMPLX(L1,L2,KIND=dp) 
        END DO
 !------------------------------------------------------------------------------
     END DO

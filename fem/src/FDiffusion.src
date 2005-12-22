@@ -85,6 +85,7 @@ SUBROUTINE FourierDiffusionSolver( Model,Solver,dt,TransientSimulation )
 ! Local variables
 !------------------------------------------------------------------------------
   TYPE(Matrix_t),POINTER  :: StiffMatrix
+  TYPE(Variable_t), POINTER :: Var
   TYPE(Nodes_t) :: ElementNodes
   TYPE(Element_t),POINTER :: CurrentElement
 
@@ -172,7 +173,8 @@ SUBROUTINE FourierDiffusionSolver( Model,Solver,dt,TransientSimulation )
 
 ! Add Lorentz force (all components) to *.result and *.ep files
 !#if 1
-     IF (.NOT. ASSOCIATED(VariableGet(Model % Variables, 'Lorentz Force'))) THEN
+     Var => VariableGet(Model % Variables, 'Lorentz Force')
+     IF (.NOT. ASSOCIATED(Var) ) THEN
         SolverPointer => Solver
 
         LrFr => LrF(1:3*LocalNodes-2:3)
@@ -560,7 +562,7 @@ CONTAINS
 !------------------------------------------------------------------------------
        DO p=1,NBasis
           DO q=1,NBasis
-             A = DCMPLX( M, D ) * Basis(q) * Basis(p)
+             A = CMPLX( M, D, KIND=dp ) * Basis(q) * Basis(p)
 
              DO i=1,dim
                 DO j=1,dim
@@ -571,7 +573,7 @@ CONTAINS
 
              LSTIFF(p,q) = LSTIFF(p,q) + s*A
           END DO
-          LFORCE(p) = LFORCE(p) + s * Basis(p) * DCMPLX( L1,L2 )
+          LFORCE(p) = LFORCE(p) + s * Basis(p) * CMPLX( L1,L2,KIND=dp )
        END DO
     END DO
 !------------------------------------------------------------------------------
@@ -655,11 +657,11 @@ CONTAINS
 !------------------------------------------------------------------------------
        DO p=1,n
           DO q=1,n
-             A = DCMPLX(Impedance1, Impedance2) * Basis(q) * Basis(p)
+             A = CMPLX(Impedance1, Impedance2,KIND=dp) * Basis(q) * Basis(p)
              LSTIFF(p,q) = LSTIFF(p,q) + s * A
           END DO
 
-          LFORCE(p) = LFORCE(p) + s * Basis(p) * DCMPLX(L1,L2)
+          LFORCE(p) = LFORCE(p) + s * Basis(p) * CMPLX(L1,L2,KIND=dp)
        END DO
 !------------------------------------------------------------------------------
     END DO

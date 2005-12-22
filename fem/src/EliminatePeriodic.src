@@ -360,7 +360,7 @@ end interface
      DO i = 1, NEigen
        CALL CRS_MatrixVectorMultiply( C_Trans, LocalEigenVectorsReal(i,:), TempVectorReal )
        CALL CRS_MatrixVectorMultiply( C_Trans, LocalEigenVectorsReal(i,:), TempVectorImag )
-       Solver % Variable % EigenVectors(i,1:n) = DCMPLX( TempVectorReal, TempVectorImag )
+       Solver % Variable % EigenVectors(i,1:n) = CMPLX( TempVectorReal, TempVectorImag,KIND=dp )
      END DO
      DEALLOCATE( LocalEigenVectorsReal, LocalEigenVectorsImag, TempVectorReal, TempVectorImag )
   ELSE

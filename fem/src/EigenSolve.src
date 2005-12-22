@@ -445,7 +445,7 @@ CONTAINS
          ALLOCATE( Perm(NEIG) )
          Perm = (/ (i, i=1,NEIG) /)
          DO i=1,NEIG
-            EigValues(i) = DCMPLX( D(i,1), D(i,2) )
+            EigValues(i) = CMPLX( D(i,1), D(i,2),KIND=dp )
          END DO
          CALL SortC( NEIG, EigValues, Perm )
 
@@ -479,9 +479,9 @@ CONTAINS
 
            DO j=1,N
               IF ( D(p,2) /= 0.0d0 ) THEN
-                 EigVectors(i,j) = DCMPLX( V(j,k),V(j,k+1) )
+                 EigVectors(i,j) = CMPLX( V(j,k),V(j,k+1),KIND=dp )
               ELSE
-                 EigVectors(i,j) = DCMPLX( V(j,k),0.0d0 )
+                 EigVectors(i,j) = CMPLX( V(j,k),0.0d0,KIND=dp )
               END IF
            END DO
 !
@@ -809,7 +809,7 @@ CONTAINS
          ALLOCATE( Perm(NEIG) )
          Perm = (/ (i, i=1,NEIG) /)
          DO i=1,NEIG
-            EigValues(i) = DCMPLX( 1.0d0 / D(i,1), D(i,2) )
+            EigValues(i) = CMPLX( 1.0d0 / D(i,1), D(i,2),KIND=dp )
          END DO
 
          CALL SortC( NEIG, EigValues, Perm )
@@ -844,9 +844,9 @@ CONTAINS
 
            DO j=1,N
               IF ( D(p,2) /= 0.0d0 ) THEN
-                 EigVectors(i,j) = DCMPLX( V(j,k),V(j,k+1) )
+                 EigVectors(i,j) = CMPLX( V(j,k),V(j,k+1),KIND=dp )
               ELSE
-                 EigVectors(i,j) = DCMPLX( V(j,k),0.0d0 )
+                 EigVectors(i,j) = CMPLX( V(j,k),0.0d0,KIND=dp )
               END IF
            END DO
 !
@@ -882,7 +882,7 @@ CONTAINS
 
       DO i = 1,Neig
          IF( REAL(EigValues(i)) < 0.0d0 ) THEN
-            EigVectors(i,:) = EigVectors(i,:) * DCMPLX(0.0d0,1.0d0)
+            EigVectors(i,:) = EigVectors(i,:) * CMPLX(0.0d0,1.0d0,KIND=dp)
          END IF
       END DO
 
@@ -1151,7 +1151,7 @@ CONTAINS
 !                 end do
 
                   DO i=0,n-1
-                     WORKD( IPNTR(2)+i ) = DCMPLX( x(2*i+1), x(2*i+2) )
+                     WORKD( IPNTR(2)+i ) = CMPLX( x(2*i+1), x(2*i+2),KIND=dp )
                   END DO
                END IF
             ELSE
@@ -1183,7 +1183,7 @@ CONTAINS
                   END IF
 
                   DO i=0,n-1
-                     WORKD( IPNTR(2)+i ) = DCMPLX( x(2*i+1), x(2*i+2) )
+                     WORKD( IPNTR(2)+i ) = CMPLX( x(2*i+1), x(2*i+2),KIND=dp )
                   END DO
                END IF
             END IF
@@ -1722,7 +1722,7 @@ CONTAINS
 !        ( and keep in mind the corresponding vector )
 !        ---------------------------------------------
          DO i = 1, NEIG
-            EigTemp(i) = DCMPLX( D(i,1), D(i,2) )
+            EigTemp(i) = CMPLX( D(i,1), D(i,2), KIND=dp )
          END DO
 
          ALLOCATE( kMap( NEIG ) )
@@ -1773,11 +1773,11 @@ CONTAINS
          k = kMap(p)
          IF( AIMAG( EigValues(1) ) == 0 ) THEN
             DO j = 1, N/2
-               EigVectors(1,j) = DCMPLX( V(j,k), 0.0d0 )
+               EigVectors(1,j) = CMPLX( V(j,k), 0.0d0,KIND=dp )
             END DO
          ELSE
             DO j = 1, N/2
-               EigVectors(1,j) = DCMPLX( V(j,k), V(j,k+1) )
+               EigVectors(1,j) = CMPLX( V(j,k), V(j,k+1),KIND=dp )
             END DO
          END IF
 
@@ -1800,11 +1800,11 @@ CONTAINS
             k = kMap(p)
             IF( AIMAG( EigValues(i) ) == 0 ) THEN
                DO j = 1, N/2
-                  EigVectors(i,j) = DCMPLX( V(j,k), 0.0d0 )
+                  EigVectors(i,j) = CMPLX( V(j,k), 0.0d0,KIND=dp )
                END DO
             ELSE
                DO j = 1, N/2
-                  EigVectors(i,j) = DCMPLX( V(j,k), V(j,k+1) )
+                  EigVectors(i,j) = CMPLX( V(j,k), V(j,k+1),KIND=dp )
                END DO
             END IF
 

@@ -34,6 +34,9 @@
 ! *       Date of modification:
 ! *
 ! * $Log: DefUtils.src,v $
+! * Revision 1.10  2005/11/10 10:18:11  zwinger
+! * *** empty log message ***
+! *
 ! * Revision 1.9  2005/07/07 11:14:24  jpr
 ! * Reorganizing the parallel structs.
 ! *
@@ -97,7 +100,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.9 2005/07/07 11:14:24 jpr Exp $
+! * $Id: DefUtils.src,v 1.10 2005/11/10 10:18:11 zwinger Exp $
 ! *
 ! *****************************************************************************/
 
@@ -1157,10 +1160,10 @@ CONTAINS
            x % Perm(Indexes(1:n)), Solver )
 
     DO i=1,n*DOFs/2
-      FC(i) = DCMPLX( F(2*(i-1)+1), F(2*(i-1)+2) )
+      FC(i) = CMPLX( F(2*(i-1)+1), F(2*(i-1)+2),KIND=dp )
       DO j=1,n*DOFs/2
-        MC(i,j) = DCMPLX(M(2*(i-1)+1,2*(j-1)+1), -M(2*(i-1)+1,2*(j-1)+2))
-        AC(i,j) = DCMPLX(A(2*(i-1)+1,2*(j-1)+1), -A(2*(i-1)+1,2*(j-1)+2))
+        MC(i,j) = CMPLX(M(2*(i-1)+1,2*(j-1)+1), -M(2*(i-1)+1,2*(j-1)+2), KIND=dp)
+        AC(i,j) = CMPLX(A(2*(i-1)+1,2*(j-1)+1), -A(2*(i-1)+1,2*(j-1)+2), KIND=dp)
       END DO
     END DO
 
@@ -1247,11 +1250,11 @@ CONTAINS
           x % Perm(Indexes(1:n)), Solver )
 
     DO i=1,n*DOFs/2
-      FC(i) = DCMPLX( F(2*(i-1)+1), F(2*(i-1)+2) )
+      FC(i) = CMPLX( F(2*(i-1)+1), F(2*(i-1)+2), KIND=dp )
       DO j=1,n*DOFs/2
-        MC(i,j) = DCMPLX( M(2*(i-1)+1, 2*(j-1)+1), -M(2*(i-1)+1, 2*(j-1)+2) )
-        BC(i,j) = DCMPLX( B(2*(i-1)+1, 2*(j-1)+1), -B(2*(i-1)+1, 2*(j-1)+2) )
-        AC(i,j) = DCMPLX( A(2*(i-1)+1, 2*(j-1)+1), -A(2*(i-1)+1, 2*(j-1)+2) )
+        MC(i,j) = CMPLX( M(2*(i-1)+1, 2*(j-1)+1), -M(2*(i-1)+1, 2*(j-1)+2), KIND=dp )
+        BC(i,j) = CMPLX( B(2*(i-1)+1, 2*(j-1)+1), -B(2*(i-1)+1, 2*(j-1)+2), KIND=dp )
+        AC(i,j) = CMPLX( A(2*(i-1)+1, 2*(j-1)+1), -A(2*(i-1)+1, 2*(j-1)+2), KIND=dp )
       END DO
     END DO
 
