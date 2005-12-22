@@ -54,6 +54,9 @@
 !
 !******************************************************************************
 ! $Log: HeatSolve.src,v $
+! Revision 1.7  2005/07/08 08:04:03  jpr
+! Cleaning some of the type definitions of Types.src.
+!
 ! Revision 1.6  2005/07/07 09:12:27  jpr
 ! Changed ElementInfo to have dBasisdx,ddBasisddx as OPTIONAL arguments. Changed all calls to ElementInfo accordingly.
 !
@@ -245,7 +248,7 @@
 
      REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
 
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HeatSolve.src,v 1.6 2005/07/07 09:12:27 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HeatSolve.src,v 1.7 2005/07/08 08:04:03 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -907,7 +910,7 @@
             IF ( GetLogical( BC, 'Heat Gap Implicit', Found ) ) THEN
                AText(1:n) = 0.0d0
              ELSE
-               AText(1:n) = GapTemperature( Solver, Element, Temperature, TempPerm)
+               AText(1:n) = GapTemperature( Solver, Element, Temperature, TempPerm, n)
             END IF
           ELSE
             IF ( ANY(Work(1:n) /= 0.0d0) ) THEN
@@ -1538,11 +1541,11 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-    FUNCTION GapTemperature( Solver, Element, Temperature, TempPerm ) RESULT(T)
+    FUNCTION GapTemperature( Solver, Element, Temperature, TempPerm, n ) RESULT(T)
 !------------------------------------------------------------------------------
       TYPE(Solver_t) :: Solver
       TYPE(Element_t), POINTER :: Element
-      INTEGER :: TempPerm(:)
+      INTEGER :: TempPerm(:), n
       REAL(KIND=dp) :: Temperature(:)
 !------------------------------------------------------------------------------
       TYPE(Element_t), POINTER :: Parent, Left, Right
