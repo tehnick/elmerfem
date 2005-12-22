@@ -471,7 +471,7 @@ INCLUDE "mpif.h"
       ALLOCATE( Perm(NEIG) )
       Perm = (/ (i, i=1,NEIG) /)
       DO i=1,NEIG
-         EigValues(i) = DCMPLX( D(i,1), D(i,2) )
+         EigValues(i) = CMPLX( D(i,1), D(i,2),KIND=dp )
       END DO
       CALL SortC( NEIG, EigValues, Perm )
 !
@@ -517,7 +517,7 @@ INCLUDE "mpif.h"
         CALL ParallelUpdateResult( Matrix, Solution, Residual )
 
         DO j=1,N
-           EigVectors(i,j) = DCMPLX( Solution(j), Residual(j) )
+           EigVectors(i,j) = CMPLX( Solution(j), Residual(j),KIND=dp )
         END DO
 
       END DO

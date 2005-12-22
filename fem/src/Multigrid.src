@@ -599,9 +599,9 @@ CONTAINS
 !------------------------------------------------------------------------------
        j = 1
        DO i=1,n,2
-          x(j) = DCMPLX( rx(i),rx(i+1) )
-          b(j) = DCMPLX( rb(i),rb(i+1) )
-          r(j) = DCMPLX( rr(i),rr(i+1) )
+          x(j) = CMPLX( rx(i),rx(i+1),KIND=dp )
+          b(j) = CMPLX( rb(i),rb(i+1),KIND=dp )
+          r(j) = CMPLX( rr(i),rr(i+1),KIND=dp )
           j = j + 1
        END DO
 
@@ -611,7 +611,7 @@ CONTAINS
 
           k = 1
           DO j=1,n,2
-            s = DCMPLX( M % Values( M % Diag(j) ), -M % Values(M % Diag(j)+1) )
+            s = CMPLX( M % Values( M % Diag(j) ), -M % Values(M % Diag(j)+1),KIND=dp )
             r(k) = r(k) / s
             k = k + 1
           END DO
@@ -676,9 +676,9 @@ CONTAINS
        COMPLEX(KIND=dp) :: Z(n), P(n), Q(n)
 !------------------------------------------------------------------------------
        DO i=1,n/2
-         r(i) = DCMPLX( rr(2*i-1), rr(2*i) )
-         x(i) = DCMPLX( rx(2*i-1), rx(2*i) )
-         b(i) = DCMPLX( rb(2*i-1), rb(2*i) )
+         r(i) = CMPLX( rr(2*i-1), rr(2*i),KIND=dp )
+         x(i) = CMPLX( rx(2*i-1), rx(2*i),KIND=dp )
+         b(i) = CMPLX( rb(2*i-1), rb(2*i),KIND=dp )
        END DO
 
        CALL MGCmv( A, x, r )
@@ -1669,9 +1669,9 @@ CONTAINS
 !------------------------------------------------------------------------------
 
        DO i=1,n/2
-         r(i) = DCMPLX( rr(2*i-1), rr(2*i) )
-         x(i) = DCMPLX( rx(2*i-1), rx(2*i) )
-         b(i) = DCMPLX( rb(2*i-1), rb(2*i) )
+         r(i) = CMPLX( rr(2*i-1), rr(2*i),KIND=dp )
+         x(i) = CMPLX( rx(2*i-1), rx(2*i),KIND=dp )
+         b(i) = CMPLX( rb(2*i-1), rb(2*i),KIND=dp )
        END DO
 
        DO j=1,Rounds
@@ -1680,7 +1680,7 @@ CONTAINS
 
           DO i=1,n/2
             diag = M % diag(2*i-1)
-            r(i) = r(i) / DCMPLX( M % Values(diag), M % Values(diag+1))
+            r(i) = r(i) / CMPLX( M % Values(diag), M % Values(diag+1),KIND=dp)
             x(i) = x(i) + r(i)
           END DO
        END DO
@@ -1784,9 +1784,9 @@ CONTAINS
        COMPLEX(KIND=dp) :: r(n/2),b(n/2),x(n/2),s
        
        DO i=1,n/2
-         r(i) = DCMPLX( rr(2*i-1), rr(2*i) )
-         x(i) = DCMPLX( rx(2*i-1), rx(2*i) )
-         b(i) = DCMPLX( rb(2*i-1), rb(2*i) )
+         r(i) = CMPLX( rr(2*i-1), rr(2*i), KIND=dp )
+         x(i) = CMPLX( rx(2*i-1), rx(2*i), KIND=dp )
+         b(i) = CMPLX( rb(2*i-1), rb(2*i), KIND=dp )
        END DO
        
        Rows   => A % Rows
@@ -1800,25 +1800,25 @@ CONTAINS
            s = 0.0d0
            
            DO j=Rows(2*i-1),Rows(2*i)-1,2             
-             s = s + x((Cols(j)+1)/2) * DCMPLX( Values(j), -Values(j+1))
-             IF(i==l) PRINT *,'ij',i,j,DCMPLX( Values(j), -Values(j+1))
+             s = s + x((Cols(j)+1)/2) * CMPLX( Values(j), -Values(j+1),KIND=dp)
+             IF(i==l) PRINT *,'ij',i,j,CMPLX( Values(j), -Values(j+1),KIND=dp)
            END DO
 
            j = A % Diag(2*i-1)
-           r(i) = (b(i)-s) / DCMPLX( Values(j), -Values(j+1) )
+           r(i) = (b(i)-s) / CMPLX( Values(j), -Values(j+1),KIND=dp )
            x(i) = x(i) + r(i)
-           IF(i==l) PRINT *,'ii',i,s,DCMPLX( Values(j), -Values(j+1))
+           IF(i==l) PRINT *,'ii',i,s,CMPLX( Values(j), -Values(j+1),KIND=dp)
          END DO
          
          DO i=n/2,1,-1
            s = 0.0d0
            
            DO j=Rows(2*i-1),Rows(2*i)-1,2             
-             s = s + x((Cols(j)+1)/2) * DCMPLX( Values(j), -Values(j+1))
+             s = s + x((Cols(j)+1)/2) * CMPLX( Values(j), -Values(j+1),KIND=dp)
            END DO
 
            j = A % Diag(2*i-1)
-           r(i) = (b(i)-s) / DCMPLX( Values(j), -Values(j+1) )
+           r(i) = (b(i)-s) / CMPLX( Values(j), -Values(j+1),KIND=dp )
            x(i) = x(i) + r(i)
          END DO
          
@@ -1885,9 +1885,9 @@ CONTAINS
        COMPLEX(KIND=dp) :: Z(n), P(n), Q(n)
 !------------------------------------------------------------------------------
        DO i=1,n/2
-         r(i) = DCMPLX( rr(2*i-1), rr(2*i) )
-         x(i) = DCMPLX( rx(2*i-1), rx(2*i) )
-         b(i) = DCMPLX( rb(2*i-1), rb(2*i) )
+         r(i) = CMPLX( rr(2*i-1), rr(2*i),KIND=dp )
+         x(i) = CMPLX( rx(2*i-1), rx(2*i),KIND=dp )
+         b(i) = CMPLX( rb(2*i-1), rb(2*i),KIND=dp )
        END DO
 
        CALL MGCmv( A, x, r )
@@ -4244,7 +4244,7 @@ CONTAINS
              DO i=FRows(ind),FRows(ind+1)-1,2
                ci = Fcols(i)
 
-               cvalue = DCMPLX(FValues(i),-FValues(i+1))
+               cvalue = CMPLX(FValues(i),-FValues(i+1),KIND=dp)
                IF(ABS(cvalue) < 1.0d-50) CYCLE
                no = no + 1
                inds(no) = FCols(i)
@@ -4271,7 +4271,7 @@ CONTAINS
                ci = Fcols(i)
 
                IF(CF(ci) > 0 .OR. ci == ind) THEN
-                 cvalue = DCMPLX(FValues(i),-Fvalues(i+1))
+                 cvalue = CMPLX(FValues(i),-Fvalues(i+1),KIND=dp)
                  IF(ABS(cvalue) < 1.0d-50) CYCLE 
                  no = no + 1
                  inds(no) = ci
@@ -4292,8 +4292,9 @@ CONTAINS
                  cj = Fcols(j)
                  IF(ci == cj) CYCLE
                                   
-                 cvalue = DCMPLX(Fvalues(i), -Fvalues(i+1)) * DCMPLX(Fvalues(j),-Fvalues(j+1)) / &
-                     DCMPLX(Fvalues(Fmat % diag(ci)),-Fvalues(Fmat % diag(ci)+1))
+                 cvalue = CMPLX(Fvalues(i), -Fvalues(i+1),KIND=dp) * &
+                          CMPLX(Fvalues(j), -Fvalues(j+1),KIND=dp) / &
+                          CMPLX(Fvalues(Fmat % diag(ci)),-Fvalues(Fmat % diag(ci)+1),KIND=dp)
                  IF(ABS(cvalue) < 1.0d-50) CYCLE
                  
                  k = CoeffsInds(cj) 
@@ -4712,7 +4713,7 @@ CONTAINS
        Values => A % Values
               
        DO i=1,n/2
-         x0(i) = DCMPLX( rx0(2*i-1), rx0(2*i) )
+         x0(i) = CMPLX( rx0(2*i-1), rx0(2*i),KIND=dp )
        END DO
 
        x1 = x0      
@@ -4734,7 +4735,7 @@ CONTAINS
              IF(i==l) PRINT *,'i0',i,j2-j,(Cols(j)-1)/2+1,(Cols(j2)-1)/2+1
 
              IF(MOD(Cols(j),2) == 0) CYCLE
-             s = s + x1((Cols(j)-1)/2+1) * DCMPLX( Values(j), Values(j2))
+             s = s + x1((Cols(j)-1)/2+1) * CMPLX( Values(j), Values(j2),KIND=dp)
              IF(i == l) THEN
 !               print *,'i',i,2*i-1,Cols(j),Cols(j2),(Cols(j)-1)/2+1
                PRINT *,'a',i,(Cols(j2)-1)/2+1,Values(j),Values(j2)
@@ -4742,10 +4743,10 @@ CONTAINS
            END DO
            j = A % Diag(2*i-1)
            j2 = j + Rows(2*i) - Rows(2*i-1)          
-           x1(i) = x1(i) - s / DCMPLX( Values(j), Values(j2)) 
+           x1(i) = x1(i) - s / CMPLX( Values(j), Values(j2),KIND=dp) 
 
            IF(i == l) THEN
-             PRINT *,'diag',i,j,j2,s,DCMPLX( Values(j), Values(j2))
+             PRINT *,'diag',i,j,j2,s,CMPLX( Values(j), Values(j2),KIND=dp)
            END IF
          END DO
 
@@ -4755,11 +4756,11 @@ CONTAINS
            DO j=Rows(2*i-1),Rows(2*i)-1
              IF(MOD(Cols(j),2) == 0) CYCLE
              j2 = j + Rows(2*i) - Rows(2*i-1)
-             s = s + x1((Cols(j)-1)/2+1) * DCMPLX( Values(j), Values(j2))
+             s = s + x1((Cols(j)-1)/2+1) * CMPLX( Values(j), Values(j2),KIND=dp)
            END DO
            j = A % Diag(2*i-1)
            j2 = j + Rows(2*i) - Rows(2*i-1)          
-           x1(i) = x1(i) - s / DCMPLX( Values(j), Values(j2)) 
+           x1(i) = x1(i) - s / CMPLX( Values(j), Values(j2),KIND=dp) 
          END DO
 
          IF(k == Rounds-1) x0 = x1
