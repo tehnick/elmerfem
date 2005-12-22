@@ -165,8 +165,8 @@ SUBROUTINE StreamSolver( Model,Solver,dt,TransientSimulation )
      DO i = 1,n
         k = FlowSolPerm( NodeIndexes(i) )
         k = (k-1) * NSDOFs
-        LOAD( (i-1)*2+1 ) = -FlowSolValues( k+2 )
-        LOAD( (i-1)*2+2 ) =  FlowSolValues( k+1 )
+        LOAD( (i-1)*2+1 ) =  FlowSolValues( k+2 )
+        LOAD( (i-1)*2+2 ) = -FlowSolValues( k+1 )
      END DO
 !------------------------------------------------------------------------------
 !     Get element local matrix and rhs vector
@@ -188,8 +188,8 @@ SUBROUTINE StreamSolver( Model,Solver,dt,TransientSimulation )
      DO i = 1,n
         k = FlowSolPerm( NodeIndexes(i) )
         k = (k-1) * NSDOFs
-        LOAD( (i-1)*2 +1 ) =  FlowSolValues( k+2 )
-        LOAD( (i-1)*2 +2 ) = -FlowSolValues( k+1 )
+        LOAD( (i-1)*2 +1 ) = -FlowSolValues( k+2 )
+        LOAD( (i-1)*2 +2 ) =  FlowSolValues( k+1 )
      END DO
 !------------------------------------------------------------------------------
 !    Get element local matrix and rhs vector
