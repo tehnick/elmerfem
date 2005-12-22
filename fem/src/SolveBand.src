@@ -37,26 +37,28 @@
 
       SUBROUTINE SolveBandLapack( N,M,A,X,Subband,Band )
 
+      USE Types
       IMPLICIT NONE
+ 
 
       INTEGER :: N,M,Subband,Band,i,j
-      DOUBLE PRECISION :: A(Band,N),X(M,N)
+      REAL(KIND=dp) :: A(Band,N),X(M,N)
 
-      INTEGER :: IPIV(N),INFO
+      INTEGER :: IPIV(N),iINFO
 
       IF ( N .LE. 0 ) RETURN
 
-      INFO = 0
-      CALL DGBTRF( N,N,Subband,Subband,A,Band,IPIV,INFO )
-      IF ( info /= 0 ) THEN
-         PRINT*,'ERROR: SolveBand: singular matrix. LAPACK DGBTRF info: ',info
+      iINFO = 0
+      CALL DGBTRF( N,N,Subband,Subband,A,Band,IPIV,iINFO )
+      IF ( iinfo /= 0 ) THEN
+         PRINT*,'ERROR: SolveBand: singular matrix. LAPACK DGBTRF info: ',iinfo
          STOP
       END IF
 
-      INFO = 0
-      CALL DGBTRS( 'N',N,Subband,Subband,M,A,Band,IPIV,X,N,INFO )
-        IF ( info /= 0 ) THEN
-        PRINT*,'ERROR: SolveBand: singular matrix. LAPACK DGBTRS info: ',info
+      iINFO = 0
+      CALL DGBTRS( 'N',N,Subband,Subband,M,A,Band,IPIV,X,N,iINFO )
+        IF ( iinfo /= 0 ) THEN
+        PRINT*,'ERROR: SolveBand: singular matrix. LAPACK DGBTRS info: ',iinfo
           STOP
         END IF
 
@@ -65,26 +67,27 @@
 
       SUBROUTINE SolveComplexBandLapack( N,M,A,X,Subband,Band )
 
+      USE Types
       IMPLICIT NONE
 
       INTEGER :: N,M,Subband,Band,i,j
-      DOUBLE COMPLEX :: A(Band,N),X(M,N)
+      COMPLEX(KIND=dp) :: A(Band,N),X(M,N)
 
-      INTEGER :: IPIV(N),INFO
+      INTEGER :: IPIV(N),iINFO
 
       IF ( N .LE. 0 ) RETURN
 
-      INFO = 0
-      CALL ZGBTRF( N,N,Subband,Subband,A,Band,IPIV,INFO )
-        IF ( info /= 0 ) THEN
-        PRINT*,'ERROR: SolveBand: singular matrix. LAPACK ZGBTRF info: ',info
+      iINFO = 0
+      CALL ZGBTRF( N,N,Subband,Subband,A,Band,IPIV,iINFO )
+        IF ( iinfo /= 0 ) THEN
+        PRINT*,'ERROR: SolveBand: singular matrix. LAPACK ZGBTRF info: ',iinfo
           STOP
         END IF
 
-      INFO = 0
-      CALL ZGBTRS( 'N',N,Subband,Subband,M,A,Band,IPIV,X,N,INFO )
-        IF ( info /= 0 ) THEN
-        PRINT*,'ERROR: SolveBand: singular matrix. LAPACK ZGBTRS info: ',info
+      iINFO = 0
+      CALL ZGBTRS( 'N',N,Subband,Subband,M,A,Band,IPIV,X,N,iINFO )
+        IF ( iinfo /= 0 ) THEN
+        PRINT*,'ERROR: SolveBand: singular matrix. LAPACK ZGBTRS info: ',iinfo
           STOP
         END IF
 

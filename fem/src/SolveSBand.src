@@ -36,26 +36,28 @@
 
        SUBROUTINE SolveSBandLapack( N,M,A,X,Subband,Band )
 
+       USE Types
+
        IMPLICIT NONE
 
        INTEGER :: N,M,Subband,Band
-       DOUBLE PRECISION :: A(Band,N),X(N,M)
+       REAL(KIND=dp) :: A(Band,N),X(N,M)
 
-       INTEGER :: IPIV(N),INFO
+       INTEGER :: IPIV(N),iINFO
 
        IF ( N .LE. 0 ) RETURN
 
-       INFO = 0
-       CALL DPBTRF( 'L',N,Subband,A,Band,INFO )
-        IF ( info /= 0 ) THEN
-         PRINT*,'ERROR: SolveSymmetricBand: singular matrix. LAPACK DPBTRF info: ',info
+       iINFO = 0
+       CALL DPBTRF( 'L',N,Subband,A,Band,iINFO )
+        IF ( iinfo /= 0 ) THEN
+         PRINT*,'ERROR: SolveSymmetricBand: singular matrix. LAPACK DPBTRF iinfo: ',iinfo
           STOP
         END IF
 
-       INFO = 0
-       CALL DPBTRS( 'L',N,Subband,M,A,Band,X,N,INFO )
-        IF ( info /= 0 ) THEN
-         PRINT*,'ERROR: SolveSymmetricBand: singular matrix. LAPACK DPBTRS info: ',info
+       iINFO = 0
+       CALL DPBTRS( 'L',N,Subband,M,A,Band,X,N,iINFO )
+        IF ( iinfo /= 0 ) THEN
+         PRINT*,'ERROR: SolveSymmetricBand: singular matrix. LAPACK DPBTRS iinfo: ',iinfo
           STOP
         END IF
 
@@ -64,26 +66,28 @@
 
        SUBROUTINE SolveComplexSBandLapack( N,M,A,X,Subband,Band )
 
+       USE Types
+
        IMPLICIT NONE
 
        INTEGER :: N,M,Subband,Band
-       DOUBLE COMPLEX :: A(Band,N),X(N,M)
+       COMPLEX(KIND=dp) :: A(Band,N),X(N,M)
 
-       INTEGER :: IPIV(N),INFO
+       INTEGER :: IPIV(N),iINFO
 
        IF ( N .LE. 0 ) RETURN
 
-       INFO = 0
-       CALL ZPBTRF( 'L',N,Subband,A,Band,INFO )
-        IF ( info /= 0 ) THEN
-         PRINT*,'ERROR: SolveSymmetricBand: singular matrix. LAPACK ZPBTRF info: ',info
+       iINFO = 0
+       CALL ZPBTRF( 'L',N,Subband,A,Band,iINFO )
+        IF ( iinfo /= 0 ) THEN
+         PRINT*,'ERROR: SolveSymmetricBand: singular matrix. LAPACK ZPBTRF iinfo: ',iinfo
           STOP
         END IF
 
-       INFO = 0
-       CALL ZPBTRS( 'L',N,Subband,M,A,Band,X,N,INFO )
-        IF ( info /= 0 ) THEN
-         PRINT*,'ERROR: SolveSymmetricBand: singular matrix. LAPACK ZPBTRS info: ',info
+       iINFO = 0
+       CALL ZPBTRS( 'L',N,Subband,M,A,Band,X,N,iINFO )
+        IF ( iinfo /= 0 ) THEN
+         PRINT*,'ERROR: SolveSymmetricBand: singular matrix. LAPACK ZPBTRS iinfo: ',iinfo
           STOP
         END IF
 
