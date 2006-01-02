@@ -1073,6 +1073,7 @@ int LoadFidapInput(struct FemType *data,char *prefix,int info)
   elemcode = 0;
   maxnodes = 4;
   totelems = 0;
+  maxentity = 0;
 
   for(;;) {
     isio = getline;
@@ -1098,7 +1099,7 @@ int LoadFidapInput(struct FemType *data,char *prefix,int info)
     switch (mode) {
 
     case 1: 
-      if(info) printf("Loading FIDAP input file:\n");
+      if(info) printf("Loading FIDAP input file %s\n",filename);
       getline;
       if(info) printf("Name of the case: %s",line);
       mode = 0;
@@ -1106,7 +1107,7 @@ int LoadFidapInput(struct FemType *data,char *prefix,int info)
 
     case 2:
       getline;   
-      if(info) printf("reading the header info\n");
+      if(0) printf("reading the header info\n");
       sscanf(line,"%d%d%d%d%d",&noknots,&noelements,
 	     &nogroups,&dim,&novel);
       data->noknots = noknots;
@@ -1178,7 +1179,7 @@ int LoadFidapInput(struct FemType *data,char *prefix,int info)
 	  data->topology = topology;
 	}
 
-	if(info) printf("reading %d element topologies with %d nodes for %s\n",
+	if(0) printf("reading %d element topologies with %d nodes for %s\n",
 			elems,nodes,entityname);
 
 	for(entity=1;entity<=maxentity;entity++) {
@@ -1189,6 +1190,7 @@ int LoadFidapInput(struct FemType *data,char *prefix,int info)
 	if(entity > maxentity) {
 	  maxentity++;
 	  strcpy(entitylist[entity],entityname);
+	  if(info) printf("Found new entity: %s\n",entityname);
 	}
 
 	for(i=totelems+1;i<=totelems+elems;i++) {
@@ -1274,7 +1276,11 @@ end:
   }
 
   fclose(in);
+  
+  if(info) printf("Finished reading the Fidap neutral file\n");
+
   return(0);
+
 }
 
 
