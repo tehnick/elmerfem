@@ -438,29 +438,36 @@
 !------------------------------------------------------------------------------
    SUBROUTINE SetInitialConditions
 !------------------------------------------------------------------------------
+     USE DefUtils
+     INTEGER :: DOFs
+     INTEGER, ALLOCATABLE :: Indexes(:)
+
      DO i=1,CurrentModel % NumberOfBodies
        Mesh => CurrentModel % Meshes
        DO WHILE( ASSOCIATED( Mesh ) )
+         ALLOCATE( Indexes(Mesh % MaxElementDOFs) )
          CALL SetCurrentMesh( CurrentModel, Mesh )
 
          DO t=1, Mesh % NumberOfBulkElements+Mesh % NumberOfBoundaryElements
            CurrentElement =>  Mesh % Elements(t)
            CurrentModel % CurrentElement => CurrentElement
-           n = CurrentElement % Type % NumberOfNodes
 
            IF ( CurrentElement % BodyId == i ) THEN
              j = ListGetInteger(CurrentModel % Bodies(i) % Values, &
                 'Initial Condition',GotIt, 1, CurrentModel % NumberOfICs )
 
              IF ( GotIt ) THEN
+               n    = GetElementNOFNodes()
+               DOFs = GetElementDOFs( Indexes )
+
                Var => Mesh % Variables
                DO WHILE( ASSOCIATED(Var) ) 
                  IF ( Var % DOFs <= 1 ) THEN
-                    Work(1:n) = ListGetReal( CurrentModel % ICs(j) % Values, &
-                      Var % Name, n, CurrentElement % NodeIndexes, gotIt )
+                    Work(1:n) = GetReal( CurrentModel % ICs(j) % Values, &
+                           Var % Name, GotIt )
                     IF ( GotIt ) THEN
                       DO k=1,n
-                        k1 = CurrentElement % NodeIndexes(k)
+                        k1 = Indexes(k)
                         IF ( ASSOCIATED(Var % Perm) ) k1 = Var % Perm(k1)
                         IF ( k1>0 ) Var % Values(k1) = Work(k)
                       END DO
@@ -471,7 +478,7 @@
 
                     IF ( GotIt ) THEN
                       DO k=1,n
-                        k1 = CurrentElement % NodeIndexes(k)
+                        k1 = Indexes(k)
                         DO l=1,MIN(SIZE(WorkA,1),Var % DOFs)
                           IF ( ASSOCIATED(Var % Perm) ) k1 = Var % Perm(k1)
                           IF ( k1>0 ) Var % Values(Var % DOFs*(k1-1)+l) = WorkA(l,1,k)
@@ -484,6 +491,7 @@
              END IF
            END IF
          END DO
+         DEALLOCATE( Indexes )
          Mesh => Mesh % Next
        END DO
      END DO
