@@ -312,7 +312,7 @@
 #define USE_C_BLAS
 
 #elif defined (UMF_SOL2) && !defined (NSUNPERF)
-#define USE_SUNPERF_BLAS
+/* #define USE_SUNPERF_BLAS  dont use c-interface to sunperf within ELMER */
 
 #elif defined (UMF_SGI) && !defined (NSCSL)
 #define USE_SCSL_BLAS
