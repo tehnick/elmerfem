@@ -117,10 +117,10 @@ SUBROUTINE PoissonSolver( Model,Solver,dt,TransientSimulation )
       nd = GetElementNOFDOFs()
       CALL LocalMatrix( STIFF, FORCE, LOAD, Element, n, nd )
       CALL GetScalarLocalSolution(POT)
-      Energy  = Energy + SUM( POT*MATMUL(STIFF,POT) )
+      Energy = Energy + SUM( POT*MATMUL(STIFF,POT) )
    END DO
    PRINT*,Energy
-   PRINT*,'DOFs, Error in energy: ',Solver % Matrix % NumberOfRows, ABS(Energy-PI/2)
+   PRINT*,'DOFs, Error in energy: ',Solver % Matrix % NumberOfRows, ABS(Energy-PI/2.0d0)
 
 CONTAINS
 
@@ -151,7 +151,7 @@ CONTAINS
       ! Basis function values & derivatives at the integration point:
       !--------------------------------------------------------------
       stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
-       IP % W(t), detJ, Basis, dBasisdx, ddBasisddx, .FALSE. )
+                IP % W(t), detJ, Basis, dBasisdx )
 
       ! The source term at the integration point:
       !------------------------------------------
@@ -160,7 +160,7 @@ CONTAINS
       ! Finally, the elemental matrix & vector:
       !----------------------------------------
       STIFF(1:nd,1:nd) = STIFF(1:nd,1:nd) + IP % s(t) * DetJ * &
-             MATMUL( dBasisdx, TRANSPOSE( dBasisdx ) )
+             MATMUL( dBasisdx, TRANSPOSE(dBasisdx) )
       FORCE(1:nd) = FORCE(1:nd) + IP % s(t) * DetJ * LoadAtIP * Basis(1:nd)
     END DO
 !------------------------------------------------------------------------------
@@ -171,18 +171,30 @@ CONTAINS
 END SUBROUTINE PoissonSolver
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
 FUNCTION Circ_x(Model,x,y,z) RESULT(s)
+!------------------------------------------------------------------------------
   USE Types
   TYPE(Model_t) :: Model
-  REAL(KIND=dp)::x,y,z,s
+  REAL(KIND=dp)::x,y,z,s,r,sq2=SQRT(2.0d0)
 
-  s = SQRT(2.0d0)*x/SQRT(x**2+y**2)
+  r = SQRT(x**2 + y**2 )
+  s = 0.0d0
+  IF ( r /= 0.0d0 ) s = sq2*x/r
+!------------------------------------------------------------------------------
 END FUNCTION Circ_x
+!------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
 FUNCTION Circ_y(Model,x,y,z) RESULT(s)
+!------------------------------------------------------------------------------
   USE Types
   TYPE(Model_t) :: Model
-  REAL(KIND=dp)::x,y,z,s
+  REAL(KIND=dp)::x,y,z,s,r,sq2=SQRT(2.0d0)
 
-  s = SQRT(2.0d0)*y/SQRT(x**2+y**2)
+  r = SQRT(x**2 + y**2 )
+  s = 0.0d0
+  IF ( r /= 0.0d0 ) s = sq2*y/r
+!------------------------------------------------------------------------------
 END FUNCTION Circ_y
+!------------------------------------------------------------------------------
