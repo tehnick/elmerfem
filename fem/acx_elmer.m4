@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.27 2005/10/07 14:53:39 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.81 2005/10/10 09:21:14 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -649,33 +649,54 @@ if test x$STDCXX_LIBS != x; then
 	LIBS="$save_LIBS"
 fi
 
-dnl check for stdc++
-if test $acx_stdcxxlib_ok = no; then
-	AC_CHECK_LIB(stdc++, main,[
-				   STDCXX_LIBS="-lstdc++"
-			           acx_stdcxxlib_ok=yes
-                                  ])			
+dnl automatic checking... this is my first go, so it'll break everything to shreds. 
+if test x$CXX = x; then
+	AC_MSG_ERROR([No C++ compiler found... major error])
 fi
 
-dnl check for stdc++
-if test $acx_stdcxxlib_ok = no; then
-	AC_CHECK_LIB(Cstd, main,[
-				   STDCXX_LIBS="-lCstd"
-			           acx_stdcxxlib_ok=yes
-                                  ])
-fi
+AC_MSG_CHECKING([for C++ linker flags])
+dnl get the verbose flag right...
+case $CXX in
+   xl*)
+	acx_cxx_verbose_flag="-V"
+   ;;
+   *)
+	acx_cxx_verbose_flag="-v"
+   ;;
+esac
 
-dnl check for stdc++
-if test $acx_stdcxxlib_ok = no; then
-	AC_CHECK_LIB(C, main,[
-				   STDCXX_LIBS="-lC"
-			           acx_stdcxxlib_ok=yes
-                                  ])
-fi
+dnl write some code...
+printf "int main(int argc, char **argv) { return(1); }" > test.cpp
 
-if test $acx_stdcxxlib_ok = no; then
-	AC_MSG_WARN([Couldn't find std c++ library that is needed for linking.])
-fi
+dnl run it
+dnl printf "running: $CXX $acx_cxx_verbose_flag test.cpp 2>&1 |grep -e ' -l'\n"
+acx_cxx_verbose_out=`$CXX $acx_cxx_verbose_flag test.cpp 2>&1 |grep -e ' -l'`
+acx_cxx_libs=""
+
+dnl get only the -l -L -R flags
+for acx_cxx_ldflag in $acx_cxx_verbose_out; do
+    case $acx_cxx_ldflag in
+	[[\\/]]*.a | ?:[[\\/]]*.a)
+	   acx_cxx_libs="$acx_cxx_libs $acx_cxx_ldflag"
+	;;
+        # Ignore these flags.
+        -lang* | -lcrt*.o | -lc | -lgcc | -libmil | -LANG:=*)
+	;;
+	-[[lLR]]*)
+dnl	   echo "$acx_cxx_ldflag"
+	   acx_cxx_libs="$acx_cxx_libs $acx_cxx_ldflag"
+        ;;
+dnl	*)
+dnl	    echo "IGNORING $acx_cxx_ldflag"
+dnl	;;
+	# ignore everything else
+    esac
+done
+
+rm test.cpp
+
+AC_MSG_RESULT([$acx_cxx_libs])
+STDCXX_LIBS=$acx_cxx_libs
 
 LIBS=$acx_check_stdcxxlib_save_LIBS
 
