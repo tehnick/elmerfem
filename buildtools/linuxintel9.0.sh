@@ -1,7 +1,7 @@
 #!/bin/sh 
 
-export CC=icc
-export CXX=icc
+export CC=gcc-3.3
+export CXX=g++-3.3
 export F77=ifort
 export FC=ifort
 export ELMER_MODULES="elmergrid meshgen2d umfpack matc post mathlibs eio hutiter fem front"

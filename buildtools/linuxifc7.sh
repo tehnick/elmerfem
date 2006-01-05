@@ -1,7 +1,7 @@
 #!/bin/sh 
 
-export CC=gcc
-export CXX=g++
+export CC=gcc-3.3
+export CXX=g++-3.3
 export F77=ifc
 export FC=ifc
 
