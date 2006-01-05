@@ -176,7 +176,7 @@ FUNCTION Circ_x(Model,x,y,z) RESULT(s)
 !------------------------------------------------------------------------------
   USE Types
   TYPE(Model_t) :: Model
-  REAL(KIND=dp)::x,y,z,s,r,sq2=SQRT(2.0d0)
+  REAL(KIND=dp)::x,y,z,s,r,sq2=1.4142
 
   r = SQRT(x**2 + y**2 )
   s = 0.0d0
@@ -190,7 +190,7 @@ FUNCTION Circ_y(Model,x,y,z) RESULT(s)
 !------------------------------------------------------------------------------
   USE Types
   TYPE(Model_t) :: Model
-  REAL(KIND=dp)::x,y,z,s,r,sq2=SQRT(2.0d0)
+  REAL(KIND=dp)::x,y,z,s,r,sq2=1.4142
 
   r = SQRT(x**2 + y**2 )
   s = 0.0d0
