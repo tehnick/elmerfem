@@ -1,41 +1,47 @@
-!******************************************************************************
+!/*****************************************************************************/
 ! *
-! *       ELMER, A Computational Fluid Dynamics Program.
+! *  Elmer, A Finite Element Software for Multiphysical Problems
 ! *
-! *       Copyright 1st April 1995 - , Center for Scientific Computing,
-! *                                    Finland.
+! *  Copyright 1st April 1995 - , CSC - Scientific Computing Ltd., Finland
+! * 
+! *  This program is free software; you can redistribute it and/or
+! *  modify it under the terms of the GNU General Public License
+! *  as published by the Free Software Foundation; either version 2
+! *  of the License, or (at your option) any later version.
+! * 
+! *  This program is distributed in the hope that it will be useful,
+! *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! *  GNU General Public License for more details.
 ! *
-! *       All rights reserved. No part of this program may be used,
-! *       reproduced or transmitted in any form or by any means
-! *       without the written permission of CSC.
+! *  You should have received a copy of the GNU General Public License
+! *  along with this program (in file fem/GPL-2); if not, write to the 
+! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
+! *  Boston, MA 02110-1301, USA.
 ! *
-! *****************************************************************************
+! *****************************************************************************/
 !
-!******************************************************************************
+!/******************************************************************************
+! *
+! *  Advection-diffusion equation solver
 ! *
 ! ******************************************************************************
 ! *
-! *                    Author:       Juha Ruokolainen
+! *  Authors: Juha Ruokolainen, Ville Savolainen, Antti Pursula
+! *  Email:   Juha.Ruokolainen@csc.fi
+! *  Web:     http://www.csc.fi/elmer
+! *  Address: CSC - Scientific Computing Ltd.
+! *           Keilaranta 14
+! *           02101 Espoo, Finland 
 ! *
-! *                    Address: Center for Scientific Computing
-! *                            Tietotie 6, P.O. BOX 405
-! *                              02101 Espoo, Finland
-! *                              Tel. +358 0 457 2723
-! *                            Telefax: +358 0 457 2302
-! *                          EMail: Juha.Ruokolainen@csc.fi
+! *  Date:    08 Jun 1997
 ! *
-! *                       Date: 08 Jun 1997
+! *****************************************************************************/
 ! *
-! *                Modified by: Ville Savolainen, Juha Ruokolainen
+! * $Log: $
 ! *
-! *       Date of modification: 04 Jun 1999
-! *
-! *                Modified by: Antti Pursula
-! *
-! *       Date of modification: 05 Feb 2003
-! *
-! *****************************************************************************
- 
+! ******************************************************************************
+
 !------------------------------------------------------------------------------
    SUBROUTINE AdvectionDiffusionSolver( Model,Solver,Timestep,TransientSimulation )
 !DEC$ATTRIBUTES DLLEXPORT :: AdvectionDiffusionSolver
@@ -143,7 +149,7 @@
      REAL(KIND=dp) :: Mass, PreviousMass
      INTEGER, DIMENSION( Model %  NumberOfBulkElements) :: ElementList
 
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: AdvectionDiffusion.src,v 1.3 2005/07/08 08:04:03 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: AdvectionDiffusion.src,v 1.4 2005/09/01 15:46:03 vierinen Exp $"
 
      SAVE LocalMassMatrix,LocalStiffMatrix,Load,C0,C1,CT,C2,Diffusivity, &
          TimeForce, LocalForce, ElementNodes,AllocationsDone, &
