@@ -1,7 +1,7 @@
 ! The additional terms in the induction equation
 ! due to a time harmonic vertical field B_ac = B0 sin(wt) e_y
 
-FUNCTION applied_B( model,n,t ) RESULT(c1)
+FUNCTION appliedB( model,n,t ) RESULT(c1)
 !DEC$ATTRIBUTES DLLEXPORT :: applied_B
    USE types
 
@@ -13,9 +13,9 @@ FUNCTION applied_B( model,n,t ) RESULT(c1)
 ! B_ac for nabla x ( v x B )
    c1 = B0 * SIN(2.0_dp*PI*f*t)
 
- END FUNCTION applied_B
+ END FUNCTION appliedB
 
-FUNCTION applied_dBdt( model,n,t ) RESULT(c2)
+FUNCTION applieddBdt( model,n,t ) RESULT(c2)
 !DEC$ATTRIBUTES DLLEXPORT :: applied_dBdt
    USE types
 
@@ -28,4 +28,4 @@ FUNCTION applied_dBdt( model,n,t ) RESULT(c2)
 ! -@B_ac/@t
    c2 = - B0 * w * COS(w*t)
 
- END FUNCTION applied_dBdt
+ END FUNCTION applieddBdt
