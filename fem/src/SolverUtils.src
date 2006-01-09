@@ -33,6 +33,9 @@
 ! *       Date of modification:
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.11  2005/12/22 10:30:10  jpr
+! * nonstandard DCMPLX -> CMPLX(.,.,KIND=dp)
+! *
 ! * Revision 1.10  2005/12/12 07:37:30  jpr
 ! * Fixed bugs in previous commit.
 ! *
@@ -90,7 +93,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.10 2005/12/12 07:37:30 jpr Exp $
+! * $Id: SolverUtils.src,v 1.11 2005/12/22 10:30:10 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -778,7 +781,7 @@ CONTAINS
     INTEGER :: BC,j,k,l,n,t,k1,k2
     LOGICAL :: GotIt, periodic, OrderByBCNumbering
     REAL(KIND=dp), POINTER :: WorkA(:,:,:) => NULL()
-    REAL(KIND=dp) :: Work(Model % MaxElementNodes),s
+    REAL(KIND=dp) ::  s
 
     LOGICAL :: Conditional
     CHARACTER(LEN=MAX_NAME_LEN) :: CondName
@@ -830,13 +833,13 @@ CONTAINS
 
      SUBROUTINE SetValues(n)
        INTEGER :: n
-       REAL(KIND=dp) :: Condition(n)
+       REAL(KIND=dp) :: Condition(n), Work(n)
 
        IF ( Element % BoundaryInfo % Constraint == Model % BCs(BC) % Tag ) THEN
 
          NodeIndexes => Element % NodeIndexes(1:n)
          IF ( DOF > 0 ) THEN
-            Work(1:n) = ListGetReal( &
+            Work(1:n)  = ListGetReal( &
                  Model % BCs(BC) % Values, Name, n, NodeIndexes, gotIt )
          ELSE
             CALL ListGetRealArray( &
