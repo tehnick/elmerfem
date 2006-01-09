@@ -74,12 +74,12 @@ SUBROUTINE PoissonSolver( Model,Solver,dt,TransientSimulation )
    Element => GetBoundaryElement(1)
    BC => GetBC()
 
-   CALL ListAddConstReal( BC,'Potential',0.0d0,GetProcAddr("Poisson circ_x") )
+   CALL ListAddConstReal( BC,'Potential',0.0d0,GetProcAddr("Poisson circx") )
    CALL DefaultDirichletBCs()
    Norm = DefaultSolve()
    NEWX = Solver % Variable % Values(Solver % Variable % Perm)
 
-   CALL ListAddConstReal( BC,'Potential',0.0d0,GetProcAddr("Poisson circ_y") )
+   CALL ListAddConstReal( BC,'Potential',0.0d0,GetProcAddr("Poisson circy") )
    CALL DefaultDirichletBCs()
    Norm = DefaultSolve()
    NEWY = Solver % Variable % Values(Solver % Variable % Perm)
@@ -172,7 +172,7 @@ END SUBROUTINE PoissonSolver
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-FUNCTION Circ_x(Model,x,y,z) RESULT(s)
+FUNCTION CircX(Model,x,y,z) RESULT(s)
 !------------------------------------------------------------------------------
   USE Types
   TYPE(Model_t) :: Model
@@ -182,11 +182,11 @@ FUNCTION Circ_x(Model,x,y,z) RESULT(s)
   s = 0.0d0
   IF ( r /= 0.0d0 ) s = SQRT(2.0d0)*x/r
 !------------------------------------------------------------------------------
-END FUNCTION Circ_x
+END FUNCTION CircX
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-FUNCTION Circ_y(Model,x,y,z) RESULT(s)
+FUNCTION CircY(Model,x,y,z) RESULT(s)
 !------------------------------------------------------------------------------
   USE Types
   TYPE(Model_t) :: Model
@@ -197,5 +197,5 @@ FUNCTION Circ_y(Model,x,y,z) RESULT(s)
   s = 0.0d0
   IF ( r /= 0.0d0 ) s = SQRT(2.0d0)*y/r
 !------------------------------------------------------------------------------
-END FUNCTION Circ_y
+END FUNCTION CircY
 !------------------------------------------------------------------------------
