@@ -1,53 +1,52 @@
-! *****************************************************************************
+!/*****************************************************************************/
 ! *
-! *       ELMER, A Computational Fluid Dynamics Program.
+! *  Elmer, A Finite Element Software for Multiphysical Problems
 ! *
-! *       Copyright 1st April 1995 - , Center for Scientific Computing,
-! *                                    Finland.
+! *  Copyright 1st April 1995 - , CSC - Scientific Computing Ltd., Finland
+! * 
+! *  This program is free software; you can redistribute it and/or
+! *  modify it under the terms of the GNU General Public License
+! *  as published by the Free Software Foundation; either version 2
+! *  of the License, or (at your option) any later version.
+! * 
+! *  This program is distributed in the hope that it will be useful,
+! *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! *  GNU General Public License for more details.
 ! *
-! *       All rights reserved. No part of this program may be used,
-! *       reproduced or transmitted in any form or by any means
-! *       without the written permission of CSC.
+! *  You should have received a copy of the GNU General Public License
+! *  along with this program (in file fem/GPL-2); if not, write to the 
+! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
+! *  Boston, MA 02110-1301, USA.
 ! *
-! *****************************************************************************
+! *****************************************************************************/
 !
-! *****************************************************************************
+!/******************************************************************************
 ! *
-! *****************************************************************************
+! *  This is the wave equation solver for the convective transport equation. 
+! *  As initial data one has to specify the field subject to the convection
+! *  operator. This field should be declared using the sif-file flag Advection 
+! *  Variable.  The rate of change of the field subject to the convection
+! *  operator which is needed as initial condition at the beginning of time step
+! *  is solved using RateOfChangeSolver and should be available to the solver
+! *  (the name of this variable should be declared using the flag Rate Of Change
+! *  Equation Variable).
 ! *
-! *                    Author:       Juha Ruokolainen
+! ******************************************************************************
 ! *
-! *                    Address: Center for Scientific Computing
-! *                                Tietotie 6, P.O. BOX 405
-! *                                  02101 Espoo, Finland
-! *                                  Tel. +358 0 457 2723
-! *                                Telefax: +358 0 457 2302
-! *                              EMail: Juha.Ruokolainen@csc.fi
+! *  Authors: Mika Malinen, Juha Ruokolainen
+! *  Email:   Juha.Ruokolainen@csc.fi
+! *  Web:     http://www.csc.fi/elmer
+! *  Address: CSC - Scientific Computing Ltd.
+! *           Keilaranta 14
+! *           02101 Espoo, Finland 
 ! *
-! *                       Date: 08 Jun 1997
+! *  Original Date: 08 Nov 2002
 ! *
-! *                Modified by: 
+! *****************************************************************************/
 ! *
-! *       Date of modification: 
-! *
-! *****************************************************************************
-
-!******************************************************************************
-!
-!  This is the wave equation solver for the convective transport equation. 
-!  As initial data one has to specify the field subject to the convection
-!  operator. This field should be declared using the sif-file flag Advection 
-!  Variable.  The rate of change of the field subject to the convection
-!  operator which is needed as initial condition at the beginning of time step
-!  is solved using RateOfChangeSolver and should be available to the solver
-!  (the name of this variable should be declared using the flag Rate Of Change 
-!   Equation Variable).
-!
-!                  Author:  Mika Malinen
-!
-!                  Date:    8 Nov 2002
-!
-!******************************************************************************
+! * $Id: $
+! ******************************************************************************
  
 !------------------------------------------------------------------------------
    SUBROUTINE TransportEquationSolver( Model, Solver, dt, TransientSimulation )
