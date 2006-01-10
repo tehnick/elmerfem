@@ -1,38 +1,47 @@
-!/******************************************************************************
+!/*****************************************************************************/
 ! *
-! *       ELMER, A Computational Fluid Dynamics Program.
+! *  Elmer, A Finite Element Software for Multiphysical Problems
 ! *
-! *       Copyright 1st April 1995 - , Center for Scientific Computing,
-! *                                    Finland.
+! *  Copyright 1st April 1995 - , CSC - Scientific Computing Ltd., Finland
+! * 
+! *  This program is free software; you can redistribute it and/or
+! *  modify it under the terms of the GNU General Public License
+! *  as published by the Free Software Foundation; either version 2
+! *  of the License, or (at your option) any later version.
+! * 
+! *  This program is distributed in the hope that it will be useful,
+! *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! *  GNU General Public License for more details.
 ! *
-! *       All rights reserved. No part of this program may be used,
-! *       reproduced or transmitted in any form or by any means
-! *       without the written permission of CSC.
+! *  You should have received a copy of the GNU General Public License
+! *  along with this program (in file fem/GPL-2); if not, write to the 
+! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
+! *  Boston, MA 02110-1301, USA.
 ! *
 ! *****************************************************************************/
 !
 !/******************************************************************************
 ! *
-! * Utility routines for the elmer main program.
+! *  Utility routines for the elmer main program.
 ! *
 ! ******************************************************************************
 ! *
-! *                     Author:       Juha Ruokolainen
+! *  Authors: Juha Ruokolainen, Ville Savolainen
+! *  Email:   Juha.Ruokolainen@csc.fi
+! *  Web:     http://www.csc.fi/elmer
+! *  Address: CSC - Scientific Computing Ltd.
+! *           Keilaranta 14
+! *           02101 Espoo, Finland 
 ! *
-! *                    Address: Center for Scientific Computing
-! *                                Tietotie 6, P.O. BOX 405
-! *                                  02101 Espoo, Finland
-! *                                  Tel. +358 0 457 2723
-! *                                Telefax: +358 0 457 2302
-! *                              EMail: Juha.Ruokolainen@csc.fi
+! *  Original Date: 08 Jun 1997
 ! *
-! *                       Date: 08 Jun 1997
-! *
-! *                Modified by:
-! *
-! *       Date of modification:
+! *****************************************************************************/
 ! *
 ! * $Log: MainUtils.src,v $
+! * Revision 1.8  2005/12/22 10:27:00  jpr
+! * Added solver section keyword 'Timestep scale'.
+! *
 ! * Revision 1.7  2005/12/07 12:54:15  jpr
 ! * Changes to have gfortran happy / bug fix in "exported variable" defs.
 ! *
@@ -69,9 +78,8 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.src,v 1.7 2005/12/07 12:54:15 jpr Exp $
+! * $Id: MainUtils.src,v 1.8 2005/12/22 10:27:00 jpr Exp $
 ! *****************************************************************************/
-
 
 MODULE MainUtils
 
