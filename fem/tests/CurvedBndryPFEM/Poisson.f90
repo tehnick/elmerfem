@@ -1,4 +1,5 @@
 SUBROUTINE PoissonSolver( Model,Solver,dt,TransientSimulation )
+!DEC$ATTRIBUTES DLLEXPORT :: PoissonSolver
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -173,10 +174,11 @@ END SUBROUTINE PoissonSolver
 
 !------------------------------------------------------------------------------
 FUNCTION CircX(Model,x,y,z) RESULT(s)
+!DEC$ATTRIBUTES DLLEXPORT :: CircX
 !------------------------------------------------------------------------------
   USE Types
   TYPE(Model_t) :: Model
-  REAL(KIND=dp)::x,y,z,s,r,sq2
+  REAL(KIND=dp)::x,y,z,s,r
 
   r = SQRT(x**2 + y**2 )
   s = 0.0d0
@@ -187,12 +189,12 @@ END FUNCTION CircX
 
 !------------------------------------------------------------------------------
 FUNCTION CircY(Model,x,y,z) RESULT(s)
+!DEC$ATTRIBUTES DLLEXPORT :: CircY
 !------------------------------------------------------------------------------
   USE Types
   TYPE(Model_t) :: Model
-  REAL(KIND=dp)::x,y,z,s,r,sq2
+  REAL(KIND=dp)::x,y,z,s,r
 
-  sq2 = SQRT(2.0d0)
   r = SQRT(x**2 + y**2 )
   s = 0.0d0
   IF ( r /= 0.0d0 ) s = SQRT(2.0d0)*y/r
