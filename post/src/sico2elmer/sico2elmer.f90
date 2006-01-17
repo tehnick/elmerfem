@@ -513,7 +513,7 @@ CONTAINS
          imax, jmax, ktmax
     REAL ::&
          zm_gr(0:imax,0:jmax), zb_gr(0:imax,0:jmax),&
-         H_t_gr(0:imax,0:jmax), z_t_gr(0:imax,0:jmax,0:kcmax)
+         H_t_gr(0:imax,0:jmax), z_t_gr(0:imax,0:jmax,0:ktmax)
     ! internal variables
     !-------------------
     INTEGER ::&
