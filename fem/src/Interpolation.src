@@ -38,7 +38,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: Interpolation.src,v 1.3 2006/01/10 08:27:35 apursula Exp $
+! * $Id: Interpolation.src,v 1.4 2006/01/19 14:12:02 jpr Exp $
 ! *****************************************************************************
 
 MODULE Interpolation
@@ -167,7 +167,7 @@ MODULE Interpolation
 !------------------------------------------------------------------------------
     INTEGER :: n
     INTEGER :: i
-    REAL(KIND=dp) :: ug,vg,wg,eps2,xdist,ydist,zdist
+    REAL(KIND=dp) :: ug,vg,wg,xdist,ydist,zdist,eps2,escale
 !------------------------------------------------------------------------------
 
 !   Initialize:
@@ -178,19 +178,17 @@ MODULE Interpolation
     IsInElement = .FALSE.
     n = Element % Type % NumberOfNodes
 
-    xdist = MAXVAL( ElementNodes % x(1:n) ) - MINVAL( ElementNodes % x(1:N) )
-    xdist = MAX( xdist, eps2 )
-    ydist = MAXVAL( ElementNodes % y(1:n) ) - MINVAL( ElementNodes % y(1:N) )
-    ydist = MAX( ydist, eps2 )
-    zdist = MAXVAL( ElementNodes % z(1:n) ) - MINVAL( ElementNodes % z(1:N) )
-    zdist = MAX( zdist, eps2 )
+    xdist = MAXVAL( ElementNodes % x(1:n) ) - MINVAL( ElementNodes % x(1:n) )
+    ydist = MAXVAL( ElementNodes % y(1:n) ) - MINVAL( ElementNodes % y(1:n) )
+    zdist = MAXVAL( ElementNodes % z(1:n) ) - MINVAL( ElementNodes % z(1:n) )
+    escale = MAX( MAX( xdist, ydist ), zdist )
 
-    IF ( ( Point(1) < MINVAL( ElementNodes % x(1:n) ) - eps2*xdist ) .OR. &
-         ( Point(1) > MAXVAL( ElementNodes % x(1:n) ) + eps2*xdist ) .OR. &
-         ( Point(2) < MINVAL( ElementNodes % y(1:n) ) - eps2*ydist ) .OR. &
-         ( Point(2) > MAXVAL( ElementNodes % y(1:n) ) + eps2*ydist ) .OR. &
-         ( Point(3) < MINVAL( ElementNodes % z(1:n) ) - eps2*zdist ) .OR. &
-         ( Point(3) > MAXVAL( ElementNodes % z(1:n) ) + eps2*zdist ) )  RETURN
+    IF ( ( Point(1) < MINVAL( ElementNodes % x(1:n) ) - eps2*escale ) .OR. &
+         ( Point(1) > MAXVAL( ElementNodes % x(1:n) ) + eps2*escale ) .OR. &
+         ( Point(2) < MINVAL( ElementNodes % y(1:n) ) - eps2*escale ) .OR. &
+         ( Point(2) > MAXVAL( ElementNodes % y(1:n) ) + eps2*escale ) .OR. &
+         ( Point(3) < MINVAL( ElementNodes % z(1:n) ) - eps2*escale ) .OR. &
+         ( Point(3) > MAXVAL( ElementNodes % z(1:n) ) + eps2*escale ) )  RETURN
 !
 !   Get element local coordinates from global
 !   coordinates of the point:
