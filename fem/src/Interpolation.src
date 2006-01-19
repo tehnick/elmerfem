@@ -38,7 +38,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: $
+! * $Id: Interpolation.src,v 1.3 2006/01/10 08:27:35 apursula Exp $
 ! *****************************************************************************
 
 MODULE Interpolation
@@ -84,7 +84,7 @@ MODULE Interpolation
      TYPE(Quadrant_t), POINTER :: ChildQuadrant
      INTEGER :: i
      REAL(KIND=dp) :: BBox(6), eps3
-     REAL(KIND=dp), PARAMETER :: eps2=0.0d-0 !!!!!!! *** !!!!!!
+     REAL(KIND=dp), PARAMETER :: eps2=0.0d0 !!!!!!! *** !!!!!!
 !------------------------------------------------------------------------------
 
 !    Loop over ChildQuadrants:
@@ -167,7 +167,7 @@ MODULE Interpolation
 !------------------------------------------------------------------------------
     INTEGER :: n
     INTEGER :: i
-    REAL(KIND=dp) :: ug,vg,wg,eps2
+    REAL(KIND=dp) :: ug,vg,wg,eps2,xdist,ydist,zdist
 !------------------------------------------------------------------------------
 
 !   Initialize:
@@ -178,19 +178,19 @@ MODULE Interpolation
     IsInElement = .FALSE.
     n = Element % Type % NumberOfNodes
 
-    IF ( (Point(1) < MINVAL( ElementNodes % x(1:n) ) - eps2* &
-        (MAXVAL(ElementNodes % x(1:n)) - MINVAL(ElementNodes % x(1:n)))) &
-          .OR. (Point(1) > MAXVAL( ElementNodes % x(1:n) ) + eps2* &
-        (MAXVAL(ElementNodes % x(1:n)) - MINVAL(ElementNodes % x(1:n)))) &
-          .OR. (Point(2) < MINVAL( ElementNodes % y(1:n) ) - eps2* &
-        (MAXVAL(ElementNodes % y(1:n)) - MINVAL(ElementNodes % y(1:n)))) &
-          .OR. (Point(2) > MAXVAL( ElementNodes % y(1:n) ) + eps2* &
-        (MAXVAL(ElementNodes % y(1:n)) - MINVAL(ElementNodes % y(1:n)))) &
-          .OR. (Point(3) < MINVAL( ElementNodes % z(1:n) ) - eps2* &
-        (MAXVAL(ElementNodes % z(1:n)) - MINVAL(ElementNodes % z(1:n)))) &
-          .OR. (Point(3) > MAXVAL( ElementNodes % z(1:n) ) + eps2* &
-        (MAXVAL(ElementNodes % z(1:n)) - MINVAL(ElementNodes % z(1:n)))) &
-            )  RETURN
+    xdist = MAXVAL( ElementNodes % x(1:n) ) - MINVAL( ElementNodes % x(1:N) )
+    xdist = MAX( xdist, eps2 )
+    ydist = MAXVAL( ElementNodes % y(1:n) ) - MINVAL( ElementNodes % y(1:N) )
+    ydist = MAX( ydist, eps2 )
+    zdist = MAXVAL( ElementNodes % z(1:n) ) - MINVAL( ElementNodes % z(1:N) )
+    zdist = MAX( zdist, eps2 )
+
+    IF ( ( Point(1) < MINVAL( ElementNodes % x(1:n) ) - eps2*xdist ) .OR. &
+         ( Point(1) > MAXVAL( ElementNodes % x(1:n) ) + eps2*xdist ) .OR. &
+         ( Point(2) < MINVAL( ElementNodes % y(1:n) ) - eps2*ydist ) .OR. &
+         ( Point(2) > MAXVAL( ElementNodes % y(1:n) ) + eps2*ydist ) .OR. &
+         ( Point(3) < MINVAL( ElementNodes % z(1:n) ) - eps2*zdist ) .OR. &
+         ( Point(3) > MAXVAL( ElementNodes % z(1:n) ) + eps2*zdist ) )  RETURN
 !
 !   Get element local coordinates from global
 !   coordinates of the point:
