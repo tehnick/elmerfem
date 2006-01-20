@@ -107,7 +107,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.23 2006/01/19 12:29:30 jpr Exp $
+! * $Id: MeshUtils.src,v 1.24 2006/01/19 14:12:02 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -1327,28 +1327,27 @@ END SUBROUTINE CreateGlobalNumbering
                      'Periodic BC Translate', Gotit )
 
     IF ( .NOT. gotit ) THEN
-       Element => BMesh1 % Elements(1)
-       ALLOCATE( Nodes % x(Element % Type % NumberOfNodes) )
-       ALLOCATE( Nodes % y(Element % Type % NumberOfNodes) )
-       ALLOCATE( Nodes % z(Element % Type % NumberOfNodes) )
-       Nodes % x = BMesh1 % Nodes % x(Element % NodeIndexes)
-       Nodes % y = BMesh1 % Nodes % y(Element % NodeIndexes)
-       Nodes % z = BMesh1 % Nodes % z(Element % NodeIndexes)
-       Normal = NormalVector( Element, Nodes, 0.0d0, 0.0d0, .FALSE. )
-       DEALLOCATE( Nodes % x, Nodes % y, Nodes % z )
+      Element => BMesh1 % Elements(1)
+      n = Element % Type % NumberOfNodes
+      ALLOCATE( Nodes % x(n), Nodes % y(n), Nodes % z(n) )
+      Nodes % x = BMesh1 % Nodes % x(Element % NodeIndexes)
+      Nodes % y = BMesh1 % Nodes % y(Element % NodeIndexes)
+      Nodes % z = BMesh1 % Nodes % z(Element % NodeIndexes)
+      Normal = NormalVector( Element, Nodes, 0.0d0, 0.0d0, .FALSE. )
+      DEALLOCATE( Nodes % x, Nodes % y, Nodes % z )
 
-       x1(1) = BMesh1 % Nodes % x(1)
-       x1(2) = BMesh1 % Nodes % y(1)
-       x1(3) = BMesh1 % Nodes % z(1)
+      x1(1) = BMesh1 % Nodes % x(1)
+      x1(2) = BMesh1 % Nodes % y(1)
+      x1(3) = BMesh1 % Nodes % z(1)
 
-       x2(1) = BMesh2 % Nodes % x(1)
-       x2(2) = BMesh2 % Nodes % y(1)
-       x2(3) = BMesh2 % Nodes % z(1)
+      x2(1) = BMesh2 % Nodes % x(1)
+      x2(2) = BMesh2 % Nodes % y(1)
+      x2(3) = BMesh2 % Nodes % z(1)
 
-       dist = SUM( Normal*(x1-x2) )
-       DO i=1,3
-         TrsMatrix(4,i) = dist * Normal(i)
-       END DO
+      dist = SUM( Normal*(x1-x2) )
+      DO i=1,3
+        TrsMatrix(4,i) = dist * Normal(i)
+      END DO
     ELSE
       DO i=1,SIZE(Parray,1)
          TrsMatrix(4,i) = Parray(i,1)
