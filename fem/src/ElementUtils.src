@@ -38,7 +38,7 @@
 ! *
 ! ******************************************************************************/
 ! *
-! * $Id: $
+! * $Id: ElementUtils.src,v 1.5 2006/01/10 08:09:45 apursula Exp $
 ! ******************************************************************************
 
 MODULE ElementUtils
@@ -101,7 +101,7 @@ CONTAINS
 
 !------------------------------------------------------------------------------
   SUBROUTINE MakeListMatrix( Model,Mesh,ListMatrix,Reorder, &
-            LocalNodes,Equation, DGSolver, GlobalBubbles )
+        LocalNodes,Equation, DGSolver, GlobalBubbles )
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -546,7 +546,8 @@ CONTAINS
         n = OptimizeBandwidth( ListMatrix, Perm, InvInitialReorder, &
                       k, OptimizeBW, Eq )
      ELSE 
-        CALL MakeListMatrix( Model, Mesh, ListMatrix, Perm, k,' ', DG, GB )
+        CALL MakeListMatrix( Model, Mesh, ListMatrix, Perm, k, &
+                DGSolver=DG, GlobalBubbles=GB )
         n = OptimizeBandwidth( ListMatrix, Perm, InvInitialReorder, &
                       k, OptimizeBW,' ' )
      ENDIF
