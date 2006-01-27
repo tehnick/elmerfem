@@ -40,7 +40,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: FreeSurface.src,v 1.4 2006/01/10 08:09:46 apursula Exp $
+! * $Id: FreeSurface.src,v 1.5 2006/01/27 08:38:46 jpr Exp $
 ! *****************************************************************************
 
 MODULE FreeSurface
@@ -406,7 +406,7 @@ print*,'----------------------'
     REAL(KIND=dp) :: Auu,Auv,Avv,Buu,Buv,Bvv,detA,u,v,x,y,z,S,R,Ux,Uy,Uz
 
     REAL(KIND=dp) :: dxdu,dydu,dzdu, FEPS
-    REAL(KIND=dp) :: dxdv,dydv,dzdv,x1,x2,y1,y2
+    REAL(KIND=dp) :: dxdv,dydv,dzdv,x1,x2,y1,y2,z1,z2
  
     REAL(KIND=dp), TARGET :: N1,N2,N3,Nrm(3)
     REAL(KIND=dp), POINTER :: Curvature(:)
@@ -484,8 +484,9 @@ print*,'----------------------'
           ELSE
              j=1
           END IF
-          x1  = BoundaryNodes % x(j) - BoundaryNodes % x(i)
-          y1  = BoundaryNodes % y(j) - BoundaryNodes % y(i)
+          j = Boundary % NodeIndexes(j)
+          x1  = XCoord(j) - XCoord(k)
+          y1  = YCoord(j) - YCoord(k)
 
           Ux = Velocity1 % Values( Velocity1 % Perm(k) )
           Uy = Velocity2 % Values( Velocity2 % Perm(k) )
@@ -595,8 +596,9 @@ print*,'----------------------'
              ELSE
                j=1
              END IF
-             x1  = BoundaryNodes % x(j) - BoundaryNodes % x(i)
-             y1  = BoundaryNodes % y(j) - BoundaryNodes % y(i)
+             j = Boundary % NodeIndexes(j)
+             x1  = XCoord(j) - XCoord(k)
+             y1  = YCoord(j) - YCoord(k)
 
              Ux = Velocity1 % Values( Velocity1 % Perm(k) )
              Uy = Velocity2 % Values( Velocity2 % Perm(k) )
@@ -701,21 +703,21 @@ print*,'----------------------'
 
                R = Ux * Nrm(1) + Uy * Nrm(2) + Uz * Nrm(3)
                IF ( Which == 1 ) THEN
-                 IF ( Uy /= 0.0 .OR. Uz /= 0 ) THEN
+                 IF ( ABS(Uy) > AEPS .OR. ABS(Uz) > AEPS ) THEN
                    Model % Nodes % x(k) = Model % Nodes % x(k) + R / &
                     ( (dzdu*dLBasisdx(i,2) - dzdv*dLBasisdx(i,1))*Uy + &
                       (dydv*dLBasisdx(i,1) - dydu*dLBasisdx(i,2))*Uz )
                    XMoved = .TRUE.
                  END IF
                ELSE IF ( Which == 2 ) THEN
-                 IF ( Ux /= 0.0D0 .OR. Uy /= 0.0D0 ) THEN
+                 IF ( ABS(Ux) > AEPS .OR. ABS(Uz) > AEPS ) THEN
                    Model % Nodes % y(k) = Model % Nodes % y(k) + R / &
                     ( (dzdv*dLBasisdx(i,1) - dzdu*dLBasisdx(i,2))*Ux + &
                       (dxdu*dLBasisdx(i,2) - dxdv*dLBasisdx(i,1))*Uz )
                    YMoved = .TRUE.
                  END IF
                ELSE
-                 IF ( Ux /= 0.0D0 .OR. Uy /= 0.0D0 ) THEN
+                 IF ( ABS(Ux) > AEPS .OR. ABS(Uy) > AEPS ) THEN
                    Model % Nodes % z(k) = Model % Nodes % z(k) + R / &
                     ( (dydu*dLBasisdx(i,2) - dydv*dLBasisdx(i,1))*Ux + &
                       (dxdv*dLBasisdx(i,1) - dxdu*dLBasisdx(i,2))*Uy )

@@ -39,6 +39,9 @@
 ! ****************************************************************************/
 ! *
 ! * $Log: FlowSolve.src,v $
+! * Revision 1.6  2006/01/10 08:09:46  apursula
+! * Updated header information (GPL).
+! *
 ! * Revision 1.5  2005/11/15 10:53:50  raback
 ! * Added constant reference pressure option for artificial compressibility.
 ! *
@@ -155,11 +158,11 @@
      REAL(KIND=dp) :: RelativeChange,UNorm,PrevUNorm,Gravity(3), &
        Tdiff,Normal(3),s,r,Relaxation,NewtonTol,NonlinearTol, &
        ReferencePressure=0.0, SpecificHeatRatio, &
-       PseudoCompressibilityScale=1.0, NonlinearRelax
+       PseudoCompressibilityScale=1.0, NonlinearRelax,FreeSTol
 
      REAL(KIND=dp) :: Jx,Jy,Jz,Lx,Ly,Lz,Clip
 
-     INTEGER :: NSDOFs,NewtonIter,NonlinearIter
+     INTEGER :: NSDOFs,NewtonIter,NonlinearIter,FreeSIter
 
      TYPE(Variable_t), POINTER :: FlowSol, TempSol, MagneticSol,CurrentSol
      TYPE(Variable_t), POINTER :: KinEnergySol,KinDissipationSol,MeshSol
@@ -176,7 +179,7 @@
 
      LOGICAL :: Stabilize,NewtonLinearization = .FALSE., GotForceBC, GotIt, &
                   OutFlowBoundary, MBFlag, Convect  = .TRUE., NormalTangential, &
-                  divDiscretization, GradPDiscretization, ComputeStress
+                  divDiscretization, GradPDiscretization, ComputeStress,ComputeFree=.FALSE.
 ! Which compressibility model is used
      CHARACTER(LEN=MAX_NAME_LEN) :: CompressibilityFlag
      INTEGER :: CompressibilityModel
@@ -207,7 +210,7 @@
          HeatCapacity, LocalTempPrev,MU,MV,MW, ParentNodes, &
          PseudoCompressibilityScale, PseudoCompressibility, &
          PseudoPressure, PseudoPressureExists, PSolution, Drag, &
-         PotentialField, PotentialCoefficient
+         PotentialField, PotentialCoefficient, ComputeFree
 
       REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
 !------------------------------------------------------------------------------
@@ -251,7 +254,7 @@
         END FUNCTION FlowInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.5 2005/11/15 10:53:50 raback Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.6 2006/01/10 08:09:46 apursula Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -469,6 +472,13 @@
      NonlinearIter = ListGetInteger( Solver % Values, &
         'Nonlinear System Max Iterations', minv=0 )
 
+     FreeSTol = ListGetConstReal( Solver % Values, &
+        'Free Surface After Tolerance', GotIt, minv=0.0d0 )
+     IF ( .NOT. GotIt ) FreeSTol = HUGE(1.0d0)
+
+     FreeSIter = ListGetInteger( Solver % Values, &
+        'Free Surface After Iterations', GotIt, minv=0 )
+      IF ( .NOT. GotIt ) FreeSIter = 0
 !------------------------------------------------------------------------------
 !    We do our own relaxation...
 !------------------------------------------------------------------------------
@@ -1383,20 +1393,24 @@
       IF ( RelativeChange < NewtonTol .OR. &
              iter > NewtonIter ) NewtonLinearization = .TRUE.
 
-      IF ( RelativeChange < NonLinearTol ) EXIT
+      IF ( RelativeChange < NonLinearTol .AND. Iter<NonlinearIter ) EXIT
 
 !------------------------------------------------------------------------------
 !     If free surfaces in model, this will move the nodal points
 !------------------------------------------------------------------------------
       IF ( FreeSurfaceFlag ) THEN
-        Relaxation = ListGetConstReal( Solver % Values, &
-           'Free Surface Relaxation Factor', GotIt )
 
-        IF ( .NOT.GotIt ) Relaxation = 1.0d0
+        IF ( RelativeChange < FreeSTol .OR. &
+             iter > FreeSIter ) ComputeFree = .TRUE.
 
-        MBFlag = ListGetLogical( Solver % Values, 'Internal Move Boundary', GotIt )
-        IF ( MBFlag .OR. .NOT. GotIt ) THEN
-            CALL MoveBoundary( Model,Relaxation )
+        IF ( ComputeFree ) THEN
+          Relaxation = ListGetConstReal( Solver % Values, &
+             'Free Surface Relaxation Factor', GotIt )
+
+          IF ( .NOT.GotIt ) Relaxation = 1.0d0
+
+          MBFlag = GetLogical(GetSolverParams(), 'Internal Move Boundary', GotIt)
+          IF ( MBFlag .OR. .NOT. GotIt ) CALL MoveBoundary( Model, Relaxation )
         END IF
       END IF
 !------------------------------------------------------------------------------
