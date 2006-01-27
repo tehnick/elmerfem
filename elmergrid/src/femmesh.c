@@ -1625,6 +1625,8 @@ void SetElementDivisionExtruded(struct GridType *grid,int info)
   int i,j,nzmax,sumzelems;
   Real ratio,linearlimit;
   Real dzmax,dz;
+
+  printf("exruded divisions\n");
   
   linearlimit = 0.001;
 
@@ -1690,14 +1692,13 @@ void SetElementDivisionExtruded(struct GridType *grid,int info)
 	  nzmax = i;
 	}
       }
-      if(grid->autoratio && grid->xzratio * grid->dx0 > dzmax)
-	break;
+
+      if(grid->autoratio && grid->xzratio * grid->dx0 > dzmax) break;
+
       grid->zelems[nzmax] += 1;
       sumzelems++;
-      if(!grid->autoratio && sumzelems >= grid->totzelems)
-	break;
-      
-      if(0) printf("dzmax = %.3lg\n",dzmax);
+
+      if(!grid->autoratio && sumzelems >= grid->totzelems) break;
     }
   }
 

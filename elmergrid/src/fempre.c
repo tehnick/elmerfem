@@ -642,6 +642,7 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
 
 
   for(;;) {
+
     if(GetCommand(command,params,in)) {
       printf("Reached the end of command file\n");
       goto end;
@@ -912,7 +913,6 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
     }
     else if(strstr(command,"EXTRUDED")) {
       grid->dimension = 3;
-      grid->autoratio = FALSE;    
 
       if(strstr(command,"EXTRUDED DIVISIONS")) {
 	sscanf(params,"%d",&grid->zcells);		
@@ -924,6 +924,7 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
       else if(strstr(command,"EXTRUDED ELEMENTS")) {
 	cp = params;
 	for(i=1;i<=grid->zcells;i++) grid->zelems[i] = next_int(&cp);
+	grid->autoratio = FALSE;    
       }
       else if(strstr(command,"EXTRUDED RATIOS")) {
 	cp = params;
@@ -1098,6 +1099,7 @@ int main(int argc, char *argv[])
     }
 
     LoadCommands(eg.filesin[nofile],&eg,grids,1,info); 
+
     break;
 
   case 2: 
