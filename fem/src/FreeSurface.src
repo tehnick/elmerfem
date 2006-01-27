@@ -40,7 +40,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: $
+! * $Id: FreeSurface.src,v 1.4 2006/01/10 08:09:46 apursula Exp $
 ! *****************************************************************************
 
 MODULE FreeSurface
@@ -395,33 +395,45 @@ print*,'----------------------'
 !-------------------------------------------------------------------------------
   SUBROUTINE MoveBoundary( Model,Relax )
 !-------------------------------------------------------------------------------
+    USE DefUtils
     TYPE(Model_t) :: Model
     REAL(KIND=dp) :: Relax
 !-------------------------------------------------------------------------------
-    INTEGER :: i,ii,j,k,n,t,BC,NodeIndexes(16), Which
+    INTEGER :: i,ii,j,k,m,n,t,Which, FIter
     LOGICAL, ALLOCATABLE :: Visited(:),Turned(:)
     LOGICAL :: L
 
     REAL(KIND=dp) :: Auu,Auv,Avv,Buu,Buv,Bvv,detA,u,v,x,y,z,S,R,Ux,Uy,Uz
 
-    REAL(KIND=dp) :: dxdu,dydu,dzdu
+    REAL(KIND=dp) :: dxdu,dydu,dzdu, FEPS
     REAL(KIND=dp) :: dxdv,dydv,dzdv,x1,x2,y1,y2
  
-    REAL(KIND=dp), TARGET :: nx(16),ny(16),nz(16),N1,N2,N3,Nrm(3)
+    REAL(KIND=dp), TARGET :: N1,N2,N3,Nrm(3)
     REAL(KIND=dp), POINTER :: Curvature(:)
 
     TYPE(Element_t), POINTER :: Boundary, Element
     TYPE(Nodes_t) :: BoundaryNodes, ElementNodes
 
-    REAL(KIND=dp), ALLOCATABLE :: XCoord(:),YCoord(:),ZCoord(:), NNrm(:,:)
+    REAL(KIND=dp), ALLOCATABLE :: XCoord(:),YCoord(:),ZCoord(:), AvarageNormal(:,:)
     LOGICAL :: XMoved, YMoved, ZMoved
 
     TYPE( Variable_t), POINTER :: Velocity1,Velocity2,Velocity3
 
-    REAL(KIND=dp) :: Metric(3,3),SqrtMetric,Symbols(3,3,3),dSymbols(3,3,3,3), &
-                            dLBasisdx(16,2),NodalBasis(16)
+    TYPE(Mesh_t), POINTER :: Mesh
+    TYPE(ValueList_t), POINTER :: BC
+
+    REAL(KIND=dp) :: SqrtMetric, dLBasisdx(16,2),NodalBasis(16)
+
+    SAVE BoundaryNodes, ElementNodes
 !-------------------------------------------------------------------------------
-!   IF ( .NOT.ASSOCIATED(Model % BoundaryCurvatures) ) RETURN
+
+    FEPS = ListGetConstReal( Model % Solver % Values, &
+          'Free Surface Convergence Tolerance', L )
+    IF ( .NOT. L ) FEPS = 1.0d-12
+
+    FIter = ListGetInteger( Model % Solver % Values, &
+          'Free Surface Max Iterations', L )
+    IF ( .NOT. L ) FIter = 100
 
     Velocity1 => VariableGet( Model % Variables, 'Velocity 1' )
     Velocity2 => VariableGet( Model % Variables, 'Velocity 2' )
@@ -444,39 +456,48 @@ print*,'----------------------'
     ZMoved = .FALSE.
     ZCoord = Model % Nodes % z
 
-    BoundaryNodes % x => nx
-    BoundaryNodes % y => ny
-    BoundaryNodes % z => nz
-
-
+    ALLOCATE( AvarageNormal(Model % NumberOfBCs,3) )
+    AvarageNormal = 0
 !-------------------------------------------------------------------------------
 !   Check normal direction first in a separate loop, cause within the node
 !   moving loop, the parent elements might be a little funny...!
 !-------------------------------------------------------------------------------
-    DO BC = 1,Model % NumberOfBCs
+    Mesh => Model % Solver % Mesh
+    DO t = 1,Mesh % NumberOfBoundaryElements
+      Boundary => GetBoundaryElement(t)
+      IF ( .NOT. ActiveBoundaryElement() ) CYCLE
 
-      IF (.NOT.ListGetLogical(Model % BCs(BC) % Values, 'Free Surface',L)) CYCLE
+      BC => GetBC()
+      IF ( .NOT.GetLogical(BC, 'Free Surface',L) ) CYCLE
 
-      DO t=Model % NumberOfBulkElements+1,Model % NumberOfBulkElements + &
-                   Model % NumberOfBoundaryElements
+      n = GetElementNOFNodes()
+      CALL GetElementNodes( BoundaryNodes )
+!-------------------------------------------------------------------------------
+!     Go trough boundary element nodes
+!-------------------------------------------------------------------------------
+      DO i=1,n
+        k = Boundary % NodeIndexes(i)
 
-        Boundary => Model % Elements(t)
-        IF ( Boundary % BoundaryInfo % Constraint /= BC ) CYCLE
+        IF ( Boundary % Type % Dimension == 1 ) THEN
+          IF ( i==1 ) THEN
+             j=2
+          ELSE
+             j=1
+          END IF
+          x1  = BoundaryNodes % x(j) - BoundaryNodes % x(i)
+          y1  = BoundaryNodes % y(j) - BoundaryNodes % y(i)
 
-        n = Boundary % Type % NumberOfNodes
-        BoundaryNodes % x(1:n) = Model % Nodes % x(Boundary % NodeIndexes)
-        BoundaryNodes % y(1:n) = Model % Nodes % y(Boundary % NodeIndexes)
-        BoundaryNodes % z(1:n) = Model % Nodes % z(Boundary % NodeIndexes)
+          Ux = Velocity1 % Values( Velocity1 % Perm(k) )
+          Uy = Velocity2 % Values( Velocity2 % Perm(k) )
+
+          IF ( Ux*x1 + Uy*y1 > 0 ) CYCLE
+        END IF
+
 !-------------------------------------------------------------------------------
-!       Go trough boundary element nodes
+!       Should not move the same node twice,so check if already done
 !-------------------------------------------------------------------------------
-        DO i=1,n
-          k = Boundary % NodeIndexes(i)
-!-------------------------------------------------------------------------------
-!         Shouldnt move the same node twice,so check if already done
-!-------------------------------------------------------------------------------
-          IF ( .NOT.Visited(k) ) THEN
-!           Visited(k) = .TRUE.
+        IF ( .NOT.Visited(k) ) THEN
+            Visited(k) = .TRUE.
 !-------------------------------------------------------------------------------
 !           2D case, compute normal
 !-------------------------------------------------------------------------------
@@ -485,11 +506,11 @@ print*,'----------------------'
 !------------------------------------------------------------------------------
 !             Basis function derivatives with respect to local coordinates
 !------------------------------------------------------------------------------
-              NodalBasis(1:n) = 0.0D0
-              DO j=1,n
-                NodalBasis(j)  = 1.0D0
-                dLBasisdx(j,1) = FirstDerivative1D( Boundary,NodalBasis,u )
-                NodalBasis(j)  = 0.0D0
+              NodalBasis(1:n) = 0.0d0
+              DO m=1,n
+                NodalBasis(m)  = 1.0d0
+                dLBasisdx(m,1) = FirstDerivative1D( Boundary,NodalBasis,u )
+                NodalBasis(m)  = 0.0d0
               END DO
 
               Nrm(1) = -SUM( BoundaryNodes % y(1:n)*dLBasisdx(1:n,1) )
@@ -503,20 +524,20 @@ print*,'----------------------'
               v = Boundary % Type % NodeV(i)
 
               NodalBasis(1:n) = 0.0D0
-              DO j=1,N
-                NodalBasis(j)  = 1.0D0
-                dLBasisdx(j,1) = FirstDerivativeInU2D( Boundary,NodalBasis,u,v )
-                dLBasisdx(j,2) = FirstDerivativeInV2D( Boundary,NodalBasis,u,v )
-                NodalBasis(j)  = 0.0D0
+              DO m=1,N
+                NodalBasis(m)  = 1.0D0
+                dLBasisdx(m,1) = FirstDerivativeInU2D( Boundary,NodalBasis,u,v )
+                dLBasisdx(m,2) = FirstDerivativeInV2D( Boundary,NodalBasis,u,v )
+                NodalBasis(m)  = 0.0D0
               END DO
 
-              dxdu = SUM( nx(1:n) * dLBasisdx(1:n,1) )
-              dydu = SUM( ny(1:n) * dLBasisdx(1:n,1) )
-              dzdu = SUM( nz(1:n) * dLBasisdx(1:n,1) )
+              dxdu = SUM( BoundaryNodes % x(1:n) * dLBasisdx(1:n,1) )
+              dydu = SUM( BoundaryNodes % y(1:n) * dLBasisdx(1:n,1) )
+              dzdu = SUM( BoundaryNodes % z(1:n) * dLBasisdx(1:n,1) )
 
-              dxdv = SUM( nx(1:n) * dLBasisdx(1:n,2) )
-              dydv = SUM( ny(1:n) * dLBasisdx(1:n,2) )
-              dzdv = SUM( nz(1:n) * dLBasisdx(1:n,2) )
+              dxdv = SUM( BoundaryNodes % x(1:n) * dLBasisdx(1:n,2) )
+              dydv = SUM( BoundaryNodes % y(1:n) * dLBasisdx(1:n,2) )
+              dzdv = SUM( BoundaryNodes % z(1:n) * dLBasisdx(1:n,2) )
 
               Nrm(1) = dydu * dzdv - dydv * dzdu
               Nrm(2) = dxdv * dzdu - dxdu * dzdv
@@ -529,183 +550,211 @@ print*,'----------------------'
             y = Model % Nodes % y(k)
             z = Model % Nodes % z(k)
             CALL CheckNormalDirection( Boundary,Nrm,x,y,z,Turned(k) )
+
+            m = Boundary % BoundaryInfo % Constraint
+            R = SQRT(SUM(Nrm**2))
+            AvarageNormal(m,1:3) = AvarageNormal(m,1:3) + ABS(Nrm)/R
           END IF
-        END DO
-      END DO
+       END DO
     END DO
 
-    S = 0.0D0
-    Visited = .FALSE.
 !-------------------------------------------------------------------------------
-! Just do it!
+!   Iterate until convergence
 !-------------------------------------------------------------------------------
-    DO BC = 1,Model % NumberOfBCs
+    DO ii=1,FIter
+       S = 0.0d0
+       Visited = .FALSE.
 
-      IF (.NOT.ListGetLogical(Model % BCs(BC) % Values, 'Free Surface',L)) CYCLE
+       DO t=1,Mesh % NumberOfBoundaryElements
+         Boundary => GetBoundaryElement(t)
+         IF ( .NOT. ActiveBoundaryElement() ) CYCLE
+   
+         BC => GetBC()
+         IF (.NOT.GetLogical(BC, 'Free Surface',L)) CYCLE
 
-      t = CoordinateSystemDimension()
-      Which = ListGetInteger( Model % BCs(BC) % Values, 'Free Coordinate', L, &
-               minv=1, maxv=t )
-      IF ( .NOT. L ) THEN
-         IF ( t == 2 ) THEN
-            Which = 2
-         ELSE
-            Which = 3
+         i = CoordinateSystemDimension()
+         Which = ListGetInteger( BC, 'Free Coordinate', L,minv=1, maxv=i )
+         IF ( .NOT. L ) THEN
+           i =  Boundary % BoundaryInfo % Constraint
+           Nrm = AvarageNormal(i,:)
+           Which = 1
+           DO i=2,3
+             IF ( Nrm(i) > Nrm(Which) ) Which=i
+           END DO
          END IF
-      END IF
 
-      DO t=Model % NumberOfBulkElements+1,Model % NumberOfBulkElements + &
-                   Model % NumberOfBoundaryElements
+         n = GetElementNOFNOdes()
+         CALL GetElementNodes( BoundaryNodes )
 
-        Boundary => Model % Elements(t)
-        IF ( Boundary % BoundaryInfo % Constraint /= BC ) CYCLE
+         DO i=1,n
+           k = Boundary % NodeIndexes(i)
 
-        n = Boundary % Type % NumberOfNodes
-        BoundaryNodes % x(1:n) = Model % Nodes % x(Boundary % NodeIndexes)
-        BoundaryNodes % y(1:n) = Model % Nodes % y(Boundary % NodeIndexes)
-        BoundaryNodes % z(1:n) = Model % Nodes % z(Boundary % NodeIndexes)
+           IF ( Boundary % Type % Dimension == 1 ) THEN
+             IF ( i==1 ) THEN
+                j=2
+             ELSE
+               j=1
+             END IF
+             x1  = BoundaryNodes % x(j) - BoundaryNodes % x(i)
+             y1  = BoundaryNodes % y(j) - BoundaryNodes % y(i)
+
+             Ux = Velocity1 % Values( Velocity1 % Perm(k) )
+             Uy = Velocity2 % Values( Velocity2 % Perm(k) )
+
+             IF ( Ux*x1 + Uy*y1 > 0 ) CYCLE
+           END IF
+
 !-------------------------------------------------------------------------------
-!       Go trough boundary element nodes
+!          Should not move the same node twice,so check if already done
 !-------------------------------------------------------------------------------
-        DO i=1,n
-          k = Boundary % NodeIndexes(i)
+           IF ( .NOT.Visited(k) ) THEN
+             Visited(k) = .TRUE.
 !-------------------------------------------------------------------------------
-!         Shouldnt move the same node twice,so check if already done
+!            2D case, compute normal
 !-------------------------------------------------------------------------------
-          IF ( .NOT.Visited(k) ) THEN
-            Visited(k) = .TRUE.
-!-------------------------------------------------------------------------------
-!           2D case, compute normal
-!-------------------------------------------------------------------------------
-            IF ( Boundary % Type % Dimension == 1 ) THEN
-              u = Boundary % Type % NodeU(i)
+             IF ( Boundary % Type % Dimension == 1 ) THEN
+               u = Boundary % Type % NodeU(i)
 !------------------------------------------------------------------------------
-!             Basis function derivatives with respect to local coordinates
+!              Basis function derivatives with respect to local coordinates
 !------------------------------------------------------------------------------
-              NodalBasis(1:n) = 0.0D0
-              DO j=1,n
-                NodalBasis(j)  = 1.0D0
-                dLBasisdx(j,1) = FirstDerivative1D( Boundary,NodalBasis,u )
-                NodalBasis(j)  = 0.0D0
-              END DO
+               NodalBasis(1:n) = 0.0D0
+               DO m=1,n
+                 NodalBasis(m)  = 1.0D0
+                 dLBasisdx(m,1) = FirstDerivative1D( Boundary,NodalBasis,u )
+                 NodalBasis(m)  = 0.0D0
+               END DO
 
-              Nrm(1) = -SUM( BoundaryNodes % y(1:n)*dLBasisdx(1:n,1) )
-              Nrm(2) =  SUM( BoundaryNodes % x(1:n)*dLBasisdx(1:n,1) )
-              Nrm(3) =  0.0D0
-            ELSE
-!-------------------------------------------------------------------------------
-!            3D case, compute normal
-!-------------------------------------------------------------------------------
-              u = Boundary % Type % NodeU(i)
-              v = Boundary % Type % NodeV(i)
+               Nrm(1) = -SUM( BoundaryNodes % y(1:n)*dLBasisdx(1:n,1) )
+               Nrm(2) =  SUM( BoundaryNodes % x(1:n)*dLBasisdx(1:n,1) )
+               Nrm(3) =  0.0D0
+             ELSE
+!----------------------------------------------------------------------------
+!             3D case, compute normal
+!----------------------------------------------------------------------------
+               u = Boundary % Type % NodeU(i)
+               v = Boundary % Type % NodeV(i)
 
-              NodalBasis(1:n) = 0.0D0
-              DO j=1,N
-                NodalBasis(j)  = 1.0D0
-                dLBasisdx(j,1) = FirstDerivativeInU2D( Boundary,NodalBasis,u,v )
-                dLBasisdx(j,2) = FirstDerivativeInV2D( Boundary,NodalBasis,u,v )
-                NodalBasis(j)  = 0.0D0
-              END DO
+               NodalBasis(1:n) = 0.0D0
+               DO j=1,n
+                 NodalBasis(j)  = 1.0D0
+                 dLBasisdx(j,1) = FirstDerivativeInU2D( Boundary,NodalBasis,u,v )
+                 dLBasisdx(j,2) = FirstDerivativeInV2D( Boundary,NodalBasis,u,v )
+                 NodalBasis(j)  = 0.0D0
+               END DO
 
-              dxdu = SUM( nx(1:n) * dLBasisdx(1:n,1) )
-              dydu = SUM( ny(1:n) * dLBasisdx(1:n,1) )
-              dzdu = SUM( nz(1:n) * dLBasisdx(1:n,1) )
+               dxdu = SUM( BoundaryNodes % x(1:n) * dLBasisdx(1:n,1) )
+               dydu = SUM( BoundaryNodes % y(1:n) * dLBasisdx(1:n,1) )
+               dzdu = SUM( BoundaryNodes % z(1:n) * dLBasisdx(1:n,1) )
 
-              dxdv = SUM( nx(1:n) * dLBasisdx(1:n,2) )
-              dydv = SUM( ny(1:n) * dLBasisdx(1:n,2) )
-              dzdv = SUM( nz(1:n) * dLBasisdx(1:n,2) )
+               dxdv = SUM( BoundaryNodes % x(1:n) * dLBasisdx(1:n,2) )
+               dydv = SUM( BoundaryNodes % y(1:n) * dLBasisdx(1:n,2) )
+               dzdv = SUM( BoundaryNodes % z(1:n) * dLBasisdx(1:n,2) )
 
-              Nrm(1) = dydu * dzdv - dydv * dzdu
-              Nrm(2) = dxdv * dzdu - dxdu * dzdv
-              Nrm(3) = dxdu * dydv - dxdv * dydu
-            END IF
+               Nrm(1) = dydu * dzdv - dydv * dzdu
+               Nrm(2) = dxdv * dzdu - dxdu * dzdv
+               Nrm(3) = dxdu * dydv - dxdv * dydu
+             END IF
 !-------------------------------------------------------------------------------
-!           Turn the normal to point outwards, or towards less dense material
+!            Turn the normal to point outwards, or towards less dense material
 !-------------------------------------------------------------------------------
-            IF ( Turned(k) ) Nrm = -Nrm
+             IF ( Turned(k) ) Nrm = -Nrm
 !-------------------------------------------------------------------------------
-!           Now then, lets move the node so that u.n will be reduced.
+!            Now then, lets move the node so that u.n will be reduced.
 !-------------------------------------------------------------------------------
-            IF ( Boundary % Type % Dimension == 1 ) THEN
+             IF ( Boundary % Type % Dimension == 1 ) THEN
 !-------------------------------------------------------------------------------
-!             TODO ::  This wont handle the three node line
-!             2D case, move the nodes..
+!              TODO ::  This wont handle the three node line
+!              2D case, move the nodes..
 !-------------------------------------------------------------------------------
-              Ux = Velocity1 % Values( Velocity1 % Perm(k) )
-              Uy = Velocity2 % Values( Velocity2 % Perm(k) )
-              Uz = 0.0d0
+               R = Ux * Nrm(1) + Uy * Nrm(2)
+               IF ( Which == 2 ) THEN
+                 IF ( ABS(Ux) > AEPS ) THEN
+                   IF ( Turned(k) ) THEN
+                       Model % Nodes % y(k) = Model % Nodes % y(k) - &
+                                 R / ( Ux*dLBasisdx(i,1) )
+                   ELSE
+                       Model % Nodes % y(k) = Model % Nodes % y(k) + &
+                                 R / ( Ux*dLBasisdx(i,1) )
+                   END IF
+                   YMoved = .TRUE.
+                 END IF
+               ELSE
+                 IF ( ABS(Uy) > AEPS ) THEN
+                   IF ( Turned(k) ) THEN
+                      Model % Nodes % x(k) = Model % Nodes % x(k) + &
+                                R / ( Uy*dLBasisdx(i,1) )
+                   ELSE
+                      Model % Nodes % x(k) = Model % Nodes % x(k) - &
+                                R / ( Uy*dLBasisdx(i,1) )
+                   END IF
+                   XMoved = .TRUE.
+                 END IF
+               END IF
+             ELSE
+!-------------------------------------------------------------------------------
+!              3D case, move the nodes..
+!              TODO :: This is just guesswork, no testing done...
+!----------------------------------------------------------------------------
+               Ux = Velocity1 % Values( Velocity1 % Perm(k) )
+               Uy = Velocity2 % Values( Velocity2 % Perm(k) )
+               Uz = Velocity3 % Values( Velocity3 % Perm(k) )
 
-              R = Relax * ( Ux * Nrm(1) + Uy * Nrm(2) )
-              IF ( Which == 2 ) THEN
-                IF ( ABS(Ux) > AEPS ) THEN
-                  Model % Nodes % y(k) = Model % Nodes % y(k) + &
-                            R / ( Ux*dLBasisdx(i,1) )
-                  YMoved = .TRUE.
-                END IF
-              ELSE
-                IF ( ABS(Uy) > AEPS ) THEN
-                  Model % Nodes % x(k) = Model % Nodes % x(k) + &
-                            R / ( Uy*dLBasisdx(i,1) )
-                  XMoved = .TRUE.
-                END IF
-              END IF
-            ELSE
+               R = Ux * Nrm(1) + Uy * Nrm(2) + Uz * Nrm(3)
+               IF ( Which == 1 ) THEN
+                 IF ( Uy /= 0.0 .OR. Uz /= 0 ) THEN
+                   Model % Nodes % x(k) = Model % Nodes % x(k) + R / &
+                    ( (dzdu*dLBasisdx(i,2) - dzdv*dLBasisdx(i,1))*Uy + &
+                      (dydv*dLBasisdx(i,1) - dydu*dLBasisdx(i,2))*Uz )
+                   XMoved = .TRUE.
+                 END IF
+               ELSE IF ( Which == 2 ) THEN
+                 IF ( Ux /= 0.0D0 .OR. Uy /= 0.0D0 ) THEN
+                   Model % Nodes % y(k) = Model % Nodes % y(k) + R / &
+                    ( (dzdv*dLBasisdx(i,1) - dzdu*dLBasisdx(i,2))*Ux + &
+                      (dxdu*dLBasisdx(i,2) - dxdv*dLBasisdx(i,1))*Uz )
+                   YMoved = .TRUE.
+                 END IF
+               ELSE
+                 IF ( Ux /= 0.0D0 .OR. Uy /= 0.0D0 ) THEN
+                   Model % Nodes % z(k) = Model % Nodes % z(k) + R / &
+                    ( (dydu*dLBasisdx(i,2) - dydv*dLBasisdx(i,1))*Ux + &
+                      (dxdv*dLBasisdx(i,1) - dxdu*dLBasisdx(i,2))*Uy )
+                   ZMoved = .TRUE.
+                 END IF
+               END IF
+             END IF
 !-------------------------------------------------------------------------------
-!             3D case, move the nodes..
-!             TODO :: This is just guesswork, no testing done...
+             S = S + ( (Ux*Nrm(1)+Uy*Nrm(2)+Uz*Nrm(3))/SQRT(SUM(Nrm**2)) )**2
 !-------------------------------------------------------------------------------
-              Ux = Velocity1 % Values( Velocity1 % Perm(k) )
-              Uy = Velocity2 % Values( Velocity2 % Perm(k) )
-              Uz = Velocity3 % Values( Velocity3 % Perm(k) )
-
-              R = Relax * ( Ux * Nrm(1) + Uy * Nrm(2) + Uz * Nrm(3) )
-              IF ( Which == 1 ) THEN
-                IF ( Uy /= 0.0 .AND. Uz /= 0 ) THEN
-                  Model % Nodes % x(k) = Model % Nodes % x(k) + R / &
-                   ( (dzdu*dLBasisdx(i,2) - dzdv*dLBasisdx(i,1))*Uy + &
-                     (dydv*dLBasisdx(i,1) - dydu*dLBasisdx(i,2))*Uz )
-                  XMoved = .TRUE.
-                END IF
-              ELSE IF ( Which == 2 ) THEN
-                IF ( Ux /= 0.0D0 .OR. Uy /= 0.0D0 ) THEN
-                  Model % Nodes % y(k) = Model % Nodes % y(k) + R / &
-                   ( (dzdv*dLBasisdx(i,1) - dzdu*dLBasisdx(i,2))*Ux + &
-                     (dxdu*dLBasisdx(i,2) - dxdv*dLBasisdx(i,1))*Uz )
-                  YMoved = .TRUE.
-                END IF
-              ELSE
-                IF ( Ux /= 0.0D0 .OR. Uy /= 0.0D0 ) THEN
-                  Model % Nodes % z(k) = Model % Nodes % z(k) + R / &
-                   ( (dydu*dLBasisdx(i,2) - dydv*dLBasisdx(i,1))*Ux + &
-                     (dxdv*dLBasisdx(i,1) - dxdu*dLBasisdx(i,2))*Uy )
-                  ZMoved = .TRUE.
-                END IF
-              END IF
-            END IF
-!-------------------------------------------------------------------------------
-            S = S + ( (Ux*Nrm(1)+Uy*Nrm(2)+Uz*Nrm(3))/SQRT(SUM(Nrm**2)))** 2
-!-------------------------------------------------------------------------------
-          END IF
+           END IF
         END DO
       END DO
-    END DO
 !-------------------------------------------------------------------------------
-    WRITE( Message, * ) 'Free surface Residual: ', S
-    CALL Info( 'FreeSurface', Message, Level=4 )
+      S = SQRT(S)
+      WRITE( Message, '(a,i4,a,e21.12)' ) 'Iter: ', ii, ' Free surface Residual: ',S
+      CALL Info( 'FreeSurface', Message, Level=4 )
+      IF ( S < FEPS ) EXIT
+    END DO
 !-------------------------------------------------------------------------------
     IF ( XMoved ) THEN
       CALL PoissonSolve( Model,XCoord,YCoord,ZCoord,Model % Nodes % x,1 )
+      IF ( Relax /= 1.0d0 ) &
+        Model % Nodes % x = Relax * Model % Nodes % x + (1-Relax)*XCoord
     END IF
 
     IF ( YMoved ) THEN
       CALL PoissonSolve( Model,XCoord,YCoord,ZCoord,Model % Nodes % y,2 )
+      IF ( Relax /= 1.0d0 ) &
+        Model % Nodes % y = Relax * Model % Nodes % y + (1-Relax)*YCoord
     END IF
 
     IF ( ZMoved ) THEN
       CALL PoissonSolve( Model,XCoord,YCoord,ZCoord,Model % Nodes % z,3 )
+      IF ( Relax /= 1.0d0 ) &
+        Model % Nodes % z = Relax * Model % Nodes % z + (1-Relax)*ZCoord
     END IF
 
-    DEALLOCATE( Visited,Turned,XCoord,YCoord,ZCoord )
+    DEALLOCATE( Visited,Turned,XCoord,YCoord,ZCoord,AvarageNormal )
  
     ALLOCATE( ElementNodes % x(Model % MaxElementNodes) )
     ALLOCATE( ElementNodes % y(Model % MaxElementNodes) )
