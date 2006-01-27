@@ -1625,8 +1625,6 @@ void SetElementDivisionExtruded(struct GridType *grid,int info)
   int i,j,nzmax,sumzelems;
   Real ratio,linearlimit;
   Real dzmax,dz;
-
-  printf("exruded divisions\n");
   
   linearlimit = 0.001;
 
