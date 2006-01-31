@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StatElecSolve.src,v $
+! * Revision 1.10  2006/01/31 07:05:48  apursula
+! * Added NULLIFY(Pwrk) inside GeneralElectricFlux
+! *
 ! * Revision 1.9  2006/01/10 13:26:43  apursula
 ! * Minor revision of the headers, again.
 ! *
@@ -120,7 +123,7 @@
      REAL (KIND=DP), POINTER :: FluxOneTemp(:), FluxTwoTemp(:), FluxThreeTemp(:)
      REAL (KIND=DP), POINTER :: Ex(:), Ey(:), Ez(:), Dx(:), Dy(:), Dz(:)
      REAL (KIND=DP), POINTER :: We(:), WeTemp(:), Energy(:)
-     REAL (KIND=DP), POINTER :: Pwrk(:,:,:)
+     REAL (KIND=DP), POINTER :: Pwrk(:,:,:), Pz_w(:,:,:)
      REAL (KIND=DP), ALLOCATABLE :: CapB(:), CapX(:), CapA(:,:), CapMatrix(:,:)
      REAL (KIND=DP), ALLOCATABLE ::  Permittivity(:,:,:), PiezoCoeff(:,:,:), &
        LocalStiffMatrix(:,:), Load(:), LocalForce(:), PotDiff(:)
@@ -145,7 +148,7 @@
      LOGICAL :: PiezoMaterial
 
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, CapMatrixFile, Name
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.9 2006/01/10 13:26:43 apursula Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.10 2006/01/31 07:05:48 apursula Exp $"
 
 
      SAVE LocalStiffMatrix, Load, LocalForce, Pwrk, PotDiff, &
@@ -154,7 +157,7 @@
           FluxOne, FluxTwo, FluxThree, We, Permittivity, &
           CapBodies, CalculateCapMatrix, CapA, CapB, CapX, CapPerms, &
           CapMatrix, CalculateField, CapMatrixFile, ConstantWeights, &
-          PiezoCoeff, PiezoMaterial, Displacement
+          PiezoCoeff, PiezoMaterial, Displacement, Pz_w
 
 
      INTERFACE
@@ -365,6 +368,7 @@
        END IF
 
        NULLIFY( Pwrk )
+       NULLIFY( Pz_w )
    
        AllocationsDone = .TRUE.
      END IF
@@ -536,14 +540,14 @@
        Displacement = 0.0d0
        IF ( PiezoMaterial ) THEN
           PiezoCoeff = 0.0d0
-          CALL GetRealArray( Model % Materials(k) % Values, Pwrk, &
+          CALL GetRealArray( Model % Materials(k) % Values, Pz_w, &
                'Piezo Material Coefficients', gotIt, CurrentElement )
           IF ( .NOT. GotIt )  CALL Fatal( 'StatElecSolve', &
                'No Piezo Material Coefficients defined' )
 
           DO i=1, Dim
              DO j=1, 2*Dim
-                PiezoCoeff( i,j,1:n ) = Pwrk(i,j,1:n)
+                PiezoCoeff( i,j,1:n ) = Pz_w(i,j,1:n)
              END DO
           END DO
 !------------------------------------------------------------------------------
@@ -898,7 +902,6 @@
     TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
 
     REAL(KIND=dp), POINTER :: U_Integ(:), V_Integ(:), W_Integ(:), S_Integ(:)
-    REAL(KIND=DP), POINTER :: Pwrk(:,:,:)
     REAL(KIND=dp), ALLOCATABLE :: SumOfWeights(:)
     REAL(KIND=dp) :: PermittivityOfVacuum
     REAL(KIND=dp) :: Permittivity(3,3,Model % MaxElementNodes)
@@ -918,7 +921,6 @@
 
 !------------------------------------------------------------------------------
 
-    NULLIFY ( Pwrk )
     ALLOCATE( Nodes % x( Model % MaxElementNodes ) )
     ALLOCATE( Nodes % y( Model % MaxElementNodes ) )
     ALLOCATE( Nodes % z( Model % MaxElementNodes ) )
