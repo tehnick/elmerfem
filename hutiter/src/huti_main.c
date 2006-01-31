@@ -2,7 +2,7 @@
  *
  * huti_main.c - HUTIter libarary auxiliary routines
  *
- * $Id: huti_main.c,v 1.1.1.1 2005/04/15 10:31:18 vierinen Exp $
+ * $Id: huti_main.c,v 1.2 2005/05/04 20:18:42 vierinen Exp $
  *
  *
  */
@@ -23,7 +23,6 @@
 /* Global HUTI variables */
 
 int huti_num_of_procs;
-int huti_init_done = FALSE;
 
 /*
  *
@@ -33,6 +32,7 @@ int huti_init_done = FALSE;
 void HUTI_Init()
 {
   char *evname;
+  static int huti_init_done = FALSE;
 
   if (huti_init_done)
     return;
