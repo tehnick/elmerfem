@@ -2,8 +2,8 @@
    ElmerGrid - A simple mesh generation and manipulation utility  
    Copyright (C) 1995- , CSC - Scientific Computing Ltd.   
 
-   Author: Peter Råback
-   Email: Peter.Raback@csc.fi
+   Author:  Peter Råback
+   Email:   Peter.Raback@csc.fi
    Address: CSC - Scientific Computing Ltd.
             Keilaranta 14
             02101 Espoo, Finland
@@ -1291,9 +1291,9 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info)
   struct GridType grid0;
   char *cp;
   int noknots,noelements,dim,axisymmetric;
-  int elemcode,maxnodes,totelems,nogrids0;
-  int minmat,maxmat;
+  int elemcode,maxnodes,totelems,nogrids0,minmat,maxmat;
   long code;
+  Real raid;
 
   AddExtension(prefix,filename,"grd");
   if ((in = fopen(filename,"r")) == NULL) {
@@ -1366,12 +1366,11 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info)
 	sscanf(params,"%d",&(*grid)[k].xcells);
 	grid[k]->ycells = 1;	
       }
-      if(grid[k]->dimension == 2) 
+      else if(grid[k]->dimension == 2) 
 	sscanf(params,"%d %d",&(*grid)[k].xcells,&(*grid)[k].ycells);
-      if(grid[k]->dimension == 3) 
+      else if(grid[k]->dimension == 3) 
 	sscanf(params,"%d %d %d",&(*grid)[k].xcells,&(*grid)[k].ycells,&(*grid)[k].zcells);      
-      if(grid[k]->xcells >= MAXCELLS || grid[k]->ycells >= MAXCELLS || 
-	 grid[k]->zcells >= MAXCELLS) {
+      if(grid[k]->xcells >= MAXCELLS || grid[k]->ycells >= MAXCELLS || grid[k]->zcells >= MAXCELLS) {
 	printf("LoadElmergrid: Too many subcells [%d %d %d] vs. %d:\n",
 	       grid[k]->xcells,grid[k]->ycells,grid[k]->zcells,MAXCELLS);
       }
@@ -1388,23 +1387,92 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info)
     }      
     
     else if(strstr(command,"SUBCELL LIMITS 1")) {
-      printf("Loading [%d] subcell limits in X-direction\n",grid[k]->xcells);
+      printf("Loading [%d] subcell limits in X-direction\n",grid[k]->xcells+1);
       cp = params;
       for(i=0;i<=grid[k]->xcells;i++) grid[k]->x[i] = next_real(&cp);
-    }
-    
+    }    
     else if(strstr(command,"SUBCELL LIMITS 2")) {
-      printf("Loading [%d] subcell limits in Y-direction\n",grid[k]->ycells);
+      printf("Loading [%d] subcell limits in Y-direction\n",grid[k]->ycells+1);
       cp = params;
       for(i=0;i<=grid[k]->ycells;i++) grid[k]->y[i] = next_real(&cp);
-    }
-    
+    }      
     else if(strstr(command,"SUBCELL LIMITS 3")) {
-      printf("Loading [%d] subcell limits in Z-direction\n",grid[k]->zcells);
+      printf("Loading [%d] subcell limits in Z-direction\n",grid[k]->zcells+1);
       cp = params;
       for(i=0;i<=grid[k]->zcells;i++) grid[k]->z[i] = next_real(&cp);
     }
-    
+
+    else if(strstr(command,"SUBCELL SIZES 1")) {
+      printf("Loading [%d] subcell sizes in X-direction\n",grid[k]->xcells);
+      cp = params;
+      for(i=1;i<=grid[k]->xcells;i++) grid[k]->x[i] = next_real(&cp);
+      for(i=1;i<=grid[k]->xcells;i++) grid[k]->x[i] = grid[k]->x[i-1] + grid[k]->x[i];
+    }      
+    else if(strstr(command,"SUBCELL SIZES 2")) {
+      printf("Loading [%d] subcell sizes in Y-direction\n",grid[k]->ycells);
+      cp = params;
+      for(i=1;i<=grid[k]->ycells;i++) grid[k]->y[i] = next_real(&cp);
+      for(i=1;i<=grid[k]->ycells;i++) grid[k]->y[i] = grid[k]->y[i-1] + grid[k]->y[i];
+    }      
+    else if(strstr(command,"SUBCELL SIZES 3")) {
+      printf("Loading [%d] subcell sizes in Z-direction\n",grid[k]->zcells);
+      cp = params;
+      for(i=1;i<=grid[k]->zcells;i++) grid[k]->z[i] = next_real(&cp);
+      for(i=1;i<=grid[k]->zcells;i++) grid[k]->z[i] = grid[k]->z[i-1] + grid[k]->z[i];
+    }
+
+    else if(strstr(command,"SUBCELL ORIGIN 1")) {
+      for(i=0;i<MAXLINESIZE;i++) params[i] = toupper(params[i]);
+      if(strstr(params,"CENTER")) {
+	raid = 0.5 * (grid[k]->x[0] + grid[k]->x[grid[k]->xcells]);
+      }
+      else if(strstr(params,"LEFT")) {
+	raid = grid[k]->x[0];
+      }
+      else if(strstr(params,"RIGHT")) {
+	raid = grid[k]->x[grid[k]->xcells];
+      }
+      else {
+	cp = params;
+	raid = next_real(&cp);
+      }
+      for(i=0;i<=grid[k]->xcells;i++) grid[k]->x[i] -= raid;
+    }
+    else if(strstr(command,"SUBCELL ORIGIN 2")) {
+      for(i=0;i<MAXLINESIZE;i++) params[i] = toupper(params[i]);
+      if(strstr(params,"CENTER")) {
+	raid = 0.5 * (grid[k]->y[0] + grid[k]->y[grid[k]->ycells]);
+      }
+      else if(strstr(params,"LEFT")) {
+	raid = grid[k]->y[0];
+      }
+      else if(strstr(params,"RIGHT")) {
+	raid = grid[k]->y[grid[k]->ycells];
+      }
+      else {
+	cp = params;
+	raid = next_real(&cp);
+      }      
+      for(i=0;i<=grid[k]->ycells;i++) grid[k]->y[i] -= raid;
+    }
+    else if(strstr(command,"SUBCELL ORIGIN 3")) {
+      for(i=0;i<MAXLINESIZE;i++) params[i] = toupper(params[i]);
+      if(strstr(params,"CENTER")) {
+	raid = 0.5 * (grid[k]->z[0] + grid[k]->z[grid[k]->zcells]);
+      }
+      else if(strstr(params,"LEFT")) {
+	raid = grid[k]->z[0];
+      }
+      else if(strstr(params,"RIGHT")) {
+	raid = grid[k]->z[grid[k]->zcells];
+      }
+      else {
+	cp = params;
+	raid = next_real(&cp);
+      }
+      for(i=0;i<=grid[k]->zcells;i++) grid[k]->z[i] -= raid;      
+    }
+
     else if(strstr(command,"MATERIAL STRUCTURE")) {
       printf("Loading material structure\n");
       
@@ -1413,8 +1481,7 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info)
 	cp=params;
 	for(i=1;i<=grid[k]->xcells;i++) 
 	  grid[k]->structure[j][i] = next_int(&cp);
-      }
-      
+      }      
       minmat = maxmat = grid[k]->structure[1][1];
       for(j=grid[k]->ycells;j>=1;j--) 
 	for(i=1;i<=grid[k]->xcells;i++) {
@@ -1429,38 +1496,40 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info)
 	printf("LoadElmergrid: material indices larger to %d may create problems.\n",
 	       MAXMATERIALS);
     }
-    
-    else if(strstr(command,"REVOLVE RADIUS")) {
-      (*grid)[k].rotate = TRUE;
-      sscanf(params,"%le",&(*grid)[k].rotateradius2);
-    }
-    else if(strstr(command,"REVOLVE BLOCKS")) {
-      (*grid)[k].rotate = TRUE;
-      sscanf(params,"%d",&(*grid)[k].rotateblocks);
-    }
-    else if(strstr(command,"REVOLVE IMPROVE")) {
-      (*grid)[k].rotate = TRUE;
-      sscanf(params,"%le",&(*grid)[k].rotateimprove);
-    }
-    else if(strstr(command,"REVOLVE RADIUS")) {
-      sscanf(params,"%le",&(*grid)[k].polarradius);
-    }
-    else if(strstr(command,"REVOLVE CURVE DIRECT")) {
-      (*grid)[k].rotatecurve = TRUE;
-      sscanf(params,"%le",&(*grid)[k].curvezet);
-    }
-    else if(strstr(command,"REVOLVE CURVE RADIUS")) {
-      (*grid)[k].rotatecurve = TRUE;
-      sscanf(params,"%le",&(*grid)[k].curverad);
-    }
-    else if(strstr(command,"REVOLVE CURVE ANGLE")) {
-      (*grid)[k].rotatecurve = TRUE;
-      sscanf(params,"%le",&(*grid)[k].curveangle);
-    }
     else if(strstr(command,"MATERIALS INTERVAL")) {
       sscanf(params,"%d %d",&(*grid)[k].firstmaterial,&(*grid)[k].lastmaterial);      
     }
-    
+     
+    else if(strstr(command,"REVOLVE")) {
+      if(strstr(command,"REVOLVE RADIUS")) {
+	(*grid)[k].rotate = TRUE;
+	sscanf(params,"%le",&(*grid)[k].rotateradius2);
+      }
+      else if(strstr(command,"REVOLVE BLOCKS")) {
+	(*grid)[k].rotate = TRUE;
+	sscanf(params,"%d",&(*grid)[k].rotateblocks);
+      }
+      else if(strstr(command,"REVOLVE IMPROVE")) {
+	(*grid)[k].rotate = TRUE;
+	sscanf(params,"%le",&(*grid)[k].rotateimprove);
+      }
+      else if(strstr(command,"REVOLVE RADIUS")) {
+	sscanf(params,"%le",&(*grid)[k].polarradius);
+      }
+      else if(strstr(command,"REVOLVE CURVE DIRECT")) {
+	(*grid)[k].rotatecurve = TRUE;
+	sscanf(params,"%le",&(*grid)[k].curvezet);
+      }
+      else if(strstr(command,"REVOLVE CURVE RADIUS")) {
+	(*grid)[k].rotatecurve = TRUE;
+	sscanf(params,"%le",&(*grid)[k].curverad);
+      }
+      else if(strstr(command,"REVOLVE CURVE ANGLE")) {
+	(*grid)[k].rotatecurve = TRUE;
+	sscanf(params,"%le",&(*grid)[k].curveangle);
+      }
+    }
+
     else if(strstr(command,"REDUCE ORDER INTERVAL")) {
       sscanf(params,"%d%d",&(*grid)[k].reduceordermatmin,
 	     &(*grid)[k].reduceordermatmax);
