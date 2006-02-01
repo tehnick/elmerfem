@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.26  2006/02/01 08:07:58  jpr
+! * Replaced most of the usage of MAX_NODES by dynamic allocations.
+! *
 ! * Revision 1.25  2006/01/20 18:56:31  jpr
 ! * *** empty log message ***
 ! *
@@ -110,7 +113,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.25 2006/01/20 18:56:31 jpr Exp $
+! * $Id: MeshUtils.src,v 1.26 2006/02/01 08:07:58 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -254,8 +257,8 @@ CONTAINS
  
     REAL(KIND=dp), POINTER :: cCoord(:), coord(:,:)
 
-    INTEGER :: i,j,k,code,tag,body,type,nodes(MAX_NODES),left,right,fields, &
-                       npart,parts(1024)
+    INTEGER :: i,j,k,code,tag,body,type,nodes(MAX_ELEMENT_NODES), &
+             left,right,fields,npart,parts(1024)
 
     INTEGER :: bodies,body_forces,body_equations,materials, &
       boundary_conditions,initial_conditions, mesh_parameters,bndry, &
