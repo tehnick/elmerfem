@@ -85,7 +85,7 @@ static void Instructions()
   printf("6)  .fil      : Abaqus output format\n");
   printf("7)  .FDNEUT   : Fidap neutral file\n");
   printf("8)  .d        : Easymesh input format\n");
-  printf("9)  .femlab   : Comsol/Femlab mesh format\n");
+  printf("9)  .mphtxt   : Comsol Multiphysics (was Femlab) mesh format\n");
   printf("10) .dat      : Fieldview format\n");
   printf("11) .node,.ele: Triangle 2D mesh format\n");
   printf("12) .mesh     : Medit mesh format\n");
