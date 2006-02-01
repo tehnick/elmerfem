@@ -49,7 +49,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: $
+! * $Id: FDiffusion3D.src,v 1.6 2006/01/10 08:09:46 apursula Exp $
 ! ******************************************************************************
 
 !------------------------------------------------------------------------------
@@ -765,20 +765,19 @@ CONTAINS
      REAL(KIND=dp) :: u,v,w,x,y,z
 
      REAL(KIND=dp) :: B(3),dHdx(3,3),L(3)
-     REAL(KIND=dp) :: Basis(MAX_NODES)
-     REAL(KIND=dp) :: dBasisdx(MAX_NODES,3),SqrtElementMetric
+     REAL(KIND=dp) :: SqrtElementMetric
      REAL(KIND=dp) :: SqrtMetric,Metric(3,3),Symb(3,3,3),dSymb(3,3,3,3)
 
+     REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:)
      REAL(KIND=dp), ALLOCATABLE :: Permeability(:), BacRe(:,:), BacIm(:,:)
 !------------------------------------------
 
      ALLOCATE( Visited(CurrentModel % NumberOfNodes) )
 
-     ALLOCATE(Nodes % x(MAX_NODES),Nodes % y(MAX_NODES),Nodes % z(MAX_NODES))
-
-     ALLOCATE( Permeability(MAX_NODES) )
-
-     ALLOCATE( BacRe(3,MAX_NODES), BacIm(3,MAX_NODES) )
+     n = CurrentModel % Mesh % MaxElementDOFs
+     ALLOCATE(Nodes % x(n),Nodes % y(n),Nodes % z(n))
+     ALLOCATE( BacRe(3,n), BacIm(3,n) )
+     ALLOCATE( Permeability(n), Basis(n), dBasisdx(n,3) )
 
      Visited = 0
 
@@ -927,7 +926,7 @@ CONTAINS
       DEALLOCATE( Visited )
       DEALLOCATE( Nodes % x, Nodes % y, Nodes % z )
       DEALLOCATE ( Permeability )
-      DEALLOCATE( BacRe, BacIm )
+      DEALLOCATE( BacRe, BacIm, Basis, dBasisdx )
 
     END SUBROUTINE LorentzForceAve
 

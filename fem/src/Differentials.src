@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: $
+! * $Id: Differentials.src,v 1.6 2006/01/10 08:32:50 apursula Exp $
 ! ******************************************************************************
 
 MODULE Differentials
@@ -52,343 +52,25 @@ MODULE Differentials
 CONTAINS
 
 !------------------------------------------------------------------------------
-! Compute the stress tensor given displacement field
-!------------------------------------------------------------------------------
-  SUBROUTINE StressComp()
-!------------------------------------------------------------------------------
-!------------------------------------------------------------------------------
-    TYPE(Element_t), POINTER :: Element
-    TYPE(Nodes_t) :: Nodes 
-
-    TYPE(ValueList_t), POINTER :: Material
-
-    TYPE(Variable_t), POINTER :: StressSol, TempSol
-    REAL(KIND=dp), POINTER :: Temperature(:),Displacement(:),Work(:,:)
-    REAL(KIND=dp), POINTER :: Stressxx(:),Stressxy(:),Stressyy(:), &
-                    DispX(:),DispY(:),DispZ(:)
-    INTEGER, POINTER :: TempPerm(:),StressPerm(:)
-
-    REAL(KIND=dp) :: ElasticModulus(MAX_NODES),PoissonRatio(MAX_NODES),Lame1(MAX_NODES), &
-      Lame2(MAX_NODES),HeatExpansion(MAX_NODES),ReferenceTemperature(MAX_NODES)
-
-    LOGICAL :: Stat,GotIt,PlaneStress
-    INTEGER :: i,j,k,l,m,n,p,q,t,STDOFs
-    INTEGER :: body_id,bf_id,eq_id
-    REAL(KIND=dp), TARGET :: nx(MAX_NODES),ny(MAX_NODES),nz(MAX_NODES)
-    REAL(KIND=dp) :: x,y,z,u,v,w,s,A(3),B(3),dx(3,3)
-
-    INTEGER :: Perm(3,3,3)
-    INTEGER, POINTER :: NodeIndexes(:),Visited(:)
-
-    REAL(KIND=dp) :: Basis(MAX_NODES)
-    REAL(KIND=dp) :: dBasisdx(MAX_NODES,3),SqrtElementMetric
-
-    REAL(KIND=dp) :: SqrtMetric,Metric(3,3),Symb(3,3,3),dSymb(3,3,3,3)
-!------------------------------------------------------------------------------
-
-    ALLOCATE( Visited(CurrentModel % NumberOfNodes) )
-    Visited = 0
-
-    Nodes % x => nx
-    Nodes % y => ny
-    Nodes % z => nz
-
-!------------------------------------------------------------------------------
-!    Get variables needed for solution
-!------------------------------------------------------------------------------
-    TempSol => VariableGet( CurrentModel % Variables, 'Temperature' )
-    IF ( ASSOCIATED( TempSol) ) THEN
-      TempPerm    => TempSol % Perm
-      Temperature => TempSol % Values
-    END IF
-
-    StressSol => VariableGet( CurrentModel % Variables, 'Displacement 1' )
-    DispX   => StressSol % Values
-
-    StressSol => VariableGet( CurrentModel % Variables, 'Displacement 2' )
-    DispY   => StressSol % Values
-
-    StressSol => VariableGet( CurrentModel % Variables, 'Displacement 3' )
-    IF ( ASSOCIATED(StressSol) ) THEN
-      DispZ   => StressSol % Values
-    END IF
-
-    StressSol => VariableGet( CurrentModel % Variables, 'Displacement' )
-    StressPerm     => StressSol % Perm
-    STDOFs         =  StressSol % DOFs
-    Displacement   => StressSol % Values
-
-    ALLOCATE(Stressxx(CurrentModel % NumberOfNodes))
-    ALLOCATE(Stressxy(CurrentModel % NumberOfNodes))
-    ALLOCATE(Stressyy(CurrentModel % NumberOfNodes))
-
-    Stressxx = 0.0D0
-    Stressxy = 0.0D0
-    Stressyy = 0.0D0
-
-!   CALL VariableAdd(CurrentModel % Variables,'Stress xx',1,Stressxx,StressPerm)
-!   CALL VariableAdd(CurrentModel % Variables,'Stress xy',1,Stressxy,StressPerm)
-!   CALL VariableAdd(CurrentModel % Variables,'Stress yy',1,Stressyy,StressPerm)
-
-!------------------------------------------------------------------------------
-!   Go trough model elements, we will compute on average of elementwise
-!   stresses to nodes of the model
-!------------------------------------------------------------------------------
-    t = 1
-    DO WHILE( t <= CurrentModel % NumberOfBulkElements )
-!------------------------------------------------------------------------------
-      Element => CurrentModel % Elements(t)
-      body_id = Element % BodyId
-      n = Element % TYPE % NumberOfNodes
-      NodeIndexes => Element % NodeIndexes
-!------------------------------------------------------------------------------
-!     Check if this element belongs to a body where displacements
-!     should be calculated
-!------------------------------------------------------------------------------
-      DO WHILE( t <= CurrentModel % NumberOfBulkElements )
-        Element => CurrentModel % Elements(t)
-
-        IF ( CheckElementEquation( CurrentModel, &
-                           Element,'Stress Analysis' ) ) EXIT
-        t = t + 1
-      END DO
-
-      IF ( t > CurrentModel % NumberOfBulkElements ) EXIT
-
-      Nodes % x(1:n) = CurrentModel % Nodes % x( NodeIndexes )
-      Nodes % y(1:n) = CurrentModel % Nodes % y( NodeIndexes )
-      Nodes % z(1:n) = CurrentModel % Nodes % z( NodeIndexes )
-
-      k = ListGetInteger( CurrentModel % Bodies(body_id) % Values,'Material', &
-             minv=1, maxv=CurrentModel % NumberOfMaterials )
-      Material => CurrentModel % Materials(k) % Values
-
-      ElasticModulus(1:n) = ListGetReal( Material, &
-          'Youngs Modulus',n,NodeIndexes )
-
-      PoissonRatio(1:n) = ListGetReal( Material, &
-            'Poisson Ratio',n,NodeIndexes )
-
-      HeatExpansion   = 0.0D0
-      HeatExpansion(1:n) = ListGetReal( Material,&
-        'Heat Expansion Coefficient',n,NodeIndexes,gotIt )
-
-      ReferenceTemperature(1:n) = ListGetReal( Material, &
-         'Reference Temperature',n,NodeIndexes,gotIt )
-
-      eq_id = ListGetInteger( CurrentModel % Bodies(body_id) % Values, 'Equation', &
-            minv=1, maxv=CurrentModel % NumberOfEquations )
-      PlaneStress = ListGetLogical( CurrentModel % Equations(eq_id) % Values, &
-                       'Plane Stress',gotIt )
-
-      IF ( PlaneStress ) THEN
-        Lame1(1:n) = ElasticModulus(1:n) * PoissonRatio(1:n) /  &
-             ( (1.0d0 - PoissonRatio(1:n)**2) )
-      ELSE
-        Lame1(1:n) = ElasticModulus(1:n) * PoissonRatio(1:n) /  &
-           (  (1.0d0 + PoissonRatio(1:n)) * (1.0d0 - 2.0d0*PoissonRatio(1:n)) )
-      END IF
-
-      Lame2(1:n) = ElasticModulus(1:n)  / ( 2* (1.0d0 + PoissonRatio(1:n)) )
-!------------------------------------------------------------------------------
-!     Trough element nodes
-!------------------------------------------------------------------------------
-      DO p=1,n
-        q = StressPerm( NodeIndexes(p) )
-        u = Element % TYPE % NodeU(p)
-        v = Element % TYPE % NodeV(p)
-
-        IF ( Element % TYPE % DIMENSION == 3 ) THEN
-          w = Element % TYPE % NodeW(p)
-        ELSE
-          w = 0.0D0
-        END IF
-!------------------------------------------------------------------------------
-!       Get coordinate system info
-!------------------------------------------------------------------------------
-        IF ( COordinates /= Cartesian ) THEN
-          x = Nodes % x(p)
-          y = Nodes % y(p)
-          z = Nodes % z(p)
-          CALL CoordinateSystemInfo( Metric,SqrtMetric,Symb,dSymb,x,y,z )
-          CALL InvertMatrix( Metric,3 )
-        END IF
-!------------------------------------------------------------------------------
-!       Get element basis functions, basis function derivatives, etc,
-!       and compute partial derivatives of the vector A with respect
-!       to global coordinates.
-!------------------------------------------------------------------------------
-        stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-                  Basis,dBasisdx )
-
-        DO k=1,3
-          dx(1,k) = SUM( dBasisdx(1:n,k) * DispX(StressPerm(NodeIndexes)) )
-          dx(2,k) = SUM( dBasisdx(1:n,k) * DispY(StressPerm(NodeIndexes)) )
-#if 0
-          dx(3,k) = SUM( dBasisdx(1:n,k) * DispZ(StressPerm(NodeIndexes)) )
-#endif
-        END DO
-
-        Stressxx(q) = Stressxx(q) +  &
-            Lame1(p) * ( dx(1,1) + dx(2,2) ) + 2 * Lame2(p) * dx(1,1) - &
-           2 * (Lame1(p) + Lame2(p)) * HeatExpansion(p) *               &
-            (Temperature(TempPerm(NodeIndexes(p))) - ReferenceTemperature(p))
-
-        Stressyy(q) = Stressyy(q) + &
-            Lame1(p) * ( dx(1,1) + dx(2,2) ) + 2 * Lame2(p) * dx(2,2) - &
-           2 * (Lame1(p) + Lame2(p)) * HeatExpansion(p) *               &
-            (Temperature(TempPerm(NodeIndexes(p))) - ReferenceTemperature(p))
-
-        Stressxy(q) = Stressxy(q) +  Lame2(p) * ( dx(1,2) + dx(2,1) )
-
-        Visited(q) = Visited(q) + 1
-      END DO
-!------------------------------------------------------------------------------
-      t = t + 1
-    END DO
-!------------------------------------------------------------------------------
-!   Finally, compute average of the the stress at nodes
-!------------------------------------------------------------------------------
-    DO i=1,CurrentModel % NumberOfNodes
-      IF ( Visited(i) > 0 ) THEN
-        Stressxx(i) = Stressxx(i) / Visited(i)
-        Stressyy(i) = Stressyy(i) / Visited(i)
-        Stressxy(i) = Stressxy(i) / Visited(i)
-      END IF
-    END DO
-
-    DEALLOCATE( Visited )
-!------------------------------------------------------------------------------
-  END SUBROUTINE StressComp
-!------------------------------------------------------------------------------
-
-!------------------------------------------------------------------------------
-! Compute the grad vector B = grad(A) at model nodes
-!------------------------------------------------------------------------------
-  SUBROUTINE Grad( Ax,Bx,By,Bz,Reorder )
-!------------------------------------------------------------------------------
-    REAL(KIND=dp) :: Ax(:),Bx(:),By(:),Bz(:)
-    INTEGER :: Reorder(:)
-!------------------------------------------------------------------------------
-    TYPE(Element_t), POINTER :: Element
-    TYPE(Nodes_t) :: Nodes 
-
-    LOGICAL :: Stat
-    INTEGER :: i,j,k,l,m,n,p,q,t
-    REAL(KIND=dp), TARGET :: nx(MAX_NODES),ny(MAX_NODES),nz(MAX_NODES)
-    REAL(KIND=dp) :: x,y,z,u,v,w,s,A(3),B(3),dx(3,3)
-
-    INTEGER :: Perm(3,3,3)
-    INTEGER, POINTER :: NodeIndexes(:),Visited(:)
-
-    REAL(KIND=dp) :: Basis(MAX_NODES)
-    REAL(KIND=dp) :: dBasisdx(MAX_NODES,3),SqrtElementMetric
-
-    REAL(KIND=dp) :: SqrtMetric,Metric(3,3),Symb(3,3,3),dSymb(3,3,3,3)
-!------------------------------------------------------------------------------
-
-    ALLOCATE( Visited(CurrentModel % NumberOfNodes) )
-    Visited = 0
-
-    Nodes % x => nx
-    Nodes % y => ny
-    Nodes % z => nz
-
-    Bx = 0.0D0
-    By = 0.0D0
-    Bz = 0.0D0
-!------------------------------------------------------------------------------
-!   Go trough model elements, we will compute on average of elementwise
-!   grads to nodes of the model
-!------------------------------------------------------------------------------
-    DO t=1,CurrentModel % NumberOfBulkElements
-!------------------------------------------------------------------------------
-      Element => CurrentModel % Elements(t)
-      n = Element % TYPE % NumberOfNodes
-      NodeIndexes => Element % NodeIndexes
-
-      IF ( ANY(Reorder(NodeIndexes) == 0) ) CYCLE
-
-      Nodes % x(1:n) = CurrentModel % Nodes % x( NodeIndexes )
-      Nodes % y(1:n) = CurrentModel % Nodes % y( NodeIndexes )
-      Nodes % z(1:n) = CurrentModel % Nodes % z( NodeIndexes )
-!------------------------------------------------------------------------------
-!     Trough element nodes
-!------------------------------------------------------------------------------
-      DO p=1,n
-        q = Reorder( NodeIndexes(p) )
-        IF ( q > 0 ) THEN
-          u = Element % TYPE % NodeU(p)
-          v = Element % TYPE % NodeV(p)
-
-          IF ( Element % TYPE % DIMENSION == 3 ) THEN
-            w = Element % TYPE % NodeW(p)
-          ELSE
-            w = 0.0D0
-          END IF
-!------------------------------------------------------------------------------
-!       Get coordinate system info
-!------------------------------------------------------------------------------
-!         IF ( CurrentCoordinateSystem() /= Cartesian ) THEN
-!           x = Nodes % x(p)
-!           y = Nodes % y(p)
-!           z = Nodes % z(p)
-!           CALL CoordinateSystemInfo( Metric,SqrtMetric,Symb,dSymb,x,y,z )
-!           CALL InvertMatrix( Metric,3 )
-!         END IF
-!------------------------------------------------------------------------------
-!       Get element basis functions, basis function derivatives, etc,
-!       and compute partial derivatives of the vector A with respect
-!       to global coordinates.
-!------------------------------------------------------------------------------
-          stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-                    Basis,dBasisdx )
-
-          Bx(q) = Bx(q) + SUM( dBasisdx(1:n,1)*Ax(Reorder(NodeIndexes)) )
-          By(q) = By(q) + SUM( dBasisdx(1:n,2)*Ax(Reorder(NodeIndexes)) )
-          Bz(q) = Bz(q) + SUM( dBasisdx(1:n,3)*Ax(Reorder(NodeIndexes)) )
-  
-          Visited(q) = Visited(q) + 1
-        END IF
-      END DO
-!------------------------------------------------------------------------------
-    END DO
-!------------------------------------------------------------------------------
-!   Finally, compute average of the the derivatives at nodes
-!------------------------------------------------------------------------------
-    DO i=1,CurrentModel % NumberOfNodes
-      IF ( Visited(i) > 1 ) THEN
-        Bx(i) = Bx(i) / Visited(i)
-        By(i) = By(i) / Visited(i)
-        Bz(i) = Bz(i) / Visited(i)
-      END IF
-    END DO
-
-    DEALLOCATE( Visited )
-!------------------------------------------------------------------------------
-  END SUBROUTINE Grad
-!------------------------------------------------------------------------------
-
-
-!------------------------------------------------------------------------------
-  FUNCTION LorentzForce( Element,Nodes,u,v,w ) RESULT(L)
+  FUNCTION LorentzForce( Element,Nodes,u,v,w,n ) RESULT(L)
 !------------------------------------------------------------------------------
     TYPE(Element_t), POINTER :: Element
     TYPE(Nodes_t) :: Nodes
+    INTEGER :: n
     REAL(KIND=dp) :: L(3),u,v,w,x,y,z
 !------------------------------------------------------------------------------
     TYPE(Variable_t), POINTER :: Mx,My,Mz,MFx,MFy,MFz
-    INTEGER :: i,j,k,n,bfId
+    INTEGER :: i,j,k,bfId
     LOGICAL :: stat,GotIt
     INTEGER, POINTER :: NodeIndexes(:)
 
     TYPE(ValueList_t), POINTER :: Material
 
     REAL(KIND=dp) :: B(3),dHdx(3,3)
-    REAL(KIND=dp) :: dBasisdx(MAX_NODES,3),SqrtElementMetric
-    REAL(KIND=dp) :: Basis(MAX_NODES),Permeability(MAX_NODES),mu
+    REAL(KIND=dp) :: dBasisdx(n,3),SqrtElementMetric
+    REAL(KIND=dp) :: Basis(n),Permeability(n),mu
 
-    REAL(KIND=dp) :: ExtMx(MAX_NODES),ExtMy(MAX_NODES),ExtMz(MAX_NODES)
+    REAL(KIND=dp) :: ExtMx(n),ExtMy(n),ExtMz(n)
 
     REAL(KIND=dp) :: SqrtMetric,Metric(3,3),Symb(3,3,3),dSymb(3,3,3,3)
 !------------------------------------------------------------------------------
@@ -402,7 +84,6 @@ CONTAINS
     IF ( .NOT.ListGetLogical( CurrentModel % BodyForces( &
           bfId ) % Values, 'Lorentz Force' , GotIt ) ) RETURN
 !------------------------------------------------------------------------------
-    n = Element % TYPE % NumberOfNodes
     NodeIndexes => Element % NodeIndexes
 
     Mx => VariableGet( CurrentModel % Variables, 'Magnetic Field 1' )
@@ -590,25 +271,26 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  FUNCTION JouleHeat( Element,Nodes,u,v,w ) RESULT(JouleH)
+  FUNCTION JouleHeat( Element,Nodes,u,v,w,n ) RESULT(JouleH)
 !------------------------------------------------------------------------------
     TYPE(Element_t) :: Element
     TYPE(Nodes_t) :: Nodes
+    INTEGER :: n
     REAL(KIND=dp) :: JouleH,u,v,w,x,y,z
 !------------------------------------------------------------------------------
     TYPE(Variable_t), POINTER :: Mx,My,Mz,MFx,MFy,MFz
-    INTEGER :: i,j,k,n,bfId
+    INTEGER :: i,j,k,bfId
     LOGICAL :: stat,GotIt
     INTEGER, POINTER :: NodeIndexes(:)
 
     TYPE(ValueList_t), POINTER :: Material
 
     REAL(KIND=dp) :: B(3),dHdx(3,3)
-    REAL(KIND=dp) :: dBasisdx(MAX_NODES,3),SqrtElementMetric
-    REAL(KIND=dp) :: Basis(MAX_NODES),Permeability(MAX_NODES), &
-             ElectricConductivity(MAX_NODES)
+    REAL(KIND=dp) :: dBasisdx(n,3),SqrtElementMetric
+    REAL(KIND=dp) :: Basis(n),Permeability(n), &
+             ElectricConductivity(n)
 
-    REAL(KIND=dp) :: ExtMx(MAX_NODES),ExtMy(MAX_NODES),ExtMz(MAX_NODES)
+    REAL(KIND=dp) :: ExtMx(n),ExtMy(n),ExtMz(n)
 
     REAL(KIND=dp) :: mu,SqrtMetric,Metric(3,3),Symb(3,3,3),dSymb(3,3,3,3)
 !------------------------------------------------------------------------------
@@ -622,7 +304,6 @@ CONTAINS
     IF ( .NOT.ListGetLogical( CurrentModel % BodyForces( &
           bfId ) % Values, 'Joule Heat' , GotIt ) ) RETURN
 !------------------------------------------------------------------------------
-    n = Element % TYPE % NumberOfNodes
     NodeIndexes => Element % NodeIndexes
 
     Mx => VariableGet( CurrentModel % Variables, 'Magnetic Field 1' )
@@ -794,15 +475,15 @@ CONTAINS
 
     LOGICAL :: Stat
     INTEGER :: i,j,k,l,m,n,p,q,t
-    REAL(KIND=dp), TARGET :: nx(MAX_NODES),ny(MAX_NODES),nz(MAX_NODES)
     REAL(KIND=dp) :: x,y,z,u,v,w,s,A(3),B(3),dx(3,3)
 
     INTEGER :: Perm(3,3,3)
     INTEGER, POINTER :: NodeIndexes(:),Visited(:)
 
-    REAL(KIND=dp) :: Basis(MAX_NODES),aaz(MAX_NODES)
-    REAL(KIND=dp) :: dBasisdx(MAX_NODES,3),SqrtElementMetric
+    REAL(KIND=dp), ALLOCATABLE :: dBasisdx(:,:)
+    REAL(KIND=dp), ALLOCATABLE :: Basis(:),aaz(:)
 
+    REAL(KIND=dp) :: SqrtElementMetric
     REAL(KIND=dp) :: SqrtMetric,Metric(3,3),Symb(3,3,3),dSymb(3,3,3,3)
 !------------------------------------------------------------------------------
 
@@ -817,9 +498,9 @@ CONTAINS
     Perm(3,1,2) = -1
     Perm(3,2,1) =  1
 
-    Nodes % x => nx
-    Nodes % y => ny
-    Nodes % z => nz
+    n = CurrentModel % Mesh % MaxElementNodes
+    ALLOCATE( dBasisdx(n,3), Basis(n), aaz(n) )
+    ALLOCATE( Nodes % x(n), Nodes % y(n), Nodes % z(n) )
 
     Bx = 0.0D0
     By = 0.0D0
@@ -936,7 +617,7 @@ CONTAINS
       END IF
     END DO
 
-    DEALLOCATE( Visited )
+    DEALLOCATE( Visited, Nodes % x, Nodes % y, Nodes % z, Basis, dBasisdx, aaz )
 !------------------------------------------------------------------------------
   END SUBROUTINE Curl
 !------------------------------------------------------------------------------
@@ -959,14 +640,17 @@ SUBROUTINE AxiSCurl( Ar,Az,Ap,Br,Bz,Bp,Reorder )
 
   REAL(KIND=dp) :: u,v,w,r
 
-  REAL(KIND=dp) :: Basis(MAX_NODES)
-  REAL(KIND=dp) :: dBasisdx(MAX_NODES,3),SqrtElementMetric
+  REAL(KIND=dp) :: SqrtElementMetric
+  REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:)
   
 !------------------------------------------
 
   ALLOCATE( Visited(CurrentModel % NumberOfNodes) )
 
-  ALLOCATE(Nodes % x(MAX_NODES),Nodes % y(MAX_NODES),Nodes % z(MAX_NODES))
+ 
+  n = CurrentModel % Mesh % MaxElementDOFs
+  ALLOCATE( Basis(n), dBasisdx(n,3) )
+  ALLOCATE(Nodes % x(n),Nodes % y(n),Nodes % z(n))
 
   Visited = 0
 
@@ -1030,7 +714,7 @@ SUBROUTINE AxiSCurl( Ar,Az,Ap,Br,Bz,Bp,Reorder )
      END IF
   END DO
 
-  DEALLOCATE( Visited )
+  DEALLOCATE( Visited, Basis, dBasisdx )
   DEALLOCATE( Nodes % x, Nodes % y, Nodes % z )
 
 !------------------------------------------------------------------------------
@@ -1051,14 +735,14 @@ SUBROUTINE WhitneyCurl( Ae,Bx,By,Bz,Reorder,nedges )
 
     LOGICAL :: Stat
     INTEGER :: i,j,k,l,m,n,p,q,t
-    REAL(KIND=dp), TARGET :: nx(MAX_NODES),ny(MAX_NODES),nz(MAX_NODES)
     REAL(KIND=dp) :: x,y,z,u,v,w,s,A(3),B(3),dx(3,3)
 
     INTEGER, POINTER :: NodeIndexes(:),Visited(:)
 
-    REAL(KIND=dp) :: Basis(MAX_NODES),aaz(MAX_NODES)
-    REAL(KIND=dp) :: dBasisdx(MAX_NODES,3),SqrtElementMetric
-    REAL(KIND=dp) :: WhitneyBasis(nedges,3)
+    REAL(KIND=dp), ALLOCATABLE :: dBasisdx(:,:)
+    REAL(KIND=dp), ALLOCATABLE :: Basis(:),aaz(:)
+
+    REAL(KIND=dp) :: WhitneyBasis(nedges,3), SqrtElementMetric
     REAL(KIND=dp) :: dWhitneyBasisdx(nedges,3,3)
 
     REAL(KIND=dp) :: SqrtMetric,Metric(3,3),Symb(3,3,3),dSymb(3,3,3,3)
@@ -1067,9 +751,9 @@ SUBROUTINE WhitneyCurl( Ae,Bx,By,Bz,Reorder,nedges )
     ALLOCATE( Visited(CurrentModel % NumberOfNodes) )
     Visited = 0
 
-    Nodes % x => nx
-    Nodes % y => ny
-    Nodes % z => nz
+    n = CurrentModel % Mesh % MaxElementNodes
+    ALLOCATE( Basis(n), dBasisdx(n,3), aaz(n) )
+    ALLOCATE( Nodes % x(n), Nodes % y(n), Nodes % z(n) )
 
     Bx = 0.0D0
     By = 0.0D0
@@ -1149,7 +833,7 @@ SUBROUTINE WhitneyCurl( Ae,Bx,By,Bz,Reorder,nedges )
       END IF
     END DO
 
-    DEALLOCATE( Visited )
+    DEALLOCATE( Visited, Basis, dBasisdx, nodes % x, Nodes % y, Nodes % z, aaz )
 !------------------------------------------------------------------------------
   END SUBROUTINE WhitneyCurl
 !------------------------------------------------------------------------------
@@ -1171,17 +855,18 @@ SUBROUTINE Divergence(dive,Ar,Az,Aphi,Reorder)
 
   INTEGER, POINTER :: NodeIndexes(:),Visited(:)
   
-  REAL(KIND=dp) :: Basis(MAX_NODES)
-  REAL(KIND=dp) :: dBasisdx(MAX_NODES,3),SqrtElementMetric
+  REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:)
 
   INTEGER :: t,n,p,i,q
-  REAL(KIND=dp) :: u,v,w,r
+  REAL(KIND=dp) :: u,v,w,r, SqrtElementMetric
 
 !--------------------------------------------------------------
  
   ALLOCATE( Visited(CurrentModel % NumberOfNodes) )
 
-  ALLOCATE(Nodes % x(MAX_NODES),Nodes % y(MAX_NODES),Nodes % z(MAX_NODES))
+  n = CurrentModel % Mesh % MaxElementNodes
+  ALLOCATE( Basis(n), dBasisdx(n,3) )
+  ALLOCATE(Nodes % x(n),Nodes % y(n),Nodes % z(n))
 
   Visited = 0
 
@@ -1241,7 +926,7 @@ DO i=1,CurrentModel % NumberOfNodes
 END DO
 
 DEALLOCATE( Visited )
-DEALLOCATE(Nodes%x,nodes%y,nodes%z)
+DEALLOCATE(Nodes%x,nodes%y,nodes%z, Basis, dBasisdx )
 
 END SUBROUTINE Divergence
 

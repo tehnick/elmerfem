@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StatElecSolve.src,v $
+! * Revision 1.11  2006/01/31 07:47:38  apursula
+! * Still fixing NULLIFY and Pwrk
+! *
 ! * Revision 1.10  2006/01/31 07:05:48  apursula
 ! * Added NULLIFY(Pwrk) inside GeneralElectricFlux
 ! *
@@ -148,7 +151,7 @@
      LOGICAL :: PiezoMaterial
 
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, CapMatrixFile, Name
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.10 2006/01/31 07:05:48 apursula Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.11 2006/01/31 07:47:38 apursula Exp $"
 
 
      SAVE LocalStiffMatrix, Load, LocalForce, Pwrk, PotDiff, &
@@ -1540,16 +1543,14 @@
      REAL(KIND=dp), POINTER :: Hwrk(:,:,:)
 
      REAL(KIND=dp) :: SqrtMetric, Metric(3,3), Symb(3,3,3), dSymb(3,3,3,3)
+     REAL(KIND=dp) :: Grad(3,3), Normal(3), EdgeLength
+     REAL(KIND=dp) :: u, v, w, s, detJ
+     REAL(KIND=dp) :: Residual, ResidualNorm, Permittivity
 
-     REAL(KIND=dp) :: NodalPermittivity(MAX_NODES), Permittivity
-
-     REAL(KIND=dp) :: Grad(3,3), Normal(3), EdgeLength, &
-          x(MAX_NODES), y(MAX_NODES), z(MAX_NODES)
-
-     REAL(KIND=dp) :: u, v, w, s, detJ, EdgeBasis(MAX_NODES), Basis(MAX_NODES), &
-         dBasisdx(MAX_NODES,3), Potential(MAX_NODES)
-
-     REAL(KIND=dp) :: Residual, ResidualNorm, Flux(MAX_NODES)
+     REAL(KIND=dp), ALLOCATABLE :: EdgeBasis(:), Basis(:)
+     REAL(KIND=dp), ALLOCATABLE :: Flux(:)
+     REAL(KIND=dp), ALLOCATABLE :: x(:), y(:), z(:), dBasisdx(:,:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalPermittivity(:), Potential(:)
 
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
 
@@ -1610,6 +1611,9 @@
      Nodes % x = Mesh % Nodes % x(Element % NodeIndexes)
      Nodes % y = Mesh % Nodes % y(Element % NodeIndexes)
      Nodes % z = Mesh % Nodes % z(Element % NodeIndexes)
+
+     ALLOCATE( EdgeBasis(En), Basis(Pn), dBasisdx(Pn,3), Flux(En), &
+      x(En), y(En), z(En), NodalPermittivity(En), Potential(Pn) )
 
      DO l = 1,En
        DO k = 1,Pn
@@ -1757,6 +1761,9 @@
 
      DEALLOCATE( Nodes % x, Nodes % y, Nodes % z)
      DEALLOCATE( EdgeNodes % x, EdgeNodes % y, EdgeNodes % z)
+
+     DEALLOCATE( EdgeBasis, Basis, dBasisdx, Flux, x, y, z, &
+             NodalPermittivity, Potential )
 !------------------------------------------------------------------------------
   END FUNCTION ElectricBoundaryResidual
 !------------------------------------------------------------------------------
@@ -1781,17 +1788,18 @@
 
      INTEGER :: i,j,k,l,n,t,DIM,En,Pn
      LOGICAL :: stat, Found
+
      REAL(KIND=dp), POINTER :: Hwrk(:,:,:)
 
      REAL(KIND=dp) :: SqrtMetric, Metric(3,3), Symb(3,3,3), dSymb(3,3,3,3)
+     REAL(KIND=dp) :: Permittivity
+     REAL(KIND=dp) :: u, v, w, s, detJ
+     REAL(KIND=dp) :: Grad(3,3), Normal(3), EdgeLength, Jump
 
-     REAL(KIND=dp) :: NodalPermittivity(MAX_NODES), Permittivity
-
-     REAL(KIND=dp) :: Grad(3,3), Normal(3), EdgeLength, Jump, &
-                x(MAX_NODES),y(MAX_NODES),z(MAX_NODES)
-
-     REAL(KIND=dp) :: u, v, w, s, detJ, EdgeBasis(MAX_NODES), &
-          Basis(MAX_NODES), dBasisdx(MAX_NODES,3), Potential(MAX_NODES)
+     REAL(KIND=dp), ALLOCATABLE :: NodalPermittivity(:)
+     REAL(KIND=dp), ALLOCATABLE :: x(:),y(:),z(:)
+     REAL(KIND=dp), ALLOCATABLE :: EdgeBasis(:)
+     REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:), Potential(:)
 
      REAL(KIND=dp) :: Residual, ResidualNorm
 
@@ -1841,6 +1849,9 @@
      EdgeNodes % x = Mesh % Nodes % x(Edge % NodeIndexes)
      EdgeNodes % y = Mesh % Nodes % y(Edge % NodeIndexes)
      EdgeNodes % z = Mesh % Nodes % z(Edge % NodeIndexes)
+
+     ALLOCATE( x(En), y(En), z(En), NodalPermittivity(En), EdgeBasis(En), &
+             Basis(n), dBasisdx(n,3), Potential(n) )
 
 !    Integrate square of jump over edge:
 !    -----------------------------------
@@ -1968,6 +1979,9 @@
 
      DEALLOCATE( Nodes % x, Nodes % y, Nodes % z)
      DEALLOCATE( EdgeNodes % x, EdgeNodes % y, EdgeNodes % z)
+
+     DEALLOCATE( x, y, z, NodalPermittivity, EdgeBasis, Basis, &
+                dBasisdx, Potential )
 !------------------------------------------------------------------------------
   END FUNCTION ElectricEdgeResidual
 !------------------------------------------------------------------------------
@@ -1991,24 +2005,21 @@
 
      TYPE(Nodes_t) :: Nodes
 
-     INTEGER :: i,j,k,l,n,t,DIM
-     REAL(KIND=dp), TARGET :: x(MAX_NODES), y(MAX_NODES), z(MAX_NODES)
-
      LOGICAL :: stat, Found
+     INTEGER :: i,j,k,l,n,t,DIM
 
      REAL(KIND=dp), POINTER :: Hwrk(:,:,:)
 
      REAL(KIND=dp) :: SqrtMetric, Metric(3,3), Symb(3,3,3), dSymb(3,3,3,3)
-
-     REAL(KIND=dp) :: Permittivity, NodalPermittivity(MAX_NODES)
-
-     REAL(KIND=dp) :: u, v, w, s, detJ, Basis(MAX_NODES), &
-                dBasisdx(MAX_NODES,3), ddBasisddx(MAX_NODES,3,3)
-
+     REAL(KIND=dp) :: Permittivity
+     REAL(KIND=dp) :: u, v, w, s, detJ
      REAL(KIND=dp) :: Source, Residual, ResidualNorm, Area
 
-     REAL(KIND=dp) :: NodalSource(MAX_NODES), Potential(MAX_NODES), &
-                      PrevPot(MAX_NODES)
+     REAL(KIND=dp), ALLOCATABLE :: NodalPermittivity(:)
+     REAL(KIND=dp), ALLOCATABLE :: PrevPot(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalSource(:), Potential(:)
+     REAL(KIND=dp), ALLOCATABLE :: Basis(:)
+     REAL(KIND=dp), ALLOCATABLE :: dBasisdx(:,:), ddBasisddx(:,:,:)
 
      TYPE( ValueList_t ), POINTER :: Material
 
@@ -2050,9 +2061,9 @@
 !    ---------------------
      n = Element % TYPE % NumberOfNodes
 
-     Nodes % x => x(1:n)
-     Nodes % y => y(1:n)
-     Nodes % z => z(1:n)
+     ALLOCATE( Nodes % x(n), Nodes % y(n), Nodes % z(n), &
+       NodalPermittivity(n), Basis(n), dBasisdx(n,3),    &
+       ddBasisddx(n,3,3), PrevPot(n), NodalSource(n), Potential(n) )
 
      Nodes % x = Mesh % Nodes % x(Element % NodeIndexes)
      Nodes % y = Mesh % Nodes % y(Element % NodeIndexes)
@@ -2194,6 +2205,9 @@
 
 !    Fnorm = Element % hk**2 * Fnorm
      Indicator = Element % hK**2 * ResidualNorm
+
+     DEALLOCATE( Nodes % x, Nodes % y, Nodes % z, NodalPermittivity, &
+        Basis, dBasisdx, ddBasisddx, PrevPot, NodalSource, Potential )
 !------------------------------------------------------------------------------
   END FUNCTION ElectricInsideResidual
 !------------------------------------------------------------------------------

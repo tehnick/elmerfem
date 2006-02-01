@@ -39,7 +39,11 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Log: $
+! * $Log: MagneticSolve.src,v $
+! * Revision 1.9  2006/01/10 08:51:24  apursula
+! * Updated header information (GPL).
+! * Started log.
+! *
 ! *
 ! *****************************************************************************/
 
@@ -119,7 +123,7 @@
 
 !------------------------------------------------------------------------------
      CHARACTER(LEN=MAX_NAME_LEN) :: MessageL
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: MagneticSolve.src,v 1.8 2005/11/17 12:21:55 apursula Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: MagneticSolve.src,v 1.9 2006/01/10 08:51:24 apursula Exp $"
 
      INTEGER :: NumberOfBoundaryNodes
      INTEGER, POINTER :: BoundaryReorder(:)
@@ -830,7 +834,8 @@
 
      ALLOCATE( Visited(Model % NumberOfNodes) )
 
-     ALLOCATE(Nodes % x(MAX_NODES),Nodes % y(MAX_NODES),Nodes % z(MAX_NODES))
+     n = CurrentModel % Mesh % MaxElementNodes
+     ALLOCATE(Nodes % x(n),Nodes % y(n),Nodes % z(n))
 
      Visited = 0
 
@@ -865,7 +870,7 @@
 ! Call LorentzForce from here (and zero B_e, B_ac for high-f part)
 ! For r < 1.0d-10, avoid the 1/r term in ComputeLorentz (if CylindricSymmetric)
 ! by using SI_UNITS
-              Lorentz = LorentzForce( Element,Nodes,u,v,w )
+              Lorentz = LorentzForce( Element,Nodes,u,v,w,n )
               LrF1(q) = LrF1(q) + Lorentz(1)
               LrF2(q) = LrF2(q) + Lorentz(2)
               LrF3(q) = LrF3(q) + Lorentz(3)

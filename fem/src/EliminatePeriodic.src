@@ -38,7 +38,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: $
+! * $Id: EliminatePeriodic.src,v 1.5 2006/01/10 08:09:45 apursula Exp $
 ! ******************************************************************************
 
 !------------------------------------------------------------------------------
@@ -102,26 +102,25 @@ INTEGER FUNCTION EliminatePeriodic( Model, Solver, A, b, x, n, DOFs, Norm )
   INTEGER, POINTER :: NodeIndexes(:), Perm(:), PermSave(:)
   INTEGER :: RigidNodes, BoundaryNodes, NumberOfValues
   INTEGER :: NumberOfRows, RowsInUnityBlock, NEigen
-  INTEGER :: istat, i, j, k, l, m, t, PeriodicNodes, DOF, Dirichlet,R(10000,2)
+  INTEGER :: istat, i, j, k, l, m, t, IDC, PeriodicNodes, DOF, Dirichlet
   LOGICAL :: AllocationsDone = .FALSE.
-  INTEGER, POINTER :: PeriodicDOFs(:), DCount(:)
   CHARACTER(LEN=MAX_NAME_LEN) :: Name
+  INTEGER, POINTER :: PeriodicDOFs(:), DCount(:), R(:,:), TmpR(:,:)
 
-interface
-  INTEGER FUNCTION EliminateDirichlet( Model, Solver, A, b, x, n, DOFs, Norm )
-  USE Types
-  USE Lists
-  USE SolverUtils
-  USE CRSmatrix
-  USE GeneralUtils
-  TYPE(model_t)  :: Model
-  TYPE(solver_t) :: Solver
-  TYPE(matrix_t), POINTER :: A
-  INTEGER :: DOFs, n
-  REAL(KIND=dp) :: b(n), x(n), Norm
-  end function eliminatedirichlet
-
-end interface
+  INTERFACE
+    INTEGER FUNCTION EliminateDirichlet( Model, Solver, A, b, x, n, DOFs, Norm )
+       USE Types
+       USE Lists
+       USE SolverUtils
+       USE CRSmatrix
+       USE GeneralUtils
+       TYPE(model_t)  :: Model
+       TYPE(solver_t) :: Solver
+       TYPE(matrix_t), POINTER :: A
+       INTEGER :: DOFs, n
+       REAL(KIND=dp) :: b(n), x(n), Norm
+    END FUNCTION EliminateDirichlet
+  END INTERFACE
 !------------------------------------------------------------------------------
 
   TotTime = CPUtime()
@@ -136,7 +135,7 @@ end interface
      ALLOCATE( PeriodicDOFs(A % NumberOFRows), ColN( A % NumberOfRows ), &
                PeriodicProj(A % NumberOfRows) )
 
-     R = 0
+     ALLOCATE( R(1000, 2), STAT=istat )
      PeriodicDOFs  = 0
      PeriodicNodes = 0
      PeriodicProj = .FALSE.
@@ -173,6 +172,13 @@ end interface
 
                           IF ( Projector % Values(k) == 1.0d0  ) THEN
                              PeriodicNodes = PeriodicNodes + 1
+                             IF ( PeriodicNodes > SIZE(R,1) ) THEN
+                                TmpR => R
+                                ALLOCATE( R(2*PeriodicNodes,2) )
+                                R(1:SIZE(TmpR,1),:) = TmpR
+                                R(SIZE(TmpR,1)+1:,:) = 0
+                                DEALLOCATE( TmpR )
+                             END IF
                              R(PeriodicNodes,1) = l
                              R(PeriodicNodes,2) = m
                           ELSE if ( projector % values(k) /= 0.0d0 ) Then
@@ -191,6 +197,13 @@ end interface
                 l = DOFs * (l-1) + DOF
                 m = DOFs * (m-1) + DOF
                 PeriodicNodes = PeriodicNodes + 1
+                IF ( PeriodicNodes > SIZE(R,1) ) THEN
+                   TmpR => R
+                   ALLOCATE( R(2*PeriodicNodes,2) )
+                   R(1:SIZE(TmpR,1),:) = TmpR
+                   R(SIZE(TmpR,1)+1:,:) = 0
+                   DEALLOCATE( TmpR )
+                END IF
                 R(PeriodicNodes,1) = l
                 R(PeriodicNodes,2) = m
              END DO
@@ -203,9 +216,9 @@ end interface
          RETURN
       END IF
 
-     CALL PeriodicCnstr( R, PeriodicNodes, A % NumberOFRows, PeriodicDOFs, ColN, k )
+     CALL PeriodicCnstr( R, PeriodicNodes, A % NumberOFRows, PeriodicDOFs, ColN, IDC )
 
-     PeriodicNodes = k
+     PeriodicNodes = IDC
      NumberOFRows  = A % NumberOfRows - PeriodicNodes
 !------------------------------------------------------------------------------
 !  Form the projection matrix C ( NumberOfRows x A % NumberOfRows )
@@ -235,7 +248,7 @@ end interface
         C % Cols(t) = ColN(PeriodicDOFs(i))
      END DO
 
-     DEALLOCATE( PeriodicDOFs,  PeriodicProj )
+     DEALLOCATE( PeriodicDOFs,  PeriodicProj, R )
 
      C % Ordered = .FALSE.
      C % Diag = 0

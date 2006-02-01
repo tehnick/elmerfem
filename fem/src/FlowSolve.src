@@ -39,6 +39,10 @@
 ! ****************************************************************************/
 ! *
 ! * $Log: FlowSolve.src,v $
+! * Revision 1.7  2006/01/27 11:16:31  jpr
+! * Some smallish modifications & bug fixes in the FlowSolve internal free
+! * surface (steady/2D/Axi) solver.
+! *
 ! * Revision 1.6  2006/01/10 08:09:46  apursula
 ! * Updated header information (GPL).
 ! *
@@ -254,7 +258,7 @@
         END FUNCTION FlowInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.6 2006/01/10 08:09:46 apursula Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.7 2006/01/27 11:16:31 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -1492,7 +1496,7 @@ CONTAINS
 
 !------------------------------------------------------------------------------
   FUNCTION FlowBoundaryResidual( Model, Edge, Mesh, &
-             Quant, Perm, Gnorm ) RESULT( Indicator )
+        Quant, Perm, Gnorm ) RESULT( Indicator )
 !------------------------------------------------------------------------------
      USE Radiation
      USE ElementDescription
@@ -1511,27 +1515,19 @@ CONTAINS
      INTEGER :: i,j,k,n,l,t,bc,DIM,DOFs,Pn,En
      LOGICAL :: stat, GotIt, Compressible
 
+     REAL(KIND=dp) :: Grad(3,3), Grad1(3,3), Stress(3,3), Normal(3), ForceSolved(3), &
+                      EdgeLength,u, v, w, s, detJ
      REAL(KIND=dp) :: SqrtMetric, Metric(3,3), Symb(3,3,3), dSymb(3,3,3,3)
 
-     REAL(KIND=dp) :: Grad(3,3), Grad1(3,3), Stress(3,3), Normal(3), ForceSolved(3), &
-                      EdgeLength, x(MAX_NODES), y(MAX_NODES), z(MAX_NODES), &
-                      ExtPressure(MAX_NODES)
+     REAL(KIND=dp), ALLOCATABLE :: EdgeBasis(:), dEdgeBasisdx(:,:), Basis(:),dBasisdx(:,:)
+     REAL(KIND=dp), ALLOCATABLE ::  x(:), y(:), z(:), ExtPressure(:)
+     REAL(KIND=dp), ALLOCATABLE :: Temperature(:), Tension(:), SlipCoeff(:,:)
+     REAL(KIND=dp), ALLOCATABLE :: Velocity(:,:), Pressure(:), Force(:,:), NodalViscosity(:)
 
-     REAL(KIND=dp) :: u, v, w, s, detJ, EdgeBasis(MAX_NODES), &
-         dEdgeBasisdx(MAX_NODES,3), Basis(MAX_NODES),dBasisdx(MAX_NODES,3)
+     REAL(KIND=dp) :: Source, Residual(3), ResidualNorm, Area, Viscosity, Slip, Dir(3)
 
-     REAL(KIND=dp) :: Source, Residual(3), ResidualNorm, Area
-
-     REAL(KIND=dp) :: Velocity(3,MAX_NODES), Pressure(MAX_NODES), &
-       Force(3,MAX_NODES), NodalViscosity(MAX_NODES), Viscosity
-
-     REAL(KIND=dp) :: Slip, SlipCoeff(3,MAX_NODES), Dir(3)
-     REAL(KIND=dp) :: Temperature(MAX_NODES), Tension(MAX_NODES)
-
-     TYPE(Variable_t), POINTER :: TempSol
-
+     TYPE(Variable_t), POINTER  :: TempSol
      TYPE(ValueList_t), POINTER :: Material
-
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
 !------------------------------------------------------------------------------
 
@@ -1585,6 +1581,10 @@ CONTAINS
      Nodes % x = Mesh % Nodes % x(Element % NodeIndexes)
      Nodes % y = Mesh % Nodes % y(Element % NodeIndexes)
      Nodes % z = Mesh % Nodes % z(Element % NodeIndexes)
+
+     ALLOCATE( EdgeBasis(En), dEdgeBasisdx(En,3), Basis(Pn), dBasisdx(Pn,3), &
+      x(En), y(En), z(En), ExtPressure(En), Temperature(Pn), Tension(En),    &
+      SlipCoeff(3,En), Velocity(3,Pn), Pressure(Pn), Force(3,En), NodalViscosity(En) )
 
      DO l = 1,En
        DO k = 1,Pn
@@ -1852,6 +1852,10 @@ CONTAINS
 
      DEALLOCATE( Nodes % x, Nodes % y, Nodes % z)
      DEALLOCATE( EdgeNodes % x, EdgeNodes % y, EdgeNodes % z)
+
+     DEALLOCATE( EdgeBasis, dEdgeBasisdx, Basis, dBasisdx, x, y, z,   &
+      ExtPressure, Temperature, Tension,SlipCoeff, Velocity, Pressure, &
+      Force, NodalViscosity )
 !------------------------------------------------------------------------------
   END FUNCTION FlowBoundaryResidual
 !------------------------------------------------------------------------------
@@ -1877,20 +1881,15 @@ CONTAINS
      LOGICAL :: stat, GotIt
 
      REAL(KIND=dp) :: SqrtMetric, Metric(3,3), Symb(3,3,3), dSymb(3,3,3,3)
+     REAL(KIND=dp) :: Stress(3,3,2), Jump(3), Viscosity
 
-     REAL(KIND=dp) :: NodalViscosity(MAX_NODES), Viscosity
+     REAL(KIND=dp) :: Grad(3,3), Grad1(3,3), Normal(3)
 
-     REAL(KIND=dp) :: Stress(3,3,2), Jump(3)
+     REAL(KIND=dp), ALLOCATABLE :: NodalViscosity(:), x(:), y(:), z(:), &
+               EdgeBasis(:), Basis(:), dBasisdx(:,:)
+     REAL(KIND=dp), ALLOCATABLE :: Velocity(:,:), Pressure(:)
 
-     REAL(KIND=dp) :: Grad(3,3), Grad1(3,3), Normal(3), &
-                x(MAX_NODES), y(MAX_NODES), z(MAX_NODES)
-
-     REAL(KIND=dp) :: Velocity(3,MAX_NODES), Pressure(MAX_NODES)
-
-     REAL(KIND=dp) :: u, v, w, s, detJ, EdgeBasis(MAX_NODES), Basis(MAX_NODES), &
-              dBasisdx(MAX_NODES,3)
-
-     REAL(KIND=dp) :: Residual, ResidualNorm, EdgeLength
+     REAL(KIND=dp) :: Residual, ResidualNorm, EdgeLength, u, v, w, s, detJ
 
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
 !------------------------------------------------------------------------------
@@ -1930,6 +1929,9 @@ CONTAINS
      EdgeNodes % x = Mesh % Nodes % x(Edge % NodeIndexes)
      EdgeNodes % y = Mesh % Nodes % y(Edge % NodeIndexes)
      EdgeNodes % z = Mesh % Nodes % z(Edge % NodeIndexes)
+
+     ALLOCATE( NodalViscosity(En), x(En), y(En), z(En), EdgeBasis(En), &
+           Basis(n), dBasisdx(n,3), Velocity(3,n), Pressure(n) )
 
 !    Integrate square of jump over edge:
 !    ------------------------------------
@@ -2082,6 +2084,9 @@ CONTAINS
 
      DEALLOCATE( Nodes % x, Nodes % y, Nodes % z)
      DEALLOCATE( EdgeNodes % x, EdgeNodes % y, EdgeNodes % z)
+
+     DEALLOCATE( NodalViscosity, x, y, z, EdgeBasis, &
+           Basis, dBasisdx, Velocity, Pressure )
 !------------------------------------------------------------------------------
   END FUNCTION FlowEdgeResidual
 !------------------------------------------------------------------------------
@@ -2111,27 +2116,17 @@ CONTAINS
 
      TYPE( Variable_t ), POINTER :: Var
 
-     REAL(KIND=dp), TARGET :: x(MAX_NODES), y(MAX_NODES), z(MAX_NODES)
-
      REAL(KIND=dp) :: SqrtMetric, Metric(3,3), Symb(3,3,3), dSymb(3,3,3,3)
+     REAL(KIND=dp) :: Density, Viscosity,u, v, w, s, detJ
+     REAL(KIND=dp) :: Source, Residual(4), ResidualNorm, Area, ReferencePressure, dt
 
-     REAL(KIND=dp) :: Density, NodalDensity(MAX_NODES)
- 
-     REAL(KIND=dp) :: Viscosity, NodalViscosity(MAX_NODES)
-
-     REAL(KIND=dp) :: u, v, w, s, detJ, Basis(MAX_NODES), &
-        dBasisdx(MAX_NODES,3), ddBasisddx(MAX_NODES,3,3)
-
-     REAL(KIND=dp) :: Source, Residual(4), ResidualNorm, Area
-
-     REAL(KIND=dp) :: Velocity(3,MAX_NODES), Pressure(MAX_NODES)
-
-     REAL(KIND=dp) :: Temperature(MAX_NODES), NodalForce(4,MAX_NODES)
-
-     REAL(KIND=dp) :: HeatCapacity(MAX_NODES), ReferenceTemperature(MAX_NODES), &
-                      ReferencePressure, HeatExpansionCoeff(MAX_NODES)
-
-     REAL(KIND=dp) :: PrevVelo(3,MAX_NODES), PrevPres(MAX_NODES), dt
+     REAL(KIND=dp), ALLOCATABLE :: NodalViscosity(:), NodalDensity(:), &
+            Basis(:),  dBasisdx(:,:), ddBasisddx(:,:,:)
+     REAL(KIND=dp),ALLOCATABLE :: Velocity(:,:), Pressure(:)
+     REAL(KIND=dp),ALLOCATABLE :: PrevVelo(:,:), PrevPres(:)
+     REAL(KIND=dp),ALLOCATABLE :: Temperature(:), NodalForce(:,:)
+     REAL(KIND=dp),ALLOCATABLE :: HeatCapacity(:), ReferenceTemperature(:), &
+                      HeatExpansionCoeff(:)
 
      REAL(KIND=dp) :: SpecificHeatRatio, Grad(3,3), Stress(3,3), E
 
@@ -2168,13 +2163,16 @@ CONTAINS
 !    ---------------------
      n = Element % TYPE % NumberOfNodes
 
-     Nodes % x => x(1:n)
-     Nodes % y => y(1:n)
-     Nodes % z => z(1:n)
-
+     ALLOCATE( Nodes % x(n), Nodes % y(n), Nodes % z(n) )
      Nodes % x = Mesh % Nodes % x(Element % NodeIndexes)
      Nodes % y = Mesh % Nodes % y(Element % NodeIndexes)
      Nodes % z = Mesh % Nodes % z(Element % NodeIndexes)
+
+     ALLOCATE( NodalViscosity(n), NodalDensity(n), Basis(n), dBasisdx(n,3), &
+        ddBasisddx(n,3,3), Velocity(3,n), Pressure(n), PrevVelo(3,n),  &
+        PrevPres(n), Temperature(n), NodalForce(4,n), HeatCapacity(n), &
+        ReferenceTemperature(n), HeatExpansionCoeff(n) )
+
 !
 !    Material parameters: density, viscosity, etc.
 !    ----------------------------------------------
@@ -2600,6 +2598,11 @@ CONTAINS
 
 !    FNorm = Area * FNorm
      Indicator = ResidualNorm
+
+     DEALLOCATE( NodalViscosity, NodalDensity, Basis, dBasisdx,           &
+        ddBasisddx, Velocity, Pressure, PrevVelo, PrevPres, Temperature,   &
+        NodalForce, HeatCapacity, ReferenceTemperature, HeatExpansionCoeff,&
+        Nodes % x, Nodes % y, Nodes % z )
 !------------------------------------------------------------------------------
   END FUNCTION FlowInsideResidual
 !------------------------------------------------------------------------------

@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: ElasticSolve.src,v $
+! * Revision 1.7  2006/01/10 07:39:16  apursula
+! * Minor revision of the headers.
+! *
 ! * Revision 1.6  2006/01/09 14:11:33  apursula
 ! * Updated header information (GPL).
 ! * Started log.
@@ -147,7 +150,7 @@
 
 
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ElasticSolve.src,v 1.6 2006/01/09 14:11:33 apursula Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ElasticSolve.src,v 1.7 2006/01/10 07:39:16 apursula Exp $"
 
 
      INTERFACE
@@ -2303,35 +2306,42 @@
      LOGICAL :: stat, GotIt
 
      REAL(KIND=dp) :: SqrtMetric, Metric(3,3), Symb(3,3,3), dSymb(3,3,3,3)
-
-     REAL(KIND=dp) :: Normal(3), EdgeLength, x(4), y(4), z(4), ExtPressure(MAX_NODES)
-
-     REAL(KIND=dp) :: u, v, w, s, detJ, EdgeBasis(4), dEdgeBasisdx(4,3), &
-         Basis(MAX_NODES),dBasisdx(MAX_NODES,3), ddBasisddx(MAX_NODES,3,3)
-
+     REAL(KIND=dp) :: Normal(3), EdgeLength
+     REAL(KIND=dp) :: u, v, w, s, detJ
      REAL(KIND=dp) :: Residual(3), ResidualNorm, Area
-     REAL(KIND=dp) :: Force(3,MAX_NODES)
      REAL(KIND=dp) :: Dir(3)
 
-     REAL(KIND=dp) :: Displacement(3), NodalDisplacement(3,MAX_NODES)
-     REAL(KIND=dp) :: YoungsModulus, NodalYoungsModulus(MAX_NODES)
-     REAL(KIND=dp) :: PoissonRatio, NodalPoissonRatio(MAX_NODES)
-     REAL(KIND=dp) :: Density, NodalDensity(MAX_NODES)
-     REAL(KIND=dp) :: Temperature, NodalTemperature(MAX_NODES)
-     REAL(KIND=dp) :: Lame1, NodalLame1(MAX_NODES)
-     REAL(KIND=dp) :: Lame2, NodalLame2(MAX_NODES)
-     REAL(KIND=dp) :: Damping, NodalDamping(MAX_NODES)
-     REAL(KIND=dp) :: HeatExpansionCoeff, NodalHeatExpansionCoeff(MAX_NODES)
-     REAL(KIND=dp) :: ReferenceTemperature, NodalReferenceTemperature(MAX_NODES)
-     REAL(KIND=dp) :: Grad(3,3), DefG(3,3), Strain(3,3), Stress1(3,3), Stress2(3,3)
+     REAL(KIND=dp) :: Displacement(3)
+     REAL(KIND=dp) :: YoungsModulus
+     REAL(KIND=dp) :: PoissonRatio
+     REAL(KIND=dp) :: Density
+     REAL(KIND=dp) :: Temperature
+     REAL(KIND=dp) :: Lame1
+     REAL(KIND=dp) :: Lame2
+     REAL(KIND=dp) :: Damping
+     REAL(KIND=dp) :: HeatExpansionCoeff
+     REAL(KIND=dp) :: ReferenceTemperature
      REAL(KIND=dp) :: Identity(3,3), YoungsAverage
+     REAL(KIND=dp) :: Grad(3,3), DefG(3,3), Strain(3,3), Stress1(3,3), Stress2(3,3)
+
+     REAL(KIND=dp), ALLOCATABLE :: Basis(:),dBasisdx(:,:), ddBasisddx(:,:,:)
+     REAL(KIND=dp), ALLOCATABLE :: EdgeBasis(:), dEdgeBasisdx(:,:)
+     REAL(KIND=dp), ALLOCATABLE :: x(:), y(:), z(:), ExtPressure(:)
+     REAL(KIND=dp), ALLOCATABLE :: Force(:,:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalDisplacement(:,:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalYoungsModulus(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalDensity(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalTemperature(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalLame1(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalLame2(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalDamping(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalPoissonRatio(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalHeatExpansionCoeff(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalReferenceTemperature(:)
 
      LOGICAL :: PlaneStress
-
      INTEGER :: eq_id
-
      TYPE(ValueList_t), POINTER :: Material
-
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
 !------------------------------------------------------------------------------
 
@@ -2390,6 +2400,13 @@
      Nodes % x = Mesh % Nodes % x(Element % NodeIndexes)
      Nodes % y = Mesh % Nodes % y(Element % NodeIndexes)
      Nodes % z = Mesh % Nodes % z(Element % NodeIndexes)
+
+     ALLOCATE( x(En), y(En), z(En), EdgeBasis(En), dEdgeBasisdx(En,3),         &
+       Basis(Pn), dBasisdx(Pn,3), Force(3,En), ExtPressure(En),                &
+       NodalDisplacement(3,Pn), NodalYoungsModulus(En), Nodaldensity(En),      &
+       NodalTemperature(Pn), NodalLame1(En), NodalLame2(En), NodalDamping(Pn), &
+       NodalPoissonRatio(En), NodalHeatExpansionCOeff(En),                     &
+       NodalReferenceTemperature(En) )
 
      DO l = 1,En
        DO k = 1,Pn
@@ -2560,6 +2577,11 @@
      DEALLOCATE( Nodes % x, Nodes % y, Nodes % z)
      DEALLOCATE( EdgeNodes % x, EdgeNodes % y, EdgeNodes % z)
 
+     DEALLOCATE( x, y, z, EdgeBasis, dEdgeBasisdx, Basis, dBasisdx,  &
+      Force, ExtPressure, NodalDisplacement, NodalYoungsModulus,     &
+      Nodaldensity, NodalTemperature, NodalLame1, NodalLame2, NodalDamping, &
+      NodalPoissonRatio, NodalHeatExpansionCOeff, NodalReferenceTemperature )
+
 CONTAINS
 
 !------------------------------------------------------------------------------
@@ -2607,30 +2629,39 @@ CONTAINS
 
      REAL(KIND=dp) :: SqrtMetric, Metric(3,3), Symb(3,3,3), dSymb(3,3,3,3)
      REAL(KIND=dp) :: Stress(3,3,2), Jump(3), Identity(3,3)
-     REAL(KIND=dp) :: Normal(3), x(4), y(4), z(4)
-     REAL(KIND=dp) :: Displacement(3), NodalDisplacement(3,MAX_NODES)
-     REAL(KIND=dp) :: YoungsModulus, NodalYoungsModulus(MAX_NODES)
-     REAL(KIND=dp) :: PoissonRatio, NodalPoissonRatio(MAX_NODES)
-     REAL(KIND=dp) :: Density, NodalDensity(MAX_NODES)
-     REAL(KIND=dp) :: Temperature, NodalTemperature(MAX_NODES)
-     REAL(KIND=dp) :: Lame1, NodalLame1(MAX_NODES)
-     REAL(KIND=dp) :: Lame2, NodalLame2(MAX_NODES)
-     REAL(KIND=dp) :: Damping, NodalDamping(MAX_NODES)
-     REAL(KIND=dp) :: HeatExpansionCoeff, NodalHeatExpansionCoeff(MAX_NODES)
-     REAL(KIND=dp) :: ReferenceTemperature, NodalReferenceTemperature(MAX_NODES)
-     REAL(KIND=dp) :: Grad(3,3), DefG(3,3), Strain(3,3), Stress1(3,3), Stress2(3,3)
+     REAL(KIND=dp) :: Normal(3)
+     REAL(KIND=dp) :: Displacement(3)
+     REAL(KIND=dp) :: YoungsModulus
+     REAL(KIND=dp) :: PoissonRatio
+     REAL(KIND=dp) :: Density
+     REAL(KIND=dp) :: Temperature
+     REAL(KIND=dp) :: Lame1
+     REAL(KIND=dp) :: Lame2
+     REAL(KIND=dp) :: Damping
+     REAL(KIND=dp) :: HeatExpansionCoeff
+     REAL(KIND=dp) :: ReferenceTemperature
      REAL(KIND=dp) :: YoungsAverage
+     REAL(KIND=dp) :: u, v, w, s, detJ
+     REAL(KIND=dp) :: Residual, ResidualNorm, EdgeLength
+     REAL(KIND=dp) :: Grad(3,3), DefG(3,3), Strain(3,3), Stress1(3,3), Stress2(3,3)
 
      LOGICAL :: PlaneStress
-
      INTEGER :: eq_id
-
      TYPE(ValueList_t), POINTER :: Material
 
-     REAL(KIND=dp) :: u, v, w, s, detJ, EdgeBasis(4), Basis(MAX_NODES), &
-              dBasisdx(MAX_NODES,3), ddBasisddx(MAX_NODES,3,3)
-
-     REAL(KIND=dp) :: Residual, ResidualNorm, EdgeLength
+     REAL(KIND=dp), ALLOCATABLE :: dBasisdx(:,:), ddBasisddx(:,:,:)
+     REAL(KIND=dp), ALLOCATABLE :: EdgeBasis(:), Basis(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalDisplacement(:,:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalYoungsModulus(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalPoissonRatio(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalDensity(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalTemperature(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalLame1(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalLame2(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalDamping(:)
+     REAL(KIND=dp), ALLOCATABLE :: x(:), y(:), z(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalHeatExpansionCoeff(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalReferenceTemperature(:)
 
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
 !------------------------------------------------------------------------------
@@ -2669,6 +2700,12 @@ CONTAINS
      EdgeNodes % x = Mesh % Nodes % x(Edge % NodeIndexes)
      EdgeNodes % y = Mesh % Nodes % y(Edge % NodeIndexes)
      EdgeNodes % z = Mesh % Nodes % z(Edge % NodeIndexes)
+
+     ALLOCATE( Basis(n), EdgeBasis(En), dBasisdx(n,3), x(En), y(En), z(En),   &
+       NodalDisplacement(3,n), NodalYoungsModulus(En), NodalPoissonRatio(En), &
+       NodalDensity(en), NodalTemperature(n), NodalLame1(En), NodalLame2(En), &
+       NodalDamping(En), NodalHeatExpansionCoeff(En), NodalReferenceTemperature(En) )
+
 
 !    Integrate square of jump over edge:
 !    ------------------------------------
@@ -2819,6 +2856,11 @@ CONTAINS
      DEALLOCATE( Nodes % x, Nodes % y, Nodes % z)
      DEALLOCATE( EdgeNodes % x, EdgeNodes % y, EdgeNodes % z)
 
+     DEALLOCATE( Basis, EdgeBasis, dBasisdx, x, y, z,   &
+       NodalDisplacement, NodalYoungsModulus, NodalPoissonRatio,  &
+       NodalDensity, NodalTemperature, NodalLame1, NodalLame2,    &
+       NodalDamping, NodalHeatExpansionCoeff, NodalReferenceTemperature )
+
 CONTAINS
 
 !------------------------------------------------------------------------------
@@ -2868,32 +2910,43 @@ CONTAINS
 
      TYPE( Variable_t ), POINTER :: Var
 
-     REAL(KIND=dp), TARGET :: x(MAX_NODES), y(MAX_NODES), z(MAX_NODES)
 
      REAL(KIND=dp) :: SqrtMetric, Metric(3,3), Symb(3,3,3), dSymb(3,3,3,3)
 
-     REAL(KIND=dp) :: Density, NodalDensity(MAX_NODES)
-     REAL(KIND=dp) :: YoungsModulus, NodalYoungsModulus(MAX_NODES)
-     REAL(KIND=dp) :: PoissonRatio, NodalPoissonRatio(MAX_NODES)
-     REAL(KIND=dp) :: Lame1, NodalLame1(MAX_NODES)
-     REAL(KIND=dp) :: Lame2, NodalLame2(MAX_NODES)
-     REAL(KIND=dp) :: Damping, NodalDamping(MAX_NODES)
-     REAL(KIND=dp) :: HeatExpansionCoeff, NodalHeatExpansionCoeff(MAX_NODES)
-     REAL(KIND=dp) :: ReferenceTemperature, NodalReferenceTemperature(MAX_NODES)
-     REAL(KIND=dp) :: NodalDisplacement(3,MAX_NODES), Displacement(3),Identity(3,3)
+     REAL(KIND=dp) :: Density
+     REAL(KIND=dp) :: YoungsModulus
+     REAL(KIND=dp) :: PoissonRatio
+     REAL(KIND=dp) :: Lame1
+     REAL(KIND=dp) :: Lame2
+     REAL(KIND=dp) :: Damping
+     REAL(KIND=dp) :: HeatExpansionCoeff
+     REAL(KIND=dp) :: ReferenceTemperature
+     REAL(KIND=dp) :: Displacement(3),Identity(3,3)
      REAL(KIND=dp) :: Grad(3,3), DefG(3,3), Strain(3,3), Stress1(3,3), Stress2(3,3)
-     REAL(KIND=dp) :: Stress(3,3,MAX_NODES), YoungsAverage, Energy
-     REAL(KIND=dp) :: Temperature, NodalTemperature(MAX_NODES), &
-              NodalForce(4,MAX_NODES), Veloc(3,MAX_NODES), Accel(3,MAX_NODES)
+     REAL(KIND=dp) :: YoungsAverage, Energy
+     REAL(KIND=dp) :: Temperature
+
+     REAL(KIND=dp), ALLOCATABLE :: NodalDensity(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalYoungsModulus(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalPoissonRatio(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalLame1(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalLame2(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalDamping(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalDisplacement(:,:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalHeatExpansionCoeff(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalReferenceTemperature(:)
+     REAL(KIND=dp), ALLOCATABLE :: Stress(:,:,:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalTemperature(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalForce(:,:), Veloc(:,:), Accel(:,:)
+     REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:)
 
      INTEGER :: eq_id
 
      LOGICAL :: PlaneStress, Transient
 
-     REAL(KIND=dp) :: u, v, w, s, detJ, Basis(MAX_NODES), &
-        dBasisdx(MAX_NODES,3), ddBasisddx(MAX_NODES,3,3)
-     REAL(KIND=dp) :: Residual(3), ResidualNorm, Area
+     REAL(KIND=dp) :: u, v, w, s, detJ
      REAL(KIND=dp), POINTER :: Gravity(:,:)
+     REAL(KIND=dp) :: Residual(3), ResidualNorm, Area
 
      TYPE(ValueList_t), POINTER :: Material
 
@@ -2926,9 +2979,11 @@ CONTAINS
 !    ---------------------
      n = Element % TYPE % NumberOfNodes
 
-     Nodes % x => x(1:n)
-     Nodes % y => y(1:n)
-     Nodes % z => z(1:n)
+     ALLOCATE( Nodes % x(n), Nodes % y(n), Nodes % z(n), NodalDensity(n), &
+      NodalYoungsModulus(n), NodalPoissonRatio(n), NodalLame1(n), NodalLame2(n), &
+      NodalDamping(n), NodalDisplacement(3,n), NodalHeatExpansionCoeff(n), &
+      NodalReferenceTemperature(n), Stress(3,3,n), NodalTemperature(n),    &
+      NodalForce(3,n), Veloc(3,n), Accel(3,n), Basis(n), dBasisdx(n,3) )
 
      Nodes % x = Mesh % Nodes % x(Element % NodeIndexes)
      Nodes % y = Mesh % Nodes % y(Element % NodeIndexes)
@@ -3038,7 +3093,7 @@ CONTAINS
         w = Element % TYPE % NodeW(i)
 
         stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
-            Basis, dBasisdx, ddBasisddx, .TRUE., .FALSE. )
+            Basis, dBasisdx )
 
         Lame1 = NodalLame1(i)
         Lame2 = NodalLame2(i)
@@ -3069,7 +3124,7 @@ CONTAINS
         w = IntegStuff % w(t)
 
         stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
-            Basis, dBasisdx, ddBasisddx, .TRUE. )
+            Basis, dBasisdx )
 
         IF ( CurrentCoordinateSystem() == Cartesian ) THEN
            s = IntegStuff % s(t) * detJ
@@ -3129,6 +3184,12 @@ CONTAINS
      YoungsAverage = YoungsAverage / Area
      Fnorm = Energy
      Indicator = Area * ResidualNorm / YoungsAverage
+
+     DEALLOCATE( Nodes % x, Nodes % y, Nodes % z, NodalDensity,      &
+      NodalYoungsModulus, NodalPoissonRatio, NodalLame1, NodalLame2, &
+      NodalDamping, NodalDisplacement, NodalHeatExpansionCoeff,      &
+      NodalReferenceTemperature, Stress, NodalTemperature,           &
+      NodalForce, Veloc, Accel, Basis, dBasisdx )
 
 CONTAINS
 

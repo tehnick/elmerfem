@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: ElementDescription.src,v $
+! * Revision 1.17  2006/01/10 07:33:39  apursula
+! * Updated header information (GPL).
+! *
 ! * Revision 1.16  2005/07/08 08:04:03  jpr
 ! * Cleaning some of the type definitions of Types.src.
 ! *
@@ -50,7 +53,8 @@
 ! * Reorganizing the parallel structs.
 ! *
 ! * Revision 1.13  2005/07/07 09:12:25  jpr
-! * Changed ElementInfo to have dBasisdx,ddBasisddx as OPTIONAL arguments. Changed all calls to ElementInfo accordingly.
+! * Changed ElementInfo to have dBasisdx,ddBasisddx as OPTIONAL arguments.
+! * Changed all calls to ElementInfo accordingly.
 ! *
 ! * Revision 1.12  2005/06/30 08:34:34  jpr
 ! * Reactivated ElementInfo argument BasisDegree that returns degree of
@@ -101,7 +105,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: ElementDescription.src,v 1.16 2005/07/08 08:04:03 jpr Exp $
+! * $Id: ElementDescription.src,v 1.17 2006/01/10 07:33:39 apursula Exp $
 ! ******************************************************************************/
 
 MODULE ElementDescription
@@ -120,7 +124,7 @@ MODULE ElementDescription
    INTEGER, PARAMETER,PRIVATE  :: MaxDeg  = 4, MaxDeg3 = MaxDeg**3, &
                            MaxDeg2 = MaxDeg**2
 
-   INTEGER, PARAMETER :: MAX_NODES = 2048
+   INTEGER, PARAMETER :: MAX_NODES = 256
 
    !
    ! Module global variables
@@ -1961,8 +1965,8 @@ END IF
 !    Local variables
 !------------------------------------------------------------------------------
 
-     REAL(KIND=dp) :: NodalBasis(MAX_NODES),dLBasisdx(MAX_NODES,3), & 
-                      BubbleValue, dBubbledx(3), t, s, ds, pTest, LtoGMap(3,3)
+     REAL(KIND=dp) :: BubbleValue, dBubbledx(3), t, s, ds, pTest, LtoGMap(3,3)
+     REAL(KIND=dp), ALLOCATABLE :: NodalBasis(:),dLBasisdx(:,:)
      LOGICAL :: invert, inverti, invertj, degrees
      INTEGER :: i,j,k,l,q,p,n,nb,dim,cdim,f, locali, localj, localMin, localPrev, &
           edge1, edge2, tmp(4), ii, jj, direction(4)
@@ -1984,6 +1988,7 @@ END IF
         RETURN
      END IF
 
+     ALLOCATE( NodalBasis(n), dLBasisdx(MAX(SIZE(Nodes % x),SIZE(Basis)),3) )
      NodalBasis(1:n) = 0.0d0
 !------------------------------------------------------------------------------
 !    Basis function derivatives with respect to local coordinates
@@ -2795,7 +2800,10 @@ END IF
 
      ! If degenerate element, dont even try it:
      !-----------------------------------------
-     IF ( .NOT.stat ) RETURN
+     IF ( .NOT.stat ) THEN
+        DEALLOCATE( NodalBasis, dLBasisdx )
+        RETURN
+     END IF
 
      ! Get global first derivatives:
      !------------------------------
@@ -2818,6 +2826,8 @@ END IF
          END DO
        END IF
      END IF
+
+     DEALLOCATE( NodalBasis, dLBasisdx )
 
 !------------------------------------------------------------------------------
 !    Generate bubble basis functions, if requested. Bubble basis is as follows:
@@ -4479,7 +4489,7 @@ END IF
     INTEGER :: LMat,RMat,n,k
 
     REAL(KIND=dp) :: x1,y1,z1,LDens,RDens
-    REAL(KIND=dp) :: nx(MAX_NODES),ny(MAX_NODES),nz(MAX_NODES)
+    REAL(KIND=dp), ALLOCATABLE :: nx(:),ny(:),nz(:)
 !------------------------------------------------------------------------------
 
     k = Boundary % BoundaryInfo % OutBody
@@ -4525,6 +4535,7 @@ END IF
     END IF
 
     n = Element % Type % NumberOfNodes
+    ALLOCATE( nx(n), ny(n), nz(n) )
     nx(1:n) = CurrentModel % Nodes % x(Element % NodeIndexes)
     ny(1:n) = CurrentModel % Nodes % y(Element % NodeIndexes)
     nz(1:n) = CurrentModel % Nodes % z(Element % NodeIndexes)
@@ -4565,6 +4576,7 @@ END IF
        Normal = -Normal
        IF ( PRESENT(turn) ) turn = .TRUE.
     END IF
+    DEALLOCATE( nx,ny,nz )
 !------------------------------------------------------------------------------
   END SUBROUTINE CheckNormalDirection
 !------------------------------------------------------------------------------

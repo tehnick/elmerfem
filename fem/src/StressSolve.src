@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StressSolve.src,v $
+! * Revision 1.11  2006/01/10 13:48:45  apursula
+! * Updated header information (GPL).
+! *
 ! * Revision 1.10  2005/09/01 15:46:07  vierinen
 ! * windows fixes
 ! *
@@ -299,7 +302,7 @@
         END FUNCTION StressInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.10 2005/09/01 15:46:07 vierinen Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.11 2006/01/10 13:48:45 apursula Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -317,6 +320,7 @@
 !    Get variables needed for solution
 !------------------------------------------------------------------------------
      IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
+     IF ( COUNT( Solver % Variable % Perm > 0 ) <= 0 ) RETURN
 
      SolverParams => GetSolverParams()
 
@@ -324,8 +328,6 @@
      DisplPerm      => StressSol % Perm
      STDOFs         =  StressSol % DOFs
      Displacement   => StressSol % Values
-
-     IF ( COUNT( DisplPerm > 0 ) <= 0 ) RETURN
 
      TempSol => VariableGet( Solver % Mesh % Variables, 'Temperature' )
      IF ( ASSOCIATED( TempSol) ) THEN
@@ -1816,21 +1818,27 @@ CONTAINS
 
      REAL(KIND=dp) :: SqrtMetric, Metric(3,3), Symb(3,3,3), dSymb(3,3,3,3)
 
-     REAL(KIND=dp) :: Normal(3), EdgeLength, x(4), y(4), z(4), ExtPressure(MAX_NODES)
+     REAL(KIND=dp) :: Normal(3), EdgeLength
 
-     REAL(KIND=dp) :: u, v, w, s, detJ, EdgeBasis(4), dEdgeBasisdx(4,3), &
-         Basis(MAX_NODES),dBasisdx(MAX_NODES,3)
+     REAL(KIND=dp) :: u, v, w, s, detJ
+
+     REAL(KIND=dp), ALLOCATABLE :: EdgeBasis(:), dEdgeBasisdx(:,:)
+     REAL(KIND=dp), ALLOCATABLE :: x(:), y(:), z(:), ExtPressure(:)
+     REAL(KIND=dp), ALLOCATABLE :: Basis(:),dBasisdx(:,:)
+     REAL(KIND=dp), ALLOCATABLE :: Force(:,:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalDisplacement(:,:)
+     REAL(KIND=dp), ALLOCATABLE :: ElasticModulus(:,:,:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalPoissonRatio(:)
+     REAL(KIND=dp), ALLOCATABLE :: LocalTemp(:), LocalHexp(:,:,:)
 
      REAL(KIND=dp) :: Residual(3), ResidualNorm, Area
-     REAL(KIND=dp) :: Force(3,MAX_NODES), ForceSolved(3)
-     REAL(KIND=dp) :: Dir(3)
+     REAL(KIND=dp) :: ForceSolved(3), Dir(3)
 
-     REAL(KIND=dp) :: Displacement(3), NodalDisplacement(3,MAX_NODES)
-     REAL(KIND=dp) :: YoungsModulus, ElasticModulus(6,6,MAX_NODES)
-     REAL(KIND=dp) :: PoissonRatio, NodalPoissonRatio(MAX_NODES)
+     REAL(KIND=dp) :: Displacement(3)
+     REAL(KIND=dp) :: YoungsModulus
+     REAL(KIND=dp) :: PoissonRatio
      REAL(KIND=dp) :: Grad(3,3), Strain(3,3), Stress1(3,3), Stress2(3,3)
-     REAL(KIND=dp) :: Identity(3,3), YoungsAverage, LocalTemp(MAX_NODES), &
-                      LocalHexp(3,3,MAX_NODES)
+     REAL(KIND=dp) :: Identity(3,3), YoungsAverage
 
      LOGICAL :: PlaneStress, Isotropic, CSymmetry = .FALSE.
 
@@ -1840,8 +1848,6 @@ CONTAINS
 
      SAVE Nodes, EdgeNodes
 !------------------------------------------------------------------------------
-     LocalTemp = 0
-     LocalHexp = 0
 
      ! Initialize:
      ! -----------
@@ -1877,6 +1883,14 @@ CONTAINS
      nd = GetElementNOFDOFs( Element )
      Pn = GetElementNOFNodes( Element )
      CALL GetElementNodes( Nodes, UElement=Element )
+
+     ALLOCATE( EdgeBasis(En), dEdgeBasisdx(En,3), x(En), y(En), z(En), &
+        ExtPressure(En), Basis(nd), dBasisdx(nd,3), Force(3,En), &
+        NodalDisplacement(3,nd), ElasticModulus(6,6,Pn), &
+        NodalPoissonRatio(Pn), LocalTemp(nd), LocalHexp(3,3,Pn) )
+
+     LocalTemp = 0
+     LocalHexp = 0
 
      DO l = 1,En
        DO k = 1,Pn
@@ -1997,6 +2011,9 @@ CONTAINS
         Indicator = EdgeLength * ResidualNorm / YoungsAverage
      END IF
 
+     DEALLOCATE( EdgeBasis, dEdgeBasisdx, x, y, z, ExtPressure, Basis, &
+      dBasisdx, Force, NodalDisplacement, ElasticModulus, NodalPoissonRatio, &
+      LocalTemp, LocalHexp )
 !------------------------------------------------------------------------------
    END FUNCTION StressBoundaryResidual
 !------------------------------------------------------------------------------
@@ -2024,19 +2041,25 @@ CONTAINS
 
      REAL(KIND=dp) :: SqrtMetric, Metric(3,3), Symb(3,3,3), dSymb(3,3,3,3)
      REAL(KIND=dp) :: Stressi(3,3,2), Jump(3), Identity(3,3)
-     REAL(KIND=dp) :: Normal(3), x(4), y(4), z(4)
-     REAL(KIND=dp) :: Displacement(3), NodalDisplacement(3,MAX_NODES)
-     REAL(KIND=dp) :: YoungsModulus, ElasticModulus(6,6,MAX_NODES)
-     REAL(KIND=dp) :: PoissonRatio, NodalPoissonRatio(MAX_NODES)
+     REAL(KIND=dp) :: Normal(3)
+     REAL(KIND=dp) :: Displacement(3)
+     REAL(KIND=dp) :: YoungsModulus
+     REAL(KIND=dp) :: PoissonRatio
+     REAL(KIND=dp) :: YoungsAverage
      REAL(KIND=dp) :: Grad(3,3), Strain(3,3), Stress1(3,3), Stress2(3,3)
-     REAL(KIND=dp) :: YoungsAverage, LocalTemp(MAX_NODES), LocalHexp(3,3,MAX_NODES)
+
+     REAL(KIND=dp), ALLOCATABLE :: LocalTemp(:), LocalHexp(:,:,:)
+     REAL(KIND=dp), ALLOCATABLE :: x(:), y(:), z(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalDisplacement(:,:)
+     REAL(KIND=dp), ALLOCATABLE :: ElasticModulus(:,:,:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalPoissonRatio(:)
+     REAL(KIND=dp), ALLOCATABLE :: EdgeBasis(:), Basis(:), dBasisdx(:,:)
 
      LOGICAL :: PlaneStress, Isotropic, CSymmetry
 
      TYPE(ValueList_t), POINTER :: Material, Equation
 
-     REAL(KIND=dp) :: u, v, w, s, detJ, EdgeBasis(MAX_NODES), Basis(MAX_NODES), &
-              dBasisdx(MAX_NODES,3)
+     REAL(KIND=dp) :: u, v, w, s, detJ
 
      REAL(KIND=dp) :: Residual, ResidualNorm, EdgeLength
 
@@ -2044,9 +2067,6 @@ CONTAINS
 
      SAVE Nodes, EdgeNodes
 !------------------------------------------------------------------------------
-
-     LocalTemp = 0
-     LocalHexp = 0
 
 !    Initialize:
 !    -----------
@@ -2067,6 +2087,21 @@ CONTAINS
 !    ---------------------------------------------
      En = GetElementNOFNodes( Edge )
      CALL GetElementNodes( EdgeNodes, Edge )
+
+     Element => Edge % BoundaryInfo % Left
+     pn = GetElementNOFNodes( Element )
+     nd = GetElementNOFDOFs( Element )
+
+     Element => Edge % BoundaryInfo % Right
+     nd = MAX( nd, GetElementNOFDOFs( Element ) )
+     pn = MAX( pn, GetElementNOFNodes( Element ) )
+
+     ALLOCATE( LocalTemp(nd), LocalHexp(3,3,Pn), x(En), y(En), z(En), &
+      NodalDisplacement(3,nd), ElasticModulus(6,6,pn), &
+      NodalPoissonRatio(pn), EdgeBasis(En), Basis(nd), dBasisdx(nd,3) )
+
+     LocalTemp = 0
+     LocalHexp = 0
 
 !    Integrate square of jump over edge:
 !    ------------------------------------
@@ -2168,6 +2203,8 @@ CONTAINS
      YoungsAverage = YoungsAverage / EdgeLength
      Indicator = EdgeLength * ResidualNorm / YoungsAverage
 
+     DEALLOCATE( LocalTemp, LocalHexp, x, y, z, NodalDisplacement, &
+       ElasticModulus, NodalPoissonRatio, EdgeBasis, Basis, dBasisdx )
 !------------------------------------------------------------------------------
    END FUNCTION StressEdgeResidual
 !------------------------------------------------------------------------------
@@ -2191,30 +2228,35 @@ CONTAINS
 
      TYPE(Nodes_t) :: Nodes
 
-     INTEGER :: i,j,k,l,m,n,nd,t,dim,DOFs,I1(6),I2(6), Indexes(MAX_NODES)
+     INTEGER :: i,j,k,l,m,n,nd,t,dim,DOFs,I1(6),I2(6)
+     INTEGER, ALLOCATABLE :: Indexes(:)
 
      LOGICAL :: stat, Found
 
      TYPE( Variable_t ), POINTER :: Var
 
-     REAL(KIND=dp), TARGET :: x(MAX_NODES), y(MAX_NODES), z(MAX_NODES)
-
      REAL(KIND=dp) :: SqrtMetric, Metric(3,3), Symb(3,3,3), dSymb(3,3,3,3)
 
-     REAL(KIND=dp) :: Density, NodalDensity(MAX_NODES)
-     REAL(KIND=dp) :: ElasticModulus(6,6,MAX_NODES)
-     REAL(KIND=dp) :: PoissonRatio, NodalPoissonRatio(MAX_NODES)
-     REAL(KIND=dp) :: Damping, NodalDamping(MAX_NODES)
-     REAL(KIND=dp) :: NodalDisplacement(3,MAX_NODES), Displacement(3),Identity(3,3)
+     REAL(KIND=dp) :: Density
+     REAL(KIND=dp) :: PoissonRatio
+     REAL(KIND=dp) :: Damping
+     REAL(KIND=dp) :: Displacement(3),Identity(3,3), YoungsAverage
      REAL(KIND=dp) :: Grad(3,3), Strain(3,3), Stress1(3,3), Stress2(3,3)
-     REAL(KIND=dp) :: Stressi(3,3,MAX_NODES), YoungsAverage, LocalTemp(MAX_NODES), &
-                Energy, NodalForce(4,MAX_NODES), Veloc(3,MAX_NODES), Accel(3,MAX_NODES), &
-                  LocalHexp(3,3,MAX_NODES), vec(1:MAX_NODES)
+     REAL(KIND=dp) :: Energy
+
+     REAL(KIND=dp), ALLOCATABLE :: ElasticModulus(:,:,:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalDensity(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalPoissonRatio(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalDamping(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalDisplacement(:,:)
+     REAL(KIND=dp), ALLOCATABLE :: LocalHexp(:,:,:), vec(:)
+     REAL(KIND=dp), ALLOCATABLE :: Stressi(:,:,:), LocalTemp(:)
+     REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalForce(:,:), Veloc(:,:), Accel(:,:)
 
      LOGICAL :: PlaneStress, CSymmetry, Isotropic, Transient
 
-     REAL(KIND=dp) :: u, v, w, s, detJ, Basis(MAX_NODES), &
-        dBasisdx(MAX_NODES,3)
+     REAL(KIND=dp) :: u, v, w, s, detJ
      REAL(KIND=dp) :: Residual(3), ResidualNorm, Area
 
      TYPE(ValueList_t), POINTER :: Material, BodyForce, Equation
@@ -2223,9 +2265,6 @@ CONTAINS
 
      SAVE Nodes
 !------------------------------------------------------------------------------
-     LocalTemp = 0
-     LocalHexp = 0
-
      ! Initialize:
      ! -----------
      Fnorm     = 0.0d0
@@ -2248,8 +2287,15 @@ CONTAINS
      ! ---------------------
      nd = GetElementNOFDOFs()
      n  = GetElementNOFNodes()
-
      CALL GetElementNodes( Nodes )
+
+     ALLOCATE( ElasticModulus(6,6,nd), NodalDensity(n), NodalPoissonRatio(n), &
+         NodalDamping(n), NodalDisplacement(3,nd), LocalHExp(3,3,n), vec(nd), &
+         Stressi(3,3,nd), LocalTemp(nd), Basis(nd), dBasisdx(3,nd), &
+         NodalForce(4,n), Veloc(3,nd), Accel(3,nd) )
+
+     LocalTemp = 0
+     LocalHexp = 0
 
      ! Logical parameters:
      ! -------------------
@@ -2415,6 +2461,11 @@ CONTAINS
      YoungsAverage = YoungsAverage / Area
      Fnorm = Energy
      Indicator = Area * ResidualNorm / YoungsAverage
+ 
+     DEALLOCATE( ElasticModulus, NodalDensity, NodalPoissonRatio,  &
+         NodalDamping, NodalDisplacement, LocalHExp, vec, Stressi, &
+         LocalTemp, Basis, dBasisdx, NodalForce, Veloc, Accel )
+
 
 CONTAINS
 

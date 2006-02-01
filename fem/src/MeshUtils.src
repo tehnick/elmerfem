@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.25  2006/01/20 18:56:31  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.23  2006/01/19 12:29:30  jpr
 ! * Default 'Periodic Translate' to normal direction of 1st element of boundary.
 ! *
@@ -107,7 +110,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.24 2006/01/19 14:12:02 jpr Exp $
+! * $Id: MeshUtils.src,v 1.25 2006/01/20 18:56:31 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -249,11 +252,9 @@ CONTAINS
 
     INTEGER :: eio_info
  
-    REAL(KIND=dp) :: Coord(3*MAX_NODES)
+    REAL(KIND=dp), POINTER :: cCoord(:), coord(:,:)
 
-    REAL(KIND=dp), POINTER :: cCoord(:)
-
-    INTEGER :: i,j,k,code,tag,body,TYPE,nodes(MAX_NODES),left,right,fields, &
+    INTEGER :: i,j,k,code,tag,body,type,nodes(MAX_NODES),left,right,fields, &
                        npart,parts(1024)
 
     INTEGER :: bodies,body_forces,body_equations,materials, &
@@ -414,15 +415,16 @@ CONTAINS
     DO i=1,Mesh % NumberOfBulkElements+1
        ! Clear indofs
        inDOFs = 0
-      CALL eio_get_mesh_element_conns( ElementTags(i),body,TYPE,inDOFs,nodes,eio_info )
+      CALL eio_get_mesh_element_conns( ElementTags(i), body, &
+                  Type, inDOFs, nodes, eio_info )
       IF ( eio_info /= 0 ) EXIT
 
       Element => Mesh % Elements(i)
       Element % ElementIndex = i
 
-      NULLIFY( Element % TYPE)
+      NULLIFY( Element % Type )
       NULLIFY( Element % BoundaryInfo )
-      Element % TYPE => GetElementType( TYPE )
+      Element % Type => GetElementType( Type )
 
       IF ( ASSOCIATED( Element % TYPE ) ) THEN
         Element % BodyId = body
@@ -510,6 +512,8 @@ CONTAINS
     DO i=1,Mesh % NumberOfBulkElements
        LocalEPerm( ElementTags(i) - MinEIndex + 1 ) = i
     END DO
+
+    ALLOCATE( Coord(3,Mesh % MaxElementNodes) )
 !------------------------------------------------------------------------------
 !            Mesh boundary elements
 !------------------------------------------------------------------------------
@@ -517,7 +521,7 @@ CONTAINS
       Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements  + 1
 
       CALL eio_get_mesh_bndry_element( tag, bndry, left, &
-                right, TYPE, nodes, coord, eio_info )
+            right, Type, nodes, coord, eio_info )
 
       IF ( eio_info /= 0 ) THEN
          Mesh % NumberOfBoundaryElements = &
@@ -652,7 +656,7 @@ CONTAINS
 
     IF ( Mesh % MaxElementDOFs <= 0 ) Mesh % MaxElementDOFs = Mesh % MaxElementNodes 
 
-    DEALLOCATE( LocalEPerm, ElementTags )
+    DEALLOCATE( LocalEPerm, ElementTags, Coord )
 
     NULLIFY( Model % FreeSurfaceNodes )
     NULLIFY( Model % BoundaryCurvatures )

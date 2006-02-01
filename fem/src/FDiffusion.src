@@ -49,7 +49,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: $
+! * $Id: FDiffusion.src,v 1.6 2006/01/10 08:09:46 apursula Exp $
 ! ******************************************************************************
 
 !------------------------------------------------------------------------------
@@ -756,19 +756,17 @@ CONTAINS
 
      REAL(KIND=dp) :: u,v,w
 
-     REAL(KIND=dp) :: Basis(MAX_NODES)
-     REAL(KIND=dp) :: dBasisdx(MAX_NODES,3),SqrtElementMetric
-
+     REAL(KIND=dp) :: SqrtElementMetric
+     REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:)
      REAL(KIND=dp), ALLOCATABLE :: Permeability(:), BacRe(:), BacIm(:)
 !------------------------------------------
 
      ALLOCATE( Visited(CurrentModel % NumberOfNodes) )
 
-     ALLOCATE(Nodes % x(MAX_NODES),Nodes % y(MAX_NODES),Nodes % z(MAX_NODES))
-
-     ALLOCATE( Permeability(MAX_NODES) )
-
-     ALLOCATE( BacRe(MAX_NODES), BacIm(MAX_NODES) )
+     n = CurrentModel % Mesh % MaxElementDOFs
+     ALLOCATE( Permeability(n), Basis(n), dBasisdx(n,3) )
+     ALLOCATE( BacRe(n), BacIm(n) )
+     ALLOCATE( Nodes % x(n),Nodes % y(n),Nodes % z(n) )
 
      Visited = 0
 
@@ -850,7 +848,7 @@ CONTAINS
 
       DEALLOCATE( Visited )
       DEALLOCATE( Nodes % x, Nodes % y, Nodes % z )
-      DEALLOCATE ( Permeability )
+      DEALLOCATE ( Permeability, Basis, dBasisdx )
 
     END SUBROUTINE LorentzForceAve
 

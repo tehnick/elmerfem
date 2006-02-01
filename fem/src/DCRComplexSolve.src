@@ -39,7 +39,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: $
+! * $Id: DCRComplexSolve.src,v 1.8 2006/01/10 08:32:50 apursula Exp $
 ! ******************************************************************************
 
 !------------------------------------------------------------------------------
@@ -850,22 +850,21 @@ END SUBROUTINE DCRComplexSolver
      INTEGER :: i,j,k,n,l,t,DIM,Pn,En
      LOGICAL :: stat, GotIt, gotWIreal,gotWIimag 
 
-     REAL(KIND=dp) :: SqrtMetric, Metric(3,3), Symb(3,3,3), dSymb(3,3,3,3)
-
      LOGICAL :: notScalar = .TRUE.
 
-     REAL(KIND=dp) :: Grad(3,3), Normal(3), EdgeLength, &
-          x(MAX_NODES), y(MAX_NODES), z(MAX_NODES)
-
-     REAL(KIND=dp) :: u, v, w, s, detJ, EdgeBasis(MAX_NODES), Basis(MAX_NODES), &
-         dBasisdx(MAX_NODES,3), &
-         Pressure(2,MAX_NODES), FluxReal(MAX_NODES), FluxImag(MAX_NODES), &
-         ResidualReal, ResidualImag, WaveFlux(2), Work(MAX_NODES)
-
-     REAL(kind=dp) :: Bvector(3,MAX_NODES), BScalarReal(MAX_NODES), BscalarImag(MAX_NODES)
+     REAL(KIND=dp) :: SqrtMetric, Metric(3,3), Symb(3,3,3), dSymb(3,3,3,3)
+     REAL(KIND=dp) :: Grad(3,3), Normal(3), EdgeLength
+     REAL(KIND=dp) :: Source, ResidualNorm, Area
      REAL(kind=dp) :: B1(3), B0r, B0i, Greal, Gimag
+     REAL(KIND=dp) :: u, v, w, s, detJ, ResidualReal, ResidualImag, WaveFlux(2)
 
-     REAL(KIND=dp) :: Source, ResidualNorm, Area, Flux(MAX_NODES)
+     REAL(KIND=dp), ALLOCATABLE :: EdgeBasis(:), Basis(:)
+     REAL(KIND=dp), ALLOCATABLE :: dBasisdx(:,:)
+     REAL(KIND=dp), ALLOCATABLE :: Flux(:)
+     REAL(KIND=dp), ALLOCATABLE :: Work(:)
+     REAL(KIND=dp), ALLOCATABLE :: x(:), y(:), z(:)
+     REAL(KIND=dp), ALLOCATABLE :: Pressure(:,:), FluxReal(:), FluxImag(:)
+     REAL(KIND=dp), ALLOCATABLE :: Bvector(:,:), BScalarReal(:), BscalarImag(:)
 
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
 
@@ -913,6 +912,10 @@ END SUBROUTINE DCRComplexSolver
      Nodes % x = Mesh % Nodes % x(Element % NodeIndexes)
      Nodes % y = Mesh % Nodes % y(Element % NodeIndexes)
      Nodes % z = Mesh % Nodes % z(Element % NodeIndexes)
+
+     ALLOCATE( x(En), y(En), z(En), EdgeBasis(En), Basis(Pn), dBasisdx(Pn,3),   &
+           Flux(en), Pressure(2,Pn), FluxReal(En), FluxImag(En), BVector(3,Pn), &
+           BScalarReal(Pn), BScalarImag(Pn) )
 
      DO l = 1,En
        DO k = 1,Pn
@@ -1106,6 +1109,11 @@ END SUBROUTINE DCRComplexSolver
      DEALLOCATE( Nodes % x, Nodes % y, Nodes % z)
      DEALLOCATE( EdgeNodes % x, EdgeNodes % y, EdgeNodes % z)
 
+     DEALLOCATE( x, y, z, EdgeBasis, Basis, dBasisdx,   &
+           Flux, Pressure, FluxReal, FluxImag, BVector, &
+           BScalarReal, BScalarImag )
+
+
 
 !------------------------------------------------------------------------------
 
@@ -1177,21 +1185,20 @@ contains
      LOGICAL :: stat, GotIt
 !     REAL(KIND=dp), POINTER :: Hwrk(:,:,:)
 
+     REAL(KIND=dp) :: Grad(3,3), Normal(3), EdgeLength, Jump, JumpReal, JumpImag, &
+                      GradReal(3,3),GradImag(3,3)
+     REAL(KIND=dp) :: u, v, w, s, detJ
+     REAL(KIND=dp) :: Residual, ResidualNorm, Area
+     REAL(kind=dp) :: A2(3,3), A1r(3), A1i(3), A0r, A0i
      REAL(KIND=dp) :: SqrtMetric, Metric(3,3), Symb(3,3,3), dSymb(3,3,3,3)
 
-     REAL(KIND=dp) :: Grad(3,3), Normal(3), EdgeLength, Jump, JumpReal, JumpImag, &
-                x(MAX_NODES),y(MAX_NODES),z(MAX_NODES),GradReal(3,3),GradImag(3,3)
-
-     REAL(KIND=dp) :: u, v, w, s, detJ, EdgeBasis(MAX_NODES), &
-          Basis(MAX_NODES), dBasisdx(MAX_NODES,3), &
-             Temperature(MAX_NODES), Pressure(2,MAX_NODES)
-
-     REAL(KIND=dp) :: Residual, ResidualNorm, Area, Flux(MAX_NODES)
-
-     REAL(kind=dp) :: Amatrix(3,3,MAX_NODES), AvectorReal(3,MAX_NODES), &
-          AvectorImag(3,MAX_NODES), AscalarReal(MAX_NODES), AscalarImag(MAX_NODES)
-
-     REAL(kind=dp) :: A2(3,3), A1r(3), A1i(3), A0r, A0i
+     REAL(KIND=dp), ALLOCATABLE :: AvectorImag(:,:), AscalarReal(:), AscalarImag(:)
+     REAL(KIND=dp), ALLOCATABLE :: Flux(:), x(:), y(:), z(:)
+     REAL(KIND=dp), ALLOCATABLE :: Amatrix(:,:,:)
+     REAL(KIND=dp), ALLOCATABLE :: EdgeBasis(:)
+     REAL(KIND=dp), ALLOCATABLE :: AvectorReal(:,:)
+     REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:)
+     REAL(KIND=dp), ALLOCATABLE :: Temperature(:), Pressure(:,:)
 
      LOGICAL :: notScalar = .TRUE.
 
@@ -1241,6 +1248,10 @@ contains
      EdgeNodes % x = Mesh % Nodes % x(Edge % NodeIndexes)
      EdgeNodes % y = Mesh % Nodes % y(Edge % NodeIndexes)
      EdgeNodes % z = Mesh % Nodes % z(Edge % NodeIndexes)
+
+     ALLOCATE( AvectorImag(3,n), AscalarReal(n), AscalarImag(n), Flux(en),   &
+       x(En), y(En), z(En), AMatrix(3,3,n), EdgeBasis(En), AvectorReal(3,n), &
+       Basis(n), dBasisdx(n,3), Temperature(n), Pressure(2,n) )
 
 !    Integrate square of jump over edge:
 !    -----------------------------------
@@ -1400,6 +1411,10 @@ contains
 
      DEALLOCATE( Nodes % x, Nodes % y, Nodes % z)
      DEALLOCATE( EdgeNodes % x, EdgeNodes % y, EdgeNodes % z)
+
+     DEALLOCATE( AvectorImag, AscalarReal, AscalarImag, Flux,    &
+       x, y, z, AMatrix, EdgeBasis, AvectorReal, Basis, dBasisdx,&
+       Temperature, Pressure )
 !------------------------------------------------------------------------------
 
 contains
@@ -1523,31 +1538,21 @@ contains
      TYPE(Nodes_t) :: Nodes
 
      INTEGER :: i,j,k,l,n,t,DIM
-     REAL(KIND=dp), TARGET :: x(MAX_NODES), y(MAX_NODES), z(MAX_NODES)
-
      LOGICAL :: stat, GotIt
      TYPE( Variable_t ), POINTER :: Var
 
      REAL(KIND=dp) :: SqrtMetric, Metric(3,3), Symb(3,3,3), dSymb(3,3,3,3)
-
-     REAL(KIND=dp) :: u, v, w, s, detJ, Basis(MAX_NODES), &
-                dBasisdx(MAX_NODES,3), ddBasisddx(MAX_NODES,3,3)
-
      REAL(KIND=dp) :: Source, Residual, ResidualNorm, Area
-
-     REAL(KIND=dp) :: NodalSource(2,MAX_NODES), &
-          Pressione(2,MAX_NODES), Work(MAX_NODES), &
-          ResidualReal, ResidualImag
-
-     REAL(kind=dp) :: Amatrix(3,3,MAX_NODES), AvectorReal(3,MAX_NODES), &
-          AvectorImag(3,MAX_NODES), AscalarReal(MAX_NODES), AscalarImag(MAX_NODES)
-
      REAL(kind=dp) :: A2(3,3), A1r(3), A1i(3), A0r, A0i
+     REAL(KIND=dp) :: u, v, w, s, detJ, ResidualReal, ResidualImag
+
+     REAL(KIND=dp), ALLOCATABLE :: NodalSource(:,:), Basis(:)
+     REAL(KIND=dp), ALLOCATABLE :: dBasisdx(:,:), ddBasisddx(:,:,:), Pressione(:,:)
+     REAL(KIND=dp), ALLOCATABLE :: Amatrix(:,:,:), AvectorReal(:,:)
+     REAL(KIND=dp), ALLOCATABLE :: AvectorImag(:,:), AscalarReal(:), AscalarImag(:)
 
      LOGICAL :: notScalar = .TRUE.
-     
      TYPE( ValueList_t ), POINTER :: Material
-
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
 
 !     LOGICAL :: First = .TRUE.
@@ -1579,13 +1584,14 @@ contains
 !    ---------------------
      n = Element % TYPE % NumberOfNodes
 
-     Nodes % x => x(1:n)
-     Nodes % y => y(1:n)
-     Nodes % z => z(1:n)
-
+     ALLOCATE( Nodes % x(n), Nodes % y(n), Nodes % z(n) )
      Nodes % x = Mesh % Nodes % x(Element % NodeIndexes)
      Nodes % y = Mesh % Nodes % y(Element % NodeIndexes)
      Nodes % z = Mesh % Nodes % z(Element % NodeIndexes)
+
+     ALLOCATE( NodalSource(2,n), Basis(n), dBasisdx(n,3), ddBasisddx(n,3,3), &
+         Pressione(2,n), AMatrix(3,3,n), AvectorReal(3,n), AvectorImag(3,n), &
+         AscalarReal(n), AscalarImag(n) )
 !
 !    Elementwise nodal solution:
 !    ---------------------------
@@ -1761,6 +1767,9 @@ contains
      Fnorm = Element % hk**2 * Fnorm
      Indicator = Element % hK**2 * ResidualNorm
 
+     DEALLOCATE( Nodes % x, Nodes % y, Nodes % z )
+     DEALLOCATE( NodalSource, Basis, dBasisdx, ddBasisddx, Pressione, &
+       AMatrix, AvectorReal, AvectorImag,AscalarReal, AscalarImag )
 
 CONTAINS
 

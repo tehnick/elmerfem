@@ -38,7 +38,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: $
+! * $Id: IMeshToMesh.src,v 1.6 2006/01/10 08:27:35 apursula Exp $
 ! *****************************************************************************
 
 !------------------------------------------------------------------------------
@@ -88,7 +88,7 @@
        TYPE(Element_t),POINTER :: CurrentElement
 
        REAL(KIND=dp) :: BoundingBox(6), detJ, u,v,w,s
-       REAL(KIND=dp) :: Basis(MAX_NODES),dBasisdx(MAX_NODES,3)
+       REAL(KIND=dp), ALLOCATABLE :: Basis(:),dBasisdx(:,:)
 
        LOGICAL :: UseQTree, Stat, UseProjector
        TYPE(Quadrant_t), POINTER :: RootQuadrant
@@ -361,7 +361,7 @@
           NewMesh % Projector => Projector
           NewMesh % Projector % Mesh => OldMesh
 
-          ALLOCATE( RInd(OldMesh % NumberOfNodes) )
+          ALLOCATE( RInd(OldMesh % NumberOfNodes), Basis(OldMesh % MaxElementNodes) )
           RInd = 0
 
           DO i=1,n
@@ -393,7 +393,7 @@
              END DO
           END DO
 
-          DEALLOCATE( ElemPtrs, LocalU, LocalV, LocalW )
+          DEALLOCATE( Basis, ElemPtrs, LocalU, LocalV, LocalW )
 
 !
 !         Store also the transpose of the projector:

@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: DefUtils.src,v $
+! * Revision 1.13  2006/01/10 07:39:15  apursula
+! * Minor revision of the headers.
+! *
 ! * Revision 1.12  2006/01/09 13:57:03  apursula
 ! * Updated header information (GPL).
 ! *
@@ -53,7 +56,8 @@
 ! * Reorganizing the parallel structs.
 ! *
 ! * Revision 1.8  2005/07/07 09:12:25  jpr
-! * Changed ElementInfo to have dBasisdx,ddBasisddx as OPTIONAL arguments. Changed all calls to ElementInfo accordingly.
+! * Changed ElementInfo to have dBasisdx,ddBasisddx as OPTIONAL arguments.
+! * Changed all calls to ElementInfo accordingly.
 ! *
 ! * Revision 1.7  2005/06/29 13:27:08  jpr
 ! * Correted a bug in GetElementDOFs.
@@ -112,7 +116,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.12 2006/01/09 13:57:03 apursula Exp $
+! * $Id: DefUtils.src,v 1.13 2006/01/10 07:39:15 apursula Exp $
 ! *
 ! *****************************************************************************/
 
@@ -1724,14 +1728,20 @@ CONTAINS
      TYPE(Variable_t), POINTER :: x
      TYPE(Solver_t), POINTER :: Solver
      REAL(KIND=dp), POINTER    :: b(:)
-     REAL(KIND=dp) :: xx, Work(MAX_NODES), STIFF(MAX_NODES,MAX_NODES)
-     INTEGER :: i,j, k, kk, l, m, n,nd, nb, mb, nn, DOF, local, numEdgeDofs, & 
-          lInd(MAX_NODES), gInd(MAX_NODES) 
+
+     REAL(KIND=dp) :: xx
+     REAL(KIND=dp), ALLOCATABLE :: Work(:), STIFF(:,:)
+
+     INTEGER, ALLOCATABLE :: lInd(:), gInd(:)
+     INTEGER :: i,j, k, kk, l, m, n,nd, nb, mb, nn, DOF, local, numEdgeDofs,istat
+
      LOGICAL :: Flag,Found
      TYPE(ValueList_t), POINTER :: BC
      TYPE(Element_t), POINTER :: Element, Parent, Edge, Face, SaveElement
 
      CHARACTER(LEN=MAX_NAME_LEN) :: name
+
+     SAVE gInd, lInd, STIFF, Work
 
      IF ( PRESENT( USolver ) ) THEN
         Solver => USolver
@@ -1741,6 +1751,18 @@ CONTAINS
      A => Solver % Matrix
      x => Solver % Variable
      b => A % RHS
+
+     n = Solver % Mesh % MaxElementDOFs
+     IF ( .NOT. ALLOCATED( gInd ) ) THEN
+       ALLOCATE( gInd(n), lInd(n), STIFF(n,n), Work(n), stat=istat )
+       IF ( istat /= 0 ) &
+          CALL Fatal('DefUtils::DefaultDirichletBCs','Memory allocation failed.' )
+     ELSE IF ( SIZE(gInd) < n ) THEN
+       DEALLOCATE( gInd, lInd, STIFF, Work )
+       ALLOCATE( gInd(n), lInd(n), STIFF(n,n), Work(n), stat=istat )
+       IF ( istat /= 0 ) &
+          CALL Fatal('DefUtils::DefaultDirichletBCs','Memory allocation failed.' )
+     END IF
 
      IF ( x % DOFs > 1 ) THEN
         ! TEMP!!!
@@ -1829,7 +1851,7 @@ CONTAINS
         END DO
      END DO
 
-     ! Set Dirichlet dofs for edges and faces
+   ! Set Dirichlet dofs for edges and faces
      DO DOF=1,x % DOFs
         name = x % name
         IF ( x % DOFs > 1 ) name = ComponentName(name,DOF)

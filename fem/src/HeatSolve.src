@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: HeatSolve.src,v $
+! * Revision 1.9  2006/01/10 08:27:34  apursula
+! * Updated header information (GPL).
+! *
 ! * Revision 1.8  2005/12/22 10:21:27  jpr
 ! * A minor change to keep gfortran happy.
 ! *
@@ -257,7 +260,7 @@
 
      REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
 
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HeatSolve.src,v 1.8 2005/12/22 10:21:27 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HeatSolve.src,v 1.9 2006/01/10 08:27:34 apursula Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -1661,7 +1664,6 @@ CONTAINS
      TYPE(Nodes_t) :: Nodes, EdgeNodes
      TYPE(Element_t), POINTER :: Element, Bndry
 
-
      INTEGER :: i,j,k,n,l,t,DIM,Pn,En
      LOGICAL :: stat, Found
 
@@ -1669,18 +1671,17 @@ CONTAINS
 
      REAL(KIND=dp) :: SqrtMetric, Metric(3,3), Symb(3,3,3), dSymb(3,3,3,3)
 
-     REAL(KIND=dp) :: NodalConductivity(MAX_NODES), Conductivity
+     REAL(KIND=dp), ALLOCATABLE :: NodalConductivity(:), ExtTemperature(:), &
+       TransferCoeff(:), EdgeBasis(:), Basis(:), x(:), y(:), z(:), &
+       dBasisdx(:,:), Temperature(:), Flux(:)
 
-     REAL(KIND=dp) :: Emissivity, StefanBoltzmann
-     REAL(KIND=dp) :: ExtTemperature(MAX_NODES), TransferCoeff(MAX_NODES)
+     REAL(KIND=dp) :: Conductivity, Emissivity, StefanBoltzmann
 
-     REAL(KIND=dp) :: Grad(3,3), Normal(3), EdgeLength, &
-          x(MAX_NODES), y(MAX_NODES), z(MAX_NODES), gx, gy, gz
+     REAL(KIND=dp) :: Grad(3,3), Normal(3), EdgeLength, gx, gy, gz
 
-     REAL(KIND=dp) :: u, v, w, s, detJ, EdgeBasis(MAX_NODES), Basis(MAX_NODES), &
-         dBasisdx(MAX_NODES,3), Temperature(MAX_NODES)
+     REAL(KIND=dp) :: u, v, w, s, detJ
 
-     REAL(KIND=dp) :: Source, Residual, ResidualNorm, Area, Flux(MAX_NODES)
+     REAL(KIND=dp) :: Source, Residual, ResidualNorm, Area
 
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
 
@@ -1705,9 +1706,9 @@ CONTAINS
 
      SELECT CASE( CurrentCoordinateSystem() )
         CASE( AxisSymmetric, CylindricSymmetric )
-           DIM = 3
+           dim = 3
         CASE DEFAULT
-           DIM = CoordinateSystemDimension()
+           dim = CoordinateSystemDimension()
      END SELECT
 !    
 !    ---------------------------------------------
@@ -1715,20 +1716,16 @@ CONTAINS
      Element => Edge % BoundaryInfo % Left
 
      IF ( .NOT. ASSOCIATED( Element ) ) THEN
-
         Element => Edge % BoundaryInfo % Right
-
      ELSE IF ( ANY( Perm( Element % NodeIndexes ) <= 0 ) ) THEN
-
         Element => Edge % BoundaryInfo % Right
-
      END IF
 
      IF ( .NOT. ASSOCIATED( Element ) ) RETURN
      IF ( ANY( Perm( Element % NodeIndexes ) <= 0 ) ) RETURN
 
-     En = Edge % TYPE % NumberOfNodes
-     Pn = Element % TYPE % NumberOfNodes
+     En = Edge % Type % NumberOfNodes
+     Pn = Element % Type % NumberOfNodes
 
      ALLOCATE( EdgeNodes % x(En), EdgeNodes % y(En), EdgeNodes % z(En) )
 
@@ -1741,6 +1738,10 @@ CONTAINS
      Nodes % x = Mesh % Nodes % x(Element % NodeIndexes)
      Nodes % y = Mesh % Nodes % y(Element % NodeIndexes)
      Nodes % z = Mesh % Nodes % z(Element % NodeIndexes)
+
+     ALLOCATE( Temperature(Pn), Basis(Pn), ExtTemperature(En), &
+        TransferCoeff(En), x(En), y(En), z(En), EdgeBasis(En), &
+        dBasisdx(Pn,3), NodalConductivity(En), Flux(En) ) 
 
      DO l = 1,En
        DO k = 1,Pn
@@ -1933,6 +1934,9 @@ CONTAINS
 
      DEALLOCATE( Nodes % x, Nodes % y, Nodes % z)
      DEALLOCATE( EdgeNodes % x, EdgeNodes % y, EdgeNodes % z)
+
+     DEALLOCATE( Temperature, Basis, ExtTemperature, TransferCoeff,  &
+        x, y, z, EdgeBasis, dBasisdx, NodalConductivity, Flux ) 
 !------------------------------------------------------------------------------
   END FUNCTION HeatBoundaryResidual
 !------------------------------------------------------------------------------
@@ -1961,15 +1965,14 @@ CONTAINS
 
      REAL(KIND=dp) :: SqrtMetric, Metric(3,3), Symb(3,3,3), dSymb(3,3,3,3)
 
-     REAL(KIND=dp) :: NodalConductivity(MAX_NODES), Conductivity
+     REAL(KIND=dp), ALLOCATABLE :: NodalConductivity(:), x(:), y(:), z(:), &
+            EdgeBasis(:), Basis(:), dBasisdx(:,:), Temperature(:)
 
-     REAL(KIND=dp) :: Grad(3,3), Normal(3), EdgeLength, Jump, &
-                x(MAX_NODES),y(MAX_NODES),z(MAX_NODES)
+     REAL(KIND=dp) :: Grad(3,3), Normal(3), EdgeLength, Jump, Conductivity
 
-     REAL(KIND=dp) :: u, v, w, s, detJ, EdgeBasis(MAX_NODES), &
-          Basis(MAX_NODES), dBasisdx(MAX_NODES,3), Temperature(MAX_NODES)
+     REAL(KIND=dp) :: u, v, w, s, detJ
 
-     REAL(KIND=dp) :: Residual, ResidualNorm, Area, Flux(MAX_NODES)
+     REAL(KIND=dp) :: Residual, ResidualNorm, Area
 
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
 
@@ -2014,6 +2017,9 @@ CONTAINS
      EdgeNodes % x = Mesh % Nodes % x(Edge % NodeIndexes)
      EdgeNodes % y = Mesh % Nodes % y(Edge % NodeIndexes)
      EdgeNodes % z = Mesh % Nodes % z(Edge % NodeIndexes)
+
+     ALLOCATE( NodalConductivity(En), EdgeBasis(En), Basis(n), &
+        dBasisdx(n,3), x(En), y(En), z(En), Temperature(n) )
 
 !    Integrate square of jump over edge:
 !    -----------------------------------
@@ -2136,8 +2142,9 @@ CONTAINS
      END IF
      Indicator = EdgeLength * ResidualNorm
 
-     DEALLOCATE( Nodes % x, Nodes % y, Nodes % z)
+     DEALLOCATE( Nodes % x, Nodes % y, Nodes % z, x, y, z)
      DEALLOCATE( EdgeNodes % x, EdgeNodes % y, EdgeNodes % z)
+     DEALLOCATE( NodalConductivity, EdgeBasis, Basis, dBasisdx, Temperature)
 
 !------------------------------------------------------------------------------
   END FUNCTION HeatEdgeResidual
@@ -2163,7 +2170,6 @@ CONTAINS
      TYPE(Nodes_t) :: Nodes
 
      INTEGER :: i,j,k,l,n,t,DIM
-     REAL(KIND=dp), TARGET :: x(MAX_NODES), y(MAX_NODES), z(MAX_NODES)
 
      LOGICAL :: stat, Found, Compressible
      TYPE( Variable_t ), POINTER :: Var
@@ -2172,20 +2178,18 @@ CONTAINS
 
      REAL(KIND=dp) :: SqrtMetric, Metric(3,3), Symb(3,3,3), dSymb(3,3,3,3)
 
-     REAL(KIND=dp) :: NodalDensity(MAX_NODES),  Density
-     REAL(KIND=dp) :: NodalCapacity(MAX_NODES), Capacity
+     REAL(KIND=dp), ALLOCATABLE :: NodalDensity(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalCapacity(:)
+     REAL(KIND=dp), ALLOCATABLE :: x(:), y(:), z(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalConductivity(:)
+     REAL(KIND=dp), ALLOCATABLE :: Velo(:,:), Pressure(:)
+     REAL(KIND=dp), ALLOCATABLE :: NodalSource(:), Temperature(:), PrevTemp(:)
+     REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:), ddBasisddx(:,:,:)
 
-     REAL(KIND=dp) :: Velo(3,MAX_NODES), Pressure(MAX_NODES)
-     REAL(KIND=dp) :: Conductivity, NodalConductivity(MAX_NODES)
+     REAL(KIND=dp) :: u, v, w, s, detJ, Density, Capacity
 
-     REAL(KIND=dp) :: u, v, w, s, detJ, Basis(MAX_NODES), &
-                dBasisdx(MAX_NODES,3), ddBasisddx(MAX_NODES,3,3)
-
-     REAL(KIND=dp) :: Source, Residual, ResidualNorm, Area
      REAL(KIND=dp) :: SpecificHeatRatio, ReferencePressure, dt
-
-     REAL(KIND=dp) :: NodalSource(MAX_NODES), Temperature(MAX_NODES), &
-                      PrevTemp(MAX_NODES)
+     REAL(KIND=dp) :: Source, Residual, ResidualNorm, Area, Conductivity
 
      TYPE( ValueList_t ), POINTER :: Material
 
@@ -2225,13 +2229,15 @@ CONTAINS
 !    ---------------------
      n = Element % TYPE % NumberOfNodes
 
-     Nodes % x => x(1:n)
-     Nodes % y => y(1:n)
-     Nodes % z => z(1:n)
+     ALLOCATE( Nodes % x(n), Nodes % y(n), Nodes % z(n) )
 
      Nodes % x = Mesh % Nodes % x(Element % NodeIndexes)
      Nodes % y = Mesh % Nodes % y(Element % NodeIndexes)
      Nodes % z = Mesh % Nodes % z(Element % NodeIndexes)
+
+     ALLOCATE( NodalDensity(n), NodalCapacity(n), NodalConductivity(n),       &
+         Velo(3,n), Pressure(n), NodalSource(n), Temperature(n), PrevTemp(n), &
+         Basis(n), dBasisdx(n,3), ddBasisddx(n,3,3) )
 !
 !    Elementwise nodal solution:
 !    ---------------------------
@@ -2486,6 +2492,10 @@ CONTAINS
 
 !    Fnorm = Element % hk**2 * Fnorm
      Indicator = Element % hK**2 * ResidualNorm
+
+     DEALLOCATE( NodalDensity, NodalCapacity, NodalConductivity,    &
+         Velo, Pressure, NodalSource, Temperature, PrevTemp, Basis, &
+         dBasisdx, ddBasisddx )
 !------------------------------------------------------------------------------
   END FUNCTION HeatInsideResidual
 !------------------------------------------------------------------------------
