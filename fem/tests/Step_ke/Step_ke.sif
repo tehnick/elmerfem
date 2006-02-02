@@ -38,30 +38,8 @@ Initial Condition 1
   Velocity 1 = 0
   Velocity 2 = 0
 
-  Kinetic Dissipation = 0.0001
-  Kinetic Energy = 0.003
   Kepsilon 1 = 0.003
   Kepsilon 2 = 0.0001
-End
-
-
-Solver 2
-  Equation = Navier-Stokes
-  Stabilize = False
-
-  Nonlinear System Max Iterations = 1
-  Nonlinear System Convergence Tolerance = 1.0e-5
-  Nonlinear System Newton After Iterations = 10
-  Nonlinear System Newton After Tolerance  = 1.0e-2
-  Nonlinear System Relaxation Factor = 0.75
-
-  Linear System Solver = Iterative
-  Linear System Max Iterations = 1000
-  Linear System Iterative Method = BiCGStab
-  Linear System Preconditioning = ILU1
-  Linear System Convergence Tolerance = 1.0e-7
-
-  Steady State Convergence Tolerance = 1.0e-5
 End
 
 
@@ -71,7 +49,7 @@ Solver 1
 
   Procedure = "KESolver" "KESolver"
   Variable DOFs = 2
-  Variable = Kepsilon
+  Variable = -nooutput Kepsilon
 
   Exported Variable 1 = Kinetic Energy
   Exported Variable 2 = Kinetic Dissipation
@@ -91,6 +69,26 @@ Solver 1
 
   Steady State Convergence Tolerance = 1.0e-5
 End
+
+Solver 2
+  Equation = Navier-Stokes
+  Stabilize = False
+
+  Nonlinear System Max Iterations = 1
+  Nonlinear System Convergence Tolerance = 1.0e-5
+  Nonlinear System Newton After Iterations = 10
+  Nonlinear System Newton After Tolerance  = 1.0e-2
+  Nonlinear System Relaxation Factor = 0.75
+
+  Linear System Solver = Iterative
+  Linear System Max Iterations = 1000
+  Linear System Iterative Method = BiCGStab
+  Linear System Preconditioning = ILU2
+  Linear System Convergence Tolerance = 1.0e-7
+
+  Steady State Convergence Tolerance = 1.0e-5
+End
+
 
 
 Equation 1
@@ -131,9 +129,6 @@ Boundary Condition 1
       End
 
    Velocity 2 = 0
-
-   Kinetic Dissipation = 0.001
-   Kinetic Energy = 0.003
 
    Kepsilon 1 = Real 0.003
    Kepsilon 2 = Real 0.001
