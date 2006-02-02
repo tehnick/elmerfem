@@ -56,7 +56,7 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: matc.c,v 1.3 2005/08/25 13:44:22 vierinen Exp $ 
+ * $Id: matc.c,v 1.4 2006/02/02 06:51:16 jpr Exp $ 
  *
  * $Log: matc.c,v $
  * Revision 1.3  2005/08/25 13:44:22  vierinen

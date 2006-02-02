@@ -56,7 +56,7 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: variable.c,v 1.2 2005/05/27 12:26:22 vierinen Exp $ 
+ * $Id: variable.c,v 1.3 2006/02/02 06:51:16 jpr Exp $ 
  *
  * $Log: variable.c,v $
  * Revision 1.2  2005/05/27 12:26:22  vierinen

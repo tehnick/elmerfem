@@ -1,5 +1,5 @@
 /*
- * $Id: main.c,v 1.9 2005/08/25 13:44:22 vierinen Exp $ 
+ * $Id: main.c,v 1.10 2006/02/02 06:51:16 jpr Exp $ 
  *
  * $Log: main.c,v $
  * Revision 1.9  2005/08/25 13:44:22  vierinen

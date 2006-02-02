@@ -56,7 +56,7 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: parser.c,v 1.2 2005/05/27 12:26:21 vierinen Exp $ 
+ * $Id: parser.c,v 1.3 2006/02/02 06:51:16 jpr Exp $ 
  *
  * $Log: parser.c,v $
  * Revision 1.2  2005/05/27 12:26:21  vierinen
