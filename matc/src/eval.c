@@ -56,9 +56,12 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: eval.c,v 1.3 2005/05/27 12:26:20 vierinen Exp $ 
+ * $Id: eval.c,v 1.4 2005/08/25 13:44:22 vierinen Exp $ 
  *
  * $Log: eval.c,v $
+ * Revision 1.4  2005/08/25 13:44:22  vierinen
+ * windoze stuff
+ *
  * Revision 1.3  2005/05/27 12:26:20  vierinen
  * changed header install location
  *
@@ -67,18 +70,6 @@ $  usage of the function and type of the parameters
  *
  * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
  * initial matc automake package
- *
- * Revision 1.6  2003/03/19 10:12:59  jpr
- * *** empty log message ***
- *
- * Revision 1.5  2002/10/09 10:28:04  jpr
- * *** empty log message ***
- *
- * Revision 1.4  2001/06/18 10:27:22  jpr
- * *** empty log message ***
- *
- * Revision 1.3  2001/06/08 09:20:29  jpr
- * *** empty log message ***
  *
  * Revision 1.2  1998/08/01 12:34:35  jpr
  *

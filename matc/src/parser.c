@@ -56,26 +56,14 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: parser.c,v 1.1.1.1 2005/04/14 13:29:14 vierinen Exp $ 
+ * $Id: parser.c,v 1.2 2005/05/27 12:26:21 vierinen Exp $ 
  *
  * $Log: parser.c,v $
+ * Revision 1.2  2005/05/27 12:26:21  vierinen
+ * changed header install location
+ *
  * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
  * initial matc automake package
- *
- * Revision 1.7  2004/09/09 10:31:38  jpr
- * *** empty log message ***
- *
- * Revision 1.6  2004/04/21 07:48:14  jpr
- * *** empty log message ***
- *
- * Revision 1.5  2004/04/21 07:44:55  jpr
- * *** empty log message ***
- *
- * Revision 1.4  2003/05/07 07:22:28  jpr
- * *** empty log message ***
- *
- * Revision 1.3  2002/10/09 10:28:04  jpr
- * *** empty log message ***
  *
  * Revision 1.2  1998/08/01 12:34:54  jpr
  *

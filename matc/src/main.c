@@ -1,15 +1,9 @@
 /*
- * $Id: main.c,v 1.8 2005/08/11 14:18:25 vierinen Exp $ 
+ * $Id: main.c,v 1.9 2005/08/25 13:44:22 vierinen Exp $ 
  *
  * $Log: main.c,v $
- * Revision 1.8  2005/08/11 14:18:25  vierinen
- * *** empty log message ***
- *
- * Revision 1.7  2005/08/10 14:16:59  vierinen
- * *** empty log message ***
- *
- * Revision 1.6  2005/06/07 10:55:15  jpr
- * *** empty log message ***
+ * Revision 1.9  2005/08/25 13:44:22  vierinen
+ * windoze stuff
  *
  * Revision 1.5  2005/05/26 12:34:54  vierinen
  * windows stuff

@@ -56,17 +56,17 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: matc.c,v 1.2 2005/05/27 12:26:20 vierinen Exp $ 
+ * $Id: matc.c,v 1.3 2005/08/25 13:44:22 vierinen Exp $ 
  *
  * $Log: matc.c,v $
+ * Revision 1.3  2005/08/25 13:44:22  vierinen
+ * windoze stuff
+ *
  * Revision 1.2  2005/05/27 12:26:20  vierinen
  * changed header install location
  *
  * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
  * initial matc automake package
- *
- * Revision 1.3  2002/10/09 10:28:04  jpr
- * *** empty log message ***
  *
  * Revision 1.2  1998/08/01 12:34:48  jpr
  *
