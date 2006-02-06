@@ -47,6 +47,7 @@
 #include "femtools.h"
 #include "femtypes.h"
 #include "femknot.h"
+#include "femsolve.h"
 #include "femelmer.h"
 #include "../config.h"
 
@@ -177,6 +178,150 @@ end:
 
   return(0);
 }
+
+
+
+int FuseSolutionElmerPartitioned(char *prefix,int decimals,int info)
+#define MAXPAR 100
+{
+  int *noknots,*noelements,novctrs,elemcode,open;
+  int totknots,totelements,sumknots,sumelements;
+  int timesteps,i,j,k,step;
+  int ind[MAXNODESD1];
+  int nofiles;
+  Real r, *res, x, y, z;
+  FILE *in[MAXPAR],*out;
+  char line[MAXLINESIZE],filename[MAXFILESIZE],text[MAXNAMESIZE],outstyle[MAXFILESIZE];
+  char *cp;
+
+  for(i=0;;i++) {
+    sprintf(filename,"%s.ep.%d",prefix,i);
+    if ((in[i] = fopen(filename,"r")) == NULL) break;
+  }
+
+  nofiles = i;
+
+  if(nofiles < 2) {
+    printf("Opening of partitioned data from file %s wasn't succesfull!\n",
+	   filename);
+    return(1);
+  } else {
+    if(info) printf("Loading Elmer results from d partitions.\n",nofiles);
+  }
+
+  noknots = Ivector(0,nofiles-1);
+  noelements = Ivector(0,nofiles-1);
+ 
+  sumknots = 0;
+  sumelements = 0;
+
+
+  for(i=0;i<nofiles;i++) {
+    fgets(line,MAXLINESIZE,in[i]);
+    if(i==0) {
+      cp = line;
+      noknots[i] = next_int(&cp);
+      noelements[i] = next_int(&cp);
+      novctrs = next_int(&cp);
+      timesteps = next_int(&cp);
+    }
+    else {
+      sscanf(line,"%d %d",&noknots[i],&noelements[i]);
+    }
+    sumknots += noknots[i];
+    sumelements += noelements[i];
+  }
+  totknots = sumknots;
+  totelements = sumelements;
+  res = Rvector(1,novctrs);
+
+  if(info) printf("There are alltogether %d nodes and %d elements.\n",totknots,sumknots);
+
+
+  AddExtension(prefix,filename,"ep");
+  if(info) printf("Saving ElmerPost data to %s.\n",filename);  
+  out = fopen(filename,"w");
+  if(out == NULL) {
+    printf("opening of file was not successful\n");
+    return(3);
+  }
+  fprintf(out,"%d %d %d %d %s",totknots,totelements,novctrs,timesteps,cp);
+
+ 
+  if(info) printf("Reading and writing %d coordinates.\n",totknots);
+  sprintf(outstyle,"%%.%dlg %%.%dlg %%.%dlg\n",decimals,decimals,decimals);
+
+  for(j=0; j <= nofiles; j++) {
+    for(i=1; i <= noknots[j]; i++) {
+      do {
+	fgets(line,MAXLINESIZE,in[j]);
+      } while(line[0] == '#');
+
+      sscanf(line,"%le %le %le",&x,&y,&z);
+      fprintf(out,outstyle,x,y,z);
+    }
+  }
+
+  if(info) printf("Reading and writing %d element topologies.\n",totelements);
+  sumknots = 0;
+
+  for(j=0; j <= nofiles; j++) {
+    open = FALSE;
+    for(i=1; i <= noelements[j]; i++) {
+      do {
+	fgets(line,MAXLINESIZE,in[j]);
+      } while (line[0] == '#');
+
+      sscanf(line,"%s",text);
+      cp = strstr(line," ");
+
+      elemcode = next_int(&cp);
+      for(k=0;k< elemcode%100 ;k++) 
+	ind[k] = next_int(&cp);
+
+      if(elemcode == 102) elemcode = 101;
+
+      fprintf(out,"%s %d",text,elemcode);
+      for(k=0;k < elemcode%100 ;k++)       
+	fprintf(out," %d",ind[k]+sumknots);
+      fprintf(out,"\n");
+    }
+    sumknots += noknots[j];
+  }
+
+  if(info) printf("Reading and writing %d degrees of freedom.\n",novctrs);
+  sprintf(outstyle,"%%.%dlg ",decimals);
+
+  for(step = 1; step <= timesteps; step++) {
+    for(k=0;k<nofiles;k++) 
+      for(i=1; i <= noknots[k]; i++) {
+	do {
+	  fgets(line,MAXLINESIZE,in[k]);
+	  if(k==0 && strstr(line,"#time")) 
+	    fprintf(out,"%s",line);
+	}
+	while (line[0] == '#');
+
+	cp = line;
+	for(j=1;j <= novctrs;j++) 
+	  res[j] = next_real(&cp);
+
+	for(j=1;j <= novctrs;j++) 
+	  fprintf(out,outstyle,res[j]);
+	fprintf(out,"\n");
+      }
+  }
+
+
+  for(i=0;i<nofiles;i++) 
+    fclose(in[i]);
+  fclose(out);
+
+  if(info) printf("Successfully fused partitioned Elmer results\n");
+
+  return(0);
+}
+
 
 
 static int FindParentSide(struct FemType *data,struct BoundaryType *bound,

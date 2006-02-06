@@ -1117,6 +1117,12 @@ int main(int argc, char *argv[])
     nomeshes = nofile+1;
     break;
 
+  case 33: 
+    FuseSolutionElmerPartitioned(eg.filesin[nofile],eg.decimals,info);
+    printf("Partitioned solution is not read in memory, thus exiting\n");
+    Goodbye();
+    break;
+
   case 4:
     boundaries[nofile] = (struct BoundaryType*)
       malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
