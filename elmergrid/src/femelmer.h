@@ -6,6 +6,7 @@
 int LoadSolutionElmer(struct FemType *data,int results,char *prefix,int info);
 int LoadElmerInput(struct FemType *data,struct BoundaryType *bound,
 		   char *prefix,int info);
+int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int info);
 int SaveSolutionElmer(struct FemType *data,struct BoundaryType *bound,
 		      int nobound,char *prefix,int decimals,int info);
 int SaveSolutionElmerTriangles(struct FemType *data,char *prefix,int info);

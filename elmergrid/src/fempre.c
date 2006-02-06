@@ -1118,7 +1118,7 @@ int main(int argc, char *argv[])
     break;
 
   case 33: 
-    FuseSolutionElmerPartitioned(eg.filesin[nofile],eg.decimals,info);
+    FuseSolutionElmerPartitioned(eg.filesin[nofile],eg.filesout[nofile],eg.decimals,info);
     printf("Partitioned solution is not read in memory, thus exiting\n");
     Goodbye();
     break;

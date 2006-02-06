@@ -181,7 +181,7 @@ end:
 
 
 
-int FuseSolutionElmerPartitioned(char *prefix,int decimals,int info)
+int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int info)
 #define MAXPAR 100
 {
   int *noknots,*noelements,novctrs,elemcode,open;
@@ -206,7 +206,7 @@ int FuseSolutionElmerPartitioned(char *prefix,int decimals,int info)
 	   filename);
     return(1);
   } else {
-    if(info) printf("Loading Elmer results from d partitions.\n",nofiles);
+    if(info) printf("Loading Elmer results from %d partitions.\n",nofiles);
   }
 
   noknots = Ivector(0,nofiles-1);
@@ -238,7 +238,7 @@ int FuseSolutionElmerPartitioned(char *prefix,int decimals,int info)
   if(info) printf("There are alltogether %d nodes and %d elements.\n",totknots,sumknots);
 
 
-  AddExtension(prefix,filename,"ep");
+  AddExtension(outfile,filename,"ep");
   if(info) printf("Saving ElmerPost data to %s.\n",filename);  
   out = fopen(filename,"w");
   if(out == NULL) {
