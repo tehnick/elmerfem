@@ -238,6 +238,9 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
   else if(strcmp(argv[1],"Fieldview") == 0) eg->inmethod = 10;
   else if(strcmp(argv[1],"Triangle") == 0) eg->inmethod = 11;
   else if(strcmp(argv[1],"Medit") == 0) eg->inmethod = 12;
+  else if(strcmp(argv[1],"Gid") == 0) eg->inmethod = 13;
+  else if(strcmp(argv[1],"Gmsh") == 0) eg->inmethod = 14;
+  else if(strcmp(argv[1],"Partitioned") == 0) eg->inmethod = 15;
   else eg->inmethod = atoi(argv[1]);
 
   if(strcmp(argv[2],"ElmerGrid") == 0) eg->outmethod = 1;
@@ -660,29 +663,30 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
 	for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
 
 	if(strstr(params,"ELMERGRID")) eg->inmethod = 1;
-	if(strstr(params,"ELMERSOLVER")) eg->inmethod = 2;
-	if(strstr(params,"ELMERPOST")) eg->inmethod = 3;
-	if(strstr(params,"ANSYS")) eg->inmethod = 4;
-	if(strstr(params,"IDEAS")) eg->inmethod = 5;
-	if(strstr(params,"ABAQUS")) eg->inmethod = 6;
-	if(strstr(params,"FIDAP")) eg->inmethod = 7;
-	if(strstr(params,"EASYMESH")) eg->inmethod = 8;
-	if(strstr(params,"FEMLAB")) eg->inmethod = 9;
-	if(strstr(params,"COMSOL")) eg->inmethod = 9;
-	if(strstr(params,"FIELDVIEW")) eg->inmethod = 10;
-	if(strstr(params,"TRIANGLE")) eg->inmethod = 11;
-	if(strstr(params,"MEDIT")) eg->inmethod = 12;
-	if(strstr(params,"GID")) eg->inmethod = 13;
-	if(strstr(params,"GMSH")) eg->inmethod = 14;
+	else if(strstr(params,"ELMERSOLVER")) eg->inmethod = 2;
+	else if(strstr(params,"ELMERPOST")) eg->inmethod = 3;
+	else if(strstr(params,"ANSYS")) eg->inmethod = 4;
+	else if(strstr(params,"IDEAS")) eg->inmethod = 5;
+	else if(strstr(params,"ABAQUS")) eg->inmethod = 6;
+	else if(strstr(params,"FIDAP")) eg->inmethod = 7;
+	else if(strstr(params,"EASYMESH")) eg->inmethod = 8;
+	else if(strstr(params,"FEMLAB")) eg->inmethod = 9;
+	else if(strstr(params,"COMSOL")) eg->inmethod = 9;
+	else if(strstr(params,"FIELDVIEW")) eg->inmethod = 10;
+	else if(strstr(params,"TRIANGLE")) eg->inmethod = 11;
+	else if(strstr(params,"MEDIT")) eg->inmethod = 12;
+	else if(strstr(params,"GID")) eg->inmethod = 13;
+	else if(strstr(params,"GMSH")) eg->inmethod = 14;
+	else if(strstr(params,"PARTITIONED")) eg->inmethod = 15;
 	else sscanf(params,"%d",&eg->inmethod);
       }
       else if(strstr(command,"OUTPUT MODE")) {
 	for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
 
 	if(strstr(params,"ELMERGRID")) eg->outmethod = 1;
-	if(strstr(params,"ELMERSOLVER")) eg->outmethod = 2;
-	if(strstr(params,"ELMERPOST")) eg->outmethod = 3;
-	if(strstr(params,"FASTCAP")) eg->outmethod = 13;
+	else if(strstr(params,"ELMERSOLVER")) eg->outmethod = 2;
+	else if(strstr(params,"ELMERPOST")) eg->outmethod = 3;
+	else if(strstr(params,"FASTCAP")) eg->outmethod = 13;
 	else sscanf(params,"%d",&eg->outmethod);	
       }
     }    
