@@ -91,6 +91,7 @@ static void Instructions()
   printf("12) .mesh     : Medit mesh format\n");
   printf("13) .msh      : GID mesh format\n");
   printf("14) .msh      : Gmsh mesh format\n");
+  printf("15) .ep.i     : Partitioned ElmerPost format\n");
 
   printf("\nThe second parameter defines the output file format:\n");
   printf("1)  .grd      : ElmerGrid file format\n");
@@ -1117,12 +1118,6 @@ int main(int argc, char *argv[])
     nomeshes = nofile+1;
     break;
 
-  case 33: 
-    FuseSolutionElmerPartitioned(eg.filesin[nofile],eg.filesout[nofile],eg.decimals,info);
-    printf("Partitioned solution is not read in memory, thus exiting\n");
-    Goodbye();
-    break;
-
   case 4:
     boundaries[nofile] = (struct BoundaryType*)
       malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
@@ -1248,6 +1243,12 @@ int main(int argc, char *argv[])
     if (LoadGmshInput(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],TRUE))
       Goodbye();
     nomeshes = 1;
+    break;
+
+  case 15: 
+    FuseSolutionElmerPartitioned(eg.filesin[nofile],eg.filesout[nofile],eg.decimals,info);
+    printf("Partitioned solution is not read in memory, thus exiting\n");
+    Goodbye();
     break;
 
   default:

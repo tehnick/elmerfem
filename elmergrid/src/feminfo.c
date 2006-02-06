@@ -1426,10 +1426,10 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info)
       if(strstr(params,"CENTER")) {
 	raid = 0.5 * (grid[k]->x[0] + grid[k]->x[grid[k]->xcells]);
       }
-      else if(strstr(params,"LEFT")) {
+      else if(strstr(params,"LEFT") || strstr(params,"MIN") ) {
 	raid = grid[k]->x[0];
       }
-      else if(strstr(params,"RIGHT")) {
+      else if(strstr(params,"RIGHT") || strstr(params,"MAX") ) {
 	raid = grid[k]->x[grid[k]->xcells];
       }
       else {
