@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: ElementDescription.src,v $
+! * Revision 1.19  2006/02/01 11:56:05  jpr
+! * Renamed MAX_NODES as MAX_ELEMENT_NODES.
+! *
 ! * Revision 1.18  2006/02/01 08:07:57  jpr
 ! * Replaced most of the usage of MAX_NODES by dynamic allocations.
 ! *
@@ -108,7 +111,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: ElementDescription.src,v 1.18 2006/02/01 08:07:57 jpr Exp $
+! * $Id: ElementDescription.src,v 1.19 2006/02/01 11:56:05 jpr Exp $
 ! ******************************************************************************/
 
 MODULE ElementDescription
@@ -2965,7 +2968,7 @@ END IF
                                     LinBasis(1) * LinBasis(2) * LinBasis(3)
                 END DO
               END DO
-     
+
            CASE(8)
 
               IF ( Element % Type % ElementCode == 808 ) THEN
@@ -2992,6 +2995,13 @@ END IF
                         dLinBasisdx(7,j) * LinBasis(1)
                 END DO
               END DO
+
+         CASE DEFAULT
+ 
+              WRITE( Message, '(a,i4,a)' ) 'Bubbles for element: ', &
+               Element % Type % ElementCode, ' are not implemented.'
+              CALL Error( 'ElementInfo', Message )
+              CALL Fatal( 'ElementInfo', 'Please use p-element basis instead.' )
 
          END SELECT
        END IF
