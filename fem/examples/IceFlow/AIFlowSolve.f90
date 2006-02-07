@@ -1018,13 +1018,7 @@ CONTAINS
 
 ! else use isotropic law
       ELSE
-          Bg=BGlenT(Temperature,Wn)
-          Do i=1,3
-            C(i,i)=2.0_dp / Bg
-          End do
-          Do i=4,6
-            C(i,i)=1.0_dp / Bg
-          End do
+          eta = 1.0_dp / BGlenT(Temperature,Wn)
       ENDIF
 
       CSymmetry = CurrentCoordinateSystem() == AxisSymmetric
@@ -1069,65 +1063,74 @@ CONTAINS
 
         ss = SQRT(2.0_dp * ss)
         IF (ss < MinSRInvariant ) ss = MinSRInvariant
-        ss =  (ss/Bg)**nn 
-        Do i=1, 6
-        C(i,i) = C(i,i) * ss 
-        End Do
+
+        eta  = eta * (ss/Bg)**nn 
+
       END IF
+
 !
 !    Loop over basis functions (of both unknowns and weights)
 !
-      A = 0.0d0
-      M = 0.0d0
-      B = 0.0d0
 
+      M = 0.0d0
       DO p=1,NBasis
 
-       G = 0.0d0
-
-       IF ( CSymmetry ) THEN
-          G(1,1) = dBasisdx(p,1)
-          G(1,3) = Basis(p) / Radius
-          G(1,4) = dBasisdx(p,2)
-          G(2,2) = dBasisdx(p,2)
-          G(2,4) = dBasisdx(p,1)
-       ELSE
-          G(1,1) = dBasisdx(p,1)
-          G(2,2) = dBasisdx(p,2)
-          G(3,3) = dBasisdx(p,3)
-          G(1,4) = dBasisdx(p,2)
-          G(2,4) = dBasisdx(p,1)
-          G(2,5) = dBasisdx(p,3)
-          G(3,5) = dBasisdx(p,2)
-          G(1,6) = dBasisdx(p,3)
-          G(3,6) = dBasisdx(p,1)
-       END IF
-
-       G = MATMUL( G, C )
+       
+        IF (.Not.Isotropic) THEN
+          G = 0.0d0
+          IF ( CSymmetry ) THEN
+            G(1,1) = dBasisdx(p,1)
+            G(1,3) = Basis(p) / Radius
+            G(1,4) = dBasisdx(p,2)
+            G(2,2) = dBasisdx(p,2)
+            G(2,4) = dBasisdx(p,1)
+          ELSE
+            G(1,1) = dBasisdx(p,1)
+            G(2,2) = dBasisdx(p,2)
+            G(3,3) = dBasisdx(p,3)
+            G(1,4) = dBasisdx(p,2)
+            G(2,4) = dBasisdx(p,1)
+            G(2,5) = dBasisdx(p,3)
+            G(3,5) = dBasisdx(p,2)
+            G(1,6) = dBasisdx(p,3)
+            G(3,6) = dBasisdx(p,1)
+          END IF
+          G = MATMUL( G, C )
+        END IF 
  
        DO q=1,NBasis
 
-         B = 0.0d0
-         IF ( CSymmetry ) THEN
-            B(1,1) = dBasisdx(q,1)
-            B(2,2) = dBasisdx(q,2)
-            B(3,1) = Basis(q) / Radius
-            B(4,1) = dBasisdx(q,2)
-            B(4,2) = dBasisdx(q,1)
+         IF (.Not.Isotropic) THEN
+           B = 0.0d0
+           IF ( CSymmetry ) THEN
+             B(1,1) = dBasisdx(q,1)
+             B(2,2) = dBasisdx(q,2)
+             B(3,1) = Basis(q) / Radius
+             B(4,1) = dBasisdx(q,2)
+             B(4,2) = dBasisdx(q,1)
+           ELSE
+             B(1,1) = dBasisdx(q,1)
+             B(2,2) = dBasisdx(q,2)
+             B(3,3) = dBasisdx(q,3)
+             B(4,1) = dBasisdx(q,2)
+             B(4,2) = dBasisdx(q,1)
+             B(5,2) = dBasisdx(q,3)
+             B(5,3) = dBasisdx(q,2)
+             B(6,1) = dBasisdx(q,3)
+             B(6,3) = dBasisdx(q,1)
+           END IF
+           A(1:3,1:3) = MATMUL( G, B )
          ELSE
-            B(1,1) = dBasisdx(q,1)
-            B(2,2) = dBasisdx(q,2)
-            B(3,3) = dBasisdx(q,3)
-            B(4,1) = dBasisdx(q,2)
-            B(4,2) = dBasisdx(q,1)
-            B(5,2) = dBasisdx(q,3)
-            B(5,3) = dBasisdx(q,2)
-            B(6,1) = dBasisdx(q,3)
-            B(6,3) = dBasisdx(q,1)
+
+         A = 0.0d0
+           DO i=1,dim
+              DO j=1,dim
+                A(i,i)=A(i,i) + eta* dbasisdx(q,j)*dbasisdx(p,j)
+                A(i,j)=A(i,j) + eta* dbasisdx(q,i)*dbasisdx(p,j)
+              END DO
+           END DO
+
          END IF
-
-         A(1:3,1:3) = MATMUL( G, B )
-
 
 ! Pressure gradient
          DO i=1,dim
