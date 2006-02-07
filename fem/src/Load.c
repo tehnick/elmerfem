@@ -213,7 +213,7 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
                   strncat( NewLibName, Library,  3*MAX_NAME_LEN );
                   break;
         }
-        if ( ( Handle = dlopen( NewLibName , 0 ) ) == NULL )
+        if ( ( Handle = dlopen( NewLibName , RTLD_NOW ) ) == NULL )
           {
              strncpy( dl_err_msg[i], dlerror(), MAX_NAME_LEN );
           } else {
