@@ -56,9 +56,12 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: variable.c,v 1.3 2006/02/02 06:51:16 jpr Exp $ 
+ * $Id: variable.c,v 1.4 2006/02/02 06:54:44 jpr Exp $ 
  *
  * $Log: variable.c,v $
+ * Revision 1.4  2006/02/02 06:54:44  jpr
+ * small formatting changes.
+ *
  * Revision 1.2  2005/05/27 12:26:22  vierinen
  * changed header install location
  *
@@ -188,7 +191,7 @@ VARIABLE *var_rename(ptr, str) VARIABLE *ptr; char *str;
   return res;
 }
 
-int var_pprec = 3,
+static int var_pprec = 3,
     var_pinp = FALSE, var_rowintime = FALSE;
 
 VARIABLE *var_format(var) VARIABLE *var;

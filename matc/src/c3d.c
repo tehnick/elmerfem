@@ -48,9 +48,12 @@
 
 
 /*
- * $Id: c3d.c,v 1.1.1.1 2005/04/14 13:29:14 vierinen Exp $ 
+ * $Id: c3d.c,v 1.2 2005/05/27 12:26:14 vierinen Exp $ 
  *
  * $Log: c3d.c,v $
+ * Revision 1.2  2005/05/27 12:26:14  vierinen
+ * changed header install location
+ *
  * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
  * initial matc automake package
  *
@@ -114,7 +117,7 @@ VARIABLE *c3d_gc3dlevels(var) VARIABLE *var;
 /***********************************************************************
       Globals needed for C3D All start with the prefix c3d_
 ***********************************************************************/
-int c3d_clevels     = 10,
+static int c3d_clevels     = 10,
     c3d_perspective = FALSE;
 
 /***********************************************************************

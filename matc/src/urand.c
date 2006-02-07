@@ -56,9 +56,12 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: urand.c,v 1.1.1.1 2005/04/14 13:29:14 vierinen Exp $ 
+ * $Id: urand.c,v 1.2 2005/05/27 12:26:22 vierinen Exp $ 
  *
  * $Log: urand.c,v $
+ * Revision 1.2  2005/05/27 12:26:22  vierinen
+ * changed header install location
+ *
  * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
  * initial matc automake package
  *
@@ -71,8 +74,6 @@ $  usage of the function and type of the parameters
 
 #include "elmer/matc.h"
 
-double s, halfm; int m2 = 0, itwo = 2, ia, ic, m, mic;
-
 double urand(iy) int *iy;
 /*======================================================================
 ?  urand is a uniform random number generator based  on  theory  and
@@ -84,6 +85,9 @@ double urand(iy) int *iy;
 |  see forsythe, malcolm and moler (1977).
 ^=====================================================================*/
 {
+   double s, halfm;
+   int  ia, ic, m, mic;
+   static int m2 = 0, itwo = 2
   
   if (m2 == 0)
   {

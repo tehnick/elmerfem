@@ -35,9 +35,12 @@
  ******************************************************************************/
 
 /*
- * $Id: dri_ps.c,v 1.1.1.1 2005/04/14 13:29:14 vierinen Exp $ 
+ * $Id: dri_ps.c,v 1.2 2005/05/27 12:26:19 vierinen Exp $ 
  *
  * $Log: dri_ps.c,v $
+ * Revision 1.2  2005/05/27 12:26:19  vierinen
+ * changed header install location
+ *
  * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
  * initial matc automake package
  *
@@ -53,7 +56,7 @@
 #define GRA_PS_FILE "matc.ps"
 
 #define GRA_PS_MAXC 16
-unsigned char gra_ps_rgb[GRA_PS_MAXC][3] = 
+static unsigned char gra_ps_rgb[GRA_PS_MAXC][3] = 
 {
   { 255, 255, 255 },
   { 0,   0,     0 },

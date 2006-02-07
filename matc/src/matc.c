@@ -56,9 +56,12 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: matc.c,v 1.4 2006/02/02 06:51:16 jpr Exp $ 
+ * $Id: matc.c,v 1.5 2006/02/02 06:54:44 jpr Exp $ 
  *
  * $Log: matc.c,v $
+ * Revision 1.5  2006/02/02 06:54:44  jpr
+ * small formatting changes.
+ *
  * Revision 1.3  2005/08/25 13:44:22  vierinen
  * windoze stuff
  *
@@ -81,8 +84,8 @@ $  usage of the function and type of the parameters
 #include "../config.h"
 
 #ifdef DEBUG
-      FILE *fplog;
-      int tot;
+      static FILE *fplog;
+      static int tot;
 #endif
 /*======================================================================
 ? main program, initialize few constants and go for it.
