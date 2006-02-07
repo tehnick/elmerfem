@@ -117,24 +117,24 @@ static void fortranMangle(char *orig, char *mangled)
 {
   int uscore, i;
   
+  strcpy( mangled, orig );
   if(ELMER_LINKTYP == 1 || ELMER_LINKTYP == 3 || ELMER_LINKTYP == 4)
   {
-    for( i=0 ; i<strlen(orig) ; i++ ) /* to lower case */
+    for( i=0 ; i<strlen(mangled) ; i++ ) /* to lower case */
     {
-      if ( orig[i] >= 'A'  && orig[i] <= 'Z' ) 
-	orig[i] += 'a' - 'A';
+      if ( mangled[i] >= 'A'  && mangled[i] <= 'Z' ) 
+	mangled[i] += 'a' - 'A';
     }
   }
   if(ELMER_LINKTYP == 2)
   {
-    for( i=0; i<strlen(orig); i++ ) /* to upper case */
+    for( i=0; i<strlen(mangled); i++ ) /* to upper case */
     {
-      if ( orig[i] >= 'a'  && orig[i] <= 'z' ) 
-	orig[i] += 'A' - 'a';
+      if ( mangled[i] >= 'a'  && mangled[i] <= 'z' ) 
+	mangled[i] += 'A' - 'a';
     }
   }
   
-  strcpy( mangled, orig );
   if(ELMER_LINKTYP == 1) /* underscore */
   {
       strcat( mangled, "_" );
@@ -213,7 +213,7 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
                   strncat( NewLibName, Library,  3*MAX_NAME_LEN );
                   break;
         }
-        if ( ( Handle = dlopen( NewLibName , RTLD_NOW ) ) == NULL )
+        if ( ( Handle = dlopen( NewLibName , 0 ) ) == NULL )
           {
              strncpy( dl_err_msg[i], dlerror(), MAX_NAME_LEN );
           } else {
@@ -265,14 +265,9 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
      }
    }
 
-   for( i=0; i<strlen(Name); i++ )
+   if ( (Function = (void *)GetProcAddress( Handle,NewName ) ) == NULL )
    {
-     if ( Name[i] >= 'a'  && Name[i] <= 'z' ) Name[i] += 'A' - 'a';
-   }
-
-   if ( (Function = (void *)GetProcAddress( Handle,Name ) ) == NULL )
-   {
-     fprintf( stderr,"Load: FATAL: Can't find procedure [%s]\n", Name );
+     fprintf( stderr,"Load: FATAL: Can't find procedure [%s]\n", NewName );
      exit(0);
    }
 #endif 
@@ -457,8 +452,6 @@ static double DoViscFunction(double (STDCALLBULL *SolverProc)(), void *Model, vo
 double STDCALLBULL FC_FUNC(materialuserfunction,MATERIALUSERFUNCTION)
   ( f_ptr Function, void *Model, void *Element, void *Nodes, void *n, void *nd, void *Basis, void *GradBasis, void *Viscosity, void *Velo, void *gradV )
 {
-  fprintf(stderr,"entering materialuserfunc\n");
-  fflush(stderr);
    return DoViscFunction( (double (STDCALLBULL *)())*Function,Model,Element,Nodes,n,Basis,
                   GradBasis,Viscosity,Velo,gradV );
 }
