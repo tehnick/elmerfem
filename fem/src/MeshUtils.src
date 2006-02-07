@@ -39,6 +39,11 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.29  2006/02/07 13:19:47  jpr
+! * P-elements now have their reference element local coorodinates in
+! * Element % Type % Node[U,V,W], the same as nodal elements. Moved code
+! * around somewhat to implement this.
+! *
 ! * Revision 1.28  2006/02/02 07:14:32  jpr
 ! * Small formatting changes.
 ! *
@@ -116,7 +121,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.28 2006/02/02 07:14:32 jpr Exp $
+! * $Id: MeshUtils.src,v 1.29 2006/02/07 13:19:47 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -500,14 +505,20 @@ CONTAINS
               IF ( ASSOCIATED(Element % Type % NodeU) ) THEN
                  DEALLOCATE( Element % Type % NodeU )
                  Element % Type % NodeU => ElementNodes % x
+              ELSE
+                 DEALLOCATE( ElementNodes % x )
               END IF 
               IF ( ASSOCIATED(Element % Type % NodeV) ) THEN
                  DEALLOCATE( Element % Type % NodeV )
                  Element % Type % NodeV => ElementNodes % y
+              ELSE
+                 DEALLOCATE( ElementNodes % y )
               END IF 
               IF ( ASSOCIATED(Element % Type % NodeW) ) THEN
                  DEALLOCATE( Element % Type % NodeW )
                  Element % Type % NodeW => ElementNodes % z
+              ELSE
+                 DEALLOCATE( ElementNodes % z )
               END IF 
            END IF
         ELSE 
