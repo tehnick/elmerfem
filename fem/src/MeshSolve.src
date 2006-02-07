@@ -102,7 +102,7 @@
   REAL(KIND=dp), POINTER :: BoundaryNormals(:,:), &
        BoundaryTangent1(:,:), BoundaryTangent2(:,:)
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: MeshSolve.src,v 1.6 2005/07/07 09:12:28 jpr Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: MeshSolve.src,v 1.7 2006/01/10 08:51:49 apursula Exp $"
 
   SAVE NumberOfBoundaryNodes,BoundaryReorder,BoundaryNormals, &
        BoundaryTangent1, BoundaryTangent2
@@ -281,7 +281,7 @@
 !    coordinate system
 !------------------------------------------------------------------------------
      IF ( NumberOfBoundaryNodes > 0 ) THEN
-        CALL RotateMatrix( STIFF,FORCE,n,STDOFs,STDOFs, &
+        CALL RotateMatrix( STIFF,FORCE,nd,STDOFs,STDOFs, &
              BoundaryReorder(Element % NodeIndexes),BoundaryNormals,BoundaryTangent1, &
              BoundaryTangent2 )
      END IF
