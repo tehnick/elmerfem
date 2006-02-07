@@ -12,8 +12,8 @@
 #
 run:
 	$(F90) -c Stokes.f90
-	$(LD) -o Stokes$(SHL_EXT) Stokes$(OBJ_EXT) $(LIBS)
+	$(LD) -o Stokes1$(SHL_EXT) Stokes$(OBJ_EXT) $(LIBS)
 	$(ELMER_SOLVER)
 
 clean:
-	/bin/rm test.log temp.log mon.out Stokes$(SHL_EXT) Stokes$(OBJ_EXT) so_locations
+	/bin/rm test.log temp.log mon.out Stokes1$(SHL_EXT) Stokes$(OBJ_EXT) so_locations
