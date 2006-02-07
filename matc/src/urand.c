@@ -56,9 +56,12 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: urand.c,v 1.2 2005/05/27 12:26:22 vierinen Exp $ 
+ * $Id: urand.c,v 1.3 2006/02/07 10:21:42 jpr Exp $ 
  *
  * $Log: urand.c,v $
+ * Revision 1.3  2006/02/07 10:21:42  jpr
+ * Changed visibility of some variables to local scope.
+ *
  * Revision 1.2  2005/05/27 12:26:22  vierinen
  * changed header install location
  *
@@ -87,7 +90,7 @@ double urand(iy) int *iy;
 {
    double s, halfm;
    int  ia, ic, m, mic;
-   static int m2 = 0, itwo = 2
+   static int m2 = 0, itwo = 2;
   
   if (m2 == 0)
   {
