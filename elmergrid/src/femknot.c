@@ -1720,9 +1720,9 @@ static int CreateNewNodes(struct FemType *data,int *order,int material,int new)
 
 int SetDiscontinuousBoundary(struct FemType *data,struct BoundaryType *bound,
 			     int boundtype,int endnodes,int info)
-/* Create secondary point for a given boundary. 
-   The variable that is used to set up the boundary must not 
-   have any previously defined Dirichlet points. 
+/* Create secondary points for a given boundary. 
+   This feature is handy when one wants to solve problems with discontinous
+   field variables.
    */
 {
   int i,j,k,bc,ind,sideind[MAXNODESD1];
@@ -4954,8 +4954,6 @@ void SeparateMainaxisBoundaries(struct FemType *data,struct BoundaryType *bound)
   int axistype[4],axishit[4],axissum,axismax,done;
   Real x,y,z,sx,sy,sz,sxx,syy,szz,dx,dy,dz;
   Real eps=1.0e-6;
-
-  printf("a1 %d\n",data->noboundaries);
 
   maxtype = 0;
   for(j=0;j<data->noboundaries;j++) {
