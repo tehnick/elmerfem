@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.28  2006/02/02 07:14:32  jpr
+! * Small formatting changes.
+! *
 ! * Revision 1.27  2006/02/01 11:56:06  jpr
 ! * Renamed MAX_NODES as MAX_ELEMENT_NODES.
 ! *
@@ -113,7 +116,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.27 2006/02/01 11:56:06 jpr Exp $
+! * $Id: MeshUtils.src,v 1.28 2006/02/02 07:14:32 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -242,6 +245,8 @@ CONTAINS
   FUNCTION LoadMesh( Model, MeshDirPar, MeshNamePar,&
     BoundariesOnly, NumProcs,MyPE ) RESULT( Mesh )
 !------------------------------------------------------------------------------
+    USE PElementMaps, ONLY : GetRefPElementNodes
+
     IMPLICIT NONE
 
     CHARACTER(LEN=*) :: MeshDirPar,MeshNamePar
@@ -272,6 +277,7 @@ CONTAINS
     INTEGER, POINTER :: LocalPerm(:),LocalEPerm(:), &
            ElementTags(:), EdgeDOFs(:), FaceDOFs(:)
 
+    TYPE(Nodes_t) :: ElementNodes
     Type(Element_t), POINTER :: Element, Edge, Face, Parent
 
     LOGICAL :: parallel
@@ -429,7 +435,7 @@ CONTAINS
       NULLIFY( Element % BoundaryInfo )
       Element % Type => GetElementType( Type )
 
-      IF ( ASSOCIATED( Element % TYPE ) ) THEN
+      IF ( ASSOCIATED( Element % Type ) ) THEN
         Element % BodyId = body
 
         n = Element % TYPE % NumberOfNodes
@@ -489,6 +495,20 @@ CONTAINS
               ! If element is of type tetrahedron and is a p element, 
               ! do the Ainsworth & Coyle trick
               IF (Element % Type % ElementCode == 504) CALL ConvertToACTetra( Element )
+
+              CALL GetRefPElementNodes( ElementNodes, Element ) 
+              IF ( ASSOCIATED(Element % Type % NodeU) ) THEN
+                 DEALLOCATE( Element % Type % NodeU )
+                 Element % Type % NodeU => ElementNodes % x
+              END IF 
+              IF ( ASSOCIATED(Element % Type % NodeV) ) THEN
+                 DEALLOCATE( Element % Type % NodeV )
+                 Element % Type % NodeV => ElementNodes % y
+              END IF 
+              IF ( ASSOCIATED(Element % Type % NodeW) ) THEN
+                 DEALLOCATE( Element % Type % NodeW )
+                 Element % Type % NodeW => ElementNodes % z
+              END IF 
            END IF
         ELSE 
            ! Clear P element definitions and set manual bubbles
