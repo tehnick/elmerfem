@@ -39,14 +39,14 @@ struct parallel
   int myProc;
 };
 
-struct parallel paraState = { 0, 0, 0};
-EIOModelManager *modelManager = 0;
-EIOGeometryAgent *geometryAgent = 0;
-EIOMeshAgent *meshAgent = 0;
-EIOSolverAgent *solverAgent = 0;
-EIOModelDataAgent *modelDataAgent = 0;
-EIODualMeshAgent *dualMeshAgent = 0;
-EIOPartWriter *partitioningWriter = 0;
+static struct parallel paraState = { 0, 0, 0};
+static EIOModelManager *modelManager = 0;
+static EIOGeometryAgent *geometryAgent = 0;
+static EIOMeshAgent *meshAgent = 0;
+static EIOSolverAgent *solverAgent = 0;
+static EIOModelDataAgent *modelDataAgent = 0;
+static EIODualMeshAgent *dualMeshAgent = 0;
+static EIOPartWriter *partitioningWriter = 0;
 
 //#define EIOFC(funname) extern "C" void WITH_BINDING_EXTENSION(funname)
 
