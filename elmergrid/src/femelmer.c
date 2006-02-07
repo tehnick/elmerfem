@@ -235,7 +235,7 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int inf
   totelements = sumelements;
   res = Rvector(1,novctrs);
 
-  if(info) printf("There are alltogether %d nodes and %d elements.\n",totknots,sumknots);
+  if(info) printf("There are alltogether %d nodes and %d elements.\n",totknots,sumelements);
 
 
   AddExtension(outfile,filename,"ep");
@@ -245,7 +245,7 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int inf
     printf("opening of file was not successful\n");
     return(3);
   }
-  fprintf(out,"%d %d %d %d %s",totknots,totelements,novctrs,timesteps,cp);
+  fprintf(out,"%d %d %d %d %s %s",totknots,totelements,novctrs+1,timesteps,"scalar: Partition",cp);
 
  
   if(info) printf("Reading and writing %d coordinates.\n",totknots);
@@ -306,6 +306,7 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int inf
 	for(j=1;j <= novctrs;j++) 
 	  res[j] = next_real(&cp);
 
+	fprintf(out,"%d ",k+1);
 	for(j=1;j <= novctrs;j++) 
 	  fprintf(out,outstyle,res[j]);
 	fprintf(out,"\n");
