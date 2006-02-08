@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: DefUtils.src,v $
+! * Revision 1.19  2006/02/08 07:11:57  jpr
+! * Introduced GetMesh(), GetNOFActive(), GetSolver().
+! *
 ! * Revision 1.18  2006/02/08 03:58:41  jpr
 ! * Still about reference p element local coordinates in ElementType_t.
 ! *
@@ -130,7 +133,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.18 2006/02/08 03:58:41 jpr Exp $
+! * $Id: DefUtils.src,v 1.19 2006/02/08 07:11:57 jpr Exp $
 ! *
 ! *****************************************************************************/
 
@@ -179,6 +182,17 @@ CONTAINS
      Solver => CurrentModel % Solver
   END FUNCTION GetSolver
 
+  FUNCTION GetMatrix( USolver ) RESULT( Matrix )
+     TYPE(Matrix_t), POINTER :: Matrix 
+     TYPE(Solver_t), OPTIONAL, TARGET :: USolver
+
+     IF ( PRESENT( USolver ) ) THEN
+        Matrix => USolver % Matrix
+     ELSE
+        Matrix => CurrentModel % Solver % Matrix
+     END IF
+  END FUNCTION GetMatrix
+
   FUNCTION GetMesh( USolver ) RESULT( Mesh )
      TYPE(Mesh_t), POINTER :: Mesh 
      TYPE(Solver_t), OPTIONAL, TARGET :: USolver
@@ -201,6 +215,16 @@ CONTAINS
      END IF
   END FUNCTION GetNOFActive
 
+  FUNCTION GetNOFBoundaryElements( UMesh ) RESULT(n)
+    INTEGER :: n
+    TYPE(Mesh_t), OPTIONAL :: UMesh
+  
+    IF ( PRESENT( UMesh ) ) THEN
+       n = UMesh % NumberOfBoundaryElements
+    ELSE
+       n = CurrentModel % Mesh % NumberOfBoundaryElements
+    END IF
+  END FUNCTION GetNOFBoundaryElements
 
   SUBROUTINE GetScalarLocalSolution( x,name,UElement,USolver )
      REAL(KIND=dp) :: x(:)
