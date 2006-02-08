@@ -83,16 +83,21 @@
      TYPE( Element_t ), POINTER :: Edges(:), Faces(:)
      TYPE(Nodes_t) :: ElementNodes
 
+     TYPE(Mesh_t), POINTER :: Mesh
+
      REAL(KIND=dp), POINTER :: LocalSolution(:)
-     INTEGER :: DOFs
+     INTEGER :: Active, DOFs
 !*******************************************************************************
-     Edges => Solver % Mesh % Edges
-     Faces => Solver % Mesh % Faces
+
+     Mesh => GetMesh()
+
+     Edges => Mesh % Edges
+     Faces => Mesh % Faces
 !------------------------------------------------------------------------------
 !    Initialize & allocate some permanent storage, this is done first time only
 !------------------------------------------------------------------------------
      IF ( .NOT. AllocationsDone ) THEN
-        N = 2 * Solver % Mesh % MaxElementDOFs
+        N = 2 * Mesh % MaxElementDOFs
         ALLOCATE( FORCE(N), STIFF(2*N,2*N), LOAD(N), EpsilonBoundary(N), &
              LocalSolution(N), STAT = istat )
         
@@ -104,8 +109,9 @@
 !    Assembly of the bulk elements
 !------------------------------------------------------------------------------
      at = CPUTime()
+     Active = GetNOFActive()
      CALL DefaultInitialize()
-     DO t = 1, Solver % NumberOfActiveElements
+     DO t = 1, Active
         Element => GetActiveElement( t ) 
         n = GetElementNOfNodes( Element )
         
@@ -122,7 +128,7 @@
     IF( .NOT. GotIt ) Gamma = 1.0d3
 
     FORCE = 0.0d0
-    DO t = 1, Solver % Mesh % NumberOfEdges
+    DO t = 1, Mesh % NumberOfEdges
        Edge => Edges(t)
        IF ( .NOT. ActiveBoundaryElement(Edge) ) CYCLE
        
@@ -141,7 +147,7 @@
     Gamma = ListGetConstReal( Solver % Values, 'gamma2', GotIt )
     IF( .NOT. GotIt ) Gamma = 1.0d-3
     
-    DO t = 1, Solver % Mesh % NumberOfBoundaryElements
+    DO t = 1, Mesh % NumberOfBoundaryElements
        Element => GetBoundaryElement(t)
        IF( .NOT. ActiveBoundaryElement() )  CYCLE
        IF( GetElementFamily(Element) == 1 ) CYCLE
@@ -177,26 +183,25 @@
      OPEN( 10, FILE='dg.ep', STATUS='unknown' )
      
      WRITE( 10, '(i8,i8,i3,i6,a)' ) &
-          3*Solver % NumberOfActiveElements, &
-          Solver % NumberOfActiveElements, 1, 1, ' scalar: Somequantity'
+          3*Active, Active, 1, 1, ' scalar: Somequantity'
      
-     DO t=1,Solver % NumberOfActiveElements
+     DO t=1,Active
         Element => GetActiveElement(t) 
         n = GetElementNOFNodes( Element )
         
         DO i = 1,n
            WRITE( 10, '(3e20.12)') &
-                Solver % Mesh % Nodes % x(Element % NodeIndexes(i)), &
-                Solver % Mesh % Nodes % y(Element % NodeIndexes(i)), &
-                Solver % Mesh % Nodes % z(Element % NodeIndexes(i))
+                Mesh % Nodes % x(Element % NodeIndexes(i)), &
+                Mesh % Nodes % y(Element % NodeIndexes(i)), &
+                Mesh % Nodes % z(Element % NodeIndexes(i))
         END DO
      END DO
 
-     DO i=1,Solver % NumberOfActiveElements
+     DO i=1,Active
         WRITE( 10,'(a,i6)',advance='no' ) 'body ', &
-             Solver % Mesh % Elements(i) % Type % ElementCode
+             Mesh % Elements(i) % Type % ElementCode
   
-        n = Solver % Mesh % Elements(i) % Type % NumberOfNodes
+        n = Mesh % Elements(i) % Type % NumberOfNodes
         DO j=1,n
            WRITE( 10,'(i8)', ADVANCE='no' ) n*(i-1) + j - 1
         END DO
@@ -205,7 +210,7 @@
      
      WRITE( 10,* ) '#time ',1,1,1
 
-     DO i=1,Solver % NumberOfActiveElements
+     DO i=1,ACtive
        Element => GetActiveElement(i)
        n = GetElementDOFs( Indexes )
        DO k=1,n

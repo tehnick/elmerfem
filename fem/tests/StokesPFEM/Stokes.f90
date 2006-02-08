@@ -51,10 +51,11 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: AllocationsDone = .FALSE., Newton = .FALSE., Found, Convect
   TYPE(Element_t),POINTER :: Element
 
-  INTEGER :: i,j,k,n, nb, nd, t, istat, dim, BDOFs=1
+  INTEGER :: i,j,k,n, nb, nd, t, istat, dim, BDOFs=1,Active
   REAL(KIND=dp) :: Norm = 0, PrevNorm, RelC
 
   TYPE(ValueList_t), POINTER :: BodyForce, Material
+  TYPE(Mesh_t), POINTER :: Mesh
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), LOAD(:,:), &
         FORCE(:), rho(:), mu(:), Velocity(:,:), MASS(:,:)
 
@@ -62,11 +63,12 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 
    dim = CoordinateSystemDimension()
+   Mesh => GetMesh()
 
   !Allocate some permanent storage, this is done first time only:
   !--------------------------------------------------------------
   IF ( .NOT. AllocationsDone ) THEN
-     n = (dim+1)*(Solver % Mesh % MaxElementDOFs+BDOFs)  ! just big enough for elemental arrays
+     n = (dim+1)*(Mesh % MaxElementDOFs+BDOFs)  ! just big enough for elemental arrays
      ALLOCATE( FORCE(n), LOAD(n,4), STIFF(n,n), MASS(n,n), &
          rho(n), mu(n), Velocity(dim+1,n), STAT=istat )
 
@@ -83,8 +85,9 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
 
   !Initialize the system and do the assembly:
   !------------------------------------------
+  Active = GetNOFActive()
   CALL DefaultInitialize()
-  DO t=1,Solver % NumberOfActiveElements
+  DO t=1,Active
      Element => GetActiveElement(t)
      n  = GetElementNOFNodes()
      nd = GetElementNOFDOFs()

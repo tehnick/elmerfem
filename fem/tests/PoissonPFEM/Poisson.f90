@@ -36,8 +36,8 @@ SUBROUTINE PoissonSolver( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t),POINTER :: Element
 
   REAL(KIND=dp) :: Norm
-  INTEGER :: n, nb, nd, t, istat
-
+  INTEGER :: n, nb, nd, t, istat, active
+  TYPE(Mesh_t), POINTER :: Mesh
   TYPE(ValueList_t), POINTER :: BodyForce
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), LOAD(:), FORCE(:)
 
@@ -46,6 +46,8 @@ SUBROUTINE PoissonSolver( Model,Solver,dt,TransientSimulation )
 
   !Allocate some permanent storage, this is done first time only:
   !--------------------------------------------------------------
+  Mesh => GetMesh()
+
   IF ( .NOT. AllocationsDone ) THEN
      N = Solver % Mesh % MaxElementDOFs  ! just big enough for elemental arrays
      ALLOCATE( FORCE(N), LOAD(N), STIFF(N,N), STAT=istat )
@@ -57,8 +59,9 @@ SUBROUTINE PoissonSolver( Model,Solver,dt,TransientSimulation )
 
    !System assembly:
    !----------------
+   Active = GetNOFActive()
    CALL DefaultInitialize()
-   DO t=1,Solver % NumberOfActiveElements
+   DO t=1,Active
       Element => GetActiveElement(t)
       n  = GetElementNOFNodes()
       nd = GetElementNOFDOFs()

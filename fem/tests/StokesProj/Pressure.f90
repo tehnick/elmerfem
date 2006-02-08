@@ -37,22 +37,23 @@ SUBROUTINE PressureSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: AllocationsDone = .FALSE., Newton = .FALSE., Found
   TYPE(Element_t),POINTER :: Element
 
-  INTEGER :: n, nb, nd, t, istat, dim
+  INTEGER :: n, nb, nd, t, istat, dim, active
   REAL(KIND=dp) :: Norm = 0, PrevNorm, RelC, PressureRelax
 
   TYPE(Variable_t), POINTER :: PressureVariable
-
+  TYPE(Mesh_t), POINTER :: Mesh
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), LOAD(:,:), FORCE(:), Velocity(:,:)
 
   SAVE STIFF, LOAD, FORCE, Velocity, AllocationsDone
 !------------------------------------------------------------------------------
 
   dim = CoordinateSystemDimension()
+  Mesh => GetMesh()
 
   ! Allocate some permanent storage, this is done first time only:
   !---------------------------------------------------------------
   IF ( .NOT. AllocationsDone ) THEN
-     N = Solver % Mesh % MaxElementDOFs  ! just big enough for elemental arrays
+     N = Mesh % MaxElementDOFs  ! just big enough for elemental arrays
      ALLOCATE( FORCE(N), STIFF(N,N), Velocity(dim,N), STAT=istat )
      IF ( istat /= 0 ) THEN
         CALL Fatal( 'PressureSolve', 'Memory allocation error.' )
@@ -62,8 +63,9 @@ SUBROUTINE PressureSolver( Model,Solver,dt,TransientSimulation )
 
   ! Initialize the system and do the assembly:
   !-------------------------------------------
+  active = GetNOFActive()
   CALL DefaultInitialize()
-  DO t=1,Solver % NumberOfActiveElements
+  DO t=1,active
      Element => GetActiveElement(t)
      n  = GetElementNOFNodes()
      nd = GetElementNOFDOFs()
@@ -95,7 +97,7 @@ SUBROUTINE PressureSolver( Model,Solver,dt,TransientSimulation )
   PressureRelax = GetConstReal( GetSolverParams(), 'Pressure Relax', Found )
   IF ( .NOT. Found ) PressureRelax = 1.0d0
 
-  PressureVariable => VariableGet( Solver % Mesh % Variables, 'PressureTot')
+  PressureVariable => VariableGet( Mesh % Variables, 'PressureTot')
   PressureVariable % Values = PressureVariable % Values + &
        PressureRelax * Solver % Variable % Values
 

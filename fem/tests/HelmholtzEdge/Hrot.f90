@@ -53,11 +53,12 @@ SUBROUTINE HrotSolver( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp) :: Norm, Normal(3), Normal2(3), &
        u, v, w, NormalSign, Edgeh
 
-  INTEGER :: n, nb, nd, t, istat, i, j, k, l
+  INTEGER :: n, nb, nd, t, istat, i, j, k, l, active
 
   REAL(KIND=dp),    ALLOCATABLE :: LOAD(:,:), Acoef(:,:), Bcoef(:,:)
   COMPLEX(KIND=dp), ALLOCATABLE :: STIFF(:,:), MASS(:,:), FORCE(:)
 
+  TYPE(Mesh_t), POINTER :: Mesh
   LOGICAL :: stat, EigenAnalysis
 
   SAVE STIFF, LOAD, MASS, FORCE, Acoef, Bcoef, &
@@ -66,8 +67,10 @@ SUBROUTINE HrotSolver( Model,Solver,dt,TransientSimulation )
 
   !Allocate some permanent storage, this is done first time only:
   !--------------------------------------------------------------
+  Mesh => GetMesh()
+
   IF ( .NOT. AllocationsDone ) THEN
-     N = Solver % Mesh % MaxElementDOFs  ! just big enough
+     N = Mesh % MaxElementDOFs  ! just big enough
      ALLOCATE( FORCE(2*N), LOAD(2,N), STIFF(2*N,2*N), &
           MASS(2*N,2*N), Acoef(2,N), Bcoef(2,N), STAT=istat )
      IF ( istat /= 0 ) THEN
@@ -81,8 +84,9 @@ SUBROUTINE HrotSolver( Model,Solver,dt,TransientSimulation )
   
   !System assembly:
   !----------------
+  active = GetNOFActive()
   CALL DefaultInitialize()
-  DO t=1,Solver % NumberOfActiveElements
+  DO t=1,active
      Element => GetActiveElement(t)
      n  = GetElementNOFNodes() ! kulmat
      nd = GetElementNOFDOFs()  ! vapausasteet
@@ -117,7 +121,7 @@ SUBROUTINE HrotSolver( Model,Solver,dt,TransientSimulation )
 !  ---------------------
    Var => Solver % Variable
 
-   DO t=1, Solver % Mesh % NumberOfBoundaryElements
+   DO t=1, Mesh % NumberOfBoundaryElements
       Element => GetBoundaryElement(t)
       IF ( GetElementFamily() == 1 .OR. .NOT.ActiveBoundaryElement() ) CYCLE
       
@@ -143,7 +147,7 @@ SUBROUTINE HrotSolver( Model,Solver,dt,TransientSimulation )
       STIFF = 0.0d0
       FORCE = 0.0d0
       DO j=1,Parent % Type % NumberOfEdges
-         Edge => Solver % Mesh % Edges( Parent % EdgeIndexes(j) )
+         Edge => Mesh % Edges( Parent % EdgeIndexes(j) )
 
          n = 0
          DO k=1,Element % Type % NumberOfNodes
@@ -252,18 +256,20 @@ CONTAINS
     REAL(KIND=dp) :: u, v, w, Ratkaisu(2), Ratkaisu2(2), WhitneyBasis(3,2), &
          RotWhitneyBasis(3), Edgeh, Rot, Rot2
 
-    INTEGER :: Indexes(6)
+    INTEGER :: Active, Indexes(6)
 
     OPEN(unit=10, file='ratkaisu.ep')
 
-   t = Solver % NumberOfActiveElements * 3 ! nurkkasolmujen lukumäärä
+   Active = GetNOFActive()
+   t = Active * 3 ! nurkkasolmujen lukumäärä
 
-   write(10,'(4i10,A)') t, Solver % NumberOfActiveElements, 8, 1, &
+   write(10,'(4i10,A)') t, Active, 8, 1, &
         ' vector: ReU vector: ImU scalar: ReRotU scalar: ImRotU'
 
 !  Kirjoitetaan solmukoordinaatit:
 !  -------------------------------
-   DO i = 1, Solver % NumberOfActiveElements
+   Active = GetNOFActive()
+   DO i = 1, Active
       Element => GetActiveElement(i)
       DO j = 1,3
          k = Element % NodeIndexes(j)
@@ -275,7 +281,7 @@ CONTAINS
 !  Kirjoitetaan elementit:
 !  -----------------------
    WRITE(10,'(a)') '#group all'
-   DO i = 1, Solver % NumberOfActiveElements
+   DO i = 1, Active
       Element => GetActiveElement(i)
       WRITE(10,*) 'body1   303', 3*(i-1)+0,3*(i-1)+1,3*(i-1)+2
    END DO
@@ -286,7 +292,7 @@ CONTAINS
    Var => VariableGet( Model % Variables, 'tangent component' )
 
    WRITE(10,'(a)') '#time 1   1  1  1.0'
-   DO i = 1, Solver % NumberOfActiveElements
+   DO i = 1, Active
 
       Element => GetActiveElement(i)
 
@@ -378,7 +384,7 @@ CONTAINS
 
 !       Dirichlet BCs for face & edge DOFs:
 !       -----------------------------------
-        DO i=1,Solver % Mesh % NumberOfBoundaryElements
+        DO i=1,Mesh % NumberOfBoundaryElements
 
            Element => GetBoundaryElement(i)
            IF ( .NOT. ActiveBoundaryElement() ) CYCLE
@@ -395,9 +401,9 @@ CONTAINS
            END IF
            IF ( .NOT. ASSOCIATED( Parent ) ) CYCLE
 
-           IF ( ASSOCIATED( Solver % Mesh % Edges ) ) THEN
+           IF ( ASSOCIATED( Mesh % Edges ) ) THEN
               DO j=1,Parent % Type % NumberOfEdges
-                 Edge => Solver % Mesh % Edges( Parent % EdgeIndexes(j) )
+                 Edge => Mesh % Edges( Parent % EdgeIndexes(j) )
 
                  Edgeh = (Model % Mesh % Nodes % x(Edge % NodeIndexes(2)) &
                          -Model % Mesh % Nodes % x(Edge % NodeIndexes(1)))**2 &
@@ -416,8 +422,8 @@ CONTAINS
 
                     DO k=1,Edge % BDOFs
 
-                       n = Solver % Mesh % NumberofNodes + &
-                           (Parent % EdgeIndexes(j)-1) * Solver % Mesh % MaxEdgeDOFs + k
+                       n = Mesh % NumberofNodes + &
+                           (Parent % EdgeIndexes(j)-1) * Mesh % MaxEdgeDOFs + k
 
                        n = x % Perm( n )
                        IF ( n <= 0 ) CYCLE
@@ -451,9 +457,9 @@ CONTAINS
               END DO
            END IF
 
-           IF ( ASSOCIATED( Solver % Mesh % Faces ) ) THEN
+           IF ( ASSOCIATED( Mesh % Faces ) ) THEN
               DO j=1,Parent % Type % NumberOfFaces
-                 Face => Solver % Mesh % Faces( Parent % FaceIndexes(j) )
+                 Face => Mesh % Faces( Parent % FaceIndexes(j) )
                  n = 0
                  DO k=1,Element % Type % NumberOfNodes
                     DO l=1,Face % Type % NumberOfNodes
@@ -463,9 +469,9 @@ CONTAINS
 
                  IF ( n == Face % Type % NumberOfNodes ) THEN
                     DO k=1,Face % BDOFs
-                       n = Solver % Mesh % Numberofnodes +  &
-                         Solver % Mesh % MaxEdgeDOFs * Solver % Mesh % NumberOfEdges + &
-                            Solver % Mesh % MaxFaceDOFs * (Parent % FaceIndexes(j)-1) + k
+                       n = Mesh % Numberofnodes +  &
+                         Mesh % MaxEdgeDOFs * Mesh % NumberOfEdges + &
+                            Mesh % MaxFaceDOFs * (Parent % FaceIndexes(j)-1) + k
 
                        n = x % Perm( n )
                        IF ( n <= 0 ) CYCLE

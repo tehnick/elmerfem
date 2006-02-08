@@ -36,19 +36,24 @@ SUBROUTINE PoissonSolver( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t),POINTER :: Element
 
   REAL(KIND=dp) :: Norm,  Energy
-  INTEGER :: i,j,n, nb, nd, t, istat
+  INTEGER :: i,j,n, nb, nd, t, istat, Active
 
   TYPE(ValueList_t), POINTER :: BodyForce,BC
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), LOAD(:), FORCE(:), &
                NEWX(:), NEWY(:), POT(:)
+
+  TYPE(Matrix_t), POINTER :: A
+  TYPE(Mesh_t),   POINTER :: Mesh
 
   SAVE STIFF, LOAD, FORCE, AllocationsDone
 !------------------------------------------------------------------------------
 
   ! Allocate some permanent storage, this is done first time only:
   ! --------------------------------------------------------------
+  Mesh => GetMesh()
+
   IF ( .NOT. AllocationsDone ) THEN
-     N = Solver % Mesh % MaxElementDOFs
+     N = Mesh % MaxElementDOFs
      ALLOCATE( FORCE(N), LOAD(N), STIFF(N,N), POT(N), STAT=istat )
      IF ( istat /= 0 ) THEN
         CALL Fatal( 'PoissonSolve', 'Memory allocation error.' )
@@ -56,14 +61,15 @@ SUBROUTINE PoissonSolver( Model,Solver,dt,TransientSimulation )
      AllocationsDone = .TRUE.
   END IF
 
-   n = SIZE( Solver % Mesh % Nodes % x )
+   n = SIZE( Mesh % Nodes % x )
    ALLOCATE( NEWX(n),NEWY(n) )
-   NEWX = Solver % Mesh % Nodes % x
-   NEWY = Solver % Mesh % Nodes % y
+   NEWX = Mesh % Nodes % x
+   NEWY = Mesh % Nodes % y
 
    LOAD=0
+   Active = GetNOFActive()
    CALL DefaultInitialize()
-   DO t=1,Solver % NumberOfActiveElements
+   DO t=1,Active
      Element => GetActiveElement(t)
      nd = GetElementNOFDOFs(  Element )
      n  = GetElementNOFNodes( Element )
@@ -85,14 +91,14 @@ SUBROUTINE PoissonSolver( Model,Solver,dt,TransientSimulation )
    Norm = DefaultSolve()
    NEWY = Solver % Variable % Values(Solver % Variable % Perm)
 
-   Solver % Mesh % Nodes % x = NEWX
-   Solver % Mesh % Nodes % y = NEWY
+   Mesh % Nodes % x = NEWX
+   Mesh % Nodes % y = NEWY
    DEALLOCATE( NEWX,NEWY )
 
    ! System assembly:
    ! ----------------
    CALL DefaultInitialize()
-   DO t=1,Solver % NumberOfActiveElements
+   DO t=1,active
       Element => GetActiveElement(t)
       n  = GetElementNOFNodes()
       nd = GetElementNOFDOFs()
@@ -112,16 +118,17 @@ SUBROUTINE PoissonSolver( Model,Solver,dt,TransientSimulation )
 
    Energy  = 0.0d0
    LOAD    = 0.0d0
-   DO t=1,Solver % NumberOfActiveElements
+   DO t=1,active
       Element => GetActiveElement(t)
-      n  = GetElementNOFNodes()
       nd = GetElementNOFDOFs()
+      n  = GetElementNOFNodes()
       CALL LocalMatrix( STIFF, FORCE, LOAD, Element, n, nd )
       CALL GetScalarLocalSolution(POT)
       Energy = Energy + SUM( POT*MATMUL(STIFF,POT) )
    END DO
    PRINT*,Energy
-   PRINT*,'DOFs, Error in energy: ',Solver % Matrix % NumberOfRows, ABS(Energy-PI/2.0d0)
+   A => GetMatrix()
+   PRINT*,'DOFs, Error in energy: ',A % NumberOfRows, ABS(Energy-PI/2.0d0)
 
 CONTAINS
 

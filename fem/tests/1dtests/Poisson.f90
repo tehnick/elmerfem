@@ -36,20 +36,22 @@ SUBROUTINE PoissonSolver( Model,Solver,dt,TransientSimulation )
 
   LOGICAL :: AllocationsDone = .FALSE., Found
 
-  INTEGER :: n, t, istat
+  INTEGER :: n, t, istat, active
   REAL(KIND=dp) :: Norm
 
   TYPE(ValueList_t), POINTER :: BodyForce
+  TYPE(Mesh_t), POINTER :: Mesh
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), LOAD(:), FORCE(:)
 
   SAVE STIFF, LOAD, FORCE, AllocationsDone
 !------------------------------------------------------------------------------
 
+  Mesh => GetMesh()
 
   !Allocate some permanent storage, this is done first time only:
   !--------------------------------------------------------------
   IF ( .NOT. AllocationsDone ) THEN
-     N = Solver % Mesh % MaxElementNodes ! just big enough for elemental arrays
+     N = Mesh % MaxElementNodes ! just big enough for elemental arrays
      ALLOCATE( FORCE(N), LOAD(N), STIFF(N,N), STAT=istat )
      IF ( istat /= 0 ) THEN
         CALL Fatal( 'PoissonSolve', 'Memory allocation error.' )
@@ -61,7 +63,8 @@ SUBROUTINE PoissonSolver( Model,Solver,dt,TransientSimulation )
    !------------------------------------------
    CALL DefaultInitialize()
 
-   DO t=1,Solver % NumberOfActiveElements
+   active = GetNOFActive()
+   DO t=1,active
       Element => GetActiveElement(t)
       n = GetElementNOFNodes()
 

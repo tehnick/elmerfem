@@ -82,7 +82,7 @@ RECURSIVE SUBROUTINE BentoniteSolver( Model,Solver,dt,TransientSimulation )
 
   TYPE(ValueList_t), POINTER :: BC, SolverParams
 
-  INTEGER :: NonlinearIter, DOFs
+  INTEGER :: NonlinearIter, DOFs, active
   REAL(KIND=dp) :: NonlinearTol,s
 
   REAL(KIND=dp), ALLOCATABLE :: MASS(:,:), STIFF(:,:), &
@@ -91,6 +91,8 @@ RECURSIVE SUBROUTINE BentoniteSolver( Model,Solver,dt,TransientSimulation )
   SAVE STIFF, MASS, FORCE, ElementNodes, &
                  Xi, Temp, Eta, AllocationsDone
 
+  TYPE(Mesh_t), POINTER :: Mesh
+
   REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
 !------------------------------------------------------------------------------
 
@@ -98,6 +100,8 @@ RECURSIVE SUBROUTINE BentoniteSolver( Model,Solver,dt,TransientSimulation )
 ! Get variables needed for solution
 !------------------------------------------------------------------------------
   IF ( .NOT.ASSOCIATED( Solver % Matrix ) ) RETURN
+
+  Mesh => GetMesh()
 
   Bentonite => Solver % Variable % Values
   DOFs = Solver % Variable % DOFs
@@ -110,8 +114,8 @@ RECURSIVE SUBROUTINE BentoniteSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 ! Allocate some permanent storage, this is done first time only
 !------------------------------------------------------------------------------
-  IF ( .NOT. AllocationsDone .OR. Solver % Mesh % Changed ) THEN
-     N = Solver % Mesh % MaxElementNodes
+  IF ( .NOT. AllocationsDone .OR. Mesh % Changed ) THEN
+     N = Mesh % MaxElementNodes
 
      IF ( AllocationsDone ) THEN
         DEALLOCATE(                 &
@@ -136,7 +140,7 @@ RECURSIVE SUBROUTINE BentoniteSolver( Model,Solver,dt,TransientSimulation )
 !
 !    Compute initial value for Eta:
 !    ------------------------------
-     DO i=1,Solver % Mesh % NumberOFnodes
+     DO i=1,Mesh % NumberOFnodes
         IF ( BentonitePerm(i) > 0 ) THEN
            Xi(1)   = Bentonite( DOFs*(BentonitePerm(i)-1) + 1 )
            Temp(1) = Bentonite( DOFs*(BentonitePerm(i)-1) + 2 )
@@ -185,9 +189,10 @@ RECURSIVE SUBROUTINE BentoniteSolver( Model,Solver,dt,TransientSimulation )
 !
 !    Do the bulk assembly:
 !    ---------------------
+     active = GetNOFActive()
      CALL DefaultInitialize()
 !------------------------------------------------------------------------------
-     DO t=1,Solver % NumberOfActiveElements
+     DO t=1,active
 !------------------------------------------------------------------------------
         IF ( RealTime() - at0 > 1.0 ) THEN
           WRITE(Message,'(a,i3,a)' ) '   Assembly: ', INT(100.0 - 100.0 * &
@@ -202,9 +207,9 @@ RECURSIVE SUBROUTINE BentoniteSolver( Model,Solver,dt,TransientSimulation )
         n = GetElementNOFNodes()
         NodeIndexes => Element % NodeIndexes
 
-        ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
-        ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
-        ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(NodeIndexes)
+        ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
+        ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
+        ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
 
 
         ! Get elementwise nodal values of the current solution:
@@ -228,7 +233,7 @@ RECURSIVE SUBROUTINE BentoniteSolver( Model,Solver,dt,TransientSimulation )
 !    Neumann & Newton BCs:
 !    ---------------------
 !------------------------------------------------------------------------------
-     DO t = 1,Solver % Mesh % NumberOfBoundaryElements
+     DO t = 1,Mesh % NumberOfBoundaryElements
 !------------------------------------------------------------------------------
         Element => GetBoundaryElement(t)
         IF ( .NOT. ActiveBoundaryElement() ) CYCLE
@@ -238,9 +243,9 @@ RECURSIVE SUBROUTINE BentoniteSolver( Model,Solver,dt,TransientSimulation )
         n = GetElementNOFNodes()
         NodeIndexes => Element % NodeIndexes
 
-        ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
-        ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
-        ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(NodeIndexes)
+        ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
+        ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
+        ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
 
         ! Get elementwise nodal values of the current solution:
         !------------------------------------------------------

@@ -72,11 +72,13 @@
        ParentElement, LeftParent, RightParent
 
      LOGICAL :: AllocationsDone = .FALSE., Found, Stat
+     INTEGER :: Active
      INTEGER :: n1,n2, k, n, t, istat, i, j, NumberOfFAces, Indexes(128)
      REAL(KIND=dp) :: Norm, at, st, CPUTime
      REAL(KIND=dp), ALLOCATABLE :: MASS(:,:), STIFF(:,:), LOAD(:), &
               FORCE(:), Velo(:,:), Gamma(:), Ref(:)
 
+     TYPE(Mesh_t), POINTER :: Mesh
      TYPE(Variable_t), POINTER ::  Var
      SAVE MASS, STIFF, LOAD, FORCE, Velo, Gamma, AllocationsDone
 !*******************************************************************************
@@ -86,18 +88,20 @@
 
      INTEGER :: DOFs
 !*******************************************************************************
+     Mesh => GetMesh()
+
      IF ( CoordinateSystemDimension() == 2 ) THEN
-        Faces => Solver % Mesh % Edges
-        NumberOfFaces = Solver % Mesh % NumberOfEdges
+        Faces => Mesh % Edges
+        NumberOfFaces = Mesh % NumberOfEdges
      ELSE
-        Faces => Solver % Mesh % Faces
-        NumberOfFaces = Solver % Mesh % NumberOfFaces
+        Faces => Mesh % Faces
+        NumberOfFaces = Mesh % NumberOfFaces
      END IF
 
      ! Initialize & allocate some permanent storage, this is done first time only:
      !----------------------------------------------------------------------------
      IF ( .NOT. AllocationsDone ) THEN
-        N = 2 * MAX(Solver % Mesh % MaxElementDOFs, Solver % Mesh % MaxElementNodes )
+        N = 2 * MAX(Mesh % MaxElementDOFs, Mesh % MaxElementNodes )
         ALLOCATE( FORCE(N), MASS(n,n), STIFF(N,N), LOAD(N),  &
                   Velo(3,N), Gamma(n), STAT = istat )
         
@@ -107,9 +111,10 @@
 
      ! Assembly of the bulk elements:
      !-------------------------------
+     Active = GetNOFActive()
      at = CPUTime()
      CALL DefaultInitialize()
-     DO t = 1, Solver % NumberOfActiveElements
+     DO t = 1, Active
         Element => GetActiveElement( t ) 
         n = GetElementNOfNodes( Element )
         
@@ -153,7 +158,7 @@
 
      ! Loop over the boundary elements:
      !---------------------------------
-     DO t=1,Solver % Mesh % NumberOfBoundaryElements
+     DO t=1,Mesh % NumberOfBoundaryElements
        Element => GetBoundaryElement(t)
        IF( .NOT. ActiveBoundaryElement() )  CYCLE
        IF( GetElementFamily(Element) == 1 ) CYCLE
@@ -193,9 +198,9 @@
 
      ! Average the elemental results to nodal values:
      !-----------------------------------------------
-     Var => VariableGet( Solver % Mesh % Variables, 'Nodal Result' )
+     Var => VariableGet( Mesh % Variables, 'Nodal Result' )
      IF ( ASSOCIATED( Var ) ) THEN
-       n1 = Solver % Mesh % NumberOfNodes
+       n1 = Mesh % NumberOfNodes
        ALLOCATE( Ref(n1) )
        Ref = 0
 
@@ -208,7 +213,7 @@
        END IF
 
        Var % Values = 0.0d0
-       DO t=1,Solver % NumberOfActiveElements
+       DO t=1,Active
           Element => GetActiveElement(t) 
           n = GetElementDOFs( Indexes )
           n = GetElementNOFNodes()
