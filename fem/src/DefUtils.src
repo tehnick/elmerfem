@@ -40,6 +40,11 @@
 ! ******************************************************************************
 ! *
 ! * $Log: DefUtils.src,v $
+! * Revision 1.17  2006/02/07 13:19:47  jpr
+! * P-elements now have their reference element local coorodinates in
+! * Element % Type % Node[U,V,W], the same as nodal elements. Moved code
+! * around somewhat to implement this.
+! *
 ! * Revision 1.16  2006/02/02 07:14:31  jpr
 ! * Small formatting changes.
 ! *
@@ -122,7 +127,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.16 2006/02/02 07:14:31 jpr Exp $
+! * $Id: DefUtils.src,v 1.17 2006/02/07 13:19:47 jpr Exp $
 ! *
 ! *****************************************************************************/
 
@@ -1991,11 +1996,11 @@ CONTAINS
      INTEGER, INTENT(IN) :: boundary, np
 
      TYPE( GaussIntegrationPoints_t ) :: gaussP
-     Type(Nodes_t) :: Nodes, bNodes 
+     Type(Nodes_t) :: bNodes 
      Type(Element_t) :: mapElement
      Type(Element_t), POINTER :: RefElement
      INTEGER :: i, n, eCode, bMap(4)
-     REAL(KIND=dp) :: x(3), y(3), z(3)
+     REAL(KIND=dp) :: x(4), y(4), z(4)
 
      SELECT CASE(Element % Type % ElementCode / 100)
      ! Triangle and Quadrilateral
@@ -2038,15 +2043,15 @@ CONTAINS
      ! Get element boundary map
      bMap(1:4) = getElementBoundaryMap(Element, boundary)
      ! Get ref nodes for element
-     CALL GetRefPElementNodes( Nodes, Element )
+     CALL GetRefPElementNodes( Element,x,y,z )
      ALLOCATE(bNodes % x(n), bNodes % y(n), bNodes % z(n))
         
      ! Set coordinate points of destination
      DO i=1,n
         IF (bMap(i) == 0) CYCLE  
-        bNodes % x(i) = Nodes % x(bMap(i)) 
-        bNodes % y(i) = Nodes % y(bMap(i))
-        bNodes % z(i) = Nodes % z(bMap(i))   
+        bNodes % x(i) = x(bMap(i)) 
+        bNodes % y(i) = y(bMap(i))
+        bNodes % z(i) = z(bMap(i))   
      END DO
 
      ! Get element to map from
@@ -2059,8 +2064,7 @@ CONTAINS
      CALL MapGaussPoints( mapElement, mapElement % Type % NumberOfNodes, gaussP, bNodes )
      
      ! Deallocate memory
-     DEALLOCATE(bNodes % x, bNodes % y, bNodes % z, &
-                 Nodes % x, Nodes % y, Nodes % z,  mapElement % NodeIndexes)
+     DEALLOCATE(bNodes % x, bNodes % y, bNodes % z, MapElement % NodeIndexes)
    END FUNCTION GaussPointsBoundary
 
 

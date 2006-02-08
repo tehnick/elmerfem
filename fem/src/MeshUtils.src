@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.30  2006/02/07 13:38:16  jpr
+! * Fix to deallocate temporaries.
+! *
 ! * Revision 1.29  2006/02/07 13:19:47  jpr
 ! * P-elements now have their reference element local coorodinates in
 ! * Element % Type % Node[U,V,W], the same as nodal elements. Moved code
@@ -121,7 +124,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.29 2006/02/07 13:19:47 jpr Exp $
+! * $Id: MeshUtils.src,v 1.30 2006/02/07 13:38:16 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -501,25 +504,8 @@ CONTAINS
               ! do the Ainsworth & Coyle trick
               IF (Element % Type % ElementCode == 504) CALL ConvertToACTetra( Element )
 
-              CALL GetRefPElementNodes( ElementNodes, Element ) 
-              IF ( ASSOCIATED(Element % Type % NodeU) ) THEN
-                 DEALLOCATE( Element % Type % NodeU )
-                 Element % Type % NodeU => ElementNodes % x
-              ELSE
-                 DEALLOCATE( ElementNodes % x )
-              END IF 
-              IF ( ASSOCIATED(Element % Type % NodeV) ) THEN
-                 DEALLOCATE( Element % Type % NodeV )
-                 Element % Type % NodeV => ElementNodes % y
-              ELSE
-                 DEALLOCATE( ElementNodes % y )
-              END IF 
-              IF ( ASSOCIATED(Element % Type % NodeW) ) THEN
-                 DEALLOCATE( Element % Type % NodeW )
-                 Element % Type % NodeW => ElementNodes % z
-              ELSE
-                 DEALLOCATE( ElementNodes % z )
-              END IF 
+              CALL GetRefPElementNodes( Element,  Element % Type % NodeU, &
+                   Element % Type % NodeV, Element % Type % NodeW )
            END IF
         ELSE 
            ! Clear P element definitions and set manual bubbles
