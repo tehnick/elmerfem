@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: DefUtils.src,v $
+! * Revision 1.18  2006/02/08 03:58:41  jpr
+! * Still about reference p element local coordinates in ElementType_t.
+! *
 ! * Revision 1.17  2006/02/07 13:19:47  jpr
 ! * P-elements now have their reference element local coorodinates in
 ! * Element % Type % Node[U,V,W], the same as nodal elements. Moved code
@@ -127,7 +130,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.17 2006/02/07 13:19:47 jpr Exp $
+! * $Id: DefUtils.src,v 1.18 2006/02/08 03:58:41 jpr Exp $
 ! *
 ! *****************************************************************************/
 
@@ -169,6 +172,34 @@ MODULE DefUtils
 
      REAL(KIND=dp), TARGET  :: Store(MAX_ELEMENT_NODES)
 CONTAINS
+
+
+  FUNCTION GetSolver() RESULT( Solver )
+     TYPE(Solver_t), POINTER :: Solver
+     Solver => CurrentModel % Solver
+  END FUNCTION GetSolver
+
+  FUNCTION GetMesh( USolver ) RESULT( Mesh )
+     TYPE(Mesh_t), POINTER :: Mesh 
+     TYPE(Solver_t), OPTIONAL, TARGET :: USolver
+
+     IF ( PRESENT( USolver ) ) THEN
+        Mesh => USolver % MEsh
+     ELSE
+        Mesh => CurrentModel % Solver % Mesh
+     END IF
+  END FUNCTION GetMesh
+
+  FUNCTION GetNOFActive( USolver ) RESULT(n)
+     INTEGER :: n
+     TYPE(Solver_t), OPTIONAL, TARGET :: USolver
+
+     IF ( PRESENT( USolver ) ) THEN
+        n = USolver % NumberOfActiveElements
+     ELSE
+        n = CurrentModel % Solver % NumberOfActiveElements
+     END IF
+  END FUNCTION GetNOFActive
 
 
   SUBROUTINE GetScalarLocalSolution( x,name,UElement,USolver )
