@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.31  2006/02/08 03:58:41  jpr
+! * Still about reference p element local coordinates in ElementType_t.
+! *
 ! * Revision 1.30  2006/02/07 13:38:16  jpr
 ! * Fix to deallocate temporaries.
 ! *
@@ -124,7 +127,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.30 2006/02/07 13:38:16 jpr Exp $
+! * $Id: MeshUtils.src,v 1.31 2006/02/08 03:58:41 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -307,7 +310,7 @@ CONTAINS
 #define EIO_GET_TOTAL
            CALL eio_open_mesh( MeshName,eio_info )
            IF ( eio_info /= 0 ) THEN
-              WRITE( Message, * ) 'Unable to load mesh: ', MeshName )
+              WRITE( Message, * ) 'Unable to load mesh: ', TRIM( MeshNamePar )
               CALL Fatal( 'LoadMesh', Message )
            END IF
 
@@ -332,7 +335,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     CALL eio_open_mesh( MeshName,eio_info )
     IF ( eio_info /= 0 ) THEN
-       WRITE( Message, * ) 'Unable to load mesh: ', TRIM( MeshName )
+       WRITE( Message, * ) 'Unable to load mesh: ', TRIM(MeshNamePar)
        CALL Fatal( 'LoadMesh', Message )
     END IF
 
@@ -340,7 +343,7 @@ CONTAINS
       Mesh % NumberOfBulkElements,Mesh % NumberOfBoundaryElements, &
              Typecount,Types,CountByType,eio_info )
     IF ( eio_info /= 0 ) THEN
-       WRITE( Message, * ) 'Unable to read mesh header from mesh: ', TRIM(MeshName)
+       WRITE( Message, * ) 'Unable to read mesh header from mesh: ', TRIM(MeshNamePar)
        CALL Fatal( 'LoadMesh', Message )
     END IF
 
