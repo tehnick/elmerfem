@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: NavierStokes.src,v $
+! * Revision 1.7  2006/02/09 14:29:37  jpr
+! * Added P2/P1 style elements.
+! *
 ! * Revision 1.6  2006/02/02 07:14:32  jpr
 ! * Small formatting changes.
 ! *
@@ -77,7 +80,7 @@
 ! * Added divergence form discretization of the diffusion term.
 ! *
 ! *
-! * $Id: NavierStokes.src,v 1.6 2006/02/02 07:14:32 jpr Exp $
+! * $Id: NavierStokes.src,v 1.7 2006/02/09 14:29:37 jpr Exp $
 ! *****************************************************************************/
 
 MODULE NavierStokes
@@ -181,7 +184,7 @@ MODULE NavierStokes
 !    Local variables
 !------------------------------------------------------------------------------
      REAL(KIND=dp) :: Basis(2*n),dBasisdx(2*n,3),ddBasisddx(n,3,3)
-     REAL(KIND=dp) :: PBasis(2*n),PdBasisdx(2*n,3)
+     REAL(KIND=dp) :: PBasis(n), BaseP
      REAL(KIND=dp) :: detJ, NodalBasis(n), dLBasisdx(n,3)
 
      REAL(KIND=dp) :: Velo(3),dVelodx(3,3),Force(4),Metric(3,3),Symb(3,3,3), Drag(3)
@@ -206,9 +209,6 @@ MODULE NavierStokes
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
      INTEGER :: N_Integ, NBasis, deg(100)
      REAL(KIND=dp), DIMENSION(:), POINTER :: U_Integ,V_Integ,W_Integ,S_Integ
-
-     TYPE(Nodes_t) :: NNodes
-     SAVE NNodes
 
      LOGICAL :: stat, Bubbles, PBubbles, Stabilize, P2P1
 !------------------------------------------------------------------------------
@@ -542,35 +542,35 @@ MODULE NavierStokes
             A(i,c) = A(i,c) - s * Basis(q) * dBasisdx(p,i)
          END IF
 
+         IF ( P2P1 .AND. p<=LinearBasis ) THEN
+            BaseP = PBasis(p)
+         ELSE
+            BaseP =  Basis(p)
+         END IF
 
          ! Continuity equation:
          !---------------------
          IF ( gradPDiscretization ) THEN
             A(c,i) = A(c,i) - s * Density * Basis(q) * dBasisdx(p,i)
          ELSE
-
-            IF ( P2P1 .AND. p<=LinearBasis ) THEN
-               A(c,i) = A(c,i) + s * Density * dBasisdx(q,i) * pBasis(p)
-            ELSE
-               A(c,i) = A(c,i) + s * Density * dBasisdx(q,i) * Basis(p)
-            END IF
+            A(c,i) = A(c,i) + s * Density * dBasisdx(q,i) * BaseP
          END IF
 
          IF ( Compressible1 ) THEN
             A(c,c) = A(c,c) + s * ( Density / Pressure ) * &
-                  Velo(i) * dBasisdx(q,i) * Basis(p)
+                  Velo(i) * dBasisdx(q,i) * BaseP
 
             A(c,i) = A(c,i) - s * ( Density / Temperature ) * &
-                dTemperaturedx(i) * Basis(q) * Basis(p)
+                dTemperaturedx(i) * Basis(q) * BaseP
          ELSE IF ( Compressible2 ) THEN
-            A(c,i) = A(c,i) + s * dDensitydx(i) * Basis(q) * Basis(p)
+            A(c,i) = A(c,i) + s * dDensitydx(i) * Basis(q) * BaseP
          END IF
        END DO
 !------------------------------------------------------------------------------
 !      Artificial Compressibility, affects only the continuity equation
 !------------------------------------------------------------------------------  
        IF (PseudoCompressible) THEN
-          A(c,c) = A(c,c) + s * Compress * Basis(q) * Basis(p)
+          A(c,c) = A(c,c) + s * Compress * Basis(q) * BaseP
        END IF
 
 !------------------------------------------------------------------------------
