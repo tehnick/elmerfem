@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: DefUtils.src,v $
+! * Revision 1.20  2006/02/08 07:44:05  jpr
+! * Introduced GetMatrix(), GetNOFBoundaryElements().
+! *
 ! * Revision 1.19  2006/02/08 07:11:57  jpr
 ! * Introduced GetMesh(), GetNOFActive(), GetSolver().
 ! *
@@ -133,7 +136,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.19 2006/02/08 07:11:57 jpr Exp $
+! * $Id: DefUtils.src,v 1.20 2006/02/08 07:44:05 jpr Exp $
 ! *
 ! *****************************************************************************/
 
@@ -173,7 +176,8 @@ MODULE DefUtils
      MODULE PROCEDURE Default2ndOrderTimeR, Default2ndOrderTimeC
    END INTERFACE
 
-     REAL(KIND=dp), TARGET  :: Store(MAX_ELEMENT_NODES)
+   REAL(KIND=dp), TARGET  :: Store(MAX_ELEMENT_NODES)
+
 CONTAINS
 
 
@@ -181,6 +185,7 @@ CONTAINS
      TYPE(Solver_t), POINTER :: Solver
      Solver => CurrentModel % Solver
   END FUNCTION GetSolver
+
 
   FUNCTION GetMatrix( USolver ) RESULT( Matrix )
      TYPE(Matrix_t), POINTER :: Matrix 
@@ -193,6 +198,8 @@ CONTAINS
      END IF
   END FUNCTION GetMatrix
 
+
+
   FUNCTION GetMesh( USolver ) RESULT( Mesh )
      TYPE(Mesh_t), POINTER :: Mesh 
      TYPE(Solver_t), OPTIONAL, TARGET :: USolver
@@ -203,6 +210,8 @@ CONTAINS
         Mesh => CurrentModel % Solver % Mesh
      END IF
   END FUNCTION GetMesh
+
+
 
   FUNCTION GetNOFActive( USolver ) RESULT(n)
      INTEGER :: n
@@ -215,6 +224,8 @@ CONTAINS
      END IF
   END FUNCTION GetNOFActive
 
+
+
   FUNCTION GetNOFBoundaryElements( UMesh ) RESULT(n)
     INTEGER :: n
     TYPE(Mesh_t), OPTIONAL :: UMesh
@@ -225,6 +236,8 @@ CONTAINS
        n = CurrentModel % Mesh % NumberOfBoundaryElements
     END IF
   END FUNCTION GetNOFBoundaryElements
+
+
 
   SUBROUTINE GetScalarLocalSolution( x,name,UElement,USolver )
      REAL(KIND=dp) :: x(:)
@@ -1746,7 +1759,8 @@ CONTAINS
         CALL SetDirichletBoundaries( CurrentModel,A, b, x % Name,-1,x % DOFs,x % Perm )
      END IF
 
-     CALL Info('DefUtils::DefaultDirichletBCs','Setting Dirichlet boundary conditions', Level=5)
+     CALL Info('DefUtils::DefaultDirichletBCs', &
+            'Setting Dirichlet boundary conditions', Level=5)
 
      DO DOF=1,x % DOFs
         name = x % name
@@ -2412,5 +2426,101 @@ CONTAINS
         indSize = n - 1
      END SELECT
    END SUBROUTINE getBoundaryIndexesGL
+
+!------------------------------------------------------------------------------
+ FUNCTION GetEdgeMap( ElementFamily ) RESULT(EdgeMap)
+!------------------------------------------------------------------------------
+    INTEGER :: ElementFamily
+    INTEGER, POINTER :: EdgeMap(:,:)
+
+    INTEGER, TARGET :: TriangleEM(3,2)
+    INTEGER, TARGET :: QuadEM(4,2)
+    INTEGER, TARGET :: TetraEM(6,2)
+    INTEGER, TARGET :: PrismEM(8,2)
+    INTEGER, TARGET :: WedgeEM(9,2)
+    INTEGER, TARGET :: BrickEM(12,2)
+
+    LOGICAL :: Initialized = .FALSE.
+  
+    SAVE TriangleEM, WedgeEM, BrickEM, TetraEM, QuadEM, PrismEM, Initialized
+
+    SELECT CASE(ElementFamily)
+    CASE(3)
+      EdgeMap => TriangleEM
+    CASE(4) 
+      EdgeMap => QuadEM
+    CASE(5) 
+      EdgeMap => TetraEM
+    CASE(6) 
+      EdgeMap => PrismEM
+    CASE(7) 
+      EdgeMap => WedgeEM
+    CASE(8) 
+      EdgeMap => BrickEM
+    END SELECT
+ 
+     IF ( .NOT. Initialized ) THEN
+       Initialized = .TRUE.
+       SELECT CASE(ElementFamily)
+       CASE(3)
+         EdgeMap(1,:) = (/ 1,2 /)
+         EdgeMap(2,:) = (/ 2,3 /)
+         EdgeMap(3,:) = (/ 3,1 /)
+
+       CASE(4)
+         EdgeMap(1,:) = (/ 1,2 /)
+         EdgeMap(2,:) = (/ 2,3 /)
+         EdgeMap(3,:) = (/ 3,4 /)
+         EdgeMap(4,:) = (/ 4,1 /)
+
+       CASE(5)
+         EdgeMap(1,:) = (/ 1,2 /)
+         EdgeMap(2,:) = (/ 2,3 /)
+         EdgeMap(3,:) = (/ 3,1 /)
+         EdgeMap(4,:) = (/ 1,4 /)
+         EdgeMap(5,:) = (/ 2,4 /)
+         EdgeMap(6,:) = (/ 3,4 /)
+
+       CASE(6)
+         EdgeMap(1,:) = (/ 1,2 /)
+         EdgeMap(2,:) = (/ 2,3 /)
+         EdgeMap(3,:) = (/ 4,3 /)
+         EdgeMap(4,:) = (/ 1,4 /)
+         EdgeMap(5,:) = (/ 1,5 /)
+         EdgeMap(6,:) = (/ 2,5 /)
+         EdgeMap(7,:) = (/ 3,5 /)
+         EdgeMap(8,:) = (/ 4,5 /)
+ 
+       CASE(7)
+         EdgeMap(1,:) = (/ 1,2 /)
+         EdgeMap(2,:) = (/ 2,3 /)
+         EdgeMap(3,:) = (/ 3,1 /)
+         EdgeMap(4,:) = (/ 4,5 /)
+         EdgeMap(5,:) = (/ 5,6 /)
+         EdgeMap(6,:) = (/ 6,4 /)
+         EdgeMap(7,:) = (/ 1,4 /)
+         EdgeMap(8,:) = (/ 2,5 /)
+         EdgeMap(9,:) = (/ 3,6 /)
+
+       CASE(8)
+         EdgeMap(1,:)  = (/ 1,2 /)
+         EdgeMap(2,:)  = (/ 2,3 /)
+         EdgeMap(3,:)  = (/ 4,3 /)
+         EdgeMap(4,:)  = (/ 1,4 /)
+         EdgeMap(5,:)  = (/ 5,6 /)
+         EdgeMap(6,:)  = (/ 6,7 /)
+         EdgeMap(7,:)  = (/ 8,7 /)
+         EdgeMap(8,:)  = (/ 5,8 /)
+         EdgeMap(9,:)  = (/ 1,5 /)
+         EdgeMap(10,:) = (/ 2,6 /)
+         EdgeMap(11,:) = (/ 3,7 /)
+         EdgeMap(12,:) = (/ 4,8 /)
+       END SELECT
+     END IF
+!------------------------------------------------------------------------------
+  END FUNCTION GetEdgeMap
+!------------------------------------------------------------------------------
+
+
 
 END MODULE DefUtils
