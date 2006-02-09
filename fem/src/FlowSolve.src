@@ -39,6 +39,9 @@
 ! ****************************************************************************/
 ! *
 ! * $Log: FlowSolve.src,v $
+! * Revision 1.9  2006/02/02 07:14:31  jpr
+! * Small formatting changes.
+! *
 ! * Revision 1.8  2006/02/01 08:07:58  jpr
 ! * Replaced most of the usage of MAX_NODES by dynamic allocations.
 ! *
@@ -182,8 +185,9 @@
      LOGICAL :: Stabilize,NewtonLinearization = .FALSE., GotForceBC, GotIt, &
                   OutFlowBoundary, MBFlag, Convect  = .TRUE., NormalTangential, &
                   divDiscretization, GradPDiscretization, ComputeStress,ComputeFree=.FALSE.
+
 ! Which compressibility model is used
-     CHARACTER(LEN=MAX_NAME_LEN) :: CompressibilityFlag
+     CHARACTER(LEN=MAX_NAME_LEN) :: CompressibilityFlag, StabilizeFlag
      INTEGER :: CompressibilityModel
      INTEGER, POINTER :: NodeIndexes(:)
      INTEGER :: body_id,bf_id,eq_id,DIM
@@ -256,7 +260,7 @@
         END FUNCTION FlowInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.8 2006/02/01 08:07:58 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.9 2006/02/02 07:14:31 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -454,7 +458,23 @@
 !------------------------------------------------------------------------------
 
 
+     Bubbles   = ListGetLogical( Solver % Values,'Bubbles',GotIt )
      Stabilize = ListGetLogical( Solver % Values,'Stabilize',GotIt )
+
+     StabilizeFlag = ListGetString( Solver % Values, &
+           'Stabilization Method', GotIt )
+     IF ( .NOT. GotIt ) THEN
+       IF ( Stabilize ) THEN
+          StabilizeFlag = 'stabilized'
+       ELSE IF ( Bubbles  ) THEN
+          StabilizeFlag = 'bubbles'
+       ELSE
+          StabilizeFlag = 'stabilized'
+       END IF
+     END IF
+
+     IF ( StabilizeFlag == 'bubbles' ) Bubbles = .TRUE.
+
      DivDiscretization = ListGetLogical( Solver % Values, &
               'Div Discretization', GotIt )
 
@@ -959,7 +979,7 @@
                    LocalMassMatrix,LocalStiffMatrix,LocalForce, LoadVector, &
                    Viscosity,Density,U,V,W,MU,MV,MW, &
                    ReferencePressure+Pressure(1:n), &
-                   LocalTemperature, Convect, Stabilize, &
+                   LocalTemperature, Convect, StabilizeFlag, &
                    CompressibilityModel == PerfectGas1,  &
                    CompressibilityModel == Thermal  .OR. &
                    CompressibilityModel == UserDefined1, &
@@ -1005,7 +1025,16 @@
 !        If time dependent simulation, add mass matrix to global 
 !        matrix and global RHS vector
 !------------------------------------------------------------------------------
-         Bubbles  = .NOT.Stabilize .OR. CompressibilityModel /= Incompressible
+         IF ( CompressibilityModel /= Incompressible .AND. &
+                 StabilizeFlag == 'stabilized' ) THEN
+            Bubbles = .TRUE.
+            StabilizeFlag = 'bubbles'
+         END IF
+         IF ( CurrentElement % Type % BasisFunctionDegree <= 1 .AND. &
+              StabilizeFlag == 'p2p1' ) THEN
+            Bubbles = .TRUE.
+            StabilizeFlag = 'bubbles'
+         END IF
          IF ( Bubbles ) TimeForce  = LocalForce
 
          IF ( TransientSimulation ) THEN

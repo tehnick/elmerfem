@@ -1,4 +1,4 @@
-!/*****************************************************************************/
+!/*****************************************************************************
 ! *
 ! *  Elmer, A Finite Element Software for Multiphysical Problems
 ! *
@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: NavierStokes.src,v $
+! * Revision 1.6  2006/02/02 07:14:32  jpr
+! * Small formatting changes.
+! *
 ! * Revision 1.5  2006/02/01 08:07:59  jpr
 ! * Replaced most of the usage of MAX_NODES by dynamic allocations.
 ! *
@@ -74,12 +77,12 @@
 ! * Added divergence form discretization of the diffusion term.
 ! *
 ! *
-! * $Id: NavierStokes.src,v 1.5 2006/02/01 08:07:59 jpr Exp $
+! * $Id: NavierStokes.src,v 1.6 2006/02/02 07:14:32 jpr Exp $
 ! *****************************************************************************/
 
 MODULE NavierStokes
 
-  USE Integration
+  USE DefUtils
   USE Differentials
   USE MaterialModels
 
@@ -158,9 +161,10 @@ MODULE NavierStokes
 
      REAL(KIND=dp),TARGET :: MassMatrix(:,:),StiffMatrix(:,:),ForceVector(:)
      REAL(KIND=dp), DIMENSION(:) :: Ux,Uy,Uz,MUx,MUy,MUz
-     LOGICAL :: StabilizeFlag, Compressible1, Compressible2, PseudoCompressible, Porous, &
+     LOGICAL :: Compressible1, Compressible2, PseudoCompressible, Porous, &
          NewtonLinearization, Convect, DivDiscretization, gradPDiscretization, &
          PotentialForce
+     CHARACTER(LEN=*) :: StabilizeFlag
      REAL(KIND=dp) :: NodalViscosity(:),NodalDensity(:), &
        NodalPressure(:), LoadVector(:,:), NodalTemperature(:), &
        NodalCompressibility(:), NodalDrag(:,:), PotentialField(:), &
@@ -177,7 +181,8 @@ MODULE NavierStokes
 !    Local variables
 !------------------------------------------------------------------------------
      REAL(KIND=dp) :: Basis(2*n),dBasisdx(2*n,3),ddBasisddx(n,3,3)
-     REAL(KIND=dp) :: SqrtElementMetric, NodalBasis(n), dLBasisdx(n,3)
+     REAL(KIND=dp) :: PBasis(2*n),PdBasisdx(2*n,3)
+     REAL(KIND=dp) :: detJ, NodalBasis(n), dLBasisdx(n,3)
 
      REAL(KIND=dp) :: Velo(3),dVelodx(3,3),Force(4),Metric(3,3),Symb(3,3,3), Drag(3)
 
@@ -192,12 +197,20 @@ MODULE NavierStokes
      INTEGER :: i,j,k,l,c,p,q,t,dim
 
      REAL(KIND=dp) :: s,u,v,w,volume
+
+     INTEGER, POINTER :: EdgeMap(:,:)
+
+     INTEGER :: LinearBasis
+     TYPE(ElementType_t), POINTER :: LinearType, SaveType
   
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
      INTEGER :: N_Integ, NBasis, deg(100)
      REAL(KIND=dp), DIMENSION(:), POINTER :: U_Integ,V_Integ,W_Integ,S_Integ
 
-     LOGICAL :: stat, Bubbles, PBubbles, Stabilize
+     TYPE(Nodes_t) :: NNodes
+     SAVE NNodes
+
+     LOGICAL :: stat, Bubbles, PBubbles, Stabilize, P2P1
 !------------------------------------------------------------------------------
 
      dim = CoordinateSystemDimension()
@@ -232,22 +245,48 @@ MODULE NavierStokes
      NBasis    = n
      Bubbles   = .FALSE.
      PBubbles  = .FALSE.
-     Stabilize = StabilizeFlag
+     P2P1      = .FALSE.
+     Stabilize = StabilizeFlag == 'stabilized'
      IF ( .NOT.Stabilize .OR. Compressible1 .OR. Compressible2 ) THEN
        PBubbles = Element % BDOFs > 0
        IF ( PBubbles ) THEN
           NBasis = n + Element % BDOFs
-       ELSE
+       ELSE IF ( StabilizeFlag == 'bubbles' .OR. &
+              Element % Type % BasisFunctionDegree<=1 ) THEN
           NBasis    = 2 * n
           Bubbles   = .TRUE.
+       ELSE
+          P2P1 = .TRUE.
        END IF
        Stabilize = .FALSE.
      END IF
 
+     IF ( P2P1 ) THEN
+        SELECT CASE(GetElementFamily())
+        CASE(3)
+          LinearBasis = 3
+          LinearType => GetElementType(303)
+        CASE(4)
+          LinearBasis = 4
+          LinearType => GetElementType(404)
+        CASE(5)
+          LinearBasis = 4
+          LinearType => GetElementType(504)
+        CASE(6)
+          LinearBasis = 5
+          LinearType => GetElementType(605)
+        CASE(7)
+          LinearBasis = 6
+          LinearType => GetElementType(706)
+        CASE(8)
+          LinearBasis = 8
+          LinearType => GetElementType(808)
+        END SELECT
+        SaveType => Element % Type
+     END IF
+
      IF ( Bubbles ) THEN
        IntegStuff = GaussPoints( Element, Element % Type % GaussPoints2 )
-     ELSE IF ( PBubbles ) THEN
-       IntegStuff = GaussPoints( element, 2*NBasis )
      ELSE
        IntegStuff = GaussPoints( Element )
      END IF
@@ -275,10 +314,16 @@ MODULE NavierStokes
 !------------------------------------------------------------------------------
 !     Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
-      stat = ElementInfo( Element, Nodes, u, v, w, SqrtElementMetric, &
+      IF ( P2P1 ) THEN
+         Element % Type => LinearType
+         stat = ElementInfo( Element, Nodes, u, v, w, detJ,pBasis )
+         Element % Type => SaveType
+      END IF
+
+      stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
               Basis, dBasisdx, ddBasisddx, Stabilize, Bubbles )
 
-      s = SqrtElementMetric * S_Integ(t)
+      s = detJ * S_Integ(t)
 !------------------------------------------------------------------------------
 !     Density at the integration point
 !------------------------------------------------------------------------------
@@ -486,10 +531,8 @@ MODULE NavierStokes
              A(i,j) = A(i,j) - s * ( 2.0d0 / 3.0d0 ) * Viscosity * &
                         dBasisdx(q,j) * dBasisdx(p,i)
            END IF
-!------------------------------------------------------------------------------
-
          END DO
-
+!------------------------------------------------------------------------------
  
          ! Pressure terms:
          ! --------------- 
@@ -505,7 +548,12 @@ MODULE NavierStokes
          IF ( gradPDiscretization ) THEN
             A(c,i) = A(c,i) - s * Density * Basis(q) * dBasisdx(p,i)
          ELSE
-            A(c,i) = A(c,i) + s * Density * dBasisdx(q,i) * Basis(p)
+
+            IF ( P2P1 .AND. p<=LinearBasis ) THEN
+               A(c,i) = A(c,i) + s * Density * dBasisdx(q,i) * pBasis(p)
+            ELSE
+               A(c,i) = A(c,i) + s * Density * dBasisdx(q,i) * Basis(p)
+            END IF
          END IF
 
          IF ( Compressible1 ) THEN
@@ -618,6 +666,22 @@ MODULE NavierStokes
        END IF
      END DO
    END DO 
+
+   IF ( P2P1 ) THEN
+     j = GetElementFamily()
+     EdgeMap => GetEdgeMap(j)
+
+     DO i=j+1,j+SIZE(EdgeMap,1)
+       p = EdgeMap(i-j,1)
+       q = EdgeMap(i-j,2)
+       StiffMatrix( c*i, : ) = 0.0d0
+       MassMatrix(  c*i, : ) = 0.0d0
+       ForceVector( c*i ) = 0.0d0
+       StiffMatrix( c*i, c*i ) =  1.0d0
+       StiffMatrix( c*i, c*p ) = -1.0d0/2.0d0
+       StiffMatrix( c*i, c*q ) = -1.0d0/2.0d0
+     END DO
+   END IF
 !------------------------------------------------------------------------------
  END SUBROUTINE NavierStokesCompose
 !------------------------------------------------------------------------------
@@ -682,7 +746,7 @@ MODULE NavierStokes
 !  Local variables
 !------------------------------------------------------------------------------
    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3)
-   REAL(KIND=dp) :: SqrtElementMetric,FlowStress(3,3),SlipCoeff
+   REAL(KIND=dp) :: detJ,FlowStress(3,3),SlipCoeff
 #if 0
    REAL(KIND=dp) :: PBasis(pn),PdBasisdx(pn,3)
 #endif
@@ -726,10 +790,10 @@ MODULE NavierStokes
 !------------------------------------------------------------------------------
 !    Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
-     stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
+     stat = ElementInfo( Element,Nodes,u,v,w,detJ, &
                  Basis, dBasisdx )
 
-     s = SqrtElementMetric * S_Integ(t)
+     s = detJ * S_Integ(t)
 !------------------------------------------------------------------------------
 !    Add to load: tangetial derivative of something
 !------------------------------------------------------------------------------
@@ -775,7 +839,7 @@ MODULE NavierStokes
        ParentW = SUM( Basis(1:n)*z(1:n) )
 
        stat = ElementInfo( Parent, ParentNodes, ParentU, ParentV, ParentW, &
-           SqrtElementMetric, PBasis, PdBasisdx, ddBasisddx, .FALSE. )
+           detJ, PBasis, PdBasisdx, ddBasisddx, .FALSE. )
 
        Viscosity = SUM( NodalViscosity(1:pn) * PBasis )
        Viscosity = EffectiveViscosity( Viscosity,  Density, Ux, Uy, Uz, &
@@ -950,7 +1014,7 @@ MODULE NavierStokes
 !  Local variables
 !------------------------------------------------------------------------------
    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
-   REAL(KIND=dp) :: SqrtElementMetric
+   REAL(KIND=dp) :: detJ
 
    REAL(KIND=dp) :: u,v,w,s,r,Density,Viscosity,Dist,Roughness
    REAL(KIND=dp) :: Velo(3),Normal(3),Tangent(3)
@@ -989,10 +1053,10 @@ MODULE NavierStokes
 !------------------------------------------------------------------------------
 !    Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
-     stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-                 Basis,dBasisdx,ddBasisddx,.FALSE. )
+     stat = ElementInfo( Element,Nodes,u,v,w,detJ, &
+           Basis,dBasisdx,ddBasisddx,.FALSE. )
 
-     s = SqrtElementMetric * S_Integ(t)
+     s = detJ * S_Integ(t)
 !------------------------------------------------------------------------------
 !    Density and viscosity at integration point
 !------------------------------------------------------------------------------
