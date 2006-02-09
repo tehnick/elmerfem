@@ -39,6 +39,9 @@
 ! ****************************************************************************/
 ! *
 ! * $Log: FlowSolve.src,v $
+! * Revision 1.11  2006/02/09 14:58:55  jpr
+! * Added P2/P1 stabilized flow element, take two.
+! *
 ! * Revision 1.10  2006/02/09 14:29:37  jpr
 ! * Added P2/P1 style elements.
 ! *
@@ -157,10 +160,10 @@
 
      TYPE(Solver_t), POINTER :: PSolver
 
-     INTEGER :: i,j,k,l,n,nb,pn,t,iter,LocalNodes,k1,k2,istat
+     INTEGER :: i,j,k,l,n,nb,nd,pn,t,iter,LocalNodes,k1,k2,istat
 
      TYPE(ValueList_t),POINTER :: Material, Equation
-     TYPE(Nodes_t) :: ElementNodes,ParentNodes
+     TYPE(Nodes_t) :: ElementNodes
      TYPE(Element_t),POINTER :: CurrentElement,Parent,Elm
 
      REAL(KIND=dp) :: RelativeChange,UNorm,PrevUNorm,Gravity(3), &
@@ -192,8 +195,8 @@
 ! Which compressibility model is used
      CHARACTER(LEN=MAX_NAME_LEN) :: CompressibilityFlag, StabilizeFlag
      INTEGER :: CompressibilityModel
-     INTEGER, POINTER :: NodeIndexes(:)
      INTEGER :: body_id,bf_id,eq_id,DIM
+     INTEGER, POINTER :: NodeIndexes(:), Indexes(:)
 !
      LOGICAL :: AllocationsDone = .FALSE., FreeSurfaceFlag, &
          PseudoPressureExists, PseudoCompressible, Bubbles, &
@@ -216,10 +219,10 @@
          HeatExpansionCoeff,ReferenceTemperature, &
          Permeability,Mx,My,Mz,LayerThickness, SlipCoeff, &
          KECmu, SurfaceRoughness, LocalTemperature, GasConstant, &
-         HeatCapacity, LocalTempPrev,MU,MV,MW, ParentNodes, &
+         HeatCapacity, LocalTempPrev,MU,MV,MW,  &
          PseudoCompressibilityScale, PseudoCompressibility, &
          PseudoPressure, PseudoPressureExists, PSolution, Drag, &
-         PotentialField, PotentialCoefficient, ComputeFree
+         PotentialField, PotentialCoefficient, ComputeFree, Indexes
 
       REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
 !------------------------------------------------------------------------------
@@ -263,7 +266,7 @@
         END FUNCTION FlowInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.10 2006/02/09 14:29:37 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.11 2006/02/09 14:58:55 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -335,14 +338,10 @@
        N = Solver % Mesh % MaxElementDOFs
        
        IF( AllocationsDone ) THEN
-          DEALLOCATE( ElementNodes % x,             &
-               ElementNodes % y,                    &
-               ElementNodes % z,                    &
-               ParentNodes % x,                     &
-               ParentNodes % y,                     &
-               ParentNodes % z,                     &
+          DEALLOCATE(                               &
                U,  V,  W,                           &
                MU, MV, MW,                          &
+               Indexes,                             &
                Pressure,                            &
                PrevPressure,                        &
                PseudoCompressibility,               &
@@ -364,14 +363,9 @@
                ExtPressure, STAT=istat )
        END IF
 
-       ALLOCATE( ElementNodes % x( N ),                  &
-                 ElementNodes % y( N ),                  &
-                 ElementNodes % z( N ),                  &
-                 ParentNodes % x( N ),                   &
-                 ParentNodes % y( N ),                   &
-                 ParentNodes % z( N ),                   &
-                 U(N),  V(N),  W(N),                     &
+       ALLOCATE( U(N),  V(N),  W(N),                     &
                  MU(N), MV(N), MW(N),                    &
+                 Indexes( N ),                           &
                  Pressure( N ),                          &
                  PrevPressure( N ),                      &
                  PseudoCompressibility( N ),             &
@@ -460,7 +454,6 @@
      END IF
 !------------------------------------------------------------------------------
 
-
      Bubbles   = ListGetLogical( Solver % Values,'Bubbles',GotIt )
      Stabilize = ListGetLogical( Solver % Values,'Stabilize',GotIt )
 
@@ -475,7 +468,6 @@
           StabilizeFlag = 'stabilized'
        END IF
      END IF
-
      IF ( StabilizeFlag == 'bubbles' ) Bubbles = .TRUE.
 
      DivDiscretization = ListGetLogical( Solver % Values, &
@@ -512,7 +504,8 @@
 
      IF ( .NOT. GotIt ) NonlinearRelax = 1.0d0
 
-     CALL ListAddConstReal( Solver % Values, 'Nonlinear System Relaxation Factor', 1.0d0 )
+     CALL ListAddConstReal( Solver % Values, &
+            'Nonlinear System Relaxation Factor', 1.0d0 )
 !------------------------------------------------------------------------------
 !    Check if free surfaces present
 !------------------------------------------------------------------------------
@@ -560,10 +553,6 @@
        CALL Info( 'FlowSolve','Starting Assembly...', Level=4 )
 
 !------------------------------------------------------------------------------
-!     If free surfaces in model, this will compute the curvatures
-!------------------------------------------------------------------------------
-!     IF ( FreeSurfaceFlag ) CALL MeanCurvature( Model )
-!------------------------------------------------------------------------------
 !     Compute average normals for boundaries having the normal & tangetial
 !     velocities specified on the boundaries
 !------------------------------------------------------------------------------
@@ -596,7 +585,7 @@
 !        should be calculated
 !------------------------------------------------------------------------------
 !
-         CurrentElement => Solver % Mesh % Elements( Solver % ActiveElements(t) )
+         CurrentElement => GetActiveElement(t)
          NodeIndexes => CurrentElement % NodeIndexes
 
 !------------------------------------------------------------------------------
@@ -644,7 +633,6 @@
            END SELECT
 !------------------------------------------------------------------------------
 
-
            Clip = ListGetConstReal( Model % Equations(eq_id) % Values,'KE Clip', GotIt )
            IF ( .NOT. GotIt ) Clip = 1.0d-6
          END IF
@@ -659,40 +647,40 @@
 !------------------------------------------------------------------------------
          Model % CurrentElement => CurrentElement
 !------------------------------------------------------------------------------
-         n = CurrentElement % TYPE % NumberOfNodes
+         n = GetElementNOFNodes()
+         nb = GetElementNOFBDOFs()
+         nd = GetElementDOFs( Indexes )
 
-         ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
-         ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
-         ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(NodeIndexes)
+         CALL GetElementNodes( ElementNodes )
 
          SELECT CASE( NSDOFs )
            CASE(3)
-             U(1:n) = FlowSolution(NSDOFs*FlowPerm(NodeIndexes)-2)
-             V(1:n) = FlowSolution(NSDOFs*FlowPerm(NodeIndexes)-1)
-             W(1:n) = 0.0d0
+             U(1:nd) = FlowSolution(NSDOFs*FlowPerm(Indexes(1:nd))-2)
+             V(1:nd) = FlowSolution(NSDOFs*FlowPerm(Indexes(1:nd))-1)
+             W(1:nd) = 0.0d0
 
            CASE(4)
-             U(1:n) = FlowSolution(NSDOFs*FlowPerm(NodeIndexes)-3)
-             V(1:n) = FlowSolution(NSDOFs*FlowPerm(NodeIndexes)-2)
-             W(1:n) = FlowSolution(NSDOFs*FlowPerm(NodeIndexes)-1)
+             U(1:nd) = FlowSolution(NSDOFs*FlowPerm(Indexes(1:nd))-3)
+             V(1:nd) = FlowSolution(NSDOFs*FlowPerm(Indexes(1:nd))-2)
+             W(1:nd) = FlowSolution(NSDOFs*FlowPerm(Indexes(1:nd))-1)
          END SELECT
 
-         MU(1:n) = 0.0d0
-         MV(1:n) = 0.0d0
-         MW(1:n) = 0.0d0
+         MU(1:nd) = 0.0d0
+         MV(1:nd) = 0.0d0
+         MW(1:nd) = 0.0d0
          IF ( ASSOCIATED( MeshVelocity ) ) THEN
             SELECT CASE( MeshSol % DOFs )
             CASE(2)
-               IF ( ALL( MeshPerm( NodeIndexes ) > 0 ) ) THEN
-                  MU(1:n) = MeshVelocity(2*MeshPerm(NodeIndexes)-1)
-                  MV(1:n) = MeshVelocity(2*MeshPerm(NodeIndexes)-0)
+               IF ( ALL( MeshPerm( Indexes(1:nd) ) > 0 ) ) THEN
+                  MU(1:nd) = MeshVelocity(2*MeshPerm(Indexes(1:nd))-1)
+                  MV(1:nd) = MeshVelocity(2*MeshPerm(Indexes(1:nd))-0)
                END IF
 
             CASE(3)
                IF ( ALL( MeshPerm( NodeIndexes ) > 0 ) ) THEN
-                  MU(1:n) = MeshVelocity(3*MeshPerm(NodeIndexes)-2)
-                  MV(1:n) = MeshVelocity(3*MeshPerm(NodeIndexes)-1)
-                  MW(1:n) = MeshVelocity(3*MeshPerm(NodeIndexes)-0)
+                  MU(1:nd) = MeshVelocity(3*MeshPerm(Indexes(1:nd))-2)
+                  MV(1:nd) = MeshVelocity(3*MeshPerm(Indexes(1:nd))-1)
+                  MW(1:nd) = MeshVelocity(3*MeshPerm(Indexes(1:nd))-0)
                END IF
             END SELECT
          END IF
@@ -700,32 +688,34 @@
          LocalTemperature = 0.0d0
          LocalTempPrev    = 0.0d0
          IF ( ASSOCIATED( TempSol ) ) THEN
-            IF ( ALL( TempPerm( NodeIndexes ) > 0 ) ) THEN
-               LocalTemperature(1:n) = Temperature( TempPerm(NodeIndexes) )
+            IF ( ALL( TempPerm(NodeIndexes) > 0 ) ) THEN
+               LocalTemperature(1:nd) = Temperature( TempPerm(Indexes(1:nd)) )
                IF ( TransientSimulation .AND. CompressibilityModel /= Incompressible) THEN
-                 LocalTempPrev(1:n) = TempPrev( TempPerm(NodeIndexes) )
+                 LocalTempPrev(1:nd) = TempPrev( TempPerm(Indexes(1:nd)) )
                END IF
             END IF
          END IF
          ReferencePressure = 0.0d0
 
+         PrevDensity = 0.0d0
+         Density = 0.0d0
 !------------------------------------------------------------------------------
          SELECT CASE( CompressibilityModel )
 !------------------------------------------------------------------------------
            CASE( Incompressible )
 !------------------------------------------------------------------------------
-             Pressure(1:n)    = FlowSolution( NSDOFs*FlowPerm(NodeIndexes) )
-             Density(1:n) = ListGetReal( Material,'Density',n,NodeIndexes )
+             Pressure(1:nd) = FlowSolution( NSDOFs*FlowPerm(Indexes(1:nd)) )
+             Density(1:n) = GetReal( Material, 'Density' )
 
              IF(PseudoCompressible) THEN
-	       Pressure(1:n) = ListGetReal( Material,&
-		  'Artificial Pressure',n, NodeIndexes,GotIt)
+	       Pressure(1:n) = GetReal( Material,'Artificial Pressure', GotIt )
                IF(.NOT. GotIt) THEN	
-                 Pressure(1:n) = PseudoPressure(FlowPerm(NodeIndexes)) 
+                 Pressure(1:nd) = PseudoPressure(FlowPerm(Indexes(1:nd))) 
+               ELSE
+                 Pressure(n+1:nd) = 0.0d0
                END IF
                PseudoCompressibility(1:n) = PseudoCompressibilityScale * &
-                   ListGetReal(Material,'Artificial Compressibility', &
-                   n,NodeIndexes,gotIt)
+                   GetReal(Material,'Artificial Compressibility', GotIt )
                IF(.NOT. gotIt) PseudoCompressibility(1:n) = 0.0d0
              END IF
 
@@ -737,13 +727,12 @@
               ! Boussinesq force:
               !-------------------------------------------------------------
               IF ( .NOT. ASSOCIATED( TempSol ) ) THEN
-                 LocalTemperature(1:n) = ListGetReal( Material, &
-                   'Reference Temperature',n,NodeIndexes )
+                 LocalTemperature(1:n) = GetReal( Material, &
+                   'Reference Temperature' )
                  LocalTempPrev = LocalTemperature
               END IF
 
-              HeatCapacity(1:n) = ListGetReal( Material, &
-                'Heat Capacity',  n,NodeIndexes,GotIt )
+              HeatCapacity(1:n) = GetReal( Material, 'Heat Capacity', GotIt )
 
 
               ! Read Specific Heat Ratio:
@@ -768,37 +757,37 @@
                       'Reference Pressure', GotIt )
               IF ( .NOT.GotIt ) ReferencePressure = 0.0d0
 
-              Pressure(1:n) = FlowSolution(NSDOFs*FlowPerm(NodeIndexes))
+              Pressure(1:nd) = FlowSolution(NSDOFs*FlowPerm(Indexes(1:nd)))
               IF ( TransientSimulation ) THEN
-                PrevPressure(1:n) = Solver % Variable % PrevValues( &
-                          NSDOFs*FlowPerm(NodeIndexes),1 )
+                PrevPressure(1:nd) = Solver % Variable % PrevValues( &
+                          NSDOFs*FlowPerm(Indexes(1:nd)),1 )
               END IF
               Density(1:n) = ( Pressure(1:n) + ReferencePressure ) / &
                  ( GasConstant(1:n) * LocalTemperature(1:n) )
 
            CASE( UserDefined1 )
-             Pressure(1:n)    = FlowSolution(NSDOFs*FlowPerm(NodeIndexes) )
+             Pressure(1:nd) = FlowSolution(NSDOFs*FlowPerm(Indexes(1:nd)) )
              IF ( ASSOCIATED( DensitySol ) ) THEN
-               Density(1:n) = DensitySol % Values( DensitySol % Perm(NodeIndexes) )
+               Density(1:nd) = DensitySol % Values( DensitySol % Perm(Indexes(1:nd)) )
                IF ( TransientSimulation ) THEN
-                  PrevDensity(1:n) = DensitySol % PrevValues( &
-                       DensitySol % Perm(NodeIndexes),1)
+                  PrevDensity(1:nd) = DensitySol % PrevValues( &
+                       DensitySol % Perm(Indexes(1:nd)),1)
                 END IF
              ELSE
-               Density(1:n) = ListGetReal( Material,'Density',n,NodeIndexes )
+               Density(1:n) = GetReal( Material,'Density' )
                PrevDensity(1:n) = Density(1:n)
              END IF
 
            CASE( Thermal )
-             Pressure(1:n) = FlowSolution(NSDOFs*FlowPerm(NodeIndexes))
+             Pressure(1:n) = FlowSolution(NSDOFs*FlowPerm(Indexes(1:nd)))
 
-             HeatExpansionCoeff(1:n) = ListGetReal( Material, &
-               'Heat Expansion Coefficient',n,NodeIndexes )
+             HeatExpansionCoeff(1:n) = GetReal( Material, &
+               'Heat Expansion Coefficient' )
 
-             ReferenceTemperature(1:n) = ListGetReal( Material, &
-               'Reference Temperature',n,NodeIndexes )
+             ReferenceTemperature(1:n) = GetReal( Material, &
+               'Reference Temperature' )
 
-             Density(1:n) = ListGetReal( Material,'Density',n,NodeIndexes )
+             Density(1:n) = GetReal( Material,'Density' )
              Density(1:n) = Density(1:n) * ( 1 - HeatExpansionCoeff(1:n)  * &
                   ( LocalTemperature(1:n) - ReferenceTemperature(1:n) ) )
              IF ( TransientSimulation ) THEN
@@ -832,7 +821,7 @@
 !------------------------------------------------------------------------------
 !        Viscosity = Laminar (+ Turbulent viscosity)
 !------------------------------------------------------------------------------
-         Viscosity(1:n) = ListGetReal( Material,'Viscosity',n,NodeIndexes )
+         Viscosity(1:n) = GetReal( Material,'Viscosity' )
 
 #if 0
 ! this is now done by EffectiveViscosity() in MaterialModels.
@@ -882,11 +871,11 @@
            IF ( ListGetLogical( Model % BodyForces(bf_id) % Values, &
                         'Boussinesq',gotIt) ) THEN
 
-             HeatExpansionCoeff(1:n) = ListGetReal( Material, &
-               'Heat Expansion Coefficient',n,NodeIndexes )
+             HeatExpansionCoeff(1:n) = GetReal( Material, &
+               'Heat Expansion Coefficient' )
 
-             ReferenceTemperature(1:n) = ListGetReal( Material, &
-                  'Reference Temperature',n,NodeIndexes )
+             ReferenceTemperature(1:n) = GetReal( Material, &
+                  'Reference Temperature' )
 
              DO i=1,n
                k = TempPerm(NodeIndexes(i))
@@ -1038,27 +1027,26 @@
             Bubbles = .TRUE.
             StabilizeFlag = 'bubbles'
          END IF
-         IF ( Bubbles ) TimeForce  = LocalForce
+         IF ( nb==0 .AND. Bubbles ) nb = n
 
+         IF ( nb > 0 ) TimeForce  = LocalForce
          IF ( TransientSimulation ) THEN
 !------------------------------------------------------------------------------
 !          NOTE: the following will replace LocalStiffMatrix and LocalForce
 !          with the combined information
 !------------------------------------------------------------------------------
-           IF ( Bubbles ) LocalForce = 0.0d0
+           IF ( nb > 0 ) LocalForce = 0.0d0
 
            CALL Add1stOrderTime( LocalMassMatrix, LocalStiffMatrix, &
-                LocalForce, dt, n, NSDOFs, FlowPerm(NodeIndexes), Solver )
+             LocalForce, dt, nd, NSDOFs, FlowPerm(Indexes), Solver )
          END IF
 
-         IF ( Bubbles  ) THEN
-            nb = CurrentElement % BDOFs
-            IF ( nb <= 0 ) Nb = n
-            CALL NSCondensate( N, nb, NSDOFs-1, LocalStiffMatrix, &
+         IF ( nb > 0 ) THEN
+            CALL NSCondensate( nd, nb, NSDOFs-1, LocalStiffMatrix, &
                             LocalForce, TimeForce )
             IF ( TransientSimulation ) THEN
                CALL UpdateTimeForce( StiffMatrix, ForceVector, TimeForce, &
-                             n, NSDOFs, FlowPerm(NodeIndexes) )
+                             nd, NSDOFs, FlowPerm(Indexes(1:nd)) )
             END IF
          END IF
 !------------------------------------------------------------------------------
@@ -1067,27 +1055,17 @@
 !        to that coordinate system
 !------------------------------------------------------------------------------
          IF ( NumberOfBoundaryNodes > 0 ) THEN
-           CALL RotateMatrix( LocalStiffMatrix,LocalForce,n,DIM, NSDOFs, &
+           CALL RotateMatrix( LocalStiffMatrix,LocalForce,nd+nb,DIM, NSDOFs, &
              BoundaryReorder(NodeIndexes), BoundaryNormals, BoundaryTangent1, &
                               BoundaryTangent2 )
          END IF
 !------------------------------------------------------------------------------
 !        Add local stiffness matrix and force vector to global matrix & vector
 !------------------------------------------------------------------------------
-         CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
-              ForceVector, LocalForce, n, NSDOFs, FlowPerm(NodeIndexes) )
+         CALL DefaultUpdateEquations( LocalStiffMatrix, LocalForce )
 !------------------------------------------------------------------------------
       END DO
 !------------------------------------------------------------------------------
-
-      IF ( ASSOCIATED( FlowStress ) ) THEN
-         CALL CRS_MatrixVectorMultiply( Solver % Matrix, &
-              Solver % Variable % Values, FlowStress % Values )
-         FlowStress % Values = FlowStress % Values - Solver % Matrix % RHS
-         WHERE( FlowPerm > 0 )
-           FlowStress % Values(FlowStress % Perm) = FlowStress % Values(FlowPerm)
-         END WHERE
-      END IF
 
       CALL Info( 'FlowSolve', 'Assembly done', Level=4 )
 
@@ -1115,9 +1093,7 @@
 !
         IF ( CurrentElement % TYPE % ElementCode == 101 ) CYCLE
 
-        ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
-        ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
-        ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(NodeIndexes)
+        CALL GetElementNodes( ElementNodes )
 
 !------------------------------------------------------------------------------
         DO i=1,Model % NumberOfBCs
