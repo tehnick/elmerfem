@@ -39,6 +39,10 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.32  2006/02/08 07:01:14  jpr
+! * Fix in LoadMesh to get rid of the output garbage when complaining about
+! * being unable to load mesh.
+! *
 ! * Revision 1.31  2006/02/08 03:58:41  jpr
 ! * Still about reference p element local coordinates in ElementType_t.
 ! *
@@ -127,7 +131,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.31 2006/02/08 03:58:41 jpr Exp $
+! * $Id: MeshUtils.src,v 1.32 2006/02/08 07:01:14 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -1154,9 +1158,13 @@ END SUBROUTINE CreateGlobalNumbering
 
     DO i=1,CurrentModel % NumberOfSolvers
        Solver => CurrentModel % Solvers(i)
-       IF ( ASSOCIATED( Mesh, Solver % Mesh ) ) &
+       IF ( ASSOCIATED( Mesh, Solver % Mesh ) ) THEN
           Mesh % Stabilize = Mesh % Stabilize .OR. &
              ListGetLogical( Solver % Values, 'Stabilize', Stat )
+          Mesh % Stabilize = Mesh % Stabilize .OR. &
+             ListGetString( Solver % Values,  &
+                     'Stabilization Method', Stat )=='stabilized'
+       END IF
     END DO
 
     CALL AllocateVector( Nodes % x, Mesh % MaxElementNodes )
@@ -1450,9 +1458,9 @@ END SUBROUTINE CreateGlobalNumbering
         x(3) = BMesh2 % Nodes % z(i)
         x(4) = 1.0d0
 
-PRINT*,'bef: ', REAL(x)
+!PRINT*,'bef: ', REAL(x)
         x = MATMUL( x, TrfMatrix ) 
-PRINT*,'aft: ', REAL(x)
+!PRINT*,'aft: ', REAL(x)
 
         BMesh2 % Nodes % x(i) = x(1) / x(4)
         BMesh2 % Nodes % y(i) = x(2) / x(4)
