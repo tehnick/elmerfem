@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.81 2005/10/10 09:21:14 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.82 2006/01/05 13:43:27 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1857,5 +1857,5 @@ else
 	AC_DEFINE(STDCALLBULL,,[Standard windows call declaration])
 	AC_DEFINE(C_DLLEXPORT,,[Standard windows call declaration])
 fi
-AM_CONDITIONAL(USE_WINDOWS_COMPILER, test "$acx_cv_c_compiler_ms" = "yes")
+AM_CONDITIONAL(USE_WINDOWS_COMPILER, test "$acx_platform_def" = "WIN32")
 ])
