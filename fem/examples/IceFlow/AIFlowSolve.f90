@@ -130,6 +130,8 @@
                 Requal0
 
      REAL(KIND=dp) :: FabricGrid(4878)
+
+     INTEGER, DIMENSION(3:8) :: NnodeLinear=(/3, 4, 4, 5, 6, 8/)
            
      REAL(KIND=dp), ALLOCATABLE:: LocalMassMatrix(:,:), &
        LocalStiffMatrix(:,:), LoadVector(:,:), LocalForce(:), &
@@ -420,7 +422,8 @@
               ElementNodes, Wn, MinSRInvariant, Isotropic)
 
         TimeForce = 0.0d0
-         CALL NSCondensate(N, N,STDOFs-1,LocalStiffMatrix,LocalForce,TimeForce )
+        IF ( n<=NNodeLinear(GetElementFamily()) ) &
+           CALL NSCondensate(N, N,STDOFs-1,LocalStiffMatrix,LocalForce,TimeForce )
 !------------------------------------------------------------------------------
 !        If boundary fields have been defined in normal/tangential
 !        coordinate systems, we´ll have to rotate the matrix & force vector
@@ -915,27 +918,30 @@ CONTAINS
 !------------------------------------------------------------------------------
 !
      REAL(KIND=dp) :: Basis(2*n),ddBasisddx(1,1,1)
-     REAL(KIND=dp) :: dBasisdx(2*n,3),SqrtElementMetric
+     REAL(KIND=dp) :: dBasisdx(2*n,3),detJ, pBasis(n)
 
      REAL(KIND=dp) :: Force(3), K1, K2, Euler1, Euler2, Euler3
      Real(kind=dp) :: Bg, BGlenT
 
      REAL(KIND=dp), DIMENSION(4,4) :: A,M
-     REAL(KIND=dp) :: Load(3),Temperature,  C(6,6)
+     REAL(KIND=dp) :: Load(3), Temperature,  C(6,6)
      REAL(KIND=dp) :: nn, ss, LGrad(3,3), SR(3,3), epsi
 
-     INTEGER :: i, j, k, p, q, t, dim, NBasis, ind(3)
+     INTEGER :: i, j, k, p, q, t, dim, cc, NBasis, ind(3), LinearBasis
 
-     REAL(KIND=dp) :: s,u,v,w, Radius, B(6,3), G(3,6)
+     REAL(KIND=dp) :: s,u,v,w, Radius, B(6,3), G(3,6), eta
   
      REAL(KIND=dp) :: dDispldx(3,3), ai(3), Angle(3), a2(6)
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
 
+     INTEGER, POINTER :: EdgeMap(:,:)
      INTEGER :: N_Integ
 
      REAL(KIND=dp), DIMENSION(:), POINTER :: U_Integ,V_Integ,W_Integ,S_Integ
 
-     LOGICAL :: stat, CSymmetry
+     LOGICAL :: stat, CSymmetry, P2P1
+
+     TYPE(ElementType_t), POINTER :: SaveType, LinearType
 
      INTERFACE
       Subroutine R2Ro(a2,dim,ai,angle)
@@ -947,13 +953,14 @@ CONTAINS
                  
       Subroutine OPILGGE_ai(ai,Angle,Tc,W,etaI,eta36)
           USE Types
-          REAL(KIND=dp) :: ai(3), Angle(3), Tc, W(7), EtaI(:),Eta36(6,6)
+          REAL(KIND=dp) :: ai(3), Angle(3), Tc, W(7), EtaI(:), Eta36(6,6)
         END SUBROUTINE OPILGGE_ai
 
       END INTERFACE
 
 !------------------------------------------------------------------------------
       dim = CoordinateSystemDimension()
+      cc=dim+1
 
       ForceVector = 0.0D0
       StiffMatrix = 0.0D0
@@ -962,8 +969,36 @@ CONTAINS
 !    
 !    Integration stuff
 !    
-      NBasis = 2*n
-      IntegStuff = GaussPoints( Element, Element % Type % GaussPoints2 )
+      P2P1 = n>NNodeLinear(GetElementFamily())
+      IF ( P2P1 ) THEN
+        NBasis = n
+
+        SELECT CASE(GetElementFamily())
+        CASE(3)
+          LinearBasis = 3
+          LinearType => GetElementType(303)
+        CASE(4)
+          LinearBasis = 4
+          LinearType => GetElementType(404)
+        CASE(5)
+          LinearBasis = 4
+          LinearType => GetElementType(504)
+        CASE(6)
+          LinearBasis = 5
+          LinearType => GetElementType(605)
+        CASE(7)
+          LinearBasis = 6
+          LinearType => GetElementType(706)
+        CASE(8)
+          LinearBasis = 8
+          LinearType => GetElementType(808)
+        END SELECT
+        SaveType => Element % Type
+        IntegStuff = GaussPoints( Element )
+      ELSE
+        NBasis = 2*n
+        IntegStuff = GaussPoints( Element, Element % Type % GaussPoints2 )
+      END IF
 
       U_Integ => IntegStuff % u
       V_Integ => IntegStuff % v
@@ -982,10 +1017,15 @@ CONTAINS
 !------------------------------------------------------------------------------
 !     Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
-      stat = ElementInfo( Element,Nodes,u,v,w,SqrtElementMetric, &
-            Basis,dBasisdx,ddBasisddx,.FALSE.,.TRUE. )
+      IF ( P2P1 ) THEN
+         Element % Type => LinearType
+         stat = ElementInfo( Element,Nodes,u,v,w,detJ,PBasis )
+         Element % Type => SaveType
+      END IF
+      stat = ElementInfo( Element,Nodes,u,v,w,detJ, &
+         Basis,dBasisdx,ddBasisddx,.FALSE.,.TRUE. )
 
-      s = SqrtElementMetric * S_Integ(t)
+      s = detJ * S_Integ(t)
 !------------------------------------------------------------------------------
 !  
 !     Force at integration point
@@ -1134,22 +1174,30 @@ CONTAINS
 
 ! Pressure gradient
          DO i=1,dim
-            A(i,dim+1) = -dBasisdx(p,i) * Basis(q)
+            A(i,cc) = -dBasisdx(p,i) * Basis(q)
          END DO
-         IF ( CSymmetry ) A(1,dim+1) =  A(1,dim+1) - Basis(p) * Basis(q) / Radius
+         IF ( CSymmetry ) A(1,cc) =  A(1,cc) - Basis(p) * Basis(q) / Radius
 
 ! Continuity equation:
          DO i=1,dim
-            A(dim+1,i) = dBasisdx(q,i) * Basis(p)
+            IF ( P2P1 .AND. p <= LinearBasis ) THEN
+              A(cc,i) = dBasisdx(q,i) * PBasis(p)
+            ELSE IF (.NOT.P2P1) THEN
+              A(cc,i) = dBasisdx(q,i) * Basis(p)
+            END IF
          END DO
-         IF ( CSymmetry ) A(dim+1,1) =  A(dim+1,1) + Basis(p) * Basis(q) / Radius
-         A(dim+1, dim+1) = 0.0d0
+         IF ( P2P1 .AND. p <= LinearBasis ) THEN
+            IF ( CSymmetry ) A(cc,1) =  A(cc,1) + PBasis(p) * Basis(q) / Radius
+         ELSE IF (.NOT.P2P1) THEN
+            IF ( CSymmetry ) A(cc,1) =  A(cc,1) + Basis(p) * Basis(q) / Radius
+         END IF
+         A(cc, cc) = 0.0d0
 
 ! Add nodal matrix to element matrix
-         DO i=1,dim+1
-            DO j=1,dim+1
-               StiffMatrix( (dim+1)*(p-1)+i,(dim+1)*(q-1)+j ) =  &
-                    StiffMatrix( (dim+1)*(p-1)+i,(dim+1)*(q-1)+j ) + s*A(i,j)
+         DO i=1,cc
+            DO j=1,cc
+               StiffMatrix( cc*(p-1)+i,cc*(q-1)+j ) =  &
+                    StiffMatrix( cc*(p-1)+i,cc*(q-1)+j ) + s*A(i,j)
             END DO
          END DO
 
@@ -1163,9 +1211,28 @@ CONTAINS
         END DO
 
         DO i=1,dim
-           ForceVector((dim+1)*(p-1)+i) = ForceVector((dim+1)*(p-1)+i) + s*Load(i)
+           ForceVector(cc*(p-1)+i) = ForceVector(cc*(p-1)+i) + s*Load(i)
         END DO
+
       END DO
+
+! Non linear element -> apply p2p1 element
+
+      j = GetElementFamily()
+      IF ( n > NNodeLinear(j) ) THEN
+        EdgeMap => GetEdgeMap(j)
+        DO i=j+1,n
+          p = EdgeMap(i-j,1)
+          q = EdgeMap(i-j,2)
+          StiffMatrix( cc*i, : ) = 0.0d0
+          MassMatrix(  cc*i, : ) = 0.0d0
+          ForceVector( cc*i ) = 0.0d0
+          StiffMatrix( cc*i, cc*i ) = 1.0d0
+          StiffMatrix( cc*i, cc*p ) = -1.0d0/2.0d0
+          StiffMatrix( cc*i, cc*q ) = -1.0d0/2.0d0
+        END DO
+      END IF 
+
 
       END DO 
 !------------------------------------------------------------------------------
@@ -1187,7 +1254,7 @@ CONTAINS
      INTEGER :: n
 !------------------------------------------------------------------------------
      REAL(KIND=dp) :: Basis(n),ddBasisddx(1,1,1)
-     REAL(KIND=dp) :: dBasisdx(n,3),SqrtElementMetric
+     REAL(KIND=dp) :: dBasisdx(n,3),detJ
 
      REAL(KIND=dp) :: u,v,w,s
      REAL(KIND=dp) :: Force(3),Alpha(3),Beta,Normal(3)
@@ -1227,10 +1294,10 @@ CONTAINS
 !------------------------------------------------------------------------------
 !    Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
-       stat = ElementInfo( Element, Nodes, u, v, w, SqrtElementMetric, &
+       stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
                 Basis, dBasisdx, ddBasisddx, .FALSE. )
 
-       s = SqrtElementMetric * S_Integ(t)
+       s = detJ * S_Integ(t)
        IF ( CurrentCoordinateSystem() == AxisSymmetric ) &
         s = s * SUM( Nodes % x(1:n) * Basis(1:n) )
 !------------------------------------------------------------------------------
@@ -1465,6 +1532,9 @@ CONTAINS
       END SUBROUTINE LocalSD      
 !------------------------------------------------------------------------------
 !        
+
+
+
 !------------------------------------------------------------------------------
       END SUBROUTINE AIFlowSolver
 !------------------------------------------------------------------------------
