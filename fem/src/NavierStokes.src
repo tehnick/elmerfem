@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: NavierStokes.src,v $
+! * Revision 1.8  2006/02/09 14:58:56  jpr
+! * Added P2/P1 stabilized flow element, take two.
+! *
 ! * Revision 1.7  2006/02/09 14:29:37  jpr
 ! * Added P2/P1 style elements.
 ! *
@@ -80,7 +83,7 @@
 ! * Added divergence form discretization of the diffusion term.
 ! *
 ! *
-! * $Id: NavierStokes.src,v 1.7 2006/02/09 14:29:37 jpr Exp $
+! * $Id: NavierStokes.src,v 1.8 2006/02/09 14:58:56 jpr Exp $
 ! *****************************************************************************/
 
 MODULE NavierStokes
@@ -203,8 +206,8 @@ MODULE NavierStokes
 
      INTEGER, POINTER :: EdgeMap(:,:)
 
-     INTEGER :: LinearBasis
      TYPE(ElementType_t), POINTER :: LinearType, SaveType
+     INTEGER :: LinearBasis, LinearCode(3:8) = (/ 303,404,504,605,706,808 /)
   
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
      INTEGER :: N_Integ, NBasis, deg(100)
@@ -248,7 +251,7 @@ MODULE NavierStokes
      P2P1      = .FALSE.
      Stabilize = StabilizeFlag == 'stabilized'
      IF ( .NOT.Stabilize .OR. Compressible1 .OR. Compressible2 ) THEN
-       PBubbles = Element % BDOFs > 0
+       PBubbles  = Element % BDOFs > 0
        IF ( PBubbles ) THEN
           NBasis = n + Element % BDOFs
        ELSE IF ( StabilizeFlag == 'bubbles' .OR. &
@@ -262,27 +265,10 @@ MODULE NavierStokes
      END IF
 
      IF ( P2P1 ) THEN
-        SELECT CASE(GetElementFamily())
-        CASE(3)
-          LinearBasis = 3
-          LinearType => GetElementType(303)
-        CASE(4)
-          LinearBasis = 4
-          LinearType => GetElementType(404)
-        CASE(5)
-          LinearBasis = 4
-          LinearType => GetElementType(504)
-        CASE(6)
-          LinearBasis = 5
-          LinearType => GetElementType(605)
-        CASE(7)
-          LinearBasis = 6
-          LinearType => GetElementType(706)
-        CASE(8)
-          LinearBasis = 8
-          LinearType => GetElementType(808)
-        END SELECT
         SaveType => Element % Type
+        j = GetElementFamily()
+        LinearType => GetElementType(LinearCode(j))
+        LinearBasis = LinearType % NumberOFNodes
      END IF
 
      IF ( Bubbles ) THEN
@@ -680,6 +666,17 @@ MODULE NavierStokes
        StiffMatrix( c*i, c*i ) =  1.0d0
        StiffMatrix( c*i, c*p ) = -1.0d0/2.0d0
        StiffMatrix( c*i, c*q ) = -1.0d0/2.0d0
+     END DO
+   END IF
+
+   IF ( PBubbles ) THEN
+      DO i=n+1,nBasis
+        StiffMatrix( c*i, : ) = 0.0d0
+        MassMatrix(  c*i, : ) = 0.0d0
+        StiffMatrix( :, c*i ) = 0.0d0
+        MassMatrix(  :, c*i ) = 0.0d0
+        ForceVector( c*i ) = 0.0d0
+        StiffMatrix( c*i, c*i ) =  1.0d0
      END DO
    END IF
 !------------------------------------------------------------------------------

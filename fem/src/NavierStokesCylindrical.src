@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: NavierStokesCylindrical.src,v 1.5 2006/02/01 08:07:59 jpr Exp $
+! * $Id: NavierStokesCylindrical.src,v 1.6 2006/02/09 14:58:56 jpr Exp $
 ! *****************************************************************************/
 
 MODULE NavierStokesCylindrical
@@ -164,8 +164,8 @@ MODULE NavierStokesCylindrical
 
      INTEGER, POINTER :: EdgeMap(:,:)
 
-     INTEGER :: LinearBasis
      TYPE(ElementType_t), POINTER :: LinearType, SaveType
+     INTEGER :: LinearBasis, LinearCode(3:8) = (/ 303,404,504,605,706,808 /)
   
      LOGICAL :: stat,CylindricSymmetry,Stabilize,Bubbles,PBubbles,P2P1
 
@@ -208,27 +208,10 @@ MODULE NavierStokesCylindrical
      END IF
 
      IF ( P2P1 ) THEN
-        SELECT CASE(GetElementFamily())
-        CASE(3)
-          LinearBasis = 3
-          LinearType => GetElementType(303)
-        CASE(4)
-          LinearBasis = 4
-          LinearType => GetElementType(404)
-        CASE(5)
-          LinearBasis = 4
-          LinearType => GetElementType(504)
-        CASE(6)
-          LinearBasis = 5
-          LinearType => GetElementType(605)
-        CASE(7)
-          LinearBasis = 6
-          LinearType => GetElementType(706)
-        CASE(8)
-          LinearBasis = 8
-          LinearType => GetElementType(808)
-        END SELECT
         SaveType => Element % Type
+        j = GetElementFamily()
+        LinearType => GetElementType(LinearCode(j))
+        LinearBasis = LinearType % NumberOfNodes
      END IF
 
      IF ( Bubbles ) THEN
