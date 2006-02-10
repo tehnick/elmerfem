@@ -115,9 +115,6 @@ install-data-local:
 
 	mkdir -p $(ELMER_SOLVER_DATADIR)/lib
 	$(CP) *$(SHL_EXT) $(ELMER_SOLVER_DATADIR)/lib
-if USE_WINDOWS_COMPILER
-	$(CP) libelmersolver.lib $(ELMER_SOLVER_DATADIR)/lib
-endif
 	$(CP) elements.def $(ELMER_SOLVER_DATADIR)/lib
 	$(CP) SOLVER.KEYWORDS $(ELMER_SOLVER_DATADIR)/lib
 
