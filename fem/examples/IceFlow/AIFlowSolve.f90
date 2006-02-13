@@ -361,7 +361,7 @@
 !    Read in material constants from Material section
 !------------------------------------------------------------------------------
          body_id = CurrentElement % BodyId
-         IF (body_id /= old_body) Then 
+         IF ((body_id /= old_body) .OR. (t==1)) Then 
             old_body = body_id
             Call  GetMaterialDefs()
         END IF
@@ -878,13 +878,13 @@ CONTAINS
       END IF
 
 ! Get the Minimum value of the Effective Strain rate 
-      MinSRInvariant = 100.0*AEPS
+      MinSRInvariant = 1.0D-10
       IF ( Isotropic .AND. (Wn(2) > 1.0 ) ) THEN
         MinSRInvariant =  &
              ListGetConstReal( Material, 'Min Second Invariant', GotIt )
         IF (.NOT.GotIt) THEN
           WRITE(Message,'(A)') 'Variable Min Second Invariant not &
-                    &found. Setting to 100.0*AEPS )'
+                    &found. Setting to 1.0D-10 )'
           CALL INFO('AIFlowSolve', Message, Level = 20)
         ELSE
           WRITE(Message,'(A,E14.8)') 'Min Second Invariant = ', MinSRInvariant
@@ -1041,6 +1041,7 @@ CONTAINS
 !     Temperature at the integration point
 !
       Temperature = SUM( NodalTemperature(1:n)*Basis(1:n) )
+      Bg = BGlenT(Temperature,Wn)
       Wn(1) = SUM( NodalFluidity(1:n)*Basis(1:n) )
 
 ! if not isotropic use GOLF
@@ -1058,9 +1059,9 @@ CONTAINS
 
 ! else use isotropic law
       ELSE
-          eta = 1.0_dp / BGlenT(Temperature,Wn)
+          eta = 1.0_dp / Bg
       ENDIF
-
+      
       CSymmetry = CurrentCoordinateSystem() == AxisSymmetric
       IF ( CSymmetry ) s = s * Radius
 
