@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: NavierStokesCylindrical.src,v 1.6 2006/02/09 14:58:56 jpr Exp $
+! * $Id: NavierStokesCylindrical.src,v 1.7 2006/02/10 07:17:43 jpr Exp $
 ! *****************************************************************************/
 
 MODULE NavierStokesCylindrical
@@ -573,6 +573,13 @@ MODULE NavierStokesCylindrical
 ! First plain Navier-Stokes
 !------------------------------------------------------------------------------
 
+       BaseP = Basis(p)
+       IF ( P2P1 .AND. p<=LinearBasis ) THEN
+          BaseP = PBasis(p)
+       ELSE
+          BaseP = Basis(p)
+       END IF
+
 !------------------------------------------------------------------------------
 !      Mass Matrix:
 ! -----------------------------------
@@ -584,7 +591,7 @@ MODULE NavierStokesCylindrical
 
 ! Continuity equation
        IF ( Compressible ) THEN
-         Mass(c,c) = ( Density / Pressure ) * Basis(q) * Basis(p)
+         Mass(c,c) = ( Density / Pressure ) * Basis(q) * BaseP
        END IF
 !------------------------------------------------------------------------------
 
@@ -694,13 +701,6 @@ MODULE NavierStokesCylindrical
 !------------------------------------------------------------------------------
 !      Continuity equation
 !------------------------------------------------------------------------------
-       BaseP = Basis(p)
-       IF ( P2P1 .AND. p<=LinearBasis ) THEN
-          BaseP = PBasis(p)
-       ELSE
-          BaseP = Basis(p)
-       END IF
-
        DO i=1,dim
 !------------------------------------------------------------------------------
          IF ( Compressible ) THEN

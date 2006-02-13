@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: NavierStokes.src,v $
+! * Revision 1.9  2006/02/10 07:17:43  jpr
+! * P2/P1 elements + some rearragements in FlowSolve.
+! *
 ! * Revision 1.8  2006/02/09 14:58:56  jpr
 ! * Added P2/P1 stabilized flow element, take two.
 ! *
@@ -83,7 +86,7 @@
 ! * Added divergence form discretization of the diffusion term.
 ! *
 ! *
-! * $Id: NavierStokes.src,v 1.8 2006/02/09 14:58:56 jpr Exp $
+! * $Id: NavierStokes.src,v 1.9 2006/02/10 07:17:43 jpr Exp $
 ! *****************************************************************************/
 
 MODULE NavierStokes
@@ -470,19 +473,24 @@ MODULE NavierStokes
        M => MassMatrix ( i+1:i+c,j+1:j+c )
        A => StiffMatrix( i+1:i+c,j+1:j+c )
 
+       IF ( P2P1 .AND. p<=LinearBasis ) THEN
+          BaseP = PBasis(p)
+       ELSE
+          BaseP =  Basis(p)
+       END IF
 !------------------------------------------------------------------------------
 !      Mass matrix:
 !------------------------------------------------------------------------------
-! Momentum equations
+       ! Momentum equations
        DO i=1,DIM
          M(i,i) = M(i,i) + s * Density * Basis(q) * Basis(p)
        END DO
 
-! Continuity equation (in terms of pressure)
+       ! Mass for the tontinuity equation (in terms of pressure)
        IF ( Compressible1 ) THEN
-         M(c,c) = M(c,c) + s * ( Density / Pressure ) * Basis(q) * Basis(p)
+         M(c,c) = M(c,c) + s * ( Density / Pressure ) * Basis(q) * BaseP
        END IF
-!
+
 !------------------------------------------------------------------------------
 !      Stiffness matrix:
 !------------------------------
@@ -528,11 +536,6 @@ MODULE NavierStokes
             A(i,c) = A(i,c) - s * Basis(q) * dBasisdx(p,i)
          END IF
 
-         IF ( P2P1 .AND. p<=LinearBasis ) THEN
-            BaseP = PBasis(p)
-         ELSE
-            BaseP =  Basis(p)
-         END IF
 
          ! Continuity equation:
          !---------------------
@@ -653,7 +656,7 @@ MODULE NavierStokes
      END DO
    END DO 
 
-   IF ( P2P1 ) THEN
+   IF (  P2P1 ) THEN
      j = GetElementFamily()
      EdgeMap => GetEdgeMap(j)
 
