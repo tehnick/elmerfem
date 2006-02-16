@@ -1041,8 +1041,8 @@ CONTAINS
 !     Temperature at the integration point
 !
       Temperature = SUM( NodalTemperature(1:n)*Basis(1:n) )
-      Bg = BGlenT(Temperature,Wn)
       Wn(1) = SUM( NodalFluidity(1:n)*Basis(1:n) )
+      Bg = BGlenT(Temperature,Wn)
 
 ! if not isotropic use GOLF
       C = 0.0_dp
