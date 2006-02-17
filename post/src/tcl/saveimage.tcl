@@ -39,9 +39,10 @@ set OUTPS      0
 set PSFileName ""
 
 proc saveimage { File outps }   {
-  global GlobalOptions
+  global GlobalOptions PSFileName
 
   if { $outps } {
+     set PSFileName $File
      set GlobalOptions(OutputPS) 1
      display
      set GlobalOptions(OutputPS) 0
