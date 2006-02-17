@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StatElecSolve.src,v $
+! * Revision 1.12  2006/02/01 08:07:59  jpr
+! * Replaced most of the usage of MAX_NODES by dynamic allocations.
+! *
 ! * Revision 1.11  2006/01/31 07:47:38  apursula
 ! * Still fixing NULLIFY and Pwrk
 ! *
@@ -58,7 +61,7 @@
 ! *****************************************************************************
 
 !------------------------------------------------------------------------------
-    SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
+SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !DEC$ATTRIBUTES DLLEXPORT :: StatElecSolver
 !------------------------------------------------------------------------------
 !******************************************************************************
@@ -87,587 +90,584 @@
 !
 !******************************************************************************
 
-     USE Types
-     USE Lists
- 
-     USE Integration
-     USE ElementDescription
-
-     USE Differentials
- 
-     USE SolverUtils
-     USE ElementUtils
-
-     USE Adaptive
-     USE DefUtils
-
-     IMPLICIT NONE
+  USE Types
+  USE Lists 
+  USE Integration
+  USE ElementDescription
+  USE Differentials
+  USE SolverUtils
+  USE ElementUtils
+  USE Adaptive
+  USE DefUtils
+  
+  IMPLICIT NONE
 !------------------------------------------------------------------------------
  
-     TYPE(Model_t) :: Model
-     TYPE(Solver_t), TARGET:: Solver
- 
-     REAL (KIND=DP) :: dt
-     LOGICAL :: TransientSimulation
- 
+  TYPE(Model_t) :: Model
+  TYPE(Solver_t), TARGET:: Solver
+  REAL (KIND=DP) :: dt
+  LOGICAL :: TransientSimulation
+      
 !------------------------------------------------------------------------------
 !    Local variables
 !------------------------------------------------------------------------------
-     TYPE(Matrix_t), POINTER  :: StiffMatrix
-     TYPE(Element_t), POINTER :: CurrentElement
-     TYPE(Solver_t), POINTER :: PSolver 
-     TYPE(Variable_t), POINTER :: TimeVar, Var
-     TYPE(Nodes_t) :: ElementNodes
-
-     REAL (KIND=DP), POINTER :: ForceVector(:), Potential(:), Displacement(:,:)
-     REAL (KIND=DP), POINTER :: FieldOne(:), FieldTwo(:), FieldThree(:)
-     REAL (KIND=DP), POINTER :: FieldOneTemp(:), FieldTwoTemp(:), FieldThreeTemp(:)
-     REAL (KIND=DP), POINTER :: FluxOne(:), FluxTwo(:), FluxThree(:)
-     REAL (KIND=DP), POINTER :: FluxOneTemp(:), FluxTwoTemp(:), FluxThreeTemp(:)
-     REAL (KIND=DP), POINTER :: Ex(:), Ey(:), Ez(:), Dx(:), Dy(:), Dz(:)
-     REAL (KIND=DP), POINTER :: We(:), WeTemp(:), Energy(:)
-     REAL (KIND=DP), POINTER :: Pwrk(:,:,:), Pz_w(:,:,:)
-     REAL (KIND=DP), ALLOCATABLE :: CapB(:), CapX(:), CapA(:,:), CapMatrix(:,:)
-     REAL (KIND=DP), ALLOCATABLE ::  Permittivity(:,:,:), PiezoCoeff(:,:,:), &
-       LocalStiffMatrix(:,:), Load(:), LocalForce(:), PotDiff(:)
-
-     REAL(KIND=dp) :: Alpha, Beta, LayerH, Voltage, NominalPD, RelPerm1, RelPerm2
-     REAL(KIND=dp) :: PermittivityOfVacuum
-
-     REAL (KIND=DP) :: Norm, Wetot, at0, RealTime
-     REAL (KIND=DP) :: at, st, CPUTime, PotentialDifference, Capacitance
-     REAL (KIND=DP) :: CoEnergy, MinCoEnergy, MinPotential, MaxPotential
-
-     INTEGER, POINTER :: NodeIndexes(:)
-     INTEGER, POINTER :: PotentialPerm(:), EnergyPerm(:)
-     INTEGER, POINTER :: FieldPermOne(:), FieldPermTwo(:), FieldPermThree(:)
-     INTEGER, POINTER :: FluxPermOne(:), FluxPermTwo(:), FluxPermThree(:)
-     INTEGER :: CapBodies, CapBody, CapNo, CapPerms, Permi, Permj
-     INTEGER :: i, j, k, n, t, istat, bf_id, LocalNodes, DIM
- 
-     LOGICAL :: AllocationsDone = .FALSE., gotIt
-     LOGICAL :: CalculateField, CalculateFlux, CalculateEnergy 
-     LOGICAL :: CalculateCapMatrix, ConstantWeights
-     LOGICAL :: PiezoMaterial
-
-     CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, CapMatrixFile, Name
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.11 2006/01/31 07:47:38 apursula Exp $"
-
-
-     SAVE LocalStiffMatrix, Load, LocalForce, Pwrk, PotDiff, &
-          ElementNodes, CalculateFlux, CalculateEnergy, &
-          AllocationsDone, FieldOne, FieldTwo, FieldThree, &
-          FluxOne, FluxTwo, FluxThree, We, Permittivity, &
-          CapBodies, CalculateCapMatrix, CapA, CapB, CapX, CapPerms, &
-          CapMatrix, CalculateField, CapMatrixFile, ConstantWeights, &
-          PiezoCoeff, PiezoMaterial, Displacement, Pz_w
-
-
-     INTERFACE
-        FUNCTION ElectricBoundaryResidual( Model,Edge,Mesh,Quant,Perm,Gnorm ) RESULT(Indicator)
-          USE Types
-          TYPE(Element_t), POINTER :: Edge
-          TYPE(Model_t) :: Model
-          TYPE(Mesh_t), POINTER :: Mesh
-          REAL(KIND=dp) :: Quant(:), Indicator(2), Gnorm
-          INTEGER :: Perm(:)
-        END FUNCTION ElectricBoundaryResidual
-
-        FUNCTION ElectricEdgeResidual( Model,Edge,Mesh,Quant,Perm ) RESULT(Indicator)
-          USE Types
-          TYPE(Element_t), POINTER :: Edge
-          TYPE(Model_t) :: Model
-          TYPE(Mesh_t), POINTER :: Mesh
-          REAL(KIND=dp) :: Quant(:), Indicator(2)
-          INTEGER :: Perm(:)
-        END FUNCTION ElectricEdgeResidual
-
-        FUNCTION ElectricInsideResidual( Model,Element,Mesh,Quant,Perm, Fnorm ) RESULT(Indicator)
-          USE Types
-          TYPE(Element_t), POINTER :: Element
-          TYPE(Model_t) :: Model
-          TYPE(Mesh_t), POINTER :: Mesh
-          REAL(KIND=dp) :: Quant(:), Indicator(2), Fnorm
-          INTEGER :: Perm(:)
-        END FUNCTION ElectricInsideResidual
-     END INTERFACE
-
+  TYPE(Matrix_t), POINTER  :: StiffMatrix
+  TYPE(Element_t), POINTER :: CurrentElement
+  TYPE(Solver_t), POINTER :: PSolver 
+  TYPE(Variable_t), POINTER :: TimeVar, Var
+  TYPE(Nodes_t) :: ElementNodes
+  
+  REAL (KIND=DP), POINTER :: ForceVector(:), Potential(:), Displacement(:,:)
+  REAL (KIND=DP), POINTER :: FieldOne(:), FieldTwo(:), FieldThree(:)
+  REAL (KIND=DP), POINTER :: FieldOneTemp(:), FieldTwoTemp(:), FieldThreeTemp(:)
+  REAL (KIND=DP), POINTER :: FluxOne(:), FluxTwo(:), FluxThree(:)
+  REAL (KIND=DP), POINTER :: FluxOneTemp(:), FluxTwoTemp(:), FluxThreeTemp(:)
+  REAL (KIND=DP), POINTER :: Ex(:), Ey(:), Ez(:), Dx(:), Dy(:), Dz(:)
+  REAL (KIND=DP), POINTER :: We(:), WeTemp(:), Energy(:), MatrixValues(:), Charges(:), Pmatrix(:)
+  REAL (KIND=DP), POINTER :: Pwrk(:,:,:), Pz_w(:,:,:)
+  REAL (KIND=DP), ALLOCATABLE :: CapMatrix(:,:)
+  REAL (KIND=DP), ALLOCATABLE ::  Permittivity(:,:,:), PiezoCoeff(:,:,:), &
+      LocalStiffMatrix(:,:), Load(:), LocalForce(:), PotDiff(:)
+  
+  REAL(KIND=dp) :: Alpha, Beta, LayerH, Voltage, RelPerm1, RelPerm2
+  REAL(KIND=dp) :: PermittivityOfVacuum, Norm, PrevNorm, RelativeChange
+  
+  REAL (KIND=DP) :: Norm, Wetot, at0, RealTime
+  REAL (KIND=DP) :: at, st, CPUTime, PotentialDifference, Capacitance
+  REAL (KIND=DP) :: MinPotential, MaxPotential, NonLinearTol
+  
+  INTEGER, POINTER :: NodeIndexes(:), CapBodyIndex(:)
+  INTEGER, POINTER :: PotentialPerm(:), EnergyPerm(:)
+  INTEGER, POINTER :: FieldPermOne(:), FieldPermTwo(:), FieldPermThree(:)
+  INTEGER, POINTER :: FluxPermOne(:), FluxPermTwo(:), FluxPermThree(:)
+  INTEGER :: CapBodies, CapBody, Permi, Permj, iter, MaxIterations
+  INTEGER :: i, j, k, n, t, istat, bf_id, LocalNodes, DIM, NonlinearIter
+  
+  LOGICAL :: AllocationsDone = .FALSE., gotIt
+  LOGICAL :: CalculateField, CalculateFlux, CalculateEnergy 
+  LOGICAL :: CalculateCapMatrix, ConstantWeights
+  LOGICAL :: PiezoMaterial
+  
+  CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, CapMatrixFile, Name
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.12 2006/02/01 08:07:59 jpr Exp $"
+  
+  
+  SAVE LocalStiffMatrix, Load, LocalForce, Pwrk, PotDiff, &
+      ElementNodes, CalculateFlux, CalculateEnergy, &
+      AllocationsDone, FieldOne, FieldTwo, FieldThree, &
+      FluxOne, FluxTwo, FluxThree, We, Permittivity, &
+      CapBodies, CalculateCapMatrix, Charges, CapBodyIndex, MatrixValues, &
+      CapMatrix, CalculateField, CapMatrixFile, ConstantWeights, &
+      PiezoCoeff, PiezoMaterial, Displacement, Pz_w
+  
+  
+  INTERFACE
+    FUNCTION ElectricBoundaryResidual( Model,Edge,Mesh,Quant,Perm,Gnorm ) RESULT(Indicator)
+      USE Types
+      TYPE(Element_t), POINTER :: Edge
+      TYPE(Model_t) :: Model
+      TYPE(Mesh_t), POINTER :: Mesh
+      REAL(KIND=dp) :: Quant(:), Indicator(2), Gnorm
+      INTEGER :: Perm(:)
+    END FUNCTION ElectricBoundaryResidual
+    
+    FUNCTION ElectricEdgeResidual( Model,Edge,Mesh,Quant,Perm ) RESULT(Indicator)
+      USE Types
+      TYPE(Element_t), POINTER :: Edge
+      TYPE(Model_t) :: Model
+      TYPE(Mesh_t), POINTER :: Mesh
+      REAL(KIND=dp) :: Quant(:), Indicator(2)
+      INTEGER :: Perm(:)
+    END FUNCTION ElectricEdgeResidual
+    
+    FUNCTION ElectricInsideResidual( Model,Element,Mesh,Quant,Perm, Fnorm ) RESULT(Indicator)
+      USE Types
+      TYPE(Element_t), POINTER :: Element
+      TYPE(Model_t) :: Model
+      TYPE(Mesh_t), POINTER :: Mesh
+      REAL(KIND=dp) :: Quant(:), Indicator(2), Fnorm
+      INTEGER :: Perm(:)
+    END FUNCTION ElectricInsideResidual
+  END INTERFACE
+  
 !------------------------------------------------------------------------------
  
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
 !------------------------------------------------------------------------------
-     IF ( .NOT. AllocationsDone ) THEN
-       IF ( ListGetLogical( GetSimulation(), 'Output Version Numbers', GotIt ) ) THEN
-         CALL Info( 'StatElecSolve', 'StatElecSolve version:', Level = 0 ) 
-         CALL Info( 'StatElecSolve', VersionID, Level = 0 ) 
-         CALL Info( 'StatElecSolve', ' ', Level = 0 ) 
-       END IF
-     END IF
+  IF ( .NOT. AllocationsDone ) THEN
+    IF ( ListGetLogical( GetSimulation(), 'Output Version Numbers', GotIt ) ) THEN
+      CALL Info( 'StatElecSolve', 'StatElecSolve version:', Level = 0 ) 
+      CALL Info( 'StatElecSolve', VersionID, Level = 0 ) 
+      CALL Info( 'StatElecSolve', ' ', Level = 0 ) 
+    END IF
+  END IF
 
 !------------------------------------------------------------------------------
 !    Get variables needed for solution
 !------------------------------------------------------------------------------
-     Potential     => Solver % Variable % Values
-     PotentialPerm => Solver % Variable % Perm
- 
-     StiffMatrix => Solver % Matrix
-     ForceVector => StiffMatrix % RHS
-
-     Norm = Solver % Variable % Norm
-     DIM = CoordinateSystemDimension()
+  Potential     => Solver % Variable % Values
+  PotentialPerm => Solver % Variable % Perm
+  
+  StiffMatrix => Solver % Matrix
+  ForceVector => StiffMatrix % RHS
+  
+  Norm = Solver % Variable % Norm
+  DIM = CoordinateSystemDimension()
 
 !------------------------------------------------------------------------------
 !    Allocate some permanent storage, this is done first time only
 !------------------------------------------------------------------------------
-     IF ( .NOT. AllocationsDone ) THEN
-       N = Model % MaxElementNodes
- 
-       ALLOCATE( ElementNodes % x(N),   &
-                 ElementNodes % y(N),   &
-                 ElementNodes % z(N),   &
-                 Permittivity(3,3,N),       &
-                 LocalForce(N),         &
-                 LocalStiffMatrix(N,N), &
-                 Load(N),               &
-                 PotDiff(N),            &
-                 Displacement(N,Dim),            &
-                 STAT=istat )
- 
-       IF ( istat /= 0 ) THEN
-         CALL Fatal( 'StatElecSolve', 'Memory allocation error 1' )
-       END IF
- 
-       IF ( DIM == 2 ) THEN
-          ALLOCATE( PiezoCoeff(2,4,N), STAT=istat )
-          IF ( istat /= 0 ) THEN
-             CALL Fatal( 'StatElecSolve', 'Memory allocation error 1a' )
-          END IF
-       ELSE
-          ALLOCATE( PiezoCoeff(3,6,N), STAT=istat )
-          IF ( istat /= 0 ) THEN
-             CALL Fatal( 'StatElecSolve', 'Memory allocation error 1b' )
-          END IF
-       END IF
-
-       CalculateField = ListGetLogical( Solver % Values, &
-           'Calculate Electric Field', GotIt )
-       IF ( .NOT. GotIt )  CalculateField = .TRUE.
-       IF ( CalculateField )  &
-           ALLOCATE( FieldOneTemp( Model % NumberOfNodes ), &
-                     FieldTwoTemp( Model % NumberOfNodes ), &
-                     FieldThreeTemp( Model % NumberOfNodes ), &
-                     STAT=istat )
-       IF ( istat /= 0 ) THEN
-         CALL Fatal( 'StatElecSolve', 'Memory allocation error 2' )
-       END IF
-
-       CalculateFlux = ListGetLogical( Solver % Values, &
-           'Calculate Electric Flux', GotIt )
-       IF ( .NOT. GotIt )  CalculateFlux = .TRUE.
-       IF ( CalculateFlux )  &
-            ALLOCATE( FluxOneTemp( Model % NumberOfNodes ), &
-                      FluxTwoTemp( Model % NumberOfNodes ), &
-                      FluxThreeTemp( Model % NumberOfNodes ), &
-                      STAT=istat )
+  IF ( .NOT. AllocationsDone ) THEN
+    N = Model % MaxElementNodes
+    
+    ALLOCATE( ElementNodes % x(N),   &
+        ElementNodes % y(N),   &
+        ElementNodes % z(N),   &
+        Permittivity(3,3,N),       &
+        LocalForce(N),         &
+        LocalStiffMatrix(N,N), &
+        Load(N),               &
+        PotDiff(N),            &
+        Displacement(N,Dim),            &
+        STAT=istat )
+    
+    IF ( istat /= 0 ) THEN
+      CALL Fatal( 'StatElecSolve', 'Memory allocation error 1' )
+    END IF
+    
+    IF ( DIM == 2 ) THEN
+      ALLOCATE( PiezoCoeff(2,4,N), STAT=istat )
       IF ( istat /= 0 ) THEN
-         CALL Fatal( 'StatElecSolve', 'Memory allocation error 3' )
-       END IF
-
-       DO i = 1, Model % NumberOfEquations
-         CalculateEnergy = ListGetLogical( Model % Equations(i) % Values, &
-             'Calculate Electric Energy', GotIt )
-         IF ( GotIt ) EXIT
-       END DO
-       IF ( .NOT. GotIt )  CalculateEnergy = ListGetLogical( Solver % Values, &
-           'Calculate Electric Energy', GotIt )
-       IF ( CalculateEnergy )  &
-           ALLOCATE( WeTemp( Model%NumberOfNodes ), STAT=istat )
-       IF ( istat /= 0 ) THEN
-         CALL Fatal( 'StatElecSolve', 'Memory allocation error 4' )
-       END IF
-
-       DO i = 1, Model % NumberOfEquations 
-         CalculateCapMatrix = ListGetLogical( Model % Equations(i) % Values, &
-             'Calculate Capacitance Matrix', GotIt )
-         IF ( GotIt ) EXIT
-       END DO
-       IF ( .NOT. GotIt )  CalculateCapMatrix = ListGetLogical( Solver % Values, &
-           'Calculate Capacitance Matrix', GotIt )
-
-       ConstantWeights = ListGetLogical( Solver % Values, &
-           'Constant Weights', GotIt )
-
-       IF(CalculateCapMatrix) THEN
-         CapBodies = ListGetInteger( Solver % Values, 'Capacitance Bodies')
-         MinCoEnergy = ListGetConstReal( Solver % Values,'Minimum CoEnergy',gotIt)
-         IF(.NOT. gotIt) MinCoEnergy = 1.0d-10
-         CapMatrixFile = ListGetString(Solver % Values,'Capacitance Matrix Filename',GotIt )
-         IF(.NOT. GotIt) CapMatrixFile = 'cmatrix.dat'
-
-         CapPerms = CapBodies*(CapBodies+1)/2
-         ALLOCATE( CapA(CapPerms,CapPerms), CapB(CapPerms), CapX(CapPerms), &
-             CapMatrix(CapBodies,CapBodies),STAT=istat)
-         IF ( istat /= 0 ) THEN
-           CALL Fatal( 'StatElecSolve', 'Memory allocation error 5' )
-         END IF
-         CapA = 0.0d0
-         CapB = 0.0d0
-         CapX = 0.0d0
-       END IF
-         
+        CALL Fatal( 'StatElecSolve', 'Memory allocation error 1a' )
+      END IF
+    ELSE
+      ALLOCATE( PiezoCoeff(3,6,N), STAT=istat )
+      IF ( istat /= 0 ) THEN
+        CALL Fatal( 'StatElecSolve', 'Memory allocation error 1b' )
+      END IF
+    END IF
+    
+    CalculateField = ListGetLogical( Solver % Values, &
+        'Calculate Electric Field', GotIt )
+    IF ( .NOT. GotIt )  CalculateField = .TRUE.
+    IF ( CalculateField )  &
+        ALLOCATE( FieldOneTemp( Model % NumberOfNodes ), &
+        FieldTwoTemp( Model % NumberOfNodes ), &
+        FieldThreeTemp( Model % NumberOfNodes ), &
+        STAT=istat )
+    IF ( istat /= 0 ) THEN
+      CALL Fatal( 'StatElecSolve', 'Memory allocation error 2' )
+    END IF
+    
+    CalculateFlux = ListGetLogical( Solver % Values, &
+        'Calculate Electric Flux', GotIt )
+    IF ( .NOT. GotIt )  CalculateFlux = .TRUE.
+    IF ( CalculateFlux )  &
+        ALLOCATE( FluxOneTemp( Model % NumberOfNodes ), &
+        FluxTwoTemp( Model % NumberOfNodes ), &
+        FluxThreeTemp( Model % NumberOfNodes ), &
+        STAT=istat )
+    IF ( istat /= 0 ) THEN
+      CALL Fatal( 'StatElecSolve', 'Memory allocation error 3' )
+    END IF
+    
+    DO i = 1, Model % NumberOfEquations
+      CalculateEnergy = ListGetLogical( Model % Equations(i) % Values, &
+          'Calculate Electric Energy', GotIt )
+      IF ( GotIt ) EXIT
+    END DO
+    IF ( .NOT. GotIt )  CalculateEnergy = ListGetLogical( Solver % Values, &
+        'Calculate Electric Energy', GotIt )
+    IF ( CalculateEnergy ) THEN
+      ALLOCATE( WeTemp( Model%NumberOfNodes ), STAT=istat )
+      IF ( istat /= 0 ) CALL Fatal( 'StatElecSolve', 'Memory allocation error 4' )
+    END IF
+    ConstantWeights = ListGetLogical( Solver % Values,'Constant Weights', GotIt )
+    
+    DO i = 1, Model % NumberOfEquations 
+      CalculateCapMatrix = ListGetLogical( Model % Equations(i) % Values, &
+          'Calculate Capacitance Matrix', GotIt )
+      IF ( GotIt ) EXIT
+    END DO
+    IF ( .NOT. GotIt )  CalculateCapMatrix = ListGetLogical( Solver % Values, &
+        'Calculate Capacitance Matrix', GotIt )
+        
+    IF(CalculateCapMatrix) THEN
+      CapBodies = ListGetInteger( Solver % Values, 'Capacitance Bodies')
+      CapMatrixFile = ListGetString(Solver % Values,'Capacitance Matrix Filename',GotIt )
+      IF(.NOT. GotIt) CapMatrixFile = 'cmatrix.dat'
+      
+      ALLOCATE(MatrixValues(SIZE(StiffMatrix % Values)), &
+          CapBodyIndex(Model % NumberOfNodes), &
+          Charges(Model % NumberOfNodes), &
+          CapMatrix(CapBodies,CapBodies), &
+          STAT = istat)
+      IF ( istat /= 0 ) THEN
+        CALL Fatal( 'StatElecSolve', 'Memory allocation error 5' )
+      END IF
+      
+      CapMatrix = 0.0d0
+      CapBodyIndex = 0
+    END IF
+    
 !------------------------------------------------------------------------------
 
-       IF ( .NOT.ASSOCIATED( StiffMatrix % MassValues ) ) THEN
-         ALLOCATE( StiffMatrix % Massvalues( Model % NumberOfNodes ) )
-         StiffMatrix % MassValues = 0.0d0
-       END IF
+    IF ( .NOT.ASSOCIATED( StiffMatrix % MassValues ) ) THEN
+      ALLOCATE( StiffMatrix % Massvalues( Model % NumberOfNodes ) )
+      StiffMatrix % MassValues = 0.0d0
+    END IF
 
 !------------------------------------------------------------------------------
 !      Add electric field to the variable list
 !------------------------------------------------------------------------------
-       PSolver => Solver
-       IF(CalculateField) THEN         
-         Ex => FieldOneTemp
-         CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PSolver, &
-               'Electric Field 1', 1, Ex, PotentialPerm)
-           
-         Ey => FieldTwoTemp
-         CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PSolver, &
-             'Electric Field 2', 1, Ey, PotentialPerm)
-         
-         IF(DIM == 3) THEN
-           Ez => FieldThreeTemp
-           CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PSolver, &
-               'Electric Field 3', 1, Ez, PotentialPerm)
-         END IF
-       END IF
+    PSolver => Solver
+    IF(CalculateField) THEN         
+      Ex => FieldOneTemp
+      CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PSolver, &
+          'Electric Field 1', 1, Ex, PotentialPerm)
+      
+      Ey => FieldTwoTemp
+      CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PSolver, &
+          'Electric Field 2', 1, Ey, PotentialPerm)
+      
+      IF(DIM == 3) THEN
+        Ez => FieldThreeTemp
+        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PSolver, &
+            'Electric Field 3', 1, Ez, PotentialPerm)
+      END IF
+    END IF
        
 !------------------------------------------------------------------------------
 !      Add electric flux to the variable list
 !------------------------------------------------------------------------------
 
-       IF ( CalculateFlux ) THEN
-          Dx => FluxOneTemp
-          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-               PSolver, 'Electric Flux 1', 1, Dx, PotentialPerm)
-
-          Dy => FluxTwoTemp
-          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-               PSolver, 'Electric Flux 2', 1, Dy, PotentialPerm)
-
-          IF(DIM == 3) THEN
-            Dz => FluxThreeTemp
-            CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-                PSolver, 'Electric Flux 3', 1, Dz, PotentialPerm)
-          END IF
-       END IF
-          
-       IF ( CalculateEnergy ) THEN
-          WeTemp = 0.0d0
-          Energy => WeTemp(:)
-          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-               PSolver, 'Electric Energy Density', 1, Energy, PotentialPerm )
-       END IF
-
-       NULLIFY( Pwrk )
-       NULLIFY( Pz_w )
-   
-       AllocationsDone = .TRUE.
-     END IF
+    IF ( CalculateFlux ) THEN
+      Dx => FluxOneTemp
+      CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
+          PSolver, 'Electric Flux 1', 1, Dx, PotentialPerm)
+      
+      Dy => FluxTwoTemp
+      CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
+          PSolver, 'Electric Flux 2', 1, Dy, PotentialPerm)
+      
+      IF(DIM == 3) THEN
+        Dz => FluxThreeTemp
+        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
+            PSolver, 'Electric Flux 3', 1, Dz, PotentialPerm)
+      END IF
+    END IF
+    
+    IF ( CalculateEnergy ) THEN
+      WeTemp = 0.0d0
+      Energy => WeTemp(:)
+      CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
+          PSolver, 'Electric Energy Density', 1, Energy, PotentialPerm )
+    END IF
+    
+    NULLIFY( Pwrk )
+    NULLIFY( Pz_w )
+    
+    AllocationsDone = .TRUE.
+  END IF
 
 !---------------------------------------------------------------------------------
 !    Update arrays for derived vars. Rather cumbersome due to possible adaptivity
 !---------------------------------------------------------------------------------
 
-     IF ( CalculateEnergy ) THEN
-        Var => VariableGet( Model % Variables, 'Electric Energy Density' )
-        We => Var % Values
-        EnergyPerm => Var % Perm
-        We = 0.0d0
-     END IF
-
-     IF ( CalculateField ) THEN
-        Var => VariableGet( Model % Variables, 'Electric Field 1' )
-        FieldOne => Var % Values
-        FieldPermOne => Var % Perm
-        FieldOne = 0.0d0
-
-        Var => VariableGet( Model % Variables, 'Electric Field 2' )
-        FieldTwo => Var % Values
-        FieldPermTwo => Var % Perm
-        FieldTwo = 0.0d0
-
-        IF ( DIM == 3 ) THEN
-           Var => VariableGet( Model % Variables, 'Electric Field 3' )
-           FieldThree => Var % Values
-           FieldPermThree => Var % Perm
-           FieldThree = 0.0d0
-        END IF
-
-     END IF
-
-     IF ( CalculateFlux ) THEN
-        Var => VariableGet( Model % Variables, 'Electric Flux 1' )
-        FluxOne => Var % Values
-        FluxPermOne => Var % Perm
-        FluxOne = 0.0d0
-
-        Var => VariableGet( Model % Variables, 'Electric Flux 2' )
-        FluxTwo => Var % Values
-        FluxPermTwo => Var % Perm
-        FluxTwo = 0.0d0
-
-        IF ( DIM == 3 ) THEN
-           Var => VariableGet( Model % Variables, 'Electric Flux 3' )
-           FluxThree => Var % Values
-           FluxPermThree => Var % Perm
-           FluxThree = 0.0d0
-        END IF
-
-     END IF
+  IF ( CalculateEnergy ) THEN
+    Var => VariableGet( Model % Variables, 'Electric Energy Density' )
+    We => Var % Values
+    EnergyPerm => Var % Perm
+    We = 0.0d0
+  END IF
+  
+  IF ( CalculateField ) THEN
+    Var => VariableGet( Model % Variables, 'Electric Field 1' )
+    FieldOne => Var % Values
+    FieldPermOne => Var % Perm
+    FieldOne = 0.0d0
+    
+    Var => VariableGet( Model % Variables, 'Electric Field 2' )
+    FieldTwo => Var % Values
+    FieldPermTwo => Var % Perm
+    FieldTwo = 0.0d0
+    
+    IF ( DIM == 3 ) THEN
+      Var => VariableGet( Model % Variables, 'Electric Field 3' )
+      FieldThree => Var % Values
+      FieldPermThree => Var % Perm
+      FieldThree = 0.0d0
+    END IF
+    
+  END IF
+  
+  IF ( CalculateFlux ) THEN
+    Var => VariableGet( Model % Variables, 'Electric Flux 1' )
+    FluxOne => Var % Values
+    FluxPermOne => Var % Perm
+    FluxOne = 0.0d0
+    
+    Var => VariableGet( Model % Variables, 'Electric Flux 2' )
+    FluxTwo => Var % Values
+    FluxPermTwo => Var % Perm
+    FluxTwo = 0.0d0
+    
+    IF ( DIM == 3 ) THEN
+      Var => VariableGet( Model % Variables, 'Electric Flux 3' )
+      FluxThree => Var % Values
+      FluxPermThree => Var % Perm
+      FluxThree = 0.0d0
+    END IF
+    
+  END IF
 
 !------------------------------------------------------------------------------
 !    Do some additional initialization, and go for it
 !------------------------------------------------------------------------------
 
-     NominalPD = -1.0d0
+  PermittivityOfVacuum = ListGetConstReal( Model % Constants, &
+      'Permittivity Of Vacuum',gotIt )
+  IF ( .NOT.gotIt ) PermittivityOfVacuum = 1.0d0
+  
+  NonlinearIter = ListGetInteger( Solver % Values, &
+      'Nonlinear System Max Iterations', GotIt )
+  IF ( .NOT. GotIt ) NonlinearIter = 1
+  
+  NonlinearTol = ListGetConstReal( Solver % Values, &
+      'Nonlinear System Convergence Tolerance', GotIt)
+  
+  IF(CalculateCapMatrix) NonlinearIter = CapBodies
 
-     PermittivityOfVacuum = ListGetConstReal( Model % Constants, &
-          'Permittivity Of Vacuum',gotIt )
-     IF ( .NOT.gotIt ) PermittivityOfVacuum = 1.0d0
-
-     IF(CalculateCapMatrix) THEN
-        TimeVar => VariableGet( Model % Variables, 'Time' )
-        CapNo = NINT( TimeVar % Values(1) )
-     END IF
-     
-     EquationName = ListGetString( Solver % Values, 'Equation' )
-     
-     at  = CPUTime()
-     at0 = RealTime()
-     CALL InitializeToZero( StiffMatrix, ForceVector )
+  EquationName = ListGetString( Solver % Values, 'Equation' )
+  Norm = Solver % Variable % Norm
+  
+  at  = CPUTime()
+  at0 = RealTime()
+  CALL InitializeToZero( StiffMatrix, ForceVector )
 !------------------------------------------------------------------------------
-     CALL Info( 'StatElecSolve', '-------------------------------------',Level=4 )
-     CALL Info( 'StatElecSolve', 'STATELEC SOLVER:  ', Level=4 )
-     CALL Info( 'StatElecSolve', '-------------------------------------',Level=4 )
-     CALL Info( 'StatElecSolve', 'Starting Assembly...', Level=4 )
+  CALL Info( 'StatElecSolve', '-------------------------------------',Level=4 )
+  CALL Info( 'StatElecSolve', 'STATELEC SOLVER:  ', Level=4 )
+  CALL Info( 'StatElecSolve', '-------------------------------------',Level=4 )
+  CALL Info( 'StatElecSolve', 'Starting Assembly...', Level=4 )
+  
+
+
+  DO iter = 1, NonlinearIter
 
 !------------------------------------------------------------------------------
 !    Do the assembly
 !------------------------------------------------------------------------------
-     DO t = 1, Solver % Mesh % NumberOfBulkElements
 
+    IF(CalculateCapMatrix .AND. iter > 1) THEN  
+      StiffMatrix % Values = MatrixValues
+      ForceVector = 0.0d0
+    ELSE
+      
+      DO t = 1, Solver % NumberOfActiveElements
+        
         IF ( RealTime() - at0 > 1.0 ) THEN
-           WRITE(Message,'(a,i3,a)' ) '   Assembly: ', INT(100.0 - 100.0 * &
-            (Solver % Mesh % NumberOfBulkElements-t) / &
-               (1.0*Solver % Mesh % NumberOfBulkElements)), ' % done'
-                       
-           CALL Info( 'StatElecSolve', Message, Level=5 )
-
-           at0 = RealTime()
+          WRITE(Message,'(a,i3,a)' ) '   Assembly: ', INT(100.0 - 100.0 * &
+              (Solver % Mesh % NumberOfBulkElements-t) / &
+              (1.0*Solver % Mesh % NumberOfBulkElements)), ' % done'          
+          CALL Info( 'StatElecSolve', Message, Level=5 )          
+          at0 = RealTime()
         END IF
-
+        
 !------------------------------------------------------------------------------
 !        Check if this element belongs to a body where potential
 !        should be calculated
 !------------------------------------------------------------------------------
-       CurrentElement => Solver % Mesh % Elements(t)
-       NodeIndexes => CurrentElement % NodeIndexes
+        CurrentElement => Solver % Mesh % Elements(Solver % ActiveElements(t))
 
-       IF ( .NOT.CheckElementEquation( Model, CurrentElement, &
-                 EquationName  ) ) CYCLE
-
-       n = CurrentElement % TYPE % NumberOfNodes
- 
-       ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
-       ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
-       ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(NodeIndexes)
+        NodeIndexes => CurrentElement % NodeIndexes
+        n = CurrentElement % TYPE % NumberOfNodes
+        
+        ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
+        ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
+        ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(NodeIndexes)
 !------------------------------------------------------------------------------
 
-       bf_id = ListGetInteger( Model % Bodies(CurrentElement % BodyId) % &
-               Values, 'Body Force',gotIt, minv=1, maxv=Model % NumberOfBodyForces )
-
-       Load  = 0.0d0
-       PiezoMaterial = .FALSE.
-       IF ( gotIt ) THEN
+        bf_id = ListGetInteger( Model % Bodies(CurrentElement % BodyId) % &
+            Values, 'Body Force',gotIt, minv=1, maxv=Model % NumberOfBodyForces )
+        
+        Load  = 0.0d0
+        PiezoMaterial = .FALSE.
+        IF ( gotIt ) THEN
           Load(1:n) = ListGetReal( Model % BodyForces(bf_id) % Values, &
-               'Source',n,NodeIndexes, gotIt )
+              'Source',n,NodeIndexes, gotIt )
           IF ( .NOT. gotIt )  Load(1:n) = &
-               ListGetReal( Model % BodyForces(bf_id) % Values, &
-               'Charge Density', n, NodeIndexes, GotIt )
-
+              ListGetReal( Model % BodyForces(bf_id) % Values, &
+              'Charge Density', n, NodeIndexes, GotIt )
+          
           Load(1:n) = Load(1:n) / PermittivityOfVacuum
-
+          
           IF ( GetLogical( Model % BodyForces(bf_id) % Values, 'Piezo Material', &
-               GotIt ) )  PiezoMaterial = .TRUE.
-       END IF
-
-       k = ListGetInteger( Model % Bodies(CurrentElement % BodyId) % &
+              GotIt ) )  PiezoMaterial = .TRUE.
+        END IF
+        
+        k = ListGetInteger( Model % Bodies(CurrentElement % BodyId) % &
             Values, 'Material', minv=1, maxv=Model % NumberOfMaterials )
 
 !------------------------------------------------------------------------------
 !      Read permittivity values (might be a tensor)
 !------------------------------------------------------------------------------
 
-       CALL ListGetRealArray( Model % Materials(k) % Values, &
+        CALL ListGetRealArray( Model % Materials(k) % Values, &
             'Relative Permittivity', Pwrk,n,NodeIndexes, gotIt )
-       IF ( .NOT. gotIt ) &
+        IF ( .NOT. gotIt ) &
             CALL ListGetRealArray( Model % Materials(k) % Values, &
             'Permittivity', Pwrk, n, NodeIndexes, gotIt )
-
-       IF ( .NOT. gotIt ) CALL Fatal( 'StatElecSolve', &
+        
+        IF ( .NOT. gotIt ) CALL Fatal( 'StatElecSolve', &
             'No relative permittivity found' )
-       
-       Permittivity = 0.0d0
-       IF ( SIZE(Pwrk,1) == 1 ) THEN
+        
+        Permittivity = 0.0d0
+        IF ( SIZE(Pwrk,1) == 1 ) THEN
           DO i=1,3
-             Permittivity( i,i,1:n ) = Pwrk( 1,1,1:n )
+            Permittivity( i,i,1:n ) = Pwrk( 1,1,1:n )
           END DO
-       ELSE IF ( SIZE(Pwrk,2) == 1 ) THEN
+        ELSE IF ( SIZE(Pwrk,2) == 1 ) THEN
           DO i=1,MIN(3,SIZE(Pwrk,1))
-             Permittivity(i,i,1:n) = Pwrk(i,1,1:n)
+            Permittivity(i,i,1:n) = Pwrk(i,1,1:n)
           END DO
-       ELSE
+        ELSE
           DO i=1,MIN(3,SIZE(Pwrk,1))
-             DO j=1,MIN(3,SIZE(Pwrk,2))
-                Permittivity( i,j,1:n ) = Pwrk(i,j,1:n)
-             END DO
+            DO j=1,MIN(3,SIZE(Pwrk,2))
+              Permittivity( i,j,1:n ) = Pwrk(i,j,1:n)
+            END DO
           END DO
-       END IF
-
+        END IF
+        
 !------------------------------------------------------------------------------
 !      Read piezo material coefficients if applicable
 !------------------------------------------------------------------------------
-       PiezoCoeff = 0.0d0
-       Displacement = 0.0d0
-       IF ( PiezoMaterial ) THEN
+        IF ( PiezoMaterial ) THEN
           PiezoCoeff = 0.0d0
           CALL GetRealArray( Model % Materials(k) % Values, Pz_w, &
-               'Piezo Material Coefficients', gotIt, CurrentElement )
+              'Piezo Material Coefficients', gotIt, CurrentElement )
           IF ( .NOT. GotIt )  CALL Fatal( 'StatElecSolve', &
-               'No Piezo Material Coefficients defined' )
-
+              'No Piezo Material Coefficients defined' )
+          
           DO i=1, Dim
-             DO j=1, 2*Dim
-                PiezoCoeff( i,j,1:n ) = Pz_w(i,j,1:n)
-             END DO
+            DO j=1, 2*Dim
+              PiezoCoeff( i,j,1:n ) = Pz_w(i,j,1:n)
+            END DO
           END DO
 !------------------------------------------------------------------------------
 !      Read also the local displacement
-!------------------------------------------------------------------------------
-
+!------------------------------------------------------------------------------         
+          Displacement = 0.0d0
           NULLIFY (Var)
           Var => VariableGet( Model % Variables, 'Displacement' )
           IF ( .NOT. ASSOCIATED( Var ) )  CALL Fatal('StatElecSolve', &
-               'No displacements' )
-
+              'No displacements' )
+          
           DO i = 1, Var % DOFs
-             Displacement(1:n,i) = &
-                  Var % Values( Var % DOFs * ( Var % Perm( NodeIndexes ) - 1 ) + i )
+            Displacement(1:n,i) = &
+                Var % Values( Var % DOFs * ( Var % Perm( NodeIndexes ) - 1 ) + i )
           END DO
-       END IF
-
+        END IF
+       
 !------------------------------------------------------------------------------
 !      Get element local matrix, and rhs vector
 !------------------------------------------------------------------------------
-       CALL StatElecCompose( LocalStiffMatrix,LocalForce, PiezoMaterial, &
+        CALL StatElecCompose( LocalStiffMatrix,LocalForce, PiezoMaterial, &
             PiezoCoeff, Permittivity,Load,CurrentElement,n,ElementNodes, &
             Displacement )
 !------------------------------------------------------------------------------
 !      Update global matrix and rhs vector from local matrix & vector
 !------------------------------------------------------------------------------
-       CALL UpdateGlobalEquations( StiffMatrix,LocalStiffMatrix, &
+        CALL UpdateGlobalEquations( StiffMatrix,LocalStiffMatrix, &
             ForceVector, LocalForce,n,1,PotentialPerm(NodeIndexes) )
 !------------------------------------------------------------------------------
-    END DO
+      END DO
+    
+      MatrixValues = StiffMatrix % Values 
+    END IF
+
 
 !------------------------------------------------------------------------------
 !     Neumann boundary conditions
 !------------------------------------------------------------------------------
-      DO t=Solver % Mesh % NumberOfBulkElements + 1, &
-         Solver % Mesh % NumberOfBulkElements + &
-         Solver % Mesh % NumberOfBoundaryElements
-
-        CurrentElement => Solver % Mesh % Elements(t)
+    DO t=Solver % Mesh % NumberOfBulkElements + 1, &
+        Solver % Mesh % NumberOfBulkElements + &
+        Solver % Mesh % NumberOfBoundaryElements
+      
+      CurrentElement => Solver % Mesh % Elements(t)
 !------------------------------------------------------------------------------
 !       the element type 101 (point element) can only be used
 !       to set Dirichlet BCs, so skip em.
 !------------------------------------------------------------------------------
-        IF ( CurrentElement % TYPE % ElementCode == 101 ) CYCLE
+      IF ( CurrentElement % TYPE % ElementCode == 101 ) CYCLE
 !------------------------------------------------------------------------------
-        DO i=1,Model % NumberOfBCs
-          IF ( CurrentElement % BoundaryInfo % Constraint == &
-                 Model % BCs(i) % Tag ) THEN
-
-            IF ( .NOT. ListGetLogical(Model % BCs(i) % Values, &
-                 'Electric Flux BC',gotIt) ) CYCLE
+      DO i=1,Model % NumberOfBCs
+        IF ( CurrentElement % BoundaryInfo % Constraint == &
+            Model % BCs(i) % Tag ) THEN
+          
+          IF ( .NOT. ListGetLogical(Model % BCs(i) % Values, &
+              'Electric Flux BC',gotIt) ) CYCLE
 !------------------------------------------------------------------------------
 !             Set the current element pointer in the model structure to
 !             reflect the element being processed
 !------------------------------------------------------------------------------
-              Model % CurrentElement => Solver % Mesh % Elements(t)
+          Model % CurrentElement => Solver % Mesh % Elements(t)
 !------------------------------------------------------------------------------
-              n = CurrentElement % TYPE % NumberOfNodes
-              NodeIndexes => CurrentElement % NodeIndexes
-              IF ( ANY( PotentialPerm(NodeIndexes) <= 0 ) ) CYCLE
-
-              ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
-              ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
-              ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(NodeIndexes)
-
-              Load = 0.0d0
+          n = CurrentElement % TYPE % NumberOfNodes
+          NodeIndexes => CurrentElement % NodeIndexes
+          IF ( ANY( PotentialPerm(NodeIndexes) <= 0 ) ) CYCLE
+          
+          ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
+          ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
+          ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(NodeIndexes)
+          
+          Load = 0.0d0
 !------------------------------------------------------------------------------
 !             BC: epsilon@Phi/@n = g
 !------------------------------------------------------------------------------
-              Load(1:n) = Load(1:n) + &
-                ListGetReal( Model % BCs(i) % Values,'Electric Flux', &
-                          n,NodeIndexes,gotIt )
-              IF ( .NOT. gotit )  Load(1:n) = Load(1:n) + &
-                   ListGetReal( Model % BCs(i) % Values, &
-                   'Surface Charge Density', n,NodeIndexes,gotIt )
-              Load(1:n) = Load(1:n) / PermittivityOfVacuum
+          Load(1:n) = Load(1:n) + &
+              ListGetReal( Model % BCs(i) % Values,'Electric Flux', &
+              n,NodeIndexes,gotIt )
+          IF ( .NOT. gotit )  Load(1:n) = Load(1:n) + &
+              ListGetReal( Model % BCs(i) % Values, &
+              'Surface Charge Density', n,NodeIndexes,gotIt )
+          Load(1:n) = Load(1:n) / PermittivityOfVacuum
 
 !------------------------------------------------------------------------------
 !             BC: -epsilon@Phi/@n = -alpha Phi + beta
 !------------------------------------------------------------------------------
-              Alpha = 0.0d0
-              Beta = 0.0d0
-
-              NominalPD = GetConstReal( Model % BCs(i) % Values, &
-                   'Nominal Potential Difference', gotit )
-              IF ( .NOT. Gotit )  NominalPD = -1.0d0
-
-              Alpha = GetConstReal( Model % BCs(i) % Values, & 
-                   'Layer Relative Permittivity', gotit )
-              IF ( Gotit ) THEN
-                LayerH = GetConstReal( Model % BCs(i) % Values, &
-                      'Layer Thickness', gotit )
-                 IF ( (.NOT. gotit) .OR. LayerH < 1e-12 ) THEN
-                    CALL Warn( 'StatElecSolve', &
-                         'Charge layer thickness not given or too small. Using 1e-8 m')
-                    LayerH = 1e-8
-                 END IF
-                 Alpha = Alpha / LayerH
-
-                 Voltage = GetConstReal( Model % BCs(i) % Values, &
-                      'Electrode Potential', gotit )
-                 Beta = GetConstReal( Model % BCs(i) % Values, &
-                      'Layer Charge Density', gotit )
-                 Beta = Alpha*Voltage + 0.5d0*Beta*LayerH / PermittivityOfVacuum
-
-              END IF
-
+          Alpha = 0.0d0
+          Beta = 0.0d0
+          
+          Alpha = GetConstReal( Model % BCs(i) % Values, & 
+              'Layer Relative Permittivity', gotit )
+          IF ( Gotit ) THEN
+            LayerH = GetConstReal( Model % BCs(i) % Values, &
+                'Layer Thickness', gotit )
+            IF ( (.NOT. gotit) .OR. LayerH < 1e-12 ) THEN
+              CALL Warn( 'StatElecSolve', &
+                  'Charge layer thickness not given or too small. Using 1e-8 m')
+              LayerH = 1e-8
+            END IF
+            Alpha = Alpha / LayerH
+            
+            Voltage = GetConstReal( Model % BCs(i) % Values, &
+                'Electrode Potential', gotit )
+            Beta = GetConstReal( Model % BCs(i) % Values, &
+                'Layer Charge Density', gotit )
+            Beta = Alpha*Voltage + 0.5d0*Beta*LayerH / PermittivityOfVacuum            
+          END IF
+          
 !------------------------------------------------------------------------------
 !             Get element matrix and rhs due to boundary conditions ...
 !------------------------------------------------------------------------------
-              CALL StatElecBoundary( LocalStiffMatrix, LocalForce,  &
-                  Load, Alpha, Beta, CurrentElement, n, ElementNodes )
+          CALL StatElecBoundary( LocalStiffMatrix, LocalForce,  &
+              Load, Alpha, Beta, CurrentElement, n, ElementNodes )
 !------------------------------------------------------------------------------
 !             Update global matrices from local matrices
 !------------------------------------------------------------------------------
-              CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
-                ForceVector, LocalForce, n, 1, PotentialPerm(NodeIndexes) )
+          CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
+              ForceVector, LocalForce, n, 1, PotentialPerm(NodeIndexes) )
 !------------------------------------------------------------------------------
            END IF ! of currentelement bc == bcs(i)
         END DO ! of i=1,model bcs
@@ -684,11 +684,11 @@
 !    Dirichlet boundary conditions
 !------------------------------------------------------------------------------
      CALL SetDirichletBoundaries( Model,StiffMatrix,ForceVector, &
-               Solver % Variable % Name,1,1,PotentialPerm )
+         Solver % Variable % Name,1,1,PotentialPerm )       
 
      IF(CalculateCapMatrix) THEN 
        CALL SetPermutationBoundaries( Model, StiffMatrix, ForceVector, &
-           'Capacitance Body',1,1,PotentialPerm, CapNo, CapBodies )
+           'Capacitance Body',PotentialPerm, iter)
      END IF
 
      at = CPUTime() - at
@@ -698,6 +698,7 @@
 !    Solve the system and we are done.
 !------------------------------------------------------------------------------
      st = CPUTime()
+     PrevNorm = Norm
      CALL SolveSystem( StiffMatrix, ParMatrix, ForceVector, &
                   Potential, Norm, 1, Solver )
      st = CPUTime() - st
@@ -706,15 +707,11 @@
 
 !------------------------------------------------------------------------------
 !    Compute the electric field from the potential: E = -grad Phi
-!------------------------------------------------------------------------------
-!------------------------------------------------------------------------------
 !    Compute the electric flux: D = epsilon (-grad Phi)
-!------------------------------------------------------------------------------
-!------------------------------------------------------------------------------
 !    Compute the total electric energy: W_e,tot = Integral (E . D)dV
 !------------------------------------------------------------------------------
 
-     IF ( CalculateField .OR. CalculateFlux .OR. CalculateEnergy .OR. CalculateCapMatrix) THEN 
+     IF ( CalculateField .OR. CalculateFlux .OR. CalculateEnergy) THEN 
        CALL GeneralElectricFlux( Model, Potential, PotentialPerm )
      END IF
 
@@ -758,41 +755,21 @@
            
          PotentialDifference = MaxPotential - MinPotential
        END IF
-
+ 
        IF(PotentialDifference > TINY(PotentialDifference)) THEN
-
-         IF ( NominalPD > 0.0 ) THEN
-
-            WRITE( Message,* ) 'Nominal potential difference :',NominalPD
-            CALL Info( 'StatElecSolve', Message, Level=8 )
-            WRITE( Message,* ) 'True potential difference    :',PotentialDifference
-            CALL Info( 'StatElecSolve', Message, Level=8 )
-         
-            Capacitance = 2*Wetot / ( NominalPD * NominalPD )
-            WRITE( Message, * ) 'Effective capacitance        :', Capacitance
-            CALL Info( 'StatElecSolve', Message, Level=4 )
-
-            CALL ListAddConstReal( Model % Simulation, &
-                 'RES: Capacitance', Capacitance )
-!            CALL ListAddConstReal( Model % Simulation, &
-!                 'RES: Potential Difference', PotentialDifference )
-
-            Capacitance = 2*Wetot / (PotentialDifference*PotentialDifference)
-            WRITE( Message, * ) 'True capacitance             :', Capacitance
-            CALL Info( 'StatElecSolve', Message, Level=4 )
-
-         ELSE
-            Capacitance = 2*Wetot / (PotentialDifference*PotentialDifference)
-            WRITE( Message,* ) 'Potential difference: ',PotentialDifference
-            CALL Info( 'StatElecSolve', Message, Level=8 )
-         
-            WRITE( Message, * ) 'Capacitance           :', Capacitance
-            CALL Info( 'StatElecSolve', Message, Level=4 )
-
-            CALL ListAddConstReal( Model % Simulation, &
-                 'RES: Capacitance', Capacitance )
-            CALL ListAddConstReal( Model % Simulation, &
-                 'RES: Potential Difference', PotentialDifference )
+         CALL ListAddConstReal( Model % Simulation, &
+             'RES: Potential Difference', PotentialDifference )
+ 
+         IF(CalculateEnergy) THEN
+           Capacitance = 2*Wetot / (PotentialDifference*PotentialDifference)
+           WRITE( Message,* ) 'Potential difference: ',PotentialDifference
+           CALL Info( 'StatElecSolve', Message, Level=8 )
+           
+           WRITE( Message, * ) 'Capacitance           :', Capacitance
+           CALL Info( 'StatElecSolve', Message, Level=4 )
+           
+           CALL ListAddConstReal( Model % Simulation, &
+               'RES: Capacitance', Capacitance )
          END IF
        END IF
      END IF
@@ -800,91 +777,89 @@
 !------------------------------------------------------------------------------
 
      IF(CalculateCapMatrix) THEN
-       IF(CapNo <= CapPerms) THEN
-         CALL CapacitancePermutation(CapBodies,CapNo,Permi,Permj)
-
-         CapB(CapNo) = CapB(CapNo) + Wetot
-
-         IF(Permi == Permj) THEN
-           CoEnergy = 1.0
-         ELSE
-           CoEnergy = (Wetot-CapB(Permi)-CapB(Permj))/(CapB(Permi)+CapB(Permj)) 
+       Pmatrix => StiffMatrix % Values
+       StiffMatrix % Values => MatrixValues
+       CALL MatrixVectorMultiply( StiffMatrix, Potential, Charges)
+       StiffMatrix % Values => Pmatrix
+       
+       Permi = iter
+       DO i=1,Model % NumberOfNodes
+         Permj = CapBodyIndex(i)
+         IF(Permj > 0) THEN
+           j = PotentialPerm(i)
+           CapMatrix(Permi, Permj) = CapMatrix(Permi, Permj) + Charges(j)
+           !           PRINT *,'point',i,Coordinate(j),Charges(j)
          END IF
-
-         IF(CoEnergy > MinCoEnergy) THEN
-           DO k=1,CapPerms
-             CALL CapacitancePermutation(CapBodies,k,i,j)
-             IF(i==j .AND. (i == Permi .OR. j == Permj)) THEN
-               CapA(CapNo,k) = CapA(CapNo,k) + 1.0
-             ELSE IF(i == Permi .AND. j == Permj) THEN 
-               CapA(CapNo,k) = CapA(CapNo,k) + 4.0 
-             ELSE IF(i == Permi .OR. i == Permj) THEN
-               CapA(CapNo,k) = CapA(CapNo,k) + 1.0 
-             ELSE IF(j == Permi .OR. j == Permj) THEN
-               CapA(CapNo,k) = CapA(CapNo,k) + 1.0 
-             END IF
-           END DO
-         ELSE
-           CapB(CapNo) = 0.0d0
-           DO k=1,CapPerms
-             CapA(CapNo,k) = 0.0d0
-             CapA(k,CapNo) = 0.0d0
-           END DO
-           CapA(CapNo,CapNo) = 1.0d0
-         END IF
-       END IF
-
-       IF(CapNo == CapPerms) THEN
-
-         CALL InvertMatrix(CapA,CapPerms)
-         CapX(1:CapPerms) = 2.0 * MATMUL(CapA(1:CapPerms,1:CapPerms),CapB(1:CapPerms))
-
-         CALL Info('StatElecSolve','Capacitance matrix computation performed (i,j,C_ij)',Level=4)
-
-         DO k=1,CapPerms
-           CALL CapacitancePermutation(CapBodies,k,i,j)
-           CapMatrix(i,j) = CapX(k)
-           CapMatrix(j,i) = CapX(k)
-           WRITE( Message, '(I3,I3,ES15.5)' ) i,j,CapX(k)
-           CALL Info( 'StatElecSolve', Message, Level=4 )
-         END DO
-
-         OPEN (10, FILE=CapMatrixFile)
-         DO i=1,CapBodies
-           DO j=1,CapBodies
-             WRITE (10,'(ES17.9)',advance='no') CapMatrix(i,j)
-           END DO
-           WRITE(10,'(A)') ' '
-         END DO
-         CLOSE(10)
-
-         WRITE(Message,'(A,A)') 'Capacitance matrix was saved to file ',CapMatrixFile
-         CALL Info('StatElecSolve',Message)
-       END IF
-
-       IF ( CapNo < CapPerms )  Solver % Variable % Norm = CapNo
-
+       END DO
+       DO Permj = 1, CapBodies
+         IF(Permi == Permj) CYCLE
+         CapMatrix(Permi, Permi) = CapMatrix(Permi, Permi) + CapMatrix(Permi, Permj)
+         CapMatrix(Permi, Permj) = -CapMatrix(Permi, Permj)
+       END DO
+     END IF
+   
+     IF ( PrevNorm + Norm /= 0.0d0 ) THEN
+       RelativeChange = 2.0d0 * ABS( PrevNorm-Norm ) / (PrevNorm + Norm)
+     ELSE
+       RelativeChange = 0.0d0
+     END IF
+     
+     IF(iter > 1 .AND. .NOT. CalculateCapMatrix) THEN
+       WRITE( Message, * ) 'Result Norm   : ',Norm
+       CALL Info( 'StatElecSolve', Message, Level=4 )
+       WRITE( Message, * ) 'Relative Change : ',RelativeChange
+       CALL Info( 'StatElecSolve', Message, Level=4 )       
+       IF ( RelativeChange < NonlinearTol)  EXIT
      END IF
 
-     IF ( ListGetLogical( Solver % Values, 'Adaptive Mesh Refinement', GotIt ) ) &
-          CALL RefineMesh( Model, Solver, Potential, PotentialPerm, &
-          ElectricInsideResidual, ElectricEdgeResidual, ElectricBoundaryResidual )
-
-     CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Potential')
-     IF ( CalculateField ) THEN
-       CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Field 1')
-       CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Field 2')
-       IF ( Dim == 3 )   CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Field 3')
-     END IF
-
-     IF ( CalculateFlux ) THEN
-       CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Flux 1')
-       CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Flux 2')
-       IF ( Dim == 3 )  CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Flux 3')
-     END IF
-
-     IF ( CalculateEnergy )  &
-	  CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Energy Density')
+   END DO
+   
+   IF(CalculateCapMatrix) THEN
+     ! Symmetrisize
+     CapMatrix = 0.5d0 * (CapMatrix + TRANSPOSE(CapMatrix))
+     
+     CALL Info('StatElecSolve','Capacitance matrix computation performed (i,j,C_ij)',Level=4)
+     DO i=1, CapBodies 
+       DO j = i, CapBodies
+         WRITE( Message, '(I3,I3,ES15.5)' ) i,j,CapMatrix(i,j)
+         CALL Info( 'StatElecSolve', Message, Level=4 )
+       END DO
+     END DO
+    
+     OPEN (10, FILE=CapMatrixFile)
+     DO i=1,CapBodies
+       DO j=1,CapBodies
+         WRITE (10,'(ES17.9)',advance='no') CapMatrix(i,j)
+       END DO
+       WRITE(10,'(A)') ' '
+     END DO
+     CLOSE(10)
+     
+     WRITE(Message,'(A,A)') 'Capacitance matrix was saved to file ',CapMatrixFile
+     CALL Info('StatElecSolve',Message)
+   END IF
+   
+   
+   IF ( ListGetLogical( Solver % Values, 'Adaptive Mesh Refinement', GotIt ) ) &
+       CALL RefineMesh( Model, Solver, Potential, PotentialPerm, &
+       ElectricInsideResidual, ElectricEdgeResidual, ElectricBoundaryResidual )
+   
+   CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Potential')
+   IF ( CalculateField ) THEN
+     CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Field 1')
+     CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Field 2')
+     IF ( Dim == 3 )   CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Field 3')
+   END IF
+   
+   IF ( CalculateFlux ) THEN
+     CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Flux 1')
+     CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Flux 2')
+     IF ( Dim == 3 )  CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Flux 3')
+   END IF
+   
+   IF ( CalculateEnergy ) THEN
+     CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Energy Density')
+   END IF
 
 
 !------------------------------------------------------------------------------
@@ -1215,40 +1190,38 @@
 !        The piezo force term
 !------------------------------------------------------------------------------
 
-         PiezoLoad = 0.0d0
          IF ( PiezoMaterial ) THEN
-
-! So far only plane strain in 2D  (LocalStrain(3) = 0)
-
-            LocalStrain = 0.0d0
-            DO i = 1, Dim
-               LocalStrain(i) = SUM( dBasisdx(1:n,i) * Displacement(1:n,i) )
-            END DO
-            LocalStrain(4) = 0.5d0 * ( SUM( dBasisdx(1:n,1) * Displacement(1:n,2) ) &
-                 + SUM( dBasisdx(1:n,2) * Displacement(1:n,1) ) )
-            IF ( Dim == 3 ) THEN
-               LocalStrain(5) = 0.5d0 * ( SUM( dBasisdx(1:n,2) * Displacement(1:n,3) ) &
-                    + SUM( dBasisdx(1:n,3) * Displacement(1:n,2) ) )
-               LocalStrain(6) = 0.5d0 * ( SUM( dBasisdx(1:n,1) * Displacement(1:n,3) ) &
-                    + SUM( dBasisdx(1:n,3) * Displacement(1:n,1) ) )
-            END IF
-
-            DO i = 1, Dim
-               DO j = 1, 2*Dim
-                  PiezoLoad(i) = PiezoLoad(i) + SUM( Basis(1:n) * PiezoCoeff(i,j,1:n) ) * &
-                       LocalStrain(j)
-               END DO
-            END DO
-
+           ! So far only plane strain in 2D  (LocalStrain(3) = 0)           
+           LocalStrain = 0.0d0
+           DO i = 1, Dim
+             LocalStrain(i) = SUM( dBasisdx(1:n,i) * Displacement(1:n,i) )
+           END DO
+           LocalStrain(4) = 0.5d0 * ( SUM( dBasisdx(1:n,1) * Displacement(1:n,2) ) &
+               + SUM( dBasisdx(1:n,2) * Displacement(1:n,1) ) )
+           IF ( Dim == 3 ) THEN
+             LocalStrain(5) = 0.5d0 * ( SUM( dBasisdx(1:n,2) * Displacement(1:n,3) ) &
+                 + SUM( dBasisdx(1:n,3) * Displacement(1:n,2) ) )
+             LocalStrain(6) = 0.5d0 * ( SUM( dBasisdx(1:n,1) * Displacement(1:n,3) ) &
+                 + SUM( dBasisdx(1:n,3) * Displacement(1:n,1) ) )
+           END IF
+           
+           PiezoLoad = 0.0d0
+           DO i = 1, Dim
+             DO j = 1, 2*Dim
+               PiezoLoad(i) = PiezoLoad(i) + SUM( Basis(1:n) * PiezoCoeff(i,j,1:n) ) * &
+                   LocalStrain(j)
+             END DO
+           END DO
+           
          END IF
-
+         
 !------------------------------------------------------------------------------
          L = SUM( Load(1:n) * Basis )
          DO i=1,DIM
-            DO j=1,DIM
-               C(i,j) = SUM( Permittivity(i,j,1:n) * Basis(1:n) )
-            END DO
-          END DO
+           DO j=1,DIM
+             C(i,j) = SUM( Permittivity(i,j,1:n) * Basis(1:n) )
+           END DO
+         END DO
 !------------------------------------------------------------------------------
 !        The Poisson equation
 !------------------------------------------------------------------------------
@@ -1263,8 +1236,11 @@
              StiffMatrix(p,q) = StiffMatrix(p,q) + S*A
            END DO
            Force(p) = Force(p) + S*L*Basis(p)
-           IF ( PiezoMaterial )  &
-                PiezoForce(p) = PiezoForce(p) + S * SUM( dBasisdx(p,1:3) * PiezoLoad(1:3) )
+
+           IF ( PiezoMaterial ) THEN
+             PiezoForce(p) = PiezoForce(p) + S * SUM( dBasisdx(p,1:3) * PiezoLoad(1:3) )
+           END IF
+
         END DO
 !------------------------------------------------------------------------------
        END DO
@@ -1277,7 +1253,7 @@
 
 !------------------------------------------------------------------------------
   SUBROUTINE SetPermutationBoundaries( Model, StiffMatrix, ForceVector, &
-      Name, DOF, NDOFs, Perm, Permutation, Bodies )
+      Name, Perm, Permutation)
 !------------------------------------------------------------------------------
 !  To compute the capacitance matrix for m bodies, m*(m+1)/2
 ! different permutations are required. This subroutine makes different
@@ -1288,12 +1264,12 @@
     TYPE(Matrix_t), POINTER :: StiffMatrix
     REAL(KIND=dp) :: ForceVector(:)
     CHARACTER(LEN=*) :: Name 
-    INTEGER :: DOF, NDOFs, Perm(:), Permutation, Bodies
+    INTEGER :: Perm(:), Permutation
 !------------------------------------------------------------------------------
 
     TYPE(Element_t), POINTER :: CurrentElement
     INTEGER, POINTER :: NodeIndexes(:)
-    INTEGER :: i,j,k,n,t,k1,k2, Body, Bodyi, Bodyj
+    INTEGER :: i,j,k,n,t,k1,k2, Body
     LOGICAL :: GotIt
     REAL(KIND=dp) :: Work(Model % MaxElementNodes),s
 
@@ -1317,20 +1293,11 @@
             Model % BCs(i) % Tag ) THEN
           
           Body = ListGetInteger( Model % BCs(i) % Values, Name, gotIt )
+          CapBodyIndex(NodeIndexes) = Body
           
-          IF ( gotIt ) THEN
-            
-            IF(Body > 0) THEN
-              CALL CapacitancePermutation(Bodies,Permutation,Bodyi,Bodyj)
-              
-              Work(1:n) = 0.0d0
-              IF(Body == Bodyi) THEN
-                Work(1:n) = 1.0d0
-              ELSE IF (Body == Bodyj) THEN
-                Work(1:n) = -1.0d0
-              ELSE
-                Work(1:n) = 0.0d0
-              END IF
+          IF ( gotIt ) THEN           
+            IF(Body == Permutation) THEN
+              Work = 1.0d0
             ELSE 
               Work(1:n) = 0.0d0
             END IF
@@ -1338,8 +1305,7 @@
             DO j=1,n
               k = Perm(NodeIndexes(j))
               IF ( k > 0 ) THEN
-                k = NDOFs * (k-1) + DOF
-                
+
                 IF ( StiffMatrix % FORMAT == MATRIX_SBAND ) THEN
                   
                   CALL SBand_SetDirichlet( StiffMatrix,ForceVector,k,Work(j) )
@@ -1366,42 +1332,6 @@
      END DO
 !------------------------------------------------------------------------------
    END SUBROUTINE SetPermutationBoundaries
-!------------------------------------------------------------------------------
-
-
-   SUBROUTINE CapacitancePermutation(n,m,i,j)
-!------------------------------------------------------------------------------
-! n=number of bodies
-! m=number of permutation
-! i,j=resulting indexes
-
-     INTEGER :: n,m,i,j,a,b
-     
-     IF(n <= 1) THEN
-       i=1
-       j=1
-     ELSE IF(m <= n) THEN
-       i=m
-       j=m
-     ELSE IF(m > n*(n+1)/2) THEN
-       i = n-1
-       j = n
-     ELSE IF(m > n) THEN
-       j=m
-       i=0
-       DO 
-         j=j-(n-i)
-         i=i+1
-         IF(j <= n-i) THEN
-           j = j+i
-           EXIT
-         END IF
-       END DO
-     ELSE
-       CALL Warn('CapcacitancePermutation','Unknown case!') 
-     END IF
-
-  END SUBROUTINE CapacitancePermutation
 !------------------------------------------------------------------------------
 
 
