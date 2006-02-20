@@ -40,6 +40,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MagneticSolve.src,v $
+! * Revision 1.10  2006/02/01 08:07:58  jpr
+! * Replaced most of the usage of MAX_NODES by dynamic allocations.
+! *
 ! * Revision 1.9  2006/01/10 08:51:24  apursula
 ! * Updated header information (GPL).
 ! * Started log.
@@ -123,17 +126,7 @@
 
 !------------------------------------------------------------------------------
      CHARACTER(LEN=MAX_NAME_LEN) :: MessageL
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: MagneticSolve.src,v 1.9 2006/01/10 08:51:24 apursula Exp $"
-
-     INTEGER :: NumberOfBoundaryNodes
-     INTEGER, POINTER :: BoundaryReorder(:)
-
-     REAL(KIND=dp) :: Bu,Bv,Bw,RM(3,3)
-     REAL(KIND=dp), POINTER :: BoundaryNormals(:,:), &
-           BoundaryTangent1(:,:), BoundaryTangent2(:,:)
-
-     SAVE NumberOfBoundaryNodes,BoundaryReorder,BoundaryNormals, &
-              BoundaryTangent1, BoundaryTangent2
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: MagneticSolve.src,v 1.10 2006/02/01 08:07:58 jpr Exp $"
 
      REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
 
@@ -195,15 +188,6 @@
          CALL Fatal( 'MagneticSolve', 'Memory allocation error.' )
        END IF
 
-!------------------------------------------------------------------------------
-!    Check for normal/tangetial coordinate system defined velocities
-!------------------------------------------------------------------------------
-       CALL CheckNormalTangentialBoundary( Model, &
-           'Normal-Tangential Magnetic Field', NumberOfBoundaryNodes, &
-          BoundaryReorder,BoundaryNormals,BoundaryTangent1, &
-             BoundaryTangent2, dim )
-!------------------------------------------------------------------------------
-
        AllocationsDone = .TRUE.
      END IF
 
@@ -254,16 +238,6 @@
        CALL Info( 'MagneticSolve', &
              '-------------------------------------', Level=4 )
        CALL Info( 'MagneticSolve', ' ', Level=4 )
-!------------------------------------------------------------------------------
-!      Compute average normals for boundaries having the normal & tangetial
-!      field components specified on the boundaries
-!------------------------------------------------------------------------------
-       IF ( (iter == 1.OR.FreeSurfaceFlag).AND.NumberOfBoundaryNodes>0 )  THEN
-          CALL AverageBoundaryNormals( Model, &
-             'Normal-Tangential Magnetic Field',NumberOfBoundaryNodes, &
-            BoundaryReorder, BoundaryNormals, BoundaryTangent1, &
-               BoundaryTangent2, dim )
-       END IF
 !------------------------------------------------------------------------------
        CALL DefaultInitialize()
 
@@ -385,17 +359,6 @@
          IF ( TransientSimulation ) CALL Default1stOrderTime(MASS,STIFF,FORCE)
 
 !------------------------------------------------------------------------------
-!        If boundary fields have been defined in normal/tangetial
-!        coordinate systems, we´ll have to rotate the matrix & force vector
-!        to that coordinate system
-!------------------------------------------------------------------------------
-         IF ( NumberOfBoundaryNodes > 0 ) THEN
-           CALL RotateMatrix( STIFF,FORCE,n,3,3, &
-            BoundaryReorder(NodeIndexes),BoundaryNormals,BoundaryTangent1,   &
-                              BoundaryTangent2 )
-         END IF
-
-!------------------------------------------------------------------------------
 !        Update global matrices from local matrices
 !------------------------------------------------------------------------------
          CALL DefaultUpdateEquations( STIFF, FORCE )
@@ -459,17 +422,6 @@
           END IF
 
 !------------------------------------------------------------------------------
-!         If boundary field components have been defined in normal/tangetial
-!         coordinate systems, we´ll have to rotate the matrix & force vector
-!         to that coordinate system
-!------------------------------------------------------------------------------
-
-          IF ( NumberOfBoundaryNodes > 0 ) THEN
-            CALL RotateMatrix( STIFF,FORCE,n,3,3, &
-             BoundaryReorder(NodeIndexes),BoundaryNormals,BoundaryTangent1,&
-                               BoundaryTangent2 )
-          END IF
-!------------------------------------------------------------------------------
 !         Update global matrices from local matrices
 !------------------------------------------------------------------------------
           IF ( TransientSimulation ) THEN
@@ -502,35 +454,6 @@
       WRITE(*,'(a,i4,a,F8.2,F8.2)') 'iter: ',iter,' Assembly: (s)', at, totat
       WRITE(*,'(a,i4,a,F8.2,F8.2)') 'iter: ',iter,' Solve:    (s)', st, totst
 
-!------------------------------------------------------------------------------
-!     If boundary fields have been defined in normal/tangetial coordinate
-!     systems, we´ll have to rotate the solution back to coordinate axis
-!     directions
-!------------------------------------------------------------------------------
-      IF ( NumberOfBoundaryNodes > 0 ) THEN
-        DO i=1,Model % NumberOfNodes
-          k = BoundaryReorder(i)
-
-          IF ( k > 0 ) THEN
-            j = Solver % Variable % Perm(i)
-
-            IF ( j > 0 ) THEN
-              Bu = MagneticField( 3*(j-1)+1 )
-              Bv = MagneticField( 3*(j-1)+2 )
-              Bw = MagneticField( 3*(j-1)+3 )
-
-              RM(1,:) = BoundaryNormals(k,:)
-              RM(2,:) = BoundaryTangent1(k,:)
-              RM(3,:) = BoundaryTangent2(k,:)
-              CALL InvertMatrix( RM,3 )
-
-              MagneticField(3*(j-1)+1) = RM(1,1)*Bu+RM(2,1)*Bv+RM(3,1)*Bw
-              MagneticField(3*(j-1)+2) = RM(1,2)*Bu+RM(2,2)*Bv+RM(2,2)*Bw
-              MagneticField(3*(j-1)+3) = RM(1,3)*Bu+RM(2,3)*Bv+RM(3,3)*Bw
-            END IF
-          END IF
-        END DO 
-      END IF
 !------------------------------------------------------------------------------
       IF ( PrevUNorm + UNorm /= 0.0d0 ) THEN
          RelativeChange = 2 * ABS(PrevUNorm-UNorm)/(UNorm + PrevUNorm)

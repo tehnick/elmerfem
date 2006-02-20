@@ -38,7 +38,10 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Log: $
+! * $Log: Lists.src,v $
+! * Revision 1.5  2006/01/10 08:51:48  apursula
+! * Updated header information (GPL).
+! *
 ! * Revision 1.54  2004/03/30 12:05:37  jpr
 ! * Added a user procedure call interface to ListGetRealArray().
 ! *
@@ -50,7 +53,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Lists.src,v 1.4 2005/07/08 08:04:04 jpr Exp $
+! * $Id: Lists.src,v 1.5 2006/01/10 08:51:48 apursula Exp $
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
@@ -567,7 +570,8 @@ double precision :: t1,CPUTime
          IF (.NOT.Found) GlobalBubbles=.TRUE.
          DOFs = CurrentModel % Mesh % NumberOfNodes * PVar % DOFs
          IF ( GlobalBubbles ) &
-            DOFs = DOFs+CurrentModel % Mesh % NumberOfBulkElements * PVar % DOFs
+            DOFs = DOFs+ &
+              CurrentModel % Mesh % MaxBDOFs * CurrentModel % Mesh % NumberOfBulkElements * PVar % DOFs
 
          ALLOCATE( Var )
          ALLOCATE( Var % Values(DOFs) )
@@ -651,8 +655,7 @@ double precision :: t1,CPUTime
                Tmp => VariableGet( Variables, TRIM( tmpname ), .TRUE. )
                NULLIFY( Tmp % PrevValues )
                IF ( ASSOCIATED( Var % PrevValues ) ) &
-                  Tmp % PrevValues => &
-                          Var % PrevValues(PVar % DOFs::PVar % DOFs,:)
+                  Tmp % PrevValues => Var % PrevValues(i::PVar % DOFs,:)
              END DO
            END IF
         END IF
@@ -705,6 +708,7 @@ double precision :: t1,CPUTime
 t1 = CPUTime()
       CALL InterpolateMeshToMesh( PVar % PrimaryMesh, &
             CurrentModel % Mesh, Var, Variables, Projector=Projector )
+
 WRITE( Message, * ) 'Interpolation time: ', CPUTime()-t1
 CALL Info( 'VariableGet', Message, Level=7 )
 

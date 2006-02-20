@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StressSolve.src,v $
+! * Revision 1.13  2006/02/02 07:14:32  jpr
+! * Small formatting changes.
+! *
 ! * Revision 1.12  2006/02/01 08:07:59  jpr
 ! * Replaced most of the usage of MAX_NODES by dynamic allocations.
 ! *
@@ -263,19 +266,9 @@
        LocalContactPressure, PreStress, PreStrain, StressLoad, StrainLoad, Work, &
        RotateC, TransformMatrix, body_id
 !------------------------------------------------------------------------------
-     INTEGER :: NumberOfBoundaryNodes, DIM
-     INTEGER, POINTER :: BoundaryReorder(:)
-
-     REAL(KIND=dp) :: Bu,Bv,Bw,RM(3,3)
-     REAL(KIND=dp), POINTER :: BoundaryNormals(:,:), &
-         BoundaryTangent1(:,:), BoundaryTangent2(:,:)
-
-     REAL(KIND=dp) :: LumpedArea, LumpedCenter(3), LumpedMoments(3,3)
-
-     SAVE NumberOfBoundaryNodes,BoundaryReorder,BoundaryNormals, &
-              BoundaryTangent1, BoundaryTangent2
-
+     INTEGER :: dim
      REAL(KIND=dp) :: at,at0,CPUTime,RealTime
+     REAL(KIND=dp) :: LumpedArea, LumpedCenter(3), LumpedMoments(3,3)
 
      INTERFACE
         FUNCTION StressBoundaryResidual( Model,Edge,Mesh,Quant,Perm, Gnorm ) RESULT(Indicator)
@@ -306,7 +299,7 @@
         END FUNCTION StressInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.12 2006/02/01 08:07:59 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.13 2006/02/02 07:14:32 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -459,15 +452,6 @@
           CALL Fatal( 'StressSolve', 'Memory allocation error.' )
        END IF
 
-!------------------------------------------------------------------------------
-!    Check for normal/tangetial coordinate system defined velocities
-!------------------------------------------------------------------------------
-       CALL CheckNormalTangentialBoundary( Model, &
-        'Normal-Tangential Displacement',NumberOfBoundaryNodes, &
-          BoundaryReorder, BoundaryNormals, BoundaryTangent1, &
-             BoundaryTangent2, DIM )
-!------------------------------------------------------------------------------
-
        AllocationsDone = .TRUE.
      END IF
 
@@ -538,7 +522,6 @@
 
 !------------------------------------------------------------------------------
 
-     NormalTangential = NumberOfBoundaryNodes > 0
      DO iter=1,MaxIter
        IF( StabilityAnalysis .OR. GeometricStiffness ) THEN
           SELECT CASE( iter )
@@ -561,16 +544,6 @@
        CALL Info( 'StressSolve', '-------------------------------------',Level=4 )
        CALL Info( 'StressSolve', ' ', Level=4 )
        CALL Info( 'StressSolve', 'Starting assembly...',Level=4 )
-!------------------------------------------------------------------------------
-!      Compute average normals for boundaries having the normal & tangential
-!      field components specified on the boundaries
-!------------------------------------------------------------------------------
-       IF ( iter == 1 .AND. NormalTangential ) THEN
-          CALL AverageBoundaryNormals( Model, &
-               'Normal-Tangential Displacement', NumberOfBoundaryNodes, &
-            BoundaryReorder, BoundaryNormals, BoundaryTangent1, &
-               BoundaryTangent2, DIM )
-       END IF
 !------------------------------------------------------------------------------
 
        CALL DefaultInitialize()
@@ -736,16 +709,6 @@
             CALL Default2ndOrderTime( MASS, DAMP, STIFF, FORCE )
          END IF
 !------------------------------------------------------------------------------
-!        If boundary fields have been defined in normal/tangential
-!        coordinate systems, we´ll have to rotate the matrix & force vector
-!        to that coordinate system
-!------------------------------------------------------------------------------
-         IF ( NormalTangential ) THEN
-            CALL RotateMatrix( STIFF,FORCE,ntot,STDOFs,STDOFs, &
-             BoundaryReorder(NodeIndexes),BoundaryNormals,BoundaryTangent1, &
-                               BoundaryTangent2 )
-         END IF
-!------------------------------------------------------------------------------
 !        Update global matrices from local matrices 
 !------------------------------------------------------------------------------
          CALL DefaultUpdateEquations( STIFF, FORCE )
@@ -819,6 +782,9 @@
               Beta = Beta - LocalContactPressure
            END IF 
 
+          NormalTangential = GetLogical( BC, 'Normal-Tangential ' // & 
+                   TRIM(Solver % Variable % Name), Found )
+
            SELECT CASE( CurrentCoordinateSystem() )
            CASE( Cartesian, AxisSymmetric, CylindricSymmetric )
               CALL StressBoundary( STIFF,DAMP,FORCE,LOAD,SpringCoeff,DampCoeff, &
@@ -832,16 +798,6 @@
            IF ( TransientSimulation .AND. Solver % NOFEigenValues <= 0 )  THEN
               MASS = 0.0d0
               CALL Default2ndOrderTime( MASS, DAMP, STIFF, FORCE )
-           END IF
-!------------------------------------------------------------------------------
-!          If boundary fields have been defined in normal/tangetial coordinate
-!          systems, we´ll have to rotate the matrix & force vector to that
-!          coordinate system
-!---------------------------------------------------------------------------
-           IF ( NormalTangential ) THEN
-             CALL RotateMatrix( STIFF,FORCE,n,STDOFs,STDOFs, &
-              BoundaryReorder(NodeIndexes),BoundaryNormals,BoundaryTangent1, &
-                                BoundaryTangent2 )
            END IF
 !---------------------------------------------------------------------------
 !          Update global matrices from local matrices
@@ -878,45 +834,6 @@
       CALL Info( 'StressSolve', Message, Level=4 )
       WRITE( Message, * ) 'Relative Change : ',RelativeChange
       CALL Info( 'StressSolve', Message, Level=4 )
-!------------------------------------------------------------------------------
-!     If boundary fields have been defined in normal/tangential coordinate
-!     systems, we´ll have to rotate the solution back to coordinate axis
-!     directions
-!------------------------------------------------------------------------------
-      IF ( NumberOfBoundaryNodes > 0 ) THEN
-        DO i=1,SIZE( Displperm )
-          k = BoundaryReorder(i)
-
-          IF ( k > 0 ) THEN
-            j = DisplPerm(i)
-
-            IF ( j > 0 ) THEN
-              IF ( STDOFs < 3 ) THEN
-                Bu = Displacement( STDOFs*(j-1)+1 )
-                Bv = Displacement( STDOFs*(j-1)+2 )
-
-                Displacement( STDOFs*(j-1)+1) = BoundaryNormals(k,1) * Bu - &
-                                BoundaryNormals(k,2) * Bv
-
-                Displacement( STDOFs*(j-1)+2) = BoundaryNormals(k,2) * Bu + &
-                                BoundaryNormals(k,1) * Bv
-              ELSE
-                Bu = Displacement( STDOFs*(j-1)+1 )
-                Bv = Displacement( STDOFs*(j-1)+2 )
-                Bw = Displacement( STDOFs*(j-1)+3 )
-
-                RM(1,:) = BoundaryNormals(k,:)
-                RM(2,:) = BoundaryTangent1(k,:)
-                RM(3,:) = BoundaryTangent2(k,:)
-
-                Displacement(STDOFs*(j-1)+1) = RM(1,1)*Bu+RM(2,1)*Bv+RM(3,1)*Bw
-                Displacement(STDOFs*(j-1)+2) = RM(1,2)*Bu+RM(2,2)*Bv+RM(3,2)*Bw
-                Displacement(STDOFs*(j-1)+3) = RM(1,3)*Bu+RM(2,3)*Bv+RM(3,3)*Bw
-              END IF
-            END IF
-          END IF
-        END DO 
-      END IF
 
 !------------------------------------------------------------------------------
 !     Update contact pressure:

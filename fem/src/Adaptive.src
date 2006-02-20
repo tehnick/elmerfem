@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Adaptive.src,v $
+! * Revision 1.15  2006/02/02 07:14:31  jpr
+! * Small formatting changes.
+! *
 ! * Revision 1.14  2006/01/10 07:39:14  apursula
 ! * Minor revision of the headers.
 ! *
@@ -74,7 +77,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Adaptive.src,v 1.14 2006/01/10 07:39:14 apursula Exp $
+! * $Id: Adaptive.src,v 1.15 2006/02/02 07:14:31 jpr Exp $
 ! *****************************************************************************/
 
 
@@ -472,6 +475,8 @@ CONTAINS
     RefMesh % Child  => NewMesh
     NewMesh % Parent => RefMesh
     NULLIFY( NewMesh % Child )
+
+    NewMesh % MaxBDOFs = RefMesh % MaxBDOFs
 
     NewMesh % Name = ListGetString( Solver % Values, &
          'Adaptive Mesh Name', Found )
@@ -1057,9 +1062,12 @@ CONTAINS
 
 !   Add old nodes to the new mesh:
 !   ------------------------------    
-    NewMesh % Nodes % x(1:RefMesh % NumberOfNodes) = RefMesh % Nodes % x
-    NewMesh % Nodes % y(1:RefMesh % NumberOfNodes) = RefMesh % Nodes % y
-    NewMesh % Nodes % z(1:RefMesh % NumberOfNodes) = RefMesh % Nodes % z
+    NewMesh % Nodes % x(1:RefMesh % NumberOfNodes) = &
+               RefMesh % Nodes % x(1:RefMesh % NumberOfNodes)
+    NewMesh % Nodes % y(1:RefMesh % NumberOfNodes) = &
+               RefMesh % Nodes % y(1:RefMesh % NumberOfNodes)
+    NewMesh % Nodes % z(1:RefMesh % NumberOfNodes) = &
+               RefMesh % Nodes % z(1:RefMesh % NumberOfNodes)
 
 !   Add new nodes to the new mesh:
 !   ------------------------------    

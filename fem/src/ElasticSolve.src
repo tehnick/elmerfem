@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: ElasticSolve.src,v $
+! * Revision 1.8  2006/02/01 08:07:57  jpr
+! * Replaced most of the usage of MAX_NODES by dynamic allocations.
+! *
 ! * Revision 1.7  2006/01/10 07:39:16  apursula
 ! * Minor revision of the headers.
 ! *
@@ -135,22 +138,12 @@
            ElasticModulus, PoissonRatio,Density,Damping,HeatExpansionCoeff, &
            LocalDisplacement, Velocity, Pressure
 !------------------------------------------------------------------------------
-     INTEGER :: NumberOfBoundaryNodes
-     INTEGER, POINTER :: BoundaryReorder(:)
-
-     REAL(KIND=dp) :: Bu,Bv,Bw,RM(3,3)
-     REAL(KIND=dp), POINTER :: BoundaryNormals(:,:), &
-         BoundaryTangent1(:,:), BoundaryTangent2(:,:)
-
-     SAVE NumberOfBoundaryNodes,BoundaryReorder,BoundaryNormals, &
-              BoundaryTangent1, BoundaryTangent2
 
      REAL(KIND=dp) :: at,at0,CPUTime,RealTime
      INTEGER :: TotalSteps,LoadStep, dim
 
-
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ElasticSolve.src,v 1.7 2006/01/10 07:39:16 apursula Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ElasticSolve.src,v 1.8 2006/02/01 08:07:57 jpr Exp $"
 
 
      INTERFACE
@@ -298,14 +291,6 @@
        END IF
 
 
-!------------------------------------------------------------------------------
-!    Check for normal/tangetial coordinate system defined velocities
-!------------------------------------------------------------------------------
-       CALL CheckNormalTangentialBoundary( Model, &
-        'Normal-Tangential Displacement',NumberOfBoundaryNodes, &
-          BoundaryReorder, BoundaryNormals, BoundaryTangent1, &
-             BoundaryTangent2, dim )
-
 !      Add the stress tensor components to the variable list ???????????????????
 !       PSolver => Solver
 !       call VariableAdd( PSolver % Mesh % Variables, PSolver % Mesh, PSolver, &
@@ -366,16 +351,7 @@
            '-------------------------------------', Level=4 )
        CALL Info( 'ElasticSolve', ' ', Level=4 )
        CALL Info( 'ElasticSolve', 'Starting assembly...', Level=4 )
-!------------------------------------------------------------------------------
-!      Compute average normals for boundaries having the normal & tangential
-!      field components specified on the boundaries
-!------------------------------------------------------------------------------
-       IF ( NumberOfBoundaryNodes > 0 ) THEN
-          CALL AverageBoundaryNormals( Model, &
-               'Normal-Tangential Displacement', NumberOfBoundaryNodes, &
-            BoundaryReorder, BoundaryNormals, BoundaryTangent1, &
-               BoundaryTangent2, dim )
-       END IF
+
 !------------------------------------------------------------------------------
        CALL InitializeToZero( StiffMatrix, ForceVector )
 !------------------------------------------------------------------------------
@@ -524,18 +500,6 @@
                 StressPerm(NodeIndexes), Solver )
 
          END IF
-!------------------------------------------------------------------------------
-!        If boundary fields have been defined in normal/tangential
-!        coordinate systems, we´ll have to rotate the matrix & force vector
-!        to that coordinate system
-!------------------------------------------------------------------------------
-
-         IF ( NumberOfBoundaryNodes > 0 ) THEN
-           CALL RotateMatrix( LocalStiffMatrix,LocalForce,n,STDOFs,STDOFs, &
-            BoundaryReorder(NodeIndexes),BoundaryNormals,BoundaryTangent1, &
-                              BoundaryTangent2 )
-         END IF
-
 !------------------------------------------------------------------------------
 !        Update global matrices from local matrices 
 !------------------------------------------------------------------------------
@@ -726,16 +690,6 @@
            END IF
 
 !------------------------------------------------------------------------------
-!          If boundary fields have been defined in normal/tangetial coordinate
-!          systems, we have to rotate the matrix & force vector to that
-!          coordinate system
-!------------------------------------------------------------------------------
-            IF ( NumberOfBoundaryNodes > 0 ) THEN
-              CALL RotateMatrix( LocalStiffMatrix,LocalForce,n,STDOFs,STDOFs, &
-               BoundaryReorder(NodeIndexes),BoundaryNormals,BoundaryTangent1, &
-                                 BoundaryTangent2 )
-            END IF
-!------------------------------------------------------------------------------
 !           Update global matrices from local matrices (will also affect
 !           LocalStiffMatrix and LocalForce if transientsimulation is on).
 !------------------------------------------------------------------------------
@@ -795,48 +749,7 @@
       WRITE( Message, * ) 'Relative Change : ',RelativeChange
       CALL Info( 'ElasticSolve', Message, Level=4 )
 
-!------------------------------------------------------------------------------
-!     If boundary fields have been defined in normal/tangential coordinate
-!     systems, we´ll have to rotate the solution back to coordinate axis
-!     directions
-!------------------------------------------------------------------------------
-      IF ( NumberOfBoundaryNodes > 0 ) THEN
-        DO i=1,Solver % Mesh % NumberOfNodes
-          k = BoundaryReorder(i)
-
-          IF ( k > 0 ) THEN
-            j = StressPerm(i)
-
-            IF ( j > 0 ) THEN
-              IF ( STDOFs < 3 ) THEN
-                Bu = Displacement( STDOFs*(j-1)+1 )
-                Bv = Displacement( STDOFs*(j-1)+2 )
-
-                Displacement( STDOFs*(j-1)+1) = BoundaryNormals(k,1) * Bu - &
-                                BoundaryNormals(k,2) * Bv
-
-                Displacement( STDOFs*(j-1)+2) = BoundaryNormals(k,2) * Bu + &
-                                BoundaryNormals(k,1) * Bv
-              ELSE
-                Bu = Displacement( STDOFs*(j-1)+1 )
-                Bv = Displacement( STDOFs*(j-1)+2 )
-                Bw = Displacement( STDOFs*(j-1)+3 )
-
-                RM(1,:) = BoundaryNormals(k,:)
-                RM(2,:) = BoundaryTangent1(k,:)
-                RM(3,:) = BoundaryTangent2(k,:)
-                CALL InvertMatrix( RM,3 )
-
-                Displacement(STDOFs*(j-1)+1) = RM(1,1)*Bu+RM(1,2)*Bv+RM(1,3)*Bw
-                Displacement(STDOFs*(j-1)+2) = RM(2,1)*Bu+RM(2,2)*Bv+RM(2,3)*Bw
-                Displacement(STDOFs*(j-1)+3) = RM(3,1)*Bu+RM(3,2)*Bv+RM(3,3)*Bw
-              END IF
-            END IF
-          END IF
-        END DO 
-      END IF
-
-!------------------------------------------------------------------------------
+!-----------------------------------------------------------------------------
       IF ( RelativeChange < NewtonTol .OR. &
              iter > NewtonIter ) NewtonLinearization = .TRUE.
 
