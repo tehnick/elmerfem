@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
+#include <unistd.h>
 
 #include "nrutil.h"
 #include "common.h"
@@ -131,11 +132,11 @@ static void FindPointParents(struct FemType *data,struct BoundaryType *bound,
   for(elemind=1;elemind<=data->noelements;elemind++) {
     elemtype = data->elementtypes[elemind];
     elemsides = elemtype % 100;
-    for(i=0;i<elemsides;i++) 
+    for(i=0;i<elemsides;i++) {
       elemhits[data->topology[elemind][i]] += 1;
+    }
   }
-    
- 
+
 
   for(boundarytype=minboundary;boundarytype <= maxboundary;boundarytype++) {
     int boundfirst,bchits,bcsame,sideelemtype2;
@@ -150,6 +151,7 @@ static void FindPointParents(struct FemType *data,struct BoundaryType *bound,
       if(boundindx[i] == boundarytype) 
 	indx[nodeindx[i]] = TRUE; 
     }
+
 
     for(elemind=1;elemind<=data->noelements;elemind++) {
       elemtype = data->elementtypes[elemind];
@@ -428,7 +430,7 @@ omstart:
 	
 	if(maxnodes < elemcode%100) maxnodes = elemcode%100;
 	mode = 3;
-	if(0) printf("Loading elements of type %d starting from element %d.\n",
+	if(1) printf("Loading elements of type %d starting from element %d.\n",
 			elemcode,noelements);
       }
       else if(strstr(line,"BOUNDARY")) {
@@ -1398,9 +1400,10 @@ int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
 {
   int noknots,noelements,nosides,elemcode,sidetype,currenttype;
   int elementtypes,sideind[MAXNODESD1],tottypes,elementtype;
-  int maxindx,*indx,*revindx,topology[100];
+  int maxindx,*indx,*revindx,topology[100],ind;
   int i,j,k,l,imax,grp,dummyint,*nodeindx,*boundindx,boundarynodes,maxnodes;
   int noansystypes,*ansysdim,*ansysnodes,*ansystypes,boundarytypes;
+  int debug;
   Real x,y,z,r;
   FILE *in;
   char *cp,line[MAXLINESIZE],filename[MAXFILESIZE],
@@ -1597,12 +1600,16 @@ int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
     printf("Loading %d Ansys elements from %s\n",noelements,filename);
 
   for(j=1;j<=noelements;j++) {
+
     getline; cp=line;
-    for(i=0;i<8;i++)
-      topology[i] = revindx[next_int(&cp)];
+
+    for(i=0;i<8;i++) {
+      ind = next_int(&cp);
+      if(cp[0] == '.') cp++;
+      topology[i] = revindx[ind];
+    }
 
     data->material[j] = next_int(&cp);
-
     currenttype = next_int(&cp);
     
     for(k=1;k<=noansystypes;k++) 
@@ -1617,8 +1624,13 @@ int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
       else 
 	imax = 20;
 
-      for(i=8;i<imax;i++) 
-	topology[i] = revindx[next_int(&cp)];
+      if(debug) printf("imax = %d\n",imax);
+
+      for(i=8;i<imax;i++) {
+	ind = next_int(&cp);
+	if(cp[0] == '.') cp++;
+	topology[i] = revindx[ind];
+      }
     }
 
 #if 0
