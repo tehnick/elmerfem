@@ -840,21 +840,26 @@ int SaveElmerInput(struct FemType *data,
 
     fprintf(out,"%d %d %d",i,data->material[i],elemtype);
 
-    if(data->pelems == 1) {
-      if(data->pelemtypes[i] > 0) fprintf(out,"p%d",data->pelemtypes[i]);
-    }
-    else if(data->pelems == 2) {
+    if(data->pelems) {
       j = data->pelemtypes[i];
+
       k = j; j=j/10; k=k-10*j;
       if(k!=1) fprintf(out,"n%d",k);
+
       k = j; j=j/10; k=k-10*j;
       if(k!=0) fprintf(out,"e%d",k);
+
       k = j; j=j/10; k=k-10*j;
       if(k!=0) fprintf(out,"f%d",k);
+
       k = j; j=j/10; k=k-10*j;
       if(k!=0) fprintf(out,"d%d",k);
+
       k = j; j=j/100; k=k-100*j;
       if(k!=0) fprintf(out,"b%d",k);
+
+      k = j; j=j/100; k=k-100*j;
+      if(k!=0) fprintf(out,"p%d",k);
     }
       
     bulktypes[elemtype] += 1;

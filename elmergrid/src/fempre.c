@@ -133,7 +133,8 @@ static void Instructions()
   printf("-polar real          : map 2D mesh to a cylindrical shell with given radius\n");
   printf("-reduce int[2]       : reduce element order at material interval [int1 int2]\n");
   printf("-increase            : increase element order from one to two\n");
-  printf("-pelem int[3]        : make p-elements of power int3 at interval [int1 int2]\n");
+  printf("-pelem int[3]        : p-elements of power int3 at interval [int1 int2]\n");
+  printf("-belem int[3]        : set bubble dofs to int3 at interval [int1 int2]\n");
   printf("-partition int[3]    : the mesh will be partitioned in main directions\n");
   printf("-partorder real[3]   : in the above method, the direction of the ordering\n");
 #if PARTMETIS
@@ -195,6 +196,7 @@ void InitParameters(struct ElmergridType *eg)
   eg->partorder = FALSE;
   eg->findsides = FALSE;
   eg->pelems = 0;
+  eg->belems = 0;
   eg->saveboundaries = TRUE;
   eg->merge = FALSE;
   eg->bcoffset = FALSE;
@@ -430,6 +432,11 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
       for(i=arg+1;i<argc && strncmp(argv[i],"-",1); i++) 
 	eg->pelemmap[3*eg->pelems+i-1-arg] = atoi(argv[i]);
       eg->pelems++;
+    } 
+    if(strcmp(argv[arg],"-belem") == 0) {
+      for(i=arg+1;i<argc && strncmp(argv[i],"-",1); i++) 
+	eg->belemmap[3*eg->belems+i-1-arg] = atoi(argv[i]);
+      eg->belems++;
     } 
     if(strcmp(argv[arg],"-partition") == 0) {
       if(arg+dim >= argc) {
@@ -735,12 +742,7 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
     }
     else if(strstr(command,"ROTATE MESH")) {
       eg->rotate = TRUE;
-      if(eg->dim == 1) 
-	sscanf(params,"%le",&eg->crotate[0]);
-      else if(eg->dim == 2) 
-	sscanf(params,"%le%le",&eg->crotate[0],&eg->crotate[1]);
-      else if(eg->dim == 3) 
-	sscanf(params,"%le%le%le",&eg->crotate[0],&eg->crotate[1],&eg->crotate[2]);
+      sscanf(params,"%le%le%le",&eg->crotate[0],&eg->crotate[1],&eg->crotate[2]);
     }
     else if(strstr(command,"CLONE")) {
       if(strstr(command,"CLONE SIZE")) {
@@ -788,12 +790,13 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
 	for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
 	if(strstr(params,"END")) break;
 		
-	sscanf(params,"%d%d%d%d%d%d",
-	       &eg->advancedelem[6*i],&eg->advancedelem[6*i+1],&eg->advancedelem[6*i+2],
-	       &eg->advancedelem[6*i+3],&eg->advancedelem[6*i+4],&eg->advancedelem[6*i+5]);
+	sscanf(params,"%d%d%d%d%d%d%d",
+	       &eg->advancedelem[7*i],&eg->advancedelem[7*i+1],&eg->advancedelem[7*i+2],
+	       &eg->advancedelem[7*i+3],&eg->advancedelem[7*i+4],&eg->advancedelem[7*i+5],
+	       &eg->advancedelem[7*i+6]);
       }  
       eg->advancedmat = i;
-      printf("Found %d definitions for p-elements.\n",i);
+      printf("Found %d definitions for advanced elements.\n",i);
     }
     else if(strstr(command,"POWER ELEMENTS")) {
       printf("Loading p-type element definitions\n");
@@ -807,6 +810,19 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
       }  
       eg->pelems = i;
       printf("Found %d definitions for p-elements.\n",i);
+    }
+    else if(strstr(command,"BUBBLE ELEMENTS")) {
+      printf("Loading bubble element definitions\n");
+      
+      for(i=0;i<MAXMATERIALS;i++) {
+	if(i>0) Getline(params,in);
+	for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+	if(strstr(params,"END")) break;
+	sscanf(params,"%d%d%d",
+	       &eg->belemmap[3*i],&eg->belemmap[3*i+1],&eg->belemmap[3*i+2]);
+      }  
+      eg->belems = i;
+      printf("Found %d definitions for bubble elements.\n",i);
     }
     else if(strstr(command,"METIS")) {
 #if PARTMETIS
@@ -1575,49 +1591,72 @@ int main(int argc, char *argv[])
       OptimizePartitioning(&data[k],boundaries[k],info);
   }
 
-  if(eg.pelems) {
+  if(eg.pelems || eg.belems || eg.advancedmat) {
     int currenttype;
-    for(l=0;l<eg.pelems;l++)  
-      printf("Setting element between materials %d and %d to have p=%d.\n",
-	     eg.bulkmap[3*l],eg.bulkmap[3*l+1],eg.bulkmap[3*l+2]);
+
     for(k=0;k<nomeshes;k++) {
       data[k].pelemtypes = Ivector(1,data[k].noelements); 
       data[k].pelems = TRUE;
 
-      for(j=1;j<=data[k].noelements;j++) {
-	currenttype = data[k].material[j];
-	for(l=0;l<eg.pelems;l++) {
-	  if(currenttype >= eg.pelemmap[3*l] && currenttype <= eg.pelemmap[3*l+1]) {
-	    data[k].pelemtypes[j] = eg.pelemmap[3*l+2];
-	    currenttype = -1;
-	  }
-	}
-      }
-    }
-    printf("Creating p-elements finished\n");
-  }
-  if(eg.advancedmat) {
-    int currenttype;
-    for(k=0;k<nomeshes;k++) {
-      data[k].pelemtypes = Ivector(1,data[k].noelements); 
-      data[k].pelems = 2;
       for(j=1;j<=data[k].noelements;j++) 
 	data[k].pelemtypes[j] = 1;
 
-      for(l=0;l<eg.advancedmat;l++) {
-	printf("Setting element of material %d to have advanced settings [%d %d %d %d %d]\n",
-	       eg.advancedelem[6*l],eg.advancedelem[6*l+1],eg.advancedelem[6*l+2],
-	       eg.advancedelem[6*l+3],eg.advancedelem[6*l+4],eg.advancedelem[6*l+5]);
-	
+      if(eg.pelems) {    
+	for(l=0;l<eg.pelems;l++)  
+	  printf("Setting element between materials %d and %d to have p=%d.\n",
+		 eg.pelemmap[3*l],eg.pelemmap[3*l+1],eg.pelemmap[3*l+2]);
+
 	for(j=1;j<=data[k].noelements;j++) {
-	  if( data[k].material[j] == eg.advancedelem[6*l]) {
-	    data[k].pelemtypes[j] = eg.advancedelem[6*l+1] + 10*eg.advancedelem[6*l+2] + 
-	      100*eg.advancedelem[6*l+3] + 1000*eg.advancedelem[6*l+4] + 10000*eg.advancedelem[6*l+5];
+	  currenttype = data[k].material[j];
+	  for(l=0;l<eg.pelems;l++) 
+	    if(currenttype >= eg.pelemmap[3*l] && currenttype <= eg.pelemmap[3*l+1]) {
+	      data[k].pelemtypes[j] += 10000 * eg.pelemmap[3*l+2];
+	      currenttype = -1;
+	    }
+	}
+	printf("Creating p-elements finished\n");
+      }
+      
+      if(eg.belems) {    
+	for(l=0;l<eg.belems;l++)  
+	  printf("Setting element between materials %d and %d to have bubble dofs=%d.\n",
+		 eg.belemmap[3*l],eg.belemmap[3*l+1],eg.belemmap[3*l+2]);
+
+	for(j=1;j<=data[k].noelements;j++) {
+	  currenttype = data[k].material[j];
+	  for(l=0;l<eg.belems;l++) 
+	    if(currenttype >= eg.belemmap[3*l] && currenttype <= eg.belemmap[3*l+1]) {
+	      data[k].pelemtypes[j] += 1000000 * eg.belemmap[3*l+2];
+	      currenttype = -1;
+	    }
+	}
+	printf("Creating bubble elements finished\n");
+      }
+
+      if(eg.advancedmat) {
+	for(l=0;l<eg.advancedmat;l++) {
+	  printf("Setting element of material %d to have advanced settings [%d %d %d %d %d %d]\n",
+		 eg.advancedelem[7*l],eg.advancedelem[7*l+1],eg.advancedelem[7*l+2],
+		 eg.advancedelem[7*l+3],eg.advancedelem[7*l+4],eg.advancedelem[7*l+5],
+		 eg.advancedelem[7*l+6]);
+
+	  for(i=1;i<=6;i++) {
+	    if(eg.advancedelem[7*l+i] < 0 || eg.advancedelem[7*l+i] > 99) {
+	      printf("Advanced elements limited to 9 or 99 (not %d)!\n",eg.advancedelem[7*l+i]);
+	    }
+	  }
+
+	  for(j=1;j<=data[k].noelements;j++) {
+	    if( data[k].material[j] == eg.advancedelem[7*l]) {
+	      data[k].pelemtypes[j] = 1 * eg.advancedelem[7*l+1] + 10*eg.advancedelem[7*l+2] + 
+		100*eg.advancedelem[7*l+3] + 1000*eg.advancedelem[7*l+4] + 
+		10000*eg.advancedelem[7*l+5] + 1000000*eg.advancedelem[7*l+6];
+	    }
 	  }
 	}
+	printf("Creating advanced elements finished\n");
       }
     }
-    printf("Creating advanced elements finished\n");
   }
 
 
