@@ -308,7 +308,8 @@ struct ElmergridType {
   int findsides,saveboundaries,nodes3d,elements3d;
   int periodic, periodicdim[3],discont,discontbounds[MAXBOUNDARIES];
   int partorder,pelemmap[4*MAXMATERIALS],pelems,nofilesin,elementsredone;
-  int advancedelem[6*MAXMATERIALS], advancedmat;
+  int belemmap[4*MAXMATERIALS], belems;
+  int advancedelem[7*MAXMATERIALS], advancedmat;
   int bcoffset;
 
   Real partcorder[3],polarradius;

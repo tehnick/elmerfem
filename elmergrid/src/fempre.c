@@ -1610,7 +1610,7 @@ int main(int argc, char *argv[])
 	  currenttype = data[k].material[j];
 	  for(l=0;l<eg.pelems;l++) 
 	    if(currenttype >= eg.pelemmap[3*l] && currenttype <= eg.pelemmap[3*l+1]) {
-	      data[k].pelemtypes[j] += 10000 * eg.pelemmap[3*l+2];
+	      data[k].pelemtypes[j] += 1000000 * eg.pelemmap[3*l+2];
 	      currenttype = -1;
 	    }
 	}
@@ -1626,7 +1626,7 @@ int main(int argc, char *argv[])
 	  currenttype = data[k].material[j];
 	  for(l=0;l<eg.belems;l++) 
 	    if(currenttype >= eg.belemmap[3*l] && currenttype <= eg.belemmap[3*l+1]) {
-	      data[k].pelemtypes[j] += 1000000 * eg.belemmap[3*l+2];
+	      data[k].pelemtypes[j] += 10000 * eg.belemmap[3*l+2];
 	      currenttype = -1;
 	    }
 	}
