@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id:$
+! * $Id: Stokes.src,v 1.2 2006/01/10 13:48:45 apursula Exp $
 ! *****************************************************************************
 
 SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
@@ -65,7 +65,7 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
 !  Stabilised P1-P1 and Q1-Q1 methods are also available.
 !
 !  Block preconditioning may be used in the case of the
-!  the stabiliised methods. Block preconditioning for other elements 
+!  the stabilised methods. Block preconditioning for other elements 
 !  is to be done...
 !
 !  12/12/2003, Juha
@@ -105,18 +105,18 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: AllocationsDone = .FALSE., Newton = .FALSE., Found, Convect, &
       OptimizeBW, GotIt, ExplicitStabilization, &
       ComponentwisePreconditioning =.TRUE., BlockPreconditioning = .FALSE., &
-      NormalTractionBoundary
+      NormalTractionBoundary, SlipBoundary
 
   TYPE(Element_t),POINTER :: Element, Parent
   INTEGER, POINTER :: NodeIndexes(:)
 
   CHARACTER(LEN=MAX_NAME_LEN) :: OuterIterationMethod
   INTEGER :: i,j,k,n, nb, nd, t, istat, dim, m, p, q, &
-      MaxIterations, NumberOfNormalTractionNodes, BDOFs=1
+      MaxIterations, NumberOfNormalTractionNodes, BDOFs=1, NormalDir
   REAL(KIND=dp) :: Norm = 0, PrevNorm, RelC, Tolerance, ToleranceRatio, &
-      atime, stime, CPUTime, RealTime, at0
+      atime, stime, CPUTime, RealTime, at0, SlipCoefficient
 
-  TYPE(ValueList_t), POINTER :: BodyForce, Material
+  TYPE(ValueList_t), POINTER :: BodyForce, Material, BC
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), LOAD(:,:), Mass(:,:), &
       FORCE(:), rho(:), mu(:), Velocity(:,:), &
       ALocal(:,:), SLocal(:,:), AnLocal(:,:), NormalSurfaceForce(:)
@@ -135,7 +135,7 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
   !--------------------------------------------------------------------------
   ! Check whether the block preconditioning is to be used.
   ! Note that the current implementation assumes equal-order interpolation for 
-  ! the velocities and pressure if block preconditioning is used 
+  ! the velocities and pressure if block preconditioning is used. 
   !---------------------------------------------------------------------------
   
   BlockPreconditioning = ListGetLogical( Solver % Values, 'Block Preconditioning', GotIt )
@@ -360,7 +360,47 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
         CALL UpdateGlobalPreconditioner( SMatrix2, SLocal, n, 1, &
             Solver % Variable % Perm( Element % NodeIndexes ) )
       END IF
-   END IF
+    END IF
+  END DO
+
+  !----------------------------------------------------------------------------------
+  ! Slip boundary conditions...
+  !----------------------------------------------------------------------------------
+  DO t=1, Solver % Mesh % NumberOfBoundaryElements
+  
+    Element => GetBoundaryElement(t)
+    IF ( .NOT.ActiveBoundaryElement() ) CYCLE
+
+    n = GetElementNOFNodes()
+    IF ( GetElementFamily() == 1 ) CYCLE
+
+    BC => GetBC()
+    IF ( ASSOCIATED( BC ) ) THEN
+      SlipBoundary = GetLogical( BC, 'Slip Boundary', Found)
+      IF (.NOT. SlipBoundary) CYCLE
+
+      SlipCoefficient = GetConstReal( BC, 'Slip Coefficient 1', Found )
+      IF ( Found ) THEN
+        NormalDir = 1
+      ELSE
+        SlipCoefficient = GetConstReal( BC, 'Slip Coefficient 2', Found )
+        IF ( Found ) THEN
+          NormalDir = 2       
+        ELSE
+          SlipCoefficient = GetConstReal( BC, 'Slip Coefficient 3', Found )
+          IF ( Found ) THEN
+            NormalDir = 3
+          ELSE
+            CALL Warn( 'StokesSolver', 'The value of Slip Coefficient should be given')
+            CYCLE
+          END IF
+        END IF
+      END IF
+
+      CALL LocalMatrixBoundary( Stiff, Force, Element, n, dim, SlipCoefficient, NormalDir )
+      CALL DefaultUpdateEquations( STIFF, FORCE )
+ 
+    END IF
   END DO
 
 
@@ -1877,7 +1917,7 @@ CONTAINS
                DetJ,LoadAtIP(dim+1),Velo(dim), Grad(dim,dim), AK, &
                StabTerms(n)
     REAL(KIND=dp), POINTER :: A(:,:), F(:), M(:,:)
-    LOGICAL :: Stat
+    LOGICAL :: Stat, ProjStab = .TRUE.
     INTEGER :: t, i, j, k, l, p, q
     TYPE(GaussIntegrationPoints_t) :: IP
 
@@ -1890,12 +1930,12 @@ CONTAINS
     STIFF = 0.0d0
     FORCE = 0.0d0
     Mass = 0.0d0
-    ! StabTerms = 0.0d0
+    StabTerms = 0.0d0
     !----------------------
     ! Numerical integration:
     !-----------------------
     IP = GaussPoints( Element,n )
-    ! AK = ElementArea(Solver % Mesh, Element, n)
+    AK = ElementArea(Solver % Mesh, Element, n)
     DO t=1,IP % n
       !--------------------------------------------------------------
       ! Basis function values & derivatives at the integration point:
@@ -1932,22 +1972,25 @@ CONTAINS
             A(dim+1,i) = A(dim+1,i) - s * dBasisdx(q,i) * Basis(p)
           END DO
 
-          ! The following lines are the pressure Laplacian stabilization
-          DO j = 1,dim
-            A(dim+1,dim+1) = A(dim+1,dim+1) - s * (Element % hK)**2/(80*mu) * &
-                dBasisdx(q,j) * dBasisdx(p,j)
-          END DO
-
-          
+          IF (.NOT. ProjStab) THEN
+            ! The following lines are the pressure Laplacian stabilization
+            DO j = 1,dim
+              A(dim+1,dim+1) = A(dim+1,dim+1) - s * (Element % hK)**2/(80*mu) * &
+                  dBasisdx(q,j) * dBasisdx(p,j)
+            END DO
+          ELSE
+            A(dim+1,dim+1) = A(dim+1,dim+1) - s/mu * Basis(p) * Basis(q)
+          END IF
         END DO
         i = (dim+1) * (p-1) + 1
         F => FORCE(i:i+dim)
         F = F + s * LoadAtIP * Basis(p)
-        ! StabTerms(p) = StabTerms(p) + s * Basis(p)
+        IF (ProjStab) &
+            StabTerms(p) = StabTerms(p) + s * Basis(p)
       END DO
     END DO
 
-    IF (.FALSE.) THEN
+    IF (ProjStab) THEN
       DO p=1,n
         DO q=1,n
           i = (dim+1) * (p-1) + 1
@@ -1961,6 +2004,57 @@ CONTAINS
 !------------------------------------------------------------------------------
   END SUBROUTINE LocalMatrix2
 !------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE LocalMatrixBoundary( Stiff, Force, Element, n, dim, &
+      SlipCoefficient, NormalDir )
+!------------------------------------------------------------------------------
+    REAL(KIND=dp), TARGET :: Stiff(:,:), Force(:)
+    TYPE(Element_t), POINTER :: Element    
+    INTEGER :: n, dim, NormalDir
+    REAL(KIND=dp) :: SlipCoefficient   
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: Basis(n), dBasisdx(n,3), ddBasisddx(n,3,3), DetJ, s
+    INTEGER :: i, t, p, q
+    LOGICAL :: Stat
+    TYPE(GaussIntegrationPoints_t) :: IP
+    TYPE(Nodes_t) :: Nodes
+    SAVE Nodes
+!-------------------------------------------------------------------------------
+    Stiff = 0.0d0
+    Force = 0.0d0
+!------------------------------------------------------------------------------
+!   Numerical integration
+!------------------------------------------------------------------------------
+    CALL GetElementNodes( Nodes )
+    IP = GaussPoints( Element )
+!------------------------------------------------------------------------------
+    DO t=1,IP % n    
+      !--------------------------------------------------------------
+      ! Basis function values & derivatives at the integration point:
+      !--------------------------------------------------------------
+      stat = ElementInfo( Element, Nodes, IP % U(t), IP % V(t), &
+          IP % W(t), detJ, Basis, dBasisdx, ddBasisddx, .FALSE. )
+      s = IP % s(t) * detJ     
+      !----------------------------
+      ! the stiffness matrix...
+      !----------------------------
+      DO i=1,dim
+        IF (i == NormalDir ) CYCLE 
+        DO p=1,n
+          DO q=1,n
+            Stiff( (dim+1)*(p-1)+i, (dim+1)*(q-1)+i ) = SlipCoefficient * &
+                s * Basis(p) * Basis(q)
+          END DO
+        END DO
+      END DO
+    END DO
+!------------------------------------------------------------------------------
+  END SUBROUTINE LocalMatrixBoundary
+!------------------------------------------------------------------------------
+
+
 
 
 !------------------------------------------------------------------------------
