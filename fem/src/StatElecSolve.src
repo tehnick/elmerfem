@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StatElecSolve.src,v $
+! * Revision 1.13  2006/02/17 11:34:36  raback
+! * Simplified the capacitance matrix computation to use the stiffness matrix.
+! *
 ! * Revision 1.12  2006/02/01 08:07:59  jpr
 ! * Replaced most of the usage of MAX_NODES by dynamic allocations.
 ! *
@@ -149,7 +152,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: PiezoMaterial
   
   CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, CapMatrixFile, Name
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.12 2006/02/01 08:07:59 jpr Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.13 2006/02/17 11:34:36 raback Exp $"
   
   
   SAVE LocalStiffMatrix, Load, LocalForce, Pwrk, PotDiff, &
@@ -586,6 +589,8 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
       MatrixValues = StiffMatrix % Values 
     END IF
 
+    MinPotential = HUGE(MinPotential)
+    MaxPotential = -HUGE(MaxPotential)
 
 !------------------------------------------------------------------------------
 !     Neumann boundary conditions
@@ -596,26 +601,37 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
       
       CurrentElement => Solver % Mesh % Elements(t)
 !------------------------------------------------------------------------------
-!       the element type 101 (point element) can only be used
-!       to set Dirichlet BCs, so skip em.
-!------------------------------------------------------------------------------
-      IF ( CurrentElement % TYPE % ElementCode == 101 ) CYCLE
-!------------------------------------------------------------------------------
       DO i=1,Model % NumberOfBCs
         IF ( CurrentElement % BoundaryInfo % Constraint == &
             Model % BCs(i) % Tag ) THEN
-          
-          IF ( .NOT. ListGetLogical(Model % BCs(i) % Values, &
-              'Electric Flux BC',gotIt) ) CYCLE
+
 !------------------------------------------------------------------------------
 !             Set the current element pointer in the model structure to
 !             reflect the element being processed
 !------------------------------------------------------------------------------
           Model % CurrentElement => Solver % Mesh % Elements(t)
-!------------------------------------------------------------------------------
           n = CurrentElement % TYPE % NumberOfNodes
           NodeIndexes => CurrentElement % NodeIndexes
           IF ( ANY( PotentialPerm(NodeIndexes) <= 0 ) ) CYCLE
+         
+!------------------------------------------------------------------------------
+!         Memorize the min and max potential as given by Dirichtlet BCs
+!------------------------------------------------------------------------------          
+          Load(1:n) = ListGetReal(Model % BCs(i) % Values,Solver % Variable % Name,&
+              n, NodeIndexes, gotIt)
+          IF(GotIt) THEN
+            MinPotential = MIN(MinPotential, MINVAL(Load(1:n)))
+            MaxPotential = MAX(MaxPotential, MAXVAL(Load(1:n)))             
+          END IF
+
+!------------------------------------------------------------------------------
+!       the element type 101 (point element) can only be used
+!       to set Dirichlet BCs, so skip em.
+!------------------------------------------------------------------------------
+          IF ( CurrentElement % TYPE % ElementCode == 101 ) CYCLE
+
+          IF ( .NOT. ListGetLogical(Model % BCs(i) % Values, &
+              'Electric Flux BC',gotIt) ) CYCLE
           
           ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
           ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
@@ -742,17 +758,6 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
        END IF
 
        IF(.NOT. GotIt) THEN
-         MinPotential = HUGE(MinPotential)
-         MaxPotential = -HUGE(MaxPotential)
-
-         DO i = 1, Model % NumberOfNodes
-           j = PotentialPerm(i)
-           IF( j > 0) THEN
-             MinPotential = MIN(MinPotential, Potential(j))
-             MaxPotential = MAX(MaxPotential, Potential(j))             
-           END IF
-         END DO
-           
          PotentialDifference = MaxPotential - MinPotential
        END IF
  
