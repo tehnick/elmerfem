@@ -39,6 +39,10 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Adaptive.src,v $
+! * Revision 1.16  2006/02/20 08:06:18  jpr
+! * Moved handling of Normal-Tangential BCs inside SolverUtils. Corrected
+! * a few bugs in Adaptive.src, Lists.src.
+! *
 ! * Revision 1.15  2006/02/02 07:14:31  jpr
 ! * Small formatting changes.
 ! *
@@ -77,7 +81,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Adaptive.src,v 1.15 2006/02/02 07:14:31 jpr Exp $
+! * $Id: Adaptive.src,v 1.16 2006/02/20 08:06:18 jpr Exp $
 ! *****************************************************************************/
 
 
@@ -658,7 +662,7 @@ CONTAINS
          Permutation, Solver % Variable % DOFs, MATRIX_CRS, &
          BandwidthOptimize, ListGetString( Solver % Values, 'Equation' ), &
          GlobalBubbles=GlobalBubbles )
- 
+
     IF ( ASSOCIATED( Solver % Matrix ) ) THEN
        CALL FreeMatrix( Solver % Matrix )
        NULLIFY( Solver % Matrix )
@@ -1030,6 +1034,7 @@ CONTAINS
     LOGICAL, POINTER :: EdgeSplitted(:)
     INTEGER, POINTER :: MarkedOrder(:), Children(:,:)
 
+    TYPE(PElementDefs_t), POINTER :: PD
     REAL(KIND=dp) :: x1, x2, y1, y2, EdgeLength, MaxLength
 !------------------------------------------------------------------------------
 
@@ -1568,11 +1573,28 @@ if ( k <= 0 .or. k > 3 ) print*,k
        END IF
     END DO
 
-    do i = 1,NewMesh % NumberOfBulkElements+NewMesh % NumberOfBoundaryElements
-       NULLIFY( NewMesh % Elements(i) % DGIndexes )
-       NULLIFY( NewMesh % Elements(i) % EdgeIndexes )
-       NULLIFY( NewMesh % Elements(i) % FaceIndexes )
+    NewMesh % MaxBDOFs = RefMesh % MaxBDOFs
+    DO i = 1,NewMesh % NumberOfBulkElements+NewMesh % NumberOfBoundaryElements
+      RefElement => NewMesh % Elements(i)
+      NULLIFY( RefElement % PDefs )
+      NULLIFY( RefElement % DGIndexes )
+      NULLIFY( RefElement % EdgeIndexes )
+      NULLIFY( RefElement % FaceIndexes )
+      NULLIFY( RefElement % BubbleIndexes )
+      IF ( RefElement % BDOFs > 0 ) THEN
+        ALLOCATE( RefElement % BubbleIndexes(RefElement % BDOFs) )
+        DO j=1,RefElement % BDOFs
+          RefElement % BubbleIndexes(j) = NewMesh % MaxBDOFs*(i-1)+j
+        END DO
+      END IF
+
+      IF ( ASSOCIATED(RefElement % PDefs) ) THEN
+        PD => RefElement % PDefs
+        CALL AllocatePDefinitions( RefElement )
+        RefElement % PDefs = PD
+      END IF
     END DO
+
 !
 !   Update Gebhardt factors, if present and the current solver
 !   is a heat equation solver:
@@ -1942,7 +1964,6 @@ use crsmatrix
 
     CALL AllocateArray( TempIndicator, 2,SIZE(ErrorIndicator) )
     TempIndicator = 0.0d0
-
 !
 !   Bulk equation residuals:
 !   ------------------------

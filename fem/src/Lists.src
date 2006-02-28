@@ -39,6 +39,10 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Lists.src,v $
+! * Revision 1.6  2006/02/20 08:06:19  jpr
+! * Moved handling of Normal-Tangential BCs inside SolverUtils. Corrected
+! * a few bugs in Adaptive.src, Lists.src.
+! *
 ! * Revision 1.5  2006/01/10 08:51:48  apursula
 ! * Updated header information (GPL).
 ! *
@@ -53,7 +57,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Lists.src,v 1.5 2006/01/10 08:51:48 apursula Exp $
+! * $Id: Lists.src,v 1.6 2006/02/20 08:06:19 jpr Exp $
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
@@ -565,13 +569,13 @@ double precision :: t1,CPUTime
 !------------------------------------------------------------------------------
 
       IF ( .NOT.ASSOCIATED( Tmp ) ) THEN
-         GlobalBubbles=ListGetLogical(Pvar % Solver % Values, &
+         GlobalBubbles = ListGetLogical(Pvar % Solver % Values, &
                'Bubbles in Global System', Found)
          IF (.NOT.Found) GlobalBubbles=.TRUE.
+
          DOFs = CurrentModel % Mesh % NumberOfNodes * PVar % DOFs
-         IF ( GlobalBubbles ) &
-            DOFs = DOFs+ &
-              CurrentModel % Mesh % MaxBDOFs * CurrentModel % Mesh % NumberOfBulkElements * PVar % DOFs
+         IF ( GlobalBubbles ) DOFs = DOFs + CurrentModel % Mesh % MaxBDOFs * &
+              CurrentModel % Mesh % NumberOfBulkElements * PVar % DOFs
 
          ALLOCATE( Var )
          ALLOCATE( Var % Values(DOFs) )

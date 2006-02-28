@@ -39,6 +39,10 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.15  2006/02/20 08:06:19  jpr
+! * Moved handling of Normal-Tangential BCs inside SolverUtils. Corrected
+! * a few bugs in Adaptive.src, Lists.src.
+! *
 ! * Revision 1.14  2006/02/02 07:14:32  jpr
 ! * Small formatting changes.
 ! *
@@ -105,7 +109,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.14 2006/02/02 07:14:32 jpr Exp $
+! * $Id: SolverUtils.src,v 1.15 2006/02/20 08:06:19 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -123,11 +127,12 @@ MODULE SolverUtils
 
    IMPLICIT NONE
 
-   INTEGER, PRIVATE, POINTER :: BoundaryReorder(:)
-   INTEGER, PRIVATE :: NormalTangentialNOFNodes
-   REAL(KIND=dp), POINTER, PRIVATE :: BoundaryNormals(:,:), &
-      BoundaryTangent1(:,:),  BoundaryTangent2(:,:)
    CHARACTER(LEN=MAX_NAME_LEN), PRIVATE :: NormalTangentialName
+   INTEGER, PRIVATE :: NormalTangentialNOFNodes
+   INTEGER, POINTER, PRIVATE :: BoundaryReorder(:)
+   REAL(KIND=dp), POINTER, PRIVATE :: BoundaryNormals(:,:),  &
+                                      BoundaryTangent1(:,:), &
+                                      BoundaryTangent2(:,:)
 
    SAVE BoundaryReorder, NormalTangentialNOFNodes, BoundaryNormals, &
               BoundaryTangent1, BoundaryTangent2
@@ -182,7 +187,7 @@ CONTAINS
        NormalTangentialName = TRIM(NormalTangentialName) // ' Velocity'
      ELSE
        NormalTangentialName = TRIM(NormalTangentialName) // ' ' // &
-                         TRIM(CurrentModel % Solver % Variable % Name )
+               TRIM(CurrentModel % Solver % Variable % Name )
      END IF
 
      dim = CoordinateSystemDimension()
@@ -1700,7 +1705,8 @@ CONTAINS
             IF ( ABS( StiffMatrix % Values(StiffMatrix % Diag(i)) ) > 0.0d0 ) THEN
               Solution(i) = ForceVector(i) / StiffMatrix % Values(StiffMatrix % Diag(i))
             END IF
-          END DO
+         END DO
+         CALL BackRotateNTSystem( Solution, Solver % Variable % Perm, DOFs )
          RETURN
       END IF
     END IF

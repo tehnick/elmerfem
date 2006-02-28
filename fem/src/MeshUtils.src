@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.33  2006/02/09 14:55:55  jpr
+! * Added P2/P1 stabilized flow element.
+! *
 ! * Revision 1.32  2006/02/08 07:01:14  jpr
 ! * Fix in LoadMesh to get rid of the output garbage when complaining about
 ! * being unable to load mesh.
@@ -131,7 +134,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.32 2006/02/08 07:01:14 jpr Exp $
+! * $Id: MeshUtils.src,v 1.33 2006/02/09 14:55:55 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -646,7 +649,7 @@ CONTAINS
            IF( Mesh % Elements(i) % BoundaryInfo % Left % NDOFs == 0 )  &
               Mesh % Elements(i) % NDOFs = 0
 
-           IF ( Mesh % Elements(i) % TYPE % DIMENSION == 1 ) THEN
+           IF ( Mesh % Elements(i) % Type % Dimension == 1 ) THEN
               Mesh % Elements(i) % BDOFs = &
                     EdgeDOFs( Mesh % Elements(i) % BoundaryInfo % Left % ElementIndex )
            ELSE
@@ -1670,7 +1673,7 @@ CONTAINS
        END SELECT
 
        IF ( .NOT. ASSOCIATED( Element % EdgeIndexes ) ) &
-          CALL AllocateVector( Element % EdgeIndexes, n)
+          CALL AllocateVector( Element % EdgeIndexes, n )
        Element % EdgeIndexes = 0
     END DO
 
@@ -4254,7 +4257,6 @@ CONTAINS
               DEALLOCATE( Mesh % Elements(i) % EdgeIndexes )
            NULLIFY( Mesh % Elements(i) % EdgeIndexes )
 
-! ML
            IF ( ASSOCIATED( Mesh % Elements(i) % FaceIndexes ) ) &
               DEALLOCATE( Mesh % Elements(i) % FaceIndexes )
            NULLIFY( Mesh % Elements(i) % FaceIndexes )
@@ -4262,6 +4264,15 @@ CONTAINS
            IF ( ASSOCIATED( Mesh % Elements(i) % DGIndexes ) ) &
               DEALLOCATE( Mesh % Elements(i) % DGIndexes )
            NULLIFY( Mesh % Elements(i) % DGIndexes )
+
+           IF ( ASSOCIATED( Mesh % Elements(i) % BubbleIndexes ) ) &
+              DEALLOCATE( Mesh % Elements(i) % BubbleIndexes )
+           NULLIFY( Mesh % Elements(i) % BubbleIndexes )
+
+           IF ( ASSOCIATED( Mesh % Elements(i) % PDefs ) ) &
+              DEALLOCATE( Mesh % Elements(i) % PDefs )
+           NULLIFY( Mesh % Elements(i) % PDefs )
+ 
         END DO
         DEALLOCATE( Mesh % Elements )
      END IF
