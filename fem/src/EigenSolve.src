@@ -51,7 +51,7 @@
 ! *
 ! *****************************************************************************/
 !
-! $Id: EigenSolve.src,v 1.3 2006/01/09 14:11:03 apursula Exp $
+! $Id: EigenSolve.src,v 1.4 2006/01/10 07:39:16 apursula Exp $
 !
 
 MODULE EigenSolve
@@ -266,6 +266,11 @@ CONTAINS
 !     Compute LU-factors for (A-\sigma M) (if consistent mass matrix)
 !
       IF ( .NOT. Matrix % Lumped ) THEN
+         SigmaR = ListGetConstReal( Solver % Values,'Eigen System Shift', stat )
+         IF ( SigmaR /= 0.0d0 ) THEN
+            Matrix % Values = Matrix % Values - SigmaR * Matrix % MassValues
+         END IF
+
          Direct = ListGetString( Solver % Values, &
            'Linear System Solver', stat ) == 'direct'
          IF ( Direct ) THEN
@@ -518,6 +523,15 @@ CONTAINS
          CALL Info( 'EigenSolve', ' ', Level=4 )
          CALL Info( 'EigenSolve', 'Computed Eigen Values: ', Level=3 )
          CALL Info( 'EigenSolve', '--------------------------------', Level=3 )
+
+         ! Restore matrix values, if modifed when using shift:
+         ! ---------------------------------------------------
+         IF ( SigmaR /= 0.0d0 ) THEN
+           Matrix % Values = Matrix % Values + SigmaR * Matrix % MassValues
+         END IF
+
+         ! extract vectors:
+         ! ----------------
          k = 1
          DO i=1,NEIG
            p = Perm(i)
