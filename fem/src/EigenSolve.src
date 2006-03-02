@@ -51,7 +51,7 @@
 ! *
 ! *****************************************************************************/
 !
-! $Id: EigenSolve.src,v 1.4 2006/01/10 07:39:16 apursula Exp $
+! $Id: EigenSolve.src,v 1.5 2006/03/01 16:06:17 jpr Exp $
 !
 
 MODULE EigenSolve
@@ -130,10 +130,7 @@ CONTAINS
 !     %--------------------------------------%
 
       Damped = ListGetLogical( Solver % Values, 'Eigen System Damped', stat )
-
-      IF ( .NOT. stat ) THEN
-         Damped = .FALSE.
-      END IF
+      IF ( .NOT. stat ) Damped = .FALSE.
 
       IF ( Damped ) THEN
          CALL ArpackDampedEigenSolve( Solver, Matrix, 2*N, 2*NEIG, &
@@ -171,10 +168,15 @@ CONTAINS
 !     |               NEV + 1 <= NCV <= MAXNCV             | 
 !     %----------------------------------------------------%
 !
-      NCV = 3 * NEIG + 1
+      NCV = ListGetInteger( Solver % Values, 'Eigen System Lanczos Vectors', stat )
+      IF ( .NOT. stat ) NCV = 3*NEIG + 1
+
+      IF ( NCV <=  NEIG ) THEN
+         CALL Fatal( 'EigenSolve', 'Number of Lanczos Vectors must be exceed number of eigenvalues.' )
+      END IF
 
       ALLOCATE( WORKL(3*NCV**2 + 6*NCV), D(NCV,3), &
-             WORKEV(3*NCV), V(n,NCV), CHOOSE(NCV), STAT=istat )
+                WORKEV(3*NCV), V(n,NCV), CHOOSE(NCV), STAT=istat )
 
       IF ( istat /= 0 ) THEN
          CALL Fatal( 'EigenSolve', 'Memory allocation error.' )
@@ -319,7 +321,7 @@ CONTAINS
          END IF
  
          IF (ido == -1 .OR. ido == 1) THEN
-            WRITE( Message, * ) ' Arnoldi iteration: ', Iter
+            WRITE( Message, * ) 'Arpack reverse communication calls: ', Iter
             CALL Info( 'EigenSolve', Message, Level=5 )
             iter = iter + 1
 !
@@ -429,12 +431,11 @@ CONTAINS
        END DO
 
        CALL ListAddLogical( Solver % Values, 'UMF Factorize', .TRUE. )
-!
+
 !     %-----------------------------------------%
 !     | Either we have convergence, or there is |
 !     | an error.                               |
 !     %-----------------------------------------%
-!
       IF ( kinfo /= 0 ) THEN
 !
 !        %--------------------------%
@@ -520,6 +521,8 @@ CONTAINS
          CALL Info( 'EigenSolve', Message, Level=4 )
          WRITE( Message, * ) ' The number of converged Ritz values is ', IPARAM(5)
          CALL Info( 'EigenSolve', Message, Level=4 )
+         WRITE( Message, * ) ' The number of update iterations taken ',  IPARAM(3)
+         CALL Info( 'EigenSolve', Message, Level=4 )
          CALL Info( 'EigenSolve', ' ', Level=4 )
          CALL Info( 'EigenSolve', 'Computed Eigen Values: ', Level=3 )
          CALL Info( 'EigenSolve', '--------------------------------', Level=3 )
@@ -576,8 +579,11 @@ CONTAINS
            END IF
            IF ( ABS(s) > 0 ) EigVectors(i,:) = EigVectors(i,:) / SQRT(s)
          END DO
+
+         IF ( ListGetLogical( Solver % Values, 'Eigen System Compute Residuals', stat ) ) THEN
+           CALL Check_Residual( matrix, neig, eigvalues, eigvectors )
+         END IF
          CALL Info( 'EigenSolve', '--------------------------------',Level=3 )
-!
       END IF
 
       DEALLOCATE( WORKL, D, WORKEV, V, CHOOSE, Perm )
@@ -588,6 +594,33 @@ CONTAINS
 !
 !------------------------------------------------------------------------------
      END SUBROUTINE ArpackEigenSolve
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+    SUBROUTINE Check_Residual( Matrix, n, Eigs, EigVectors )
+!------------------------------------------------------------------------------
+      USE CRSMatrix
+      TYPE(Matrix_t), POINTER :: Matrix
+      INTEGER :: i,n
+      COMPLEX(KIND=dp) :: Eigs(:), EigVectors(:,:)
+
+      REAL(KIND=dp), ALLOCATABLE :: x(:), y(:)
+
+      ALLOCATE( x( Matrix % NumberOfRows ) )
+      ALLOCATE( y( Matrix % NumberOfRows ) )
+
+      DO i=1,n
+        Matrix % Values = Matrix % Values - REAL(Eigs(i)) * Matrix % MassValues
+        x = REAL( EigVectors(i,:) )
+        CALL CRS_MatrixVectorMultiply( Matrix, x, y )
+        Matrix % Values = Matrix % Values + REAL(Eigs(i)) * Matrix % MassValues
+        WRITE( Message, * ) 'L^2 Norm of Residual: ', i, SQRT(SUM(y**2))
+        CALL Info( 'EigenSolve', Message, Level = 3 )
+      END DO
+      DEALLOCATE( x,y )
+!------------------------------------------------------------------------------
+END SUBROUTINE Check_Residual
 !------------------------------------------------------------------------------
 
 
@@ -775,7 +808,7 @@ CONTAINS
               RESID, NCV, V, n, IPARAM, IPNTR, WORKD, WORKL, lWORKL, kinfo )
 
          IF( ido==-1 .OR. ido==1 ) THEN
-            WRITE( Message, * ) ' Arnoldi iteration: ', Iter
+            WRITE( Message, * ) 'Arpack reverse communication calls: ', Iter
             CALL Info( 'EigenSolve', Message, Level=5 )
             iter = iter + 1
          END IF
@@ -1182,7 +1215,7 @@ CONTAINS
 !
 !
          IF (ido == -1 .OR. ido == 1) THEN
-            WRITE( Message, * ) ' Arnoldi iteration: ', Iter
+            WRITE( Message, * ) 'Arpack reverse communication calls: ', Iter
             CALL Info( 'ComplexEigenSolve', Message, Level=5 )
             Iter = Iter + 1
 !---------------------------------------------------------------------
@@ -1701,7 +1734,7 @@ CONTAINS
             ! 
             ! ido =-1 inv(A)*z:
             !--------------------------
-            WRITE( Message, * ) ' Arnoldi iteration: ', Iter
+            WRITE( Message, * ) 'Arpack reverse communication calls: ', Iter
             CALL Info( 'EigenSolve', Message, Level=5 )
             iter = iter + 1
 
