@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StatElecSolve.src,v $
+! * Revision 1.14  2006/02/23 08:53:49  raback
+! * Changed the potential difference to be computed from BCs.
+! *
 ! * Revision 1.13  2006/02/17 11:34:36  raback
 ! * Simplified the capacitance matrix computation to use the stiffness matrix.
 ! *
@@ -135,7 +138,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp) :: Alpha, Beta, LayerH, Voltage, RelPerm1, RelPerm2
   REAL(KIND=dp) :: PermittivityOfVacuum, Norm, PrevNorm, RelativeChange
   
-  REAL (KIND=DP) :: Norm, Wetot, at0, RealTime
+  REAL (KIND=DP) :: Wetot, at0, RealTime
   REAL (KIND=DP) :: at, st, CPUTime, PotentialDifference, Capacitance
   REAL (KIND=DP) :: MinPotential, MaxPotential, NonLinearTol
   
@@ -152,7 +155,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: PiezoMaterial
   
   CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, CapMatrixFile, Name
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.13 2006/02/17 11:34:36 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.14 2006/02/23 08:53:49 raback Exp $"
   
   
   SAVE LocalStiffMatrix, Load, LocalForce, Pwrk, PotDiff, &
