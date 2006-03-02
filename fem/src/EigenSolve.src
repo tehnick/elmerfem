@@ -51,7 +51,7 @@
 ! *
 ! *****************************************************************************/
 !
-! $Id: EigenSolve.src,v 1.5 2006/03/01 16:06:17 jpr Exp $
+! $Id: EigenSolve.src,v 1.6 2006/03/02 13:07:05 jpr Exp $
 !
 
 MODULE EigenSolve
@@ -581,7 +581,7 @@ CONTAINS
          END DO
 
          IF ( ListGetLogical( Solver % Values, 'Eigen System Compute Residuals', stat ) ) THEN
-           CALL Check_Residual( matrix, neig, eigvalues, eigvectors )
+           CALL Check_Residuals( Matrix, Neig, EigValues, EigVectors )
          END IF
          CALL Info( 'EigenSolve', '--------------------------------',Level=3 )
       END IF
@@ -598,7 +598,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-    SUBROUTINE Check_Residual( Matrix, n, Eigs, EigVectors )
+    SUBROUTINE Check_Residuals( Matrix, n, Eigs, EigVectors )
 !------------------------------------------------------------------------------
       USE CRSMatrix
       TYPE(Matrix_t), POINTER :: Matrix
@@ -607,17 +607,18 @@ CONTAINS
 
       REAL(KIND=dp), ALLOCATABLE :: x(:), y(:)
 
-      ALLOCATE( x( Matrix % NumberOfRows ) )
-      ALLOCATE( y( Matrix % NumberOfRows ) )
+      ALLOCATE( x(Matrix % NumberOfRows), y(Matrix % NumberOfRows) )
 
       DO i=1,n
         Matrix % Values = Matrix % Values - REAL(Eigs(i)) * Matrix % MassValues
         x = REAL( EigVectors(i,:) )
         CALL CRS_MatrixVectorMultiply( Matrix, x, y )
         Matrix % Values = Matrix % Values + REAL(Eigs(i)) * Matrix % MassValues
+
         WRITE( Message, * ) 'L^2 Norm of Residual: ', i, SQRT(SUM(y**2))
         CALL Info( 'EigenSolve', Message, Level = 3 )
       END DO
+
       DEALLOCATE( x,y )
 !------------------------------------------------------------------------------
 END SUBROUTINE Check_Residual
