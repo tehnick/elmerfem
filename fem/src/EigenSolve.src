@@ -51,7 +51,7 @@
 ! *
 ! *****************************************************************************/
 !
-! $Id: EigenSolve.src,v 1.7 2006/03/02 14:02:49 jpr Exp $
+! $Id: EigenSolve.src,v 1.8 2006/03/02 15:03:23 vierinen Exp $
 !
 
 MODULE EigenSolve
@@ -581,7 +581,7 @@ CONTAINS
          END DO
 
          IF ( ListGetLogical( Solver % Values, 'Eigen System Compute Residuals', stat ) ) THEN
-           CALL Check_Residuals( Matrix, Neig, EigValues, EigVectors )
+           CALL CheckResiduals( Matrix, Neig, EigValues, EigVectors )
          END IF
          CALL Info( 'EigenSolve', '--------------------------------',Level=3 )
       END IF
@@ -598,7 +598,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-    SUBROUTINE Check_Residuals( Matrix, n, Eigs, EigVectors )
+    SUBROUTINE CheckResiduals( Matrix, n, Eigs, EigVectors )
 !------------------------------------------------------------------------------
       USE CRSMatrix
       TYPE(Matrix_t), POINTER :: Matrix
@@ -621,7 +621,7 @@ CONTAINS
 
       DEALLOCATE( x,y )
 !------------------------------------------------------------------------------
-END SUBROUTINE Check_Residuals
+END SUBROUTINE CheckResiduals
 !------------------------------------------------------------------------------
 
 
