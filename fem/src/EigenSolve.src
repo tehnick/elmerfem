@@ -51,7 +51,7 @@
 ! *
 ! *****************************************************************************/
 !
-! $Id: EigenSolve.src,v 1.8 2006/03/02 15:03:23 vierinen Exp $
+! $Id: EigenSolve.src,v 1.9 2006/03/02 19:15:15 jpr Exp $
 !
 
 MODULE EigenSolve
@@ -172,7 +172,8 @@ CONTAINS
       IF ( .NOT. stat ) NCV = 3*NEIG + 1
 
       IF ( NCV <=  NEIG ) THEN
-         CALL Fatal( 'EigenSolve', 'Number of Lanczos Vectors must be exceed number of eigenvalues.' )
+         CALL Fatal( 'EigenSolve', & 
+               'Number of Lanczos vectors must exceed the number of eigenvalues.' )
       END IF
 
       ALLOCATE( WORKL(3*NCV**2 + 6*NCV), D(NCV,3), &
@@ -517,11 +518,11 @@ CONTAINS
          CALL Info( 'EigenSolve', ' ', Level=4 )
          CALL Info( 'EigenSolve', 'EIGEN SYSTEM SOLUTION COMPLETE: ', Level=4 )
          CALL Info( 'EigenSolve', ' ', Level=4 )
-         WRITE( Message, * ) 'The convergence criterion is ', TOL
+         WRITE( Message, * ) 'The convergence criterion is: ', TOL
          CALL Info( 'EigenSolve', Message, Level=4 )
-         WRITE( Message, * ) ' The number of converged Ritz values is ', IPARAM(5)
+         WRITE( Message, * ) ' The number of converged Ritz values is: ', IPARAM(5)
          CALL Info( 'EigenSolve', Message, Level=4 )
-         WRITE( Message, * ) ' The number of update iterations taken ',  IPARAM(3)
+         WRITE( Message, * ) ' The number of update iterations taken: ',  IPARAM(3)
          CALL Info( 'EigenSolve', Message, Level=4 )
          CALL Info( 'EigenSolve', ' ', Level=4 )
          CALL Info( 'EigenSolve', 'Computed Eigen Values: ', Level=3 )
@@ -615,7 +616,7 @@ CONTAINS
         CALL CRS_MatrixVectorMultiply( Matrix, x, y )
         Matrix % Values = Matrix % Values + REAL(Eigs(i)) * Matrix % MassValues
 
-        WRITE( Message, * ) 'L^2 Norm of Residual: ', i, SQRT(SUM(y**2))
+        WRITE( Message, * ) 'L^2 Norm of the residual: ', i, SQRT(SUM(y**2))
         CALL Info( 'EigenSolve', Message, Level = 3 )
       END DO
 
