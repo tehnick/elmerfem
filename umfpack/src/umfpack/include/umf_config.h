@@ -312,7 +312,9 @@
 #define USE_C_BLAS
 
 #elif defined (UMF_SOL2) && !defined (NSUNPERF)
-/* #define USE_SUNPERF_BLAS  dont use c-interface to sunperf within ELMER */
+#define USE_SUNPERF_BLAS 
+#undef  FC_FUNC
+#define FC_FUNC(a,b) a
 
 #elif defined (UMF_SGI) && !defined (NSCSL)
 #define USE_SCSL_BLAS
@@ -832,10 +834,6 @@
 /* y = y - A*x, where A is m-by-n with leading dimension d,
    x is a column vector with stride 1
    y is a column vector with stride 1 */
-
-#if defined(WIN32) || defined(MINGW32)
-extern void __stdcall FC_FUNC(dgemv,DGEMV) (void *a1,void *a2,void *a3,void *a4,void *a5,void *a6,void *a7,void *a8,void *a9,void *a10,void *a11,void *a12);
-#endif
 
 #define BLAS_GEMV(m,n,A,x,y,d) \
 { \
