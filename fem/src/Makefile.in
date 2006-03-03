@@ -882,7 +882,7 @@ MGPrec.$(OBJEXT): MGPrec.f90 Multigrid.$(OBJEXT)
 ModelDescription.$(OBJEXT): ModelDescription.f90 MeshUtils.$(OBJEXT) ElementDescription.$(OBJEXT) HashTable.$(OBJEXT) Types.$(OBJEXT)
 MovingElstatSolver.$(OBJEXT): MovingElstatSolver.f90 ElementUtils.$(OBJEXT) ElementDescription.$(OBJEXT) Types.$(OBJEXT) DefUtils.$(OBJEXT) Differentials.$(OBJEXT) Integration.$(OBJEXT) Lists.$(OBJEXT) SolverUtils.$(OBJEXT)
 Multigrid.$(OBJEXT): Multigrid.f90 IterSolve.$(OBJEXT) CoordinateSystems.$(OBJEXT) DirectSolve.$(OBJEXT) CRSMatrix.$(OBJEXT) ModelDescription.$(OBJEXT) Interpolation.$(OBJEXT)
-NavierStokesCylindrical.$(OBJEXT): NavierStokesCylindrical.f90 MaterialModels.$(OBJEXT) ElementUtils.$(OBJEXT) Differentials.$(OBJEXT) CoordinateSystems.$(OBJEXT) Integration.$(OBJEXT)
+NavierStokesCylindrical.$(OBJEXT): NavierStokesCylindrical.f90 DefUtils.$(OBJEXT) MaterialModels.$(OBJEXT) Differentials.$(OBJEXT) ElementUtils.$(OBJEXT)
 NavierStokesGeneral.$(OBJEXT): NavierStokesGeneral.f90 MaterialModels.$(OBJEXT) Differentials.$(OBJEXT) CoordinateSystems.$(OBJEXT) Integration.$(OBJEXT)
 NavierStokes.$(OBJEXT): NavierStokes.f90 DefUtils.$(OBJEXT) MaterialModels.$(OBJEXT) Differentials.$(OBJEXT) ElementUtils.$(OBJEXT)
 ParallelEigenSolve.$(OBJEXT): ParallelEigenSolve.f90 CRSMatrix.$(OBJEXT) IterSolve.$(OBJEXT) Multigrid.$(OBJEXT) ParallelUtils.$(OBJEXT)
@@ -952,10 +952,10 @@ fdeps:
 	mv Makefile.deps Makefile
 
 @USE_WINDOWS_COMPILER_TRUE@.$(OBJEXT).$(SHLEXT): 
-@USE_WINDOWS_COMPILER_TRUE@	$(SH_LD) $(SH_LDFLAGS) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) -o $@ $*$(OBJ_EXT) $(EXTRA_LIBS) 
+@USE_WINDOWS_COMPILER_TRUE@	$(SH_LD) $(SH_LDFLAGS) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) -o $@ $*$(OBJ_EXT) $(EXTRA_LIBS) -L. -lelmersolver
 
 @USE_WINDOWS_COMPILER_TRUE@EliminatePeriodic.$(SHLEXT): EliminateDirichlet$(OBJ_EXT) EliminatePeriodic$(OBJ_EXT)
-@USE_WINDOWS_COMPILER_TRUE@	$(SH_LD) $(SH_LDFLAGS) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) -o $@ $*$(OBJ_EXT) $(EXTRA_LIBS) EliminateDirichlet$(OBJ_EXT)
+@USE_WINDOWS_COMPILER_TRUE@	$(SH_LD) $(SH_LDFLAGS) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) -o $@ $*$(OBJ_EXT) $(EXTRA_LIBS) EliminateDirichlet$(OBJ_EXT) -L. -lelmersolver
 
 @USE_WINDOWS_COMPILER_TRUE@libelmersolver$(SHL_EXT): $(SOLVEROBJS) mpi_stubs$(OBJ_EXT)
 @USE_WINDOWS_COMPILER_TRUE@	$(RM) $@
@@ -1006,7 +1006,6 @@ install-data-local:
 
 	mkdir -p $(ELMER_SOLVER_DATADIR)/lib
 	$(CP) *$(SHL_EXT) $(ELMER_SOLVER_DATADIR)/lib
-@USE_WINDOWS_COMPILER_TRUE@	$(CP) libelmersolver.lib $(ELMER_SOLVER_DATADIR)/lib
 	$(CP) elements.def $(ELMER_SOLVER_DATADIR)/lib
 	$(CP) SOLVER.KEYWORDS $(ELMER_SOLVER_DATADIR)/lib
 
