@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.16  2006/02/28 09:34:47  jpr
+! * Some corrections for adaptivity.
+! *
 ! * Revision 1.15  2006/02/20 08:06:19  jpr
 ! * Moved handling of Normal-Tangential BCs inside SolverUtils. Corrected
 ! * a few bugs in Adaptive.src, Lists.src.
@@ -109,7 +112,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.15 2006/02/20 08:06:19 jpr Exp $
+! * $Id: SolverUtils.src,v 1.16 2006/02/28 09:34:47 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -1024,19 +1027,17 @@ CONTAINS
        IF ( k > 0 ) THEN
           k = NDOFs * (k-1) + DOF
           DO l=Projector % Rows(i),Projector % Rows(i+1)-1
-             IF ( Projector % Cols(l) <= 0 ) CYCLE
+            IF ( Projector % Cols(l) <= 0 ) CYCLE
 
-             IF ( Projector % Values(l) > 1.0d-12 ) THEN
-                m = Perm( Projector % Cols(l) )
-                IF ( m > 0 ) THEN
-                   m = NDOFs * (m-1) + DOF
-                   DO nn=StiffMatrix % Rows(k),StiffMatrix % Rows(k+1)-1
-                      CALL AddToMatrixElement( StiffMatrix, m, StiffMatrix % Cols(nn), &
-                             Projector % Values(l) * StiffMatrix % Values(nn) )
-                   END DO
-                   ForceVector(m) = ForceVector(m) + Projector % Values(l) * ForceVector(k)
-                END IF
-             END IF
+            m = Perm( Projector % Cols(l) )
+            IF ( m > 0 ) THEN
+              m = NDOFs * (m-1) + DOF
+              DO nn=StiffMatrix % Rows(k),StiffMatrix % Rows(k+1)-1
+                 CALL AddToMatrixElement( StiffMatrix, m, StiffMatrix % Cols(nn), &
+                        Projector % Values(l) * StiffMatrix % Values(nn) )
+              END DO
+              ForceVector(m) = ForceVector(m) + Projector % Values(l) * ForceVector(k)
+            END IF
           END DO
        END IF
     END DO
@@ -1112,10 +1113,8 @@ CONTAINS
 
              m = Perm( Projector % Cols(l) )
              IF ( m > 0 ) THEN
-                m = NDOFs * (m-1) + DOF
-                IF ( Projector % Values(l) > 1.0d-12 ) THEN
-                  CALL SetMatrixElement( StiffMatrix, k, m, Projector % Values(l) )
-                END IF
+               m = NDOFs * (m-1) + DOF
+               CALL SetMatrixElement( StiffMatrix, k, m, Projector % Values(l) )
              END IF
           END DO
           ForceVector(k) = 0.0d0
@@ -1261,10 +1260,13 @@ CONTAINS
 !------------------------------------------------------------------------------
     TYPE(Element_t), POINTER :: CurrentElement
     TYPE(Nodes_t) :: ElementNodes
-    INTEGER :: i,j,k,n,t
+    INTEGER :: i,j,k,l,m,n,t, iBC
     LOGICAL :: GotIt
     REAL(KIND=dp) :: s,Bu,Bv
     INTEGER, POINTER :: NodeIndexes(:)
+    TYPE(Matrix_t), POINTER :: Projector
+  
+    REAL(KIND=dp), POINTER :: SetNormal(:,:)
 
     REAL(KIND=dp), TARGET :: x(Model % MaxElementNodes)
     REAL(KIND=dp), TARGET :: y(Model % MaxElementNodes)
@@ -1284,7 +1286,7 @@ CONTAINS
                   Model % NumberOfBoundaryElements
 
       CurrentElement => Model % Elements(t)
-      IF ( CurrentElement % Type % ElementCode == 101 ) CYCLE
+      IF ( CurrentElement % Type % ElementCode < 200 ) CYCLE
 
       n = CurrentElement % Type % NumberOfNodes
       NodeIndexes => CurrentElement % NodeIndexes
@@ -1309,18 +1311,63 @@ CONTAINS
               ELSE
                 Bv = 0.0D0
               END IF
-#if 1
               BoundaryNormals(k,:) = BoundaryNormals(k,:) + &
                   NormalVector( CurrentElement,ElementNodes,Bu,Bv,.TRUE. )
-#else
-              BoundaryNormals(k,:) = &
-                  NormalVector( CurrentElement,ElementNodes,Bu,Bv,.TRUE. )
-#endif
             END DO
           END IF
         END IF
       END DO
     END DO
+
+    DO t=Model % NumberOfBulkElements + 1, Model % NumberOfBulkElements + &
+                  Model % NumberOfBoundaryElements
+
+      CurrentElement => Model % Elements(t)
+      IF ( CurrentElement % Type % ElementCode >= 200 ) CYCLE
+
+      DO i=1,Model % NumberOfBCs
+        IF ( CurrentElement % BoundaryInfo % Constraint == &
+              Model % BCs(i) % Tag ) THEN
+
+          IF ( ListGetLogical( Model % BCs(i) % Values, &
+                 VariableName, gotIt) ) THEN
+            SetNormal => ListGetConstRealArray( Model % BCs(i) % Values, &
+                   'Normal Vector', gotit )
+            IF ( GotIt .AND. ASSOCIATED(SetNormal) ) THEN
+               DO k=1,CurrentElement % Type % NumberOfNodes
+                 n = BoundaryReorder( CurrentElement %  NodeIndexes(k) )
+                 IF ( n <= 0 ) CYCLE
+                 BoundaryNormals(n,:) = 0.0d0
+                 DO j=1,SIZE(SetNormal,1)
+                    BoundaryNormals(n,j) = SetNormal(j,1)
+                 END DO
+               END DO
+            END IF
+          END IF
+        END IF
+      END DO
+    END DO
+
+    DO iBC=1,Model % NumberOfBCs
+       Projector => Model % BCs(iBC) % PMatrix
+       IF ( .NOT. ASSOCIATED( Projector ) ) CYCLE
+
+       DO i=1,Projector % NumberOfRows
+          k = BoundaryReorder(Projector % InvPerm(i))
+          IF ( k <= 0 ) CYCLE
+          DO l=Projector % Rows(i),Projector % Rows(i+1)-1
+            IF ( Projector % Cols(l) <= 0 ) CYCLE
+            m = BoundaryReorder(Projector % Cols(l))
+            IF ( m > 0 ) THEN
+               BoundaryNormals(m,:) = BoundaryNormals(m,:) + &
+                 Projector % Values(l) * BoundaryNormals(k,:)
+               BoundaryNormals(k,:) = BoundaryNormals(m,:)
+            END IF
+          END DO
+       END DO
+    END DO
+
+
 !------------------------------------------------------------------------------
 !   normalize 
 !------------------------------------------------------------------------------
