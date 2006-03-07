@@ -70,7 +70,7 @@
 !------------------------------------------------------------------------------
 !    Local variables
 !------------------------------------------------------------------------------
-  INTEGER :: i,j,k,n,nd,t,STDOFs,LocalNodes,istat
+  INTEGER :: i,j,k,n,nd,nb,t,STDOFs,LocalNodes,istat
 
   TYPE(Element_t),POINTER :: Element
   TYPE(ValueList_t),POINTER :: Material, BC
@@ -95,7 +95,7 @@
        ElasticModulus, PoissonRatio, TPerm, Alpha, Beta
 
 !------------------------------------------------------------------------------
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: MeshSolve.src,v 1.8 2006/02/07 06:39:30 jpr Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: MeshSolve.src,v 1.9 2006/02/20 08:06:19 jpr Exp $"
 
 !------------------------------------------------------------------------------
   REAL(KIND=dp) :: at,at0,CPUTime,RealTime
@@ -224,6 +224,7 @@
 
      Element => GetActiveElement(t)
      nd = GetElementNOFDOFs()
+     nb = GetElementNOFBDOFs()
      n  = GetElementNOFNodes()
 
      Material => GetMaterial()
@@ -248,7 +249,7 @@
 !    Get element local stiffness & mass matrices
 !------------------------------------------------------------------------------
      CALL LocalMatrix( STIFF, FORCE, ElasticModulus, &
-       PoissonRatio, .FALSE., Isotropic, Element, n, nd )
+       PoissonRatio, .FALSE., Isotropic, Element, n, nd, nb )
 
 !------------------------------------------------------------------------------
 !    Update global matrices from local matrices 
@@ -274,6 +275,7 @@
 !------------------------------------------------------------------------------
      nd = GetElementNOFDOFs()
      n  = GetElementNOFNodes()
+     nb = GetElementNOFBDOFs()
 
      LOAD = 0.0D0
      Alpha      = 0.0D0
@@ -292,7 +294,7 @@
 
      IF ( .NOT.GotForceBC ) CYCLE
 
-     CALL MeshBoundary( STIFF,FORCE, LOAD,Alpha,Beta,Element,n,nd )
+     CALL MeshBoundary( STIFF,FORCE, LOAD,Alpha,Beta,Element,n,nd,nb )
 
 !------------------------------------------------------------------------------
 
@@ -394,14 +396,14 @@
 
 !------------------------------------------------------------------------------
    SUBROUTINE LocalMatrix( STIFF,FORCE,NodalYoung, NodalPoisson, &
-              PlaneStress, Isotropic, Element,n, nd )
+              PlaneStress, Isotropic, Element,n, nd, nb )
 !------------------------------------------------------------------------------
      IMPLICIT NONE
 
      REAL(KIND=dp) :: NodalPoisson(:), NodalYoung(:,:,:)
      REAL(KIND=dp), TARGET :: STIFF(:,:), FORCE(:)
 
-     INTEGER :: n,nd
+     INTEGER :: n,nd,nb
 
      TYPE(Element_t) :: Element
      LOGICAL :: PlaneStress, Isotropic
@@ -442,7 +444,7 @@
 
      ! Integration stuff:
      ! ------------------  
-     IntegStuff = GaussPoints( element )
+     IntegStuff = GaussPoints( Element )
 
      ! Now we start integrating:
      ! -------------------------
@@ -487,18 +489,30 @@
          STIFF(p,q)=STIFF(q,p)
        END DO
      END DO
+
+     IF ( nb == 0 ) THEN
+       DO p=nd-Element % BDOFs+1,nd
+         DO i=1,dim
+            j = (p-1)*dim + i
+            STIFF( j,: ) = 0.0d0
+            STIFF( :,j ) = 0.0d0
+            STIFF( j,j ) = 1.0d0
+            FORCE( j )   = 0.0d0
+         END DO
+       END DO
+     END IF
 !------------------------------------------------------------------------------
  END SUBROUTINE LocalMatrix
 !------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
- SUBROUTINE MeshBoundary( STIFF,FORCE,LOAD,NodalAlpha,NodalBeta,Element,n,nd )
+ SUBROUTINE MeshBoundary( STIFF,FORCE,LOAD,NodalAlpha,NodalBeta,Element,n,nd,nb )
 !------------------------------------------------------------------------------
    REAL(KIND=dp) :: STIFF(:,:),FORCE(:)
    REAL(KIND=dp) :: NodalAlpha(:,:),NodalBeta(:),LOAD(:,:)
    TYPE(Element_t),POINTER  :: Element
-   INTEGER :: n,nd
+   INTEGER :: n,nd,nb
 !------------------------------------------------------------------------------
    REAL(KIND=dp) :: Basis(nd)
    REAL(KIND=dp) :: dBasisdx(nd,3),detJ
@@ -524,7 +538,7 @@
 !
 !  Integration stuff
 !
-   IntegStuff = GaussPoints( element )
+   IntegStuff = GaussPoints( Element )
 !
 !  Now we start integrating
 !
@@ -569,6 +583,18 @@
      END DO
 
    END DO
+ 
+   IF ( nb == 0 ) THEN
+     DO p=nd-Element % BDOFs+1,nd
+       DO i=1,dim
+          j = (p-1)*dim + i
+          STIFF( j,: ) = 0.0d0
+          STIFF( :,j ) = 0.0d0
+          STIFF( j,j ) = 1.0d0
+          FORCE( j )   = 0.0d0
+       END DO
+     END DO
+   END IF
 
 !------------------------------------------------------------------------------
  END SUBROUTINE MeshBoundary
