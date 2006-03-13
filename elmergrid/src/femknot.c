@@ -7014,6 +7014,7 @@ omstart:
 	  /* Make the possible additional BC appearing at side of the BL */
 	  if(sidebc[m]) {
 	    
+	    bound[newbc].created = TRUE;
 	    bound[newbc].nosides += 1;
 	    i2 = bound[newbc].nosides;
 	    bound[newbc].parent[i2] = elemindx;
@@ -7221,13 +7222,13 @@ omstart:
     int ind1,ind2,ind3,*fixedx,*fixedy;
     Real *aidx,*aidy,*weights;
     Real maxerror,minds,dx2,dy2,ds2,fii;
-
+    
     /* There are three methods how to put the weight in the filter,
        1) 1/s, 2) fii/s, 3) sin(fii)/s, the second option seems to be best. */
     method = 2;
-
+    
     if(info) printf("Filtering the mesh to meet the original geometry\n");
-
+    
     fixedx = Ivector(1,noknots);
     fixedy = Ivector(1,noknots);
     weights = Rvector(1,noknots);
@@ -7236,7 +7237,7 @@ omstart:
 
     /* Set all the fixed boundaries */
     for(i=1;i<=noknots;i++) fixedx[i] = fixedy[i] = 0;
-
+    
     /* First, make all other materials except the ones with BL to be fixed */
     if(checkmaterials) {
       for(j=1;j<=noelements;j++) {
@@ -7261,7 +7262,7 @@ omstart:
 	  fixedx[i] = 0;
       }
     }
-
+    
     /* Then set all BC:s fixed except the tangential ones */
     for(j=0;j<MAXBOUNDARIES;j++) {
       if(!bound[j].created) continue;
@@ -7292,7 +7293,7 @@ omstart:
       }
     }
     
-
+    
     /* Then set possibly all remaining active boundaries to be fixed */
     for(j=0;j<MAXBOUNDARIES;j++) {
       if(!bound[j].created) continue;
@@ -7345,7 +7346,7 @@ omstart:
 	fixedx[k] = 0;
 	fixedy[k] = 0;
       }
-
+      
       /* for second order elements */
       k = endnodes2[j];
       if(k) {
@@ -7353,19 +7354,19 @@ omstart:
 	fixedy[k] = 0;
       }
     }
-   
-
+    
+    
     j = 0;
     for(i=1;i<=noknots;i++) if(fixedx[i]) j += 1;
     if(info) printf("Number of fixed nodes in x-direction is %d\n",j);
-
+    
     j = 0;
     for(i=1;i<=noknots;i++) if(fixedy[i]) j += 1;
     if(info) printf("Number of fixed nodes in y-direction is %d\n",j);
- 
+    
     minds = 1.0e10;
-
-
+    
+    
     for(j=1;j<=noknots;j++) {	  
 
       if(fixedx[j]) {
@@ -7381,7 +7382,7 @@ omstart:
 	  newy[j] = aidy[j] = oldy[herit[j]];
       }
     }	    
-
+    
     
     for(l=1;l<=maxfilters;l++) {
       maxerror = 0.0;
@@ -7403,9 +7404,9 @@ omstart:
       for(j=1;j<=noelements;j++) {
 	elemtype = data->elementtypes[j];
 	nonodes = elemtype / 100;
-
+	
 	for(i=0;i<nonodes;i++) {
-
+	  
 	  i2 = (i+1)%nonodes;
 	  i3 = (i+2)%nonodes;
 	  
@@ -7421,7 +7422,7 @@ omstart:
 	  else {
 	    ds = fabs(elemwidth[j-oldnoelements]);
 	  }
-  
+	  
 	  if(j<=oldnoelements) {
 	    dx2 = oldx[oldtopo[j][i2]] - oldx[oldtopo[j][i3]];
 	    dy2 = oldy[oldtopo[j][i2]] - oldy[oldtopo[j][i3]];
@@ -7430,7 +7431,7 @@ omstart:
 	  else {
 	    ds2 = fabs(elemwidth[j-oldnoelements]);
 	  }
-
+	  
 	  if(j <= oldnoelements && ds * ds2 < 1.0e-50) {
 	    printf("problem elem %d and nodes %d (%d %d)\n",j,i2,i,i3);
 	    printf("dist ds=%.3le ds2=%.3le\n",ds,ds2);
@@ -7448,7 +7449,7 @@ omstart:
 	  else {
 	    fii = 1.0;
 	  }
-
+	  
 	  
 	  /* Eliminate the very difficult triplenodes */
 	  dolayer = FALSE;
