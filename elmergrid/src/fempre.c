@@ -148,7 +148,7 @@ static void Instructions()
   printf("-bulktype int[3]     : set material types in interval [int1 int2] to type int3\n");
   printf("-boundtype int[3]    : set sidetypes in interval [int1 int2] to type int3\n");
   printf("-layer int[2] real[2]: make a boundary layer for given boundary\n");
-  printf("-layermove           : in the previous case move the layer to the original boundary\n");
+  printf("-layermove int       : apply Jacobi filter int times to move the layered mesh\n");
   printf("-3d / -2d / -1d      : mesh is 3, 2 or 1-dimensional\n");
   printf("-isoparam            : ensure that higher order elements are convex\n");
   printf("-nobound             : disable saving of boundary elements\n");
