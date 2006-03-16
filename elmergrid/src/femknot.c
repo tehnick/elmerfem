@@ -6845,6 +6845,7 @@ omstart:
   for(j=0;j<MAXBOUNDARIES;j++) 
     if(!bound[j].created) {
       newbc = j;
+      bound[newbc].nosides = 0;
       break;
     }
 
@@ -7014,7 +7015,6 @@ omstart:
 	  /* Make the possible additional BC appearing at side of the BL */
 	  if(sidebc[m]) {
 	    
-	    bound[newbc].created = TRUE;
 	    bound[newbc].nosides += 1;
 	    i2 = bound[newbc].nosides;
 	    bound[newbc].parent[i2] = elemindx;
@@ -7234,7 +7234,7 @@ omstart:
     weights = Rvector(1,noknots);
     aidx = Rvector(1,noknots);
     aidy = Rvector(1,noknots);
-
+    
     /* Set all the fixed boundaries */
     for(i=1;i<=noknots;i++) fixedx[i] = fixedy[i] = 0;
     
@@ -7276,18 +7276,18 @@ omstart:
 	dy = fabs(newy[ind[0]] - newy[ind[1]]);
 	if(dx > rectfactor * dy) {
 	  for(l=0;l<sideelemtype%100;l++) {
-	    fixedy[ind[l]] = 1;
+	    fixedy[ind[l]] = TRUE;
 	  }
 	}
 	else if(dy > rectfactor * dx) {
 	  for(l=0;l<sideelemtype%100;l++) {
-	    fixedx[ind[l]] = 1;
+	    fixedx[ind[l]] = TRUE;
 	  }
 	}
 	else {
 	  for(l=0;l<sideelemtype%100;l++) {
-	    fixedy[ind[l]] = 1;
-	    fixedx[ind[l]] = 1;
+	    fixedy[ind[l]] = TRUE;
+	    fixedx[ind[l]] = TRUE;
 	  }
 	}	
       }
@@ -7332,8 +7332,8 @@ omstart:
 	
 	if(dolayer) {
 	  for(l=0;l<sideelemtype%100;l++) {
-	    fixedy[ind[l]] = 1;
-	    fixedx[ind[l]] = 1;
+	    fixedy[ind[l]] = TRUE;
+	    fixedx[ind[l]] = TRUE;
 	  }
 	}
       }
@@ -7343,15 +7343,15 @@ omstart:
     for(j=1;j<=endbcs;j++) {
       k = endnodes[j];
       if(k) {
-	fixedx[k] = 0;
-	fixedy[k] = 0;
+	fixedx[k] = FALSE;
+	fixedy[k] = FALSE;
       }
       
       /* for second order elements */
       k = endnodes2[j];
       if(k) {
-	fixedx[k] = 0;
-	fixedy[k] = 0;
+	fixedx[k] = FALSE;
+	fixedy[k] = FALSE;
       }
     }
     
@@ -7528,105 +7528,90 @@ omstart:
       printf("Filtered the new node coordinates %d times with final error %.3le.\n",
 	     l-1,maxerror);
     }
-
-    if(bound[newbc].nosides > 0) 
-      bound[newbc].created = TRUE;
-
-  /* In higher order elements map the middle nodes so that they lie in between
-     the corner nodes */
-  
-  for(j=1;j<=noelements;j++) {
-    elemtype = data->elementtypes[j];
-    if(elemtype%100 <= elemtype/100) continue;
     
-    if(elemtype == 306) {
-      for(k=0;k<3;k++) {
-	if(!fixedx[newtopo[j][k+3]]) {
-	  newx[newtopo[j][k+3]] = 0.5 * (newx[newtopo[j][k]] + newx[newtopo[j][(k+1)%3]]);
-	}
-	if(!fixedy[newtopo[j][k+3]]) {
-	  newy[newtopo[j][k+3]] = 0.5 * (newy[newtopo[j][k]] + newy[newtopo[j][(k+1)%3]]);
+    /* In higher order elements map the middle nodes so that they lie in between
+       the corner nodes */
+    
+    for(j=1;j<=noelements;j++) {
+      elemtype = data->elementtypes[j];
+      if(elemtype%100 <= elemtype/100) continue;
+      
+      if(elemtype == 306) {
+	for(k=0;k<3;k++) {
+	  if(!fixedx[newtopo[j][k+3]]) {
+	    newx[newtopo[j][k+3]] = 0.5 * (newx[newtopo[j][k]] + newx[newtopo[j][(k+1)%3]]);
+	  }
+	  if(!fixedy[newtopo[j][k+3]]) {
+	    newy[newtopo[j][k+3]] = 0.5 * (newy[newtopo[j][k]] + newy[newtopo[j][(k+1)%3]]);
+	  }
 	}
       }
-    }
-    
-    else if(elemtype == 408 || elemtype == 409) {
-
-      if(elemtype == 409) {
-	newx[newtopo[j][8]] = 0.0;
-	newy[newtopo[j][8]] = 0.0;
-      }
-
-      for(k=0;k<4;k++) {
-#if 1
-	if(!fixedx[newtopo[j][k+4]]) {
-	  newx[newtopo[j][k+4]] = 0.5 * (newx[newtopo[j][k]] + newx[newtopo[j][(k+1)%4]]);
-	}
-	if(!fixedy[newtopo[j][k+4]]) {
-	  newy[newtopo[j][k+4]] = 0.5 * (newy[newtopo[j][k]] + newy[newtopo[j][(k+1)%4]]);
-	}
-#else
-	newx[newtopo[j][k+4]] = 0.5 * (newx[newtopo[j][k]] + newx[newtopo[j][(k+1)%4]]);
-	newy[newtopo[j][k+4]] = 0.5 * (newy[newtopo[j][k]] + newy[newtopo[j][(k+1)%4]]);
-#endif
-
+      
+      else if(elemtype == 408 || elemtype == 409) {
+	
 	if(elemtype == 409) {
-	  newx[newtopo[j][8]] += 0.25 * newx[newtopo[j][k]];
-	  newy[newtopo[j][8]] += 0.25 * newy[newtopo[j][k]];
+	  newx[newtopo[j][8]] = 0.0;
+	  newy[newtopo[j][8]] = 0.0;
+	}
+	
+	for(k=0;k<4;k++) {
+	  if(!fixedx[newtopo[j][k+4]]) {
+	    newx[newtopo[j][k+4]] = 0.5 * (newx[newtopo[j][k]] + newx[newtopo[j][(k+1)%4]]);
+	  }
+	  if(!fixedy[newtopo[j][k+4]]) {
+	    newy[newtopo[j][k+4]] = 0.5 * (newy[newtopo[j][k]] + newy[newtopo[j][(k+1)%4]]);
+	  }
+	  if(elemtype == 409) {
+	    newx[newtopo[j][8]] += 0.25 * newx[newtopo[j][k]];
+	    newy[newtopo[j][8]] += 0.25 * newy[newtopo[j][k]];
+	  }
 	}
       }
+      else {
+	printf("Unknown elementtype %d\n",elemtype);
+      }
     }
-    else {
-      printf("Unknown elementtype %d\n",elemtype);
-    }
-  }
   
-  free_Ivector(fixedx,1,noknots);
-  free_Ivector(fixedy,1,noknots);
-  
-  free_Rvector(aidx,1,noknots);
-  free_Rvector(aidy,1,noknots);   
-  free_Rvector(weights,1,noknots);
+    free_Ivector(fixedx,1,noknots);
+    free_Ivector(fixedy,1,noknots);
+    
+    free_Rvector(aidx,1,noknots);
+    free_Rvector(aidy,1,noknots);   
+    free_Rvector(weights,1,noknots);
   }
 
-
+  if(bound[newbc].nosides > 0) 
+    bound[newbc].created = TRUE;
+  
   
   /* In higher order elements map the middle nodes so that they lie in between
-     the corner nodes */
+     the corner nodes. Elemtypes must be 408 or 409 since they are created in this
+     subroutine */
   
   if(!maxfilters) {
-    printf("Making the higher order nodes in between\n");
-   
+    if(info) printf("Making the higher order nodes to lie in between\n");
+    
     for(j=oldnoelements+1;j<=noelements;j++) {
 
       elemtype = data->elementtypes[j];
       if(elemtype%100 <= elemtype/100) continue;
       
       if(elemtype == 408 || elemtype == 409) {
-	
-	newx[newtopo[j][4]] = 0.5 * (newx[newtopo[j][0]] + newx[newtopo[j][1]]);
-	newy[newtopo[j][4]] = 0.5 * (newy[newtopo[j][0]] + newy[newtopo[j][1]]);
-	
-	newx[newtopo[j][5]] = 0.5 * (newx[newtopo[j][2]] + newx[newtopo[j][1]]);
-	newy[newtopo[j][5]] = 0.5 * (newy[newtopo[j][2]] + newy[newtopo[j][1]]);
-	
-	newx[newtopo[j][6]] = 0.5 * (newx[newtopo[j][2]] + newx[newtopo[j][3]]);
-	newy[newtopo[j][6]] = 0.5 * (newy[newtopo[j][2]] + newy[newtopo[j][3]]);
-	
-	newx[newtopo[j][7]] = 0.5 * (newx[newtopo[j][0]] + newx[newtopo[j][3]]);
-	newy[newtopo[j][7]] = 0.5 * (newy[newtopo[j][0]] + newy[newtopo[j][3]]);
-	
+
 	if(elemtype == 409) {
 	  newx[newtopo[j][8]] = 0.0;
 	  newy[newtopo[j][8]] = 0.0;
-	  for(i=1;i<=4;i++) {
-	    newx[newtopo[j][8]] += 0.25 * newx[newtopo[j][i]];
-	    newy[newtopo[j][8]] += 0.25 * newy[newtopo[j][i]];
+	}
+	
+	for(k=0;k<4;k++) {
+	  newx[newtopo[j][k+4]] = 0.5 * (newx[newtopo[j][k]] + newx[newtopo[j][(k+1)%4]]);
+	  newy[newtopo[j][k+4]] = 0.5 * (newy[newtopo[j][k]] + newy[newtopo[j][(k+1)%4]]);
+	  
+	  if(elemtype == 409) {
+	    newx[newtopo[j][8]] += 0.25 * newx[newtopo[j][k]];
+	    newy[newtopo[j][8]] += 0.25 * newy[newtopo[j][k]];
 	  }
 	}
-      }
-      else {
-	printf("Unknown elementtype %d\n",elemtype);
       }
     }
   }
