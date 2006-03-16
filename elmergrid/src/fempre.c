@@ -549,7 +549,13 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
       }
     }
     if(strcmp(argv[arg],"-layermove") == 0) {
-      eg->layermove = TRUE;
+      if(arg+1 >= argc) {
+	printf("Give maximum number of Jacobi filters.\n");
+ 	return(11);
+      }
+      else {
+	eg->layermove = atoi(argv[arg+1]);
+      }
     }
 
     if(strcmp(argv[arg],"-3d") == 0) {
@@ -898,8 +904,7 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
 
     else if(strstr(command,"BOUNDARY LAYER")) {
       if(strstr(command,"BOUNDARY LAYER MOVE")) {
-	for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
-	if(strstr(params,"TRUE")) eg->layermove = TRUE;
+	sscanf(params,"%d",&eg->layermove);
       }
       else if(strstr(command,"BOUNDARY LAYER EPSILON")) {
 	sscanf(params,"%le",&eg->layereps);

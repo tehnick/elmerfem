@@ -7218,7 +7218,7 @@ omstart:
 
 
   if(maxfilters) {
-    int hit,method;
+    int hit,method,iter;
     int ind1,ind2,ind3,*fixedx,*fixedy;
     Real *aidx,*aidy,*weights;
     Real maxerror,minds,dx2,dy2,ds2,fii;
@@ -7364,9 +7364,6 @@ omstart:
     for(i=1;i<=noknots;i++) if(fixedy[i]) j += 1;
     if(info) printf("Number of fixed nodes in y-direction is %d\n",j);
     
-    minds = 1.0e10;
-    
-    
     for(j=1;j<=noknots;j++) {	  
 
       if(fixedx[j]) {
@@ -7384,8 +7381,9 @@ omstart:
     }	    
     
     
-    for(l=1;l<=maxfilters;l++) {
+    for(iter=1;iter<=maxfilters;iter++) {
       maxerror = 0.0;
+      minds = 1.0e10;
       
       for(j=1;j<=noknots;j++) {	  
 	
@@ -7422,6 +7420,8 @@ omstart:
 	  else {
 	    ds = fabs(elemwidth[j-oldnoelements]);
 	  }
+	  if(ds < minds) minds = ds;
+
 	  
 	  if(j<=oldnoelements) {
 	    dx2 = oldx[oldtopo[j][i2]] - oldx[oldtopo[j][i3]];
@@ -7454,9 +7454,7 @@ omstart:
 	  /* Eliminate the very difficult triplenodes */
 	  dolayer = FALSE;
 	  for(k=1;k<=endbcs;k++)
-	    if(ind2 == endnodes[k]) {	      
-	      dolayer = k;
-	    }
+	    if(ind2 == endnodes[k]) dolayer = k;
 	  
 	  if(dolayer) {
 	    for(k=1;k<=2;k++) {
@@ -7489,21 +7487,22 @@ omstart:
 	  }
 	}
       }
-
       
       if(maxelemtype%100 > 4) {  
 	for(j=1;j<=noknots;j++) {	  
 	  if(nonlin[j]) continue;
+
 	  if(weights[j] > 1.0e-50) {	  
 	    if(!fixedx[j]) newx[j] /= weights[j];
 	    if(!fixedy[j]) newy[j] /= weights[j];
 	  }
-	  else if(l==1) {
+	  else if(iter==1) {
 	    printf("no weight for index %d\n",j);
 	  }
 	  
-	  dx = newx[j]-aidx[j];
-	  dy = newy[j]-aidy[j];
+	  dx = newx[j] - aidx[j];
+	  dy = newy[j] - aidy[j];
+
 	  ds = dx*dx + dy*dy;
 	  if(ds > maxerror) maxerror = ds;
 	}
@@ -7515,60 +7514,64 @@ omstart:
 	  
 	  dx = newx[j]-aidx[j];
 	  dy = newy[j]-aidy[j];
+
 	  ds = dx*dx + dy*dy;
 	  if(ds > maxerror) maxerror = ds;
 	}
       }
 
-      maxerror = sqrt(ds);
-      if(maxerror < -layereps * minds) break;
+      maxerror = sqrt(maxerror) / minds;
+      if(maxerror < layereps) break;
     }
 
     if(info) {
       printf("Filtered the new node coordinates %d times with final error %.3le.\n",
-	     l-1,maxerror);
+	     iter-1,maxerror);
     }
     
     /* In higher order elements map the middle nodes so that they lie in between
        the corner nodes */
+
     
-    for(j=1;j<=noelements;j++) {
-      elemtype = data->elementtypes[j];
-      if(elemtype%100 <= elemtype/100) continue;
-      
-      if(elemtype == 306) {
-	for(k=0;k<3;k++) {
-	  if(!fixedx[newtopo[j][k+3]]) {
-	    newx[newtopo[j][k+3]] = 0.5 * (newx[newtopo[j][k]] + newx[newtopo[j][(k+1)%3]]);
-	  }
-	  if(!fixedy[newtopo[j][k+3]]) {
-	    newy[newtopo[j][k+3]] = 0.5 * (newy[newtopo[j][k]] + newy[newtopo[j][(k+1)%3]]);
+    if(maxelemtype%100 > 4) {
+      for(j=1;j<=noelements;j++) {
+	elemtype = data->elementtypes[j];
+	if(elemtype%100 <= elemtype/100) continue;
+	
+	if(elemtype == 306) {
+	  for(k=0;k<3;k++) {
+	    if(!fixedx[newtopo[j][k+3]]) {
+	      newx[newtopo[j][k+3]] = 0.5 * (newx[newtopo[j][k]] + newx[newtopo[j][(k+1)%3]]);
+	    }
+	    if(!fixedy[newtopo[j][k+3]]) {
+	      newy[newtopo[j][k+3]] = 0.5 * (newy[newtopo[j][k]] + newy[newtopo[j][(k+1)%3]]);
+	    }
 	  }
 	}
-      }
-      
-      else if(elemtype == 408 || elemtype == 409) {
 	
-	if(elemtype == 409) {
-	  newx[newtopo[j][8]] = 0.0;
-	  newy[newtopo[j][8]] = 0.0;
-	}
-	
-	for(k=0;k<4;k++) {
-	  if(!fixedx[newtopo[j][k+4]]) {
-	    newx[newtopo[j][k+4]] = 0.5 * (newx[newtopo[j][k]] + newx[newtopo[j][(k+1)%4]]);
-	  }
-	  if(!fixedy[newtopo[j][k+4]]) {
-	    newy[newtopo[j][k+4]] = 0.5 * (newy[newtopo[j][k]] + newy[newtopo[j][(k+1)%4]]);
-	  }
+	else if(elemtype == 408 || elemtype == 409) {
+	  
 	  if(elemtype == 409) {
-	    newx[newtopo[j][8]] += 0.25 * newx[newtopo[j][k]];
-	    newy[newtopo[j][8]] += 0.25 * newy[newtopo[j][k]];
+	    newx[newtopo[j][8]] = 0.0;
+	    newy[newtopo[j][8]] = 0.0;
+	  }
+	  
+	  for(k=0;k<4;k++) {
+	    if(!fixedx[newtopo[j][k+4]]) {
+	      newx[newtopo[j][k+4]] = 0.5 * (newx[newtopo[j][k]] + newx[newtopo[j][(k+1)%4]]);
+	    }
+	    if(!fixedy[newtopo[j][k+4]]) {
+	      newy[newtopo[j][k+4]] = 0.5 * (newy[newtopo[j][k]] + newy[newtopo[j][(k+1)%4]]);
+	    }
+	    if(elemtype == 409) {
+	      newx[newtopo[j][8]] += 0.25 * newx[newtopo[j][k]];
+	      newy[newtopo[j][8]] += 0.25 * newy[newtopo[j][k]];
+	    }
 	  }
 	}
-      }
-      else {
-	printf("Unknown elementtype %d\n",elemtype);
+	else {
+	  printf("Unknown elementtype %d\n",elemtype);
+	}
       }
     }
   
@@ -7588,16 +7591,16 @@ omstart:
      the corner nodes. Elemtypes must be 408 or 409 since they are created in this
      subroutine */
   
-  if(!maxfilters) {
+  if(!maxfilters && maxelemtype%100 > 4) {
     if(info) printf("Making the higher order nodes to lie in between\n");
     
     for(j=oldnoelements+1;j<=noelements;j++) {
-
+      
       elemtype = data->elementtypes[j];
       if(elemtype%100 <= elemtype/100) continue;
       
       if(elemtype == 408 || elemtype == 409) {
-
+	
 	if(elemtype == 409) {
 	  newx[newtopo[j][8]] = 0.0;
 	  newy[newtopo[j][8]] = 0.0;
