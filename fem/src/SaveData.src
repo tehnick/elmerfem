@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SaveData.src,v $
+! * Revision 1.12  2006/02/01 08:07:59  jpr
+! * Replaced most of the usage of MAX_NODES by dynamic allocations.
+! *
 ! * Revision 1.11  2006/01/10 12:56:40  apursula
 ! * Updated header information (GPL).
 ! * Started log.
@@ -110,7 +113,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       NoDims, NoDofs, NoOper, NoElements, NoVar, DIM, MaxVars, NoEigenValues, Ind
   REAL (KIND=DP) :: CPUTime, CPUMemory, MINVAL, MAXVAL
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.11 2006/01/10 12:56:40 apursula Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.12 2006/02/01 08:07:59 jpr Exp $"
 
   SAVE SubroutineVisited, NumberOfVars, MaxNo, &
       NoPoints, PointIndex, CoordinateIndex, CoordinateDist, ResultPrefix, &
@@ -1148,6 +1151,7 @@ CONTAINS
 
     n = Model % MaxElementNodes
 
+    DIM = CoordinateSystemDimension()
 
     ALLOCATE(ParentNodes % x(n), ParentNodes % y(n), ParentNodes % z(n), PermIndexes(n) )
 
@@ -1182,8 +1186,6 @@ CONTAINS
       CALL Warn('SaveScalars','Unknown statistical operator')
 
     END SELECT
-
-    DIM = CoordinateSystemDimension()
 
     fluxes = 0.0d0
 
@@ -1871,7 +1873,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t), POINTER   :: CurrentElement, NextElement
   CHARACTER(LEN=MAX_NAME_LEN) :: SideFile, SideNamesFile, VarName, CondName
   CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: ValueNames(:)
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.11 2006/01/10 12:56:40 apursula Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.12 2006/02/01 08:07:59 jpr Exp $"
 
   LOGICAL :: cand
 
