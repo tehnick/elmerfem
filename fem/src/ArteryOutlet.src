@@ -1,0 +1,922 @@
+!/*****************************************************************************/
+! *
+! *  Elmer, A Finite Element Software for Multiphysical Problems
+! *
+! *  Copyright 1st April 1995 - , CSC - Scientific Computing Ltd., Finland
+! * 
+! *  This program is free software; you can redistribute it and/or
+! *  modify it under the terms of the GNU General Public License
+! *  as published by the Free Software Foundation; either version 2
+! *  of the License, or (at your option) any later version.
+! * 
+! *  This program is distributed in the hope that it will be useful,
+! *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! *  GNU General Public License for more details.
+! *
+! *  You should have received a copy of the GNU General Public License
+! *  along with this program (in file fem/GPL-2); if not, write to the 
+! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
+! *  Boston, MA 02110-1301, USA.
+! *
+! *****************************************************************************/
+!
+!/******************************************************************************
+! *
+! *  Solve for the 1D characteristics equation arising from newtonian flow in an 
+! *  elastic tube. The subroutine may be used as the outlet for blood flow simulation.
+! *
+! ******************************************************************************
+! *
+! *  Authors: Esko Järvinen, Mikko Lyly, Peter Råback
+! *  Email:   Esko.Jarvinen@csc.fi
+! *  Web:     http://www.csc.fi/elmer
+! *  Address: CSC - Scientific Computing Ltd.
+! *           Keilaranta 14
+! *           02101 Espoo, Finland 
+! *
+! *  Original Date: 20 Nov 2001
+! *
+! *****************************************************************************/
+! *
+! * $Log: ArteryOutlet.src,v $
+! *
+! *****************************************************************************
+ 
+!------------------------------------------------------------------------------
+SUBROUTINE OutletCompute( Model,Solver,dt,TransientSimulation )
+  !DEC$ATTRIBUTES DLLEXPORT :: OnedimSolver
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  TYPE(Model_t) :: Model,  
+!     INPUT: All model information (mesh, materials, BCs, etc...)
+!
+!  TYPE(Solver_t) :: Solver
+!     INPUT: Linear equation solver options
+!
+!  REAL(KIND=dp) :: dt
+!     INPUT: Timestep size for time dependent simulations
+!            and time
+!
+!  LOGICAL :: TransientSimulation
+!     INPUT: Steady state or transient simulation
+!
+!******************************************************************************
+  USE Types
+  USE Lists 
+  USE Integration
+  USE ElementDescription
+  USE SolverUtils
+  USE MeshUtils
+  USE DefUtils
+  USE MaterialModels
+  USE ElementUtils
+  USE ModelDescription
+
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Model_t) :: Model
+  TYPE(Solver_t):: Solver
+  REAL(KIND=dp) :: dt
+  LOGICAL :: TransientSimulation
+ 
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+ 
+  TYPE(Matrix_t),POINTER  :: StiffMatrix
+  TYPE(Nodes_t)   :: ElementNodes
+  TYPE(Element_t),POINTER :: CurrentElement, Element
+  TYPE(ValueList_t), POINTER :: Material
+  TYPE(Variable_t), POINTER :: LVar, FlowSol
+  
+  INTEGER :: t, k,n,m,ie,bf_id,mat_id,prev_mat_id,istat,LocalNodes,i,j, nonliniter, l, &
+      bc, joinnode, Connections, fsstep, fsstepmax
+  
+  INTEGER, POINTER :: NodeIndexes(:), WPerm(:)
+  INTEGER, ALLOCATABLE :: LumpedBoundaries(:)
+  
+  REAL(KIND=dp) :: Norm, PrevNorm, FlowOut2d
+  
+  LOGICAL :: GotIt, GotIt2, AllocationsDone = .FALSE. , FirstTime = .TRUE.
+  CHARACTER(LEN=MAX_NAME_LEN) :: Method, Name
+  
+  REAL(KIND=dp), POINTER :: Wnodal(:), ForceVector(:), Lnodal(:), Anodal(:), &
+      Pnodal(:), Qnodal(:), FlowSolution(:)
+  
+  REAL(KIND=dp), ALLOCATABLE :: LocalStiffMatrix(:,:),LocalMassMatrix(:,:), &
+      Lelem(:), LocalForce(:), Cnodal(:), Unodal(:), Wprev(:), Lprev(:), &
+      Aprev(:), FluidicForces(:), FluidicAreas(:), FluidicFluxes(:)
+  
+  REAL(KIND=dp) :: NonlinearTol, NonlinearIter, Density, PoissonRatio,&
+      WallYoungs, TubeRadius, TubeWallThickness, BetaCoeff, Aref, W20, &
+      WdiffSum, WnodalSum, WprevnodalSum, Werror, fsAlpha, fsTheta, fsdTheta, fsBeta, &
+      pres2dout, area2dout, psi, RadiusIn1d, AreaIn1d, BetaCoeff2, &
+      dR, Wbcnode, A2, Q2  
+  
+  SAVE LocalStiffMatrix,LocalMassMatrix,&
+      Lelem, LocalForce,ElementNodes, AllocationsDone, &
+      Cnodal, Unodal, Wprev, Lprev, Aprev,&
+      Lnodal, Anodal, Qnodal, Pnodal, Wnodal, &
+      FluidicForces, FluidicAreas, FluidicFluxes, LumpedBoundaries
+
+!------------------------------------------------------------------------------
+!    Get variables needed for solution
+!------------------------------------------------------------------------------
+
+  CALL Info('OneDimSolver','Starting')
+
+  Wnodal => Solver % Variable % Values
+  LocalNodes = SIZE( Wnodal )
+  IF(LocalNodes == 0) THEN
+    CALL Warn('OneDimSolver','No active variables')
+    RETURN
+  END IF
+  WPerm => Solver % Variable % Perm
+  StiffMatrix => Solver % Matrix
+  IF(.NOT. ASSOCIATED(StiffMatrix)) THEN
+    CALL Warn('OneDimSolver','StiffMatrix does not exist')
+    RETURN
+  END IF
+  ForceVector => StiffMatrix % RHS
+  Norm = Solver % Variable % Norm
+
+!------------------------------------------------------------------------------
+!    Allocate some permanent storage, this is done first time only
+!------------------------------------------------------------------------------
+  IF ( .NOT. AllocationsDone ) THEN
+    N = Model % MaxElementNodes
+    M = Model % NumberOfBCs
+    
+    ALLOCATE( ElementNodes % x( N ),   &
+        ElementNodes % y( N ),   &
+        ElementNodes % z( N ),   &
+        LocalForce( N ),         &
+        LocalStiffMatrix( N,N ), &
+        LocalMassMatrix( N,N ),  &
+        Lelem( N ),              &
+        LumpedBoundaries( M ),   &
+        FluidicAreas( M ),       &
+        FluidicForces( M ),      &
+        FluidicFluxes( M ),      &
+        STAT=istat )
+    
+    IF ( istat /= 0 ) THEN
+      CALL Fatal('ArteryOnedim','Memory allocation error')
+    END IF
+    
+    LVar => VariableGet( Solver % Mesh % Variables, 'Lnodal' )
+    IF ( ASSOCIATED( LVar ) ) THEN
+      Lnodal => LVar % Values
+    ELSE
+      ALLOCATE( Lnodal(LocalNodes))
+    END IF
+    
+    LVar => VariableGet( Solver % Mesh % Variables, 'Anodal' )
+    IF ( ASSOCIATED( LVar ) ) THEN
+      Anodal => LVar % Values
+    ELSE
+      ALLOCATE( Anodal(LocalNodes))
+    END IF
+    
+    LVar => VariableGet( Solver % Mesh % Variables, 'Pnodal' )
+    IF ( ASSOCIATED( LVar ) ) THEN
+      Pnodal => LVar % Values
+    ELSE
+      ALLOCATE( Pnodal(LocalNodes))
+    END IF
+    
+    LVar => VariableGet( Solver % Mesh % Variables, 'Qnodal' )
+    IF ( ASSOCIATED( LVar ) ) THEN
+      Qnodal => LVar % Values
+    ELSE
+      ALLOCATE( Qnodal(LocalNodes))
+    END IF
+    
+    ALLOCATE( Cnodal( LocalNodes ), & 
+        Unodal( LocalNodes ), & 
+        Wprev( LocalNodes ),  &
+        Lprev( LocalNodes ),  &
+        Aprev( LocalNOdes ) )
+    
+    Cnodal = 0
+    Unodal = 0
+    Wprev = 0
+    Lprev = 0
+    Aprev = 0
+    
+    AllocationsDone = .TRUE.
+  END IF
+  
+  !------------------------------------------------------------------------------
+  ! Compute the lumped values for area, flux and pressure on the corresponding boundaries
+  !------------------------------------------------------------------------------
+  
+  ! Check which boundaries should be lumped and mark them with the corresponding 1D dof
+  LumpedBoundaries = .0
+  DO bc=1,Model % NumberOfBCs       
+    
+    j = ListGetInteger( Model % BCs(bc) % Values, 'Coupled With Boundary', GotIt)
+    IF(.NOT. GotIt) CYCLE
+    
+    DO t = Model % NumberOfBulkElements + 1, &
+        Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+      
+      Element => Model % Elements(t)
+      
+      IF ( Element % BoundaryInfo % Constraint /= Model % BCs(bc) % Tag ) CYCLE
+      
+      Model % CurrentElement => Element
+      n = Element % TYPE % NumberOfNodes
+      IF(n /= 1) CYCLE 
+      
+      k = WPerm(Element % NodeIndexes(1))
+      LumpedBoundaries(j) = k
+      EXIT
+    END DO
+  END DO
+  
+  CALL LumpedFluidicForce( LumpedBoundaries, FluidicForces, FluidicAreas,FluidicFluxes)
+  
+  Connections = 0
+  DO bc=1,Model % NumberOfBCs  
+    IF(LumpedBoundaries(bc) /= 0) THEN
+      Connections = Connections + 1
+      joinnode = LumpedBoundaries(bc)
+      
+      WRITE(Message,'(A,I)') 'Lumping Boundary:',bc
+      CALL Info('ArteryOneDim',Message)
+      WRITE(Message,'(A,E)') 'Force',FluidicForces(bc)
+      CALL Info('ArteryOneDim',Message)
+      WRITE(Message,'(A,E)') 'Area',FluidicAreas(bc)
+      CALL Info('ArteryOneDim',Message)
+      WRITE(Message,'(A,E)') 'Flux:',FluidicFluxes(bc)
+      CALL Info('ArteryOneDim',Message)
+    END IF
+  END DO
+  
+  !------------------------------------------------------------------------------
+  !    Do some additional initialization
+  !------------------------------------------------------------------------------
+  CALL InitializeToZero( StiffMatrix, ForceVector )
+  
+  NonlinearTol = ListGetConstReal( Solver % Values, &
+      'Nonlinear System Convergence Tolerance',minv=0.0d0 )
+  
+  NonlinearIter = ListGetInteger( Solver % Values, &
+      'Nonlinear System Max Iterations', minv=0 )
+  
+  Method = ListGetString( Solver % Values, 'Timestepping Method', GotIt )     
+  prev_mat_id = -1
+  
+  !------------------------------------------------------------------------------
+  ! Fractional step (optional) initialization 
+  !------------------------------------------------------------------------------
+  
+  IF ( Method == 'fs') THEN 
+    fsTheta = ListGetConstReal( CurrentModel % Simulation,'FS Theta', GotIt )
+    
+    IF(.NOT. GotIt) fsTheta = 1.0 - SQRT(2.0)/2.0
+    fsdTheta = 1.0 - 2.0 * fsTheta
+    fsAlpha  = fsdTheta / ( 1.0 - fsTheta )
+    fsBeta   = 1.0 - fsAlpha        
+    fsstepmax = 3
+    
+    CALL ListAddConstReal( Solver % Values, 'fsTheta', fsTheta )
+    CALL ListAddConstReal( Solver % Values, 'fsdTheta', fsdTheta )
+    CALL ListAddConstReal( Solver % Values, 'fsAlpha', fsAlpha )
+    CALL ListAddConstReal( Solver % Values, 'fsBeta', fsBeta )
+  ELSE
+    fsstepmax = 1
+  END IF
+  
+  !------------------------------------------------------------------------------
+  ! Fractional step loop
+  !------------------------------------------------------------------------------
+  
+  DO fsstep = 1,fsstepmax
+    
+    IF ( Method == 'fs') THEN 
+      CALL InitializeTimeStep(Solver)
+      Solver % Variable % PrevValues(:,1) = Solver % Variable % Values 
+      CALL ListAddConstReal( Solver % Values, 'fsstep', 1.0d0*fsstep )
+      
+      WRITE(Message,'(A,I)') 'Fractional Step:',fsstep
+      CALL Info('ArteryOneDim',Message)
+    END IF
+    
+    !------------------------------------------------------------------------------
+    ! Nonlinear iteration
+    !------------------------------------------------------------------------------
+    prev_mat_id = -1
+    DO nonliniter = 1,NonlinearIter
+      
+      CALL InitializeToZero( StiffMatrix, ForceVector )
+      
+      WRITE(Message,'(A,I)') 'Nonlinear iteration:',nonliniter
+      CALL Info('ArteryOneDim',Message)
+      
+      !------------------------------------------------------------------------------
+      !    Do the assembly
+      !------------------------------------------------------------------------------
+      
+      DO ie = 1, Solver % NumberOfActiveElements 
+        
+        CurrentElement => Solver % Mesh % Elements( Solver % ActiveElements(ie) )
+        n = CurrentElement % TYPE % NumberOfNodes
+        
+        NodeIndexes => CurrentElement % NodeIndexes
+        ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
+        ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
+        ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(NodeIndexes)
+        
+        mat_id = ListGetInteger( Model % Bodies( CurrentElement % BodyId ) % Values, 'Material')    
+        
+        IF(mat_id /= prev_mat_id) THEN
+          Material => Model % Materials(mat_id) % Values
+          
+          Density = ListGetConstReal( Material, 'Density')
+          WallYoungs = ListGetConstReal( Material, 'Wall Youngs Modulus')
+          TubeRadius = ListGetConstReal( Material, 'Tube Radius')
+          TubeWallThickness = ListGetConstReal( Material, 'Tube Wall Thickness')
+          PoissonRatio = ListGetConstReal( Material, 'Tube Poisson Ratio')
+          
+          Aref = Pi * TubeRadius**2
+          
+          BetaCoeff = ( 1 / (1 - PoissonRatio**2) ) * &
+              ( SQRT(pi) * TubeWallThickness  * WallYoungs ) / ( Aref)
+          
+          W20 = -4 * SQRT( (BetaCoeff/(2.0*Density) ) * SQRT(Aref) ) 
+          prev_mat_id = mat_id
+        END IF
+        
+        IF( FirstTime ) THEN
+          Anodal( Wperm(NodeIndexes) ) = Aref
+          Unodal( Wperm(NodeIndexes) ) = 0.0 
+          Cnodal( Wperm(NodeIndexes) ) = SQRT( (BetaCoeff/(2.0*Density))  * SQRT(Aref) )
+          Lnodal( Wperm(NodeIndexes) ) = SQRT( (BetaCoeff/(2.0*Density))  * SQRT(Aref) )
+          Pnodal( Wperm(NodeIndexes) ) = 0.0
+        END IF
+        
+        Lelem(1:n) = Lnodal( Wperm(NodeIndexes) )
+        
+        !------------------------------------------------------------------------------
+        !      Get element local matrix, and rhs vector
+        !------------------------------------------------------------------------------
+        CALL LocalMatrix(  LocalStiffMatrix, LocalMassMatrix, &
+            LocalForce, Lelem, CurrentElement, n, ElementNodes)
+        
+        IF( TransientSimulation ) THEN
+          CALL Add1stOrderTime( LocalMassMatrix, LocalStiffMatrix, &
+              LocalForce, dt, N, 1, WPerm(NodeIndexes), Solver )
+        END IF
+        
+        !------------------------------------------------------------------------------
+        !      Update global matrix and rhs vector from local matrix & vector
+        !------------------------------------------------------------------------------
+        CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
+            ForceVector, LocalForce, n, 1, WPerm(NodeIndexes) )
+        
+        !------------------------------------------------------------------------------
+        
+      END DO !Assembly
+      
+      !------------------------------------------------------------------------------
+      !    FinishAssembly must be called after all other assembly steps, but before
+      !    Dirichlet boundary settings. Actually no need to call it except for
+      !    transient simulations.
+      !------------------------------------------------------------------------------
+      CALL FinishAssembly( Solver,ForceVector )
+      
+      FirstTime = .FALSE.
+      
+      !------------------------------------------------------------------------------
+      !    Built-in Dirichlet boundary conditions
+      !------------------------------------------------------------------------------
+      
+      DO bc=1,Model % NumberOfBCs
+        
+        k = LumpedBoundaries(bc)
+        IF(k == 0) CYCLE
+        
+        psi = FluidicForces(bc) / FluidicAreas(bc)
+        A2 = FluidicAreas(bc)
+        Q2 = FluidicFluxes(bc)
+        
+        Wbcnode = (Q2/A2) + 2 * SQRT(2.0/Density) * ( SQRT(psi + BetaCoeff * SQRT(Aref)) )
+        
+        IF ( StiffMatrix % FORMAT == MATRIX_SBAND ) THEN
+          CALL SBand_SetDirichlet( StiffMatrix, ForceVector, k, Wbcnode )
+        ELSE IF ( StiffMatrix % FORMAT == MATRIX_CRS .AND. StiffMatrix % Symmetric ) THEN
+          CALL CRS_SetSymmDirichlet( StiffMatrix, ForceVector, k, Wbcnode )
+        ELSE
+          ForceVector(k) = Wbcnode
+          CALL ZeroRow( StiffMatrix, k )
+          CALL SetMatrixElement( StiffMatrix, k, k, 1.0d0 )
+        END IF
+        
+      END DO
+      
+      !------------------------------------------------------------------------------
+      !    Solve the system and we are done.
+      !------------------------------------------------------------------------------
+      Wprev = Wnodal
+      Lprev = Lnodal
+      Aprev = Anodal
+      
+      CALL SolveSystem( StiffMatrix, ParMatrix, ForceVector, &
+          Wnodal, Norm, 1, Solver )
+      
+      !------------------------------------------------------------------------------
+      !  Update the dofs dependent on Wnodal
+      !------------------------------------------------------------------------------
+      Anodal = ( (Density/BetaCoeff)**2 ) * (Wnodal - W20)**4 / (4**5)
+      Unodal = ( Wnodal + W20 ) / 2.0
+      Qnodal = Anodal * Unodal
+      Cnodal = SQRT( BetaCoeff/(2.0*Density) ) * Anodal**0.25
+      Lnodal = Unodal + Cnodal
+      Pnodal = BetaCoeff * ( SQRT(Anodal) - SQRT(Aref) )
+      
+      !------------------------------------------------------------------------------
+      !  Check the nonlinear convergence
+      !------------------------------------------------------------------------------
+      WdiffSum = SUM( ABS(Lnodal - Lprev) )
+      WnodalSum = SUM( ABS(Lnodal) )
+      WprevnodalSum = SUM( ABS(Lprev) )
+      
+      IF( WnodalSum + WprevnodalSum > TINY(WnodalSum)) THEN
+        Werror = 2 * WdiffSum / (WnodalSum + WprevnodalSum)
+      ELSE
+        Werror = 0.0d0
+      END IF
+      
+      WRITE(Message,'(A,E)') 'Relative Change:',Werror
+      CALL Info('ArteryOneDim',Message)
+      
+      IF ( Werror < NonlinearTol ) EXIT
+      
+    END DO ! Nonlinear iterations
+    !------------------------------------------------------------------------------
+    
+  END DO ! Fractional-Step
+  !------------------------------------------------------------------------------
+  
+  !------------------------------------------------------------------------------
+  !  Save the new pressure and change in radius to be used in the outlet
+  !  boundary (1D or 2D) of the Navier-Stokes equation.
+  !------------------------------------------------------------------------------
+  
+  DO bc=1,Model % NumberOfBCs  
+    IF(LumpedBoundaries(bc) /= 0) THEN
+      joinnode = LumpedBoundaries(bc)
+      
+      pres2dout = Pnodal(joinnode)
+      AreaIn1d = Anodal(joinnode)
+      RadiusIn1d = SQRT( AreaIn1d / PI )         
+      dR = RadiusIn1d - TubeRadius
+      
+      IF(Connections == 1) THEN
+        Name = 'res: pout'
+      ELSE IF(bc < 10) THEN
+        WRITE(Name,'(A,I1)') 'res: pout',bc
+      ELSE
+        WRITE(Name,'(A,I2)') 'res: pout',bc
+      END IF
+      CALL ListAddConstReal( Model % Simulation, TRIM(Name), pres2dout )
+      
+      IF(Connections == 1) THEN
+        Name = 'res: dRout'
+      ELSE IF(bc < 10) THEN
+        WRITE(Name,'(A,I1)') 'res: dRout',bc
+      ELSE
+        WRITE(Name,'(A,I2)') 'res: dRout',bc
+      END IF
+      CALL ListAddConstReal( Model % Simulation,TRIM(Name), dR )                 
+    END IF
+  END DO
+  
+CONTAINS
+  
+!------------------------------------------------------------------------------
+  SUBROUTINE LocalMatrix( StiffMatrix,MassMatrix,&
+      Force, Lelem, Element, n, Nodes )
+    !------------------------------------------------------------------------------
+    REAL(KIND=dp) :: StiffMatrix(:,:), MassMatrix(:,:), &
+        Force(:), Lelem(:)
+    INTEGER :: n
+    TYPE(Nodes_t) :: Nodes
+    TYPE(Element_t), POINTER :: Element
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),ddBasisddx(n,3,3)
+    REAL(KIND=dp) :: SqrtElementMetric,U,V,W,S,Lambda
+    LOGICAL :: Stat
+    INTEGER :: i,p,q,t,DIM
+
+    TYPE(GaussIntegrationPoints_t) :: IntegStuff
+ 
+!------------------------------------------------------------------------------
+    DIM = CoordinateSystemDimension()
+    Force = 0.0d0
+    StiffMatrix = 0.0d0
+    MassMatrix = 0.0d0
+
+!------------------------------------------------------------------------------
+!      Numerical integration
+!------------------------------------------------------------------------------
+    IntegStuff = GaussPoints( Element, n+1 )
+    
+    DO t=1, IntegStuff % n   ! = integ.pisteiden lkm.
+      
+      U = IntegStuff % u(t)
+      V = IntegStuff % v(t)
+      W = IntegStuff % w(t)
+      S = IntegStuff % s(t)
+!------------------------------------------------------------------------------
+!        Basis function values & derivatives at the integration point
+!------------------------------------------------------------------------------
+      stat = ElementInfo( Element,Nodes,U,V,W, SqrtElementMetric, &
+          Basis, dBasisdx, ddBasisddx, .FALSE. )
+      
+      S = S * SqrtElementMetric
+      Lambda = SUM( Lelem(1:n) * Basis(1:n) )
+
+!------------------------------------------------------------------------------
+!        The Poisson equation
+!------------------------------------------------------------------------------
+      DO p = 1,N
+        Force(p) = Force(p) + L * Basis(p) * S
+      END DO
+      
+      DO p = 1,N
+        DO q = 1,N
+          MassMatrix(p,q) = MassMatrix(p,q) + Basis(p) * Basis(q)*s
+        END DO
+      END DO
+      
+      DO p = 1,N
+        DO q = 1,N
+          DO i=1,DIM
+            StiffMatrix(p,q) = StiffMatrix(p,q) + Lambda * Basis(p) &
+                * dBasisdx(q,i) * S
+          END DO
+        END DO
+      END DO
+      
+!------------------------------------------------------------------------------
+    END DO
+!------------------------------------------------------------------------------
+  END SUBROUTINE LocalMatrix
+
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE LumpedFluidicForce( LumpedBoundaries, FluidicForces, FluidicAreas, FluidicFluxes )
+!------------------------------------------------------------------------------
+    IMPLICIT NONE
+    
+    INTEGER :: LumpedBoundaries(:)
+    REAL(KIND=dp) :: FluidicForces(:), FluidicAreas(:), FluidicFluxes(:)
+    
+    REAL(KIND=dp), ALLOCATABLE :: Pressure(:), Velocity(:,:), Viscosity(:)
+    TYPE(Solver_t), POINTER :: FlowSolver
+    LOGICAL :: Stat, ViscousForce, Compressible, AllocationDone = .FALSE. 
+    INTEGER :: i,j,k,n,pn,t,dim
+    INTEGER, POINTER :: NodeIndexes(:)
+    TYPE(Variable_t), POINTER :: Var
+    TYPE(Mesh_t), POINTER :: Mesh
+    TYPE(ValueList_t), POINTER :: Material
+    TYPE(Nodes_t) :: ElementNodes, ParentNodes
+    TYPE(Element_t), POINTER   :: Element, Parent
+    CHARACTER(LEN=MAX_NAME_LEN) :: VariableName
+    
+    REAL(KIND=dp) :: Force(3), SumNormal(3), Area, LForce(3), Flux, NormalVelo
+    
+    REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:), ddBasisddx(:,:,:), &
+        ParentBasis(:), ParentdBasisdx(:,:), x(:), y(:), z(:)
+    REAL(KIND=dp) :: u, v, w, s, detJ, xpos
+    REAL(KIND=dp) :: Grad(3,3), Stress(3,3), Normal(3), Div, Visc
+    
+    TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
+    
+    SAVE AllocationDone 
+    
+    CALL Info( 'LumpedForceCompute', '-------------------------------------',Level=4 )
+    CALL Info( 'LumpedForceCompute', 'Computing Lumped Boundary:  ', Level=4 )
+    CALL Info( 'LumpedForceCompute', '-------------------------------------',Level=4 )
+    
+    DO i=1,Model % NumberOfSolvers
+      FlowSolver => Model % Solvers(i)
+      IF ( ListGetString( FlowSolver % Values, 'Equation' ) == 'navier-stokes' ) EXIT
+    END DO
+    
+    Mesh => Model % Meshes
+    DO WHILE( ASSOCIATED(Mesh) )
+      IF ( Mesh % OutputActive ) EXIT 
+      Mesh => Mesh % Next
+    END DO
+    CALL SetCurrentMesh( Model, Mesh )
+    
+    VariableName = GetString( Solver % Values, 'Velocity Field Name', stat )
+    IF ( .NOT. stat )  THEN
+      Var => VariableGet( Mesh % Variables, 'Flow Solution', .TRUE. )
+    ELSE
+      Var => VariableGet( Mesh % Variables, VariableName, .TRUE. )
+    END IF
+    
+    IF(.NOT. AllocationDone) THEN
+      n = Mesh % MaxElementNodes
+      
+      ALLOCATE( ElementNodes % x(n), &
+          ElementNodes % y(n),  &
+          ElementNodes % z(n), &
+          ParentNodes % x(n), &
+          ParentNodes % y(n),  &
+          ParentNodes % z(n), &
+          Basis(n), dBasisdx(n,3), &
+          ParentBasis(n), ParentdBasisdx(n,3), &
+          x(n), y(n), z(n), &
+          Pressure( n ), &
+          Viscosity( n ), &
+          Velocity( 3, n ) )
+      AllocationsDone = .TRUE.         
+    END IF
+    
+    
+    DIM = CoordinateSystemDimension()
+    
+    ViscousForce = ListGetLogical( Solver % Values, 'Consider Viscous Force',stat )
+    IF ( .NOT. stat )  ViscousForce = .FALSE.    
+    Compressible = ListGetLogical( Solver % Values, 'Consider Compressibility',stat )
+        
+    DO k=1, Model % NumberOfBCs
+      IF( LumpedBoundaries(k) == 0 ) CYCLE
+      
+      Force = 0.0d0
+      SumNormal = 0.0d0
+      Area = 0.0d0
+      Flux = 0.0d0
+      
+      DO t = Mesh % NumberOfBulkElements + 1, &
+          Mesh % NumberOfBulkElements + &
+          Mesh % NumberOfBoundaryElements
+        
+        Element => Mesh % Elements(t)
+        IF ( Element % TYPE % ElementCode == 101 ) CYCLE
+        IF ( Model % BCs(k) % Tag /= Element % BoundaryInfo % Constraint ) CYCLE
+        
+        Model % CurrentElement => Mesh % Elements(t)
+        n = Element % TYPE % NumberOfNodes
+        NodeIndexes => Element % NodeIndexes
+        
+        ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
+        ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
+        ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
+        
+        Parent => Element % BoundaryInfo % Left
+        
+        stat = ASSOCIATED( Parent )
+        IF ( stat ) stat = stat .AND. ALL(Var % Perm(Parent % NodeIndexes(1:n)) > 0)
+        
+        IF ( .NOT. stat ) THEN
+          Parent => ELement % BoundaryInfo % Right
+          
+          stat = ASSOCIATED( Parent )
+          IF ( stat ) stat = ALL(Var % Perm(Parent % NodeIndexes(1:n)) > 0)
+          
+          IF ( .NOT. stat )  THEN
+            CALL Warn( 'LumpedForceCompute', &
+                'No flow solution available for specified boundary' )
+            CYCLE
+          END IF
+        END IF
+        
+        pn = Parent % TYPE % NumberOfNodes           
+        ParentNodes % x(1:pn) = Mesh % Nodes % x(Parent % NodeIndexes)
+        ParentNodes % y(1:pn) = Mesh % Nodes % y(Parent % NodeIndexes)
+        ParentNodes % z(1:pn) = Mesh % Nodes % z(Parent % NodeIndexes)
+        
+        j = ListGetInteger( Model % Bodies(Parent % BodyId) % Values, 'Material', &
+            minv=1, maxv=Model % NumberOFMaterials )
+        Material => Model % Materials(j) % Values
+        
+        Viscosity(1:pn) = ListGetReal( Material, 'Viscosity', pn, Parent % NodeIndexes )
+        
+        Velocity = 0.0d0
+        DO i=1,pn
+          DO j=1,DIM
+            Velocity(j,i) = &
+                Var % Values(Var % DOFs * (Var % Perm(Parent % NodeIndexes(i))-1)+j)
+          END DO
+        END DO
+        Pressure(1:pn) = Var % Values(Var % DOFs * Var % Perm(Parent % NodeIndexes))
+        
+        IntegStuff = GaussPoints( Element )
+        
+!------------------------------------------------------------------------------
+        DO l=1,IntegStuff % n
+!------------------------------------------------------------------------------
+
+          u = IntegStuff % u(l)
+          v = IntegStuff % v(l)
+          w = IntegStuff % w(l)
+          s = IntegStuff % s(l) 
+
+!------------------------------------------------------------------------------
+!      Basis function values & derivatives at the integration point
+!------------------------------------------------------------------------------
+          stat = ElementInfo( Element, ElementNodes, u, v, w, &
+              detJ, Basis, dBasisdx, ddBasisddx, .FALSE. )
+
+!------------------------------------------------------------------------------
+!      Coordinatesystem dependent info
+!------------------------------------------------------------------------------
+          s = s * detJ
+          
+          IF ( CurrentCoordinateSystem() /= Cartesian ) THEN
+            xpos = SUM( ElementNodes % x(1:n) * Basis(1:n) )
+            s = s * 2.0 * PI * xpos
+          END IF
+          
+          Normal = Normalvector( Element, ElementNodes, u, v, .TRUE. )
+        
+          !------------------------------------------------------------------------------
+          ! Need parent element basis etc., for computing normal derivatives on boundary.
+          !------------------------------------------------------------------------------
+          
+          DO i = 1,n
+            DO j = 1,pn
+              IF ( Element % NodeIndexes(i) == Parent % NodeIndexes(j) ) THEN
+                x(i) = Parent % TYPE % NodeU(j)
+                y(i) = Parent % TYPE % NodeV(j)
+                z(i) = Parent % TYPE % NodeW(j)
+                EXIT
+              END IF
+            END DO
+          END DO
+          
+          u = SUM( Basis(1:n) * x(1:n) )
+          v = SUM( Basis(1:n) * y(1:n) )
+          w = SUM( Basis(1:n) * z(1:n) )
+          
+          stat = ElementInfo( Parent, ParentNodes, u, v, w, detJ, ParentBasis, &
+              ParentdBasisdx,  ddBasisddx, .FALSE. )
+          
+!------------------------------------------------------------------------------
+
+          Stress = 0.0d0
+          Div = 0.0d0
+          
+          NormalVelo = 0.0d0
+          DO j = 1,DIM
+            NormalVelo = NormalVelo + Normal(j) * SUM( ParentBasis(1:pn) * Velocity(j,1:pn) )
+          END DO
+          
+          IF ( ViscousForce ) THEN           
+            Grad = MATMUL( Velocity(:,1:pn),ParentdBasisdx )
+            Visc = SUM( Viscosity(1:pn) * ParentBasis(1:pn) )
+            
+            IF ( Compressible ) THEN             
+              IF ( CurrentCoordinateSystem() == Cartesian ) THEN
+                DO i = 1, DIM
+                  Div = Div + Grad(i,i)
+                END DO
+              ELSE
+                Div = SUM( Velocity(1,1:pn) * ParentdBasisdx(1:pn,1) ) + &
+                    SUM( Velocity(1,1:pn) * ParentBasis(1:pn) ) / xpos + &
+                    SUM( Velocity(2,1:pn) * ParentdBasisdx(1:pn,2) )
+              END IF
+            END IF
+            
+            Stress = Visc * ( Grad + TRANSPOSE(Grad) )           
+          END IF
+          
+          DO i=1,DIM
+            Stress(i,i) = Stress(i,i) - SUM( Pressure(1:pn) * ParentBasis ) &
+                -(2.0d0/3.0d0) * Visc * Div
+          END DO
+          
+          LForce = -MATMUL( Stress, Normal )
+          
+          Force  = Force  + s * LForce
+          Flux = Flux + s * NormalVelo
+          SumNormal = SumNormal + s * Normal
+          
+          Area = Area + s
+             
+!------------------------------------------------------------------------------
+        END DO
+        
+      END DO
+      
+      FluidicAreas(k) = SQRT(SUM(SumNormal * SumNormal))
+      FluidicForces(k) = SUM(Force*SumNormal)/FluidicAreas(k)       
+      FluidicFluxes(k) = Flux
+      
+    END DO
+    
+  END SUBROUTINE LumpedFluidicForce
+  
+!------------------------------------------------------------------------------
+END SUBROUTINE OutletCompute
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+!   Compute the initial guess for the characteristics variable
+!------------------------------------------------------------------------------
+
+FUNCTION OutletInit( Model,n,t ) RESULT( Winit )
+  
+  USE Types
+  USE Lists
+  
+  IMPLICIT NONE
+  
+  TYPE(Model_t) :: Model
+  INTEGER :: n,mat_id
+  REAL( kind=dp ) :: t, Winit  
+  TYPE(ValueList_t), POINTER :: Material
+  REAL( kind=dp ) :: Aref, BetaCoeff, W20, rho, Ew, r, hw, nu
+  
+  mat_id = ListGetInteger( Model % Bodies(  &
+      Model % CurrentElement % BodyId ) % Values, 'Material' )
+  Material => Model % Materials(mat_id) % Values
+  
+  rho = ListGetConstReal( Material, 'Density')
+  Ew = ListGetConstReal( Material, 'Wall Youngs Modulus')
+  R = ListGetConstReal( Material, 'Tube Radius')
+  hw = ListGetConstReal( Material, 'Tube Wall Thickness')
+  nu = ListGetConstReal( Material, 'Tube Poisson Ratio')
+  
+  Aref = pi * R**2
+  BetaCoeff = ( 1 / (1 - nu**2) ) * ( SQRT(pi) * hw  * Ew ) / ( Aref)
+
+  Winit = 4 * ( SQRT( (BetaCoeff/(2.0*rho)) * SQRT(Aref)) )
+  
+END FUNCTION OutletInit
+
+
+!------------------------------------------------------------------------------
+!   Return the change in the radius computed by the characteristics model
+!------------------------------------------------------------------------------
+
+FUNCTION OutletdRadius( Model,n,t ) RESULT(dRout)
+  
+  USE Types
+  USE Lists
+  
+  IMPLICIT NONE
+  TYPE(Model_t) :: Model  
+  INTEGER :: n, bc, bc2
+  REAL( kind=dp ) :: t, dRout
+  LOGICAL :: GotIt
+  CHARACTER(LEN=MAX_NAME_LEN) :: VarName
+
+  dRout = ListGetConstReal( Model % Simulation, 'res: dRout', GotIt)  
+  IF(.NOT. GotIt) THEN    
+    bc = Model % CurrentElement % BoundaryInfo % Constraint
+    bc2 = ListGetInteger( Model % BCs(bc) % Values,'Extension of Boundary', GotIt)
+    IF(GotIt) bc = bc2
+    IF(bc < 10) THEN
+      WRITE(VarName,'(A,I1)') 'res: dRout',bc
+    ELSE
+      WRITE(VarName,'(A,I2)') 'res: dRout',bc
+    END IF
+    dRout = ListGetConstReal( Model % Simulation, VarName, GotIt)  
+  END IF
+
+END FUNCTION OutletdRadius
+
+
+!------------------------------------------------------------------------------
+!   Return the pressure computed by the characteristics model
+!------------------------------------------------------------------------------
+
+FUNCTION OutletPressure( Model,n,t ) RESULT(pout)
+  
+  USE Types
+  USE Lists
+  
+  IMPLICIT NONE
+  TYPE(Model_t) :: Model
+  INTEGER :: n, bc
+  REAL( kind=dp ) :: t, pout
+  LOGICAL :: GotIt
+  CHARACTER(LEN=MAX_NAME_LEN) :: VarName
+
+  pout = ListGetConstReal( Model % Simulation, 'res: pout', GotIt)  
+  IF(.NOT. GotIt) THEN
+    bc = Model % CurrentElement % BoundaryInfo % Constraint
+    IF(bc < 10) THEN
+      WRITE(VarName,'(A,I1)') 'res: pout',bc
+    ELSE
+      WRITE(VarName,'(A,I2)') 'res: pout',bc
+    END IF
+    pout = ListGetConstReal( Model % Simulation, VarName, GotIt)  
+  END IF
+  pout = -pout
+  
+END FUNCTION OutletPressure
+
+!------------------------------------------------------------------------------
