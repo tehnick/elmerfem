@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: NavierStokesCylindrical.src,v 1.8 2006/02/13 06:59:04 jpr Exp $
+! * $Id: NavierStokesCylindrical.src,v 1.9 2006/03/27 10:28:52 jpr Exp $
 ! *****************************************************************************/
 
 MODULE NavierStokesCylindrical
@@ -194,7 +194,7 @@ MODULE NavierStokesCylindrical
      P2P1      = .FALSE.
      Stabilize = StabilizeFlag == 'stabilized'
      IF ( .NOT.Stabilize .OR. Compressible ) THEN
-       PBubbles = Element % BDOFs > 0
+       PBubbles = isPelement(Element) .AND. Element % BDOFs > 0
        IF ( PBubbles ) THEN
           NBasis = n + Element % BDOFs
        ELSE IF ( StabilizeFlag == 'bubbles' .OR. &
