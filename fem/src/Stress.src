@@ -40,6 +40,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Stress.src,v $
+! * Revision 1.10  2006/02/02 07:14:32  jpr
+! * Small formatting changes.
+! *
 ! * Revision 1.9  2006/01/10 13:48:45  apursula
 ! * Updated header information (GPL).
 ! *
@@ -117,7 +120,7 @@
 ! * Modified StressBoundary to work in axisymmetric cases.
 ! *
 ! *
-! * $Id: Stress.src,v 1.9 2006/01/10 13:48:45 apursula Exp $
+! * $Id: Stress.src,v 1.10 2006/02/02 07:14:32 jpr Exp $
 ! *****************************************************************************/
 
 MODULE StressLocal
@@ -621,7 +624,11 @@ MODULE StressLocal
      END DO
 
      Normal = NormalVector( Element,Nodes,u,v,.TRUE. )
-     LoadAtIp = LoadAtIp + SUM( NodalBeta(1:n)*Basis(1:n) ) * Normal
+     IF ( NormalTangential ) THEN
+       LoadAtIp(1) = LoadAtIp(1) + SUM( NodalBeta(1:n)*Basis(1:n) )
+     ELSE
+       LoadAtIp = LoadAtIp + SUM( NodalBeta(1:n)*Basis(1:n) ) * Normal
+     END IF
 
      Stress = 0.0d0
      SELECT CASE(dim)
@@ -654,8 +661,13 @@ MODULE StressLocal
         END SELECT
      END IF
 
-     DampCoeff(1:3)   = SUM( NodalDamp(1:n)*Basis(1:n) )   * Normal
-     SpringCoeff(1:3) = SUM( NodalSpring(1:n)*Basis(1:n) ) * Normal
+     IF ( NormalTangential ) THEN
+       DampCoeff(1)   = SUM( NodalDamp(1:n)*Basis(1:n) )
+       SpringCoeff(1) = SUM( NodalSpring(1:n)*Basis(1:n) )
+     ELSE
+       DampCoeff(1:3)   = SUM( NodalDamp(1:n)*Basis(1:n) )   * Normal
+       SpringCoeff(1:3) = SUM( NodalSpring(1:n)*Basis(1:n) ) * Normal
+     END IF
 
      DO p=1,Ntot
        DO q=1,Ntot

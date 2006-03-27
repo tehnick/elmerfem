@@ -39,6 +39,10 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: NavierStokes.src,v $
+! * Revision 1.10  2006/02/13 06:59:04  jpr
+! * Use linear basis also for mass in the continuity equation when doing
+! * the P2/P1 scheme.
+! *
 ! * Revision 1.9  2006/02/10 07:17:43  jpr
 ! * P2/P1 elements + some rearragements in FlowSolve.
 ! *
@@ -86,7 +90,7 @@
 ! * Added divergence form discretization of the diffusion term.
 ! *
 ! *
-! * $Id: NavierStokes.src,v 1.9 2006/02/10 07:17:43 jpr Exp $
+! * $Id: NavierStokes.src,v 1.10 2006/02/13 06:59:04 jpr Exp $
 ! *****************************************************************************/
 
 MODULE NavierStokes
@@ -254,7 +258,7 @@ MODULE NavierStokes
      P2P1      = .FALSE.
      Stabilize = StabilizeFlag == 'stabilized'
      IF ( .NOT.Stabilize .OR. Compressible1 .OR. Compressible2 ) THEN
-       PBubbles  = Element % BDOFs > 0
+       PBubbles  = isPElement(Element) .AND. Element % BDOFs > 0
        IF ( PBubbles ) THEN
           NBasis = n + Element % BDOFs
        ELSE IF ( StabilizeFlag == 'bubbles' .OR. &
@@ -812,9 +816,13 @@ MODULE NavierStokes
      END DO
 
      Normal = NormalVector( Element, Nodes, u,v,.TRUE. )
-     DO i=1,DIM
-        Force(i) = Force(i) + Alpha * Normal(i)
-     END DO
+     IF ( NormalTangential ) THEN
+       Force(1) = Force(1) + Alpha
+     ELSE
+        DO i=1,DIM
+           Force(i) = Force(i) + Alpha * Normal(i)
+        END DO
+     END IF
 
      Alpha = SUM( NodalAlpha(1:n) * Basis )
      MassFlux = SUM( Loadvector(4,1:n) * Basis(1:n) )

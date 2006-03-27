@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: NavierStokesCylindrical.src,v 1.7 2006/02/10 07:17:43 jpr Exp $
+! * $Id: NavierStokesCylindrical.src,v 1.8 2006/02/13 06:59:04 jpr Exp $
 ! *****************************************************************************/
 
 MODULE NavierStokesCylindrical
@@ -994,9 +994,13 @@ REAL(KIND=dp) :: xx,yy,ydot,ydotdot
 
      Normal = NormalVector( Element, Nodes, u,v,.TRUE. )
      Alpha = SUM( NodalExtPressure(1:n)*Basis )
-     DO i=1,dim
-        Force(i) = Force(i) + Alpha * Normal(i)
-     END DO
+     IF ( NormalTangential ) THEN
+       Force(1) = Force(1) + Alpha
+     ELSE
+       DO i=1,dim
+          Force(i) = Force(i) + Alpha * Normal(i)
+       END DO
+     END IF
 !
 !------------------------------------------------------------------------------
 !    Add to load: given force in normal direction
