@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StatElecSolve.src,v $
+! * Revision 1.15  2006/03/02 15:09:35  vierinen
+! * doubly defined Norm
+! *
 ! * Revision 1.14  2006/02/23 08:53:49  raback
 ! * Changed the potential difference to be computed from BCs.
 ! *
@@ -155,7 +158,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: PiezoMaterial
   
   CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, CapMatrixFile, Name
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.14 2006/02/23 08:53:49 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.15 2006/03/02 15:09:35 vierinen Exp $"
   
   
   SAVE LocalStiffMatrix, Load, LocalForce, Pwrk, PotDiff, &
@@ -789,6 +792,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
        StiffMatrix % Values => MatrixValues
        CALL MatrixVectorMultiply( StiffMatrix, Potential, Charges)
        StiffMatrix % Values => Pmatrix
+       Charges = Charges * PermittivityOfVacuum
        
        Permi = iter
        DO i=1,Model % NumberOfNodes
