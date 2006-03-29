@@ -250,20 +250,77 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
       fprintf( stderr, "Load: FATAL: Can't find procedure [%s]\n", NewName );
       exit(0);
    }
+
+
 #elif defined(HAVE_LOADLIBRARY_API)
 
-   if ( ( Handle = (void *)LoadLibrary( Library ) ) == NULL )
-   { 
-     fprintf( stderr, "Load: FATAL: Can't load shared image [%s]\n", Library );
-
-     /* try .dll */
-     strncat( NewLibName, SHL_EXTENSION, 3*MAX_NAME_LEN );
-     if ( ( Handle = (void *)LoadLibrary( NewLibName ) ) == NULL ) 
-     { 
-       fprintf( stderr, "Load: FATAL: Can't load shared image [%s]. Exiting.\n", NewLibName );
-       exit(0);
-     }
+   /* Try again with explict ELMER_LIB dir */
+   ElmerLib[0] = '\0';
+   cptr = (char *)getenv( "ELMER_LIB" );
+   if ( cptr != NULL ) {
+      strncpy( ElmerLib, cptr, 2*MAX_NAME_LEN );
+      strncat( ElmerLib, "/", 2*MAX_NAME_LEN  );
+   } else {
+      cptr = (char *)getenv("ELMER_HOME");
+      if ( cptr != NULL  ) {
+         strncpy( ElmerLib, cptr, 2*MAX_NAME_LEN );
+         strncat( ElmerLib, "/share/elmersolver/lib/", 2*MAX_NAME_LEN );
+      } else {
+         strncpy( ElmerLib, ELMER_SOLVER_HOME, 2*MAX_NAME_LEN );
+         strncat( ElmerLib, "/lib/", 2*MAX_NAME_LEN );
+      }
    }
+
+   for( i=0; i<6; i++ )
+     {
+        switch(i) 
+        {
+   	  case 0: strncpy( NewLibName, Library,  3*MAX_NAME_LEN );
+                  break;
+          case 1: case 3: case 5:
+                  strncat( NewLibName, SHL_EXTENSION, 3*MAX_NAME_LEN );
+                  break;
+	  case 2: strcpy( NewLibName, "./");
+                  strncat( NewLibName, Library,  3*MAX_NAME_LEN );
+                  break;
+          case 4: strncpy( NewLibName, ElmerLib, 3*MAX_NAME_LEN );
+                  strncat( NewLibName, Library,  3*MAX_NAME_LEN );
+                  break;
+        }
+
+        if ( ( Handle = LoadLibrary( NewLibName ) ) == NULL )
+          {
+	    sprintf( dl_err_msg[i], "Can not find %s.", NewLibName );
+          } else {
+             break;
+          }
+     }
+
+
+   if ( Handle == NULL ) 
+     {
+        for( i=0; i<6; i++ )
+          {
+             switch(i) 
+             {
+               case 0: strncpy( NewLibName, Library,  3*MAX_NAME_LEN );
+                       break;
+               case 1: case 3: case 5:
+                       strncat( NewLibName, SHL_EXTENSION, 3*MAX_NAME_LEN );
+                       break;
+               case 2: strcpy( NewLibName, "./");
+                       strncat( NewLibName, Library,  3*MAX_NAME_LEN );
+                       break;
+               case 4: strncpy( NewLibName, ElmerLib, 3*MAX_NAME_LEN );
+                       strncat( NewLibName, Library,  3*MAX_NAME_LEN );
+                       break;
+             }
+             fprintf( stderr, "\nLoad: Unable to open shared library: [%s]\n", NewLibName );
+             fprintf( stderr, "%s\n", dl_err_msg[i] );
+           }
+         exit(0);
+     }
+
 
    if ( (Function = (void *)GetProcAddress( Handle,NewName ) ) == NULL )
    {
