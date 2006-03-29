@@ -40,6 +40,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: ArteryOutlet.src,v $
+! * Revision 1.1  2006/03/24 13:51:25  raback
+! * *** empty log message ***
+! *
 ! *
 ! *****************************************************************************
  
@@ -580,7 +583,7 @@ CONTAINS
     
     REAL(KIND=dp), ALLOCATABLE :: Pressure(:), Velocity(:,:), Viscosity(:)
     TYPE(Solver_t), POINTER :: FlowSolver
-    LOGICAL :: Stat, ViscousForce, Compressible, AllocationDone = .FALSE. 
+    LOGICAL :: Stat, ViscousForce, Compressible, LocalAllocationDone = .FALSE. 
     INTEGER :: i,j,k,n,pn,t,dim
     INTEGER, POINTER :: NodeIndexes(:)
     TYPE(Variable_t), POINTER :: Var
@@ -599,7 +602,8 @@ CONTAINS
     
     TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
     
-    SAVE AllocationDone 
+    SAVE LocalAllocationDone, ElementNodes, ParentNodes, Basis, dBasisdx, &
+	ParentBasis, ParentdBasisdx, x, y, z, Pressure, Viscosity, Velocity
     
     CALL Info( 'LumpedForceCompute', '-------------------------------------',Level=4 )
     CALL Info( 'LumpedForceCompute', 'Computing Lumped Boundary:  ', Level=4 )
@@ -624,7 +628,7 @@ CONTAINS
       Var => VariableGet( Mesh % Variables, VariableName, .TRUE. )
     END IF
     
-    IF(.NOT. AllocationDone) THEN
+    IF(.NOT. LocalAllocationDone) THEN
       n = Mesh % MaxElementNodes
       
       ALLOCATE( ElementNodes % x(n), &
@@ -639,7 +643,7 @@ CONTAINS
           Pressure( n ), &
           Viscosity( n ), &
           Velocity( 3, n ) )
-      AllocationsDone = .TRUE.         
+      LocalAllocationDone = .TRUE.         
     END IF
     
     
