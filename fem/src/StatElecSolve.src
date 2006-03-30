@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StatElecSolve.src,v $
+! * Revision 1.16  2006/03/28 08:10:46  raback
+! * Permittivity of vacuum was missing in the capacitance computation.
+! *
 ! * Revision 1.15  2006/03/02 15:09:35  vierinen
 ! * doubly defined Norm
 ! *
@@ -158,7 +161,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: PiezoMaterial
   
   CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, CapMatrixFile, Name
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.15 2006/03/02 15:09:35 vierinen Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.16 2006/03/28 08:10:46 raback Exp $"
   
   
   SAVE LocalStiffMatrix, Load, LocalForce, Pwrk, PotDiff, &
@@ -592,7 +595,9 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
       END DO
     
-      MatrixValues = StiffMatrix % Values 
+      IF(CalculateCapMatrix .AND. iter == 1) THEN  	
+        MatrixValues = StiffMatrix % Values 
+      END IF
     END IF
 
     MinPotential = HUGE(MinPotential)
