@@ -1,3 +1,4 @@
+#ifndef MINGW32
 #ifndef MINMAXPATCH_H
 #define MINMAXPATCH_H
 
@@ -19,4 +20,5 @@ namespace std
 
 };
 
+#endif
 #endif
