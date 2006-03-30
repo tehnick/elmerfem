@@ -282,6 +282,7 @@ BINARIES = AdvectionDiffusion$(SHL_EXT) \
 	ElectricForce$(SHL_EXT) \
 	Smitc$(SHL_EXT) \
 	Stokes$(SHL_EXT) \
+	ArteryOutlet$(SHL_EXT) \
 	StreamSolver$(SHL_EXT) \
 	KESolver$(SHL_EXT) \
 	PoissonBoltzmannSolve$(SHL_EXT) \
@@ -973,14 +974,14 @@ $(BINARIES) $(BINARIES_ODD): libelmersolver$(SHL_EXT)
 $(SOLVEROBJS): mpif
 
 # the only way I got ibm MPI working was with mpxlf90...
-@IBM_IS_PIECE_OF_SHIT_TRUE@ElmerSolver_mpi$(EXE_EXT): Solver$(OBJ_EXT) $(SOLVEROBJS)
-@IBM_IS_PIECE_OF_SHIT_TRUE@	$(MPI_F90) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver_mpi$(EXE_EXT) \
-@IBM_IS_PIECE_OF_SHIT_TRUE@		   Solver$(OBJ_EXT) $(SOLVEROBJS) \
-@IBM_IS_PIECE_OF_SHIT_TRUE@		   $(SOLVER_LIBS) $(PARPACK_LIBS) $(MPI_LIBS) $(EXTRA_LIBS) 
-@IBM_IS_PIECE_OF_SHIT_FALSE@ElmerSolver_mpi$(EXE_EXT): Solver$(OBJ_EXT) libelmersolver$(SHL_EXT)
-@IBM_IS_PIECE_OF_SHIT_FALSE@	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
-@IBM_IS_PIECE_OF_SHIT_FALSE@	      -o ElmerSolver_mpi$(EXE_EXT) Solver$(OBJ_EXT) \
-@IBM_IS_PIECE_OF_SHIT_FALSE@	      -L. -lelmersolver $(PARPACK_LIBS) $(MPI_LIBS) $(EXTRA_LIBS)
+@IBM_IS_PIECE_OF_SHIT_TRUE@@USE_MPI_TRUE@ElmerSolver_mpi$(EXE_EXT): Solver$(OBJ_EXT) $(SOLVEROBJS)
+@IBM_IS_PIECE_OF_SHIT_TRUE@@USE_MPI_TRUE@	$(MPI_F90) $(B64FLAGS) $(LDFLAGS) -o ElmerSolver_mpi$(EXE_EXT) \
+@IBM_IS_PIECE_OF_SHIT_TRUE@@USE_MPI_TRUE@		   Solver$(OBJ_EXT) $(SOLVEROBJS) \
+@IBM_IS_PIECE_OF_SHIT_TRUE@@USE_MPI_TRUE@		   $(SOLVER_LIBS) $(PARPACK_LIBS) $(MPI_LIBS) $(EXTRA_LIBS) 
+@IBM_IS_PIECE_OF_SHIT_FALSE@@USE_MPI_TRUE@ElmerSolver_mpi$(EXE_EXT): Solver$(OBJ_EXT) libelmersolver$(SHL_EXT)
+@IBM_IS_PIECE_OF_SHIT_FALSE@@USE_MPI_TRUE@	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
+@IBM_IS_PIECE_OF_SHIT_FALSE@@USE_MPI_TRUE@	      -o ElmerSolver_mpi$(EXE_EXT) Solver$(OBJ_EXT) \
+@IBM_IS_PIECE_OF_SHIT_FALSE@@USE_MPI_TRUE@	      -L. -lelmersolver $(PARPACK_LIBS) $(MPI_LIBS) $(EXTRA_LIBS)
 
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libelmersolver$(SHL_EXT) mpi_stubs$(OBJ_EXT)
 	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
@@ -997,10 +998,10 @@ GebhardtFactors$(EXE_EXT): libelmersolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT) mp
 	      -o GebhardtFactors$(EXE_EXT) GebhardtFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT) \
 	      -L. -lelmersolver viewaxis/libviewaxis.a view3d/libview3d.a $(EXTRA_LIBS)
 
-ResultToResult$(EXE_EXT): libelmersolver$(SHL_EXT) ResultToResult$(OBJ_EXT)
-	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
-	      -o ResultToResult$(EXE_EXT) ResultToResult$(OBJ_EXT) \
-	      -L. -lelmersolver mpi_stubs$(OBJ_EXT) $(EXTRA_LIBS)
+@USE_WINDOWS_COMPILER_FALSE@ResultToResult$(EXE_EXT): libelmersolver$(SHL_EXT) ResultToResult$(OBJ_EXT)
+@USE_WINDOWS_COMPILER_FALSE@	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
+@USE_WINDOWS_COMPILER_FALSE@	      -o ResultToResult$(EXE_EXT) ResultToResult$(OBJ_EXT) \
+@USE_WINDOWS_COMPILER_FALSE@	      -L. -lelmersolver mpi_stubs$(OBJ_EXT) $(EXTRA_LIBS)
 install-data-local:
 	@echo "Installing solvers to ${ELMER_SOLVER_DATADIR}/lib"
 

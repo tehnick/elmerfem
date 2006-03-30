@@ -31,7 +31,7 @@ if test "$ELMER_HOME" = ""; then
     export ELMER_MESH2D="Mesh2D"
     export LD_LIBRARY_PATH=".:$ELMER_HOME:$LD_LIBRARY_PATH"
     # assume that stuff has been installed here
-    export PATH=/home/vierinen/src/elmer/buildtools/build.laatikko.2005-10-05-10-33-14/dist/bin:$PATH
+    export PATH=/tmp/jpr/bin:$PATH
 else 
     # ELMER_HOME is defined, so we'll just use that
     printf "\$ELMER_HOME=%s\n" $ELMER_HOME
@@ -47,8 +47,8 @@ fi
 #
 # Autoconf substitutes these variables with correct values.
 #
-export F90="g95 -O -fPIC -I. -I. -I$ELMER_INCLUDE"
-export LD="g95 -shared  "
+export F90="gfortran -O -fPIC -I. -I. -I$ELMER_INCLUDE"
+export LD="gfortran -shared  "
 export LIBS="-L$ELMER_LIB "
 
 gcc -o findnorm$EXE_EXT findnorm.c
@@ -58,7 +58,7 @@ chmod 775 findnorm$EXE_EXT compare$EXE_EXT
 total=0
 passed=0
 
-if test "$1" == ""; then
+if test "$1" = ""; then
    dirs=`find . -type d |sed -e 's/\// /g' |awk '{print $2}' |uniq |grep -v CVS`
 else
    dirs="$*"

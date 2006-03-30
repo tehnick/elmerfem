@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.82 2006/01/05 13:43:27 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.83 2006/02/10 12:22:28 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1473,7 +1473,8 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
       && test "$ac_cv_func_shl_findsym" = yes; then
       shl_load_api=true
     else
-	if test "$acx_cv_c_compiler_ms" = "yes"; then
+        case "$canonical_host_type" in
+  	*-*-cygwin* | *-*-mingw*)
 		# in windows, no generic test seems to work 
 		AC_MSG_CHECKING([for LoadLibrary in windows])
 		AC_LINK_IFELSE(
@@ -1492,7 +1493,9 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
 			ac_cv_func_loadlibrary=no
 		])
 		AC_MSG_RESULT($ac_cv_func_loadlibrary)
-      fi
+          
+        esac 
+
       if test "$ac_cv_func_loadlibrary" = yes; then
         loadlibrary_api=true
       else

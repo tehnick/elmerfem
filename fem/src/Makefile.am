@@ -76,6 +76,7 @@ $(BINARIES) $(BINARIES_ODD): libelmersolver$(SHL_EXT)
 
 $(SOLVEROBJS): mpif
 
+if USE_MPI
 # the only way I got ibm MPI working was with mpxlf90...
 if IBM_IS_PIECE_OF_SHIT
 ElmerSolver_mpi$(EXE_EXT): Solver$(OBJ_EXT) $(SOLVEROBJS)
@@ -87,6 +88,7 @@ ElmerSolver_mpi$(EXE_EXT): Solver$(OBJ_EXT) libelmersolver$(SHL_EXT)
 	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
 	      -o ElmerSolver_mpi$(EXE_EXT) Solver$(OBJ_EXT) \
 	      -L. -lelmersolver $(PARPACK_LIBS) $(MPI_LIBS) $(EXTRA_LIBS)
+endif
 endif
 
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libelmersolver$(SHL_EXT) mpi_stubs$(OBJ_EXT)
@@ -104,10 +106,13 @@ GebhardtFactors$(EXE_EXT): libelmersolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT) mp
 	      -o GebhardtFactors$(EXE_EXT) GebhardtFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT) \
 	      -L. -lelmersolver viewaxis/libviewaxis.a view3d/libview3d.a $(EXTRA_LIBS)
 
+if USE_WINDOWS_COMPILER
+else
 ResultToResult$(EXE_EXT): libelmersolver$(SHL_EXT) ResultToResult$(OBJ_EXT)
 	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
 	      -o ResultToResult$(EXE_EXT) ResultToResult$(OBJ_EXT) \
 	      -L. -lelmersolver mpi_stubs$(OBJ_EXT) $(EXTRA_LIBS)
+endif
 
 ELMER_SOLVER_DATADIR=$(prefix)/share/elmersolver
 install-data-local:

@@ -32,7 +32,7 @@
 #define ELMER_LINKTYP 1
 
 /* Elmer solver default install directory */
-#define ELMER_SOLVER_HOME "/home/vierinen/src/elmer/buildtools/build.laatikko.2005-10-05-10-33-14/dist/share/elmersolver"
+#define ELMER_SOLVER_HOME "/tmp/jpr/share/elmersolver"
 
 /* Define if using dynamic linking */
 #define ENABLE_DYNAMIC_LINKING 1
@@ -46,7 +46,7 @@
 #define F77_FUNC(name,NAME) name ## _
 
 /* As F77_FUNC, but for C identifiers containing underscores. */
-#define F77_FUNC_(name,NAME) name ## __
+#define F77_FUNC_(name,NAME) name ## _
 
 /* Char pointer mangling */
 #define FC_CHAR_PTR(P,L) char *P
@@ -63,7 +63,7 @@
 #define FC_FUNC(name,NAME) name ## _
 
 /* As FC_FUNC, but for C identifiers containing underscores. */
-#define FC_FUNC_(name,NAME) name ## __
+#define FC_FUNC_(name,NAME) name ## _
 
 /* Define if you have a ARPACK library. */
 #define HAVE_ARPACK 1
@@ -113,9 +113,6 @@
 
 /* Define to 1 if you have the `dld' library (-ldld). */
 /* #undef HAVE_LIBDLD */
-
-/* Define to 1 if you have the `m' library (-lm). */
-/* #undef HAVE_LIBM */
 
 /* Define if your system has LoadLibrary for dynamic linking */
 /* #undef HAVE_LOADLIBRARY_API */
@@ -214,7 +211,7 @@
 /* #undef SUNOS */
 
 /* Version number of package */
-#define VERSION "4.0.2"
+#define VERSION "5.0.2"
 
 /* Detected platform2. */
 /* #undef WIN32 */
