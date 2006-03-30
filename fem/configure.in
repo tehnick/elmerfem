@@ -58,6 +58,7 @@ else
 fi
 AC_SUBST(RPATH_ELMER)
 
+
 if test "$prefix" = "NONE"; then
    prefix="/usr/"
 fi
@@ -142,6 +143,9 @@ case "$canonical_host_type" in
   ;;
   *darwin*)
     EXTRA_LIBS="$STDCXX_LIBS $FCFLIBS $FLIBS"
+  ;;
+  *-*-mingw*)
+    EXTRA_LIBS="-L. -L$prefix/lib -lelmersolver"
   ;;
 dnl  sparc-sun-solaris2* | i386-pc-solaris2*)
 dnl    
