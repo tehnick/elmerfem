@@ -57,7 +57,7 @@ EliminatePeriodic.$(SHLEXT): EliminateDirichlet$(OBJ_EXT) EliminatePeriodic$(OBJ
 
 libelmersolver$(SHL_EXT): $(SOLVEROBJS) mpi_stubs$(OBJ_EXT)
 	$(RM) $@
-	$(CP) _muldc3.src _muldc3.o
+	$(CP) _muldc3.oo _muldc3.o
 	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) mpi_stubs$(OBJ_EXT) _muldc3.o -L.
 
 else
