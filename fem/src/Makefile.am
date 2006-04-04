@@ -159,6 +159,7 @@ endif
 EXTRA_DIST = \
 	Adaptive.src \
 	AdvectionDiffusion.src \
+	ArteryOutlet.src \
 	ArtificialCompressibility.src \
 	BandMatrix.src \
 	BandwidthOptimize.src \
@@ -216,6 +217,7 @@ EXTRA_DIST = \
 	Messages.src \
 	MGPrec.src \
 	ModelDescription.src \
+	MovingElstatSolver.src \
 	mpif_stub.h \
 	mpi_stubs.c \
 	Multigrid.src \
