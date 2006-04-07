@@ -39,6 +39,10 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StressSolve.src,v $
+! * Revision 1.14  2006/02/20 08:06:19  jpr
+! * Moved handling of Normal-Tangential BCs inside SolverUtils. Corrected
+! * a few bugs in Adaptive.src, Lists.src.
+! *
 ! * Revision 1.13  2006/02/02 07:14:32  jpr
 ! * Small formatting changes.
 ! *
@@ -299,7 +303,7 @@
         END FUNCTION StressInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.13 2006/02/02 07:14:32 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.14 2006/02/20 08:06:19 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -686,6 +690,8 @@
          !---------------------------------------------
          CALL GetVectorLocalSolution( NodalDisplacement )
          CALL GetScalarLocalSolution( LocalTemperature, 'Temperature' )
+         LocalTemperature(1:n) = LocalTemperature(1:n) - &
+                 ReferenceTemperature(1:n)
 
          SELECT CASE( CurrentCoordinateSystem() )
          CASE( Cartesian, AxisSymmetric, CylindricSymmetric )
@@ -1087,6 +1093,9 @@ CONTAINS
                 'Youngs Modulus', Material, n, Element % NodeIndexes )
         PlaneStress = ListGetLogical( Equation, 'Plane Stress', stat )
 
+        CALL InputTensor( HeatExpansionCoeff, Isotropic,  &
+            'Heat Expansion Coefficient', Material, n, Element % NodeIndexes )
+
         ! Element nodal points:
         ! ---------------------
         CALL GetElementNodes( Nodes )
@@ -1094,6 +1103,10 @@ CONTAINS
         ! Displacement field at element nodal points:
         ! -------------------------------------------
         CALL GetVectorLocalSolution( LocalDisplacement, USolver=Solver )
+
+        ReferenceTemperature(1:n) = GetReal(Material, 'Reference Temperature', Found )
+        CALL GetScalarLocalSolution( LocalTemperature, 'Temperature', USolver=Solver )
+        LocalTemperature(1:n) = LocalTemperature(1:n) - ReferenceTemperature(1:n)
 
         ! Integrate local stresses:
         ! -------------------------
@@ -1115,8 +1128,9 @@ CONTAINS
           IF ( CSymmetry ) Weight = Weight * SUM( Basis(1:n) * Nodes % x(1:n) )
 
           CALL LocalStress( Stress, Strain, PoissonRatio, &
-            ElasticModulus, Isotropic, CSymmetry, PlaneStress, &
-            LocalDisplacement, Basis, dBasisdx, Nodes, dim, n, nd )
+             ElasticModulus, HeatExpansionCoeff, LocalTemperature, &
+              Isotropic, CSymmetry, PlaneStress, LocalDisplacement, &
+                Basis, dBasisdx, Nodes, dim, n, nd )
 
           DO p=1,nd
             DO q=1,nd
@@ -1596,8 +1610,9 @@ CONTAINS
 
          IF(FixDisplacement) THEN
            CALL LocalStress( Stress, Strain, PoissonRatio, &
-               ElasticModulus, Isotropic, CSymmetry, PlaneStress,   &
-               LocalDisp, Basis, dBasisdx, ParentNodes, DIM, pn )
+               ElasticModulus, HeatExpansionCoeff, LocalTemperature, &
+               Isotropic, CSymmetry, PlaneStress, LocalDisp, Basis,  &
+                dBasisdx, ParentNodes, DIM, pn )
           
            ForceAtIp = MATMUL( Stress, Normal )
            MomentAtIp(1) = ForceAtIp(2) * Coord(3) - ForceAtIp(3) * Coord(2)
@@ -1807,7 +1822,7 @@ CONTAINS
 
      ALLOCATE( EdgeBasis(En), dEdgeBasisdx(En,3), x(En), y(En), z(En), &
         ExtPressure(En), Basis(nd), dBasisdx(nd,3), Force(3,En), &
-        NodalDisplacement(3,nd), ElasticModulus(6,6,Pn), &
+        NodalDisplacement(3,nd), ElasticModulus(6,6,Pn),&
         NodalPoissonRatio(Pn), LocalTemp(nd), LocalHexp(3,3,Pn) )
 
      LocalTemp = 0
@@ -1910,7 +1925,8 @@ CONTAINS
         ! Stress tensor on the edge:
         ! --------------------------
         CALL LocalStress( Stress1, Strain, NodalPoissonRatio, &
-           ElasticModulus, Isotropic, CSymmetry, PlaneStress, &
+           ElasticModulus, LocalHExp, LocalTemp, &
+           Isotropic, CSymmetry, PlaneStress, &
            NodalDisplacement, Basis, dBasisdx, Nodes, dim, pn, nd )
 
         ! Given force at the integration point:
@@ -2107,7 +2123,7 @@ CONTAINS
            ! Stress tensor on the edge:
            ! --------------------------
            CALL LocalStress( Stress1, Strain, NodalPoissonRatio, &
-              ElasticModulus, Isotropic, CSymmetry, PlaneStress, &
+              ElasticModulus, LocalHExp, LocalTemp, Isotropic, CSymmetry, PlaneStress, &
               NodalDisplacement, Basis, dBasisdx, Nodes, dim, pn, nd )
 
            Stressi(:,:,i) = Stress1
@@ -2301,7 +2317,7 @@ CONTAINS
              Basis, dBasisdx )
 
          CALL LocalStress( Stressi(:,:,i), Strain, NodalPoissonRatio, &
-                   ElasticModulus, Isotropic, CSymmetry, PlaneStress, &
+                   ElasticModulus, LocalHExp, LocalTemp, Isotropic, CSymmetry, PlaneStress, &
                    NodalDisplacement, Basis, dBasisdx, Nodes, dim, n, nd )
        END DO
      END IF
@@ -2370,7 +2386,7 @@ CONTAINS
         ! Energy:
         ! -------
         CALL LocalStress( Stress1, Strain, NodalPoissonRatio, &
-           ElasticModulus, Isotropic, CSymmetry, PlaneStress, &
+           ElasticModulus, LocalHExp, LocalTemp, Isotropic, CSymmetry, PlaneStress, &
            NodalDisplacement, Basis, dBasisdx, Nodes, dim, n, nd )
 
         Energy = Energy + s*DDOTPROD(Strain,Stress1,dim) / 2.0d0
