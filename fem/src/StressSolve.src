@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StressSolve.src,v $
+! * Revision 1.15  2006/04/07 11:22:46  jpr
+! * Modified stress computation to include thermal expansion effects.
+! *
 ! * Revision 1.14  2006/02/20 08:06:19  jpr
 ! * Moved handling of Normal-Tangential BCs inside SolverUtils. Corrected
 ! * a few bugs in Adaptive.src, Lists.src.
@@ -303,7 +306,7 @@
         END FUNCTION StressInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.14 2006/02/20 08:06:19 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.15 2006/04/07 11:22:46 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -1088,13 +1091,13 @@ CONTAINS
         ! ------------------------
         Material => GetMaterial()
 
-        PoissonRatio(1:n) = GetReal( Material, 'Poisson Ratio', Stat )
+        CALL InputTensor( HeatExpansionCoeff, Isotropic,  &
+            'Heat Expansion Coefficient', Material, n, Element % NodeIndexes )
+
         CALL InputTensor( ElasticModulus, Isotropic, &
                 'Youngs Modulus', Material, n, Element % NodeIndexes )
         PlaneStress = ListGetLogical( Equation, 'Plane Stress', stat )
-
-        CALL InputTensor( HeatExpansionCoeff, Isotropic,  &
-            'Heat Expansion Coefficient', Material, n, Element % NodeIndexes )
+        PoissonRatio(1:n) = GetReal( Material, 'Poisson Ratio', Stat )
 
         ! Element nodal points:
         ! ---------------------
