@@ -1,0 +1,1909 @@
+!/*****************************************************************************/
+! *
+! *  Elmer, A Finite Element Software for Multiphysical Problems
+! *
+! *  Copyright 1st April 1995 - , CSC - Scientific Computing Ltd., Finland
+! * 
+! *  This program is free software; you can redistribute it and/or
+! *  modify it under the terms of the GNU General Public License
+! *  as published by the Free Software Foundation; either version 2
+! *  of the License, or (at your option) any later version.
+! * 
+! *  This program is distributed in the hope that it will be useful,
+! *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! *  GNU General Public License for more details.
+! *
+! *  You should have received a copy of the GNU General Public License
+! *  along with this program (in file fem/GPL-2); if not, write to the 
+! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
+! *  Boston, MA 02110-1301, USA.
+! *
+! *****************************************************************************/
+!
+!/******************************************************************************
+! *
+! *  Subroutines for moving and renormalizing the level set function, 
+! *  and computing the curvature of the level set field. 
+! *
+! ******************************************************************************
+! *
+! *  Authors: Juha Ruokolainen, Peter Råback
+! *  Email:   Peter.Raback@csc.fi
+! *  Web:     http://www.csc.fi/elmer
+! *  Address: CSC - Scientific Computing Ltd.
+! *           Keilaranta 14
+! *           02101 Espoo, Finland 
+! *
+! *  Original Date: 16.11.2005
+! *
+! *****************************************************************************
+ 
+
+
+!------------------------------------------------------------------------------
+   SUBROUTINE LevelSetSolver( Model,Solver,Timestep,TransientSimulation )
+   !DEC$ATTRIBUTES DLLEXPORT :: LevelSetSolver
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  Solve the advection equation for the Levelset-function using stabilization
+!  or bubbless. For the accuracy it is advisable to use 2nd order time-stepping
+!  and courant number smaller than one. 
+!
+!  ARGUMENTS:
+!
+!  TYPE(Model_t) :: Model,  
+!     INPUT: All model information (mesh, materials, BCs, etc...)
+!
+!  TYPE(Solver_t) :: Solver
+!     INPUT: Linear equation solver options
+!
+!  REAL(KIND=dp) :: Timestep,
+!     INPUT: Timestep size for time dependent simulations
+!
+!  LOGICAL :: TransientSimulation
+!     INPUT: Steady state or transient simulation
+!
+!******************************************************************************
+     USE SolverUtils
+     USE MaterialModels
+     USE Integration
+
+     IMPLICIT NONE
+!------------------------------------------------------------------------------
+ 
+     TYPE(Model_t), TARGET :: Model
+     TYPE(Solver_t) :: Solver
+     REAL(KIND=dp) :: Timestep
+     LOGICAL :: TransientSimulation
+ 
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+     INTEGER :: i,j,k,n,t,iter,istat,bf_id,CoordinateSystem
+ 
+     TYPE(Matrix_t),POINTER  :: StiffMatrix
+     TYPE(Nodes_t)   :: ElementNodes
+     TYPE(Element_t),POINTER :: CurrentElement
+     TYPE(ValueList_t), POINTER :: Material
+ 
+     REAL(KIND=dp) :: Norm,PrevNorm,RelativeChange
+     LOGICAL :: Stabilize = .FALSE., GotIt, AllocationsDone = .FALSE.
+     INTEGER, POINTER :: SurfPerm(:), NodeIndexes(:)
+     REAL(KIND=dp), POINTER :: Surface(:), ForceVector(:), Surf(:), PrevSurface(:) 
+     REAL(KIND=dp), ALLOCATABLE :: LocalMassMatrix(:,:),&
+       LocalStiffMatrix(:,:),Load(:),LocalForce(:),TimeForce(:)
+     INTEGER :: NSDOFs,NonlinearIter,body_id,mat_id,dim
+     REAL(KIND=dp) :: NonlinearTol,dt, r, ct, dsmax
+     REAL(KIND=dp), ALLOCATABLE :: U(:), V(:), W(:), SurfaceFlux(:)
+
+     SAVE LocalMassMatrix,LocalStiffMatrix,Load, &
+         TimeForce, LocalForce, ElementNodes,AllocationsDone, &
+         U, V, W, Surf, SurfaceFlux
+
+     REAL(KIND=dp) :: at,totat,st,totst,CPUTime
+
+!------------------------------------------------------------------------------
+!    Get variables needed for solution
+!------------------------------------------------------------------------------
+
+     IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
+
+     CoordinateSystem = CurrentCoordinateSystem()
+
+     Surface => Solver % Variable % Values
+     IF ( SIZE( Surface ) == 0 ) RETURN
+     SurfPerm => Solver % Variable % Perm
+     PrevSurface => Solver % Variable % PrevValues(:,1)
+
+     StiffMatrix => Solver % Matrix
+     ForceVector => StiffMatrix % RHS
+     Norm = Solver % Variable % Norm
+
+!------------------------------------------------------------------------------
+!    Allocate some permanent storage, this is done first time only
+!------------------------------------------------------------------------------
+     IF ( .NOT. AllocationsDone ) THEN
+       N = Solver % Mesh % MaxElementNodes
+
+       ALLOCATE( U( N ),  V( N ), W( N ), &
+           ElementNodes % x( N ),   &
+           ElementNodes % y( N ),   &
+           ElementNodes % z( N ),   &
+           LocalForce( 2*N ),       &
+           TimeForce( 2*N ),        &
+           LocalMassMatrix( 2*N,2*N ),  &
+           LocalStiffMatrix( 2*N,2*N ), &
+           Surf( N ), &
+           SurfaceFlux( N ), &
+           STAT=istat )
+ 
+       IF ( istat /= 0 ) THEN
+         CALL Fatal( 'LevelSetSolver', 'Memory allocation error.' )
+       END IF
+
+       AllocationsDone = .TRUE.
+     END IF
+!------------------------------------------------------------------------------
+!    Do some additional initialization, and go for it
+!------------------------------------------------------------------------------
+
+     Stabilize = ListGetLogical( Solver % Values,'Stabilize',GotIt )
+
+     NonlinearTol = ListGetConstReal( Solver % Values, &
+           'Nonlinear System Convergence Tolerance',GotIt )
+
+     NonlinearIter = ListGetInteger( Solver % Values, &
+        'Nonlinear System Max Iterations',GotIt )
+     IF ( .NOT.GotIt ) NonlinearIter = 1
+
+     dt = ListGetConstReal(Model % Simulation,'res: Levelset timestep',GotIt)
+     IF(.NOT. GotIt) dt = Timestep
+
+!------------------------------------------------------------------------------
+
+     totat = 0.0d0
+     totst = 0.0d0
+
+     CALL Info( 'LevelSetSolver','-------------------------------------', Level=4 )
+     CALL Info( 'LevelSetSolver', 'Updating the levelset function', Level=4 )
+     CALL Info( 'LevelSetSolver','-------------------------------------', Level=4 )
+
+     DO iter = 1, NonlinearIter
+       
+       at = CPUTime()
+
+!------------------------------------------------------------------------------
+       CALL InitializeToZero( StiffMatrix, ForceVector )
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+!      Do the assembly for bulk elements
+!------------------------------------------------------------------------------
+
+       DO t=1,Solver % NumberOfActiveElements
+         
+         CurrentElement => Solver % Mesh % Elements(Solver % ActiveElements(t))
+         body_id = CurrentElement % Bodyid    
+         mat_id = ListGetInteger( Model % Bodies( body_id ) % Values, 'Material' )
+         Material => Model % Materials(mat_id) % Values
+
+!------------------------------------------------------------------------------
+!        Set the current element pointer in the model structure to
+!        reflect the element being processed
+!------------------------------------------------------------------------------
+         Model % CurrentElement => CurrentElement
+         n = CurrentElement % TYPE % NumberOfNodes
+         NodeIndexes => CurrentElement % NodeIndexes
+ 
+!------------------------------------------------------------------------------
+!        Get element nodal coordinates
+!------------------------------------------------------------------------------
+         ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
+         ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
+         ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(NodeIndexes)
+
+         Surf = Surface( SurfPerm(NodeIndexes) )
+
+!------------------------------------------------------------------------------
+!         Computed velocity field
+!------------------------------------------------------------------------------
+
+         U(1:n) = ListGetReal( Material,'Levelset Velocity 1',n,NodeIndexes,GotIt)
+         V(1:n) = ListGetReal( Material,'Levelset Velocity 2',n,NodeIndexes,GotIt)
+         IF(dim == 3) W(1:n) = ListGetReal( Material,'Levelset Velocity 3',n,NodeIndexes,GotIt)
+
+!------------------------------------------------------------------------------
+!          Given surface flux
+!------------------------------------------------------------------------------
+         bf_id = ListGetInteger( Model % Bodies(CurrentElement % BodyId) % &
+             Values, 'Body Force', GotIt )
+         IF ( GotIt ) THEN
+           SurfaceFlux(1:n) = ListGetReal( Model % BodyForces(bf_id) % Values,  &
+               'Levelset Flux',n,NodeIndexes,gotIt )
+         ELSE           
+           SurfaceFlux(1:n) = 0.0d0
+         END IF
+
+!------------------------------------------------------------------------------
+         CALL LocalMatrix( LocalMassMatrix, LocalStiffMatrix, LocalForce, Surf, &
+             SurfaceFlux, U, V, W, Stabilize, CurrentElement, n, ElementNodes )
+       
+!------------------------------------------------------------------------------
+!        If time dependent simulation add mass matrix to stiff matrix
+!------------------------------------------------------------------------------
+         TimeForce = LocalForce
+         IF ( TransientSimulation ) THEN
+!------------------------------------------------------------------------------
+!          NOTE: This will replace LocalStiffMatrix and LocalForce with the
+!                combined information...
+!------------------------------------------------------------------------------
+           IF ( .NOT. Stabilize ) THEN
+             LocalForce = 0.0d0
+           END IF
+           CALL Add1stOrderTime( LocalMassMatrix, LocalStiffMatrix, &
+               LocalForce, dt, n, 1, SurfPerm(NodeIndexes), Solver )
+         END IF
+!------------------------------------------------------------------------------
+!      Update global matrix and rhs vector from local matrix & vector
+!------------------------------------------------------------------------------
+         IF ( .NOT.Stabilize ) THEN
+           CALL Condensate( N, LocalStiffMatrix,  LocalForce, TimeForce )
+           
+           IF ( TransientSimulation ) THEN
+             CALL UpdateTimeForce( StiffMatrix, ForceVector, &
+                 TimeForce, n, 1, SurfPerm(NodeIndexes) )
+           END IF
+         END IF
+         
+         CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
+             ForceVector, LocalForce, n, 1, SurfPerm(NodeIndexes) )
+         
+       END DO     !  Of ActiveElements
+
+!------------------------------------------------------------------------------
+!    FinishAssemebly must be called after all other assembly steps, but before
+!    Dirichlet boundary settings. Actually no need to call it except for
+!    transient simulations.
+!------------------------------------------------------------------------------
+       CALL FinishAssembly( Solver,ForceVector )
+!------------------------------------------------------------------------------
+!    Dirichlet boundary conditions
+!------------------------------------------------------------------------------
+       CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, &
+           TRIM(Solver % Variable % Name),1,1,SurfPerm )
+!------------------------------------------------------------------------------
+     CALL Info( 'LevelSetSolver', 'Assembly done', Level=4 )
+     at = CPUTime() - at
+     totat = totat + at
+    
+!------------------------------------------------------------------------------
+!     Solve the system and check for convergence
+!------------------------------------------------------------------------------
+     st = CPUTime()
+     PrevNorm = Norm
+
+     CALL SolveSystem( StiffMatrix, ParMatrix, ForceVector, &
+         Surface, Norm, 1, Solver )
+     st = CPUTIme()-st
+     totst = totst + st
+     
+     RelativeChange = 2*ABS(PrevNorm-Norm) / (PrevNorm + Norm)
+      
+     IF(NonlinearIter > 1) THEN
+       WRITE( Message, * ) 'Iteration   : ',iter
+       CALL Info( 'LevelSetSolver', Message, Level=4 )      
+     END IF
+     WRITE( Message, * ) 'Result Norm   : ',Norm
+     CALL Info( 'LevelSetSolver', Message, Level=4 )
+     WRITE( Message, * ) 'Relative Change : ',RelativeChange
+     CALL Info( 'LevelSetSolver', Message, Level=4 )
+     
+     IF(RelativeChange < NonlinearTol) EXIT
+
+!------------------------------------------------------------------------------
+   END DO! of the nonlinear iteration
+!------------------------------------------------------------------------------
+
+   WRITE(Message,'(a,F8.2)') 'Assembly time in total:',totat
+   CALL Info( 'LevelsetSolver',Message, Level=4 )
+   
+   WRITE(Message,'(a,F8.2)') 'Solution time in total:',totst
+   CALL Info( 'LevelsetSolver',Message, Level=4 )
+
+   DsMax = MAXVAL( ABS(Surface - PrevSurface) )
+   WRITE(Message,'(a,F8.2)') 'Maximum Levelset Change',dsmax
+   CALL Info( 'LevelSetSolver',Message, Level=4 )     
+   CALL ListAddConstReal(Model % Simulation,'res: LevelSet Max Change',dsmax)
+
+
+!------------------------------------------------------------------------------
+
+CONTAINS
+
+   SUBROUTINE LocalMatrix( MassMatrix,StiffMatrix,ForceVector,  &
+      Surf, Flux, Ux,Uy,Uz, Stabilize,Element,n,Nodes )
+!------------------------------------------------------------------------------
+
+     REAL(KIND=dp), DIMENSION(:)   :: ForceVector,Ux,Uy,Uz,Surf,Flux
+     REAL(KIND=dp), DIMENSION(:,:) :: MassMatrix,StiffMatrix
+     LOGICAL :: Stabilize
+     INTEGER :: n
+     TYPE(Nodes_t) :: Nodes
+     TYPE(Element_t), POINTER :: Element
+
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+!
+     REAL(KIND=dp) :: ddBasisddx(n,3,3)
+     REAL(KIND=dp) :: Basis(2*n)
+     REAL(KIND=dp) :: dBasisdx(2*n,3),SQRTElementMetric
+     REAL(KIND=dp) :: Velo(3),dVelodx(3,3),Force,Grad(3),GradAbs
+     REAL(KIND=dp) :: A,M,Load, FL
+     REAL(KIND=dp) :: VNorm,hK,mK
+     REAL(KIND=dp) :: Lambda=1.0,Pe,Pe1,Pe2,Tau,x,y,z
+
+     INTEGER :: i,j,k,c,p,q,t,dim,N_Integ,NBasis
+     REAL(KIND=dp) :: s,u,v,w
+     TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
+     REAL(KIND=dp) :: SU(n),SW(n)
+     REAL(KIND=dp), DIMENSION(:), POINTER :: U_Integ,V_Integ,W_Integ,S_Integ
+
+     LOGICAL :: stat,Bubbles
+
+!------------------------------------------------------------------------------
+
+     dim = CoordinateSystemDimension()
+     c = dim + 1
+
+     ForceVector = 0.0D0
+     StiffMatrix = 0.0D0
+     MassMatrix  = 0.0D0
+     Load = 0.0d0
+     Grad = 0.0d0
+
+     NBasis = n
+     Bubbles = .FALSE.
+     IF ( .NOT. Stabilize ) THEN
+       NBasis = 2*n
+       Bubbles = .TRUE.
+     END IF
+
+!------------------------------------------------------------------------------
+!    Integration stuff
+!------------------------------------------------------------------------------
+     IF ( Bubbles ) THEN
+        IntegStuff = GaussPoints( element, Element % TYPE % GaussPoints2 )
+     ELSE
+        IntegStuff = GaussPoints( element )
+     END IF
+     U_Integ => IntegStuff % u
+     V_Integ => IntegStuff % v
+     W_Integ => IntegStuff % w
+     S_Integ => IntegStuff % s
+     N_Integ =  IntegStuff % n
+
+!------------------------------------------------------------------------------
+!    Stabilization parameters: hK, mK (take a look at Franca et.al.)
+!    If there is no convection term we don t need stabilization.
+!------------------------------------------------------------------------------
+     IF ( Stabilize ) THEN
+       hK = element % hK
+       mK = element % StabilizationMK
+     END IF
+
+!------------------------------------------------------------------------------
+!    Now we start integrating
+!------------------------------------------------------------------------------
+     DO t=1,N_Integ
+
+       u = U_Integ(t)
+       v = V_Integ(t)
+       w = W_Integ(t)
+
+!------------------------------------------------------------------------------
+!      Basis function values & derivatives at the integration point
+!------------------------------------------------------------------------------
+       stat = ElementInfo( Element,Nodes,u,v,w,SQRTElementMetric, &
+           Basis,dBasisdx,ddBasisddx,Stabilize,Bubbles )
+
+       s = SQRTElementMetric * S_Integ(t)
+!------------------------------------------------------------------------------
+!      Coordinatesystem dependent info
+!------------------------------------------------------------------------------
+       IF ( Coordinates == AxisSymmetric .OR. &
+           Coordinates == CylindricSymmetric ) THEN
+         s = s * SUM( Nodes % x(1:n)*Basis(1:n) )
+       END IF
+
+!------------------------------------------------------------------------------
+         
+       FL = SUM( Flux(1:n) * Basis(1:n) )
+       
+       DO i=1,dim
+         Grad(i) = SUM( dBasisdx(1:n,i) * Surf(1:n) )
+       END DO
+       GradAbs = SQRT( SUM( Grad(1:dim) * Grad(1:dim) ) )
+       IF ( GradAbs > 10*AEPS ) THEN
+         Grad = Grad / GradAbs
+       END IF
+
+!------------------------------------------------------------------------------
+!      Velocity from previous iteration at the integration point
+!------------------------------------------------------------------------------
+       Velo = 0.0D0
+       Velo(1) = SUM( Ux(1:n)*Basis(1:n) )
+       Velo(2) = SUM( Uy(1:n)*Basis(1:n) )
+       IF ( dim > 2 ) Velo(3) = SUM( Uz(1:n)*Basis(1:n) )
+
+       IF ( Stabilize ) THEN
+!------------------------------------------------------------------------------
+!           Stabilization parameter Tau
+!------------------------------------------------------------------------------
+         VNorm = SQRT( SUM(Velo(1:dim)**2) ) + FL
+         Pe  = 1.0d0
+         Tau = 0.0D0
+         IF ( VNorm /= 0.0 ) THEN
+           Tau = hK * Pe / (2 * VNorm)
+           Tau = 1.0d0 / SQRT( (2.0d0 / dt)**2 + 1.0d0/Tau**2 )
+         ELSE
+           Tau = dt / 2.0d0 
+         END IF
+
+!------------------------------------------------------------------------------
+!           Compute residual & stablization vectors
+!------------------------------------------------------------------------------
+         DO p=1,N
+           SU(p) = 0.0d0
+           DO i = 1,dim
+             SU(p) = SU(p) + dBasisdx(p,i) * (Velo(i) + FL * Grad(i) )
+           END DO
+
+           SW(p) = 0.0d0
+           DO i = 1,dim
+             SW(p) = SW(p) + dBasisdx(p,i) * (Velo(i) + FL * Grad(i) )
+           END DO
+         END DO
+       END IF
+
+!------------------------------------------------------------------------------
+!      Loop over basis functions of both unknowns and weights
+!------------------------------------------------------------------------------
+       DO p=1,NBasis
+         DO q=1,NBasis
+!------------------------------------------------------------------------------
+!         The diffusion term
+!------------------------------------------------------------------------------
+           M = Basis(q) * Basis(p)
+           A = 0.0d0
+           
+           DO i=1,dim
+             A = A + FL * (Grad(i) / GradAbs) * dBasisdx(q,i) * Basis(p)
+           END DO
+
+!------------------------------------------------------------------------------
+!           The convection term
+!------------------------------------------------------------------------------
+           DO i=1,dim
+             A = A + Velo(i) * dBasisdx(q,i) * Basis(p)
+           END DO
+!------------------------------------------------------------------------------
+!           Next we add the stabilization...
+!------------------------------------------------------------------------------
+           IF ( Stabilize ) THEN
+             A = A + Tau * SU(q) * SW(p)
+             M = M + Tau * Basis(q) * SW(p)
+           END IF
+
+           StiffMatrix(p,q) = StiffMatrix(p,q) + s * A
+           MassMatrix(p,q)  = MassMatrix(p,q)  + s * M
+         END DO
+       END DO
+
+!------------------------------------------------------------------------------
+!      The righthand side...
+!------------------------------------------------------------------------------
+       Force = 0.0d0
+
+       DO p=1,NBasis
+          Load = Basis(p)
+          IF ( Stabilize ) Load = Load + Tau * SW(p)
+          ForceVector(p) = ForceVector(p) + s * Force * Load
+       END DO
+     END DO
+
+!------------------------------------------------------------------------------
+   END SUBROUTINE LocalMatrix
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+ END SUBROUTINE LevelSetSolver
+!------------------------------------------------------------------------------
+
+
+
+
+!------------------------------------------------------------------------------
+   SUBROUTINE LevelSetDistance( Model,Solver,Timestep,TransientSimulation )
+   !DEC$ATTRIBUTES DLLEXPORT :: LevelSetDistance
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  Renormalizes the levelset function using straight-forward geometric search
+!  Also includes an option to do the covection at the same time as an alternavtive
+!  for using a separate solver for the advection.
+!
+!******************************************************************************
+
+     USE SolverUtils
+     USE MaterialModels
+     USE Integration
+
+     IMPLICIT NONE
+!------------------------------------------------------------------------------
+ 
+     TYPE(Model_t), TARGET :: Model
+     TYPE(Solver_t) :: Solver 
+     REAL(KIND=dp) :: Timestep
+     LOGICAL :: TransientSimulation
+ 
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+     TYPE(Nodes_t)   :: ElementNodes
+     TYPE(Element_t),POINTER :: CurrentElement, Element
+     TYPE(ValueList_t), POINTER :: Material
+     TYPE(Variable_t), POINTER :: SurfSol, DistanceSol
+ 
+     INTEGER :: i,j,k,l,n,t,k1,k2,k3,n1,n2,n3,iter,istat,bf_id,CoordinateSystem
+     REAL(KIND=dp) :: Norm,PrevNorm,RelativeChange,x,y,s,a,b,c,d,x0,x1,y0,y1
+     INTEGER, POINTER :: NodeIndexes(:)
+     LOGICAL :: GotIt, Convect, AllocationsDone = .FALSE.
+     INTEGER, POINTER :: SurfPerm(:)
+     REAL(KIND=dp), POINTER :: Surface(:),Distance(:), Surf(:)
+     REAL(KIND=dp), ALLOCATABLE :: ZeroNodes(:,:,:), NodalVeloX(:), NodalVeloY(:), Direction(:)
+     INTEGER, POINTER :: DistancePerm(:)
+     INTEGER :: ZeroLevels
+     REAL(KIND=dp) :: Relax, dt, r, DsMax, NarrowBand
+     REAL(KIND=dp), ALLOCATABLE :: U(:), V(:), W(:), SurfaceFlux(:)
+     REAL(KIND=dp) :: at,totat,st,totst,CPUTime
+     CHARACTER(LEN=MAX_NAME_LEN) :: LevelSetVariableName
+
+     SAVE ElementNodes, NodalVeloX, NodalVeloY, Direction, ZeroNodes, &
+         Distance, DistancePerm, AllocationsDone
+
+!------------------------------------------------------------------------------
+!    Get variables needed for solution
+!------------------------------------------------------------------------------
+
+     CoordinateSystem = CurrentCoordinateSystem()
+
+     ! The variable that should be renormalized
+     LevelSetVariableName = ListGetString(Solver % Values,'LevelSet Variable',GotIt) 
+     IF(GotIt) THEN
+       SurfSol => VariableGet( Solver % Mesh % Variables, TRIM(LevelSetVariableName) )
+     ELSE  
+       SurfSol => VariableGet( Solver % Mesh % Variables, 'Surface' )
+     END IF
+     IF(ASSOCIATED(SurfSol)) THEN
+       Surface  => SurfSol % Values
+       SurfPerm => SurfSol % Perm
+     ELSE
+       CALL Warn('LevelSetDistance','SurfSol does not exist')
+     END IF
+
+     IF ( ALL( SurfPerm == 0) ) THEN
+       CALL Warn('LevelSetDistance','Nothing to compute')
+       RETURN
+     END IF
+
+     Convect = ListGetLogical(Solver % Values,'Levelset Convect',GotIt)
+     NarrowBand = ListGetConstReal(Solver % Values,'Levelset Narrow Band',GotIt)
+     IF(.NOT. GotIt) NarrowBand = HUGE(NarrowBand)
+
+     dt = ListGetConstReal(Model % Simulation,'res: Levelset timestep',GotIt)
+     IF(.NOT. GotIt) dt = Timestep
+ 
+!------------------------------------------------------------------------------
+!    Allocate some permanent storage, this is done first time only
+!------------------------------------------------------------------------------
+     IF ( .NOT. AllocationsDone ) THEN
+       
+       ! The variable for computing the distance
+       DistanceSol => Solver % Variable
+       IF(ASSOCIATED(DistanceSol)) THEN
+         DistancePerm => DistanceSol % Perm
+         Distance => DistanceSol % Values
+       ELSE
+         ALLOCATE(Distance (SIZE(Surface)),STAT=istat)
+         IF ( istat /= 0 ) THEN
+           CALL Fatal( 'RerormalizeSolver', 'Memory allocation error 1.' )
+         END IF
+         DistancePerm => SurfPerm
+       END IF
+
+       N = Solver % Mesh % MaxElementNodes
+       ALLOCATE( ElementNodes % x( N ), ElementNodes % y( N ), ElementNodes % z( N ),   &
+           NodalVelox( N ), NodalVeloY( N), &
+           ZeroNodes(Solver % Mesh % NumberOfBulkElements,2,2), &
+           STAT=istat )
+       IF ( istat /= 0 ) THEN
+         CALL Fatal( 'RerormalizeSolver', 'Memory allocation error 2.' )
+       END IF
+       IF( Convect ) THEN
+         ALLOCATE( Direction( Solver % Mesh % NumberOfBulkElements), STAT=istat )
+       END IF
+       IF ( istat /= 0 ) THEN
+         CALL Fatal( 'RerormalizeSolver', 'Memory allocation error 3.' )
+       END IF
+       AllocationsDone = .TRUE.
+     END IF
+
+!------------------------------------------------------------------------------
+!    Do some additional initialization, and go for it
+!------------------------------------------------------------------------------
+
+     CALL Info( 'LevelSetDistance','-------------------------------------', Level=4 )
+     CALL Info( 'LevelSetDistance','Computing distances from zero levelset', Level=4 )
+     CALL Info( 'LevelSetDistance','-------------------------------------', Level=4 )
+
+     st = CPUTime()
+     dsmax = 0.0d0
+     CALL ExtractZeroLevel()
+
+     IF(Convect) THEN
+       DO i=1,Solver % Mesh % NumberOfNodes
+         Distance(DistancePerm(i)) =  ComputeDistanceWithDirection( Solver % Mesh % Nodes % x(i), &
+             Solver % Mesh % Nodes % y(i), 0.0d0, Surface(i) )
+       END DO
+     ELSE
+       DO i=1,Solver % Mesh % NumberOfNodes
+         Distance(DistancePerm(i)) =  ComputeDistance( Solver % Mesh % Nodes % x(i), &
+             Solver % Mesh % Nodes % y(i), 0.0d0 )
+       END DO
+       WHERE( Surface < 0 ) Distance = -Distance
+     END IF
+
+!------------------------------------------------------------------------------
+!    Solve the system and we are done.
+!------------------------------------------------------------------------------
+     n = Solver % Mesh % NumberOfNodes
+     Solver % Variable % Norm = SQRT( SUM(Distance**2)/n )
+
+     Surface = Distance
+
+     st = CPUTIme()-st
+     WRITE(Message,'(a,F8.2)') 'Normalization done in time:',st
+     CALL Info( 'LevelSetNormalize',Message, Level=4 )
+
+     IF(Convect) THEN
+       WRITE(Message,'(a,F8.2)') 'Maximum Levelset Change',dsmax
+       CALL Info( 'LevelSetDistance',Message, Level=4 )     
+       CALL ListAddConstReal(Model % Simulation,'res: LevelSet Max Change',dsmax)
+     END IF
+
+
+!------------------------------------------------------------------------------
+
+CONTAINS
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE ExtractZeroLevel()
+!------------------------------------------------------------------------------
+
+    INTEGER :: i,j,k,n,n1,n2,n3,k1,k2,k3,div,onetwo,corners, &
+        TriangleIndexes(3), mat_id, body_id, LocalInd(3)
+    TYPE(Variable_t), POINTER :: Var
+    INTEGER, POINTER :: NodeIndexes(:)
+    TYPE(Element_t), POINTER :: Element
+    REAL(KIND=dp) :: x0,y0,x1,y1,t,nx(3),ny(3),nz(3),srf(3),w0(3),w1(3),Value,dt, &
+        r1x, r1y, r2x, r2y, aid, Maxsrf, ds1, ds2
+    LOGICAL :: Visited = .FALSE., FileAppend, GotIt, FileSave, Found
+    TYPE(ValueList_t),POINTER :: Material
+    CHARACTER(LEN=MAX_NAME_LEN) :: Filename, Filename2
+    
+    SAVE Visited
+!------------------------------------------------------------------------------
+
+    Filename = ListGetString(Solver % Values,'Filename',FileSave )
+    
+    IF(FileSave) THEN
+      IF(.NOT. Visited) THEN        
+        OPEN (10, FILE=TRIM(Filename)//TRIM(".names") )
+        WRITE(10,'(A,A)') 'Variables in file: ',TRIM(Filename)
+        j = 1
+        WRITE(10,'(I3,": ",A)') j,'timestep'
+        
+        Var => Model % Variables
+        DO WHILE( ASSOCIATED( Var ) )          
+          IF ( .NOT. Var % Output .OR. SIZE(Var % Values) == 1 .OR. (Var % DOFs /= 1) ) THEN
+            Var => Var % Next        
+            CYCLE
+          END IF          
+          j = j + 1
+          WRITE(10,'(I3,": ",A)') j,TRIM(Var % Name)
+          Var => Var % Next          
+        END DO
+        CLOSE(10)
+        Visited = .TRUE.
+      END IF
+      
+      FileAppend = ListGetLogical(Solver % Values,'File Append',GotIt)
+      IF(Visited .AND. FileAppend) THEN 
+        OPEN (10, FILE=Filename,POSITION='APPEND')
+      ELSE 
+        OPEN (10,FILE=Filename)
+      END IF      
+    END IF
+    
+    Visited = .TRUE.
+    Surface => SurfSol % Values
+    SurfPerm => SurfSol % Perm
+    
+    ZeroLevels = 0
+    DO i=1,Solver % Mesh % NumberOfBulkElements
+      
+      Element => Solver % Mesh % Elements(i)
+      n = Element % TYPE % NumberOfNodes
+      NodeIndexes => Element % NodeIndexes
+      
+      IF ( ALL( Surface(SurfPerm(NodeIndexes)) < 0) .OR. &
+          ALL( Surface(SurfPerm(NodeIndexes)) > 0) ) CYCLE
+      
+      corners = Element % TYPE % ElementCode / 100 
+      IF(corners < 3 .OR. corners > 4) THEN
+        CALL Warn('ExtractZeroLevel','Implemented only for triangles and quads')
+      END IF
+
+      IF( Convect ) THEN
+        Model % CurrentElement => Element
+
+        body_id = Element % BodyId
+        mat_id = ListGetInteger( Model % Bodies(body_id) % Values, 'Material', &
+            minv=1, maxv=Model % NumberOfMaterials )
+        Material => Model % Materials(mat_id) % Values
+
+        NodalVeloX(1:n) = ListGetReal( Material,'Levelset Velocity 1',n,NodeIndexes,GotIt)
+        NodalVeloY(1:n) = ListGetReal( Material,'Levelset Velocity 2',n,NodeIndexes,GotIt)
+      END IF
+
+
+      DO div = 1,corners-2
+
+        SELECT CASE (corners) 
+        CASE (3)
+          LocalInd(1) = 1
+          LocalInd(2) = 2
+          LocalInd(3) = 3
+          
+        CASE(4)               
+          IF(div == 1) THEN
+            LocalInd(1) = 1 
+            LocalInd(2) = 2
+            LocalInd(3) = 4
+          ELSE
+            LocalInd(1) = 2
+            LocalInd(2) = 3
+            LocalInd(3) = 4
+          END IF
+
+        END SELECT
+        
+        TriangleIndexes = NodeIndexes(LocalInd)
+        srf = Surface(SurfPerm(TriangleIndexes))                       
+        IF ( ALL(srf < 0) .OR. ALL( srf > 0) ) CYCLE
+
+        nx = Solver % Mesh % Nodes % x(TriangleIndexes)
+        ny = Solver % Mesh % Nodes % y(TriangleIndexes)
+        nz = Solver % Mesh % Nodes % z(TriangleIndexes)
+
+        CALL TriangleIsoLineWeights( nx,ny,nz,srf,w0,w1,found)
+        IF( .NOT. Found) CYCLE
+
+        x0 = SUM(w0 * nx)
+        y0 = SUM(w0 * ny)
+        x1 = SUM(w1 * nx)
+        y1 = SUM(w1 * ny)
+
+        r1x = x1 - x0
+        r1y = y1 - y0 
+
+        ds1 = SQRT( r1x*r1x + r1y*r1y)
+        IF(ds1 < AEPS) CYCLE
+
+        ZeroLevels = ZeroLevels + 1
+
+        IF(Convect) THEN
+
+          ! Find the value that differs most from the zero levelset
+          j = 1
+          MaxSrf = srf(1)
+          DO k=2,3
+            IF(ABS(srf(k)) > ABS(Maxsrf)) THEN
+              Maxsrf = srf(k)
+              j = k
+            END IF
+          END DO
+          
+          r2x = nx(j) - x0
+          r2y = ny(j) - y0
+          
+          aid = r1x * r2y - r2x * r1y
+          ds2 = SQRT( r2x*r2x + r2y*r2y)
+          
+          Direction( ZeroLevels ) = aid / (ds1 * ds2)
+          IF( Maxsrf < 0.0) THEN
+            Direction( ZeroLevels ) = -Direction( ZeroLevels )
+          END IF
+          
+          r1x = SUM(w0 * NodalVeloX(LocalInd)) * dt
+          r1y = SUM(w0 * NodalVeloY(LocalInd)) * dt
+          r2x = SUM(w1 * NodalVeloX(LocalInd)) * dt
+          r2y = SUM(w1 * NodalVeloY(LocalInd)) * dt
+
+          ds1 = SQRT( r1x*r1x + r1y*r1y)
+          dsmax = MAX(dsmax, ds1)
+          ds2 = SQRT( r2x*r2x + r2y*r2y)
+          dsmax = MAX(dsmax, ds2)
+            
+          ZeroNodes(ZeroLevels,1,1) = x0 + r1x
+          ZeroNodes(ZeroLevels,1,2) = y0 + r1y
+          ZeroNodes(ZeroLevels,2,1) = x1 + r2x
+          ZeroNodes(ZeroLevels,2,2) = y1 + r2y
+        ELSE
+          ZeroNodes(ZeroLevels,1,1) = x0
+          ZeroNodes(ZeroLevels,1,2) = y0
+          ZeroNodes(ZeroLevels,2,1) = x1
+          ZeroNodes(ZeroLevels,2,2) = y1
+        END IF
+
+
+        IF(FileSave) THEN
+          
+          DO onetwo = 1,2
+            
+            WRITE(10,'(I4)',ADVANCE='NO') Solver % DoneTime
+            
+            Var => Model % Variables
+            DO WHILE( ASSOCIATED( Var ) )
+              
+              IF ( .NOT. Var % Output .OR. SIZE(Var % Values) == 1 .OR. (Var % DOFs /= 1) ) THEN
+                Var => Var % Next        
+                CYCLE
+              END IF
+              
+              Value = 0.0d0
+              DO k=1,3
+                l = TriangleIndexes(k)
+                IF ( ASSOCIATED(Var % Perm) ) l = Var % Perm(l)
+                IF(l > 0) THEN
+                  IF(onetwo == 1) THEN
+                    Value = Value + w0(k) * (Var % Values(l))
+                  ELSE
+                    Value = Value + w1(k) * (Var % Values(l))
+                  END IF
+                END IF
+              END DO
+              
+              WRITE(10,'(ES20.11E3)',ADVANCE='NO') Value
+              Var => Var % Next          
+            END DO
+            WRITE(10,'(A)') ' '
+            
+          END DO
+        END IF        
+      END DO
+
+    END DO ! of elements
+
+    
+    IF(FileSave) THEN
+      CLOSE(10)
+    END  IF
+
+!------------------------------------------------------------------------------
+   END SUBROUTINE ExtractZeroLevel
+!------------------------------------------------------------------------------
+ 
+
+!------------------------------------------------------------------------------
+   SUBROUTINE TriangleIsoLineWeights( NX,NY,NZ,S,w0,w1,Found )
+!------------------------------------------------------------------------------
+! This subroutine extracts the zero line of one triangular element 
+!------------------------------------------------------------------------------
+      IMPLICIT NONE
+      REAL(KIND=dp) :: NX(:),NY(:),NZ(:),S(:),w0(3),w1(3)
+      LOGICAL :: Found
+      REAL(KIND=dp) :: t
+!------------------------------------------------------------------------------
+
+      Found = .TRUE.
+
+      w0 = 0.0d0
+      w1 = 0.0d0
+
+      IF ( ABS(S(1)) < AEPS .AND. ABS(S(2)) < AEPS ) THEN
+        w0(1) = 1.0d0
+        w1(2) = 1.0d0
+      ELSE IF ( ABS(S(1)) < AEPS .AND. ABS(S(3)) < AEPS ) THEN
+        w0(1) = 1.0d0
+        w1(3) = 1.0d0
+      ELSE IF ( ABS(S(2)) < AEPS .AND. ABS(S(3)) < AEPS ) THEN
+        w0(2) = 1.0d0
+        w1(3) = 1.0d0
+      ELSE IF ( ALL(S <= 0) .OR. ALL( S >= 0) ) THEN
+        Found = .FALSE.
+      ELSE
+        IF ( S(1) >= 0 .AND. S(2) >= 0 .OR. &
+            S(1) <= 0 .AND. S(2) <= 0 ) THEN          
+          t = -S(1) / ( S(3) - S(1) )
+          w0(3) = t
+          w0(1) = 1-t
+          t = -S(2) / ( S(3) - S(2) )
+          w1(3) = t
+          w1(2) = 1-t
+        ELSE IF ( S(1) >= 0 .AND. S(3) >= 0 .OR. &
+            S(1) <= 0 .AND. S(3) <= 0 ) THEN
+          t = -S(1) / ( S(2) - S(1) )
+          w0(2) = t
+          w0(1) = 1-t
+          t = -S(3) / ( S(2) - S(3) )
+          w1(2) = t
+          w1(3) = 1-t
+          
+        ELSE IF ( S(2) >= 0 .AND. S(3) >= 0 .OR. &
+            S(2) <= 0 .AND. S(3) <= 0 ) THEN          
+          t = -S(2) / ( S(1) - S(2) )
+          w0(1) = t
+          w0(2) = 1-t
+          t = -S(3) / ( S(1) - S(3) )
+          w1(1) = t
+          w1(3) = 1-t
+        ELSE 
+          PRINT *,'TriangleIsoLineWeights: this should not occur'
+          PRINT *,s(1),s(2),s(3)
+          STOP
+        END IF
+      END IF
+!------------------------------------------------------------------------------
+    END SUBROUTINE TriangleIsoLineWeights
+!------------------------------------------------------------------------------
+
+ 
+!------------------------------------------------------------------------------
+   FUNCTION ComputeDistance(xp,yp,zp) RESULT(dist)
+!------------------------------------------------------------------------------
+! Computes the distance from the given zero levelset given by ZeroNodes. 
+!------------------------------------------------------------------------------
+     REAL(KIND=dp) :: xp,yp,zp,d,dist
+!------------------------------------------------------------------------------
+     REAL(KIND=dp) :: x0,y0,x1,y1,a,b,c,d,s
+     INTEGER :: i,j,k,n
+!------------------------------------------------------------------------------
+     dist = HUGE(dist)
+     DO i=1,ZeroLevels
+       x0 = ZeroNodes(i,1,1)
+       y0 = ZeroNodes(i,1,2)
+       
+       x1 = ZeroNodes(i,2,1)
+       y1 = ZeroNodes(i,2,2)
+       
+       a = xp - x0
+       b = x0 - x1
+       d = y0 - y1
+       c = yp - y0
+       s = b**2 + d**2
+       
+       x = x0
+       y = y0
+       IF ( s > 10*AEPS ) THEN
+         s = MIN( MAX( -(a*b + c*d) / s, 0.0d0), 1.0d0 )
+         x = (1-s) * x0 + s * x1
+         y = (1-s) * y0 + s * y1
+       END IF
+       
+       dist = MIN( dist, SQRT( (xp - x)**2 + (yp - y)**2 ) )
+     END DO
+!------------------------------------------------------------------------------
+   END FUNCTION ComputeDistance
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+   FUNCTION ComputeDistanceWithDirection(xp,yp,zp,prevdist) RESULT(mindist)
+!------------------------------------------------------------------------------
+! Computes the distance from the given zero levelset given by ZeroNodes. 
+!------------------------------------------------------------------------------
+     REAL(KIND=dp) :: xp,yp,zp,d,prevdist,mindist
+!------------------------------------------------------------------------------
+     REAL(KIND=dp) :: x0,y0,x1,y1,a,b,c,d,s,dist,r1x,r1y,r2x,r2y,angle,angle0
+     INTEGER :: i,j,k,n
+!------------------------------------------------------------------------------
+
+     IF(prevdist - dsmax > narrowband) THEN
+       mindist = prevdist - dsmax
+       RETURN
+     ELSE IF(prevdist + dsmax < -narrowband) THEN
+       mindist = prevdist + dsmax
+       RETURN
+     END IF
+
+     mindist = HUGE(mindist)
+
+     DO i=1,ZeroLevels
+       x0 = ZeroNodes(i,1,1)
+       y0 = ZeroNodes(i,1,2)
+       
+       x1 = ZeroNodes(i,2,1)
+       y1 = ZeroNodes(i,2,2)
+       
+       a = xp - x0
+       b = x0 - x1
+       d = y0 - y1
+       c = yp - y0
+       s = b**2 + d**2
+       
+       x = x0
+       y = y0
+       IF ( s > 10*AEPS ) THEN
+         s = MIN( MAX( -(a*b + c*d) / s, 0.0d0), 1.0d0 )
+         x = (1-s) * x0 + s * x1
+         y = (1-s) * y0 + s * y1
+       END IF
+       
+       dist = SQRT( (xp - x)**2 + (yp - y)**2 ) 
+       
+
+       IF(dist <= (ABS(mindist) + AEPS) ) THEN
+         
+         r1x = x1 - x0
+         r1y = y1 - y0
+         r2x = xp - x0
+         r2y = yp - y0
+         
+         angle = r1x * r2y - r2x * r1y
+         
+         ! Favor parents with clear angles
+         IF( dist < (ABS(mindist) - AEPS) .OR. (ABS(angle) > ABS(angle0)) ) THEN
+           IF(Direction(i) * angle < 0.0) THEN
+             mindist = -dist
+           ELSE
+             mindist = dist
+           END IF
+           angle0 = angle
+         END IF
+           
+       END IF
+
+      END DO
+!------------------------------------------------------------------------------
+    END FUNCTION ComputeDistanceWithDirection
+!------------------------------------------------------------------------------
+
+
+
+!------------------------------------------------------------------------------
+   FUNCTION Solve3rd( Element,Nodes,n,dist,which ) RESULT(val)
+!------------------------------------------------------------------------------
+
+     REAL(KIND=dp) :: dist(3),val
+     INTEGER :: n, which
+     TYPE(Nodes_t) :: Nodes
+     TYPE(Element_t), POINTER :: Element
+!------------------------------------------------------------------------------
+ 
+     REAL(KIND=dp) :: Basis(n), dBasisdx(n,3), ddBasisddx(1,1,1), detJ, &
+         a,b,c,dx,dy,s,s1,s2,t,u,x0,x1,y0,y1,cosp,ta,tb
+
+     LOGICAL :: stat
+     INTEGER :: i,k
+!------------------------------------------------------------------------------
+
+     stat = ElementInfo( Element, Nodes, 1.0d0/3.0d0, 1.0d0/3.0d0, 0.0d0, &
+         detJ, Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+     
+     dx = 0
+     dy = 0
+     DO i=1,n
+       IF ( i /= Which ) THEN
+         dx = dx + dBasisdx(i,1) * dist(i)
+         dy = dy + dBasisdx(i,2) * dist(i)
+       END IF
+     END DO
+     
+     a = dBasisdx(Which,1)**2 + dBasisdx(Which,2)**2
+     b = 2*( dBasisdx(Which,1) * dx + dBasisdx(Which,2) * dy )
+     c = dx**2 + dy**2 - 1
+     
+     val = HUGE(val)
+     s = b**2 - 4*a*c
+     IF ( s < -1.0d-10 ) THEN
+       RETURN
+     ELSE
+       IF ( s < 0  ) THEN
+         s1 = -b / (2*a)
+         s2 = -b / (2*a)
+       ELSE
+         s1 = (-b + SQRT(s)) / (2*a)
+         s2 = (-b - SQRT(s)) / (2*a)
+       END IF
+     END IF
+     
+     val = MAX( s1, s2 )
+     
+     SELECT CASE(Which)
+     CASE(1)
+       x0 = Nodes % x(2) - Nodes % x(1)
+       y0 = Nodes % y(2) - Nodes % y(1)
+       
+       x1 = Nodes % x(3) - Nodes % x(1)
+       y1 = Nodes % y(3) - Nodes % y(1)
+       
+       ta = Dist(2); tb = Dist(3)
+     CASE(2)
+       x0 = Nodes % x(1) - Nodes % x(2)
+       y0 = Nodes % y(1) - Nodes % y(2)
+       
+       x1 = Nodes % x(3) - Nodes % x(2)
+       y1 = Nodes % y(3) - Nodes % y(2)
+       
+       ta = Dist(1); tb = Dist(3)
+     CASE(3)
+       x0 = Nodes % x(1) - Nodes % x(3)
+       y0 = Nodes % y(1) - Nodes % y(3)
+       
+       x1 = Nodes % x(2) - Nodes % x(3)
+       y1 = Nodes % y(2) - Nodes % y(3)
+       ta = Dist(1); tb = Dist(2)
+     END SELECT
+     
+     a = SQRT( x0**2 + y0**2 )
+     b = SQRT( x1**2 + y1**2 )
+     
+     dx = dx + dBasisdx(Which,1) * val
+     dy = dy + dBasisdx(Which,2) * val
+     s = SQRT(dx**2 + dy**2)
+     
+     s1 =  (x0*y1 - y0*x1) / (a*b)
+     s2 = -(x0*dy - y0*dx) / (s*a)
+     
+     IF ( s1 < 0 ) THEN
+       s1 = -s1;
+       s2 = -s2;
+     END IF
+     
+     IF ( s2 < 0 .OR. s2 > s1 ) THEN
+       val = MIN( a + ta, b + tb )
+     END IF
+!------------------------------------------------------------------------------
+   END FUNCTION Solve3rd
+!------------------------------------------------------------------------------
+  
+!------------------------------------------------------------------------------
+ END SUBROUTINE LevelSetDistance
+!------------------------------------------------------------------------------
+
+
+
+
+!------------------------------------------------------------------------------
+   SUBROUTINE LevelSetIntegrate( Model,Solver,Timestep,TransientSimulation )
+   !DEC$ATTRIBUTES DLLEXPORT :: LevelSetIntegrate
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  Compute the volume and area in 3D or area and line intgral in 2D over the 
+!  levelset function. This is better done within a dedicated solver since 
+!  it is crucial for the accuracy that the Heaviside and Delta function are
+!  computed at Gaussian integration points.
+!
+!******************************************************************************
+     USE SolverUtils
+     USE MaterialModels
+     USE Integration
+
+     IMPLICIT NONE
+!------------------------------------------------------------------------------
+ 
+     TYPE(Model_t), TARGET :: Model
+     TYPE(Solver_t) :: Solver
+     REAL(KIND=dp) :: Timestep
+     LOGICAL :: TransientSimulation
+ 
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+     TYPE(Nodes_t)   :: ElementNodes
+     TYPE(Element_t),POINTER :: CurrentElement
+     TYPE(ValueList_t), POINTER :: Material
+     TYPE(Variable_t), POINTER :: SurfSol
+
+     INTEGER :: i,j,k,n,t,istat,bf_id
+     INTEGER, POINTER :: NodeIndexes(:), SurfPerm(:)
+     LOGICAL :: Visited = .FALSE., Conserve, LimitTimestep, GotIt
+     REAL(KIND=dp), POINTER :: Surface(:), NodalSurf(:), NodalVelo(:,:)
+     INTEGER :: body_id, dim
+     REAL(KIND=dp) :: TotVolume, TotArea, Alpha, Relax, InitVolume, dSurface, &
+         MaxVelo, dsMax, dt, TotTime = 0.0
+     CHARACTER(LEN=MAX_NAME_LEN) :: LevelSetVariableName
+
+     SAVE ElementNodes, Visited, NodalVelo, NodalSurf, InitVolume, TotTime
+
+!------------------------------------------------------------------------------
+!    Get variables needed for solution
+!------------------------------------------------------------------------------
+
+     ! The variable that should be renormalized
+     LevelSetVariableName = ListGetString(Solver % Values,'Level Set Variable',GotIt) 
+     IF(GotIt) THEN
+       SurfSol => VariableGet( Solver % Mesh % Variables, TRIM(LevelSetVariableName) )
+     ELSE  
+       SurfSol => VariableGet( Solver % Mesh % Variables, 'Surface' )
+     END IF
+     IF(ASSOCIATED(SurfSol)) THEN
+       Surface  => SurfSol % Values
+       SurfPerm => SurfSol % Perm
+     ELSE
+       CALL Warn('LevelSetIntegrate','Surface variable does not exist')
+     END IF
+
+     IF ( ALL( SurfPerm == 0) ) THEN
+       CALL Warn('LevelSetIntegrate','Nothing to compute')
+       RETURN
+     END IF
+ 
+     dim = CoordinateSystemDimension()
+ 
+!------------------------------------------------------------------------------
+!    Allocate some permanent storage, this is done first time only
+!------------------------------------------------------------------------------
+     IF ( .NOT. Visited ) THEN
+       N = Solver % Mesh % MaxElementNodes
+
+       ALLOCATE( NodalVelo(dim,n),&
+           NodalSurf( N ), &
+           ElementNodes % x( N ),   &
+           ElementNodes % y( N ),   &
+           ElementNodes % z( N ),   &
+           STAT=istat )
+ 
+       IF ( istat /= 0 ) THEN
+         CALL Fatal( 'LevelSetIntegrate', 'Memory allocation error.' )
+       END IF
+     END IF
+!------------------------------------------------------------------------------
+!    Do some additional initialization, and go for it
+!------------------------------------------------------------------------------
+
+     TotVolume = 0.0d0
+     TotArea = 0.0d0
+     
+     Alpha = ListGetConstReal(Model % Simulation,'Levelset Bandwidth',GotIt) 
+     IF(.NOT. GotIt) Alpha = ListGetConstReal(Solver % Values,'Levelset Bandwidth') 
+
+     Relax = ListGetConstReal(Solver % Values,'LevelSet Volume Relaxation',GotIt)
+     IF(.NOT. GotIt) Relax = 1.0d0
+
+     Conserve = ListGetLogical(Solver % Values,'LevelSet Volume Conservation',GotIt)
+     DsMax = ListGetConstReal(Solver % Values,'Levelset Maximum Step',LimitTimestep)
+       
+     CALL Info( 'LevelSetIntegrate','-------------------------------------', Level=4 )
+     CALL Info( 'LevelSetIntegrate', 'Computing integrals over levelset function', Level=4 )
+     CALL Info( 'LevelSetIntegrate','-------------------------------------', Level=4 )
+
+     DO t=1,Solver % Mesh % NumberOfBulkElements
+       
+       CurrentElement => Solver % Mesh % Elements(t)
+       n = CurrentElement % TYPE % NumberOfNodes
+       NodeIndexes => CurrentElement % NodeIndexes
+       IF( ANY(SurfPerm(NodeIndexes) == 0)) CYCLE
+       
+       Model % CurrentElement => CurrentElement
+       body_id = CurrentElement % Bodyid    
+       k = ListGetInteger( Model % Bodies( body_id ) % Values, 'Material' )
+       Material => Model % Materials(k) % Values
+       
+       IF(LimitTimestep) THEN
+         NodalVelo(1,1:n) = ListGetReal( Material,'Levelset Velocity 1',n,NodeIndexes,GotIt)
+         NodalVelo(2,1:n) = ListGetReal( Material,'Levelset Velocity 2',n,NodeIndexes,GotIt)
+         IF(dim == 3) NodalVelo(3,1:n) = ListGetReal( Material,'Levelset Velocity 3',n,NodeIndexes,GotIt)
+       END IF
+
+!-----------------------------------------------------------------------------
+!        Get element nodal coordinates
+!------------------------------------------------------------------------------
+       ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
+       ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
+       ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(NodeIndexes)
+         
+       NodalSurf = Surface( SurfPerm(NodeIndexes) )
+
+       CALL HeavisideIntegrate( NodalSurf, CurrentElement, n, ElementNodes, &
+           Alpha, TotVolume, TotArea)      
+     END DO
+
+     WRITE(Message,'(a,F8.2)') 'Inside Volume',TotVolume
+     CALL Info( 'LevelSetIntegrate',Message, Level=4 )
+     
+     WRITE(Message,'(a,F8.2)') 'Interface Area',TotArea
+     CALL Info( 'LevelSetIntegrate',Message, Level=4 )
+     
+     CALL ListAddConstReal(Model % Simulation,'res: LevelSet Volume',TotVolume)
+     CALL ListAddConstReal(Model % Simulation,'res: LevelSet Area',TotArea)
+
+     IF(Conserve) THEN
+       IF(.NOT. Visited) THEN
+         InitVolume = ListGetConstReal(Solver % Values,'LevelSet Initial Volume',GotIt)
+         IF(.NOT. GotIt) InitVolume = TotVolume
+       END IF
+       dSurface = Relax * (InitVolume - TotVolume) / TotArea
+       Surface = Surface + dSurface
+
+       WRITE(Message,'(a,F8.2)') 'Levelset correction',dSurface
+       CALL Info( 'LevelSetIntegrate',Message, Level=4 )
+
+       CALL ListAddConstReal(Model % Simulation,'res: Levelset Correction',dSurface)
+     END IF
+
+     IF(LimitTimestep) THEN
+       IF( MaxVelo * Timestep > dsMax) THEN
+         dt = dsMax / MaxVelo
+       ELSE
+         dt = TimeStep
+       END IF
+       TotTime = TotTime + dt
+       
+       WRITE(Message,'(a,F8.2)') 'Levelset timestep',dt
+       CALL Info( 'LevelSetIntegrate',Message, Level=4 )
+       CALL ListAddConstReal(Model % Simulation,'res: Levelset timestep',dt)
+
+       WRITE(Message,'(a,F8.2)') 'Levelset time',TotTime
+       CALL Info( 'LevelSetIntegrate',Message, Level=4 )
+       CALL ListAddConstReal(Model % Simulation,'res: Levelset time',TotTime)
+     END IF
+
+     Visited = .TRUE.
+
+
+!------------------------------------------------------------------------------
+
+ CONTAINS
+
+!------------------------------------------------------------------------------
+   SUBROUTINE HeavisideIntegrate( Surf,Element,n,Nodes,Alpha,Volume,Area )
+!------------------------------------------------------------------------------
+
+     REAL(KIND=dp), DIMENSION(:)   :: Surf
+     INTEGER :: n
+     TYPE(Nodes_t) :: Nodes
+     TYPE(Element_t), POINTER :: Element
+     REAL(KIND=dp) :: Alpha, Volume, Area
+
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+
+     REAL(KIND=dp) :: Basis(n)
+     REAL(KIND=dp) :: dBasisdx(n,3),detJ
+     REAL(KIND=dp) :: Val,Grad(3),Velo(3),NormalVelo,GradAbs,Heavi,Delta
+     INTEGER :: t,N_Integ, CoordinateSystem
+     REAL(KIND=dp) :: s,u,v,w
+     TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
+     REAL(KIND=dp), DIMENSION(:), POINTER :: U_Integ,V_Integ,W_Integ,S_Integ
+     LOGICAL :: stat
+
+!------------------------------------------------------------------------------
+
+     dim = CoordinateSystemDimension()
+     CoordinateSystem = CurrentCoordinateSystem()
+
+!------------------------------------------------------------------------------
+!    Integration stuff
+!------------------------------------------------------------------------------
+     IntegStuff = GaussPoints( element )
+
+     U_Integ => IntegStuff % u
+     V_Integ => IntegStuff % v
+     W_Integ => IntegStuff % w
+     S_Integ => IntegStuff % s
+     N_Integ =  IntegStuff % n
+
+!------------------------------------------------------------------------------
+!    Now we start integrating
+!------------------------------------------------------------------------------
+     DO t=1,N_Integ
+
+       u = U_Integ(t)
+       v = V_Integ(t)
+       w = W_Integ(t)
+
+!------------------------------------------------------------------------------
+!      Basis function values & derivatives at the integration point
+!------------------------------------------------------------------------------
+       stat = ElementInfo( Element,Nodes,u,v,w,detJ, Basis,dBasisdx)
+
+       s = detJ * S_Integ(t)
+!------------------------------------------------------------------------------
+!      Coordinatesystem dependent info
+!------------------------------------------------------------------------------
+       IF ( CoordinateSystem == AxisSymmetric .OR. CoordinateSystem == CylindricSymmetric ) THEN
+         s = s * SUM( Nodes % x(1:n) * Basis(1:n) )
+       END IF
+
+!------------------------------------------------------------------------------
+       Val = SUM( Basis(1:n) * Surf(1:n) )
+
+       IF( Val < -Alpha) THEN
+         Heavi = 0.0d0
+         Delta = 0.0d0
+       ELSE IF(Val > Alpha) THEN
+         Heavi = 1.0d0
+         Delta = 0.0d0
+         Volume = Volume + s * Heavi
+       ELSE
+         Heavi = (1.0d0 + SIN( (Val/Alpha) * (PI/2) ) ) / 2.0d0
+         Delta = (1.0d0 + COS( (Val/Alpha) * PI ) ) / (2.0d0 * Alpha)
+
+         DO i=1,dim
+           Grad(i) = SUM( dBasisdx(1:n,i) * Surf(1:n) )
+         END DO
+         GradAbs = SQRT( SUM( Grad(1:dim) * Grad(1:dim) ) )
+         
+         Volume = Volume + s * Heavi
+         Area = Area + s * Delta * GradAbs
+ 
+         IF(LimitTimestep) THEN
+           DO i=1,dim
+             Velo(i) = SUM( Basis(1:n) * NodalVelo(i,1:n) )
+           END DO
+           NormalVelo = SUM( Grad(1:dim) * Velo(1:dim) ) / GradAbs
+           MaxVelo = MAX(MaxVelo, ABS(NormalVelo))
+         END IF
+        END IF
+       
+     END DO
+     
+!------------------------------------------------------------------------------
+   END SUBROUTINE HeavisideIntegrate
+!------------------------------------------------------------------------------
+
+ END SUBROUTINE LevelSetIntegrate
+!------------------------------------------------------------------------------
+
+
+
+!------------------------------------------------------------------------------
+   SUBROUTINE LevelSetCurvature( Model,Solver,Timestep,TransientSimulation )
+   !DEC$ATTRIBUTES DLLEXPORT :: LevelSetCurvature
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  Computes the curvature from the level set function. Additional diffusion may 
+!  be added in order to limit the singular curvature peaks.
+!
+!******************************************************************************
+     USE SolverUtils
+     USE Integration
+
+     IMPLICIT NONE
+!------------------------------------------------------------------------------
+ 
+     TYPE(Model_t), TARGET :: Model
+     TYPE(Solver_t) :: Solver
+     REAL(KIND=dp) :: Timestep
+     LOGICAL :: TransientSimulation
+ 
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+     TYPE(Matrix_t),POINTER  :: StiffMatrix
+     TYPE(Nodes_t) :: ElementNodes, ParentNodes
+     TYPE(Element_t),POINTER :: Element, Parent
+     TYPE(Variable_t), POINTER :: SurfSol
+
+     INTEGER :: i,j,k,n,pn,t,istat,bf_id,CoordinateSystem
+     REAL(KIND=dp) :: Norm, Coeff, Diff
+     INTEGER, POINTER :: NodeIndexes(:)
+     INTEGER, POINTER :: CurvPerm(:), SurfPerm(:)
+     REAL(KIND=dp), POINTER :: Curvature(:),ForceVector(:), Curv(:),Surface(:) 
+     REAL(KIND=dp), ALLOCATABLE :: LocalStiffMatrix(:,:),LocalForce(:),Surf(:)
+     REAL(KIND=dp) :: at,totat,st,totst,CPUTime
+     CHARACTER(LEN=MAX_NAME_LEN) :: LevelSetVariableName
+     LOGICAL :: GotIt, Stat, AllocationsDone = .FALSE.
+
+     SAVE LocalStiffMatrix,LocalForce, ElementNodes,ParentNodes,Surf,AllocationsDone
+
+!------------------------------------------------------------------------------
+!    Get variables needed for solution
+!------------------------------------------------------------------------------
+     IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
+
+     CoordinateSystem = CurrentCoordinateSystem()
+
+     Curvature => Solver % Variable % Values
+     CurvPerm => Solver % Variable % Perm
+     IF ( SIZE( Curvature ) == 0 ) RETURN
+
+     LevelSetVariableName = ListGetString(Solver % Values,'LevelSet Variable',GotIt) 
+     IF(GotIt) THEN
+       SurfSol => VariableGet( Solver % Mesh % Variables, TRIM(LevelSetVariableName) )
+     ELSE  
+       SurfSol => VariableGet( Solver % Mesh % Variables, 'Surface' )
+     END IF
+     Surface => Surfsol % Values
+     SurfPerm => SurfSol % Perm
+
+     StiffMatrix => Solver % Matrix
+     ForceVector => StiffMatrix % RHS
+     Norm = Solver % Variable % Norm
+
+     Diff = ListGetConstReal(Solver % Values,'Curvature Diffusion',GotIt)
+
+!------------------------------------------------------------------------------
+!    Allocate some permanent storage, this is done first time only
+!------------------------------------------------------------------------------
+     IF ( .NOT. AllocationsDone ) THEN
+       N = Solver % Mesh % MaxElementNodes
+
+       ALLOCATE( ElementNodes % x( N ),   &
+           ElementNodes % y( N ),   &
+           ElementNodes % z( N ),   &
+           ParentNodes % x( N ),   &
+           ParentNodes % y( N ),   &
+           ParentNodes % z( N ),   &
+           LocalForce( N ),       &
+           LocalStiffMatrix( N, N ), &
+           Surf( N ), &
+           STAT=istat )
+ 
+       IF ( istat /= 0 ) THEN
+         CALL Fatal( 'CurvatureSolve', 'Memory allocation error.' )
+       END IF
+
+       AllocationsDone = .TRUE.
+     END IF
+!------------------------------------------------------------------------------
+!    Do some additional initialization, and go for it
+!------------------------------------------------------------------------------
+
+     totat = 0.0d0
+     totst = 0.0d0
+
+     at = CPUTime()
+     
+     CALL Info( 'LevelSetCurvature','-------------------------------------', Level=4 )
+     CALL Info( 'LevelSetCurvature','Solving Level set curvature', Level=4 )
+     CALL Info( 'LevelSetCurvature','-------------------------------------', Level=4 )
+
+     CALL InitializeToZero( StiffMatrix, ForceVector )
+
+!------------------------------------------------------------------------------
+!      Do the assembly for bulk elements
+!------------------------------------------------------------------------------
+
+     DO t=1,Solver % NumberOfActiveElements
+       
+       Element => Solver % Mesh % Elements(Solver % ActiveElements(t))
+       n = Element % TYPE % NumberOfNodes
+       NodeIndexes => Element % NodeIndexes
+ 
+       ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
+       ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
+       ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(NodeIndexes)
+
+       Surf = Surface( SurfPerm(NodeIndexes) )
+
+       CALL LocalMatrix( LocalStiffMatrix, LocalForce, &
+           Surf, Element, n, ElementNodes )
+         
+       CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
+           ForceVector, LocalForce, n, 1, CurvPerm(NodeIndexes) )
+
+     END DO     
+
+!------------------------------------------------------------------------------
+!      Do the assembly for boundary elements
+!------------------------------------------------------------------------------
+
+     DO t=Solver % Mesh % NumberOfBulkElements + 1, &
+         Solver % Mesh % NumberOfBulkElements + &
+         Solver % Mesh % NumberOfBoundaryElements
+      
+       Element => Solver % Mesh % Elements(t)
+!------------------------------------------------------------------------------
+       DO i=1,Model % NumberOfBCs
+         IF ( Element % BoundaryInfo % Constraint == Model % BCs(i) % Tag ) THEN
+
+           n = Element % TYPE % NumberOfNodes
+           NodeIndexes => Element % NodeIndexes
+           IF ( ANY( CurvPerm(NodeIndexes) <= 0 ) ) CYCLE         
+
+           IF ( Element % TYPE % ElementCode == 101 ) CYCLE
+           
+           IF ( .NOT. ListGetLogical(Model % BCs(i) % Values, &
+               'Levelset Curvature BC',gotIt) ) CYCLE
+
+           ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
+           ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
+           ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(NodeIndexes)
+           
+           Parent => Element % BoundaryInfo % Left
+          
+           stat = ASSOCIATED( Parent )
+           IF ( stat ) stat = stat .AND. ALL(CurvPerm(Parent % NodeIndexes) > 0)
+          
+           IF ( .NOT. stat ) THEN
+             Parent => Element % BoundaryInfo % Right
+             
+            stat = ASSOCIATED( Parent )
+            IF ( stat ) stat = ALL(CurvPerm(Parent % NodeIndexes(1:pn)) > 0)
+            
+            IF ( .NOT. stat )  THEN
+              CALL Warn( 'LevelSetCurvature', &
+                  'No curvature solution available for specified boundary' )
+              CYCLE
+            END IF
+          END IF
+          
+          pn = Parent % TYPE % NumberOfNodes           
+          ParentNodes % x(1:pn) = Solver % Mesh % Nodes % x(Parent % NodeIndexes)
+          ParentNodes % y(1:pn) = Solver % Mesh % Nodes % y(Parent % NodeIndexes)
+          ParentNodes % z(1:pn) = Solver % Mesh % Nodes % z(Parent % NodeIndexes)
+
+          Surf(1:pn) = Surface(SurfPerm(Parent % NodeIndexes))
+          
+!------------------------------------------------------------------------------
+!             Get element matrix and rhs due to boundary conditions ...
+!------------------------------------------------------------------------------
+          
+          CALL LocalBoundary( LocalStiffMatrix, LocalForce,  &
+              Surf, Element, Parent, n, pn, ElementNodes, ParentNodes )
+!------------------------------------------------------------------------------
+!             Update global matrices from local matrices
+!------------------------------------------------------------------------------
+          CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
+              ForceVector, LocalForce, n, 1, CurvPerm(NodeIndexes) )
+!------------------------------------------------------------------------------
+           END IF   
+        END DO   
+      END DO   
+!------------------------------------------------------------------------------
+
+     CALL FinishAssembly( Solver,ForceVector )
+     
+     at = CPUTime() - at
+     WRITE(Message,'(a,F8.2)') 'Assembly done in time:',at
+     CALL Info( 'LevelSetCurvature',Message, Level=4 )
+
+!------------------------------------------------------------------------------
+!    Solve the system and we are done.
+!------------------------------------------------------------------------------
+     st = CPUTime()
+     CALL SolveSystem( StiffMatrix, ParMatrix, ForceVector, &
+         Curvature, Norm, 1, Solver )
+     
+     st = CPUTIme()-st
+     WRITE(Message,'(a,F8.2)') 'Solution done in time:',st
+     CALL Info( 'LevelSetCurvature',Message, Level=4 )
+
+!------------------------------------------------------------------------------
+
+     Coeff = ListGetConstReal(Solver % Values,'Curvature Coefficient',GotIt) 
+     IF(GotIt) THEN
+       Curvature = Coeff * Curvature
+     END IF
+
+CONTAINS
+
+   SUBROUTINE LocalMatrix( StiffMatrix,ForceVector, Surf, &
+       Element, n, Nodes )
+!------------------------------------------------------------------------------
+
+     REAL(KIND=dp), DIMENSION(:)   :: ForceVector,Surf
+     REAL(KIND=dp), DIMENSION(:,:) :: StiffMatrix
+     INTEGER :: n
+     TYPE(Nodes_t) :: Nodes
+     TYPE(Element_t), POINTER :: Element
+
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+!
+     REAL(KIND=dp) :: Basis(n)
+     REAL(KIND=dp) :: dBasisdx(n,3),detJ
+     REAL(KIND=dp) :: Grad(3),GradAbs,A,B,xpos
+     INTEGER :: i,j,k,c,p,q,t,dim,N_Integ
+     REAL(KIND=dp) :: s,u,v,w
+     TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
+     REAL(KIND=dp), DIMENSION(:), POINTER :: U_Integ,V_Integ,W_Integ,S_Integ
+
+     LOGICAL :: stat
+
+!------------------------------------------------------------------------------
+
+     dim = CoordinateSystemDimension()
+     Grad = 0.0d0
+     ForceVector = 0.0D0
+     StiffMatrix = 0.0D0
+
+!------------------------------------------------------------------------------
+!    Integration stuff
+!------------------------------------------------------------------------------
+     IntegStuff = GaussPoints( element )
+     U_Integ => IntegStuff % u
+     V_Integ => IntegStuff % v
+     W_Integ => IntegStuff % w
+     S_Integ => IntegStuff % s
+     N_Integ =  IntegStuff % n
+
+!------------------------------------------------------------------------------
+!    Now we start integrating
+!------------------------------------------------------------------------------
+     DO t=1,N_Integ
+
+       u = U_Integ(t)
+       v = V_Integ(t)
+       w = W_Integ(t)
+       
+!------------------------------------------------------------------------------
+!      Basis function values & derivatives at the integration point
+!------------------------------------------------------------------------------
+       stat = ElementInfo( Element,Nodes,u,v,w,detJ,Basis,dBasisdx)
+
+       s = detJ * S_Integ(t)
+
+!------------------------------------------------------------------------------
+!      Coordinatesystem dependent info
+!------------------------------------------------------------------------------
+       IF ( Coordinates == AxisSymmetric .OR. Coordinates == CylindricSymmetric ) THEN
+         xpos = SUM( Nodes % x(1:n) * Basis(1:n) )
+         s = xpos * s
+       END IF
+
+!------------------------------------------------------------------------------
+
+       DO i=1,dim
+         Grad(i) = SUM( dBasisdx(1:n,i) * Surf(1:n) )
+       END DO
+       GradAbs = SQRT( SUM( Grad * Grad ) )
+       IF ( GradAbs > 10*AEPS ) THEN
+         Grad = Grad / GradAbs
+       END IF
+
+!------------------------------------------------------------------------------
+!      Loop over basis functions of both unknowns and weights
+!------------------------------------------------------------------------------
+       DO p=1,n
+
+         DO q=1,n
+           A = Basis(q) * Basis(p)
+           A = A + Diff * SUM( dBasisdx(q,1:dim) * dBasisdx(p,1:dim) )
+
+           StiffMatrix(p,q) = StiffMatrix(p,q) + s * A
+         END DO
+
+         B = - SUM( dBasisdx(p, 1:dim) * Grad(1:dim))  
+         ForceVector(p) = ForceVector(p) + s * B        
+
+       END DO
+     END DO
+
+!------------------------------------------------------------------------------
+   END SUBROUTINE LocalMatrix
+
+
+!------------------------------------------------------------------------------
+   SUBROUTINE LocalBoundary( BoundaryMatrix, BoundaryVector, &
+        Surf, Element, Parent, n, pn, ElementNodes, ParentNodes )
+!------------------------------------------------------------------------------
+
+     REAL(KIND=dp) :: BoundaryMatrix(:,:), BoundaryVector(:), Surf(:)
+     TYPE(Nodes_t)   :: ElementNodes, ParentNodes
+     TYPE(Element_t), POINTER :: Element, Parent
+     INTEGER :: n, pn
+
+     REAL(KIND=dp) :: Basis(n), dBasisdx(n,3), Normal(3), Grad(3), GradAbs, detJ, A
+     REAL(KIND=dp) :: ParentBasis(pn), ParentdBasisdx(pn,3)
+     REAL(KIND=dp) :: u,v,w,s,x(n),y(n),z(n),xpos, Force
+     REAL(KIND=dp), POINTER :: U_Integ(:),V_Integ(:),W_Integ(:),S_Integ(:)
+
+     INTEGER :: t,p,q,N_Integ,dim
+
+     TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
+
+     LOGICAL :: stat
+!------------------------------------------------------------------------------
+
+     BoundaryVector = 0.0d0
+     BoundaryMatrix = 0.0d0
+     dim = CoordinateSystemDimension()
+     Grad = 0.0d0
+
+!------------------------------------------------------------------------------
+!    Integration stuff
+!------------------------------------------------------------------------------
+     IntegStuff = GaussPoints( Element )
+     U_Integ => IntegStuff % u
+     V_Integ => IntegStuff % v
+     W_Integ => IntegStuff % w
+     S_Integ => IntegStuff % s
+     N_Integ =  IntegStuff % n
+
+!------------------------------------------------------------------------------
+!   Now we start integrating
+!------------------------------------------------------------------------------
+     DO t=1,N_Integ
+       u = U_Integ(t)
+       v = V_Integ(t)
+       w = W_Integ(t)
+!------------------------------------------------------------------------------
+!     Basis function values & derivates at the integration point
+!------------------------------------------------------------------------------
+       stat = ElementInfo( Element,ElementNodes,u,v,w,detJ,Basis,dBasisdx )
+       s = S_Integ(t) * detJ
+
+!------------------------------------------------------------------------------
+!      Coordinatesystem dependent info
+!------------------------------------------------------------------------------
+      IF ( CurrentCoordinateSystem() /= Cartesian ) THEN
+        xpos = SUM( ElementNodes % x(1:n)*Basis(1:n) )
+        s = xpos * s
+      END IF
+
+      Normal = Normalvector( Element, ElementNodes, u, v, .TRUE. )
+      
+      !------------------------------------------------------------------------------
+      ! Need parent element basis etc., for computing normal derivatives on boundary.
+      !------------------------------------------------------------------------------
+      
+      DO i = 1,n
+        DO j = 1,pn
+          IF ( Element % NodeIndexes(i) == Parent % NodeIndexes(j) ) THEN
+            x(i) = Parent % TYPE % NodeU(j)
+            y(i) = Parent % TYPE % NodeV(j)
+            z(i) = Parent % TYPE % NodeW(j)
+            EXIT
+          END IF
+        END DO
+      END DO
+      
+      u = SUM( Basis(1:n) * x(1:n) )
+      v = SUM( Basis(1:n) * y(1:n) )
+      w = SUM( Basis(1:n) * z(1:n) )
+      
+      stat = ElementInfo( Parent, ParentNodes, u, v, w, detJ, ParentBasis, ParentdBasisdx )
+          
+      DO j = 1,DIM
+        Grad(j) = SUM( ParentdBasisdx(1:pn,j) * Surf(1:pn) )
+      END DO
+      GradAbs = SQRT( SUM(Grad(1:dim) * Grad(1:dim)) )
+
+      IF ( GradAbs > 10*AEPS ) THEN         
+        Grad = Grad / GradAbs
+      END IF
+
+!------------------------------------------------------------------------------
+      
+      DO p=1,n
+        DO q=1,n
+          A = Diff * SUM( Normal(1:dim) * dBasisdx(q,1:dim)) * Basis(p)
+          BoundaryMatrix(p,q) = BoundaryMatrix(p,q) + s * A
+        END DO
+      END DO
+
+      Force = SUM( Normal(1:dim) * Grad(1:dim) )
+      DO q=1,N
+        BoundaryVector(q) = BoundaryVector(q) + s * Basis(q) * Force
+      END DO
+
+    END DO
+
+  END SUBROUTINE LocalBoundary
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+END SUBROUTINE LevelSetCurvature
+!------------------------------------------------------------------------------
