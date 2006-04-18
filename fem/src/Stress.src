@@ -40,6 +40,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Stress.src,v $
+! * Revision 1.12  2006/04/07 11:22:46  jpr
+! * Modified stress computation to include thermal expansion effects.
+! *
 ! * Revision 1.11  2006/03/27 10:28:51  jpr
 ! * *** empty log message ***
 ! *
@@ -123,7 +126,7 @@
 ! * Modified StressBoundary to work in axisymmetric cases.
 ! *
 ! *
-! * $Id: Stress.src,v 1.11 2006/03/27 10:28:51 jpr Exp $
+! * $Id: Stress.src,v 1.12 2006/04/07 11:22:46 jpr Exp $
 ! *****************************************************************************/
 
 MODULE StressLocal
@@ -772,7 +775,9 @@ MODULE StressLocal
           END DO
         END DO
         DO i=1,dim
-          HEXP(i,i) = SUM( Basis(1:n) * HeatExpansion(i,i,1:n) )
+          DO j=1,dim
+            HEXP(i,j) = SUM( Basis(1:n) * HeatExpansion(i,j,1:n) )
+          END DO
         END DO
      ELSE
         Young = SUM( Basis(1:n) * ElasticModulus(1,1,1:n) )
