@@ -2517,12 +2517,8 @@ int ElementsToTriangles(struct FemType *data,struct BoundaryType *bound,
 
 int PolarCoordinates(struct FemType *data,Real rad,int info)
 {
-  int i,j,k,l,level,maplevel,noelements,mode;
+  int i,j,k,l;
   Real x,y,dx,dy,fii,zet,dr;
-  Real maplim[3*MAXMAPPINGS];
-
-
-  noelements  = data->noelements;
 
   for(i=1;i<=data->noknots;i++) {
     zet = data->x[i];
@@ -2533,6 +2529,27 @@ int PolarCoordinates(struct FemType *data,Real rad,int info)
     data->x[i] = (rad+dr) * cos(fii);
     data->y[i] = (rad+dr) * sin(fii);
   }
+
+  if(info) printf("Making coordinate transformation from polar to cartesian\n");
+
+  return(0);
+}
+
+
+int CylinderCoordinates(struct FemType *data,int info)
+{
+  int i,j,k,l;
+  Real x,y,rad,fii;
+
+  for(i=1;i<=data->noknots;i++) {
+    rad = data->x[i];
+    fii = FM_PI/180.0 * data->y[i];
+
+    data->x[i] = rad * cos(fii);
+    data->y[i] = rad * sin(fii);
+  }
+
+  if(info) printf("Making coordinate transformation from cylindrical to cartesian\n");
 
   return(0);
 }

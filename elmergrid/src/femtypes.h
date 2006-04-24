@@ -303,7 +303,7 @@ struct ElmergridType {
 
   int layerparents[MAXBOUNDARIES];
   int sidebulk[MAXSIDEBULK];
-  int triangles,polar,isoparam;
+  int triangles,polar,isoparam,cylinder;
   int unitemeshes,reduce,increase,reducemat1,reducemat2;
   int findsides,saveboundaries,nodes3d,elements3d;
   int periodic, periodicdim[3],discont,discontbounds[MAXBOUNDARIES];

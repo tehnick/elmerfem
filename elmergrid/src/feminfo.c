@@ -925,6 +925,10 @@ int LoadElmergridOld(struct GridType **grid,int *nogrids,char *prefix,int info)
 	grid[k]->coordsystem = COORD_CART3;
 	grid[k]->dimension = 3;
       }
+      else if(strstr(line,"CYLINDRICAL")) {
+	grid[k]->coordsystem = COORD_CYL;
+	grid[k]->dimension = 3;
+      }
       else printf("Unknown coordinate system: %s\n",line);
       printf("Defining the coordinate system (%d-DIM).\n",grid[k]->dimension);
 
@@ -1374,6 +1378,11 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info)
 	printf("LoadElmergrid: Too many subcells [%d %d %d] vs. %d:\n",
 	       grid[k]->xcells,grid[k]->ycells,grid[k]->zcells,MAXCELLS);
       }
+
+      /* Initialize the default stucture with ones */
+      for(j=grid[k]->ycells;j>=1;j--) 
+	for(i=1;i<=grid[k]->xcells;i++) 
+	  grid[k]->structure[j][i] = 1;
     }
     
     else if(strstr(command,"MINIMUM ELEMENT DIVISION")) {
@@ -1475,7 +1484,12 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info)
 
     else if(strstr(command,"MATERIAL STRUCTURE")) {
       printf("Loading material structure\n");
-      
+
+      /* Initialize the default stucture with zeros */
+      for(j=grid[k]->ycells;j>=1;j--) 
+	for(i=1;i<=grid[k]->xcells;i++) 
+	  grid[k]->structure[j][i] = 0;
+     
       for(j=grid[k]->ycells;j>=1;j--) {
 	if(j < grid[k]->ycells) Getline(params,in);
 	cp=params;

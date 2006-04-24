@@ -131,6 +131,7 @@ static void Instructions()
   printf("-mirror int[3]       : copy the mesh around the origin in coordinate directions\n");
   printf("-unite               : the meshes will be united\n");
   printf("-polar real          : map 2D mesh to a cylindrical shell with given radius\n");
+  printf("-cylinder            : map 2D/3D cylindrical mesh to a cartesian mesh\n");
   printf("-reduce int[2]       : reduce element order at material interval [int1 int2]\n");
   printf("-increase            : increase element order from one to two\n");
   printf("-pelem int[3]        : p-elements of power int3 at interval [int1 int2]\n");
@@ -177,6 +178,7 @@ void InitParameters(struct ElmergridType *eg)
   eg->triangles = FALSE;
   eg->rotate = FALSE;
   eg->polar = FALSE;
+  eg->cylinder = FALSE;
   eg->layers = 0;
   eg->layereps = 0.0;
   eg->layermove = 0;
@@ -412,6 +414,11 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
       else {
 	eg->polarradius = atoi(argv[arg+1]);
       }
+    }
+
+    if(strcmp(argv[arg],"-cylinder") == 0) {
+      eg->cylinder = TRUE;
+      printf("Making transformation from cylindrical to cartesian coordinates.\n");
     }
 
     if(strcmp(argv[arg],"-reduce") == 0) {
@@ -779,6 +786,10 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
     else if(strstr(command,"POLAR RADIUS")) {
       eg->polar = TRUE;
       sscanf(params,"%le",&eg->polarradius);
+    }
+    else if(strstr(command,"CYLINDER")) {
+      for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+      if(strstr(params,"TRUE")) eg->cylinder = TRUE;      
     }
     else if(strstr(command,"REDUCE DEGREE")) {
       eg->reduce = TRUE;
@@ -1354,12 +1365,6 @@ int main(int argc, char *argv[])
 			  eg.layerparents, eg.layermove, eg.layereps, info);
   }
 
-  for(k=0;k<nomeshes;k++) {
-    if(eg.polar || data[k].coordsystem == COORD_POLAR) {
-      if(!eg.polar) eg.polarradius = grids[k].polarradius;
-      PolarCoordinates(&data[k],eg.polarradius,info);
-    }
-  }
 
   if(outmethod != 1 && dim != 2 && eg.dim != 2) { 
     j = MAX(nogrids,1);
@@ -1415,6 +1420,18 @@ int main(int argc, char *argv[])
     }
   }
 
+  for(k=0;k<nomeshes;k++) {
+    if(eg.polar || data[k].coordsystem == COORD_POLAR) {
+      if(!eg.polar) eg.polarradius = grids[k].polarradius;
+      PolarCoordinates(&data[k],eg.polarradius,info);
+    }
+  }
+
+  for(k=0;k<nomeshes;k++) {
+    if(eg.cylinder || data[k].coordsystem == COORD_CYL) {
+      CylinderCoordinates(&data[k],info);
+    }
+  }
 
   if(eg.unitemeshes) {
     for(k=1;k<nomeshes;k++)

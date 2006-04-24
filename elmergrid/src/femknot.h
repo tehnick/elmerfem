@@ -49,6 +49,7 @@ int ElementsToTriangles(struct FemType *data,
 			struct BoundaryType *bound,int info);
 int IncreaseElementOrder(struct FemType *data,int info);
 int PolarCoordinates(struct FemType *data,Real rad,int info);
+int CylinderCoordinates(struct FemType *data,int info);
 int UniteMeshes(struct FemType *data1,struct FemType *data2,
 		struct BoundaryType *bound1,struct BoundaryType *bound2,
 		int info);

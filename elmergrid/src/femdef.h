@@ -46,6 +46,7 @@ typedef int Integer;
 #define COORD_POLAR 2
 #define COORD_CART3 3
 #define COORD_CART1 4
+#define COORD_CYL   5
 
 /* Different types of boundary conditions */
 #define BNDR_NOTHING       0
