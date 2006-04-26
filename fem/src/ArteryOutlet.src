@@ -40,6 +40,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: ArteryOutlet.src,v $
+! * Revision 1.2  2006/03/29 11:11:57  ejarvine
+! * Corrected an error in allocation.
+! *
 ! * Revision 1.1  2006/03/24 13:51:25  raback
 ! * *** empty log message ***
 ! *
@@ -95,14 +98,16 @@ SUBROUTINE OutletCompute( Model,Solver,dt,TransientSimulation )
   TYPE(Variable_t), POINTER :: LVar, FlowSol
   
   INTEGER :: t, k,n,m,ie,bf_id,mat_id,prev_mat_id,istat,LocalNodes,i,j, nonliniter, l, &
-      bc, joinnode, Connections, fsstep, fsstepmax
+      bc, joinnode, Connections, SolidConnections, fsstep, fsstepmax
   
   INTEGER, POINTER :: NodeIndexes(:), WPerm(:)
-  INTEGER, ALLOCATABLE :: LumpedBoundaries(:)
+  INTEGER, ALLOCATABLE :: LumpedBoundaries(:), SolidEndBoundaries(:)
   
   REAL(KIND=dp) :: Norm, PrevNorm, FlowOut2d
   
   LOGICAL :: GotIt, GotIt2, AllocationsDone = .FALSE. , FirstTime = .TRUE.
+  LOGICAL :: CenterPointsComputed = .FALSE.
+
   CHARACTER(LEN=MAX_NAME_LEN) :: Method, Name
   
   REAL(KIND=dp), POINTER :: Wnodal(:), ForceVector(:), Lnodal(:), Anodal(:), &
@@ -110,10 +115,10 @@ SUBROUTINE OutletCompute( Model,Solver,dt,TransientSimulation )
   
   REAL(KIND=dp), ALLOCATABLE :: LocalStiffMatrix(:,:),LocalMassMatrix(:,:), &
       Lelem(:), LocalForce(:), Cnodal(:), Unodal(:), Wprev(:), Lprev(:), &
-      Aprev(:), FluidicForces(:), FluidicAreas(:), FluidicFluxes(:)
+      Aprev(:), FluidicForces(:), FluidicAreas(:), FluidicFluxes(:), SolidEndAreas(:)
   
   REAL(KIND=dp) :: NonlinearTol, NonlinearIter, Density, PoissonRatio,&
-      WallYoungs, TubeRadius, TubeWallThickness, BetaCoeff, Aref, W20, &
+      WallYoungs, ArteryRadius, ArteryWallThickness, BetaCoeff, Aref, W20, &
       WdiffSum, WnodalSum, WprevnodalSum, Werror, fsAlpha, fsTheta, fsdTheta, fsBeta, &
       pres2dout, area2dout, psi, RadiusIn1d, AreaIn1d, BetaCoeff2, &
       dR, Wbcnode, A2, Q2  
@@ -122,24 +127,26 @@ SUBROUTINE OutletCompute( Model,Solver,dt,TransientSimulation )
       Lelem, LocalForce,ElementNodes, AllocationsDone, &
       Cnodal, Unodal, Wprev, Lprev, Aprev,&
       Lnodal, Anodal, Qnodal, Pnodal, Wnodal, &
-      FluidicForces, FluidicAreas, FluidicFluxes, LumpedBoundaries
+      FluidicForces, FluidicAreas, FluidicFluxes, & 
+      LumpedBoundaries, SolidEndBoundaries, SolidEndAreas, &
+      CenterPointsComputed
 
 !------------------------------------------------------------------------------
 !    Get variables needed for solution
 !------------------------------------------------------------------------------
 
-  CALL Info('OneDimSolver','Starting')
+  CALL Info('OutletCompute','Starting')
 
   Wnodal => Solver % Variable % Values
   LocalNodes = SIZE( Wnodal )
   IF(LocalNodes == 0) THEN
-    CALL Warn('OneDimSolver','No active variables')
+    CALL Warn('OutletCompute','No active variables')
     RETURN
   END IF
   WPerm => Solver % Variable % Perm
   StiffMatrix => Solver % Matrix
   IF(.NOT. ASSOCIATED(StiffMatrix)) THEN
-    CALL Warn('OneDimSolver','StiffMatrix does not exist')
+    CALL Warn('OutletCompute','StiffMatrix does not exist')
     RETURN
   END IF
   ForceVector => StiffMatrix % RHS
@@ -160,7 +167,9 @@ SUBROUTINE OutletCompute( Model,Solver,dt,TransientSimulation )
         LocalMassMatrix( N,N ),  &
         Lelem( N ),              &
         LumpedBoundaries( M ),   &
+        SolidEndBoundaries( M ),   &
         FluidicAreas( M ),       &
+        SolidEndAreas( M ),       &
         FluidicForces( M ),      &
         FluidicFluxes( M ),      &
         STAT=istat )
@@ -212,15 +221,80 @@ SUBROUTINE OutletCompute( Model,Solver,dt,TransientSimulation )
     AllocationsDone = .TRUE.
   END IF
   
-  !------------------------------------------------------------------------------
+  !---------------------------------------------------------------------------------------
   ! Compute the lumped values for area, flux and pressure on the corresponding boundaries
-  !------------------------------------------------------------------------------
+  !---------------------------------------------------------------------------------------
   
   ! Check which boundaries should be lumped and mark them with the corresponding 1D dof
   LumpedBoundaries = .0
+
+  DO bc=1,Model % NumberOfBCs       
+
+   ! Coupling with what Boundary Condition nro (j)   
+    j = ListGetInteger( Model % BCs(bc) % Values, 'Fluid Coupling With Boundary', GotIt)
+    IF(.NOT. GotIt) CYCLE
+    
+    DO t = Model % NumberOfBulkElements + 1, &
+        Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+      
+      Element => Model % Elements(t)
+      
+   ! In which Boundary Condition coupling is given 
+      IF ( Element % BoundaryInfo % Constraint /= Model % BCs(bc) % Tag ) CYCLE
+      
+   ! Boundary Element should be 1 node boundary
+      Model % CurrentElement => Element
+      n = Element % TYPE % NumberOfNodes
+      IF(n /= 1) CYCLE 
+      
+   ! Element % NodeIndexes(1) is boundary elements node number, k is the node nro of
+   ! the 1D model
+      k = WPerm(Element % NodeIndexes(1))
+      LumpedBoundaries(j) = k
+
+      EXIT
+    END DO
+  END DO
+  
+   ! LumpedBoundaries is a vector a_j, a_j = k (1d node nro), if a_i /= 0,
+   ! and j is boundary which is coupled with the lumped boundary
+ 
+  CALL LumpedFluidicForce( LumpedBoundaries, FluidicForces, FluidicAreas,FluidicFluxes)
+  
+  Connections = 0
+  DO bc=1,Model % NumberOfBCs  
+
+    IF(LumpedBoundaries(bc) /= 0) THEN
+      Connections = Connections + 1
+      joinnode = LumpedBoundaries(bc)
+      
+      WRITE(Message,'(A,I)') 'Lumping Boundary:',bc
+      CALL Info('OutletCompute',Message)
+      WRITE(Message,'(A,E)') 'Force: ',FluidicForces(bc)
+      CALL Info('OutletCompute',Message)
+      WRITE(Message,'(A,E)') 'Area: ',FluidicAreas(bc)
+      CALL Info('OutletCompute',Message)
+      WRITE(Message,'(A,E)') 'Flux: ',FluidicFluxes(bc)
+      CALL Info('OutletCompute',Message)
+
+    END IF
+  END DO
+
+!---------------------------------------------------------------------------------------
+! Compute the center point coordinates of the solid boundaries
+!---------------------------------------------------------------------------------------
+
+  IF ( CurrentCoordinateSystem() == Cartesian ) THEN
+
+  IF ( .NOT. CenterPointsComputed ) THEN
+  
+  ! Check which boundaries are coupled with a 1D model
+
+  SolidEndBoundaries = .0
   DO bc=1,Model % NumberOfBCs       
     
-    j = ListGetInteger( Model % BCs(bc) % Values, 'Coupled With Boundary', GotIt)
+    j = ListGetInteger( Model % BCs(bc) % Values, 'Structure Coupling With Boundary', GotIt)
+
     IF(.NOT. GotIt) CYCLE
     
     DO t = Model % NumberOfBulkElements + 1, &
@@ -232,33 +306,59 @@ SUBROUTINE OutletCompute( Model,Solver,dt,TransientSimulation )
       
       Model % CurrentElement => Element
       n = Element % TYPE % NumberOfNodes
+
       IF(n /= 1) CYCLE 
       
       k = WPerm(Element % NodeIndexes(1))
-      LumpedBoundaries(j) = k
+      SolidEndBoundaries(j) = k
+
       EXIT
     END DO
   END DO
-  
-  CALL LumpedFluidicForce( LumpedBoundaries, FluidicForces, FluidicAreas,FluidicFluxes)
-  
-  Connections = 0
+
+  ! Number of connections of solid boundaries
+
+  SolidConnections = 0
   DO bc=1,Model % NumberOfBCs  
-    IF(LumpedBoundaries(bc) /= 0) THEN
-      Connections = Connections + 1
-      joinnode = LumpedBoundaries(bc)
-      
-      WRITE(Message,'(A,I)') 'Lumping Boundary:',bc
-      CALL Info('ArteryOneDim',Message)
-      WRITE(Message,'(A,E)') 'Force',FluidicForces(bc)
-      CALL Info('ArteryOneDim',Message)
-      WRITE(Message,'(A,E)') 'Area',FluidicAreas(bc)
-      CALL Info('ArteryOneDim',Message)
-      WRITE(Message,'(A,E)') 'Flux:',FluidicFluxes(bc)
-      CALL Info('ArteryOneDim',Message)
+
+    IF(SolidEndBoundaries(bc) /= 0) THEN
+      SolidConnections = SolidConnections + 1
     END IF
   END DO
+
+  CALL SurfaceCenterPoints( SolidEndBoundaries, SolidConnections, SolidEndAreas)
   
+  DO bc=1,Model % NumberOfBCs  
+
+    IF(SolidEndBoundaries(bc) /= 0) THEN
+      
+      WRITE(Message,'(A,I)') 'Solid End Area Boundary: ',bc
+      CALL Info('OutletCompute',Message)
+      WRITE(Message,'(A,E)') 'Solid End Area: ',SolidEndAreas(bc)
+      CALL Info('OutletCompute',Message)
+
+    END IF
+  END DO
+
+CenterPointsComputed = .TRUE.
+
+END IF
+
+ELSE
+
+  IF ( .NOT. CenterPointsComputed ) THEN
+
+    WRITE(Message,'(A,I)') ' Coordinate System is not Cartesian.'
+    CALL Info('OutletCompute',Message)
+    WRITE(Message,'(A,I)') ' No center points of the outlets are computed.'
+    CALL Info('OutletCompute',Message)
+
+    CenterPointsComputed = .TRUE.
+
+  END IF
+
+END IF
+
   !------------------------------------------------------------------------------
   !    Do some additional initialization
   !------------------------------------------------------------------------------
@@ -306,19 +406,21 @@ SUBROUTINE OutletCompute( Model,Solver,dt,TransientSimulation )
       CALL ListAddConstReal( Solver % Values, 'fsstep', 1.0d0*fsstep )
       
       WRITE(Message,'(A,I)') 'Fractional Step:',fsstep
-      CALL Info('ArteryOneDim',Message)
+      CALL Info('OutletCompute',Message)
     END IF
     
     !------------------------------------------------------------------------------
     ! Nonlinear iteration
     !------------------------------------------------------------------------------
+
     prev_mat_id = -1
+
     DO nonliniter = 1,NonlinearIter
       
       CALL InitializeToZero( StiffMatrix, ForceVector )
       
-      WRITE(Message,'(A,I)') 'Nonlinear iteration:',nonliniter
-      CALL Info('ArteryOneDim',Message)
+      WRITE(Message,'(A,I)') 'Nonlinear iteration: ',nonliniter
+      CALL Info('OutletCompute',Message)
       
       !------------------------------------------------------------------------------
       !    Do the assembly
@@ -340,18 +442,18 @@ SUBROUTINE OutletCompute( Model,Solver,dt,TransientSimulation )
           Material => Model % Materials(mat_id) % Values
           
           Density = ListGetConstReal( Material, 'Density')
-          WallYoungs = ListGetConstReal( Material, 'Wall Youngs Modulus')
-          TubeRadius = ListGetConstReal( Material, 'Tube Radius')
-          TubeWallThickness = ListGetConstReal( Material, 'Tube Wall Thickness')
-          PoissonRatio = ListGetConstReal( Material, 'Tube Poisson Ratio')
+          WallYoungs = ListGetConstReal( Material, 'Artery Wall Youngs Modulus')
+          ArteryRadius = ListGetConstReal( Material, 'Artery Radius')
+          ArteryWallThickness = ListGetConstReal( Material, 'Artery Wall Thickness')
+          PoissonRatio = ListGetConstReal( Material, 'Artery Poisson Ratio')
           
-          Aref = Pi * TubeRadius**2
-          
+          Aref = Pi * ArteryRadius**2
           BetaCoeff = ( 1 / (1 - PoissonRatio**2) ) * &
-              ( SQRT(pi) * TubeWallThickness  * WallYoungs ) / ( Aref)
-          
+                    ( SQRT(pi) * ArteryWallThickness  * WallYoungs ) / ( Aref)
           W20 = -4 * SQRT( (BetaCoeff/(2.0*Density) ) * SQRT(Aref) ) 
+
           prev_mat_id = mat_id
+
         END IF
         
         IF( FirstTime ) THEN
@@ -454,8 +556,8 @@ SUBROUTINE OutletCompute( Model,Solver,dt,TransientSimulation )
         Werror = 0.0d0
       END IF
       
-      WRITE(Message,'(A,E)') 'Relative Change:',Werror
-      CALL Info('ArteryOneDim',Message)
+      WRITE(Message,'(A,E)') 'Relative Change: ',Werror
+      CALL Info('OutletCompute',Message)
       
       IF ( Werror < NonlinearTol ) EXIT
       
@@ -467,17 +569,18 @@ SUBROUTINE OutletCompute( Model,Solver,dt,TransientSimulation )
   
   !------------------------------------------------------------------------------
   !  Save the new pressure and change in radius to be used in the outlet
-  !  boundary (1D or 2D) of the Navier-Stokes equation.
+  !  boundary (2D or 3D) of the Navier-Stokes equation.
   !------------------------------------------------------------------------------
   
-  DO bc=1,Model % NumberOfBCs  
+  DO bc=1,Model % NumberOfBCs
+
     IF(LumpedBoundaries(bc) /= 0) THEN
       joinnode = LumpedBoundaries(bc)
-      
+
       pres2dout = Pnodal(joinnode)
       AreaIn1d = Anodal(joinnode)
       RadiusIn1d = SQRT( AreaIn1d / PI )         
-      dR = RadiusIn1d - TubeRadius
+      dR = RadiusIn1d - ArteryRadius
       
       IF(Connections == 1) THEN
         Name = 'res: pout'
@@ -486,6 +589,7 @@ SUBROUTINE OutletCompute( Model,Solver,dt,TransientSimulation )
       ELSE
         WRITE(Name,'(A,I2)') 'res: pout',bc
       END IF
+
       CALL ListAddConstReal( Model % Simulation, TRIM(Name), pres2dout )
       
       IF(Connections == 1) THEN
@@ -495,7 +599,9 @@ SUBROUTINE OutletCompute( Model,Solver,dt,TransientSimulation )
       ELSE
         WRITE(Name,'(A,I2)') 'res: dRout',bc
       END IF
+
       CALL ListAddConstReal( Model % Simulation,TRIM(Name), dR )                 
+
     END IF
   END DO
   
@@ -572,10 +678,163 @@ CONTAINS
   END SUBROUTINE LocalMatrix
 
 
+!------------------------------------------------------------------------------
+  SUBROUTINE SurfaceCenterPoints( SolidEndBoundaries, SolidConnections, SolidEndAreas)
+!------------------------------------------------------------------------------
+
+    IMPLICIT NONE
+    
+    INTEGER :: SolidEndBoundaries(:)
+    REAL(KIND=dp) :: SolidEndAreas(:)
+    
+    TYPE(Solver_t), POINTER :: FlowSolver
+    LOGICAL :: Stat, LocalAllocationDone = .FALSE. 
+    INTEGER :: i,j,k,n,pn,t,dim, SolidConnections
+    INTEGER, POINTER :: NodeIndexes(:)
+    TYPE(Variable_t), POINTER :: Var
+    TYPE(Mesh_t), POINTER :: Mesh
+    TYPE(Nodes_t) :: ElementNodes, ParentNodes
+    TYPE(Element_t), POINTER   :: Element, Parent
+    CHARACTER(LEN=MAX_NAME_LEN) :: VariableName, XName, YName, ZName
+
+    REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:), ddBasisddx(:,:,:), &
+        ParentBasis(:), ParentdBasisdx(:,:), x(:), y(:), z(:)
+    REAL(KIND=dp) :: u, v, w, s, detJ, xpos, ypos, zpos, SumOfWeights, &
+        XPosWeighted, YPosWeighted, ZPosWeighted
+    REAL(KIND=dp) :: Normal(3)
+    
+    TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
+    
+    SAVE LocalAllocationDone, ElementNodes, Basis, dBasisdx, x, y, z
+    
+    CALL Info( 'SurfaceCenterPoints', '-------------------------------------',Level=4 )
+    CALL Info( 'SurfaceCenterPoints', 'Computing Centerpoints:  ', Level=4 )
+    CALL Info( 'SurfaceCenterPoints', '-------------------------------------',Level=4 )
+    
+    Mesh => Solver % Mesh
+
+    IF(.NOT. LocalAllocationDone) THEN
+      n = Mesh % MaxElementNodes
+      
+      ALLOCATE( ElementNodes % x(n), &
+          ElementNodes % y(n),  &
+          ElementNodes % z(n), &
+          Basis(n), dBasisdx(n,3), &
+          x(n), y(n), z(n) ) 
+      LocalAllocationDone = .TRUE.         
+    END IF
+   
+    
+    DIM = CoordinateSystemDimension()
+    
+    DO k=1, Model % NumberOfBCs
+      IF( SolidEndBoundaries(k) == 0 ) CYCLE
+
+      SolidEndAreas = 0.0d0
+      
+      DO t = Mesh % NumberOfBulkElements + 1, &
+          Mesh % NumberOfBulkElements + &
+          Mesh % NumberOfBoundaryElements
+        
+        Element => Mesh % Elements(t)
+        IF ( Element % TYPE % ElementCode == 101 ) CYCLE
+        IF ( Model % BCs(k) % Tag /= Element % BoundaryInfo % Constraint ) CYCLE
+
+    
+        Model % CurrentElement => Mesh % Elements(t)
+        n = Element % TYPE % NumberOfNodes
+        NodeIndexes => Element % NodeIndexes
+        
+        ElementNodes % x(1:n) = Mesh % Nodes % x(NodeIndexes)
+        ElementNodes % y(1:n) = Mesh % Nodes % y(NodeIndexes)
+        ElementNodes % z(1:n) = Mesh % Nodes % z(NodeIndexes)
+        
+        IntegStuff = GaussPoints( Element )
+        
+!------------------------------------------------------------------------------
+        DO l=1,IntegStuff % n
+!------------------------------------------------------------------------------
+
+          u = IntegStuff % u(l)
+          v = IntegStuff % v(l)
+          w = IntegStuff % w(l)
+          s = IntegStuff % s(l) 
 
 !------------------------------------------------------------------------------
-  SUBROUTINE LumpedFluidicForce( LumpedBoundaries, FluidicForces, FluidicAreas, FluidicFluxes )
+!      Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
+          stat = ElementInfo( Element, ElementNodes, u, v, w, &
+              detJ, Basis, dBasisdx)
+
+!------------------------------------------------------------------------------
+!      Coordinatesystem dependent info
+!------------------------------------------------------------------------------
+          s = s * detJ
+    
+          IF ( CurrentCoordinateSystem() /= Cartesian ) THEN
+            xpos = SUM( ElementNodes % x(1:n) * Basis(1:n) )
+            s = s * 2.0 * PI * xpos
+          END IF
+          
+!------------------------------------------------------------------------------
+
+          xpos = SUM( ElementNodes % x(1:n) * Basis(1:n) )
+          ypos = SUM( ElementNodes % y(1:n) * Basis(1:n) )
+          zpos = SUM( ElementNodes % z(1:n) * Basis(1:n) )
+
+          XPosWeighted = XPosWeighted + xpos
+          YPosWeighted = YPosWeighted + ypos
+          ZPosWeighted = ZPosWeighted + zpos
+
+          SumOfWeights = SumOfWeights + s
+          SolidEndAreas = SolidEndAreas + s
+
+!------------------------------------------------------------------------------
+        END DO ! Integ
+        
+      END DO ! Boundary elements
+
+!------------------------------------------------------------------------------
+
+! Writing the center points of each solid end boundary to Model % Simulation
+
+      IF(SolidConnections == 1) THEN
+        XName = 'res: xcenterpoint'
+        YName = 'res: ycenterpoint'
+        ZName = 'res: zcenterpoint'
+      ELSE IF(bc < 10) THEN
+        WRITE(XName,'(A,I1)') 'res: xcenterpoint',k
+        WRITE(YName,'(A,I1)') 'res: ycenterpoint',k
+        WRITE(ZName,'(A,I1)') 'res: zcenterpoint',k
+      ELSE
+        WRITE(XName,'(A,I2)') 'res: xcenterpoint',k
+        WRITE(YName,'(A,I2)') 'res: ycenterpoint',k
+        WRITE(ZName,'(A,I2)') 'res: zcenterpoint',k
+      END IF
+
+      CALL ListAddConstReal( Model % Simulation, TRIM(XName), XPosWeighted )
+      CALL ListAddConstReal( Model % Simulation, TRIM(YName), YPosWeighted )
+      CALL ListAddConstReal( Model % Simulation, TRIM(ZName), ZPosWeighted )
+      
+      WRITE(Message,'(A,I)') ' Coordinate System is Cartesian.'
+      CALL Info('SurfaceCenterPoints',Message)
+      WRITE(Message,'(A,I2)') 'Boundary number ',k 
+      CALL Info('SurfaceCenterPoints',Message)
+      WRITE(Message,'(A,E)') 'Centerpoint x-coordinate is ',XPosWeighted  
+      CALL Info('SurfaceCenterPoints',Message)
+      WRITE(Message,'(A,E)') 'Centerpoint y-coordinate is ',YPosWeighted  
+      CALL Info('SurfaceCenterPoints',Message)
+
+!------------------------------------------------------------------------------
+      
+    END DO ! BCs
+
+  END SUBROUTINE SurfaceCenterPoints
+  
+
+!---------------------------------------------------------------------------------------------
+  SUBROUTINE LumpedFluidicForce( LumpedBoundaries, FluidicForces, FluidicAreas, FluidicFluxes )
+!---------------------------------------------------------------------------------------------
     IMPLICIT NONE
     
     INTEGER :: LumpedBoundaries(:)
@@ -595,7 +854,7 @@ CONTAINS
     
     REAL(KIND=dp) :: Force(3), SumNormal(3), Area, LForce(3), Flux, NormalVelo
     
-    REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:), ddBasisddx(:,:,:), &
+    REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:), &
         ParentBasis(:), ParentdBasisdx(:,:), x(:), y(:), z(:)
     REAL(KIND=dp) :: u, v, w, s, detJ, xpos
     REAL(KIND=dp) :: Grad(3,3), Stress(3,3), Normal(3), Div, Visc
@@ -629,6 +888,8 @@ CONTAINS
     END IF
     
     IF(.NOT. LocalAllocationDone) THEN
+      PRINT *,'Allocating'
+
       n = Mesh % MaxElementNodes
       
       ALLOCATE( ElementNodes % x(n), &
@@ -729,8 +990,8 @@ CONTAINS
 !------------------------------------------------------------------------------
 !      Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
-          stat = ElementInfo( Element, ElementNodes, u, v, w, &
-              detJ, Basis, dBasisdx, ddBasisddx, .FALSE. )
+
+          stat = ElementInfo( Element, ElementNodes, u, v, w, detJ, Basis, dBasisdx)
 
 !------------------------------------------------------------------------------
 !      Coordinatesystem dependent info
@@ -763,9 +1024,9 @@ CONTAINS
           v = SUM( Basis(1:n) * y(1:n) )
           w = SUM( Basis(1:n) * z(1:n) )
           
-          stat = ElementInfo( Parent, ParentNodes, u, v, w, detJ, ParentBasis, &
-              ParentdBasisdx,  ddBasisddx, .FALSE. )
-          
+          stat = ElementInfo( Parent, ParentNodes, u, v, w, detJ, ParentBasis, ParentdBasisdx )
+      
+    
 !------------------------------------------------------------------------------
 
           Stress = 0.0d0
@@ -807,10 +1068,10 @@ CONTAINS
           SumNormal = SumNormal + s * Normal
           
           Area = Area + s
-             
+ 
 !------------------------------------------------------------------------------
         END DO
-        
+
       END DO
       
       FluidicAreas(k) = SQRT(SUM(SumNormal * SumNormal))
@@ -821,6 +1082,7 @@ CONTAINS
     
   END SUBROUTINE LumpedFluidicForce
   
+
 !------------------------------------------------------------------------------
 END SUBROUTINE OutletCompute
 !------------------------------------------------------------------------------
@@ -848,10 +1110,10 @@ FUNCTION OutletInit( Model,n,t ) RESULT( Winit )
   Material => Model % Materials(mat_id) % Values
   
   rho = ListGetConstReal( Material, 'Density')
-  Ew = ListGetConstReal( Material, 'Wall Youngs Modulus')
-  R = ListGetConstReal( Material, 'Tube Radius')
-  hw = ListGetConstReal( Material, 'Tube Wall Thickness')
-  nu = ListGetConstReal( Material, 'Tube Poisson Ratio')
+  Ew = ListGetConstReal( Material, 'Artery Wall Youngs Modulus')
+  R = ListGetConstReal( Material, 'Artery Radius')
+  hw = ListGetConstReal( Material, 'Artery Wall Thickness')
+  nu = ListGetConstReal( Material, 'Artery Poisson Ratio')
   
   Aref = pi * R**2
   BetaCoeff = ( 1 / (1 - nu**2) ) * ( SQRT(pi) * hw  * Ew ) / ( Aref)
@@ -862,25 +1124,53 @@ END FUNCTION OutletInit
 
 
 !------------------------------------------------------------------------------
-!   Return the change in the radius computed by the characteristics model
+!   Return the change in the radius x-component computed by the 1D model
 !------------------------------------------------------------------------------
 
-FUNCTION OutletdRadius( Model,n,t ) RESULT(dRout)
+FUNCTION OutletdX( Model,n,t ) RESULT(dx)
   
   USE Types
   USE Lists
+  USE MeshUtils
   
   IMPLICIT NONE
   TYPE(Model_t) :: Model  
   INTEGER :: n, bc, bc2
-  REAL( kind=dp ) :: t, dRout
-  LOGICAL :: GotIt
-  CHARACTER(LEN=MAX_NAME_LEN) :: VarName
+  REAL( kind=dp ) :: t, dRout, xcenterpoint, ycenterpoint, zcenterpoint, &
+           x, y, z, x0, y0, dx, dy
+  LOGICAL :: GotIt,GotIt1,GotIt2,GotIt3
+  CHARACTER(LEN=MAX_NAME_LEN) :: VarName, VarName1, VarName2, VarName3
 
-  dRout = ListGetConstReal( Model % Simulation, 'res: dRout', GotIt)  
+!------------------------------------------------------------------------------
+  ! Getting the center points and displacement dR from Model % Simulation 
+
+  xcenterpoint = ListGetConstReal( Model % Simulation, 'res: xcenterpoint', GotIt1)
+  ycenterpoint = ListGetConstReal( Model % Simulation, 'res: ycenterpoint', GotIt2)
+  zcenterpoint = ListGetConstReal( Model % Simulation, 'res: zcenterpoint', GotIt3)
+
+  IF(.NOT. (GotIt1 .AND. GotIt2 .AND. GotIt3) ) THEN    
+    bc = Model % CurrentElement % BoundaryInfo % Constraint
+    bc2 = ListGetInteger( Model % BCs(bc) % Values,'Structure Coupling With Boundary', GotIt)
+    IF(GotIt) bc = bc2
+    IF(bc < 10) THEN
+      WRITE(VarName1,'(A,I1)') 'res: xcenterpoint',bc
+      WRITE(VarName2,'(A,I1)') 'res: ycenterpoint',bc
+      WRITE(VarName3,'(A,I1)') 'res: zcenterpoint',bc
+    ELSE
+      WRITE(VarName1,'(A,I2)') 'res: xcenterpoint',bc
+      WRITE(VarName2,'(A,I2)') 'res: ycenterpoint',bc
+      WRITE(VarName3,'(A,I2)') 'res: zcenterpoint',bc
+    END IF
+    xcenterpoint= ListGetConstReal( Model % Simulation, VarName1, GotIt)  
+    ycenterpoint= ListGetConstReal( Model % Simulation, VarName2, GotIt)  
+    zcenterpoint= ListGetConstReal( Model % Simulation, VarName3, GotIt)  
+  END IF
+
+  dRout = ListGetConstReal( Model % Simulation, 'res: dRout', GotIt)
+
   IF(.NOT. GotIt) THEN    
     bc = Model % CurrentElement % BoundaryInfo % Constraint
-    bc2 = ListGetInteger( Model % BCs(bc) % Values,'Extension of Boundary', GotIt)
+    bc2 = ListGetInteger( Model % BCs(bc) % Values,'Structure Coupling With Boundary', GotIt)
     IF(GotIt) bc = bc2
     IF(bc < 10) THEN
       WRITE(VarName,'(A,I1)') 'res: dRout',bc
@@ -890,14 +1180,131 @@ FUNCTION OutletdRadius( Model,n,t ) RESULT(dRout)
     dRout = ListGetConstReal( Model % Simulation, VarName, GotIt)  
   END IF
 
-END FUNCTION OutletdRadius
+!------------------------------------------------------------------------------
+
+
+ x = Model % Nodes % x(n) 
+ y = Model % Nodes % y(n) 
+ z = Model % Nodes % z(n) 
+
+ x0 = x - xcenterpoint
+ y0 = y - ycenterpoint
+
+dx = SQRT( 1./(1 + (y0/x0)**2) )* dRout
+dy = SQRT( 1./(1 + (x0/y0)**2) )* dRout
+
+IF( x0 <= 0 ) THEN
+  dx = -dx
+END IF
+
+IF( y0 <= 0 ) THEN
+  dy = -dy
+END IF
+
+!----!----!----!----!----!----!----!----!----!----!----!
+
+IF ( CurrentCoordinateSystem() /= Cartesian ) dx = dRout
+
+!----!----!----!----!----!----!----!----!----!----!----!
+
+END FUNCTION OutletdX
+
+!------------------------------------------------------------------------------
+!   Return the change in the radius y-component computed by the 1D model
+!------------------------------------------------------------------------------
+
+FUNCTION OutletdY( Model,n,t ) RESULT(dy)
+  
+  USE Types
+  USE Lists
+  USE MeshUtils
+  
+  IMPLICIT NONE
+  TYPE(Model_t) :: Model  
+  INTEGER :: n, bc, bc2
+  REAL( kind=dp ) :: t, dRout, xcenterpoint, ycenterpoint, zcenterpoint, &
+           x, y, z, x0, y0, dx, dy
+  LOGICAL :: GotIt,GotIt1,GotIt2,GotIt3
+  CHARACTER(LEN=MAX_NAME_LEN) :: VarName, VarName1, VarName2, VarName3
+
+!------------------------------------------------------------------------------
+  ! Getting the center points and displacement dR from Model % Simulation 
+
+  xcenterpoint = ListGetConstReal( Model % Simulation, 'res: xcenterpoint', GotIt1)
+  ycenterpoint = ListGetConstReal( Model % Simulation, 'res: ycenterpoint', GotIt2)
+  zcenterpoint = ListGetConstReal( Model % Simulation, 'res: zcenterpoint', GotIt3)
+
+  IF(.NOT. (GotIt1 .AND. GotIt2 .AND. GotIt3) ) THEN    
+    bc = Model % CurrentElement % BoundaryInfo % Constraint
+    bc2 = ListGetInteger( Model % BCs(bc) % Values,'Structure Coupling With Boundary', GotIt)
+    IF(GotIt) bc = bc2
+    IF(bc < 10) THEN
+      WRITE(VarName1,'(A,I1)') 'res: xcenterpoint',bc
+      WRITE(VarName2,'(A,I1)') 'res: ycenterpoint',bc
+      WRITE(VarName3,'(A,I1)') 'res: zcenterpoint',bc
+    ELSE
+      WRITE(VarName1,'(A,I2)') 'res: xcenterpoint',bc
+      WRITE(VarName2,'(A,I2)') 'res: ycenterpoint',bc
+      WRITE(VarName3,'(A,I2)') 'res: zcenterpoint',bc
+    END IF
+    xcenterpoint= ListGetConstReal( Model % Simulation, VarName1, GotIt)  
+    ycenterpoint= ListGetConstReal( Model % Simulation, VarName2, GotIt)  
+    zcenterpoint= ListGetConstReal( Model % Simulation, VarName3, GotIt)  
+  END IF
+
+  dRout = ListGetConstReal( Model % Simulation, 'res: dRout', GotIt)  
+
+
+  IF(.NOT. GotIt) THEN    
+    bc = Model % CurrentElement % BoundaryInfo % Constraint
+    bc2 = ListGetInteger( Model % BCs(bc) % Values,'Structure Coupling With Boundary', GotIt)
+    IF(GotIt) bc = bc2
+    IF(bc < 10) THEN
+      WRITE(VarName,'(A,I1)') 'res: dRout',bc
+    ELSE
+      WRITE(VarName,'(A,I2)') 'res: dRout',bc
+    END IF
+    dRout = ListGetConstReal( Model % Simulation, VarName, GotIt)  
+  END IF
+
+!------------------------------------------------------------------------------
+
+
+ x = Model % Nodes % x(n) 
+ y = Model % Nodes % y(n) 
+ z = Model % Nodes % z(n) 
+
+ x0 = x - xcenterpoint
+ y0 = y - ycenterpoint
+
+dx = SQRT( 1./(1 + (y0/x0)**2) )* dRout
+dy = SQRT( 1./(1 + (x0/y0)**2) )* dRout
+
+IF( x0 <= 0 ) THEN
+  dx = -dx
+END IF
+
+IF( y0 <= 0 ) THEN
+  dy = -dy
+END IF
+
+
+!----!----!----!----!----!----!----!----!----!----!----!
+
+IF ( CurrentCoordinateSystem() /= Cartesian ) dy = dRout
+
+!----!----!----!----!----!----!----!----!----!----!----!
+
+
+END FUNCTION OutletdY
+
 
 
 !------------------------------------------------------------------------------
 !   Return the pressure computed by the characteristics model
 !------------------------------------------------------------------------------
 
-FUNCTION OutletPressure( Model,n,t ) RESULT(pout)
+FUNCTION OutletPres( Model,n,t ) RESULT(pout)
   
   USE Types
   USE Lists
@@ -919,8 +1326,9 @@ FUNCTION OutletPressure( Model,n,t ) RESULT(pout)
     END IF
     pout = ListGetConstReal( Model % Simulation, VarName, GotIt)  
   END IF
+
   pout = -pout
-  
-END FUNCTION OutletPressure
+
+END FUNCTION OutletPres
 
 !------------------------------------------------------------------------------
