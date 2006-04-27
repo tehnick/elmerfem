@@ -66,6 +66,8 @@
 !     INPUT: Steady state or transient simulation
 !
 !******************************************************************************
+     USE Types
+     USE DefUtils
      USE SolverUtils
      USE MaterialModels
      USE Integration
@@ -95,22 +97,29 @@
      REAL(KIND=dp), ALLOCATABLE :: LocalMassMatrix(:,:),&
        LocalStiffMatrix(:,:),Load(:),LocalForce(:),TimeForce(:)
      INTEGER :: NSDOFs,NonlinearIter,body_id,mat_id,dim
-     REAL(KIND=dp) :: NonlinearTol,dt, r, ct, dsmax
-     REAL(KIND=dp), ALLOCATABLE :: U(:), V(:), W(:), SurfaceFlux(:)
+     REAL(KIND=dp) :: NonlinearTol,dt, r, ct, DsMax
+     REAL(KIND=dp), ALLOCATABLE :: ElemVelo(:,:), SurfaceFlux(:)
 
      SAVE LocalMassMatrix,LocalStiffMatrix,Load, &
          TimeForce, LocalForce, ElementNodes,AllocationsDone, &
-         U, V, W, Surf, SurfaceFlux
+         ElemVelo, Surf, SurfaceFlux
 
      REAL(KIND=dp) :: at,totat,st,totst,CPUTime
+
 
 !------------------------------------------------------------------------------
 !    Get variables needed for solution
 !------------------------------------------------------------------------------
 
+     CALL Info( 'LevelSetSolver','-------------------------------------', Level=4 )
+     CALL Info( 'LevelSetSolver', 'Solving for the levelset function', Level=4 )
+     CALL Info( 'LevelSetSolver','-------------------------------------', Level=4 )
+
+
      IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
 
      CoordinateSystem = CurrentCoordinateSystem()
+     dim = CoordinateSystemDimension()
 
      Surface => Solver % Variable % Values
      IF ( SIZE( Surface ) == 0 ) RETURN
@@ -127,7 +136,7 @@
      IF ( .NOT. AllocationsDone ) THEN
        N = Solver % Mesh % MaxElementNodes
 
-       ALLOCATE( U( N ),  V( N ), W( N ), &
+       ALLOCATE( ElemVelo(3, N), &
            ElementNodes % x( N ),   &
            ElementNodes % y( N ),   &
            ElementNodes % z( N ),   &
@@ -158,8 +167,7 @@
         'Nonlinear System Max Iterations',GotIt )
      IF ( .NOT.GotIt ) NonlinearIter = 1
 
-     dt = ListGetConstReal(Model % Simulation,'res: Levelset timestep',GotIt)
-     IF(.NOT. GotIt) dt = Timestep
+     dt = Timestep
 
 !------------------------------------------------------------------------------
 
@@ -183,7 +191,7 @@
 !------------------------------------------------------------------------------
 
        DO t=1,Solver % NumberOfActiveElements
-         
+
          CurrentElement => Solver % Mesh % Elements(Solver % ActiveElements(t))
          body_id = CurrentElement % Bodyid    
          mat_id = ListGetInteger( Model % Bodies( body_id ) % Values, 'Material' )
@@ -210,9 +218,9 @@
 !         Computed velocity field
 !------------------------------------------------------------------------------
 
-         U(1:n) = ListGetReal( Material,'Levelset Velocity 1',n,NodeIndexes,GotIt)
-         V(1:n) = ListGetReal( Material,'Levelset Velocity 2',n,NodeIndexes,GotIt)
-         IF(dim == 3) W(1:n) = ListGetReal( Material,'Levelset Velocity 3',n,NodeIndexes,GotIt)
+         ElemVelo(1,1:n) = ListGetReal( Material,'Levelset Velocity 1',n,NodeIndexes,GotIt)
+         ElemVelo(2,1:n) = ListGetReal( Material,'Levelset Velocity 2',n,NodeIndexes,GotIt)
+         IF(dim == 3) ElemVelo(3,1:n) = ListGetReal( Material,'Levelset Velocity 3',n,NodeIndexes,GotIt)
 
 !------------------------------------------------------------------------------
 !          Given surface flux
@@ -228,7 +236,7 @@
 
 !------------------------------------------------------------------------------
          CALL LocalMatrix( LocalMassMatrix, LocalStiffMatrix, LocalForce, Surf, &
-             SurfaceFlux, U, V, W, Stabilize, CurrentElement, n, ElementNodes )
+             SurfaceFlux, ElemVelo, Stabilize, CurrentElement, n, ElementNodes )
        
 !------------------------------------------------------------------------------
 !        If time dependent simulation add mass matrix to stiff matrix
@@ -261,6 +269,7 @@
              ForceVector, LocalForce, n, 1, SurfPerm(NodeIndexes) )
          
        END DO     !  Of ActiveElements
+
 
 !------------------------------------------------------------------------------
 !    FinishAssemebly must be called after all other assembly steps, but before
@@ -303,17 +312,17 @@
      IF(RelativeChange < NonlinearTol) EXIT
 
 !------------------------------------------------------------------------------
-   END DO! of the nonlinear iteration
+   END DO ! of the nonlinear iteration
 !------------------------------------------------------------------------------
 
-   WRITE(Message,'(a,F8.2)') 'Assembly time in total:',totat
+   WRITE(Message,'(a,F8.2)') 'Assembly done in time (s):',totat
    CALL Info( 'LevelsetSolver',Message, Level=4 )
    
-   WRITE(Message,'(a,F8.2)') 'Solution time in total:',totst
+   WRITE(Message,'(a,F8.2)') 'Solution done in time (s):',totst
    CALL Info( 'LevelsetSolver',Message, Level=4 )
 
    DsMax = MAXVAL( ABS(Surface - PrevSurface) )
-   WRITE(Message,'(a,F8.2)') 'Maximum Levelset Change',dsmax
+   WRITE(Message,'(a,ES12.3)') 'Maximum Levelset Change',dsmax
    CALL Info( 'LevelSetSolver',Message, Level=4 )     
    CALL ListAddConstReal(Model % Simulation,'res: LevelSet Max Change',dsmax)
 
@@ -323,11 +332,11 @@
 CONTAINS
 
    SUBROUTINE LocalMatrix( MassMatrix,StiffMatrix,ForceVector,  &
-      Surf, Flux, Ux,Uy,Uz, Stabilize,Element,n,Nodes )
+      Surf, Flux, NodalVelo, Stabilize,Element,n,Nodes )
 !------------------------------------------------------------------------------
 
-     REAL(KIND=dp), DIMENSION(:)   :: ForceVector,Ux,Uy,Uz,Surf,Flux
-     REAL(KIND=dp), DIMENSION(:,:) :: MassMatrix,StiffMatrix
+     REAL(KIND=dp), DIMENSION(:)   :: ForceVector,Surf,Flux
+     REAL(KIND=dp), DIMENSION(:,:) :: MassMatrix,StiffMatrix,NodalVelo
      LOGICAL :: Stabilize
      INTEGER :: n
      TYPE(Nodes_t) :: Nodes
@@ -340,7 +349,7 @@ CONTAINS
      REAL(KIND=dp) :: ddBasisddx(n,3,3)
      REAL(KIND=dp) :: Basis(2*n)
      REAL(KIND=dp) :: dBasisdx(2*n,3),SQRTElementMetric
-     REAL(KIND=dp) :: Velo(3),dVelodx(3,3),Force,Grad(3),GradAbs
+     REAL(KIND=dp) :: Velo(3),Force,Grad(3),GradAbs
      REAL(KIND=dp) :: A,M,Load, FL
      REAL(KIND=dp) :: VNorm,hK,mK
      REAL(KIND=dp) :: Lambda=1.0,Pe,Pe1,Pe2,Tau,x,y,z
@@ -433,10 +442,12 @@ CONTAINS
 !------------------------------------------------------------------------------
 !      Velocity from previous iteration at the integration point
 !------------------------------------------------------------------------------
+
        Velo = 0.0D0
-       Velo(1) = SUM( Ux(1:n)*Basis(1:n) )
-       Velo(2) = SUM( Uy(1:n)*Basis(1:n) )
-       IF ( dim > 2 ) Velo(3) = SUM( Uz(1:n)*Basis(1:n) )
+       Velo(1) = SUM( NodalVelo(1,1:n)*Basis(1:n) )
+       Velo(2) = SUM( NodalVelo(2,1:n)*Basis(1:n) )
+       IF ( dim > 2 ) Velo(3) = SUM( NodalVelo(3,1:n)*Basis(1:n) )
+
 
        IF ( Stabilize ) THEN
 !------------------------------------------------------------------------------
@@ -468,6 +479,7 @@ CONTAINS
          END DO
        END IF
 
+
 !------------------------------------------------------------------------------
 !      Loop over basis functions of both unknowns and weights
 !------------------------------------------------------------------------------
@@ -476,16 +488,20 @@ CONTAINS
 !------------------------------------------------------------------------------
 !         The diffusion term
 !------------------------------------------------------------------------------
+
            M = Basis(q) * Basis(p)
            A = 0.0d0
-           
-           DO i=1,dim
-             A = A + FL * (Grad(i) / GradAbs) * dBasisdx(q,i) * Basis(p)
-           END DO
+
+           IF(GradAbs > AEPS) THEN
+             DO i=1,dim
+               A = A + FL * (Grad(i) / GradAbs) * dBasisdx(q,i) * Basis(p)
+             END DO
+           END IF
 
 !------------------------------------------------------------------------------
 !           The convection term
 !------------------------------------------------------------------------------
+
            DO i=1,dim
              A = A + Velo(i) * dBasisdx(q,i) * Basis(p)
            END DO
@@ -499,6 +515,7 @@ CONTAINS
 
            StiffMatrix(p,q) = StiffMatrix(p,q) + s * A
            MassMatrix(p,q)  = MassMatrix(p,q)  + s * M
+
          END DO
        END DO
 
@@ -517,6 +534,7 @@ CONTAINS
 !------------------------------------------------------------------------------
    END SUBROUTINE LocalMatrix
 !------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
  END SUBROUTINE LevelSetSolver
@@ -557,59 +575,131 @@ CONTAINS
      TYPE(ValueList_t), POINTER :: Material
      TYPE(Variable_t), POINTER :: SurfSol, DistanceSol
  
-     INTEGER :: i,j,k,l,n,t,k1,k2,k3,n1,n2,n3,iter,istat,bf_id,CoordinateSystem
+     INTEGER :: i,j,k,l,n,t,iter,istat,body_id,mat_id,bf_id,&
+          CoordinateSystem, TimesVisited = 0
      REAL(KIND=dp) :: Norm,PrevNorm,RelativeChange,x,y,s,a,b,c,d,x0,x1,y0,y1
      INTEGER, POINTER :: NodeIndexes(:)
-     LOGICAL :: GotIt, Convect, AllocationsDone = .FALSE.
+     LOGICAL :: GotIt, Convect, ExtractAllocated = .FALSE., DistanceAllocated=.FALSE.
      INTEGER, POINTER :: SurfPerm(:)
      REAL(KIND=dp), POINTER :: Surface(:),Distance(:), Surf(:)
-     REAL(KIND=dp), ALLOCATABLE :: ZeroNodes(:,:,:), NodalVeloX(:), NodalVeloY(:), Direction(:)
+     REAL(KIND=dp), ALLOCATABLE :: ZeroNodes(:,:,:), Direction(:)
      INTEGER, POINTER :: DistancePerm(:)
-     INTEGER :: ZeroLevels
-     REAL(KIND=dp) :: Relax, dt, r, DsMax, NarrowBand
-     REAL(KIND=dp), ALLOCATABLE :: U(:), V(:), W(:), SurfaceFlux(:)
+     INTEGER :: ZeroLevels, ReinitializeInterval, ExtractInterval
+     LOGICAL :: Reinitialize, Extract
+     REAL(KIND=dp) :: Relax, dt, r, NarrowBand, DsMax
+     REAL(KIND=dp), ALLOCATABLE :: ElemVelo(:,:), SurfaceFlux(:)
      REAL(KIND=dp) :: at,totat,st,totst,CPUTime
      CHARACTER(LEN=MAX_NAME_LEN) :: LevelSetVariableName
 
-     SAVE ElementNodes, NodalVeloX, NodalVeloY, Direction, ZeroNodes, &
-         Distance, DistancePerm, AllocationsDone
+     SAVE ElementNodes, ElemVelo, Direction, ZeroNodes, TimesVisited, &
+         Distance, DistancePerm, ExtractAllocated, DistanceAllocated
 
 !------------------------------------------------------------------------------
 !    Get variables needed for solution
 !------------------------------------------------------------------------------
 
-     CoordinateSystem = CurrentCoordinateSystem()
+     TimesVisited = TimesVisited + 1
+     ReinitializeInterval = ListGetInteger(Solver % Values,&
+          'Reinitialize Interval',GotIt) 
+     IF(.NOT. GotIt) ReinitializeInterval = 1
 
-     ! The variable that should be renormalized
-     LevelSetVariableName = ListGetString(Solver % Values,'LevelSet Variable',GotIt) 
-     IF(GotIt) THEN
-       SurfSol => VariableGet( Solver % Mesh % Variables, TRIM(LevelSetVariableName) )
-     ELSE  
-       SurfSol => VariableGet( Solver % Mesh % Variables, 'Surface' )
+     ExtractInterval = ListGetInteger(Solver % Values,&
+         'Extract Interval',GotIt) 
+     IF(.NOT. GotIt) ExtractInterval = ReinitializeInterval
+     
+     IF( ReinitializeInterval == 0) THEN
+       Reinitialize = .FALSE.
+     ELSE       
+       Reinitialize = ( MOD(TimesVisited, ReinitializeInterval) == 0 )
      END IF
+
+     IF( ExtractInterval == 0) THEN
+       Extract = Reinitialize
+     ELSE
+       Extract = Reinitialize .OR. ( MOD(TimesVisited, ExtractInterval) == 0 )
+     END IF
+     
+     IF(.NOT. Extract) THEN
+       CALL Info( 'LevelSetDistance','--------------------------------------', Level=4 )
+       CALL Info( 'LevelSetDistance','Doing nothing this time', Level=4 )
+       CALL Info( 'LevelSetDistance','--------------------------------------', Level=4 )          
+       RETURN
+     END IF
+
+     ! The variable that should be reinitialized
+     LevelSetVariableName = ListGetString(Solver % Values,'LevelSet Variable',GotIt) 
+     IF(.NOT. GotIT) LevelSetVariableName = 'Surface'
+     SurfSol => VariableGet( Solver % Mesh % Variables, TRIM(LevelSetVariableName) )
      IF(ASSOCIATED(SurfSol)) THEN
        Surface  => SurfSol % Values
        SurfPerm => SurfSol % Perm
      ELSE
-       CALL Warn('LevelSetDistance','SurfSol does not exist')
-     END IF
-
-     IF ( ALL( SurfPerm == 0) ) THEN
-       CALL Warn('LevelSetDistance','Nothing to compute')
+       CALL Warn('LevelSetDistance','SurfSol does not exist: '//TRIM(LevelSetVariableName))
        RETURN
      END IF
 
+     CoordinateSystem = CurrentCoordinateSystem() 
      Convect = ListGetLogical(Solver % Values,'Levelset Convect',GotIt)
-     NarrowBand = ListGetConstReal(Solver % Values,'Levelset Narrow Band',GotIt)
+     NarrowBand = ListGetConstReal(Solver % Values,'Narrow Band',GotIt)
      IF(.NOT. GotIt) NarrowBand = HUGE(NarrowBand)
-
-     dt = ListGetConstReal(Model % Simulation,'res: Levelset timestep',GotIt)
-     IF(.NOT. GotIt) dt = Timestep
+     dsMax = 0.0d0
+     dt = Timestep
+     
  
 !------------------------------------------------------------------------------
 !    Allocate some permanent storage, this is done first time only
 !------------------------------------------------------------------------------
-     IF ( .NOT. AllocationsDone ) THEN
+     IF ( .NOT. ExtractAllocated ) THEN
+       N = Solver % Mesh % MaxElementNodes
+       ALLOCATE( ElementNodes % x( N ), ElementNodes % y( N ), ElementNodes % z( N ),   &
+           ElemVelo( 2, N), ZeroNodes(Solver % Mesh % NumberOfBulkElements,2,2), &
+           STAT=istat )
+       IF ( istat /= 0 ) THEN
+         CALL Fatal( 'LevelSetDistance', 'Memory allocation error 1.' )
+       END IF
+       IF( Convect ) THEN
+         ALLOCATE( Direction( Solver % Mesh % NumberOfBulkElements), STAT=istat )
+       END IF
+       IF ( istat /= 0 ) THEN
+         CALL Fatal( 'RerormalizeSolver', 'Memory allocation error 2.' )
+       END IF
+       ExtractAllocated = .TRUE.
+     END IF
+
+!------------------------------------------------------------------------------
+!    Extract the zero levelset 
+!------------------------------------------------------------------------------
+
+     CALL Info( 'LevelSetDistance','--------------------------------------', Level=4 )
+     CALL Info( 'LevelSetDistance','Extracting the zero levelset', Level=4 )
+     CALL Info( 'LevelSetDistance','--------------------------------------', Level=4 )
+
+     st = CPUTime()
+
+     CALL ExtractZeroLevel()
+
+     st = CPUTIme()-st
+     WRITE(Message,'(a,F8.2)') 'Zero level extracted in time (s):',st
+     CALL Info( 'LevelSetDistance',Message, Level=4 )
+
+     IF( ZeroLevels == 0) THEN
+       CALL Warn('LevelSetDistance','The does not seem to be a zero level-set present, exiting...')
+       RETURN
+     END IF
+
+     IF(.NOT. Reinitialize) THEN
+       CALL Info('LevelSetDistance','Exiting without reinitialization')
+       RETURN
+     END IF
+
+     CALL Info( 'LevelSetDistance','--------------------------------------', Level=4 )
+     CALL Info( 'LevelSetDistance','Computing the signed distance function', Level=4 )
+     CALL Info( 'LevelSetDistance','--------------------------------------', Level=4 )
+
+!------------------------------------------------------------------------------
+!    Allocate some permanent storage for computing the signed distance
+!------------------------------------------------------------------------------
+     IF ( .NOT. DistanceAllocated ) THEN
        
        ! The variable for computing the distance
        DistanceSol => Solver % Variable
@@ -619,40 +709,17 @@ CONTAINS
        ELSE
          ALLOCATE(Distance (SIZE(Surface)),STAT=istat)
          IF ( istat /= 0 ) THEN
-           CALL Fatal( 'RerormalizeSolver', 'Memory allocation error 1.' )
+           CALL Fatal( 'LevelSetDistance', 'Memory allocation error 1.' )
          END IF
          DistancePerm => SurfPerm
        END IF
-
-       N = Solver % Mesh % MaxElementNodes
-       ALLOCATE( ElementNodes % x( N ), ElementNodes % y( N ), ElementNodes % z( N ),   &
-           NodalVelox( N ), NodalVeloY( N), &
-           ZeroNodes(Solver % Mesh % NumberOfBulkElements,2,2), &
-           STAT=istat )
-       IF ( istat /= 0 ) THEN
-         CALL Fatal( 'RerormalizeSolver', 'Memory allocation error 2.' )
-       END IF
-       IF( Convect ) THEN
-         ALLOCATE( Direction( Solver % Mesh % NumberOfBulkElements), STAT=istat )
-       END IF
-       IF ( istat /= 0 ) THEN
-         CALL Fatal( 'RerormalizeSolver', 'Memory allocation error 3.' )
-       END IF
-       AllocationsDone = .TRUE.
+       DistanceAllocated = .TRUE.
      END IF
 
 !------------------------------------------------------------------------------
-!    Do some additional initialization, and go for it
+!    Compute the signed distance
 !------------------------------------------------------------------------------
-
-     CALL Info( 'LevelSetDistance','-------------------------------------', Level=4 )
-     CALL Info( 'LevelSetDistance','Computing distances from zero levelset', Level=4 )
-     CALL Info( 'LevelSetDistance','-------------------------------------', Level=4 )
-
-     st = CPUTime()
-     dsmax = 0.0d0
-     CALL ExtractZeroLevel()
-
+     st = CPUTIme()
      IF(Convect) THEN
        DO i=1,Solver % Mesh % NumberOfNodes
          Distance(DistancePerm(i)) =  ComputeDistanceWithDirection( Solver % Mesh % Nodes % x(i), &
@@ -666,24 +733,38 @@ CONTAINS
        WHERE( Surface < 0 ) Distance = -Distance
      END IF
 
-!------------------------------------------------------------------------------
-!    Solve the system and we are done.
-!------------------------------------------------------------------------------
      n = Solver % Mesh % NumberOfNodes
      Solver % Variable % Norm = SQRT( SUM(Distance**2)/n )
 
-     Surface = Distance
+!------------------------------------------------------------------------------
+!    Apply the reinitialization to the primary levelset field
+!------------------------------------------------------------------------------
+
+     IF( ListGetLogical(Solver % Values,'Reinitialize Passive',GotIt) ) THEN
+       CALL Info('LevelSetDistance','Reinitialization not applied to Levelset function')
+     ELSE
+       ! Update also the previous timesteps so that the differentials remain
+       ! unchanged. Otherwise spurious effects are introduced. 
+       IF(ASSOCIATED(SurfSol % PrevValues)) THEN        
+         j = MIN(2, SIZE(SurfSol % PrevValues,2) )
+         IF( ReinitializeInterval > j) THEN                 
+           DO i=1,j
+             SurfSol % PrevValues(:,i) = SurfSol % PrevValues(:,i) + Distance - Surface
+           END DO
+         END IF
+       END IF
+       Surface = Distance
+     END IF
 
      st = CPUTIme()-st
-     WRITE(Message,'(a,F8.2)') 'Normalization done in time:',st
+     WRITE(Message,'(a,F8.2)') 'Reinitialization done in time (s):',st
      CALL Info( 'LevelSetNormalize',Message, Level=4 )
-
+ 
      IF(Convect) THEN
-       WRITE(Message,'(a,F8.2)') 'Maximum Levelset Change',dsmax
+       WRITE(Message,'(a,ES12.3)') 'Maximum Levelset Change',dsmax
        CALL Info( 'LevelSetDistance',Message, Level=4 )     
        CALL ListAddConstReal(Model % Simulation,'res: LevelSet Max Change',dsmax)
      END IF
-
 
 !------------------------------------------------------------------------------
 
@@ -694,24 +775,24 @@ CONTAINS
   SUBROUTINE ExtractZeroLevel()
 !------------------------------------------------------------------------------
 
-    INTEGER :: i,j,k,n,n1,n2,n3,k1,k2,k3,div,onetwo,corners, &
+    INTEGER :: i,j,k,n,div,onetwo,corners, &
         TriangleIndexes(3), mat_id, body_id, LocalInd(3)
     TYPE(Variable_t), POINTER :: Var
     INTEGER, POINTER :: NodeIndexes(:)
     TYPE(Element_t), POINTER :: Element
     REAL(KIND=dp) :: x0,y0,x1,y1,t,nx(3),ny(3),nz(3),srf(3),w0(3),w1(3),Value,dt, &
         r1x, r1y, r2x, r2y, aid, Maxsrf, ds1, ds2
-    LOGICAL :: Visited = .FALSE., FileAppend, GotIt, FileSave, Found
+    LOGICAL :: FileCreated = .FALSE., FileAppend, GotIt, FileSave, Found
     TYPE(ValueList_t),POINTER :: Material
     CHARACTER(LEN=MAX_NAME_LEN) :: Filename, Filename2
     
-    SAVE Visited
+    SAVE FileCreated
 !------------------------------------------------------------------------------
 
     Filename = ListGetString(Solver % Values,'Filename',FileSave )
     
     IF(FileSave) THEN
-      IF(.NOT. Visited) THEN        
+      IF(.NOT. FileCreated) THEN        
         OPEN (10, FILE=TRIM(Filename)//TRIM(".names") )
         WRITE(10,'(A,A)') 'Variables in file: ',TRIM(Filename)
         j = 1
@@ -728,18 +809,17 @@ CONTAINS
           Var => Var % Next          
         END DO
         CLOSE(10)
-        Visited = .TRUE.
       END IF
       
       FileAppend = ListGetLogical(Solver % Values,'File Append',GotIt)
-      IF(Visited .AND. FileAppend) THEN 
+      IF(FileCreated .AND. FileAppend) THEN 
         OPEN (10, FILE=Filename,POSITION='APPEND')
       ELSE 
         OPEN (10,FILE=Filename)
       END IF      
+      FileCreated = .TRUE.
     END IF
     
-    Visited = .TRUE.
     Surface => SurfSol % Values
     SurfPerm => SurfSol % Perm
     
@@ -766,8 +846,8 @@ CONTAINS
             minv=1, maxv=Model % NumberOfMaterials )
         Material => Model % Materials(mat_id) % Values
 
-        NodalVeloX(1:n) = ListGetReal( Material,'Levelset Velocity 1',n,NodeIndexes,GotIt)
-        NodalVeloY(1:n) = ListGetReal( Material,'Levelset Velocity 2',n,NodeIndexes,GotIt)
+        ElemVelo(1,1:n) = ListGetReal( Material,'Levelset Velocity 1',n,NodeIndexes,GotIt)
+        ElemVelo(2,1:n) = ListGetReal( Material,'Levelset Velocity 2',n,NodeIndexes,GotIt)
       END IF
 
 
@@ -839,15 +919,14 @@ CONTAINS
             Direction( ZeroLevels ) = -Direction( ZeroLevels )
           END IF
           
-          r1x = SUM(w0 * NodalVeloX(LocalInd)) * dt
-          r1y = SUM(w0 * NodalVeloY(LocalInd)) * dt
-          r2x = SUM(w1 * NodalVeloX(LocalInd)) * dt
-          r2y = SUM(w1 * NodalVeloY(LocalInd)) * dt
+          r1x = SUM(w0 * ElemVelo(1,LocalInd)) * dt
+          r1y = SUM(w0 * ElemVelo(2,LocalInd)) * dt
+          r2x = SUM(w1 * ElemVelo(1,LocalInd)) * dt
+          r2y = SUM(w1 * ElemVelo(2,LocalInd)) * dt
 
           ds1 = SQRT( r1x*r1x + r1y*r1y)
-          dsmax = MAX(dsmax, ds1)
           ds2 = SQRT( r2x*r2x + r2y*r2y)
-          dsmax = MAX(dsmax, ds2)
+          dsmax = MAX(dsmax, MAX(ds1, ds2) )
             
           ZeroNodes(ZeroLevels,1,1) = x0 + r1x
           ZeroNodes(ZeroLevels,1,2) = y0 + r1y
@@ -1223,14 +1302,14 @@ CONTAINS
 
      INTEGER :: i,j,k,n,t,istat,bf_id
      INTEGER, POINTER :: NodeIndexes(:), SurfPerm(:)
-     LOGICAL :: Visited = .FALSE., Conserve, LimitTimestep, GotIt
-     REAL(KIND=dp), POINTER :: Surface(:), NodalSurf(:), NodalVelo(:,:)
+     LOGICAL :: Visited = .FALSE., GotIt
+     REAL(KIND=dp), POINTER :: Surface(:), NodalSurf(:)
      INTEGER :: body_id, dim
-     REAL(KIND=dp) :: TotVolume, TotArea, Alpha, Relax, InitVolume, dSurface, &
-         MaxVelo, dsMax, dt, TotTime = 0.0
+     REAL(KIND=dp) :: TotVolume, TotArea, Alpha, Relax, InitVolume, dSurface, dt, &
+         Moment(3)
      CHARACTER(LEN=MAX_NAME_LEN) :: LevelSetVariableName
 
-     SAVE ElementNodes, Visited, NodalVelo, NodalSurf, InitVolume, TotTime
+     SAVE ElementNodes, Visited, NodalSurf, InitVolume
 
 !------------------------------------------------------------------------------
 !    Get variables needed for solution
@@ -1263,8 +1342,7 @@ CONTAINS
      IF ( .NOT. Visited ) THEN
        N = Solver % Mesh % MaxElementNodes
 
-       ALLOCATE( NodalVelo(dim,n),&
-           NodalSurf( N ), &
+       ALLOCATE( NodalSurf( N ), &
            ElementNodes % x( N ),   &
            ElementNodes % y( N ),   &
            ElementNodes % z( N ),   &
@@ -1280,18 +1358,13 @@ CONTAINS
 
      TotVolume = 0.0d0
      TotArea = 0.0d0
+     Moment = 0.0d0
      
      Alpha = ListGetConstReal(Model % Simulation,'Levelset Bandwidth',GotIt) 
-     IF(.NOT. GotIt) Alpha = ListGetConstReal(Solver % Values,'Levelset Bandwidth') 
-
-     Relax = ListGetConstReal(Solver % Values,'LevelSet Volume Relaxation',GotIt)
-     IF(.NOT. GotIt) Relax = 1.0d0
-
-     Conserve = ListGetLogical(Solver % Values,'LevelSet Volume Conservation',GotIt)
-     DsMax = ListGetConstReal(Solver % Values,'Levelset Maximum Step',LimitTimestep)
+     IF(.NOT. GotIt) Alpha = ListGetConstReal(Solver % Values,'Levelset Bandwidth')      
        
      CALL Info( 'LevelSetIntegrate','-------------------------------------', Level=4 )
-     CALL Info( 'LevelSetIntegrate', 'Computing integrals over levelset function', Level=4 )
+     CALL Info( 'LevelSetIntegrate', 'Integrating over levelset function', Level=4 )
      CALL Info( 'LevelSetIntegrate','-------------------------------------', Level=4 )
 
      DO t=1,Solver % Mesh % NumberOfBulkElements
@@ -1306,12 +1379,6 @@ CONTAINS
        k = ListGetInteger( Model % Bodies( body_id ) % Values, 'Material' )
        Material => Model % Materials(k) % Values
        
-       IF(LimitTimestep) THEN
-         NodalVelo(1,1:n) = ListGetReal( Material,'Levelset Velocity 1',n,NodeIndexes,GotIt)
-         NodalVelo(2,1:n) = ListGetReal( Material,'Levelset Velocity 2',n,NodeIndexes,GotIt)
-         IF(dim == 3) NodalVelo(3,1:n) = ListGetReal( Material,'Levelset Velocity 3',n,NodeIndexes,GotIt)
-       END IF
-
 !-----------------------------------------------------------------------------
 !        Get element nodal coordinates
 !------------------------------------------------------------------------------
@@ -1322,47 +1389,61 @@ CONTAINS
        NodalSurf = Surface( SurfPerm(NodeIndexes) )
 
        CALL HeavisideIntegrate( NodalSurf, CurrentElement, n, ElementNodes, &
-           Alpha, TotVolume, TotArea)      
+           Alpha, TotVolume, TotArea, Moment)      
      END DO
-
-     WRITE(Message,'(a,F8.2)') 'Inside Volume',TotVolume
-     CALL Info( 'LevelSetIntegrate',Message, Level=4 )
      
-     WRITE(Message,'(a,F8.2)') 'Interface Area',TotArea
-     CALL Info( 'LevelSetIntegrate',Message, Level=4 )
-     
-     CALL ListAddConstReal(Model % Simulation,'res: LevelSet Volume',TotVolume)
-     CALL ListAddConstReal(Model % Simulation,'res: LevelSet Area',TotArea)
-
-     IF(Conserve) THEN
-       IF(.NOT. Visited) THEN
-         InitVolume = ListGetConstReal(Solver % Values,'LevelSet Initial Volume',GotIt)
-         IF(.NOT. GotIt) InitVolume = TotVolume
-       END IF
-       dSurface = Relax * (InitVolume - TotVolume) / TotArea
-       Surface = Surface + dSurface
-
-       WRITE(Message,'(a,F8.2)') 'Levelset correction',dSurface
+     Moment = Moment / TotVolume
+          
+     IF(dim == 3) THEN
+       WRITE(Message,'(a,ES12.3)') 'Center 3',Moment(3)
        CALL Info( 'LevelSetIntegrate',Message, Level=4 )
 
-       CALL ListAddConstReal(Model % Simulation,'res: Levelset Correction',dSurface)
+       WRITE(Message,'(a,ES12.3)') 'Inside Volume',TotVolume
+       CALL Info( 'LevelSetIntegrate',Message, Level=4 )
+     
+       WRITE(Message,'(a,ES12.3)') 'Interface Area',TotArea
+       CALL Info( 'LevelSetIntegrate',Message, Level=4 )
+       
+       CALL ListAddConstReal(Model % Simulation,'res: LevelSet Center 3',Moment(3))
+       CALL ListAddConstReal(Model % Simulation,'res: LevelSet Volume',TotVolume)
+       CALL ListAddConstReal(Model % Simulation,'res: LevelSet Area',TotArea)
+     ELSE       
+       WRITE(Message,'(a,ES12.3)') 'Inside Area',TotVolume
+       CALL Info( 'LevelSetIntegrate',Message, Level=4 )
+     
+       WRITE(Message,'(a,ES12.3)') 'Interface length',TotArea
+       CALL Info( 'LevelSetIntegrate',Message, Level=4 )
+       
+       CALL ListAddConstReal(Model % Simulation,'res: LevelSet Area',TotVolume)
+       CALL ListAddConstReal(Model % Simulation,'res: LevelSet Length',TotArea)       
      END IF
 
-     IF(LimitTimestep) THEN
-       IF( MaxVelo * Timestep > dsMax) THEN
-         dt = dsMax / MaxVelo
-       ELSE
-         dt = TimeStep
-       END IF
-       TotTime = TotTime + dt
-       
-       WRITE(Message,'(a,F8.2)') 'Levelset timestep',dt
-       CALL Info( 'LevelSetIntegrate',Message, Level=4 )
-       CALL ListAddConstReal(Model % Simulation,'res: Levelset timestep',dt)
+     WRITE(Message,'(a,ES12.3)') 'Center 2',Moment(2)
+     CALL Info( 'LevelSetIntegrate',Message, Level=4 )
 
-       WRITE(Message,'(a,F8.2)') 'Levelset time',TotTime
+     WRITE(Message,'(a,ES12.3)') 'Center 1',Moment(1)
+     CALL Info( 'LevelSetIntegrate',Message, Level=4 )
+     
+     CALL ListAddConstReal(Model % Simulation,'res: LevelSet Center 2',Moment(2))
+     CALL ListAddConstReal(Model % Simulation,'res: LevelSet Center 1',Moment(1))
+
+     IF ( ListGetLogical(Solver % Values,'Conserve Volume',GotIt) ) THEN
+       IF(.NOT. Visited) THEN
+         InitVolume = ListGetConstReal(Solver % Values,'Initial Volume',GotIt)
+         IF(.NOT. GotIt) InitVolume = TotVolume
+       END IF
+
+       Relax = ListGetConstReal(Solver % Values,'Conserve Volume Relaxation',GotIt)
+       IF(.NOT. GotIt) Relax = 1.0d0
+      
+       dSurface = Relax * (InitVolume - TotVolume) / TotArea
+       IF(ABS(dSurface) > AEPS) THEN
+          Surface = Surface + dSurface
+       END IF
+
+       WRITE(Message,'(a,ES12.3)') 'Levelset correction',dSurface
        CALL Info( 'LevelSetIntegrate',Message, Level=4 )
-       CALL ListAddConstReal(Model % Simulation,'res: Levelset time',TotTime)
+       CALL ListAddConstReal(Model % Simulation,'res: Levelset Correction',dSurface)
      END IF
 
      Visited = .TRUE.
@@ -1373,14 +1454,14 @@ CONTAINS
  CONTAINS
 
 !------------------------------------------------------------------------------
-   SUBROUTINE HeavisideIntegrate( Surf,Element,n,Nodes,Alpha,Volume,Area )
+   SUBROUTINE HeavisideIntegrate( Surf,Element,n,Nodes,Alpha,Volume,Area,Moment)
 !------------------------------------------------------------------------------
 
      REAL(KIND=dp), DIMENSION(:)   :: Surf
      INTEGER :: n
      TYPE(Nodes_t) :: Nodes
      TYPE(Element_t), POINTER :: Element
-     REAL(KIND=dp) :: Alpha, Volume, Area
+     REAL(KIND=dp) :: Alpha, Volume, Area, Moment(3)
 
 !------------------------------------------------------------------------------
 !    Local variables
@@ -1390,7 +1471,7 @@ CONTAINS
      REAL(KIND=dp) :: dBasisdx(n,3),detJ
      REAL(KIND=dp) :: Val,Grad(3),Velo(3),NormalVelo,GradAbs,Heavi,Delta
      INTEGER :: t,N_Integ, CoordinateSystem
-     REAL(KIND=dp) :: s,u,v,w
+     REAL(KIND=dp) :: s,u,v,w,x,y,z
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
      REAL(KIND=dp), DIMENSION(:), POINTER :: U_Integ,V_Integ,W_Integ,S_Integ
      LOGICAL :: stat
@@ -1426,11 +1507,16 @@ CONTAINS
        stat = ElementInfo( Element,Nodes,u,v,w,detJ, Basis,dBasisdx)
 
        s = detJ * S_Integ(t)
+
+       x = SUM( Nodes % x(1:n) * Basis(1:n) )
+       y = SUM( Nodes % y(1:n) * Basis(1:n) )
+       IF(dim == 3) z = SUM( Nodes % z(1:n) * Basis(1:n) )
+
 !------------------------------------------------------------------------------
 !      Coordinatesystem dependent info
 !------------------------------------------------------------------------------
        IF ( CoordinateSystem == AxisSymmetric .OR. CoordinateSystem == CylindricSymmetric ) THEN
-         s = s * SUM( Nodes % x(1:n) * Basis(1:n) )
+         s = s * x * 2.0d0 * PI
        END IF
 
 !------------------------------------------------------------------------------
@@ -1438,32 +1524,25 @@ CONTAINS
 
        IF( Val < -Alpha) THEN
          Heavi = 0.0d0
-         Delta = 0.0d0
        ELSE IF(Val > Alpha) THEN
          Heavi = 1.0d0
-         Delta = 0.0d0
-         Volume = Volume + s * Heavi
        ELSE
          Heavi = (1.0d0 + SIN( (Val/Alpha) * (PI/2) ) ) / 2.0d0
          Delta = (1.0d0 + COS( (Val/Alpha) * PI ) ) / (2.0d0 * Alpha)
-
+         
          DO i=1,dim
            Grad(i) = SUM( dBasisdx(1:n,i) * Surf(1:n) )
          END DO
-         GradAbs = SQRT( SUM( Grad(1:dim) * Grad(1:dim) ) )
+         GradAbs = SQRT( SUM( Grad(1:dim) * Grad(1:dim) ) )          
          
-         Volume = Volume + s * Heavi
          Area = Area + s * Delta * GradAbs
- 
-         IF(LimitTimestep) THEN
-           DO i=1,dim
-             Velo(i) = SUM( Basis(1:n) * NodalVelo(i,1:n) )
-           END DO
-           NormalVelo = SUM( Grad(1:dim) * Velo(1:dim) ) / GradAbs
-           MaxVelo = MAX(MaxVelo, ABS(NormalVelo))
-         END IF
-        END IF
-       
+       END IF
+
+       Volume = Volume + s * Heavi
+       Moment(1) = Moment(1) + s * Heavi * x
+       Moment(2) = Moment(2) + s * Heavi * y
+       IF(dim == 3) Moment(3) = Moment(3) + s * Heavi * z       
+
      END DO
      
 !------------------------------------------------------------------------------
@@ -1505,7 +1584,7 @@ CONTAINS
      TYPE(Variable_t), POINTER :: SurfSol
 
      INTEGER :: i,j,k,n,pn,t,istat,bf_id,CoordinateSystem
-     REAL(KIND=dp) :: Norm, Coeff, Diff
+     REAL(KIND=dp) :: Norm, Coeff, Diff, Alpha, Val, Delta
      INTEGER, POINTER :: NodeIndexes(:)
      INTEGER, POINTER :: CurvPerm(:), SurfPerm(:)
      REAL(KIND=dp), POINTER :: Curvature(:),ForceVector(:), Curv(:),Surface(:) 
@@ -1675,7 +1754,7 @@ CONTAINS
      CALL FinishAssembly( Solver,ForceVector )
      
      at = CPUTime() - at
-     WRITE(Message,'(a,F8.2)') 'Assembly done in time:',at
+     WRITE(Message,'(a,F8.2)') 'Assembly done in time (s):',at
      CALL Info( 'LevelSetCurvature',Message, Level=4 )
 
 !------------------------------------------------------------------------------
@@ -1686,7 +1765,7 @@ CONTAINS
          Curvature, Norm, 1, Solver )
      
      st = CPUTIme()-st
-     WRITE(Message,'(a,F8.2)') 'Solution done in time:',st
+     WRITE(Message,'(a,F8.2)') 'Solution done in time (s):',st
      CALL Info( 'LevelSetCurvature',Message, Level=4 )
 
 !------------------------------------------------------------------------------
@@ -1695,6 +1774,28 @@ CONTAINS
      IF(GotIt) THEN
        Curvature = Coeff * Curvature
      END IF
+
+     Alpha = ListGetConstReal(Model % Simulation,'Levelset Bandwidth',GotIt) 
+     IF(.NOT. GotIt) Alpha = ListGetConstReal(Solver % Values,'Levelset Bandwidth',GotIt)      
+     IF(GotIt) THEN
+       DO i=1,SIZE(CurvPerm) 
+         j = CurvPerm(i)
+         k = SurfPerm(i)
+         IF(j == 0 .OR. k == 0) CYCLE
+         Val = Surface(k)
+
+         IF( Val < -Alpha) THEN
+           Delta = 0.0d0
+         ELSE IF(Val > Alpha) THEN
+           Delta = 0.0d0
+         ELSE
+           Delta = (1.0d0 + COS( (Val/Alpha) * PI ) ) / (2.0d0 * Alpha)
+         END IF
+         
+         Curvature(j) = Delta * Curvature(j)
+       END DO
+     END IF
+
 
 CONTAINS
 
@@ -1907,3 +2008,171 @@ CONTAINS
 !------------------------------------------------------------------------------
 END SUBROUTINE LevelSetCurvature
 !------------------------------------------------------------------------------
+
+
+
+
+FUNCTION LevelSetTimestep( Model ) RESULT( dt )
+!DEC$ATTRIBUTES DLLEXPORT :: LevelSetTimestep
+  USE Types
+  USE Lists
+  USE Integration
+  USE ElementDescription
+
+  IMPLICIT NONE
+
+  TYPE(Model_t) :: Model
+  REAL(KIND=dp) :: dt
+
+  TYPE(Solver_t), POINTER :: Solver
+  TYPE(Variable_t), POINTER ::  TimeVariable, SurfSol
+  REAL(KIND=dp), POINTER :: Surface(:), Surf(:)
+  INTEGER, POINTER :: SurfPerm(:), NodeIndexes(:)
+  TYPE(Nodes_t)   :: ElementNodes
+  TYPE(Element_t),POINTER :: CurrentElement
+  TYPE(ValueList_t), POINTER :: Material
+  REAL(KIND=dp), POINTER :: TimestepSizes(:,:)
+ 
+  INTEGER :: i,j,k,n,t,elem,N_Integ,body_id,mat_id, dim, TimeIntervals
+  REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:), NodalVelo(:,:)
+  REAL(KIND=dp) :: Val,Grad(3),Velo(3),NormalVelo,AbsVelo,GradAbs,detJ,&
+      MaxNormVelo,MaxAbsVelo
+  REAL(KIND=dp) :: s,u,v,w,dt0,prevdt,cumtime,dsmax
+  TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
+  REAL(KIND=dp), DIMENSION(:), POINTER :: U_Integ,V_Integ,W_Integ,S_Integ
+  LOGICAL :: stat, GotIt, AllocationsDone = .FALSE.
+  CHARACTER(LEN=MAX_NAME_LEN) :: LevelSetVariableName
+
+  SAVE AllocationsDone, Basis, dBasisdx, NodalVelo, Surf, ElementNodes, prevdt
+
+
+  TimestepSizes => ListGetConstRealArray( CurrentModel % Simulation,&
+      'Timestep Sizes', GotIt )
+  TimeIntervals = SIZE(TimestepSizes)
+ 
+  IF(TimeIntervals > 1) THEN
+    CALL Warn('LevelSetTimestep','Implemented only for one Time Interval')
+  END IF
+
+  dt0 = TimestepSizes(1,1)
+
+  TimeVariable => VariableGet(Model % Variables, 'Time')
+  cumtime = TimeVariable % Values(1)
+
+  dim = CoordinateSystemDimension()
+
+  ! The variable that should be reinitialized
+  LevelSetVariableName = 'Surface'
+  SurfSol => VariableGet( Model % Variables, TRIM(LevelSetVariableName) )
+  IF(ASSOCIATED(SurfSol)) THEN
+    Surface  => SurfSol % Values
+    SurfPerm => SurfSol % Perm
+  ELSE
+    CALL Warn('LevelSetTimeStep','SurfSol does not exist: '//TRIM(LevelSetVariableName))
+    RETURN
+  END IF
+
+  Solver => SurfSol % Solver
+  DsMax = ListGetConstReal(Model % Simulation,'LevelSet Courant Number',GotIt)
+  IF(.NOT. GotIt) DsMax = 1.0d0
+
+  IF(.NOT. AllocationsDone) THEN
+    N = Solver % Mesh % MaxElementNodes
+    ALLOCATE( Basis(n), dBasisdx(n,3), NodalVelo(3,n), Surf(n), &
+        ElementNodes % x(n), ElementNodes % y(n), ElementNodes % z(n) )
+    prevdt = dt0
+    AllocationsDone = .TRUE. 
+  END IF
+
+  MaxNormVelo = 0.0d0
+  MaxAbsVelo = 0.0d0
+
+  DO elem=1,Solver % Mesh % NumberOfBulkElements
+    
+    CurrentElement => Solver % Mesh % Elements(elem)
+    n = CurrentElement % TYPE % NumberOfNodes
+    NodeIndexes => CurrentElement % NodeIndexes
+    
+    IF(ANY(SurfPerm(NodeIndexes) == 0)) CYCLE
+    
+    Surf(1:n) = Surface( SurfPerm(NodeIndexes) )
+    IF(ALL(Surf(1:n) < 0.0d0) .OR. ALL(Surf(1:n) > 0.0d0) ) CYCLE
+
+    ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
+    ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
+    ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(NodeIndexes)
+    
+    Model % CurrentElement => CurrentElement
+    body_id = CurrentElement % Bodyid    
+    mat_id = ListGetInteger( Model % Bodies( body_id ) % Values, 'Material' )
+    Material => Model % Materials(mat_id) % Values
+
+!------------------------------------------------------------------------------
+!         Computed or given velocity field
+!------------------------------------------------------------------------------
+       
+    NodalVelo(1,1:n) = ListGetReal( Material,'Levelset Velocity 1',n,NodeIndexes,GotIt)
+    NodalVelo(2,1:n) = ListGetReal( Material,'Levelset Velocity 2',n,NodeIndexes,GotIt)
+    IF(dim == 3) NodalVelo(3,1:n) = ListGetReal( Material,'Levelset Velocity 3',n,NodeIndexes,GotIt)
+
+!------------------------------------------------------------------------------
+!    Integration stuff
+!------------------------------------------------------------------------------
+    IntegStuff = GaussPoints( CurrentElement )
+    
+    U_Integ => IntegStuff % u
+    V_Integ => IntegStuff % v
+    W_Integ => IntegStuff % w
+    S_Integ => IntegStuff % s
+    N_Integ =  IntegStuff % n
+
+!------------------------------------------------------------------------------
+!    Maximum at any integration point
+!------------------------------------------------------------------------------
+    
+    DO t=1,N_Integ
+
+      u = U_Integ(t)
+      v = V_Integ(t)
+      w = W_Integ(t)
+         
+!------------------------------------------------------------------------------
+!      Basis function values & derivatives at the integration point
+!------------------------------------------------------------------------------
+
+      stat = ElementInfo( CurrentElement,ElementNodes,u,v,w,detJ, Basis,dBasisdx)
+      
+      DO i=1,dim
+        Grad(i) = SUM( dBasisdx(1:n,i) * Surf(1:n) )
+        Velo(i) = SUM( Basis(1:n) * NodalVelo(i,1:n) )
+      END DO
+      
+      GradAbs = SQRT( SUM( Grad(1:dim) * Grad(1:dim) ) )         
+      NormalVelo = SUM( Grad(1:dim) * Velo(1:dim) ) / GradAbs
+      NormalVelo = NormalVelo / SQRT(detJ)
+      MaxNormVelo = MAX(MaxNormVelo, ABS(NormalVelo))
+      
+      AbsVelo = SQRT(SUM (Velo(1:dim) * Velo(1:dim)) )
+      AbsVelo = AbsVelo / SQRT(detJ)
+      MaxAbsVelo = MAX(MaxAbsVelo, ABS(AbsVelo))
+    END DO
+  END DO
+
+  dt = dt0
+  IF( ListGetLogical(Model % Simulation,'LevelSet Timestep Directional',GotIt) ) THEN
+    IF( MaxNormVelo * dt0 > dsMax) dt = dsMax / MaxNormVelo
+  ELSE
+    IF( MaxAbsVelo * dt0 > dsMax) dt = dsMax / MaxAbsVelo
+  END IF
+  
+  IF( dt < dt0) THEN
+    IF(dt > prevdt) dt = 0.5d0 * (dt + prevdt)
+  END IF
+  prevdt = dt
+  
+  WRITE(Message,'(a,ES12.3)') 'Levelset timestep',dt
+  CALL Info( 'LevelSetTimestep',Message, Level=4 )
+  CALL ListAddConstReal(Model % Simulation,'res: Levelset timestep',dt)
+
+END FUNCTION LevelSetTimestep
+
