@@ -510,7 +510,7 @@ FUNCTION basalSlip( Model, Node, Temperature ) RESULT(basalSlipCoefficient)
   !-------------------------
   ! Get Pressure Melting Point
   !-------------------------
-  TempName =  GetString(ParentMaterial ,'Temperature Name', GotIt)
+  TempName =  GetString(Model % Constants ,'Temperature Name', GotIt)
   PressureMeltingPoint(1:NParent) =&
        ListGetReal( ParentMaterial, TRIM(TempName) // ' Upper Limit',&
        NParent, ParentElement % NodeIndexes, GotIt)
@@ -841,13 +841,13 @@ FUNCTION getViscosityFactor( Model, n, temperature ) RESULT(visFact)
   REAL(KIND=dp), POINTER :: Hwrk(:,:,:)
   REAL (KIND=dp), ALLOCATABLE :: activationEnergy(:,:), arrheniusFactor(:,:),&
        enhancementFactor(:), viscosityExponent(:), PressureMeltingPoint(:),&
-       Ux(:), Uy(:), Uz(:)
+       Ux(:), Uy(:), Uz(:), LimitTemp(:)
   LOGICAL :: FirstTime = .TRUE., GotIt
   CHARACTER(LEN=MAX_NAME_LEN) :: TempName
 !------------ remember this -------------------------------
   Save DIM, FirstTime, gasconst, activationEnergy, arrheniusFactor,&
        enhancementFactor, viscosityExponent, Hwrk, PressureMeltingPoint, &
-       Ux, Uy, Uz
+       Ux, Uy, Uz, LimitTemp
 !-----------------------------------------------------------
   !-----------------------------------------------------------
   ! Read in constants from SIF file and do some allocations
@@ -869,6 +869,7 @@ FUNCTION getViscosityFactor( Model, n, temperature ) RESULT(visFact)
      ALLOCATE(activationEnergy(2,nMax),&
           arrheniusFactor(2,nMax),&
           enhancementFactor(nMax),&
+          LimitTemp( nMax),&
           PressureMeltingPoint( nMax ),&
           viscosityExponent(nMax),&
           Ux(nMax),&
@@ -945,6 +946,16 @@ FUNCTION getViscosityFactor( Model, n, temperature ) RESULT(visFact)
      WRITE(Message,'(a,I2,a,I2,a)') 'No Enhancement Factor found in Material ', material_id,' for node ', n, '.setting E=1'
      CALL INFO('iceproperties (getViscosityFactor)', Message, level=9)
   END IF
+  ! Threshold temperature for switching activation energies and Arrhenius factors
+  !------------------------------------------------------------------------------
+  LimitTemp(1:elementNodes) = ListGetReal( Material,'Limit Temperature', elementNodes, &
+       Model % CurrentElement % NodeIndexes, GotIt )
+  IF (.NOT. GotIt) THEN
+     LimitTemp(1:elementNodes) = -1.0D01
+     WRITE(Message,'(a,I2,a,I2,a)') 'No keyword >Limit Temperature< found in Material ',&
+          material_id,' for node ', n, '.setting to -10'
+     CALL INFO('iceproperties (getFluidity)', Message, level=9)
+  END IF
   ! Viscosity Exponent
   !-------------------
   viscosityExponent(1:elementNodes) = ListGetReal( Material,'Viscosity Exponent', elementNodes, &
@@ -956,7 +967,7 @@ FUNCTION getViscosityFactor( Model, n, temperature ) RESULT(visFact)
   END IF
   ! Pressure Melting Point and homologous temperature
   !--------------------------------------------------
-  TempName =  GetString(Material ,'Temperature Name', GotIt)
+  TempName =  GetString(Model % Constants  ,'Temperature Name', GotIt)
   IF (.NOT.GotIt) CALL FATAL('iceproperties (getViscosityFactor)','No Temperature Name found')
   PressureMeltingPoint(1:elementNodes) =&
        ListGetReal( Material, TRIM(TempName) // ' Upper Limit',&
@@ -972,7 +983,7 @@ FUNCTION getViscosityFactor( Model, n, temperature ) RESULT(visFact)
   !-------------------------------------------
   ! homologous Temperature is below 10 degrees
   !-------------------------------------------
-  IF (temphom < -1.0D01) THEN
+  IF (temphom < LimitTemp(nodeInElement)) THEN
      i=1
      !-------------------------------------------
      ! homologous Temperature is above 10 degrees
@@ -1412,74 +1423,6 @@ END FUNCTION getCriticalShearRate
 
 !*********************************************************************************************************************************
 !*
-!* density  as a function of the position; Special and dirty workaround for crater2d_* cases -DO NOT USE ELSEWHERE!!
-!*
-!*********************************************************************************************************************************
-FUNCTION getDensity( Model, Node, Depth ) RESULT(density)
-  USE types
-  USE CoordinateSystems
-  USE SolverUtils
-  USE ElementDescription
-!-----------------------------------------------------------
-  IMPLICIT NONE
-!------------ external variables ---------------------------
-  TYPE(Model_t) :: Model
-  INTEGER :: Node
-  REAL(KIND=dp) :: Depth, density
-!------------ internal variables----------------------------
-  TYPE(ValueList_t), POINTER :: Material
-  INTEGER :: i,j
-  REAL (KIND=dp) :: XCoord, Height, volumefraction
-
-  INTERFACE
-     FUNCTION getVolumeFraction( Model, Node, Depth ) RESULT(volumefraction)
-       USE types
-!       REAL(KIND=dp) :: getVolumefraction 
-       !------------ external variables ---------------------------
-       TYPE(Model_t) :: Model
-       INTEGER :: Node
-       REAL(KIND=dp) :: Depth, volumefraction
-     END FUNCTION getVolumeFraction
-  END INTERFACE
-
-  volumefraction = getVolumeFraction(Model, Node, Depth)
-  density = 9.18D02 * volumefraction
-
-END FUNCTION getDensity
-
-
-!*********************************************************************************************************************************
-!*
-!* viscosity factor (due to volumefraction); Special and dirty workaround for crater2d_* cases -DO NOT USE ELSEWHERE!!
-!*
-!*********************************************************************************************************************************
-FUNCTION getViscosity( Model, Node, Depth ) RESULT(viscosity)
-  USE types
-  USE CoordinateSystems
-  USE SolverUtils
-  USE ElementDescription
-!-----------------------------------------------------------
-  IMPLICIT NONE
-!------------ external variables ---------------------------
-  TYPE(Model_t) :: Model
-  INTEGER :: Node
-  REAL(KIND=dp) :: Depth, viscosity
-  INTERFACE
-     FUNCTION getVolumefraction( Model, Node, Depth ) RESULT(volumefraction)
-       USE types
-!       REAL(KIND=dp) :: getVolumefraction 
-       !------------ external variables ---------------------------
-       TYPE(Model_t) :: Model
-       INTEGER :: Node
-       REAL(KIND=dp) :: Depth, volumefraction
-     END FUNCTION getVolumefraction
-  END INTERFACE
-
-  viscosity = getVolumefraction(Model, Node, Depth)
-END FUNCTION getViscosity
-
-!*********************************************************************************************************************************
-!*
 !* heat conductivity factor 
 !*
 !*********************************************************************************************************************************
@@ -1498,35 +1441,6 @@ FUNCTION getHeatConductivityFactorNew( Model, Node, relativeDensity ) RESULT(hea
   heatCondFact = 9.828D00 * (7.1306D-02 - 4.7908D-01 * relativeDensity + 1.40778D00 * relativeDensity * relativeDensity)
 END FUNCTION getHeatConductivityFactorNew
 
-!*********************************************************************************************************************************
-!*
-!* heat conductivity factor 
-!*
-!*********************************************************************************************************************************
-FUNCTION getHeatConductivityFactor( Model, Node, Depth ) RESULT(heatCondFact)
-  USE types
-  USE CoordinateSystems
-  USE SolverUtils
-  USE ElementDescription
-!-----------------------------------------------------------
-  IMPLICIT NONE
-!------------ external variables ---------------------------
-  TYPE(Model_t) :: Model
-  INTEGER :: Node
-  REAL(KIND=dp) :: Depth, heatCondFact
-  REAL(KIND=dp) :: volumefraction
-  INTERFACE
-     FUNCTION getVolumefraction( Model, Node, Depth ) RESULT(volumefraction)
-       USE types
-       !------------ external variables ---------------------------
-       TYPE(Model_t), TARGET :: Model
-       INTEGER :: Node
-       REAL(KIND=dp) :: Depth, volumefraction
-     END FUNCTION getVolumefraction
-  END INTERFACE
-  volumefraction = getVolumefraction(Model, Node, Depth)
-  heatCondFact = 9.828D00 * volumefraction
-END FUNCTION getHeatConductivityFactor
 
 !*********************************************************************************************************************************
 !*
