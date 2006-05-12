@@ -88,7 +88,7 @@
      CHARACTER(LEN=MAX_NAME_LEN) :: ConvectionFlag, VariableName, SolverName, FlowSolName
 
      LOGICAL :: Stabilize = .TRUE., Bubbles = .TRUE., UseBubbles, &
-          Found, FluxBC, Permeable=.TRUE., &
+          Found, FluxBC, Permeable=.TRUE., IsPeriodicBC=.FALSE.,&
           AllocationsDone = .FALSE.,  SubroutineVisited = .FALSE., FirstTime=.TRUE.,&
           LimitSolution, ApplyUzawa=.FALSE., ApplyDirichlet, UzawaAnyways, FlowSolutionFound
      LOGICAL, ALLOCATABLE ::  LimitedSolution(:), ActiveNode(:)
@@ -788,16 +788,14 @@
               !---------------------------
 
 
-              IF (ApplyDirichlet) THEN              
-                 DO i=1,Model % Mesh % NumberOfNodes
-                    k = TempPerm(i)           
-                    IF (ActiveNode(i) .AND. (k > 0)) THEN
-                       CALL ZeroRow( SystemMatrix, k ) 
-                       CALL SetMatrixElement( SystemMatrix, k, k, 1.0D00)
-                       SystemMatrix % RHS(k) = UpperLimit(i)
-                    END IF
-                 END DO
-              END IF
+              DO i=1,Model % Mesh % NumberOfNodes
+                 k = TempPerm(i)           
+                 IF (ActiveNode(i) .AND. (k > 0)) THEN
+                    CALL ZeroRow( SystemMatrix, k ) 
+                    CALL SetMatrixElement( SystemMatrix, k, k, 1.0D00)
+                    SystemMatrix % RHS(k) = UpperLimit(i)
+                 END IF
+              END DO
            END IF
 
 
@@ -866,11 +864,44 @@
 
               END IF
            END DO
+           ! special treatment for periodic boundaries
+           !------------------------------------------
+           k=0
+           DO t=1, Solver % Mesh % NumberOfBoundaryElements
 
+              ! get element information
+              Element => GetBoundaryElement(t)
+              IF ( .NOT.ActiveBoundaryElement() ) CYCLE
+              n = GetElementNOFNodes()
+              IF ( GetElementFamily() == 1 ) CYCLE
+              BC => GetBC()
+              bc_id = GetBCId( Element )
+              CALL GetElementNodes( ElementNodes )
+
+
+              IF ( ASSOCIATED( BC ) ) THEN    
+!                 PRINT *, 'Periodic BC ' // TRIM(Solver % Variable % Name)
+                 IsPeriodicBC = GetLogical(BC,'Periodic BC ' // TRIM(Solver % Variable % Name),Found)
+                 IF (.NOT.Found) IsPeriodicBC = .FALSE.
+                 IF (IsPeriodicBC) THEN 
+                    DO i=1,N
+                       IF  (ActiveNode(Element % NodeIndexes(i))) THEN
+                          k = k + 1
+                          ActiveNode(Element % NodeIndexes(i)) = .FALSE.
+                       END IF
+                    END DO
+                 END IF
+              END IF
+           END DO
+
+           ! check for convergence
+           !----------------------
            IF ( RelativeChange < NonlinearTol ) THEN
               EXIT
            ELSE
               IF (ApplyDirichlet) THEN
+                 WRITE(Message,'(a,i10)') 'Deactivated Periodic BC nodes:', k
+                 CALL INFO(SolverName,Message,Level=1)
                  WRITE(Message,'(a,i10)') 'Number of constrained points:', COUNT(ActiveNode)
                  CALL INFO(SolverName,Message,Level=1)
               END IF
