@@ -38,7 +38,7 @@
 ! *
 ! ******************************************************************************/
 ! *
-! * $Id: ElementUtils.src,v 1.8 2006/02/20 08:06:18 jpr Exp $
+! * $Id: ElementUtils.src,v 1.9 2006/05/18 14:45:53 jpr Exp $
 ! ******************************************************************************
 
 MODULE ElementUtils
@@ -359,6 +359,12 @@ CONTAINS
                 CList => ListMatrix( k ) % Head
                 DO WHILE( ASSOCIATED( CList ) )
                    CALL MakeListMatrixIndex( ListMatrix,m,CList % INDEX )
+                   CList => CList % Next
+                END DO
+                CALL MakeListMatrixIndex( ListMatrix,m,k )
+                CList => ListMatrix( m ) % Head
+                DO WHILE( ASSOCIATED( CList ) )
+                   CALL MakeListMatrixIndex( ListMatrix,k,CList % INDEX )
                    CList => CList % Next
                 END DO
               END IF

@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.36  2006/05/18 10:01:30  jpr
+! * Some modifications for the 'Periodic BC' scheme.
+! *
 ! * Revision 1.35  2006/03/03 14:21:11  jpr
 ! * Avarage normals now computed correctly in combination with periodic
 ! * BCs in 2D, 3D TODO.
@@ -141,7 +144,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.35 2006/03/03 14:21:11 jpr Exp $
+! * $Id: MeshUtils.src,v 1.36 2006/05/18 10:01:30 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -924,8 +927,8 @@ CONTAINS
       Projector =>  PeriodicProjector( Model, Mesh, i, k )
       IF ( ASSOCIATED( Projector ) ) Model % BCs(i) % PMatrix => Projector
 
-      Projector => PeriodicProjector( Model, Mesh, k, i )
-      IF ( ASSOCIATED( Projector ) ) Model % BCs(k) % PMatrix => Projector
+!     Projector => PeriodicProjector( Model, Mesh, k, i )
+!     IF ( ASSOCIATED( Projector ) ) Model % BCs(k) % PMatrix => Projector
    END DO
 
    Model % DIMENSION = save_dim
