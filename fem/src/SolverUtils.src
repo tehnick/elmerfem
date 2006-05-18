@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.18  2006/03/27 10:28:52  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.17  2006/03/03 14:21:10  jpr
 ! * Avarage normals now computed correctly in combination with periodic
 ! * BCs in 2D, 3D TODO.
@@ -116,7 +119,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.17 2006/03/03 14:21:10 jpr Exp $
+! * $Id: SolverUtils.src,v 1.18 2006/03/27 10:28:52 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -1007,7 +1010,7 @@ CONTAINS
     INTEGER :: i,j,k,l,m,n,nn
     LOGICAL :: GotIt
     REAL(KIND=dp) :: Scale
-    TYPE(Matrix_t), POINTER :: Projector
+    TYPE(Matrix_t), POINTER :: Projector, Projector1
 !------------------------------------------------------------------------------
 
     Scale = -1.0d0
@@ -1018,8 +1021,11 @@ CONTAINS
        Scale = 1.0d0
     END IF
 
-    Projector => Model % BCs(This) % PMatrix
+!   Projector => Model % BCs(This) % PMatrix
+    i = ListGetInteger( Model % BCs(This) % Values, 'Periodic BC', GotIt )
+    Projector => Model % bcs(i) % PMatrix
     IF ( .NOT. ASSOCIATED(Projector) ) RETURN
+
 !
 !   Do the assembly of the projector:
 !   ---------------------------------
