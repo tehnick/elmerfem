@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.20  2006/05/18 10:27:41  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.19  2006/05/18 10:01:30  jpr
 ! * Some modifications for the 'Periodic BC' scheme.
 ! *
@@ -122,7 +125,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.19 2006/05/18 10:01:30 jpr Exp $
+! * $Id: SolverUtils.src,v 1.20 2006/05/18 10:27:41 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -1025,8 +1028,6 @@ CONTAINS
     END IF
 
     Projector => Model % BCs(This) % PMatrix
-!   i = ListGetInteger( Model % BCs(This) % Values, 'Periodic BC', GotIt )
-!   Projector => Model % bcs(i) % PMatrix
     IF ( .NOT. ASSOCIATED(Projector) ) RETURN
 
 !
@@ -1121,7 +1122,6 @@ CONTAINS
           CALL ZeroRow( StiffMatrix,k )
           DO l=Projector % Rows(i),Projector % Rows(i+1)-1
              IF ( Projector % Cols(l) <= 0 ) CYCLE
-
              m = Perm( Projector % Cols(l) )
              IF ( m > 0 ) THEN
                m = NDOFs * (m-1) + DOF
