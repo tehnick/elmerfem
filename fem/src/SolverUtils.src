@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.21  2006/05/18 14:39:43  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.20  2006/05/18 10:27:41  jpr
 ! * *** empty log message ***
 ! *
@@ -125,7 +128,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.20 2006/05/18 10:27:41 jpr Exp $
+! * $Id: SolverUtils.src,v 1.21 2006/05/18 14:39:43 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -1098,7 +1101,7 @@ CONTAINS
 
     INTEGER :: i,j,k,l,m,n,nn
     LOGICAL :: GotIt
-    REAL(KIND=dp) :: Scale
+    REAL(KIND=dp) :: Scale,s
     TYPE(Matrix_t), POINTER :: Projector
 !------------------------------------------------------------------------------
 
@@ -1116,11 +1119,11 @@ CONTAINS
 !   Do the assembly of the projector:
 !   ---------------------------------
     DO i=1,Projector % NumberOfRows
-       k = Perm(Projector % InvPerm(i))
+       k = Perm( Projector % InvPerm(i) )
        IF ( k > 0 ) THEN
           k = NDOFs * (k-1) + DOF
           CALL ZeroRow( StiffMatrix,k )
-          DO l=Projector % Rows(i),Projector % Rows(i+1)-1
+          DO l = Projector % Rows(i), Projector % Rows(i+1)-1
              IF ( Projector % Cols(l) <= 0 ) CYCLE
              m = Perm( Projector % Cols(l) )
              IF ( m > 0 ) THEN

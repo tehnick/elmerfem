@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: NavierStokesCylindrical.src,v 1.9 2006/03/27 10:28:52 jpr Exp $
+! * $Id: NavierStokesCylindrical.src,v 1.10 2006/03/27 11:05:09 jpr Exp $
 ! *****************************************************************************/
 
 MODULE NavierStokesCylindrical
@@ -490,9 +490,9 @@ MODULE NavierStokesCylindrical
 !
 !  Pressure
 !
-           SW(p,i,c) = SW(p,i,c) + Density * dBasisdx(p,i)
 
            IF ( Convect ) THEN
+           SW(p,i,c) = SW(p,i,c) + Density * dBasisdx(p,i)
            DO j=1,DIM
 !
 !  Convection
@@ -551,6 +551,8 @@ MODULE NavierStokesCylindrical
              END DO
 
            END DO
+           ELSE
+           SW(p,i,c) = SW(p,i,c) + dBasisdx(p,i)
            END IF
 
            IF ( CurrentCoordinateSystem() == AxisSymmetric ) THEN
@@ -712,12 +714,20 @@ MODULE NavierStokesCylindrical
 
            A(c,i) = A(c,i) + Density * dBasisdx(q,i) * BaseP
          ELSE
-           A(c,i) = A(c,i) + Density * dBasisdx(q,i) * BaseP
+           IF ( Convect ) THEN
+             A(c,i) = A(c,i) + Density * dBasisdx(q,i) * BaseP
+           ELSE
+             A(c,i) = A(c,i) + dBasisdx(q,i) * BaseP
+           END IF
          END IF
 !------------------------------------------------------------------------------
        END DO
 
-       A(c,1) = A(c,1) + Density * Symb(1,3,3) * Basis(q) * BaseP
+       IF ( Compressible .OR. Convect ) THEN
+         A(c,1) = A(c,1) + Density * Symb(1,3,3) * Basis(q) * BaseP
+       ELSE
+         A(c,1) = A(c,1) + Symb(1,3,3) * Basis(q) * BaseP
+       END IF
 
 !------------------------------------------------------------------------------
 !      Artificial Compressibility, affects only the continuity equation

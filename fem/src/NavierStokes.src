@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: NavierStokes.src,v $
+! * Revision 1.11  2006/03/27 10:28:52  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.10  2006/02/13 06:59:04  jpr
 ! * Use linear basis also for mass in the continuity equation when doing
 ! * the P2/P1 scheme.
@@ -90,7 +93,7 @@
 ! * Added divergence form discretization of the diffusion term.
 ! *
 ! *
-! * $Id: NavierStokes.src,v 1.10 2006/02/13 06:59:04 jpr Exp $
+! * $Id: NavierStokes.src,v 1.11 2006/03/27 10:28:52 jpr Exp $
 ! *****************************************************************************/
 
 MODULE NavierStokes
@@ -400,7 +403,7 @@ MODULE NavierStokes
           Re = MIN( 1.0d0, Density * mK * hK * VNorm / (4 * Viscosity) )
 
           Tau = hK * Re / (2 * Density * VNorm)
-          Delta = Lambda * Re * hK * VNorm
+          Delta = Density * Lambda * Re * hK * VNorm
        ELSE
           Delta = 2 * Viscosity / mK
           Tau   = mK * hK**2  / ( 4 * Viscosity )
@@ -443,9 +446,8 @@ MODULE NavierStokes
 !
 !------------------------------------------------------------------------------
 
-           SW(p,i,c) = SW(p,i,c) + Density * dBasisdx(p,i)
-
            IF ( Convect )  THEN
+             SW(p,i,c) = SW(p,i,c) + Density * dBasisdx(p,i)
              DO j=1,DIM
                SW(p,i,i) = SW(p,i,i) + Density * dBasisdx(p,j) * Velo(j)
 
@@ -457,6 +459,8 @@ MODULE NavierStokes
  
                SW(p,i,i) = SW(p,i,i) - dViscositydx(j) * dBasisdx(p,j)
              END DO
+           ELSE
+             SW(p,i,c) = SW(p,i,c) + dBasisdx(p,i)
            END IF
          END DO
 
@@ -546,7 +550,11 @@ MODULE NavierStokes
          IF ( gradPDiscretization ) THEN
             A(c,i) = A(c,i) - s * Density * Basis(q) * dBasisdx(p,i)
          ELSE
-            A(c,i) = A(c,i) + s * Density * dBasisdx(q,i) * BaseP
+            IF ( Compressible1 .OR. Compressible2 .OR. Convect ) THEN
+              A(c,i) = A(c,i) + s * Density * dBasisdx(q,i) * BaseP
+            ELSE
+              A(c,i) = A(c,i) + s * dBasisdx(q,i) * BaseP
+            END IF
          END IF
 
          IF ( Compressible1 ) THEN
@@ -590,8 +598,7 @@ MODULE NavierStokes
              END DO
 
              DO j=1,DIM
-                A(j,i) = A(j,i) + &
-                       s * Delta * Density * dBasisdx(q,i) * dBasisdx(p,j)
+               A(j,i) = A(j,i) + s * Delta * dBasisdx(q,i) * dBasisdx(p,j)
              END DO
           END DO
        END IF
