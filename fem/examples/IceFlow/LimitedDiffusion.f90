@@ -166,23 +166,7 @@
      LocalNodes = COUNT( TempPerm > 0 )
      IF ( LocalNodes <= 0 ) RETURN
 
-     FlowSolName =  GetString(Model % Constants ,'Flow Solution Name', Found)
-     IF(.NOT.Found) THEN        
-        CALL WARN(SolverName,'Keyword >Flow Solution Name< not found in section >Constants<')
-        CALL WARN(SolverName,'Taking default value >Flow Solution<')
-        WRITE(FlowSolName,'(A)') 'Flow Solution'
-     END IF
-
-     FlowSol => VariableGet( Solver % Mesh % Variables, FlowSolName )
-     IF ( ASSOCIATED( FlowSol ) ) THEN
-        FlowPerm     => FlowSol % Perm
-        NSDOFs       =  FlowSol % DOFs
-        FlowSolution => FlowSol % Values
-        FlowSolutionFound = .TRUE.
-     ELSE
-        CALL INFO(SolverName,'No Flow Solution associated',Level=1)
-        FlowSolutionFound = .FALSE.
-     END IF
+     
 
 !------------------------------------------------------------------------------
 !    Allocate some permanent storage, this is done first time only
@@ -254,7 +238,7 @@
              FORCE( 2*N ),                         &
              TimeForce( 2*N ),                     &
              LagrangeMultiplier( M ),              &
-             ResidualVector( M ),                  &
+             ResidualVector( L ),                  &
              TempHomologous( M ),                  &
              StiffVector( M ),                     &
              UpperLimit( M ),                      &
@@ -288,7 +272,7 @@
 !    Say hello
 !------------------------------------------------------------------------------
      WRITE(Message,'(A,A)')&
-          'Limited diffusion Solver for variable', VariableName
+          'Limited diffusion Solver for variable ', VariableName
      CALL INFO(SolverName,Message,Level=1)
 
 !------------------------------------------------------------------------------
@@ -525,6 +509,41 @@
                     END IF
                  END IF
               END IF
+
+
+              k = ListGetInteger( Model % Bodies(Element % BodyId) % Values, 'Equation', &
+                   minv=1, maxv=Model % NumberOFEquations )
+
+              SELECT CASE( ListGetString( Model % Equations(k) % Values, &
+                   'Convection', Found ) )
+
+                 !-----------------
+              CASE( 'computed' )
+                 !-----------------
+
+                 FlowSolName =  GetString( Model % Equations(k) % Values,'Flow Solution Name', Found)
+                 IF(.NOT.Found) THEN        
+                    CALL WARN(SolverName,'Keyword >Flow Solution Name< not found in section >Constants<')
+                    CALL WARN(SolverName,'Taking default value >Flow Solution<')
+                    WRITE(FlowSolName,'(A)') 'Flow Solution'
+                 END IF
+
+
+                 FlowSol => VariableGet( Solver % Mesh % Variables, FlowSolName )
+                 IF ( ASSOCIATED( FlowSol ) ) THEN
+                    FlowPerm     => FlowSol % Perm
+                    NSDOFs       =  FlowSol % DOFs
+                    FlowSolution => FlowSol % Values
+                    FlowSolutionFound = .TRUE.
+                 ELSE
+                    CALL INFO(SolverName,'No Flow Solution associated',Level=1)
+                    FlowSolutionFound = .FALSE.
+                 END IF
+              CASE( "none")
+                 FlowSolutionFound = .FALSE.
+
+              END SELECT
+
               !------------------------------------------------------------------------------
               ! Get element material parameters
               !------------------------------------------------------------------------------              
@@ -843,7 +862,9 @@
            ! compute residual
            !------------------------------------------------------------------------------
            CALL CRS_MatrixVectorMultiply( SystemMatrix, Temp, StiffVector)
+           PRINT *, Solver % Matrix % RHS(1:10), SIZE(Solver % Matrix % RHS), SIZE(StiffVector), SIZE(ResidualVector)
            ResidualVector =  StiffVector - Solver % Matrix % RHS
+ 
 
            DO i=1,Model % Mesh % NumberOfNodes
               k = TempPerm(i)
