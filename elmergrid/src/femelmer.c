@@ -2028,9 +2028,10 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,
 
 #if 1
   for(i=1;i<=noknots;i++) {
+
     ind = i;
     if(periodic) ind = indxper[ind];
-    
+
     if(neededtimes[ind] > 1) {
       j = neededtable[ind][1];
       k = neededtable[ind][2];
@@ -2046,6 +2047,15 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,
       }
     }
   }
+
+  /* A posteriori correction, don't know if this just corrects the symptom */
+  if(periodic) {
+    for(i=1;i<=noknots;i++) {
+      ind = indxper[i];
+      if(i != ind) neededby[i] = neededby[ind]; 
+    }
+  }
+
 #else 
   for(i=1;i<=noknots;i++)
     neededby[i] = nodepart[i];
@@ -2141,10 +2151,14 @@ optimizeownership:
   
   /* Check the neededvector to be on the safe side */
   for(i=1;i<=noknots;i++) {
+    if(periodic) {
+      ind = indxper[i];
+      if(ind != i) continue;
+    }
     k = 0;
-    for(j=1;j<=neededtimes[i];j++)
+    for(j=1;j<=neededtimes[i];j++) 
       if(neededtable[i][j] == neededby[i]) k++;
-    if(k>1) printf("Node %d is owned %d times by partition %d\n",i,k,neededby[i]);
+    if(k!=1) printf("Node %d is owned %d times by partition %d\n",i,k,neededby[i]);
   }
 
 #if 0
