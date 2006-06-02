@@ -2144,7 +2144,7 @@ optimizeownership:
     k = 0;
     for(j=1;j<=neededtimes[i];j++)
       if(neededtable[i][j] == neededby[i]) k++;
-    if(k!=1) printf("Node %d is owned %d times by partition %d\n",i,k,neededby[i]);
+    if(k>1) printf("Node %d is owned %d times by partition %d\n",i,k,neededby[i]);
   }
 
 #if 0
