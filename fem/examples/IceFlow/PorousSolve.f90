@@ -91,7 +91,7 @@
      TYPE(Element_t),POINTER :: CurrentElement
 
      REAL(KIND=dp) :: RelativeChange, UNorm, PrevUNorm, Gravity(3), &
-         Normal(3), NewtonTol, NonlinearTol, s, Wn(7), MinSRInvariant
+         Normal(3), NewtonTol, NonlinearTol, s, Wn(2), MinSRInvariant
          
 
      REAL(KIND=dp)  :: NodalStresses(3,3), &
@@ -108,7 +108,7 @@
 
      INTEGER :: NewtonIter, NonlinearIter
 
-     TYPE(Variable_t), POINTER :: PorousSol, TempSol, DensityVariable
+     TYPE(Variable_t), POINTER :: PorousSol, DensityVariable
      TYPE(Variable_t), POINTER :: SpinVar
      REAL(KIND=dp), POINTER :: SpinValues(:)
      INTEGER, POINTER :: SpinPerm(:)
@@ -121,13 +121,13 @@
      REAL(KIND=dp), POINTER :: SRValues(:)
      INTEGER, POINTER :: SRPerm(:)
 
-     REAL(KIND=dp), POINTER :: Temperature(:), Porous(:), Work(:,:), &
+     REAL(KIND=dp), POINTER ::  Porous(:), Work(:,:), &
            ForceVector(:),  NodalPorous(:), PorousComp(:), &
            DensityValues(:)
 
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName
 
-     INTEGER, POINTER :: TempPerm(:), PorousPerm(:), NodeIndexes(:), &
+     INTEGER, POINTER :: PorousPerm(:), NodeIndexes(:), &
                          DensityPerm(:)
 
      INTEGER :: PorousType
@@ -141,8 +141,8 @@
            
      REAL(KIND=dp), ALLOCATABLE:: LocalMassMatrix(:,:), &
        LocalStiffMatrix(:,:), LoadVector(:,:), LocalForce(:), &
-       LocalTemperature(:), Alpha(:,:), Beta(:), & 
-       ReferenceTemperature(:), BoundaryDispl(:), LocalDensity(:), &
+       Alpha(:,:), Beta(:), & 
+       BoundaryDispl(:), LocalDensity(:), &
        TimeForce(:), RefS(:), RefD(:), RefSpin(:), &
        LocalVelo(:,:), LocalFluidity(:), Localfa(:), Localfb(:)
             
@@ -162,8 +162,8 @@
 
      SAVE TimeForce, Basis, dBasisdx, ddBasisddx
      SAVE LocalMassMatrix, LocalStiffMatrix, LoadVector, &
-       LocalForce, ElementNodes, Alpha, Beta, LocalTemperature, &
-       AllocationsDone,ReferenceTemperature,BoundaryDispl, &
+       LocalForce, ElementNodes, Alpha, Beta,  &
+       AllocationsDone,BoundaryDispl, &
        NodalPorous, LocalDensity, Wn, MinSRInvariant, old_body, &
        LocalFluidity, Localfa, Localfb
 
@@ -172,16 +172,7 @@
 !------------------------------------------------------------------------------
 !  Read constants from constants section of SIF file
 !------------------------------------------------------------------------------
-      Wn(7) = GetConstReal( Model % Constants, 'Gas Constant', GotIt )
-      IF (.NOT.GotIt) THEN
-        WRITE(Message,'(A)') 'VariableGas Constant  not found. &
-                     &Setting to 8.314'
-        CALL INFO('PorousSolve', Message, level=20)
-        Wn(7) = 8.314
-      ELSE
-        WRITE(Message,'(A,F10.4)') 'Gas Constant = ',   Wn(7)
-        CALL INFO('PorousSolve', Message , level = 20)
-      END IF
+
 !------------------------------------------------------------------------------
 !    Get variables needed for solution
 !------------------------------------------------------------------------------
@@ -195,11 +186,6 @@
       LocalNodes = COUNT( PorousPerm > 0 )
       IF ( LocalNodes <= 0 ) RETURN
 
-      TempSol => VariableGet( Solver % Mesh % Variables, 'Temperature' )
-      IF ( ASSOCIATED( TempSol) ) THEN
-        TempPerm    => TempSol % Perm
-        Temperature => TempSol % Values
-      END IF
 
       DensityVariable => &
               VariableGet(Solver % Mesh %Variables,'Relative Density')
@@ -243,8 +229,6 @@
                      ElementNodes % y,     &
                      ElementNodes % z,     &
                      BoundaryDispl,        &
-                     ReferenceTemperature, &
-                     LocalTemperature,     &
                      LocalVelo,            &
                      LocalDensity,         &
                      LocalForce,           &
@@ -260,8 +244,6 @@
                  ElementNodes % y( N ), &
                  ElementNodes % z( N ), &
                  BoundaryDispl( N ), &
-                 ReferenceTemperature( N ), &
-                 LocalTemperature( N ), &
                  LocalDensity( N ), &
                  LocalForce( 2*STDOFs*N ),&
                  RefS(2*dim*LocalNodes ),&                              
@@ -423,15 +405,6 @@
 !------------------------------------------------------------------------------
 !        Get element local stiffness & mass matrices
 !------------------------------------------------------------------------------
-         LocalTemperature = 0.0D0
-         IF ( ASSOCIATED(TempSol) ) THEN
-           DO i=1,n
-             k = TempPerm(NodeIndexes(i))
-             LocalTemperature(i) = Temperature(k)
-           END DO
-         ELSE
-           LocalTemperature(1:n) = 0.0d0
-         END IF
 
          LocalDensity(1:n)= DensityValues(DensityPerm(NodeIndexes(1:n)))
 
@@ -441,26 +414,16 @@
          END DO
          CALL LocalMatrix( LocalMassMatrix, LocalStiffMatrix, &
               LocalForce, LoadVector, LocalDensity, LocalVelo, &
-              LocalTemperature, LocalFluidity, CurrentElement, n, &
+              LocalFluidity, CurrentElement, n, &
               ElementNodes, Wn, MinSRInvariant, Localfa, Localfb )
-
-        TimeForce = 0.0d0
-         CALL NSCondensate(N, N,STDOFs-1,LocalStiffMatrix,LocalForce,TimeForce )
-!------------------------------------------------------------------------------
-!        If boundary fields have been defined in normal/tangential
-!        coordinate systems, we´ll have to rotate the matrix & force vector
-!        to that coordinate system
-!------------------------------------------------------------------------------
-         IF ( NumberOfBoundaryNodes > 0 ) THEN
-           CALL RotateMatrix( LocalStiffMatrix,LocalForce,n, &
-           CoordinateSystemDimension(), STDOFs, &
-            BoundaryReorder(NodeIndexes),BoundaryNormals,BoundaryTangent1, &
-                              BoundaryTangent2 )
-         END IF
 
 !------------------------------------------------------------------------------
 !        Update global matrices from local matrices 
 !------------------------------------------------------------------------------
+         IF ( TransientSimulation ) THEN 
+           CALL Default1stOrderTime( LocalMassMatrix, &
+                LocalStiffMatrix, LocalForce )
+         END IF
          CALL DefaultUpdateEquations( LocalStiffMatrix, LocalForce )
       END DO
 
@@ -549,6 +512,11 @@
 !           Update global matrices from local matrices (will also affect
 !           LocalStiffMatrix and LocalForce if transientsimulation is on).
 !------------------------------------------------------------------------------
+            LocalMassMatrix = 0.0_dp
+            IF ( TransientSimulation ) THEN
+              CALL Default1stOrderTime( LocalMassMatrix, & 
+                   LocalStiffMatrix, LocalForce )
+            END IF
             CALL DefaultUpdateEquations( LocalStiffMatrix, LocalForce )
 !------------------------------------------------------------------------------
          END IF
@@ -571,6 +539,14 @@
       PrevUNorm = UNorm
 
       UNorm = DefaultSolve()
+      
+      UNorm = 0.0_dp
+      n = Solver % Variable % DOFs
+      DO i=1,n-1
+        UNorm = UNorm + SUM( Solver % Variable % Values(i::n)**2 )
+      END DO
+      UNorm = SQRT(UNorm)
+      Solver % Variable % norm = UNorm
 
       IF ( PrevUNorm + UNorm /= 0.0d0 ) THEN
          RelativeChange = 2.0d0 * ABS( PrevUNorm - UNorm) / ( PrevUnorm + UNorm)
@@ -582,45 +558,7 @@
       CALL Info( 'PorousSolve', Message, Level=4 )
       WRITE( Message, * ) 'Relative Change : ',RelativeChange
       CALL Info( 'PorousSolve', Message, Level=4 )
-!------------------------------------------------------------------------------
-!     If boundary fields have been defined in normal/tangential coordinate
-!     systems, we´ll have to rotate the solution back to coordinate axis
-!     directions
-!------------------------------------------------------------------------------
-      IF ( NumberOfBoundaryNodes > 0 ) THEN
-        DO i=1,Model % NumberOfNodes
-          k = BoundaryReorder(i)
 
-          IF ( k > 0 ) THEN
-            j = PorousPerm(i)
-
-            IF ( j > 0 ) THEN
-              IF ( CoordinateSystemDimension() < 3 ) THEN
-                Bu = Porous( STDOFs*(j-1)+1 )
-                Bv = Porous( STDOFs*(j-1)+2 )
-
-                Porous( STDOFs*(j-1)+1) = BoundaryNormals(k,1) * Bu - &
-                                BoundaryNormals(k,2) * Bv
-
-                Porous( STDOFs*(j-1)+2) = BoundaryNormals(k,2) * Bu + &
-                                BoundaryNormals(k,1) * Bv
-              ELSE
-                Bu = Porous( STDOFs*(j-1)+1 )
-                Bv = Porous( STDOFs*(j-1)+2 )
-                Bw = Porous( STDOFs*(j-1)+3 )
-
-                RM(1,:) = BoundaryNormals(k,:)
-                RM(2,:) = BoundaryTangent1(k,:)
-                RM(3,:) = BoundaryTangent2(k,:)
-
-                Porous(STDOFs*(j-1)+1) = RM(1,1)*Bu+RM(2,1)*Bv+RM(3,1)*Bw
-                Porous(STDOFs*(j-1)+2) = RM(1,2)*Bu+RM(2,2)*Bv+RM(3,2)*Bw
-                Porous(STDOFs*(j-1)+3) = RM(1,3)*Bu+RM(2,3)*Bv+RM(3,3)*Bw
-              END IF
-            END IF
-          END IF
-        END DO 
-      END IF
 !------------------------------------------------------------------------------
       IF ( RelativeChange < NewtonTol .OR. &
              iter > NewtonIter ) NewtonLinearization = .TRUE.
@@ -677,17 +615,7 @@
          ElementNodes % y(1:n) = Model % Nodes % y(NodeIndexes(1:n))
          ElementNodes % z(1:n) = Model % Nodes % z(NodeIndexes(1:n))
 
-! n nodale values of the temperature
          
-         LocalTemperature = 0.0D0
-         IF ( ASSOCIATED(TempSol) ) THEN
-           DO i=1,n
-             k = TempPerm(NodeIndexes(i))
-             LocalTemperature(i) = Temperature(k)
-           END DO
-         ELSE
-           LocalTemperature(1:n) = 0.0d0
-         END IF
 !
 ! Function a(D) (=1 if incompressible)
 ! 
@@ -739,7 +667,7 @@
         END IF
 
            CALL LocalSD(NodalStresses, NodalStrainRate, NodalSpin, & 
-                 LocalVelo, LocalTemperature, LocalFluidity,  &
+                 LocalVelo, LocalFluidity,  &
                 LocalDensity, CSymmetry, Basis, dBasisdx, &
                 CurrentElement, n, ElementNodes, dim, Wn, &
                 MinSRInvariant, Localfa, Localfb )
@@ -838,52 +766,8 @@ CONTAINS
        CALL INFO('PorousSolve', Message, Level = 20)
        END IF
 
-      Wn(3) = ListGetConstReal( Material, 'Activation Energy 1', GotIt )
-      IF (.NOT.GotIt) THEN
-         WRITE(Message,'(A)') 'Variable Activation Energy 1 not found.&
-                            & Setting to 1.0'
-         CALL INFO('PorousSolve', Message, Level = 20)
-         Wn(3) = 1.0
-      ELSE
-         WRITE(Message,'(A,F10.4)') 'Activation Energy 1 = ',   Wn(3)
-         CALL INFO('PorousSolve', Message, Level = 20)
-      END IF
-
-      Wn(4) = ListGetConstReal( Material, 'Activation Energy 2', GotIt )
-      IF (.NOT.GotIt) THEN
-         WRITE(Message,'(A)') 'Variable Activation Energy 2 not found. &
-                               &Setting to 1.0'
-         CALL INFO('PorousSolve', Message, Level = 20)
-         Wn(4) = 1.0
-      ELSE
-         WRITE(Message,'(A,F10.4)') 'Activation Energy 2 = ',   Wn(4)
-         CALL INFO('PorousSolve', Message, Level = 20)
-      END IF
-
-      Wn(5) = ListGetConstReal(Material, 'Reference Temperature', GotIt)
-      IF (.NOT.GotIt) THEN
-         WRITE(Message,'(A)') 'Variable Reference Temperature not found. &
-                               &Setting to -10.0 (Celsius)'
-         CALL INFO('PorousSolve', Message, Level = 20)
-         Wn(5) = -10.0
-      ELSE
-         WRITE(Message,'(A,F10.4)') 'Reference Temperature = ',   Wn(5)
-         CALL INFO('PorousSolve', Message, Level = 20)
-      END IF
-
-      Wn(6) = ListGetConstReal( Material, 'Limit Temperature', GotIt )
-      IF (.NOT.GotIt) THEN
-         WRITE(Message,'(A)') 'Variable Limit Temperature not found. &
-                               &Setting to -10.0 (Celsius)'
-         CALL INFO('PorousSolve', Message, Level = 20)
-         Wn(6) = -10.0
-      ELSE
-         WRITE(Message,'(A,F10.4)') 'Limit Temperature = ',   Wn(6)
-         CALL INFO('PorousSolve', Message, Level = 20)
-      END IF
-
 ! Get the Minimum value of the Effective Strain rate 
-      MinSRInvariant = 100.0*AEPS
+      MinSRInvariant = 10e-10_dp 
       IF ( Wn(2) > 1.0 ) THEN
         MinSRInvariant =  &
              ListGetConstReal( Material, 'Min Second Invariant', GotIt )
@@ -903,7 +787,7 @@ CONTAINS
 
 !------------------------------------------------------------------------------
       SUBROUTINE LocalMatrix( MassMatrix, StiffMatrix, ForceVector, &
-              LoadVector, NodalDensity, NodalVelo, NodalTemperature, &
+              LoadVector, NodalDensity, NodalVelo, &
               NodalFluidity, Element, n, Nodes, Wn, MinSRInvariant, &
               Nodalfa, Nodalfb )
               
@@ -914,9 +798,9 @@ CONTAINS
 
      REAL(KIND=dp) :: StiffMatrix(:,:), MassMatrix(:,:)
      REAL(KIND=dp) :: LoadVector(:,:), NodalVelo(:,:)
-     REAL(KIND=dp) :: Wn(7), MinSRInvariant
+     REAL(KIND=dp) :: Wn(2), MinSRInvariant
      REAL(KIND=dp), DIMENSION(:) :: ForceVector, NodalDensity,  &
-                    NodalTemperature, NodalFluidity, Nodalfa, Nodalfb
+                    NodalFluidity, Nodalfa, Nodalfb
      TYPE(Nodes_t) :: Nodes
      TYPE(Element_t) :: Element
      INTEGER :: n
@@ -929,12 +813,13 @@ CONTAINS
      Real(kind=dp) :: Bg, BGlenT
 
      REAL(KIND=dp), DIMENSION(4,4) :: A,M
-     REAL(KIND=dp) :: Load(3), Temperature 
+     REAL(KIND=dp) :: Load(3)
      REAL(KIND=dp) :: nn, ss, LGrad(3,3), SR(3,3)
 
      INTEGER :: i, j, k, p, q, t, dim, NBasis, ind(3)
 
      REAL(KIND=dp) :: s,u,v,w, Radius
+     REAL(KIND=dp) :: ParameterA, ParameterB
   
      REAL(KIND=dp) :: Em, eta, Kcp
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
@@ -994,13 +879,22 @@ CONTAINS
 !
 !    variables at the integration point
 !
-      Temperature = SUM( NodalTemperature(1:n)*Basis(1:n) )
       Density = SUM( NodalDensity(1:n)*Basis(1:n) )
-      fa = SUM( Nodalfa(1:n)*Basis(1:n) )
-      fb = SUM( Nodalfb(1:n)*Basis(1:n) )
+!
+! Nodal value interpolated at the integration point
+!
+!     fa = SUM( Nodalfa(1:n)*Basis(1:n) )
+!     fb = SUM( Nodalfb(1:n)*Basis(1:n) )
+!
+! Integration point value function of the integration pt density
+      fa = ParameterA(Density)
+      fb = ParameterB(Density)
+
+      write(*,*)Density,fa,fb
+
       Wn(1) = SUM( NodalFluidity(1:n)*Basis(1:n) )
 
-      Bg=BGlenT(Temperature,Wn)
+      Bg=Wn(1)                      
 
       CSymmetry = CurrentCoordinateSystem() == AxisSymmetric
       IF ( CSymmetry ) s = s * Radius
@@ -1107,8 +1001,18 @@ CONTAINS
                      s * Load(i) * Density
         END DO
       END DO
-
       END DO 
+
+      DO j=n+1,n+Element % bdofs
+        i = (dim+1)*j
+        StiffMatrix(i,:) = 0.0_dp
+        StiffMatrix(:,i) = 0.0_dp
+        StiffMatrix(i,i) = 1.0_dp
+        MassMatrix(:,i) = 0.0_dp
+        MassMatrix(i,:) = 0.0_dp
+        ForceVector(i) = 0.0_dp
+      END DO
+
 !------------------------------------------------------------------------------
       END SUBROUTINE LocalMatrix
 !------------------------------------------------------------------------------
@@ -1253,7 +1157,7 @@ CONTAINS
 
 !------------------------------------------------------------------------------
       SUBROUTINE LocalSD( Stress, StrainRate, Spin, &
-        NodalVelo, NodalTemp, NodalFluidity, Nodaldensity,  &
+        NodalVelo,  NodalFluidity, Nodaldensity,  &
         CSymmetry, Basis, dBasisdx, Element, n,  Nodes, dim,  Wn, &
         MinSRInvariant, Nodalfa, Nodalfb )
        
@@ -1264,13 +1168,13 @@ CONTAINS
      INTEGER :: n, dim
      INTEGER :: INDi(6),INDj(6)
      REAL(KIND=dp) :: Stress(:,:), StrainRate(:,:), Spin(:,:)
-     REAL(KIND=dp) :: NodalVelo(:,:), NodalTemp(:), NodalFluidity(:)
+     REAL(KIND=dp) :: NodalVelo(:,:), NodalFluidity(:)
      REAL(KIND=dp) :: Basis(2*n), ddBasisddx(1,1,1)
      REAL(KIND=dp) :: dBasisdx(2*n,3)
      REAL(KIND=dp) :: detJ
      REAL(KIND=dp) :: NodalDensity(:), Nodalfa(:), Nodalfb(:)
      REAL(KIND=dp) :: u, v, w      
-     REAL(KIND=dp) :: Wn(7),  D(6), MinSRInvariant
+     REAL(KIND=dp) :: Wn(2),  D(6), MinSRInvariant
      LOGICAL :: Isotropic
       
      TYPE(Nodes_t) :: Nodes
@@ -1278,7 +1182,7 @@ CONTAINS
 !------------------------------------------------------------------------------
      LOGICAL :: stat
      INTEGER :: i,j,k,p,q
-     REAL(KIND=dp) :: LGrad(3,3), Radius, Temp, Density, fa, fb 
+     REAL(KIND=dp) :: LGrad(3,3), Radius, Density, fa, fb 
      REAL(KIND=dp) :: DSR(3,3),  Em 
      Real(kind=dp) :: Bg, BGlenT, ss, nn
 !------------------------------------------------------------------------------
@@ -1288,14 +1192,12 @@ CONTAINS
       Spin = 0.0
 
 !
-!     Temperature at the integration point
-      Temp = SUM( NodalTemp(1:n)*Basis(1:n) )
       Density = SUM( NodalDensity(1:n)*Basis(1:n) )
       fa = SUM( Nodalfa(1:n)*Basis(1:n) )
       fb = SUM( Nodalfb(1:n)*Basis(1:n) )
       Wn(1) = SUM( NodalFluidity(1:n)*Basis(1:n) )
       
-      Bg=BGlenT(Temp,Wn)
+      Bg=Wn(1)                
 !
 !    Compute strainRate : 
 !    -------------------
