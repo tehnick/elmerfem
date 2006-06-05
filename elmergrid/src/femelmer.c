@@ -186,7 +186,7 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int inf
 {
   int *noknots,*noelements,novctrs,elemcode,open;
   int totknots,totelements,sumknots,sumelements;
-  int timesteps,i,j,k,step;
+  int timesteps,i,j,k,l,step;
   int ind[MAXNODESD1];
   int nofiles;
   Real r, *res, x, y, z;
@@ -276,9 +276,16 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int inf
       cp = strstr(line," ");
 
       elemcode = next_int(&cp);
-      for(k=0;k< elemcode%100 ;k++) 
-	ind[k] = next_int(&cp);
 
+      for(k=0;k< elemcode%100 ;k++) {
+	/* Dirty trick for long lines */
+	l = strspn(cp," ");
+	if( l == 0) {
+	  fgets(line,MAXLINESIZE,in[j]);
+	  cp = line;
+	}
+	ind[k] = next_int(&cp);
+      }
       if(elemcode == 102) elemcode = 101;
 
       fprintf(out,"%s %d",text,elemcode);
