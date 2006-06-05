@@ -114,7 +114,7 @@
 
      SAVE MASS, STIFF, LOAD, Force, ElementNodes, & 
          Alpha, Beta, AllocationsDone, Velocity, MeshVelocity, &
-         old_body, PrevAge, CurrAge
+         old_body, PrevAge, CurrAge, dim
        
 
 !------------------------------------------------------------------------------
@@ -123,6 +123,7 @@
 !------------------------------------------------------------------------------
 !    Get variables needed for solution
 !------------------------------------------------------------------------------
+     dim = CoordinateSystemDimension()
      IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
            
      Solution => Solver % Variable % Values
@@ -140,7 +141,7 @@
      FlowVariable => VariableGet( Solver % Mesh % Variables, FlowSolverName )
      
      Compressible = .False. 
-     IF (FlowSolverName=='porous') Compressible = .True.
+     IF ((FlowSolverName=='porous').OR.(FlowSolverName=='lumi')) Compressible = .True.
 
      IF ( ASSOCIATED( FlowVariable ) ) THEN
        FlowPerm    => FlowVariable % Perm
@@ -302,7 +303,7 @@
 
          k = FlowVariable % DOFs
          Velocity = 0.0d0
-         DO i=1,k-1
+         DO i=1,dim 
             Velocity(i,1:n) = FlowValues(k*(FlowPerm(NodeIndexes)-1)+i)
          END DO
 
@@ -351,7 +352,7 @@
 
             k = FlowVariable % DOFs
             Velocity = 0.0d0
-            DO i=1,k-1
+            DO i=1,dim 
                Velocity(i,1:n) = FlowValues(k*(FlowPerm(Edge % NodeIndexes)-1)+i)
             END DO
 
@@ -388,7 +389,7 @@
 
             k = FlowVariable % DOFs
             Velocity = 0.0d0
-            DO i=1,k-1
+            DO i=1,dim
                Velocity(i,1:n) = FlowValues(k*(FlowPerm(Edge % NodeIndexes)-1)+i)
             END DO
 
@@ -432,7 +433,7 @@
        
          k = FlowVariable % DOFs
          Velocity = 0.0d0
-         DO i=1,k-1
+         DO i=1,dim 
             Velocity(i,1:n) = FlowValues(k*(FlowPerm(Element % NodeIndexes)-1)+i)
          END DO
    !-------------------mesh velo
