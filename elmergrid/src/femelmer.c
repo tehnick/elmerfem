@@ -508,8 +508,8 @@ int LoadElmerInput(struct FemType *data,struct BoundaryType *bound,
 
   sprintf(filename,"%s","mesh.nodes");
   if ((in = fopen(filename,"r")) == NULL) {
-    printf("LoadElmerInput: The opening of the nodes-file %s failed!\n",
-	   filename);
+    if(info) printf("LoadElmerInput: The opening of the nodes-file %s failed!\n",
+		    filename);
     return(2);
   }
   else 
@@ -531,7 +531,7 @@ int LoadElmerInput(struct FemType *data,struct BoundaryType *bound,
     return(3);
   }
   else 
-    printf("Loading %d Elmer elements from %s\n",noelements,filename);
+    if(info) printf("Loading %d Elmer elements from %s\n",noelements,filename);
 
   for(i=1; i <= noelements; i++) {
     fscanf(in,"%d",&dummyint);
@@ -551,8 +551,9 @@ int LoadElmerInput(struct FemType *data,struct BoundaryType *bound,
 	   filename);
     return(4);
   }
-  else 
-    printf("Loading Elmer boundaries from %s\n",filename);
+  else {
+    if(info) printf("Loading %d Elmer boundaries from %s\n",nosides,filename);
+  }
 
   AllocateBoundary(bound,nosides);
   
@@ -561,6 +562,7 @@ int LoadElmerInput(struct FemType *data,struct BoundaryType *bound,
   for(k=1; k <= nosides; k++) {
     i++;
     fscanf(in,"%d",&dummyint);
+
 #if 0
     if(k != dummyint) printf("LoadElmerInput: k=%d side=%d\n",k,dummyint);
 #endif
@@ -589,6 +591,7 @@ int LoadElmerInput(struct FemType *data,struct BoundaryType *bound,
       i--;
     }
   }
+  
   bound->nosides = i;
   fclose(in); 
 
@@ -624,8 +627,9 @@ int SaveSolutionElmer(struct FemType *data,struct BoundaryType *bound,
   
   sideelems = 0;
   if(nobound) {
-    for(i=0;i<nobound;i++)
+    for(i=0;i<nobound;i++) {
       if(bound[i].created) sideelems += bound[i].nosides; 
+    }
   }
 
   noknots = data->noknots;

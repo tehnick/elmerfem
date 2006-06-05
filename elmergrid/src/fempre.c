@@ -277,7 +277,6 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
       }
       else {
 	strcpy(eg->filesout[0],argv[arg+1]);
-	printf("Output will be saved to file %s.\n",eg->filesout[0]);
       }
     }
 
@@ -1134,18 +1133,22 @@ int main(int argc, char *argv[])
       printf("Because file %s didn't exist, it was created for you.\n",eg.filesin[nofile]);
       Goodbye();
     }
-
     LoadCommands(eg.filesin[nofile],&eg,grids,1,info); 
-
     break;
 
   case 2: 
     boundaries[nofile] = (struct BoundaryType*)
       malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
+    for(i=0;i<MAXBOUNDARIES;i++) {
+      boundaries[nofile][i].created = FALSE; 
+      boundaries[nofile][i].nosides = 0;
+    }
     if(LoadElmerInput(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],info))
       Goodbye();
     nomeshes = nofile+1;
-    if(boundaries[nofile]->created) data[nofile].noboundaries = 1;
+    if(0 && boundaries[nofile]->created) {
+      data[nofile].noboundaries = 1;
+    }
     break;
 
   case 3: 
@@ -1165,6 +1168,10 @@ int main(int argc, char *argv[])
   case 5: 
     boundaries[nofile] = (struct BoundaryType*)
       malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
+    for(i=0;i<MAXBOUNDARIES;i++) {
+      boundaries[nofile][i].created = FALSE; 
+      boundaries[nofile][i].nosides = 0;
+    }
     if(LoadAbaqusInput(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],TRUE)) 
       Goodbye();
     nomeshes = nofile+1;
@@ -1181,7 +1188,10 @@ int main(int argc, char *argv[])
       Goodbye();
     boundaries[nofile] = (struct BoundaryType*)
       malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
-
+    for(i=0;i<MAXBOUNDARIES;i++) {
+      boundaries[nofile][i].created = FALSE; 
+      boundaries[nofile][i].nosides = 0;
+    }
     ElementsToBoundaryConditions(&(data[nofile]),boundaries[nofile],TRUE);
 
     nomeshes = nofile+1;
@@ -1202,6 +1212,10 @@ int main(int argc, char *argv[])
       AllocateKnots(&(data[nofile]));
       boundaries[nofile] = (struct BoundaryType*)
 	malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
+      for(i=0;i<MAXBOUNDARIES;i++) {
+	boundaries[nofile][i].created = FALSE; 
+	boundaries[nofile][i].nosides = 0;
+      }
 
       if(EasymeshCopy(&(data[nofile]),boundaries[nofile]))
 	Goodbye();
@@ -1213,7 +1227,11 @@ int main(int argc, char *argv[])
  case 9:
     boundaries[nofile] = (struct BoundaryType*)
       malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
-    
+    for(i=0;i<MAXBOUNDARIES;i++) {
+      boundaries[nofile][i].created = FALSE; 
+      boundaries[nofile][i].nosides = 0;
+    }
+   
     if(LoadComsolMesh(&(data[nofile]),eg.filesin[nofile],info)) {
 
       printf("\n***********************************************************************************\n");
@@ -1236,7 +1254,12 @@ int main(int argc, char *argv[])
     if(LoadFieldviewInput(&(data[nofile]),eg.filesin[nofile],TRUE))
       Goodbye();
     boundaries[nofile] = (struct BoundaryType*)
-      malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
+      malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	    
+    for(i=0;i<MAXBOUNDARIES;i++) {
+      boundaries[nofile][i].created = FALSE; 
+      boundaries[nofile][i].nosides = 0;
+    }
+
     ElementsToBoundaryConditions(&(data[nofile]),boundaries[nofile],TRUE);
     nomeshes = 1;
     break;
@@ -1244,8 +1267,10 @@ int main(int argc, char *argv[])
   case 11:
     boundaries[nofile] = (struct BoundaryType*)
       malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
-    for(j=0;j<MAXBOUNDARIES;j++) 
-      boundaries[nofile][j].created = FALSE;
+    for(i=0;i<MAXBOUNDARIES;i++) {
+      boundaries[nofile][i].created = FALSE; 
+      boundaries[nofile][i].nosides = 0;
+    }
     if (LoadTriangleInput(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],TRUE))
       Goodbye();
     nomeshes = 1;
@@ -1254,8 +1279,10 @@ int main(int argc, char *argv[])
   case 12:
     boundaries[nofile] = (struct BoundaryType*)
       malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
-    for(j=0;j<MAXBOUNDARIES;j++) 
-      boundaries[nofile][j].created = FALSE;
+    for(i=0;i<MAXBOUNDARIES;i++) {
+      boundaries[nofile][i].created = FALSE; 
+      boundaries[nofile][i].nosides = 0;
+    }
     if (LoadMeditInput(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],TRUE))
       Goodbye();
     nomeshes = 1;
@@ -1264,8 +1291,10 @@ int main(int argc, char *argv[])
   case 13:
     boundaries[nofile] = (struct BoundaryType*)
       malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
-    for(j=0;j<MAXBOUNDARIES;j++) 
-      boundaries[nofile][j].created = FALSE;
+    for(i=0;i<MAXBOUNDARIES;i++) {
+      boundaries[nofile][i].created = FALSE; 
+      boundaries[nofile][i].nosides = 0;
+    }
     if (LoadGidInput(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],TRUE))
       Goodbye();
     nomeshes = 1;
@@ -1274,8 +1303,10 @@ int main(int argc, char *argv[])
   case 14:
     boundaries[nofile] = (struct BoundaryType*)
       malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
-    for(j=0;j<MAXBOUNDARIES;j++) 
-      boundaries[nofile][j].created = FALSE;
+    for(i=0;i<MAXBOUNDARIES;i++) {
+      boundaries[nofile][i].created = FALSE; 
+      boundaries[nofile][i].nosides = 0;
+    }
     if (LoadGmshInput(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],TRUE))
       Goodbye();
     nomeshes = 1;
@@ -1293,8 +1324,10 @@ int main(int argc, char *argv[])
   }  
 
   nofile++;
-  if(nofile < eg.nofilesin) goto read_another_file;
-
+  if(nofile < eg.nofilesin) {
+    printf("\nElmergrid loading data from another file:\n");
+    goto read_another_file;
+  }
 
   /***********************************/
 
@@ -1302,6 +1335,7 @@ int main(int argc, char *argv[])
  redoelements:
 
   printf("\nElmergrid creating and manipulating meshes:\n");
+
 
   if(nogrids > nomeshes && outmethod != 1) { 
 
