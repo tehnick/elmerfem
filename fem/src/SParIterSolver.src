@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterSolver.src,v 1.5 2005/12/22 10:55:50 jpr Exp $
+! * $Id: SParIterSolver.src,v 1.6 2006/01/10 13:27:40 apursula Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -1637,9 +1637,10 @@ SUBROUTINE ParPrecondition( u,v,ipar )
        RETURN
     END IF
 
-    IF ( .NOT. ALLOCATED(z) .OR. SIZE(z) /= n ) THEN
-       IF ( ALLOCATED(z) ) DEALLOCATE( z, y )
-
+    IF ( .NOT. ALLOCATED(z) ) THEN
+       ALLOCATE( z(n), y(n) )
+    ELSE IF ( SIZE(z) /= n ) THEN
+       DEALLOCATE( z, y )
        ALLOCATE( z(n), y(n) )
     END IF
 
@@ -1653,16 +1654,6 @@ SUBROUTINE ParPrecondition( u,v,ipar )
        z = 0
        CALL ParIfMatrixVector( u,z,ipar )
        z = v(1:n) - z
-#if 0
-       y = 0
-       DO i=1,2
-          CALL CRS_MatrixVectorMultiply( GlobalMatrix,y,u )
- 
-          y = y - (u(1:n) - z) / GlobalMatrix % Values( & 
-                       GlobalMatrix % Diag(1:n) )
-       END DO
-       u(1:n) = y
-#endif
        CALL CRS_LUPrecondition( u,z,ipar )
     END DO
 
@@ -1677,7 +1668,7 @@ SUBROUTINE ParComplexPrecondition( u,v,ipar )
     COMPLEX(KIND=dp) :: u(*),v(*)
     INTEGER :: ipar(*)
 
-    INTEGER :: i,j,iter,n
+    INTEGER :: i,j,iter,n,niters
     INTEGER, POINTER :: Rows(:),Cols(:)
 
     COMPLEX(KIND=dp) :: A
@@ -1688,9 +1679,17 @@ SUBROUTINE ParComplexPrecondition( u,v,ipar )
 
     n = HUTI_NDIM
 
-    IF ( .NOT. ALLOCATED(z) .OR. SIZE(z) /= n ) THEN
-       IF ( ALLOCATED(z) ) DEALLOCATE( z )
+    niters = GlobalData % RelaxIters
 
+    IF ( niters <= 0 ) THEN
+       CALL CRS_ComplexLUPrecondition( u,v,ipar )
+       RETURN
+    END IF
+
+    IF ( .NOT. ALLOCATED(z) ) THEN
+       ALLOCATE( z(n) )
+    ELSE IF ( SIZE(z) /= n ) THEN
+       DEALLOCATE( z )
        ALLOCATE( z(n) )
     END IF
 
@@ -1699,7 +1698,7 @@ SUBROUTINE ParComplexPrecondition( u,v,ipar )
     Values => GlobalMatrix % Values
 
     u(1:n) = v(1:n)
-    DO iter=1,6
+    DO iter=1,niters
        z = 0
        CALL ParIfComplexMatrixVector( u,z,ipar )
        z = v(1:n) - z
