@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.22  2006/05/19 11:05:06  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.21  2006/05/18 14:39:43  jpr
 ! * *** empty log message ***
 ! *
@@ -128,7 +131,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.21 2006/05/18 14:39:43 jpr Exp $
+! * $Id: SolverUtils.src,v 1.22 2006/05/19 11:05:06 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -180,26 +183,29 @@ CONTAINS
      INTEGER :: i,dim
 !------------------------------------------------------------------------------
 
-     SELECT CASE( StiffMatrix % Format )
-       CASE( MATRIX_CRS )
-         CALL CRS_ZeroMatrix( StiffMatrix )
+     IF ( ASSOCIATED( StiffMatrix ) ) THEN
+       SELECT CASE( StiffMatrix % Format )
+         CASE( MATRIX_CRS )
+           CALL CRS_ZeroMatrix( StiffMatrix )
 
-       CASE( MATRIX_BAND,MATRIX_SBAND )
-         CALL Band_ZeroMatrix( StiffMatrix )
-     END SELECT
+         CASE( MATRIX_BAND,MATRIX_SBAND )
+           CALL Band_ZeroMatrix( StiffMatrix )
+       END SELECT
+
+       IF ( ASSOCIATED( StiffMatrix % MassValues ) ) THEN
+         StiffMatrix % MassValues(:) = 0.d0
+       END IF
+
+       IF ( ASSOCIATED( StiffMatrix % DampValues ) ) THEN
+         StiffMatrix % DampValues(:) = 0.d0
+       END IF
+
+       IF ( ASSOCIATED( StiffMatrix % Force ) ) THEN
+         StiffMatrix % Force(:,1) = 0.0d0
+       END IF
+     END IF
 
      ForceVector = 0.0d0
-     IF ( ASSOCIATED( StiffMatrix % MassValues ) ) THEN
-       StiffMatrix % MassValues(:) = 0.d0
-     END IF
-
-     IF ( ASSOCIATED( StiffMatrix % DampValues ) ) THEN
-       StiffMatrix % DampValues(:) = 0.d0
-     END IF
-
-     IF ( ASSOCIATED( StiffMatrix % Force ) ) THEN
-       StiffMatrix % Force(:,1) = 0.0d0
-     END IF
 
      NormalTangentialName = 'Normal-Tangential'
      IF ( CurrentModel % Solver % Variable % Name == 'flow solution' ) THEN
@@ -435,7 +441,7 @@ CONTAINS
 
 !------------------------------------------------------------------------------
    SUBROUTINE Add2ndOrderTime( MassMatrix, DampMatrix, StiffMatrix,  &
-                Force, dt, n, DOFs, NodeIndexes, Solver )
+         Force, dt, n, DOFs, NodeIndexes, Solver )
 !------------------------------------------------------------------------------
 !******************************************************************************
 ! 
@@ -680,15 +686,17 @@ CONTAINS
           Indexes, BoundaryNormals, BoundaryTangent1, BoundaryTangent2 )
      END IF
 !------------------------------------------------------------------------------
-     SELECT CASE( StiffMatrix % Format )
-     CASE( MATRIX_CRS )
-       CALL CRS_GlueLocalMatrix( StiffMatrix,n,NDOFs,NodeIndexes, &
-                        LocalStiffMatrix )
+     IF ( ASSOCIATED( StiffMatrix ) ) THEN
+       SELECT CASE( StiffMatrix % Format )
+       CASE( MATRIX_CRS )
+         CALL CRS_GlueLocalMatrix( StiffMatrix,n,NDOFs,NodeIndexes, &
+                          LocalStiffMatrix )
 
-     CASE( MATRIX_BAND,MATRIX_SBAND )
-       CALL Band_GlueLocalMatrix( StiffMatrix,n,NDOFs,NodeIndexes, &
-                        LocalStiffMatrix )
-     END SELECT
+       CASE( MATRIX_BAND,MATRIX_SBAND )
+         CALL Band_GlueLocalMatrix( StiffMatrix,n,NDOFs,NodeIndexes, &
+                          LocalStiffMatrix )
+       END SELECT
+     END IF
 
      DO i=1,n
        DO j=1,NDOFs
@@ -871,19 +879,24 @@ CONTAINS
     REAL(KIND=dp) ::  s
 
     LOGICAL :: Conditional
+    LOGICAL, ALLOCATABLE :: DonePeriodic(:)
     CHARACTER(LEN=MAX_NAME_LEN) :: CondName
 !------------------------------------------------------------------------------
 
      OrderByBCNumbering = ListGetLogical( Model % Simulation, &
             'Set Dirichlet BCs by BC Numbering', gotIt)
 
+     ALLOCATE( DonePeriodic( Model % Mesh % NumberOFNodes ) )
+     DonePeriodic = .FALSE.
      DO BC=1,Model % NumberOfBCs
-       CALL SetPeriodicBoundariesPass1( Model, A, b, Name, DOF, NDOFs, Perm, BC )
+       CALL SetPeriodicBoundariesPass1( Model, A, b, Name, DOF, NDOFs, Perm, BC, DonePeriodic )
      END DO
 
+     DonePeriodic = .FALSE.
      DO BC=1,Model % NumberOfBCs
-       CALL SetPeriodicBoundariesPass2( Model, A, b, Name, DOF, NDOFs, Perm, BC )
+       CALL SetPeriodicBoundariesPass2( Model, A, b, Name, DOF, NDOFs, Perm, BC, DonePeriodic )
      END DO
+     DEALLOCATE( DonePeriodic ) 
 
      CondName = TRIM(Name) // ' Condition'
 
@@ -980,7 +993,7 @@ CONTAINS
 
 !------------------------------------------------------------------------------
    SUBROUTINE SetPeriodicBoundariesPass1( Model, StiffMatrix, ForceVector, &
-                      Name, DOF, NDOFs, Perm, This )
+                      Name, DOF, NDOFs, Perm, This, Done )
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -1013,10 +1026,11 @@ CONTAINS
     REAL(KIND=dp) :: ForceVector(:)
 
     CHARACTER(LEN=*) :: Name
+    LOGICAL :: Done(:)
     INTEGER :: This, DOF, NDOFs, Perm(:)
 !------------------------------------------------------------------------------
 
-    INTEGER :: i,j,k,l,m,n,nn
+    INTEGER :: i,j,k,l,m,n,nn,ii
     LOGICAL :: GotIt
     REAL(KIND=dp) :: Scale
     TYPE(Matrix_t), POINTER :: Projector, Projector1
@@ -1038,23 +1052,25 @@ CONTAINS
 !   ---------------------------------
 !
     DO i=1,Projector % NumberOfRows
-       k = Perm(Projector % InvPerm(i))
-       IF ( k > 0 ) THEN
+       ii = Projector % InvPerm(i)
+       k = Perm(ii)
+       IF ( .NOT. Done(ii) .AND. k > 0 ) THEN
           k = NDOFs * (k-1) + DOF
           DO l=Projector % Rows(i),Projector % Rows(i+1)-1
-            IF ( Projector % Cols(l) <= 0 ) CYCLE
+            IF ( Projector % Cols(l) <= 0 .OR. Projector % Values(l)==0.0d0 ) CYCLE
 
-            m = Perm( Projector % Cols(l) )
+            m = Perm(Projector % Cols(l))
             IF ( m > 0 ) THEN
-              m = NDOFs * (m-1) + DOF
+              m = NDOFs*(m-1) + DOF
               DO nn=StiffMatrix % Rows(k),StiffMatrix % Rows(k+1)-1
                  CALL AddToMatrixElement( StiffMatrix, m, StiffMatrix % Cols(nn), &
                         Projector % Values(l) * StiffMatrix % Values(nn) )
               END DO
-              ForceVector(m) = ForceVector(m) + Projector % Values(l) * ForceVector(k)
+              ForceVector(m) = ForceVector(m)+Projector % Values(l)*ForceVector(k)
             END IF
           END DO
        END IF
+       Done(ii) = .TRUE.
     END DO
 !------------------------------------------------------------------------------
    END SUBROUTINE SetPeriodicBoundariesPass1
@@ -1063,7 +1079,7 @@ CONTAINS
 
 !------------------------------------------------------------------------------
    SUBROUTINE SetPeriodicBoundariesPass2( Model, StiffMatrix, ForceVector, &
-                      Name, DOF, NDOFs, Perm, This )
+                      Name, DOF, NDOFs, Perm, This, Done )
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -1096,10 +1112,11 @@ CONTAINS
     REAL(KIND=dp) :: ForceVector(:)
 
     CHARACTER(LEN=*) :: Name
+    LOGICAL :: Done(:)
     INTEGER :: This, DOF, NDOFs, Perm(:)
 !------------------------------------------------------------------------------
 
-    INTEGER :: i,j,k,l,m,n,nn
+    INTEGER :: i,j,k,l,m,n,nn,ii
     LOGICAL :: GotIt
     REAL(KIND=dp) :: Scale,s
     TYPE(Matrix_t), POINTER :: Projector
@@ -1119,8 +1136,9 @@ CONTAINS
 !   Do the assembly of the projector:
 !   ---------------------------------
     DO i=1,Projector % NumberOfRows
-       k = Perm( Projector % InvPerm(i) )
-       IF ( k > 0 ) THEN
+       ii = Projector % InvPerm(i)
+       k = Perm( ii )
+       IF ( .NOT. Done(ii) .AND. k > 0 ) THEN
           k = NDOFs * (k-1) + DOF
           CALL ZeroRow( StiffMatrix,k )
           DO l = Projector % Rows(i), Projector % Rows(i+1)-1
@@ -1128,12 +1146,13 @@ CONTAINS
              m = Perm( Projector % Cols(l) )
              IF ( m > 0 ) THEN
                m = NDOFs * (m-1) + DOF
-               CALL SetMatrixElement( StiffMatrix, k, m, Projector % Values(l) )
+               CALL AddToMatrixElement( StiffMatrix,k,m,Projector % Values(l) )
              END IF
           END DO
           ForceVector(k) = 0.0d0
-          CALL SetMatrixElement( StiffMatrix, k, k, Scale )
+          CALL AddToMatrixElement( StiffMatrix, k, k, scale )
        END IF
+       Done(ii) = .TRUE.
     END DO
 !------------------------------------------------------------------------------
    END SUBROUTINE SetPeriodicBoundariesPass2
@@ -2364,6 +2383,7 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
   INTEGER, ALLOCATABLE :: TmpRow(:)
   INTEGER :: NumberOfRows, NumberOfValues, MultiplierDOFs, istat
   INTEGER :: i, j, k, l
+  REAL(KIND=dp) :: scl
   LOGICAL :: Found, ExportMultiplier
   CHARACTER(LEN=MAX_NAME_LEN) :: MultiplierName
   SAVE MultiplierValues, SolverPointer
@@ -2398,7 +2418,7 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
      END IF
 
      IF ( .NOT. ASSOCIATED( MultiplierValues ) ) THEN
-        MultiplierDOFs = RestMatrix % NumberOfRows / Solver % Mesh % NumberOfNodes +1
+        MultiplierDOFs = RestMatrix % NumberOfRows/Solver % Mesh % NumberOfNodes+1
         ALLOCATE( MultiplierValues( MultiplierDOFs * Solver % Mesh % NumberOfNodes ), STAT=istat )
         IF ( istat /= 0 ) CALL Fatal('SolveWithLinearRestriction','Memory allocation error.')
         MultiplierValues = 0.0d0
@@ -2509,6 +2529,7 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
   CollectionMatrix % Cols = 0
   CollectionMatrix % Diag = 0
   CollectionMatrix % Values = 0.0d0
+
   CollectionVector = 0.0d0
   CollectionSolution = 0.0d0
 
@@ -2626,7 +2647,7 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
         l = TmpRow(i) + NumberOfValues + (i-1)        
         CollectionMatrix % Cols(l) = i + NumberOfRows
         CollectionMatrix % Diag( i + NumberOfRows ) = l
-        CollectionMatrix % Values(l) = 0.0d0
+        CollectionMatrix % Values(l) = 0
         TmpRow(i) = TmpRow(i) + 1        
      ELSE        
         WRITE( Message, * ) 'Trying to access non-existent column', i,k
@@ -2635,7 +2656,28 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
      END IF     
   END DO! <- NumberOfRows in lower part of CollectionMatrix
     
+  ! if zero=zero constraints solve lambda=0 instead:
+  ! ------------------------------------------------
+  do i=stiffmatrix % numberofrows+1,collectionmatrix % numberofrows
+     if ( all(collectionmatrix % values( &
+           collectionmatrix % rows(i):collectionmatrix % rows(i+1)-1)==0) ) &
+       collectionmatrix % values(collectionmatrix % diag(i)) = 1
+  end do
+
+  ! try not to interfere with dirichlet conditions:
+  ! -----------------------------------------------
+  do i=1,stiffmatrix % numberofrows
+     scl = stiffmatrix % values(stiffmatrix % diag(i))
+     stiffmatrix % values(stiffmatrix % diag(i))=0
+     if ( all( stiffmatrix % values( stiffmatrix % rows(i):stiffmatrix % rows(i+1)-1 ) == 0 ) ) then
+       collectionmatrix % values( collectionmatrix % rows(i): &
+            collectionmatrix % rows(i+1)-1 )  = 0
+       stiffmatrix % values( stiffmatrix % diag(i) ) = scl
+       collectionmatrix % values( collectionmatrix % diag(i) ) = scl
+     end if
+  end do
   CALL Info( 'SolveWithLinearRestriction', 'CollectionMatrix done' )
+
 
 !------------------------------------------------------------------------------
 ! Assign values to CollectionVector
@@ -2651,10 +2693,10 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
   
   CALL Info( 'SolveWithLinearRestriction', 'CollectionVector done' )
 
+
 !------------------------------------------------------------------------------
 ! Solve the Collection-system 
 !------------------------------------------------------------------------------
-  
   CALL SolveLinearSystem( CollectionMatrix, CollectionVector, &
        CollectionSolution, Norm, DOFs, Solver )
   
@@ -2665,6 +2707,7 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
     i = 1
     j = StiffMatrix % NumberOfRows
     Solution( i:j ) = CollectionSolution( i:j )
+    Solver % Variable % Norm = SQRT( SUM( Solution(i:j)**2 )/j )
 
     IF ( ExportMultiplier ) THEN
        i = StiffMatrix % NumberOfRows

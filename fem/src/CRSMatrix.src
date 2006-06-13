@@ -39,7 +39,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: $
+! * $Id: CRSMatrix.src,v 1.8 2006/01/10 08:32:49 apursula Exp $
 ! ******************************************************************************
 
 #include "huti_fdefs.h"
@@ -172,7 +172,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  SUBROUTINE CRS_SortMatrix( A )
+  SUBROUTINE CRS_SortMatrix( A, ValuesToo )
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -187,20 +187,33 @@ CONTAINS
 !******************************************************************************
 !------------------------------------------------------------------------------
     TYPE(Matrix_t) :: A
+    LOGICAL, Optional :: ValuesToo
 
     INTEGER :: i,j,n
 
+    LOGICAL :: SortValues
+    REAL(KIND=dp), POINTER :: Values(:)
     INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
+
+    SortValues = .FALSE.
+    IF ( PRESENT(ValuesToo) ) SortValues=ValuesToo
 
     Diag   => A % Diag
     Rows   => A % Rows
     Cols   => A % Cols
+    IF ( SortValues ) Values => A % Values
     n = A % NumberOfRows
 
     IF ( .NOT. A % Ordered ) THEN
-      DO i=1,N
-        CALL Sort( Rows(i+1)-Rows(i),Cols(Rows(i):Rows(i+1)-1) )
-      END DO
+      IF ( SortValues ) THEN
+        DO i=1,N
+          CALL SortF( Rows(i+1)-Rows(i),Cols(Rows(i):Rows(i+1)-1),Values(Rows(i):Rows(i+1)-1) )
+        END DO
+      ELSE
+        DO i=1,N
+          CALL Sort( Rows(i+1)-Rows(i),Cols(Rows(i):Rows(i+1)-1) )
+        END DO
+      END IF
 
       DO i=1,N
         DO j=Rows(i),Rows(i+1)-1
@@ -309,6 +322,7 @@ CONTAINS
 
     IF ( i /= j .OR. .NOT. A % Ordered ) THEN
       k = CRS_Search( Rows(i+1)-Rows(i),Cols(Rows(i):Rows(i+1)-1),j )
+if ( k==0 .and. value/=0 ) print*,i,j,value
       IF ( k==0 ) RETURN
       k = k + Rows(i) - 1
     ELSE
@@ -2228,9 +2242,9 @@ END FUNCTION CRS_RowSum
 
 !------------------------------------------------------------------------------
     INTEGER, POINTER :: Cols(:),Rows(:)
-    REAL(KIND=dp), POINTER :: Values(:)
+    REAL(KIND=dp), POINTER :: Values(:), w(:)
 
-    INTEGER :: i,j,n
+    INTEGER :: i,j,n,m
     REAL(KIND=dp) :: s
 !------------------------------------------------------------------------------
 
@@ -2263,6 +2277,30 @@ END FUNCTION CRS_RowSum
           END DO
        END DO
     END IF
+
+!    IF ( ASSOCIATED( GlobalMatrix % EMatrix ) ) THEN
+!       n = GlobalMatrix % EMatrix % NumberOFRows
+!       Rows   => GlobalMatrix % EMatrix % Rows
+!       Cols   => GlobalMatrix % EMatrix % Cols
+!       Values => GlobalMatrix % EMatrix % Values
+!
+!       allocate( w(n) )
+!       DO i=1,n
+!          s = 0.0d0
+!          DO j=Rows(i),Rows(i+1)-1
+!             s = s + Values(j) * u(Cols(j))
+!          END DO
+!          w(i) = s
+!       END DO
+!
+!       DO i=1,n
+!          s = w(i)
+!          DO j=Rows(i),Rows(i+1)-1
+!             v(Cols(j)) = v(Cols(j)) + s * Values(j)
+!          END DO
+!       END DO
+!       deallocate( w )
+!    END IF
 #else
     CALL MatVec( n,SIZE(Cols),Rows,Cols,Values,u,v )
 

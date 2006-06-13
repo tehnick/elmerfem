@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.37  2006/05/18 16:49:27  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.36  2006/05/18 10:01:30  jpr
 ! * Some modifications for the 'Periodic BC' scheme.
 ! *
@@ -144,7 +147,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.36 2006/05/18 10:01:30 jpr Exp $
+! * $Id: MeshUtils.src,v 1.37 2006/05/18 16:49:27 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -310,11 +313,11 @@ CONTAINS
 
     TYPE(Matrix_t), POINTER :: Projector
 
+    REAL(KIND=dp) :: pCoord(3)
+
     LOGICAL :: parallel
     CHARACTER(LEN=MAX_NAME_LEN) :: MeshDir, MeshName
 !------------------------------------------------------------------------------
-!   PRINT*,'dadasdsa1'
-!   call flush(6)
 !   call spariterbarrier
     Mesh => AllocateMesh()
     parallel = .FALSE.
@@ -881,7 +884,7 @@ CONTAINS
       Mesh % ParallelInfo % INTERFACE = .FALSE.
 
       DO i=1,fields
-        CALL eio_get_part_node( tag,bndry,coord,npart,parts,eio_info )
+        CALL eio_get_part_node( tag,bndry,pCoord,npart,parts,eio_info )
         IF ( eio_info /= 0 ) &
            CALL Fatal( 'LoadMesh', 'Error in shared nodes definition.' )
         k = LocalPerm( tag-MinIndex+1 )
@@ -905,15 +908,12 @@ CONTAINS
       ! jv: work in progress with global dof numbering
 
       !  CALL CreateGlobalNumbering( Mesh, n )
-
-
    END IF
 
    DEALLOCATE( LocalPerm )
    CALL eio_close_mesh( eio_info )
    
    CALL eio_close( eio_info )
-
    !
    ! If periodic BC given, compute boundary mesh projector:
    ! ------------------------------------------------------
