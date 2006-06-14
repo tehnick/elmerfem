@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.23  2006/06/13 09:38:08  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.22  2006/05/19 11:05:06  jpr
 ! * *** empty log message ***
 ! *
@@ -131,7 +134,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.22 2006/05/19 11:05:06 jpr Exp $
+! * $Id: SolverUtils.src,v 1.23 2006/06/13 09:38:08 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -2508,8 +2511,9 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
 !------------------------------------------------------------------------------
   
   NumberOfRows = StiffMatrix % NumberOfRows + RestMatrix % NumberOfRows
-  NumberOfValues = SIZE( StiffMatrix % Values ) &
-       + 2 * SIZE( RestMatrix % Values ) + RestMatrix % NumberOfRows
+print*,size(stiffmatrix % values), count( stiffmatrix % values /= 0.0d0 )
+  NumberOfValues = COUNT( StiffMatrix % Values /= 0.0d0 ) &
+       + 2*SIZE( RestMatrix % Values ) + RestMatrix % NumberOfRows
 
   CollectionMatrix => AllocateMatrix()
   CollectionMatrix % NumberOfRows = NumberOfRows
@@ -2540,11 +2544,14 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
 ! Calculate number of values / row for upper part of ColectionMatrix:
 !--------------------------------------------------------------------
   TmpRow = 0
+k = 0
   DO i = 1, StiffMatrix % NumberOfRows
-     TmpRow(i) = StiffMatrix % Rows(i+1) -  StiffMatrix % Rows(i)
+     TmpRow(i) = COUNT( StiffMatrix % Values(StiffMatrix % Rows(i):StiffMatrix % Rows(i+1)-1)/=0.0d0 )
+k = k + tmprow(i)
      TmpRow(i) = TmpRow(i) + &
           RestMatrixTranspose % Rows(i+1) - RestMatrixTranspose % Rows(i)     
   END DO
+print*,k,count(stiffmatrix % values/=0.0d0)
 
 ! Assign row numbering for upper part of CollectionMatrix:
 !---------------------------------------------------------
@@ -2565,14 +2572,16 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
      DO j = StiffMatrix % Rows(i), StiffMatrix % Rows(i+1) - 1        
         k = StiffMatrix % Cols(j)
         
-        IF ( TmpRow(i) < CollectionMatrix % Rows(i+1) ) THEN           
-           CollectionMatrix % Cols( TmpRow(i) ) = k
-           CollectionMatrix % Values( TmpRow(i) ) = StiffMatrix % Values(j)           
-           TmpRow(i) = TmpRow(i) + 1           
-        ELSE           
-           WRITE( Message, * ) 'Trying to access non-existent column', i,k
-           CALL Error( 'SolveWithLinearRestriction', Message )
-           RETURN           
+        IF ( StiffMatrix % Values(j) /= 0.0d0 ) THEN
+           IF ( TmpRow(i) < CollectionMatrix % Rows(i+1) ) THEN           
+             CollectionMatrix % Cols( TmpRow(i) ) = k
+             CollectionMatrix % Values( TmpRow(i) ) = StiffMatrix % Values(j)           
+             TmpRow(i) = TmpRow(i) + 1           
+           ELSE           
+             WRITE( Message, * ) 'Trying to access non-existent column', i,k
+             CALL Error( 'SolveWithLinearRestriction', Message )
+             RETURN           
+          END IF        
         END IF        
      END DO
 !------------------------------------------------------------------------------
@@ -2590,13 +2599,20 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
            RETURN           
         END IF        
      END DO     
+if ( tmprow(i) /= collectionmatrix % rows(i+1) ) stop 1
   END DO! <- NumberOfRows in upper part of CollectioMatrix.
 
 ! Assign diagonal numbering for upper part of CollectionMatrix:
 !--------------------------------------------------------------
   DO i = 1, StiffMatrix % NumberOfRows
-     CollectionMatrix % Diag(i) = StiffMatrix % Diag(i) &
-          + RestMatrixTranspose % Rows(i) -1     
+!    CollectionMatrix % Diag(i) = StiffMatrix % Diag(i) &
+!         + RestMatrixTranspose % Rows(i) -1     
+       DO j=CollectionMatrix % Rows(i),CollectionMatrix % Rows(i+1)-1
+          IF ( CollectionMatrix % Cols(j) == i ) THEN
+             CollectionMatrix % Diag(i) = j
+             EXIT
+          END IF
+       END DO
   END DO
   
   CALL Info( 'SolveWithLinearRestriction', 'CollectionMatrix upper part done' ) 
@@ -2608,7 +2624,7 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
 ! Assign row numbering for lower part of CollectionMatrix:
 !---------------------------------------------------------
   NumberOfRows = StiffMatrix % NumberOfRows
-  NumberOfValues = SIZE( StiffMatrix % Values ) &
+  NumberOfValues = COUNT( StiffMatrix % Values /= 0 ) &
        + SIZE( RestMatrixTranspose % Values )
   
   DO i = 1, RestMatrix % NumberOfRows +1     
@@ -2656,14 +2672,13 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
      END IF     
   END DO! <- NumberOfRows in lower part of CollectionMatrix
     
-  ! if zero=zero constraints solve lambda=0 instead:
-  ! ------------------------------------------------
+  ! if zero=zero constraint, solve lambda_i=0 instead:
+  ! -------------------------------------------------
   do i=stiffmatrix % numberofrows+1,collectionmatrix % numberofrows
      if ( all(collectionmatrix % values( &
            collectionmatrix % rows(i):collectionmatrix % rows(i+1)-1)==0) ) &
        collectionmatrix % values(collectionmatrix % diag(i)) = 1
   end do
-
   ! try not to interfere with dirichlet conditions:
   ! -----------------------------------------------
   do i=1,stiffmatrix % numberofrows
@@ -2676,6 +2691,8 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
        collectionmatrix % values( collectionmatrix % diag(i) ) = scl
      end if
   end do
+
+
   CALL Info( 'SolveWithLinearRestriction', 'CollectionMatrix done' )
 
 
@@ -2685,14 +2702,16 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
 
   j = StiffMatrix % NumberOfRows  
   CollectionVector( 1:j ) = ForceVector( 1:j )
+  CollectionSolution( 1:j ) = Solution( 1:j )
   
   i = StiffMatrix % NumberOfRows +1
   j = CollectionMatrix % NumberOfRows
   k = RestMatrix % NumberOfRows
+  CollectionSolution( i:j ) = 0
   CollectionVector( i:j ) = RestVector( 1:k )
+
   
   CALL Info( 'SolveWithLinearRestriction', 'CollectionVector done' )
-
 
 !------------------------------------------------------------------------------
 ! Solve the Collection-system 

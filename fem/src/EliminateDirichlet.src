@@ -39,7 +39,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: EliminateDirichlet.src,v 1.5 2006/01/10 08:09:45 apursula Exp $
+! * $Id: EliminateDirichlet.src,v 1.6 2006/06/14 09:44:57 jpr Exp $
 ! ******************************************************************************
 
 !------------------------------------------------------------------------------
@@ -184,7 +184,6 @@ zz = 0
                  IF ( Mass ) Add = Add .OR. A % MassValues(l) /= 0
                  IF ( Damp ) Add = Add .OR. A % DampValues(l) /= 0
 if ( .not. add ) zz=zz+1
-add = .true.
                END IF
                Add = Add .AND. Permutation(t) /= 0
                IF ( Add ) k = k + 1
@@ -230,7 +229,6 @@ print*,'removing zeros: ', zz
                 Add = A % Values(l) /= 0
                 IF ( Mass ) Add = Add .OR. A % MassValues(l) /= 0
                 IF ( Damp ) Add = Add .OR. A % DampValues(l) /= 0
-add = .true.
               END IF
               Add = Add .AND. Permutation(t) /= 0
               IF ( Add ) THEN
@@ -321,7 +319,6 @@ add = .true.
                  Add = A % Values(l) /= 0
                  IF ( Mass ) Add = Add .OR. A % MassValues(l) /= 0
                  IF ( Damp ) Add = Add .OR. A % DampValues(l) /= 0
-add = .true.
                  IF ( Add ) THEN
                    Bmatrix % Values(k) = A % Values(l)
                    IF ( Mass ) THEN
