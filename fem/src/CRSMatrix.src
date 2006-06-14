@@ -39,7 +39,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: CRSMatrix.src,v 1.8 2006/01/10 08:32:49 apursula Exp $
+! * $Id: CRSMatrix.src,v 1.9 2006/06/13 09:38:07 jpr Exp $
 ! ******************************************************************************
 
 #include "huti_fdefs.h"
@@ -322,7 +322,7 @@ CONTAINS
 
     IF ( i /= j .OR. .NOT. A % Ordered ) THEN
       k = CRS_Search( Rows(i+1)-Rows(i),Cols(Rows(i):Rows(i+1)-1),j )
-if ( k==0 .and. value/=0 ) print*,i,j,value
+      IF ( k==0 .AND. Value/=0 ) PRINT*,'Trying to add value to nonexistent matrix element: ', i,j,Value
       IF ( k==0 ) RETURN
       k = k + Rows(i) - 1
     ELSE
@@ -375,7 +375,10 @@ if ( k==0 .and. value/=0 ) print*,i,j,value
 
     IF ( i /= j .OR. .NOT. A % Ordered ) THEN
        k = CRS_Search( Rows(i+1)-Rows(i),Cols(Rows(i):Rows(i+1)-1),j )
-      IF ( k==0 ) RETURN
+      IF ( k==0 ) THEN
+         PRINT*,'Trying to set value to nonexistent matrix element: ', i,j,value
+         RETURN
+       END IF
        k = k + Rows(i) - 1
     ELSE
        k = Diag(i)
