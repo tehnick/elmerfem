@@ -39,7 +39,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: EliminateDirichlet.src,v 1.7 2006/06/14 09:49:05 jpr Exp $
+! * $Id: EliminateDirichlet.src,v 1.8 2006/06/14 09:55:10 jpr Exp $
 ! ******************************************************************************
 
 !------------------------------------------------------------------------------
@@ -189,6 +189,7 @@ zz = 0
                  IF ( Damp ) Add = Add .OR. A % DampValues(l) /= 0
 if ( .not. add ) zz=zz+1
                END IF
+               Add = Add .OR. l==A % Diag(i)
                Add = Add .AND. Permutation(t) /= 0
                IF ( Add ) k = k + 1
             END DO
@@ -234,6 +235,7 @@ print*,'removing zeros: ', zz
                 IF ( Mass ) Add = Add .OR. A % MassValues(l) /= 0
                 IF ( Damp ) Add = Add .OR. A % DampValues(l) /= 0
               END IF
+              Add = Add .OR. l==A % Diag(i)
               Add = Add .AND. Permutation(t) /= 0
               IF ( Add ) THEN
                  Bmatrix % Cols(k) = t - DCount(t)
@@ -323,6 +325,7 @@ print*,'removing zeros: ', zz
                  Add = A % Values(l) /= 0
                  IF ( Mass ) Add = Add .OR. A % MassValues(l) /= 0
                  IF ( Damp ) Add = Add .OR. A % DampValues(l) /= 0
+                 Add = Add .OR. l==A % Diag(i)
                  IF ( Add ) THEN
                    Bmatrix % Values(k) = A % Values(l)
                    IF ( Mass ) THEN
