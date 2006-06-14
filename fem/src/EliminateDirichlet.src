@@ -39,7 +39,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: EliminateDirichlet.src,v 1.6 2006/06/14 09:44:57 jpr Exp $
+! * $Id: EliminateDirichlet.src,v 1.7 2006/06/14 09:49:05 jpr Exp $
 ! ******************************************************************************
 
 !------------------------------------------------------------------------------
@@ -137,7 +137,11 @@
    END IF
 
    IF ( .NOT. ASSOCIATED( BMatrix ) ) THEN
-      ALLOCATE( Permutation( A % NumberOfRows ) )
+      IF ( ASSOCIATED( A % Perm ) ) THEN
+         Permutation => A % Perm
+      ELSE
+        ALLOCATE( Permutation( A % NumberOfRows ) )
+      END IF
 
       Permutation = 0
       Dirichlet = 0
