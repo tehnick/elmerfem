@@ -39,7 +39,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: $
+! * $Id: EliminateDirichlet.src,v 1.5 2006/01/10 08:09:45 apursula Exp $
 ! ******************************************************************************
 
 !------------------------------------------------------------------------------
@@ -98,10 +98,10 @@
 
   LOGICAL :: stat, GotIt, EigAnal
 
-  INTEGER :: istat, ii, i, j, k, l, m, t, Dirichlet, Level = 0, DOF
+  INTEGER :: istat, ii, i, j, k, l, m, t, Dirichlet, Level = 0, DOF, zz
   INTEGER, POINTER :: Permutation(:), DCount(:), PermSave(:)
   LOGICAL :: AllocationsDone = .FALSE., Eigen = .FALSE., &
-             Mass = .FALSE., Damp=.FALSE.
+             Mass = .FALSE., Damp=.FALSE., Add
 
   COMPLEX(KIND=dp), ALLOCATABLE :: TempEigenVectors(:,:)
 
@@ -171,16 +171,27 @@
 
       j = 0
       k = 1
+zz = 0
       DO i=1, A % NumberOFRows 
          IF ( Permutation(i) /= 0 ) THEN
             j = j + 1
             Bmatrix % Rows(j) = k
             DO l = A % Rows(i),A % Rows(i+1)-1
                t = A % Cols(l)
-               IF ( Permutation(t) /= 0 ) k = k + 1
+               Add = .TRUE.
+               IF ( .NOT. A % Complex ) THEN
+                 Add = A % Values(l) /= 0
+                 IF ( Mass ) Add = Add .OR. A % MassValues(l) /= 0
+                 IF ( Damp ) Add = Add .OR. A % DampValues(l) /= 0
+if ( .not. add ) zz=zz+1
+add = .true.
+               END IF
+               Add = Add .AND. Permutation(t) /= 0
+               IF ( Add ) k = k + 1
             END DO
          END IF
       END DO
+print*,'removing zeros: ', zz
       Bmatrix % Rows(Bmatrix % NumberOFRows+1) = k
 
       IF ( Mass ) THEN
@@ -214,7 +225,15 @@
            j = j + 1
            DO l = A % Rows(i),A % Rows(i+1)-1
               t = A % Cols(l)
-              IF ( Permutation( t ) /= 0 ) THEN
+              Add = .TRUE.
+              IF ( .NOT. A % Complex ) THEN
+                Add = A % Values(l) /= 0
+                IF ( Mass ) Add = Add .OR. A % MassValues(l) /= 0
+                IF ( Damp ) Add = Add .OR. A % DampValues(l) /= 0
+add = .true.
+              END IF
+              Add = Add .AND. Permutation(t) /= 0
+              IF ( Add ) THEN
                  Bmatrix % Cols(k) = t - DCount(t)
                  k = k + 1
               END IF
@@ -299,14 +318,20 @@
               IF ( Permutation(t) == 0 ) THEN
                  F(j) = F(j) - A % Values(l) * b(t) / A % Values( A % Diag(t) )
               ELSE
-                 Bmatrix % Values(k) = A % Values(l)
-                 IF ( Mass ) THEN
-                    Bmatrix % MassValues(k) = A % MassValues(l)
+                 Add = A % Values(l) /= 0
+                 IF ( Mass ) Add = Add .OR. A % MassValues(l) /= 0
+                 IF ( Damp ) Add = Add .OR. A % DampValues(l) /= 0
+add = .true.
+                 IF ( Add ) THEN
+                   Bmatrix % Values(k) = A % Values(l)
+                   IF ( Mass ) THEN
+                      Bmatrix % MassValues(k) = A % MassValues(l)
+                   END IF
+                   IF ( Damp ) THEN
+                      Bmatrix % DampValues(k) = A % DampValues(l)
+                   END IF
+                   k = k + 1
                  END IF
-                 IF ( Damp ) THEN
-                    Bmatrix % DampValues(k) = A % DampValues(l)
-                 END IF
-                 k = k + 1
               END IF
            END DO
         END IF
@@ -418,6 +443,8 @@
   CALL Info( 'Dirichlet', Message, Level=5 )
   CALL Info( 'Dirichlet', ' ', Level=5 )
 
+  CALL FreeMatrix( A % EMatrix )
+  NULLIFY( A % EMatrix )
   EliminateDirichlet = 1
 
 END FUNCTION EliminateDirichlet

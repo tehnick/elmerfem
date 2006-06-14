@@ -38,7 +38,7 @@
 ! *
 ! ******************************************************************************/
 ! *
-! * $Id: ElementUtils.src,v 1.10 2006/05/18 16:49:27 jpr Exp $
+! * $Id: ElementUtils.src,v 1.11 2006/05/19 11:05:06 jpr Exp $
 ! ******************************************************************************
 
 MODULE ElementUtils
@@ -354,19 +354,20 @@ CONTAINS
               IF ( Projector % Cols(l) <= 0 ) CYCLE
               m = Reorder( Projector % Cols(l) )
               IF ( m > 0 ) THEN
-                CALL MakeListMatrixIndex( ListMatrix,m,k )
-                CList => ListMatrix( m ) % Head
-                DO WHILE( ASSOCIATED( CList ) )
-                   CALL MakeListMatrixIndex( ListMatrix,k,CList % Index )
-                   CList => CList % Next
-                END DO
-              END IF
+!               CALL MakeListMatrixIndex( ListMatrix,m,k )
+!               CList => ListMatrix( m ) % Head
+!               DO WHILE( ASSOCIATED( CList ) )
+!                  CALL MakeListMatrixIndex( ListMatrix,k,CList % Index )
+!                  CList => CList % Next
+!               END DO
+
                 CALL MakeListMatrixIndex( ListMatrix,k,m )
                 CList => ListMatrix( k ) % Head
                 DO WHILE( ASSOCIATED( CList ) )
                   CALL MakeListMatrixIndex( ListMatrix,m,CList % Index )
                   CList => CList % Next
                 END DO
+              END IF
             END DO
           END IF
         END DO
