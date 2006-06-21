@@ -40,6 +40,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: ArteryOutlet.src,v $
+! * Revision 1.3  2006/04/26 10:16:45  ejarvine
+! * Esko Järvinen 24.05.2006
+! *
 ! * Revision 1.2  2006/03/29 11:11:57  ejarvine
 ! * Corrected an error in allocation.
 ! *
@@ -98,7 +101,7 @@ SUBROUTINE OutletCompute( Model,Solver,dt,TransientSimulation )
   TYPE(Variable_t), POINTER :: LVar, FlowSol
   
   INTEGER :: t, k,n,m,ie,bf_id,mat_id,prev_mat_id,istat,LocalNodes,i,j, nonliniter, l, &
-      bc, joinnode, Connections, SolidConnections, fsstep, fsstepmax
+      bc, joinnode, Connections, SolidConnections, fsstep, fsstepmax, NonlinearIter
   
   INTEGER, POINTER :: NodeIndexes(:), WPerm(:)
   INTEGER, ALLOCATABLE :: LumpedBoundaries(:), SolidEndBoundaries(:)
@@ -117,7 +120,7 @@ SUBROUTINE OutletCompute( Model,Solver,dt,TransientSimulation )
       Lelem(:), LocalForce(:), Cnodal(:), Unodal(:), Wprev(:), Lprev(:), &
       Aprev(:), FluidicForces(:), FluidicAreas(:), FluidicFluxes(:), SolidEndAreas(:)
   
-  REAL(KIND=dp) :: NonlinearTol, NonlinearIter, Density, PoissonRatio,&
+  REAL(KIND=dp) :: NonlinearTol, Density, PoissonRatio,&
       WallYoungs, ArteryRadius, ArteryWallThickness, BetaCoeff, Aref, W20, &
       WdiffSum, WnodalSum, WprevnodalSum, Werror, fsAlpha, fsTheta, fsdTheta, fsBeta, &
       pres2dout, area2dout, psi, RadiusIn1d, AreaIn1d, BetaCoeff2, &
@@ -268,13 +271,13 @@ SUBROUTINE OutletCompute( Model,Solver,dt,TransientSimulation )
       Connections = Connections + 1
       joinnode = LumpedBoundaries(bc)
       
-      WRITE(Message,'(A,I)') 'Lumping Boundary:',bc
+      WRITE(Message,'(A,I3)') 'Lumping Boundary:',bc
       CALL Info('OutletCompute',Message)
-      WRITE(Message,'(A,E)') 'Force: ',FluidicForces(bc)
+      WRITE(Message,'(A,E10.4)') 'Force: ',FluidicForces(bc)
       CALL Info('OutletCompute',Message)
-      WRITE(Message,'(A,E)') 'Area: ',FluidicAreas(bc)
+      WRITE(Message,'(A,E10.4)') 'Area: ',FluidicAreas(bc)
       CALL Info('OutletCompute',Message)
-      WRITE(Message,'(A,E)') 'Flux: ',FluidicFluxes(bc)
+      WRITE(Message,'(A,E10.4)') 'Flux: ',FluidicFluxes(bc)
       CALL Info('OutletCompute',Message)
 
     END IF
@@ -332,9 +335,9 @@ SUBROUTINE OutletCompute( Model,Solver,dt,TransientSimulation )
 
     IF(SolidEndBoundaries(bc) /= 0) THEN
       
-      WRITE(Message,'(A,I)') 'Solid End Area Boundary: ',bc
+      WRITE(Message,'(A,I3)') 'Solid End Area Boundary: ',bc
       CALL Info('OutletCompute',Message)
-      WRITE(Message,'(A,E)') 'Solid End Area: ',SolidEndAreas(bc)
+      WRITE(Message,'(A,E10.4)') 'Solid End Area: ',SolidEndAreas(bc)
       CALL Info('OutletCompute',Message)
 
     END IF
@@ -348,9 +351,9 @@ ELSE
 
   IF ( .NOT. CenterPointsComputed ) THEN
 
-    WRITE(Message,'(A,I)') ' Coordinate System is not Cartesian.'
+    WRITE(Message,'(A)') ' Coordinate System is not Cartesian.'
     CALL Info('OutletCompute',Message)
-    WRITE(Message,'(A,I)') ' No center points of the outlets are computed.'
+    WRITE(Message,'(A)') ' No center points of the outlets are computed.'
     CALL Info('OutletCompute',Message)
 
     CenterPointsComputed = .TRUE.
@@ -405,7 +408,7 @@ END IF
       Solver % Variable % PrevValues(:,1) = Solver % Variable % Values 
       CALL ListAddConstReal( Solver % Values, 'fsstep', 1.0d0*fsstep )
       
-      WRITE(Message,'(A,I)') 'Fractional Step:',fsstep
+      WRITE(Message,'(A,I3)') 'Fractional Step:',fsstep
       CALL Info('OutletCompute',Message)
     END IF
     
@@ -419,7 +422,7 @@ END IF
       
       CALL InitializeToZero( StiffMatrix, ForceVector )
       
-      WRITE(Message,'(A,I)') 'Nonlinear iteration: ',nonliniter
+      WRITE(Message,'(A,I3)') 'Nonlinear iteration: ',nonliniter
       CALL Info('OutletCompute',Message)
       
       !------------------------------------------------------------------------------
@@ -556,7 +559,7 @@ END IF
         Werror = 0.0d0
       END IF
       
-      WRITE(Message,'(A,E)') 'Relative Change: ',Werror
+      WRITE(Message,'(A,E10.4)') 'Relative Change: ',Werror
       CALL Info('OutletCompute',Message)
       
       IF ( Werror < NonlinearTol ) EXIT
@@ -816,13 +819,13 @@ CONTAINS
       CALL ListAddConstReal( Model % Simulation, TRIM(YName), YPosWeighted )
       CALL ListAddConstReal( Model % Simulation, TRIM(ZName), ZPosWeighted )
       
-      WRITE(Message,'(A,I)') ' Coordinate System is Cartesian.'
+      WRITE(Message,'(A)') ' Coordinate System is Cartesian.'
       CALL Info('SurfaceCenterPoints',Message)
       WRITE(Message,'(A,I2)') 'Boundary number ',k 
       CALL Info('SurfaceCenterPoints',Message)
-      WRITE(Message,'(A,E)') 'Centerpoint x-coordinate is ',XPosWeighted  
+      WRITE(Message,'(A,E10.4)') 'Centerpoint x-coordinate is ',XPosWeighted  
       CALL Info('SurfaceCenterPoints',Message)
-      WRITE(Message,'(A,E)') 'Centerpoint y-coordinate is ',YPosWeighted  
+      WRITE(Message,'(A,E10.4)') 'Centerpoint y-coordinate is ',YPosWeighted  
       CALL Info('SurfaceCenterPoints',Message)
 
 !------------------------------------------------------------------------------
