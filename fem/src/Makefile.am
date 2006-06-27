@@ -253,6 +253,7 @@ EXTRA_DIST = \
 	SparseMatrix.src \
 	StatCurrentSolve.src \
 	StatElecSolve.src \
+	StatMagSolve.src \
 	Stokes.src \
 	StreamSolver.src \
 	Stress.src \

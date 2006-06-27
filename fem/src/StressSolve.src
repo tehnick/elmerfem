@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StressSolve.src,v $
+! * Revision 1.16  2006/04/07 12:26:37  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.15  2006/04/07 11:22:46  jpr
 ! * Modified stress computation to include thermal expansion effects.
 ! *
@@ -262,7 +265,7 @@
        ReferenceTemperature(:),BoundaryDispl(:), Density(:), Damping(:), &
        NodalDisplacement(:,:), ContactLimit(:), LocalNormalDisplacement(:), &
        LocalContactPressure(:), PreStress(:,:), PreStrain(:,:), &
-       StressLoad(:,:), StrainLoad(:,:)
+       StressLoad(:,:), StrainLoad(:,:), NodalMeshVelo(:,:)
 
      SAVE MASS,DAMP, STIFF,LOAD, &
        FORCE,ElementNodes,DampCoeff,SpringCoeff,Beta,Density, Damping, &
@@ -271,7 +274,7 @@
        CalcStress, CalcStressAll, NodalDisplacement, Contact, ContactPressure, &
        NormalDisplacement, ContactLimit, LocalNormalDisplacement, &
        LocalContactPressure, PreStress, PreStrain, StressLoad, StrainLoad, Work, &
-       RotateC, TransformMatrix, body_id
+       RotateC, TransformMatrix, body_id, NodalMeshVelo
 !------------------------------------------------------------------------------
      INTEGER :: dim
      REAL(KIND=dp) :: at,at0,CPUTime,RealTime
@@ -306,7 +309,7 @@
         END FUNCTION StressInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.15 2006/04/07 11:22:46 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.16 2006/04/07 12:26:37 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -373,6 +376,7 @@
                      PreStress, PreStrain,   &
                      StressLoad, StrainLoad, &
                      NodalDisplacement,      &
+                     NodalMeshVelo,          &
                      FORCE, MASS, DAMP, STIFF, LOAD, Beta, &
                      ContactLimit, LocalNormalDisplacement, LocalContactPressure, &
                      TransformMatrix )
@@ -400,6 +404,7 @@
                  DAMP(  STDOFs*N,STDOFs*N ),  &
                  STIFF( STDOFs*N,STDOFs*N ),  &
                  NodalDisplacement( 3, N ),   &
+                 NodalMeshVelo( 3, N ),       &
                  LOAD( 4,N ), Beta( N ),      &
                  ContactLimit(N), LocalNormalDisplacement(N), &
                  LocalContactPressure(N),     &
@@ -695,6 +700,15 @@
          CALL GetScalarLocalSolution( LocalTemperature, 'Temperature' )
          LocalTemperature(1:n) = LocalTemperature(1:n) - &
                  ReferenceTemperature(1:n)
+ 
+         IF ( TransientSimulation ) THEN
+           NodalMeshVelo(3,1:n) = GetReal( Material, 'Mesh Velocity 3', Found)
+           NodalMeshVelo(2,1:n) = GetReal( Material, 'Mesh Velocity 2', Found)
+           NodalMeshVelo(1,1:n) = GetReal( Material, 'Mesh Velocity 1', Found)
+           IF ( .NOT. Found ) THEN
+             CALL GetVectorLocalSolution( NodalMeshVelo, 'Mesh Velocity' )
+           END IF
+         END IF
 
          SELECT CASE( CurrentCoordinateSystem() )
          CASE( Cartesian, AxisSymmetric, CylindricSymmetric )
@@ -703,7 +717,7 @@
                PreStress, PreStrain, StressLoad, StrainLoad, HeatExpansionCoeff,    &
                LocalTemperature, Element, n, ntot, ElementNodes, StabilityAnalysis  &
                .AND. iter>1, GeometricStiffness .AND. iter>1, NodalDisplacement,    &
-               RotateC, TransformMatrix )
+               RotateC, TransformMatrix, NodalMeshVelo )
 
          CASE DEFAULT
             CALL StressGeneralCompose( MASS, STIFF,FORCE, LOAD, ElasticModulus, &

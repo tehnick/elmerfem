@@ -40,6 +40,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Stress.src,v $
+! * Revision 1.13  2006/04/18 12:41:54  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.12  2006/04/07 11:22:46  jpr
 ! * Modified stress computation to include thermal expansion effects.
 ! *
@@ -126,7 +129,7 @@
 ! * Modified StressBoundary to work in axisymmetric cases.
 ! *
 ! *
-! * $Id: Stress.src,v 1.12 2006/04/07 11:22:46 jpr Exp $
+! * $Id: Stress.src,v 1.13 2006/04/18 12:41:54 jpr Exp $
 ! *****************************************************************************/
 
 MODULE StressLocal
@@ -145,14 +148,14 @@ MODULE StressLocal
      NodalPoisson, NodalDensity, NodalDamping, PlaneStress, Isotropic,           &
      NodalPreStress, NodalPreStrain, NodalStressLoad, NodalStrainLoad,           &
      NodalHeatExpansion, NodalTemperature, Element, n, ntot, Nodes, StabilityAnalysis, &
-     GeometricStiffness, NodalDisplacement, RotateC, TransformMatrix )
+     GeometricStiffness, NodalDisplacement, RotateC, TransformMatrix, NodalMeshVelo )
 !------------------------------------------------------------------------------
      REAL(KIND=dp) :: STIFF(:,:), MASS(:,:), DAMP(:,:), FORCE(:), LOAD(:,:)
      REAL(KIND=dp) :: NodalTemperature(:),ElasticModulus(:,:,:)
      REAL(KIND=dp) :: NodalPreStress(:,:), NodalPreStrain(:,:)
      REAL(KIND=dp) :: NodalStressLoad(:,:), NodalStrainLoad(:,:)
      REAL(KIND=dp) :: NodalDisplacement(:,:), NodalHeatExpansion(:,:,:)
-     REAL(KIND=dp) :: TransformMatrix(:,:)
+     REAL(KIND=dp) :: TransformMatrix(:,:), NodalMeshVelo(:,:)
      REAL(KIND=dp), DIMENSION(:) :: NodalPoisson, NodalDensity, NodalDamping
 
      LOGICAL :: PlaneStress, Isotropic, StabilityAnalysis, GeometricStiffness
@@ -169,7 +172,7 @@ MODULE StressLocal
      REAL(KIND=dp) :: LoadAtIp(3), Poisson, Young
 
      REAL(KIND=dp), DIMENSION(3,3) :: A,M,D,HeatExpansion
-     REAL(KIND=dp) :: Temperature,Density, C(6,6), Damping
+     REAL(KIND=dp) :: Temperature,Density, C(6,6), Damping,MeshVelo(3)
      REAL(KIND=dp) :: StressTensor(3,3), StrainTensor(3,3), InnerProd
      REAL(KIND=dp) :: StressLoad(6), StrainLoad(6), PreStress(6), PreStrain(6)
 
@@ -229,8 +232,14 @@ MODULE StressLocal
        s = detJ * S_Integ(t)
 !------------------------------------------------------------------------------
 
-       Density = SUM( NodalDensity(1:n)*Basis(1:n) )
-       Damping = SUM( NodalDamping(1:n)*Basis(1:n) )
+       IF ( NeedMass ) THEN
+         Density = SUM( NodalDensity(1:n)*Basis(1:n) )
+         Damping = SUM( NodalDamping(1:n)*Basis(1:n) )
+         DO i=1,dim
+           MeshVelo(i) = SUM( NodalMeshVelo(i,1:n)*Basis(1:n) )
+         END DO
+       END IF
+
        IF ( NeedHeat ) THEN
          ! Temperature at the integration point:
          !-------------------------------------- 
@@ -447,10 +456,15 @@ MODULE StressLocal
          G = MATMUL( G, C )
 
          DO q=1,NBasis
-           DO i=1,dim
-             M(i,i) = Density * Basis(p) * Basis(q)
-             D(i,i) = Damping * Basis(p) * Basis(q)
-           END DO
+           IF ( NeedMass ) THEN
+             DO i=1,dim
+               M(i,i) = Density * Basis(p) * Basis(q)
+               D(i,i) = Damping * Basis(p) * Basis(q)
+               DO j=1,dim
+                 D(i,i) = D(i,i) + Density * MeshVelo(j) * dBasisdx(q,j) * Basis(p)
+               END DO
+             END DO
+           END IF
  
            SELECT CASE(dim)
            CASE(2)
