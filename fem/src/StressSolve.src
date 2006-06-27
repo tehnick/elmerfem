@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StressSolve.src,v $
+! * Revision 1.17  2006/06/27 08:26:34  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.16  2006/04/07 12:26:37  jpr
 ! * *** empty log message ***
 ! *
@@ -309,7 +312,7 @@
         END FUNCTION StressInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.16 2006/04/07 12:26:37 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.17 2006/06/27 08:26:34 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -432,19 +435,26 @@
           IF ( CalcStress .OR. CalcStressAll ) THEN
              PSolver => Solver
              n = SIZE( Displacement ) / STDOFs
-             ALLOCATE( NodalStress( 6*n ) )
-             CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, PSolver, &
-                         'Stress', 6, NodalStress, DisplPerm )
 
-             DO i=1,6
-                StressComp => NodalStress(i::6)
-                CALL VariableAdd(Solver % Mesh % Variables,Solver % Mesh,PSolver, &
-                   'Stress '//CHAR(i+ICHAR('0')), 1, StressComp, DisplPerm )
-             END DO
+             Var => VariableGet( Solver % Mesh % Variables, 'Stress' )
+             IF ( .NOT. ASSOCIATED( Var ) ) THEN
+               ALLOCATE( NodalStress( 6*n ) )
+               CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, PSolver, &
+                           'Stress', 6, NodalStress, DisplPerm )
 
-             ALLOCATE( VonMises( n ) )
-             CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, PSolver, &
-                         'VonMises', 1, VonMises, DisplPerm )
+               DO i=1,6
+                  StressComp => NodalStress(i::6)
+                  CALL VariableAdd(Solver % Mesh % Variables,Solver % Mesh,PSolver, &
+                     'Stress '//CHAR(i+ICHAR('0')), 1, StressComp, DisplPerm )
+               END DO
+             END IF
+
+             Var => VariableGet( Solver % Mesh % Variables, 'VonMises' )
+             IF ( .NOT. ASSOCIATED( Var ) ) THEN
+               ALLOCATE( VonMises( n ) )
+               CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, PSolver, &
+                           'VonMises', 1, VonMises, DisplPerm )
+             END IF
           END IF
 
           Contact = GetLogical( SolverParams, 'Contact', Found )

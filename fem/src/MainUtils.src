@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MainUtils.src,v $
+! * Revision 1.9  2006/01/10 08:51:49  apursula
+! * Updated header information (GPL).
+! *
 ! * Revision 1.8  2005/12/22 10:27:00  jpr
 ! * Added solver section keyword 'Timestep scale'.
 ! *
@@ -78,7 +81,7 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.src,v 1.8 2005/12/22 10:27:00 jpr Exp $
+! * $Id: MainUtils.src,v 1.9 2006/01/10 08:51:49 apursula Exp $
 ! *****************************************************************************/
 
 MODULE MainUtils
@@ -1230,13 +1233,26 @@ CONTAINS
      LOGICAL :: TransientSimulation
      REAL(KIND=dp) :: dt, OrigDT, DTScal
 !------------------------------------------------------------------------------
+     LOGICAL :: stat, Found, GB, FirstTime=.TRUE.
      INTEGER :: i, j, SolverAddr, BDOFs
-     LOGICAL :: stat, Found, GB
+     REAL(KIND=dp) :: st
+     TYPE(Variable_t), POINTER :: TimeVar
      TYPE(Element_t), POINTER :: CurrentElement
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, str
+
+     SAVE TimeVar, FirstTime
 !------------------------------------------------------------------------------
      CALL SetCurrentMesh( Model, Solver % Mesh )
      Model % Solver => Solver
+
+     st = ListGetConstReal( Solver % Values, 'Start Time', Found )
+     IF ( Found ) THEN
+       IF ( FirstTime ) THEN
+         TimeVar => VariableGet( Model % Variables, 'Time' )
+         FirstTime = .FALSE.
+       END IF
+       IF ( TimeVar % Values(1) < st ) RETURN
+     END IF
 
      IF ( Solver % Mesh % Changed .OR. Solver % NumberOfActiveElements <= 0 ) THEN
         Solver % NumberOFActiveElements = 0
