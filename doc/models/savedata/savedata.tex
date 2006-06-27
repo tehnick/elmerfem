@@ -1,0 +1,268 @@
+\chapter{Save Data}
+
+\noindent
+\modinfo{Module name}{\Idx{SaveData}}
+\modinfo{Module subroutines}{\Idx{SaveScalars}, \Idx{SaveLine}, \Idx{SaveMaterials}}
+\modinfo{Module authors}{Peter Råback, Ville Savolainen, Thomas Zwinger}
+\modinfo{Document authors}{Peter Råback}
+\modinfo{Document created}{Oct 3rd 2002}
+\modinfo{Document updated}{June 1st 2004}
+
+\section{Introduction}
+
+This module does not include any physical models per se.
+The module includes utilities for computing derived quantities and 
+saving scalars as well as  
+lines in matrix format. Scalars are saved with the subroutine 
+\texttt{SaveScalars} and lines with the subroutine 
+\texttt{SaveLine}, correspondingly.
+The results are easily 
+then utilized by MatLab, Excel or any other program that can 
+read ascii data. In addition to the number values also
+an additional file with the suffix \texttt{.name} is saved. 
+It tells what variables are at each column.
+In addition there is a utility called \texttt{SaveMaterials} 
+that may be used to create additional
+field variables from the material parameters. 
+
+\section{Theory}
+
+The theoretical problem in saving data comes from the fact that
+often the data should be saved in points or lines that were not 
+a priori defined. 
+
+If there are relatively few points the dummy algorhitm
+where each element is checked for including the 
+node may be used. For the lines, however, this algorhitm
+might become quite expensive as there may be many points
+that constitute the line. Therefore we only look for intersections
+of element faces and the lines. Each element face is devided into triangles.
+The triangle has points $\vec{e}_1$, $\vec{e}_2$ and $\vec{e}_3$. The
+line is drawn between points $\vec{r}_1$ and $\vec{r}_2$.
+Therefore the line goes through the point only if
+\begin{equation}
+   \vec{r}_1 + a (\vec{r}_2 - \vec{r}_1) = 
+\vec{e}_1 + b (\vec{e}_2 - \vec{e}_1) +  c (\vec{e}_3 - \vec{e}_1)
+\end{equation}
+has a solution for which $0\le a, b, c \le 1$. This 
+results to a matrix equation
+\begin{equation}
+\begin{pmatrix}
+r_{2x} - r_{1x} & e_{1x}-e_{2x} & e_{1x}-e_{3x} \\
+r_{2y} - r_{1y} & e_{1y}-e_{2y} & e_{1y}-e_{3y} \\
+r_{2z} - r_{1z} & e_{1z}-e_{2z} & e_{1z}-e_{3z}
+\end{pmatrix}
+\begin{pmatrix}
+a \\
+b \\
+c 
+\end{pmatrix}
+=
+\begin{pmatrix}
+e_{1x} - r_{1x} \\
+e_{1y} - r_{1y} \\
+e_{1z} - r_{1z} 
+\end{pmatrix}
+\end{equation}
+which may be easily solved with standard methods linear algebra.
+Because the face element is a triangle there is an additional 
+condition that $b+c \le 1$.
+
+When saving statistical information there are two possibilities. We may use normal number statistics
+where each node is given an equal weight. Then, for example the mean becomes,
+\begin{equation}
+  <f> = \frac{\sum_{i=1}^n f_i}{n}.
+\end{equation}
+The other possibility is to treat the variable as a continuous function and 
+compute the statistical values as averages over the domain. Now the 
+mean is 
+\begin{equation}
+  <f> = \frac{\int f \, d\Omega}{\int d\Omega}.
+\end{equation}
+In addition to the mean we may compute the mean
+deviation, $<|f-<f>|>$.and 
+the variance
+  $\delta f = \sqrt{ <f^2> - <f>^2} $.
+
+It is possible to compute energy type of lumped quantities
+by intgrating over the domain. The energy of the field $f$ resulting 
+from a diffusion equation is 
+\begin{equation}
+  E_{diff} = \frac{1}{2} \int_\Omega \nabla f \cdot c \nabla f \, d\Omega,
+\end{equation}
+where $c$ may a tensor or a scalar.
+ Kinetic energy related to convection is of type
+\begin{equation}
+  E_{con} = \frac{1}{2} \int_\Omega c \vec{v} \cdot \vec{v}  \, d\Omega,
+\end{equation}
+and potential type of energy
+\begin{equation}
+  E_{pot} = \int_\Omega c f \, d\Omega.
+\end{equation}
+
+Sometimes it may be interesting to compute the fluxes through surfaces.
+The values may be used in evaluating the accuracy of the results --
+what goes in should in steady state also come out. 
+There are two different fluxes that may be
+computed. For convective field the flux is of type
+\begin{equation}
+  F_{con} = \int_\Gamma c \vec{v} \cdot \vec{n} \, d\Gamma, 
+\end{equation}
+where $\vec{n}$ is the surface normal. Diffusive fluxes may be computed from
+\begin{equation}
+  F_{diff} = \int_\Gamma c \nabla f \cdot \vec{n} \, d\Gamma , 
+\end{equation}
+where $c$ may also be a tensor.
+
+\section{Keywords}
+
+
+\subsection*{Keywords of solver SaveScalars}
+
+\sifbegin
+\sifitemnt{Solver}{solver id}
+\sifbegin
+\sifitemnt{Procedure}{File "SaveData"\ "SaveScalars"}
+\sifitem{Filename}{String}
+Name of the file where results are to be saved, the default is {\tt scalars.dat}.
+\sifitem{Scalars Prefix}{String}
+Save constants starting with this prefix. The default is {\tt res:}.
+\sifitem{Variable i}{String}
+The names of the variables to be saved. There can be up to 
+99 variables. In addition to field variables there are some special variables.
+The scalar variables. e.g. \texttt{Time}, are saved as is. There are also
+variables \texttt{CPU Time} and \texttt{CPU Memory} that may be used to save 
+execution details.  
+%
+\sifitem{Save Points}{Size n Integer}
+Save the specified degrees of freedom in the $n$ nodes specified.
+%
+\sifitem{Save Coordinates}{Size n DIM Real}
+Save the degrees of freedom in the nodes nearest 
+to the given $n$ coordinates.
+%
+\sifitem{Exact Coordinates}{Logical}
+When this keyword is true the coordinates will be looked in an exact manner.
+Then the degrees of freedom are linear combinations of the node values 
+of the element that the point belongs to.
+%
+\sifitem{Moving Mesh}{Logical}
+If this parameter is \texttt{True} the saved points will be defined every time the subroutine
+is visited. The default is \texttt{False}.
+\sifitem{File Append}{Logical}
+If the results from consecutive rounds should be appended to the file
+this flag should be set to \texttt{True}. The default is {\tt False}.
+%
+\sifitem{Operator i}{String}
+There are different operators that may be performed on all the
+given variables. These include operators working on the set of numbers, 
+\texttt{max, min, max abs, min abs, mean, variance} and \texttt{deviation}.
+There are also a few operators that use statistics over the volume,
+\texttt{int mean} and \texttt{int variance}.
+The volume used by a given variable is obtained by
+operator \texttt{volume}. If a name for the coefficient, is given for the 
+operator, the integral is taken over the coefficient. One can for example
+obtain the weight from a integral over \texttt{Density}.
+Also operator \texttt{dofs} exists and it simply returns the length of 
+the variable under study. 
+
+Three different energy type of quantities may be computed by 
+\Idx{domain integral} operators
+\texttt{diffusive energy, convective energy, potential energy}. 
+Finally, also \Idx{boundary integral}s are possible using operators
+\texttt{diffusive flux}, \texttt{convective flux} and \texttt{area}. 
+These require that in the boundary conditions 
+the active boundaries are defined. Also here there may be an optional 
+coefficient.
+
+There may be up to 99 different operators.
+If the variable is a vector the statistics is performed on its length.
+%
+\sifitem{Coefficient i}{String}
+Even though only limited number of operators are given 
+almost any energy or flux kind of quantity may be computed since 
+the coefficient $c$ may be defined by the user.
+The idea is that the same data that is already used as a material
+parameter can be simple referred to by its name.
+The coefficient may be,
+\texttt{Heat Conductivity}, \texttt{Permittivity}, \texttt{Density}, 
+for example. Usually the coefficient is the same that was used in computing
+the field variable under integration.
+For the \texttt{diffusive energy} and \texttt{diffusive flux} 
+the coefficient may even be a matrix. 
+This parameter is optional and the default is one.
+%
+\sifitem{Polyline Coordinates}{Size n DIM}
+This keyword may be used to create line segments that are defined by
+points $x_1$, $y_1$, $x_2$, and $y_2$. For each line different
+kinds of fluxes trough the elements may be computed.
+This makes it possible, for example, to check the mass flux 
+even though no boundary has a priori been defined.  
+\sifend
+
+\sifitemnt{Boundary Condition}{bc id}
+\sifbegin
+\sifitem{Flux Integrate}{Logical}
+The flag activates the computation of fluxes over this boundary.
+The results are treated independently for each boundary.
+\sifend
+\sifend
+
+
+
+\subsection*{Keywords of subroutine SaveLine}
+
+\sifbegin
+\sifitemnt{Solver}{solver id}
+\sifbegin
+\sifitemnt{Procedure}{File "SaveData"\ "SaveLine"}
+\sifitem{Filename}{String}
+Name of the file where results are to be saved, the default is 
+{\tt sides.dat}. 
+\sifitem{File Append}{Logical}
+If the results from consecutive rounds should be appended to the file
+this flag should be set to {\tt True}. The default is {\tt False}.
+
+\sifitem{Save Axis}{Logical}
+Save all the principal axis. Also keywords {\tt Save Axis i} exist, where
+{\tt i}=1,2,3 defines the axis. 
+%
+\sifitem{Polyline Coordinates}{Size n DIM}
+Save the line consisting of line sections defined by two points. 
+There can be more than one set of points but as a line segment is 
+defined by two points there must be an even number of points.
+%
+\sifitem{Save Flux}{Logical}
+Saves a flux resulting from a gradient of a field by the model
+$h=-\kappa \partial T/\partial n$. This may only be applied 
+to existing boundaries, not lines defined by points.
+%
+\sifitem{Flux Variable}{String}
+The name of the field variable (default $T$ is {\tt Temperature}).
+\sifitem{Flux Coefficient}{String}
+The diffusion constant (by default $\kappa$ is {\tt Heat Conductivity})
+\sifend
+
+\sifitemnt{Boundary Condition}{bc id}
+\sifbegin
+\sifitem{Save Line}{Logical}
+The flag activates the saving of the boundary condition as a line.
+The subroutine tries to save the finite-element lines as a chain of points
+to enable nice postprosessing with MatLab or similar tools.
+The flux may only be saved on lines defined by boundary conditions.
+\sifend
+\sifend
+
+
+\subsection*{Keywords of subroutine SaveMaterials}
+
+\sifbegin
+\sifitemnt{Solver}{solver id}
+\sifbegin
+\sifitemnt{Procedure}{File "SaveData"\ "SaveMaterials"}
+\sifitem{Parameter i}{String}
+The user may choose a number of parameters (i=1,\ldots,99) which
+will be save as variables. This may be particularly handy if one wants to
+visualize how the parameters depend on the position over the domain.
+\sifend
+\sifend

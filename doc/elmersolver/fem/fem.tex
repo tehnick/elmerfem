@@ -1,0 +1,639 @@
+\chapter{Finite Element Utilities}
+\noindent
+
+\section{Introduction}
+
+This section decribes Elmer Solver utilities related directly to Finite Element Method (FEM).
+Finite element method is a common procedure to solve differential and integral equations numerically.
+
+
+\section{Theory}
+
+
+\section{Higher-order finite elements}
+
+\subsection{Theory}
+
+Higher-order finite elements are elements for which the degree of basis functions is higher than $1$. They differ from usual Lagrange -type elements in a sense that in addition to nodal basis functions there exists basis functions, which are associated with edges, faces and interiors of elements.
+
+\begin{itemize}
+\item \textbf{Size modes} get their values along some edge of element. They vanish towards other edges and all nodal points of element. Side modes are defined for all 2d and 3d elements. 
+\item \textbf{Face modes} get their values along some face of element. They vanish towards other faces and all edges and nodal points of element. Face modes are only defined for 3d elements. 
+\item \textbf{Internal modes} get their values inside element and vanish towards elements faces, edges and nodal points. They are defined for all 1d, 2d and 3d elements. 
+\end{itemize}
+
+Higher-order elements are usually also called $p$ -elements. Properties for good $p$-elements include computational efficiency, at least partial orthogonality and hierarchy of basis functions. With hierarchy we mean that if basis for some element of some given degree $p$ is $\mathcal{B}^p$ for $p+1$ it holds that $\mathcal{B}^p \subset \mathcal{B}^{p+1}$. Orthogonal properties of basis functions ensure, that condition number of the global stiffness matrix does not increase as dramatically as for nodal (Lagrange) elements of higher order. This ensures good numerical stability. Some good references to higher-order finite elements in literature are \cite{SzaboBabu} by Szabo and Babuska and \cite{Solin} by Solin et al. 
+
+The usual element interpolant, now denoted as $u_{h,p}$, is for $p$ elements the sum of nodal, edge, face and bubble interpolants
+
+\begin{equation}
+ u_{h,p}=u_{h,p}^v+u_{h,p}^e+u_{h,p}^f+u_{h,p}^b
+\end{equation}
+
+\noindent where $u_{h,p}^v$ is nodal interpolant as defined before and $u_{h,p}^e$ edge, $u_{h,p}^f$ face and $u_{h,p}^b$ bubble interpolants. Let $n_e$ be the number of edges and $n_f$ number of faces in an element. Edge and face interpolants are defined as
+
+\begin{eqnarray*}
+u_{h,p}^e &=& \sum_{i=1}^{n_e} u_{h,p}^{e_i} \\
+u_{h,p}^f &=& \sum_{i=1}^{n_f} u_{h,p}^{f_i}
+\end{eqnarray*} 
+
+Contribution of one $p$ -element to global system is equivalent to that of $h$-element. Naturally for higher-order elements the number of local stiffness matrix elements to contribute to global system is greater, because of the larger number of basis functions.  
+
+Generally using $p$ -elements yields a better approximation than using normal linear elements. In fact, convergence for $p$ elements is exponential when there are no singularities inside or on the boundary of the solution domain. When there are singular points inside the domain convergence is algebraic. If singular point is a nodal point convergence is twice that of $h$-method, otherwise it is equal to the $h$-method.
+
+\subsection{Higher-order elements in Elmer}
+
+Elements implemented in Elmer follow the ones presented in \cite{SzaboBabu}. Now let us define some orthogonal polynomials based on Legendre polynomials $P_i(x), i\geq 0$. So called lobatto shape functions $\phi_k$ are defined as 
+
+\begin{equation}
+\phi_k(\xi)=\sqrt{\frac{1}{2(2k-1)}}(P_{k}(\xi)-P_{k-2}(\xi)),\
+k=2,3,\ldots 
+\end{equation}
+
+\noindent where $P_k$ are Legendre polynomials. Function $\phi$ has two of its roots at $\pm 1$, so now define another function, $\varphi_i$ as
+
+\begin{equation}
+\varphi_k(\xi)=\frac{4\phi_k(\xi)}{1-\xi^2},\ k=2,\ldots,p
+\end{equation}
+
+\noindent Functions $\phi_i$ and $\varphi_i$ are used to define higher order elements. Different element shapes and their their basis functions are defined in appendix \ref{app:pbasis}. Pyramidal element used in Elmer is based loosely to Devloos representation in \cite{Devloo}. 
+
+In Elmer elements with varying polynomial degree $p$ may be used in the same mesh. It is also possible to combine elements of different types in the same mesh, as defined basis functions for edges and faces for different element types are compatible with one another. Pyramidal and wedge higher-order elements to connect tetrahedral and brick elements are also supported. To achieve best possible converge the use of pyramidal elements in a mesh should be kept to a minimum. Global continuity of higher order finite element space used is enforced by the solver, when method \texttt{ElementInfo} is used for obtaining basis functions values for elements.  
+
+To combine elements of varying degree in mesh maximum rule is used. Thus if two or more elements share an edge and have differing polynomial degrees, maximum of edge's degrees is choosed as degree of global edge. 
+
+To declare polynomial degree greater than one to an element, element definition in \texttt{mesh.elements} -file needs to be changed. For $p$ -elements, element definition syntax is 
+
+\[
+T_e[\mbox{p}p_e]
+\]
+
+\noindent where $T_e=\{202,303,404,504,605,706,808\}$ is the element type and $p_e\geq 1$ polynomial degree of element. Setting $p_e=0$ equals using normal linear basis defined in Elmer. For example, a triangle with polymial degree $4$ could be defined in mesh.elements file as follows
+
+\[
+303\mbox{p}4
+\]
+
+The actual number of degrees of freedom for edges, faces or bubbles of element types is defined by element polynomial degree $p$. Each degree of freedom in element is associated with some basis function. The following table gives the number of degrees of freedom for elements used in Elmer.  
+
+\begin{table}[H]
+\begin{tabular}{|l|c|c|c|c|}
+\hline
+Element & Nodes & Edges & Faces & Bubbles \\
+\hline \hline
+Line & $2$ & - & - & $p-1$ \\
+\hline
+Quadrilateral & $4$ & $4(p-1)$ & - & $\frac{(p-2)(p-3)}{2}$ \\
+\hline
+Triangle & $3$ & $3(p-1)$ & - & $\frac{(p-1)(p-2)}{2}$ \\
+\hline
+Brick & $8$ & $12(p-1)$ & $ 3(p-2)(p-3)$ &
+$\frac{(p-3)(p-4)(p-5)}{6}$ \\
+\hline
+Tetrahedron & $4$ & $6(p-1)$ & $2(p-1)(p-2)$ &
+$\frac{(p-1)(p-2)(p-3)}{6}$ \\
+\hline
+Wedge & $6$ & $9(p-1)$ & - & $\frac{(p-2)(p-3)(p-4)}{6}$ \\
+(quad. face) & - & - & $\frac{3(p-2)(p-3)}{2}$ & - \\
+(triang. face) & - & - & $(p-1)(p-2)$ & - \\
+\hline
+Pyramidi & $5$ & $8(p-1)$ & -  &  $\frac{(p-1)(p-2)(p-3)}{6}$ \\
+(quad. face) & - & - & $\frac{(p-2)(p-3)}{2}$ & - \\
+(triang. face) & - & - & $2(p-1)(p-2)$ & - \\
+\hline
+\end{tabular}
+\end{table} 
+
+It is worth noting, however, that used Solver (HeatSolve, StressSolve, etc.) used must be modified to support elements of higher degree. Usually this only consists of making local stiffness matrix and force vector larger. 
+
+A $p$-element passed to Elmer gaussian point generator \texttt{GaussPoints} defined in module \texttt{Integration} returns enough integration points to integrate worst case product of two element basis functions. Here worst case is integration over two basis functions for which $p_m=\max\{p_e,p_f,p_b\}$. As gaussian quadrature is accurate to degree $p=2n-1$, where $n$ is the number of points used, number of points for each element is calculated from 
+
+\begin{equation}
+n=\frac{2p_m+1}{2}
+\end{equation} 
+
+\noindent and rounded up to nearest integer. To get the final number of points for multiple integrals, $n$ is raised to the power of element dimension. If integral includes a non-constant factor, i.e $\int_K \alpha \phi_i\phi_j$ where $\alpha$ is a function of degree $k$, numerical integration is not accurate and number of integration points needs to be set manually. Now minimum number of gaussian points to integrate element accurately becomes
+
+\begin{equation}
+n=\frac{\min{\{2p_m+k,3p_m\}}+1}{2}
+\end{equation}
+
+\noindent which may again be rounded up to nearest integer and raised to power of element dimension to get the actual number of integration points. 
+
+\subsubsection{Boundary conditions}
+
+Boundary elements (elements, which lie on a boundary of a computational domain) obey the parity of their parent element. Basis for elements on boundary is defined so that it represents a projection from high to low dimension in element space. Thus it is possible to integrate along the boundary of the computational domain and use values obtained to set Neumann boundary conditions, for example. Treatment of Neumann and Newtonian is analogous to classical cases presented in many finite element method textbooks, except for the greater number of basis functions to set. 
+
+In Elmer, Newtonial and Neumann boundary conditions are set by integrating over element boundaries and contributing these integrals to global system. For higher order elements this procedure may also be used, because higher order functions of boundary elements are given the direction of their parent. Thus values returned for boundary element are equal to values of their parent elements higher order functions on element boundary. Indexes for contribution to global system may be acquired from procedure defined in module \texttt{DefUtils}
+
+\ttbegin
+getBoundaryIndexes( Mesh, Element, Parent, Indexes, indSize )
+\ttend
+
+\noindent which returns global indexes of contribution for boundary element \texttt{Element} to given vector \texttt{Indexes}, given the finite element mesh \texttt{Mesh} and parent element \texttt{Parent} of boundary element. Also the size of created index vector is returned to \texttt{indSize}. 
+
+Nonhomogeneous Dirichlet type boundary conditions, e.g. $u=g$, on $\partial T$ are more difficult to handle for higher order elements. Even though the nodal values are known, the coefficients of higher order functions are linear combinations over whole element boundary and thus it cannot be set as a nodal value.
+
+Subroutine \texttt{DefaultDirichletBCs} solves unknown coefficients of higher order functions by minimizing boundary problem energy. Problem given is then equivalent to that of standard fem, except that integrals and functions are calculated along boundary of the computational domain. Generally, from a solver user point of view, Dirichlet boundary conditions need no extra actions compared to the use of normal elements. 
+
+\subsubsection{Some practical aspects}
+
+Typical singular points in the solution are points where boundary condition or material parameters change abruptly or vertex type singularities (such as the inner node of a l-shaped beam or a crack tip). In these cases convergence of the $p$-method is twice that of $h$-method. 
+
+However, it is much more expensive computationally to use high polynomial degree than use many elements of low degree. Therefore, if possible,  mesh should be designed in a way that near nodal singularities small low degree ($p=1$) elements were used. In other parts of the solution domain, where the solution is smoother, large elements with high polynomial degree are adviced. As Elmer is not $hp$-adaptive, and element polynomial degree is not modified by the solver, mesh design issues must be taken into account for computational efficiency. 
+
+It is well known that for linear problems it is possible reduce the size of the global problem by leaving out all bubble functions. This procedure is often called condensation. In Elmer condensation for local stiffness matrix may be done (and is adviced to be done) for linear systems which do not need stabilization. Condensation is done by routine \texttt{CondensateP} located in module \texttt{SolverUtils}. More precisely routine is expressed as
+
+\ttbegin
+CondensateP(N, Nb, K, F, F1)
+\ttend
+
+\noindent where \texttt{N} is the number of all nodal, edge and face degrees of freedom, \texttt{Nb} the number of internal degrees of freedom, \texttt{K} local stiffness matrix, \texttt{F} local force vector and \texttt{F1} optional second force vector.
+
+\subsection{ElmerSolver services for higher-order elements} 
+
+This section describes some of the services related to $p$ elements, which are included in different parts of the Solver. 
+
+\subsubsection{Properties of $p$ element}
+
+For determining $p$ element properties there are several utilities. First of all it is possible to check if some element is a $p$ element by checking elements \texttt{isPElement} flag. If flag is set to true, element is a $p$-element. Functions 
+
+\ttbegin
+isPTriangle( Element )
+isPTetra( Element )
+isPPyramid( Element )
+isPWedge( Element )
+\ttend
+
+\noindent check if given element is $p$ type triangle, tetrahedron, pyramid or wedge. They are implemented because used $p$ reference triangles, tetrahedrals, pyramids and wedges are different than those defined for Lagrange type elements.  For determining maximum degrees of element edges or faces, routines 
+
+\ttbegin
+getEdgeP( Element, Mesh )
+getFaceP( Element, Mesh )
+\ttend 
+
+\noindent return the maximum polynomial degree of elements edges or faces, when given \texttt{Element} and finite element mesh \texttt{Mesh}.
+
+\subsubsection{Fields related to $p$ elements}
+
+In module \texttt{Types}, type \texttt{Element\_t} has following $p$ element related fields
+
+\ttbegin
+INTEGER :: TetraType
+LOGICAL :: isPElement
+LOGICAL :: isEdge
+INTEGER :: localNumber
+INTEGER :: GaussPoints 
+\ttend
+
+\texttt{Tetratype} defines type of tetrahedral $p$ element. For nontetrahedral elements \texttt{Tetratype=0}, for tetrahedral elements \texttt{Tetratype=}$\{1,2\}$. 
+
+\texttt{isPElement} defines if an element is of higher-order. \texttt{isPElement=.TRUE.} for $p$-elements, \texttt{.FALSE.} otherwise.
+
+\texttt{isEdge} defines if an element is edge element for some higher entity, i.e. edge or face of a 2d or 3d element. If \texttt{isEdge=.TRUE.} element is an edge, \texttt{.FALSE.} otherwise.
+
+\texttt{localNumber} defines the local number of boundary elements, that is which local edge or face number boundary element has in respect to its' parent element. 
+
+\texttt{GaussPoints} defines the number of gauss points for element. Value is calculated from $n=(\frac{2p_m+1}{2})^d$, where $d$ is element dimension and $p_m$ element maximum polynomial degree. $n$ is rounded up to nearest integer. Variable \texttt{GaussPoints} has enough quadrature points to integrate function of degree $2p_m$ accurately. 
+
+When modifying local solver to support higher order elements, the maximum size for some element stiffness matrix or force vector may be obtained from mesh variable \texttt{MaxElementDOFs}. This variable is set by the mesh read-in process to the maximum degrees of freedom for single element in mesh.  
+
+\subsubsection{Higher order basis and element mappings}
+
+Basis for higher order elements is defined in module \texttt{PElementBase}. Module contains also definitions for $\phi$ and $\varphi$ -functions and Legendre polynomials. These definitions have been generated to implicit form with symbolic program \textbf{Maple} \cite{Maple} up to $p_{\max}\leq 20$. This mean that no recursion is needed for generation of values of Legendre polynomials or other lower level components based on them, if used $p<p_{\max}$. 
+
+Generally higher order basis functions take as their arguments the point in which to calculate function value and indexing $i$,$m(i,j)$ or $m(i,j,k)$ depending on the function type. All edge functions take in addition to these parameters a special optional flag, namely \texttt{invertEdge}, which defines if direction of edge basis function needs to be inverted. In Elmer all edges are globally traversed from smaller to higher node. That is, let $A$ and $B$ be global node numbers of edges. The varying parameter of edge function then varies between $[-1,1]$ from $A \rightarrow B$ globalle. Inversion is then used for enforcing global continuity of edge basis functions which are not properly aligned.  Edge rule is presented in figure \ref{fig:parityedge}
+
+\begin{figure}[tbhp]
+\begin{center}
+\label{fig:parityedge}
+\input{fem/parity_line.pstex_t}
+\end{center}
+\caption{Global direction of edge. For global node indexes $A<B$}
+\end{figure}
+
+Most of the face functions take as their optional argument the local numbering based on which face functions are formed. This local direction is formed according to global numbers of face nodes. There are rules for triangular and square faces. Let $A,B,C$ be global nodes of a triangular face. Globally face is aligned so that $A<B<C$. For square faces $A=\min\{v_i\}$ where $v_i$ are global nodes of square face and $B,C$ are nodes next to node $A$ on face. Square face is aligned by rule $A<B<C$ for these nodes. These rules are presented in figure \ref{fig:parityqt}.
+
+\begin{figure}[tbhp]
+\begin{center}
+\label{fig:parityqt}
+\input{fem/parity_qt.pstex_t}
+\end{center}
+\caption{Global direction of triangular and quadrilateral faces. For global node indexes $A<B<C$; $A$ has lowest index among indexes of face.}
+\end{figure}
+
+Tetrahedral element is an exception to the above interface rules, i.e. edge and face functions of tetrahedral elements take type of tetrahedral element as their optional argument. This is due to fact that it is possible to reduce any tetrahedral element to one of the two reference tetrahedral elements for which all edges and faces are defined so that their local orientation matches global orientation. This means, that for tetrahedral elements, global continuity does not need to be enforced, if proper reduction to one of the two reference elements has been made. 
+
+Mappings from element nodal numbers to different $p$ element edges or faces are defined in module \texttt{PElementMaps}. Mappings generally define which nodes of element belong to certain local edge or face of elements. Mappings to elements edges, faces and from faces to local edge numbers may be obtained from routines \texttt{GetElementEdgeMap}, \texttt{GetElementFaceMap} and \texttt{GetElementFaceEdgeMap}. Mappings may also be accessed by via methods \texttt{get}$T_e$$P_e$\texttt{Map}, where $T_e$ is element name and $P_e=\{$Edge,Face$\}$ is part of element to get map for. Routine \texttt{getElementBoundaryMap} returns mappings for element boundaries depending on element type. 
+
+For example, to get global nodes for brick face number $4$, one would use the following \texttt{Fortran90} code
+
+\ttbegin
+map(1:4) = getBrickFaceMap(4)
+nodes(1:4) = Element \% NodeIndexes(map)
+\ttend
+
+\subsection{Higher-order elements}
+
+\label{app:pbasis}
+
+Let $\lambda_1,\lambda_2,\lambda_3 \in \{\pm\xi,\pm\eta,\pm\zeta \}$
+and additionally $\bigcap_i\lambda_i=\phi$. 
+
+\subsection{Line}
+
+\begin{figure}[tbhp]
+\begin{center}
+\input{fem/line.pstex_t}
+\caption{Line element}
+\end{center}
+\end{figure}
+
+\subsubsection{Nodal basis}
+
+\begin{eqnarray*}
+L_1&=&\frac{1-\xi}{2} \\
+L_2&=&\frac{1+\xi}{2}
+\end{eqnarray*}
+
+\subsubsection{Bubble basis}
+
+\begin{eqnarray*}
+L_i^{(0)}&=&\phi_i(\xi),\ i=2,\ldots,p
+\end{eqnarray*}
+
+\subsection{Quadrilateral}
+
+\begin{figure}[tbhp]
+\begin{center}
+\input{fem/quad.pstex_t}
+\caption{Quadrilateral element}
+\end{center}
+\end{figure}
+
+\subsubsection{Nodal basis}
+
+\begin{eqnarray*}
+N_1&=&\frac{1}{4}(1-\xi)(1-\eta) \\
+N_2&=&\frac{1}{4}(1+\xi)(1-\eta) \\
+N_3&=&\frac{1}{4}(1+\xi)(1+\eta) \\
+N_4&=&\frac{1}{4}(1-\xi)(1+\eta)
+\end{eqnarray*}
+
+\subsubsection{Edge basis}
+
+\begin{eqnarray*}
+N_i^{(1,2)}&=&\frac{1}{2}(1-\eta)\phi_i(\xi), \ i=2,\ldots,p \\
+N_i^{(2,3)}&=&\frac{1}{2}(1+\xi)\phi_i(\eta), \ i=2,\ldots,p \\
+N_i^{(4,3)}&=&\frac{1}{2}(1+\eta)\phi_i(\xi), \ i=2,\ldots,p \\ 
+N_i^{(1,4)}&=&\frac{1}{2}(1-\xi)\phi_i(\eta), \ i=2,\ldots,p
+\end{eqnarray*} 
+
+\subsubsection{Bubble basis}
+
+\begin{eqnarray*}
+N_{m(i,j)}^{(0)}&=&\phi_i(\xi)\phi_j(\eta)
+\end{eqnarray*}
+
+\noindent where\ $i,j\geq 2,\ i+j=4,\ldots,p$
+
+\subsection{Triangle}
+
+\begin{figure}[tbhp]
+\begin{center}
+\input{fem/triangle.pstex_t}
+\caption{Triangle element}
+\end{center}
+\end{figure}
+
+\subsubsection{Nodal basis}
+
+\begin{eqnarray*}
+L_1&=&\frac{1}{2}(1-\xi-\frac{1}{\sqrt{3}}\eta) \\
+L_2&=&\frac{1}{2}(1+\xi-\frac{1}{\sqrt{3}}\eta) \\
+L_3&=&\frac{\eta}{\sqrt{3}}
+\end{eqnarray*}
+
+\subsubsection{Edge basis}
+
+\begin{eqnarray*}
+N_i^{(1,2)}=L_1L_2\varphi_i(L_2-L_1),\ i=2,\ldots,p \\
+N_i^{(2,3)}=L_2L_3\varphi_i(L_3-L_2),\ i=2,\ldots,p \\
+N_i^{(3,1)}=L_3L_1\varphi_i(L_1-L_3),\ i=2,\ldots,p
+\end{eqnarray*}
+
+\subsubsection{Bubble basis}
+
+\begin{eqnarray*}
+N_{m(j,n)}^{(0)}=L_1L_2L_3 P_{1}(L_2-L_1)^{j}P_{1}(2L_3-1)^{n}
+\end{eqnarray*}
+
+\noindent where\ $j,n=0,\ldots,i-3$, $j+n=i-3,\ i=3,\ldots,p$
+
+\subsection{Brick}
+
+\begin{figure}[tbhp]
+\begin{center}
+\input{fem/brick.pstex_t}
+\caption{Brick element}
+\end{center}
+\end{figure}
+
+\subsubsection{Nodal basis}
+
+\begin{eqnarray*}
+N_1&=&\frac{1}{8}(1-\xi)(1-\eta)(1-\zeta) \\
+N_2&=&\frac{1}{8}(1+\xi)(1-\eta)(1-\zeta) \\
+N_3&=&\frac{1}{8}(1+\xi)(1+\eta)(1-\zeta) \\
+N_4&=&\frac{1}{8}(1-\xi)(1+\eta)(1-\zeta) \\
+N_5&=&\frac{1}{8}(1-\xi)(1-\eta)(1+\zeta) \\
+N_6&=&\frac{1}{8}(1+\xi)(1-\eta)(1+\zeta) \\
+N_7&=&\frac{1}{8}(1+\xi)(1+\eta)(1+\zeta) \\
+N_8&=&\frac{1}{8}(1-\xi)(1+\eta)(1+\zeta)
+\end{eqnarray*}
+
+\subsubsection{Edge basis}
+ 
+\begin{eqnarray*}
+N_{i-1}^{1,2}&=&\frac{1}{4}\phi_i(\xi)(1-\eta)(1-\zeta) \\
+N_{i-1}^{2,3}&=&\frac{1}{4}\phi_i(\eta)(1+\xi)(1-\zeta) \\
+N_{i-1}^{4,3}&=&\frac{1}{4}\phi_i(\xi)(1+\eta)(1-\zeta) \\
+N_{i-1}^{1,4}&=&\frac{1}{4}\phi_i(\eta)(1-\xi)(1-\zeta) \\
+N_{i-1}^{1,5}&=&\frac{1}{4}\phi_i(\zeta)(1-\xi)(1-\eta) \\
+N_{i-1}^{2,6}&=&\frac{1}{4}\phi_i(\zeta)(1+\xi)(1-\eta) \\
+N_{i-1}^{3,7}&=&\frac{1}{4}\phi_i(\zeta)(1+\xi)(1+\eta) \\
+N_{i-1}^{4,8}&=&\frac{1}{4}\phi_i(\zeta)(1-\xi)(1+\eta) \\
+N_{i-1}^{5,6}&=&\frac{1}{4}\phi_i(\xi)(1-\eta)(1+\zeta) \\
+N_{i-1}^{6,7}&=&\frac{1}{4}\phi_i(\eta)(1+\xi)(1+\zeta) \\
+N_{i-1}^{8,7}&=&\frac{1}{4}\phi_i(\xi)(1+\eta)(1+\zeta) \\
+N_{i-1}^{5,8}&=&\frac{1}{4}\phi_i(\eta)(1-\xi)(1+\zeta)
+\end{eqnarray*}
+
+\subsubsection{Face basis}
+
+\begin{eqnarray*}
+N_{m(i,j)}^{(1,2,5,6)}=\frac{1}{2}(1-\eta)\phi_i(\xi)\phi_j(\zeta) \\
+N_{m(i,j)}^{(1,2,4,3)}=\frac{1}{2}(1-\zeta)\phi_i(\xi)\phi_j(\eta) \\
+N_{m(i,j)}^{(1,4,5,8)}=\frac{1}{2}(1-\xi)\phi_i(\eta)\phi_j(\zeta) \\
+N_{m(i,j)}^{(4,3,8,7)}=\frac{1}{2}(1+\eta)\phi_i(\xi)\phi_j(\zeta) \\
+N_{m(i,j)}^{(5,6,8,7)}=\frac{1}{2}(1+\zeta)\phi_i(\xi)\phi_j(\eta) \\
+N_{m(i,j)}^{(2,3,6,7)}=\frac{1}{2}(1+\xi)\phi_i(\eta)\phi_j(\zeta)
+\end{eqnarray*}
+
+\noindent where $i,j=2,3,\ldots,p-2$, $i+j=4,5,\ldots,p$
+
+\subsubsection{Bubble basis}
+
+\begin{eqnarray*}
+N_{m(i,j,k)}^{(0)}=\phi_i(\xi)\phi_j(\eta)\phi_k(\zeta)
+\end{eqnarray*}
+
+\noindent where $i,j,k=2,3,\ldots,p-4$, $i+j+k=6,7,\ldots,p$
+
+\subsection{Tetrahedron}
+
+\begin{figure}[tbhp]
+\begin{minipage}{.5\textwidth}
+\begin{center}
+\input{fem/tetra1.pstex_t}
+\end{center}
+\end{minipage}
+\begin{minipage}{.5\textwidth}
+\begin{center}
+\input{fem/tetra2.pstex_t}
+\end{center}
+\end{minipage}
+\caption{Tetrahedral elements of types 1 and 2}
+\end{figure}
+
+\subsubsection{Nodal basis}
+
+\begin{eqnarray*}
+L_1&=&\frac{1}{2}(1-\xi-\frac{1}
+{\sqrt{3}}\eta-\frac{1}{\sqrt{6}}\zeta) \\
+L_2&=&\frac{1}{2}(1+\xi-\frac{1}
+{\sqrt{3}}\eta-\frac{1}{\sqrt{6}}\zeta) \\
+L_3&=&\frac{\sqrt{3}}{3}(\eta-\frac{1}{\sqrt{8}}\zeta) \\
+L_4&=&\sqrt{\frac{3}{8}}\zeta
+\end{eqnarray*}
+
+\subsubsection{Edge basis}
+
+\noindent \textbf{Type 1}
+
+\begin{eqnarray*}
+N_{i-1}^{(1,2)}&=&L_1L_2\varphi_i(L_2-L_1),\ i=2,\ldots,p \\
+N_{i-1}^{(1,3)}&=&L_1L_3\varphi_i(L_3-L_1),\ i=2,\ldots,p \\
+N_{i-1}^{(1,4)}&=&L_1L_4\varphi_i(L_4-L_1),\ i=2,\ldots,p \\
+N_{i-1}^{(2,3)}&=&L_2L_3\varphi_i(L_3-L_2),\ i=2,\ldots,p \\
+N_{i-1}^{(2,4)}&=&L_2L_4\varphi_i(L_4-L_2),\ i=2,\ldots,p \\
+N_{i-1}^{(3,4)}&=&L_3L_4\varphi_i(L_4-L_3),\ i=2,\ldots,p 
+\end{eqnarray*}
+
+\noindent \textbf{Type 2}
+
+\begin{eqnarray*}
+N_{i-1}^{(3,2)}&=&L_3L_2\varphi_i(L_2-L_3),\ i=2,\ldots,p
+\end{eqnarray*}
+
+\noindent Edges $(1,2)$,$(1,3)$,$(1,4)$,$(2,4)$ ja $(3,4)$ according to type 1.
+
+\subsubsection{Face basis}
+
+\noindent \textbf{Type 1}
+
+\begin{eqnarray*}
+N_{m(i,j)}^{(1,2,3)}&=&L_1L_2L_3P_i(L_2-L_1)P_j(2L_3-1) \\
+N_{m(i,j)}^{(1,2,4)}&=&L_1L_2L_4P_i(L_2-L_1)P_j(2L_4-1) \\
+N_{m(i,j)}^{(1,3,4)}&=&L_1L_4L_3P_i(L_3-L_1)P_j(2L_4-1) \\
+N_{m(i,j)}^{(2,3,4)}&=&L_2L_3L_4P_i(L_3-L_2)P_j(2L_4-1) 
+\end{eqnarray*}
+
+\noindent \textbf{Type 2}
+
+\begin{eqnarray*}
+N_{m(i,j)}^{(1,3,2)}&=&L_1L_3L_2P_i(L_3-L_1)P_j(2L_2-1) \\
+N_{m(i,j)}^{(3,2,4)}&=&L_3L_2L_4P_i(L_2-L_3)P_j(2L_4-1) 
+\end{eqnarray*}
+
+\noindent where $i,j=0,1,2,\ldots,p-3$, $i+j=0,1,\ldots,p-3$. Faces $(1,2,4)$ and $(1,3,4)$ defined according to type 1.
+
+\subsubsection{Bubble basis}
+
+\begin{eqnarray*}
+N_{m(i,j,k)}^{(0)}&=&L_1L_2L_3L_4P_i(L_2-L_1)P_j(2L_3-1)P_k(2L_4-1)
+\end{eqnarray*}
+
+\noindent where $i,j,k=0,1,\ldots,p-4$, $i+j+k=0,1,\ldots,p-4$ 
+
+\subsection{Pyramid}
+
+\begin{figure}[tbhp]
+\begin{center}
+\input{fem/pyramid.pstex_t}
+\caption{Pyramidal element}
+\end{center}
+\end{figure}
+
+\subsubsection{Nodal basis}
+
+\begin{eqnarray*}
+T_0(c,t)&=&\frac{(1-\frac{t}{\sqrt{2}})-c}{2(1-\frac{t}{\sqrt{2}})} \\
+T_1(c,t)&=&\frac{(1-\frac{t}{\sqrt{2}})+c}{2(1-\frac{t}{\sqrt{2}})}
+\end{eqnarray*}
+
+\begin{eqnarray*}
+P_1&=&T_0(\xi,\zeta)T_0(\eta,\zeta)(1-\frac{\zeta}{\sqrt{2}}) \\
+P_2&=&T_1(\xi,\zeta)T_0(\eta,\zeta)(1-\frac{\zeta}{\sqrt{2}}) \\
+P_3&=&T_1(\xi,\zeta)T_1(\eta,\zeta)(1-\frac{\zeta}{\sqrt{2}}) \\
+P_4&=&T_0(\xi,\zeta)T_1(\eta,\zeta)(1-\frac{\zeta}{\sqrt{2}}) \\
+P_5&=&\frac{1}{\sqrt{2}}\zeta 
+\end{eqnarray*}
+
+\subsubsection{Edge basis}
+
+\begin{eqnarray*}
+P_{i-1}^{(1,2)}&=&P_1(\xi,\eta,\zeta)P_2(\xi,\eta,\zeta)\varphi_i(\xi) \\
+P_{i-1}^{(2,3)}&=&P_2(\xi,\eta,\zeta)P_3(\xi,\eta,\zeta)\varphi_i(\eta) \\ 
+P_{i-1}^{(4,3)}&=&P_4(\xi,\eta,\zeta)P_3(\xi,\eta,\zeta)\varphi_i(\xi) \\
+P_{i-1}^{(1,4)}&=&P_1(\xi,\eta,\zeta)P_4(\xi,\eta,\zeta)\varphi_i(\eta) \\
+P_{i-1}^{(1,5)}&=&P_1(\xi,\eta,\zeta)P_5(\xi,\eta,\zeta)
+\varphi_i(\frac{\xi}{2}+\frac{\eta}{2}+\frac{\zeta}{\sqrt{2}}) \\
+P_{i-1}^{(2,5)}&=&P_2(\xi,\eta,\zeta)P_5(\xi,\eta,\zeta) 
+\varphi_i(-\frac{\xi}{2}+\frac{\eta}{2}+\frac{\zeta}{\sqrt{2}}) \\
+P_{i-1}^{(3,5)}&=&P_3(\xi,\eta,\zeta)P_5(\xi,\eta,\zeta)
+\varphi_i(-\frac{\xi}{2}-\frac{\eta}{2}+\frac{\zeta}{\sqrt{2}}) \\
+P_{i-1}^{(4,5)}&=&P_4(\xi,\eta,\zeta)P_5(\xi,\eta,\zeta)
+\varphi_i(\frac{\xi}{2}-\frac{\eta}{2}+\frac{\zeta}{\sqrt{2}})
+\end{eqnarray*}
+
+\subsubsection{Face basis}
+
+\noindent \textbf{Square face}
+
+\begin{eqnarray*} 
+P_{m(i,j)}^{(1,2,3,4)}&=&P_1(\xi,\eta,\zeta)P_3(\xi,\eta,\zeta)
+\varphi_i(\xi)\varphi_j(\eta) \\ 
+\end{eqnarray*}
+
+\noindent where $i,j=2,\ldots,p-2$,\ $i+j=4,\ldots,p$. 
+
+\noindent \textbf{Triangular faces}
+
+\begin{eqnarray*}
+P_{m(i,j)}^{(1,2,5)}&=&P_1(\xi,\eta,\zeta)P_2(\xi,\eta,\zeta)
+P_5(\xi,\eta,\zeta)
+P_i(P_2(\xi,\eta,\zeta)-P_1(\xi,\eta,\zeta))
+P_j(2P_5(\xi,\eta,\zeta)-1) \\
+P_{m(i,j)}^{(2,3,5)}&=&P_2(\xi,\eta,\zeta)P_3(\xi,\eta,\zeta)
+P_5(\xi,\eta,\zeta)
+P_i(P_3(\xi,\eta,\zeta)-P_2(\xi,\eta,\zeta))
+P_j(2P_5(\xi,\eta,\zeta)-1) \\
+P_{m(i,j)}^{(3,4,5)}&=&P_3(\xi,\eta,\zeta)P_4(\xi,\eta,\zeta)
+P_5(\xi,\eta,\zeta)
+P_i(P_4(\xi,\eta,\zeta)-P_3(\xi,\eta,\zeta))
+P_j(2P_5(\xi,\eta,\zeta)-1) \\
+P_{m(i,j)}^{(4,1,5)}&=&P_4(\xi,\eta,\zeta)P_1(\xi,\eta,\zeta)
+P_5(\xi,\eta,\zeta)
+P_i(P_1(\xi,\eta,\zeta)-P_4(\xi,\eta,\zeta))
+P_j(2P_5(\xi,\eta,\zeta)-1)
+\end{eqnarray*}
+
+\noindent where $i,j=0,\ldots,p-3$,\ $i+j=0,\ldots,p-3$ and $P_i,P_j$
+Legendre polynomials.
+
+\subsubsection{Bubble basis} 
+
+\begin{eqnarray*}
+P_{m(i,j,k)}^{(0)}&=&P_1(\xi,\eta,\zeta)P_3(\xi,\eta,\zeta)
+P_5(\xi,\eta,\zeta)P_i(\frac{\xi}{1-\frac{\zeta}{\sqrt{2}}})
+P_j(\frac{\eta}{1-\frac{\zeta}{\sqrt{2}}})P_k(\frac{\zeta}{\sqrt{2}})
+\end{eqnarray*}
+
+\noindent where $i,j,k=0,\ldots,p-4$,\ $i+j+k=0.\ldots,p-4$ and
+$P_i,P_j,P_k$ Legendre polynomials
+
+\subsection{Wedge}
+
+\begin{figure}[tbhp]
+\begin{center}
+\input{fem/wedge.pstex_t}
+\caption{Wedge element}
+\end{center}
+\end{figure}
+
+\subsubsection{Nodal basis}
+
+\begin{eqnarray*}
+L_1&=&\frac{1}{2}(1-\xi-\frac{1}{\sqrt{3}}\eta) \\
+L_2&=&\frac{1}{2}(1+\xi-\frac{1}{\sqrt{3}}\eta) \\
+L_3&=&\frac{\sqrt{3}}{3}\ \eta 
+\end{eqnarray*}
+
+\begin{eqnarray*}
+H_1&=&\frac{1}{2}L_1(1-\zeta) \\
+H_2&=&\frac{1}{2}L_2(1-\zeta) \\
+H_3&=&\frac{1}{2}L_3(1-\zeta) \\
+H_4&=&\frac{1}{2}L_1(1+\zeta) \\
+H_5&=&\frac{1}{2}L_2(1+\zeta) \\
+H_6&=&\frac{1}{2}L_3(1+\zeta)
+\end{eqnarray*}
+
+\subsubsection{Edge basis}
+
+\begin{eqnarray*}
+H_{i-1}^{(1,2)}&=&\frac{1}{2}L_1L_2\varphi_i(L_2-L_1)(1-\zeta) \\
+H_{i-1}^{(2,3)}&=&\frac{1}{2}L_2L_3\varphi_i(L_3-L_2)(1-\zeta) \\
+H_{i-1}^{(3,1)}&=&\frac{1}{2}L_3L_1\varphi_i(L_1-L_3)(1-\zeta) \\
+H_{i-1}^{(4,5)}&=&\frac{1}{2}L_4L_5\varphi_i(L_5-L_4)(1+\zeta) \\
+H_{i-1}^{(5,6)}&=&\frac{1}{2}L_5L_6\varphi_i(L_6-L_5)(1+\zeta) \\
+H_{i-1}^{(6,4)}&=&\frac{1}{2}L_6L_4\varphi_i(L_4-L_6)(1+\zeta) \\
+H_{i-1}^{(1,4)}&=&L_1\phi_i(\zeta) \\
+H_{i-1}^{(2,5)}&=&L_2\phi_i(\zeta) \\
+H_{i-1}^{(3,6)}&=&L_3\phi_i(\zeta)
+\end{eqnarray*}
+
+\subsubsection{Face basis}
+
+\noindent \textbf{Triangular faces}
+
+\begin{eqnarray*}
+H_{m(i,j)}^{(1,2,3)}&=&\frac{1}{2}(1-\zeta) P_i(L_2-L_1)
+P_j(2L_3-1)L_1L_2L_3 \\
+H_{m(i,j)}^{(4,5,6)}&=&\frac{1}{2}(1+\zeta) P_i(L_2-L_1)
+P_j(2L_3-1)L_1L_2L_3
+\end{eqnarray*}
+
+\noindent where $i,j=0,1,\ldots,p-3$, $i+j=0,1,\ldots,p-3$ and
+$P_i,P_j$ Legendre polynomials.
+
+\noindent \textbf{Square faces}
+
+\begin{eqnarray*}
+H_{m(i,j)}^{(1,2,5,4)}&=&\varphi_i(L_2-L_1)\phi_j(\zeta)L_1L_2 \\
+H_{m(i,j)}^{(2,3,6,5)}&=&\varphi_i(L_3-L_2)\phi_j(\zeta)L_2L_3 \\
+H_{m(i,j)}^{(3,1,4,6)}&=&\varphi_i(L_1-L_3)\phi_j(\zeta)L_3L_1
+\end{eqnarray*}
+
+\noindent where $i,j=2,\ldots,p-2$, $i+j=4,\ldots,p$.
+
+\subsubsection{Bubble basis}
+
+\begin{eqnarray*}
+H_{m(i,j,k)}^{(0)}&=&\phi_k(\zeta)L_1L_2L_3 P_i(L_2-L_1) P_j(2L_3-1)
+\end{eqnarray*}
+
+\noindent where $i,j=0,\ldots,p-5$, $k=2,\ldots,p-3$,
+$i+j+k=2,\ldots,p-3$.
+
+\bibliography{elmerbib}
+\bibliographystyle{plain}
+% \bibitem{SzaboBabu}  B. Szabo. I. Babuska. \emph{Finite Element Analysis}.
+% John Wiley \& Sons Ltd. 1991
+% \bibitem{Solin} P. \v{S}olin et al. \emph{Higher-Order Finite Element
+%   Methods}. Chapman \& Hall / CRC. 2004
+% \bibitem{Devloo} \bibitem{Devl} P.R.B. Devloo \emph{On the definition of high% order shape functions for finite elements}. Available online: \texttt{http://www.fec.unicamp.br/~phil/downloads/shape.zip}
+% \bibitem{Maple} \emph{Maplesoft home page} \texttt{http://www.maplesoft.com/}
+% 
+
+

@@ -1,0 +1,152 @@
+\chapter{Static Current Conduction}\label{chap:statcurr}
+
+\modinfo{Module name}{\Idx{StatCurrentSolve}}
+\modinfo{Module subroutines}{\Idx{StatCurrentSolver}}
+\modinfo{Module authors}{Leila Puska, Antti Pursula, Peter Råback}
+\modinfo{Document authors}{Antti Pursula}
+\modinfo{Document edited}{August 2nd 2002}
+
+
+\section{Introduction}
+
+The macroscopic electromagnetic theory is governed by the Maxwell's
+equations. This module solves the electrostatic potential in
+conducting medium allowing volume currents and electric power loss
+(Joule heating) to be derived.
+
+
+\section{Theory}
+
+In quasi-static approximation, when $\varepsilon \mu c^2 << 1$, the
+first and fourth Maxwell equation can be written as follows
+\begin{eqnarray}
+\nabla\cdot \Vec{D} & = & \rho \label{max1} \\
+%\nabla\cdot \Vec{B} & = & 0 \\
+%\nabla\times \Vec{E} & = & -\frac{\partial\Vec{B}}{\partial t} \\
+\nabla\times \Vec{H} & = & \Vec{J} + \frac{\partial\Vec{D}}{\partial t}
+\label{max4}
+\end{eqnarray}
+
+The continuity equation for electric charges is
+easily derived from the above Maxwell Eqs.~\ref{max1} and~\ref{max4}
+\begin{equation}
+\frac{\partial \rho}{\partial t} + \nabla\cdot \Vec{J} = 0
+\label{elcontinuity}
+\end{equation}
+The \Idx{Ohm's law} for conducting material gives
+the relationship between \Idx{current density} and 
+electric field,
+\begin{equation}
+\Vec{J} = \sigma \Vec{E}
+\label{ohm}
+\end{equation}
+In steady-state case the electric field may be expressed with a help of
+an electric scalar potential $\phi$, 
+\begin{equation}
+\Vec{E} = -\nabla \phi . 
+\label{elpot}
+\end{equation}
+
+Starting from the continuity equation~\ref{elcontinuity} and using
+Eqs.~\ref{ohm} and~\ref{elpot} we get
+\begin{equation}
+\nabla\cdot\sigma\nabla\phi = \frac{\partial\rho}{\partial t}.
+\end{equation}
+This Poisson equation is used to solve the electric potential. The
+source term is often zero but in some cases it might be necessary.
+
+The volume current density is now calculated by
+\begin{equation}
+\vec{J} = -\sigma\nabla\phi,
+\end{equation}
+and electric power loss density which is turned into heat by
+\begin{equation}
+h = \nabla\phi\cdot\sigma\nabla\phi.
+\end{equation}
+The latter is often called the \Idx{Joule heating}. The total heating power
+is found by integrating the above equation over the conducting
+volume.
+
+\subsection{Boundary Conditions}
+
+For electric potential either Dirichlet or Neumann boundary condition
+can be used. The Dirichlet boundary condition gives the value of the
+potential on specified boundaries. The Neumann boundary condition is
+used to give a current $J_b$ on specified boundaries
+\begin{equation}
+J_b = \sigma\nabla\phi\cdot\vec{n}.
+\end{equation}
+
+
+\section{Note on output control}
+
+The user can control which derived quantities ({\em i.e.} volume
+current and Joule heating) are calculated and additionally specify if
+he/she wants to output also the electric conductivity. The latter is
+useful when the conductivity depends for example on temperature. This
+feature is available only for isotropic (scalar) conductivities.
+
+There are also available two choises of visualization types for the
+derived quantities. The node values can be calculated by taking the
+average of the derived values on neighbouring elements (constant
+weights). This results often in visually good images. The other
+possible choice is to weight the average with the size of the
+elements, which is more accurate and should be used when some other
+variable depends on these derived values. The latter choice is also
+the default.
+
+
+\section{Keywords}
+
+\sifbegin
+\sifitemnt{Solver}{solver id}
+\sifbegin
+\sifitemnt{Equation}{String Stat Current Solver}
+\sifitem{Variable}{String Potential}
+This may be of any name as far as it is used consistently also elsewhere.
+\sifitem{Variable DOFs}{Integer 1}
+Degrees of freedom for the potential.
+\sifitem{Procedure}{File "StatCurrentSolve"\ "StatCurrentSolver"}
+Following are listed three keywords with default values
+for output control.
+\sifitemnt{Calculate Volume Current}{Logical [True]}
+\sifitemnt{Calculate Joule Heating}{Logical [True]}
+\sifitem{Calculate Electric Conductivity}{Logical [False]}
+This keyword can be used to write the electric conductivity into
+results. Might be useful when conductivity depends on some other
+quantity such as temperature.
+\sifitem{Constant Weights}{Logical [True]}
+Used to turn constant weighting on for the results.
+\sifend
+
+\sifitemnt{Material}{mat id}
+\sifbegin
+\sifitemnt{Electric Conductivity}{Real}
+\sifitem{Density}{Real}
+The density of the material is needed only when also the
+heat equation is solved, and Joule heating is used as body force,
+since heat equation uses heating power per mass as body force, whereas
+Joule heating is calculated normally as power per volume.
+\sifend
+
+\sifitemnt{Body Force}{bodyforce id}
+\sifbegin
+\sifitem{Current Source}{Real}
+Possibility for a body force, not used often though.
+\sifend
+
+\sifitemnt{Boundary Condition}{bc id}
+\sifbegin
+\sifitem{Potential}{Real}
+Dirichlet BC for the potential.
+\sifitem{Current Density BC}{Logical}
+Must be set to {\tt True} if Neumann BC is used.
+\sifitem{Current Density}{Real}
+Neumann boundary condition for the current.
+\sifend
+\sifend
+
+
+\bibliography{elmerbib}
+\bibliographystyle{plain}
+

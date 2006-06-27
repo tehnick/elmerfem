@@ -1,0 +1,309 @@
+\chapter{Adaptive Solution}
+
+\noindent
+
+\section{Introduction}
+
+A posteriori error analysis and adaptive mesh refinement are nowadays
+standard tools in finite element analysis when cracks, boundary layers,
+corner singularities, shock waves, and other irregularities are present.
+A posteriori error indicators can be used to reveal flaws in finite
+element discretizations and well designed adaptive mesh refinemenets
+can reduce the computational costs drastically.
+
+\section{Theory}
+
+Let us consider equilibrium equations of the form
+\begin{equation}
+-\nabla \cdot q = f \ \ \mathrm{in} \ \Omega, \label{equilibrium}
+\end{equation}
+\begin{equation}
+q \cdot n = g \ \ \mathrm{on} \ \Gamma, \label{boundarycondition}
+\end{equation}
+where $q$ is either a flux vector or a second order stress tensor, $\Omega$
+is a computational domain, $\Gamma$ is a boundary part, $f$ is an external
+source or body force, $g$ is an external flux or traction and $n$ is the
+unit outward normal to the boundary.
+
+Most symmetric steady state problems described in the model manual of
+Elmer [] fit in the above framework of equilibrium equations. To fix
+ideas, suppose that $q$ is the heat flux satisfying Fourier's law
+$q=-k \nabla T$, where $T$ is the temperature and $k$ is the heat
+conductivity of the material. We could also think of $q$ as the stress
+tensor of linear elasticity. In this case Hooke's law states that 
+$q = \mathcal{E} : \varepsilon$, where $\mathcal E$ is the fourth order
+tensor of elastic coefficients, $\varepsilon = symm(\nabla u)$ is the 
+linearized strain tensor and $u$ is the displacement vector.
+
+\subsection{A posteriori estimate}
+
+Let us denote the finite element approximation of $q$ by $q_h$ and
+measure the error $q-q_h$ as
+
+\begin{equation}
+ERROR = \sqrt{ \int_\Omega | q - q_h |^2 \ d\Omega }
+\end{equation}
+Our primary goal is to ensure the accuracy of the solution by imposing
+the condition
+\begin{equation}
+ERROR \le TOLERANCE \label{goal}
+\end{equation}
+where $TOLERANCE > 0$ is an error tolerance prescribed by the user.
+
+In practise, the goal must be replaced by a stronger condition
+\begin{equation}
+ESTIMATE \le TOLERANCE \label{computablegoal}
+\end{equation}
+where $ESTIMATE$ is a computable functional (of all available data) satisfying
+\begin{equation}
+ERROR \le ESTIMATE 
+\end{equation}
+Then, if (\ref{computablegoal}) holds, (\ref{goal}) is satisfied and the quality
+of the numerical solution is guaranteed.
+
+In Elmer the a posteriori estimate (\ref{computablegoal}) is computed from 
+local residuals of the finite element solution as a weighted sum over the
+elements,
+\begin{equation}
+ESTIMATE = \sqrt{\sum_E \eta_E^2},
+\end{equation}
+where $\eta_E$ is the local error indicator for an individual element $E$:
+\begin{eqnarray}
+&& \eta_E^2 = \alpha_E h_E^2 \int_E 
+\big|\nabla \cdot q_h + f \big|^2 d\Omega  \nonumber \\
+&+& \beta_E \sum_{{ e \ in \ \Omega}}  h_e \int_e \big| [\![ 
+q_h \cdot n_e ]\!]_e \big|^2 \ d\Gamma \label{estimator} \\ 
+&+& \gamma_E \sum_{e \ on \  \Gamma} h_e 
+\int_e \big| q_h\cdot n_e - g  \big|^2 \ d\Gamma \nonumber
+\end{eqnarray}
+Here $\alpha_E$, $\beta_E$, and $\gamma_E$, are local positive constants.
+The values of these constants depend, among other things, on the problem
+to be solved, and must be estimated carefully case by case [].
+
+The first sum in (\ref{estimator}) is taken over all edges $e$ of $E$
+inside the computational domain, the second sum is taken over all edges
+on the boundary part $\Gamma$, $[\![ \cdot ]\!]_e$ is the jump in $(\cdot)$
+across $e$, and $n_e$ is a unit normal to the edge. $h_E$ is the
+size of the element and $h_e$ is the size of the edge.
+
+The first term on the right-hand-side of (\ref{estimator}) measures the
+local residual of the finite element solution with respect to the equilibrium
+equation (\ref{equilibrium}). The second term measures the discontinuity in
+the numerical flux inside $\Omega$ and the third term the residual with respect
+to the boundray condition (\ref{boundarycondition}).
+
+\subsection{Adaptivity}
+
+The secondary goal of our numerical computations is to find a solution
+satisfying (\ref{goal}) as efficienciently as possible. A nearly optimal
+solution strategy is obtained by utilizing the property (here we need to
+impose some minor restrictions on $f$ and $g$, see [])
+
+\begin{equation}
+LOCAL \ ERROR \ge \eta_E \label{locallowerbound}
+\end{equation}
+where 
+\begin{equation}
+LOCAL \ ERROR = \sqrt{ \int_E |q-q_h|^2 \ d\Omega}
+\end{equation}
+The estimate suggests that the error in the numerical solution should
+be reduced efficiently if the mesh is refined locally where the indicators
+$\eta_E$ are large. Naturally, we can think of coarsening the mesh where
+the values of the indicators are small.
+
+The adaptive mesh refinement strategy of Elmer is based on the local
+estimate (\ref{locallowerbound}) and on the following additional assumptions
+and heuristic optimality conditions:
+\begin{itemize}
+\item The local error behaves as
+\begin{equation}
+\eta_E = C_E h_E^{p_E} \label{localassumption}
+\end{equation}
+for some constants $C_E$ and $p_E$.
+\item In the optimal mesh the error is uniformly distributed over the elements:
+\begin{equation}
+\eta_E = TOLERANCE / N_{elements} \label{optimalitycondition}
+\end{equation}
+\end{itemize}
+
+The constants $C_E$ and $p_E$ in (\ref{localassumption}) can be solved locally
+for each element if the local errors and the local mesh sizes are known from
+at least two different solutions. The second rule (\ref{optimalitycondition})
+can then be applied to extrapolate a new nearly optimal mesh density for the
+subsequent calculations. 
+
+The mesh refinements can be performed eiher by splitting the existing
+elements into smaller using the so called RGB-refinement strategy described
+in [], or by permorming a complete remeshing of the computational domain using
+the built-in unstructured mesh generators that produce high quality Delaunay
+triangulations. In the latter alternative not only mesh refinement is
+possible, but also local adaptive coarsening.
+
+\section{Using the adaptive solver}
+
+The adaptive solver of Elmer is activated and controlled by the
+following keywords in the Solver block of the solver-input-file.
+
+\sifbegin
+
+\sifitem{Adaptive Mesh Refinement}{Logical} If set to true, then after
+the solution of the linear system the program computes residual error
+indicators for all active elements, estimates the global error, 
+computes a new mesh density and refines the mesh accordingly.
+
+\sifitem{Adaptive Remesh}{Logical} If set to true, then a complete
+remeshing is performed after error estimation using the Mesh2D or
+Mesh3D generators. The new mesh density is written in file ``bgmesh''. 
+If set to false, then the RGB-splitting strategy for triangles is
+applied to perform the refinements.
+
+\sifitem{Adaptive Save Mesh}{Logical} If set to true, the subsequent
+meshes are stored in directories {\tt RefinedMeshN}, where $\tt N$
+is the number of the adaptive iterate.
+
+\sifitem{Adaptive Error Limit}{Real} Error tolerance for the adaptive
+solution.
+
+\sifitem{Adaptive Min H}{Real} Imposes a restriction on the mesh size.
+Defualt is zero.
+
+\sifitem{Adaptive Max H}{Real} Imposes a restriction on the mesh size.
+Default is infinite.
+
+\sifitem{Adaptive Max Change}{Real} Controls the change in local
+mesh density between two subsequent adaptive iterates. Using this 
+keyword the user can restrict the refinement/coarsening to stabilize
+the adaptive solution process. 
+
+\sifend
+
+\section{Implementing own error estimators}
+
+Suppose that we are given a subroutine called {\tt MySolver} for solving
+the Poisson equation, and we would like to enhance the code by implementing
+an a posteriori error indicator for adaptive mesh refinement. The first
+thing to do is to take the module {\tt Adaptive} in use, an define the local
+error indicators as functions in an intefrace block. The beginning of the
+subroutine should look like the following:
+
+\ttbegin
+
+SUBROUTINE MySolver( Model,Solver,Timestep,TransientSimulation )
+  USE DefUtils
+  USE Adaptive
+
+  INTERFACE
+    FUNCTION InsideResidual( Model, Element, Mesh, & 
+        Quant, Perm, Fnorm ) RESULT( Indicator )
+      USE Types
+      TYPE(Element_t), POINTER :: Element
+      TYPE(Model_t) :: Model
+      TYPE(Mesh_t), POINTER :: Mesh
+      REAL(KIND=dp) :: Quant(:), Indicator, Fnorm
+      INTEGER :: Perm(:)
+    END FUNCTION InsideResidual
+
+    FUNCTION EdgeResidual( Model, Edge, Mesh, &
+        Quant, Perm ) RESULT( Indicator )
+      USE Types
+      TYPE(Element_t), POINTER :: Edge
+      TYPE(Model_t) :: Model
+      TYPE(Mesh_t), POINTER :: Mesh
+      REAL(KIND=dp) :: Quant(:), Indicator
+      INTEGER :: Perm(:)
+    END FUNCTION EdgeResidual
+
+    FUNCTION BoundaryResidual( Model, Edge, Mesh, &
+        Quant, Perm, Gnorm ) RESULT( Indicator )
+      USE Types
+      TYPE(Element_t), POINTER :: Edge
+      TYPE(Model_t) :: Model
+      TYPE(Mesh_t), POINTER :: Mesh
+      REAL(KIND=dp) :: Quant(:), Indicator, Gnorm
+      INTEGER :: Perm(:)
+    END FUNCTION BoundaryResidual
+  END INTERFACE
+
+\ttend
+
+After these fixed declarations we may proceed normally by defining the local
+variables, allocate memory for local tables, integrate the stiffness matrix,
+set boundary conditions, and solve the problem. Error estimation and adaptive
+mesh refinements are then performed by calling the subroutine {\tt RefineMesh},
+which should appear in the code right after the function {\tt DefaultSolve}.
+
+\ttbegin
+  Norm = DefaultSolve()
+
+  IF ( ListGetLogical( Solver % Values, 'Adaptive Mesh Refinement' ) ) &
+      CALL RefineMesh( Model, Solver, Potential, Permutation, &
+              InsideResidual, EdgeResidual, BoundaryResidual )
+\ttend
+
+The functions {\tt InsideResidual}, {\tt EdgeResidual} and {\tt
+BoundaryResidual} defined in the interface block should finally
+be contained in {\tt MySolve}, and return the values of the error
+indicators described in the previous section.
+
+As an example, suppose that we are using linear triangles or tetrahedra
+for solving the Poisson equation. In this case it holds $\nabla \cdot
+q_h=0$ on each element $E$, and the contribution of the firtst term
+in (7.1) is simply
+\begin{equation}
+{\tt InsideResidual} = h_E\sqrt{ \int_E |f|^2 \ d\Omega}
+\end{equation}
+The function that computes the value of the inside redisual could 
+be written as follows.
+
+\ttbegin
+FUNCTION InsideResidual( Model, Element, Mesh, &
+        Quant, Perm, Fnorm ) RESULT( Indicator )
+  IMPLICIT NONE
+  TYPE(Model_t) :: Model
+  INTEGER :: Perm(:)
+  REAL(KIND=dp) :: Quant(:), Indicator, Fnorm
+  TYPE( Mesh_t ), POINTER    :: Mesh
+  TYPE( Element_t ), POINTER :: Element
+
+  TYPE(GaussIntegrationPoints_t), TARGET :: IP
+  TYPE(ValueList_t), POINTER :: BodyForce
+  REAL(KIND=dp) :: f, hK, detJ, Basis(MAX_NODES), &
+    dBasisdx(MAX_NODES,3), ddBasisddx(MAX_NODES,3,3), &
+    Source(MAX_NODES)
+  LOGICAL :: stat
+  INTEGER :: n
+
+  Indicator = 0.0d0
+  Fnorm = 0.0d0
+  hK = element % hK
+
+  BodyForce => GetBodyForce( Element )
+  Source = GetReal( Element, 'Source' )
+
+  IP = GaussPoints( Element )
+  DO n = 1, IP % n
+    stat = ElementInfo( Element, Nodes, IP % u(n), IP % v(n), &
+        IP % w(n), detJ, Basis, dBasisdx, ddBasisddx, .FALSE. )
+    f = SUM( Source * Basis )
+    Fnorm = Fnorm + f**2 * detJ % IP % s(n)
+    Indicator = Indicator + f**2 * detJ * IP % s(n)
+  END DO
+
+  Fnorm = SQRT( Fnorm )
+  Indicator = hK * SQRT( Indicator )
+
+END FUNCTION Inside Residual
+
+\ttend
+For the boundary and edge residuals refer to the example {\tt
+Poisson.f90} in the tutorial manual of Elmer.
+
+\bibliography{elmerbib}
+\bibliographystyle{plain}
+
+
+
+
+
+
+

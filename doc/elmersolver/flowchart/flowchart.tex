@@ -1,0 +1,66 @@
+\appendix
+\chapter{Structure of Elmer Simulation}
+
+%\modinfo{Module name}{\Idx{RigidBodyReduction}}
+%\modinfo{Module subroutines}{RigidBody}
+%\modinfo{Module authors}{Antti Pursula}
+%\modinfo{Documentation by}{Antti Pursula}
+%\modinfo{Document edited}{March 6th 2002}
+
+
+\section{Information flow}
+
+The Elmer environment includes several different programs that 
+communicate only by files of specific files. Often there is
+more than one tool that may be used to make the files and 
+therefore there is also several ways how a problem may be solved.
+
+
+
+% 1) save PowerPoint figure by Acrobat Distiller to myfile.pdf
+% 2) pdftops myfile.pdf
+% 3) ps2epsi myfile.ps myfile.eps
+% 4) define BoundingBox by ghostview
+% 5) use epsfig to include the figure
+
+\begin{figure}[tbhp]
+\vspace{10mm}
+\begin{center}
+\epsfig{figure=elmer-chart.eps,width=10cm,angle=270,
+bbllx=130,bblly=130,bburx=580,bbury=680,clip=1}
+\caption{Work flow in the Elmer environment}
+\end{center}
+\end{figure}
+
+
+\section{Types of files}
+
+Elmer may use a number of different files in the solution of the
+different cases.
+
+Here is some information about the files Elmer used and created during the
+different cases. These include files with suffix
+.egf, .grd, .sif, and .ep.
+\begin{itemize}
+\item The Elmer geometry file format (.egf file) contains the structures
+      geometry. ElmerFront uses this to get the information of the geometry.
+\item The ElmerGrid geometry format (.grd file) contains the
+      geometry as well as the mesh definition. The computational mesh
+      is done with the Elmergrid software, look for a specific manual
+      on that for more details.
+\item The ElmerSolver Input File format (.sif file) is usually written by
+      ElmerFront. It contains all the data that is used by the Solver.
+      By modifying this  file it is possible to variate the Solver input
+      easily. This file may also be generated from scratch following
+      the Model Manuals and using a text editor.
+\item The ElmerPost File format (.ep file) is written by the Solver.
+      It contains the solution data. By opening the .ep file in Elmer
+      Post it is possible to view the results without needing to solve
+      the whole problem again.
+\item The file with name ELMERSOLVER\_STARTINFO should be
+      situated in the directory were the ElmerSolver is lauched.
+      The file just includes the name of the command file (.sif) and
+      the number of processors.
+\end{itemize}
+
+

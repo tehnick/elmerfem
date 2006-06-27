@@ -1,0 +1,158 @@
+\chapter{Helmholtz Solver}
+
+\modinfo{Module name}{HelmholtzSolve}
+\modinfo{Module subroutines}{\Idx{HelmholtzSolver}}
+\modinfo{Module authors}{Juha Ruokolainen, Mikko Lyly}
+\modinfo{Document authors}{Juha Ruokolainen}
+\modinfo{Document edited}{March 30th 2006}
+
+\section{Introduction}
+
+This module solves the Helmholtz equation, which is the Fourier transform
+of the wave equation. 
+
+\section{Theory}
+
+For example, sound propagation in air is fairly well described by the
+wave equation:
+\begin{equation}
+\frac{1}{c^2}\frac{\partial^2 p}{\partial t^2} - \nabla^2p  = 0.
+\end{equation}
+
+When linear the equation may be written in frequency space as
+\begin{equation}
+k^2 P + \nabla^2P  = 0,
+\end{equation}
+where $k=\omega/c$.
+This is the Helmholtz equation.
+The instantaneous pressure may be computed
+from the given field $P$:
+\begin{equation}
+p(t) = \Re(P e^{i\omega t}) = \Re(P)\cos(\omega t) - \Im(P)\sin(\omega t),
+\end{equation}
+where $i=\sqrt{-1}$ is the imaginary unity.
+
+In Elmer  the equation has an added term which is proportional
+to first time derivative of the field, whereupon the equation becomes
+\begin{equation}
+(k^2 - ikD)P + \nabla^2P  = 0,
+\label{eq-sdamp}
+\end{equation}
+where $D$ is the damping factor.
+
+
+\subsection{Boundary Conditions}
+
+The usual boundary condition for the Helmholtz equation is to
+give the flux on the boundary:
+\begin{equation}
+\nabla P\cdot\Vec{n} = g,
+\end{equation}
+also Dirichlet boundary conditions may be set.
+The Sommerfeldt or far field boundary condition is as follows
+\begin{equation}\label{Sommerfeldt-bc}
+\nabla P\cdot\Vec{n} + \frac{i\omega}{Z}P = 0,
+\end{equation}
+where the complex-valued quantity $Z$ may be defined by the user.
+It is noted that incoming and outgoing waves may be approximated by
+setting $Z=\pm c$, respectively.
+%the plus and minus describe incoming and outgoing waves respectively.
+
+
+\section{Keywords} 
+
+\sifbegin
+
+\sifitem{Simulation}{}
+This section gives values to parameters concerning the simulation
+as whole.
+\sifbegin
+\sifitem{Frequency}{Real}
+Give simulation frequency in units of $1/\mathrm{s}$.
+Alternatively use the {\tt Angular Frequency} keyword.
+\sifitem{Angular Frequency}{Real}
+Give simulation frequency in units of $1/\mathrm{rad}$.
+Alternatively use the {\tt Frequency} keyword.
+\sifend
+
+\sifitem{Solver}{solver id} 
+Note that all the keywords related to linear solver (starting
+with {\tt Linear System})
+may be used in this solver as well.  They are defined elsewhere. 
+Note also that for the Helmholtz equation {\tt ILUT} preconditioning
+works well.
+
+\sifbegin
+\sifitem{Equation}{String [Helmholtz]} 
+The name of the equation.
+\sifitem{Procedure}{File ["HelmholtzSolve"\ "HelmholtzSolver"]}
+This keyword is used to give the Elmer solver the place where
+to search for the Helmholtz equation solver.
+\sifitem{Variable}{String [Pressure]}
+Give a name to the field variable.
+\sifitem{Variable DOFs}{Integer [2]}
+This keyword must be present, and {\it must} be set to the value $2$.
+\sifitem{Bubbles}{Logical}
+If set to {\tt True} this keyword activates the bubble stabilization.
+\sifend
+
+\sifitem{Equation}{eq id}
+The equation section is used to define a set of equations for a body or set of bodies:
+\sifbegin
+\sifitem{Helmholtz}{Logical} If set to {\tt True}, solve the Helmholtz equation,
+the name of the variable must match the {\tt Equation} setting in the {\tt Solver} section.
+\sifend
+
+
+\sifitem{Initial Condition}{ic id} 
+The initial condition section may be used to set initial values for the field
+variables. The following variables are active:
+\sifbegin
+\sifitem{Pressure i}{Real} 
+For each the real and imaginary parts of the solved field {\tt i}$=1,2$.
+\sifend
+
+\sifitem{Material}{mat id}
+The material section is used to give the material parameter values. The
+following material parameters may be set in Helmholtz equation.
+\sifbegin
+\sifitem{Sound Speed}{Real} 
+This keyword is use to give the value of the speed of sound.
+\sifitem{Sound Damping}{Real} 
+This keyword is use to give the value of the damping factor $D$ in
+equation \ref{eq-sdamp}.
+\sifend
+
+
+\sifitem{Boundary Condition}{bc id}
+The boundary condition section holds the parameter values for various
+boundary condition types. Dirichlet boundary conditions may be
+set for all the primary field variables. The one related to Helmholtz equations
+are
+\sifbegin
+\sifitem{Pressure i}{Real} 
+Dirichlet boundary condition
+for real and imaginary parts of the variable.
+Here the values {\tt i}$=1,2$ correspond to the real and 
+imaginary parts of the unknown field.
+\sifitem{Wave Flux 1,2}{Real}
+Real and imaginary parts of the boundary flux.
+Here the values {\tt i}$=1,2$ correspond to the real and 
+imaginary parts of the boundary flux.
+\sifitem{Wave Impedance 1,2}{Real}
+This keyword may be used to define the real and imaginary parts of
+the quantity $Z$ in (\ref{Sommerfeldt-bc}).
+Here the values {\tt i}$=1,2$ correspond to the real and 
+imaginary parts of $Z$.
+%Real and imaginary parts of the boundary impedance {\tt i}$=1,2$.
+%The impedance is used to compute the boundary wave number for the
+%Sommerfeldt boundary condition:
+%\begin{equation}
+%k = \frac{\omega}{\mathrm{impedance}}.
+%\end{equation}
+\sifend
+\sifend
+
+
+%\bibliography{elmerbib}
+%\bibliographystyle{plain}

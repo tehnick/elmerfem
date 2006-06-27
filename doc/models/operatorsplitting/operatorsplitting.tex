@@ -1,0 +1,343 @@
+\chapter{Operator Splitting Ability}
+\noindent
+\modinfo{Module name}{TransportEquation, RateOfChange}
+\modinfo{Module subroutines}{TransportEquationSolver, 
+RateOfChangeSolver}
+\modinfo{Module authors}{Mika Malinen}
+\modinfo{Document authors}{Mika Malinen}
+\modinfo{Document edited}{Oct 30th 2002}
+
+\section{Introduction}
+
+The drawback of the stabilized finite element formulations available
+in Elmer to solve the convection-diffusion equation and Navier-Stokes 
+equations is that these methods are computationally expensive, in particular
+when the residual-free-bubbles formulation is used.
+In evolutionary problems the reduction of computational cost may be attempted 
+by applying operator splitting techniques in which the original equation at 
+each time step is splitted up into subproblems that are 
+easier to solve numerically. The operator splitting technique described in 
+the following can be applied to cases in which convection (or advection) 
+phenomena are present on account of incompressible fluid flow. 
+
+The key feature of the method described below is that the convective transport 
+problem that arises as a subproblem from operator splitting is solved 
+numerically by discretizating an equivalent wave-like equation formulation of 
+the transport problem. The benefit of this approach is that the wave-like 
+equation can be solved without using stabilized finite element formulations.
+
+\section{Theory}
+
+\subsection{Time discretization and operator splitting}
+
+To describe the most essential ideas of operator splitting, consider the 
+problem of solving scalar field $T$ such that
+\begin{equation}\label{modeleq}
+\frac{\partial T}{\partial t}+(A+B)T=f, \quad T=T_0 \ \mathrm{at}\ t=0,
+\end{equation} 
+where the operators $A$ and $B$ are linear and independent of the time $t$ and 
+where the fields $f$ and $T_0$ are given. 
+
+Assume now that the discretization of the time interval on which the solution 
+of (\ref{modeleq}) is sought is given. Then,
+instead of directly solving the equation (\ref{modeleq}) one 
+may attempt the solution of this equation by decoupling the effects of $A$ and 
+$B$ at each time step. To be more precise, let $\Delta t$ be the length of the
+time interval $[t^n,t^{n+1}]$ and introduce the abbreviations 
+$t^{n+\alpha}=t^n + \alpha\Delta t$ and $T^{n+\alpha}=T(t^{n+\alpha})$. 
+Given $T^n$ the following operator splitting scheme may be used to solve
+an approximation to $T^{n+1}$:    
+\begin{equation}\label{os-scheme}
+\begin{split}
+\frac{\partial T}{\partial t}+A T &= f,\quad \mathrm{on}\ (t^n,t^{n+1/2}),
+\quad T(t^n)=T^n, \quad T^{n+1/2}=T(t^{n+1/2}), \\
+\frac{\partial T}{\partial t}+B T &= 0,\quad \mathrm{on}\ (0,\Delta t),
+\quad T(0)=T^{n+1/2}, \quad \hat{T}^{n+1/2}=T(\Delta t),  \\ 
+\frac{\partial T}{\partial t}+A T &= f,\quad \mathrm{on}\ (t^{n+1/2},t^{n+1}),
+\quad T(t^{n+1/2})=\hat{T}^{n+1/2},\\
+T^{n+1}&=T(t^{n+1}).
+\end{split}
+\end{equation}
+The scheme (\ref{os-scheme}) can be adapted to the solution of the heat 
+equation as well as Navier-Stokes equations. In both cases $B$ is taken
+to be the convection operator $\vec u \cdot \nabla$ where $\vec u$  
+is the velocity field satisfying the incompressibility constraint, while
+the interpretation of $A$ is case-dependent. 
+
+In the case of the heat equation  
+\begin{equation}
+\begin{split}
+&\frac{\partial T}{\partial t}+(\vec u\cdot\nabla) T-\nabla\cdot(k\nabla T) = 
+f \quad \mathrm{in}\ \Omega \times (0,t_N), \\
+&T = g  \ \mathrm{on}\ \Gamma_D, \quad  
+-k\nabla T \cdot \vec n = q \ \mathrm{on}\ \Gamma_N, \\  
+&T = T_0 \ \mathrm{at}\ t=0, 
+\end{split}
+\end{equation}
+with $\vec n$ being the outward unit normal vector at the boundary 
+$\partial\Omega=\Gamma_D \cup \Gamma_N$, the application of the operator 
+splitting scheme introduced above yields the system 
+\begin{equation}
+\begin{split}
+&\frac{\partial T}{\partial t}-\nabla\cdot(k\nabla T) = f \quad \mathrm{in}\ 
+\Omega\times(t^n,t^{n+1/2}), \\
+&T=g \ \mathrm{on}\ \Gamma_D, \quad
+-k\nabla T \cdot \vec n = q \ \mathrm{on}\ \Gamma_N, \quad T(t^n)=T^n, \\ 
+&T^{n+1/2}=T(t^{n+1/2}),
+\end{split}
+\end{equation}
+\begin{equation}\label{transportequation}
+\begin{split}
+&\frac{\partial T}{\partial t}+(\vec u\cdot\nabla) T = 0 \quad \mathrm{in}\ 
+\Omega \times (0,\Delta t), \\ 
+&T=g \ \mathrm{on}\ \Gamma_D \cap \Gamma^-, \quad T(0)=T^{n+1/2} \\
+&\hat{T}^{n+1/2}=T(\Delta t),
+\end{split}
+\end{equation}
+\begin{equation}
+\begin{split}
+&\frac{\partial T}{\partial t}-\nabla\cdot(k\nabla T) = f \quad \mathrm{in}\ 
+\Omega\times(t^{n+1/2},t^{n+1}), \\ 
+&T=g \ \mathrm{on}\ \Gamma_D, \quad 
+-k\nabla T \cdot \vec n = q \ \mathrm{on}\ \Gamma_N, \quad
+T(t^{n+1/2})=\hat{T}^{n+1/2},\\
+&T^{n+1}=T(t^{n+1}),
+\end{split}
+\end{equation}
+where $\Gamma^-$ is the inflow boundary defined by $\Gamma^- = \{ x\ \vert\ 
+x \in \partial\Omega,\ \vec u(x)\cdot \vec n(x) < 0 \}$.
+
+One is thus lead to solve two time-dependent Poisson 
+equations and the convective transport problem (\ref{transportequation})
+at each time step.
+One may expect that the error inherent from the operator splitting with 
+respect to time is of $O(\Delta t^3)$, so in the solution of
+the three subproblems it is reasonable to use time discretization schemes that
+retain second order accuracy.
+While the Poisson equation can be solved efficiently by using standard FE 
+techniques, the convective transport problem requires specific treatment.  
+This equation may be solved numerically without using a stabilized finite 
+element formulation by discretizating an equivalent wave-like equation
+formulation. This method is described in Section~\ref{Waveequationsection}.
+
+The operator splitting scheme (\ref{os-scheme}) can also be adapted to the 
+solution of the Navier-Stokes equations by separating incompressibility and 
+diffusion from convection.
+In the case of constant kinematical viscosity and Dirichlet type boundary 
+conditions over the entire boundary one obtains the system \cite{DG97}  
+\begin{equation}
+\begin{split}
+&\frac{\partial \vec u}{\partial t}-\nu\Delta\vec u+\nabla p = \vec f \quad 
+\mathrm{and} \quad \nabla\cdot\vec u \quad
+\mathrm{in}\ \Omega\times(t^n,t^{n+1/2}), \\ 
+&\vec u = \vec g \quad \mathrm{on}\quad \partial\Omega, \\ 
+&\vec u(t^n)=\vec u^n, \quad \vec u^{n+1/2}=\vec u(t^{n+1/2}), 
+\end{split}
+\end{equation}
+\begin{equation}\label{NS-transportequation}
+\begin{split}
+&\frac{\partial \vec u}{\partial t}+(\vec u^{n+1/2}\cdot\nabla)\vec u=\vec 0 
+\quad \mathrm{in}\ \Omega \times (0,\Delta t) \ \mathrm{and} \ \vec u=\vec g \ 
+\mathrm{on}\ \Gamma^-,  \\ 
+&\quad \vec u(0)=\vec u^{n+1/2}, \quad \vec{v}^{n+1/2}=\vec u(\Delta t),
+\end{split}
+\end{equation}
+\begin{equation}
+\begin{split}
+&\frac{\partial \vec u}{\partial t}-\nu\Delta\vec u+\nabla p = \vec f \quad 
+\mathrm{and} \quad \nabla\cdot\vec u \quad
+\mathrm{in}\ \Omega\times(t^{n+1/2},t^{n+1}), \\ 
+&\vec u = \vec g \quad \mathrm{on}\quad \partial\Omega, \\ 
+&\vec u(t^{n+1/2})=\vec{v}^{n+1/2}, \quad \vec u(t^{n+1})=\vec u(t^{n+1}), 
+\end{split}
+\end{equation}
+In this case one is lead to solve two time-dependent Stokes equations and
+the convective transport problem (\ref{NS-transportequation}), which, when
+written component-wise, consists 
+of independent scalar equations of the same type as in 
+(\ref{transportequation}).
+  
+
+\subsection{Wave equation approach to the convective transport problem}
+\label{Waveequationsection}
+
+If the velocity vector $\vec u$ does not depend on the time $t$ and satisfies 
+the incompressibility constraint $\nabla\cdot\vec u=0$, the equation 
+(\ref{transportequation}) can be written equivalently as (cf.\ \cite{Wu97})
+\begin{equation}
+\begin{split}
+\frac{\partial^2 T}{\partial t^2}-\nabla \cdot \left( \vec u(\vec u \cdot 
+\nabla T) \right)=0 \quad  \mathrm{in}\ \Omega \times (0,\Delta t), \\
+T=T^{n+1/2}\quad \mathrm{and}\quad 
+\frac{\partial T}{\partial t}= -\vec u \cdot \nabla T\quad \mathrm{at}\ t=0 \\
+\quad T=g \ \mathrm{on}\ \Gamma_D \cap \Gamma^-, \quad 
+\frac{\partial T}{\partial t}= -\vec u \cdot \nabla T \quad \mathrm{on}\ 
+\partial\Omega \backslash \Gamma^-. \\
+\end{split}
+\end{equation}
+This wave-like equation can be solved using standard FE techniques.
+
+
+\section{Limitations}
+
+Some limitations result from the current implementation:
+\begin{itemize}
+\item Rectangular Cartesian coordinate system is assumed.
+
+\item Although the velocity field in the convection operator can be taken to 
+be the velocity solution to the Navier-Stokes equations, it is presumed, 
+however, that the inflow boundary for the velocity field is known a priori
+(this knowledge is needed so as to impose boundary conditions).
+ 
+\item Each of the three time-dependent subproblems corresponding to the scheme 
+(\ref{os-scheme}) is solved taking only one time step. 
+The wave-like equation formulation of the convective transport problem
+is discretizated in time using the 
+trapezoidal rule (also known as the Crank-Nicolson method). The user can
+control only the time discretization scheme that is used in the solution of
+the Poisson or Stokes equation corresponding to the operator $B$ 
+(keyword {\tt Timestepping Method} in Simulation section).  
+
+\item The number of time steps should be even since the user is required to
+specify the points $t^n$ as well as $t^{n+1/2}$. The results written to
+the result file after odd time steps represent the solution after pure 
+convection step. Physically meaningful results satisfying all essential 
+boundary conditions may be written to the result file after even time steps.  
+
+
+\end{itemize}
+
+\section{Examples}
+
+The reader is referred to Elmer Tutorials for illustrative examples 
+showing also how to write Elmer Solver input data.  
+
+\section{Keywords}
+The following keywords are particularly related to operator splitting 
+ability.
+\sifbegin
+\sifitemnt{Simulation}{}
+\sifbegin
+\sifitem{Simulation Type}{String} 
+The simulation type must be set to be {\tt Transient}. 
+\sifitem{Coordinate System}{String} 
+The coordinate system must be set to be one of the following options:
+{\tt Cartesian 1D, Cartesian 2D }\  or\ \ {\tt Cartesian 3D}.
+\sifend
+
+\sifitemnt{Equation}{eq-id} 
+
+Equation section is used to declare the set of equations obtained by operator 
+splitting. To include the convective transport problem in the set of the
+equations to be solved the following two declarations are needed: 
+%To solve the wave-like equation formulation of the convective
+%transport problem the following two declarations are needed:  
+\sifbegin
+\sifitem{Transport Equation}{Logical} 
+When the value of this keyword is set to be {\tt True}, the wave-like equation 
+formulation of the convective transport problem is solved.    
+\sifitem{Rate of Change Equation}{Logical}
+Setting the value of this keyword to be {\tt True} enables the solution of 
+the Galerkin approximation to the rate of change of the field subject 
+to the convection operator at the beginning of pure convection step. This 
+approximate field is used as initial condition in the solution of the 
+convective transport problem. 
+\sifend
+
+\sifitemnt{Solver}{solver-id}
+
+The following keywords should be included in Solver section that contains
+solver parameters for {\tt Rate Of Change Equation}, i.e.\ in that  
+section that has the declaration \\ \\
+{\tt Equation String "Rate of Change Equation".}
+
+\sifbegin
+\sifitem{Procedure}{File "RateOfChange"\ "RateOfChangeSolver"} 
+The name of the file and subroutine.
+
+\sifitem{Advection Variable}{String}
+This keyword is used to declare the quantity which is subject to the convection
+operator.
+
+\sifitem{Variable}{String "Udot0"}
+The name {\tt Udot0} is used for the rate of change of the field 
+subject to the convection operator at the beginning of pure convection step.  
+
+\sifitem{Variable Dofs}{Integer}
+The value of this keyword should equal to the dimension of the vector field 
+subject to the convection operator.
+ 
+\sifitem{Advection}{String}
+This keyword defines the type of the velocity field in the convection operator
+and may be set to be either {\tt Constant} or {\tt Computed}. 
+If set to be {\tt Computed}, the velocity field in the convection 
+operator is taken to be the velocity solution to the Navier-Stokes equations.
+\sifend
+
+
+The following keywords should be included in Solver section that contains
+solver parameters for {\tt Transport Equation}, i.e.\ in that  
+section that has the declaration \\ \\
+{\tt Equation String "Transport Equation".}
+
+\sifbegin
+\sifitem{Procedure}{File "TransportEquation"\ "TransportEquation\-Solver"} 
+The name of the file and subroutine.
+
+\sifitem{Time Derivative Order}{Integer 2}
+The wave-like equation is of second order in time.
+
+\sifitem{Advection Variable}{String}
+This keyword is used to declare the quantity which is subject to the 
+convection operator. 
+
+\sifitem{Variable}{String "U"}
+The name {\tt U} is used for the solution of the convective transport problem.
+  
+\sifitem{Variable Dofs}{Integer}
+The value of this keyword should equal to the dimension of the vector field 
+subject to the convection operator.
+
+\sifitem{Rate of Change Equation Variable}{String}
+The value of this keyword should equal to that of the {\tt Variable} 
+keyword in Solver section containing solver parameters for 
+{\tt Rate Of Change Equation}.
+
+\sifitem{Advection}{String}
+This keyword defines the type of the velocity field in the convection operator
+and may be set to be either {\tt Constant} or {\tt Computed}. If set 
+to be {\tt Computed}, the velocity field in the convection operator is 
+taken to be the velocity solution to the Navier-Stokes equations.
+\sifend
+
+
+\sifitemnt{Material}{material-id}
+\sifbegin
+\sifitem{Advection Velocity i}{Real} 
+If the velocity vector in the convection operator is of constant type, then 
+this keyword is used to define the i's component of the velocity vector in the 
+convection operator. 
+\sifend
+
+
+\sifitemnt{Boundary Condition}{bc-id}
+\sifbegin
+\sifitem{Udot0 i}{Real}  
+The $i$'s component of {\tt Udot0} should be prescribed on that part of the
+inflow boundary where the corresponding component of the quantity subject to 
+the convection operator (declared using the keyword {\tt Advection Variable}) 
+is prescribed.
+
+\sifitem{U i}{Real} 
+The $i$'s component of {\tt U} should be prescribed on that part of
+the inflow boundary where the corresponding component of the quantity
+subject to the convection operator (declared using the keyword {\tt
+Advection Va\-ri\-ab\-le}) is prescribed so that the values of the two
+components equal.
+
+\sifend 
+\sifend
+
+\bibliography{elmerbib}
+\bibliographystyle{plain}
+

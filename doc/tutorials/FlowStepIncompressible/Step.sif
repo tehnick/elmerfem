@@ -1,0 +1,216 @@
+!ElmerSolver input file from ElmerFront
+!Saved        = Thu May 31 11:14:22 2001 User=jpaavila Host=kesis5.csc.fi
+!Case         = Step  
+!Model dir    = /home/jpaavila/projects/case2/QuickStep
+!Include path = 
+!Results dir  = /home/jpaavila/projects/case2/QuickStep
+
+Header
+  Mesh DB "." "Step"
+  Include Path ""
+  Results Directory ""
+  Bodies 1
+  Equations 1
+  Solvers 1
+  Materials 1
+  Body Forces 0
+  Initial Conditions 0
+  Boundary Conditions 3
+  Boundaries 3
+End
+
+Simulation
+  Coordinate System
+    String Cartesian 2D
+
+  Coordinate Mapping
+    Size 3
+      Integer 1 2 3
+
+  BDF Order
+    Integer 1
+
+  Simulation Type
+    String Steady State
+
+  Steady State Max Iterations
+    Integer 20
+
+  Output Intervals
+    Integer 1
+  Solver Input File
+    File "Step.sif"
+
+  Output File
+    File "Step.dat"
+
+  Post File
+    File "Step.ep"
+
+End
+
+Constants
+  Gravity
+    Size 4
+      Real 0.0 -1.0 0.0 9.82
+
+  Stefan Boltzmann
+    Real 5.67e-08
+End
+
+Body 1
+  Name
+    String "Body1"
+
+  Equation
+    Integer 1
+
+  Material
+    Integer 1
+End
+
+Equation 1
+  Name
+    String "Equation1"
+
+   Navier-Stokes
+      Logical True
+
+End
+
+Solver 1
+   Equation
+      String Navier-Stokes
+
+   Variable
+      String Flow Solution
+
+   Variable DOFs
+      Integer 3
+
+   Linear System Solver
+      String Iterative
+
+   Linear System Iterative Method
+      String BiCGStab
+
+   Linear System Max Iterations
+      Integer 500
+
+   Linear System Convergence Tolerance
+      Real 1.0e-08
+
+   Linear System Preconditioning
+      String ILU0
+
+   Linear System ILUT Tolerance
+      Real 1.0e-03
+
+   Linear System Residual Output
+      Integer 1
+
+   Steady State Convergence Tolerance
+      Real 1.0e-05
+
+   Stabilize
+      Logical True
+
+   Nonlinear System Convergence Tolerance
+      Real 1.0e-05
+
+   Nonlinear System Max Iterations
+      Integer 5
+
+   Nonlinear System Newton After Iterations
+      Integer 3
+
+   Nonlinear System Newton After Tolerance
+      Real 1.0e-02
+
+   Nonlinear System Relaxation Factor
+      Real 1.0
+
+End
+
+Material 1
+  Name
+    String "Material1"
+
+  Density
+    Real 1
+
+  Viscosity
+    Real 0.01
+
+End
+
+Boundary Condition 1
+  Name
+    String "Constraint1"
+
+  Target Boundaries
+    Size 1
+      Integer 3
+
+   Velocity 1
+      Real 0
+
+   Velocity 2
+      Real 0
+End
+
+Boundary Condition 2
+  Name
+    String "Constraint2"
+
+  Target Boundaries
+    Size 1
+      Integer 1
+
+   Velocity 1
+      Real 1
+
+   Velocity 2
+      Real 0
+End
+
+Boundary Condition 3
+  Name
+    String "Constraint3"
+
+  Target Boundaries
+    Size 1
+      Integer 2
+
+   Velocity 2
+      Real 0
+
+   Pressure
+      Real 0
+End
+
+Boundary 1
+  Name
+    String "Boundary1"
+
+  Body 1
+  Integer 1
+End
+
+Boundary 2
+  Name
+    String "Boundary2"
+
+  Body 1
+  Integer 1
+End
+
+Boundary 3
+  Name
+    String "Boundary3"
+
+  Body 1
+  Integer 1
+End
+
+!End Of File

@@ -1,0 +1,748 @@
+\chapter{Solution Methods for Linear Systems}
+\noindent
+
+
+\section{Introduction}
+
+The discretization of partial differential equations by the finite element method
+leads to the solution of linear systems 
+\begin{equation}\label{ModelLinearSystem}
+Ax = b,
+\end{equation}
+where $A^{n \times n}$ and $b^{n \times 1}$ are determined by the discretization.
+A specific feature of the coefficient matrices $A$
+in this context is that they are sparse, 
+i.e.\ only a few of the matrix entries in each row differ from zero.
+In many applications these systems can also have a very large order $n$, so that the 
+dominant part of the computation time to perform the simulation is typically spent 
+by solvers for the linear systems. 
+
+Solution methods for linear systems fall into two large categories: direct methods
+and iteration methods. Direct methods determine the solution to the linear system 
+exactly up to machine precision. They perform in a robust manner leading to the
+solution after a finite number of floating-point operations. Nevertheless,
+the drawback of direct methods is that they are expensive 
+in computation time and computer memory requirements and therefore cannot be applied
+to the solution of linear systems of very large order. The efficient solution of large 
+systems requires generally the use of iteration methods which work by generating sequences
+of improving approximate solutions. 
+
+ElmerSolver provides access to both direct and iteration methods.
+The iteration methods available fall into two main categories: preconditioned
+Krylov subspace methods and multilevel methods. Iteration methods that
+combine the ideas of these two approaches may also be constructed. 
+Such methods may be very efficient leading to a solution after a nearly
+optimal number of operation counts.               
+
+The development of efficient solution methods for linear systems is still an active area 
+of research, the amount of literature on the topic being nowadays vast.   
+The aim of the following discussion is to provide the user the basic knowledge of 
+the solution methods available in ElmerSolver so that one can apply these
+methods to one's own applications. The detailed description of methods
+is omitted. For a more comprehensive treatment the reader is referred to references
+mentioned.    
+
+%There are special techniques to handle such matrices:
+%\begin{itemize}
+%\item Band matrix solvers
+%\item Direct (LU based) sparse solvers
+%\item Iterative schemes
+%\item Multilevel schemes
+%\end{itemize}
+%
+%Elmer has several
+%different types of linear system solvers. LU-Decomposition based full and band matrix
+%solvers from LAPACK are used.
+ 
+ 
+\section{Direct methods}
+
+Linear systems may be solved in a robust way by using direct methods. 
+There are two different options for direct methods in ElmerSolver. 
+The default method utilizes the well-known LAPACK collection
+of subroutines for band matrices. In practice, 
+this solution method can only be used for the solution of small linear systems as 
+the operation count for this method is of order $n^3$.
+
+The other direct solver takes use of the UMFPACK
+routines to solve sparse linear systems~\cite{umfpack1}.
+UMFPACK uses the Unsymmetric MultiFrontal method.
+In practice it may be the most efficient method for solving 
+2D problems as long as there is enough memory available
+which means hundreds of thousands of degrees of freedom.
+
+It should be noted that the success of the direct solvers 
+depends very much on the bandwidth of the sparse matrix. 
+In 3D these routines therefore usually fail miserably.
+
+%Elmer Solver does not provide any direct sparse matrix solvers.
+%Even with bandwidth optimization a lot of work is done with zero elements of 
+%the coefficient matrix inside the band, if the matrix is sparse.
+
+\section{Preconditioned iteration methods}
+
+ElmerSolver provides access to a set of Krylov subspace methods for the 
+iterative solution of linear systems. These methods may be applied to the
+solution large linear systems but rapid convergence generally requires that 
+these methods have to be used in combination with preconditioning.
+
+\subsection{Krylov subspace methods}
+
+The Krylov subspace methods available in ElmerSolver are
+\begin{itemize}
+\item Conjugate Gradient (CG)
+\item Conjugate Gradient Squared (CGS) 
+\item Biconjugate Gradient Stabilized (BiCGStab)
+%\item Quasi Minimal Residual (QMR)
+\item Transpose-Free Quasi-Minimal Residual (TFQMR)
+\item Generalized Minimal Residual (GMRES)
+\end{itemize}
+Both real and complex systems can be solved using these algorithms. 
+For the detailed description of these methods see \cite{Barrett93} 
+and \cite{Freund93}.
+
+A definite answer to the question which is the best iteration method for a particular
+case cannot be given. 
+In the following only some remarks on the applicability of the 
+methods are made.
+   
+The CG method is an ideal solution algorithm for cases where the coefficient
+matrix $A$ is symmetric and positive definite. The other methods may 
+be used to solve also cases where $A$ is non-symmetric. It is noted that 
+the convergence of the CGS method may be irregular and it may even suffer from breakdown. 
+The BiCGStab and TFQMR methods are expected to give smoother convergence but they 
+still have the danger of breakdown. The GMRES method is guaranteed to convergence
+but it may become expensive in computational work and computer memory requirements
+along with increasing order $n$.
+In practice one has to use a restarted version of this method based on restarting 
+the iteration after $m$ iterations. Such method does not anymore have the finite 
+termination property and may suffer from stagnation
+if too small a value of $m$ is used.
+The choice of $m$ has to be controlled by the user. 
+Unfortunately, general guidelines for determining a reasonable value for
+$m$ cannot be given as this value is case-dependent.  
+
+
+\subsection{Preconditioning strategies}
+
+The performance of iteration methods depends greatly on the spectrum
+of the coefficient matrix $A$. The rate at which an iteration method converges
+can often be improved by transforming the original system into an equivalent one 
+that has more favorable spectral properties. This transformation is called
+preconditioning and a matrix which determines the transformation is called 
+a preconditioner.  
+
+In ElmerSolver preconditioning is effectively done by transforming (\ref{ModelLinearSystem}) 
+into the system
+\begin{equation}
+AM^{-1} z = b,
+\end{equation}
+where the preconditioner $M$ is an approximation to $A$ and $z$ is related
+to the solution $x$ by $z=Mx$. In practice, the explicit construction of the 
+inverse $M^{-1}$ need not be done, since the iterative algorithms require only a subroutine
+that for given $v$ returns a solution $u$ to the system  
+\begin{equation}\label{PreconditioningStep}
+  M u = v.
+\end{equation}
+%This step related to the preconditioning may even be done   
+%by using some other iteration method. This possibility is considered in 
+%Section~\ref{MultilevelPreconditioning} below. 
+
+ElmerSolver provides several preconditioning strategies.
+These include Jacobi preconditioning and
+%incomplete LU preconditioners (ILU(n)) of several
+%filling orders and threshold ILU (ILU(t)). 
+incomplete factorization preconditioners. The preconditioning step
+(\ref{PreconditioningStep}) may even be defined in terms of   
+some iteration method for the system (\ref{PreconditioningStep}) with
+$M=A$. This possibility is considered in Section~\ref{MultilevelPreconditioning} below. 
+
+%If we seek to imitate the coefficient
+%matrix $A$ somehow and at the same time try to keep the solution of the above equation
+%simple, one idea is to compute some part of the LU decomposition of $A$.
+%This is the idea of the Incomplete LU (ILU) preconditioner. 
+
+The Jacobi preconditioner is simply based on taking $M$ to be the diagonal elements of 
+the coefficient matrix $A$. More sophisticated preconditioners may be created by
+computing incomplete LU factorizations of $A$. The resulting preconditioners are referred 
+to as the ILU preconditioners. This approach gives the 
+preconditioner matrix $M$ in the form $M=LU$ where $L$ and $U$ are lower and upper 
+triangular with certain elements that arise in the factorization process ignored. 
+
+There are several ways to choose a set of matrix positions that are allowed to be filled 
+with nonzero elements. ILU preconditioners of fill level $N$ referred to 
+as the ILU(N) preconditioners are built so that ILU(0) accepts nonzero elements in the positions 
+in which $A$ has nonzero elements. ILU(1) admits nonzero elements in the positions that are 
+filled if the first step of Gaussian elimination is performed for $A$. 
+%ILU(1) contains the filling elements of the original elements as if the first step of Gaussian 
+%eliminatation was performed on $A$. 
+%ILU(2) is the same applied to elements of the ILU(1) matrix, etc.
+ILU(2) accepts fill in positions that are needed if the next step of Gaussian 
+elimination is performed with ILU(1) factorization, etc.    
+
+An other strategy to decide matrix positions that are allowed to be filled 
+with nonzero elements is based on numerical tolerances. The resulting preconditioner is 
+referred to as the ILUT preconditioner. In the creation of this preconditioner   
+Gaussian elimination is performed so that elements of a given
+row of the LU factorization are obtained but only elements whose absolute
+value (scaled by the norm of all values of the row) is over a given threshold value 
+are accepted to be placed in the preconditioner matrix.
+
+%There might be some trouble in finding a proper preconditioner. 
+Obviously, the additional computation time that is spent in creating the preconditioner
+matrix and solving systems of the type (\ref{PreconditioningStep}) 
+should be compensated by faster convergence. Finding an optimal ILU preconditioner for
+a particular case may require the use of trial and error. Start with ILU(0) and 
+try to increase the fill level $N$. 
+As N increases, more and more elements in the incomplete LU factorization of the coefficient 
+matrix are computed, so the preconditioner should in principle be better and the number of iterations 
+needed to obtain a solution should decrease. At the same time the memory usage grows rapidly and 
+so does the time spent 
+in building the preconditioner matrix and in applying the preconditioner during iterations. 
+The same applies to the ILUT preconditioner with decreasing threshold value.  
+      
+%The preconditioning in principle means modifying the linear system by
+%multiplying it with the inverse of a preconditioner matrix $M$
+%\begin{equation}
+%M^{-1} Ax =M^{-1} b.
+%\end{equation}
+%The best possible preconditioner would of course be $M=A$, but getting
+%the inverse of $A$ is more complicated than solving the original
+%set of equations.
+
+%We don't need to actually do the multiplication indicated, but
+%inside the iterative schemes we solve equations of type
+%\begin{equation}
+%  M a = b
+%\end{equation}
+
+
+
+\section{Multilevel methods}
+
+A class of iterative methods referred to as multilevel methods provides an efficient
+way to solve large linear systems. For certain class of problems they perform nearly 
+optimally, the operation count needed to obtain a solution being nearly of 
+order $n$. Two different multilevel-method approaches are available in 
+ElmerSolver, namely the geometric multigrid (GMG) and algebraic multigrid (AMG).  
+
+\subsection{Geometric multigrid}
+
+Given a partitioning $\mathcal{T}_1$ for the finite element discretization of problem the 
+geometric multigrid method utilizes a set of coarser partitionings $\mathcal{T}_k$, 
+$k=2,...,N$ to solve the linear system arising from the discretization.
+One of the fundamental ideas underlying the method is based on the idea of 
+coarse grid correction which means the use of a coarser partitioning to obtain an approximation 
+to the error in the approximate solution of the linear system.
+The recursive application of this strategy leads us to multigrid methods.  
+
+Owing to the idea of utilizing different meshes  
+multigrid methods require the development of methods for transferring vectors 
+between fine and coarse meshes. Projection operators 
+are used to transfer vectors from a fine mesh $\mathcal{T}_k$ to a coarse mesh 
+$\mathcal{T}_{k+1}$ and will be denoted by $I_{k}^{k+1}$, while  
+interpolation operators $I_{k+1}^{k}$ transfer vectors from a coarse mesh to a fine mesh.
+
+The multigrid method is defined by the following recursive algorithm: 
+Given $A$, $b$ and an initial guess $y$ for the solution of the system $Ax=b$ set $i=1$ 
+and do the following steps  
+\begin{enumerate}
+\item If $i=N$, then solve the system $Ax=b$ by using the direct method
+	and return.
+\item Do pre-smoothing by applying some iterative algorithm 
+for a given number of times to obtain a new approximate solution $y$.
+\item Perform coarse grid correction by starting 
+	a new application of this algorithm with 
+	$A=I_{i}^{i+1}AI_{i+1}^{i}$, $b=I_{i}^{i+1}(Ay-b)$,	
+	$i=i+1$ and the initial guess $e=0$.
+\item Compute a new approximate solution by setting $y = y + I_{i+1}^{i}e$
+\item Do post-smoothing by applying some iterative algorithm for a given number of times
+	to obtain a new approximate solution $y$.
+\item Go to point 2, if the solution has not yet converged.
+\end{enumerate}
+In ElmerSolver one may choose the Jacobi, CG or BiCGStab algorithm as the method for smoothing
+iterations. 
+
+The full success of multigrid methods is based on the favorable combination of the properties 
+of basic iteration methods and methods for transferring vectors between meshes. 
+The smoothing iterations give rapid convergence for    
+oscillatory solution components while coarse grid correction entails an efficient 
+solution method for smooth solution components. For a comprehensive 
+introduction to the geometric multigrid method the reader is referred to \cite{Briggs87}.     
+
+%The geometric multigrid (GMG) uses a set of different meshes to construct 
+% a set of equations and projectors.
+
+
+
+
+\subsection{Algebraic multigrid}
+
+In many cases the geometric multigrid may not be applied because we don't have the 
+luxury of having a set of appropriate hierarchical meshes. The alternative is the 
+algebraic multigrid (AMG) method which only uses the matrix $A$ to construct the projectors and the 
+coarse level equations. AMG is best suited for symmetric and positive semidefinite problems.
+For other types of problems the standard algorithm be fail. For more information on 
+AMG see reference~\cite{stuben99}. 
+ 
+The AMG method has two main phases. The set-up phase includes the recursive selection
+the coarser levels and definition of the transfer and coarse-grid operators. 
+The solution phase uses the resulting components to perform a normal multigrid
+cycling until a desired accuracy is reached. The solution phase is similar
+to that of the GMG.
+
+The coarsening is performed using a standard coarsening algorhitm. 
+The possible connections are defined by the 
+entries in the matrix $A$. The variable $i$ is strongly coupled
+to to another variable $j$ if 
+\begin{equation}
+  a_{ij} < - c_{-} \max | a_{ik} |  \mbox{\ \ \ or \ \ \ }
+  a_{ij} > c_{+} \max | a_{ik} | ,
+\end{equation}
+where $0<c_{-}<1$ and $0<c_{+}<1$ are parameters.
+Typically $c_{-} \approx 0.2$ and $c_{+} \approx 0.5$.  
+Once the negative ($P^{-}$) and positive ($P^{+}$) 
+strong couplings have been set 
+the variables are divided into coarse ($C$) and fine ($F$) 
+variables using the standard coarsening scheme.
+
+The interpolation matrix may be constructed 
+using the the $C/F$-splitting and the strong couplings of the matrix.
+The interpolation of coarse nodes is simple as they remain unchanged. 
+The interpolation of fine nodes 
+starts from the fact the the smooth error $e$ 
+must roughly satisfy the condition $Ae=0$ or,
+\begin{equation}
+  a_{ii} e_i + \sum_{j \neq i} a_{ij} e_j = 0 .
+  \label{eq_interpolate}
+\end{equation}
+By manipulation 
+\begin{equation}
+  a_{ii} e_i + \alpha_i \sum_{j \in C \cap P_i^{-}} a_{ij} e_j +
+\beta_i \sum_{j \in C \cap P_i^{+}} a_{ij} e_j = 0,
+\end{equation}
+where
+\begin{equation}
+  \alpha_i = \frac{ \sum_{j \in P_i^{-}} a_{ij} }{ \sum_{j \in C \cap P_i^{-}} a_{ij}  }
+ \mbox{\ \ \ and \ \ \ }
+  \beta_i = \frac{ \sum_{j \in P_i^{+}} a_{ij} }{ \sum_{j \in C \cap P_i^{+}} a_{ij}  } .
+\end{equation}
+The interpolation thus becomes 
+\begin{equation}
+  e_i = \sum_{j \in C \cap P_i} w_{ij} e_j  \mbox{ \ \ \ with \ \ \ }
+w_{ij} = \left \{ 
+\begin{array}{ll}
+-\alpha_i a_{ij} / a_{ii}, \mbox{ \ } & j \in P_i^{-} \\
+-\beta_i a_{ij} / a_{ii},               & j \in P_i^{+}
+\end{array} 
+\right .
+\end{equation}
+
+This is known as {\em direct interpolation}. It may be modified by using also 
+the strong $F$-nodes in the interpolation. This means that 
+in formula~(\ref{eq_interpolate}) the following 
+elimination is made for each $j \in F \cap P_i$
+\begin{equation}
+  e_j \rightarrow - \sum_{k \in C \cap P_j} a_{jk}e_k/a_{jj} .
+\end{equation}
+This is known as {\em standard interpolation}.
+In practice it means that the number of nodes used in the interpolation
+is increased. This may be important to the quality of the interpolation 
+particularly if the number of direct $C$-neighbors is small.
+
+After the interpolation weights have been computed the smallest 
+coefficients may be truncated if they are small, {\em ie.},
+$w_j < c_w \max | w_k | $, where $c_w \approx 0.2$.
+The other values must accordingly be increased so that the sum of weights
+remains constant.
+The truncation is essential in preventing the 
+filling of the coarse level matrices.
+
+
+\subsection{Preconditioning by multilevel methods}\label{MultilevelPreconditioning}
+
+Multilevel methods are iteration methods on their own but they can also be
+applied as preconditioners for the Krylov subspace methods. 
+This preconditioning approach corresponds to taking $M=A$ in (\ref{PreconditioningStep}) 
+and performing an inaccurate solution of the resulting system using multilevel methods
+to obtain $u$. A rather mild stopping criterion may be used in this connection. 
+Preconditioning by multilevel methods may lead to very efficient solution methods for
+large linear systems. 
+
+%\section{How to choose a linear system solver}
+%
+%The theoretical complexity analysis of different algorithms for
+%solving linear systems give the following results:
+%\begin{itemize}
+%\item direct band matrix solver: $o(n^3)$
+%\item iterative solver: $o(n^{3/2})$
+%\item multigrid solver: $o(n\log n)$
+%\end{itemize}
+%Each type of solver has its overhead though, so that when solving small cases the band matrix solver
+%might actually be the fastest by a margin. Iterative solvers are a good choice for medium to large
+%sized cases. If the case is symmetric the Conjugate Gradient (CG) method is a good choice. For
+%nonsymmetric matrices at least give the Biconjugate Gradient Stabilized (BiCGStab) method a try.
+%There might be some trouble finding the proper preconditioner. The choosing of a preconditioner for
+%a particular case might require some trial and error. Start with ILU(0) and work your way up to ILU(n).
+%When the n increases progressively more elements of the LU decomposition of the coefficient matrix are
+%computed, so the preconditioner in principle is better and the number of iterations needed should
+%decrease.  At the same time the memory usage grows rapidly and so does the time spent in building
+%the preconditioner matrix and in applying the preconditioner during iterations. The same applies
+%to ILU(T) preconditioner with decreasing  threshold value.  
+%Multigrid solver (or preconditioner)
+%is very fast at solving large elliptic or parabolic cases.  The multigrid algorithm is much more prone
+%to have difficulties in getting a solution at all compared to iterative solvers or a direct solver.
+
+
+
+
+
+\section{Keywords related to linear system solvers}
+
+The following keywords may be given in Solver section of the solver input file (.sif file).
+
+\sifbegin
+\sifitem{Linear System Solver}{String}
+Using this keyword the type of linear system solver is selected. This keyword may take  
+the following values:
+\begin{itemize}
+\item {\tt Direct}
+\item {\tt Iterative}
+\item {\tt Multigrid}
+\end{itemize}
+Here {\tt Iterative} and {\tt Multigrid} refer to the Krylov and multilevel methods,
+respectively.   
+
+\sifitem{Linear System Direct Method}{String}
+If the value of the {\tt Linear System Solver} keyword is set to be 
+{\tt Direct}, one may choose a band matrix solver with 
+value \texttt{banded} or a sparse matrix solver with 
+value \texttt{umfpack}. The default is \texttt{banded}.
+
+\sifitem{Linear System Iterative Method}{String}
+If the value of the {\tt Linear System Solver} keyword is set to be 
+{\tt Iterative}, one should choose a Krylov method by setting the value of this keyword to be 
+one of the following alternatives:
+\begin{itemize}
+\item {\tt CG}
+\item {\tt CGS}
+\item {\tt BiCGStab}
+%\item QMR
+\item {\tt TFQMR}
+\item {\tt GMRES}
+\end{itemize}
+See also the {\tt MG Smoother} keyword.
+
+\sifitem{Linear System GMRES Restart}{Integer [10]}
+The restart parameter $m$ for the GMRES method may be given using this keyword.
+
+\sifitem{Linear System Preconditioning}{String}
+A preconditioner for the Krylov methods may be declared by setting the value of this keyword to be 
+one of the following alternatives: 
+\begin{itemize}
+\item {\tt None}
+\item {\tt Diagonal}
+\item {\tt ILUn}, where the literal {\tt n} may take values 0,1,...,9.
+\item {\tt ILUT}
+\item {\tt Multigrid}
+\end{itemize}
+See also the {\tt MG Preconditioning} keyword.
+
+\sifitem{Linear System ILUT Threshold}{Real [0.0]}
+This keyword is used to define the value of 
+the numerical tolerance for the ILUT preconditioner.
+
+\sifitem{Linear System Convergence Tolerance}{Real [0.0]}
+This keyword is used to define a stopping criterion for the Krylov methods. 
+The approximate solution is considered to be accurate enough if the scaled residual satisfies
+\begin{equation*}
+\frac{|| Ax - b ||}{||b||} \le \epsilon
+\end{equation*}
+where $\epsilon$ is the value of this keyword.
+See also {\tt MG Tolerance}.
+
+\sifitem{Linear System Max Iterations}{Integer [0]}
+This keyword is used to define the maximum number of iterations the Krylov methods
+are permitted to perform. 
+If this limit is reached and the approximate solution does not satisfy the stopping criterion, 
+ElmerSolver either continues the run using the current approximate solution as the solution
+of the system or aborts the run depending on the value of {\tt Linear System Abort Not Converged}
+keyword. See also {\tt MG Max Iterations} keyword.
+
+\sifitem{Linear System Abort Not Converged}{Logical [True]}
+If the value of this keyword is set to be {\tt True}, ElmerSolver aborts the run when
+the maximum number of iterations the algorithm is permitted to perform is reached and 
+the approximate solution does not satisfy the stopping criterion. 
+Otherwise the run will be continued using the current approximate solution as the solution of 
+the system (this may lead to troubles at later steps of computation).  
+
+\sifitem{Linear System Residual Output}{Integer [1]}
+By default the iterative algorithms display the value of the (scaled) residual after each 
+iteration step. Giving a value $n>1$ for this keyword may be used 
+to display the residual only after n iterations. If the value 0 is given, the residual output 
+is disabled.
+
+\sifitem{Linear System Precondition Recompute}{Integer [1]}
+By default the ElmerSolver computes the preconditioner when a new application of iterative
+algorithm is started. If the value of this keyword is set to be {\tt n}, 
+the preconditioner is computed only 
+after n successive subroutine calls for linear systems arising from same source.
+This may speed up the solution procedure especially in cases where the coefficient matrix does
+not change much between successive subroutine calls, but if the coefficient matrix has changed 
+significantly, the preconditioner may not be efficient anymore.
+
+\sifitem{Optimize Bandwidth}{Logical [True]}
+%In order to use a band matrix solver effectively, a bandwidth optimization procedure is needed.
+%ElmerSolver provides the Cuthill-McKee algorithm for bandwidth optimization. 
+If the value of this keyword is set to be {\tt True}, 
+the Cuthill-McKee bandwidth optimization scheme is used to order the unknowns
+in such a way that band matrices can be handled efficiently. 
+The use of this option is recommended when the direct solver or incomplete factorization 
+preconditioners are used.
+
+\sifend
+
+
+The keywords beginning with {\tt MG} are activated only if either 
+the {\tt Linear System Solver} or {\tt Linear System Preconditioning} keyword has 
+the value {\tt Multigrid}. If multigrid method is used as the linear system solver,
+the use of some keywords starting with {\tt MG} may be replaced by the use of 
+corresponding keywords starting with phrase {\tt Linear System}.
+It should be noted that in the case of multigrid solver there are some limitations to
+that which values the keywords starting with phrase {\tt Linear System} may take,
+see below.
+
+
+\sifbegin
+\sifitem{MG Levels}{Integer [1]}
+This keyword is used to define the number of partitionings for the multigrid method.
+
+\sifitem{MG Equal Split}{Logical [False]}
+A hierarchy of meshes utilized by the multigrid method may be generated automatically 
+by setting the value of this keyword to be {\tt True}. The coarsest partitioning must 
+be supplied by the user and is declared in the usual way in the Header section of
+the solver input file. The other meshes are obtained using an equal division of 
+the coarser mesh. The solution of the problem will be sought for the finest partitioning.
+
+\sifitem{MG Mesh Name}{File}
+A hierarchy of meshes utilized by the multigrid method may be supplied by the user.
+A base name of the mesh directories is declared using this keyword.
+The names of mesh directories must be composed of the base name appended with a level number
+such that if the base name is {\tt mgridmesh}, the mesh directories should have names 
+{\tt mgridmesh1}, {\tt mgridmesh2}, etc. The partitionings are numbered starting from 
+the coarsest mesh. In addition, the finest mesh must be 
+declared in the Header section of the solver input file. It should be noted that
+the {\tt MG Equal Split keyword} must be set to be {\tt False} in order to use 
+user-supplied meshes. 
+
+\sifitem{MG Max Iterations}{Integer [0]}
+If multigrid method is used as a preconditioner for the Krylov methods, the value of 
+this keyword defines the maximum number of iterations the multigrid method is 
+allowed to perform to solve the preconditioning equation (\ref{PreconditioningStep}). 
+Usually performing one or two iterations is sufficient.
+If multigrid method is the linear system solver, the use of this keyword is 
+similar to that of the {\tt Linear System Max Iterations} keyword.
+
+\sifitem{MG Convergence Tolerance}{Real [0.0]}
+If multigrid method is used as a preconditioner for the Krylov methods, 
+this keyword may be used to define the solution accuracy for the
+preconditioning equation (\ref{PreconditioningStep}). 
+The use of this keyword is not usually needed if the {\tt MG Max Iterations} 
+keyword has a small value. If multigrid method is the linear system solver, 
+the use of this keyword is similar to that of 
+the {\tt Linear System Convergence Tolerance} keyword.
+
+\sifitem{MG Smoother}{String}
+This keyword defines the algorithm for pre- and  
+post-smoothing. It may take one of the following values:
+\begin{itemize}
+\item {\tt Jacobi}
+\item {\tt CG}
+\item {\tt BiCGStab}
+\end{itemize}
+If the linear system solver is multigrid method,
+the {\tt Linear System Iterative Method} keyword may be used instead of this keyword, 
+but only the three algorithms mentioned here can be applied.
+
+\sifitem{MG Pre Smoothing Iterations}{Integer [0]}
+This keyword is used to define the number of pre-smoothing iterations.
+
+\sifitem{MG Post Smoothing Iterations}{Integer [0]}
+This keyword is used to define the number of post-smoothing iterations.
+
+\sifitem{MG Preconditioning}{String}
+This keyword is used to declare the preconditioner for the algorithm which is used in
+smoothing iterations. It may take one of the following values:
+\begin{itemize}
+\item {\tt None}
+\item {\tt ILUn}, where the literal {\tt n} may take values 0,1,...,9.
+\item {\tt ILUT}
+\end{itemize}
+Note that this keyword is not related to using multigrid method as a preconditioner. 
+It is also noted that preconditioning the smoothing algorithms 
+does not seem to work well if multigrid method is used as a preconditioner for 
+Krylov methods.
+
+\sifitem{MG ILUT Tolearance}{Real [0.0]}
+This keyword is used to define the numerical tolerance for the ILUT preconditioner 
+in connection with smoothing iterations.
+
+\sifend
+
+The keywords for the algebraic multigrid solver are in a large part the same as
+for the geometric multigrid. There are, however, some special keywords that
+only relate to AMG.
+\sifbegin
+\sifitem{MG Algebraic}{Logical True}
+Enforces the use of algebraic multigrid.
+\sifitem{MG Lowest Linear Solver Limit}{Integer}
+This value gives a lower limit for the set of coarse nodes after which
+the recursive multilevel routine is terminated. A proper value 
+might be around 100.
+\sifitem{MG Recompute Projector}{Logical}
+This flag may be used to enforce recomputation of the projector 
+each time the algebraic multigrid solver is called. The default is
+\texttt{False} as usually the same projector is appropriate for all
+computations.
+\sifitem{MG Eliminate Dirichlet}{Logical}
+In the highest level the fixed nodes may all be set
+to be coarse since their value is not affected by the lower levels.
+The default is \texttt{True}
+\sifitem{MG Eliminate Dirichlet Limit}{Real}
+Gives the maximum fraction of non-diagonal entries for a Dirichlet node.
+\sifitem{MG Smoother}{String}
+In addition to the selection for the GMG option \texttt{sor} (symmetric over relaxation)
+is possible. 
+\sifitem{MG SOR Relax}{String}
+The relaxation factor for the SOR method. The default is 1.
+\sifitem{MG Strong Connection Limit}{Real} 
+The coefficient $c_{-}$ in the coarsening scheme. Default is 0.25.
+\sifitem{MG Positive Connection Limit}{Real} 
+The coefficient $c_{+}$ in the coarsening scheme. Default is 1.0.
+\sifitem{MG Projection Limit}{Real}
+The coefficient $c_w$ in the truncation of the small weights. The default is 0.1.
+\sifitem{MG Direct Interpolate}{Logical}
+Chooses between direct and standard interpolation. The default is \texttt{False}.
+\sifitem{MG Direct Interpolate Limit}{Integer}
+The standard interpolation may also be applied to nodes with 
+only a small number of coarse connection. This gives the smallest number
+of nodes for which direct interpolation is used.
+\sifend
+
+
+
+
+\section{Implementation issues}
+
+\subsection{The sparse matrix storage}
+
+To be efficient, iteration methods require that a matrix-vector product
+for a sparse matrix is efficiently implemented. A special
+storage scheme called the Compressed Row Storage (CRS) \cite{Barrett93} is used in ElmerSolver
+to store only those matrix coefficients that differ from zero.
+
+The matrix structure is defined in module Types as:
+\ttbegin
+  TYPE Matrix_t
+     ...
+    INTEGER :: NumberOfRows
+
+    REAL(KIND=dp),  POINTER :: Values(:)
+    INTEGER, POINTER :: Rows(:), Cols(:), Diag(:)
+     ...
+  END TYPE Matrix_t
+\ttend
+The matrix type has several additional fields, but the basic storage scheme can be implemented  
+using the fields shown. The array {\tt Values} is used to store the nonzero elements of
+the coefficient matrix. The array {\tt Cols} contains the column numbers for the elements 
+stored in the array {\tt Values}, while the array {\tt Rows} contains indices to 
+elements that start new rows. In addition, 
+{\tt Row(n+1)} gives the number of nonzero matrix elements + 1. 
+The array {\tt Diag} is used to store the indices of the diagonal elements. 
+
+For example, to go through the matrix row by row the 
+following loop may be used
+\ttbegin
+  USE Types
+  TYPE(Matrix_t), POINTER :: A
+  REAL(KIND=dp):: val
+  INTEGER :: i, j, row, col
+
+  DO i=1, A % NumberOfRows
+    PRINT *, 'Diagonal element for row ', i, ' is ', A % Values( A % Diag(i) )
+    DO j=A % Rows(i), A % Rows(i+1)-1
+       row = i
+       col = A % Cols(j)
+       val = A % Values(j)
+       PRINT *, 'Matrix element at position: ', row,col, ' is ', val
+    END DO
+  END DO
+\ttend
+
+
+\subsection{Subroutine calls}
+
+Most of the functionality of the sparse linear system solver of the ElmerSolver is
+available by using the function call
+\ttbegin
+  Norm = DefaultSolve().
+\ttend
+The return value {\tt Norm} is a norm of the solution vector.
+
+Sometimes it may be convenient to modify the linear system 
+before solving it. A Fortran function which performs this modification can be
+written by the user with the name of the function being declared in the solver 
+input file. For example, this technique may be used to define a user-supplied 
+linear system solver. 
+
+If the name of the user-supplied Fortran function is {\tt proc} and it 
+can be found in the file having the name {\tt Filename}, the declaration
+\sifbegin
+\sifitem{Before Linsolve}{File Filename proc}
+\sifend
+in the solver input file has the effect that the function will be called just
+before the default call of linear system solver.
+The arguments the function can take are fixed and are declared as  
+\ttbegin
+   FUNCTION proc( Model, Solver, A,  b, x, n, DOFs, Norm ) RESULT(stat)
+      USE SolverUtils
+      TYPE(Model_t)  :: Model
+      TYPE(Solver_t) :: Solver
+      TYPE(Matrix_t), POINTER :: A
+      REAL(KIND=dp) :: b(:), x(:), Norm
+      INTEGER :: n, DOFs, stat 
+      ...
+   END FUNCTION proc
+\ttend
+Here the Model structure contains the whole definition of the elmer run. The Solver structure
+contains information for the equation solver from which this linear system originates. 
+The coefficient matrix A is in CRS format, b is the right-hand side vector, 
+and x contains the previous solution. The argument n is the number of 
+unknowns, and DOFs is the number of unknowns at a single node. 
+%(the solution is scalar or vector equation etc.).
+
+If the return value from this function is zero, the (possibly) modified linear system is solved
+after the return. If the return value is 1, the linear system is assumed to be already solved
+and the vector x should contain the result. It is noted that the user-supplied Fortran function  
+may also call the default linear equation solver within the function, i.e.\ one may write
+the subroutine call
+\ttbegin
+   CALL SolveLinearSystem( A, b, x, Norm, DOFs, Solver )
+\ttend
+Here A and b may be modified so that the linear system which is solved need not be 
+same as the input system.
+
+In a similar way the user may also supply a user-defined Fortran function which
+will be called just after the solution of linear system. This is done using the 
+declaration
+\sifbegin
+\sifitem{After Linsolve}{File Filename proc}
+\sifend
+in the solver input file. The arguments of this function must be as ones for a  
+function in the context of {\tt Before Linsolve} keyword.
+
+
+
+\bibliography{elmerbib}
+\bibliographystyle{plain}
+

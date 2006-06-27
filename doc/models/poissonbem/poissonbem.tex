@@ -1,0 +1,156 @@
+\chapter{BEM Solver for Poisson Equation}
+
+\modinfo{Module name}{PoissonBEM}
+\modinfo{Module subroutines}{\Idx{PoissonBEMSolver}}
+\modinfo{Module authors}{Juha Ruokolainen}
+\modinfo{Document authors}{Juha Ruokolainen}
+\modinfo{Document edited}{May 27th 2003}
+
+\section{Introduction}
+
+This module solves the Laplace equation by \Idx{boundary element method} (\Idx{BEM}), where
+the differential equation is transformed to integral equation along the
+boundaries. On the boundaries either potential or normal flux may be defined.
+A source term may be included (Poisson equation), but the source term remains
+a volume integral.
+
+\section{Theory}
+
+The Poisson equation is mathematically described as
+\begin{equation}
+-\Delta \Phi - f = 0, \mbox{ in } \Omega,
+\end{equation}
+where $f$ is the given source.
+
+In BEM we transform this equation to \Idx{integral equation} over boundaries. We start
+by multiplying the equation by a weight function and integrating over the volume,
+and integrating by parts
+\begin{equation}
+-\int_\Omega \Delta \Phi w\ d\Omega  = \int_\Omega \nabla\Phi\cdot \nabla w\ d\Omega  -
+\int_\Gamma \frac{\partial\Phi}{\partial n} w\ d\Gamma.
+\end{equation}
+Similarily we may write an equation reversing the roles of $\Phi$ and $w$
+\begin{equation}
+-\int_\Omega \Delta w \Phi\ d\Omega = \int_\Omega \nabla w\cdot \nabla \Phi\ d\Omega  -
+\int_\Gamma \frac{\partial w}{\partial n} \Phi\ d\Gamma.
+\end{equation}
+Substracting the two equations we have
+\begin{equation}
+-\int_\Omega \Delta \Phi w\ d\Omega =
+-\int_\Omega \Delta w \Phi\ d\Omega -
+\int_\Gamma \frac{\partial\Phi}{\partial n} w\ d\Gamma +
+\int_\Gamma \frac{\partial w}{\partial n} \Phi\ d\Gamma
+\end{equation}
+Next we choose the weight $w$ as follows:
+\begin{equation}
+-\Delta w = \delta_r(r'),
+\end{equation}
+so that 
+\begin{equation}
+-\int_\Omega \Delta w \Phi\ d\Omega = \Phi(r), 
+\end{equation}
+The weight $w$ chosen this way is the Green's function for the Laplace operator,
+i.e.
+
+\begin{equation}
+ w(r,r') = \frac{\log(r-r')}{2\pi} \mbox{ in 2d }, 
+ w(r,r') = \frac{1}{4\pi(r-r')} \mbox{ in 3d }.
+\end{equation}
+
+Finally we add the source term, and we have the equation
+\begin{equation}
+\Phi(r) -
+\int_\Gamma \frac{\partial\Phi}{\partial n} w\ d\Gamma +
+\int_\Gamma \frac{\partial w}{\partial n} \Phi\ d\Gamma - \int_\Omega fw\ d\Omega = 0.
+\end{equation}
+Only the source term is now integrated over the volume.
+This equation may now be discretized by standard methods.
+
+\subsection{Boundary Conditions}
+
+Boundary conditions may be set for either potential
+\begin{equation}
+\Phi = \Phi_\Gamma \mbox{ on } \Gamma,
+\end{equation}
+or normal flux
+\begin{equation}
+-\frac{\partial \Phi}{\partial n} = g \mbox{ on } \Gamma.
+\end{equation}
+
+
+\section{Keywords} 
+
+\sifbegin
+
+\sifitem{Solver}{solver id} 
+Note that all the keywords related to linear solver (starting with {\tt Linear System})
+may be used in this solver as well.
+They are defined elsewhere.  Note also that the BEM discretization
+results to a full linear system in contrast to FEM discretizations
+and the ILU preconditioning settings are not available.
+
+\sifbegin
+\sifitem{Equation}{String [PoissonBEM]} 
+The name of the equation.
+\sifitem{Procedure}{File ["PoissonBEM"\ "PoissonBEMSolver"]}
+This keyword is used to give the Elmer solver the place where
+to search for the  equation solver.
+\sifitem{Variable}{String [Potential]}
+Give a name to the field variable.
+\sifitem{Variable DOFs}{Integer [1]}
+This keyword must be present, and {\it must} be set to the value $1$.
+\sifitem{Exported Variable 1}{String Flux}
+If this keyword is given, the output will include the normal flux at
+boundaries, the name must be exactly as given.
+\sifitem{Exported Variable 1 DOFs}{Integer [1]}
+This keyword must be present if Flux values are to be computed,
+and {\it must} be set to the value $1$.
+\sifend
+
+\sifitem{Equation}{eq id}
+The equation section is used to define a set of equations for a body or set of bodies:
+\sifbegin
+\sifitem{PoissonBEM}{Logical} if set to {\tt True}, solve the Poisson equation,
+the name of this parameter must match the {\tt Equation} setting in the {\tt Solver} section.
+\sifend
+If the mesh has any volume elements with a body id that corresponds to a body where to
+the Poisson equation is activated, the value of the potential is computed for these elements
+as a postprocessing step. Note that the computation of potential is not a trivial task,
+so large number of volume elements may result to long execution time.
+
+\sifitem{Boundary Condition}{bc id}
+The boundary condition section holds the parameter values for various
+boundary condition types. Dirichlet boundary conditions may be
+set for all the primary field variables. The one related to Poisson (BEM) equation
+are
+\sifbegin
+\sifitem{Body Id}{Integer}
+Give body identification number for this boundary, used to reference
+body definitions in .sif file. This parameter must be set so that the ElmerSolver
+knows at which boundaries to solve the corresponding equation.
+\sifitem{Potential}{Real} 
+Known potential value at boundary.
+\sifitem{Flux}{Real}
+Known normal flux at boundary.
+\sifitem{Normal Taget Body}{Integer}
+The direction of boundary normals are important for the success of the computation. They
+should point consistently outward from the boundaries. This is accomplished either if
+the mesh generator automatically orients the boundary elements consistently, or including
+in the mesh the parent (volume) elements of the boundaries and using this keyword. The value
+-1 of this parameter points to the side where there are no volume elements. If the parameter
+gets the value of the body id of the volume elements, the normal will point to that direction.
+\sifend
+
+\sifitem{Body Force}{bf id}
+The source term for the Poisson equation may be given here. The volume integral
+is computed on a body with a volume mesh and the PoissonBEM equation set to true.
+\sifbegin
+\sifitem{Source}{Real}
+The source term for the Poisson equation.
+\sifend
+\sifend
+
+
+%\bibliography{elmerbib}
+%\bibliographystyle{plain}
+

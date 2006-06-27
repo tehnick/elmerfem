@@ -1,0 +1,165 @@
+\chapter{Free Surface with Constant Flux}
+
+\modinfo{Module name}{\Idx{FreeSurfaceReduced}}
+\modinfo{Module subroutines}{FreeSurfaceReduced}
+\modinfo{Module authors}{Peter Råback}
+\modinfo{Document authors}{Peter Råback}
+\modinfo{Document edited}{August 5th 2002}
+
+
+\section{Introduction}
+
+The determination of free surface is often an essential part of solving
+a fluid dynamics problem. Usually the surface is found by solving a 
+free surface equation resulting from force balance, 
+or by finding the free surface from zero flux condition.
+In some extreme cases both of these methods were found to fail and 
+therefore an alternative approach was taken. The method can 
+only be applied to stationary 2D or axisymmetric flows where the total flux 
+is conserved. This is the case, for example, in many \Idx{coating} and 
+\Idx{drawing} processes.
+
+
+\section{Theory}
+
+\index{mass conservation}
+The determination of the free surface takes use of the 
+conservation of mass. If the flow is stationary the mass flux through all 
+planes cutting the flow must be same.
+In the following we concentrate on the axisymmetric case which has more 
+applications than the 2D case. 
+
+In the axisymmetric case the mass flux is obtained from 
+\begin{equation}
+  f(R,z) = \int_{R_0}^{R} (\vec{u}\cdot\vec{n}) \, r ds.
+\end{equation}
+The free surface is set by finding 
+a surface profile $R(z)$ such that the integral is
+constant for all nodes on the surface, or 
+\begin{equation}
+  f(R,z_j) = f(R_1,z_1) \ \ \ \ \forall j \in  [1,M].
+\end{equation}
+Note that the factor $2\pi$
+has been consistently omitted since it has no bearing
+to the shape of the free surface.
+
+The subroutine uses simple heuristics to determine the direction 
+of the flow on the free surface. The first upwind node $z_1$ on the free surface is 
+assumed to be fixed and the corresponding flux is $f_1$.
+The new radius is set approximately by assuming that the 
+added or removed flow has the same velocity as the 
+velocity on the surface.
+Then the corrected radius is found from
+\begin{equation}
+  u_n R^{(m)} \, d R^{m} = f(R^{(m)},z) - f(R_1,z_1)
+\end{equation}
+or
+\begin{equation}
+  R^{(m+1)} = R^{(m)} + \frac{f(R^{(m)},z) - f(R_1,z_1)}{u_n R^{(m)}}.
+\end{equation}
+After the new profile is being found the 
+element nodes are moved to the new positions.
+The nodes that are not on the surface may be mapped in 
+many different ways. The straight-forward strategy is to use linear 1D mapping.
+Also more generic 2D mapping may be used.
+ 
+The free surface and the fluid flow must 
+be consistent and therefore the system must 
+be solved iteratively.
+When convergence of the coupled system has been obtained 
+the suggested $d R$ vanishes and the free surface solver 
+does not affect the solution.
+
+Sometimes the free surface solver overshoots and therefore it may
+be necessary to use relaxation to suppress the large 
+changes of the solution.
+
+Note that the free surface solver is simple based on mass conservation. No
+forces are applied on the free surface. If surface tension needs to be taken 
+into account it may be done while solving the Navier-Stoke equation.
+
+
+\section{Applicable cases and limitations}
+
+The method has some limitations which are inherent of the method:
+\begin{itemize}
+\item Limited to steady-state simulations.
+\item Limited to 2D and axisymmetric cases.
+\item If there is back-flow within the free surface flow the correctness of the 
+solution is not guaranteed.
+\end{itemize}
+Some limitations result from the current implementation:
+\begin{itemize}
+\item The free surface must be oriented so that the flow is on its negative side.
+\item There may be several free surfaces of this type but they must be directed
+	the same way.
+\item The line integral from $R_0$ to $R$ may cause some difficulties in 
+	unstructured meshes. Therefore structured meshes are favored.
+\item At the moment density is assumed to be constant and
+ 	therefore only incompressible fluids may be considered.
+\end{itemize}
+
+
+
+\section{Keywords}
+
+\sifbegin
+\sifitemnt{Solver}{solver id}
+\sifbegin
+\sifitemnt{Equation}{String "Free Surface Reduced"}
+\sifitem{Variable}{String dx}
+The change in the free surface coordinate.
+This may be of any name as far as it is used consistently also elsewhere.
+\sifitem{Variable DOFs}{Integer 1}
+Degrees of freedom for the free surface coordinate.
+\sifitem{Procedure}{File "FreeSurfaceReduced"\ "FreeSurfaceReduced"}
+The following four keywords are used for output control.
+\sifitem{Perform Mapping}{Logical}
+If this keyword is {\tt True} the coordinate 
+mapping is done locally by using linear 1D mapping.
+This is also the default. 
+Also 2D mapping is possible by using a separate 
+mesh update solver. Then the keyword should be set to \texttt{False}.
+\sifitem{Nonlinear System Relaxation Factor}{Real}
+The changes in the free surface may be relaxed. The 
+default is no relaxation or value 1.0
+
+\sifitem{Nonlinear System Convergence Tolerance}{Real} 
+This keyword gives a criterion to
+terminate the nonlinear iteration after the maximum change in the 
+free surface coordinate is small enough
+\begin{equation}
+ \max || d R / ( R - R_0 ) ||  < \epsilon 
+\end{equation}
+where $\epsilon$ is the value given with this keyword.
+\sifend
+
+\sifitemnt{Boundary Condition}{bc id}
+\sifbegin
+\sifitem{Free Surface Reduced}{Logical}
+Must be set to {\tt True} for the free surface when the solver is used.
+The boundary must be simply continuous.
+\sifitem{Free Surface Number}{Integer}
+If more than one free surface of the reduced type is present simultaneously
+they must somehow be separated. This keyword is for that purpose.
+The surfaces should be ordered from 1 to the number or free surfaces.
+Value 1 is also the default if the surface is active.
+Note that free surfaces with different numbers should be aligned the same way and should 
+not touch each other.
+\sifitem{Free Surface Bottom}{Logical}
+If this flag is free it sets the lower boundaries of integration 
+when solving for the free surface. Note that this surface should not touch any of the 
+free surfaces. A free surface is automatically a lower boundary for another 
+free surface.
+\sifend
+If mapping is not performed within the solver also boundary conditions
+for the mapping are required. Surface tension may be taken into account 
+while solving the Navier-Stokes equation. The proper keywords for 
+activating the surface tension are explained in the manual of the Navier-Stokes solver.
+\sifend
+
+
+
+%\bibliography{elmerbib}
+%\bibliographystyle{plain}
+

@@ -1,0 +1,351 @@
+\chapter{Advection-Diffusion Equation}
+\noindent
+\modinfo{Module name}{AdvectionDiffusion}
+\modinfo{Module subroutines}{\Idx{AdvectionDiffusionSolver}}
+\modinfo{Module authors}{Juha Ruokolainen, Ville Savolainen, Antti Pursula}
+\modinfo{Document authors}{Ville Savolainen, Antti Pursula}
+\modinfo{Document edited}{Oct 29th 2003}
+
+\section{Introduction}
+
+Advection-diffusion equation (sometimes called diffusion-convection equation)
+describes the transport of a scalar quantity or a chemical species by
+convection and diffusion. The difference in the nomenclature usually indicates
+that an advected quantity does not have an effect on the velocity field of
+the total fluid flow but a convected quantity has. Advection-diffusion equation
+is derived from the principle of mass conservation of each species in the fluid
+mixture. Advection-diffusion equation may have sources or sinks, and several
+advection-diffusion equations may be coupled together via chemical reactions.
+
+Fick's law is used to model the diffusive flux. Diffusion may be anisotropic,
+which may be physically reasonable at least in solids. If the velocity field
+is identically zero, the advection-diffusion equation reduces to the diffusion
+equation, which is applicable in solids.
+
+Heat equation is a special case of the advection-diffusion
+(or diffusion-convection) equation, and it is described elsewhere in this
+manual.
+
+\section{Theory}
+
+\subsection{Governing Equations}
+
+The advection-diffusion equation may, in general, be expressed in
+terms of relative or absolute mass or molar concentrations. In Elmer,
+when the transported quantity is carried by an incompressible fluid
+(or it is diffused in a solid), relative mass concentration
+$c_i=C_i/\rho$ for the species $i$ is used ($C_i$ is the absolute mass
+concentration in units $\mathrm{kg}/\mathrm{m}^3$, and $\rho$ the
+total density of the mixture). We have used the approximation valid
+for dilute multispecies flows, i.e., $0\le c_i\ll 1$.  The
+advection-diffusion equation is now written as
+\begin{equation}
+\rho  \left( \frac{\partial c_i}{\partial t}+(\vec v\cdot\nabla) c_i\right) = 
+\rho\nabla\cdot(D_i\nabla c_i) + S_i,
+\end{equation}
+where $\vec v$ is the advection velocity, $D_i$ the diffusion coefficient
+and $S_i$ is a source, sink or a reaction term. The diffusion coefficient may
+be a tensor.
+
+For a compressible fluid, the concentration should be expressed in absolute
+mass units, and the advection-diffusion equation reads
+\begin{equation}
+\frac{\partial C_i}{\partial t} + (\nabla\cdot\vec{v})C_i  +(\vec v\cdot\nabla) C_i = \nabla\cdot(D_i\nabla C_i) + S_i.
+\end{equation}
+
+For a situation, where the quantity is transported through a phase
+change boundary, it is convenient to scale the absolute mass
+formulation by the respective solubilities of the different
+phases. Such a case is for example the surface of a liquid, where the
+transported quantity is evaporated into a gaseous material. The
+scaled concentration variable satisfies the equilibrium boundary 
+condition on the phase
+change boundary automatically, and thus the advection-diffusion
+equation can be solved for both materials simultaneously. The scaling
+is following
+\begin{equation}
+x_i = \frac{C_i}{C_{i,max}},
+\end{equation}
+where $x_i$ is the concentration of species $i$ relative to its
+maximum solubility in the current material in absolute mass units. The
+maximum solubility has to be a constant (temperature independent) for
+the absolute mass formulation of the advection-diffusion equation to
+remain unchanged.
+
+It is also possible to include temperature dependent diffusion (Soret
+diffusion). This introduces an additional term on the right had side
+of the equation:
+\begin{equation}
+\nabla\cdot(\rho D_{i,T}\nabla T),
+\end{equation}
+where $D_{i,T}$ is the thermal diffusion coefficient of species
+$i$. The coefficient $D_{i,T}$ has to be given in the units $m^2/Ks$
+regardless of the units used for concentration.
+
+The velocity of the advecting fluid, $\vec v$, is typically calculated by
+the Navier-Stokes equation and read in from a restart file. All quantities can
+also be functions of, e.g., temperature that is given or solved by the heat
+equation. Several advection-diffusion equations for different species $i$ may
+be coupled and solved for the same velocity field.
+
+Given volume species sources $S_i$ can be prescribed. They are given
+in absolute mass units, i.e., $\mathrm{kg}/\mathrm{m}^3\mathrm{s}$.
+If the equation is scaled to maximum solubility, the source term can
+be given in absolute mass units, or in scaled units, $S_{i,sc} = S_i /
+C_{i,max}$, which is the default.
+
+
+\subsection{Boundary Conditions}
+
+For each species one can apply either a prescribed concentration or a mass
+flux as boundary conditions.
+
+\Idx{Dirichlet boundary condition} reads as
+\begin{equation}
+c_i=c_{i,b},
+\end{equation}
+or
+\begin{equation}
+C_i=C_{i,b},
+\end{equation}
+depending on the units. If the concentration is scaled to maximum
+solubility, the Dirichlet boundary conditions have to be given also in
+scaled values, $x_i = C_{i,b}/C_{i,max}$. In all variations, the
+boundary value can be constant or a function of time, position or
+other variables.
+
+One may specify a mass flux $\vec{\jmath}_i$ perpendicular to the boundary by
+\begin{equation}
+\vec{\jmath}_i\cdot\vec{n} = -D_i\frac{\partial C_i}{\partial n} = g.
+\end{equation}
+In relative mass units, this may be written as
+\begin{equation}
+\vec{\jmath}_i\cdot\vec{n} = -\rho D_i\frac{\partial c_i}{\partial n} = g.
+\end{equation}
+Thus the units in the flux boundary condition are always
+$\mathrm{kg}/\mathrm{m}^2s$ except when the equation is scaled to
+maximum solubility. In that case the default is to give flux condition
+in scaled units, $g_{sc} = g/C_{i,max}$, although the physical
+units are also possible.
+
+The mass flux may also be specified by a mass transfer coefficient
+$\beta$ and an external concentration $C_{ext}$
+\begin{equation}
+-D_i\frac{\partial C_i}{\partial n} = \beta(C_i-C_{i,ext}).
+\end{equation}
+
+On the boundaries where no boundary condition is specified, the
+boundary condition $g=0$ is applied. This zero flux
+condition is also used at a symmetry axis in 2D, axisymmetric or
+cylindrical problems.
+
+The equilibrium boundary condition on phase change boundaries under
+certain conditions is that the relative amounts of the transported
+quantity are equal on both sides of the boundary, 
+\begin{equation}
+\frac{C_i^{(1)}}{C^{(1)}_{i,max}} = \frac{C_i^{(2)}}{C^{(2)}_{i,max}},
+\end{equation}
+where the superscripts (1) and (2) refer to different sides of the
+boundary. This boundary condition is automatically satisfied if the
+equation is scaled with the maximum solubilities $C^{(j)}_{i,max}$.
+
+However, the scaling causes a discontinuity into the mass flux of the
+species through the phase change surface. The solver compensates this
+effect as long as such a boundary is flagged in the command file by
+the user.
+
+
+\section{Keywords} 
+
+\sifbegin
+\sifitem{Simulation}{}
+The simulation section gives the case control data:
+\sifbegin
+\sifitem{Simulation Type}{String} Advection-diffusion equation may be either 
+{\tt Transient} or {\tt Steady State}.
+\sifitem{Coordinate System}{String} Defines the coordinate system to be used, one of:
+{\tt Cartesian 1D}, {\tt Cartesian 2D},~~ {\tt Cartesian 3D},~~ {\tt Polar 2D},~~
+ {\tt Polar 3D},~~ {\tt Cy\-lin\-dric},~~ {\tt Cylindric Symmetric}
+~~and~~ {\tt Axi Symmetric}.
+\sifitem{Timestepping Method}{String} 
+Possible values of this parameter are {\tt Newmark} (an additional
+parameter {\tt Newmark Beta} must be given), {\tt BDF} ({\tt BDF Order} must be given). Also as a
+shortcut to {\tt Newmark}-method with values of {\tt Beta=0.0,0.5, 1.0} the keywords 
+{\tt Explicit Euler}, {\tt Crank-Nicolson}, and {\tt Implicit Euler} may be given respectively.
+The recommended choice for the first order time integration is the BDF method of order 2.
+\sifitem{BDF Order}{Integer}
+Value may range from 1 to 5.
+\sifitem{Newmark Beta}{Real} Value in range from 0.0 to 1.0. The value 0.0 equals to
+the explicit Euler integration method and the value 1.0 equals to the implicit Euler method. 
+\sifend
+
+\sifitem{Solver}{solver id}
+The solver section defines equation solver control variables. Most of the possible
+keywords -- related to linear algebra, for example -- are common for all the solvers and are 
+explained elsewhere.
+\sifbegin
+\sifitem{Equation}{String [Advection Diffusion Equation Variable\_name]}
+The name of the equation, e.g., {\tt Advection Diffusion Equation Oxygen}.
+\sifitem{Variable}{String Variable\_name}
+The name of the variable, e.g., {\tt Oxygen}.
+\sifitem{Procedure}{File "AdvectionDiffusion"\ "AdvectionDiffusionSolver"}
+The name of the file and subroutine.
+\sifitem{Nonlinear System Convergence Tolerance}{Real}
+The criterion to
+terminate the nonlinear iteration after the relative change of the norm of the field variable
+between two consecutive iterations $k$ is small enough
+$$
+ ||u_k-u_{k-1}|| < \epsilon ||u_k||,
+$$
+where $\epsilon$ is the value given with this keyword, and $u$ is either $c_i$
+or $C_i$.
+\sifitem{Nonlinear System Max Iterations}{Integer}
+The maximum number of nonlinear iterations the solver is allowed to do.
+\sifitem{Nonlinear System Relaxation Factor}{Real}
+Giving this keyword triggers the use
+of  relaxation in the nonlinear equation solver.
+Using a factor below unity is sometimes required to achieve convergence of the nonlinear system.
+A factor above unity might speed up the convergence. Relaxed variable is defined as follows:
+$$
+ u^{'}_k = \lambda u_k + (1-\lambda) u_{k-1},
+$$
+where $\lambda$ is the factor given with this keyword. The default value for the relaxation factor
+is unity.
+\sifitem{Steady State Convergence Tolerance}{Real}
+With this keyword a equation specific steady state or coupled system
+convergence tolerance is given.
+All the active equation solvers must meet their own tolerances for their
+variable $u$ before the 
+whole system is deemed converged.
+The tolerance criterion is:
+$$
+ ||u_i-u_{i-1}|| < \epsilon ||T_i||,
+$$
+where $\epsilon$ is the value given with this keyword.
+\sifitem{Stabilize}{Logical} 
+If this flag is set true the solver will use stabilized finite element method
+when solving the advection-diffusion equation with a convection term.
+If this flag is set to
+{\tt False}, RFB (Residual Free Bubble) stabilization is used instead (unless
+the next flag {\tt Bubbles} is set to {\tt False} in a problem with Cartesian
+coordinate system).
+If convection dominates, some form of stabilization must be used in order to succesfully solve the equation.
+The default value is {\tt False}.
+\sifitem{Bubbles}{Logical}
+There is also a residual-free-bubbles formulation of the stabilized finite-element
+method. It is more accurate and does not include any ad hoc terms. However, it may
+be computationally more expensive. The default value is {\tt True}.
+If both {\tt Stabilize} and {\tt Bubbles} or set to {\tt False}, no stabilization
+is used. This choice may be enforced in a problem with Cartesian coordinates,
+but the results might be nonsensical. Both
+{\tt Stabilize} and {\tt Bubbles} should not be set to {\tt True}
+simultaneously.
+\sifend
+
+\sifitem{Equation}{eq id}
+The equation section is used to define a set of equations for a body or set of bodies.
+\sifbegin
+\sifitem{Advection Diffusion Equation Variable\_name}{Logical} If set to {\tt True}, solve the advection-diffusion equation.
+\sifitem{Convection}{String}
+The type of convection to be used
+in the advection-diffusion equation, one of: {\tt None}, {\tt Computed}, {\tt Constant}.
+\sifitem{Concentration Units}{String}
+If set to {\tt Absolute Mass}, absolute mass units are used for concentration.
+Recommended for a compressible flow. Also possible to select {\tt Mass
+To Max Solubility} which causes the absolute mass formulation of the 
+equation to be scaled by the maximum solubilities of each material.
+\sifend
+
+\sifitem{Body Forces}{bf id} 
+The body force section may be used to give additional force terms for the equations.
+The following keyword is recognized by the solver:
+\sifbegin
+\sifitem{Variable\_name Diffusion Source}{Real}
+An additional volume source for the advection-diffusion equation may be given
+with this keyword. It may depend on coordinates, temperature and other variables, such as concentration of other chemical species, and thus describe a source,
+a sink or a reaction term. Given in absolute mass units or, in case of
+scaling, in the scaled units.
+\sifitem{Physical Units}{Logical True}
+With this keyword, the source term can be given in absolute mass units
+regardless of scaling.
+\sifend
+
+
+\sifitem{Initial Condition}{ic id}
+The initial condition section may be used to set initial values for the
+concentration $c_i$, $C_i$ or $x_i$.
+\sifbegin
+\sifitemnt{Variable\_name}{Real}
+\sifend
+
+\sifitem{Material}{mat id}
+The material section is used to give the material parameter values. The
+following material parameters may be effective when advection-diffusion
+equation is solved.
+\sifbegin
+\sifitem{Convection Velocity i}{Real} 
+Convection velocity {\tt i}$=1,2,3$ for the constant convection model.
+\sifitem{Density}{Real}
+The value of density of the transporting fluid 
+is given with this keyword. The value may be constant,
+or variable. For compressible flow, the density of the transporting fluid
+is computed internally, and this keyword has no effect.
+\sifitem{Compressibility Model}{String} This setting may be used to set the
+compressibility
+model for the flow simulations. Choices are {\tt Incompressible} and {\tt Perfect Gas}.
+If set to the latter, the density is calculated from the ideal gas law.
+Then also the settings {\tt Reference Pressure}, {\tt Specific Heat Ratio}
+and {\tt Heat Capacity} must be given.
+\sifitem{Reference Pressure}{Real} With this keyword a reference level of pressure may be given.
+\sifitem{Specific Heat Ratio}{Real} The ratio of specific heats (in constant pressure
+versus in constant volume) may be given with this keyword.
+The default value of this setting is $5/3$, which
+is the appropriate value for monoatomic ideal gas.
+\sifitem{Heat Capacity}{Real} For the compressible flow, specific heat
+in constant volume.
+\sifitem{Variable\_name Diffusivity}{Real}
+The diffusivity $D$ given by, e.g., {\tt Oxygen Diffusivity}. Can be a constant
+or variable. For an anisotropic case, may also be a tensor $D_{ij}$.
+\sifitem{Variable\_name Soret Diffusivity}{Real}
+The thermal diffusivity coefficient $D_T$ given by, e.g., {\tt Oxygen}
+{\tt Soret Diffusivity}. 
+Can be a constant or variable.
+\sifitem{Variable\_name Maximum Solubility}{Real}
+The maximum solubility of the species in absolute mass units. 
+Has to be a constant value.
+\sifend
+
+
+\sifitem{Boundary Condition}{bc id}
+In advection-diffusion equation we may set the concentration directly 
+by Dirichlet boundary conditions or use mass flux condition.
+The natural boundary condition is zero flux condition.
+\sifbegin
+\sifitemnt{Variable\_name}{Real}
+\sifitemnt{Mass Transfer Coefficient}{Real}
+\sifitem{External Concentration}{Real}
+These two keywords are used to define flux condition that depends on
+the external concentration and a mass transfer coefficient. This
+condition is only applicable to absolute mass formulation of the
+equation (see keywords for Equation block).
+\sifitem{Variable\_name Flux}{Real} A user defined mass flux term in absolute
+mass units or, in case of scaling, in the scaled units.
+\sifitem{Physical Units}{Logical True}
+With this keyword, the flux boundary condition can be given in 
+absolute mass units regardless of scaling. Note that this keyword does
+NOT affect the Dirichlet boundary condition nor the mass transfer
+coefficient bc.
+\sifitem{Variable\_name Solubility Change Boundary}{Logical True}
+This keyword marks the boundary over which the maximum solubility
+changes. Has to be present for the mass flux continuity to be
+preserved.
+\sifitem{Normal Target Body}{Integer bd id}
+In a solubility change boundary, this keyword can be used to control 
+on which side the mass flux compensation is done. Basically, this can
+be done on either side but there can be some effect on
+the accuracy or on the speed of the solution. Recommended is to give as
+normal target the body with less dense mesh, or the direction of
+average species transport. If normal target body is not specified, the
+material with smaller density is used.
+\sifend
+\sifend

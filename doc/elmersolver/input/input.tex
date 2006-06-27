@@ -1,0 +1,242 @@
+\chapter{Solver Input File}
+\noindent
+                                                                                                                 
+\section{Introduction}
+                                                                                                                 
+The solver input (.sif) file describes the
+computational case for the solver.  The
+input file is used to give the solver
+the mesh directory,  material parameters, initial
+conditions, boundary conditions, etc.
+One  may add his/her own keywords to the file,
+which solvers may ask using special runtime routines.
+The different parameters given in input file may
+depend on solution fields, and may be given as constants, tabulated
+values,  MATC  functions, or Fortran  functions. MATC is an
+interpreted language, which doesn't need any
+additional compilation step, or a compiler.
+
+\section{A Sample input file}
+
+The input file consists of different sections
+\begin{itemize}
+\item Header section
+\item Simulation section
+\item Body n - sections
+\item Initial Condition n - sections
+\item Body Force n - sections
+\item Material n - sections
+\item Equation n - sections
+\item Boundary Condition n - sections
+\end{itemize}
+
+Each section consists of the name of the section, a number of
+keyword-value pairs, and a row containing the word 'End'.
+A sample input file header might be 
+
+\ttbegin
+Check Keywords "Warn"
+Header
+  Mesh DB "." "1d"
+End
+\ttend
+
+Here only the placing of the mesh files is given. The simulation
+section contains several fields that concern the case as a whole:
+
+\ttbegin
+Simulation
+  Coordinate System = "Cartesian 1D"
+  Coordinate Mapping(3) = 1 2 3
+  Simulation Type = Steady
+  Output Intervals(1) = 1
+  Steady State Max Iterations = 1
+  Post File = "1dheat.ep"
+  Output File = "1dheat.dat"
+End
+\ttend
+
+The computational domain might consist of several different subdomains or
+'bodies', for each body the equation definition section, initial condition
+section, body force section and material definition section numbers are
+given. These sections are described later.
+
+\ttbegin
+Body
+  Equation = 1
+  Material = 1
+  Body Force = 1
+End
+\ttend
+
+The body force definition is used to give the volume forces, if any,
+for the equation solvers. Here a source term for the Poisson equation
+is given as constant 1:
+
+\ttbegin
+Body Force 1
+  Source = Real 1
+End
+\ttend
+
+The equation section defines the set of equation solvers for a subdomain
+of the whole computational  domain to be activated.  Note that previously
+we attached the equation definition to a body definition. This time only
+one equation solver is activated.
+
+\ttbegin
+Equation 1
+  Active Solvers(1) = 1
+End
+\ttend
+
+The solver sections are used to define the equations solver and all the
+solver dependent parameters, such as linear system solver options, and
+the file name and name of the solver procedure, the name of the solver
+variable, etc.
+
+\ttbegin
+Solver 1
+ Equation = "Poisson"
+ Variable = "Potential"
+ Variable DOFs = 1
+ Procedure = "Poisson" "PoissonSolver"
+ Linear System Solver = "Direct"
+ Steady State Convergence Tolerance = 1e-06
+End
+\ttend
+
+Boundary condition sections give the boundary conditions for the different
+equations. The boundary condition is mapped to boundaries of the mesh by
+giving the keyword Target Boundaries. Below the meaning is that Boundary
+Condition 1 is attached to boundaries 1, and 2:
+
+\ttbegin
+Boundary  Condition 1
+  Target Boundaries(2) = 1 2
+   Potential = Real 0
+End
+\ttend
+
+\section{Keyword syntax}
+
+A keyword is given a value with the equals sing:
+
+\ttbegin
+Density  = 1000 ! water
+\ttend
+
+If the keyword is not known to the Elmer Solver the type of the
+value  must also be given
+
+\ttbegin
+My Parameter = Real 1000
+\ttend
+
+Valid value types are
+\begin{itemize}
+\item Real
+\item Integer
+\item Logical
+\item String
+\item File
+\end{itemize}
+Most parameters may depend on field variables defined in the current run:
+
+\ttbegin
+Density = Variable Temperature)
+  MATC "1000*(1-1.0e-4*(tx-273))"
+\ttend
+
+This would mean, that the value of Density is dependent on Tempereture as:
+\begin{equation}
+  \rho =  \rho_0(1-\beta(T-T_0)),
+\end{equation}
+with $\rho_0=1000, beta=10^{-4}$ and $T_0=273$.
+The value of the independent variable is known as "tx" in the MATC language.
+In addition the variable "st" will contain the current steady iteration
+number or simulation time, if the run is steady or transient respectively.
+If the independent variable has more than one component, the variable "tx"
+will contain all the component values in (tx(0),tx(1),...,tx(n-1), where n
+is the number of components of the independent variable. In the same manner
+a user Fortran 90 function may be substituted in  place of the MATC function
+
+\ttbegin
+Density  = Variable Temperature
+  Procedure "filename" "proc"
+\ttend
+
+Where the file "filename" should contain the shareable .so (Unix) or .dll
+(Windows) code for the user function whose name is "proc".  The call interface
+for the Fortran function is as follows
+
+\ttbegin
+FUNCTION proc( Model, n, T ) RESULT(dens)
+  USE DefUtils)
+  IMPLICIT None
+  TYPE(Model_t) :: Model)
+  INTEGER :: n
+  REAL(KIND=dp) :: T, dens
+
+  dens = 1000*(1-1.0d-4(T-273.0d0))
+END FUNCTION proc
+\ttend
+
+The Model structure contains the whole definition of the Elmer run, and may be
+used to obtain field variable values, nodal coordinates, etc. The argument n is
+the node number to be processed, and t is the value of the independent variable
+at the nodal point. The routine should return the value  of the dependent
+variable. Another example might be
+
+\ttbegin
+Density = Variable Coordinate
+ Procedure "filename" "proc"
+\ttend
+
+Now the argument t would be an array of three values, which would contain the
+x,y, and z  coordinates of the current nodal point. One  more way to give the
+dependency is give a tabulated  pair of values:
+
+\ttbegin
+Density = Variable Temperature
+  Real
+   0 900
+   273 1000
+   300 1020
+   400 1000
+End
+\ttend
+
+This means, that when Temperature is 0, Density gets value 900, and is
+linearily interpolated between 0-273 between values 900 and 1000, etc.
+If the value of the independent variable is outside the range of the
+tablulated values,the first or the last of the linear equations from the
+tabulated  values is used to extrapolate the value of the dependent
+variable. A keyword may be defined to be a array insted of a scalar
+value, the array may be defined by giving the size of the array as in
+
+\ttbegin
+Active Solver(2) = 1 2
+Target Boundaries(3) = 2 4 5
+My Parameter Array(3,3) = Real 1 2 3 \keno
+                               4 5 6 \keno
+                               7 8 9 
+
+\ttend
+
+The components of the array valued variables (defined for example in solver
+section) are given a name with the component number attached, i.e. if the
+solver section has a definition of  a field variable
+
+\ttbegin
+Variable = "Displ"
+Variable DOFs = 3
+\ttend
+
+then Elmer Solver knows in addition to the vector Displ three scalar fields
+'Displ 1', 'Displ 2' and 'Displ 3'.   These latter field names may be used
+to set initial conditions, boundary conditions for the components and
+used as independent variables  in parameter definitions,etc.
+
+\bibliography{elmerbib}
+\bibliographystyle{plain}
