@@ -61,6 +61,9 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
 !     INPUT: Steady state or transient simulation
 !
 ! $Log: HelmholtzSolve.src,v $
+! Revision 1.9  2006/03/30 10:20:57  mmalinen
+! *** empty log message ***
+!
 ! Revision 1.8  2006/02/02 07:14:31  jpr
 ! Small formatting changes.
 !
@@ -151,7 +154,7 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp), ALLOCATABLE :: Density(:), WallVelocity(:,:)
   SAVE Density, WallVelocity
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HelmholtzSolve.src,v 1.8 2006/02/02 07:14:31 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HelmholtzSolve.src,v 1.9 2006/03/30 10:20:57 mmalinen Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -233,6 +236,10 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
         END IF
      END IF
   END IF
+
+  ! This is for Save Data:
+  ! ----------------------
+  CALL ListAddConstReal( Model % Simulation, 'res: Angular Frequency', AngularFrequency )
 
   FlowSol => VariableGet( Solver % Mesh % Variables, 'Flow')
   IF ( ASSOCIATED(FlowSol) ) THEN
