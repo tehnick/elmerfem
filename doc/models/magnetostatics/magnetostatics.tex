@@ -2,9 +2,9 @@
 \noindent
 \modinfo{Module name}{StatMagSolve}
 \modinfo{Module subroutines}{\Idx{StatMagSolver}}
-\modinfo{Module authors}{Juha Ruokolainen, Ville Savolainen, Jussi Heikonen, Peter Råback}
-\modinfo{Document authors}{Ville Savolainen, Peter Råback}
-\modinfo{Document edited}{May 27th 2002}
+\modinfo{Module authors}{Juha Ruokolainen, Ville Savolainen, Jussi Heikonen, Peter Råback, Antti Pursula}
+\modinfo{Document authors}{Ville Savolainen, Peter Råback, Antti Pursula}
+\modinfo{Document edited}{June 29th 2006}
 
 \section{Introduction}
 
@@ -25,7 +25,7 @@ the problem is described with the stationary model. However, in conductors the
 magnetic field results in additional currents that make the equation
 complex.
 
-Currently only an axisymmetric version of the solver is provided.
+%%Currently only an axisymmetric version of the solver is provided.
 
 
 
@@ -42,6 +42,17 @@ Here $\mu$ is the magnetic permeability of the material. The equation may be
 non-linear through the magnetic permeability curve of a ferromagnetic material.
 The magnetic permeability is specified in the {\tt Material} section by the
 keyword {\tt Magnetic Permeability}.
+
+The equation above may be solved either in axial symmetry or in three
+dimensions. In 3D, a curl vector identity is used to transform the
+equation into the form
+\[
+-\frac{1}{\mu} \nabla^2\vec{A} = \vec{\jmath},
+\]
+which is valid when $\mu$ is not a function of space
+coordinates. Also, the vector potential $\vec{A}$ is {\em a priori}
+assumed to satisfy the Coulomb gauge ($\nabla\cdot\vec{A}=0$).
+
 
 If there are conductors in the system the electric field is obtained
 from 
@@ -161,6 +172,9 @@ The equation section is used to define a set of equations for a body or set of b
 \sifbegin
 \sifitem{Static Magnetic Field}{Logical} If set to {\tt True}, solve the
 magnetostatics equation.
+\sifitem{User Defined Velocity}{Logical} If set to {\tt True} uses a
+given velocity instead of the computed velocity. The values of the
+velocity may be given in the {\tt Material} section.
 \sifend
 
 \sifitem{Body Force}{bf id}
@@ -197,6 +211,10 @@ magnetic flux density $|\vec{B}|$ is available by the variable named.
 The electrical conductivity defines the relation $\vec{\jmath}=\sigma \vec{E}$.
 Only isotropic case is possible.
 The parameter is needed only in the time-harmonic case.
+\sifitemnt{MHD Velocity 1}{Real}
+\sifitemnt{MHD Velocity 2}{Real}
+\sifitem{MHD Velocity 3}{Real}
+The components of the user defined velocity.
 \sifend
 
 \sifitem{Boundary Condition}{bc id}
