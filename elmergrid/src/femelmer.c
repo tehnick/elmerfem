@@ -1697,7 +1697,7 @@ int PartitionMetis(struct FemType *data,int partitions,int info)
   int i,j,periodic, highorder, noelements, noknots, ne, nn, sides;
   int nodesd1, nodesd2, etype, numflag, nparts, edgecut;
   int *neededby,*metistopo;
-  int *indxper,*inpart,*epart;
+  int *indxper,*inpart,*epart,*npart;
 
   if(info) printf("\nMaking a Metis partitioning for %d elements in %d-dimensions.\n",
 		  data->noelements,data->dim);
@@ -1764,8 +1764,7 @@ int PartitionMetis(struct FemType *data,int partitions,int info)
     etype = 3;
   }
 
-  /* perucliar length is because needed for two cases */ 
-  neededby = Ivector(0,noknots);
+  neededby = Ivector(1,noknots);
   metistopo = Ivector(0,noelements*nodesd2-1);
   epart = Ivector(0,noelements-1);
 
@@ -1774,7 +1773,6 @@ int PartitionMetis(struct FemType *data,int partitions,int info)
   
   for(i=1;i<=noknots;i++) 
     neededby[i] = 0;
-
   if(periodic) {
     for(i=1;i<=noelements;i++) 
       for(j=0;j<nodesd2;j++) 
@@ -1791,7 +1789,9 @@ int PartitionMetis(struct FemType *data,int partitions,int info)
     if(neededby[i]) 
       neededby[i] = ++j;
   nn = j;
-    
+  npart = Ivector(0,nn-1);
+  
+ 
   if(periodic) {
     for(i=0;i<noelements;i++) 
       for(j=0;j<nodesd2;j++) 
@@ -1807,7 +1807,7 @@ int PartitionMetis(struct FemType *data,int partitions,int info)
 
 
   METIS_PartMeshNodal(&ne,&nn,metistopo,&etype,
-		      &numflag,&nparts,&edgecut,epart,neededby);
+		      &numflag,&nparts,&edgecut,epart,npart);
 
   /* Set the partition given by Metis for each element. */
   for(i=1;i<=noelements;i++) {
@@ -1815,16 +1815,20 @@ int PartitionMetis(struct FemType *data,int partitions,int info)
     if(inpart[i] < 1 || inpart[i] > partitions) 
       printf("Invalid partition %d for element %d\n",inpart[i],i);
   }
+
   /* Set the partition given by Metis for each node. */
   for(i=1;i<=noknots;i++) {
-    data->nodepart[i] = neededby[i-1]+1;
+    j = i;
+    if(periodic) j = neededby[indxper[i]];
+    data->nodepart[i] = npart[j-1]+1;
     if(data->nodepart[i] < 1 || data->nodepart[i] > partitions) 
-      printf("Invalid partition %d for node %d\n",inpart[i],i);
+      printf("Invalid partition %d for node %d\n",data->nodepart[i],i);
   }
 
-  free_Ivector(neededby,0,noknots);
+  free_Ivector(neededby,1,noknots);
   free_Ivector(metistopo,0,noelements*nodesd2-1);
   free_Ivector(epart,0,noelements-1);
+  free_Ivector(npart,0,nn-1);
 
   if(info) printf("Succesfully made a Metis partition\n");
 
@@ -2355,8 +2359,8 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   char filename[MAXFILESIZE],filename2[MAXFILESIZE],outstyle[MAXFILESIZE];
   char directoryname[MAXFILESIZE],subdirectoryname[MAXFILESIZE];
   int *neededby,*neededtimes,**neededtable,*elempart,*indxper;
-  int *elementsinpart,*pairsinpart,*sidesinpart;
-  int maxneededtimes,periodic,periodictype,bcneeded,trueparent,*ownerpart;
+  int *elementsinpart,*periodicinpart,*indirectinpart,*sidesinpart;
+  int maxneededtimes,periodic,periodictype,indirecttype,bcneeded,trueparent,*ownerpart;
 
 #if DEBUG
   int *usedelem;
@@ -2389,14 +2393,14 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   noknots = data->noknots;
   
   elementsinpart = Ivector(1,partitions);
-  pairsinpart = Ivector(1,partitions);
+  periodicinpart = Ivector(1,partitions);
+  indirectinpart = Ivector(1,partitions);
   sidesinpart = Ivector(1,partitions);
   neededby = Ivector(1,noknots);
   neededtimes = Ivector(1,noknots);
 
   for(i=1;i<=noknots;i++)
     neededby[i] = neededtimes[i] = 0;
-
 
   sprintf(directoryname,"%s",prefix);
   sprintf(subdirectoryname,"%s.%d","partitioning",partitions);
@@ -2419,15 +2423,12 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 		  partitions,directoryname,subdirectoryname);
 
   for(i=1;i<=partitions;i++)
-    elementsinpart[i] = pairsinpart[i] = sidesinpart[i] = 0;
-
+    elementsinpart[i] = periodicinpart[i] = indirectinpart[i] = sidesinpart[i] = 0;
 
   /*********** part.n.elements *********************/
   /* Save elements in all partitions and 
      memorize how many times the nodes are needed */
   for(part=1;part<=partitions;part++) {
-
-    if(0) printf("partition %d of %d\n",part,partitions);
 
     sprintf(filename,"%s.%d.%s","part",part,"elements");
     out = fopen(filename,"w");
@@ -2451,14 +2452,13 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
 #if DEBUG
       if(elemtype < 303) printf("Invalid elementtype (%d)!\n",elemtype);
-      if(usedelem[i]) printf("elem %d already used by partition %d\n",i,usedelem[i]);
+      if(usedelem[i]) printf("elem %d allready used by partition %d\n",i,usedelem[i]);
       else usedelem[i] = part;
 #endif
 
       for(j=0;j < nodesd2;j++) {
 	ind = data->topology[i][j];
 	fprintf(out,"%d ",ind);
-	if(periodic) ind = indxper[ind];
 	if (neededby[ind] != part) {  
 	  neededby[ind] = part;
 	  neededtimes[ind] += 1;
@@ -2493,7 +2493,6 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   for(i=1;i<=noknots;i++)
     neededby[i] = neededtimes[i] = 0;
 
-
   /* Make a table showing to what partitions a node belongs to */
   for(part=1;part<=partitions;part++) {
     for(i=1;i<=noelements;i++) {
@@ -2513,6 +2512,19 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   }
 
 
+  periodictype = 0;
+  for(j=0;j < MAXBOUNDARIES;j++) 
+    for(i=1; i <= bound[j].nosides; i++) 
+      if(bound[j].types[i] > periodictype) periodictype = bound[j].types[i];
+  periodictype++;
+  indirecttype = periodictype;
+  
+  if(periodic) {
+    if(info) printf("Periodic connections given index %d and elementtype 102.\n",periodictype);
+    indirecttype = periodictype + 1;
+  }
+  if(info) printf("Indirect connections given index %d and elementtype 102.\n",indirecttype);
+
   /* The output format is the same for all partitions */
   if(data->dim == 2) 
     sprintf(outstyle,"%%d %%d %%.%dlg %%.%dlg 0.0\n",decimals,decimals);
@@ -2522,8 +2534,8 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
   /*********** part.n.nodes  and  part.n.shared *********************/
   for(part=1;part<=partitions;part++) {
-
-    if(info) printf("\nSaving boundaries for partition %d\n",part);
+    
+    if(info) printf("\nSaving mesh for partition %d\n",part);
 
     sprintf(filename,"%s.%d.%s","part",part,"nodes");
     out = fopen(filename,"w");
@@ -2565,14 +2577,6 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     }
     fclose(out);
     fclose(out2);
-
-
-    periodictype = 0;
-    for(j=0;j < MAXBOUNDARIES;j++) 
-      for(i=1; i <= bound[j].nosides; i++) 
-	if(bound[j].types[i] > periodictype) periodictype = bound[j].types[i];
-    periodictype++;
-    if(info) printf("The hanging nodes boundary will be given index %d and elementtype 102.\n",periodictype);
 
 
    
@@ -2650,8 +2654,8 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	fprintf(out,"\n");
       }
     }
-   
-      
+    sidesinpart[part] = sumsides;
+        
     /* The periodic boundary conditions */
     if(periodic) {
       for(i=1; i <= data->noknots; i++) {
@@ -2668,10 +2672,10 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	  fprintf(out,"%d %d %d %d %d %d %d\n",
 		  sumsides,periodictype,0,0,sideelemtype,i,ind);
 	  sidetypes[sideelemtype] += 1;
+	  periodicinpart[part] += 1;
 	}
       }
     }
-    sidesinpart[part] = sumsides;
 
 
     /* Indirect couplings between dofs */
@@ -2759,7 +2763,6 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
       }
       if(info) printf("Number of nodes with non-element connections %d\n",connectednodes);
 
-   
       indpairs = Imatrix(1,connectednodes,1,maxnodeconnections);
       for(i=1;i<=connectednodes;i++)
 	for(j=1;j<=maxnodeconnections;j++)
@@ -2824,19 +2827,17 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
       }
       printf("Removed %d connections that already exists in other elements\n",m);
       
-
       for(i=1; i <= nodesides; i++) {
 	ind = nodepairs[i][1]; 
 	ind2 = nodepairs[i][2];
-	if(!ind || !ind2) continue;
-	
+	if(!ind || !ind2) continue;	
 	sumsides++;
-	pairsinpart[part] += 1;
 
 	sideelemtype = 102;
 	fprintf(out,"%d %d %d %d %d %d %d\n",
-		sumsides,periodictype,0,0,sideelemtype,ind,ind2);
+		sumsides,indirecttype,0,0,sideelemtype,ind,ind2);
 	sidetypes[sideelemtype] += 1;
+	indirectinpart[part] += 1;	
       }
 
       /* Finally free some extra space that was allocated */
@@ -2845,7 +2846,6 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
     }
     /* End of indirect couplings */
-
 
 
     fclose(out);
@@ -2874,10 +2874,10 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     fclose(out);
 
     if(info) {
-      printf("\nSaved part %d with %d elements and %d nodes.\n",
+      printf("Saved part %d with %d elements and %d nodes.\n",
 	     part,elementsinpart[part],needednodes);
-      printf("Saved %d boundary elements and %d node-to-node connections\n",
-	     sidesinpart[part],pairsinpart[part]);
+      printf("Saved %d boundary elements\n",sidesinpart[part]);
+      printf("Saved %d indirect and %d periodic couplings\n",indirectinpart[part],periodicinpart[part]);
     }
   } /* of part */
 
