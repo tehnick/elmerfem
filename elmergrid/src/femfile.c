@@ -392,10 +392,11 @@ omstart:
   material = 0;
   ivalues0[0] = ivalues0[1] = 0;
 
+
   for(;;) {
     /* getline; */
 
-    if (Getrow(line,in,FALSE)) goto end;
+    if (Getrow(line,in,TRUE)) goto end;
 
     /* if(!line) goto end; */
     /* if(strstr(line,"END")) goto end; */
