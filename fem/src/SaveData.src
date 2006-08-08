@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SaveData.src,v $
+! * Revision 1.17  2006/06/28 10:53:04  apursula
+! * Routines write data to multiple files when doing parallel computing
+! *
 ! * Revision 1.16  2006/06/08 10:25:35  gagliar
 ! * 2006/06/08 - O. Gagliardini - Fixing bug in BulkIntegrals
 ! *
@@ -125,7 +128,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       NoDims, NoDofs, NoOper, NoElements, NoVar, DIM, MaxVars, NoEigenValues, Ind
   REAL (KIND=DP) :: CPUTime, CPUMemory
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.16 2006/06/08 10:25:35 gagliar Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.17 2006/06/28 10:53:04 apursula Exp $"
 
   SAVE SubroutineVisited, NumberOfVars, MaxNo, &
       NoPoints, PointIndex, CoordinateIndex, CoordinateDist, ResultPrefix, &
@@ -818,8 +821,9 @@ CONTAINS
     sumxx = 0.0
 
     NoDofs = Var % Dofs
-
-    IF(NoDofs >= 1) THEN
+    IF(ASSOCIATED (Var % Perm)) THEN
+      Nonodes = SIZE(Var % Perm) 
+    ELSE
       Nonodes = SIZE(Var % Values) / NoDofs
     END IF
 
@@ -907,7 +911,10 @@ CONTAINS
     INTEGER :: Nonodes, i, j, k, NoDofs, sumi
 
     NoDofs = Var % Dofs
-    IF(NoDofs >= 1) THEN
+    NoDofs = Var % Dofs
+    IF(ASSOCIATED (Var % Perm)) THEN
+      Nonodes = SIZE(Var % Perm) 
+    ELSE
       Nonodes = SIZE(Var % Values) / NoDofs
     END IF
 
@@ -1931,7 +1938,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t), POINTER   :: CurrentElement, NextElement
   CHARACTER(LEN=MAX_NAME_LEN) :: SideFile, SideNamesFile, VarName, CondName, SideParFile
   CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: ValueNames(:)
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.16 2006/06/08 10:25:35 gagliar Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.17 2006/06/28 10:53:04 apursula Exp $"
 
   LOGICAL :: cand, Parallel
 
