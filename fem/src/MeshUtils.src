@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.38  2006/06/13 09:38:07  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.37  2006/05/18 16:49:27  jpr
 ! * *** empty log message ***
 ! *
@@ -147,7 +150,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.37 2006/05/18 16:49:27 jpr Exp $
+! * $Id: MeshUtils.src,v 1.38 2006/06/13 09:38:07 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -1233,10 +1236,11 @@ END SUBROUTINE CreateGlobalNumbering
     INTEGER, POINTER :: NodeIndexes(:), Perm1(:), Perm2(:), &
                  InvPerm1(:), InvPerm2(:)
     TYPE(Mesh_t), POINTER ::  BMesh1, BMesh2
-    REAL(KIND=dp), POINTER :: PArray(:,:)
+    REAL(KIND=dp), POINTER :: PArray(:,:) => NULL()
     REAL(KIND=dp) :: x(4), RotMatrix(4,4),TrsMatrix(4,4),SclMatrix(4,4), &
            TrfMatrix(4,4),Identity(4,4), x1(3), x2(3), Normal(3), dist
 
+    SAVE Parray
 !------------------------------------------------------------------------------
 
     NULLIFY( Projector )
@@ -1377,12 +1381,12 @@ END SUBROUTINE CreateGlobalNumbering
     RotMatrix = Identity
     SclMatrix = Identity
 
-    NULLIFY( PArray )
+!   NULLIFY( PArray )
 !
 !   Translations:
 !   -------------
     Parray => ListGetConstRealArray( Model % BCs(This) % Values, &
-                     'Periodic BC Translate', Gotit )
+                 'Periodic BC Translate', Gotit )
 
     IF ( .NOT. gotit ) THEN
       Element => BMesh1 % Elements(1)
@@ -1471,7 +1475,7 @@ END SUBROUTINE CreateGlobalNumbering
         END DO
      END IF
 
-     IF ( ASSOCIATED(Parray) ) DEALLOCATE( Parray )
+!    IF ( ASSOCIATED(Parray) ) DEALLOCATE( Parray )
 !
 !    Now transform the coordinates:
 !    ------------------------------

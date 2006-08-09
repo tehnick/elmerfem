@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ElmerSolver.src,v 1.10 2006/02/01 08:07:57 jpr Exp $
+! * $Id: ElmerSolver.src,v 1.11 2006/03/27 11:37:02 jpr Exp $
 ! ******************************************************************************
 
 !------------------------------------------------------------------------------
@@ -467,7 +467,11 @@
 
                Var => Mesh % Variables
                DO WHILE( ASSOCIATED(Var) ) 
-                 DOFs = GetElementDOFs( Indexes, USolver=Var % Solver )
+                 IF ( ASSOCIATED( Var % Solver ) ) THEN
+                   DOFs = GetElementDOFs( Indexes, USolver=Var % Solver )
+                 ELSE
+                   DOFs = GetElementDOFs( Indexes )
+                 END IF
                  IF ( Var % DOFs <= 1 ) THEN
                     Work(1:n) = GetReal( CurrentModel % ICs(j) % Values, &
                            Var % Name, GotIt )
