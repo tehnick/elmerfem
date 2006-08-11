@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StatElecSolve.src,v $
+! * Revision 1.18  2006/05/03 08:09:47  apursula
+! * Added surface charge density for output
+! *
 ! * Revision 1.17  2006/03/30 13:59:36  raback
 ! * *** empty log message ***
 ! *
@@ -166,7 +169,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: PiezoMaterial, CalculateSurfCharge
   
   CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, CapMatrixFile, Name
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.17 2006/03/30 13:59:36 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.18 2006/05/03 08:09:47 apursula Exp $"
   
   
   SAVE LocalStiffMatrix, Load, LocalForce, Pwrk, PotDiff, &
@@ -623,7 +626,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
       END DO
     
-      IF(CalculateCapMatrix .AND. iter == 1) THEN  	
+      IF(CalculateCapMatrix .AND. iter == 1) THEN
         MatrixValues = StiffMatrix % Values 
       END IF
     END IF

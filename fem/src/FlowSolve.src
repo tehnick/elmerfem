@@ -39,6 +39,9 @@
 ! ****************************************************************************/
 ! *
 ! * $Log: FlowSolve.src,v $
+! * Revision 1.15  2006/03/27 11:12:50  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.14  2006/02/20 08:06:18  jpr
 ! * Moved handling of Normal-Tangential BCs inside SolverUtils. Corrected
 ! * a few bugs in Adaptive.src, Lists.src.
@@ -263,7 +266,7 @@
         END FUNCTION FlowInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.14 2006/02/20 08:06:18 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.15 2006/03/27 11:12:50 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -677,8 +680,8 @@
              Density(1:n) = GetReal( Material, 'Density' )
 
              IF(PseudoCompressible) THEN
-	       Pressure(1:n) = GetReal( Material,'Artificial Pressure', GotIt )
-               IF(.NOT. GotIt) THEN	
+               Pressure(1:n) = GetReal( Material,'Artificial Pressure', GotIt )
+               IF(.NOT. GotIt) THEN
                  Pressure(1:nd) = PseudoPressure(FlowPerm(Indexes(1:nd))) 
                ELSE
                  Pressure(n+1:nd) = 0.0d0

@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: $
+! * $Id: Multigrid.src,v 1.14 2006/01/10 08:51:50 apursula Exp $
 ! *****************************************************************************/
 
 MODULE Multigrid
@@ -2106,7 +2106,7 @@ CONTAINS
     END IF
 
     CompMat = ListGetLogical(Solver % Values,'MG Complex Matrix',GotIt)
-    CompMat = (CompMat .OR. .NOT. GotIt) .AND. Amat % COMPLEX	
+    CompMat = (CompMat .OR. .NOT. GotIt) .AND. Amat % COMPLEX
     IF(CompMat) THEN
       CALL Info('ChooseCoarseNodes','Assuming complex valued matrix')
     END IF
@@ -2558,7 +2558,7 @@ CONTAINS
     CALL Info('AMGBonds',Message)
     IF(posbonds > 0) THEN
       WRITE(Message,'(A,I)') 'Number of positive connections',posbonds
-      CALL Info('AMGBonds',Message)	
+      CALL Info('AMGBonds',Message)
     END IF
     WRITE(Message,'(A,F8.3)') 'Strong bonds for each dof',1.0*j/nods
     CALL Info('AMGBonds',Message)
@@ -4476,7 +4476,7 @@ CONTAINS
       nods2 = Matrix2 % NumberOfRows
 
       SaveLimit = ListGetInteger(Solver % Values,'MG Coarse Nodes Save Limit',GotIt) 
-      IF(.NOT. GotIt) SaveLimit = nods2	
+      IF(.NOT. GotIt) SaveLimit = nods2
 
       IF(nods2 > SaveLimit) RETURN
 

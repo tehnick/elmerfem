@@ -21,21 +21,21 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: $
+! * $Id: solve_real.src,v 1.2 2006/01/10 13:27:58 apursula Exp $
 ! ******************************************************************************
 
-	SUBROUTINE SolveLapack( N,A,x )
+       SUBROUTINE SolveLapack( N,A,x )
 
-	INTEGER  N,IPIV(N)
-	DOUBLE PRECISION  A(n*n),x(n)
+       INTEGER  N,IPIV(N)
+       DOUBLE PRECISION  A(n*n),x(n)
 
-	IF ( N .LE. 0 ) RETURN
-	CALL DGETRF( N,N,A,N,IPIV,INFO )
-	IF ( info .NE. 0 ) PRINT*,'DGETRF: ', info
+       IF ( N .LE. 0 ) RETURN
+       CALL DGETRF( N,N,A,N,IPIV,INFO )
+       IF ( info .NE. 0 ) PRINT*,'DGETRF: ', info
 
-	CALL DGETRS( 'N',N,1,A,N,IPIV,X,N,INFO )
-	IF ( info .NE. 0 ) PRINT*,'DGETRS: ', info
+       CALL DGETRS( 'N',N,1,A,N,IPIV,X,N,INFO )
+       IF ( info .NE. 0 ) PRINT*,'DGETRS: ', info
 
-	END
+       END
 
 ! ******************************************************************************

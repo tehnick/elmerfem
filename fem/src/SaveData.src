@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SaveData.src,v $
+! * Revision 1.18  2006/08/08 14:06:45  raback
+! * Corrected a bug in VectorStatistics of reduced set variables.
+! *
 ! * Revision 1.17  2006/06/28 10:53:04  apursula
 ! * Routines write data to multiple files when doing parallel computing
 ! *
@@ -128,7 +131,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       NoDims, NoDofs, NoOper, NoElements, NoVar, DIM, MaxVars, NoEigenValues, Ind
   REAL (KIND=DP) :: CPUTime, CPUMemory
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.17 2006/06/28 10:53:04 apursula Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.18 2006/08/08 14:06:45 raback Exp $"
 
   SAVE SubroutineVisited, NumberOfVars, MaxNo, &
       NoPoints, PointIndex, CoordinateIndex, CoordinateDist, ResultPrefix, &
@@ -568,7 +571,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
           BoundaryFluxComputed = .FALSE.
           BoundaryFluxes = 0.0d0         
 
-	  Minimum = 0.0d0
+          Minimum = 0.0d0
           Maximum = 0.0d0
           CALL BoundaryIntegrals(Var, Oper, GotCoeff, CoefficientName,&
               BoundaryFluxes,BoundaryFluxComputed)          
@@ -1938,7 +1941,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t), POINTER   :: CurrentElement, NextElement
   CHARACTER(LEN=MAX_NAME_LEN) :: SideFile, SideNamesFile, VarName, CondName, SideParFile
   CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: ValueNames(:)
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.17 2006/06/28 10:53:04 apursula Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.18 2006/08/08 14:06:45 raback Exp $"
 
   LOGICAL :: cand, Parallel
 

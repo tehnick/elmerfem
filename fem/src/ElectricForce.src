@@ -40,6 +40,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: ElectricForce.src,v $
+! * Revision 1.6  2006/01/10 07:39:16  apursula
+! * Minor revision of the headers.
+! *
 ! * Revision 1.5  2006/01/09 14:11:33  apursula
 ! * Updated header information (GPL).
 ! * Started log.
@@ -101,13 +104,13 @@ SUBROUTINE StatElecForce( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp), POINTER :: Pwrk(:,:,:), ForceDensity(:)
   REAL(KIND=dp), POINTER :: Fdx(:), Fdy(:), Fdz(:)
   REAL(KIND=dp) :: Force(3), MomentAbout(3), Moment(3), &
-	Area, PermittivityOfVacuum, sf
+    Area, PermittivityOfVacuum, sf
   INTEGER, POINTER :: NodeIndexes(:), Visited(:)
   INTEGER :: DIM, t, pn, n, k, s, i, j
   LOGICAL :: stat, CalculateMoment, ActiveBoundary, DoDisplacedBoundaries, FirstTime = .TRUE.
   CHARACTER(LEN=MAX_NAME_LEN) :: EqName1, EqName2, VariableName
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ElectricForce.src,v 1.5 2006/01/09 14:11:33 apursula Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ElectricForce.src,v 1.6 2006/01/10 07:39:16 apursula Exp $"
 
   SAVE FirstTime, ForceDensity, Pwrk
 !------------------------------------------------------------------------------
@@ -213,7 +216,7 @@ SUBROUTINE StatElecForce( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 
   DoDisplacedBoundaries = ListGetLogical(Solver % Values,'All Displaced Boundaries',stat)
-  IF(DoDisplacedBoundaries) THEN	
+  IF(DoDisplacedBoundaries) THEN
     VariableName = GetString( Solver % Values, 'Displacement Field Name', stat )
     IF ( .NOT. stat )  THEN
       DVar => VariableGet( Mesh % Variables, 'Displacement', .TRUE. )
@@ -232,10 +235,10 @@ SUBROUTINE StatElecForce( Model,Solver,dt,TransientSimulation )
 
   MomentAbout(1) = ListGetConstReal( Model % Simulation,'Moment About 1', stat )
   CalculateMoment = stat 
-  MomentAbout(2) = ListGetConstReal( Model % Simulation,'Moment About 2', stat )	
-  CalculateMoment = stat .OR. CalculateMoment	
-  MomentAbout(3) = ListGetConstReal( Model % Simulation,'Moment About 3', stat )	
-  CalculateMoment = stat .OR. CalculateMoment	
+  MomentAbout(2) = ListGetConstReal( Model % Simulation,'Moment About 2', stat )
+  CalculateMoment = stat .OR. CalculateMoment
+  MomentAbout(3) = ListGetConstReal( Model % Simulation,'Moment About 3', stat )
+  CalculateMoment = stat .OR. CalculateMoment
 
   ElementNodes % x = 0.0d0
   ElementNodes % y = 0.0d0
@@ -438,7 +441,7 @@ CONTAINS
     REAL(KIND=dp) :: SqrtMetric,Metric(3,3),Symb(3,3,3),dSymb(3,3,3,3)
     REAL(KIND=dp) :: u,v,w,s, detJ, x(n), y(n), z(n)
     REAL(KIND=dp) :: Tensor(3,3), Normal(3), EField(3), DFlux(3), Lforce(3), &
-	LMoment(3), Radius(3)
+      LMoment(3), Radius(3)
     REAL(KIND=dp) :: ElementArea, ElementForce(3), xpos, ypos, zpos
     INTEGER :: N_Integ
     INTEGER :: i,j,l
@@ -538,15 +541,15 @@ CONTAINS
       Area = Area + s * SUM( Basis(1:n ) )
 
       IF(CalculateMoment) THEN
-	Radius(1) = SUM( ElementNodes % x(1:n) * Basis(1:n) ) - MomentAbout(1)
-	Radius(2) = SUM( ElementNodes % y(1:n) * Basis(1:n) ) - MomentAbout(2)
-	Radius(3) = SUM( ElementNodes % z(1:n) * Basis(1:n) ) - MomentAbout(3)
+       Radius(1) = SUM( ElementNodes % x(1:n) * Basis(1:n) ) - MomentAbout(1)
+       Radius(2) = SUM( ElementNodes % y(1:n) * Basis(1:n) ) - MomentAbout(2)
+       Radius(3) = SUM( ElementNodes % z(1:n) * Basis(1:n) ) - MomentAbout(3)
 
         LMoment(1) = Radius(2) * LForce(3) - Radius(3) * LForce(2)
         LMoment(2) = Radius(3) * LForce(1) - Radius(1) * LForce(3)
         LMoment(3) = Radius(1) * LForce(2) - Radius(2) * LForce(1)
-	Moment = Moment + s * Lmoment
-      END IF		
+        Moment = Moment + s * Lmoment
+      END IF
 
       ElementForce = ElementForce + s * LForce
       ElementArea = ElementArea + s * SUM( Basis(1:n) )
