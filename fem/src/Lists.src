@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Lists.src,v $
+! * Revision 1.8  2006/05/22 12:10:16  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.7  2006/02/28 09:34:47  jpr
 ! * Some corrections for adaptivity.
 ! *
@@ -60,7 +63,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Lists.src,v 1.7 2006/02/28 09:34:47 jpr Exp $
+! * $Id: Lists.src,v 1.8 2006/05/22 12:10:16 jpr Exp $
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
@@ -769,37 +772,94 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-  SUBROUTINE ListRemove( List, Name )
+  FUNCTION ListRemove( List, Name ) RESULT(Prev)
 !------------------------------------------------------------------------------
-     TYPE(ValueList_t), POINTER :: List
+     TYPE(ValueList_t), POINTER :: List, Prev
      CHARACTER(LEN=*) :: Name
 !------------------------------------------------------------------------------
      CHARACTER(LEN=MAX_NAME_LEN) :: str
      INTEGER :: k
-     TYPE(ValueList_t), POINTER :: ptr, ptr1
+     LOGICAL :: Found
+     TYPE(ValueList_t), POINTER :: ptr
 !------------------------------------------------------------------------------
+     NULLIFY( Prev )
+     Found = .FALSE.
+
      IF ( ASSOCIATED(List) ) THEN
        k = StringToLowerCase( str,Name )
        ptr  => List
-       ptr1 => ptr
+       Prev => ptr
        DO WHILE( ASSOCIATED(ptr) )
          IF ( ptr % NameLen == k .AND. ptr % Name(1:k) == str(1:k) ) THEN
             IF ( ASSOCIATED(ptr,List) ) THEN
                List => ptr % Next
+               Prev => List
             ELSE
-               ptr1 % Next => ptr % Next
+               Prev % Next => ptr % Next
             END IF
+            Found = .TRUE.
             CALL ListDelete( ptr )
             EXIT
          ELSE
-           ptr1 => ptr
+           Prev => ptr
            ptr  => ptr % Next 
          END IF
        END DO
      END IF
+     IF ( .NOT. Found ) NULLIFY( Prev )
 !------------------------------------------------------------------------------
-   END SUBROUTINE ListRemove
+   END FUNCTION ListRemove
 !------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+  FUNCTION ListAdd( List, Name ) RESULT(new)
+!------------------------------------------------------------------------------
+     TYPE(ValueList_t), POINTER :: List, new
+     CHARACTER(LEN=*) :: Name
+!------------------------------------------------------------------------------
+     CHARACTER(LEN=MAX_NAME_LEN) :: str
+     INTEGER :: k
+     LOGICAL :: Found
+     TYPE(ValueList_t), POINTER :: ptr, prev
+!------------------------------------------------------------------------------
+     NULLIFY( prev )
+     Found = .FALSE.
+
+     new => ListAllocate()
+
+     IF ( ASSOCIATED(List) ) THEN
+       k = StringToLowerCase( str,Name )
+       ptr  => List
+       NULLIFY( prev )
+       DO WHILE( ASSOCIATED(ptr) )
+         IF ( ptr % NameLen == k .AND. ptr % Name(1:k) == str(1:k) ) THEN
+           Found = .TRUE.
+           EXIT
+         ELSE
+           Prev => ptr
+           ptr  => ptr % Next 
+         END IF
+       END DO
+
+       IF ( Found ) THEN
+         New % Next => ptr % Next
+         IF ( ASSOCIATED( prev ) ) THEN
+           Prev % Next => New
+         ELSE
+           List => New
+         END IF
+         CALL ListDelete( Ptr )
+       ELSE
+         New % Next => List
+         List => New
+       END IF
+     ELSE
+       List => New
+     END IF
+!------------------------------------------------------------------------------
+   END FUNCTION ListAdd
+!------------------------------------------------------------------------------
+
 
 
 !------------------------------------------------------------------------------
@@ -809,7 +869,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
      CHARACTER(LEN=*) :: Name
      LOGICAL :: Found
 !------------------------------------------------------------------------------
-     TYPE(ValueList_t), POINTER :: ptr
+TYPE(ValueList_t), POINTER :: ptr
 
      INTEGER :: k,n
      CHARACTER(LEN=MAX_NAME_LEN) :: str
@@ -841,17 +901,9 @@ CALL Info( 'VariableGet', Message, Level=7 )
       CHARACTER(LEN=MAX_NAME_LEN) :: str
       INTEGER :: k
       LOGICAL :: DoCase
-      TYPE(ValueList_t), POINTER :: ptr, ptr1
+      TYPE(ValueList_t), POINTER :: ptr, PrevPtr
 !------------------------------------------------------------------------------
-      CALL ListRemove( List, Name )
-
-      ptr => ListAllocate()
-      IF ( ASSOCIATED( List ) ) THEN
-        ptr % Next  => List % Next
-        List % Next => ptr
-      ELSE
-        List => ptr
-      END IF
+      ptr => ListAdd( List, Name )
 
       DoCase = .TRUE.
       IF ( PRESENT(CaseConversion) ) DoCase = CaseConversion
@@ -879,18 +931,9 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
       INTEGER :: k
       CHARACTER(LEN=MAX_NAME_LEN) :: str
-      TYPE(ValueList_t), POINTER :: ptr, ptr1
+      TYPE(ValueList_t), POINTER :: ptr, PrevPtr
 !------------------------------------------------------------------------------
-
-      CALL ListRemove( List, Name )
-      ptr => ListAllocate()
-      IF ( ASSOCIATED( List ) ) THEN
-        ptr % Next => List % Next
-        List % Next => ptr
-      ELSE
-        List => ptr
-      END IF
-
+      ptr => ListAdd( List, Name )
       Ptr % LValue = LValue
       Ptr % Type   = LIST_TYPE_LOGICAL
 
@@ -909,18 +952,9 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
       INTEGER :: k
       CHARACTER(LEN=MAX_NAME_LEN) :: str
-      TYPE(ValueList_t), POINTER :: ptr, ptr1
+      TYPE(ValueList_t), POINTER :: ptr, PrevPtr
 !------------------------------------------------------------------------------
-      CALL ListRemove( List, Name )
-
-      ptr => ListAllocate()
-      IF ( ASSOCIATED( List ) ) THEN
-        ptr % Next => List % Next
-        List % Next => ptr
-      ELSE
-        List => ptr
-      END IF
-
+      ptr => ListAdd( List, Name )
       IF ( PRESENT(Proc) ) ptr % Procedure = Proc
 
       ALLOCATE( ptr % IValues(1) )
@@ -943,17 +977,9 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
       INTEGER :: k
       CHARACTER(LEN=MAX_NAME_LEN) :: str
-      TYPE(ValueList_t), POINTER :: ptr, ptr1
+      TYPE(ValueList_t), POINTER :: ptr, PrevPtr
 !------------------------------------------------------------------------------
-      CALL ListRemove( List, Name )
-
-      ptr => ListAllocate()
-      IF ( ASSOCIATED( List ) ) THEN
-        ptr % Next => List % Next
-        List % Next => ptr
-      ELSE
-        List => ptr
-      END IF
+      ptr => ListAdd( List, Name )
 
       ALLOCATE( ptr % IValues(N) )
 
@@ -976,19 +1002,11 @@ CALL Info( 'VariableGet', Message, Level=7 )
       REAL(KIND=dp) :: FValue
       INTEGER(KIND=AddrInt), OPTIONAL :: Proc
 !------------------------------------------------------------------------------
-      TYPE(ValueList_t), POINTER :: ptr,ptr1
+      TYPE(ValueList_t), POINTER :: ptr, PrevPtr
       INTEGER :: k
       CHARACTER(LEN=MAX_NAME_LEN) :: str
 !------------------------------------------------------------------------------
-      CALL ListRemove( List, Name )
-
-      ptr => ListAllocate()
-      IF ( ASSOCIATED( List ) ) THEN
-        ptr % Next => List % Next
-        List % Next => ptr
-      ELSE
-        List => ptr
-      END IF
+      ptr => ListAdd( List, Name )
 
       NULLIFY( ptr % TValues )
       ALLOCATE( ptr % FValues(1,1,1) )
@@ -1022,19 +1040,9 @@ CALL Info( 'VariableGet', Message, Level=7 )
      INTEGER :: k
 
      CHARACTER(LEN=MAX_NAME_LEN) :: str
-     TYPE(ValueList_t), POINTER :: ptr,ptr1
+     TYPE(ValueList_t), POINTER :: ptr,PrevPtr
 !------------------------------------------------------------------------------
-
-     CALL ListRemove( List, Name )
-
-     ptr => ListAllocate()
-     IF ( ASSOCIATED( List ) ) THEN
-       ptr % Next => List % Next
-       List % Next => ptr
-     ELSE
-       List => ptr
-     END IF
-
+     ptr => ListAdd( List, Name )
      IF ( PRESENT(Proc) ) ptr % Procedure = Proc
 
      ALLOCATE( ptr % FValues(1,1,N),ptr % TValues(N) )
@@ -1070,17 +1078,9 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
       INTEGER :: k
       CHARACTER(LEN=MAX_NAME_LEN) :: str
-      TYPE(ValueList_t), POINTER :: ptr, ptr1
+      TYPE(ValueList_t), POINTER :: ptr, PrevPtr
 !------------------------------------------------------------------------------
-      CALL ListRemove( List, Name )
-
-      ptr => ListAllocate()
-      IF ( ASSOCIATED( List ) ) THEN
-        ptr % Next => List % Next
-        List % Next => ptr
-      ELSE
-        List => ptr
-      END IF
+      ptr => ListAdd( List, Name )
 
       NULLIFY( ptr % TValues )
       ALLOCATE( ptr % FValues(N,M,1) )
@@ -1114,19 +1114,10 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
      INTEGER :: k
      CHARACTER(LEN=MAX_NAME_LEN) :: str
-     TYPE(ValueList_t), POINTER :: ptr,ptr1
+     TYPE(ValueList_t), POINTER :: ptr,PrevPtr
 !------------------------------------------------------------------------------
 
-     CALL ListRemove( List, Name )
-
-     ptr => ListAllocate()
-     IF ( ASSOCIATED( List ) ) THEN
-       ptr % Next => List % Next
-       List % Next => ptr
-     ELSE
-       List => ptr
-     END IF
-
+     ptr => ListAdd( List, Name )
      IF ( PRESENT(Proc) ) ptr % Procedure = Proc
 
      ALLOCATE( ptr % FValues(n1,n2,N),ptr % TValues(N) )
