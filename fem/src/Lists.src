@@ -39,6 +39,10 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Lists.src,v $
+! * Revision 1.10  2006/08/17 10:28:16  jpr
+! * Modifed ListAdd* routines to maintain the order of entries
+! * when readding 'em.
+! *
 ! * Revision 1.9  2006/08/17 10:22:54  jpr
 ! * Modified listadd* routines to keep the order of existing entries when
 ! * redefining 'em.
@@ -67,7 +71,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Lists.src,v 1.9 2006/08/17 10:22:54 jpr Exp $
+! * $Id: Lists.src,v 1.10 2006/08/17 10:28:16 jpr Exp $
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
@@ -776,9 +780,9 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-  FUNCTION ListRemove( List, Name ) RESULT(Prev)
+  SUBROUTINE ListRemove( List, Name )
 !------------------------------------------------------------------------------
-     TYPE(ValueList_t), POINTER :: List, Prev
+     TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
 !------------------------------------------------------------------------------
      CHARACTER(LEN=MAX_NAME_LEN) :: str
@@ -786,9 +790,6 @@ CALL Info( 'VariableGet', Message, Level=7 )
      LOGICAL :: Found
      TYPE(ValueList_t), POINTER :: ptr
 !------------------------------------------------------------------------------
-     NULLIFY( Prev )
-     Found = .FALSE.
-
      IF ( ASSOCIATED(List) ) THEN
        k = StringToLowerCase( str,Name )
        ptr  => List
@@ -801,7 +802,6 @@ CALL Info( 'VariableGet', Message, Level=7 )
             ELSE
                Prev % Next => ptr % Next
             END IF
-            Found = .TRUE.
             CALL ListDelete( ptr )
             EXIT
          ELSE
@@ -810,9 +810,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
          END IF
        END DO
      END IF
-     IF ( .NOT. Found ) NULLIFY( Prev )
 !------------------------------------------------------------------------------
-   END FUNCTION ListRemove
+   END SUBROUTINE ListRemove
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
