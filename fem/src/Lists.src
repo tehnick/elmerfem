@@ -39,6 +39,10 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Lists.src,v $
+! * Revision 1.9  2006/08/17 10:22:54  jpr
+! * Modified listadd* routines to keep the order of existing entries when
+! * redefining 'em.
+! *
 ! * Revision 1.8  2006/05/22 12:10:16  jpr
 ! * *** empty log message ***
 ! *
@@ -63,7 +67,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Lists.src,v 1.8 2006/05/22 12:10:16 jpr Exp $
+! * $Id: Lists.src,v 1.9 2006/08/17 10:22:54 jpr Exp $
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
@@ -850,8 +854,12 @@ CALL Info( 'VariableGet', Message, Level=7 )
          END IF
          CALL ListDelete( Ptr )
        ELSE
-         New % Next => List
-         List => New
+         IF ( ASSOCIATED(prev) ) THEN
+           prev % next => new
+         ELSE
+           New % Next => List % Next
+           List % Next => New
+         END IF
        END IF
      ELSE
        List => New
