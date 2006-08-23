@@ -40,6 +40,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Stress.src,v $
+! * Revision 1.14  2006/06/27 08:26:34  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.13  2006/04/18 12:41:54  jpr
 ! * *** empty log message ***
 ! *
@@ -129,7 +132,7 @@
 ! * Modified StressBoundary to work in axisymmetric cases.
 ! *
 ! *
-! * $Id: Stress.src,v 1.13 2006/04/18 12:41:54 jpr Exp $
+! * $Id: Stress.src,v 1.14 2006/06/27 08:26:34 jpr Exp $
 ! *****************************************************************************/
 
 MODULE StressLocal
@@ -767,7 +770,7 @@ MODULE StressLocal
                       HeatExpansion(:,:,:), NodalTemp(:), Temperature
      REAL(KIND=dp) :: Basis(:), dBasisdx(:,:), PoissonRatio(:), NodalDisp(:,:)
 !------------------------------------------------------------------------------
-     INTEGER :: i,j,k,p,q,IND(9)
+     INTEGER :: i,j,k,p,q,IND(9),ic
      REAL(KIND=dp) :: C(6,6), Young, LGrad(3,3), Poisson, S(6), Radius, HEXP(3,3)
 !------------------------------------------------------------------------------
 
@@ -776,6 +779,9 @@ MODULE StressLocal
 
      nd = n
      IF ( PRESENT( nBasis ) ) nd = nBasis
+
+     ic = dim
+     IF ( CSymmetry ) ic=ic+1
 !
 !    Material parameters:
 !    --------------------
@@ -788,14 +794,14 @@ MODULE StressLocal
              C(i,j) = SUM( Basis(1:n) * ElasticModulus(i,j,1:n) )
           END DO
         END DO
-        DO i=1,dim
-          DO j=1,dim
+        DO i=1,ic
+          DO j=1,ic
             HEXP(i,j) = SUM( Basis(1:n) * HeatExpansion(i,j,1:n) )
           END DO
         END DO
      ELSE
         Young = SUM( Basis(1:n) * ElasticModulus(1,1,1:n) )
-        DO i=1,dim
+        DO i=1,ic
           HEXP(i,i) = SUM( Basis(1:n) * HeatExpansion(1,1,1:n) )
         END DO
      END IF
@@ -884,9 +890,6 @@ MODULE StressLocal
 !    ---------------
      LGrad = MATMUL( NodalDisp(:,1:nd), dBasisdx(1:nd,:) )
      Strain = ( LGrad + TRANSPOSE(LGrad) ) / 2
-     DO i=1,dim
-       Strain(i,i) = Strain(i,i) - HEXP(i,i) * Temperature
-     END DO
 
      IF ( CSymmetry ) THEN
        Strain(1,3) = 0.0d0
@@ -901,6 +904,10 @@ MODULE StressLocal
          Strain(3,3) = SUM( NodalDisp(1,1:nd) * Basis(1:nd) ) / Radius
        END IF
      END IF
+
+     DO i=1,ic
+       Strain(i,i) = Strain(i,i) - HEXP(i,i) * Temperature
+     END DO
 
      !
      ! Compute stresses: 
