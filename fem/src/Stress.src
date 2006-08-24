@@ -40,18 +40,6 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Stress.src,v $
-! * Revision 1.14  2006/06/27 08:26:34  jpr
-! * *** empty log message ***
-! *
-! * Revision 1.13  2006/04/18 12:41:54  jpr
-! * *** empty log message ***
-! *
-! * Revision 1.12  2006/04/07 11:22:46  jpr
-! * Modified stress computation to include thermal expansion effects.
-! *
-! * Revision 1.11  2006/03/27 10:28:51  jpr
-! * *** empty log message ***
-! *
 ! * Revision 1.10  2006/02/02 07:14:32  jpr
 ! * Small formatting changes.
 ! *
@@ -132,7 +120,7 @@
 ! * Modified StressBoundary to work in axisymmetric cases.
 ! *
 ! *
-! * $Id: Stress.src,v 1.14 2006/06/27 08:26:34 jpr Exp $
+! * $Id: Stress.src,v 1.15 2006/08/23 09:26:04 jpr Exp $
 ! *****************************************************************************/
 
 MODULE StressLocal
@@ -900,13 +888,13 @@ MODULE StressLocal
 
        Radius = SUM( Nodes % x(1:n) * Basis(1:n) )
 
-       IF ( Radius > 0.0d0 ) THEN
-         Strain(3,3) = SUM( NodalDisp(1,1:nd) * Basis(1:nd) ) / Radius
+       IF ( Radius /= 0.0d0 ) THEN
+         Strain(3,3) = SUM(NodalDisp(1,1:nd)*Basis(1:nd))/Radius
        END IF
      END IF
 
      DO i=1,ic
-       Strain(i,i) = Strain(i,i) - HEXP(i,i) * Temperature
+       Strain(i,i) = Strain(i,i) - HEXP(i,i)*Temperature
      END DO
 
      !
