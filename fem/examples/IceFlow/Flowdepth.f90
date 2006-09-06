@@ -86,7 +86,8 @@ SUBROUTINE FlowdepthSolver( Model,Solver,dt,TransientSimulation )
           Surface, GradSurface1, GradSurface2, NumberOfVisits)
 
      ALLOCATE( FORCE(N), LOAD(N), STIFF(N,N),&
-          Surface(M), GradSurface1(M), GradSurface2(M), NumberOfVisits(M), STAT=istat )
+          Surface(M), GradSurface1(M), GradSurface2(M), NumberOfVisits(M),&
+          STAT=istat )
      IF ( istat /= 0 ) THEN
         CALL Fatal( 'FlowdepthSolve', 'Memory allocation error.' )
      END IF
@@ -847,7 +848,9 @@ SUBROUTINE signedDistance( Model,Solver,dt,TransientSimulation )
      N = Solver % Mesh % MaxElementNodes ! just big enough for elemental arrays
      
 
-     ALLOCATE( FORCE(N), LOAD(N), MASS(N,N), STIFF(N,N), PrevDistanceElem(N), PrevDistance(SIZE(Solver % Variable % Values)), STAT=istat )
+     ALLOCATE( FORCE(N), LOAD(N), MASS(N,N), STIFF(N,N),&
+          PrevDistanceElem(N), PrevDistance(SIZE(Solver % Variable % Values)),&
+          STAT=istat )
 
      IF ( istat /= 0 ) THEN
         CALL Fatal( 'signedDistance',&
