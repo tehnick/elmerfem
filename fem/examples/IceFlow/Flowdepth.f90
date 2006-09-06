@@ -587,7 +587,9 @@ SUBROUTINE signedDistance1( Model,Solver,dt,TransientSimulation )
      N = Solver % Mesh % MaxElementNodes ! just big enough for elemental arrays
      
 
-     ALLOCATE( FORCE(N), LOAD(N), MASS(N,N), STIFF(N,N), PrevDistanceElem(N), PrevDistance(SIZE(Solver % Variable % Values)), STAT=istat )
+     ALLOCATE( FORCE(N), LOAD(N), MASS(N,N), STIFF(N,N),&
+          PrevDistanceElem(N), PrevDistance(SIZE(Solver % Variable % Values)),&
+          STAT=istat )
 
      IF ( istat /= 0 ) THEN
         CALL Fatal( 'signedDistance',&
