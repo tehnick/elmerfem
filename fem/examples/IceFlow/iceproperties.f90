@@ -967,7 +967,7 @@ FUNCTION getViscosityFactor( Model, n, temperature ) RESULT(visFact)
   END IF
   ! Pressure Melting Point and homologous temperature
   !--------------------------------------------------
-  TempName =  GetString(Model % Constants  ,'Temperature Name', GotIt)
+  TempName =  GetString(Material  ,'Temperature Name', GotIt)
   IF (.NOT.GotIt) CALL FATAL('iceproperties (getViscosityFactor)','No Temperature Name found')
   PressureMeltingPoint(1:elementNodes) =&
        ListGetReal( Material, TRIM(TempName) // ' Upper Limit',&
