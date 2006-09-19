@@ -27,6 +27,16 @@ void STDCALLBULL FC_FUNC_(mpi_wtick,MPI_WTICK) () {}
 void STDCALLBULL FC_FUNC_(pmpi_wtime,PMPI_WTIME) () {}
 void STDCALLBULL FC_FUNC_(pmpi_wtick,PMPI_WTICK) () {}
 
+void STDCALLBULL FC_FUNC_(mpi_type_null_copy_fn,MPI_TYPE_NULL_COPY_FN) () {}
+void STDCALLBULL FC_FUNC_(mpi_comm_dup_fn,MPI_COMM_DUP_FN) () {}
+void STDCALLBULL FC_FUNC_(mpi_type_null_delete_fn,MPI_TYPE_NULL_DELETE_FN) () {}
+void STDCALLBULL FC_FUNC_(mpi_win_dup_fn,MPI_WIN_DUP_FN) () {}
+void STDCALLBULL FC_FUNC_(mpi_win_null_copy_fn,MPI_WIL_NULL_COPY_FN) () {}
+void STDCALLBULL FC_FUNC_(mpi_type_dup_fn,MPI_TYPE_DUP_FN) () {}
+void STDCALLBULL FC_FUNC_(mpi_win_null_delete_fn,MPI_WIN_NULL_DELETE_FN) () {}
+void STDCALLBULL FC_FUNC_(mpi_comm_null_delete_fn,MPI_COMM_NULL_DELETE_FN) () {}
+void STDCALLBULL FC_FUNC_(mpi_comm_null_copy_fn,MPI_COMM_NULL_DELETE_FN) () {}
+
 /* parpack */
 void STDCALLBULL FC_FUNC(pdneupd,PDNEUPD) ( void *a, void *b, void *c, void *d, void *e, void *f, void *g, void *a8, void *b9, void *c10, void *d11, void *e12, void *f13, void *g14, void *a15, void *b16, void *c17, void *d18, void *e19, void *a20, void *b21, void *c22, void *d23, void *e24, void *f25, void *g26, void *g27, void *g28,void *g29 ) {}
 void STDCALLBULL FC_FUNC(pdseupd,PDSEUPD) ( void *a, void *b, void *c, void *d, void *e, void *f, void *g, void *a8, void *b9, void *c10, void *d11, void *e12, void *f13, void *g14, void *a15, void *b16, void *c17, void *d18, void *e19, void *a20, void *b21, void *c22, void *d23, void *e24, void *f25, void *g26  ) {}
