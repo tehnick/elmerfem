@@ -1501,6 +1501,8 @@ int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
 
     part1 = Ivector(1,noknots);
 
+    /* In case of periodicity arrange nodes such that the intersection is continuous
+       over periodic boundary */
     if(periodic) arrange0 = cx * xmax + 0.5 * (cy*(ymin + ymax) + cz*(zmin + zmax));
 
     for(j=1;j<=noknots;j++) {
@@ -1682,8 +1684,6 @@ int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
   if(partitions3 > 1) free_Ivector(part3,1,noknots);
 
   if(info) printf("Succesfully made a simple partition of nodes\n");
-
-
 
   return(0);
 }
@@ -1951,7 +1951,6 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,
   for(i=1;i<=data->noelements;i++)
     if(elempart[i] < 1 || elempart[i] > partitions) j++;
   if(j) printf("Bad partitioning: %d elements do not belong anywhere!\n",j);
-
 
 
   neededtimes = Ivector(1,noknots);
@@ -2501,7 +2500,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
       for(j=0;j < nodesd2;j++) {
 	ind = data->topology[i][j];
 
-	if(periodic) ind = indxper[ind];
+	/*	if(periodic) ind = indxper[ind]; */
 	if (neededby[ind] != part) {  
 	  neededby[ind] = part;
 	  neededtimes[ind] += 1;
@@ -2554,7 +2553,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
     for(i=1; i <= noknots; i++) {
       ind = i;
-      if(periodic) ind = indxper[ind];
+      /*      if(periodic) ind = indxper[ind]; */
 
       for(j=1;j<=neededtimes[i];j++) {
 	if(neededtable[ind][j] == part) {
@@ -2597,7 +2596,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	bcneeded = 0;
 	for(l=0;l<nodesd1;l++) {
 	  ind = sideind[l];
-	  if(periodic) ind = indxper[ind];
+	  /*	  if(periodic) ind = indxper[ind]; */
 	  for(k=1;k<=neededtimes[ind];k++)
 	    if(part == neededtable[ind][k]) bcneeded++;
 	}
@@ -2634,7 +2633,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	bcneeded = 0;
 	for(l=0;l<nodesd1;l++) {
 	  ind = sideind[l];
-	  if(periodic) ind = indxper[ind];
+	  /*	  if(periodic) ind = indxper[ind]; */
 	  for(k=1;k<=neededtimes[ind];k++)
 	    if(part == neededtable[ind][k]) bcneeded++;
 	}
@@ -2663,8 +2662,14 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
 	if(i != ind) {
 	  bcneeded = 0;
-	  for(k=1;k<=neededtimes[ind];k++)
+
+	  /* Check if either of the periodic nodes belong to the current partition */
+	  for(k=1;k<=neededtimes[ind];k++) 
 	    if(part == neededtable[ind][k]) bcneeded++;
+
+	  for(k=1;k<=neededtimes[i];k++) 
+	    if(part == neededtable[i][k]) bcneeded++;
+
 	  if(!bcneeded) continue;
 
 	  sumsides++;
