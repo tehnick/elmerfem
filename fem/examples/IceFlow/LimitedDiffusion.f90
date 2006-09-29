@@ -523,7 +523,7 @@
 
                  FlowSolName =  GetString( Model % Equations(k) % Values,'Flow Solution Name', Found)
                  IF(.NOT.Found) THEN        
-                    CALL WARN(SolverName,'Keyword >Flow Solution Name< not found in section >Constants<')
+                    CALL WARN(SolverName,'Keyword >Flow Solution Name< not found in section >Equation<')
                     CALL WARN(SolverName,'Taking default value >Flow Solution<')
                     WRITE(FlowSolName,'(A)') 'Flow Solution'
                  END IF
@@ -862,7 +862,7 @@
            ! compute residual
            !------------------------------------------------------------------------------
            CALL CRS_MatrixVectorMultiply( SystemMatrix, Temp, StiffVector)
-           PRINT *, Solver % Matrix % RHS(1:10), SIZE(Solver % Matrix % RHS), SIZE(StiffVector), SIZE(ResidualVector)
+!           PRINT *, Solver % Matrix % RHS(1:10), SIZE(Solver % Matrix % RHS), SIZE(StiffVector), SIZE(ResidualVector)
            ResidualVector =  StiffVector - Solver % Matrix % RHS
  
 
