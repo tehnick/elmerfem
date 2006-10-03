@@ -5124,7 +5124,7 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
   int cellk,element,level,side,parent,parent2,layers,elemtype;
   int material,material2,ind0,ind1,ind2,*indx,*topo;
   int sideelemtype,sideind[MAXNODESD1],sidetype,maxsidetype,newbounds;
-  int refmaterial1,refmaterial2,newsidetype,indxlength;
+  int refmaterial1[10],refmaterial2[10],refsidetype[10],indxlength;
   Real z,*newx,*newy,*newz,corder[3];
   Real meanx,meany,absx,absy;
  
@@ -5474,9 +5474,11 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
 	  if(grid->rotatecartesian && cellk%2 == 1) continue; 
 	  if(grid->rotatecartesian && k != 1) continue; 
 	  
-	  refmaterial1 = 0;
-	  refmaterial2 = 0;
-	  newsidetype = 0;
+	  for(i=0;i<10;i++) {
+	    refmaterial1[i] = 0;
+	    refmaterial2[i] = 0;
+	    refsidetype[i] = 0;
+	  }
 	  side = 0;
 	  
 	  j++;
@@ -5549,40 +5551,45 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
 	    }
 	  
 	    
-	    if(material != material2) {
-	      
-	      if(refmaterial1+refmaterial2 == 0) {
-		refmaterial1 = material;
-		refmaterial2 = material2;
-		sidetype++;
-	      }
+	    if(material != material2) {	     
 	      
 	      side++;
 	      bound[j].nosides = side;
 	      bound[j].parent[side] = parent;
-	      if(origtype == 303) bound[j].side[side] = 4-swap;
-	      else bound[j].side[side] = 5-swap;
 	      bound[j].parent2[side] = parent2;
-	      if(origtype == 303) bound[j].side2[side] = 3+swap;
-	      else bound[j].side2[side] = 4+swap;
 	      bound[j].material[side] = material;
-	      
-	      if(material != refmaterial1 || material2 != refmaterial2) {
-		bound[j].types[side] = sidetype+1;
-		newsidetype = 1;
+
+	      if(origtype == 303) {
+		bound[j].side[side] = 4-swap;
+		bound[j].side2[side] = 3+swap;
 	      }
 	      else {
-		bound[j].types[side] = sidetype;
+		bound[j].side[side] = 5-swap;
+		bound[j].side2[side] = 4+swap;
+	      }	      
+
+	      for(m=0;m<10;m++) {
+		if(refmaterial1[m] == material && refmaterial2[m] == material2) {
+		  break;
+		}
+		else if(refmaterial1[m] == 0 && refmaterial2[m] == 0) {
+		  refmaterial1[m] = material;
+		  refmaterial2[m] = material2;		  
+		  sidetype++;
+		  refsidetype[m] = sidetype;
+		  break;
+		}
+		else if(m==9) {
+		  printf("Layer includes more than 9 new BCs!\n");
+		}
 	      }
+	      bound[j].types[side] = refsidetype[m];
 	    }
 	  }
+
 	  printf("BC %d on layer %d was created with %d sides.\n",j,level,side);    
 	  if(sidetype > maxsidetype) maxsidetype = sidetype;
-	  if(newsidetype > 0) {
-	    printf("There were more than one topology in the BC definition\n");
-	    maxsidetype++;
-	    sidetype = maxsidetype;
-	  }
+
 	  if(redo == TRUE) goto redolayer;
 	}
       }
