@@ -91,26 +91,7 @@ RECURSIVE SUBROUTINE getNetBoundaryHeatflux( Model,Solver,Timestep,TransientSimu
 
   
   HF = 0.0D00
-  !-----------------------------------------------------------------------
-  ! get temperature variable
-  !-----------------------------------------------------------------------
-  TempName =  GetString(Model % Constants ,'Temperature Name', GotIt)
-  IF (.NOT.GotIt) THEN
-     CALL FATAL(SolverName,'No Temperature Name found')
-  ELSE
-     WRITE(Message,'(a,a)') 'Variable Name for temperature: ', TempName
-     CALL INFO(SolverName,Message,Level=12)
-  END IF
 
-
-  TempSol => VariableGet( Solver % Mesh % Variables, TRIM(TempName) )
-  IF ( ASSOCIATED( TempSol ) ) THEN
-     TempPerm => TempSol % Perm
-     Temp => TempSol % Values
-  ELSE
-     WRITE(Message, '(A,A)') 'Could not find temperature field variable ',  TRIM(TempName)
-     CALL FATAL(SolverName,Message)
-  END IF
 
   !-----------------------------------------------------------------------
   ! Allocations
@@ -174,9 +155,9 @@ RECURSIVE SUBROUTINE getNetBoundaryHeatflux( Model,Solver,Timestep,TransientSimu
      Model % CurrentElement => Element
      N = Element % Type % NumberOfNodes
      CALL GetElementNodes( Nodes )
-     !-----------------------
-     ! get material parameter
-     !-----------------------
+     !-----------------------------------------------------------------------
+     ! get material pointer
+     !-----------------------------------------------------------------------
      Material => GetMaterial()
      IF (.NOT.ASSOCIATED(Material)) THEN
         WRITE (Message,'(A,I3)') 'No Material found for boundary element no. ', t
@@ -188,6 +169,27 @@ RECURSIVE SUBROUTINE getNetBoundaryHeatflux( Model,Solver,Timestep,TransientSimu
            CALL FATAL(SolverName,Message)
         END IF
      END IF
+     !-----------------------------------------------------------------------
+     ! get temperature variable
+     !-----------------------------------------------------------------------
+     TempName =  GetString(Material,'Temperature Name', GotIt)
+     IF (.NOT.GotIt) THEN
+        CALL FATAL(SolverName,'No Temperature Name found')
+     ELSE
+        WRITE(Message,'(a,a)') 'Variable Name for temperature: ', TempName
+        CALL INFO(SolverName,Message,Level=12)
+     END IF
+     TempSol => VariableGet( Solver % Mesh % Variables, TRIM(TempName) )
+     IF ( ASSOCIATED( TempSol ) ) THEN
+        TempPerm => TempSol % Perm
+        Temp => TempSol % Values
+     ELSE
+        WRITE(Message, '(A,A)') 'Could not find temperature field variable ',  TRIM(TempName)
+        CALL FATAL(SolverName,Message)
+     END IF 
+     !-----------------------
+     ! get material parameter
+     !-----------------------
      HeatConductivity(1:N) =  ListGetReal( Material,  TRIM(TempName) // &
           ' Heat Conductivity', n, Element % NodeIndexes, GotIt )
      IF (.NOT.GotIt) THEN
@@ -202,7 +204,7 @@ RECURSIVE SUBROUTINE getNetBoundaryHeatflux( Model,Solver,Timestep,TransientSimu
      DO i=1,N
         U = Element % Type % NodeU(i)
         V = Element % Type % NodeV(i)
-        W =Element % Type % NodeW(i)
+        W = Element % Type % NodeW(i)
         stat = ElementInfo( Element,Nodes,U,V,W,SqrtElementMetric, &
              Basis,dBasisdx,ddBasisddx,.FALSE.,.FALSE. )
         !--------------------
@@ -270,16 +272,6 @@ FUNCTION getBasalMeltingVelocity( Model, Node, HeatFlux ) RESULT(basalMeltingvel
   SAVE FirstTime, LatentHeat, Density, HomTemp, DIM, N, ExternalHF
 
   WRITE(SolverName, '(A)') 'iceproperties (getBasalMeltingVelocity))'
-  !-----------------------------------------------------------------------
-  ! get temperature variable
-  !-----------------------------------------------------------------------
-  TempName =  GetString(Model % Constants ,'Temperature Name', GotIt)
-  IF (.NOT.GotIt) THEN
-     CALL FATAL(SolverName,'No Temperature Name found')
-  ELSE
-     WRITE(Message,'(a,a)') 'Variable Name for temperature: ', TempName
-     CALL INFO(SolverName,Message,Level=12)
-  END IF
   !--------------------------------
   ! Allocations
   !--------------------------------
@@ -360,6 +352,17 @@ FUNCTION getBasalMeltingVelocity( Model, Node, HeatFlux ) RESULT(basalMeltingvel
      IF ( Node == ParentElement % NodeIndexes(ParentElementNode) ) EXIT
   END DO
 
+  !-----------------------------------------------------------------------
+  ! get temperature variable
+  !-----------------------------------------------------------------------
+  TempName =  GetString(ParentMaterial ,'Temperature Name', GotIt)
+  IF (.NOT.GotIt) THEN
+     CALL FATAL(SolverName,'No Temperature Name found')
+  ELSE
+     WRITE(Message,'(a,a)') 'Variable Name for temperature: ', TempName
+     CALL INFO(SolverName,Message,Level=12)
+  END IF
+
   !-------------------------
   ! Get material parameters
   !-------------------------
@@ -391,13 +394,13 @@ FUNCTION getBasalMeltingVelocity( Model, Node, HeatFlux ) RESULT(basalMeltingvel
   !---------------------------------
   ! Get homologous temperature field
   !---------------------------------
-  TempName =  GetString(Model % Constants ,'Temperature Name', GotIt)
-  IF (.NOT.GotIt) THEN
-     CALL FATAL(SolverName,'No Temperature Name found')
-  ELSE
-     WRITE(Message,'(a,a)') 'Variable Name for temperature: ', TempName
-     CALL INFO(SolverName,Message,Level=12)
-  END IF
+!  TempName =  GetString(Model % Constants ,'Temperature Name', GotIt)
+!  IF (.NOT.GotIt) THEN
+!     CALL FATAL(SolverName,'No Temperature Name found')
+!  ELSE
+!     WRITE(Message,'(a,a)') 'Variable Name for temperature: ', TempName
+!     CALL INFO(SolverName,Message,Level=12)
+!  END IF
 
   Model % CurrentElement => ParentElement
   VarHomTemp => VariableGet( Model % Variables, TRIM(TempName) // ' Homologous', .TRUE. )
@@ -510,7 +513,7 @@ FUNCTION basalSlip( Model, Node, Temperature ) RESULT(basalSlipCoefficient)
   !-------------------------
   ! Get Pressure Melting Point
   !-------------------------
-  TempName =  GetString(Model % Constants ,'Temperature Name', GotIt)
+  TempName =  GetString(ParentMaterial ,'Temperature Name', GotIt)
   PressureMeltingPoint(1:NParent) =&
        ListGetReal( ParentMaterial, TRIM(TempName) // ' Upper Limit',&
        NParent, ParentElement % NodeIndexes, GotIt)
@@ -1133,7 +1136,7 @@ FUNCTION getFluidity( Model, n, temperature ) RESULT(fluidity)
   END IF
   ! Pressure Melting Point and homologous temperature
   !--------------------------------------------------
-  TempName =  GetString(Model % Constants,'Temperature Name', GotIt)
+  TempName =  GetString(Material,'Temperature Name', GotIt)
   IF (.NOT.GotIt) CALL FATAL('iceproperties (getFluidity)','No Temperature Name found')
   PressureMeltingPoint(1:elementNodes) =&
        ListGetReal( Material, TRIM(TempName) // ' Upper Limit',&
@@ -1633,3 +1636,207 @@ FUNCTION ParameterB ( Model, nodenumber, D ) RESULT(b)
     End If
 !    write(*,*)DD,b
 END FUNCTION ParameterB 
+
+
+! *****************************************************************************
+! calculates the SIA stress components on the free boundaries
+!
+! *****************************************************************************
+RECURSIVE SUBROUTINE getSIAstress( Model,Solver,Timestep,TransientSimulation)
+  USE DefUtils
+  USE Materialmodels
+!-----------------------------------------------------------
+  IMPLICIT NONE
+!------------ external variables ---------------------------
+  TYPE(Model_t)  :: Model
+  TYPE(Solver_t), TARGET :: Solver
+  LOGICAL :: TransientSimulation
+  REAL(KIND=dp) :: Timestep
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+  TYPE(Solver_t), POINTER :: PointerToSolver
+  TYPE(Nodes_t) :: Nodes
+  TYPE(Element_t),POINTER :: Element
+  TYPE(Variable_t), POINTER :: SIASol, DepthSol, SurfSol1, SurfSol2
+  TYPE(ValueList_t), POINTER :: Equation,Material,SolverParams,BodyForce,BC,Constants
+  CHARACTER(LEN=MAX_NAME_LEN) :: TempName, SolverName
+  INTEGER :: i, j, k, l, t, N, BN,  M, DIM, SIADOFs, istat, material_id
+  INTEGER, POINTER :: DepthSolPerm(:), SurfSol1Perm(:), SurfSol2Perm(:),&
+       SIAPerm(:),BoundaryReorder(:)
+  REAL(KIND=dp) ::  U, V, W, SqrtElementMetric, SIAstress(2), HydrostaticPressure
+  REAL(KIND=dp), POINTER :: SIA(:), Depth(:), Surf1(:), Surf2(:), &
+       BoundaryNormals(:,:), BoundaryTangent1(:,:), BoundaryTangent2(:,:)
+  LOGICAL :: GotIt, FirstTimeAround=.TRUE., stat
+
+  SAVE FirstTimeAround, SolverName, DIM, &
+       BoundaryNormals, BoundaryTangent1, BoundaryTangent2, BoundaryReorder, BN
+
+  ! assign solver name for communicative output
+  !-----------------------------------------------------------------------
+  WRITE(SolverName, '(A)') 'iceproperties (getSIAstress))'
+  !-----------------------------------------------------------------------
+  ! get solver variable
+  !-----------------------------------------------------------------------
+  SIASol => Solver % Variable
+  IF (.NOT.ASSOCIATED(SIASol)) THEN
+     CALL FATAL(SolverName,'No variable associated')
+  END IF
+  SIAPerm  => SIASol % Perm
+  SIA => SIASol % Values
+  SIADOFs =  SIASol % DOFs
+  SIA = 0.0d00
+  !-----------------------------------------------------------------------
+  ! 
+  !-----------------------------------------------------------------------
+  IF ( FirstTimeAround .OR. Solver % Mesh % Changed ) THEN
+     DIM = CoordinateSystemDimension()
+     N = Solver % Mesh % MaxElementNodes
+     M = Model % Mesh % NumberOfNodes        
+     IF ( .NOT.FirstTimeAround ) &
+          DEALLOCATE( &
+          BoundaryReorder, &
+          BoundaryNormals, &
+          BoundaryTangent1, &
+          BoundaryTangent2)
+     ! check boundaries for calculation of SIA-stress and allocate necessary 
+     ! space for averaged Normal and Tangentials
+     !-----------------------------------------------------------------------
+     CALL CheckNormalTangentialBoundary( Model, &
+          'Calc SIA', BN, &
+          BoundaryReorder, BoundaryNormals, BoundaryTangent1, &
+          BoundaryTangent2, DIM )
+     WRITE(Message,'(A,i6)') &
+          'Number of boundary nodes on boundaries associated with SIA stresses:',&
+          BN
+     CALL INFO(SolverName,Message,Level=3)
+     ! compute averaged normals and tangentials for  boundaries designated for
+     ! SIA-stress boundary elements
+     !-----------------------------------------------------------------------
+     CALL AverageBoundaryNormals(Model, &
+          'Calc SIA', BN, &
+          BoundaryReorder, BoundaryNormals, BoundaryTangent1, &
+          BoundaryTangent2, DIM )
+
+     ! read in variables for flow depth and for free surface gradients
+     !-----------------------------------------------------------------------
+     DepthSol => VariableGet( Solver % Mesh % Variables, "Depth" )
+     IF ( ASSOCIATED( DepthSol ) ) THEN
+        DepthSolPerm => DepthSol % Perm
+        Depth => DepthSol % Values
+     ELSE
+        WRITE(Message, '(A)') 'Could not find surface Gradient 1 field variable '
+        CALL FATAL(SolverName,Message)
+     END IF
+
+     SurfSol1 => VariableGet( Solver % Mesh % Variables, "FreeSurfGrad1" )
+     IF ( ASSOCIATED( SurfSol1 ) ) THEN
+        SurfSol1Perm => SurfSol1 % Perm
+        Surf1 => SurfSol1 % Values
+     ELSE
+        WRITE(Message, '(A)') 'Could not find Surface Gradient 1 field variable '
+        CALL FATAL(SolverName,Message)
+     END IF
+     IF (DIM > 2) THEN
+        SurfSol2 => VariableGet( Solver % Mesh % Variables, "FreeSurfGrad2" )
+        IF ( ASSOCIATED( SurfSol2 ) ) THEN
+           SurfSol2Perm => SurfSol2 % Perm
+           Surf2 => SurfSol2 % Values
+        ELSE
+           WRITE(Message, '(A)') 'Could not find Surface Gradient 2 field variable '
+           CALL FATAL(SolverName,Message)
+        END IF
+     END IF
+     !-----------------------------------------------------------------------
+     ! loop over all nodes in mesh
+     !-----------------------------------------------------------------------
+     DO i=1,Solver % Mesh % NumberOfNodes
+        j = BoundaryReorder(i) ! projection from real space to SIA-stress 
+        ! boundary space
+        k = SIAPerm(i) ! projection from real space to solver matrix coordinate
+
+        ! if boundary element node with SIA-stress condition enabled
+        !-----------------------------------------------------------------------
+        IF (j > 0) THEN
+           HydrostaticPressure = -9.18D02 * 0.981E01 * Depth(DepthSolPerm(i))        
+           SIAstress(1) =  HydrostaticPressure * Surf1(SurfSol1Perm(i))
+           IF (DIM > 2) THEN
+              SIAstress(2) = HydrostaticPressure * Surf2(SurfSol2Perm(i))
+           ELSE
+              SIAstress(2) = 0.0D00
+           END IF
+
+           ! vector product between Cauchy-stress tensor and surface normal
+           !  = stress vector
+           !-----------------------------------------------------------------------
+           !Compute first element of the stress vector P*n(1)+txy*n(2) For  DIM=2 (two dimensions)
+           !Compute first element of the stress vector P*n(1)+txz*n(3) for  Dim=3 (three-dimensions)
+           SIA(SIADOFs*(k-1)+1)= HydrostaticPressure * BoundaryNormals(BoundaryReorder(i),1) &
+                + SIAstress(1) * BoundaryNormals(BoundaryReorder(i),DIM)
+           !Compute the second element of the stress vector in three-dimension P*n(2)+tyz*n(3)
+           SIA(SIADOFs*(k-1)+2)= HydrostaticPressure * BoundaryNormals(BoundaryReorder(i),2) &
+                + SIAstress(2) * BoundaryNormals(BoundaryReorder(i),3) ! this line doesn't contribute if 2d
+           !If DIM=2, compute the second element of the stress vector in two-dimensions P*n(2)+txy*n(1)
+           IF (DIM == 2) &
+                SIA(SIADOFs*(k-1)+2)= SIA(SIADOFs*(k-1)+2) &
+                + SIAstress(1) * BoundaryNormals(BoundaryReorder(i),1)
+           !If DIM=3, compute the third element of the stress vector in three-dimensions P*n(3)+txz*n(1)+tyz*n(2)
+           IF (DIM > 2) &
+                SIA(SIADOFs*(k-1)+3)= HydrostaticPressure * BoundaryNormals(BoundaryReorder(i),3) &
+                + SIAstress(1) * BoundaryNormals(BoundaryReorder(i),1) &
+                + SIAstress(2) * BoundaryNormals(BoundaryReorder(i),2)   
+        END IF
+     END DO
+     FirstTimeAround = .FALSE.
+  END IF
+END SUBROUTINE getSIAstress
+
+!*********************************************************************************************************************************
+!* Computation of component of the SIA stress vector. This code is  used for a rectangular type geometry where the automatic solution "getSIAstres" does not provide good results at the corner. Here we compute the components Pressure i in the sif file independantly for each side, North, Est, South and West. 
+!*
+!*********************************************************************************************************************************
+
+!----------------------------------------------------------------------------------------------
+!StressSIA: Compute the corresponding shallow-ice shear stress
+!----------------------------------------------------------------------------------------------
+FUNCTION StressSIA( Model, Node, surfaceGrad) RESULT(shearstress)
+  USE Types
+  USE CoordinateSystems
+  USE SolverUtils
+  USe ElementDescription
+!-------------------------------------------------------------------
+IMPLICIT NONE
+!-------------------------external variables-----------------------
+TYPE(Model_t) :: Model 
+INTEGER :: Node
+INTEGER, POINTER :: DepthPermutation(:)
+REAL(KIND=dp) :: surfaceGrad, shearstress
+TYPE(Variable_t), POINTER :: DepthSolution 
+
+!Find variable for flow depth 
+DepthSolution  => VariableGet(Model % Variables, 'Depth', .TRUE.)
+DepthPermutation  => DepthSolution % Perm 
+shearstress = -918.0D00*9.81D00*DepthSolution % Values(DepthPermutation(Node))*surfaceGrad
+END FUNCTION StressSIA
+
+!--------------------------------------------------------------------------------------------
+
+FUNCTION invStressSIA( Model, Node, surfaceGrad) RESULT(shearstress)
+  USE Types
+  USE CoordinateSystems
+  USE SolverUtils
+  USe ElementDescription
+!-------------------------------------------------------------------
+IMPLICIT NONE
+!-------------------------external variables-----------------------
+TYPE(Model_t) :: Model 
+INTEGER :: Node
+INTEGER, POINTER :: DepthPermutation(:)
+REAL(KIND=dp) :: surfaceGrad, shearstress
+TYPE(Variable_t), POINTER :: DepthSolution 
+
+!Find variable for flow depth 
+DepthSolution  => VariableGet(Model % Variables, 'Depth', .TRUE.)
+DepthPermutation  => DepthSolution % Perm 
+shearstress = 918.0D00*9.81D00*DepthSolution % Values(DepthPermutation(Node))*surfaceGrad
+END FUNCTION invStressSIA
