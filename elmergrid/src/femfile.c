@@ -1541,6 +1541,9 @@ int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
     getline; cp=line;
 
     indx[i] = next_int(&cp);
+    if(cp[0] == '.') cp++;
+
+    printf("ind=%d\n",indx[i]);
 
     x = next_real(&cp);
     if(!cp) x = y = z = 0.0;
@@ -1555,6 +1558,8 @@ int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
     data->x[i] = x;
     data->y[i] = y;
     if(data->dim == 3) data->z[i] = z;
+
+    printf("coord = %.3le %.3le %.3le\n",x,y,z);
 
 #if 0
     if(i != indx[i]) {
