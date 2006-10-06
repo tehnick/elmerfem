@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StressSolve.src,v $
+! * Revision 1.19  2006/06/29 06:53:55  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.18  2006/06/27 11:48:29  jpr
 ! * *** empty log message ***
 ! *
@@ -315,7 +318,7 @@
         END FUNCTION StressInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.18 2006/06/27 11:48:29 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.19 2006/06/29 06:53:55 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -1068,7 +1071,7 @@ CONTAINS
        GlobalBubbles = GetLogical(SolverParams,'Bubbles in Global System',Found )
        IF (.NOT.Found ) GlobalBubbles=.TRUE.
 
-       StSolver % Matrix => CreateMatrix( Model, Solver % Mesh, Permutation, &
+       StSolver % Matrix => CreateMatrix( Model, Solver, Solver % Mesh, Permutation, &
         1, MATRIX_CRS, OptimizeBW, 'Calculate Stresses', GlobalBubbles=GlobalBubbles )
        ALLOCATE( StSolver % Matrix % RHS(StSolver % Matrix % NumberOfRows) )
 

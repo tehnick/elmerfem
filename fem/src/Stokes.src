@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: Stokes.src,v 1.3 2006/02/21 16:34:07 mmalinen Exp $
+! * $Id: Stokes.src,v 1.4 2006/10/06 10:37:37 jpr Exp $
 ! *****************************************************************************
 
 SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
@@ -192,7 +192,7 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
       IF (ComponentwisePreconditioning) THEN
         A1Matrix => CreateMatrix( Model, Solver, Solver % Mesh, Solver % Variable % Perm, &
             1, MATRIX_CRS, OptimizeBW, ListGetString( Solver % Values, 'Equation' ) )
-        A2Matrix => CreateMatrix( Model, Solver % Mesh, Solver % Variable % Perm, &
+        A2Matrix => CreateMatrix( Model, Solver, Solver % Mesh, Solver % Variable % Perm, &
             1, MATRIX_CRS, OptimizeBW, ListGetString( Solver % Values, 'Equation' ) )
         IF (dim > 2) &
             A3Matrix => CreateMatrix( Model, Solver, Solver % Mesh, Solver % Variable % Perm, &
