@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Lists.src,v $
+! * Revision 1.12  2006/08/17 10:53:29  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.11  2006/08/17 10:51:45  jpr
 ! * *** empty log message ***
 ! *
@@ -74,7 +77,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Lists.src,v 1.11 2006/08/17 10:51:45 jpr Exp $
+! * $Id: Lists.src,v 1.12 2006/08/17 10:53:29 jpr Exp $
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
@@ -165,17 +168,21 @@ MODULE Lists
 CONTAINS
 
 !------------------------------------------------------------------------------
-  FUNCTION InitialPermutation( Perm,Model,Mesh,Equation,DGSolver,GlobalBubbles ) RESULT(k)
+  FUNCTION InitialPermutation( Perm,Model,Solver,Mesh, &
+                   Equation,DGSolver,GlobalBubbles ) RESULT(k)
 !------------------------------------------------------------------------------
-     TYPE(Model_t) :: Model
-     TYPE(Mesh_t),  POINTER :: Mesh
+     USE PElementMaps
+     TYPE(Model_t)  :: Model
+     TYPE(Mesh_t)   :: Mesh
+     TYPE(Solver_t) :: Solver
      INTEGER :: Perm(:)
      INTEGER :: k
      CHARACTER(LEN=*) :: Equation
      LOGICAL, OPTIONAL :: DGSolver, GlobalBubbles
 !------------------------------------------------------------------------------
-     INTEGER i,j,l,t,n,e, EDOFs, FDOFs, BDOFs
+     INTEGER i,j,l,t,n,e, EDOFs, FDOFs, BDOFs, ndofs
      INTEGER :: Indexes(128)
+     INTEGER, POINTER :: Def_Dofs(:)
      LOGICAL :: FoundDG, DG, GB
      TYPE(Element_t),POINTER :: Element, Edge, Face
 !------------------------------------------------------------------------------
@@ -274,7 +281,11 @@ CONTAINS
 
        IF ( t > n ) EXIT
 
-       DO i=1,Element % NDOFs
+       Def_Dofs => Solver % Def_Dofs(Element % BodyId,:)
+
+       ndofs = Element % NDOFs
+       IF ( Def_Dofs(1) >= 0) ndofs=Def_Dofs(1)
+       DO i=1,ndofs
          j = Element % NodeIndexes(i)
          IF ( Perm(j) == 0 ) THEN
            k = k + 1
@@ -285,7 +296,14 @@ CONTAINS
        IF ( ASSOCIATED( Element % EdgeIndexes ) ) THEN
           DO i=1,Element % Type % NumberOfEdges
              Edge => Mesh % Edges( Element % EdgeIndexes(i) )
-             DO e=1,Edge % BDOFs
+             ndofs = Edge % BDOFs
+             IF ( Def_Dofs(2) >= 0) THEN
+               ndofs = Def_Dofs(2)
+             ELSE IF (Def_Dofs(6)>0) THEN
+               ndofs = getEdgeDOFS( Edge, Def_Dofs(6) )
+             END IF
+
+             DO e=1,ndofs
                 j = Mesh % NumberOfNodes + EDOFs*(Element % EdgeIndexes(i)-1) + e
                 IF ( Perm(j) == 0 ) THEN
                    k = k + 1
@@ -298,7 +316,13 @@ CONTAINS
        IF ( ASSOCIATED( Element % FaceIndexes ) ) THEN
           DO i=1,Element % Type % NumberOfFaces
              Face => Mesh % Faces( Element % FaceIndexes(i) )
-             DO e=1,Face % BDOFs
+             ndofs = Face % BDOFs
+             IF ( Def_Dofs(3) >= 0) THEN
+               ndofs = Def_Dofs(3)
+             ELSE IF (Def_Dofs(6)>0) THEN
+               ndofs = getEdgeDOFS( Edge, Def_Dofs(6) )
+             END IF
+             DO e=1,ndofs
                 j = Mesh % NumberOfNodes + EDOFs*Mesh % NumberOfEdges + &
                           FDOFs*(Element % FaceIndexes(i)-1) + e
                 IF ( Perm(j) == 0 ) THEN
@@ -310,7 +334,14 @@ CONTAINS
        END IF
 
        IF ( GB .AND. ASSOCIATED( Element % BubbleIndexes ) ) THEN
-         DO i=1,Element % BDOFs
+         ndofs = Element % BDOFs
+         IF ( Def_Dofs(5) >= 0) THEN
+            ndofs = Def_Dofs(5)
+         ELSE IF ( Def_Dofs(6)>0 ) THEN
+            ndofs = GetBubbleDOFs( Element, Def_Dofs(6) )
+         END IF
+
+         DO i=1,ndofs
             j = Mesh % NumberOfNodes + EDOFs*Mesh % NumberOfEdges + &
                  FDOFs*Mesh % NumberOfFaces + Element % BubbleIndexes(i)
             IF ( Perm(j) == 0 ) THEN
@@ -602,7 +633,7 @@ double precision :: t1,CPUTime
          IF ( ASSOCIATED( PVar % Perm ) ) THEN
             ALLOCATE( Var % Perm( DOFs/Pvar % DOFs ) )
 
-            n = InitialPermutation( Var % Perm, CurrentModel, &
+            n = InitialPermutation( Var % Perm, CurrentModel, PVar % Solver, &
                 CurrentModel % Mesh, ListGetString(PVar % Solver % Values,'Equation'), &
                  GlobalBubbles=GlobalBubbles )
 

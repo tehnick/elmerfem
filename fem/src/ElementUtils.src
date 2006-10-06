@@ -38,7 +38,7 @@
 ! *
 ! ******************************************************************************/
 ! *
-! * $Id: ElementUtils.src,v 1.12 2006/06/14 09:42:03 jpr Exp $
+! * $Id: ElementUtils.src,v 1.13 2006/10/06 06:38:06 jpr Exp $
 ! ******************************************************************************
 
 MODULE ElementUtils
@@ -92,7 +92,7 @@ CONTAINS
      ELSE
         ListMatrix(k1) % Head => ENTRY
      END IF
-
+ 
      ListMatrix(k1) % Degree = ListMatrix(k1) % Degree + 1
 !-------------------------------------------------------------------------------
    END SUBROUTINE MakeListMatrixIndex
@@ -109,8 +109,8 @@ CONTAINS
 !******************************************************************************
 !------------------------------------------------------------------------------
     TYPE(Model_t)  :: Model
-    TYPE(Mesh_t), POINTER  :: Mesh
-    TYPE(Matrix_t),POINTER :: Matrix
+    TYPE(Mesh_t)   :: Mesh
+    TYPE(Matrix_t) :: Matrix
     INTEGER :: LocalNodes, InvPerm(LocalNodes)
     TYPE(ListMatrixPointer_t), POINTER :: ListMatrix(:)
     INTEGER, OPTIONAL ::Reorder(:)
@@ -177,8 +177,10 @@ CONTAINS
 
          DO i=1,n
             k1 = Reorder(Indexes(i))
+            IF ( k1 <= 0 ) CYCLE
             DO j=1,n
               k2 = Reorder(Indexes(j))
+              IF ( k2 <= 0 ) CYCLE
               CALL MakeListMatrixIndex( ListMatrix,k1,k2 )
             END DO
          END DO
@@ -210,8 +212,10 @@ CONTAINS
 
          DO i=1,n
             k1 = Reorder(Indexes(i))
+            IF ( k1 <= 0 ) CYCLE
             DO j=1,n
               k2 = Reorder(Indexes(j))
+              IF ( k2 <= 0 ) CYCLE
               CALL MakeListMatrixIndex( ListMatrix,k1,k2 )
             END DO
          END DO
@@ -281,8 +285,10 @@ CONTAINS
 
          DO i=1,n
             k1 = Reorder(Indexes(i))
+            IF ( k1 <= 0 ) CYCLE
             DO j=1,n
                k2 =  Reorder(Indexes(j))
+               IF ( k2 <= 0 ) CYCLE
                CALL MakeListMatrixIndex( ListMatrix,k1,k2 )
             END DO
          END DO
@@ -465,11 +471,12 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-   FUNCTION CreateMatrix( Model, Mesh, Perm, DOFs, MatrixFormat, &
+   FUNCTION CreateMatrix( Model, Solver, Mesh, Perm, DOFs, MatrixFormat, &
           OptimizeBW, Equation, DGSolver, GlobalBubbles ) RESULT(Matrix)
 !------------------------------------------------------------------------------
      TYPE(Model_t) :: Model
-     TYPE(Mesh_t),  POINTER :: Mesh
+     TYPE(Mesh_t) :: Mesh
+     TYPE(Solver_t) :: Solver
      INTEGER :: DOFs, MatrixFormat
      INTEGER, TARGET :: Perm(:)
      LOGICAL :: OptimizeBW
@@ -516,7 +523,7 @@ CONTAINS
 
      Perm = 0
      IF ( PRESENT(Equation) ) THEN
-        k = InitialPermutation( Perm,Model,Mesh,Eq,DG,GB )
+        k = InitialPermutation( Perm,Model,Solver,Mesh,Eq,DG,GB )
         IF ( k <= 0 ) THEN
            DO i=1,SIZE(Perm)
               Perm(i) = i 

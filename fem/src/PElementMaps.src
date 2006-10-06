@@ -42,7 +42,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: PElementMaps.src,v 1.4 2006/02/08 03:58:41 jpr Exp $
+! * $Id: PElementMaps.src,v 1.5 2006/10/06 06:38:07 jpr Exp $
 ! ******************************************************************************
 
 MODULE PElementMaps
@@ -687,6 +687,26 @@ CONTAINS
     END SUBROUTINE InitializeMappings
 
 !------------------------------------------------------------------------------
+  FUNCTION getEdgeDOFs( Element, p ) RESULT(EdgeDOFs)
+!------------------------------------------------------------------------------
+    IMPLICIT NONE
+!------------------------------------------------------------------------------
+    Type(Element_t) :: Element
+    INTEGER :: EdgeDOFs
+    INTEGER, INTENT(IN) :: p
+
+    IF (.NOT. ASSOCIATED(Element % PDefs) ) THEN
+       EdgeDOFs = 0
+       RETURN
+    END IF
+
+    EdgeDOFs = MAX(0, p-1)
+!------------------------------------------------------------------------------
+  END FUNCTION getEdgeDOFs
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
   FUNCTION getFaceDOFs( Element, p, faceNumber ) RESULT(faceDOFs)
 !******************************************************************************
 !
@@ -713,7 +733,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     IMPLICIT NONE
     
-    Type(Element_t), POINTER :: Element
+    Type(Element_t) :: Element
     INTEGER, INTENT(IN) :: p
     INTEGER, INTENT(IN), OPTIONAL :: faceNumber
     INTEGER :: faceDOFs

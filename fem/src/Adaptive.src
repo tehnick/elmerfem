@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Adaptive.src,v $
+! * Revision 1.17  2006/02/28 09:34:46  jpr
+! * Some corrections for adaptivity.
+! *
 ! * Revision 1.16  2006/02/20 08:06:18  jpr
 ! * Moved handling of Normal-Tangential BCs inside SolverUtils. Corrected
 ! * a few bugs in Adaptive.src, Lists.src.
@@ -81,7 +84,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Adaptive.src,v 1.16 2006/02/20 08:06:18 jpr Exp $
+! * $Id: Adaptive.src,v 1.17 2006/02/28 09:34:46 jpr Exp $
 ! *****************************************************************************/
 
 
@@ -658,7 +661,7 @@ CONTAINS
     ! current equation on the new mesh. Also do bandwidth
     ! optimization, if requested:
     ! ----------------------------------------------------
-    NewMatrix => CreateMatrix( Model, Solver % Mesh,  &
+    NewMatrix => CreateMatrix( Model, Solver, Solver % Mesh,  &
          Permutation, Solver % Variable % DOFs, MATRIX_CRS, &
          BandwidthOptimize, ListGetString( Solver % Values, 'Equation' ), &
          GlobalBubbles=GlobalBubbles )

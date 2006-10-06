@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MainUtils.src,v $
+! * Revision 1.11  2006/10/05 12:31:29  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.10  2006/06/27 11:48:29  jpr
 ! * *** empty log message ***
 ! *
@@ -84,7 +87,7 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.src,v 1.10 2006/06/27 11:48:29 jpr Exp $
+! * $Id: MainUtils.src,v 1.11 2006/10/05 12:31:29 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MainUtils
@@ -332,7 +335,7 @@ CONTAINS
          END IF
        END IF
 
-       Solver % Matrix => CreateMatrix( CurrentModel, Solver % Mesh, Perm, &
+       Solver % Matrix => CreateMatrix( CurrentModel, Solver, Solver % Mesh, Perm, &
             DOFs+1, MatrixFormat, BandwidthOptimize, 'Navier-Stokes', GlobalBubbles=GlobalBubbles )
 
        Nrows =(DOFs+1)* Ndeg
@@ -391,7 +394,7 @@ CONTAINS
          END IF
        END IF
 
-       Solver % Matrix => CreateMatrix( CurrentModel, Solver % Mesh, &
+       Solver % Matrix => CreateMatrix( CurrentModel, Solver, Solver % Mesh, &
             Perm,3, MatrixFormat, BandwidthOptimize, 'Magnetic Induction', GlobalBubbles=GlobalBubbles )
 
        Nrows = 3*Ndeg
@@ -462,7 +465,7 @@ CONTAINS
           END IF
        END IF
 
-       Solver % Matrix => CreateMatrix( CurrentModel, Solver % Mesh, &
+       Solver % Matrix => CreateMatrix( CurrentModel, Solver, Solver % Mesh, &
             Perm, DOFs, MatrixFormat, BandwidthOptimize, 'Stress Analysis', GlobalBubbles=GlobalBubbles )
 
        Nrows = DOFs*Ndeg
@@ -515,7 +518,7 @@ CONTAINS
           END IF
        END IF
 
-       Solver % Matrix => CreateMatrix( CurrentModel, Solver % Mesh, &
+       Solver % Matrix => CreateMatrix( CurrentModel, Solver, Solver % Mesh, &
             Perm, DOFs, MatrixFormat, BandwidthOptimize, 'Mesh Update', GlobalBubbles=GlobalBubbles )
        IF ( .NOT. ASSOCIATED( Solver % Matrix ) )  RETURN
  
@@ -600,7 +603,7 @@ CONTAINS
          CALL RadiationFactors( Solver, .TRUE.)
        END IF
 
-       Solver % Matrix => CreateMatrix( CurrentModel,Solver % Mesh, &
+       Solver % Matrix => CreateMatrix( CurrentModel, Solver, Solver % Mesh, &
             Perm,1, MatrixFormat, BandwidthOptimize, 'Heat Equation', GlobalBubbles=GlobalBubbles)
 
        Nrows = Ndeg
@@ -664,7 +667,7 @@ CONTAINS
                 ALLOCATE( Perm(Ndeg) )
              END IF
 
-             Solver % Matrix => CreateMatrix( CurrentModel, Solver % Mesh, &
+             Solver % Matrix => CreateMatrix( CurrentModel, Solver, Solver % Mesh, &
                Perm, DOFs, MatrixFormat, BandwidthOptimize, eq(1:LEN_TRIM(eq)), &
                   ListGetLogical( Solver % Values, &
                      'Discontinuous Galerkin', Found ), GlobalBubbles=GlobalBubbles )

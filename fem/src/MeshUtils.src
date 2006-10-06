@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.40  2006/10/06 06:38:06  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.39  2006/08/09 12:02:45  jpr
 ! * *** empty log message ***
 ! *
@@ -153,7 +156,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.39 2006/08/09 12:02:45 jpr Exp $
+! * $Id: MeshUtils.src,v 1.40 2006/10/06 06:38:06 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -2598,7 +2601,7 @@ END SUBROUTINE FindNeighbourNodes
      OptimizeBandwidth = ListGetLogical( Solver % Values, 'Optimize Bandwidth', Found )
      IF ( .NOT. Found ) OptimizeBandwidth = .TRUE.
 
-     Matrix => CreateMatrix( CurrentModel, &
+     Matrix => CreateMatrix( CurrentModel, Solver, &
         Mesh, Permutation, DOFs, MATRIX_CRS, OptimizeBandwidth, &
         ListGetString( Solver % Values, 'Equation' ) )
 

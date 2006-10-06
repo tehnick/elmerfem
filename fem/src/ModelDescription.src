@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ModelDescription.src,v 1.17 2006/08/11 13:12:24 jpr Exp $
+! * $Id: ModelDescription.src,v 1.18 2006/10/06 06:38:07 jpr Exp $
 ! *****************************************************************************/
 
 MODULE ModelDescription
@@ -1489,9 +1489,10 @@ CONTAINS
 
 !------------------------------------------------------------------------------
     TYPE(Mesh_t), POINTER :: Mesh,Mesh1
-    INTEGER :: i,j,k,s,nlen,eqn
+    INTEGER :: i,j,k,l,s,nlen,eqn
     LOGICAL :: GotIt,found,OneMeshName, OpenFile
     LOGICAL :: stat
+    INTEGER, POINTER :: ActiveSolvers(:)
     INTEGER, ALLOCATABLE :: Def_Dofs(:,:)
     CHARACTER(LEN=MAX_NAME_LEN) :: Name,ElementDef
     CHARACTER(LEN=MAX_NAME_LEN) :: MeshDir,MeshName
@@ -1522,30 +1523,71 @@ CONTAINS
     IF ( .NOT. OpenFile ) CLOSE( InFileUnit )
 
     ALLOCATE( Def_Dofs(Model % NumberOfBodies,6) )
-    def_dofs = -1 
+    Def_Dofs = -1 
+
+    DO i=1,Model % NumberOfSolvers
+      ALLOCATE( Model % Solvers(i) % Def_Dofs(Model % NumberOfBodies,6) )
+      Model % Solvers(i) % Def_Dofs = -1 
+    END DO
+
     DO i=1,Model % NumberOfBodies
       eqn = ListGetInteger( Model % Bodies(i) % Values, 'Equation' )
 
-      ElementDef = ListGetString( Model % Equations(eqn) % Values, 'Element', stat )
-      IF ( .NOT. stat ) CYCLE
+      ActiveSolvers => ListGetIntegerArray( Model % Equations(eqn) % Values, &
+                           'Active Solvers' )
 
-      j = index( ElementDef, 'n:' )
-      IF ( j>0 ) READ( ElementDef(j+2:), * ) def_dofs(i,1)
+      DO k=1,SIZE(ActiveSolvers)
+         ElementDef = ListGetString( Model % Equations(eqn) % Values, &
+             'Element[' // CHAR(k+ICHAR('0')) // ']', stat )
 
-      j = index( ElementDef, 'e:' )
-      IF ( j>0 ) READ( ElementDef(j+2:), * ) def_dofs(i,2)
+        IF ( .NOT. stat ) THEN
+          ElementDef = ListGetString( Model % Equations(eqn) % Values, &
+                        'Element', stat )
+          IF ( .NOT. stat ) CYCLE
+        END IF
 
-      j = index( ElementDef, 'f:' )
-      IF ( j>0 ) READ( ElementDef(j+2:), * ) def_dofs(i,3)
+        j = index( ElementDef, 'n:' )
+        IF ( j>0 ) THEN
+          READ( ElementDef(j+2:), * ) l
+          Def_Dofs(i,1) = MAX( Def_Dofs(i,1), l )
+          Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,1) = l
+        END IF
 
-      j = index( ElementDef, 'd:' )
-      IF ( j>0 ) READ( ElementDef(j+2:), * ) def_dofs(i,4)
+        j = index( ElementDef, 'e:' )
+        IF ( j>0 ) THEN
+          READ( ElementDef(j+2:), * ) l
+          Def_Dofs(i,2) = MAX(Def_Dofs(i,2), l )
+          Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,2) = l
+        END IF
 
-      j = index( ElementDef, 'b:' )
-      IF ( j>0 ) READ( ElementDef(j+2:), * ) def_dofs(i,5)
+        j = index( ElementDef, 'f:' )
+        IF ( j>0 ) THEN
+          READ( ElementDef(j+2:), * ) l
+          Def_Dofs(i,3) = MAX(Def_Dofs(i,3), l )
+          Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,3) = l
+        END IF
 
-      j = index( ElementDef, 'p:' )
-      IF ( j>0 ) READ( ElementDef(j+2:), * ) def_dofs(i,6)
+        j = index( ElementDef, 'd:' )
+        IF ( j>0 ) THEN
+          READ( ElementDef(j+2:), * ) l
+          Def_Dofs(i,4) = MAX(Def_Dofs(i,4), l )
+          Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,4) = l
+        END IF
+
+        j = index( ElementDef, 'b:' )
+        IF ( j>0 ) THEN
+          READ( ElementDef(j+2:), * ) l
+          Def_Dofs(i,5) = MAX(Def_Dofs(i,5), l )
+          Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,5) = l
+        END IF
+
+        j = index( ElementDef, 'p:' )
+        IF ( j>0 ) THEN
+          READ( ElementDef(j+2:), * ) l
+          Def_Dofs(i,6) = MAX(Def_Dofs(i,6), l )
+          Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,6) = l
+        END IF
+      END DO
     END DO
 
     Name = ListGetString( Model % Simulation, 'Mesh', GotIt )
