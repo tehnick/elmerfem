@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ModelDescription.src,v 1.16 2006/08/04 05:33:32 apursula Exp $
+! * $Id: ModelDescription.src,v 1.17 2006/08/11 13:12:24 jpr Exp $
 ! *****************************************************************************/
 
 MODULE ModelDescription
@@ -1489,9 +1489,11 @@ CONTAINS
 
 !------------------------------------------------------------------------------
     TYPE(Mesh_t), POINTER :: Mesh,Mesh1
-    INTEGER :: i,j,k,s,nlen
+    INTEGER :: i,j,k,s,nlen,eqn
     LOGICAL :: GotIt,found,OneMeshName, OpenFile
-    CHARACTER(LEN=MAX_NAME_LEN) :: Name
+    LOGICAL :: stat
+    INTEGER, ALLOCATABLE :: Def_Dofs(:,:)
+    CHARACTER(LEN=MAX_NAME_LEN) :: Name,ElementDef
     CHARACTER(LEN=MAX_NAME_LEN) :: MeshDir,MeshName
 !------------------------------------------------------------------------------
 
@@ -1518,6 +1520,33 @@ CONTAINS
     REWIND( InFileUnit )
     CALL LoadInputFile( Model,InFileUnit,ModelName,MeshDir,MeshName, .TRUE., .FALSE. )
     IF ( .NOT. OpenFile ) CLOSE( InFileUnit )
+
+    ALLOCATE( Def_Dofs(Model % NumberOfBodies,6) )
+    def_dofs = -1 
+    DO i=1,Model % NumberOfBodies
+      eqn = ListGetInteger( Model % Bodies(i) % Values, 'Equation' )
+
+      ElementDef = ListGetString( Model % Equations(eqn) % Values, 'Element', stat )
+      IF ( .NOT. stat ) CYCLE
+
+      j = index( ElementDef, 'n:' )
+      IF ( j>0 ) READ( ElementDef(j+2:), * ) def_dofs(i,1)
+
+      j = index( ElementDef, 'e:' )
+      IF ( j>0 ) READ( ElementDef(j+2:), * ) def_dofs(i,2)
+
+      j = index( ElementDef, 'f:' )
+      IF ( j>0 ) READ( ElementDef(j+2:), * ) def_dofs(i,3)
+
+      j = index( ElementDef, 'd:' )
+      IF ( j>0 ) READ( ElementDef(j+2:), * ) def_dofs(i,4)
+
+      j = index( ElementDef, 'b:' )
+      IF ( j>0 ) READ( ElementDef(j+2:), * ) def_dofs(i,5)
+
+      j = index( ElementDef, 'p:' )
+      IF ( j>0 ) READ( ElementDef(j+2:), * ) def_dofs(i,6)
+    END DO
 
     Name = ListGetString( Model % Simulation, 'Mesh', GotIt )
 
@@ -1555,7 +1584,7 @@ CONTAINS
     NULLIFY( Model % Meshes )
     IF ( MeshDir(1:1) /= ' ' ) THEN
       Model % Meshes => LoadMesh( Model, MeshDir, MeshName, &
-              BoundariesOnly, numprocs, mype )
+          BoundariesOnly, numprocs, mype, def_dofs )
 
       IF ( OneMeshName ) THEN
          i = 0
@@ -1645,7 +1674,7 @@ CONTAINS
         END IF
 
         Model % Solvers(s) % Mesh => &
-          LoadMesh( Model,MeshDir,MeshName,BoundariesOnly,numprocs,mype )
+          LoadMesh( Model,MeshDir,MeshName,BoundariesOnly,numprocs,mype,def_dofs )
 
         IF ( OneMeshName ) i = 0
 
@@ -1685,6 +1714,7 @@ CONTAINS
        CALL MeshStabParams( Mesh )
        Mesh => Mesh % Next
     END DO
+    DEALLOCATE( Def_Dofs )
 !------------------------------------------------------------------------------
   END FUNCTION LoadModel
 !------------------------------------------------------------------------------

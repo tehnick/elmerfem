@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.39  2006/08/09 12:02:45  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.38  2006/06/13 09:38:07  jpr
 ! * *** empty log message ***
 ! *
@@ -150,7 +153,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.38 2006/06/13 09:38:07 jpr Exp $
+! * $Id: MeshUtils.src,v 1.39 2006/08/09 12:02:45 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -277,7 +280,7 @@ CONTAINS
 ! Function to load mesh from disk
 !------------------------------------------------------------------------------
   FUNCTION LoadMesh( Model, MeshDirPar, MeshNamePar,&
-    BoundariesOnly, NumProcs,MyPE ) RESULT( Mesh )
+    BoundariesOnly, NumProcs,MyPE, Def_Dofs ) RESULT( Mesh )
 !------------------------------------------------------------------------------
     USE PElementMaps, ONLY : GetRefPElementNodes
 
@@ -286,7 +289,7 @@ CONTAINS
     CHARACTER(LEN=*) :: MeshDirPar,MeshNamePar
     LOGICAL :: BoundariesOnly
 
-    INTEGER, OPTIONAL :: numprocs,mype
+    INTEGER, OPTIONAL :: numprocs,mype,def_Dofs(:,:)
 
     TYPE(Mesh_t),  POINTER :: Mesh
     TYPE(Model_t) :: Model
@@ -463,6 +466,12 @@ CONTAINS
       CALL eio_get_mesh_element_conns( ElementTags(i), body, &
                   Type, inDOFs, nodes, eio_info )
       IF ( eio_info /= 0 ) EXIT
+
+      IF ( PRESENT(Def_Dofs) ) THEN
+         DO j=1,6
+           IF ( Def_Dofs(body,j) >= 0 ) inDOFs(j)=Def_Dofs(body,j)
+         END DO
+      END IF
 
       Element => Mesh % Elements(i)
       Element % ElementIndex = i
