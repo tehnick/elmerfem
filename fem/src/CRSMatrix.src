@@ -39,7 +39,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: CRSMatrix.src,v 1.9 2006/06/13 09:38:07 jpr Exp $
+! * $Id: CRSMatrix.src,v 1.10 2006/06/14 10:14:09 jpr Exp $
 ! ******************************************************************************
 
 #include "huti_fdefs.h"
@@ -442,10 +442,12 @@ CONTAINS
 
      DO i=1,N
         DO k=0,Dofs-1
+           IF ( Indeces(i) <= 0 ) CYCLE
            Row = Dofs * Indeces(i) - k
            DO j=1,N
               DO l=0,Dofs-1
                  Col = Dofs * Indeces(j) - l
+                 IF ( Indeces(j) <= 0 ) CYCLE
                  DO c=Rows(Row),Rows(Row+1)-1
                     IF ( Cols(c) == Col ) THEN
                        Values(c) = Values(c) + LocalMatrix(Dofs*i-k,Dofs*j-l)

@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.25  2006/06/27 08:26:34  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.24  2006/06/14 09:44:57  jpr
 ! * *** empty log message ***
 ! *
@@ -137,7 +140,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.24 2006/06/14 09:44:57 jpr Exp $
+! * $Id: SolverUtils.src,v 1.25 2006/06/27 08:26:34 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -574,13 +577,15 @@ CONTAINS
      DO i=1,n
        DO j=1,DOFs
          K = DOFs * (i-1) + j
-         L = DOFs * (NodeIndexes(i)-1) + j
-         SELECT CASE(Method)
-         CASE DEFAULT
-           X(K) = Solver % Variable % PrevValues(L,3)
-           V(K) = Solver % Variable % PrevValues(L,4)
-           A(K) = Solver % Variable % PrevValues(L,5)
-         END SELECT
+         IF ( NodeIndexes(i) > 0 ) THEN
+           L = DOFs * (NodeIndexes(i)-1) + j
+           SELECT CASE(Method)
+           CASE DEFAULT
+             X(K) = Solver % Variable % PrevValues(L,3)
+             V(K) = Solver % Variable % PrevValues(L,4)
+             A(K) = Solver % Variable % PrevValues(L,5)
+           END SELECT
+         END IF
        END DO
      END DO
 
@@ -705,10 +710,12 @@ CONTAINS
      END IF
 
      DO i=1,n
-       DO j=1,NDOFs
-         k = NDOFs * (NodeIndexes(i)-1) + j
-         ForceVector(k) = ForceVector(k) + LocalForce(NDOFs*(i-1)+j)
-       END DO
+       IF ( Nodeindexes(i) > 0 ) THEN
+         DO j=1,NDOFs
+           k = NDOFs * (NodeIndexes(i)-1) + j
+           ForceVector(k) = ForceVector(k) + LocalForce(NDOFs*(i-1)+j)
+         END DO
+       END IF
      END DO
 !------------------------------------------------------------------------------
    END SUBROUTINE UpdateGlobalEquations
@@ -760,10 +767,12 @@ CONTAINS
           Indexes, BoundaryNormals, BoundaryTangent1, BoundaryTangent2 )
      END IF
      DO i=1,n
-       DO j=1,NDOFs
-         k = NDOFs * (NodeIndexes(i)-1) + j
-         ForceVector(k) = ForceVector(k) + LocalForce(NDOFs*(i-1)+j)
-       END DO
+       IF ( NodeIndexes(i) > 0 ) THEN
+         DO j=1,NDOFs
+           k = NDOFs * (NodeIndexes(i)-1) + j
+           ForceVector(k) = ForceVector(k) + LocalForce(NDOFs*(i-1)+j)
+         END DO
+       END IF
      END DO
 !------------------------------------------------------------------------------
    END SUBROUTINE UpdateGlobalForce
