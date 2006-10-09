@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ModelDescription.src,v 1.19 2006/10/06 10:37:37 jpr Exp $
+! * $Id: ModelDescription.src,v 1.20 2006/10/09 06:36:52 jpr Exp $
 ! *****************************************************************************/
 
 MODULE ModelDescription
@@ -1490,7 +1490,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     TYPE(Mesh_t), POINTER :: Mesh,Mesh1
     INTEGER :: i,j,k,l,s,nlen,eqn
-    LOGICAL :: GotIt,found,OneMeshName, OpenFile
+    LOGICAL :: GotIt,GotMesh,found,OneMeshName, OpenFile
     LOGICAL :: stat
     INTEGER, POINTER :: ActiveSolvers(:)
     INTEGER, ALLOCATABLE :: Def_Dofs(:,:)
@@ -1546,52 +1546,51 @@ CONTAINS
           IF ( .NOT. stat ) CYCLE
         END IF
 
+        Name = ListGetString( Model % Solvers(s) % Values, 'Mesh', GotMesh )
+
         j = Index( ElementDef, 'n:' )
         IF ( j>0 ) THEN
           READ( ElementDef(j+2:), * ) l
-          Def_Dofs(i,1) = MAX( Def_Dofs(i,1), l )
+          IF (.NOT. GotMesh ) Def_Dofs(i,1) = MAX( Def_Dofs(i,1), l )
           Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,1) = l
         END IF
 
         j = Index( ElementDef, 'e:' )
         IF ( j>0 ) THEN
           READ( ElementDef(j+2:), * ) l
-          Def_Dofs(i,2) = MAX(Def_Dofs(i,2), l )
+          IF ( .NOT. GotMesh ) Def_Dofs(i,2) = MAX(Def_Dofs(i,2), l )
           Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,2) = l
         END IF
 
         j = Index( ElementDef, 'f:' )
         IF ( j>0 ) THEN
           READ( ElementDef(j+2:), * ) l
-          Def_Dofs(i,3) = MAX(Def_Dofs(i,3), l )
+          IF ( .NOT. GotMesh ) Def_Dofs(i,3) = MAX(Def_Dofs(i,3), l )
           Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,3) = l
         END IF
 
         j = Index( ElementDef, 'd:' )
         IF ( j>0 ) THEN
           READ( ElementDef(j+2:), * ) l
-          Def_Dofs(i,4) = MAX(Def_Dofs(i,4), l )
+          IF ( .NOT. GotMesh ) Def_Dofs(i,4) = MAX(Def_Dofs(i,4), l )
           Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,4) = l
         END IF
 
         j = Index( ElementDef, 'b:' )
         IF ( j>0 ) THEN
           READ( ElementDef(j+2:), * ) l
-          Def_Dofs(i,5) = MAX(Def_Dofs(i,5), l )
+          IF ( .NOT. GotMesh ) Def_Dofs(i,5) = MAX(Def_Dofs(i,5), l )
           Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,5) = l
         END IF
 
         j = Index( ElementDef, 'p:' )
         IF ( j>0 ) THEN
           READ( ElementDef(j+2:), * ) l
-          Def_Dofs(i,6) = MAX(Def_Dofs(i,6), l )
+          IF ( .NOT. GotMesh ) Def_Dofs(i,6) = MAX(Def_Dofs(i,6), l )
           Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,6) = l
         END IF
       END DO
     END DO
-do i=1,2
-print*,def_dofs(i,:)
-end do
 
     Name = ListGetString( Model % Simulation, 'Mesh', GotIt )
 
@@ -1717,6 +1716,8 @@ end do
           Model % Solvers(s) % Mesh => Mesh
           CYCLE
         END IF
+
+        Def_Dofs = Model % Solvers(s) % Def_Dofs
 
         Model % Solvers(s) % Mesh => &
           LoadMesh( Model,MeshDir,MeshName,BoundariesOnly,numprocs,mype,def_dofs )
