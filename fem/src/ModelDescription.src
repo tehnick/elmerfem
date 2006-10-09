@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ModelDescription.src,v 1.18 2006/10/06 06:38:07 jpr Exp $
+! * $Id: ModelDescription.src,v 1.19 2006/10/06 10:37:37 jpr Exp $
 ! *****************************************************************************/
 
 MODULE ModelDescription
@@ -1546,42 +1546,42 @@ CONTAINS
           IF ( .NOT. stat ) CYCLE
         END IF
 
-        j = index( ElementDef, 'n:' )
+        j = Index( ElementDef, 'n:' )
         IF ( j>0 ) THEN
           READ( ElementDef(j+2:), * ) l
           Def_Dofs(i,1) = MAX( Def_Dofs(i,1), l )
           Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,1) = l
         END IF
 
-        j = index( ElementDef, 'e:' )
+        j = Index( ElementDef, 'e:' )
         IF ( j>0 ) THEN
           READ( ElementDef(j+2:), * ) l
           Def_Dofs(i,2) = MAX(Def_Dofs(i,2), l )
           Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,2) = l
         END IF
 
-        j = index( ElementDef, 'f:' )
+        j = Index( ElementDef, 'f:' )
         IF ( j>0 ) THEN
           READ( ElementDef(j+2:), * ) l
           Def_Dofs(i,3) = MAX(Def_Dofs(i,3), l )
           Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,3) = l
         END IF
 
-        j = index( ElementDef, 'd:' )
+        j = Index( ElementDef, 'd:' )
         IF ( j>0 ) THEN
           READ( ElementDef(j+2:), * ) l
           Def_Dofs(i,4) = MAX(Def_Dofs(i,4), l )
           Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,4) = l
         END IF
 
-        j = index( ElementDef, 'b:' )
+        j = Index( ElementDef, 'b:' )
         IF ( j>0 ) THEN
           READ( ElementDef(j+2:), * ) l
           Def_Dofs(i,5) = MAX(Def_Dofs(i,5), l )
           Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,5) = l
         END IF
 
-        j = index( ElementDef, 'p:' )
+        j = Index( ElementDef, 'p:' )
         IF ( j>0 ) THEN
           READ( ElementDef(j+2:), * ) l
           Def_Dofs(i,6) = MAX(Def_Dofs(i,6), l )
@@ -1589,6 +1589,9 @@ CONTAINS
         END IF
       END DO
     END DO
+do i=1,2
+print*,def_dofs(i,:)
+end do
 
     Name = ListGetString( Model % Simulation, 'Mesh', GotIt )
 
