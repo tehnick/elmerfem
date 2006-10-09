@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ElmerSolver.src,v 1.11 2006/03/27 11:37:02 jpr Exp $
+! * $Id: ElmerSolver.src,v 1.12 2006/08/09 12:02:45 jpr Exp $
 ! ******************************************************************************
 
 !------------------------------------------------------------------------------
@@ -298,6 +298,7 @@
          ALLOCATE( OutputIntervals(SIZE(TimeSteps)) )
          OutputIntervals = 1
        END IF
+
 
        ! Initial Conditions:
        ! -------------------
@@ -613,6 +614,9 @@
 !------------------------------------------------------------------------------
    SUBROUTINE ExecSimulation
 !------------------------------------------------------------------------------
+     INTEGER :: interval, timestep, i, j, k, n
+     REAL(KIND=dp) :: dt, ddt, dtfunc
+
      DO i=1,CurrentModel % NumberOfSolvers
         Solver => CurrentModel % Solvers(i)
         IF ( Solver % SolverExecWhen == SOLVER_EXEC_AHEAD_ALL ) THEN
@@ -804,7 +808,7 @@
             DEALLOCATE( xx, xxnrm, yynrm )
          ELSE ! Adaptive timestepping
             CALL SolveEquations( CurrentModel, dt, TransientSimulation, &
-               CoupledMinIter, CoupledMaxIter, SteadyStateReached )
+              CoupledMinIter, CoupledMaxIter, SteadyStateReached )
          END IF
 !------------------------------------------------------------------------------
 !        Save results to disk, if requested

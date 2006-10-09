@@ -39,12 +39,6 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MainUtils.src,v $
-! * Revision 1.11  2006/10/05 12:31:29  jpr
-! * *** empty log message ***
-! *
-! * Revision 1.10  2006/06/27 11:48:29  jpr
-! * *** empty log message ***
-! *
 ! * Revision 1.9  2006/01/10 08:51:49  apursula
 ! * Updated header information (GPL).
 ! *
@@ -87,7 +81,7 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.src,v 1.11 2006/10/05 12:31:29 jpr Exp $
+! * $Id: MainUtils.src,v 1.12 2006/10/06 10:37:37 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MainUtils
@@ -1026,6 +1020,7 @@ CONTAINS
     REAL(KIND=dp), ALLOCATABLE :: k1(:), k2(:), k3(:), k4(:)
 !------------------------------------------------------------------------------
 
+
 !------------------------------------------------------------------------------
 !   Intialize equation solvers for new timestep
 !------------------------------------------------------------------------------
@@ -1039,6 +1034,7 @@ CONTAINS
 
     DO k=1,Model % NumberOfSolvers
       Solver => Model % Solvers(k)
+
       when  = ListGetString( Solver % Values, 'Exec Solver', Found )
       IF ( Found ) THEN
          IF ( When == 'before timestep' ) THEN
@@ -1209,6 +1205,7 @@ CONTAINS
 
     DO k=1,Model % NumberOfSolvers
       Solver => Model % Solvers(k)
+
       When = ListGetString( Solver % Values, 'Exec Solver', Found )
       IF (  Found ) THEN
          IF ( When == 'after timestep' ) THEN
@@ -1240,7 +1237,7 @@ CONTAINS
      REAL(KIND=dp) :: dt, OrigDT, DTScal
 !------------------------------------------------------------------------------
      LOGICAL :: stat, Found, GB, FirstTime=.TRUE.
-     INTEGER :: i, j, SolverAddr, BDOFs
+     INTEGER :: i, j, SolverAddr, BDOFs, execi, timestep
      REAL(KIND=dp) :: st
      TYPE(Variable_t), POINTER :: TimeVar
      TYPE(Element_t), POINTER :: CurrentElement
@@ -1253,11 +1250,15 @@ CONTAINS
 
      st = ListGetConstReal( Solver % Values, 'Start Time', Found )
      IF ( Found ) THEN
-       IF ( FirstTime ) THEN
-         TimeVar => VariableGet( Model % Variables, 'Time' )
-         FirstTime = .FALSE.
-       END IF
+       TimeVar => VariableGet( Model % Variables, 'Time' )
        IF ( TimeVar % Values(1) < st ) RETURN
+     END IF
+
+     execi = ListGetInteger( Solver % Values, 'Exec Interval', Found )
+     IF ( Found ) THEN
+       TimeVar => VariableGet( Model % Variables, 'Timestep' )
+       execi = MOD( NINT(Timevar % Values(1))-1, execi )
+       IF ( execi /= 0 ) RETURN
      END IF
 
      IF ( Solver % Mesh % Changed .OR. Solver % NumberOfActiveElements <= 0 ) THEN
