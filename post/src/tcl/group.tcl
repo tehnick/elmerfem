@@ -53,10 +53,20 @@ proc group_edit { } {
     toplevel .groups
     place_window ".groups"
 
+    frame .groups.lframe
+    text .groups.lframe.list -yscroll ".groups.lframe.scroll set"
+    scrollbar .groups.lframe.scroll -command ".groups.lframe.list yview"
+    pack .groups.lframe.scroll -side left -expand 1 -fill both
+    pack .groups.lframe.list -side left -fill y
+    pack .groups.lframe -side top -expand 1 -fill both
+
+
     do i 0 [@ $NumberOfGroups-1] {
-        checkbutton .groups.g$i -variable GroupStatus($i) -text $Groups($i)\t\t\t
-        pack .groups.g$i -side top -expand 1 -fill x
+       checkbutton .groups.lframe.g$i -variable GroupStatus($i) -text $Groups($i)\n
+       .groups.lframe.list window create end -window .groups.lframe.g$i
+#       pack .groups.lframe.g$i -side top -expand 1 -fill x
     }
+    pack .groups.lframe
 #
 # buttons
 #
