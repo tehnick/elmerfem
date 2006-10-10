@@ -40,6 +40,10 @@
 ! ******************************************************************************
 ! *
 ! * $Log: ElementDescription.src,v $
+! * Revision 1.20  2006/02/06 07:18:04  jpr
+! * Added complaint in ElementInfo if bubbles requested but not implemented
+! * for a specific element.
+! *
 ! * Revision 1.19  2006/02/01 11:56:05  jpr
 ! * Renamed MAX_NODES as MAX_ELEMENT_NODES.
 ! *
@@ -111,7 +115,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: ElementDescription.src,v 1.19 2006/02/01 11:56:05 jpr Exp $
+! * $Id: ElementDescription.src,v 1.20 2006/02/06 07:18:04 jpr Exp $
 ! ******************************************************************************/
 
 MODULE ElementDescription
@@ -2092,11 +2096,11 @@ END IF
 
            ! For each bubble in line element get value of basis function
            DO i=1, Element % BDOFs
-              q = q + 1
-              IF (q > SIZE(Basis)) THEN
+              IF (q >= SIZE(Basis)) THEN
 !                WRITE (*,*) 'Not enough space reserved for line p basis'
                  CYCLE
               END IF
+              q = q + 1
               
               Basis(q) = LineBubblePBasis(i+1,u,invert)
               dLBasisdx(q,:) = 0
@@ -2127,11 +2131,11 @@ END IF
                             
               ! For each dof in edge get value of p basis function 
               DO k=1,Edge % BDOFs
-                 q = q + 1
-                 IF (q > SIZE(Basis)) THEN
+                 IF (q >= SIZE(Basis)) THEN
 !                   WRITE (*,*) 'Not enough space reserved for edge p basis'
                     CYCLE
                  END IF
+                 q = q + 1
                  
                  ! Value of basis functions for edge=i and i=k+1 by parity
                  Basis(q) = TriangleEdgePBasis(i, k+1, u, v, invert)
@@ -2162,12 +2166,11 @@ END IF
 
            DO i = 0,p-3
               DO j = 0,p-i-3
-                 q = q + 1
-                 
-                 IF ( q > SIZE(Basis)  ) THEN
+                 IF ( q >= SIZE(Basis)  ) THEN
 !                   WRITE (*,*) 'Not enough space reserved for triangle bubble p basis'
                     CYCLE
                  END IF
+                 q = q + 1
 
                  ! Get bubble basis functions and their derivatives
                  ! 3d Boundary element has a direction
@@ -2207,11 +2210,11 @@ END IF
 
               ! For each DOF in edge calculate value of p basis function
               DO k=1,Edge % BDOFs
-                 q = q + 1
-                 IF ( q > SIZE(Basis)  ) THEN
+                 IF ( q >= SIZE(Basis)  ) THEN
 !                   WRITE (*,*) 'Not enough space reserved for edge p basis'
                     CYCLE
                  END IF
+                 q = q + 1
 
                  ! For pyramid square face edges use different basis
                  IF (Edge % PDefs % pyramidQuadEdge) THEN
@@ -2251,11 +2254,11 @@ END IF
            ! and their derivatives for index pairs i,j>=2, i+j=4,...,p
            DO i=2,(p-2)
               DO j=2,(p-i)
-                 q = q + 1
-                 IF ( q > SIZE(Basis) ) THEN
+                 IF ( q >= SIZE(Basis) ) THEN
 !                   WRITE (*,*) 'Not enough space reserved for bubble p basis'
                     CYCLE
                  END IF
+                 q = q + 1
                  
                  ! Get values of bubble functions
                  ! 3D boundary elements have a direction
@@ -2290,11 +2293,11 @@ END IF
               ! For each DOF in edge calculate value of edge functions 
               ! and their derivatives for edge=i, i=k+1
               DO k=1, Edge % BDOFs
-                 q = q + 1
-                 IF (q > SIZE(Basis)) THEN 
+                 IF (q >= SIZE(Basis)) THEN 
 !                   WRITE (*,*) 'Not enough space reserved for tetra edge p basis'
                     CYCLE
                  END IF
+                 q = q + 1
 
                  Basis(q) = TetraEdgePBasis(i,k+1,u,v,w, Element % PDefs % TetraType)
                  dLBasisdx(q,:) = 0
@@ -2323,12 +2326,11 @@ END IF
               ! i,j=0,..,p-3, i+j=0,..,p-3
               DO i=0,p-3
                  DO j=0,p-i-3
-                    q = q + 1 
-                    
-                    IF (q > SIZE(Basis)) THEN 
+                    IF (q >= SIZE(Basis)) THEN 
 !                      WRITE (*,*) 'Not enough space reserved for tetra face p basis'
                        CYCLE
                     END IF
+                    q = q + 1 
                     
                     Basis(q) = TetraFacePBasis(F,i,j,u,v,w, Element % PDefs % TetraType)
                     dLBasisdx(q,:) = 0
@@ -2355,12 +2357,11 @@ END IF
            DO i=0,p-4
               DO j=0,p-i-4
                  DO k=0,p-i-j-4
-                    q = q + 1
-                    
-                    IF (q > SIZE(Basis)) THEN
+                    IF (q >= SIZE(Basis)) THEN
 !                      WRITE (*,*) 'Not enough space reserved for tetra face p basis'
                        CYCLE
                     END IF
+                    q = q + 1
 
                     Basis(q) = TetraBubblePBasis(i,j,k,u,v,w)
                     dLBasisdx(q,:) = 0
@@ -2399,11 +2400,11 @@ END IF
               ! For each DOF in edge calculate values of edge functions
               ! and their derivatives for edge=i and i=k+1
               DO k=1,Edge % BDOFs
-                 q = q + 1
-                 IF ( q > SIZE(Basis)  ) THEN
+                 IF ( q >= SIZE(Basis)  ) THEN
 !                   WRITE (*,*) 'Not enough space reserved for pyramid edge p basis'
                     CYCLE
                  END IF
+                 q = q + 1
 
                  ! Get values of edge basis functions and their derivatives
                  dLBasisdx(q,:)  = 0
@@ -2440,12 +2441,11 @@ END IF
                  ! pairs i,j=2,..,p-2 i+j=4,..,p
                  DO i=2,p-2
                     DO j=2,p-i
-                       q = q + 1
-                       
-                       IF ( q > SIZE(Basis)  ) THEN
+                       IF ( q >= SIZE(Basis)  ) THEN
 !                         WRITE (*,*) 'Not enough space reserved for pyramid face p basis'
                           CYCLE
                        END IF
+                       q = q + 1
                        
                        dLBasisdx(q,:) = 0
                        Basis(q) = PyramidFacePBasis(F,i,j,u,v,w,direction)
@@ -2466,12 +2466,11 @@ END IF
                  ! pairs i,j=0,..,p-3 i+j=0,..,p-3
                  DO i=0,p-3
                     DO j=0,p-i-3
-                       q = q + 1
-                       
-                       IF ( q > SIZE(Basis)  ) THEN
+                       IF ( q >= SIZE(Basis)  ) THEN
 !                         WRITE (*,*) 'Not enough space reserved for pyramid face p basis'
                           CYCLE
                        END IF
+                       q = q + 1
 
                        dLBasisdx(q,:) = 0
                        Basis(q) = PyramidFacePBasis(F,i,j,u,v,w,direction)
@@ -2498,12 +2497,11 @@ END IF
            DO i=0,p-4
               DO j=0,p-i-4
                  DO k=0,p-i-j-4
-                    q = q + 1
-                    
-                    IF ( q > SIZE(Basis)) THEN
+                    IF ( q >= SIZE(Basis)) THEN
 !                      WRITE (*,*) 'Not enough space reserved for pyramid bubble p basis'
                        CYCLE
                     END IF
+                    q = q + 1
 
                     dLBasisdx(q,:) = 0
                     Basis(q) = PyramidBubblePBasis(i,j,k,u,v,w)
@@ -2541,11 +2539,11 @@ END IF
               ! For each DOF in edge calculate values of edge functions
               ! and their derivatives for edge=i and i=k+1
               DO k=1,Edge % BDOFs
-                 q = q + 1
-                 IF ( q > SIZE(Basis)  ) THEN
+                 IF ( q >= SIZE(Basis)  ) THEN
 !                   WRITE (*,*) 'Not enough space reserved for wedge edge p basis'
                     CYCLE
                  END IF
+                 q = q + 1
 
                  ! Use basis compatible with pyramid if neccessary
                  ! @todo Correct this!
@@ -2587,12 +2585,11 @@ END IF
                  ! pairs i,j=0,..,p-3 i+j=0,..,p-3
                  DO i=0,p-3
                     DO j=0,p-i-3
-                       q = q + 1
-                       
-                       IF ( q > SIZE(Basis)  ) THEN
+                       IF ( q >= SIZE(Basis)  ) THEN
 !                         WRITE (*,*) 'Not enough space reserved for wedge face p basis'
                           CYCLE
                        END IF
+                       q = q + 1
 
                        dLBasisdx(q,:) = 0
                        Basis(q) = WedgeFacePBasis(F,i,j,u,v,w,direction)
@@ -2621,12 +2618,11 @@ END IF
                  ! pairs i,j=2,..,p-2 i+j=4,..,p
                  DO i=2,p-2
                     DO j=2,p-i
-                       q = q + 1
-                       
-                       IF ( q > SIZE(Basis)  ) THEN
+                       IF ( q >= SIZE(Basis)  ) THEN
 !                         WRITE (*,*) 'Not enough space reserved for wedge face p basis'
                           CYCLE
                        END IF
+                       q = q + 1
 
                        dLBasisdx(q,:) = 0
                        IF (.NOT. invert) THEN
@@ -2659,11 +2655,11 @@ END IF
            DO i=0,p-5
               DO j=0,p-5-i
                  DO k=2,p-3-i-j
-                    q = q + 1
-                    IF ( q > SIZE(Basis)  ) THEN
+                    IF ( q >= SIZE(Basis)  ) THEN
 !                      WRITE (*,*) 'Not enough space reserved for wedge bubble p basis'
                        CYCLE
                     END IF
+                    q = q + 1
 
                     dLBasisdx(q,:) = 0
                     Basis(q) = WedgeBubblePBasis(i,j,k,u,v,w)
@@ -2702,11 +2698,11 @@ END IF
               ! For each DOF in edge calculate values of edge functions
               ! and their derivatives for edge=i and i=k+1
               DO k=1,Edge % BDOFs
-                 q = q + 1
-                 IF ( q > SIZE(Basis)  ) THEN
+                 IF ( q >= SIZE(Basis)  ) THEN
 !                   WRITE (*,*) 'Not enough space reserved for brick edge p basis'
                     CYCLE
                  END IF
+                 q = q + 1
 
                  ! For edges connected to pyramid square face, use different basis
                  IF (Edge % PDefs % pyramidQuadEdge) THEN
@@ -2748,12 +2744,11 @@ END IF
               ! pairs i,j=2,..,p-2 i+j=4,..,p
               DO i=2,p-2
                  DO j=2,p-i
-                    q = q + 1
-
-                    IF ( q > SIZE(Basis)  ) THEN
-                       WRITE (*,*) 'Not enough space reserved for brick face p basis'
+                    IF ( q >= SIZE(Basis)  ) THEN
+!                      WRITE (*,*) 'Not enough space reserved for brick face p basis'
                        CYCLE
                     END IF
+                    q = q + 1
 
                     dLBasisdx(q,:) = 0
                     Basis(q) = BrickFacePBasis(F,i,j,u,v,w,direction)
@@ -2779,11 +2774,11 @@ END IF
            DO i=2,p-4
               DO j=2,p-i-2
                  DO k=2,p-i-j
-                    q = q + 1
-                    IF ( q > SIZE(Basis)  ) THEN
+                    IF ( q >= SIZE(Basis)  ) THEN
 !                      WRITE (*,*) 'Not enough space reserved for brick bubble p basis'
                        CYCLE
                     END IF
+                    q = q + 1
 
                     dLBasisdx(q,:) = 0
                     Basis(q) = BrickBubblePBasis(i,j,k,u,v,w)
