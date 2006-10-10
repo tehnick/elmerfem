@@ -39,9 +39,6 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MeshUtils.src,v $
-! * Revision 1.42  2006/10/09 06:36:51  jpr
-! * *** empty log message ***
-! *
 ! * Revision 1.36  2006/05/18 10:01:30  jpr
 ! * Some modifications for the 'Periodic BC' scheme.
 ! *
@@ -147,7 +144,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.42 2006/10/09 06:36:51 jpr Exp $
+! * $Id: MeshUtils.src,v 1.43 2006/10/09 08:00:42 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -477,23 +474,26 @@ CONTAINS
       IF ( ASSOCIATED( Element % Type ) ) THEN
         Element % BodyId = body
 
-        n = Element % TYPE % NumberOfNodes
+        n = Element % Type % NumberOfNodes
         CALL AllocateVector( Element % NodeIndexes, n )
         DO j=1,n
-          Element % NodeIndexes(j) = LocalPerm( nodes(j) - MinIndex + 1)
+          Element % NodeIndexes(j) = LocalPerm(nodes(j) - MinIndex + 1)
         END DO
 
         IF ( inDOFs(1) /= 0 ) THEN
-           Element % NDOFs = n
+          Element % NDOFs = n
         ELSE
-           Element % NDOFs = 0
+          Element % NDOFs = 0
         END IF
 
         EdgeDOFs(i) = inDOFs(2)
         FaceDOFs(i) = inDOFs(3)
 
-        Element % DGDOFs = inDOFs(4)
-        IF ( inDOFs(4) > 0 ) THEN
+        IF ( PRESENT(Def_Dofs) ) THEN
+          IF ( Def_Dofs(body,4) == 0 ) inDOFs(4) = n
+        END IF
+
+        IF ( inDOFs(4)>0 ) THEN
           CALL AllocateVector( Element % DGIndexes, inDOFs(4))
           DO j=1,inDOFs(4)
              DGIndex = DGIndex + 1
@@ -502,6 +502,7 @@ CONTAINS
         ELSE
           NULLIFY( Element % DGIndexes )
         END IF
+        Element % DGDOFs = inDOFs(4)
         NeedEdges = NeedEdges .OR. ANY( inDOFs(2:4) /= 0 )
 
         NULLIFY( Element % EdgeIndexes )
