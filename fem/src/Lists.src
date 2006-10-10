@@ -39,15 +39,6 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Lists.src,v $
-! * Revision 1.13  2006/10/06 10:37:37  jpr
-! * *** empty log message ***
-! *
-! * Revision 1.12  2006/08/17 10:53:29  jpr
-! * *** empty log message ***
-! *
-! * Revision 1.11  2006/08/17 10:51:45  jpr
-! * *** empty log message ***
-! *
 ! * Revision 1.10  2006/08/17 10:28:16  jpr
 ! * Modifed ListAdd* routines to maintain the order of entries
 ! * when readding 'em.
@@ -80,7 +71,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Lists.src,v 1.13 2006/10/06 10:37:37 jpr Exp $
+! * $Id: Lists.src,v 1.14 2006/10/09 06:36:51 jpr Exp $
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
@@ -186,6 +177,7 @@ CONTAINS
      INTEGER i,j,l,t,n,e, EDOFs, FDOFs, BDOFs, ndofs
      INTEGER :: Indexes(128)
      INTEGER, POINTER :: Def_Dofs(:)
+     INTEGER, ALLOCATABLE :: EdgeDOFs(:), FaceDOFs(:)
      LOGICAL :: FoundDG, DG, GB
      TYPE(Element_t),POINTER :: Element, Edge, Face
 !------------------------------------------------------------------------------
@@ -273,6 +265,48 @@ CONTAINS
        END IF
      END IF
 
+
+     IF ( ANY(Solver % Def_Dofs(:,6)>0) ) THEN
+stop '0'
+       IF ( Mesh % NumberOFEdges>0 ) THEN
+          ALLOCATE(EdgeDOFs(Mesh % NumberOfEdges))
+          EdgeDOFs=0;
+       END IF
+
+       IF ( Mesh % NumberOFFaces>0 ) THEN
+         ALLOCATE(FaceDOFs(Mesh % NumberOfFaces))
+         FaceDOFs=0;
+       END IF
+
+       n = Mesh % NumberOfBulkElements + Mesh % NumberOFBoundaryElements
+       t = 1
+       DO WHILE( t <= n )
+         DO WHILE( t<=n )
+           Element => Mesh % Elements(t)
+           IF ( CheckElementEquation( Model, Element, Equation ) ) EXIT
+           t = t + 1
+         END DO
+         IF ( t>n ) EXIT
+
+         Def_Dofs => Solver % Def_Dofs(Element % BodyId,:)
+         IF ( ASSOCIATED(Element % EdgeIndexes) ) THEN
+           DO i=1,Element % Type % NumberOfEdges
+             j = Element % EdgeIndexes(i)
+             EdgeDOFs(j)=MAX(EdgeDOFs(j),getEdgeDOFs(Element,Def_Dofs(6)))
+           END DO
+         END IF
+
+         IF ( ASSOCIATED(Element % FaceIndexes) ) THEN
+           DO i=1,Element % Type % NumberOfFaces
+             j = Element % FaceIndexes(i)
+             FaceDOFs(j)=MAX(FaceDOFs(j),getFaceDOFs(Element,Def_Dofs(6),i))
+           END DO
+         END IF
+         t=t+1
+       END DO
+     END IF
+
+
      n = Mesh % NumberOfBulkElements + Mesh % NumberOFBoundaryElements
      t = 1
      DO WHILE( t <= n )
@@ -287,7 +321,7 @@ CONTAINS
        Def_Dofs => Solver % Def_Dofs(Element % BodyId,:)
 
        ndofs = Element % NDOFs
-       IF ( Def_Dofs(1) >= 0) ndofs=Def_Dofs(1)
+       IF ( Def_Dofs(1) >= 0 ) ndofs=Def_Dofs(1)*Element % Type % NumberOfNodes
        DO i=1,ndofs
          j = Element % NodeIndexes(i)
          IF ( Perm(j) == 0 ) THEN
@@ -305,7 +339,7 @@ CONTAINS
              ELSE IF ( Def_Dofs(1)>=0) THEN
                ndofs = 0
              ELSE IF (Def_Dofs(6)>0) THEN
-                ndofs = getEdgeDOFS( Edge, Def_Dofs(6) )
+               ndofs = EdgeDOFs(Element % EdgeIndexes(i))
              END IF
 
              DO e=1,ndofs
@@ -327,7 +361,7 @@ CONTAINS
              ELSE IF ( Def_Dofs(1)>=0) THEN
                ndofs = 0
              ELSE IF (Def_Dofs(6)>0) THEN
-               ndofs = getEdgeDOFS( Edge, Def_Dofs(6) )
+               ndofs = FaceDOFs(Element % FaceIndexes(i))
              END IF
              DO e=1,ndofs
                 j = Mesh % NumberOfNodes + EDOFs*Mesh % NumberOfEdges + &
@@ -396,6 +430,9 @@ CONTAINS
        END IF
        t = t + 1
      END DO
+
+     IF ( ALLOCATED(EdgeDOFs) ) DEALLOCATE(EdgeDOFs)
+     IF ( ALLOCATED(FaceDOFs) ) DEALLOCATE(FaceDOFs)
 !------------------------------------------------------------------------------
    END FUNCTION InitialPermutation
 !------------------------------------------------------------------------------
