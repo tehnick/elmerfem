@@ -349,7 +349,7 @@ int LoadAbaqusInput(struct FemType *data,struct BoundaryType *bound,
    */
 {
   int noknots,noelements,elemcode,maxnodes,material;
-  int mode,allocated,nvalue,maxknot,nosides;
+  int mode,allocated,nvalue,nvalue2,maxknot,nosides;
   int boundarytype,boundarynodes;
   int *nodeindx,*boundindx;
   
@@ -425,6 +425,8 @@ omstart:
 	  elemcode = 408;
 	else if(strstr(line,"3D8"))
 	  elemcode = 808;
+	else if(strstr(line,"3D20"))
+	  elemcode = 820;
 	else if(strstr(line,"3D4"))
 	  elemcode = 504;
 	else printf("Unknown element code: %s\n",line);
@@ -473,12 +475,24 @@ omstart:
 	
       case 3:
 	noelements++;
+
+	nvalue = StringToInteger(line,ivalues,MAXNODESD2+1,',');
+	
 	if(allocated) {
-	  nvalue = StringToInteger(line,ivalues,MAXNODESD2+1,',');
 	  data->elementtypes[noelements] = elemcode;
-	  for(i=1;i<nvalue;i++)
-	    data->topology[noelements][i-1] = ivalues[i];
 	  data->material[noelements] = material;
+	  for(i=0;i<nvalue-1;i++) 
+	    data->topology[noelements][i] = ivalues[i+1];	  
+	}
+	
+	if(nvalue < elemcode % 100) {
+	  Getrow(line,in,TRUE);
+	  if(allocated) {
+	    if(ivalues[nvalue-1] == 0) nvalue--;	      
+	    nvalue2 = StringToInteger(line,ivalues,MAXNODESD2+1,',');
+	    for(i=0;i<nvalue2;i++) 
+	      data->topology[noelements][nvalue-1+i] = ivalues[i];	  	    
+	  }
 	}
 	break;
 
