@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: DefUtils.src,v $
+! * Revision 1.21  2006/02/09 14:26:32  jpr
+! * Introduced GetEdgeMap().
+! *
 ! * Revision 1.20  2006/02/08 07:44:05  jpr
 ! * Introduced GetMatrix(), GetNOFBoundaryElements().
 ! *
@@ -136,7 +139,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.20 2006/02/08 07:44:05 jpr Exp $
+! * $Id: DefUtils.src,v 1.21 2006/02/09 14:26:32 jpr Exp $
 ! *
 ! *****************************************************************************/
 
@@ -810,7 +813,7 @@ CONTAINS
      TYPE(Solver_t), OPTIONAL, TARGET :: USolver
      TYPE(Element_t), OPTIONAL, TARGET :: UElement
 
-     INTEGER :: i,n,nd,sz
+     INTEGER :: i,n,nd,sz,sz1
 
      TYPE(Solver_t),  POINTER  :: Solver
      TYPE(Element_t), POINTER :: Element
@@ -834,15 +837,17 @@ CONTAINS
      ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(Element % NodeIndexes)
 
      sz = SIZE(ElementNodes % x)
-     ElementNodes % x(n+1:sz) = 0.0d0
-     ElementNodes % y(n+1:sz) = 0.0d0
-     ElementNodes % z(n+1:sz) = 0.0d0
+     IF ( sz > n ) THEN
+       ElementNodes % x(n+1:sz) = 0.0d0
+       ElementNodes % y(n+1:sz) = 0.0d0
+       ElementNodes % z(n+1:sz) = 0.0d0
+     END IF
 
-     sz = SIZE(Solver % Mesh % Nodes % x)
-     IF ( sz > Solver % Mesh % NumberOfNodes ) THEN
+     sz1 = SIZE(Solver % Mesh % Nodes % x)
+     IF ( sz1 > Solver % Mesh % NumberOfNodes ) THEN
         nd = GetElementDOFs( Indexes )
-        DO i=n+1,nd
-           IF ( Indexes(i)<=sz ) THEN
+        DO i=n+1,sz
+           IF ( Indexes(i)<=sz1 ) THEN
              ElementNodes % x(i) = Solver % Mesh % Nodes % x(Indexes(i))
              ElementNodes % y(i) = Solver % Mesh % Nodes % y(Indexes(i))
              ElementNodes % z(i) = Solver % Mesh % Nodes % z(Indexes(i))

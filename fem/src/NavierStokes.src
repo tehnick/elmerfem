@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: NavierStokes.src,v $
+! * Revision 1.12  2006/05/19 11:05:06  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.11  2006/03/27 10:28:52  jpr
 ! * *** empty log message ***
 ! *
@@ -93,7 +96,7 @@
 ! * Added divergence form discretization of the diffusion term.
 ! *
 ! *
-! * $Id: NavierStokes.src,v 1.11 2006/03/27 10:28:52 jpr Exp $
+! * $Id: NavierStokes.src,v 1.12 2006/05/19 11:05:06 jpr Exp $
 ! *****************************************************************************/
 
 MODULE NavierStokes
@@ -111,7 +114,7 @@ MODULE NavierStokes
        MassMatrix, StiffMatrix, ForceVector, LoadVector, NodalViscosity,        &
        NodalDensity, Ux, Uy, Uz, MUx, MUy, MUz, NodalPressure, NodalTemperature,&
        Convect, StabilizeFlag, Compressible1, Compressible2,                    &
-       PseudoCompressible, NodalCompressibility, Porous, NodalDrag,             &
+       PseudoCompressible, NodalCompressibility, NodalGasC, Porous, NodalDrag,  &
        PotentialForce, PotentialField, PotentialCoefficient,                    &
        DivDiscretization,  gradPDiscretization, NewtonLinearization,            &
        Element, n, Nodes )
@@ -184,7 +187,7 @@ MODULE NavierStokes
      REAL(KIND=dp) :: NodalViscosity(:),NodalDensity(:), &
        NodalPressure(:), LoadVector(:,:), NodalTemperature(:), &
        NodalCompressibility(:), NodalDrag(:,:), PotentialField(:), &
-       PotentialCoefficient(:)
+       PotentialCoefficient(:), NodalGasC(:)
 
      INTEGER :: n
 
@@ -205,7 +208,7 @@ MODULE NavierStokes
      REAL(KIND=dp), POINTER :: A(:,:),M(:,:),Load(:)
      REAL(KIND=dp) :: SU(n,4,4),SW(n,4,4),LrF(3), LSx(3,3)
 
-     REAL(KIND=dp) :: Lambda=1.0,Re,Tau,Delta,Re1,Re2
+     REAL(KIND=dp) :: Lambda=1.0,Re,Tau,Delta,Re1,Re2,GasC
      REAL(KIND=dp) :: VNorm,hK,mK,Viscosity,dViscositydx(3),Temperature
      REAL(KIND=dp) :: dDensitydx(3), Density, Pressure, dTemperaturedx(3), &
                       dPressuredx(3),dPrevPressuredx(3), Compress
@@ -326,10 +329,14 @@ MODULE NavierStokes
       Density  = SUM( NodalDensity(1:n)*Basis(1:n) )
       IF ( Compressible1 ) THEN
         DO i=1,dim
+          dPressuredx(i)  = SUM( NodalPressure(1:n)  * dBasisdx(1:n,i) )
           dTemperaturedx(i)  = SUM( NodalTemperature(1:n)  * dBasisdx(1:n,i) )
         END DO
         Pressure    = SUM( NodalPressure(1:n) * Basis(1:n) )
         Temperature = SUM( NodalTemperature(1:n) * Basis(1:n) )
+
+        GasC = SUM( Basis(1:n) * NodalGasC(1:n) )
+        Density = Pressure / ( GasC*Temperature )
       ELSE IF ( Compressible2 ) THEN
         DO i=1,dim
           dDensitydx(i)  = SUM( NodalDensity(1:n) * dBasisdx(1:n,i) )
@@ -558,10 +565,14 @@ MODULE NavierStokes
          END IF
 
          IF ( Compressible1 ) THEN
+            A(c,i) = A(c,i) + s * ( Density / Pressure ) * &
+                Basis(q) * dPressuredx(i) * BaseP / 2
             A(c,c) = A(c,c) + s * ( Density / Pressure ) * &
-                  Velo(i) * dBasisdx(q,i) * BaseP
+                Velo(i) * dBasisdx(q,i) * BaseP / 2
 
-            A(c,i) = A(c,i) - s * ( Density / Temperature ) * &
+!           A(c,i) = A(c,i) - s * ( Density / Temperature ) * &
+!               dTemperaturedx(i) * Basis(q) * BaseP
+            A(c,c) = A(c,c) - s * ( Density /(Temperature*Pressure)) * &
                 dTemperaturedx(i) * Basis(q) * BaseP
          ELSE IF ( Compressible2 ) THEN
             A(c,i) = A(c,i) + s * dDensitydx(i) * Basis(q) * BaseP
@@ -636,7 +647,6 @@ MODULE NavierStokes
 !       END DO
 !     END IF
 !#endif
-
 
      DO p=1,NBasis
        Load => ForceVector( c*(p-1)+1 : c*(p-1)+c )

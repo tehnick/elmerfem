@@ -39,6 +39,9 @@
 ! ****************************************************************************/
 ! *
 ! * $Log: FlowSolve.src,v $
+! * Revision 1.16  2006/08/11 13:12:24  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.15  2006/03/27 11:12:50  jpr
 ! * *** empty log message ***
 ! *
@@ -266,7 +269,7 @@
         END FUNCTION FlowInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.15 2006/03/27 11:12:50 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.16 2006/08/11 13:12:24 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -947,7 +950,7 @@
                    CompressibilityModel == PerfectGas1,  &
                    CompressibilityModel == Thermal  .OR. &
                    CompressibilityModel == UserDefined1, &
-                   PseudoCompressible, PseudoCompressibility, Porous, Drag, & 
+                   PseudoCompressible, PseudoCompressibility, GasConstant, Porous, Drag, & 
                    PotentialForce, PotentialField, PotentialCoefficient, &
                    DivDiscretization, GradPDiscretization, NewtonLinearization, &
                    CurrentElement,n,ElementNodes)
@@ -967,7 +970,7 @@
                    LoadVector, Viscosity,Density,U,V,W,MU,MV,MW, &
                    ReferencePressure+Pressure(1:n),LocalTemperature,&
                    Convect, StabilizeFlag, CompressibilityModel /= Incompressible, &
-                   PseudoCompressible, PseudoCompressibility, Porous, Drag, &
+                   PseudoCompressible, PseudoCompressibility, GasConstant, Porous, Drag, &
                    PotentialForce, PotentialField, PotentialCoefficient, &
                    NewtonLinearization,CurrentElement,n,ElementNodes )
 !------------------------------------------------------------------------------
