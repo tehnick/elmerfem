@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: NavierStokesCylindrical.src,v 1.11 2006/05/19 11:05:06 jpr Exp $
+! * $Id: NavierStokesCylindrical.src,v 1.12 2006/10/12 10:34:57 jpr Exp $
 ! *****************************************************************************/
 
 MODULE NavierStokesCylindrical
@@ -830,6 +830,7 @@ MODULE NavierStokesCylindrical
        DO i=1,c
          Load(i) = Load(i) + Density * Force(i) * Basis(p)
        END DO
+       IF ( Compressible ) Load(c) = Load(c) / Temperature
 
        IF(PseudoCompressible) THEN
          Load(c) = Load(c) + Pressure * Basis(p) * Compress
@@ -1035,7 +1036,6 @@ REAL(KIND=dp) :: xx,yy,ydot,ydotdot
      DO i=1,c
         Force(i) = Force(i) + SUM( LoadVector(i,1:n)*Basis(1:n) )
      END DO
-
 
      SELECT CASE( Element % Type % Dimension )
         CASE(1)

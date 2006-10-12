@@ -39,6 +39,9 @@
 ! ****************************************************************************/
 ! *
 ! * $Log: FlowSolve.src,v $
+! * Revision 1.17  2006/10/12 10:34:57  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.16  2006/08/11 13:12:24  jpr
 ! * *** empty log message ***
 ! *
@@ -269,7 +272,7 @@
         END FUNCTION FlowInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.16 2006/08/11 13:12:24 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.17 2006/10/12 10:34:57 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -917,7 +920,6 @@
                  k = TempPerm(NodeIndexes(i))
                  IF ( k > 0 ) THEN
                     LoadVector(NSDOFs,i) = LoadVector(NSDOFs,i) + &
-                       ( 1.0d0 / LocalTemperature(i) ) * &
                       ( Temperature(k) - TempPrev(k) ) / dt
                  END IF
                END DO

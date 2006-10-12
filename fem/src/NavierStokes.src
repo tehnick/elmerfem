@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: NavierStokes.src,v $
+! * Revision 1.13  2006/10/12 10:34:57  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.12  2006/05/19 11:05:06  jpr
 ! * *** empty log message ***
 ! *
@@ -96,7 +99,7 @@
 ! * Added divergence form discretization of the diffusion term.
 ! *
 ! *
-! * $Id: NavierStokes.src,v 1.12 2006/05/19 11:05:06 jpr Exp $
+! * $Id: NavierStokes.src,v 1.13 2006/10/12 10:34:57 jpr Exp $
 ! *****************************************************************************/
 
 MODULE NavierStokes
@@ -654,6 +657,7 @@ MODULE NavierStokes
        DO i=1,c
          Load(i) = Load(i) + s * Density * Force(i) * Basis(p)
        END DO
+       IF ( Compressible1 ) Load(c) = Load(c) / Temperature
 
 !#ifdef LES
 !       DO i=1,dim
