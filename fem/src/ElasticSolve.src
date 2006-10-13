@@ -39,6 +39,10 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: ElasticSolve.src,v $
+! * Revision 1.9  2006/02/20 08:06:18  jpr
+! * Moved handling of Normal-Tangential BCs inside SolverUtils. Corrected
+! * a few bugs in Adaptive.src, Lists.src.
+! *
 ! * Revision 1.8  2006/02/01 08:07:57  jpr
 ! * Replaced most of the usage of MAX_NODES by dynamic allocations.
 ! *
@@ -143,7 +147,7 @@
      INTEGER :: TotalSteps,LoadStep, dim
 
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ElasticSolve.src,v 1.8 2006/02/01 08:07:57 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ElasticSolve.src,v 1.9 2006/02/20 08:06:18 jpr Exp $"
 
 
      INTERFACE
@@ -2684,7 +2688,7 @@ CONTAINS
            w = SUM( EdgeBasis(1:En) * z(1:En) )
 
            stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
-               Basis, dBasisdx, ddBasisddx, .FALSE., .FALSE. )
+               Basis, dBasisdx )
 !
 !          Logical parameters:
 !          -------------------
