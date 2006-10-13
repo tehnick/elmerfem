@@ -285,7 +285,7 @@
        LOGICAL :: Stat
        INTEGER :: i, j, p, q, dim, t, nEdge, nParent
        TYPE(GaussIntegrationPoints_t) :: IntegStuff
-       REAL(KIND=dp) :: hE, Normal(3)
+       REAL(KIND=dp) :: hE, Normal(3), LeftOut(3)
 
        TYPE(Nodes_t) :: EdgeNodes, LeftParentNodes, RightParentNodes
        SAVE EdgeNodes, LeftParentNodes, RightParentNodes 
@@ -299,6 +299,14 @@
        CALL GetElementNodes( LeftParentNodes, LeftParent )
        CALL GetElementNodes( RightParentNodes, RightParent )
        hE = ElementDiameter( Edge, EdgeNodes )
+
+       LeftOut(1) = SUM(LeftParentNodes % x(1:nParent)) / nParent
+       LeftOut(2) = SUM(LeftParentNodes % y(1:nParent)) / nParent
+       LeftOut(3) = SUM(LeftParentNodes % z(1:nParent)) / nParent
+       LeftOut(1) = SUM(EdgeNodes % x(1:n)) / n - LeftOut(1)
+       LeftOut(2) = SUM(EdgeNodes % y(1:n)) / n - LeftOut(2)
+       LeftOut(3) = SUM(EdgeNodes % z(1:n)) / n - LeftOut(3)
+
 !------------------------------------------------------------------------------
 !      Numerical integration over the edge
 !------------------------------------------------------------------------------
@@ -318,7 +326,8 @@
 
          S = S * SqrtElementMetric
 
-         Normal = NormalVector( Edge, EdgeNodes, U, V, .TRUE. ) 
+         Normal = NormalVector( Edge, EdgeNodes, U, V, .FALSE. )
+         IF ( SUM( LeftOut*Normal ) < 0 ) Normal = -Normal
 
 !        Find basis functions for the parent elements:
 !        ----------------------------------------------
