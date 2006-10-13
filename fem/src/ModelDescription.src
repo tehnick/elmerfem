@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ModelDescription.src,v 1.21 2006/10/09 08:00:43 jpr Exp $
+! * $Id: ModelDescription.src,v 1.22 2006/10/09 08:43:12 jpr Exp $
 ! *****************************************************************************/
 
 MODULE ModelDescription
@@ -1534,7 +1534,8 @@ CONTAINS
       eqn = ListGetInteger( Model % Bodies(i) % Values, 'Equation' )
 
       ActiveSolvers => ListGetIntegerArray( Model % Equations(eqn) % Values, &
-                           'Active Solvers' )
+                           'Active Solvers', stat )
+      IF ( .NOT. stat .OR. .NOT. ASSOCIATED(ActiveSolvers) ) CYCLE
 
       DO k=1,SIZE(ActiveSolvers)
          ElementDef = ListGetString( Model % Equations(eqn) % Values, &
