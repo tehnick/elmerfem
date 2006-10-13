@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: ElementDescription.src,v $
+! * Revision 1.21  2006/10/10 13:01:53  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.20  2006/02/06 07:18:04  jpr
 ! * Added complaint in ElementInfo if bubbles requested but not implemented
 ! * for a specific element.
@@ -115,7 +118,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: ElementDescription.src,v 1.20 2006/02/06 07:18:04 jpr Exp $
+! * $Id: ElementDescription.src,v 1.21 2006/10/10 13:01:53 jpr Exp $
 ! ******************************************************************************/
 
 MODULE ElementDescription
@@ -717,7 +720,6 @@ ELMER_SOLVER_HOME,&
       END IF
 
       dim = CoordinateSystemDimension()
-
       IntegStuff = GaussPoints( Element )
       L = 0.0d0
       G = 0.0d0
@@ -2821,7 +2823,7 @@ END IF
          ddBasisddx(1:n,:,:) = 0.0d0
          DO q=1,n
            NodalBasis(q) = 1.0d0
-           CALL GlobalSecondDerivatives(element,nodes,NodalBasis, &
+           CALL GlobalSecondDerivatives(Element,Nodes,NodalBasis, &
                ddBasisddx(q,:,:),u,v,w,ElmMetric,dLBasisdx )
            NodalBasis(q) = 0.0d0
          END DO
@@ -3782,6 +3784,7 @@ END IF
 !    sum for the first partial derivatives...
 !------------------------------------------------------------------------------
      dx = 0.0d0
+     df = 0.0d0
      SELECT CASE( cdim )
        CASE(1)
          DO i=1,dim
@@ -3813,6 +3816,8 @@ END IF
 !        Line elements
 !------------------------------------------------------------------------------
          ddx(1,1,1) = SecondDerivatives1D( elm,x,u )
+         ddx(2,1,1) = SecondDerivatives1D( elm,y,u )
+         ddx(3,1,1) = SecondDerivatives1D( elm,z,u )
 
        CASE(2)
 !------------------------------------------------------------------------------
