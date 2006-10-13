@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: NavierStokes.src,v $
+! * Revision 1.14  2006/10/12 11:54:26  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.13  2006/10/12 10:34:57  jpr
 ! * *** empty log message ***
 ! *
@@ -99,7 +102,7 @@
 ! * Added divergence form discretization of the diffusion term.
 ! *
 ! *
-! * $Id: NavierStokes.src,v 1.13 2006/10/12 10:34:57 jpr Exp $
+! * $Id: NavierStokes.src,v 1.14 2006/10/12 11:54:26 jpr Exp $
 ! *****************************************************************************/
 
 MODULE NavierStokes
@@ -203,7 +206,7 @@ MODULE NavierStokes
 !    Local variables
 !------------------------------------------------------------------------------
      REAL(KIND=dp) :: Basis(2*n),dBasisdx(2*n,3),ddBasisddx(n,3,3)
-     REAL(KIND=dp) :: PBasis(n), BaseP
+     REAL(KIND=dp) :: PBasis(n), pdBasisdx(n,3),BaseP
      REAL(KIND=dp) :: detJ, NodalBasis(n), dLBasisdx(n,3)
 
      REAL(KIND=dp) :: Velo(3),dVelodx(3,3),Force(4),Metric(3,3),Symb(3,3,3), Drag(3)
@@ -318,7 +321,7 @@ MODULE NavierStokes
 !------------------------------------------------------------------------------
       IF ( P2P1 ) THEN
          Element % Type => LinearType
-         stat = ElementInfo( Element, Nodes, u, v, w, detJ,pBasis )
+         stat = ElementInfo( Element, Nodes, u, v, w, detJ,pBasis,pdBasisdx )
          Element % Type => SaveType
       END IF
 
@@ -331,12 +334,22 @@ MODULE NavierStokes
 !------------------------------------------------------------------------------
       Density  = SUM( NodalDensity(1:n)*Basis(1:n) )
       IF ( Compressible1 ) THEN
-        DO i=1,dim
-          dPressuredx(i)  = SUM( NodalPressure(1:n)  * dBasisdx(1:n,i) )
-          dTemperaturedx(i)  = SUM( NodalTemperature(1:n)  * dBasisdx(1:n,i) )
-        END DO
-        Pressure    = SUM( NodalPressure(1:n) * Basis(1:n) )
-        Temperature = SUM( NodalTemperature(1:n) * Basis(1:n) )
+        IF ( P2P1 ) THEN
+          k = LinearBasis
+          Pressure    = SUM( NodalPressure(1:k) * pBasis(1:k) )
+          Temperature = SUM( NodalTemperature(1:k) * pBasis(1:k) )
+          DO i=1,dim
+            dPressuredx(i)  = SUM( NodalPressure(1:k)  * pdBasisdx(1:k,i) )
+            dTemperaturedx(i)  = SUM( NodalTemperature(1:k)  * pdBasisdx(1:k,i) )
+          END DO
+        ELSE
+          Pressure    = SUM( NodalPressure(1:n) * Basis(1:n) )
+          Temperature = SUM( NodalTemperature(1:n) * Basis(1:n) )
+          DO i=1,dim
+            dPressuredx(i)  = SUM( NodalPressure(1:n)  * dBasisdx(1:n,i) )
+            dTemperaturedx(i)  = SUM( NodalTemperature(1:n)  * dBasisdx(1:n,i) )
+          END DO
+        END IF
 
         GasC = SUM( Basis(1:n) * NodalGasC(1:n) )
         Density = Pressure / ( GasC*Temperature )
@@ -575,7 +588,7 @@ MODULE NavierStokes
 
 !           A(c,i) = A(c,i) - s * ( Density / Temperature ) * &
 !               dTemperaturedx(i) * Basis(q) * BaseP
-            A(c,c) = A(c,c) - s * ( Density /(Temperature*Pressure)) * &
+            A(c,c) = A(c,c) - s * ( Density /(Temperature*Pressure) ) * &
                 dTemperaturedx(i) * Basis(q) * BaseP
          ELSE IF ( Compressible2 ) THEN
             A(c,i) = A(c,i) + s * dDensitydx(i) * Basis(q) * BaseP
