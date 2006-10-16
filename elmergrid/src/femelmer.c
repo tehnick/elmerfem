@@ -2360,13 +2360,8 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   int *neededby,*neededtimes,**neededtable,*elempart,*indxper;
   int *elementsinpart,*periodicinpart,*indirectinpart,*sidesinpart;
   int maxneededtimes,periodic,periodictype,indirecttype,bcneeded,trueparent,*ownerpart;
+  int reorder,*order;
 
-#if DEBUG
-  int *usedelem;
-  usedelem = Ivector(1,data->noelements);
-  for(i=1;i<=data->noelements;i++)
-    usedelem[i] = 0;
-#endif
 
   if(!data->created) {
     printf("You tried to save points that were never created.\n");
@@ -2400,6 +2395,23 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
   for(i=1;i<=noknots;i++)
     neededby[i] = neededtimes[i] = 0;
+
+
+  /* Order the nodes so that the different partitions have a continous interval of nodes.
+     This information is used only just before the saving of node indexes in each instance. */
+  reorder = TRUE;
+  if(reorder) {
+    order = Ivector(1,noknots);
+    k = 0;
+    for(j=1;j<=partitions;j++)
+      for(i=1; i <= noknots; i++) 
+	if(ownerpart[i] == j) {
+	  k++;
+	  order[i] = k; 
+	}
+  } 
+  printf("noknots =%d k=%d\n",noknots,k);
+
 
   sprintf(directoryname,"%s",prefix);
   sprintf(subdirectoryname,"%s.%d","partitioning",partitions);
@@ -2451,27 +2463,21 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
 #if DEBUG
       if(elemtype < 303) printf("Invalid elementtype (%d)!\n",elemtype);
-      if(usedelem[i]) printf("elem %d allready used by partition %d\n",i,usedelem[i]);
-      else usedelem[i] = part;
 #endif
 
       for(j=0;j < nodesd2;j++) {
 	ind = data->topology[i][j];
-	fprintf(out,"%d ",ind);
 	if (neededby[ind] != part) {  
 	  neededby[ind] = part;
 	  neededtimes[ind] += 1;
 	}
+	if(reorder) ind = order[ind];
+	fprintf(out,"%d ",ind);
       }
       fprintf(out,"\n");    
     }
     fclose(out);
   }
-
-#if DEBUG
-  for(i=1;i<=data->noelements;i++)
-    if(usedelem[i] ==0 || usedelem[i] != elempart[i]) printf("element %d not saved in any partition\n",i);
-#endif
 
   /* Make a table showing to which all partitions the nodes belong to */
   maxneededtimes = 0;
@@ -2500,7 +2506,6 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
       for(j=0;j < nodesd2;j++) {
 	ind = data->topology[i][j];
 
-	/*	if(periodic) ind = indxper[ind]; */
 	if (neededby[ind] != part) {  
 	  neededby[ind] = part;
 	  neededtimes[ind] += 1;
@@ -2551,26 +2556,55 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     needednodes = 0;
     neededtwice = 0;
 
+    /* First, save the nodes that are owned by the partition */
     for(i=1; i <= noknots; i++) {
+
+      if(ownerpart[i] != part) continue;
       ind = i;
-      /*      if(periodic) ind = indxper[ind]; */
+      if(reorder) ind = order[i];
+
+      needednodes++;
+	  
+      if(data->dim == 2)
+	fprintf(out,outstyle,ind,-1,data->x[i],data->y[i]);
+      else if(data->dim == 3)
+	fprintf(out,outstyle,ind,-1,data->x[i],data->y[i],data->z[i]);	  	    
+
+      if(neededtimes[i] > 1) {
+	neededtwice++; 
+	fprintf(out2,"%d %d %d",i,neededtimes[i],ownerpart[i]);
+
+	for(k=1;k<=neededtimes[i];k++) 
+	  if(neededtable[i][k] != ownerpart[i]) fprintf(out2," %d",neededtable[i][k]);
+	fprintf(out2,"\n");
+      }	     
+    }
+
+
+    /* Then, save the nodes that are owned by a different partition */
+   for(i=1; i <= noknots; i++) {
+
+      if(ownerpart[i] == part) continue;
+      if(neededtimes[i] <= 1) continue;
 
       for(j=1;j<=neededtimes[i];j++) {
-	if(neededtable[ind][j] == part) {
+	if(neededtable[i][j] == part) {
 	  needednodes++;
-	  if(data->dim == 2)
-	    fprintf(out,outstyle,i,-1,data->x[i],data->y[i]);
-	  else if(data->dim == 3)
-	    fprintf(out,outstyle,i,-1,data->x[i],data->y[i],data->z[i]);	  
-	  
-	  if(neededtimes[ind] > 1) {
-	    neededtwice++; 
-	    fprintf(out2,"%d %d %d",i,neededtimes[ind],ownerpart[ind]);
 
-	    for(k=1;k<=neededtimes[ind];k++) 
-	      if(neededtable[ind][k] != ownerpart[ind]) fprintf(out2," %d",neededtable[ind][k]);
-	    fprintf(out2,"\n");
-	  }	     
+	  ind = i;
+	  if(reorder) ind = order[i];
+	  
+	  if(data->dim == 2)
+	    fprintf(out,outstyle,ind,-1,data->x[i],data->y[i]);
+	  else if(data->dim == 3)
+	    fprintf(out,outstyle,ind,-1,data->x[i],data->y[i],data->z[i]);	  	    
+
+	  neededtwice++; 
+	  fprintf(out2,"%d %d %d",i,neededtimes[i],ownerpart[i]);
+	  
+	  for(k=1;k<=neededtimes[i];k++) 
+	    if(neededtable[i][k] != ownerpart[i]) fprintf(out2," %d",neededtable[i][k]);
+	  fprintf(out2,"\n");
 	}
       }
     }
@@ -2596,11 +2630,9 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	bcneeded = 0;
 	for(l=0;l<nodesd1;l++) {
 	  ind = sideind[l];
-	  /*	  if(periodic) ind = indxper[ind]; */
 	  for(k=1;k<=neededtimes[ind];k++)
 	    if(part == neededtable[ind][k]) bcneeded++;
 	}
-
 	if(bcneeded != nodesd1) continue;
 	
 	trueparent = (elempart[bound[j].parent[i]] == part);
@@ -2608,7 +2640,6 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	  if(bound[j].parent2[i]) 
 	    trueparent = (elempart[bound[j].parent2[i]] == part);
 	}	
-
 	if(!trueparent) continue;
 
 	sumsides++;	
@@ -2617,8 +2648,13 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	
 	fprintf(out,"%d ",sideelemtype);
 	sidetypes[sideelemtype] += 1;
-	for(l=0;l<nodesd1;l++)
-	  fprintf(out,"%d ",sideind[l]);
+	if(reorder) {
+	  for(l=0;l<nodesd1;l++)
+	    fprintf(out,"%d ",order[sideind[l]]);
+	} else {
+	  for(l=0;l<nodesd1;l++)
+	    fprintf(out,"%d ",sideind[l]);	  
+	}
 	fprintf(out,"\n");
       }
 
@@ -2633,7 +2669,6 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	bcneeded = 0;
 	for(l=0;l<nodesd1;l++) {
 	  ind = sideind[l];
-	  /*	  if(periodic) ind = indxper[ind]; */
 	  for(k=1;k<=neededtimes[ind];k++)
 	    if(part == neededtable[ind][k]) bcneeded++;
 	}
@@ -2648,8 +2683,14 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	
 	fprintf(out,"%d ",sideelemtype);
 	sidetypes[sideelemtype] += 1;
-	for(l=0;l<nodesd1;l++)
-	  fprintf(out,"%d ",sideind[l]);
+	if(reorder) {
+	  for(l=0;l<nodesd1;l++)
+	    fprintf(out,"%d ",order[sideind[l]]);
+	} 
+	else {
+	  for(l=0;l<nodesd1;l++)
+	    fprintf(out,"%d ",sideind[l]);	  
+	} 
 	fprintf(out,"\n");
       }
     }
@@ -2674,8 +2715,13 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
 	  sumsides++;
 	  sideelemtype = 102;
-	  fprintf(out,"%d %d %d %d %d %d %d\n",
-		  sumsides,periodictype,0,0,sideelemtype,i,ind);
+	  if(reorder) {
+	    fprintf(out,"%d %d %d %d %d %d %d\n",
+		    sumsides,periodictype,0,0,sideelemtype,order[i],order[ind]);
+	  } else {
+	    fprintf(out,"%d %d %d %d %d %d %d\n",
+		    sumsides,periodictype,0,0,sideelemtype,i,ind);	    
+	  }
 	  sidetypes[sideelemtype] += 1;
 	  periodicinpart[part] += 1;
 	}
@@ -2839,8 +2885,13 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	sumsides++;
 
 	sideelemtype = 102;
-	fprintf(out,"%d %d %d %d %d %d %d\n",
-		sumsides,indirecttype,0,0,sideelemtype,ind,ind2);
+	if(reorder) {
+	  fprintf(out,"%d %d %d %d %d %d %d\n",
+		  sumsides,indirecttype,0,0,sideelemtype,order[ind],order[ind2]);
+	} else {
+	  fprintf(out,"%d %d %d %d %d %d %d\n",
+		  sumsides,indirecttype,0,0,sideelemtype,ind,ind2);	  
+	}
 	sidetypes[sideelemtype] += 1;
 	indirectinpart[part] += 1;	
       }
@@ -2889,6 +2940,8 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
   chdir("..");
   chdir("..");
+
+  if(reorder) free_Ivector(order,1,noknots);
 
   return(0);
 }
