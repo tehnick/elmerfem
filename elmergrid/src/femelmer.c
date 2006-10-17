@@ -2360,7 +2360,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   int *neededby,*neededtimes,**neededtable,*elempart,*indxper;
   int *elementsinpart,*periodicinpart,*indirectinpart,*sidesinpart;
   int maxneededtimes,periodic,periodictype,indirecttype,bcneeded,trueparent,*ownerpart;
-  int reorder,*order;
+  int sharednodes,ownnodes,reorder,*order;
 
 
   if(!data->created) {
@@ -2375,6 +2375,8 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   }
   elempart = data->elempart;
   ownerpart = data->nodepart;
+  noelements = data->noelements;
+  noknots = data->noknots;
 
   /* Are there periodic boundaries */
   periodic = data->periodicexist;
@@ -2382,9 +2384,6 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     if(info) printf("There seems to be peridic boundaries\n");
     indxper = data->periodic;
   }
- 
-  noelements = data->noelements;
-  noknots = data->noknots;
   
   elementsinpart = Ivector(1,partitions);
   periodicinpart = Ivector(1,partitions);
@@ -2410,8 +2409,6 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	  order[i] = k; 
 	}
   } 
-  printf("noknots =%d k=%d\n",noknots,k);
-
 
   sprintf(directoryname,"%s",prefix);
   sprintf(subdirectoryname,"%s.%d","partitioning",partitions);
@@ -2430,11 +2427,12 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
   chdir(subdirectoryname);
 
-  if(info) printf("Saving mesh in ElmerSolver format to %d partitions in %s/%s.\n",
-		  partitions,directoryname,subdirectoryname);
+  if(info) printf("Saving mesh in parallel ElmerSolver format to directory %s/%s.\n",
+		  directoryname,subdirectoryname);
 
   for(i=1;i<=partitions;i++)
     elementsinpart[i] = periodicinpart[i] = indirectinpart[i] = sidesinpart[i] = 0;
+
 
   /*********** part.n.elements *********************/
   /* Save elements in all partitions and 
@@ -2477,7 +2475,8 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
       fprintf(out,"\n");    
     }
     fclose(out);
-  }
+  } /* part.n.elements saved */
+
 
   /* Make a table showing to which all partitions the nodes belong to */
   maxneededtimes = 0;
@@ -2487,7 +2486,6 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     if(neededtimes[i] < 1) printf("Node %d is not needed at all!\n",i);
 #endif
   }
-
   printf("Nodes belong to %d partitions in maximum\n",maxneededtimes);
   
   neededtable = Imatrix(1,noknots,1,maxneededtimes);
@@ -2535,11 +2533,13 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   else 
     sprintf(outstyle,"%%d %%d %%.%dlg %%.%dlg %%.%dlg\n",decimals,decimals,decimals);
 
+  if(info) printf("\nSaving mesh for %d partitions\n",partitions);
+
 
   /*********** part.n.nodes  and  part.n.shared *********************/
   for(part=1;part<=partitions;part++) {
     
-    if(info) printf("\nSaving mesh for partition %d\n",part);
+    if(0) printf("\nSaving mesh for partition %d\n",part);
 
     sprintf(filename,"%s.%d.%s","part",part,"nodes");
     out = fopen(filename,"w");
@@ -2555,16 +2555,18 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
     needednodes = 0;
     neededtwice = 0;
+    sharednodes = 0;
+    ownnodes = 0;
 
     /* First, save the nodes that are owned by the partition */
     for(i=1; i <= noknots; i++) {
-
       if(ownerpart[i] != part) continue;
       ind = i;
       if(reorder) ind = order[i];
 
       needednodes++;
-	  
+      ownnodes++;
+
       if(data->dim == 2)
 	fprintf(out,outstyle,ind,-1,data->x[i],data->y[i]);
       else if(data->dim == 3)
@@ -2572,7 +2574,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
       if(neededtimes[i] > 1) {
 	neededtwice++; 
-	fprintf(out2,"%d %d %d",i,neededtimes[i],ownerpart[i]);
+	fprintf(out2,"%d %d %d",ind,neededtimes[i],ownerpart[i]);
 
 	for(k=1;k<=neededtimes[i];k++) 
 	  if(neededtable[i][k] != ownerpart[i]) fprintf(out2," %d",neededtable[i][k]);
@@ -2580,17 +2582,15 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
       }	     
     }
 
-
     /* Then, save the nodes that are owned by a different partition */
-   for(i=1; i <= noknots; i++) {
-
+    for(i=1; i <= noknots; i++) {
       if(ownerpart[i] == part) continue;
       if(neededtimes[i] <= 1) continue;
-
-      for(j=1;j<=neededtimes[i];j++) {
+      
+      for(j=1;j<=neededtimes[i];j++) 
 	if(neededtable[i][j] == part) {
 	  needednodes++;
-
+	  
 	  ind = i;
 	  if(reorder) ind = order[i];
 	  
@@ -2598,15 +2598,15 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	    fprintf(out,outstyle,ind,-1,data->x[i],data->y[i]);
 	  else if(data->dim == 3)
 	    fprintf(out,outstyle,ind,-1,data->x[i],data->y[i],data->z[i]);	  	    
-
+	  
 	  neededtwice++; 
-	  fprintf(out2,"%d %d %d",i,neededtimes[i],ownerpart[i]);
+	  sharednodes++;
+	  fprintf(out2,"%d %d %d",ind,neededtimes[i],ownerpart[i]);
 	  
 	  for(k=1;k<=neededtimes[i];k++) 
 	    if(neededtable[i][k] != ownerpart[i]) fprintf(out2," %d",neededtable[i][k]);
 	  fprintf(out2,"\n");
 	}
-      }
     }
     fclose(out);
     fclose(out2);
@@ -2728,8 +2728,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
       }
     }
 
-
-    /* Indirect couplings between dofs */
+    /* Boudary nodes that express indirect couplings between dofs */
     {
       int maxsides,nodesides,maxnodeconnections,connectednodes,m;
       int **nodepairs,*nodeconnections,**indpairs;      
@@ -2790,7 +2789,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	l++;
 	goto findindirect;
       }
-      if(info) printf("Number of non-element connections is %d\n",nodesides);
+      if(0) printf("Number of non-element connections is %d\n",nodesides);
       
       
       nodeconnections = Ivector(1,noknots);
@@ -2803,7 +2802,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
       maxnodeconnections = 0;
       for(i=1;i<=noknots;i++)
 	maxnodeconnections = MAX(maxnodeconnections, nodeconnections[i]);     
-      if(info) printf("Maximum number of node-to-node connections %d\n",maxnodeconnections);
+      if(0) printf("Maximum number of node-to-node connections %d\n",maxnodeconnections);
 
       connectednodes = 0;
       for(i=1;i<=noknots;i++) {
@@ -2812,7 +2811,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	  nodeconnections[i] = connectednodes;
 	}
       }
-      if(info) printf("Number of nodes with non-element connections %d\n",connectednodes);
+      if(0) printf("Number of nodes with non-element connections %d\n",connectednodes);
 
       indpairs = Imatrix(1,connectednodes,1,maxnodeconnections);
       for(i=1;i<=connectednodes;i++)
@@ -2846,7 +2845,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	    }
 	  }
       }
-      printf("Removed %d duplicate connections\n",l);
+      if(0) printf("Removed %d duplicate connections\n",l);
 
       
       /* Remove connections that already exist */
@@ -2876,7 +2875,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	  }
 	}
       }
-      printf("Removed %d connections that already exists in other elements\n",m);
+      if(0) printf("Removed %d connections that already exists in other elements\n",m);
       
       for(i=1; i <= nodesides; i++) {
 	ind = nodepairs[i][1]; 
@@ -2930,10 +2929,16 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     fclose(out);
 
     if(info) {
-      printf("Saved part %d with %d elements and %d nodes.\n",
-	     part,elementsinpart[part],needednodes);
-      printf("Saved %d boundary elements\n",sidesinpart[part]);
-      printf("Saved %d indirect and %d periodic couplings\n",indirectinpart[part],periodicinpart[part]);
+      if(part == 1) printf("     %-10s %-10s %-10s %-10s %-10s %-10s %-10s\n","partition","elements","own nodes","ext nodes","bc elems","periodic","indirect");
+      printf("     %-10d %-10d %-10d %-10d %-10d %-10d %-10d\n",
+	     part,elementsinpart[part],ownnodes,sharednodes,sidesinpart[part],periodicinpart[part],indirectinpart[part]);
+
+      if(0) {
+	printf("Saved part %d with %d elements and %d nodes.\n",
+	       part,elementsinpart[part],needednodes);
+	printf("Saved %d boundary elements\n",sidesinpart[part]);
+	printf("Saved %d indirect and %d periodic couplings\n",indirectinpart[part],periodicinpart[part]);
+      }
     }
   } /* of part */
 
@@ -2942,6 +2947,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   chdir("..");
 
   if(reorder) free_Ivector(order,1,noknots);
+  printf("Writing of partitioned mesh finished\n");
 
   return(0);
 }
