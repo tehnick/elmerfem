@@ -190,21 +190,27 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int inf
   int ind[MAXNODESD1];
   int nofiles;
   Real r, *res, x, y, z;
-  FILE *in[MAXPAR],*out;
+  FILE *in[MAXPAR+1],*out;
   char line[MAXLINESIZE],filename[MAXFILESIZE],text[MAXNAMESIZE],outstyle[MAXFILESIZE];
   char *cp;
+
+
 
   for(i=0;;i++) {
     sprintf(filename,"%s.ep.%d",prefix,i);
     if ((in[i] = fopen(filename,"r")) == NULL) break;
-  }
 
+    if(i > MAXPAR) {
+      printf("There are some static data that limit the size of partitions to %d\m",MAXPAR);
+      return(1);
+    }
+  }
   nofiles = i;
 
   if(nofiles < 2) {
     printf("Opening of partitioned data from file %s wasn't succesfull!\n",
 	   filename);
-    return(1);
+    return(2);
   } else {
     if(info) printf("Loading Elmer results from %d partitions.\n",nofiles);
   }
@@ -2351,16 +2357,16 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 {
   int noknots,noelements,sumsides,partitions,hit;
   int nodesd2,nodesd1;
-  int part,elemtype,sideelemtype,needednodes[MAXPAR],neededtwice[MAXPAR];
-  int bulktypes[MAXPAR][MAXELEMENTTYPE+1],sidetypes[MAXELEMENTTYPE+1],tottypes;
+  int part,elemtype,sideelemtype,needednodes[MAXPAR+1],neededtwice[MAXPAR+1];
+  int bulktypes[MAXPAR+1][MAXELEMENTTYPE+1],sidetypes[MAXELEMENTTYPE+1],tottypes;
   int i,j,k,l,m,ind,ind2,sideind[MAXNODESD1],elemhit[MAXNODESD2];
   char filename[MAXFILESIZE],filename2[MAXFILESIZE],outstyle[MAXFILESIZE];
   char directoryname[MAXFILESIZE],subdirectoryname[MAXFILESIZE];
   int *neededby,*neededtimes,**neededtable,*elempart,*indxper;
   int *elementsinpart,*periodicinpart,*indirectinpart,*sidesinpart;
   int maxneededtimes,periodic,periodictype,indirecttype,bcneeded,trueparent,*ownerpart;
-  int sharednodes[MAXPAR],ownnodes[MAXPAR],reorder,*order,*invorder;
-  FILE *out,*outfiles[MAXPAR];
+  int sharednodes[MAXPAR+1],ownnodes[MAXPAR+1],reorder,*order,*invorder;
+  FILE *out,*outfiles[MAXPAR+1];
 
   if(!data->created) {
     printf("You tried to save points that were never created.\n");
@@ -2372,6 +2378,11 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     printf("Tried to save partiotioned format without partitions!\n");
     return(2);
   }
+  if(partitions > MAXPAR) {
+    printf("There are some static data that limit the size of partitions to %d\m",MAXPAR);
+    return(3);
+  }
+
   elempart = data->elempart;
   ownerpart = data->nodepart;
   noelements = data->noelements;
@@ -2476,8 +2487,8 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
 
   /*********** part.n.elements *********************/
-  /* Save elements in all partitions and 
-     memorize how many times the nodes are needed */
+  /* Save elements in all partitions and where they are needed */
+
   for(part=1;part<=partitions;part++) {
     sprintf(filename,"%s.%d.%s","part",part,"elements");
     outfiles[part] = fopen(filename,"w");
@@ -2903,7 +2914,6 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
       /* Finally free some extra space that was allocated */
       free_Imatrix(indpairs,1,connectednodes,1,maxnodeconnections);
       free_Imatrix(nodepairs,1,maxsides,1,2);
-
     }
     /* End of indirect couplings */
 
