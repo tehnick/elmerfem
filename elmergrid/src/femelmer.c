@@ -53,6 +53,7 @@
 
 
 #define getline fgets(line,MAXLINESIZE,in) 
+#define MAXPAR 100
 
 
 int LoadSolutionElmer(struct FemType *data,int results,char *prefix,int info)
@@ -182,7 +183,6 @@ end:
 
 
 int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int info)
-#define MAXPAR 100
 {
   int *noknots,*noelements,novctrs,elemcode,open;
   int totknots,totelements,sumknots,sumelements;
@@ -2349,19 +2349,18 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
    in Elmer calculations in parallel platforms. 
    */
 {
-  int noknots,noelements,sumsides,partitions;
+  int noknots,noelements,sumsides,partitions,hit;
   int nodesd2,nodesd1;
-  int part,elemtype,sideelemtype,needednodes,neededtwice;
-  int bulktypes[MAXELEMENTTYPE+1],sidetypes[MAXELEMENTTYPE+1],tottypes;
-  int i,j,k,l,ind,ind2,sideind[MAXNODESD1],elemhit[MAXNODESD2];
-  FILE *out,*out2;
+  int part,elemtype,sideelemtype,needednodes[MAXPAR],neededtwice[MAXPAR];
+  int bulktypes[MAXPAR][MAXELEMENTTYPE+1],sidetypes[MAXELEMENTTYPE+1],tottypes;
+  int i,j,k,l,m,ind,ind2,sideind[MAXNODESD1],elemhit[MAXNODESD2];
   char filename[MAXFILESIZE],filename2[MAXFILESIZE],outstyle[MAXFILESIZE];
   char directoryname[MAXFILESIZE],subdirectoryname[MAXFILESIZE];
   int *neededby,*neededtimes,**neededtable,*elempart,*indxper;
   int *elementsinpart,*periodicinpart,*indirectinpart,*sidesinpart;
   int maxneededtimes,periodic,periodictype,indirecttype,bcneeded,trueparent,*ownerpart;
-  int sharednodes,ownnodes,reorder,*order;
-
+  int sharednodes[MAXPAR],ownnodes[MAXPAR],reorder,*order,*invorder;
+  FILE *out,*outfiles[MAXPAR];
 
   if(!data->created) {
     printf("You tried to save points that were never created.\n");
@@ -2392,10 +2391,6 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   neededby = Ivector(1,noknots);
   neededtimes = Ivector(1,noknots);
 
-  for(i=1;i<=noknots;i++)
-    neededby[i] = neededtimes[i] = 0;
-
-
   /* Order the nodes so that the different partitions have a continous interval of nodes.
      This information is used only just before the saving of node indexes in each instance. */
   reorder = TRUE;
@@ -2408,6 +2403,9 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	  k++;
 	  order[i] = k; 
 	}
+    invorder = Ivector(1,noknots);
+    for(i=1;i<=noknots;i++) 
+      invorder[order[i]] = i;
   } 
 
   sprintf(directoryname,"%s",prefix);
@@ -2433,35 +2431,21 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   for(i=1;i<=partitions;i++)
     elementsinpart[i] = periodicinpart[i] = indirectinpart[i] = sidesinpart[i] = 0;
 
+  for(j=1;j<=partitions;j++)
+    for(i=0;i<=MAXELEMENTTYPE;i++)
+      bulktypes[j][i] = 0;
 
-  /*********** part.n.elements *********************/
-  /* Save elements in all partitions and 
-     memorize how many times the nodes are needed */
+  /* Compute how many times a node may be needed at maximum */
+  for(i=1;i<=noknots;i++)
+    neededby[i] = neededtimes[i] = 0;
+
   for(part=1;part<=partitions;part++) {
-
-    sprintf(filename,"%s.%d.%s","part",part,"elements");
-    out = fopen(filename,"w");
-
     for(i=1;i<=noelements;i++) {
       if(elempart[i] != part) continue;
 
       elementsinpart[part] += 1;
       elemtype = data->elementtypes[i];
-
-      if(data->pelems) {
-	if(data->pelemtypes[i] > 0) 
-	  fprintf(out,"%d %d %dp%d ",i,data->material[i],elemtype,data->pelemtypes[i]);
-	else 
-	  fprintf(out,"%d %d %d ",i,data->material[i],elemtype);
-      }
-      else {
-	fprintf(out,"%d %d %d ",i,data->material[i],elemtype);
-      }
       nodesd2 = elemtype%100;
-
-#if DEBUG
-      if(elemtype < 303) printf("Invalid elementtype (%d)!\n",elemtype);
-#endif
 
       for(j=0;j < nodesd2;j++) {
 	ind = data->topology[i][j];
@@ -2469,16 +2453,10 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	  neededby[ind] = part;
 	  neededtimes[ind] += 1;
 	}
-	if(reorder) ind = order[ind];
-	fprintf(out,"%d ",ind);
       }
-      fprintf(out,"\n");    
     }
-    fclose(out);
-  } /* part.n.elements saved */
-
-
-  /* Make a table showing to which all partitions the nodes belong to */
+  }
+  free_Ivector(neededby,1,noknots);
   maxneededtimes = 0;
   for(i=1;i<=noknots;i++) {
     if(maxneededtimes < neededtimes[i]) maxneededtimes = neededtimes[i];
@@ -2494,24 +2472,55 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
       neededtable[i][j] = 0;
   
   for(i=1;i<=noknots;i++)
-    neededby[i] = neededtimes[i] = 0;
+    neededtimes[i] = 0;
 
-  /* Make a table showing to what partitions a node belongs to */
+
+  /*********** part.n.elements *********************/
+  /* Save elements in all partitions and 
+     memorize how many times the nodes are needed */
   for(part=1;part<=partitions;part++) {
-    for(i=1;i<=noelements;i++) {
-      if(elempart[i] != part) continue;
-      nodesd2 = data->elementtypes[i] % 100;
-      for(j=0;j < nodesd2;j++) {
-	ind = data->topology[i][j];
-
-	if (neededby[ind] != part) {  
-	  neededby[ind] = part;
-	  neededtimes[ind] += 1;
-	  neededtable[ind][neededtimes[ind]] = part; 
-	}
-      }
-    }
+    sprintf(filename,"%s.%d.%s","part",part,"elements");
+    outfiles[part] = fopen(filename,"w");
   }
+
+  for(i=1;i<=noelements;i++) {
+    part = elempart[i];
+
+    elemtype = data->elementtypes[i];
+    bulktypes[part][elemtype] += 1;
+
+    if(data->pelems) {
+      if(data->pelemtypes[i] > 0) 
+	fprintf(outfiles[part],"%d %d %dp%d ",i,data->material[i],elemtype,data->pelemtypes[i]);
+      else 
+	fprintf(outfiles[part],"%d %d %d ",i,data->material[i],elemtype);
+    }
+    else {
+      fprintf(outfiles[part],"%d %d %d ",i,data->material[i],elemtype);
+    }
+    nodesd2 = elemtype%100;
+
+    for(j=0;j < nodesd2;j++) {
+      ind = data->topology[i][j];
+      hit = FALSE;
+
+      /* Make a table showing all the partitions a node belongs to */
+      for(k=1;k<=neededtimes[ind];k++) 
+	if( neededtable[ind][k] == part) hit = TRUE;
+      if(!hit) {
+	neededtimes[ind] += 1;
+	neededtable[ind][neededtimes[ind]] = part;
+      }
+
+      if(reorder) ind = order[ind];
+      fprintf(outfiles[part],"%d ",ind);
+    }
+    fprintf(outfiles[part],"\n");    
+  }
+
+  for(part=1;part<=partitions;part++)   
+    fclose(outfiles[part]);
+  /* part.n.elements saved */
 
 
   periodictype = 0;
@@ -2536,93 +2545,89 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   if(info) printf("\nSaving mesh for %d partitions\n",partitions);
 
 
-  /*********** part.n.nodes  and  part.n.shared *********************/
+  /*********** part.n.nodes *********************/
   for(part=1;part<=partitions;part++) {
-    
-    if(0) printf("\nSaving mesh for partition %d\n",part);
-
     sprintf(filename,"%s.%d.%s","part",part,"nodes");
-    out = fopen(filename,"w");
+    outfiles[part] = fopen(filename,"w");
+  }
+  
+  for(i=1;i<=partitions;i++) {
+    needednodes[i] = 0;
+    neededtwice[i] = 0;
+    sharednodes[i] = 0;
+    ownnodes[i] = 0;
+  }    
 
-    sprintf(filename2,"%s.%d.%s","part",part,"shared");
-    out2 = fopen(filename2,"w");
+  for(l=1; l <= noknots; l++) {      
+    i = l;
+    if(reorder) i=invorder[l];
 
-    for(i=0;i<=MAXELEMENTTYPE;i++)
-      bulktypes[i] = sidetypes[i] = 0;
-
-    for(i=1;i<=noelements;i++)
-      if(elempart[i] == part) bulktypes[data->elementtypes[i]] += 1;
-
-    needednodes = 0;
-    neededtwice = 0;
-    sharednodes = 0;
-    ownnodes = 0;
-
-    /* First, save the nodes that are owned by the partition */
-    for(i=1; i <= noknots; i++) {
-      if(ownerpart[i] != part) continue;
+    for(j=1;j<=neededtimes[i];j++) {
+      k = neededtable[i][j];
+	
       ind = i;
-      if(reorder) ind = order[i];
-
-      needednodes++;
-      ownnodes++;
+      if(reorder) ind=order[i];
 
       if(data->dim == 2)
-	fprintf(out,outstyle,ind,-1,data->x[i],data->y[i]);
+	fprintf(outfiles[k],outstyle,ind,-1,data->x[i],data->y[i]);
       else if(data->dim == 3)
-	fprintf(out,outstyle,ind,-1,data->x[i],data->y[i],data->z[i]);	  	    
-
-      if(neededtimes[i] > 1) {
-	neededtwice++; 
-	fprintf(out2,"%d %d %d",ind,neededtimes[i],ownerpart[i]);
-
-	for(k=1;k<=neededtimes[i];k++) 
-	  if(neededtable[i][k] != ownerpart[i]) fprintf(out2," %d",neededtable[i][k]);
-	fprintf(out2,"\n");
-      }	     
-    }
-
-    /* Then, save the nodes that are owned by a different partition */
-    for(i=1; i <= noknots; i++) {
-      if(ownerpart[i] == part) continue;
-      if(neededtimes[i] <= 1) continue;
+	fprintf(outfiles[k],outstyle,ind,-1,data->x[i],data->y[i],data->z[i]);	  	    
       
-      for(j=1;j<=neededtimes[i];j++) 
-	if(neededtable[i][j] == part) {
-	  needednodes++;
-	  
-	  ind = i;
-	  if(reorder) ind = order[i];
-	  
-	  if(data->dim == 2)
-	    fprintf(out,outstyle,ind,-1,data->x[i],data->y[i]);
-	  else if(data->dim == 3)
-	    fprintf(out,outstyle,ind,-1,data->x[i],data->y[i],data->z[i]);	  	    
-	  
-	  neededtwice++; 
-	  sharednodes++;
-	  fprintf(out2,"%d %d %d",ind,neededtimes[i],ownerpart[i]);
-	  
-	  for(k=1;k<=neededtimes[i];k++) 
-	    if(neededtable[i][k] != ownerpart[i]) fprintf(out2," %d",neededtable[i][k]);
-	  fprintf(out2,"\n");
-	}
+      needednodes[k] += 1;
+      if(k == ownerpart[i]) 
+	ownnodes[k] += 1;
+      else 
+	sharednodes[k] += 1;
     }
-    fclose(out);
-    fclose(out2);
+  }
+  for(part=1;part<=partitions;part++)   
+    fclose(outfiles[part]);
+  /* part.n.nodes saved */
+      
 
+  /*********** part.n.shared *********************/
+  for(part=1;part<=partitions;part++) {
+    sprintf(filename2,"%s.%d.%s","part",part,"shared");
+    outfiles[part] = fopen(filename2,"w");
+  }
+
+  for(l=1; l <= noknots; l++) {      
+    i = l;
+    if(reorder) i=invorder[l];
+
+    if(neededtimes[i] <= 1) continue;
+
+    for(j=1;j<=neededtimes[i];j++) {
+      k = neededtable[i][j];
+	
+      ind = i;
+      if(reorder) ind=order[i];
+
+      neededtwice[k] += 1; 
+
+      fprintf(outfiles[k],"%d %d %d",ind,neededtimes[i],ownerpart[i]);      
+      for(m=1;m<=neededtimes[i];m++) 
+	if(neededtable[i][m] != ownerpart[i]) fprintf(outfiles[k]," %d",neededtable[i][m]);
+      fprintf(outfiles[k],"\n");
+    }
+  }
 
    
   /*********** part.n.boundary *********************/
+  /* This is still done in partition loop as the subroutines are quite complicated */
+  for(part=1;part<=partitions;part++) { 
     sprintf(filename,"%s.%d.%s","part",part,"boundary");
     out = fopen(filename,"w");
+    
+    for(i=0;i<=MAXELEMENTTYPE;i++)
+      sidetypes[i] = 0;
     
     sumsides = 0;
     for(j=0;j < MAXBOUNDARIES;j++) {
       
       /* Normal boundary conditions */
       for(i=1; i <= bound[j].nosides; i++) {
-
+	
 	GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],
 		       data,sideind,&sideelemtype);
 	nodesd1 = sideelemtype%100;
@@ -2907,31 +2912,31 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
     tottypes = 0;
     for(i=0;i<=MAXELEMENTTYPE;i++) {
-      if(bulktypes[i]) tottypes++;
+      if(bulktypes[part][i]) tottypes++;
       if(sidetypes[i]) tottypes++;
     }
 
     sprintf(filename,"%s.%d.%s","part",part,"header");
     out = fopen(filename,"w");
     fprintf(out,"%-6d %-6d %-6d\n",
-	    needednodes,elementsinpart[part],sumsides);
+	    needednodes[part],elementsinpart[part],sumsides);
 
     fprintf(out,"%-6d\n",tottypes);
     for(i=0;i<=MAXELEMENTTYPE;i++) 
-      if(bulktypes[i]) 
-	fprintf(out,"%-6d %-6d\n",i,bulktypes[i]);
+      if(bulktypes[part][i]) 
+	fprintf(out,"%-6d %-6d\n",i,bulktypes[part][i]);
 
     for(i=0;i<=MAXELEMENTTYPE;i++) 
       if(sidetypes[i]) 
 	fprintf(out,"%-6d %-6d\n",i,sidetypes[i]);
 
-    fprintf(out,"%-6d %-6d\n",neededtwice,0);
+    fprintf(out,"%-6d %-6d\n",neededtwice[part],0);
     fclose(out);
 
     if(info) {
       if(part == 1) printf("     %-10s %-10s %-10s %-10s %-10s %-10s %-10s\n","partition","elements","own nodes","ext nodes","bc elems","periodic","indirect");
       printf("     %-10d %-10d %-10d %-10d %-10d %-10d %-10d\n",
-	     part,elementsinpart[part],ownnodes,sharednodes,sidesinpart[part],periodicinpart[part],indirectinpart[part]);
+	     part,elementsinpart[part],ownnodes[part],sharednodes[part],sidesinpart[part],periodicinpart[part],indirectinpart[part]);
 
       if(0) {
 	printf("Saved part %d with %d elements and %d nodes.\n",
