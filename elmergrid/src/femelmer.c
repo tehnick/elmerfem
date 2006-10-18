@@ -195,7 +195,6 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int inf
   char *cp;
 
 
-
   for(i=0;;i++) {
     sprintf(filename,"%s.ep.%d",prefix,i);
     if ((in[i] = fopen(filename,"r")) == NULL) break;
@@ -220,7 +219,6 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int inf
  
   sumknots = 0;
   sumelements = 0;
-
 
   for(i=0;i<nofiles;i++) {
     fgets(line,MAXLINESIZE,in[i]);
@@ -257,7 +255,7 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int inf
   if(info) printf("Reading and writing %d coordinates.\n",totknots);
   sprintf(outstyle,"%%.%dlg %%.%dlg %%.%dlg\n",decimals,decimals,decimals);
 
-  for(j=0; j <= nofiles; j++) {
+  for(j=0; j < nofiles; j++) {
     for(i=1; i <= noknots[j]; i++) {
       do {
 	fgets(line,MAXLINESIZE,in[j]);
@@ -271,7 +269,7 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int inf
   if(info) printf("Reading and writing %d element topologies.\n",totelements);
   sumknots = 0;
 
-  for(j=0; j <= nofiles; j++) {
+  for(j=0; j < nofiles; j++) {
     open = FALSE;
     for(i=1; i <= noelements[j]; i++) {
       do {
