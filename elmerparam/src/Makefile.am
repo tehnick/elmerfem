@@ -30,8 +30,10 @@ libelmerparamf_a_SOURCES = elmerparamf.f90
 include_HEADERS = elmerparam.h
 
 if UPPERCASEMODS
-nodist_include_HEADERS = ELMERPARAM.mod
+install-exec-local:
+	$(INSTALL) ELMERPARAM.mod $(includedir)
 else
-nodist_include_HEADERS = elmerparam.mod
+install-exec-local:
+	$(INSTALL) elmerparam.mod $(includedir)
 endif
 MOSTLYCLEANFILES = $(nodist_include_HEADERS)

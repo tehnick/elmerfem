@@ -62,7 +62,7 @@ am__vpath_adj = case $$p in \
   esac;
 am__strip_dir = `echo $$p | sed -e 's|^.*/||'`;
 am__installdirs = "$(DESTDIR)$(libdir)" "$(DESTDIR)$(bindir)" \
-	"$(DESTDIR)$(includedir)" "$(DESTDIR)$(includedir)"
+	"$(DESTDIR)$(includedir)"
 libLIBRARIES_INSTALL = $(INSTALL_DATA)
 LIBRARIES = $(lib_LIBRARIES)
 libelmerparam_a_AR = $(AR) $(ARFLAGS)
@@ -102,8 +102,7 @@ RECURSIVE_TARGETS = all-recursive check-recursive dvi-recursive \
 	pdf-recursive ps-recursive uninstall-info-recursive \
 	uninstall-recursive
 includeHEADERS_INSTALL = $(INSTALL_HEADER)
-nodist_includeHEADERS_INSTALL = $(INSTALL_HEADER)
-HEADERS = $(include_HEADERS) $(nodist_include_HEADERS)
+HEADERS = $(include_HEADERS)
 ETAGS = etags
 CTAGS = ctags
 DIST_SUBDIRS = . R matlab
@@ -230,8 +229,6 @@ libelmerparam_a_SOURCES = elmerparam.c \
 
 libelmerparamf_a_SOURCES = elmerparamf.f90
 include_HEADERS = elmerparam.h
-@UPPERCASEMODS_FALSE@nodist_include_HEADERS = elmerparam.mod
-@UPPERCASEMODS_TRUE@nodist_include_HEADERS = ELMERPARAM.mod
 MOSTLYCLEANFILES = $(nodist_include_HEADERS)
 all: all-recursive
 
@@ -375,23 +372,6 @@ install-includeHEADERS: $(include_HEADERS)
 uninstall-includeHEADERS:
 	@$(NORMAL_UNINSTALL)
 	@list='$(include_HEADERS)'; for p in $$list; do \
-	  f=$(am__strip_dir) \
-	  echo " rm -f '$(DESTDIR)$(includedir)/$$f'"; \
-	  rm -f "$(DESTDIR)$(includedir)/$$f"; \
-	done
-install-nodist_includeHEADERS: $(nodist_include_HEADERS)
-	@$(NORMAL_INSTALL)
-	test -z "$(includedir)" || $(mkdir_p) "$(DESTDIR)$(includedir)"
-	@list='$(nodist_include_HEADERS)'; for p in $$list; do \
-	  if test -f "$$p"; then d=; else d="$(srcdir)/"; fi; \
-	  f=$(am__strip_dir) \
-	  echo " $(nodist_includeHEADERS_INSTALL) '$$d$$p' '$(DESTDIR)$(includedir)/$$f'"; \
-	  $(nodist_includeHEADERS_INSTALL) "$$d$$p" "$(DESTDIR)$(includedir)/$$f"; \
-	done
-
-uninstall-nodist_includeHEADERS:
-	@$(NORMAL_UNINSTALL)
-	@list='$(nodist_include_HEADERS)'; for p in $$list; do \
 	  f=$(am__strip_dir) \
 	  echo " rm -f '$(DESTDIR)$(includedir)/$$f'"; \
 	  rm -f "$(DESTDIR)$(includedir)/$$f"; \
@@ -564,7 +544,7 @@ check: check-recursive
 all-am: Makefile $(LIBRARIES) $(PROGRAMS) $(HEADERS)
 installdirs: installdirs-recursive
 installdirs-am:
-	for dir in "$(DESTDIR)$(libdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(includedir)" "$(DESTDIR)$(includedir)"; do \
+	for dir in "$(DESTDIR)$(libdir)" "$(DESTDIR)$(bindir)" "$(DESTDIR)$(includedir)"; do \
 	  test -z "$$dir" || $(mkdir_p) "$$dir"; \
 	done
 install: install-recursive
@@ -613,9 +593,10 @@ info: info-recursive
 
 info-am:
 
-install-data-am: install-includeHEADERS install-nodist_includeHEADERS
+install-data-am: install-includeHEADERS
 
-install-exec-am: install-binPROGRAMS install-libLIBRARIES
+install-exec-am: install-binPROGRAMS install-exec-local \
+	install-libLIBRARIES
 
 install-info: install-info-recursive
 
@@ -641,8 +622,7 @@ ps: ps-recursive
 ps-am:
 
 uninstall-am: uninstall-binPROGRAMS uninstall-includeHEADERS \
-	uninstall-info-am uninstall-libLIBRARIES \
-	uninstall-nodist_includeHEADERS
+	uninstall-info-am uninstall-libLIBRARIES
 
 uninstall-info: uninstall-info-recursive
 
@@ -653,17 +633,21 @@ uninstall-info: uninstall-info-recursive
 	distclean-tags distdir dvi dvi-am html html-am info info-am \
 	install install-am install-binPROGRAMS install-data \
 	install-data-am install-exec install-exec-am \
-	install-includeHEADERS install-info install-info-am \
-	install-libLIBRARIES install-man install-nodist_includeHEADERS \
-	install-strip installcheck installcheck-am installdirs \
-	installdirs-am maintainer-clean maintainer-clean-generic \
+	install-exec-local install-includeHEADERS install-info \
+	install-info-am install-libLIBRARIES install-man install-strip \
+	installcheck installcheck-am installdirs installdirs-am \
+	maintainer-clean maintainer-clean-generic \
 	maintainer-clean-recursive mostlyclean mostlyclean-compile \
 	mostlyclean-generic mostlyclean-recursive pdf pdf-am ps ps-am \
 	tags tags-recursive uninstall uninstall-am \
 	uninstall-binPROGRAMS uninstall-includeHEADERS \
-	uninstall-info-am uninstall-libLIBRARIES \
-	uninstall-nodist_includeHEADERS
+	uninstall-info-am uninstall-libLIBRARIES
 
+
+@UPPERCASEMODS_TRUE@install-exec-local:
+@UPPERCASEMODS_TRUE@	$(INSTALL) ELMERPARAM.mod $(includedir)
+@UPPERCASEMODS_FALSE@install-exec-local:
+@UPPERCASEMODS_FALSE@	$(INSTALL) elmerparam.mod $(includedir)
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:
