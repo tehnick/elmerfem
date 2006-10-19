@@ -6,7 +6,7 @@ m=0
 export PATH="../../src/:${PATH}"
 
 for t in *; do
-    if [ -d $t ]; then \
+    if [ -d $t ] && [ $t != CVS ]; then \
         cd $t;
         printf "Testing %-20s" ${t}" ..."
         if ./runtest.sh > test.log 2>&1 ; then

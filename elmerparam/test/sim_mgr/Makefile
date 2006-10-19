@@ -18,4 +18,4 @@ runopt: runopt.o
 runopt.o: runopt.f90
 
 clean:
-	rm -rf *.o *.mod runopt *.dat mesh scalars.dat scalars.dat.names
+	rm -rf *.o *.mod runopt *.dat mesh scalars.dat scalars.dat.names test.log
