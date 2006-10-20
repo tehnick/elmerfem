@@ -39,6 +39,9 @@
 ! ****************************************************************************/
 ! *
 ! * $Log: FlowSolve.src,v $
+! * Revision 1.18  2006/10/12 11:54:26  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.17  2006/10/12 10:34:57  jpr
 ! * *** empty log message ***
 ! *
@@ -272,7 +275,7 @@
         END FUNCTION FlowInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.17 2006/10/12 10:34:57 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.18 2006/10/12 11:54:26 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -1239,10 +1242,8 @@
 !------------------------------------------------------------------------------
       CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, & 
                 'Velocity 1', 1, NSDOFs, FlowPerm )
-
       CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, & 
                 'Velocity 2', 2, NSDOFs, FlowPerm )
-
       IF ( NSDOFs > 3 ) THEN
         CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, & 
                 'Velocity 3', 3, NSDOFs, FlowPerm )
@@ -1251,8 +1252,22 @@
       CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, & 
                 'Pressure', NSDOFs, NSDOFs, FlowPerm )
 !------------------------------------------------------------------------------
+!     Dirichlet conditions for bulk
+!------------------------------------------------------------------------------
+      CALL SetDirichletBulk( Model, StiffMatrix, ForceVector, & 
+                'Velocity 1', 1, NSDOFs, FlowPerm )
+      CALL SetDirichletBulk( Model, StiffMatrix, ForceVector, & 
+                'Velocity 2', 2, NSDOFs, FlowPerm )
+      IF ( NSDOFs > 3 ) THEN
+        CALL SetDirichletBulk( Model, StiffMatrix, ForceVector, & 
+                'Velocity 3', 3, NSDOFs, FlowPerm )
+      END IF
+      CALL SetDirichletBulk( Model, StiffMatrix, ForceVector, & 
+                'Pressure', NSDOFs, NSDOFs, FlowPerm )
+!------------------------------------------------------------------------------
 
-      CALL Info( 'FlowSolve', 'Set boundaries done', Level=4 )
+      CALL Info( 'FlowSolve', 'Dirichlet conditions done', Level=4 )
+
 !------------------------------------------------------------------------------
 !     Solve the system and check for convergence
 !------------------------------------------------------------------------------

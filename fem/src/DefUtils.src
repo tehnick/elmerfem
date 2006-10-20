@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: DefUtils.src,v $
+! * Revision 1.22  2006/10/12 10:34:57  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.21  2006/02/09 14:26:32  jpr
 ! * Introduced GetEdgeMap().
 ! *
@@ -139,7 +142,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.21 2006/02/09 14:26:32 jpr Exp $
+! * $Id: DefUtils.src,v 1.22 2006/10/12 10:34:57 jpr Exp $
 ! *
 ! *****************************************************************************/
 
@@ -1854,6 +1857,9 @@ CONTAINS
         
         CALL SetDirichletBoundaries( CurrentModel, A, b, &
                 Name, DOF, x % DOFs, x % Perm )
+
+	CALL SetDirichletBulk( CurrentModel,A, b, &
+	        Name,DOF,x % DOFs,x % Perm )
 
         SaveElement => CurrentModel % CurrentElement
 !       Dirichlet BCs for face & edge DOFs:

@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StatCurrentSolve.src,v $
+! * Revision 1.6  2006/10/11 10:43:26  raback
+! * *** empty log message ***
+! *
 ! * Revision 1.5  2006/01/10 13:25:52  apursula
 ! * Updated header information (GPL).
 ! * Started log.
@@ -121,7 +124,7 @@
      LOGICAL :: CalculateCurrent, CalculateHeating, CalculateConductivity
 
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatCurrentSolve.src,v 1.5 2006/01/10 13:25:52 apursula Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatCurrentSolve.src,v 1.6 2006/10/11 10:43:26 raback Exp $"
 
 
      SAVE LocalStiffMatrix, Load, LocalForce, Density, &
@@ -386,9 +389,7 @@
 !       the element type 101 (point element) can only be used
 !       to set Dirichlet BCs, so skip em.
 !------------------------------------------------------------------------------
-!        IF ( CurrentElement % TYPE % ElementCode == 101 ) CYCLE
-!  There is no need for this limitation any more. Just remember correct units.
-!------------------------------------------------------------------------------
+        IF ( CurrentElement % TYPE % ElementCode == 101 ) CYCLE
         DO i=1,Model % NumberOfBCs
           IF ( CurrentElement % BoundaryInfo % Constraint == &
                  Model % BCs(i) % Tag ) THEN
@@ -442,6 +443,8 @@
 !    Dirichlet boundary conditions
 !------------------------------------------------------------------------------
      CALL SetDirichletBoundaries( Model,StiffMatrix,ForceVector, &
+               Solver % Variable % Name,1,1,PotentialPerm )
+     CALL SetDirichletBulk( Model,StiffMatrix,ForceVector, &
                Solver % Variable % Name,1,1,PotentialPerm )
 
      at = CPUTime() - at

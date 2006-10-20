@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StatElecSolve.src,v $
+! * Revision 1.19  2006/08/11 13:12:24  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.18  2006/05/03 08:09:47  apursula
 ! * Added surface charge density for output
 ! *
@@ -169,7 +172,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: PiezoMaterial, CalculateSurfCharge
   
   CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, CapMatrixFile, Name
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.18 2006/05/03 08:09:47 apursula Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.19 2006/08/11 13:12:24 jpr Exp $"
   
   
   SAVE LocalStiffMatrix, Load, LocalForce, Pwrk, PotDiff, &
@@ -742,6 +745,9 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !    Dirichlet boundary conditions
 !------------------------------------------------------------------------------
      CALL SetDirichletBoundaries( Model,StiffMatrix,ForceVector, &
+         Solver % Variable % Name,1,1,PotentialPerm )       
+
+     CALL SetDirichletBulk( Model,StiffMatrix,ForceVector, &
          Solver % Variable % Name,1,1,PotentialPerm )       
 
      IF(CalculateCapMatrix) THEN 
