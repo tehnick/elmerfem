@@ -1,10 +1,36 @@
 !
+!  ElmerParam - A simple system for parametrized computing
+! 
+!  Copyright (C) 2006  CSC - Scientific Computing Ltd.
+!
+!  Authors: Erik Edelmann <Erik.Edelmann@csc.fi>
+!           Peter Råback <Peter.Raback@csc.fi>
+!  Address: CSC - Scientific Computing Ltd.
+!           Keilaranta 14
+!           02101 Espoo, Finland
+!            
+!  This program is free software; you can redistribute it and/or
+!  modify it under the terms of the GNU General Public License
+!  as published by the Free Software Foundation; either version 2
+!  of the License, or (at your option) any later version.
+!  
+!  This program is distributed in the hope that it will be useful,
+!  but WITHOUT ANY WARRANTY; without even the implied warranty of
+!  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+!  GNU General Public License for more details.
+! 
+!  You should have received a copy of the GNU General Public License
+!  along with this program (in file elmerparam/COPYING); if not, write to
+!  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
+!  Boston, MA 02110-1301, USA.
+!
+
+!
 ! TODO: Use IOMSG instead of IOSTAT to report IO errors when more compilers
 ! support it (F2003 feature).
 !
 ! TODO: Use get_command_argument() and command_argument_count() instead of
-! getarg() and iargc when more compilers
-! support them (F2003 features).
+! getarg() and iargc when more compilers support them (F2003 features).
 !
 
 module parameters
