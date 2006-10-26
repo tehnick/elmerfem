@@ -1,0 +1,89 @@
+#!/usr/bin/awk -f
+
+
+function checkimg(base,    tmp) {
+    for (i in suffix) {
+        filename = base suffix[i]
+        if ((getline tmp < filename) >= 0)  return 1
+    }
+    return 0
+}
+
+
+function gledep(fname,      line, deps) {
+    while ((getline line < fname)) {
+        if (line ~ /^[ \t]*data/) {
+            sub("^[ \t]*data *\"", "", line);
+            sub("\".*", "", line);
+            deps = deps " " line
+        }
+    }
+    close(fname)
+    return deps
+}
+
+
+BEGIN{ 
+    suffix[0] = ".gle"
+    suffix[1] = ".jpg"
+    suffix[2] = ".JPG"
+    suffix[3] = ".gif"
+    suffix[4] = ".tif"
+    suffix[5] = ".png"
+    suffix[6] = ".fig"
+    suffix[7] = ".gp"
+}
+
+
+/^%.*/ { next }
+
+
+/\\special/ { 
+    base = $0
+    gsub(".*PSfile=", "", base)
+    gsub("\.eps.*", "", base)
+    #printf "'%s', base = %s\n", $0, base > "/dev/stderr"
+
+    if (checkimg(base)) {
+        a_imgs[base ".eps"] = filename
+        if (filename ~ /.*\.gle/)
+            a_imgs[base ".eps"] = a_imgs[base ".eps"]  gledep(filename)
+    } else
+        s_imgs[++si] = filename
+}
+
+
+/\\includegraphics/ { 
+    base = $0
+    gsub(".*\\includegraphics.*{", "", base)
+    gsub(".eps}.*", "", base)
+    #printf "'%s', base = %s\n", $0, base > "/dev/stderr"
+
+    if (checkimg(base)) {
+        print "Yahoo!", base > "/dev/stderr"
+        a_imgs[base ".eps"] = filename
+        if (filename ~ /.*\.gle/) {
+            a_imgs[base ".eps"] = a_imgs[base ".eps"]  gledep(filename)
+        }
+    } else {
+        print "BLÄÄÄ!", base > "/dev/stderr"
+        s_imgs[++si] = base ".eps"
+    }
+}
+
+
+END{
+    printf "A_BILDER ="
+    for (eps in a_imgs) 
+        printf " %s", eps
+    print ""
+
+    printf "S_BILDER ="
+    for (i = 1; i <= si; i++)
+        printf " %s", s_imgs[i]
+    print ""
+
+    print ""
+    for (eps in a_imgs) 
+        printf "%s: %s\n", eps, a_imgs[eps]
+}
