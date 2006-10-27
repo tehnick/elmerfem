@@ -1318,6 +1318,19 @@ int main(int argc, char *argv[])
     Goodbye();
     break;
 
+  case 16:
+    boundaries[nofile] = (struct BoundaryType*)
+      malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
+    for(i=0;i<MAXBOUNDARIES;i++) {
+      boundaries[nofile][i].created = FALSE; 
+      boundaries[nofile][i].nosides = 0;
+    }
+    if (LoadNastranInput(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],TRUE))
+      Goodbye();
+    nomeshes = 1;
+    break;
+
+
   default:
     Instructions();
     Goodbye();

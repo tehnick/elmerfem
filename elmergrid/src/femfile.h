@@ -11,6 +11,8 @@ int SaveFidapOutput(struct FemType *data,char *prefix,int info,
 int LoadFidapInput(struct FemType *data,char *prefix,int info);
 int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
 		   char *prefix,int info);
+int LoadNastranInput(struct FemType *data,struct BoundaryType *bound,
+		     char *prefix,int info);
 int LoadFemlabMesh(struct FemType *data,struct BoundaryType *bound,
 		   char *prefix,int info);
 int LoadFieldviewInput(struct FemType *data,char *prefix,int info);

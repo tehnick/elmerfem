@@ -838,6 +838,184 @@ jump:
 
 
 
+int LoadNastranInput(struct FemType *data,struct BoundaryType *bound,
+		    char *prefix,int info)
+/* Load the grid from a format that in Nastran format 
+   */
+{
+  int noknots,noelements,elemcode,maxnodes,material;
+  int mode,allocated,nvalue,nvalue2,maxknot,minknot,nosides;
+  int boundarytype,boundarynodes,nodes,maxnode;
+  int *nodeindx,*boundindx;
+  
+  char filename[MAXFILESIZE];
+  char line[MAXLINESIZE],*cp;
+  int i,j,k,l,*ind;
+  FILE *in;
+  Real rvalues[MAXDOFS];
+  int ivalues[MAXDOFS],ivalues0[MAXDOFS];
+
+
+  strcpy(filename,prefix);
+  if ((in = fopen(filename,"r")) == NULL) {
+    AddExtension(prefix,filename,"nas");
+    if ((in = fopen(filename,"r")) == NULL) {
+      printf("LoadAbaqusInput: opening of the Nastran file '%s' wasn't succesfull !\n",
+	     filename);
+      return(1);
+    }
+  }
+
+  printf("Reading mesh from Nastran file %s.\n",filename);
+  InitializeKnots(data);
+
+  allocated = FALSE;
+  maxknot = 0;
+  minknot = 10000;
+
+  /* Because the file format doesn't provide the number of elements
+     or nodes the results are read twice but registered only in the
+     second time. */
+omstart:
+
+  mode = 0;
+  maxnodes = 0;
+  noknots = 0;
+  noelements = 0;
+  elemcode = 0;
+  boundarytype = 0;
+  boundarynodes = 0;
+  material = 0;
+  ivalues0[0] = ivalues0[1] = 0;
+
+
+  for(;;) {
+    /* getline; */
+
+    if (Getrow(line,in,TRUE)) goto end;
+
+    if(line[0] == '$') {
+      if(!allocated) printf("comment: %s",line);
+    }
+    else if(strstr(line,"GRID")) {
+      noknots++;
+      if(0) printf("line=%s\n",line);
+      cp = &line[5];
+      j = next_int(&cp);
+      if(0) printf("j=%d\n",j);
+
+      if(allocated) {
+	k = next_int(&cp);
+	data->x[noknots] = next_real(&cp);
+	data->y[noknots] = next_real(&cp);
+      }
+      else {
+	if(j > maxknot) maxknot = j;
+	if(j < minknot) minknot = j;
+      }
+
+      if(strstr(line,"*")) 
+	Getrow(line,in,TRUE);
+
+      if(allocated) {
+	cp = &line[4];
+	data->z[noknots] = next_real(&cp);
+      }
+
+    }
+    else if(strstr(line,"TETRA")) {
+      noelements++;
+      nodes = 4;
+      if(nodes > maxnodes) maxnodes = nodes;
+      if(allocated) {
+	data->elementtypes[noelements] = 504;
+	cp = &line[6];
+	k = next_int(&cp);
+	data->material[noelements] = next_int(&cp) + 1;	
+	for(j=0;j<nodes;j++)
+	  data->topology[noelements][j] = next_int(&cp);            
+      }      
+    }
+    else if(strstr(line,"PYRAM")) {
+      noelements++;
+      nodes = 5;
+      if(nodes > maxnodes) maxnodes = nodes;
+      if(allocated) {
+	data->elementtypes[noelements] = 605;
+	cp = &line[6];
+	k = next_int(&cp);
+	data->material[noelements] = next_int(&cp) + 1;	
+	for(j=0;j<nodes;j++)
+	  data->topology[noelements][j] = next_int(&cp);            
+      }      
+    }
+    else if(strstr(line,"PENTA")) {
+      noelements++;
+      nodes = 6;
+      if(nodes > maxnodes) maxnodes = nodes;
+      if(allocated) {
+	data->elementtypes[noelements] = 706;
+	cp = &line[6];
+	k = next_int(&cp);
+	data->material[noelements] = next_int(&cp) + 1;	
+	for(j=0;j<nodes;j++)
+	  data->topology[noelements][j] = next_int(&cp);            
+      }      
+    }
+     else if(strstr(line,"CHEXA")) {
+      noelements++;
+      nodes = 8;
+      if(nodes > maxnodes) maxnodes = nodes;
+      if(allocated) {
+	data->elementtypes[noelements] = 808;
+	cp = &line[5];
+	k = next_int(&cp);
+	data->material[noelements] = next_int(&cp) + 1;	
+	for(j=0;j<6;j++)
+	  data->topology[noelements][j] = next_int(&cp);            
+      }           
+      Getrow(line,in,TRUE);
+      if(allocated) {
+	cp = &line[1];       
+	for(j=6;j<8;j++) 
+	  data->topology[noelements][j] = k;
+      }
+    }
+    else if(strstr(line,"ENDDAT")) {
+      goto end;
+    }
+    else {
+      printf("unknown command: %s",line);
+    }
+  }
+
+  end:
+
+  if(allocated == TRUE) {
+    if(info) printf("The mesh was loaded from file %s.\n",filename);
+    fclose(in);
+    return(0);
+  }
+
+  rewind(in);
+  data->noknots = noknots;
+  data->noelements = noelements;
+  data->maxnodes = maxnodes;
+  data->dim = 3;
+  
+  printf("maxknot = %d  minknot = %d\n",maxknot,minknot);
+  
+  if(info) printf("Allocating for %d knots and %d %d-node elements.\n",
+		  noknots,noelements,maxnodes);
+  AllocateKnots(data);
+    
+  allocated = TRUE;
+  goto omstart;
+}
+
+
+
+
 static void ReorderFidapNodes(struct FemType *data,int element,int nodes,int typeflag) 
 {
   int i,j,oldtopology[MAXNODESD2],*topology,elementtype,dim;
