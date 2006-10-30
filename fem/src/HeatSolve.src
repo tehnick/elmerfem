@@ -39,6 +39,7 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: HeatSolve.src,v $
+! *
 ! * Revision 1.13  2006/08/25 13:09:57  raback
 ! * Added possibility for computing the nodal heat loads from the solution.
 ! *
@@ -189,7 +190,7 @@
      LOGICAL :: Stabilize = .TRUE., Bubbles = .TRUE., UseBubbles,NewtonLinearization = .FALSE., &
          Found, GotIt
 ! Which compressibility model is used
-     CHARACTER(LEN=MAX_NAME_LEN) :: CompressibilityFlag
+     CHARACTER(LEN=MAX_NAME_LEN) :: CompressibilityFlag, ConvectionField
      INTEGER :: CompressibilityModel
 
      LOGICAL :: AllocationsDone = .FALSE.,PhaseSpatial=.FALSE., &
@@ -269,7 +270,7 @@
 
      REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
 
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HeatSolve.src,v 1.13 2006/08/25 13:09:57 raback Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HeatSolve.src,v 1.14 2006/10/13 10:38:31 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -295,7 +296,7 @@
 
      IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
 
-     StiffMatrix => Solver % Matrix
+     StiffMatrix => GetMatrix()
      ForceVector => Solver % Matrix % RHS
 
      TempSol => Solver % Variable
@@ -305,7 +306,13 @@
      LocalNodes = COUNT( TempPerm > 0 )
      IF ( LocalNodes <= 0 ) RETURN
 
-     FlowSol => VariableGet( Solver % Mesh % Variables, 'Flow Solution' )
+     SolverParams => GetSolverParams()
+     ConvectionField = GetString( SolverParams, 'Temperature Convection Field', Found )
+     IF ( Found ) THEN
+       FlowSol => VariableGet( Solver % Mesh % Variables, ConvectionField )
+     ELSE
+       FlowSol => VariableGet( Solver % Mesh % Variables, 'Flow Solution' )
+     END IF
      IF ( ASSOCIATED( FlowSol ) ) THEN
        FlowPerm     => FlowSol % Perm
        NSDOFs       =  FlowSol % DOFs
@@ -473,7 +480,6 @@
      StefanBoltzmann = ListGetConstReal( Model % Constants, &
                      'Stefan Boltzmann' )
 !------------------------------------------------------------------------------
-     SolverParams => GetSolverParams()
      Stabilize = GetLogical( SolverParams,'Stabilize',Found )
 
      UseBubbles = GetLogical( SolverParams,'Bubbles',Found )
@@ -910,15 +916,24 @@
 
           IF ( Found .AND. RadiationFlag(1:4) /= 'none' ) THEN
 
-            Emissivity = SUM( GetReal(BC, 'Emissivity') ) / n
+            Emissivity = SUM( GetReal(BC, TRIM(Solver % Variable % Name) &
+                         // ' Emissivity', Found) ) / n
+            IF ( .NOT. Found ) &
+              Emissivity = SUM( GetReal(BC, 'Emissivity') ) / n
 !------------------------------------------------------------------------------
             IF (  RadiationFlag(1:9) == 'idealized' ) THEN
-               AText(1:n) = GetReal( BC, 'External Temperature' )
+              AText(1:n) = GetReal( BC, 'External ' // &
+                         TRIM(Solver % Variable % Name), Found )
+               IF ( .NOT. Found ) &
+                 AText(1:n) = GetReal( BC, 'External Temperature' )
             ELSE
               CALL DiffuseGrayRadiation( Model, Solver, Element, & 
                   Temperature, TempPerm, ForceVector, VisibleFraction)
               IF( GetLogical( BC, 'Radiation Boundary Open', Found) ) THEN
-                AText(1:n) = GetReal( BC, 'External Temperature' )
+                AText(1:n) = GetReal( BC, 'External ' // &
+                         TRIM(Solver % Variable % Name), Found )
+                IF ( .NOT. Found ) &
+                   AText(1:n) = GetReal( BC, 'External Temperature' )
                 Atext(1:n) = ( (1.0 - VisibleFraction) * Atext(1:n)**4.0 + &
                     VisibleFraction * Text ** 4.0 ) ** 0.25
               ELSE
@@ -947,7 +962,9 @@
             END DO
           END IF  ! of radition
 !------------------------------------------------------------------------------
-          Work(1:n) = GetReal( BC, 'Heat Transfer Coefficient',Found )
+          Work(1:n) = GetReal( BC, TRIM(Solver % Variable % Name) // ' Transfer Coefficient',Found )
+          IF ( .NOT. Found ) &
+            Work(1:n) = GetReal( BC, 'Heat Transfer Coefficient',Found )
           IF ( GetLogical( BC, 'Heat Gap', Found ) ) THEN
             IF ( GetLogical( BC, 'Heat Gap Implicit', Found ) ) THEN
                AText(1:n) = 0.0d0
@@ -956,7 +973,10 @@
             END IF
           ELSE
             IF ( ANY(Work(1:n) /= 0.0d0) ) THEN
-               AText(1:n) = GetReal( BC, 'External Temperature',Found )
+               AText(1:n) = GetReal( BC, 'External ' // &
+                         TRIM(Solver % Variable % Name), Found )
+               IF (.NOT. Found ) &
+                  AText(1:n) = GetReal( BC, 'External Temperature',Found )
             ELSE
                AText(1:n) = 0.0d0
             END IF
@@ -974,7 +994,10 @@
 !------------------------------------------------------------------------------
 !         BC: -k@T/@n = g
 !------------------------------------------------------------------------------
-          LOAD(1:n) = LOAD(1:n) +  GetReal( BC, 'Heat Flux', Found )
+          LOAD(1:n) = LOAD(1:n) + &
+              GetReal( BC, TRIM(Solver % Variable % Name) // ' Flux', Found )
+          IF ( .NOT. Found ) &
+              LOAD(1:n) = LOAD(1:n) +  GetReal( BC, 'Heat Flux', Found )
 !------------------------------------------------------------------------------
 !         Get element matrix and rhs due to boundary conditions ...
 !------------------------------------------------------------------------------
