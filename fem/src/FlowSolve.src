@@ -39,6 +39,9 @@
 ! ****************************************************************************/
 ! *
 ! * $Log: FlowSolve.src,v $
+! * Revision 1.19  2006/10/20 09:26:40  raback
+! * Added subroutine for setting Dirichlet conditions and nodal loads in the body.
+! *
 ! * Revision 1.18  2006/10/12 11:54:26  jpr
 ! * *** empty log message ***
 ! *
@@ -212,7 +215,7 @@
                   divDiscretization, GradPDiscretization, ComputeStress,ComputeFree=.FALSE.
 
 ! Which compressibility model is used
-     CHARACTER(LEN=MAX_NAME_LEN) :: CompressibilityFlag, StabilizeFlag
+     CHARACTER(LEN=MAX_NAME_LEN) :: CompressibilityFlag, StabilizeFlag, VarName
      INTEGER :: CompressibilityModel
      INTEGER :: body_id,bf_id,eq_id,DIM
      INTEGER, POINTER :: NodeIndexes(:), Indexes(:)
@@ -275,7 +278,7 @@
         END FUNCTION FlowInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.18 2006/10/12 11:54:26 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.19 2006/10/20 09:26:40 raback Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -299,6 +302,8 @@
      NSDOFs         =  FlowSol % DOFs
      FlowPerm       => FlowSol % Perm
      FlowSolution   => FlowSol % Values
+
+     VarName = FlowSol % Name(1:FlowSol % NameLen)
 
      LocalNodes = COUNT( FlowPerm > 0 )
      IF ( LocalNodes <= 0 ) RETURN
@@ -1240,31 +1245,35 @@
 !------------------------------------------------------------------------------
 !     Dirichlet boundary conditions
 !------------------------------------------------------------------------------
-      CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, & 
-                'Velocity 1', 1, NSDOFs, FlowPerm )
-      CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, & 
-                'Velocity 2', 2, NSDOFs, FlowPerm )
-      IF ( NSDOFs > 3 ) THEN
+      IF ( VarName  == 'flow solution' ) THEN
         CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, & 
-                'Velocity 3', 3, NSDOFs, FlowPerm )
-      END IF
+                  'Velocity 1', 1, NSDOFs, FlowPerm )
+        CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, & 
+                  'Velocity 2', 2, NSDOFs, FlowPerm )
+        IF ( NSDOFs > 3 ) THEN
+          CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, & 
+                  'Velocity 3', 3, NSDOFs, FlowPerm )
+        END IF
 
-      CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, & 
-                'Pressure', NSDOFs, NSDOFs, FlowPerm )
+        CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, & 
+                  'Pressure', NSDOFs, NSDOFs, FlowPerm )
 !------------------------------------------------------------------------------
 !     Dirichlet conditions for bulk
 !------------------------------------------------------------------------------
-      CALL SetDirichletBulk( Model, StiffMatrix, ForceVector, & 
-                'Velocity 1', 1, NSDOFs, FlowPerm )
-      CALL SetDirichletBulk( Model, StiffMatrix, ForceVector, & 
-                'Velocity 2', 2, NSDOFs, FlowPerm )
-      IF ( NSDOFs > 3 ) THEN
         CALL SetDirichletBulk( Model, StiffMatrix, ForceVector, & 
-                'Velocity 3', 3, NSDOFs, FlowPerm )
+                  'Velocity 1', 1, NSDOFs, FlowPerm )
+        CALL SetDirichletBulk( Model, StiffMatrix, ForceVector, & 
+                  'Velocity 2', 2, NSDOFs, FlowPerm )
+        IF ( NSDOFs > 3 ) THEN
+          CALL SetDirichletBulk( Model, StiffMatrix, ForceVector, & 
+                  'Velocity 3', 3, NSDOFs, FlowPerm )
+        END IF
+        CALL SetDirichletBulk( Model, StiffMatrix, ForceVector, & 
+                  'Pressure', NSDOFs, NSDOFs, FlowPerm )
       END IF
-      CALL SetDirichletBulk( Model, StiffMatrix, ForceVector, & 
-                'Pressure', NSDOFs, NSDOFs, FlowPerm )
 !------------------------------------------------------------------------------
+
+      CALL DefaultDirichletBCs()
 
       CALL Info( 'FlowSolve', 'Dirichlet conditions done', Level=4 )
 

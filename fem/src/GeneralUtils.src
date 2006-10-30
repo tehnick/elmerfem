@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: GeneralUtils.src,v $
+! * Revision 1.5  2006/02/02 07:14:31  jpr
+! * Small formatting changes.
+! *
 ! * Revision 1.4  2006/01/10 08:27:34  apursula
 ! * Updated header information (GPL).
 ! *
@@ -62,7 +65,7 @@
 ! * Added AllocateVector/AllocateArray.
 ! *
 ! *
-! * $Id: GeneralUtils.src,v 1.4 2006/01/10 08:27:34 apursula Exp $
+! * $Id: GeneralUtils.src,v 1.5 2006/02/02 07:14:31 jpr Exp $
 ! ******************************************************************************/
 
 
@@ -669,10 +672,27 @@ CONTAINS
     INTEGER :: Component
     CHARACTER(LEN=*) :: BaseName
 !------------------------------------------------------------------------------
+    INTEGER :: ind, ind1, DOFsTot, DOFs
     CHARACTER(LEN=MAX_NAME_LEN) :: str
 !------------------------------------------------------------------------------
-
-    str = TRIM( BaseName ) // ' ' // TRIM( IntegerToString( Component ) )
+    ind = INDEX( BaseName,'[' )
+    IF ( ind<=0 ) THEN
+      str = TRIM( BaseName ) // ' ' // TRIM( IntegerToString( Component ) )
+    ELSE
+      DOFsTot = 0
+      DO WHILE( .TRUE. )
+        ind1 = index( BaseName(ind+1:),':' )+ind
+        READ(BaseName(ind1+1:),'(i1)') DOFs
+        DOFsTot = DOFsTot+DOFs
+        IF ( DOFsTot>=Component ) EXIT
+        ind = ind1+2
+      END DO
+      str = BaseName(ind+1:ind1-1)
+      IF ( DOFs>1 ) THEN
+        DOFs = DOFsTot - DOFs + Component
+        str = TRIM(str) // ' ' // TRIM( IntegerToString(DOFs) )
+      END IF
+    END IF
 !------------------------------------------------------------------------------
   END FUNCTION ComponentName
 !------------------------------------------------------------------------------

@@ -39,6 +39,8 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: ElasticSolve.src,v $
+! * Revision 1.10  2006/10/13 10:38:31  jpr
+! *
 ! * Revision 1.9  2006/02/20 08:06:18  jpr
 ! * Moved handling of Normal-Tangential BCs inside SolverUtils. Corrected
 ! * a few bugs in Adaptive.src, Lists.src.
@@ -147,7 +149,7 @@
      INTEGER :: TotalSteps,LoadStep, dim
 
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ElasticSolve.src,v 1.9 2006/02/20 08:06:18 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ElasticSolve.src,v 1.10 2006/10/13 10:38:31 jpr Exp $"
 
 
      INTERFACE
@@ -717,19 +719,8 @@
 !------------------------------------------------------------------------------
 !     Dirichlet boundary conditions
 !------------------------------------------------------------------------------
-      WRITE( str, '(a,a,i1)' ) TRIM(Solver % Variable % Name),' ',1
-      CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, &
-               str, 1, STDOFs, StressPerm )
+      CALL DefaultDirichletBCs()
 
-      WRITE( str, '(a,a,i1)' ) TRIM(Solver % Variable % Name),' ',2
-      CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, &
-               str, 2, STDOFs,StressPerm )
-
-      IF ( STDOFs >= 3 ) THEN
-        WRITE( str, '(a,a,i1)' ) TRIM(Solver % Variable % Name),' ',3
-        CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, &
-                 str, 3, STDOFs, StressPerm )
-      END IF
 !------------------------------------------------------------------------------
 
       CALL Info( 'ElasticSolve', 'Set boundaries done', Level=4 )

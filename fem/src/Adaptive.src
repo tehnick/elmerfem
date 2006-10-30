@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Adaptive.src,v $
+! * Revision 1.19  2006/10/13 10:38:31  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.18  2006/10/06 10:37:37  jpr
 ! * *** empty log message ***
 ! *
@@ -87,7 +90,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Adaptive.src,v 1.18 2006/10/06 10:37:37 jpr Exp $
+! * $Id: Adaptive.src,v 1.19 2006/10/13 10:38:31 jpr Exp $
 ! *****************************************************************************/
 
 
@@ -160,6 +163,7 @@ CONTAINS
     LOGICAL :: BandwidthOptimize, Found, Coarsening, GlobalBubbles
     INTEGER :: MaxDepth
     CHARACTER(LEN=1024) :: Path
+    CHARACTER(LEN=MAX_NAME_LEN) :: VarName
     REAL(KIND=dp), POINTER  :: Time(:), NodalError(:), PrevValues(:), &
          Hvalue(:),PrevNodalError(:), PrevHValue(:), hConvergence(:), ptr(:), tt(:)
     REAL(KIND=dp), POINTER  :: ErrorIndicator(:), eRef(:), hRef(:), Work(:)
@@ -282,8 +286,9 @@ CONTAINS
 !   Add nodal average of the computed estimate to the
 !   solution error to the mesh variable list:
 !   --------------------------------------------------
+    VarName = Solver % Variable % Name(1:Solver % Variable % NameLen)
     Var => VariableGet( RefMesh % Variables, &
-         TRIM(Solver % Variable % Name) // '.error', ThisOnly=.TRUE. )
+         TRIM(VarName)  // '.error', ThisOnly=.TRUE. )
 
     IF ( ASSOCIATED( Var ) ) THEN
        NodalError  => Var % Values
@@ -293,11 +298,11 @@ CONTAINS
 
        PSolver => Solver
        CALL VariableAdd( RefMesh % Variables, RefMesh, PSolver, &
-          TRIM(Solver % Variable % Name) // '.error', 1, NodalError )
+          TRIM(VarName) // '.error', 1, NodalError )
     END IF
 
     Var => VariableGet( RefMesh % Variables, &
-         TRIM(Solver % Variable % Name) // '.perror', ThisOnly=.TRUE. )
+         TRIM(VarName) // '.perror', ThisOnly=.TRUE. )
 
     IF ( ASSOCIATED( Var ) ) THEN
        PrevNodalError  => Var % Values
@@ -308,8 +313,7 @@ CONTAINS
 
        PSolver => Solver
        CALL VariableAdd( RefMesh % Variables, RefMesh, PSolver, &
-            TRIM(Solver % Variable % Name) // '.perror', &
-            1, PrevNodalError, Output=.FALSE. )
+            TRIM(VarName) // '.perror', 1, PrevNodalError, Output=.FALSE. )
     END IF
 
     NodalError = 0.0d0
@@ -355,7 +359,7 @@ CONTAINS
 !   Add reference error to variable list:
 !   -------------------------------------
     Var => VariableGet( RefMesh % Variables, &
-         TRIM(Solver % Variable % Name) // '.eRef', ThisOnly=.TRUE. )
+         TRIM(VarName) // '.eRef', ThisOnly=.TRUE. )
 
     IF ( ASSOCIATED( Var ) ) THEN
        eRef => Var % Values
@@ -366,7 +370,7 @@ CONTAINS
 
        PSolver => Solver
        CALL VariableAdd( RefMesh % Variables, RefMesh, PSolver, &
-         TRIM(Solver % Variable % Name) // '.eRef',1,eRef, Output=.FALSE. )
+         TRIM(VarName) // '.eRef',1,eRef, Output=.FALSE. )
     END IF
 !
 !   Mesh projection may alter the values somewhat!
@@ -591,8 +595,8 @@ CONTAINS
              Found = Found .OR. INDEX( Var % Name, '.eref'   ) > 0
              Found = Found .OR. INDEX( Var % Name, '.perror' ) > 0
              IF ( Found ) THEN
-                k = LEN_TRIM( Solver % Variable % Name )
-                IF ( Var % Name(1:k) /= Solver % Variable % Name ) THEN
+                k = Solver % Variable % NameLen
+                IF ( Var % Name(1:k) /= Solver % Variable % Name(1:k) ) THEN
                    Var => Var % Next
                    CYCLE
                 END IF

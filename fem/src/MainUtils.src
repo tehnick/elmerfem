@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MainUtils.src,v $
+! * Revision 1.13  2006/10/09 09:33:52  jpr
+! * Added 'exec interval'-keyword to solver stuff.
+! *
 ! * Revision 1.9  2006/01/10 08:51:49  apursula
 ! * Updated header information (GPL).
 ! *
@@ -81,7 +84,7 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.src,v 1.12 2006/10/06 10:37:37 jpr Exp $
+! * $Id: MainUtils.src,v 1.13 2006/10/09 09:33:52 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MainUtils
@@ -627,11 +630,23 @@ CONTAINS
        eq = ListGetString( Solver  % Values, 'Equation', Found )
 
        IF ( Found ) THEN
-          DOFs = ListGetInteger( Solver % Values, 'Variable DOFs', Found, minv=1 )
-          IF ( .NOT.Found ) DOFs = 1
           var_name = ListGetString( Solver % Values, 'Variable', Found )
 
           IF ( Ndeg >= 1 .AND. Found ) THEN
+             DOFs = ListGetInteger( Solver % Values, 'Variable DOFs', Found, minv=1 )
+
+             IF ( .NOT. Found ) THEN
+               j = 0
+               DOFs = 0
+               DO WHILE( .TRUE. )
+                 i = INDEX( var_name(j+1:), ':' ) + j
+                 IF ( i<=j ) EXIT
+                 READ( var_name(i+1:),'(i1)' ) k
+                 DOFs = DOFs + k
+                 j = i + 1
+               END DO
+             END IF
+
              VariableOutput = ListGetLogical( Solver % Values, 'Variable Output', Found )
              IF ( .NOT. Found ) VariableOutput = .TRUE.
 
@@ -652,6 +667,7 @@ CONTAINS
                    var_name(1:LEN(var_name)-i) = var_name(i+1:)
                 END IF
              END DO
+             IF ( DOFs == 0 ) DOFs = 1
 
              n = LEN_TRIM(var_name)
              Solver % Variable => VariableGet( Solver % Mesh % Variables,var_name(1:n) )
