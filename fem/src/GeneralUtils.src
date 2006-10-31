@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: GeneralUtils.src,v $
+! * Revision 1.7  2006/10/31 07:20:04  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.6  2006/10/30 12:37:41  jpr
 ! * *** empty log message ***
 ! *
@@ -68,7 +71,7 @@
 ! * Added AllocateVector/AllocateArray.
 ! *
 ! *
-! * $Id: GeneralUtils.src,v 1.6 2006/10/30 12:37:41 jpr Exp $
+! * $Id: GeneralUtils.src,v 1.7 2006/10/31 07:20:04 jpr Exp $
 ! ******************************************************************************/
 
 
@@ -684,7 +687,10 @@ CONTAINS
     ELSE
       DOFsTot = 0
       DO WHILE( .TRUE. )
-        ind1 = index( BaseName(ind+1:),':' )+ind
+        ind1 = INDEX( BaseName(ind+1:),':' )+ind
+        IF ( ind1 <= ind ) THEN
+           CALL Fatal( 'ComponentName', 'Syntax error in variable definition.' )
+        END IF
         READ(BaseName(ind1+1:),'(i1)') DOFs
         DOFsTot = DOFsTot+DOFs
         IF ( DOFsTot>=Component ) EXIT
