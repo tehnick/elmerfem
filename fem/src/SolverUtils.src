@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.27  2006/10/20 09:26:40  raback
+! * Added subroutine for setting Dirichlet conditions and nodal loads in the body.
+! *
 ! * Revision 1.26  2006/10/06 13:07:20  jpr
 ! * *** empty log message ***
 ! *
@@ -143,7 +146,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.26 2006/10/06 13:07:20 jpr Exp $
+! * $Id: SolverUtils.src,v 1.27 2006/10/20 09:26:40 raback Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -1890,53 +1893,56 @@ END SUBROUTINE SetDirichletBulk
     CHARACTER(LEN=MAX_NAME_LEN) :: tmpname
     INTEGER :: i
     TYPE(Mesh_t), POINTER :: Mesh
-    TYPE(Variable_t), POINTER :: Var,Var1
+    TYPE(Variable_t), POINTER :: Var,Var1, PrimVar
 !------------------------------------------------------------------------------
     Mesh => TopMesh
 
+    PrimVar => VariableGet( PrimaryMesh % Variables, Name, ThisOnly=.TRUE.)
+
     DO WHILE( ASSOCIATED(Mesh) )
       IF ( .NOT.ASSOCIATED( PrimaryMesh, Mesh) ) THEN
-        Var => VariableGet( Mesh % Variables, Name, .TRUE.)
+        Var => VariableGet( Mesh % Variables, Name, ThisOnly=.TRUE.)
         IF ( ASSOCIATED( Var ) ) THEN
           Var % Valid = .FALSE.
           Var % PrimaryMesh => PrimaryMesh
-          IF ( Var % DOFs > 1 ) THEN
-            IF ( Var % Name == 'flow solution' ) THEN
-              Var1 => VariableGet( Mesh % Variables, 'Velocity 1', .TRUE.)
-              IF ( ASSOCIATED( Var1 ) ) THEN
-                 Var1 % Valid = .FALSE.
-                 Var1 % PrimaryMesh => PrimaryMesh
-              END IF
-              Var1 => VariableGet( Mesh % Variables, 'Velocity 2', .TRUE.)
-              IF ( ASSOCIATED( Var1 ) ) THEN
-                 Var1 % Valid = .FALSE.
-                 Var1 % PrimaryMesh => PrimaryMesh
-              END IF
-              Var1 => VariableGet( Mesh % Variables, 'Velocity 3', .TRUE.)
-              IF ( ASSOCIATED( Var1 ) ) THEN
-                 Var1 % Valid = .FALSE.
-                 Var1 % PrimaryMesh => PrimaryMesh
-              END IF
-              Var1 => VariableGet( Mesh % Variables, 'Pressure', .TRUE.)
-              IF ( ASSOCIATED( Var1 ) ) THEN
-                 Var1 % Valid = .FALSE.
-                 Var1 % PrimaryMesh => PrimaryMesh
-              END IF
-              Var1 => VariableGet( Mesh % Variables, 'Surface', .TRUE.)
-              IF ( ASSOCIATED( Var1 ) ) THEN
-                 Var1 % Valid = .FALSE.
-                 Var1 % PrimaryMesh => PrimaryMesh
-              END IF
-            ELSE
-              DO i=1,Var % DOFs
-                tmpname = ComponentName( Name, i )
-                Var1 => VariableGet( Mesh % Variables, tmpname, .TRUE. )
-                IF ( ASSOCIATED( Var1 ) ) THEN
-                   Var1 % Valid = .FALSE.
-                   Var1 % PrimaryMesh => PrimaryMesh
-                END IF
-              END DO
+        END IF
+
+        IF ( PrimVar % DOFs > 1 ) THEN
+          IF ( PrimVar % Name == 'flow solution' ) THEN
+            Var1 => VariableGet( Mesh % Variables, 'Velocity 1', .TRUE.)
+            IF ( ASSOCIATED( Var1 ) ) THEN
+               Var1 % Valid = .FALSE.
+               Var1 % PrimaryMesh => PrimaryMesh
             END IF
+            Var1 => VariableGet( Mesh % Variables, 'Velocity 2', .TRUE.)
+            IF ( ASSOCIATED( Var1 ) ) THEN
+               Var1 % Valid = .FALSE.
+               Var1 % PrimaryMesh => PrimaryMesh
+            END IF
+            Var1 => VariableGet( Mesh % Variables, 'Velocity 3', .TRUE.)
+            IF ( ASSOCIATED( Var1 ) ) THEN
+               Var1 % Valid = .FALSE.
+               Var1 % PrimaryMesh => PrimaryMesh
+            END IF
+            Var1 => VariableGet( Mesh % Variables, 'Pressure', .TRUE.)
+            IF ( ASSOCIATED( Var1 ) ) THEN
+               Var1 % Valid = .FALSE.
+               Var1 % PrimaryMesh => PrimaryMesh
+            END IF
+            Var1 => VariableGet( Mesh % Variables, 'Surface', .TRUE.)
+            IF ( ASSOCIATED( Var1 ) ) THEN
+               Var1 % Valid = .FALSE.
+               Var1 % PrimaryMesh => PrimaryMesh
+            END IF
+          ELSE
+            DO i=1,PrimVar % DOFs
+              tmpname = ComponentName( Name, i )
+              Var1 => VariableGet( Mesh % Variables, tmpname, .TRUE. )
+              IF ( ASSOCIATED( Var1 ) ) THEN
+                 Var1 % Valid = .FALSE.
+                 Var1 % PrimaryMesh => PrimaryMesh
+              END IF
+            END DO
           END IF
         END IF
       END IF
