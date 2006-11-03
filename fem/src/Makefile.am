@@ -201,6 +201,7 @@ EXTRA_DIST = \
 	Interpolation.src \
 	IterSolve.src \
 	KESolver.src \
+	LevelSet.src \
 	LinearAlgebra.src \
 	Lists.src \
 	Load.c \
@@ -265,6 +266,7 @@ EXTRA_DIST = \
 	ViewFactors.src \
 	Walls.src \
 	elements.def \
-	f_stubs.c \
-	elmerf90.in \
+	f_stubs.c    \
+	elmerf90.in  \
+	_muldc3.oo   \
 	SOLVER.KEYWORDS
