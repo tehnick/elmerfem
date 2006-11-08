@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MainUtils.src,v $
+! * Revision 1.15  2006/11/03 08:31:03  jpr
+! * *** empty log message ***
+! *
 ! *
 ! * Revision 1.13  2006/10/09 09:33:52  jpr
 ! * Added 'exec interval'-keyword to solver stuff.
@@ -85,7 +88,7 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.src,v 1.14 2006/10/30 12:37:41 jpr Exp $
+! * $Id: MainUtils.src,v 1.15 2006/11/03 08:31:03 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MainUtils
@@ -199,7 +202,7 @@ CONTAINS
 
     INTEGER, POINTER :: Perm(:)
 
-    INTEGER :: i,j,k,NDeg,Nrows,nSize,n,DOFs,MatrixFormat,istat
+    INTEGER :: i,j,k,l,NDeg,Nrows,nSize,n,DOFs,MatrixFormat,istat
     INTEGER :: MaxDGDOFs, MaxNDOFs, MaxEDOFs, MaxFDOFs, MaxBDOFs
 
     LOGICAL :: Found, BandwidthOptimize, EigAnal, ComplexFlag, &
@@ -635,7 +638,6 @@ CONTAINS
 
           IF ( Ndeg >= 1 .AND. Found ) THEN
              DOFs = ListGetInteger( Solver % Values, 'Variable DOFs', Found, minv=1 )
-
              IF ( .NOT. Found ) THEN
                j = 0
                DOFs = 0
@@ -716,19 +718,29 @@ CONTAINS
        END IF
 
 
-       i = 1
+       l = 1
        DO WHILE( .TRUE. )
-          str = ComponentName( 'exported variable', i )
+          str = ComponentName( 'exported variable', l )
           var_name = ListGetString( Solver % Values, str, Found )
 
           IF ( Found ) THEN
-             str = TRIM( ComponentName( 'exported variable', i ) ) // ' Output'
+             str = TRIM( ComponentName( 'exported variable', l ) ) // ' Output'
              VariableOutput = ListGetLogical( Solver % Values, str, Found )
              IF ( .NOT. Found ) VariableOutput = .TRUE.
 
-             str = TRIM( ComponentName( 'exported variable', i ) ) // ' DOFs'
+             str = TRIM( ComponentName( 'exported variable', l ) ) // ' DOFs'
              DOFs = ListGetInteger( Solver % Values, str, Found )
-             IF ( .NOT. Found ) DOFs = 1
+             IF ( .NOT. Found ) THEN
+               j = 0
+               DOFs = 0
+               DO WHILE( .TRUE. )
+                 i = INDEX( var_name(j+1:), ':' ) + j
+                 IF ( i<=j ) EXIT
+                 READ( var_name(i+1:),'(i1)' ) k
+                 DOFs = DOFs + k
+                 j = i + 1
+               END DO
+             END IF
 
              VariableOutput = .TRUE.
              DO WHILE( var_name(1:1) == '-' )
@@ -748,10 +760,11 @@ CONTAINS
                    var_name(1:LEN(var_name)-(k+2)) = var_name(k+1:)
                 END IF
              END DO
+             IF ( DOFs == 0 ) DOFs = 1
 
              NewVariable => VariableGet( Solver % Mesh % Variables, TRIM(Var_name) )
 
-             IF ( .NOT. ASSOCIATED( NewVariable ) ) THEN
+             IF ( .NOT. ASSOCIATED(NewVariable) ) THEN
                nSize = Nrows * DOFs / Solver % Variable % DOFs
                ALLOCATE( Solution(nSize) )
                Solution = 0.0d0
@@ -773,7 +786,7 @@ CONTAINS
           ELSE
              EXIT
           END IF
-          i = i + 1
+          l = l + 1
        END DO
 
        str = ListGetString( Solver  % Values, 'Procedure' )

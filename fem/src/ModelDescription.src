@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ModelDescription.src,v 1.23 2006/10/13 06:32:04 jpr Exp $
+! * $Id: ModelDescription.src,v 1.24 2006/10/31 11:02:28 jpr Exp $
 ! *****************************************************************************/
 
 MODULE ModelDescription
@@ -2418,6 +2418,9 @@ CONTAINS
                      j = j + 1
                    END DO
                    str(j+1:j+1) = CHAR(ICHAR(str(j+1:j+1))-ICHAR('a')+ICHAR('A'))
+                   DO l=j+1,i-1
+                     IF ( str(l:l) == ' ' ) str(l:l) = '.'
+                   END DO
                    IF ( k==1 ) THEN
                      WRITE(PostFileUnit,'(a,a)',ADVANCE='NO' ) ' scalar: ',str(j+1:i-1)
                    ELSE IF ( k<= 3 ) THEN
