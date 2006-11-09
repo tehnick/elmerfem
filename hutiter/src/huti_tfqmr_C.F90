@@ -2,7 +2,7 @@
 !
 ! Subroutines to implement Transpose Free QMR iteration
 !
-! $Id: huti_tfqmr_C.F90,v 1.5 2005/05/04 09:57:48 vierinen Exp $
+! $Id: huti_tfqmr_C.F90,v 1.8 2005/06/02 15:35:28 vierinen Exp $
 
 
 
@@ -125,7 +125,7 @@ subroutine  huti_ctfqmrsolv  ( ndim, wrkdim, xvec, rhsvec, ipar,&
 
   ! Local variables
 
-  complex :: rho, oldrho, eta, tau, gamma, oldgamma, alpha
+  complex :: rho, oldrho=0, eta, tau, gamma, oldgamma=0, alpha
   complex :: beta, c
   integer :: iter_count
 

@@ -2,7 +2,7 @@
 !
 ! Subroutines to implement Conjugate Gradient iterative method
 !
-! $Id: huti_cg_S.F90,v 1.5 2005/05/04 09:57:36 vierinen Exp $
+! $Id: huti_cg_S.F90,v 1.8 2005/06/02 15:35:26 vierinen Exp $
 
 
 
@@ -104,7 +104,7 @@ subroutine  huti_scgsolv  ( ndim, wrkdim, xvec, rhsvec, &
 
   ! Local variables
 
-  real :: alpha, beta, rho, oldrho
+  real :: alpha, beta, rho, oldrho=0
   integer iter_count
   real :: residual, rhsnorm, precrhsnorm
 

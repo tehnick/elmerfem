@@ -2,7 +2,7 @@
 !
 ! Subroutines to implement Conjugate Gradient Squared iteration
 !
-! $Id: huti_cgs_C.F90,v 1.5 2005/05/04 09:57:37 vierinen Exp $
+! $Id: huti_cgs_C.F90,v 1.8 2005/06/02 15:35:26 vierinen Exp $
 
 
 
@@ -113,7 +113,7 @@ subroutine  huti_ccgssolv  ( ndim, wrkdim, xvec, rhsvec, ipar,&
 
   ! Local variables
 
-  complex :: rho, oldrho, alpha, beta
+  complex :: rho, oldrho=0, alpha, beta
   integer :: iter_count
 
   real :: residual, rhsnorm, precrhsnorm

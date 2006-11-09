@@ -2,7 +2,7 @@
 !
 ! Subroutine to implement QMR iterative method (double complex)
 !
-! $Id: huti_qmr_C.F90,v 1.5 2005/05/04 09:57:41 vierinen Exp $
+! $Id: huti_qmr_C.F90,v 1.8 2005/06/02 15:35:27 vierinen Exp $
 
 
 
@@ -135,8 +135,8 @@ subroutine  huti_cqmrsolv  ( ndim, wrkdim, xvec, rhsvec, &
 
   ! Local variables
 
-  complex :: beta, gamma, oldgamma, delta, rho, rhonext
-  complex :: psi, theta, oldtheta, eta, epsilon
+  complex :: beta, gamma, oldgamma=0, delta, rho, rhonext
+  complex :: psi, theta, oldtheta=0, eta, epsilon
   integer iter_count
   real :: residual, rhsnorm, precrhsnorm
 
