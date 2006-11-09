@@ -48,7 +48,6 @@ static const char *getline(FILE *fd, size_t *len)
     i = 0;
     while ((c = fgetc(fd)) != '\n' && c != EOF) {
         if (i == linesize) {
-            fprintf(stderr,"Pihoo! %i\n", i);
             linesize = linesize ? linesize*2 : MAXLINESIZE;
             line = realloc(line, linesize);
             assert(line);  /* TODO: Prettier error checking.  */
