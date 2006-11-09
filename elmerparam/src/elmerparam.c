@@ -221,7 +221,7 @@ static void create_input(const param_t *p, const char *fname,
     char line[MAXLINESIZE], *input;
 
     if ((model = fopen(mname, "r")) == NULL) {
-        fprintf(stderr, PKG_NAME "Can't open file %s for reading: %s\n",
+        fprintf(stderr,PKG_NAME "Can't open template file %s for reading: %s\n",
                 mname, strerror(errno));
         return;
     }
@@ -264,14 +264,15 @@ static void read_output(param_t *p, const char *fname, const char *mname)
 
 
     if ((model = fopen(mname, "r")) == NULL) {
-        fprintf(stderr, PKG_NAME "Can't open file %s for reading: %s\n",
+        fprintf(stderr,PKG_NAME "Can't open template file %s for reading: %s\n",
                 mname, strerror(errno));
         return;
     }
 
     if ((file = fopen(fname, "r")) == NULL) {
         fclose(model);
-        fprintf(stderr, PKG_NAME "Can't open file %s for reading: %s\n",
+        fprintf(stderr, PKG_NAME 
+                "Can't open outputfile file %s for reading: %s\n",
                 fname, strerror(errno));
         return;
     }
@@ -303,7 +304,7 @@ static void save_result_line(const param_t *p, const char *fname)
         printf("Writing result line to output file %s\n", fname);
 
     if ((file = fopen(fname, "a")) == NULL) {
-        fprintf(stderr, PKG_NAME "Can't open file %s for appending: %s\n",
+        fprintf(stderr,PKG_NAME "Can't open save file %s for appending: %s\n",
                 fname, strerror(errno));
         return;
     }
@@ -433,7 +434,7 @@ static void generic_function(param_t *p)
     fclose(in);
 
     if ((in = fopen(p->cmdfile, "r")) == NULL) {
-        fprintf(stderr, PKG_NAME "Can't open file %s for reading: %s\n",
+        fprintf(stderr, PKG_NAME "Can't open command file %s for reading: %s\n",
                 p->cmdfile, strerror(errno));
         fputs(instructions, stderr);
         return;

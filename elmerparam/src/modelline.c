@@ -33,6 +33,49 @@
 #include <ctype.h>
 #include "modelline.h"
 
+
+/* Read a line and return a pointer to it, and put the line length into 'len'.
+ * Return NULL for EOF.  NOTE:  Next call to this function will change the
+ * content of the memory area pointed to -- make a copy if you need to store the
+ * read data for some longer period.  */
+
+static const char *getline(FILE *fd, size_t *len)
+{
+    static char *line = NULL;
+    static size_t linesize = 0;
+    int i, c;
+
+    i = 0;
+    while ((c = fgetc(fd)) != '\n' && c != EOF) {
+        if (i == linesize) {
+            fprintf(stderr,"Pihoo! %i\n", i);
+            linesize = linesize ? linesize*2 : MAXLINESIZE;
+            line = realloc(line, linesize);
+            assert(line);  /* TODO: Prettier error checking.  */
+        }
+
+        line[i++] = c;
+    }
+
+    if (i == 0 && c == EOF) {
+        if (line) free(line);
+        line = NULL;
+        linesize = 0;
+    } else { 
+        /* Make room for a '\0' at the end.  */
+        if (i == linesize) {
+            linesize += 1;
+            line = realloc(line, linesize);
+            assert(line);  /* TODO: Prettier error checking.  */
+        }
+        line[i] = '\0';
+    }
+    
+    *len = i;
+    return line;
+}
+
+
 /* Get parameter type (I, R, O, T) from s and put it in *t.  In case of
  * error, print error message to stderr and put '\0' in *t, Return number of
  * characters consumed (i.e. 1).  */
@@ -432,17 +475,17 @@ static int read_param_node(ml_node_t *node, int row, const char *line,
 
 void ml_read(modelline_t *ml, FILE *fd, param_t *p)
 {
-    int row, i, len;
+    int row, i;
+    size_t len;
     ml_node_t *node;
-    char line[MAXLINESIZE], *input;
+    const char *line;
 
     for (row = 0; row < nrow(ml, p); row++) {
-        input = fgets(line, MAXLINESIZE, fd);
-        if (!input) {
+        line = getline(fd, &len);
+        if (!line) {
             fprintf(stderr, PKG_NAME "Premature end of input\n");
             return;
         }
-        len = strlen(line);
         i = 0;
         for (node = ml->line; node; node = node->next) {
             switch (node->type) {
@@ -453,6 +496,7 @@ void ml_read(modelline_t *ml, FILE *fd, param_t *p)
                 break;
             case ML_PARAM:
                 if (i >= len) {
+                    /* TODO: More informative error message.  */
                     fprintf(stderr, PKG_NAME "Premature end of line; "
                                              "expected parameter\n");
                     break;
