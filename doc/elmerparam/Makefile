@@ -23,6 +23,7 @@ LATEX=latex
 .png.eps:
 	convert $< $@
 
+all: manual
 
 include .depend
 

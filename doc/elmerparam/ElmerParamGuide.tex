@@ -51,10 +51,10 @@ In this document, the following designations are used:
 \begin{tabbing}
     \code{[whatever]} \hspace{2em} \= \code{whatever} is optional.\\
     $A$|$B$              \> either $A$ xor $B$.\\
-    \textit{<numexpr>}   \> \parbox[t]{0.70\textwidth}{can be either a
-                            literal numerical constant or a ``\code{\$}''
-                            followed by a MATC expression.  See section
-                            \ref{MATC} for more on MATC}\\
+    %\textit{<numexpr>}   \> \parbox[t]{0.70\textwidth}{can be either a
+    %                        literal numerical constant or a ``\code{\$}''
+    %                        followed by a MATC expression.  See section
+    %                        \ref{MATC} for more on MATC}\\
     \code{\$\{ELMER\_HOME\}} \> \parbox[t]{0.70\textwidth}{Environment
                             variable supposed to be set to the directory
                             where Elmer (including ElmerParam) was
@@ -178,10 +178,10 @@ Save history data of all the computations in file \code{fname}.  If
 this keyword is active all the input parameters and the function return
 value are saved to a line that is appended in the given file.
 
-\item{\code{Parameter X$n$ = }\textit{<numexpr>}}
-
-Assign a value to parameter \code{X$n$}, where \code{X} is either \code{I}
-for integer parameter, or \code{R} for real.
+%\item{\code{Parameter X$n$ = }\textit{<numexpr>}}
+%
+%Assign a value to parameter \code{X$n$}, where \code{X} is either \code{I}
+%for integer parameter, or \code{R} for real.
 
 %\item{\code{Parameter min|max X$n$ =} \textit{<numexpr>}}
 %
@@ -189,10 +189,10 @@ for integer parameter, or \code{R} for real.
 %outside the defined limits then the routine is terminated and a default
 %value for the function is returned.
 
-\item{\code{[Cost] Function  =} \textit{<numexpr>}}
-
-Set the return value (scalars only).  Note that the return value can also
-be read from an output file as the special parameter O.
+%\item{\code{[Cost] Function  =} \textit{<numexpr>}}
+%
+%Set the return value (scalars only).  Note that the return value can also
+%be read from an output file as the special parameter O.
 
 \item{\code{\$}\textit{<expression>}}
 
@@ -221,24 +221,22 @@ may be used, for example, to evaluate the values of the parameters.  The
 MATC extensions are by default not evaluated and the variable \code{MATC}
 need to be set \code{True} to activate the library. 
 
-In MATC, the real parameters are stored in a vector called \code{R}, and
-integer paremeters in the vector \code{I}.  Thus, \code{R}$n$ can be
-accessed through \code{R($n$)}, and so on.  Note that the MATC variables
-\code{R} and \code{I} are local to MATC; assigning new values to them will
-\textit{not} change the values of corresponding R and I parameters in
-ElmerParam.  For that, use the \code{PARAMETER} statements.
+In MATC, the real parameters are stored in a vector called \code{R}, 
+integer paremeters in the vector \code{I}, and the function result in the
+vector \code{O}.  Thus, \code{R}$n$ can be
+accessed through \code{R($n$)}, and so on.
 
 Below is an example command file that shows how the MATC library may be
 used.
 \ttbegin
 Comment = Testing routine
 MATC = True
-\$ apu1 = R(1) + R(2)
+\$ apu1 = R(0) + R(1)
 \$ apu2 = sin(apu1)
-Parameter R2 = \$ apu2 
-Parameter I1 = 5
-Parameter I2 = \$ sum(I(3:5))
-Cost Function = \$ R(1) + R(2) + I(1)
+\$ R(1) = apu2 
+\$ I(0) = 5
+\$ I(1) = sum(I(2:4))
+\$ O = R(0) + R(1) + I(0)
 \ttend
 
 
