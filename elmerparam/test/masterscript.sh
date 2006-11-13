@@ -14,7 +14,7 @@ for t in *; do
             printf "\t[PASSED]\n"
         else
             m=$(($m+1))
-            printf "\t[FAILED] look at %s/test.log for details\n" $t
+            printf "\t[FAILED]\n" $t
         fi
         cd ..
     fi

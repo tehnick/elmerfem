@@ -69,7 +69,6 @@ const char instructions[] = "\n"
 
 static void param_init(param_t *p)
 {
-    p->isfun = FALSE;
     p->xr = p->fun = NULL;
     p->xi = NULL;
     /* p->fun = DEFAULT_FUN; */
@@ -79,7 +78,6 @@ static void param_init(param_t *p)
     p->tag[0] = '\0';
     p->lnr = 0;
 }
-
 
 /* Replace <!T!> with 'tag' everywhere in 's'.  */
 
@@ -317,7 +315,7 @@ static void save_result_line(const param_t *p, const char *fname)
         for (i = 0; i < da_n(p->xr); i++)
             fprintf(file, "%.6e ", dr_get(p->xr,i));
     }
-    if (p->isfun) {
+    if (da_n(p->fun) > 0) {
         for (i = 0; i < da_n(p->fun); i++)
             fprintf(file, "%.6e ", dr_get(p->fun,i));
     }
@@ -420,6 +418,7 @@ static void generic_function(param_t *p)
     FILE *in;
     int i, xilim, minmax, isint, len;
     double xrlim, tmp;
+    int last_was_matc = FALSE;
 
     if ((in = fopen("ELMERPARAM_STARTINFO", "r")) == NULL) {
         fprintf(stderr,
@@ -451,6 +450,21 @@ static void generic_function(param_t *p)
         }
 
         expand_tag(p, params);
+
+        /* Give special treatment to MATC code.  */
+        if (command[0] == '$' && p->usematc) {
+            MTC_DOMATH(params);
+            last_was_matc = TRUE;
+            continue;
+        }
+
+        /* Update local representations of I, R and O (might have been modified
+         * by MATC).  */
+        if (last_was_matc) {
+            p->xi = di_set_from_matc(p->xi, "I");
+            p->xr = dr_set_from_matc(p->xr, "R");
+            p->fun = dr_set_from_matc(p->fun, "O");
+        }
 
         if (strcmp(command, "COMMENT") == 0)
             printf("***\n*** %s\n***\n", params);
@@ -497,7 +511,6 @@ static void generic_function(param_t *p)
 
         else if (strcmp(command, "COST FUNCTION") == 0
                  || strcmp(command, "FUNCTION") == 0) {
-            p->isfun = 1;
             if (p->usematc) {
                 if ((matcpntr = strstr(params, "$"))) {
                     matcpntr = MTC_DOMATH(&matcpntr[1]);
@@ -573,22 +586,29 @@ static void generic_function(param_t *p)
             sscanf(params, "%s", fname);
             save_result_line(p, fname);
         }
-        else if (command[0] == '$' && p->usematc)
-            MTC_DOMATH(params);
         else {
             fprintf(stderr, PKG_NAME "%s, line %i: Unknown command '%s'\n",
                     p->cmdfile, p->lnr, command);
             return;
         }
 
+        last_was_matc = FALSE;
     }
 
   done:
 
+    /* Update local representations of I, R and O (might have been modified
+     * by MATC).  */
+    if (last_was_matc) {
+        p->xi = di_set_from_matc(p->xi, "I");
+        p->xr = dr_set_from_matc(p->xr, "R");
+        p->fun = dr_set_from_matc(p->fun, "O");
+    }
+
     fclose(in);
 
     if (p->info) {
-        if (p->isfun) {
+        if (da_n(p->fun) > 0) {
             printf("Function Result = [");
             for (i = 0; i < da_n(p->fun); i++)
                 printf(" %.6e ", dr_get(p->fun,i));

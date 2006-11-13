@@ -28,7 +28,10 @@
  */
 #include <stdlib.h>
 #include <assert.h>
+#include <ctype.h>
+#include <string.h>
 #include "dynarray.h"
+#include "global.h"
 
 /* Set the i:th value of 'da' to 'val'.  If 'da' is NULL, a new
    dynarray_t will be created and returned. */
@@ -70,6 +73,45 @@ da_numeric_t dynarray_get(dynarray_t *da, int i)
         return dynarray_get(da->next, i-DYNARRAY_ALEN);
     else
         return da->a[i];
+}
+
+/* Set 'da' to the MATC variable 'var'.  */
+
+dynarray_t *dynarray_set_from_matc(dynarray_t *da, char type, const char *var)
+{
+    char *p;
+    int i;
+    da_numeric_t val;
+
+    p = MTC_DOMATH(var);
+
+    if (p == NULL || strncmp(p, "MATC ERROR: Undeclared identifier", 33) == 0)
+        return da;
+
+    i = 0;
+    while (*p) {
+        if (isspace(*p)) {
+            p++;
+            continue;
+        }
+
+        assert(isdigit(*p));
+
+        switch (type) {
+        case 'i':
+            val.i = strtol(p, &p, 10);
+            break;
+        case 'r':
+            val.r = strtod(p, &p);
+            break;
+        default:
+            assert(FALSE);
+        }
+        
+        da = dynarray_set(da, i++, val);
+    }
+
+    return da;
 }
 
 

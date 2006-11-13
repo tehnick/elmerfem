@@ -70,6 +70,7 @@ typedef struct {
 
 
 dynarray_t *dynarray_set(dynarray_t *da, int i, da_numeric_t val);
+dynarray_t *dynarray_set_from_matc(dynarray_t *da, char type, const char *var);
 da_numeric_t dynarray_get(dynarray_t *da, int i);
 void dynarray_kill(dynarray_t *da);
 
@@ -95,6 +96,20 @@ static inline dareal_t *dr_set(dareal_t *dr, int i, double val)
     return (dareal_t *)dynarray_set((dynarray_t *)dr, i, u);
 }
 
+
+/* Set 'dr' to the MATC variable 'var'.  */
+
+static inline dareal_t *dr_set_from_matc(dareal_t *dr, const char *var)
+{
+    return (dareal_t *)dynarray_set_from_matc((dynarray_t *)dr, 'r', var);
+}
+
+/* Set 'dr' to the MATC variable 'var'.  */
+
+static inline daint_t *di_set_from_matc(daint_t *di, const char *var)
+{
+    return (daint_t *)dynarray_set_from_matc((dynarray_t *)di, 'i', var);
+}
 
 /* Get the value of i:th element of '*di'.  If it hasn't been assigned (using
  * di_set(), it's value is undefined (not necessarily 0!)  */

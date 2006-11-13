@@ -31,6 +31,7 @@
 #define _GLOBAL_H_
 
 #include <float.h>
+#include <stdio.h>
 #include "config.h"
 #include "dynarray.h"
 
@@ -42,7 +43,7 @@
 #define PKG_NAME "ElmerParam: "
 
 #ifndef DISABLE_MATC
-    char *mtc_domath(char *);
+    char *mtc_domath(const char *);
     void mtc_init(FILE * input, FILE * output, FILE * error);
 
 #   define MTC_DOMATH(cmd) mtc_domath(cmd)
@@ -53,6 +54,10 @@
         mtc_init(NULL, stdout, stderr);\
         strcpy(command, "format( 12, \"rowform\")");\
         mtc_domath(command);\
+        for (i = 0; i < da_n(p->fun); i++) {\
+            sprintf(command, "O(%d) = %e", i, dr_get(p->fun,i));\
+            mtc_domath(command);\
+        }\
         for (i = 0; i < da_n(p->xr); i++) {\
             sprintf(command, "R(%d) = %e", i, dr_get(p->xr,i));\
             mtc_domath(command);\
@@ -79,7 +84,7 @@ typedef struct {
     dareal_t *xr;
     dareal_t *fun;
 
-    int info, usematc, isfun;
+    int info, usematc;
 
     int taglen;
     char tag[MAXLINESIZE];

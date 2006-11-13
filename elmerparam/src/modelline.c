@@ -429,7 +429,6 @@ static int read_param_node(ml_node_t *node, int row, const char *line,
         break;
 
     case 'O':
-        p->isfun = TRUE;
         if (!node->u.p.column && (all || node->u.p.len > 1)) {
 
             /* Row vector. */
@@ -442,6 +441,11 @@ static int read_param_node(ml_node_t *node, int row, const char *line,
 
                 if (p->info)
                     printf("Read value %e for O%i\n", dr_get(p->fun,k), k);
+
+                if (p->usematc) {
+                    sprintf(command, "O(%d) = %e", k, dr_get(p->fun,k));
+                    MTC_DOMATH(command);
+                }
             }
 
         } else {
@@ -458,6 +462,11 @@ static int read_param_node(ml_node_t *node, int row, const char *line,
 
             if (p->info)
                 printf("Read value %e for O%i\n", dr_get(p->fun,k), k);
+
+            if (p->usematc) {
+                sprintf(command, "O(%d) = %e", k, dr_get(p->fun,k));
+                MTC_DOMATH(command);
+            }
         }
         break;
 
