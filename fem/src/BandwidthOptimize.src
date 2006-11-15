@@ -40,7 +40,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: $
+! * $Id: BandwidthOptimize.src,v 1.5 2006/01/10 08:32:49 apursula Exp $
 ! ******************************************************************************
 
 !-------------------------------------------------------------------------------
@@ -156,6 +156,7 @@ CONTAINS
          StartNode = i
          MinDegree = ListMatrix(i) % Degree
        END IF
+       ListMatrix(i) % Level = 0
      END DO
 
      ALLOCATE(DoneAlready(LocalNodes))
@@ -216,7 +217,6 @@ CONTAINS
           IF ( k==0 ) k = i
           PermLocal(i) = k
           Donealready(k) = .TRUE.
-          Index = Index + 1
         END IF
         CALL Renumber( ListMatrix(PermLocal(i)) % Head )
      END DO
@@ -587,7 +587,7 @@ NOT CURRENT AT THE MOMENT...
 
          TYPE(ElementList_t), POINTER :: p
          TYPE(Element_t),POINTER :: Element
-         INTEGER :: i,j,k,l,n,Ind(50),Deg(50)
+         INTEGER :: i,j,k,l,n,Ind(500),Deg(500)
 
          p => Current
          n = 0
