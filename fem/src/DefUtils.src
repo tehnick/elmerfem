@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: DefUtils.src,v $
+! * Revision 1.23  2006/10/20 09:26:41  raback
+! * Added subroutine for setting Dirichlet conditions and nodal loads in the body.
+! *
 ! * Revision 1.22  2006/10/12 10:34:57  jpr
 ! * *** empty log message ***
 ! *
@@ -142,7 +145,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.22 2006/10/12 10:34:57 jpr Exp $
+! * $Id: DefUtils.src,v 1.23 2006/10/20 09:26:41 raback Exp $
 ! *
 ! *****************************************************************************/
 
@@ -393,6 +396,7 @@ CONTAINS
         l = ListGetLogical( List, Name )
      END IF
   END FUNCTION
+
 
 
 
@@ -2530,6 +2534,33 @@ CONTAINS
      END IF
 !------------------------------------------------------------------------------
   END FUNCTION GetEdgeMap
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+  SUBROUTINE GetParentUVW( Element,n,Parent,np,u,v,w,Basis )
+!------------------------------------------------------------------------------
+    TYPE(Element_t) :: Element, Parent
+    INTEGER :: n, np
+    REAL(KIND=dp) :: u,v,w,Basis(:)
+!------------------------------------------------------------------------------
+    INTEGER :: i,j
+    REAL(KIND=dp) :: LU(n), LV(n), LW(n)
+
+    DO i = 1,n
+      DO j = 1,np
+        IF ( Element % NodeIndexes(i) == Parent % NodeIndexes(j) ) THEN
+          LU(i) = Parent % Type % NodeU(j)
+          LV(i) = Parent % Type % NodeV(j)
+          LW(i) = Parent % Type % NodeW(j)
+          EXIT
+        END IF
+      END DO
+    END DO
+    U = SUM( Basis(1:n) * LU(1:n) )
+    V = SUM( Basis(1:n) * LV(1:n) )
+    W = SUM( Basis(1:n) * LW(1:n) )
+!------------------------------------------------------------------------------
+  END SUBROUTINE GetParentUVW
 !------------------------------------------------------------------------------
 
 
