@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SaveData.src,v $
+! * Revision 1.19  2006/08/11 13:12:24  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.18  2006/08/08 14:06:45  raback
 ! * Corrected a bug in VectorStatistics of reduced set variables.
 ! *
@@ -131,7 +134,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       NoDims, NoDofs, NoOper, NoElements, NoVar, DIM, MaxVars, NoEigenValues, Ind
   REAL (KIND=DP) :: CPUTime, CPUMemory
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.18 2006/08/08 14:06:45 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.19 2006/08/11 13:12:24 jpr Exp $"
 
   SAVE SubroutineVisited, NumberOfVars, MaxNo, &
       NoPoints, PointIndex, CoordinateIndex, CoordinateDist, ResultPrefix, &
@@ -1030,11 +1033,11 @@ CONTAINS
         k = ListGetInteger( Model % Bodies( Element % BodyId ) % Values, &
             'Material', GotIt, minv=1, maxv=Model % NumberOfMaterials )
 
-        CALL ListGetRealArray( Model % Materials(k) % Values, &
-            TRIM(CoeffName), Pwrk, n, NodeIndexes, gotIt )
-
         EnergyTensor = 0.0d0
-        IF(GotIt) THEN
+        IF(GotCoeff) THEN
+          CALL ListGetRealArray( Model % Materials(k) % Values, &
+              TRIM(CoeffName), Pwrk, n, NodeIndexes )
+
           IF ( SIZE(Pwrk,1) == 1 ) THEN
             DO i=1,3
               EnergyTensor( i,i,1:n ) = Pwrk( 1,1,1:n )
@@ -1056,14 +1059,16 @@ CONTAINS
           END DO
         END IF
 
+
         CASE ('potential energy','convective energy','volume')
         k = ListGetInteger( Model % Bodies( Element % BodyId ) % Values, &
             'Material', GotIt, minv=1, maxv=Model % NumberOfMaterials )
 
         IF(GotCoeff) THEN
           EnergyCoeff = ListGetReal( Model % Materials(k) % Values, &
-              TRIM(CoeffName), n, NodeIndexes(1:n), gotIt )
-          IF(.NOT. GotIt) EnergyCoeff(1:n) = 1.0d0
+              TRIM(CoeffName), n, NodeIndexes(1:n) )
+        ELSE
+          EnergyCoeff(1:n) = 1.0d0
         END IF
 
       END SELECT
@@ -1338,43 +1343,40 @@ CONTAINS
           ParentNodes % y(1:pn) = Mesh % Nodes % y(ParentIndexes(1:pn))
           ParentNodes % z(1:pn) = Mesh % Nodes % z(ParentIndexes(1:pn))
 
-          GotIt = .FALSE.
           EnergyTensor = 0._dp
 
           IF(GotCoeff) THEN
-            CALL ListGetRealArray( Material, CoeffName, Pwrk, &
-                pn, ParentIndexes, gotIt )
+            CALL ListGetRealArray( Material, CoeffName, Pwrk, pn, ParentIndexes )
 
-            IF(GotIt) THEN
-              IF ( SIZE(Pwrk,1) == 1 ) THEN
-                DO i=1,3
-                  EnergyTensor( i,i,1:pn ) = Pwrk( 1,1,1:pn )
+            IF ( SIZE(Pwrk,1) == 1 ) THEN
+              DO i=1,3
+                EnergyTensor( i,i,1:pn ) = Pwrk( 1,1,1:pn )
+              END DO
+            ELSE IF ( SIZE(Pwrk,2) == 1 ) THEN
+              DO i=1,MIN(3,SIZE(Pwrk,1))
+                EnergyTensor(i,i,1:pn) = Pwrk(i,1,1:pn)
+              END DO
+            ELSE
+              DO i=1,MIN(3,SIZE(Pwrk,1))
+                DO j=1,MIN(3,SIZE(Pwrk,2))
+                  EnergyTensor( i,j,1:pn ) = Pwrk(i,j,1:pn)
                 END DO
-              ELSE IF ( SIZE(Pwrk,2) == 1 ) THEN
-                DO i=1,MIN(3,SIZE(Pwrk,1))
-                  EnergyTensor(i,i,1:pn) = Pwrk(i,1,1:pn)
-                END DO
-              ELSE
-                DO i=1,MIN(3,SIZE(Pwrk,1))
-                  DO j=1,MIN(3,SIZE(Pwrk,2))
-                    EnergyTensor( i,j,1:pn ) = Pwrk(i,j,1:pn)
-                  END DO
-                END DO
-              END IF
+              END DO
             END IF
-          END IF
-
-          IF(.NOT. GotIt) THEN
+          ELSE
             DO i=1,3          
               EnergyTensor(i,i,1:pn) = 1.0d0
             END DO
           END IF
-
           EnergyCoeff(1:n) = 1.0D00
+
           CASE ('convective flux','area')
-          EnergyCoeff(1:n) = ListGetReal( Material, CoeffName, n, NodeIndexes, gotIt )
-          IF(.NOT. GotIt) EnergyCoeff(1:n) = 1.0d0
-          
+          IF(GotCoeff) THEN
+	    EnergyCoeff(1:n) = ListGetReal( Material, CoeffName, n, NodeIndexes )
+          ELSE
+            EnergyCoeff(1:n) = 1.0d0
+          END IF          
+
         END SELECT
 
 !------------------------------------------------------------------------------
@@ -1941,7 +1943,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t), POINTER   :: CurrentElement, NextElement
   CHARACTER(LEN=MAX_NAME_LEN) :: SideFile, SideNamesFile, VarName, CondName, SideParFile
   CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: ValueNames(:)
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.18 2006/08/08 14:06:45 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.19 2006/08/11 13:12:24 jpr Exp $"
 
   LOGICAL :: cand, Parallel
 
