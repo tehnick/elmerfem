@@ -145,7 +145,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.23 2006/10/20 09:26:41 raback Exp $
+! * $Id: DefUtils.src,v 1.24 2006/11/15 12:28:22 jpr Exp $
 ! *
 ! *****************************************************************************/
 
@@ -2544,21 +2544,20 @@ CONTAINS
     REAL(KIND=dp) :: u,v,w,Basis(:)
 !------------------------------------------------------------------------------
     INTEGER :: i,j
-    REAL(KIND=dp) :: LU(n), LV(n), LW(n)
 
+    U = 0.0_dp
+    V = 0.0_dp
+    W = 0.0_dp
     DO i = 1,n
       DO j = 1,np
         IF ( Element % NodeIndexes(i) == Parent % NodeIndexes(j) ) THEN
-          LU(i) = Parent % Type % NodeU(j)
-          LV(i) = Parent % Type % NodeV(j)
-          LW(i) = Parent % Type % NodeW(j)
+          U = U + Basis(i) * Parent % Type % NodeU(j)
+          V = V + Basis(i) * Parent % Type % NodeV(j)
+          W = W + Basis(i) * Parent % Type % NodeW(j)
           EXIT
         END IF
       END DO
     END DO
-    U = SUM( Basis(1:n) * LU(1:n) )
-    V = SUM( Basis(1:n) * LV(1:n) )
-    W = SUM( Basis(1:n) * LW(1:n) )
 !------------------------------------------------------------------------------
   END SUBROUTINE GetParentUVW
 !------------------------------------------------------------------------------
