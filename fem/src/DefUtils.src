@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: DefUtils.src,v $
+! * Revision 1.25  2006/11/15 12:58:06  jpr
+! * Added GetParentUVW.
+! *
 ! * Revision 1.23  2006/10/20 09:26:41  raback
 ! * Added subroutine for setting Dirichlet conditions and nodal loads in the body.
 ! *
@@ -145,7 +148,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.24 2006/11/15 12:28:22 jpr Exp $
+! * $Id: DefUtils.src,v 1.25 2006/11/15 12:58:06 jpr Exp $
 ! *
 ! *****************************************************************************/
 
@@ -163,6 +166,10 @@ MODULE DefUtils
 
    INTERFACE DefaultUpdateMass
      MODULE PROCEDURE DefaultUpdateMassR, DefaultUpdateMassC
+   END INTERFACE
+
+   INTERFACE DefaultUpdateBulk
+     MODULE PROCEDURE DefaultUpdateBulkR, DefaultUpdateBulkC
    END INTERFACE
 
    INTERFACE DefaultUpdateDamp
@@ -1316,16 +1323,17 @@ CONTAINS
   END FUNCTION DefaultSolve
 
 
-  SUBROUTINE DefaultUpdateEquationsR( G, F, UElement, USolver ) 
+  SUBROUTINE DefaultUpdateEquationsR( G, F, UElement, USolver, BulkUpdate ) 
      TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
      TYPE(Element_t), OPTIONAL, TARGET :: UElement
      REAL(KIND=dp)   :: G(:,:), f(:)
+     LOGICAL, OPTIONAL :: BulkUpdate
 
      TYPE(Solver_t), POINTER   :: Solver
      TYPE(Matrix_t), POINTER   :: A
      TYPE(Variable_t), POINTER :: x
-     REAL(KIND=dp), POINTER    :: b(:)
      TYPE(Element_t), POINTER  :: Element
+     REAL(KIND=dp), POINTER    :: b(:), SaveValues(:)
 
      INTEGER :: n
 
@@ -1346,20 +1354,38 @@ CONTAINS
 
      n = GetElementDOFs( Indexes, Element, Solver )
      CALL UpdateGlobalEquations( A,G,b,f,n,x % DOFs,x % Perm(Indexes(1:n)) )
+     IF ( PRESENT( BulkUpdate) ) THEN
+       IF ( BulkUpdate ) THEN
+           IF ( .NOT. ASSOCIATED( A % BulkRHS ) ) THEN
+             ALLOCATE( Solver % Matrix % BulkRHS(SIZE(A % RHS)) )
+             A % BulkRHS = 0.0_dp
+          END IF
+ 
+           IF ( .NOT. ASSOCIATED( A % BulkValues ) ) THEN
+             ALLOCATE( Solver % Matrix % BulkValues(SIZE(A % Values)) )
+             A % BulkValues = 0.0_dp
+          END IF
+          SaveValues => A % Values
+          A % Values => A % BulkValues
+          CALL UpdateGlobalEquations( A,G,A % BulkRHS,f,n,x % DOFs,x % Perm(Indexes(1:n)) )
+          A % Values => SaveValues
+       END IF
+     END IF
   END SUBROUTINE DefaultUpdateEquationsR
 
 
 
-  SUBROUTINE DefaultUpdateEquationsC( GC, FC, UElement, USolver ) 
+  SUBROUTINE DefaultUpdateEquationsC( GC, FC, UElement, USolver, BulkUpdate ) 
      TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
      TYPE(Element_t), OPTIONAL, TARGET :: UElement
      COMPLEX(KIND=dp)   :: GC(:,:), FC(:)
+     LOGICAL, OPTIONAL :: BulkUpdate
 
      TYPE(Solver_t), POINTER   :: Solver
      TYPE(Matrix_t), POINTER   :: A
      TYPE(Variable_t), POINTER :: x
-     REAL(KIND=dp), POINTER    :: b(:)
      TYPE(Element_t), POINTER  :: Element
+     REAL(KIND=dp), POINTER    :: b(:), SaveValues(:)
 
      REAL(KIND=dp), POINTER :: G(:,:), F(:)
 
@@ -1397,15 +1423,33 @@ CONTAINS
      END DO
 
      CALL UpdateGlobalEquations( A,G,b,f,n,x % DOFs,x % Perm(Indexes(1:n)) )
+     IF ( PRESENT( BulkUpdate) ) THEN
+       IF ( BulkUpdate ) THEN
+          IF ( .NOT. ASSOCIATED( A % BulkRHS ) ) THEN
+            ALLOCATE( Solver % Matrix % BulkRHS(SIZE(A % RHS)) )
+            A % BulkRHS = 0.0_dp
+         END IF
+
+          IF ( .NOT. ASSOCIATED( A % BulkValues ) ) THEN
+            ALLOCATE( Solver % Matrix % BulkValues(SIZE(A % Values)) )
+            A % BulkValues = 0.0_dp
+         END IF
+          SaveValues => A % Values
+          A % Values => A % BulkValues
+          CALL UpdateGlobalEquations( A,G,A % BulkRHS,f,n,x % DOFs,x % Perm(Indexes(1:n)) )
+          A % Values => SaveValues
+       END IF
+     END IF
  
      DEALLOCATE( G, F)
   END SUBROUTINE DefaultUpdateEquationsC
 
 
-  SUBROUTINE DefaultUpdateForceR( F, UElement, USolver )
+  SUBROUTINE DefaultUpdateForceR( F, UElement, USolver, BulkUpdate )
     REAL(KIND=dp) :: F(:)
     TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
     TYPE(Element_t), OPTIONAL, TARGET :: UElement
+    LOGICAL, OPTIONAL :: BulkUpdate
 
     TYPE(Solver_t), POINTER :: Solver
     TYPE(Variable_t), POINTER :: x
@@ -1424,6 +1468,16 @@ CONTAINS
 
     CALL UpdateGlobalForce( Solver % Matrix % RHS, &
        F, n, x % DOFs, x % Perm(Indexes(1:n)) )
+    IF ( PRESENT(BulkUpdate) ) THEN
+      IF ( BulkUpdate ) THEN
+         IF ( .NOT. ASSOCIATED( Solver % Matrix % BulkRHS ) ) THEN 
+           ALLOCATE( Solver % Matrix % BulkRHS(SIZE(Solver % Matrix % RHS)) )
+           Solver % Matrix % BulkRHS = 0.0_dp
+         END IF
+         CALL UpdateGlobalForce( Solver % Matrix % BulkRHS, &
+            F, n, x % DOFs, x % Perm(Indexes(1:n)) )
+      END IF
+    END IF
   END SUBROUTINE DefaultUpdateForceR
 
 
@@ -1721,6 +1775,120 @@ CONTAINS
      DEALLOCATE( B )
   END SUBROUTINE DefaultUpdateDampC
 
+
+  SUBROUTINE DefaultUpdateBulkR( B, F, UElement, USolver ) 
+     TYPE(Solver_t), OPTIONAL,  TARGET :: USolver
+     TYPE(Element_t), OPTIONAL, TARGET :: UElement
+     REAL(KIND=dp)   :: B(:,:), F(:)
+
+     TYPE(Solver_t), POINTER   :: Solver
+     TYPE(Matrix_t), POINTER   :: A
+     TYPE(Variable_t), POINTER :: x
+     TYPE(Element_t), POINTER  :: Element
+
+     REAL(KIND=dp), POINTER :: SaveValues(:)
+
+     INTEGER :: i,j,n
+
+     IF ( PRESENT( USolver ) ) THEN
+        Solver => USolver
+     ELSE
+        Solver => CurrentModel % Solver
+     END IF
+
+     A => Solver % Matrix
+     x => Solver % Variable
+
+     IF ( PRESENT( UElement ) ) THEN
+        Element => UElement 
+     ELSE
+        Element => CurrentModel % CurrentElement
+     END IF
+
+     n =  GetElementDOFs( Indexes, Element, Solver )
+
+     IF ( .NOT. ASSOCIATED( A % BulkValues ) ) THEN
+        ALLOCATE( A % BulkValues(SIZE(A % Values)) ) 
+        A % BulkValues = 0.0_dp
+     END IF
+
+     IF ( .NOT. ASSOCIATED( A % BulkRHS ) ) THEN
+        ALLOCATE( A % BulkRHS(SIZE(A % RHS)) ) 
+        A % BulkRHS = 0.0_dp
+     END IF
+
+     SaveValues => A % Values
+     A % Values => A % BulkValues
+     CALL UpdateGlobalEquations( A,B,A % BulkRHS,f,n,x % DOFs,x % Perm(Indexes(1:n)) )
+     A % Values => SaveValues
+  END SUBROUTINE DefaultUpdateBulkR
+
+
+
+  SUBROUTINE DefaultUpdateBulkC( BC, FC, UElement, USolver ) 
+     TYPE(Solver_t), OPTIONAL,  TARGET :: USolver
+     TYPE(Element_t), OPTIONAL, TARGET :: UElement
+     COMPLEX(KIND=dp)   :: BC(:,:), FC(:)
+
+     TYPE(Solver_t), POINTER   :: Solver
+     TYPE(Matrix_t), POINTER   :: A
+     TYPE(Variable_t), POINTER :: x
+     TYPE(Element_t), POINTER  :: Element
+
+     REAL(KIND=dp), POINTER :: SaveValues(:)
+
+     REAL(KIND=dp), ALLOCATABLE :: B(:,:),F(:)
+
+     INTEGER :: i,j,n,DOFs
+
+     IF ( PRESENT( USolver ) ) THEN
+        Solver => USolver
+     ELSE
+        Solver => CurrentModel % Solver
+     END IF
+
+     A => Solver % Matrix
+     x => Solver % Variable
+
+     IF ( PRESENT( UElement ) ) THEN
+        Element => UElement 
+     ELSE
+        Element => CurrentModel % CurrentElement
+     END IF
+
+     DOFs = x % DOFs
+     n =  GetElementDOFs( Indexes, Element, Solver )
+
+     IF ( .NOT. ASSOCIATED( A % BulkValues ) ) THEN
+        ALLOCATE( A % BulkValues(SIZE(A % Values)) ) 
+        A % BulkValues = 0.0_dp
+     END IF
+
+     IF ( .NOT. ASSOCIATED( A % BulkRHS ) ) THEN
+        ALLOCATE( A % BulkRHS(SIZE(A % RHS)) ) 
+        A % BulkRHS = 0.0_dp
+     END IF
+
+     ALLOCATE( B(DOFs*n, DOFs*n), F(DOFs*n) )
+     DO i=1,n*DOFs/2
+       DO j=1,n*DOFs/2
+         F( 2*(i-1)+1 ) =  REAL( FC(i) )
+         F( 2*(i-1)+2 ) = AIMAG( FC(i) )
+
+         B(2*(i-1)+1, 2*(j-1)+1) =   REAL( BC(i,j) )
+         B(2*(i-1)+1, 2*(j-1)+2) = -AIMAG( BC(i,j) )
+         B(2*(i-1)+2, 2*(j-1)+1) =  AIMAG( BC(i,j) )
+         B(2*(i-1)+2, 2*(j-1)+2) =   REAL( BC(i,j) )
+       END DO
+     END DO
+
+     SaveValues => A % Values
+     A % Values => A % BulkValues
+     CALL UpdateGlobalEquations( A,B,A % BulkRHS,f,n,x % DOFs,x % Perm(Indexes(1:n)) )
+     A % Values => SaveValues
+
+     DEALLOCATE( B )
+  END SUBROUTINE DefaultUpdateBulkC
 
 
   SUBROUTINE DefaultDirichletBCs( USolver )
@@ -2537,13 +2705,18 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-  SUBROUTINE GetParentUVW( Element,n,Parent,np,u,v,w,Basis )
+  SUBROUTINE GetParentUVW( Element,n,Parent,np,U,V,W,Basis )
 !------------------------------------------------------------------------------
     TYPE(Element_t) :: Element, Parent
     INTEGER :: n, np
-    REAL(KIND=dp) :: u,v,w,Basis(:)
+    REAL(KIND=dp) :: U,V,W,Basis(:)
 !------------------------------------------------------------------------------
     INTEGER :: i,j
+    REAL(KIND=dp), POINTER :: LU(:), LV(:), LW(:)
+
+    LU => Parent % Type % NodeU
+    LV => Parent % Type % NodeV
+    LW => Parent % Type % NodeW
 
     U = 0.0_dp
     V = 0.0_dp
@@ -2551,9 +2724,9 @@ CONTAINS
     DO i = 1,n
       DO j = 1,np
         IF ( Element % NodeIndexes(i) == Parent % NodeIndexes(j) ) THEN
-          U = U + Basis(i) * Parent % Type % NodeU(j)
-          V = V + Basis(i) * Parent % Type % NodeV(j)
-          W = W + Basis(i) * Parent % Type % NodeW(j)
+          U = U + Basis(i) * LU(j)
+          V = V + Basis(i) * LV(j)
+          W = W + Basis(i) * LW(j)
           EXIT
         END IF
       END DO

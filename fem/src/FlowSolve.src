@@ -39,6 +39,9 @@
 ! ****************************************************************************/
 ! *
 ! * $Log: FlowSolve.src,v $
+! * Revision 1.21  2006/11/16 07:51:38  jpr
+! * Changes due to treatment of force in time integration.
+! *
 ! * Revision 1.19  2006/10/20 09:26:40  raback
 ! * Added subroutine for setting Dirichlet conditions and nodal loads in the body.
 ! *
@@ -170,7 +173,7 @@
 
      TYPE(Solver_t), POINTER :: PSolver
 
-     INTEGER :: i,j,k,l,n,nb,nd,pn,t,iter,LocalNodes,k1,k2,istat
+     INTEGER :: i,j,k,l,n,m,nb,nd,pn,t,iter,LocalNodes,k1,k2,istat
 
      TYPE(ValueList_t),POINTER :: Material, Equation
      TYPE(Nodes_t) :: ElementNodes
@@ -271,7 +274,7 @@ type(valuelist_t), pointer :: bc
         END FUNCTION FlowInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.20 2006/10/30 12:37:41 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.21 2006/11/16 07:51:38 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -422,20 +425,6 @@ type(valuelist_t), pointer :: bc
 
 !------------------------------------------------------------------------------
 
-       ComputeStress = GetLogical( Solver % Values, 'Compute Stress', GotIt )
-       IF ( ComputeStress ) THEN
-         ALLOCATE( StressValues(SIZE(FlowSolution)) )
-         CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, PSolver, &
-                  'Flow Stress', dim+1, StressValues, FlowPerm )
-
-          DO i=1,dim+1
-             FlowStressComp => StressValues(i::dim+1)
-             CALL VariableAdd(Solver % Mesh % Variables,Solver % Mesh, Solver, &
-                'Flow Stress '//CHAR(i+ICHAR('0')), 1, FlowStressComp, FlowPerm )
-          END DO
-          ALLOCATE( RHSValues( Size(StiffMatrix % RHS)) )
-          ALLOCATE( MatrixValues(SIZE(StiffMatrix % Values)) )
-       END IF
        AllocationsDone = .TRUE.
      END IF
 !------------------------------------------------------------------------------
@@ -1030,17 +1019,12 @@ type(valuelist_t), pointer :: bc
 !------------------------------------------------------------------------------
 !        Add local stiffness matrix and force vector to global matrix & vector
 !------------------------------------------------------------------------------
-         CALL DefaultUpdateEquations( LocalStiffMatrix, LocalForce )
+         CALL DefaultUpdateEquations( LocalStiffMatrix, LocalForce, BulkUpdate=.TRUE. )
 !------------------------------------------------------------------------------
       END DO
 !------------------------------------------------------------------------------
 
       CALL Info( 'FlowSolve', 'Assembly done', Level=4 )
-
-      IF ( ComputeStress ) THEN
-        RHSValues    = StiffMatrix % RHS
-        Matrixvalues = StiffMatrix % Values
-      END IF
 
 !------------------------------------------------------------------------------
 !     Neumann & Newton boundary conditions
@@ -1285,14 +1269,6 @@ type(valuelist_t), pointer :: bc
       IF ( NonlinearRelax /= 1.0d0 ) PSolution = FlowSolution
       CALL SolveSystem( StiffMatrix, ParMatrix, ForceVector, &
               FlowSolution, UNorm, NSDOFs, Solver )
-
-      IF ( ComputeStress ) THEN 
-        Pvalues => StiffMatrix % Values
-        StiffMatrix % Values => MatrixValues
-        CALL MatrixVectorMultiply( StiffMatrix, FlowSolution, StressValues ) 
-        StiffMatrix % Values => Pvalues
-        StressValues = RHSValues - StressValues
-      END IF
 
       st = CPUTIme()-st
       totat = totat + at

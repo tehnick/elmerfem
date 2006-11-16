@@ -39,6 +39,11 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.29  2006/11/16 05:24:42  jpr
+! * Changed force treatment in time integration somewhat to enable using
+! * the assembled force from bulk assembly in reaction force computations
+! * also for time dependent systems.
+! *
 ! * Revision 1.28  2006/11/01 07:20:01  jpr
 ! * *** empty log message ***
 ! *
@@ -149,7 +154,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.28 2006/11/01 07:20:01 jpr Exp $
+! * $Id: SolverUtils.src,v 1.29 2006/11/16 05:24:42 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -220,6 +225,14 @@ CONTAINS
 
        IF ( ASSOCIATED( StiffMatrix % Force ) ) THEN
          StiffMatrix % Force(:,1) = 0.0d0
+       END IF
+
+       IF ( ASSOCIATED( StiffMatrix % BulkRHS ) )  THEN
+         StiffMatrix % BulkRHS(:) = 0.0d0
+       END IF
+
+       IF ( ASSOCIATED( StiffMatrix % BulkValues ) )  THEN
+         StiffMatrix % BulkValues(:) = 0.0d0
        END IF
      END IF
 
