@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.28  2006/11/01 07:20:01  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.27  2006/10/20 09:26:40  raback
 ! * Added subroutine for setting Dirichlet conditions and nodal loads in the body.
 ! *
@@ -146,7 +149,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.27 2006/10/20 09:26:40 raback Exp $
+! * $Id: SolverUtils.src,v 1.28 2006/11/01 07:20:01 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -1837,12 +1840,14 @@ END SUBROUTINE SetDirichletBulk
     MassDiag => Solver % Matrix % MassValues
     Simulation = ListGetString( CurrentModel % Simulation, 'Simulation Type' )
 
+
     IF ( Simulation == 'transient' ) THEN
       Method = ListGetString( Solver % Values, 'Timestepping Method' )
-
       Order = MIN(Solver % DoneTime, Solver % Order)
 
       IF ( Order <= 0 ) RETURN
+
+      ForceVector = ForceVector - Solver % Matrix % Force(:,1)
 
       IF ( Method /= 'bdf' .OR. Solver % TimeOrder > 1 ) THEN
         SELECT CASE( Solver % TimeOrder )
