@@ -39,7 +39,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: FreeSurfaceSolver.src,v 1.6 2006/01/10 08:09:47 apursula Exp $
+! * $Id: FreeSurfaceSolver.src,v 1.7 2006/11/15 09:50:38 jpr Exp $
 ! *****************************************************************************
 
    SUBROUTINE FreeSurfaceSolver( Model,Solver,dt,TransientSimulation )
@@ -347,24 +347,20 @@
            Flux, NormalFlux, SubstantialSurface)
 
 !------------------------------------------------------------------------------
-!        If time dependent simulation add mass matrix to stiff matrix
+!      If time dependent simulation add mass matrix to stiff matrix
 !------------------------------------------------------------------------------
-         IF ( Bubbles ) TimeForce  = FORCE
-         IF ( TransientSimulation ) THEN
+       TImeForce = 0.0_dp
+       IF ( TransientSimulation ) THEN
 !------------------------------------------------------------------------------
-!          NOTE: This will replace STIFF and LocalForce with the
-!                combined information...
+!        NOTE: This will replace STIFF and LocalForce with the
+!              combined information...
 !------------------------------------------------------------------------------
-           IF ( Bubbles ) FORCE = 0.0d0
-            CALL Default1stOrderTime( MASS, STIFF, FORCE )
-         END IF
+          CALL Default1stOrderTime( MASS, STIFF, FORCE )
+       END IF
 !------------------------------------------------------------------------------
-!        Update global matrices from local matrices
+!      Update global matrices from local matrices
 !------------------------------------------------------------------------------
-         IF (Bubbles) THEN
-            CALL Condensate( N, STIFF, FORCE, TimeForce )
-            IF ( TransientSimulation ) CALL DefaultUpdateTimeForce( TimeForce )
-         END IF
+       IF (Bubbles) CALL Condensate( N, STIFF, FORCE, TimeForce )
 !------------------------------------------------------------------------------
 !      Update global matrix and rhs vector from local matrix & vector
 !------------------------------------------------------------------------------
