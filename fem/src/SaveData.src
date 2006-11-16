@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SaveData.src,v $
+! * Revision 1.20  2006/11/15 10:54:02  raback
+! * Report if Coefficient i not found.
+! *
 ! * Revision 1.19  2006/08/11 13:12:24  jpr
 ! * *** empty log message ***
 ! *
@@ -114,35 +117,35 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   TYPE(Nodes_t) :: ElementNodes
   LOGICAL :: SubroutineVisited=.FALSE.,MovingMesh, GotCoeff, &
       GotIt, GotOper, GotVar, ExactCoordinates, VariablesExist, Parallel
-  LOGICAL, ALLOCATABLE :: BoundaryFluxComputed(:)
 
   CHARACTER(LEN=MAX_NAME_LEN) :: MessageL
 
   REAL (KIND=DP) :: Minimum, Maximum, AbsMinimum, AbsMaximum, &
       Mean, Variance, Dist, x, y, z, Deviation, Vol, Intmean, intvar, &
       KineticEnergy, PotentialEnergy, FieldEnergy, & 
-      IntSquare, LocalCoords(3), TempCoordinates(3)
+      IntSquare, LocalCoords(3), TempCoordinates(3), Value
   REAL (KIND=DP), ALLOCATABLE :: Values(:), CoordinateDist(:), &
       CoordinatesBasis(:,:), ElementValues(:), BoundaryFluxes(:)
   REAL (KIND=DP), POINTER :: PointCoordinates(:,:), LineCoordinates(:,:)
+  INTEGER, ALLOCATABLE :: BoundaryHits(:)
   INTEGER, POINTER :: PointIndex(:), CoordinateIndex(:), CoordinatesElemNo(:), &
       NodeIndexes(:)
   CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: ValueNames(:)
   CHARACTER(LEN=MAX_NAME_LEN) :: ScalarsFile, ScalarNamesFile, &
       VariableName, ResultPrefix, Oper, Name, CoefficientName, ScalarParFile
-  INTEGER :: i,j,k,l,q,n,MaxNo,No,NoPoints,NoCoordinates,NoLines,NumberOfVars,&
-      NoDims, NoDofs, NoOper, NoElements, NoVar, DIM, MaxVars, NoEigenValues, Ind
+  INTEGER :: i,j,k,l,q,n,No,NoPoints,NoCoordinates,NoLines,NumberOfVars,&
+      NoDims, NoDofs, NoOper, NoElements, NoVar, NoValues, PrevNoValues=0, DIM, MaxVars, NoEigenValues, Ind
   REAL (KIND=DP) :: CPUTime, CPUMemory
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.19 2006/08/11 13:12:24 jpr Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.20 2006/11/15 10:54:02 raback Exp $"
 
-  SAVE SubroutineVisited, NumberOfVars, MaxNo, &
+  SAVE SubroutineVisited, NumberOfVars, &
       NoPoints, PointIndex, CoordinateIndex, CoordinateDist, ResultPrefix, &
       Values, ValueNames, NoCoordinates, ScalarsFile, ScalarNamesFile, &
       ExactCoordinates, CoordinatesElemNo, NoElements, ElementNodes, &
       ElementValues, CoordinatesBasis, PointCoordinates, NoDims, &
-      BoundaryFluxes, BoundaryFluxComputed, VariablesExist, NoLines, &
-      LineCoordinates, ScalarParFile, Parallel, ParSolver
+      BoundaryFluxes, BoundaryHits, VariablesExist, NoLines, &
+      LineCoordinates, ScalarParFile, Parallel, ParSolver, PrevNoValues
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -176,57 +179,9 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     ResultPrefix = ListGetString(Solver % Values,'Scalars Prefix',GotIt )
     IF(.NOT. gotIt) ResultPrefix = 'res:'
     
-    ! Find out how many variables should we saved
-    NoVar = 0
-    GotVar = .TRUE.
-    VariablesExist = .FALSE.
-
-    NULLIFY(OldVar)
-    DO WHILE(GotVar)  
-      NoVar = NoVar + 1
-      IF(NoVar < 10) THEN
-        WRITE (Name,'(A,I2)') 'Variable',NoVar
-      ELSE
-        WRITE (Name,'(A,I3)') 'Variable',NoVar    
-      END IF
-
-      VariableName = ListGetString( Solver % Values, TRIM(Name), GotVar )
-
-      IF(TRIM(VariableName) == 'cpu time') CYCLE
-      IF(TRIM(VariableName) == 'cpu memory') CYCLE
-
-      IF(GotVar) THEN
-        Var => VariableGet( Model % Variables, TRIM(VariableName), .TRUE.)
-        IF ( .NOT. ASSOCIATED( Var ) )  THEN
-          WRITE(MessageL,*) 'Requested object [',TRIM( VariableName ),'] not found.'
-          CALL WARN('SaveSide',MessageL)
-        ELSE
-          OldVar => Var
-        END IF
-      END IF
-    END DO
-
-    NoVar = NoVar-1
-    IF(NoVar > 0) VariablesExist = .TRUE.
-  
-    NoOper = 0
-    NoPoints = 0
     NoPoints = 0
     NoCoordinates = 0
-  
-    ! Find out how many operators there are
-    GotOper = .TRUE.
-    DO WHILE(GotOper) 
-      NoOper = NoOper + 1      
-      IF(NoOper < 10) THEN
-        WRITE (Name,'(A,I2)') 'Operator',NoOper
-      ELSE
-        WRITE (Name,'(A,I3)') 'Operator',NoOper    
-      END IF
-      Oper = ListGetString(Solver % Values,TRIM(Name),GotOper)
-    END DO
-    NoOper = NoOper-1
- 
+   
     LineCoordinates => ListGetConstRealArray(Solver % Values,'Polyline Coordinates',gotIt)
     IF(gotIt) THEN
       NoLines = SIZE(LineCoordinates,1) / 2
@@ -257,10 +212,6 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       ALLOCATE(CoordinateIndex(NoCoordinates))
       ALLOCATE(CoordinateDist(NoCoordinates))
     END IF
-    
-    n = Mesh % MaxElementNodes
-
-    ALLOCATE( ElementNodes % x(n), ElementNodes % y(n), ElementNodes % z(n))
 
     IF(NoElements > 0) THEN
       ALLOCATE( CoordinatesElemNo(NoElements), ElementValues(n), &
@@ -268,86 +219,27 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     END IF
 
 
-    ! Evaluate the maximum number of scalars for allocation
-
-    ! First the external scalars
-    MaxNo = 0
-    Lst => Model % Simulation
-    DO WHILE( ASSOCIATED( Lst ) )    
-      IF ( Lst % Name(1:4) == TRIM(ResultPrefix) ) THEN
-        MaxNo = MaxNo+1
-      END IF
-      Lst => Lst % Next
-    END DO
-    
-    ! Then the values at exact points and elements 
-    MaxVars = 0
-    Var => Model % Variables
-    DO WHILE( ASSOCIATED( Var ) )      
-      IF ( .NOT. Var % Output .OR. SIZE(Var % Values) == 1 .OR. &
-          (Var % DOFs /= 1 .AND. .NOT. ASSOCIATED(Var % EigenVectors)) ) THEN
-        Var => Var % Next        
-        CYCLE
-      END IF      
-      IF (ASSOCIATED (Var % EigenVectors)) THEN
-        NoEigenValues = SIZE(Var % EigenValues) 
-        MaxVars = MaxVars + Var % DOFs * NoEigenValues
-      ELSE
-        MaxVars = MaxVars + 1
-      END IF
-      Var => Var % Next      
-    END DO
-    MaxNo = MaxNo + MaxVars * (NoPoints + NoCoordinates + NoElements + 1)
-
-    ! Then the derived data from the operators
-    MaxNo = MaxNo + NoOper * (Model % NumberOfBCs + 1 + NoLines)
-
-!------------------------------------------------------------------------------
-!   Add eigenvalues on the list if not told to skip 'em
-!------------------------------------------------------------------------------
-
-    IF ( .NOT. ListGetLogical( Solver % Values, 'Skip Eigenvalues', GotIt ) ) THEN
-
-      DO i = 1, Model % NumberOfSolvers
-        
-        IF ( Model % Solvers(i) % NOFEigenValues > 0 ) THEN
-          DO j = 1, Model % Solvers(i) % NOFEigenValues
-
-            k = Model % Solvers(i) % NOFEigenValues - j + 1
-
-            IF ( ListGetLogical( Solver % Values, &
-                'Save Eigen Frequencies', GotIt ) ) THEN
-
-              WRITE( MessageL, '("res: Eigen frequency ", I2, " [Hz]")' ) k
-              IF ( REAL( Model % Solvers(i) % Variable % EigenValues(k)) > 0 ) THEN
-                CALL ListAddConstReal( Model % Simulation, MessageL, &
-                    SQRT(REAL( Model % Solvers(i) % Variable % EigenValues(k)))/(2*PI))
-              ELSE
-                CALL ListAddConstReal( Model % Simulation, MessageL, -1.0d0 )
-              END IF
-            ELSE
-
-              WRITE( MessageL, '("res: Eigenvalue ", I2)' ) k
-              CALL ListAddConstReal( Model % Simulation, &
-                  MessageL, REAL( Model % Solvers(i) % Variable % EigenValues(k)) )
-            
-            END IF
-
-          END DO
-          MaxNo = MaxNo + Model % Solvers(i) % NOFEigenValues
+    Parallel = .FALSE.
+    DO i = 1, Model % NumberOfSolvers
+      ParSolver => Model % Solvers(i)
+      IF ( .NOT. ASSOCIATED( ParSolver % Matrix ) )  CYCLE
+      IF ( ASSOCIATED( ParSolver % Matrix % ParMatrix ) ) THEN
+        IF ( ParSolver %  Matrix % ParMatrix % ParEnv % PEs > 1 )  THEN
+          Parallel = .TRUE.
+          EXIT
         END IF
-
-      END DO
-
-    END IF
+      END IF
+    END DO
 
 !------------------------------------------------------------------------------
+    n = Mesh % MaxElementNodes
+    ALLOCATE( ElementNodes % x(n), ElementNodes % y(n), ElementNodes % z(n))
 
-    ALLOCATE( Values( MaxNo), ValueNames( MaxNo), &
-        BoundaryFluxes(MAX(Model % NumberOfBCs, NoLines) ), &
-        BoundaryFluxComputed(MAX(Model % NumberOfBCs, NoLines)) )
+    ALLOCATE( BoundaryFluxes(MAX(Model % NumberOfBCs, NoLines) ), &
+        BoundaryHits(MAX(Model % NumberOfBCs, NoLines)) )
 
   END IF
+
 
   MovingMesh = ListGetLogical(Solver % Values,'Moving Mesh',GotIt )
   
@@ -424,19 +316,6 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         
       END DO
     END IF
-
-    Parallel = .FALSE.
-    DO i = 1, Model % NumberOfSolvers
-      ParSolver => Model % Solvers(i)
-      IF ( .NOT. ASSOCIATED( ParSolver % Matrix ) )  CYCLE
-      IF ( ASSOCIATED( ParSolver % Matrix % ParMatrix ) ) THEN
-        IF ( ParSolver %  Matrix % ParMatrix % ParEnv % PEs > 1 )  THEN
-          Parallel = .TRUE.
-          EXIT
-        END IF
-      END IF
-    END DO
-
   END IF
     
 
@@ -445,197 +324,214 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   CALL Info( 'SaveScalars', MessageL, Level=4 )
   CALL Info( 'SaveScalars', '-----------------------------------------', Level=4 )
 
-  Values = 0.0d0
+  NoValues = 0
 
+  !------------------------------------------------------------------------------
   ! Read the scalars defined in other modules
-  No = 0
+  !------------------------------------------------------------------------------
   Lst => Model % Simulation
   DO WHILE( ASSOCIATED( Lst ) )    
     IF ( Lst % Name(1:4) == TRIM(ResultPrefix) ) THEN
-      No = No+1
-      Values(No) = Lst % Fvalues(1,1,1)
-      ValueNames(No) = Lst % Name
+      CALL AddToSaveList(Lst % Name, Lst % Fvalues(1,1,1))
     END IF
     Lst => Lst % Next
   END DO
-   
 
+  !------------------------------------------------------------------------------
+  !   Add eigenvalues on the list if not told to skip 'em
+  !------------------------------------------------------------------------------
+  IF ( .NOT. ListGetLogical( Solver % Values, 'Skip Eigenvalues', GotIt ) ) THEN
+    DO i = 1, Model % NumberOfSolvers       
+      IF ( Model % Solvers(i) % NOFEigenValues > 0 ) THEN
+        DO j = 1, Model % Solvers(i) % NOFEigenValues
+          
+          k = Model % Solvers(i) % NOFEigenValues - j + 1
+          Value = Model % Solvers(i) % Variable % EigenValues(k)
+          
+          IF ( ListGetLogical( Solver % Values, &
+              'Save Eigen Frequencies', GotIt ) ) THEN
+            WRITE( Name, '("eigen: frequency ", I2, " [Hz]")' ) k
+            IF ( REAL( Model % Solvers(i) % Variable % EigenValues(k)) > 0 ) THEN
+              Value = SQRT(REAL(Value)) / (2*PI)
+            ELSE
+              Value = -1.0d0
+            END IF
+          ELSE
+            WRITE( Name, '("eigen: value ", I2)' ) k
+          END IF          
+          CALL AddToSaveList(TRIM(Name), Value)
+        END DO
+      END IF
+    END DO
+  END IF
+  
+  
+  !------------------------------------------------------------------------------
+  ! Go through the variables and compute the desired statistical data
+  !------------------------------------------------------------------------------
   GotVar = .TRUE.
   NULLIFY(OldVar)
   NoVar = 0
   
-  ! Go through the variables and compute the desired statistical data
-
-  IF(VariablesExist) THEN
-    DO WHILE(GotVar .OR. GotOper)
- 
-      GotOper = .FALSE.
-      NULLIFY(Var)
+  DO WHILE(GotVar .OR. GotOper)
+    
+    GotOper = .FALSE.
+    NULLIFY(Var)
+    
+    NoVar = NoVar + 1
+    
+    IF(NoVar < 10) THEN 
+      WRITE (Name,'(A,I2)') 'Variable',NoVar
+    ELSE
+      WRITE (Name,'(A,I3)') 'Variable',NoVar
+    END IF
       
-      NoVar = NoVar + 1
-
-      IF(NoVar < 10) THEN 
-        WRITE (Name,'(A,I2)') 'Variable',NoVar
-      ELSE
-        WRITE (Name,'(A,I3)') 'Variable',NoVar
+    VariableName = ListGetString( Solver % Values, TRIM(Name), GotVar )
+    
+    IF(GotVar) THEN      
+      ! Check first two special case with no variables on the list
+      IF(TRIM(VariableName) == 'cpu time') THEN
+        CALL AddToSaveList('value: cpu time from start (s)',CPUTime())
+        CYCLE        
       END IF
       
-      VariableName = ListGetString( Solver % Values, TRIM(Name), GotVar )
-
-      IF(GotVar) THEN
-
-        ! Check first two special case with no variables on the list
-        IF(TRIM(VariableName) == 'cpu time') THEN
-          No = No + 1
-          Values(No) = CPUTime()
-          ValueNames(No) = 'value: cpu time from start (s)'
-          CYCLE        
-        END IF
-
-        IF(TRIM(VariableName) == 'cpu memory') THEN
-          No = No + 1
-          Values(No) = CPUMemory()
-          ValueNames(No) = 'value: maximum memory usage (kb)'
-          CYCLE        
-        END IF
-
-        Var => VariableGet( Model % Variables, TRIM(VariableName) )
-        IF ( .NOT. ASSOCIATED( Var ) )  THEN
-          Var => OldVar
-          IF ( .NOT. ASSOCIATED( Var ) ) THEN
-            CALL Warn('SaveData','The desired variable does not exist!')
-            CYCLE
-          END IF
-        END IF
-
-      ELSE
-        IF(ASSOCIATED(OldVar)) Var => OldVar
+      IF(TRIM(VariableName) == 'cpu memory') THEN
+        CALL AddToSaveList('value: maximum memory usage (kb)',CPUMemory())
+        CYCLE        
       END IF
-
-      IF(.NOT. ASSOCIATED(Var)) CYCLE 
-
-      IF(SIZE(Var % Values) == 1) THEN
-        IF(.NOT. GotVar) CYCLE
-        No = No + 1
-        Values(No) = Var % Values(1)
-        ValueNames(No) = 'value: '//TRIM(VariableName)//' scalar variable'
-        CYCLE
-      END IF
-
-      OldVar => Var        
-      NoOper = NoVar 
       
-      IF(NoOper < 10) THEN
-        WRITE (Name,'(A,I2)') 'Operator',NoOper
-      ELSE
-        WRITE (Name,'(A,I3)') 'Operator',NoOper    
+      Var => VariableGet( Model % Variables, TRIM(VariableName) )
+      IF ( .NOT. ASSOCIATED( Var ) )  THEN
+        Var => OldVar
+        IF ( .NOT. ASSOCIATED( Var ) ) THEN
+          CALL Warn('SaveData','The desired variable does not exist!')
+          CYCLE
+        END IF
       END IF
-
-      Oper = ListGetString(Solver % Values,TRIM(Name),GotOper)
-
-      IF ( GotOper ) THEN
-
-        No = No + 1
+      
+    ELSE
+      IF(ASSOCIATED(OldVar)) Var => OldVar
+    END IF
+    
+    IF(.NOT. ASSOCIATED(Var)) CYCLE 
+    
+    IF(SIZE(Var % Values) == 1) THEN
+      IF(.NOT. GotVar) CYCLE
+      CALL AddToSaveList('value: '//TRIM(VariableName)//' scalar variable', Var % Values(1))
+      CYCLE
+    END IF
+    
+    OldVar => Var        
+    NoOper = NoVar 
+    
+    IF(NoOper < 10) THEN
+      WRITE (Name,'(A,I2)') 'Operator',NoOper
+    ELSE
+      WRITE (Name,'(A,I3)') 'Operator',NoOper    
+    END IF
+    
+    Oper = ListGetString(Solver % Values,TRIM(Name),GotOper)
+    
+    IF ( GotOper ) THEN
+      
+      SELECT CASE(Oper)
         
-        SELECT CASE(Oper)
+      CASE ('dofs','sum','max','min','max abs','min abs','mean','variance') 
+        Value = VectorStatistics(Var,Oper)
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value)
+        
+      CASE ('deviation')
+        Value = VectorMeanDeviation(Var,Oper)
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName), Value)
+        
+      CASE ('volume','int mean','int variance','potential energy',&
+          'diffusive energy','convective energy')
+        IF(NoOper < 10) THEN
+          WRITE (Name,'(A,I2)') 'Coefficient',NoOper
+        ELSE
+          WRITE (Name,'(A,I3)') 'Coefficient',NoOper    
+        END IF
+        CoefficientName = ListGetString(Solver % Values,TRIM(Name),GotCoeff )
+        
+        Value = BulkIntegrals(Var, Oper, GotCoeff, CoefficientName)
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName), Value)
 
-        CASE ('dofs') 
-          Values(No) = 1.0d0 * SIZE(Var % Values)
-          ValueNames(No) = TRIM(Oper)//': '//TRIM(VariableName)        
-          
-        CASE ('max','min','max abs','min abs','mean','variance') 
-          Values(No) = VectorStatistics(Var,Oper)
-          ValueNames(No) = TRIM(Oper)//': '//TRIM(VariableName)
-          
-        CASE ('deviation')
-          Values(No) = VectorMeanDeviation(Var,Oper)
-          ValueNames(No) = TRIM(Oper)//': '//TRIM(VariableName)
-          
-        CASE ('volume','int mean','int variance','potential energy',&
-              'diffusive energy','convective energy')
-          IF(NoOper < 10) THEN
-            WRITE (Name,'(A,I2)') 'Coefficient',NoOper
-          ELSE
-            WRITE (Name,'(A,I3)') 'Coefficient',NoOper    
+      CASE('boundary sum','boundary dofs','boundary mean')
+        BoundaryHits = 0
+        BoundaryFluxes = 0.0d0         
+        CALL BoundarySums(Var, Oper, GotCoeff, &
+            CoefficientName, BoundaryFluxes, BoundaryHits)
+        DO j=1,Model % NumberOfBCs
+          IF(BoundaryHits(j) > 0) THEN
+            WRITE (Name,'(A,A,A,A,I2)') TRIM(Oper),': ',TRIM(VariableName),' over bc',j
+            CALL AddToSaveList( TRIM(Name), BoundaryFluxes(j))
           END IF
-          CoefficientName = ListGetString(Solver % Values,TRIM(Name),GotCoeff )
-
-          Values(No) = BulkIntegrals(Var, Oper, GotCoeff, CoefficientName)
-          ValueNames(No) = TRIM(Oper)//': '//TRIM(VariableName)
-         
-        CASE ('diffusive flux','convective flux','area')
-          IF(NoOper < 10) THEN
-            WRITE (Name,'(A,I2)') 'Coefficient',NoOper
-          ELSE
-            WRITE (Name,'(A,I3)') 'Coefficient',NoOper    
+        END DO
+        
+      CASE ('diffusive flux','convective flux','area')
+        IF(NoOper < 10) THEN
+          WRITE (Name,'(A,I2)') 'Coefficient',NoOper
+        ELSE
+          WRITE (Name,'(A,I3)') 'Coefficient',NoOper    
+        END IF
+        CoefficientName = ListGetString(Solver % Values,TRIM(Name),GotCoeff )
+        
+        BoundaryHits = 0
+        BoundaryFluxes = 0.0d0         
+        
+        Minimum = 0.0d0
+        Maximum = 0.0d0
+        CALL BoundaryIntegrals(Var, Oper, GotCoeff, CoefficientName,&
+            BoundaryFluxes,BoundaryHits)
+        
+        DO j=1,Model % NumberOfBCs
+          IF(BoundaryHits(j) > 0) THEN
+            WRITE (Name,'(A,A,A,A,I2)') TRIM(Oper),': ',TRIM(VariableName),' over bc',j
+            CALL AddToSaveList( TRIM(Name), BoundaryFluxes(j))
           END IF
-          CoefficientName = ListGetString(Solver % Values,TRIM(Name),GotCoeff )
-          
-          BoundaryFluxComputed = .FALSE.
+        END DO
+        
+        IF(TRIM(Oper) /= 'area') THEN
+          IF( ANY (BoundaryHits > 0) ) THEN
+            WRITE (Name,'(A,A,A,A)') 'min ',TRIM(Oper),': ',TRIM(VariableName)
+            CALL AddToSaveList( TRIM(Name), Minimum)
+            
+            WRITE (Name,'(A,A,A,A)') 'max ',TRIM(Oper),': ',TRIM(VariableName)
+            CALL AddToSaveList( TRIM(Name), Maximum)
+          END IF
+        END IF
+        
+        IF(NoLines > 0) THEN
+          BoundaryHits = 0
           BoundaryFluxes = 0.0d0         
-
-          Minimum = 0.0d0
-          Maximum = 0.0d0
-          CALL BoundaryIntegrals(Var, Oper, GotCoeff, CoefficientName,&
-              BoundaryFluxes,BoundaryFluxComputed)          
-
-          No = No -1 
-          DO j=1,Model % NumberOfBCs
-            IF(BoundaryFluxComputed(j)) THEN
-              No = No + 1
-              WRITE (Name,'(A,A,A,A,I2)') TRIM(Oper),': ',TRIM(VariableName),' over bc',j
-              Values(No) = BoundaryFluxes(j)
-              ValueNames(No) = TRIM(Name)
+          
+          CALL PolylineIntegrals(Var, Oper, GotCoeff, CoefficientName,&
+              BoundaryFluxes,BoundaryHits)
+          
+          DO j=1,NoLines
+            IF(BoundaryHits(j) > 0) THEN
+              WRITE (Name,'(A,A,A,A,I2)') TRIM(Oper),': ',TRIM(VariableName),' over polyline',j
+              CALL AddToSaveList( TRIM(Name), BoundaryFluxes(j))
             END IF
           END DO
-
-          IF(TRIM(Oper) /= 'area') THEN
-            IF( ANY (BoundaryFluxComputed) ) THEN
-              No = No + 1
-              WRITE (Name,'(A,A,A,A)') 'min ',TRIM(Oper),': ',TRIM(VariableName)
-              Values(No) = Minimum
-              ValueNames(No) = TRIM(Name)
-              
-              No = No + 1
-              WRITE (Name,'(A,A,A,A)') 'max ',TRIM(Oper),': ',TRIM(VariableName)
-              Values(No) = Maximum
-              ValueNames(No) = TRIM(Name)
-            END IF
-          END IF
-          
-          IF(NoLines > 0) THEN
-            BoundaryFluxComputed = .FALSE.
-            BoundaryFluxes = 0.0d0         
-            
-            CALL PolylineIntegrals(Var, Oper, GotCoeff, CoefficientName,&
-                BoundaryFluxes,BoundaryFluxComputed)          
-            
-            DO j=1,NoLines
-              IF(BoundaryFluxComputed(j)) THEN
-                No = No + 1
-                WRITE (Name,'(A,A,A,A,I2)') TRIM(Oper),': ',TRIM(VariableName),' over polyline',j
-                Values(No) = BoundaryFluxes(j)
-                ValueNames(No) = TRIM(Name)
-              END IF
-            END DO
-          END IF
-
-        CASE DEFAULT 
-
-          No = No - 1
-          WRITE (MessageL,'(A,A)') 'Unknown operator: ',TRIM(Oper)
-          CALL WARN('SaveScalars',MessageL)
-          
-        END SELECT
-
-      END IF
-    END DO
-  END IF
+        END IF
+        
+      CASE DEFAULT 
+        
+        WRITE (MessageL,'(A,A)') 'Unknown operator: ',TRIM(Oper)
+        CALL WARN('SaveScalars',MessageL)
+        
+      END SELECT
+      
+    END IF
+  END DO
 
   
+  !------------------------------------------------------------------------------
   ! Get the info at node points
+  !------------------------------------------------------------------------------
   DO k=1,NoPoints+NoCoordinates
-
+    
     IF(k <= NoPoints) THEN
       l = PointIndex(k)
     ELSE
@@ -644,7 +540,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     
     Var => Model % Variables
     DO WHILE( ASSOCIATED( Var ) )
-
+      
       IF ( .NOT. Var % Output .OR. SIZE(Var % Values) == 1 .OR. &
           (Var % DOFs /= 1 .AND. .NOT. ASSOCIATED(Var % EigenVectors)) ) THEN
         Var => Var % Next        
@@ -655,21 +551,21 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         NoEigenValues = SIZE(Var % EigenValues) 
         DO j=1,NoEigenValues
           DO i=1,Var % DOFs
-
+            
             Ind = l
             IF ( ASSOCIATED(Var % Perm) ) THEN
               Ind = Var % Perm(Ind)
             END IF
             IF(.NOT. (Ind > 0)) CYCLE
-
-            No = No + 1
-            Values(No) = Var % EigenVectors(j,Var%Dofs*(Ind-1)+i)
             
             IF(Var % DOFs == 1) THEN
-              WRITE(ValueNames(No),'("value: Eigen",I2," ",A," at node ",I7)') j,TRIM(Var % Name),l
+              WRITE(Name,'("value: Eigen",I2," ",A," at node ",I7)') j,TRIM(Var % Name),l
             ELSE
-              WRITE(ValueNames(No),'("value: Eigen",I2," ",A,I2," at node ",I7)') j,TRIM(Var % Name),i,l
+              WRITE(Name,'("value: Eigen",I2," ",A,I2," at node ",I7)') j,TRIM(Var % Name),i,l
             END IF
+            Value = REAL( Var % EigenVectors(j,Var%Dofs*(Ind-1)+i) )
+            CALL AddToSaveList( TRIM(Name), Value)
+            
           END DO
         END DO
 
@@ -678,17 +574,17 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         IF ( ASSOCIATED(Var % Perm) ) Ind = Var % Perm(Ind)
         IF(.NOT. (Ind > 0)) CYCLE
         
-        No = No + 1
-        Values(No) = Var % Values(Ind)          
-        
-        WRITE(ValueNames(No),'("value: ",A," at node ",I7)') TRIM(Var % Name),l
+        WRITE(Name,'("value: ",A," at node ",I7)') 
+        CALL AddToSaveList( TRIM(Name), Var % Values(Ind))        
       END IF
 
       Var => Var % Next      
     END DO
   END DO
   
+  !------------------------------------------------------------------------------
   ! Get the info at exact coordinates within elements
+  !------------------------------------------------------------------------------
   DO k=1,NoElements        
     l = CoordinatesElemNo(k)
     CurrentElement => Mesh % Elements(l)
@@ -705,7 +601,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       END IF
       
       IF(.NOT. ASSOCIATED(Var)) CYCLE
-
+      
       IF (ASSOCIATED (Var % EigenVectors)) THEN
         NoEigenValues = SIZE(Var % EigenValues) 
         DO j=1,NoEigenValues
@@ -717,16 +613,14 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
               ElementValues(1:n) = Var % EigenVectors(j,Var%Dofs*(NodeIndexes(1:n)-1)+i)
             END IF
             
-            No = No + 1
-            Values(No) = SUM( CoordinatesBasis(k,1:n) * ElementValues(1:n) ) 
-            
+            Value = SUM( CoordinatesBasis(k,1:n) * ElementValues(1:n) )             
             IF(Var % DOFs == 1) THEN
-              WRITE(ValueNames(No),&
-                  '("value: Eigen",I2," ",A," in element ",I7)') j,TRIM(Var % Name),l
+              WRITE(Name,'("value: Eigen",I2," ",A," in element ",I7)') j,TRIM(Var % Name),l
             ELSE
-              WRITE(ValueNames(No),&
-                  '("value: Eigen",I2," ",A,I2," in element ",I7)') j,TRIM(Var % Name),i,l
+              WRITE(Name,'("value: Eigen",I2," ",A,I2," in element ",I7)') j,TRIM(Var % Name),i,l
             END IF
+            CALL AddToSaveList(TRIM(Name), Value)
+            
           END DO
         END DO
       ELSE           
@@ -736,32 +630,38 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         ELSE
           ElementValues(1:n) = Var % Values(NodeIndexes(1:n))
         END IF
+        
+        Value = SUM( CoordinatesBasis(k,1:n) * ElementValues(1:n) ) 
+        WRITE(Name,'("value: ",A," in element ",I7)') TRIM(Var % Name),l
 
-        No = No + 1
-        Values(No) = SUM( CoordinatesBasis(k,1:n) * ElementValues(1:n) ) 
-
-        WRITE(ValueNames(No),'("value: ",A," in element ",I7)') TRIM(Var % Name),l
+        CALL AddToSaveList(TRIM(Name), Value)        
       END IF
       Var => Var % Next      
     END DO
   END DO
 
-  MaxNo = No
 
-!  /* And finally SAVE the scalars into a file */
+  !------------------------------------------------------------------------------
+  ! Finally SAVE all the scalars into a file 
+  !------------------------------------------------------------------------------
 
-  IF(.NOT. SubroutineVisited .OR. MovingMesh) THEN 
+  IF(NoValues /= PrevNoValues) THEN 
+    IF(SubroutineVisited) THEN
+      CALL Warn('SaveScalars','Number of scalar values differ from previous timestep!')
+    END IF
+
     OPEN (10, FILE=ScalarNamesFile)
     WRITE(10,*) 'Variables in columns of matrix: '//TRIM(ScalarsFile)
-    DO No=1,MaxNo 
+    DO No=1,NoValues 
       WRITE(10,'(I4,": ",A)') No,TRIM(ValueNames(No))
     END DO
     CLOSE(10)
   END IF
 
+  !------------------------------------------------------------------------------
+  ! In parallel save the date in different distinguashable files
+  !------------------------------------------------------------------------------
   IF ( Parallel ) THEN
-! open parallel
-
     DO i=1,MAX_NAME_LEN
       IF ( ScalarsFile(i:i) == ' ' ) EXIT
       ScalarParFile(i:i) = ScalarsFile(i:i)
@@ -792,24 +692,70 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     END IF
   END IF
 
-  IF(MaxNo > 0) THEN
-    DO No=1,MaxNo-1
+  IF(NoValues > 0) THEN
+    DO No=1,NoValues-1
       WRITE (10,'(ES22.12E3)',advance='no') Values(No)
     END DO
-    WRITE (10,'(ES22.12E3)') Values(MaxNo)
+    WRITE (10,'(ES22.12E3)') Values(NoValues)
   END IF
   CLOSE(10)
 
-  DO No=1,MaxNo 
+  DO No=1,NoValues
     CALL ListAddConstReal(Model % Simulation,TRIM(ValueNames(No)),Values(No))
   END DO
 
+  PrevNoValues = NoValues
   SubroutineVisited = .TRUE.
+
 
 !------------------------------------------------------------------------------
 
 
 CONTAINS
+
+
+    SUBROUTINE AddToSaveList(Name, Value)
+
+    INTEGER :: n
+    CHARACTER(LEN=*) :: Name
+    REAL(KIND=dp) :: Value
+    REAL, ALLOCATABLE :: TmpValues(:)
+    CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: TmpValueNames(:)
+     
+    SAVE TmpValues, TmpValueNames
+
+    ! For the first time allocate some space
+    IF(.NOT. ALLOCATED(Values)) THEN
+      n = 20
+      ALLOCATE( Values(n), ValueNames(n))
+    END IF
+
+    n = NoValues
+
+    ! If vectors are too small make more room
+    IF(n >= SIZE(Values) ) THEN
+      PRINT *,'put some more space',n
+
+      ALLOCATE(TmpValues(n), TmpValueNames(n))
+      TmpValues(1:n) = Values(1:n)
+      TmpValueNames(1:n) = ValueNames(1:n)
+      DEALLOCATE(Values,ValueNames)
+
+      ALLOCATE(Values(n+10), ValueNames(n+10))
+      Values(1:n) = TmpValues(1:n)
+      ValueNames(1:n) = TmpValueNames(1:n)
+      DEALLOCATE(TmpValues,TmpValueNames)
+    END IF
+
+    n = n + 1
+    Values(n) = Value
+    ValueNames(n) = TRIM(Name)
+    NoValues = n
+
+  END SUBROUTINE AddToSaveList
+
+
+
 
   FUNCTION VectorStatistics(Var,OperName) RESULT (operx)
 
@@ -880,24 +826,30 @@ CONTAINS
 
     SELECT CASE(OperName)
       
-      CASE ('max')
+    CASE ('dofs')
+      operx = 1.0 * sumi
+
+    CASE ('sum')
+      operx = sumx
+      
+    CASE ('max')
       operx = Maximum
-
-      CASE ('min')
+      
+    CASE ('min')
       operx = Minimum
-
-      CASE ('max abs')
+      
+    CASE ('max abs')
       operx = AbsMaximum
-
-      CASE ('min abs')
+      
+    CASE ('min abs')
       operx = AbsMinimum
-
-      CASE ('mean')
+      
+    CASE ('mean')
       operx = Mean
-
-      CASE ('variance')
+      
+    CASE ('variance')
       operx = Variance
-
+      
     CASE DEFAULT 
       CALL Warn('SaveScalars','Unknown statistical operator')
 
@@ -1059,7 +1011,6 @@ CONTAINS
           END DO
         END IF
 
-
         CASE ('potential energy','convective energy','volume')
         k = ListGetInteger( Model % Bodies( Element % BodyId ) % Values, &
             'Material', GotIt, minv=1, maxv=Model % NumberOfMaterials )
@@ -1200,7 +1151,7 @@ CONTAINS
     CHARACTER(LEN=MAX_NAME_LEN) :: OperName, CoeffName
     LOGICAL :: GotCoeff
     REAL(KIND=dp) :: fluxes(:)
-    LOGICAL :: fluxescomputed(:)
+    INTEGER :: fluxescomputed(:)
     
     INTEGER :: t, FluxBody, LBody, RBody
     TYPE(Element_t), POINTER :: Element, Parent    
@@ -1282,7 +1233,8 @@ CONTAINS
       DO bc=1, Model % NumberOfBCs
 
         IF ( Model % BCs(bc) % Tag /= Element % BoundaryInfo % Constraint ) CYCLE
-        IF(.NOT. ListGetLogical(Model % BCs(bc) % Values,'Flux Integrate',gotIt ) ) CYCLE
+        IF(.NOT. ListGetLogical(Model % BCs(bc) % Values,'Flux Integrate',gotIt ) .OR. &
+            .NOT. ListGetLogical(Model % BCs(bc) % Values,'Save Scalars',gotIt ) ) CYCLE
 
         hits = hits + 1
                  
@@ -1329,7 +1281,7 @@ CONTAINS
         i = ListGetInteger( Model % Bodies(Parent % BodyId) % Values, 'Material', &
             minv=1, maxv=Model % NumberOFMaterials )
         Material => Model % Materials(i) % Values
-        fluxescomputed(bc) = .TRUE.
+        fluxescomputed(bc) = fluxescomputed(bc) + 1
 
 
         SELECT CASE(OperName)
@@ -1424,13 +1376,29 @@ CONTAINS
             
             CASE ('diffusive flux')
 
+! Temporary arrangement. Later replace by new library function.
+IF(.FALSE.) THEN              
             CALL GlobalToLocal( up,vp,wp,x,y,z,Parent,ParentNodes )
+ELSE
+            Up = 0.0d0
+            Vp = 0.0d0
+            Wp = 0.0d0
+            DO k = 1,n
+              DO j = 1,pn
+                IF ( NodeIndexes(k) == ParentIndexes(j) ) THEN
+                  Up = Up + Basis(k) * Parent % TYPE % NodeU(j)
+                  Vp = Vp + Basis(k) * Parent % TYPE % NodeV(j)
+                  Wp = Wp + Basis(k) * Parent % TYPE % NodeW(j)
+                  EXIT
+                END IF
+              END DO
+            END DO
+END IF
 
             stat = ElementInfo( Parent,ParentNodes,Up,Vp,Wp,SqrtElementMetric, &
                 ParentBasis,ParentdBasisdx )
-
+            
             Flow = 0.0d0
-
             DO j = 1, DIM
               DO k = 1, DIM
                 IF(Permutated) THEN
@@ -1481,10 +1449,98 @@ CONTAINS
 
     DEALLOCATE( ParentNodes % x, ParentNodes % y, ParentNodes % z, PermIndexes )
 
-
   END SUBROUTINE BoundaryIntegrals
+
+
+!------------------------------------------------------------------------------
+! Take nodal sum over given boundaries
 !------------------------------------------------------------------------------
 
+  SUBROUTINE BoundarySums(Var, OperName, GotCoeff, &
+      CoeffName, fluxes, fluxescomputed)
+
+    TYPE(Variable_t), POINTER :: Var
+    CHARACTER(LEN=MAX_NAME_LEN) :: OperName, CoeffName
+    LOGICAL :: GotCoeff
+    REAL(KIND=dp) :: fluxes(:)
+    INTEGER :: fluxescomputed(:)
+    LOGICAL, ALLOCATABLE :: nodescomputed(:)    
+    TYPE(Element_t), POINTER :: Element, Parent    
+    TYPE(ValueList_t), POINTER :: Material
+    INTEGER, POINTER :: PermIndexes(:)
+
+    LOGICAL :: Stat, Permutated    
+    INTEGER :: i,j,k,p,q,t,DIM,bc,n,hits
+
+
+    ALLOCATE(NodesComputed(SIZE(Var % Perm)))
+    NodesComputed = .FALSE.
+    hits = 0
+
+    NoDofs = Var % Dofs
+    Permutated = ASSOCIATED(Var % Perm)
+
+    SELECT CASE(OperName)
+      
+      CASE('boundary sum','boundary dofs','boundary mean') 
+      IF(NoDofs /= 1) THEN
+        CALL Warn('SaveScalars','boundary sum & NoDofs /= 1?')
+        RETURN
+      END IF
+
+    CASE DEFAULT 
+      CALL Warn('SaveScalars','Unknown statistical operator')
+
+    END SELECT
+
+    fluxes = 0.0d0
+
+
+    DO t = Mesh % NumberOfBulkElements+1, Mesh % NumberOfBulkElements &
+        + Mesh % NumberOfBoundaryElements
+
+      Element => Mesh % Elements(t)
+      Model % CurrentElement => Mesh % Elements(t)
+
+      n = Element % TYPE % NumberOfNodes
+      NodeIndexes => Element % NodeIndexes
+
+      DO bc=1, Model % NumberOfBCs
+
+        IF ( Model % BCs(bc) % Tag /= Element % BoundaryInfo % Constraint ) CYCLE
+        IF(.NOT. ListGetLogical(Model % BCs(bc) % Values,'Save Scalars',gotIt ) ) CYCLE
+
+        hits = hits + 1
+        
+        DO i=1,n
+          j = NodeIndexes(i)
+          IF( Permutated ) j = Var % Perm(j)
+          
+          IF( j == 0) CYCLE            
+          IF( nodescomputed(j) ) CYCLE
+          
+          fluxescomputed(bc) = fluxescomputed(bc) + 1
+          nodescomputed(j) = .TRUE.
+          fluxes(bc) = fluxes(bc) + Var % Values(j)
+          
+        END DO
+        
+      END DO
+    END DO
+
+
+    SELECT CASE(OperName)
+      
+    CASE('boundary sum')             
+    CASE('boundary dofs') 
+      fluxes = 1.0 * fluxescomputed
+    CASE('boundary mean') 
+      fluxes = fluxes / fluxescomputed            
+      
+    END SELECT
+
+  END SUBROUTINE BoundarySums
+  
 
 !------------------------------------------------------------------------------
 
@@ -1496,7 +1552,7 @@ CONTAINS
     CHARACTER(LEN=MAX_NAME_LEN) :: OperName, CoeffName
     LOGICAL :: GotCoeff
     REAL(KIND=dp) :: fluxes(:)
-    LOGICAL :: fluxescomputed(:)
+    INTEGER :: fluxescomputed(:)
     
     INTEGER :: t
     TYPE(Element_t), TARGET :: SideElement
@@ -1703,7 +1759,7 @@ CONTAINS
         i = ListGetInteger( Model % Bodies(Parent % BodyId) % Values, 'Material', &
             minv=1, maxv=Model % NumberOFMaterials )
         Material => Model % Materials(i) % Values
-        fluxescomputed(Line) = .TRUE.
+        fluxescomputed(Line) = fluxescomputed(Line) + 1
         
         
         SELECT CASE(OperName)
@@ -1943,7 +1999,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t), POINTER   :: CurrentElement, NextElement
   CHARACTER(LEN=MAX_NAME_LEN) :: SideFile, SideNamesFile, VarName, CondName, SideParFile
   CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: ValueNames(:)
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.19 2006/08/11 13:12:24 jpr Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.20 2006/11/15 10:54:02 raback Exp $"
 
   LOGICAL :: cand, Parallel
 
