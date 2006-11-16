@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: AdvectionDiffusion.src,v $
+! * Revision 1.7  2006/02/10 17:08:29  jpr
+! * Added keyword "Stabilization Method".
+! *
 ! * Revision 1.6  2006/01/10 07:39:14  apursula
 ! * Minor revision of the headers.
 ! *
@@ -156,7 +159,7 @@
      REAL(KIND=dp) :: Mass, PreviousMass
      INTEGER, DIMENSION( Model %  NumberOfBulkElements) :: ElementList
 
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: AdvectionDiffusion.src,v 1.6 2006/01/10 07:39:14 apursula Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: AdvectionDiffusion.src,v 1.7 2006/02/10 17:08:29 jpr Exp $"
 
      SAVE LocalMassMatrix,LocalStiffMatrix,Load,C0,C1,CT,C2,Diffusivity, &
          TimeForce, LocalForce, ElementNodes,AllocationsDone, &
@@ -730,16 +733,12 @@
 !------------------------------------------------------------------------------
 !        If time dependent simulation add mass matrix to stiff matrix
 !------------------------------------------------------------------------------
-         TimeForce  = LocalForce
+         TimeForce  = 0.0_dp
          IF ( TransientSimulation ) THEN
 !------------------------------------------------------------------------------
 !          NOTE: This will replace LocalStiffMatrix and LocalForce with the
 !                combined information...
 !------------------------------------------------------------------------------
-           IF ( Bubbles .AND. ( ConvectionFlag == 'computed' .OR. &
-                ConvectionFlag == 'constant' ) ) THEN
-              LocalForce = 0.0d0
-           END IF
            CALL Add1stOrderTime( LocalMassMatrix, LocalStiffMatrix, &
              LocalForce,dt,n,1,SpeciesPerm(NodeIndexes),Solver )
          END IF
@@ -749,11 +748,6 @@
          IF ( Bubbles .AND. ( ConvectionFlag == 'computed' .OR. &
               ConvectionFlag == 'constant' ) ) THEN
            CALL Condensate( N, LocalStiffMatrix,  LocalForce, TimeForce )
-
-           IF ( TransientSimulation ) THEN
-              CALL UpdateTimeForce( StiffMatrix, ForceVector, TimeForce, &
-                         n, 1, SpeciesPerm(NodeIndexes) )
-           END IF
          END IF
 
          CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &

@@ -119,7 +119,7 @@
 
      REAL(KIND=dp) :: at,at0,CPUTime,RealTime, KMax, EMax, KVal, EVal
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: KESolver.src,v 1.4 2005/09/01 15:46:05 vierinen Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: KESolver.src,v 1.5 2006/01/10 08:27:35 apursula Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -369,16 +369,14 @@
          CALL LocalMatrix( MASS,STIFF,FORCE,LOAD, Density,C0,Density, &
            EffectiveVisc, U,V,W, Stabilize,CurrentElement,n,ElementNodes )
 !------------------------------------------------------------------------------
-         TimeForce = FORCE
+         TimeForce = 0.0_dp
          IF ( TransientSimulation ) THEN
-            FORCE = 0.0d0
             CALL Default1stOrderTime( MASS, STIFF, FORCE )
          END IF
 !------------------------------------------------------------------------------
 !        Update global matrices from local matrices
 !------------------------------------------------------------------------------
          CALL Condensate( DOFs*N, STIFF, FORCE, TimeForce )
-         IF ( TransientSimulation ) CALL DefaultUpdateTimeForce( TimeForce )
          CALL DefaultUpdateEquations( STIFF, FORCE )
 !------------------------------------------------------------------------------
       END DO     !  Bulk elements

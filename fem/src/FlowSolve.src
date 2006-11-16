@@ -42,18 +42,6 @@
 ! * Revision 1.19  2006/10/20 09:26:40  raback
 ! * Added subroutine for setting Dirichlet conditions and nodal loads in the body.
 ! *
-! * Revision 1.18  2006/10/12 11:54:26  jpr
-! * *** empty log message ***
-! *
-! * Revision 1.17  2006/10/12 10:34:57  jpr
-! * *** empty log message ***
-! *
-! * Revision 1.16  2006/08/11 13:12:24  jpr
-! * *** empty log message ***
-! *
-! * Revision 1.15  2006/03/27 11:12:50  jpr
-! * *** empty log message ***
-! *
 ! * Revision 1.14  2006/02/20 08:06:18  jpr
 ! * Moved handling of Normal-Tangential BCs inside SolverUtils. Corrected
 ! * a few bugs in Adaptive.src, Lists.src.
@@ -193,7 +181,7 @@
        ReferencePressure=0.0, SpecificHeatRatio, &
        PseudoCompressibilityScale=1.0, NonlinearRelax,FreeSTol
 
-     REAL(KIND=dp) :: Jx,Jy,Jz,Lx,Ly,Lz,Clip
+     REAL(KIND=dp) :: Jx,Jy,Jz,Lx,Ly,Lz,Clip, force(3)
 
      INTEGER :: NSDOFs,NewtonIter,NonlinearIter,FreeSIter
 
@@ -207,7 +195,7 @@
          ForceVector(:), KinEnergy(:), KinDissipation(:), LayerThickness(:), &
            SurfaceRoughness(:),MeshVelocity(:), StressValues(:), FlowStressComp(:)
 
-     REAL(KIND=dp), POINTER :: TempPrev(:)
+     REAL(KIND=dp), POINTER :: TempPrev(:), PValues(:)
      REAL(KIND=DP), POINTER :: Pwrk(:,:,:)
 
      LOGICAL :: Stabilize,NewtonLinearization = .FALSE., GotForceBC, GotIt, &
@@ -224,6 +212,9 @@
          PseudoPressureExists, PseudoCompressible, Bubbles, &
          Porous =.FALSE., PotentialForce=.FALSE.
 
+logical, allocatable :: done(:)
+type(valuelist_t), pointer :: bc
+
      REAL(KIND=dp),ALLOCATABLE:: LocalMassMatrix(:,:),LocalStiffMatrix(:,:),&
          LoadVector(:,:),Viscosity(:),LocalForce(:), TimeForce(:), &
          PrevDensity(:),Density(:),U(:),V(:),W(:),MU(:),MV(:),MW(:), &
@@ -235,6 +226,8 @@
          PseudoPressure(:), PSolution(:), Drag(:,:), PotentialField(:), &
          PotentialCoefficient(:)
 
+     REAL(KIND=dp), ALLOCATABLE, TARGET :: MatrixValues(:), RHSValues(:)
+
      SAVE U,V,W,LocalMassMatrix,LocalStiffMatrix,LoadVector,Viscosity, &
          TimeForce,LocalForce,ElementNodes,Alpha,Beta,ExtPressure,Pressure,PrevPressure, &
          PrevDensity,Density, AllocationsDone,LocalNodes, &
@@ -243,8 +236,8 @@
          KECmu, SurfaceRoughness, LocalTemperature, GasConstant, &
          HeatCapacity, LocalTempPrev,MU,MV,MW,  &
          PseudoCompressibilityScale, PseudoCompressibility, &
-         PseudoPressure, PseudoPressureExists, PSolution, Drag, &
-         PotentialField, PotentialCoefficient, ComputeFree, Indexes
+         PseudoPressure, PseudoPressureExists, PSolution, Drag, ComputeStress, &
+         PotentialField, PotentialCoefficient, ComputeFree, Indexes, MatrixValues, RHSValues
 
       REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
 !------------------------------------------------------------------------------
@@ -278,7 +271,7 @@
         END FUNCTION FlowInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.19 2006/10/20 09:26:40 raback Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.20 2006/10/30 12:37:41 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -431,22 +424,26 @@
 
        ComputeStress = GetLogical( Solver % Values, 'Compute Stress', GotIt )
        IF ( ComputeStress ) THEN
-         PSolver => Solver
-         ALLOCATE( StressValues( SIZE( FlowSolution ) )  )
+         ALLOCATE( StressValues(SIZE(FlowSolution)) )
          CALL VariableAdd(Solver % Mesh % Variables, Solver % Mesh, PSolver, &
-                  'Flow Stress', DIM+1, StressValues, FlowPerm )
+                  'Flow Stress', dim+1, StressValues, FlowPerm )
 
-          DO i=1,DIM+1
-             FlowStressComp => StressValues(i::DIM+1)
-             CALL VariableAdd(Solver % Mesh % Variables,Solver % Mesh,PSolver, &
+          DO i=1,dim+1
+             FlowStressComp => StressValues(i::dim+1)
+             CALL VariableAdd(Solver % Mesh % Variables,Solver % Mesh, Solver, &
                 'Flow Stress '//CHAR(i+ICHAR('0')), 1, FlowStressComp, FlowPerm )
           END DO
+          ALLOCATE( RHSValues( Size(StiffMatrix % RHS)) )
+          ALLOCATE( MatrixValues(SIZE(StiffMatrix % Values)) )
        END IF
        AllocationsDone = .TRUE.
      END IF
 !------------------------------------------------------------------------------
 
      FlowStress => VariableGet( Solver % Mesh % Variables, 'Flow Stress' )
+     IF ( ASSOCIATED( FlowStress ) ) THEN
+        StressValues => FlowStress % Values
+     END IF
 
 !------------------------------------------------------------------------------
 !    Do some additional initialization, and go for it
@@ -1014,13 +1011,12 @@
          END IF
          IF ( nb==0 .AND. Bubbles ) nb = n
 
-         IF ( nb > 0 ) TimeForce  = LocalForce
+         TimeForce = 0.0_dp
          IF ( TransientSimulation ) THEN
 !------------------------------------------------------------------------------
 !          NOTE: the following will replace LocalStiffMatrix and LocalForce
 !          with the combined information
 !------------------------------------------------------------------------------
-           IF ( nb > 0 ) LocalForce = 0.0d0
 
            CALL Add1stOrderTime( LocalMassMatrix, LocalStiffMatrix, &
              LocalForce, dt, nd, NSDOFs, FlowPerm(Indexes(1:nd)), Solver )
@@ -1029,10 +1025,6 @@
          IF ( nb > 0 ) THEN
             CALL NSCondensate( nd, nb, NSDOFs-1, LocalStiffMatrix, &
                             LocalForce, TimeForce )
-            IF ( TransientSimulation ) THEN
-               CALL UpdateTimeForce( StiffMatrix, ForceVector, TimeForce, &
-                             nd, NSDOFs, FlowPerm(Indexes(1:nd)) )
-            END IF
          END IF
 
 !------------------------------------------------------------------------------
@@ -1044,6 +1036,11 @@
 !------------------------------------------------------------------------------
 
       CALL Info( 'FlowSolve', 'Assembly done', Level=4 )
+
+      IF ( ComputeStress ) THEN
+        RHSValues    = StiffMatrix % RHS
+        Matrixvalues = StiffMatrix % Values
+      END IF
 
 !------------------------------------------------------------------------------
 !     Neumann & Newton boundary conditions
@@ -1289,6 +1286,14 @@
       CALL SolveSystem( StiffMatrix, ParMatrix, ForceVector, &
               FlowSolution, UNorm, NSDOFs, Solver )
 
+      IF ( ComputeStress ) THEN 
+        Pvalues => StiffMatrix % Values
+        StiffMatrix % Values => MatrixValues
+        CALL MatrixVectorMultiply( StiffMatrix, FlowSolution, StressValues ) 
+        StiffMatrix % Values => Pvalues
+        StressValues = RHSValues - StressValues
+      END IF
+
       st = CPUTIme()-st
       totat = totat + at
       totst = totst + st
@@ -1316,6 +1321,7 @@
             FlowSolution(NSDOFs:n:NSDOFs) = FlowSolution(NSDOFs:n:NSDOFs) + s
          END IF
       END IF
+
 !------------------------------------------------------------------------------
 
       IF ( ParEnv % PEs <= 1 ) THEN
@@ -1378,7 +1384,6 @@
     CALL CheckCircleBoundary()
 !------------------------------------------------------------------------------
 
-!------------------------------------------------------------------------------
 CONTAINS
 !------------------------------------------------------------------------------
 

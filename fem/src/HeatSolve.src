@@ -39,6 +39,10 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: HeatSolve.src,v $
+! * Revision 1.17  2006/11/15 15:11:07  jpr
+! * Moved saving the matrix & vectors for nodal heat loads before
+! * setting any bcs.
+! *
 ! * Revision 1.13  2006/08/25 13:09:57  raback
 ! * Added possibility for computing the nodal heat loads from the solution.
 ! *
@@ -225,7 +229,6 @@
        Pressure(:), GasConstant(:),AText(:), HeaterArea(:), &
        HeaterDensity(:), HeaterSource(:), HeatExpansionCoeff(:), &
        ReferenceTemperature(:)
-logical, allocatable :: done(:)
 
      SAVE U, V, W, MU, MASS, STIFF, LOAD, &
        FORCE, ElementNodes, HeatConductivity, HeatCapacity, HeatTransferCoeff, &
@@ -270,7 +273,7 @@ logical, allocatable :: done(:)
 
      REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
 
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HeatSolve.src,v 1.16 2006/10/30 12:37:41 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HeatSolve.src,v 1.17 2006/11/15 15:11:07 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -859,8 +862,7 @@ logical, allocatable :: done(:)
 
          IF ( HeaterControlLocal .AND. .NOT. TransientHeaterControl) THEN
            IF ( TransientSimulation ) THEN
-             TimeForce  = 0.0d0
-             CALL Default1stOrderTime( MASS, STIFF, TimeForce )
+             CALL Default1stOrderTime( MASS, STIFF, FORCE )
            END IF
            
            CALL UpdateGlobalEquations( Solver % Matrix, STIFF, &
@@ -872,9 +874,8 @@ logical, allocatable :: done(:)
 !------------------------------------------------------------------------------
 !           If time dependent simulation add mass matrix to stiff matrix
 !------------------------------------------------------------------------------
-            TimeForce  = FORCE
+            TimeForce  = 0.0_dp
             IF ( TransientSimulation ) THEN
-               IF ( Bubbles ) FORCE = 0.0d0
                CALL Default1stOrderTime( MASS,STIFF,FORCE )
             END IF
 !------------------------------------------------------------------------------
@@ -882,7 +883,6 @@ logical, allocatable :: done(:)
 !------------------------------------------------------------------------------
             IF (  Bubbles ) THEN
                CALL Condensate( N, STIFF, FORCE, TimeForce )
-               IF (TransientSimulation) CALL DefaultUpdateTimeForce(TimeForce)
             END IF
 
             CALL DefaultUpdateEquations( STIFF, FORCE )

@@ -240,15 +240,12 @@
 !------------------------------------------------------------------------------
 !        If time dependent simulation add mass matrix to stiff matrix
 !------------------------------------------------------------------------------
-         TimeForce = LocalForce
+         TimeForce = 0.0_dp
          IF ( TransientSimulation ) THEN
 !------------------------------------------------------------------------------
 !          NOTE: This will replace LocalStiffMatrix and LocalForce with the
 !                combined information...
 !------------------------------------------------------------------------------
-           IF ( .NOT. Stabilize ) THEN
-             LocalForce = 0.0d0
-           END IF
            CALL Add1stOrderTime( LocalMassMatrix, LocalStiffMatrix, &
                LocalForce, dt, n, 1, SurfPerm(NodeIndexes), Solver )
          END IF
@@ -257,11 +254,6 @@
 !------------------------------------------------------------------------------
          IF ( .NOT.Stabilize ) THEN
            CALL Condensate( N, LocalStiffMatrix,  LocalForce, TimeForce )
-           
-           IF ( TransientSimulation ) THEN
-             CALL UpdateTimeForce( StiffMatrix, ForceVector, &
-                 TimeForce, n, 1, SurfPerm(NodeIndexes) )
-           END IF
          END IF
          
          CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
