@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: DefUtils.src,v $
+! * Revision 1.26  2006/11/16 18:14:49  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.25  2006/11/15 12:58:06  jpr
 ! * Added GetParentUVW.
 ! *
@@ -148,7 +151,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.25 2006/11/15 12:58:06 jpr Exp $
+! * $Id: DefUtils.src,v 1.26 2006/11/16 18:14:49 jpr Exp $
 ! *
 ! *****************************************************************************/
 
@@ -2027,11 +2030,11 @@ CONTAINS
         name = x % name
         IF ( x % DOFs > 1 ) name = ComponentName(name,DOF)
         
-        CALL SetDirichletBoundaries( CurrentModel, A, b, &
-                Name, DOF, x % DOFs, x % Perm )
-
 	CALL SetDirichletBulk( CurrentModel,A, b, &
 	        Name,DOF,x % DOFs,x % Perm )
+
+        CALL SetDirichletBoundaries( CurrentModel, A, b, &
+                Name, DOF, x % DOFs, x % Perm )
 
         SaveElement => CurrentModel % CurrentElement
 !       Dirichlet BCs for face & edge DOFs:
