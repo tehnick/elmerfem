@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.30  2006/11/16 18:14:49  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.29  2006/11/16 05:24:42  jpr
 ! * Changed force treatment in time integration somewhat to enable using
 ! * the assembled force from bulk assembly in reaction force computations
@@ -154,7 +157,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.29 2006/11/16 05:24:42 jpr Exp $
+! * $Id: SolverUtils.src,v 1.30 2006/11/16 18:14:49 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -1241,7 +1244,7 @@ CONTAINS
      REAL(KIND=dp), POINTER :: CoordNodes(:,:), gwork(:,:)
      REAL(KIND=dp) :: x,y,z,s,MinDist,Dist
      
-     LOGICAL, ALLOCATABLE :: ActiveBodyForce(:), ActiveBodyCond(:)
+     LOGICAL, ALLOCATABLE :: ActiveBodyForce(:), ActiveBodyCond(:), Done(:)
      LOGICAL :: NodesFound, LoadsFound, SetLoad
      CHARACTER(LEN=MAX_NAME_LEN) :: CondName, NodesName, PointsName, BaseName, LoadName
      
@@ -1274,13 +1277,12 @@ CONTAINS
        END IF
 
        IF( ListCheckPresent( Model % BodyForces(bf_id) % Values, BaseName ) ) THEN
-         
          ActiveBodyCond(bf_id) = ListCheckPresent( Model % BodyForces(bf_id) % Values, CondName )              
          NodesFound = ListCheckPresent( Model % BodyForces(bf_id) % Values, NodesName )               
 
          ! The coordinates are only requested for a body that has no list of nodes. 
          ! At the first calling the list of coorinates is transformed to list of nodes. 
-         IF(.NOT. NodesFound) THEN
+         IF (.NOT. NodesFound) THEN
            stat = ListCheckPresent( Model % BodyForces(bf_id) % Values, PointsName )      
            
            IF(stat) THEN
@@ -1348,8 +1350,10 @@ CONTAINS
      ! If the cheap way of setting individual nodes isn't active.
      IF ( ANY( ActiveBodyForce ) ) THEN
        n = Model % Mesh % MaxElementNodes
-       ALLOCATE( Condition(n), Work(n) )
-       
+
+       ALLOCATE( Condition(n), Work(n), Done(SIZE(b)/DOFs) )
+       Done = .FALSE.
+
        DO t = 1, Model % NumberOfBulkElements 
          Element => Model % Elements(t)
          bf_id = ListGetInteger( Model % Bodies(Element % BodyId) % Values, &
@@ -1365,7 +1369,8 @@ CONTAINS
              BaseName, n, NodeIndexes, stat)         
          IF(stat) CALL SetNodeValues(n,NodeIndexes,Work,ActiveBodyCond(bf_id),SetLoad)
        END DO
-       DEALLOCATE( Condition, Work )
+
+       DEALLOCATE( Condition, Work, Done )
      END IF
 
      IF(.NOT. SetLoad .AND. LoadsFound) THEN
@@ -1395,6 +1400,11 @@ CONTAINS
          IF ( Conditional .AND. Condition(j) < 0.0d0 ) CYCLE
          k = Perm(NodeIndexes(j))
          IF ( k > 0 ) THEN
+           IF ( ALLOCATED(Done) ) THEN
+             IF ( Done(k) ) CYCLE
+             Done(k) = .TRUE.
+           END IF
+
            k = NDOFs * (k-1) + DOF
            IF(LoadOnly) THEN
              b(k) = b(k) + Work(j)            
@@ -2302,6 +2312,8 @@ END SUBROUTINE SetDirichletBulk
     END IF
 !------------------------------------------------------------------------------
     IF ( ALLOCATED(PSolution) ) DEALLOCATE( PSolution )
+
+
 !------------------------------------------------------------------------------
   END SUBROUTINE SolveLinearSystem
 !------------------------------------------------------------------------------
@@ -2345,7 +2357,7 @@ END SUBROUTINE SetDirichletBulk
     TYPE(Solver_t), TARGET :: Solver
     TYPE(SParIterSolverGlobalD_t), POINTER :: ParMatrix
 !------------------------------------------------------------------------------
-    TYPE(Variable_t), POINTER :: Var
+    TYPE(Variable_t), POINTER :: Var, NodalLoads
     TYPE(Mesh_t), POINTER :: Mesh, SaveMEsh
     LOGICAL :: Relax, GotIt
     INTEGER :: n,i,j,k,istat
@@ -2354,7 +2366,8 @@ END SUBROUTINE SetDirichletBulk
     CHARACTER(LEN=MAX_NAME_LEN) :: Method, ProcName, VariableName
     INTEGER(KIND=AddrInt) :: Proc
     REAL(KIND=dp) :: s,Relaxation,Beta,Gamma
-    REAL(KIND=dp), ALLOCATABLE :: PSolution(:), Diag(:)
+    REAL(KIND=dp), POINTER :: SaveValues(:)
+    REAL(KIND=dp), ALLOCATABLE :: PSolution(:), Diag(:), TempVector(:)
 
 
     INTERFACE ExecLinSolveProcs
@@ -2421,6 +2434,31 @@ END SUBROUTINE SetDirichletBulk
     Solver % Variable % PrimaryMesh => Solver % Mesh
     CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, &
                     Solver % Variable % Name )
+
+    NodalLoads => VariableGet( Solver % Mesh % Variables, &
+       TRIM( Solver % Variable % Name ) // ' Loads' )
+
+
+    IF ( ASSOCIATED(NodalLoads) .AND. ASSOCIATED(StiffMatrix % BulkValues) ) THEN
+       ALLOCATE( TempVector(n) )
+       SaveValues => StiffMatrix % Values
+       StiffMatrix % Values => StiffMatrix % BulkValues
+       CALL MatrixVectorMultiply( StiffMatrix, Solution, TempVector )
+       StiffMatrix % Values => SaveValues
+       TempVector = TempVector - StiffMatrix % BulkRHS
+       DO i=1,SIZE( NodalLoads % Perm )
+         IF ( NodalLoads % Perm(i)>0 .AND. Solver % Variable % Perm(i)>0 ) THEN
+            DO j=1,DOFs
+              NodalLoads % Values(DOFs*(NodalLoads % Perm(i)-1)+j) =  &
+                         TempVector(DOFs*(Solver % Variable % Perm(i)-1)+j)
+            END DO
+          END IF
+       END DO
+       NodalLoads % PrimaryMesh => Solver % Mesh
+       CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, &
+                    NodalLoads % Name )
+       DEALLOCATE( TempVector )
+    END IF
 
 !------------------------------------------------------------------------------
   END SUBROUTINE SolveSystem
