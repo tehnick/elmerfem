@@ -39,9 +39,6 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Lists.src,v $
-! * Revision 1.19  2006/11/17 13:40:27  jpr
-! * Bug correction in ListGetReal.
-! *
 ! * Revision 1.18  2006/11/16 05:27:31  jpr
 ! * Removed unncessery POINTER defs from some VariableAdd arguments.
 ! *
@@ -77,7 +74,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Lists.src,v 1.19 2006/11/17 13:40:27 jpr Exp $
+! * $Id: Lists.src,v 1.20 2006/11/17 14:20:27 jpr Exp $
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
@@ -1654,11 +1651,11 @@ TYPE(ValueList_t), POINTER :: ptr
            IF ( l0 > lsize ) EXIT
          END DO
 
-         IF ( ptr % Procedure /= 0 ) THEN
-           F(i) = ExecRealFunction( ptr % Procedure,CurrentModel, &
-                        NodeIndexes(i), T )
-         ELSE
-           IF ( T(1) < HUGE(1.0_dp) ) THEN
+         IF ( ALL( T(1:j)/=HUGE(1.0_dp) ) ) THEN
+           IF ( ptr % Procedure /= 0 ) THEN
+             F(i) = ExecRealFunction( ptr % Procedure,CurrentModel, &
+                          NodeIndexes(i), T )
+           ELSE
              F(i) = InterpolateCurve( ptr % TValues,ptr % FValues(1,1,:),T(1) )
            END IF
          END IF
@@ -1750,7 +1747,7 @@ TYPE(ValueList_t), POINTER :: ptr
            IF ( l0 > lsize ) EXIT
          END DO
 
-         IF ( ANY( T(1:j)/=HUGE(1.0_dp) ) ) THEN
+         IF ( ALL( T(1:j)/=HUGE(1.0_dp) ) ) THEN
            DO l=1,j
              WRITE( cmd, * ) 'tx(',l-1,') = ', T(l)
              k1 = LEN_TRIM( cmd )
