@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Lists.src,v $
+! * Revision 1.19  2006/11/17 13:40:27  jpr
+! * Bug correction in ListGetReal.
+! *
 ! * Revision 1.18  2006/11/16 05:27:31  jpr
 ! * Removed unncessery POINTER defs from some VariableAdd arguments.
 ! *
@@ -74,7 +77,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Lists.src,v 1.18 2006/11/16 05:27:31 jpr Exp $
+! * $Id: Lists.src,v 1.19 2006/11/17 13:40:27 jpr Exp $
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
@@ -1615,32 +1618,35 @@ TYPE(ValueList_t), POINTER :: ptr
 
            k1 = k
            IF ( ASSOCIATED(Variable % Perm) ) k1 = Variable % Perm(k1)
-           IF ( k1 > 0 ) THEN
-             IF ( k1<=SIZE(Variable % Values) ) THEN
-               IF ( ptr % DependName(l0:l1) == 'coordinate' ) THEN
-                 CVar => VariableGet( CurrentModel % Variables, 'Coordinate 1' )
-                 j = j + 1
-                 T(1) = CVar % Values(k1)
-                 CVar => VariableGet( CurrentModel % Variables, 'Coordinate 2' )
-                 j = j + 1
-                 T(2) = CVar % Values(k1)
-                 CVar => VariableGet( CurrentModel % Variables, 'Coordinate 3' )
-                 j = j + 1
-                 T(3) = CVar % Values(k1)
-               ELSE
-                 IF ( Variable % DOFs == 1 ) THEN
-                    j = j + 1
-                    T(j) = Variable % Values(k1)
-                 ELSE
-                    DO l=1,Variable % DOFs
-                       j = j + 1
-                       T(j) = Variable % Values(Variable % DOFs*(k1-1)+l)
-                    END DO
-                 END IF
-               END IF
-             ELSE
+
+           IF ( k1>0 .AND. k1<=SIZE(Variable % Values) ) THEN
+             IF ( ptr % DependName(l0:l1) == 'coordinate' ) THEN
+               CVar => VariableGet( CurrentModel % Variables, 'Coordinate 1' )
                j = j + 1
-               T(j) = Variable % Values(1)
+               T(1) = CVar % Values(k1)
+               CVar => VariableGet( CurrentModel % Variables, 'Coordinate 2' )
+               j = j + 1
+               T(2) = CVar % Values(k1)
+               CVar => VariableGet( CurrentModel % Variables, 'Coordinate 3' )
+               j = j + 1
+               T(3) = CVar % Values(k1)
+             ELSE
+               IF ( Variable % DOFs == 1 ) THEN
+                  j = j + 1
+                  T(j) = Variable % Values(k1)
+               ELSE
+                  DO l=1,Variable % DOFs
+                     j = j + 1
+                     T(j) = Variable % Values(Variable % DOFs*(k1-1)+l)
+                  END DO
+               END IF
+             END IF
+           ELSE
+             j = j + 1
+             IF ( ASSOCIATED(Variable % Perm) ) THEN
+                T(j) = HUGE(1.0_dp)
+             ELSE
+                T(j) = Variable % Values(1)
              END IF
            END IF
 
@@ -1652,7 +1658,9 @@ TYPE(ValueList_t), POINTER :: ptr
            F(i) = ExecRealFunction( ptr % Procedure,CurrentModel, &
                         NodeIndexes(i), T )
          ELSE
-           F(i) = InterpolateCurve(ptr % TValues,ptr % FValues(1,1,:),T(1))
+           IF ( T(1) < HUGE(1.0_dp) ) THEN
+             F(i) = InterpolateCurve( ptr % TValues,ptr % FValues(1,1,:),T(1) )
+           END IF
          END IF
        END DO
 
@@ -1708,31 +1716,33 @@ TYPE(ValueList_t), POINTER :: ptr
            k1 = k
            IF ( ASSOCIATED(Variable % Perm) ) k1 = Variable % Perm(k1)
 
-           IF ( k1 > 0 ) THEN
-             IF ( SIZE( Variable % Values ) >= k1 ) THEN
-                IF ( ptr % DependName(l0:l1) == 'coordinate' ) THEN
-                  CVar => VariableGet( CurrentModel % Variables, 'Coordinate 1' )
+           IF ( k1 > 0 .AND. SIZE(Variable % Values) >= k1 ) THEN
+              IF ( ptr % DependName(l0:l1) == 'coordinate' ) THEN
+                CVar => VariableGet( CurrentModel % Variables, 'Coordinate 1' )
+                j = j + 1
+                T(j) = CVar % Values(k1)
+                CVar => VariableGet( CurrentModel % Variables, 'Coordinate 2' )
+                j = j + 1
+                T(j) = CVar % Values(k1)
+                CVar => VariableGet( CurrentModel % Variables, 'Coordinate 3' )
+                j = j + 1
+                T(j) = CVar % Values(k1)
+              ELSE
+                IF ( Variable % DOFs == 1 ) THEN
                   j = j + 1
-                  T(j) = CVar % Values(k1)
-                  CVar => VariableGet( CurrentModel % Variables, 'Coordinate 2' )
-                  j = j + 1
-                  T(j) = CVar % Values(k1)
-                  CVar => VariableGet( CurrentModel % Variables, 'Coordinate 3' )
-                  j = j + 1
-                  T(j) = CVar % Values(k1)
+                  T(j) = Variable % Values(k1)
                 ELSE
-                  IF ( Variable % DOFs == 1 ) THEN
-                    j = j + 1
-                    T(j) = Variable % Values(k1)
-                  ELSE
-                    DO l=1,Variable % DOFs
-                     j = j + 1
-                       T(j) = Variable % Values(Variable % DOFs*(k1-1)+l)
-                    END DO
-                  END IF
+                  DO l=1,Variable % DOFs
+                   j = j + 1
+                     T(j) = Variable % Values(Variable % DOFs*(k1-1)+l)
+                  END DO
                 END IF
+              END IF
+           ELSE
+             j = j + 1
+             IF ( ASSOCIATED(Variable % Perm) ) THEN
+               T(j) = HUGE(1.0_dp)
              ELSE
-               j = j + 1
                T(j) = Variable % Values(1)
              END IF
            END IF
@@ -1740,16 +1750,18 @@ TYPE(ValueList_t), POINTER :: ptr
            IF ( l0 > lsize ) EXIT
          END DO
 
-         DO l=1,j
-           WRITE( cmd, * ) 'tx(',l-1,') = ', T(l)
+         IF ( ANY( T(1:j)/=HUGE(1.0_dp) ) ) THEN
+           DO l=1,j
+             WRITE( cmd, * ) 'tx(',l-1,') = ', T(l)
+             k1 = LEN_TRIM( cmd )
+             CALL matc( cmd, str, k1 )
+           END DO
+
+           cmd = ptr % CValue
            k1 = LEN_TRIM( cmd )
            CALL matc( cmd, str, k1 )
-         END DO
-
-         cmd = ptr % CValue
-         k1 = LEN_TRIM( cmd )
-         CALL matc( cmd, str, k1 )
-         READ( str(1:k1), * ) F(i)
+           READ( str(1:k1), * ) F(i)
+         END IF
        END DO
      END SELECT
 
