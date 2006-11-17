@@ -39,14 +39,8 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Lists.src,v $
-! * Revision 1.17  2006/10/30 12:37:41  jpr
-! * *** empty log message ***
-! *
-! * Revision 1.16  2006/10/10 11:02:57  jpr
-! * *** empty log message ***
-! *
-! * Revision 1.15  2006/10/10 10:20:56  jpr
-! * *** empty log message ***
+! * Revision 1.18  2006/11/16 05:27:31  jpr
+! * Removed unncessery POINTER defs from some VariableAdd arguments.
 ! *
 ! * Revision 1.10  2006/08/17 10:28:16  jpr
 ! * Modifed ListAdd* routines to maintain the order of entries
@@ -80,7 +74,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Lists.src,v 1.17 2006/10/30 12:37:41 jpr Exp $
+! * $Id: Lists.src,v 1.18 2006/11/16 05:27:31 jpr Exp $
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
@@ -1545,7 +1539,7 @@ TYPE(ValueList_t), POINTER :: ptr
      TYPE(Variable_t), POINTER :: Variable, CVar, TVar
 
      REAL(KIND=dp) :: T(MAX_FNC)
-     INTEGER :: i,j,k,l,l0,l1,lsize
+     INTEGER :: i,j,k,k1,l,l0,l1,lsize
      CHARACTER(LEN=MAX_NAME_LEN) :: str, cmd
 !------------------------------------------------------------------------------
      F = 0.0D0
@@ -1619,35 +1613,37 @@ TYPE(ValueList_t), POINTER :: ptr
               Variable => VariableGet( CurrentModel % Variables,'Coordinate 1' )
            END IF
 
-           IF ( ASSOCIATED(Variable % Perm) ) k = Variable % Perm(k)
-           IF ( k <= 0 ) CYCLE
-
-           IF ( k<=SIZE(Variable % Values) ) THEN
-             IF ( ptr % DependName(l0:l1) == 'coordinate' ) THEN
-               CVar => VariableGet( CurrentModel % Variables, 'Coordinate 1' )
-               j = j + 1
-               T(1) = CVar % Values(k)
-               CVar => VariableGet( CurrentModel % Variables, 'Coordinate 2' )
-               j = j + 1
-               T(2) = CVar % Values(k)
-               CVar => VariableGet( CurrentModel % Variables, 'Coordinate 3' )
-               j = j + 1
-               T(3) = CVar % Values(k)
-             ELSE
-               IF ( Variable % DOFs == 1 ) THEN
-                  j = j + 1
-                  T(j) = Variable % Values(k)
+           k1 = k
+           IF ( ASSOCIATED(Variable % Perm) ) k1 = Variable % Perm(k1)
+           IF ( k1 > 0 ) THEN
+             IF ( k1<=SIZE(Variable % Values) ) THEN
+               IF ( ptr % DependName(l0:l1) == 'coordinate' ) THEN
+                 CVar => VariableGet( CurrentModel % Variables, 'Coordinate 1' )
+                 j = j + 1
+                 T(1) = CVar % Values(k1)
+                 CVar => VariableGet( CurrentModel % Variables, 'Coordinate 2' )
+                 j = j + 1
+                 T(2) = CVar % Values(k1)
+                 CVar => VariableGet( CurrentModel % Variables, 'Coordinate 3' )
+                 j = j + 1
+                 T(3) = CVar % Values(k1)
                ELSE
-                  DO l=1,Variable % DOFs
-                     j = j + 1
-                     T(j) = Variable % Values(Variable % DOFs*(k-1)+l)
-                  END DO
+                 IF ( Variable % DOFs == 1 ) THEN
+                    j = j + 1
+                    T(j) = Variable % Values(k1)
+                 ELSE
+                    DO l=1,Variable % DOFs
+                       j = j + 1
+                       T(j) = Variable % Values(Variable % DOFs*(k1-1)+l)
+                    END DO
+                 END IF
                END IF
+             ELSE
+               j = j + 1
+               T(j) = Variable % Values(1)
              END IF
-           ELSE
-             j = j + 1
-             T(j) = Variable % Values(1)
            END IF
+
            l0 = l1+2
            IF ( l0 > lsize ) EXIT
          END DO
@@ -1709,34 +1705,36 @@ TYPE(ValueList_t), POINTER :: ptr
               Variable => VariableGet( CurrentModel % Variables,'Coordinate 1' )
            END IF
 
-           IF ( ASSOCIATED(Variable % Perm) ) k = Variable % Perm(k)
-           IF ( k <= 0 ) CYCLE
+           k1 = k
+           IF ( ASSOCIATED(Variable % Perm) ) k1 = Variable % Perm(k1)
 
-           IF ( SIZE( Variable % Values ) >= k ) THEN
-              IF ( ptr % DependName(l0:l1) == 'coordinate' ) THEN
-                CVar => VariableGet( CurrentModel % Variables, 'Coordinate 1' )
-                j = j + 1
-                T(j) = CVar % Values(k)
-                CVar => VariableGet( CurrentModel % Variables, 'Coordinate 2' )
-                j = j + 1
-                T(j) = CVar % Values(k)
-                CVar => VariableGet( CurrentModel % Variables, 'Coordinate 3' )
-                j = j + 1
-                T(j) = CVar % Values(k)
-              ELSE
-                IF ( Variable % DOFs == 1 ) THEN
+           IF ( k1 > 0 ) THEN
+             IF ( SIZE( Variable % Values ) >= k1 ) THEN
+                IF ( ptr % DependName(l0:l1) == 'coordinate' ) THEN
+                  CVar => VariableGet( CurrentModel % Variables, 'Coordinate 1' )
                   j = j + 1
-                  T(j) = Variable % Values(k)
+                  T(j) = CVar % Values(k1)
+                  CVar => VariableGet( CurrentModel % Variables, 'Coordinate 2' )
+                  j = j + 1
+                  T(j) = CVar % Values(k1)
+                  CVar => VariableGet( CurrentModel % Variables, 'Coordinate 3' )
+                  j = j + 1
+                  T(j) = CVar % Values(k1)
                 ELSE
-                  DO l=1,Variable % DOFs
+                  IF ( Variable % DOFs == 1 ) THEN
+                    j = j + 1
+                    T(j) = Variable % Values(k1)
+                  ELSE
+                    DO l=1,Variable % DOFs
                      j = j + 1
-                     T(j) = Variable % Values(Variable % DOFs*(k-1)+l)
-                  END DO
+                       T(j) = Variable % Values(Variable % DOFs*(k1-1)+l)
+                    END DO
+                  END IF
                 END IF
-              END IF
-           ELSE
-             j = j + 1
-             T(j) = Variable % Values(1)
+             ELSE
+               j = j + 1
+               T(j) = Variable % Values(1)
+             END IF
            END IF
            l0 = l1+2
            IF ( l0 > lsize ) EXIT
@@ -1744,14 +1742,14 @@ TYPE(ValueList_t), POINTER :: ptr
 
          DO l=1,j
            WRITE( cmd, * ) 'tx(',l-1,') = ', T(l)
-           k = LEN_TRIM( cmd )
-           CALL matc( cmd, str, k )
+           k1 = LEN_TRIM( cmd )
+           CALL matc( cmd, str, k1 )
          END DO
 
          cmd = ptr % CValue
-         k = LEN_TRIM( cmd )
-         CALL matc( cmd, str, k )
-         READ( str(1:k), * ) F(i)
+         k1 = LEN_TRIM( cmd )
+         CALL matc( cmd, str, k1 )
+         READ( str(1:k1), * ) F(i)
        END DO
      END SELECT
 
