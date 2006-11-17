@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.32  2006/11/17 17:08:56  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.29  2006/11/16 05:24:42  jpr
 ! * Changed force treatment in time integration somewhat to enable using
 ! * the assembled force from bulk assembly in reaction force computations
@@ -130,7 +133,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.31 2006/11/17 17:08:18 jpr Exp $
+! * $Id: SolverUtils.src,v 1.32 2006/11/17 17:08:56 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -1324,7 +1327,7 @@ CONTAINS
      IF ( ANY( ActiveBodyForce ) ) THEN
        n = Model % Mesh % MaxElementNodes
 
-       ALLOCATE( Condition(n), Work(n), Done(SIZE(b)/DOFs) )
+       ALLOCATE( Condition(n), Work(n), Done(SIZE(b)/NDOFs) )
        Done = .FALSE.
 
        DO t = 1, Model % NumberOfBulkElements 
@@ -2406,10 +2409,10 @@ END SUBROUTINE SetDirichletBulk
 
     Solver % Variable % PrimaryMesh => Solver % Mesh
     CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, &
-                    Solver % Variable % Name )
+          Solver % Variable % Name(1:Solver % Variable % NameLen) )
 
     NodalLoads => VariableGet( Solver % Mesh % Variables, &
-       TRIM( Solver % Variable % Name ) // ' Loads' )
+       Solver % Variable % Name(1:Solver % Variable % NameLen) // ' Loads' )
 
 
     IF ( ASSOCIATED(NodalLoads) .AND. ASSOCIATED(StiffMatrix % BulkValues) ) THEN
@@ -2429,7 +2432,7 @@ END SUBROUTINE SetDirichletBulk
        END DO
        NodalLoads % PrimaryMesh => Solver % Mesh
        CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, &
-                    NodalLoads % Name )
+                    NodalLoads % Name(1:NodalLoads % NameLen) )
        DEALLOCATE( TempVector )
     END IF
 
