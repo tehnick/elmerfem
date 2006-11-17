@@ -39,8 +39,6 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: ElasticSolve.src,v $
-! * Revision 1.10  2006/10/13 10:38:31  jpr
-! *
 ! * Revision 1.9  2006/02/20 08:06:18  jpr
 ! * Moved handling of Normal-Tangential BCs inside SolverUtils. Corrected
 ! * a few bugs in Adaptive.src, Lists.src.
@@ -135,21 +133,21 @@
           LocalDampMatrix(:,:),LoadVector(:,:),Viscosity(:),LocalForce(:), &
           LocalTemperature(:),ElasticModulus(:),PoissonRatio(:), Density(:), &
           Damping(:), HeatExpansionCoeff(:,:,:),Alpha(:,:),Beta(:), &
-          ReferenceTemperature(:),BoundaryDispl(:),LocalDisplacement(:,:)
+          ReferenceTemperature(:),BoundaryDispl(:),LocalDisplacement(:,:), PrevSOL(:)
 
 
      SAVE LocalMassMatrix,LocalStiffMatrix,LocalDampMatrix,LoadVector,Viscosity, &
        LocalForce,ElementNodes,ParentNodes,FlowNodes,Alpha,Beta, &
          LocalTemperature,AllocationsDone,ReferenceTemperature,BoundaryDispl, &
            ElasticModulus, PoissonRatio,Density,Damping,HeatExpansionCoeff, &
-           LocalDisplacement, Velocity, Pressure
+           LocalDisplacement, Velocity, Pressure, PrevSOL
 !------------------------------------------------------------------------------
 
      REAL(KIND=dp) :: at,at0,CPUTime,RealTime
      INTEGER :: TotalSteps,LoadStep, dim
 
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ElasticSolve.src,v 1.10 2006/10/13 10:38:31 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ElasticSolve.src,v 1.11 2006/10/30 12:37:40 jpr Exp $"
 
 
      INTERFACE
@@ -302,9 +300,13 @@
 !       call VariableAdd( PSolver % Mesh % Variables, PSolver % Mesh, PSolver, &
 !            'Stress 11', 1, Displacement)
 
+
 !------------------------------------------------------------------------------
        AllocationsDone = .TRUE.
      END IF
+
+     ALLOCATE( PrevSOL(SIZE(Displacement)) )
+     PrevSOL = Displacement
 
 !------------------------------------------------------------------------------
 !    Do some additional initialization, and go for it
@@ -605,12 +607,14 @@
            ParentNodes % z(1:k) = Solver % Mesh % Nodes % z(AdjacentNodes)
 
            LocalDisplacement = 0.0D0
-           DO l=1,ParentElement % TYPE % NumberOfNodes
-              k = StressPerm(AdjacentNodes(l))
-              DO j=1,STDOFs
-                LocalDisplacement(j,l) = Displacement(STDOFs*(k-1)+j)
-              END DO
-           END DO
+           IF( .NOT. LinearModel ) THEN
+             DO l=1,ParentElement % TYPE % NumberOfNodes
+                k = StressPerm(AdjacentNodes(l))
+                DO j=1,STDOFs
+                  LocalDisplacement(j,l) = Displacement(STDOFs*(k-1)+j)
+                END DO
+             END DO
+            END IF
 
            NULLIFY( FlowElement )
            FlowNOFNodes = 1
@@ -639,13 +643,13 @@
                    k = StressPerm(AdjacentNodes(j))
                    IF ( k /= 0 ) THEN
                       k = STDOFs*(k-1)
-                      FlowNodes % x(j) = FlowNodes % x(j) + Displacement( k+1 )
+                      FlowNodes % x(j) = FlowNodes % x(j) + PrevSOL( k+1 )
                       
                       IF ( STDOFs > 1 ) &
-                           FlowNodes % y(j) = FlowNodes % y(j) + Displacement( k+2 )
+                           FlowNodes % y(j) = FlowNodes % y(j) + PrevSOL( k+2 )
                       
                       IF ( STDOFs > 2 ) &
-                           FlowNodes % z(j) = FlowNodes % z(j) + Displacement( k+3 )
+                           FlowNodes % z(j) = FlowNodes % z(j) + PrevSOL( k+3 )
                    END IF
                 END DO
                 
@@ -772,6 +776,8 @@
     END IF
 
 !==============================================================================
+
+    DEALLOCATE( PrevSOL )
 
     CONTAINS
 
@@ -1773,7 +1779,7 @@
 !------------------------------------------------------------------------------
    REAL(KIND=dp) :: Basis(n)
    REAL(KIND=dp) :: dBasisdx(n,3),SqrtElementMetric
-   REAL(KIND=dp) :: x(n),y(n),z(n), Density
+   REAL(KIND=dp) :: x(n),y(n),z(n), fx(n), fy(n), fz(n), Density
 
    REAL(KIND=dp) :: PBasis(pn)
    REAL(KIND=dp) :: PdBasisdx(pn,3),PSqrtElementMetric
@@ -1783,7 +1789,7 @@
 
    REAL(KIND=dp) :: u,v,w,s,ParentU,ParentV,ParentW
    REAL(KIND=dp) :: FlowStress(3,3),Viscosity
-   REAL(KIND=dp) :: Force(3),Alpha(3),Beta,Normal(3),Identity(3,3)
+   REAL(KIND=dp) :: Force(3),Alpha(3),Beta,Normal(3), Identity(3,3)
    REAL(KIND=dp) :: Grad(3,3),DefG(3,3),DetDefG,CofG(3,3),ScaleFactor
    REAL(KIND=dp), POINTER :: U_Integ(:),V_Integ(:),W_Integ(:),S_Integ(:)
 
@@ -1792,7 +1798,6 @@
    LOGICAL :: stat,pstat
 
    TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
-
 !------------------------------------------------------------------------------
 
    dim = CoordinateSystemDimension()
@@ -1804,6 +1809,31 @@
 
    BoundaryVector = 0.0D0
    BoundaryMatrix = 0.0D0
+   
+   DO i = 1,n
+     DO j = 1,pn
+       IF( Element % NodeIndexes(i) == Parent % NodeIndexes(j) ) THEN
+          x(i) = Parent % Type % NodeU(j)
+          y(i) = Parent % Type % NodeV(j)
+          z(i) = Parent % Type % NodeW(j)
+          EXIT
+       END IF
+     END DO
+   END DO
+
+   IF ( ASSOCIATED( Flow ) ) THEN
+     DO i = 1,n
+       DO j = 1,fn
+         IF ( Element % NodeIndexes(i) == Flow % NodeIndexes(j) ) THEN
+           fx(i) = Flow % Type % NodeU(j)
+           fy(i) = Flow % Type % NodeV(j)
+           fz(i) = Flow % Type % NodeW(j)
+           EXIT
+         END IF
+       END DO
+     END DO
+   END IF
+
 !
 !  Integration stuff
 !
@@ -1832,16 +1862,6 @@
 
 !     Calculate the basis functions for the parent element:
 !     -----------------------------------------------------
-      DO i = 1,n
-         DO j = 1,pn
-            IF( Element % NodeIndexes(i) == Parent % NodeIndexes(j) ) THEN
-               x(i) = Parent % TYPE % NodeU(j)
-               y(i) = Parent % TYPE % NodeV(j)
-               z(i) = Parent % TYPE % NodeW(j)
-               EXIT
-            END IF
-         END DO
-      END DO
       ParentU = SUM( Basis(1:n)*x(1:n) )
       ParentV = SUM( Basis(1:n)*y(1:n) )
       ParentW = SUM( Basis(1:n)*z(1:n) )
@@ -1869,23 +1889,12 @@
 !     Calculate traction from the flow solution:
 !     ------------------------------------------
       IF ( ASSOCIATED( Flow ) ) THEN
-        DO i = 1,n
-          DO j = 1,fn
-            IF ( Element % NodeIndexes(i) == Flow % NodeIndexes(j) ) THEN
-              x(i) = Flow % TYPE % NodeU(j)
-              y(i) = Flow % TYPE % NodeV(j)
-              z(i) = Flow % TYPE % NodeW(j)
-              EXIT
-            END IF
-          END DO
-        END DO
-
-        ParentU = SUM( Basis(1:n)*x(1:n) )
-        ParentV = SUM( Basis(1:n)*y(1:n) )
-        ParentW = SUM( Basis(1:n)*z(1:n) )
+        ParentU = SUM( Basis(1:n)*fx(1:n) )
+        ParentV = SUM( Basis(1:n)*fy(1:n) )
+        ParentW = SUM( Basis(1:n)*fz(1:n) )
 
         Pstat = ElementInfo( Flow,FlowNodes,ParentU,ParentV,ParentW, &
-          FSqrtElementMetric,FBasis,FdBasisdx )
+              FSqrtElementMetric,FBasis,FdBasisdx )
 
         Grad = MATMUL( Velocity(:,1:fn),FdBasisdx )
         Density    = SUM( NodalDensity(1:fn) * FBasis )
