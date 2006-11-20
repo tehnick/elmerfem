@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StatCurrentSolve.src,v $
+! * Revision 1.7  2006/10/20 09:26:40  raback
+! * Added subroutine for setting Dirichlet conditions and nodal loads in the body.
+! *
 ! * Revision 1.6  2006/10/11 10:43:26  raback
 ! * *** empty log message ***
 ! *
@@ -124,7 +127,7 @@
      LOGICAL :: CalculateCurrent, CalculateHeating, CalculateConductivity
 
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatCurrentSolve.src,v 1.6 2006/10/11 10:43:26 raback Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatCurrentSolve.src,v 1.7 2006/10/20 09:26:40 raback Exp $"
 
 
      SAVE LocalStiffMatrix, Load, LocalForce, Density, &
@@ -433,6 +436,9 @@
       END DO   ! Neumann BCs
 !------------------------------------------------------------------------------
 
+     CALL SetNodalLoads( Model,StiffMatrix,ForceVector, &
+               Solver % Variable % Name,1,1,PotentialPerm )
+
 !------------------------------------------------------------------------------
 !    FinishAssembly must be called after all other assembly steps, but before
 !    Dirichlet boundary settings. Actually no need to call it except for
@@ -443,8 +449,6 @@
 !    Dirichlet boundary conditions
 !------------------------------------------------------------------------------
      CALL SetDirichletBoundaries( Model,StiffMatrix,ForceVector, &
-               Solver % Variable % Name,1,1,PotentialPerm )
-     CALL SetDirichletBulk( Model,StiffMatrix,ForceVector, &
                Solver % Variable % Name,1,1,PotentialPerm )
 
      at = CPUTime() - at
