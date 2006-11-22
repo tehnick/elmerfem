@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ModelDescription.src,v 1.24 2006/10/31 11:02:28 jpr Exp $
+! * $Id: ModelDescription.src,v 1.25 2006/11/08 07:46:42 jpr Exp $
 ! *****************************************************************************/
 
 MODULE ModelDescription
@@ -2319,7 +2319,29 @@ CONTAINS
         CASE( 'magnetic flux density 1','magnetic flux density 2','magnetic flux density 3')
 
         CASE DEFAULT
-          IF ( Var % DOFs == 1 ) DOFs = DOFs + 1
+          IF ( Var % DOFs == 1 ) THEN
+             DOFs = DOFs + 1
+          ELSE
+             j=index(Var % Name, '[')
+             IF ( j > 0 ) THEN
+               str =  ' '
+               DO i=1,LEN_TRIM(Var % Name)
+                 str(i:i) = Var % Name(i:i)
+               END DO
+               DOFs = 0
+               DO WHILE( .TRUE. )
+                 i = INDEX( str(j+1:), ':' ) + j
+                 IF ( i<=j ) EXIT
+                 READ( str(i+1:),'(i1)' ) k
+                 DOFs = DOFs+k
+                 IF ( k==2 ) DOFs=DOFs+1
+                 j = i + 1
+               END DO
+               DO k=1,Var % DOFs
+                  Var => Var % Next
+               END DO
+             END IF
+           END IF
       END SELECT
       Var => Var % Next
     END DO
@@ -2798,13 +2820,18 @@ CONTAINS
                      END DO
                      IF ( q==2 .OR. q==3 ) THEN
                        DO j=q+1,3
-                         WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0D0
+                         WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0d0
                        END DO
                      END IF
                    ELSE
                      DO j=1,q
-                       WRITE(PostFileUnit,'(4E20.12E3)',ADVANCE='NO') 0d0
+                       WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0d0
                      END DO
+                     IF ( q==2 .OR. q==3 ) THEN
+                       DO j=q+1,3
+                         WRITE(PostFileUnit,'(E20.12E3)',ADVANCE='NO') 0.0d0
+                       END DO
+                     END IF
                    END IF
                    l=m+1
                    DOFs = DOFs+q
