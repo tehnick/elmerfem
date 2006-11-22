@@ -56,9 +56,12 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: parser.c,v 1.3 2006/02/02 06:51:16 jpr Exp $ 
+ * $Id: parser.c,v 1.4 2006/02/02 06:54:44 jpr Exp $ 
  *
  * $Log: parser.c,v $
+ * Revision 1.4  2006/02/02 06:54:44  jpr
+ * small formatting changes.
+ *
  * Revision 1.2  2005/05/27 12:26:21  vierinen
  * changed header install location
  *
@@ -266,7 +269,7 @@ TREE *nameorvar()
   root = treeptr = prevtree = newtree();
 
   if (symbol == minus && !isspace(*str) &&
-     (isspace(*(str-2)) || char_in_list(*(str-2),"{};=[(\\<>&|+-*/^,")))
+     (str-2<buf || isspace(*(str-2)) || char_in_list(*(str-2),"{};=[(\\<>&|+-*/^,")))
   {
     sym = minus; scan();
   }
@@ -391,7 +394,7 @@ TREE *nameorvar()
     scan();
 
     if (symbol == minus && !isspace(*str) &&
-         (isspace(*(str-2)) || char_in_list(*(str-2),"{};=([\\<>&|+-*/^,")))
+         (str-2<buf || isspace(*(str-2)) || char_in_list(*(str-2),"{};=([\\<>&|+-*/^,")))
     {
       sym = minus;
 
@@ -916,7 +919,7 @@ TREE *equation()
         treeptr = par_compare(treeptr); 
       break;
 
-      case plus: case minus: 
+      case plus: case minus:
         treeptr = par_plusminus(treeptr);
       break;
 
