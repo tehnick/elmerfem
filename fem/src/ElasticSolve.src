@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: ElasticSolve.src,v $
+! * Revision 1.12  2006/11/17 12:24:01  jpr
+! * Some hopefully stabilizing changes to FSI BC treatment.
+! *
 ! * Revision 1.9  2006/02/20 08:06:18  jpr
 ! * Moved handling of Normal-Tangential BCs inside SolverUtils. Corrected
 ! * a few bugs in Adaptive.src, Lists.src.
@@ -135,7 +138,6 @@
           Damping(:), HeatExpansionCoeff(:,:,:),Alpha(:,:),Beta(:), &
           ReferenceTemperature(:),BoundaryDispl(:),LocalDisplacement(:,:), PrevSOL(:)
 
-
      SAVE LocalMassMatrix,LocalStiffMatrix,LocalDampMatrix,LoadVector,Viscosity, &
        LocalForce,ElementNodes,ParentNodes,FlowNodes,Alpha,Beta, &
          LocalTemperature,AllocationsDone,ReferenceTemperature,BoundaryDispl, &
@@ -147,7 +149,7 @@
      INTEGER :: TotalSteps,LoadStep, dim
 
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ElasticSolve.src,v 1.11 2006/10/30 12:37:40 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ElasticSolve.src,v 1.12 2006/11/17 12:24:01 jpr Exp $"
 
 
      INTERFACE
@@ -718,11 +720,7 @@
       END DO
 !------------------------------------------------------------------------------
 
-      CALL FinishAssembly( Solver, ForceVector )
-
-!------------------------------------------------------------------------------
-!     Dirichlet boundary conditions
-!------------------------------------------------------------------------------
+      CALL DefaultFinishAssembly()
       CALL DefaultDirichletBCs()
 
 !------------------------------------------------------------------------------
