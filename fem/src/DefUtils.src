@@ -47,17 +47,11 @@
 ! * Changed order of SetDirichletBulk & SetDirichletBCs within DefaultDirichletBCs.
 ! * The nodal loads should be set <<before>> setting Dirichlet conditions.
 ! *
-! * Revision 1.26  2006/11/16 18:14:49  jpr
-! * *** empty log message ***
-! *
 ! * Revision 1.25  2006/11/15 12:58:06  jpr
 ! * Added GetParentUVW.
 ! *
 ! * Revision 1.23  2006/10/20 09:26:41  raback
 ! * Added subroutine for setting Dirichlet conditions and nodal loads in the body.
-! *
-! * Revision 1.22  2006/10/12 10:34:57  jpr
-! * *** empty log message ***
 ! *
 ! * Revision 1.21  2006/02/09 14:26:32  jpr
 ! * Introduced GetEdgeMap().
@@ -158,7 +152,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.28 2006/11/20 10:56:44 raback Exp $
+! * $Id: DefUtils.src,v 1.29 2006/11/23 10:56:26 jpr Exp $
 ! *
 ! *****************************************************************************/
 
@@ -2088,9 +2082,7 @@ CONTAINS
 
           BC => GetBC()
           IF ( .NOT. ASSOCIATED( BC ) ) CYCLE
-          IF ( .NOT. ListCheckPresent( BC, Name ) ) THEN
-            IF ( .NOT. ListCheckPresent( BC, TRIM(Name) // ' Pointwise' ) ) CYCLE 
-          END IF
+          IF ( .NOT. ListCheckPresent(BC, Name) ) CYCLE 
 
           Parent => Element % BoundaryInfo % Left
           IF ( .NOT. ASSOCIATED( Parent ) ) THEN
@@ -2181,7 +2173,7 @@ CONTAINS
 
            BC => GetBC()
            IF ( .NOT. ASSOCIATED( BC ) ) CYCLE
-           IF ( .NOT. ListCheckPresent( BC, TRIM(Name) // ' Pointwise' ) ) CYCLE
+           IF ( .NOT. ListCheckPresent(BC, Name) ) CYCLE
 
            ! Get parent element:
            ! -------------------
@@ -2195,7 +2187,7 @@ CONTAINS
            n = Element % Type % NumberOfNodes
            DO j=1,n
              l = Element % NodeIndexes(j)
-             Work(j)  = ListGetConstReal( BC, TRIM(Name) // ' Pointwise', Found, &
+             Work(j)  = ListGetConstReal( BC, Name, Found, &
                CurrentModel % Mesh % Nodes % x(l), &
                CurrentModel % Mesh % Nodes % y(l), &
                CurrentModel % Mesh % Nodes % z(l) )
@@ -2345,7 +2337,7 @@ CONTAINS
        xip = SUM( Basis(1:nd) * Nodes % x(1:nd) )
        yip = SUM( Basis(1:nd) * Nodes % y(1:nd) )
        zip = SUM( Basis(1:nd) * Nodes % z(1:nd) )
-       Load = ListGetConstReal( BC, TRIM(Name) // ' Pointwise', x=xip,y=yip,z=zip )
+       Load = ListGetConstReal( BC, Name, x=xip,y=yip,z=zip )
 
        ! Build local stiffness matrix and force vector
        DO p=1,nd

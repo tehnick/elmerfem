@@ -130,7 +130,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.35 2006/11/23 10:56:26 jpr Exp $
+! * $Id: SolverUtils.src,v 1.36 2006/11/23 11:36:45 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -899,7 +899,7 @@ CONTAINS
     INTEGER :: NoNodes,NoDims,bf_id
     REAL(KIND=dp), POINTER :: CoordNodes(:,:), Condition(:), Work(:)
     REAL(KIND=dp) :: MinDist,Dist
-    LOGICAL, ALLOCATABLE :: ActivePart(:), ActiveCond(:)
+    LOGICAL, ALLOCATABLE :: ActivePart(:), ActiveCond(:), ActivePartAll(:)
     LOGICAL :: NodesFound
     TYPE(ValueList_t), POINTER :: ValueList
  
@@ -908,7 +908,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
     n = MAX( Model % NumberOfBodyForces,Model % NumberOfBCs)
-    ALLOCATE( ActivePart(n), ActiveCond(n))
+    ALLOCATE( ActivePart(n), ActivePartAll(n), ActiveCond(n))
     CondName = TRIM(Name) // ' Condition'
  
     ALLOCATE( Indexes(Model % Mesh % MaxElementDOFs) )
@@ -944,20 +944,21 @@ CONTAINS
     
     ActivePart = .FALSE.
     ActiveCond = .FALSE.
+    ActivePartAll = .FALSE.
     DO BC=1,Model % NumberOfBCs
+      ActivePartAll(BC) = ListCheckPresent( &
+            Model % BCs(bc) % Values, TRIM(Name) // ' DOFs' )
       ActivePart(BC) = ListCheckPresent( Model % BCs(bc) % Values, Name ) 
-      ActivePart(BC) = ActivePart(BC) .OR. ListCheckPresent( &
-        Model % BCs(bc) % Values, TRIM(Name) // ' Pointwise' ) 
       ActiveCond(BC) = ListCheckPresent( Model % BCs(bc) % Values, CondName )      
     END DO
 
-    IF( ANY(ActivePart) ) THEN    
+    IF( ANY(ActivePart) .OR. ANY(ActivePartAll) ) THEN    
       OrderByBCNumbering = ListGetLogical( Model % Simulation, &
           'Set Dirichlet BCs by BC Numbering', gotIt)
 
       IF ( OrderByBCNumbering ) THEN
         DO BC=1,Model % NumberOfBCs
-          IF(.NOT. ActivePart(BC)) CYCLE
+          IF(.NOT. ActivePart(BC) .AND. .NOT. ActivePartAll(BC) ) CYCLE
           Conditional = ActiveCond(BC)
           DO t = Model % NumberOfBulkElements + 1, &
               Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
@@ -966,7 +967,12 @@ CONTAINS
             IF ( Element % BoundaryInfo % Constraint /= Model % BCs(BC) % Tag ) CYCLE
             
             Model % CurrentElement => Element
-            n = SgetElementDOFs( Indexes )
+            IF ( ActivePart(BC) ) THEN
+              n = Element % Type % NumberOfNodes
+              Indexes(1:n) = Element % NodeIndexes
+            ELSE
+              n = SgetElementDOFs( Indexes )
+            END IF
             ValueList => Model % BCs(BC) % Values
             CALL SetElementValues( n )
           END DO
@@ -975,14 +981,19 @@ CONTAINS
         DO t = Model % NumberOfBulkElements + 1, &
             Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
           DO BC=1,Model % NumberOfBCs
-            IF(.NOT. ActivePart(BC)) CYCLE            
+            IF(.NOT. ActivePart(BC) .AND. .NOT. ActivePartAll(BC) ) CYCLE
             Conditional = ActiveCond(BC)
             
             Element => Model % Elements(t)
             IF ( Element % BoundaryInfo % Constraint /= Model % BCs(BC) % Tag ) CYCLE
             
             Model % CurrentElement => Element
-            n = SgetElementDOFs( Indexes )
+            IF ( ActivePart(BC) ) THEN
+              n = Element % Type % NumberOfNodes
+              Indexes(1:n) = Element % NodeIndexes
+            ELSE
+              n = SgetElementDOFs( Indexes )
+            END IF
             ValueList => Model % BCs(BC) % Values
             CALL SetElementValues( n )
           END DO
@@ -996,24 +1007,30 @@ CONTAINS
     
     ActivePart = .FALSE.
     ActiveCond = .FALSE.
+    ActivePartAll = .FALSE.
     DO bf_id=1,Model % NumberOFBodyForces
       ActivePart(bf_id) = ListCheckPresent( Model % BodyForces(bf_id) % Values, Name ) 
-      ActivePart(bf_id) = ActivePart(bf_id) .OR. ListCheckPresent( &
-        Model % BodyForces(bf_id) % Values, TRIM(Name) // ' Pointwise' ) 
+      ActivePartAll(bf_id) = ListCheckPresent( &
+           Model % BodyForces(bf_id) % Values, TRIM(Name) // ' DOFs' ) 
       ActiveCond(bf_id) = ListCheckPresent( Model % BodyForces(bf_id) % Values,CondName )      
     END DO
     
-    IF ( ANY( ActivePart ) ) THEN
+    IF ( ANY( ActivePart ) .OR. ANY(ActivePartAll) ) THEN
       DO t = 1, Model % NumberOfBulkElements 
         Element => Model % Elements(t)
         bf_id = ListGetInteger( Model % Bodies(Element % BodyId) % Values,'Body Force', GotIt)
         
         IF(.NOT. GotIt) CYCLE
-        IF(.NOT. ActivePart(bf_id)) CYCLE
+        IF(.NOT. ActivePart(bf_id) .AND. .NOT. ActivePartAll(bf_id)) CYCLE
         Conditional = ActiveCond(bf_id)
         
         Model % CurrentElement => Element
-        n = SgetElementDOFs( Indexes )
+        IF ( ActivePart(bf_id) ) THEN
+          n = Element % Type % NumberOfNodes
+          Indexes(1:n) = Element % NodeIndexes
+        ELSE
+          n = SgetElementDOFs( Indexes )
+        END IF
         ValueList => Model % BodyForces(bf_id) % Values
         CALL SetElementValues( n )
       END DO
@@ -1089,9 +1106,8 @@ CONTAINS
       
       IF ( DOF > 0 ) THEN
         Work(1:n)  = ListGetReal( ValueList, Name, n, Indexes, gotIt )
-        IF ( .NOT. Gotit ) THEN
-          n = Element % Type % NumberOfNodes
-          Work(1:n)  = ListGetReal( ValueList, TRIM(Name) // ' Pointwise', n, Indexes, gotIt )
+        IF ( .NOT. GotIt ) THEN
+           Work(1:n)  = ListGetReal( ValueList, TRIM(Name) // ' DOFs', n, Indexes, gotIt )
         END IF
       ELSE
         CALL ListGetRealArray( ValueList, Name, WorkA, n, Indexes, gotIt )
@@ -1414,14 +1430,14 @@ CONTAINS
     INTEGER :: NoNodes,NoDims,bf_id
     REAL(KIND=dp), POINTER :: CoordNodes(:,:)
     REAL(KIND=dp) :: MinDist,Dist
-    LOGICAL, ALLOCATABLE :: ActivePart(:), DoneLoad(:)
+    LOGICAL, ALLOCATABLE :: ActivePart(:), ActivePartAll(:), DoneLoad(:)
     LOGICAL :: NodesFound
     TYPE(ValueList_t), POINTER :: ValueList
 
     LoadName = TRIM(Name) // ' Load'
     
     n = MAX(Model % NumberOfBCs, Model % NumberOFBodyForces) 
-    ALLOCATE( ActivePart(n) )
+    ALLOCATE( ActivePart(n), ActivePartAll(n) )
 
     ALLOCATE( Indexes(Model % Solver % Mesh % MaxElementDOFs) )
 !------------------------------------------------------------------------------
@@ -1429,17 +1445,20 @@ CONTAINS
 !------------------------------------------------------------------------------
 
     ActivePart = .FALSE.
+    ActivePartAll = .FALSE.
     DO BC=1,Model % NumberOfBCs
       IF(.NOT. ListCheckPresent( Model % BCs(BC) % Values,'Target Boundaries')) CYCLE
       ActivePart(BC) = ListCheckPresent( Model % BCs(BC) % Values, LoadName )
+      ActivePartAll(BC) = ListCheckPresent( &
+          Model % BCs(BC) % Values, TRIM(LoadName) // ' DOFs' )
     END DO
 
-    IF ( ANY( ActivePart ) ) THEN
+    IF ( ANY(ActivePart) .OR. ANY(ActivePartAll) ) THEN
       ALLOCATE(DoneLoad( SIZE(b)/NDOFs) )
       DoneLoad = .FALSE.
 
       DO BC=1,Model % NumberOfBCs
-        IF(.NOT. ActivePart(BC)) CYCLE
+        IF(.NOT. ActivePart(BC) .AND. .NOT. ActivePartAll(BC) ) CYCLE
 
         DO t = Model % NumberOfBulkElements + 1, &
           Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
@@ -1448,7 +1467,12 @@ CONTAINS
           IF ( Element % BoundaryInfo % Constraint /= Model % BCs(BC) % Tag ) CYCLE
           
           Model % CurrentElement => Element
-          n = SgetElementDOFs( Indexes )
+          IF ( ActivePart(bf_id) ) THEN
+            n = Element % Type % NumberOfNodes
+            Indexes(1:n) = Element % NodeIndexes
+          ELSE
+            n = SgetElementDOFs( Indexes )
+          END IF
           ValueList => Model % BCs(BC) % Values
 
           CALL SetElementLoads( n )
@@ -1461,11 +1485,14 @@ CONTAINS
 !------------------------------------------------------------------------------
 
     ActivePart = .FALSE.
+    ActivePartAll = .FALSE.
     DO bf_id=1,Model % NumberOFBodyForces
       ActivePart(bf_id) = ListCheckPresent( Model % BodyForces(bf_id) % Values, LoadName ) 
+      ActivePartAll(bf_id) = ListCheckPresent( &
+            Model % BodyForces(bf_id) % Values, TRIM(LoadName) // ' DOFs' ) 
     END DO
 
-    IF ( ANY( ActivePart ) ) THEN
+    IF ( ANY( ActivePart ) .OR. ANY(ActivePartAll) ) THEN
       IF(.NOT. ALLOCATED(DoneLoad)) ALLOCATE(DoneLoad( SIZE(b)/NDOFs) )      
       DoneLoad = .FALSE.
 
@@ -1474,10 +1501,15 @@ CONTAINS
         bf_id = ListGetInteger( Model % Bodies(Element % BodyId) % Values,'Body Force', GotIt)
         
         IF(.NOT. GotIt) CYCLE
-        IF(.NOT. ActivePart(bf_id)) CYCLE
+        IF(.NOT. ActivePart(bf_id) .AND. .NOT. ActivePartAll(bf_id) ) CYCLE
 
         Model % CurrentElement => Element
-        n = SgetElementDOFs( Indexes )
+        IF ( ActivePart(bf_id) ) THEN
+          n = Element % Type % NumberOfNodes
+          Indexes(1:n) = Element % NodeIndexes
+        ELSE
+          n = SgetElementDOFs( Indexes )
+        END IF
         ValueList => Model % BodyForces(bf_id) % Values
 
         CALL SetElementLoads( n )
@@ -1493,7 +1525,6 @@ CONTAINS
 !------------------------------------------------------------------------------
 
     DO BC=1,Model % NumberOfBCs
-
       IF( .NOT. ListCheckPresent( Model % BCs(BC) % Values,LoadName )) CYCLE
       NodesFound = ListCheckPresent( Model % BCs(BC) % Values,'Target Nodes')
       
@@ -1554,6 +1585,9 @@ CONTAINS
        
        IF ( DOF > 0 ) THEN
          Work(1:n) = ListGetReal( ValueList, LoadName, n, Indexes, gotIt )
+         IF ( .NOT. Gotit ) THEN
+           Work(1:n) = ListGetReal( ValueList, TRIM(LoadName) // ' DOFs', n, Indexes, gotIt )
+         END IF
        ELSE
          CALL ListGetRealArray( ValueList, LoadName, WorkA, n, Indexes, gotIt )
        END IF
