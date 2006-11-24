@@ -97,7 +97,7 @@ EIOMeshAgent::EIOMeshAgent(EIOModelManager *mm, int split, int part)
   else parallel = 0;
 
   dim = 3;
-  clist = (cache_node *) 0;
+  clist = (cache_node *) NULL;
 
   elementTypeTags = (int*) 0;
   elementTypeCount = (int*) 0;
@@ -178,7 +178,7 @@ openMesh(const char *dir)
 
 
   step = 0;
-  clist = (cache_node *)0;
+  clist = (cache_node *)NULL;
 
   return 0;
 }
@@ -194,10 +194,11 @@ closeMesh()
       manager->closeStream(meshFileStream[i]);
     } 
 
-  if ( clist ) delete clist;
+  if (clist) delete []clist;
+  clist = (cache_node *)NULL;
 
-  delete elementTypeTags;
-  delete elementTypeCount;
+  delete []elementTypeTags;
+  delete []elementTypeCount;
 
   return 0;
 }
