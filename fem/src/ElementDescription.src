@@ -40,9 +40,6 @@
 ! ******************************************************************************
 ! *
 ! * $Log: ElementDescription.src,v $
-! * Revision 1.21  2006/10/10 13:01:53  jpr
-! * *** empty log message ***
-! *
 ! * Revision 1.20  2006/02/06 07:18:04  jpr
 ! * Added complaint in ElementInfo if bubbles requested but not implemented
 ! * for a specific element.
@@ -118,7 +115,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: ElementDescription.src,v 1.21 2006/10/10 13:01:53 jpr Exp $
+! * $Id: ElementDescription.src,v 1.22 2006/10/13 07:24:48 jpr Exp $
 ! ******************************************************************************/
 
 MODULE ElementDescription
@@ -498,6 +495,7 @@ CONTAINS
       BasisTerms = 0
       element % GaussPoints  = 0
       element % GaussPoints2 = 0
+      element % StabilizationMK = 0
       NULLIFY( element % NodeU )
       NULLIFY( element % NodeV )
       NULLIFY( element % NodeW )
@@ -4520,6 +4518,7 @@ END IF
                Element => LeftElement
             END IF
          ELSE
+#if 0
             LMat = ListGetInteger( CurrentModel % Bodies( &
                    LeftElement % BodyId)  % Values, 'Material', &
                     minv=1, maxv=CurrentModel % NumberOfMaterials )
@@ -4539,6 +4538,16 @@ END IF
             ELSE
               Element => RightElement
             END IF
+#else
+            CALL Warn( 'CheckNormalDirection', 'To be safe Normal direction should be defined by' )
+            CALL Warn( 'CheckNormalDirection', '"Normal Target Body=body_id" for internal boundaries.')
+            CALL Warn( 'CheckNormalDirection', ' ' )
+            IF(leftElement % BodyId > RightElement % BodyId) THEN
+              Element => LeftElement
+            ELSE
+              Element => RightElement
+            END IF
+#endif
          END IF
        ELSE
           Element => LeftElement
@@ -4719,7 +4728,7 @@ END IF
       s = InterpolateInElement( Element,ElementNodes % y(1:n),u,v,w ) - y
       t = InterpolateInElement( Element,ElementNodes % z(1:n),u,v,w ) - z
 
-      IF ( r**2 + s**2 + t**2 < EPSILON(x) ) EXIT
+      IF ( r**2 + s**2 + t**2 < EPSILON(1.0_dp) ) EXIT
 
       delta = 0.d0
 
