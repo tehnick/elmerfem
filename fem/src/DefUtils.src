@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: DefUtils.src,v $
+! * Revision 1.31  2006/11/24 11:14:33  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.28  2006/11/20 10:56:44  raback
 ! * Updated the Dirichlet BC and Nodal load settings.
 ! *
@@ -152,7 +155,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.30 2006/11/23 13:16:04 jpr Exp $
+! * $Id: DefUtils.src,v 1.31 2006/11/24 11:14:33 jpr Exp $
 ! *
 ! *****************************************************************************/
 
@@ -864,7 +867,7 @@ CONTAINS
      IF ( sz1 > Solver % Mesh % NumberOfNodes ) THEN
         nd = GetElementDOFs( Indexes )
         DO i=n+1,sz
-           IF ( Indexes(i)<=sz1 ) THEN
+           IF ( Indexes(i)>0 .AND. Indexes(i)<=sz1 ) THEN
              ElementNodes % x(i) = Solver % Mesh % Nodes % x(Indexes(i))
              ElementNodes % y(i) = Solver % Mesh % Nodes % y(Indexes(i))
              ElementNodes % z(i) = Solver % Mesh % Nodes % z(Indexes(i))
