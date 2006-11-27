@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ElmerSolver.src,v 1.13 2006/10/09 09:33:52 jpr Exp $
+! * $Id: ElmerSolver.src,v 1.14 2006/11/24 08:17:46 jpr Exp $
 ! ******************************************************************************
 
 !------------------------------------------------------------------------------
@@ -278,21 +278,6 @@
 !------------------------------------------------------------------------------
 !      Get Output File Options
 !------------------------------------------------------------------------------
-       OutputFile = ListGetString(CurrentModel % Simulation,'Output File',GotIt)
-       IF ( .NOT.GotIt ) OutputFile = 'Result.dat'
-       IF ( ParEnv % PEs > 1 ) THEN
-         DO i=1,MAX_NAME_LEN
-           IF ( OutputFile(i:i) == ' ' ) EXIT
-         END DO
-         OutputFile(i:i) = '.'
-         IF ( ParEnv % MyPE < 10 ) THEN
-           WRITE( OutputFile(i+1:), '(i1)' ) ParEnv % MyPE
-         ELSE IF ( ParEnv % MyPE < 100 ) THEN
-           WRITE( OutputFile(i+1:), '(i2)' ) ParEnv % MyPE
-         ELSE
-           WRITE( OutputFile(i+1:), '(i3)' ) ParEnv % MyPE
-         END IF
-       END IF
 
        OutputIntervals => ListGetIntegerArray( CurrentModel % Simulation, &
                        'Output Intervals', GotIt )
@@ -372,11 +357,12 @@
 !------------------------------------------------------------------------------
     SUBROUTINE AddSolvers
 !------------------------------------------------------------------------------
-      INTEGER :: i,j,k
+      INTEGER :: i,j,k,nlen
       LOGICAL :: InitSolver, Found
 !------------------------------------------------------------------------------
       DO i=1,CurrentModel % NumberOfSolvers
         eq = ListGetString( CurrentModel % Solvers(i) % Values,'Equation', Found )
+        nlen = LEN_TRIM(eq)
      
        IF ( Found ) THEN
           DO j=1,CurrentModel % NumberOFEquations
@@ -385,7 +371,7 @@
              IF ( Found ) THEN
                 DO k=1,SIZE(ActiveSolvers)
                    IF ( ActiveSolvers(k) == i ) THEN
-                      CALL ListAddLogical( CurrentModel % Equations(j) % Values, TRIM(eq), .TRUE. )
+                      CALL ListAddLogical( CurrentModel % Equations(j) % Values, eq(1:nlen), .TRUE. )
                       EXIT
                    END IF
                 END DO
@@ -858,69 +844,86 @@
 !------------------------------------------------------------------------------
   SUBROUTINE SaveCurrent( CurrentStep )
 !------------------------------------------------------------------------------
-    INTEGER :: i, CurrentStep
+    INTEGER :: i, CurrentStep,nlen
     TYPE(Variable_t), POINTER :: Var
     LOGICAL :: EigAnal, GotIt
     CHARACTER(LEN=MAX_NAME_LEN) :: Simul
     
     Simul = ListGetString( CurrentModel % Simulation, 'Simulation Type' )
     
-    Mesh => CurrentModel % Meshes
-    DO WHILE( ASSOCIATED( Mesh ) ) 
-       IF ( Mesh % OutputActive ) THEN
-          IF ( LEN_TRIM(Mesh % Name) > 0 ) THEN
-             OutputName = TRIM(Mesh % Name) // '/' // TRIM(OutputFile)
-          ELSE
-             OutputName = OutputFile
-          END IF
+    OutputFile = ListGetString(CurrentModel % Simulation,'Output File',GotIt)
+    IF ( GotIt ) THEN
+      IF ( ParEnv % PEs > 1 ) THEN
+        DO i=1,MAX_NAME_LEN
+          IF ( OutputFile(i:i) == ' ' ) EXIT
+        END DO
+        OutputFile(i:i) = '.'
+        IF ( ParEnv % MyPE < 10 ) THEN
+          WRITE( OutputFile(i+1:), '(i1)' ) ParEnv % MyPE
+        ELSE IF ( ParEnv % MyPE < 100 ) THEN
+          WRITE( OutputFile(i+1:), '(i2)' ) ParEnv % MyPE
+        ELSE
+          WRITE( OutputFile(i+1:), '(i3)' ) ParEnv % MyPE
+        END IF
+      END IF
+      Mesh => CurrentModel % Meshes
+      DO WHILE( ASSOCIATED( Mesh ) ) 
+         IF ( Mesh % OutputActive ) THEN
+            nlen = LEN_TRIM(Mesh % Name )
+            IF ( nlen > 0 ) THEN
+               OutputName = Mesh % Name(1:nlen) // '/' // TRIM(OutputFile)
+            ELSE
+               OutputName = OutputFile
+            END IF
 
-          EigAnal = .FALSE.
-          DO i=1,CurrentModel % NumberOfSolvers
-             IF ( ASSOCIATED( CurrentModel % Solvers(i) % Mesh, Mesh ) ) THEN
-                EigAnal = ListGetLogical( CurrentModel % Solvers(i) % Values, &
-                            'Eigen Analysis', GotIt )
+            EigAnal = .FALSE.
+            DO i=1,CurrentModel % NumberOfSolvers
+               IF ( ASSOCIATED( CurrentModel % Solvers(i) % Mesh, Mesh ) ) THEN
+                  EigAnal = ListGetLogical( CurrentModel % Solvers(i) % Values, &
+                              'Eigen Analysis', GotIt )
 
-                IF ( EigAnal ) THEN
-                   Var => CurrentModel % Solvers(i) % Variable
-                   IF ( ASSOCIATED(Var % EigenValues) ) THEN
-                      IF ( TotalTimesteps == 1 ) THEN
-                         DO j=1,CurrentModel % Solvers(i) % NOFEigenValues
+                  IF ( EigAnal ) THEN
+                     Var => CurrentModel % Solvers(i) % Variable
+                     IF ( ASSOCIATED(Var % EigenValues) ) THEN
+                        IF ( TotalTimesteps == 1 ) THEN
+                           DO j=1,CurrentModel % Solvers(i) % NOFEigenValues
+                             IF ( CurrentModel % Solvers(i) % Matrix % Complex ) THEN
+                                DO k=1,SIZE(Var % Values)/2
+                                   Var % Values(2*k-1) = REAL( Var % EigenVectors(j,k) )
+                                   Var % Values(2*k-0) = AIMAG( Var % EigenVectors(j,k) )
+                                 END DO
+                              ELSE
+                                 Var % Values = REAL( Var % EigenVectors(j,:) )
+                              END IF
+                              SavedSteps = SaveResult( OutputName, Mesh, &
+                                     j, sTime(1) )
+                           END DO
+                        ELSE
+                           j = MIN( CurrentStep, SIZE( Var % EigenVectors,1 ) )
                            IF ( CurrentModel % Solvers(i) % Matrix % Complex ) THEN
-                              DO k=1,SIZE(Var % Values)/2
-                                 Var % Values(2*k-1) = REAL( Var % EigenVectors(j,k) )
-                                 Var % Values(2*k-0) = AIMAG( Var % EigenVectors(j,k) )
-                               END DO
-                            ELSE
-                               Var % Values = REAL( Var % EigenVectors(j,:) )
-                            END IF
-                            SavedSteps = SaveResult( OutputName, Mesh, &
-                                   j, sTime(1) )
-                         END DO
-                      ELSE
-                         j = MIN( CurrentStep, SIZE( Var % EigenVectors,1 ) )
-                         IF ( CurrentModel % Solvers(i) % Matrix % Complex ) THEN
-                           DO k=1,SIZE(Var % Values)/2
-                              Var % Values(2*k-1) = REAL( Var % EigenVectors(j,k) )
-                              Var % Values(2*k-0) = AIMAG( Var % EigenVectors(j,k) )
-                            END DO
-                         ELSE
-                            Var % Values = REAL(Var % EigenVectors(j,:))
-                         END IF
-                         SavedSteps = SaveResult( OutputName, Mesh, &
-                              CurrentStep, sTime(1) )
-                      END IF
-                      Var % Values = 0.0d0
-                   END IF
-                END IF
-             END IF
-          END DO
+                             DO k=1,SIZE(Var % Values)/2
+                                Var % Values(2*k-1) = REAL( Var % EigenVectors(j,k) )
+                                Var % Values(2*k-0) = AIMAG( Var % EigenVectors(j,k) )
+                              END DO
+                           ELSE
+                              Var % Values = REAL(Var % EigenVectors(j,:))
+                           END IF
+                           SavedSteps = SaveResult( OutputName, Mesh, &
+                                CurrentStep, sTime(1) )
+                        END IF
+                        Var % Values = 0.0d0
+                     END IF
+                  END IF
+               END IF
+            END DO
 
-          IF ( .NOT. EigAnal ) THEN
-             SavedSteps = SaveResult( OutputName,Mesh,Time, sTime(1) )
-          END IF
-       END IF
-       Mesh => Mesh % Next
-    END DO
+            IF ( .NOT. EigAnal ) THEN
+               SavedSteps = SaveResult( OutputName,Mesh,Time, sTime(1) )
+            END IF
+         END IF
+         Mesh => Mesh % Next
+      END DO
+    END IF
     CALL SaveToPost( CurrentStep )
 !------------------------------------------------------------------------------
   END SUBROUTINE SaveCurrent
@@ -932,7 +935,7 @@
 !    Convert results file to post processing file, if requested
 !------------------------------------------------------------------------------
     TYPE(Variable_t), POINTER :: Var
-    INTEGER :: i, CurrentStep
+    INTEGER :: i, CurrentStep,nlen
     LOGICAL :: EigAnal = .FALSE.
     CHARACTER(LEN=MAX_NAME_LEN) :: Simul
     
@@ -957,9 +960,10 @@
        Mesh => CurrentModel % Meshes
        DO WHILE( ASSOCIATED( Mesh ) )
           IF ( Mesh % OutputActive ) THEN
-             IF ( LEN_TRIM( Mesh % Name ) > 0 )  THEN
-                OutputName = TRIM(Mesh % Name) // '/' // TRIM(OutputFile)
-                Postname   = TRIM(Mesh % Name) // '/' // TRIM(PostFile)
+             nlen = LEN_TRIM(Mesh % Name)
+             IF ( nlen  > 0 )  THEN
+                OutputName = Mesh % Name(1:nlen) // '/' // TRIM(OutputFile)
+                Postname   = Mesh % Name(1:nlen) // '/' // TRIM(PostFile)
              ELSE
                 PostName   = PostFile
                 OutputName = OutputFile
