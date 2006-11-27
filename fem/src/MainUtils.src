@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MainUtils.src,v $
+! * Revision 1.16  2006/11/08 07:46:42  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.15  2006/11/03 08:31:03  jpr
 ! * *** empty log message ***
 ! *
@@ -88,7 +91,7 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.src,v 1.15 2006/11/03 08:31:03 jpr Exp $
+! * $Id: MainUtils.src,v 1.16 2006/11/08 07:46:42 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MainUtils
@@ -133,15 +136,14 @@ CONTAINS
                   'Linear System Solver', Found )
           IF ( .NOT. Found ) str = 'direct'
 
-          IF ( TRIM(str) == 'direct' ) THEN
-
+          IF ( str == 'direct' ) THEN
              str = ListGetString(Model % Solvers(i) % Values, &
                   'Linear System Direct Method', Found )
 
              IF ( .NOT. Found ) THEN
                 FORMAT = MATRIX_CRS
              ELSE
-                SELECT CASE( TRIM(str) )
+                SELECT CASE( str )
                 CASE( 'banded', 'symmetric banded' )
                    FORMAT = MATRIX_CRS
 
@@ -159,9 +161,9 @@ CONTAINS
                    FORMAT = MATRIX_CRS
                 END SELECT
              END IF
-          ELSE IF ( TRIM(str) == 'iterative' ) THEN
+          ELSE IF ( str == 'iterative' ) THEN
              FORMAT = MATRIX_CRS
-          ELSE IF ( TRIM(str) == 'multigrid' ) THEN
+          ELSE IF ( str == 'multigrid' ) THEN
              FORMAT = MATRIX_CRS
           ELSE
              CALL Fatal( 'GetMatrixFormat', 'Unknown linear system solver: ' // TRIM(str) )
@@ -762,7 +764,7 @@ CONTAINS
              END DO
              IF ( DOFs == 0 ) DOFs = 1
 
-             NewVariable => VariableGet( Solver % Mesh % Variables, TRIM(Var_name) )
+             NewVariable => VariableGet( Solver % Mesh % Variables, Var_name )
 
              IF ( .NOT. ASSOCIATED(NewVariable) ) THEN
                nSize = Nrows * DOFs / Solver % Variable % DOFs
@@ -771,7 +773,7 @@ CONTAINS
                Perm => Solver % Variable % Perm
 
                CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
-                 TRIM(var_name), DOFs, Solution, Solver % Variable % Perm,Output=VariableOutput )
+                 var_name, DOFs, Solution, Solver % Variable % Perm,Output=VariableOutput )
 
                IF ( DOFs > 1 ) THEN
                   n = LEN_TRIM( var_name )

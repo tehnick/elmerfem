@@ -144,7 +144,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.43 2006/10/09 08:00:42 jpr Exp $
+! * $Id: MeshUtils.src,v 1.44 2006/10/10 10:32:12 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -637,6 +637,13 @@ CONTAINS
           Mesh % Elements(i) % BoundaryInfo % OutBody = &
              ListGetInteger( Model % BCs(j) % Values, &
                 'Normal Target Body', GotIt, maxv=Model % NumberOFBodies ) 
+!         Mesh % Elements(i) % BoundaryInfo % OutBody => &
+!            ListGetIntegerArray( Model % BCs(j) % Values, &
+!               'Normal Target Body', GotIt, maxv=Model % NumberOFBodies ) 
+!       IF ( .NOT. ASSOCIATED(Mesh % Elements(i) % BoundaryInfo) ) % OutBody ) THEN
+!          ALLOCATE( Mesh % Elements(i) % BoundaryInfo) ) % OutBody(1) )
+!          Mesh % Elements(i) % BoundaryInfo) ) % OutBody(1) )
+!       END IF
 
         CALL AllocateVector( Mesh % Elements(i) % NodeIndexes, n )
 
@@ -2561,7 +2568,7 @@ END SUBROUTINE FindNeighbourNodes
   SUBROUTINE UpdateSolverMesh( Solver, Mesh )
 !------------------------------------------------------------------------------
      TYPE( Mesh_t ), POINTER :: Mesh
-     TYPE( Solver_t ), POINTER :: Solver
+     TYPE( Solver_t ), TARGET :: Solver
 !------------------------------------------------------------------------------
      INTEGER :: i,j,k,n,n1,n2,DOFs
      LOGICAL :: Found, OptimizeBandwidth

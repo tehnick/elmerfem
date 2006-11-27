@@ -130,7 +130,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.36 2006/11/23 11:36:45 jpr Exp $
+! * $Id: SolverUtils.src,v 1.37 2006/11/23 13:16:32 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -180,6 +180,7 @@ CONTAINS
      REAL(KIND=dp) :: ForceVector(:)
 !------------------------------------------------------------------------------
      INTEGER :: i,dim
+     TYPE(Solver_t), POINTER :: Solver
 !------------------------------------------------------------------------------
 
      IF ( ASSOCIATED( StiffMatrix ) ) THEN
@@ -214,12 +215,13 @@ CONTAINS
 
      ForceVector = 0.0d0
 
+     Solver => CurrentModel % Solver
      NormalTangentialName = 'Normal-Tangential'
-     IF ( CurrentModel % Solver % Variable % Name == 'flow solution' ) THEN
+     IF ( Solver % Variable % Name == 'flow solution' ) THEN
        NormalTangentialName = TRIM(NormalTangentialName) // ' Velocity'
      ELSE
        NormalTangentialName = TRIM(NormalTangentialName) // ' ' // &
-               TRIM(CurrentModel % Solver % Variable % Name )
+          Solver % Variable % Name(1:Solver % Variable % Namelen)
      END IF
 
      dim = CoordinateSystemDimension()
@@ -896,7 +898,7 @@ CONTAINS
     LOGICAL, ALLOCATABLE :: DonePeriodic(:)
     CHARACTER(LEN=MAX_NAME_LEN) :: CondName
 
-    INTEGER :: NoNodes,NoDims,bf_id
+    INTEGER :: NoNodes,NoDims,bf_id,nlen
     REAL(KIND=dp), POINTER :: CoordNodes(:,:), Condition(:), Work(:)
     REAL(KIND=dp) :: MinDist,Dist
     LOGICAL, ALLOCATABLE :: ActivePart(:), ActiveCond(:), ActivePartAll(:)
@@ -907,9 +909,11 @@ CONTAINS
 ! These logical vectors are used to minimize extra effort in setting up different BCs
 !------------------------------------------------------------------------------
 
+    nlen = LEN_TRIM(Name)
+
     n = MAX( Model % NumberOfBodyForces,Model % NumberOfBCs)
     ALLOCATE( ActivePart(n), ActivePartAll(n), ActiveCond(n))
-    CondName = TRIM(Name) // ' Condition'
+    CondName = Name(1:nlen) // ' Condition'
  
     ALLOCATE( Indexes(Model % Mesh % MaxElementDOFs) )
 !------------------------------------------------------------------------------
@@ -919,9 +923,9 @@ CONTAINS
    ActivePart = .FALSE.
    DO BC=1,Model % NumberOfBCs
      IF ( .NOT. ListGetLogical( Model % BCs(BC) % Values, &
-         'Periodic BC ' // TRIM(Name), GotIt ) ) ActivePart(BC) = .TRUE.
+         'Periodic BC ' // Name(1:nlen), GotIt ) ) ActivePart(BC) = .TRUE.
      IF ( .NOT. ListGetLogical( Model % BCs(BC) % Values, &
-         'Anti Periodic BC ' // TRIM(Name), GotIt ) ) ActivePart(BC) = .TRUE.
+         'Anti Periodic BC ' // Name(1:nlen), GotIt ) ) ActivePart(BC) = .TRUE.
    END DO
 
    IF( ANY(ActivePart) ) THEN    
@@ -947,7 +951,7 @@ CONTAINS
     ActivePartAll = .FALSE.
     DO BC=1,Model % NumberOfBCs
       ActivePartAll(BC) = ListCheckPresent( &
-            Model % BCs(bc) % Values, TRIM(Name) // ' DOFs' )
+            Model % BCs(bc) % Values, Name(1:nlen) // ' DOFs' )
       ActivePart(BC) = ListCheckPresent( Model % BCs(bc) % Values, Name ) 
       ActiveCond(BC) = ListCheckPresent( Model % BCs(bc) % Values, CondName )      
     END DO
@@ -1011,7 +1015,7 @@ CONTAINS
     DO bf_id=1,Model % NumberOFBodyForces
       ActivePart(bf_id) = ListCheckPresent( Model % BodyForces(bf_id) % Values, Name ) 
       ActivePartAll(bf_id) = ListCheckPresent( &
-           Model % BodyForces(bf_id) % Values, TRIM(Name) // ' DOFs' ) 
+           Model % BodyForces(bf_id) % Values, Name(1:nlen) // ' DOFs' ) 
       ActiveCond(bf_id) = ListCheckPresent( Model % BodyForces(bf_id) % Values,CondName )      
     END DO
     
@@ -1107,7 +1111,7 @@ CONTAINS
       IF ( DOF > 0 ) THEN
         Work(1:n)  = ListGetReal( ValueList, Name, n, Indexes, gotIt )
         IF ( .NOT. GotIt ) THEN
-           Work(1:n)  = ListGetReal( ValueList, TRIM(Name) // ' DOFs', n, Indexes, gotIt )
+           Work(1:n)  = ListGetReal( ValueList, Name(1:nlen) // ' DOFs', n, Indexes, gotIt )
         END IF
       ELSE
         CALL ListGetRealArray( ValueList, Name, WorkA, n, Indexes, gotIt )
@@ -1168,7 +1172,7 @@ CONTAINS
       ELSE IF( SIZE( WorkB,1) == n) THEN
         Work = WorkB(1:n,1)
       ELSE
-        CALL Warn('SetDirichletBoundaries','Invalid size of Dirichlet vector: '//TRIM(Name))
+        CALL Warn('SetDirichletBoundaries','Invalid size of Dirichlet vector: '//Name(1:nlen))
         RETURN
       END IF
 
@@ -1251,17 +1255,19 @@ CONTAINS
     INTEGER :: This, DOF, NDOFs, Perm(:)
 !------------------------------------------------------------------------------
 
-    INTEGER :: i,j,k,l,m,n,nn,ii
+    INTEGER :: i,j,k,l,m,n,nn,ii,nlen
     LOGICAL :: GotIt
     REAL(KIND=dp) :: Scale
     TYPE(Matrix_t), POINTER :: Projector, Projector1
 !------------------------------------------------------------------------------
 
+    nlen = LEN_TRIM(Name)
+
     Scale = -1.0d0
     IF ( .NOT. ListGetLogical( Model % BCs(This) % Values, &
-       'Periodic BC ' // TRIM(Name), GotIt ) ) THEN
+       'Periodic BC ' // Name(1:nlen), GotIt ) ) THEN
        IF ( .NOT. ListGetLogical( Model % BCs(This) % Values, &
-          'Anti Periodic BC ' // TRIM(Name), GotIt ) ) RETURN
+          'Anti Periodic BC ' // Name(1:nlen), GotIt ) ) RETURN
        Scale = 1.0d0
     END IF
 
@@ -1337,17 +1343,19 @@ CONTAINS
     INTEGER :: This, DOF, NDOFs, Perm(:)
 !------------------------------------------------------------------------------
 
-    INTEGER :: i,j,k,l,m,n,nn,ii
+    INTEGER :: i,j,k,l,m,n,nn,ii,nlen
     LOGICAL :: GotIt
     REAL(KIND=dp) :: Scale,s
     TYPE(Matrix_t), POINTER :: Projector
 !------------------------------------------------------------------------------
 
+    nlen = LEN_TRIM(Name)
+
     Scale = -1.0d0
     IF ( .NOT. ListGetLogical( Model % BCs(This) % Values, &
-       'Periodic BC ' // TRIM(Name), GotIt ) ) THEN
+       'Periodic BC ' // Name(1:nlen), GotIt ) ) THEN
        IF ( .NOT. ListGetLogical( Model % BCs(This) % Values, &
-          'Anti Periodic BC ' // TRIM(Name), GotIt ) ) RETURN
+          'Anti Periodic BC ' // Name(1:nlen), GotIt ) ) RETURN
        Scale = 1.0d0
     END IF
 
@@ -1427,7 +1435,7 @@ CONTAINS
     CHARACTER(LEN=MAX_NAME_LEN) :: LoadName
 
     INTEGER, POINTER :: IndNodes(:)
-    INTEGER :: NoNodes,NoDims,bf_id
+    INTEGER :: NoNodes,NoDims,bf_id,nlen
     REAL(KIND=dp), POINTER :: CoordNodes(:,:)
     REAL(KIND=dp) :: MinDist,Dist
     LOGICAL, ALLOCATABLE :: ActivePart(:), ActivePartAll(:), DoneLoad(:)
@@ -1435,6 +1443,7 @@ CONTAINS
     TYPE(ValueList_t), POINTER :: ValueList
 
     LoadName = TRIM(Name) // ' Load'
+    nlen = LEN_TRIM(LoadName)
     
     n = MAX(Model % NumberOfBCs, Model % NumberOFBodyForces) 
     ALLOCATE( ActivePart(n), ActivePartAll(n) )
@@ -1450,7 +1459,7 @@ CONTAINS
       IF(.NOT. ListCheckPresent( Model % BCs(BC) % Values,'Target Boundaries')) CYCLE
       ActivePart(BC) = ListCheckPresent( Model % BCs(BC) % Values, LoadName )
       ActivePartAll(BC) = ListCheckPresent( &
-          Model % BCs(BC) % Values, TRIM(LoadName) // ' DOFs' )
+          Model % BCs(BC) % Values, LoadName(1:nlen) // ' DOFs' )
     END DO
 
     IF ( ANY(ActivePart) .OR. ANY(ActivePartAll) ) THEN
@@ -1489,7 +1498,7 @@ CONTAINS
     DO bf_id=1,Model % NumberOFBodyForces
       ActivePart(bf_id) = ListCheckPresent( Model % BodyForces(bf_id) % Values, LoadName ) 
       ActivePartAll(bf_id) = ListCheckPresent( &
-            Model % BodyForces(bf_id) % Values, TRIM(LoadName) // ' DOFs' ) 
+            Model % BodyForces(bf_id) % Values, LoadName(1:nlen) // ' DOFs' ) 
     END DO
 
     IF ( ANY( ActivePart ) .OR. ANY(ActivePartAll) ) THEN
@@ -1586,7 +1595,7 @@ CONTAINS
        IF ( DOF > 0 ) THEN
          Work(1:n) = ListGetReal( ValueList, LoadName, n, Indexes, gotIt )
          IF ( .NOT. Gotit ) THEN
-           Work(1:n) = ListGetReal( ValueList, TRIM(LoadName) // ' DOFs', n, Indexes, gotIt )
+           Work(1:n) = ListGetReal( ValueList, LoadName(1:nlen) // ' DOFs', n, Indexes, gotIt )
          END IF
        ELSE
          CALL ListGetRealArray( ValueList, LoadName, WorkA, n, Indexes, gotIt )
@@ -2391,7 +2400,6 @@ CONTAINS
     TYPE(Mesh_t), POINTER :: Mesh
     LOGICAL :: Relax,GotIt, ScaleSystem, EigenAnalysis
     INTEGER :: n,i,j,k,l,istat
-    TYPE(Solver_t), POINTER :: PSolver
     CHARACTER(LEN=MAX_NAME_LEN) :: Method, ProcName
     INTEGER(KIND=AddrInt) :: Proc
     REAL(KIND=dp), ALLOCATABLE :: PSolution(:), Diag(:)
@@ -2580,9 +2588,8 @@ CONTAINS
           Solution = 0.0d0
        ELSE
           IF ( Solver % MultiGridSolver ) THEN
-              PSolver => Solver
               CALL MultiGridSolve( StiffMatrix, Solution, ForceVector, &
-                      DOFs, PSolver, Solver % MultiGridLevel )
+                      DOFs, Solver, Solver % MultiGridLevel )
           ELSE IF ( ListGetString( Solver % Values, &
                   'Linear System Solver', GotIt ) == 'iterative' ) THEN
              CALL IterSolver( StiffMatrix, Solution, ForceVector, Solver )
@@ -2643,9 +2650,8 @@ CONTAINS
 !------------------------------------------------------------------------------
     ELSE
        IF ( Solver % MultiGridSolver ) THEN
-          PSolver => Solver
           CALL MultiGridSolve( StiffMatrix, Solution, ForceVector, &
-                 DOFs, PSolver, Solver % MultiGridLevel )
+                 DOFs, Solver, Solver % MultiGridLevel )
        ELSE
           CALL ParallelIter( StiffMatrix, Solver % Mesh % ParallelInfo, DOFs, &
             Solution, ForceVector, Solver, StiffMatrix % ParMatrix )
@@ -2710,7 +2716,6 @@ CONTAINS
     LOGICAL :: Relax, GotIt
     INTEGER :: n,i,j,k,istat
     TYPE(Matrix_t), POINTER :: SaveMatrix
-    TYPE(Solver_t), POINTER :: PSolver
     CHARACTER(LEN=MAX_NAME_LEN) :: Method, ProcName, VariableName
     INTEGER(KIND=AddrInt) :: Proc
     REAL(KIND=dp) :: s,Relaxation,Beta,Gamma

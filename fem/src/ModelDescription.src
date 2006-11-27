@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ModelDescription.src,v 1.25 2006/11/08 07:46:42 jpr Exp $
+! * $Id: ModelDescription.src,v 1.27 2006/11/22 08:56:25 jpr Exp $
 ! *****************************************************************************/
 
 MODULE ModelDescription
@@ -1923,7 +1923,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     TYPE(Variable_t),POINTER :: Var
     CHARACTER(LEN=MAX_NAME_LEN) :: Row,Name
-    INTEGER ::i,j,k,n,Node,DOFs,SavedCount,Timestep,NSDOFs
+    INTEGER ::i,j,k,n,Node,DOFs,SavedCount,Timestep,NSDOFs,nlen
 
     TYPE(Solver_t),   POINTER :: Solver
     TYPE(Variable_t), POINTER :: TimeVar, tStepVar
@@ -1977,6 +1977,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     DO WHILE( ReadAndTrim(RestartUnit,Row) )
 
+      nlen = LEN_TRIM(Row)
       IF ( Row(1:11) == 'total dofs:' ) THEN
         READ( Row(12:),* ) DOFs
         EXIT
@@ -1987,7 +1988,7 @@ CONTAINS
       NULLIFY(Solver)
       DO i = 1,CurrentModel % NumberOfSolvers
         Solver => CurrentModel % Solvers(i)
-        IF ( TRIM(Row(k+1:))==ListGetString(Solver % Values, 'Equation')) EXIT
+        IF ( Row(k+1:nlen)==ListGetString(Solver % Values, 'Equation')) EXIT
       END DO
 
       DO j=k-1,1,-1
@@ -2050,7 +2051,7 @@ CONTAINS
             DO i=1,DOFs
               Component => Var % Values(i:DOFs*Mesh % NumberOfNodes:DOFs)
               name = ComponentName( TRIM(row(1:k-1)), i )
-              CALL VariableAdd( Mesh % Variables,  Mesh, Solver, TRIM(name), &
+              CALL VariableAdd( Mesh % Variables,  Mesh, Solver, name, &
                            1, Component, Var % Perm )
             END DO
           END IF
@@ -2074,6 +2075,8 @@ CONTAINS
         IF ( Row(1:5) == 'time:' ) EXIT
       END DO
 
+      nlen = LEN_TRIM(row)
+
       IF ( Row(1:5) /= 'time:' ) THEN
         IF ( TimeCount /= 0 ) THEN
           CALL Warn( 'LoadRestartFile','Did not find the the requested' )
@@ -2089,7 +2092,7 @@ CONTAINS
 
       DO i=1,DOFs
         READ( RestartUnit,'(a)' ) Row
-        Var => VariableGet( Mesh % Variables,TRIM(Row) )
+        Var => VariableGet( Mesh % Variables,Row(1:nlen) )
 
         IF ( ASSOCIATED(Var) ) THEN
           DO j=1,Mesh % NumberOfNodes
@@ -2105,7 +2108,7 @@ CONTAINS
             END IF
           END DO
 
-          CALL InvalidateVariable( CurrentModel % Meshes, Mesh, TRIM(Row) )
+          CALL InvalidateVariable( CurrentModel % Meshes, Mesh, Row )
         END IF
       END DO
       n = n + 1

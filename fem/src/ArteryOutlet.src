@@ -40,6 +40,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: ArteryOutlet.src,v $
+! * Revision 1.4  2006/06/21 10:51:05  ejarvine
+! * *** empty log message ***
+! *
 ! * Revision 1.3  2006/04/26 10:16:45  ejarvine
 ! * Esko Järvinen 24.05.2006
 ! *
@@ -593,7 +596,7 @@ END IF
         WRITE(Name,'(A,I2)') 'res: pout',bc
       END IF
 
-      CALL ListAddConstReal( Model % Simulation, TRIM(Name), pres2dout )
+      CALL ListAddConstReal( Model % Simulation, Name, pres2dout )
       
       IF(Connections == 1) THEN
         Name = 'res: dRout'
@@ -603,7 +606,7 @@ END IF
         WRITE(Name,'(A,I2)') 'res: dRout',bc
       END IF
 
-      CALL ListAddConstReal( Model % Simulation,TRIM(Name), dR )                 
+      CALL ListAddConstReal( Model % Simulation, Name, dR )                 
 
     END IF
   END DO
@@ -815,9 +818,9 @@ CONTAINS
         WRITE(ZName,'(A,I2)') 'res: zcenterpoint',k
       END IF
 
-      CALL ListAddConstReal( Model % Simulation, TRIM(XName), XPosWeighted )
-      CALL ListAddConstReal( Model % Simulation, TRIM(YName), YPosWeighted )
-      CALL ListAddConstReal( Model % Simulation, TRIM(ZName), ZPosWeighted )
+      CALL ListAddConstReal( Model % Simulation, XName, XPosWeighted )
+      CALL ListAddConstReal( Model % Simulation, YName, YPosWeighted )
+      CALL ListAddConstReal( Model % Simulation, ZName, ZPosWeighted )
       
       WRITE(Message,'(A)') ' Coordinate System is Cartesian.'
       CALL Info('SurfaceCenterPoints',Message)

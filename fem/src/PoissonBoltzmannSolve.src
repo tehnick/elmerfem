@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: $
+! * $Id: PoissonBoltzmannSolve.src,v 1.5 2006/01/10 12:57:09 apursula Exp $
 ! ******************************************************************************
     
 !------------------------------------------------------------------------------
@@ -90,7 +90,6 @@
 !------------------------------------------------------------------------------
      TYPE(Matrix_t), POINTER  :: StiffMatrix
      TYPE(Element_t), POINTER :: CurrentElement
-     TYPE(Solver_t), POINTER :: PSolver 
      TYPE(Variable_t), POINTER :: Var
      TYPE(Nodes_t) :: ElementNodes
 
@@ -239,17 +238,16 @@
 !------------------------------------------------------------------------------
 !      Add electric field, charge density and electric energy to the variable list
 !------------------------------------------------------------------------------
-       PSolver => Solver
        IF(CalculateField) THEN         
          Field => ElectricField1
-         CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PSolver, &
+         CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
                TRIM(NameField)//' 1', 1, Field, PotentialPerm)           
          Field => ElectricField2
-         CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PSolver, &
+         CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
              TRIM(NameField)//' 2', 1, Field, PotentialPerm)         
          IF(DIM == 3) THEN
            Field => ElectricField3
-           CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PSolver, &
+           CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
                TRIM(NameField)//' 3', 1, Field, PotentialPerm)
          END IF
        END IF
@@ -257,13 +255,13 @@
        IF ( CalculateCharge ) THEN
           Field => ChargeField
           CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-               PSolver, TRIM(NameCharge), 1, Field, PotentialPerm)
+               Solver, NameCharge, 1, Field, PotentialPerm)
        END IF
           
        IF ( CalculateEnergy ) THEN
           Field => EnergyField
           CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-               PSolver, TRIM(NameEnergy), 1, Field, PotentialPerm )
+               Solver, NameEnergy, 1, Field, PotentialPerm )
        END IF
    
        AllocationsDone = .TRUE.

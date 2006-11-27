@@ -118,7 +118,7 @@
         PotentialKnown, PotentialPerm, BoundaryPerm, BoundaryNodes, &
            Pot, Flx, P1, P2, Potential, ForceVector, Diagonal
 
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HelmholtzBEM.src,v 1.6 2005/12/22 10:22:39 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HelmholtzBEM.src,v 1.7 2006/01/10 08:27:35 apursula Exp $"
 
      EXTERNAL Matvec, Precond
 !------------------------------------------------------------------------------
@@ -248,14 +248,14 @@
 
           
           P1(1:n) = ListGetReal( Model % BCs(i) % Values, &
-               TRIM(Solver % Variable % Name)//' 1', n, NodeIndexes, GotIt )
+               Solver % Variable % Name(1:Solver % Variable % Namelen)//' 1', n, NodeIndexes, GotIt )
 
           IF ( .NOT. GotIt ) THEN
              P1(1:n) = ListGetReal( Model % BCs(i) % Values, 'Potential 1' , n, NodeIndexes, GotIt )
           END IF
 
           P2(1:n) = ListGetReal( Model % BCs(i) % Values, &
-               TRIM(Solver % Variable % Name)//' 2', n, NodeIndexes, GotIt )
+               Solver % Variable % Name(1:Solver % Variable % Namelen)//' 2', n, NodeIndexes, GotIt )
 
           IF ( .NOT. GotIt ) THEN
              P2(1:n) = ListGetReal( Model % BCs(i) % Values, 'Potential 2' , n, NodeIndexes, GotIt )

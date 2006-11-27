@@ -51,7 +51,7 @@
 ! *
 ! *****************************************************************************/
 !
-! $Id: EigenSolve.src,v 1.10 2006/03/03 14:22:07 jpr Exp $
+! $Id: EigenSolve.src,v 1.11 2006/10/13 10:38:31 jpr Exp $
 !
 
 MODULE EigenSolve
@@ -100,7 +100,6 @@ CONTAINS
 !     | Local Arrays |
 !     %--------------%
 !
-      TYPE(Solver_t), POINTER :: PSolver
       REAL(KIND=dp), TARGET :: WORKD(3*N), RESID(N),bb(N),xx(N)
       REAL(KIND=dp), POINTER :: x(:), b(:)
       INTEGER :: IPARAM(11), IPNTR(14)
@@ -349,9 +348,8 @@ CONTAINS
                   b => workd(ipntr(3):ipntr(3)+n-1)
 
                   IF ( Solver % MultiGridSolver ) THEN
-                     PSolver => Solver
                      CALL MultiGridSolve( Matrix, x, b,  Solver % Variable % DOFs, &
-                           PSolver, Solver % MultiGridLevel, NewSystem )
+                           Solver, Solver % MultiGridLevel, NewSystem )
                   ELSE
                      CALL IterSolver( Matrix, x, b, Solver )
                   END IF
@@ -389,9 +387,8 @@ CONTAINS
                     b => workd(ipntr(1):ipntr(1)+n-1)
 
                     IF ( Solver % MultiGridSolver ) THEN
-                       PSolver => Solver
                        CALL MultiGridSolve( Matrix, x, b, Solver % Variable % DOFs,  &
-                              PSolver, Solver % MultiGridLevel, NewSystem )
+                              Solver, Solver % MultiGridLevel, NewSystem )
                      ELSE
                        CALL IterSolver( Matrix, x, b, Solver )
                      END IF
@@ -666,7 +663,6 @@ END SUBROUTINE CheckResiduals
 !     | Local Arrays |
 !     %--------------%
 !
-      TYPE(Solver_t), POINTER :: PSolver
       REAL(KIND=dp), TARGET :: WORKD(3*N), RESID(N)
       REAL(KIND=dp), POINTER :: x(:), b(:)
       INTEGER :: IPARAM(11), IPNTR(14)
@@ -840,9 +836,8 @@ END SUBROUTINE CheckResiduals
                b => workd(ipntr(1):ipntr(1)+n-1)
                
                IF ( Solver % MultiGridSolver ) THEN
-                  PSolver => Solver
                   CALL MultiGridSolve( Matrix, x, b, Solver % Variable % DOFs,  &
-                       PSolver, Solver % MultiGridLevel, NewSystem )
+                       Solver, Solver % MultiGridLevel, NewSystem )
                ELSE
                   CALL IterSolver( Matrix, x, b, Solver )
                END IF
@@ -1044,7 +1039,6 @@ END SUBROUTINE CheckResiduals
 !     | Local Arrays |
 !     %--------------%
 !
-      TYPE(Solver_t), POINTER :: PSolver
       COMPLEX(KIND=dp) :: WORKD(3*N), RESID(N)
       INTEGER :: IPARAM(11), IPNTR(14)
       INTEGER, ALLOCATABLE :: Perm(:)
@@ -1244,9 +1238,8 @@ END SUBROUTINE CheckResiduals
                      b(2*i+2) = AIMAG( WORKD( IPNTR(3)+i ) )
                   END DO
                   IF ( Solver % MultiGridSolver ) THEN
-                     PSolver => Solver
                      CALL MultiGridSolve( Matrix, x, b, Solver % Variable % DOFs, &
-                          PSolver, Solver % MultiGridLevel, NewSystem )
+                          Solver, Solver % MultiGridLevel, NewSystem )
                   ELSE
                      CALL IterSolver( Matrix, x, b, Solver )
                   END IF
@@ -1283,9 +1276,8 @@ END SUBROUTINE CheckResiduals
                      b(2*i+2) = AIMAG( WORKD( IPNTR(1)+i ) )
                   END DO
                   IF ( Solver % MultiGridSolver ) THEN
-                     PSolver => Solver
                      CALL MultiGridSolve(Matrix, x, b, Solver % Variable % DOFs,&
-                             PSolver, Solver % MultiGridLevel, NewSystem )
+                             Solver, Solver % MultiGridLevel, NewSystem )
                   ELSE
                      CALL IterSolver( Matrix, x, b, Solver )
                   END IF
@@ -1496,7 +1488,6 @@ END SUBROUTINE CheckResiduals
 !     | Local Arrays |
 !     %--------------%
 
-      TYPE(Solver_t), POINTER :: PSolver
       TYPE(Matrix_t), POINTER :: MMatrix, BMatrix
       REAL(KIND=dp), TARGET :: WORKD(3*N), RESID(N)
       REAL(KIND=dp), POINTER :: x(:), b(:)

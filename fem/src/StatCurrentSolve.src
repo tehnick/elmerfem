@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StatCurrentSolve.src,v $
+! * Revision 1.8  2006/11/20 10:56:43  raback
+! * Updated the Dirichlet BC and Nodal load settings.
+! *
 ! * Revision 1.7  2006/10/20 09:26:40  raback
 ! * Added subroutine for setting Dirichlet conditions and nodal loads in the body.
 ! *
@@ -103,7 +106,6 @@
 !------------------------------------------------------------------------------
      TYPE(Matrix_t), POINTER  :: StiffMatrix
      TYPE(Element_t), POINTER :: CurrentElement
-     TYPE(Solver_t), POINTER :: PSolver 
      TYPE(Nodes_t) :: ElementNodes
 
      REAL (KIND=DP), POINTER :: ForceVector(:), Potential(:), Density(:)
@@ -127,7 +129,7 @@
      LOGICAL :: CalculateCurrent, CalculateHeating, CalculateConductivity
 
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatCurrentSolve.src,v 1.7 2006/10/20 09:26:40 raback Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatCurrentSolve.src,v 1.8 2006/11/20 10:56:43 raback Exp $"
 
 
      SAVE LocalStiffMatrix, Load, LocalForce, Density, &
@@ -228,19 +230,18 @@
 !------------------------------------------------------------------------------
 !      Add electric field to the variable list (disabled)
 !------------------------------------------------------------------------------
-       PSolver => Solver
        IF ( CalculateField ) THEN         
           Ex => ElField(1:Dim*LocalNodes-Dim+1:Dim)
-          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PSolver, &
+          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
                'Electric Field 1', 1, Ex, PotentialPerm)
            
           Ey => ElField(2:Dim*LocalNodes-Dim+2:Dim)
-          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PSolver, &
+          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
                'Electric Field 2', 1, Ey, PotentialPerm)
            
           IF ( Dim == 3 ) THEN
              Ez => ElField(3:Dim*LocalNodes:Dim)
-             CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PSolver, &
+             CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
                   'Electric Field 3', 1, Ez, PotentialPerm)
           END IF
        END IF
@@ -252,16 +253,16 @@
        IF ( CalculateCurrent ) THEN
           Cx => VolCurrent(1:Dim*LocalNodes-Dim+1:Dim)
           CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-               PSolver, 'Volume Current 1', 1, Cx, PotentialPerm)
+               Solver, 'Volume Current 1', 1, Cx, PotentialPerm)
 
           Cy => VolCurrent(2:Dim*LocalNodes-Dim+2:Dim)
           CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-               PSolver, 'Volume Current 2', 1, Cy, PotentialPerm)
+               Solver, 'Volume Current 2', 1, Cy, PotentialPerm)
 
           IF ( DIM == 3 ) THEN
              Cz => VolCurrent(3:Dim*LocalNodes:Dim)
              CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-                  PSolver, 'Volume Current 3', 1, Cz, PotentialPerm)
+                  Solver, 'Volume Current 3', 1, Cz, PotentialPerm)
           END IF
        END IF
 
@@ -269,14 +270,14 @@
           ElectricCond = 0.0d0
           EleC => ElectricCond(:)
           CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-               PSolver, 'Electric Conductivity', 1, EleC, PotentialPerm )
+               Solver, 'Electric Conductivity', 1, EleC, PotentialPerm )
        END IF
 
        IF ( CalculateHeating ) THEN
           Heating = 0.0d0
           JouleH => Heating(:)
           CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-               PSolver, 'Joule Heating', 1, JouleH, PotentialPerm )
+               Solver, 'Joule Heating', 1, JouleH, PotentialPerm )
        END IF
           
        AllocationsDone = .TRUE.

@@ -38,7 +38,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: EliminatePeriodic.src,v 1.5 2006/01/10 08:09:45 apursula Exp $
+! * $Id: EliminatePeriodic.src,v 1.6 2006/02/01 08:07:57 jpr Exp $
 ! ******************************************************************************
 
 !------------------------------------------------------------------------------
@@ -102,7 +102,7 @@ INTEGER FUNCTION EliminatePeriodic( Model, Solver, A, b, x, n, DOFs, Norm )
   INTEGER, POINTER :: NodeIndexes(:), Perm(:), PermSave(:)
   INTEGER :: RigidNodes, BoundaryNodes, NumberOfValues
   INTEGER :: NumberOfRows, RowsInUnityBlock, NEigen
-  INTEGER :: istat, i, j, k, l, m, t, IDC, PeriodicNodes, DOF, Dirichlet
+  INTEGER :: istat, i, j, k, l, m, t, IDC, PeriodicNodes, DOF, Dirichlet,NLen
   LOGICAL :: AllocationsDone = .FALSE.
   CHARACTER(LEN=MAX_NAME_LEN) :: Name
   INTEGER, POINTER :: PeriodicDOFs(:), DCount(:), R(:,:), TmpR(:,:)
@@ -129,6 +129,8 @@ INTEGER FUNCTION EliminatePeriodic( Model, Solver, A, b, x, n, DOFs, Norm )
 
   C => A % EMatrix
 
+  nLen = LEN_TRIM(Name)
+
   IF ( .NOT. ASSOCIATED( C ) ) THEN
      Perm => Solver % Variable % Perm
 
@@ -145,14 +147,14 @@ INTEGER FUNCTION EliminatePeriodic( Model, Solver, A, b, x, n, DOFs, Norm )
            Name = Solver % Variable % Name
 
            IF ( DOFs > 1 ) THEN
-              WRITE( Name, '(a,i1)' ) TRIM(Name) // ' ', DOF
+              WRITE( Name, '(a,i1)' ) Name(1:nlen) // ' ', DOF
            END IF
 
            Scale = -1.0d0
            IF ( .NOT. ListGetLogical( Model % BCs(i) % Values, &
-              'Periodic BC ' // TRIM(Name), GotIt ) ) THEN
+              'Periodic BC ' // Name(1:nlen), GotIt ) ) THEN
                IF ( .NOT. ListGetLogical( Model % BCs(i) % Values, &
-                    'Anti Periodic BC ' // TRIM(Name), GotIt ) ) CYCLE
+                    'Anti Periodic BC ' // Name(1:nlen), GotIt ) ) CYCLE
               Scale = 1.0d0
            END IF
 

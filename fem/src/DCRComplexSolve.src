@@ -39,7 +39,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: DCRComplexSolve.src,v 1.8 2006/01/10 08:32:50 apursula Exp $
+! * $Id: DCRComplexSolve.src,v 1.9 2006/02/01 08:07:56 jpr Exp $
 ! ******************************************************************************
 
 !------------------------------------------------------------------------------
@@ -400,11 +400,11 @@ SUBROUTINE DCRComplexSolver( Model,Solver,dt,TransientSimulation )
 !    Dirichlet BCs:
 !    --------------
      CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, &
-          TRIM(Solver % Variable % Name) // ' 1', 1, &
+          Solver % Variable % Name(1:Solver % Variable % Namelen) // ' 1', 1, &
              Solver % Variable % DOFs, PressurePerm )
 
      CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, &
-          TRIM(Solver % Variable % Name) // ' 2', 2, &
+          Solver % Variable % Name(1:Solver % Variable % Namelen) // ' 2', 2, &
              Solver % Variable % DOFs, PressurePerm )
 
      CALL Info( 'DCRComplexSolve', 'Assembly done', Level=4 )

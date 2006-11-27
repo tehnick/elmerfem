@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: HeatSolve.src,v $
+! * Revision 1.19  2006/11/16 18:14:49  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.18  2006/11/16 07:51:38  jpr
 ! * Changes due to treatment of force in time integration.
 ! *
@@ -181,7 +184,6 @@
 
      TYPE(Nodes_t)   :: ElementNodes
      TYPE(Element_t),POINTER :: Element,RadiationElement
-     TYPE(Solver_t), POINTER :: PSolver 
 
      REAL(KIND=dp) :: RelativeChange, &
            Norm,PrevNorm,Text,S,C,C1,Emissivity,StefanBoltzmann, &
@@ -276,7 +278,7 @@
 
      REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
 
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HeatSolve.src,v 1.18 2006/11/16 07:51:38 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HeatSolve.src,v 1.19 2006/11/16 18:14:49 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -325,7 +327,6 @@
        FlowSolution => FlowSol % Values
      END IF
 
-     PSolver => Solver
      CalculateLoads = ListGetLogical(Solver % Values,'Calculate Nodal Load',Found)	
 
      DensitySol => VariableGet( Solver % Mesh % Variables, 'Density' )
@@ -451,7 +452,7 @@
            ALLOCATE( HeatLoads( SIZE(Temperature) ), STAT=istat )
            IF ( istat /= 0 ) CALL Fatal( 'PhaseChangeSolver', 'Memory allocation error.' )     
            CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-              PSolver, 'Nodal Heat Load', 1, HeatLoads, TempSol % Perm)
+              Solver, 'Nodal Heat Load', 1, HeatLoads, TempSol % Perm)
          ELSE
            HeatLoads => HeatSol % Values
          END IF
@@ -924,14 +925,15 @@
 
           IF ( Found .AND. RadiationFlag(1:4) /= 'none' ) THEN
 
-            Emissivity = SUM( GetReal(BC, TRIM(Solver % Variable % Name) &
+            Emissivity = SUM( GetReal(BC, &
+              Solver % Variable % Name(1:Solver % Variable % Namelen) &
                          // ' Emissivity', Found) ) / n
             IF ( .NOT. Found ) &
               Emissivity = SUM( GetReal(BC, 'Emissivity') ) / n
 !------------------------------------------------------------------------------
             IF (  RadiationFlag(1:9) == 'idealized' ) THEN
               AText(1:n) = GetReal( BC, 'External ' // &
-                         TRIM(Solver % Variable % Name), Found )
+                         Solver % Variable % Name(1:Solver % Variable % Namelen), Found )
                IF ( .NOT. Found ) &
                  AText(1:n) = GetReal( BC, 'External Temperature' )
             ELSE
@@ -939,7 +941,7 @@
                   Temperature, TempPerm, ForceVector, VisibleFraction)
               IF( GetLogical( BC, 'Radiation Boundary Open', Found) ) THEN
                 AText(1:n) = GetReal( BC, 'External ' // &
-                         TRIM(Solver % Variable % Name), Found )
+                         Solver % Variable % Name(1:Solver % Variable % Namelen), Found )
                 IF ( .NOT. Found ) &
                    AText(1:n) = GetReal( BC, 'External Temperature' )
                 Atext(1:n) = ( (1.0 - VisibleFraction) * Atext(1:n)**4.0 + &
@@ -970,7 +972,8 @@
             END DO
           END IF  ! of radition
 !------------------------------------------------------------------------------
-          Work(1:n) = GetReal( BC, TRIM(Solver % Variable % Name) // ' Transfer Coefficient',Found )
+          Work(1:n) = GetReal( BC, Solver % Variable % Name(1:Solver % Variable % Namelen) &
+                    // ' Transfer Coefficient',Found )
           IF ( .NOT. Found ) &
             Work(1:n) = GetReal( BC, 'Heat Transfer Coefficient',Found )
           IF ( GetLogical( BC, 'Heat Gap', Found ) ) THEN
@@ -982,7 +985,7 @@
           ELSE
             IF ( ANY(Work(1:n) /= 0.0d0) ) THEN
                AText(1:n) = GetReal( BC, 'External ' // &
-                         TRIM(Solver % Variable % Name), Found )
+                  Solver % Variable % Name(1:Solver % Variable % Namelen), Found )
                IF (.NOT. Found ) &
                   AText(1:n) = GetReal( BC, 'External Temperature',Found )
             ELSE
@@ -1003,7 +1006,8 @@
 !         BC: -k@T/@n = g
 !------------------------------------------------------------------------------
           LOAD(1:n) = LOAD(1:n) + &
-              GetReal( BC, TRIM(Solver % Variable % Name) // ' Flux', Found )
+              GetReal( BC, Solver % Variable % Name &
+                  (1:Solver % Variable % Namelen) // ' Flux', Found )
           IF ( .NOT. Found ) &
               LOAD(1:n) = LOAD(1:n) +  GetReal( BC, 'Heat Flux', Found )
 !------------------------------------------------------------------------------

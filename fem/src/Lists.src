@@ -39,9 +39,6 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Lists.src,v $
-! * Revision 1.21  2006/11/17 14:24:50  jpr
-! * *** empty log message ***
-! *
 ! * Revision 1.18  2006/11/16 05:27:31  jpr
 ! * Removed unncessery POINTER defs from some VariableAdd arguments.
 ! *
@@ -52,9 +49,6 @@
 ! * Revision 1.9  2006/08/17 10:22:54  jpr
 ! * Modified listadd* routines to keep the order of existing entries when
 ! * redefining 'em.
-! *
-! * Revision 1.8  2006/05/22 12:10:16  jpr
-! * *** empty log message ***
 ! *
 ! * Revision 1.7  2006/02/28 09:34:47  jpr
 ! * Some corrections for adaptivity.
@@ -77,7 +71,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Lists.src,v 1.21 2006/11/17 14:24:50 jpr Exp $
+! * $Id: Lists.src,v 1.22 2006/11/24 10:52:49 jpr Exp $
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
@@ -757,7 +751,7 @@ double precision :: t1,CPUTime
                CALL VariableAdd( Variables, PVar % PrimaryMesh, PVar % Solver, &
                        tmpname, 1, Vals, Var % Perm, PVar % Output ) 
 
-               Tmp => VariableGet( Variables, TRIM( tmpname ), .TRUE. )
+               Tmp => VariableGet( Variables, tmpname, .TRUE. )
                NULLIFY( Tmp % PrevValues )
                IF ( ASSOCIATED( Var % PrevValues ) ) &
                   Tmp % PrevValues => Var % PrevValues(i::PVar % DOFs,:)
@@ -1590,14 +1584,14 @@ TYPE(ValueList_t), POINTER :: ptr
 
          j=0
          l0=1
-         lsize = LEN_TRIM( Ptr % DependName )
+         lsize = Ptr % DepNameLen
          DO WHILE( .TRUE. )
            DO WHILE( Ptr % DependName(l0:l0) == ' ' )
              l0 = l0 + 1
            END DO
            IF ( l0 > lsize ) EXIT
 
-           l1 = INDEX( ptr % DependName(l0:),',')
+           l1 = INDEX( ptr % DependName(l0:ptr % DepNameLen),',')
            IF ( l1 > 0 ) THEN
              l1=l0+l1-2
            ELSE
@@ -1645,6 +1639,7 @@ TYPE(ValueList_t), POINTER :: ptr
              j = j + 1
              IF ( ASSOCIATED(Variable % Perm) ) THEN
                 T(j) = HUGE(1.0_dp)
+                EXIT
              ELSE
                 T(j) = Variable % Values(1)
              END IF
@@ -1654,7 +1649,7 @@ TYPE(ValueList_t), POINTER :: ptr
            IF ( l0 > lsize ) EXIT
          END DO
 
-         IF ( ALL( T(1:j)/=HUGE(1.0_dp) ) ) THEN
+         IF ( .NOT. ANY( T(1:j)==HUGE(1.0_dp) ) ) THEN
            IF ( ptr % Procedure /= 0 ) THEN
              F(i) = ExecRealFunction( ptr % Procedure,CurrentModel, &
                           NodeIndexes(i), T )
@@ -1687,14 +1682,14 @@ TYPE(ValueList_t), POINTER :: ptr
 
          j=0
          l0=1
-         lsize = LEN_TRIM( Ptr % DependName )
+         lsize = Ptr % DepNamelen
          DO WHILE( .TRUE. )
            DO WHILE( Ptr % DependName(l0:l0) == ' ' )
              l0 = l0 + 1
            END DO
            IF ( l0 > lsize ) EXIT
 
-           l1 = INDEX( ptr % DependName(l0:),',')
+           l1 = INDEX( ptr % DependName(l0:Ptr % DepNameLen),',')
            IF ( l1 > 0 ) THEN
              l1=l0+l1-2
            ELSE
@@ -1702,7 +1697,7 @@ TYPE(ValueList_t), POINTER :: ptr
            END IF
 
            IF ( ptr % DependName(l0:l1) /= 'coordinate' ) THEN
-              Variable => VariableGet( CurrentModel % Variables,TRIM(ptr % DependName(l0:l1)) )
+              Variable => VariableGet( CurrentModel % Variables,ptr % DependName(l0:l1) )
               IF ( .NOT. ASSOCIATED( Variable ) ) THEN
                  WRITE( Message, * ) 'Can''t find independent variable:[', &
                      TRIM(ptr % DependName(l0:l1)),']' // &
@@ -1742,6 +1737,7 @@ TYPE(ValueList_t), POINTER :: ptr
              j = j + 1
              IF ( ASSOCIATED(Variable % Perm) ) THEN
                T(j) = HUGE(1.0_dp)
+               EXIT
              ELSE
                T(j) = Variable % Values(1)
              END IF
@@ -1750,7 +1746,7 @@ TYPE(ValueList_t), POINTER :: ptr
            IF ( l0 > lsize ) EXIT
          END DO
 
-         IF ( ALL( T(1:j)/=HUGE(1.0_dp) ) ) THEN
+         IF ( .NOT. ANY( T(1:j)==HUGE(1.0_dp) ) ) THEN
            DO l=1,j
              WRITE( cmd, * ) 'tx(',l-1,') = ', T(l)
              k1 = LEN_TRIM( cmd )

@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: AdvectionDiffusion.src,v $
+! * Revision 1.8  2006/11/16 07:51:39  jpr
+! * Changes due to treatment of force in time integration.
+! *
 ! * Revision 1.7  2006/02/10 17:08:29  jpr
 ! * Added keyword "Stabilization Method".
 ! *
@@ -159,7 +162,7 @@
      REAL(KIND=dp) :: Mass, PreviousMass
      INTEGER, DIMENSION( Model %  NumberOfBulkElements) :: ElementList
 
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: AdvectionDiffusion.src,v 1.7 2006/02/10 17:08:29 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: AdvectionDiffusion.src,v 1.8 2006/11/16 07:51:39 jpr Exp $"
 
      SAVE LocalMassMatrix,LocalStiffMatrix,Load,C0,C1,CT,C2,Diffusivity, &
          TimeForce, LocalForce, ElementNodes,AllocationsDone, &
@@ -483,7 +486,8 @@
 !            Solver % Variable % Name (1:Solver % Variable % NameLen)// &
 !        ' Diffusivity', n, NodeIndexes )
 
-         CALL ListGetRealArray( Material,  TRIM(Solver % Variable % Name) // &
+         CALL ListGetRealArray( Material,  &
+             Solver % Variable % Name(1:Solver % Variable % NameLen) // &
                      ' Diffusivity', Hwrk, n, NodeIndexes )
 
          Diffusivity = 0.0d0
@@ -506,7 +510,7 @@
 ! This is also different for each species (in the same carrier gas)
 
          SoretDiffusivity(1:n) = ListGetReal( Material, &
-              TRIM( Solver % Variable % Name ) // &
+              Solver % Variable % Name(1:Solver % Variable % NameLen) // &
               ' Soret Diffusivity', n, NodeIndexes, GotIt )
          IF ( .NOT. GotIt )  SoretDiffusivity = 0.0d0
 
@@ -665,7 +669,8 @@
 
          C0 = Density
          IF ( ScaledToSolubility ) THEN
-            MaxSol = ListGetConstReal( Material, TRIM(Solver % Variable % Name) // &
+            MaxSol = ListGetConstReal( Material, &
+              Solver % Variable % Name(1:Solver % Variable % NameLen) // &
                  ' Maximum Solubility', GotIt )
             IF ( .NOT. GotIT ) THEN
                WRITE( Message, * ) 'Maximum solubility not defined in body : ', &
@@ -695,7 +700,8 @@
            IF ( ScaledToSolubility .AND. ListGetLogical( Model % &
                BodyForces(bf_id) % Values, 'Physical Units', GotIt ) ) THEN
 
-             Ratio = ListGetConstReal( Material, TRIM(Solver % Variable % Name) // &
+             Ratio = ListGetConstReal( Material, &
+              Solver % Variable % Name(1:Solver % Variable % Namelen) // &
                  ' Maximum Solubility', GotIt )
              IF ( .NOT. GotIT ) THEN
                WRITE( Message, * ) 'Maximum solubility not defined in body : ', &
@@ -780,7 +786,8 @@
                  Model % BCs(i) % Tag ) THEN
 
                IF ( .NOT. ListGetLogical( Model % BCs(i) % Values, &
-                   TRIM(Solver % Variable % Name) // ' Solubility Change Boundary', &
+                   Solver % Variable % Name(1:Solver % Variable % Namelen) &
+                       // ' Solubility Change Boundary', &
                    GotIt ) )  CYCLE
 
 !------------------------------------------------------------------------------
@@ -842,7 +849,8 @@
                    'Material', minv=1, maxv=Model % NumberOfMaterials )
                Material => Model % Materials(k) % Values                
 
-               Ratio = ListGetConstReal( Material, TRIM(Solver % Variable % Name) // &
+               Ratio = ListGetConstReal( Material, &
+                   Solver % Variable % Name(1:Solver % Variable % Namelen) // &
                    ' Maximum Solubility', GotIt )
 
                IF ( .NOT. GotIT ) THEN
@@ -861,7 +869,8 @@
                END IF
                Material => Model % Materials(k) % Values                
                Ratio = &
-                   ListGetConstReal( Material, TRIM(Solver % Variable % Name) // &
+                   ListGetConstReal( Material, &
+                     Solver % Variable % Name(1:Solver % Variable % Namelen) // &
                    ' Maximum Solubility', GotIt ) / Ratio
 
                IF ( .NOT. GotIT ) THEN
@@ -873,7 +882,8 @@
 !------------------------------------------------------------------------------
 !            Get the diffusivity tensor
 !------------------------------------------------------------------------------
-               CALL ListGetRealArray( Material,  TRIM(Solver % Variable % Name) // &
+               CALL ListGetRealArray( Material,  &
+                  Solver % Variable % Name(1:Solver % Variable % Namelen) // &
                    ' Diffusivity', Hwrk, n, NodeIndexes )
 
                Diffusivity = 0.0d0
@@ -1001,7 +1011,8 @@
               IF ( ScaledToSolubility .AND. ListGetLogical( Model % &
                   BCs(i) % Values, 'Physical Units', GotIt ) ) THEN
 
-                Ratio = ListGetConstReal( Material, TRIM(Solver % Variable % Name) // &
+                Ratio = ListGetConstReal( Material, &
+                  Solver % Variable % Name(1:Solver % Variable % Namelen) // &
                     ' Maximum Solubility', GotIt )
                 IF ( .NOT. GotIT ) THEN
                   WRITE( Message, * ) 'No maximum solubility defined in body : ', &

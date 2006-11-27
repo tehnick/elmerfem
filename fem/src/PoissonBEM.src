@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: PoissonBEM.src,v 1.8 2006/01/10 12:57:09 apursula Exp $
+! * $Id: PoissonBEM.src,v 1.9 2006/08/11 13:12:24 jpr Exp $
 ! ******************************************************************************
 
 !------------------------------------------------------------------------------
@@ -118,7 +118,7 @@
      SAVE Load, ElementNodes, VolumeSource, VolumeForce, AllocationsDone, &
       PotentialKnown, PotentialPerm, BoundaryPerm, BoundaryNodes, Pot, Flx
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: PoissonBEM.src,v 1.8 2006/01/10 12:57:09 apursula Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: PoissonBEM.src,v 1.9 2006/08/11 13:12:24 jpr Exp $"
 
      EXTERNAL Matvec, Precond
 !------------------------------------------------------------------------------
@@ -232,7 +232,7 @@ at = CPUTime()
 
           IF ( .NOT. GotIt ) THEN
              Load(PotentialPerm(NodeIndexes)) = ListGetReal( Model % BCs(i) % Values, &
-                  TRIM(Solver % Variable % Name) , n, NodeIndexes, GotIt )
+                  Solver % Variable % Name(1:Solver % Variable % Namelen) , n, NodeIndexes, GotIt )
           END IF
 
           IF ( .NOT. GotIt ) THEN

@@ -39,6 +39,9 @@
 ! ****************************************************************************/
 ! *
 ! * $Log: FlowSolve.src,v $
+! * Revision 1.24  2006/11/20 10:56:43  raback
+! * Updated the Dirichlet BC and Nodal load settings.
+! *
 ! * Revision 1.23  2006/11/17 20:11:11  jpr
 ! * *** empty log message ***
 ! *
@@ -177,8 +180,6 @@
 !------------------------------------------------------------------------------
      TYPE(Matrix_t),POINTER :: StiffMatrix
 
-     TYPE(Solver_t), POINTER :: PSolver
-
      INTEGER :: i,j,k,l,n,m,nb,nd,pn,t,iter,LocalNodes,k1,k2,istat
 
      TYPE(ValueList_t),POINTER :: Material, Equation
@@ -281,7 +282,7 @@ type(variable_t), pointer :: var
         END FUNCTION FlowInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.23 2006/11/17 20:11:11 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.24 2006/11/20 10:56:43 raback Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -1229,8 +1230,8 @@ type(variable_t), pointer :: var
 !------------------------------------------------------------------------------
 
       IF ( VarName  == 'flow solution' ) THEN
-	CALL SetNodalLoads( Model, StiffMatrix, ForceVector, & 
-        	          'Velocity 1', 1, NSDOFs, FlowPerm )
+         CALL SetNodalLoads( Model, StiffMatrix, ForceVector, & 
+                  'Velocity 1', 1, NSDOFs, FlowPerm )
         CALL SetNodalLoads( Model, StiffMatrix, ForceVector, & 
                   'Velocity 2', 2, NSDOFs, FlowPerm )
         IF ( NSDOFs > 3 ) THEN

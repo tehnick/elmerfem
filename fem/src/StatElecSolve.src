@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StatElecSolve.src,v $
+! * Revision 1.21  2006/11/20 10:56:43  raback
+! * Updated the Dirichlet BC and Nodal load settings.
+! *
 ! * Revision 1.20  2006/10/20 09:26:40  raback
 ! * Added subroutine for setting Dirichlet conditions and nodal loads in the body.
 ! *
@@ -137,7 +140,6 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
   TYPE(Matrix_t), POINTER  :: StiffMatrix
   TYPE(Element_t), POINTER :: CurrentElement
-  TYPE(Solver_t), POINTER :: PSolver 
   TYPE(Variable_t), POINTER :: TimeVar, Var
   TYPE(Nodes_t) :: ElementNodes
   
@@ -175,7 +177,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: PiezoMaterial, CalculateSurfCharge
   
   CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, CapMatrixFile, Name
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.20 2006/10/20 09:26:40 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.21 2006/11/20 10:56:43 raback Exp $"
   
   
   SAVE LocalStiffMatrix, Load, LocalForce, Pwrk, PotDiff, &
@@ -356,19 +358,18 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 !      Add electric field to the variable list
 !------------------------------------------------------------------------------
-    PSolver => Solver
     IF(CalculateField) THEN         
       Ex => FieldOneTemp
-      CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PSolver, &
+      CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
           'Electric Field 1', 1, Ex, PotentialPerm)
       
       Ey => FieldTwoTemp
-      CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PSolver, &
+      CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
           'Electric Field 2', 1, Ey, PotentialPerm)
       
       IF(DIM == 3) THEN
         Ez => FieldThreeTemp
-        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, PSolver, &
+        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver, &
             'Electric Field 3', 1, Ez, PotentialPerm)
       END IF
     END IF
@@ -380,16 +381,16 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
     IF ( CalculateFlux ) THEN
       Dx => FluxOneTemp
       CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-          PSolver, 'Electric Flux 1', 1, Dx, PotentialPerm)
+          Solver, 'Electric Flux 1', 1, Dx, PotentialPerm)
       
       Dy => FluxTwoTemp
       CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-          PSolver, 'Electric Flux 2', 1, Dy, PotentialPerm)
+          Solver, 'Electric Flux 2', 1, Dy, PotentialPerm)
       
       IF(DIM == 3) THEN
         Dz => FluxThreeTemp
         CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-            PSolver, 'Electric Flux 3', 1, Dz, PotentialPerm)
+            Solver, 'Electric Flux 3', 1, Dz, PotentialPerm)
       END IF
     END IF
     
@@ -397,14 +398,14 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
       WeTemp = 0.0d0
       Energy => WeTemp(:)
       CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-          PSolver, 'Electric Energy Density', 1, Energy, PotentialPerm )
+          Solver, 'Electric Energy Density', 1, Energy, PotentialPerm )
     END IF
 
     IF ( CalculateSurfCharge ) THEN
        SurfChTemp = 0.0d0
        SurfaceCharge => SurfChTemp(:)
        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-           PSolver, 'Surface Charge Density', 1, SurfaceCharge, PotentialPerm )
+           Solver, 'Surface Charge Density', 1, SurfaceCharge, PotentialPerm )
     END IF
     
     NULLIFY( Pwrk )
@@ -1180,7 +1181,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
              n = Element % TYPE % NumberOfNodes
              
              Dirichlet(1:n) = GetReal( Model % BCs(k) % Values, & 
-                  TRIM( Solver % Variable % Name ), GotIt,  Element )
+                   Solver % Variable % Name, GotIt,  Element )
              IF ( .NOT. GotIt )  CYCLE
 
              BoundaryNodes % x(1:n) = Model % Nodes % x( NodeIndexes )

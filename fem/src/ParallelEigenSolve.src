@@ -55,7 +55,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ParallelEigenSolve.src,v 1.6 2006/01/10 10:54:44 apursula Exp $
+! * $Id: ParallelEigenSolve.src,v 1.7 2006/10/13 10:38:31 jpr Exp $
 ! ******************************************************************************
 
 MODULE ParallelEigenSolve
@@ -111,7 +111,6 @@ INCLUDE "mpif.h"
 !     %--------------%
 !
       TYPE(Matrix_t), POINTER :: PMatrix
-      TYPE(Solver_t), POINTER :: PSolver
       REAL(KIND=dp), TARGET :: WORKD(3*N), RESID(N),bb(N),xx(N)
       REAL(KIND=dp), POINTER :: x(:), b(:)
       INTEGER :: IPARAM(11), IPNTR(14)
@@ -327,9 +326,8 @@ INCLUDE "mpif.h"
                      END IF
                   END DO
 
-                  PSolver => Solver
                   CALL MultiGridSolve( Matrix, Solution, ForceVector,  DOFs, &
-                        PSolver, Solver % MultiGridLevel, NewSystem )
+                        Solver, Solver % MultiGridLevel, NewSystem )
 
                   j = 0
                   DO i=1,n
@@ -368,9 +366,8 @@ INCLUDE "mpif.h"
                      END IF
                   END DO
 
-                  PSolver => Solver
                   CALL MultiGridSolve( Matrix, Solution, ForceVector, DOFs,  &
-                       PSolver, Solver % MultiGridLevel, NewSystem )
+                       Solver, Solver % MultiGridLevel, NewSystem )
 
                   j = 0
                   DO i=1,n

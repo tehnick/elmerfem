@@ -39,12 +39,6 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Adaptive.src,v $
-! * Revision 1.19  2006/10/13 10:38:31  jpr
-! * *** empty log message ***
-! *
-! * Revision 1.18  2006/10/06 10:37:37  jpr
-! * *** empty log message ***
-! *
 ! * Revision 1.17  2006/02/28 09:34:46  jpr
 ! * Some corrections for adaptivity.
 ! *
@@ -90,7 +84,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Adaptive.src,v 1.19 2006/10/13 10:38:31 jpr Exp $
+! * $Id: Adaptive.src,v 1.20 2006/10/30 12:37:40 jpr Exp $
 ! *****************************************************************************/
 
 
@@ -149,7 +143,6 @@ CONTAINS
 !------------------------------------------------------------------------------
 
     TYPE(Mesh_t), POINTER   :: RefMesh,NewMesh, Mesh
-    TYPE(Solver_t), POINTER :: PSolver
     TYPE( Nodes_t ) :: Nodes
     TYPE( Matrix_t ), POINTER :: NewMatrix
     INTEGER, POINTER :: Permutation(:)
@@ -161,7 +154,7 @@ CONTAINS
     REAL(KIND=dp) :: MaxError, ErrorLimit, minH, maxH, MaxChangeFactor, &
       LocalIndicator,ErrorEstimate,t,TotalTime,CPUTime,RealTime,RemeshTime,s
     LOGICAL :: BandwidthOptimize, Found, Coarsening, GlobalBubbles
-    INTEGER :: MaxDepth
+    INTEGER :: MaxDepth, NLen
     CHARACTER(LEN=1024) :: Path
     CHARACTER(LEN=MAX_NAME_LEN) :: VarName
     REAL(KIND=dp), POINTER  :: Time(:), NodalError(:), PrevValues(:), &
@@ -224,8 +217,7 @@ CONTAINS
     ELSE
        CALL AllocateVector( Hvalue, nn )
 
-       PSolver => Solver
-       CALL VariableAdd( RefMesh % Variables, RefMesh, PSolver, &
+       CALL VariableAdd( RefMesh % Variables, RefMesh, Solver, &
                 'Hvalue', 1, Hvalue, Output=.FALSE. )
        Hvalue = 0.0d0
     END IF
@@ -278,17 +270,17 @@ CONTAINS
        CALL AllocateVector( hConvergence, nn )
        hConvergence = 1.0d0
 
-       PSolver => Solver
-       CALL VariableAdd( RefMesh % Variables, RefMesh, PSolver, &
+       CALL VariableAdd( RefMesh % Variables, RefMesh, Solver, &
             'hConvergence', 1, hConvergence, Output=.FALSE. )
     END IF
 
 !   Add nodal average of the computed estimate to the
 !   solution error to the mesh variable list:
 !   --------------------------------------------------
-    VarName = Solver % Variable % Name(1:Solver % Variable % NameLen)
+    NLen = Solver % Variable % NameLen
+    VarName = Solver % Variable % Name(1:NLen)
     Var => VariableGet( RefMesh % Variables, &
-         TRIM(VarName)  // '.error', ThisOnly=.TRUE. )
+         VarName(1:NLen)  // '.error', ThisOnly=.TRUE. )
 
     IF ( ASSOCIATED( Var ) ) THEN
        NodalError  => Var % Values
@@ -296,13 +288,12 @@ CONTAINS
     ELSE
        CALL AllocateVector( NodalError, nn )
 
-       PSolver => Solver
-       CALL VariableAdd( RefMesh % Variables, RefMesh, PSolver, &
-          TRIM(VarName) // '.error', 1, NodalError )
+       CALL VariableAdd( RefMesh % Variables, RefMesh, Solver, &
+          VarName(1:NLen) // '.error', 1, NodalError )
     END IF
 
     Var => VariableGet( RefMesh % Variables, &
-         TRIM(VarName) // '.perror', ThisOnly=.TRUE. )
+         VarName(1:NLen) // '.perror', ThisOnly=.TRUE. )
 
     IF ( ASSOCIATED( Var ) ) THEN
        PrevNodalError  => Var % Values
@@ -311,9 +302,8 @@ CONTAINS
        CALL AllocateVector( PrevNodalError, RefMesh % NumberOfNodes )
        PrevNodalError = 0.0d0
 
-       PSolver => Solver
-       CALL VariableAdd( RefMesh % Variables, RefMesh, PSolver, &
-            TRIM(VarName) // '.perror', 1, PrevNodalError, Output=.FALSE. )
+       CALL VariableAdd( RefMesh % Variables, RefMesh, Solver, &
+            VarName(1:NLen) // '.perror', 1, PrevNodalError, Output=.FALSE. )
     END IF
 
     NodalError = 0.0d0
@@ -359,7 +349,7 @@ CONTAINS
 !   Add reference error to variable list:
 !   -------------------------------------
     Var => VariableGet( RefMesh % Variables, &
-         TRIM(VarName) // '.eRef', ThisOnly=.TRUE. )
+         VarName(1:NLen) // '.eRef', ThisOnly=.TRUE. )
 
     IF ( ASSOCIATED( Var ) ) THEN
        eRef => Var % Values
@@ -368,9 +358,8 @@ CONTAINS
        CALL AllocateVector( eRef, nn )
        eRef(1:nn) = NodalError(1:nn)
 
-       PSolver => Solver
-       CALL VariableAdd( RefMesh % Variables, RefMesh, PSolver, &
-         TRIM(VarName) // '.eRef',1,eRef, Output=.FALSE. )
+       CALL VariableAdd( RefMesh % Variables, RefMesh, Solver, &
+         VarName(1:NLen) // '.eRef',1,eRef, Output=.FALSE. )
     END IF
 !
 !   Mesh projection may alter the values somewhat!
@@ -389,8 +378,7 @@ CONTAINS
        CALL AllocateVector( hRef, nn )
        hRef(1:nn) = Hvalue(1:nn)
 
-       PSolver => Solver
-       CALL VariableAdd( RefMesh % Variables, RefMesh, PSolver, &
+       CALL VariableAdd( RefMesh % Variables, RefMesh, Solver, &
                'hRef', 1, hRef, Output=.FALSE. )
     END IF
 !
@@ -501,14 +489,16 @@ CONTAINS
 
     i = NewMesh % AdaptiveDepth
     n = FLOOR(LOG10(REAL(i))) + 1.5d0 
+    Nlen = LEN_TRIM(NewMesh % Name)
     DO j=n,1,-1
        k = i / 10**(j-1)
-       NewMesh % Name = TRIM(NewMesh % Name) // CHAR(k+ICHAR('0'))
+       NewMesh % Name = NewMesh % Name(1:NLen) // CHAR(k+ICHAR('0'))
        i = i - k*10**(j-1)
     END DO
 
-    IF ( LEN_TRIM(OutputPath) > 0 ) THEN
-       Path = TRIM(OutputPath) // '/' // TRIM(NewMesh % Name)
+    Nlen = LEN_TRIM(OutputPath)
+    IF ( Nlen > 0 ) THEN
+       Path = OutputPath(1:Nlen) // '/' // TRIM(NewMesh % Name)
     ELSE
        Path = TRIM(NewMesh % Name)
     END IF
@@ -521,32 +511,31 @@ CONTAINS
 !   --------------------------------------------
     NULLIFY( NewMesh % Variables )
 
-    PSolver => Solver
-    CALL VariableAdd( NewMesh % Variables, NewMesh, PSolver, &
+    CALL VariableAdd( NewMesh % Variables, NewMesh, Solver, &
          'Coordinate 1', 1, NewMesh % Nodes % x )
 
-    CALL VariableAdd( NewMesh % Variables, NewMesh, PSolver, &
+    CALL VariableAdd( NewMesh % Variables, NewMesh, Solver, &
          'Coordinate 2', 1, NewMesh % Nodes % y )
 
-    CALL VariableAdd( NewMesh % Variables, NewMesh, PSolver, &
+    CALL VariableAdd( NewMesh % Variables, NewMesh, Solver, &
          'Coordinate 3', 1, NewMesh % Nodes % z )
 
 !   Time must always be there:
 !   --------------------------
     Var => VariableGet( RefMesh % Variables,'Time',ThisOnly=.TRUE. )
-    CALL VariableAdd( NewMesh % Variables, NewMesh, PSolver, &
+    CALL VariableAdd( NewMesh % Variables, NewMesh, Solver, &
                      'Time', 1, Var % Values )
 
     Var => VariableGet( RefMesh % Variables,'Timestep',ThisOnly=.TRUE. )
-    CALL VariableAdd( NewMesh % Variables, NewMesh, PSolver, &
+    CALL VariableAdd( NewMesh % Variables, NewMesh, Solver, &
                      'Timestep', 1, Var % Values )
 
     Var => VariableGet( RefMesh % Variables,'Timestep size',ThisOnly=.TRUE. )
-    CALL VariableAdd( NewMesh % Variables, NewMesh, PSolver, &
+    CALL VariableAdd( NewMesh % Variables, NewMesh, Solver, &
                      'Timestep size', 1, Var % Values )
 
     Var => VariableGet( RefMesh % Variables,'Timestep interval',ThisOnly=.TRUE. )
-    CALL VariableAdd( NewMesh % Variables, NewMesh, PSolver, &
+    CALL VariableAdd( NewMesh % Variables, NewMesh, Solver, &
                  'Timestep interval', 1, Var % Values )
 
     ! Initialize the field variables for the new mesh. These are
@@ -888,14 +877,16 @@ CONTAINS
 
     i = RefMesh % AdaptiveDepth + 1
     n = FLOOR(LOG10(REAL(i))) + 1.5d0 
+    nLen = LEN_TRIM(Path)
     DO j=n,1,-1
        k = i / 10**(j-1)
-       Path = TRIM(Path) // CHAR(k+ICHAR('0'))
+       Path = Path(1:nlen) // CHAR(k+ICHAR('0'))
        i = i - k*10**(j-1)
     END DO
 
-    IF ( LEN_TRIM(OutputPath) > 0 ) THEN
-       Path = TRIM(OutputPath) // '/' // TRIM(Path)
+    nLen = LEN_TRIM(OutputPath)
+    IF ( nlen > 0 ) THEN
+       Path = OutputPath(1:nlen) // '/' // TRIM(Path)
     ELSE
        Path = TRIM(Path)
     END IF

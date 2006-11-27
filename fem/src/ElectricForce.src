@@ -40,6 +40,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: ElectricForce.src,v $
+! * Revision 1.7  2006/08/11 13:12:24  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.6  2006/01/10 07:39:16  apursula
 ! * Minor revision of the headers.
 ! *
@@ -95,7 +98,6 @@ SUBROUTINE StatElecForce( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 
   TYPE(Mesh_t), POINTER :: Mesh
-  TYPE(Solver_t), POINTER :: PSolver 
   TYPE(Variable_t), POINTER :: Var, DVar
   TYPE(Nodes_t) :: ElementNodes, ParentNodes
   TYPE(Element_t), POINTER   :: CurrentElement, Parent
@@ -110,7 +112,7 @@ SUBROUTINE StatElecForce( Model,Solver,dt,TransientSimulation )
   LOGICAL :: stat, CalculateMoment, ActiveBoundary, DoDisplacedBoundaries, FirstTime = .TRUE.
   CHARACTER(LEN=MAX_NAME_LEN) :: EqName1, EqName2, VariableName
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ElectricForce.src,v 1.6 2006/01/10 07:39:16 apursula Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ElectricForce.src,v 1.7 2006/08/11 13:12:24 jpr Exp $"
 
   SAVE FirstTime, ForceDensity, Pwrk
 !------------------------------------------------------------------------------
@@ -134,21 +136,19 @@ SUBROUTINE StatElecForce( Model,Solver,dt,TransientSimulation )
      ALLOCATE( ForceDensity( Dim * Mesh % NumberOfNodes ) )
      ForceDensity = 0.0d0
 
-    PSolver => Solver
-
     Fdx => ForceDensity( 1: Dim*Mesh % NumberOfNodes-Dim+1: Dim )
-    CALL VariableAdd( Mesh % Variables, Mesh, PSolver, &
+    CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
         'Electric Force Density 1', 1, Fdx )
     Fdy => ForceDensity( 2: Dim*Mesh % NumberOfNodes-Dim+2: Dim )
-    CALL VariableAdd( Mesh % Variables, Mesh, PSolver, &
+    CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
         'Electric Force Density 2', 1, Fdy )
     IF ( Dim == 3 ) THEN
        Fdz => ForceDensity( 3: Dim*Mesh % NumberOfNodes: Dim )
-       CALL VariableAdd( Mesh % Variables, Mesh, PSolver, &
+       CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
             'Electric Force Density 3', 1, Fdz )
     END IF
 
-    CALL VariableAdd( Mesh % Variables, Mesh, PSolver, &
+    CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
          'Electric Force Density', Dim, ForceDensity )
 
     NULLIFY( Pwrk )
@@ -168,7 +168,7 @@ SUBROUTINE StatElecForce( Model,Solver,dt,TransientSimulation )
      DO i = 1, Model % NumberOfSolvers
         EqName2 = ListGetString( Model % Solvers(i) % Values, 'Equation' )
 
-        IF ( TRIM( EqName1 ) == TRIM( EqName2 ) ) THEN
+        IF ( EqName1 == EqName2 ) THEN
            stat = .TRUE.
            EXIT
         END IF
