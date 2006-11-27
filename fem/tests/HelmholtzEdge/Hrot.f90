@@ -498,12 +498,13 @@ CONTAINS
    SUBROUTINE EdgeBasis( WhitneyBasis, RotWhitneyBasis, u, v, w, Element, n )
 !------------------------------------------------------------------------
      REAL(KIND=dp) :: WhitneyBasis(:,:), RotWhitneyBasis(:), u, v, w
-     TYPE(Element_t), POINTER :: Element
+     TYPE(Element_t) :: Element
 
      INTEGER :: n
 !------------------------------------------------------------------------
      TYPE(Nodes_t) :: Nodes
      SAVE Nodes
+
      REAL(KIND=dp) :: detJ, Basis(3), dBasisdx(3,3)
      LOGICAL :: stat
 !------------------------------------------------------------------------

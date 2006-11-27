@@ -47,12 +47,12 @@ fi
 #
 # Autoconf substitutes these variables with correct values.
 #
-export F90="gfortran -O3 -fPIC -I. -I. -I$ELMER_INCLUDE"
+export F90="gfortran -O3 -ffast-math -funroll-loops -march=pentium4 -fPIC -I. -I. -I$ELMER_INCLUDE"
 export LD="gfortran -shared  "
 export LIBS="-L$ELMER_LIB "
 
-gcc -o findnorm$EXE_EXT findnorm.c
-gcc -o compare$EXE_EXT compare.c -lm
+/wrk/jpr/gcc-install/bin/gcc -o findnorm$EXE_EXT findnorm.c
+/wrk/jpr/gcc-install/bin/gcc -o compare$EXE_EXT compare.c -lm
 chmod 775 findnorm$EXE_EXT compare$EXE_EXT
 
 total=0
