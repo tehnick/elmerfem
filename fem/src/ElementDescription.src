@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: ElementDescription.src,v $
+! * Revision 1.23  2006/11/24 11:32:38  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.20  2006/02/06 07:18:04  jpr
 ! * Added complaint in ElementInfo if bubbles requested but not implemented
 ! * for a specific element.
@@ -115,7 +118,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: ElementDescription.src,v 1.22 2006/10/13 07:24:48 jpr Exp $
+! * $Id: ElementDescription.src,v 1.23 2006/11/24 11:32:38 jpr Exp $
 ! ******************************************************************************/
 
 MODULE ElementDescription
@@ -4511,6 +4514,7 @@ END IF
 
        IF ( ASSOCIATED( RightElement ) ) THEN
 
+!        IF ( ANY(Boundary % BoundaryInfo % OutBody(:) > 0) ) THEN
          IF ( k > 0 ) THEN
             IF ( LeftElement % BodyId == k ) THEN
                Element => RightElement
@@ -4518,7 +4522,10 @@ END IF
                Element => LeftElement
             END IF
          ELSE
-#if 0
+#if 1
+            CALL Warn( 'CheckNormalDirection', 'Depreceated use of "Density" to orient normals,' )
+            CALL Warn( 'CheckNormalDirection', 'please use the keyword "Normal Target Body".' )
+            CALL Warn( 'CheckNormalDirection', ' ' )
             LMat = ListGetInteger( CurrentModel % Bodies( &
                    LeftElement % BodyId)  % Values, 'Material', &
                     minv=1, maxv=CurrentModel % NumberOfMaterials )
@@ -4590,11 +4597,13 @@ END IF
 
     IF ( PRESENT(turn) ) turn = .FALSE.
     IF ( x1*Normal(1) + y1*Normal(2) + z1*Normal(3) > 0 ) THEN
-       IF ( k /= Element % BodyId ) THEN
+!      IF ( ANY( Element % BodyId /= Boundary % BoundaryInfo % OutBody(:) ) ) THEN
+       IF ( Element % BodyId /= k ) THEN
           Normal = -Normal
           IF ( PRESENT(turn) ) turn = .TRUE.
        END IF
-    ELSE IF ( k == Element % BodyId ) THEN
+!   ELSE IF ( ANY( Element % BodyId == Boundary % BoundaryInfo % OutBody(:) ) THEN
+    ELSE IF (  Element % BodyId == k ) THEN
        Normal = -Normal
        IF ( PRESENT(turn) ) turn = .TRUE.
     END IF
