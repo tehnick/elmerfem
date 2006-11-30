@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: $
+! * $Id: DirectSolve.src,v 1.7 2006/01/10 08:32:50 apursula Exp $
 ! ******************************************************************************
 
 MODULE DirectSolve
@@ -303,54 +303,58 @@ CONTAINS
 
 #ifdef HAVE_UMFPACK
   INTEGER :: status, sys
-  INTEGER(KIND=AddrInt) :: numeric, symbolic
-  REAL(KIND=dp) :: Control(20), iInfo(90)
+  REAL(KIND=dp) :: iInfo(90), Control(20)
+  INTEGER(KIND=AddrInt) :: symbolic, zero=0
 
-  SAVE Control, iInfo, Symbolic, Numeric
+  SAVE iInfo, Control
  
   LOGICAL :: Factorize, stat
 
   Factorize = ListGetLogical( Solver % Values, 'UMF Factorize', stat )
   IF ( .NOT. stat ) Factorize = .TRUE.
 
+
+  n = A % NumberofRows
+
+  Symbolic = 0
   IF ( Factorize ) THEN
-    IF ( Numeric  /= 0 ) THEN
-       CALL umf4fnum( Numeric )
-       Numeric = 0
-    END IF
-    IF ( Symbolic /= 0 ) THEN
-       CALL umf4fsym( Symbolic )
-       Symbolic = 0
+    Factorize = ListGetLogical( Solver % Values, &
+               'Linear System UMFPack Refactorize', stat )
+    IF ( .NOT. Stat ) Factorize = .TRUE.
+
+    IF ( Factorize .OR. A % UmfPack_Numeric==0 ) THEN
+      IF ( A % UMFPack_Numeric /= 0 ) THEN
+        CALL umf4fnum( A % UMFPack_Numeric )
+        A % UMFPack_Numeric = 0
+      END IF
+
+      A % Rows = A % Rows-1
+      A % Cols = A % Cols-1
+
+      CALL umf4def( Control )
+      CALL umf4sym( n,n, A % Rows, A % Cols, A % Values, Symbolic, Control, iInfo )
+      IF (iinfo(1)<0) THEN
+          print *, 'Error occurred in umf4sym: ', iinfo(1)
+          stop
+      END IF
+      CALL umf4num( A % Rows, A % Cols, A % Values, Symbolic, A % UMFPack_Numeric, Control, iInfo )
+      IF (iinfo(1)<0) THEN
+          print *, 'Error occurred in umf4num: ', iinfo(1)
+          stop
+      ENDIF
+
+      A % Rows = A % Rows+1
+      A % Cols = A % Cols+1
     END IF
   END IF
 
-  n = a % numberofrows
-
-  A % Rows = A % Rows-1
-  A % Cols = A % Cols-1
-
-  IF ( Factorize ) THEN
-    CALL umf4def( Control )
-    CALL umf4sym( n,n, A % Rows, A % Cols, A % Values, Symbolic,Control, iinfo )
-    IF (iinfo(1) .lt. 0) THEN
-        print *, 'Error occurred in umf4sym: ', iinfo(1)
-        stop
-    END IF
-    CALL umf4num( A % Rows, A % Cols, A % Values, Symbolic, Numeric, Control, iinfo )
-    IF (iinfo(1) .lt. 0) THEN
-        print *, 'Error occurred in umf4num: ', iinfo(1)
-        stop
-    ENDIF
-  END IF
   sys = 2
-  CALL umf4sol( sys, x, b, Numeric, Control, iinfo )
-  IF (iinfo(1) .lt. 0) THEN
-      print *, 'Error occurred in umf4sol: ', iinfo(1)
-      stop
-   END IF
-
-   A % Rows = A % Rows+1
-   A % Cols = A % Cols+1
+  CALL umf4sol( sys, x, b, A % UMFPack_Numeric, Control, iInfo )
+  IF (iinfo(1)<0) THEN
+     print *, 'Error occurred in umf4sol: ', iinfo(1)
+     stop
+  END IF
+  IF ( Symbolic /= 0 ) CALL umf4fsym( Symbolic )
 #else
    CALL Fatal( 'UMFPack_SolveSystem', 'UMFPACK Solver has not been installed.' )
 #endif
