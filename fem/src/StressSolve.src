@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StressSolve.src,v $
+! * Revision 1.24  2006/11/28 12:06:49  jpr
+! * Relaxed the conditions for insisting user to supply density.
+! *
 ! * Revision 1.23  2006/11/28 11:48:18  jpr
 ! * Added missing initialization for NodalMeshVelo for non-transient cases.
 ! *
@@ -253,7 +256,8 @@
      LOGICAL :: GotForceBC,Found,NewtonLinearization = .FALSE.
      LOGICAL :: PlaneStress, CalcStress, CalcStressAll, Isotropic = .TRUE.
      LOGICAL :: Contact = .FALSE.
-     LOGICAL :: stat, stat2, stat3, RotateC, MeshDisplacementActive
+     LOGICAL :: stat, stat2, stat3, RotateC, MeshDisplacementActive, &
+                ConstantBulk, ConstantSystem
 
      LOGICAL :: AllocationsDone = .FALSE., NormalTangential
      LOGICAL :: StabilityAnalysis = .FALSE., ModelLumping, FixDisplacement
@@ -310,7 +314,7 @@
         END FUNCTION StressInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.23 2006/11/28 11:48:18 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.24 2006/11/28 12:06:49 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -538,6 +542,8 @@
             Model % MaxElementNodes)
      END IF
 
+     ConstantSystem = GetLogical( SolverParams, 'Constant System', Found )
+     ConstantBulk   = GetLogical( SolverParams, 'Constant Bulk System', Found )
 !------------------------------------------------------------------------------
 
      DO iter=1,MaxIter
@@ -563,6 +569,15 @@
        CALL Info( 'StressSolve', ' ', Level=4 )
        CALL Info( 'StressSolve', 'Starting assembly...',Level=4 )
 !------------------------------------------------------------------------------
+
+       IF ( ASSOCIATED(Solver % Matrix % BulkValues) ) THEN
+         IF ( ConstantBulk .OR. ConstantSystem ) THEN
+           Solver % Matrix % RHS    = Solver % Matrix % BulkRHS
+           Solver % Matrix % Values = Solver % Matrix % BulkValues
+         END IF
+         IF ( ConstantBulk   ) GO TO 1000
+         IF ( ConstantSystem ) GO TO 2000
+       END IF
 
        CALL DefaultInitialize()
 
@@ -744,7 +759,7 @@
 !------------------------------------------------------------------------------
 !        Update global matrices from local matrices 
 !------------------------------------------------------------------------------
-         CALL DefaultUpdateEquations( STIFF, FORCE )
+         CALL DefaultUpdateEquations( STIFF, FORCE, BulkUpdate=.TRUE. )
 
          IF ( Solver % NOFEigenValues > 0 ) THEN
             CALL DefaultUpdateMass( MASS )
@@ -752,6 +767,8 @@
          END IF
 !------------------------------------------------------------------------------
       END DO
+
+1000  CONTINUE
 
       CALL Info( 'StressSolve', 'Assembly done', Level=4 )
 
@@ -835,12 +852,14 @@
 !---------------------------------------------------------------------------
 !          Update global matrices from local matrices
 !---------------------------------------------------------------------------
-           CALL DefaultUpdateEquations( STIFF, FORCE )
+           CALL DefaultUpdateEquations( STIFF, FORCE, BulkUpdate=ConstantSystem )
            IF ( Solver % NOFEigenValues > 0 ) CALL DefaultUpdateDamp( DAMP )
 !------------------------------------------------------------------------------
          END IF
       END DO
 !------------------------------------------------------------------------------
+
+2000  CONTINUE
 
       CALL DefaultFinishAssembly()
       CALL DefaultDirichletBCS()
