@@ -39,6 +39,9 @@
 ! ****************************************************************************/
 ! *
 ! * $Log: FlowSolve.src,v $
+! * Revision 1.25  2006/11/27 10:23:57  jpr
+! * Removed some execess (unrelated) use of TRIM & POINTER.
+! *
 ! * Revision 1.24  2006/11/20 10:56:43  raback
 ! * Updated the Dirichlet BC and Nodal load settings.
 ! *
@@ -220,11 +223,8 @@
 !
      LOGICAL :: AllocationsDone = .FALSE., FreeSurfaceFlag, &
          PseudoPressureExists, PseudoCompressible, Bubbles, &
-         Porous =.FALSE., PotentialForce=.FALSE.
+         Porous =.FALSE., PotentialForce=.FALSE., Hydrostatic=.FALSE.
 
-logical, allocatable :: done(:)
-type(valuelist_t), pointer :: bc
-type(variable_t), pointer :: var
 
      REAL(KIND=dp),ALLOCATABLE:: LocalMassMatrix(:,:),LocalStiffMatrix(:,:),&
          LoadVector(:,:),Viscosity(:),LocalForce(:), TimeForce(:), &
@@ -282,7 +282,7 @@ type(variable_t), pointer :: var
         END FUNCTION FlowInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.24 2006/11/20 10:56:43 raback Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.25 2006/11/27 10:23:57 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -557,6 +557,7 @@ type(variable_t), pointer :: var
        CALL InitializeToZero( StiffMatrix, ForceVector )
 !------------------------------------------------------------------------------
 
+       bf_id   = -1
        body_id = -1
        DO t = 1,Solver % NumberOFActiveElements
 
@@ -580,8 +581,12 @@ type(variable_t), pointer :: var
 
          IF ( CurrentElement % BodyId /= body_id ) THEN
            body_id = CurrentElement % BodyId
+
            eq_id = ListGetInteger( Model % Bodies(body_id) % Values,'Equation', &
                    minv=1, maxv=Model % NumberOfEquations )
+
+           bf_id = ListGetInteger( Model % Bodies(body_id) % Values, &
+              'Body Force', gotIt, 1, Model % NumberOfBodyForces )
 
            Convect = ListGetLogical( Model % Equations(eq_id) % Values, &
                      'NS Convect', GotIt )
@@ -623,6 +628,16 @@ type(variable_t), pointer :: var
 
            Clip = ListGetConstReal( Model % Equations(eq_id) % Values,'KE Clip', GotIt )
            IF ( .NOT. GotIt ) Clip = 1.0d-6
+
+           Gotit = .FALSE.
+           IF ( bf_id > 0 ) THEN
+             Hydrostatic = ListGetLogical( Model % BodyForces(bf_id) % Values, &
+                        'Hydrostatic Pressure',gotIt )
+           END IF
+           IF ( .NOT. GotIt ) THEN
+             Hydrostatic = ListGetLogical( Model % Equations(eq_id) % Values, &
+                      'Hydrostatic Pressure',gotIt )
+           END IF
          END IF
 
 !------------------------------------------------------------------------------
@@ -835,13 +850,9 @@ type(variable_t), pointer :: var
 !------------------------------------------------------------------------------
 !        Set body forces, if any
 !------------------------------------------------------------------------------
-         bf_id = ListGetInteger( Model % Bodies(body_id) % Values, &
-            'Body Force', gotIt, 1, Model % NumberOfBodyForces )
-
          LoadVector = 0.0D0
 
-         IF ( gotIt ) THEN
-
+         IF ( bf_id>0 ) THEN
            HeatExpansionCoeff   = 0.0D0
            ReferenceTemperature = 0.0D0
 
@@ -860,8 +871,7 @@ type(variable_t), pointer :: var
              DO i=1,n
                k = TempPerm(NodeIndexes(i))
                IF ( k > 0 ) THEN
-                 IF ( ListGetLogical( Model % Equations(eq_id) % Values, &
-                         'Hydrostatic Pressure',gotIt ) ) THEN
+                 IF ( Hydrostatic ) THEN
                    Tdiff = 1 - HeatExpansionCoeff(i) * &
                       (Temperature(k) - ReferenceTemperature(i))
 
@@ -880,6 +890,10 @@ type(variable_t), pointer :: var
                  END IF
                END IF
              END DO
+           ELSE IF ( Hydrostatic ) THEN
+             LoadVector(1,1:n)   = Gravity(1)
+             LoadVector(2,1:n)   = Gravity(2)
+             IF ( NSDOFs > 3 ) LoadVector(3,1:n) = Gravity(3)
            END IF
 !------------------------------------------------------------------------------
            LoadVector(1,1:n) = LoadVector(1,1:n) + ListGetReal( &
