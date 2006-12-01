@@ -328,7 +328,7 @@
         END FUNCTION StressInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.28 2006/12/01 12:33:00 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.29 2006/12/01 20:07:42 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -983,43 +983,35 @@ CONTAINS
         IF ( ALLOCATED(STIFF) ) DEALLOCATE( STIFF,MASS,DAMP,V,X,A )
 
         n = 0
-        DO i=1,SIZE(Solver % Variable % Perm)
-          IF ( Solver % Variable % Perm(i)<=0 ) CYCLE
-          DO j=1,Solver % Variable % DOFs
-            k=Solver % Variable % DOFs*(Solver % Variable % Perm(i)-1)+j
-            n = MAX( n,Solver % Matrix % Rows(k+1)-Solver % Matrix % Rows(k) )
-          END DO
+        DO i=1,Solver % Matrix % NumberOfRows
+          n = MAX( n,Solver % Matrix % Rows(i+1)-Solver % Matrix % Rows(i) )
         END DO
         ALLOCATE( STIFF(1,n),MASS(1,n),DAMP(1,n),V(n),X(n),A(n) )
 
         SaveValues => Solver % Variable % Values
      END IF
 
-     DO i=1,SIZE(Solver % Variable % Perm)
-       IF ( Solver % Variable % Perm(i)<=0 ) CYCLE
-       DO j=1,Solver % Variable % DOFs
-         k=Solver % Variable % DOFs*(Solver % Variable % Perm(i)-1)+j
-         n = 0
-         DO l=Solver % Matrix % Rows(k),Solver % Matrix % Rows(k+1)-1
-           n=n+1
-           STIFF(1,n) = Solver % Matrix % Values(l)
-           MASS(1,n)  = Solver % Matrix % MassValues(l)
-           DAMP(1,n)  = Solver % Matrix % DampValues(l)
+     DO i=1,Solver % Matrix % NumberOFRows
+       n = 0
+       DO j=Solver % Matrix % Rows(i),Solver % Matrix % Rows(i+1)-1
+         n = n + 1
+         STIFF(1,n) = Solver % Matrix % Values(j)
+         MASS(1,n)  = Solver % Matrix % MassValues(j)
+         DAMP(1,n)  = Solver % Matrix % DampValues(j)
 
-           X(n) = Solver % Variable % PrevValues(Solver % Matrix % Cols(l),3)
-           V(n) = Solver % Variable % PrevValues(Solver % Matrix % Cols(l),4)
-           A(n) = Solver % Variable % PrevValues(Solver % Matrix % Cols(l),5)
-         END DO
-         FORCE(1) = Solver % Matrix % RHS(k)
-         Solver % Matrix % Force(k,1) = FORCE(1)
-         CALL Bossak2ndOrder( n,dt,MASS,DAMP,STIFF,FORCE,X,V,A,Solver % Alpha )
-         n = 0
-         DO l=Solver % Matrix % Rows(k),Solver % Matrix % Rows(k+1)-1
-           n=n+1
-           Solver % Matrix % Values(l) = STIFF(1,n)
-         END DO
-         Solver % Matrix % RHS(k) = FORCE(1)
+         X(n) = Solver % Variable % PrevValues(Solver % Matrix % Cols(j),3)
+         V(n) = Solver % Variable % PrevValues(Solver % Matrix % Cols(j),4)
+         A(n) = Solver % Variable % PrevValues(Solver % Matrix % Cols(j),5)
        END DO
+       FORCE(1) = Solver % Matrix % RHS(i)
+       Solver % Matrix % Force(i,1) = FORCE(1)
+       CALL Bossak2ndOrder( n,dt,MASS,DAMP,STIFF,FORCE,X,V,A,Solver % Alpha )
+       n = 0
+       DO j=Solver % Matrix % Rows(i),Solver % Matrix % Rows(i+1)-1
+         n = n + 1
+         Solver % Matrix % Values(j) = STIFF(1,n)
+       END DO
+       Solver % Matrix % RHS(i) = FORCE(1)
      END DO
 !------------------------------------------------------------------------------
   END SUBROUTINE AddGlobalTime

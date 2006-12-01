@@ -285,7 +285,7 @@
 
      REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
 
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HeatSolve.src,v 1.22 2006/12/01 09:02:16 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HeatSolve.src,v 1.23 2006/12/01 20:07:41 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -1304,12 +1304,8 @@ CONTAINS
       IF ( .NOT.ASSOCIATED(Solver % Variable % Values, SaveValues) ) THEN
          IF ( ALLOCATED(STIFF) ) DEALLOCATE( STIFF,MASS,X )
          n = 0
-         DO i=1,SIZE(Solver % Variable % Perm)
-           IF ( Solver % Variable % Perm(i)<=0 ) CYCLE
-           DO j=1,Solver % Variable % DOFs
-             k=Solver % Variable % DOFs*(Solver % Variable % Perm(i)-1)+j
-             n = MAX( n,Solver % Matrix % Rows(k+1)-Solver % Matrix % Rows(k) )
-           END DO
+         DO i=1,Solver % Matrix % NumberOfRows
+           n = MAX( n,Solver % Matrix % Rows(i+1)-Solver % Matrix % Rows(i) )
          END DO
          k = SIZE(Solver % Variable % PrevValues,2)
          ALLOCATE( STIFF(1,n),MASS(1,n),X(n,k) )
@@ -1317,28 +1313,24 @@ CONTAINS
          SaveValues => Solver % Variable % Values
       END IF
 
-      DO i=1,SIZE(Solver % Variable % Perm)
-        IF ( Solver % Variable % Perm(i)<=0 ) CYCLE
-        DO j=1,Solver % Variable % DOFs
-          k=Solver % Variable % DOFs*(Solver % Variable % Perm(i)-1)+j
-          n = 0
-          DO l=Solver % Matrix % Rows(k),Solver % Matrix % Rows(k+1)-1
-            n=n+1
-            STIFF(1,n) = Solver % Matrix % Values(l)
-            MASS(1,n)  = Solver % Matrix % MassValues(l)
-            X(n,:) = Solver % Variable % PrevValues(Solver % Matrix % Cols(l),:)
-          END DO
-          FORCE(1) = Solver % Matrix % RHS(k)
-          Solver % Matrix % Force(k,1) = FORCE(1)
-          l = MIN( Solver % DoneTime, Solver % Order )
-          CALL BDFLocal( n, dt, MASS, STIFF, FORCE, X, l )
-          n = 0
-          DO l=Solver % Matrix % Rows(k),Solver % Matrix % Rows(k+1)-1
-             n=n+1
-            Solver % Matrix % Values(l) = STIFF(1,n)
-          END DO
-          Solver % Matrix % RHS(k) = FORCE(1)
+      DO i=1,Solver % Matrix % NumberOFRows
+        n = 0
+        DO j=Solver % Matrix % Rows(i),Solver % Matrix % Rows(i+1)-1
+          n=n+1
+          STIFF(1,n) = Solver % Matrix % Values(j)
+          MASS(1,n)  = Solver % Matrix % MassValues(l)
+          X(n,:) = Solver % Variable % PrevValues(Solver % Matrix % Cols(j),:)
         END DO
+        FORCE(1) = Solver % Matrix % RHS(i)
+        Solver % Matrix % Force(i,1) = FORCE(1)
+        k = MIN( Solver % DoneTime, Solver % Order )
+        CALL BDFLocal( n, dt, MASS, STIFF, FORCE, X, k )
+        n = 0
+        DO j=Solver % Matrix % Rows(i),Solver % Matrix % Rows(i+1)-1
+           n=n+1
+          Solver % Matrix % Values(j) = STIFF(1,n)
+        END DO
+        Solver % Matrix % RHS(i) = FORCE(1)
       END DO
 !------------------------------------------------------------------------------
     END SUBROUTINE AddGlobalTime
