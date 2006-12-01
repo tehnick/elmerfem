@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StressSolve.src,v $
+! * Revision 1.27  2006/12/01 09:47:00  jpr
+! * Just a bit of formatting.
+! *
 ! * Revision 1.26  2006/12/01 09:02:17  jpr
 ! * Initial changes to enable 'constant bulk system' for time dependent
 ! * simulations.
@@ -212,7 +215,6 @@
     USE StressGeneral
     USE Adaptive
     USE DefUtils
-    USE ElementDescription
 
     IMPLICIT NONE
 !------------------------------------------------------------------------------
@@ -249,9 +251,9 @@
      TYPE(Element_t),POINTER :: Element
 
      REAL(KIND=dp) :: RelativeChange,UNorm,PrevUNorm, &
-         Tdiff,Normal(3),NewtonTol,NonlinearTol,s, UzawaParameter
+              NonlinearTol,s, UzawaParameter
 
-     INTEGER :: NewtonIter,MaxIter, MinIter
+     INTEGER ::  MaxIter, MinIter
      TYPE(Variable_t), POINTER :: StressSol, TempSol, Var
 
      REAL(KIND=dp), POINTER :: Temperature(:),Displacement(:),Work(:,:,:), &
@@ -262,8 +264,7 @@
 
      INTEGER, POINTER :: TempPerm(:),DisplPerm(:),StressPerm(:),NodeIndexes(:)
 
-     INTEGER :: StressType
-     LOGICAL :: GotForceBC,Found,NewtonLinearization = .FALSE.
+     LOGICAL :: GotForceBC,Found
      LOGICAL :: PlaneStress, CalcStress, CalcStressAll, Isotropic = .TRUE.
      LOGICAL :: Contact = .FALSE.
      LOGICAL :: stat, stat2, stat3, RotateC, MeshDisplacementActive, &
@@ -277,14 +278,14 @@
        DAMP(:,:), LOAD(:,:),FORCE(:), &
        LocalTemperature(:),ElasticModulus(:,:,:),PoissonRatio(:), &
        HeatExpansionCoeff(:,:,:),DampCoeff(:),SpringCoeff(:),Beta(:), &
-       ReferenceTemperature(:),BoundaryDispl(:), Density(:), Damping(:), &
+       ReferenceTemperature(:), Density(:), Damping(:), &
        NodalDisplacement(:,:), ContactLimit(:), LocalNormalDisplacement(:), &
        LocalContactPressure(:), PreStress(:,:), PreStrain(:,:), &
        StressLoad(:,:), StrainLoad(:,:), NodalMeshVelo(:,:)
 
      SAVE MASS,DAMP, STIFF,LOAD, &
        FORCE,ElementNodes,DampCoeff,SpringCoeff,Beta,Density, Damping, &
-       LocalTemperature,AllocationsDone,ReferenceTemperature,BoundaryDispl, &
+       LocalTemperature,AllocationsDone,ReferenceTemperature, &
        ElasticModulus, PoissonRatio,HeatExpansionCoeff, VonMises, NodalStress, &
        CalcStress, CalcStressAll, NodalDisplacement, Contact, ContactPressure, &
        NormalDisplacement, ContactLimit, LocalNormalDisplacement, &
@@ -324,7 +325,7 @@
         END FUNCTION StressInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.26 2006/12/01 09:02:17 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.27 2006/12/01 09:47:00 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -375,11 +376,7 @@
        N = Solver % Mesh % MaxElementDOFs
 
        IF ( AllocationsDone ) THEN
-         DEALLOCATE( ElementNodes % x,       &
-                     ElementNodes % y,       &
-                     ElementNodes % z,       &
-                     BoundaryDispl,          &
-                     Density,                &
+         DEALLOCATE( Density,                &
                      Damping,                &
                      DampCoeff,              &
                      SpringCoeff,            &
@@ -397,11 +394,7 @@
                      TransformMatrix )
        END IF
 
-       ALLOCATE( ElementNodes % x( N ),     &
-                 ElementNodes % y( N ),     &
-                 ElementNodes % z( N ),     &
-                 BoundaryDispl( N ),        &
-                 Density( N ),              &
+       ALLOCATE( Density( N ),              &
                  Damping( N ),              &
                  DampCoeff( N ),            &
                  PreStress( 6,N ),          &
@@ -502,12 +495,6 @@
      NonlinearTol = GetConstReal( SolverParams, &
         'Nonlinear System Convergence Tolerance', Found )
 
-     NewtonTol = GetConstReal( SolverParams, &
-        'Nonlinear System Newton After Tolerance', Found )
-
-     NewtonIter = GetInteger( SolverParams, &
-        'Nonlinear System Newton After Iterations', Found )
-
      MaxIter = GetInteger( SolverParams, &
          'Nonlinear System Max Iterations',Found )
      IF ( .NOT.Found ) MaxIter = 1
@@ -546,8 +533,8 @@
      IF ( ModelLumping ) THEN       
        FixDisplacement = GetLogical( SolverParams, 'Fix Displacement')
        IF(DIM /= 3) CALL Fatal('StressSolve','Model Lumping implemented only for 3D')
-!       MaxIter = 6
-!       MinIter = MaxIter
+!      MaxIter = 6
+!      MinIter = MaxIter
        CALL CoordinateIntegrals(LumpedArea, LumpedCenter, LumpedMoments, &
             Model % MaxElementNodes)
      END IF
@@ -555,7 +542,6 @@
      ConstantSystem = GetLogical( SolverParams, 'Constant System', Found )
      ConstantBulk   = GetLogical( SolverParams, 'Constant Bulk System', Found )
 !------------------------------------------------------------------------------
-
      DO iter=1,MaxIter
        IF( StabilityAnalysis .OR. GeometricStiffness ) THEN
           SELECT CASE( iter )
@@ -590,329 +576,48 @@
        END IF
 
        CALL DefaultInitialize()
+       CALL BulkAssembly()
 
-       body_id = -1
-!------------------------------------------------------------------------------
-       DO t=1,Solver % NumberOFActiveElements
+1000   CONTINUE
+       CALL Info( 'StressSolve', 'Assembly done', Level=4 )
 
-         IF ( RealTime() - at0 > 1.0 ) THEN
-           WRITE(Message,'(a,i3,a)' ) '   Assembly: ', INT(100.0 - 100.0 * &
-            (Solver % NumberOfActiveElements-t) / &
-               (1.0*Solver % NumberOfActiveElements)), ' % done'
-                       
-           CALL Info( 'StressSolve', Message, Level=5 )
-           at0 = RealTime()
-         END IF
+       CALL BCAssembly()
 
-!------------------------------------------------------------------------------
+2000   CONTINUE
 
-         Element => GetActiveElement(t)
-         n = GetElementNOFNOdes()
-         ntot = GetElementNOFDOFs()
+       IF ( Transient .AND. (ConstantBulk.OR. ConstantSystem) ) &
+                     CALL AddGlobalTime()
 
-         NodeIndexes => Element % NodeIndexes
-         CALL GetElementNodes( ElementNodes )
+       CALL DefaultFinishAssembly()
+       CALL DefaultDirichletBCS()
 
-         Equation => GetEquation()
-         PlaneStress = GetLogical( Equation, 'Plane Stress',Found )
+       IF( ModelLumping .AND. FixDisplacement) THEN
+         CALL LumpedDisplacements( Model, iter, LumpedArea, LumpedCenter)
+       END IF
 
-         Material => GetMaterial()
-         Density(1:n) = GetReal( Material, 'Density', Found )
-         IF ( .NOT. Found )  THEN
-           IF ( Transient .OR. Solver % NOFEigenValues > 0 ) &
-              CALL Fatal( 'StressSolve', 'No value for density found.' )
-         END IF
-         Damping(1:n) = GetReal( Material, 'Damping', Found )
+       CALL Info( 'StressSolve', 'Set boundaries done', Level=4 )
 
-         CALL InputTensor( HeatExpansionCoeff, Isotropic,  &
-             'Heat Expansion Coefficient', Material, n, NodeIndexes )
+       ! Solve the system and check for convergence:
+       !--------------------------------------------
+       PrevUNorm = UNorm
+       UNorm = DefaultSolve()
 
-         CALL InputTensor( ElasticModulus, Isotropic, &
-             'Youngs Modulus', Material, n, NodeIndexes )
+       IF ( PrevUNorm + UNorm /= 0.0d0 ) THEN
+          RelativeChange = 2.0d0 * ABS( PrevUNorm - UNorm) / ( PrevUnorm + UNorm)
+       ELSE
+          RelativeChange = 0.0d0
+       END IF
 
-         PoissonRatio = 0.0d0
-         IF ( Isotropic )  PoissonRatio(1:n) = GetReal( Material, 'Poisson Ratio' )
+       WRITE( Message, * ) 'Result Norm   : ',UNorm
+       CALL Info( 'StressSolve', Message, Level=4 )
+       WRITE( Message, * ) 'Relative Change : ',RelativeChange
+       CALL Info( 'StressSolve', Message, Level=4 )
 
-         ReferenceTemperature(1:n) = GetReal(Material, &
-               'Reference Temperature', Found )
-
-         PreStress = 0.0d0
-         PreStrain = 0.0d0
-         CALL ListGetRealArray( Material, 'Stress', Work, n, NodeIndexes, Found )
-         IF ( Found ) THEN
-            k = SIZE(Work,1)
-            PreStress(1:k,1:n) = Work(1:k,1,1:n)
-         END IF
-         CALL ListGetRealArray( Material, 'Strain', Work, n, NodeIndexes, Found )
-         IF ( Found ) THEN
-            k = SIZE(Work,1)
-            PreStrain(1:k,1:n) = Work(1:k,1,1:n)
-         END IF
-
-         ! Check need for elasticity matrix rotation:
-         !-------------------------------------------
-         IF ( Element % BodyId /= body_id ) THEN
-           body_id = Element % BodyId
-           RotateC = GetLogical( Material, 'Rotate Elasticity Tensor', stat )
-
-           IF ( RotateC ) THEN
-              CALL GetConstRealArray( Material, UWrk, &
-                  'Material Coordinates Unit Vector 1', stat, Element )
-              IF ( stat ) THEN
-                Unit1(1:3) = UWrk(1:3,1)
-              ELSE
-                Unit1(1:3) = (/ 1.0d0, 0.0d0, 0.0d0 /)
-              END IF
-
-              UnitNorm = SQRT( SUM( Unit1(1:3) * Unit1(1:3) ) )
-              IF ( UnitNorm > 0.0001 )  Unit1 = Unit1 / UnitNorm
-
-              CALL GetConstRealArray( Material, UWrk, &
-                  'Material Coordinates Unit Vector 2', stat2, Element )
-              IF ( stat2 ) THEN
-                Unit2(1:3) = UWrk(1:3,1)
-              ELSE
-                Unit2(1:3) = (/ 0.0d0, 1.0d0, 0.0d0 /)
-              END IF
-
-              UnitNorm = SQRT( SUM( Unit2(1:3) * Unit2(1:3) ) )
-              IF ( UnitNorm > 0.0001 )  Unit2 = Unit2 / UnitNorm
-
-              CALL GetConstRealArray( Material, UWrk, &
-                  'Material Coordinates Unit Vector 3', stat3, Element )
-              IF ( stat3 ) THEN
-                Unit3(1:3) = UWrk(1:3,1)
-              ELSE
-                Unit3(1:3) = (/ 0.0d0, 0.0d0, 1.0d0 /)
-              END IF
-
-              UnitNorm = SQRT( SUM( Unit3(1:3) * Unit3(1:3) ) )
-              IF ( UnitNorm > 0.0001 )  Unit3 = Unit3/UnitNorm
-
-              IF ( stat .OR. stat2 .OR. stat3 ) THEN
-                DO i = 1, 3
-                  TransformMatrix(1,i) = Unit1(i)
-                  TransformMatrix(2,i) = Unit2(i)
-                  TransformMatrix(3,i) = Unit3(i)
-                END DO
-              ELSE
-                CALL Info( 'StressSolver', &
-                    'No unit vectors found. Skipping rotation of C', LEVEL=8 )
-              END IF
-            END IF
-          END IF
-
-         ! Set body forces:
-         !-----------------
-         BodyForce => GetBodyForce()
-         LOAD = 0.0D0
-         StressLoad = 0.0d0
-         StrainLoad = 0.0d0
-         IF ( ASSOCIATED( BodyForce ) ) THEN
-           LOAD(1,1:n)  = GetReal( BodyForce, 'Stress Bodyforce 1', Found )
-           LOAD(2,1:n)  = GetReal( BodyForce, 'Stress Bodyforce 2', Found )
-           LOAD(3,1:n)  = GetReal( BodyForce, 'Stress Bodyforce 3', Found )
-           LOAD(4,1:n)  = GetReal( BodyForce, 'Stress Pressure', Found )
-
-           CALL ListGetRealArray( BodyForce, 'Stress', Work, n, NodeIndexes, Found )
-           IF ( Found ) THEN
-              k = SIZE(Work,1)
-              StressLoad(1:k,1:n) = Work(1:k,1,1:n)
-           END IF
-
-           CALL ListGetRealArray( BodyForce, 'Strain', Work, n, NodeIndexes, Found )
-           IF ( Found ) THEN
-              k = SIZE(Work,1)
-              StrainLoad(1:k,1:n) = Work(1:k,1,1:n)
-           END IF
-         END IF
-
-         ! Get element local stiffness & mass matrices:
-         !---------------------------------------------
-         CALL GetVectorLocalSolution( NodalDisplacement )
-         CALL GetScalarLocalSolution( LocalTemperature, 'Temperature' )
-         LocalTemperature(1:n) = LocalTemperature(1:n) - &
-                 ReferenceTemperature(1:n)
- 
-         IF ( Transient ) THEN
-           NodalMeshVelo(3,1:n) = GetReal( Material, 'Mesh Velocity 3', Found)
-           NodalMeshVelo(2,1:n) = GetReal( Material, 'Mesh Velocity 2', Found)
-           NodalMeshVelo(1,1:n) = GetReal( Material, 'Mesh Velocity 1', Found)
-           IF ( .NOT. Found ) THEN
-             CALL GetVectorLocalSolution( NodalMeshVelo, 'Mesh Velocity' )
-           END IF
-         ELSE
-           NodalMeshVelo   = 0.0d0
-         END IF
-
-         SELECT CASE( CurrentCoordinateSystem() )
-         CASE( Cartesian, AxisSymmetric, CylindricSymmetric )
-            CALL StressCompose( MASS, DAMP, STIFF, FORCE, LOAD, ElasticModulus,     &
-               PoissonRatio, Density, Damping, PlaneStress, Isotropic,              &
-               PreStress, PreStrain, StressLoad, StrainLoad, HeatExpansionCoeff,    &
-               LocalTemperature, Element, n, ntot, ElementNodes, StabilityAnalysis  &
-               .AND. iter>1, GeometricStiffness .AND. iter>1, NodalDisplacement,    &
-               RotateC, TransformMatrix, NodalMeshVelo )
-
-         CASE DEFAULT
-            CALL StressGeneralCompose( MASS, STIFF,FORCE, LOAD, ElasticModulus, &
-               PoissonRatio,Density,PlaneStress,Isotropic,HeatExpansionCoeff,   &
-               LocalTemperature, Element,n,ElementNodes )
-         END SELECT
-!------------------------------------------------------------------------------
-!        If time dependent simulation, add mass matrix to global 
-!        matrix and global RHS vector
-!------------------------------------------------------------------------------
-         IF ( .NOT. (ConstantBulk .OR. ConstantSystem) ) THEN
-           IF ( Transient .AND. Solver % NOFEigenValues <= 0 )  THEN
-              CALL Default2ndOrderTime( MASS, DAMP, STIFF, FORCE )
-           END IF
-         END IF
-!------------------------------------------------------------------------------
-!        Update global matrices from local matrices 
-!------------------------------------------------------------------------------
-         CALL DefaultUpdateEquations( STIFF, FORCE, BulkUpdate=.TRUE. )
-
-         IF ( Solver % NOFEigenValues>0 .OR. ConstantBulk .OR. ConstantSystem ) THEN
-            CALL DefaultUpdateMass( MASS )
-            CALL DefaultUpdateDamp( DAMP )
-         END IF
-!------------------------------------------------------------------------------
-      END DO
-
-1000  CONTINUE
-
-      CALL Info( 'StressSolve', 'Assembly done', Level=4 )
-
-!------------------------------------------------------------------------------
-!     Neumann & Newton boundary conditions
-!------------------------------------------------------------------------------
-      DO t = 1, Solver % Mesh % NumberOfBoundaryElements
-
-        Element => GetBoundaryElement(t)
-        IF ( .NOT. ActiveBoundaryElement() .OR. GetElementFamily() == 1 ) CYCLE
-        n = GetElementNOFNodes()
-        ntot = GetElementNOFDOFs()
-
-        BC => GetBC()
-        IF ( ASSOCIATED( BC ) ) THEN
-!------------------------------------------------------------------------------
-           CALL GetElementNodes( ElementNodes )
-
-           LOAD  = 0.0d0
-           Beta  = 0.0d0
-           DampCoeff   = 0.0d0
-           SpringCoeff = 0.0d0
-!------------------------------------------------------------------------------
-!          Force in given direction BC: \tau\cdot n = F
-!------------------------------------------------------------------------------
-           GotForceBC = .FALSE.
-           LOAD(1,1:n) = GetReal( BC, 'Force 1',Found )
-           GotForceBC = GotForceBC .OR. Found
-           LOAD(2,1:n) = GetReal( BC, 'Force 2',Found )
-           GotForceBC = GotForceBC .OR. Found
-           LOAD(3,1:n) = GetReal( BC, 'Force 3',Found )
-           GotForceBC = GotForceBC .OR. Found
-           Beta(1:n) =  GetReal( BC, 'Normal Force',Found )
-           GotForceBC = GotForceBC .OR. Found
-           CALL ListGetRealArray( BC, 'Stress', Work, &
-                   n, NodeIndexes, Found )
-           GotForceBC = GotForceBC .OR. Found
-           StressLoad = 0.0d0
-           IF ( Found ) THEN
-              k = SIZE(Work,1)
-              StressLoad(1:k,1:n) = Work(1:k,1,1:n)
-           END IF
-           DampCoeff(1:n) =  GetReal( BC, 'Damping', Found )
-           GotForceBC = GotForceBC .OR. Found
-           SpringCoeff(1:n) =  GetReal( BC, 'Spring', Found )
-           GotForceBC = GotForceBC .OR. Found
-           ContactLimit(1:n) =  GetReal( BC, 'Contact Limit', Found )
-           GotForceBC = GotForceBC .OR. Found
-
-           IF(ModelLumping .AND. .NOT. FixDisplacement) THEN
-             IF(GetLogical( BC, 'Model Lumping Boundary',Found )) THEN
-               CALL LumpedLoads( iter, LumpedArea, LumpedCenter, LumpedMoments, Load )
-               GotForceBC = .TRUE.
-             END IF
-           END IF
-
-           IF ( .NOT. GotForceBC ) CYCLE
-!---------------------------------------------------------------------------
-           IF( Contact ) THEN
-              CALL GetScalarLocalSolution( LocalContactPressure, 'Contact Pressure' )
-              Beta = Beta - LocalContactPressure
-           END IF 
-
-          NormalTangential = GetLogical( BC, 'Normal-Tangential ' // & 
-            Solver % Variable % Name(1:Solver % Variable % Namelen), Found )
-
-           SELECT CASE( CurrentCoordinateSystem() )
-           CASE( Cartesian, AxisSymmetric, CylindricSymmetric )
-              CALL StressBoundary( STIFF,DAMP,FORCE,LOAD,SpringCoeff,DampCoeff, &
-               Beta, StressLoad, NormalTangential, Element,n,ntot,ElementNodes )
-           CASE DEFAULT
-              DAMP = 0.0d0
-              CALL StressGeneralBoundary( STIFF,FORCE, LOAD, SpringCoeff,Beta, &
-                              Element,n,ElementNodes )
-           END SELECT
-
-           IF ( .NOT. (ConstantSystem.OR.ConstantBulk) ) THEN
-             IF ( Transient .AND. Solver % NOFEigenValues <= 0 )  THEN
-                MASS = 0.0d0
-                CALL Default2ndOrderTime( MASS, DAMP, STIFF, FORCE )
-             END IF
-           END IF
-!---------------------------------------------------------------------------
-!          Update global matrices from local matrices
-!---------------------------------------------------------------------------
-           CALL DefaultUpdateEquations( STIFF, FORCE, BulkUpdate=ConstantSystem )
-           IF ( Solver % NOFEigenValues>0 .OR. ConstantSystem.AND.Transient ) THEN
-              CALL DefaultUpdateDamp( DAMP )
-            END IF
-!------------------------------------------------------------------------------
-         END IF
-      END DO
-!------------------------------------------------------------------------------
-
-2000  CONTINUE
-
-      IF ( Transient .AND. (ConstantBulk.OR. ConstantSystem) ) THEN
-         CALL AddGlobalTime()
-      END IF
-
-      CALL DefaultFinishAssembly()
-      CALL DefaultDirichletBCS()
-!------------------------------------------------------------------------------
-      IF(ModelLumping .AND. FixDisplacement) THEN
-        CALL LumpedDisplacements( Model, iter, LumpedArea, LumpedCenter)
-      END IF
-
-      CALL Info( 'StressSolve', 'Set boundaries done', Level=4 )
-
-!------------------------------------------------------------------------------
-!     Solve the system and check for convergence
-!------------------------------------------------------------------------------
-      PrevUNorm = UNorm
-      UNorm = DefaultSolve()
-
-      IF ( PrevUNorm + UNorm /= 0.0d0 ) THEN
-         RelativeChange = 2.0d0 * ABS( PrevUNorm - UNorm) / ( PrevUnorm + UNorm)
-      ELSE
-         RelativeChange = 0.0d0
-      END IF
-
-      WRITE( Message, * ) 'Result Norm   : ',UNorm
-      CALL Info( 'StressSolve', Message, Level=4 )
-      WRITE( Message, * ) 'Relative Change : ',RelativeChange
-      CALL Info( 'StressSolve', Message, Level=4 )
-
-!------------------------------------------------------------------------------
-!     Update contact pressure:
-!------------------------------------------------------------------------------
-      IF( Contact ) THEN
+       ! Update contact pressure:
+       !-------------------------
+       IF ( Contact ) THEN
          CALL ComputeNormalDisplacement( Displacement, &
-              NormalDisplacement, DisplPerm, STDOFs )
+            NormalDisplacement, DisplPerm, STDOFs )
          
          UzawaParameter = GetConstReal( SolverParams, 'Uzawa Parameter', Found )
          IF( .NOT.Found ) THEN
@@ -923,110 +628,398 @@
          
          ContactPressure = MAX( 0.0d0, ContactPressure &
               + UzawaParameter * NormalDisplacement )
-      END IF
-
-!------------------------------------------------------------------------------
-      IF ( RelativeChange < NewtonTol .OR. &
-             iter > NewtonIter ) NewtonLinearization = .TRUE.
-
-      IF ( Iter > MinIter .AND. RelativeChange < NonLinearTol ) EXIT
-!------------------------------------------------------------------------------
-
-      IF ( CalcStress .OR. CalcStressAll ) THEN
-         IF( StabilityAnalysis .AND. Iter == 1 ) THEN
-            CALL ComputeStress( Displacement, NodalStress,  &
-                   VonMises, DisplPerm, StressPerm )
-            CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Stress' )
-            CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'VonMises' )
-         END IF
-      END IF
-
-      IF( ModelLumping ) THEN
-        CALL LumpedSprings(iter,LumpedArea, LumpedCenter, LumpedMoments, &
-            Model % MaxElementNodes)
-      END IF
-
-    END DO ! of nonlinear iter
-!------------------------------------------------------------------------------
-
-    IF ( CalcStress .OR. CalcStressAll ) THEN
-       IF( .NOT. StabilityAnalysis ) THEN
-          CALL ComputeStress( Displacement, NodalStress, &
-                VonMises, DisplPerm, StressPerm )
-          CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Stress' )
-          CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'VonMises' )
        END IF
-    END IF
 
-    IF ( GetLogical( SolverParams, 'Adaptive Mesh Refinement', Found) ) THEN
-       CALL RefineMesh( Model, Solver, Displacement, DisplPerm, &
-            StressInsideResidual, StressEdgeResidual, StressBoundaryResidual )
+       IF ( Iter > MinIter .AND. RelativeChange < NonLinearTol ) EXIT
 
-       IF ( MeshDisplacementActive ) THEN
-         StressSol => Solver % Variable
-          IF ( .NOT.ASSOCIATED( Solver % Mesh, Model % Mesh ) ) &
-            CALL DisplaceMesh( Solver % Mesh, StressSol % Values, 1, &
-                StressSol % Perm, StressSol % DOFs,.FALSE.)
+       IF ( CalcStress .OR. CalcStressAll ) THEN
+          IF( StabilityAnalysis .AND. Iter == 1 ) THEN
+             CALL ComputeStress( Displacement, NodalStress,  &
+                    VonMises, DisplPerm, StressPerm )
+             CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Stress' )
+             CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'VonMises' )
+          END IF
        END IF
-    END IF
+
+       IF( ModelLumping ) THEN
+         CALL LumpedSprings(iter,LumpedArea, LumpedCenter, LumpedMoments, &
+             Model % MaxElementNodes)
+       END IF
+     END DO ! of nonlinear iter
+!------------------------------------------------------------------------------
+
+     IF ( CalcStress .OR. CalcStressAll ) THEN
+        IF( .NOT. StabilityAnalysis ) THEN
+           CALL ComputeStress( Displacement, NodalStress, &
+                 VonMises, DisplPerm, StressPerm )
+           CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Stress' )
+           CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'VonMises' )
+        END IF
+     END IF
+
+     IF ( GetLogical( SolverParams, 'Adaptive Mesh Refinement', Found) ) THEN
+        CALL RefineMesh( Model, Solver, Displacement, DisplPerm, &
+             StressInsideResidual, StressEdgeResidual, StressBoundaryResidual )
+
+        IF ( MeshDisplacementActive ) THEN
+          StressSol => Solver % Variable
+           IF ( .NOT.ASSOCIATED( Solver % Mesh, Model % Mesh ) ) &
+             CALL DisplaceMesh( Solver % Mesh, StressSol % Values, 1, &
+                 StressSol % Perm, StressSol % DOFs,.FALSE.)
+        END IF
+     END IF
  
-    IF ( MeshDisplacementActive ) THEN
-       CALL DisplaceMesh(Model % Mesh, Displacement, 1, &
-               DisplPerm, STDOFs, .FALSE. )
-    END IF
+     IF ( MeshDisplacementActive ) THEN
+        CALL DisplaceMesh(Model % Mesh, Displacement, 1, &
+                DisplPerm, STDOFs, .FALSE. )
+     END IF
 
 CONTAINS
+ 
+!------------------------------------------------------------------------------
+  SUBROUTINE BulkAssembly()
+!------------------------------------------------------------------------------
+     body_id = -1
+     DO t=1,Solver % NumberOFActiveElements
 
-   SUBROUTINE AddGlobalTime()
-      INTEGER :: i,j,k,l,n
-      REAL(KIND=dp) :: FORCE(1)
-      REAL(KIND=dp), POINTER :: SaveValues(:) => NULL()
-      REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:),MASS(:,:),DAMP(:,:),X(:),V(:),A(:)
-      SAVE STIFF, MASS, DAMP, X, V, A
+       IF ( RealTime() - at0 > 1.0 ) THEN
+         WRITE(Message,'(a,i3,a)' ) '   Assembly: ', INT(100.0 - 100.0 * &
+          (Solver % NumberOfActiveElements-t) / &
+             (1.0*Solver % NumberOfActiveElements)), ' % done'
+                     
+         CALL Info( 'StressSolve', Message, Level=5 )
+         at0 = RealTime()
+       END IF
 
-      IF ( .NOT.ASSOCIATED(Solver % Variable % Values, SaveValues) ) THEN
-         IF ( ALLOCATED(STIFF) ) DEALLOCATE( STIFF,MASS,DAMP,V,X,A )
+!------------------------------------------------------------------------------
 
+       Element => GetActiveElement(t)
+       n = GetElementNOFNOdes()
+       ntot = GetElementNOFDOFs()
+
+       NodeIndexes => Element % NodeIndexes
+       CALL GetElementNodes( ElementNodes )
+
+       Equation => GetEquation()
+       PlaneStress = GetLogical( Equation, 'Plane Stress',Found )
+
+       Material => GetMaterial()
+       Density(1:n) = GetReal( Material, 'Density', Found )
+       IF ( .NOT. Found )  THEN
+         IF ( Transient .OR. Solver % NOFEigenValues > 0 ) &
+            CALL Fatal( 'StressSolve', 'No value for density found.' )
+       END IF
+       Damping(1:n) = GetReal( Material, 'Damping', Found )
+
+       CALL InputTensor( HeatExpansionCoeff, Isotropic,  &
+           'Heat Expansion Coefficient', Material, n, NodeIndexes )
+
+       CALL InputTensor( ElasticModulus, Isotropic, &
+           'Youngs Modulus', Material, n, NodeIndexes )
+
+       PoissonRatio = 0.0d0
+       IF ( Isotropic )  PoissonRatio(1:n) = GetReal( Material, 'Poisson Ratio' )
+
+       ReferenceTemperature(1:n) = GetReal(Material, &
+             'Reference Temperature', Found )
+
+       PreStress = 0.0d0
+       PreStrain = 0.0d0
+       CALL ListGetRealArray( Material, 'Stress', Work, n, NodeIndexes, Found )
+       IF ( Found ) THEN
+          k = SIZE(Work,1)
+          PreStress(1:k,1:n) = Work(1:k,1,1:n)
+       END IF
+       CALL ListGetRealArray( Material, 'Strain', Work, n, NodeIndexes, Found )
+       IF ( Found ) THEN
+          k = SIZE(Work,1)
+          PreStrain(1:k,1:n) = Work(1:k,1,1:n)
+       END IF
+
+       ! Check need for elasticity matrix rotation:
+       !-------------------------------------------
+       IF ( Element % BodyId /= body_id ) THEN
+         body_id = Element % BodyId
+         RotateC = GetLogical( Material, 'Rotate Elasticity Tensor', stat )
+
+         IF ( RotateC ) THEN
+            CALL GetConstRealArray( Material, UWrk, &
+                'Material Coordinates Unit Vector 1', stat, Element )
+            IF ( stat ) THEN
+              Unit1(1:3) = UWrk(1:3,1)
+            ELSE
+              Unit1(1:3) = (/ 1.0d0, 0.0d0, 0.0d0 /)
+            END IF
+
+            UnitNorm = SQRT( SUM( Unit1(1:3) * Unit1(1:3) ) )
+            IF ( UnitNorm > 0.0001 )  Unit1 = Unit1 / UnitNorm
+
+            CALL GetConstRealArray( Material, UWrk, &
+                'Material Coordinates Unit Vector 2', stat2, Element )
+            IF ( stat2 ) THEN
+              Unit2(1:3) = UWrk(1:3,1)
+            ELSE
+              Unit2(1:3) = (/ 0.0d0, 1.0d0, 0.0d0 /)
+            END IF
+
+            UnitNorm = SQRT( SUM( Unit2(1:3) * Unit2(1:3) ) )
+            IF ( UnitNorm > 0.0001 )  Unit2 = Unit2 / UnitNorm
+
+            CALL GetConstRealArray( Material, UWrk, &
+                'Material Coordinates Unit Vector 3', stat3, Element )
+            IF ( stat3 ) THEN
+              Unit3(1:3) = UWrk(1:3,1)
+            ELSE
+              Unit3(1:3) = (/ 0.0d0, 0.0d0, 1.0d0 /)
+            END IF
+
+            UnitNorm = SQRT( SUM( Unit3(1:3) * Unit3(1:3) ) )
+            IF ( UnitNorm > 0.0001 )  Unit3 = Unit3/UnitNorm
+
+            IF ( stat .OR. stat2 .OR. stat3 ) THEN
+              DO i = 1, 3
+                TransformMatrix(1,i) = Unit1(i)
+                TransformMatrix(2,i) = Unit2(i)
+                TransformMatrix(3,i) = Unit3(i)
+              END DO
+            ELSE
+              CALL Info( 'StressSolver', &
+                  'No unit vectors found. Skipping rotation of C', LEVEL=8 )
+            END IF
+          END IF
+        END IF
+
+       ! Set body forces:
+       !-----------------
+       BodyForce => GetBodyForce()
+       LOAD = 0.0D0
+       StressLoad = 0.0d0
+       StrainLoad = 0.0d0
+       IF ( ASSOCIATED( BodyForce ) ) THEN
+         LOAD(1,1:n)  = GetReal( BodyForce, 'Stress Bodyforce 1', Found )
+         LOAD(2,1:n)  = GetReal( BodyForce, 'Stress Bodyforce 2', Found )
+         LOAD(3,1:n)  = GetReal( BodyForce, 'Stress Bodyforce 3', Found )
+         LOAD(4,1:n)  = GetReal( BodyForce, 'Stress Pressure', Found )
+
+         CALL ListGetRealArray( BodyForce, 'Stress', Work, n, NodeIndexes, Found )
+         IF ( Found ) THEN
+            k = SIZE(Work,1)
+            StressLoad(1:k,1:n) = Work(1:k,1,1:n)
+         END IF
+
+         CALL ListGetRealArray( BodyForce, 'Strain', Work, n, NodeIndexes, Found )
+         IF ( Found ) THEN
+            k = SIZE(Work,1)
+            StrainLoad(1:k,1:n) = Work(1:k,1,1:n)
+         END IF
+       END IF
+
+       ! Get element local stiffness & mass matrices:
+       !---------------------------------------------
+       CALL GetVectorLocalSolution( NodalDisplacement )
+       CALL GetScalarLocalSolution( LocalTemperature, 'Temperature' )
+       LocalTemperature(1:n) = LocalTemperature(1:n) - &
+               ReferenceTemperature(1:n)
+
+       IF ( Transient ) THEN
+         NodalMeshVelo(3,1:n) = GetReal( Material, 'Mesh Velocity 3', Found)
+         NodalMeshVelo(2,1:n) = GetReal( Material, 'Mesh Velocity 2', Found)
+         NodalMeshVelo(1,1:n) = GetReal( Material, 'Mesh Velocity 1', Found)
+         IF ( .NOT. Found ) THEN
+           CALL GetVectorLocalSolution( NodalMeshVelo, 'Mesh Velocity' )
+         END IF
+       ELSE
+         NodalMeshVelo   = 0.0d0
+       END IF
+
+       SELECT CASE( CurrentCoordinateSystem() )
+       CASE( Cartesian, AxisSymmetric, CylindricSymmetric )
+          CALL StressCompose( MASS, DAMP, STIFF, FORCE, LOAD, ElasticModulus,     &
+             PoissonRatio, Density, Damping, PlaneStress, Isotropic,              &
+             PreStress, PreStrain, StressLoad, StrainLoad, HeatExpansionCoeff,    &
+             LocalTemperature, Element, n, ntot, ElementNodes, StabilityAnalysis  &
+             .AND. iter>1, GeometricStiffness .AND. iter>1, NodalDisplacement,    &
+             RotateC, TransformMatrix, NodalMeshVelo )
+
+       CASE DEFAULT
+          CALL StressGeneralCompose( MASS, STIFF,FORCE, LOAD, ElasticModulus, &
+             PoissonRatio,Density,PlaneStress,Isotropic,HeatExpansionCoeff,   &
+             LocalTemperature, Element,n,ElementNodes )
+       END SELECT
+!------------------------------------------------------------------------------
+!      If time dependent simulation, add mass matrix to global 
+!      matrix and global RHS vector
+!------------------------------------------------------------------------------
+       IF ( .NOT. (ConstantBulk .OR. ConstantSystem) ) THEN
+         IF ( Transient .AND. Solver % NOFEigenValues <= 0 )  THEN
+            CALL Default2ndOrderTime( MASS, DAMP, STIFF, FORCE )
+         END IF
+       END IF
+!------------------------------------------------------------------------------
+!      Update global matrices from local matrices 
+!------------------------------------------------------------------------------
+       CALL DefaultUpdateEquations( STIFF, FORCE, BulkUpdate=.TRUE. )
+
+       IF ( Solver % NOFEigenValues>0 .OR. ConstantBulk .OR. ConstantSystem ) THEN
+          CALL DefaultUpdateMass( MASS )
+          CALL DefaultUpdateDamp( DAMP )
+       END IF
+!------------------------------------------------------------------------------
+     END DO
+!------------------------------------------------------------------------------
+   END SUBROUTINE BulkAssembly
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+!     Neumann & Newton boundary conditions
+!------------------------------------------------------------------------------
+   SUBROUTINE BCAssembly()
+!------------------------------------------------------------------------------
+     DO t = 1, Solver % Mesh % NumberOfBoundaryElements
+
+       Element => GetBoundaryElement(t)
+       IF ( .NOT. ActiveBoundaryElement() .OR. GetElementFamily() == 1 ) CYCLE
+       n = GetElementNOFNodes()
+       ntot = GetElementNOFDOFs()
+
+       BC => GetBC()
+       IF ( ASSOCIATED( BC ) ) THEN
+!------------------------------------------------------------------------------
+          CALL GetElementNodes( ElementNodes )
+
+          LOAD  = 0.0d0
+          Beta  = 0.0d0
+          DampCoeff   = 0.0d0
+          SpringCoeff = 0.0d0
+
+          ! Force in given direction BC: \tau\cdot n = F:
+          !----------------------------------------------
+          GotForceBC = .FALSE.
+          LOAD(1,1:n) = GetReal( BC, 'Force 1',Found )
+          GotForceBC = GotForceBC .OR. Found
+          LOAD(2,1:n) = GetReal( BC, 'Force 2',Found )
+          GotForceBC = GotForceBC .OR. Found
+          LOAD(3,1:n) = GetReal( BC, 'Force 3',Found )
+          GotForceBC = GotForceBC .OR. Found
+          Beta(1:n) =  GetReal( BC, 'Normal Force',Found )
+          GotForceBC = GotForceBC .OR. Found
+          CALL ListGetRealArray( BC, 'Stress', Work, &
+                  n, NodeIndexes, Found )
+          GotForceBC = GotForceBC .OR. Found
+          StressLoad = 0.0d0
+          IF ( Found ) THEN
+             k = SIZE(Work,1)
+             StressLoad(1:k,1:n) = Work(1:k,1,1:n)
+          END IF
+          DampCoeff(1:n) =  GetReal( BC, 'Damping', Found )
+          GotForceBC = GotForceBC .OR. Found
+          SpringCoeff(1:n) =  GetReal( BC, 'Spring', Found )
+          GotForceBC = GotForceBC .OR. Found
+          ContactLimit(1:n) =  GetReal( BC, 'Contact Limit', Found )
+          GotForceBC = GotForceBC .OR. Found
+
+          IF(ModelLumping .AND. .NOT. FixDisplacement) THEN
+            IF(GetLogical( BC, 'Model Lumping Boundary',Found )) THEN
+              CALL LumpedLoads( iter, LumpedArea, LumpedCenter, LumpedMoments, Load )
+              GotForceBC = .TRUE.
+            END IF
+          END IF
+
+          IF ( .NOT. GotForceBC ) CYCLE
+!---------------------------------------------------------------------------
+          IF( Contact ) THEN
+             CALL GetScalarLocalSolution( LocalContactPressure, 'Contact Pressure' )
+             Beta = Beta - LocalContactPressure
+          END IF 
+
+          NormalTangential = GetLogical( BC, 'Normal-Tangential ' // & 
+            Solver % Variable % Name(1:Solver % Variable % Namelen), Found )
+
+          SELECT CASE( CurrentCoordinateSystem() )
+          CASE( Cartesian, AxisSymmetric, CylindricSymmetric )
+             CALL StressBoundary( STIFF,DAMP,FORCE,LOAD,SpringCoeff,DampCoeff, &
+              Beta, StressLoad, NormalTangential, Element,n,ntot,ElementNodes )
+          CASE DEFAULT
+             DAMP = 0.0d0
+             CALL StressGeneralBoundary( STIFF,FORCE, LOAD, SpringCoeff,Beta, &
+                              Element,n,ElementNodes )
+          END SELECT
+
+          IF ( .NOT. (ConstantSystem.OR.ConstantBulk) ) THEN
+            IF ( Transient .AND. Solver % NOFEigenValues <= 0 )  THEN
+               MASS = 0.0d0
+               CALL Default2ndOrderTime( MASS, DAMP, STIFF, FORCE )
+            END IF
+          END IF
+
+          ! Update global matrices from local matrices:;
+          !---------------------------------------------
+          CALL DefaultUpdateEquations( STIFF, FORCE, BulkUpdate=ConstantSystem )
+          IF ( Solver % NOFEigenValues>0 .OR. ConstantSystem.AND.Transient ) THEN
+             CALL DefaultUpdateDamp( DAMP )
+          END IF
+!------------------------------------------------------------------------------
+         END IF
+      END DO
+!------------------------------------------------------------------------------
+   END SUBROUTINE BCAssembly
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+  SUBROUTINE AddGlobalTime()
+!------------------------------------------------------------------------------
+     INTEGER :: i,j,k,l,n
+     REAL(KIND=dp) :: FORCE(1)
+     REAL(KIND=dp), POINTER :: SaveValues(:) => NULL()
+     REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:),MASS(:,:),DAMP(:,:),X(:),V(:),A(:)
+     SAVE STIFF, MASS, DAMP, X, V, A
+
+     IF ( .NOT.ASSOCIATED(Solver % Variable % Values, SaveValues) ) THEN
+        IF ( ALLOCATED(STIFF) ) DEALLOCATE( STIFF,MASS,DAMP,V,X,A )
+
+        n = 0
+        DO i=1,SIZE(Solver % Variable % Perm)
+          IF ( Solver % Variable % Perm(i)<=0 ) CYCLE
+          DO j=1,Solver % Variable % DOFs
+            k=Solver % Variable % DOFs*(Solver % Variable % Perm(i)-1)+j
+            n = MAX( n,Solver % Matrix % Rows(k+1)-Solver % Matrix % Rows(k) )
+          END DO
+        END DO
+        ALLOCATE( STIFF(1,n),MASS(1,n),DAMP(1,n),V(n),X(n),A(n) )
+
+        SaveValues => Solver % Variable % Values
+     END IF
+
+     DO i=1,SIZE(Solver % Variable % Perm)
+       IF ( Solver % Variable % Perm(i)<=0 ) CYCLE
+       DO j=1,Solver % Variable % DOFs
+         k=Solver % Variable % DOFs*(Solver % Variable % Perm(i)-1)+j
          n = 0
-         DO i=1,SIZE(Solver % Variable % Perm)
-           IF ( Solver % Variable % Perm(i)<=0 ) CYCLE
-           DO j=1,Solver % Variable % DOFs
-             k=Solver % Variable % DOFs*(Solver % Variable % Perm(i)-1)+j
-             n = MAX( n,Solver % Matrix % Rows(k+1)-Solver % Matrix % Rows(k) )
-           END DO
+         DO l=Solver % Matrix % Rows(k),Solver % Matrix % Rows(k+1)-1
+           n=n+1
+           STIFF(1,n) = Solver % Matrix % Values(l)
+           MASS(1,n)  = Solver % Matrix % MassValues(l)
+           DAMP(1,n)  = Solver % Matrix % DampValues(l)
+
+           X(n) = Solver % Variable % PrevValues(Solver % Matrix % Cols(l),3)
+           V(n) = Solver % Variable % PrevValues(Solver % Matrix % Cols(l),4)
+           A(n) = Solver % Variable % PrevValues(Solver % Matrix % Cols(l),5)
          END DO
-         ALLOCATE( STIFF(1,n),MASS(1,n),DAMP(1,n),V(n),X(n),A(n) )
-
-         SaveValues => Solver % Variable % Values
-      END IF
-
-      DO i=1,SIZE(Solver % Variable % Perm)
-         IF ( Solver % Variable % Perm(i)<=0 ) CYCLE
-         DO j=1,Solver % Variable % DOFs
-           k=Solver % Variable % DOFs*(Solver % Variable % Perm(i)-1)+j
-           n = 0
-           DO l=Solver % Matrix % Rows(k),Solver % Matrix % Rows(k+1)-1
-             n=n+1
-             STIFF(1,n) = Solver % Matrix % Values(l)
-             MASS(1,n)  = Solver % Matrix % MassValues(l)
-             DAMP(1,n)  = Solver % Matrix % DampValues(l)
-
-             X(n) = Solver % Variable % PrevValues(Solver % Matrix % Cols(l),3)
-             V(n) = Solver % Variable % PrevValues(Solver % Matrix % Cols(l),4)
-             A(n) = Solver % Variable % PrevValues(Solver % Matrix % Cols(l),5)
-           END DO
-           FORCE(1) = Solver % Matrix % RHS(k)
-           Solver % Matrix % Force(k,1) = FORCE(1)
-           CALL Bossak2ndOrder( n,dt,MASS,DAMP,STIFF,FORCE,X,V,A,Solver % Alpha )
-           n = 0
-           DO l=Solver % Matrix % Rows(k),Solver % Matrix % Rows(k+1)-1
-             n=n+1
-             Solver % Matrix % Values(l) = STIFF(1,n)
-           END DO
-           Solver % Matrix % RHS(k) = FORCE(1)
+         FORCE(1) = Solver % Matrix % RHS(k)
+         Solver % Matrix % Force(k,1) = FORCE(1)
+         CALL Bossak2ndOrder( n,dt,MASS,DAMP,STIFF,FORCE,X,V,A,Solver % Alpha )
+         n = 0
+         DO l=Solver % Matrix % Rows(k),Solver % Matrix % Rows(k+1)-1
+           n=n+1
+           Solver % Matrix % Values(l) = STIFF(1,n)
          END DO
+         Solver % Matrix % RHS(k) = FORCE(1)
        END DO
-   END SUBROUTINE AddGlobalTime
+     END DO
+!------------------------------------------------------------------------------
+  END SUBROUTINE AddGlobalTime
+!------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
   SUBROUTINE ComputeNormalDisplacement( Displacement, NormalDisplacement, &
@@ -1037,13 +1030,15 @@ CONTAINS
 !------------------------------------------------------------------------------
     INTEGER, PARAMETER :: MaxNodes = 100
     TYPE( Element_t ), POINTER :: Element
-    TYPE( Nodes_t ) :: ElementNodes
     TYPE( ValueList_t ), POINTER :: BC
     REAL( KIND=dp ) :: Normal(3), LocalDisplacement(3), U, V
     REAL( KIND=dp ) :: ContactLimit( MaxNodes )
     INTEGER :: i, j, k, t, n
     LOGICAL :: ContactBoundary, Found
     INTEGER, POINTER :: Visited(:)
+
+    TYPE( Nodes_t ) :: ElementNodes
+    SAVE ElementNodes
 
     ALLOCATE( Visited(SIZE(DisplPerm)) )
     Visited = 0
@@ -1610,7 +1605,7 @@ CONTAINS
      REAL(KIND=dp) :: LocalDisp(DIM,maxnodes),Kmat(6,6),up, vp, wp, &
          xp(maxnodes), yp(maxnodes), zp(maxnodes), KmatMin(6,6), KvecAtIP(6), &
          Strain(3,3),Stress(3,3), dFii, Dx, &
-         ForceAtIp(3), MomentAtIp(3), Coord(3)
+         ForceAtIp(3), MomentAtIp(3), Coord(3),Normal(3)
      INTEGER :: N_Integ, pn
      LOGICAL :: stat, CSymmetry, Isotropic
      CHARACTER(LEN=MAX_NAME_LEN) :: KmatFile
