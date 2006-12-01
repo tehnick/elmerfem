@@ -39,6 +39,12 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StressSolve.src,v $
+! * Revision 1.25  2006/11/30 11:03:45  jpr
+! * Added keyword 'Constant System' & 'Constant Bulk System'. The usefullness
+! * of these keywords is limited: only steady cases work. The 'Constant System'
+! * may not be used if boundary reaction forces are to be computed by
+! * SolveSystem() (other than for dirichlet boundaries).
+! *
 ! * Revision 1.24  2006/11/28 12:06:49  jpr
 ! * Relaxed the conditions for insisting user to supply density.
 ! *
@@ -193,7 +199,7 @@
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
-   SUBROUTINE StressSolver( Model,Solver,dt,TransientSimulation )
+   SUBROUTINE StressSolver( Model,Solver,dt,Transient )
 !DEC$ATTRIBUTES DLLEXPORT :: StressSolver
 !------------------------------------------------------------------------------
 
@@ -227,7 +233,7 @@
      TYPE(Model_t)  :: Model
      TYPE(Solver_t), TARGET :: Solver
 
-     LOGICAL ::  TransientSimulation
+     LOGICAL ::  Transient
      REAL(KIND=dp) :: dt
 !------------------------------------------------------------------------------
 !    Local variables
@@ -314,7 +320,7 @@
         END FUNCTION StressInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.24 2006/11/28 12:06:49 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.25 2006/11/30 11:03:45 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -609,7 +615,7 @@
          Material => GetMaterial()
          Density(1:n) = GetReal( Material, 'Density', Found )
          IF ( .NOT. Found )  THEN
-           IF ( TransientSimulation .OR. Solver % NOFEigenValues > 0 ) &
+           IF ( Transient .OR. Solver % NOFEigenValues > 0 ) &
               CALL Fatal( 'StressSolve', 'No value for density found.' )
          END IF
          Damping(1:n) = GetReal( Material, 'Damping', Found )
@@ -724,7 +730,7 @@
          LocalTemperature(1:n) = LocalTemperature(1:n) - &
                  ReferenceTemperature(1:n)
  
-         IF ( TransientSimulation ) THEN
+         IF ( Transient ) THEN
            NodalMeshVelo(3,1:n) = GetReal( Material, 'Mesh Velocity 3', Found)
            NodalMeshVelo(2,1:n) = GetReal( Material, 'Mesh Velocity 2', Found)
            NodalMeshVelo(1,1:n) = GetReal( Material, 'Mesh Velocity 1', Found)
@@ -753,15 +759,17 @@
 !        If time dependent simulation, add mass matrix to global 
 !        matrix and global RHS vector
 !------------------------------------------------------------------------------
-         IF ( TransientSimulation .AND. Solver % NOFEigenValues <= 0 )  THEN
-            CALL Default2ndOrderTime( MASS, DAMP, STIFF, FORCE )
+         IF ( .NOT. (ConstantBulk .OR. ConstantSystem) ) THEN
+           IF ( Transient .AND. Solver % NOFEigenValues <= 0 )  THEN
+              CALL Default2ndOrderTime( MASS, DAMP, STIFF, FORCE )
+           END IF
          END IF
 !------------------------------------------------------------------------------
 !        Update global matrices from local matrices 
 !------------------------------------------------------------------------------
          CALL DefaultUpdateEquations( STIFF, FORCE, BulkUpdate=.TRUE. )
 
-         IF ( Solver % NOFEigenValues > 0 ) THEN
+         IF ( Solver % NOFEigenValues>0 .OR. ConstantBulk .OR. ConstantSystem ) THEN
             CALL DefaultUpdateMass( MASS )
             CALL DefaultUpdateDamp( DAMP )
          END IF
@@ -845,21 +853,29 @@
                               Element,n,ElementNodes )
            END SELECT
 
-           IF ( TransientSimulation .AND. Solver % NOFEigenValues <= 0 )  THEN
-              MASS = 0.0d0
-              CALL Default2ndOrderTime( MASS, DAMP, STIFF, FORCE )
+           IF ( .NOT. (ConstantSystem.OR.ConstantBulk) ) THEN
+             IF ( Transient .AND. Solver % NOFEigenValues <= 0 )  THEN
+                MASS = 0.0d0
+                CALL Default2ndOrderTime( MASS, DAMP, STIFF, FORCE )
+             END IF
            END IF
 !---------------------------------------------------------------------------
 !          Update global matrices from local matrices
 !---------------------------------------------------------------------------
            CALL DefaultUpdateEquations( STIFF, FORCE, BulkUpdate=ConstantSystem )
-           IF ( Solver % NOFEigenValues > 0 ) CALL DefaultUpdateDamp( DAMP )
+           IF ( Solver % NOFEigenValues>0 .OR. ConstantSystem.AND.Transient ) THEN
+              CALL DefaultUpdateDamp( DAMP )
+            END IF
 !------------------------------------------------------------------------------
          END IF
       END DO
 !------------------------------------------------------------------------------
 
 2000  CONTINUE
+
+      IF ( Transient .AND. (ConstantBulk.OR. ConstantSystem) ) THEN
+         CALL AddGlobalTime()
+      END IF
 
       CALL DefaultFinishAssembly()
       CALL DefaultDirichletBCS()
@@ -956,6 +972,38 @@
     END IF
 
 CONTAINS
+
+   SUBROUTINE AddGlobalTime()
+      REAL(KIND=dp) :: st(1,100),ms(1,100),ds(1,100),fr(1),vk(100),xk(100),ak(100)
+      INTEGER :: i,j,k,l,n
+
+        DO i=1,SIZE(Solver % Variable % Perm)
+          IF ( Solver % Variable % Perm(i)<=0 ) CYCLE
+          DO j=1,Solver % Variable % DOFs
+            k=Solver % Variable % DOFs*(Solver % Variable % Perm(i)-1)+j
+            n = 0
+            DO l=Solver % Matrix % Rows(k),Solver % Matrix % Rows(k+1)-1
+              n=n+1
+              st(1,n) = Solver % Matrix % Values(l)
+              ms(1,n) = Solver % Matrix % MassValues(l)
+              ds(1,n) = Solver % Matrix % DampValues(l)
+
+              xk(n) = Solver % Variable % PrevValues(Solver % Matrix % Cols(l),3)
+              vk(n) = Solver % Variable % PrevValues(Solver % Matrix % Cols(l),4)
+              ak(n) = Solver % Variable % PrevValues(Solver % Matrix % Cols(l),5)
+            END DO
+            fr(1) = Solver % Matrix % RHS(k)
+            Solver % Matrix % Force(k,1) = fr(1)
+            CALL Bossak2ndOrder( N, dt, ms, ds, st, fr, xk, vk, ak, Solver % Alpha )
+            n = 0
+            DO l=Solver % Matrix % Rows(k),Solver % Matrix % Rows(k+1)-1
+              n=n+1
+              Solver % Matrix % Values(l) = st(1,n)
+            END DO
+            Solver % Matrix % RHS(k) = fr(1)
+          END DO
+        END DO
+   END SUBROUTINE AddGlobalTime
 
 !------------------------------------------------------------------------------
   SUBROUTINE ComputeNormalDisplacement( Displacement, NormalDisplacement, &

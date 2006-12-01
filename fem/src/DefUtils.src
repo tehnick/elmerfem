@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: DefUtils.src,v $
+! * Revision 1.33  2006/11/27 10:23:56  jpr
+! * Removed some execess (unrelated) use of TRIM & POINTER.
+! *
 ! * Revision 1.32  2006/11/24 14:04:33  jpr
 ! * *** empty log message ***
 ! *
@@ -158,7 +161,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.32 2006/11/24 14:04:33 jpr Exp $
+! * $Id: DefUtils.src,v 1.33 2006/11/27 10:23:56 jpr Exp $
 ! *
 ! *****************************************************************************/
 
@@ -1722,8 +1725,8 @@ CONTAINS
      n = GetElementDOFs( Indexes, Element, Solver )
 
      IF ( .NOT. ASSOCIATED( A % MassValues ) ) THEN
-        ALLOCATE( A % MassValues(SIZE(A % Values)) )
-        A % MassValues = 0.0d0
+       ALLOCATE( A % MassValues(SIZE(A % Values)) )
+       A % MassValues = 0.0d0
      END IF
 
      CALL UpdateMassMatrix( A, M, n, x % DOFs, x % Perm(Indexes(1:n)) )

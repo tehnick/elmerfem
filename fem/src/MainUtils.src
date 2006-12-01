@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MainUtils.src,v $
+! * Revision 1.17  2006/11/27 10:23:57  jpr
+! * Removed some execess (unrelated) use of TRIM & POINTER.
+! *
 ! * Revision 1.16  2006/11/08 07:46:42  jpr
 ! * *** empty log message ***
 ! *
@@ -91,7 +94,7 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.src,v 1.16 2006/11/08 07:46:42 jpr Exp $
+! * $Id: MainUtils.src,v 1.17 2006/11/27 10:23:57 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MainUtils
@@ -876,9 +879,6 @@ CONTAINS
           ALLOCATE( Solver % Matrix % Force(Solver % Matrix % NumberOFRows, &
                           Solver % TimeOrder+1) )
           Solver % Matrix % Force = 0.0d0
-
-          ALLOCATE(Solver % Matrix % MassValues(Solver % Matrix % NumberOfRows))
-          Solver % Matrix % MassValues(:) = 1.0d0
        END IF
 
        IF ( .NOT. ASSOCIATED( Solver % Variable % PrevValues ) ) THEN

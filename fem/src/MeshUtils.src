@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.45  2006/11/27 10:23:57  jpr
+! * Removed some execess (unrelated) use of TRIM & POINTER.
+! *
 ! * Revision 1.36  2006/05/18 10:01:30  jpr
 ! * Some modifications for the 'Periodic BC' scheme.
 ! *
@@ -144,7 +147,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.44 2006/10/10 10:32:12 jpr Exp $
+! * $Id: MeshUtils.src,v 1.45 2006/11/27 10:23:57 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -2656,9 +2659,6 @@ END SUBROUTINE FindNeighbourNodes
         n2 = SIZE( Solver % Matrix % Force,2 )
         CALL AllocateArray( Matrix % Force,n1,n2 )
         Matrix % Force = 0.0d0
-
-        CALL AllocateVector(Matrix % MassValues, n1)
-        Matrix % MassValues(:) = 1.0d0
      END IF
 
      Solver % Matrix => Matrix

@@ -38,7 +38,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: $
+! * $Id: IterSolve.src,v 1.5 2006/01/10 08:27:35 apursula Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -116,7 +116,7 @@ CONTAINS
     INTEGER :: k,N,ipar(50),wsize,istat,IterType,PCondType,ILUn
 
     REAL(KIND=dp) :: ILUT_TOL
-    LOGICAL :: Condition,GotIt,AbortNotConverged
+    LOGICAL :: Condition,GotIt,AbortNotConverged, Refactorize
 
     CHARACTER(LEN=MAX_NAME_LEN) :: str
 
@@ -225,8 +225,10 @@ CONTAINS
         n = ListGetInteger( SolverParam % Values, 'Linear System Precondition Recompute', GotIt )
         IF ( n <= 0 ) n = 1
 
-        IF ( .NOT. ASSOCIATED( A % ILUValues ) .OR. MOD( A % SolveCount, n ) == 0 ) THEN
+        Refactorize = ListGetLogical( SolverParam % Values, 'Linear System Refactorize', Gotit )
+        IF ( .NOT. Gotit ) Refactorize = .TRUE.
 
+        IF (.NOT. ASSOCIATED(A % ILUValues).OR.(Refactorize .AND. MOD(A % SolveCount, n)==0) ) THEN
            IF ( A % Format == MATRIX_CRS ) THEN
 
              IF ( A % Complex ) THEN
@@ -242,13 +244,10 @@ CONTAINS
                    Condition = CRS_ILUT( A,ILUT_TOL )
                 END IF
              END IF
-
            ELSE
-
              IF ( PCondType == PRECOND_ILUn ) THEN
                CALL Warn( 'IterSolve', 'No ILU Preconditioner for Band Matrix format,' )
                CALL Warn( 'IterSolve', 'using Diagonal preconditioner instead...' )
-   
                PCondType = PRECOND_DIAGONAL
              END IF
            END IF
