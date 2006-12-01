@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StressSolve.src,v $
+! * Revision 1.28  2006/12/01 12:33:00  jpr
+! * More formatting changes.
+! *
 ! * Revision 1.27  2006/12/01 09:47:00  jpr
 ! * Just a bit of formatting.
 ! *
@@ -325,7 +328,7 @@
         END FUNCTION StressInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.27 2006/12/01 09:47:00 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.28 2006/12/01 12:33:00 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -531,7 +534,7 @@
 
      ModelLumping = GetLogical( SolverParams, 'Model Lumping', Found )
      IF ( ModelLumping ) THEN       
-       FixDisplacement = GetLogical( SolverParams, 'Fix Displacement')
+       FixDisplacement = GetLogical( SolverParams, 'Fix Displacement', Found )
        IF(DIM /= 3) CALL Fatal('StressSolve','Model Lumping implemented only for 3D')
 !      MaxIter = 6
 !      MinIter = MaxIter
@@ -579,6 +582,7 @@
        CALL BulkAssembly()
 
 1000   CONTINUE
+
        CALL Info( 'StressSolve', 'Assembly done', Level=4 )
 
        CALL BCAssembly()
@@ -630,7 +634,7 @@
               + UzawaParameter * NormalDisplacement )
        END IF
 
-       IF ( Iter > MinIter .AND. RelativeChange < NonLinearTol ) EXIT
+       IF ( Iter>MinIter .AND. RelativeChange<NonLinearTol ) EXIT
 
        IF ( CalcStress .OR. CalcStressAll ) THEN
           IF( StabilityAnalysis .AND. Iter == 1 ) THEN
