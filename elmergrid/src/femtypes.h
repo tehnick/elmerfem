@@ -284,6 +284,8 @@ struct ElmergridType {
     sidemappings,
     bulkmap[3*MAXMATERIALS],
     bulkmappings,
+    boundorder, 
+    bulkorder, 
     boundbounds,
     boundbound[3*MAXBOUNDARIES],
     bulkbounds,

@@ -455,6 +455,7 @@ void InitializeKnots(struct FemType *data)
   data->nocorners = 0;
   data->pelems = 0;
 
+  data->nopartitions = 1;
   data->partitionexist = FALSE;
   data->periodicexist = FALSE;
 
@@ -3422,60 +3423,91 @@ void ReorderElements(struct FemType *data,struct BoundaryType *bound,
 }
 
 
-void ReorderTypes(struct FemType *data,struct BoundaryType *bound,int info)
+void RenumberBoundaryTypes(struct FemType *data,struct BoundaryType *bound,int info)
 {
-  int i,j,k,l,noelements;
-  int maxmat,maxbc,*mapmat,*mapbc;
-
-  noelements = data->noelements;
-
-  if(info) printf("Setting new indexes for materials and boundary types\n");
-
-  maxmat = 0;
-  for(j=1;j<=noelements;j++) 
-    maxmat = MAX(maxmat,data->material[j]);
-
-  maxbc = 0;
+  int i,j,k,l,doinit;
+  int minbc,maxbc,*mapbc;
+  
+  if(info) printf("Setting new boundary types\n");
+  
+  doinit = TRUE;
   for(j=0;j < MAXBOUNDARIES;j++) {
     if(!bound[j].created) continue;
-    for(i=1;i<=bound[j].nosides;i++)
+    for(i=1;i<=bound[j].nosides;i++) {
+      if(doinit) {
+	maxbc = minbc = bound[j].types[i];
+	doinit = FALSE;
+      }
       maxbc = MAX(maxbc,bound[j].types[i]);
+      minbc = MIN(minbc,bound[j].types[i]);     
+    }
   }
-  printf("Maximum material %d and maximum bc type %d\n",maxmat,maxbc);
+  if(doinit) return;
 
-  mapmat = Ivector(0,maxmat);
-  for(i=0;i<=maxmat;i++) mapmat[i] = 0;
-
-  mapbc = Ivector(0,maxbc);
-  for(i=0;i<=maxbc;i++) mapbc[i] = 0;
+  mapbc = Ivector(minbc,maxbc);
+  for(i=minbc;i<=maxbc;i++) mapbc[i] = 0;
   
-  for(j=1;j<=noelements;j++) 
-    mapmat[data->material[j]] = TRUE;
-
   for(j=0;j < MAXBOUNDARIES;j++) {
     if(!bound[j].created) continue;
     for(i=1;i<=bound[j].nosides;i++)
       mapbc[bound[j].types[i]] = TRUE;
   }
- 
-  j = 0;
-  for(i=0;i<=maxmat;i++) 
-    if(mapmat[i])  mapmat[i] = ++j;
-
-  j = 0;
-  for(i=0;i<=maxbc;i++) 
-    if(mapbc[i]) mapbc[i] = ++j;
-
   
-  for(j=1;j<=noelements;j++) 
-    data->material[j] = mapmat[data->material[j]];
+  j = 0;
+  for(i=minbc;i<=maxbc;i++) 
+    if(mapbc[i]) mapbc[i] = ++j;
+  
+  if(maxbc - minbc >= j || minbc != 1) { 
+    if(info) printf("Mapping boundary types from [%d %d] to [%d %d]\n",minbc,maxbc,1,j);    
+    
+    for(j=0;j < MAXBOUNDARIES;j++) {
+      if(!bound[j].created) continue;
+      for(i=1;i<=bound[j].nosides;i++)
+	bound[j].types[i] = mapbc[bound[j].types[i]];
+    }
+  }
+  free_Ivector(mapbc,minbc,maxbc);
+}  
+  
 
-  for(j=0;j < MAXBOUNDARIES;j++) {
-    if(!bound[j].created) continue;
-    for(i=1;i<=bound[j].nosides;i++)
-      bound[j].types[i] = mapbc[bound[j].types[i]];
+
+void RenumberMaterialTypes(struct FemType *data,struct BoundaryType *bound,int info)
+{     
+  int i,j,k,l,noelements,doinit;
+  int minmat,maxmat,*mapmat;
+  
+  if(info) printf("Setting new material types\n");
+  
+  noelements = data->noelements;
+  if(noelements < 1) return;
+
+  doinit = TRUE;
+  for(j=1;j<=noelements;j++) {
+    if(doinit) {
+      maxmat = minmat = data->material[j];
+      doinit = FALSE;
+    }
+    maxmat = MAX(maxmat,data->material[j]);
+    minmat = MIN(minmat,data->material[j]);    
   }
 
+  mapmat = Ivector(minmat,maxmat);
+  for(i=minmat;i<=maxmat;i++) mapmat[i] = 0;
+  
+  for(j=1;j<=noelements;j++) 
+    mapmat[data->material[j]] = TRUE;
+  
+  j = 0;
+  for(i=minmat;i<=maxmat;i++) 
+    if(mapmat[i]) mapmat[i] = ++j;
+  
+  if(maxmat - minmat >= j || minmat != 1) { 
+    if(info) printf("Mapping material types from [%d %d] to [%d %d]\n",
+		    minmat,maxmat,1,j);    
+    for(j=1;j<=noelements;j++) 
+      data->material[j] = mapmat[data->material[j]];
+  }
+  free_Ivector(mapmat,minmat,maxmat);
 }
 
 
@@ -6148,52 +6180,6 @@ void IsoparametricElements(struct FemType *data,struct BoundaryType *bound,
 
 
 
-static void RenumberEntities(struct FemType *data,
-			     struct BoundaryType *bound,int info)
-{
-  int i,j,maxi,k,maxk,mink,*mapk,orderwhat,*indk;
-
-
-  for(orderwhat=1;orderwhat<=2;orderwhat++) {
-
-    if(orderwhat == 1) {
-      indk = data->material;
-      maxi = data->noelements;
-    }
-    else if(orderwhat == 2) {
-      indk = bound->types;
-      maxi = bound->nosides;
-    }    
-    if(maxi < 1) continue;
-    mink = maxk = indk[1];
-
-    for(i=1;i<=maxi;i++) {
-      k = indk[i];
-      if(mink > k) mink = k;
-      if(maxk < k) maxk = k;
-    }
-    if(maxk-mink <= 0) continue;
-    
-    mapk = Ivector(mink,maxk);
-    for(i=mink;i<=maxk;i++)
-      mapk[i] = 0;
-
-    for(i=1;i<=maxi;i++) 
-      mapk[indk[i]] = 1;
-
-    j = 0;
-    for(i=mink;i<=maxk;i++) 
-      if(mapk[i]) mapk[i] = ++j;
-
-    for(i=1;i<=maxi;i++) 
-      indk[i] = mapk[indk[i]];
-
-    free_Ivector(mapk,mink,maxk);
-  }
-}
-
-
-
 void ElementsToBoundaryConditions(struct FemType *data,
 				  struct BoundaryType *bound,int info)
 {
@@ -6256,22 +6242,29 @@ void ElementsToBoundaryConditions(struct FemType *data,
     if(!moveelement[i]) parentorder[i] = ++j;
     else parentorder[i] = 0;
   }
-  if(info) printf("Parents were ordered up to indx %d.\n",j);
+  if(info) printf("Parent elements were reordered up to indx %d.\n",j);
 
   for(i=1;i<=noknots;i++)
     possible[i] = 0; 
   for(elemind=1;elemind <= data->noelements;elemind++) { 
     if(moveelement[elemind]) continue;
-    for(i=0;i<data->elementtypes[elemind]%100;i++) 
-      possible[data->topology[elemind][i]] += 1;
+    for(i=0;i<data->elementtypes[elemind]%100;i++) {
+      j = data->topology[elemind][i];
+      possible[j] += 1;
+    }
   }
 
+  j = 1;
   maxpossible = possible[1];
   for(i=1;i<=noknots;i++)
-    if(maxpossible < possible[i]) maxpossible = possible[i]; 
-  
-  if(info) printf("The nodes belong to maximum of %d elements\n",maxpossible);
+    if(maxpossible < possible[i]) {
+      maxpossible = possible[i]; 
+      j = i;
+    }  
+  if(info) printf("Node %d belongs to maximum of %d elements\n",j,maxpossible);
 
+  /* Make a table showing to which elements a node belongs to 
+     Include only the potential parents which are not to be moved to BCs. */
   invtopo = Imatrix(1,noknots,1,maxpossible);
   for(i=1;i<=noknots;i++)
     for(j=1;j<=maxpossible;j++) 
@@ -6319,7 +6312,7 @@ void ElementsToBoundaryConditions(struct FemType *data,
 	GetElementSide(elemind2,side,1,data,&sideind2[0],&sideelemtype);
 
 	if(sideelemtype < data->elementtypes[elemind]) break;
-	if(sideelemtype != data->elementtypes[elemind]) continue; 
+	if(sideelemtype > data->elementtypes[elemind]) continue; 
 	
 	sidenodes2 = sideelemtype%100;	
 	if(sidenodes != sidenodes2) continue;
@@ -6412,10 +6405,9 @@ void ElementsToBoundaryConditions(struct FemType *data,
   free_Ivector(possible,1,noknots);
   free_Imatrix(checkside,1,noelements,0,maxelemsides-1);
 
-  RenumberEntities(data,bound,info);
-
   return;
 }
+
 
 
 

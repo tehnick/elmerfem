@@ -134,16 +134,21 @@ static void Instructions()
   printf("-cylinder            : map 2D/3D cylindrical mesh to a cartesian mesh\n");
   printf("-reduce int[2]       : reduce element order at material interval [int1 int2]\n");
   printf("-increase            : increase element order from one to two\n");
+#if 0
+  /* This functionality has moved into the ElmerSolver */
   printf("-pelem int[3]        : p-elements of power int3 at interval [int1 int2]\n");
   printf("-belem int[3]        : set bubble dofs to int3 at interval [int1 int2]\n");
+#endif
   printf("-partition int[3]    : the mesh will be partitioned in main directions\n");
   printf("-partorder real[3]   : in the above method, the direction of the ordering\n");
 #if PARTMETIS
   printf("-metis int           : the mesh will be partitioned with Metis\n");
 #endif
-  printf("-periodic int[3]     : declere the periodic coordinate directions\n");
+  printf("-periodic int[3]     : decleare the periodic coordinate directions\n");
   printf("-bcoffset int        : add an offset to the boundary conditions\n");
   printf("-discont int         : make the boundary to have secondary nodes\n");
+  printf("-bulkorder           : renumber materials types from 1 so that every number is used\n");
+  printf("-boundorder          : renumber boundary types from 1 so that every number is used\n");
   printf("-bulkbound int[3]    : set the union of materials [int1 int2] to be boundary int3\n");
   printf("-boundbound int[3]   : set the union of boundaries [int1 int2] to be boundary int3\n");
   printf("-bulktype int[3]     : set material types in interval [int1 int2] to type int3\n");
@@ -206,6 +211,8 @@ void InitParameters(struct ElmergridType *eg)
   eg->periodicdim[0] = 0;
   eg->periodicdim[1] = 0;
   eg->periodicdim[2] = 0;
+  eg->bulkorder = FALSE;
+  eg->boundorder = FALSE;
   eg->sidemappings = 0;
   eg->bulkmappings = 0;
   eg->clone[0] = eg->clone[1] = eg->clone[2] = 0;
@@ -433,6 +440,12 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     }
     if(strcmp(argv[arg],"-increase") == 0) {
       eg->increase = TRUE;
+    }
+    if(strcmp(argv[arg],"-bulkorder") == 0) {
+      eg->bulkorder = TRUE;
+    }
+    if(strcmp(argv[arg],"-boundorder") == 0) {
+      eg->boundorder = TRUE;
     }
     if(strcmp(argv[arg],"-pelem") == 0) {
       for(i=arg+1;i<argc && strncmp(argv[i],"-",1); i++) 
@@ -935,6 +948,14 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
 	printf("Found %d boundary layers\n",i);
 	eg->layers = i;
       }
+    }
+    else if(strstr(command,"REORDER MATERIAL")) {
+      for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+      if(strstr(params,"TRUE")) eg->bulkorder = TRUE; 
+    }
+    else if(strstr(command,"REORDER BOUNDARY")) {
+      for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+      if(strstr(params,"TRUE")) eg->boundorder = TRUE; 
     }
     else if(strstr(command,"DIMENSION")) {
       sscanf(params,"%d",&eg->dim);
@@ -1578,6 +1599,14 @@ int main(int argc, char *argv[])
   for(k=0;k<nomeshes;k++) {
     RotateTranslateScale(&data[k],&eg);
   }
+
+  if(eg.boundorder) 
+    for(k=0;k<nomeshes;k++) 
+      RenumberBoundaryTypes(&data[k],boundaries[k],info);
+
+  if(eg.bulkorder) 
+    for(k=0;k<nomeshes;k++) 
+      RenumberMaterialTypes(&data[k],boundaries[k],info);
 
   if(eg.bcoffset) {
     printf("Addiing offset of %d to the BCs\n",eg.bcoffset);

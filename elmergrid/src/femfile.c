@@ -3400,7 +3400,7 @@ allocate:
       }
       getline;
       if(!strstr(line,"$ENDELM")) 
-	printf("NOD section should end to string ENDELM\n");
+	printf("ELM section should end to string ENDELM\n");
     }
 
   }
@@ -3413,6 +3413,7 @@ allocate:
     allocated = TRUE;
     goto allocate;
   }
+
 
   if(maxindx > noknots) {
     printf("Renumbering the Gmsh nodes from %d to %d\n",maxindx,noknots);
@@ -3435,7 +3436,7 @@ allocate:
   }
 
   ElementsToBoundaryConditions(data,bound,info);
-  ReorderTypes(data,bound,info);
+  if(0) ReorderTypes(data,bound,info);
  
   printf("Succesfully read the mesh from the Gmsh input file.\n");
 

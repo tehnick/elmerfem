@@ -61,7 +61,8 @@ int SideToBulkElements(struct FemType *data,struct BoundaryType *bound,
 		       int *sidebulk,int sidetobulk,int info);
 void ReorderElements(struct FemType *data,struct BoundaryType *bound,
 		    int manual,Real corder[],int info);
-void ReorderTypes(struct FemType *data,struct BoundaryType *bound,int info);
+void RenumberBoundaryTypes(struct FemType *data,struct BoundaryType *bound,int info);
+void RenumberMaterialTypes(struct FemType *data,struct BoundaryType *bound,int info);
 void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
 			 struct GridType *grid,
 			 struct FemType *data,struct BoundaryType *bound,
