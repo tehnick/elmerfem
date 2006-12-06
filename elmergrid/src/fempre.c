@@ -1637,7 +1637,7 @@ int main(int argc, char *argv[])
       RenumberMaterialTypes(&data[k],boundaries[k],info);
 
   if(eg.bcoffset) {
-    printf("Addiing offset of %d to the BCs\n",eg.bcoffset);
+    printf("Adding offset of %d to the BCs\n",eg.bcoffset);
 
     for(k=0;k<nomeshes;k++) {
       for(j=0;j < MAXBOUNDARIES;j++) {
@@ -1695,8 +1695,6 @@ int main(int argc, char *argv[])
   }
 
 
-
-
   for(k=0;k<nomeshes;k++) {
     if(eg.periodicdim[0] || eg.periodicdim[1] || eg.periodicdim[2]) {
       if(info) printf("There seems to be peridic boundaries\n");
@@ -1719,6 +1717,8 @@ int main(int argc, char *argv[])
       OptimizePartitioning(&data[k],boundaries[k],info);
   }
 
+  /* The advanced elements block will become obsolite as the stuff for definig the elements
+     is moved into the ElmerSolver command file */
   if(eg.pelems || eg.belems || eg.advancedmat) {
     int currenttype;
 
