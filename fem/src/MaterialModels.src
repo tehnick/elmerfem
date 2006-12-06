@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: MaterialModels.src,v 1.5 2006/02/01 08:07:58 jpr Exp $
+! * $Id: MaterialModels.src,v 1.6 2006/02/01 11:56:05 jpr Exp $
 ! ******************************************************************************/
 
 MODULE MaterialModels
@@ -128,7 +128,7 @@ CONTAINS
 
 
 #if 0
-this ise not in use
+this ise not in USE
 !------------------------------------------------------------------------------
    SUBROUTINE FrictionHeat( Heat,Viscosity,Ux,Uy,Uz,Element,Nodes )
 !------------------------------------------------------------------------------
@@ -271,125 +271,140 @@ this ise not in use
      SELECT CASE( ViscosityFlag )
 
        CASE('power law')
-       s = SQRT(ss)
-       c1n = ListGetReal( Material, 'Viscosity Factor',n, Element % NodeIndexes,gotIt)
-       IF(GotIt) THEN
-         c1 = SUM( Basis * c1n(1:n) )
-       ELSE 
-         c1 = 1.0
-       END IF
-       c2n = ListGetReal( Material, 'Viscosity Exponent', n, Element % NodeIndexes,gotit )
-       c2 = SUM( Basis * c2n(1:n) )
-       c3n = ListGetReal( Material, 'Critical Shear Rate',n, Element % NodeIndexes,gotIt )
-       IF (GotIt) THEN
-         c3 = SUM( Basis * c3n(1:n) )
-         IF(s < c3) s = c3
-       END IF
-       PVisc = Viscosity * c1 * (s ** (c2-1.0D0))
+         s = SQRT(ss)
+         c2n = ListGetReal( Material, 'Viscosity Exponent', n, Element % NodeIndexes,gotit )
+         c2 = SUM( Basis * c2n(1:n) )
+         c3n = ListGetReal( Material, 'Critical Shear Rate',n, Element % NodeIndexes,gotIt )
+         IF (GotIt) THEN
+           c3 = SUM( Basis * c3n(1:n) )
+           IF(s < c3) s = c3
+         END IF
+         PVisc = Viscosity * (s ** (c2-1.0D0))
 
        CASE('power law too')
-       c1n = ListGetReal( Material, 'Viscosity Factor',n, Element % NodeIndexes)
-       c1 = SUM( Basis * c1n(1:n) )
-       c2n = ListGetReal( Material, 'Viscosity Exponent', n, Element % NodeIndexes,gotit )
-       c2 = SUM( Basis * c2n(1:n) )
-       PVisc = Viscosity * c1**(-1.0d0/c2)* ss**(-(c2-1)/(2*c2)) / 2
+         c2n = ListGetReal( Material, 'Viscosity Exponent', n, Element % NodeIndexes,gotit )
+         c2 = SUM( Basis * c2n(1:n) )
+         PVisc = Viscosity **(-1.0d0/c2)* ss**(-(c2-1)/(2*c2)) / 2
        
        CASE ('carreau')
-       c1n = ListGetReal( Material, 'Viscosity Difference',n,Element % NodeIndexes)
-       c1 = SUM( Basis * c1n(1:n) )
-       c2n = ListGetReal( Material, 'Viscosity Exponent', n, Element % NodeIndexes,gotit )
-       c2 = SUM( Basis * c2n(1:n) )
-       c3n = ListGetReal( Material, 'Viscosity Transition',n,Element % NodeIndexes)
-       c3 = SUM( Basis * c3n(1:n) )
-       c4 = ListGetConstReal( Material, 'Yasuda Coefficient',gotIt)
-       IF(gotIt) THEN
-         s = SQRT(ss)
-         PVisc = Viscosity + c1 * (1.0d0 + (c3*s)**c4)**((c2-1)/c4) 
-       ELSE
-         PVisc = Viscosity + c1 * (1.0d0 + (c3*c3*ss))**((c2-1)/2.0) 
-       END IF
+         c1n = ListGetReal( Material, 'Viscosity Difference',n,Element % NodeIndexes)
+         c1 = SUM( Basis * c1n(1:n) )
+         c2n = ListGetReal( Material, 'Viscosity Exponent', n, Element % NodeIndexes,gotit )
+         c2 = SUM( Basis * c2n(1:n) )
+         c3n = ListGetReal( Material, 'Viscosity Transition',n,Element % NodeIndexes)
+         c3 = SUM( Basis * c3n(1:n) )
+         c4 = ListGetConstReal( Material, 'Yasuda Coefficient',gotIt)
+         IF(gotIt) THEN
+           s = SQRT(ss)
+           PVisc = Viscosity + c1 * (1.0d0 + (c3*s)**c4)**((c2-1)/c4) 
+         ELSE
+           PVisc = Viscosity + c1 * (1.0d0 + (c3*c3*ss))**((c2-1)/2.0) 
+         END IF
 
        CASE ('cross')
-       c1n = ListGetReal( Material, 'Viscosity Difference',n,Element % NodeIndexes)
-       c1 = SUM( Basis * c1n(1:n) )
-       c2n = ListGetReal( Material, 'Viscosity Exponent', n, Element % NodeIndexes,gotit )
-       c2 = SUM( Basis * c2n(1:n) )
-       c3n = ListGetReal( Material, 'Viscosity Transition',n,Element % NodeIndexes)
-       c3 = SUM( Basis * c3n(1:n) )
-
-       PVisc = Viscosity + c1 / (1.0d0 + c3*ss**(c2/2.0))
+         c1n = ListGetReal( Material, 'Viscosity Difference',n,Element % NodeIndexes)
+         c1 = SUM( Basis * c1n(1:n) )
+         c2n = ListGetReal( Material, 'Viscosity Exponent', n, Element % NodeIndexes,gotit )
+         c2 = SUM( Basis * c2n(1:n) )
+         c3n = ListGetReal( Material, 'Viscosity Transition',n,Element % NodeIndexes)
+         c3 = SUM( Basis * c3n(1:n) )
+         PVisc = Viscosity + c1 / (1.0d0 + c3*ss**(c2/2.0))
        
        CASE ('powell eyring')
-       c1n = ListGetReal( Material, 'Viscosity Difference',n,Element % NodeIndexes)
-       c1 = SUM( Basis * c1n )
-       c2 = ListGetConstReal( Material, 'Viscosity Transition')
-       s = SQRT(ss)
-
-       IF(c2*s < 1.0d-5) THEN
-         Pvisc = Viscosity + c1
-       ELSE
-         PVisc = Viscosity + c1 * LOG(c2*s+SQRT(c2*c2*ss+1.0d0))/(c2*s)
-       END IF
+         c1n = ListGetReal( Material, 'Viscosity Difference',n,Element % NodeIndexes)
+         c1 = SUM( Basis * c1n )
+         c2 = ListGetConstReal( Material, 'Viscosity Transition')
+         s = SQRT(ss)
+         IF(c2*s < 1.0d-5) THEN
+           Pvisc = Viscosity + c1
+         ELSE
+           PVisc = Viscosity + c1 * LOG(c2*s+SQRT(c2*c2*ss+1.0d0))/(c2*s)
+         END IF
 
        CASE ('thermal carreau')
 
-       TempSol => VariableGet( CurrentModel % Variables, 'Temperature' )
-       IF ( ASSOCIATED( TempSol) ) THEN
-         TempPerm    => TempSol % Perm
-         Temperature => TempSol % Values
-       ELSE
-         CALL Warn('EffectiveViscosity','Temperature required as a variable')
-       END IF
+         TempSol => VariableGet( CurrentModel % Variables, 'Temperature' )
+         IF ( ASSOCIATED( TempSol) ) THEN
+           TempPerm    => TempSol % Perm
+           Temperature => TempSol % Values
+         ELSE
+           CALL Warn('EffectiveViscosity','variable Temperature needed in thermal carreau model')
+         END IF
+         
+         c1n = ListGetReal( Material, 'Viscosity Difference',n,Element % NodeIndexes)
+         c2n = ListGetReal( Material, 'Viscosity Exponent', n, Element % NodeIndexes,gotit )
+         c2 = SUM( Basis * c2n(1:n) )
+         c3n = ListGetReal( Material, 'Viscosity Transition',n,Element % NodeIndexes)
+         c4 = ListGetConstReal( Material, 'Yasuda Coefficient',gotIt)
+         
+         c5 = ListGetConstReal( Material, 'Viscosity Temp Ref')
+         c6 = ListGetConstReal( Material, 'Viscosity Temp Exp')
+         Temp = SUM(Basis(1:n) * Temperature(TempPerm(Element % NodeIndexes(1:n))))
+         c7 = EXP(c6*(1/Temp-1/c5))
        
-       c1n = ListGetReal( Material, 'Viscosity Difference',n,Element % NodeIndexes)
-       c2n = ListGetReal( Material, 'Viscosity Exponent', n, Element % NodeIndexes,gotit )
-       c2 = SUM( Basis * c2n(1:n) )
-       c3n = ListGetReal( Material, 'Viscosity Transition',n,Element % NodeIndexes)
-       c4 = ListGetConstReal( Material, 'Yasuda Coefficient',gotIt)
+         c1 = c7 * SUM( Basis * c1n(1:n) )
+         c3 = c7 * SUM( Basis * c3n(1:n) )
 
-       c5 = ListGetConstReal( Material, 'Viscosity Temp Ref')
-       c6 = ListGetConstReal( Material, 'Viscosity Temp Exp')
-       Temp = SUM(Basis(1:n) * Temperature(TempPerm(Element % NodeIndexes(1:n))))
-       c7 = EXP(c6*(1/Temp-1/c5))
-       
-       c1 = c7 * SUM( Basis * c1n(1:n) )
-       c3 = c7 * SUM( Basis * c3n(1:n) )
-
-       IF(gotIt) THEN
-         s = SQRT(ss)
-         PVisc = Viscosity + c1 * (1.0d0 + (c3*s)**c4)**((c2-1)/c4) 
-       ELSE
-         PVisc = Viscosity + c1 * (1.0d0 + (c3*c3*ss))**((c2-1)/2.0) 
-       END IF
+         IF(gotIt) THEN
+           s = SQRT(ss)
+           PVisc = Viscosity + c1 * (1.0d0 + (c3*s)**c4)**((c2-1)/c4) 
+         ELSE
+           PVisc = Viscosity + c1 * (1.0d0 + (c3*c3*ss))**((c2-1)/2.0) 
+         END IF
 
        CASE( 'smagorinsky' )
-          c2n = ListGetReal( Material, 'Smagorinsky Constant', &
-                    n, Element % NodeIndexes,gotit )
-          c2 = SUM( Basis * c2n(1:n) )
-          h  = ElementDiameter( Element, Nodes )
-          Viscosity = Viscosity + Density * c2 * h**2 * SQRT( 2*ss ) / 2
-
+         c2n = ListGetReal( Material, 'Smagorinsky Constant', &
+             n, Element % NodeIndexes,gotit )
+         c2 = SUM( Basis * c2n(1:n) )
+         h  = ElementDiameter( Element, Nodes )
+         Viscosity = Viscosity + Density * c2 * h**2 * SQRT( 2*ss ) / 2
+         
        CASE( 'ke','k-epsilon' )
-          Var => VariableGet( CurrentModel % Variables, 'Kinetic Energy' )
-          IF ( .NOT. ASSOCIATED( Var ) ) &
+         Var => VariableGet( CurrentModel % Variables, 'Kinetic Energy' )
+         IF ( .NOT. ASSOCIATED( Var ) ) &
              CALL Fatal( 'Viscosity Model', 'The kinetic energy variable not defined?' )
-          KE_K = SUM(Basis(1:n) * Var % Values(Var % Perm(Element % NodeIndexes)))
-
-          Var => VariableGet( CurrentModel % Variables, 'Kinetic Dissipation' )
-          IF ( .NOT. ASSOCIATED( Var ) ) &
+         KE_K = SUM(Basis(1:n) * Var % Values(Var % Perm(Element % NodeIndexes)))
+         
+         Var => VariableGet( CurrentModel % Variables, 'Kinetic Dissipation' )
+         IF ( .NOT. ASSOCIATED( Var ) ) &
              CALL Fatal( 'Viscosity Model', 'The kinetic energy dissipation variable not defined?' )
-          KE_E = SUM(Basis(1:n) * Var % Values(Var % Perm(Element % NodeIndexes)))
-
-          KECmu(1:n) = ListGetReal( Material, 'KE Cmu',n,Element % NodeIndexes )
-          Clip       = ListGetConstReal( Material, 'KE Clip' )
-
-          Cmu = SUM( Basis(1:n) * KECmu(1:n) )
-
-          PVisc = Viscosity + Cmu*Density*KE_K**2 / KE_E
+         KE_E = SUM(Basis(1:n) * Var % Values(Var % Perm(Element % NodeIndexes)))
+         
+         KECmu(1:n) = ListGetReal( Material, 'KE Cmu',n,Element % NodeIndexes )
+         Clip       = ListGetConstReal( Material, 'KE Clip' )
+         
+         Cmu = SUM( Basis(1:n) * KECmu(1:n) )
+         
+         PVisc = Viscosity + Cmu*Density*KE_K**2 / KE_E
 
        CASE( 'rng k-epsilon' )
-          Var => VariableGet( CurrentModel % Variables, 'Effective Viscosity')
-          PVisc = SUM( Basis(1:n) * Var % Values( Var % Perm( Element % NodeIndexes )))
+         Var => VariableGet( CurrentModel % Variables, 'Effective Viscosity')
+         PVisc = SUM( Basis(1:n) * Var % Values( Var % Perm( Element % NodeIndexes )))
+ 
+       CASE( 'levelset' )
+         TempSol => VariableGet( CurrentModel % Variables, 'Surface' )
+         IF ( ASSOCIATED( TempSol) ) THEN
+           TempPerm    => TempSol % Perm
+           Temperature => TempSol % Values
+         ELSE
+           CALL Warn('EffectiveViscosity','variable Surface needed in levelset viscosity model')
+         END IF
+
+         c1n = ListGetReal( Material, 'Viscosity Difference',n,Element % NodeIndexes)
+         c1 = SUM( Basis(1:n) * c1n(1:n) )
+         c2 = ListGetConstReal( Material, 'Levelset bandwidth',gotIt)
+         
+         Temp = SUM(Basis(1:n) * Temperature(TempPerm(Element % NodeIndexes(1:n))))
+         Temp = Temp / c2
+         IF(Temp < -1.0) THEN
+           c3 = 0.0d0
+         ELSE IF(Temp > 1.0) THEN
+           c3 = 1.0d0
+         ELSE
+           c3 = 0.75d0 * (Temp - Temp**3.0d0/3) + 0.5d0
+         END IF
+      
+         Pvisc = Viscosity + c3 * c1 
 
        CASE( 'user function' )
          str = ListGetString( Material, 'Viscosity Function' )
@@ -409,7 +424,7 @@ this ise not in use
 
 
 #if 0
-this is not in use
+this is not in USE
 !------------------------------------------------------------------------------
    SUBROUTINE KEPhi( SecInv,Ux,Uy,Uz,Element,Nodes )
 !------------------------------------------------------------------------------
