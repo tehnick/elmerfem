@@ -85,15 +85,23 @@ However, as the interface does not
 follow the element division the numerical integration 
 would result into spurious fluctuations depending on the position of the interface
 within the elements. To obtain a smooth behavior the 
-Heaviside function must be regularized:
+Heaviside function must be regularized. 
 \begin{equation}
   H_\alpha(x) = \begin{cases} 
-    0, & x < \alpha \\
-    \frac{1}{2}\left(1+\sin \left(\frac{x}{a}\frac{\pi}{2} \right) \right), & |x| \leq \alpha \\
+    0, & x < -\alpha \\
+    f(\alpha/x) & |x| \leq \alpha \\
     1, & x > \alpha , 
   \end{cases}
 \end{equation}
-where $\alpha$ is the interface bandwidth which equals typically the size of a few elements.
+where the followin has been implemented 
+\begin{equation}
+  f(t) = \frac{1}{2}\left(1+\sin \left(t \frac{\pi}{2} \right) \right)
+\end{equation}
+while one could also use
+\begin{equation}
+  f(t) = \frac{3}{4}\left(t - t^3/3 \right ) + \frac{1}{2} .
+\end{equation}
+Here $\alpha$ is the interface bandwidth which equals typically the size of a few elements.
 Now the volume (area in 2D) is obtained by the integral
 \begin{equation}
   V = \int_\Omega H_\alpha (\phi) \, d\Omega .
@@ -407,6 +415,30 @@ If the timestep limit is active this option may be used to account only the norm
 direction of the interface velocity rather that the absolute direction. 
 Default is \texttt{False}. 
 
+\sifend
+\sifend
+
+\subsection*{Other solvers}
+
+Basically the user may give user defined material parameters where
+the values are computed as a function of the levelset function. Unfortunately this approach
+generally uses nodal points for the smearing whereas it is optimal to use
+the Gaussian integration points for doing this. There is one exception to this
+model that has been implemented for the \texttt{MaterialModels} module, namely
+the viscosity may be computed at Gaussian integration points. 
+
+\sifbegin
+\sifitemnt{Material}{mat id}
+\sifbegin
+\sifitem{Viscosity Model}{String levelset}
+This uses the levelset methodolohy to smear out the viscosity between 
+inside and outside values.
+\sifitem{Viscosity}{Real}
+The value of the viscosity outside the domain (negative levelset function values).
+\sifitem{Viscosity Difference}{Real}
+The difference between the inside and outside viscosity values. 
+\sifitem{Levelset bandwidth}{Real}
+The bandwidth at which the viscosity is smeared out between the extreme values.
 \sifend
 \sifend
 
