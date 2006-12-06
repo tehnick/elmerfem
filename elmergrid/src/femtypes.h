@@ -200,9 +200,6 @@ struct FemType {
    enables the use of a wide variety of BCs. */
 struct BoundaryType {
   int created,       /* is boundary created? */
-#if 0
-    type,            /* type of the boundary */
-#endif
     nosides,         /* sides on the boundary */
     maxsidenodes,  /* number of sidenodes on the element */
     fixedpoints,     /* number of fixed points allowed */
@@ -265,21 +262,21 @@ struct ElmergridType {
   int dim,
     scale,      /* scale the geometry */
     order,      /* reorder the nodes */
-    merge,
-    translate,
-    rotate,
-    clone[3],
-    mirror[3],
-    decimals,
-    layers, 
+    merge,      /* merge mesges */
+    translate,  /* translate the mesh */
+    rotate,     /* rotate the mesh */
+    clone[3],   /* clone the mesh the number of given times */
+    mirror[3],  /* mirror the mash around the given axis */
+    decimals,   /* save the mesh with number of decimals */
+    layers,     /* create boundary layers */
     layerbounds[MAXBOUNDARIES], 
     layernumber[MAXBOUNDARIES], 
-    layermove,
-    metis,
-    partitions, 
+    layermove,  /* map the created layer to the original geometry */
+    metis,      /* number of Metis partitions */
+    partitions, /* number of simple geometric partitions */
     partdim[3],
-    inmethod,
-    outmethod,
+    inmethod,   /* method in which mesh is read in to ElmerGrid */
+    outmethod,  /* method in which the mesh is written by ElmerGrid */
     sidemap[3*MAXBOUNDARIES],
     sidemappings,
     bulkmap[3*MAXMATERIALS],
@@ -289,10 +286,36 @@ struct ElmergridType {
     boundbounds,
     boundbound[3*MAXBOUNDARIES],
     bulkbounds,
-    bulkbound[3*MAXBOUNDARIES];
-      
-  int mirrorbc;
-  
+    bulkbound[3*MAXBOUNDARIES], 
+    mirrorbc,
+    layerparents[MAXBOUNDARIES],
+    sidebulk[MAXSIDEBULK],
+    triangles,
+    polar,
+    isoparam,
+    cylinder,
+    unitemeshes,
+    reduce,
+    removelowdim,
+    increase,
+    reducemat1,
+    reducemat2,
+    findsides,
+    saveboundaries,
+    nodes3d,
+    elements3d,
+    periodic, 
+    periodicdim[3],
+    discont,
+    discontbounds[MAXBOUNDARIES],
+    partorder,
+    nofilesin,
+    elementsredone,
+    pelemmap[4*MAXMATERIALS],pelems,
+    belemmap[4*MAXMATERIALS], belems,
+    advancedelem[7*MAXMATERIALS], advancedmat,
+    bcoffset;
+
   Real cscale[3], 
     corder[3],
     cmerge,
@@ -301,21 +324,12 @@ struct ElmergridType {
     clonesize[3],
     layerratios[MAXBOUNDARIES], 
     layerthickness[MAXBOUNDARIES],
-    layereps;
+    layereps,
+    partcorder[3],
+    polarradius;
 
-  int layerparents[MAXBOUNDARIES];
-  int sidebulk[MAXSIDEBULK];
-  int triangles,polar,isoparam,cylinder;
-  int unitemeshes,reduce,increase,reducemat1,reducemat2;
-  int findsides,saveboundaries,nodes3d,elements3d;
-  int periodic, periodicdim[3],discont,discontbounds[MAXBOUNDARIES];
-  int partorder,pelemmap[4*MAXMATERIALS],pelems,nofilesin,elementsredone;
-  int belemmap[4*MAXMATERIALS], belems;
-  int advancedelem[7*MAXMATERIALS], advancedmat;
-  int bcoffset;
-
-  Real partcorder[3],polarradius;
-  char filesin[MAXCASES][MAXFILESIZE],filesout[MAXCASES][MAXFILESIZE];
-  char mapfile[MAXFILESIZE];
+  char filesin[MAXCASES][MAXFILESIZE],
+    filesout[MAXCASES][MAXFILESIZE], 
+    mapfile[MAXFILESIZE];
 };
 

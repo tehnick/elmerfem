@@ -32,6 +32,10 @@
 *  3, 6 and 10-node triangles. There is also limited 3D functionality       *
 *  with 8, 20 and 27-node cubes and 6-node prisms.                          *
 *                                                                           *
+*  The program may also be used as a mesh import and export utility. It     *
+*  is able to read several different formats and writes mainly Elmer input  *
+*  and output formats. The meshes may also be given some simple operations. *
+*                                                                           *
 *  Note: this software was initially part of Pirfem code, then later        *
 *  called Quickmesh, and finally renamed to Elmergrid. The code has never   *
 *  been designed and with new features the code has eventually become very  *
@@ -147,17 +151,19 @@ static void Instructions()
   printf("-periodic int[3]     : decleare the periodic coordinate directions\n");
   printf("-bcoffset int        : add an offset to the boundary conditions\n");
   printf("-discont int         : make the boundary to have secondary nodes\n");
+  printf("-removelowdim        : remove boundaries that are two ranks lower than highest dim\n");
   printf("-bulkorder           : renumber materials types from 1 so that every number is used\n");
   printf("-boundorder          : renumber boundary types from 1 so that every number is used\n");
+  printf("-autoclean           : this performs the united action of the three above\n");
   printf("-bulkbound int[3]    : set the union of materials [int1 int2] to be boundary int3\n");
   printf("-boundbound int[3]   : set the union of boundaries [int1 int2] to be boundary int3\n");
   printf("-bulktype int[3]     : set material types in interval [int1 int2] to type int3\n");
   printf("-boundtype int[3]    : set sidetypes in interval [int1 int2] to type int3\n");
   printf("-layer int[2] real[2]: make a boundary layer for given boundary\n");
   printf("-layermove int       : apply Jacobi filter int times to move the layered mesh\n");
-  printf("-3d / -2d / -1d      : mesh is 3, 2 or 1-dimensional\n");
+  printf("-3d / -2d / -1d      : mesh is 3, 2 or 1-dimensional (applies to examples)\n");
   printf("-isoparam            : ensure that higher order elements are convex\n");
-  printf("-nobound             : disable saving of boundary elements\n");
+  printf("-nobound             : disable saving of boundary elements in ElmerPost format\n");
 #if 0
   printf("-map str             : file with mapping info for mesh-to-mesh interpolation\n");
 #endif
@@ -195,6 +201,7 @@ void InitParameters(struct ElmergridType *eg)
   eg->increase = FALSE;
   eg->translate = FALSE;
   eg->isoparam = FALSE;
+  eg->removelowdim = FALSE;
   eg->dim = 3;
   eg->scale = FALSE;
   eg->order = FALSE;
@@ -405,9 +412,22 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
       }
     }
 
-    if(strcmp(argv[arg],"-unite") ==0) {
+    if(strcmp(argv[arg],"-unite") == 0) {
       eg->unitemeshes = TRUE;
       printf("The meshes will be united.\n");
+    }   
+
+    if(strcmp(argv[arg],"-removelowdim") == 0) {
+      eg->removelowdim = TRUE;
+      printf("Lower dimensional boundaries will be removed\n");
+    }   
+
+    if(strcmp(argv[arg],"-autoclean") == 0) {
+      eg->removelowdim = TRUE;
+      eg->bulkorder = TRUE;
+      eg->boundorder = TRUE;
+      printf("Lower dimensional boundaries will be removed\n");
+      printf("Materials and boundaries will be renumbered\n");
     }   
 
     if(strcmp(argv[arg],"-polar") == 0) {
@@ -948,6 +968,10 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
 	printf("Found %d boundary layers\n",i);
 	eg->layers = i;
       }
+    }
+    else if(strstr(command,"REMOVE LOWER DIMENSIONAL BOUNDARIES")) {
+      for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+      if(strstr(params,"TRUE")) eg->removelowdim = TRUE; 
     }
     else if(strstr(command,"REORDER MATERIAL")) {
       for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
@@ -1600,6 +1624,10 @@ int main(int argc, char *argv[])
     RotateTranslateScale(&data[k],&eg);
   }
 
+  if(eg.removelowdim) 
+    for(k=0;k<nomeshes;k++) 
+      RemoveLowerDimensionalBoundaries(&data[k],boundaries[k],info);
+
   if(eg.boundorder) 
     for(k=0;k<nomeshes;k++) 
       RenumberBoundaryTypes(&data[k],boundaries[k],info);
@@ -1665,6 +1693,8 @@ int main(int argc, char *argv[])
     }
     printf("Renumbering material indexes finished\n");
   }
+
+
 
 
   for(k=0;k<nomeshes;k++) {

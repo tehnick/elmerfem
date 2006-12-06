@@ -3512,6 +3512,76 @@ void RenumberMaterialTypes(struct FemType *data,struct BoundaryType *bound,int i
 
 
 
+void RemoveLowerDimensionalBoundaries(struct FemType *data,struct BoundaryType *bound,int info)
+{
+  int i,j,k,l,noelements;
+  int elemtype,maxelemtype,maxelemdim,elemdim;
+  int parent, side, sideind[MAXNODESD1],sideelemtype;
+  int nosides, oldnosides,newnosides;
+    
+  if(info) printf("Removing lower dimensional boundaries\n");
+  
+  noelements = data->noelements;
+  if(noelements < 1) return;
+
+  maxelemtype = 0;
+  for(j=1;j<=noelements;j++) {
+    elemtype = data->elementtypes[j];
+    maxelemtype = MAX( elemtype, maxelemtype );
+  }
+  if(maxelemtype > 500) 
+    maxelemdim = 3;
+  else if(maxelemtype > 300) 
+    maxelemdim = 2;
+  else if(maxelemtype > 200)
+    maxelemdim = 1;
+  else
+    maxelemdim = 0;
+
+  if(info) printf("Maximum elementtype is %d and dimension %d\n",maxelemtype,maxelemdim);
+  if(maxelemdim < 2) return;
+
+  oldnosides = 0;
+  newnosides = 0;
+  for(j=0;j < MAXBOUNDARIES;j++) {
+    nosides = 0;
+    if(!bound[j].created) continue;
+    for(i=1;i<=bound[j].nosides;i++) {
+
+      oldnosides++;
+      parent =  bound[j].parent[i];
+      side = bound[j].side[i];
+      GetElementSide(parent,side,1,data,sideind,&sideelemtype);
+
+      if(sideelemtype > 300) 
+	elemdim = 2;
+      else if(sideelemtype > 200)
+	elemdim = 1;
+      else
+	elemdim = 0;
+
+      if(maxelemdim - elemdim > 1) continue;
+      
+      nosides++;      
+      if(nosides == i) continue;
+
+      bound[j].parent[nosides] = bound[j].parent[i];
+      bound[j].parent2[nosides] = bound[j].parent2[i];
+      bound[j].side[nosides] = bound[j].side[i];
+      bound[j].side2[nosides] = bound[j].side2[i];
+      bound[j].types[nosides] = bound[j].types[i];
+    }
+    bound[j].nosides = nosides;
+    newnosides += nosides;
+  }
+
+  if(info) printf("Removed %d (out of %d) less than %dD boundary elements\n",
+		  oldnosides-newnosides,oldnosides,maxelemdim);
+}  
+  
+
+
+
 static void FindEdges(struct FemType *data,struct BoundaryType *bound,
 		      int material,int sidetype,int info)
 {
