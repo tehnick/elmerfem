@@ -1,0 +1,41 @@
+\chapter{Compilation and Linking}
+
+\section{Compiling the whole package}
+
+Elmer distribution comes in several different modules. Each of these may be compiled using
+the configure script followed by a make command. 
+Below is a possible compilation strategy in the Unix system. 
+\begin{verbatim}
+#!/bin/sh -f
+# replace these with your compilers:
+export CC=gcc
+export CXX=g++
+export FC=g95
+export F77=g95
+
+modules="matc umfpack mathlibs elmergrid meshgen2d eio hutiter fem" 
+for m in $modules; do
+  cd $m ; ./configure --prefix=/opt/elmer && make && make install && cd .. 
+done
+\end{verbatim}
+
+\section{Compiling a user defined subroutine}
+
+The \texttt{elmerf90}command is provided to help compiling your own solvers, it is a wrapper script to the 
+compiler that was used to compile the elmer that is in the \texttt{PATH}.
+\begin{verbatim}
+elmerf90 -o MySolver MySolver.f90
+\end{verbatim}
+In the MinGW system in Windows the suffix \texttt{.dll} should preferably be used
+\begin{verbatim}
+elmerf90 -o MySolver.dll MySolver.f90
+\end{verbatim}
+
+After successful compilation, the file \texttt{mysolver.dll} is to be found in the local directory. 
+In the filename declaration of the \texttt{Procedure}-keyword in solver input file, the suffix \texttt{.dll} can be omitted
+\ttbegin
+Solver 1
+  Procedure = "mysolver" "subroutineName"
+  \ldots
+End
+\ttend
