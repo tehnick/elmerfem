@@ -31,7 +31,7 @@ if test "$ELMER_HOME" = ""; then
     export ELMER_MESH2D="Mesh2D"
     export LD_LIBRARY_PATH=".:$ELMER_HOME:$LD_LIBRARY_PATH"
     # assume that stuff has been installed here
-    export PATH=/tmp/jpr/bin:$PATH
+    export PATH=/home/edelmann/elmer/bin:$PATH
 else 
     # ELMER_HOME is defined, so we'll just use that
     printf "\$ELMER_HOME=%s\n" $ELMER_HOME
@@ -47,12 +47,12 @@ fi
 #
 # Autoconf substitutes these variables with correct values.
 #
-export F90="gfortran -O3 -ffast-math -funroll-loops -march=pentium4 -fPIC -I. -I. -I$ELMER_INCLUDE"
+export F90="gfortran -O -fPIC -I. -I. -I$ELMER_INCLUDE"
 export LD="gfortran -shared  "
 export LIBS="-L$ELMER_LIB "
 
-/wrk/jpr/gcc-install/bin/gcc -o findnorm$EXE_EXT findnorm.c
-/wrk/jpr/gcc-install/bin/gcc -o compare$EXE_EXT compare.c -lm
+cc -o findnorm$EXE_EXT findnorm.c
+cc -o compare$EXE_EXT compare.c -lm
 chmod 775 findnorm$EXE_EXT compare$EXE_EXT
 
 total=0

@@ -1,4 +1,4 @@
-SUBDIRS=view3d viewaxis
+SUBDIRS=view3d viewaxis binio
 
 OBJ_EXT=.$(OBJEXT)
 SHL_EXT=.$(SHLEXT)
@@ -55,16 +55,16 @@ if USE_WINDOWS_COMPILER
 EliminatePeriodic.$(SHLEXT): EliminateDirichlet$(OBJ_EXT) EliminatePeriodic$(OBJ_EXT)
 	$(SH_LD) $(SH_LDFLAGS) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) -o $@ $*$(OBJ_EXT) $(EXTRA_LIBS) EliminateDirichlet$(OBJ_EXT) -L. -lelmersolver
 
-libelmersolver$(SHL_EXT): $(SOLVEROBJS) mpi_stubs$(OBJ_EXT)
+libelmersolver$(SHL_EXT): $(SOLVEROBJS) mpi_stubs$(OBJ_EXT) binio/libbinio.a
 	$(RM) $@
 	$(CP) _muldc3.oo _muldc3.o
-	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) mpi_stubs$(OBJ_EXT) _muldc3.o -L.
+	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) mpi_stubs$(OBJ_EXT) _muldc3.o -L. -Lbinio -lbinio
 
 else
 
-libelmersolver$(SHL_EXT): $(SOLVEROBJS) 
+libelmersolver$(SHL_EXT): $(SOLVEROBJS) binio/libbinio.a
 	$(RM) $@
-	$(SH_LD2) $(RPATH_ELMER) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) -L.
+	$(SH_LD2) $(RPATH_ELMER) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) -L. -Lbinio -lbinio
 
 
 .$(OBJEXT).$(SHLEXT): 

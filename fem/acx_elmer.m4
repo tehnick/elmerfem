@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.83 2006/02/10 12:22:28 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.84 2006/03/30 08:27:42 jpr Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1861,4 +1861,68 @@ else
 	AC_DEFINE(C_DLLEXPORT,,[Standard windows call declaration])
 fi
 AM_CONDITIONAL(USE_WINDOWS_COMPILER, test "$acx_platform_def" = "WIN32")
+])
+
+
+dnl
+dnl Check the naming conventions for *.mod-files 
+dnl (Erik Edelmann <erik.edelmann@csc.fi>)
+dnl
+AC_DEFUN([ACX_FC_MODFILE],
+[AC_CACHE_CHECK(for *.mod-file naming convention, modfilename,
+[
+mkdir conftestdir
+cd conftestdir
+cat > foo.f90 << STOP
+module modulename
+    integer :: bar
+end module modulename
+STOP
+${FC-fc} -c foo.f90
+modfilename=""
+for m in modulename.mod MODULENAME.mod; do
+    if test -r $m ; then
+        modfilename=$m
+        break;
+    fi
+done
+cd ..
+rm -rf conftestdir
+if test ""$modfilename = "" ; then
+    AC_MSG_WARN(Can't find *.mod-file naming conventions for ${FC-fc})
+fi
+])
+])
+
+dnl 
+dnl Check for option for where to put *.mod-files
+dnl
+AC_DEFUN([ACX_FC_PUT_MODULE_FLAG],
+[AC_CACHE_CHECK(for option to tell ${FC-fc} where to put *.mod-files,
+modput_opt,
+[
+mkdir conftestdir
+cd conftestdir
+mkdir src
+cd src
+cat > foo.f90 << STOP
+module foo
+    integer :: bar
+end module foo
+STOP
+modput_opt=""
+for opt in -M -J -moddir= '-module '; do
+    ${FC-fc} -c foo.f90 ${opt}.. > /dev/null 2>&1
+    if test -r ../foo.mod || test -r ../FOO.mod; then
+        modput_opt=$opt
+        break
+    fi
+done
+cd ../..
+rm -rf conftestdir
+if test ""$modput_opt = "" ; then
+    AC_MSG_WARN(Can't find *.mod-file put option for ${FC-fc})
+fi
+])
+AC_SUBST(modput_opt)
 ])

@@ -39,13 +39,14 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ModelDescription.src,v 1.27 2006/11/22 08:56:25 jpr Exp $
+! * $Id: ModelDescription.src,v 1.28 2006/11/27 10:23:57 jpr Exp $
 ! *****************************************************************************/
 
 MODULE ModelDescription
 
     USE MeshUtils
     USE ElementDescription
+    USE BinIO
  
     IMPLICIT NONE
 
@@ -1769,12 +1770,13 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  FUNCTION SaveResult( Filename,Mesh,Time,SimulationTime ) RESULT(SaveCount)
+  FUNCTION SaveResult( Filename,Mesh,Time,SimulationTime,Binary ) RESULT(SaveCount)
 !------------------------------------------------------------------------------
     TYPE(Mesh_t), POINTER :: Mesh
     INTEGER :: Time,SaveCount
     CHARACTER(LEN=*) :: Filename
     REAL(KIND=dp) :: SimulationTime
+    LOGICAL :: Binary
 
 !------------------------------------------------------------------------------
 
@@ -1796,12 +1798,6 @@ CONTAINS
       END IF
     END IF
 
-    IF ( Mesh % SavesDone == 0 ) THEN
-      OPEN( OutputUnit,File=TRIM(FName),STATUS='UNKNOWN' )
-    ELSE
-      OPEN( OutputUnit,File=TRIM(FName),STATUS='UNKNOWN', POSITION='APPEND' )
-    END IF
-
     FreeSurfaceFlag = .FALSE.
     MoveBoundary    = .FALSE.
     DO i=1,CurrentModel % NumberOfBCs
@@ -1819,7 +1815,10 @@ CONTAINS
       IF ( FreeSurfaceFlag ) EXIT
     END DO
 
+    ! The first time we start by writing the header.
     IF ( Mesh % SavesDone == 0 ) THEN
+      CALL InitializeFile( OutputUnit, TRIM(FName) )
+
       DateStr = FormatDate()
       WRITE( OutputUnit, '("!File started at: ",A)' ) TRIM(DateStr)
       DOFs = 0
@@ -1870,10 +1869,16 @@ CONTAINS
         Var => Var % Next
       END DO 
       WRITE(OutputUnit,*) 'Total DOFs: ', DOFs
+
+      IF ( Binary ) THEN
+        CALL SwitchToBinary( OutputUnit,FName,Mesh % NumberOfNodes )
+      END IF
+    ELSE
+      CALL AppendOpen( OutputUnit,FName )
     END IF
 
-    WRITE( OutputUnit,'(a,i7,i7,E20.12E3)' ) 'Time: ', &
-        Mesh % SavesDone+1, Time, SimulationTime
+    CALL WriteTime( OutputUnit,Mesh % SavesDone+1, Time, SimulationTime )
+
 !------------------------------------------------------------------------------
 !   Write data to disk
 !------------------------------------------------------------------------------
@@ -1887,16 +1892,16 @@ CONTAINS
            END DO
 
            IF ( Var % Name(1:10) /= 'coordinate' .OR. FreeSurfaceFlag ) THEN
-             WRITE( OutputUnit,'(a)' ) Var % Name(1:k)
+             CALL WriteString( OutputUnit, Var % Name(1:k) )
    
              DO i=1,Mesh % NumberOfNodes
                k = i
                IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
 !              IF ( k > 0 ) WRITE( OutputUnit,* ) i,k,Var % Values(k)
                IF ( k > 0 ) THEN
-                 WRITE( OutputUnit,* ) i,k,Var % Values(k)
+                 CALL WriteIntIntReal( OutputUnit,i,k,Var % Values(k) )
                ELSE
-                 WRITE( OutputUnit,* ) i,k,0.0d0
+                 CALL WriteIntIntReal( OutputUnit,i,k,0.0d0 )
                END IF
              END DO
            END IF
@@ -1905,10 +1910,107 @@ CONTAINS
       Var => Var % Next
     END DO 
 
-    CLOSE( OutputUnit )
+    IF ( Binary ) THEN
+      CALL BinClose( OutputUnit )
+    ELSE
+      CLOSE( OutputUnit )
+    END IF
 
     Mesh % SavesDone = Mesh % SavesDone + 1
     SaveCount = Mesh % SavesDone 
+
+  CONTAINS
+
+    SUBROUTINE WriteString( OutputUnit,s )
+      INTEGER, INTENT(IN) :: OutputUnit
+      CHARACTER(*), INTENT(IN) :: s
+
+      IF ( Binary ) THEN
+        CALL BinWriteString( OutputUnit,s )
+      ELSE
+        WRITE( OutputUnit,'(a)' ) s
+      END IF
+    END SUBROUTINE WriteString
+        
+
+    SUBROUTINE WriteIntIntReal( OutputUnit,i1,i2,r )
+      INTEGER, INTENT(IN) :: OutputUnit
+      INTEGER, INTENT(IN) :: i1, i2
+      REAL(dp), INTENT(IN) :: r
+
+      IF ( Binary ) THEN
+        CALL BinWriteInt4( OutputUnit,i1 )
+        CALL BinWriteInt4( OutputUnit,i2 )
+        CALL BinWriteDouble( OutputUnit,r )
+      ELSE
+        WRITE( OutputUnit,* ) i1,i2,r
+      END IF
+    END SUBROUTINE WriteIntIntReal
+
+
+    SUBROUTINE WriteTime( OutputUnit,SavesDone,nTime,SimulationTime )
+      INTEGER, INTENT(IN) :: OutputUnit
+      INTEGER, INTENT(IN) :: SavesDone,nTime
+      REAL(dp), INTENT(IN) :: SimulationTime
+
+      IF ( Binary ) THEN
+        CALL BinWriteString( OutputUnit, 'Time: ' )
+        CALL BinWriteInt4( OutputUnit, SavesDone )
+        CALL BinWriteInt4( OutputUnit, nTime )
+        CALL BinWriteDouble( OutputUnit, SimulationTime )
+      ELSE
+        WRITE( OutputUnit,'(a,i7,i7,E20.12E3)' ) 'Time: ',SavesDone,nTime, &
+                                                 SimulationTime
+      END IF
+    END SUBROUTINE WriteTime
+
+
+    SUBROUTINE AppendOpen( OutputUnit,FName )
+      INTEGER, INTENT(IN) :: OutputUnit
+      CHARACTER(*), INTENT(IN) :: FName
+
+      IF ( Binary ) THEN
+        CALL BinOpen( OutputUnit, TRIM(FName), "APPEND" )
+      ELSE
+        OPEN( OutputUnit,FILE=TRIM(FName),STATUS="OLD",POSITION="APPEND" )
+      END IF
+    END SUBROUTINE AppendOpen
+      
+
+    SUBROUTINE SwitchToBinary( OutputUnit,FName,nNodes )
+      INTEGER, INTENT(IN) :: OutputUnit
+      CHARACTER(*), INTENT(IN) :: FName
+      INTEGER, INTENT(IN) :: nNodes
+
+      CLOSE( OutputUnit )
+      CALL BinOpen( OutputUnit, TRIM(FName), "APPEND" )
+
+      ! The binary part starts with a NULL byte, followed by the number of
+      ! nodes.
+      CALL BinWriteString( OutputUnit, "" )
+      CALL BinWriteInt4( OutputUnit,nNodes )
+    END SUBROUTINE SwitchToBinary
+      
+
+    SUBROUTINE InitializeFile( OutputUnit,FName )
+      INTEGER, INTENT(IN) :: OutputUnit
+      CHARACTER(*), INTENT(IN) :: FName
+
+      IF ( Binary ) THEN
+        ! First BinOpen & BinClose the file to get the endianess marker to the
+        ! beginning of the file. Then switch to normal ASCII mode for writing
+        ! the header.
+        CALL BinOpen( OutputUnit, FName, "write" )
+        CALL BinClose( OutputUnit )
+
+        OPEN( OutputUnit,File=FName,STATUS='UNKNOWN',POSITION='APPEND' )
+        WRITE( OutputUnit, * ) 'BINARY 1'
+      ELSE
+        OPEN( OutputUnit,File=FName,STATUS='UNKNOWN' )
+        WRITE( OutputUnit, '(A)' ) 'ASCII 1'
+      END IF
+    END SUBROUTINE InitializeFile
+
 !------------------------------------------------------------------------------
   END FUNCTION SaveResult
 !------------------------------------------------------------------------------
@@ -1922,13 +2024,16 @@ CONTAINS
     LOGICAL, OPTIONAL :: Continuous
 !------------------------------------------------------------------------------
     TYPE(Variable_t),POINTER :: Var
-    CHARACTER(LEN=MAX_NAME_LEN) :: Row,Name
+    CHARACTER(LEN=MAX_NAME_LEN) :: Row,Name,FName
+    CHARACTER(LEN=512) :: Trash
     INTEGER ::i,j,k,n,Node,DOFs,SavedCount,Timestep,NSDOFs,nlen
+    INTEGER :: nNodes, Stat
 
     TYPE(Solver_t),   POINTER :: Solver
     TYPE(Variable_t), POINTER :: TimeVar, tStepVar
 
     LOGICAL :: RestartFileOpen = .FALSE., Cont
+    LOGICAL, SAVE :: Binary
 
     REAL(KIND=dp) :: Dummy,value,Time
     REAL(KIND=dp), POINTER :: Component(:)
@@ -1940,7 +2045,6 @@ CONTAINS
     CALL Info( 'LoadRestartFile',' ', Level = 3)
     CALL Info( 'LoadRestartFile','---------------------', Level=3 )
     CALL Info( 'LoadRestartFile','Start', Level = 3 )
-    CALL Info( 'LoadRestartFile',' ', Level = 3)
 
     Cont = .FALSE.
     IF ( PRESENT( Continuous ) ) Cont = Continuous
@@ -1948,17 +2052,12 @@ CONTAINS
     IF ( Cont .AND. RestartFileOpen ) GOTO 30
 
     IF ( INDEX( RestartFile, ':') == 0 .AND. RestartFile(1:1) /= '/' &
-                .AND. RestartFile(1:1) /= '\\' ) THEN
-
-      IF ( LEN_TRIM(OutputPath) > 0 ) THEN
-        OPEN( RestartUnit,File=TRIM(OutputPath) // '/' // TRIM(RestartFile), &
-                        STATUS='OLD',ERR=10 )
-      ELSE
-        OPEN( RestartUnit,File=TRIM(RestartFile),STATUS='OLD',ERR=10 )
-      END IF
+                .AND. RestartFile(1:1) /= '\\' .AND. LEN_TRIM(OutputPath) > 0 ) THEN
+      FName = TRIM(OutputPath) // '/' // TRIM(RestartFile)
     ELSE
-      OPEN( RestartUnit,File=TRIM(RestartFile),STATUS='OLD',ERR=10 )
+      FName = RestartFile
     END IF
+    OPEN( RestartUnit,File=TRIM(FName),STATUS='OLD',ERR=10 )
 
     GOTO 20
 
@@ -1969,6 +2068,16 @@ CONTAINS
 20  CONTINUE
 
     RestartFileOpen = .TRUE.
+
+    READ( RestartUnit, '(A)' ) Row
+    IF ( Row(3:8) == 'BINARY' ) THEN
+        Binary = .TRUE.
+        CALL Info( 'LoadRestartFile', 'Binary input', Level=3 )
+    ELSE
+        Binary = .FALSE.
+        CALL Info( 'LoadRestartFile', 'ASCII input', Level=3 )
+    END IF
+    CALL Info( 'LoadRestartFile',' ', Level = 3)
 
     DO WHILE( ReadAndTrim(RestartUnit,Row) )
       IF ( Row(1:18) == 'degrees of freedom' ) EXIT
@@ -2061,6 +2170,18 @@ CONTAINS
       END IF
     END DO
 
+    IF ( Binary ) THEN
+        ! Switch to binary reading
+        CLOSE( RestartUnit )
+        CALL BinOpen( RestartUnit,FName,"read" )
+        CALL BinReadString( RestartUnit,Trash ) ! Skip header; we read it already
+        CALL BinReadInt4( RestartUnit,nNodes )
+        IF ( nNodes /= Mesh % NumberOfNodes ) THEN
+          CALL Warn( 'LoadRestartFile','Wrong number of nodes in restart file,' )
+          CALL Warn( 'LoadRestartFile','this is not likely to work correctly.' )
+        END IF
+    END IF
+
 30  CONTINUE
 
 !------------------------------------------------------------------------------
@@ -2071,13 +2192,9 @@ CONTAINS
     n = 1
     IF ( Cont ) n = TimeCount
     DO WHILE( n <= TimeCount .OR. TimeCount == 0 )
-      DO WHILE( ReadAndTrim(RestartUnit,Row) )
-        IF ( Row(1:5) == 'time:' ) EXIT
-      END DO
+      CALL ReadTime( RestartUnit,SavedCount,Timestep,Time,Stat )
 
-      nlen = LEN_TRIM(row)
-
-      IF ( Row(1:5) /= 'time:' ) THEN
+      IF ( Stat /= 0 ) THEN
         IF ( TimeCount /= 0 ) THEN
           CALL Warn( 'LoadRestartFile','Did not find the the requested' )
           CALL Warn( 'LoadRestartFile','restart position from the restart file, using the last' )
@@ -2086,17 +2203,16 @@ CONTAINS
         EXIT
       END IF
 
-      READ( Row(7:),* ) SavedCount,Timestep,Time
       IF ( ASSOCIATED( TimeVar ) )  TimeVar % Values(1)  = Time
       IF ( ASSOCIATED( tStepVar ) ) tStepVar % Values(1) = Timestep
 
       DO i=1,DOFs
-        READ( RestartUnit,'(a)' ) Row
-        Var => VariableGet( Mesh % Variables,Row(1:nlen) )
+        CALL ReadVariableName( RestartUnit,Row )
+        Var => VariableGet( Mesh % Variables,Row )
 
         IF ( ASSOCIATED(Var) ) THEN
           DO j=1,Mesh % NumberOfNodes
-            READ(RestartUnit,*) Node,k,value
+            CALL ReadIntIntReal( RestartUnit,Node,k,value )
 
             IF ( .NOT. ASSOCIATED( Var % Perm ) ) THEN
                IF ( k > 0 ) Var % Values(k) = value
@@ -2115,7 +2231,11 @@ CONTAINS
     END DO
 !------------------------------------------------------------------------------
     IF ( .NOT. Cont ) THEN
-       CLOSE(RestartUnit)
+       IF ( Binary ) THEN
+         CALL BinClose( RestartUnit )
+       ELSE
+         CLOSE( RestartUnit )
+       END IF
        RestartFileOpen = .FALSE.
     END IF
     CALL Info( 'LoadRestartFile', 'Done', Level=3 )
@@ -2123,6 +2243,60 @@ CONTAINS
     CALL Info( 'LoadRestartFile', ' ', Level = 3 )
 
 CONTAINS
+
+  SUBROUTINE ReadIntIntReal( RestartUnit, i1, i2, r )
+    INTEGER, INTENT(IN) :: RestartUnit
+    INTEGER, INTENT(OUT) :: i1, i2
+    REAL(dp), INTENT(OUT) :: r
+
+    IF ( Binary ) THEN
+      CALL BinReadInt4( RestartUnit,i1 )
+      CALL BinReadInt4( RestartUnit,i2 )
+      CALL BinReadDouble( RestartUnit,r )
+    ELSE
+      READ( RestartUnit,* ) i1,i2,r
+    END IF
+  END SUBROUTINE ReadIntIntReal
+
+
+  SUBROUTINE ReadVariableName( RestartUnit,VarName )
+    INTEGER, INTENT(IN) :: RestartUnit
+    CHARACTER(*), INTENT(OUT) :: VarName
+
+    IF ( Binary ) THEN
+      CALL BinReadString( RestartUnit,VarName )
+    ELSE
+      READ( RestartUnit,'(a)' ) VarName
+    END IF
+  END SUBROUTINE ReadVariableName
+
+
+  SUBROUTINE ReadTime( RestartUnit,SavedCount,Timestep,Time,Stat )
+  ! Read SavedCount, Timestep and Time.  Stat is set to 0 for success, < 0 for
+  ! end-of-file, and > 0 for error.
+    INTEGER, INTENT(IN) :: RestartUnit
+    INTEGER, INTENT(OUT) :: SavedCount, Timestep
+    REAL(dp), INTENT(OUT) :: Time
+    INTEGER, INTENT(OUT) :: Stat
+    CHARACTER(80) :: String
+
+    IF ( Binary ) THEN
+      CALL BinReadString( RestartUnit, String, Stat )
+      IF (Stat /= 0) RETURN
+      CALL BinReadInt4( RestartUnit, SavedCount, Stat )
+      CALL BinReadInt4( RestartUnit, Timestep, Stat )
+      CALL BinReadDouble( RestartUnit, Time, Stat )
+    ELSE
+      DO WHILE( ReadAndTrim(RestartUnit,String) )
+        IF ( String(1:5) == 'time:' ) THEN
+          READ( String(7:),* ) SavedCount,Timestep,Time
+          Stat = 0
+          RETURN
+        END IF
+      END DO
+      Stat = -1
+    END IF
+  END SUBROUTINE ReadTime
 
 !------------------------------------------------------------------------------
   RECURSIVE SUBROUTINE InvalidateVariable( TopMesh,PrimaryMesh,Name )
