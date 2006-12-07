@@ -3,7 +3,104 @@
 
 \section{Introduction}
 
-\section{Theory}
+Numerical methods in linear algebra are usually intended for the solution of linear
+problems. However, there are many problems which are not linear in nature. The nonlinearity 
+may a intrinsic characteristics of the equation, such as is the case with intertial forces
+in the Navier-Stokes equation. The nonlinerity might also a result of nonlinear material parameters
+that depend on the solution. What ever the reason for nonlinearity the equations in Elmer are 
+always first linearized to the form
+\begin{equation}\label{ModelLinearSystem}
+A(u_{i-1})u_i = b(u_{i-1}),
+\end{equation}
+where $i$ refers to the iteration cycle. 
+
+How the equations are linearized varies from solver toanother. For example, in the Navier-Stokes 
+solver there are tow different methods -- the Picard linearization and the Newton linearization that 
+may be used. Also a hybrid scheme where the Picard type of scheme is switched to the 
+Newton kind of scheme when certain criteria are met is available. Therefore this section will
+not deal with the particular linearization technique of different solver but tries to 
+give some light to the generic keywords that are available. Some keywords may also be defined
+in the Models Manual related to particular solvers. 
+
+In multiphysical simulations there are also a number of keywords related to 
+the solution of coupled systems. Basically one may may define how many times a 
+system of equations is solved repeatedly at maximum and how what are the convergence
+criteria of the individual solvers that must be met simulataneously.
+
+
+\section{Keywords related to solution of nonlinear systems}
+
+These keywords are located in the Solver section of each solver, if requited at all.
+\sifbegin
+\sifitem{Nonlinear System Convergence Tolerance}{Real} 
+This keyword gives a criterion to
+terminate the nonlinear iteration after the relative change of the norm of the field variable
+between two consecutive iterations is small enough
+$$
+ ||u_i-u_{i-1}|| < \epsilon ||u_i||,
+$$
+where $\epsilon$ is the value given with this keyword.
+%
+\sifitem{Nonlinear System Max Iterations}{Integer}
+The maxmimum number of nonlinear iterations the
+solver is allowed to do.
+%
+\sifitem{Nonlinear System Newton After Iterations}{Integer} 
+Change the nonlinear solver type to
+Newton iteration after a number of Picard iterations have been performed. If a given
+convergence tolerance between two iterations is met before the iteration count is met,
+it will switch the iteration type instead. This applies only to some few solvers (as the Navier-Stokes)
+where different linearization strategies are available.
+%
+\sifitem{Nonlinear System Newton After Tolerance}{Real} 
+Change the nonlinear solver type to
+Newton iteration, if the relative change of the norm of the field variable meets a
+tolerance criterion:
+$$
+ ||u_i-u_{i-1}|| < \epsilon ||u_i||,
+$$
+where $\epsilon$ is the value given with this keyword.
+%
+\sifitem{Nonlinear System Relaxation Factor}{Real} 
+Giving this keyword triggers the use
+of  relaxation in the nonlinear equation solver.
+Using a factor below unity is sometimes required to achive convergence of the nonlinear system.
+Typical values range between 0.3 and unity. If one must use smaller values for the relaxation
+factor some other methods to boost up the convergence might be needed to improve the convergence.
+A factor above unity might rarely speed up the convergence. Relaxed variable is defined as follows:
+$$
+ u^{'}_i = \lambda u_i + (1-\lambda) u_{i-1},
+$$
+where $\lambda$ is the factor given with this keyword. The default value for the relaxation factor
+is unity. 
+%
+\sifitem{Steady State Convergence Tolerance}{Real}
+With this keyword a equation specific steady state or coupled system
+convergence tolerance is given.
+All the active equation solvers must meet their own tolerances before the 
+whole system is deemed converged.
+The tolerance criterion is:
+$$
+ ||u_i-u_{i-1}|| < \epsilon ||u_i||,
+$$
+where $\epsilon$ is the value given with this keyword.
+\sifend 
+These keywords are located in the \texttt{Simulation} section
+of the command file.
+\sifbegin
+\sifitem{Steady State Max Iterations}{Integer}
+The maximum number of coupled system iterations. For steady state analysis this means
+it litelarly, for transient analysis this is the maximum number of iterations within each timestep.
+\sifitem{Steady State Min Iterations}{Integer}
+Sometimes the coupling is such that nontrivial solutions are obtained only after some basic
+cycle is repeated. Therefore the user may sometimes need to set also the minimum number of
+iterations. Sometimes the steady state loop is also used in a dirty way to do some 
+systematic procedures -- for example computing the capacitance matrix, or lumped elastic springs.
+Then this value may be set to an a priori known constant value.
+\sifend
+
+
+
 
 \bibliography{elmerbib}
 \bibliographystyle{plain}
