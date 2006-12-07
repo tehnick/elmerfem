@@ -2094,10 +2094,9 @@ int LoadFemlabMesh(struct FemType *data,struct BoundaryType *bound,
 
   fclose(in);
 
-  printf("Femlab (%d-dim) file has %d %d-node elements, %d nodes and %d sides.\n",
+  printf("Femlab %dD file has %d %d-node elements, %d nodes and %d sides.\n",
 	 dim,noelements,nonodes,noknots,nosides);
   
-
   sprintf(filename,"%s.node",prefix);
   if ((in = fopen(filename,"r")) == NULL) {
     printf("LoadFemlabInput: The opening of the nodes-file %s failed!\n",
@@ -2136,7 +2135,6 @@ int LoadFemlabMesh(struct FemType *data,struct BoundaryType *bound,
     data->z[i] = z;
   }
   fclose(in);
-
 
 
   sprintf(filename,"%s.elem",prefix);

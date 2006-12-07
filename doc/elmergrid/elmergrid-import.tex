@@ -1,5 +1,11 @@
 \chapter{ElmerGrid Interface Examples}
 
+ElmerGrid understands a number of different mesh formats which 
+enables the import from meshes created by other mesh generators into
+the Elmer solution cycle. Supported formats includes those by Ansys (separate macro), 
+Abaqus, Gambit (FDNET), Comsol Multiphysics, Fieldview, Triangle, 
+Medit, Gsmh, and GiD.
+
 \section{Ansys mesh to Elmer}
 
 The APDL macros and the following documentation have been written
@@ -81,25 +87,25 @@ for the node separation.
 \end{figure}
 
 
-\section{Comsol Multiphysics (Femlab) mesh to Elmer}
+\section{Comsol Multiphysics to Elmer}
 
 Comsol Multiphysics is a widely used finite element tool with highly 
 automated mesh generation. Previously the software was known as Femlab. 
-There are two different strategies depending whether one uses the old or new
-version. 
-The ElmerGrid utility tries first to apply the Comsol Multiphysics strategy and then
-uses the older Matlab version. 
-
-
-\subsection{Comsol Multiphysics with pmhtxt-export}
-
 In the older versions of Comsol Multiphysics/Femlab there 
 wasn't any export format that would have included the boundary definitions. 
 However, since version 3.2 of Comsol Multiphysics there 
-is a suitable export format that may be directly used to export meshes in Elmer. 
+is a suitable export format that may be directly used to export meshes in Elmer 
+-- the mphtxt format. 
 The ElmerGrid program 
 understands a sufficient subset of the commands in mphtxt-file of 
 Comsol multiphysics. 
+
+%There are two different strategies depending whether one uses the old or new
+%version. 
+%The ElmerGrid utility tries first to apply the Comsol Multiphysics strategy and then
+%uses the older Matlab version. 
+
+%\subsection{Comsol Multiphysics with pmhtxt-export}
 
 The procedure for importing meshes to Elmer is
 \begin{itemize}
@@ -108,50 +114,54 @@ The procedure for importing meshes to Elmer is
    \item Select the export format \\ \texttt{``COMSOL Multiphysics text file'' (mphtxt)}
    \item Give the mesh a file name, e.g. \texttt{mymesh} and you obtain the 
     file \texttt{mymesh.mphtxt}
-  \item Call then ElmerGrid with the following command line options \\
+  \item Call then ElmerGrid with the following command line options to obtain E
+ElmerSolver mesh file format \\
     \texttt{ElmerGrid 9 2 mymesh.mphtxt}
+  \item And with the following options to obtain ElmerPost result format \\
+    \texttt{ElmerGrid 9 3 mymesh.mphtxt}
 \end{itemize}
-As a result you get a directory \texttt{mymesh} which may be used in Elmer 
-computations. The utility should be backward compatible for some time.
+%As a result you get a directory \texttt{mymesh} which may be used in Elmer 
+%computations. 
+%The utility should be backward compatible for some time.
 
 
-\subsection{Femlab version bundled with Matlab}
+%\subsection{Femlab version bundled with Matlab}
 
-The original version of Femlab was bundled with 
-Matlab and therefore a natural approach to export results from Femlab was 
-to use a .m script that provided all the necessary information. 
-The mesh export strategy is applicable for 2D and 3D meshes consisting
-of triangles, and for 3D tetrahedral meshes. It is not possible to
-combine volume and surface meshes unless the surface is part of the
-volume mesh. The needed export utility for Femlab/Matlab is obtained from
-the Elmer download page
+%The original version of Femlab was bundled with 
+%Matlab and therefore a natural approach to export results from Femlab was 
+%to use a .m script that provided all the necessary information. 
+%The mesh export strategy is applicable for 2D and 3D meshes consisting
+%of triangles, and for 3D tetrahedral meshes. It is not possible to
+%combine volume and surface meshes unless the surface is part of the
+%volume mesh. The needed export utility for Femlab/Matlab is obtained from
+%the Elmer download page
 
-The export is performed in following steps:
-\begin{enumerate}
-\item When you have created a mesh in Femlab choose \texttt{Export to
-Workspace} and thereafter \texttt{Mesh}. The suggested name is \texttt{mesh}, but that
-may be changed.  
+%The export is performed in following steps:
+%\begin{enumerate}
+%\item When you have created a mesh in Femlab choose \texttt{Export to
+%Workspace} and thereafter \texttt{Mesh}. The suggested name is \texttt{mesh}, but that
+%may be changed.  
 %
-\item Then go to Matlab and run the provided 
-command-file \texttt{savemesh.m}. The only parameter is the name of the mesh
-data, e.g. \texttt{savemesh(mesh)}. This command then creates files \\
-FemlabMesh.header: information of vector sizes  \\
-FemlabMesh.node: node coordinates  \\
-FemlabMesh.elem: element topologies  \\
-FemlabMesh.boundary: boundary side definitions  
+%\item Then go to Matlab and run the provided 
+%command-file \texttt{savemesh.m}. The only parameter is the name of the mesh
+%data, e.g. \texttt{savemesh(mesh)}. This command then creates files \\
+%FemlabMesh.header: information of vector sizes  \\
+%FemlabMesh.node: node coordinates  \\
+%FemlabMesh.elem: element topologies  \\
+%FemlabMesh.boundary: boundary side definitions  
 %
-\item To transform the mesh for a format known by
-Elmer use ElmerGrid. The flag for Femlab export format is 9. Use the
-following commands:  \\
-\texttt{ElmerGrid 9 2 meshname}: for making mesh files
-usable by ElmerFront and ElmerSolver  \\ 
-\texttt{ElmerGrid 9 3 meshname}: For viewing the mesh with ElmerPost  
-You may also use many ElmerGrid
-options, such as \texttt{-order real[3]} 
-where the vector orders the nodes to
-decrease the matrix bandwidth, e.g. \texttt{ElmerGrid 9 2 meshname -out outname
--order 1.0 2.0 3.0}
-\end{enumerate}
+%\item To transform the mesh for a format known by
+%Elmer use ElmerGrid. The flag for Femlab export format is 9. Use the
+%following commands:  \\
+%\texttt{ElmerGrid 9 2 meshname}: for making mesh files
+%usable by ElmerFront and ElmerSolver  \\ 
+%\texttt{ElmerGrid 9 3 meshname}: For viewing the mesh with ElmerPost  
+%You may also use many ElmerGrid
+%options, such as \texttt{-order real[3]} 
+%where the vector orders the nodes to
+%decrease the matrix bandwidth, e.g. \texttt{ElmerGrid 9 2 meshname -out outname
+%-order 1.0 2.0 3.0}
+%\end{enumerate}
 
 \begin{figure}
 \begin{center}

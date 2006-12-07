@@ -21,9 +21,9 @@ The first parameter defines the input file format:
 4)  .ansys    : Ansys input format
 5)  .inp      : Abaqus input format by Ideas
 6)  .fil      : Abaqus output format
-7)  .FDNEUT   : Fidap neutral file
+7)  .FDNEUT   : Gambit (Fidap) neutral file
 8)  .d        : Easymesh input format
-9)  .mphtxt   : Comsol Multiphysics (was Femlab) mesh format
+9)  .mphtxt   : Comsol Multiphysics mesh format
 10) .dat      : Fieldview format
 11) .node,.ele: Triangle 2D mesh format
 12) .mesh     : Medit mesh format
@@ -59,23 +59,25 @@ taken into account only when applicable to the given format.
 -cylinder            : map 2D/3D cylindrical mesh to a cartesian mesh
 -reduce int[2]       : reduce element order at material interval [int1 int2]
 -increase            : increase element order from one to two
--pelem int[3]        : p-elements of power int3 at interval [int1 int2]
--belem int[3]        : set bubble dofs to int3 at interval [int1 int2]
 -partition int[3]    : the mesh will be partitioned in main directions
 -partorder real[3]   : in the above method, the direction of the ordering
 -metis int           : the mesh will be partitioned with Metis
--periodic int[3]     : declere the periodic coordinate directions
+-periodic int[3]     : decleare the periodic coordinate directions
 -bcoffset int        : add an offset to the boundary conditions
 -discont int         : make the boundary to have secondary nodes
+-removelowdim        : remove boundaries that are two ranks lower than highest dim
+-bulkorder           : renumber materials types from 1 so that every number is used
+-boundorder          : renumber boundary types from 1 so that every number is used
+-autoclean           : this performs the united action of the three above
 -bulkbound int[3]    : set the union of materials [int1 int2] to be boundary int3
 -boundbound int[3]   : set the union of boundaries [int1 int2] to be boundary int3
 -bulktype int[3]     : set material types in interval [int1 int2] to type int3
 -boundtype int[3]    : set sidetypes in interval [int1 int2] to type int3
 -layer int[2] real[2]: make a boundary layer for given boundary
 -layermove int       : apply Jacobi filter int times to move the layered mesh
--3d / -2d / -1d      : mesh is 3, 2 or 1-dimensional
+-3d / -2d / -1d      : mesh is 3, 2 or 1-dimensional (applies to examples)
 -isoparam            : ensure that higher order elements are convex
--nobound             : disable saving of boundary elements
+-nobound             : disable saving of boundary elements in ElmerPost format
 
 Thank you for using Elmergrid!
 Send bug reports and feature wishes to peter.raback@csc.fi

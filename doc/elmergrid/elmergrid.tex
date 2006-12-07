@@ -281,14 +281,14 @@ Increase the element order in all the elements from one to two.
 This may be used to improve computational accuracy of existing 
 linear meshes by making the quadratic.
 %
-\sifitem{-pelem}{Integer[3]}
-ElmerGrid usually assumes elements of Lagrange type where 
-the element degree is increased by introducing intermediate nodes
-in the element. The other option is just to use a higher polynomial basis
-with the existing nodes -- the p-elements. 
-This option is used to make p-elements for materials at the interval given by
-the first two parameters. The desired power is given by the third parameter.
-The p-elements are only seen in the Elmer mesh -format.
+%\sifitem{-pelem}{Integer[3]}
+%ElmerGrid usually assumes elements of Lagrange type where 
+%the element degree is increased by introducing intermediate nodes
+%in the element. The other option is just to use a higher polynomial basis
+%with the existing nodes -- the p-elements. 
+%This option is used to make p-elements for materials at the interval given by
+%the first two parameters. The desired power is given by the third parameter.
+%The p-elements are only seen in the Elmer mesh -format.
 %
 \sifitem{-partition}{Integer[DIM]} 
 There are two methods to partition geometry for parallel computing. This
@@ -333,12 +333,34 @@ account in saving and partitioning the mesh.
 The determination of the periodic nodes only works when there is one-to-one mapping
 between the nodes on the boundaries. 
 %
+\sifitem{-bcoffset}{Integer}
+Adds on offset to the boundary condition numbering. This may be usefull for multimesh
+computations where it is advisable that the same boundary numbers are not defined in 
+different meshes. 
+%
 \sifitem{-discont}{Integer}
 Sometimes the field variables behave discontinuously over a short distance.
 For example, in solving the heat equation there may be a small gap between
 different bodies. To account for such discontinuities the mesh should
 have duplicate nodes over the discontinuity. This feature does exactly that
 and saves the boundary conditions for both sides.
+%
+\sifitem{-removelowdim}{}
+Removes boundary elements that are two or more dimensions lower than the 
+highest dimensional bulk elements. 
+%
+\sifitem{-bulkorder}{}
+Renumbers the body indexes so that every number is used. This feature may be handy 
+particularly when importing meshes that have a very wild numbering of bodies.
+%
+\sifitem{-boundorder}{}
+Renumbers the boundary element types so that every number is used. This feature may be handy 
+particularly when importing meshes that have a very wild numbering of boundary elements types.
+%
+\sifitem{-autoclean}{}
+This flag activates several of the above procedures that simplifies the mesh
+for solution purposes. The lower dimensional boundary elements are removed, 
+and the body and boundary element types are renumbered.
 %
 \sifitem{-bulkbound}{Integer[3]}
 Sometimes the geometry does not include all the necessary boundary conditions. 
@@ -392,9 +414,6 @@ Disable the saving of boundary elements.
 This may sometimes be useful if there are a lot of boundaries and one is just interested 
 in the bulk elements.
 
-%
-%\sifitem{-sidefind int[]} \\
-%
 \sifend
 
 
