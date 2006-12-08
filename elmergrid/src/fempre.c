@@ -1457,10 +1457,9 @@ int main(int argc, char *argv[])
     }
   }
 
-  for(k=0;k<nomeshes;k++) {
+  for(k=0;k<nomeshes;k++) 
     for(i=1;i<=eg.connect;i++) 
       SetConnectedBoundary(&(data[k]),boundaries[k],eg.connectbounds[i-1],i,info);
-  }
   
   for(k=0;k<nomeshes;k++) {
     if(nogrids && (eg.triangles || grids[k].triangles == TRUE))
@@ -1586,15 +1585,12 @@ int main(int argc, char *argv[])
   }
  
   for(k=0;k<nomeshes;k++) {
-    if(eg.merge) {
+    if(eg.merge) 
       MergeElements(&data[k],boundaries[k],eg.order,eg.corder,eg.cmerge,FALSE,TRUE);
-    }
-    else if(eg.order) {
+    else if(eg.order) 
       ReorderElements(&data[k],boundaries[k],eg.order,eg.corder,TRUE);
-    }
-    if(eg.isoparam) {
+    if(eg.isoparam) 
       IsoparametricElements(&data[k],boundaries[k],TRUE,info);
-    }
   }  
 
   for(k=0;k<nomeshes;k++) 
@@ -1637,12 +1633,11 @@ int main(int argc, char *argv[])
     }
   }
 
-  for(k=0;k<nomeshes;k++) {
+  for(k=0;k<nomeshes;k++) 
     RotateTranslateScale(&data[k],&eg);
-  }
 
   if(eg.removelowdim) 
-    for(k=0;k<nomeshes;k++) 
+    for(k=0;k<nomeshes;k++)
       RemoveLowerDimensionalBoundaries(&data[k],boundaries[k],info);
 
   if(eg.boundorder) 

@@ -3434,8 +3434,7 @@ allocate:
   }
 
   ElementsToBoundaryConditions(data,bound,info);
-  if(0) ReorderTypes(data,bound,info);
- 
+
   printf("Succesfully read the mesh from the Gmsh input file.\n");
 
   return(0);

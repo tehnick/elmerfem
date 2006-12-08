@@ -200,7 +200,7 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int inf
     if ((in[i] = fopen(filename,"r")) == NULL) break;
 
     if(i > MAXPAR) {
-      printf("There are some static data that limit the size of partitions to %d\m",MAXPAR);
+      printf("There are some static data that limit the size of partitions to %d\n",MAXPAR);
       return(1);
     }
   }
@@ -770,8 +770,8 @@ int SaveElmerInput(struct FemType *data,
    */
 #define MAXELEMENTTYPE 827
 {
-  int noknots,noelements,sumsides,elemtype,fail;
-  int sideelemtype,conelemtype,nodesd1,nodesd2;
+  int noknots,noelements,sumsides,elemtype,fail,connodes;
+  int sideelemtype,conelemtype,nodesd1,nodesd2,newtype;
   int i,j,k,l,bulktypes[MAXELEMENTTYPE+1],sidetypes[MAXELEMENTTYPE+1];
   int alltypes[MAXELEMENTTYPE+1],tottypes;
   int ind[MAXNODESD1],ind2[MAXNODESD1];
@@ -823,21 +823,34 @@ int SaveElmerInput(struct FemType *data,
     printf("opening of file was not successful\n");
     return(2);
   }
+
+  if(data->connectexist) {
+    connodes = 0;
+    for(i=1;i<=data->noknots;i++) 
+      connodes = MAX( connodes, data->connect[i]);
+    if(info) printf("Creating %d new nodes for connectivity conditions\n",connodes);
+  }
   
   if(data->dim == 1) {
     sprintf(outstyle,"%%d %%d %%.%dlg 0.0 0.0\n",decimals);
     for(i=1; i <= noknots; i++) 
-      fprintf(out,outstyle,i,-1,data->x[i],data->y[i]);
+      fprintf(out,outstyle,i,-1,data->x[i]);
+    for(i=1; i <= connodes; i++) 
+      fprintf(out,outstyle,i,-1,data->x[1]);
   }
   if(data->dim == 2) {
     sprintf(outstyle,"%%d %%d %%.%dlg %%.%dlg 0.0\n",decimals,decimals);
     for(i=1; i <= noknots; i++) 
       fprintf(out,outstyle,i,-1,data->x[i],data->y[i]);
+    for(i=1; i <= connodes; i++) 
+      fprintf(out,outstyle,i,-1,data->x[1],data->y[1]);
   }
   else if(data->dim == 3) {
     sprintf(outstyle,"%%d %%d %%.%dlg %%.%dlg %%.%dlg\n",decimals,decimals,decimals);
     for(i=1; i <= noknots; i++) 
       fprintf(out,outstyle,i,-1,data->x[i],data->y[i],data->z[i]);    
+    for(i=1; i <= connodes; i++) 
+      fprintf(out,outstyle,i,-1,data->x[1],data->y[1],data->z[1]);    
   }
 
   fclose(out);
@@ -900,15 +913,15 @@ int SaveElmerInput(struct FemType *data,
   for(j=0;j < MAXBOUNDARIES;j++) {
     if(bound[j].created == FALSE) continue;
     if(bound[j].nosides == 0) continue;
-
+    
     for(i=1; i <= bound[j].nosides; i++) {
       GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],data,ind,&sideelemtype); 
       sumsides++;
-
+      
       fprintf(out,"%d %d %d %d ",
 	      sumsides,bound[j].types[i],bound[j].parent[i],bound[j].parent2[i]);
       fprintf(out,"%d",sideelemtype);
-
+      
       sidetypes[sideelemtype] += 1;
       nodesd1 = sideelemtype%100;
       for(l=0;l<nodesd1;l++)
@@ -916,13 +929,13 @@ int SaveElmerInput(struct FemType *data,
       fprintf(out,"\n");
     }
   }
-
+  
   /* Save Discontinuous boundaries */
   for(j=0;j < MAXBOUNDARIES;j++) {
     if(bound[j].created == FALSE) continue;
     if(bound[j].nosides == 0) continue;
     if(!bound[j].ediscont) continue;
-
+    
     for(i=1; i <= bound[j].nosides; i++) {
       if(!bound[j].parent2[i] || !bound[j].discont[i]) continue;
       
@@ -947,8 +960,7 @@ int SaveElmerInput(struct FemType *data,
       sidetypes[conelemtype] += nodesd1;	
       
       for(k=0;k<nodesd1;k++) {
-	fprintf(out,"%d 0 0 0 %d ",sumsides,conelemtype);
-	fprintf(out,"%d ",ind[k]);
+	fprintf(out,"%d 0 0 0 %d %d ",sumsides,conelemtype,ind[k]);
 	for(l=0;l<nodesd1;l++)
 	  fprintf(out,"%d ",ind2[l]);
 	fprintf(out,"\n");      
@@ -957,81 +969,75 @@ int SaveElmerInput(struct FemType *data,
   }
 
 
+  newtype = 0;
+  for(j=0;j < MAXBOUNDARIES;j++) 
+    for(i=1; i <= bound[j].nosides; i++) 
+      newtype = MAX(newtype, bound[j].types[i]);
+
+  
   if(data->periodicexist) {
-    int *indxper,periodictype;
-    indxper = data->periodic;
-
-    periodictype = 0;
-    for(j=0;j < MAXBOUNDARIES;j++) 
-      for(i=1; i <= bound[j].nosides; i++) 
-	if(bound[j].types[i] > periodictype) periodictype = bound[j].types[i];
-    periodictype++;
-
+    newtype++;
     k = 0;
  
     for(i=1; i <= data->noknots; i++) {
-      j = indxper[i];      
+      j = data->periodic[i];      
 
       if(i != j) {
 	k++;
 	sumsides++;
 	sideelemtype = 102;
 	fprintf(out,"%d %d %d %d %d %d %d\n",
-		sumsides,periodictype,0,0,sideelemtype,i,j);
+		sumsides,newtype,0,0,sideelemtype,i,j);
 	sidetypes[sideelemtype] += 1;
       }
     }
     if(info) printf("Added %d periodic boundary conditions to boundary %d and elementtype 102.\n",
-		    k,periodictype);
+		    k,newtype);
   }
 
 
 
   if(data->connectexist) {
-    int *connect,connecttype,newsides,count;
+    int *connect,newsides,newline,count;
     connect = data->connect;
     
-    connecttype = 0;
-    for(j=0;j < MAXBOUNDARIES;j++) 
-      for(i=1; i <= bound[j].nosides; i++) 
-	connecttype = MAX( connecttype, bound[j].types[i] );
-	  
     for(k=1;;k++) {
       newsides = 0;
-      for(i=1; i <= data->noknots; i++) {
-	if(j == k) newsides++;
-      }
+      for(i=1; i <= data->noknots; i++) 
+	if(connect[i] == k) newsides++;
       if(newsides == 0) break;
 
-      connecttype++;      
+      newtype++;      
       count = 0;
 
-      if(info) printf("Adding %d connections to boundary condition %d\n",newsides,connecttype);
-      
+      if(info) printf("Adding %d connections to boundary condition %d\n",newsides,newtype);
+      newline = sumsides;
+
       for(i=1; i <= data->noknots; i++) {
-	if(j != k) continue;
+	if(connect[i] != k) continue;
 
 	if(count == 0) {
+	  if(newline != sumsides) fprintf(out,"\n");
+	  newline = sumsides;
 	  sumsides++;
 	  count = MIN(63,newsides);	  
 	  sideelemtype = 100 + count + 1;
 	  sidetypes[sideelemtype] += 1;
 	  fprintf(out,"%d %d %d %d %d %d",
-		sumsides,connecttype,0,0,sideelemtype,data->noknots+k);
+		  sumsides,newtype,0,0,sideelemtype,data->noknots+k);
 	  
-	  if(info) printf("Added %d connection boundary conditions to boundary %d and elementtype %d.\n",
-			  k,connecttype,sideelemtype);
+	  if(0) printf("Added %d connection boundary conditions to boundary %d and elementtype %d.\n",
+			  k,newtype,sideelemtype);
 	  
 	}	
 
-	fprintf(" %d",i);
+	fprintf(out," %d",i);
 	newsides--;
 	count--;       
       }
+      fprintf(out,"\n");
     }
   }
-
-
 
   fclose(out);
 
@@ -1049,7 +1055,7 @@ int SaveElmerInput(struct FemType *data,
     return(4);
   }
   fprintf(out,"%-6d %-6d %-6d\n",
-	  noknots,noelements,sumsides);
+	  noknots+connodes,noelements,sumsides);
   fprintf(out,"%-6d\n",tottypes);
   for(i=0;i<=MAXELEMENTTYPE;i++) {
     if(alltypes[i]) 
@@ -2438,7 +2444,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     return(2);
   }
   if(partitions > MAXPAR) {
-    printf("There are some static data that limit the size of partitions to %d\m",MAXPAR);
+    printf("There are some static data that limit the size of partitions to %d\n",MAXPAR);
     return(3);
   }
 
