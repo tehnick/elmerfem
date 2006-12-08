@@ -38,7 +38,7 @@
 ! *
 ! ******************************************************************************/
 ! *
-! * $Id: ElementUtils.src,v 1.13 2006/10/06 06:38:06 jpr Exp $
+! * $Id: ElementUtils.src,v 1.14 2006/10/06 10:37:37 jpr Exp $
 ! ******************************************************************************
 
 MODULE ElementUtils
@@ -332,19 +332,19 @@ CONTAINS
 
       DO i=Mesh % NumberOfBulkElements+1, Mesh % NumberOfBulkElements+ &
                      Mesh % NumberOfBoundaryElements
-         IF ( Mesh % Elements(i) % Type % ElementCode <  102 .OR. &
-              Mesh % Elements(i) % Type % ElementCode >= 200 ) CYCLE
+        IF ( Mesh % Elements(i) % Type % ElementCode <  102 .OR. &
+             Mesh % Elements(i) % Type % ElementCode >= 200 ) CYCLE
 
-         DO j=1,Mesh % Elements(i) % Type % NumberOFNodes
-         DO k=1,Mesh % Elements(i) % Type % NumberOFNodes
-           k1 = Reorder( Mesh % Elements(i) % NodeIndexes(j) )
-           k2 = Reorder( Mesh % Elements(i) % NodeIndexes(k) )
-           IF ( k1 > 0 .AND. k2 > 0 ) THEN
+        k1 = Reorder( Mesh % Elements(i) % NodeIndexes(j) )
+        IF ( k1 > 0 ) THEN
+          DO k=1,Mesh % Elements(i) % Type % NumberOFNodes
+            k2 = Reorder( Mesh % Elements(i) % NodeIndexes(k) )
+            IF ( k2 > 0 ) THEN
               CALL MakeListMatrixIndex( ListMatrix,k1,k2 )
               CALL MakeListMatrixIndex( ListMatrix,k2,k1 )
-           END IF
-         END DO
-         END DO
+            END IF
+          END DO
+        END IF
       END DO
 
 !------------------------------------------------------------------------------
