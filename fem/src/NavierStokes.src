@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: NavierStokes.src,v $
+! * Revision 1.17  2006/12/08 08:49:12  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.16  2006/11/27 10:23:57  jpr
 ! * Removed some execess (unrelated) use of TRIM & POINTER.
 ! *
@@ -93,7 +96,7 @@
 ! * Added divergence form discretization of the diffusion term.
 ! *
 ! *
-! * $Id: NavierStokes.src,v 1.16 2006/11/27 10:23:57 jpr Exp $
+! * $Id: NavierStokes.src,v 1.17 2006/12/08 08:49:12 jpr Exp $
 ! *****************************************************************************/
 
 MODULE NavierStokes
@@ -1060,6 +1063,11 @@ MODULE NavierStokes
 
    TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
 
+   INTERFACE
+     SUBROUTINE SOLVE_UFRIC(DENSIT,VISCOS,DIST,ROUGH,UT,UFRIC,DFX)
+         DOUBLE PRECISION :: Densit, Viscos,Dist, Rough, Ut, Ufric, DFX
+     END SUBROUTINE SOLVE_UFRIC
+   END INTERFACE
 !------------------------------------------------------------------------------
 
    dim = CoordinateSystemDimension()
@@ -1107,12 +1115,12 @@ MODULE NavierStokes
 !------------------------------------------------------------------------------
      Normal = NormalVector( Element,Nodes,u,v,.FALSE. )
  
-     Tangent2 = 0.0_dp
      IF ( dim <= 2 ) THEN
        Tangent(1) = -Normal(2)
        Tangent(2) =  Normal(1)
        Tangent(3) =  0.0d0
      ELSE
+print*,'eh 0'
         CALL TangentDirections( Normal, Tangent, Tangent2 ) 
      END IF
 
@@ -1137,14 +1145,20 @@ MODULE NavierStokes
 !    Solve friction velocity and its derivative with respect to
 !    the tangential velocity:
 !------------------------------------------------------------------------------
-     CALL Solve_UFric( Density,Viscosity,Dist,Roughness, &
-          TangentialVelocity(1),FrictionVelocity(1),DFX(1) )
-     DKERR(1) = 2.0d0 * Density * FrictionVelocity(1) / DFX(1)
+     FrictionVelocity=0
+     DKERR=0
+     IF ( TangentialVelocity(1) > 0 ) THEN
+       CALL Solve_UFric( Density,Viscosity,Dist,Roughness, &
+            TangentialVelocity(1),FrictionVelocity(1),DFX(1) )
+       DKERR(1) = 2.0d0 * Density * FrictionVelocity(1) / DFX(1)
+     END IF
 
      IF ( dim==3 ) THEN
-        CALL Solve_UFric( Density,Viscosity,Dist,Roughness, &
-          TangentialVelocity(2),FrictionVelocity(2),DFX(2) )
-        DKERR(2) = 2.0d0 * Density * FrictionVelocity(2) / DFX(2)
+        IF ( TangentialVelocity(2) > 0 ) THEN
+          CALL Solve_UFric( Density,Viscosity,Dist,Roughness, &
+            TangentialVelocity(2),FrictionVelocity(2),DFX(2) )
+          DKERR(2) = 2.0d0 * Density * FrictionVelocity(2) / DFX(2)
+        END IF
      END IF
 !------------------------------------------------------------------------------
      DO p=1,n
