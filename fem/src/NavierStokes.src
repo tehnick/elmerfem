@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: NavierStokes.src,v $
+! * Revision 1.16  2006/11/27 10:23:57  jpr
+! * Removed some execess (unrelated) use of TRIM & POINTER.
+! *
 ! * Revision 1.10  2006/02/13 06:59:04  jpr
 ! * Use linear basis also for mass in the continuity equation when doing
 ! * the P2/P1 scheme.
@@ -90,7 +93,7 @@
 ! * Added divergence form discretization of the diffusion term.
 ! *
 ! *
-! * $Id: NavierStokes.src,v 1.15 2006/10/13 06:04:48 jpr Exp $
+! * $Id: NavierStokes.src,v 1.16 2006/11/27 10:23:57 jpr Exp $
 ! *****************************************************************************/
 
 MODULE NavierStokes
@@ -1047,11 +1050,11 @@ MODULE NavierStokes
    REAL(KIND=dp) :: detJ
 
    REAL(KIND=dp) :: u,v,w,s,r,Density,Viscosity,Dist,Roughness
-   REAL(KIND=dp) :: Velo(3),Normal(3),Tangent(3)
-   REAL(KIND=dp) :: TangentialVelocity,FrictionVelocity,DFX,DKERR
+   REAL(KIND=dp) :: Velo(3),Normal(3),Tangent(3), Tangent2(3)
+   REAL(KIND=dp) :: TangentialVelocity(2), FrictionVelocity(2),DFX(2),DKERR(2)
    REAL(KIND=dp), POINTER :: U_Integ(:),V_Integ(:),W_Integ(:),S_Integ(:)
 
-   INTEGER :: i,j,k1,k2,t,q,p,c,DIM,N_Integ
+   INTEGER :: i,j,k1,k2,t,q,p,c,dim,N_Integ
 
    LOGICAL :: stat
 
@@ -1059,8 +1062,8 @@ MODULE NavierStokes
 
 !------------------------------------------------------------------------------
 
-   DIM = CoordinateSystemDimension()
-   c = DIM + 1
+   dim = CoordinateSystemDimension()
+   c = dim + 1
 
 !------------------------------------------------------------------------------
 !  Integration stuff
@@ -1084,114 +1087,97 @@ MODULE NavierStokes
 !    Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
      stat = ElementInfo( Element,Nodes,u,v,w,detJ, &
-           Basis,dBasisdx,ddBasisddx,.FALSE. )
+           Basis,dBasisdx )
 
      s = detJ * S_Integ(t)
 !------------------------------------------------------------------------------
 !    Density and viscosity at integration point
 !------------------------------------------------------------------------------
-     Density   = SUM( NodalDensity(1:n)*Basis )
-     Viscosity = SUM( NodalViscosity(1:n)*Basis )
+     Density   = SUM( NodalDensity(1:n)*Basis(1:n) )
+     Viscosity = SUM( NodalViscosity(1:n)*Basis(1:n) )
 !------------------------------------------------------------------------------
 !    Velocity from previous iteration at the integration point
 !------------------------------------------------------------------------------
      Velo = 0.0d0
-     Velo(1) = SUM( Ux(1:n)*Basis )
-     Velo(2) = SUM( Uy(1:n)*Basis )
-     IF ( DIM > 2 ) Velo(3) = SUM( Uz(1:n)*Basis )
+     Velo(1) = SUM( Ux(1:n)*Basis(1:n) )
+     Velo(2) = SUM( Uy(1:n)*Basis(1:n) )
+     IF ( dim > 2 ) Velo(3) = SUM( Uz(1:n)*Basis(1:n) )
 !------------------------------------------------------------------------------
 !    Normal & tangent directions
 !------------------------------------------------------------------------------
      Normal = NormalVector( Element,Nodes,u,v,.FALSE. )
  
-     IF ( DIM <= 2 ) THEN
-
+     Tangent2 = 0.0_dp
+     IF ( dim <= 2 ) THEN
        Tangent(1) = -Normal(2)
        Tangent(2) =  Normal(1)
        Tangent(3) =  0.0d0
-
      ELSE
-!------------------------------------------------------------------------------
-!       In 3D take tangent direction, that is perpendicular to normal (of
-!       course) and the most like the velocity vector.
-!------------------------------------------------------------------------------
-        Tangent = Velo
-        r  = SUM( Tangent(1:DIM) * Normal(1:DIM) )
-
-        IF ( ABS(Normal(1)) > ABS(Normal(2)) .AND. &
-             ABS(Normal(1)) > ABS(Normal(3)) ) THEN
-          Tangent(1) = Tangent(1) - r / Normal(1)
-        ELSE IF ( ABS(Normal(2)) > ABS(Normal(3)) ) THEN
-          Tangent(2) = Tangent(2) - r / Normal(2)
-        ELSE
-          Tangent(3) = Tangent(3) - r / Normal(3)
-        END IF
+        CALL TangentDirections( Normal, Tangent, Tangent2 ) 
      END IF
 
-     TangentialVelocity = SUM( Velo(1:DIM) * Tangent(1:DIM) )
-
-     IF ( ABS(TangentialVelocity) < AEPS ) CYCLE
-
-     IF ( TangentialVelocity < 0 ) THEN
+     TangentialVelocity(1) = SUM( Velo(1:dim) * Tangent(1:dim) )
+     IF ( TangentialVelocity(1) < 0 ) THEN
        Tangent = -Tangent
-       TangentialVelocity = -TangentialVelocity
+       TangentialVelocity(1) = -TangentialVelocity(1)
      END IF
 
-     Dist = SUM( LayerThickness(1:n) * Basis )
-     Roughness = SUM( SurfaceRoughness(1:n) * Basis )
+     IF ( dim==3 ) THEN
+       TangentialVelocity(2) = SUM( Velo(1:dim) * Tangent2(1:dim) )
+       IF ( TangentialVelocity(2) < 0 ) THEN
+         Tangent2 = -Tangent2
+         TangentialVelocity(2) = -TangentialVelocity(2)
+       END IF
+     END IF
+
+     Dist = SUM( LayerThickness(1:n) * Basis(1:n) )
+     Roughness = SUM( SurfaceRoughness(1:n) * Basis(1:n) )
 
 !------------------------------------------------------------------------------
 !    Solve friction velocity and its derivative with respect to
 !    the tangential velocity:
 !------------------------------------------------------------------------------
      CALL Solve_UFric( Density,Viscosity,Dist,Roughness, &
-          TangentialVelocity,FrictionVelocity,DFX )
+          TangentialVelocity(1),FrictionVelocity(1),DFX(1) )
+     DKERR(1) = 2.0d0 * Density * FrictionVelocity(1) / DFX(1)
 
-     DKERR = 2.0d0 * Density * FrictionVelocity / DFX
+     IF ( dim==3 ) THEN
+        CALL Solve_UFric( Density,Viscosity,Dist,Roughness, &
+          TangentialVelocity(2),FrictionVelocity(2),DFX(2) )
+        DKERR(2) = 2.0d0 * Density * FrictionVelocity(2) / DFX(2)
+     END IF
 !------------------------------------------------------------------------------
-     DO p=1,N
-       DO q=1,N
-         DO i=1,DIM
-           DO j=1,DIM
+     DO p=1,n
+       DO q=1,n
+         DO i=1,dim
+           DO j=1,dim
              k1 = (p-1)*c + i
              k2 = (q-1)*c + j
              BoundaryMatrix(k1,k2) = BoundaryMatrix(k1,k2) + &
-               s * DKERR * Tangent(i) * Tangent(j) * Basis(q) * Basis(p)
+               s * DKERR(1) * Tangent(i) * Tangent(j) * Basis(q) * Basis(p)
+             IF ( dim==3 ) THEN
+               BoundaryMatrix(k1,k2) = BoundaryMatrix(k1,k2) + &
+                 s * DKERR(2) * Tangent2(i) * Tangent2(j) * Basis(q) * Basis(p)
+             END IF
            END DO
          END DO
        END DO
      END DO
 !------------------------------------------------------------------------------
-     DO q=1,N
-       DO i=1,DIM
+     DO q=1,n
+       DO i=1,dim
          k1 = (q-1)*c + i
          BoundaryVector(k1) = BoundaryVector(k1) + &
-           s * ( DKERR * TangentialVelocity - &
-             Density * FrictionVelocity**2 ) * Tangent(i) * Basis(q)
+           s * ( DKERR(1) * TangentialVelocity(1) - &
+             Density * FrictionVelocity(1)**2 ) * Tangent(i) * Basis(q)
+         IF ( dim==3 ) THEN
+           BoundaryVector(k1) = BoundaryVector(k1) + &
+             s * ( DKERR(2) * TangentialVelocity(2) - &
+               Density * FrictionVelocity(2)**2 ) * Tangent2(i) * Basis(q)
+         END IF
        END DO
      END DO
    END DO
-
-!------------------------------------------------------------------------------
-
-#if 0
-   DO i=1,n
-     IF ( ABS(Normal(1)) > ABS(Normal(2)) .AND. ABS(Normal(1)) > ABS(Normal(3)) ) THEN
-       DO j=1,n
-          BoundaryMatrix((i-1)*c+1,(i-1)*c+j) = Normal(j) * 1.0d12
-       END DO
-     ELSE IF ( ABS(Normal(2)) > ABS(Normal(3)) ) THEN
-       DO j=1,n
-         BoundaryMatrix((i-1)*c+2,(i-1)*c+j) = Normal(j) * 1.0d12
-       END DO
-     ELSE
-       DO j=1,n
-         BoundaryMatrix((i-1)*c+3,(i-1)*c+j) = Normal(j) * 1.0d12
-       END DO
-     END IF
-   END DO
-#endif
-
 !------------------------------------------------------------------------------
  END SUBROUTINE NavierStokesWallLaw
 !------------------------------------------------------------------------------
