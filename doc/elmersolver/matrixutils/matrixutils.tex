@@ -10,6 +10,29 @@ equation and the essential boundary conditions where also the matrix needs to be
 The latter ones are also called Dirichlet boundary conditions. The natural boundary conditions are often
 more problem specific so the user is directed to the Models Manual for more details on them.
 
+Technically the Dirichlet conditions in ElmerSolver are set through manipulating only the values
+in the matrix rather than its structure. To be more specific, in setting the degree of freedom with index
+$i$ the $i$:th row of the matrix is set zero, except for the diagonal which is set to be unity. When also
+the r.h.s. of the equation is set to the desired value, the solution will satisfy the Dirichlet condition.
+
+There is a handicap with this procedure which is that the symmetry of the original matrix will be lost.
+This may affect the performance of linear system solvers. To ensure to symmetricity of the matrix equation there
+are two remedies. Also the column may be zeroed and the known values may be subtracted from the r.h.s. This is envoked
+by the keyword 
+\sifbegin
+  \sifitemnt{Linear System Symmetric}{Logical True}
+\sifend
+The second option is to eliminate all the rows and columns related to the 
+known values. This reduces the size of the matrix but of has an additional cost
+as a secondary matrix is created and the values are copied into it. This
+feature is activated by the \texttt{EliminateDirichlet} subroutine called before the 
+linear system solver with the syntax
+\ttbegin
+  Before Linsolve = "EliminateDirichlet" "EliminateDirichlet"
+\ttend
+Both these keywords should locate in the \texttt{Solver} section.
+
+
 The typical way to give boundary conditions is to define in the \texttt{Boundary condition}
 section the values related to the variable under solution, for example. 
 \ttbegin
