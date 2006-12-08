@@ -1639,11 +1639,11 @@ int EasymeshCopy(struct FemType *data,struct BoundaryType *bound)
        bound[i].material = Ivector(1,size);    
        bound[i].parent = Ivector(1,size);
        bound[i].parent2 = Ivector(1,size);
-       bound[i].discont = Ivector(1,size);
        bound[i].normal = Ivector(1,size);
        bound[i].vfcreated = FALSE;
        bound[i].gfcreated = FALSE;
        bound[i].echain = FALSE;
+       bound[i].ediscont = FALSE;
      }
      else {
        bound[i].created = FALSE;

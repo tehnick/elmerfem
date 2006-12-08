@@ -458,6 +458,7 @@ void InitializeKnots(struct FemType *data)
   data->nopartitions = 1;
   data->partitionexist = FALSE;
   data->periodicexist = FALSE;
+  data->connectexist = FALSE;
 
   for(i=0;i<MAXDOFS;i++) {
     data->edofs[i] = 0;
@@ -1297,12 +1298,12 @@ startpoint:
     bound->material = Ivector(1,nosides);    
     bound->parent = Ivector(1,nosides);
     bound->parent2 = Ivector(1,nosides);
-    bound->discont = Ivector(1,nosides);
     bound->normal = Ivector(1,nosides);
 
     bound->vfcreated = FALSE;
     bound->gfcreated = FALSE;
     bound->echain = FALSE;
+    bound->ediscont = FALSE;
 
     for(i=0;i<MAXVARS;i++) 
       bound->evars[i] = FALSE;
@@ -1345,7 +1346,6 @@ int AllocateBoundary(struct BoundaryType *bound,int size)
   bound->parent2 = Ivector(1,size);
   bound->types = Ivector(1,size);
   bound->normal = Ivector(1,size);
-  bound->discont = Ivector(1,size);
 
   for(i=1;i<=size;i++) {
     bound->areas[i] = 0.0;
@@ -1356,7 +1356,6 @@ int AllocateBoundary(struct BoundaryType *bound,int size)
     bound->parent2[i] = 0;
     bound->types[i] = 0;
     bound->normal[i] = 1;
-    bound->discont[i] = 0; 
   }
 
   for(i=0;i<MAXVARS;i++) 
@@ -1811,8 +1810,8 @@ int SetDiscontinuousBoundary(struct FemType *data,struct BoundaryType *bound,
     maxtype = 0;
     for(bc=0;bc<MAXBOUNDARIES;bc++) {
       for(i=1;i<=bound[bc].nosides;i++) {
-	if(bound[bc].types[i] > maxtype) maxtype = bound[bc].types[i];
-	if(bound[bc].discont[i] > maxtype) maxtype = bound[bc].discont[i];
+	maxtype = MAX(maxtype, bound[bc].types[i]);
+	if(bound[bc].ediscont) maxtype = MAX(maxtype, bound[bc].discont[i]);
       }
     }
     disconttype = maxtype + 1;
@@ -1833,6 +1832,13 @@ int SetDiscontinuousBoundary(struct FemType *data,struct BoundaryType *bound,
       
       if(bound[bc].types[i] != boundtype) continue;
       
+      if(!bound[bc].ediscont) {
+	bound[bc].discont = Ivector(1,bound[bc].nosides);
+	for(j=1;j<=bound[bc].nosides;j++) 
+	  bound[bc].discont[j] = 0;
+	bound[bc].ediscont = TRUE;
+      }
+
       parent = bound[bc].parent2[i];
       if(parent == 0) continue;
       side = bound[bc].side2[i];
@@ -1892,12 +1898,12 @@ int SetDiscontinuousBoundary(struct FemType *data,struct BoundaryType *bound,
 
 
 int FindPeriodicBoundary(struct FemType *data,struct BoundaryType *bound,
-			 int boundary1,int boundary2,int info)
+                         int boundary1,int boundary2,int info)
 /* Create periodic boundary conditions for a given boundary pair
    boundary1, boundary2. 
    */
 {
-  int i,j,k,ind,sideind[MAXNODESD1];
+  int i,j,k,l,ind,sideind[MAXNODESD1];
   int side,parent,elemtype;
   int minp[2],maxp[2],bounds[2],dp[2],sumsides[2];
 
@@ -1947,10 +1953,18 @@ int FindPeriodicBoundary(struct FemType *data,struct BoundaryType *bound,
 
     for(i=1; i <= bound[j].nosides; i++) {
 
-      for(k=0;k<2;k++) {
+      for(k=0;k<=1;k++) {
 	if(bound[j].types[i] == bounds[k]) {
 	  parent = bound[j].parent[i];
-	  bound[j].parent2[i] = bound[j].parent[i] - minp[k] + minp[(k+1)%2];
+	  bound[j].parent2[i] = bound[j].parent[i] - minp[k] + minp[(k+1)%2];	  
+
+	  if(!bound[j].ediscont) {
+	    bound[j].discont = Ivector(1,bound[j].nosides);
+	    for(l=1; l <= bound[j].nosides; l++)
+	      bound[j].discont[l] = 0;
+	    bound[j].ediscont = TRUE;
+	  }
+
 	  bound[j].discont[i] = 2+k;
 	  elemtype = data->elementtypes[parent];
 	  if(elemtype%100 == 4) {
@@ -1969,6 +1983,50 @@ int FindPeriodicBoundary(struct FemType *data,struct BoundaryType *bound,
 
   return(2);
 }
+
+
+
+int SetConnectedBoundary(struct FemType *data,struct BoundaryType *bound,
+			 int bctype,int connecttype,int info)
+/* Create connected boundary conditions for a given bctype */
+{
+  int i,j,k,l,bc,sideelemtype,sidenodes;
+  int sideind[MAXNODESD1];
+
+  for(bc=0;bc<MAXBOUNDARIES;bc++) {
+
+    if(bound[bc].created == FALSE) continue;
+    if(bound[bc].nosides == 0) continue;
+    
+    for(i=1;i<=bound[bc].nosides;i++) {
+      if(bound[bc].types[i] != bctype) continue;
+
+      if(!data->connectexist) {
+	data->connectexist = Ivector(1,data->noknots);
+	for(j=1;j<=data->noknots;j++);
+	  data->connect[j] = 0;
+	data->connectexist = TRUE;
+      }
+
+      GetElementSide(bound[bc].parent[i],bound[bc].side[i],bound[bc].normal[i],
+		     data,sideind,&sideelemtype);
+      sidenodes = sideelemtype%100;
+      
+      for(j=0;j<sidenodes;j++)
+	data->connect[sideind[j]] = connecttype;
+    }
+  }
+   
+  if(!data->connectexist) return(1);
+
+  j = 0;
+  for(i=1;i<=data->noknots;i++)
+    if(data->connect[i]) j++;
+  if(info) printf("The connected boundary will contain %d elements\n",j);
+
+  return(0);
+}
+
 
 
 int SetDiscontinuousPoints(struct FemType *data,struct PointType *point,
@@ -2782,7 +2840,12 @@ int CloneMeshes(struct FemType *data,struct BoundaryType *bound,
     vtypes = Ivector(1, nosides);
     vareas = Rvector(1, nosides);
     vnormal = Ivector(1, nosides);
-    vdiscont = Ivector(1, nosides);
+
+    if(bound[bndr].ediscont) { 
+      vdiscont = Ivector(1, nosides);
+      for(i=1; i <= nosides; i++) 
+	vdiscont[i] = 0;
+    }
 
     for(l=0;l<ncopies[2];l++) {
       for(k=0;k<ncopies[1];k++) {
@@ -2805,7 +2868,9 @@ int CloneMeshes(struct FemType *data,struct BoundaryType *bound,
 	    }
 
 	    vnormal[ind] = bound[bndr].normal[i]; 
-	    vdiscont[ind] = bound[bndr].discont[i]; 
+
+	    if(bound[bndr].ediscont) 
+	      vdiscont[ind] = bound[bndr].discont[i]; 
 
 	    vtypes[ind] = bound[bndr].types[i] + diffmats * ncopy * maxtype;
 
@@ -2818,12 +2883,16 @@ int CloneMeshes(struct FemType *data,struct BoundaryType *bound,
 
     bound[bndr].nosides = nosides;
     bound[bndr].side = vside;
+
     bound[bndr].side2 = vside2;
     bound[bndr].parent = vparent;
     bound[bndr].parent2 = vparent2;
     bound[bndr].types = vtypes;
     bound[bndr].areas = vareas;
     bound[bndr].material = vmaterial;
+    if(bound[bndr].ediscont) 
+      bound[bndr].discont = vdiscont;
+
     bound[bndr].vfcreated = FALSE;
     bound[bndr].gfcreated = FALSE;
   }
@@ -2976,13 +3045,16 @@ int MirrorMeshes(struct FemType *data,struct BoundaryType *bound,
     vtypes = Ivector(1, nosides);
     vareas = Rvector(1, nosides);
     vnormal = Ivector(1, nosides);
-    vdiscont = Ivector(1, nosides);
 
+    if(bound[bndr].ediscont) { 
+      vdiscont = Ivector(1, nosides);
+      for(i=1;i<=nosides;i++)
+	vdiscont[i] = 0;
+    }
 
     symmcount = 0;
     elem0 = 0;
     ind0 = 0;
-
 
     for(axis1=0;axis1 <= symmaxis[0];axis1++) {
       for(axis2=0;axis2 <= symmaxis[1];axis2++) {
@@ -2999,8 +3071,10 @@ int MirrorMeshes(struct FemType *data,struct BoundaryType *bound,
 	    vside2[ind] = bound[bndr].side2[i]; 
 	    
 	    vnormal[ind] = bound[bndr].normal[i]; 
-	    vdiscont[ind] = bound[bndr].discont[i]; 
-	    
+
+	    if(bound[bndr].ediscont) 
+	      vdiscont[ind] = bound[bndr].discont[i]; 
+
 	    vtypes[ind] = bound[bndr].types[i] + diffmats * symmcount * maxtype;
 	    
 	    vareas[ind] = bound[bndr].areas[i];
@@ -3022,6 +3096,8 @@ int MirrorMeshes(struct FemType *data,struct BoundaryType *bound,
     bound[bndr].types = vtypes;
     bound[bndr].areas = vareas;
     bound[bndr].material = vmaterial;
+    if(bound[bndr].ediscont) 
+      bound[bndr].discont = vdiscont;
     bound[bndr].vfcreated = FALSE;
     bound[bndr].gfcreated = FALSE;
   }
@@ -5274,6 +5350,8 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
   data->minsize = dataxy->minsize;
   data->partitionexist = FALSE;
   data->periodicexist = FALSE;
+  data->connectexist = FALSE;
+
   maxsidetype = 0;
   
   for(i=0;i<MAXMATERIALS;i++)
@@ -5313,7 +5391,6 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
       bound[j].parent2 = Ivector(1,size);
       bound[j].types = Ivector(1,size);
       bound[j].normal = Ivector(1,size);
-      bound[j].discont = Ivector(1,size);
 
       for(i=1;i<=size;i++) {
 	bound[j].types[i] = 0;
@@ -5323,7 +5400,6 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
 	bound[j].parent2[i] = 0;
 	bound[j].material[i] = 0;
 	bound[j].normal[i] = 1;
-	bound[j].discont[i] = 0;
       }
     }
   }

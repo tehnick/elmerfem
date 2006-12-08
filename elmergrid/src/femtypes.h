@@ -17,6 +17,11 @@
 #define MAXNODESD1 9        /* maximum number of 1D nodes */
 #define MAXMAPPINGS 10   
 
+#define CONPLAIN 0
+#define CONDISCONT 1
+#define CONPERIODIC 2
+#define CONCONSTRAINT 3
+
 /* Struture GridType includes the subcell structure of the 
    geometry and the meshing information. The elements may be 
    directly derived from this structures but it takes some 
@@ -161,6 +166,8 @@ struct FemType {
     timesteps,     /* number of timesteps */
     periodicexist, /* does the periodic vector exist? */
     *periodic,     /* peridic ordering vector, if needed */
+    connectexist,  /* does the connection vector exist? */
+    *connect,      /* connections between nodes, if needed */
     partitionexist,/* does the partitioning exist? */
     nopartitions,  /* number of partitions */
     *elempart,     /* which partition owns the element */
@@ -210,9 +217,7 @@ struct BoundaryType {
     mapvf,           /* mappings of the view factors */ 
     open,            /* is the closure partially open? */
     echain,          /* does the chain exist? */
-#if 0
-    discontinuous;   /* are there secondary nodes? */
-#endif
+    ediscont,        /* does the discontinous boundary exist */
     chainsize;       /* size of the chain */ 
   int *parent,       /* primary parents of the sides */
     *parent2,        /* secondary parents of the sides */
@@ -221,7 +226,7 @@ struct BoundaryType {
     *side2,          /* side in the secondary parent element */
     *chain,          /* indices in the chain representation */
     *types,
-    *discont,        /* are the elements discontinuous (1) or periodic (2) */
+    *discont,        /* type of discontinuous and periodic BCs */
     *normal,         /* direction of the normal */
     points[MAXVARS], /* how many points for each side? */
     evars[MAXVARS];  /* does the variables exist? */
@@ -308,6 +313,8 @@ struct ElmergridType {
     periodicdim[3],
     discont,
     discontbounds[MAXBOUNDARIES],
+    connect,
+    connectbounds[MAXBOUNDARIES],
     partorder,
     nofilesin,
     elementsredone,

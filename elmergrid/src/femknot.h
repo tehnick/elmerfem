@@ -36,6 +36,8 @@ int SetDiscontinuousBoundary(struct FemType *data,struct BoundaryType *bound,
 			     int boundtype,int endnodes,int info);
 int SetDiscontinuousPoints(struct FemType *data,struct PointType *point,
 			   int material);
+int SetConnectedBoundary(struct FemType *data,struct BoundaryType *bound,
+			 int bctype,int connecttype,int info);
 int FindCorners(struct GridType *grid,struct CellType *cell,
 		struct FemType *data,int info);
 

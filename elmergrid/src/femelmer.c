@@ -895,8 +895,9 @@ int SaveElmerInput(struct FemType *data,
   }
 
   sumsides = 0;
-  for(j=0;j < MAXBOUNDARIES;j++) {
 
+  /* Save normal boundaries */
+  for(j=0;j < MAXBOUNDARIES;j++) {
     if(bound[j].created == FALSE) continue;
     if(bound[j].nosides == 0) continue;
 
@@ -914,29 +915,38 @@ int SaveElmerInput(struct FemType *data,
 	fprintf(out," %d",ind[l]);
       fprintf(out,"\n");
     }
+  }
 
-    /* Save Discontinuous boundaries */
+  /* Save Discontinuous boundaries */
+  for(j=0;j < MAXBOUNDARIES;j++) {
+    if(bound[j].created == FALSE) continue;
+    if(bound[j].nosides == 0) continue;
+    if(!bound[j].ediscont) continue;
+
     for(i=1; i <= bound[j].nosides; i++) {
       if(!bound[j].parent2[i] || !bound[j].discont[i]) continue;
-
+      
       GetElementSide(bound[j].parent2[i],bound[j].side2[i],-bound[j].normal[i],data,ind2,&sideelemtype); 
       sumsides++;
-
+      
       fprintf(out,"%d %d %d %d ",
 	      sumsides,bound[j].discont[i],bound[j].parent2[i],bound[j].parent[i]);
       fprintf(out,"%d ",sideelemtype);
       sidetypes[sideelemtype] += 1;
+      
       nodesd1 = sideelemtype%100;
       for(l=0;l<nodesd1;l++)
 	fprintf(out,"%d ",ind2[l]);
       fprintf(out,"\n");
-
+      
       /* Save additional connections that arise at the discontinous boundary */
       GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],data,ind,&sideelemtype);       
       conelemtype = 100 + nodesd1 + 1;
-
+      
+      sumsides += nodesd1;
+      sidetypes[conelemtype] += nodesd1;	
+      
       for(k=0;k<nodesd1;k++) {
-	sumsides++;
 	fprintf(out,"%d 0 0 0 %d ",sumsides,conelemtype);
 	fprintf(out,"%d ",ind[k]);
 	for(l=0;l<nodesd1;l++)
@@ -945,6 +955,7 @@ int SaveElmerInput(struct FemType *data,
       }
     }
   }
+
 
   if(data->periodicexist) {
     int *indxper,periodictype;
@@ -973,6 +984,53 @@ int SaveElmerInput(struct FemType *data,
     if(info) printf("Added %d periodic boundary conditions to boundary %d and elementtype 102.\n",
 		    k,periodictype);
   }
+
+
+
+  if(data->connectexist) {
+    int *connect,connecttype,newsides,count;
+    connect = data->connect;
+    
+    connecttype = 0;
+    for(j=0;j < MAXBOUNDARIES;j++) 
+      for(i=1; i <= bound[j].nosides; i++) 
+	connecttype = MAX( connecttype, bound[j].types[i] );
+	  
+    for(k=1;;k++) {
+      newsides = 0;
+      for(i=1; i <= data->noknots; i++) {
+	if(j == k) newsides++;
+      }
+      if(newsides == 0) break;
+
+      connecttype++;      
+      count = 0;
+
+      if(info) printf("Adding %d connections to boundary condition %d\n",newsides,connecttype);
+      
+      for(i=1; i <= data->noknots; i++) {
+	if(j != k) continue;
+
+	if(count == 0) {
+	  sumsides++;
+	  count = MIN(63,newsides);	  
+	  sideelemtype = 100 + count + 1;
+	  sidetypes[sideelemtype] += 1;
+	  fprintf(out,"%d %d %d %d %d %d",
+		sumsides,connecttype,0,0,sideelemtype,data->noknots+k);
+	  
+	  if(info) printf("Added %d connection boundary conditions to boundary %d and elementtype %d.\n",
+			  k,connecttype,sideelemtype);
+	  
+	}	
+
+	fprintf(" %d",i);
+	newsides--;
+	count--;       
+      }
+    }
+  }
+
 
 
   fclose(out);
@@ -1893,7 +1951,8 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,
     for(j=0;j < MAXBOUNDARIES;j++) {
       if(!bound[j].created) continue;
       for(i=1; i <= bound[j].nosides; i++) {
-	if(bound[j].discont[i]) continue;
+	if(bound[j].ediscont)
+	  if(bound[j].discont[i]) continue;
 
 	mam1 = bound[j].parent[i];
 	mam2 = bound[j].parent2[i];
@@ -2356,7 +2415,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
    */
 {
   int noknots,noelements,sumsides,partitions,hit;
-  int nodesd2,nodesd1;
+  int nodesd2,nodesd1,discont;
   int part,elemtype,sideelemtype,needednodes[MAXPAR+1],neededtwice[MAXPAR+1];
   int bulktypes[MAXPAR+1][MAXELEMENTTYPE+1],sidetypes[MAXELEMENTTYPE+1],tottypes;
   int i,j,k,l,m,ind,ind2,sideind[MAXNODESD1],elemhit[MAXNODESD2];
@@ -2652,7 +2711,12 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	if(bcneeded != nodesd1) continue;
 	
 	trueparent = (elempart[bound[j].parent[i]] == part);
-	if(!trueparent && bound[j].discont[i] <= 1) {
+	if(bound[j].ediscont) 
+	  discont = bound[j].discont[i];
+	else 
+	  discont = FALSE;
+
+	if(!trueparent && !discont) {
 	  if(bound[j].parent2[i]) 
 	    trueparent = (elempart[bound[j].parent2[i]] == part);
 	}	
@@ -2676,7 +2740,12 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
       /* The second side for discontinuous boundary conditions */
       for(i=1; i <= bound[j].nosides; i++) {
-	if(!bound[j].parent2[i] || bound[j].discont[i] != 1) continue;
+	if(bound[j].ediscont) 
+	  discont = bound[j].discont[i];
+	else 
+	  discont = FALSE;
+
+	if(!bound[j].parent2[i] || !discont) continue;
 
 	GetElementSide(bound[j].parent2[i],bound[j].side2[i],-bound[j].normal[i],
 		       data,sideind,&sideelemtype); 
