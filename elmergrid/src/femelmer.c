@@ -771,10 +771,10 @@ int SaveElmerInput(struct FemType *data,
 #define MAXELEMENTTYPE 827
 {
   int noknots,noelements,sumsides,elemtype,fail;
-  int sideelemtype,nodesd1,nodesd2;
+  int sideelemtype,conelemtype,nodesd1,nodesd2;
   int i,j,k,l,bulktypes[MAXELEMENTTYPE+1],sidetypes[MAXELEMENTTYPE+1];
   int alltypes[MAXELEMENTTYPE+1],tottypes;
-  int ind[MAXNODESD1];
+  int ind[MAXNODESD1],ind2[MAXNODESD1];
   FILE *out;
   char filename[MAXFILESIZE], outstyle[MAXFILESIZE];
   char directoryname[MAXFILESIZE];
@@ -919,7 +919,7 @@ int SaveElmerInput(struct FemType *data,
     for(i=1; i <= bound[j].nosides; i++) {
       if(!bound[j].parent2[i] || !bound[j].discont[i]) continue;
 
-      GetElementSide(bound[j].parent2[i],bound[j].side2[i],-bound[j].normal[i],data,ind,&sideelemtype); 
+      GetElementSide(bound[j].parent2[i],bound[j].side2[i],-bound[j].normal[i],data,ind2,&sideelemtype); 
       sumsides++;
 
       fprintf(out,"%d %d %d %d ",
@@ -928,19 +928,21 @@ int SaveElmerInput(struct FemType *data,
       sidetypes[sideelemtype] += 1;
       nodesd1 = sideelemtype%100;
       for(l=0;l<nodesd1;l++)
-	fprintf(out,"%d ",ind[l]);
+	fprintf(out,"%d ",ind2[l]);
       fprintf(out,"\n");
 
       /* Save additional connections that arise at the discontinous boundary */
-      sideelemtype = 100 + 2 * nodesd1;
-      sumsides++;
-      fprintf(out,"%d 0 0 0 %d ",sumsides,sideelemtype);
-      for(l=0;l<nodesd1;l++)
-	fprintf(out,"%d ",ind[l]);
       GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],data,ind,&sideelemtype);       
-      for(l=0;l<nodesd1;l++)
-	fprintf(out,"%d ",ind[l]);
-      fprintf(out,"\n");      
+      conelemtype = 100 + nodesd1 + 1;
+
+      for(k=0;k<nodesd1;k++) {
+	sumsides++;
+	fprintf(out,"%d 0 0 0 %d ",sumsides,conelemtype);
+	fprintf(out,"%d ",ind[k]);
+	for(l=0;l<nodesd1;l++)
+	  fprintf(out,"%d ",ind2[l]);
+	fprintf(out,"\n");      
+      }
     }
   }
 
