@@ -836,21 +836,21 @@ int SaveElmerInput(struct FemType *data,
     for(i=1; i <= noknots; i++) 
       fprintf(out,outstyle,i,-1,data->x[i]);
     for(i=1; i <= connodes; i++) 
-      fprintf(out,outstyle,i,-1,data->x[1]);
+      fprintf(out,outstyle,noknots+i,-1,data->x[1]);
   }
   if(data->dim == 2) {
     sprintf(outstyle,"%%d %%d %%.%dlg %%.%dlg 0.0\n",decimals,decimals);
     for(i=1; i <= noknots; i++) 
       fprintf(out,outstyle,i,-1,data->x[i],data->y[i]);
     for(i=1; i <= connodes; i++) 
-      fprintf(out,outstyle,i,-1,data->x[1],data->y[1]);
+      fprintf(out,outstyle,noknots+i,-1,data->x[1],data->y[1]);
   }
   else if(data->dim == 3) {
     sprintf(outstyle,"%%d %%d %%.%dlg %%.%dlg %%.%dlg\n",decimals,decimals,decimals);
     for(i=1; i <= noknots; i++) 
       fprintf(out,outstyle,i,-1,data->x[i],data->y[i],data->z[i]);    
     for(i=1; i <= connodes; i++) 
-      fprintf(out,outstyle,i,-1,data->x[1],data->y[1],data->z[1]);    
+      fprintf(out,outstyle,noknots+i,-1,data->x[1],data->y[1],data->z[1]);    
   }
 
   fclose(out);
