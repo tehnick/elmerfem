@@ -114,7 +114,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: FirstTimeStep = .TRUE., EigenAnalysis = .FALSE.
 
   INTEGER :: i,j,k,m,n,dim, Code, body_id, ElementCounter, Nloop, Loop
-  INTEGER :: ScalarFields, VectorFields, TensorFields, tensorComponents
+  INTEGER :: tensorComponents
   INTEGER, PARAMETER :: MaxElemCode = 1000
   INTEGER :: ListElemTypes(MaxElemCode)
   REAL(KIND=dp) :: Norm
@@ -335,10 +335,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
 
   ! First scalar fields:
   !----------------------
-  ScalarFields = ListGetInteger( Solver % Values, 'Scalar Fields', Found )
-  PRINT *,'Number of scalar fields =',ScalarFields
- 
-  DO i = 1, ScalarFields
+  DO i = 1, 999
      IF( i<10 ) THEN
         WRITE(Txt,'(A,I2)') 'Scalar Field',i
      ELSEIF( i<100 ) THEN
@@ -348,6 +345,8 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
      END IF
 
      ScalarFieldName = GetString( Solver % Values, TRIM(Txt), Found )
+     IF(.NOT. Found) EXIT
+
      Solution => VariableGet( Solver % Mesh % Variables, ScalarFieldName )
      IF( .NOT.ASSOCIATED( Solution ) ) THEN
         PRINT *,'Scalar field "',TRIM(ScalarFieldName),'" not found'
@@ -394,10 +393,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
 
   ! Then vector fields:
   !--------------------
-  VectorFields = ListGetInteger( Solver % Values, 'Vector Fields', Found )
-  PRINT *,'Number of vector fields =',VectorFields
-
-  DO i = 1, VectorFields
+  DO i = 1, 999
      IF( i<10 ) THEN
         WRITE(Txt,'(A,I2)') 'Vector Field',i
      ELSEIF( i<100 ) THEN
@@ -407,6 +403,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
      END IF
 
      VectorFieldName = GetString( Solver % Values, TRIM(Txt), Found )
+     IF(.NOT. Found) EXIT
      PRINT *,'Vector field',i,'= "',TRIM(VectorFieldName),'"'
 
      IF( TransientSimulation ) THEN
@@ -486,10 +483,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
 
   ! Finally tensor fields:
   !-----------------------
-  TensorFields = ListGetInteger( Solver % Values, 'Tensor Fields', Found )
-  PRINT *,'Number of tensor fields =',TensorFields
-
-  DO i = 1, TensorFields
+  DO i = 1, 999
      IF( i<10 ) THEN
         WRITE(Txt,'(A,I2)') 'Tensor Field',i
      ELSEIF( i<100 ) THEN
@@ -499,6 +493,8 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
      END IF
 
      TensorFieldName = GetString( Solver % Values, TRIM(Txt), Found )
+     IF(.NOT. Found) EXIT
+
      PRINT *,'Tensor field',i,'= "',TRIM(TensorFieldName),'"'
 
      IF( TransientSimulation ) THEN
