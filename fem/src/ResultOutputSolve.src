@@ -21,47 +21,17 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ResultOutputSolve.src,v 1.6 2006/01/10 12:57:09 apursula Exp $
+! * $Id: ResultOutputSolve.src,v 1.7 2006/12/01 09:08:26 edelmann Exp $
 ! *****************************************************************************
+
 
 SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
 !DEC$ATTRIBUTES DLLEXPORT :: ResultOutputSolver
-
-  USE DefUtils
-
-  IMPLICIT NONE
-  TYPE(Solver_t) :: Solver
-  TYPE(Model_t) :: Model
-  REAL(KIND=dp) :: dt
-  LOGICAL :: TransientSimulation
-
-  CHARACTER(10) :: OutputFormat
-  LOGICAL :: Found
-
-  OutputFormat = GetString( Solver % Values, 'Output Format', Found )
-
-  IF( .NOT.Found .OR. OutputFormat == "gid" )THEN
-    CALL GiDOutputSolver( Model,Solver,dt,TransientSimulation )
-  ELSE IF( OutputFormat == "vtk" )THEN
-    CALL VtkOutputSolver( Model,Solver,dt,TransientSimulation )
-  ELSE IF( OutputFormat == "dx" )THEN
-    CALL DXOutputSolver( Model,Solver,dt,TransientSimulation )
-  ELSE
-    CALL Error( 'ResultOutputSolver', &
-                'Unknown output format "' // TRIM(OutputFormat) // '"' )
-    CALL Error( 'ResultOutputSolver', &
-                'Available formats are "GiD" (default), "VTK" and "DX"' )
-    STOP
-  END IF
-
-END SUBROUTINE ResultOutputSolver
-
-
-SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
-!  Exports data to other FE-software.
+!  Exports data to other suitable postprocessing software.
+!  Currently supported formats are GiD, VTK legacy, and Open DX.
 !
 !  ARGUMENTS:
 !
@@ -78,8 +48,50 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
 !     INPUT: Steady state or transient simulation
 !
 !******************************************************************************
+
   USE DefUtils
 
+  IMPLICIT NONE
+  TYPE(Solver_t) :: Solver
+  TYPE(Model_t) :: Model
+  REAL(KIND=dp) :: dt
+  LOGICAL :: TransientSimulation, SaveGid, SaveVTK, SaveOpenDx
+
+  CHARACTER(10) :: OutputFormat
+  LOGICAL :: Found
+
+  SaveGid = ListGetLogical(Solver % Values,'Gid Format',Found)
+  SaveVTK = ListGetLogical(Solver % Values,'VTK Format',Found)
+  SaveOpenDx = ListGetLogical(Solver % Values,'Dx Format',Found)
+
+  OutputFormat = GetString( Solver % Values, 'Output Format', Found )
+  IF(Found) THEN
+    IF( OutputFormat == "gid" )THEN
+      SaveGid = .TRUE.
+    ELSE IF( OutputFormat == "vtk" )THEN
+      SaveVTK = .TRUE.
+    ELSE IF( OutputFormat == "dx" )THEN
+      SaveOpenDx = .TRUE.
+    ELSE
+      CALL Warn( 'ResultOutputSolver', &
+                 'Unknown output format "' // TRIM(OutputFormat) // '"' )
+      CALL Warn( 'ResultOutputSolver', &
+                 'Available formats are "GiD" (default), "VTK" and "DX"' )
+    END IF
+  END IF
+
+  IF( SaveGid ) CALL GiDOutputSolver( Model,Solver,dt,TransientSimulation )
+  IF( SaveVTK ) CALL VtkOutputSolver( Model,Solver,dt,TransientSimulation )
+  IF( SaveOpenDx ) CALL DXOutputSolver( Model,Solver,dt,TransientSimulation )
+
+END SUBROUTINE ResultOutputSolver
+
+
+
+!------------------------------------------------------------------------------
+SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
+!------------------------------------------------------------------------------
+  USE DefUtils
   IMPLICIT NONE
 !------------------------------------------------------------------------------
   TYPE(Solver_t) :: Solver
@@ -586,6 +598,7 @@ END SUBROUTINE GiDOutputSolver
 
 !------------------------------------------------------------------------------
 ! The Vtk output solver begins here
+!------------------------------------------------------------------------------
 MODULE VtkLegacyFile
 
     USE MeshUtils
@@ -832,8 +845,7 @@ CONTAINS
         TYPE(VtkCell_t), POINTER :: VtkCells(:)
 
         WRITE ( IOUnit, '("# vtk DataFile Version 3.0")' ) 
-        WRITE ( IOUnit, '("ElmerSolver output; started at ", A)' ), &
-                                                            TRIM( FormatDate() )
+        WRITE ( IOUnit, '("ElmerSolver output; started at ", A)' ) TRIM( FormatDate() )
         WRITE ( IOUnit, '("ASCII")' ) 
         WRITE ( IOUnit, '("DATASET UNSTRUCTURED_GRID")' ) 
 
@@ -1088,24 +1100,11 @@ CONTAINS
 END MODULE VtkLegacyFile
 
 
+!------------------------------------------------------------------------------
 SUBROUTINE VtkOutputSolver( Model,Solver,dt,TransientSimulation )
-!DEC$ATTRIBUTES DLLEXPORT :: ParaviewOutput
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear & nonlinear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
+!DEC$ATTRIBUTES DLLEXPORT :: VtkOutputSolver
+!------------------------------------------------------------------------------
+
     USE DefUtils 
     USE VtkLegacyFile
 
@@ -1213,6 +1212,7 @@ END SUBROUTINE VtkOutputSolver
 
 !------------------------------------------------------------------------------
 ! The DX output solver begins here
+!------------------------------------------------------------------------------
 MODULE DXFile
 
     USE MeshUtils
@@ -1789,24 +1789,11 @@ CONTAINS
 END MODULE DXFile
 
 
+!------------------------------------------------------------------------------
 SUBROUTINE DXOutputSolver( Model,Solver,dt,TransientSimulation )
-!DEC$ATTRIBUTES DLLEXPORT :: ParaviewOutput
-!
-!  ARGUMENTS:
-!
-!  TYPE(Model_t) :: Model,  
-!     INPUT: All model information (mesh, materials, BCs, etc...)
-!
-!  TYPE(Solver_t) :: Solver
-!     INPUT: Linear & nonlinear equation solver options
-!
-!  REAL(KIND=dp) :: dt,
-!     INPUT: Timestep size for time dependent simulations
-!
-!  LOGICAL :: TransientSimulation
-!     INPUT: Steady state or transient simulation
-!
-!******************************************************************************
+!DEC$ATTRIBUTES DLLEXPORT :: DXOutputSolver
+!------------------------------------------------------------------------------
+
     USE DefUtils 
     USE DXFile
 
@@ -1902,3 +1889,4 @@ CONTAINS
     END SUBROUTINE WriteData
 
 END SUBROUTINE DXOutputSolver
+
