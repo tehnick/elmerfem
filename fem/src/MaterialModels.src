@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: MaterialModels.src,v 1.6 2006/02/01 11:56:05 jpr Exp $
+! * $Id: MaterialModels.src,v 1.7 2006/12/06 20:27:52 raback Exp $
 ! ******************************************************************************/
 
 MODULE MaterialModels
@@ -272,7 +272,7 @@ this ise not in USE
 
        CASE('power law')
          s = SQRT(ss)
-         c2n = ListGetReal( Material, 'Viscosity Exponent', n, Element % NodeIndexes,gotit )
+         c2n = ListGetReal( Material, 'Viscosity Exponent', n, Element % NodeIndexes )
          c2 = SUM( Basis * c2n(1:n) )
          c3n = ListGetReal( Material, 'Critical Shear Rate',n, Element % NodeIndexes,gotIt )
          IF (GotIt) THEN
@@ -282,16 +282,16 @@ this ise not in USE
          PVisc = Viscosity * (s ** (c2-1.0D0))
 
        CASE('power law too')
-         c2n = ListGetReal( Material, 'Viscosity Exponent', n, Element % NodeIndexes,gotit )
+         c2n = ListGetReal( Material, 'Viscosity Exponent', n, Element % NodeIndexes )
          c2 = SUM( Basis * c2n(1:n) )
          PVisc = Viscosity **(-1.0d0/c2)* ss**(-(c2-1)/(2*c2)) / 2
        
        CASE ('carreau')
-         c1n = ListGetReal( Material, 'Viscosity Difference',n,Element % NodeIndexes)
+         c1n = ListGetReal( Material, 'Viscosity Difference',n,Element % NodeIndexes )
          c1 = SUM( Basis * c1n(1:n) )
-         c2n = ListGetReal( Material, 'Viscosity Exponent', n, Element % NodeIndexes,gotit )
+         c2n = ListGetReal( Material, 'Viscosity Exponent', n, Element % NodeIndexes )
          c2 = SUM( Basis * c2n(1:n) )
-         c3n = ListGetReal( Material, 'Viscosity Transition',n,Element % NodeIndexes)
+         c3n = ListGetReal( Material, 'Viscosity Transition',n,Element % NodeIndexes )
          c3 = SUM( Basis * c3n(1:n) )
          c4 = ListGetConstReal( Material, 'Yasuda Coefficient',gotIt)
          IF(gotIt) THEN
@@ -302,11 +302,11 @@ this ise not in USE
          END IF
 
        CASE ('cross')
-         c1n = ListGetReal( Material, 'Viscosity Difference',n,Element % NodeIndexes)
+         c1n = ListGetReal( Material, 'Viscosity Difference',n,Element % NodeIndexes )
          c1 = SUM( Basis * c1n(1:n) )
-         c2n = ListGetReal( Material, 'Viscosity Exponent', n, Element % NodeIndexes,gotit )
+         c2n = ListGetReal( Material, 'Viscosity Exponent', n, Element % NodeIndexes )
          c2 = SUM( Basis * c2n(1:n) )
-         c3n = ListGetReal( Material, 'Viscosity Transition',n,Element % NodeIndexes)
+         c3n = ListGetReal( Material, 'Viscosity Transition',n,Element % NodeIndexes )
          c3 = SUM( Basis * c3n(1:n) )
          PVisc = Viscosity + c1 / (1.0d0 + c3*ss**(c2/2.0))
        
@@ -331,10 +331,10 @@ this ise not in USE
            CALL Warn('EffectiveViscosity','variable Temperature needed in thermal carreau model')
          END IF
          
-         c1n = ListGetReal( Material, 'Viscosity Difference',n,Element % NodeIndexes)
-         c2n = ListGetReal( Material, 'Viscosity Exponent', n, Element % NodeIndexes,gotit )
+         c1n = ListGetReal( Material, 'Viscosity Difference',n,Element % NodeIndexes )
+         c2n = ListGetReal( Material, 'Viscosity Exponent', n, Element % NodeIndexes )
          c2 = SUM( Basis * c2n(1:n) )
-         c3n = ListGetReal( Material, 'Viscosity Transition',n,Element % NodeIndexes)
+         c3n = ListGetReal( Material, 'Viscosity Transition',n,Element % NodeIndexes )
          c4 = ListGetConstReal( Material, 'Yasuda Coefficient',gotIt)
          
          c5 = ListGetConstReal( Material, 'Viscosity Temp Ref')
@@ -392,7 +392,7 @@ this ise not in USE
 
          c1n = ListGetReal( Material, 'Viscosity Difference',n,Element % NodeIndexes)
          c1 = SUM( Basis(1:n) * c1n(1:n) )
-         c2 = ListGetConstReal( Material, 'Levelset bandwidth',gotIt)
+         c2 = ListGetConstReal( Material, 'Levelset bandwidth')
          
          Temp = SUM(Basis(1:n) * Temperature(TempPerm(Element % NodeIndexes(1:n))))
          Temp = Temp / c2
