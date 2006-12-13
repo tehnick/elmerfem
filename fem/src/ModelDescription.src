@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ModelDescription.src,v 1.29 2006/12/07 10:18:33 edelmann Exp $
+! * $Id: ModelDescription.src,v 1.30 2006/12/07 11:28:21 edelmann Exp $
 ! *****************************************************************************/
 
 MODULE ModelDescription
@@ -1770,21 +1770,25 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  FUNCTION SaveResult( Filename,Mesh,Time,SimulationTime,Binary ) RESULT(SaveCount)
+  FUNCTION SaveResult( Filename,Mesh,Time,SimulationTime,Binary,FreeSurface ) &
+           RESULT(SaveCount)
 !------------------------------------------------------------------------------
     TYPE(Mesh_t), POINTER :: Mesh
     INTEGER :: Time,SaveCount
     CHARACTER(LEN=*) :: Filename
     REAL(KIND=dp) :: SimulationTime
     LOGICAL :: Binary
+    LOGICAL, OPTIONAL :: FreeSurface
 
 !------------------------------------------------------------------------------
 
     TYPE(Element_t), POINTER :: CurrentElement
-    INTEGER :: i,j,k,DOFs, dates(8)
+    INTEGER :: i,j,k,DOFs, dates(8), n
     TYPE(Variable_t), POINTER :: Var
     CHARACTER(LEN=MAX_NAME_LEN) :: FName, DateStr
     LOGICAL :: FreeSurfaceFlag, MoveBoundary, GotIt
+    INTEGER, POINTER :: PrevPerm(:) 
+    
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
@@ -1798,22 +1802,26 @@ CONTAINS
       END IF
     END IF
 
-    FreeSurfaceFlag = .FALSE.
-    MoveBoundary    = .FALSE.
-    DO i=1,CurrentModel % NumberOfBCs
-      FreeSurfaceFlag = FreeSurfaceFlag .OR. ListGetLogical( &
-         CurrentModel % BCs(i) % Values,'Free Surface', GotIt )
-      IF ( FreeSurfaceFlag ) THEN
-         MoveBoundary =  ListGetLogical( &
-             CurrentModel % BCs(i) % Values,'Internal Move Boundary', GotIt )
+    IF ( PRESENT( FreeSurface ) ) THEN
+      FreeSurfaceFlag = FreeSurface
+    ELSE
+       FreeSurfaceFlag = .FALSE.
+       MoveBoundary    = .FALSE.
+       DO i=1,CurrentModel % NumberOfBCs
+         FreeSurfaceFlag = FreeSurfaceFlag .OR. ListGetLogical( &
+            CurrentModel % BCs(i) % Values,'Free Surface', GotIt )
+         IF ( FreeSurfaceFlag ) THEN
+            MoveBoundary =  ListGetLogical( &
+                CurrentModel % BCs(i) % Values,'Internal Move Boundary', GotIt )
          
-         IF ( .NOT. GotIt ) MoveBoundary = .TRUE.
+            IF ( .NOT. GotIt ) MoveBoundary = .TRUE.
 
-         FreeSurfaceFlag = FreeSurfaceFlag .AND. MoveBoundary
-      END IF
+            FreeSurfaceFlag = FreeSurfaceFlag .AND. MoveBoundary
+         END IF
 
-      IF ( FreeSurfaceFlag ) EXIT
-    END DO
+         IF ( FreeSurfaceFlag ) EXIT
+       END DO
+    END IF
 
     ! The first time we start by writing the header.
     IF ( Mesh % SavesDone == 0 ) THEN
@@ -1869,6 +1877,7 @@ CONTAINS
         Var => Var % Next
       END DO 
       WRITE(OutputUnit,*) 'Total DOFs: ', DOFs
+      WRITE(OutputUnit,*) 'Number Of Nodes: ', Mesh % NumberOfNodes
 
       IF ( Binary ) THEN
         CALL SwitchToBinary( OutputUnit,FName,Mesh % NumberOfNodes )
@@ -1882,29 +1891,35 @@ CONTAINS
 !------------------------------------------------------------------------------
 !   Write data to disk
 !------------------------------------------------------------------------------
+    PrevPerm => NULL()
     Var => Mesh % Variables
     DO WHILE( ASSOCIATED(Var) )
       IF ( Var % Output ) THEN
          IF ( Var % DOFs==1 .AND. SIZE(Var % Values)>1 ) THEN
 
-           DO k=LEN(Var % Name),1,-1
-             IF ( Var % Name(k:k) /= ' ' ) EXIT
-           END DO
+            DO k=LEN(Var % Name),1,-1
+               IF ( Var % Name(k:k) /= ' ' ) EXIT
+            END DO
 
-           IF ( Var % Name(1:10) /= 'coordinate' .OR. FreeSurfaceFlag ) THEN
-             CALL WriteString( OutputUnit, Var % Name(1:k) )
+            IF ( Var % Name(1:10) /= 'coordinate' .OR. FreeSurfaceFlag ) THEN
+               CALL WriteString( OutputUnit, Var % Name(1:k) )
+               CALL WritePerm( OutputUnit, Var % Perm, PrevPerm )
+               PrevPerm => Var % Perm
    
-             DO i=1,Mesh % NumberOfNodes
-               k = i
-               IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
-!              IF ( k > 0 ) WRITE( OutputUnit,* ) i,k,Var % Values(k)
-               IF ( k > 0 ) THEN
-                 CALL WriteIntIntReal( OutputUnit,i,k,Var % Values(k) )
+               IF ( ASSOCIATED(Var % Perm) ) THEN
+                  n = SIZE(Var % Perm)
                ELSE
-                 CALL WriteIntIntReal( OutputUnit,i,k,0.0d0 )
+                  n = Mesh % NumberOfNodes
                END IF
-             END DO
-           END IF
+
+               DO i=1, n
+                  k = 1
+                  IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(i)
+                  IF ( k > 0 ) THEN
+                     CALL WriteReal( OutputUnit,Var % Values(k) )
+                  END IF
+               END DO
+            END IF
          END IF
       END IF
       Var => Var % Next
@@ -1921,94 +1936,148 @@ CONTAINS
 
   CONTAINS
 
-    SUBROUTINE WriteString( OutputUnit,s )
-      INTEGER, INTENT(IN) :: OutputUnit
-      CHARACTER(*), INTENT(IN) :: s
+      SUBROUTINE WritePerm( OutputUnit, CurrPerm, PrevPerm )
+         INTEGER, INTENT(IN) :: OutputUnit
+         INTEGER, POINTER :: CurrPerm(:), PrevPerm(:)
+         INTEGER :: i, n
+         LOGICAL :: SameAsPRev
 
-      IF ( Binary ) THEN
-        CALL BinWriteString( OutputUnit,s )
-      ELSE
-        WRITE( OutputUnit,'(a)' ) s
-      END IF
-    END SUBROUTINE WriteString
+         IF ( .NOT.ASSOCIATED( CurrPerm ) ) THEN
+
+            IF ( Binary ) THEN
+               CALL BinWriteInt4( OutputUnit,0 )
+            ELSE
+               WRITE( OutputUnit, '(A)' ) 'Perm: NULL'
+            END IF
+
+         ELSE 
+         
+            SameAsPrev = .FALSE.
+            IF ( ASSOCIATED( CurrPerm, PrevPerm ) ) THEN
+               SameAsPrev = .TRUE.
+            ELSE IF ( ASSOCIATED( PrevPerm ) ) THEN
+               IF ( SIZE(CurrPerm) == SIZE(PrevPerm) ) THEN
+                  IF ( ALL( CurrPerm == PrevPerm ) ) SameAsPrev = .TRUE.
+               END IF
+            END IF
+
+            IF ( SameAsPrev ) THEN
+               IF ( Binary ) THEN
+                  CALL BinWriteInt4( OutputUnit,-1 )
+               ELSE
+                  WRITE( OutputUnit, '(A)' ) 'Perm: use previous'
+               END IF
+            ELSE
+
+               n = COUNT( CurrPerm > 0 )
+               IF ( Binary ) THEN
+                  CALL BinWriteInt4( OutputUnit, size(CurrPerm) )
+                  CALL BinWriteInt4( OutputUnit, n )
+                  DO i = 1, SIZE( CurrPerm )
+                     IF ( CurrPerm(i) > 0 ) THEN
+                        CALL BinWriteInt4( OutputUnit,i )
+                        CALL BinWriteInt4( OutputUnit,CurrPerm(i) )
+                     END IF
+                  END DO
+               ELSE
+                  WRITE( OutputUnit,'(A,I0," ",I0)') 'Perm: ', size(CurrPerm), n
+                  DO i = 1, SIZE( CurrPerm )
+                     IF ( CurrPerm(i) > 0 ) THEN
+                        WRITE( OutputUnit, '(2i11)' ) i,CurrPerm(i)
+                     END IF
+                  END DO
+               END IF
+
+            END IF
+
+         END IF
+      END SUBROUTINE WritePerm
+
+
+      SUBROUTINE WriteString( OutputUnit,s )
+         INTEGER, INTENT(IN) :: OutputUnit
+         CHARACTER(*), INTENT(IN) :: s
+
+         IF ( Binary ) THEN
+            CALL BinWriteString( OutputUnit,s )
+         ELSE
+            WRITE( OutputUnit,'(a)' ) s
+         END IF
+      END SUBROUTINE WriteString
         
 
-    SUBROUTINE WriteIntIntReal( OutputUnit,i1,i2,r )
-      INTEGER, INTENT(IN) :: OutputUnit
-      INTEGER, INTENT(IN) :: i1, i2
-      REAL(dp), INTENT(IN) :: r
+      SUBROUTINE WriteReal( OutputUnit,r )
+         INTEGER, INTENT(IN) :: OutputUnit
+         REAL(dp), INTENT(IN) :: r
 
-      IF ( Binary ) THEN
-        CALL BinWriteInt4( OutputUnit,i1 )
-        CALL BinWriteInt4( OutputUnit,i2 )
-        CALL BinWriteDouble( OutputUnit,r )
-      ELSE
-        WRITE( OutputUnit,* ) i1,i2,r
-      END IF
-    END SUBROUTINE WriteIntIntReal
+         IF ( Binary ) THEN
+            CALL BinWriteDouble( OutputUnit,r )
+         ELSE
+            WRITE( OutputUnit,* ) r
+         END IF
+      END SUBROUTINE WriteReal
 
 
-    SUBROUTINE WriteTime( OutputUnit,SavesDone,nTime,SimulationTime )
-      INTEGER, INTENT(IN) :: OutputUnit
-      INTEGER, INTENT(IN) :: SavesDone,nTime
-      REAL(dp), INTENT(IN) :: SimulationTime
+      SUBROUTINE WriteTime( OutputUnit,SavesDone,nTime,SimulationTime )
+         INTEGER, INTENT(IN) :: OutputUnit
+         INTEGER, INTENT(IN) :: SavesDone,nTime
+         REAL(dp), INTENT(IN) :: SimulationTime
 
-      IF ( Binary ) THEN
-        CALL BinWriteString( OutputUnit, 'Time: ' )
-        CALL BinWriteInt4( OutputUnit, SavesDone )
-        CALL BinWriteInt4( OutputUnit, nTime )
-        CALL BinWriteDouble( OutputUnit, SimulationTime )
-      ELSE
-        WRITE( OutputUnit,'(a,i7,i7,E20.12E3)' ) 'Time: ',SavesDone,nTime, &
-                                                 SimulationTime
-      END IF
-    END SUBROUTINE WriteTime
+         IF ( Binary ) THEN
+            CALL BinWriteString( OutputUnit, 'Time: ' )
+            CALL BinWriteInt4( OutputUnit, SavesDone )
+            CALL BinWriteInt4( OutputUnit, nTime )
+            CALL BinWriteDouble( OutputUnit, SimulationTime )
+         ELSE
+            WRITE( OutputUnit,'(a,i7,i7,E20.12E3)' ) 'Time: ',SavesDone,nTime, &
+                                                   SimulationTime
+         END IF
+      END SUBROUTINE WriteTime
 
 
-    SUBROUTINE AppendOpen( OutputUnit,FName )
-      INTEGER, INTENT(IN) :: OutputUnit
-      CHARACTER(*), INTENT(IN) :: FName
+      SUBROUTINE AppendOpen( OutputUnit,FName )
+         INTEGER, INTENT(IN) :: OutputUnit
+         CHARACTER(*), INTENT(IN) :: FName
 
-      IF ( Binary ) THEN
-        CALL BinOpen( OutputUnit, TRIM(FName), "APPEND" )
-      ELSE
-        OPEN( OutputUnit,FILE=TRIM(FName),STATUS="OLD",POSITION="APPEND" )
-      END IF
-    END SUBROUTINE AppendOpen
+         IF ( Binary ) THEN
+            CALL BinOpen( OutputUnit, TRIM(FName), "APPEND" )
+         ELSE
+            OPEN( OutputUnit,FILE=TRIM(FName),STATUS="OLD",POSITION="APPEND" )
+         END IF
+      END SUBROUTINE AppendOpen
       
 
-    SUBROUTINE SwitchToBinary( OutputUnit,FName,nNodes )
-      INTEGER, INTENT(IN) :: OutputUnit
-      CHARACTER(*), INTENT(IN) :: FName
-      INTEGER, INTENT(IN) :: nNodes
+      SUBROUTINE SwitchToBinary( OutputUnit,FName,nNodes )
+         INTEGER, INTENT(IN) :: OutputUnit
+         CHARACTER(*), INTENT(IN) :: FName
+         INTEGER, INTENT(IN) :: nNodes
 
-      CLOSE( OutputUnit )
-      CALL BinOpen( OutputUnit, TRIM(FName), "APPEND" )
+         CLOSE( OutputUnit )
+         CALL BinOpen( OutputUnit, TRIM(FName), "APPEND" )
 
-      ! The binary part starts with a NULL byte, followed by the number of
-      ! nodes.
-      CALL BinWriteString( OutputUnit, "" )
-      CALL BinWriteInt4( OutputUnit,nNodes )
-    END SUBROUTINE SwitchToBinary
+         ! The binary part starts with a NULL byte.
+         CALL BinWriteString( OutputUnit, "" )
+      END SUBROUTINE SwitchToBinary
       
 
-    SUBROUTINE InitializeFile( OutputUnit,FName )
-      INTEGER, INTENT(IN) :: OutputUnit
-      CHARACTER(*), INTENT(IN) :: FName
+      SUBROUTINE InitializeFile( OutputUnit,FName )
+         INTEGER, INTENT(IN) :: OutputUnit
+         CHARACTER(*), INTENT(IN) :: FName
 
-      IF ( Binary ) THEN
-        ! First BinOpen & BinClose the file to get the endianess marker to the
-        ! beginning of the file. Then switch to normal ASCII mode for writing
-        ! the header.
-        CALL BinOpen( OutputUnit, FName, "write" )
-        CALL BinClose( OutputUnit )
+         IF ( Binary ) THEN
+            ! First BinOpen & BinClose the file to get the endianess marker to
+            ! the beginning of the file. Then switch to normal ASCII mode for
+            ! writing the header.
+            CALL BinOpen( OutputUnit, FName, "write" )
+            CALL BinClose( OutputUnit )
 
-        OPEN( OutputUnit,File=FName,STATUS='UNKNOWN',POSITION='APPEND' )
-        WRITE( OutputUnit, * ) 'BINARY 1'
-      ELSE
-        OPEN( OutputUnit,File=FName,STATUS='UNKNOWN' )
-      END IF
-    END SUBROUTINE InitializeFile
+            OPEN( OutputUnit,File=FName,STATUS='UNKNOWN',POSITION='APPEND' )
+            WRITE( OutputUnit, * ) 'BINARY 1'
+         ELSE
+            OPEN( OutputUnit,File=FName,STATUS='UNKNOWN' )
+            WRITE( OutputUnit, * ) 'ASCII 1'
+         END IF
+      END SUBROUTINE InitializeFile
 
 !------------------------------------------------------------------------------
   END FUNCTION SaveResult
@@ -2016,17 +2085,19 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  SUBROUTINE LoadRestartFile( RestartFile,TimeCount,Mesh,Continuous )
+  SUBROUTINE LoadRestartFile( RestartFile,TimeCount,Mesh,Continuous,EOF )
     CHARACTER(LEN=*) :: RestartFile
     INTEGER :: TimeCount
     TYPE(Mesh_T), POINTER :: Mesh
-    LOGICAL, OPTIONAL :: Continuous
+    LOGICAL, OPTIONAL :: Continuous,EOF
 !------------------------------------------------------------------------------
     TYPE(Variable_t),POINTER :: Var
     CHARACTER(LEN=MAX_NAME_LEN) :: Row,Name,FName
     CHARACTER(LEN=512) :: Trash
-    INTEGER ::i,j,k,n,Node,DOFs,SavedCount,Timestep,NSDOFs,nlen
+    INTEGER ::i,j,k,n,nt,Node,DOFs,SavedCount,Timestep,NSDOFs,nlen
     INTEGER :: nNodes, Stat
+    INTEGER, SAVE :: FmtVersion
+    INTEGER, POINTER, SAVE :: Perm(:)
 
     TYPE(Solver_t),   POINTER :: Solver
     TYPE(Variable_t), POINTER :: TimeVar, tStepVar
@@ -2038,6 +2109,8 @@ CONTAINS
     REAL(KIND=dp), POINTER :: Component(:)
     REAL(KIND=dp), POINTER :: Velocity1(:),Velocity2(:),Velocity3(:),Pressure(:)
     SAVE DOFs
+
+    Perm => NULL()
 !------------------------------------------------------------------------------
 !   Open restart file and search for the right position
 !------------------------------------------------------------------------------
@@ -2047,11 +2120,12 @@ CONTAINS
 
     Cont = .FALSE.
     IF ( PRESENT( Continuous ) ) Cont = Continuous
+    IF ( PRESENT( EOF ) ) EOF = .FALSE.
 
     IF ( Cont .AND. RestartFileOpen ) GOTO 30
 
     IF ( INDEX( RestartFile, ':') == 0 .AND. RestartFile(1:1) /= '/' &
-                .AND. RestartFile(1:1) /= '\\' .AND. LEN_TRIM(OutputPath) > 0 ) THEN
+         .AND. RestartFile(1:1) /= '\\' .AND. LEN_TRIM(OutputPath) > 0 ) THEN
       FName = TRIM(OutputPath) // '/' // TRIM(RestartFile)
     ELSE
       FName = RestartFile
@@ -2071,10 +2145,16 @@ CONTAINS
     READ( RestartUnit, '(A)' ) Row
     IF ( Row(3:8) == 'BINARY' ) THEN
         Binary = .TRUE.
-        CALL Info( 'LoadRestartFile', 'Binary input', Level=3 )
-    ELSE
+        FmtVersion = 1
+        CALL Info( 'LoadRestartFile', TRIM(Row(3:)), Level=3 )
+    ELSE IF ( Row(2:7) == 'ASCII' ) THEN
         Binary = .FALSE.
-        CALL Info( 'LoadRestartFile', 'ASCII input', Level=3 )
+        FmtVersion = 1
+        CALL Info( 'LoadRestartFile', TRIM(Row(2:)), Level=3 )
+    ELSE 
+        Binary = .FALSE.
+        FmtVersion = 0
+        CALL Info( 'LoadRestartFile', 'ASCII 0', Level=3 )
     END IF
     CALL Info( 'LoadRestartFile',' ', Level = 3)
 
@@ -2170,15 +2250,10 @@ CONTAINS
     END DO
 
     IF ( Binary ) THEN
-        ! Switch to binary reading
-        CLOSE( RestartUnit )
-        CALL BinOpen( RestartUnit,FName,"read" )
-        CALL BinReadString( RestartUnit,Trash ) ! Skip header; we read it already
-        CALL BinReadInt4( RestartUnit,nNodes )
-        IF ( nNodes /= Mesh % NumberOfNodes ) THEN
-          CALL Warn( 'LoadRestartFile','Wrong number of nodes in restart file,' )
-          CALL Warn( 'LoadRestartFile','this is not likely to work correctly.' )
-        END IF
+      ! Switch to binary reading
+      CLOSE( RestartUnit )
+      CALL BinOpen( RestartUnit,FName,"read" )
+      CALL BinReadString( RestartUnit,Trash ) !Skip header; we read it already
     END IF
 
 30  CONTINUE
@@ -2188,49 +2263,66 @@ CONTAINS
 !------------------------------------------------------------------------------
     TimeVar  => VariableGet( Mesh % Variables, 'Time' )
     tStepVar => VariableGet( Mesh % Variables, 'Timestep' )
-    n = 1
-    IF ( Cont ) n = TimeCount
-    DO WHILE( n <= TimeCount .OR. TimeCount == 0 )
+    nt = 1
+    IF ( Cont ) nt = TimeCount
+    DO WHILE( nt <= TimeCount .OR. TimeCount == 0 )
       CALL ReadTime( RestartUnit,SavedCount,Timestep,Time,Stat )
 
       IF ( Stat /= 0 ) THEN
-        IF ( TimeCount /= 0 ) THEN
-          CALL Warn( 'LoadRestartFile','Did not find the the requested' )
-          CALL Warn( 'LoadRestartFile','restart position from the restart file, using the last' )
-          CALL Warn( 'LoadRestartFile','data found.' )
-        END IF
-        EXIT
+         IF ( PRESENT( EOF ) ) THEN
+            EOF = .TRUE.
+         ELSE IF ( TimeCount /= 0 ) THEN
+            CALL Warn( 'LoadRestartFile','Did not find the the requested' )
+            CALL Warn( 'LoadRestartFile','restart position from the restart file, using the last' )
+            CALL Warn( 'LoadRestartFile','data found.' )
+         END IF
+         EXIT
       END IF
 
       IF ( ASSOCIATED( TimeVar ) )  TimeVar % Values(1)  = Time
       IF ( ASSOCIATED( tStepVar ) ) tStepVar % Values(1) = Timestep
 
       DO i=1,DOFs
-        CALL ReadVariableName( RestartUnit,Row )
-        Var => VariableGet( Mesh % Variables,Row )
+         CALL ReadVariableName( RestartUnit,Row )
+         Var => VariableGet( Mesh % Variables,Row )
 
-        IF ( ASSOCIATED(Var) ) THEN
-          DO j=1,Mesh % NumberOfNodes
-            CALL ReadIntIntReal( RestartUnit,Node,k,value )
+         IF ( FmtVersion == 1 ) THEN
+            CALL ReadPerm( RestartUnit, Var % Perm, Perm )
+         END IF
 
-            IF ( .NOT. ASSOCIATED( Var % Perm ) ) THEN
-               IF ( k > 0 ) Var % Values(k) = value
-            ELSE IF ( Var % Perm(j) <= 0 ) THEN
-               Var % Perm(j) = k
-               IF ( k > 0 ) Var % Values(k) = value
-            ELSE IF ( Var % Perm(j)>0 ) THEN
-               IF ( k > 0 ) Var % Values(Var % Perm(j)) = value
+         IF ( ASSOCIATED(Var) ) THEN
+   
+            IF ( ASSOCIATED(Var % Perm) .AND. FmtVersion > 0 ) THEN
+               n = SIZE(Var % Perm)
+            ELSE
+               n = Mesh % NumberOfNodes
             END IF
-          END DO
 
-          CALL InvalidateVariable( CurrentModel % Meshes, Mesh, Row )
-        END IF
+            DO j=1, n
+               IF ( FmtVersion > 0 ) THEN
+                  CALL GetValue( RestartUnit, Perm, j, k, value )
+               ELSE
+                  READ( RestartUnit,* ) Node, k, value
+               END IF
+
+               IF ( .NOT. ASSOCIATED( Var % Perm ) ) THEN
+                  IF ( k > 0 ) Var % Values(k) = value
+               ELSE IF ( Var % Perm(j) <= 0 ) THEN
+                  Var % Perm(j) = k
+                  IF ( k > 0 ) Var % Values(k) = value
+               ELSE IF ( Var % Perm(j) > 0 ) THEN
+                  IF ( k > 0 ) Var % Values(Var % Perm(j)) = value
+               END IF
+            END DO
+
+            CALL InvalidateVariable( CurrentModel % Meshes, Mesh, Row )
+         END IF
       END DO
-      n = n + 1
+      nt = nt + 1
     END DO
 !------------------------------------------------------------------------------
     IF ( .NOT. Cont ) THEN
-       IF ( Binary ) THEN
+      IF ( Binary ) THEN
          CALL BinClose( RestartUnit )
        ELSE
          CLOSE( RestartUnit )
@@ -2243,31 +2335,88 @@ CONTAINS
 
 CONTAINS
 
-  SUBROUTINE ReadIntIntReal( RestartUnit, i1, i2, r )
-    INTEGER, INTENT(IN) :: RestartUnit
-    INTEGER, INTENT(OUT) :: i1, i2
-    REAL(dp), INTENT(OUT) :: r
+   SUBROUTINE GetValue( RestartUnit, Perm, iNode, iPerm, Value )
+   !
+   ! Get iPerm = Perm(iNode) and Value from input
+   !
+      INTEGER, INTENT(IN) :: RestartUnit
+      INTEGER, POINTER :: Perm(:)
+      INTEGER, INTENT(IN) :: iNode
+      INTEGER, INTENT(OUT) :: iPerm
+      REAL(dp), INTENT(OUT) :: Value
 
-    IF ( Binary ) THEN
-      CALL BinReadInt4( RestartUnit,i1 )
-      CALL BinReadInt4( RestartUnit,i2 )
-      CALL BinReadDouble( RestartUnit,r )
-    ELSE
-      READ( RestartUnit,* ) i1,i2,r
-    END IF
-  END SUBROUTINE ReadIntIntReal
+      IF ( ASSOCIATED( Perm ) ) THEN
+         iPerm = Perm(iNode)
+      ELSE
+         iPerm = iNode
+      END IF
+
+      IF ( iPerm > 0 ) THEN
+         IF ( Binary ) THEN
+            CALL BinReadDouble( RestartUnit, Value )
+         ELSE
+            READ( RestartUnit, * ) Value
+         END IF
+      END IF
+   END SUBROUTINE GetValue
+    
+
+   SUBROUTINE ReadPerm( RestartUnit, VarPerm, Perm )
+      INTEGER, INTENT(IN) :: RestartUnit
+      INTEGER, POINTER :: VarPerm(:)
+      INTEGER, POINTER :: Perm(:)
+      INTEGER :: nPerm, nPos, i, j
+      CHARACTER(MAX_NAME_LEN) :: Row
+
+      IF ( Binary ) THEN
+         CALL BinReadInt4( RestartUnit, nPerm )
+      ELSE
+         READ( RestartUnit, '(A)' ) Row
+         IF ( Row(7:10) == "NULL" ) THEN
+            nPerm = 0
+         ELSE IF ( Row(7:18) == "use previous" ) THEN
+            nPerm = -1
+         ELSE
+            READ( Row(7:),* ) nPerm, nPos
+         END IF
+      END IF
+
+      IF ( nPerm < 0 ) THEN
+         RETURN
+      ELSE IF ( nPerm == 0 ) THEN
+         IF ( ASSOCIATED(Perm) ) DEALLOCATE( Perm )
+         RETURN
+      ELSE 
+         IF ( Binary ) CALL BinReadInt4( RestartUnit, nPos )
+      END IF
+
+      ALLOCATE( Perm(nPerm) )
+      Perm = 0.0d0
+
+      DO i = 1, nPos
+         IF ( Binary ) THEN
+            CALL BinReadInt4( RestartUnit, j )
+            CALL BinReadInt4( RestartUnit, Perm(j) )
+         ELSE
+            ! The format string for j has better mach the corresponding format
+            ! in WritePerm().
+            READ( RestartUnit, '(i11)', ADVANCE='no' ) j
+            READ( RestartUnit, * ) Perm(j)
+         END IF
+      END DO
+   END SUBROUTINE ReadPerm
 
 
-  SUBROUTINE ReadVariableName( RestartUnit,VarName )
-    INTEGER, INTENT(IN) :: RestartUnit
-    CHARACTER(*), INTENT(OUT) :: VarName
+   SUBROUTINE ReadVariableName( RestartUnit,VarName )
+      INTEGER, INTENT(IN) :: RestartUnit
+      CHARACTER(*), INTENT(OUT) :: VarName
 
-    IF ( Binary ) THEN
-      CALL BinReadString( RestartUnit,VarName )
-    ELSE
-      READ( RestartUnit,'(a)' ) VarName
-    END IF
-  END SUBROUTINE ReadVariableName
+      IF ( Binary ) THEN
+         CALL BinReadString( RestartUnit,VarName )
+      ELSE
+         READ( RestartUnit,'(a)' ) VarName
+      END IF
+   END SUBROUTINE ReadVariableName
 
 
   SUBROUTINE ReadTime( RestartUnit,SavedCount,Timestep,Time,Stat )
