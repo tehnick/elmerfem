@@ -21,7 +21,7 @@ CONTAINS
         CHARACTER(50) :: s, s2
         CHARACTER(256) :: Error
 
-        CALL BinOpen( fu, "writetest.checkL", "read", stat )
+        CALL BinOpen( fu, FName, "read", stat )
         IF ( stat /= 0 ) STOP 1
 
         CALL BinReadInt4( fu, a, stat )

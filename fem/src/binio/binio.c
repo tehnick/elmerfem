@@ -69,6 +69,22 @@ static char endianess()
 }
 
 
+/* Swap the bytes in an n byte object.  */
+
+static void swap_bytes(void *o, size_t n)
+{
+    uint8_t *p, tmp;
+    int i;
+
+    p = o;
+    for (i = 0; i < n/2; i++) {
+        tmp = p[i];
+        p[i] = p[n-1-i];
+        p[n-1-i] = tmp;
+    }
+}
+
+
 void FC_FUNC_(binopen_,BINOPEN_)(const int *unit, const FC_CHAR_PTR(file,len),
                                  const int *file_len,
                                  const FC_CHAR_PTR(action,len),
@@ -144,24 +160,17 @@ void FC_FUNC_(binwriteint8_,BINWRITEINT8_)(const int *unit, const uint64_t *n,
 
 void FC_FUNC_(binreadint8_,BINREADINT8_)(const int *unit, uint64_t *n, int *status)
 {
-    uint8_t b[8];
-    int i;
     size_t r;
 
     assert(units[*unit].fd);
 
-    if (units[*unit].convert) {
-        r = fread(b, 1, sizeof(b), units[*unit].fd);
-        *n = 0;
-        for (i = 0; i < 8; i++)
-            *n |= (uint64_t)(b[i] & 0xFF) << i*8;
-    } else
-        r = fread(n, 1, 8, units[*unit].fd);
-
+    r = fread(n, 1, 8, units[*unit].fd);
     if (r != 8)
         *status = (feof(units[*unit].fd)) ? -1 : errno;
     else
         *status = 0;
+
+    if (units[*unit].convert) swap_bytes(n, 8);
 }
 
 
@@ -178,24 +187,17 @@ void FC_FUNC_(binwritedouble_,BINWRITEDOUBLE_)(const int *unit, const double *a,
 
 void FC_FUNC_(binreadint4_,BINREADINT4_)(const int *unit, uint32_t *n, int *status)
 {
-    uint8_t b[4];
-    int i;
     size_t r;
 
     assert(units[*unit].fd);
 
-    if (units[*unit].convert) {
-        r = fread(b, 1, sizeof(b), units[*unit].fd);
-        *n = 0;
-        for (i = 0; i < 4; i++)
-            *n |= (b[i] & 0xFF) << i*8;
-    } else
-        r = fread(n, 1, sizeof(b), units[*unit].fd);
-
+    r = fread(n, 1, sizeof(uint32_t), units[*unit].fd);
     if (r != 4)
         *status = (feof(units[*unit].fd)) ? -1 : errno;
     else
         *status = 0;
+
+    if (units[*unit].convert) swap_bytes(n, 4);
 }
 
 
