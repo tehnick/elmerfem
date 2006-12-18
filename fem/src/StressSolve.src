@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StressSolve.src,v $
+! * Revision 1.30  2006/12/01 20:23:51  jpr
+! * Still about 'Constant Bulk System' and time dependence.
+! *
 ! * Revision 1.28  2006/12/01 12:33:00  jpr
 ! * More formatting changes.
 ! *
@@ -263,7 +266,7 @@
             VonMises(:), NodalStress(:), StressComp(:), ContactPressure(:), &
             NormalDisplacement(:), TransformMatrix(:,:), UWrk(:,:)
 
-     REAL(KIND=dp) :: UnitNorm, Unit1(3), Unit2(3), Unit3(3)
+     REAL(KIND=dp) :: UnitNorm, Unit1(3), Unit2(3), Unit3(3), Prevdt=-1
 
      INTEGER, POINTER :: TempPerm(:),DisplPerm(:),StressPerm(:),NodeIndexes(:)
 
@@ -271,11 +274,12 @@
      LOGICAL :: PlaneStress, CalcStress, CalcStressAll, Isotropic = .TRUE.
      LOGICAL :: Contact = .FALSE.
      LOGICAL :: stat, stat2, stat3, RotateC, MeshDisplacementActive, &
-                ConstantBulk, ConstantSystem
+                ConstantBulkSystem, ConstantBulkMatrix, ConstantBulkMatrixInUse, ConstantSystem
 
      LOGICAL :: AllocationsDone = .FALSE., NormalTangential
      LOGICAL :: StabilityAnalysis = .FALSE., ModelLumping, FixDisplacement
-     LOGICAL :: GeometricStiffness = .FALSE., EigenAnalysis=.FALSE., OrigEigenAnalysis
+     LOGICAL :: GeometricStiffness = .FALSE., EigenAnalysis=.FALSE., OrigEigenAnalysis, &
+           Refactorize = .TRUE.
 
      REAL(KIND=dp),ALLOCATABLE:: MASS(:,:),STIFF(:,:),&
        DAMP(:,:), LOAD(:,:),FORCE(:), &
@@ -328,7 +332,7 @@
         END FUNCTION StressInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.29 2006/12/01 20:07:42 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.30 2006/12/01 20:23:51 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -542,8 +546,15 @@
             Model % MaxElementNodes)
      END IF
 
+!------------------------------------------------------------------------------
+     Refactorize = GetLogical( SolverParams, 'Linear System Refactorize', Found )
+     IF ( .NOT. Found ) Refactorize = .TRUE.
+     IF ( Transient .AND. .NOT. Refactorize .AND. dt /= Prevdt ) THEN
+        CALL ListAddLogical( SolverParams, 'Linear System Refactorize', .TRUE. )
+     END IF
      ConstantSystem = GetLogical( SolverParams, 'Constant System', Found )
-     ConstantBulk   = GetLogical( SolverParams, 'Constant Bulk System', Found )
+     ConstantBulkSystem = GetLogical( SolverParams, 'Constant Bulk System', Found )
+     ConstantBulkMatrix = GetLogical( SolverParams, 'Constant Bulk Matrix', Found )
 !------------------------------------------------------------------------------
      DO iter=1,MaxIter
        IF( StabilityAnalysis .OR. GeometricStiffness ) THEN
@@ -569,28 +580,42 @@
        CALL Info( 'StressSolve', 'Starting assembly...',Level=4 )
 !------------------------------------------------------------------------------
 
+       ConstantBulkMatrixInUse = ConstantBulkMatrix .AND. &
+           ASSOCIATED(Solver % Matrix % BulkValues)
+
        IF ( ASSOCIATED(Solver % Matrix % BulkValues) ) THEN
-         IF ( ConstantBulk .OR. ConstantSystem ) THEN
-           Solver % Matrix % RHS    = Solver % Matrix % BulkRHS
+         IF ( ConstantBulkMatrix .OR. ConstantBulkSystem .OR. ConstantSystem ) THEN
            Solver % Matrix % Values = Solver % Matrix % BulkValues
          END IF
-         IF ( ConstantBulk   ) GO TO 1000
-         IF ( ConstantSystem ) GO TO 2000
+
+         IF ( ConstantBulkSystem .OR. ConstantSystem ) THEN
+           Solver % Matrix % RHS  = Solver % Matrix % BulkRHS
+         ELSE IF ( ConstantBulkMatrix ) THEN
+           Solver % Matrix % RHS = 0.0_dp
+         END IF
+
+         IF ( ConstantBulkMatrix )   GO TO 1000
+         IF ( ConstantBulkSystem   ) GO TO 2000
+         IF ( ConstantSystem )       GO TO 3000
        END IF
 
        CALL DefaultInitialize()
-       CALL BulkAssembly()
 
 1000   CONTINUE
+
+       CALL BulkAssembly()
+
+2000   CONTINUE
 
        CALL Info( 'StressSolve', 'Assembly done', Level=4 )
 
        CALL BCAssembly()
 
-2000   CONTINUE
+3000   CONTINUE
 
-       IF ( Transient .AND. (ConstantBulk.OR. ConstantSystem) ) &
-                     CALL AddGlobalTime()
+       IF ( Transient .AND. &
+          (ConstantBulkMatrix .OR. ConstantBulkSystem .OR. ConstantSystem) ) &
+                          CALL AddGlobalTime()
 
        CALL DefaultFinishAssembly()
        CALL DefaultDirichletBCS()
@@ -605,6 +630,9 @@
        !--------------------------------------------
        PrevUNorm = UNorm
        UNorm = DefaultSolve()
+       IF ( Transient .AND. .NOT. Refactorize .AND. dt /= Prevdt ) THEN
+          CALL ListAddLogical( SolverParams, 'Linear System Refactorize', .FALSE. )
+       END IF
 
        IF ( PrevUNorm + UNorm /= 0.0d0 ) THEN
           RelativeChange = 2.0d0 * ABS( PrevUNorm - UNorm) / ( PrevUnorm + UNorm)
@@ -727,17 +755,19 @@ CONTAINS
        ReferenceTemperature(1:n) = GetReal(Material, &
              'Reference Temperature', Found )
 
-       PreStress = 0.0d0
-       PreStrain = 0.0d0
-       CALL ListGetRealArray( Material, 'Stress', Work, n, NodeIndexes, Found )
-       IF ( Found ) THEN
-          k = SIZE(Work,1)
-          PreStress(1:k,1:n) = Work(1:k,1,1:n)
-       END IF
-       CALL ListGetRealArray( Material, 'Strain', Work, n, NodeIndexes, Found )
-       IF ( Found ) THEN
-          k = SIZE(Work,1)
-          PreStrain(1:k,1:n) = Work(1:k,1,1:n)
+       IF ( .NOT. ConstantBulkMatrixInUse ) THEN
+         PreStress = 0.0d0
+         PreStrain = 0.0d0
+         CALL ListGetRealArray( Material, 'Stress', Work, n, NodeIndexes, Found )
+         IF ( Found ) THEN
+            k = SIZE(Work,1)
+            PreStress(1:k,1:n) = Work(1:k,1,1:n)
+         END IF
+         CALL ListGetRealArray( Material, 'Strain', Work, n, NodeIndexes, Found )
+         IF ( Found ) THEN
+            k = SIZE(Work,1)
+            PreStrain(1:k,1:n) = Work(1:k,1,1:n)
+         END IF
        END IF
 
        ! Check need for elasticity matrix rotation:
@@ -820,30 +850,38 @@ CONTAINS
 
        ! Get element local stiffness & mass matrices:
        !---------------------------------------------
-       CALL GetVectorLocalSolution( NodalDisplacement )
        CALL GetScalarLocalSolution( LocalTemperature, 'Temperature' )
        LocalTemperature(1:n) = LocalTemperature(1:n) - &
                ReferenceTemperature(1:n)
 
-       IF ( Transient ) THEN
-         NodalMeshVelo(3,1:n) = GetReal( Material, 'Mesh Velocity 3', Found)
-         NodalMeshVelo(2,1:n) = GetReal( Material, 'Mesh Velocity 2', Found)
-         NodalMeshVelo(1,1:n) = GetReal( Material, 'Mesh Velocity 1', Found)
-         IF ( .NOT. Found ) THEN
-           CALL GetVectorLocalSolution( NodalMeshVelo, 'Mesh Velocity' )
+       IF ( .NOT. ConstantBulkMatrixInUse ) THEN
+         CALL GetVectorLocalSolution( NodalDisplacement )
+         IF ( Transient ) THEN
+           NodalMeshVelo(3,1:n) = GetReal( Material, 'Mesh Velocity 3', Found)
+           NodalMeshVelo(2,1:n) = GetReal( Material, 'Mesh Velocity 2', Found)
+           NodalMeshVelo(1,1:n) = GetReal( Material, 'Mesh Velocity 1', Found)
+           IF ( .NOT. Found ) THEN
+             CALL GetVectorLocalSolution( NodalMeshVelo, 'Mesh Velocity' )
+           END IF
+         ELSE
+           NodalMeshVelo   = 0.0d0
          END IF
-       ELSE
-         NodalMeshVelo   = 0.0d0
        END IF
 
        SELECT CASE( CurrentCoordinateSystem() )
        CASE( Cartesian, AxisSymmetric, CylindricSymmetric )
-          CALL StressCompose( MASS, DAMP, STIFF, FORCE, LOAD, ElasticModulus,     &
-             PoissonRatio, Density, Damping, PlaneStress, Isotropic,              &
-             PreStress, PreStrain, StressLoad, StrainLoad, HeatExpansionCoeff,    &
-             LocalTemperature, Element, n, ntot, ElementNodes, StabilityAnalysis  &
-             .AND. iter>1, GeometricStiffness .AND. iter>1, NodalDisplacement,    &
-             RotateC, TransformMatrix, NodalMeshVelo )
+          IF ( ConstantBulkMatrixInUse ) THEN
+            CALL StressForceCompose( FORCE, LOAD, ElasticModulus, PoissonRatio,     &
+              PlaneStress, Isotropic,StressLoad, StrainLoad, HeatExpansionCoeff,    &
+              LocalTemperature, Element, n, ntot, ElementNodes, RotateC, TransformMatrix )
+          ELSE
+            CALL StressCompose( MASS, DAMP, STIFF, FORCE, LOAD, ElasticModulus,     &
+               PoissonRatio, Density, Damping, PlaneStress, Isotropic,              &
+               PreStress, PreStrain, StressLoad, StrainLoad, HeatExpansionCoeff,    &
+               LocalTemperature, Element, n, ntot, ElementNodes, StabilityAnalysis  &
+               .AND. iter>1, GeometricStiffness .AND. iter>1, NodalDisplacement,    &
+               RotateC, TransformMatrix, NodalMeshVelo )
+          END IF
 
        CASE DEFAULT
           CALL StressGeneralCompose( MASS, STIFF,FORCE, LOAD, ElasticModulus, &
@@ -854,7 +892,7 @@ CONTAINS
 !      If time dependent simulation, add mass matrix to global 
 !      matrix and global RHS vector
 !------------------------------------------------------------------------------
-       IF ( .NOT. (ConstantBulk .OR. ConstantSystem) ) THEN
+       IF ( .NOT. (ConstantBulkMatrix .OR. ConstantBulkSystem .OR. ConstantSystem) ) THEN
          IF ( Transient .AND. Solver % NOFEigenValues <= 0 )  THEN
             CALL Default2ndOrderTime( MASS, DAMP, STIFF, FORCE )
          END IF
@@ -862,12 +900,18 @@ CONTAINS
 !------------------------------------------------------------------------------
 !      Update global matrices from local matrices 
 !------------------------------------------------------------------------------
-       CALL DefaultUpdateEquations( STIFF, FORCE, BulkUpdate=.TRUE. )
+       IF ( ConstantBulkMatrixInUse ) THEN
+         CALL DefaultUpdateForce( FORCE, BulkUpdate=.TRUE. )
+       ELSE
+         CALL DefaultUpdateEquations( STIFF, FORCE, BulkUpdate=.TRUE. )
 
-       IF ( Solver % NOFEigenValues>0 .OR. ConstantBulk .OR. ConstantSystem ) THEN
-          CALL DefaultUpdateMass( MASS )
-          CALL DefaultUpdateDamp( DAMP )
+         IF ( Solver % NOFEigenValues>0 .OR. &
+           ConstantBulkMatrix .OR. ConstantBulkSystem .OR. ConstantSystem ) THEN
+           CALL DefaultUpdateMass( MASS )
+           CALL DefaultUpdateDamp( DAMP )
+         END IF
        END IF
+
 !------------------------------------------------------------------------------
      END DO
 !------------------------------------------------------------------------------
@@ -950,7 +994,7 @@ CONTAINS
                               Element,n,ElementNodes )
           END SELECT
 
-          IF ( .NOT. (ConstantSystem.OR.ConstantBulk) ) THEN
+          IF ( .NOT. (ConstantSystem .OR. ConstantBulkSystem .OR. ConstantBulkMatrix ) ) THEN
             IF ( Transient .AND. Solver % NOFEigenValues <= 0 )  THEN
                MASS = 0.0d0
                CALL Default2ndOrderTime( MASS, DAMP, STIFF, FORCE )
