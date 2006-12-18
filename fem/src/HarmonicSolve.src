@@ -46,9 +46,7 @@ CONTAINS
     ILUTol = ListGetConstReal( Solver % Values, 'Linear System ILUT Tolerance', Found )
     IF ( .NOT. Found ) ILUTol=0.001d0
 
-    IF ( Prec(1:3) == 'ilu' .AND. prec(4:4) /= 't' ) THEN
-       READ( Prec(4:4), * ) ILUn
-    END IF
+    IF ( Prec(1:3) == 'ilu' .AND. prec(4:4) /= 't' ) READ( Prec(4:4), * ) ILUn
 
     freqv => ListGetConstRealArray( Solver % Values, 'Frequency' )
 
