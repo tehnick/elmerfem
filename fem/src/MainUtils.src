@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MainUtils.src,v $
+! * Revision 1.19  2006/12/18 12:23:07  jpr
+! * Added 'Harmonic analysis' option.
+! *
 ! * Revision 1.18  2006/12/01 09:02:17  jpr
 ! * Initial changes to enable 'constant bulk system' for time dependent
 ! * simulations.
@@ -98,7 +101,7 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.src,v 1.18 2006/12/01 09:02:17 jpr Exp $
+! * $Id: MainUtils.src,v 1.19 2006/12/18 12:23:07 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MainUtils
@@ -957,10 +960,11 @@ Solver % PROCEDURE = GetProcAddr( str )
              Solver % Matrix % MassValues = 0.0d0
           END IF
        ELSE IF ( HarmonicAnal ) THEN
-          freqv => ListGetConstRealArray( Solver % Values, 'Frequency' )
+          freqv => ListGetConstRealArray( Solver % Values, 'Frequency', Found )
           IF ( Found ) THEN
              n = SIZE(Freqv,1)
              Solver % NOFEigenValues = n
+print*,'eh ?', found, n
              IF ( .NOT. ASSOCIATED( Solver % Variable % EigenValues ) ) THEN
                ALLOCATE( Solver % Variable % EigenValues(n) )
                ALLOCATE( Solver % Variable % EigenVectors(n, &
@@ -980,6 +984,8 @@ Solver % PROCEDURE = GetProcAddr( str )
              END IF
              ALLOCATE( Solver % Matrix % MassValues(SIZE(Solver % Matrix % Values)) )
              Solver % Matrix % MassValues = 0.0d0
+          ELSE
+             CALL Fatal( 'AddEquation', 'Frequency must be given for harmonic analysis.' )
           END IF
        END IF
     END IF

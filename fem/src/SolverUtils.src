@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.40  2006/12/18 12:23:07  jpr
+! * Added 'Harmonic analysis' option.
+! *
 ! * Revision 1.39  2006/12/01 09:02:17  jpr
 ! * Initial changes to enable 'constant bulk system' for time dependent
 ! * simulations.
@@ -137,7 +140,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.39 2006/12/01 09:02:17 jpr Exp $
+! * $Id: SolverUtils.src,v 1.40 2006/12/18 12:23:07 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -2426,8 +2429,8 @@ CONTAINS
     EigenAnalysis = Solver % NOFEigenValues > 0 .AND. &
           ListGetLogical( Solver % Values, 'Eigen Analysis',GotIt )
 
-    HarmonicAnalysis = Solver % NOFEigenValues > 0 .AND. &
-          ListGetLogical( Solver % Values, 'Eigen Analysis',GotIt )
+    HarmonicAnalysis = Solver % NOFEigenValues>0 .AND. &
+          ListGetLogical( Solver % Values, 'Harmonic Analysis',GotIt )
 
 !   Cant use scaling in parallel:
 !   --------------------------
