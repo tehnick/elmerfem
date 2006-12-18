@@ -39,6 +39,10 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StressSolve.src,v $
+! * Revision 1.31  2006/12/18 10:23:44  jpr
+! * added 'Constant Bulk Matrix' & check for varying timestep when using
+! * 'Linear System Refactorize'.
+! *
 ! * Revision 1.30  2006/12/01 20:23:51  jpr
 ! * Still about 'Constant Bulk System' and time dependence.
 ! *
@@ -332,7 +336,7 @@
         END FUNCTION StressInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.30 2006/12/01 20:23:51 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.31 2006/12/18 10:23:44 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -631,6 +635,7 @@
        PrevUNorm = UNorm
        UNorm = DefaultSolve()
        IF ( Transient .AND. .NOT. Refactorize .AND. dt /= Prevdt ) THEN
+          Prevdt = dt
           CALL ListAddLogical( SolverParams, 'Linear System Refactorize', .FALSE. )
        END IF
 

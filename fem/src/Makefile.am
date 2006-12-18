@@ -192,6 +192,7 @@ EXTRA_DIST = \
 	FreeSurfaceSolver.src \
 	GebhardtFactors.src \
 	GeneralUtils.src \
+	HarmonicSolve.src \
 	HashTable.src \
 	HeatSolve.src \
 	HelmholtzBEM.src \

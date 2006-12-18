@@ -1,0 +1,475 @@
+MODULE HarmonicSolve
+
+  USE Lists
+  USE CRSMatrix
+
+  IMPLICIT NONE
+
+CONTAINS
+
+!------------------------------------------------------------------------------
+   SUBROUTINE SolveHarmonicSystem( Solver )
+!------------------------------------------------------------------------------
+    TYPE(Solver_t) :: Solver
+!------------------------------------------------------------------------------
+    TYPE(Matrix_t), POINTER :: BMatrix
+    INTEGER :: Rounds = 1000,i,j,n, ILUn
+    LOGICAL :: stat, Found
+    CHARACTER(LEN=MAX_NAME_LEN) :: Prec
+    REAL(KIND=dp) :: Omega = 10, norm, TOL=1.0d-6, s, ILUTol
+    REAL(KIND=dp), POINTER :: Freqv(:,:)
+    REAL(KIND=dp), ALLOCATABLE :: x(:), b(:)
+
+    n = Solver % MAtrix % NumberofRows
+    ALLOCATE( x(2*n), b(2*n) )
+
+    x = 0
+    b = 0
+    b(1:n) = Solver % Matrix % RHS
+
+    BMatrix => AllocateMatrix()
+    BMatrix % NumberOfRows = Solver % Matrix % NumberOfRows
+    BMatrix % Rows => Solver % Matrix % Rows
+    BMatrix % Cols => Solver % Matrix % Cols
+    BMatrix % Diag => Solver % Matrix % Diag
+    BMatrix % Values => Solver % Matrix % DampValues
+
+    Rounds = ListGetInteger( Solver % Values, 'Linear System Max Iterations', Found )
+    IF ( .NOT. Found ) Rounds = 1000
+
+    TOL = ListGetInteger( Solver % Values, 'Linear System Convergence Tolerance', Found )
+    IF ( .NOT. Found ) TOL = 1.0d-6
+
+    Prec = ListGetString( Solver % Values, 'Linear System Preconditioning', Found )
+    IF ( .NOT. Found ) Prec = 'ilut'
+print*,trim(prec)
+
+    ILUTol = ListGetConstReal( Solver % Values, 'Linear System ILUT Tolerance', Found )
+    IF ( .NOT. Found ) ILUTol=0.001d0
+
+    IF ( Prec(1:3) == 'ilu' .AND. prec(4:4) /= 't' ) THEN
+       READ( Prec(4:4), * ) ILUn
+    END IF
+
+    freqv => ListGetConstRealArray( Solver % Values, 'Frequency' )
+
+    DO i=1,MIN(SIZE(freqv,1), Solver % NOFEigenValues)
+      WRITE( Message, '(a,i5,e12.3)' ) 'Frequency sweep: ', i, freqv(i,1)
+      CALL Info( 'HarmonicSolve', ' ' )
+      CALL Info( 'HarmonicSolve', Message )
+
+      omega = 2 * PI * freqv(i,1)
+      Solver % Matrix % Values = -omega**2*Solver % Matrix % MassValues + &
+                 Solver % Matrix % Values
+      Solver % Matrix % DampValues = Solver % Matrix % DampValues * omega
+
+      CALL HarmonicScaleSystem( n, Solver % Matrix, b, x, 1 )
+      IF ( Prec(1:4) == 'ilut' ) THEN
+print*,'eh: ', ilutol
+        stat = CRS_ILUT( Solver % Matrix, ILUTol )
+      ELSE
+print*,'ah: ', ilun
+        stat = CRS_IncompleteLU( Solver % Matrix, ILUn )
+      END IF
+      CALL HarmonicBiCG2( 2*n, Solver % Matrix, BMatrix, x, b, Rounds, TOL )
+      CALL HarmonicScaleSystem( n, Solver % Matrix, b, x, -1 )
+
+      Solver % Matrix % Values = +omega**2*Solver % Matrix % MassValues + &
+                 Solver % Matrix % Values
+      Solver % Matrix % DampValues = Solver % Matrix % DampValues / omega
+
+      Solver % Variable % EigenValues(i) = omega
+      DO j=1,n
+        Solver % Variable % EigenVectors(i,j) = DCMPLX( x(j), x(j+n) )
+      END DO
+    END DO
+
+    DEALLOCATE( x, b, BMatrix )
+!------------------------------------------------------------------------------
+   END SUBROUTINE SolveHarmonicSystem
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+   SUBROUTINE HarmonicScaleSystem( n, A, b, x, dir )
+!------------------------------------------------------------------------------
+     TYPE(Matrix_t) :: A
+     INTEGER :: j,k,n,dir
+     REAL(KIND=dp ) :: b(:), x(:),s
+
+     REAL(KIND=dp), ALLOCATABLE :: Diag(:)
+     SAVE Diag
+
+     IF ( dir == 1 ) THEN
+       ALLOCATE( Diag(n) )
+       Diag(1:n) = 1._dp / SQRT(ABS(A % Values(A % Diag(1:n))))
+       DO j=1,n
+         DO k=A % Rows(j),A % Rows(j+1)-1
+           s = (Diag(j) * Diag(A % Cols(k)))
+           A % Values(k) = A % Values(k) * s
+           A % DampValues(k) = A % DampValues(k) * s
+         END DO
+       END DO
+       b(1:n) = b(1:n) * Diag(1:n)
+       b(n+1:2*n) = b(n+1:2*n) * Diag(1:n)
+       x(1:n) = x(1:n) / Diag(1:n)
+       x(n+1:2*n) = x(n+1:2*n) / Diag(1:n)
+     ELSE
+       DO j=1,n
+         DO k=A % Rows(j),A % Rows(j+1)-1
+           s = 1._dp / (Diag(j) * Diag(A % Cols(k)))
+           A % Values(k) = A % Values(k) * s
+           A % DampValues(k) = A % DampValues(k) * s
+         END DO
+       END DO
+       b(1:n) = b(1:n) / Diag(1:n)
+       b(n+1:2*n) = b(n+1:2*n) / Diag(1:n)
+       x(1:n) = x(1:n) * Diag(1:n)
+       x(n+1:2*n) = x(n+1:2*n) * Diag(1:n)
+       DEALLOCATE( Diag )
+     END IF
+!------------------------------------------------------------------------------
+   END SUBROUTINE HarmonicScaleSystem
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+    SUBROUTINE HarmonicCG( n, KMatrix, BMatrix, x, b, Rounds, TOL )
+!------------------------------------------------------------------------------
+       TYPE(Matrix_t) :: KMatrix, BMatrix
+       INTEGER :: Rounds
+       REAL(KIND=dp) :: alpha,rho,oldrho, bnorm, TOL
+       REAL(KIND=dp) :: x(:),b(:),r(n),Z(n),P(n),Q(n),Tmp(n/2)
+!------------------------------------------------------------------------------
+       INTEGER :: i,n
+!------------------------------------------------------------------------------
+       CALL HarmonicMv1( n/2, KMatrix, BMatrix, x, r )
+       r(1:n) = b(1:n) - r(1:n)
+
+       bnorm = HarmonicDot( n, b,b )
+
+       CALL Info( 'HarmonicSolve', '--------------------' )
+       CALL Info( 'HarmonicSolve', 'Begin CG iteration' )
+       CALL Info( 'HarmonicSolve', '--------------------' )
+
+       DO i=1,Rounds
+          Z(1:n) = r(1:n)
+
+          Tmp(1:n/2) = Z(1:n/2)
+          CALL CRS_LUSolve( n/2, KMatrix, Tmp(1:n/2) )
+          Z(1:n/2) = Tmp(1:n/2)
+
+          Tmp(1:n/2) = Z(n/2+1:n)
+          CALL CRS_LUSolve( n/2, KMatrix, Tmp(1:n/2) )
+          Z(n/2+1:n) = Tmp(1:n/2)
+
+          rho = HarmonicDot( n, r, Z )
+
+          IF ( i == 1 ) THEN
+             P(1:n) = Z(1:n)
+          ELSE
+             P(1:n) = Z(1:n) + rho * P(1:n) / oldrho
+          END IF
+
+          CALL HarmonicMv1( n/2, KMatrix, BMatrix, P, Q )
+          alpha  = rho / HarmonicDot( n, P, Q )
+          oldrho = rho
+
+          x(1:n) = x(1:n) + alpha * P(1:n)
+          r(1:n) = r(1:n) - alpha * Q(1:n)
+
+          WRITE(*,*) i,HarmonicDot( n,r,r ) / bnorm
+          IF ( HarmonicDot( n,r,r ) / bnorm < TOL ) THEN
+             CALL HarmonicMv1( n/2, KMatrix, BMatrix, x, r )
+             r(1:n) = b(1:n) - r(1:n)
+
+             WRITE( Message,* ) 'Correct residual:', HarmonicDot( n,r,r ) / bnorm
+             CALL Info( 'HarmonicSolve', Message )
+
+            IF ( HarmonicDot( n,r,r ) / bnorm < TOL ) EXIT
+          END IF
+       END DO
+
+       IF ( HarmonicDot( n,r,r ) / bnorm >= TOL ) THEN
+          CALL Error( 'HarmonicCG', 'Failed to converge' )
+       END IF
+!------------------------------------------------------------------------------
+    END SUBROUTINE HarmonicCG
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+    SUBROUTINE HarmonicBiCG( n, KMatrix, BMatrix, x, b, Rounds, TOL )
+!------------------------------------------------------------------------------
+      USE CRSMatrix
+
+      TYPE(Matrix_t) :: KMatrix, BMatrix
+      INTEGER :: Rounds
+      REAL(KIND=dp) :: x(:), b(:), TOL
+!------------------------------------------------------------------------------
+      INTEGER :: i, n
+      REAL(KIND=dp) :: alpha, beta, omega, rho, oldrho, bnorm
+      REAL(KIND=dp) :: r(n), Ri(n), P(n), V(n), S(n), &
+           T(n), T1(n), T2(n), Tmp(n/2)
+!------------------------------------------------------------------------------
+      CALL HarmonicMv1( n/2, KMatrix, BMatrix, x, r )
+      r(1:n) = b(1:n) - r(1:n)
+
+      Ri(1:n) = r(1:n)
+      P(1:n) = 0
+      V(1:n) = 0
+      omega  = 1
+      alpha  = 0
+      oldrho = 1
+      Tmp = 0.0d0
+
+      bnorm = HarmonicDot( n,b,b )
+
+      CALL Info( 'HarmonicSolve', '--------------------' )
+      CALL Info( 'HarmonicSolve', 'Begin BiCG iteration' )
+      CALL Info( 'HarmonicSolve', '--------------------' )
+
+      DO i=1,Rounds
+         rho = HarmonicDot( n, r, Ri )
+         
+         beta = alpha * rho / ( oldrho * omega )
+         P(1:n) = r(1:n) + beta * (P(1:n) - omega*V(1:n))
+!------------------------------------------------------------------------------
+         Tmp(1:n/2) = P(1:n/2)
+         CALL CRS_LUSolve( n/2, KMatrix, Tmp(1:n/2) )
+         V(1:n/2) = Tmp(1:n/2)
+
+         Tmp(1:n/2) = P(n/2+1:n)
+         CALL CRS_LUSolve( n/2, KMatrix, Tmp(1:n/2) )
+         V(n/2+1:n) = Tmp(1:n/2)
+
+         T1(1:n) = V(1:n)         
+         CALL HarmonicMv1( n/2, KMatrix, BMatrix, T1, V )
+!------------------------------------------------------------------------------
+         alpha = rho / HarmonicDot( n, Ri, V )         
+         S(1:n) = r(1:n) - alpha * V(1:n)         
+!------------------------------------------------------------------------------
+         Tmp(1:n/2) = S(1:n/2)
+         CALL CRS_LUSolve( n/2, KMatrix, Tmp(1:n/2) )
+         T(1:n/2) = Tmp(1:n/2)
+
+         Tmp(1:n/2) = S(n/2+1:n)
+         CALL CRS_LUSolve( n/2, KMatrix, Tmp(1:n/2) )
+         T(n/2+1:n) = Tmp(1:n/2)
+
+         T2(1:n) = T(1:n)
+         CALL HarmonicMv1( n/2, KMatrix, BMatrix, T2, T )
+!------------------------------------------------------------------------------
+         omega = HarmonicDot( n,T,S ) / HarmonicDot( n,T,T )         
+         oldrho = rho
+         r(1:n) = S(1:n) - omega*T(1:n)
+         x(1:n) = x(1:n) + alpha*T1(1:n) + omega*T2(1:n)
+!------------------------------------------------------------------------------
+         WRITE(*,*) i,HarmonicDot( n,r,r ) / bnorm
+
+         IF ( HarmonicDot( n,r,r ) / bnorm < TOL ) THEN
+            CALL HarmonicMv1( n/2, KMatrix, BMatrix, x, r )
+            r(1:n) = b(1:n) - r(1:n)
+
+            WRITE( Message,* ) 'Correct residual:', HarmonicDot( n,r,r ) / bnorm
+            CALL Info( 'HarmonicSolve', Message )
+
+            IF ( HarmonicDot( n,r,r ) / bnorm < TOL ) EXIT
+         END IF
+      END DO
+
+      IF ( HarmonicDot( n,r,r ) / bnorm >= TOL ) THEN
+         CALL Error( 'HarmonicBiCG', 'Failed to converge' )
+      END IF
+!------------------------------------------------------------------------------
+    END SUBROUTINE HarmonicBiCG
+!------------------------------------------------------------------------------
+
+
+
+!------------------------------------------------------------------------------
+    SUBROUTINE HarmonicBiCG2( n, KMatrix, BMatrix, x, b, Rounds, TOL )
+!------------------------------------------------------------------------------
+      USE CRSMatrix
+
+      TYPE(Matrix_t) :: KMatrix, BMatrix
+      INTEGER :: Rounds
+      REAL(KIND=dp) :: x(:), b(:), TOL
+!------------------------------------------------------------------------------
+      INTEGER :: i, n
+      REAL(KIND=dp) :: tau, myy, delta, omega1
+      REAL(KIND=dp) :: alpha, beta, omega, omega2, rho, oldrho, bnorm
+      REAL(KIND=dp) :: r(n), Ri(n), P(n), V(n), S(n), &
+           T(n), T1(n), T2(n), W(n), Tmp(n/2)
+!------------------------------------------------------------------------------
+      CALL HarmonicMv1( n/2, KMatrix, BMatrix, x, r )
+      r(1:n) = b(1:n) - r(1:n)
+
+      Tmp = 0.0d0
+
+      bnorm = HarmonicDot( n,b,b )
+
+      P(1:n) = x(1:n)         
+      CALL HarmonicMv1( n/2, KMatrix, BMatrix, P, r )
+      P(1:n) = b(1:n) - r(1:n)
+
+      Tmp(1:n/2) = P(1:n/2)
+      CALL CRS_LUSolve( n/2, KMatrix, Tmp(1:n/2) )
+      r(1:n/2) = Tmp(1:n/2)
+
+      Tmp(1:n/2) = P(n/2+1:n)
+      CALL CRS_LUSolve( n/2, KMatrix, Tmp(1:n/2) )
+      R(n/2+1:n) = Tmp(1:n/2)
+
+      Ri(1:n) = r(1:n)
+      P(1:n) = 0
+
+      oldrho = 1
+      omega2 = 1
+      alpha  = 0
+
+      CALL Info( 'HarmonicSolve', '--------------------' )
+      CALL Info( 'HarmonicSolve', 'Begin BiCG2 iteration' )
+      CALL Info( 'HarmonicSolve', '--------------------' )
+
+      DO i=1,Rounds
+         oldrho = -omega2 * oldrho
+
+         rho = HarmonicDot( n, r, Ri )
+         
+         beta = alpha * rho / oldrho
+         oldrho = rho
+         P(1:n) = r(1:n) - beta * P(1:n)
+!------------------------------------------------------------------------------
+         V(1:n) = P(1:n)         
+         CALL HarmonicMv1( n/2, KMatrix, BMatrix, V, T1 )
+
+         Tmp(1:n/2) = T1(1:n/2)
+         CALL CRS_LUSolve( n/2, KMatrix, Tmp(1:n/2) )
+         V(1:n/2) = Tmp(1:n/2)
+
+         Tmp(1:n/2) = T1(n/2+1:n)
+         CALL CRS_LUSolve( n/2, KMatrix, Tmp(1:n/2) )
+         V(n/2+1:n) = Tmp(1:n/2)
+!------------------------------------------------------------------------------
+         alpha = oldrho / HarmonicDot( n, Ri, V )         
+         R(1:n) = R(1:n) - alpha * V(1:n)         
+!------------------------------------------------------------------------------
+         S(1:n) = R(1:n)
+         CALL HarmonicMv1( n/2, KMatrix, BMatrix, S, T1 )
+
+         Tmp(1:n/2) = T1(1:n/2)
+         CALL CRS_LUSolve( n/2, KMatrix, Tmp(1:n/2) )
+         S(1:n/2) = Tmp(1:n/2)
+
+         Tmp(1:n/2) = T1(n/2+1:n)
+         CALL CRS_LUSolve( n/2, KMatrix, Tmp(1:n/2) )
+         S(n/2+1:n) = Tmp(1:n/2)
+
+!------------------------------------------------------------------------------
+         x(1:n) = x(1:n) + alpha*P(1:n)
+!------------------------------------------------------------------------------
+         rho = HarmonicDot( n, Ri, S )
+         beta = ( rho * alpha ) / oldrho
+         oldrho = rho
+         V(1:n) = S(1:n) - beta * V(1:n)
+
+         W(1:n) = V(1:n)
+         CALL HarmonicMv1( n/2, KMatrix, BMatrix, W, T1 )
+
+         Tmp(1:n/2) = T1(1:n/2)
+         CALL CRS_LUSolve( n/2, KMatrix, Tmp(1:n/2) )
+         W(1:n/2) = Tmp(1:n/2)
+
+         Tmp(1:n/2) = T1(n/2+1:n)
+         CALL CRS_LUSolve( n/2, KMatrix, Tmp(1:n/2) )
+         W(n/2+1:n) = Tmp(1:n/2)
+
+         alpha = oldrho / HarmonicDot(n,Ri,W)
+         P(1:n) = R(1:n) - beta  * P(1:n)
+         R(1:n) = R(1:n) - alpha * V(1:n)
+         S(1:n) = S(1:n) - alpha * W(1:n)
+
+         T(1:n) = S(1:n)
+         CALL HarmonicMv1( n/2, KMatrix, BMatrix, T, T1 )
+
+         Tmp(1:n/2) = T1(1:n/2)
+         CALL CRS_LUSolve( n/2, KMatrix, Tmp(1:n/2) )
+         T(1:n/2) = Tmp(1:n/2)
+
+         Tmp(1:n/2) = T1(n/2+1:n)
+         CALL CRS_LUSolve( n/2, KMatrix, Tmp(1:n/2) )
+         T(n/2+1:n) = Tmp(1:n/2)
+
+         omega1 = HarmonicDot(n, R, S)
+         myy    = HarmonicDot(n, S, S)
+         delta  = HarmonicDot(n, S, T)
+         tau    = HarmonicDot(n, T, T)
+         omega2 = HarmonicDot(n, R, T)
+         tau = tau - ( delta*delta ) / myy
+         omega2 = (omega2-(delta*omega1)/myy)/tau
+         omega1 = (omega1-delta*omega2)/myy
+         X(1:n) = X(1:n) + omega1 * R(1:n) + omega2 * S(1:n) + alpha*P(1:n)
+         R(1:n) = R(1:n) - omega1 * S(1:n) - omega2 * T(1:n)
+         P(1:n) = P(1:n) - omega1 * V(1:n) - omega2 * W(1:n)
+
+         CALL HarmonicMv1( n/2, KMatrix, BMatrix, x, T1 )
+         T1(1:n) = b(1:n) - T1(1:n)
+         WRITE( Message, '(i5,e12.4)') i,HarmonicDot( n,T1,T1 ) / bnorm
+         CALL Info( 'HarmonicBiCG2', Message )
+         IF ( HarmonicDot( n,T1,T1 ) / bnorm < TOL ) EXIT
+      END DO
+
+      IF ( HarmonicDot( n,T1,T1 ) / bnorm >= TOL ) THEN
+         CALL Error( 'HarmonicBiCG2', 'Failed to converge' )
+      END IF
+!------------------------------------------------------------------------------
+    END SUBROUTINE HarmonicBiCG2
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+    FUNCTION HarmonicDot( n, x, y ) RESULT(s)
+!------------------------------------------------------------------------------
+      USE Types
+
+      INTEGER :: n,i,j
+      REAL(KIND=dp) :: s, x(:), y(:), CPUTime, st
+
+      INTERFACE
+         FUNCTION ddot( n, x, xinc, y, yinc ) RESULT(s)
+           USE Types
+           INTEGER :: n, xinc, yinc
+           REAL(KIND=dp) :: x(*), y(*), s
+         END FUNCTION ddot
+      END INTERFACE
+      
+      s = DDOT( n, x, 1, y, 1 )
+!------------------------------------------------------------------------------
+    END FUNCTION HarmonicDot
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+    SUBROUTINE HarmonicMv1( n, KMatrix, BMatrix, x, b )
+!------------------------------------------------------------------------------
+      USE CRSMatrix
+
+      INTEGER :: n
+      TYPE(Matrix_t) :: KMatrix, BMatrix
+      REAL(KIND=dp) :: x(:), b(:)
+
+      REAL(KIND=dp) :: Tmp(n)
+
+      Tmp = 0.0d0
+      b = 0.0d0
+
+      CALL CRS_MatrixVectorMultiply( KMatrix, x(1:n), b(1:n) )
+      CALL CRS_MatrixVectorMultiply( BMatrix, x(n+1:2*n), Tmp(1:n) )
+      b(1:n) = b(1:n) - Tmp(1:n)
+
+      CALL CRS_MatrixVectorMultiply( KMatrix, x(n+1:2*n), b(n+1:2*n) )
+      CALL CRS_MatrixVectorMultiply( BMatrix, x(1:n), Tmp(1:n) )
+      b(n+1:2*n) = b(n+1:2*n) + Tmp(1:n)
+!------------------------------------------------------------------------------
+    END SUBROUTINE HarmonicMv1
+!------------------------------------------------------------------------------
+END MODULE HarmonicSolve
