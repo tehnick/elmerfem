@@ -42,7 +42,6 @@ CONTAINS
 
     Prec = ListGetString( Solver % Values, 'Linear System Preconditioning', Found )
     IF ( .NOT. Found ) Prec = 'ilut'
-print*,trim(prec)
 
     ILUTol = ListGetConstReal( Solver % Values, 'Linear System ILUT Tolerance', Found )
     IF ( .NOT. Found ) ILUTol=0.001d0
@@ -65,10 +64,8 @@ print*,trim(prec)
 
       CALL HarmonicScaleSystem( n, Solver % Matrix, b, x, 1 )
       IF ( Prec(1:4) == 'ilut' ) THEN
-print*,'eh: ', ilutol
         stat = CRS_ILUT( Solver % Matrix, ILUTol )
       ELSE
-print*,'ah: ', ilun
         stat = CRS_IncompleteLU( Solver % Matrix, ILUn )
       END IF
       CALL HarmonicBiCG2( 2*n, Solver % Matrix, BMatrix, x, b, Rounds, TOL )
