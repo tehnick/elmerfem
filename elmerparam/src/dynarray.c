@@ -95,7 +95,7 @@ dynarray_t *dynarray_set_from_matc(dynarray_t *da, char type, const char *var)
             continue;
         }
 
-        assert(isdigit(*p));
+        assert(isdigit(*p) || *p == '-' || *p == '+' || *p == '.');
 
         switch (type) {
         case 'i':
