@@ -37,7 +37,7 @@ CONTAINS
     Rounds = ListGetInteger( Solver % Values, 'Linear System Max Iterations', Found )
     IF ( .NOT. Found ) Rounds = 1000
 
-    TOL = ListGetInteger( Solver % Values, 'Linear System Convergence Tolerance', Found )
+    TOL = ListGetConstReal( Solver % Values, 'Linear System Convergence Tolerance', Found )
     IF ( .NOT. Found ) TOL = 1.0d-6
 
     Prec = ListGetString( Solver % Values, 'Linear System Preconditioning', Found )
@@ -424,6 +424,7 @@ CONTAINS
     END SUBROUTINE HarmonicBiCG2
 !------------------------------------------------------------------------------
 
+
 !------------------------------------------------------------------------------
     FUNCTION HarmonicDot( n, x, y ) RESULT(s)
 !------------------------------------------------------------------------------
@@ -433,17 +434,18 @@ CONTAINS
       REAL(KIND=dp) :: s, x(:), y(:), CPUTime, st
 
       INTERFACE
-         FUNCTION ddot( n, x, xinc, y, yinc ) RESULT(s)
+         FUNCTION DDOT( n, x, xinc, y, yinc ) RESULT(s)
            USE Types
            INTEGER :: n, xinc, yinc
            REAL(KIND=dp) :: x(*), y(*), s
-         END FUNCTION ddot
+         END FUNCTION DDOT
       END INTERFACE
       
       s = DDOT( n, x, 1, y, 1 )
 !------------------------------------------------------------------------------
     END FUNCTION HarmonicDot
 !------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
     SUBROUTINE HarmonicMv1( n, KMatrix, BMatrix, x, b )
