@@ -168,6 +168,7 @@ EXTRA_DIST = \
 	CRSMatrix.src \
 	DCRComplexSolve.src \
 	DefUtils.src \
+	DFTSolver.src \
 	Differentials.src \
 	DiffuseConvectiveAnisotropic.src \
 	DiffuseConvectiveGeneralAnisotropic.src \

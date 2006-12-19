@@ -1,5 +1,4 @@
 SUBROUTINE ChargeDensitySolver( Model, Solver, dt, TransientSimulation )
-!DEC$ATTRIBUTES DLLEXPORT :: ChargeDensitySolver
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -35,12 +34,16 @@ SUBROUTINE ChargeDensitySolver( Model, Solver, dt, TransientSimulation )
 !------------------------------------------------------------------------------
  
   LOGICAL :: Found, FirstTime = .TRUE.
-  INTEGER :: i, j, k, m, v, istat
+  INTEGER :: i, j, k, t, n, nd, m, v, istat
   INTEGER :: EigSolverNumber, NOFeigs, GlobSize
+  INTEGER, ALLOCATABLE :: Indexes(:)
   CHARACTER*255 :: str_tmp
+  TYPE(Element_t), POINTER :: Element
+  REAL(KIND=dp) :: Norm
+  REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:)
   REAL(KIND=dp), POINTER :: EigsWeights(:,:)
   TYPE(Valuelist_t), POINTER :: SolverParams
-  SAVE NOFeigs, EigsWeights, EigSolverNumber, FirstTime
+  SAVE NOFeigs, EigsWeights, EigSolverNumber, FirstTime, STIFF, FORCE, Indexes
 !------------------------------------------------------------------------------
 
   CALL INFO('ChargeDensityCalculation','...........................')
@@ -49,6 +52,9 @@ SUBROUTINE ChargeDensitySolver( Model, Solver, dt, TransientSimulation )
 
 !------------------------------------------------------------------------------
   FirstTimeOnly: IF (FirstTime) THEN
+    
+    n = Solver % Mesh % MaxElementDOFs
+    ALLOCATE( Indexes(n), STIFF(n,n), FORCE(n) )
     
     ! Reading the number of eigenvalues to be included and the
     ! weights of the eigen states from .sif file.
@@ -62,13 +68,13 @@ SUBROUTINE ChargeDensitySolver( Model, Solver, dt, TransientSimulation )
     WRITE(str_tmp,*) 'Number of Eigenmodes included was set to ',NOFeigs
     CALL INFO('ChargeDensityCalculation',str_tmp)
     
-    ALLOCATE( EigsWeights( NOFeigs, 1 ) , STAT=istat )
-    IF (istat /= 0) CALL ERROR('ChargeDensityCalculation', &
-        'Error when allocating memory for weights of the eigen states.')
-    
     CALL GetConstRealArray(SolverParams, EigsWeights, &
         'Weights of Eigen States', Found)
     IF(.NOT. Found) THEN
+       ALLOCATE( EigsWeights( NOFeigs, 1 ) , STAT=istat )
+       IF (istat /= 0) CALL ERROR('ChargeDensityCalculation', &
+           'Error when allocating memory for weights of the eigen states.')
+    
       EigsWeights = 1.0d0
       WRITE(str_tmp,*)  'Weights of Eigen States was not defined on', &
           'the .sif file. All weights were set to 1 .'
@@ -101,7 +107,7 @@ SUBROUTINE ChargeDensitySolver( Model, Solver, dt, TransientSimulation )
     
     WRITE(str_tmp,*) 'Wavefunctions are variables of solver number ', EigSolverNumber
     CALL INFO('ChargeDensityCalculation', str_tmp)
-    
+
     FirstTime = .FALSE.
     
   END IF FirstTimeOnly
@@ -111,33 +117,107 @@ SUBROUTINE ChargeDensitySolver( Model, Solver, dt, TransientSimulation )
   !--------------------------------------------------------------
   Solver % Variable % Values = 0.0d0
   
-  DO i = 1, NOFeigs    
-    DO j = 1, SIZE( Solver % Variable % Values )      
-      Solver % Variable % Values(j) = Solver % Variable % Values(j) &
-          + EigsWeights(i,1) &
-          * ( Model % Solvers( EigSolverNumber ) &
-          % Variable % EigenVectors(i,j)       )**2
-    END DO
+  CALL DefaultInitialize()
+  
+  DO t = 1, Solver % NumberOfActiveElements
+    Element => GetActiveElement( t )
+    n  = GetElementNOFNodes()
+    nd = GetElementDOFs( Indexes )
+    Indexes(1:nd) = Model % Solvers(EigSolverNumber) % &
+          Variable % Perm(Indexes(1:nd))
+    
+    ! Get element local stiffness and mass matrices:
+    !-----------------------------------------------
+    CALL LocalMatrix(  STIFF, FORCE, Element, n, nd )
+    
+    !Update global matrix and rhs vector from local matrix & vector:
+    !---------------------------------------------------------------
+    CALL DefaultUpdateEquations( STIFF, FORCE )
   END DO
-
-  !  Calculating the norm of the charge density
-  !------------------------------------------------------------------
-  Solver % Variable % Norm = &
-      SQRT( SUM (Solver % Variable % Values * Solver % Variable % Values) )
-
+  
+  CALL DefaultFinishAssembly()
+  CALL DefaultDirichletBCs()
+  
+  Norm = DefaultSolve()
 
   ! Printing some values of the Charge Density
   !-------------------------------------------------------------------
+  n = Solver % Mesh % NumberOfNodes
   WRITE(str_tmp,*) 'Greatest value of the Charge density is ', & 
-      MAXVAL(Solver % Variable % Values)
+      MAXVAL(Solver % Variable % Values(Solver % Variable % Perm(1:n)))
   CALL INFO('ChargeDensityCalculation', TRIM(str_tmp))
   
   WRITE(str_tmp,*) 'Smallest value of the Charge density is ', & 
-      MINVAL(Solver % Variable % Values)
+      MINVAL(Solver % Variable % Values(Solver % Variable % Perm(1:n)))
   CALL INFO('ChargeDensityCalculation', TRIM(str_tmp))
+
+CONTAINS
+
+!------------------------------------------------------------------------------
+  SUBROUTINE LocalMatrix(  STIFF,  FORCE, Element, n, nd )
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: STIFF(:,:), FORCE(:)
+    INTEGER :: n, nd
+    TYPE(Element_t), POINTER :: Element
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: Basis(nd), DetJ
+    REAL(KIND=dp) :: LocalPotentialAtIP, LocalChargeAtIP
+    LOGICAL :: Stat
+    INTEGER :: t
+    TYPE(GaussIntegrationPoints_t) :: IP
+    
+    INTEGER :: i, j, k, dim, xctype
+    REAL(KIND=dp) :: u, v, w
+    
+    TYPE(Nodes_t) :: Nodes
+    SAVE Nodes
+!------------------------------------------------------------------------------
+    dim = CoordinateSystemDimension()
+    CALL GetElementNodes( Nodes )
+    STIFF = 0.0d0
+    FORCE = 0.0d0
+
+    !Numerical integration:
+    !----------------------
+    IP = GaussPoints( Element )
+    
+    DO t = 1,IP % n
+      u = IP % u(t)
+      v = IP % v(t)
+      w = IP % w(t)
+
+      ! Basis function values & derivatives at the integration point:
+      !--------------------------------------------------------------
+      stat = ElementInfo( Element, Nodes, u, v, w, detJ, Basis )
+      
+      
+      ! The Coulomb Potential term and the Charge density
+      ! at the integration point:
+      !------------------------------------------------------------
+      LocalChargeAtIp = 0.0d0
+      DO i = 1, NOFeigs    
+        LocalChargeAtIP = LocalChargeAtIP + EigsWeights(i,1) * &
+          SUM( Model % Solvers(EigSolverNumber) %  &
+            Variable % EigenVectors(i,Indexes(1:nd)) * Basis(1:nd) )**2
+      END DO
+      
+      ! Calculating stiffness and mass matrices:
+      !------------------------------------------
+      DO i = 1,nd
+        DO j = 1,nd
+          STIFF(i,j) = STIFF(i,j) + Basis(i) * Basis(j) * detJ * IP % s(t)
+        END DO
+        FORCE(i) = FORCE(i) + LocalChargeAtIp * Basis(i) * detJ * IP % s(t)
+      END DO
+    END DO
+    
+!------------------------------------------------------------------------------
+  END SUBROUTINE LocalMatrix
+!------------------------------------------------------------------------------
   
 !------------------------------------------------------------------------------
 END SUBROUTINE ChargeDensitySolver
+!------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
@@ -165,7 +245,7 @@ SUBROUTINE WaveFunctionSolver( Model, Solver, dt, TransientSimulation )
 !
 !******************************************************************************
   USE DefUtils
-  USE xc
+  USE ExchangeCorrelations
 
   IMPLICIT NONE
 !------------------------------------------------------------------------------
@@ -179,8 +259,8 @@ SUBROUTINE WaveFunctionSolver( Model, Solver, dt, TransientSimulation )
 !------------------------------------------------------------------------------
   TYPE( Element_t ),POINTER :: Element
   LOGICAL :: AllocationsDone = .FALSE., Found
-  INTEGER :: n, t, istat, GlobSize, xctype, NOFeigs
-  REAL(KIND=dp) :: Norm, ShiftConst, EigMassNorm
+  INTEGER :: n, nd, t, istat, GlobSize, xctype, NOFeigs
+  REAL(KIND=dp) :: Norm, ShiftConst, EigMassNorm, TotalNucleiCharge,TotalCharge
   CHARACTER*255 :: str_tmp
   TYPE(Valuelist_t), POINTER :: SolverParams
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), MASS(:,:), FORCE(:)
@@ -203,7 +283,7 @@ SUBROUTINE WaveFunctionSolver( Model, Solver, dt, TransientSimulation )
      
      ! Allocate the mamory for local stiffness and mass matrices
      !----------------------------------------------------------
-    N = Solver % Mesh % MaxElementNodes
+    N = Solver % Mesh % MaxElementDOFs
     ALLOCATE( STIFF(N,N), MASS(N,N), FORCE(N), &
         LocalHartreePotential(N), LocalChargeDensity(N), &
         STAT=istat )
@@ -299,9 +379,10 @@ SUBROUTINE WaveFunctionSolver( Model, Solver, dt, TransientSimulation )
   END IF FirstTimeOnly
   
 !----------------------------------------------------------------------------
-  
+
   !Initialize the system and do the assembly:
   !------------------------------------------
+
   CALL DefaultInitialize()
   LocalHartreePotential = 0.0d0
   LocalChargeDensity = 0.0d0
@@ -309,7 +390,8 @@ SUBROUTINE WaveFunctionSolver( Model, Solver, dt, TransientSimulation )
   
   DO t = 1, Solver % NumberOfActiveElements
     Element => GetActiveElement( t )
-    n = GetElementNOFNodes( Element )
+    n  = GetElementNOFNodes( Element )
+    nd = GetElementNOFDOFs( Element )
     
     ! Get potential and charge density in node points:
     !--------------------------------------------
@@ -320,7 +402,7 @@ SUBROUTINE WaveFunctionSolver( Model, Solver, dt, TransientSimulation )
     
     ! Get element local stiffness and mass matrices:
     !-----------------------------------------------
-    CALL LocalMatrix(  STIFF, MASS, Element, n, &
+    CALL LocalMatrix(  STIFF, MASS, Element, n, nd, &
         LocalHartreePotential, LocalChargeDensity, xctype )
     
     !Update global matrix and rhs vector from local matrix & vector:
@@ -361,14 +443,14 @@ SUBROUTINE WaveFunctionSolver( Model, Solver, dt, TransientSimulation )
 CONTAINS
      
 !------------------------------------------------------------------------------
-  SUBROUTINE LocalMatrix(  STIFF, MASS, Element, n, LocalPotential, &
+  SUBROUTINE LocalMatrix(  STIFF, MASS, Element, n, nd, LocalPotential, &
        LocalChargeDensity, xctype )
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: STIFF(:,:), MASS(:,:)
-    INTEGER :: n
+    INTEGER :: n, nd
     TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: Basis(n), dBasisdx(n,3), ddBasisddx(n,3,3), DetJ
+    REAL(KIND=dp) :: Basis(nd), dBasisdx(nd,3), ddBasisddx(nd,3,3), DetJ
     REAL(KIND=dp) :: LocalPotential(:), LocalChargeDensity(:), &
         LocalPotentialAtIP, LocalChargeAtIP, LocalXCPotentialAtIP
     LOGICAL :: Stat
@@ -381,14 +463,14 @@ CONTAINS
     TYPE(Nodes_t) :: Nodes
     SAVE Nodes
 !------------------------------------------------------------------------------
-    CALL GetElementNodes( Nodes )
     dim = CoordinateSystemDimension()
+    CALL GetElementNodes( Nodes )
     STIFF = 0.0d0
-    MASS = 0.0d0
+    MASS  = 0.0d0
 
     !Numerical integration:
     !----------------------
-    IP = GaussPoints( Element, 25 )
+    IP = GaussPoints( Element )
     
     DO t = 1,IP % n
       u = IP % u(t)
@@ -404,8 +486,9 @@ CONTAINS
       ! The Coulomb Potential term and the Charge density
       ! at the integration point:
       !------------------------------------------------------------
-      LocalPotentialAtIP = SUM( Basis(1:n) * LocalPotential(1:n) ) 
-      LocalChargeAtIP    = SUM( Basis(1:n) * LocalChargeDensity(1:n) )
+      LocalPotentialAtIP = SUM( Basis(1:nd) * LocalPotential(1:nd) ) 
+      LocalChargeAtIP    = SUM( Basis(1:nd) * LocalChargeDensity(1:nd) )
+      LocalChargeAtIP    = MAX( LocalChargeAtIP, 0.0_dp )
       
       ! Calculating the XC-potential at the integration point:
       !------------------------------------------------------------
@@ -417,8 +500,8 @@ CONTAINS
       
       ! Calculating stiffness and mass matrices:
       !------------------------------------------
-      DO i = 1,n
-        DO j = 1,n
+      DO i = 1,nd
+        DO j = 1,nd
           DO k = 1,dim
             
             ! Half times negative Laplacian
@@ -490,6 +573,7 @@ CONTAINS
   END SUBROUTINE CRS_MassMatrixVectorMultiply
 !------------------------------------------------------------------------------
 END SUBROUTINE WaveFunctionSolver
+!------------------------------------------------------------------------------
 
 
 
@@ -535,7 +619,7 @@ SUBROUTINE PoissonSolver( Model, Solver, dt, TransientSimulation )
   TYPE(Valuelist_t), POINTER :: SolverParams
   
   ! Variables for dealing with nuclei
-  INTEGER :: n, t, i, j, k, m, v, NOFnuclei, istat, permsize, &
+  INTEGER :: n, nd, t, i, j, k, m, v, NOFnuclei, istat, permsize, &
       ChargeDensitySolverNumber
   REAL(KIND=dp), POINTER :: NucleiTable(:,:)
   INTEGER, POINTER :: NodesOfNuclei(:), Perm(:)
@@ -552,6 +636,8 @@ SUBROUTINE PoissonSolver( Model, Solver, dt, TransientSimulation )
   INTEGER :: RelaxType, GlobSize, StartGRPulayAfter
   REAL(kind=dp) :: ParamA, ParamB, ParamC, RF, NOFiter, &
       StartGRPulayIfRFis, temp
+
+  TYPE(Variable_t), POINTER :: EigsVar
   
   SAVE STIFF, FORCE, LocalChargeDensity, &
       FirstTime, NucleiTable, NodesOfNuclei, NOFnuclei, Perm, &
@@ -572,7 +658,7 @@ SUBROUTINE PoissonSolver( Model, Solver, dt, TransientSimulation )
   !=======================================================
   FirsTimeOnly: IF ( FirstTime ) THEN
     
-    N = Solver % Mesh % MaxElementNodes ! just big enough for elemental arrays
+    N = Solver % Mesh % MaxElementDOFs ! just big enough for elemental arrays
     ALLOCATE( FORCE(N), LocalChargeDensity(N), STIFF(N,N), STAT=istat )
     IF ( istat /= 0 ) CALL Fatal( 'PoissonSolver', &
           'Memory allocation error.' )
@@ -648,7 +734,6 @@ SUBROUTINE PoissonSolver( Model, Solver, dt, TransientSimulation )
       
       ! Checking all nodes
       DO k = 1, Solver % Mesh % NumberOfNodes 
-        
         ! Coordinates of node
         x = Solver % Mesh % Nodes % x(k)
         y = Solver % Mesh % Nodes % y(k)
@@ -659,7 +744,6 @@ SUBROUTINE PoissonSolver( Model, Solver, dt, TransientSimulation )
           IF ( ABS( NucleiTable(m,2)-x ) < tol .AND. &
               ABS( NucleiTable(m,3)-y ) < tol .AND. &
               ABS( NucleiTable(m,4)-z ) < tol ) THEN
-            
             NodesOfNuclei(m) = k
           END IF
         END DO
@@ -789,6 +873,8 @@ SUBROUTINE PoissonSolver( Model, Solver, dt, TransientSimulation )
   !--------------------------------------------------
   IF ( .NOT. RelaxType == 3 ) &
       OldSolution(1:GlobSize) = Solver % Variable % Values(1:GlobSize)
+
+  EigsVar => VariableGet( Solver % Mesh % Variables, 'WaveFunctions' )
   
   CALL DefaultInitialize()
   
@@ -797,7 +883,8 @@ SUBROUTINE PoissonSolver( Model, Solver, dt, TransientSimulation )
   
   DO t = 1, Solver % NumberOfActiveElements
     Element => GetActiveElement( t )
-    n = GetElementNOFNodes( Element )
+    n  = GetElementNOFNodes( Element )
+    nd = GetElementNOFDOFs( Element )
     
     ! Get the value of electron charge density as load, first
     ! time the load is set as a constant and normalized later:
@@ -807,7 +894,7 @@ SUBROUTINE PoissonSolver( Model, Solver, dt, TransientSimulation )
     
     ! Get element local matrix and rhs vector:
     !------------------------------------------
-    CALL LocalMatrix(  STIFF, FORCE, Element, n , LocalChargeDensity, &
+    CALL LocalMatrix(  STIFF, FORCE, Element, n , nd, LocalChargeDensity, &
         TotalCharge )
     
     ! Update global matrix and rhs vector from local matrix & vector:
@@ -932,29 +1019,30 @@ SUBROUTINE PoissonSolver( Model, Solver, dt, TransientSimulation )
   WRITE(str_tmp,*) 'Total charge of nuclei ', TotalNucleiCharge
   CALL INFO('PoissonSolver', TRIM(str_tmp) )
   
+  n = Solver % Mesh % NumberOfNodes
   WRITE(str_tmp,*) 'Smallest value of the potential is ', & 
-      MINVAL(Solver % Variable % Values), &
-      ' at node ',  Perm( MINLOC(Solver % Variable % Values) )
+      MINVAL(Solver % Variable % Values(Perm(1:n))), &
+      ' at node ', MINLOC(Solver % Variable % Values(Perm(1:n)))
   CALL INFO('PoissonSolver', TRIM(str_tmp) )
   
   WRITE(str_tmp,*) 'Greatest value of the potential is ', & 
-      MAXVAL(Solver % Variable % Values), &
-      ' at node ',  Perm( MAXLOC(Solver % Variable % Values) )
+      MAXVAL(Solver % Variable % Values(Perm(1:n))), &
+      ' at node ',  MAXLOC(Solver % Variable % Values(Perm(1:n)))
   CALL INFO('PoissonSolver', TRIM(str_tmp) )
-  
+
   FirstTime = .FALSE.
   
 CONTAINS
   
 !------------------------------------------------------------------------------
-  SUBROUTINE LocalMatrix(  STIFF, FORCE, Element, n, LocalChargeDensity, &
+  SUBROUTINE LocalMatrix(  STIFF, FORCE, Element, n, nd, LocalChargeDensity, &
       TotalCharge)
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: STIFF(:,:), FORCE(:)
-    INTEGER :: n
+    INTEGER :: n,nd
     TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: Basis(n), dBasisdx(n,3), ddBasisddx(n,3,3), &
+    REAL(KIND=dp) :: Basis(nd), dBasisdx(nd,3), ddBasisddx(nd,3,3), &
         DetJ, LoadAtIP, TotalCharge
     REAL(KIND=dp) :: LocalChargeDensity(:), LocalChargeDensityAtIP
     LOGICAL :: Stat
@@ -965,14 +1053,14 @@ CONTAINS
 
     SAVE Nodes
 !------------------------------------------------------------------------------
-    CALL GetElementNodes( Nodes )
     dim = CoordinateSystemDimension()
+    CALL GetElementNodes( Nodes )
     STIFF = 0.0d0
     FORCE = 0.0d0
-    
+
     !Numerical integration:
     !----------------------
-    IP = GaussPoints( Element, 30 )
+    IP = GaussPoints( Element )
     
     DO t=1,IP % n
       u = IP % u(t)
@@ -981,13 +1069,13 @@ CONTAINS
       
       ! Basis function values & derivatives at the integration point:
       !--------------------------------------------------------------
-      stat = ElementInfo( Element, Nodes, u, v, w, &
-          detJ, Basis, dBasisdx, ddBasisddx, .FALSE. ) 
+      stat = ElementInfo( Element, Nodes, u, v, w, detJ, Basis, dBasisdx )
       
       
       ! The local charge density at the integration point:
       !-----------------------------------------------
-      LocalChargeDensityAtIP = SUM( Basis(1:n) * LocalChargeDensity(1:n) ) 
+      LocalChargeDensityAtIP = SUM( Basis(1:nd) * LocalChargeDensity(1:nd) ) 
+      LocalChargeDensityAtIP = MAX( LocalChargeDensityAtIP, 0.0_dp )
       
       ! Summing the total charge
       !-----------------------------------------------------
@@ -995,11 +1083,11 @@ CONTAINS
       
       ! Stiffness matrix and force vector:
       !------------------------------------
-      DO i = 1,n        
+      DO i = 1,nd
         FORCE(i) = FORCE(i) &
             + 4 * Pi * LocalChargeDensityAtIP * Basis(i) * detJ * IP % s(t)
         
-        DO j = 1,n
+        DO j = 1,nd
           DO k = 1,dim            
             STIFF(i,j) = STIFF(i,j) &
                 + dBasisdx(i,k) * dBasisdx(j,k) * detJ * IP % s(t)            
