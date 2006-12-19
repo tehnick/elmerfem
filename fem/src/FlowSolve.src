@@ -39,6 +39,11 @@
 ! ****************************************************************************/
 ! *
 ! * $Log: FlowSolve.src,v $
+! * Revision 1.26  2006/11/30 10:19:36  jpr
+! * Apply 'Hyrdrostatic Pressure' in all cases not just in Boussinesq model.
+! * Also check 'Body Force' section for this keyword (recommended) in addition
+! * to 'Equation' section.
+! *
 ! * Revision 1.25  2006/11/27 10:23:57  jpr
 ! * Removed some execess (unrelated) use of TRIM & POINTER.
 ! *
@@ -183,18 +188,16 @@
 !------------------------------------------------------------------------------
      TYPE(Matrix_t),POINTER :: StiffMatrix
 
-     INTEGER :: i,j,k,l,n,m,nb,nd,pn,t,iter,LocalNodes,k1,k2,istat
+     INTEGER :: i,j,k,l,n,m,p,q,nb,nd,pn,t,iter,LocalNodes,k1,k2,istat
 
      TYPE(ValueList_t),POINTER :: Material, Equation
      TYPE(Nodes_t) :: ElementNodes
-     TYPE(Element_t),POINTER :: CurrentElement,Parent,Elm
+     TYPE(Element_t),POINTER :: Element,Parent,Elm,Constraint
 
      REAL(KIND=dp) :: RelativeChange,UNorm,PrevUNorm,Gravity(3), &
        Tdiff,Normal(3),s,r,Relaxation,NewtonTol,NonlinearTol, &
        ReferencePressure=0.0, SpecificHeatRatio, &
        PseudoCompressibilityScale=1.0, NonlinearRelax,FreeSTol
-
-     REAL(KIND=dp) :: Jx,Jy,Jz,Lx,Ly,Lz,Clip, force(3)
 
      INTEGER :: NSDOFs,NewtonIter,NonlinearIter,FreeSIter
 
@@ -226,8 +229,8 @@
          Porous =.FALSE., PotentialForce=.FALSE., Hydrostatic=.FALSE.
 
 
-     REAL(KIND=dp),ALLOCATABLE:: LocalMassMatrix(:,:),LocalStiffMatrix(:,:),&
-         LoadVector(:,:),Viscosity(:),LocalForce(:), TimeForce(:), &
+     REAL(KIND=dp),ALLOCATABLE:: MASS(:,:),STIFF(:,:),&
+         LoadVector(:,:),Viscosity(:),FORCE(:), TimeForce(:), &
          PrevDensity(:),Density(:),U(:),V(:),W(:),MU(:),MV(:),MW(:), &
          Pressure(:),Alpha(:),Beta(:),ExtPressure(:),PrevPressure(:), &
          HeatExpansionCoeff(:), ReferenceTemperature(:), &
@@ -239,8 +242,8 @@
 
      REAL(KIND=dp), ALLOCATABLE, TARGET :: MatrixValues(:), RHSValues(:)
 
-     SAVE U,V,W,LocalMassMatrix,LocalStiffMatrix,LoadVector,Viscosity, &
-         TimeForce,LocalForce,ElementNodes,Alpha,Beta,ExtPressure,Pressure,PrevPressure, &
+     SAVE U,V,W,MASS,STIFF,LoadVector,Viscosity, &
+         TimeForce,FORCE,ElementNodes,Alpha,Beta,ExtPressure,Pressure,PrevPressure, &
          PrevDensity,Density, AllocationsDone,LocalNodes, &
          HeatExpansionCoeff,ReferenceTemperature, &
          Permeability,Mx,My,Mz,LayerThickness, SlipCoeff, &
@@ -282,7 +285,7 @@
         END FUNCTION FlowInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.25 2006/11/27 10:23:57 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.26 2006/11/30 10:19:36 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -369,9 +372,9 @@
                Permeability,                        &
                Mx,My,Mz,                            &
                SlipCoeff, Drag,                     &
-               TimeForce,LocalForce, Viscosity,     &
-               LocalMassMatrix,                     &
-               LocalStiffMatrix,                    &
+               TimeForce,FORCE, Viscosity,     &
+               MASS,                     &
+               STIFF,                    &
                HeatExpansionCoeff,                  &
                GasConstant, HeatCapacity,           &
                ReferenceTemperature,                & 
@@ -394,9 +397,9 @@
                  Mx(N),My(N),Mz(N),                      &
                  SlipCoeff(3,N), Drag(3,N),              &
                  TimeForce( 2*NSDOFs*N ),                &
-                 LocalForce( 2*NSDOFs*N ), Viscosity( N ), &
-                 LocalMassMatrix(  2*NSDOFs*N,2*NSDOFs*N ),&
-                 LocalStiffMatrix( 2*NSDOFs*N,2*NSDOFs*N ),&
+                 FORCE( 2*NSDOFs*N ), Viscosity( N ), &
+                 MASS(  2*NSDOFs*N,2*NSDOFs*N ),&
+                 STIFF( 2*NSDOFs*N,2*NSDOFs*N ),&
                  HeatExpansionCoeff(N),                  &
                  GasConstant( N ), HeatCapacity( N ),    &
                  ReferenceTemperature(N),                & 
@@ -574,13 +577,13 @@
 !        should be calculated
 !------------------------------------------------------------------------------
 !
-         CurrentElement => GetActiveElement(t)
-         NodeIndexes => CurrentElement % NodeIndexes
+         Element => GetActiveElement(t)
+         NodeIndexes => Element % NodeIndexes
 
 !------------------------------------------------------------------------------
 
-         IF ( CurrentElement % BodyId /= body_id ) THEN
-           body_id = CurrentElement % BodyId
+         IF ( Element % BodyId /= body_id ) THEN
+           body_id = Element % BodyId
 
            eq_id = ListGetInteger( Model % Bodies(body_id) % Values,'Equation', &
                    minv=1, maxv=Model % NumberOfEquations )
@@ -625,9 +628,6 @@
 !------------------------------------------------------------------------------
            END SELECT
 !------------------------------------------------------------------------------
-
-           Clip = ListGetConstReal( Model % Equations(eq_id) % Values,'KE Clip', GotIt )
-           IF ( .NOT. GotIt ) Clip = 1.0d-6
 
            Gotit = .FALSE.
            IF ( bf_id > 0 ) THEN
@@ -812,40 +812,11 @@
              END DO
            END IF
          END IF
-!
+
 !------------------------------------------------------------------------------
-!        Viscosity = Laminar (+ Turbulent viscosity)
+!        Viscosity = Laminar viscosity
 !------------------------------------------------------------------------------
          Viscosity(1:n) = GetReal( Material,'Viscosity' )
-
-#if 0
-! this is now done by EffectiveViscosity() in MaterialModels.
-         IF ( ASSOCIATED(KinEnergySol) ) THEN
-!------------------------------------------------------------------------------
-           KECmu(1:n) = ListGetReal( Material, 'KE Cmu',n,NodeIndexes )
-!------------------------------------------------------------------------------
-           DO i=1,n
-             k = KinPerm(NodeIndexes(i))
-             IF ( k > 0 ) THEN
-               Bu = MAX( KinEnergy(k),Clip )
-               Bv = KinDissipation(k)
-
-               IF ( Bv < Clip ) THEN
-                 Bu = Clip
-                 Bv = MAX(KECmu(i) * Density(i) * Bu**2 / Viscosity(i),Clip)
-               ENDIF
-!------------------------------------------------------------------------------
-#ifdef KWMODEL
-               Viscosity(i) = Viscosity(i) + Density(i)*Bu / Bv
-#else
-               Viscosity(i) = Viscosity(i) + KECmu(i)*Density(i)*Bu**2 / Bv
-#endif
-             END IF
-           END DO
-         END IF
-#endif
-!------------------------------------------------------------------------------
-
 
 !------------------------------------------------------------------------------
 !        Set body forces, if any
@@ -961,7 +932,7 @@
 ! Density needed for steady-state, also pressure for transient
 !------------------------------------------------------------------------------
                CALL NavierStokesCompose( &
-                   LocalMassMatrix,LocalStiffMatrix,LocalForce, LoadVector, &
+                   MASS,STIFF,FORCE, LoadVector, &
                    Viscosity,Density,U,V,W,MU,MV,MW, &
                    ReferencePressure+Pressure(1:n), &
                    LocalTemperature, Convect, StabilizeFlag, &
@@ -971,7 +942,7 @@
                    PseudoCompressible, PseudoCompressibility, GasConstant, Porous, Drag, & 
                    PotentialForce, PotentialField, PotentialCoefficient, &
                    DivDiscretization, GradPDiscretization, NewtonLinearization, &
-                   CurrentElement,n,ElementNodes)
+                   Element,n,ElementNodes)
 !------------------------------------------------------------------------------
            END SELECT
 !------------------------------------------------------------------------------
@@ -984,13 +955,13 @@
              CASE( Incompressible,PerfectGas1)
 !------------------------------------------------------------------------------
                CALL NavierStokesCylindricalCompose( &
-                   LocalMassMatrix,LocalStiffMatrix,LocalForce, &
+                   MASS,STIFF,FORCE, &
                    LoadVector, Viscosity,Density,U,V,W,MU,MV,MW, &
                    ReferencePressure+Pressure(1:n),LocalTemperature,&
                    Convect, StabilizeFlag, CompressibilityModel /= Incompressible, &
                    PseudoCompressible, PseudoCompressibility, GasConstant, Porous, Drag, &
                    PotentialForce, PotentialField, PotentialCoefficient, &
-                   NewtonLinearization,CurrentElement,n,ElementNodes )
+                   NewtonLinearization,Element,n,ElementNodes )
 !------------------------------------------------------------------------------
            END SELECT
 !------------------------------------------------------------------------------
@@ -1000,9 +971,9 @@
 !------------------------------------------------------------------------------
 
            CALL NavierStokesGeneralCompose( &
-               LocalMassMatrix,LocalStiffMatrix,LocalForce, &
+               MASS,STIFF,FORCE, &
                LoadVector, Viscosity,Density,U,V,W,MU,MV,MW,Stabilize, &
-               NewtonLinearization,CurrentElement,n,ElementNodes )
+               NewtonLinearization,Element,n,ElementNodes )
            
 !------------------------------------------------------------------------------
          END SELECT
@@ -1015,7 +986,7 @@
             Bubbles = .TRUE.
             StabilizeFlag = 'bubbles'
          END IF
-         IF ( CurrentElement % Type % BasisFunctionDegree <= 1 .AND. &
+         IF ( Element % Type % BasisFunctionDegree <= 1 .AND. &
               StabilizeFlag == 'p2/p1' ) THEN
             Bubbles = .TRUE.
             StabilizeFlag = 'bubbles'
@@ -1025,29 +996,32 @@
          TimeForce = 0.0_dp
          IF ( TransientSimulation ) THEN
 !------------------------------------------------------------------------------
-!          NOTE: the following will replace LocalStiffMatrix and LocalForce
+!          NOTE: the following will replace STIFF and FORCE
 !          with the combined information
 !------------------------------------------------------------------------------
 
-           CALL Add1stOrderTime( LocalMassMatrix, LocalStiffMatrix, &
-             LocalForce, dt, nd, NSDOFs, FlowPerm(Indexes(1:nd)), Solver )
+           CALL Add1stOrderTime( MASS, STIFF, &
+             FORCE, dt, nd, NSDOFs, FlowPerm(Indexes(1:nd)), Solver )
          END IF
 
          IF ( nb > 0 ) THEN
-            CALL NSCondensate( nd, nb, NSDOFs-1, LocalStiffMatrix, &
-                            LocalForce, TimeForce )
+            CALL NSCondensate( nd, nb, NSDOFs-1, STIFF, &
+                            FORCE, TimeForce )
          END IF
 
 !------------------------------------------------------------------------------
 !        Add local stiffness matrix and force vector to global matrix & vector
 !------------------------------------------------------------------------------
-         CALL DefaultUpdateEquations( LocalStiffMatrix, LocalForce, BulkUpdate=.TRUE. )
+         CALL DefaultUpdateEquations( STIFF, FORCE, BulkUpdate=.TRUE. )
 !------------------------------------------------------------------------------
       END DO
 !------------------------------------------------------------------------------
 
       CALL Info( 'FlowSolve', 'Assembly done', Level=4 )
 
+#if 0
+constraint => getboundaryelement(139)
+#endif
 !------------------------------------------------------------------------------
 !     Neumann & Newton boundary conditions
 !------------------------------------------------------------------------------
@@ -1055,29 +1029,29 @@
                 Solver % Mesh % NumberOfBulkElements + &
                    Solver % Mesh % NumberOfBoundaryElements
 
-        CurrentElement => Solver % Mesh % Elements(t)
+        Element => Solver % Mesh % Elements(t)
 !------------------------------------------------------------------------------
 !       Set the current element pointer in the model structure to 
 !       reflect the element being processed
 !------------------------------------------------------------------------------
         Model % CurrentElement => Solver % Mesh % Elements(t)
 !------------------------------------------------------------------------------
-        n = CurrentElement % TYPE % NumberOfNodes
-        NodeIndexes => CurrentElement % NodeIndexes
+        n = Element % TYPE % NumberOfNodes
+        NodeIndexes => Element % NodeIndexes
 
         IF ( ANY( FlowPerm( NodeIndexes ) <= 0 ) ) CYCLE
 !
 !       The element type 101 (point element) can only be used
 !       to set Dirichlet BCs, so skip ´em at this stage.
 !
-        IF ( CurrentElement % TYPE % ElementCode == 101 ) CYCLE
+        IF ( Element % TYPE % ElementCode == 101 ) CYCLE
 
         CALL GetElementNodes( ElementNodes )
 
 !------------------------------------------------------------------------------
         DO i=1,Model % NumberOfBCs
 !------------------------------------------------------------------------------
-          IF ( CurrentElement % BoundaryInfo % Constraint == &
+          IF ( Element % BoundaryInfo % Constraint == &
                  Model % BCs(i) % Tag ) THEN
 !------------------------------------------------------------------------------
             GotForceBC = ListGetLogical(Model % BCs(i) % Values, &
@@ -1085,12 +1059,12 @@
 
             IF ( GotForceBC ) THEN
 
-              LocalForce  = 0.0d0
+              FORCE  = 0.0d0
               LoadVector  = 0.0d0
               Alpha       = 0.0d0
               ExtPressure = 0.0d0
               Beta        = 0.0d0
-              LocalStiffMatrix = 0.0d0
+              STIFF = 0.0d0
 !------------------------------------------------------------------------------
 !             (at the moment the following is done...)
 !             BC: \tau \cdot n = \alpha n +  @\beta/@t + R_k u_k + F
@@ -1169,21 +1143,21 @@
               SELECT CASE( CurrentCoordinateSystem() )
               CASE( Cartesian )
 
-                CALL NavierStokesBoundary( LocalStiffMatrix, LocalForce, &
+                CALL NavierStokesBoundary(  STIFF, FORCE, &
                  LoadVector, Alpha, Beta, ExtPressure, SlipCoeff, NormalTangential,   &
-                    CurrentElement, n, ElementNodes )
+                    Element, n, ElementNodes )
 
              CASE( Cylindric, CylindricSymmetric,  AxisSymmetric )
 
-                CALL NavierStokesCylindricalBoundary( LocalStiffMatrix, &
-                 LocalForce, LoadVector, Alpha, Beta, ExtPressure, SlipCoeff, &
-                     NormalTangential, CurrentElement, n, ElementNodes)
+                CALL NavierStokesCylindricalBoundary( STIFF, &
+                 FORCE, LoadVector, Alpha, Beta, ExtPressure, SlipCoeff, &
+                     NormalTangential, Element, n, ElementNodes)
 
              CASE DEFAULT
 
-                CALL NavierStokesGeneralBoundary( LocalStiffMatrix, &
-                 LocalForce, LoadVector, Alpha, Beta, ExtPressure, SlipCoeff, &
-                    CurrentElement, n, ElementNodes)
+                CALL NavierStokesGeneralBoundary( STIFF, &
+                 FORCE, LoadVector, Alpha, Beta, ExtPressure, SlipCoeff, &
+                    Element, n, ElementNodes)
 
              END SELECT
 
@@ -1217,24 +1191,40 @@
                     W(1:n) = FlowSolution( NSDOFs*FlowPerm(NodeIndexes)-1 )
                 END SELECT
 
-                CALL NavierStokesWallLaw( LocalStiffMatrix,LocalForce,     &
+                CALL NavierStokesWallLaw( STIFF,FORCE,     &
                   LayerThickness,SurfaceRoughness,Viscosity,Density,U,V,W, &
-                         CurrentElement,n, ElementNodes )
+                         Element,n, ElementNodes )
               END IF
 !------------------------------------------------------------------------------
 
               IF ( TransientSimulation ) THEN
-                LocalMassMatrix = 0.0d0
-                CALL Add1stOrderTime( LocalMassMatrix, LocalStiffMatrix, &
-                  LocalForce, dt, n, NSDOFs,FlowPerm(NodeIndexes), Solver )
+                MASS = 0.0d0
+                CALL Add1stOrderTime( MASS, STIFF, &
+                  FORCE, dt, n, NSDOFs,FlowPerm(NodeIndexes), Solver )
               END IF
 
 !------------------------------------------------------------------------------
 !             Add local stiffness matrix and force vector to
 !             global matrix & vector
 !------------------------------------------------------------------------------
-              CALL UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
-                    ForceVector, LocalForce, n, NSDOFs, FlowPerm(NodeIndexes) )
+#if 1
+              CALL UpdateGlobalEquations( StiffMatrix, STIFF, &
+                    ForceVector, FORCE, n, NSDOFs, FlowPerm(NodeIndexes) )
+#else
+             DO m=1,n 
+               DO j=1,Constraint % Type % NumberOfNodes
+                 IF ( Element % NodeIndexes(m) == Constraint % Nodeindexes(j) ) THEN
+                    p = FlowPerm( Constraint % Nodeindexes(1) )
+                    k = FlowPerm( Element % Nodeindexes(m) )
+                    CALL AddToMatrixElement( StiffMatrix, NSDOFs*(p-1)+1, &
+                           NSDOFs*(k-1)+1, FORCE(NSDOFs*(m-1)+nsdofs) )
+                    CALL AddToMatrixElement( StiffMatrix, NSDOFs*(k-1)+1, &
+                           NSDOFs*(p-1)+1, FORCE(NSDOFs*(m-1)+nsdofs) )
+                    EXIT
+                 END IF
+               END DO
+             END DO
+#endif
 !------------------------------------------------------------------------------
             END IF
 !------------------------------------------------------------------------------
@@ -1285,6 +1275,18 @@
 !------------------------------------------------------------------------------
       at = CPUTime() - at
       st = CPUTime()
+
+      CALL DefaultDirichletBCs()
+
+#if 0
+      Element => GetBoundaryElement(139)
+      k = FlowPerm(Element % NodeIndexes(1))
+      DO l=2,nsdofs
+        CALL ZeroRow( StiffMatrix, NSDOFs*(k-1)+l )
+        CALL SetMatrixElement( StiffMatrix, NSDOFs*(k-1)+l, NSDOFs*(k-1)+l, 1.0_dp )
+      END DO
+      ForceVector( NSDOFs*(k-1)+1 ) = 1.0_dp
+#endif
 
       PrevUNorm = UNorm
 
@@ -1410,12 +1412,12 @@ CONTAINS
          DO j=Solver % Mesh % NumberOfBulkElements+1, &
             Solver % Mesh % NumberOfBulkElements+ &
                Solver % Mesh % NumberOfBoundaryElements
-            CurrentElement => Solver % Mesh % Elements(j)
-            IF ( CurrentElement % BoundaryInfo % Constraint &
+            Element => Solver % Mesh % Elements(j)
+            IF ( Element % BoundaryInfo % Constraint &
                  /= Model % BCs(i) % Tag ) CYCLE
 
-            n = CurrentELement % TYPE % NumberOfNodes
-            NodeIndexes => CurrentElement % NodeIndexes
+            n = Element % TYPE % NumberOfNodes
+            NodeIndexes => Element % NodeIndexes
             DO k=1,n
                x = Solver % Mesh % Nodes % x(NodeIndexes(k)) - x0
                y = Solver % Mesh % Nodes % y(NodeIndexes(k)) - y0
