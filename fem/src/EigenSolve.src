@@ -51,7 +51,7 @@
 ! *
 ! *****************************************************************************/
 !
-! $Id: EigenSolve.src,v 1.11 2006/10/13 10:38:31 jpr Exp $
+! $Id: EigenSolve.src,v 1.12 2006/11/27 10:23:56 jpr Exp $
 !
 
 MODULE EigenSolve
@@ -322,8 +322,9 @@ CONTAINS
          END IF
  
          IF (ido == -1 .OR. ido == 1) THEN
-            WRITE( Message, * ) 'Arpack reverse communication calls: ', Iter
-            CALL Info( 'EigenSolve', Message, Level=5 )
+!           WRITE( Message, * ) 'Arpack reverse communication calls: ', Iter
+!           CALL Info( 'EigenSolve', Message, Level=5 )
+            CALL Info( 'EigenSolve', '.', .TRUE., Level=5 )
             iter = iter + 1
 !
 !---------------------------------------------------------------------
@@ -808,8 +809,9 @@ END SUBROUTINE CheckResiduals
               RESID, NCV, V, n, IPARAM, IPNTR, WORKD, WORKL, lWORKL, kinfo )
 
          IF( ido==-1 .OR. ido==1 ) THEN
-            WRITE( Message, * ) 'Arpack reverse communication calls: ', Iter
-            CALL Info( 'EigenSolve', Message, Level=5 )
+!           WRITE( Message, * ) 'Arpack reverse communication calls: ', Iter
+!           CALL Info( 'EigenSolve', Message, Level=5 )
+            CALL Info( 'EigenSolve', '.', .TRUE., Level=5 )
             iter = iter + 1
          END IF
 
@@ -1214,8 +1216,9 @@ END SUBROUTINE CheckResiduals
 !
 !
          IF (ido == -1 .OR. ido == 1) THEN
-            WRITE( Message, * ) 'Arpack reverse communication calls: ', Iter
-            CALL Info( 'ComplexEigenSolve', Message, Level=5 )
+!           WRITE( Message, * ) 'Arpack reverse communication calls: ', Iter
+!           CALL Info( 'ComplexEigenSolve', Message, Level=5 )
+            CALL Info( 'ComplexEigenSolve', '.', .TRUE., Level=5 )
             Iter = Iter + 1
 !---------------------------------------------------------------------
 !           Perform  y <--- OP*x = inv[M]*A*x   (lumped mass)
@@ -1731,8 +1734,9 @@ END SUBROUTINE CheckResiduals
             ! 
             ! ido =-1 inv(A)*z:
             !--------------------------
-            WRITE( Message, * ) 'Arpack reverse communication calls: ', Iter
-            CALL Info( 'EigenSolve', Message, Level=5 )
+!           WRITE( Message, * ) 'Arpack reverse communication calls: ', Iter
+!           CALL Info( 'EigenSolve', Message, Level=5 )
+            CALL Info( 'EigenSolve', '.', .TRUE., Level=5 )
             iter = iter + 1
 
             x => workd( ipntr(2) : ipntr(2)+n-1 )
