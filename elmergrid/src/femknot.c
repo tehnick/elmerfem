@@ -7816,13 +7816,11 @@ int CreateBoundaryLayer2(struct FemType *data,struct BoundaryType *bound,
   int i,j,k,l,dim,maxbc,maxelemtype,dolayer,parent,nlayer,sideelemtype,elemind,side;
   int noelements,noknots,oldnoknots,oldnoelements,oldmaxnodes,nonewnodes,nonewelements;
   int maxcon,elemsides,elemdone,midpoints,order,bcnodes,elemhits,elemtype,second;
-  int ind[MAXNODESD2],baseind[2];
-  int *layernode,*newelementtypes,**newtopo,**oldtopo,*newmaterial;
+  int ind[MAXNODESD2],baseind[2],topnode[2],basenode[2];
+  int *layernode,*newelementtypes,**newtopo,**oldtopo,*newmaterial,**edgepairs;
   Real dx[2],dy[2],dz[2],x0[2],y0[2],z0[2];
   Real *newx,*newy,*newz,*oldx,*oldy,*oldz;
   Real slayer,qlayer,ratio,q;
-
-  printf("Layer2\n");
 
 
   dim = data->dim;
@@ -7920,8 +7918,13 @@ int CreateBoundaryLayer2(struct FemType *data,struct BoundaryType *bound,
   }
   printf("There will %d new elemenets\n",nonewelements);
 
-
+  /* This is a conservative estimate */
   nonewnodes = 2*nonewelements;
+
+  edgepairs = Imatrix(1,nonewnodes,1,2);
+  for(j=1;j<=nonewnodes;j++) 
+    edgepairs[j][1] = edgepairs[j][2] = 0;
+
 
   /* The size of new mesh */
   oldnoelements = data->noelements;
@@ -7945,10 +7948,7 @@ int CreateBoundaryLayer2(struct FemType *data,struct BoundaryType *bound,
   newelementtypes = Ivector(1,noelements);
   newx = Rvector(1,noknots);
   newy = Rvector(1,noknots);
-  if(dim == 3) {
-    newz = Rvector(1,noknots);
-    for(i=1;i<=noknots;i++) newz[i] = 0.0;
-  }
+  if(dim == 3) newz = Rvector(1,noknots);
 
   /* Set the old topology */
   for(j=1;j<=data->noelements;j++) {
@@ -7962,6 +7962,7 @@ int CreateBoundaryLayer2(struct FemType *data,struct BoundaryType *bound,
   for(i=1;i<=data->noknots;i++) {
     newx[i] = data->x[i];
     newy[i] = data->y[i];
+    if(dim == 3) newz[i] = data->z[i];
   }
 
   noelements = data->noelements;
@@ -7980,53 +7981,68 @@ int CreateBoundaryLayer2(struct FemType *data,struct BoundaryType *bound,
     if(elemtype == 404) {
       
       elemdone = FALSE;
-      second = FALSE;
 
       for(side=0;side<elemsides;side++) {
 	
 	if(layernode[oldtopo[j][side]] && layernode[oldtopo[j][(side+1)%elemsides]]) {
- 
-	  baseind[0] = noknots;
-	  baseind[1] = noknots + nlayer;
-	  
-	  x0[0] = oldx[oldtopo[j][side]];
-	  x0[1] = oldx[oldtopo[j][(side+1)%elemsides]];
-	  y0[0] = oldy[oldtopo[j][side]];
-	  y0[1] = oldy[oldtopo[j][(side+1)%elemsides]];
-	  
+
+
+	  /* Treat the special case of three hits 
+	     In case of corners find the single node that is not on the boundary */
 	  if(elemhits == 3) {
-	    /* In case of corners find the single node that is not on the boundary */
 	    for(k=0;k<4;k++)
 	      if(!layernode[oldtopo[j][k]]) break; 
-	    printf("Special node in corner %d %d\n",k,oldtopo[j][k]);
+	    if(0) printf("Special node %d in corner %d\n",oldtopo[j][k],k);
 	    
-	    dx[0] = oldx[oldtopo[j][k]] - x0[0];
-	    dx[1] = oldx[oldtopo[j][k]] - x0[1];
-	    dy[0] = oldy[oldtopo[j][k]] - y0[0];
-	    dy[1] = oldy[oldtopo[j][k]] - y0[1];	    	    
+	    basenode[0] = oldtopo[j][side];
+	    basenode[1] = oldtopo[j][(side+1)%elemsides];
+	    topnode[0] = oldtopo[j][k];
+	    topnode[1] = oldtopo[j][k];
 	  }
-	  else if (elemhits == 2) {
-	    dx[0] = oldx[oldtopo[j][(side+3)%elemsides]] - x0[0];
-	    dx[1] = oldx[oldtopo[j][(side+2)%elemsides]] - x0[1];
-	    dy[0] = oldy[oldtopo[j][(side+3)%elemsides]] - y0[0];
-	    dy[1] = oldy[oldtopo[j][(side+2)%elemsides]] - y0[1];	    
+	  else {
+	    basenode[0] = oldtopo[j][side];
+	    basenode[1] = oldtopo[j][(side+1)%elemsides];
+	    topnode[0] = oldtopo[j][(side+3)%elemsides];	 	  
+	    topnode[1] = oldtopo[j][(side+2)%elemsides];	 	  
+	  }	    
+
+	  for(k=0;k<=1;k++) {
+	    for(i=1;i<=nonewnodes;i++) { 
+	      if(!edgepairs[i][1]) break;	    
+	      if(basenode[k] == edgepairs[i][1] && topnode[k] == edgepairs[i][2]) break;
+	    }
+	    if(!edgepairs[i][1]) {
+	      edgepairs[i][1] = basenode[k];
+	      edgepairs[i][2] = topnode[k];
+	      baseind[k] = noknots;
+	      layernode[basenode[k]] = baseind[k];
+	      noknots += nlayer;
+	    }
+	    else {
+	      if(0) printf("Using existing nodes\n");
+	      baseind[k] = layernode[basenode[k]];
+	    }
+	    x0[k] = oldx[basenode[k]];
+	    y0[k] = oldy[basenode[k]];
+	    dx[k] = oldx[topnode[k]] - x0[k];
+	    dy[k] = oldy[topnode[k]] - y0[k];
 	  }
 
+	  k = baseind[0];
 	  for(i=1;i<=nlayer;i++) {
 	    if(nlayer <= 1 || fabs(qlayer-1.0) < 0.001) {
 	      q = (1.0*(l+1))/nlayer;
-	      noknots++;
-	      newx[noknots] = x0[0] + i * dx[0]/(nlayer+1);
-	      newy[noknots] = y0[0] + i * dy[0]/(nlayer+1);
+	      newx[k+i] = x0[0] + i * dx[0]/(nlayer+1);
+	      newy[k+i] = y0[0] + i * dy[0]/(nlayer+1);
 	    }
 	  }
 
+	  k = baseind[1];
 	  for(i=1;i<=nlayer;i++) {
 	    if(nlayer <= 1 || fabs(qlayer-1.0) < 0.001) {
 	      q = (1.0*(l+1))/nlayer;
-	      noknots++;
-	      newx[noknots] = x0[1] + i * dx[1]/(nlayer+1);
-	      newy[noknots] = y0[1] + i * dy[1]/(nlayer+1);
+	      newx[k+i] = x0[1] + i * dx[1]/(nlayer+1);
+	      newy[k+i] = y0[1] + i * dy[1]/(nlayer+1);
 	    }
 	  }
 	  /*
@@ -8036,14 +8052,15 @@ int CreateBoundaryLayer2(struct FemType *data,struct BoundaryType *bound,
 	    p = (1.- pow(ratio,(Real)(l))) / (1.-pow(ratio,(Real)(n)));
 	    = (q-p) * ds;
 	  */
-	  
+
+
 	  /* 0:th element */
 	  if(elemdone) {
 	    elemind++;
 	    newelementtypes[elemind] = 404;
 	    newmaterial[elemind] = newmaterial[j];	    
-	    newtopo[elemind][side] = baseind[0]; 
-	    newtopo[elemind][(side+1)%elemsides] = baseind[1];
+	    newtopo[elemind][side] = basenode[0];
+	    newtopo[elemind][(side+1)%elemsides] = basenode[1];
 	    newtopo[elemind][(side+2)%elemsides] = baseind[1] + 1;
 	    newtopo[elemind][(side+3)%elemsides] = baseind[0] + 1;
 	  }
@@ -8056,33 +8073,30 @@ int CreateBoundaryLayer2(struct FemType *data,struct BoundaryType *bound,
 	    elemind++;
 	    newelementtypes[elemind] = 404;
 	    newmaterial[elemind] = newmaterial[j];
-	    newtopo[elemind][side] = baseind[0] + i;
-	    newtopo[elemind][(side+1)%elemsides] = baseind[1] + i;
-	    newtopo[elemind][(side+2)%elemsides] = baseind[1] + i+1;
-	    newtopo[elemind][(side+3)%elemsides] = baseind[0] + i+1;
+	    newtopo[elemind][0] = baseind[0] + i;
+	    newtopo[elemind][1] = baseind[1] + i;
+	    newtopo[elemind][2] = baseind[1] + i+1;
+	    newtopo[elemind][3] = baseind[0] + i+1;
 	  }
 
 	  /* n:th element */
 	  elemind++;
-	  if(elemhits == 2) {
-	    newelementtypes[elemind] = 404;
-	    newmaterial[elemind] = newmaterial[j];
-	    newtopo[elemind][side] = baseind[0] + nlayer;
-	    newtopo[elemind][(side+1)%elemsides] = baseind[1] + nlayer;
-	    newtopo[elemind][(side+2)%elemsides] = oldtopo[j][(side+2)%elemsides]; 
-	    newtopo[elemind][(side+3)%elemsides] = oldtopo[j][(side+3)%elemsides];
-	  }	    
-	  else if(elemhits == 3) {
+	  if(elemhits == 3) {
 	    newelementtypes[elemind] = 303;
 	    newmaterial[elemind] = newmaterial[j];
 	    newtopo[elemind][0] = baseind[0] + nlayer;
 	    newtopo[elemind][1] = baseind[1] + nlayer;
-	    newtopo[elemind][2] = oldtopo[j][k];
+	    newtopo[elemind][2] = topnode[0];
 	  }
-	  	  
-	  
+	  else if(elemhits == 2) {
+	    newelementtypes[elemind] = 404;
+	    newmaterial[elemind] = newmaterial[j];
+	    newtopo[elemind][0] = baseind[0] + nlayer;
+	    newtopo[elemind][1] = baseind[1] + nlayer;
+	    newtopo[elemind][2] = topnode[1];
+	    newtopo[elemind][3] = topnode[0];
+	  }	    
 	  elemdone = TRUE;
-	  second = TRUE;
 	}
       }
       if(!elemdone) 
@@ -8092,17 +8106,17 @@ int CreateBoundaryLayer2(struct FemType *data,struct BoundaryType *bound,
       printf("Not implemented for element %d\n",elemtype);
     }
   }
+  noelements = elemind;
  
   data->x = newx;
   data->y = newy;
   data->topology = newtopo;
   data->material = newmaterial;
   data->elementtypes = newelementtypes;
-
-  printf("noknots = %d noelements=%d\n",noknots,elemind);
-
   data->noknots = noknots;
   data->noelements = elemind;
+
+  printf("The created boundary layer mesh has at %d elements and %d nodes.\n",noelements,noknots);
 
   return(0);
 }
