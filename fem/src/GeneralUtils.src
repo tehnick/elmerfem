@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: GeneralUtils.src,v $
+! * Revision 1.12  2006/12/20 07:20:36  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.11  2006/12/20 04:40:54  jpr
 ! * *** empty log message ***
 ! *
@@ -75,7 +78,7 @@
 ! * Added AllocateVector/AllocateArray.
 ! *
 ! *
-! * $Id: GeneralUtils.src,v 1.11 2006/12/20 04:40:54 jpr Exp $
+! * $Id: GeneralUtils.src,v 1.12 2006/12/20 07:20:36 jpr Exp $
 ! ******************************************************************************/
 
 
@@ -549,9 +552,8 @@ CONTAINS
         DO WHILE( .TRUE. )
           IF ( IncludeUnit < IncludeUnitBase ) THEN
             READ( IncludeUnit,'(A)',END=1,ERR=1 ) readstr
-            GOTO 2
-1           CONTINUE
-            CLOSE(IncludeUnit)
+            GO TO 2
+1           CLOSE(IncludeUnit)
             IncludeUnit = IncludeUnit+1
             READ( Unit,'(A)',END=10,ERR=10 ) readstr
 2           CONTINUE
@@ -579,9 +581,8 @@ CONTAINS
           IncludeUnit = IncludeUnit-1
           CALL OpenIncludeFile( IncludeUnit, TRIM(readstr(9:)), IncludePath )
           READ( IncludeUnit,'(A)',END=3,ERR=3 ) readstr
-          GOTO 4
-3         CONTINUE
-          CLOSE(IncludeUnit)
+          GO TO 4
+3         CLOSE(IncludeUnit)
           IncludeUnit = IncludeUnit+1
           READ( Unit,'(A)',END=10,ERR=10 ) readstr
 4         CONTINUE
@@ -728,11 +729,8 @@ CONTAINS
            END IF
         END IF
      END IF
-
      RETURN
-
 10   CONTINUE
-
      l = .FALSE.
 !------------------------------------------------------------------------------
    END FUNCTION ReadAndTrim
