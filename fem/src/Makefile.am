@@ -242,6 +242,7 @@ EXTRA_DIST = \
 	ResultToResult.src \
 	RigidBodyReduction.src \
 	SaveData.src \
+	Shell.src \
 	Smitc.src \
 	SolveBand.src \
 	solve_cmplx.src \
