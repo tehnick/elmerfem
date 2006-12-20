@@ -20,7 +20,7 @@ bib:
 
 biblio:	
 	bibtex linearsystems/linearsystems
-	bibtex fem/fem
+	bibtex fem/pfem
 
 chmod:
 	chmod -R ug+rw,o= .
