@@ -399,14 +399,12 @@
        NodeIndexes => CurrentElement % NodeIndexes
 
        LocalDeflection = 0.0d0
-       IF( .NOT. StabilityAnalysis ) THEN
-         DO i = 1,n
-           k = DeflectionPerm(NodeIndexes(i))
-           DO j = 1,6
-             LocalDeflection(6*(i-1)+j) = Deflection(6*(k-1)+j)
-           END DO
+       DO i = 1,n
+         k = DeflectionPerm(NodeIndexes(i))
+         DO j = 1,6
+           LocalDeflection(6*(i-1)+j) = Deflection(6*(k-1)+j)
          END DO
-       END IF
+       END DO
 
 !      Check element type:
 !      -------------------
@@ -663,10 +661,9 @@
 !         Compute the local stresses (constant for each element):  
 !         -------------------------------------------------------
           CALL LocalStress( CurrentElement, n, ElementNodes, &
-               StabParam1, StabParam2, LocalDeflection, &
-               Weight3, Weight4, Eps, Kap, Nten, NtenMaterial, &
-               Mten, MtenMaterial, Young, &
-               Poisson, Thickness, LargeDeflection )
+            StabParam1, StabParam2, LocalDeflection, Weight3, Weight4, &
+              Eps, Kap, Nten, NtenMaterial, Mten, MtenMaterial, Young, &
+                Poisson, Thickness, LargeDeflection )
 
 !         WRITE (98,'(3(F14.3))')  NtenMaterial(1,1), NtenMaterial(2,2), NtenMaterial(1,2)
 
@@ -956,12 +953,16 @@
        LV1 = 0.0d0
        LV2 = 0.0d0
        LV3 = 0.0d0
-       TempVec = 0.0d0
+       TempVec     = 0.0d0
        NormalForce = 0.0d0
-       Moment = 0.0d0
-       ZetaStress = 0.0d0
-       EpsStress = 0.0d0
+       Moment      = 0.0d0
+       ZetaStress  = 0.0d0
+       EpsStress   = 0.0d0
        NonlinForce = 0.0d0
+
+       CALL LocalStress( Element, n, Nodes, StabParam1, StabParam2, &
+         LocalDeflection, Weight3, Weight4, Eps, Kap, Nten, NtenMaterial, &
+            Mten, MtenMaterial, NodalYoung,  NodalPoisson, Thickness, LargeDeflection )
 
 !      The transformation Xglob -> Xloc is the transpose of the local basis:
 !      ---------------------------------------------------------------------
@@ -1017,7 +1018,7 @@
 !        Basis function values & derivatives at the integration point:
 !        -------------------------------------------------------------
          stat = ElementInfo( Element, Nodes, U, V, W, &
-              detJ, Basis, dBasisdx, ddBasisddx, .FALSE. )
+                    detJ, Basis, dBasisdx )
          S = S * detJ
 
 !        Material etc. parameters in the integration point:
@@ -1406,9 +1407,6 @@
          END IF
 
          IF( StabilityAnalysis ) THEN
-            CALL LocalStress( Element, n, Nodes, StabParam1, StabParam2, &
-             LocalDeflection, Weight3, Weight4, Eps, Kap, Nten, NtenMaterial, &
-              Mten, MtenMaterial, NodalYoung,  NodalPoisson, Thickness, LargeDeflection )
             DO p = 1,n
                GradTest(1:2) = dBasisdx(p,1:2)
                DO q = 1,n
@@ -1587,7 +1585,7 @@
 !      Basis function values & derivatives in the stress eval-point:
 !      -------------------------------------------------------------
        stat = ElementInfo( Element, Nodes, U, V, W, &
-            detJ, Basis, dBasisdx, ddBasisddx, .FALSE. )
+                    detJ, Basis, dBasisdx )
 
 !      Material parameters in the stress evaluation point:
 !      ---------------------------------------------------
