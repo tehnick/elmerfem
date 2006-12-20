@@ -7801,3 +7801,309 @@ omstart:
 
   return(0);
 }
+
+
+
+
+
+int CreateBoundaryLayer2(struct FemType *data,struct BoundaryType *bound,
+			int nolayers, int *layerbounds, int *layernumber,
+			Real *layerratios, Real *layerthickness, int *layerparents,
+			int info)
+/* Create Boundary layers that may be used to solve accurately fluid
+   flow problems and similar equations. */
+{
+  int i,j,k,l,dim,maxbc,maxelemtype,dolayer,parent,nlayer,sideelemtype,elemind,side;
+  int noelements,noknots,oldnoknots,oldnoelements,oldmaxnodes,nonewnodes,nonewelements;
+  int maxcon,elemsides,elemdone,midpoints,order,bcnodes,elemhits,elemtype,second;
+  int ind[MAXNODESD2],baseind[2];
+  int *layernode,*newelementtypes,**newtopo,**oldtopo,*newmaterial;
+  Real dx[2],dy[2],dz[2],x0[2],y0[2],z0[2];
+  Real *newx,*newy,*newz,*oldx,*oldy,*oldz;
+  Real slayer,qlayer,ratio,q;
+
+  printf("Layer2\n");
+
+
+  dim = data->dim;
+  
+  maxelemtype = 0;
+  for(j=1;j<=data->noelements;j++) 
+    maxelemtype = MAX(maxelemtype, data->elementtypes[j]);
+  if(maxelemtype > 409) {
+    printf("Subroutine implemented only up to 2nd degree!\n");
+    return(2);
+  }
+
+  if(info) printf("Largest elementtype is %d\n",maxelemtype);
+  
+
+  oldnoelements = noelements = data->noelements;
+  oldnoknots = noknots = data->noknots;
+  oldmaxnodes = data->maxnodes;
+
+  layernode = Ivector(1,oldnoknots);
+  for(i=1;i<=oldnoknots;i++) 
+    layernode[i] = 0;
+
+
+  /* Go through all the boundaries with boundary layer definitions and compute 
+     the numbder of nodes at the surface. */
+
+  maxbc = 0;
+
+  /* Go through the layers and check which ones are active */
+  for(j=0;j<MAXBOUNDARIES;j++) {
+    if(!bound[j].created) continue;
+
+    for(i=1;i<=bound[j].nosides;i++) {
+      dolayer = FALSE;
+      parent = bound[j].parent[i];
+      if(bound[j].types[i] > maxbc) maxbc = bound[j].types[i];
+
+      for(k=0;k<nolayers;k++) {
+	if(bound[j].types[i] == layerbounds[k]) {
+	  nlayer = layernumber[k];
+	  slayer = layerthickness[k];
+	  qlayer = layerratios[k];	  
+	  dolayer = TRUE;
+	}
+      }
+      if(!dolayer) continue;
+
+      /* We have found an active boundary layer */
+      GetElementSide(parent,bound[j].side[i],bound[j].normal[i],
+		     data,ind,&sideelemtype);
+
+      midpoints = FALSE;
+      if(sideelemtype == 202) {
+	order = 1;
+      }
+      else if(sideelemtype == 203) {
+	order = 2;
+	if(maxelemtype > 408) midpoints = TRUE;
+      }
+      
+      for(l=0;l<sideelemtype%100;l++)  
+	layernode[ind[l]] += 1;
+    }
+  }
+
+  bcnodes = 0;
+  maxcon = 0;
+  for(i=1;i<=data->noknots;i++) {
+    if(layernode[i]) bcnodes++;
+    maxcon = MAX(maxcon, layernode[i]);
+  }  
+
+  if(info) printf("Found %d new nodes in the boundary layers!\n",bcnodes);
+  if(!bcnodes) return(0);  
+  if(info) printf("There are %d connections at maximum\n",maxcon);
+
+  /* there will be more nodes if the original mesh consists of triangles */
+  if(maxelemtype <= 303) 
+    data->maxnodes = 4;
+  else if(maxelemtype == 306)
+    data->maxnodes = 8;
+
+  /* Compute the number of new elements */
+  nonewelements = 0;
+  for(j=1;j<=data->noelements;j++) {
+    elemhits = 0;
+    elemtype = data->elementtypes[j];
+    for(i=0;i<elemtype%100;i++) 
+      if( layernode[ data->topology[j][i] ]) elemhits++;
+    if(elemhits >= 2) {
+      nonewelements += nlayer ;
+      if(elemhits > 2) nonewelements += nlayer + 1;
+    }
+  }
+  printf("There will %d new elemenets\n",nonewelements);
+
+
+  nonewnodes = 2*nonewelements;
+
+  /* The size of new mesh */
+  oldnoelements = data->noelements;
+  oldnoknots = data->noknots;
+  oldtopo = data->topology;
+  oldx = data->x;
+  oldy = data->y;
+  if(dim == 3) oldz = data->z;
+
+  noknots = oldnoknots + nonewnodes;
+  noelements = oldnoelements + nonewelements;
+
+  if(info) {
+    printf("Creating additional %d elements and %d nodes.\n",nonewelements,nonewnodes);
+    printf("Boundary layer mesh has at maximum %d elements and %d nodes.\n",noelements,noknots);
+  }
+
+  /* Allocate more space for the enlarged data set */
+  newtopo = Imatrix(1,noelements,0,data->maxnodes-1);
+  newmaterial = Ivector(1,noelements);
+  newelementtypes = Ivector(1,noelements);
+  newx = Rvector(1,noknots);
+  newy = Rvector(1,noknots);
+  if(dim == 3) {
+    newz = Rvector(1,noknots);
+    for(i=1;i<=noknots;i++) newz[i] = 0.0;
+  }
+
+  /* Set the old topology */
+  for(j=1;j<=data->noelements;j++) {
+    newmaterial[j] = data->material[j];
+    newelementtypes[j] = data->elementtypes[j];
+    for(i=0;i<data->elementtypes[j]%100;i++) 
+      newtopo[j][i] = data->topology[j][i];
+  }
+
+  /* Set the old nodes */
+  for(i=1;i<=data->noknots;i++) {
+    newx[i] = data->x[i];
+    newy[i] = data->y[i];
+  }
+
+  noelements = data->noelements;
+  elemind = noelements;
+  noknots = data->noknots;
+
+  /* Go through elements and make the new elements and nodes */
+  for(j=1;j<=data->noelements;j++) {
+    elemhits = 0;
+    elemtype = data->elementtypes[j];
+    elemsides = elemtype % 100;
+    for(i=0;i<elemsides;i++) 
+      if( layernode[ data->topology[j][i] ]) elemhits++;
+    if(!elemhits) continue;
+    
+    if(elemtype == 404) {
+      
+      elemdone = FALSE;
+      second = FALSE;
+
+      for(side=0;side<elemsides;side++) {
+	
+	if(layernode[oldtopo[j][side]] && layernode[oldtopo[j][(side+1)%elemsides]]) {
+ 
+	  baseind[0] = noknots;
+	  baseind[1] = noknots + nlayer;
+	  
+	  x0[0] = oldx[oldtopo[j][side]];
+	  x0[1] = oldx[oldtopo[j][(side+1)%elemsides]];
+	  y0[0] = oldy[oldtopo[j][side]];
+	  y0[1] = oldy[oldtopo[j][(side+1)%elemsides]];
+	  
+	  if(elemhits == 3) {
+	    /* In case of corners find the single node that is not on the boundary */
+	    for(k=0;k<4;k++)
+	      if(!layernode[oldtopo[j][k]]) break; 
+	    printf("Special node in corner %d %d\n",k,oldtopo[j][k]);
+	    
+	    dx[0] = oldx[oldtopo[j][k]] - x0[0];
+	    dx[1] = oldx[oldtopo[j][k]] - x0[1];
+	    dy[0] = oldy[oldtopo[j][k]] - y0[0];
+	    dy[1] = oldy[oldtopo[j][k]] - y0[1];	    	    
+	  }
+	  else if (elemhits == 2) {
+	    dx[0] = oldx[oldtopo[j][(side+3)%elemsides]] - x0[0];
+	    dx[1] = oldx[oldtopo[j][(side+2)%elemsides]] - x0[1];
+	    dy[0] = oldy[oldtopo[j][(side+3)%elemsides]] - y0[0];
+	    dy[1] = oldy[oldtopo[j][(side+2)%elemsides]] - y0[1];	    
+	  }
+
+	  for(i=1;i<=nlayer;i++) {
+	    if(nlayer <= 1 || fabs(qlayer-1.0) < 0.001) {
+	      q = (1.0*(l+1))/nlayer;
+	      noknots++;
+	      newx[noknots] = x0[0] + i * dx[0]/(nlayer+1);
+	      newy[noknots] = y0[0] + i * dy[0]/(nlayer+1);
+	    }
+	  }
+
+	  for(i=1;i<=nlayer;i++) {
+	    if(nlayer <= 1 || fabs(qlayer-1.0) < 0.001) {
+	      q = (1.0*(l+1))/nlayer;
+	      noknots++;
+	      newx[noknots] = x0[1] + i * dx[1]/(nlayer+1);
+	      newy[noknots] = y0[1] + i * dy[1]/(nlayer+1);
+	    }
+	  }
+	  /*
+	    printf("Implement for geometric division\n");
+	    ratio = pow(qratio,-1./(n-1.));
+	    q = (1.- pow(ratio,(Real)(l+1))) / (1.-pow(ratio,(Real)(n)));
+	    p = (1.- pow(ratio,(Real)(l))) / (1.-pow(ratio,(Real)(n)));
+	    = (q-p) * ds;
+	  */
+	  
+	  /* 0:th element */
+	  if(elemdone) {
+	    elemind++;
+	    newelementtypes[elemind] = 404;
+	    newmaterial[elemind] = newmaterial[j];	    
+	    newtopo[elemind][side] = baseind[0]; 
+	    newtopo[elemind][(side+1)%elemsides] = baseind[1];
+	    newtopo[elemind][(side+2)%elemsides] = baseind[1] + 1;
+	    newtopo[elemind][(side+3)%elemsides] = baseind[0] + 1;
+	  }
+	  else {
+	    newtopo[j][(side+2)%elemsides] = baseind[1] + 1;
+	    newtopo[j][(side+3)%elemsides] = baseind[0] + 1;
+	  }
+
+	  for(i=1;i<nlayer;i++) {
+	    elemind++;
+	    newelementtypes[elemind] = 404;
+	    newmaterial[elemind] = newmaterial[j];
+	    newtopo[elemind][side] = baseind[0] + i;
+	    newtopo[elemind][(side+1)%elemsides] = baseind[1] + i;
+	    newtopo[elemind][(side+2)%elemsides] = baseind[1] + i+1;
+	    newtopo[elemind][(side+3)%elemsides] = baseind[0] + i+1;
+	  }
+
+	  /* n:th element */
+	  elemind++;
+	  if(elemhits == 2) {
+	    newelementtypes[elemind] = 404;
+	    newmaterial[elemind] = newmaterial[j];
+	    newtopo[elemind][side] = baseind[0] + nlayer;
+	    newtopo[elemind][(side+1)%elemsides] = baseind[1] + nlayer;
+	    newtopo[elemind][(side+2)%elemsides] = oldtopo[j][(side+2)%elemsides]; 
+	    newtopo[elemind][(side+3)%elemsides] = oldtopo[j][(side+3)%elemsides];
+	  }	    
+	  else if(elemhits == 3) {
+	    newelementtypes[elemind] = 303;
+	    newmaterial[elemind] = newmaterial[j];
+	    newtopo[elemind][0] = baseind[0] + nlayer;
+	    newtopo[elemind][1] = baseind[1] + nlayer;
+	    newtopo[elemind][2] = oldtopo[j][k];
+	  }
+	  	  
+	  
+	  elemdone = TRUE;
+	  second = TRUE;
+	}
+      }
+      if(!elemdone) 
+	printf("cannot handle this topology with %d hits\n",elemhits);
+    }
+    else {
+      printf("Not implemented for element %d\n",elemtype);
+    }
+  }
+ 
+  data->x = newx;
+  data->y = newy;
+  data->topology = newtopo;
+  data->material = newmaterial;
+  data->elementtypes = newelementtypes;
+
+  printf("noknots = %d noelements=%d\n",noknots,elemind);
+
+  data->noknots = noknots;
+  data->noelements = elemind;
+
+  return(0);
+}
+

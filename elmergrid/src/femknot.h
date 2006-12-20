@@ -90,3 +90,9 @@ int CreateBoundaryLayer(struct FemType *data,struct BoundaryType *bound,
 			int nolayers, int *layerbounds, int *layernumber,
 			Real *layerratios, Real *layerthickness, int *layerparents,
 			int maxfilters, Real layereps, int info);
+
+
+int CreateBoundaryLayer2(struct FemType *data,struct BoundaryType *bound,
+			int nolayers, int *layerbounds, int *layernumber,
+			Real *layerratios, Real *layerthickness, int *layerparents,
+			 int info);

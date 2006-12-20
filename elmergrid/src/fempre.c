@@ -1467,11 +1467,21 @@ int main(int argc, char *argv[])
   }
 
   if(eg.layers) {
+#if 1
     for(k=0;k<nomeshes;k++) 
       CreateBoundaryLayer(&data[k],boundaries[k],eg.layers,
 			  eg.layerbounds, eg.layernumber, eg.layerratios, eg.layerthickness,
 			  eg.layerparents, eg.layermove, eg.layereps, info);
+#else
+     for(k=0;k<nomeshes;k++) 
+      CreateBoundaryLayer2(&data[k],boundaries[k],eg.layers,
+			  eg.layerbounds, eg.layernumber, eg.layerratios, eg.layerthickness,
+			  eg.layerparents, info);
+   
+#endif
   }
+  
+
 
 
   if(outmethod != 1 && dim != 2 && eg.dim != 2) { 
