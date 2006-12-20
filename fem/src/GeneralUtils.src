@@ -39,6 +39,10 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: GeneralUtils.src,v $
+! * Revision 1.10  2006/11/30 12:49:43  jpr
+! * Store UMFPACK factorization (Numeric) in Matrix-structure. Added logical
+! * keyword 'Linear System UMFpack Refactorize'.
+! *
 ! * Revision 1.9  2006/11/16 18:14:49  jpr
 ! * *** empty log message ***
 ! *
@@ -68,7 +72,7 @@
 ! * Added AllocateVector/AllocateArray.
 ! *
 ! *
-! * $Id: GeneralUtils.src,v 1.9 2006/11/16 18:14:49 jpr Exp $
+! * $Id: GeneralUtils.src,v 1.10 2006/11/30 12:49:43 jpr Exp $
 ! ******************************************************************************/
 
 
@@ -445,7 +449,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-   FUNCTION ReadAndTrim( Unit,str,echo ) RESULT(l)
+   RECURSIVE FUNCTION ReadAndTrim( Unit,str,echo ) RESULT(l)
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -478,8 +482,8 @@ CONTAINS
 
      CHARACTER(LEN=MAXLEN) :: readstr = ' ', matcstr
 
-     INTEGER :: i,j,k,ValueStarts=0,inlen,outlen
      LOGICAL :: InsideQuotes, OpenSection=.FALSE.
+     INTEGER :: i,j,k,ValueStarts=0,inlen,outlen, IncludeUnit=60,IncludeUnitBase=60
 
      CHARACTER(LEN=MAX_NAME_LEN) :: Prefix = '  '
 
@@ -497,8 +501,34 @@ CONTAINS
         RETURN
      END IF
 
+
      IF ( ValueStarts == 0 ) THEN
-        READ( Unit,'(A)',END=10,ERR=10 ) readstr
+        IF ( IncludeUnit > IncludeUnitBase ) THEN
+          READ( IncludeUnit,'(A)',END=1,ERR=1 ) readstr
+          GOTO 2
+1         CONTINUE
+          CLOSE(IncludeUnit)
+          IncludeUnit = IncludeUnit-1
+          READ( Unit,'(A)',END=10,ERR=10 ) readstr
+2         CONTINUE
+        ELSE
+          READ( Unit,'(A)',END=10,ERR=10 ) readstr
+        END IF
+
+        IF ( readstr(1:8) == 'include ' .OR. &
+             readstr(1:8) == 'Include ' .OR. &
+             readstr(1:8) == 'INCLUDE ' ) THEN
+
+           IncludeUnit = IncludeUnit + 1
+           OPEN( IncludeUnit, FILE=readstr(9:), STATUS='OLD' )
+           READ( IncludeUnit,'(A)',END=3,ERR=3 ) readstr
+           GOTO 4
+3          CONTINUE
+           CLOSE(IncludeUnit)
+           IncludeUnit = IncludeUnit-1
+           READ( Unit,'(A)',END=10,ERR=10 ) readstr
+4          CONTINUE
+        END IF
      ELSE
         inlen = LEN_TRIM( readstr )
         IF ( Prefix == ' ' ) THEN
@@ -530,7 +560,11 @@ CONTAINS
 
        IF ( .NOT. InsideQuotes .AND. readstr(i:i) == CHAR(92) .AND. i==inlen ) THEN
           readstr(i:i) = ' '
-          READ( Unit,'(A)',END=10,ERR=10 ) readstr(i+1:MAXLEN)
+          IF ( IncludeUnit > IncludeUnitBase ) THEN
+            READ( Unit,'(A)',END=10,ERR=10 ) readstr(i+1:MAXLEN)
+          ELSE
+            READ( IncludeUnit,'(A)',END=10,ERR=10 ) readstr(i+1:MAXLEN)
+          END IF
           inlen = LEN_TRIM( readstr )
        END IF
        i = i + 1
