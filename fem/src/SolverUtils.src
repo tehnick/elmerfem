@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.45  2006/12/20 09:01:21  jpr
+! * Added ValuesChanged setting for variable components inside InvalidateVariable.
+! *
 ! * Revision 1.43  2006/12/20 08:19:17  jpr
 ! * Added setting Var % ValuesChanged in InvalidateVariable.
 ! *
@@ -149,7 +152,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.44 2006/12/20 09:00:27 jpr Exp $
+! * $Id: SolverUtils.src,v 1.45 2006/12/20 09:01:21 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -2350,20 +2353,20 @@ CONTAINS
     PrimVar % ValuesChanged = .TRUE.
     IF ( PrimVar % DOFs > 1 ) THEN
       IF ( PrimVar % Name == 'flow solution' ) THEN
-        Var1 => VariableGet( PrimaryMesh % Variables, 'Surface', .TRUE.)
-        IF ( ASSOCIATED(Var1) ) Var1 % ValuesChanged = .TRUE.
-        Var1 => VariableGet( PrimaryMesh % Variables, 'Pressure', .TRUE.)
-        IF ( ASSOCIATED(Var1) ) Var1 % ValuesChanged = .TRUE.
-        Var1 => VariableGet( PrimaryMesh % Variables, 'Velocity 1', .TRUE.)
-        IF ( ASSOCIATED(Var1) ) Var1 % ValuesChanged = .TRUE.
-        Var1 => VariableGet( PrimaryMesh % Variables, 'Velocity 2', .TRUE.)
-        IF ( ASSOCIATED(Var1) ) Var1 % ValuesChanged = .TRUE.
-        Var1 => VariableGet( PrimaryMesh % Variables, 'Velocity 3', .TRUE.)
-        IF ( ASSOCIATED(Var1) ) Var1 % ValuesChanged = .TRUE.
+        Var => VariableGet( PrimaryMesh % Variables, 'Surface', .TRUE.)
+        IF ( ASSOCIATED(Var) ) Var % ValuesChanged = .TRUE.
+        Var => VariableGet( PrimaryMesh % Variables, 'Pressure', .TRUE.)
+        IF ( ASSOCIATED(Var) ) Var % ValuesChanged = .TRUE.
+        Var => VariableGet( PrimaryMesh % Variables, 'Velocity 1', .TRUE.)
+        IF ( ASSOCIATED(Var) ) Var % ValuesChanged = .TRUE.
+        Var => VariableGet( PrimaryMesh % Variables, 'Velocity 2', .TRUE.)
+        IF ( ASSOCIATED(Var) ) Var % ValuesChanged = .TRUE.
+        Var => VariableGet( PrimaryMesh % Variables, 'Velocity 3', .TRUE.)
+        IF ( ASSOCIATED(Var) ) Var % ValuesChanged = .TRUE.
       ELSE
         DO i=1,PrimVar % DOFs
           tmpname = ComponentName( Name, i )
-          Var1 => VariableGet( PrimaryMesh % Variables, tmpname, .TRUE. )
+          Var => VariableGet( PrimaryMesh % Variables, tmpname, .TRUE. )
           IF ( ASSOCIATED(Var1) ) Var % ValuesChanged = .TRUE.
         END DO
       END IF
