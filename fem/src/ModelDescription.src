@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ModelDescription.src,v 1.30 2006/12/07 11:28:21 edelmann Exp $
+! * $Id: ModelDescription.src,v 1.31 2006/12/13 10:13:47 edelmann Exp $
 ! *****************************************************************************/
 
 MODULE ModelDescription
@@ -904,9 +904,9 @@ CONTAINS
        IF ( PRESENT( ReturnType ) ) ReturnType = .FALSE.
 
        IF ( .NOT.ASSOCIATED(Value) .AND. (CheckAbort <= 1 .OR. FreeNames) ) THEN
-          WRITE( Message, * ) 'Unknown keyword: [', TRIM(name), &
+          WRITE( Message, * ) 'Unlisted keyword: [', TRIM(name), &
                     '] in section: [', TRIM(Section), ']'
-          CALL Warn( 'Model Input', Message )
+          CALL Info( 'Model Input', Message )
        ELSE
           IF ( ASSOCIATED( Value ) ) THEN
              WRITE( Message, * ) 'Keyword: [', TRIM(name), &
@@ -914,7 +914,7 @@ CONTAINS
                     ' is given wrong type: [', TRIM(TYPE),  &
                     '], should be of type: [', TRIM(Value % TYPE),']'
           ELSE
-             WRITE( Message, * ) 'Unknown keyword: [', TRIM(name), &
+             WRITE( Message, * ) 'Unlisted keyword: [', TRIM(name), &
                '] in section: [', TRIM(Section), '].'
           END IF
           CALL Fatal( 'Model Input', Message )
