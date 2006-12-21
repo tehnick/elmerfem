@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterComm.src,v 1.6 2005/08/18 09:22:24 vierinen Exp $
+! * $Id: SParIterComm.src,v 1.7 2006/01/10 13:27:37 apursula Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -2246,13 +2246,27 @@ SUBROUTINE ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, XVec, DOF
 
   ! Local variables
 
-  INTEGER :: i, j, ierr, sproc, destproc, BufLen, ResInd, DOF
+  INTEGER :: i, j, ierr, sproc, destproc, BufLen, ResInd, DOF,TotalSize
   INTEGER, DIMENSION(:), ALLOCATABLE :: IndBuf
   TYPE (ResBufferT), POINTER :: CurrRBuf
   INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
   REAL(KIND=dp), DIMENSION(:), ALLOCATABLE :: ValBuf
 
   !*********************************************************************
+  TotalSize = 0
+  DO i = 1, ParEnv % PEs
+     IF ( ParEnv % IsNeighbour(i) ) THEN
+       CurrRBuf => SplittedMatrix % ResBuf(i)
+       IF ( .NOT. ASSOCIATED(CurrRBuf % ResInd) ) THEN
+           TotalSize = TotalSize + 4
+       ELSE
+           BufLen = SIZE( CurrRBuf % ResInd )
+           TotalSize = TotalSize + 4 + 12*Buflen
+       END IF
+     END IF
+  END DO
+  TotalSize = 1.5 * TotalSize
+  CALL CheckBuffer( TotalSize )
 
   DO i = 1, ParEnv % PEs
      IF ( ParEnv % IsNeighbour(i) ) THEN
@@ -2260,7 +2274,6 @@ SUBROUTINE ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, XVec, DOF
         destproc = i - 1
 
         CurrRBuf => SplittedMatrix % ResBuf(i)
-
         IF ( .NOT. ASSOCIATED(CurrRBuf % ResInd) ) THEN
            CALL MPI_BSEND( 0, 1, MPI_INTEGER, destproc, 9000, MPI_COMM_WORLD, ierr )
         ELSE
