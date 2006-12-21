@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterSolver.src,v 1.7 2006/06/07 10:56:45 jpr Exp $
+! * $Id: SParIterSolver.src,v 1.8 2006/12/21 09:26:13 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -186,6 +186,10 @@ real(kind=dp) :: cputime,st
 
     ALLOCATE( SplittedMatrix % VecIndices( ParEnv % PEs ) )
     CALL CountNeighbourConns( SourceMatrix, SplittedMatrix, ParallelInfo, DOFs )
+
+#ifdef HAVE_HYPRE
+    IF (ListGetLogical(CurrentModel % Solver % Values, 'Use HYPRE')) RETURN
+#endif
 
   !----------------------------------------------------------------------
   !
@@ -1291,11 +1295,65 @@ END SUBROUTINE ZeroSplittedMatrix
 
     LOGICAL :: NeedMass, found
 
+#ifdef HAVE_HYPRE
+    INTERFACE
+      SUBROUTINE SolveHYPRE( n, rows,cols,vals, perm, invperm, gdofs, owner, xvec,rhsvec,dofs,pe )
+        INTEGER :: n, rows(n), cols(n), perm(n), invperm(n), gdofs(n), dofs, pe, owner(n)
+        DOUBLE PRECISION :: vals(n), xvec(n), rhsvec(n)
+      END SUBROUTINE SolveHYPRE
+    END INTERFACE
+#endif
+
     !******************************************************************
 
     GlobalData     => SParMatrixDesc
     ParEnv         =  GlobalData % ParEnv
     SplittedMatrix => SParMatrixDesc % SplittedMatrix
+
+    !******************************************************************
+
+#ifdef HAVE_HYPRE
+    IF (ListGetLogical(CurrentModel % Solver % Values, 'Use HYPRE')) RETURN
+      ALLOCATE(Owner(SIZE(ParallelInfo % GlobalDOFs)))
+      owner = 0
+
+      DO i=1,SIZE(Parallelinfo % GlobalDOFs)
+        IF ( ParallelInfo % NeighbourList(i) % &
+                 Neighbours(1) == ParEnv % MyPE ) owner(i) = 1
+      END DO
+
+      CALL SolveHYPRE( SourceMatrix % NumberOfRows, SourceMatrix % Rows,         &
+        SourceMatrix % Cols, SourceMatrix % Values, Solver % Variable % Perm,    &
+         SourceMatrix % InvPerm, ParallelInfo % GlobalDOFs, Owner, Xvec, RHSvec, &
+            DOFs, ParEnv % MyPE )
+      DEALLOCATE( owner )
+
+      ALLOCATE( VecEPerNB( ParEnv % PEs ) )
+      VecEPerNB = 0
+      DO i = 1, SourceMatrix % NumberOfRows
+         k = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
+         IF ( SIZE(ParallelInfo % NeighbourList(k) % Neighbours) > 1 ) THEN
+            IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+               DO j = 1, SIZE(ParallelInfo % NeighbourList(k) % Neighbours)
+                  IF (ParallelInfo % NeighbourList(k) % Neighbours(j)/=ParEnv % MyPE) THEN
+                     nbind = ParallelInfo % NeighbourList(k) % Neighbours(j) + 1
+                     VecEPerNB(nbind) = VecEPerNB(nbind) + 1
+
+                     SplittedMatrix % ResBuf(nbind) % ResVal(VecEPerNB(nbind)) = XVec(i)
+                     SplittedMatrix % ResBuf(nbind) % ResInd(VecEPerNB(nbind)) = &
+                       ParallelInfo % GlobalDOFs(k)*DOFs - (DOFs-1 - MOD( i-1, DOFs))
+                  END IF
+               END DO
+            END IF
+         END IF
+      END DO
+
+      CALL ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, XVec, DOFs ) 
+      DEALLOCATE( VecEPerNB )
+
+      RETURN
+    END IF
+#endif
 
     CALL ZeroSplittedMatrix( SplittedMatrix )
 

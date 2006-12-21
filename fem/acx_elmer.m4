@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.84 2006/03/30 08:27:42 jpr Exp $
+dnl @version $Id: acx_elmer.m4,v 1.85 2006/12/07 10:18:32 edelmann Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -613,6 +613,87 @@ else
         $2
 fi
 ])dnl ACX_UMFPACK
+
+dnl
+dnl @synopsis ACX_HYPRE([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
+dnl
+dnl Look for HYPRE library
+dnl
+AC_DEFUN([ACX_HYPRE], [
+AC_PREREQ(2.50)
+AC_REQUIRE([ACX_MPI])
+AC_REQUIRE([AC_FC_LIBRARY_LDFLAGS])
+AC_REQUIRE([ACX_LANG_COMPILER_MS])
+acx_hypre_ok=no
+
+AC_ARG_WITH(hypre,
+	[AC_HELP_STRING([--with-hypre=<lib>], [Specify location of HYPRE])])
+case $with_hypre in
+	yes | "") ;;
+	no) acx_hypre_ok=disable ;;
+	-* | */* | *.a | *.so | *.so.* | *.o) HYPRE_LIBS="$with_hypre" ;;
+	*) HYPRE_LIBS="-l$with_hypre" ;;
+esac
+
+# Get fortran linker names of HYPRE functions to check for.
+#AC_FC_FUNC(HYPRE_IJMatrixCreate)
+HYPRE_IJMatrixCreate="HYPRE_IJMatrixCreate"
+
+acx_hypre_save_LIBS="$LIBS"
+
+LIBS="$MPI_LIBS $BLAS_LIBS $LAPACK_LIBS $LIBS $FCLIBS $FLIBS"
+
+# First, check HYPRE_LIBS environment variable
+if test $acx_hypre_ok = no; then
+if test "x$HYPRE_LIBS" != x; then
+	save_LIBS="$LIBS"; LIBS="$HYPRE_LIBS $LIBS"
+	AC_MSG_CHECKING([for $HYPRE_IJMatrixCreate in $HYPRE_LIBS])
+
+	if test "$acx_cv_c_compiler_ms" = "yes"; then
+		# windose shite	
+		save_CFLAGS="$CFLAGS"
+		CFLAGS="$CFLAGS -Gz"
+		AC_LINK_IFELSE(
+		[int main ()
+		 {
+		   $HYPRE_IJMatrixCreate(1);
+		   return 0;
+		 }
+		],
+		[
+	      		acx_hypre_ok=yes
+		],
+		[
+	 	        HYPRE_LIBS=""	
+		])
+		CFLAGS="$save_CFLAGS"
+	else
+		AC_TRY_LINK_FUNC($HYPRE_IJMatrixCreate, [acx_hypre_ok=yes], [HYPRE_LIBS=""])
+	fi
+
+	AC_MSG_RESULT($acx_hypre_ok)
+	LIBS="$save_LIBS"
+fi
+fi
+
+# Generic HYPRE library?
+if test $acx_hypre_ok = no; then
+	AC_CHECK_LIB(hypre, $HYPRE_IJMatrixCreate, [acx_hypre_ok=yes; HYPRE_LIBS="-lHYPRE"],,[-lm])
+fi
+
+AC_SUBST(HYPRE_LIBS)
+
+LIBS="$acx_hypre_save_LIBS"
+
+# Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
+if test x"$acx_hypre_ok" = xyes; then
+        ifelse([$1],,AC_DEFINE(HAVE_HYPRE,1,[Define if you have a HYPRE library.]),[$1])
+        :
+else
+        acx_hypre_ok=no
+        $2
+fi
+])dnl ACX_HYPRE
 
 dnl 
 dnl look for the std c libraries:
