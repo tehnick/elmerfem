@@ -3279,6 +3279,20 @@ static int GmshToElmerType(int gmshtype)
 }
 
 
+static void GmshToElmerIndx(int elemtype,int elemind[])
+{
+  int tmpind[MAXNODESD2];
+
+  switch (elemtype) {
+      
+  case 510:        
+    tmpind[8] = elemind[8];
+    tmpind[9] = elemind[9];
+    elemind[8] = tmpind[9];
+    elemind[9] = tmpind[8];    
+    break;
+  }
+}
 
 
 
@@ -3389,7 +3403,12 @@ allocate:
 		   elementtype,elemnodes);
 	  }	  
 	  for(j=0;j<elemnodes;j++)
-	    data->topology[i][j] = next_int(&cp);
+	    elemind[j] = next_int(&cp);
+	  
+	  GmshToElmerIndx(elementtype,elemind);	  
+
+	  for(j=0;j<elemnodes;j++)
+	    data->topology[i][j] = elemind[j];
 	}
 	else {
 	  maxnodes = MAX(elemnodes,maxnodes);

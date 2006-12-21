@@ -6329,6 +6329,7 @@ void ElementsToBoundaryConditions(struct FemType *data,
   int sidenodes,sidenodes2,maxelemtype,elemdim,sideelements;
   int *moveelement,*parentorder,*possible,**invtopo,**checkside;
   int noelements,maxpossible,noknots,maxelemsides,twiceelem,sideelemdim;
+  int debug;
 
   if(info) printf("Making elements to boundary conditions\n");
 
@@ -6429,17 +6430,18 @@ void ElementsToBoundaryConditions(struct FemType *data,
   sameelem = 0;
   twiceelem = 0;
 
+  debug = FALSE;
+
   for(elemind=1;elemind <= data->noelements;elemind++) {
-    
+
     if(!moveelement[elemind]) continue;
     
     sidenodes = data->elementtypes[elemind]%100;
+
     for(i=0;i<sidenodes;i++) 
       sideind[i] = data->topology[elemind][i];
     
     same = FALSE;
-
-    if(0) printf("elemind=%d (%d)\n",elemind,noelements);
     
     for(l=1;l<=maxpossible;l++) {
       elemind2 = invtopo[sideind[0]][l];
@@ -6456,6 +6458,7 @@ void ElementsToBoundaryConditions(struct FemType *data,
 	if(sideelemtype > data->elementtypes[elemind]) continue; 
 	
 	sidenodes2 = sideelemtype%100;	
+
 	if(sidenodes != sidenodes2) continue;
 	if(sidenodes2 == 1 && sidenodes > 1) break;
 	
@@ -6466,9 +6469,9 @@ void ElementsToBoundaryConditions(struct FemType *data,
 	  for(j=0;j<sidenodes;j++) 
 	    if(sideind[i] == sideind2[j]) hit++;
 	
+	if(debug) printf("%d hits in element %d\n",hit,sideelemtype);
+
 	if(hit < sidenodes) continue;
-	
-	if(0) printf("hit no %d\n",sideelemtype);
 	
 	for(i=1;i<=maxelemsides && checkside[elemind2][i];i++) 
 	  if(checkside[elemind2][i] == side+1) {
@@ -6495,7 +6498,7 @@ void ElementsToBoundaryConditions(struct FemType *data,
 	else {
 	  sideelem += 1;
 	  same = TRUE;
-	  if(0) printf("sideelem=%d %d %d\n",sideelem,side,parentorder[elemind2]);
+	  if(debug) printf("sideelem=%d %d %d\n",sideelem,side,parentorder[elemind2]);
 	  bound->parent[sideelem] = parentorder[elemind2];
 	  bound->side[sideelem] = side;
 	  bound->parent2[sideelem] = 0;
@@ -6509,6 +6512,9 @@ void ElementsToBoundaryConditions(struct FemType *data,
 	}
       }
     }    
+
+    if(debug) printf("HIT = %d\n",hit);
+
   foundtwo:
     if(0);
   }
