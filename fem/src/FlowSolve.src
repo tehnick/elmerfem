@@ -39,6 +39,9 @@
 ! ****************************************************************************/
 ! *
 ! * $Log: FlowSolve.src,v $
+! * Revision 1.27  2006/12/19 11:53:04  jpr
+! * Small formatting changes.
+! *
 ! * Revision 1.26  2006/11/30 10:19:36  jpr
 ! * Apply 'Hyrdrostatic Pressure' in all cases not just in Boussinesq model.
 ! * Also check 'Body Force' section for this keyword (recommended) in addition
@@ -285,7 +288,7 @@
         END FUNCTION FlowInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.26 2006/11/30 10:19:36 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.27 2006/12/19 11:53:04 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -1019,9 +1022,6 @@
 
       CALL Info( 'FlowSolve', 'Assembly done', Level=4 )
 
-#if 0
-constraint => getboundaryelement(139)
-#endif
 !------------------------------------------------------------------------------
 !     Neumann & Newton boundary conditions
 !------------------------------------------------------------------------------
@@ -1207,24 +1207,8 @@ constraint => getboundaryelement(139)
 !             Add local stiffness matrix and force vector to
 !             global matrix & vector
 !------------------------------------------------------------------------------
-#if 1
               CALL UpdateGlobalEquations( StiffMatrix, STIFF, &
                     ForceVector, FORCE, n, NSDOFs, FlowPerm(NodeIndexes) )
-#else
-             DO m=1,n 
-               DO j=1,Constraint % Type % NumberOfNodes
-                 IF ( Element % NodeIndexes(m) == Constraint % Nodeindexes(j) ) THEN
-                    p = FlowPerm( Constraint % Nodeindexes(1) )
-                    k = FlowPerm( Element % Nodeindexes(m) )
-                    CALL AddToMatrixElement( StiffMatrix, NSDOFs*(p-1)+1, &
-                           NSDOFs*(k-1)+1, FORCE(NSDOFs*(m-1)+nsdofs) )
-                    CALL AddToMatrixElement( StiffMatrix, NSDOFs*(k-1)+1, &
-                           NSDOFs*(p-1)+1, FORCE(NSDOFs*(m-1)+nsdofs) )
-                    EXIT
-                 END IF
-               END DO
-             END DO
-#endif
 !------------------------------------------------------------------------------
             END IF
 !------------------------------------------------------------------------------
@@ -1277,16 +1261,6 @@ constraint => getboundaryelement(139)
       st = CPUTime()
 
       CALL DefaultDirichletBCs()
-
-#if 0
-      Element => GetBoundaryElement(139)
-      k = FlowPerm(Element % NodeIndexes(1))
-      DO l=2,nsdofs
-        CALL ZeroRow( StiffMatrix, NSDOFs*(k-1)+l )
-        CALL SetMatrixElement( StiffMatrix, NSDOFs*(k-1)+l, NSDOFs*(k-1)+l, 1.0_dp )
-      END DO
-      ForceVector( NSDOFs*(k-1)+1 ) = 1.0_dp
-#endif
 
       PrevUNorm = UNorm
 
