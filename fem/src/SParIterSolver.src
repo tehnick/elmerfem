@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterSolver.src,v 1.6 2006/01/10 13:27:40 apursula Exp $
+! * $Id: SParIterSolver.src,v 1.7 2006/06/07 10:56:45 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -152,6 +152,9 @@ CONTAINS
 real(kind=dp) :: cputime,st
   !******************************************************************
 
+!st = cputime()
+!print*,parenv % mype, 'enter'
+!call flush(6)
     ALLOCATE( SplittedMatrix )
     SplittedMatrix % InsideMatrix => AllocateMatrix()
 
@@ -541,14 +544,20 @@ real(kind=dp) :: cputime,st
   ! the interface blocks already at this processor.
   !
   !----------------------------------------------------------------------
+!print*,parenv % mype, 'ex if', cputime()-st
+!st = cputime()
+!call flush(6)
   CALL ExchangeInterfaces( NbsIfMatrix, RecvdIfMatrix )
 
 !xxxxxxx
 
   !----------------------------------------------------------------------
-  ! Insert matrix elements to splittedmatrix if got from the
+  ! Insert matrix elemEnts to splittedmatrix if got from the
   ! exchange operation.
   !----------------------------------------------------------------------
+!print*,parenv % mype, 'ex insert0', cputime()-st
+!st = cputime()
+!call flush(6)
   n = SplittedMatrix % InsideMatrix % NumberOfRows
 
   DO i=1,n
@@ -561,7 +570,7 @@ real(kind=dp) :: cputime,st
   ALLOCATE( RowBuffer( n+1 ) )
   RowBuffer = SplittedMatrix % InsideMatrix % Rows
 
-  GotNewCol = .FALSE.
+  NewCol = 0
   DO i=1,ParEnv % PEs
      DO j=1,RecvdIfMatrix(i) % NumberOfRows
 !
@@ -600,7 +609,7 @@ real(kind=dp) :: cputime,st
                       SplittedMatrix % InsideMatrix % Gorder )
 
                  IF ( ColInd /= -1 )  THEN
-                    GotNewCol = .TRUE.
+                    NewCol = NewCol+1
                     DO l = RowInd+1, n+1
                        SplittedMatrix % InsideMatrix % Rows(l) = &
                             SplittedMatrix % InsideMatrix % Rows(l) + 1
@@ -612,113 +621,136 @@ real(kind=dp) :: cputime,st
      END DO
   END DO
 
-  IF ( GotNewCol ) THEN
-  ALLOCATE( ColBuffer( SplittedMatrix % InsideMatrix % Rows(n+1)-1 ) )
-  ColBuffer = 0
+!print*,parenv % mype, 'ex insert1', cputime()-st
+!st = cputime()
+!call flush(6)
+  IF ( NewCol > 0 ) THEN
+    ALLOCATE( ColBuffer( SplittedMatrix % InsideMatrix % Rows(n+1)-1 ) )
+    ColBuffer = 0
 
-  DO i=1,n
-     j = SplittedMatrix % InsideMatrix % Rows(i)
-     DO k = RowBuffer(i), RowBuffer(i+1) - 1
-        l = k - RowBuffer(i)
-        ColBuffer(k) = SplittedMatrix % InsideMatrix % Cols(k)
-     END DO
-  END DO
+    k = 0
+    DO i=1,n
+       DO j = SplittedMatrix % InsideMatrix % Rows(i), &
+           SplittedMatrix % InsideMatrix % Rows(i+1)-1
+          k = k + 1
+          ColBuffer(j) = SplittedMatrix % InsideMatrix % Cols(k)
+       END DO
+    END DO
+!print*,parenv % mype, 'ex insert2'
+!call flush(6)
 
-  SplittedMatrix % InsideMatrix % Cols => ColBuffer
-  SplittedMatrix % InsideMatrix % Rows =  RowBuffer
-  DEALLOCATE( RowBuffer )
+    SplittedMatrix % InsideMatrix % Cols => ColBuffer
+    ALLOCATE( ColBuffer(NewCol) )
+    NewCol    = 0
+    ColBuffer = 0
+  
+    DO i=1,SplittedMatrix % InsideMatrix % NumberOFRows
+       DO j=SplittedMatrix % InsideMatrix % Rows(i), &
+                    SplittedMatrix % InsideMatrix % Rows(i+1)-1
+         IF ( SplittedMatrix % InsideMatrix % Cols(j)  == 0 ) THEN
+            RowBuffer(i) = j
+            EXIT
+         END IF
+       END DO
+    END DO
 
-  ALLOCATE( ColBuffer( SIZE(SplittedMatrix % InsideMatrix % Cols) ) )
-  NewCol    = 0
-  ColBuffer = 0
+!print*,parenv % mype, 'ex insert3'
+!call flush(6)
+    DO i=1,ParEnv % PEs
+       DO j=1,RecvdIfMatrix(i) % NumberOfRows
 
-  DO i=1,ParEnv % PEs
-     DO j=1,RecvdIfMatrix(i) % NumberOfRows
-
-        RowInd = SearchIAItem( n, SplittedMatrix % InsideMatrix % GRows, &
-          RecvdIfMatrix(i) % GRows(j), SplittedMatrix % InsideMatrix % Gorder )
+          RowInd = SearchIAItem( n, SplittedMatrix % InsideMatrix % GRows, &
+            RecvdIfMatrix(i) % GRows(j), SplittedMatrix % InsideMatrix % Gorder )
         
-        IF ( RowInd > 0 ) THEN
-           DO k = RecvdIfMatrix(i) % Rows(j), RecvdIfMatrix(i) % Rows(j+1) - 1
-              ColInd = -1
-              DO l = SplittedMatrix % InsideMatrix % Rows(RowInd),  &
-                     SplittedMatrix % InsideMatrix % Rows(RowInd+1) - 1
-
-                 IF ( SplittedMatrix % InsideMatrix % Cols(l) == 0 ) EXIT
+          IF ( RowInd > 0 ) THEN
+             DO k = RecvdIfMatrix(i) % Rows(j), RecvdIfMatrix(i) % Rows(j+1) - 1
+                ColInd = -1
+                DO l = SplittedMatrix % InsideMatrix % Rows(RowInd),RowBuffer(RowInd)-1
 !
-!                Equation DOF numbering to partition nodal numbering:
-!                ----------------------------------------------------
-                 GCol = SplittedMatrix % InsideMatrix % Cols(l)
-                 GCol = (SourceMatrix % INVPerm(GCol) + DOFs-1) / DOFs
+!                  Equation DOF numbering to partition nodal numbering:
+!                  ----------------------------------------------------
+                   GCol = SplittedMatrix % InsideMatrix % Cols(l)
+                   GCol = (SourceMatrix % INVPerm(GCol) + DOFs-1) / DOFs
 !
-!                Partition nodal numbering to global nodal DOF numbering:
-!                --------------------------------------------------------
-                 GCol = ParallelInfo % GlobalDOFs( GCol )
+!                  Partition nodal numbering to global nodal DOF numbering:
+!                  --------------------------------------------------------
+                   GCol = ParallelInfo % GlobalDOFs( GCol )
 
-                 GCol = DOFs * GCol - (DOFs - 1 - &
-                      MOD( SplittedMatrix % InsideMatrix % Cols(l) - 1,DOFs ) )
+                   GCol = DOFs * GCol - (DOFs - 1 - &
+                        MOD( SplittedMatrix % InsideMatrix % Cols(l) - 1,DOFs ) )
 
-                 IF ( RecvdIfMatrix(i) % Cols(k) == GCol ) THEN
-                    ColInd = GCol
-                    EXIT
-                 END IF
-              END DO
+                   IF ( RecvdIfMatrix(i) % Cols(k) == GCol ) THEN
+                      ColInd = GCol
+                      EXIT
+                   END IF
+                END DO
 
-              IF ( ColInd == -1 ) THEN
-                 ColInd = SearchIAItem( n, &
-                      SplittedMatrix % InsideMatrix % GRows, RecvdIfMatrix(i) % Cols(k), &
-                                SplittedMatrix % InsideMatrix % Gorder )
+                IF ( ColInd == -1 ) THEN
+                   ColInd = SearchIAItem( n, &
+                        SplittedMatrix % InsideMatrix % GRows, RecvdIfMatrix(i) % Cols(k), &
+                                    SplittedMatrix % InsideMatrix % Gorder )
 
-                 IF ( ColInd /= -1 )  THEN
-                    ColInd = SearchNode( ParallelInfo, ( RecvdIfMatrix(i) % Cols(k) - 1 ) / DOFs + 1 )
-                    ColInd = DOFs * ColInd - ( DOFs-1-MOD(RecvdIfMatrix(i) % Cols(k)-1, DOFs) )
-                    ColInd = SourceMatrix % Perm( ColInd )
+                   IF ( ColInd /= -1 )  THEN
+                      ColInd = SearchNode( ParallelInfo, (RecvdIfMatrix(i) % Cols(k)-1)/DOFs+1)
+                      ColInd = DOFs * ColInd - ( DOFs-1-MOD(RecvdIfMatrix(i) % Cols(k)-1, DOFs) )
+                      ColInd = SourceMatrix % Perm( ColInd )
 
-                    DO GCol = SplittedMatrix % InsideMatrix % Rows(RowInd), &
-                              SplittedMatrix % InsideMatrix % Rows(RowInd+1) - 1
-                       IF ( SplittedMatrix % InsideMatrix % Cols(Gcol) == 0 )   EXIT
-                       IF ( SplittedMatrix % InsideMatrix % Cols(GCol)>ColInd ) EXIT
-                    END DO
+                      SplittedMatrix % InsideMatrix % Cols(RowBuffer(RowInd)) = ColInd
+                      NewCol  =  NewCol + 1
+                      ColBuffer(NewCol) = RowBuffer(RowInd)
+                      RowBuffer(RowInd) = RowBuffer(RowInd)+1
+                   END IF
+                END IF
+             END DO
+          END IF
+       END DO
+    END DO
 
-                    IF ( SplittedMatrix % InsideMatrix % Cols(Gcol) > 0 ) THEN
-                       DO l = SplittedMatrix % InsideMatrix % Rows(n+1) - 1, GCol, -1
-                          SplittedMatrix % InsideMatrix % Cols(l+1) = &
-                                              SplittedMatrix % InsideMatrix % Cols(l)
-                       END DO
-                    END IF
+    DO i=1, NewCol
+       DO j=1,SIZE( SplittedMatrix % GlueTable % Inds )
+          IF ( SplittedMatrix % GlueTable % Inds(j) >= ColBuffer(i) ) THEN
+            SplittedMatrix % GlueTable % Inds(j) = &
+               SplittedMatrix % GlueTable % Inds(j)  + 1
+          END IF
+       END DO
+    END DO
 
-                    NewCol  =  NewCol + 1
-                    ColBuffer( NewCol ) = GCol
-                    SplittedMatrix % InsideMatrix % Cols(GCol) = ColInd
+    DEALLOCATE( ColBuffer )
+    DEALLOCATE( RowBuffer)
+    
+    ! Clean zero cols from insidematrix:
+    ! ----------------------------------
+    ALLOCATE( ColBuffer(RowBuffer(n)) ) 
+    k = 1
+    DO i=1,n
+      l = k
+      DO j=SplittedMatrix % InsideMatrix % Rows(i), &
+           SplittedMatrix % InsideMatrix % Rows(i+1)-1
+         IF ( SplittedMatrix % InsideMatrix % Cols(j)<=0 ) THEN
+           ColBuffer(k) = SplittedMatrix % InsideMatrix % Cols(j)
+           k = k + 1
+           EXIT
+         END IF
+      END DO
+      SplittedMatrix % InsideMatrix % Rows(i) = l
+    END DO
+    SplittedMatrix % InsideMatrix % Rows(n+1) = k
+    DEALLOCATE( SplittedMatrix % InsideMatrix % Cols )
+    SplittedMatrix % InsideMatrix % Cols => ColBuffer
 
-                    DO l = RowInd+1, n+1
-                       SplittedMatrix % InsideMatrix % Rows(l) = &
-                            SplittedMatrix % InsideMatrix % Rows(l) + 1
-                    END DO
-                 END IF
-              END IF
-           END DO
-        END IF
-     END DO
-  END DO
+    SplittedMatrix % InsideMatrix % Ordered = .FALSE.
+    CALL CRS_SortMatrix(  SplittedMatrix % InsideMatrix )
 
-
+!print*,parenv % mype, 'ex insert4',newcol
+!call flush(6)
 !xxxxxxxxxx
 
 !-----------------------------------------------------------------------------
   
-  DO i=1, NewCol
-     DO j=1,SIZE( SplittedMatrix % GlueTable % Inds )
-        IF ( SplittedMatrix % GlueTable % Inds(j) >= ColBuffer(i) ) THEN
-          SplittedMatrix % GlueTable % Inds(j) = &
-             SplittedMatrix % GlueTable % Inds(j)  + 1
-        END IF
-     END DO
-  END DO
-
+!print*,parenv % mype, 'ex insert5'
+!call flush(6)
 !-----------------------------------------------------------------------------
-
-  DEALLOCATE( ColBuffer )
+    DEALLOCATE( ColBuffer )
   END IF
 
   ALLOCATE( SplittedMatrix % InsideMatrix % Values( & 
@@ -733,6 +765,9 @@ real(kind=dp) :: cputime,st
 
   CALL ClearInsideC( SourceMatrix, SplittedMatrix % InsideMatrix, &
              RecvdIfMatrix, ParallelInfo, DOFs )
+!print*, parenv % mype, 'clear done: ', cputime()-st
+!call flush(6)
+!st = cputime()
 
   SplittedMatrix % IfMatrix(:) % NumberOfRows = 0
   DO i = 1, ParEnv % PEs
@@ -742,6 +777,9 @@ real(kind=dp) :: cputime,st
                  SplittedMatrix % IfMatrix(i) )
      END IF
   END DO
+!print*, parenv % mype, 'combine done: ', cputime()-st
+!call flush(6)
+!st = cputime()
 
 
   ALLOCATE( SplittedMatrix % IfLCols(ParEnv % PEs)  )
@@ -772,6 +810,9 @@ real(kind=dp) :: cputime,st
   !
   !----------------------------------------------------------------------
   CALL RenumberDOFs( SourceMatrix, SplittedMatrix, ParallelInfo, DOFs )
+!print*, parenv % mype, 'renu done: ', cputime()-st
+!call flush(6)
+!st = cputime()
 
   !----------------------------------------------------------------------
   !
@@ -779,6 +820,9 @@ real(kind=dp) :: cputime,st
   !
   !----------------------------------------------------------------------
   CALL BuildRevVecIndices( SplittedMatrix )
+!print*, parenv % mype, 'buildrev done: ', cputime()-st
+!call flush(6)
+!st = cputime()
 
   !----------------------------------------------------------------------
   !
@@ -808,6 +852,9 @@ real(kind=dp) :: cputime,st
   END DO
 
   DEALLOCATE( OwnIfMatrix, RecvdIfMatrix )
+!print*, parenv % mype, 'leaving done: ', cputime()-st
+!call flush(6)
+!st = cputime()
 
 END FUNCTION SplitMatrix
 
@@ -2185,6 +2232,7 @@ SUBROUTINE CombineCRSMatIndices ( SMat1, SMat2, DMat )
   ! Local variables
 
   INTEGER :: i, j, k, i1, i2, j1, j2, ind, ind1, ind2, DRows, DCols, row, col
+  INTEGER, POINTER :: cols(:)
 
   LOGICAL, ALLOCATABLE :: done(:)
 
@@ -2231,34 +2279,22 @@ SUBROUTINE CombineCRSMatIndices ( SMat1, SMat2, DMat )
   !
   !----------------------------------------------------------------------
 
-  SMat1 % Ordered = .FALSE.
-  SMat2 % Ordered = .FALSE.
   SSMat1 => SMat1
   SSMat2 => SMat2
+  SMat1 % Ordered = .FALSE.
+  SMat2 % Ordered = .FALSE.
   CALL CRS_SortMatrix( SSMat1 )
   CALL CRS_SortMatrix( SSMat2 )
 
-  DRows = SMat2 % NumberOfRows; DCols = SMat2 % Rows(DRows + 1)
+  DRows = SMat2 % NumberOfRows;
 
   DO i = 1, SMat1 % NumberOfRows
      ind1 = SearchIAItem( SMat2 % NumberOfRows, &
           SMat2 % GRows, SMat1 % GRows(i) )
-
-     IF ( Ind1 /= -1 ) THEN
-	DO j = SMat1 % Rows(i), SMat1 % Rows(i+1) - 1
-	   ind2 = SearchIAItem( SMat2 % Rows(ind1+1) - SMat2 % Rows(ind1), &
-		SMat2 % Cols(Smat2 % Rows(ind1):), SMat1 % Cols(j) )
-	   IF ( ind2 == -1 ) THEN
-	      DCols = DCols + 1
-	   END IF
-	END DO
-
-     ELSE
-	DRows = DRows + 1
-	DCols = DCols + ( SMat1 % Rows(i+1) - SMat1 % Rows(i) )
-     END IF
+     IF ( Ind1 == -1 ) DRows = DRows + 1
   END DO
 
+  DCols = SIZE(SMat1 % Cols) + SIZE(SMat2 % Cols)
   DMat % NumberOfRows = DRows
   DMat % Ordered = .TRUE.
   ALLOCATE( DMat % Rows( DRows + 1) )
@@ -2282,7 +2318,7 @@ SUBROUTINE CombineCRSMatIndices ( SMat1, SMat2, DMat )
      ind = -1
      IF ( i1 <= SMat1 % NumberOfRows ) THEN
         ind = SearchIAItem( SMat2 % NumberOfRows, &
-          SMat2 % GRows, SMat1 % GRows(i1) )
+          SMat2 % GRows, SMat1 % GRows(i1) ) !, SMat2 % Gorder )
      END IF
 
      IF ( i1 > SMat1 % NumberOfRows ) THEN
@@ -2359,8 +2395,12 @@ SUBROUTINE CombineCRSMatIndices ( SMat1, SMat2, DMat )
   END DO
   DMat % Rows(Row) = Col
 
-  DEALLOCATE( Done )
+  ALLOCATE(Cols(col-1))
+  Cols(1:col-1) = DMat % Cols(1:col-1)
+  DEALLOCATE( DMat % Cols )
+  DMAT % Cols => Cols
 
+  DEALLOCATE( Done )
 END SUBROUTINE CombineCRSMatIndices
 
 
