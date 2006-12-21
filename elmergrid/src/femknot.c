@@ -7815,12 +7815,12 @@ int CreateBoundaryLayer2(struct FemType *data,struct BoundaryType *bound,
 {
   int i,j,k,l,dim,maxbc,maxelemtype,dolayer,parent,nlayer,sideelemtype,elemind,side;
   int noelements,noknots,oldnoknots,oldnoelements,oldmaxnodes,nonewnodes,nonewelements;
-  int maxcon,elemsides,elemdone,midpoints,order,bcnodes,elemhits,elemtype,second;
+  int maxcon,elemsides,elemdone,midpoints,order,bcnodes,elemhits,elemtype,second,goforit;
   int ind[MAXNODESD2],baseind[2],topnode[2],basenode[2];
-  int *layernode,*newelementtypes,**newtopo,**oldtopo,*newmaterial,**edgepairs;
+  int *layernode,*newelementtypes,**newtopo,**oldtopo,*newmaterial,**edgepairs,*sharednode;
   Real dx[2],dy[2],dz[2],x0[2],y0[2],z0[2];
   Real *newx,*newy,*newz,*oldx,*oldy,*oldz;
-  Real slayer,qlayer,ratio,q;
+  Real slayer,qlayer,ratio,qratio,q;
 
 
   dim = data->dim;
@@ -7843,6 +7843,10 @@ int CreateBoundaryLayer2(struct FemType *data,struct BoundaryType *bound,
   layernode = Ivector(1,oldnoknots);
   for(i=1;i<=oldnoknots;i++) 
     layernode[i] = 0;
+
+  sharednode = Ivector(1,oldnoknots);
+  for(i=1;i<=oldnoknots;i++) 
+    sharednode[i] = 0;
 
 
   /* Go through all the boundaries with boundary layer definitions and compute 
@@ -7909,11 +7913,16 @@ int CreateBoundaryLayer2(struct FemType *data,struct BoundaryType *bound,
   for(j=1;j<=data->noelements;j++) {
     elemhits = 0;
     elemtype = data->elementtypes[j];
-    for(i=0;i<elemtype%100;i++) 
-      if( layernode[ data->topology[j][i] ]) elemhits++;
-    if(elemhits >= 2) {
+    for(i=0;i<elemtype%100;i++) {
+      k = data->topology[j][i];
+      if( layernode[k]) {
+	sharednode[k] += 1;
+	elemhits++;
+      }
+    }
+    if(elemhits) {
       nonewelements += nlayer ;
-      if(elemhits > 2) nonewelements += nlayer + 1;
+      if(elemhits != 2) nonewelements += nlayer + 1;
     }
   }
   printf("There will %d new elemenets\n",nonewelements);
@@ -7921,9 +7930,9 @@ int CreateBoundaryLayer2(struct FemType *data,struct BoundaryType *bound,
   /* This is a conservative estimate */
   nonewnodes = 2*nonewelements;
 
-  edgepairs = Imatrix(1,nonewnodes,1,2);
+  edgepairs = Imatrix(1,nonewnodes,1,3);
   for(j=1;j<=nonewnodes;j++) 
-    edgepairs[j][1] = edgepairs[j][2] = 0;
+    edgepairs[j][1] = edgepairs[j][2] = edgepairs[j][3] = 0;
 
 
   /* The size of new mesh */
@@ -7978,73 +7987,207 @@ int CreateBoundaryLayer2(struct FemType *data,struct BoundaryType *bound,
       if( layernode[ data->topology[j][i] ]) elemhits++;
     if(!elemhits) continue;
     
-    if(elemtype == 404) {
-      
+    if(elemtype == 404) {      
       elemdone = FALSE;
 
       for(side=0;side<elemsides;side++) {
 	
-	if(layernode[oldtopo[j][side]] && layernode[oldtopo[j][(side+1)%elemsides]]) {
+	goforit = FALSE;	
+	if(elemhits == 2 || elemhits == 3) 
+	  if(layernode[oldtopo[j][side]] && layernode[oldtopo[j][(side+1)%elemsides]]) goforit = TRUE;
+	if(elemhits == 1) 
+	  if(layernode[oldtopo[j][side]]) goforit = TRUE;
+	if(!goforit) continue;
 
-
-	  /* Treat the special case of three hits 
-	     In case of corners find the single node that is not on the boundary */
-	  if(elemhits == 3) {
-	    for(k=0;k<4;k++)
-	      if(!layernode[oldtopo[j][k]]) break; 
-	    if(0) printf("Special node %d in corner %d\n",oldtopo[j][k],k);
-	    
-	    basenode[0] = oldtopo[j][side];
-	    basenode[1] = oldtopo[j][(side+1)%elemsides];
-	    topnode[0] = oldtopo[j][k];
-	    topnode[1] = oldtopo[j][k];
+	/* Treat the special case of three hits 
+	   In case of corners find the single node that is not on the boundary */
+	if(elemhits == 3) {
+	  for(k=0;k<4;k++)
+	    if(!layernode[oldtopo[j][k]]) break; 
+	  if(0) printf("Special node %d in corner %d\n",oldtopo[j][k],k);
+	  
+	  basenode[0] = oldtopo[j][side];
+	  basenode[1] = oldtopo[j][(side+1)%elemsides];
+	  topnode[0] = oldtopo[j][k];
+	  topnode[1] = oldtopo[j][k];
+	}
+	else if(elemhits == 2) {
+	  basenode[0] = oldtopo[j][side];
+	  basenode[1] = oldtopo[j][(side+1)%elemsides];
+	  topnode[0] = oldtopo[j][(side+3)%elemsides];	 	  
+	  topnode[1] = oldtopo[j][(side+2)%elemsides];	 	  
+	}	    
+	else if(elemhits == 1) {
+	  basenode[0] = oldtopo[j][side];
+	  basenode[1] = basenode[0];
+	  topnode[0] = oldtopo[j][(side+3)%elemsides];	 	  
+	  topnode[1] = oldtopo[j][(side+1)%elemsides];	 	  
+	}
+	
+	for(k=0;k<=1;k++) {
+	  for(i=1;i<=nonewnodes;i++) { 
+	    if(!edgepairs[i][1]) break;	    
+	    if(basenode[k] == edgepairs[i][1] && topnode[k] == edgepairs[i][2]) break;
+	  }
+	  if(!edgepairs[i][1]) {
+	    edgepairs[i][1] = basenode[k];
+	    edgepairs[i][2] = topnode[k];
+	    baseind[k] = noknots;
+	    edgepairs[i][3] = baseind[k];
+	    noknots += nlayer;
 	  }
 	  else {
-	    basenode[0] = oldtopo[j][side];
-	    basenode[1] = oldtopo[j][(side+1)%elemsides];
-	    topnode[0] = oldtopo[j][(side+3)%elemsides];	 	  
-	    topnode[1] = oldtopo[j][(side+2)%elemsides];	 	  
-	  }	    
-
-	  for(k=0;k<=1;k++) {
-	    for(i=1;i<=nonewnodes;i++) { 
-	      if(!edgepairs[i][1]) break;	    
-	      if(basenode[k] == edgepairs[i][1] && topnode[k] == edgepairs[i][2]) break;
-	    }
-	    if(!edgepairs[i][1]) {
-	      edgepairs[i][1] = basenode[k];
-	      edgepairs[i][2] = topnode[k];
-	      baseind[k] = noknots;
-	      layernode[basenode[k]] = baseind[k];
-	      noknots += nlayer;
+	    if(0) printf("Using existing nodes\n");
+	    baseind[k] = edgepairs[i][3];
+	  }
+	  x0[k] = oldx[basenode[k]];
+	  y0[k] = oldy[basenode[k]];
+	  dx[k] = oldx[topnode[k]] - x0[k];
+	  dy[k] = oldy[topnode[k]] - y0[k];
+	
+	  for(i=1;i<=nlayer;i++) {
+	    if(nlayer <= 1 || fabs(qlayer-1.0) < 0.001) {
+	      q = i / (nlayer+1);
 	    }
 	    else {
-	      if(0) printf("Using existing nodes\n");
-	      baseind[k] = layernode[basenode[k]];
-	    }
-	    x0[k] = oldx[basenode[k]];
-	    y0[k] = oldy[basenode[k]];
-	    dx[k] = oldx[topnode[k]] - x0[k];
-	    dy[k] = oldy[topnode[k]] - y0[k];
+	      ratio = pow(qlayer,1.0/(nlayer));
+	      q = (1.- pow(ratio,(Real)(i+1))) /  (1.- pow(ratio,(Real)(nlayer+1)));
+	    }	      
+	    newx[baseind[k]+i] = x0[k] + q * dx[k];
+	    newy[baseind[k]+i] = y0[k] + q * dy[k];
 	  }
+	}	
 
-	  k = baseind[0];
+	/* 0:th element */
+	if(elemhits == 1) {
+	  newelementtypes[j] = 303;	  
+	  newtopo[j][0] = basenode[0];
+	  newtopo[j][1] = baseind[1] + 1;
+	  newtopo[j][2] = baseind[0] + 1;	  	  	  
+	}
+	else if(elemhits == 3 && elemdone) {
+	  elemind++;
+	  newelementtypes[elemind] = 404;
+	  newmaterial[elemind] = newmaterial[j];	    
+	  newtopo[elemind][side] = basenode[0];
+	  newtopo[elemind][(side+1)%elemsides] = basenode[1];
+	  newtopo[elemind][(side+2)%elemsides] = baseind[1] + 1;
+	  newtopo[elemind][(side+3)%elemsides] = baseind[0] + 1;
+	}
+	else {
+	  newtopo[j][(side+2)%elemsides] = baseind[1] + 1;
+	  newtopo[j][(side+3)%elemsides] = baseind[0] + 1;
+	}
+	
+	for(i=1;i<nlayer;i++) {
+	  elemind++;
+	  newelementtypes[elemind] = 404;
+	  newmaterial[elemind] = newmaterial[j];
+	  newtopo[elemind][0] = baseind[0] + i;
+	  newtopo[elemind][1] = baseind[1] + i;
+	  newtopo[elemind][2] = baseind[1] + i+1;
+	  newtopo[elemind][3] = baseind[0] + i+1;
+	}
+	
+	/* n:th element */
+	if(elemhits == 3) {
+	  elemind++;
+	  newelementtypes[elemind] = 303;
+	  newmaterial[elemind] = newmaterial[j];
+	  newtopo[elemind][0] = baseind[0] + nlayer;
+	  newtopo[elemind][1] = baseind[1] + nlayer;
+	  newtopo[elemind][2] = topnode[0];
+	}
+	else if(elemhits == 2 || elemhits == 1) {
+	  elemind++;
+	  newelementtypes[elemind] = 404;
+	  newmaterial[elemind] = newmaterial[j];
+	  newtopo[elemind][0] = baseind[0] + nlayer;
+	  newtopo[elemind][1] = baseind[1] + nlayer;
+	  newtopo[elemind][2] = topnode[1];
+	  newtopo[elemind][3] = topnode[0];
+	}	    
+	/* n+1:th element */
+	if(elemhits == 1) {
+	  elemind++;
+	  newelementtypes[elemind] = 303;
+	  newmaterial[elemind] = newmaterial[j];
+	  newtopo[elemind][0] = topnode[1];
+	  newtopo[elemind][1] = oldtopo[j][(side+2)%elemsides];
+	  newtopo[elemind][2] = topnode[0];
+	}
+	
+	elemdone = TRUE;
+      }
+      if(!elemdone) 
+	printf("cannot handle quadrilaterals with %d hits\n",elemhits);
+    }
+
+
+    else if(elemtype == 303) {      
+      elemdone = FALSE;
+
+      for(side=0;side<elemsides;side++) {	
+
+	goforit = FALSE;	
+	if(elemhits == 2) {
+	  if(layernode[oldtopo[j][side]] && layernode[oldtopo[j][(side+1)%elemsides]]) goforit = TRUE;
+	}
+	else if(elemhits == 1) {
+	  if(layernode[oldtopo[j][side]]) goforit = TRUE;
+	}
+	else if(elemhits == 3) {
+	  if(sharednode[oldtopo[j][side]] == 1) goforit = TRUE;
+	}
+	if(!goforit) continue;
+
+	if(elemhits == 3) {
+	  if(1) printf("Special node %d in corner %d\n",oldtopo[j][side],side);	  
+	  basenode[0] = oldtopo[j][side];
+	  basenode[1] = basenode[0];
+	  topnode[0] = oldtopo[j][(side+2)%elemsides];
+	  topnode[1] = oldtopo[j][(side+1)%elemsides];
+	}
+	else if(elemhits == 2) {
+	  basenode[0] = oldtopo[j][side];
+	  basenode[1] = oldtopo[j][(side+1)%elemsides];
+	  topnode[0] = oldtopo[j][(side+2)%elemsides];	 	  
+	  topnode[1] = topnode[0];
+	}	    
+	else if(elemhits == 1) {
+	  basenode[0] = oldtopo[j][side];
+	  basenode[1] = basenode[0];
+	  topnode[0] = oldtopo[j][(side+2)%elemsides];	 	  
+	  topnode[1] = oldtopo[j][(side+1)%elemsides];	 	  
+	}
+	
+	for(k=0;k<=1;k++) {
+	  for(i=1;i<=nonewnodes;i++) { 
+	    if(!edgepairs[i][1]) break;	    
+	    if(basenode[k] == edgepairs[i][1] && topnode[k] == edgepairs[i][2]) break;
+	  }
+	  if(!edgepairs[i][1]) {
+	    edgepairs[i][1] = basenode[k];
+	    edgepairs[i][2] = topnode[k];
+	    baseind[k] = noknots;
+	    edgepairs[i][3] = baseind[k];
+	    noknots += nlayer;
+	  }
+	  else {
+	    if(0) printf("Using existing nodes\n");
+	    baseind[k] = edgepairs[i][3];
+	  }
+	  x0[k] = oldx[basenode[k]];
+	  y0[k] = oldy[basenode[k]];
+	  dx[k] = oldx[topnode[k]] - x0[k];
+	  dy[k] = oldy[topnode[k]] - y0[k];
+	
 	  for(i=1;i<=nlayer;i++) {
 	    if(nlayer <= 1 || fabs(qlayer-1.0) < 0.001) {
 	      q = (1.0*(l+1))/nlayer;
-	      newx[k+i] = x0[0] + i * dx[0]/(nlayer+1);
-	      newy[k+i] = y0[0] + i * dy[0]/(nlayer+1);
+	      newx[baseind[k]+i] = x0[k] + i * dx[k]/(nlayer+1);
+	      newy[baseind[k]+i] = y0[k] + i * dy[k]/(nlayer+1);
 	    }
-	  }
-
-	  k = baseind[1];
-	  for(i=1;i<=nlayer;i++) {
-	    if(nlayer <= 1 || fabs(qlayer-1.0) < 0.001) {
-	      q = (1.0*(l+1))/nlayer;
-	      newx[k+i] = x0[1] + i * dx[1]/(nlayer+1);
-	      newy[k+i] = y0[1] + i * dy[1]/(nlayer+1);
-	    }
-	  }
 	  /*
 	    printf("Implement for geometric division\n");
 	    ratio = pow(qratio,-1./(n-1.));
@@ -8052,56 +8195,58 @@ int CreateBoundaryLayer2(struct FemType *data,struct BoundaryType *bound,
 	    p = (1.- pow(ratio,(Real)(l))) / (1.-pow(ratio,(Real)(n)));
 	    = (q-p) * ds;
 	  */
-
-
-	  /* 0:th element */
-	  if(elemdone) {
-	    elemind++;
-	    newelementtypes[elemind] = 404;
-	    newmaterial[elemind] = newmaterial[j];	    
-	    newtopo[elemind][side] = basenode[0];
-	    newtopo[elemind][(side+1)%elemsides] = basenode[1];
-	    newtopo[elemind][(side+2)%elemsides] = baseind[1] + 1;
-	    newtopo[elemind][(side+3)%elemsides] = baseind[0] + 1;
 	  }
-	  else {
-	    newtopo[j][(side+2)%elemsides] = baseind[1] + 1;
-	    newtopo[j][(side+3)%elemsides] = baseind[0] + 1;
-	  }
+	}	
 
-	  for(i=1;i<nlayer;i++) {
-	    elemind++;
-	    newelementtypes[elemind] = 404;
-	    newmaterial[elemind] = newmaterial[j];
-	    newtopo[elemind][0] = baseind[0] + i;
-	    newtopo[elemind][1] = baseind[1] + i;
-	    newtopo[elemind][2] = baseind[1] + i+1;
-	    newtopo[elemind][3] = baseind[0] + i+1;
-	  }
-
-	  /* n:th element */
-	  elemind++;
-	  if(elemhits == 3) {
-	    newelementtypes[elemind] = 303;
-	    newmaterial[elemind] = newmaterial[j];
-	    newtopo[elemind][0] = baseind[0] + nlayer;
-	    newtopo[elemind][1] = baseind[1] + nlayer;
-	    newtopo[elemind][2] = topnode[0];
-	  }
-	  else if(elemhits == 2) {
-	    newelementtypes[elemind] = 404;
-	    newmaterial[elemind] = newmaterial[j];
-	    newtopo[elemind][0] = baseind[0] + nlayer;
-	    newtopo[elemind][1] = baseind[1] + nlayer;
-	    newtopo[elemind][2] = topnode[1];
-	    newtopo[elemind][3] = topnode[0];
-	  }	    
-	  elemdone = TRUE;
+	/* 0:th element */
+	if(elemhits == 1 || elemhits == 3) {
+	  newelementtypes[j] = 303;	  
+	  newtopo[j][0] = basenode[0];
+	  newtopo[j][1] = baseind[1] + 1;
+	  newtopo[j][2] = baseind[0] + 1;	  	  	  
 	}
+	else if(elemhits == 2) {
+	  newelementtypes[j] = 404;	  
+	  newtopo[j][side] = basenode[0];
+	  newtopo[j][(side+1)%4] = basenode[1];
+	  newtopo[j][(side+2)%4] = baseind[1] + 1;
+	  newtopo[j][(side+3)%4] = baseind[0] + 1;	  	  	  
+	}
+
+	for(i=1;i<nlayer;i++) {
+	  elemind++;
+	  newelementtypes[elemind] = 404;
+	  newmaterial[elemind] = newmaterial[j];
+	  newtopo[elemind][0] = baseind[0] + i;
+	  newtopo[elemind][1] = baseind[1] + i;
+	  newtopo[elemind][2] = baseind[1] + i+1;
+	  newtopo[elemind][3] = baseind[0] + i+1;
+	}
+	
+	/* n:th element */
+	if(elemhits == 1 || elemhits == 3) {
+	  elemind++;
+	  newelementtypes[elemind] = 404;
+	  newmaterial[elemind] = newmaterial[j];
+	  newtopo[elemind][0] = baseind[0] + nlayer;
+	  newtopo[elemind][1] = baseind[1] + nlayer;
+	  newtopo[elemind][2] = topnode[1];
+	  newtopo[elemind][3] = topnode[0];
+	}	    
+	else if(elemhits == 2) {
+	  elemind++;
+	  newelementtypes[elemind] = 303;
+	  newmaterial[elemind] = newmaterial[j];
+	  newtopo[elemind][0] = baseind[0] + nlayer;
+	  newtopo[elemind][1] = baseind[1] + nlayer;
+	  newtopo[elemind][2] = topnode[1];
+	}
+	elemdone = TRUE;
       }
       if(!elemdone) 
-	printf("cannot handle this topology with %d hits\n",elemhits);
+	printf("cannot handle triangles with %d hits\n",elemhits);
     }
+
     else {
       printf("Not implemented for element %d\n",elemtype);
     }
