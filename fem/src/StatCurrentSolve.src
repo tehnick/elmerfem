@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StatCurrentSolve.src,v $
+! * Revision 1.9  2006/11/27 10:23:57  jpr
+! * Removed some execess (unrelated) use of TRIM & POINTER.
+! *
 ! * Revision 1.8  2006/11/20 10:56:43  raback
 ! * Updated the Dirichlet BC and Nodal load settings.
 ! *
@@ -129,7 +132,7 @@
      LOGICAL :: CalculateCurrent, CalculateHeating, CalculateConductivity
 
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatCurrentSolve.src,v 1.8 2006/11/20 10:56:43 raback Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatCurrentSolve.src,v 1.9 2006/11/27 10:23:57 jpr Exp $"
 
 
      SAVE LocalStiffMatrix, Load, LocalForce, Density, &
@@ -490,7 +493,21 @@
 
 !------------------------------------------------------------------------------
 
-!     CALL InvalidateVariable( Model, Solver % Mesh, 'EField')
+    CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Potential')
+   
+    IF ( CalculateCurrent ) THEN
+     CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Volume Current 1')
+     CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Volume Current 2')
+     IF ( Dim == 3 )  CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Volume Current 3')
+   END IF
+   
+   IF ( CalculateHeating ) THEN
+     CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Joule Heating')
+   END IF
+
+   IF ( CalculateConductivity ) THEN
+      CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Electric Conductivity' )
+   END IF
 
 !------------------------------------------------------------------------------
  
