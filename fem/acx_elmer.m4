@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.85 2006/12/07 10:18:32 edelmann Exp $
+dnl @version $Id: acx_elmer.m4,v 1.86 2006/12/21 10:48:17 jpr Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -678,7 +678,7 @@ fi
 
 # Generic HYPRE library?
 if test $acx_hypre_ok = no; then
-	AC_CHECK_LIB(hypre, $HYPRE_IJMatrixCreate, [acx_hypre_ok=yes; HYPRE_LIBS="-lHYPRE"],,[-lm])
+	AC_CHECK_LIB(HYPRE, $HYPRE_IJMatrixCreate, [acx_hypre_ok=yes; HYPRE_LIBS="-lHYPRE"],,[-lm])
 fi
 
 AC_SUBST(HYPRE_LIBS)
