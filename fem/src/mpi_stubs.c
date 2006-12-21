@@ -37,6 +37,34 @@ void STDCALLBULL FC_FUNC_(mpi_win_null_delete_fn,MPI_WIN_NULL_DELETE_FN) () {}
 void STDCALLBULL FC_FUNC_(mpi_comm_null_delete_fn,MPI_COMM_NULL_DELETE_FN) () {}
 void STDCALLBULL FC_FUNC_(mpi_comm_null_copy_fn,MPI_COMM_NULL_DELETE_FN) () {}
 
+void STDCALLBULL MPI_Type_free() {}
+void STDCALLBULL MPI_Startall() {}
+void STDCALLBULL MPI_Gather() {}
+void STDCALLBULL MPI_Alltoall() {}
+void STDCALLBULL MPI_Address() {}
+void STDCALLBULL MPI_Allreduce() {}
+void STDCALLBULL MPI_Comm_size() {}
+void STDCALLBULL MPI_Recv() {}
+void STDCALLBULL MPI_Isend() {}
+void STDCALLBULL MPI_Allgather() {}
+void STDCALLBULL MPI_Abort() {}
+void STDCALLBULL MPI_Waitall() {}
+void STDCALLBULL MPI_Wait() {}
+void STDCALLBULL MPI_Comm_rank() {}
+void STDCALLBULL MPI_Type_struct() {}
+void STDCALLBULL MPI_Barrier() {}
+void STDCALLBULL MPI_Allgatherv() {}
+void STDCALLBULL MPI_Irecv() {}
+void STDCALLBULL MPI_Bcast() {}
+void STDCALLBULL MPI_Reduce() {}
+void STDCALLBULL MPI_Request_free() {}
+void STDCALLBULL MPI_Scatter() {}
+void STDCALLBULL MPI_Type_commit() {}
+void STDCALLBULL MPI_Recv_init() {}
+void STDCALLBULL MPI_Wtime() {}
+void STDCALLBULL MPI_Send_init() {}
+
+
 /* parpack */
 void STDCALLBULL FC_FUNC(pdneupd,PDNEUPD) ( void *a, void *b, void *c, void *d, void *e, void *f, void *g, void *a8, void *b9, void *c10, void *d11, void *e12, void *f13, void *g14, void *a15, void *b16, void *c17, void *d18, void *e19, void *a20, void *b21, void *c22, void *d23, void *e24, void *f25, void *g26, void *g27, void *g28,void *g29 ) {}
 void STDCALLBULL FC_FUNC(pdseupd,PDSEUPD) ( void *a, void *b, void *c, void *d, void *e, void *f, void *g, void *a8, void *b9, void *c10, void *d11, void *e12, void *f13, void *g14, void *a15, void *b16, void *c17, void *d18, void *e19, void *a20, void *b21, void *c22, void *d23, void *e24, void *f25, void *g26  ) {}
