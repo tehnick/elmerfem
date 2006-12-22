@@ -27,9 +27,13 @@
 #include "HYPRE.h"
 #include "HYPRE_parcsr_ls.h"
 
-void solvehypre_( int *nrows,int *rows, int *cols, double *vals, 
- int *perm, int *invperm, int *globaldofs, int *owner, double *xvec,
-   double *rhsvec, int *dofs, int *pe, int *ILUn, int *Rounds, double *TOL )
+void STDCALLBULL FC_FUNC(solvehypre,SOLVEHYPRE)
+ (
+   int *nrows,int *rows, int *cols, double *vals, int *perm,
+   int *invperm, int *globaldofs, int *owner,  double *xvec,
+   double *rhsvec, int *dofs, int *pe, int *ILUn, int *Rounds,
+   double *TOL
+ )
 {
    int i, j, k, *rcols;
    int myid, num_procs;

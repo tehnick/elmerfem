@@ -960,9 +960,12 @@
        EpsStress   = 0.0d0
        NonlinForce = 0.0d0
 
-       CALL LocalStress( Element, n, Nodes, StabParam1, StabParam2, &
-         LocalDeflection, Weight3, Weight4, Eps, Kap, Nten, NtenMaterial, &
-            Mten, MtenMaterial, NodalYoung,  NodalPoisson, Thickness, LargeDeflection )
+       IF ( StabilityAnalysis ) THEN
+         CALL LocalStress( Element, n, Nodes, StabParam1,    &
+           StabParam2, LocalDeflection, Weight3, Weight4,    &
+           Eps, Kap, Nten, NtenMaterial, Mten, MtenMaterial, &
+           NodalYoung, NodalPoisson, Thickness, LargeDeflection )
+       END IF
 
 !      The transformation Xglob -> Xloc is the transpose of the local basis:
 !      ---------------------------------------------------------------------
