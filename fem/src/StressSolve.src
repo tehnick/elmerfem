@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StressSolve.src,v $
+! * Revision 1.32  2006/12/18 12:23:07  jpr
+! * Added 'Harmonic analysis' option.
+! *
 ! * Revision 1.31  2006/12/18 10:23:44  jpr
 ! * added 'Constant Bulk Matrix' & check for varying timestep when using
 ! * 'Linear System Refactorize'.
@@ -336,7 +339,7 @@
         END FUNCTION StressInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.31 2006/12/18 10:23:44 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.32 2006/12/18 12:23:07 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -560,6 +563,7 @@
      ConstantBulkSystem = GetLogical( SolverParams, 'Constant Bulk System', Found )
      ConstantBulkMatrix = GetLogical( SolverParams, 'Constant Bulk Matrix', Found )
 !------------------------------------------------------------------------------
+
      DO iter=1,MaxIter
        IF( StabilityAnalysis .OR. GeometricStiffness ) THEN
           SELECT CASE( iter )
@@ -598,36 +602,23 @@
            Solver % Matrix % RHS = 0.0_dp
          END IF
 
-         IF ( ConstantBulkMatrix )   GO TO 1000
-         IF ( ConstantBulkSystem   ) GO TO 2000
-         IF ( ConstantSystem )       GO TO 3000
+         IF ( ConstantBulkMatrix ) GO TO 1000
+         IF ( ConstantBulkSystem ) GO TO 2000
+         IF ( ConstantSystem )     GO TO 3000
        END IF
 
        CALL DefaultInitialize()
-
-1000   CONTINUE
-
-       CALL BulkAssembly()
-
-2000   CONTINUE
-
-       CALL Info( 'StressSolve', 'Assembly done', Level=4 )
-
+1000   CALL BulkAssembly()
+2000   CALL Info( 'StressSolve', 'Assembly done', Level=4 )
        CALL BCAssembly()
-
-3000   CONTINUE
-
-       IF ( Transient .AND. &
-          (ConstantBulkMatrix .OR. ConstantBulkSystem .OR. ConstantSystem) ) &
-                          CALL AddGlobalTime()
-
+3000   IF ( Transient .AND.(ConstantBulkMatrix .OR. &
+           ConstantBulkSystem .OR. ConstantSystem) ) CALL AddGlobalTime()
        CALL DefaultFinishAssembly()
        CALL DefaultDirichletBCS()
 
        IF( ModelLumping .AND. FixDisplacement) THEN
          CALL LumpedDisplacements( Model, iter, LumpedArea, LumpedCenter)
        END IF
-
        CALL Info( 'StressSolve', 'Set boundaries done', Level=4 )
 
        ! Solve the system and check for convergence:
@@ -635,8 +626,8 @@
        PrevUNorm = UNorm
        UNorm = DefaultSolve()
        IF ( Transient .AND. .NOT. Refactorize .AND. dt /= Prevdt ) THEN
-          Prevdt = dt
-          CALL ListAddLogical( SolverParams, 'Linear System Refactorize', .FALSE. )
+         Prevdt = dt
+         CALL ListAddLogical( SolverParams, 'Linear System Refactorize', .FALSE. )
        END IF
 
        IF ( PrevUNorm + UNorm /= 0.0d0 ) THEN
@@ -1019,6 +1010,7 @@ CONTAINS
    END SUBROUTINE BCAssembly
 !------------------------------------------------------------------------------
 
+
 !------------------------------------------------------------------------------
   SUBROUTINE AddGlobalTime()
 !------------------------------------------------------------------------------
@@ -1065,6 +1057,7 @@ CONTAINS
 !------------------------------------------------------------------------------
   END SUBROUTINE AddGlobalTime
 !------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
   SUBROUTINE ComputeNormalDisplacement( Displacement, NormalDisplacement, &
@@ -1377,6 +1370,7 @@ CONTAINS
    END SUBROUTINE ComputeStress
 !------------------------------------------------------------------------------
 
+
 !------------------------------------------------------------------------------
    FUNCTION TRACE( F, dim ) RESULT(t)
 !------------------------------------------------------------------------------
@@ -1390,6 +1384,7 @@ CONTAINS
 !------------------------------------------------------------------------------
    END FUNCTION TRACE
 !------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
 ! Computes area, center of area and different moments
