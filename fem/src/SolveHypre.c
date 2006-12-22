@@ -193,7 +193,7 @@ st = realtime_();
       HYPRE_ParCSRPCGDestroy(solver);
       HYPRE_BoomerAMGDestroy(precond);
    }
-   /* bicg with AMG preconditioner */
+   /* bicg with ILU preconditioner */
    else if (solver_id == 2)
    {
       int num_iterations;
