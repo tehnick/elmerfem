@@ -26,18 +26,35 @@
 !
 MODULE BinIO
 
-    IMPLICIT NONE
-    PRIVATE
+    USE Kinds
 
-    PUBLIC :: BinOpen
-    PUBLIC :: BinClose
-    PUBLIC :: BinWriteInt4
-    PUBLIC :: BinReadInt4
-    PUBLIC :: BinWriteDouble
-    PUBLIC :: BinReadDouble
-    PUBLIC :: BinWriteString
-    PUBLIC :: BinReadString
-    PUBLIC :: StrErrorF
+    IMPLICIT NONE
+
+    ! TODO: Use some kind of autoconf magic to set these to the C parameters
+    ! SEEK_SET etc. That way we could pass the directly onwards to fseeko in the
+    ! C code.
+    INTEGER, PARAMETER :: BIN_SEEK_SET = 0, BIN_SEEK_CUR = 1, BIN_SEEK_END = 2
+
+    INTERFACE
+        FUNCTION BinFTell( Unit )
+            USE Kinds
+            INTEGER, INTENT(IN) :: Unit
+            INTEGER(IntOff_k) :: BinFTell
+        END FUNCTION BinFTell
+
+        SUBROUTINE BinFSeek( Unit, Offset, Whence )
+            USE Kinds
+            INTEGER, INTENT(IN) :: Unit
+            INTEGER(IntOff_k), INTENT(IN) :: Offset
+            INTEGER, INTENT(IN) :: Whence
+        END SUBROUTINE BinFSeek
+
+        SUBROUTINE BinEndianess(e)
+            CHARACTER(len=1), INTENT(OUT) :: e
+        END SUBROUTINE BinEndianess
+    END INTERFACE
+
+    PRIVATE :: HandleStatus
 
 CONTAINS
 
@@ -67,7 +84,7 @@ CONTAINS
         INTEGER, OPTIONAL, INTENT(OUT) :: Status
         INTEGER :: Status_
 
-        CALL BinOpen_( Unit, TRIM(File), LEN_TRIM(File), Action, Status_ )
+        CALL BinOpen_( Unit,TRIM(File),LEN_TRIM(File),Action,Status_ )
         CALL HandleStatus( Status, Status_, "BINIO: Can't open file " &
                                             // TRIM(File) )
     END SUBROUTINE BinOpen
@@ -85,7 +102,7 @@ CONTAINS
 
     SUBROUTINE BinWriteInt4( Unit, a, Status )
         INTEGER, INTENT(IN) :: Unit
-        INTEGER, INTENT(IN) :: a
+        INTEGER(Int4_k), INTENT(IN) :: a
         INTEGER, OPTIONAL, INTENT(OUT) :: Status
         INTEGER :: Status_
 
@@ -96,13 +113,35 @@ CONTAINS
 
     SUBROUTINE BinReadInt4( Unit, a, Status )
         INTEGER, INTENT(IN) :: Unit
-        INTEGER, INTENT(OUT) :: a
+        INTEGER(Int4_k), INTENT(OUT) :: a
         INTEGER, OPTIONAL, INTENT(OUT) :: Status
         INTEGER :: Status_
 
         CALL BinReadInt4_( Unit, a, Status_ )
         CALL HandleStatus( Status, Status_, "BINIO: Error reading Int4" )
     END SUBROUTINE BinReadInt4
+
+
+    SUBROUTINE BinWriteInt8( Unit, a, Status )
+        INTEGER, INTENT(IN) :: Unit
+        INTEGER(Int8_k), INTENT(IN) :: a
+        INTEGER, OPTIONAL, INTENT(OUT) :: Status
+        INTEGER :: Status_
+
+        CALL BinWriteInt8_( Unit, a, Status_ )
+        CALL HandleStatus( Status, Status_, "BINIO: Error writing Int8" )
+    END SUBROUTINE BinWriteInt8
+
+
+    SUBROUTINE BinReadInt8( Unit, a, Status )
+        INTEGER, INTENT(IN) :: Unit
+        INTEGER(Int8_k), INTENT(OUT) :: a
+        INTEGER, OPTIONAL, INTENT(OUT) :: Status
+        INTEGER :: Status_
+
+        CALL BinReadInt8_( Unit, a, Status_ )
+        CALL HandleStatus( Status, Status_, "BINIO: Error reading Int8" )
+    END SUBROUTINE BinReadInt8
 
 
     SUBROUTINE BinWriteDouble( Unit, a, Status )
@@ -127,6 +166,19 @@ CONTAINS
     END SUBROUTINE BinReadDouble
 
 
+    ! Write a CHARACTER(1).  (Note: to read a CHARACTER(1), with no '\0' at the
+    ! end, just use BinReadString with a CHARACTER(1) as argument.
+    SUBROUTINE BinWriteChar( UNIT, c, Status )
+        INTEGER, INTENT(IN) :: Unit
+        CHARACTER, INTENT(IN) :: c
+        INTEGER, OPTIONAL, INTENT(OUT) :: Status
+        INTEGER :: Status_
+
+        CALL BinWriteChar_( Unit, c, Status_ )
+        CALL HandleStatus( Status, Status_, "BINIO: Error writing char" )
+    END SUBROUTINE BinWriteChar
+
+
     ! Write 's' to file pointed to by 'unit', and append a '\0'.
     SUBROUTINE BinWriteString( UNIT, s, Status )
         INTEGER, INTENT(IN) :: Unit
@@ -148,6 +200,7 @@ CONTAINS
         INTEGER :: Status_
 
         CALL BinReadString_( Unit, s, LEN(s), Status_ )
+        WRITE(0, *) 'BinReadString: "', TRIM(s), '"'
         CALL HandleStatus( Status, Status_, "BINIO: Error reading string" )
     END SUBROUTINE BinReadString
 

@@ -138,6 +138,21 @@ ACX_FC_MODFILE
 AM_CONDITIONAL(UPPERCASEMODS, test $modfilename = "MODULENAME.mod")
 ACX_FC_PUT_MODULE_FLAG
 
+dnl 
+dnl Find the Fortran kind parameter corresponding to a C off_t type.
+dnl
+AC_CHECK_SIZEOF(off_t)
+if test $ac_cv_sizeof_off_t -eq 4; then
+        OFF_KIND="selected_int_kind(9)"
+elif test $ac_cv_sizeof_off_t -eq 8; then
+        OFF_KIND="selected_int_kind(18)"
+else
+        OFF_KIND="selected_int_kind(int($ac_cv_sizeof_off_t*8*log10(2.0d0)))"
+        AC_MSG_WARN([sizeof(off_t) = $ac_cv_sizeof_off_t !? What kind of weird system is this?
+                    I'm not sure if this will work.])
+fi
+
+
 SOLVER_LIBS="$LIBS $ARPACK_LIBS $PARPACK_LIBS $HYPRE_LIBS $UMFPACK_LIBS $HUTI_LIBS $MATC_LIBS $EIOF_LIBS $LIBS $LAPACK_LIBS $BLAS_LIBS $FCLIBS $FLIBS $STDCXX_LIBS"
 
 dnl Host specific hacks.
@@ -194,6 +209,7 @@ AC_MSG_RESULT([defining TEMPLATE_ARFLAGS to be $TEMPLATE_ARFLAGS])
 AC_MSG_RESULT([defining library_path_var to be $library_path_var])
 AC_MSG_RESULT([defining FCPPFLAGS to be $FCPPFLAGS])
 AC_MSG_RESULT([defining LIBSOLVER_DEPS to be $LIBSOLVER_DEPS])
+AC_MSG_RESULT([defining OFF_KIND to be $OFF_KIND])
 AC_SUBST(TESTS_FCFLAGS)
 AC_SUBST(INCLUDE_MODULE_FLAG)
 AC_SUBST(MESHGEN2D_LIBS)
@@ -237,6 +253,7 @@ AC_SUBST(SOLVER_LIBS)
 AC_SUBST(SOLVER_MPI_LIBS)
 AC_SUBST(LIBS)
 AC_SUBST(FCFLAGS)
+AC_SUBST(OFF_KIND)
 
 AC_DEFINE_UNQUOTED(ELMER_SOLVER_HOME,"${prefix}/share/elmersolver", [Elmer solver default install directory])
 AC_CONFIG_HEADER(config.h)
@@ -254,6 +271,7 @@ src/Makefile
 src/view3d/Makefile
 src/viewaxis/Makefile
 src/binio/Makefile
+src/binio/kinds.f90
 src/binio/test/Makefile
 tests/Makefile
 ]

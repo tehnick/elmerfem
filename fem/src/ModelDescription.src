@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ModelDescription.src,v 1.31 2006/12/13 10:13:47 edelmann Exp $
+! * $Id: ModelDescription.src,v 1.32 2006/12/21 07:48:00 jpr Exp $
 ! *****************************************************************************/
 
 MODULE ModelDescription
@@ -62,8 +62,8 @@ MODULE ModelDescription
     CHARACTER(LEN=1024) :: IncludePath = ' ', OutputPath = ' ', SimulationId = ' '
 !DEC$ATTRIBUTES DLLEXPORT :: OutputPath
 
-    INTEGER, PARAMETER :: OutputUnit = 31, RestartUnit = 30, PostFileUnit = 29, &
-                          InFileUnit = 28
+    INTEGER, PARAMETER :: PosUnit = 32, OutputUnit = 31, RestartUnit = 30,&
+                          PostFileUnit = 29, InFileUnit = 28
 
 CONTAINS
 
@@ -1785,11 +1785,11 @@ CONTAINS
     TYPE(Element_t), POINTER :: CurrentElement
     INTEGER :: i,j,k,DOFs, dates(8), n
     TYPE(Variable_t), POINTER :: Var
-    CHARACTER(LEN=MAX_NAME_LEN) :: FName, DateStr
+    CHARACTER(LEN=MAX_NAME_LEN) :: FName, PosName, DateStr
     LOGICAL :: FreeSurfaceFlag, MoveBoundary, GotIt
     INTEGER, POINTER :: PrevPerm(:) 
-    
-!------------------------------------------------------------------------------
+    INTEGER(IntOff_k) :: PrevPermPos, Pos
+    CHARACTER(1) :: E
 
 !------------------------------------------------------------------------------
 !   If first time here, count number of variables
@@ -1801,6 +1801,7 @@ CONTAINS
         FName = TRIM(OutputPath) // '/' // TRIM(FileName)
       END IF
     END IF
+    PosName = TRIM(FName) // ".pos"
 
     IF ( PRESENT( FreeSurface ) ) THEN
       FreeSurfaceFlag = FreeSurface
@@ -1825,7 +1826,7 @@ CONTAINS
 
     ! The first time we start by writing the header.
     IF ( Mesh % SavesDone == 0 ) THEN
-      CALL InitializeFile( OutputUnit, TRIM(FName) )
+      CALL InitializeFile( OutputUnit, FName, PosUnit, PosName )
 
       DateStr = FormatDate()
       WRITE( OutputUnit, '("!File started at: ",A)' ) TRIM(DateStr)
@@ -1854,6 +1855,7 @@ CONTAINS
         Var => Var % Next
       END DO 
 
+      i = 1
       Var => Mesh % Variables
       DO WHILE( ASSOCIATED(Var) )
         IF ( Var % Output ) THEN
@@ -1867,6 +1869,11 @@ CONTAINS
                WRITE( OutputUnit,* ) Var % Name(1:k),Var % DOFs, &
                 ' :', 'fs' ! TRIM(ListGetString( Var % Solver % Values, 'Equation' ))
                IF ( Var % DOFs == 1 ) DOFs = DOFs + 1
+
+               IF ( Binary ) THEN
+                  CALL BinWriteString( PosUnit, Var % Name(1:k) )
+                  i = i + 1
+               END IF
              ELSE
 !              IF ( Var % DOFs == 1 ) DOFs = DOFs + 1
 !              WRITE( OutputUnit,* ) Var % Name(1:k),Var % DOFs, &
@@ -1880,13 +1887,20 @@ CONTAINS
       WRITE(OutputUnit,*) 'Number Of Nodes: ', Mesh % NumberOfNodes
 
       IF ( Binary ) THEN
-        CALL SwitchToBinary( OutputUnit,FName,Mesh % NumberOfNodes )
+         ! Jump to the beginning (remembering the initial L|B!) in the positions
+         ! file to fill in the number of variables, then jump back here again.
+         Pos = BinFTell( PosUnit )
+         CALL BinFSeek( PosUnit, 1_IntOff_k, BIN_SEEK_SET )
+         CALL BinWriteInt4( PosUnit, i-1 )
+         CALL BinFSeek( PosUnit, Pos, BIN_SEEK_SET )
+
+         CALL SwitchToBinary( OutputUnit,FName,Mesh % NumberOfNodes )
       END IF
     ELSE
-      CALL AppendOpen( OutputUnit,FName )
+      CALL AppendOpen( OutputUnit,FName,PosUnit,PosName )
     END IF
 
-    CALL WriteTime( OutputUnit,Mesh % SavesDone+1, Time, SimulationTime )
+    CALL WriteTime( OutputUnit,PosUnit,Mesh % SavesDone+1, Time, SimulationTime )
 
 !------------------------------------------------------------------------------
 !   Write data to disk
@@ -1902,9 +1916,8 @@ CONTAINS
             END DO
 
             IF ( Var % Name(1:10) /= 'coordinate' .OR. FreeSurfaceFlag ) THEN
-               CALL WriteString( OutputUnit, Var % Name(1:k) )
+               CALL WriteVarName( OutputUnit, PosUnit, Var % Name(1:k) )
                CALL WritePerm( OutputUnit, Var % Perm, PrevPerm )
-               PrevPerm => Var % Perm
    
                IF ( ASSOCIATED(Var % Perm) ) THEN
                   n = SIZE(Var % Perm)
@@ -1927,6 +1940,7 @@ CONTAINS
 
     IF ( Binary ) THEN
       CALL BinClose( OutputUnit )
+      CALL BinClose( PosUnit )
     ELSE
       CLOSE( OutputUnit )
     END IF
@@ -1950,7 +1964,7 @@ CONTAINS
                WRITE( OutputUnit, '(A)' ) 'Perm: NULL'
             END IF
 
-         ELSE 
+         ELSE
          
             SameAsPrev = .FALSE.
             IF ( ASSOCIATED( CurrPerm, PrevPerm ) ) THEN
@@ -1962,16 +1976,22 @@ CONTAINS
             END IF
 
             IF ( SameAsPrev ) THEN
+
                IF ( Binary ) THEN
                   CALL BinWriteInt4( OutputUnit,-1 )
+                  CALL BinWriteInt8( OutputUnit,INT( PrevPermPos,Int8_k ) )
                ELSE
                   WRITE( OutputUnit, '(A)' ) 'Perm: use previous'
                END IF
+
             ELSE
+
+               PrevPerm => Var % Perm
 
                n = COUNT( CurrPerm > 0 )
                IF ( Binary ) THEN
-                  CALL BinWriteInt4( OutputUnit, size(CurrPerm) )
+                  PrevPermPos = BinFTell( OutputUnit )
+                  CALL BinWriteInt4( OutputUnit, SIZE(CurrPerm) )
                   CALL BinWriteInt4( OutputUnit, n )
                   DO i = 1, SIZE( CurrPerm )
                      IF ( CurrPerm(i) > 0 ) THEN
@@ -1980,7 +2000,7 @@ CONTAINS
                      END IF
                   END DO
                ELSE
-                  WRITE( OutputUnit,'(A,I0," ",I0)') 'Perm: ', size(CurrPerm), n
+                  WRITE( OutputUnit,'(A,I0," ",I0)') 'Perm: ', SIZE(CurrPerm), n
                   DO i = 1, SIZE( CurrPerm )
                      IF ( CurrPerm(i) > 0 ) THEN
                         WRITE( OutputUnit, '(2i11)' ) i,CurrPerm(i)
@@ -1994,16 +2014,20 @@ CONTAINS
       END SUBROUTINE WritePerm
 
 
-      SUBROUTINE WriteString( OutputUnit,s )
-         INTEGER, INTENT(IN) :: OutputUnit
-         CHARACTER(*), INTENT(IN) :: s
+      SUBROUTINE WriteVarName( OutputUnit,PosUnit,Name )
+         INTEGER, INTENT(IN) :: OutputUnit,PosUnit
+         CHARACTER(*), INTENT(IN) :: Name
+         INTEGER(Int8_k) :: Pos
 
          IF ( Binary ) THEN
-            CALL BinWriteString( OutputUnit,s )
+            Pos = BinFTell( OutputUnit )
+            CALL BinWriteInt8( PosUnit, INT(Pos,Int8_k) )
+
+            CALL BinWriteString( OutputUnit,TRIM(Name) )
          ELSE
-            WRITE( OutputUnit,'(a)' ) s
+            WRITE( OutputUnit,'(a)' ) TRIM(Name)
          END IF
-      END SUBROUTINE WriteString
+      END SUBROUTINE WriteVarName
         
 
       SUBROUTINE WriteReal( OutputUnit,r )
@@ -2018,13 +2042,17 @@ CONTAINS
       END SUBROUTINE WriteReal
 
 
-      SUBROUTINE WriteTime( OutputUnit,SavesDone,nTime,SimulationTime )
-         INTEGER, INTENT(IN) :: OutputUnit
+      SUBROUTINE WriteTime( OutputUnit,PosUnit,SavesDone,nTime,SimulationTime )
+         INTEGER, INTENT(IN) :: OutputUnit, PosUnit
          INTEGER, INTENT(IN) :: SavesDone,nTime
          REAL(dp), INTENT(IN) :: SimulationTime
+         INTEGER(IntOff_k) :: Pos
 
          IF ( Binary ) THEN
-            CALL BinWriteString( OutputUnit, 'Time: ' )
+            Pos = BinFTell( OutputUnit )
+            CALL BinWriteInt8( PosUnit, INT(Pos,Int8_k) )
+
+            CALL BinWriteString( OutputUnit, 'Time:' )
             CALL BinWriteInt4( OutputUnit, SavesDone )
             CALL BinWriteInt4( OutputUnit, nTime )
             CALL BinWriteDouble( OutputUnit, SimulationTime )
@@ -2035,14 +2063,17 @@ CONTAINS
       END SUBROUTINE WriteTime
 
 
-      SUBROUTINE AppendOpen( OutputUnit,FName )
+      SUBROUTINE AppendOpen( OutputUnit,FName,PosUnit,PosName )
          INTEGER, INTENT(IN) :: OutputUnit
          CHARACTER(*), INTENT(IN) :: FName
+         INTEGER, INTENT(IN) :: PosUnit
+         CHARACTER(*), INTENT(IN) :: PosName
 
          IF ( Binary ) THEN
-            CALL BinOpen( OutputUnit, TRIM(FName), "APPEND" )
+            CALL BinOpen( OutputUnit,FName,"APPEND" )
+            CALL BinOpen( PosUnit,PosName,"APPEND" )
          ELSE
-            OPEN( OutputUnit,FILE=TRIM(FName),STATUS="OLD",POSITION="APPEND" )
+            OPEN( OutputUnit,FILE=FName,STATUS="OLD",POSITION="APPEND" )
          END IF
       END SUBROUTINE AppendOpen
       
@@ -2060,19 +2091,21 @@ CONTAINS
       END SUBROUTINE SwitchToBinary
       
 
-      SUBROUTINE InitializeFile( OutputUnit,FName )
+      SUBROUTINE InitializeFile( OutputUnit,FName,PosUnit,PosName )
          INTEGER, INTENT(IN) :: OutputUnit
          CHARACTER(*), INTENT(IN) :: FName
+         INTEGER, INTENT(IN) :: PosUnit
+         CHARACTER(*), INTENT(IN) :: PosName
 
          IF ( Binary ) THEN
-            ! First BinOpen & BinClose the file to get the endianess marker to
-            ! the beginning of the file. Then switch to normal ASCII mode for
-            ! writing the header.
-            CALL BinOpen( OutputUnit, FName, "write" )
-            CALL BinClose( OutputUnit )
+            CALL BinEndianess( E )
+            OPEN( OutputUnit,File=FName,STATUS='UNKNOWN' )
+            WRITE( OutputUnit, * ) 'BINARY 2.', E
 
-            OPEN( OutputUnit,File=FName,STATUS='UNKNOWN',POSITION='APPEND' )
-            WRITE( OutputUnit, * ) 'BINARY 1'
+            CALL BinOpen( PosUnit,PosName,'WRITE' )
+            CALL BinWriteChar( PosUnit,E )
+            ! Make room for number of variables, we fill it in later
+            CALL BinWriteInt4( PosUnit, 0 )
          ELSE
             OPEN( OutputUnit,File=FName,STATUS='UNKNOWN' )
             WRITE( OutputUnit, * ) 'ASCII 1'
@@ -2092,7 +2125,7 @@ CONTAINS
     LOGICAL, OPTIONAL :: Continuous,EOF
 !------------------------------------------------------------------------------
     TYPE(Variable_t),POINTER :: Var
-    CHARACTER(LEN=MAX_NAME_LEN) :: Row,Name,FName
+    CHARACTER(LEN=MAX_NAME_LEN) :: Row,Name,FName,PosName
     CHARACTER(LEN=512) :: Trash
     INTEGER ::i,j,k,n,nt,Node,DOFs,SavedCount,Timestep,NSDOFs,nlen
     INTEGER :: nNodes, Stat
@@ -2103,11 +2136,14 @@ CONTAINS
     TYPE(Variable_t), POINTER :: TimeVar, tStepVar
 
     LOGICAL :: RestartFileOpen = .FALSE., Cont
+    LOGICAL, SAVE :: PosFile = .FALSE.
     LOGICAL, SAVE :: Binary
 
     REAL(KIND=dp) :: Dummy,value,Time
     REAL(KIND=dp), POINTER :: Component(:)
     REAL(KIND=dp), POINTER :: Velocity1(:),Velocity2(:),Velocity3(:),Pressure(:)
+    INTEGER(KIND=IntOff_k) :: Pos
+    CHARACTER(1) :: E
     SAVE DOFs
 
     Perm => NULL()
@@ -2146,7 +2182,14 @@ CONTAINS
     IF ( Row(3:8) == 'BINARY' ) THEN
         Binary = .TRUE.
         FmtVersion = 1
+        E = Row(1:1)
         CALL Info( 'LoadRestartFile', TRIM(Row(3:)), Level=3 )
+    ELSE IF ( Row(2:7) == 'BINARY' ) THEN
+        Binary = .TRUE.
+        FmtVersion = 2
+        i = INDEX( Row, "." )
+        E = Row(i+1:i+1)
+        CALL Info( 'LoadRestartFile', TRIM(Row(2:)), Level=3 )
     ELSE IF ( Row(2:7) == 'ASCII' ) THEN
         Binary = .FALSE.
         FmtVersion = 1
@@ -2253,7 +2296,16 @@ CONTAINS
       ! Switch to binary reading
       CLOSE( RestartUnit )
       CALL BinOpen( RestartUnit,FName,"read" )
+      CALL BinSetInputEndianess( RestartUnit,E )
       CALL BinReadString( RestartUnit,Trash ) !Skip header; we read it already
+
+      PosName = TRIM(FName) // '.pos'
+      INQUIRE( FILE=PosName, EXIST=PosFile )
+      IF ( PosFile ) THEN
+         CALL BinOpen( PosUnit,PosName,'read' )
+         CALL BinReadString( PosUnit,E ) 
+         CALL BinSetInputEndianess( PosUnit,E )
+      END IF
     END IF
 
 30  CONTINUE
@@ -2263,11 +2315,22 @@ CONTAINS
 !------------------------------------------------------------------------------
     TimeVar  => VariableGet( Mesh % Variables, 'Time' )
     tStepVar => VariableGet( Mesh % Variables, 'Timestep' )
-    nt = 1
-    IF ( Cont ) nt = TimeCount
+
+    IF ( Cont ) THEN
+       nt = TimeCount
+    ELSE IF ( PosFile .AND. TimeCount > 0 ) THEN
+       nt = TimeCount
+       Pos = GetPosition( PosUnit,TimeCount )
+       CALL BinFSeek( RestartUnit,Pos,BIN_SEEK_SET )
+    ELSE
+       nt = 1
+    END IF
+
+    write(0, *) 'nt = ', nt, 'TimeCount = ', TimeCount
     DO WHILE( nt <= TimeCount .OR. TimeCount == 0 )
       CALL ReadTime( RestartUnit,SavedCount,Timestep,Time,Stat )
 
+      write(0, *) 'Stat =', Stat, PRESENT( EOF )
       IF ( Stat /= 0 ) THEN
          IF ( PRESENT( EOF ) ) THEN
             EOF = .TRUE.
@@ -2286,7 +2349,7 @@ CONTAINS
          CALL ReadVariableName( RestartUnit,Row )
          Var => VariableGet( Mesh % Variables,Row )
 
-         IF ( FmtVersion == 1 ) THEN
+         IF ( FmtVersion > 0 ) THEN
             CALL ReadPerm( RestartUnit, Var % Perm, Perm )
          END IF
 
@@ -2324,6 +2387,7 @@ CONTAINS
     IF ( .NOT. Cont ) THEN
       IF ( Binary ) THEN
          CALL BinClose( RestartUnit )
+         IF ( PosFile ) CALL BinClose( PosUnit )
        ELSE
          CLOSE( RestartUnit )
        END IF
@@ -2332,8 +2396,42 @@ CONTAINS
     CALL Info( 'LoadRestartFile', 'Done', Level=3 )
     CALL Info( 'LoadRestartFile', '---------------------', Level = 3)
     CALL Info( 'LoadRestartFile', ' ', Level = 3 )
+    IF ( PRESENT( EOF ) ) write(0, *) 'EOF =', EOF
 
 CONTAINS
+
+   INTEGER(IntOff_k) FUNCTION GetPosition( PosUnit,TimeStep ) RESULT(Pos)
+      INTEGER, INTENT(IN) :: PosUnit
+      INTEGER, INTENT(IN) :: TimeStep
+      CHARACTER(40) :: String
+      INTEGER :: iTime, nVar, i, Stat
+      INTEGER(IntOff_k) :: TimeStepSize, Offset
+      INTEGER(Int8_k) :: tmp
+
+      CALL BinReadInt4( PosUnit, nVar )
+      TimeStepSize = (nVar + 1)*8 ! 8 bytes per variable + 8 bytes for time
+
+      ! Read through the list of variable names
+      DO i = 1, nVar
+         CALL BinReadString( PosUnit, String )
+      END DO
+
+      Offset = (TimeStep - 1)*TimeStepSize
+      CALL BinFSeek( PosUnit, Offset, BIN_SEEK_CUR )
+      CALL BinReadInt8( PosUnit, tmp, Stat )
+
+      IF ( Stat == 0 ) THEN
+         Pos = tmp
+      ELSE
+         ! Pick the last time step.
+         CALL BinFSeek( PosUnit, -TimeStepSize, BIN_SEEK_END )
+         CALL BinReadInt8( PosUnit, tmp )
+         Pos = tmp
+         CALL Warn( 'LoadRestartFile','Did not find the the requested timestep' )
+         CALL Warn( 'LoadRestartFile','from the positions file, using the last one')
+      END IF
+   END FUNCTION GetPosition
+      
 
    SUBROUTINE GetValue( RestartUnit, Perm, iNode, iPerm, Value )
    !
@@ -2365,8 +2463,9 @@ CONTAINS
       INTEGER, INTENT(IN) :: RestartUnit
       INTEGER, POINTER :: VarPerm(:)
       INTEGER, POINTER :: Perm(:)
-      INTEGER :: nPerm, nPos, i, j
+      INTEGER :: nPerm, nPositive, i, j
       CHARACTER(MAX_NAME_LEN) :: Row
+      INTEGER(Int8_k) :: Pos
 
       IF ( Binary ) THEN
          CALL BinReadInt4( RestartUnit, nPerm )
@@ -2377,23 +2476,30 @@ CONTAINS
          ELSE IF ( Row(7:18) == "use previous" ) THEN
             nPerm = -1
          ELSE
-            READ( Row(7:),* ) nPerm, nPos
+            READ( Row(7:),* ) nPerm, nPositive
          END IF
       END IF
 
       IF ( nPerm < 0 ) THEN
+         IF ( Binary ) CALL BinReadInt8( RestartUnit, Pos )
+         ! At the moment, we allways read all variables, and can therefore
+         ! safely assume that the "previous" Perm table has been read and is
+         ! held in memory at this point. In the future, however, we might be
+         ! asked to read only some variables, in which case the previous Perm
+         ! table might be yet unread so we need to jump back to 'Pos' and read
+         ! it from there.
          RETURN
       ELSE IF ( nPerm == 0 ) THEN
          IF ( ASSOCIATED(Perm) ) DEALLOCATE( Perm )
          RETURN
       ELSE 
-         IF ( Binary ) CALL BinReadInt4( RestartUnit, nPos )
+         IF ( Binary ) CALL BinReadInt4( RestartUnit, nPositive )
       END IF
 
       ALLOCATE( Perm(nPerm) )
       Perm = 0.0d0
 
-      DO i = 1, nPos
+      DO i = 1, nPositive
          IF ( Binary ) THEN
             CALL BinReadInt4( RestartUnit, j )
             CALL BinReadInt4( RestartUnit, Perm(j) )

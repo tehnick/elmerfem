@@ -20,9 +20,14 @@ CONTAINS
         REAL(dp) :: v(3), v2(3)
         CHARACTER(50) :: s, s2
         CHARACTER(256) :: Error
+        CHARACTER :: E
 
         CALL BinOpen( fu, FName, "read", stat )
         IF ( stat /= 0 ) STOP 1
+
+        CALL BinReadString( fu,E,stat )
+        IF ( stat /= 0 ) STOP "1.5"
+        CALL BinSetInputEndianess( fu,E )
 
         CALL BinReadInt4( fu, a, stat )
         IF ( stat /= 0 ) STOP 2

@@ -69,6 +69,12 @@ static char endianess()
 }
 
 
+void FC_FUNC(binendianess,BINENDIANESS)(FC_CHAR_PTR(e,ln))
+{
+    *e = endianess();
+}
+
+
 /* Swap the bytes in an n byte object.  */
 
 static void swap_bytes(void *o, size_t n)
@@ -85,9 +91,17 @@ static void swap_bytes(void *o, size_t n)
 }
 
 
-void FC_FUNC_(binopen_,BINOPEN_)(const int *unit, const FC_CHAR_PTR(file,len),
+void FC_FUNC(binsetinputendianess,BINSETINPUTENDIANESS)(const int *unit,
+                                                        const FC_CHAR_PTR(e,ln))
+{
+    assert(units[*unit].fd);
+    units[*unit].convert = (*e == endianess()) ? 0 : 1;
+}
+
+
+void FC_FUNC_(binopen_,BINOPEN_)(const int *unit, const FC_CHAR_PTR(file,flen),
                                  const int *file_len,
-                                 const FC_CHAR_PTR(action,len),
+                                 const FC_CHAR_PTR(action,alen),
                                  int *status)
 {
     char *fname;
@@ -111,14 +125,6 @@ void FC_FUNC_(binopen_,BINOPEN_)(const int *unit, const FC_CHAR_PTR(file,len),
         *status = errno;
         return;
     }
-
-    if (action[0] == 'w' || action[0] == 'W') {
-        b = endianess();
-        fwrite(&b, 1, 1, units[*unit].fd);
-    } else if (action[0] == 'r' || action[0] == 'R') {
-        fread(&b, 1, 1, units[*unit].fd);
-        units[*unit].convert = (b == endianess()) ? 0 : 1;
-    } 
 
     *status = 0;
 }
@@ -237,10 +243,44 @@ void FC_FUNC_(binreadstring_,BINREADSTRING_)(const int *unit,FC_CHAR_PTR(s,len),
         s[i++] = c;
     while (i < *s_len) s[i++] = ' ';
 
+    fprintf(stderr,"c = %i (%i)\n", c, c==EOF);
     if (c == EOF)
         *status = (ferror(units[*unit].fd)) ? errno : -1;
     else
         *status = 0;
+}
+
+
+void FC_FUNC_(binwritechar_,BINWRITECHAR_)(const int *unit,FC_CHAR_PTR(c,len),
+                                           int *status)
+{
+    assert(units[*unit].fd);
+    if (fwrite(c, 1, 1, units[*unit].fd) == 1)
+        *status = 0;
+    else
+        *status = errno;
+}
+
+
+off_t FC_FUNC(binftell,BINFTELL)(const int *unit)
+{
+    assert(units[*unit].fd);
+    return ftello(units[*unit].fd);
+}
+
+
+void FC_FUNC(binfseek,BINFSEEK)(const int *unit, const off_t *offset,
+                                const int *whence)
+{
+    assert(units[*unit].fd);
+
+    /* TODO: Check the return value of fseek and take appropriate action in
+     * case of errors.  */
+    switch (*whence) {
+    case 0: fseeko(units[*unit].fd, *offset, SEEK_SET); break;
+    case 1: fseeko(units[*unit].fd, *offset, SEEK_CUR); break;
+    case 2: fseeko(units[*unit].fd, *offset, SEEK_END); break;
+    }
 }
 
 
