@@ -243,7 +243,6 @@ void FC_FUNC_(binreadstring_,BINREADSTRING_)(const int *unit,FC_CHAR_PTR(s,len),
         s[i++] = c;
     while (i < *s_len) s[i++] = ' ';
 
-    fprintf(stderr,"c = %i (%i)\n", c, c==EOF);
     if (c == EOF)
         *status = (ferror(units[*unit].fd)) ? errno : -1;
     else

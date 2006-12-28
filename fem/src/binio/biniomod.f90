@@ -200,7 +200,6 @@ CONTAINS
         INTEGER :: Status_
 
         CALL BinReadString_( Unit, s, LEN(s), Status_ )
-        WRITE(0, *) 'BinReadString: "', TRIM(s), '"'
         CALL HandleStatus( Status, Status_, "BINIO: Error reading string" )
     END SUBROUTINE BinReadString
 
