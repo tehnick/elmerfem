@@ -1,0 +1,232 @@
+\newcommand{\Str}[1]{<{#1}{\small\tt (str)}>}
+\newcommand{\Int}[2]{<{#2}{\small\tt (i#1)}>}
+\newcommand{\Dbl}[1]{<{#1}{\small\tt (dbl)}>}
+\newcommand{\Perm}{\ensuremath{p}}
+\newcommand{\nTime}{\ensuremath{\mathit{nt}}}
+\newcommand{\nSaved}{\ensuremath{\mathit{ns}}}
+\newcommand{\Time}{\ensuremath{t}}
+\newcommand{\nPositive}{\ensuremath{\mathit{np}}}
+\newcommand{\PermSize}{\ensuremath{\mathit{size}}}
+\newcommand{\Pos}{\ensuremath{\mathit{Pos}}}
+\newcommand{\nNodes}{\ensuremath{\mathit{nNodes}}}
+\newcommand{\Var}{\ensuremath{\mathit{Var}}}
+
+\chapter{Format of result output files}
+
+\section{Format versions}
+
+Result files can be written as either ASCII text or in binary. This is
+controlled by the parameter
+\ttbegin
+        Binary output = logical true|false
+\ttend
+in the 'Simulation' section of the .sif file.  Default is \texttt{false}.
+
+The format of the file is recorded on it's first line;\footnote{except for
+old ASCII files, that lack the format version line, and start with
+''\texttt{!File started at:}''} it's either
+\ttbegin
+ BINARY \(v.e\)
+\ttend
+or
+\ttbegin
+ ASCII \(v\)
+\ttend
+The $v$ at denotes the version number of the format, and the $e$ in the
+binary format denotes an endianess-marker; either \verb+L+ for little
+endian or \verb+B+ for big endian.
+
+ElmerSolver can read files of older format versions for restarting, but all
+new files are written in the newest formats. The current formats documented
+here are ASCII version 1 and BINARY version 2.
+
+\section{General structure}
+Both binary and ASCII files have the following general structure. In the
+binary files, the header is separated from the rest by a null byte.  The
+ASCII format has no such separator.
+
+\ttbegin
+[File format version line]
+[Header]
+[<null byte> (binary only)]
+[timestep 1]
+[timestep 2]
+[timestep 3]
+   .
+   .
+   .
+[timestep n]
+\ttend
+
+\subsection{The header}
+
+The header looks the same for both binary and ASCII (ans is written in
+ASCII also for binary files):
+\ttbegin
+!File started at: \textit{date time}
+ Degrees of freedom:
+ \textit{variable 1}       \(\mathit{n1}\)  :fs
+ \textit{variable 2}       \(\mathit{n2}\)  :fs
+ \textit{variable 3}       \(\mathit{n3}\)  :fs
+           .
+           .
+           .
+ Total DOFs:       \(\mathit{nTotDOFs}\)
+ Number Of Nodes:       \(\nNodes\)
+\ttend
+Note that in the list of variables, vectors appear both as vectors
+(DOF > 1) and separate components (DOF = 1).
+
+\subsection{Timesteps}
+
+For each time step, the time and the values of the variables are stored.
+For vector variables, the components are stored as separate variables,
+typically named \textit{varname 1}, \textit{varname 2}, etc.
+
+If the parameter 
+\ttbegin
+    Omit unchanged variables in output = logical true|false
+\ttend
+in the 'Simulation' section of the .sif file is set to \texttt{true}, only
+variables whose values has changes since last time are saved.  Default is
+\texttt{false}
+
+For the binary format, the following type specifiers are used in this
+document:
+
+\begin{table}[H]
+\begin{tabular}{ll}
+    \Str{$s$} & Null terminated string of characters.\\
+    \Int{4}{$i$} & 4 byte integer.\\
+    \Int{8}{$j$} & 8 byte integer.\\
+    \Dbl{$x$} & 8 byte floating point number.
+\end{tabular}
+\end{table}
+
+For this part of the file, the general structure of binary and ASCII files
+are essantially the same, with just some minor differences:
+
+\begin{table}[H]
+\begin{tabular}{lll}
+\textbf{ASCII} \hspace*{14em}& \textbf{Binary} \hspace*{13em}& \\
+%\hline
+\texttt{Time:}$\quad\nSaved\quad\nTime\quad\Time$  &
+ \multicolumn{2}{l}{\Str{\tt Time:}\Int{4}{\nSaved}\Int{4}{\nTime}\Dbl{\Time}}\\
+
+\textit{Variablename\_1} & \Str{\it Variablename\_1}\\
+{\tt[Permutation table $\Perm_1$]} & {\tt[Permutation table $\Perm_1$]}\\
+\vdots & \vdots & \multirow{3}{8em}{\small Variable 1's values
+                                    $\forall\,i\text{ s.t. } \Perm_1(i) > 0$.}\\
+$\Var_1(\Perm_1(i))$  & \Dbl{$\Var_1(\Perm_1(i))$} \\
+\vdots                  & \vdots \\
+
+\textit{Variablename\_2} & \Str{\it Variablename\_2}\\
+{\tt[Permutation table $\Perm_2$]} & {\tt[Permutation table $\Perm_2$]}\\
+\vdots & \vdots & \multirow{3}{8em}{\small Variable 2's values
+                                    $\forall\,i\text{ s.t. } \Perm_2(i) > 0$.}\\
+$\Var_2(\Perm_2(i))$  & \Dbl{$\Var_2(\Perm_2(i))$} \\
+\vdots                  & \vdots \\
+
+\textit{Variablename\_3} & \Str{\it Variablename\_3}\\
+{\tt[Permutation table $\Perm_3$]} & {\tt[Permutation table $\Perm_3$]}\\
+    \vdots                           &   \vdots \\
+\vdots & \vdots & \multirow{3}{8em}{\small Variable 3's values
+                                    $\forall\,i\text{ s.t. } \Perm_3(i) > 0$.}\\
+$\Var_3(\Perm_3(i))$  & \Dbl{$\Var_3(\Perm_3(i))$} \\
+\vdots                  & \vdots \\
+\end{tabular}
+\end{table}
+\nTime = time step number, \nSaved = saved time steps number, \Time =
+time.
+
+\subsubsection{The permutation tables}
+
+The permutation tables can be stored in three different ways:
+\begin{enumerate}
+
+\item As an explicit table:
+\begin{table}[H]
+\begin{tabular}{lll}
+\textbf{ASCII}  \hspace*{14em}  &    \textbf{Binary} \hspace*{12em}& \\
+Perm:\ \ \PermSize\ \ \nPositive & \Int{4}{\PermSize}\Int{4}{\nPositive}\\
+\vdots                  & \vdots & \multirow{3}{8em}{\small Permutation
+                                    indexes $i$ and values $\Perm(i)$
+                                    $\forall\,i\text{ s.t. } \Perm(i) > 0$.}\\
+$i$\quad\Perm($i$)  & \Int{4}{$i$}\Int{4}{\Perm($i$)}\\
+\vdots                  & \vdots \\
+\end{tabular}
+\end{table}
+\PermSize{} = total size of the permutation table (> 0), and \nPositive{} = 
+number of positive values in the table.
+
+\item If the permutation table is the same as for the previous variable,
+there's no need to store it again. This case is written as
+\begin{table}[H]
+\begin{tabular}{ll}
+\textbf{ASCII}  \hspace*{14em}  &    \textbf{Binary} \\
+{\tt Perm: use previous} & \Int{4}{$-1$}\Int{8}{\Pos}
+\end{tabular}
+\end{table}
+\Pos{} in the binary format is the position in bytes of the previous
+table.
+
+\item
+No permutation table; corresponds to the case 
+\[
+    \PermSize = \nPositive = \nNodes, \text{ and } \Perm(i) = i\quad\forall\,i.
+\]
+This case is stored as
+\begin{table}[H]
+\begin{tabular}{ll}
+\textbf{ASCII}  \hspace*{14em}  &    \textbf{Binary} \\
+{\tt Perm: NULL} & \Int{4}{$0$}
+\end{tabular}
+\end{table}
+
+\end{enumerate}
+
+
+\section{The positions file}
+
+For binary format, a positions file named '\textit{outputfile}.pos' will be
+created.  It contains the positions (in bytes) of the timesteps and
+variables in the result file, expressed as 8 byte integers.  It has the
+following format ($\mathit{nVar}$ = number of variables):
+
+\vspace{2ex}
+
+\noindent<Endianess-marker {\tt\small(char)}>\\
+\Int{4}{$\mathit{nVar}$}\\
+\Str{varname 1}\\
+\Str{varname 2}\\
+\vdots\\
+\Str{varname nVar}\\
+\Int{8}{Pos. for Timestep 1}\\
+\Int{8}{Pos. for variable 1}\\
+\Int{8}{Pos. for variable 2}\\
+\vdots\\
+\Int{8}{Pos. for variable $\mathit{nVar}$}\\
+\Int{8}{Pos. for Timestep 2}\\
+\Int{8}{Pos. for variable 1}\\
+\Int{8}{Pos. for variable 2}\\
+\vdots\\
+\Int{8}{Pos. for variable $\mathit{nVar}$}\\
+\Int{8}{Pos. for Timestep 3}\\
+\Int{8}{Pos. for variable 1}\\
+\Int{8}{Pos. for variable 2}\\
+\vdots\\
+\Int{8}{Pos. for variable $\mathit{nVar}$}\\
+\vdots
+
+Note: Positions are saved for \emph{all} variables for every time step;
+even if an unchanged variable isn't saved to the result file for a time
+step, it will still have a position in the .pos file (i.e. the position of
+where it was saved last time).  Because of this all timesteps has the same
+size of $(\mathit{nVar} + 1)\times 8$ bytes.  Finding the position of the
+$n$:th variable of the $m$:th time step is therefore easy; it's found at
+the 
+\[
+    (\text{\it size-of-header}+((\mathit{nVar} + 1)\times (m-1) + n)\times
+    8):\text{th}
+\]
+byte in the positions file.
