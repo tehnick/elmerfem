@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ModelDescription.src,v 1.32 2006/12/21 07:48:00 jpr Exp $
+! * $Id: ModelDescription.src,v 1.33 2006/12/27 13:27:19 edelmann Exp $
 ! *****************************************************************************/
 
 MODULE ModelDescription
@@ -64,6 +64,8 @@ MODULE ModelDescription
 
     INTEGER, PARAMETER :: PosUnit = 32, OutputUnit = 31, RestartUnit = 30,&
                           PostFileUnit = 29, InFileUnit = 28
+
+    INTEGER, PARAMETER, PRIVATE :: MAX_OUTPUT_VARS = 20
 
 CONTAINS
 
@@ -1770,14 +1772,14 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  FUNCTION SaveResult( Filename,Mesh,Time,SimulationTime,Binary,FreeSurface ) &
-           RESULT(SaveCount)
+  FUNCTION SaveResult( Filename,Mesh,Time,SimulationTime,Binary,SaveAll,&
+                       FreeSurface ) RESULT(SaveCount)
 !------------------------------------------------------------------------------
     TYPE(Mesh_t), POINTER :: Mesh
     INTEGER :: Time,SaveCount
     CHARACTER(LEN=*) :: Filename
     REAL(KIND=dp) :: SimulationTime
-    LOGICAL :: Binary
+    LOGICAL :: Binary,SaveAll
     LOGICAL, OPTIONAL :: FreeSurface
 
 !------------------------------------------------------------------------------
@@ -1789,6 +1791,7 @@ CONTAINS
     LOGICAL :: FreeSurfaceFlag, MoveBoundary, GotIt
     INTEGER, POINTER :: PrevPerm(:) 
     INTEGER(IntOff_k) :: PrevPermPos, Pos
+    INTEGER(IntOff_k), SAVE :: VarPos(MAX_OUTPUT_VARS) = 0
     CHARACTER(1) :: E
 
 !------------------------------------------------------------------------------
@@ -1907,16 +1910,17 @@ CONTAINS
 !------------------------------------------------------------------------------
     PrevPerm => NULL()
     Var => Mesh % Variables
+    j = 1
     DO WHILE( ASSOCIATED(Var) )
-      IF ( Var % Output ) THEN
-         IF ( Var % DOFs==1 .AND. SIZE(Var % Values)>1 ) THEN
+      IF ( Var % Output .AND. Var % DOFs==1 .AND. SIZE(Var % Values)>1 ) THEN
 
-            DO k=LEN(Var % Name),1,-1
-               IF ( Var % Name(k:k) /= ' ' ) EXIT
-            END DO
+         DO k=LEN(Var % Name),1,-1
+            IF ( Var % Name(k:k) /= ' ' ) EXIT
+         END DO
 
-            IF ( Var % Name(1:10) /= 'coordinate' .OR. FreeSurfaceFlag ) THEN
-               CALL WriteVarName( OutputUnit, PosUnit, Var % Name(1:k) )
+         IF ( Var % Name(1:10) /= 'coordinate' .OR. FreeSurfaceFlag ) THEN
+            IF ( SaveAll .OR. Var % ValuesChanged ) THEN
+               CALL WriteVarName( OutputUnit,PosUnit,Var % Name(1:k),VarPos(j) )
                CALL WritePerm( OutputUnit, Var % Perm, PrevPerm )
    
                IF ( ASSOCIATED(Var % Perm) ) THEN
@@ -1932,7 +1936,11 @@ CONTAINS
                      CALL WriteReal( OutputUnit,Var % Values(k) )
                   END IF
                END DO
+               Var % ValuesChanged = .FALSE.
+            ELSE
+               IF ( Binary ) CALL BinWriteInt8( PosUnit,INT(VarPos(j),Int8_k) )
             END IF
+            j = j + 1
          END IF
       END IF
       Var => Var % Next
@@ -2014,14 +2022,14 @@ CONTAINS
       END SUBROUTINE WritePerm
 
 
-      SUBROUTINE WriteVarName( OutputUnit,PosUnit,Name )
+      SUBROUTINE WriteVarName( OutputUnit,PosUnit,Name,VarPos )
          INTEGER, INTENT(IN) :: OutputUnit,PosUnit
          CHARACTER(*), INTENT(IN) :: Name
-         INTEGER(Int8_k) :: Pos
+         INTEGER(IntOff_k), INTENT(OUT) :: VarPos
 
          IF ( Binary ) THEN
-            Pos = BinFTell( OutputUnit )
-            CALL BinWriteInt8( PosUnit, INT(Pos,Int8_k) )
+            VarPos = BinFTell( OutputUnit )
+            CALL BinWriteInt8( PosUnit, INT(VarPos,Int8_k) )
 
             CALL BinWriteString( OutputUnit,TRIM(Name) )
          ELSE
@@ -2144,8 +2152,10 @@ CONTAINS
     REAL(KIND=dp), POINTER :: Velocity1(:),Velocity2(:),Velocity3(:),Pressure(:)
     INTEGER(KIND=IntOff_k) :: Pos
     CHARACTER(1) :: E
+    REAL(dp) :: tstart, tstop
     SAVE DOFs
 
+    CALL CPU_TIME(tstart)
     Perm => NULL()
 !------------------------------------------------------------------------------
 !   Open restart file and search for the right position
@@ -2172,6 +2182,12 @@ CONTAINS
 
 10 CONTINUE
 
+    CALL Error( 'LoadRestartFile','=======================================' )
+    CALL Error( 'LoadRestartFile','' )
+    CALL Error( 'LoadRestartFile','Could not open file "'//TRIM(FName)//'"' )
+    CALL Error( 'LoadRestartFile','No restart possible!' )
+    CALL Error( 'LoadRestartFile','' )
+    CALL Error( 'LoadRestartFile','=======================================' )
     RETURN
 
 20  CONTINUE
@@ -2318,19 +2334,20 @@ CONTAINS
 
     IF ( Cont ) THEN
        nt = TimeCount
-    ELSE IF ( PosFile .AND. TimeCount > 0 ) THEN
-       nt = TimeCount
-       Pos = GetPosition( PosUnit,TimeCount )
-       CALL BinFSeek( RestartUnit,Pos,BIN_SEEK_SET )
     ELSE
        nt = 1
     END IF
 
-    write(0, *) 'nt = ', nt, 'TimeCount = ', TimeCount
+    IF ( PosFile ) THEN
+      ! If TimeCount == 0, we'll get the last time step
+      Pos = GetPosition( PosUnit,TimeCount,0,TimeCount )
+      nt = TimeCount
+      CALL BinFSeek( RestartUnit,Pos,BIN_SEEK_SET )
+    END IF
+
     DO WHILE( nt <= TimeCount .OR. TimeCount == 0 )
       CALL ReadTime( RestartUnit,SavedCount,Timestep,Time,Stat )
 
-      write(0, *) 'Stat =', Stat, PRESENT( EOF )
       IF ( Stat /= 0 ) THEN
          IF ( PRESENT( EOF ) ) THEN
             EOF = .TRUE.
@@ -2346,7 +2363,20 @@ CONTAINS
       IF ( ASSOCIATED( tStepVar ) ) tStepVar % Values(1) = Timestep
 
       DO i=1,DOFs
-         CALL ReadVariableName( RestartUnit,Row )
+         IF ( PosFile ) THEN
+            Pos = GetPosition( PosUnit,TimeCount,i )
+            CALL BinFSeek( RestartUnit,Pos,BIN_SEEK_SET )
+         END IF
+
+         CALL ReadVariableName( RestartUnit,Row,Stat )
+         ! If not all varibales were saved for this time step, and we're not
+         ! using a .pos file, we may have reached the end even though i < DOFs.
+         IF ( Stat /= 0 ) EXIT
+         IF ( Row(1:5) == "Time:" ) THEN
+            CALL UnReadLine( RestartUnit, Row )
+            EXIT
+         END IF
+
          Var => VariableGet( Mesh % Variables,Row )
 
          IF ( FmtVersion > 0 ) THEN
@@ -2380,6 +2410,7 @@ CONTAINS
 
             CALL InvalidateVariable( CurrentModel % Meshes, Mesh, Row )
          END IF
+
       END DO
       nt = nt + 1
     END DO
@@ -2396,39 +2427,81 @@ CONTAINS
     CALL Info( 'LoadRestartFile', 'Done', Level=3 )
     CALL Info( 'LoadRestartFile', '---------------------', Level = 3)
     CALL Info( 'LoadRestartFile', ' ', Level = 3 )
-    IF ( PRESENT( EOF ) ) write(0, *) 'EOF =', EOF
+
+    CALL CPU_TIME(tstop)
+    WRITE( 0, * ) 'Restart time = ', tstop - tstart
 
 CONTAINS
 
-   INTEGER(IntOff_k) FUNCTION GetPosition( PosUnit,TimeStep ) RESULT(Pos)
+   SUBROUTINE UnReadLine( Unit,Line )
+      INTEGER, INTENT(IN) :: Unit
+      CHARACTER(*), INTENT(IN) :: Line
+      INTEGER(IntOff_k) :: Offset
+
+      IF ( Binary ) THEN
+         Offset = LEN_TRIM(Line) + 1
+         CALL BinFSeek( Unit, -Offset, BIN_SEEK_CUR )
+      ELSE
+         BACKSPACE Unit
+      END IF
+   END SUBROUTINE UnReadLine
+
+
+   INTEGER(IntOff_k) FUNCTION GetPosition( PosUnit,TimeStep,VarNr,FoundTStep ) &
+                     RESULT(Pos)
       INTEGER, INTENT(IN) :: PosUnit
       INTEGER, INTENT(IN) :: TimeStep
-      CHARACTER(40) :: String
+      INTEGER, INTENT(IN) :: VarNr  ! 0 = time, 1 = first var, etc.
+      INTEGER, INTENT(OUT),OPTIONAL :: FoundTStep
+      CHARACTER(40) :: VarName
       INTEGER :: iTime, nVar, i, Stat
-      INTEGER(IntOff_k) :: TimeStepSize, Offset
+      INTEGER(IntOff_k) :: Offset
       INTEGER(Int8_k) :: tmp
+      INTEGER(IntOff_k), SAVE :: HeaderEnd, TimeStepSize = 0
 
-      CALL BinReadInt4( PosUnit, nVar )
-      TimeStepSize = (nVar + 1)*8 ! 8 bytes per variable + 8 bytes for time
+      IF ( TimeStepSize == 0 ) THEN
+         CALL BinReadInt4( PosUnit, nVar )
+         TimeStepSize = (nVar + 1)*8 ! 8 bytes per variable + 8 bytes for time
 
-      ! Read through the list of variable names
-      DO i = 1, nVar
-         CALL BinReadString( PosUnit, String )
-      END DO
+         DO i = 1, nVar
+            CALL BinReadString( PosUnit, VarName )
+         END DO
 
-      Offset = (TimeStep - 1)*TimeStepSize
-      CALL BinFSeek( PosUnit, Offset, BIN_SEEK_CUR )
-      CALL BinReadInt8( PosUnit, tmp, Stat )
+         HeaderEnd = BinFTell( PosUnit )
+      END IF
 
-      IF ( Stat == 0 ) THEN
-         Pos = tmp
+      IF ( TimeStep > 0 ) THEN
+         Offset = (TimeStep - 1)*TimeStepSize + VarNr*8
+         CALL BinFSeek( PosUnit, HeaderEnd + Offset, BIN_SEEK_SET )
+         CALL BinReadInt8( PosUnit, tmp, Stat )
+
+         IF ( Stat == 0 ) THEN
+            Pos = tmp
+            IF ( PRESENT(FoundTStep) ) FoundTStep = TimeStep
+         ELSE
+            CALL Warn( 'LoadRestartFile',&
+                 'Did not find the the requested timestep in the positions file;' )
+            CALL Warn( 'LoadRestartFile','using the last found one instead.')
+            CALL BinFSeek( PosUnit, -TimeStepSize + VarNr*8 , BIN_SEEK_END )
+            CALL BinReadInt8( PosUnit, tmp )
+            Pos = tmp
+
+            IF ( PRESENT(FoundTStep) ) THEN
+               CALL BinFSeek( PosUnit, 0_IntOff_k, BIN_SEEK_END )
+               Offset = BinFTell( PosUnit )
+               FoundTStep = (Offset - HeaderEnd - VarNr*8)/TimeStepSize
+            END IF
+         END IF
       ELSE
-         ! Pick the last time step.
-         CALL BinFSeek( PosUnit, -TimeStepSize, BIN_SEEK_END )
+         ! Find last time step
+         CALL BinFSeek( PosUnit, -TimeStepSize + VarNr*8 , BIN_SEEK_END )
          CALL BinReadInt8( PosUnit, tmp )
          Pos = tmp
-         CALL Warn( 'LoadRestartFile','Did not find the the requested timestep' )
-         CALL Warn( 'LoadRestartFile','from the positions file, using the last one')
+         IF ( PRESENT(FoundTStep) ) THEN
+            CALL BinFSeek( PosUnit, 0_IntOff_k, BIN_SEEK_END )
+            Offset = BinFTell( PosUnit )
+            FoundTStep = (Offset - HeaderEnd - VarNr*8)/TimeStepSize
+         END IF
       END IF
    END FUNCTION GetPosition
       
@@ -2513,14 +2586,15 @@ CONTAINS
    END SUBROUTINE ReadPerm
 
 
-   SUBROUTINE ReadVariableName( RestartUnit,VarName )
+   SUBROUTINE ReadVariableName( RestartUnit,VarName,Stat )
       INTEGER, INTENT(IN) :: RestartUnit
       CHARACTER(*), INTENT(OUT) :: VarName
+      INTEGER, INTENT(OUT) :: Stat
 
       IF ( Binary ) THEN
-         CALL BinReadString( RestartUnit,VarName )
+         CALL BinReadString( RestartUnit,VarName,Stat )
       ELSE
-         READ( RestartUnit,'(a)' ) VarName
+         READ( RestartUnit,FMT='(a)',IOSTAT=Stat ) VarName
       END IF
    END SUBROUTINE ReadVariableName
 

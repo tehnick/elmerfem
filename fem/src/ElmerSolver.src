@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ElmerSolver.src,v 1.18 2006/12/18 13:06:24 jpr Exp $
+! * $Id: ElmerSolver.src,v 1.19 2006/12/20 07:39:04 jpr Exp $
 ! ******************************************************************************
 
 !------------------------------------------------------------------------------
@@ -848,7 +848,7 @@
     TYPE(Variable_t), POINTER :: Var
     LOGICAL :: EigAnal, GotIt
     CHARACTER(LEN=MAX_NAME_LEN) :: Simul
-    LOGICAL :: BinaryOutput
+    LOGICAL :: BinaryOutput, SaveAll
     
     Simul = ListGetString( CurrentModel % Simulation, 'Simulation Type' )
     
@@ -870,6 +870,10 @@
 
       BinaryOutput = ListGetLogical( CurrentModel % Simulation,'Binary Output',GotIt )
       IF ( .NOT.GotIt ) BinaryOutput = .FALSE.
+
+      SaveAll = .NOT.ListGetLogical( CurrentModel % Simulation,&
+                                    'Omit unchanged variables in output',GotIt )
+      IF ( .NOT.GotIt ) SaveAll = .TRUE.
 
       Mesh => CurrentModel % Meshes
       DO WHILE( ASSOCIATED( Mesh ) ) 
@@ -903,7 +907,7 @@
                                  Var % Values = REAL( Var % EigenVectors(j,:) )
                               END IF
                               SavedSteps = SaveResult( OutputName, Mesh, &
-                                     j, sTime(1), BinaryOutput )
+                                     j, sTime(1), BinaryOutput, SaveAll )
                            END DO
                         ELSE
                            j = MIN( CurrentStep, SIZE( Var % EigenVectors,1 ) )
@@ -916,7 +920,7 @@
                               Var % Values = REAL(Var % EigenVectors(j,:))
                            END IF
                            SavedSteps = SaveResult( OutputName, Mesh, &
-                                CurrentStep, sTime(1), BinaryOutput )
+                                CurrentStep, sTime(1), BinaryOutput, SaveAll )
                         END IF
                         Var % Values = 0.0d0
                      END IF
@@ -925,7 +929,7 @@
             END DO
 
             IF ( .NOT. EigAnal ) THEN
-               SavedSteps = SaveResult( OutputName,Mesh,Time, sTime(1), BinaryOutput )
+               SavedSteps = SaveResult( OutputName,Mesh,Time, sTime(1), BinaryOutput, SaveAll )
             END IF
          END IF
          Mesh => Mesh % Next
