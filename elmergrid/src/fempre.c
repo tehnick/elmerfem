@@ -1117,7 +1117,7 @@ int RotateTranslateScale(struct FemType *data,struct ElmergridType *eg)
 
 int main(int argc, char *argv[])
 {
-  int i,j,k,l,inmethod,outmethod,info,errorstat;
+  int i,j,k,l,inmethod,outmethod,info,errorstat,sides;
   int nogrids,nomeshes,nofile,dim,elementsredone=0;
   int nodes3d,elements3d;
   Real mergeeps;
@@ -1203,7 +1203,7 @@ int main(int argc, char *argv[])
     }
     if(LoadElmerInput(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],info))
       Goodbye();
-    nomeshes = nofile+1;
+    nomeshes++;
     if(0 && boundaries[nofile]->created) {
       data[nofile].noboundaries = 1;
     }
@@ -1212,7 +1212,7 @@ int main(int argc, char *argv[])
   case 3: 
     if(LoadSolutionElmer(&(data[nofile]),TRUE,eg.filesin[nofile],info)) 
       Goodbye();
-    nomeshes = nofile+1;
+    nomeshes++;
     break;
 
   case 4:
@@ -1220,7 +1220,7 @@ int main(int argc, char *argv[])
       malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
     if(LoadAnsysInput(&(data[0]),boundaries[0],eg.filesin[nofile],info)) 
       Goodbye();
-    nomeshes = nofile+1;
+    nomeshes++;
     break;
 
   case 5: 
@@ -1232,13 +1232,13 @@ int main(int argc, char *argv[])
     }
     if(LoadAbaqusInput(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],TRUE)) 
       Goodbye();
-    nomeshes = nofile+1;
+    nomeshes++;
     break;
 
   case 6:
     if(LoadAbaqusOutput(&(data[nofile]),eg.filesin[nofile],TRUE))
       Goodbye();
-    nomeshes = nofile+1;
+    nomeshes++;
     break;
 
   case 7:
@@ -1251,36 +1251,30 @@ int main(int argc, char *argv[])
       boundaries[nofile][i].nosides = 0;
     }
     ElementsToBoundaryConditions(&(data[nofile]),boundaries[nofile],TRUE);
-
-    nomeshes = nofile+1;
+    nomeshes++;
     break;
 
   case 8: 
-    {
-      int sides;
-      InitializeKnots(&(data[nofile]));
-      if( Easymesh(argc,argv,&data[nofile].noknots,
-		   &data[nofile].noelements,&sides)) 
-	Goodbye();	
-
-      data[nofile].dim = 2;
-      data[nofile].coordsystem = COORD_CART2;
-      data[nofile].maxnodes = 3;
-
-      AllocateKnots(&(data[nofile]));
-      boundaries[nofile] = (struct BoundaryType*)
-	malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
-      for(i=0;i<MAXBOUNDARIES;i++) {
-	boundaries[nofile][i].created = FALSE; 
-	boundaries[nofile][i].nosides = 0;
-      }
-
-      if(EasymeshCopy(&(data[nofile]),boundaries[nofile]))
-	Goodbye();
-
-      nomeshes = nofile + 1;
+    InitializeKnots(&(data[nofile]));
+    if( Easymesh(argc,argv,&data[nofile].noknots,
+		 &data[nofile].noelements,&sides)) 
+      Goodbye();	
+    
+    data[nofile].dim = 2;
+    data[nofile].coordsystem = COORD_CART2;
+    data[nofile].maxnodes = 3;
+    
+    AllocateKnots(&(data[nofile]));
+    boundaries[nofile] = (struct BoundaryType*)
+      malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
+    for(i=0;i<MAXBOUNDARIES;i++) {
+      boundaries[nofile][i].created = FALSE; 
+      boundaries[nofile][i].nosides = 0;
     }
-  break;
+    if(EasymeshCopy(&(data[nofile]),boundaries[nofile]))
+      Goodbye();    
+    nomeshes++;
+    break;
 
  case 9:
     boundaries[nofile] = (struct BoundaryType*)
@@ -1291,7 +1285,6 @@ int main(int argc, char *argv[])
     }
    
     if(LoadComsolMesh(&(data[nofile]),eg.filesin[nofile],info)) {
-
       printf("\n***********************************************************************************\n");
       printf("The reading of Comsol mesh file seems to have failed\n");
       printf("Trying out a previous version that requires the use of savemesh.m utility in Matlab\n");
@@ -1300,12 +1293,10 @@ int main(int argc, char *argv[])
 
       if(LoadFemlabMesh(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],info)) 
 	Goodbye();
-      nomeshes = nofile + 1;      
     }
 
     ElementsToBoundaryConditions(&(data[nofile]),boundaries[nofile],TRUE);
-    nomeshes = nofile + 1;
-
+    nomeshes++;
     break;
 
   case 10:
@@ -1317,9 +1308,8 @@ int main(int argc, char *argv[])
       boundaries[nofile][i].created = FALSE; 
       boundaries[nofile][i].nosides = 0;
     }
-
     ElementsToBoundaryConditions(&(data[nofile]),boundaries[nofile],TRUE);
-    nomeshes = 1;
+    nomeshes++;
     break;
 
   case 11:
@@ -1331,7 +1321,7 @@ int main(int argc, char *argv[])
     }
     if (LoadTriangleInput(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],TRUE))
       Goodbye();
-    nomeshes = 1;
+    nomeshes++;
     break;
 
   case 12:
@@ -1343,7 +1333,7 @@ int main(int argc, char *argv[])
     }
     if (LoadMeditInput(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],TRUE))
       Goodbye();
-    nomeshes = 1;
+    nomeshes++;
     break;
 
   case 13:
@@ -1355,7 +1345,7 @@ int main(int argc, char *argv[])
     }
     if (LoadGidInput(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],TRUE))
       Goodbye();
-    nomeshes = 1;
+    nomeshes++;
     break;
 
   case 14:
@@ -1367,12 +1357,13 @@ int main(int argc, char *argv[])
     }
     if (LoadGmshInput(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],TRUE))
       Goodbye();
-    nomeshes = 1;
+    nomeshes++;
     break;
 
   case 15: 
+    if(info) printf("Partitioned solution is fused on-the-fly therefore no operation may be performed.\n");
     FuseSolutionElmerPartitioned(eg.filesin[nofile],eg.filesout[nofile],eg.decimals,info);
-    printf("Partitioned solution is not read in memory, thus exiting\n");
+    if(info) printf("Finishing with the fusion of partitioned Elmer solutions\n");
     Goodbye();
     break;
 
@@ -1385,7 +1376,7 @@ int main(int argc, char *argv[])
     }
     if (LoadNastranInput(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],TRUE))
       Goodbye();
-    nomeshes = 1;
+    nomeshes++;
     break;
 
 
@@ -1414,7 +1405,6 @@ int main(int argc, char *argv[])
     for(k=0;k<nogrids;k++) {
 
       CreateCells(&(grids[k]),&(cell[k]),info);  
-
       CreateKnots(&(grids[k]),cell[k],&(data[k]),0,0);
 
       boundaries[k] = (struct BoundaryType*)
@@ -1435,13 +1425,12 @@ int main(int argc, char *argv[])
 			 grids[k].boundext[j],grids[k].boundint[j],
 			 grids[k].boundsolid[j],grids[k].boundtype[j]); 	    
 	  }
-
 	}
       }
     }
-
   }
 
+  /* Make the discontinous boundary needed, for example, in poor thermal conduction */
   for(k=0;k<nomeshes;k++) {
     if(!eg.discont) {
       for(j=0;j<grids[k].noboundaries;j++) 
@@ -1450,22 +1439,23 @@ int main(int argc, char *argv[])
 	  eg.discont++;	  
 	}
     }
-
     if(eg.discont) {
       for(i=1;i<=eg.discont;i++) 
 	SetDiscontinuousBoundary(&(data[k]),boundaries[k],eg.discontbounds[i-1],2,info);
     }
   }
 
+  /* Make a connected boundary (specific to Elmer format) needed in linear constraints */
   for(k=0;k<nomeshes;k++) 
     for(i=1;i<=eg.connect;i++) 
       SetConnectedBoundary(&(data[k]),boundaries[k],eg.connectbounds[i-1],i,info);
   
-  for(k=0;k<nomeshes;k++) {
+  /* Divide quadrilateral meshes into triangular meshes */
+  for(k=0;k<nomeshes;k++) 
     if(nogrids && (eg.triangles || grids[k].triangles == TRUE))
       ElementsToTriangles(&data[k],boundaries[k],info);
-  }
 
+  /* Make a boundary layer with two different methods */
   if(eg.layers) {
 #if 1
     for(k=0;k<nomeshes;k++) 
@@ -1538,6 +1528,7 @@ int main(int argc, char *argv[])
     }
   }
 
+  /* If the original mesh was given in polar coordinates make the transformation into cartesian ones */
   for(k=0;k<nomeshes;k++) {
     if(eg.polar || data[k].coordsystem == COORD_POLAR) {
       if(!eg.polar) eg.polarradius = grids[k].polarradius;
@@ -1545,19 +1536,20 @@ int main(int argc, char *argv[])
     }
   }
 
+  /* If the original mesh was given in cylindrical coordinates make the transformation into cartesian ones */
   for(k=0;k<nomeshes;k++) {
     if(eg.cylinder || data[k].coordsystem == COORD_CYL) {
       CylinderCoordinates(&data[k],info);
     }
   }
 
+  /* Unite meshes if there are several of them */
   if(eg.unitemeshes) {
     for(k=1;k<nomeshes;k++)
       UniteMeshes(&data[0],&data[k],boundaries[0],boundaries[k],info);
     nomeshes = nogrids = 1;
   }
   
-
   if(eg.clone[0] || eg.clone[1] || eg.clone[2]) {
     for(k=0;k<nomeshes;k++) {
       CloneMeshes(&data[k],boundaries[k],eg.clone,eg.clonesize,FALSE,info);
@@ -1574,6 +1566,7 @@ int main(int argc, char *argv[])
     }
   }
 
+  /* Naming convection for the case of several meshes */
   if(nomeshes > 1) {
     strcpy(prefix,eg.filesout[0]);
     for(k=0;k<nomeshes;k++)
@@ -1599,10 +1592,12 @@ int main(int argc, char *argv[])
       MergeElements(&data[k],boundaries[k],eg.order,eg.corder,eg.cmerge,FALSE,TRUE);
     else if(eg.order) 
       ReorderElements(&data[k],boundaries[k],eg.order,eg.corder,TRUE);
+
     if(eg.isoparam) 
       IsoparametricElements(&data[k],boundaries[k],TRUE,info);
   }  
 
+  /* This is mainly here for historical reasons */
   for(k=0;k<nomeshes;k++) 
     if(eg.findsides) 
       SideToBulkElements(&data[k],boundaries[k],eg.sidebulk,FALSE,info);
@@ -1635,6 +1630,7 @@ int main(int argc, char *argv[])
   }
 
 
+  /* Create a variable so that when saving data in ElmerPost format there is something to visualize */
   for(k=0;k<nomeshes;k++) {
     if(data[k].variables == 0) {
       CreateVariable(&data[k],1,1,0.0,"Number",FALSE);
@@ -1739,10 +1735,13 @@ int main(int argc, char *argv[])
       OptimizePartitioning(&data[k],boundaries[k],info);
   }
 
-  /* The advanced elements block will become obsolite as the stuff for definig the elements
-     is moved into the ElmerSolver command file */
   if(eg.pelems || eg.belems || eg.advancedmat) {
     int currenttype;
+
+    printf("\n***********************************************************************************\n");
+    printf("The advanced elements block will become obsolite and the stuff for defining the\n");
+    printf("non-Lagrangian elements is moved into the ElmerSolver command file!\n");
+    printf("\n***********************************************************************************\n");
 
     for(k=0;k<nomeshes;k++) {
       data[k].pelemtypes = Ivector(1,data[k].noelements); 
@@ -1840,12 +1839,12 @@ int main(int argc, char *argv[])
     break;
 
   case 6:
-    for(k=0;k<nogrids;k++)
+    for(k=0;k<nomeshes;k++)
       SaveAbaqusInput(&data[k],eg.filesout[k],info); 
     break;
     
   case 7:
-    for(k=0;k<nogrids;k++)
+    for(k=0;k<nomeshes;k++)
       SaveFidapOutput(&data[k],eg.filesout[k],info,1,data[k].dofs[1]);
     break;
     
