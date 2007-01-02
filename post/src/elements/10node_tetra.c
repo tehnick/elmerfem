@@ -70,7 +70,7 @@ static int elm_10node_tetra_triangulate( geometry_t *geom,element_t *tetra )
 
     if ( GlobalOptions.VolumeSides )
     {
-      int topo[4];
+      int topo[7];
 
       triangle.DisplayFlag = TRUE;
       triangle.Topology = topo;
@@ -78,11 +78,11 @@ static int elm_10node_tetra_triangulate( geometry_t *geom,element_t *tetra )
 
       for( i=0; i<4; i++ )
       {
-          for( j=0; j<3; j++ )
+          for( j=0; j<6; j++ )
           {
               triangle.Topology[j] = tetra->Topology[ElmTetraFace[i][j]];
           }
-          if ( !elm_3node_triangle_triangulate( geom, &triangle, tetra ) ) return FALSE;
+          if ( !elm_6node_triangle_triangulate( geom, &triangle, tetra ) ) return FALSE;
       }
     } else {
       if ( !geo_add_edge( geom, tetra->Topology[0],tetra->Topology[4],tetra ) ) return FALSE;
