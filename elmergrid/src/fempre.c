@@ -162,6 +162,7 @@ static void Instructions()
   printf("-boundtype int[3]    : set sidetypes in interval [int1 int2] to type int3\n");
   printf("-layer int[2] real[2]: make a boundary layer for given boundary\n");
   printf("-layermove int       : apply Jacobi filter int times to move the layered mesh\n");
+  printf("-divlayer int[2] real[2]: make a boundary layer for given boundary\n");
   printf("-3d / -2d / -1d      : mesh is 3, 2 or 1-dimensional (applies to examples)\n");
   printf("-isoparam            : ensure that higher order elements are convex\n");
   printf("-nobound             : disable saving of boundary elements in ElmerPost format\n");
@@ -600,6 +601,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
 	eg->layers++;
       }
     }
+    
     if(strcmp(argv[arg],"-layermove") == 0) {
       if(arg+1 >= argc) {
 	printf("Give maximum number of Jacobi filters.\n");
@@ -607,6 +609,27 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
       }
       else {
 	eg->layermove = atoi(argv[arg+1]);
+      }
+    }
+
+    /* This uses a very dirty trick where the variables related to argument -layer are used 
+       with a negative indexing */ 
+    if(strcmp(argv[arg],"-divlayer") == 0) {
+      if(arg+4 >= argc) {
+	printf("Give four parameters for the layer: boundary, elements, relative thickness, ratio.\n");
+	return(19);
+      }
+      else if(abs(eg->layers) == MAXBOUNDARIES) {
+	printf("There can only be %d layers, sorry.\n",MAXBOUNDARIES);
+	return(20);
+      }
+      else {
+	eg->layerbounds[abs(eg->layers)] = atoi(argv[arg+1]);
+	eg->layernumber[abs(eg->layers)] = atoi(argv[arg+2]);
+	eg->layerthickness[abs(eg->layers)] = atof(argv[arg+3]);
+	eg->layerratios[abs(eg->layers)] = atof(argv[arg+4]);
+	eg->layerparents[abs(eg->layers)] = 0;
+	eg->layers--;
       }
     }
 
@@ -1456,23 +1479,16 @@ int main(int argc, char *argv[])
       ElementsToTriangles(&data[k],boundaries[k],info);
 
   /* Make a boundary layer with two different methods */
-  if(eg.layers) {
-#if 1
+  if(eg.layers > 0) 
     for(k=0;k<nomeshes;k++) 
       CreateBoundaryLayer(&data[k],boundaries[k],eg.layers,
 			  eg.layerbounds, eg.layernumber, eg.layerratios, eg.layerthickness,
 			  eg.layerparents, eg.layermove, eg.layereps, info);
-#else
-     for(k=0;k<nomeshes;k++) 
-      CreateBoundaryLayer2(&data[k],boundaries[k],eg.layers,
-			  eg.layerbounds, eg.layernumber, eg.layerratios, eg.layerthickness,
-			  eg.layerparents, info);
-   
-#endif
-  }
-  
-
-
+  else if(eg.layers < 0) 
+    for(k=0;k<nomeshes;k++) 
+      CreateBoundaryLayerDivide(&data[k],boundaries[k],abs(eg.layers),
+				eg.layerbounds, eg.layernumber, eg.layerratios, eg.layerthickness,
+				eg.layerparents, info);
 
   if(outmethod != 1 && dim != 2 && eg.dim != 2) { 
     j = MAX(nogrids,1);

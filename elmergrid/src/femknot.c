@@ -2311,13 +2311,14 @@ int ElementsToTriangles(struct FemType *data,struct BoundaryType *bound,
 /* Make triangles out of rectangular elements */
 {
   int i,j,k,l,side,elem,i1,i2,isum,foundside,sideelemtype;
-  int noelements,elementtype,triangletype,triangles;
-  int **newtopo,*newmaterial,*newelementtypes,newnodes,*indx;
+  int noelements,elementtype,triangletype,triangles,noknots,nonodes;
+  int **newtopo,*newmaterial,*newelementtypes,newnodes,*indx,*needed;
   int sideind[MAXNODESD1], sideind2[MAXNODESD1];
   Real dx1,dx2,dy1,dy2,ds1,ds2;
   struct FemType data2;
 
   noelements  = data->noelements;
+  noknots = data->noknots;
 
   elementtype = data->elementtypes[1];
   for(i=1;i<=data->noelements;i++) {
@@ -2352,6 +2353,15 @@ int ElementsToTriangles(struct FemType *data,struct BoundaryType *bound,
     return(1);
   }
 
+  needed = Ivector(1,noknots);
+  for(i=1;i<=noknots;i++)
+    needed[i] = 0;
+
+  nonodes = elementtype / 100;
+  for(i=1;i<=noelements;i++) {
+    for(j=0;j<nonodes;j++)
+      needed[data->topology[i][j]] += 1;
+  }
 
 
   /* First divide the elements along the shorter diameter */
@@ -2370,12 +2380,21 @@ int ElementsToTriangles(struct FemType *data,struct BoundaryType *bound,
     newelementtypes[2*i-1] = triangletype;
     newelementtypes[2*i] = triangletype;
 
+    /* compute the diagonals in order to make division along the shorter one */
+
     dx1 = data->x[data->topology[i][0]] - data->x[data->topology[i][2]];
     dy1 = data->y[data->topology[i][0]] - data->y[data->topology[i][2]];
     dx2 = data->x[data->topology[i][1]] - data->x[data->topology[i][3]];
     dy2 = data->y[data->topology[i][1]] - data->y[data->topology[i][3]];
     ds1 = dx1*dx1+dy1*dy1;
     ds2 = dx2*dx2+dy2*dy2;
+
+    /* In case of corner nodes favor division where corner is split */
+    if(needed[data->topology[i][0]] <= 2 && (needed[data->topology[i][2]]) <= 2) 
+      ds1 *= 2;
+
+    if(needed[data->topology[i][1]] <= 2 && (needed[data->topology[i][3]]) <= 2) 
+      ds2 *= 2;
 
     if(elementtype == 404 || elementtype == 409 || elementtype == 416) {
       if(ds1 > ds2) {
@@ -2555,6 +2574,7 @@ int ElementsToTriangles(struct FemType *data,struct BoundaryType *bound,
   free_Imatrix(data->topology,1,noelements,0,data->maxnodes-1);
   free_Ivector(data->material,1,noelements);
   free_Ivector(data->elementtypes,1,noelements);
+  free_Ivector(needed,1,noknots);
 
   data->topology = newtopo;
   data->elementtypes = newelementtypes;
@@ -2562,8 +2582,7 @@ int ElementsToTriangles(struct FemType *data,struct BoundaryType *bound,
   data->noelements *= triangles;
   data->maxnodes = newnodes;
 
-  if(info) printf("The mesh was reconstructed from %d triangles\n",
-		  triangles*noelements);
+  if(info) printf("The mesh was reconstructed from %d triangles\n",triangles*noelements);
 
   return(0);
 }
@@ -7812,12 +7831,13 @@ omstart:
 
 
 
-int CreateBoundaryLayer2(struct FemType *data,struct BoundaryType *bound,
-			int nolayers, int *layerbounds, int *layernumber,
-			Real *layerratios, Real *layerthickness, int *layerparents,
-			int info)
+int CreateBoundaryLayerDivide(struct FemType *data,struct BoundaryType *bound,
+			      int nolayers, int *layerbounds, int *layernumber,
+			      Real *layerratios, Real *layerthickness, int *layerparents,
+			      int info)
 /* Create Boundary layers that may be used to solve accurately fluid
-   flow problems and similar equations. */
+   flow problems and similar equations. In this subroutine the boundary layer
+   is created by dividing the elements close to boundary. */
 {
   int i,j,k,l,dim,maxbc,maxelemtype,dolayer,parent,nlayer,sideelemtype,elemind,side;
   int noelements,noknots,oldnoknots,oldnoelements,oldmaxnodes,nonewnodes,nonewelements;
@@ -7896,6 +7916,9 @@ int CreateBoundaryLayer2(struct FemType *data,struct BoundaryType *bound,
 	layernode[ind[l]] += 1;
     }
   }
+
+  if(slayer > 1.0 || slayer < 1.0e-20) 
+    slayer = 1.0;
 
   bcnodes = 0;
   maxcon = 0;
@@ -8053,12 +8076,13 @@ int CreateBoundaryLayer2(struct FemType *data,struct BoundaryType *bound,
 	
 	  for(i=1;i<=nlayer;i++) {
 	    if(nlayer <= 1 || fabs(qlayer-1.0) < 0.001) {
-	      q = i / (nlayer+1);
+	      q = (1.0*i) / (nlayer+1);
 	    }
 	    else {
-	      ratio = pow(qlayer,1.0/(nlayer));
-	      q = (1.- pow(ratio,(Real)(i+1))) /  (1.- pow(ratio,(Real)(nlayer+1)));
+	      ratio = pow(qlayer,1.0/nlayer);
+	      q = (1.- pow(ratio,1.0*i)) /  (1.- pow(ratio,1.0+nlayer));
 	    }	      
+	    q *= slayer; 
 	    newx[baseind[k]+i] = x0[k] + q * dx[k];
 	    newy[baseind[k]+i] = y0[k] + q * dy[k];
 	  }
@@ -8144,6 +8168,9 @@ int CreateBoundaryLayer2(struct FemType *data,struct BoundaryType *bound,
 	}
 	else if(elemhits == 3) {
 	  if(sharednode[oldtopo[j][side]] == 1) goforit = TRUE;
+
+	  printf("The boundary layer creation for certain corner triangles is omitted\n");
+	  goforit = FALSE;
 	}
 	if(!goforit) continue;
 
@@ -8183,6 +8210,7 @@ int CreateBoundaryLayer2(struct FemType *data,struct BoundaryType *bound,
 	    if(0) printf("Using existing nodes\n");
 	    baseind[k] = edgepairs[i][3];
 	  }
+
 	  x0[k] = oldx[basenode[k]];
 	  y0[k] = oldy[basenode[k]];
 	  dx[k] = oldx[topnode[k]] - x0[k];
@@ -8190,17 +8218,15 @@ int CreateBoundaryLayer2(struct FemType *data,struct BoundaryType *bound,
 	
 	  for(i=1;i<=nlayer;i++) {
 	    if(nlayer <= 1 || fabs(qlayer-1.0) < 0.001) {
-	      q = (1.0*(l+1))/nlayer;
-	      newx[baseind[k]+i] = x0[k] + i * dx[k]/(nlayer+1);
-	      newy[baseind[k]+i] = y0[k] + i * dy[k]/(nlayer+1);
+	      q = (1.0*i) / (nlayer+1);
 	    }
-	  /*
-	    printf("Implement for geometric division\n");
-	    ratio = pow(qratio,-1./(n-1.));
-	    q = (1.- pow(ratio,(Real)(l+1))) / (1.-pow(ratio,(Real)(n)));
-	    p = (1.- pow(ratio,(Real)(l))) / (1.-pow(ratio,(Real)(n)));
-	    = (q-p) * ds;
-	  */
+	    else {
+	      ratio = pow(qlayer,1.0/nlayer);
+	      q = (1.- pow(ratio,1.0*i)) /  (1.- pow(ratio,1.0*nlayer));
+	    }	      
+	    q *= slayer;
+	    newx[baseind[k]+i] = x0[k] + q * dx[k];
+	    newy[baseind[k]+i] = y0[k] + q * dy[k];
 	  }
 	}	
 
