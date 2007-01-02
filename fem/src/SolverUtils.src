@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.46  2006/12/20 09:33:55  jpr
+! * Corrected few bugs in the previous commit.
+! *
 ! * Revision 1.45  2006/12/20 09:01:21  jpr
 ! * Added ValuesChanged setting for variable components inside InvalidateVariable.
 ! *
@@ -152,7 +155,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.45 2006/12/20 09:01:21 jpr Exp $
+! * $Id: SolverUtils.src,v 1.46 2006/12/20 09:33:55 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -2425,11 +2428,11 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  RECURSIVE SUBROUTINE SolveLinearSystem( StiffMatrix, ForceVector, &
-                  Solution, Norm, DOFs, Solver )
+  RECURSIVE SUBROUTINE SolveLinearSystem( A, b, &
+                  x, Norm, DOFs, Solver )
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: ForceVector(:), Solution(:), Norm
-    TYPE(Matrix_t), POINTER :: StiffMatrix
+    REAL(KIND=dp) :: b(:), x(:), Norm
+    TYPE(Matrix_t), POINTER :: A
     INTEGER :: DOFs
     TYPE(Solver_t), TARGET :: Solver
 !------------------------------------------------------------------------------
@@ -2439,20 +2442,20 @@ CONTAINS
     INTEGER :: n,i,j,k,l,istat
     CHARACTER(LEN=MAX_NAME_LEN) :: Method, ProcName
     INTEGER(KIND=AddrInt) :: Proc
-    REAL(KIND=dp), ALLOCATABLE :: PSolution(:), Diag(:)
+    REAL(KIND=dp), ALLOCATABLE :: Px(:), Diag(:)
     REAL(KIND=dp) :: s,Relaxation,Beta,Gamma,DiagReal,DiagImag
 !------------------------------------------------------------------------------
-    n = StiffMatrix % NumberOfRows
+    n = A % NumberOfRows
 
     IF ( Solver % Matrix % Lumped .AND. Solver % TimeOrder == 1 ) THEN
       Method = ListGetString( Solver % Values, 'Timestepping Method', GotIt)
       IF (  Method == 'runge-kutta' .OR. Method == 'explicit euler' ) THEN
          DO i=1,n
-            IF ( ABS( StiffMatrix % Values(StiffMatrix % Diag(i)) ) > 0.0d0 ) THEN
-              Solution(i) = ForceVector(i) / StiffMatrix % Values(StiffMatrix % Diag(i))
+            IF ( ABS( A % Values(A % Diag(i)) ) > 0.0d0 ) THEN
+              x(i) = b(i) / A % Values(A % Diag(i))
             END IF
          END DO
-         CALL BackRotateNTSystem( Solution, Solver % Variable % Perm, DOFs )
+         CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
          RETURN
       END IF
     END IF
@@ -2461,7 +2464,7 @@ CONTAINS
     IF ( .NOT. GotIt  ) ScaleSystem = .TRUE.
 
     EigenAnalysis = Solver % NOFEigenValues > 0 .AND. &
-          ListGetLogical( Solver % Values, 'Eigen Analysis',GotIt )
+             ListGetLogical( Solver % Values, 'Eigen Analysis',GotIt )
 
     HarmonicAnalysis = Solver % NOFEigenValues>0 .AND. &
           ListGetLogical( Solver % Values, 'Harmonic Analysis',GotIt )
@@ -2479,9 +2482,9 @@ CONTAINS
       IF ( ParEnv % PEs <= 1 ) THEN
          IF ( Solver % Matrix % COMPLEX ) THEN
             DO i=1,n,2
-              j = StiffMatrix % Diag(i)
-              DiagReal  =  StiffMatrix % Values(j)
-              DiagImag  = -StiffMatrix % Values(j+1)
+              j = A % Diag(i)
+              DiagReal  =  A % Values(j)
+              DiagImag  = -A % Values(j+1)
               IF ( ABS(CMPLX(DiagReal,DiagImag,KIND=dp)) > 0.0d0 ) THEN
                 Diag(i)   = 1.0d0 / SQRT( ABS( CMPLX(DiagReal,DiagImag,KIND=dp) ) )
                 Diag(i+1) = 1.0d0 / SQRT( ABS( CMPLX(DiagReal,DiagImag,KIND=dp) ) )
@@ -2492,8 +2495,8 @@ CONTAINS
             END DO
          ELSE
             DO i=1,n
-              IF ( ABS( StiffMatrix % Values(StiffMatrix % Diag(i)) ) > 0.0d0 ) THEN
-                 Diag(i) = 1.0d0 / SQRT( ABS(StiffMatrix % Values(StiffMatrix % Diag(i))) )
+              IF ( ABS( A % Values(A % Diag(i)) ) > 0.0d0 ) THEN
+                 Diag(i) = 1.0d0 / SQRT( ABS(A % Values(A % Diag(i))) )
               ELSE
                 Diag(i) = 1.0d0
               END IF
@@ -2501,31 +2504,31 @@ CONTAINS
          END IF
 
          DO i=1,n
-            DO j=StiffMatrix % Rows(i), StiffMatrix % Rows(i+1)-1
-               StiffMatrix % Values(j) = StiffMatrix % Values(j) * &
-                 ( Diag(i) * Diag(StiffMatrix % Cols(j)) )
+            DO j=A % Rows(i), A % Rows(i+1)-1
+               A % Values(j) = A % Values(j) * &
+                 ( Diag(i) * Diag(A % Cols(j)) )
             END DO
          END DO
 
-         ForceVector(1:n) =  ForceVector(1:n) * Diag(1:n)
+         b(1:n) =  b(1:n) * Diag(1:n)
 
-         IF ( ASSOCIATED( StiffMatrix % MassValues ) ) THEN
-            IF (SIZE(StiffMatrix % Values)==SIZE(StiffMatrix % MassValues)) THEN
+         IF ( ASSOCIATED( A % MassValues ) ) THEN
+            IF (SIZE(A % Values)==SIZE(A % MassValues)) THEN
                DO i=1,n
-                  DO j=StiffMatrix % Rows(i), StiffMatrix % Rows(i+1)-1
-                     StiffMatrix % MassValues(j) = StiffMatrix % MassValues(j) * &
-                           ( Diag(i) * Diag(StiffMatrix % Cols(j)) )
+                  DO j=A % Rows(i), A % Rows(i+1)-1
+                     A % MassValues(j) = A % MassValues(j) * &
+                           ( Diag(i) * Diag(A % Cols(j)) )
                   END DO
                END DO
             END IF
          END IF
 
-         IF ( ASSOCIATED( StiffMatrix % DampValues ) ) THEN
-            IF (SIZE(StiffMatrix % Values)==SIZE(StiffMatrix % DampValues)) THEN
+         IF ( ASSOCIATED( A % DampValues ) ) THEN
+            IF (SIZE(A % Values)==SIZE(A % DampValues)) THEN
                DO i=1,n
-                  DO j=StiffMatrix % Rows(i), StiffMatrix % Rows(i+1)-1
-                     StiffMatrix % DampValues(j) = StiffMatrix % DampValues(j) * &
-                           ( Diag(i) * Diag(StiffMatrix % Cols(j)) )
+                  DO j=A % Rows(i), A % Rows(i+1)-1
+                     A % DampValues(j) = A % DampValues(j) * &
+                           ( Diag(i) * Diag(A % Cols(j)) )
                   END DO
                END DO
             END IF
@@ -2537,13 +2540,12 @@ CONTAINS
     IF ( Solver % MultiGridLevel == -1  ) RETURN
 
 !------------------------------------------------------------------------------
-!   If solving harmonic analysiws go there:
-!   --------------------------------
+!   If solving harmonic analysis go there:
+!   --------------------------------------
     IF ( HarmonicAnalysis ) THEN
       CALL SolveHarmonicSystem( Solver )
-
-      CALL BackRotateNTSystem( Solution, Solver % Variable % Perm, DOFs )
-      Norm = SQRT( SUM( Solution(1:n)**2 ) / n )
+      CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
+      Norm = SQRT( SUM( x(1:n)**2 ) / n )
       Solver % Variable % Norm = Norm
       CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, &
                        Solver % Variable % Name )
@@ -2555,7 +2557,7 @@ CONTAINS
 
     IF ( EigenAnalysis ) THEN
        CALL SolveEigenSystem( &
-           StiffMatrix, Solver %  NOFEigenValues, &
+           A, Solver %  NOFEigenValues, &
            Solver % Variable % EigenValues,       &
            Solver % Variable % EigenVectors, Solver )
    
@@ -2576,31 +2578,30 @@ CONTAINS
 !         Scale the system back to original:
 !         ----------------------------------
          DO i=1,n
-            DO j=StiffMatrix % Rows(i), StiffMatrix % Rows(i+1)-1
-               StiffMatrix % Values(j) = StiffMatrix % Values(j) / &
-                 ( Diag(i) * Diag(StiffMatrix % Cols(j)) )
-            END DO
+           DO j=A % Rows(i), A % Rows(i+1)-1
+             A % Values(j) = A % Values(j) / (Diag(i) * Diag(A % Cols(j)))
+           END DO
          END DO
 
-         ForceVector(1:n) =  ForceVector(1:n) / Diag(1:n)
+         b(1:n) =  b(1:n) / Diag(1:n)
 
-         IF ( ASSOCIATED( StiffMatrix % MassValues ) ) THEN
-            IF (SIZE(StiffMatrix % Values)==SIZE(StiffMatrix % MassValues)) THEN
+         IF ( ASSOCIATED( A % MassValues ) ) THEN
+            IF (SIZE(A % Values)==SIZE(A % MassValues)) THEN
                DO i=1,n
-                  DO j=StiffMatrix % Rows(i), StiffMatrix % Rows(i+1)-1
-                     StiffMatrix % MassValues(j) = StiffMatrix % MassValues(j) / &
-                           ( Diag(i) * Diag(StiffMatrix % Cols(j)) )
+                  DO j=A % Rows(i), A % Rows(i+1)-1
+                     A % MassValues(j) = A % MassValues(j) / &
+                           ( Diag(i) * Diag(A % Cols(j)) )
                   END DO
                END DO
             END IF
          END IF
 
-         IF ( ASSOCIATED( StiffMatrix % DampValues ) ) THEN
-            IF (SIZE(StiffMatrix % Values)==SIZE(StiffMatrix % DampValues)) THEN
+         IF ( ASSOCIATED( A % DampValues ) ) THEN
+            IF (SIZE(A % Values)==SIZE(A % DampValues)) THEN
                DO i=1,n
-                  DO j=StiffMatrix % Rows(i), StiffMatrix % Rows(i+1)-1
-                     StiffMatrix % DampValues(j) = StiffMatrix % DampValues(j) / &
-                           ( Diag(i) * Diag(StiffMatrix % Cols(j)) )
+                  DO j=A % Rows(i), A % Rows(i+1)-1
+                     A % DampValues(j) = A % DampValues(j) / &
+                           ( Diag(i) * Diag(A % Cols(j)) )
                   END DO
                END DO
             END IF
@@ -2608,9 +2609,9 @@ CONTAINS
 
          DEALLOCATE( Diag )
        END IF
-       CALL BackRotateNTSystem( Solution, Solver % Variable % Perm, DOFs )
+       CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
 
-       Norm = SQRT( SUM( Solution(1:n)**2 ) / n )
+       Norm = SQRT( SUM( x(1:n)**2 ) / n )
        Solver % Variable % Norm = Norm
 
        CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, &
@@ -2625,30 +2626,31 @@ CONTAINS
     Relax = Relax .AND. (Relaxation /= 1.0d0)
 
     IF ( Relax  ) THEN
-      ALLOCATE( PSolution(n), STAT=istat ) 
+      ALLOCATE( Px(n), STAT=istat ) 
       IF ( istat /= 0 ) THEN
         CALL Fatal( 'SolveSystem', 'Memory allocation error.' )
       END IF
-      PSolution = Solution(1:n)
+      Px = x(1:n)
     END IF
 !------------------------------------------------------------------------------
 ! 
 !   Convert initial value to the scaled system:
 !   -------------------------------------------
-    IF ( ScaleSystem ) Solution(1:n) = Solution(1:n) / Diag(1:n)
+    IF ( ScaleSystem ) x(1:n) = x(1:n) / Diag(1:n)
+
 
     IF ( ParEnv % PEs <= 1 ) THEN
-       IF ( ALL( ForceVector(1:n) == 0.0d0 ) ) THEN
-          Solution = 0.0d0
+       IF ( ALL( b(1:n) == 0.0d0 ) ) THEN
+          x = 0.0d0
        ELSE
           IF ( Solver % MultiGridSolver ) THEN
-              CALL MultiGridSolve( StiffMatrix, Solution, ForceVector, &
+              CALL MultiGridSolve( A, x, b, &
                       DOFs, Solver, Solver % MultiGridLevel )
           ELSE IF ( ListGetString( Solver % Values, &
                   'Linear System Solver', GotIt ) == 'iterative' ) THEN
-             CALL IterSolver( StiffMatrix, Solution, ForceVector, Solver )
+             CALL IterSolver( A, x, b, Solver )
           ELSE
-             CALL DirectSolver( StiffMatrix, Solution, ForceVector, Solver )
+             CALL DirectSolver( A, x, b, Solver )
           END IF
        END IF
        
@@ -2657,37 +2659,36 @@ CONTAINS
 ! 
 !         Solve x:  INV(D)x = y
 !         ----------------------
-          Solution(1:n) = Solution(1:n) * Diag(1:n)
+          x(1:n) = x(1:n) * Diag(1:n)
 
 ! 
 !         Scale the system back to original:
 !         ----------------------------------
           DO i=1,n
-             DO j=StiffMatrix % Rows(i), StiffMatrix % Rows(i+1)-1
-                StiffMatrix % Values(j) = StiffMatrix % Values(j) / &
-                  ( Diag(i) * Diag(StiffMatrix % Cols(j)) )
-             END DO
+            DO j=A % Rows(i), A % Rows(i+1)-1
+              A % Values(j) = A % Values(j) / ( Diag(i) * Diag(A % Cols(j)) )
+            END DO
           END DO
 
-          ForceVector(1:n) =  ForceVector(1:n) / Diag(1:n)
+          b(1:n) =  b(1:n) / Diag(1:n)
 
-          IF ( ASSOCIATED( StiffMatrix % MassValues ) ) THEN
-             IF (SIZE(StiffMatrix % Values)==SIZE(StiffMatrix % MassValues)) THEN
+          IF ( ASSOCIATED( A % MassValues ) ) THEN
+             IF (SIZE(A % Values)==SIZE(A % MassValues)) THEN
                 DO i=1,n
-                   DO j=StiffMatrix % Rows(i), StiffMatrix % Rows(i+1)-1
-                      StiffMatrix % MassValues(j) = StiffMatrix % MassValues(j) / &
-                            ( Diag(i) * Diag(StiffMatrix % Cols(j)) )
+                   DO j=A % Rows(i), A % Rows(i+1)-1
+                      A % MassValues(j) = A % MassValues(j) / &
+                            ( Diag(i) * Diag(A % Cols(j)) )
                    END DO
                 END DO
              END IF
           END IF
 
-          IF ( ASSOCIATED( StiffMatrix % DampValues ) ) THEN
-             IF (SIZE(StiffMatrix % Values)==SIZE(StiffMatrix % DampValues)) THEN
+          IF ( ASSOCIATED( A % DampValues ) ) THEN
+             IF (SIZE(A % Values)==SIZE(A % DampValues)) THEN
                 DO i=1,n
-                   DO j=StiffMatrix % Rows(i), StiffMatrix % Rows(i+1)-1
-                      StiffMatrix % DampValues(j) = StiffMatrix % DampValues(j) / &
-                            ( Diag(i) * Diag(StiffMatrix % Cols(j)) )
+                   DO j=A % Rows(i), A % Rows(i+1)-1
+                      A % DampValues(j) = A % DampValues(j) / &
+                            ( Diag(i) * Diag(A % Cols(j)) )
                    END DO
                 END DO
              END IF
@@ -2696,56 +2697,53 @@ CONTAINS
           DEALLOCATE( Diag )
        END IF
 
-       CALL BackRotateNTSystem( Solution, Solver % Variable % Perm, DOFs )
+       CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
        IF ( Relax ) THEN
-          Solution(1:n) = (1-Relaxation)*PSolution + Relaxation*Solution(1:n)
+          x(1:n) = (1-Relaxation)*Px + Relaxation*x(1:n)
        END IF
-       Norm = SQRT( SUM( Solution(1:n)**2 ) / n )
+       Norm = SQRT( SUM( x(1:n)**2 ) / n )
 !------------------------------------------------------------------------------
     ELSE
        IF ( Solver % MultiGridSolver ) THEN
-          CALL MultiGridSolve( StiffMatrix, Solution, ForceVector, &
+          CALL MultiGridSolve( A, x, b, &
                  DOFs, Solver, Solver % MultiGridLevel )
        ELSE
-          CALL ParallelIter( StiffMatrix, Solver % Mesh % ParallelInfo, DOFs, &
-            Solution, ForceVector, Solver, StiffMatrix % ParMatrix )
+          CALL ParallelIter( A, Solver % Mesh % ParallelInfo, DOFs, &
+                   x, b, Solver, A % ParMatrix )
        END IF
 !------------------------------------------------------------------------------
-       CALL BackRotateNTSystem( Solution, Solver % Variable % Perm, DOFs )
+       CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
        IF ( Relax ) THEN
-          Solution(1:n) = (1-Relaxation)*PSolution + Relaxation*Solution(1:n)
+          x(1:n) = (1-Relaxation)*Px + Relaxation*x(1:n)
        END IF
 !------------------------------------------------------------------------------
-       Norm = ParallelNorm( n,Solution )
+       Norm = ParallelNorm( n,x )
     END IF
 !------------------------------------------------------------------------------
-    IF ( ALLOCATED(PSolution) ) DEALLOCATE( PSolution )
-
-
+    IF ( ALLOCATED(Px) ) DEALLOCATE( Px )
 !------------------------------------------------------------------------------
   END SUBROUTINE SolveLinearSystem
 !------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
-  RECURSIVE SUBROUTINE SolveSystem( StiffMatrix,ParMatrix,ForceVector, &
-                    Solution,Norm,DOFs,Solver )
+  RECURSIVE SUBROUTINE SolveSystem( A,ParA,b,x,Norm,DOFs,Solver )
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
 ! Solve a linear system
 !
-! TYPE(Matrix_t), POINTER :: StiffMatrix
+! TYPE(Matrix_t), POINTER :: A
 !   INPUT: The coefficient matrix
 !
-! TYPE(ParIterSolverGlobalD_t), POINTER :: ParMatrix
+! TYPE(ParIterSolverGlobalD_t), POINTER :: ParA
 !   INPUT: holds info for parallel solver, if not executing in parallel
 !          this is just a dummy.
 !
-! REAL(KIND=dp) :: ForceVector(:)
+! REAL(KIND=dp) :: b(:)
 !   INPUT: The RHS vector
 !
-! REAL(KIND=dp) :: Solution(:)
+! REAL(KIND=dp) :: x(:)
 !   INOUT: Previous solution on entry, new solution on exit (hopefully)
 !
 ! REAL(KIND=dp) :: Norm
@@ -2759,23 +2757,22 @@ CONTAINS
 ! 
 !******************************************************************************
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: ForceVector(:), Solution(:), Norm
-    TYPE(Matrix_t), POINTER :: StiffMatrix
+    REAL(KIND=dp) :: b(:), x(:), Norm
+    TYPE(Matrix_t), POINTER :: A
     INTEGER :: DOFs
     TYPE(Solver_t), TARGET :: Solver
-    TYPE(SParIterSolverGlobalD_t), POINTER :: ParMatrix
+    TYPE(SParIterSolverGlobalD_t), POINTER :: ParA
 !------------------------------------------------------------------------------
     TYPE(Variable_t), POINTER :: Var, NodalLoads
     TYPE(Mesh_t), POINTER :: Mesh, SaveMEsh
-    LOGICAL :: Relax, GotIt
-    INTEGER :: n,i,j,k,istat
+    LOGICAL :: Relax, Found
+    INTEGER :: n,i,j,k,l,istat
     TYPE(Matrix_t), POINTER :: SaveMatrix
     CHARACTER(LEN=MAX_NAME_LEN) :: Method, ProcName, VariableName
     INTEGER(KIND=AddrInt) :: Proc
-    REAL(KIND=dp) :: s,Relaxation,Beta,Gamma
+    REAL(KIND=dp) :: Relaxation,Beta,Gamma
     REAL(KIND=dp), POINTER :: SaveValues(:)
-    REAL(KIND=dp), ALLOCATABLE :: PSolution(:), Diag(:), TempVector(:)
-
+    REAL(KIND=dp), ALLOCATABLE :: Diag(:), TempVector(:)
 
     INTERFACE ExecLinSolveProcs
       INTEGER FUNCTION ExecLinSolveProcs( Proc,Model,Solver,A,b,x,n,DOFs,Norm )
@@ -2788,12 +2785,13 @@ CONTAINS
         REAL(KIND=dp) :: x(n),b(n), Norm
       END FUNCTION ExecLinSolveProcs
     END INTERFACE
+
 !------------------------------------------------------------------------------
-    n = StiffMatrix % NumberOfRows
+    n = A % NumberOfRows
 
     IF ( Solver % LinBeforeProc /= 0 ) THEN
        istat = ExecLinSolveProcs( Solver % LinBeforeProc,CurrentModel,Solver, &
-              StiffMatrix,  ForceVector, Solution, n, DOFs, Norm )
+                       A, b, x, n, DOFs, Norm )
        IF ( istat /= 0 ) GOTO 10
     END IF
 
@@ -2805,7 +2803,7 @@ CONTAINS
     END IF
 !------------------------------------------------------------------------------
 
-    CALL SolveLinearSystem( StiffMatrix, ForceVector, Solution, Norm, DOFs, Solver )
+    CALL SolveLinearSystem( A, b, x, Norm, DOFs, Solver )
 
 !------------------------------------------------------------------------------
 
@@ -2813,7 +2811,7 @@ CONTAINS
 
     IF ( Solver % LinAfterProc /= 0 ) THEN
        istat = ExecLinSolveProcs( Solver % LinAfterProc, CurrentModel, Solver, &
-                 StiffMatrix,  ForceVector, Solution, n, DOFs, Norm )
+                 A, b, x, n, DOFs, Norm )
     END IF
 
 
@@ -2824,7 +2822,7 @@ CONTAINS
         DO i=1,n
           Solver % Variable % PrevValues(i,2) = &
            (1.0d0/(Beta*Solver % dt**2))* &
-            (Solution(i)-Solver % Variable % PrevValues(i,3)) -  &
+            (x(i)-Solver % Variable % PrevValues(i,3)) -  &
              (1.0d0/(Beta*Solver % dt))*Solver % Variable % PrevValues(i,4)+ &
                (1.0d0-1.0d0/(2*Beta))*Solver % Variable % PrevValues(i,5)
 
@@ -2843,18 +2841,18 @@ CONTAINS
 
     NodalLoads => VariableGet( Solver % Mesh % Variables, &
        Solver % Variable % Name(1:Solver % Variable % NameLen) // ' Loads' )
-    IF ( ASSOCIATED(NodalLoads) .AND. ASSOCIATED(StiffMatrix % BulkValues) ) THEN
+    IF ( ASSOCIATED(NodalLoads) .AND. ASSOCIATED(A % BulkValues) ) THEN
        ALLOCATE( TempVector(n) )
-       SaveValues => StiffMatrix % Values
-       StiffMatrix % Values => StiffMatrix % BulkValues
-       CALL MatrixVectorMultiply( StiffMatrix, Solution, TempVector )
-       StiffMatrix % Values => SaveValues
-       TempVector = TempVector - StiffMatrix % BulkRHS
+       SaveValues => A % Values
+       A % Values => A % BulkValues
+       CALL MatrixVectorMultiply( A, x, TempVector )
+       A % Values => SaveValues
+       TempVector = TempVector - A % BulkRHS
        DO i=1,SIZE( NodalLoads % Perm )
          IF ( NodalLoads % Perm(i)>0 .AND. Solver % Variable % Perm(i)>0 ) THEN
             DO j=1,DOFs
               NodalLoads % Values(DOFs*(NodalLoads % Perm(i)-1)+j) =  &
-                         TempVector(DOFs*(Solver % Variable % Perm(i)-1)+j)
+                 TempVector(DOFs*(Solver % Variable % Perm(i)-1)+j)
             END DO
           END IF
        END DO
