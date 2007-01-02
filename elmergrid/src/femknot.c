@@ -6476,7 +6476,7 @@ void ElementsToBoundaryConditions(struct FemType *data,
 	if(sideelemtype < data->elementtypes[elemind]) break;
 	if(sideelemtype > data->elementtypes[elemind]) continue; 
 	
-	sidenodes2 = sideelemtype%100;	
+	sidenodes2 = sideelemtype % 100;	
 
 	if(sidenodes != sidenodes2) continue;
 	if(sidenodes2 == 1 && sidenodes > 1) break;
@@ -6554,7 +6554,8 @@ void ElementsToBoundaryConditions(struct FemType *data,
   j = 0;
   for(i=1;i<=noelements;i++) {
     if(!moveelement[i]) {
-      j++;
+      j = parentorder[i];
+
       data->material[j] = data->material[i];
       k = data->elementtypes[j] = data->elementtypes[i];
 
