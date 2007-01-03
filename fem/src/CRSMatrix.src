@@ -39,7 +39,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: CRSMatrix.src,v 1.12 2006/12/08 10:16:14 jpr Exp $
+! * $Id: CRSMatrix.src,v 1.13 2007/01/03 09:11:18 jpr Exp $
 ! ******************************************************************************
 
 #include "huti_fdefs.h"
@@ -454,9 +454,9 @@ CONTAINS
                  IF ( Indeces(j) <= 0 ) CYCLE
                  DO c=Rows(Row),Rows(Row+1)-1
                     IF ( Cols(c) == Col ) THEN
-!$omp critical
+!!$omp critical
                        Values(c) = Values(c) + LocalMatrix(Dofs*i-k,Dofs*j-l)
-!$omp end critical
+!!$omp end critical
                        EXIT
                     END IF
                  END DO

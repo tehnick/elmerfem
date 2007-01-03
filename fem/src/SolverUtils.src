@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.48  2007/01/03 09:11:19  jpr
+! * Initial changes to enable openmp parallellization...
+! *
 ! * Revision 1.47  2007/01/02 08:01:42  jpr
 ! * Little formatting.
 ! *
@@ -158,7 +161,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.47 2007/01/02 08:01:42 jpr Exp $
+! * $Id: SolverUtils.src,v 1.48 2007/01/03 09:11:19 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -738,9 +741,9 @@ CONTAINS
        IF ( Nodeindexes(i) > 0 ) THEN
          DO j=1,NDOFs
            k = NDOFs * (NodeIndexes(i)-1) + j
-!$omp critical
+!!$omp critical
            ForceVector(k) = ForceVector(k) + LocalForce(NDOFs*(i-1)+j)
-!$omp end critical
+!!$omp end critical
          END DO
        END IF
      END DO

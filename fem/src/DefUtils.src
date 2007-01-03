@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: DefUtils.src,v $
+! * Revision 1.35  2007/01/03 09:11:18  jpr
+! * Initial changes to enable openmp parallellization...
+! *
 ! * Revision 1.34  2006/12/01 09:02:16  jpr
 ! * Initial changes to enable 'constant bulk system' for time dependent
 ! * simulations.
@@ -165,7 +168,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.34 2006/12/01 09:02:16 jpr Exp $
+! * $Id: DefUtils.src,v 1.35 2007/01/03 09:11:18 jpr Exp $
 ! *
 ! *****************************************************************************/
 
@@ -220,14 +223,15 @@ CONTAINS
 
     IF ( .NOT.ALLOCATED(IndexStore) ) THEN
 !$omp barrier
-!$omp single
-      nthreads = 1
-!$    nthreads = omp_get_num_threads()
-      ALLOCATE( IndexStore(nthreads,512), STAT=istat )
-      IF ( Istat /= 0 ) &
-         CALL Fatal( 'GetIndexStore', 'Memory allocation error.' )
-!$omp end single
-!$omp barrier
+!$omp critical
+      IF ( .NOT.ALLOCATED(IndexStore) ) THEN
+        nthreads = 1
+!$      nthreads = omp_get_num_threads()
+        ALLOCATE( IndexStore(nthreads,512), STAT=istat )
+        IF ( Istat /= 0 ) &
+           CALL Fatal( 'GetIndexStore', 'Memory allocation error.' )
+      END IF
+!$omp end critical
     END IF
 
 10  thread = 1
@@ -243,14 +247,15 @@ CONTAINS
 
     IF ( .NOT.ALLOCATED(Store) ) THEN
 !$omp barrier
-!$omp single
-       nthreads = 1
-!$     nthreads = omp_get_num_threads()
-       ALLOCATE( Store(nthreads*MAX_ELEMENT_NODES), STAT=istat )
-       IF ( Istat /= 0 ) &
-          CALL Fatal( 'GetStore', 'Memory allocation error.' )
-!$omp end single
-!$omp barrier
+!$omp critical
+      IF ( .NOT.ALLOCATED(Store) ) THEN
+        nthreads = 1
+!$      nthreads = omp_get_num_threads()
+        ALLOCATE( Store(nthreads*MAX_ELEMENT_NODES), STAT=istat )
+        IF ( Istat /= 0 ) &
+           CALL Fatal( 'GetStore', 'Memory allocation error.' )
+      END IF
+!$omp end critical
      END IF
 
      thread = 0

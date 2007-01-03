@@ -40,6 +40,10 @@
 ! ******************************************************************************
 ! *
 ! * $Log: ElementDescription.src,v $
+! * Revision 1.24  2006/11/27 10:21:51  jpr
+! * Added warning message to CheckNormalDirection when the orientation defaults
+! * to the orientation by density scheme.
+! *
 ! * Revision 1.23  2006/11/24 11:32:38  jpr
 ! * *** empty log message ***
 ! *
@@ -118,7 +122,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: ElementDescription.src,v 1.23 2006/11/24 11:32:38 jpr Exp $
+! * $Id: ElementDescription.src,v 1.24 2006/11/27 10:21:51 jpr Exp $
 ! ******************************************************************************/
 
 MODULE ElementDescription
@@ -1978,12 +1982,15 @@ END IF
 !    Local variables
 !------------------------------------------------------------------------------
 
-     REAL(KIND=dp) :: BubbleValue, dBubbledx(3), t, s, ds, pTest, LtoGMap(3,3)
-     REAL(KIND=dp), ALLOCATABLE :: NodalBasis(:),dLBasisdx(:,:)
-     LOGICAL :: invert, inverti, invertj, degrees
-     INTEGER :: i,j,k,l,q,p,n,nb,dim,cdim,f, locali, localj, localMin, localPrev, &
-          edge1, edge2, tmp(4), ii, jj, direction(4)
-     REAL(KIND=dp) :: LinBasis(16), dLinBasisdx(16,3), ElmMetric(3,3)
+     REAL(KIND=dp) :: BubbleValue, dBubbledx(3), t, s, LtoGMap(3,3)
+     LOGICAL :: invert, degrees
+     INTEGER :: i, j, k, l, q, p, f, n, nb, dim, cdim, locali, localj,  &
+          tmp(4), direction(4)
+     REAL(KIND=dp) :: LinBasis(8), dLinBasisdx(8,3), ElmMetric(3,3)
+
+!    REAL(KIND=dp), ALLOCATABLE :: NodalBasis(:),dLBasisdx(:,:)
+     REAL(KIND=dp) :: NodalBasis(Element % Type % NumberOfNodes), &
+             dLBasisdx(MAX(SIZE(Nodes % x),SIZE(Basis)),3)
 
      Type(Element_t) :: Bubble
      TYPE(Element_t), POINTER :: Edge, Face
@@ -2001,7 +2008,7 @@ END IF
         RETURN
      END IF
 
-     ALLOCATE( NodalBasis(n), dLBasisdx(MAX(SIZE(Nodes % x),SIZE(Basis)),3) )
+!    ALLOCATE( NodalBasis(n), dLBasisdx(MAX(SIZE(Nodes % x),SIZE(Basis)),3) )
      NodalBasis(1:n) = 0.0d0
 !------------------------------------------------------------------------------
 !    Basis function derivatives with respect to local coordinates
@@ -2805,7 +2812,7 @@ END IF
      ! If degenerate element, dont even try it:
      !-----------------------------------------
      IF ( .NOT.stat ) THEN
-        DEALLOCATE( NodalBasis, dLBasisdx )
+!       DEALLOCATE( NodalBasis, dLBasisdx )
         RETURN
      END IF
 
@@ -2831,7 +2838,7 @@ END IF
        END IF
      END IF
 
-     DEALLOCATE( NodalBasis, dLBasisdx )
+!    DEALLOCATE( NodalBasis, dLBasisdx )
 
 !------------------------------------------------------------------------------
 !    Generate bubble basis functions, if requested. Bubble basis is as follows:

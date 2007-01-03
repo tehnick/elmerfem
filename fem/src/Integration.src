@@ -39,7 +39,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: Integration.src,v 1.6 2006/11/14 07:30:01 jpr Exp $
+! * $Id: Integration.src,v 1.7 2007/01/03 09:11:19 jpr Exp $
 ! *****************************************************************************
 
 MODULE Integration
@@ -529,16 +529,17 @@ CONTAINS
 
      IF ( .NOT. ALLOCATED(IntegStuff) ) THEN
 !$omp barrier
-!$omp single
-       GInit = .TRUE.
-       nthreads = 1
-!$     nthreads=omp_get_num_threads()
-       ALLOCATE( IntegStuff(nthreads) )
-       DO n=1,MAXN
-         CALL ComputeGaussPoints1D( Points(1:n,n),Weights(1:n,n),n )
-       END DO
-!$omp end single
-!$omp barrier
+!$omp critical
+       IF ( .NOT. GInit ) THEN
+         GInit = .TRUE.
+         nthreads = 1
+!$       nthreads=omp_get_num_threads()
+         ALLOCATE( IntegStuff(nthreads) )
+         DO n=1,MAXN
+           CALL ComputeGaussPoints1D( Points(1:n,n),Weights(1:n,n),n )
+         END DO
+       END IF
+!$omp end critical
      END IF
 
      thread = 1
