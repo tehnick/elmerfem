@@ -39,7 +39,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: Integration.src,v 1.7 2007/01/03 09:11:19 jpr Exp $
+! * $Id: Integration.src,v 1.8 2007/01/03 13:30:24 jpr Exp $
 ! *****************************************************************************
 
 MODULE Integration
@@ -60,6 +60,7 @@ MODULE Integration
    END TYPE GaussIntegrationPoints_t
 
    TYPE(GaussIntegrationPoints_t), ALLOCATABLE, TARGET, PRIVATE :: IntegStuff(:)
+   SAVE IntegStuff
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
@@ -533,7 +534,7 @@ CONTAINS
        IF ( .NOT. GInit ) THEN
          GInit = .TRUE.
          nthreads = 1
-!$       nthreads=omp_get_num_threads()
+!$       nthreads = omp_get_num_threads()
          ALLOCATE( IntegStuff(nthreads) )
          DO n=1,MAXN
            CALL ComputeGaussPoints1D( Points(1:n,n),Weights(1:n,n),n )
@@ -547,7 +548,7 @@ CONTAINS
      ALLOCATE( IntegStuff(thread) % u(MAX_INTEGRATION_POINTS), &
                IntegStuff(thread) % v(MAX_INTEGRATION_POINTS), &
                IntegStuff(thread) % w(MAX_INTEGRATION_POINTS), &
-               IntegStuff(thread) % s(MAX_INTEGRATION_POINTS),STAT=istat ) 
+               IntegStuff(thread) % s(MAX_INTEGRATION_POINTS), STAT=istat )
 
      IF ( istat /= 0 ) THEN
        CALL Fatal( 'GaussPointsInit', 'Memory allocation error.' )
@@ -1225,55 +1226,59 @@ END FUNCTION GaussPointsPTetra
      TYPE(ElementType_t), POINTER :: elmt
 !------------------------------------------------------------------------------
      elmt => elm % Type
-
-     n = elmt % GaussPoints
-
-     ! For p elements use different number of gauss points 
      pElement = ASSOCIATED(elm % PDefs)
-     IF (pElement) n = elm % PDefs % GaussPoints
 
-     IF ( PRESENT(np) ) n = np
-     
+     IF ( PRESENT(np) ) THEN
+       n = np
+     ELSE
+       IF (pElement) THEN
+         n = elm % PDefs % GaussPoints
+       ELSE
+         n = elmt % GaussPoints
+       END IF
+     END IF
+
      SELECT CASE( elmt % ElementCode / 100 )
      CASE (1)
-        IntegStuff = GaussPoints0D( n )
+        IntegStuff = GaussPoints0D(n)
 
      CASE (2)
-        IntegStuff = GaussPoints1D( n )
+        IntegStuff = GaussPoints1D(n)
+
      CASE (3)
-        ! For p type elements gauss points are different
         IF (pElement) THEN
            IntegStuff = GaussPointsPTriangle(n)
         ELSE    
-           IntegStuff = GaussPointsTriangle( n )
+           IntegStuff = GaussPointsTriangle(n)
         END IF
+
      CASE (4)
-        IntegStuff = GaussPointsQuad( n )
+        IntegStuff = GaussPointsQuad(n)
 
      CASE (5)
-        ! For p type elements gauss points are different
         IF (pElement) THEN
            IntegStuff = GaussPointsPTetra(n)
         ELSE
-           IntegStuff = GaussPointsTetra( n )
+           IntegStuff = GaussPointsTetra(n)
         END IF
+
      CASE (6)
         IF (pElement) THEN
            IntegStuff = GaussPointsPPyramid(n)
         ELSE
-           IntegStuff = GaussPointsPyramid( n )
+           IntegStuff = GaussPointsPyramid(n)
         END IF
+
      CASE (7)
-        ! For p type elements gauss points are different
         IF (pElement) THEN
            IntegStuff = GaussPointsPWedge(n)
         ELSE 
-           IntegStuff = GaussPointsWedge( n )
+           IntegStuff = GaussPointsWedge(n)
         END IF
-     CASE (8)
-        IntegStuff = GaussPointsBrick( n )
-     END SELECT
 
+     CASE (8)
+        IntegStuff = GaussPointsBrick(n)
+     END SELECT
    END FUNCTION GaussPoints
 !---------------------------------------------------------------------------
 END MODULE Integration
