@@ -1843,8 +1843,6 @@ int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
     
     bctypes = Ivector(1,maxside);
 
-    printf("maxside = %d\n",maxside);
-
     data->boundarynamesexist = TRUE;
     sprintf(filename,"%s.names",prefix);
     in = fopen(filename,"r");
@@ -1872,7 +1870,7 @@ int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
       if(!bound[bc].created) continue;
       for(i=1;i<=bound[bc].nosides;i++) {
 	j = bound[bc].types[i];
-	if(j) bctypes[bound[bc].types[i]] = bctypes[j];
+	if(j) bound[bc].types[i] = bctypes[j];
       }
     }   
 
