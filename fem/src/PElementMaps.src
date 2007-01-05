@@ -42,7 +42,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: PElementMaps.src,v 1.5 2006/10/06 06:38:07 jpr Exp $
+! * $Id: PElementMaps.src,v 1.6 2006/10/06 10:37:37 jpr Exp $
 ! ******************************************************************************
 
 MODULE PElementMaps
@@ -904,6 +904,36 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+    FUNCTION isPQuad( Element ) RESULT(retVal)
+!******************************************************************************
+!
+!  DESCRIPTION:
+!    Function checks if given element is p element quad
+!
+!  ARGUMENTS:
+!    Type(Element_t) :: Element
+!      INPUT: Element to check
+!
+!  FUNCTION VALUE:
+!    LOGICAL :: retVal
+!       .TRUE. if given element is a p quad, .FALSE. otherwise
+!    
+!******************************************************************************
+!------------------------------------------------------------------------------
+      IMPLICIT NONE
+
+      Type(Element_t), INTENT(IN) :: Element
+      LOGICAL :: retVal
+      INTEGER :: elementCode 
+
+      ! Check elementcode and p element flag
+      retVal = Element % Type % ElementCode/100==4 .AND. isPElement(Element)
+!------------------------------------------------------------------------------
+    END FUNCTION isPQuad
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
     FUNCTION isPTetra( Element ) RESULT(retVal)
 !******************************************************************************
 !
@@ -984,6 +1014,33 @@ CONTAINS
       retVal = Element % Type % ElementCode/100==6 .AND. isPElement(Element)
 !------------------------------------------------------------------------------
     END FUNCTION isPPyramid
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+    FUNCTION isPBrick( Element ) RESULT(retVal)
+!******************************************************************************
+!
+!  DESCRIPTION:
+!    Function checks if given element is p element brick
+!
+!  ARGUMENTS:
+!    Type(Element_t) :: Element
+!      INPUT: Element to check
+!
+!  FUNCTION VALUE:
+!    LOGICAL :: retVal
+!       .TRUE. if given element is a p brick, .FALSE. otherwise
+!    
+!******************************************************************************
+!------------------------------------------------------------------------------
+      IMPLICIT NONE
+
+      Type(Element_t), INTENT(IN) :: ELement
+      LOGICAL :: retVal
+
+      retVal = Element % Type % ElementCode/100==8 .AND. isPElement(Element)
+!------------------------------------------------------------------------------
+    END FUNCTION isPBrick
 !------------------------------------------------------------------------------
 
 

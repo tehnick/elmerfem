@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: ElementDescription.src,v $
+! * Revision 1.25  2007/01/03 13:30:24  jpr
+! * OpenMP changes.
+! *
 ! * Revision 1.24  2006/11/27 10:21:51  jpr
 ! * Added warning message to CheckNormalDirection when the orientation defaults
 ! * to the orientation by density scheme.
@@ -122,7 +125,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: ElementDescription.src,v 1.24 2006/11/27 10:21:51 jpr Exp $
+! * $Id: ElementDescription.src,v 1.25 2007/01/03 13:30:24 jpr Exp $
 ! ******************************************************************************/
 
 MODULE ElementDescription
@@ -786,6 +789,7 @@ ELMER_SOLVER_HOME,&
    END SUBROUTINE StabParam
 !------------------------------------------------------------------------------
 
+
 !------------------------------------------------------------------------------
    FUNCTION InterpolateInElement1D( element,x,u ) RESULT(y)
 !------------------------------------------------------------------------------
@@ -850,6 +854,60 @@ ELMER_SOLVER_HOME,&
        END IF
      END DO
    END FUNCTION InterpolateInElement1D
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+   SUBROUTINE NodalBasisFunctions1D( y,element,u )
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  DESCRIPTION:
+!
+!  ARGUMENTS:
+!   Type(Element_t) :: element
+!     INPUT: element structure
+!     
+!    REAL(KIND=dp) :: u
+!     INPUT: Point at which to evaluate the value
+!
+!  FUNCTION VALUE:
+!     REAL(KIND=dp) :: y
+!      value of the quantity y = x(u)
+!    
+!******************************************************************************
+
+     Type(Element_t) :: element
+     REAL(KIND=dp) :: u,y(:)
+
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+     REAL(KIND=dp) :: s
+
+     INTEGER :: i,n
+
+     Type(ElementType_t), POINTER :: elt
+
+     REAL(KIND=dp), POINTER :: Coeff(:)
+     INTEGER, POINTER :: p(:)
+     TYPE(BasisFunctions_t), POINTER :: BasisFunctions(:)
+!------------------------------------------------------------------------------
+
+     elt => element % Type
+     BasisFunctions => elt % BasisFunctions
+
+     DO n=1,Elt % NumberOfNodes
+       p => BasisFunctions(n) % p
+       Coeff => BasisFunctions(n) % Coeff
+
+       s = 0.0d0
+       DO i=1,BasisFunctions(n) % n
+          s = s + Coeff(i) * u**p(i)
+       END DO
+       y(n) = s
+     END DO
+   END SUBROUTINE NodalBasisFunctions1D
 !------------------------------------------------------------------------------
 
 
@@ -919,6 +977,58 @@ ELMER_SOLVER_HOME,&
        END IF
      END DO
    END FUNCTION FirstDerivative1D
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+   SUBROUTINE NodalFirstDerivatives1D( y,element,u )
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  DESCRIPTION:
+!
+!  ARGUMENTS:
+!   Type(Element_t) :: element
+!     INPUT: element structure
+!     
+!    REAL(KIND=dp) :: x(:)
+!     INPUT: Nodal values of the quantity whose partial derivative we want to know
+!
+!    REAL(KIND=dp) :: u
+!     INPUT: Point at which to evaluate the partial derivative
+!
+!  FUNCTION VALUE:
+!     REAL(KIND=dp) :: y
+!      value of the quantity y = @x/@u
+!    
+!******************************************************************************
+     REAL(KIND=dp) :: u, y(:,:)
+     Type(Element_t) :: element
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+     Type(ElementType_t), POINTER :: elt
+     INTEGER :: i,n
+     REAL(KIND=dp) :: s
+
+     REAL(KIND=dp), POINTER :: Coeff(:)
+     INTEGER, POINTER :: p(:)
+     TYPE(BasisFunctions_t), POINTER :: BasisFunctions(:)
+
+     elt => element % Type
+     BasisFunctions => elt % BasisFunctions
+
+     DO n=1, Elt % NumberOfNodes
+        p => BasisFunctions(n) % p
+        Coeff => BasisFunctions(n) % Coeff
+
+        s = 0.0d0
+        DO i=1,BasisFunctions(n) % n
+           IF (p(i)>=1) s = s + p(i)*Coeff(i)*u**(p(i)-1)
+        END DO
+        y(n,1) = s
+     END DO
+   END SUBROUTINE NodalFirstDerivatives1D
 !------------------------------------------------------------------------------
 
 
@@ -1061,6 +1171,63 @@ ELMER_SOLVER_HOME,&
 
    END FUNCTION InterpolateInElement2D
 !------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+   SUBROUTINE NodalBasisFunctions2D( y,element,u,v )
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  DESCRIPTION:
+!
+!  ARGUMENTS:
+!   Type(Element_t) :: element
+!     INPUT: element structure
+!     
+!    REAL(KIND=dp) :: u
+!     INPUT: Point at which to evaluate the value
+!
+!  FUNCTION VALUE:
+!     REAL(KIND=dp) :: y
+!      value of the quantity y = x(u)
+!    
+!******************************************************************************
+
+     Type(Element_t) :: element
+     REAL(KIND=dp) :: u,v,y(:)
+
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+     REAL(KIND=dp) :: s
+
+     INTEGER :: i,n
+
+     Type(ElementType_t), POINTER :: elt
+
+     REAL(KIND=dp), POINTER :: Coeff(:)
+     INTEGER, POINTER :: p(:),q(:)
+     TYPE(BasisFunctions_t), POINTER :: BasisFunctions(:)
+!------------------------------------------------------------------------------
+
+     elt => element % Type
+     BasisFunctions => elt % BasisFunctions
+
+     DO n=1,Elt % NumberOfNodes
+       p => BasisFunctions(n) % p
+       q => BasisFunctions(n) % q
+       Coeff => BasisFunctions(n) % Coeff
+
+       s = 0.0d0
+       DO i=1,BasisFunctions(n) % n
+          s = s + Coeff(i)*u**p(i)*v**q(i)
+       END DO
+       y(n) = s
+     END DO
+   END SUBROUTINE NodalBasisFunctions2D
+!------------------------------------------------------------------------------
+
+
 
 
 
@@ -1209,6 +1376,72 @@ ELMER_SOLVER_HOME,&
 
    END FUNCTION FirstDerivativeInV2D
 !------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+   SUBROUTINE NodalFirstDerivatives2D( y,element,u,v )
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  DESCRIPTION:
+!
+!  ARGUMENTS:
+!   Type(Element_t) :: element
+!     INPUT: element structure
+!     
+!    REAL(KIND=dp) :: 
+!
+!    REAL(KIND=dp) :: u,v
+!     INPUT: Point at which to evaluate the partial derivative
+!
+!  FUNCTION VALUE:
+!     REAL(KIND=dp) :: y
+!      value of the quantity y = @x(u,v)/@u
+!    
+!******************************************************************************
+   !
+   ! Return first partial derivative in u of a quantity x at point u,v
+   !
+   !
+   !
+
+      Type(Element_t) :: element
+      REAL(KIND=dp) :: u,v,y(:,:)
+
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+
+      REAL(KIND=dp) :: s,t
+
+      Type(ElementType_t),POINTER :: elt
+      REAL(KIND=dp), POINTER :: Coeff(:)
+      INTEGER, POINTER :: p(:),q(:)
+      TYPE(BasisFunctions_t), POINTER :: BasisFunctions(:)
+
+      INTEGER :: i,n
+
+      elt => element % Type
+      BasisFunctions => elt % BasisFunctions
+
+      DO n = 1,elt % NumberOfNodes
+        p => BasisFunctions(n) % p
+        q => BasisFunctions(n) % q
+        Coeff => BasisFunctions(n) % Coeff
+
+        s = 0.0d0
+        t = 0.0d0
+        DO i = 1,BasisFunctions(n) % n
+          IF (p(i)>=1) s = s + p(i)*Coeff(i)*u**(p(i)-1)*v**q(i)
+          IF (q(i)>=1) t = t + q(i)*Coeff(i)*u**p(i)*v**(q(i)-1)
+        END DO
+        y(n,1) = s
+        y(n,2) = t
+      END DO
+
+   END SUBROUTINE NodalFirstDerivatives2D
+!------------------------------------------------------------------------------
+
 
 
 
@@ -1364,38 +1597,38 @@ ELMER_SOLVER_HOME,&
       l = elt % BasisFunctionDegree
       BasisFunctions => elt % BasisFunctions
 
-IF ( Elt % ElementCode == 605 ) THEN
-  s = 0.0d0
-  IF ( w == 1 ) w = 1.0d0-1.0d-12
-  s = 1.0d0 / (1-w)
+      IF ( Elt % ElementCode == 605 ) THEN
+        s = 0.0d0
+        IF ( w == 1 ) w = 1.0d0-1.0d-12
+        s = 1.0d0 / (1-w)
 
-  y = 0.0d0
-  y = y + x(1) * ( (1-u) * (1-v) - w + u*v*w * s ) / 4
-  y = y + x(2) * ( (1+u) * (1-v) - w - u*v*w * s ) / 4
-  y = y + x(3) * ( (1+u) * (1+v) - w + u*v*w * s ) / 4
-  y = y + x(4) * ( (1-u) * (1+v) - w - u*v*w * s ) / 4
-  y = y + x(5) * w
-  RETURN
-ELSE IF ( Elt % ElementCode == 613 ) THEN
-  IF ( w == 1 ) w = 1.0d0-1.0d-12
-  s = 1.0d0 / (1-w)
+        y = 0.0d0
+        y = y + x(1) * ( (1-u) * (1-v) - w + u*v*w * s ) / 4
+        y = y + x(2) * ( (1+u) * (1-v) - w - u*v*w * s ) / 4
+        y = y + x(3) * ( (1+u) * (1+v) - w + u*v*w * s ) / 4
+        y = y + x(4) * ( (1-u) * (1+v) - w - u*v*w * s ) / 4
+        y = y + x(5) * w
+        RETURN
+      ELSE IF ( Elt % ElementCode == 613 ) THEN
+        IF ( w == 1 ) w = 1.0d0-1.0d-12
+        s = 1.0d0 / (1-w)
 
-  y = 0.0d0
-  y = y + x(1)  * (-u-v-1) * ( (1-u) * (1-v) - w + u*v*w * s ) / 4
-  y = y + x(2)  * ( u-v-1) * ( (1+u) * (1-v) - w - u*v*w * s ) / 4
-  y = y + x(3)  * ( u+v-1) * ( (1+u) * (1+v) - w + u*v*w * s ) / 4
-  y = y + x(4)  * (-u+v-1) * ( (1-u) * (1+v) - w - u*v*w * s ) / 4
-  y = y + x(5)  * w*(2*w-1)
-  y = y + x(6)  * (1+u-w)*(1-u-w)*(1-v-w) * s / 2
-  y = y + x(7)  * (1+v-w)*(1-v-w)*(1+u-w) * s / 2
-  y = y + x(8)  * (1+u-w)*(1-u-w)*(1+v-w) * s / 2
-  y = y + x(9)  * (1+v-w)*(1-v-w)*(1-u-w) * s / 2
-  y = y + x(10) * w * (1-u-w) * (1-v-w) * s
-  y = y + x(11) * w * (1+u-w) * (1-v-w) * s
-  y = y + x(12) * w * (1+u-w) * (1+v-w) * s
-  y = y + x(13) * w * (1-u-w) * (1+v-w) * s
-  RETURN
-END IF
+        y = 0.0d0
+        y = y + x(1)  * (-u-v-1) * ( (1-u) * (1-v) - w + u*v*w * s ) / 4
+        y = y + x(2)  * ( u-v-1) * ( (1+u) * (1-v) - w - u*v*w * s ) / 4
+        y = y + x(3)  * ( u+v-1) * ( (1+u) * (1+v) - w + u*v*w * s ) / 4
+        y = y + x(4)  * (-u+v-1) * ( (1-u) * (1+v) - w - u*v*w * s ) / 4
+        y = y + x(5)  * w*(2*w-1)
+        y = y + x(6)  * (1+u-w)*(1-u-w)*(1-v-w) * s / 2
+        y = y + x(7)  * (1+v-w)*(1-v-w)*(1+u-w) * s / 2
+        y = y + x(8)  * (1+u-w)*(1-u-w)*(1+v-w) * s / 2
+        y = y + x(9)  * (1+v-w)*(1-v-w)*(1-u-w) * s / 2
+        y = y + x(10) * w * (1-u-w) * (1-v-w) * s
+        y = y + x(11) * w * (1+u-w) * (1-v-w) * s
+        y = y + x(12) * w * (1+u-w) * (1+v-w) * s
+        y = y + x(13) * w * (1-u-w) * (1+v-w) * s
+        RETURN
+      END IF
 
       y = 0.0d0
       DO n = 1,elt % NumberOfNodes
@@ -1414,6 +1647,62 @@ END IF
       END DO
 !------------------------------------------------------------------------------
    END FUNCTION InterpolateInElement3D
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+   SUBROUTINE NodalBasisFunctions3D( y,element,u,v,w )
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  DESCRIPTION:
+!
+!  ARGUMENTS:
+!   Type(Element_t) :: element
+!     INPUT: element structure
+!     
+!    REAL(KIND=dp) :: u
+!     INPUT: Point at which to evaluate the value
+!
+!  FUNCTION VALUE:
+!     REAL(KIND=dp) :: y
+!      value of the quantity y = x(u)
+!    
+!******************************************************************************
+
+     Type(Element_t) :: element
+     REAL(KIND=dp) :: u,v,w,y(:)
+
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+     REAL(KIND=dp) :: s
+
+     INTEGER :: i,n
+
+     Type(ElementType_t), POINTER :: elt
+
+     REAL(KIND=dp), POINTER :: Coeff(:)
+     INTEGER, POINTER :: p(:),q(:),r(:)
+     TYPE(BasisFunctions_t), POINTER :: BasisFunctions(:)
+!------------------------------------------------------------------------------
+
+     elt => element % Type
+     BasisFunctions => elt % BasisFunctions
+
+     DO n=1,Elt % NumberOfNodes
+       p => BasisFunctions(n) % p
+       q => BasisFunctions(n) % q
+       r => BasisFunctions(n) % r
+       Coeff => BasisFunctions(n) % Coeff
+
+       s = 0.0d0
+       DO i=1,BasisFunctions(n) % n
+          s = s + Coeff(i)*u**p(i)*v**q(i)*w**r(i)
+       END DO
+       y(n) = s
+     END DO
+   END SUBROUTINE NodalBasisFunctions3D
 !------------------------------------------------------------------------------
 
 
@@ -1779,6 +2068,72 @@ END IF
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+   SUBROUTINE NodalFirstDerivatives3D( y,element,u,v,w )
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  DESCRIPTION:
+!
+!  ARGUMENTS:
+!   Type(Element_t) :: element
+!     INPUT: element structure
+!     
+!    REAL(KIND=dp) :: 
+!
+!    REAL(KIND=dp) :: u,v
+!     INPUT: Point at which to evaluate the partial derivative
+!
+!  FUNCTION VALUE:
+!     REAL(KIND=dp) :: y
+!      value of the quantity y = @x(u,v)/@u
+!    
+!******************************************************************************
+   !
+   ! Return first partial derivative in u of a quantity x at point u,v
+   !
+
+      Type(Element_t) :: element
+      REAL(KIND=dp) :: u,v,w,y(:,:)
+
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+
+      REAL(KIND=dp) :: s,t,z
+
+      Type(ElementType_t),POINTER :: elt
+      REAL(KIND=dp), POINTER :: Coeff(:)
+      INTEGER, POINTER :: p(:),q(:),r(:)
+      TYPE(BasisFunctions_t), POINTER :: BasisFunctions(:)
+
+      INTEGER :: i,n
+
+      elt => element % Type
+      BasisFunctions => elt % BasisFunctions
+
+      DO n = 1,elt % NumberOfNodes
+        p => BasisFunctions(n) % p
+        q => BasisFunctions(n) % q
+        r => BasisFunctions(n) % r
+        Coeff => BasisFunctions(n) % Coeff
+
+        s = 0.0d0
+        t = 0.0d0
+        z = 0.0d0
+        DO i = 1,BasisFunctions(n) % n
+          IF (p(i)>=1) s = s + p(i)*Coeff(i)*u**(p(i)-1)*v**q(i)*w**r(i)
+          IF (q(i)>=1) t = t + q(i)*Coeff(i)*u**p(i)*v**(q(i)-1)*w**r(i)
+          IF (r(i)>=1) z = z + r(i)*Coeff(i)*u**p(i)*v**q(i)*w**(r(i)-1)
+        END DO
+        y(n,1) = s
+        y(n,2) = t
+        y(n,3) = z
+      END DO
+   END SUBROUTINE NodalFirstDerivatives3D
+!------------------------------------------------------------------------------
+
+
 
 !------------------------------------------------------------------------------
    FUNCTION SecondDerivatives3D( element,x,u,v,w ) RESULT(ddx)
@@ -1920,6 +2275,146 @@ END IF
 
 
 !------------------------------------------------------------------------------
+   SUBROUTINE NodalBasisFunctions( n, Basis, element, u, v, w)
+!------------------------------------------------------------------------------
+     INTEGER :: n
+     TYPE(Element_t) :: element
+     REAL(KIND=dp) :: Basis(:),u,v,w
+!------------------------------------------------------------------------------
+     INTEGER   :: i, q, dim
+     REAL(KIND=dp) :: NodalBasis(n)
+
+     dim = Element % Type % Dimension
+
+     IF ( isPElement(Element) ) THEN
+       SELECT CASE(dim)
+       CASE(1)
+         CALL NodalBasisFunctions1D( Basis, element, u )
+       CASE(2)
+         IF (isPTriangle(Element)) THEN
+           DO q=1,n
+             Basis(q) = TriangleNodalPBasis(q, u, v)
+           END DO
+         ELSE IF (isPQuad(Element)) THEN
+           DO q=1,n
+             Basis(q) = QuadNodalPBasis(q, u, v)
+           END DO
+         END IF
+       CASE(3)
+         IF (isPTetra( Element )) THEN
+           DO q=1,n
+             Basis(q) = TetraNodalPBasis(q, u, v, w)
+           END DO
+         ELSE IF (isPWedge( Element )) THEN
+           DO q=1,n
+             Basis(q) = WedgeNodalPBasis(q, u, v, w)
+           END DO
+         ELSE IF (isPPyramid( Element )) THEN
+           DO q=1,n
+             Basis(q) = PyramidNodalPBasis(q, u, v, w)
+           END DO
+         ELSE IF (isPBrick( Element )) THEN
+           DO q=1,n
+             Basis(q) = BrickNodalPBasis(q, u, v, w)
+           END DO
+         END IF
+       END SELECT
+     ELSE
+       SELECT CASE( dim )
+       CASE(1)
+         CALL NodalBasisFunctions1D( Basis, element, u )
+       CASE(2)
+         CALL NodalBasisFunctions2D( Basis, element, u,v )
+       CASE(3)
+         IF ( Element % Type % ElementCode/100==6 ) THEN
+           NodalBasis=0
+           DO q=1,n
+             NodalBasis(q)  = 1.0d0
+             Basis(q) = InterpolateInElement3D( element, NodalBasis, u,v,w )
+             NodalBasis(q)  = 0.0d0
+           END DO
+         ELSE
+           CALL NodalBasisFunctions3D( Basis, element, u,v,w )
+         END IF
+       END SELECT
+     END IF
+!------------------------------------------------------------------------------
+   END SUBROUTINE NodalBasisFunctions
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+   SUBROUTINE NodalFirstDerivatives( n, dLBasisdx, element, u, v, w)
+!------------------------------------------------------------------------------
+     INTEGER :: n
+     TYPE(Element_t) :: element
+     REAL(KIND=dp) :: dLBasisdx(:,:),u,v,w
+!------------------------------------------------------------------------------
+     INTEGER   :: i, q, dim
+     REAL(KIND=dp) :: NodalBasis(n)
+
+     dim = Element % Type % Dimension
+
+     IF ( IsPElement(Element) ) THEN
+       SELECT CASE(dim)
+       CASE(1)
+         CALL NodalFirstDerivatives1D( dLBasisdx, element, u )
+       CASE(2)
+         IF (isPTriangle(Element)) THEN
+           DO q=1,n
+             dLBasisdx(q,1:2) = dTriangleNodalPBasis(q, u, v)
+           END DO
+         ELSE IF (isPQuad(Element)) THEN
+           DO q=1,n
+             dLBasisdx(q,1:2) = dQuadNodalPBasis(q, u, v)
+           END DO
+         END IF
+       CASE(3)
+         IF (isPTetra( Element )) THEN
+           DO q=1,n
+             dLBasisdx(q,1:3) = dTetraNodalPBasis(q, u, v, w)
+           END DO
+         ELSE IF (isPWedge( Element )) THEN
+           DO q=1,n
+             dLBasisdx(q,1:3) = dWedgeNodalPBasis(q, u, v, w)
+           END DO
+         ELSE IF (isPPyramid( Element )) THEN
+           DO q=1,n
+             dLBasisdx(q,1:3) = dPyramidNodalPBasis(q, u, v, w)
+           END DO
+         ELSE IF (isPBrick( Element )) THEN
+           DO q=1,n
+             dLBasisdx(q,1:3) = dBrickNodalPBasis(q, u, v, w)
+           END DO
+         END IF
+       END SELECT
+     ELSE
+       SELECT CASE(dim)
+       CASE(1)
+         CALL NodalFirstDerivatives1D( dLBasisdx, element, u )
+       CASE(2)
+         CALL NodalFirstDerivatives2D( dLBasisdx, element, u,v )
+       CASE(3)
+         IF ( Element % Type % ElementCode / 100 == 6 ) THEN
+           NodalBasis=0
+           DO q=1,n
+             NodalBasis(q)  = 1.0d0
+             dLBasisdx(q,1) = FirstDerivativeInU3D(element,NodalBasis,u,v,w)
+             dLBasisdx(q,2) = FirstDerivativeInV3D(element,NodalBasis,u,v,w)
+             dLBasisdx(q,3) = FirstDerivativeInW3D(element,NodalBasis,u,v,w)
+             NodalBasis(q)  = 0.0d0
+           END DO
+         ELSE
+           CALL NodalFirstDerivatives3D( dLBasisdx, element, u,v,w )
+         END IF
+       END SELECT
+     END IF
+!------------------------------------------------------------------------------
+   END SUBROUTINE NodalFirstDerivatives
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
    RECURSIVE FUNCTION ElementInfo( Element, Nodes, u, v, w, detJ, &
      Basis, dBasisdx, ddBasisddx, SecondDerivatives, Bubbles, BasisDegree ) RESULT(stat)
 !------------------------------------------------------------------------------
@@ -1988,7 +2483,6 @@ END IF
           tmp(4), direction(4)
      REAL(KIND=dp) :: LinBasis(8), dLinBasisdx(8,3), ElmMetric(3,3)
 
-!    REAL(KIND=dp), ALLOCATABLE :: NodalBasis(:),dLBasisdx(:,:)
      REAL(KIND=dp) :: NodalBasis(Element % Type % NumberOfNodes), &
              dLBasisdx(MAX(SIZE(Nodes % x),SIZE(Basis)),3)
 
@@ -2008,71 +2502,11 @@ END IF
         RETURN
      END IF
 
-!    ALLOCATE( NodalBasis(n), dLBasisdx(MAX(SIZE(Nodes % x),SIZE(Basis)),3) )
-     NodalBasis(1:n) = 0.0d0
-!------------------------------------------------------------------------------
-!    Basis function derivatives with respect to local coordinates
-!------------------------------------------------------------------------------
-     DO q=1,n
-        NodalBasis(q)  = 1.0d0
-        dLBasisdx(q,:) = 0.0d0
-        SELECT CASE(dim)
-        CASE (1)
-           dLBasisdx(q,1) = FirstDerivative1D( element,NodalBasis,u )
-        CASE (2)
-           ! For triangles with p elements reference element is different so the 
-           ! derivatives are different
-           IF (isPTriangle(Element)) THEN
-              dLBasisdx(q,1:2) = dTriangleNodalPBasis(q, u, v)
-           ELSE 
-              dLBasisdx(q,1) = FirstDerivativeInU2D(element,NodalBasis,u,v)
-              dLBasisdx(q,2) = FirstDerivativeInV2D(element,NodalBasis,u,v)
-           END IF
-        CASE (3)
-           ! For tetras, wedges and pyramids with p elements reference element
-           ! is different than normal one used in Elmer 
-           IF (isPTetra( Element )) THEN
-              dLBasisdx(q,1:3) = dTetraNodalPBasis(q, u, v, w)
-           ELSE IF (isPWedge( Element )) THEN
-              dLBasisdx(q,1:3) = dWedgeNodalPBasis(q, u, v, w)
-           ELSE IF (isPPyramid( Element )) THEN
-              dLBasisdx(q,1:3) = dPyramidNodalPBasis(q, u, v, w)
-           ELSE
-              dLBasisdx(q,1) = FirstDerivativeInU3D(element,NodalBasis,u,v,w)
-              dLBasisdx(q,2) = FirstDerivativeInV3D(element,NodalBasis,u,v,w)
-              dLBasisdx(q,3) = FirstDerivativeInW3D(element,NodalBasis,u,v,w)
-           END IF
-        END SELECT
-        NodalBasis(q) = 0.0d0
-     END DO
+     Basis = 0.0d0
+     CALL NodalBasisFunctions(n, Basis, element, u, v, w)
 
-!------------------------------------------------------------------------------
-!    Basis function values and global derivatives
-!------------------------------------------------------------------------------
-     DO q=1,N
-       NodalBasis(q) = 1.0d0
-       SELECT CASE(dim)
-         CASE (1)
-            Basis(q) = InterpolateInElement1D( element,NodalBasis,u )
-         CASE (2)
-            IF (isPTriangle(Element)) THEN
-               Basis(q) = TriangleNodalPBasis(q,u,v)
-            ELSE 
-               Basis(q) = InterpolateInElement2D( element,NodalBasis,u,v )
-            END IF
-         CASE (3)
-            IF (isPTetra( Element )) THEN
-               Basis(q) = TetraNodalPBasis(q,u,v,w)
-            ELSE IF (isPWedge( Element )) THEN
-               Basis(q) = WedgeNodalPBasis(q,u,v,w)
-            ELSE IF (isPPyramid( Element )) THEN
-               Basis(q) = PyramidNodalPBasis(q,u,v,w)
-            ELSE
-               Basis(q) = InterpolateInElement3D( element,NodalBasis,u,v,w )
-            END IF
-       END SELECT
-       NodalBasis(q) = 0.0d0
-     END DO
+     dLbasisdx = 0.0d0
+     CALL NodalFirstDerivatives(n, dLBasisdx, element, u, v, w)
 
      q = n
 
@@ -2811,23 +3245,26 @@ END IF
 
      ! If degenerate element, dont even try it:
      !-----------------------------------------
-     IF ( .NOT.stat ) THEN
-!       DEALLOCATE( NodalBasis, dLBasisdx )
-        RETURN
-     END IF
+     IF ( .NOT.stat ) RETURN
 
      ! Get global first derivatives:
      !------------------------------
      IF ( PRESENT(dBasisdx) ) THEN
        dBasisdx = 0.0d0
-       dBasisdx(1:q,1:cdim) = MATMUL( dLBasisdx(1:q,1:dim), &
-              TRANSPOSE(LtoGMap(1:cdim,1:dim)) )
+       DO i=1,q
+         DO j=1,cdim
+            DO k=1,dim
+              dBasisdx(i,j) = dBasisdx(i,j) + dLBasisdx(i,k)*LtoGMap(j,k)
+            END DO
+         END DO
+       END DO
      END IF
 
      ! Get matrix of second derivatives, if needed:
      !---------------------------------------------
      IF ( PRESENT(ddBasisddx) .AND. PRESENT(SecondDerivatives) ) THEN
        IF ( SecondDerivatives ) THEN
+         NodalBasis = 0.0d0
          ddBasisddx(1:n,:,:) = 0.0d0
          DO q=1,n
            NodalBasis(q) = 1.0d0
@@ -2837,8 +3274,6 @@ END IF
          END DO
        END IF
      END IF
-
-!    DEALLOCATE( NodalBasis, dLBasisdx )
 
 !------------------------------------------------------------------------------
 !    Generate bubble basis functions, if requested. Bubble basis is as follows:
