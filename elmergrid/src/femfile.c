@@ -746,7 +746,7 @@ int LoadAbaqusOutput(struct FemType *data,char *prefix,int info)
       /* Element set */
       if(argno == 3) { 
 	elset++;
-	strcpy(data->materialname[elset],buffer);
+	strcpy(data->bodyname[elset],buffer);
       }
     case 1934:
       /* Element set continuation */
@@ -1586,9 +1586,8 @@ static void ReorderAnsysNodes(struct FemType *data,int *oldtopology,
 }
 
 
-
 int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
-		   char *prefix,int info)
+		      char *prefix,int info)
 /* This procedure reads the FEM mesh as written by Ansys. */
 {
   int noknots,noelements,nosides,elemcode,sidetype,currenttype;
@@ -1596,21 +1595,14 @@ int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
   int maxindx,*indx,*revindx,topology[100],ind;
   int i,j,k,l,imax,grp,dummyint,*nodeindx,*boundindx,boundarynodes,maxnodes;
   int noansystypes,*ansysdim,*ansysnodes,*ansystypes,boundarytypes;
-  int debug;
+  int debug,namesexist,maxside,sides;
   Real x,y,z,r;
   FILE *in;
   char *cp,line[MAXLINESIZE],filename[MAXFILESIZE],
-    text[MAXNAMESIZE],directoryname[MAXFILESIZE];
+    text[MAXNAMESIZE],text2[MAXNAMESIZE],directoryname[MAXFILESIZE];
 
-#if 0
-  sprintf(directoryname,"%s",prefix);
-  mkdir(directoryname,0700);
-  chdir(directoryname);
 
-  if(info) printf("Loading mesh in Ansys format from directory %s.\n",
-		  directoryname);
-#endif
-
+  /* ExportMesh.header */
 
   sprintf(filename,"%s.header",prefix);
   if ((in = fopen(filename,"r")) == NULL) {
@@ -1618,25 +1610,24 @@ int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
 	   filename);
     return(1);
   }
-  else 
-    printf("Calculating Ansys elementtypes from %s\n",filename);
 
+  if(info) printf("Calculating Ansys elementtypes from %s\n",filename);
   for(i=0;getline;i++);
-  fclose(in);
 
   noansystypes = i-1;
-  printf("LoadAnsysInput: There seems to be %d elementytypes in file %s.\n",
-	 noansystypes,filename);
+  printf("There seems to be %d elementytypes in file %s.\n",noansystypes,filename);
   
   ansysdim = Ivector(1,noansystypes);
   ansysnodes = Ivector(1,noansystypes);
   ansystypes = Ivector(1,noansystypes);
-  
-  in = fopen(filename,"r");
-  
+
+  rewind(in);
   for(i=0;i<=noansystypes;i++) {
     Real dummy1,dummy2,dummy3;
     getline;
+
+    /* Ansys writes decimal points also for integers and therefore these 
+       values are read in as real numbers. */
 
     sscanf(line,"%le %le %le",&dummy1,&dummy2,&dummy3);
 
@@ -1656,46 +1647,36 @@ int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
   printf("Ansys file has %d elements, %d nodes and %d boundary types.\n",
 	 noelements,noknots,boundarytypes);
   
+ /* ExportMesh.names */
 
+  sprintf(filename,"%s.names",prefix);
+  printf("Calculating nodes in file %s\n",filename);
+  in = fopen(filename,"r");
+  if(in == NULL) 
+    namesexist = FALSE;
+  else
+    namesexist = TRUE;
+  printf("namesexist = %d\n",namesexist);
+
+  if(namesexist) printf("Using names of bodies and boundaries\n");
+
+
+  /* ExportMesh.node */
 
   sprintf(filename,"%s.node",prefix);
   if ((in = fopen(filename,"r")) == NULL) {
     printf("LoadAnsysInput: The opening of the nodes-file %s failed!\n",
 	   filename);
-    return(1);
-  }
-  else 
-    printf("Calculating Ansys nodes from %s\n",filename);
-
-  for(i=0;getline;i++);
-  fclose(in);
-
-  printf("LoadAnsysInput: There seems to be %d nodes in file %s.\n",
-	 i,filename);
-  if(i != noknots) printf("Conflicting number of nodes %d vs %d!\n",
-			  i,noknots);
-
-#if 0
-  sprintf(filename,"%s.elem",prefix);
-  if ((in = fopen(filename,"r")) == NULL) {
-    printf("LoadAnsysInput: The opening of the element-file %s failed!\n",
-	   filename);
     return(2);
   }
-  else 
-    printf("Calculating Ansys elements from %s\n",filename);
 
+  if(info) printf("Calculating Ansys nodes from %s\n",filename);
   for(i=0;getline;i++);
-  fclose(in);
-  
-  noelements = i;
-  if(elementtype%100 > 8) noelements /= 2;
 
-  printf("LoadAnsysInput: There seems to be %d elements in file %s.\n",
-	 noelements,filename);
-#endif
+  if(info) printf("LoadAnsysInput: There seems to be %d nodes in file %s.\n",i,filename);
+  if(i != noknots) printf("Conflicting number of nodes %d vs %d!\n",i,noknots);
 
-
+  /* Make room and initialize the mesh */
   InitializeKnots(data);
 
   /* Even 2D elements may form a 3D object! */
@@ -1716,26 +1697,15 @@ int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
   AllocateKnots(data);
 
   indx = Ivector(1,noknots);
+  for(i=1;i<=noknots;i++) indx[i] = 0;
 
-  for(i=1;i<=noknots;i++) 
-    indx[i] = 0;
-
-  sprintf(filename,"%s.node",prefix);
-  if ((in = fopen(filename,"r")) == NULL) {
-    printf("LoadAnsysInput: The opening of the nodes-file %s failed!\n",
-	   filename);
-    return(3);
-  }
-  else 
-    printf("Loading %d Ansys nodes from %s\n",noknots,filename);
-
+  if(info) printf("Loading %d Ansys nodes from %s\n",noknots,filename);
+  rewind(in);
   for(i=1;i<=noknots;i++) {
     getline; cp=line;
 
     indx[i] = next_int(&cp);
     if(cp[0] == '.') cp++;
-
-    printf("ind=%d\n",indx[i]);
 
     x = next_real(&cp);
     if(!cp) x = y = z = 0.0;
@@ -1750,23 +1720,8 @@ int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
     data->x[i] = x;
     data->y[i] = y;
     if(data->dim == 3) data->z[i] = z;
-
-    printf("coord = %.3le %.3le %.3le\n",x,y,z);
-
-#if 0
-    if(i != indx[i]) {
-      printf("Indexes differ: i=%d indx=%d\n",i,indx[i]);
-      printf("line: %s",line);
-    }
-    if(0 && data->dim==3) printf("i:%d  ind:%d  x:%.3lg  y:%.3lg  z:%.3lg\n",
-	   i,indx[i],data->x[i],data->y[i],data->z[i]);
-    if(0 && data->dim==2) printf("i:%d  ind:%d  x:%.3lg  y:%.3lg\n",
-	   i,indx[i],data->x[i],data->y[i]);
-#endif
   }
   fclose(in);
-
-
   
   /* reorder the indexes */
   maxindx = indx[1];
@@ -1787,6 +1742,7 @@ int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
       revindx[i] = i;
   }
 
+  /* ExportMesh.elem */
 
   sprintf(filename,"%s.elem",prefix);
   if ((in = fopen(filename,"r")) == NULL) {
@@ -1794,8 +1750,8 @@ int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
 	   filename);
     return(4);
   }
-  else 
-    printf("Loading %d Ansys elements from %s\n",noelements,filename);
+   
+  if(info) printf("Loading %d Ansys elements from %s\n",noelements,filename);
 
   for(j=1;j<=noelements;j++) {
 
@@ -1831,30 +1787,12 @@ int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
       }
     }
 
-#if 0
-    printf("topology %3d : ",j);
-    for(i=0;i<imax;i++) 
-      printf("%3d ",topology[i]);
-    printf("\n");
-#endif
-
     ReorderAnsysNodes(data,&topology[0],j,ansysdim[k],ansysnodes[k]);
-
-#if 0
-    if(j<10) {
-      printf("elem=%d dim=%d nodes=%d\n",j,ansysdim[k],ansysnodes[k]);
-      for(i=0;i<ansysnodes[k];i++) {
-	l = data->topology[j][i],
-	printf("i=%d ind=%d x=%.3lg y=%.3lg z=%.3lg\n",
-	       i,l,data->x[l],data->y[l],data->z[l]);
-      }	  
-    }
-#endif
   }      
-
-
-
   fclose(in);
+
+
+  /* ExportMesh.boundary */
 
   sprintf(filename,"%s.boundary",prefix);
   printf("Calculating nodes in file %s\n",filename);
@@ -1867,34 +1805,27 @@ int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
   j = 0;
   for(i=0;getline;i++)
     if(!strstr(line,"Boundary")) j++;
-  fclose(in);
 
   boundarynodes = j;
   nosides = 2*boundarynodes;
 
-  if(info) printf("There are %d boundary nodes, thus allocating %d elements\n",
+  if(info) printf("There are %d boundary nodes, allocating %d elements\n",
 		  boundarynodes,nosides);
   AllocateBoundary(bound,nosides);
   nodeindx = Ivector(1,boundarynodes);
   boundindx = Ivector(1,boundarynodes);
 
-
-  j++;
-
-  if ((in = fopen(filename,"r")) == NULL) {
-    printf("LoadAnsysInput: The opening of the boundary-file %s failed!\n",
-	   filename);
-  }
-
   if(info) printf("Loading Ansys boundary from %s\n",filename);
 
-  for(i=1;i<=boundarynodes;i++) 
-    nodeindx[i] = boundindx[i] = 0;
+  for(i=1;i<=boundarynodes;i++) nodeindx[i] = boundindx[i] = 0;
 
+  rewind(in);
+  maxside = 0;
   j = 0;
   for(i=0;getline;i++) {
     if(strstr(line,"Boundary")) {
       sscanf(line,"%d",&sidetype);
+      maxside = MAX(sidetype,maxside);
     }
     else {
       j++;
@@ -1904,21 +1835,57 @@ int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
       boundindx[j] = sidetype;
     }
   }
-  printf("Found %d nodes on boundary %s\n",j,filename);
+  printf("Found %d boundary nodes with %d as maximum side.\n",j,maxside);
   fclose(in);
-    
+
   FindPointParents(data,bound,boundarynodes,nodeindx,boundindx,info);
+
+  if(namesexist) {
+    int bc,bcind,bcind0,*bctypes;
+    
+    bctypes = Ivector(1,maxside);
+
+    printf("maxside = %d\n",maxside);
+
+    data->boundarynamesexist = TRUE;
+    sprintf(filename,"%s.names",prefix);
+    in = fopen(filename,"r");
+
+    for(;;) {
+      if(Getrow(line,in,TRUE)) break;
+      sscanf(line,"%d%s%s%d",&bcind,&text[0],&text2[0],&sides);
+
+      for(i=1;i<=sides;i++) {
+	getline;
+	sscanf(line,"%d%d",&j,&bcind);
+	if(i==1) {
+	  strcpy(data->boundaryname[bcind],text);
+	  bcind0 = bcind;
+	}
+	bctypes[bcind] = bcind0;
+      }
+    }
+    fclose(in);
+
+    if(0) for(i=1;i<=maxside;i++)
+      printf("bctypes = %d %d %s\n",i,bctypes[i],data->boundaryname[bctypes[i]]);
+
+    for(bc=0;bc<MAXBOUNDARIES;bc++) {
+      if(!bound[bc].created) continue;
+      for(i=1;i<=bound[bc].nosides;i++) {
+	j = bound[bc].types[i];
+	if(j) bctypes[bound[bc].types[i]] = bctypes[j];
+      }
+    }   
+
+    free_Ivector(bctypes,1,maxside);    
+  }
 
   free_Ivector(boundindx,1,boundarynodes);
   free_Ivector(nodeindx,1,boundarynodes);
 
-#if 0
-  chdir("..");
-#endif
-
   return(0);
 }
-
 
 
 

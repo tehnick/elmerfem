@@ -17,6 +17,9 @@
 #define MAXNODESD1 9        /* maximum number of 1D nodes */
 #define MAXMAPPINGS 10   
 
+#define MAXBCS 1000
+#define MAXBODIES 100
+
 #define CONPLAIN 0
 #define CONDISCONT 1
 #define CONPERIODIC 2
@@ -177,7 +180,9 @@ struct FemType {
     *material,     /* material for each element */
     **topology,    /* element topology */
     pelems,        /* are there p-type elements */
-    *pelemtypes;
+    *pelemtypes,
+    bodynamesexist,
+    boundarynamesexist;
   int edofs[MAXDOFS],   /* number of dofs in each node */
     eorder[MAXDOFS],    /* does order exist */
     bandwidth[MAXDOFS], /* bandwidth accounting fixed points */
@@ -191,7 +196,8 @@ struct FemType {
       *times;
   Real *dofs[MAXDOFS];  /* degrees of freedom in the mesh */
   char dofname[MAXDOFS][MAXNAMESIZE]; 
-  char materialname[MAXMATERIALS][MAXNAMESIZE];
+  char bodyname[MAXBODIES][MAXNAMESIZE];
+  char boundaryname[MAXBCS][MAXNAMESIZE];
   int noboundaries,              /* number of boundaries */
       boundint[MAXBOUNDARIES],   /* internal material in the boundary */
       boundext[MAXBOUNDARIES],   /* external material in the boundary */

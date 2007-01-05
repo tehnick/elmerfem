@@ -715,15 +715,13 @@ int SaveSolutionElmer(struct FemType *data,struct BoundaryType *bound,
       if(bound[j].created == FALSE) continue;
       
       for(i=1;i<=bound[j].nosides;i++) {
-#if 0
-	printf("type=%d no=%d parent=%d side=%d elemtype=%d\n",
-	       j,i,bound[j].parent[i],bound[j].side[i],data->elementtypes[bound[j].parent[i]]);
-#endif
 	GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],data,ind,&sideelemtype); 
 
 	boundtype = bound[j].types[i];
 
-	if(sideelemtype/100 > 2) 
+	if(data->boundarynamesexist) 
+	  fprintf(out,"%s %d ",data->boundaryname[boundtype],sideelemtype);	  
+	else if(sideelemtype/100 > 2) 
 	  fprintf(out,"bcside%d %d ",boundtype,sideelemtype);
 	else if(sideelemtype/100 > 1) 
 	  fprintf(out,"bcline%d %d ",boundtype,sideelemtype);
@@ -1061,11 +1059,46 @@ int SaveElmerInput(struct FemType *data,
     if(alltypes[i]) 
       fprintf(out,"%-6d %-6d\n",i,bulktypes[i]+sidetypes[i]);
   }
-
   fclose(out);
 
-  chdir("..");
 
+  if(data->boundarynamesexist || data->bodynamesexist) {
+    sprintf(filename,"%s","mesh.names");
+    out = fopen(filename,"w");
+    printf("Saving names info to %s.\n",filename);  
+    if(out == NULL) {
+      printf("opening of file was not successful\n");
+      return(5);
+    }
+    
+    if(data->boundarynamesexist) {
+      int noname;
+      noname = 0;
+      for(i=1;i<MAXBCS;i++) {
+	if(strstr(data->boundaryname[i],"nnbc"))
+	  noname++;
+	else
+	  fprintf(out,"$ %s = %d\n",data->boundaryname[i],i);
+      }
+#if 0
+      if(noname) {
+	fprintf(out,"$ nonamebc =");       
+	for(i=1;i<MAXBCS;i++) 
+	  if(strstr(data->boundaryname[i],"nnbc"))	  
+	    fprintf(out," %d",i);
+	fprintf(out,"\n");
+      }
+#endif
+    }
+    
+    if(data->bodynamesexist) {
+    }
+    
+    fclose(out);
+  }
+  
+  chdir("..");
+  
   return(0);
 }
 

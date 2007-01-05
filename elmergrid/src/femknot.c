@@ -455,6 +455,9 @@ void InitializeKnots(struct FemType *data)
   data->nocorners = 0;
   data->pelems = 0;
 
+  data->boundarynamesexist = FALSE;
+  data->bodynamesexist = FALSE;
+
   data->nopartitions = 1;
   data->partitionexist = FALSE;
   data->periodicexist = FALSE;
@@ -467,9 +470,13 @@ void InitializeKnots(struct FemType *data)
     strcpy(data->dofname[i],""); 
   }
 
-  for(i=0;i<MAXMATERIALS;i++) {
-    strcpy(data->materialname[i],""); 
-    sprintf(data->materialname[i],"%d",i);
+  for(i=0;i<MAXBODIES;i++) {
+    strcpy(data->bodyname[i],""); 
+    sprintf(data->bodyname[i],"nnbody",i);
+  }
+  for(i=0;i<MAXBCS;i++) {
+    strcpy(data->boundaryname[i],""); 
+    sprintf(data->boundaryname[i],"nnbc",i);
   }
 }
 
@@ -821,9 +828,6 @@ void CreateKnots(struct GridType *grid,struct CellType *cell,
     data->boundsolid[i] = grid->boundsolid[i];
     data->boundtype[i] = grid->boundtype[i];
   }
-  
-  for(i=0;i<MAXMATERIALS;i++)
-    sprintf(data->materialname[i],"%d",i);
 
   AllocateKnots(data);
   minsize = 1.0e20;
@@ -5367,9 +5371,6 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
   data->connectexist = FALSE;
 
   maxsidetype = 0;
-  
-  for(i=0;i<MAXMATERIALS;i++)
-    sprintf(data->materialname[i],"%d",i);
 
   AllocateKnots(data);
   indxlength = MAX(data->noknots,data->noelements);
