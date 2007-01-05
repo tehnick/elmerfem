@@ -1778,8 +1778,6 @@ int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
       else 
 	imax = 20;
 
-      if(debug) printf("imax = %d\n",imax);
-
       for(i=8;i<imax;i++) {
 	ind = next_int(&cp);
 	if(cp[0] == '.') cp++;
