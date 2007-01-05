@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.86 2006/12/21 10:48:17 jpr Exp $
+dnl @version $Id: acx_elmer.m4,v 1.87 2006/12/21 12:48:17 jpr Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -52,6 +52,9 @@ fi
 AC_SUBST(ARFLAGS)
 AC_MSG_RESULT($ARFLAGS)
 ])
+
+dnl check fseeko, ftello
+AC_CHECK_FUNCS([ftello fseeko],have_ftello="yes",have_ftello="no")
 
 dnl
 dnl Default optimization flags

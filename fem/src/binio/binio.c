@@ -261,13 +261,22 @@ void FC_FUNC_(binwritechar_,BINWRITECHAR_)(const int *unit,FC_CHAR_PTR(c,len),
 }
 
 
+#ifdef HAVE_FTELLO
 off_t FC_FUNC(binftell,BINFTELL)(const int *unit)
 {
     assert(units[*unit].fd);
-    return ftello(units[*unit].fd);
+    return ftell(units[*unit].fd);
 }
+#else
+long FC_FUNC(binftell,BINFTELL)(const int *unit)
+{
+    assert(units[*unit].fd);
+    return ftell(units[*unit].fd);
+}
+#endif
 
 
+#ifdef HAVE_FSEEKO
 void FC_FUNC(binfseek,BINFSEEK)(const int *unit, const off_t *offset,
                                 const int *whence)
 {
@@ -281,6 +290,21 @@ void FC_FUNC(binfseek,BINFSEEK)(const int *unit, const off_t *offset,
     case 2: fseeko(units[*unit].fd, *offset, SEEK_END); break;
     }
 }
+#else
+void FC_FUNC(binfseek,BINFSEEK)(const int *unit, const long *offset,
+                                const int *whence)
+{
+    assert(units[*unit].fd);
+
+    /* TODO: Check the return value of fseek and take appropriate action in
+     * case of errors.  */
+    switch (*whence) {
+    case 0: fseek(units[*unit].fd, *offset, SEEK_SET); break;
+    case 1: fseek(units[*unit].fd, *offset, SEEK_CUR); break;
+    case 2: fseek(units[*unit].fd, *offset, SEEK_END); break;
+    }
+}
+#endif
 
 
 void FC_FUNC_(strerrorf_,STRERRORF_)(const int *e, FC_CHAR_PTR(s,len),

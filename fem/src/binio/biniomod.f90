@@ -39,13 +39,13 @@ MODULE BinIO
         FUNCTION BinFTell( Unit )
             USE Kinds
             INTEGER, INTENT(IN) :: Unit
-            INTEGER(IntOff_k) :: BinFTell
+            INTEGER(Long_k) :: BinFTell
         END FUNCTION BinFTell
 
         SUBROUTINE BinFSeek( Unit, Offset, Whence )
             USE Kinds
             INTEGER, INTENT(IN) :: Unit
-            INTEGER(IntOff_k), INTENT(IN) :: Offset
+            INTEGER(Long_k), INTENT(IN) :: Offset
             INTEGER, INTENT(IN) :: Whence
         END SUBROUTINE BinFSeek
 

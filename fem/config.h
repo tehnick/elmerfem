@@ -93,6 +93,12 @@
 /* Define if you have a EIOF library. */
 #define HAVE_EIOF 1
 
+/* Define to 1 if you have the `fseeko' function. */
+#define HAVE_FSEEKO 1
+
+/* Define to 1 if you have the `ftello' function. */
+#define HAVE_FTELLO 1
+
 /* Does the fortran environment implement etime */
 #define HAVE_F_ETIME 1
 
@@ -197,6 +203,9 @@
 
 /* Shared lib filename extension */
 #define SHL_EXTENSION ".so"
+
+/* The size of `long', as computed by sizeof. */
+/* #undef SIZEOF_LONG */
 
 /* The size of `off_t', as computed by sizeof. */
 #define SIZEOF_OFF_T 4
