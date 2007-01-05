@@ -265,7 +265,7 @@ void FC_FUNC_(binwritechar_,BINWRITECHAR_)(const int *unit,FC_CHAR_PTR(c,len),
 off_t FC_FUNC(binftell,BINFTELL)(const int *unit)
 {
     assert(units[*unit].fd);
-    return ftell(units[*unit].fd);
+    return ftello(units[*unit].fd);
 }
 #else
 long FC_FUNC(binftell,BINFTELL)(const int *unit)
