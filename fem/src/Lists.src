@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Lists.src,v $
+! * Revision 1.24  2006/12/20 08:04:41  jpr
+! * Added field ValuesChanged to Variable_t structure.
+! *
 ! * Revision 1.23  2006/11/27 10:23:57  jpr
 ! * Removed some execess (unrelated) use of TRIM & POINTER.
 ! *
@@ -74,7 +77,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Lists.src,v 1.23 2006/11/27 10:23:57 jpr Exp $
+! * $Id: Lists.src,v 1.24 2006/12/20 08:04:41 jpr Exp $
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
@@ -469,16 +472,18 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-    FUNCTION StringToLowerCase( to,from ) RESULT(n)
+    FUNCTION StringToLowerCase( to,from,same_len ) RESULT(n)
 !------------------------------------------------------------------------------
       CHARACTER(LEN=*) :: to,from
-      INTEGER :: n
+      LOGICAL, OPTIONAL :: same_len
 !------------------------------------------------------------------------------
+      INTEGER :: n
       INTEGER :: i,j,A=ICHAR('A'),Z=ICHAR('Z'),U2L=ICHAR('a')-ICHAR('A')
 
-      n = MIN( LEN(to), LEN_TRIM(from) )
+      n = LEN(to)
+      IF (.NOT.PRESENT(same_len)) n=MIN(n,LEN_TRIM(from) )
 
-      to = ' '
+      to(n+1:) = ' '
       DO i=1,n
         j = ICHAR( from(i:i) )
         IF ( j >= A .AND. j <= Z ) THEN
@@ -1244,11 +1249,11 @@ TYPE(ValueList_t), POINTER :: ptr
      TYPE(ValueList_t), POINTER :: ptr
 
      INTEGER :: k,n
-     CHARACTER(LEN=MAX_NAME_LEN) :: str
+     CHARACTER(LEN=LEN_TRIM(Name)) :: str
 !------------------------------------------------------------------------------
      IF ( PRESENT(gotIt) ) gotIt = .TRUE.
 
-     k = StringToLowerCase( str,Name )
+     k = StringToLowerCase( str,Name,.TRUE. )
      ptr => List
      DO WHILE( ASSOCIATED(ptr) )
        n = ptr % NameLen
@@ -1309,12 +1314,12 @@ TYPE(ValueList_t), POINTER :: ptr
      INTEGER, POINTER :: IValues(:)
 
      INTEGER :: i,k,N
-     CHARACTER(LEN=MAX_NAME_LEN) :: str
+     CHARACTER(LEN=LEN_TRIM(Name)) :: str
 !------------------------------------------------------------------------------
      IF ( PRESENT(gotIt) ) gotIt = .TRUE.
      NULLIFY( IValues )
 
-     k = StringToLowerCase( str,Name )
+     k = StringToLowerCase( str,Name,.TRUE. )
      ptr => List
      DO WHILE( ASSOCIATED(ptr) )
        n = ptr % NameLen
@@ -1362,11 +1367,11 @@ TYPE(ValueList_t), POINTER :: ptr
      TYPE(ValueList_t), POINTER :: ptr
 
      INTEGER :: k,n
-     CHARACTER(LEN=MAX_NAME_LEN) :: str
+     CHARACTER(LEN=LEN_TRIM(NAME)) :: str
 !------------------------------------------------------------------------------
      IF ( PRESENT(gotIt) ) gotIt = .TRUE.
 
-     k = StringToLowerCase( str,Name )
+     k = StringToLowerCase( str,Name, .TRUE. )
      ptr => List
      DO WHILE( ASSOCIATED(ptr) )
        n = ptr % NameLen
@@ -1405,13 +1410,12 @@ TYPE(ValueList_t), POINTER :: ptr
      CHARACTER(LEN=MAX_NAME_LEN) :: S
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: ptr
-
      INTEGER :: k,n
-     CHARACTER(LEN=MAX_NAME_LEN) :: str
+     CHARACTER(LEN=LEN_TRIM(Name)) :: str
 !------------------------------------------------------------------------------
      IF ( PRESENT(gotIt) ) gotIt = .TRUE.
 
-     k = StringToLowerCase( str,Name )
+     k = StringToLowerCase( str,Name,.TRUE. )
      ptr => List
      DO WHILE( ASSOCIATED(ptr) )
        n = ptr % NameLen
@@ -1459,12 +1463,13 @@ TYPE(ValueList_t), POINTER :: ptr
      REAL(KIND=dp) :: xx,yy,zz
 
      INTEGER :: i,j,k,n
-     CHARACTER(LEN=MAX_NAME_LEN) :: cmd, str
+     CHARACTER(LEN=MAX_NAME_LEN) :: cmd
+     CHARACTER(LEN=LEN_TRIM(NAME)) :: str
 !------------------------------------------------------------------------------
      F = 0.0D0
      IF ( PRESENT(gotIt) ) gotIt = .TRUE.
 
-     k = StringToLowerCase( str,Name )
+     k = StringToLowerCase( str,Name,.TRUE. )
      ptr => List
      DO WHILE( ASSOCIATED(ptr) )
        n = ptr % NameLen
@@ -1541,12 +1546,13 @@ TYPE(ValueList_t), POINTER :: ptr
 
      REAL(KIND=dp) :: T(MAX_FNC)
      INTEGER :: i,j,k,k1,l,l0,l1,lsize
-     CHARACTER(LEN=MAX_NAME_LEN) :: str, cmd
+     CHARACTER(LEN=MAX_NAME_LEN) ::  cmd
+     CHARACTER(LEN=LEN_TRIM(Name)) :: str
 !------------------------------------------------------------------------------
      F = 0.0D0
      IF ( PRESENT(GotIt) ) GotIt = .TRUE.
 
-     k = StringToLowerCase( str,Name )
+     k = StringToLowerCase( str,Name,.TRUE. )
      ptr => List
      DO WHILE( ASSOCIATED(ptr) )
        l = ptr % NameLen
@@ -1799,12 +1805,12 @@ TYPE(ValueList_t), POINTER :: ptr
      TYPE(Variable_t), POINTER :: Variable
 
      INTEGER :: i,j,k,n,N1,N2
-     CHARACTER(LEN=MAX_NAME_LEN) :: str
+     CHARACTER(LEN=LEN_TRIM(Name)) :: str
 !------------------------------------------------------------------------------
      IF ( PRESENT(gotIt) ) gotIt = .TRUE.
      NULLIFY( F ) 
 
-     k = StringToLowerCase( str,Name )
+     k = StringToLowerCase( str,Name,.TRUE. )
      ptr => List
      DO WHILE( ASSOCIATED(ptr) )
        n = ptr % NameLen
@@ -1860,11 +1866,11 @@ TYPE(ValueList_t), POINTER :: ptr
 
      REAL(KIND=dp) :: T(MAX_FNC)
      INTEGER :: i,j,k,nlen,N1,N2
-     CHARACTER(LEN=MAX_NAME_LEN) :: str
+     CHARACTER(LEN=LEN_TRIM(Name)) :: str
 !------------------------------------------------------------------------------
      IF ( PRESENT(gotIt) ) gotIt = .TRUE.
 
-     k = StringToLowerCase( str,Name )
+     k = StringToLowerCase( str,Name,.TRUE. )
      ptr => List
      DO WHILE( ASSOCIATED(ptr) )
        nlen = ptr % NameLen
@@ -1993,10 +1999,10 @@ TYPE(ValueList_t), POINTER :: ptr
 
      REAL(KIND=dp) :: T
      INTEGER :: i,k,l
-     CHARACTER(LEN=MAX_NAME_LEN) :: str
+     CHARACTER(LEN=LEN_TRIM(Name)) :: str
 !------------------------------------------------------------------------------
      F = 0.0D0
-     k = StringToLowerCase( str,Name )
+     k = StringToLowerCase( str,Name,.TRUE. )
 
      ptr => List
      DO WHILE( ASSOCIATED(ptr) )
