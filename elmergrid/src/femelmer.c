@@ -822,8 +822,8 @@ int SaveElmerInput(struct FemType *data,
     return(2);
   }
 
+  connodes = 0;
   if(data->connectexist) {
-    connodes = 0;
     for(i=1;i<=data->noknots;i++) 
       connodes = MAX( connodes, data->connect[i]);
     if(info) printf("Creating %d new nodes for connectivity conditions\n",connodes);
