@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: ElementDescription.src,v $
+! * Revision 1.27  2007/01/08 07:50:01  jpr
+! * Some hand optimizations of ElementInfo.
+! *
 ! * Revision 1.25  2007/01/03 13:30:24  jpr
 ! * OpenMP changes.
 ! *
@@ -125,7 +128,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: ElementDescription.src,v 1.26 2007/01/05 13:11:43 jpr Exp $
+! * $Id: ElementDescription.src,v 1.27 2007/01/08 07:50:01 jpr Exp $
 ! ******************************************************************************/
 
 MODULE ElementDescription
@@ -3241,11 +3244,8 @@ END IF
 
      ! Element (contravariant) metric and square root of determinant
      !--------------------------------------------------------------
-     stat = ElementMetric( q, Element, Nodes, ElmMetric, detJ, dLBasisdx, LtoGMap )
-
-     ! If degenerate element, dont even try it:
-     !-----------------------------------------
-     IF ( .NOT.stat ) RETURN
+     IF ( .NOT. ElementMetric( q, Element, Nodes, &
+           ElmMetric, detJ, dLBasisdx, LtoGMap ) ) RETURN
 
      ! Get global first derivatives:
      !------------------------------
