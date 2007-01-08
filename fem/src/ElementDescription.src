@@ -125,7 +125,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: ElementDescription.src,v 1.25 2007/01/03 13:30:24 jpr Exp $
+! * $Id: ElementDescription.src,v 1.26 2007/01/05 13:11:43 jpr Exp $
 ! ******************************************************************************/
 
 MODULE ElementDescription
@@ -3817,14 +3817,13 @@ END IF
 !    Partial derivatives of global coordinates with respect to local coordinates
 !------------------------------------------------------------------------------
      DO i=1,dim
-        dx(1,i) = SUM( x(1:n)*dLBasisdx(1:n,i) )
-        dx(2,i) = SUM( y(1:n)*dLBasisdx(1:n,i) )
-        dx(3,i) = SUM( z(1:n)*dLBasisdx(1:n,i) )
+       dx(1,i) = SUM( x(1:n)*dLBasisdx(1:n,i) )
+       dx(2,i) = SUM( y(1:n)*dLBasisdx(1:n,i) )
+       dx(3,i) = SUM( z(1:n)*dLBasisdx(1:n,i) )
      END DO
 !------------------------------------------------------------------------------
 !    Compute the covariant metric tensor of the element coordinate system
 !------------------------------------------------------------------------------
-     G = 0.0d0
      DO i=1,dim
         DO j=1,dim
            s = 0.0d0
@@ -3902,7 +3901,15 @@ END IF
          DetG = SQRT(DetG)
      END SELECT
 
-     LtoGMap(1:cdim,1:dim) = MATMUL(dx(1:cdim,1:dim),Metric(1:dim,1:dim))
+     DO i=1,cdim
+       DO j=1,dim
+         s = 0.0d0
+         DO k=1,dim
+           s = s + dx(i,k) * Metric(k,j)
+         END DO
+         LtoGMap(i,j) = s
+       END DO
+     END DO
 !------------------------------------------------------------------------------
    END FUNCTION ElementMetric
 !------------------------------------------------------------------------------
