@@ -3203,7 +3203,7 @@ end:
     if(noknots == 0 || noelements == 0 || maxnodes == 0) {
        printf("Invalid mesh consits of %d knots and %d %d-node elements.\n",
 	     noknots,noelements,maxnodes);     
-       close(in);
+       fclose(in);
        return(2);
     }
 
@@ -3222,7 +3222,7 @@ end:
 
     goto omstart;    
   }
-  close(in);
+  fclose(in);
 
   if(info) printf("The Comsol mesh was loaded from file %s.\n\n",filename);
   return(0);

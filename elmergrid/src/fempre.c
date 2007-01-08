@@ -64,6 +64,30 @@
 #include "easymesh.h"
 
 
+#define MAXMETHODS 17
+char *IOmethods[] = {
+  /*0*/ "EG",
+  /*1*/ "ELMERGRID",
+  /*2*/ "ELMERSOLVER",
+  /*3*/ "ELMERPOST",
+  /*4*/ "ANSYS",
+  /*5*/ "IDEAS",
+  /*6*/ "ABAQUS",
+  /*7*/ "FIDAP",
+  /*8*/ "EASYMESH",
+  /*9*/ "COMSOL",
+  /*10*/ "FIELDVIEW",
+  /*11*/ "TRIANGLE",
+  /*12*/ "MEDIT",
+  /*13*/ "GID",
+  /*14*/ "GMSH",
+  /*15*/ "PARTITIONED",
+  /*16*/ "NASTRAN",
+  /*17*/ "FASTCAP"
+};
+
+
+
 
 static void Instructions()
 {
@@ -96,22 +120,19 @@ static void Instructions()
   printf("13) .msh      : GID mesh format\n");
   printf("14) .msh      : Gmsh mesh format\n");
   printf("15) .ep.i     : Partitioned ElmerPost format\n");
+#if 0
+  printf("16) .msh      : Nastran format\n");
+#endif 
 
   printf("\nThe second parameter defines the output file format:\n");
   printf("1)  .grd      : ElmerGrid file format\n");
   printf("2)  .mesh.*   : ElmerSolver format (also partitioned .part format)\n");
   printf("3)  .ep       : ElmerPost format\n");
-
 #if 0
-  printf("5)  .n .e .s  : Easymesh output format\n");
-  printf("6)  .inp      : Abaqus input format\n");
+  printf("5)  .inp      : Abaqus input format\n");
   printf("7)  .fidap    : Fidap format\n");
-  printf("8)  .side     : free boundaries\n");
-  printf("9) .vf        : view factors of a boundary\n");
-  printf("10) .map      : mapping matrix between Elmergrid grids\n");
-  printf("11) .ep       : Elmer to Elmer mapping.\n");
-  printf("12) .ep       : Elmer to Elmer mapping with mapping file.\n");
-  printf("13) .ep       : Fastcap input format.\n");
+  printf("8)  .n .e .s  : Easymesh output format\n");
+  printf("17) .ep       : Fastcap input format.\n");
 #endif
 
   printf("\nThe third parameter is the name of the input file.\n");
@@ -240,42 +261,46 @@ void InitParameters(struct ElmergridType *eg)
 int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
 {
   int arg,i,dim;
+  char command[MAXLINESIZE];
   
   dim = eg->dim;
 
   printf("Elmergrid reading in-line arguments\n");
 
-  if(strcmp(argv[1],"eg") == 0) eg->inmethod = 0;
-  else if(strcmp(argv[1],"ElmerGrid") == 0) eg->inmethod = 1;
-  else if(strcmp(argv[1],"ElmerSolver") == 0) eg->inmethod = 2;
-  else if(strcmp(argv[1],"ElmerPost") == 0) eg->inmethod = 3;
-  else if(strcmp(argv[1],"Ansys") == 0) eg->inmethod = 4;
-  else if(strcmp(argv[1],"Ideas") == 0) eg->inmethod = 5;
-  else if(strcmp(argv[1],"Abaqus") == 0) eg->inmethod = 6;
-  else if(strcmp(argv[1],"Fidap") == 0) eg->inmethod = 7;
-  else if(strcmp(argv[1],"Easymesh") == 0) eg->inmethod = 8;
-  else if(strcmp(argv[1],"Femlab") == 0) eg->inmethod = 9;
-  else if(strcmp(argv[1],"Comsol") == 0) eg->inmethod = 9;
-  else if(strcmp(argv[1],"Fieldview") == 0) eg->inmethod = 10;
-  else if(strcmp(argv[1],"Triangle") == 0) eg->inmethod = 11;
-  else if(strcmp(argv[1],"Medit") == 0) eg->inmethod = 12;
-  else if(strcmp(argv[1],"Gid") == 0) eg->inmethod = 13;
-  else if(strcmp(argv[1],"Gmsh") == 0) eg->inmethod = 14;
-  else if(strcmp(argv[1],"Partitioned") == 0) eg->inmethod = 15;
-  else eg->inmethod = atoi(argv[1]);
+  /* Type of input file */
+  strcpy(command,argv[1]);
+  for(i=0;i<MAXLINESIZE;i++) command[i] = toupper(command[i]);
+  for(i=0;i<=MAXMETHODS;i++) {
+    if(strstr(command,IOmethods[i])) {
+      eg->inmethod = i;
+      break;
+    }
+  }
+  if(i>MAXMETHODS) eg->inmethod = atoi(argv[1]);
 
-  if(strcmp(argv[2],"ElmerGrid") == 0) eg->outmethod = 1;
-  else if(strcmp(argv[2],"ElmerSolver") == 0) eg->outmethod = 2;
-  else if(strcmp(argv[2],"ElmerPost") == 0) eg->outmethod = 3;
-  else if(strcmp(argv[2],"Fastcap") == 0) eg->outmethod = 13;
-  else eg->outmethod = atoi(argv[2]);
 
+  /* Type of output file (fewer options) */
+  strcpy(command,argv[2]);
+  for(i=0;i<MAXLINESIZE;i++) command[i] = toupper(command[i]);
+  for(i=1;i<=MAXMETHODS;i++) {
+    if(strstr(command,IOmethods[i])) {
+      eg->outmethod = i;
+      break;
+    }
+  }
+  if(i>MAXMETHODS) eg->outmethod = atoi(argv[2]);
+ 
+
+  /* Name of output file */
   strcpy(eg->filesin[0],argv[3]);
   strcpy(eg->filesout[0],eg->filesin[0]);
   strcpy(eg->mapfile,eg->filesin[0]);
 
 
+  /* The optional inline parameters */
+
   for(arg=4;arg <argc; arg++) {
+
     if(strcmp(argv[arg],"-in") ==0 ) {
       if(arg+1 >= argc) {
 	printf("The secondary input file name is required as a paramater\n");
@@ -287,6 +312,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
 	eg->nofilesin++;
       }
     }
+
     if(strcmp(argv[arg],"-out") == 0) {
       if(arg+1 >= argc) {
 	printf("The output name is required as a paramater\n");
@@ -329,6 +355,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
 	if(dim==3) eg->corder[2] = atof(argv[arg+3]);
       }
     }
+
     if(strcmp(argv[arg],"-autoorder") == 0) {
       eg->order = 2;
     }
@@ -708,8 +735,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
 int LoadCommands(char *prefix,struct ElmergridType *eg,
 		 struct GridType *grid, int mode,int info) 
 {
-  char filename[MAXFILESIZE];
-  char command[MAXLINESIZE],params[MAXLINESIZE],*cp;
+  char filename[MAXFILESIZE],command[MAXLINESIZE],params[MAXLINESIZE],*cp;
 
   FILE *in;
   int i,j,k,l,error=0;
@@ -740,44 +766,44 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
       goto end;
     }    
 
+    /* If the mode is the command file mode read also the file information from the command file. */
+
     if(mode == 0) {
       if(strstr(command,"INPUT FILE")) {
 	sscanf(params,"%s",&eg->filesin[0]);
       }
+
       else if(strstr(command,"OUTPUT FILE")) {
 	sscanf(params,"%s",&eg->filesout[0]);
       }
+
       else if(strstr(command,"INPUT MODE")) {
 	for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
-
-	if(strstr(params,"ELMERGRID")) eg->inmethod = 1;
-	else if(strstr(params,"ELMERSOLVER")) eg->inmethod = 2;
-	else if(strstr(params,"ELMERPOST")) eg->inmethod = 3;
-	else if(strstr(params,"ANSYS")) eg->inmethod = 4;
-	else if(strstr(params,"IDEAS")) eg->inmethod = 5;
-	else if(strstr(params,"ABAQUS")) eg->inmethod = 6;
-	else if(strstr(params,"FIDAP")) eg->inmethod = 7;
-	else if(strstr(params,"EASYMESH")) eg->inmethod = 8;
-	else if(strstr(params,"FEMLAB")) eg->inmethod = 9;
-	else if(strstr(params,"COMSOL")) eg->inmethod = 9;
-	else if(strstr(params,"FIELDVIEW")) eg->inmethod = 10;
-	else if(strstr(params,"TRIANGLE")) eg->inmethod = 11;
-	else if(strstr(params,"MEDIT")) eg->inmethod = 12;
-	else if(strstr(params,"GID")) eg->inmethod = 13;
-	else if(strstr(params,"GMSH")) eg->inmethod = 14;
-	else if(strstr(params,"PARTITIONED")) eg->inmethod = 15;
-	else sscanf(params,"%d",&eg->inmethod);
+	
+	for(i=0;i<=MAXMETHODS;i++) {
+	  if(strstr(params,IOmethods[i])) {
+	    eg->inmethod = i;
+	    break;
+	  }
+	}
+	if(i>MAXMETHODS) sscanf(params,"%d",&eg->inmethod);
       }
+
       else if(strstr(command,"OUTPUT MODE")) {
 	for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
-
-	if(strstr(params,"ELMERGRID")) eg->outmethod = 1;
-	else if(strstr(params,"ELMERSOLVER")) eg->outmethod = 2;
-	else if(strstr(params,"ELMERPOST")) eg->outmethod = 3;
-	else if(strstr(params,"FASTCAP")) eg->outmethod = 13;
-	else sscanf(params,"%d",&eg->outmethod);	
+	
+	/* Type of output file (fewer options) */
+	for(i=1;i<=MAXMETHODS;i++) {
+	  if(strstr(params,IOmethods[i])) {
+	    eg->outmethod = i;
+	    break;
+	  }
+	}
+	if(i>MAXMETHODS) sscanf(params,"%d",&eg->outmethod);	
       }
     }    
+    /* End of command file specific part */
+
 
     if(strstr(command,"DECIMALS")) {
       sscanf(params,"%d",&eg->decimals);
@@ -1069,72 +1095,6 @@ end:
 }
 
 
-int RotateTranslateScale(struct FemType *data,struct ElmergridType *eg)
-{
-  int i,j,k;
-  Real x,y,z,xz,yz,yx,zx,zy,xy,cx,cy,cz;
-
-  if(eg->scale) {
-    printf("Scaling mesh with vector [%.3lg %.3lg %.3lg]\n",
-	   eg->cscale[0],eg->cscale[1],eg->cscale[2]);
-    for(i=1;i<=data->noknots;i++) {
-      data->x[i] *= eg->cscale[0]; 
-      data->y[i] *= eg->cscale[1]; 
-      if(data->dim == 3) data->z[i] *= eg->cscale[2]; 
-    }
-    printf("Scaling of mesh finished.\n");
-  }
-  
-  if(eg->rotate) {
-    printf("Rotating mesh with degrees [%.3lg %.3lg %.3lg]\n",
-	   eg->crotate[0],eg->crotate[1],eg->crotate[2]);
-    cx = FM_PI * eg->crotate[0]/180.0;
-    cy = FM_PI * eg->crotate[1]/180.0;
-    cz = FM_PI * eg->crotate[2]/180.0;
-
-    for(i=1;i<=data->noknots;i++) {
-
-      x = data->x[i];
-      if(data->dim >= 2) y = data->y[i];
-      else y = 0.0;
-      if(data->dim >= 3) z = data->z[i];
-      else z = 0.0;
-
-      xz = x*cos(cz) + y*sin(cz);
-      yz = -x*sin(cz) + y*cos(cz);
-      
-      if(data->dim == 3) {
-	yx = yz*cos(cx) + z*sin(cx);
-	zx = -yz*sin(cx) + z*cos(cx);
-	
-	zy = zx*cos(cy) + xz*sin(cy);
-	xy = -zx*sin(cy) + xz*cos(cy);
-	
-	data->x[i] = xy;
-	data->y[i] = yx;
-	data->z[i] = zy;
-      }	
-      else {
-	data->x[i] = xz;
-	data->y[i] = yz;  
-      }
-    }
-    printf("Rotation of mesh finished.\n");
-  }
-
-  if(eg->translate) {
-    printf("Translating the mesh with vector [%.3lg %.3lg %.3lg]\n",
-	   eg->ctranslate[0],eg->ctranslate[1],eg->ctranslate[2]);
-    for(i=1;i<=data->noknots;i++) {
-      data->x[i] += eg->ctranslate[0];
-      data->y[i] += eg->ctranslate[1];
-      if(data->dim == 3) data->z[i] += eg->ctranslate[2];
-    }
-    printf("Translation of mesh finished.\n");
-  }
-
-  return(0);
-}
 
 
 
@@ -1151,6 +1111,7 @@ int main(int argc, char *argv[])
   struct BoundaryType *boundaries[MAXCASES];
   struct ElmergridType eg;
   long ii;
+
 
   printf("\nStarting program Elmergrid\n");
 
@@ -1227,9 +1188,6 @@ int main(int argc, char *argv[])
     if(LoadElmerInput(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],info))
       Goodbye();
     nomeshes++;
-    if(0 && boundaries[nofile]->created) {
-      data[nofile].noboundaries = 1;
-    }
     break;
 
   case 3: 
@@ -1317,7 +1275,6 @@ int main(int argc, char *argv[])
       if(LoadFemlabMesh(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],info)) 
 	Goodbye();
     }
-
     ElementsToBoundaryConditions(&(data[nofile]),boundaries[nofile],TRUE);
     nomeshes++;
     break;
@@ -1433,8 +1390,10 @@ int main(int argc, char *argv[])
       boundaries[k] = (struct BoundaryType*)
 	malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 
 
-      for(j=0;j<MAXBOUNDARIES;j++) 
+      for(j=0;j<MAXBOUNDARIES;j++) {
 	boundaries[k][j].created = FALSE;
+	boundaries[k][j].nosides = FALSE;
+      }
 
       if(grids[k].noboundaries > 0) {
 	for(j=0;j<grids[k].noboundaries;j++) {
@@ -1599,16 +1558,14 @@ int main(int argc, char *argv[])
       ReduceElementOrder(&data[k],eg.reducemat1,eg.reducemat2);
   }
 
-  for(k=0;k<nomeshes;k++) {
+  for(k=0;k<nomeshes;k++) 
     if(eg.increase) IncreaseElementOrder(&data[k],TRUE);
-  }
  
   for(k=0;k<nomeshes;k++) {
     if(eg.merge) 
       MergeElements(&data[k],boundaries[k],eg.order,eg.corder,eg.cmerge,FALSE,TRUE);
     else if(eg.order) 
       ReorderElements(&data[k],boundaries[k],eg.order,eg.corder,TRUE);
-
     if(eg.isoparam) 
       IsoparametricElements(&data[k],boundaries[k],TRUE,info);
   }  
@@ -1656,32 +1613,19 @@ int main(int argc, char *argv[])
   }
 
   for(k=0;k<nomeshes;k++) 
-    RotateTranslateScale(&data[k],&eg);
+    RotateTranslateScale(&data[k],&eg,info);
 
   if(eg.removelowdim) 
     for(k=0;k<nomeshes;k++)
       RemoveLowerDimensionalBoundaries(&data[k],boundaries[k],info);
 
-  if(eg.boundorder) 
+  if(eg.boundorder || eg.bcoffset) 
     for(k=0;k<nomeshes;k++) 
-      RenumberBoundaryTypes(&data[k],boundaries[k],info);
+      RenumberBoundaryTypes(&data[k],boundaries[k],eg.boundorder,eg.bcoffset,info);
 
   if(eg.bulkorder) 
     for(k=0;k<nomeshes;k++) 
       RenumberMaterialTypes(&data[k],boundaries[k],info);
-
-  if(eg.bcoffset) {
-    printf("Adding offset of %d to the BCs\n",eg.bcoffset);
-
-    for(k=0;k<nomeshes;k++) {
-      for(j=0;j < MAXBOUNDARIES;j++) {
-	if(!boundaries[k][j].created) continue;
-	for(i=1; i <= boundaries[k][j].nosides; i++) 
-	  boundaries[k][j].types[i] += eg.bcoffset;
-      }
-    }
-    printf("Renumbering boundary types finished\n");
-  }
 
   if(eg.sidemappings) {
     int currenttype;
@@ -1729,20 +1673,14 @@ int main(int argc, char *argv[])
   }
 
 
-  for(k=0;k<nomeshes;k++) {
-    if(eg.periodicdim[0] || eg.periodicdim[1] || eg.periodicdim[2]) {
-      if(info) printf("There seems to be peridic boundaries\n");
+  for(k=0;k<nomeshes;k++) 
+    if(eg.periodicdim[0] || eg.periodicdim[1] || eg.periodicdim[2]) 
       FindPeriodicNodes(&data[k],eg.periodicdim,info);
-    }
-  } 
+
    
   for(k=0;k<nomeshes;k++) {
     if(eg.partitions > 1)
-#if 1
       PartitionSimple(&data[k],eg.partdim,eg.periodicdim,eg.partorder,eg.partcorder,info);	
-#else
-      PartitionSimpleNodes(&data[k],eg.partdim,eg.periodicdim,eg.partorder,eg.partcorder,info);	
-#endif
 #if PARTMETIS
     else if(eg.metis > 1) 
       PartitionMetis(&data[k],eg.metis,info);
@@ -1843,15 +1781,18 @@ int main(int argc, char *argv[])
     break;
 
   case 3:
+    for(k=0;k<nomeshes;k++) 
+      SaveSolutionElmer(&data[k],boundaries[k],eg.saveboundaries ? MAXBOUNDARIES:0,
+			eg.filesout[k],eg.decimals,info);
+    break;
+
   case 4:
+    printf("The output number 4 still refers to ep-file but will become obsolite in time\n");
+    printf("Rather use number 3 for ElmerPost output format\n");
     for(k=0;k<nomeshes;k++) {
       SaveSolutionElmer(&data[k],boundaries[k],eg.saveboundaries ? MAXBOUNDARIES:0,
 			eg.filesout[k],eg.decimals,info);
     }
-    break;
-
-  case 5:
-    EasymeshSave();
     break;
 
   case 6:
@@ -1863,8 +1804,21 @@ int main(int argc, char *argv[])
     for(k=0;k<nomeshes;k++)
       SaveFidapOutput(&data[k],eg.filesout[k],info,1,data[k].dofs[1]);
     break;
-    
+
   case 8:
+    EasymeshSave();
+    break;
+
+  case 17:    
+    for(k=0;k<nomeshes;k++) 
+      SaveFastcapInput(&data[k],boundaries[k],eg.filesout[k],eg.decimals,info);
+    break;
+
+
+    
+    /* Some obsolite special formats related to mapping, view factors etc. */
+    
+  case 101:
     for(k=0;k<nogrids;k++) {   
       for(i=0;i<grids[k].noboundaries;i++)
 	if(boundaries[k][i].created == TRUE) {
@@ -1874,7 +1828,7 @@ int main(int argc, char *argv[])
     }
     break;
     
-  case 9:
+  case 102:
     for(k=0;k<nogrids;k++) {   
       for(i=0;i<grids[k].noboundaries;i++)
 	if(boundaries[k][i].created == TRUE) {
@@ -1888,8 +1842,8 @@ int main(int argc, char *argv[])
 	}
     }
     break;
-    
-  case 10:
+
+  case 103:
     if(nogrids <= 1) printf("No mapping possible for %d grid.\n",nogrids);
     for(k=0;k<nogrids-1;k++) {
       sprintf(prefix,"%s%dto%d",eg.filesout[0],k+1,k+2);
@@ -1899,7 +1853,7 @@ int main(int argc, char *argv[])
     }
     break;
 
-  case 11:
+  case 104:
     if(LoadSolutionElmer(&(data[1]),FALSE,eg.filesin[1],info)) {
       printf("The reading of the input file %s was not succesfull\n",eg.filesin[1]);
       Goodbye();
@@ -1909,7 +1863,7 @@ int main(int argc, char *argv[])
     SaveSolutionElmer(&(data[1]),boundaries[0],0,prefix,eg.decimals,TRUE);
     break;
 
-  case 12:
+  case 105:
     if(LoadSolutionElmer(&(data[1]),FALSE,eg.filesout[1],info)) {
       printf("The reading of the input file %s was not succesfull\n",eg.filesout[1]);
       Goodbye();
@@ -1920,11 +1874,6 @@ int main(int argc, char *argv[])
     SaveSolutionElmer(&(data[1]),boundaries[0],0,prefix,eg.decimals,TRUE);
     break;
 
-  case 13:    
-    for(k=0;k<nomeshes;k++) {
-      SaveFastcapInput(&data[k],boundaries[k],eg.filesout[k],eg.decimals,info);
-    }
-    break;
 
 
   default:

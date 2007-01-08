@@ -63,7 +63,8 @@ int SideToBulkElements(struct FemType *data,struct BoundaryType *bound,
 		       int *sidebulk,int sidetobulk,int info);
 void ReorderElements(struct FemType *data,struct BoundaryType *bound,
 		    int manual,Real corder[],int info);
-void RenumberBoundaryTypes(struct FemType *data,struct BoundaryType *bound,int info);
+void RenumberBoundaryTypes(struct FemType *data,struct BoundaryType *bound,
+			   int renumber, int bcoffset, int info);
 void RenumberMaterialTypes(struct FemType *data,struct BoundaryType *bound,int info);
 void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
 			 struct GridType *grid,
@@ -76,7 +77,6 @@ void MergeElements(struct FemType *data,struct BoundaryType *bound,
 		   int manual,Real corder[],Real eps,int mergebounds,int info);
 void MergeBoundaries(struct FemType *data,struct BoundaryType *bound,int *doubles,int info);
 void SeparateCartesianBoundaries(struct FemType *data,struct BoundaryType *bound,int info);
-
 void ElementsToBoundaryConditions(struct FemType *data,
 				  struct BoundaryType *bound,int info);
 int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info);
@@ -92,5 +92,5 @@ int CreateBoundaryLayer(struct FemType *data,struct BoundaryType *bound,
 			int maxfilters, Real layereps, int info);
 int CreateBoundaryLayerDivide(struct FemType *data,struct BoundaryType *bound,
 			      int nolayers, int *layerbounds, int *layernumber,
-			      Real *layerratios, Real *layerthickness, int *layerparents,
-			      int info);
+			      Real *layerratios, Real *layerthickness, int *layerparents,int info);
+int RotateTranslateScale(struct FemType *data,struct ElmergridType *eg,int info);

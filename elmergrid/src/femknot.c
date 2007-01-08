@@ -3517,50 +3517,62 @@ void ReorderElements(struct FemType *data,struct BoundaryType *bound,
 }
 
 
-void RenumberBoundaryTypes(struct FemType *data,struct BoundaryType *bound,int info)
+void RenumberBoundaryTypes(struct FemType *data,struct BoundaryType *bound,
+			   int renumber, int bcoffset, int info)
 {
   int i,j,k,l,doinit;
   int minbc,maxbc,*mapbc;
   
-  if(info) printf("Setting new boundary types\n");
-  
-  doinit = TRUE;
-  for(j=0;j < MAXBOUNDARIES;j++) {
-    if(!bound[j].created) continue;
-    for(i=1;i<=bound[j].nosides;i++) {
-      if(doinit) {
-	maxbc = minbc = bound[j].types[i];
-	doinit = FALSE;
+  if(renumber) {
+    if(info) printf("Renumbering boundary types\n");
+    
+    doinit = TRUE;
+    for(j=0;j < MAXBOUNDARIES;j++) {
+      if(!bound[j].created) continue;
+      for(i=1;i<=bound[j].nosides;i++) {
+	if(doinit) {
+	  maxbc = minbc = bound[j].types[i];
+	  doinit = FALSE;
+	}
+	maxbc = MAX(maxbc,bound[j].types[i]);
+	minbc = MIN(minbc,bound[j].types[i]);     
       }
-      maxbc = MAX(maxbc,bound[j].types[i]);
-      minbc = MIN(minbc,bound[j].types[i]);     
     }
-  }
-  if(doinit) return;
-
-  mapbc = Ivector(minbc,maxbc);
-  for(i=minbc;i<=maxbc;i++) mapbc[i] = 0;
-  
-  for(j=0;j < MAXBOUNDARIES;j++) {
-    if(!bound[j].created) continue;
-    for(i=1;i<=bound[j].nosides;i++)
-      mapbc[bound[j].types[i]] = TRUE;
-  }
-  
-  j = 0;
-  for(i=minbc;i<=maxbc;i++) 
-    if(mapbc[i]) mapbc[i] = ++j;
-  
-  if(maxbc - minbc >= j || minbc != 1) { 
-    if(info) printf("Mapping boundary types from [%d %d] to [%d %d]\n",minbc,maxbc,1,j);    
+    if(doinit) return;
+    
+    mapbc = Ivector(minbc,maxbc);
+    for(i=minbc;i<=maxbc;i++) mapbc[i] = 0;
     
     for(j=0;j < MAXBOUNDARIES;j++) {
       if(!bound[j].created) continue;
       for(i=1;i<=bound[j].nosides;i++)
-	bound[j].types[i] = mapbc[bound[j].types[i]];
+	mapbc[bound[j].types[i]] = TRUE;
+    }
+    
+    j = 0;
+    for(i=minbc;i<=maxbc;i++) 
+      if(mapbc[i]) mapbc[i] = ++j;
+    
+    if(maxbc - minbc >= j || minbc != 1) { 
+      if(info) printf("Mapping boundary types from [%d %d] to [%d %d]\n",minbc,maxbc,1,j);    
+    
+      for(j=0;j < MAXBOUNDARIES;j++) {
+	if(!bound[j].created) continue;
+	for(i=1;i<=bound[j].nosides;i++)
+	  bound[j].types[i] = mapbc[bound[j].types[i]];
+      }
+    }
+    free_Ivector(mapbc,minbc,maxbc);
+  }
+
+  if(bcoffset) {
+    if(info) printf("Adding offset of %d to the BCs\n",bcoffset);
+    for(j=0;j < MAXBOUNDARIES;j++) {
+      if(!bound[j].created) continue;
+      for(i=1;i<=bound[j].nosides;i++)
+	bound[j].types[i] += bcoffset;
     }
   }
-  free_Ivector(mapbc,minbc,maxbc);
 }  
   
 
@@ -8300,3 +8312,71 @@ int CreateBoundaryLayerDivide(struct FemType *data,struct BoundaryType *bound,
   return(0);
 }
 
+
+
+int RotateTranslateScale(struct FemType *data,struct ElmergridType *eg,int info)
+{
+  int i,j,k;
+  Real x,y,z,xz,yz,yx,zx,zy,xy,cx,cy,cz;
+
+  if(eg->scale) {
+    if(info) printf("Scaling mesh with vector [%.3lg %.3lg %.3lg]\n",
+	   eg->cscale[0],eg->cscale[1],eg->cscale[2]);
+    for(i=1;i<=data->noknots;i++) {
+      data->x[i] *= eg->cscale[0]; 
+      data->y[i] *= eg->cscale[1]; 
+      if(data->dim == 3) data->z[i] *= eg->cscale[2]; 
+    }
+    if(0) printf("Scaling of mesh finished.\n");
+  }
+  
+  if(eg->rotate) {
+    if(info) printf("Rotating mesh with degrees [%.3lg %.3lg %.3lg]\n",
+		    eg->crotate[0],eg->crotate[1],eg->crotate[2]);
+    cx = FM_PI * eg->crotate[0]/180.0;
+    cy = FM_PI * eg->crotate[1]/180.0;
+    cz = FM_PI * eg->crotate[2]/180.0;
+
+    for(i=1;i<=data->noknots;i++) {
+
+      x = data->x[i];
+      if(data->dim >= 2) y = data->y[i];
+      else y = 0.0;
+      if(data->dim >= 3) z = data->z[i];
+      else z = 0.0;
+
+      xz = x*cos(cz) + y*sin(cz);
+      yz = -x*sin(cz) + y*cos(cz);
+      
+      if(data->dim == 3) {
+	yx = yz*cos(cx) + z*sin(cx);
+	zx = -yz*sin(cx) + z*cos(cx);
+	
+	zy = zx*cos(cy) + xz*sin(cy);
+	xy = -zx*sin(cy) + xz*cos(cy);
+	
+	data->x[i] = xy;
+	data->y[i] = yx;
+	data->z[i] = zy;
+      }	
+      else {
+	data->x[i] = xz;
+	data->y[i] = yz;  
+      }
+    }
+    if(0) printf("Rotation of mesh finished.\n");
+  }
+
+  if(eg->translate) {
+    if(info) printf("Translating the mesh with vector [%.3lg %.3lg %.3lg]\n",
+		    eg->ctranslate[0],eg->ctranslate[1],eg->ctranslate[2]);
+    for(i=1;i<=data->noknots;i++) {
+      data->x[i] += eg->ctranslate[0];
+      data->y[i] += eg->ctranslate[1];
+      if(data->dim == 3) data->z[i] += eg->ctranslate[2];
+    }
+    if(0) printf("Translation of mesh finished.\n");
+  }
+
+  return(0);
+}
