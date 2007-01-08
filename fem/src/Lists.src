@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Lists.src,v $
+! * Revision 1.25  2007/01/08 13:37:51  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.24  2006/12/20 08:04:41  jpr
 ! * Added field ValuesChanged to Variable_t structure.
 ! *
@@ -77,7 +80,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Lists.src,v 1.24 2006/12/20 08:04:41 jpr Exp $
+! * $Id: Lists.src,v 1.25 2007/01/08 13:37:51 jpr Exp $
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
@@ -481,9 +484,14 @@ CONTAINS
       INTEGER :: i,j,A=ICHAR('A'),Z=ICHAR('Z'),U2L=ICHAR('a')-ICHAR('A')
 
       n = LEN(to)
-      IF (.NOT.PRESENT(same_len)) n=MIN(n,LEN_TRIM(from) )
+      IF (.NOT.PRESENT(same_len)) THEN
+        i=LEN_TRIM(from)
+        IF ( n>i ) THEN
+          n=i
+          to(n+1:) = ' '
+        END IF
+      END IF
 
-      to(n+1:) = ' '
       DO i=1,n
         j = ICHAR( from(i:i) )
         IF ( j >= A .AND. j <= Z ) THEN
@@ -1247,7 +1255,6 @@ TYPE(ValueList_t), POINTER :: ptr
      INTEGER, OPTIONAL :: minv,maxv
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: ptr
-
      INTEGER :: k,n
      CHARACTER(LEN=LEN_TRIM(Name)) :: str
 !------------------------------------------------------------------------------
@@ -1799,11 +1806,8 @@ TYPE(ValueList_t), POINTER :: ptr
      LOGICAL, OPTIONAL :: gotIt
 !------------------------------------------------------------------------------
      REAL(KIND=dp), POINTER  :: F(:,:)
-
      TYPE(ValueList_t), POINTER :: ptr
-
      TYPE(Variable_t), POINTER :: Variable
-
      INTEGER :: i,j,k,n,N1,N2
      CHARACTER(LEN=LEN_TRIM(Name)) :: str
 !------------------------------------------------------------------------------
@@ -1993,10 +1997,8 @@ TYPE(ValueList_t), POINTER :: ptr
      INTEGER :: N,NodeIndexes(:)
      REAL(KIND=dp) :: F(N)
 !------------------------------------------------------------------------------
-     TYPE(ValueList_t), POINTER :: ptr
-
      TYPE(Variable_t), POINTER :: Variable
-
+     TYPE(ValueList_t), POINTER :: ptr
      REAL(KIND=dp) :: T
      INTEGER :: i,k,l
      CHARACTER(LEN=LEN_TRIM(Name)) :: str
