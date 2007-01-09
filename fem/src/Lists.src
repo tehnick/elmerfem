@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Lists.src,v $
+! * Revision 1.26  2007/01/08 14:26:03  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.25  2007/01/08 13:37:51  jpr
 ! * *** empty log message ***
 ! *
@@ -80,7 +83,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Lists.src,v 1.25 2007/01/08 13:37:51 jpr Exp $
+! * $Id: Lists.src,v 1.26 2007/01/08 14:26:03 jpr Exp $
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
@@ -466,7 +469,7 @@ CONTAINS
          k = ListGetInteger( Model % Bodies(body_id) % Values, 'Equation', &
                  minv=1, maxv=Model % NumberOFEquations )
          IF ( k > 0 ) THEN
-            Flag = ListGetLogical( Model % Equations(k) % Values, Equation,gotIt )
+           Flag = ListGetLogical(Model % Equations(k) % Values,Equation,gotIt)
          END IF
       END IF
 !---------------------------------------------------------------------------
@@ -481,27 +484,28 @@ CONTAINS
       LOGICAL, OPTIONAL :: same_len
 !------------------------------------------------------------------------------
       INTEGER :: n
-      INTEGER :: i,j,A=ICHAR('A'),Z=ICHAR('Z'),U2L=ICHAR('a')-ICHAR('A')
+      INTEGER :: i,j,k,A=ICHAR('A'),Z=ICHAR('Z'),U2L=ICHAR('a')-ICHAR('A')
 
       n = LEN(to)
       IF (.NOT.PRESENT(same_len)) THEN
         i=LEN_TRIM(from)
         IF ( n>i ) THEN
+          to(i+1:n) = ' '
           n=i
-          to(n+1:) = ' '
         END IF
       END IF
 
+      k = 0
       DO i=1,n
         j = ICHAR( from(i:i) )
         IF ( j >= A .AND. j <= Z ) THEN
-          to(i:i) = CHAR(j+U2L) 
+          to(i:i) = CHAR(j+U2L)
         ELSE
           to(i:i) = from(i:i)
         END IF
       END DO
-      i = index(to, '[')
-      IF ( i>0 ) n=i-1
+      k = index(to,'[')
+      IF ( k>0 ) n=k
     END FUNCTION StringToLowerCase
 !------------------------------------------------------------------------------
 
@@ -624,7 +628,8 @@ CONTAINS
       REAL(KIND=dp), POINTER :: Vals(:)
       INTEGER :: i,k,n, DOFs
       LOGICAL :: Found, GlobalBubbles
-      CHARACTER(LEN=MAX_NAME_LEN) :: str, tmpname
+      CHARACTER(LEN=LEN_TRIM(Name)) :: str
+      CHARACTER(LEN=MAX_NAME_LEN) :: tmpname
 double precision :: t1,CPUTime
 !------------------------------------------------------------------------------
       INTERFACE
@@ -638,7 +643,7 @@ double precision :: t1,CPUTime
          END SUBROUTINE InterpolateMeshToMesh
       END INTERFACE
 !------------------------------------------------------------------------------
-      k = StringToLowerCase( str,Name )
+      k = StringToLowerCase( str,Name,.TRUE. )
 
       Tmp => Variables
       DO WHILE( ASSOCIATED(tmp) )
@@ -839,6 +844,44 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
       Var => VariableGet( Variables, Name, ThisOnly=.TRUE. )
       Var % Valid = .TRUE.
+      Var % ValuesChanged = .TRUE.
+
+      IF ( Var % Name == 'flow solution' ) THEN
+        Tmp => VariableGet( Variables, 'Velocity 1', ThisOnly=.TRUE. )
+        IF ( ASSOCIATED(Tmp) ) THEN
+          Tmp % Valid = .TRUE.
+          Tmp % ValuesChanged = .TRUE.
+        END IF
+
+        Tmp => VariableGet( Variables, 'Velocity 2', ThisOnly=.TRUE. )
+        IF ( ASSOCIATED(Tmp) ) THEN
+          Tmp % Valid = .TRUE.
+          Tmp % ValuesChanged = .TRUE.
+        END IF
+
+        IF ( Var % DOFs == 4 ) THEN
+          Tmp  => VariableGet( Variables, 'Velocity 3', ThisOnly=.TRUE. )
+          IF ( ASSOCIATED(Tmp) ) THEN
+            Tmp % Valid = .TRUE.
+            Tmp % ValuesChanged = .TRUE.
+          END IF
+        END IF
+
+        Tmp => VariableGet( Variables, 'Pressure', ThisOnly=.TRUE. )
+        IF ( ASSOCIATED(Tmp) ) THEN
+          Tmp % Valid = .TRUE.
+          Tmp % ValuesChanged = .TRUE.
+        END IF
+      ELSE IF ( Var % DOFs > 1 ) THEN
+        DO i = 1,Var % DOFs
+           tmpname = ComponentName( Name, i )
+           Tmp => VariableGet( Variables, tmpname, ThisOnly=.TRUE. )
+           IF ( ASSOCIATED(Tmp) ) THEN
+             Tmp % Valid = .TRUE.
+             Tmp % ValuesChanged = .TRUE.
+           END IF
+        END DO
+      END IF
 !------------------------------------------------------------------------------
     END FUNCTION VariableGet 
 !------------------------------------------------------------------------------
@@ -877,19 +920,20 @@ CALL Info( 'VariableGet', Message, Level=7 )
   END SUBROUTINE ListDelete
 !------------------------------------------------------------------------------
 
+
 !------------------------------------------------------------------------------
   SUBROUTINE ListRemove( List, Name )
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: str
+     CHARACTER(LEN=LEN_TRIM(Name)) :: str
      INTEGER :: k
      LOGICAL :: Found
      TYPE(ValueList_t), POINTER :: ptr, prev
 !------------------------------------------------------------------------------
      IF ( ASSOCIATED(List) ) THEN
-       k = StringToLowerCase( str,Name )
+       k = StringToLowerCase( str,Name,.TRUE. )
        ptr  => List
        Prev => ptr
        DO WHILE( ASSOCIATED(ptr) )
@@ -912,13 +956,14 @@ CALL Info( 'VariableGet', Message, Level=7 )
    END SUBROUTINE ListRemove
 !------------------------------------------------------------------------------
 
+
 !------------------------------------------------------------------------------
   FUNCTION ListAdd( List, Name ) RESULT(new)
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List, new
      CHARACTER(LEN=*) :: Name
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: str
+     CHARACTER(LEN=LEN_TRIM(Name)) :: str
      INTEGER :: k
      LOGICAL :: Found
      TYPE(ValueList_t), POINTER :: ptr, prev
@@ -929,7 +974,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
      new => ListAllocate()
 
      IF ( ASSOCIATED(List) ) THEN
-       k = StringToLowerCase( str,Name )
+       k = StringToLowerCase( str,Name,.TRUE. )
        ptr  => List
        NULLIFY( prev )
        DO WHILE( ASSOCIATED(ptr) )
@@ -977,9 +1022,9 @@ CALL Info( 'VariableGet', Message, Level=7 )
 TYPE(ValueList_t), POINTER :: ptr
 
      INTEGER :: k,n
-     CHARACTER(LEN=MAX_NAME_LEN) :: str
+     CHARACTER(LEN=LEN_TRIM(Name)) :: str
 !------------------------------------------------------------------------------
-     k = StringToLowerCase( str,Name )
+     k = StringToLowerCase( str,Name,.TRUE. )
      ptr => List
      DO WHILE( ASSOCIATED(ptr) )
        n = ptr % NameLen
@@ -1003,10 +1048,9 @@ TYPE(ValueList_t), POINTER :: ptr
       CHARACTER(LEN=*) :: CValue
       LOGICAL, OPTIONAL :: CaseConversion
 !------------------------------------------------------------------------------
-      CHARACTER(LEN=MAX_NAME_LEN) :: str
       INTEGER :: k
       LOGICAL :: DoCase
-      TYPE(ValueList_t), POINTER :: ptr, PrevPtr
+      TYPE(ValueList_t), POINTER :: ptr
 !------------------------------------------------------------------------------
       ptr => ListAdd( List, Name )
 
@@ -1034,9 +1078,7 @@ TYPE(ValueList_t), POINTER :: ptr
       CHARACTER(LEN=*) :: Name
       LOGICAL :: LValue
 !------------------------------------------------------------------------------
-      INTEGER :: k
-      CHARACTER(LEN=MAX_NAME_LEN) :: str
-      TYPE(ValueList_t), POINTER :: ptr, PrevPtr
+      TYPE(ValueList_t), POINTER :: ptr
 !------------------------------------------------------------------------------
       ptr => ListAdd( List, Name )
       Ptr % LValue = LValue
@@ -1055,9 +1097,7 @@ TYPE(ValueList_t), POINTER :: ptr
       INTEGER :: IValue
       INTEGER(Kind=AddrInt), OPTIONAL :: Proc
 !------------------------------------------------------------------------------
-      INTEGER :: k
-      CHARACTER(LEN=MAX_NAME_LEN) :: str
-      TYPE(ValueList_t), POINTER :: ptr, PrevPtr
+      TYPE(ValueList_t), POINTER :: ptr
 !------------------------------------------------------------------------------
       ptr => ListAdd( List, Name )
       IF ( PRESENT(Proc) ) ptr % Procedure = Proc
@@ -1080,9 +1120,7 @@ TYPE(ValueList_t), POINTER :: ptr
       INTEGER :: IValues(N)
       INTEGER(KIND=AddrInt), OPTIONAL :: Proc
 !------------------------------------------------------------------------------
-      INTEGER :: k
-      CHARACTER(LEN=MAX_NAME_LEN) :: str
-      TYPE(ValueList_t), POINTER :: ptr, PrevPtr
+      TYPE(ValueList_t), POINTER :: ptr
 !------------------------------------------------------------------------------
       ptr => ListAdd( List, Name )
 
@@ -1107,9 +1145,7 @@ TYPE(ValueList_t), POINTER :: ptr
       REAL(KIND=dp) :: FValue
       INTEGER(KIND=AddrInt), OPTIONAL :: Proc
 !------------------------------------------------------------------------------
-      TYPE(ValueList_t), POINTER :: ptr, PrevPtr
-      INTEGER :: k
-      CHARACTER(LEN=MAX_NAME_LEN) :: str
+      TYPE(ValueList_t), POINTER :: ptr
 !------------------------------------------------------------------------------
       ptr => ListAdd( List, Name )
 
@@ -1142,10 +1178,7 @@ TYPE(ValueList_t), POINTER :: ptr
      REAL(KIND=dp) :: TValues(N)
      INTEGER(KIND=AddrInt), OPTIONAL :: Proc
 !------------------------------------------------------------------------------
-     INTEGER :: k
-
-     CHARACTER(LEN=MAX_NAME_LEN) :: str
-     TYPE(ValueList_t), POINTER :: ptr,PrevPtr
+     TYPE(ValueList_t), POINTER :: ptr
 !------------------------------------------------------------------------------
      ptr => ListAdd( List, Name )
      IF ( PRESENT(Proc) ) ptr % Procedure = Proc
@@ -1181,9 +1214,7 @@ TYPE(ValueList_t), POINTER :: ptr
       REAL(KIND=dp) :: FValues(:,:)
       INTEGER(KIND=AddrInt), OPTIONAL :: Proc
 !------------------------------------------------------------------------------
-      INTEGER :: k
-      CHARACTER(LEN=MAX_NAME_LEN) :: str
-      TYPE(ValueList_t), POINTER :: ptr, PrevPtr
+      TYPE(ValueList_t), POINTER :: ptr
 !------------------------------------------------------------------------------
       ptr => ListAdd( List, Name )
 
@@ -1217,9 +1248,7 @@ TYPE(ValueList_t), POINTER :: ptr
      REAL(KIND=dp) :: TValues(N)
      INTEGER(KIND=AddrInt), OPTIONAL :: Proc
 !------------------------------------------------------------------------------
-     INTEGER :: k
-     CHARACTER(LEN=MAX_NAME_LEN) :: str
-     TYPE(ValueList_t), POINTER :: ptr,PrevPtr
+     TYPE(ValueList_t), POINTER :: ptr
 !------------------------------------------------------------------------------
 
      ptr => ListAdd( List, Name )
