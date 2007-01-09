@@ -61,9 +61,9 @@ CONTAINS
     SUBROUTINE HandleStatus( Status, Status_, MsgPrefix )
         INTEGER, OPTIONAL, INTENT(OUT) :: Status
         INTEGER, INTENT(IN) :: Status_
-        CHARACTER(100), INTENT(IN) :: MsgPrefix
-        INTEGER, PARAMETER :: STDERR = 0
+        CHARACTER(LEN=*), INTENT(IN) :: MsgPrefix
         CHARACTER(100) :: Msg
+        INTEGER, PARAMETER :: STDERR = 0
 
         IF ( PRESENT( Status ) ) THEN
             Status = Status_
