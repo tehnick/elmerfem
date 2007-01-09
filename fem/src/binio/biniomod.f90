@@ -62,7 +62,7 @@ CONTAINS
         INTEGER, OPTIONAL, INTENT(OUT) :: Status
         INTEGER, INTENT(IN) :: Status_
         CHARACTER(LEN=*), INTENT(IN) :: MsgPrefix
-        CHARACTER(100) :: Msg
+        CHARACTER(LEN=100) :: Msg
         INTEGER, PARAMETER :: STDERR = 0
 
         IF ( PRESENT( Status ) ) THEN
