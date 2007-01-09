@@ -1,6 +1,7 @@
 # A simple heat equation test
 #
 run:
+	$(ELMER_GRID) 1 2 Mesh
 	$(ELMER_SOLVER)
 
 
