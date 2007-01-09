@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: ElementDescription.src,v $
+! * Revision 1.28  2007/01/08 11:42:08  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.27  2007/01/08 07:50:01  jpr
 ! * Some hand optimizations of ElementInfo.
 ! *
@@ -128,7 +131,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: ElementDescription.src,v 1.27 2007/01/08 07:50:01 jpr Exp $
+! * $Id: ElementDescription.src,v 1.28 2007/01/08 11:42:08 jpr Exp $
 ! ******************************************************************************/
 
 MODULE ElementDescription
@@ -2539,19 +2542,15 @@ END IF
            ! For boundary element integration check direction
            invert = .FALSE.
            IF ( Element % PDefs % isEdge .AND. &
-                Element % NodeIndexes(1) > Element % NodeIndexes(2) ) invert = .TRUE.
+                Element % NodeIndexes(1)>Element % NodeIndexes(2) ) invert = .TRUE.
 
            ! For each bubble in line element get value of basis function
            DO i=1, Element % BDOFs
-              IF (q >= SIZE(Basis)) THEN
-!                WRITE (*,*) 'Not enough space reserved for line p basis'
-                 CYCLE
-              END IF
+              IF (q >= SIZE(Basis)) CYCLE
               q = q + 1
               
               Basis(q) = LineBubblePBasis(i+1,u,invert)
-              dLBasisdx(q,:) = 0
-              dLBasisdx(q,1:1) = dLineBubblePBasis(i+1,u,invert)
+              dLBasisdx(q,1) = dLineBubblePBasis(i+1,u,invert)
               
               ! Polynomial degree of basis function to vector
               IF (degrees) BasisDegree(q) = 1+i
@@ -2574,20 +2573,16 @@ END IF
 
               ! Invert edge for parity if needed
               invert = .FALSE.
-              IF ( Element % NodeIndexes(locali) > Element % NodeIndexes(localj) ) invert = .TRUE.
-                            
+              IF ( Element % NodeIndexes(locali)>Element % NodeIndexes(localj) ) invert=.TRUE.
+
               ! For each dof in edge get value of p basis function 
               DO k=1,Edge % BDOFs
-                 IF (q >= SIZE(Basis)) THEN
-!                   WRITE (*,*) 'Not enough space reserved for edge p basis'
-                    CYCLE
-                 END IF
+                 IF (q >= SIZE(Basis)) CYCLE
                  q = q + 1
                  
                  ! Value of basis functions for edge=i and i=k+1 by parity
                  Basis(q) = TriangleEdgePBasis(i, k+1, u, v, invert)
                  ! Value of derivative of basis function
-                 dLBasisdx(q,:) = 0
                  dLBasisdx(q,1:2) = dTriangleEdgePBasis(i, k+1, u, v, invert)
                  
                  ! Polynomial degree of basis function to vector
@@ -2613,22 +2608,17 @@ END IF
 
            DO i = 0,p-3
               DO j = 0,p-i-3
-                 IF ( q >= SIZE(Basis)  ) THEN
-!                   WRITE (*,*) 'Not enough space reserved for triangle bubble p basis'
-                    CYCLE
-                 END IF
+                 IF ( q >= SIZE(Basis) ) CYCLE
                  q = q + 1
 
                  ! Get bubble basis functions and their derivatives
                  ! 3d Boundary element has a direction
                  IF (Element % PDefs % isEdge) THEN
                     Basis(q) = TriangleEBubblePBasis(i,j,u,v,direction) 
-                    dLBasisdx(q,:)=0
                     dLBasisdx(q,1:2) = dTriangleEBubblePBasis(i,j,u,v,direction)
                  ELSE
                  ! 2d element bubbles have no direction
                     Basis(q) = TriangleBubblePBasis(i,j,u,v) 
-                    dLBasisdx(q,:)=0
                     dLBasisdx(q,1:2) = dTriangleBubblePBasis(i,j,u,v)
                  END IF
                  
@@ -2657,23 +2647,18 @@ END IF
 
               ! For each DOF in edge calculate value of p basis function
               DO k=1,Edge % BDOFs
-                 IF ( q >= SIZE(Basis)  ) THEN
-!                   WRITE (*,*) 'Not enough space reserved for edge p basis'
-                    CYCLE
-                 END IF
+                 IF ( q >= SIZE(Basis) ) CYCLE
                  q = q + 1
 
                  ! For pyramid square face edges use different basis
                  IF (Edge % PDefs % pyramidQuadEdge) THEN
                     Basis(q) = QuadPyraEdgePBasis(i,k+1,u,v,invert)
-                    dLBasisdx(q,:) = 0
                     dLBasisdx(q,1:2) = dQuadPyraEdgePBasis(i,k+1,u,v,invert)
                  ! Normal case, use basis of quadrilateral
                  ELSE
                     ! Get values of basis functions for edge=i and i=k+1 by parity
                     Basis(q) = QuadEdgePBasis(i,k+1,u,v,invert)
                     ! Get value of derivatives of basis functions
-                    dLBasisdx(q,:) = 0
                     dLBasisdx(q,1:2) = dQuadEdgePBasis(i,k+1,u,v,invert)
                  END IF
                  
@@ -2701,22 +2686,17 @@ END IF
            ! and their derivatives for index pairs i,j>=2, i+j=4,...,p
            DO i=2,(p-2)
               DO j=2,(p-i)
-                 IF ( q >= SIZE(Basis) ) THEN
-!                   WRITE (*,*) 'Not enough space reserved for bubble p basis'
-                    CYCLE
-                 END IF
+                 IF ( q >= SIZE(Basis) ) CYCLE
                  q = q + 1
                  
                  ! Get values of bubble functions
                  ! 3D boundary elements have a direction
                  IF (Element % PDefs % isEdge) THEN
                     Basis(q) = QuadBubblePBasis(i,j,u,v,direction)
-                    dLBasisdx(q,:) = 0
                     dLBasisdx(q,1:2) = dQuadBubblePBasis(i,j,u,v,direction)
                  ELSE
                  ! 2d element bubbles have no direction
                     Basis(q) = QuadBubblePBasis(i,j,u,v)
-                    dLBasisdx(q,:) = 0
                     dLBasisdx(q,1:2) = dQuadBubblePBasis(i,j,u,v)
                  END IF
 
@@ -2740,14 +2720,10 @@ END IF
               ! For each DOF in edge calculate value of edge functions 
               ! and their derivatives for edge=i, i=k+1
               DO k=1, Edge % BDOFs
-                 IF (q >= SIZE(Basis)) THEN 
-!                   WRITE (*,*) 'Not enough space reserved for tetra edge p basis'
-                    CYCLE
-                 END IF
+                 IF (q >= SIZE(Basis)) CYCLE
                  q = q + 1
 
                  Basis(q) = TetraEdgePBasis(i,k+1,u,v,w, Element % PDefs % TetraType)
-                 dLBasisdx(q,:) = 0
                  dLBasisdx(q,1:3) = dTetraEdgePBasis(i,k+1,u,v,w, Element % PDefs % TetraType)
 
                  ! Polynomial degree of basis function to vector
@@ -2773,14 +2749,10 @@ END IF
               ! i,j=0,..,p-3, i+j=0,..,p-3
               DO i=0,p-3
                  DO j=0,p-i-3
-                    IF (q >= SIZE(Basis)) THEN 
-!                      WRITE (*,*) 'Not enough space reserved for tetra face p basis'
-                       CYCLE
-                    END IF
+                    IF (q >= SIZE(Basis)) CYCLE
                     q = q + 1 
                     
                     Basis(q) = TetraFacePBasis(F,i,j,u,v,w, Element % PDefs % TetraType)
-                    dLBasisdx(q,:) = 0
                     dLBasisdx(q,1:3) = dTetraFacePBasis(F,i,j,u,v,w, Element % PDefs % TetraType)
 
                     ! Polynomial degree of basis function to vector
@@ -2804,14 +2776,10 @@ END IF
            DO i=0,p-4
               DO j=0,p-i-4
                  DO k=0,p-i-j-4
-                    IF (q >= SIZE(Basis)) THEN
-!                      WRITE (*,*) 'Not enough space reserved for tetra face p basis'
-                       CYCLE
-                    END IF
+                    IF (q >= SIZE(Basis)) CYCLE
                     q = q + 1
 
                     Basis(q) = TetraBubblePBasis(i,j,k,u,v,w)
-                    dLBasisdx(q,:) = 0
                     dLBasisdx(q,1:3) = dTetraBubblePBasis(i,j,k,u,v,w)
 
                     ! Polynomial degree of basis function to vector
@@ -2847,14 +2815,10 @@ END IF
               ! For each DOF in edge calculate values of edge functions
               ! and their derivatives for edge=i and i=k+1
               DO k=1,Edge % BDOFs
-                 IF ( q >= SIZE(Basis)  ) THEN
-!                   WRITE (*,*) 'Not enough space reserved for pyramid edge p basis'
-                    CYCLE
-                 END IF
+                 IF ( q >= SIZE(Basis) ) CYCLE
                  q = q + 1
 
                  ! Get values of edge basis functions and their derivatives
-                 dLBasisdx(q,:)  = 0
                  Basis(q) = PyramidEdgePBasis(i,k+1,u,v,w,invert)
                  dLBasisdx(q,1:3) = dPyramidEdgePBasis(i,k+1,u,v,w,invert)
 
@@ -2888,13 +2852,9 @@ END IF
                  ! pairs i,j=2,..,p-2 i+j=4,..,p
                  DO i=2,p-2
                     DO j=2,p-i
-                       IF ( q >= SIZE(Basis)  ) THEN
-!                         WRITE (*,*) 'Not enough space reserved for pyramid face p basis'
-                          CYCLE
-                       END IF
+                       IF ( q >= SIZE(Basis) ) CYCLE
                        q = q + 1
                        
-                       dLBasisdx(q,:) = 0
                        Basis(q) = PyramidFacePBasis(F,i,j,u,v,w,direction)
                        dLBasisdx(q,:) = dPyramidFacePBasis(F,i,j,u,v,w,direction)
                        
@@ -2913,13 +2873,9 @@ END IF
                  ! pairs i,j=0,..,p-3 i+j=0,..,p-3
                  DO i=0,p-3
                     DO j=0,p-i-3
-                       IF ( q >= SIZE(Basis)  ) THEN
-!                         WRITE (*,*) 'Not enough space reserved for pyramid face p basis'
-                          CYCLE
-                       END IF
+                       IF ( q >= SIZE(Basis) ) CYCLE
                        q = q + 1
 
-                       dLBasisdx(q,:) = 0
                        Basis(q) = PyramidFacePBasis(F,i,j,u,v,w,direction)
                        dLBasisdx(q,:) = dPyramidFacePBasis(F,i,j,u,v,w,direction)
 
@@ -2944,13 +2900,9 @@ END IF
            DO i=0,p-4
               DO j=0,p-i-4
                  DO k=0,p-i-j-4
-                    IF ( q >= SIZE(Basis)) THEN
-!                      WRITE (*,*) 'Not enough space reserved for pyramid bubble p basis'
-                       CYCLE
-                    END IF
+                    IF ( q >= SIZE(Basis)) CYCLE
                     q = q + 1
 
-                    dLBasisdx(q,:) = 0
                     Basis(q) = PyramidBubblePBasis(i,j,k,u,v,w)
                     dLBasisdx(q,:) = dPyramidBubblePBasis(i,j,k,u,v,w)
                     
@@ -2986,10 +2938,7 @@ END IF
               ! For each DOF in edge calculate values of edge functions
               ! and their derivatives for edge=i and i=k+1
               DO k=1,Edge % BDOFs
-                 IF ( q >= SIZE(Basis)  ) THEN
-!                   WRITE (*,*) 'Not enough space reserved for wedge edge p basis'
-                    CYCLE
-                 END IF
+                 IF ( q >= SIZE(Basis) ) CYCLE
                  q = q + 1
 
                  ! Use basis compatible with pyramid if neccessary
@@ -2999,7 +2948,6 @@ END IF
                  END IF
 
                  ! Get values of edge basis functions and their derivatives
-                 dLBasisdx(q,:)  = 0
                  Basis(q) = WedgeEdgePBasis(i,k+1,u,v,w,invert)
                  dLBasisdx(q,1:3) = dWedgeEdgePBasis(i,k+1,u,v,w,invert)
 
@@ -3032,13 +2980,9 @@ END IF
                  ! pairs i,j=0,..,p-3 i+j=0,..,p-3
                  DO i=0,p-3
                     DO j=0,p-i-3
-                       IF ( q >= SIZE(Basis)  ) THEN
-!                         WRITE (*,*) 'Not enough space reserved for wedge face p basis'
-                          CYCLE
-                       END IF
+                       IF ( q >= SIZE(Basis) ) CYCLE
                        q = q + 1
 
-                       dLBasisdx(q,:) = 0
                        Basis(q) = WedgeFacePBasis(F,i,j,u,v,w,direction)
                        dLBasisdx(q,:) = dWedgeFacePBasis(F,i,j,u,v,w,direction)
 
@@ -3065,13 +3009,9 @@ END IF
                  ! pairs i,j=2,..,p-2 i+j=4,..,p
                  DO i=2,p-2
                     DO j=2,p-i
-                       IF ( q >= SIZE(Basis)  ) THEN
-!                         WRITE (*,*) 'Not enough space reserved for wedge face p basis'
-                          CYCLE
-                       END IF
+                       IF ( q >= SIZE(Basis) ) CYCLE
                        q = q + 1
 
-                       dLBasisdx(q,:) = 0
                        IF (.NOT. invert) THEN
                           Basis(q) = WedgeFacePBasis(F,i,j,u,v,w,direction)
                           dLBasisdx(q,:) = dWedgeFacePBasis(F,i,j,u,v,w,direction)
@@ -3102,13 +3042,9 @@ END IF
            DO i=0,p-5
               DO j=0,p-5-i
                  DO k=2,p-3-i-j
-                    IF ( q >= SIZE(Basis)  ) THEN
-!                      WRITE (*,*) 'Not enough space reserved for wedge bubble p basis'
-                       CYCLE
-                    END IF
+                    IF ( q >= SIZE(Basis) ) CYCLE
                     q = q + 1
 
-                    dLBasisdx(q,:) = 0
                     Basis(q) = WedgeBubblePBasis(i,j,k,u,v,w)
                     dLBasisdx(q,:) = dWedgeBubblePBasis(i,j,k,u,v,w)
 
@@ -3145,22 +3081,17 @@ END IF
               ! For each DOF in edge calculate values of edge functions
               ! and their derivatives for edge=i and i=k+1
               DO k=1,Edge % BDOFs
-                 IF ( q >= SIZE(Basis)  ) THEN
-!                   WRITE (*,*) 'Not enough space reserved for brick edge p basis'
-                    CYCLE
-                 END IF
+                 IF ( q >= SIZE(Basis) ) CYCLE
                  q = q + 1
 
                  ! For edges connected to pyramid square face, use different basis
                  IF (Edge % PDefs % pyramidQuadEdge) THEN
                     ! Get values of edge basis functions and their derivatives
-                    dLBasisdx(q,:)  = 0
                     Basis(q) = BrickPyraEdgePBasis(i,k+1,u,v,w,invert)
                     dLBasisdx(q,1:3) = dBrickPyraEdgePBasis(i,k+1,u,v,w,invert)
                  ! Normal case. Use standard brick edge functions
                  ELSE
                     ! Get values of edge basis functions and their derivatives
-                    dLBasisdx(q,:)  = 0
                     Basis(q) = BrickEdgePBasis(i,k+1,u,v,w,invert)
                     dLBasisdx(q,1:3) = dBrickEdgePBasis(i,k+1,u,v,w,invert)
                  END IF
@@ -3191,13 +3122,8 @@ END IF
               ! pairs i,j=2,..,p-2 i+j=4,..,p
               DO i=2,p-2
                  DO j=2,p-i
-                    IF ( q >= SIZE(Basis)  ) THEN
-!                      WRITE (*,*) 'Not enough space reserved for brick face p basis'
-                       CYCLE
-                    END IF
+                    IF ( q >= SIZE(Basis) ) CYCLE
                     q = q + 1
-
-                    dLBasisdx(q,:) = 0
                     Basis(q) = BrickFacePBasis(F,i,j,u,v,w,direction)
                     dLBasisdx(q,:) = dBrickFacePBasis(F,i,j,u,v,w,direction)
 
@@ -3221,13 +3147,8 @@ END IF
            DO i=2,p-4
               DO j=2,p-i-2
                  DO k=2,p-i-j
-                    IF ( q >= SIZE(Basis)  ) THEN
-!                      WRITE (*,*) 'Not enough space reserved for brick bubble p basis'
-                       CYCLE
-                    END IF
+                    IF ( q >= SIZE(Basis) ) CYCLE
                     q = q + 1
-
-                    dLBasisdx(q,:) = 0
                     Basis(q) = BrickBubblePBasis(i,j,k,u,v,w)
                     dLBasisdx(q,:) = dBrickBubblePBasis(i,j,k,u,v,w)
 

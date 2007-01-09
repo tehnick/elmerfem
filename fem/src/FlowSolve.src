@@ -39,6 +39,9 @@
 ! ****************************************************************************/
 ! *
 ! * $Log: FlowSolve.src,v $
+! * Revision 1.28  2006/12/21 08:37:52  jpr
+! * Removed some experimental code....
+! *
 ! * Revision 1.27  2006/12/19 11:53:04  jpr
 ! * Small formatting changes.
 ! *
@@ -175,8 +178,8 @@
     USE NavierStokesCylindrical
 
     USE Adaptive
-    USE FreeSurface
     USE DefUtils
+    USE FreeSurface
 
 !------------------------------------------------------------------------------
     IMPLICIT NONE
@@ -191,35 +194,33 @@
 !------------------------------------------------------------------------------
      TYPE(Matrix_t),POINTER :: StiffMatrix
 
-     INTEGER :: i,j,k,l,n,m,p,q,nb,nd,pn,t,iter,LocalNodes,k1,k2,istat
+     INTEGER :: i,j,k,n,nb,nd,t,iter,LocalNodes,istat
 
-     TYPE(ValueList_t),POINTER :: Material, Equation
+     TYPE(ValueList_t),POINTER :: Material
      TYPE(Nodes_t) :: ElementNodes
-     TYPE(Element_t),POINTER :: Element,Parent,Elm,Constraint
+     TYPE(Element_t),POINTER :: Element
 
      REAL(KIND=dp) :: RelativeChange,UNorm,PrevUNorm,Gravity(3), &
-       Tdiff,Normal(3),s,r,Relaxation,NewtonTol,NonlinearTol, &
+       Tdiff,s,Relaxation,NewtonTol,NonlinearTol, &
        ReferencePressure=0.0, SpecificHeatRatio, &
        PseudoCompressibilityScale=1.0, NonlinearRelax,FreeSTol
 
      INTEGER :: NSDOFs,NewtonIter,NonlinearIter,FreeSIter
 
-     TYPE(Variable_t), POINTER :: FlowSol, TempSol, MagneticSol,CurrentSol
-     TYPE(Variable_t), POINTER :: KinEnergySol,KinDissipationSol,MeshSol
-     TYPE(Variable_t), POINTER :: SurfSol, FlowStress, DensitySol
+     TYPE(Variable_t), POINTER :: DensitySol
+     TYPE(Variable_t), POINTER :: FlowSol, TempSol, MeshSol
 
-     INTEGER, POINTER :: FlowPerm(:),TempPerm(:), MagneticPerm(:), KinPerm(:),MeshPerm(:),SurfPerm(:)
+     INTEGER, POINTER :: FlowPerm(:),TempPerm(:), MeshPerm(:)
      REAL(KIND=dp), POINTER :: FlowSolution(:), Temperature(:), &
-       MagneticField(:), ElectricCurrent(:), gWork(:,:), &
-         ForceVector(:), KinEnergy(:), KinDissipation(:), LayerThickness(:), &
-           SurfaceRoughness(:),MeshVelocity(:), StressValues(:), FlowStressComp(:)
+        gWork(:,:), ForceVector(:), LayerThickness(:), &
+           SurfaceRoughness(:),MeshVelocity(:)
 
-     REAL(KIND=dp), POINTER :: TempPrev(:), PValues(:)
+     REAL(KIND=dp), POINTER :: TempPrev(:)
      REAL(KIND=DP), POINTER :: Pwrk(:,:,:)
 
      LOGICAL :: Stabilize,NewtonLinearization = .FALSE., GotForceBC, GotIt, &
-                  OutFlowBoundary, MBFlag, Convect  = .TRUE., NormalTangential, &
-                  divDiscretization, GradPDiscretization, ComputeStress,ComputeFree=.FALSE.
+                  MBFlag, Convect  = .TRUE., NormalTangential, &
+                  divDiscretization, GradPDiscretization, ComputeFree=.FALSE.
 
 ! Which compressibility model is used
      CHARACTER(LEN=MAX_NAME_LEN) :: CompressibilityFlag, StabilizeFlag, VarName
@@ -232,31 +233,26 @@
          Porous =.FALSE., PotentialForce=.FALSE., Hydrostatic=.FALSE.
 
 
-     REAL(KIND=dp),ALLOCATABLE:: MASS(:,:),STIFF(:,:),&
-         LoadVector(:,:),Viscosity(:),FORCE(:), TimeForce(:), &
-         PrevDensity(:),Density(:),U(:),V(:),W(:),MU(:),MV(:),MW(:), &
-         Pressure(:),Alpha(:),Beta(:),ExtPressure(:),PrevPressure(:), &
-         HeatExpansionCoeff(:), ReferenceTemperature(:), &
-         Permeability(:),Mx(:),My(:),Mz(:), &
-         KECmu(:), LocalTemperature(:), GasConstant(:), HeatCapacity(:), &
-         LocalTempPrev(:),SlipCoeff(:,:), PseudoCompressibility(:), &
-         PseudoPressure(:), PSolution(:), Drag(:,:), PotentialField(:), &
-         PotentialCoefficient(:)
+     REAL(KIND=dp),ALLOCATABLE :: MASS(:,:),STIFF(:,:), LoadVector(:,:), &
+       Viscosity(:),FORCE(:), TimeForce(:), PrevDensity(:),Density(:),   &
+       U(:),V(:),W(:),MU(:),MV(:),MW(:), Pressure(:),Alpha(:),Beta(:),   &
+       ExtPressure(:),PrevPressure(:), HeatExpansionCoeff(:),            &
+       ReferenceTemperature(:), Permeability(:),Mx(:),My(:),Mz(:),       &
+       LocalTemperature(:), GasConstant(:), HeatCapacity(:),             &
+       LocalTempPrev(:),SlipCoeff(:,:), PseudoCompressibility(:),        &
+       PseudoPressure(:), PSolution(:), Drag(:,:), PotentialField(:),    &
+       PotentialCoefficient(:)
 
-     REAL(KIND=dp), ALLOCATABLE, TARGET :: MatrixValues(:), RHSValues(:)
+     SAVE U,V,W,MASS,STIFF,LoadVector,Viscosity, TimeForce,FORCE,ElementNodes,  &
+       Alpha,Beta,ExtPressure,Pressure,PrevPressure, PrevDensity,Density,       &
+       AllocationsDone,LocalNodes, HeatExpansionCoeff,ReferenceTemperature,     &
+       Permeability,Mx,My,Mz,LayerThickness, SlipCoeff, SurfaceRoughness,       &
+       LocalTemperature, GasConstant, HeatCapacity, LocalTempPrev,MU,MV,MW,     &
+       PseudoCompressibilityScale, PseudoCompressibility, PseudoPressure,       &
+       PseudoPressureExists, PSolution, Drag, PotentialField, PotentialCoefficient, &
+       ComputeFree, Indexes
 
-     SAVE U,V,W,MASS,STIFF,LoadVector,Viscosity, &
-         TimeForce,FORCE,ElementNodes,Alpha,Beta,ExtPressure,Pressure,PrevPressure, &
-         PrevDensity,Density, AllocationsDone,LocalNodes, &
-         HeatExpansionCoeff,ReferenceTemperature, &
-         Permeability,Mx,My,Mz,LayerThickness, SlipCoeff, &
-         KECmu, SurfaceRoughness, LocalTemperature, GasConstant, &
-         HeatCapacity, LocalTempPrev,MU,MV,MW,  &
-         PseudoCompressibilityScale, PseudoCompressibility, &
-         PseudoPressure, PseudoPressureExists, PSolution, Drag, ComputeStress, &
-         PotentialField, PotentialCoefficient, ComputeFree, Indexes, MatrixValues, RHSValues
-
-      REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
+      REAL(KIND=dp) :: at,at0,totat,st,totst,CPUTime,RealTime
 !------------------------------------------------------------------------------
 
      INTERFACE
@@ -288,7 +284,7 @@
         END FUNCTION FlowInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.27 2006/12/19 11:53:04 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.28 2006/12/21 08:37:52 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -327,17 +323,6 @@
        END IF
      END IF
 
-     KinEnergySol => VariableGet( Solver % Mesh % Variables, 'Kinetic Energy' )
-     IF ( ASSOCIATED( KinEnergySol ) ) THEN
-       KinPerm   => KinEnergySol % Perm
-       KinEnergy => KinEnergySol % Values
-     END IF
-
-     KinDissipationSol => VariableGet( Solver % Mesh % Variables, 'Kinetic Dissipation')
-     IF ( ASSOCIATED( KinDissipationSol ) ) THEN
-       KinDissipation => KinDissipationSol % Values
-     END IF
-
      MeshSol => VariableGet( Solver % Mesh % Variables, 'Mesh Velocity')
      NULLIFY( MeshVelocity )
      IF ( ASSOCIATED( MeshSol ) ) THEN
@@ -369,15 +354,14 @@
                Pressure,                            &
                PrevPressure,                        &
                PseudoCompressibility,               &
-               PrevDensity,Density,KECmu,           &
+               PrevDensity,Density,                 &
                LayerThickness,                      &
                SurfaceRoughness,                    &
                Permeability,                        &
                Mx,My,Mz,                            &
                SlipCoeff, Drag,                     &
-               TimeForce,FORCE, Viscosity,     &
-               MASS,                     &
-               STIFF,                    &
+               TimeForce,FORCE, Viscosity,          &
+               MASS,  STIFF,                        &
                HeatExpansionCoeff,                  &
                GasConstant, HeatCapacity,           &
                ReferenceTemperature,                & 
@@ -393,7 +377,7 @@
                  Pressure( N ),                          &
                  PrevPressure( N ),                      &
                  PseudoCompressibility( N ),             &
-                 PrevDensity(N),Density( N ),KECmu( N ), &
+                 PrevDensity(N),Density( N ),            &
                  LayerThickness(N),                      &
                  SurfaceRoughness(N),                    &
                  Permeability(N),                        &
@@ -442,11 +426,6 @@
        AllocationsDone = .TRUE.
      END IF
 !------------------------------------------------------------------------------
-
-     FlowStress => VariableGet( Solver % Mesh % Variables, 'Flow Stress' )
-     IF ( ASSOCIATED( FlowStress ) ) THEN
-        StressValues => FlowStress % Values
-     END IF
 
 !------------------------------------------------------------------------------
 !    Do some additional initialization, and go for it
@@ -1436,9 +1415,9 @@ CONTAINS
 !------------------------------------------------------------------------------
 
      TYPE(Nodes_t) :: Nodes, EdgeNodes
-     TYPE(Element_t), POINTER :: Element, Bndry
+     TYPE(Element_t), POINTER :: Element
 
-     INTEGER :: i,j,k,n,l,t,bc,DIM,DOFs,Pn,En
+     INTEGER :: i,k,n,l,t,bc,DIM,DOFs,Pn,En
      LOGICAL :: stat, GotIt, Compressible
 
      REAL(KIND=dp) :: Grad(3,3), Grad1(3,3), Stress(3,3), Normal(3), ForceSolved(3), &
@@ -1450,7 +1429,7 @@ CONTAINS
      REAL(KIND=dp), ALLOCATABLE :: Temperature(:), Tension(:), SlipCoeff(:,:)
      REAL(KIND=dp), ALLOCATABLE :: Velocity(:,:), Pressure(:), Force(:,:), NodalViscosity(:)
 
-     REAL(KIND=dp) :: Source, Residual(3), ResidualNorm, Area, Viscosity, Slip, Dir(3)
+     REAL(KIND=dp) :: Residual(3), ResidualNorm, Viscosity, Slip, Dir(3)
 
      TYPE(Variable_t), POINTER  :: TempSol
      TYPE(ValueList_t), POINTER :: Material
@@ -1801,7 +1780,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
      TYPE(Nodes_t) :: Nodes, EdgeNodes
-     TYPE(Element_t), POINTER :: Element, Bndry
+     TYPE(Element_t), POINTER :: Element
 
      INTEGER :: i,j,k,l,n,t,DIM,DOFs,En,Pn
      LOGICAL :: stat, GotIt
@@ -1815,7 +1794,7 @@ CONTAINS
                EdgeBasis(:), Basis(:), dBasisdx(:,:)
      REAL(KIND=dp), ALLOCATABLE :: Velocity(:,:), Pressure(:)
 
-     REAL(KIND=dp) :: Residual, ResidualNorm, EdgeLength, u, v, w, s, detJ
+     REAL(KIND=dp) :: ResidualNorm, EdgeLength, u, v, w, s, detJ
 
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
 !------------------------------------------------------------------------------
@@ -2044,7 +2023,7 @@ CONTAINS
 
      REAL(KIND=dp) :: SqrtMetric, Metric(3,3), Symb(3,3,3), dSymb(3,3,3,3)
      REAL(KIND=dp) :: Density, Viscosity,u, v, w, s, detJ
-     REAL(KIND=dp) :: Source, Residual(4), ResidualNorm, Area, ReferencePressure, dt
+     REAL(KIND=dp) :: Residual(4), ResidualNorm, Area, ReferencePressure, dt
 
      REAL(KIND=dp), ALLOCATABLE :: NodalViscosity(:), NodalDensity(:), &
             Basis(:),  dBasisdx(:,:), ddBasisddx(:,:,:)
@@ -2054,7 +2033,7 @@ CONTAINS
      REAL(KIND=dp),ALLOCATABLE :: HeatCapacity(:), ReferenceTemperature(:), &
                       HeatExpansionCoeff(:)
 
-     REAL(KIND=dp) :: SpecificHeatRatio, Grad(3,3), Stress(3,3), E
+     REAL(KIND=dp) :: SpecificHeatRatio
 
      REAL(KIND=dp), POINTER :: Gravity(:,:)
 

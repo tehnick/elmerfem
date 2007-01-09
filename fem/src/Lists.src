@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Lists.src,v $
+! * Revision 1.28  2007/01/09 07:15:52  jpr
+! * Some cleaning up of the code.
+! *
 ! * Revision 1.24  2006/12/20 08:04:41  jpr
 ! * Added field ValuesChanged to Variable_t structure.
 ! *
@@ -77,7 +80,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Lists.src,v 1.27 2007/01/09 04:35:18 jpr Exp $
+! * $Id: Lists.src,v 1.28 2007/01/09 07:15:52 jpr Exp $
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
@@ -498,7 +501,7 @@ CONTAINS
           to(i:i) = from(i:i)
         END IF
       END DO
-      k = index(to,'[')
+      k = INDEX(to,'[')
       IF ( k>0 ) n=k
     END FUNCTION StringToLowerCase
 !------------------------------------------------------------------------------
@@ -526,7 +529,6 @@ CONTAINS
         ALLOCATE( ptr )
       END IF
 
-      ptr % Name = ' '
       ptr % NameLen = StringToLowerCase( ptr % Name,Name )
 
       IF ( .NOT. ASSOCIATED(ptr, Variables) ) THEN
@@ -1183,10 +1185,7 @@ TYPE(ValueList_t), POINTER :: ptr
      ptr % FValues(1,1,:) = FValues(1:N)
      ptr % Type = LIST_TYPE_VARIABLE_SCALAR
 
-     ptr % Name = ' '
      ptr % NameLen = StringToLowerCase( ptr % Name,Name )
-
-     ptr % DependName = ' '
      ptr % DepNameLen = StringToLowerCase( ptr % DependName,DependName )
 
      IF ( PRESENT( Cvalue ) ) THEN
@@ -1259,10 +1258,7 @@ TYPE(ValueList_t), POINTER :: ptr
         ptr % Type = LIST_TYPE_VARIABLE_TENSOR_STR
      END IF
 
-     ptr % Name = ' '
      ptr % NameLen = StringToLowerCase( ptr % Name,Name )
-
-     ptr % DependName = ' '
      ptr % DepNameLen = StringToLowerCase( ptr % DependName,DependName )
    END SUBROUTINE ListAddDepRealArray
 !------------------------------------------------------------------------------

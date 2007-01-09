@@ -39,7 +39,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: CRSMatrix.src,v 1.14 2007/01/03 13:30:24 jpr Exp $
+! * $Id: CRSMatrix.src,v 1.15 2007/01/04 08:02:33 jpr Exp $
 ! ******************************************************************************
 
 #include "huti_fdefs.h"
@@ -435,35 +435,77 @@ CONTAINS
  
      INTEGER :: i,j,k,l,c,Row,Col
  
-     INTEGER, POINTER :: Cols(:),Rows(:)
+     INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
      REAL(KIND=dp), POINTER :: Values(:)
 
 !------------------------------------------------------------------------------
 
+     Diag   => A % Diag
      Rows   => A % Rows
      Cols   => A % Cols
      Values => A % Values
 
-     DO i=1,N
-        DO k=0,Dofs-1
-           IF ( Indeces(i) <= 0 ) CYCLE
-           Row = Dofs * Indeces(i) - k
-           DO j=1,N
-              DO l=0,Dofs-1
-                 Col = Dofs * Indeces(j) - l
-                 IF ( Indeces(j) <= 0 ) CYCLE
-                 DO c=Rows(Row),Rows(Row+1)-1
-                    IF ( Cols(c) == Col ) THEN
+     IF ( Dofs == 1 ) THEN
+       DO i=1,N
+         Row = Indeces(i)
+         IF ( Row <=0 ) CYCLE
+         DO j=1,N
+           Col = Indeces(j)
+           IF ( Col <= 0 ) CYCLE
+           IF ( Col >= Row ) THEN
+             DO c=Diag(Row),Rows(Row+1)-1
+               IF ( Cols(c) == Col ) THEN
 !$omp critical
-                       Values(c) = Values(c) + LocalMatrix(Dofs*i-k,Dofs*j-l)
+                 Values(c) = Values(c) + LocalMatrix(i,j)
 !$omp end critical
-                       EXIT
-                    END IF
-                 END DO
-              END DO
-           END DO
+                 EXIT
+               END IF
+             END DO
+           ELSE
+             DO c=Rows(Row),Diag(Row)-1
+               IF ( Cols(c) == Col ) THEN
+!$omp critical
+                 Values(c) = Values(c) + LocalMatrix(i,j)
+!$omp end critical
+                 EXIT
+               END IF
+             END DO
+           END IF
+         END DO
        END DO
-     END DO
+     ELSE
+       DO i=1,N
+          DO k=0,Dofs-1
+             IF ( Indeces(i) <= 0 ) CYCLE
+             Row  = Dofs * Indeces(i) - k
+             DO j=1,N
+                DO l=0,Dofs-1
+                   IF ( Indeces(j) <= 0 ) CYCLE
+                   Col  = Dofs * Indeces(j) - l
+                   IF ( Col >= Row ) THEN
+                     DO c=Diag(Row),Rows(Row+1)-1
+                        IF ( Cols(c) == Col ) THEN
+!$omp critical
+                           Values(c) = Values(c) + LocalMatrix(Dofs*i-k,Dofs*j-l)
+!$omp end critical
+                           EXIT
+                        END IF
+                     END DO
+                   ELSE
+                     DO c=Rows(Row),Diag(Row)-1
+                        IF ( Cols(c) == Col ) THEN
+!$omp critical
+                           Values(c) = Values(c) + LocalMatrix(Dofs*i-k,Dofs*j-l)
+!$omp end critical
+                           EXIT
+                        END IF
+                     END DO
+                   END IF
+                END DO
+             END DO
+          END DO
+       END DO
+     END IF
 
   END SUBROUTINE CRS_GlueLocalMatrix
 !------------------------------------------------------------------------------
@@ -484,8 +526,13 @@ CONTAINS
        i = A % Cols(l)
        IF ( i == n ) CYCLE
 
-       k1 = A % Rows(i)
-       k2 = A % Rows(i+1)-1
+       IF ( n > i ) THEN
+         k1 = A % Diag(i)+1
+         k2 = A % Rows(i+1)-1
+       ELSE 
+         k1 = A % Rows(i)
+         k2 = A % Diag(i)-1
+       END IF
 
        k = k2 - k1 + 1
        IF ( k <= 30 ) THEN
