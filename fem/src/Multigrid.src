@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: Multigrid.src,v 1.15 2006/08/11 13:12:24 jpr Exp $
+! * $Id: Multigrid.src,v 1.16 2006/11/27 10:23:57 jpr Exp $
 ! *****************************************************************************/
 
 MODULE Multigrid
@@ -2181,7 +2181,7 @@ CONTAINS
       END IF
     END DO
     
-    WRITE(Message,'(A,I)') 'Coarse mesh nodes ',cnods
+    WRITE(Message,'(A,I8)') 'Coarse mesh nodes ',cnods
     CALL Info('ChooseCoarseNodes',Message)
 
     WRITE(Message,'(A,F5.1,A)') 'Coarse node fraction',(100.0*cnods)/nods,' %'
@@ -2303,7 +2303,7 @@ CONTAINS
       END IF
 
       IF(k > 0) THEN
-        WRITE(Message,'(A,I)') 'Number of added nodes using CR ',k
+        WRITE(Message,'(A,I8)') 'Number of added nodes using CR ',k
         CALL Info('ChooseCoarseNodes',Message)
         
         GOTO 100
@@ -2321,7 +2321,7 @@ CONTAINS
         END IF
       END DO
 
-      WRITE(Message,'(A,I)') 'Coarse mesh nodes after CR ',cnods
+      WRITE(Message,'(A,I8)') 'Coarse mesh nodes after CR ',cnods
       CALL Info('ChooseCoarseNodes',Message)
       
       WRITE(Message,'(A,F5.1)') 'Coarse node percentage after CR ',(100.0*cnods)/nods
@@ -2548,16 +2548,16 @@ CONTAINS
 
 
     IF(elimnods > 0) THEN
-      WRITE(Message,'(A,I)') 'Number of eliminated nodes',elimnods
+      WRITE(Message,'(A,I8)') 'Number of eliminated nodes',elimnods
       CALL Info('AMGBonds',Message)
     END IF
-    WRITE(Message,'(A,I)') 'Number of possible connections',SIZE(Bonds)
+    WRITE(Message,'(A,I8)') 'Number of possible connections',SIZE(Bonds)
     CALL Info('AMGBonds',Message)
     j = posbonds + negbonds
-    WRITE(Message,'(A,I)') 'Number of strong connections',j
+    WRITE(Message,'(A,I8)') 'Number of strong connections',j
     CALL Info('AMGBonds',Message)
     IF(posbonds > 0) THEN
-      WRITE(Message,'(A,I)') 'Number of positive connections',posbonds
+      WRITE(Message,'(A,I8)') 'Number of positive connections',posbonds
       CALL Info('AMGBonds',Message)
     END IF
     WRITE(Message,'(A,F8.3)') 'Strong bonds for each dof',1.0*j/nods
@@ -2735,12 +2735,12 @@ CONTAINS
     END DO
 
     IF(elimnods > 0) THEN
-      WRITE(Message,'(A,I)') 'Number of eliminated nodes',elimnods
+      WRITE(Message,'(A,I8)') 'Number of eliminated nodes',elimnods
       CALL Info('AMGBondsGeometric',Message)
     END IF
-    WRITE(Message,'(A,I)') 'Number of possible connections',SIZE(Bonds)
+    WRITE(Message,'(A,I8)') 'Number of possible connections',SIZE(Bonds)
     CALL Info('AMGBondsGeometric',Message)
-    WRITE(Message,'(A,I)') 'Number of strong connections',nobonds
+    WRITE(Message,'(A,I8)') 'Number of strong connections',nobonds
     CALL Info('AMGBondsGeometric',Message)
     WRITE(Message,'(A,F8.3)') 'Strong bonds for each dof',1.0*nobonds/nods
     CALL Info('AMGBondsGeometric',Message)
@@ -2886,10 +2886,10 @@ CONTAINS
       negbonds = negbonds + negnew
     END DO
 
-    WRITE(Message,'(A,I)') 'Number of eliminated nodes',elimnods
+    WRITE(Message,'(A,I8)') 'Number of eliminated nodes',elimnods
     CALL Info('AMGBondsComplex',Message)
     j = negbonds
-    WRITE(Message,'(A,I)') 'Number of strong connections',j
+    WRITE(Message,'(A,I8)') 'Number of strong connections',j
     CALL Info('AMGBondsComplex',Message)
     WRITE(Message,'(A,F8.3)') 'Average number of strong bonds for each dof',2.0*j/nods
     CALL Info('AMGBondsComplex',Message)
@@ -3399,16 +3399,16 @@ CONTAINS
         ind = maxi
       END DO
 
-      WRITE(Message,'(A,I)') 'Coarsening algorhitm starts',newstarts
+      WRITE(Message,'(A,I8)') 'Coarsening algorhitm starts',newstarts
       CALL Info('AMGCoarse',Message)
 
     END IF
 
-    WRITE(Message,'(A,I)') 'Coarsening algorhitm tests',loops
+    WRITE(Message,'(A,I8)') 'Coarsening algorhitm tests',loops
     CALL Info('AMGCoarse',Message)
-    WRITE(Message,'(A,I)') 'Coarsening algorhitm c-nodes',cind
+    WRITE(Message,'(A,I8)') 'Coarsening algorhitm c-nodes',cind
     CALL Info('AMGCoarse',Message)
-    WRITE(Message,'(A,I)') 'Coarsening algorhitm f-nodes',find
+    WRITE(Message,'(A,I8)') 'Coarsening algorhitm f-nodes',find
     CALL Info('AMGCoarse',Message)
 
   END SUBROUTINE AMGCoarse
@@ -3864,7 +3864,7 @@ CONTAINS
 
        ! Allocate space for the projection matrix and thereafter do the loop again
        IF(.NOT. AllocationsDone) THEN
-         WRITE(Message,'(A,I)') 'Size of the projector',PRows(Fdofs+1)-1
+         WRITE(Message,'(A,I8)') 'Size of the projector',PRows(Fdofs+1)-1
          CALL Info('InterpolateF2C',Message)
 
          Projector => AllocateMatrix()
@@ -4119,7 +4119,7 @@ CONTAINS
 
        ! Allocate space for the projection matrix and thereafter do the loop again
        IF(.NOT. AllocationsDone) THEN
-         WRITE(Message,'(A,I)') 'Size of the projector',PRows(Fdofs+1)-1
+         WRITE(Message,'(A,I8)') 'Size of the projector',PRows(Fdofs+1)-1
          CALL Info('InterpolateF2CGeometric',Message)
 
          Projector => AllocateMatrix()
