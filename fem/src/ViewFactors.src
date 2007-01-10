@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: $
+! * $Id: ViewFactors.src,v 1.12 2006/01/10 13:48:46 apursula Exp $
 ! ******************************************************************************
 
    MODULE ViewFactorGlobals
@@ -199,336 +199,332 @@
      ! when several radiation boundaries are needed both the original and 
      ! the new elementlist needs to be in the memory. Thus the hazzle.
      
-     CALL AllocateVector( RadElements, Model % NumberOfBoundaryElements, 'ViewFactors' )
-     RadiationBody = 0
-     MaxRadiationBody = 0
+     MinFactor = ListGetConstReal(Solver % Values,'Minimum View Factor',GotIt)
+     IF(.NOT. GotIt) MinFactor = 1.0d-20
 
-100  RadiationBody = RadiationBody + 1
-     WRITE( LMessage,'(A,I2)') 'Computing view factors for radiation body',RadiationBody
-     CALL Info('ViewFactors',LMessage,Level=3)
+     CALL AllocateVector( RadElements, Model % NumberOfBoundaryElements, 'ViewFactors' )
+
+! Check the maximum radiation body
+     MaxRadiationBody = 0
+     DO t= 1, Model % NumberOfBoundaryElements
+       Element => GetBoundaryElement(t)
+       IF ( GetElementFamily() == 1 ) CYCLE
+       BC => GetBC()
+       IF ( .NOT. ASSOCIATED( BC ) ) CYCLE
+
+       IF ( GetLogical( BC, 'Heat Flux BC', GotIt) ) THEN
+         RadiationFlag = GetString( BC, 'Radiation',GotIt )
+         IF ( GotIt .AND. RadiationFlag(1:12) == 'diffuse gray' ) THEN
+           i = MAX(1, GetInteger( BC, 'Radiation Boundary', GotIt ))
+           MaxRadiationBody = MAX(i, MaxRadiationBody)
+         END IF
+       END IF
+     END DO	
+
+     RadiationBody = 0
+     DO RadiationBody = 1, MaxRadiationBody
+       WRITE( LMessage,'(A,I2)') 'Computing view factors for radiation body',RadiationBody
+       CALL Info('ViewFactors',LMessage,Level=3)
     
 !------------------------------------------------------------------------------
 !    Here we start...
 !------------------------------------------------------------------------------
-     RadiationSurfaces = 0
-     MinFactor = ListGetConstReal(Solver % Values,'Minimum View Factor',GotIt)
-     IF(.NOT. GotIt) MinFactor = 1.0d-20
+       RadiationSurfaces = 0
+       RadiationOpen = .FALSE.
 
 !------------------------------------------------------------------------------
 !    loop to get the surfaces participating in radiation, discard the rest
 !    of the elements...
 !------------------------------------------------------------------------------
 
-     IF(RadiationBody == 1) THEN
-       DO t= 1, Model % NumberOfBoundaryElements
+       DO t=1,Model % NumberOfBoundaryElements
          Element => GetBoundaryElement(t)
          IF ( GetElementFamily() == 1 ) CYCLE
+         
          BC => GetBC()
          IF ( .NOT. ASSOCIATED( BC ) ) CYCLE
-
-         IF ( GetLogical( BC, 'Heat Flux BC', GotIt) ) THEN
-           RadiationFlag = GetString( BC, 'Radiation',GotIt )
+         
+         IF ( GetLogical( BC,'Heat Flux BC',GotIt) ) THEN
+           RadiationFlag = GetString( BC, 'Radiation', GotIt )
            IF ( GotIt .AND. RadiationFlag(1:12) == 'diffuse gray' ) THEN
              i = MAX(1, GetInteger( BC, 'Radiation Boundary', GotIt ))
-             MaxRadiationBody = MAX(i, MaxRadiationBody)
+             IF(i == RadiationBody) THEN
+               RadiationOpen = RadiationOpen .OR. GetLogical( BC, 'Radiation Boundary Open', GotIt )
+               RadiationSurfaces = RadiationSurfaces + 1
+               j = t + Model % NumberOFBulkElements
+               RadElements(RadiationSurfaces) = Model % Elements(j)
+             END IF
            END IF
          END IF
        END DO
-     END IF
-
-
-     DO t=1,Model % NumberOfBoundaryElements
-       Element => GetBoundaryElement(t)
-       IF ( GetElementFamily() == 1 ) CYCLE
        
-       BC => GetBC()
-       IF ( .NOT. ASSOCIATED( BC ) ) CYCLE
        
-       IF ( GetLogical( BC,'Heat Flux BC',GotIt) ) THEN
-         RadiationFlag = GetString( BC, 'Radiation', GotIt )
-         IF ( GotIt .AND. RadiationFlag(1:12) == 'diffuse gray' ) THEN
-           i = MAX(1, GetInteger( BC, 'Radiation Boundary', GotIt ))
-           IF(i == RadiationBody) THEN
-             RadiationOpen = GetLogical( BC, 'Radiation Boundary Open', GotIt )
-             RadiationSurfaces = RadiationSurfaces + 1
-             j = t + Model % NumberOFBulkElements
-             RadElements(RadiationSurfaces) = Model % Elements(j)
-           END IF
+       N = RadiationSurfaces
+       
+       IF ( N == 0 ) THEN
+         CALL Warn( 'Viewfactors', 'No surfaces participating in radiation?' )
+         IF(RadiationBody < MaxRadiationBody) THEN
+           CYCLE
+         ELSE
+           CALL Warn( 'Viewfactors', 'Stopping cause nothing to be done...' )
+           STOP
          END IF
        END IF
-     END DO
-
-
-     N = RadiationSurfaces
-
-     IF ( N == 0 ) THEN
-       CALL Warn( 'Viewfactors', 'No surfaces participating in radiation?' )
-       IF(RadiationBody < MaxRadiationBody) THEN
-         GOTO 100
+       
+       WRITE( LMessage,'(A,I9)' ) 'Number of surfaces participating in radiation',N
+       CALL Info('ViewFactors',LMessage)
+       
+       IF ( CylindricSymmetry ) THEN
+         ALLOCATE( Surfaces(2*N), Factors(N*N), STAT=istat )
        ELSE
-         CALL Warn( 'Viewfactors', 'Stopping cause nothing to be done...' )
-         STOP
+         ALLOCATE( Normals(3*N), Factors(N*N),Surfaces(4*N), TYPE(N), STAT=istat )
        END IF
-     END IF
-
-     WRITE( LMessage,'(A,I9)' ) 'Number of surfaces participating in radiation',N
-     CALL Info('ViewFactors',LMessage)
-
-     IF ( CylindricSymmetry ) THEN
-       ALLOCATE( Surfaces(2*N), Factors(N*N), STAT=istat )
-     ELSE
-       ALLOCATE( Normals(3*N), Factors(N*N),Surfaces(4*N), TYPE(N), STAT=istat )
-     END IF
-     IF ( istat /= 0 ) THEN
-       CALL Fatal( 'Viewfactors', 'Memory allocation error. Aborting' )
-     END IF
-
-
-     DO t=1,N
-       Element => RadElements(t)
-       k = Element % Type % NumberOfNodes
-       ElementNodes % x(1:k) = Model % Nodes % x(Element % NodeIndexes)
-       ElementNodes % y(1:k) = Model % Nodes % y(Element % NodeIndexes)
-       ElementNodes % z(1:k) = Model % Nodes % z(Element % NodeIndexes)
-
-       IF ( Element % Type % ElementCode / 100 == 3 ) THEN
-         nrm = NormalVector( Element,ElementNodes, &
-                 1.0d0 / 3.0d0, 1.0d0 / 3.0d0 )
-       ELSE
-         nrm = NormalVector( Element, ElementNodes, 0.0d0, 0.0d0 )
+       IF ( istat /= 0 ) THEN
+         CALL Fatal( 'Viewfactors', 'Memory allocation error. Aborting' )
        END IF
-          
-       LeftBody  = 0
-       IF ( ASSOCIATED(Element % BoundaryInfo % Left) ) &
-         LeftBody  = Element % BoundaryInfo % Left % BodyId
-
-       RightBody  = 0
-       IF ( ASSOCIATED(Element % BoundaryInfo % Right) ) &
-         RightBody  = Element % BoundaryInfo % Right % BodyId
-
-       LeftNode=-1
-       Parent => Element % BoundaryInfo % Left
-       IF ( ASSOCIATED(Parent) ) THEN
-          DO i=1,Parent % Type % NumberOfNodes
-            gotIt =.TRUE.
-            DO j=1,Element % Type % NumberOfNodes
+       
+       DO t=1,N
+         Element => RadElements(t)
+         k = Element % TYPE % NumberOfNodes
+         ElementNodes % x(1:k) = Model % Nodes % x(Element % NodeIndexes)
+         ElementNodes % y(1:k) = Model % Nodes % y(Element % NodeIndexes)
+         ElementNodes % z(1:k) = Model % Nodes % z(Element % NodeIndexes)
+         
+         IF ( Element % TYPE % ElementCode / 100 == 3 ) THEN
+           nrm = NormalVector( Element,ElementNodes, &
+               1.0d0 / 3.0d0, 1.0d0 / 3.0d0 )
+         ELSE
+           nrm = NormalVector( Element, ElementNodes, 0.0d0, 0.0d0 )
+         END IF
+         
+         LeftBody  = 0
+         IF ( ASSOCIATED(Element % BoundaryInfo % Left) ) &
+             LeftBody  = Element % BoundaryInfo % Left % BodyId
+         
+         RightBody  = 0
+         IF ( ASSOCIATED(Element % BoundaryInfo % Right) ) &
+             RightBody  = Element % BoundaryInfo % Right % BodyId
+         
+         LeftNode = -1
+         Parent => Element % BoundaryInfo % Left
+         IF ( ASSOCIATED(Parent) ) THEN
+           DO i=1,Parent % TYPE % NumberOfNodes
+             gotIt =.TRUE.
+             DO j=1,Element % TYPE % NumberOfNodes
                IF ( Element % NodeIndexes(j)==Parent % NodeIndexes(i)) THEN
-                  gotIt=.FALSE.
-                  EXIT
+                 gotIt=.FALSE.
+                 EXIT
                END IF
-            END DO
-            IF (gotIt) THEN
+             END DO
+             IF (gotIt) THEN
                LeftNode = Parent % NodeIndexes(i)
                EXIT
-            END IF
-          END DO
-       END IF
-
-       RightNode=-1
-       Parent => Element % BoundaryInfo % Right
-       IF ( ASSOCIATED(Parent) ) THEN
-          DO i=1,Parent % Type % NumberOfNodes
-            gotIt =.TRUE.
-            DO j=1,Element % Type % NumberOfNodes
+             END IF
+           END DO
+         END IF
+         
+         RightNode=-1
+         Parent => Element % BoundaryInfo % Right
+         IF ( ASSOCIATED(Parent) ) THEN
+           DO i=1,Parent % TYPE % NumberOfNodes
+             gotIt =.TRUE.
+             DO j=1,Element % TYPE % NumberOfNodes
                IF ( Element % NodeIndexes(j)==Parent % NodeIndexes(i)) THEN
-                  gotIt=.FALSE.
-                  EXIT
+                 gotIt=.FALSE.
+                 EXIT
                END IF
-            END DO
-            IF (gotIt) THEN
+             END DO
+             IF (gotIt) THEN
                RightNode = Parent % NodeIndexes(i)
                EXIT
-            END IF
-          END DO
-       END IF
-
-       RadBody = ListGetInteger( Model % BCs( Element %  &
-          BoundaryInfo % Constraint) % Values, 'Radiation Target Body',GotIt )
-
-       IF ( .NOT. GotIt ) THEN
-          RadBody = ListGetInteger( Model % BCs( Element %  &
-             BoundaryInfo % Constraint) % Values, 'Normal Target Body',GotIt )
-       END IF
-
-       IF ( RadBody > 0 .AND. (RadBody /= RightBody .AND. RadBody /= LeftBody) ) THEN
-         CALL Error( 'ViewFactors', 'Inconsistent direction information (Radiation Target Body)' )
-         WRITE( LMessage, * ) 'Radiation Target: ', RadBody, ' Left, Right: ', LeftBody, RightBody
-         CALL Fatal( 'ViewFactors', LMessage )
-       END IF
-
-       IF ( .NOT.GotIt ) THEN
-         IF ( LeftBody >= 1 .AND. RightBody >= 1 ) THEN
-           MatId = ListGetInteger(Model % Bodies(LeftBody) % Values,'Material')
-           DensL = ListGetConstReal( Model % Materials(MatId) % Values,'Density' )
-
-           MatId = ListGetInteger(Model % Bodies(RightBody) % Values,'Material')
-           DensR = ListGetConstReal( Model % Materials(MatId) % Values,'Density' )
-           IF ( DensL < DensR ) LeftNode = RightNode
-         ELSE
-           IF ( LeftNode <= 0 ) LeftNode = RightNode
+             END IF
+           END DO
          END IF
-       ELSE
-         IF ( LeftNode <= 0 ) THEN
-           LeftNode = RightNode
-           LeftBody = RightBody
-         END IF 
-         IF ( RadBody == LeftBody ) Nrm = -Nrm
-       END IF
-
-       nx = SUM(Model % Nodes % x(Element % NodeIndexes))/k - &
-                   Model % Nodes % x(LeftNode)
-
-       ny = SUM(Model % Nodes % y(Element % NodeIndexes))/k - &
-                   Model % Nodes % y(LeftNode)
-
-       nz = SUM(Model % Nodes % z(Element % NodeIndexes))/k - &
-                   Model % Nodes % z(LeftNode)
-
+         
+         RadBody = ListGetInteger( Model % BCs( Element %  &
+             BoundaryInfo % Constraint) % Values, 'Radiation Target Body',GotIt )
+         
+         IF ( .NOT. GotIt ) THEN
+           RadBody = ListGetInteger( Model % BCs( Element %  &
+               BoundaryInfo % Constraint) % Values, 'Normal Target Body',GotIt )
+         END IF
+         
+         IF ( RadBody > 0 .AND. (RadBody /= RightBody .AND. RadBody /= LeftBody) ) THEN
+           CALL Error( 'ViewFactors', 'Inconsistent direction information (Radiation Target Body)' )
+           WRITE( LMessage, * ) 'Radiation Target: ', RadBody, ' Left, Right: ', LeftBody, RightBody
+           CALL Fatal( 'ViewFactors', LMessage )
+         END IF
+         
+         IF ( .NOT.GotIt ) THEN
+           IF ( LeftBody >= 1 .AND. RightBody >= 1 ) THEN
+             MatId = ListGetInteger(Model % Bodies(LeftBody) % Values,'Material')
+             DensL = ListGetConstReal( Model % Materials(MatId) % Values,'Density' )
+             
+             MatId = ListGetInteger(Model % Bodies(RightBody) % Values,'Material')
+             DensR = ListGetConstReal( Model % Materials(MatId) % Values,'Density' )
+             IF ( DensL < DensR ) LeftNode = RightNode
+           ELSE
+             IF ( LeftNode <= 0 ) LeftNode = RightNode
+           END IF
+         ELSE
+           IF ( LeftNode <= 0 ) THEN
+             LeftNode = RightNode
+             LeftBody = RightBody
+           END IF
+           IF ( RadBody == LeftBody ) Nrm = -Nrm
+         END IF
+         
+         nx = SUM(Model % Nodes % x(Element % NodeIndexes))/k - &
+             Model % Nodes % x(LeftNode)
+         
+         ny = SUM(Model % Nodes % y(Element % NodeIndexes))/k - &
+             Model % Nodes % y(LeftNode)
+         
+         nz = SUM(Model % Nodes % z(Element % NodeIndexes))/k - &
+             Model % Nodes % z(LeftNode)
+         
+         IF ( CylindricSymmetry ) THEN
+           IF ( Nrm(1)*nx + Nrm(2)*Ny + Nrm(3)*nz > 0 ) THEN
+             Surfaces(2*(t-1)+1) = Element % NodeIndexes(2) - 1
+             Surfaces(2*(t-1)+2) = Element % NodeIndexes(1) - 1
+           ELSE
+             Surfaces(2*(t-1)+1) = Element % NodeIndexes(1) - 1
+             Surfaces(2*(t-1)+2) = Element % NodeIndexes(2) - 1
+           END IF
+         ELSE
+           DO i = 1,MIN(k,4)
+             Surfaces(4*(t-1)+i) = Element % NodeIndexes(i) - 1
+           END DO
+           
+           TYPE(t) = 404
+           IF ( Element % TYPE % ElementCode / 100 == 3 ) TYPE(t) = 303
+           
+           IF ( Nrm(1)*Nx + Nrm(2)*Ny + Nrm(3)*nz > 0 ) THEN
+             Normals(3*(t-1)+1:3*(t-1)+3) =  Nrm
+           ELSE
+             Normals(3*(t-1)+1:3*(t-1)+3) = -Nrm
+           END IF
+         END IF
+         
+       END DO
+       
+       CALL Info( 'ViewFactors', 'Computing viewfactors...', Level=4 )
+       
        IF ( CylindricSymmetry ) THEN
-         IF ( Nrm(1)*nx + Nrm(2)*Ny + Nrm(3)*nz > 0 ) THEN
-           Surfaces(2*(t-1)+1) = Element % NodeIndexes(2) - 1
-           Surfaces(2*(t-1)+2) = Element % NodeIndexes(1) - 1
-         ELSE
-           Surfaces(2*(t-1)+1) = Element % NodeIndexes(1) - 1
-           Surfaces(2*(t-1)+2) = Element % NodeIndexes(2) - 1
-         END IF
+         divide = GetInteger( GetSolverParams(), 'Viewfactor divide',GotIt)
+         IF ( .NOT. GotIt ) Divide = 1
+         CALL ViewFactorsAxis( N, Surfaces, Coords, Factors, divide )
        ELSE
-         DO i = 1,MIN(k,4)
-           Surfaces(4*(t-1)+i) = Element % NodeIndexes(i) - 1
-         END DO
-
-         Type(t) = 404
-         IF ( Element % Type % ElementCode / 100 == 3 ) TYPE(t) = 303
-
-         IF ( Nrm(1)*Nx + Nrm(2)*Ny + Nrm(3)*nz > 0 ) THEN
-           Normals(3*(t-1)+1:3*(t-1)+3) =  Nrm
-          ELSE
-           Normals(3*(t-1)+1:3*(t-1)+3) = -Nrm
-          END IF
+         AreaEPS = GetConstReal( GetSolverParams(), 'Viewfactor Area Tolerance',  GotIt )
+         IF ( .NOT. GotIt ) AreaEPS = 1.0d-1
+         FactEPS = GetConstReal( GetSolverParams(), 'Viewfactor Factor Tolerance ', GotIt )
+         IF ( .NOT. GotIt ) FactEPS = 1.0d-2
+         RayEPS = GetConstReal( GetSolverParams(), 'Viewfactor Raytrace Tolerace',  GotIt )
+         IF ( .NOT. GotIt ) RayEPS = 1.0d-5
+         CALL ViewFactors3D( N, Surfaces, TYPE, Coords, Normals, &
+             Factors, AreaEPS, FactEPS, RayEPS, 4, 3 )
        END IF
-
-     END DO
-
-     CALL Info( 'ViewFactors', 'Computing viewfactors...', Level=4 )
-
-     IF ( CylindricSymmetry ) THEN
-       divide = GetInteger( GetSolverParams(), 'Viewfactor divide',GotIt)
-       IF ( .NOT. GotIt ) Divide = 1
-       CALL ViewFactorsAxis( N, Surfaces, Coords, Factors, divide )
-     ELSE
-       AreaEPS = GetConstReal( GetSolverParams(), 'Viewfactor Area Tolerance',  GotIt )
-       IF ( .NOT. GotIt ) AreaEPS = 1.0d-1
-       FactEPS = GetConstReal( GetSolverParams(), 'Viewfactor Factor Tolerance ', GotIt )
-       IF ( .NOT. GotIt ) FactEPS = 1.0d-2
-       RayEPS = GetConstReal( GetSolverParams(), 'Viewfactor Raytrace Tolerace',  GotIt )
-       IF ( .NOT. GotIt ) RayEPS = 1.0d-5
-       CALL ViewFactors3D( N, Surfaces, Type, Coords, Normals, &
-              Factors, AreaEPS, FactEPS, RayEPS, 4, 3 )
-     END IF
-     CALL Info( 'ViewFactors', '...Done.', Level=4 )
-
-
-     DO i=1,N
-       s = 0.0D0
-       DO j=1,N
-         IF(Factors((i-1)*N+j) < MinFactor) Factors((i-1)*N+j) = 0.0d0         
-         s = s + Factors((i-1)*N+j)
-       END DO 
-
-       IF(i == 1) THEN
-         Fmin = s 
-         Fmax = s
-       ELSE         
-         FMin = MIN( FMin,s )
-         FMax = MAX( FMax,s )
-       END IF
-     END DO
-
-
-     CALL Info( 'ViewFactors', ' ', Level=3 )
-     CALL info( 'ViewFactors', 'Viewfactors before normalizing: ', Level=3 )
-     CALL Info( 'ViewFactors', ' ', Level=3 )
-     WRITE( LMessage, * ) '        Minimum row sum: ',FMin
-     CALL Info( 'ViewFactors', LMessage, Level=3 )
-     WRITE( LMessage, * ) '        Maximum row sum: ',FMax
-     CALL Info( 'ViewFactors', LMessage, Level=3 )
-     CALL Info( 'ViewFactors', ' ', Level=3 )
-
-     CALL Info( 'ViewFactors', 'Normalizing Factors... ', Level=3 )
-
-
-     IF(.NOT. RadiationOpen) THEN
-       CALL NormalizeFactors( Model )
+       CALL Info( 'ViewFactors', '...Done.', Level=4 )
+       
        
        DO i=1,N
          s = 0.0D0
          DO j=1,N
+           IF(Factors((i-1)*N+j) < MinFactor) Factors((i-1)*N+j) = 0.0d0         
            s = s + Factors((i-1)*N+j)
          END DO
+         
          IF(i == 1) THEN
-           Fmin = s
+           Fmin = s 
            Fmax = s
-         ELSE
+         ELSE         
            FMin = MIN( FMin,s )
            FMax = MAX( FMax,s )
          END IF
        END DO
-       CALL Info( 'ViewFactors', 'Done... ', Level=3 )
+       
        
        CALL Info( 'ViewFactors', ' ', Level=3 )
-       CALL info( 'ViewFactors', 'Viewfactors after normalizing: ', Level=3 )
+       CALL info( 'ViewFactors', 'Viewfactors before normalizing: ', Level=3 )
        CALL Info( 'ViewFactors', ' ', Level=3 )
        WRITE( LMessage, * ) '        Minimum row sum: ',FMin
        CALL Info( 'ViewFactors', LMessage, Level=3 )
-       WRITE( LMessage, * ) '        Minimum row sum: ',FMax
+       WRITE( LMessage, * ) '        Maximum row sum: ',FMax
        CALL Info( 'ViewFactors', LMessage, Level=3 )
        CALL Info( 'ViewFactors', ' ', Level=3 )
-     END IF
+       
+       
+       IF(.NOT. RadiationOpen) THEN
+         CALL Info( 'ViewFactors', 'Normalizing Factors... ', Level=3 )
+         CALL NormalizeFactors( Model )
+         
+         DO i=1,N
+           s = 0.0D0
+           DO j=1,N
+             s = s + Factors((i-1)*N+j)
+           END DO
+           IF(i == 1) THEN
+             Fmin = s
+             Fmax = s
+           ELSE
+             FMin = MIN( FMin,s )
+             FMax = MAX( FMax,s )
+           END IF
+         END DO
+         CALL Info( 'ViewFactors', 'Done... ', Level=3 )
+         
+         CALL Info( 'ViewFactors', ' ', Level=3 )
+         CALL info( 'ViewFactors', 'Viewfactors after normalizing: ', Level=3 )
+         CALL Info( 'ViewFactors', ' ', Level=3 )
+         WRITE( LMessage, * ) '        Minimum row sum: ',FMin
+         CALL Info( 'ViewFactors', LMessage, Level=3 )
+         WRITE( LMessage, * ) '        Minimum row sum: ',FMax
+         CALL Info( 'ViewFactors', LMessage, Level=3 )
+         CALL Info( 'ViewFactors', ' ', Level=3 )
+       END IF
 
 
-     ViewFactorsFile = GetString( GetSimulation(),'View Factors',GotIt)
-     IF ( .NOT.GotIt ) ViewFactorsFile = 'ViewFactors.dat'
-     IF(RadiationBody > 1) THEN
-       TempString = ViewFactorsFile
-       WRITE(ViewFactorsFile, '(A,I1)') TRIM(TempString),RadiationBody
-     END IF
-
-     IF ( LEN_TRIM(Model % Mesh % Name) > 0 ) THEN
-       OutputName = TRIM(OutputPath) // '/' // &
-           TRIM(Model % Mesh % Name) // '/' // TRIM(ViewFactorsFile)
-     ELSE
-       OutputName = TRIM(ViewFactorsFile)
-     END IF
-
-     OPEN( 1,File=TRIM(OutputName),STATUS='UNKNOWN' )
-
-     ! Use loser consttraint for MinFactor as the errors cant be renormalized any more 
-     MinFactor = MinFactor / 10.0
-
-     DO i=1,N
-       k = 0
-       DO j=1,N
-         IF ( Factors((i-1)*N+j) > MinFactor ) k = k + 1
+       ViewFactorsFile = GetString( GetSimulation(),'View Factors',GotIt)
+       IF ( .NOT.GotIt ) ViewFactorsFile = 'ViewFactors.dat'
+       IF(RadiationBody > 1) THEN
+         TempString = ViewFactorsFile
+         WRITE(ViewFactorsFile, '(A,I1)') TRIM(TempString),RadiationBody
+       END IF
+       
+       IF ( LEN_TRIM(Model % Mesh % Name) > 0 ) THEN
+         OutputName = TRIM(OutputPath) // '/' // &
+             TRIM(Model % Mesh % Name) // '/' // TRIM(ViewFactorsFile)
+       ELSE
+         OutputName = TRIM(ViewFactorsFile)
+       END IF
+       
+       OPEN( 1,File=TRIM(OutputName),STATUS='UNKNOWN' )
+       
+       ! Use loser constraint for MinFactor as the errors can't be renormalized any more 
+       MinFactor = MinFactor / 10.0
+       
+       DO i=1,N
+         k = 0
+         DO j=1,N
+           IF ( Factors((i-1)*N+j) > MinFactor ) k = k + 1
+         END DO
+         WRITE( 1,* ) k
+         DO j=1,N
+           IF ( Factors((i-1)*N+j) > MinFactor ) THEN
+             WRITE( 1,* ) i,j,Factors((i-1)*N+j)
+           END IF
+         END DO
        END DO
-       WRITE( 1,* ) k
-       DO j=1,N
-         IF ( Factors((i-1)*N+j) > MinFactor ) THEN
-           WRITE( 1,* ) i,j,Factors((i-1)*N+j)
-         END IF
-       END DO
-     END DO
+       
+       CLOSE(1)
 
-     CLOSE(1)
-
-     IF ( CylindricSymmetry ) THEN
-       DEALLOCATE( Surfaces, Factors)
-     ELSE
-       DEALLOCATE( Normals, Factors, Surfaces, TYPE)
-     END IF
-
-     IF(RadiationBody < MaxRadiationBody) THEN
-       GOTO 100
-     END IF
+       IF ( CylindricSymmetry ) THEN
+         DEALLOCATE( Surfaces, Factors)
+       ELSE
+         DEALLOCATE( Normals, Factors, Surfaces, TYPE)
+       END IF
+       
+     END DO  /* Of radiation RadiationBody */
 
      CALL Info( 'ViewFactors', '*** ALL DONE ***' )
      CALL FLUSH(6)
@@ -560,7 +556,7 @@
 !------------------------------------------------------------------------------
         DO i=1,N
           Areas(i) = ElementArea( Model % Mesh, RadElements(i), &
-               RadElements(i) % Type % NumberOfNodes )
+               RadElements(i) % TYPE % NumberOfNodes )
         END DO
 
         DO i=1,N
