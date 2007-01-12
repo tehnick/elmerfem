@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StatElecSolve.src,v $
+! * Revision 1.22  2006/11/27 10:23:57  jpr
+! * Removed some execess (unrelated) use of TRIM & POINTER.
+! *
 ! * Revision 1.21  2006/11/20 10:56:43  raback
 ! * Updated the Dirichlet BC and Nodal load settings.
 ! *
@@ -177,7 +180,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: PiezoMaterial, CalculateSurfCharge
   
   CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, CapMatrixFile, Name
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.21 2006/11/20 10:56:43 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.22 2006/11/27 10:23:57 jpr Exp $"
   
   
   SAVE LocalStiffMatrix, Load, LocalForce, Pwrk, PotDiff, &
@@ -1524,6 +1527,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
        END DO
        IF ( PiezoMaterial )  Force = Force + PiezoForce
+!       IF ( PiezoMaterial )  Force = Force + PiezoForce / PermittivityOfVacuum ?
 
 !------------------------------------------------------------------------------
      END SUBROUTINE StatElecCompose
