@@ -1232,6 +1232,8 @@ int main(int argc, char *argv[])
       boundaries[nofile][i].nosides = 0;
     }
     ElementsToBoundaryConditions(&(data[nofile]),boundaries[nofile],TRUE);
+    RenumberBoundaryTypes(&data[nofile],boundaries[nofile],TRUE,0,info);
+  
     nomeshes++;
     break;
 

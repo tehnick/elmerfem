@@ -3551,8 +3551,11 @@ void RenumberBoundaryTypes(struct FemType *data,struct BoundaryType *bound,
     
     j = 0;
     for(i=minbc;i<=maxbc;i++) 
-      if(mapbc[i]) mapbc[i] = ++j;
-    
+      if(mapbc[i]) {
+	j++;
+	mapbc[i] = j;
+      }    
+
     if(maxbc - minbc >= j || minbc != 1) { 
       if(info) printf("Mapping boundary types from [%d %d] to [%d %d]\n",minbc,maxbc,1,j);    
     
