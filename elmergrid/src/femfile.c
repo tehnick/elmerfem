@@ -124,29 +124,19 @@ static void FindPointParents(struct FemType *data,struct BoundaryType *bound,
     printf("Boundary types are in interval [%d, %d]\n",minboundary,maxboundary);
     printf("Boundary nodes are in interval [%d, %d]\n",minnode,maxnode);
   }
-  printf("a1\n");
   indx = Ivector(1,data->noknots);
-  printf("a2\n");
 
   elemhits = Ivector(1,data->noknots);
   for(i=1;i<=data->noknots;i++) elemhits[i] = 0;
-  printf("a3\n");
 
   for(elemind=1;elemind<=data->noelements;elemind++) {
-    printf("elemind= %d\n",elemind);
-
     elemtype = data->elementtypes[elemind];
     elemsides = elemtype % 100;
 
-    printf("sides= %d\n",elemsides,elemtype);
-
     for(i=0;i<elemsides;i++) {
-      printf("topo = %d\n",data->topology[elemind][i]);
       elemhits[data->topology[elemind][i]] += 1;
     }
   }
-
-  printf("a4\n");
 
 
   for(boundarytype=minboundary;boundarytype <= maxboundary;boundarytype++) {
@@ -171,7 +161,7 @@ static void FindPointParents(struct FemType *data,struct BoundaryType *bound,
       else if(elemsides == 5) elemsides = 4;
       else if(elemsides == 6) elemsides = 5;
       
-      if(1) printf("ind=%d  type=%d  sides=%d\n",elemind,elemtype,elemsides);
+      if(0) printf("ind=%d  type=%d  sides=%d\n",elemind,elemtype,elemsides);
  
       /* Check whether the bc nodes occupy every node in the selected side */
       for(side=0;side<elemsides;side++) {
@@ -267,8 +257,6 @@ static void FindPointParents(struct FemType *data,struct BoundaryType *bound,
       }
     }    
   }
-
-  printf("a10\n");
 
   
   free_Ivector(indx,1,data->noknots);
@@ -1553,9 +1541,6 @@ static void ReorderAnsysNodes(struct FemType *data,int *oldtopology,
 	   element,nodes,dim);
   }
 
-  printf("elementtype = %d %d\n",element,elementtype);
-  printf("topo = %d %d %d %d\n",oldtopology[0],oldtopology[1],oldtopology[2],oldtopology[3]);
-
   data->elementtypes[element] = elementtype;
   topology = data->topology[element];
 
@@ -1610,9 +1595,6 @@ static void ReorderAnsysNodes(struct FemType *data,int *oldtopology,
       topology[i] = oldtopology[i];
 
   }  
-
-
-
 }
 
 
