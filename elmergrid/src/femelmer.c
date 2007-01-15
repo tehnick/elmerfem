@@ -614,7 +614,7 @@ int SaveSolutionElmer(struct FemType *data,struct BoundaryType *bound,
    by Juha Ruokolainen at Center for Scientific Computing. 
    */
 {
-  int noknots,noelements,bulkelems,novctrs,sideelems,sideelemtype,elemtype,boundtype;
+  int material,noknots,noelements,bulkelems,novctrs,sideelems,sideelemtype,elemtype,boundtype;
   char filename[MAXFILESIZE],outstyle[MAXFILESIZE];
   int i,j,k,nodesd1,timesteps,nodesd2,fail;
   int ind[MAXNODESD1];
@@ -693,15 +693,18 @@ int SaveSolutionElmer(struct FemType *data,struct BoundaryType *bound,
 
   for(i=1;i<=bulkelems;i++) {
     elemtype = data->elementtypes[i];
+    material = data->material[i];
 
-    if(elemtype/100 > 4) 
-      fprintf(out,"vol%d %d ",data->material[i],data->elementtypes[i]);      
+    if(data->bodynamesexist) 
+      fprintf(out,"%s %d ",data->bodyname[material],elemtype);
+    else if(elemtype/100 > 4) 
+      fprintf(out,"vol%d %d ",material,elemtype);
     else if(elemtype/100 > 2) 
-      fprintf(out,"surf%d %d ",data->material[i],data->elementtypes[i]);
+      fprintf(out,"surf%d %d ",material,elemtype);
     else if(elemtype/100 > 1) 
-      fprintf(out,"line%d %d ",data->material[i],data->elementtypes[i]);
+      fprintf(out,"line%d %d ",material,elemtype);
     else 
-      fprintf(out,"pnt%d %d ",data->material[i],data->elementtypes[i]);
+      fprintf(out,"pnt%d %d ",material,elemtype);
 
     nodesd2 = data->elementtypes[i]%100;
     for(j=0;j<nodesd2;j++) 
@@ -768,11 +771,11 @@ int SaveElmerInput(struct FemType *data,
    */
 #define MAXELEMENTTYPE 827
 {
-  int noknots,noelements,sumsides,elemtype,fail,connodes;
+  int noknots,noelements,material,sumsides,elemtype,fail,connodes;
   int sideelemtype,conelemtype,nodesd1,nodesd2,newtype;
   int i,j,k,l,bulktypes[MAXELEMENTTYPE+1],sidetypes[MAXELEMENTTYPE+1];
   int alltypes[MAXELEMENTTYPE+1],tottypes;
-  int ind[MAXNODESD1],ind2[MAXNODESD1];
+  int ind[MAXNODESD1],ind2[MAXNODESD1],usedbody[MAXBODIES],usedbc[MAXBCS];
   FILE *out;
   char filename[MAXFILESIZE], outstyle[MAXFILESIZE];
   char directoryname[MAXFILESIZE];
@@ -788,6 +791,11 @@ int SaveElmerInput(struct FemType *data,
 
   for(i=0;i<=MAXELEMENTTYPE;i++)
     alltypes[i] = bulktypes[i] = sidetypes[i] = 0;
+
+  for(i=0;i<MAXBODIES;i++)
+    usedbody[i] = 0;
+  for(i=0;i<MAXBCS;i++)
+    usedbc[i] = 0;
 
   sprintf(directoryname,"%s",prefix);
 
@@ -863,8 +871,10 @@ int SaveElmerInput(struct FemType *data,
 
   for(i=1;i<=noelements;i++) {
     elemtype = data->elementtypes[i];
+    material = data->material[i];
 
-    fprintf(out,"%d %d %d",i,data->material[i],elemtype);
+    if(material < MAXBODIES) usedbody[material] += 1;
+    fprintf(out,"%d %d %d",i,material,elemtype);
 
     if(data->pelems) {
       j = data->pelemtypes[i];
@@ -920,6 +930,8 @@ int SaveElmerInput(struct FemType *data,
 	      sumsides,bound[j].types[i],bound[j].parent[i],bound[j].parent2[i]);
       fprintf(out,"%d",sideelemtype);
       
+      if(bound[j].types[i] < MAXBCS) usedbc[bound[j].types[i]] += 1;
+
       sidetypes[sideelemtype] += 1;
       nodesd1 = sideelemtype%100;
       for(l=0;l<nodesd1;l++)
@@ -945,6 +957,8 @@ int SaveElmerInput(struct FemType *data,
       fprintf(out,"%d ",sideelemtype);
       sidetypes[sideelemtype] += 1;
       
+      if(bound[j].discont[i] < MAXBCS) usedbc[bound[j].discont[i]] += 1;
+
       nodesd1 = sideelemtype%100;
       for(l=0;l<nodesd1;l++)
 	fprintf(out,"%d ",ind2[l]);
@@ -1073,28 +1087,13 @@ int SaveElmerInput(struct FemType *data,
     }
     
     if(data->boundarynamesexist) {
-      int noname;
-      noname = 0;
-      for(i=1;i<MAXBCS;i++) {
-	if(strstr(data->boundaryname[i],"nnbc"))
-	  noname++;
-	else
-	  fprintf(out,"$ %s = %d\n",data->boundaryname[i],i);
-      }
-#if 0
-      if(noname) {
-	fprintf(out,"$ nonamebc =");       
-	for(i=1;i<MAXBCS;i++) 
-	  if(strstr(data->boundaryname[i],"nnbc"))	  
-	    fprintf(out," %d",i);
-	fprintf(out,"\n");
-      }
-#endif
+      for(i=1;i<MAXBCS;i++) 
+	if(usedbc[i]) fprintf(out,"$ %s = %d\n",data->boundaryname[i],i);
     }
-    
     if(data->bodynamesexist) {
-    }
-    
+      for(i=1;i<MAXBODIES;i++) 
+	if(usedbody[i]) fprintf(out,"$ %s = %d\n",data->bodyname[i],i);
+    }     
     fclose(out);
   }
   

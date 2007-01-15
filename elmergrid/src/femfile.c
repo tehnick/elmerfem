@@ -1237,7 +1237,7 @@ int LoadFidapInput(struct FemType *data,char *prefix,int info)
   int noknots,noelements,dim,novel,elemcode,maxnodes;
   int mode,allocated,nvalue,maxknot,totelems,entity,maxentity;
   char filename[MAXFILESIZE];
-  char line[MAXLINESIZE],*cp,entityname[MAXLINESIZE],entitylist[100][MAXLINESIZE];
+  char line[MAXLINESIZE],*cp,entityname[MAXNAMESIZE],entitylist[100][MAXNAMESIZE];
   int i,j,k,*ind,geoflag,typeflag;
   int **topology;
   FILE *in;
@@ -1378,13 +1378,21 @@ int LoadFidapInput(struct FemType *data,char *prefix,int info)
 			elems,nodes,entityname);
 
 	for(entity=1;entity<=maxentity;entity++) {
+#if 0
 	  k = strcmp(entityname,entitylist[entity]);
+#else
+	  k = strcmp(entityname,data->bodyname[entity]);
+#endif
 	  if(k == 0) break;
 	}
 
 	if(entity > maxentity) {
 	  maxentity++;
+#if 0
 	  strcpy(entitylist[entity],entityname);
+#else
+	  strcpy(data->bodyname[entity],entityname);
+#endif
 	  if(info) printf("Found new entity: %s\n",entityname);
 	}
 
@@ -1469,6 +1477,9 @@ end:
       for(j=0;j < data->elementtypes[i]%100;j++) 
 	data->topology[i][j] = ind[data->topology[i][j]];
   }
+
+
+  if(maxentity > 0) data->bodynamesexist = TRUE;
 
   fclose(in);
   
@@ -1837,86 +1848,94 @@ int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
 
   FindPointParents(data,bound,boundarynodes,nodeindx,boundindx,info);
 
-  if(namesexist && bound[0].nosides > 0) {
+  if(namesexist) {
     int bc,bcind,bcind0,*bctypes,*bctypeused,*bcused,newsides,unused1;
 
-    bctypes = Ivector(1,maxside);
-    bctypeused = Ivector(1,maxside);
-    bcused = Ivector(1,bound[0].nosides);
+    data->bodynamesexist = TRUE;
+    if(bound[0].nosides) {
+      newsides = 0;
+      bctypes = Ivector(1,maxside);
+      bctypeused = Ivector(1,maxside);
+      bcused = Ivector(1,bound[0].nosides);      
+      for(i=1;i<=bound[0].nosides;i++) bcused[i] = FALSE;      
+      data->boundarynamesexist = TRUE;
+      for(i=1;i<=maxside;i++) 
+	bctypeused[i] = FALSE;      
+    }
 
-    for(i=1;i<=bound[0].nosides;i++) bcused[i] = FALSE;
-
-    data->boundarynamesexist = TRUE;
     sprintf(filename,"%s.names",prefix);
     in = fopen(filename,"r");
-
-    newsides = 0;
-    for(i=1;i<=maxside;i++) 
-      bctypeused[i] = FALSE;
-
+            
     for(;;) {
       if(Getrow(line,in,TRUE)) break;
       sscanf(line,"%d%s%s%d",&bcind,&text[0],&text2[0],&sides);
-
-      /* Read the boundary groups belonging to a particular name */
-      for(i=1;i<=maxside;i++) 
-	bctypes[i] = 0;
-      for(i=1;i<=sides;i++) {
+      
+      if(strstr(text2,"BODY")) {      
 	getline;
 	sscanf(line,"%d%d",&j,&bcind);
-	bctypes[bcind] = TRUE;
+	strcpy(data->bodyname[bcind],text);	
       }
-
-      /* Find 1st unsed boundarytype */
-      for(i=1;i<=maxside;i++) 
-	if(bctypes[i] && !bctypeused[i]) break;
-
-      bcind = i;
-      bctypeused[bcind] = TRUE;
-      if(0) printf("First unused boundary is of type %d\n",bcind);
-      strcpy(data->boundaryname[bcind],text);
-
-      /* Check which of the BCs have already been named */
-      k = l = 0;
-      for(i=1;i<=bound[0].nosides;i++) {
-	j = bound[0].types[i];
-
-	/* The bc is not given any name, hence it can't be a duplicate */
-	if(!bctypes[j]) continue;
-
-	if(!bcused[i]) {
-	  k++;
-	  bcused[i] = bcind;
+      else if(strstr(text2,"BOUNDARY")) {      
+	/* Read the boundary groups belonging to a particular name */
+	for(i=1;i<=maxside;i++) 
+	  bctypes[i] = 0;
+	for(i=1;i<=sides;i++) {
+	  getline;
+	  sscanf(line,"%d%d",&j,&bcind);
+	  bctypes[bcind] = TRUE;
 	}
-	else {
-	  l++;
-	  if(newsides == 0) AllocateBoundary(&bound[1],bound[0].nosides);
-	  newsides++;
-	  bound[1].types[newsides] = bcind;
-	  bound[1].parent[newsides] =  bound[0].parent[i];
-	  bound[1].side[newsides] = bound[0].side[i];
-	  bound[1].parent2[newsides] = bound[0].parent2[i];
-	  bound[1].side2[newsides] = bound[0].side2[i];
-	  bound[1].normal[newsides] = bound[0].normal[i];
+	
+	/* Find 1st unsed boundarytype */
+	for(i=1;i<=maxside;i++) 
+	  if(bctypes[i] && !bctypeused[i]) break;
+	
+	bcind = i;
+	bctypeused[bcind] = TRUE;
+	if(0) printf("First unused boundary is of type %d\n",bcind);
+	strcpy(data->boundaryname[bcind],text);
+	
+	/* Check which of the BCs have already been named */
+	k = l = 0;
+	for(i=1;i<=bound[0].nosides;i++) {
+	  j = bound[0].types[i];
+	  
+	  /* The bc is not given any name, hence it can't be a duplicate */
+	  if(!bctypes[j]) continue;
+	  
+	  if(!bcused[i]) {
+	    k++;
+	    bcused[i] = bcind;
+	  }
+	  else {
+	    l++;
+	    if(newsides == 0) AllocateBoundary(&bound[1],bound[0].nosides);
+	    newsides++;
+	    bound[1].types[newsides] = bcind;
+	    bound[1].parent[newsides] =  bound[0].parent[i];
+	    bound[1].side[newsides] = bound[0].side[i];
+	    bound[1].parent2[newsides] = bound[0].parent2[i];
+	    bound[1].side2[newsides] = bound[0].side2[i];
+	    bound[1].normal[newsides] = bound[0].normal[i];
+	  }
 	}
+	if(info) printf("There are %d boundary elements with name %s.\n",k+l,data->boundaryname[bcind]);
       }
-      if(info) printf("There are %d boundary elements with name %s.\n",k+l,data->boundaryname[bcind]);
-
     }
+
     fclose(in);
 
     /* Put the indexes of all conditions with the same name to be same */
-    for(i=1;i<=bound[0].nosides;i++) 
-      if(bcused[i]) bound[0].types[i] = bcused[i];
-
-    if(newsides) {
-      bound[1].nosides = newsides;
-      if(info) printf("Created %d additional boundary elements to achieve unique naming.\n",newsides);
+    if(bound[0].nosides) {
+      for(i=1;i<=bound[0].nosides;i++) 
+	if(bcused[i]) bound[0].types[i] = bcused[i];
+      if(newsides) {
+	bound[1].nosides = newsides;
+	if(info) printf("Created %d additional boundary elements to achieve unique naming.\n",newsides);
+      }
+      free_Ivector(bctypes,1,maxside);    
+      free_Ivector(bctypeused,1,maxside);    
+      free_Ivector(bcused,1,bound[0].nosides);
     }
-
-    free_Ivector(bctypes,1,maxside);    
-    free_Ivector(bctypeused,1,maxside);    
-    free_Ivector(bcused,1,bound[0].nosides);
   }
 
   free_Ivector(boundindx,1,boundarynodes);

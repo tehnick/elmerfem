@@ -303,6 +303,7 @@ struct ElmergridType {
     sidebulk[MAXSIDEBULK],
     triangles,
     polar,
+    usenames, 
     isoparam,
     cylinder,
     unitemeshes,

@@ -3564,6 +3564,12 @@ void RenumberBoundaryTypes(struct FemType *data,struct BoundaryType *bound,
 	for(i=1;i<=bound[j].nosides;i++)
 	  bound[j].types[i] = mapbc[bound[j].types[i]];
       }
+      if(data->boundarynamesexist) {
+	for(j=minbc;j<=MIN(maxbc,MAXBODIES-1);j++) {
+	  if(mapbc[j]) 
+	    strcpy(data->boundaryname[mapbc[j]],data->boundaryname[j]);
+	}
+      }
     }
     free_Ivector(mapbc,minbc,maxbc);
   }
@@ -3574,6 +3580,11 @@ void RenumberBoundaryTypes(struct FemType *data,struct BoundaryType *bound,
       if(!bound[j].created) continue;
       for(i=1;i<=bound[j].nosides;i++)
 	bound[j].types[i] += bcoffset;
+    }
+    if(data->boundarynamesexist) {
+      for(j=MAXBOUNDARIES-bcoffset-1;j>=0;j--) {
+	strcpy(data->boundaryname[j+bcoffset],data->boundaryname[j]);
+      }
     }
   }
 }  
@@ -3615,6 +3626,13 @@ void RenumberMaterialTypes(struct FemType *data,struct BoundaryType *bound,int i
 		    minmat,maxmat,1,j);    
     for(j=1;j<=noelements;j++) 
       data->material[j] = mapmat[data->material[j]];
+
+    if(data->bodynamesexist) {
+      for(j=minmat;j<MIN(maxmat,MAXBODIES-1);j++) {
+	if(mapmat[j]) 
+	  strcpy(data->bodyname[mapmat[j]],data->bodyname[j]);
+      }
+    }
   }
   free_Ivector(mapmat,minmat,maxmat);
 }
@@ -6361,7 +6379,7 @@ void ElementsToBoundaryConditions(struct FemType *data,
 {
   int i,j,k,l,sideelemtype,elemind,elemind2,parent,sideelem,sameelem;
   int sideind[MAXNODESD1],sideind2[MAXNODESD1],elemsides,side,hit,same;
-  int sidenodes,sidenodes2,maxelemtype,elemdim,sideelements;
+  int sidenodes,sidenodes2,maxelemtype,elemdim,sideelements,material;
   int *moveelement,*parentorder,*possible,**invtopo,**checkside;
   int noelements,maxpossible,noknots,maxelemsides,twiceelem,sideelemdim;
   int debug;
@@ -6538,11 +6556,18 @@ void ElementsToBoundaryConditions(struct FemType *data,
 	  bound->side[sideelem] = side;
 	  bound->parent2[sideelem] = 0;
 	  bound->side2[sideelem] = 0;
-	  bound->types[sideelem] = data->material[elemind];
+	  material = data->material[elemind];
+	  bound->types[sideelem] = material;
 	  if(sidenodes == 2) {
 	    if((sideind[0]-sideind[1])*(sideind2[0]-sideind2[1])<0) 	      
 	      bound->normal[sideelem] = -1;
 	  }		
+	  if(data->bodynamesexist) {
+	    data->boundarynamesexist = TRUE;
+	    if(material < MAXBODIES && material < MAXBOUNDARIES) 
+	      strcpy(data->boundaryname[material],data->bodyname[material]);
+	  }
+
 	  if(moveelement[elemind] > 1) goto foundtwo;
 	}
       }

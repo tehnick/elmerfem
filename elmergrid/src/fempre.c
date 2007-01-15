@@ -187,6 +187,7 @@ static void Instructions()
   printf("-3d / -2d / -1d      : mesh is 3, 2 or 1-dimensional (applies to examples)\n");
   printf("-isoparam            : ensure that higher order elements are convex\n");
   printf("-nobound             : disable saving of boundary elements in ElmerPost format\n");
+  printf("-names               : conserve name information where applicable\n");
 #if 0
   printf("-map str             : file with mapping info for mesh-to-mesh interpolation\n");
 #endif
@@ -213,6 +214,7 @@ void InitParameters(struct ElmergridType *eg)
   eg->rotate = FALSE;
   eg->polar = FALSE;
   eg->cylinder = FALSE;
+  eg->usenames = FALSE;
   eg->layers = 0;
   eg->layereps = 0.0;
   eg->layermove = 0;
@@ -445,6 +447,11 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     if(strcmp(argv[arg],"-unite") == 0) {
       eg->unitemeshes = TRUE;
       printf("The meshes will be united.\n");
+    }   
+
+    if(strcmp(argv[arg],"-names") == 0) {
+      eg->usenames = TRUE;
+      printf("Names will be conserved when possible\n");
     }   
 
     if(strcmp(argv[arg],"-removelowdim") == 0) {
@@ -1231,6 +1238,7 @@ int main(int argc, char *argv[])
       boundaries[nofile][i].created = FALSE; 
       boundaries[nofile][i].nosides = 0;
     }
+    if(!eg.usenames) data[nofile].boundarynamesexist = data[nofile].bodynamesexist = FALSE;
     ElementsToBoundaryConditions(&(data[nofile]),boundaries[nofile],TRUE);
     RenumberBoundaryTypes(&data[nofile],boundaries[nofile],TRUE,0,info);
   
