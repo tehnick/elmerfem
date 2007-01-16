@@ -3042,6 +3042,30 @@ end:
 }
 
 
+
+static void ReorderComsolNodes(int elementtype,int *topo) 
+{
+  int i,j,tmptopo[MAXNODESD2];
+  int order404[]={1,2,4,3};
+ 
+   
+  switch (elementtype) {
+ 
+  case 404:
+    for(i=0;i<elementtype%100;i++) 
+      tmptopo[i] = topo[i];
+    for(i=0;i<elementtype%100;i++) 
+      topo[i] = tmptopo[order404[i]-1];
+    break;
+
+  default:
+    break;
+
+  }  
+}
+
+
+
 int LoadComsolMesh(struct FemType *data,char *prefix,int info)
 /* Load the grid in Comsol Multiphysics mesh format */
 {
@@ -3113,7 +3137,10 @@ omstart:
       if(strstr(line,"vtx")) elembasis = 100;
       if(strstr(line,"edg")) elembasis = 200;
       if(strstr(line,"tri")) elembasis = 300;
+      if(strstr(line,"quad")) elembasis = 400;
       if(strstr(line,"tet")) elembasis = 500;
+      if(strstr(line,"prism")) elembasis = 700;
+     
       if(debug) printf("elembasis=%d\n",elembasis);     
     }
 
@@ -3165,11 +3192,14 @@ omstart:
 
 	noelements = noelements + 1;
 	if(allocated) {
+	  data->elementtypes[noelements] = elemtype;
+	  data->material[noelements] = 1;	  
 	  cp = line;
 	  for(j=0;j<elemnodes;j++)
 	    data->topology[noelements][j] = next_int(&cp) + offset;
-	  data->elementtypes[noelements] = elemtype;
-	  data->material[noelements] = 1;	  
+
+	  if(1) ReorderComsolNodes(elemtype,data->topology[noelements]);
+
 	}
       }
     }
@@ -3203,9 +3233,9 @@ omstart:
 	  if(elemdim < dim) {
 	    if(minbc > material) minbc = material;
 	  }
-	  else {
+	  else { 
 	    if(mindom > material) mindom = material;	  
-	  }	  
+	  }
 	}
 
       }

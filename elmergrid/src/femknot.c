@@ -6398,6 +6398,8 @@ void ElementsToBoundaryConditions(struct FemType *data,
   for(i=1;i<=noelements;i++)
     if(data->elementtypes[i] > maxelemtype) maxelemtype = data->elementtypes[i];
 
+  if(info) printf("Leading elementtype is %d\n",maxelemtype);
+
   if(maxelemtype/100 > 4) elemdim = 3;
   else if(maxelemtype/100 > 2) elemdim = 2;
   else elemdim = 1;
