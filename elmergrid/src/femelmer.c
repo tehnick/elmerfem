@@ -1282,7 +1282,7 @@ int ElmerToElmerMap(struct FemType *data1,struct FemType *data2,int info)
 
 int CreateDualGraph(struct FemType *data,int info)
 {
-  int i,j,k,l,noelements, noknots,elemtype,nonodes,hit,ind,ind2, maxcon;
+  int i,j,k,l,m,totcon,noelements, noknots,elemtype,nonodes,hit,ind,ind2, maxcon;
 
   printf("Creating a dual graph of the finite element mesh\n");  
 
@@ -1292,12 +1292,14 @@ int CreateDualGraph(struct FemType *data,int info)
   }
 
   maxcon = 0;
+  totcon = 0;
   noelements = data->noelements;
   noknots = data->noknots;
 
   for(i=1;i<=noelements;i++) {
     elemtype = data->elementtypes[i];
-    nonodes = data->elementtypes[i]%100;
+    nonodes = data->elementtypes[i] % 100;
+
     for(j=0;j<nonodes;j++) {
       ind = data->topology[i][j];
       for(k=0;k<nonodes;k++) {
@@ -1306,23 +1308,29 @@ int CreateDualGraph(struct FemType *data,int info)
 
 	hit = FALSE;
 	for(l=0;l<maxcon;l++) { 
+	  if(l>=maxcon) printf("l=%d %d\n",l,maxcon);
 	  if(data->dualgraph[l][ind] == ind2) hit = TRUE;
 	  if(data->dualgraph[l][ind] == 0) break;
 	}
 	if(!hit) {
 	  if(l >= maxcon) {
 	    data->dualgraph[maxcon] = Ivector(1,noknots);
+	    for(m=1;m<=noknots;m++)
+	      data->dualgraph[maxcon][m] = 0;
 	    maxcon++;
 	  }
 	  data->dualgraph[l][ind] = ind2;
+	  totcon++;
 	}
       }
     }
   }
+
   data->dualmaxconnections = maxcon;
   data->dualexists = TRUE;
   
-  printf("There are at maximum %d connections in dual graph.\n",maxcon);
+  if(info) printf("There are at maximum %d connections in dual graph.\n",maxcon);
+  if(info) printf("There are at all in all %d connections in dual graph.\n",totcon);
 
   return(0);
 }
@@ -1985,17 +1993,19 @@ int PartitionMetisNodes(struct FemType *data,int partitions,int info)
   maxcon = data->dualmaxconnections;
 
   totcon = 0;
-  for(i=1;i<=noknots;i++)
+  for(i=1;i<=noknots;i++) {
     for(j=0;j<maxcon;j++) {
       con = data->dualgraph[j][i];
-      if(con == i) continue;
       if(con) totcon++;
     }
+  }
 
-  printf("There are %d connections alltogether\n",totcon);
+  if(info) printf("There are %d connections alltogether\n",totcon);
 
   xadj = Ivector(0,noknots);
-  adjncy = Ivector(0,totcon);
+  adjncy = Ivector(0,totcon-1);
+  for(i=0;i<totcon;i++) 
+    adjncy[i] = 0;
 
   totcon = 0;
   for(i=1;i<=noknots;i++) {
@@ -2003,15 +2013,12 @@ int PartitionMetisNodes(struct FemType *data,int partitions,int info)
     for(j=0;j<maxcon;j++) {
       con = data->dualgraph[j][i];
       if(con) {
-	if(con == i) continue;
 	adjncy[totcon] = con-1;
 	totcon++;
-	printf("i=%d %d %d  ",i,totcon,con-1);
       }
     }
   }
   xadj[noknots] = totcon;
-  printf("totcon = %d\n",totcon);
 
 
   /* Are there periodic boundaries */
@@ -2027,12 +2034,20 @@ int PartitionMetisNodes(struct FemType *data,int partitions,int info)
   npart = Ivector(0,noknots-1);
   wgtflag = 0;
   for(i=0;i<5;i++) options[i] = 0;
+  options[0] = 0;
+  options[1] = 3;
+  options[2] = 1;
+  options[3] = 3;
 
-  printf("a1\n");
+  vwgt = NULL;
+  adjwgt = NULL;
  
-  METIS_PartGraphRecursive(&nn,xadj,adjncy,vwgt,adjwgt,&wgtflag,
-			   &numflag,&nparts,options,&edgecut,npart);
-  printf("a2\n");
+  if(nparts <= 8) 
+    METIS_PartGraphRecursive(&nn,xadj,adjncy,vwgt,adjwgt,&wgtflag,
+			     &numflag,&nparts,&options[0],&edgecut,npart);
+  else
+    METIS_PartGraphKway(&nn,xadj,adjncy,vwgt,adjwgt,&wgtflag,
+			&numflag,&nparts,&options[0],&edgecut,npart);
 
   if(!data->partitionexist) {
     data->partitionexist = TRUE;
@@ -2548,11 +2563,6 @@ optimizesharing:
 
   for(i=1;i<=noknots;i++) 
     rpart[i] = 1.0 * neededby[i];
-
-
-  for(i=1;i<=noknots;i++)
-    printf("i=%d part=%d\n",i,nodepart[i]);
-
 
 
   for(i=1;i<=noknots;i++) 

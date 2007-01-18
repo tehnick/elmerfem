@@ -16,12 +16,13 @@ int SaveElmerInput(struct FemType *data,
 int ElmerToElmerMapQuick(struct FemType *data1,struct FemType *data2,
 			 char *mapfile,int info);
 int ElmerToElmerMap(struct FemType *data1,struct FemType *data2,int info);
-int PartitionSimple(struct FemType *data,int dimpart[],int dimper[],
-		    int partorder, Real corder[],int info);
+int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
+			    int partorder, Real corder[],int info);
 int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
 			 int partorder, Real corder[],int info);
 #if PARTMETIS
-int PartitionMetis(struct FemType *data,int partitions,int info);
+int PartitionMetisElements(struct FemType *data,int partitions,int info);
+int PartitionMetisNodes(struct FemType *data,int partitions,int info);
 #endif
 int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,
 			 int info);

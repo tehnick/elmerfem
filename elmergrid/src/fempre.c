@@ -526,7 +526,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
 	if(dim == 3) eg->partdim[2] = atoi(argv[arg+3]);
 	eg->partitions = 1;
 	for(i=0;i<3;i++) {
-	  if(eg->partdim[i] < 1) eg->partdim[i] = 1;
+	  if(eg->partdim[i] == 0) eg->partdim[i] = 1;
 	  eg->partitions *= eg->partdim[i];
 	}
 	if(eg->partdim[0] < 0) eg->partdim[0] = -eg->partdim[0];
@@ -749,19 +749,34 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
   FILE *in;
   int i,j,k,l,error=0;
 
-  if(mode == 0) { 
-    AddExtension(prefix,filename,"eg");
-    if ((in = fopen(filename,"r")) == NULL) {
-      printf("LoadCommands: opening of the file '%s' wasn't succesfull !\n",filename);
+  if( mode == 0) {  
+    if ((in = fopen("ELMERGRID_STARTINFO","r")) == NULL) {
       return(1);
+    }
+    else {
+      fscanf(in,"%s",filename);
+      fclose(in);
+      printf("Using the file %s defined in ELMERGRID_STARTINFO\n",filename);
+      if ((in = fopen(filename,"r")) == NULL) {
+	printf("LoadCommands: opening of the file '%s' wasn't succesfull !\n",filename);
+	return(2);
+      }    
     }    
     if(info) printf("Loading ElmerGrid commands from file '%s'.\n",filename);    
   }
-  else if(mode == 1) {
+  if(mode == 1) { 
+    AddExtension(prefix,filename,"eg");
+    if ((in = fopen(filename,"r")) == NULL) {
+      printf("LoadCommands: opening of the file '%s' wasn't succesfull !\n",filename);
+      return(2);
+    }    
+    if(info) printf("Loading ElmerGrid commands from file '%s'.\n",filename);    
+  }
+  else if(mode == 2) {
     AddExtension(prefix,filename,"grd");
     if ((in = fopen(filename,"r")) == NULL) {
       printf("LoadCommands: opening of the file '%s' wasn't succesfull !\n",filename);
-      return(1);
+      return(3);
     }    
     if(info) printf("Loading ElmerGrid commands from file '%s'.\n",filename);
   }
@@ -1129,8 +1144,8 @@ int main(int argc, char *argv[])
   InitGrid(grids);
   info = TRUE;
 
-  if(argc == 2) {
-    errorstat = LoadCommands(argv[1],&eg,grids,0,info);     
+  if(argc <= 2) {
+    errorstat = LoadCommands(argv[1],&eg,grids,argc-1,info);     
     if(errorstat) Goodbye();
   }
   else if(argc < 4) {
@@ -1184,7 +1199,7 @@ int main(int argc, char *argv[])
       printf("Because file %s didn't exist, it was created for you.\n",eg.filesin[nofile]);
       Goodbye();
     }
-    LoadCommands(eg.filesin[nofile],&eg,grids,1,info); 
+    LoadCommands(eg.filesin[nofile],&eg,grids,2,info); 
     break;
 
   case 2: 
