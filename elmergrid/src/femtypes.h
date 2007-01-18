@@ -15,10 +15,10 @@
 #define MAXVARS 20          /* maximum number of variables at the sides */
 #define MAXNODESD2 27       /* maximum number of 2D nodes */ 
 #define MAXNODESD1 9        /* maximum number of 1D nodes */
-#define MAXMAPPINGS 10   
-
-#define MAXBCS 1000
-#define MAXBODIES 100
+#define MAXMAPPINGS 10      /* maximum number of geometry mappings */
+#define MAXCONNECTIONS 100  /* maximum number of connections in dual graph */
+#define MAXBCS 1000         /* maximum number of BCs in naming */
+#define MAXBODIES 100       /* maximum number of bodies in naming */
 
 #define CONPLAIN 0
 #define CONDISCONT 1
@@ -165,6 +165,9 @@ struct FemType {
     variables,     /* number of variables */
     indexwidth,    /* maximum difference of node indices */
     mapgeo,        /* mappings for geometry */
+    *dualgraph[MAXCONNECTIONS],  
+    dualmaxconnections,
+    dualexists,
     nocorners,     /* number material corners in the mesh */
     timesteps,     /* number of timesteps */
     periodicexist, /* does the periodic vector exist? */

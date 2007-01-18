@@ -1280,9 +1280,89 @@ int ElmerToElmerMap(struct FemType *data1,struct FemType *data2,int info)
 
 
 
+int CreateDualGraph(struct FemType *data,int info)
+{
+  int i,j,k,l,noelements, noknots,elemtype,nonodes,hit,ind,ind2, maxcon;
 
-int PartitionSimple(struct FemType *data,int dimpart[],int dimper[],
-		    int partorder, Real corder[],int info)
+  printf("Creating a dual graph of the finite element mesh\n");  
+
+  if(data->dualexists) {
+    printf("The dual graph already exists!\n");
+    smallerror("Dual graph not done");
+  }
+
+  maxcon = 0;
+  noelements = data->noelements;
+  noknots = data->noknots;
+
+  for(i=1;i<=noelements;i++) {
+    elemtype = data->elementtypes[i];
+    nonodes = data->elementtypes[i]%100;
+    for(j=0;j<nonodes;j++) {
+      ind = data->topology[i][j];
+      for(k=0;k<nonodes;k++) {
+	ind2 = data->topology[i][k];
+	if(ind == ind2) continue;
+
+	hit = FALSE;
+	for(l=0;l<maxcon;l++) { 
+	  if(data->dualgraph[l][ind] == ind2) hit = TRUE;
+	  if(data->dualgraph[l][ind] == 0) break;
+	}
+	if(!hit) {
+	  if(l >= maxcon) {
+	    data->dualgraph[maxcon] = Ivector(1,noknots);
+	    maxcon++;
+	  }
+	  data->dualgraph[l][ind] = ind2;
+	}
+      }
+    }
+  }
+  data->dualmaxconnections = maxcon;
+  data->dualexists = TRUE;
+  
+  printf("There are at maximum %d connections in dual graph.\n",maxcon);
+
+  return(0);
+}
+
+
+static int PartitionElementsByNodes(struct FemType *data,int info)
+{
+  int i,j,k,noknots,nonodes,noelements,nopartitions,part,maxpart;
+  int *elempart,*nodepart,*nodesinpart;
+
+  if(!data->partitionexist) return(1);
+
+  noknots = data->noknots;
+  noelements = data->noelements;
+  nopartitions = data->nopartitions;
+  elempart = data->elempart;
+  nodepart = data->nodepart;
+
+  nodesinpart = Ivector(1,nopartitions);
+
+  for(i=1;i<=noelements;i++) {
+    for(j=1;j<=nopartitions;j++) 
+      nodesinpart[j] = 0;
+    for(j=0;j<data->elementtypes[i]%100;j++) {
+      part = nodepart[data->topology[i][j]];
+      nodesinpart[part] += 1;
+    }
+    maxpart = 1;
+    for(j=1;j<=nopartitions;j++) 
+      if(nodesinpart[j] > nodesinpart[maxpart]) maxpart = j;
+    elempart[i] = maxpart;    
+  }
+  if(info) printf("Set the element partitions by the dominating nodal partition\n");
+  return(0);
+}
+
+
+
+int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
+			    int partorder, Real corder[],int info)
 {
   int i,j,k,ind;
   int noknots, noelements,nonodes,elemsinpart,periodic;
@@ -1299,14 +1379,15 @@ int PartitionSimple(struct FemType *data,int dimpart[],int dimper[],
   partitions = partitions1 * partitions2 * partitions3;
 
   if(partitions1 < 2 && partitions2 < 2 && partitions3 < 2) {
-    printf("No partitions to make!\n");
-    return(1);
+    printf("Some of the divisions must be larger than one: %d %d %d\n",
+	   partitions1, partitions2, partitions3 );
+    bigerror("Partitioning not performed");
   }
 
   if(partitions >= data->noelements) {
     printf("There must be fever partitions than elements (%d vs %d)!\n",
 	   partitions,data->noelements);
-    return(2);
+    bigerror("Partitioning not performed");
   }
     
   if(!data->partitionexist) {
@@ -1519,11 +1600,236 @@ int PartitionSimple(struct FemType *data,int dimpart[],int dimper[],
 
 
 
+int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
+			 int partorder, Real corder[],int info)
+{
+  int i,j,k,ind;
+  int noknots, noelements,nonodes,elemsinpart,periodic;
+  int partitions1, partitions2, partitions3,partitions;
+  int *indx,*part1,*part2,*part3,*nopart,*inpart,*nodepart;
+  Real xmax,xmin,ymax,ymin,zmax,zmin,arrange0;
+  Real *arrange;
+  Real x,y,z,cx,cy,cz,dx,dy,dz;
+  
+  partitions1 = dimpart[0];
+  partitions2 = dimpart[1];
+  partitions3 = dimpart[2];
+  if(data->dim < 3) partitions3 = 1;
+  partitions = partitions1 * partitions2 * partitions3;
+
+  if(partitions1 < 2 && partitions2 < 2 && partitions3 < 2) {
+    printf("Some of the divisions must be larger than one: %d %d %d\n",
+	   partitions1, partitions2, partitions3 );
+    bigerror("Partitioning not performed");
+  }
+
+  if(partitions >= data->noelements) {
+    printf("There must be fever partitions than elements (%d vs %d)!\n",
+	   partitions,data->noelements);
+    bigerror("Partitioning not performed");
+  }
+    
+  if(!data->partitionexist) {
+    data->partitionexist = TRUE;
+    data->elempart = Ivector(1,data->noelements);
+    data->nodepart = Ivector(1,data->noknots);
+    data->nopartitions = partitions;
+  }
+  inpart = data->elempart;
+  nodepart = data->nodepart;
+
+  periodic = data->periodicexist;
+  if(periodic) {
+    xmin = xmax = data->x[1];
+    ymin = ymax = data->y[1];
+    if(data->dim > 2) zmin = zmax = data->z[1];
+    else zmin = zmax = 0.0;
+    for(i=1;i<=data->noknots;i++) {
+      if(xmin > data->x[i]) xmin = data->x[i];
+      if(xmax < data->x[i]) xmax = data->x[i];
+      if(ymin > data->y[i]) ymin = data->y[i];
+      if(ymax < data->y[i]) ymax = data->y[i];
+      if(data->dim > 2) {
+	if(zmin > data->z[i]) zmin = data->z[i];
+	if(zmax < data->z[i]) zmax = data->z[i];
+      }
+    }
+    dx = xmax-xmin;
+    dy = ymax-ymin;
+    if(data->dim > 2) dz = zmax-zmin;
+  }
+
+  nopart = Ivector(1,partitions);
+  noelements = data->noelements;
+  noknots = data->noknots;
+
+  if(info) printf("\nMaking a simple partitioning for %d nodes in %d-dimensions.\n",
+		  noknots,data->dim);
+
+  arrange = Rvector(1,noknots);
+  indx = Ivector(1,noknots);
+
+  if(partorder) {
+    cx = corder[0];
+    cy = corder[1];
+    cz = corder[2];    
+  }
+  else {
+    cx = 1.0;
+    cy = 0.01;
+    cz = 0.0001;
+  }
+
+  z = 0.0;
+
+  if(partitions1 > 1) {
+    if(info) printf("Ordering 1st direction with (%.3lg*x + %.3lg*y + %.3lg*z)\n",cx,cy,cz);
+
+    part1 = Ivector(1,noknots);
+
+    if(periodic) arrange0 = cx * xmax + 0.5 * (cy*(ymin + ymax) + cz*(zmin + zmax));
+
+    for(j=1;j<=noknots;j++) {
+      x = data->x[j];
+      y = data->y[j];
+      if(data->dim==3) z = data->z[k];
+
+      arrange[j] = cx*x + cy*y + cz*z;
+      if(periodic && dimper[0]) {
+	arrange[j] += 0.5*arrange0/partitions1;
+	if(arrange[j] > arrange0) arrange[j] -= arrange0;
+      }
+    }
+    SortIndex(noknots,arrange,indx);
+    
+    for(i=1;i<=noknots;i++) 
+      part1[indx[i]] = (i*partitions1-1)/noknots+1;
+  } 
+  else {
+    part1 = Ivector(1,noknots);
+    for(j=1;j<=noknots;j++) 
+      part1[j] = 1;
+  }
+
+
+  /* Partition in the 2nd direction taking into account the 1st direction */
+  if(partitions2 > 1 || partitions3 > 1) 
+    part2 = Ivector(1,noknots);
+
+  if(partitions2 > 1) {
+    if(info) printf("Ordering in the 2nd direction.\n");
+
+    if(periodic) arrange0 = cx * ymax + 0.5 * (-cy*(xmin + xmax) + cz*(zmin + zmax));
+
+    for(j=1;j<=noknots;j++) {
+      x = data->x[j];
+      y = data->y[j];
+      if(data->dim==3) z = data->z[j];
+
+      arrange[j] = -cy*x + cx*y + cz*z;
+      if(dimper[1]) {
+	arrange[j] += 0.5*arrange0/partitions2;
+	if(arrange[j] > arrange0) arrange[j] -= arrange0;
+      }
+    }
+    SortIndex(noknots,arrange,indx);
+    
+    for(i=1;i<=partitions;i++)
+      nopart[i] = 0;
+    
+    elemsinpart = noknots / (partitions1*partitions2);
+    for(i=1;i<=noknots;i++) {
+      j = 0;
+      ind = indx[i];
+      do {
+	j++;
+	k = (part1[ind]-1) * partitions2 + j;
+      }
+      while(nopart[k] >= elemsinpart && j < partitions2);
+      
+      nopart[k] += 1;
+      part2[ind] = j;
+    }
+  }  
+  else if(partitions3 > 1) {
+    for(j=1;j<=noknots;j++) 
+      part2[j] = 1;
+  }
+
+
+  /* Partition in the 3rd direction taking into account the 1st and 2nd direction */
+  if(partitions3 > 1) {
+    if(info) printf("Ordering in the 3rd direction.\n");
+    part3 = Ivector(1,noknots);
+
+    if(periodic) arrange0 = cx * zmax + 0.5 * (-cz*(xmin + xmax) - cy*(ymin + ymax));
+
+    for(j=1;j<=noknots;j++) {
+      x = data->x[j];
+      y = data->y[j];
+      if(data->dim==3) z = data->z[j];
+      arrange[j] = -cz*x - cy*y + cx*z;
+      if(dimper[2]) {
+	arrange[j] += 0.5*arrange0/partitions3;
+	if(arrange[j] > arrange0) arrange[j] -= arrange0;
+      }
+    }
+    SortIndex(noknots,arrange,indx);
+
+    for(i=1;i<=partitions;i++)
+      nopart[i] = 0;
+    
+    elemsinpart = noknots / (partitions1*partitions2*partitions3);
+    for(i=1;i<=noknots;i++) {
+      j = 0;
+      ind = indx[i];
+      do {
+	j++;
+	k = (part1[ind]-1)*partitions2*partitions3 + (part2[ind]-1)*partitions3 + j;
+      }
+      while(nopart[k] >= elemsinpart && j < partitions3);
+    
+      nopart[k] += 1;
+      part3[ind] = j;
+    }
+  }
+  
+  if(0) for(i=1;i<=noelements;i++) 
+    printf("i=%d  part=%d\n",i,part3[ind]);
+
+  /* Set the default partition for each element. */
+  if(partitions3 > 1) { 
+    for(i=1;i<=noknots;i++) 
+      nodepart[i] = (part1[i]-1)*partitions2*partitions3 + (part2[i]-1)*partitions3 + part3[i];
+  }
+  else if(partitions2 > 1) {
+    for(i=1;i<=noknots;i++) 
+      nodepart[i] = (part1[i]-1)*partitions2 + part2[i];
+  }    
+  else {
+    for(i=1;i<=noknots;i++) 
+      nodepart[i] = part1[i];
+  }
+
+  free_Rvector(arrange,1,noelements);
+  free_Ivector(indx,1,noelements);
+  free_Ivector(part1,1,noknots);
+  if(partitions2 > 1) free_Ivector(part2,1,noknots);
+  if(partitions3 > 1) free_Ivector(part3,1,noknots);
+
+  PartitionElementsByNodes(data,info);
+
+  if(info) printf("Succesfully made a simple partition\n");
+
+  return(0);
+}
+
+
 #if PARTMETIS 
-int PartitionMetis(struct FemType *data,int partitions,int info)
+int PartitionMetisElements(struct FemType *data,int partitions,int info)
 {
   int i,j,periodic, highorder, noelements, noknots, ne, nn, sides;
-  int nodesd1, nodesd2, etype, numflag, nparts, edgecut;
+  int nodesd2, etype, numflag, nparts, edgecut;
   int *neededby,*metistopo;
   int *indxper,*inpart,*epart,*npart;
 
@@ -1555,9 +1861,9 @@ int PartitionMetis(struct FemType *data,int partitions,int info)
   sides = data->elementtypes[1]/100;
   for(i=1;i<=noelements;i++) {
     if(sides != data->elementtypes[i]/100) {
-      printf("Metis partition requires that all the elements are of the same type!\n");
+      printf("Nodal Metis partition requires that all the elements are of the same type!\n");
       data->partitionexist = FALSE;
-      return(2);
+      bigerror("Partitioning not performed");
     }
     if(sides == 3 && data->elementtypes[i]%100 > 3) highorder = TRUE;
     if(sides == 4 && data->elementtypes[i]%100 > 4) highorder = TRUE;
@@ -1570,25 +1876,21 @@ int PartitionMetis(struct FemType *data,int partitions,int info)
   if(sides == 3) {
     if (info) printf("The mesh seems to consist of triangles\n");
     nodesd2 = 3;
-    nodesd1 = 2;
     etype = 1;
   }
   else if(sides == 4)  {
     if(info) printf("The mesh seems to consist of quadrilaterals\n");
     nodesd2 = 4;
-    nodesd1 = 2;
     etype = 4;
   }
   else if(sides == 5) {
     if(info) printf("The mesh seems to consist of tetrahedra\n");
     nodesd2 = 4;
-    nodesd1 = 3;
     etype = 2;
   }
   else if(sides == 8) {
     if(info) printf("The mesh seems to consist of bricks\n");
     nodesd2 = 8;
-    nodesd1 = 4;
     etype = 3;
   }
 
@@ -1657,6 +1959,100 @@ int PartitionMetis(struct FemType *data,int partitions,int info)
   free_Ivector(metistopo,0,noelements*nodesd2-1);
   free_Ivector(epart,0,noelements-1);
   free_Ivector(npart,0,nn-1);
+
+  if(info) printf("Succesfully made a Metis partition\n");
+
+  return(0);
+}
+
+
+
+int PartitionMetisNodes(struct FemType *data,int partitions,int info)
+{
+  int i,j,k,periodic,noelements,noknots;
+  int nn,con,maxcon,totcon,options[5];
+  int *xadj,*adjncy,*vwgt,*adjwgt,wgtflag,*npart;
+  int numflag,nparts,edgecut,neeedby;
+  int *indxper;
+
+  if(info) printf("\nMaking a Metis partitioning for %d nodes in %d-dimensions.\n",
+		  data->noknots,data->dim);
+
+  CreateDualGraph(data,info);
+
+  noknots = data->noknots;
+  noelements = data->noelements;
+  maxcon = data->dualmaxconnections;
+
+  totcon = 0;
+  for(i=1;i<=noknots;i++)
+    for(j=0;j<maxcon;j++) {
+      con = data->dualgraph[j][i];
+      if(con == i) continue;
+      if(con) totcon++;
+    }
+
+  printf("There are %d connections alltogether\n",totcon);
+
+  xadj = Ivector(0,noknots);
+  adjncy = Ivector(0,totcon);
+
+  totcon = 0;
+  for(i=1;i<=noknots;i++) {
+    xadj[i-1] = totcon;
+    for(j=0;j<maxcon;j++) {
+      con = data->dualgraph[j][i];
+      if(con) {
+	if(con == i) continue;
+	adjncy[totcon] = con-1;
+	totcon++;
+	printf("i=%d %d %d  ",i,totcon,con-1);
+      }
+    }
+  }
+  xadj[noknots] = totcon;
+  printf("totcon = %d\n",totcon);
+
+
+  /* Are there periodic boundaries */
+  periodic = data->periodicexist;
+  if(periodic) {
+    if(info) printf("There seems to be peridic boundaries\n");
+    indxper = data->periodic;
+  }
+
+  nn = noknots;
+  numflag = 0;
+  nparts = partitions;
+  npart = Ivector(0,noknots-1);
+  wgtflag = 0;
+  for(i=0;i<5;i++) options[i] = 0;
+
+  printf("a1\n");
+ 
+  METIS_PartGraphRecursive(&nn,xadj,adjncy,vwgt,adjwgt,&wgtflag,
+			   &numflag,&nparts,options,&edgecut,npart);
+  printf("a2\n");
+
+  if(!data->partitionexist) {
+    data->partitionexist = TRUE;
+    data->elempart = Ivector(1,data->noelements);
+    data->nodepart = Ivector(1,data->noknots);
+    data->nopartitions = partitions;
+  }
+
+  /* Set the partition given by Metis for each node. */
+  for(i=1;i<=noknots;i++) {
+    j = i;
+    /* if(periodic) j = neededby[indxper[i]]; */
+    data->nodepart[i] = npart[j-1]+1;
+    if(data->nodepart[i] < 1 || data->nodepart[i] > partitions) 
+      printf("Invalid partition %d for node %d\n",data->nodepart[i],i);
+  }
+
+  PartitionElementsByNodes(data,info);
+
+  free_Ivector(npart,0,noknots-1);
 
   if(info) printf("Succesfully made a Metis partition\n");
 
@@ -2153,6 +2549,12 @@ optimizesharing:
   for(i=1;i<=noknots;i++) 
     rpart[i] = 1.0 * neededby[i];
 
+
+  for(i=1;i<=noknots;i++)
+    printf("i=%d part=%d\n",i,nodepart[i]);
+
+
+
   for(i=1;i<=noknots;i++) 
     nodepart[i] = neededby[i];
  
@@ -2165,6 +2567,8 @@ optimizesharing:
   free_Imatrix(neededtable,1,noknots,1,maxneededtimes);
   free_Ivector(probnodes,1,noknots);
   free_Ivector(neededby,1,noknots);
+
+
  
   if(info) printf("The partitioning was optimized.\n"); 
   return(0);

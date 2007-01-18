@@ -520,6 +520,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
 	return(3);
       }
       else {
+	eg->partitions = 1;
 	eg->partdim[0] = atoi(argv[arg+1]);
 	eg->partdim[1] = atoi(argv[arg+2]);
 	if(dim == 3) eg->partdim[2] = atoi(argv[arg+3]);
@@ -528,6 +529,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
 	  if(eg->partdim[i] < 1) eg->partdim[i] = 1;
 	  eg->partitions *= eg->partdim[i];
 	}
+	if(eg->partdim[0] < 0) eg->partdim[0] = -eg->partdim[0];
 	printf("The mesh will be partitioned with simple division to %d partitions.\n",
 	       eg->partitions);
       }
@@ -1689,13 +1691,21 @@ int main(int argc, char *argv[])
 
    
   for(k=0;k<nomeshes;k++) {
-    if(eg.partitions > 1)
-      PartitionSimple(&data[k],eg.partdim,eg.periodicdim,eg.partorder,eg.partcorder,info);	
+    if(eg.partitions > 1) 
+      PartitionSimpleElements(&data[k],eg.partdim,eg.periodicdim,eg.partorder,eg.partcorder,info);	
+    else if(eg.partitions < -1) { 
+      eg.partitions = abs( eg.partitions );
+      PartitionSimpleNodes(&data[k],eg.partdim,eg.periodicdim,eg.partorder,eg.partcorder,info);	
+    }
 #if PARTMETIS
     else if(eg.metis > 1) 
-      PartitionMetis(&data[k],eg.metis,info);
+      PartitionMetisElements(&data[k],eg.metis,info);
+    else if(eg.metis < -1) {
+      eg.metis = abs(eg.metis);
+      PartitionMetisNodes(&data[k],eg.metis,info);      
+    }
 #endif
-    if(eg.partitions > 1 || eg.metis > 1) 
+    if(eg.partitions || eg.metis ) 
       OptimizePartitioning(&data[k],boundaries[k],info);
   }
 

@@ -462,6 +462,7 @@ void InitializeKnots(struct FemType *data)
   data->partitionexist = FALSE;
   data->periodicexist = FALSE;
   data->connectexist = FALSE;
+  data->dualexists = FALSE;
 
   for(i=0;i<MAXDOFS;i++) {
     data->edofs[i] = 0;
