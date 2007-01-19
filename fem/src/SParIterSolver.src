@@ -23,8 +23,7 @@
 !
 !/******************************************************************************
 ! *
-! *  These routines are for parallel version of ELMER solver.
-! *  Subroutines for MPI-communication
+! *  These routines are for parallel version of the ELMER solver.
 ! *
 ! ******************************************************************************
 ! *
@@ -39,2442 +38,2919 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterComm.src,v 1.8 2006/12/21 12:40:59 jpr Exp $
+! * $Id: SParIterSolver.src,v 1.10 2006/12/21 12:40:59 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
+#include "../config.h"
 
-MODULE SParIterComm
+MODULE SParIterSolve
 
   USE Types
+  USE Lists
   USE SParIterGlobals
+  USE SParIterComm
+  USE SParIterPrecond
+
+  USE CRSMatrix
 
   IMPLICIT NONE
 
-  INCLUDE "mpif.h"
-
 CONTAINS
 
-!-----------------------------------------------------------------
-  SUBROUTINE CheckBuffer( n )
-!-----------------------------------------------------------------
-     INTEGER :: n, i, ierr
-     INTEGER*1, ALLOCATABLE :: SendBuffer(:)
+  SUBROUTINE Dummy
+  END SUBROUTINE Dummy
 
-     LOGICAL :: isfine
 
-     SAVE SendBuffer
+  SUBROUTINE DPCond( u,v,ipar )
+    REAL(KIND=dp) :: u(*),v(*)
+    integer :: ipar(*)
 
-     isfine = ALLOCATED(SendBuffer)
-     IF ( isfine ) isfine = 3*n <= SIZE(SendBuffer)
-     IF ( isfine ) RETURN
+    u(1:HUTI_NDIM) = v(1:HUTI_NDIM)
+  END SUBROUTINE DPCond
 
-     IF ( ALLOCATED(SendBuffer) ) THEN
-        i = SIZE( SendBuffer )
-        CALL MPI_BUFFER_DETACH( SendBuffer, i, ierr )
-        DEALLOCATE( SendBuffer )
-     END IF
-     ALLOCATE( SendBuffer( 3*n ) )
-     CALL MPI_BUFFER_ATTACH( SendBuffer, 3*n, ierr )
-!-----------------------------------------------------------------
-   END SUBROUTINE CheckBuffer
-!-----------------------------------------------------------------
 
+  SUBROUTINE CPCond( u,v,ipar )
+    COMPLEX(KIND=dp) :: u(*),v(*)
+    integer :: ipar(*)
+
+    u(1:HUTI_NDIM) = v(1:HUTI_NDIM)
+  END SUBROUTINE CPCond
 
   !********************************************************************
-  !********************************************************************
   !
-  ! Initialize parallel execution environment
+  ! Initialize the Matrix structures for parallel environment
   !
-   
-   FUNCTION ParCommInit( ) RESULT ( ParallelEnv ) 
+  FUNCTION ParInitMatrix( SourceMatrix, ParallelInfo, DOFs ) RESULT ( SParMatrixDesc )
 
-     TYPE (ParEnv_t), POINTER :: ParallelEnv
+    TYPE (Matrix_t),TARGET :: SourceMatrix
+    TYPE (ParallelInfo_t), TARGET :: ParallelInfo
+    INTEGER :: DOFs
+    TYPE (SParIterSolverGlobalD_t), POINTER :: SParMatrixDesc
 
-    ! Local variables
-
-    INTEGER :: ierr
-
+    TYPE (ParEnv_t), POINTER :: ParallelEnv
     !******************************************************************
 
-    ParallelEnv => ParEnv
-
-    ParEnv % MyPE = 0
-    ParEnv % PEs  = 1
-
-    ierr = 0
-    CALL MPI_INIT( ierr )
-    IF ( ierr /= 0 ) RETURN
-
-    CALL MPI_COMM_SIZE( MPI_COMM_WORLD, ParEnv % PEs, ierr )
-    IF ( ierr /= 0 .OR. ParEnv % PEs <= 1 ) THEN
-       CALL MPI_Finalize( ierr )
-    ELSE
-       CALL MPI_COMM_RANK( MPI_COMM_WORLD, ParEnv % MyPE, ierr )
-
-       WRITE( Message, * ) 'Initialize: ', ParEnv % PEs, ParEnv % MyPE
-       CALL Info( 'ParCommInit', Message, Level=5 )
-    
-       IF ( ierr /= 0 ) THEN
-          WRITE( Message, * ) 'MPI Initialization failed ! (ierr=', ierr, ')'
-          CALL Fatal( 'ParCommInit', Message )
-       END IF
-
-       Parenv % NumOfNeighbours = 0
-       ALLOCATE( ParEnv % SendingNB( ParEnv % PEs ) )
-       ALLOCATE( ParEnv % IsNeighbour( ParEnv % PEs ) )
-       ParEnv % Initialized = .TRUE.
+    IF ( .NOT. ParEnv % Initialized ) THEN
+       ParallelEnv => ParCommInit()
     END IF
-  END FUNCTION ParCommInit
 
+    ALLOCATE( SParMatrixDesc )
+    CALL ParEnvInit( SParMatrixDesc, ParallelInfo, SourceMatrix, DOFs )
 
-  !********************************************************************
-  !********************************************************************
-  !
-  ! Initialize parallel execution environment
-  !
-!-----------------------------------------------------------------------
-  SUBROUTINE ParEnvInit( SPMatrix, ParallelInfo, SourceMatrix, DOFs  )
-!-----------------------------------------------------------------------
+    SParMatrixDesc % Matrix => SourceMatrix
+    SParMatrixDesc % DOFs = DOFs
+    SParMatrixDesc % ParallelInfo => ParallelInfo
+    
+    ParEnv = SParMatrixDesc % ParEnv
+    SParMatrixDesc % SplittedMatrix => &
+                   SplitMatrix( SourceMatrix, ParallelInfo, DOFs )
 
-    TYPE(SparIterSolverGlobalD_t) :: SPMatrix
-    TYPE (ParallelInfo_t) :: ParallelInfo
-    INTEGER :: DOFs
-    TYPE(Matrix_t) :: SourceMatrix
-!-----------------------------------------------------------------------
+  END FUNCTION ParInitMatrix
 
-    CALL FindActivePEs( ParallelInfo )
-    SPMatrix % ParEnv = ParEnv
-
-!     CALL CheckBuffer( 8*SourceMatrix % NumberOfRows )
-
-!     SPMatrix % ParEnv = ParEnv
-
-!     ALLOCATE( SPMatrix % ParEnv % SendingNB( ParEnv % PEs ) )
-!     ALLOCATE( SPMatrix % ParEnv % Active( ParEnv % PEs ) )
-!     ALLOCATE( SPMatrix % ParEnv % IsNeighbour( ParEnv % PEs ) )
-
-!     SPMatrix % ParEnv % NumOfNeighbours = 0
-!     SPMatrix % ParEnv % Active(:)       = .FALSE.
-!     SPMatrix % ParEnv % SendingNB(:)    = .FALSE.
-!     SPMatrix % ParEnv % IsNeighbour(:)  = .FALSE.
-
-!     !------------------------------------------------------------------
-!     !
-!     ! Count the number of real neighbours for this partition
-!     !
-!     !------------------------------------------------------------------
-
-!     DO i=DOFs, SourceMatrix % NumberOfRows, DOFs
-!        k = SourceMatrix % INVPerm(i) / DOFs
- 
-!        IF ( SIZE( ParallelInfo % NeighbourList(k) % Neighbours ) > 1 ) THEN
-!           DO j = 1, SIZE( ParallelInfo % NeighbourList(k) % Neighbours )
-!              proc = ParallelInfo % NeighbourList(k) % Neighbours(j)
-!              IF ( proc /= ParEnv % MyPE ) THEN
-!                 IF ( .NOT. SPMatrix % ParEnv % IsNeighbour(proc+1) ) THEN
-!                    SPMatrix % ParEnv % IsNeighbour(proc+1) = .TRUE.
-!                    SPMatrix % ParEnv % NumOfNeighbours = &
-!                             SPMatrix % ParEnv % NumOfNeighbours + 1
-!                 END IF
-!              END IF
-!           END DO
-!        END IF
-!     END DO
-
-!     !------------------------------------------------------------------
-!     !
-!     ! Scan active procs for this specific equation.
-!     ! TODO: wont work for disconnected areas....
-!     !
-!     !------------------------------------------------------------------
-
-!     ALLOCATE( Active( ParEnv % PEs ) )
-!     SPMatrix % ParEnv % Active = SPMatrix % ParEnv % IsNeighbour
-
-!     DO k = 1, ParEnv % PEs
-!        Active = 0
-!        DO i=1,ParEnv % PEs
-!           IF ( SPMatrix % ParEnv % Active(i) ) Active(i) = 1
-!        END DO
-
-!        DO i=1,ParEnv % PEs
-!           IF ( SPMatrix % ParEnv % IsNeighbour(i) ) THEN
-!              CALL MPI_BSEND( Active, ParEnv % PEs, MPI_INTEGER, i-1, &
-!                      k, MPI_COMM_WORLD, ierr )
-!           END IF
-!        END DO
-
-!        DO i=1,ParEnv % PEs
-!           IF ( SPMatrix % ParEnv % IsNeighbour(i) ) THEN
-!              CALL MPI_RECV( Active, ParEnv % PEs, MPI_INTEGER, i-1, &
-!                      k, MPI_COMM_WORLD, status, ierr )
-!              SPMatrix % ParEnv % Active = &
-!                   SPMatrix % ParEnv % Active .OR. Active /= 0
-!           END IF
-!        END DO
-!     END DO
-
-!     DEALLOCATE( Active )
-!-----------------------------------------------------------------------
-  END SUBROUTINE ParEnvInit
-!-----------------------------------------------------------------------
 
 !********************************************************************
-! Find active PEs using ParallelInfo % NeighbourList
-!-----------------------------------------------------------------------
-  SUBROUTINE FindActivePEs( ParallelInfo )
-!-----------------------------------------------------------------------
-    TYPE(ParallelInfo_t) :: ParallelInfo
-!-----------------------------------------------------------------------
+!********************************************************************
+!
+! Split the given matrix (SourceMatrix) to InsideMatrix part (elements
+! inside a partition) and InterfaceMatrix table (interface blocks).
+!
+  FUNCTION SplitMatrix( SourceMatrix, ParallelInfo, DOFs ) &
+       RESULT ( SplittedMatrix )
+
+    USE Types
+    IMPLICIT NONE
+
+    TYPE (Matrix_t) :: SourceMatrix       ! Original matrix in this partition
+    TYPE (ParallelInfo_t) :: ParallelInfo
+    INTEGER :: DOFs                     ! Degrees of freedom per node
+
+    TYPE (SplittedMatrixT), POINTER :: SplittedMatrix
+
+  ! External routines
+
+! EXTERNAL SearchNode
+! INTEGER :: SearchNode
+
+  ! Local variables
+
+    INTEGER :: i, j, k, l, m, n, dd, RowInd, ColInd, RowStart, RowEnd, Gcol
+    INTEGER :: InsideMRows, InsideMCols, Row, Col, currifi, RowOwner
+    INTEGER, DIMENSION(:), ALLOCATABLE :: OwnIfMRows, OwnIfMCols, OwnOCOR
+    INTEGER, DIMENSION(:), ALLOCATABLE :: NbsIfMRows, NbsIfMCols, NbsOCOR
+    INTEGER, DIMENSION(:), ALLOCATABLE :: OwnOldCols, NbsOldCols
+    INTEGER :: FoundIndex, AtLeastOneCol, OldCols, NewCol, iii
+    INTEGER, POINTER :: ColBuffer(:), RowBuffer(:), IndBuffer(:), Ncol(:)
+
+    TYPE (NeighbourList_t), POINTER :: CurrNbsL
+
+    TYPE (Matrix_t), DIMENSION(:), ALLOCATABLE :: OwnIfMatrix
+    TYPE (Matrix_t), DIMENSION(:), POINTER :: NbsIfMatrix
+    TYPE (Matrix_t), DIMENSION(:), ALLOCATABLE :: RecvdIfMatrix
+
+    LOGICAL :: NeedMass, GotNewCol, Found
+
+real(kind=dp) :: cputime,st
+  !******************************************************************
+
+    ALLOCATE( SplittedMatrix )
+    SplittedMatrix % InsideMatrix => AllocateMatrix()
+
+    ALLOCATE( SplittedMatrix % GlueTable )
+
+    NULLIFY( SplittedMatrix % IfMatrix )
+    NULLIFY( SplittedMatrix % NbsIfMatrix )
+    NULLIFY( SplittedMatrix % Vecindices )
+    NULLIFY( SplittedMatrix % IfVecs )
+    NULLIFY( SplittedMatrix % RHS )
+    NULLIFY( SplittedMatrix % Work )
+    NULLIFY( SplittedMatrix % ResBuf )
+    NULLIFY( SplittedMatrix % TmpXVec )
+    NULLIFY( SplittedMatrix % TmpRVec )
+
+  !----------------------------------------------------------------------
+  !
+  ! Copy the glueing table row and column indices
+  !
+  !----------------------------------------------------------------------
+
+    ALLOCATE( SplittedMatrix % GlueTable % Rows( SIZE(SourceMatrix % Rows) ) )
+    ALLOCATE( SplittedMatrix % GlueTable % Cols( SIZE(SourceMatrix % Cols) ) )
+    ALLOCATE( SplittedMatrix % GlueTable % Inds( SIZE(SourceMatrix % Cols) ) )
+    ALLOCATE( SplittedMatrix % GlueTable % RowOwner(SIZE(SourceMatrix % Rows)))
+
+    SplittedMatrix % GlueTable % Rows(:) = SourceMatrix % Rows(:)
+    SplittedMatrix % GlueTable % Cols(:) = SourceMatrix % Cols(:)
+
+    ALLOCATE( SplittedMatrix % VecIndices( ParEnv % PEs ) )
+    CALL CountNeighbourConns( SourceMatrix, SplittedMatrix, ParallelInfo, DOFs )
+
+#ifdef HAVE_HYPRE
+    IF (ListGetLogical(CurrentModel % Solver % Values, &
+       'Linear System Use HYPRE', Found )) RETURN
+#endif
+
+  !----------------------------------------------------------------------
+  !
+  ! Allocate some temporary work space
+  !
+  !----------------------------------------------------------------------
+
+    ALLOCATE( OwnIfMRows( ParEnv % PEs ) )
+    ALLOCATE( OwnIfMCols( ParEnv % PEs ) )
+    ALLOCATE( NbsIfMRows( ParEnv % PEs ) )
+    ALLOCATE( NbsIfMCols( ParEnv % PEs ) )
+    ALLOCATE( OwnOCOR( ParEnv % PEs ) )
+    ALLOCATE( NbsOCOR( ParEnv % PEs ) )
+    ALLOCATE( OwnOldCols( ParEnv % PEs ) )
+    ALLOCATE( NbsOldCols( ParEnv % PEs ) )
+    OwnIfMRows(:) = 0; OwnIfMCols(:) = 0; NbsIfMRows(:) = 0; NbsIfMCols(:) = 0
+
+  !----------------------------------------------------------------------
+  !
+  ! Compute the memory allocations for splitted matrix blocks
+  !
+  !----------------------------------------------------------------------
+    InsideMRows = 0; InsideMCols = 0
+    DO i = 1, SourceMatrix % NumberOfRows
+
+       AtLeastOneCol = 0; OwnOCOR(:) = 0; NbsOCOR(:) = 0
+       RowInd = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
+       RowOwner = ParallelInfo % NeighbourList(RowInd) % Neighbours(1)
+
+       IF ( RowOwner == ParEnv % MyPE ) THEN
+!
+!         Connection is local-local or local-if:
+!         --------------------------------------
+          DO j = SourceMatrix % Rows(i), SourceMatrix % Rows(i+1) - 1
+
+             ColInd = SourceMatrix % Cols(j)
+             ColInd = (SourceMatrix % INVPerm(ColInd) + DOFs-1) / DOFs
+
+             IF ( ParallelInfo % NeighbourList(ColInd) % Neighbours(1) == &
+                                ParEnv % MyPE ) THEN
+
+	      !----------------------------------------------------------
+	      !
+	      ! Connection is local-local
+	      !
+	      !----------------------------------------------------------
+
+                InsideMCols = InsideMCols + 1
+                AtLeastOneCol = 1
+             ELSE
+
+	      !----------------------------------------------------------
+	      !
+	      ! Connection is local-if
+	      !
+	      !----------------------------------------------------------
+
+                CurrNbsL => ParallelInfo % NeighbourList( ColInd )
+                NbsIfMCols( CurrNbsL % Neighbours(1) + 1 ) = &
+                     NbsIfMCols( CurrNbsL % Neighbours(1) + 1 ) + 1
+                NbsOCOR( CurrNbsL % Neighbours(1) + 1 ) = 1
+	  END IF
+	END DO
+
+     ELSE
+
+	!----------------------------------------------------------------
+	!
+	! Connection is if-local or if-if
+	!
+	!----------------------------------------------------------------
+
+	DO j = SourceMatrix % Rows(i), SourceMatrix % Rows(i+1) - 1
+
+           ColInd = SourceMatrix % Cols(j)
+           ColInd = (SourceMatrix % INVPerm(ColInd) + DOFs-1) / DOFs
+
+	   IF ( ParallelInfo % NeighbourList(ColInd) % Neighbours(1) == &
+                            ParEnv % MyPE ) THEN
+
+	      !----------------------------------------------------------
+	      !
+	      ! Connection is if-local
+	      !
+	      !----------------------------------------------------------
+
+	      CurrNbsL => ParallelInfo % NeighbourList(RowInd)
+              OwnIfMCols( CurrNbsL % Neighbours(1) + 1) = &
+                   OwnIfMCols( CurrNbsL % Neighbours(1) + 1) + 1
+              OwnOCOR( CurrNbsL % Neighbours(1) + 1) = 1
+              
+	   ELSE
+
+	      !----------------------------------------------------------
+	      !
+	      ! Connection is if-if
+	      !
+	      !----------------------------------------------------------
+	      CurrNbsL => ParallelInfo % NeighbourList(ColInd)
+              NbsIfMCols( CurrNbsL % Neighbours(1) + 1) = &
+                   NbsIfMCols( CurrNbsL % Neighbours(1) + 1) + 1
+              NbsOCOR( CurrNbsL % Neighbours(1) + 1) = 1
+	   END IF
+	END DO
+
+     END IF
+
+     InsideMRows = InsideMRows + AtLeastOneCol
+     NbsIfMRows(:) = NbsIfMRows(:) + NbsOCOR(:)
+     OwnIfMRows(:) = OwnIfMRows(:) + OwnOCOR(:)
+  END DO
+
+  !----------------------------------------------------------------------
+  !
+  ! Allocate the block inside this partition
+  !
+  !----------------------------------------------------------------------
+
+  ALLOCATE( SplittedMatrix % InsideMatrix % Rows( InsideMRows + 1 ) )
+  ALLOCATE( SplittedMatrix % InsideMatrix % Cols( InsideMCols ) )
+  ALLOCATE( SplittedMatrix % InsideMatrix % Diag( InsideMRows ) )
+  ALLOCATE( SplittedMatrix % InsideMatrix % GRows( InsideMRows ) )
+  ALLOCATE( SplittedMatrix % InsideMatrix % Gorder( InsideMRows ) )
+  ALLOCATE( SplittedMatrix % InsideMatrix % Values( InsideMCols ) )
+
+  NeedMass = .FALSE.
+  IF (  ASSOCIATED( SourceMatrix % MassValues ) ) THEN
+     IF ( SIZE( SourceMatrix % Values ) == SIZE( SourceMatrix % MassValues ) ) NeedMass = .TRUE.
+  END IF
+  NULLIFY( SplittedMatrix % InsideMatrix % MassValues )
+  IF ( NeedMass ) ALLOCATE( SplittedMatrix % InsideMatrix % MassValues( InsideMCols ) )
+
+  SplittedMatrix % InsideMatrix % Ordered = .FALSE.
+  NULLIFY( SplittedMatrix % InsideMatrix % ILUValues )
+
+  !----------------------------------------------------------------------
+  !
+  ! Allocate the interface blocks (both the own parts and the ones to be
+  ! sent to the neighbours)
+  !
+  !----------------------------------------------------------------------
+
+  ALLOCATE( SplittedMatrix % IfMatrix( ParEnv % PEs ) )
+  ALLOCATE( SplittedMatrix % IfVecs( ParEnv % PEs ) )
+  ALLOCATE( SplittedMatrix % NbsIfMatrix( ParEnv % PEs ) )
+  ALLOCATE( OwnIfMatrix( ParEnv % PEs ) )
+  ALLOCATE( RecvdIfMatrix( ParEnv % PEs ) )
+
+  NbsIfMatrix => SplittedMatrix  % NbsIfMatrix
+ 
+  SplittedMatrix % InsideMatrix % NumberOfRows = InsideMRows
+
+  DO i = 1, ParEnv % PEs
+
+     RecvdIfMatrix(i) % NumberOfRows = 0
+
+     NbsIfMatrix(i) % NumberOfRows = NbsIfMRows(i)
+     IF ( NbsIfMRows(i) /= 0 ) THEN
+	ALLOCATE( NbsIfMatrix(i) % Rows( NbsIfMRows(i)+1 ) )
+	ALLOCATE( NbsIfMatrix(i) % Cols( NbsIfMCols(i) ) )
+	ALLOCATE( NbsIfMatrix(i) % Diag( NbsIfMRows(i) ) )
+	ALLOCATE( NbsIfMatrix(i) % GRows( NbsIfMRows(i) ) )
+	ALLOCATE( NbsIfMatrix(i) % RowOwner( NbsIfMRows(i) ) )
+	ALLOCATE( NbsIfMatrix(i) % Values( NbsIfMCols(i) ) )
+
+        NULLIFY( NbsIfMatrix(i) % MassValues )
+        IF ( NeedMass ) ALLOCATE( NbsIfMatrix(i) % MassValues( NbsIfMCols(i) ) )
+     END IF
+
+     OwnIfMatrix(i) % NumberOfRows = OwnIfMRows(i)
+     IF ( OwnIfMRows(i) /= 0 ) THEN
+	ALLOCATE( OwnIfMatrix(i) % Rows( OwnIfMRows(i)+1 ) )
+	ALLOCATE( OwnIfMatrix(i) % Cols( OwnIfMCols(i) ) )
+	ALLOCATE( OwnIfMatrix(i) % Diag( OwnIfMRows(i) ) )
+	ALLOCATE( OwnIfMatrix(i) % GRows( OwnIfMRows(i) ) )
+	ALLOCATE( OwnIfMatrix(i) % Values( OwnIfMCols(i) ) )
+	ALLOCATE( OwnIfMatrix(i) % RowOwner( OwnIfMRows(i) ) )
+
+        NULLIFY( OwnIfMatrix(i) % MassValues )
+	IF ( NeedMass ) ALLOCATE( OwnIfMatrix(i) % MassValues( OwnIfMCols(i) ) )
+     END IF
+  END DO
+
+  !----------------------------------------------------------------------
+  !
+  ! Copy the actual indices into correct blocks
+  !
+  !----------------------------------------------------------------------
+
+  InsideMRows = 1; InsideMCols = 1; OldCols = 1
+  NbsIfMRows(:) = 1; NbsIfMCols(:) = 1; NbsOldCols(:) = 1
+  OwnIfMRows(:) = 1; OwnIfMCols(:) = 1; OwnOldCols(:) = 1
+  DO i = 1, SourceMatrix % NumberOfRows
+     AtLeastOneCol = 0; NbsOCOR(:) = 0; OwnOCOR(:) = 0
+
+     RowInd   = ( SourceMatrix % INVPerm(i) + DOFs-1 ) / DOFs
+     RowOwner = ParallelInfo % NeighbourList(RowInd) % Neighbours(1)
+
+     IF ( RowOwner == ParEnv % MyPE ) THEN
+	!----------------------------------------------------------------
+	!
+	! Connection is local-local or local-if
+	!
+	!----------------------------------------------------------------
+	
+	DO j = SourceMatrix % Rows(i), SourceMatrix % Rows(i+1) - 1
+
+           ColInd =  SourceMatrix % Cols(j)
+           ColInd = (SourceMatrix % INVPerm(ColInd) + DOFs-1)/ DOFs
+
+	   IF ( ParallelInfo % NeighbourList(ColInd) % Neighbours(1) == &
+		ParEnv % MyPE ) THEN
+
+	      !----------------------------------------------------------
+	      !
+	      ! Connection is local-local
+	      !
+	      !----------------------------------------------------------
+
+	      SplittedMatrix % InsideMatrix % Cols( InsideMCols ) = &
+                             SourceMatrix % Cols(j)
+	      SplittedMatrix % GlueTable % Inds(j) = InsideMCols
+	      AtLeastOneCol = 1
+	      InsideMCols = InsideMCols + 1
+	   ELSE
+
+	      !----------------------------------------------------------
+	      !
+	      ! Connection is local-if
+	      !
+	      !----------------------------------------------------------
+
+	      currifi = ParallelInfo % NeighbourList(Colind) % Neighbours(1) + 1
+
+              NbsIfMatrix(currifi) % Cols(NbsIfMcols(currifi)) =  &
+                  ParallelInfo  % GlobalDOFs(ColInd) * DOFs - &
+                      (DOFs - 1 - MOD(SourceMatrix % Cols(j)-1,DOFs))
+
+              NbsIfMcols(currifi) = NbsIfMcols(currifi) + 1
+              NbsOCOR(currifi) = 1
+              SplittedMatrix % GlueTable % Inds(j) = -(ParEnv % PEs + currifi)
+
+	   END IF
+	END DO
+
+     ELSE
+
+	!----------------------------------------------------------------
+	!
+	! Connection is if-local or if-if
+	!
+	!----------------------------------------------------------------
+
+	DO j = SourceMatrix % Rows(i), SourceMatrix % Rows(i+1) - 1
+           ColInd = SourceMatrix % Cols(j)
+           ColInd = (SourceMatrix % INVPerm(ColInd) + DOFs-1) / DOFs
+
+	   IF ( ParallelInfo % NeighbourList(ColInd) % Neighbours(1) == &
+		ParEnv % MyPE ) THEN
+
+	      !----------------------------------------------------------
+	      !
+	      ! Connection is if-local
+	      !
+	      !----------------------------------------------------------
+
+	      currifi = ParallelInfo % NeighbourList(RowInd) % Neighbours(1) + 1
+
+              OwnIfMatrix(currifi) % Cols(OwnIfMcols(currifi)) =  &
+                  ParallelInfo  % GlobalDOFs(ColInd) * DOFs - &
+                      (DOFs - 1 - MOD(SourceMatrix % Cols(j)-1,DOFs))
+
+              SplittedMatrix % GlueTable % Inds(j) = -currifi
+              OwnOCOR(currifi) = 1
+              OwnIfMcols(currifi) = OwnIfMcols(currifi) + 1
+
+	   ELSE
+
+	      !----------------------------------------------------------
+	      !
+	      ! Connection is if-if
+	      !
+	      !----------------------------------------------------------
+              currifi = ParallelInfo % NeighbourList(ColInd) % Neighbours(1) + 1
+
+              NbsIfMatrix(currifi) % Cols(NbsIfMcols(currifi)) =  &
+                ParallelInfo  % GlobalDOFs(ColInd) * DOFs - &
+                    (DOFs - 1 - MOD(SourceMatrix % Cols(j)-1,DOFs))
+
+              SplittedMatrix % GlueTable % Inds(j) = -(ParEnv % PEs + currifi)
+              NbsOCOR(currifi) = 1
+              NbsIfMcols(currifi) = NbsIfMcols(currifi) + 1
+	   END IF
+	END DO
+
+     END IF
+
+     !-------------------------------------------------------------------
+     !
+     ! Update the row indices to keep the CRS structures valid
+     !
+     !-------------------------------------------------------------------
+
+     RowInd = ParallelInfo % GlobalDOFs(RowInd) * DOFs - (DOFs-1-MOD(i-1, DOFs))
+
+     IF ( AtLeastOneCol /= 0 ) THEN
+        SplittedMatrix % InsideMatrix % GRows( InsideMRows ) = RowInd
+        SplittedMatrix % InsideMatrix % Rows(  InsideMRows ) = OldCols
+     END IF
+
+     DO j = 1, ParEnv % PEs
+        IF ( OwnOCOR(j) /= 0 ) THEN
+           OwnIfMatrix(j) % Rows(OwnIfMRows(j))  = OwnOldCols(j)
+           OwnIfMatrix(j) % GRows(OwnIfMRows(j)) = RowInd
+           OwnIfMatrix(j) % RowOwner(OwnIfMRows(j)) = RowOwner
+        END IF
+
+	IF ( NbsOCOR(j) /= 0 ) THEN
+	   NbsIfMatrix(j) % Rows(NbsIfMRows(j))  = NbsOldCols(j)
+	   NbsIfMatrix(j) % GRows(NbsIfMRows(j)) = RowInd
+	   NbsIfMatrix(j) % RowOwner(NbsIfMRows(j)) = RowOwner
+	END IF
+     END DO
+
+     InsideMRows = InsideMRows + AtLeastOneCol
+     NbsIfMRows(:) = NbsIfMRows(:) + NbsOCOR(:)
+     OwnIfMRows(:) = OwnIfMRows(:) + OwnOCOR(:)
+
+     OldCols = InsideMCols
+     OwnOldCols(:) = OwnIfMCols(:)
+     NbsOldCols(:) = NbsIfMCols(:)
+  END DO
+
+  IF ( SplittedMatrix % InsideMatrix % NumberOfRows /= 0 ) THEN
+     SplittedMatrix % InsideMatrix % Rows( InsideMRows ) = InsideMCols
+  END IF
+
+  DO j = 1, ParEnv % PEs
+     IF ( OwnIfMatrix(j) % NumberOfRows /= 0 ) &
+	  OwnIfMatrix(j) % Rows(OwnIfMRows(j)) = OwnIfMCols(j)
+
+     IF ( NbsIfMatrix(j) % NumberOfRows /= 0 ) &
+	  NbsIfMatrix(j) % Rows(NbsIfMRows(j)) = NbsIfMCols(j)
+  END DO
+
+  DO j = 1, ParEnv % PEs
+     IF ( OwnIfMatrix(j) % NumberOfRows /= (OwnIfMRows(j) - 1) .OR. &
+          NbsIfMatrix(j) % NumberOfRows /= (NbsIfMRows(j) - 1) ) THEN
+        WRITE( Message, * ) OwnIfMRows, NbsIfMRows, OwnIfMCols, NbsIfMCols
+        CALL Error( 'SplitMatrix', Message )
+     END IF
+  END DO
+
+  !----------------------------------------------------------------------
+  !
+  ! Exchange the interface blocks and glue received interface parts into
+  ! the interface blocks already at this processor.
+  !
+  !----------------------------------------------------------------------
+  CALL ExchangeInterfaces( NbsIfMatrix, RecvdIfMatrix )
+
+!xxxxxxx
+
+#if 1
+  !----------------------------------------------------------------------
+  ! Insert matrix elements to splittedmatrix if got from the
+  ! exchange operation.
+  !----------------------------------------------------------------------
+  n = SplittedMatrix % InsideMatrix % NumberOfRows
+
+  DO i=1,n
+    SplittedMatrix % InsideMatrix % Gorder(i) = i
+  END DO
+
+  CALL SortI( n, SplittedMatrix % InsideMatrix % GRows, &
+        SplittedMatrix % InsideMatrix % Gorder )
+
+  ALLOCATE( RowBuffer( n+1 ) )
+  RowBuffer = SplittedMatrix % InsideMatrix % Rows
+
+  NewCol = 0
+  DO i=1,ParEnv % PEs
+     DO j=1,RecvdIfMatrix(i) % NumberOfRows
+!
+!       Search for position of global row in this partitions numbering:
+!       ---------------------------------------------------------------
+        RowInd = SearchIAItem( n, SplittedMatrix % InsideMatrix % GRows, &
+          RecvdIfMatrix(i) % GRows(j), SplittedMatrix % InsideMatrix % Gorder)
+
+        IF ( RowInd > 0 ) THEN
+           DO k = RecvdIfMatrix(i) % Rows(j), RecvdIfMatrix(i) % Rows(j+1) - 1
+              ColInd = -1
+
+              DO l = RowBuffer(RowInd),  RowBuffer(RowInd+1) - 1
+!
+!                Equation DOF numbering to partition nodal numbering:
+!                ----------------------------------------------------
+                 GCol = SplittedMatrix % InsideMatrix % Cols(l)
+                 GCol = (SourceMatrix % INVPerm(GCol) + DOFs-1) / DOFs
+!
+!                Partition nodal numbering to global nodal DOF numbering:
+!                --------------------------------------------------------
+                 GCol = ParallelInfo % GlobalDOFs(GCol)
+                 GCol = DOFs * GCol - (DOFs - 1 - &
+                      MOD( SplittedMatrix % InsideMatrix % Cols(l) - 1,DOFs ) )
+
+                 IF ( RecvdIfMatrix(i) % Cols(k) == GCol ) THEN
+                    ColInd = GCol
+                    EXIT
+                 END IF
+              END DO
+
+              IF ( ColInd == -1 ) THEN
+                 ColInd = SearchIAItem( n, &
+                      SplittedMatrix % InsideMatrix % GRows, &
+                      RecvdIfMatrix(i) % Cols(k), &
+                      SplittedMatrix % InsideMatrix % Gorder )
+
+                 IF ( ColInd /= -1 )  THEN
+                    NewCol = NewCol+1
+                    DO l = RowInd+1, n+1
+                       SplittedMatrix % InsideMatrix % Rows(l) = &
+                            SplittedMatrix % InsideMatrix % Rows(l) + 1
+                    END DO
+                 END IF
+              END IF
+           END DO
+        END IF
+     END DO
+  END DO
+
+
+  IF ( NewCol > 0 ) THEN
+    ALLOCATE(ColBuffer(SplittedMatrix % InsideMatrix % Rows(n+1)-1))
+    ColBuffer = 0
+    DO i=1,n
+       k = SplittedMatrix % InsideMatrix % Rows(i)
+       DO j = RowBuffer(i), RowBuffer(i+1)-1
+          ColBuffer(k) = SplittedMatrix % InsideMatrix % Cols(j)
+          k = k + 1
+       END DO
+    END DO
+    DEALLOCATE( SplittedMatrix % InsideMatrix % Cols )
+    SplittedMatrix % InsideMatrix % Cols => ColBuffer
+
+    ALLOCATE( ColBuffer(SIZE(SplittedMatrix % InsideMatrix % Cols)) )
+    ColBuffer = 0
+    DO i=1,n
+       k = SplittedMatrix % InsideMatrix % Rows(i)
+       DO j = RowBuffer(i), RowBuffer(i+1)-1
+          Colbuffer(k) = j
+          k = k + 1
+       END DO
+    END DO
+
+    RowBuffer(1:n) = SplittedMatrix % InsideMatrix % Rows(2:n+1)
+    DO i=1,n
+       DO j=SplittedMatrix % InsideMatrix % Rows(i), &
+                    SplittedMatrix % InsideMatrix % Rows(i+1)-1
+         IF ( SplittedMatrix % InsideMatrix % Cols(j) == 0 ) THEN
+            RowBuffer(i) = j
+            EXIT
+         END IF
+       END DO
+    END DO
+
+    NewCol = 0
+    DO i=1,ParEnv % PEs
+       DO j=1,RecvdIfMatrix(i) % NumberOfRows
+
+          RowInd = SearchIAItem( n, SplittedMatrix % InsideMatrix % GRows, &
+            RecvdIfMatrix(i) % GRows(j), SplittedMatrix % InsideMatrix % Gorder )
+        
+          IF ( RowInd > 0 ) THEN
+             DO k = RecvdIfMatrix(i) % Rows(j), RecvdIfMatrix(i) % Rows(j+1) - 1
+                ColInd = -1
+                DO l = SplittedMatrix % InsideMatrix % Rows(RowInd),RowBuffer(RowInd)-1
+!
+!                  Equation DOF numbering to partition nodal numbering:
+!                  ----------------------------------------------------
+                   GCol = ABS(SplittedMatrix % InsideMatrix % Cols(l))
+                   GCol = (SourceMatrix % INVPerm(GCol) + DOFs-1) / DOFs
+!
+!                  Partition nodal numbering to global nodal DOF numbering:
+!                  --------------------------------------------------------
+                   GCol = ParallelInfo % GlobalDOFs(GCol)
+                   GCol = DOFs * GCol - (DOFs - 1 - &
+                        MOD( ABS(SplittedMatrix % InsideMatrix % Cols(l)) - 1,DOFs ) )
+
+                   IF ( RecvdIfMatrix(i) % Cols(k) == GCol ) THEN
+                      ColInd = GCol
+                      EXIT
+                   END IF
+                END DO
+
+                IF ( ColInd == -1 ) THEN
+                   ColInd = SearchIAItem( n, &
+                        SplittedMatrix % InsideMatrix % GRows, RecvdIfMatrix(i) % Cols(k), &
+                                    SplittedMatrix % InsideMatrix % Gorder )
+
+                   IF ( ColInd /= -1 )  THEN
+                      ColInd = SearchNode( ParallelInfo, (RecvdIfMatrix(i) % Cols(k)-1)/DOFs+1)
+                      ColInd = DOFs * ColInd - ( DOFs-1-MOD(RecvdIfMatrix(i) % Cols(k)-1,DOFs))
+                      ColInd = SourceMatrix % Perm(ColInd)
+
+                      m = RowBuffer(RowInd)
+                      DO l=SplittedMatrix % InsideMatrix % Rows(RowInd),RowBuffer(RowInd)-1
+                        IF ( SplittedMatrix % InsideMatrix % Cols(l)>ColInd ) THEN
+                          m = l
+                          EXIT
+                        END IF
+                      END DO
+
+                      DO l=RowBuffer(RowInd),m+1,-1
+                        SplittedMatrix % InsideMatrix % Cols(l) = &
+                           SplittedMatrix % InsideMatrix % Cols(l-1)
+                        ColBuffer(l) = ColBuffer(l-1)
+                      END DO
+
+                      RowBuffer(RowInd) = RowBuffer(RowInd)+1
+                      SplittedMatrix % InsideMatrix % Cols(m) = ColInd
+                   END IF
+                END IF
+             END DO
+          END IF
+       END DO
+    END DO
+    DEALLOCATE( RowBuffer)
+
+    ! Clean zero cols from insidematrix:
+    ! ----------------------------------
+    ALLOCATE( IndBuffer(SIZE(ColBuffer)),RowBuffer(n+1) )
+    IndBuffer = 0
+    RowBuffer = SplittedMatrix % InsideMatrix % Rows
+    k = 1
+    DO i=1,n
+      l = k
+      DO j=RowBuffer(i), RowBuffer(i+1)-1
+         IF ( SplittedMatrix % InsideMatrix % Cols(j)==0 ) THEN
+           EXIT
+         ELSE
+           IndBuffer(k) = SplittedMatrix % InsideMatrix % Cols(j)
+           k = k + 1
+         END IF
+      END DO
+      SplittedMatrix % InsideMatrix % Rows(i) = l
+    END DO
+    SplittedMatrix % InsideMatrix % Rows(n+1) = k
+    DEALLOCATE( SplittedMatrix % InsideMatrix % Cols )
+    SplittedMatrix % InsideMatrix % Cols => IndBuffer
+
+    ALLOCATE( IndBuffer(SIZE(ColBuffer)) )
+    IndBuffer = 0
+    k = 0
+    DO i=1,n
+      l = SplittedMatrix % InsideMatrix % Rows(i+1)- &
+          SplittedMatrix % InsideMatrix % Rows(i)-1
+      DO j=RowBuffer(i), RowBuffer(i)+l
+        k = k + 1
+        IndBuffer(k) = ColBuffer(j)
+      END DO
+    END DO
+    DEALLOCATE(RowBuffer)
+
+    ColBuffer=0
+    DO i=1,SIZE(IndBuffer)
+       IF (IndBuffer(i)>0) ColBuffer(IndBuffer(i))=i
+    END DO
+    DEALLOCATE(IndBuffer)
+
+    DO i=1,SIZE(SplittedMatrix % GlueTable % Inds)
+      IF ( SplittedMatrix % GlueTable % Inds(i) > 0 ) THEN
+        SplittedMatrix % GlueTable % Inds(i) = &
+           ColBuffer( SplittedMatrix % GlueTable % Inds(i) )
+      END IF
+    END DO
+    DEALLOCATE(ColBuffer)
+  END IF
+
+#else
+
+  !----------------------------------------------------------------------
+  ! Insert matrix elements to splittedmatrix if got from the
+  ! exchange operation.
+  !----------------------------------------------------------------------
+  n = SplittedMatrix % InsideMatrix % NumberOfRows
+
+  DO i=1,n
+     SplittedMatrix % InsideMatrix % Gorder(i) = i
+  END DO
+
+  CALL SortI( n, SplittedMatrix % InsideMatrix % GRows, &
+        SplittedMatrix % InsideMatrix % Gorder )
+
+  ALLOCATE( RowBuffer( n+1 ) )
+  RowBuffer = SplittedMatrix % InsideMatrix % Rows
+
+  GotNewCol = .FALSE.
+  NewCol = 0
+  DO i=1,ParEnv % PEs
+     DO j=1,RecvdIfMatrix(i) % NumberOfRows
+!
+!       Search for position of global row in this partitions numbering:
+!       ---------------------------------------------------------------
+        RowInd = SearchIAItem( n, SplittedMatrix % InsideMatrix % GRows, &
+          RecvdIfMatrix(i) % GRows(j), SplittedMatrix % InsideMatrix % Gorder)
+
+        IF ( RowInd > 0 ) THEN
+           DO k = RecvdIfMatrix(i) % Rows(j), RecvdIfMatrix(i) % Rows(j+1) - 1
+              ColInd = -1
+
+              DO l = RowBuffer(RowInd),  RowBuffer(RowInd+1) - 1
+!
+!                Equation DOF numbering to partition nodal numbering:
+!                ----------------------------------------------------
+                 GCol = SplittedMatrix % InsideMatrix % Cols(l)
+                 GCol = (SourceMatrix % INVPerm(GCol) + DOFs-1) / DOFs
+!
+!                Partition nodal numbering to global nodal DOF numbering:
+!                --------------------------------------------------------
+                 GCol = ParallelInfo % GlobalDOFs(GCol)
+                 GCol = DOFs * GCol - (DOFs - 1 - &
+                      MOD( SplittedMatrix % InsideMatrix % Cols(l) - 1,DOFs ) )
+
+                 IF ( RecvdIfMatrix(i) % Cols(k) == GCol ) THEN
+                    ColInd = GCol
+                    EXIT
+                 END IF
+              END DO
+
+              IF ( ColInd == -1 ) THEN
+                 ColInd = SearchIAItem( n, &
+                      SplittedMatrix % InsideMatrix % GRows, &
+                      RecvdIfMatrix(i) % Cols(k), &
+                      SplittedMatrix % InsideMatrix % Gorder )
+
+                 IF ( ColInd /= -1 )  THEN
+                    GotNewCol = .TRUE.
+                    NewCol = NewCol + 1
+                    DO l = RowInd+1, n+1
+                       SplittedMatrix % InsideMatrix % Rows(l) = &
+                            SplittedMatrix % InsideMatrix % Rows(l) + 1
+                    END DO
+                 END IF
+              END IF
+           END DO
+        END IF
+     END DO
+  END DO
+
+  IF ( GotNewCol ) THEN
+  ALLOCATE( ColBuffer( SplittedMatrix % InsideMatrix % Rows(n+1)-1 ) )
+  ColBuffer = 0
+
+  DO i=1,n
+     DO k = RowBuffer(i), RowBuffer(i+1) - 1
+       ColBuffer(k) = SplittedMatrix % InsideMatrix % Cols(k)
+     END DO
+  END DO
+
+  DEALLOCATE( SplittedMatrix % InsideMatrix % Cols)
+  SplittedMatrix % InsideMatrix % Cols => ColBuffer
+  SplittedMatrix % InsideMatrix % Rows =  RowBuffer
+  DEALLOCATE( RowBuffer )
+
+  NewCol    = 0
+  DO i=1,ParEnv % PEs
+     DO j=1,RecvdIfMatrix(i) % NumberOfRows
+
+        RowInd = SearchIAItem( n, SplittedMatrix % InsideMatrix % GRows, &
+          RecvdIfMatrix(i) % GRows(j), SplittedMatrix % InsideMatrix % Gorder )
+        
+        IF ( RowInd > 0 ) THEN
+           DO k = RecvdIfMatrix(i) % Rows(j), RecvdIfMatrix(i) % Rows(j+1) - 1
+              ColInd = -1
+              DO l = SplittedMatrix % InsideMatrix % Rows(RowInd),  &
+                     SplittedMatrix % InsideMatrix % Rows(RowInd+1) - 1
+
+                 IF ( SplittedMatrix % InsideMatrix % Cols(l) == 0 ) EXIT
+!
+!                Equation DOF numbering to partition nodal numbering:
+!                ----------------------------------------------------
+                 GCol = SplittedMatrix % InsideMatrix % Cols(l)
+                 GCol = (SourceMatrix % INVPerm(GCol) + DOFs-1) / DOFs
+!
+!                Partition nodal numbering to global nodal DOF numbering:
+!                --------------------------------------------------------
+                 GCol = ParallelInfo % GlobalDOFs( GCol )
+
+                 GCol = DOFs * GCol - (DOFs - 1 - &
+                      MOD( SplittedMatrix % InsideMatrix % Cols(l) - 1,DOFs ) )
+
+                 IF ( RecvdIfMatrix(i) % Cols(k) == GCol ) THEN
+                    ColInd = GCol
+                    EXIT
+                 END IF
+              END DO
+
+              IF ( ColInd == -1 ) THEN
+                 ColInd = SearchIAItem( n, &
+                      SplittedMatrix % InsideMatrix % GRows, RecvdIfMatrix(i) % Cols(k), &
+                                SplittedMatrix % InsideMatrix % Gorder )
+
+                 IF ( ColInd /= -1 )  THEN
+                    ColInd = SearchNode( ParallelInfo, ( RecvdIfMatrix(i) % Cols(k) - 1 ) / DOFs + 1 )
+                    ColInd = DOFs * ColInd - ( DOFs-1-MOD(RecvdIfMatrix(i) % Cols(k)-1, DOFs) )
+                    ColInd = SourceMatrix % Perm( ColInd )
+
+                    DO GCol = SplittedMatrix % InsideMatrix % Rows(RowInd), &
+                              SplittedMatrix % InsideMatrix % Rows(RowInd+1) - 1
+                       IF ( SplittedMatrix % InsideMatrix % Cols(Gcol) == 0 )   EXIT
+                       IF ( SplittedMatrix % InsideMatrix % Cols(GCol)>ColInd ) EXIT
+                    END DO
+
+                    IF ( SplittedMatrix % InsideMatrix % Cols(Gcol) > 0 ) THEN
+                       DO l = SplittedMatrix % InsideMatrix % Rows(n+1) - 1, GCol, -1
+                          SplittedMatrix % InsideMatrix % Cols(l+1) = &
+                                              SplittedMatrix % InsideMatrix % Cols(l)
+                       END DO
+                    END IF
+
+                    NewCol  =  NewCol + 1
+                    SplittedMatrix % InsideMatrix % Cols(GCol) = ColInd
+
+                    DO l=1,SIZE( SplittedMatrix % GlueTable % Inds )
+                      IF ( SplittedMatrix % GlueTable % Inds(l) >= GCol ) THEN
+                        SplittedMatrix % GlueTable % Inds(l) = &
+                           SplittedMatrix % GlueTable % Inds(l)  + 1
+                      END IF
+                    END DO
+
+                    DO l = RowInd+1, n+1
+                       SplittedMatrix % InsideMatrix % Rows(l) = &
+                            SplittedMatrix % InsideMatrix % Rows(l) + 1
+                    END DO
+                 END IF
+              END IF
+           END DO
+        END IF
+     END DO
+  END DO
+  END IF
+#endif
+
+  ALLOCATE( SplittedMatrix % InsideMatrix % Values( & 
+       SplittedMatrix % InsideMatrix % Rows(n+1) - 1 ) )
+
+  NULLIFY( SplittedMatrix % InsideMatrix % MassValues )
+  IF ( NeedMass ) &
+     ALLOCATE( SplittedMatrix % InsideMatrix % MassValues( & 
+        SplittedMatrix % InsideMatrix % Rows(n+1) - 1 ) )
+
+!-----------------------------------------------------------------------------
+
+  CALL ClearInsideC( SourceMatrix, SplittedMatrix % InsideMatrix, &
+             RecvdIfMatrix, ParallelInfo, DOFs )
+
+  SplittedMatrix % IfMatrix(:) % NumberOfRows = 0
+  DO i = 1, ParEnv % PEs
+     IF ( ( OwnIfMatrix(i) % NumberOfRows   /= 0 ) .OR. &
+           ( RecvdIfMatrix(i) % NumberOfRows /= 0 ) ) THEN
+        CALL CombineCRSMatIndices( OwnIfMatrix(i), RecvdIfMatrix(i), &
+                 SplittedMatrix % IfMatrix(i) )
+     END IF
+  END DO
+
+  ALLOCATE( SplittedMatrix % IfLCols(ParEnv % PEs)  )
+  DO i = 1, ParEnv % PEs
+     IF ( SplittedMatrix % IfMatrix(i) % NumberOfRows /= 0 ) THEN
+        ALLOCATE( SplittedMatrix % IfVecs(i) % IfVec( &
+             SplittedMatrix % IfMatrix(i) % NumberOfRows ), &
+             SplittedMatrix % IfMatrix(i) % Values( SIZE(  &
+             SplittedMatrix % IfMatrix(i) % Cols)), &
+             SplittedMatrix % IfLCols(i) % IfVec( SIZE( &
+             SplittedMatrix % IfMatrix(i) % Cols ) )  )
+	SplittedMatrix % IfLCols(i) % IfVec   = 0
+	SplittedMatrix % IfVecs(i) % IfVec    = 0
+	SplittedMatrix % IfMatrix(i) % Values = 0.0d0
+
+        NULLIFY( SplittedMatrix % IfMatrix(i) % MassValues )
+        IF ( NeedMass ) THEN
+           ALLOCATE( SplittedMatrix % IfMatrix(i) % MassValues(  &
+              SIZE(SplittedMatrix % IfMatrix(i) % Cols) ) )
+           SplittedMatrix % IfMatrix(i) % MassValues = 0.0d0
+        END IF
+     END IF
+  END DO
+
+  !----------------------------------------------------------------------
+  !
+  ! Renumber the Degrees of Freedom in SplittedMatrix % InsideMatrix
+  !
+  !----------------------------------------------------------------------
+  CALL RenumberDOFs( SourceMatrix, SplittedMatrix, ParallelInfo, DOFs )
+
+  !----------------------------------------------------------------------
+  !
+  ! Build indirect indexing for vectors to speed up mat-vec multiply
+  !
+  !----------------------------------------------------------------------
+  CALL BuildRevVecIndices( SplittedMatrix )
+
+  !----------------------------------------------------------------------
+  !
+  ! Clean up temporary work space
+  !
+  !----------------------------------------------------------------------
+
+  DEALLOCATE( OwnIfMRows, OwnIfMCols, OwnOCOR, OwnOldCols, &
+       NbsIfMRows, NbsIfMCols, NbsOCOR, NbsOldCols )
+
+  DO i= 1,ParEnv % PEs
+     IF ( OwnIfMatrix(i) % NumberOfRows > 0 ) THEN
+        DEALLOCATE( OwnIfMatrix(i) % Rows )
+        DEALLOCATE( OwnIfMatrix(i) % Diag )
+        DEALLOCATE( OwnIfMatrix(i) % Cols )
+        DEALLOCATE( OwnIfMatrix(i) % GRows )
+        DEALLOCATE( OwnIfMatrix(i) % RowOwner )
+     END IF
+
+     IF ( RecvdIfMatrix(i) % NumberOfRows > 0 ) THEN
+        DEALLOCATE( RecvdIfMatrix(i) % Rows )
+        DEALLOCATE( RecvdIfMatrix(i) % Diag )
+        DEALLOCATE( RecvdIfMatrix(i) % Cols )
+        DEALLOCATE( RecvdIfMatrix(i) % GRows )
+        DEALLOCATE( RecvdIfMatrix(i) % RowOwner )
+     END IF
+  END DO
+
+  DEALLOCATE( OwnIfMatrix, RecvdIfMatrix )
+
+END FUNCTION SplitMatrix
+
+
+!********************************************************************
+!********************************************************************
+!
+! Zero the splitted matrix (for new non-linear iteration)
+!
+
+!----------------------------------------------------------------------
+SUBROUTINE ZeroSplittedMatrix( SplittedMatrix )
+!----------------------------------------------------------------------
+  USE Types
+  IMPLICIT NONE
+!----------------------------------------------------------------------
+  TYPE (SplittedMatrixT), POINTER :: SplittedMatrix
+!----------------------------------------------------------------------
+
+  ! Local variables
+
+  INTEGER :: i
+
+  LOGICAL :: NeedMass
+
+  !*******************************************************************
+
+  NeedMass = ASSOCIATED(SplittedMatrix % InsideMatrix % MassValues)
+
+  SplittedMatrix % InsideMatrix % Values = 0.0d0
+  IF ( NeedMass ) &
+     SplittedMatrix % InsideMatrix % MassValues = 0.0d0
+
+  DO i = 1, ParEnv % PEs
+
+     IF ( SplittedMatrix % IfMatrix(i) % NumberOfRows /= 0 ) THEN
+        SplittedMatrix % IfMatrix(i) % Values = 0.0d0
+        IF ( NeedMass ) &
+           SplittedMatrix % IfMatrix(i) % MassValues = 0.0d0
+     END IF
+
+     IF ( SplittedMatrix % NbsIfMatrix(i) % NumberOfRows /= 0 ) THEN
+        SplittedMatrix % NbsIfMatrix(i) % Values = 0.0d0
+        IF ( NeedMass ) &
+           SplittedMatrix % NbsIfMatrix(i) % MassValues = 0.0d0
+     END IF
+
+  END DO
+!----------------------------------------------------------------------
+END SUBROUTINE ZeroSplittedMatrix
+!----------------------------------------------------------------------
+
+
+!----------------------------------------------------------------------
+  SUBROUTINE SParInitSolve( SourceMatrix,XVec,RHSVec,RVec,DOFs,ParallelInfo )
+!----------------------------------------------------------------------
+! Initialize Parallel Solve
+!----------------------------------------------------------------------
+
+    TYPE (Matrix_t) :: SourceMatrix
+    TYPE (ParallelInfo_t), TARGET :: ParallelInfo
+    INTEGER :: DOFs
+    REAL(KIND=dp), DIMENSION(:) :: XVec, RHSVec,RVec
+
+!----------------------------------------------------------------------
+
     ! Local variables
-    INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
-    
-    INTEGER, ALLOCATABLE :: Active(:)
-    INTEGER :: i, j, k, ierr, proc, Group
 
-    CALL CheckBuffer( ParEnv % PEs**2 + MPI_BSEND_OVERHEAD )
+    REAL(KIND=dp), POINTER :: TmpRHSVec(:)
+    INTEGER :: i, j, k, l, grow, gcol
+    INTEGER :: nodeind, ifind, dd, rowind
+    TYPE (Matrix_t), POINTER :: CurrIf
+    TYPE (GlueTableT), POINTER :: GT
+    TYPE (SplittedMatrixT), POINTER :: SplittedMatrix
 
-    ALLOCATE( ParEnv % SendingNB( ParEnv % PEs ) )
-    ALLOCATE( ParEnv % Active( ParEnv % PEs ) )
-    ALLOCATE( ParEnv % IsNeighbour( ParEnv % PEs ) )
+    LOGICAL :: NeedMass, found
 
-    ParEnv % NumOfNeighbours = 0
-    ParEnv % Active(:)       = .FALSE.
-    ParEnv % SendingNB(:)    = .FALSE.
-    ParEnv % IsNeighbour(:)  = .FALSE.
+!----------------------------------------------------------------------
 
+    GlobalData     => SourceMatrix % ParMatrix
+    ParEnv         =  GlobalData % ParEnv
+    SplittedMatrix => Globaldata % SplittedMatrix
+
+    GlobalData % DOFs  =  DOFs
+    GlobalData % ParallelInfo => ParallelInfo
+
+    CALL ZeroSplittedMatrix( SplittedMatrix )
+
+    NeedMass = ASSOCIATED( SplittedMatrix % InsideMatrix % MassValues )
     !------------------------------------------------------------------
-    ! Count the number of real neighbours for this partition
+    !
+    ! Copy the Matrix % Values into SplittedMatrix
+    !
     !------------------------------------------------------------------
-    DO k=1,SIZE( ParallelInfo % NeighbourList )
-       IF ( SIZE( ParallelInfo % NeighbourList(k) % Neighbours ) > 1 ) THEN
-          DO j=1,SIZE( ParallelInfo % NeighbourList(k) % Neighbours )
-             proc = ParallelInfo % NeighbourList(k) % Neighbours(j)
-             IF ( proc /= ParEnv % MyPE ) THEN
-                IF ( .NOT. ParEnv % IsNeighbour(proc+1) ) THEN
-                   ParEnv % IsNeighbour(proc+1) = .TRUE.
-                   ParEnv % NumOfNeighbours = ParEnv % NumOfNeighbours + 1
+
+    GT => SplittedMatrix % GlueTable
+
+    DO i = 1, SourceMatrix % NumberOfRows
+       
+       GRow = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
+       GRow = DOFs * ParallelInfo % GlobalDOFs(GRow) - (DOFs-1-MOD(i-1,DOFs))
+
+       DO j = SourceMatrix % Rows(i),SourceMatrix % Rows(i+1) - 1
+
+          GCol = ( SourceMatrix % INVPerm( SourceMatrix % Cols(j)) + DOFs-1 ) / DOFs
+          GCol = DOFs * ParallelInfo % GlobalDOFs(GCol) - &
+                   ( DOFs-1 - MOD(SourceMatrix % Cols(j)-1,DOFs)  )
+          
+          DO k = GT % Rows(i), GT % Rows(i+1) - 1
+             IF ( SourceMatrix % Cols(j) == GT % Cols(k) ) THEN
+                
+                IF ( GT % Inds(k) > 0 ) THEN
+                   SplittedMatrix % InsideMatrix % Values( GT % Inds(k) ) = &
+                        SplittedMatrix % InsideMatrix % Values( &
+                           GT % Inds(k) ) + SourceMatrix % Values(j)
+                   IF ( NeedMass ) &
+                      SplittedMatrix % InsideMatrix % MassValues( GT % Inds(k) ) = &
+                           SplittedMatrix % InsideMatrix % MassValues( &
+                              GT % Inds(k) ) + SourceMatrix % MassValues(j)
+                   EXIT
+
+                ELSE IF ( (GT % Inds(k) + ParEnv % PEs) >= 0 ) THEN
+
+                   ifind = ABS(GT % Inds(k))
+                   CurrIf => SplittedMatrix % IfMatrix(ifind)
+
+                   RowInd = -1
+                   IF ( CurrIf % NumberOfRows > 0 ) THEN
+                      RowInd = SearchIAItem( CurrIf % NumberOfRows, CurrIf % GRows, GRow )
+                   END IF
+
+                   IF ( RowInd /= -1 ) THEN
+                      DO l = CurrIf % Rows(rowind), CurrIf % Rows(rowind+1)-1
+
+                         IF ( GCol == CurrIf % Cols(l) ) THEN
+                            CurrIf % Values(l) = CurrIf % Values(l) + SourceMatrix % Values(j)
+                            IF ( NeedMass ) &
+                                CurrIf % MassValues(l) = CurrIf % MassValues(l) + &
+                                     SourceMatrix % MassValues(j)
+                            EXIT
+                         END IF
+
+                      END DO
+                   END IF
+                   EXIT
+
+                ELSE IF ((GT % Inds(k) + (2*ParEnv % PEs)) >= 0) THEN
+
+                   ifind = -ParEnv % PEs + ABS(GT % Inds(k))
+                   CurrIf => SplittedMatrix % NbsIfMatrix(ifind)
+                  
+                   RowInd = -1
+                   IF ( CurrIf % NumberOfRows > 0 ) THEN
+                      RowInd = SearchIAItem( CurrIf % NumberOfRows, CurrIf % GRows, GRow )
+                   END IF
+
+                   IF ( RowInd /= -1 ) THEN
+                      DO l = CurrIf % Rows(RowInd), CurrIf % Rows(RowInd+1)-1
+                         IF ( GCol == CurrIf % Cols(l) ) THEN
+                            CurrIf % Values(l) = CurrIf % Values(l) + SourceMatrix % Values(j)
+                            IF ( NeedMass ) &
+                               CurrIf % MassValues(l) = CurrIf % MassValues(l) + &
+                                    SourceMatrix % MassValues(j)
+                            EXIT
+                         END IF
+                      END DO
+                   END IF
+                   EXIT
                 END IF
              END IF
           END DO
-       END IF
-    END DO
-
-    !------------------------------------------------------------------
-    ! Scan active procs using neighbourlists in GlobalDOFs
-    ! TODO: wont work for disconnected areas....
-    !------------------------------------------------------------------
-    ALLOCATE( Active( ParEnv % PEs ) )
-
-    ! initialize with first order information
-    ParEnv % Active = ParEnv % IsNeighbour
-
-    ! This many exchanges are needed in the worst case for neighbouring 
-    ! information to propagate.
-    DO k = 1, ParEnv % PEs
-       Active = 0
-       DO i=1,ParEnv % PEs
-          IF ( ParEnv % Active(i) ) Active(i) = 1
-       END DO
-
-       DO i=1,ParEnv % PEs
-          IF ( ParEnv % IsNeighbour(i) ) THEN
-             CALL MPI_BSEND( Active, ParEnv % PEs, MPI_INTEGER, i-1, &
-                  k, MPI_COMM_WORLD, ierr )
-          END IF
-       END DO
-
-       DO i=1,ParEnv % PEs
-          IF ( ParEnv % IsNeighbour(i) ) THEN
-             CALL MPI_RECV( Active, ParEnv % PEs, MPI_INTEGER, i-1, &
-                  k, MPI_COMM_WORLD, status, ierr )
-             ParEnv % Active = &
-                  ParEnv % Active .OR. Active /= 0
-          END IF
        END DO
     END DO
-    
-    DEALLOCATE( Active )
-!-----------------------------------------------------------------------
-  END SUBROUTINE FindActivePEs
-!-----------------------------------------------------------------------
 
-!***********************************************************************
-! Try to agree about global numbering of nodes among active
-! processes.
-!-----------------------------------------------------------------------
-   SUBROUTINE SParGlobalNumbering( Mesh,NewNodeCnt, &
-            OldIntCnts, OldIntArray, Reorder )
-!-----------------------------------------------------------------------
-    USE GeneralUtils
-!-----------------------------------------------------------------------
-     TYPE(Mesh_t) :: Mesh
-     INTEGER, TARGET :: NewNodeCnt, OldIntArray(:), &
-               OldIntCnts(:), Reorder(:)
-!-----------------------------------------------------------------------
-     INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
-     INTEGER :: ierr
+    CALL GlueFinalize( SourceMatrix, SplittedMatrix, ParallelInfo, DOFs )
+    !
+    ! Initialize Right-Hand-Side:
+    ! ---------------------------
 
-     INTEGER :: i,j,k,l,n,MinProc,MaxLcl,MaxGlb,InterfaceNodes
-     INTEGER :: LIndex(100), IntN, Gindex, k1, k2
-     INTEGER, POINTER :: IntArray(:),IntCnts(:),GIndices(:),Gorder(:)
-!-----------------------------------------------------------------------
-     CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
+    IF ( .NOT. ASSOCIATED( SplittedMatrix % TmpXVec ) ) THEN
+       ALLOCATE( SplittedMatrix % InsideMatrix % RHS(  &
+         SplittedMatrix % InsideMatrix % NumberOfRows ) )
 
-! XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-! YOU, YES YOU  DO SOMETHING ABOUT THIS 
-     CALL CheckBuffer(100000)
-! XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-!
-!    find least numbered of the active procs:
-!    ----------------------------------------
-     DO MinProc = 1,ParEnv % PEs
-        IF ( ParEnv % Active( MinProc ) ) EXIT
-     END DO
-!
-!    Our maximum global node index:
-!    -------------------------------
-     MaxLcl = MAXVAL( Mesh % ParallelInfo % GlobalDOFs )
-     MaxGlb = MaxLcl
-     n = Mesh % Nodes % NumberOfNodes - NewNodeCnt + 1
-!
-!    Lowest numbered PE will compute the size of
-!    the (old) global node array, and eventually
-!    distribute the knowledge:
-!
-!    Others send their maxlcl to minproc
-!    -------------------------------------------
-     IF ( ParEnv % MyPE == MinProc-1 ) THEN
-        j = 1
-        DO i=MinProc+1,ParEnv % PEs
-           IF ( ParEnv % Active(i) ) THEN
-              CALL MPI_RECV( k, 1, MPI_INTEGER, i-1, &
-                10, MPI_COMM_WORLD, status, ierr )
-              MaxGlb = MAX( MaxGlb, k )
-           END IF
-        END DO
-     ELSE
-        CALL MPI_BSEND( MaxLcl, 1, MPI_INTEGER, &
-          MinProc-1, 10, MPI_COMM_WORLD, ierr )
-     END IF
-!
-!    Recieve new interface nodes from lower
-!    numbered PEs, and check if they are
-!    relevant to us:
-!    ---------------------------------------
-     DO i=MinProc,ParEnv % MyPE
-        IF ( .NOT. (ParEnv % Active(i) .AND. ParEnv % Isneighbour(i)) ) CYCLE
-        
-        CALL MPI_RECV( InterfaceNodes, 1, MPI_INTEGER, &
-           i-1, 14, MPI_COMM_WORLD, status, ierr )
+       ALLOCATE( SplittedMatrix % TmpXVec( SplittedMatrix %  &
+                  InsideMatrix % NumberOfRows ) )
 
-        IF ( InterfaceNodes > 0 ) THEN
-           ALLOCATE( GIndices(InterfaceNodes), IntCnts(InterfaceNodes) )
-
-           CALL MPI_RECV( GIndices, InterfaceNodes, MPI_INTEGER, &
-                  i-1, 15, MPI_COMM_WORLD, status, ierr )
-
-           CALL MPI_RECV( IntCnts, InterfaceNodes, MPI_INTEGER, &
-                  i-1, 16, MPI_COMM_WORLD, status, ierr )
-
-           CALL MPI_RECV( k, 1, MPI_INTEGER, &
-                  i-1, 17, MPI_COMM_WORLD, status, ierr )
-
-           ALLOCATE( IntArray(k) )
-
-           CALL MPI_RECV( IntArray, SIZE(IntArray), MPI_INTEGER, &
-                  i-1, 18, MPI_COMM_WORLD, status, ierr )
-!
-!          Update our view of the global numbering
-!          at the interface nodes:
-!          ---------------------------------------
-           l = 0
-           DO j=1,InterfaceNodes
-              Lindex = 0
-              IntN = IntCnts(j)
-              DO k=1,IntN
-                 Lindex(k) = SearchNode( Mesh % ParallelInfo, IntArray(l+k), 1, n-1 )
-              END DO
-
-              IF ( ALL( Lindex(1:IntN) > 0 ) ) THEN
-!                This node belongs to us as well well:
-!                -------------------------------------
-                 k2 = 0
-                 k1 = 0
-                 DO k=n,Mesh % Nodes % NumberOfNodes
-                    IF ( .NOT.Mesh % ParallelInfo % Interface(k) ) CYCLE
-
-                    k1 = k1 + 1
-                    IF ( IntN == OldIntCnts(k1) ) THEN
-                       IF ( ALL( IntArray(l+1:l+IntN) == &
-                                    OldIntArray(k2+1:k2+IntN)) ) THEN
-                           Mesh % ParallelInfo % GlobalDOFs(k) = GIndices(j)
-                           EXIT
-                        END IF
-                     END IF
-                     k2 = k2 + OldIntCnts(k1)
-                 END DO
-              END IF
-              l = l + IntN
-           END DO
-           DEALLOCATE( Gindices, IntCnts, IntArray )
-        END IF
-     END DO
-!
-!    Update the current numbering from the 
-!    previous PE in line, this will make the
-!    execution strictly serial. Maybe there
-!    would be an easier way?
-!    ---------------------------------------
-     IF ( ParEnv % MyPE > MinProc-1 ) THEN
-        DO i=ParEnv % MyPE, MinProc, -1
-           IF ( ParEnv % Active(i) ) THEN
-              CALL MPI_RECV( MaxGlb, 1, MPI_INTEGER, &
-               i-1, 20, MPI_COMM_WORLD, status, ierr )
-              EXIT
-           END IF
-        END DO
-     END IF
-!
-!    Renumber our own new set of nodes:
-!    ----------------------------------
-     DO i=n,Mesh % Nodes % NumberOfNodes
-        IF ( Mesh % ParallelInfo % GlobalDOFs(i) == 0 ) THEN
-           MaxGlb = MaxGlb + 1
-           Mesh % ParallelInfo % GlobalDOFs(i) = MaxGlb
-        END IF
-     END DO
-!
-!    Extract interface nodes:
-!    ------------------------
-     InterfaceNodes = COUNT( Mesh % ParallelInfo % Interface(n:) )
-     IF ( InterfaceNodes > 0 ) ALLOCATE( Gindices(InterfaceNodes) )
-
-     InterfaceNodes = 0
-     DO i=n,Mesh % Nodes % NumberOfNodes
-        IF ( Mesh % ParallelInfo % Interface(i) ) THEN
-           InterfaceNodes = InterfaceNodes + 1
-           Gindices(InterfaceNodes) = Mesh % ParallelInfo % GlobalDOFs(i)
-        END IF
-     END DO
-!
-!    Send new interface nodes to higher numbered PEs:
-!    ------------------------------------------------
-     DO i=ParEnv % MyPE+2,ParEnv % PEs
-        IF ( .NOT. (ParEnv % Active(i) .AND. ParEnv % Isneighbour(i)) ) CYCLE
-
-        CALL MPI_BSEND( InterfaceNodes, 1, MPI_INTEGER, &
-               i-1, 14, MPI_COMM_WORLD, ierr )
-
-        IF ( InterfaceNodes > 0 ) THEN
-           CALL MPI_BSEND( GIndices, InterfaceNodes, MPI_INTEGER, &
-                    i-1, 15, MPI_COMM_WORLD, ierr )
-
-           CALL MPI_BSEND( OldIntCnts, InterfaceNodes, &
-              MPI_INTEGER, i-1, 16, MPI_COMM_WORLD, ierr )
-
-           CALL MPI_BSEND( SIZE(OldIntArray), 1, &
-              MPI_INTEGER, i-1, 17, MPI_COMM_WORLD, ierr )
-
-           CALL MPI_BSEND( OldIntArray, SIZE(OldIntArray), &
-              MPI_INTEGER, i-1, 18, MPI_COMM_WORLD, ierr )
-
-        END IF
-     END DO
-
-     DEALLOCATE( GIndices )
-!
-!    Send go singal to next PE in line...
-!    ------------------------------------
-     DO i = ParEnv % MyPE+2, ParEnv % PEs
-        IF ( ParEnv % Active(i) ) THEN
-           CALL MPI_BSEND( MaxGlb, 1, MPI_INTEGER, &
-               i-1, 20, MPI_COMM_WORLD, ierr )
-           EXIT
-        END IF
-     END DO
-!
-!    Sort our own nodes according to ascending
-!    global order:
-!    -----------------------------------------
-     ALLOCATE( IntCnts(NewNodeCnt), Gorder(NewNodeCnt) )
-     DO i=1,NewNodeCnt
-        Gorder(i) = i
-     END DO
-
-     CALL SortI( NewNodeCnt, Mesh % ParallelInfo % GlobalDOFs(n:), Gorder )
-
-     DO i=1,NewNodeCnt
-        IntCnts(Gorder(i)) = i
-     END DO
-!
-!    Reorder will return the nodal reordering
-!    to the caller:
-!    ----------------------------------------
-     Reorder(n:) = IntCnts + n - 1
-!
-!    Order the whole of the nodal structure
-!    according to the changed order of the 
-!    global numbers:
-!    --------------------------------------
-     DO i=1,NewNodeCnt
-        k = Gorder(i)
-        CALL SwapNodes( Mesh, i+n-1, k+n-1 )
-
-        j = IntCnts(i)
-        IntCnts(i) = IntCnts(k)
-        IntCnts(k) = j
-
-        Gorder(IntCnts(k)) = k
-     END DO
-
-     DEALLOCATE( IntCnts )
-!
-!    Ok, now we have generated the global numbering
-!    of nodes. We still need to distribute the
-!    information which PEs share which of the new
-!    interface nodes:
-!    -----------------------------------------------
-     InterfaceNodes = COUNT( Mesh % ParallelInfo % Interface(n:) )
-     ALLOCATE( GIndices( InterfaceNodes ) )
-     j = 0
-     DO i=n,Mesh % Nodes % NumberOfNodes
-        IF ( Mesh % ParallelInfo % Interface(i) ) THEN
-           j = j + 1
-           GIndices(j) = Mesh % ParallelInfo % GlobalDOFs(i)
-           ALLOCATE( Mesh % ParallelInfo % NeighbourList(i) % Neighbours(ParEnv % PEs) )
-           Mesh % ParallelInfo % NeighbourList(i) % Neighbours = -1
-        END IF
-     END DO
-
-     DO i=MinProc,ParEnv % PEs
-        IF ( ParEnv % MyPE == i-1 ) CYCLE
-        IF ( ParEnv % Active(i) .AND. ParEnv % IsNeighbour(i) ) THEN
-           CALL MPI_BSEND( InterfaceNodes, 1, &
-              MPI_INTEGER, i-1, 30, MPI_COMM_WORLD, ierr )
-
-           CALL MPI_BSEND( GIndices, InterfaceNodes, &
-              MPI_INTEGER, i-1, 31, MPI_COMM_WORLD, ierr )
-        END IF
-     END DO
-
-     DEALLOCATE( Gindices )
-
-     ALLOCATE( IntCnts( Mesh % Nodes % NumberOfNodes ) )
-
-     IntCnts = 0
-     DO i=n,Mesh % Nodes % NumberOfNodes
-        IF ( Mesh % ParallelInfo % Interface(i) ) THEN
-           IntCnts(i) = IntCnts(i) + 1
-           Mesh % ParallelInfo % NeighbourList(i) % Neighbours(1) = ParEnv % MyPE
-        END IF
-     END DO
-
-     DO i=MinProc,ParEnv % PEs
-        IF ( ParEnv % MyPE == i-1 ) CYCLE
-        IF ( ParEnv % Active(i) .AND. ParEnv % IsNeighbour(i) ) THEN
-           CALL MPI_RECV( InterfaceNodes, 1, MPI_INTEGER, &
-               i-1, 30, MPI_COMM_WORLD, status, ierr )
-
-           ALLOCATE( GIndices(InterfaceNodes) )
-
-           CALL MPI_RECV( GIndices, InterfaceNodes, MPI_INTEGER, &
-               i-1, 31, MPI_COMM_WORLD, status, ierr )
-
-           DO j=1,InterfaceNodes
-              k = SearchNode( Mesh % ParallelInfo, Gindices(j), n )
-              IF ( k <= 0 ) CYCLE
-              IntCnts(k) = IntCnts(k) + 1
-              Mesh % ParallelInfo % NeighbourList(k) % Neighbours(IntCnts(k)) = i-1
-           END DO
-
-           DEALLOCATE( GIndices )
-        END IF
-     END DO
-!
-!    Reallocate the nodal neighbour lists to
-!    correct sizes:
-!    ---------------------------------------
-     DO i=n,Mesh % Nodes % NumberOfNodes
-        IF ( Mesh % ParallelInfo % Interface(i) ) THEN
-           k = IntCnts(i)
-           ALLOCATE( Gindices(k) ) ! just work space
-           Gindices = Mesh % ParallelInfo % NeighbourList(i) % Neighbours(1:k)
-           CALL Sort( k, Gindices )
-           DEALLOCATE( Mesh % ParallelInfo % NeighbourList(i) % Neighbours )
-           Mesh % ParallelInfo % NeighbourList(i) % Neighbours => Gindices
-        END IF
-     END DO
-     
-     DEALLOCATE( IntCnts )
-
-     CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
-
-CONTAINS
-
-!-----------------------------------------------------------------------
-     SUBROUTINE SwapNodes( Mesh, i, k )
-!-----------------------------------------------------------------------
-        INTEGER :: i,k
-        TYPE(Mesh_t) :: Mesh
-!-----------------------------------------------------------------------
-        REAL(KIND=dp) :: swapx,swapy,swapz
-        LOGICAL :: swapi
-        INTEGER, POINTER :: swapl(:)
-!-----------------------------------------------------------------------
-        swapx =  Mesh % Nodes % x(i)
-        swapy =  Mesh % Nodes % y(i)
-        swapz =  Mesh % Nodes % z(i)
-        swapi =  Mesh % ParallelInfo % Interface(i)
-        swapl => Mesh % ParallelInfo % NeighbourList(i) % Neighbours
- 
-        Mesh % Nodes % x(i) = Mesh % Nodes % x(k)
-        Mesh % Nodes % y(i) = Mesh % Nodes % y(k)
-        Mesh % Nodes % z(i) = Mesh % Nodes % z(k)
-        Mesh % ParallelInfo % Interface(i) = Mesh % ParallelInfo % Interface(k) 
-        Mesh % ParallelInfo % NeighbourList(i) % Neighbours => &
-                 Mesh % ParallelInfo % NeighbourList(k) % Neighbours
-
-        Mesh % Nodes % x(k) = swapx
-        Mesh % Nodes % y(k) = swapy
-        Mesh % Nodes % z(k) = swapz
-        Mesh % ParallelInfo % Interface(k) = swapi
-        Mesh % ParallelInfo % NeighbourList(k) % Neighbours => swapl
-!-----------------------------------------------------------------------
-     END SUBROUTINE SwapNodes
-!-----------------------------------------------------------------------
-   END SUBROUTINE SParGlobalNumbering
-!-----------------------------------------------------------------------
-
-!*********************************************************************
-! Do global numbering for elements, edges and faces.
-! (now only works for 1 dof edges .)
-!---------------------------------------------------------------------
-   SUBROUTINE InitialGlobalNumbering( Mesh, NumberOfDOFs, &
-            OldIntCnts, OldIntArray, Reorder )
-!---------------------------------------------------------------------
-     TYPE(Mesh_t) :: Mesh
-     INTEGER, TARGET :: NumberOfDOFs, OldIntArray(:), &
-          OldIntCnts(:), Reorder(:)
-!---------------------------------------------------------------------
-     INTEGER :: nstart, nend, doftype
-!---------------------------------------------------------------------
-
-     ! Number edges, faces and elements seperately so
-     ! that different types of dofs don't get mixed up
-     ! (nodes are already numbered)
-
-     ! dead code.
-   END SUBROUTINE InitialGlobalNumbering
-!---------------------------------------------------------------------
-
-!*********************************************************************
-! A parallel numbering algorithm for global DOFs that identifies 
-! interface elements by their global node numbers (passed in OldIntCnts and OldIntArray)
-!---------------------------------------------------------------------
-   SUBROUTINE ParallelNumbering( Mesh, OldIntCnts, OldIntArray, Reorder, & 
-        nstart, nend, doftype )
-!---------------------------------------------------------------------
-    USE GeneralUtils
-!---------------------------------------------------------------------
-     TYPE(Mesh_t) :: Mesh
-     INTEGER, TARGET :: OldIntArray(:), &
-          OldIntCnts(:), Reorder(:), nstart, nend, doftype
-!---------------------------------------------------------------------
-     INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
-     INTEGER :: ierr
-     INTEGER :: i,j,k,l,n,MinProc,MaxLcl,MaxGlb,Interfaces,dofs,step
-     INTEGER :: LIndex(100), IntN, Gindex, k1, k2
-     INTEGER, POINTER :: IntArray(:),IntCnts(:),GIndices(:),Gorder(:)
-!---------------------------------------------------------------------
-     CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
-
-     PRINT*, 'PE: ', ParEnv % MyPE, ' Numbering type ', doftype, ' from ', nstart, ' to ', nend
-     call flush(6)
-
-     ! if no dofs of this type, return
-     IF ( nstart > nend ) THEN
-        RETURN
-     END IF
-
-! XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-! todo: figure out some value that is usually large enough (the worst case size is quite high)
-!       This can get awefully large at times.
-     CALL CheckBuffer( 10000000 )
-!
-! XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-
-     PRINT*, 'PE: ', ParEnv % MyPE, ' SIZE(GlobalDOFs) ', SIZE(Mesh % ParallelInfo % GlobalDOFs)
-!    PRINT*, 'PE: ', ParEnv % MyPE, ' GlobalDOFs before numbering: ', Mesh % ParallelInfo % GlobalDOFs
-     call flush(6)
-!
-!    find least numbered of the active procs:
-!    ----------------------------------------
-     DO MinProc = 1,ParEnv % PEs
-        IF ( ParEnv % Active( MinProc ) ) EXIT
-     END DO
-
-     PRINT*, 'PE: ', ParEnv % MyPE, ' MinProc ', MinProc 
-     call flush(6)
-
-!
-!    Our maximum global node index:
-!    ------------------------------
-     MaxLcl = MAXVAL( Mesh % ParallelInfo % GlobalDOFs )
-     MaxGlb = MaxLcl
-
-!    Find out current maximum global DOF number...
-!    (others send their maxlcl to minproc)
-!    --------------------------------------
-     IF ( ParEnv % MyPE == MinProc-1 ) THEN
-        j = 1
-        DO i=MinProc+1,ParEnv % PEs
-           IF ( ParEnv % Active(i) ) THEN
-              CALL MPI_RECV( k, 1, MPI_INTEGER, i-1, &
-                10, MPI_COMM_WORLD, status, ierr )
-              MaxGlb = MAX( MaxGlb, k )
-           END IF
-        END DO
-     ELSE
-        CALL MPI_BSEND( MaxLcl, 1, MPI_INTEGER, &
-          MinProc-1, 10, MPI_COMM_WORLD, ierr )
-     END IF
-
-    PRINT*,'PE: ',ParEnv % MyPE,' Initial MaxGlb ',MaxGlb
-    call flush(6)
+       ALLOCATE( SplittedMatrix % TmpRVec( SplittedMatrix %  &
+                  InsideMatrix % NumberOfRows ) )
+    END IF
 
     !
-    ! How many dofs per node, edge, face or element
-    ! 
-    IF (doftype == 1) THEN
-       step = 1
-    ELSE IF (doftype == 2) THEN
-       step = Mesh % MaxEdgeDOFs
-    ELSE IF (doftype == 3) THEN
-       step = Mesh % MaxFaceDOFs
-    ELSE IF (doftype == 4) THEN 
-       step = Mesh % MaxElementDOFs
+    ! Exchange RHS with neighbours
+    ! -------------------------------------------------------------
+    TmpRHSVec => SplittedMatrix % InsideMatrix % RHS
+
+    CALL ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
+            ParallelInfo, DOFs, RHSVec, TmpRHSVec )
+
+!   CALL SParUpdateRHS( SourceMatrix, RHSVec, TmpRHSVec )
+
+    !
+    ! Initialize temporary XVec and RVec for iterator. The
+    ! originals contain also the items on interfaces.
+    ! -------------------------------------------------------------
+
+    CALL SParUpdateSolve( SourceMatrix, XVec, RVec )
+    !
+    ! Set up the preconditioner:
+    ! --------------------------
+    IF ( .NOT.ASSOCIATED( SplittedMatrix % InsideMatrix % ILUValues) ) THEN
+       CALL CRS_SortMatrix( SplittedMatrix % InsideMatrix )
     END IF
+!----------------------------------------------------------------------
+  END SUBROUTINE SParInitSolve
+!----------------------------------------------------------------------
 
-!    Recieve global numbers for interface nodes from lower
-!    numbered PEs. 
-!
-!    Interface dofs are identified 
-!    by the nodes of an edge, face or element.
-!
-!    IntCnts = number of nodes
-!    IntArray = the nodes
-!    ---------------------------------------
-    DO i=MinProc,ParEnv % MyPE
-       IF ( .NOT. (ParEnv % Active(i) .AND. ParEnv % IsNeighbour(i)) ) CYCLE
 
-       PRINT*,'PE: ',ParEnv % MyPE,' Receiving dof numbers.'
-       call flush(6)
-       
-       ! Get number of interfaces to receive from PE i
-       CALL MPI_RECV( Interfaces, 1, MPI_INTEGER, &
-            i-1, 14, MPI_COMM_WORLD, status, ierr )
-       
-       IF ( Interfaces > 0 ) THEN
-          ALLOCATE( GIndices(Interfaces), IntCnts(Interfaces) )
-          
-          CALL MPI_RECV( GIndices, Interfaces, MPI_INTEGER, &
-               i-1, 15, MPI_COMM_WORLD, status, ierr )
-          
-          CALL MPI_RECV( IntCnts, Interfaces, MPI_INTEGER, &
-               i-1, 16, MPI_COMM_WORLD, status, ierr )
+!----------------------------------------------------------------------
+  SUBROUTINE SParUpdateRHS( SourceMatrix, RHSVec, TmpRHSVec )
+!----------------------------------------------------------------------
+    TYPE (Matrix_t) :: SourceMatrix
+    REAL(KIND=dp) :: RHSVec(:), TmpRHSVec(:)
+!----------------------------------------------------------------------
+    ! Local variables
 
-          CALL MPI_RECV( k, 1, MPI_INTEGER, &
-               i-1, 17, MPI_COMM_WORLD, status, ierr )
-          
-          ALLOCATE( IntArray(k) )
+    INTEGER, ALLOCATABLE :: VecEPerNB(:)
+    TYPE(ParallelInfo_t), POINTER :: ParallelInfo
+    INTEGER :: i, j, k, nbind, DOFs
+    TYPE (SplittedMatrixT), POINTER :: SplittedMatrix
 
-          CALL MPI_RECV( IntArray, SIZE(IntArray), MPI_INTEGER, &
-               i-1, 18, MPI_COMM_WORLD, status, ierr )
+!----------------------------------------------------------------------
 
-!          Update our view of the global numbering
-!          at the interface nodes, edges, faces and elements.
-!          ---------------------------------------
-          l = 0
-          DO j=1,Interfaces
-             Lindex = 0
-             IntN = IntCnts(j)
-             DO k=1,IntN
-                Lindex(k) = SearchNode( Mesh % ParallelInfo, IntArray(l+k), 1, Mesh % NumberOfNodes )
+    ! Collect the result:
+    ! -------------------
+    SplittedMatrix => SourceMatrix % ParMatrix % SplittedMatrix
+
+    DOFs  =  SourceMatrix % ParMatrix % DOFs
+    ParallelInfo => SourceMatrix % ParMatrix % ParallelInfo
+
+    ALLOCATE( VecEPerNB( ParEnv % PEs ) )
+
+    VecEPerNB = 0
+    DO i = 1, SourceMatrix % NumberOfRows
+       k = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
+       IF ( SIZE(ParallelInfo % NeighbourList(k) % Neighbours) > 1 ) THEN
+          IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+             DO j = 1, SIZE(ParallelInfo % NeighbourList(k) % Neighbours)
+               IF (ParallelInfo % NeighbourList(k) % Neighbours(j)/=ParEnv % MyPE) THEN
+                 nbind = ParallelInfo % NeighbourList(k) % Neighbours(j) + 1
+                 VecEPerNB(nbind) = VecEPerNB(nbind) + 1
+
+                 SplittedMatrix % ResBuf(nbind) % ResVal(VecEPerNB(nbind)) = &
+                      RHSVec(i)
+                 SplittedMatrix % ResBuf(nbind) % ResInd(VecEPerNB(nbind)) = &
+                   ParallelInfo % GlobalDOFs(k)*DOFs - (DOFs-1-MOD( i-1, DOFs))
+               END IF
              END DO
-             
-             ! it is maybe redundant to check that the IntArrays match, but
-             ! then again, it might be the only way to identify edge, face and element dofs
-             IF ( ALL( Lindex(1:IntN) > 0 ) ) THEN
-                !
-                ! This set of interface dof belongs to us as well
-                ! Now lets find it's position in our GlobalDOFs
-                k2 = 0 ! 
-                k1 = 0 ! interface number 1..Interfaces 
-                DO k=nstart,nend
-                   IF ( .NOT. Mesh % ParallelInfo % Interface(k) ) CYCLE
-
-                   k1 = k1 + 1
-                   IF ( IntN == OldIntCnts(k1) ) THEN
-                      ! If all edges match, then this is our interface dof.
-                      IF ( ALL( IntArray(l+1:l+IntN) == &
-                           OldIntArray(k2+1:k2+IntN)) ) THEN
-
-                         ! number all DOFs of this edge.
-                         DO n=1,step
-                            Mesh % ParallelInfo % GlobalDOFs(k+n) = GIndices(j)+n
-                         END DO
-
-                         EXIT
-                      END IF
-                   END IF
-                   k2 = k2 + OldIntCnts(k1)
-                END DO
-             END IF
-             l = l + IntN
-          END DO
-          DEALLOCATE( Gindices, IntCnts, IntArray )
+          END IF
        END IF
     END DO
 
-!
-!   Update the current numbering from the 
-!   previous PE in line, this will make the 
-!   execution strictly serial. Maybe there
-!   would be an easier way?
-!   (waits here until previous PE has sent Interface nodes and MaxGlb) 
-!
-    IF ( ParEnv % MyPE > MinProc-1 ) THEN
-       DO i=ParEnv % MyPE, MinProc, -1
-          IF ( ParEnv % Active(i) ) THEN
-             CALL MPI_RECV( MaxGlb, 1, MPI_INTEGER, &
-                  i-1, 20, MPI_COMM_WORLD, status, ierr )
-             EXIT
-          END IF
-       END DO
-    END IF
-!
-!    Create global numbering for our dofs that haven't 
-!    been numbered yet.
-!    ----------------------------------
-     DO i=nstart,nend
-        IF ( Mesh % ParallelInfo % GlobalDOFs(i) == 0 ) THEN
-           MaxGlb = MaxGlb + 1
-           Mesh % ParallelInfo % GlobalDOFs(i) = MaxGlb
-        END IF
-     END DO
+    CALL ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, RHSVec, DOFs ) 
 
-     !
-     ! count interfaces, with edges, faces etc, we don't need to send all dofs, just the 
-     ! first one. others will be successively numbered
-     !
-     IF ( doftype == 1 ) THEN
-        Interfaces = COUNT( Mesh % ParallelInfo % Interface(nstart:nend) )
-     ELSE IF ( doftype == 2 ) THEN
-        Interfaces = COUNT( Mesh % ParallelInfo % Interface(nstart:nend) ) / Mesh % MaxEdgeDOFs
-     ELSE IF ( doftype == 3 ) THEN
-        Interfaces = COUNT( Mesh % ParallelInfo % Interface(nstart:nend) ) / Mesh % MaxFaceDOFs
-     ELSE IF ( doftype == 4 ) THEN
-        Interfaces = COUNT( Mesh % ParallelInfo % Interface(nstart:nend) ) / Mesh % MaxElementDOFs
-     END IF
-
-     IF ( Interfaces > 0 ) ALLOCATE( Gindices(Interfaces) )
-
-     Interfaces = 0
-     DO i=nstart,nend,step
-        IF ( Mesh % ParallelInfo % Interface(i) ) THEN
-           Interfaces = Interfaces + 1
-           Gindices(Interfaces) = Mesh % ParallelInfo % GlobalDOFs(i)
-        END IF
-     END DO
-
-     PRINT*,'PE: ',ParEnv % MyPE,' Sending interface dof numbers.'
-     call flush(6)
-
-!
-!    Send new interface nodes to higher numbered PEs:
-!    ------------------------------------------------
-     DO i=ParEnv % MyPE+2,ParEnv % PEs
-        IF ( .NOT. (ParEnv % Active(i) .AND. ParEnv % IsNeighbour(i)) ) CYCLE
-
-        CALL MPI_BSEND( Interfaces, 1, MPI_INTEGER, &
-               i-1, 14, MPI_COMM_WORLD, ierr )
-
-        IF ( Interfaces > 0 ) THEN
-           CALL MPI_BSEND( GIndices, Interfaces, MPI_INTEGER, &
-                    i-1, 15, MPI_COMM_WORLD, ierr )
-
-           CALL MPI_BSEND( OldIntCnts, Interfaces, &
-              MPI_INTEGER, i-1, 16, MPI_COMM_WORLD, ierr )
-
-           CALL MPI_BSEND( SIZE(OldIntArray), 1, &
-              MPI_INTEGER, i-1, 17, MPI_COMM_WORLD, ierr )
-
-           CALL MPI_BSEND( OldIntArray, SIZE(OldIntArray), &
-              MPI_INTEGER, i-1, 18, MPI_COMM_WORLD, ierr )
-        END IF
-     END DO
-
-     IF ( Interfaces > 0 ) DEALLOCATE( GIndices )
-
-     PRINT*,'PE: ',ParEnv % MyPE,' Sending MaxGlb ', MaxGlb
-     call flush(6)
-!
-!    Send go singal to next PE in line...
-!    ------------------------------------
-     DO i = ParEnv % MyPE+2, ParEnv % PEs
-        IF ( ParEnv % Active(i) ) THEN
-           CALL MPI_BSEND( MaxGlb, 1, MPI_INTEGER, &
-               i-1, 20, MPI_COMM_WORLD, ierr )
-           EXIT
-        END IF
-     END DO
-!
-!    Sort our own nodes according to ascending
-!    global order:
-!
-     ALLOCATE( IntCnts(nend-nstart+1), Gorder(nend-nstart+1) )
-
-     DO i=1,nend-nstart
-        Gorder(i) = i
-     END DO
-
-     PRINT*,'PE: ',ParEnv % MyPE,' Sorting globaldofs '
-     call flush(6)
-
-     CALL SortI( nend-nstart+1, Mesh % ParallelInfo % GlobalDOFs(nstart:nend), Gorder )
-
-!     PRINT*,'PE: ',ParEnv % MyPE,' Gorder ', Gorder
-
-     DO i=1,nend-nstart+1
-        IntCnts(Gorder(i)) = i
-     END DO
-
-!
-!    Reorder will return the nodal reordering
-!    to the caller:
-!    ----------------------------------------
-     Reorder(nstart:nend) = IntCnts + nstart - 1
-!
-!    Order the whole of the nodal structure
-!    according to the changed order of the 
-!    global numbers:
-!
-!    Also take into account the fact that edges, faces 
-!    and elements can have more than 1 dof
-!    -------------------------------------
-      
-     PRINT*,'PE: ',ParEnv % MyPE,' Swapping '
-     call flush(6)
-
-     DO i=1,nend-nstart,step
-        DO l=1,step
-           k = Gorder(i)
-           j = IntCnts(i)
-           IntCnts(i) = IntCnts(k)
-           IntCnts(k) = j
-           Gorder(IntCnts(k)) = k
-        END DO
-        CALL Swap( Mesh, i+nstart-1, k+nstart-1, doftype )
-     END DO
-
-     DEALLOCATE( IntCnts )
+    ! Clean the work space:
+    !----------------------
+    DEALLOCATE( VecEPerNB )
+!----------------------------------------------------------------------
+  END SUBROUTINE SParUpdateRHS
+!----------------------------------------------------------------------
 
 
-!    Ok, now we have generated the global numbering
-!    of nodes. We still need to distribute the
-!    information which PEs share which of the new
-!    interface nodes:
-!    -----------------------------------------------
+!----------------------------------------------------------------------
+  SUBROUTINE SParUpdateSolve( SourceMatrix, x, r )
+!----------------------------------------------------------------------
+    REAL(KIND=dp) :: x(:),r(:)
+    TYPE(Matrix_t) :: SourceMatrix
+!----------------------------------------------------------------------
+    TYPE(ParallelInfo_t), POINTER :: ParallelInfo
+    INTEGER :: i,j,k, DOFs
+    REAL(KIND=dp), POINTER :: TmpXVec(:),TmpRVec(:)
+!----------------------------------------------------------------------
+    ParallelInfo => SourceMatrix % ParMatrix % ParallelInfo
+    DOFs    =  SourceMatrix % ParMatrix % DOFs
+    TmpXVec => SourceMatrix % ParMatrix % SplittedMatrix % TmpXVec
+    TmpRVec => SourceMatrix % ParMatrix % SplittedMatrix % TmpRVec
 
-
-     Interfaces = COUNT( Mesh % ParallelInfo % Interface(nstart:nend) )
-
-     ! If interface node, allocate neighbourlist
-     ALLOCATE( GIndices( Interfaces ) )
-     j = 0
-     DO i=nstart,nend
-        IF ( Mesh % ParallelInfo % Interface(i) ) THEN
-           j = j + 1
-           GIndices(j) = Mesh % ParallelInfo % GlobalDOFs(i)
-           ALLOCATE( Mesh % ParallelInfo % NeighbourList(i) % Neighbours(ParEnv % PEs) )
-           Mesh % ParallelInfo % NeighbourList(i) % Neighbours = -1
-        END IF
-     END DO
-
-     PRINT*,'PE: ',ParEnv % MyPE,' Sending global indices of interface dofs'
-     call flush(6)
-
-     ! send interface node count and global indice list to neighbouring partitions
-     DO i=MinProc,ParEnv % PEs
-        IF ( ParEnv % MyPE == i-1 ) CYCLE
-        IF ( ParEnv % Active(i) .AND. ParEnv % IsNeighbour(i) ) THEN
-
-           PRINT*,'PE: ',ParEnv % MyPE,' Sending to ', i-1
-           call flush(6)
-
-           CALL MPI_BSEND( Interfaces, 1, &
-              MPI_INTEGER, i-1, 30, MPI_COMM_WORLD, ierr )
-
-           CALL MPI_BSEND( GIndices, Interfaces, &
-              MPI_INTEGER, i-1, 31, MPI_COMM_WORLD, ierr )
-        END IF
-     END DO
-
-     DEALLOCATE( Gindices )
-
-     ALLOCATE( IntCnts(nend-nstart+1) )
-
-     ! Set our PE in the neighbourlist
-     IntCnts = 0
-     DO i=nstart,nend
-        IF ( Mesh % ParallelInfo % Interface(i) ) THEN
-           IntCnts(i) = IntCnts(i) + 1
-           Mesh % ParallelInfo % NeighbourList(i) % Neighbours(1) = ParEnv % MyPE
-        END IF
-     END DO
-
-     PRINT*,'PE: ',ParEnv % MyPE,' Receiving global indices of interface dofs'
-     call flush(6)
-
-     ! receive global indices and the number of interface nodes from other partitions
-     DO i=MinProc,ParEnv % PEs
-        IF ( ParEnv % MyPE == i-1 ) CYCLE
-        IF ( ParEnv % Active(i) .AND. ParEnv % IsNeighbour(i) ) THEN
-
-           PRINT*,'PE: ',ParEnv % MyPE,' Receiving from ', i-1
-           call flush(6)
-
-           CALL MPI_RECV( Interfaces, 1, MPI_INTEGER, &
-               i-1, 30, MPI_COMM_WORLD, status, ierr )
-
-           ALLOCATE( GIndices(Interfaces) )
-
-           CALL MPI_RECV( GIndices, Interfaces, MPI_INTEGER, &
-               i-1, 31, MPI_COMM_WORLD, status, ierr )
-
-           DO j=1,Interfaces
-              k = SearchNode( Mesh % ParallelInfo, Gindices(j), nstart, nend )
-              ! if we find the global indice in our own globaldofs, then add the sender to neighbourlist
-              IF ( k <= 0 ) CYCLE
-              IntCnts(k) = IntCnts(k) + 1
-              Mesh % ParallelInfo % NeighbourList(k) % Neighbours(IntCnts(k)) = i-1
-           END DO
-
-           DEALLOCATE( GIndices )
-        END IF
-     END DO
-!
-!    Reallocate the nodal neighbour lists to
-!    correct sizes and also sort them (the smallest PE always is owner)
-!    ---------------------------------------
-     PRINT*,'PE: ',ParEnv % MyPE,' Shrinking neighbourlists'
-     call flush(6)
-
-     DO i=nstart,nend
-        IF ( Mesh % ParallelInfo % Interface(i) ) THEN
-           k = IntCnts(i)
-           ALLOCATE( Gindices(k) )
-           Gindices = Mesh % ParallelInfo % NeighbourList(i) % Neighbours(1:k)
-           CALL Sort( k, Gindices )
-           DEALLOCATE( Mesh % ParallelInfo % NeighbourList(i) % Neighbours )
-           Mesh % ParallelInfo % NeighbourList(i) % Neighbours => Gindices
-        END IF
-     END DO
-     
-     DEALLOCATE( IntCnts )
-     
-     PRINT*,'PE: ',ParEnv % MyPE,' Done numbering type ', doftype
-     call flush(6)
-
-     CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
-
-CONTAINS
-!
-! Swap a certain dof typex
-!-----------------------------------------------------------------------
-  SUBROUTINE Swap( Mesh, i, k, doftype ) 
-!-----------------------------------------------------------------------
-    INTEGER :: i,k,doftype
-    TYPE(Mesh_t) :: Mesh
-!-----------------------------------------------------------------------
-    INTEGER :: elementi, elementk
-    REAL(KIND=dp) :: swapx,swapy,swapz
-    TYPE(Element_t) :: Element
-!-----------------------------------------------------------------------
-        
-    ! don't swap if there is no need to swap...
-    IF( i /= k ) THEN
-!       PRINT*,'PE: ',ParEnv % MyPE, ' Swap: ', i,',',k,' doftype ', doftype
-       call flush(6)
-
-       IF ( doftype == 1 ) THEN
-          elementi = i
-          elementk = k
-
-          swapx =  Mesh % Nodes % x(i)
-          swapy =  Mesh % Nodes % y(i)
-          swapz =  Mesh % Nodes % z(i)
- 
-          Mesh % Nodes % x(i) = Mesh % Nodes % x(k)
-          Mesh % Nodes % y(i) = Mesh % Nodes % y(k)
-          Mesh % Nodes % z(i) = Mesh % Nodes % z(k)
-          
-          Mesh % Nodes % x(k) = swapx
-          Mesh % Nodes % y(k) = swapy
-          Mesh % Nodes % z(k) = swapz
-
-          CALL SwapIfaceAndNList( i,k )
-
-       ELSE IF ( doftype == 2 ) THEN
-
-          elementi = (i - Mesh % NumberOfNodes) / Mesh % MaxEdgeDOFs + 1
-          elementk = (k - Mesh % NumberOfNodes) / Mesh % MaxEdgeDOFs + 1
-
-          Element = Mesh % Edges(elementi)
-          Mesh % Edges(elementk) = Mesh % Edges(elementi)
-          Mesh % Edges(elementi) = Element
-
-          DO l=1,Mesh % MaxEdgeDOFs
-             CALL SwapIfaceAndNList( i + l - 1, k + l - 1 )
-          END DO
-
-       ELSE IF ( doftype == 3 ) THEN
-
-          elementi = (i - Mesh % NumberOfNodes - &
-               Mesh % NumberOfEdges * Mesh % MaxEdgeDOFs) / Mesh % MaxFaceDOFs + 1
-          elementi = (k - Mesh % NumberOfNodes - & 
-               Mesh % NumberOfEdges * Mesh % MaxEdgeDOFs) / Mesh % MaxFaceDOFs + 1
-
-          Element = Mesh % Faces(elementi)
-          Mesh % Faces(elementk) = Mesh % Faces( elementi )
-          Mesh % Faces(elementi) = Element
-
-          DO l=1,Mesh % MaxFaceDOFs
-             CALL SwapIfaceAndNList( i + l - 1, k + l - 1 )
-          END DO
-
-       ELSE IF ( doftype == 4 ) THEN
-
-          elementi = (i - Mesh % NumberOfNodes - & 
-               Mesh % NumberOfEdges * Mesh % MaxEdgeDOFs - &
-               Mesh % NumberOfFaces * Mesh % MaxFaceDOFs) / Mesh % MaxElementDOFs + 1
-          elementk = (k - Mesh % NumberOfNodes - & 
-               Mesh % NumberOfEdges * Mesh % MaxEdgeDOFs - &
-               Mesh % NumberOfFaces * Mesh % MaxFaceDOFs) / Mesh % MaxElementDOFs + 1
-
-          Element = Mesh % Elements(elementi)
-          Mesh % Elements(elementk) = Mesh % Elements(elementi)
-          Mesh % Elements(elementi) = Element
-
-          DO l=1,Mesh % MaxElementDOFs
-             CALL SwapIfaceAndNList( i + l - 1, k + l - 1 )
-          END DO
-
+    j = 0
+    DO i = 1, SourceMatrix % NumberOfRows
+       k = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
+       IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+          j = j + 1
+          TmpXVec(j) = x(i)
+          TmpRVec(j) = r(i)
        END IF
+    END DO
+!----------------------------------------------------------------------
+  END SUBROUTINE SParUpdateSolve
+!----------------------------------------------------------------------
 
-    END IF
-!-----------------------------------------------------------------------
-  END SUBROUTINE Swap
 
-  ! Swap interface table and neighbourlists between dofs 
+!----------------------------------------------------------------------
+  SUBROUTINE SParUpdateResult( SourceMatrix, XVec, RVec, GlobalUpdate )
+!----------------------------------------------------------------------
+    TYPE (Matrix_t) :: SourceMatrix
+    LOGICAL :: GlobalUpdate
+    REAL(KIND=dp) :: XVec(:), RVec(:)
+!----------------------------------------------------------------------
+    ! Local variables
+
+    REAL(KIND=dp), POINTER :: TmpXVec(:), TmpRVec(:)
+    INTEGER, ALLOCATABLE :: VecEPerNB(:)
+    TYPE(ParallelInfo_t), POINTER :: ParallelInfo
+    INTEGER :: i, j, k, nbind, DOFs
+    TYPE (SplittedMatrixT), POINTER :: SplittedMatrix
+
+!----------------------------------------------------------------------
+
+    ! Collect the result:
+    ! -------------------
+    SplittedMatrix => SourceMatrix % ParMatrix % SplittedMatrix
+
+    DOFs  =  SourceMatrix % ParMatrix % DOFs
+    ParallelInfo => SourceMatrix % ParMatrix % ParallelInfo
+
+    TmpXVec => SplittedMatrix % TmpXVec
+    TmpRVec => SplittedMatrix % TmpRVec
+
+    ALLOCATE( VecEPerNB( ParEnv % PEs ) )
+
+    j = 0
+    DO i = 1, SourceMatrix % NumberOfRows
+       k = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
+       IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+          j = j + 1
+          XVec(i) = TmpXVec(j)
+          RVec(i) = TmpRVec(j)
+       ELSE
+          RVec(i) = SourceMatrix % RHS(i)
+       END IF
+    END DO
+
+    IF ( .NOT. GlobalUpdate ) RETURN
+
+    VecEPerNB = 0
+    DO i = 1, SourceMatrix % NumberOfRows
+       k = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
+       IF ( SIZE(ParallelInfo % NeighbourList(k) % Neighbours) > 1 ) THEN
+          IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+             DO j = 1, SIZE(ParallelInfo % NeighbourList(k) % Neighbours)
+               IF (ParallelInfo % NeighbourList(k) % Neighbours(j)/=ParEnv % MyPE) THEN
+                 nbind = ParallelInfo % NeighbourList(k) % Neighbours(j) + 1
+                 VecEPerNB(nbind) = VecEPerNB(nbind) + 1
+
+                 SplittedMatrix % ResBuf(nbind) % ResVal(VecEPerNB(nbind)) = &
+                      XVec(i)
+                 SplittedMatrix % ResBuf(nbind) % ResInd(VecEPerNB(nbind)) = &
+                   ParallelInfo % GlobalDOFs(k)*DOFs - (DOFs-1-MOD( i-1, DOFs))
+               END IF
+             END DO
+          END IF
+       END IF
+    END DO
+
+    CALL ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, XVec, DOFs ) 
+
+#if 0
+    VecEPerNB = 0
+    DO i = 1, SourceMatrix % NumberOfRows
+       k = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
+       IF ( SIZE(ParallelInfo % NeighbourList(k) % Neighbours) > 1 ) THEN
+          IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+             DO j = 1, SIZE(ParallelInfo % NeighbourList(k) % Neighbours)
+               IF (ParallelInfo % NeighbourList(k) % Neighbours(j)/=ParEnv % MyPE) THEN
+                 nbind = ParallelInfo % NeighbourList(k) % Neighbours(j) + 1
+                 VecEPerNB(nbind) = VecEPerNB(nbind) + 1
+
+                 SplittedMatrix % ResBuf(nbind) % ResVal(VecEPerNB(nbind)) = &
+                      RVec(i)
+                 SplittedMatrix % ResBuf(nbind) % ResInd(VecEPerNB(nbind)) = &
+                   ParallelInfo % GlobalDOFs(k)*DOFs - (DOFs-1-MOD( i-1, DOFs))
+               END IF
+             END DO
+          END IF
+       END IF
+     END DO
+
+     CALL ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, RVec, DOFs ) 
+#endif
+     !
+     ! Clean the work space:
+     !----------------------
+     DEALLOCATE( VecEPerNB )
+!----------------------------------------------------------------------
+  END SUBROUTINE SParUpdateResult
+!----------------------------------------------------------------------
+
+
+
+
+
+!----------------------------------------------------------------------
+!----------------------------------------------------------------------
+
+
+
+
+
+
+  !********************************************************************
+  !********************************************************************
   !
-  SUBROUTINE SwapIfaceAndNList( i,k )
-!-----------------------------------------------------------------------
-    INTEGER :: i,k
-!-----------------------------------------------------------------------
-    LOGICAL :: swapi
-    INTEGER, POINTER :: swapl(:)
-!-----------------------------------------------------------------------
-    swapi =  Mesh % ParallelInfo % Interface(i)
-    swapl => Mesh % ParallelInfo % NeighbourList(i) % Neighbours
-    
-    Mesh % ParallelInfo % Interface(i) = Mesh % ParallelInfo % Interface(k) 
-    Mesh % ParallelInfo % NeighbourList(i) % Neighbours => &
-         Mesh % ParallelInfo % NeighbourList(k) % Neighbours
-    
-    Mesh % ParallelInfo % Interface(k) = swapi
-    Mesh % ParallelInfo % NeighbourList(k) % Neighbours => swapl
-  END SUBROUTINE SwapIfaceAndNList
+  ! Call the iterative solver
+  !
+  SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, DOFs, XVec, &
+              RHSVec, Solver, SParMatrixDesc )
 
-!-----------------------------------------------------------------------
-END SUBROUTINE ParallelNumbering
-!-----------------------------------------------------------------------
-
-!-----------------------------------------------------------------------
-SUBROUTINE SParIterBarrier
-!-----------------------------------------------------------------------
-  INTEGER :: ierr
-  CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
-!-----------------------------------------------------------------------
-END  SUBROUTINE SParIterBarrier
-!-----------------------------------------------------------------------
-
-
-!*********************************************************************
-!*********************************************************************
-!
-! Send all of the interface matrix blocks (in NbsIfMatrices) to neighbour
-! processors. This is done only once so there is no need to optimize
-! communication...
-!
-  SUBROUTINE ExchangeInterfaces( NbsIfMatrix, RecvdIfMatrix )
-
-    USE types
-    IMPLICIT NONE
-
-    ! Parameters
-
-    TYPE (Matrix_t), DIMENSION(*) :: NbsIfMatrix, RecvdIfMatrix
+    TYPE (Matrix_t) :: SourceMatrix
+    TYPE (ParallelInfo_t) :: ParallelInfo
+    INTEGER :: DOFs
+    REAL(KIND=dp), DIMENSION(:) :: XVec, RHSVec
+    TYPE (Solver_t) :: Solver
+    TYPE (SParIterSolverGlobalD_t), POINTER :: SParMatrixDesc
 
     ! Local variables
 
-    INTEGER :: i, j, ierr, sproc, destproc, rows, cols, TotalSize
+    TYPE (ErrInfoT) :: ErrInfo
+    INTEGER :: i, j, grow,gcol, nbind
+    TYPE (SplittedMatrixT), POINTER :: SplittedMatrix
+    INTEGER :: k, l, nodeind, ifind, dd, rowind
+    TYPE (Matrix_t), POINTER :: CurrIf
+    TYPE (GlueTableT), POINTER :: GT
 
-    INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
-  !*********************************************************************
+    CHARACTER(LEN=MAX_NAME_LEN) :: Prec
+    REAL(KIND=dp) :: TOL
+    INTEGER :: ILUn, Rounds
 
-  TotalSize = 0
-  DO i = 1, ParEnv % PEs
-     IF ( ParEnv % IsNeighbour(i) ) THEN
-       IF ( NbsIfMatrix(i) % NumberOfRows == 0 ) THEN
-           TotalSize = TotalSize + 4
-       ELSE
-           Cols = NbsIfMatrix(i) % Rows(NbsIfMatrix(i) % NumberOfRows+1)-1
-           TotalSize = TotalSize + 4 + 8*NbsIfMatrix(i) % NumberOfRows + &
-                12*Cols
-       END IF
-     END IF
-  END DO
-  TotalSize = 1.5 * TotalSize
-  CALL CheckBuffer( TotalSize )
+    INTEGER, ALLOCATABLE :: owner(:)
+    INTEGER, DIMENSION(:), ALLOCATABLE :: VecEPerNB
 
-  !----------------------------------------------------------------------
-  !
-  ! Send the interface parts
-  !
-  !----------------------------------------------------------------------
+    LOGICAL :: NeedMass, Found
 
-    DO i = 1, ParEnv % PEs
-       IF ( ParEnv % IsNeighbour(i) ) THEN
+#ifdef HAVE_HYPRE
+    INTERFACE
+      SUBROUTINE SolveHYPRE( n, Rows, Cols, Vals, Perm, INVPerm, GDOFs, &
+           Owner, Xvec, RHSVec, DOFs, PE, ILUn, Rounds, TOL )
+        INTEGER :: n, Rows(n), Cols(n), Perm(n), INVPerm(n), GDOFs(n), &
+                   DOFs, PE, Owner(n), Rounds, ILUn
+        DOUBLE PRECISION :: Vals(n), Xvec(n), RHSvec(n), TOL
+      END SUBROUTINE SolveHYPRE
+    END INTERFACE
+#endif
 
-          destproc = i - 1
-          IF ( NbsIfMatrix(i) % NumberOfRows == 0 ) THEN
+    !******************************************************************
 
-             CALL MPI_BSEND( 0, 1, MPI_INTEGER, destproc, &
-                    1000, MPI_COMM_WORLD, ierr )
+    GlobalData     => SParMatrixDesc
+    ParEnv         =  GlobalData % ParEnv
+    SplittedMatrix => SParMatrixDesc % SplittedMatrix
 
-          ELSE
+    !******************************************************************
 
-             Cols = NbsIfMatrix(i) % Rows(NbsIfMatrix(i) % NumberOfRows+1) - 1
+#ifdef HAVE_HYPRE
+    IF (ListGetLogical(CurrentModel % Solver % Values,  &
+           'Linear System Use HYPRE')) THEN
 
-             CALL MPI_BSEND( NbsIfMatrix(i) % NumberOfRows, 1, MPI_INTEGER, &
-                  destproc, 1000, MPI_COMM_WORLD, ierr )
+      Prec = ListGetString( Solver % Values, & 
+          'Linear System Preconditioning', Found )
 
-             CALL MPI_BSEND( Cols, 1, MPI_INTEGER, &
-                  destproc, 1001, MPI_COMM_WORLD, ierr )
-
-             CALL MPI_BSEND( NbsIfMatrix(i) % GRows, &
-                  NbsIfMatrix(i) % NumberOfRows, MPI_INTEGER, &
-                  destproc, 1002, MPI_COMM_WORLD, ierr )
-
-             CALL MPI_BSEND( NbsIfMatrix(i) % Rows, &
-                  NbsIfMatrix(i) % NumberOfRows + 1, MPI_INTEGER, &
-                  destproc, 1003, MPI_COMM_WORLD, ierr )
-
-             CALL MPI_BSEND( NbsIfMatrix(i) % RowOwner, &
-                  NbsIfMatrix(i) % NumberOfRows, MPI_INTEGER, &
-                  destproc, 1004, MPI_COMM_WORLD, ierr )
-
-             CALL MPI_BSEND( NbsIfMatrix(i) % Cols, &
-                  Cols, MPI_INTEGER, destproc, 1005, MPI_COMM_WORLD, ierr )
-        END IF
-     END IF
-  END DO
-
-  !----------------------------------------------------------------------
-  !
-  ! Receive the interface parts
-  !
-  !----------------------------------------------------------------------
-
-  DO i = 1, ParEnv % NumOfNeighbours
-     CALL MPI_RECV( rows, 1, MPI_INTEGER, MPI_ANY_SOURCE, 1000, &
-                    MPI_COMM_WORLD, status, ierr )
-     sproc = status(MPI_SOURCE)
-
-     IF ( Rows == 0 ) THEN
-
-        RecvdIfMatrix(sproc+1) % NumberOfRows = 0
-
-     ELSE
-       CALL MPI_RECV( cols, 1, MPI_INTEGER, sproc, 1001, &
-              MPI_COMM_WORLD, status, ierr )
-
-       RecvdIfMatrix(sproc+1) % NumberOfRows = Rows
-       ALLOCATE( RecvdIfMatrix(sproc+1) % Rows(Rows+1) )
-       ALLOCATE( RecvdIfMatrix(sproc+1) % Diag(Rows) )
-       ALLOCATE( RecvdIfMatrix(sproc+1) % Cols(Cols) )
-       ALLOCATE( RecvdIfMatrix(sproc+1) % GRows(Rows) )
-       ALLOCATE( RecvdIfMatrix(sproc+1) % RowOwner(Rows) )
-
-       CALL MPI_RECV( RecvdIfMatrix(sproc+1) % GRows, Rows,  MPI_INTEGER, &
-             sproc, 1002, MPI_COMM_WORLD, status, ierr )
-
-       CALL MPI_RECV( RecvdIfmatrix(sproc+1) % Rows, Rows+1, MPI_INTEGER, &
-            sproc, 1003, MPI_COMM_WORLD, status, ierr )
-
-       CALL MPI_RECV( RecvdIfmatrix(sproc+1) % RowOwner, Rows, MPI_INTEGER, &
-            sproc, 1004, MPI_COMM_WORLD, status, ierr )
-
-       CALL MPI_RECV( RecvdIfMatrix(sproc+1) % Cols, Cols, MPI_INTEGER, &
-            sproc, 1005, MPI_COMM_WORLD, status, ierr )
-     END IF
-  END DO
-END SUBROUTINE ExchangeInterfaces
-
-!*********************************************************************
-!*********************************************************************
-!
-! Send all of the *VALUES* in the interface matrix blocks (in NbsIfMatrices)
-! to neighbour processors. This is done once on every non-linear iteration
-! when the coefficient matrix has been assembled.
-!
-SUBROUTINE ExchangeIfValues( NbsIfMatrix, RecvdIfMatrix, NeedMass )
-
-  USE types
-  IMPLICIT NONE
-
-  ! Parameters
-
-  TYPE (Matrix_t), DIMENSION(:) :: NbsIfMatrix, RecvdIfMatrix
-
-  ! Local variables
-
-  LOGICAL :: NeedMass
-  INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
-  INTEGER :: i, j, ierr, destproc, rows, cols, sproc, TotalSize
-
-  !*********************************************************************
-
-  !----------------------------------------------------------------------
-  !
-  ! Send the interface parts
-  !
-  !----------------------------------------------------------------------
-
-  TotalSize = 0
-  DO i = 1, ParEnv % PEs
-     IF ( ParEnv % IsNeighbour(i) ) THEN
-        IF ( NbsIfMatrix(i) % NumberOfRows == 0 ) THEN
-           TotalSize = TotalSize + 4
-        ELSE
-           Cols = NbsIfMatrix(i) % Rows(NbsIfMatrix(i) % NumberOfRows+1)-1
-           TotalSize = TotalSize + 4 + 8*NbsIfMatrix(i) % NumberOfRows + &
-                       12*Cols
-        END IF
-     END IF
-  END DO
-  TotalSize = 1.5 * TotalSize
-  CALL CheckBuffer( TotalSize )
-
-  DO i = 1, ParEnv % PEs
-     IF ( ParEnv % IsNeighbour(i) ) THEN
-
-        destproc = i - 1
-        IF ( NbsIfMatrix(i) % NumberOfRows == 0 ) THEN
-          CALL MPI_BSEND( 0, 1, MPI_INTEGER, &
-            destproc, 2000, MPI_COMM_WORLD, ierr )
-        ELSE
-
-           Cols = NbsIfMatrix(i) % Rows(NbsIfMatrix(i) % NumberOfRows+1) - 1
-
-          CALL MPI_BSEND( NbsIfMatrix(i) % NumberOfRows, 1, MPI_INTEGER, &
-                destproc, 2000, MPI_COMM_WORLD, ierr )
-
-          CALL MPI_BSEND( Cols, 1, MPI_INTEGER, &
-                 destproc, 2001, MPI_COMM_WORLD, ierr )
-
-          CALL MPI_BSEND( NbsIfMatrix(i) % GRows, &
-              NbsIfMatrix(i) % NumberOfRows, MPI_INTEGER, &
-                destproc, 2002, MPI_COMM_WORLD, ierr )
-
-          CALL MPI_BSEND( NbsIfMatrix(i) % Rows, &
-               NbsIfMatrix(i) % NumberOfRows + 1, MPI_INTEGER, &
-               destproc, 2003, MPI_COMM_WORLD, ierr )
-
-          CALL MPI_BSEND( NbsIfMatrix(i) % Cols, &
-            Cols, MPI_INTEGER, destproc, 2004, MPI_COMM_WORLD, ierr )
-
-          CALL MPI_BSEND( NbsIfMatrix(i) % Values, Cols, &
-             MPI_DOUBLE_PRECISION, destproc, 2005, MPI_COMM_WORLD, ierr )
-
-           IF ( NeedMass ) &
-              CALL MPI_BSEND( NbsIfMatrix(i) % MassValues, Cols, &
-                MPI_DOUBLE_PRECISION, destproc, 2006, MPI_COMM_WORLD, ierr )
-           END IF
-     END IF
-  END DO
-
-  !----------------------------------------------------------------------
-  !
-  ! Receive the interface parts
-  !
-  !----------------------------------------------------------------------
-
-  DO i = 1, ParEnv % NumOfNeighbours
-
-     CALL MPI_RECV( Rows, 1, MPI_INTEGER, MPI_ANY_SOURCE, &
-             2000, MPI_COMM_WORLD, status, ierr )
-     sproc = status(MPI_SOURCE)
-
-     IF ( Rows == 0 ) THEN
+      ILUn = 0
+      IF(Prec(1:3)=='ilu'.AND.Prec(4:4)/='t') READ(Prec(4:), *) ILUn
+      TOL = ListGetConstReal( Solver % Values, &
+           'Linear System Convergence Tolerance', Found )
+      IF ( .NOT. Found ) TOL=1.0d-6
+      Rounds = ListGetInteger( Solver % Values, &
+           'Linear System Max Iterations', Found )
+      IF ( .NOT. Found ) Rounds=1000
  
-        RecvdIfMatrix(sproc+1) % NumberOfRows = 0
+      ALLOCATE(Owner(SIZE(ParallelInfo % GlobalDOFs)))
+      owner = 0
 
-     ELSE
+      DO i=1,SIZE(Parallelinfo % GlobalDOFs)
+        IF ( ParallelInfo % NeighbourList(i) % &
+                 Neighbours(1) == ParEnv % MyPE ) owner(i) = 1
+      END DO
 
-        CALL MPI_RECV( Cols, 1, MPI_INTEGER, sproc, 2001, &
-               MPI_COMM_WORLD, status, ierr )
+      CALL SolveHYPRE( SourceMatrix % NumberOfRows, SourceMatrix % Rows,         &
+        SourceMatrix % Cols, SourceMatrix % Values, Solver % Variable % Perm,    &
+         SourceMatrix % InvPerm, ParallelInfo % GlobalDOFs, Owner, Xvec, RHSvec, &
+            DOFs, ParEnv % MyPE, ILUn, Rounds, TOL  )
+      DEALLOCATE( owner )
 
-        RecvdIfMatrix(sproc+1) % NumberOfRows = Rows
-        ALLOCATE( RecvdIfMatrix(sproc+1) % Rows(Rows+1) )
-        ALLOCATE( RecvdIfMatrix(sproc+1) % Cols(Cols) )
-        ALLOCATE( RecvdIfMatrix(sproc+1) % GRows(Rows) )
-        ALLOCATE( RecvdIfMatrix(sproc+1) % Values(Cols) )
-        ALLOCATE( RecvdIfMatrix(sproc+1) % MassValues(Cols) )
-        RecvdIfMatrix(sproc+1) % MassValues = 0.0d0
+      ALLOCATE( VecEPerNB( ParEnv % PEs ) )
+      VecEPerNB = 0
+      DO i = 1, SourceMatrix % NumberOfRows
+         k = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
+         IF ( SIZE(ParallelInfo % NeighbourList(k) % Neighbours) > 1 ) THEN
+            IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+               DO j = 1, SIZE(ParallelInfo % NeighbourList(k) % Neighbours)
+                  IF (ParallelInfo % NeighbourList(k) % Neighbours(j)/=ParEnv % MyPE) THEN
+                     nbind = ParallelInfo % NeighbourList(k) % Neighbours(j) + 1
+                     VecEPerNB(nbind) = VecEPerNB(nbind) + 1
 
-        CALL MPI_RECV( RecvdIfMatrix(sproc+1) % GRows, Rows,  MPI_INTEGER, &
-                  sproc, 2002, MPI_COMM_WORLD, status, ierr )
+                     SplittedMatrix % ResBuf(nbind) % ResVal(VecEPerNB(nbind)) = XVec(i)
+                     SplittedMatrix % ResBuf(nbind) % ResInd(VecEPerNB(nbind)) = &
+                       ParallelInfo % GlobalDOFs(k)*DOFs - (DOFs-1 - MOD( i-1, DOFs))
+                  END IF
+               END DO
+            END IF
+         END IF
+      END DO
 
-        CALL MPI_RECV( RecvdIfmatrix(sproc+1) % Rows, Rows+1, MPI_INTEGER, &
-                  sproc, 2003, MPI_COMM_WORLD, status, ierr )
+      CALL ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, XVec, DOFs ) 
+      DEALLOCATE( VecEPerNB )
 
-        CALL MPI_RECV( RecvdIfMatrix(sproc+1) % Cols, Cols, MPI_INTEGER, &
-                  sproc, 2004, MPI_COMM_WORLD, status, ierr )
+      RETURN
+    END IF
+#endif
 
-        CALL MPI_RECV( RecvdIfMatrix(sproc+1) % Values, Cols, &
-            MPI_DOUBLE_PRECISION, sproc, 2005, MPI_COMM_WORLD, status, ierr )
+    CALL ZeroSplittedMatrix( SplittedMatrix )
+    NeedMass = ASSOCIATED( SplittedMatrix % InsideMatrix % MassValues )
 
-        IF ( NeedMass ) &
-           CALL MPI_RECV( RecvdIfMatrix(sproc+1) % MassValues, Cols, &
-             MPI_DOUBLE_PRECISION, sproc, 2006, MPI_COMM_WORLD, status, ierr )
-     END IF
+    !------------------------------------------------------------------
+    !
+    ! Copy the Matrix % Values into SplittedMatrix
+    !
+    !------------------------------------------------------------------
 
-  END DO
-END SUBROUTINE ExchangeIfValues
+    GT => SplittedMatrix % GlueTable
 
-!*********************************************************************
-!*********************************************************************
-!
-! Exchange right-hand-side elements on the interface with neighbours
-!
+    DO i = 1, SourceMatrix % NumberOfRows
+       
+       GRow = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
+       GRow = DOFs * ParallelInfo % GlobalDOFs(GRow) - (DOFs-1-MOD(i-1,DOFs))
 
-SUBROUTINE ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
-          ParallelInfo, DOFs, SourceRHS, TargetRHS )
+       DO j = SourceMatrix % Rows(i),SourceMatrix % Rows(i+1) - 1
 
-  TYPE (SplittedMatrixT) :: SplittedMatrix
-  TYPE (Matrix_t) :: SourceMatrix
-  TYPE (ParallelInfo_t) :: ParallelInfo
-  INTEGER :: DOFs
-  REAL(KIND=dp), DIMENSION(:) :: SourceRHS, TargetRHS
+          GCol = ( SourceMatrix % INVPerm( &
+                   SourceMatrix % Cols(j)) + DOFs-1 ) / DOFs
 
-  ! Local variables
+          GCol = DOFs * ParallelInfo % GlobalDOFs(GCol) - &
+                   ( DOFs-1 - MOD(SourceMatrix % Cols(j)-1,DOFs)  )
 
-  INTEGER :: i, j, k, datalen, ierr, sproc, destproc, ind, psum, dl, DOF
-  INTEGER :: owner, request
-  INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
-  INTEGER, DIMENSION(:), ALLOCATABLE :: indbuf
-  REAL(KIND=dp), DIMENSION(:), ALLOCATABLE :: valbuf
-  INTEGER, DIMENSION(:), ALLOCATABLE :: RHSbufInds
+          
+          DO k = GT % Rows(i), GT % Rows(i+1) - 1
+             IF ( SourceMatrix % Cols(j) == GT % Cols(k) ) THEN
+                
+                IF ( GT % Inds(k) > 0 ) THEN
+                   SplittedMatrix % InsideMatrix % Values( GT % Inds(k) ) = &
+                        SplittedMatrix % InsideMatrix % Values( &
+                           GT % Inds(k) ) + SourceMatrix % Values(j)
+                   IF ( NeedMass ) &
+                      SplittedMatrix % InsideMatrix % MassValues( GT % Inds(k) ) = &
+                           SplittedMatrix % InsideMatrix % MassValues( &
+                              GT % Inds(k) ) + SourceMatrix % MassValues(j)
+                   EXIT
 
-  !*********************************************************************
+                ELSE IF ( (GT % Inds(k) + ParEnv % PEs) >= 0 ) THEN
 
-  !----------------------------------------------------------------------
-  !
-  ! Extract the interface elements from SourceRHS to be sent to the
-  ! real owner of that element.
-  !
-  !----------------------------------------------------------------------
+                   ifind = ABS(GT % Inds(k))
+                   CurrIf => SplittedMatrix % IfMatrix(ifind)
 
-  ALLOCATE(RHSbufInds(ParEnv % PEs))
-  RHSbufInds = 0
-  DO i = 1, SourceMatrix % NumberOfRows
-     k = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
-     owner = ParallelInfo % NeighbourList(k) % Neighbours(1)
+                   RowInd = -1
+                   IF ( CurrIf % NumberOfRows > 0 ) THEN
+                      RowInd = SearchIAItem( CurrIf % NumberOfRows, &
+                                    CurrIf % GRows, GRow )
+                   END IF
 
-     IF ( owner /= ParEnv % MyPE ) THEN
-        DOF = DOFs-1-MOD(i-1,DOFs)
+                   IF ( RowInd /= -1 ) THEN
+                      DO l = CurrIf % Rows(rowind), CurrIf % Rows(rowind+1)-1
 
-        RHSbufInds(owner+1) = RHSbufInds(owner+1) + 1
-        SplittedMatrix % RHS(owner+1) % RHSind(RHSbufInds(owner+1)) = &
-              ParallelInfo % GlobalDOFs(k) * DOFs - DOF
+                         IF ( GCol == CurrIf % Cols(l) ) THEN
+                            CurrIf % Values(l) = CurrIf % Values(l) + &
+                                 SourceMatrix % Values(j)
+                            IF ( NeedMass ) &
+                               CurrIf % MassValues(l) = CurrIf % MassValues(l) + &
+                                    SourceMatrix % MassValues(j)
+                            EXIT
+                         END IF
 
-        SplittedMatrix % RHS(owner+1) % RHSvec(RHSbufInds(owner+1)) = &
-             SourceRHS(i)
-     END IF
-  END DO
+                      END DO
+                   END IF
+                   EXIT
 
-  !----------------------------------------------------------------------
-  !
-  ! Do the exchange operation
-  !
-  !----------------------------------------------------------------------
+                ELSE IF ((GT % Inds(k) + (2*ParEnv % PEs)) >= 0) THEN
 
-  DO i = 1, ParEnv % PEs
-     IF ( ParEnv % IsNeighbour(i) ) THEN
-        destproc = i - 1
-        DataLen = RHSbufInds(i)
+                   ifind = -ParEnv % PEs + ABS(GT % Inds(k))
+                   CurrIf => SplittedMatrix % NbsIfMatrix(ifind)
+                  
+                   RowInd = -1
+                   IF ( CurrIf % NumberOfRows > 0 ) THEN
+                      RowInd = SearchIAItem( CurrIf % NumberOfRows, &
+                                  CurrIf % GRows, GRow )
+                   END IF
 
-        IF ( DataLen <= 0 ) THEN
-           CALL MPI_BSEND( 0, 1, MPI_INTEGER, &
-                destproc, 3000, MPI_COMM_WORLD, ierr )
-        ELSE
-           CALL MPI_BSEND( DataLen, 1, MPI_INTEGER, &
-                destproc, 3000, MPI_COMM_WORLD, ierr )
+                   IF ( RowInd /= -1 ) THEN
+                      DO l = CurrIf % Rows(RowInd), CurrIf % Rows(RowInd+1)-1
+                         IF ( GCol == CurrIf % Cols(l) ) THEN
+                            CurrIf % Values(l) = CurrIf % Values(l) + &
+                                 SourceMatrix % Values(j)
+                            IF ( NeedMass ) &
+                               CurrIf % MassValues(l) = CurrIf % MassValues(l) + &
+                                    SourceMatrix % MassValues(j)
+                            EXIT
+                         END IF
+                      END DO
+                   END IF
+                   EXIT
+                END IF
+             END IF
+          END DO
+       END DO
+    END DO
 
-           CALL MPI_BSEND( SplittedMatrix % RHS(i) % RHSind, DataLen, &
-              MPI_INTEGER, destproc, 3001, MPI_COMM_WORLD, ierr )
+    CALL GlueFinalize( SourceMatrix, SplittedMatrix, ParallelInfo, DOFs )
 
-           CALL MPI_BSEND( SplittedMatrix % RHS(i) % RHSVec, DataLen, &
-              MPI_DOUBLE_PRECISION, destproc, 3002, MPI_COMM_WORLD, ierr )
-        END IF
+    !------------------------------------------------------------------
+    !
+    ! Call the actual solver routine (based on older design)
+    !
+    !------------------------------------------------------------------
+    CALL Solve( SourceMatrix, SParMatrixDesc % SplittedMatrix, &
+           ParallelInfo, RHSVec, XVec, DOFs, Solver, Errinfo )
 
-     END IF
-  END DO
+  END SUBROUTINE SParIterSolver
 
-  DO i = 1, ParEnv % NumOfNeighbours
-
-     CALL MPI_RECV( DataLen, 1, MPI_INTEGER, MPI_ANY_SOURCE, &
-               3000, MPI_COMM_WORLD, status, ierr )
-     sproc = status(MPI_SOURCE)
-
-     IF ( DataLen /= 0 ) THEN
-        ALLOCATE( IndBuf(DataLen), ValBuf(DataLen) )
-
-        CALL MPI_RECV( IndBuf, DataLen, MPI_INTEGER, sproc, &
-                3001, MPI_COMM_WORLD, status, ierr )
-
-        CALL MPI_RECV( ValBuf, DataLen, MPI_DOUBLE_PRECISION, &
-             sproc, 3002, MPI_COMM_WORLD, status, ierr )
-
-        DO j = 1, DataLen
-           Ind = SearchNode( ParallelInfo, (IndBuf(j) + DOFs-1) / DOFs )
-           IF ( Ind /= -1 ) THEN
-              DOF = DOFs-1-MOD(IndBuf(j)-1,DOFs)
-              Ind = SourceMatrix % Perm(DOFs*Ind-DOF)
-              IF ( Ind > 0 ) THEN
-                 SourceRHS(Ind) = SourceRHS(Ind) + ValBuf(j)
-              END IF
-           ELSE
-              WRITE( Message, * ) ParEnv % MyPE,'RHS receive error'
-              CALL Fatal( 'ExchangeRHSIf', Message )
-           END IF
-        END DO
-
-        DEALLOCATE( IndBuf, ValBuf )
-     END IF
-     
-  END DO
-
-  ! Clean up temporary work space
-
-  DEALLOCATE( RHSbufInds )
-
-  j = 0
-  DO i = 1, SourceMatrix % NumberOfRows
-     k = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
-     IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
-        j = j + 1
-        TargetRHS(j) = SourceRHS(i)
-     END IF
-  END DO
-
-END SUBROUTINE ExchangeRHSIf
 
 
 !*********************************************************************
 !*********************************************************************
 !
-! Build index tables for faster vector element combination (in parallel
-! matrix-vector operation).
-!
-SUBROUTINE BuildRevVecIndices( SplittedMatrix )
-  USE Types
-  IMPLICIT NONE
-
-  TYPE (SplittedMatrixT) :: SplittedMatrix
-  TYPE (Nodes_t) :: Nodes
-
-  ! Local variables
-
-  TYPE (Matrix_t), POINTER :: CurrIf, InsideMatrix
-  INTEGER :: i, j, k, l, n, VecLen, ind, ierr, destproc, sproc, TotLen
-  INTEGER :: TotalSize, FoundCount
-  INTEGER, POINTER :: RevBuff(:),RevInd(:)
-  INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
-  INTEGER, DIMENSION(:), ALLOCATABLE :: GIndices,RowOwner
-  LOGICAL :: Found
-  LOGICAL, ALLOCATABLE :: Done(:,:)
-REAL(KIND=dp) :: tt,CPUTime
-
-  !*********************************************************************
-tt = CPUTime()
-
-  ALLOCATE( Done(ParEnv % PEs, SplittedMatrix % InsideMatrix % NumberOfRows) )
-  Done = .FALSE.
-
-  TotalSize = 0
-  DO i = 1, ParEnv % PEs
-     IF ( ParEnv % IsNeighbour(i) ) THEN
-        CurrIf => SplittedMatrix % NbsIfMatrix(i)
-        IF ( CurrIf % NumberOfRows == 0 ) THEN
-           TotalSize = TotalSize + 4
-        ELSE
-           k = CurrIf % Rows(CurrIf % NumberOfRows+1)-1
-           TotalSize = TotalSize + 4 + 8*CurrIf % NumberOfRows + 12*k
-        END IF
-     END IF
-
-     IF ( ParEnv % IsNeighbour(i) ) THEN
-        CurrIf => SplittedMatrix % IfMatrix(i)
-        IF ( CurrIf % NumberOfRows == 0 ) THEN
-           TotalSize = TotalSize + 4
-        ELSE
-           k = CurrIf % Rows(CurrIf % NumberOfRows+1)-1
-           TotalSize = TotalSize + 4 + 8*CurrIf % NumberOfRows + 12*k
-        END IF
-     END IF
-  END DO
-
-  TotalSize = 1.5 * TotalSize
-  CALL CheckBuffer( TotalSize )
-
-  InsideMatrix => SplittedMatrix % InsideMatrix
-
-  DO i = 1, ParEnv % PEs
-     CurrIf => SplittedMatrix % IfMatrix(i)
-     ALLOCATE( GIndices( CurrIf % NumberOfRows ) )
-
-     DO j=0,ParEnv % PEs-1
-        IF (  ParEnv % IsNeighbour(j+1) ) THEN
-           L = 0
-           DO k=1,CurrIf % NumberOfRows
-              IF ( CurrIf % RowOwner(k) == j ) THEN
-                 L = L + 1
-                 GIndices(L) = CurrIf % GRows(k)
-              END IF
-           END DO
-           CALL MPI_BSEND( L, 1, MPI_INTEGER, j, 4000 + 2*i, &
-                    MPI_COMM_WORLD, ierr )
-
-           IF ( L > 0 ) THEN
-              CALL MPI_BSEND( GIndices, L, MPI_INTEGER, j, &
-                 4000 + 2*i+1, MPI_COMM_WORLD, ierr )
-           END IF
-        END IF
-     END DO
-     DEALLOCATE( GIndices )
-  END DO
-!print*,parenv % mype, 'first send: ', CPUTime()-tt
-!tt = CPUtime()
 !
 !
-!
-  DO i = 1, ParEnv % PEs
-     IF ( .NOT. ParEnv % IsNeighbour(i) ) CYCLE
+SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
+         RHSVec, XVec, DOFs, Solver, ErrInfo )
 
-     CurrIf => SplittedMatrix % IfMatrix(i)
-
-     ALLOCATE( RevBuff(1000) )
-     RevInd => RevBuff
-     RevInd = 0
-     TotLen = 0
-     sproc = i-1
-
-     DO j=0,ParEnv % PEs-1
-        CALL MPI_RECV( VecLen, 1, MPI_INTEGER, sproc, &
-          4000+2*(j+1), MPI_COMM_WORLD, status, ierr )
-
-        IF ( VecLen /= 0 ) THEN
-           ALLOCATE( GIndices(VecLen) )
-
-           CALL MPI_RECV( GIndices, VecLen, MPI_INTEGER, sproc, &
-              4000+2*(j+1)+1, MPI_COMM_WORLD, status, ierr )
-
-           IF ( TotLen + VecLen > SIZE(RevBuff) ) THEN
-              ALLOCATE( RevInd( 2*(TotLen + VecLen) ) )
-              RevInd = 0
-              RevInd(1:SIZE(RevBuff)) = RevBuff
-              DEALLOCATE( RevBuff )
-              RevBuff => RevInd 
-              Revind => RevBuff(TotLen+1:)
-           END IF
-
-
-           FoundCount = 0
-           DO n = 1, VecLen
-              Ind = SearchIAItem( InsideMatrix %  NumberOfRows, &
-                InsideMatrix % GRows, GIndices(n), InsideMatrix % Gorder )
-
-              IF ( Ind > 0 ) THEN
-                 RevInd(n) = Ind
-
-                 IF ( Done(i,Ind) ) CYCLE
-                 Done(i,Ind) = .TRUE.
-
-                 Found = .FALSE.
-                 DO k = 1,CurrIf % NumberOfRows
-                    DO l = CurrIf % Rows(k), CurrIf % Rows(k+1) - 1
-                       IF ( Currif % Cols(l) == GIndices(n) ) THEN
-                          SplittedMatrix % IfLCols(i) % IfVec(l) = ind
-                          Found = .True.
-                       END IF
-                    END DO
-                 END DO
-                 FoundCount = FoundCount + 1
-              ELSE
-!                WRITE( Message, * ) ParEnv % MyPE,' (1)Could not find local node ', &
-!                         GIndices(n), '(reveiced from', sproc, ')'
-!                CALL Error( 'BuildRevVecIndices', Message )
-              END IF
-           END DO
-
-           DEALLOCATE( GIndices )
-           Totlen = TotLen + VecLen
-           RevInd => RevBuff(TotLen+1:)
-        END IF 
-
-        ParEnv % SendingNB(sproc+1) = .TRUE.
-     END DO
-
-     IF ( TotLen > 0 ) THEN
-        SplittedMatrix % VecIndices(i) % RevInd => RevBuff
-     ELSE
-        DEALLOCATE( RevBuff )
-        NULLIFY( SplittedMatrix % VecIndices(i) % RevInd )
-     END IF
-  END DO
-
-!print*,parenv % mype, 'first recv: ', CPUTime()-tt
-!tt = CPUtime()
-!
-!
-!
-  DO i = 1, ParEnv % PEs
-     IF ( .NOT. ParEnv % IsNeighbour(i) ) CYCLE
-
-     CurrIf => SplittedMatrix % NbsIfMatrix(i)
-     IF ( CurrIf % NumberOfRows <= 0 ) THEN
-
-        CALL MPI_BSEND( 0, 1, MPI_INTEGER, i-1, 5000, MPI_COMM_WORLD, ierr )
-
-     ELSE
-
-        VecLen = CurrIf % Rows(CurrIf % NumberOfRows+1) - 1
-        CALL MPI_BSEND(VecLen, 1, MPI_INTEGER, i-1, &
-                5000, MPI_COMM_WORLD, ierr)
-
-        CALL MPI_BSEND( CurrIf % Cols, VecLen, MPI_INTEGER, &
-               i-1, 5001, MPI_COMM_WORLD, ierr )
-     END IF
-  END DO
-
-!print*,parenv % mype, 'secnd send: ', CPUTime()-tt
-!tt = CPUtime()
-
-  DO i = 1, ParEnv % PEs
-     IF ( .NOT. ParEnv % IsNeighbour(i)) CYCLE
-
-     CurrIf => SplittedMatrix % IfMatrix(i)
-     sproc = i-1
-
-     CALL MPI_RECV( VecLen, 1, MPI_INTEGER, sproc, 5000, &
-               MPI_COMM_WORLD, status, ierr )
-
-     IF ( VecLen /= 0 ) THEN
-        ALLOCATE( GIndices(VecLen) )
-
-        CALL MPI_RECV( GIndices, VecLen, MPI_INTEGER, sproc, &
-               5001, MPI_COMM_WORLD, status, ierr )
-
-        DO n = 1, VecLen
-
-           Ind = SearchIAItem( InsideMatrix % NumberOfRows, &
-               InsideMatrix % GRows, GIndices(n), InsideMatrix % Gorder )
-
-           IF ( Ind > 0 ) THEN
-              IF ( Done(i,Ind ) ) CYCLE
-              Done(i,Ind) = .TRUE.
-
-              DO k = 1,CurrIf % NumberOfRows
-                 DO l = CurrIf % Rows(k), CurrIf % Rows(k+1) - 1
-                    IF ( Currif % Cols(l) == GIndices(n) ) THEN
-                       SplittedMatrix % IfLCols(i) % IfVec(l) = Ind
-                    END IF
-                 END DO
-              END DO
-                 
-           ELSE
-!             WRITE( Message, * ) ParEnv % MyPE,'(2) Could not find local node ', &
-!                      GIndices(n), '(reveiced from', sproc, ')'
-!             CALL Error( 'BuildRevVecIndices', Message )
-           END IF
-        END DO
-
-        DEALLOCATE( GIndices )
-        ParEnv % SendingNB(sproc+1) = .TRUE.
-     END IF
-  END DO
-  DEALLOCATE( Done )
-!print*,parenv % mype, 'secnd recv: ', CPUTime()-tt
-
-END SUBROUTINE BuildRevVecIndices
-
-!*********************************************************************
-!*********************************************************************
-!
-! Send our part of the interface matrix blocks to neighbours.
-!
-
-SUBROUTINE Send_LocIf( SplittedMatrix )
-
-  USE types
-  IMPLICIT NONE
-
-  TYPE (SplittedMatrixT) :: SplittedMatrix
-
-  ! Local variables
-
-  INTEGER :: i, j, k, ierr, TotalL
-  TYPE (Matrix_t), POINTER :: IfM
-  TYPE (IfVecT), POINTER :: IfV
-  INTEGER, ALLOCATABLE :: L(:)
-  REAL(KIND=dp), ALLOCATABLE :: VecL(:,:)
-
-  !*********************************************************************
-
-  ALLOCATE( L(ParEnv % PEs) )
-  L = 0
-  TotalL = 0
-
-  DO i = 1, ParEnv % PEs
-     IfM => SplittedMatrix % IfMatrix(i)
-
-     DO j=1,ParEnv % PEs
-        IF ( .NOT. ParEnv % IsNeighbour(j) ) CYCLE
-
-        DO k=1,IfM % NumberOfRows
-           IF ( IfM % RowOwner(k) == j-1 ) THEN
-              L(j) = L(j) + 1
-              TotalL = TotalL + 1
-           END IF
-        END DO
-     END DO
-  END DO
-
-  ALLOCATE( VecL( MAXVAL(L), ParEnv % PEs ) )
-  L = 0
-  VecL = 0
-
-  CALL CheckBuffer( 12*TotalL )
-
-  DO i = 1, ParEnv % PEs
-     IfM => SplittedMatrix % IfMatrix(i)
-     IfV => SplittedMatrix % IfVecs(i)
-
-     DO j=1, ParEnv % PEs
-        IF ( .NOT. ParEnv % IsNeighbour(j) ) CYCLE
-
-        DO k=1,IfM % NumberOfRows
-           IF ( IfM % RowOwner(k) == j-1 ) THEN
-              L(j) = L(j) + 1
-              VecL(L(j),j) = IfV % IfVec(k)
-           END IF
-        END DO
-     END DO
-  END DO
-
-  DO j=1,ParEnv % PEs
-     IF ( .NOT. ParEnv % IsNeighbour(j) ) CYCLE
-
-     CALL MPI_BSEND( L(j), 1, MPI_INTEGER, J-1, 6000, &
-                MPI_COMM_WORLD, IERR )
-
-     IF ( L(j) > 0 ) THEN
-        CALL MPI_BSEND( VecL(1:L(j),j), L(j), MPI_DOUBLE_PRECISION, &
-                 J-1, 6001, MPI_COMM_WORLD, ierr )
-     END IF
-  END DO
-
-  IF ( ALLOCATED(VecL) ) DEALLOCATE( VecL, L )
-
-END SUBROUTINE Send_LocIf
-
-!*********************************************************************
-!*********************************************************************
-!
-! Receive interface block contributions to vector from neighbours
-!
-
-SUBROUTINE Recv_LocIf( SplittedMatrix, ndim, v )
-
-  USE types
-  IMPLICIT NONE
-
-  TYPE (SplittedMatrixT) :: SplittedMatrix
-  INTEGER :: ndim
-  REAL(KIND=dp), DIMENSION(*) :: v
-  REAL(KIND=dp), ALLOCATABLE :: DPBuffer(:)
-
-  SAVE DPBuffer
-
-  ! Local variables
-
-  integer :: i, j, k, ierr, sproc
-  integer, dimension(MPI_STATUS_SIZE) :: status
-
-  INTEGER, POINTER :: RevInd(:)
-  INTEGER :: VecLen, TotLen
-
-  !*********************************************************************
-
-  IF ( .NOT. ALLOCATED(DPBuffer) ) ALLOCATE( DPBuffer( ndim ) ) 
-
-  DO i = 1, ParEnv % NumOfNeighbours
-     CALL MPI_RECV( VecLen, 1, MPI_INTEGER, MPI_ANY_SOURCE, &
-              6000, MPI_COMM_WORLD, status, ierr )
-
-     IF ( VecLen > 0 ) THEN
-        sproc = status(MPI_SOURCE)
-
-        RevInd => SplittedMatrix % VecIndices(sproc+1) % RevInd
-
-        IF ( VecLen > SIZE( DPBuffer ) ) THEN
-           DEALLOCATE( DPBuffer )
-           ALLOCATE( DPBuffer( VecLen ) )
-        END IF
-
-        CALL MPI_RECV( DPBuffer, VecLen, MPI_DOUBLE_PRECISION, &
-               sproc, 6001, MPI_COMM_WORLD, status, ierr )
-
-        DO k = 1, VecLen
-           IF ( RevInd(k) > 0 ) THEN
-              v(RevInd(k)) = v(RevInd(k)) + DPBuffer(k)
-           ELSE
-!             WRITE( Message, * ) ParEnv % MyPE, 'If Receive error: ', k,RevInd(k)
-!             CALL Error( 'Recv_LocIf', Message )
-           END IF
-        END DO
-     END IF
-  END DO
- 
-! CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
-END SUBROUTINE Recv_LocIf
-
-
-!*********************************************************************
-!*********************************************************************
-!
-! Compute global dot product of vectors x and y
-!
-
-FUNCTION SParDotProd( ndim, x, xind, y, yind ) RESULT(dres)
-
-  IMPLICIT NONE
-
-  ! Parameters
-
-  INTEGER :: ndim, xind, yind
-  REAL(KIND=dp) :: x(*)
-  REAL(KIND=dp) :: y(*)
-  REAL(KIND=dp) :: dres
-
-  ! Local variables
-
-  REAL(KIND=dp) :: dsum, del
-  INTEGER :: ierr, i
-  integer, dimension(MPI_STATUS_SIZE) :: status
-
-  !*********************************************************************
-
-
-  IF ( xind == 1 .AND. yind  == 1 ) THEN
-     dres = 0
-     DO i = 1, ndim
-        dres = dres + y(i) * x(i)
-     END DO
-  ELSE
-     CALL Error( 'SParDotProd', 'xind or yind not 1' )
-  END IF
-
-  DO i = 1,ParEnv % PEs
-     IF ( ParEnv % Active(i) .AND. i-1 /= ParEnv % MyPe ) THEN
-        CALL MPI_BSEND( dres, 1, MPI_DOUBLE_PRECISION, &
-              i-1, 7000, MPI_COMM_WORLD, ierr )
-     END IF
-  END DO
-
-  DO i = 1,ParEnv % PEs
-     IF ( ParEnv % Active(i) .AND. i-1 /= ParEnv % MyPe ) THEN
-        CALL MPI_RECV( dsum, 1, MPI_DOUBLE_PRECISION, &
-           i-1, 7000, MPI_COMM_WORLD, status, ierr )
-
-        dres = dres + dsum
-     END IF
-  END DO
-
-! CALL MPI_ALLREDUCE( dsum, dres, 1, MPI_DOUBLE_PRECISION, &
-!             MPI_SUM, MPI_COMM_WORLD, ierr )
-END FUNCTION SParDotProd
-
-!*********************************************************************
-!*********************************************************************
-!
-! Compute global 2-norm of vector x
-!
-
-FUNCTION SParNorm( ndim, x, xind ) RESULT(dres)
-
-  IMPLICIT NONE
-
-  ! Parameters
-
-  INTEGER :: ndim, xind
-  REAL(KIND=dp) :: x(*)
-  REAL(KIND=dp) :: dres
-
-  ! Local variables
-
-  REAL(KIND=dp) :: dsum
-  INTEGER :: i, ierr
-  INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
-
-  !*********************************************************************
-
-  dres = 0
-  DO i = 1, ndim
-     dres = dres + x(i) * x(i)
-  END DO
-
-  DO i = 1,ParEnv % PEs
-     IF ( ParEnv % Active(i) .AND. i-1 /= ParEnv % MyPe ) THEN
-        CALL MPI_BSEND( dres, 1, MPI_DOUBLE_PRECISION, &
-              i - 1, 8000, MPI_COMM_WORLD, ierr )
-     END IF
-  END DO
-
-  DO i = 1,ParEnv % PEs
-     IF ( ParEnv % Active(i) .AND. i-1 /= ParEnv % MyPe ) THEN
-        CALL MPI_RECV( dsum, 1, MPI_DOUBLE_PRECISION, &
-           i - 1, 8000, MPI_COMM_WORLD, status, ierr )
-
-        dres = dres + dsum
-     END IF
-  END DO
-
-! CALL MPI_ALLREDUCE( dsum, dres, 1, MPI_DOUBLE_PRECISION, &
-!            MPI_SUM, MPI_COMM_WORLD, ierr )
-
-  dres = SQRT( dres )
-
-END FUNCTION SParNorm
-
-!*********************************************************************
-!*********************************************************************
-!
-! Compute global dot product of vectors x and y
-!
-
-FUNCTION ParComplexDotProd( ndim, x, xind, y, yind ) result (dres)
-
-  IMPLICIT NONE
-
-  ! Parameters
-
-  INTEGER :: ndim, xind, yind
-  COMPLEX(KIND=dp) :: x(*)
-  COMPLEX(KIND=dp) :: y(*)
-  COMPLEX(KIND=dp) :: dres
-
-
-  ! Local variables
-
-  COMPLEX(KIND=dp) :: dsum
-  INTEGER :: ierr, i
-  INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
-
-  !*********************************************************************
-
-
-  dres = 0.0d0
-
-  IF ( xind == 1 .AND. yind  == 1 ) THEN
-     DO i = 1, ndim
-        dres = dres + x(i) * y(i)
-     END DO
-  ELSE
-     CALL Fatal( 'ParComplexDotProd', 'xind or yind not 1' )
-  END IF
-
-  DO i = 1, ParEnv % PEs
-     IF ( ParEnv % Active(i) .AND. i-1 /= ParEnv % MyPe ) THEN
-        CALL MPI_BSEND( dres, 1, MPI_DOUBLE_COMPLEX, &
-              i-1, 7000, MPI_COMM_WORLD, ierr )
-     END IF
-  END DO
-
-  DO i = 1, ParEnv % PEs
-     IF ( ParEnv % Active(i) .AND. i-1 /= ParEnv % MyPe ) THEN
-        CALL MPI_RECV( dsum, 1, MPI_DOUBLE_COMPLEX, &
-          i-1, 7000, MPI_COMM_WORLD, status, ierr )
-
-        dres = dres + dsum
-     END IF
-  END DO
-
-! CALL MPI_ALLREDUCE( dsum, dres, 1, MPI_DOUBLE_PRECISION, &
-!             MPI_SUM, MPI_COMM_WORLD, ierr )
-END FUNCTION ParComplexDotProd
-
-!*********************************************************************
-!*********************************************************************
-!
-! Compute global 2-norm of vector x
-!
-
-FUNCTION ParComplexNorm( ndim, x, xind ) result (norm)
-
-  IMPLICIT NONE
-
-  ! Parameters
-
-  INTEGER :: ndim, xind
-  REAL(KIND=dp) :: norm
-  COMPLEX(KIND=dp) :: x(*)
-
-
-  ! Local variables
-
-  REAL(KIND=dp) :: nsum
-  INTEGER :: i, ierr
-  INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
-
-  !*********************************************************************
-
-  norm = 0.0d0
-  DO i = 1, ndim
-     norm = norm + DREAL(x(i))**2 + AIMAG(x(i))**2
-  END DO
-
-  DO i = 1,ParEnv % PEs
-     IF ( ParEnv % Active(i) .AND. i-1 /= ParEnv % MyPe ) THEN
-        CALL MPI_BSEND( norm, 1, MPI_DOUBLE_PRECISION, &
-              i - 1, 8000, MPI_COMM_WORLD, ierr )
-     END IF
-  END DO
-
-  DO i = 1,ParEnv % PEs
-     IF ( ParEnv % Active(i) .AND. i-1 /= ParEnv % MyPe ) THEN
-        CALL MPI_RECV( nsum, 1, MPI_DOUBLE_PRECISION, &
-           i - 1, 8000, MPI_COMM_WORLD, status, ierr )
-
-        norm = norm + nsum
-     END IF
-  END DO
-
-! CALL MPI_ALLREDUCE( nsum, norm, 1, MPI_DOUBLE_PRECISION, &
-!            MPI_SUM, MPI_COMM_WORLD, ierr )
-
-  norm = SQRT( norm )
-
-END FUNCTION ParComplexNorm
-
-
-
-!*********************************************************************
-!*********************************************************************
-!
-! Finalize MPI environment
-!
-
-SUBROUTINE ParEnvFinalize()
-
-  USE types
-  IMPLICIT NONE
-
-  ! local variables
-
-  INTEGER :: ierr
-
-  !*********************************************************************
-
-  CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
-  CALL MPI_FINALIZE( ierr )
-
-  IF ( ierr /= 0 ) THEN
-     WRITE( Message, * ) 'MPI Finalization failed ! (ierr=', ierr, ')'
-     CALL Fatal( 'ParEnvFinalize', Message )
-  END IF
-
-END SUBROUTINE ParEnvFinalize
-
-!*********************************************************************
-!*********************************************************************
-!
-! Send parts of the result vector to neighbours
-!
-!
-!*********************************************************************
-SUBROUTINE ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, XVec, DOFs )
-
-  USE types
-  IMPLICIT NONE
-
-  TYPE(SplittedMatrixT) :: SplittedMatrix
+  TYPE (SplittedMatrixT), POINTER :: SplittedMatrix
   TYPE(Matrix_t) :: SourceMatrix
   TYPE (ParallelInfo_t) :: ParallelInfo
   INTEGER :: DOFs
-  REAL(KIND=dp), DIMENSION(:) :: XVec
+  TYPE (Solver_t) :: Solver
+  TYPE (ErrInfoT) :: ErrInfo
+  REAL(KIND=dp), DIMENSION(:) :: RHSVec, XVec
 
   ! Local variables
 
-  INTEGER :: i, j, ierr, sproc, destproc, BufLen, ResInd, DOF,TotalSize
-  INTEGER, DIMENSION(:), ALLOCATABLE :: IndBuf
-  TYPE (ResBufferT), POINTER :: CurrRBuf
-  INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
-  REAL(KIND=dp), DIMENSION(:), ALLOCATABLE :: ValBuf
+  LOGICAL :: stat
+  INTEGER :: i, j, k, l, nbind, dof
+  INTEGER, DIMENSION(:), ALLOCATABLE :: VecEPerNB
+  REAL(KIND=dp) :: dpar(HUTI_DPAR_DFLTSIZE)
+  INTEGER :: ipar(HUTI_IPAR_DFLTSIZE)
+  REAL(KIND=dp), DIMENSION(:,:), POINTER :: Work
+  REAL(KIND=dp), DIMENSION(:), ALLOCATABLE :: TmpXVec, TmpRHSVec
 
-  !*********************************************************************
-  TotalSize = 0
-  DO i = 1, ParEnv % PEs
-     IF ( ParEnv % IsNeighbour(i) ) THEN
-       CurrRBuf => SplittedMatrix % ResBuf(i)
-       IF ( .NOT. ASSOCIATED(CurrRBuf % ResInd) ) THEN
-           TotalSize = TotalSize + 4
-       ELSE
-           BufLen = SIZE( CurrRBuf % ResInd )
-           TotalSize = TotalSize + 4 + 12*Buflen
-       END IF
+  REAL(KIND=dp) :: ILUT_TOL
+  INTEGER :: ILUn
+  CHARACTER(LEN=MAX_NAME_LEN) :: Preconditioner
+
+  !*******************************************************************
+
+  PIGpntr => GlobalData
+
+  !----------------------------------------------------------------------
+  !
+  ! Initialize Right-Hand-Side
+  !
+  !----------------------------------------------------------------------
+  ALLOCATE( TmpRHSVec(SplittedMatrix % InsideMatrix % NumberOfRows) )
+  TmpRHSVec = 0
+
+  CALL ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
+       ParallelInfo, DOFs, RHSVec, TmpRHSVec )
+
+  !----------------------------------------------------------------------
+  !
+  ! Initialize entries in HUTIter control array IPAR
+  !
+  !----------------------------------------------------------------------
+  HUTI_NDIM = SplittedMatrix % InsideMatrix % NumberOfRows
+
+  HUTI_MAXIT = ListGetInteger( Solver % Values, &
+         'Linear System Max Iterations' )
+
+  HUTI_TOLERANCE = ListGetConstReal( Solver % Values, &
+       'Linear System Convergence Tolerance' )
+
+  GlobalData % RelaxIters = ListGetInteger( Solver % Values, &
+                 'Relax Iters', Stat )
+
+  HUTI_INITIALX = HUTI_USERSUPPLIEDX
+
+  IF ( ParEnv % MyPE == 0 ) THEN
+    HUTI_DBUGLVL = ListGetInteger( Solver % Values, &
+          'Linear System Residual Output', Stat )
+    IF ( .NOT. stat ) HUTI_DBUGLVL = 1
+  ELSE
+     HUTI_DBUGLVL = 0
+  END IF
+
+  HUTI_STOPC = HUTI_TRESID_SCALED_BYB
+
+  !----------------------------------------------------------------------
+  !
+  ! Allocate work space for HUTI:
+  !------------------------------
+  HUTI_WRKDIM = HUTI_BICGSTAB_WORKSIZE
+
+  ALLOCATE( TmpXVec(SplittedMatrix % InsideMatrix % NumberOfRows) )
+
+  IF ( .NOT. ASSOCIATED( SplittedMatrix % Work ) ) THEN
+     ALLOCATE( SplittedMatrix % Work( HUTI_NDIM, HUTI_WRKDIM ) )
+  ELSE IF ( ( HUTI_NDIM   /= SIZE(SplittedMatrix % Work,1) ) .OR. &
+            ( HUTI_WRKDIM /= SIZE(SplittedMatrix % Work,2) ) ) THEN
+     DEALLOCATE( SplittedMatrix % Work )
+     ALLOCATE( SplittedMatrix % Work( HUTI_NDIM, HUTI_WRKDIM ) )
+  END IF
+  Work => SplittedMatrix % Work
+
+  !----------------------------------------------------------------------
+  !
+  ! Initialize temporary xvec for iterator. The original XVec contains
+  ! also the items on interfaces. Initialize also global pointer.
+  !
+  !----------------------------------------------------------------------
+
+  j = 1
+  DO i = 1, SourceMatrix % NumberOfRows
+     k = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
+     IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+	TmpXVec(j) = XVec(i)
+	j = j + 1
      END IF
   END DO
-  TotalSize = 1.5 * TotalSize
-  CALL CheckBuffer( TotalSize )
 
-  DO i = 1, ParEnv % PEs
-     IF ( ParEnv % IsNeighbour(i) ) THEN
+  GlobalMatrix => SplittedMatrix % InsideMatrix
+  GlobalData % SplittedMatrix => SplittedMatrix
+ !----------------------------------------------------------------------
+ !
+ ! Set up the preconditioner
+ !
+ !----------------------------------------------------------------------
 
-        destproc = i - 1
-
-        CurrRBuf => SplittedMatrix % ResBuf(i)
-        IF ( .NOT. ASSOCIATED(CurrRBuf % ResInd) ) THEN
-           CALL MPI_BSEND( 0, 1, MPI_INTEGER, destproc, 9000, MPI_COMM_WORLD, ierr )
-        ELSE
-
-           BufLen = SIZE( CurrRBuf % ResInd )
-           CALL MPI_BSEND( BufLen, 1, MPI_INTEGER, destproc, 9000, MPI_COMM_WORLD, ierr )
-
-           CALL MPI_BSEND( CurrRBuf % ResInd, BufLen, MPI_INTEGER, &
-                 destproc, 9001, MPI_COMM_WORLD, ierr )
-
-           CALL MPI_BSEND( CurrRBuf % ResVal, BufLen, MPI_DOUBLE_PRECISION, &
-                   destproc, 9002, MPI_COMM_WORLD, ierr )
-        END IF
-
-     END IF
-  END DO
-
-
-  DO i = 1, ParEnv % NumOfNeighbours
-     CALL MPI_RECV( BufLen, 1, MPI_INTEGER, &
-         MPI_ANY_SOURCE, 9000, MPI_COMM_WORLD, status, ierr )
-
-     IF ( BufLen > 0 ) THEN
-        sproc = status(MPI_SOURCE)
-        ALLOCATE( IndBuf( BufLen ), ValBuf( BufLen ) )
-
-        CALL MPI_RECV( IndBuf, BufLen, MPI_INTEGER, &
-             sproc, 9001, MPI_COMM_WORLD, status, ierr )
-
-        CALL MPI_RECV( ValBuf, BufLen, MPI_DOUBLE_PRECISION, &
-             sproc, 9002, MPI_COMM_WORLD, status, ierr )
-
-        DO j = 1, BufLen
-           ResInd = SearchNode( ParallelInfo, (IndBuf(j) + DOFs-1) / DOFs )
-           IF ( ResInd > 0 ) THEN
-              DOF = DOFs-1 - MOD( IndBuf(j)-1, DOFs )
-              ResInd = SourceMatrix % Perm( DOFs * ResInd - DOF )
-              IF ( ResInd > 0 ) XVec(ResInd) = ValBuf(j)
-           ELSE
-              WRITE( Message, * ) ParEnv % MyPE, 'Result Receive error: '
-              CALL Fatal( 'ExchangeResult', Message )
+  IF ( .NOT.ASSOCIATED( SplittedMatrix % InsideMatrix % ILUValues) ) THEN
+     DO i = 1, SplittedMatrix % InsideMatrix % NumberOfRows
+        DO j = SplittedMatrix % InsideMatrix % Rows(i), &
+             SplittedMatrix % InsideMatrix % Rows(i+1) - 1
+           IF ( SplittedMatrix % InsideMatrix % Cols(j) == i ) THEN
+              SplittedMatrix % InsideMatrix % Diag(i) = j
+              EXIT
            END IF
         END DO
+     END DO
+  END IF
 
-        DEALLOCATE( IndBuf, ValBuf )
+  DO i = 1, SplittedMatrix % InsideMatrix % NumberOfRows
+    j = SplittedMatrix % InsideMatrix % Diag(i)
+    IF ( SplittedMatrix % InsideMatrix % Values(j)==0 ) THEN
+      l=0
+      DO k=SplittedMatrix % InsideMatrix % Rows(i),SplittedMatrix % InsideMatrix % Rows(i+1)-1
+        IF ( SplittedMatrix % InsideMatrix % Values(k) /= 0 ) THEN
+          print*,parenv % mype, i,j,splittedmatrix % insidematrix % cols(k), &
+               splittedmatrix % insidematrix % values(k)
+          print*,splittedmatrix % insidematrix % grows(splittedmatrix % insidematrix % gorder(i))
+          print*,splittedmatrix % insidematrix % grows(i)
+          l = 1
+         END IF
+      END DO
+      IF ( l == 0 ) THEN
+         SplittedMatrix % InsideMatrix % Values(j) = 1
+         TmpRHSVec(i) = 0; TMPXVec(i) = 0
+      END IF
+    END IF
+  END DO
+
+  Preconditioner = ListGetString( Solver % Values, &
+      'Linear System Preconditioning',stat )
+
+  IF ( Preconditioner(1:4) == 'ilut' ) THEN
+
+    ILUT_TOL = ListGetConstReal( Solver % Values, &
+        'Linear System ILUT Tolerance',stat )
+
+    IF ( .NOT. SourceMatrix % Complex ) THEN
+       stat = CRS_ILUT( SplittedMatrix % InsideMatrix, ILUT_TOL )
+    ELSE
+       stat = CRS_ComplexILUT( SplittedMatrix % InsideMatrix, ILUT_TOL )
+    END IF
+
+  ELSE IF ( Preconditioner(1:3) == 'ilu' ) THEN
+
+    ILUn = ICHAR(Preconditioner(4:4)) - ICHAR('0')
+    IF ( ILUn  < 0 .OR. ILUn > 9 ) ILUn = 0
+    IF ( .NOT. SourceMatrix % Complex ) THEN
+       stat = CRS_IncompleteLU( SplittedMatrix % InsideMatrix, ILUn)
+    ELSE
+       stat = CRS_ComplexIncompleteLU( SplittedMatrix % InsideMatrix, ILUn)
+    END IF
+
+  ELSE
+
+    IF ( .NOT. SourceMatrix % Complex ) THEN
+       stat = CRS_IncompleteLU( SplittedMatrix % InsideMatrix, 0 )
+    ELSE
+       stat = CRS_ComplexIncompleteLU( SplittedMatrix % InsideMatrix, 0 )
+    END IF
+
+  END IF
+
+ !----------------------------------------------------------------------
+ !
+ ! Call the main iterator routine
+ !
+ !----------------------------------------------------------------------
+
+  IF ( .NOT. SourceMatrix % Complex ) THEN
+     CALL HUTI_DBICGSTAB_2SOLV( HUTI_NDIM, HUTI_WRKDIM, TmpXVec, &
+        TmpRHSVec, ipar, dpar, Work, SParMatrixVector, &
+           ParPrecondition, DPcond, SParDotProd, SParNorm, Dummy )
+  ELSE
+     HUTI_NDIM = HUTI_NDIM / 2
+     CALL HUTI_ZBICGSTAB_2SOLV( HUTI_NDIM, HUTI_WRKDIM, TmpXVec, &
+        TmpRHSVec, ipar, dpar, Work, ParComplexMatrixVector, &
+           ParComplexPrecondition, CPcond, &
+              ParComplexDotProd, ParComplexNorm, Dummy )
+     HUTI_NDIM = HUTI_NDIM * 2
+  END IF
+
+  IF ( HUTI_INFO /= HUTI_CONVERGENCE ) THEN
+     WRITE( Message, * ) 'Processor ',ParEnv % MyPE,' returned HUTI_INFO=', HUTI_INFO
+     CALL Error( 'SParIter Solve', Message )
+  END IF
+
+  ErrInfo % HUTIStatus = HUTI_INFO
+  !----------------------------------------------------------------------
+  !
+  ! Collect the result
+  !
+  !----------------------------------------------------------------------
+  ALLOCATE( VecEPerNB( ParEnv % PEs ) )
+  VecEPerNB = 0
+
+  j = 1
+  DO i = 1, SourceMatrix % NumberOfRows
+     k = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
+     IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+	XVec(i) = TmpXVec(j)
+	j = j + 1
      END IF
   END DO
-! CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
 
-END SUBROUTINE ExchangeResult
+  DO i = 1, SourceMatrix % NumberOfRows
+     k = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
+     IF ( SIZE(ParallelInfo % NeighbourList(k) % Neighbours) > 1 ) THEN
+        IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+           DO j = 1, SIZE(ParallelInfo % NeighbourList(k) % Neighbours)
+              IF (ParallelInfo % NeighbourList(k) % Neighbours(j)/=ParEnv % MyPE) THEN
+                 nbind = ParallelInfo % NeighbourList(k) % Neighbours(j) + 1
+                 VecEPerNB(nbind) = VecEPerNB(nbind) + 1
+
+                 SplittedMatrix % ResBuf(nbind) % ResVal(VecEPerNB(nbind)) = XVec(i)
+                 SplittedMatrix % ResBuf(nbind) % ResInd(VecEPerNB(nbind)) = &
+                   ParallelInfo % GlobalDOFs(k)*DOFs - (DOFs-1 - MOD( i-1, DOFs))
+              END IF
+           END DO
+        END IF
+     END IF
+  END DO
+
+  CALL ExchangeResult( SourceMatrix,SplittedMatrix,ParallelInfo,XVec,DOFs ) 
+  !----------------------------------------------------------------------
+  !
+  ! Clean the work space
+  !
+  !----------------------------------------------------------------------
+
+  DEALLOCATE( TmpXVec, TmpRHSVec, VecEPerNB )
+!----------------------------------------------------------------------
+END SUBROUTINE Solve
+!----------------------------------------------------------------------
+
+
+!----------------------------------------------------------------------
+SUBROUTINE ParPrecondition( u,v,ipar )
+!----------------------------------------------------------------------
+    REAL(KIND=dp) :: u(*),v(*)
+    INTEGER :: ipar(*)
+
+    INTEGER :: i,j,k,n,iter,niters
+
+    REAL(KIND=dp), POINTER :: Values(:)
+    INTEGER, POINTER :: Rows(:),Cols(:)
+
+    REAL(KIND=dp), ALLOCATABLE :: z(:), y(:)
+    SAVE y,z,niters
+
+    n = HUTI_NDIM
+    niters = GlobalData % RelaxIters
+
+    IF ( niters <= 0 ) THEN
+       CALL CRS_LUPrecondition( u,v,ipar )
+       RETURN
+    END IF
+
+    IF ( .NOT. ALLOCATED(z) ) THEN
+       ALLOCATE( z(n), y(n) )
+    ELSE IF ( SIZE(z) /= n ) THEN
+       DEALLOCATE( z, y )
+       ALLOCATE( z(n), y(n) )
+    END IF
+
+    Rows   => GlobalMatrix % Rows
+    Cols   => GlobalMatrix % Cols
+    Values => GlobalMatrix % Values
+
+    u(1:n) = v(1:n)
+    DO iter=1,niters
+
+       z = 0
+       CALL ParIfMatrixVector( u,z,ipar )
+       z = v(1:n) - z
+       CALL CRS_LUPrecondition( u,z,ipar )
+    END DO
+
+!----------------------------------------------------------------------
+END SUBROUTINE ParPrecondition
+!----------------------------------------------------------------------
+
+
+!----------------------------------------------------------------------
+SUBROUTINE ParComplexPrecondition( u,v,ipar )
+!----------------------------------------------------------------------
+    COMPLEX(KIND=dp) :: u(*),v(*)
+    INTEGER :: ipar(*)
+
+    INTEGER :: i,j,iter,n,niters
+    INTEGER, POINTER :: Rows(:),Cols(:)
+
+    COMPLEX(KIND=dp) :: A
+    REAL(KIND=dp), POINTER :: Values(:)
+
+    COMPLEX(KIND=dp), ALLOCATABLE :: z(:)
+    SAVE z
+
+    n = HUTI_NDIM
+
+    niters = GlobalData % RelaxIters
+
+    IF ( niters <= 0 ) THEN
+       CALL CRS_ComplexLUPrecondition( u,v,ipar )
+       RETURN
+    END IF
+
+    IF ( .NOT. ALLOCATED(z) ) THEN
+       ALLOCATE( z(n) )
+    ELSE IF ( SIZE(z) /= n ) THEN
+       DEALLOCATE( z )
+       ALLOCATE( z(n) )
+    END IF
+
+    Rows   => GlobalMatrix % Rows
+    Cols   => GlobalMatrix % Cols
+    Values => GlobalMatrix % Values
+
+    u(1:n) = v(1:n)
+    DO iter=1,niters
+       z = 0
+       CALL ParIfComplexMatrixVector( u,z,ipar )
+       z = v(1:n) - z
+       CALL CRS_ComplexLUPrecondition( u,z,ipar )
+    END DO
+!----------------------------------------------------------------------
+END SUBROUTINE ParComplexPrecondition
+!----------------------------------------------------------------------
+
+
 !*********************************************************************
+!*********************************************************************
+!
+! External Matrix - Vector operations (Parallel real, version)
+!
+! Multiply vector u with the global matrix,  return the result in v
+! Called from HUTIter library
+!
+
+SUBROUTINE ParIfMatrixVector( u, v, ipar )
+
+  IMPLICIT NONE
+
+  ! Input parameters
+
+  INTEGER, DIMENSION(*) :: ipar
+  REAL(KIND=dp), DIMENSION(*) :: u, v
+
+  ! Local parameters
+
+  INTEGER :: i, j, k, l, colind
+  TYPE( IfVecT), POINTER :: IfV
+  TYPE( IfLColsT), POINTER :: IfL
+  TYPE (Matrix_t), POINTER :: InsideMatrix, CurrIf
+
+  INTEGER, POINTER :: Cols(:),Rows(:)
+  REAL(KIND=dp), POINTER :: Vals(:)
+
+  !*******************************************************************
+
+  InsideMatrix => GlobalData % SplittedMatrix % InsideMatrix
+
+  !----------------------------------------------------------------------
+  !
+  ! Compute the interface contribution for each neighbour
+  !
+  !----------------------------------------------------------------------
+
+  DO i = 1, ParEnv % PEs
+     CurrIf => GlobalData % SplittedMatrix % IfMatrix(i)
+     IfV => GlobalData % SplittedMatrix % IfVecs(i)
+     IfL => GlobalData % SplittedMatrix % IfLCols(i)
+
+     IF ( CurrIf % NumberOfRows /= 0 ) THEN
+	IfV % IfVec(1:CurrIf % NumberOfRows) = 0.0
+	DO j = 1, CurrIf % NumberOfRows
+	   DO k = CurrIf % Rows(j), CurrIf % Rows(j+1) - 1
+              Colind = IfL % IfVec(k)
+              IF ( ColInd > 0 ) &
+                IfV % IfVec(j) = IfV % IfVec(j) + CurrIf % Values(k) * u(colind)
+	   END DO
+	END DO
+     END IF
+  END DO
+
+  CALL Send_LocIf( GlobalData % SplittedMatrix )
+  CALL Recv_LocIf( GlobalData % SplittedMatrix, HUTI_NDIM, v )
+!----------------------------------------------------------------------
+END SUBROUTINE ParIfMatrixVector
+!----------------------------------------------------------------------
+
+!*********************************************************************
+!*********************************************************************
+!
+! External Matrix - Vector operations (Parallel real, version)
+!
+! Multiply vector u with the global matrix,  return the result in v
+! Called from HUTIter library
+!
+!----------------------------------------------------------------------
+  SUBROUTINE SParMatrixVector( u, v, ipar )
+!----------------------------------------------------------------------
+
+  IMPLICIT NONE
+
+  ! Input parameters
+
+  INTEGER, DIMENSION(*) :: ipar
+  REAL(KIND=dp), DIMENSION(*) :: u, v
+
+  ! Local parameters
+
+  INTEGER :: i, j, k, l, n, colind
+  TYPE( IfVecT), POINTER :: IfV
+  TYPE( IfLColsT), POINTER :: IfL
+  TYPE (Matrix_t), POINTER :: InsideMatrix, CurrIf
+
+  INTEGER, POINTER :: Cols(:),Rows(:)
+  REAL(KIND=dp), POINTER :: Vals(:)
+
+  !*******************************************************************
+
+  InsideMatrix => GlobalData % SplittedMatrix % InsideMatrix
+  n = InsideMatrix % NumberOfRows
+
+  !----------------------------------------------------------------------
+  !
+  ! Compute the interface contribution for each neighbour
+  !
+  !----------------------------------------------------------------------
+
+  DO i = 1, ParEnv % PEs
+     CurrIf => GlobalData % SplittedMatrix % IfMatrix(i)
+     IfV => GlobalData % SplittedMatrix % IfVecs(i)
+     IfL => GlobalData % SplittedMatrix % IfLCols(i)
+
+     IF ( CurrIf % NumberOfRows /= 0 ) THEN
+	IfV % IfVec(1:CurrIf % NumberOfRows) = 0.0
+	DO j = 1, CurrIf % NumberOfRows
+	   DO k = CurrIf % Rows(j), CurrIf % Rows(j+1) - 1
+              Colind = IfL % IfVec(k)
+              IF ( ColInd > 0 ) &
+                IfV % IfVec(j) = IfV % IfVec(j) + CurrIf % Values(k) * u(colind)
+	   END DO
+	END DO
+     END IF
+  END DO
+
+  CALL Send_LocIf( GlobalData % SplittedMatrix )
+
+  !----------------------------------------------------------------------
+  !
+  ! Compute the local part
+  !
+  !----------------------------------------------------------------------
+
+  v(1:n) = 0.0
+  Rows => InsideMatrix % Rows
+  Cols => InsideMatrix % Cols
+  Vals => InsideMatrix % Values
+
+#if !defined(SGI) && !defined(SGI64)
+  DO i = 1, n
+     DO j = Rows(i), Rows(i+1) - 1
+        v(i) = v(i) + Vals(j) * u(Cols(j))
+     END DO
+  END DO
+
+  CALL Recv_LocIf( GlobalData % SplittedMatrix, n, v )
+#else
+  CALL MV( n, SIZE(Cols), Rows,Cols, Vals, u,v )
+
+  !----------------------------------------------------------------------
+  !
+  ! Receive interface parts of the vector and sum them to vector v
+  !
+  !----------------------------------------------------------------------
+  CALL Recv_LocIf( GlobalData % SplittedMatrix, n, v )
+
+CONTAINS 
+
+!----------------------------------------------------------------------
+  SUBROUTINE MV( n,m,Rows,Cols,Vals,u,v )
+    INTEGER :: n,m,Rows(n+1),Cols(m)
+    REAL(KIND=dp) :: Vals(m),u(n),v(n)
+
+    DO i = 1, n
+       DO j = Rows(i), Rows(i+1) - 1
+          v(i) = v(i) + Vals(j) * u(Cols(j))
+       END DO
+    END DO
+  END SUBROUTINE MV
+!----------------------------------------------------------------------
+#endif
+!----------------------------------------------------------------------
+END SUBROUTINE SParMatrixVector
+!----------------------------------------------------------------------
+
+
+!*********************************************************************
+!*********************************************************************
+!
+! External Matrix - Vector operations (Parallel, complex version)
+!
+! Multiply vector u with the matrix in A_val return the result in v
+! Called from HUTIter library
+!
+
+SUBROUTINE ParIfComplexMatrixVector( u, v, ipar )
+
+  IMPLICIT NONE
+
+  ! Input parameters
+
+  INTEGER, DIMENSION(*) :: ipar
+  COMPLEX(KIND=dp), DIMENSION(*) :: u, v
+
+
+  ! Local parameters
+
+  INTEGER :: i, j, k, l, colind
+  TYPE (Matrix_t), POINTER :: InsideMatrix, CurrIf
+  TYPE( IfVecT), POINTER :: IfV
+  TYPE( IfLColsT), POINTER :: IfL
+
+  COMPLEX(KIND=dp) :: A
+
+  REAL(KIND=dp), POINTER :: Vals(:)
+  INTEGER, POINTER :: Cols(:),Rows(:)
+  REAL(KIND=dp), ALLOCATABLE :: buf(:)
+
+  !*******************************************************************
+
+  InsideMatrix => GlobalData % SplittedMatrix % InsideMatrix
+
+  !----------------------------------------------------------------------
+  !
+  ! Compute the interface contribution for each neighbour
+  !
+  !----------------------------------------------------------------------
+
+  DO i = 1, ParEnv % PEs
+     CurrIf => GlobalData % SplittedMatrix % IfMatrix(i)
+
+     IF ( CurrIf % NumberOfRows /= 0 ) THEN
+        IfV => GlobalData % SplittedMatrix % IfVecs(i)
+        IfL => GlobalData % SplittedMatrix % IfLCols(i)
+
+	IfV % IfVec(1:CurrIf % NumberOfRows) = 0.0d0
+	DO j = 1, CurrIf % NumberOfRows / 2
+	   DO k = CurrIf % Rows(2*j-1), CurrIf % Rows(2*j)-1, 2
+              IF ( IfL % IfVec(k) > 0 ) THEN
+                ColInd = (IfL % IfVec(k) + 1) / 2
+                A = CMPLX( CurrIf % Values(k), -CurrIf % Values(k+1), KIND=dp )
+                A = A * u(ColInd)
+                IfV % IfVec(2*j-1) = IfV % IfVec(2*j-1) + DREAL(A)
+                IfV % IfVec(2*j-0) = IfV % IfVec(2*j-0) + AIMAG(A)
+              END IF
+	   END DO
+	END DO
+     END IF
+  END DO
+
+  CALL Send_LocIf( GlobalData % SplittedMatrix )
+
+  ALLOCATE( buf( 2*HUTI_NDIM ) )
+  buf = 0.0d0
+  CALL Recv_LocIf( GlobalData % SplittedMatrix, 2*HUTI_NDIM, buf )
+
+  DO i=1,HUTI_NDIM
+     v(i) = v(i) + CMPLX( buf(2*i-1), buf(2*i), KIND=dp )
+  END DO
+  DEALLOCATE( buf )
+
+END SUBROUTINE ParIfComplexMatrixVector
 
 
 
 !*********************************************************************
 !*********************************************************************
 !
-! Search an element QueriedNode from an ordered set Nodes and return
-! Index to Nodes structure. Return value -1 means QueriedNode was
-! not found.
+! External Matrix - Vector operations (Parallel, complex version)
 !
-FUNCTION SearchNode( ParallelInfo, QueriedNode, First, Last ) RESULT ( Index )
+! Multiply vector u with the matrix in A_val return the result in v
+! Called from HUTIter library
+!
+
+SUBROUTINE ParComplexMatrixVector( u, v, ipar )
+
+  IMPLICIT NONE
+
+  ! Input parameters
+
+  INTEGER, DIMENSION(*) :: ipar
+  COMPLEX(KIND=dp), DIMENSION(*) :: u, v
+
+
+  ! Local parameters
+
+  INTEGER :: i, j, k, l, colind
+  TYPE (Matrix_t), POINTER :: InsideMatrix, CurrIf
+  TYPE( IfVecT), POINTER :: IfV
+  TYPE( IfLColsT), POINTER :: IfL
+
+  COMPLEX(KIND=dp) :: A
+
+  REAL(KIND=dp), POINTER :: Vals(:)
+  INTEGER, POINTER :: Cols(:),Rows(:)
+  REAL(KIND=dp), ALLOCATABLE :: buf(:)
+
+  !*******************************************************************
+
+  InsideMatrix => GlobalData % SplittedMatrix % InsideMatrix
+
+  !----------------------------------------------------------------------
+  !
+  ! Compute the interface contribution for each neighbour
+  !
+  !----------------------------------------------------------------------
+
+  DO i = 1, ParEnv % PEs
+     CurrIf => GlobalData % SplittedMatrix % IfMatrix(i)
+
+     IF ( CurrIf % NumberOfRows /= 0 ) THEN
+        IfV => GlobalData % SplittedMatrix % IfVecs(i)
+        IfL => GlobalData % SplittedMatrix % IfLCols(i)
+
+	IfV % IfVec(1:CurrIf % NumberOfRows) = 0.0d0
+	DO j = 1, CurrIf % NumberOfRows / 2
+	   DO k = CurrIf % Rows(2*j-1), CurrIf % Rows(2*j)-1, 2
+              IF ( IfL % IfVec(k) > 0 ) THEN
+                ColInd = (IfL % IfVec(k) + 1) / 2
+                A = CMPLX( CurrIf % Values(k), -CurrIf % Values(k+1), KIND=dp )
+                A = A * u(ColInd)
+                IfV % IfVec(2*j-1) = IfV % IfVec(2*j-1) + DREAL(A)
+                IfV % IfVec(2*j-0) = IfV % IfVec(2*j-0) + AIMAG(A)
+              END IF
+	   END DO
+	END DO
+     END IF
+  END DO
+
+  CALL Send_LocIf( GlobalData % SplittedMatrix )
+
+  !----------------------------------------------------------------------
+  !
+  ! Compute the local part
+  !
+  !----------------------------------------------------------------------
+
+  v(1:HUTI_NDIM) = 0.0
+  Rows => InsideMatrix % Rows
+  Cols => InsideMatrix % Cols
+  Vals => InsideMatrix % Values
+
+#ifndef SGI
+  DO i = 1, HUTI_NDIM
+     DO j = Rows(2*i-1), Rows(2*i)-1, 2
+        A = CMPLX( Vals(j), -Vals(j+1), KIND=dp )
+        v(i) = v(i) + A * u(Cols(j+1)/2)
+     END DO
+  END DO
+#else
+  CALL MV( HUTI_NDIM, SIZE(Cols), Rows,Cols, Vals, u,v )
+#endif
+
+  !----------------------------------------------------------------------
+  !
+  ! Receive interface parts of the vector and sum them to vector v
+  !
+  !----------------------------------------------------------------------
+  ALLOCATE( buf( 2*HUTI_NDIM ) )
+  buf = 0.0d0
+  CALL Recv_LocIf( GlobalData % SplittedMatrix, 2*HUTI_NDIM, buf )
+
+  DO i=1,HUTI_NDIM
+     v(i) = v(i) + CMPLX( buf(2*i-1), buf(2*i), KIND=dp )
+  END DO
+  DEALLOCATE( buf )
+
+CONTAINS 
+
+  SUBROUTINE MV( n,m,Rows,Cols,Vals,u,v )
+    INTEGER :: n,m
+    INTEGER :: Rows(2*n+1),Cols(m)
+    REAL(KIND=dp) :: Vals(m)
+    COMPLEX(KIND=dp) :: A,u(n),v(n)
+
+    DO i = 1, HUTI_NDIM
+       DO j = Rows(2*i-1), Rows(2*i)-1, 2
+          A = CMPLX( Vals(j), -Vals(j+1), KIND=dp )
+          v(i) = v(i) + A * u(Cols(j+1)/2)
+       END DO
+    END DO
+  END SUBROUTINE MV
+
+END SUBROUTINE ParComplexMatrixVector
+
+
+
+
+!*********************************************************************
+!*********************************************************************
+!
+! This routine is used to count the nodes which have connections to
+! neighbours the count of connections for neighbour. Then this information
+! is used to allocate some communication buffers.
+!
+SUBROUTINE CountNeighbourConns( SourceMatrix, SplittedMatrix, ParallelInfo, DOFs )
 
   USE Types
   IMPLICIT NONE
 
+  TYPE (SplittedMatrixT) :: SplittedMatrix
   TYPE (ParallelInfo_t) :: ParallelInfo
-  INTEGER :: QueriedNode, Index
-  INTEGER, OPTIONAL :: First,Last
+  INTEGER :: DOFs
+  TYPE (Matrix_t) :: SourceMatrix
 
   ! Local variables
 
-  INTEGER :: Lower, Upper, Lou, i
+  INTEGER :: i, j, k
+  INTEGER, DIMENSION(:), ALLOCATABLE :: ResEPerNB, RHSEPerNB
 
-  !*********************************************************************
+  !*******************************************************************
 
-  Index = -1
-  Upper = SIZE(ParallelInfo % GlobalDOFs)
-  Lower = 1
-  IF ( PRESENT( Last  ) ) Upper = Last
-  IF ( PRESENT( First ) ) Lower = First
-
-  ! Handle the special case
-
-  IF ( Upper == 0 ) RETURN
-
-10 CONTINUE
-  IF ( ParallelInfo % GlobalDOFs(Lower) == QueriedNode ) THEN
-     Index = Lower
-     RETURN
-  ELSE IF ( ParallelInfo % GlobalDOFs(Upper) == QueriedNode ) THEN
-     Index = Upper
-     RETURN
+  IF ( .NOT. ASSOCIATED( SplittedMatrix % ResBuf ) ) THEN
+     ALLOCATE( SplittedMatrix % ResBuf( ParEnv % PEs ) )
+  END IF
+  IF ( .NOT. ASSOCIATED( SplittedMatrix % RHS ) ) THEN
+     ALLOCATE( SplittedMatrix % RHS( ParEnv % PEs ) )
   END IF
 
-  IF ( (Upper - Lower) > 1 ) THEN
-     Lou = ISHFT((Upper + Lower), -1)
-     IF ( ParallelInfo % GlobalDOFs(Lou) < QueriedNode ) THEN
-        Lower = Lou
-        GOTO 10
-     ELSE
-        Upper = Lou
-        GOTO 10
-     END IF
-  END IF
+  !----------------------------------------------------------------------
+  !
+  ! Count the nodes per neighbour which are shared between neighbours
+  !
+  !----------------------------------------------------------------------
 
-  RETURN
+  ALLOCATE( ResEPerNB( ParEnv % PEs ) )
+  ALLOCATE( RHSEPerNB( ParEnv % PEs ) )
+  ResEPerNB = 0; RHSEPerNB = 0
 
-END FUNCTION SearchNode
+  DO i = DOFs, SourceMatrix % NumberOfRows, DOFs
+     k =  (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
 
-
-!*********************************************************************
-!*********************************************************************
-!
-! Search an element Item from an ordered integer array(N) and return
-! Index to that array element. Return value -1 means Item was not found.
-!
-FUNCTION SearchIAItem( N, IArray, Item, SortOrder ) RESULT ( Index )
-
-  USE types
-  IMPLICIT NONE
-
-  INTEGER :: Item, Index, i
-  INTEGER :: N
-  INTEGER, DIMENSION(:) :: IArray
-  INTEGER, OPTIONAL :: SortOrder(:)
-
-  ! Local variables
-
-  INTEGER :: Lower, Upper, lou
-
-  !*********************************************************************
-
-  Index = -1
-  Upper =  N
-  Lower =  1
-
-  ! Handle the special case
-
-  IF ( Upper == 0 ) RETURN
-
-  IF ( .NOT. PRESENT(SortOrder) ) THEN
-     Index = SearchIAItemLinear( n,IArray,Item )
-     RETURN
-  END IF
-
-  DO WHILE( .TRUE. )
-     IF ( IArray(Lower) == Item ) THEN
-        Index = Lower
-        EXIT
-     ELSE IF ( IArray(Upper) == Item ) THEN
-        Index = Upper
-        EXIT
-     END IF
-
-     IF ( (Upper - Lower) > 1 ) THEN
-        Lou = ISHFT((Upper + Lower), -1)
-        IF ( IArray(lou) < Item ) THEN
-           Lower = Lou
+     IF ( ParallelInfo % Interface(k) ) THEN
+        IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+           DO j = 1, SIZE( ParallelInfo % NeighbourList(k) % Neighbours )
+  	     IF ( ParallelInfo % NeighbourList(k) % Neighbours(j)/=ParEnv % MyPE ) THEN
+	        ResEPerNB(ParallelInfo % NeighbourList(k) % Neighbours(j)+1) = &
+	        ResEPerNB(ParallelInfo % NeighbourList(k) % Neighbours(j)+1) + 1
+	     END IF
+  	  END DO
         ELSE
-           Upper = Lou
+          RHSEPerNB(ParallelInfo % NeighbourList(k) % Neighbours(1)+1) = &
+             RHSEPerNB(ParallelInfo % NeighbourList(k) % Neighbours(1)+1) + 1
         END IF
-     ELSE 
-        EXIT
      END IF
   END DO
 
-  IF ( Index > 0 ) Index  = SortOrder(Index)
-  RETURN
+  !----------------------------------------------------------------------
+  !
+  ! Allocate some buffers for communication
+  !
+  !----------------------------------------------------------------------
 
-END FUNCTION SearchIAItem
+  RHSEperNB = RHSEperNB * DOFs
+  ResEPerNB = ResEPerNB * DOFs
+
+  DO i = 1, ParEnv % PEs
+     NULLIFY( SplittedMatrix % RHS(i) % RHSVec )
+     NULLIFY( SplittedMatrix % RHS(i) % RHSInd )
+     IF ( RHSEPerNB(i) /= 0 ) THEN
+	ALLOCATE( SplittedMatrix % RHS(i) % RHSVec( RHSEperNB(i) ) )
+	ALLOCATE( SplittedMatrix % RHS(i) % RHSind( RHSEperNB(i) ) )
+     END IF
+
+     NULLIFY( SplittedMatrix % ResBuf(i) % ResVal )
+     NULLIFY( SplittedMatrix % ResBuf(i) % ResInd )
+     IF ( ResEPerNB(i) /= 0 ) THEN
+	ALLOCATE( SplittedMatrix % ResBuf(i) % ResVal( ResEPerNB(i) ) )
+	ALLOCATE( SplittedMatrix % ResBuf(i) % ResInd( ResEPerNB(i) ) )
+     END IF
+
+  END DO
+
+  DEALLOCATE( ResEPerNB, RHSEPerNB )
+END SUBROUTINE CountNeighbourConns
 
 
 !*********************************************************************
 !*********************************************************************
 !
-! Search an element Item from an ordered integer array(N) and return
-! Index to that array element. Return value -1 means Item was not found.
+! This subroutine combines indices of two matrices in CRS format.
+! Row and column indices are assumed to be in sorted order.
 !
-FUNCTION SearchIAItemLinear( N, IArray, Item ) RESULT ( Index )
 
-  USE types
+SUBROUTINE CombineCRSMatIndices ( SMat1, SMat2, DMat )
+
+  USE Types
   IMPLICIT NONE
 
-  INTEGER :: N
-  INTEGER, DIMENSION(*) :: IArray
-  INTEGER :: Item, Index, i
+  TYPE (Matrix_t), TARGET :: SMat1, SMat2, DMat
+  TYPE (Matrix_t), POINTER :: SSMat1, SSMat2
+! External routines
+
+! EXTERNAL SearchIAItem
+! INTEGER :: SearchIAItem
 
   ! Local variables
 
-  INTEGER :: Lower, Upper, lou
-  !*********************************************************************
+  INTEGER :: i, j, k, i1, i2, j1, j2, ind, ind1, ind2, DRows, DCols, row, col
+  INTEGER, POINTER :: cols(:)
 
-  Index = -1
-  DO i=1,N
-     IF ( IArray(i) == Item ) THEN
-       Index = i
-       RETURN
+  LOGICAL, ALLOCATABLE :: done(:)
+
+  !*******************************************************************
+
+  IF ( SMat1 % NumberOfRows == 0 .AND. SMat2 % NumberOfRows == 0 ) THEN
+
+     RETURN
+
+  ELSE IF ( SMat1 % NumberOfRows == 0 ) THEN
+
+     ALLOCATE( DMat % Rows(  SMat2 % NumberOfRows + 1) )
+     ALLOCATE( DMat % GRows( SMat2 % NumberOfRows ) )
+     ALLOCATE( DMat % RowOwner( SMat2 % NumberOfRows ) )
+     ALLOCATE( DMat % Cols( SMat2 % Rows(SMat2 % NumberOfRows + 1)-1 ) )
+
+     DMat % NumberOfRows = SMat2 % NumberOfRows
+     DMat % Rows = SMat2 % Rows(1:SMat2 % NumberOfRows+1)
+     DMat % GRows = SMat2 % GRows(1:SMat2 % NumberOfRows)
+     DMat % Cols = SMat2 % Cols(1:SIZE(DMat % Cols))
+     DMat % RowOwner = SMat2 % RowOwner(1:SMat2 % NumberOfRows)
+
+     RETURN
+
+  ELSE IF ( SMat2 % NumberOfRows == 0 ) THEN
+
+     ALLOCATE( DMat % Rows( SMat1 % NumberOfRows + 1) )
+     ALLOCATE( DMat % GRows( SMat1 % NumberOfRows ) )
+     ALLOCATE( DMat % RowOwner( SMat1 % NumberOfRows ) )
+     ALLOCATE( DMat % Cols( SMat1 % Rows(SMat1 % NumberOfRows + 1)-1 ) )
+
+     DMat % NumberOfRows = SMat1 % NumberOfRows
+     DMat % Rows = SMat1 % Rows(1:SMat1 % NumberOfRows+1)
+     DMat % GRows = SMat1 % GRows(1:SMat1 % NumberOfRows)
+     DMat % Cols = SMat1 % Cols(1:SIZE(DMat % Cols))
+     DMat % RowOwner = SMat1 % RowOwner(1:SMat1 % NumberOfRows)
+     RETURN
+
+  END IF
+	
+  !----------------------------------------------------------------------
+  !
+  ! First we have to compute the strorage allocations
+  !
+  !----------------------------------------------------------------------
+
+  SSMat1 => SMat1
+  SSMat2 => SMat2
+  SMat1 % Ordered = .FALSE.
+  SMat2 % Ordered = .FALSE.
+  CALL CRS_SortMatrix( SSMat1 )
+  CALL CRS_SortMatrix( SSMat2 )
+
+  DRows = SMat2 % NumberOfRows;
+
+  DO i = 1, SMat1 % NumberOfRows
+     ind1 = SearchIAItem( SMat2 % NumberOfRows, &
+          SMat2 % GRows, SMat1 % GRows(i) )
+     IF ( Ind1 == -1 ) DRows = DRows + 1
+  END DO
+
+  DCols = SIZE(SMat1 % Cols) + SIZE(SMat2 % Cols)
+  DMat % NumberOfRows = DRows
+  DMat % Ordered = .TRUE.
+  ALLOCATE( DMat % Rows( DRows + 1) )
+  ALLOCATE( DMat % GRows( DRows ) )
+  ALLOCATE( DMat % Cols( DCols ) )
+  ALLOCATE( DMat % RowOwner( DRows ) )
+
+  !----------------------------------------------------------------------
+  !
+  ! Then we combine the index structures of the two CRS matrices
+  !
+  !----------------------------------------------------------------------
+
+  row = 1; col = 1; i1 = 1; i2 = 1
+  ALLOCATE( Done( Smat2 % NumberOfRows ) )
+  done = .FALSE.
+
+  DO WHILE ( i1 <= SMat1 % NumberOfRows .OR. &
+             i2 <= SMat2 % NumberOfRows )
+
+     ind = -1
+     IF ( i1 <= SMat1 % NumberOfRows ) THEN
+        ind = SearchIAItem( SMat2 % NumberOfRows, &
+          SMat2 % GRows, SMat1 % GRows(i1) ) !, SMat2 % Gorder )
+     END IF
+
+     IF ( i1 > SMat1 % NumberOfRows ) THEN
+
+        DO i=1,Smat2 % NumberOfRows
+           IF ( .NOT.done(i) ) THEN
+              DMat % Rows(row) = Col
+              DMat % GRows(row)    = SMat2 % GRows(i)
+              DMat % RowOwner(row) = SMat2 % RowOwner(i)
+              Row = Row + 1
+              DO k = SMat2 % Rows(i), SMat2 % Rows(i+1) - 1
+                 DMat % Cols(col) = SMat2 % Cols(k)
+                 Col = Col + 1
+              END DO
+              i2 = i2 + 1
+           END IF
+        END DO
+
+     ELSE IF ( i2 > SMat2 % NumberOfRows .OR. Ind == -1 ) THEN
+
+	DMat % Rows(Row)     = Col
+	DMat % GRows(Row)    = SMat1 % GRows(i1)
+	DMat % RowOwner(Row) = SMat1 % RowOwner(i1)
+	Row = Row + 1
+	DO k = SMat1 % Rows(i1), SMat1 % Rows(i1+1) - 1
+	   DMat % Cols(Col) = SMat1 % Cols(k)
+	   Col = Col + 1
+	END DO
+	i1 = i1 + 1
+
+     ELSE IF ( Ind /= -1 ) then
+	      
+	DMat % Rows(Row)  = Col
+	DMat % GRows(Row) = SMat1 % GRows(i1)
+	DMat % RowOwner(Row) = SMat1 % RowOwner(i1)
+	Row = Row + 1
+	j1 = SMat1 % Rows(i1)
+        j2 = SMat2 % Rows(Ind)
+
+	DO WHILE ( j1 < SMat1 % Rows(i1+1) .OR. &
+	           j2 < SMat2 % Rows(Ind+1) )
+
+	   IF ( (j1 <  SMat1 % Rows(i1+1) .AND. &
+	 	 j2 >= SMat2 % Rows(Ind+1)) &
+		.OR. (SMat1 % Cols(j1) < SMat2 % Cols(j2) &
+                .AND. j1 < SMat1 % Rows(i1+1) ) ) THEN
+
+              DMat % Cols(col) = SMat1 % Cols(j1)
+	      col = col + 1
+	      j1 = j1 + 1
+	
+	   ELSE IF ( (j1 >= SMat1 % Rows(i1+1) .AND. &
+	       	      j2 <  SMat2 % Rows(Ind+1)) &
+		.OR. (SMat2 % Cols(j2) < SMat1 % Cols(j1)  &
+                .AND. j2 < SMat2 % Rows(Ind+1) ) ) THEN
+              
+              DMat % Cols(col) = SMat2 % Cols(j2)
+	      col = col + 1
+	      j2 = j2 + 1
+	
+	   ELSE IF ( SMat1 % Cols(j1) == SMat2 % Cols(j2) ) THEN
+
+	      DMat % Cols(col) = SMat1 % Cols(j1)
+	      col = col + 1
+	      j1 = j1 + 1; j2 = j2 + 1
+              
+	   END IF
+	END DO
+
+        Done(Ind) = .TRUE.
+	i1 = i1 + 1; i2 = i2 + 1
+     END IF
+
+  END DO
+  DMat % Rows(Row) = Col
+
+  ALLOCATE(Cols(col-1))
+  Cols(1:col-1) = DMat % Cols(1:col-1)
+  DEALLOCATE( DMat % Cols )
+  DMAT % Cols => Cols
+
+  DEALLOCATE( Done )
+END SUBROUTINE CombineCRSMatIndices
+
+
+!*********************************************************************
+!*********************************************************************
+!
+! Update all necessary global structures after the local matrix has
+! been built.
+!
+
+SUBROUTINE GlueFinalize( SourceMatrix, SplittedMatrix, ParallelInfo, DOFs )
+  USE Types
+  IMPLICIT NONE
+
+  TYPE (ParallelInfo_t) :: ParallelInfo
+  INTEGER :: DOFs
+  TYPE(Matrix_t) :: SourceMatrix
+  TYPE (SplittedMatrixT) :: SplittedMatrix
+
+  ! External routines
+
+! EXTERNAL SearchIAItem
+! INTEGER :: SearchIAItem
+
+  ! Local variables
+
+  INTEGER, ALLOCATABLE :: RevDOFList(:)
+
+  TYPE (Matrix_t), POINTER :: CurrIf, InsideMatrix
+  INTEGER :: i, j, k, l, RowInd, Rows, ColInd, ColIndA
+  TYPE (Matrix_t), DIMENSION(:), ALLOCATABLE :: RecvdIfMatrix
+
+  LOGICAL :: Found, NeedMass
+  TYPE(GlueTableT), POINTER :: GT
+
+  !*******************************************************************
+
+  !----------------------------------------------------------------------
+  !
+  ! Exchange interface block values stored in GlueLocalMatrix routine
+  !
+  !----------------------------------------------------------------------
+  GT => SplittedMatrix % GlueTable
+
+  InsideMatrix => SplittedMatrix % InsideMatrix
+  NeedMass = ASSOCIATED( InsideMatrix % MassValues )
+
+  ALLOCATE( RecvdIfMatrix( ParEnv % PEs ) )
+  RecvdIfMatrix(:) % NumberOfRows = 0
+  CALL ExchangeIfValues( SplittedMatrix % NbsIfMatrix, RecvdIfMatrix, NeedMass )
+
+  !----------------------------------------------------------------------
+  !
+  ! Add received interface block values into our own interface blocks or
+  ! into InsideMatrix.
+  !
+  !----------------------------------------------------------------------
+  ALLOCATE( RevDofList( SourceMatrix % NumberOfRows ) )
+  j = 0
+  RevDOFList = 0
+  DO i = 1, SourceMatrix % NumberOfRows
+     k = (SourceMatrix % INVPerm(i)+DOFs-1)/DOFs
+     IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+       j = j + 1
+       RevDofList(i) = j
      END IF
   END DO
 
-END FUNCTION SearchIAItemLinear
+  DO i = 1, ParEnv % PEs
+     IF ( RecvdIfMatrix(i) % NumberOfRows /= 0 ) THEN
 
+	CurrIf => SplittedMatrix % IfMatrix(i)
+	DO j = 1, RecvdIfMatrix(i) % NumberOfRows
 
+	   RowInd = SearchIAItem( CurrIf % NumberOfRows, &
+                CurrIf % GRows, RecvdIfMatrix(i) % GRows(j) )
+
+	   IF ( RowInd /= -1 ) THEN
+	      ! Value to be added to IfMatrix
+
+	      DO  k=RecvdIfMatrix(i) % Rows(j),RecvdIfMatrix(i) % Rows(j+1)-1
+
+		 DO l = CurrIf % Rows(RowInd), CurrIf % Rows(RowInd+1)-1
+		    IF ( RecvdIfMatrix(i) % Cols(k) == CurrIf % Cols(l) ) THEN
+		       CurrIf % Values(l) = CurrIf % Values(l) + &
+                             RecvdIfMatrix(i) % Values(k)
+                       IF ( NeedMass ) &
+                          CurrIf % MassValues(l) = CurrIf % MassValues(l) + &
+                                 RecvdIfMatrix(i) % MassValues(k)
+		       EXIT
+		    END IF
+		 END DO
+	      END DO
+
+           ELSE
+  	      ! Value to be added to InsideMatrix
+
+              RowInd = SearchIAItem( InsideMatrix % NumberOfRows, &
+                  InsideMatrix % GRows, RecvdIfMatrix(i) % GRows(j), &
+                      InsideMatrix % Gorder )
+
+	      IF ( RowInd > 0 ) THEN
+	         DO k = RecvdIfMatrix(i) % Rows(j), RecvdIfMatrix(i) % Rows(j+1) - 1
+
+                    l = RecvdIfMatrix(i) % Cols(k)
+                    ColIndA = SearchNode(ParallelInfo,(l-1)/DOFs+1)
+                    IF ( ColIndA > 0 ) THEN
+                      ColIndA = DOFs*ColIndA-(DOFs-1-MOD(l-1,DOFs))
+                      ColIndA = SourceMatrix % Perm(ColIndA)
+                      IF ( ColIndA>0 ) ColIndA = RevDOFList(ColIndA)
+                    END IF
+
+                    Found = .FALSE.
+                    DO l = InsideMatrix % Rows(RowInd), InsideMatrix % Rows(RowInd+1) - 1
+ 		       IF ( ColIndA == InsideMatrix % Cols(l) ) THEN
+ 		          InsideMatrix % Values(l) = InsideMatrix % Values(l) + &
+                                   RecvdIfMatrix(i) % Values(k)
+                          IF ( NeedMass ) &
+                             InsideMatrix % MassValues(l) = InsideMatrix % MassValues(l) + &
+                                      RecvdIfMatrix(i) % MassValues(k)
+                          Found = .TRUE.
+ 		          EXIT
+ 		       END IF
+                    END DO
+
+                    IF ( .NOT. Found ) THEN
+                       PRINT*,ParEnv % MyPE,  'GlueFinalize: This should not happen 0'
+                       PRINT*,ParEnv % MyPE, i-1, RecvdIfMatrix(i) % GRows(j), RowInd, &
+                                   RecvdIfMatrix(i) % Cols(k), ColIndA
+                    END IF
+	         END DO
+              ELSE
+                 PRINT*,ParEnv % MyPE, 'GlueFinalize: This should not happen 1', RowInd
+              END IF
+	   END IF
+	END DO
+     END IF
+  END DO
+
+  DEALLOCATE( RevDOFList )
+  DO i=1,ParEnv % PEs
+     IF ( RecvdIfMatrix(i) % NumberOfRows > 0 ) THEN
+        DEALLOCATE( RecvdIfMatrix(i) % Rows )
+        DEALLOCATE( RecvdIfMatrix(i) % Cols )
+        DEALLOCATE( RecvdIfMatrix(i) % GRows )
+        DEALLOCATE( RecvdIfMatrix(i) % Values )
+        IF (ASSOCIATED(RecvdIfMatrix(i) % MassValues)) DEALLOCATE(RecvdIfMatrix(i) % MassValues)
+     END IF
+  END DO
+
+  DEALLOCATE( RecvdIfMatrix )
+
+END SUBROUTINE GlueFinalize
+
+!*********************************************************************
+!*********************************************************************
+!
+! Compress the given interface matrix deleting the inside connections.
+!
+! MODIFIES THE STRUCTURE OF INPUT MATRIX RecvdIfMatrix !!
+!
+SUBROUTINE ClearInsideC( SourceMatrix, InsideMatrix, &
+            RecvdIfMatrix, ParallelInfo, DOFs )
+
+  USE Types
+  IMPLICIT NONE
+
+  ! Parameters
+
+  TYPE (Matrix_t), DIMENSION(:) :: RecvdIfMatrix
+  TYPE (Matrix_t) :: SourceMatrix, InsideMatrix
+  TYPE (ParallelInfo_t) :: ParallelInfo
+  INTEGER :: DOFs
+
+  ! External routines
+
+! EXTERNAL SearchIAItem
+! INTEGER :: SearchIAItem
+
+  ! Local variables
+
+  INTEGER :: NewRow, NewCol,old_nv,nc
+  INTEGER :: p,i,j,k,l,RowInd,ColInd,GCol
+  
+  !*********************************************************************
+  !
+  ! Compression of the matrix is done in place and lengths are
+  ! stored in New* variables
+  !
+  DO p = 1, ParEnv % PEs
+
+     IF ( RecvdIfMatrix(p) % NumberOfRows <= 0 ) CYCLE
+
+     NewRow = 1; NewCol = 1; old_nv = 1
+     DO i = 1, RecvdIfMatrix(p) % NumberOfRows
+
+        NC = 0
+        RowInd = SearchIAItem( InsideMatrix % NumberOfRows,  &
+          InsideMatrix % GRows, RecvdIfMatrix(p) % GRows(i), &
+              InsideMatrix % Gorder )
+
+        IF ( RowInd /= -1 ) THEN
+           DO j = RecvdIfMatrix(p) % Rows(i),RecvdIfMatrix(p) % Rows(i+1) - 1
+
+              GCol = ( RecvdIfMatrix(p) % Cols(j) + DOFs-1 ) / DOFs
+              GCol = DOFs * SearchNode( ParallelInfo,  GCol ) - &
+                 ( DOFs-1 - MOD(RecvdIfMatrix(p) % Cols(j)-1,DOFs) )
+              GCol = SourceMatrix % Perm( Gcol )
+
+              ColInd = -1
+              IF ( Gcol  > 0 ) THEN
+                DO k = InsideMatrix % Rows(RowInd), &
+                       InsideMatrix % Rows(RowInd+1) - 1
+                    IF ( GCol == InsideMatrix % Cols(k) ) THEN
+                       ColInd = GCol
+                       EXIT
+                    END IF
+                END DO
+              END IF
+
+              IF ( ColInd == -1 ) THEN
+                 RecvdIfMatrix(p) % Cols(NewCol) = RecvdIfMatrix(p) % Cols(j)
+                 NewCol = NewCol + 1
+                 NC = 1
+              END IF
+	   END DO
+
+        ELSE
+
+           DO j = RecvdIfMatrix(p) % Rows(i), RecvdIfMatrix(p) % Rows(i+1)-1
+              RecvdIfMatrix(p) % Cols(NewCol) = RecvdIfMatrix(p) % Cols(j)
+              NewCol = NewCol + 1
+              NC = 1
+           END DO
+
+        END IF
+
+        IF ( NC /= 0 ) THEN
+           RecvdIfMatrix(p) % GRows(NewRow)    = RecvdIfMatrix(p) % GRows(i)
+           RecvdIfMatrix(p) % RowOwner(NewRow) = RecvdIfMatrix(p) % RowOwner(i)
+           RecvdIfMatrix(p) % Rows(NewRow)  = old_nv
+           NewRow = NewRow + 1
+        END IF
+        old_nv = NewCol
+	   
+     END DO
+     RecvdIfMatrix(p) % Rows(NewRow) = NewCol
+     RecvdIfMatrix(p) % NumberOfRows  = NewRow - 1
+  END DO
+
+END SUBROUTINE ClearInsideC
+
+!*********************************************************************
+!*********************************************************************
+!
+! Convert the original local DoF numbering to a compressed one to
+! enable direct use of column indices in matrix operations.
+!
+
+SUBROUTINE RenumberDOFs( SourceMatrix, SplittedMatrix, ParallelInfo, DOFs )
+
+  USE Types
+
+  IMPLICIT NONE
+
+  TYPE (SplittedMatrixT) :: SplittedMatrix
+  TYPE (ParallelInfo_t) :: ParallelInfo
+  INTEGER :: DOFs
+  TYPE( Matrix_t) :: SourceMatrix
+
+  ! Local variables
+
+  INTEGER, DIMENSION(:), ALLOCATABLE :: RevDofList
+  INTEGER :: i, j, k, Inside
+  TYPE (Matrix_t), POINTER :: InsideMatrix
+
+  !*******************************************************************
+
+  ! Construct a list to convert original DOF (Degrees of Freedom)
+  ! numbering to truncated one (for InsideMatrix).
+
+  ALLOCATE( RevDofList( SourceMatrix % NumberOfRows ) )
+
+  Inside = 0
+  DO i = 1, SourceMatrix % NumberOfRows
+     k = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
+     IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+	Inside = Inside + 1
+	RevDofList(i) = Inside
+     ELSE
+	RevDofList(i) = -1
+     END IF
+  END DO
+
+  ! Scan the InsideMatrix and change the numbering
+
+  InsideMatrix => SplittedMatrix % InsideMatrix
+  DO i = 1, InsideMatrix % NumberOfRows
+     DO j = InsideMatrix % Rows(i), InsideMatrix % Rows(i+1)-1
+	InsideMatrix % Cols(j) = RevDofList( InsideMatrix % Cols(j) )
+     END DO
+  END DO
+
+  DEALLOCATE( RevDofList )
+
+END SUBROUTINE RenumberDOFs
 !********************************************************************
 ! End
 !********************************************************************
 
-END MODULE SParIterComm
+END MODULE SParIterSolve
