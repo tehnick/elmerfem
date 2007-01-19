@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterComm.src,v 1.7 2006/01/10 13:27:37 apursula Exp $
+! * $Id: SParIterComm.src,v 1.8 2006/12/21 12:40:59 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -66,7 +66,7 @@ CONTAINS
      SAVE SendBuffer
 
      isfine = ALLOCATED(SendBuffer)
-     IF ( isfine ) isfine = n <= SIZE(SendBuffer)
+     IF ( isfine ) isfine = 2*n <= SIZE(SendBuffer)
      IF ( isfine ) RETURN
 
      IF ( ALLOCATED(SendBuffer) ) THEN
@@ -74,8 +74,8 @@ CONTAINS
         CALL MPI_BUFFER_DETACH( SendBuffer, i, ierr )
         DEALLOCATE( SendBuffer )
      END IF
-     ALLOCATE( SendBuffer( n ) )
-     CALL MPI_BUFFER_ATTACH( SendBuffer, n, ierr )
+     ALLOCATE( SendBuffer( 2*n ) )
+     CALL MPI_BUFFER_ATTACH( SendBuffer, 2*n, ierr )
 !-----------------------------------------------------------------
    END SUBROUTINE CheckBuffer
 !-----------------------------------------------------------------
@@ -1307,6 +1307,11 @@ END  SUBROUTINE SParIterBarrier
      IF ( Rows == 0 ) THEN
 
         RecvdIfMatrix(sproc+1) % NumberOfRows = 0
+        NULLIFY( RecvdIfMatrix(sproc+1) % Rows )
+        NULLIFY( RecvdIfMatrix(sproc+1) % Diag )
+        NULLIFY( RecvdIfMatrix(sproc+1) % Cols )
+        NULLIFY( RecvdIfMatrix(sproc+1) % GRows )
+        NULLIFY( RecvdIfMatrix(sproc+1) % RowOwner )
 
      ELSE
        CALL MPI_RECV( cols, 1, MPI_INTEGER, sproc, 1001, &
@@ -1384,10 +1389,8 @@ SUBROUTINE ExchangeIfValues( NbsIfMatrix, RecvdIfMatrix, NeedMass )
 
         destproc = i - 1
         IF ( NbsIfMatrix(i) % NumberOfRows == 0 ) THEN
-
           CALL MPI_BSEND( 0, 1, MPI_INTEGER, &
             destproc, 2000, MPI_COMM_WORLD, ierr )
-
         ELSE
 
            Cols = NbsIfMatrix(i) % Rows(NbsIfMatrix(i) % NumberOfRows+1) - 1
@@ -1434,6 +1437,11 @@ SUBROUTINE ExchangeIfValues( NbsIfMatrix, RecvdIfMatrix, NeedMass )
      IF ( Rows == 0 ) THEN
  
         RecvdIfMatrix(sproc+1) % NumberOfRows = 0
+        NULLIFY( RecvdIfMatrix(sproc+1) % Rows )
+        NULLIFY( RecvdIfMatrix(sproc+1) % Cols )
+        NULLIFY( RecvdIfMatrix(sproc+1) % GRows )
+        NULLIFY( RecvdIfMatrix(sproc+1) % Values )
+        NULLIFY( RecvdIfMatrix(sproc+1) % MassValues )
 
      ELSE
 
@@ -1501,22 +1509,21 @@ SUBROUTINE ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
   !
   !----------------------------------------------------------------------
 
-  ALLOCATE( RHSbufInds( ParEnv % PEs ) )
-  RHSbufInds = 1
+  ALLOCATE(RHSbufInds(ParEnv % PEs))
+  RHSbufInds = 0
   DO i = 1, SourceMatrix % NumberOfRows
-
      k = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
      owner = ParallelInfo % NeighbourList(k) % Neighbours(1)
 
      IF ( owner /= ParEnv % MyPE ) THEN
-        DOF = DOFs - 1 - MOD( i-1, DOFs )
+        DOF = DOFs-1-MOD(i-1,DOFs)
 
+        RHSbufInds(owner+1) = RHSbufInds(owner+1) + 1
         SplittedMatrix % RHS(owner+1) % RHSind(RHSbufInds(owner+1)) = &
               ParallelInfo % GlobalDOFs(k) * DOFs - DOF
 
         SplittedMatrix % RHS(owner+1) % RHSvec(RHSbufInds(owner+1)) = &
              SourceRHS(i)
-        RHSbufInds(owner+1) = RHSbufInds(owner+1) + 1
      END IF
   END DO
 
@@ -1528,16 +1535,13 @@ SUBROUTINE ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
 
   DO i = 1, ParEnv % PEs
      IF ( ParEnv % IsNeighbour(i) ) THEN
-         destproc = i - 1
+        destproc = i - 1
+        DataLen = RHSbufInds(i)
 
-        IF ( .NOT.ASSOCIATED( SplittedMatrix % RHS(i) % RHSind) ) THEN
-
+        IF ( DataLen <= 0 ) THEN
            CALL MPI_BSEND( 0, 1, MPI_INTEGER, &
                 destproc, 3000, MPI_COMM_WORLD, ierr )
-
         ELSE
-
-           DataLen = SIZE( SplittedMatrix % RHS(i) % RHSind )
            CALL MPI_BSEND( DataLen, 1, MPI_INTEGER, &
                 destproc, 3000, MPI_COMM_WORLD, ierr )
 
@@ -1568,10 +1572,9 @@ SUBROUTINE ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
 
         DO j = 1, DataLen
            Ind = SearchNode( ParallelInfo, (IndBuf(j) + DOFs-1) / DOFs )
-
            IF ( Ind /= -1 ) THEN
-              DOF = DOFs - 1 - MOD( IndBuf(j)-1, DOFs )
-              Ind = SourceMatrix % Perm( DOFs * Ind - DOF )
+              DOF = DOFs-1-MOD(IndBuf(j)-1,DOFs)
+              Ind = SourceMatrix % Perm(DOFs*Ind-DOF)
               IF ( Ind > 0 ) THEN
                  SourceRHS(Ind) = SourceRHS(Ind) + ValBuf(j)
               END IF
@@ -1619,7 +1622,7 @@ SUBROUTINE BuildRevVecIndices( SplittedMatrix )
 
   TYPE (Matrix_t), POINTER :: CurrIf, InsideMatrix
   INTEGER :: i, j, k, l, n, VecLen, ind, ierr, destproc, sproc, TotLen
-  INTEGER :: TotalSize
+  INTEGER :: TotalSize, FoundCount
   INTEGER, POINTER :: RevBuff(:),RevInd(:)
   INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
   INTEGER, DIMENSION(:), ALLOCATABLE :: GIndices,RowOwner
@@ -1721,6 +1724,7 @@ tt = CPUTime()
            END IF
 
 
+           FoundCount = 0
            DO n = 1, VecLen
               Ind = SearchIAItem( InsideMatrix %  NumberOfRows, &
                 InsideMatrix % GRows, GIndices(n), InsideMatrix % Gorder )
@@ -1740,10 +1744,11 @@ tt = CPUTime()
                        END IF
                     END DO
                  END DO
+                 FoundCount = FoundCount + 1
               ELSE
-                 WRITE( Message, * ) ParEnv % MyPE,' Could not find local node ', &
-                          GIndices(n), '(reveiced from', sproc, ')'
-                 CALL Error( 'BuildRevVecIndices', Message )
+!                WRITE( Message, * ) ParEnv % MyPE,' (1)Could not find local node ', &
+!                         GIndices(n), '(reveiced from', sproc, ')'
+!                CALL Error( 'BuildRevVecIndices', Message )
               END IF
            END DO
 
@@ -1823,9 +1828,9 @@ tt = CPUTime()
               END DO
                  
            ELSE
-              WRITE( Message, * ) ParEnv % MyPE,'Could not find local node ', &
-                       GIndices(n), '(reveiced from', sproc, ')'
-              CALL Error( 'BuildRevVecIndices', Message )
+!             WRITE( Message, * ) ParEnv % MyPE,'(2) Could not find local node ', &
+!                      GIndices(n), '(reveiced from', sproc, ')'
+!             CALL Error( 'BuildRevVecIndices', Message )
            END IF
         END DO
 
@@ -1969,8 +1974,8 @@ SUBROUTINE Recv_LocIf( SplittedMatrix, ndim, v )
            IF ( RevInd(k) > 0 ) THEN
               v(RevInd(k)) = v(RevInd(k)) + DPBuffer(k)
            ELSE
-              WRITE( Message, * ) ParEnv % MyPE, 'If Receive error: ', k,RevInd(k)
-              CALL Fatal( 'Recv_LocIf', Message )
+!             WRITE( Message, * ) ParEnv % MyPE, 'If Receive error: ', k,RevInd(k)
+!             CALL Error( 'Recv_LocIf', Message )
            END IF
         END DO
      END IF
