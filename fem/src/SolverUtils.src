@@ -39,11 +39,11 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.52  2007/01/19 14:47:57  jpr
+! * Corrected a bug related to Normal-Tangetial BCs & timestepping.
+! *
 ! * Revision 1.51  2007/01/11 07:40:04  jpr
 ! * Small bug fixes.
-! *
-! * Revision 1.50  2007/01/04 08:02:34  jpr
-! * *** empty log message ***
 ! *
 ! * Revision 1.49  2007/01/03 13:30:24  jpr
 ! * OpenMP changes.
@@ -170,7 +170,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.51 2007/01/11 07:40:04 jpr Exp $
+! * $Id: SolverUtils.src,v 1.52 2007/01/19 14:47:57 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -221,6 +221,7 @@ CONTAINS
      REAL(KIND=dp) :: ForceVector(:)
 !------------------------------------------------------------------------------
      INTEGER :: i,dim
+     LOGICAL :: NTRotate, Found
      TYPE(Solver_t), POINTER :: Solver
 !------------------------------------------------------------------------------
 
@@ -257,23 +258,29 @@ CONTAINS
      ForceVector = 0.0d0
 
      Solver => CurrentModel % Solver
-     NormalTangentialName = 'Normal-Tangential'
-     IF ( Solver % Variable % Name == 'flow solution' ) THEN
-       NormalTangentialName = TRIM(NormalTangentialName) // ' Velocity'
-     ELSE
-       NormalTangentialName = TRIM(NormalTangentialName) // ' ' // &
-          Solver % Variable % Name(1:Solver % Variable % Namelen)
-     END IF
 
-     dim = CoordinateSystemDimension()
-     CALL CheckNormalTangentialBoundary( CurrentModel, NormalTangentialName, &
-         NormalTangentialNOFNodes, BoundaryReorder, &
-                    BoundaryNormals, BoundaryTangent1, BoundaryTangent2, dim )
+     NTRotate=ListGetLogical(Solver % Values, 'Normal-Tangential Rotate',Found)
+     IF ( .NOT. Found ) NTRotate = .TRUE.
 
-     IF ( NormalTangentialNOFNodes > 0 ) THEN
-       CALL AverageBoundaryNormals( CurrentModel, NormalTangentialName, &
-         NormalTangentialNOFNodes, BoundaryReorder, &
-               BoundaryNormals, BoundaryTangent1, BoundaryTangent2, dim )
+     IF ( NTRotate ) THEN
+       NormalTangentialName = 'Normal-Tangential'
+       IF ( Solver % Variable % Name == 'flow solution' ) THEN
+         NormalTangentialName = TRIM(NormalTangentialName) // ' Velocity'
+       ELSE
+         NormalTangentialName = TRIM(NormalTangentialName) // ' ' // &
+            Solver % Variable % Name(1:Solver % Variable % Namelen)
+       END IF
+
+       dim = CoordinateSystemDimension()
+       CALL CheckNormalTangentialBoundary( CurrentModel, NormalTangentialName, &
+           NormalTangentialNOFNodes, BoundaryReorder, &
+                      BoundaryNormals, BoundaryTangent1, BoundaryTangent2, dim )
+
+       IF ( NormalTangentialNOFNodes > 0 ) THEN
+         CALL AverageBoundaryNormals( CurrentModel, NormalTangentialName, &
+           NormalTangentialNOFNodes, BoundaryReorder, &
+                 BoundaryNormals, BoundaryTangent1, BoundaryTangent2, dim )
+       END IF
      END IF
 !------------------------------------------------------------------------------
    END SUBROUTINE InitializeToZero
@@ -463,7 +470,7 @@ CONTAINS
 
      LForce = Force
      CALL UpdateGlobalForce( Solver % Matrix % Force(:,1), LForce, &
-                  n, DOFs, NodeIndexes, .FALSE. )
+                  n, DOFs, NodeIndexes )
 !------------------------------------------------------------------------------
 !PrevSol(:,Order) needed for BDF
      Method = ListGetString( Solver % Values, 'Timestepping Method', GotIt )
