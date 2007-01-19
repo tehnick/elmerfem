@@ -94,3 +94,4 @@ int CreateBoundaryLayerDivide(struct FemType *data,struct BoundaryType *bound,
 			      int nolayers, int *layerbounds, int *layernumber,
 			      Real *layerratios, Real *layerthickness, int *layerparents,int info);
 int RotateTranslateScale(struct FemType *data,struct ElmergridType *eg,int info);
+int RemoveLowerDimensionalBoundaries(struct FemType *data,struct BoundaryType *bound,int info);

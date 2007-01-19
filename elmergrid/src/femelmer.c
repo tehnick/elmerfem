@@ -1282,7 +1282,7 @@ int ElmerToElmerMap(struct FemType *data1,struct FemType *data2,int info)
 
 int CreateDualGraph(struct FemType *data,int info)
 {
-  int i,j,k,l,m,totcon,noelements, noknots,elemtype,nonodes,hit,ind,ind2, maxcon;
+  int i,j,k,l,m,totcon,noelements, noknots,elemtype,nonodes,hit,ind,ind2, maxcon,percon;
 
   printf("Creating a dual graph of the finite element mesh\n");  
 
@@ -1293,6 +1293,7 @@ int CreateDualGraph(struct FemType *data,int info)
 
   maxcon = 0;
   totcon = 0;
+  percon = 0;
   noelements = data->noelements;
   noknots = data->noknots;
 
@@ -1308,7 +1309,6 @@ int CreateDualGraph(struct FemType *data,int info)
 
 	hit = FALSE;
 	for(l=0;l<maxcon;l++) { 
-	  if(l>=maxcon) printf("l=%d %d\n",l,maxcon);
 	  if(data->dualgraph[l][ind] == ind2) hit = TRUE;
 	  if(data->dualgraph[l][ind] == 0) break;
 	}
@@ -1326,11 +1326,36 @@ int CreateDualGraph(struct FemType *data,int info)
     }
   }
 
+  if( data->periodicexist ) {
+    for(ind=1;ind<=noknots;ind++) {
+      ind2 = data->periodic[ind];      
+      if(ind == ind2) continue;
+
+      hit = FALSE;
+      for(l=0;l<maxcon;l++) { 
+	if(data->dualgraph[l][ind] == ind2) hit = TRUE;
+	if(data->dualgraph[l][ind] == 0) break;
+      }
+      if(!hit) {
+	if(l >= maxcon) {
+	  data->dualgraph[maxcon] = Ivector(1,noknots);
+	  for(m=1;m<=noknots;m++)
+	    data->dualgraph[maxcon][m] = 0;
+	  maxcon++;
+	}
+	data->dualgraph[l][ind] = ind2;
+	totcon++;
+	percon++;
+      }
+    }
+  }
+
   data->dualmaxconnections = maxcon;
   data->dualexists = TRUE;
   
   if(info) printf("There are at maximum %d connections in dual graph.\n",maxcon);
   if(info) printf("There are at all in all %d connections in dual graph.\n",totcon);
+  if(info && percon) printf("There are %d periodic connections in dual graph.\n",percon);
 
   return(0);
 }
@@ -1852,7 +1877,7 @@ int PartitionMetisElements(struct FemType *data,int partitions,int info)
   }
   inpart = data->elempart;
 
-  /* Are there periodic boundaries */
+  /* Are there periodic boundaries. This information is used to join the boundaries. */
   periodic = data->periodicexist;
   if(periodic) {
     if(info) printf("There seems to be peridic boundaries\n");
@@ -1870,7 +1895,6 @@ int PartitionMetisElements(struct FemType *data,int partitions,int info)
   for(i=1;i<=noelements;i++) {
     if(sides != data->elementtypes[i]/100) {
       printf("Nodal Metis partition requires that all the elements are of the same type!\n");
-      data->partitionexist = FALSE;
       bigerror("Partitioning not performed");
     }
     if(sides == 3 && data->elementtypes[i]%100 > 3) highorder = TRUE;
@@ -1900,6 +1924,10 @@ int PartitionMetisElements(struct FemType *data,int partitions,int info)
     if(info) printf("The mesh seems to consist of bricks\n");
     nodesd2 = 8;
     etype = 3;
+  }
+  else {
+    printf("Nodal Metis partition only for triangles, quads, tets and bricks!\n");
+    bigerror("Partitioning not performed");
   }
 
   neededby = Ivector(1,noknots);
@@ -1968,7 +1996,7 @@ int PartitionMetisElements(struct FemType *data,int partitions,int info)
   free_Ivector(epart,0,noelements-1);
   free_Ivector(npart,0,nn-1);
 
-  if(info) printf("Succesfully made a Metis partition\n");
+  if(info) printf("Succesfully made a Metis partition using the element mesh.\n");
 
   return(0);
 }
@@ -1977,10 +2005,10 @@ int PartitionMetisElements(struct FemType *data,int partitions,int info)
 
 int PartitionMetisNodes(struct FemType *data,int partitions,int info)
 {
-  int i,j,k,periodic,noelements,noknots;
+  int i,j,k,l,noelements,noknots;
   int nn,con,maxcon,totcon,options[5];
   int *xadj,*adjncy,*vwgt,*adjwgt,wgtflag,*npart;
-  int numflag,nparts,edgecut,neeedby;
+  int numflag,nparts,edgecut;
   int *indxper;
 
   if(info) printf("\nMaking a Metis partitioning for %d nodes in %d-dimensions.\n",
@@ -2021,13 +2049,6 @@ int PartitionMetisNodes(struct FemType *data,int partitions,int info)
   xadj[noknots] = totcon;
 
 
-  /* Are there periodic boundaries */
-  periodic = data->periodicexist;
-  if(periodic) {
-    if(info) printf("There seems to be peridic boundaries\n");
-    indxper = data->periodic;
-  }
-
   nn = noknots;
   numflag = 0;
   nparts = partitions;
@@ -2041,35 +2062,52 @@ int PartitionMetisNodes(struct FemType *data,int partitions,int info)
 
   vwgt = NULL;
   adjwgt = NULL;
+
+  /* Make the periodic connections the strongest ones */
+  if(data->periodicexist) {
+    if(info) printf("Setting periodic connections to dominate %d\n",totcon);
+    adjwgt = Ivector(0,totcon-1);
+    for(i=0;i<totcon;i++)
+      adjwgt[i] = 1;
+    for(i=0;i<noknots;i++) {
+      j = data->periodic[i+1]-1;
+      if(j == i) continue;
+      for(k=xadj[i];k<xadj[i+1];k++) 
+	if(adjncy[k] == j) adjwgt[k] = maxcon;
+    }
+    data->periodicexist = FALSE;
+    wgtflag = 1;
+  }
  
-  if(nparts <= 8) 
+  if(info) printf("Starting Metis graph partitioning call.\n");
+  if(nparts <= 8 && !data->periodicexist) 
     METIS_PartGraphRecursive(&nn,xadj,adjncy,vwgt,adjwgt,&wgtflag,
 			     &numflag,&nparts,&options[0],&edgecut,npart);
   else
     METIS_PartGraphKway(&nn,xadj,adjncy,vwgt,adjwgt,&wgtflag,
 			&numflag,&nparts,&options[0],&edgecut,npart);
+  if(info) printf("Finished Metis graph partitioning call.\n");
+
+
+  free_Ivector(adjncy,0,totcon-1);
+  if(wgtflag == 1)  free_Ivector(adjwgt,0,totcon-1);
 
   if(!data->partitionexist) {
     data->partitionexist = TRUE;
     data->elempart = Ivector(1,data->noelements);
-    data->nodepart = Ivector(1,data->noknots);
+    data->nodepart = xadj; /* Dirty reuse to save little memory and time */
     data->nopartitions = partitions;
   }
 
   /* Set the partition given by Metis for each node. */
-  for(i=1;i<=noknots;i++) {
-    j = i;
-    /* if(periodic) j = neededby[indxper[i]]; */
-    data->nodepart[i] = npart[j-1]+1;
-    if(data->nodepart[i] < 1 || data->nodepart[i] > partitions) 
-      printf("Invalid partition %d for node %d\n",data->nodepart[i],i);
-  }
+  for(i=1;i<=noknots;i++) 
+    data->nodepart[i] = npart[i-1]+1;
 
   PartitionElementsByNodes(data,info);
 
   free_Ivector(npart,0,noknots-1);
 
-  if(info) printf("Succesfully made a Metis partition\n");
+  if(info) printf("Succesfully made a Metis partition using the dual graph.\n");
 
   return(0);
 }
@@ -2077,11 +2115,10 @@ int PartitionMetisNodes(struct FemType *data,int partitions,int info)
 
 
 
-int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,
-			 int info)
+int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int info)
 {
   int i,j,k,l,n,m,boundaryelems,noelements,partitions,ind,periodic,hit,hit2;
-  int part1,part2,mam1,mam2,noknots,part,dshared,dshared0;
+  int dompart,part1,part2,newmam,mam1,mam2,noknots,part,dshared,dshared0;
   int *elempart,*nodepart,*neededby,*neededtimes,*indxper,sharings;
   int nodesd2,maxneededtimes,*probnodes;
   int *nodesinpart,*elementsinpart,optimize;
@@ -2102,6 +2139,18 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,
 
   nodepart = data->nodepart;
   elempart = data->elempart;
+
+  /* Check that every element belongs to some partition */
+  j=0;
+  for(i=1;i<=data->noelements;i++)
+    if(elempart[i] < 1 || elempart[i] > partitions) j++;
+  if(j) printf("Bad initial partitioning: %d elements do not belong anywhere!\n",j);
+
+  /* Check that every node belongs to some partition */
+  j=0;
+  for(i=1;i<=data->noknots;i++)
+    if(nodepart[i] < 1 || nodepart[i] > partitions) j++;
+  if(j) printf("Bad initial partitioning: %d nodes do not belong anywhere!\n",j);
 
   periodic = data->periodicexist;
   if(periodic) indxper = data->periodic;
@@ -2159,24 +2208,21 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,
 
 	  /* Make the more ruling parent dominate the whole boundary */
 	  if(hit > hit2) {
-	    elempart[mam2] = part1;
-	    boundaryelems++;	    
-	    nodesd2 =  data->elementtypes[mam2] % 100;
-	    for(l=0;l < nodesd2;l++) {
-	      ind = data->topology[mam2][l];
-	      nodepart[ind] = part1;
-	    }
-	  }	  
+	    dompart = part1;
+	    newmam = mam2;
+	  }
 	  else {
-	    elempart[mam1] = part2;
-	    boundaryelems++;	    
-	    nodesd2 =  data->elementtypes[mam1] % 100;
-	    for(l=0;l < nodesd2;l++) {
-	      ind = data->topology[mam1][l];
-	      nodepart[ind] = part2;	    
-	    }
+	    dompart = part2;
+	    newmam = mam1;
 	  }
 
+	  elempart[newmam] = dompart;
+	  boundaryelems++;	    
+	  nodesd2 =  data->elementtypes[newmam] % 100;
+	  for(l=0;l < nodesd2;l++) {
+	    ind = data->topology[newmam][l];
+	    nodepart[ind] = dompart;
+	  }
 
 	}
       }
@@ -2185,12 +2231,6 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,
     printf("%d bulk elements with BCs removed from interface.\n",boundaryelems);
   } while(boundaryelems && k < 10);
 
-
-  /* Check that every element belongs to some partition */
-  j=0;
-  for(i=1;i<=data->noelements;i++)
-    if(elempart[i] < 1 || elempart[i] > partitions) j++;
-  if(j) printf("Bad partitioning: %d elements do not belong anywhere!\n",j);
 
 
   neededtimes = Ivector(1,noknots);
@@ -2577,7 +2617,6 @@ optimizesharing:
   free_Imatrix(neededtable,1,noknots,1,maxneededtimes);
   free_Ivector(probnodes,1,noknots);
   free_Ivector(neededby,1,noknots);
-
 
  
   if(info) printf("The partitioning was optimized.\n"); 

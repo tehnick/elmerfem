@@ -3640,7 +3640,7 @@ void RenumberMaterialTypes(struct FemType *data,struct BoundaryType *bound,int i
 
 
 
-void RemoveLowerDimensionalBoundaries(struct FemType *data,struct BoundaryType *bound,int info)
+int RemoveLowerDimensionalBoundaries(struct FemType *data,struct BoundaryType *bound,int info)
 {
   int i,j,k,l,noelements;
   int elemtype,maxelemtype,maxelemdim,elemdim;
@@ -3650,7 +3650,7 @@ void RemoveLowerDimensionalBoundaries(struct FemType *data,struct BoundaryType *
   if(info) printf("Removing lower dimensional boundaries\n");
   
   noelements = data->noelements;
-  if(noelements < 1) return;
+  if(noelements < 1) return(1);
 
   maxelemtype = 0;
   for(j=1;j<=noelements;j++) {
@@ -3705,6 +3705,7 @@ void RemoveLowerDimensionalBoundaries(struct FemType *data,struct BoundaryType *
 
   if(info) printf("Removed %d (out of %d) less than %dD boundary elements\n",
 		  oldnosides-newnosides,oldnosides,maxelemdim);
+  return(0);
 }  
   
 
