@@ -40,7 +40,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: BandwidthOptimize.src,v 1.5 2006/01/10 08:32:49 apursula Exp $
+! * $Id: BandwidthOptimize.src,v 1.6 2006/11/15 13:46:37 jpr Exp $
 ! ******************************************************************************
 
 !-------------------------------------------------------------------------------
@@ -105,6 +105,7 @@ CONTAINS
    FUNCTION OptimizeBandwidth( ListMatrix, Perm, InvInitialReorder, LocalNodes, &
              Optimize, Equation ) RESULT( HalfBandWidth )
 !-------------------------------------------------------------------------------
+use spariterglobals
 
      INTEGER, DIMENSION(:) :: Perm, InvInitialReorder
      LOGICAL :: Optimize
@@ -115,7 +116,7 @@ CONTAINS
 !-------------------------------------------------------------------------------
 
      LOGICAL(KIND=1), ALLOCATABLE :: DoneAlready(:)
-     INTEGER, ALLOCATABLE :: PermLocal(:),RTemp(:)
+     INTEGER, ALLOCATABLE :: PermLocal(:),DoneIndex(:)
      LOGICAL :: Newroot, Finished
      INTEGER :: MinDegree,StartNode,MaxLevel
      INTEGER :: Index,i,j,k,n,k1,k2,HalfBandWidthBefore,HalfBandWidthAfter
@@ -195,48 +196,46 @@ CONTAINS
        END IF
      END DO
 !-------------------------------------------------------------------------------
-     ALLOCATE( PermLocal(SIZE(Perm)) )
-
-     PermLocal  = 0
-     DoneAlready = .FALSE.
+     ALLOCATE( PermLocal(SIZE(Perm)), DoneIndex(LocalNodes) )
+     PermLocal = 0
+     DoneIndex = 0
 !-------------------------------------------------------------------------------
 !    This loop really does the thing
 !-------------------------------------------------------------------------------
-     ALLOCATE( RTemp(LocalNodes) )
-     RTemp = 0
-
      Index = 1
      PermLocal(Index) = StartNode
-     RTemp(StartNode) = Index
-     DoneAlready(StartNode) = .TRUE.
+     DoneIndex(StartNode) = Index
      Index = Index + 1
 
      DO i=1,LocalNodes
-       IF( PermLocal(i) == 0 ) THEN
-          k = RTemp(i)
-          IF ( k==0 ) k = i
-          PermLocal(i) = k
-          Donealready(k) = .TRUE.
-        END IF
-        CALL Renumber( ListMatrix(PermLocal(i)) % Head )
+       IF ( PermLocal(i)==0 ) THEN
+         DO j=1,LocalNodes
+           IF ( DoneIndex(j)==0 ) THEN
+             PermLocal(Index) = j
+             DoneIndex(j) = Index
+             Index = Index + 1
+             EXIT
+           END IF
+         END DO
+       END IF
+       CALL Renumber(ListMatrix(PermLocal(i)) % Head)
      END DO
-
 !-------------------------------------------------------------------------------
 !    Store it the other way round for FEM, and reverse order for profile
 !    optimization
 !-------------------------------------------------------------------------------
-     RTemp = 0
+     DoneIndex = 0
      DO i=1,LocalNodes
-       RTemp( PermLocal(i) ) = LocalNodes - i + 1
+       DoneIndex(PermLocal(i)) = LocalNodes-i+1
      END DO
 
      PermLocal = Perm
      Perm      = 0
      DO i=1,SIZE(Perm)
        k = PermLocal(i)
-       IF ( k > 0 ) Perm(i) = RTemp(k)
+       IF (k>0) Perm(i) = DoneIndex(k)
      END DO
-     DEALLOCATE( RTemp )
+     DEALLOCATE( DoneIndex )
 
      HalfBandWidthAfter = ComputeBandwidth( LocalNodes, &
            ListMatrix,Perm,InvInitialReorder )+1
@@ -272,11 +271,10 @@ CONTAINS
          DO WHILE( ASSOCIATED(p) )
            k = p % Index
            IF ( k <= LocalNodes ) THEN
-             IF ( .NOT.DoneAlready(k) ) THEN
+             IF ( DoneIndex(k) == 0 ) THEN
                PermLocal(Index) = k
-               RTemp(k) = Index
+               DoneIndex(k) = Index
                Index = Index + 1
-               DoneAlready(k) = .TRUE.
              END IF
            END IF
            p => p % Next
