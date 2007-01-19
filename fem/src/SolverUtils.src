@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.53  2007/01/19 19:53:51  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.52  2007/01/19 14:47:57  jpr
 ! * Corrected a bug related to Normal-Tangetial BCs & timestepping.
 ! *
@@ -170,7 +173,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.52 2007/01/19 14:47:57 jpr Exp $
+! * $Id: SolverUtils.src,v 1.53 2007/01/19 19:53:51 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -221,7 +224,6 @@ CONTAINS
      REAL(KIND=dp) :: ForceVector(:)
 !------------------------------------------------------------------------------
      INTEGER :: i,dim
-     LOGICAL :: NTRotate, Found
      TYPE(Solver_t), POINTER :: Solver
 !------------------------------------------------------------------------------
 
@@ -259,28 +261,23 @@ CONTAINS
 
      Solver => CurrentModel % Solver
 
-     NTRotate=ListGetLogical(Solver % Values, 'Normal-Tangential Rotate',Found)
-     IF ( .NOT. Found ) NTRotate = .TRUE.
+     NormalTangentialName = 'Normal-Tangential'
+     IF ( Solver % Variable % Name == 'flow solution' ) THEN
+       NormalTangentialName = TRIM(NormalTangentialName) // ' Velocity'
+     ELSE
+       NormalTangentialName = TRIM(NormalTangentialName) // ' ' // &
+        Solver % Variable % Name(1:Solver % Variable % Namelen)
+     END IF
 
-     IF ( NTRotate ) THEN
-       NormalTangentialName = 'Normal-Tangential'
-       IF ( Solver % Variable % Name == 'flow solution' ) THEN
-         NormalTangentialName = TRIM(NormalTangentialName) // ' Velocity'
-       ELSE
-         NormalTangentialName = TRIM(NormalTangentialName) // ' ' // &
-            Solver % Variable % Name(1:Solver % Variable % Namelen)
-       END IF
+     dim = CoordinateSystemDimension()
+     CALL CheckNormalTangentialBoundary( CurrentModel, NormalTangentialName, &
+         NormalTangentialNOFNodes, BoundaryReorder, &
+                    BoundaryNormals, BoundaryTangent1, BoundaryTangent2, dim )
 
-       dim = CoordinateSystemDimension()
-       CALL CheckNormalTangentialBoundary( CurrentModel, NormalTangentialName, &
-           NormalTangentialNOFNodes, BoundaryReorder, &
-                      BoundaryNormals, BoundaryTangent1, BoundaryTangent2, dim )
-
-       IF ( NormalTangentialNOFNodes > 0 ) THEN
-         CALL AverageBoundaryNormals( CurrentModel, NormalTangentialName, &
-           NormalTangentialNOFNodes, BoundaryReorder, &
-                 BoundaryNormals, BoundaryTangent1, BoundaryTangent2, dim )
-       END IF
+     IF ( NormalTangentialNOFNodes > 0 ) THEN
+       CALL AverageBoundaryNormals( CurrentModel, NormalTangentialName, &
+         NormalTangentialNOFNodes, BoundaryReorder, &
+               BoundaryNormals, BoundaryTangent1, BoundaryTangent2, dim )
      END IF
 !------------------------------------------------------------------------------
    END SUBROUTINE InitializeToZero
@@ -468,7 +465,7 @@ CONTAINS
        END DO
      END DO
 
-     LForce = Force
+     LForce(1:n*DOFs) = Force(1:n*DOFs)
      CALL UpdateGlobalForce( Solver % Matrix % Force(:,1), LForce, &
                   n, DOFs, NodeIndexes )
 !------------------------------------------------------------------------------
@@ -1871,9 +1868,11 @@ CONTAINS
 
     Found = .FALSE.
     DO i=1,Model % NumberOfBCs
-      IF ( ListGetLogical(Model % BCs(i) % Values, VariableName, Found) ) THEN
-        Found = .TRUE.
-        EXIT
+      IF ( ListGetLogical(Model % BCs(i) % Values, VariableName, Gotit) ) THEN
+        Found = ListGetLogical( Model % BCs(i) % Values, &
+           TRIM(VariableName) // ' Rotate',Gotit )
+        IF (.NOT. Gotit ) Found = .TRUE.
+        IF ( Found ) EXIT
       END IF
     END DO
     IF ( .NOT. Found ) RETURN
@@ -1905,16 +1904,19 @@ CONTAINS
       DO i=1,Model % NumberOfBCs
         IF ( CurrentElement % BoundaryInfo % Constraint == &
                   Model % BCs(i) % Tag ) THEN
-          IF ( ListGetLogical( Model % BCs(i) % Values, &
-            VariableName, gotIt) ) THEN
-            DO j=1,n
-              k = NodeIndexes(j)
-              IF ( Visited(k) == 0 ) THEN
-                NumberOfBoundaryNodes = NumberOfBoundaryNodes + 1
-                BoundaryReorder(NodeIndexes(j)) = NumberOfBoundaryNodes
-              END IF
-              Visited(k) = Visited(k) + 1
-            END DO
+          IF ( ListGetLogical( Model % BCs(i) % Values,VariableName, gotIt) ) THEN
+            Found=ListGetLogical( Model % BCs(i) % Values, &
+               TRIM(VariableName) // ' Rotate',gotIt)
+            IF ( Found .OR. .NOT. GotIt ) THEN
+              DO j=1,n
+                k = NodeIndexes(j)
+                IF ( Visited(k) == 0 ) THEN
+                  NumberOfBoundaryNodes = NumberOfBoundaryNodes + 1
+                  BoundaryReorder(NodeIndexes(j)) = NumberOfBoundaryNodes
+                END IF
+                Visited(k) = Visited(k) + 1
+              END DO
+            END IF
           END IF
         END IF
       END DO
@@ -1972,7 +1974,7 @@ CONTAINS
     TYPE(Element_t), POINTER :: CurrentElement
     TYPE(Nodes_t) :: ElementNodes
     INTEGER :: i,j,k,l,m,n,t, iBC
-    LOGICAL :: GotIt
+    LOGICAL :: GotIt, Found
     REAL(KIND=dp) :: s,Bu,Bv
     INTEGER, POINTER :: NodeIndexes(:)
     TYPE(Matrix_t), POINTER :: Projector
@@ -1997,7 +1999,7 @@ CONTAINS
                   Model % NumberOfBoundaryElements
 
       CurrentElement => Model % Elements(t)
-      IF ( CurrentElement % TYPE % ElementCode < 200 ) CYCLE
+      IF ( CurrentElement % Type  % ElementCode < 200 ) CYCLE
 
       n = CurrentElement % TYPE % NumberOfNodes
       NodeIndexes => CurrentElement % NodeIndexes
@@ -2007,24 +2009,24 @@ CONTAINS
       ElementNodes % z(1:n) = Model % Nodes % z(NodeIndexes)
 
       DO i=1,Model % NumberOfBCs
-        IF ( CurrentElement % BoundaryInfo % Constraint == &
-                  Model % BCs(i) % Tag ) THEN
+        IF ( CurrentElement % BoundaryInfo % Constraint == Model % BCs(i) % Tag ) THEN
+          IF ( ListGetLogical( Model % BCs(i) % Values,VariableName, gotIt) ) THEN
+            Found = ListGetLogical( Model % BCs(i) % Values, &
+                TRIM(VariableName) // ' Rotate',gotIt)
+            IF ( Found .OR. .NOT. Gotit ) THEN
+              DO j=1,CurrentElement % TYPE % NumberOfNodes
+                k = BoundaryReorder( NodeIndexes(j) )
+                Bu = CurrentElement % TYPE % NodeU(j)
 
-          IF ( ListGetLogical( Model % BCs(i) % Values, &
-                 VariableName, gotIt) ) THEN
-
-            DO j=1,CurrentElement % TYPE % NumberOfNodes
-              k = BoundaryReorder( NodeIndexes(j) )
-              Bu = CurrentElement % TYPE % NodeU(j)
-
-              IF ( CurrentElement % TYPE % DIMENSION > 1 ) THEN
-                Bv = CurrentElement % TYPE % NodeV(j)
-              ELSE
-                Bv = 0.0D0
-              END IF
-              BoundaryNormals(k,:) = BoundaryNormals(k,:) + &
-                  NormalVector( CurrentElement,ElementNodes,Bu,Bv,.TRUE. )
-            END DO
+                IF ( CurrentElement % TYPE % DIMENSION > 1 ) THEN
+                  Bv = CurrentElement % TYPE % NodeV(j)
+                ELSE
+                  Bv = 0.0D0
+                END IF
+                BoundaryNormals(k,:) = BoundaryNormals(k,:) + &
+                    NormalVector( CurrentElement,ElementNodes,Bu,Bv,.TRUE. )
+              END DO
+            END IF
           END IF
         END IF
       END DO
