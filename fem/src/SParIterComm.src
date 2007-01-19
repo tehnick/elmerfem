@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterComm.src,v 1.8 2006/12/21 12:40:59 jpr Exp $
+! * $Id: SParIterComm.src,v 1.9 2007/01/19 12:05:11 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -66,7 +66,11 @@ CONTAINS
      SAVE SendBuffer
 
      isfine = ALLOCATED(SendBuffer)
+<<<<<<< SParIterComm.src
+     IF ( isfine ) isfine = 3*n <= SIZE(SendBuffer)
+=======
      IF ( isfine ) isfine = 2*n <= SIZE(SendBuffer)
+>>>>>>> 1.9
      IF ( isfine ) RETURN
 
      IF ( ALLOCATED(SendBuffer) ) THEN
@@ -74,8 +78,13 @@ CONTAINS
         CALL MPI_BUFFER_DETACH( SendBuffer, i, ierr )
         DEALLOCATE( SendBuffer )
      END IF
+<<<<<<< SParIterComm.src
+     ALLOCATE( SendBuffer( 3*n ) )
+     CALL MPI_BUFFER_ATTACH( SendBuffer, 3*n, ierr )
+=======
      ALLOCATE( SendBuffer( 2*n ) )
      CALL MPI_BUFFER_ATTACH( SendBuffer, 2*n, ierr )
+>>>>>>> 1.9
 !-----------------------------------------------------------------
    END SUBROUTINE CheckBuffer
 !-----------------------------------------------------------------
