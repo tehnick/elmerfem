@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.51  2007/01/11 07:40:04  jpr
+! * Small bug fixes.
+! *
 ! * Revision 1.50  2007/01/04 08:02:34  jpr
 ! * *** empty log message ***
 ! *
@@ -167,7 +170,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.50 2007/01/04 08:02:34 jpr Exp $
+! * $Id: SolverUtils.src,v 1.51 2007/01/11 07:40:04 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -401,7 +404,7 @@ CONTAINS
      INTEGER :: i,j,k,l,m,Order
      REAL(KIND=dp) :: s, t
      CHARACTER(LEN=MAX_NAME_LEN) :: Method
-     REAL(KIND=dp) :: PrevSol(DOFs*n,Solver % Order)
+     REAL(KIND=dp) :: PrevSol(DOFs*n,Solver % Order), LForce(n*DOFs)
 !------------------------------------------------------------------------------
 
      IF ( Solver % Matrix % Lumped ) THEN
@@ -457,10 +460,10 @@ CONTAINS
          END DO
        END DO
      END DO
-  
-     CALL UpdateGlobalForce( Solver % Matrix % Force(:,1), Force, &
-                  n, DOFs, NodeIndexes)
 
+     LForce = Force
+     CALL UpdateGlobalForce( Solver % Matrix % Force(:,1), LForce, &
+                  n, DOFs, NodeIndexes, .FALSE. )
 !------------------------------------------------------------------------------
 !PrevSol(:,Order) needed for BDF
      Method = ListGetString( Solver % Values, 'Timestepping Method', GotIt )
@@ -528,7 +531,7 @@ CONTAINS
      INTEGER :: i,j,k,l
      CHARACTER(LEN=MAX_NAME_LEN) :: Method
      REAL(KIND=dp) :: s,t
-     REAL(KIND=dp) :: X(DOFs*n),V(DOFs*N),A(DOFs*N)
+     REAL(KIND=dp) :: X(DOFs*n),V(DOFs*N),A(DOFs*N),LForce(n*DOFs)
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
@@ -623,8 +626,9 @@ CONTAINS
        END DO
      END DO
 
-     CALL UpdateGlobalForce( Solver % Matrix % Force(:,1), Force, &
-                  n, DOFs, NodeIndexes)
+     LForce(1:n*DOFs) = Force(1:n*DOFs)
+     CALL UpdateGlobalForce( Solver % Matrix % Force(:,1), LForce, &
+                  n, DOFs, NodeIndexes )
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
@@ -725,7 +729,7 @@ CONTAINS
        dim = CoordinateSystemDimension()
        Indexes = 0
        Element => CurrentModel % CurrentElement
-       Indexes(1:Element % TYPE % NumberOfNodes) = &
+       Indexes(1:Element % Type % NumberOfNodes) = &
              BoundaryReorder(Element % NodeIndexes)
        CALL RotateMatrix( LocalStiffMatrix, LocalForce, n, dim, NDOFs, &
           Indexes, BoundaryNormals, BoundaryTangent1, BoundaryTangent2 )
@@ -758,7 +762,8 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-   SUBROUTINE UpdateGlobalForce(ForceVector, LocalForce, n, NDOFs, NodeIndexes)
+   SUBROUTINE UpdateGlobalForce(ForceVector, LocalForce, n, &
+             NDOFs, NodeIndexes )
 !------------------------------------------------------------------------------
 !******************************************************************************
 ! 
@@ -789,7 +794,8 @@ CONTAINS
 !------------------------------------------------------------------------------
      TYPE(Element_t), POINTER :: Element
      INTEGER :: i,j,k, dim,indexes(n)
-     REAL(KIND=dp) :: LocalStiffMatrix(n*NDOFs,n*NDOFs)
+     LOGICAL :: rot
+     REAL(KIND=dp) :: LocalStiffMatrix(n*NDOFs,n*NDOFs), LForce(n*NDOFs)
 !------------------------------------------------------------------------------
 !    Update global matrix and rhs vector....
 !------------------------------------------------------------------------------
@@ -798,7 +804,7 @@ CONTAINS
        Indexes = 0
        Element => CurrentModel % CurrentElement
        Indexes(1:Element % Type % NumberOfNodes) = &
-             BoundaryReorder( Element % NodeIndexes )
+             BoundaryReorder(Element % NodeIndexes)
        CALL RotateMatrix( LocalStiffMatrix, LocalForce, n, dim, NDOFs, &
           Indexes, BoundaryNormals, BoundaryTangent1, BoundaryTangent2 )
      END IF
@@ -2466,13 +2472,13 @@ CONTAINS
     IF ( Solver % Matrix % Lumped .AND. Solver % TimeOrder == 1 ) THEN
       Method = ListGetString( Solver % Values, 'Timestepping Method', GotIt)
       IF (  Method == 'runge-kutta' .OR. Method == 'explicit euler' ) THEN
-         DO i=1,n
-            IF ( ABS( A % Values(A % Diag(i)) ) > 0.0d0 ) THEN
+        DO i=1,n
+           IF ( ABS( A % Values(A % Diag(i)) ) > 0.0d0 ) &
               x(i) = b(i) / A % Values(A % Diag(i))
-            END IF
-         END DO
-         CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
-         RETURN
+        END DO
+        CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
+        Norm = SQRT( SUM( x(1:n)**2 ) / n )
+        RETURN
       END IF
     END IF
 
