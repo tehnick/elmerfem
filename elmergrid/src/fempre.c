@@ -167,7 +167,7 @@ static void Instructions()
   printf("-partition int[3]    : the mesh will be partitioned in main directions\n");
   printf("-partorder real[3]   : in the above method, the direction of the ordering\n");
 #if PARTMETIS
-  printf("-metis int           : the mesh will be partitioned with Metis\n");
+  printf("-metis int[2]        : the mesh will be partitioned with Metis\n");
 #endif
   printf("-periodic int[3]     : decleare the periodic coordinate directions\n");
   printf("-bcoffset int        : add an offset to the boundary conditions\n");
@@ -556,6 +556,12 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
       else {
 	eg->metis = atoi(argv[arg+1]);
 	printf("The mesh will be partitioned with Metis to %d partitions.\n",eg->metis);
+	if(arg+2 < argc) { 
+	  if(argv[arg+2][0] != '-') eg->metisopt = atoi(argv[arg+2]);
+	}
+	else {
+	  eg->metisopt = 0;
+	}
       }
 #else
       printf("This version of ElmerGrid was compiled without Metis library!\n");
@@ -958,6 +964,13 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
       }  
       eg->belems = i;
       printf("Found %d definitions for bubble elements.\n",i);
+    }
+    else if(strstr(command,"METIS OPTION")) {
+#if PARTMETIS
+      sscanf(params,"%d",&eg->metisopt);
+#else
+      printf("This version of ElmerGrid was compiled without Metis library!\n");
+#endif
     }
     else if(strstr(command,"METIS")) {
 #if PARTMETIS
@@ -1713,12 +1726,10 @@ int main(int argc, char *argv[])
       PartitionSimpleNodes(&data[k],eg.partdim,eg.periodicdim,eg.partorder,eg.partcorder,info);	
     }
 #if PARTMETIS
-    else if(eg.metis > 1) 
+    else if(eg.metisopt == 0) 
       PartitionMetisElements(&data[k],eg.metis,info);
-    else if(eg.metis < -1) {
-      eg.metis = abs(eg.metis);
-      PartitionMetisNodes(&data[k],eg.metis,info);      
-    }
+    else
+      PartitionMetisNodes(&data[k],eg.metis,eg.metisopt,info);      
 #endif
     if(eg.partitions || eg.metis ) 
       OptimizePartitioning(&data[k],boundaries[k],info);

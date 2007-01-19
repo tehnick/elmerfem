@@ -22,7 +22,7 @@ int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
 			 int partorder, Real corder[],int info);
 #if PARTMETIS
 int PartitionMetisElements(struct FemType *data,int partitions,int info);
-int PartitionMetisNodes(struct FemType *data,int partitions,int info);
+int PartitionMetisNodes(struct FemType *data,int partitions,int metisopt,int info);
 #endif
 int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,
 			 int info);

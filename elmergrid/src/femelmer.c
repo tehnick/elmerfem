@@ -2003,7 +2003,7 @@ int PartitionMetisElements(struct FemType *data,int partitions,int info)
 
 
 
-int PartitionMetisNodes(struct FemType *data,int partitions,int info)
+int PartitionMetisNodes(struct FemType *data,int partitions,int metisopt,int info)
 {
   int i,j,k,l,noelements,noknots;
   int nn,con,maxcon,totcon,options[5];
@@ -2078,14 +2078,24 @@ int PartitionMetisNodes(struct FemType *data,int partitions,int info)
     data->periodicexist = FALSE;
     wgtflag = 1;
   }
- 
+
+  if(data->periodicexist) metisopt = 2;
+  
   if(info) printf("Starting Metis graph partitioning call.\n");
-  if(nparts <= 8 && !data->periodicexist) 
+
+
+  if(metisopt == 1)
     METIS_PartGraphRecursive(&nn,xadj,adjncy,vwgt,adjwgt,&wgtflag,
 			     &numflag,&nparts,&options[0],&edgecut,npart);
-  else
+  else if(metisopt == 2) 
     METIS_PartGraphKway(&nn,xadj,adjncy,vwgt,adjwgt,&wgtflag,
 			&numflag,&nparts,&options[0],&edgecut,npart);
+  else if(metisopt == 3) 
+    METIS_PartGraphVKway(&nn,xadj,adjncy,vwgt,adjwgt,&wgtflag,
+			&numflag,&nparts,&options[0],&edgecut,npart);
+  else 
+    printf("Unknown Metis option\n",metisopt);
+
   if(info) printf("Finished Metis graph partitioning call.\n");
 
 

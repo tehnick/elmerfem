@@ -287,6 +287,7 @@ struct ElmergridType {
     layernumber[MAXBOUNDARIES], 
     layermove,  /* map the created layer to the original geometry */
     metis,      /* number of Metis partitions */
+    metisopt,
     partitions, /* number of simple geometric partitions */
     partdim[3],
     inmethod,   /* method in which mesh is read in to ElmerGrid */
