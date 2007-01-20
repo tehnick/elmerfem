@@ -36,10 +36,11 @@
 *  is able to read several different formats and writes mainly Elmer input  *
 *  and output formats. The meshes may also be given some simple operations. *
 *                                                                           *
-*  Note: this software was initially part of Pirfem code, then later        *
-*  called Quickmesh, and finally renamed to Elmergrid. The code has never   *
-*  been designed and with new features the code has eventually become very  *
-*  dirty.                                                                   *
+*  Note: this software was initially part of my first fem implementation    *
+*  the Pirfem code, then later called Quickmesh, and finally renamed to     *
+*  Elmergrid. The code has never been designed and with new features the    *
+*  code has eventually become very dirty and does not present my view of    *
+*  good programming.                                                        *
 *                                                                           *
 ****************************************************************************/
 

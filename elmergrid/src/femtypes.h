@@ -19,6 +19,7 @@
 #define MAXCONNECTIONS 100  /* maximum number of connections in dual graph */
 #define MAXBCS 1000         /* maximum number of BCs in naming */
 #define MAXBODIES 100       /* maximum number of bodies in naming */
+#define MAXPARTITIONS 100   /* maximum number of partitions */
 
 #define CONPLAIN 0
 #define CONDISCONT 1
@@ -168,6 +169,10 @@ struct FemType {
     *dualgraph[MAXCONNECTIONS],  
     dualmaxconnections,
     dualexists,
+
+    *partitiontable[MAXCONNECTIONS],  
+    maxpartitiontable,
+
     nocorners,     /* number material corners in the mesh */
     timesteps,     /* number of timesteps */
     periodicexist, /* does the periodic vector exist? */
