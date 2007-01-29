@@ -19,7 +19,7 @@
 #define MAXCONNECTIONS 100  /* maximum number of connections in dual graph */
 #define MAXBCS 1000         /* maximum number of BCs in naming */
 #define MAXBODIES 100       /* maximum number of bodies in naming */
-#define MAXPARTITIONS 100   /* maximum number of partitions */
+#define MAXPARTITIONS 512   /* maximum number of partitions */
 
 #define CONPLAIN 0
 #define CONDISCONT 1
@@ -172,6 +172,11 @@ struct FemType {
 
     *partitiontable[MAXCONNECTIONS],  
     maxpartitiontable,
+    partitiontableexists, 
+
+    *invtopo[MAXCONNECTIONS],
+    maxinvtopo,
+    invtopoexists,
 
     nocorners,     /* number material corners in the mesh */
     timesteps,     /* number of timesteps */
@@ -292,7 +297,7 @@ struct ElmergridType {
     layernumber[MAXBOUNDARIES], 
     layermove,  /* map the created layer to the original geometry */
     metis,      /* number of Metis partitions */
-    metisopt,
+    partopt,    /* free parameter for optimization */
     partitions, /* number of simple geometric partitions */
     partdim[3],
     inmethod,   /* method in which mesh is read in to ElmerGrid */
