@@ -3047,6 +3047,7 @@ static void ReorderComsolNodes(int elementtype,int *topo)
 {
   int i,j,tmptopo[MAXNODESD2];
   int order404[]={1,2,4,3};
+  int order808[]={1,2,4,3,5,6,8,7};
  
    
   switch (elementtype) {
@@ -3056,6 +3057,13 @@ static void ReorderComsolNodes(int elementtype,int *topo)
       tmptopo[i] = topo[i];
     for(i=0;i<elementtype%100;i++) 
       topo[i] = tmptopo[order404[i]-1];
+    break;
+
+  case 808:
+    for(i=0;i<elementtype%100;i++) 
+      tmptopo[i] = topo[i];
+    for(i=0;i<elementtype%100;i++) 
+      topo[i] = tmptopo[order808[i]-1];
     break;
 
   default:
@@ -3135,13 +3143,13 @@ omstart:
 
     else if(strstr(line,"# type name")) {
       if(strstr(line,"vtx")) elembasis = 100;
-      if(strstr(line,"edg")) elembasis = 200;
-      if(strstr(line,"tri")) elembasis = 300;
-      if(strstr(line,"quad")) elembasis = 400;
-      if(strstr(line,"tet")) elembasis = 500;
-      if(strstr(line,"prism")) elembasis = 700;
-     
-      if(debug) printf("elembasis=%d\n",elembasis);     
+      else if(strstr(line,"edg")) elembasis = 200;
+      else if(strstr(line,"tri")) elembasis = 300;
+      else if(strstr(line,"quad")) elembasis = 400;
+      else if(strstr(line,"tet")) elembasis = 500;
+      else if(strstr(line,"prism")) elembasis = 700;
+      else if(strstr(line,"hex")) elembasis = 800;
+      else printf("unknown element type = %s",line);
     }
 
     else if(strstr(line,"# number of nodes per element")) {

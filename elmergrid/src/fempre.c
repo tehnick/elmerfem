@@ -165,7 +165,7 @@ static void Instructions()
   printf("-pelem int[3]        : p-elements of power int3 at interval [int1 int2]\n");
   printf("-belem int[3]        : set bubble dofs to int3 at interval [int1 int2]\n");
 #endif
-  printf("-partition int[3]    : the mesh will be partitioned in main directions\n");
+  printf("-partition int[4]    : the mesh will be partitioned in main directions\n");
   printf("-partorder real[3]   : in the above method, the direction of the ordering\n");
 #if PARTMETIS
   printf("-metis int[2]        : the mesh will be partitioned with Metis\n");
@@ -188,7 +188,7 @@ static void Instructions()
   printf("-3d / -2d / -1d      : mesh is 3, 2 or 1-dimensional (applies to examples)\n");
   printf("-isoparam            : ensure that higher order elements are convex\n");
   printf("-nobound             : disable saving of boundary elements in ElmerPost format\n");
-  printf("-names               : conserve name information where applicable\n");
+  if(0) printf("-names               : conserve name information where applicable\n");
 #if 0
   printf("-map str             : file with mapping info for mesh-to-mesh interpolation\n");
 #endif
@@ -363,6 +363,10 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
       eg->order = 2;
     }
 
+    if(strcmp(argv[arg],"-metisorder") == 0) {
+      eg->order = 3;
+    }
+
     if(strcmp(argv[arg],"-scale") == 0) {
       if(arg+dim >= argc) {
 	printf("Give %d parameters for the scaling.\n",dim);
@@ -530,7 +534,10 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
 	  if(eg->partdim[i] == 0) eg->partdim[i] = 1;
 	  eg->partitions *= eg->partdim[i];
 	}
-	if(eg->partdim[0] < 0) eg->partdim[0] = -eg->partdim[0];
+	eg->partopt = 0;
+	if(arg+4 < argc) 
+	  if(argv[arg+4][0] != '-') eg->partopt = atoi(argv[arg+4]);
+
 	printf("The mesh will be partitioned with simple division to %d partitions.\n",
 	       eg->partitions);
       }
@@ -557,12 +564,9 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
       else {
 	eg->metis = atoi(argv[arg+1]);
 	printf("The mesh will be partitioned with Metis to %d partitions.\n",eg->metis);
-	if(arg+2 < argc) { 
-	  if(argv[arg+2][0] != '-') eg->metisopt = atoi(argv[arg+2]);
-	}
-	else {
-	  eg->metisopt = 0;
-	}
+	eg->partopt = 0;
+	if(arg+2 < argc) 
+	  if(argv[arg+2][0] != '-') eg->partopt = atoi(argv[arg+2]);
       }
 #else
       printf("This version of ElmerGrid was compiled without Metis library!\n");
@@ -757,25 +761,24 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
   int i,j,k,l,error=0;
 
   if( mode == 0) {  
-    if ((in = fopen("ELMERGRID_STARTINFO","r")) == NULL) {
-      return(1);
-    }
-    else {
+    if (in = fopen("ELMERGRID_STARTINFO","r")) {
       fscanf(in,"%s",filename);
       fclose(in);
       printf("Using the file %s defined in ELMERGRID_STARTINFO\n",filename);
       if ((in = fopen(filename,"r")) == NULL) {
 	printf("LoadCommands: opening of the file '%s' wasn't succesfull !\n",filename);
-	return(2);
+	return(1);
       }    
+      else printf("Loading ElmerGrid commands from file '%s'.\n",filename);    
     }    
-    if(info) printf("Loading ElmerGrid commands from file '%s'.\n",filename);    
+    else 
+      return(2);
   }
   if(mode == 1) { 
     AddExtension(prefix,filename,"eg");
     if ((in = fopen(filename,"r")) == NULL) {
       printf("LoadCommands: opening of the file '%s' wasn't succesfull !\n",filename);
-      return(2);
+      return(3);
     }    
     if(info) printf("Loading ElmerGrid commands from file '%s'.\n",filename);    
   }
@@ -783,7 +786,7 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
     AddExtension(prefix,filename,"grd");
     if ((in = fopen(filename,"r")) == NULL) {
       printf("LoadCommands: opening of the file '%s' wasn't succesfull !\n",filename);
-      return(3);
+      return(4);
     }    
     if(info) printf("Loading ElmerGrid commands from file '%s'.\n",filename);
   }
@@ -799,7 +802,7 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
 
     /* If the mode is the command file mode read also the file information from the command file. */
 
-    if(mode == 0) {
+    if(mode <= 1) {
       if(strstr(command,"INPUT FILE")) {
 	sscanf(params,"%s",&eg->filesin[0]);
       }
@@ -968,7 +971,7 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
     }
     else if(strstr(command,"METIS OPTION")) {
 #if PARTMETIS
-      sscanf(params,"%d",&eg->metisopt);
+      sscanf(params,"%d",&eg->partopt);
 #else
       printf("This version of ElmerGrid was compiled without Metis library!\n");
 #endif
@@ -1158,7 +1161,12 @@ int main(int argc, char *argv[])
   InitGrid(grids);
   info = TRUE;
 
-  if(argc <= 2) {
+  if(argc <= 1) {
+    errorstat = LoadCommands(argv[1],&eg,grids,argc-1,info);     
+    Instructions();
+    if(errorstat) Goodbye();
+  }
+  if(argc == 2) {
     errorstat = LoadCommands(argv[1],&eg,grids,argc-1,info);     
     if(errorstat) Goodbye();
   }
@@ -1269,7 +1277,7 @@ int main(int argc, char *argv[])
       boundaries[nofile][i].created = FALSE; 
       boundaries[nofile][i].nosides = 0;
     }
-    if(!eg.usenames) data[nofile].boundarynamesexist = data[nofile].bodynamesexist = FALSE;
+    if(0 && !eg.usenames) data[nofile].boundarynamesexist = data[nofile].bodynamesexist = FALSE;
     ElementsToBoundaryConditions(&(data[nofile]),boundaries[nofile],TRUE);
     RenumberBoundaryTypes(&data[nofile],boundaries[nofile],TRUE,0,info);
   
@@ -1605,8 +1613,11 @@ int main(int argc, char *argv[])
   for(k=0;k<nomeshes;k++) {
     if(eg.merge) 
       MergeElements(&data[k],boundaries[k],eg.order,eg.corder,eg.cmerge,FALSE,TRUE);
+    else if(eg.order == 3) 
+      ReorderElementsMetis(&data[k],TRUE);
     else if(eg.order) 
       ReorderElements(&data[k],boundaries[k],eg.order,eg.corder,TRUE);
+    
     if(eg.isoparam) 
       IsoparametricElements(&data[k],boundaries[k],TRUE,info);
   }  
@@ -1720,21 +1731,27 @@ int main(int argc, char *argv[])
 
    
   for(k=0;k<nomeshes;k++) {
-    if(eg.partitions > 1) 
-      PartitionSimpleElements(&data[k],eg.partdim,eg.periodicdim,eg.partorder,eg.partcorder,info);	
-    else if(eg.partitions < -1) { 
-      eg.partitions = abs( eg.partitions );
-      PartitionSimpleNodes(&data[k],eg.partdim,eg.periodicdim,eg.partorder,eg.partcorder,info);	
+    int noopt = 0;
+    if(eg.partitions) {
+      if(eg.partopt % 2 == 0) 
+	PartitionSimpleElements(&data[k],eg.partdim,eg.periodicdim,eg.partorder,eg.partcorder,info);	
+      else 
+	PartitionSimpleNodes(&data[k],eg.partdim,eg.periodicdim,eg.partorder,eg.partcorder,info);	
+      noopt = eg.partopt / 2;      
     }
 #if PARTMETIS
-    else if(eg.metisopt == 0) 
-      PartitionMetisElements(&data[k],eg.metis,info);
-    else
-      PartitionMetisNodes(&data[k],eg.metis,eg.metisopt,info);      
+    if(eg.metis) {
+      if(eg.partopt % 4 == 0) 
+	PartitionMetisElements(&data[k],eg.metis,info);
+      else
+	PartitionMetisNodes(&data[k],eg.metis,eg.partopt % 4,info);      
+      noopt = eg.partopt / 4;      
+    }
 #endif
     if(eg.partitions || eg.metis ) 
-      OptimizePartitioning(&data[k],boundaries[k],info);
+      OptimizePartitioning(&data[k],boundaries[k],noopt,info);
   }
+
 
   if(eg.pelems || eg.belems || eg.advancedmat) {
     int currenttype;
