@@ -40,6 +40,10 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MagneticSolve.src,v $
+! * Revision 1.11  2006/02/20 08:06:19  jpr
+! * Moved handling of Normal-Tangential BCs inside SolverUtils. Corrected
+! * a few bugs in Adaptive.src, Lists.src.
+! *
 ! * Revision 1.10  2006/02/01 08:07:58  jpr
 ! * Replaced most of the usage of MAX_NODES by dynamic allocations.
 ! *
@@ -125,8 +129,7 @@
            Permeability, divB, ExBx,ExBy,ExBz,B1,B2,B3,MU,MV,MW
 
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: MessageL
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: MagneticSolve.src,v 1.10 2006/02/01 08:07:58 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: MagneticSolve.src,v 1.11 2006/02/20 08:06:19 jpr Exp $"
 
      REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
 
@@ -740,16 +743,18 @@
      IMPLICIT NONE
      REAL(KIND=dp) :: B1(:),B2(:),B3(:)
      REAL(KIND=dp) :: LrF1(:),LrF2(:),LrF3(:), Lorentz(3)
+     REAL(KIND=dp), POINTER :: Density(:)
      INTEGER :: Reorder(:)
 
      TYPE(Element_t), POINTER :: Element
      TYPE(Nodes_t) :: Nodes 
 
+     LOGICAL :: Stat, Averaged
 
-     LOGICAL :: Stat
+     CHARACTER(LEN=MAX_NAME_LEN) :: CompressibilityFlag
 
      INTEGER, POINTER :: NodeIndexes(:),Visited(:)
-     INTEGER :: p,q,i,t,n
+     INTEGER :: p,q,i,t,n, mat_id
 
      REAL(KIND=dp) :: u,v,w
 
@@ -757,8 +762,9 @@
 
      ALLOCATE( Visited(Model % NumberOfNodes) )
 
-     n = CurrentModel % Mesh % MaxElementNodes
+     n = Model % Mesh % MaxElementNodes
      ALLOCATE(Nodes % x(n),Nodes % y(n),Nodes % z(n))
+     ALLOCATE( Density(n) )
 
      Visited = 0
 
@@ -769,12 +775,41 @@
      DO t=1,Model % NumberOfBulkElements
 
         Element => Model % Elements(t)
+        Bf_id = GetBodyForceId( Element, Stat )
+        IF ( .NOT. Stat )  CYCLE
+
+        Averaged = .FALSE.
+        IF ( .NOT. GetLogical( Model % BodyForces(Bf_id) % Values, &
+             'Lorentz Force', Stat ) )  THEN
+           IF ( GetLogical( Model % BodyForces(bf_id) % Values, &
+                'Averaged Lorentz Force', Stat ) ) THEN
+              Averaged = .TRUE.
+           ELSE
+              CYCLE
+           END IF
+        END IF
+
         n = Element % TYPE % NumberOfNodes
         NodeIndexes => Element % NodeIndexes
 
         Nodes % x(1:n) = Model % Nodes % x( NodeIndexes )
         Nodes % y(1:n) = Model % Nodes % y( NodeIndexes )
         Nodes % z(1:n) = Model % Nodes % z( NodeIndexes )
+
+
+        IF ( Averaged ) THEN
+
+           mat_id = GetMaterialId( Element )
+           Density(1:n) = GetReal( Model % Materials(mat_id) % Values , 'Density', &
+                Stat, Element )
+
+           CompressibilityFlag = ListGetString( Model % Materials(mat_id) % Values, &
+                'Compressibility Model', Stat )
+           IF ( Stat .AND. CompressibilityFlag /= 'incompressible' )  &
+                CALL Fatal( 'MagneticSolve', &
+                'Averaged Lorentz Force implemented only for incompressible flow' )
+
+        END IF
 
         IF ( MINVAL(Reorder(NodeIndexes)) > 0 ) THEN
 
@@ -794,9 +829,15 @@
 ! For r < 1.0d-10, avoid the 1/r term in ComputeLorentz (if CylindricSymmetric)
 ! by using SI_UNITS
               Lorentz = LorentzForce( Element,Nodes,u,v,w,n )
-              LrF1(q) = LrF1(q) + Lorentz(1)
-              LrF2(q) = LrF2(q) + Lorentz(2)
-              LrF3(q) = LrF3(q) + Lorentz(3)
+              IF ( Averaged ) THEN
+                 LrF1(q) = LrF1(q) + Lorentz(1) / Density(p)
+                 LrF2(q) = LrF2(q) + Lorentz(2) / Density(p)
+                 LrF3(q) = LrF3(q) + Lorentz(3) / Density(p)
+              ELSE
+                 LrF1(q) = LrF1(q) + Lorentz(1)
+                 LrF2(q) = LrF2(q) + Lorentz(2)
+                 LrF3(q) = LrF3(q) + Lorentz(3)
+              END IF
 
               Visited(q) = Visited(q) + 1
            
@@ -814,6 +855,7 @@
 
       DEALLOCATE( Visited )
       DEALLOCATE( Nodes % x, Nodes % y, Nodes % z )
+      DEALLOCATE( Density )
 
     END SUBROUTINE LorentzForceNodal
 
