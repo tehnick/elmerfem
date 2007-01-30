@@ -39,6 +39,12 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Lists.src,v $
+! * Revision 1.31  2007/01/22 08:42:57  jpr
+! * *** empty log message ***
+! *
+! * Revision 1.30  2007/01/11 07:40:04  jpr
+! * Small bug fixes.
+! *
 ! * Revision 1.29  2007/01/09 14:14:44  jpr
 ! * Small cleanups / optimizations.
 ! *
@@ -83,7 +89,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Lists.src,v 1.29 2007/01/09 14:14:44 jpr Exp $
+! * $Id: Lists.src,v 1.31 2007/01/22 08:42:57 jpr Exp $
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
@@ -1492,8 +1498,8 @@ TYPE(ValueList_t), POINTER :: ptr
      REAL(KIND=dp) :: xx,yy,zz
 
      INTEGER :: i,j,k,n
-     CHARACTER(LEN=MAX_NAME_LEN) :: cmd
      CHARACTER(LEN=LEN_TRIM(NAME)) :: str
+     CHARACTER(LEN=MAX_NAME_LEN) :: cmd,tmp_str
 !------------------------------------------------------------------------------
      F = 0.0D0
      IF ( PRESENT(gotIt) ) gotIt = .TRUE.
@@ -1531,8 +1537,8 @@ TYPE(ValueList_t), POINTER :: ptr
      IF ( Ptr % Type >= 8 ) THEN
         cmd = ptr % CValue
         k = LEN_TRIM( cmd )
-        CALL matc( cmd, str, k )
-        READ( str(1:k), * ) F
+        CALL matc( cmd, tmp_str, k )
+        READ( tmp_str(1:k), * ) F
      ELSE IF ( ptr % Procedure /= 0 ) THEN
        F = ExecConstRealFunction( ptr % Procedure,CurrentModel,x,y,z )
      ELSE
@@ -1575,8 +1581,8 @@ TYPE(ValueList_t), POINTER :: ptr
 
      REAL(KIND=dp) :: T(MAX_FNC)
      INTEGER :: i,j,k,k1,l,l0,l1,lsize
-     CHARACTER(LEN=MAX_NAME_LEN) ::  cmd
      CHARACTER(LEN=LEN_TRIM(Name)) :: str
+     CHARACTER(LEN=MAX_NAME_LEN) ::  cmd, tmp_str
 !------------------------------------------------------------------------------
      F = 0.0D0
      IF ( PRESENT(GotIt) ) GotIt = .TRUE.
@@ -1702,19 +1708,19 @@ TYPE(ValueList_t), POINTER :: ptr
          TVar => VariableGet( CurrentModel % Variables, 'Time' ) 
          WRITE( cmd, '(a,e15.8)' ) 'st = ', TVar % Values(1)
          k = LEN_TRIM( cmd )
-         CALL matc( cmd, str, k )
+         CALL matc( cmd, tmp_str, k )
 
          cmd = ptr % CValue
          k = LEN_TRIM( cmd )
-         CALL matc( cmd, str, k )
-         READ( str(1:k), * ) F(1)
+         CALL matc( cmd, tmp_str, k )
+         READ( tmp_str(1:k), * ) F(1)
          F(2:n) = F(1)
 
      CASE( LIST_TYPE_VARIABLE_SCALAR_STR )
        TVar => VariableGet( CurrentModel % Variables, 'Time' ) 
        WRITE( cmd, * ) 'st = ', TVar % Values(1)
        k = LEN_TRIM( cmd )
-       CALL matc( cmd, str, k )
+       CALL matc( cmd, tmp_str, k )
 
        DO i=1,n
          k = NodeIndexes(i)
@@ -1789,13 +1795,13 @@ TYPE(ValueList_t), POINTER :: ptr
            DO l=1,j
              WRITE( cmd, * ) 'tx(',l-1,') = ', T(l)
              k1 = LEN_TRIM( cmd )
-             CALL matc( cmd, str, k1 )
+             CALL matc( cmd, tmp_str, k1 )
            END DO
 
            cmd = ptr % CValue
            k1 = LEN_TRIM( cmd )
-           CALL matc( cmd, str, k1 )
-           READ( str(1:k1), * ) F(i)
+           CALL matc( cmd, tmp_str, k1 )
+           READ( tmp_str(1:k1), * ) F(i)
          END IF
        END DO
      END SELECT
