@@ -49,7 +49,7 @@
 #define F77_FUNC_(name,NAME) name ## _
 
 /* Char pointer mangling */
-#define FC_CHAR_PTR(P,L) char *P
+#define FC_CHAR_PTR(P,L) char *P, int L
 
 /* Define to dummy `main' function (if any) required to link to the Fortran
    libraries. */
