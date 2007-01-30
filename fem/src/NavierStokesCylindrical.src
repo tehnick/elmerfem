@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: NavierStokesCylindrical.src,v 1.13 2006/10/12 11:54:26 jpr Exp $
+! * $Id: NavierStokesCylindrical.src,v 1.14 2006/10/13 06:04:48 jpr Exp $
 ! *****************************************************************************/
 
 MODULE NavierStokesCylindrical
@@ -56,7 +56,8 @@ MODULE NavierStokesCylindrical
        MassMatrix,StiffMatrix,ForceVector,LoadVector,NodalViscosity,   &
        NodalDensity,Ux,Uy,Uz,MUx,MUy,MUz,NodalPressure,NodalTemperature, &
        Convect,StabilizeFlag,Compressible,PseudoCompressible, NodalCompressibility, &
-       NodalGasConstant,Porous, NodalDrag, PotentialForce, PotentialField, PotentialCoefficient, &
+       NodalGasConstant,Porous, NodalDrag, PotentialForce, PotentialField, &
+       PotentialCoefficient, MagneticForce, &
        NewtonLinearization,Element,n,Nodes )
 !------------------------------------------------------------------------------
 !******************************************************************************
@@ -103,6 +104,9 @@ MODULE NavierStokesCylindrical
 !  REAL(KIND=dp) :: NodalCompressibility(:)
 !     INPUT: Artificial compressibility for the nodes
 !
+!  LOGICAL :: MagneticForce
+!      INPUT: Should Lorentz force for magnetohydrodynamics be included
+!
 !  LOGICAL :: NewtonLinearization
 !      INPUT: Picard or Newton  linearization of the convection term ?
 !
@@ -125,7 +129,8 @@ MODULE NavierStokesCylindrical
          NodalCompressibility(:), NodalDrag(:,:), PotentialField(:), &
          PotentialCoefficient(:), NodalGasConstant(:)
      LOGICAL :: Convect,NewtonLinearization,Compressible,&
-         PseudoCompressible, Porous, PotentialForce
+         PseudoCompressible, Porous, PotentialForce, &
+         MagneticForce
 
       CHARACTER(LEN=*) :: StabilizeFlag
 
@@ -331,7 +336,10 @@ MODULE NavierStokesCylindrical
 !------------------------------------------------------------------------------
 !     Force at the integration point
 !------------------------------------------------------------------------------
-      Lrf = LorentzForce( Element,Nodes,u,v,w,n )
+      Lrf = 0.0d0
+      IF ( MagneticForce ) THEN
+         Lrf = LorentzForce( Element,Nodes,u,v,w,n )
+      END IF
 
       Force = 0.0D0
 ! Use this, if the (time-averaged) Lorentz force is not divided by density
