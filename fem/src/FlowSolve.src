@@ -39,6 +39,9 @@
 ! ****************************************************************************/
 ! *
 ! * $Log: FlowSolve.src,v $
+! * Revision 1.29  2007/01/09 14:14:43  jpr
+! * Small cleanups / optimizations.
+! *
 ! * Revision 1.28  2006/12/21 08:37:52  jpr
 ! * Removed some experimental code....
 ! *
@@ -230,7 +233,8 @@
 !
      LOGICAL :: AllocationsDone = .FALSE., FreeSurfaceFlag, &
          PseudoPressureExists, PseudoCompressible, Bubbles, &
-         Porous =.FALSE., PotentialForce=.FALSE., Hydrostatic=.FALSE.
+         Porous =.FALSE., PotentialForce=.FALSE., Hydrostatic=.FALSE., &
+         MagneticForce =.FALSE.
 
 
      REAL(KIND=dp),ALLOCATABLE :: MASS(:,:),STIFF(:,:), LoadVector(:,:), &
@@ -284,7 +288,7 @@
         END FUNCTION FlowInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.28 2006/12/21 08:37:52 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.29 2007/01/09 14:14:43 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -613,6 +617,9 @@
 
            Gotit = .FALSE.
            IF ( bf_id > 0 ) THEN
+             MagneticForce = ListGetLogical( Model % BodyForces(bf_id) % Values, &
+                        'Lorentz Force', gotIt )
+
              Hydrostatic = ListGetLogical( Model % BodyForces(bf_id) % Values, &
                         'Hydrostatic Pressure',gotIt )
            END IF
@@ -923,6 +930,7 @@
                    CompressibilityModel == UserDefined1, &
                    PseudoCompressible, PseudoCompressibility, GasConstant, Porous, Drag, & 
                    PotentialForce, PotentialField, PotentialCoefficient, &
+                   MagneticForce, &
                    DivDiscretization, GradPDiscretization, NewtonLinearization, &
                    Element,n,ElementNodes)
 !------------------------------------------------------------------------------
@@ -943,7 +951,7 @@
                    Convect, StabilizeFlag, CompressibilityModel /= Incompressible, &
                    PseudoCompressible, PseudoCompressibility, GasConstant, Porous, Drag, &
                    PotentialForce, PotentialField, PotentialCoefficient, &
-                   NewtonLinearization,Element,n,ElementNodes )
+                   MagneticForce, NewtonLinearization,Element,n,ElementNodes )
 !------------------------------------------------------------------------------
            END SELECT
 !------------------------------------------------------------------------------
