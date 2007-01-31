@@ -55,7 +55,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ParallelEigenSolve.src,v 1.7 2006/10/13 10:38:31 jpr Exp $
+! * $Id: ParallelEigenSolve.src,v 1.8 2006/11/27 10:23:57 jpr Exp $
 ! ******************************************************************************
 
 MODULE ParallelEigenSolve
@@ -302,8 +302,9 @@ INCLUDE "mpif.h"
          END IF
 !
          IF (ido == -1 .OR. ido == 1) THEN
-            WRITE( Message, * ) ' Arnoldi iteration: ', Iter
-            CALL Info( 'EigenSolve', Message, Level=5 )
+!           WRITE( Message, * ) ' Arnoldi iteration: ', Iter
+!           CALL Info( 'EigenSolve', Message, Level=5 )
+            CALL Info( 'EigenSolve', '.', .TRUE., Level=5 )
             iter = iter + 1
 !---------------------------------------------------------------------
 !             Perform  y <--- OP*x = inv[M]*A*x   (lumped mass)
@@ -621,7 +622,8 @@ INCLUDE "mpif.h"
           IF ( RNorm < Conv ) EXIT
        END DO
 
-       PRINT*,'iters: ', i, RNorm
+!      WRITE( Message, * ) 'Iters: ', i, RNorm
+!      CALL Info( 'CGParEigen', Message, Level=4 ) 
 
        DEALLOCATE( Z, P, Q )
 
@@ -689,7 +691,8 @@ INCLUDE "mpif.h"
           IF ( RNorm < Conv ) EXIT
        END DO
 
-       PRINT*,'iters: ', i, RNorm
+!      WRITE( Message, * ) 'Iters: ', i, RNorm
+!      CALL Info( 'BiCGParEigen', Message, Level=4 ) 
 
        DEALLOCATE( Ri,P,V,T,T1,T2,S )
 
