@@ -2776,12 +2776,12 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   int nodesd2,nodesd1,discont,maxelemtype,minelemtype;
   int part,elemtype,sideelemtype,*needednodes,*neededtwice;
   int **bulktypes,*sidetypes,tottypes;
-  int i,j,k,l,m,ind,ind2,sideind[MAXNODESD1],elemhit[MAXNODESD2];
+  int i,j,k,l,m,ind,ind2,sideind[MAXNODESD1],sidehit[MAXNODESD1],elemhit[MAXNODESD2];
   char filename[MAXFILESIZE],filename2[MAXFILESIZE],outstyle[MAXFILESIZE];
   char directoryname[MAXFILESIZE],subdirectoryname[MAXFILESIZE];
   int *neededtimes,*elempart,*indxper,*elementsinpart,*periodicinpart,*indirectinpart,*sidesinpart;
   int maxneededtimes,periodic,periodictype,indirecttype,bcneeded,trueparent,*ownerpart;
-  int *sharednodes,*ownnodes,reorder,*order,*invorder;
+  int *sharednodes,*ownnodes,reorder,*order,*invorder,*bcnodesaved,orphannodes;
   FILE *out,*outfiles[MAXPARTITIONS+1];
 
   if(!data->created) {
@@ -3015,10 +3015,15 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
    
   /*********** part.n.boundary *********************/
   /* This is still done in partition loop as the subroutines are quite complicated */
+  bcnodesaved = Ivector(1,noknots);
+
   for(part=1;part<=partitions;part++) { 
     sprintf(filename,"%s.%d.%s","part",part,"boundary");
     out = fopen(filename,"w");
-    
+
+    for(i=1;i<=noknots;i++)
+      bcnodesaved[i] = FALSE;
+   
     for(i=minelemtype;i<=maxelemtype;i++)
       sidetypes[i] = 0;
     
@@ -3039,7 +3044,8 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	    if(part == data->partitiontable[k][ind]) bcneeded++;
 	}
 	if(bcneeded != nodesd1) continue;
-	
+
+	/* Check whether the side is such that it belongs to the domain */
 	trueparent = (elempart[bound[j].parent[i]] == part);
 	if(bound[j].ediscont) 
 	  discont = bound[j].discont[i];
@@ -3053,11 +3059,9 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	if(!trueparent) continue;
 
 	sumsides++;	
-	fprintf(out,"%d %d %d %d ",
-		sumsides,bound[j].types[i],bound[j].parent[i],bound[j].parent2[i]);
-	
-	fprintf(out,"%d ",sideelemtype);
 	sidetypes[sideelemtype] += 1;
+	fprintf(out,"%d %d %d %d %d",
+		sumsides,bound[j].types[i],bound[j].parent[i],bound[j].parent2[i],sideelemtype);
 	if(reorder) {
 	  for(l=0;l<nodesd1;l++)
 	    fprintf(out,"%d ",order[sideind[l]]);
@@ -3066,21 +3070,60 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	    fprintf(out,"%d ",sideind[l]);	  
 	}
 	fprintf(out,"\n");
+	for(l=0;l<nodesd1;l++)
+	  bcnodesaved[sideind[l]] = bound[j].types[i];
       }
+    }
 
-      /* The second side for discontinuous boundary conditions */
+    /* These are orphan nodes that are saved as 101 points and may be given 
+       Dirichlet conditions in the code. If the node is already saved in respect to 
+       this partition no saving is done. */
+
+    orphannodes = 0;
+    for(j=0;j < MAXBOUNDARIES;j++) {
+      for(i=1; i <= bound[j].nosides; i++) {      
+	GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],
+		       data,sideind,&sideelemtype);
+	nodesd1 = sideelemtype%100;
+	
+	for(l=0;l<nodesd1;l++) {
+	  ind = sideind[l];
+	  for(k=1;k<=neededtimes[ind];k++)
+	    if(part == data->partitiontable[k][ind]) {
+	      
+	      if( bcnodesaved[sideind[l]] == bound[j].types[i]) continue;	  
+	      orphannodes++;
+	      sumsides++;
+	      sidetypes[101] += 1;
+	      if(reorder) {
+		fprintf(out,"%d %d 0 0 101 %d",
+			sumsides,bound[j].types[i],order[sideind[l]]);
+	      }
+	      else {
+		fprintf(out,"%d %d 0 0 101 %d",
+			sumsides,bound[j].types[i],sideind[l]);
+	      }	  
+	    }
+	}
+      }
+    }      
+    if(info && orphannodes) printf("There were %d orphan BC nodes in partition %d\n",orphannodes,part);
+
+    /* The second side for discontinuous boundary conditions.
+	 Note that this has not been treated for orphan control. */
+    for(j=0;j < MAXBOUNDARIES;j++) {
       for(i=1; i <= bound[j].nosides; i++) {
 	if(bound[j].ediscont) 
 	  discont = bound[j].discont[i];
 	else 
 	  discont = FALSE;
-
+	
 	if(!bound[j].parent2[i] || !discont) continue;
-
+	
 	GetElementSide(bound[j].parent2[i],bound[j].side2[i],-bound[j].normal[i],
 		       data,sideind,&sideelemtype); 
 	nodesd1 = sideelemtype%100;	
-
+	
 	bcneeded = 0;
 	for(l=0;l<nodesd1;l++) {
 	  ind = sideind[l];
@@ -3088,10 +3131,10 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	    if(part == data->partitiontable[k][ind]) bcneeded++;
 	}
 	if(bcneeded < nodesd1) continue;
-
+	
 	trueparent = (elempart[bound[j].parent2[i]] == part);
 	if(!trueparent) continue;
-
+	
 	sumsides++;
 	fprintf(out,"%d %d %d %d ",
 		sumsides,bound[j].types[i],bound[j].parent2[i],bound[j].parent[i]);
