@@ -3064,10 +3064,10 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 		sumsides,bound[j].types[i],bound[j].parent[i],bound[j].parent2[i],sideelemtype);
 	if(reorder) {
 	  for(l=0;l<nodesd1;l++)
-	    fprintf(out,"%d ",order[sideind[l]]);
+	    fprintf(out," %d",order[sideind[l]]);
 	} else {
 	  for(l=0;l<nodesd1;l++)
-	    fprintf(out,"%d ",sideind[l]);	  
+	    fprintf(out," %d",sideind[l]);	  
 	}
 	fprintf(out,"\n");
 	for(l=0;l<nodesd1;l++)
@@ -3099,10 +3099,10 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	      sidetypes[101] += 1;
 
 	      if(reorder) {
-		fprintf(out,"%d %d 0 0 101 %d",sumsides,bound[j].types[i],order[ind]);
+		fprintf(out,"%d %d 0 0 101 %d\n",sumsides,bound[j].types[i],order[ind]);
 	      }
 	      else {
-		fprintf(out,"%d %d 0 0 101 %d",sumsides,bound[j].types[i],ind);
+		fprintf(out,"%d %d 0 0 101 %d\n",sumsides,bound[j].types[i],ind);
 	      }	  
 	    }
 	}
