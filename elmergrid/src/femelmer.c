@@ -3091,19 +3091,18 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	  for(k=1;k<=neededtimes[ind];k++)
 	    if(part == data->partitiontable[k][ind]) {
 	      
-	      if( bcnodesaved[sideind[l]] == bound[j].types[i]) continue;	  
-	      bcnodesaved[sideind[l]] = bound[j].types[i];
+	      if( bcnodesaved[ind] == bound[j].types[i]) continue;	  
+	      if( !bcnodesaved[ind]) bcnodesaved[ind] = bound[j].types[i];
 
 	      orphannodes++;
 	      sumsides++;
 	      sidetypes[101] += 1;
+
 	      if(reorder) {
-		fprintf(out,"%d %d 0 0 101 %d",
-			sumsides,bound[j].types[i],order[sideind[l]]);
+		fprintf(out,"%d %d 0 0 101 %d",sumsides,bound[j].types[i],order[ind]);
 	      }
 	      else {
-		fprintf(out,"%d %d 0 0 101 %d",
-			sumsides,bound[j].types[i],sideind[l]);
+		fprintf(out,"%d %d 0 0 101 %d",sumsides,bound[j].types[i],ind);
 	      }	  
 	    }
 	}
