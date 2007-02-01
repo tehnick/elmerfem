@@ -3092,6 +3092,8 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	    if(part == data->partitiontable[k][ind]) {
 	      
 	      if( bcnodesaved[sideind[l]] == bound[j].types[i]) continue;	  
+	      bcnodesaved[sideind[l]] = bound[j].types[i];
+
 	      orphannodes++;
 	      sumsides++;
 	      sidetypes[101] += 1;
