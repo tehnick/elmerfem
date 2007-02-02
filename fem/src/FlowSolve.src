@@ -39,6 +39,9 @@
 ! ****************************************************************************/
 ! *
 ! * $Log: FlowSolve.src,v $
+! * Revision 1.30  2007/01/30 15:19:40  apursula
+! * Added logical variable MagneticForce into the call to Compose subroutines
+! *
 ! * Revision 1.29  2007/01/09 14:14:43  jpr
 ! * Small cleanups / optimizations.
 ! *
@@ -227,14 +230,15 @@
 
 ! Which compressibility model is used
      CHARACTER(LEN=MAX_NAME_LEN) :: CompressibilityFlag, StabilizeFlag, VarName
-     INTEGER :: CompressibilityModel
+     CHARACTER(LEN=MAX_NAME_LEN) :: LocalCoords
+     INTEGER :: CompressibilityModel, ModelCoords, ModelDim
      INTEGER :: body_id,bf_id,eq_id,DIM
      INTEGER, POINTER :: NodeIndexes(:), Indexes(:)
 !
      LOGICAL :: AllocationsDone = .FALSE., FreeSurfaceFlag, &
          PseudoPressureExists, PseudoCompressible, Bubbles, &
          Porous =.FALSE., PotentialForce=.FALSE., Hydrostatic=.FALSE., &
-         MagneticForce =.FALSE.
+         MagneticForce =.FALSE., UseLocalCoords
 
 
      REAL(KIND=dp),ALLOCATABLE :: MASS(:,:),STIFF(:,:), LoadVector(:,:), &
@@ -288,7 +292,7 @@
         END FUNCTION FlowInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.29 2007/01/09 14:14:43 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.30 2007/01/30 15:19:40 apursula Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -306,6 +310,37 @@
 !------------------------------------------------------------------------------
 
      IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
+
+!    Check for local coordinate system
+
+     LocalCoords = GetString( Solver % Values, 'Solver Coordinate System', &
+          UseLocalCoords )
+
+     IF ( UseLocalCoords ) THEN
+        ModelCoords = Coordinates
+        ModelDim = Model % Dimension
+        SELECT CASE ( LocalCoords )
+           CASE( 'cartesian 2d' )
+              Coordinates = 1
+              Model % Dimension = 2
+              CALL Info( 'FlowSolve', 'Solver Coordinate System is cartesian 2d', LEVEL=31 )
+           CASE( 'cartesian 3d' )
+              Coordinates = 1
+              Model % Dimension = 3
+              CALL Info( 'FlowSolve', 'Solver Coordinate System is cartesian 3d', LEVEL=31 )
+           CASE( 'axi symmetric' )
+              Coordinates = 4
+              Model % Dimension = 2
+              CALL Info( 'FlowSolve', 'Solver Coordinate System is axi symmetric', LEVEL=31 )
+           CASE( 'cylindric symmetric' )
+              Coordinates = 3
+              Model % Dimension = 3
+              CALL Info( 'FlowSolve', 'Solver Coordinate System is cylindric symmetric', LEVEL=31 )
+           CASE DEFAULT
+              CALL Warn( 'FlowSolve', 'Solver coordinate system not recognised, using original' )
+        END SELECT
+     END IF
+
      DIM = CoordinateSystemDimension()
 
      FlowSol => Solver % Variable
@@ -1344,6 +1379,11 @@
 !------------------------------------------------------------------------------
     CALL CheckCircleBoundary()
 !------------------------------------------------------------------------------
+
+    IF ( UseLocalCoords ) THEN
+       Coordinates = ModelCoords
+       Model % Dimension = ModelDim
+    END IF
 
 CONTAINS
 !------------------------------------------------------------------------------
