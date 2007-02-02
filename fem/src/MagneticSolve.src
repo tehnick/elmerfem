@@ -40,6 +40,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MagneticSolve.src,v $
+! * Revision 1.12  2007/01/30 15:16:27  apursula
+! * Included averaged lorentz force option (for combined 3D/2D simulations)
+! *
 ! * Revision 1.11  2006/02/20 08:06:19  jpr
 ! * Moved handling of Normal-Tangential BCs inside SolverUtils. Corrected
 ! * a few bugs in Adaptive.src, Lists.src.
@@ -115,7 +118,11 @@
 
      INTEGER :: body_id,bf_id,eq_id
      INTEGER, POINTER :: NodeIndexes(:)
-!
+
+     CHARACTER(LEN=MAX_NAME_LEN) :: VelocityVarName, VelocityVarOne
+     CHARACTER(LEN=MAX_NAME_LEN) :: VelocityVarTwo, VelocityVarDre
+     CHARACTER(LEN=MAX_NAME_LEN) :: ForceVarName
+
      LOGICAL :: AllocationsDone = .FALSE., FreeSurfaceFlag, UserDefinedVelo
      LOGICAL :: CalculateMagneticForce = .FALSE.
 
@@ -126,10 +133,12 @@
      SAVE Mx,My,Mz,U,V,W,MASS,STIFF,LoadVector, &
        FORCE,ElementNodes,Alpha,Beta, &
          Conductivity, AllocationsDone,LocalNodes, &
-           Permeability, divB, ExBx,ExBy,ExBz,B1,B2,B3,MU,MV,MW
+           Permeability, divB, ExBx,ExBy,ExBz,B1,B2,B3,MU,MV,MW, &
+            VelocityVarOne, VelocityVarTwo, VelocityVarDre
+
 
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: MagneticSolve.src,v 1.11 2006/02/20 08:06:19 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: MagneticSolve.src,v 1.12 2007/01/30 15:16:27 apursula Exp $"
 
      REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
 
@@ -153,7 +162,11 @@
      ElectricSol   => VariableGet( Model % Variables, 'Electric Current' )
      IF ( ASSOCIATED(ElectricSol) ) ElectricCurrent => ElectricSol % Values
 
-     ForceSol => VariableGet( Model % Variables, 'Lorentz Force' )
+     ForceVarName = GetString( Model % Solver % Values, &
+          'Force Variable Name', GotIt )
+     IF ( .NOT. GotIt )  ForceVarName = 'Lorentz Force'
+
+     ForceSol => VariableGet( Model % Variables, ForceVarName )
      IF ( ASSOCIATED( ForceSol ) ) LrF => ForceSol % Values
 
      ElecFieldSol => VariableGet( Model % Variables, 'E Field' )
@@ -190,6 +203,14 @@
        IF ( istat /= 0 ) THEN
          CALL Fatal( 'MagneticSolve', 'Memory allocation error.' )
        END IF
+
+       VelocityVarName = GetString( Solver % Values, &
+            'Velocity Solution Name', GotIt )
+       IF ( .NOT. GotIt )  VelocityVarName = 'Velocity'
+
+       VelocityVarOne = TRIM(VelocityVarName) // ' 1'
+       VelocityVarTwo = TRIM(VelocityVarName) // ' 2'
+       VelocityVarDre = TRIM(VelocityVarName) // ' 3'
 
        AllocationsDone = .TRUE.
      END IF
@@ -309,9 +330,9 @@
            V(1:n) = GetReal( Material, 'MHD Velocity 2', gotIt )
            W(1:n) = GetReal( Material, 'MHD Velocity 3', gotIt )
          ELSE
-           CALL GetScalarLocalSolution( U, 'Velocity 1' )
-           CALL GetScalarLocalSolution( V, 'Velocity 2' )
-           CALL GetScalarLocalSolution( W, 'Velocity 3' )
+           CALL GetScalarLocalSolution( U, VelocityVarOne )
+           CALL GetScalarLocalSolution( V, VelocityVarTwo )
+           CALL GetScalarLocalSolution( W, VelocityVarDre )
 
            CALL GetScalarLocalSolution( MU, 'Mesh Velocity 1' )
            CALL GetScalarLocalSolution( MV, 'Mesh Velocity 2' )
@@ -653,9 +674,9 @@
               V(1:n) = GetReal( Material, 'MHD Velocity 2', gotIt )
               W(1:n) = GetReal( Material, 'MHD Velocity 3', gotIt )
            ELSE
-              CALL GetScalarLocalSolution( U, 'Velocity 1' )
-              CALL GetScalarLocalSolution( V, 'Velocity 2' )
-              CALL GetScalarLocalSolution( W, 'Velocity 3' )
+              CALL GetScalarLocalSolution( U, VelocityVarOne )
+              CALL GetScalarLocalSolution( V, VelocityVarTwo )
+              CALL GetScalarLocalSolution( W, VelocityVarDre )
 
               CALL GetScalarLocalSolution( MU, 'Mesh Velocity 1' )
               CALL GetScalarLocalSolution( MV, 'Mesh Velocity 2' )
