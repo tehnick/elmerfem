@@ -1,0 +1,373 @@
+\section{Introduction}
+
+This manual gives on overview of the Elmer software package. The emphasis is an big things
+and the user is encouraged to read the other manuals for more detailed information. 
+
+\subsection*{What is Elmer}
+
+Elmer is a finite element software package for the solution of partial differential 
+equations. Elmer has a large number of different equations which may be coupled 
+in a generic manner making Elmer a versatile tool for multiphysical simulations. 
+
+
+\subsection*{History of Elmer}
+The development of Elmer was started in 1995 as part of a national CFD 
+program funded by the Finnish national technolgy funding agency, Tekes. 
+The original development consortia included partners from CSC - The Finnish IT Center 
+for Science, Helsinki University of Technology TKK, VTT Technical Research Centre of Finland,
+University of Juväskylä, and Okmetic Ltd. After the initial project ended the development has been
+continued by CSC in different application fields making Elmer a versatile tool for multiphysical problems.
+
+\subsection*{Licensing}
+In September 1995 Elmer was released under GPL. This has meant a significant growth particularly of the 
+international user community. However, as the sole owner of the Elmer IP CSC may distribute Elmer also 
+under other licensing terms. Therefore if GPL does not suit your purposes you may contact the Elmer team
+for other licensing options. 
+
+\subsection*{Distribution}
+Elmer is distributed only through the Internet. The actual distribution place may vary 
+but the pointer to the distribution may always be found at \URL{http://www.csc.fi/elmer}. 
+
+The distribution of Elmer comes in three different parts: sources, binaries and documentation.
+In Unix systems the users are encouraged to 
+compile the software themselves. The current compilation instructions are given at the www-page.
+For Windows a precompiled binary version of the code is provided. 
+The documentation is already quite large, but unfortunately still not complete.
+
+
+\section{Capabilities of Elmer}
+
+Elmer includes a huge number of capabilities in different categories. This list summarizes some of the most
+important ones.
+
+\subsection*{Physical models in Elmer}
+\begin{itemize}
+  \item Heat transfer: conduction, radiation and phase change
+  \item Fluid flow: Navier-Stokes, Stokes and Reynolds equations, k-$\varepsilon$ model
+  \item Species transport: generic convection-diffusion equation
+  \item Elasticisty: Generic elasticity, plates, shells
+  \item Acoustics: Helmholtz equation
+  \item Electromagnetics: electrostatics, magnetostatics, induction
+  \item Microfluidics: slip condistions, Poisson-Boltzmann
+  \item Levelset method: Eulerian free boundary problems 
+  \item Quantum Mechanics: Density functional theory (Kohn-Sham)
+\end{itemize}
+
+\subsection*{Numerical methods in Elmer}
+\begin{itemize}
+  \item All basic Langrangian elementtypes in 1D, 2D and 3D in 1st and 2nd degree
+  \item Generic p-base elements
+  \item Discontinous Galerkin
+  \item Stabilization with residual free bubbles or with SUPG
+  \item Adaptivity particularly in 2D 
+  \item Iterative Krylow subspace solvers
+  \item Direct solvers (Lapack \& Umfpack)
+  \item Multigrid solvers (GMG and AMG) for simple problem types
+  \item ILU Preconditioning 
+  \item Parallelization of iterative methods
+  \item BEM solvers (without multipole acceleration)
+\end{itemize}
+
+\subsection*{Pros and Cons of Elmer}
+For potential users it may be usefull to summarize some of the possible pros and cons 
+or Elmer package. The list is of course very subjective and not complete either.
+\begin{itemize}
+\item[+] Elmer is Open Source, therefore it is possible to verify and modify the solution procedures
+\item[+] Elmer has an abstract treatment of physical equations making it is easy to adopt new fields
+\item[+] All material parameters may depend on field variables and other parameters in a free manner
+\item[+] Elmer has a graphical user interface for simple problems.
+\item[+] Elmer has a steadily growing user community. 
+\item[+] Assembly and iterative solution is available also in parallel.
+\item[-] The graphical interface to Elmer cannot utilize all the features of Elmer.
+\item[-] Getting to know the large package may take a lot of time. Previous experience of FEM packages 
+  may therefore be of use.
+\item[-] Elmer does not include proper geometry or mesh generation tools for complicated problems. Only 
+  mesh import interfaces are supported. 
+\item[-] As a multiphysical tool Elmer does not include all the physical details of the individual fields.
+\item[-] In turbulence and multiphase modeling Elmer has quite little to offer
+\item[-] The documentation of Elmer is not quite up-to-date.
+\end{itemize}
+
+
+
+
+
+\section{Elmer executables}
+
+As most finite element packages Elmer is divided into a number of different
+executables that may also be used separately. The main packages are the preprocossor, solver
+and postprocessor but there also other modules that may called for specific assingments. 
+
+\sifbegin
+\sifitem{ElmerSolver}{}
+ElmerSolver is the soul of the Elmer software and the part where most development work is 
+directed to. ElmerSolver includes a large number of finite element library tools
+which enable new equations to be written economically. The equations are mainly 
+available as dynamical libraries with standard interfaces that are linked to the main 
+program on request. 
+
+\sifitem{ElmerPost}{}
+ElmerPost is a versatile postprocessor that usually is quite sufficient for the postrprocessing
+needs. ElmerPost provides a straigh-forward graphical user interface that is easy to learn. ElmerPost
+utilizes the Mesa and TCL/TK libraries. 
+
+\sifitem{ElmerFront}{}
+ElmerFront is the graphical user interface for setting up a simulation problem. 
+ElmerFront is not actively developed and therefore a large part of the functionality of ElmerSolver
+is not supported through ElmerFront. The meshing capabilities of ElmerFront are limited to 
+2D Delaynay type of meshes which are obtained by calling the \texttt{Mesh2D} program. 
+Otherwise an existing mesh should be provided for the system. 
+
+\sifitem{ElmerGrid}{}
+ElmerGrid provides simple structured mesh generation functionality and may also be used 
+for many kinds of mesh manipulation and transformation tasks. For example, ElmerGrid may be used
+to partition the mesh for parallel runs or to import meshes written by other mesh generators. 
+When using ElmerGrid the command file needs usually to be written by a text editor. 
+
+\sifitem{Mesh2D}{}
+This is a Delaynay triangulator that is called by ElmerFront but may also be called independently
+from command line.
+
+\sifitem{ViewFactors}{}
+This is a program for the computation of view factors that need to be determined in some radiation 
+problems. Usually there is no need to call this separately.
+\sifend
+
+
+
+\section{Elmer modules}
+The Elmer is distributed as partially interdependent modules. Some of them include binaries while
+other are used as libraries only. Below is a possible distribution list. The first number changes in
+major new releases while the second number changes about a few times in a year.
+\sifbegin
+\sifitem{eio-5.3.0.tar.gz}{}
+Elmer input/output library written in C++. Used for some I/O operations by the ElmerSolver. 
+\sifitem{elmergrid-5.3.1.tar.gz}{}	
+ElmerGrid source codes written in C. Also includes the Metis library from the Karypis Lab. 
+\sifitem{elmerpost-5.3.0.tar.gz}{} 	
+ElmerPost source codes written in C. 
+\sifitem{fem-5.3.0.tar.gz}{}	
+ElmerSolver source codes written mainly in Fortran90.
+\sifitem{front-5.2.0.tar.gz}{}
+ElmerFront source codes written in C++.
+\sifitem{hutiter-5.3.0.tar.gz}{} 
+The iterative linear algebra solvers called by ElmerSolver. Written mainly in Fortran90.
+\sifitem{matc-5.3.0.tar.gz}{} 
+A library for evaluating mathematical expressions written in C. The library is provided in 
+in the command file interpreter of ElmerSolver and inside the command window of ElmerPost. 
+\sifitem{mathlibs-1.0.0.tar.gz }{}	
+Includes basic mathematical libraries such as Lapack, Blas, Arpack, and Parpack.
+\sifitem{meshgen2d-5.0.0.tar.gz}{} 
+Includes the source codes of the 2D Delaynay mesher. 
+\sifitem{umfpack-4.4.tar.gz}{}
+Includes the source codes of the Umfpack library from University of California.
+\sifend
+
+
+\section{Elmer file formats}
+Elmer may use a number of different files in the solution of the
+different cases. Here is some information about the files the different modules of 
+Elmer use and create during the solution procdure.
+
+\sifbegin
+\sifitem{ElmerSolver command file}{*.sif}
+The command file that is read by the Solver in start of the simulation. 
+The command file may be automatically written by ElmerFront or it may be 
+edited by a text editor using appropriate example files as starting points.  
+The Solver and Models manual provide the best source of information on the different
+keywords. 
+
+\sifitem{ElmerSolver mesh format}{meshdir/mesh.*}
+The mesh is defined by four different files \texttt{mesh.nodes},
+texttt{mesh.elements}, \texttt{mesh.boundary}, and \texttt{mesh.header}
+which are located in the mesh directory. The mesh may be created by 
+Mesh2D directly or through ElmerFront, ElmerGrid, or by enhanced versions of 
+Netgen and GiD. The file format is understood by ElmerSolver, ElmerFront and ElmerGrid.
+
+\sifitem{ElmerSolver result file}{*.result}
+Gives the results of the simulation in a form that may be used to make a complete restart of the 
+simulation. The suffix may differ. ElmerSolver by default writes 
+this file to the mesh directory. Not understood by other programs. 
+
+\sifitem{ELMERSOLVER\_STARTINFO}{} 
+This file is read by ElmerSolver in case on command line parameter defining the 
+name of the command line is given. This file basically can have two lines:
+first line defines the name of the command file, and the second one the number of 
+processors to be used in parallel runs. 
+
+\sifitem{SOLVER.KEYWORDS}{}
+The keywords of ElmerSolver are partially listed in a file located in the 
+among the shared library files of ElmerSolver. This list is not complete as new keywords 
+are always popping up due to the development work. Therefore the user may take a local copy of this
+file and add some missing keywords. Note that it does not really matter if keywords are not defined,
+as long as the type is given and the \texttt{check keywords warn} is used instead of \texttt{abort}. 
+
+
+\sifitem{ElmerPost file}{*.ep}
+This file is written by ElmerSolver and can be read by ElmerPost. 
+ ElmerSolver by default writes this file to the mesh directory.
+The file is used mainly for visuzalition purposes.
+
+\sifitem{Elmer geometry format}{*.egf}
+This format defines a 2D geometry using primitives such as points and lines. 
+The geometry format is defined using an editor and it is 
+read by the ElmerFront program. 
+
+\sifitem{Elmer mesh input format}{*.mif}
+This is the format that Mesh2D uses to create Delaynay triangulations. 
+It is usually written by ElmerFront but it may easily be modified by an editor.
+
+\sifitem{ElmerGrid mesh definition file}{*.grd}
+This file is used to define 1D, 2D or 3D structured meshes. 
+The file can only be read by ElmerGrid.
+
+\sifitem{ElmerGrid command file}{*.eg}
+This file is used to make mesh manipulation operations. The same functionality 
+may often by achieved by command line arguments.
+\sifend
+
+
+
+\section{Elmer documentation}
+
+The Elmer documentation is constantly under development. The create date of the manuals is printed in the cover 
+of the manuals. The manuals are not always quite up to date. 
+Particularly the SolverManual is still not ready. The current set of Elmer manuals is as follows
+\sifbegin
+\sifitem{ElmerSolverManual.pdf}{}
+	Manual gives on overview of the capabilities of the solver with an 
+	emphasis on generic services provided by the solver.
+\sifitem{ElmerModelsManual.pdf}{}
+	This manual describes the different physical models that are defined
+	in independent subroutines. This is quite well up-to-date. 
+\sifitem{ElmerTutorials.pdf}{}
+	The tutorials of the Elmer software are basically just example files with documentation.
+	The relatex \texttt{ElmerTutorialFiles.tar.gz}
+	provide the files related to the tutorials in a directory tree.
+\sifitem{ElmerGridManual.pdf}{}
+	The Manual of ElmerGrid utility.
+	Examples related to the ElmerGrid documentation are provided in file 
+	ElmerGridExamples.tar.gz.
+\sifend
+In addition to these manuals there are separate documentation for some input interfaces (GiD) and
+for vizualization tasks (making animations). Look at the www-pages for more information on these
+topics. 
+
+The following documentation is no longer actively developed. However, some information may still be
+best presented in them. In time we'll try to make these fully obsolite by devloping the new set 
+of manuals.
+\sifbegin
+\sifitem{ElmerFrontUserGuide.pdf}{}
+	Manual for the graphical user interface of Elmer. ElmerFront is not actively developed 
+	and this might be the final documentation of the program. (updated 14.2.2002)
+\sifitem{OldElmerUserGuide.pdf}{}
+	The original user guide of Elmer software (1999). Particularly some appendixes may still be usefull.
+\sifitem{OldElmerTutorial.pdf}{}
+	A graphical user guide oriented tutorial of the Elmer software (2000). This was never really maintained.
+\sifend
+
+\begin{figure}[tbhp]
+\vspace{-20mm}
+\begin{center}
+\includegraphics[width=13.0cm]{elmer-chart.pdf}
+\caption{Work flow in the Elmer environment}
+\end{center}
+\end{figure}
+
+
+
+\section{Strategies for using the Elmer package}
+
+Because of the number of different modules in Elmer there is a large number of different strategies
+how use Elmer. Here we try to explain the different choices in more detail. 
+Examples on the different choices strategies may be found in Elmer tutorials. 
+
+
+\subsection*{Strategies for problem setup}
+
+The problem setup is assumed to consist of the phases that end up having the 
+necessary files that ElmerSolver needs to run.
+
+\subsubsection*{ElmerFront}
+The simplest way to create a simulation from scratch is to use an existing 
+geometry definition (egf or 2D CAD file) and ElmerFront. 
+A handicap with ElmerFront is that it does not have any geometry definition tools,
+and the mesh generation tools are limited to 2D Delaynay. 
+However, one may also read in 
+an existing mesh (even 3D). The supported formats inlude Abaqus, Fidap neutral file, Idead
+universal file and Elmer mesh format. 
+ElmerFront is then used 
+to define the equations, boundary and initial conditions, and material parameters. 
+
+A large partion of the capabilities of ElmerSolver are not supported in ElmerFront. 
+Therefore ElmerFront is best suited for relatively simple tasks with the standard equations
+(heat, flow, stress). The good thing is that the user does not need to get acquinted with the 
+different file formats, nor edit them by hand. Also the user does not need to restart any other 
+bidary except ElmerFront. Serious users have to abandon this as the 
+only strategy quite soon. 
+
+
+\subsubsection*{ElmerFront + editor + ElmerSolver}
+
+Even though ElmerFront cannot take use of all the capabilities of Elmer it may still
+be used as a first step in the simulations. Making a preliminary command file and/or mesh with 
+ElmerFront often saved some time. Thereafter this command file (*.sif) may be modified by some
+text editor (e.g. emacs) to account for more exotic details. The ElmerSolver and ElmerPost 
+must in this approach be called by the command line. 
+
+
+\subsubsection*{ElmerGrid + editor + ElmerSolver}
+
+An alternative way to make simple 2D and 3D meshes is to use ElmerGrid. The mesh definition file 
+of ElmerGrid also defines the geometry. However, the structured format of ElmerGrid favors
+box like forms and making more complicated shapes may be difficult. The creation of mesh using
+ElmerGrid is totally independent from the creation of command file. Therefore in this approach 
+the command file must be created using an editor. Previous command files provide a good starting point
+also in this case.
+
+This approach is most suited for making simple academic tests using simple structured meshes. 
+It is easy to test different things in this approach as the mesh is basically fully parametrisized. 
+Trying to push this approach to more complicated shapes may turn out to be cumbersome. 
+ 
+
+\subsubsection*{Your favorite mesher + ElmerGrid + editor + ElmerSolver}
+
+For more complicated geometries you may use your favorite meshes and import the mesh into 
+Elmer format using ElmerGrid. ElmerGrid has a number of formats different from those suppported 
+by ElmerFront. This is the line for importing meshes that is currently developed. 
+The parsers are often written case-by-case as no documentation is often available. 
+Therefore if problems arise contact the elmer team.
+
+Even though the import of complicated meshes is quite straight-forward it may be more difficult to 
+write a command file for the mesh. This is particularly true if the mesh includes several bodies and 
+tens of different boundary conditions. This problem could be helped by conserving name information 
+thoughout the import process. This is currently supported for FDNEUT and Ansys script formats.  
+However, complicated geometries will are still laborious to setup with a text editor. 
+
+
+\subsubsection*{GiD/Netgen + editor + ElmerSolver}
+
+There is a small number of third part mesh generators that can directly write meshes in Elmer format
+provided that some interfaces are used. For more information on the interfaces see the Elmer www-pages. 
+Also here only the mesh is transformed and the geometry must be written separately.
+
+
+
+\subsection*{Strategies for visualization}
+
+There are also several strategies that may be used for the visualization of results. 
+
+\subsubsection*{ElmerPost}
+The easiest way is to use ElmerPost for visualization. ElmerPost does not pose any severe limitations.
+However, if you want to draw line graphs, or want to have several data sets available at the same
+time you may need other formats as well. Also the vector output for complicated geometries leaves something to 
+be desired. 
+
+\subsubsection*{VTK, GiD etc.}
+ElmerSolver can write the results also in formats understood by 3rd party visuzalition 
+software. Use ResultOutputSolve (see Elmer Models Manual) for output in VTK legacy 
+(Visit, Paraview,\ldots ) or GiD format.
+
+\subsubsection*{gnuplot, Matlab etc.}
+For plotting lines you may write data in predefined lines, or lines that are created on-the-fly.
+For this purpose use SaveLine (see Elmer Models Manual) for output in ascii matrix format.
