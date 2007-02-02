@@ -40,6 +40,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MagneticSolve.src,v $
+! * Revision 1.13  2007/02/02 10:36:10  apursula
+! * Included choice of Velocity and Force variable names
+! *
 ! * Revision 1.12  2007/01/30 15:16:27  apursula
 ! * Included averaged lorentz force option (for combined 3D/2D simulations)
 ! *
@@ -138,7 +141,7 @@
 
 
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: MagneticSolve.src,v 1.12 2007/01/30 15:16:27 apursula Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: MagneticSolve.src,v 1.13 2007/02/02 10:36:10 apursula Exp $"
 
      REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
 
@@ -475,8 +478,10 @@
       st = CPUTIme()-st
       totat = totat + at
       totst = totst + st
-      WRITE(*,'(a,i4,a,F8.2,F8.2)') 'iter: ',iter,' Assembly: (s)', at, totat
-      WRITE(*,'(a,i4,a,F8.2,F8.2)') 'iter: ',iter,' Solve:    (s)', st, totst
+      WRITE( Message,'(a,i4,a,F8.2,F8.2)') 'iter: ',iter,' Assembly: (s)', at, totat
+      CALL Info('MagneticSolve', Message, LEVEL=4 )
+      WRITE( Message,'(a,i4,a,F8.2,F8.2)') 'iter: ',iter,' Solve:    (s)', st, totst
+      CALL Info('MagneticSolve', Message, LEVEL=4 )
 
 !------------------------------------------------------------------------------
       IF ( PrevUNorm + UNorm /= 0.0d0 ) THEN
