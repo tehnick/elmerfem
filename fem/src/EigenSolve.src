@@ -51,7 +51,7 @@
 ! *
 ! *****************************************************************************/
 !
-! $Id: EigenSolve.src,v 1.12 2006/11/27 10:23:56 jpr Exp $
+! $Id: EigenSolve.src,v 1.13 2006/12/19 08:57:48 jpr Exp $
 !
 
 MODULE EigenSolve
@@ -602,23 +602,22 @@ CONTAINS
 !------------------------------------------------------------------------------
       USE CRSMatrix
       TYPE(Matrix_t), POINTER :: Matrix
-      INTEGER :: i,n
+      INTEGER :: i,n,sz
       COMPLEX(KIND=dp) :: Eigs(:), EigVectors(:,:)
 
       REAL(KIND=dp), ALLOCATABLE :: x(:), y(:)
 
-      ALLOCATE( x(Matrix % NumberOfRows), y(Matrix % NumberOfRows) )
-
+      sz = Matrix % NumberOfRows
+      ALLOCATE( x(sz), y(sz) )
       DO i=1,n
         Matrix % Values = Matrix % Values - REAL(Eigs(i)) * Matrix % MassValues
-        x = REAL( EigVectors(i,:) )
+        x = REAL( EigVectors(i,1:sz) )
         CALL CRS_MatrixVectorMultiply( Matrix, x, y )
         Matrix % Values = Matrix % Values + REAL(Eigs(i)) * Matrix % MassValues
 
         WRITE( Message, * ) 'L^2 Norm of the residual: ', i, SQRT(SUM(y**2))
         CALL Info( 'EigenSolve', Message, Level = 3 )
       END DO
-
       DEALLOCATE( x,y )
 !------------------------------------------------------------------------------
 END SUBROUTINE CheckResiduals
