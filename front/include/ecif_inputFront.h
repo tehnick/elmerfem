@@ -65,7 +65,7 @@ protected:
   static bool readName(emf_ObjectData_X* od, char*& name);
   static int readVertex(emf_ObjectData_X* object_data);
   static int readVertexTable(emf_ObjectData_X* object_data);
-  static bool InputFront::storeMatcData(MatcValueTable& matcTable, const char* key, emf_ObjectData_X* od);
+  static bool storeMatcData(MatcValueTable& matcTable, const char* key, emf_ObjectData_X* od);
   static int unknownFieldMsg(emf_ObjectData_X* object_data, bool is_fatal = true);
   static int unknownObjectMsg(emf_ObjectData_X* object_data, bool is_fatal = true);
 

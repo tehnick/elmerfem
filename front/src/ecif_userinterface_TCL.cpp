@@ -5018,12 +5018,7 @@ UserInterface_TCL::setParameterData(Model* model, ecif_parameterType param_type,
 
     //---Save data into model
     //model->setParameter(param_type, pid, oid, prtag, prtype, data_buffer, name_buffer);
-    if((int)name_buffer == 0x1) 
-    {
-      printf("shit\n");
-    } else {
-	  model->setParameter(param_type, pid, oid, data_buffer, name_buffer);
-    }
+    model->setParameter(param_type, pid, oid, data_buffer, name_buffer);
 
     /*    delete[] data_buffer; data_buffer = NULL;
     delete[] name_buffer; name_buffer = NULL;
