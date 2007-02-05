@@ -175,8 +175,10 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
    fortranMangle( Name, NewName );
    strncpy( NewLibName, Library, 3*MAX_NAME_LEN );
 
-   if ( *Quiet==0 ) 
-     fprintf(stderr,"Loading user function library: [%s]...[%s]", Library, Name );
+   if ( *Quiet==0 ) {
+     fprintf(stdout,"Loading user function library: [%s]...[%s]\n", Library, Name );
+     fflush(stdout);
+   }
    
 #ifdef HAVE_DLOPEN_API
 
