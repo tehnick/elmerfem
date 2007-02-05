@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.26 2005/10/07 14:50:13 vierinen Exp $
+dnl @version $Id: acx_elmer.m4,v 1.27 2005/10/07 14:53:39 vierinen Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -1722,7 +1722,11 @@ for v in $acx_tcltk_tcl_h_locs; do
 	acx_tcl_h_ok="no"
 	acx_tk_h_ok="no"
 
-	CPPFLAGS="-I$v $acx_tcltk_CPPFLAGS_save $acx_tcltk_CFLAGS_save -I${x_includes}"
+	if test "${x_includes}X" == "X"; then
+		CPPFLAGS="-I$v $acx_tcltk_CPPFLAGS_save $acx_tcltk_CFLAGS_save}"
+	else
+		CPPFLAGS="-I$v $acx_tcltk_CPPFLAGS_save $acx_tcltk_CFLAGS_save -I${x_includes}"
+	fi
 
 	AC_MSG_CHECKING([for tcl.h in -I$v])
 	AC_PREPROC_IFELSE(
@@ -1747,7 +1751,11 @@ for v in $acx_tcltk_tcl_h_locs; do
 		acx_tcl_h_ok="no"
 		acx_tk_h_ok="no"
 
-		CPPFLAGS="-I${v}/tk${tcl_h_v} -I${v}/tcl${tcl_h_v} $acx_tcltk_CPPFLAGS_save $acx_tcltk_CFLAGS_save -I${x_includes}"
+		if test "${x_includes}X" == "X"; then
+			CPPFLAGS="-I${v}/tk${tcl_h_v} -I${v}/tcl${tcl_h_v} $acx_tcltk_CPPFLAGS_save $acx_tcltk_CFLAGS_save"
+		else
+			CPPFLAGS="-I${v}/tk${tcl_h_v} -I${v}/tcl${tcl_h_v} $acx_tcltk_CPPFLAGS_save $acx_tcltk_CFLAGS_save -I${x_includes}"
+		fi
 
 		AC_MSG_CHECKING([for tcl.h in -I${v}/tcl${tcl_h_v}])
 		AC_PREPROC_IFELSE(
