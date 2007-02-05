@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: $
+! * $Id: ParallelUtils.src,v 1.9 2006/01/10 10:54:44 apursula Exp $
 ! ******************************************************************************
 
 MODULE ParallelUtils
@@ -159,7 +159,7 @@ CONTAINS
       REAL(KIND=dp), POINTER :: Mx(:), Mr(:), Mb(:)
 
       TYPE(SplittedMatrixT), POINTER :: SP
-      TYPE(Matrix_t), POINTER :: saveptrif(:), saveptrnb(:), saveptrin
+      TYPE(Matrix_t), POINTER :: SavePtrIF(:), SavePtrNB(:), SavePtrIN
 !-------------------------------------------------------------------------------
 #ifdef PARALLEL_FOR_REAL
       GlobalData => Matrix % ParMatrix
@@ -169,27 +169,23 @@ CONTAINS
                IF ( UseMassVals ) THEN
 
                   SP => GlobalData % SplittedMatrix
-                  ALLOCATE( saveptrif( ParEnv % PEs ) )
-                  ALLOCATE( saveptrnb( ParEnv % PEs ) )
-                  ALLOCATE( saveptrIn )
+                  ALLOCATE( SavePtrIF( ParEnv % PEs ) )
+                  ALLOCATE( SavePtrNB( ParEnv % PEs ) )
+                  ALLOCATE( SavePtrIn )
                   DO i=1,ParEnv % PEs
-                  IF ( SP % IfMatrix(i) % NumberOfRows /= 0 ) THEN
-                     saveptrif(i) % values => SP % IfMatrix(i) % values
-                  end if
-                  IF ( SP % NbsIfMatrix(i) % NumberOfRows /= 0 ) THEN
-                     saveptrnb(i) % values => SP % NbsIfMatrix(i) % values
-                  endif
+                    IF ( SP % IfMatrix(i) % NumberOfRows /= 0 ) &
+                       SavePtrIF(i) % Values => SP % IfMatrix(i) % Values
+                    IF ( SP % NbsIfMatrix(i) % NumberOfRows /= 0 ) &
+                       SavePtrNB(i) % Values => SP % NbsIfMatrix(i) % Values
                   END DO
-                  saveptrin % values => SP % InsideMatrix % values
+                  SavePtrIN % Values => SP % InsideMatrix % Values
 
                   DO i=1,ParEnv % PEs
-                    IF ( SP % IfMatrix(i) % NumberOfRows /= 0 ) THEN
-                         SP % IfMatrix(i) % Values => SP % IfMatrix(i) % MassValues
-                    END IF
+                    IF ( SP % IfMatrix(i) % NumberOfRows /= 0 ) &
+                      SP % IfMatrix(i) % Values => SP % IfMatrix(i) % MassValues
 
-                    IF ( SP % NbsIfMatrix(i) % NumberOfRows /= 0 ) THEN
-                         SP % NbsIfMatrix(i) % Values => SP % NbsIfMatrix(i) % MassValues 
-                    END IF
+                    IF ( SP % NbsIfMatrix(i) % NumberOfRows /= 0 ) &
+                       SP % NbsIfMatrix(i) % Values => SP % NbsIfMatrix(i) % MassValues 
                   END DO
                   SP % InsideMatrix % Values => SP % InsideMatrix % MassValues
                END IF
@@ -208,45 +204,40 @@ CONTAINS
             IF ( PRESENT(UseMassVals) ) THEN
                IF ( UseMassVals ) THEN
                   DO i=1,ParEnv % PEs
-                  IF ( SP % IfMatrix(i) % NumberOfRows /= 0 ) THEN
-                   SP % IfMatrix(i) % values =>  saveptrif(i) % values
-                  end if
-                  IF ( SP % NbsIfMatrix(i) % NumberOfRows /= 0 ) THEN
-                   SP % NbsIfMatrix(i) % values =>  saveptrnb(i) % values 
-                  end if
+                    IF ( SP % IfMatrix(i) % NumberOfRows /= 0 ) &
+                       SP % IfMatrix(i) % Values =>  SavePtrIF(i) % Values
+
+                    IF ( SP % NbsIfMatrix(i) % NumberOfRows /= 0 ) &
+                       SP % NbsIfMatrix(i) % Values =>  SavePtrNB(i) % Values 
                   END DO
-                  SP % InsideMatrix % values => saveptrin % values 
-                  DEALLOCATE( saveptrif )
-                  DEALLOCATE( saveptrnb )
-                  DEALLOCATE( saveptrIn )
+                  SP % InsideMatrix % Values => SavePtrIN % Values 
+                  DEALLOCATE( SavePtrIF )
+                  DEALLOCATE( SavePtrNB )
+                  DEALLOCATE( SavePtrIn )
                END IF
             END IF
          ELSE
             IF ( PRESENT(UseMassVals) ) THEN
                IF ( UseMassVals ) THEN
-
                   SP => GlobalData % SplittedMatrix
-                  ALLOCATE( saveptrif( ParEnv % PEs ) )
-                  ALLOCATE( saveptrnb( ParEnv % PEs ) )
-                  ALLOCATE( saveptrIn )
+                  ALLOCATE( SavePtrIF( ParEnv % PEs ) )
+                  ALLOCATE( SavePtrNB( ParEnv % PEs ) )
+                  ALLOCATE( SavePtrIn )
                   DO i=1,ParEnv % PEs
-                  IF ( SP % IfMatrix(i) % NumberOfRows /= 0 ) THEN
-                     saveptrif(i) % values => SP % IfMatrix(i) % values
-                  end if
-                  IF ( SP % NbsIfMatrix(i) % NumberOfRows /= 0 ) THEN
-                     saveptrnb(i) % values => SP % NbsIfMatrix(i) % values
-                  endif
+                    IF ( SP % IfMatrix(i) % NumberOfRows /= 0 ) &
+                       SavePtrIF(i) % Values => SP % IfMatrix(i) % Values
+
+                    IF ( SP % NbsIfMatrix(i) % NumberOfRows /= 0 ) &
+                       SavePtrNB(i) % Values => SP % NbsIfMatrix(i) % Values
                   END DO
-                  saveptrin % values => SP % InsideMatrix % values
+                  SavePtrIN % Values => SP % InsideMatrix % Values
 
                   DO i=1,ParEnv % PEs
-                    IF ( SP % IfMatrix(i) % NumberOfRows /= 0 ) THEN
-                         SP % IfMatrix(i) % Values => SP % IfMatrix(i) % MassValues
-                    END IF
+                    IF ( SP % IfMatrix(i) % NumberOfRows /= 0 ) &
+                       SP % IfMatrix(i) % Values => SP % IfMatrix(i) % MassValues
 
-                    IF ( SP % NbsIfMatrix(i) % NumberOfRows /= 0 ) THEN
-                         SP % NbsIfMatrix(i) % Values => SP % NbsIfMatrix(i) % MassValues 
-                    END IF
+                    IF ( SP % NbsIfMatrix(i) % NumberOfRows /= 0 ) &
+                       SP % NbsIfMatrix(i) % Values => SP % NbsIfMatrix(i) % MassValues 
                   END DO
                   SP % InsideMatrix % Values => SP % InsideMatrix % MassValues
                END IF
@@ -255,20 +246,19 @@ CONTAINS
             CALL SParMatrixVector( x, b, ipar )
 
             IF ( PRESENT(UseMassVals) ) THEN
-               IF ( UseMassVals ) THEN
-                  DO i=1,ParEnv % PEs
-                  IF ( SP % IfMatrix(i) % NumberOfRows /= 0 ) THEN
-                   SP % IfMatrix(i) % values =>  saveptrif(i) % values
-                  end if
-                  IF ( SP % NbsIfMatrix(i) % NumberOfRows /= 0 ) THEN
-                   SP % NbsIfMatrix(i) % values =>  saveptrnb(i) % values 
-                  end if
-                  END DO
-                  SP % InsideMatrix % values => saveptrin % values 
-                  DEALLOCATE( saveptrif )
-                  DEALLOCATE( saveptrnb )
-                  DEALLOCATE( saveptrIn )
-               END IF
+              IF ( UseMassVals ) THEN
+                DO i=1,ParEnv % PEs
+                  IF ( SP % IfMatrix(i) % NumberOfRows /= 0 ) &
+                     SP % IfMatrix(i) % Values =>  SavePtrIF(i) % Values
+
+                  IF ( SP % NbsIfMatrix(i) % NumberOfRows /= 0 ) &
+                     SP % NbsIfMatrix(i) % Values =>  SavePtrNB(i) % Values 
+                END DO
+                SP % InsideMatrix % Values => SavePtrIN % Values 
+                DEALLOCATE( SavePtrIF )
+                DEALLOCATE( SavePtrNB )
+                DEALLOCATE( SavePtrIN )
+              END IF
             END IF
          END IF
       ELSE

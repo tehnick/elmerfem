@@ -55,7 +55,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ParallelEigenSolve.src,v 1.8 2006/11/27 10:23:57 jpr Exp $
+! * $Id: ParallelEigenSolve.src,v 1.9 2007/01/31 12:36:20 jpr Exp $
 ! ******************************************************************************
 
 MODULE ParallelEigenSolve
@@ -63,8 +63,6 @@ MODULE ParallelEigenSolve
    USE CRSMatrix
    USE IterSolve
    USE Multigrid
-!  USE SParIterGlobals
-!  USE SparIterSolve
    USE ParallelUtils
 
    IMPLICIT NONE
@@ -133,6 +131,9 @@ INCLUDE "mpif.h"
       REAL(KIND=dp), POINTER :: SaveValues(:)
       CHARACTER(LEN=MAX_NAME_LEN) :: str
 
+      INTEGER :: me
+      TYPE(NeighbourList_t), POINTER :: OwnerList(:)
+
 !     %-----------------------%
 !     | Executable Statements |
 !     %-----------------------%
@@ -142,7 +143,8 @@ INCLUDE "mpif.h"
       Residual    = 0
 
       DOFs = Solver % Variable % DOFs
-      CALL ParallelInitSolve( Matrix, Solution, ForceVector, Residual, DOFs, Solver % Mesh )
+      CALL ParallelInitSolve( Matrix, Solution, ForceVector, &
+              Residual, DOFs, Solver % Mesh )
 
       PMatrix => ParallelMatrix( Matrix ) 
       PN = PMatrix % NumberOFRows
@@ -160,7 +162,13 @@ INCLUDE "mpif.h"
 !     |               NEV + 1 <= NCV <= MAXNCV             | 
 !     %----------------------------------------------------%
 !
-      NCV = 3 * NEIG + 1
+      NCV = ListGetInteger( Solver % Values, 'Eigen System Lanczos Vectors', stat )
+      IF ( .NOT. stat ) NCV = 3*NEIG + 1
+
+      IF ( NCV <=  NEIG ) THEN
+         CALL Fatal( 'EigenSolve', & 
+               'Number of Lanczos vectors must exceed the number of eigenvalues.' )
+      END IF
 
       ALLOCATE( WORKL(3*NCV**2 + 6*NCV), D(NCV,3), &
          WORKEV(3*NCV), V(PN,NCV), CHOOSE(NCV), STAT=istat )
@@ -258,7 +266,7 @@ INCLUDE "mpif.h"
         stat = CRS_ILUT( PMatrix, ILUTOL )
       ELSE IF ( str(1:3) == 'ilu' ) THEN
          k = ICHAR(str(4:4)) - ICHAR('0')
-         IF ( k < 0 .OR. k > 9 ) k = 0
+         IF ( k<0 .OR. k>9 ) k = 0
          stat = CRS_IncompleteLU( PMatrix, k )
       END IF
 
@@ -277,12 +285,12 @@ INCLUDE "mpif.h"
       Iterative = ListGetString( Solver % Values, &
         'Linear System Solver', stat ) == 'iterative'
 
-      stat = ListGetLogical( Solver % Values,  'No Precondition Recompute', stat  )
+      stat = ListGetLogical(Solver % Values,  'No Precondition Recompute', stat  )
+      IF ( Iterative .AND. Stat ) &
+        CALL ListAddLogical(Solver % Values, 'No Precondition Recompute', .FALSE.)
 
-      IF ( Iterative .AND. Stat ) THEN
-         CALL ListAddLogical( Solver % Values, 'No Precondition Recompute', .FALSE. )
-      END IF
-
+      me = ParEnv % MyPe
+      OwnerList =>  Solver % Mesh % ParallelInfo % NeighBourList
 
       DO WHILE( ido /= 99 )
 !
@@ -312,18 +320,18 @@ INCLUDE "mpif.h"
 !                      ido = 1 inv(A-sigmaR*M)*z
 !---------------------------------------------------------------------
             IF ( .NOT. Matrix % Lumped .AND. ido == 1 ) THEN
-               x => workd(ipntr(2):ipntr(2)+PN-1)
-               b => workd(ipntr(3):ipntr(3)+PN-1)
+               x => WORKD(IPNTR(2):IPNTR(2)+PN-1)
+               b => WORKD(IPNTR(3):IPNTR(3)+PN-1)
                IF ( Solver % MultiGridSolver ) THEN
                   ForceVector = 0
                   Solution    = 0
                   j = 0
                   DO i=1,n
                      k = (Matrix % INVPerm(i) + DOFs-1) / DOFs
-                     IF ( Solver % Mesh % ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+                     IF ( OwnerList(k) % Neighbours(1) == me ) THEN
                         j = j + 1
-                        ForceVector(i) = b(j)
                         Solution(i)    = x(j)
+                        ForceVector(i) = b(j)
                      END IF
                   END DO
 
@@ -333,7 +341,7 @@ INCLUDE "mpif.h"
                   j = 0
                   DO i=1,n
                      k = (Matrix % INVPerm(i) + DOFs-1) / DOFs
-                     IF ( Solver % Mesh % ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+                     IF ( OwnerList(k) % Neighbours(1) == me ) THEN
                         j = j + 1
                         x(j) = Solution(i)
                      END IF
@@ -342,8 +350,8 @@ INCLUDE "mpif.h"
                   CALL BiCGParEigen( Matrix,x,b,Residual,LinIter,LinConv )
                END IF
             ELSE
-               x => workd(ipntr(1):ipntr(1)+PN-1)
-               b => workd(ipntr(2):ipntr(2)+PN-1)
+               x => WORKD(IPNTR(1):IPNTR(1)+PN-1)
+               b => WORKD(IPNTR(2):IPNTR(2)+PN-1)
 
                SaveValues => Matrix % Values
                Matrix % Values => Matrix % MassValues
@@ -351,8 +359,8 @@ INCLUDE "mpif.h"
                Matrix % Values => SaveValues
 
                x = b
-               x => workd(ipntr(2):ipntr(2)+PN-1)
-               b => workd(ipntr(1):ipntr(1)+PN-1)
+               x => WORKD(IPNTR(2):IPNTR(2)+PN-1)
+               b => WORKD(IPNTR(1):IPNTR(1)+PN-1)
 
                IF ( Solver % MultiGridSolver ) THEN
                   ForceVector = 0
@@ -360,10 +368,10 @@ INCLUDE "mpif.h"
                   j = 0
                   DO i=1,n
                      k = (Matrix % INVPerm(i) + DOFs-1) / DOFs
-                     IF ( Solver % Mesh % ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+                     IF ( OwnerList(k) % Neighbours(1) == me ) THEN
                         j = j + 1
-                        ForceVector(i) = b(j)
                         Solution(i)    = x(j)
+                        ForceVector(i) = b(j)
                      END IF
                   END DO
 
@@ -373,7 +381,7 @@ INCLUDE "mpif.h"
                   j = 0
                   DO i=1,n
                      k = (Matrix % INVPerm(i) + DOFs-1) / DOFs
-                     IF ( Solver % Mesh % ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+                     IF ( OwnerList(k) % Neighbours(1) == me ) THEN
                         j = j + 1
                         x(j) = Solution(i)
                      END IF
@@ -398,8 +406,8 @@ INCLUDE "mpif.h"
                     Matrix % MassValues( Matrix % Diag(i+1) )
                END DO
             ELSE
-               x => workd(ipntr(1):ipntr(1)+PN-1)
-               b => workd(ipntr(2):ipntr(2)+PN-1)
+               x => WORKD(IPNTR(1):IPNTR(1)+Pn-1)
+               b => WORKD(IPNTR(2):IPNTR(2)+Pn-1)
 
                SaveValues => Matrix % Values
                Matrix % Values => Matrix % MassValues
@@ -527,19 +535,19 @@ INCLUDE "mpif.h"
         Solution = 0.0d0
         Residual = 0.0d0
         DO j=1,PN
-           IF ( D(p,2) /= 0.0d0 ) THEN
-              Matrix % ParMatrix % SplittedMatrix % TmpXVec(j) = V(j,k)
-              Matrix % ParMatrix % SplittedMatrix % TmpRVec(j) = V(j,k+1)
-           ELSE
-              Matrix % ParMatrix % SplittedMatrix % TmpXVec(j) = V(j,k)
-              Matrix % ParMatrix % SplittedMatrix % TmpRVec(j) = 0.0d0
-           END IF
+          IF ( D(p,2) /= 0.0d0 ) THEN
+            Matrix % ParMatrix % SplittedMatrix % TmpXVec(j) = V(j,k)
+            Matrix % ParMatrix % SplittedMatrix % TmpRVec(j) = V(j,k+1)
+          ELSE
+            Matrix % ParMatrix % SplittedMatrix % TmpXVec(j) = V(j,k)
+            Matrix % ParMatrix % SplittedMatrix % TmpRVec(j) = 0.0d0
+          END IF
         END DO
 
         CALL ParallelUpdateResult( Matrix, Solution, Residual )
 
         DO j=1,N
-           EigVectors(i,j) = CMPLX( Solution(j), Residual(j),KIND=dp )
+          EigVectors(i,j) = CMPLX( Solution(j), Residual(j), KIND=dp )
         END DO
 
       END DO
@@ -691,8 +699,8 @@ INCLUDE "mpif.h"
           IF ( RNorm < Conv ) EXIT
        END DO
 
-!      WRITE( Message, * ) 'Iters: ', i, RNorm
-!      CALL Info( 'BiCGParEigen', Message, Level=4 ) 
+       WRITE( Message, * ) 'Iters: ', i, RNorm
+       CALL Info( 'BiCGParEigen', Message, Level=4 ) 
 
        DEALLOCATE( Ri,P,V,T,T1,T2,S )
 
@@ -737,9 +745,9 @@ INCLUDE "mpif.h"
        LOGICAL :: mass, updt
 !------------------------------------------------------------------------------
        mass = .FALSE.
-       IF ( PRESENT( UseMass ) ) Mass = UseMass
+       IF (PRESENT(UseMass)) Mass = UseMass
        updt = .FALSE.
-       IF ( PRESENT( Update ) ) updt = Update
+       IF (PRESENT(Update)) updt = Update
 
        CALL ParallelMatrixVector( A,x,b,updt,mass )
 !------------------------------------------------------------------------------
