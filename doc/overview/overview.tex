@@ -20,7 +20,7 @@ continued by CSC in different application fields.
 
 \subsection*{Licensing}
 In September 1995 Elmer was released under GPL. This has meant a significant growth particularly of the 
-international user community. However, as the sole owner of the Elmer IP CSC may distribute Elmer also 
+international user community. However, as the sole owner of the copyright to Elmer source code CSC may distribute Elmer also 
 under other licensing terms. Therefore if GPL does not suit your purposes you may contact the Elmer team
 for other licensing options. 
 
@@ -35,7 +35,7 @@ For Windows a precompiled binary version of the code is provided.
 The documentation is already quite large, but unfortunately still not complete.
 
 
-\section{Capabilities of Elmer}
+\section{Key features of Elmer}
 
 Elmer includes a huge number of capabilities in different categories. This list summarizes some of the most
 important ones.
@@ -144,8 +144,7 @@ from within ElmerSolver.
 The Elmer is distributed as partially interdependent modules. Some of them include binaries while
 other are used as libraries only. Below is a possible distribution list. The first version number changes in
 major new releases while the second number changes about a few times in a year. Basically the user 
-does not need knownledge about the different modules but it may be of use if the user wants to setup
-only a partial system.
+does not need knownledge about the different modules unless she wants to setup only a partial system.
 \sifbegin
 \sifitem{eio-5.3.0.tar.gz}{}
 Elmer input/output library written in C++. Used for some I/O operations by the ElmerSolver. 
@@ -186,7 +185,7 @@ keywords.
 
 \sifitem{ElmerSolver mesh format}{meshdir/mesh.*}
 The mesh is defined by four different files \texttt{mesh.nodes},
-texttt{mesh.elements}, \texttt{mesh.boundary}, and \texttt{mesh.header}
+\texttt{mesh.elements}, \texttt{mesh.boundary}, and \texttt{mesh.header}
 which are located in the mesh directory. The mesh may be created by 
 Mesh2D directly or through ElmerFront, ElmerGrid, or by enhanced versions of 
 Netgen and GiD. The file format is understood by ElmerSolver, ElmerFront and ElmerGrid.
@@ -219,16 +218,15 @@ This file is used to make mesh manipulation operations. The same functionality
 may often by achieved by command line arguments.
 
 \sifitem{ELMERSOLVER\_STARTINFO}{} 
-This file is read by ElmerSolver in case no command line parameter defining the 
-name of the command line is given. This file basically can have two lines:
-first line defines the name of the command file, and the second one the number of 
-processors to be used in parallel runs. 
+This file is required by ElmerSolver in case no command line parameter defining the 
+name of the command file is given. Then this file simply includes the name of the 
+command file.
 
 \sifitem{SOLVER.KEYWORDS}{}
 The keywords of ElmerSolver are partially listed in a file located in the 
 among the shared library files of ElmerSolver. This list is not complete as new keywords 
-are always popping up due to the development work. Therefore the user may take a local copy of this
-file and add some missing keywords. Note that it does not really matter if keywords are not defined,
+are always popping up due to the development work. Therefore the user may create a local file and 
+add some of the missing keywords. Note that it does not really matter if keywords are not defined,
 as long as the type is given and the \texttt{check keywords warn} is used instead of \texttt{abort}. 
 
 \sifend
@@ -239,13 +237,14 @@ as long as the type is given and the \texttt{check keywords warn} is used instea
 
 The Elmer documentation is constantly under development. The create date of the manuals is printed in the cover 
 of the manuals. The manuals are not always quite up to date. 
-Particularly the SolverManual is still not ready. The current set of Elmer manuals is as follows
+Particularly the ElmerSolver Manual is still not ready. The current set of Elmer manuals is as follows
 \sifbegin
 \sifitem{ElmerSolverManual.pdf}{}
-	Manual gives on overview of the capabilities of the solver with an 
-	emphasis on generic services provided by the solver.
+	ElmerSolver Manual gives on overview of the capabilities of the solver with an 
+	emphasis on generic services provided by the solver. This does not include information of 
+	certain physical equations.
 \sifitem{ElmerModelsManual.pdf}{}
-	This manual describes the different physical models that are defined
+	The Models Manual manual describes the different physical models that are defined
 	in independent subroutines. This is quite well up-to-date. 
 \sifitem{ElmerTutorials.pdf}{}
 	The tutorials of the Elmer software are basically just example files with documentation.
@@ -255,20 +254,21 @@ Particularly the SolverManual is still not ready. The current set of Elmer manua
 	The Manual of ElmerGrid utility.
 	Examples related to the ElmerGrid documentation are provided in file 
 	ElmerGridExamples.tar.gz.
+\sifitem{ElmerFrontUserGuide.pdf}{}
+	Manual for the graphical user interface of Elmer. ElmerFront is not actively developed 
+	and this might be the final documentation of the program.
 \sifend
 In addition to these manuals there are separate documentation for some input interfaces (GiD) and
 for vizualization tasks (making animations). Look at the www-pages for more information on these
 topics. 
 
 The following documentation is no longer actively developed. However, some information may still be
-best presented in them. In time we'll try to make these fully obsolite by devloping the new set 
+best presented in them. In time we'll try to make these fully obsolite by developing the new set 
 of manuals.
 \sifbegin
-\sifitem{ElmerFrontUserGuide.pdf}{}
-	Manual for the graphical user interface of Elmer. ElmerFront is not actively developed 
-	and this might be the final documentation of the program. (updated 14.2.2002)
 \sifitem{OldElmerUserGuide.pdf}{}
-	The original user guide of Elmer software (1999). Particularly some appendixes may still be usefull.
+	The original user guide of Elmer software (1999). Particularly some appendixes defining some of the 
+	file formats may still be usefull.
 \sifitem{OldElmerTutorial.pdf}{}
 	A graphical user guide oriented tutorial of the Elmer software (2000). This was never really maintained.
 \sifend
@@ -278,6 +278,7 @@ of manuals.
 \begin{center}
 \includegraphics[width=13.0cm]{elmer-chart.pdf}
 \caption{Work flow in the Elmer environment}
+\label{fig_workflow}
 \end{center}
 \end{figure}
 
@@ -286,14 +287,19 @@ of manuals.
 \section{Strategies for using the Elmer package}
 
 Because of the number of different modules in Elmer there is a number of different strategies
-how use Elmer. Here we try to explain the different choices in more detail. 
+how use Elmer. 
+Here we try to explain the different choices in more detail. 
 Examples on the different choices strategies may be found in Elmer tutorials. 
+Figure~\ref{fig_workflow} shows a schematic pictures on how the different components depend
+on one-another.
+
 
 
 \subsection*{Strategies for preprocessing}
 
 The purpose of the preprocessing part is to create the files 
-that ElmerSolver needs to run.
+that ElmerSolver needs to run which means at least the command file and the finite element 
+mesh. 
 
 
 \subsubsection*{geometry definition + ElmerFront}
