@@ -29,6 +29,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <stdio.h>
+#include <sys/types.h>
 #include "config.h"
 
 #ifdef HAVE_INTTYPES_H
