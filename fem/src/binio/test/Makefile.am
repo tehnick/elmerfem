@@ -9,7 +9,7 @@ run-readtest: readtest.sh
 	cp readtest.sh run-readtest
 	chmod a+x run-readtest
 
-AM_FCFLAGS = @INCLUDE_MODULE_FLAG@../..
+AM_FCFLAGS = @INCLUDE_MODULE_FLAG@..
 
 writetest_SOURCES = writetest.f90
 writetest_LDADD = ../libbinio.a
