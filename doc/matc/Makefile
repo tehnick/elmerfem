@@ -11,15 +11,6 @@ bib:
 
 biblio:
 	bibtex arterybc/arterybc
-	bibtex artifcomp/artifcomp
-	bibtex blockpreconditioning/blockpreconditioning
-	bibtex electricforce/electricforce
-	bibtex electrokinetics/electrokinetics
-	bibtex linearplate/linearplate
-	bibtex linearrestriction/linearrestriction
-	bibtex navier-stokes/navier-stokes
-	bibtex operatorsplitting/operatorsplitting
-	bibtex PoissonBoltzmann/PoissonBoltzmann
 
 chmod:
 	chmod -R ug+rw,o= .
@@ -29,7 +20,7 @@ view:
 	acroread manual.pdf
 
 install:
-	mv manual.pdf ../MatCManual.pdf
+	mv manual.pdf ../MATCManual.pdf
 
 clean:
 	/bin/rm -f *~ .*~ *.log *.aux *.bbl *.blg *.toc *.ilg *.idx *.ind
