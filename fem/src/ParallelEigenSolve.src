@@ -55,7 +55,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ParallelEigenSolve.src,v 1.9 2007/01/31 12:36:20 jpr Exp $
+! * $Id: ParallelEigenSolve.src,v 1.10 2007/02/05 11:36:31 jpr Exp $
 ! ******************************************************************************
 
 MODULE ParallelEigenSolve
@@ -290,7 +290,7 @@ INCLUDE "mpif.h"
         CALL ListAddLogical(Solver % Values, 'No Precondition Recompute', .FALSE.)
 
       me = ParEnv % MyPe
-      OwnerList =>  Solver % Mesh % ParallelInfo % NeighBourList
+      OwnerList =>  Solver % Mesh % ParallelInfo % NeighbourList
 
       DO WHILE( ido /= 99 )
 !
@@ -352,12 +352,7 @@ INCLUDE "mpif.h"
             ELSE
                x => WORKD(IPNTR(1):IPNTR(1)+PN-1)
                b => WORKD(IPNTR(2):IPNTR(2)+PN-1)
-
-               SaveValues => Matrix % Values
-               Matrix % Values => Matrix % MassValues
                CALL MGmv( Matrix, x, b, .FALSE., .TRUE. )
-               Matrix % Values => SaveValues
-
                x = b
                x => WORKD(IPNTR(2):IPNTR(2)+PN-1)
                b => WORKD(IPNTR(1):IPNTR(1)+PN-1)
@@ -387,7 +382,7 @@ INCLUDE "mpif.h"
                      END IF
                   END DO
                ELSE
-                  CALL BICGParEigen( Matrix,Solution,ForceVector,Residual,LinIter,LinConv )
+                  CALL BICGParEigen( Matrix,x,b,Residual,LinIter,LinConv )
                END IF
             END IF
          ELSE IF (ido == 2) THEN
@@ -406,13 +401,9 @@ INCLUDE "mpif.h"
                     Matrix % MassValues( Matrix % Diag(i+1) )
                END DO
             ELSE
-               x => WORKD(IPNTR(1):IPNTR(1)+Pn-1)
-               b => WORKD(IPNTR(2):IPNTR(2)+Pn-1)
-
-               SaveValues => Matrix % Values
-               Matrix % Values => Matrix % MassValues
+               x => WORKD(IPNTR(1):IPNTR(1)+PN-1)
+               b => WORKD(IPNTR(2):IPNTR(2)+PN-1)
                CALL MGmv( Matrix, x, b, .FALSE., .TRUE. )
-               Matrix % Values => SaveValues
             END IF
          END IF 
 
@@ -699,8 +690,8 @@ INCLUDE "mpif.h"
           IF ( RNorm < Conv ) EXIT
        END DO
 
-       WRITE( Message, * ) 'Iters: ', i, RNorm
-       CALL Info( 'BiCGParEigen', Message, Level=4 ) 
+!      WRITE( Message, * ) 'Iters: ', i, RNorm
+!      CALL Info( 'BiCGParEigen', Message, Level=4 ) 
 
        DEALLOCATE( Ri,P,V,T,T1,T2,S )
 

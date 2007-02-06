@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterComm.src,v 1.11 2007/01/19 12:10:06 jpr Exp $
+! * $Id: SParIterComm.src,v 1.12 2007/01/26 13:14:25 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -2307,7 +2307,7 @@ SUBROUTINE ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, XVec, DOF
            ResInd = SearchNode( ParallelInfo, (IndBuf(j) + DOFs-1) / DOFs )
            IF ( ResInd > 0 ) THEN
               DOF = DOFs-1 - MOD( IndBuf(j)-1, DOFs )
-              ResInd = SourceMatrix % Perm( DOFs * ResInd - DOF )
+              ResInd = SourceMatrix % Perm(DOFs*ResInd-DOF)
               IF ( ResInd > 0 ) XVec(ResInd) = ValBuf(j)
            ELSE
               WRITE( Message, * ) ParEnv % MyPE, 'Result Receive error: '
@@ -2318,7 +2318,7 @@ SUBROUTINE ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, XVec, DOF
         DEALLOCATE( IndBuf, ValBuf )
      END IF
   END DO
-! CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
+  CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
 
 END SUBROUTINE ExchangeResult
 !*********************************************************************

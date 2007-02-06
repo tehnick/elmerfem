@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterSolver.src,v 1.10 2006/12/21 12:40:59 jpr Exp $
+! * $Id: SParIterSolver.src,v 1.13 2007/01/19 12:10:06 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -1201,19 +1201,21 @@ END SUBROUTINE ZeroSplittedMatrix
     IF ( .NOT. ASSOCIATED( SplittedMatrix % TmpXVec ) ) THEN
        ALLOCATE( SplittedMatrix % InsideMatrix % RHS(  &
          SplittedMatrix % InsideMatrix % NumberOfRows ) )
+       SPlittedMatrix % InsideMatrix % RHS = 0
 
        ALLOCATE( SplittedMatrix % TmpXVec( SplittedMatrix %  &
                   InsideMatrix % NumberOfRows ) )
+       SplittedMatrix % TmpXVec = 0
 
        ALLOCATE( SplittedMatrix % TmpRVec( SplittedMatrix %  &
                   InsideMatrix % NumberOfRows ) )
+       SplittedMAtrix % TmpRVec = 0
     END IF
 
     !
     ! Exchange RHS with neighbours
     ! -------------------------------------------------------------
     TmpRHSVec => SplittedMatrix % InsideMatrix % RHS
-
     CALL ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
             ParallelInfo, DOFs, RHSVec, TmpRHSVec )
 
@@ -1346,8 +1348,6 @@ END SUBROUTINE ZeroSplittedMatrix
     TmpXVec => SplittedMatrix % TmpXVec
     TmpRVec => SplittedMatrix % TmpRVec
 
-    ALLOCATE( VecEPerNB( ParEnv % PEs ) )
-
     j = 0
     DO i = 1, SourceMatrix % NumberOfRows
        k = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
@@ -1355,13 +1355,12 @@ END SUBROUTINE ZeroSplittedMatrix
           j = j + 1
           XVec(i) = TmpXVec(j)
           RVec(i) = TmpRVec(j)
-       ELSE
-          RVec(i) = SourceMatrix % RHS(i)
        END IF
     END DO
 
     IF ( .NOT. GlobalUpdate ) RETURN
 
+    ALLOCATE( VecEPerNB( ParEnv % PEs ) )
     VecEPerNB = 0
     DO i = 1, SourceMatrix % NumberOfRows
        k = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
