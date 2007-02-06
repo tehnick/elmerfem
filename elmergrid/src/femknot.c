@@ -6135,6 +6135,7 @@ void MergeElements(struct FemType *data,struct BoundaryType *bound,
     doubles[i] = 0;
 
   if(info) printf("Merging nodes close (%.3lg) to one another.\n",eps);
+
   dz = 0.0;
   for(i=1;i<noknots;i++) {
     if(mergeindx[i]) continue;
@@ -6144,14 +6145,14 @@ void MergeElements(struct FemType *data,struct BoundaryType *bound,
 
       dx = data->x[i] - data->x[j];
       dy = data->y[i] - data->y[j];
-      if(data->dim == 3) 
-	dz = data->z[i] - data->z[j];
-      if(cx*dx+cy*dy+cz*dz > eps) break;
+      if(data->dim == 3) dz = data->z[i] - data->z[j];
+      if(abs(cx*dx+cy*dy+cz*dz) > eps) break;
 
       dist = dx*dx + dy*dy + dz*dz;
+
       if(dist < eps*eps) {
 	doubles[i] = doubles[j] = TRUE;
-	mergeindx[j] = -i;
+	mergeindx[j] = -i;	  
 	newnoknots--;
       }
     }
@@ -6166,9 +6167,8 @@ void MergeElements(struct FemType *data,struct BoundaryType *bound,
       mergeindx[i] = ++j;
 
   for(i=1;i<=noknots;i++) {
-    j = -mergeindx[i];
-    if(j > 0) 
-      mergeindx[i] = mergeindx[j];
+    if(mergeindx[i] < 0) 
+      mergeindx[i] = mergeindx[-mergeindx[i]];
   }
 
   printf("%d original nodes merged to %d new nodes.\n",
@@ -6182,8 +6182,7 @@ void MergeElements(struct FemType *data,struct BoundaryType *bound,
   for(i=1;i<=noknots;i++) {
     newx[mergeindx[i]] = data->x[i];
     newy[mergeindx[i]] = data->y[i];
-    if(data->dim == 3) 
-      newz[mergeindx[i]] = data->z[i];
+    if(data->dim == 3) newz[mergeindx[i]] = data->z[i];
   }
 
 #if 0
@@ -6193,20 +6192,19 @@ void MergeElements(struct FemType *data,struct BoundaryType *bound,
 
   free_Rvector(data->x,1,data->noknots);
   free_Rvector(data->y,1,data->noknots);
-  if(data->dim == 3)   
-    free_Rvector(data->z,1,data->noknots);
+  if(data->dim == 3) free_Rvector(data->z,1,data->noknots);
   
   data->x = newx;
   data->y = newy;
-  if(data->dim == 3) 
-    data->z = newz;
+  if(data->dim == 3) data->z = newz;
 
 #if 0
   if(info) printf("Merging the topologies.\n");
 #endif
 
+  l = 0;
   for(j=1;j<=noelements;j++) {
-    nonodes = data->elementtypes[j]%100;
+    nonodes = data->elementtypes[j] % 100;
     for(i=0;i<nonodes;i++) {
       k = data->topology[j][i];
       data->topology[j][i] = mergeindx[k];
@@ -6215,14 +6213,6 @@ void MergeElements(struct FemType *data,struct BoundaryType *bound,
 
   data->noknots = newnoknots;
   free_Ivector(mergeindx,1,noknots);  
-
-  for(j=1;j<=noelements;j++) {
-    nonodes = data->elementtypes[j]%100;
-    for(i=0;i<nonodes;i++) {
-      k = data->topology[j][i];
-      data->topology[j][i] = mergeindx[k];
-    }
-  }
 
   if(info) printf("Merging of nodes is complete.\n");
 }
