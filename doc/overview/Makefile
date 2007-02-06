@@ -2,26 +2,12 @@ SHELL = /bin/sh
 
 manual: 
 	pdflatex manual
-	makeindex manual
-	pdflatex manual
 
 update:
 	pdflatex manual
 
-bib:
-	sh loopchapterbib;
-
 biblio:
 	bibtex arterybc/arterybc
-	bibtex artifcomp/artifcomp
-	bibtex blockpreconditioning/blockpreconditioning
-	bibtex electricforce/electricforce
-	bibtex electrokinetics/electrokinetics
-	bibtex linearplate/linearplate
-	bibtex linearrestriction/linearrestriction
-	bibtex navier-stokes/navier-stokes
-	bibtex operatorsplitting/operatorsplitting
-	bibtex PoissonBoltzmann/PoissonBoltzmann
 
 chmod:
 	chmod -R ug+rw,o= .
