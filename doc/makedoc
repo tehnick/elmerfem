@@ -1,12 +1,21 @@
 #!/bin/sh -f
-# Fetch sources from CVS, compile each module and install it
-#
-#export CVSROOT="username@corona.csc.fi:/fs/proj1/elmer/elmer-opensource"
-#export CVS_RSH="ssh"
+# make the pdf documentation, the tar packages and set the to dist
 
-# replace these with your compilers:
-
-modules="models tutorials elmersolver elmergrid cscmodels csctutorials elmerparam matc overview"
+modules="models tutorials elmersolver elmergrid cscmodels csctutorials matc overview"
 for m in $modules; do
   cd $m && make manual && make install && make clean && cd ..
 done
+
+mkdir dist
+mv *.pdf dist
+
+/bin/rm Exclude
+find tutorials_files ! -type -print | grep CVS > Exclude
+tar cvfX dist/ElmerTutorialsFiles.tar Exclude tutorials_files
+/bin/rm Exclude
+gzip dist/ElmerTutorialsFiles.tar
+
+find csctutorials_files ! -type -print | grep CVS > Exclude
+tar cvfX dist/ElmerTutorialsFilesCSC.tar Exclude csctutorials_files
+/bin/rm Exclude
+gzip dist/ElmerTutorialsFilesCSC.tar 
