@@ -274,6 +274,7 @@ SUBDIRS = test
 AM_FCFLAGS = @INCLUDE_MODULE_FLAG@.  @INCLUDE_MODULE_FLAG@..
 noinst_LIBRARIES = libbinio.a
 libbinio_a_SOURCES = binio.c kinds.f90 biniomod.f90
+ELMER_SOLVER_DATADIR = $(prefix)/share/elmersolver
 all: all-recursive
 
 .SUFFIXES:
@@ -614,10 +615,10 @@ uninstall-info: uninstall-info-recursive
 	tags tags-recursive uninstall uninstall-am uninstall-info-am
 
 
-@UPPERCASEMODS_TRUE@install-exec-local:
-@UPPERCASEMODS_TRUE@	$(INSTALL) BINIO.mod $(includedir)
-@UPPERCASEMODS_FALSE@install-exec-local:
-@UPPERCASEMODS_FALSE@	$(INSTALL) binio.mod $(includedir)
+biniomod.f90: kinds.f90
+install-exec-local:
+	mkdir -p $(ELMER_SOLVER_DATADIR)/include
+	$(INSTALL) *.mod $(ELMER_SOLVER_DATADIR)/include
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

@@ -32,7 +32,7 @@
 #define ELMER_LINKTYP 1
 
 /* Elmer solver default install directory */
-#define ELMER_SOLVER_HOME "/tmp/jpr/share/elmersolver"
+#define ELMER_SOLVER_HOME "/usr/share/elmersolver"
 
 /* Define if using dynamic linking */
 #define ENABLE_DYNAMIC_LINKING 1
@@ -208,10 +208,10 @@
 /* #undef SIZEOF_LONG */
 
 /* The size of `off_t', as computed by sizeof. */
-#define SIZEOF_OFF_T 4
+#define SIZEOF_OFF_T 8
 
 /* The size of `void*', as computed by sizeof. */
-#define SIZEOF_VOIDP 0
+#define SIZEOF_VOIDP 8
 
 /* Detected platform. */
 /* #undef SOLARIS */
