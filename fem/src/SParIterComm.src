@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterComm.src,v 1.12 2007/01/26 13:14:25 jpr Exp $
+! * $Id: SParIterComm.src,v 1.13 2007/02/06 13:13:38 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -2187,8 +2187,10 @@ FUNCTION ParComplexNorm( ndim, x, xind ) result (norm)
      END IF
   END DO
 
-! CALL MPI_ALLREDUCE( nsum, norm, 1, MPI_DOUBLE_PRECISION, &
-!            MPI_SUM, MPI_COMM_WORLD, ierr )
+  IF ( ndim==-1) THEN
+    CALL MPI_ALLREDUCE( nsum, norm, 1, MPI_DOUBLE_PRECISION, &
+               MPI_SUM, MPI_COMM_WORLD, ierr )
+  END IF
 
   norm = SQRT( norm )
 

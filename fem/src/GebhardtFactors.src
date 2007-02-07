@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: $
+! * $Id: GebhardtFactors.src,v 1.7 2006/01/10 08:27:34 apursula Exp $
 ! *****************************************************************************
 
 #define FULLMATRIX
@@ -97,7 +97,7 @@
 
      TYPE(Variable_t), POINTER :: var
 
-     LOGICAL :: GotIt
+     LOGICAL :: GotIt, Found, Radiation
      TYPE(Solver_t), POINTER :: Solver
      DOUBLE PRECISION, ALLOCATABLE :: SOL(:),RHS(:)
 
@@ -138,8 +138,9 @@
      NULLIFY( Mesh )
      DO i=1,Model % NumberOfSolvers
        Solver => Model % Solvers(i)
+       Radiation = ListGetLogical( Solver % Values, 'Radiation Solver', Found )
        eq = ListGetString( Solver % Values, 'Equation' )
-       IF ( TRIM(eq) == 'heat equation' ) THEN
+       IF ( Radiation .OR. TRIM(eq) == 'heat equation' ) THEN
          Mesh => Solver % Mesh
          EXIT
        ENDIF

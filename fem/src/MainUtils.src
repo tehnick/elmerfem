@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MainUtils.src,v $
+! * Revision 1.22  2006/12/20 09:23:32  jpr
+! * Corrected messed up indentation.
+! *
 ! * Revision 1.21  2006/12/18 13:09:42  jpr
 ! * Removed debug prints.
 ! *
@@ -107,7 +110,7 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.src,v 1.21 2006/12/18 13:09:42 jpr Exp $
+! * $Id: MainUtils.src,v 1.22 2006/12/20 09:23:32 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MainUtils
@@ -734,83 +737,81 @@ CONTAINS
         Solver % Variable % Norm = 0.0d0
         NULLIFY( Solver % Variable % Values )
       END IF
-
-
-      l = 1
-      DO WHILE( .TRUE. )
-        str = ComponentName( 'exported variable', l )
-        var_name = ListGetString( Solver % Values, str, Found )
-
-        IF ( Found ) THEN
-          str = TRIM( ComponentName( 'exported variable', l ) ) // ' Output'
-          VariableOutput = ListGetLogical( Solver % Values, str, Found )
-          IF ( .NOT. Found ) VariableOutput = .TRUE.
-
-          str = TRIM( ComponentName( 'exported variable', l ) ) // ' DOFs'
-          DOFs = ListGetInteger( Solver % Values, str, Found )
-          IF ( .NOT. Found ) THEN
-            j = 0
-            DOFs = 0
-            DO WHILE( .TRUE. )
-              i = INDEX( var_name(j+1:), ':' ) + j
-              IF ( i<=j ) EXIT
-              READ( var_name(i+1:),'(i1)' ) k
-              DOFs = DOFs + k
-              j = i + 1
-            END DO
-          END IF
-
-          VariableOutput = .TRUE.
-          DO WHILE( var_name(1:1) == '-' )
-            IF ( var_name(1:10) == '-nooutput ' ) THEN
-              VariableOutput = .FALSE.
-              var_name(1:LEN(var_name)-10) = var_name(11:)
-            END IF
-
-            IF ( var_name(1:6) == '-dofs ' ) THEN
-              READ( var_name(7:), * ) DOFs 
-              j = LEN_TRIM( var_name )
-              k = 7
-              DO WHILE( var_name(k:k) /= ' '  )
-                k = k + 1
-                IF ( k > j ) EXIT
-              END DO
-              var_name(1:LEN(var_name)-(k+2)) = var_name(k+1:)
-            END IF
-          END DO
-          IF ( DOFs == 0 ) DOFs = 1
-
-          NewVariable => VariableGet( Solver % Mesh % Variables, Var_name )
-
-          IF ( .NOT. ASSOCIATED(NewVariable) ) THEN
-            nSize = Nrows * DOFs / Solver % Variable % DOFs
-            ALLOCATE( Solution(nSize) )
-            Solution = 0.0d0
-            Perm => Solver % Variable % Perm
-
-            CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
-             var_name, DOFs, Solution, Solver % Variable % Perm,Output=VariableOutput )
-
-            IF ( DOFs > 1 ) THEN
-              n = LEN_TRIM( var_name )
-              DO j=1,DOFs
-                tmpname = ComponentName( var_name(1:n), j )
-                Component => Solution( j:nSize-DOFs+j:DOFs )
-                CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
-                    tmpname, 1, Component, Perm, Output=VariableOutput )
-              END DO
-            END IF
-          END IF
-        ELSE
-          EXIT
-        END IF
-        l = l + 1
-      END DO
-
       str = ListGetString( Solver  % Values, 'Procedure' )
       Solver % PROCEDURE = GetProcAddr(str)
       !------------------------------------------------------------------------------
     END SELECT
+
+    l = 1
+    DO WHILE( .TRUE. )
+      str = ComponentName( 'exported variable', l )
+      var_name = ListGetString( Solver % Values, str, Found )
+
+      IF ( Found ) THEN
+        str = TRIM( ComponentName( 'exported variable', l ) ) // ' Output'
+        VariableOutput = ListGetLogical( Solver % Values, str, Found )
+        IF ( .NOT. Found ) VariableOutput = .TRUE.
+
+        str = TRIM( ComponentName( 'exported variable', l ) ) // ' DOFs'
+        DOFs = ListGetInteger( Solver % Values, str, Found )
+        IF ( .NOT. Found ) THEN
+          j = 0
+          DOFs = 0
+          DO WHILE( .TRUE. )
+            i = INDEX( var_name(j+1:), ':' ) + j
+            IF ( i<=j ) EXIT
+            READ( var_name(i+1:),'(i1)' ) k
+            DOFs = DOFs + k
+            j = i + 1
+          END DO
+        END IF
+
+        VariableOutput = .TRUE.
+        DO WHILE( var_name(1:1) == '-' )
+          IF ( var_name(1:10) == '-nooutput ' ) THEN
+            VariableOutput = .FALSE.
+            var_name(1:LEN(var_name)-10) = var_name(11:)
+          END IF
+
+          IF ( var_name(1:6) == '-dofs ' ) THEN
+            READ( var_name(7:), * ) DOFs 
+            j = LEN_TRIM( var_name )
+            k = 7
+            DO WHILE( var_name(k:k) /= ' '  )
+              k = k + 1
+              IF ( k > j ) EXIT
+            END DO
+            var_name(1:LEN(var_name)-(k+2)) = var_name(k+1:)
+          END IF
+        END DO
+        IF ( DOFs == 0 ) DOFs = 1
+
+        NewVariable => VariableGet( Solver % Mesh % Variables, Var_name )
+
+        IF ( .NOT. ASSOCIATED(NewVariable) ) THEN
+          nSize = Nrows * DOFs / Solver % Variable % DOFs
+          ALLOCATE( Solution(nSize) )
+          Solution = 0.0d0
+          Perm => Solver % Variable % Perm
+
+          CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
+           var_name, DOFs, Solution, Solver % Variable % Perm,Output=VariableOutput )
+
+          IF ( DOFs > 1 ) THEN
+            n = LEN_TRIM( var_name )
+            DO j=1,DOFs
+              tmpname = ComponentName( var_name(1:n), j )
+              Component => Solution( j:nSize-DOFs+j:DOFs )
+              CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
+                  tmpname, 1, Component, Perm, Output=VariableOutput )
+            END DO
+          END IF
+        END IF
+      ELSE
+        EXIT
+      END IF
+      l = l + 1
+    END DO
       !------------------------------------------------------------------------------
 
     Solver % NOFEigenValues = 0

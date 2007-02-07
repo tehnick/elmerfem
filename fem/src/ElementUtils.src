@@ -38,7 +38,7 @@
 ! *
 ! ******************************************************************************/
 ! *
-! * $Id: ElementUtils.src,v 1.16 2006/12/08 10:53:51 jpr Exp $
+! * $Id: ElementUtils.src,v 1.17 2007/01/19 12:11:06 jpr Exp $
 ! ******************************************************************************
 
 MODULE ElementUtils
@@ -100,7 +100,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  SUBROUTINE MakeListMatrix( Model,Mesh,ListMatrix,Reorder, &
+  SUBROUTINE MakeListMatrix( Model,Solver,Mesh,ListMatrix,Reorder, &
         LocalNodes,Equation, DGSolver, GlobalBubbles )
 !------------------------------------------------------------------------------
 !******************************************************************************
@@ -111,6 +111,7 @@ CONTAINS
     TYPE(Model_t)  :: Model
     TYPE(Mesh_t)   :: Mesh
     TYPE(Matrix_t) :: Matrix
+    TYPE(SOlver_t) :: Solver
     INTEGER :: LocalNodes, InvPerm(LocalNodes)
     TYPE(ListMatrixPointer_t), POINTER :: ListMatrix(:)
     INTEGER, OPTIONAL ::Reorder(:)
@@ -120,7 +121,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     INTEGER :: t,i,j,k,l,m,k1,k2,n,p,q,e1,e2,f1,f2, EDOFs, FDOFs, BDOFs, This
 
-    LOGICAL :: Flag, FoundDG, GB
+    LOGICAL :: Flag, FoundDG, GB, Found, Radiation
 
     TYPE(Matrix_t), POINTER :: Projector
 
@@ -299,35 +300,37 @@ CONTAINS
 !
 !     Diffuse gray radiation condition:
 !     ---------------------------------
-      IF ( PRESENT(Equation) ) THEN
-        IF ( Equation == 'heat equation' ) THEN
-          DO i = Mesh % NumberOfBulkElements+1, &
-            Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
-  
-            CurrentElement => Mesh % Elements(i)
-            IF ( ASSOCIATED(CurrentElement % BoundaryInfo % GebhardtFactors) ) THEN
-               DO j=1,CurrentElement % TYPE % NumberOfNodes
-                  k1 = Reorder(CurrentElement % NodeIndexes(j))
+      Radiation = ListGetLogical( Solver % Values, 'Radiation Solver', Found )
+      IF ( .NOT. Found .AND. PRESENT(Equation) ) &
+        Radiation = Radiation .OR. (Equation == 'heat equation')
 
-                  NumberOfFactors = CurrentElement % BoundaryInfo % &
-                    GebhardtFactors % NumberOfImplicitFactors
-!                  IF(NumberOfFactors == 0) NumberOfFactors = CurrentElement % BoundaryInfo % &
-!                    GebhardtFactors % NumberOfFactors
+      IF ( Radiation ) THEN
+        DO i = Mesh % NumberOfBulkElements+1, &
+          Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
 
-                  DO n=1,NumberOfFactors
+          CurrentElement => Mesh % Elements(i)
+          IF ( ASSOCIATED(CurrentElement % BoundaryInfo % GebhardtFactors) ) THEN
+             DO j=1,CurrentElement % TYPE % NumberOfNodes
+                k1 = Reorder(CurrentElement % NodeIndexes(j))
 
-                    Elm => Mesh % Elements( CurrentElement % BoundaryInfo % &
-                                GebhardtFactors % Elements(n) )
+                NumberOfFactors = CurrentElement % BoundaryInfo % &
+                  GebhardtFactors % NumberOfImplicitFactors
+!                IF(NumberOfFactors == 0) NumberOfFactors = CurrentElement % BoundaryInfo % &
+!                  GebhardtFactors % NumberOfFactors
 
-                    DO k=1,Elm % Type % NumberOfNodes
-                       k2 = Reorder( Elm % NodeIndexes(k) )
-                       CALL MakeListMatrixIndex( ListMatrix,k1,k2 )
-                    END DO
+                DO n=1,NumberOfFactors
+
+                  Elm => Mesh % Elements( CurrentElement % BoundaryInfo % &
+                              GebhardtFactors % Elements(n) )
+
+                  DO k=1,Elm % Type % NumberOfNodes
+                     k2 = Reorder( Elm % NodeIndexes(k) )
+                     CALL MakeListMatrixIndex( ListMatrix,k1,k2 )
                   END DO
-               END DO
-            END IF
-          END DO
-        END IF
+                END DO
+             END DO
+          END IF
+        END DO
       END IF
 
       DO i=Mesh % NumberOfBulkElements+1, Mesh % NumberOfBulkElements+ &
@@ -558,11 +561,11 @@ CONTAINS
      NULLIFY( ListMatrix )
 
      IF ( PRESENT(Equation) ) THEN
-        CALL MakeListMatrix( Model, Mesh, ListMatrix, Perm, k, Eq, DG, GB )
+        CALL MakeListMatrix( Model, Solver, Mesh, ListMatrix, Perm, k, Eq, DG, GB )
         n = OptimizeBandwidth( ListMatrix, Perm, InvInitialReorder, &
                       k, OptimizeBW, Eq )
      ELSE 
-        CALL MakeListMatrix( Model, Mesh, ListMatrix, Perm, k, &
+        CALL MakeListMatrix( Model, Solver, Mesh, ListMatrix, Perm, k, &
                 DGSolver=DG, GlobalBubbles=GB )
         n = OptimizeBandwidth( ListMatrix, Perm, InvInitialReorder, &
                       k, OptimizeBW,' ' )

@@ -40,7 +40,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: FreeSurface.src,v 1.6 2006/01/27 11:16:31 jpr Exp $
+! * $Id: FreeSurface.src,v 1.7 2006/10/06 10:37:37 jpr Exp $
 ! *****************************************************************************
 
 MODULE FreeSurface
@@ -819,6 +819,18 @@ print*,'----------------------'
       ALLOCATE( Solver )
       Solver % Mesh => CurrentModel % Mesh
 
+      NULLIFY( Solver % Values )
+      CALL ListAddString( Solver % Values, &
+                      'Linear System Iterative Method', 'CGS' )
+      CALL ListAddInteger( Solver % Values, &
+                          'Linear System Max Iterations', 500 )
+      CALL ListAddConstReal( Solver % Values, &
+                'Linear System Convergence Tolerance', 1.0D-9 )
+      CALL ListAddString( Solver % Values, &
+                      'Linear System Preconditioning', 'ILU0' )
+      CALL ListAddInteger( Solver % Values, &
+                           'Linear System Residual Output', 1 )
+
       ALLOCATE( ForceVector( Model % NumberOfNodes ),  &
             CPerm( Model % NumberOfNodes) )
 
@@ -828,23 +840,6 @@ print*,'----------------------'
       ALLOCATE( Nodes % x(Model % MaxElementNodes) )
       ALLOCATE( Nodes % y(Model % MaxElementNodes) )
       ALLOCATE( Nodes % z(Model % MaxElementNodes) )
-
-      NULLIFY( Solver % Values )
-
-      CALL ListAddString( Solver % Values, &
-                      'Linear System Iterative Method', 'CGS' )
-
-      CALL ListAddInteger( Solver % Values, &
-                          'Linear System Max Iterations', 500 )
-
-      CALL ListAddConstReal( Solver % Values, &
-                'Linear System Convergence Tolerance', 1.0D-9 )
-
-      CALL ListAddString( Solver % Values, &
-                      'Linear System Preconditioning', 'ILU0' )
-
-      CALL ListAddInteger( Solver % Values, &
-                           'Linear System Residual Output', 1 )
 
       Solver % TimeOrder = 0
     END IF

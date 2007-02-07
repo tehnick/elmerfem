@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Lists.src,v $
+! * Revision 1.31  2007/01/30 09:12:05  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.31  2007/01/22 08:42:57  jpr
 ! * *** empty log message ***
 ! *
@@ -89,7 +92,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Lists.src,v 1.31 2007/01/22 08:42:57 jpr Exp $
+! * $Id: Lists.src,v 1.31 2007/01/30 09:12:05 jpr Exp $
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
@@ -196,7 +199,7 @@ CONTAINS
      INTEGER :: Indexes(128)
      INTEGER, POINTER :: Def_Dofs(:)
      INTEGER, ALLOCATABLE :: EdgeDOFs(:), FaceDOFs(:)
-     LOGICAL :: FoundDG, DG, GB
+     LOGICAL :: FoundDG, DG, GB, Found, Radiation
      TYPE(Element_t),POINTER :: Element, Edge, Face
 !------------------------------------------------------------------------------
      Perm = 0
@@ -414,7 +417,8 @@ CONTAINS
        t = t + 1
      END DO
 
-     IF ( Equation == 'heat equation' ) THEN
+     Radiation = ListGetLogical( Solver % Values, 'Radiation Solver', Found )
+     IF ( Radiation .OR. Equation == 'heat equation' ) THEN
         t = Mesh % NumberOfBulkElements + 1
         n = Mesh % NumberOfBulkElements + Mesh % NumberOfBoundaryElements
         DO WHILE( t<= n )

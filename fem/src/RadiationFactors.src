@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: RadiationFactors.src,v 1.9 2006/10/06 10:37:37 jpr Exp $
+! * $Id: RadiationFactors.src,v 1.10 2006/12/01 09:02:17 jpr Exp $
 ! *****************************************************************************
 
    MODULE RadiationFactorGlobals
@@ -104,7 +104,7 @@
 
      LOGICAL :: GotIt, SaveFactors, UpdateViewFactors, UpdateGebhardtFactors, &
          ComputeViewFactors, OptimizeBW, TopologyTest, TopologyFixed, &
-         FilesExist, FullMatrix, ImplicitLimitIs
+         FilesExist, FullMatrix, ImplicitLimitIs, Found
      LOGICAL, POINTER :: ActiveNodes(:)
 
      SAVE TimesVisited 
@@ -919,7 +919,8 @@
        END IF
 
        AMatrix => CreateMatrix( CurrentModel,TSolver,TSolver % Mesh, &
-           NewPerm, 1, MatrixFormat, OptimizeBW, 'Heat Equation',.FALSE.)       
+           NewPerm, 1, MatrixFormat, OptimizeBW,  &
+            ListGetString( Solver % Values, 'Equation', Found ),.FALSE.)       
        
        ! Reorder the primary variable for bandwidth optimization:
        ! --------------------------------------------------------

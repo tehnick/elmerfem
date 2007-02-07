@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ViewFactors.src,v 1.12 2006/01/10 13:48:46 apursula Exp $
+! * $Id: ViewFactors.src,v 1.13 2007/01/10 15:07:11 raback Exp $
 ! ******************************************************************************
 
    MODULE ViewFactorGlobals
@@ -86,7 +86,7 @@
      INTEGER, POINTER :: Timesteps(:)
      INTEGER :: TimeIntervals,interval,timestep
      
-     LOGICAL :: CylindricSymmetry,GotIt
+     LOGICAL :: CylindricSymmetry,GotIt, Found, Radiation
 
      CHARACTER(LEN=MAX_NAME_LEN) :: eq,RadiationFlag, &
            ViewFactorsFile,OutputName,ModelName,LMessage, TempString
@@ -133,8 +133,9 @@
      NULLIFY( Mesh )
      DO i=1,Model % NumberOfSolvers
        Solver => Model % Solvers(i)
+       Radiation = ListGetLogical( Solver % Values, 'Radiation Solver', Found )
        eq = ListGetString( Solver % Values, 'Equation' )
-       IF ( TRIM(eq) == 'heat equation' ) THEN
+       IF ( Radiation .OR. TRIM(eq) == 'heat equation' ) THEN
          Mesh => Solver % Mesh
          Model % Solver => Solver
          EXIT
