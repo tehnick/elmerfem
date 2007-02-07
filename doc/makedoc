@@ -1,4 +1,4 @@
-#!/bin/sh -f
+#!/bin/sh 
 # make the pdf documentation, the tar packages and set the to dist
 
 modules="models tutorials elmersolver elmergrid cscmodels csctutorials matc overview"
@@ -6,16 +6,18 @@ for m in $modules; do
   cd $m && make manual && make install && make clean && cd ..
 done
 
-mkdir dist
-mv *.pdf dist
-
 /bin/rm Exclude
 find tutorials_files ! -type -print | grep CVS > Exclude
-tar cvfX dist/ElmerTutorialsFiles.tar Exclude tutorials_files
+tar cvfX ElmerTutorialsFiles.tar Exclude tutorials_files
 /bin/rm Exclude
-gzip dist/ElmerTutorialsFiles.tar
+gzip ElmerTutorialsFiles.tar
 
 find csctutorials_files ! -type -print | grep CVS > Exclude
-tar cvfX dist/ElmerTutorialsFilesCSC.tar Exclude csctutorials_files
+tar cvfX ElmerTutorialsFilesCSC.tar Exclude csctutorials_files
 /bin/rm Exclude
-gzip dist/ElmerTutorialsFilesCSC.tar 
+gzip ElmerTutorialsFilesCSC.tar 
+
+mkdir CSCDistro
+/bin/mv -f *CSC.pdf *CSC.tar.gz CSCDistro
+mkdir Distro
+/bin/mv -f *.pdf *.tar.gz Distro
