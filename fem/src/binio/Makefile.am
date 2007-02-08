@@ -6,7 +6,7 @@ AM_FCFLAGS=@INCLUDE_MODULE_FLAG@.  @INCLUDE_MODULE_FLAG@..
 noinst_LIBRARIES = libbinio.a
 libbinio_a_SOURCES = binio.c kinds.f90 biniomod.f90
 
-biniomod.f90: kinds.f90
+biniomod.f90: kinds.o
 
 ELMER_SOLVER_DATADIR=$(prefix)/share/elmersolver
 install-exec-local:
