@@ -1,53 +1,25 @@
-DOC=ElmerParamGuide
-LATEX=latex
+SHELL = /bin/sh
 
-.SUFFIXES:
-.SUFFIXES: .tex .dvi .ps .gle .eps .fig .png .ps .pdf
+manual: 
+	pdflatex ElmerParamManual
 
-.tex.dvi:
-	$(LATEX) $<; 
-	$(LATEX) $<; 
+update:
+	pdflatex ElmerParamManual
 
-.ps.pdf:
-	ps2pdf $<
+chmod:
+	chmod -R ug+rw,o= .
+	chmod ug=rwx figs
 
-.dvi.ps:
-	dvips $< -o $@
+view:
+	acroread manual.pdf
 
-.gle.eps:
-	gle $< -deps
-
-.fig.eps:
-	fig2dev -L eps $< $@
-
-.png.eps:
-	convert $< $@
-
-all: manual
-
-include .depend
-
-
-manual: $(DOC).pdf
-
-install: $(DOC).pdf
-	cp $(DOC).pdf ../
-
-$(DOC).pdf: $(DOC).ps
-$(DOC).ps: $(DOC).dvi
-$(DOC).dvi $(DOC).aux: $(DOC).tex $(A_BILDER) $(S_BILDER)
-
-bib $(DOC).bbl: $(DOC).aux
-	bibtex $(DOC)
-
-full: $(DOC).dvi bib
-	$(LATEX) $(DOC).tex; $(LATEX) $(DOC).tex
+install:
+	mv ElmerParamManual.pdf ..
 
 clean:
-	rm -f $(DOC).ps $(DOC).pdf *.dvi *.toc *.aux *.log *.bbl *.blg
+	/bin/rm -f *~ .*~ *.log *.aux *.bbl *.blg *.toc *.ilg *.idx *.ind
+	/bin/rm -f */*~ */.*~ */*.aux */*.bbl */*.blg */*.log 
 
-#depend .depend: $(DOC).tex
-#	./latexdep $(DOC).tex > .depend
 
 
 
