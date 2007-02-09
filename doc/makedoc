@@ -17,9 +17,16 @@ tar cvfX ElmerTutorialsFilesCSC.tar Exclude csctutorials_files
 /bin/rm Exclude
 gzip ElmerTutorialsFilesCSC.tar 
 
+find elmergrid_files ! -type -print | grep CVS > Exclude
+tar cvfX ElmerGridFiles.tar Exclude elmergrid_files
+/bin/rm Exclude
+gzip ElmerGridFiles.tar 
+
+
 # these are not to be distributed
 mkdir -p CSCDistro
 /bin/mv -f *CSC.pdf *CSC.tar.gz CSCDistro
+
 
 # this is public stuff
 mkdir -p Distro
