@@ -1,7 +1,7 @@
 #!/bin/sh 
 # make the pdf documentation, the tar packages and set the to dist
 
-modules="models tutorials elmersolver elmergrid cscmodels csctutorials matc overview"
+modules="models tutorials elmersolver elmergrid cscmodels csctutorials matc overview elmerparam"
 for m in $modules; do
   cd $m && make manual && make install && make clean && cd ..
 done
@@ -18,11 +18,11 @@ tar cvfX ElmerTutorialsFilesCSC.tar Exclude csctutorials_files
 gzip ElmerTutorialsFilesCSC.tar 
 
 # these are not to be distributed
-mkdir CSCDistro
+mkdir -p CSCDistro
 /bin/mv -f *CSC.pdf *CSC.tar.gz CSCDistro
 
 # this is public stuff
-mkdir Distro
+mkdir -p Distro
 /bin/mv -f *.pdf *.tar.gz Distro
 # use the following kind of command to publish them
 # scp Distro/*.* raback@paja.nic.funet.fi:/mnt/nic/data1/content/ftp/pub/sci/physics/elmer/doc
