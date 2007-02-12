@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.56  2007/02/06 09:04:04  jpr
+! * Added "Target Coordinates Eps=Real".
+! *
 ! * Revision 1.55  2007/01/19 20:27:07  jpr
 ! * Added 'Normal-Tangetial $variable Rotate=Logical' to allow disabling
 ! * change of variables in N-T boundary, if not really needed.
@@ -174,7 +177,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.55 2007/01/19 20:27:07 jpr Exp $
+! * $Id: SolverUtils.src,v 1.56 2007/02/06 09:04:04 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -2489,14 +2492,15 @@ CONTAINS
     INTEGER :: DOFs
     TYPE(Solver_t), TARGET :: Solver
 !------------------------------------------------------------------------------
-    TYPE(Variable_t), POINTER :: Var
+    TYPE(Variable_t), POINTER :: Var, NodalLoads
     TYPE(Mesh_t), POINTER :: Mesh
     LOGICAL :: Relax,GotIt, ScaleSystem, EigenAnalysis, HarmonicAnalysis
     INTEGER :: n,i,j,k,l,istat
     CHARACTER(LEN=MAX_NAME_LEN) :: Method, ProcName
     INTEGER(KIND=AddrInt) :: Proc
-    REAL(KIND=dp), ALLOCATABLE :: Px(:), Diag(:)
+    REAL(KIND=dp), POINTER :: SaveValues(:)
     REAL(KIND=dp) :: s,Relaxation,Beta,Gamma,DiagReal,DiagImag
+    REAL(KIND=dp), ALLOCATABLE :: Px(:), Diag(:), TempVector(:)
 !------------------------------------------------------------------------------
     n = A % NumberOfRows
 
@@ -2517,7 +2521,7 @@ CONTAINS
     IF ( .NOT. GotIt  ) ScaleSystem = .TRUE.
 
     EigenAnalysis = Solver % NOFEigenValues > 0 .AND. &
-             ListGetLogical( Solver % Values, 'Eigen Analysis',GotIt )
+          ListGetLogical( Solver % Values, 'Eigen Analysis',GotIt )
 
     HarmonicAnalysis = Solver % NOFEigenValues>0 .AND. &
           ListGetLogical( Solver % Values, 'Harmonic Analysis',GotIt )
@@ -2691,6 +2695,8 @@ CONTAINS
 !   -------------------------------------------
     IF ( ScaleSystem ) x(1:n) = x(1:n) / Diag(1:n)
 
+    NodalLoads => VariableGet( Solver % Mesh % Variables, &
+       Solver % Variable % Name(1:Solver % Variable % NameLen) // ' Loads' )
 
     IF ( ParEnv % PEs <= 1 ) THEN
        IF ( ALL( b(1:n) == 0.0d0 ) ) THEN
@@ -2751,6 +2757,25 @@ CONTAINS
        END IF
 
        CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
+
+       IF ( ASSOCIATED(NodalLoads) .AND. ASSOCIATED(A % BulkValues) ) THEN
+         ALLOCATE( TempVector(n) )
+         SaveValues => A % Values
+         A % Values => A % BulkValues
+         CALL MatrixVectorMultiply( A, x, TempVector )
+         A % Values => SaveValues
+         TempVector = TempVector - A % BulkRHS
+         DO i=1,SIZE( NodalLoads % Perm )
+           IF ( NodalLoads % Perm(i)>0 .AND. Solver % Variable % Perm(i)>0 ) THEN
+              DO j=1,DOFs
+                NodalLoads % Values(DOFs*(NodalLoads % Perm(i)-1)+j) =  &
+                   TempVector(DOFs*(Solver % Variable % Perm(i)-1)+j)
+              END DO
+            END IF
+         END DO
+         DEALLOCATE( TempVector )
+       END IF
+
        IF ( Relax ) THEN
           x(1:n) = (1-Relaxation)*Px + Relaxation*x(1:n)
        END IF
@@ -2773,7 +2798,21 @@ CONTAINS
        Norm = ParallelNorm( n,x )
     END IF
 !------------------------------------------------------------------------------
+
     IF ( ALLOCATED(Px) ) DEALLOCATE( Px )
+
+!------------------------------------------------------------------------------
+
+    Solver % Variable % Norm = Norm
+    Solver % Variable % PrimaryMesh => Solver % Mesh
+    CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, &
+          Solver % Variable % Name(1:Solver % Variable % NameLen) )
+
+    IF ( ASSOCIATED( NodalLoads ) ) THEN
+      NodalLoads % PrimaryMesh => Solver % Mesh
+      CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, &
+                   NodalLoads % Name(1:NodalLoads % NameLen) )
+    END IF
 !------------------------------------------------------------------------------
   END SUBROUTINE SolveLinearSystem
 !------------------------------------------------------------------------------
@@ -2824,7 +2863,6 @@ CONTAINS
     CHARACTER(LEN=MAX_NAME_LEN) :: Method, ProcName, VariableName
     INTEGER(KIND=AddrInt) :: Proc
     REAL(KIND=dp) :: Relaxation,Beta,Gamma
-    REAL(KIND=dp), POINTER :: SaveValues(:)
     REAL(KIND=dp), ALLOCATABLE :: Diag(:), TempVector(:)
 
     INTERFACE ExecLinSolveProcs
@@ -2886,35 +2924,6 @@ CONTAINS
         END DO
       END IF
     END IF
-!------------------------------------------------------------------------------
-    Solver % Variable % Norm = Norm
-    Solver % Variable % PrimaryMesh => Solver % Mesh
-    CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, &
-          Solver % Variable % Name(1:Solver % Variable % NameLen) )
-
-    NodalLoads => VariableGet( Solver % Mesh % Variables, &
-       Solver % Variable % Name(1:Solver % Variable % NameLen) // ' Loads' )
-    IF ( ASSOCIATED(NodalLoads) .AND. ASSOCIATED(A % BulkValues) ) THEN
-       ALLOCATE( TempVector(n) )
-       SaveValues => A % Values
-       A % Values => A % BulkValues
-       CALL MatrixVectorMultiply( A, x, TempVector )
-       A % Values => SaveValues
-       TempVector = TempVector - A % BulkRHS
-       DO i=1,SIZE( NodalLoads % Perm )
-         IF ( NodalLoads % Perm(i)>0 .AND. Solver % Variable % Perm(i)>0 ) THEN
-            DO j=1,DOFs
-              NodalLoads % Values(DOFs*(NodalLoads % Perm(i)-1)+j) =  &
-                 TempVector(DOFs*(Solver % Variable % Perm(i)-1)+j)
-            END DO
-          END IF
-       END DO
-       NodalLoads % PrimaryMesh => Solver % Mesh
-       CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, &
-                    NodalLoads % Name(1:NodalLoads % NameLen) )
-       DEALLOCATE( TempVector )
-    END IF
-
 !------------------------------------------------------------------------------
   END SUBROUTINE SolveSystem
 !------------------------------------------------------------------------------
