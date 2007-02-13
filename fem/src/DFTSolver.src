@@ -456,7 +456,7 @@ CONTAINS
     INTEGER :: n, nd
     TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: Basis(nd), dBasisdx(nd,3), ddBasisddx(nd,3,3), DetJ
+    REAL(KIND=dp) :: Basis(nd), dBasisdx(nd,3), DetJ
     REAL(KIND=dp) :: LocalPotential(:), LocalChargeDensity(:), &
         LocalPotentialAtIP, LocalChargeAtIP, LocalXCPotentialAtIP
     LOGICAL :: Stat
@@ -486,7 +486,7 @@ CONTAINS
       ! Basis function values & derivatives at the integration point:
       !--------------------------------------------------------------
       stat = ElementInfo( Element, Nodes, u, v, w, &
-          detJ, Basis, dBasisdx, ddBasisddx, .FALSE. ) 
+                  detJ, Basis, dBasisdx )
       
       
       ! The Coulomb Potential term and the Charge density
@@ -1034,7 +1034,7 @@ CONTAINS
     INTEGER :: n,nd
     TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: Basis(nd), dBasisdx(nd,3), ddBasisddx(nd,3,3), &
+    REAL(KIND=dp) :: Basis(nd), dBasisdx(nd,3), &
         DetJ, LoadAtIP, TotalCharge
     REAL(KIND=dp) :: LocalChargeDensity(:), LocalChargeDensityAtIP
     LOGICAL :: Stat
