@@ -2584,7 +2584,7 @@ int LoadTriangleInput(struct FemType *data,struct BoundaryType *bound,
   }
   fclose(in);
 
-  FindNewBoundaries(data,bound,boundnodes,0,info);
+  FindNewBoundaries(data,bound,boundnodes,0,1,info);
 
   printf("Succesfully read the mesh from the Triangle input file.\n");
 

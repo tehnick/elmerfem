@@ -3872,7 +3872,7 @@ static int CompareIndexes(int elemtype,int *ind1,int *ind2)
 
 
 int FindNewBoundaries(struct FemType *data,struct BoundaryType *bound,
-		      int *boundnodes,int suggesttype,int info)
+		      int *boundnodes,int suggesttype,int dimred,int info)
 {
   int i,j,k,l,side,identical,element,lowerdim,dim,minedge,maxedge;
   int noelements,noknots,nonodes,nosides,newbound,elemedges;
@@ -3881,7 +3881,10 @@ int FindNewBoundaries(struct FemType *data,struct BoundaryType *bound,
 
   allocated = FALSE;
   dim = data->dim;
-  lowerdim = dim-1;
+  if(dimred) 
+    lowerdim = dim - dimred;
+  else 
+    lowerdim = dim-1;
 
   noboundnodes = 0;
   for(i=1;i<=data->noknots;i++) 
@@ -3889,6 +3892,9 @@ int FindNewBoundaries(struct FemType *data,struct BoundaryType *bound,
   if(!noboundnodes) {
     printf("FindNewBoundaries: no nonzero entries in boundnodes vector!\n");
     return(1);
+  }
+  else {
+    if(info) printf("There are %d nonzero entries in boundnodes vector!\n",noboundnodes);
   }
 
  omstart:
@@ -3970,6 +3976,7 @@ int FindNewBoundaries(struct FemType *data,struct BoundaryType *bound,
 	bound[newbound].parent[nosides] = element;
 	bound[newbound].side[nosides] = side;
 	bound[newbound].types[nosides] = newtype;
+
       foundsameside:
 	continue;
       }
@@ -3978,15 +3985,16 @@ int FindNewBoundaries(struct FemType *data,struct BoundaryType *bound,
 
   if(nosides) {
     if(!allocated) {
-      newtype = 0;
+      newtype = suggesttype;
       for(j=0;j < MAXBOUNDARIES && bound[j].created;j++) {
-	for(i=1;i<=nosides;i++) {
+	newbound = j;
+	if(suggesttype) continue;
+	for(i=1;i<=bound[j].nosides;i++) 
 	  if(bound[j].types[i] > newtype) newtype = bound[j].types[i];
-	}
       }    
-      newbound = j;
-      newtype++;
-      if(suggesttype) newtype = suggesttype;
+      newbound++;      
+      if(!suggesttype) newtype++;
+
       AllocateBoundary(&bound[newbound],nosides);
       allocated = TRUE;  
       if(info) printf("Allocating for %d sides of boundary %d\n",nosides,newtype);
@@ -3994,7 +4002,7 @@ int FindNewBoundaries(struct FemType *data,struct BoundaryType *bound,
     }
 
     bound[newbound].nosides = nosides;
-    if(info) printf("Found %d sides of dim %d of boundary %d\n",nosides,lowerdim,newtype);
+    if(info) printf("Found %d sides of dim %d to define boundary %d\n",nosides,lowerdim,newtype);
     
     for(i=1;i<=nosides;i++) {
       if(j = bound[newbound].parent2[i]) {
@@ -4046,7 +4054,7 @@ int FindBulkBoundary(struct FemType *data,int mat1,int mat2,
     mat1 = mat2;
     mat2 = i;
   }
-  printf("Finding nodes between bulk elements of material %d and %d\n",mat1,mat2);
+  if(info) printf("Finding nodes between bulk elements of material %d and %d\n",mat1,mat2);
 
   visited = Ivector(1,data->noknots);
   for(i=1;i<=data->noknots;i++)
@@ -4280,7 +4288,7 @@ int FindBoundaryBoundary(struct FemType *data,struct BoundaryType *bound,int mat
     mat1 = mat2;
     mat2 = i;
   }
-  printf("Finding nodes between boundary elements of type %d and %d\n",mat1,mat2);
+  if(info) printf("Finding nodes between boundary elements of type %d and %d\n",mat1,mat2);
 
   anglesum = Rvector(1, data->noknots);
   for(i=1;i<=data->noknots;i++)
@@ -4303,7 +4311,7 @@ int FindBoundaryBoundary(struct FemType *data,struct BoundaryType *bound,int mat
       if(bound[j].types[i] == mat1) {
 	GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],
 		       data,sideind,&elemtype);
-	nonodes = elemtype%100;
+	nonodes = elemtype % 100;
 	for(k=0;k<nonodes;k++) {
 	  visited[sideind[k]] += 1;
 	}
@@ -4336,10 +4344,10 @@ int FindBoundaryBoundary(struct FemType *data,struct BoundaryType *bound,int mat
     if(visited[i] < minnodes) minnodes = visited[i];
   }
   if(maxnodes < 2) {
-    printf("FindBulkBoundary: Nodes must belong to more than %d nodes.\n",maxnodes);
+    printf("FindBulkBoundary: Nodes must belong to more than %d elements.\n",maxnodes);
     return(2);
   }
-  printf("FindBulkBoundary: There are from %d to %d hits per node\n",minnodes,maxnodes);
+  if(info) printf("There are from %d to %d hits per node\n",minnodes,maxnodes);
 
   
   for(i=1;i<=data->noknots;i++) {
@@ -4357,7 +4365,8 @@ int FindBoundaryBoundary(struct FemType *data,struct BoundaryType *bound,int mat
 
   if(mat2 == 0) {
     for(k=1;k<=data->noknots;k++) 
-      if(visited[k]) boundnodes[k] = 1;
+      if(visited[k]) 
+	boundnodes[k] = 1;
 
 #if 0
     for(j=0;j < MAXBOUNDARIES;j++) {
@@ -5086,8 +5095,11 @@ void SeparateCartesianBoundaries(struct FemType *data,struct BoundaryType *bound
 	if(maxtype < bound[j].types[k]) maxtype = bound[j].types[k];
     }
   }
-  printf("Maximum boundary type is %d\n",maxtype);
-  printf("Number of boundaries is %d\n",totsides);
+
+  if(info) {
+    printf("Maximum boundary type is %d\n",maxtype);
+    printf("Number of boundaries is %d\n",totsides);
+  }
   addtype = maxtype;
 
   for(type=1;type<=maxtype;type++) {
@@ -6146,7 +6158,7 @@ void MergeElements(struct FemType *data,struct BoundaryType *bound,
       dx = data->x[i] - data->x[j];
       dy = data->y[i] - data->y[j];
       if(data->dim == 3) dz = data->z[i] - data->z[j];
-      if(abs(cx*dx+cy*dy+cz*dz) > eps) break;
+      if(fabs(cx*dx+cy*dy+cz*dz) > eps) break;
 
       dist = dx*dx + dy*dy + dz*dz;
 

@@ -1637,21 +1637,23 @@ int main(int argc, char *argv[])
 	for(l=0;l<eg.bulkbounds;l++) {
 	  FindBulkBoundary(&data[k],eg.bulkbound[3*l],eg.bulkbound[3*l+1],
 			   boundnodes,&noboundnodes,info);
-	  FindNewBoundaries(&data[k],boundaries[k],boundnodes,eg.bulkbound[3*l+2],info);
+	  FindNewBoundaries(&data[k],boundaries[k],boundnodes,eg.bulkbound[3*l+2],1,info);
 	}
       }
       if(eg.boundbounds) {
 	for(l=0;l<eg.boundbounds;l++) {	
 	  FindBoundaryBoundary(&data[k],boundaries[k],eg.boundbound[3*l],eg.boundbound[3*l+1],
 			       boundnodes,&noboundnodes,info);
-	  FindNewBoundaries(&data[k],boundaries[k],boundnodes,eg.boundbound[3*l+2],info);
+	  FindNewBoundaries(&data[k],boundaries[k],boundnodes,eg.boundbound[3*l+2],2,info);
 	}
       }
       free_Ivector(boundnodes,1,data[k].noknots);
     }
 
+#if 0
     if(eg.bulkbounds || eg.boundbounds)
       SeparateCartesianBoundaries(&data[k],boundaries[k],info);
+#endif
   }
 
 

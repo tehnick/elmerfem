@@ -81,7 +81,7 @@ void ElementsToBoundaryConditions(struct FemType *data,
 				  struct BoundaryType *bound,int info);
 int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info);
 int FindNewBoundaries(struct FemType *data,struct BoundaryType *bound,
-		      int *boundnodes,int suggesttype,int info);
+		      int *boundnodes,int suggesttype,int dimred,int info);
 int FindBulkBoundary(struct FemType *data,int mat1,int mat2,
 		     int *boundnodes,int *noboundnodes,int info);
 int FindBoundaryBoundary(struct FemType *data,struct BoundaryType *bound,int mat1,int mat2,
