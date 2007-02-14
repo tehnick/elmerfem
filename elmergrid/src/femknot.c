@@ -4715,8 +4715,10 @@ int IncreaseElementOrder(struct FemType *data,int info)
     maxnodes = 15;
   else if(maxelemtype == 808) 
     maxnodes = 20;
-  else 
+  else {
     printf("Not implemented for elementtype %d\n",maxelemtype);
+    bigerror("IncreaseElementOrder: Cant continue the subroutine");
+  }
 
   if(info) printf("New leading elementtype is %d\n",100*(maxelemtype/100)+maxnodes);
 
@@ -4760,13 +4762,12 @@ int IncreaseElementOrder(struct FemType *data,int info)
     data->elementtypes[element] = elemtype;
   }
 
-
   free_Rvector(data->x,1,data->noknots);
   free_Rvector(data->y,1,data->noknots);
   free_Rvector(data->z,1,data->noknots);
   free_Imatrix(data->topology,1,data->noelements,0,data->maxnodes);
-  free_Imatrix(newnodetable,1,maxcon,1,noknots);
- 
+  free_Imatrix(newnodetable,0,maxcon-1,1,noknots);
+
   data->x = newx;
   data->y = newy;
   if(data->dim == 3) data->z = newz;

@@ -159,7 +159,7 @@ static void Instructions()
   printf("-polar real          : map 2D mesh to a cylindrical shell with given radius\n");
   printf("-cylinder            : map 2D/3D cylindrical mesh to a cartesian mesh\n");
   printf("-reduce int[2]       : reduce element order at material interval [int1 int2]\n");
-  printf("-increase            : increase element order from one to two\n");
+  printf("-increase            : increase element order from linear to quadratic\n");
 #if 0
   /* This functionality has moved into the ElmerSolver */
   printf("-pelem int[3]        : p-elements of power int3 at interval [int1 int2]\n");
@@ -170,7 +170,7 @@ static void Instructions()
 #if PARTMETIS
   printf("-metis int[2]        : the mesh will be partitioned with Metis\n");
 #endif
-  printf("-periodic int[3]     : decleare the periodic coordinate directions\n");
+  printf("-periodic int[3]     : decleare the periodic coordinate directions for parallel meshes\n");
   printf("-bcoffset int        : add an offset to the boundary conditions\n");
   printf("-discont int         : make the boundary to have secondary nodes\n");
   printf("-connect int         : make the boundary to have internal connection among its elements\n");
