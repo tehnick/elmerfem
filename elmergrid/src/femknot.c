@@ -403,9 +403,137 @@ void GetElementSide(int element,int side,int normal,
     }
 #endif 
   }
-
-
 }
+
+
+int GetElementGraph(int element,int edge,struct FemType *data,int *ind)
+{
+  int i,j,elemtype,basetype,elemnodes,*elemind,hit,evenodd,quadratic,side;
+
+  elemtype = data->elementtypes[element];
+  basetype = elemtype / 100;
+  elemnodes = elemtype % 100;
+  quadratic = (elemnodes > basetype);
+  elemind = data->topology[element];
+
+  ind[0] = ind[1] = 0;
+  
+  if(quadratic) 
+    side = edge / 2;
+  else
+    side = edge;
+  
+  
+  switch (basetype) {
+  case 2:
+    if(side == 0) {
+      ind[0] = elemind[0];
+      ind[1] = elemind[1];
+    }
+    break;    
+  case 3:
+    if(side < 3) {
+      ind[0] = elemind[side];
+      ind[1] = elemind[(side+1)%3];
+    }
+    break;
+  case 4:
+    if(side < 4) {
+      ind[0] = elemind[side];
+      ind[1] = elemind[(side+1)%4];
+    }
+    break;
+  case 5:
+    if(side < 3) {
+      ind[0] = elemind[side];
+      ind[1] = elemind[(side+1)%3];
+    }
+    else if(side < 6) {
+      ind[0] = elemind[side-3];
+      ind[1] = elemind[3];
+    }
+    break;
+  case 6:
+    if(side < 4) {
+      ind[0] = elemind[side];
+      ind[1] = elemind[(side+1)%4];
+    }
+    else if(side < 8) {
+      ind[0] = elemind[side-4];
+      ind[1] = elemind[4];
+    }
+    break;
+  case 7:
+    if(side < 3) {
+      ind[0] = elemind[side];
+      ind[1] = elemind[(side+1)%3];
+    }
+    else if(side < 6) {
+      ind[0] = elemind[side-3];
+      ind[1] = elemind[side];
+    }
+    else if(side < 9) {
+      ind[0] = elemind[side-3];
+      ind[1] = elemind[3+(side+1)%3];
+    }
+    break;
+  case 8:
+    if(side < 4) {
+      ind[0] = elemind[side];
+      ind[1] = elemind[(side+1)%4];
+    }
+    else if(side < 8) {
+      ind[0] = elemind[side-4];
+      ind[1] = elemind[side];
+    }
+    else if(side < 12) {
+      ind[0] = elemind[side-4];
+      ind[1] = elemind[4+(side+1)%4];
+    }
+    break;
+  }
+
+  hit = (ind[0] || ind[1]);
+  
+  
+  if(hit && quadratic) {
+    evenodd = edge - 2*side;
+    
+    switch (basetype) {
+    case 2:
+      ind[evenodd] = elemind[2];
+      break;
+      
+    case 3:
+      ind[evenodd] = elemind[side+3];
+      break;
+      
+    case 4:
+      ind[evenodd] = elemind[side+4];
+      break;
+      
+    case 5:
+      ind[evenodd] = elemind[side+4];
+      break;
+      
+    case 6:
+      ind[evenodd] = elemind[side+5];
+      break;
+
+    case 7:
+      ind[evenodd] = elemind[side+6];
+      break;
+      
+    case 8:
+      ind[evenodd] = elemind[side+8];
+      break;
+      
+    }
+  }
+
+  return(hit);
+}
+
 
 
 
@@ -4514,6 +4642,148 @@ int FindBoundaryBoundary(struct FemType *data,struct BoundaryType *bound,int mat
 
 int IncreaseElementOrder(struct FemType *data,int info)
 {
+  int i,j,k,l,side,element,maxcon,totcon,con,newknots,ind,ind2;
+  int noelements,noknots,nonodes,maxnodes,maxelemtype,hit,node;
+  int edge,elemtype;
+  int **newnodetable,inds[2],**newtopo;
+  Real *newx,*newy,*newz;
+  
+  if(info) printf("Trying to increase the element order of current elements\n");
+
+  CreateDualGraph(data,FALSE,info);
+
+  noknots = data->noknots;
+  noelements = data->noelements;
+  maxcon = data->dualmaxconnections;
+
+  newnodetable = Imatrix(0,maxcon-1,1,noknots);
+  for(i=1;i<=noknots;i++) 
+    for(j=0;j<maxcon;j++) 
+      newnodetable[j][i] = 0;
+
+  newknots = 0;
+  for(i=1;i<=noknots;i++) {
+    for(j=0;j<maxcon;j++) {
+      con = data->dualgraph[j][i];
+      if(con > i) {
+	newknots++;
+	newnodetable[j][i] = noknots + newknots;
+      }
+    }
+  }
+
+  if(info) printf("There will be %d new nodes in the elements\n",newknots);
+
+  newx = Rvector(1,noknots+newknots);
+  newy = Rvector(1,noknots+newknots);
+  if(data->dim == 3) newz = Rvector(1,noknots+newknots);
+
+
+  for(i=1;i<=noknots;i++) {
+    newx[i] = data->x[i];
+    newy[i] = data->y[i];
+    if(data->dim == 3) newz[i] = data->z[i];
+  }
+  for(i=1;i<=noknots;i++) {
+    for(j=0;j<maxcon;j++) {
+      con = data->dualgraph[j][i];
+      ind = newnodetable[j][i];
+      if(con && ind) {
+	newx[ind] = 0.5*(data->x[i] + data->x[con]);
+	newy[ind] = 0.5*(data->y[i] + data->y[con]);
+	if(data->dim == 3) newz[ind] = 0.5*(data->z[i] + data->z[con]);
+      }
+    }
+  }  
+    
+
+  maxelemtype = 0;
+  for(i=1;i<=noelements;i++) {
+    if(data->elementtypes[i] > maxelemtype)
+      maxelemtype = data->elementtypes[i];
+  }
+
+  if(maxelemtype <= 303) 
+    maxnodes = 6;
+  else if(maxelemtype == 404) 
+    maxnodes = 8;
+  else if(maxelemtype == 504) 
+    maxnodes = 10;
+  else if(maxelemtype == 605) 
+    maxnodes = 13;
+  else if(maxelemtype == 706) 
+    maxnodes = 15;
+  else if(maxelemtype == 808) 
+    maxnodes = 20;
+  else 
+    printf("Not implemented for elementtype %d\n",maxelemtype);
+
+  if(info) printf("New leading elementtype is %d\n",100*(maxelemtype/100)+maxnodes);
+
+
+  newtopo = Imatrix(1,noelements,0,maxnodes-1);
+    
+  for(element=1;element<=noelements;element++) {
+    elemtype = data->elementtypes[element];
+    for(i=0;i<elemtype%100;i++)
+      newtopo[element][i] = data->topology[element][i];
+  }
+
+ 
+  for(element=1;element<=data->noelements;element++) {
+    elemtype = data->elementtypes[element];
+
+    nonodes = data->elementtypes[element] % 100;
+    for(side=0;;side++) {
+      hit = GetElementGraph(element,side,data,inds);
+
+      if(!hit) break;
+      if(inds[0] > inds[1]) {
+	ind = inds[1];
+	ind2 = inds[0];
+      }
+      else {
+	ind = inds[0];
+	ind2 = inds[1];
+      }
+      for(j=0;j<maxcon;j++) {
+	con = data->dualgraph[j][ind];
+
+	if(con == ind2) {
+	  node = newnodetable[j][ind];
+	  newtopo[element][nonodes+side] = node;
+	}
+      }
+    }
+
+    elemtype = 100*(elemtype/100)+nonodes+side;
+    data->elementtypes[element] = elemtype;
+  }
+
+
+  free_Rvector(data->x,1,data->noknots);
+  free_Rvector(data->y,1,data->noknots);
+  free_Rvector(data->z,1,data->noknots);
+  free_Imatrix(data->topology,1,data->noelements,0,data->maxnodes);
+  free_Imatrix(newnodetable,1,maxcon,1,noknots);
+ 
+  data->x = newx;
+  data->y = newy;
+  if(data->dim == 3) data->z = newz;
+  data->topology = newtopo;
+
+  data->noknots += newknots;
+  data->maxnodes = maxnodes;
+
+  if(info) printf("Increased the element order from 1 to 2\n");
+
+  return(0);
+}
+
+
+
+int IncreaseElementOrderOld(struct FemType *data,int info)
+{
   int i,j,k,l,side,element,noedges,elemtype,newnode;
   int noelements,noknots,nonodes,nosides,newbound,maxnodes;
   int maxelementtype,maxedgenodes,elemedges,maxelemedges,edge,dosides;
@@ -4701,7 +4971,7 @@ int IncreaseElementOrder(struct FemType *data,int info)
   free_Ivector(identical,1,noedges);
   free_Imatrix(edgetable,1,noedges,0,maxedgenodes+1);
 
-  printf("Created extrad node in the middle of the edges\n");
+  printf("Created extra nodes in the middle of the edges\n");
 
   return(0);
 }
@@ -8424,9 +8694,11 @@ int RotateTranslateScale(struct FemType *data,struct ElmergridType *eg,int info)
 }
 
 
-int CreateDualGraph(struct FemType *data,int info)
+
+int CreateDualGraph(struct FemType *data,int full,int info)
 {
-  int i,j,k,l,m,totcon,noelements, noknots,elemtype,nonodes,hit,ind,ind2, maxcon,percon;
+  int i,j,k,l,m,totcon,noelements, noknots,elemtype,nonodes,hit,ind,ind2;
+  int maxcon,percon,edge;
 
   printf("Creating a dual graph of the finite element mesh\n");  
 
@@ -8443,13 +8715,14 @@ int CreateDualGraph(struct FemType *data,int info)
 
   for(i=1;i<=noelements;i++) {
     elemtype = data->elementtypes[i];
-    nonodes = data->elementtypes[i] % 100;
 
-    for(j=0;j<nonodes;j++) {
-      ind = data->topology[i][j];
-      for(k=0;k<nonodes;k++) {
-	ind2 = data->topology[i][k];
-	if(ind == ind2) continue;
+    if(!full) {
+      int inds[2];
+      for(edge=0;;edge++) {
+	if( !GetElementGraph(i,edge,data,&inds[0]) ) break;
+
+	ind = inds[0];
+	ind2 = inds[1];
 
 	hit = FALSE;
 	for(l=0;l<maxcon;l++) { 
@@ -8466,8 +8739,52 @@ int CreateDualGraph(struct FemType *data,int info)
 	  data->dualgraph[l][ind] = ind2;
 	  totcon++;
 	}
+
+	/* Make also so symmetric connection */
+	for(l=0;l<maxcon;l++) { 
+	  if(data->dualgraph[l][ind2] == ind) hit = TRUE;
+	  if(data->dualgraph[l][ind2] == 0) break;
+	}
+	if(!hit) {
+	  if(l >= maxcon) {
+	    data->dualgraph[maxcon] = Ivector(1,noknots);
+	    for(m=1;m<=noknots;m++)
+	      data->dualgraph[maxcon][m] = 0;
+	    maxcon++;
+	  }
+	  data->dualgraph[l][ind2] = ind;
+	  totcon++;
+	}
       }
     }
+
+    else {
+      nonodes = data->elementtypes[i] % 100;
+      for(j=0;j<nonodes;j++) {
+	ind = data->topology[i][j];
+	for(k=0;k<nonodes;k++) {
+	  ind2 = data->topology[i][k];
+	  if(ind == ind2) continue;
+	  
+	  hit = FALSE;
+	  for(l=0;l<maxcon;l++) { 
+	    if(data->dualgraph[l][ind] == ind2) hit = TRUE;
+	    if(data->dualgraph[l][ind] == 0) break;
+	  }
+	  if(!hit) {
+	    if(l >= maxcon) {
+	      data->dualgraph[maxcon] = Ivector(1,noknots);
+	      for(m=1;m<=noknots;m++)
+		data->dualgraph[maxcon][m] = 0;
+	      maxcon++;
+	    }
+	    data->dualgraph[l][ind] = ind2;
+	    totcon++;
+	  }
+	}
+      }
+    }
+
   }
 
   if( data->periodicexist ) {

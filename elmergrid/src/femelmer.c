@@ -2192,7 +2192,7 @@ int PartitionMetisNodes(struct FemType *data,int partitions,int metisopt,int inf
   if(info) printf("\nMaking a Metis partitioning for %d nodes in %d-dimensions.\n",
 		  data->noknots,data->dim);
 
-  CreateDualGraph(data,info);
+  CreateDualGraph(data,FALSE,info);
 
   noknots = data->noknots;
   noelements = data->noelements;
@@ -3435,7 +3435,7 @@ int ReorderElementsMetis(struct FemType *data,int info)
   if(info) printf("Indexwidth of the original node order is %d.\n",i);
 
 
-  CreateDualGraph(data,info);
+  CreateDualGraph(data,FALSE,info);
   maxcon = data->dualmaxconnections;
 
   totcon = 0;

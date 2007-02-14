@@ -95,6 +95,6 @@ int CreateBoundaryLayerDivide(struct FemType *data,struct BoundaryType *bound,
 			      Real *layerratios, Real *layerthickness, int *layerparents,int info);
 int RotateTranslateScale(struct FemType *data,struct ElmergridType *eg,int info);
 int RemoveLowerDimensionalBoundaries(struct FemType *data,struct BoundaryType *bound,int info);
-int CreateDualGraph(struct FemType *data,int info);
+int CreateDualGraph(struct FemType *data,int full,int info);
 int CreateInverseTopology(struct FemType *data,int info);
 int MeshTypeStatistics(struct FemType *data,int info);
