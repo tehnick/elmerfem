@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SaveData.src,v $
+! * Revision 1.28  2007/02/09 11:50:23  raback
+! * *** empty log message ***
+! *
 ! * Revision 1.27  2007/02/09 11:39:24  raback
 ! * *** empty log message ***
 ! *
@@ -155,10 +158,11 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   CHARACTER(LEN=MAX_NAME_LEN) :: ScalarsFile, ScalarNamesFile, &
       VariableName, ResultPrefix, Oper, Name, CoefficientName, ScalarParFile
   INTEGER :: i,j,k,l,q,n,No,NoPoints,NoCoordinates,NoLines,NumberOfVars,&
-      NoDims, NoDofs, NoOper, NoElements, NoVar, NoValues, PrevNoValues=0, DIM, MaxVars, NoEigenValues, Ind
+      NoDims, NoDofs, NoOper, NoElements, NoVar, NoValues, PrevNoValues=0, DIM, &
+      MaxVars, NoEigenValues, Ind, EigenDofs
   REAL (KIND=DP) :: CPUTime, CPUMemory
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.27 2007/02/09 11:39:24 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.28 2007/02/09 11:50:23 raback Exp $"
 
   SAVE SubroutineVisited, NumberOfVars, &
       NoPoints, PointIndex, CoordinateIndex, CoordinateDist, ResultPrefix, &
@@ -463,7 +467,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName), Value)
 
       CASE('boundary sum','boundary dofs','boundary mean','boundary max','boundary min',&
-          'boundary max ans','boundary min abs')
+          'boundary max abs','boundary min abs')
         BoundaryHits = 0
         BoundaryFluxes = 0.0d0         
         CALL BoundaryStatistics(Var, Oper, GotCoeff, &
@@ -537,49 +541,50 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       l = CoordinateIndex(k-NoPoints)
     END IF
     
+
     Var => Model % Variables
+
     DO WHILE( ASSOCIATED( Var ) )
       
-      IF ( .NOT. Var % Output .OR. SIZE(Var % Values) == 1 .OR. &
-          (Var % DOFs /= 1 .AND. .NOT. ASSOCIATED(Var % EigenVectors)) ) THEN
-        Var => Var % Next        
-        CYCLE
-      END IF
-      
-      IF (ASSOCIATED (Var % EigenVectors)) THEN
-        NoEigenValues = SIZE(Var % EigenValues) 
-        DO j=1,NoEigenValues
-          DO i=1,Var % DOFs
-            
-            Ind = l
-            IF ( ASSOCIATED(Var % Perm) ) THEN
-              Ind = Var % Perm(Ind)
-            END IF
-            IF(.NOT. (Ind > 0)) CYCLE
-            
-            IF(Var % DOFs == 1) THEN
-              WRITE(Name,'("value: Eigen",I2," ",A," at node ",I7)') j,TRIM(Var % Name),l
-            ELSE
-              WRITE(Name,'("value: Eigen",I2," ",A,I2," at node ",I7)') j,TRIM(Var % Name),i,l
-            END IF
-            Value = REAL( Var % EigenVectors(j,Var%Dofs*(Ind-1)+i) )
-            CALL AddToSaveList( TRIM(Name), Value)
-            
-          END DO
-        END DO
+      IF ( .NOT. Var % Output .OR. SIZE(Var % Values) == 1) THEN  
+        CONTINUE
 
-      ELSE           
-        Ind = l
-        IF ( ASSOCIATED(Var % Perm) ) Ind = Var % Perm(Ind)
-        IF(.NOT. (Ind > 0)) CYCLE
+      ELSE IF (ASSOCIATED (Var % EigenVectors)) THEN
         
-        WRITE(Name,'("value: ",A," at node ",I7)') 
-        CALL AddToSaveList( TRIM(Name), Var % Values(Ind))        
+        NoEigenValues = SIZE(Var % EigenValues) 
+        EigenDofs = SIZE( Var % EigenVectors(1,:) ) / SIZE( Var % Perm )
+
+        IF(EigenDofs == Var % DOFs) THEN
+          DO j=1,NoEigenValues
+            DO i=1,Var % DOFs              
+              Ind = Var % Perm(l)              
+              IF( Ind > 0 ) THEN
+                IF(Var % DOFs == 1) THEN
+                  WRITE(Name,'("value: Eigen",I2," ",A," at node ",I7)') j,TRIM(Var % Name),l
+                ELSE
+                  WRITE(Name,'("value: Eigen",I2," ",A,I2," at node ",I7)') j,TRIM(Var % Name),i,l
+                END IF
+                Value = REAL( Var % EigenVectors(j, Var%Dofs*(Ind-1)+i) )
+                CALL AddToSaveList( TRIM(Name), Value)
+              END IF
+            END DO
+          END DO
+        END IF
+
+      ELSE IF( Var % Dofs == 1) THEN          
+        ! The variables exist always also as scalars, therefore omit vectors. 
+        Ind = l
+        IF(ASSOCIATED(Var % Perm)) Ind = Var % Perm(l)
+        IF(Ind > 0) THEN
+          WRITE(Name,'("value: ",A," at node ",I7)') TRIM( Var % Name ), l
+          CALL AddToSaveList( TRIM(Name), Var % Values(Ind))        
+        END IF
       END IF
 
       Var => Var % Next      
     END DO
   END DO
+
   
   !------------------------------------------------------------------------------
   ! Get the info at exact coordinates within elements
@@ -592,53 +597,51 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     
     Var => Model % Variables
     DO WHILE( ASSOCIATED( Var ) )
+
+      IF ( .NOT. Var % Output .OR. SIZE(Var % Values) == 1) THEN
+        CONTINUE 
       
-      IF ( .NOT. Var % Output .OR. SIZE(Var % Values) == 1 .OR. &
-          (Var % DOFs /= 1 .AND. .NOT. ASSOCIATED(Var % EigenVectors)) ) THEN
-        Var => Var % Next        
-        CYCLE
-      END IF
-      
-      IF(.NOT. ASSOCIATED(Var)) CYCLE
-      
-      IF (ASSOCIATED (Var % EigenVectors)) THEN
+      ELSE IF (ASSOCIATED (Var % EigenVectors)) THEN
         NoEigenValues = SIZE(Var % EigenValues) 
-        DO j=1,NoEigenValues
-          DO i=1,Var % DOFs
-            IF (ASSOCIATED(Var % Perm) ) THEN
-              IF(.NOT. ALL(Var % Perm(NodeIndexes(1:n)) > 0)) CYCLE
-              ElementValues(1:n) = Var % EigenVectors(j,Var%Dofs*(Var % Perm(NodeIndexes(1:n))-1)+i)
-            ELSE
-              ElementValues(1:n) = Var % EigenVectors(j,Var%Dofs*(NodeIndexes(1:n)-1)+i)
-            END IF
-            
-            Value = SUM( CoordinatesBasis(k,1:n) * ElementValues(1:n) )             
-            IF(Var % DOFs == 1) THEN
-              WRITE(Name,'("value: Eigen",I2," ",A," in element ",I7)') j,TRIM(Var % Name),l
-            ELSE
-              WRITE(Name,'("value: Eigen",I2," ",A,I2," in element ",I7)') j,TRIM(Var % Name),i,l
-            END IF
-            CALL AddToSaveList(TRIM(Name), Value)
-            
+        EigenDofs = SIZE( Var % EigenVectors(1,:) ) / SIZE( Var % Perm )
+
+        IF(EigenDofs == Var % DOFs) THEN
+          DO j=1,NoEigenValues
+            DO i=1,Var % DOFs
+              IF( ALL(Var % Perm(NodeIndexes(1:n)) > 0)) THEN
+                ElementValues(1:n) = Var % EigenVectors(j,Var%Dofs*(Var % Perm(NodeIndexes(1:n))-1)+i)
+                Value = SUM( CoordinatesBasis(k,1:n) * ElementValues(1:n) )             
+                IF(Var % DOFs == 1) THEN
+                  WRITE(Name,'("value: Eigen",I2," ",A," in element ",I7)') j,TRIM(Var % Name),l
+                ELSE
+                  WRITE(Name,'("value: Eigen",I2," ",A,I2," in element ",I7)') j,TRIM(Var % Name),i,l
+                END IF
+                CALL AddToSaveList(TRIM(Name), Value)
+              END IF
+            END DO
           END DO
-        END DO
-      ELSE           
-        IF ( ASSOCIATED(Var % Perm) ) THEN
-          ElementValues(1:n) = Var % Values(Var % Perm(NodeIndexes(1:n)))
-          IF(.NOT. ALL(Var % Perm(NodeIndexes(1:n)) > 0)) CYCLE
+        END IF
+
+      ELSE IF(Var % Dofs == 1) THEN          
+        IF(ASSOCIATED(Var % Perm)) THEN
+          IF( ALL(Var % Perm(NodeIndexes(1:n)) > 0)) THEN            
+            ElementValues(1:n) = Var % Values(Var % Perm(NodeIndexes(1:n)))
+            Value = SUM( CoordinatesBasis(k,1:n) * ElementValues(1:n) ) 
+            WRITE(Name,'("value: ",A," in element ",I7)') TRIM(Var % Name),l
+            CALL AddToSaveList(TRIM(Name), Value)                   
+          END IF
         ELSE
           ElementValues(1:n) = Var % Values(NodeIndexes(1:n))
+          Value = SUM( CoordinatesBasis(k,1:n) * ElementValues(1:n) ) 
+          WRITE(Name,'("value: ",A," in element ",I7)') TRIM(Var % Name),l
+          CALL AddToSaveList(TRIM(Name), Value)        
         END IF
-        
-        Value = SUM( CoordinatesBasis(k,1:n) * ElementValues(1:n) ) 
-        WRITE(Name,'("value: ",A," in element ",I7)') TRIM(Var % Name),l
-
-        CALL AddToSaveList(TRIM(Name), Value)        
       END IF
+
       Var => Var % Next      
+
     END DO
   END DO
-
 
   !------------------------------------------------------------------------------
   ! Finally save all the scalars into a file 
@@ -722,6 +725,7 @@ CONTAINS
     CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: TmpValueNames(:)
      
     SAVE TmpValues, TmpValueNames
+
 
     ! For the first time allocate some space
     IF(.NOT. ALLOCATED(Values)) THEN
@@ -2005,7 +2009,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t), POINTER   :: CurrentElement, NextElement
   CHARACTER(LEN=MAX_NAME_LEN) :: SideFile, SideNamesFile, VarName, CondName, SideParFile
   CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: ValueNames(:)
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.27 2007/02/09 11:39:24 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.28 2007/02/09 11:50:23 raback Exp $"
 
   LOGICAL :: cand, Parallel
 
