@@ -72,7 +72,7 @@
        ParentElement, LeftParent, RightParent
 
      LOGICAL :: AllocationsDone = .FALSE., Found, Stat
-     INTEGER :: Active
+     INTEGER :: Active, DIM
      INTEGER :: n1,n2, k, n, t, istat, i, j, NumberOfFAces, Indexes(128)
      REAL(KIND=dp) :: Norm, at, st, CPUTime
      REAL(KIND=dp), ALLOCATABLE :: MASS(:,:), STIFF(:,:), LOAD(:), &
@@ -80,7 +80,7 @@
 
      TYPE(Mesh_t), POINTER :: Mesh
      TYPE(Variable_t), POINTER ::  Var
-     SAVE MASS, STIFF, LOAD, FORCE, Velo, Gamma, AllocationsDone
+     SAVE MASS, STIFF, LOAD, FORCE, Velo, Gamma, AllocationsDone, DIM
 !*******************************************************************************
 
      TYPE( Element_t ), POINTER :: Faces(:)
@@ -106,6 +106,7 @@
                   Velo(3,N), Gamma(n), STAT = istat )
         
        IF ( istat /= 0 ) CALL FATAL('AdvReactDG','Memory allocation error.' )
+       DIM = CoordinateSystemDimension()
        AllocationsDone = .TRUE.
      END IF
 
@@ -161,7 +162,7 @@
      DO t=1,Mesh % NumberOfBoundaryElements
        Element => GetBoundaryElement(t)
        IF( .NOT. ActiveBoundaryElement() )  CYCLE
-       IF( GetElementFamily(Element) == 1 ) CYCLE
+       IF( GetElementFamily(Element) < DIM ) CYCLE 
 
        ParentElement => Element % BoundaryInfo % Left
        IF ( .NOT. ASSOCIATED( ParentElement ) ) &
