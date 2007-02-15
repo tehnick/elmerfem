@@ -1520,12 +1520,15 @@ static int PartitionNodesByElements(struct FemType *data,int info)
       if(nodesinpart[j] > nodesinpart[maxpart2]) maxpart2 = j;
     }
 
+    /* If there is a clear dominator use that */
     if(nodesinpart[maxpart] > nodesinpart[maxpart2]) {
       if(set) 
 	nodepart[i] = maxpart;    
       else
 	cuminpart[maxpart] += 1;
     }
+
+    /* Otherwise make a half and half split betwen the major owners */
     else {
       if(set) {
 	cumknows[maxpart][maxpart2] += 1;
@@ -1654,7 +1657,6 @@ int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
 
   if(partitions1 > 1) {
     if(info) printf("Ordering 1st direction with (%.3lg*x + %.3lg*y + %.3lg*z)\n",cx,cy,cz);
-
 
     part1 = Ivector(1,noelements);
 
@@ -1797,6 +1799,7 @@ int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
   }
 
   free_Rvector(arrange,1,noelements);
+  free_Ivector(nopart,1,partitions);
   free_Ivector(indx,1,noelements);
   free_Ivector(part1,1,noelements);
   if(partitions2 > 1) free_Ivector(part2,1,noelements);
@@ -2192,7 +2195,7 @@ int PartitionMetisNodes(struct FemType *data,int partitions,int metisopt,int inf
   if(info) printf("\nMaking a Metis partitioning for %d nodes in %d-dimensions.\n",
 		  data->noknots,data->dim);
 
-  CreateDualGraph(data,FALSE,info);
+  CreateDualGraph(data,TRUE,info);
 
   noknots = data->noknots;
   noelements = data->noelements;
@@ -3435,7 +3438,7 @@ int ReorderElementsMetis(struct FemType *data,int info)
   if(info) printf("Indexwidth of the original node order is %d.\n",i);
 
 
-  CreateDualGraph(data,FALSE,info);
+  CreateDualGraph(data,TRUE,info);
   maxcon = data->dualmaxconnections;
 
   totcon = 0;

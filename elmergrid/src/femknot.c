@@ -1138,8 +1138,8 @@ void CreateKnots(struct GridType *grid,struct CellType *cell,
   data->maxsize = sqrt(maxsize);
   data->minsize = sqrt(minsize);
 
-  printf("Maximum elementsize is %.3le and minimum %.3le.\n",
-	 data->maxsize,data->minsize);
+  if(info) printf("Maximum elementsize is %.3le and minimum %.3le.\n",
+		  data->maxsize,data->minsize);
 }
 
 
@@ -1918,8 +1918,6 @@ int SetDiscontinuousBoundary(struct FemType *data,struct BoundaryType *bound,
   order = Ivector(1,data->noknots);
   for(i=1;i<=data->noknots;i++)
     order[i] = i;
-    
-  printf("SetDiscontinuousBoundary: %d endnodes.\n",endnodes);
     
   if(endnodes == 1) {
     if(!hitsexist) {
@@ -4762,6 +4760,8 @@ int IncreaseElementOrder(struct FemType *data,int info)
     data->elementtypes[element] = elemtype;
   }
 
+  DestroyDualGraph(data,info);
+
   free_Rvector(data->x,1,data->noknots);
   free_Rvector(data->y,1,data->noknots);
   free_Rvector(data->z,1,data->noknots);
@@ -5713,7 +5713,7 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
       newbounds += grid->rotateblocks;
   }
 
-  
+  printf("b1\n");  
   for(j=0;j<data->noboundaries+newbounds;j++) {
     if(boundxy[j].created || j>=data->noboundaries) {
       bound[j] = boundxy[j];
@@ -5750,6 +5750,7 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
   elem0 = 0;
   level = 0;
 
+  printf("b2\n");  
 
   for(cellk=1;cellk <= grid->zcells ;cellk++) {  
     
@@ -5820,8 +5821,6 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
   }
   data->noelements = elem0;
   printf("Extruded mesh has %d elements in %d levels.\n",elem0,level);
-
-
 
 
   /* Set the element coordinates. */
@@ -6285,9 +6284,9 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
     }
   }
 
-  ReorderElements(data,bound,FALSE,corder,info);
 
   if(grid->rotate) {
+    ReorderElements(data,bound,FALSE,corder,info);    
 
     CylindricalCoordinateImprove(data,grid->rotateimprove,
 				 grid->rotateradius1,grid->rotateradius2);
@@ -6298,13 +6297,12 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
 
     if(grid->rotatecartesian) 
       SeparateMainaxisBoundaries(data,bound);
-  }    
 
-  if(grid->rotate)
     printf("Created %d elements and %d nodes by rotation of %d degrees.\n",
 	   data->noelements,data->noknots,90*grid->rotateblocks);
+  }
   else if(grid->dimension == 3)
-    printf("Created %d elements and %d nodes by extruding the 2D geometry\n",
+    if(info) printf("Created %d elements and %d nodes by extruding the 2D geometry\n",
 	   data->noelements,data->noknots);
 
   free_Ivector(indx,0,indxlength);
@@ -8631,6 +8629,7 @@ int RotateTranslateScale(struct FemType *data,struct ElmergridType *eg,int info)
 {
   int i,j,k;
   Real x,y,z,xz,yz,yx,zx,zy,xy,cx,cy,cz;
+  Real xmin, xmax, ymin, ymax, zmin, zmax;
 
   if(eg->scale) {
     if(info) printf("Scaling mesh with vector [%.3lg %.3lg %.3lg]\n",
@@ -8691,6 +8690,34 @@ int RotateTranslateScale(struct FemType *data,struct ElmergridType *eg,int info)
     if(0) printf("Translation of mesh finished.\n");
   }
 
+  if(eg->center) {
+    xmin = xmax = data->x[1];
+    ymin = ymax = data->y[1];
+    if(data->dim == 3) zmin = zmax = data->z[1];
+
+    for(i=1;i<=data->noknots;i++) {
+      xmax = MAX( xmax, data->x[i] );
+      xmin = MIN( xmin, data->x[i] );
+      ymax = MAX( ymax, data->y[i] );
+      ymin = MIN( ymin, data->y[i] );
+      if(data->dim == 3) {
+	zmax = MAX( zmax, data->z[i] );
+	zmin = MIN( zmin, data->z[i] );
+      }
+    }
+    cx = 0.5 * (xmin + xmax);
+    cy = 0.5 * (ymin + ymax);
+    if(data->dim == 3) cz = 0.5 * (zmin + zmax);
+    
+    if(info) printf("Setting new center to %.3le %.3le %.3le\n",cx,cy,cz);
+
+    for(i=1;i<=data->noknots;i++) {
+      data->x[i] -= cx;
+      data->y[i] -= cy;
+      if(data->dim == 3) data->z[i] -= cz;
+    }    
+  }
+
   return(0);
 }
 
@@ -8704,8 +8731,7 @@ int CreateDualGraph(struct FemType *data,int full,int info)
   printf("Creating a dual graph of the finite element mesh\n");  
 
   if(data->dualexists) {
-    printf("The dual graph already exists!\n");
-    smallerror("Dual graph not done");
+    printf("The dual graph already exists! You shoule remove the old graph!\n");
   }
 
   maxcon = 0;
@@ -8819,6 +8845,29 @@ int CreateDualGraph(struct FemType *data,int full,int info)
   if(info) printf("There are at all in all %d connections in dual graph.\n",totcon);
   if(info && percon) printf("There are %d periodic connections in dual graph.\n",percon);
 
+  return(0);
+}
+
+
+int DestroyDualGraph(struct FemType *data,int info)
+{
+  int i,maxcon, noknots;
+  
+  if(!data->dualexists) {
+    printf("You tried to destroy a non-existing dual graph\n");
+    return(1);
+  }
+
+  maxcon = data->dualmaxconnections;
+  noknots = data->noknots;
+
+  for(i=0;i<maxcon;i++)    
+    free_Ivector(data->dualgraph[i],1,noknots);
+
+  data->dualmaxconnections = 0;
+  data->dualexists = FALSE; 
+
+  if(info) printf("The dual graph was destroyed\n");
   return(0);
 }
 

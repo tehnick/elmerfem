@@ -284,6 +284,7 @@ struct ModelType {
 struct ElmergridType {
 
   int dim,
+    center,
     scale,      /* scale the geometry */
     order,      /* reorder the nodes */
     merge,      /* merge mesges */
@@ -291,6 +292,7 @@ struct ElmergridType {
     rotate,     /* rotate the mesh */
     clone[3],   /* clone the mesh the number of given times */
     mirror[3],  /* mirror the mash around the given axis */
+    canter, 
     decimals,   /* save the mesh with number of decimals */
     layers,     /* create boundary layers */
     layerbounds[MAXBOUNDARIES], 

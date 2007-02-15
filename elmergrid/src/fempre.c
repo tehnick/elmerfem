@@ -149,6 +149,7 @@ static void Instructions()
   printf("-triangles           : rectangles will be divided to triangles\n");
   printf("-merge real          : merges nodes that are close to each other\n");
   printf("-order real[3]       : reorder elements and nodes using c1*x+c2*y+c3*z\n");
+  printf("-centralize          : set the center of the mesh to origin\n");
   printf("-scale real[3]       : scale the coordinates with vector real[3]\n");
   printf("-translate real[3]   : translate the nodes with vector real[3]\n");
   printf("-rotate real[3]      : rotate around the main axis with angles real[3]\n");
@@ -229,6 +230,7 @@ void InitParameters(struct ElmergridType *eg)
   eg->isoparam = FALSE;
   eg->removelowdim = FALSE;
   eg->dim = 3;
+  eg->center = FALSE;
   eg->scale = FALSE;
   eg->order = FALSE;
   eg->boundbounds = 0;
@@ -366,7 +368,9 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     if(strcmp(argv[arg],"-metisorder") == 0) {
       eg->order = 3;
     }
-
+    if(strcmp(argv[arg],"-centralize") == 0) {
+      eg->center = TRUE;
+    }
     if(strcmp(argv[arg],"-scale") == 0) {
       if(arg+dim >= argc) {
 	printf("Give %d parameters for the scaling.\n",dim);
@@ -872,6 +876,9 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
       else if(eg->dim == 3) 
 	sscanf(params,"%le%le%le",&eg->cscale[0],&eg->cscale[1],&eg->cscale[2]);
     }
+    else if(strstr(command,"CENTRALIZE")) {
+      eg->center = TRUE;
+    }
     else if(strstr(command,"TRANSLATE")) {
       eg->translate = TRUE;
       if(eg->dim == 1) 
@@ -1143,7 +1150,7 @@ int main(int argc, char *argv[])
 {
   int i,j,k,l,inmethod,outmethod,info,errorstat,sides;
   int nogrids,nomeshes,nofile,dim,elementsredone=0;
-  int nodes3d,elements3d;
+  int nodes3d,elements3d,showmem;
   Real mergeeps;
   char prefix[MAXFILESIZE];
   struct GridType *grids;
@@ -1153,7 +1160,7 @@ int main(int argc, char *argv[])
   struct ElmergridType eg;
   long ii;
 
-
+  showmem = TRUE;
   printf("\nStarting program Elmergrid\n");
 
   InitParameters(&eg);
@@ -1199,6 +1206,7 @@ int main(int argc, char *argv[])
 
   /**********************************/
   printf("\nElmergrid loading data:\n");
+  MemoryUsage();
 
   dim = eg.dim;
   nofile = 0;
@@ -1426,6 +1434,7 @@ int main(int argc, char *argv[])
  redoelements:
 
   printf("\nElmergrid creating and manipulating meshes:\n");
+  MemoryUsage();
 
 
   if(nogrids > nomeshes && outmethod != 1) { 
@@ -1704,7 +1713,7 @@ int main(int argc, char *argv[])
 	}
       }
     }
-    printf("Renumbering boundary types finished\n");
+    if(info) printf("Renumbering boundary types finished\n");
   }
   
   if(eg.bulkmappings) {
@@ -1723,7 +1732,7 @@ int main(int argc, char *argv[])
 	}
       }
     }
-    printf("Renumbering material indexes finished\n");
+    if(info) printf("Renumbering material indexes finished\n");
   }
 
 
@@ -1799,7 +1808,7 @@ int main(int argc, char *argv[])
 	      currenttype = -1;
 	    }
 	}
-	printf("Creating bubble elements finished\n");
+	if(info) printf("Creating bubble elements finished\n");
       }
 
       if(eg.advancedmat) {
@@ -1811,7 +1820,7 @@ int main(int argc, char *argv[])
 
 	  for(i=1;i<=6;i++) {
 	    if(eg.advancedelem[7*l+i] < 0 || eg.advancedelem[7*l+i] > 99) {
-	      printf("Advanced elements limited to 9 or 99 (not %d)!\n",eg.advancedelem[7*l+i]);
+	      if(info) printf("Advanced elements limited to 9 or 99 (not %d)!\n",eg.advancedelem[7*l+i]);
 	    }
 	  }
 
@@ -1823,7 +1832,7 @@ int main(int argc, char *argv[])
 	    }
 	  }
 	}
-	printf("Creating advanced elements finished\n");
+	if(info) printf("Creating advanced elements finished\n");
       }
     }
   }
@@ -1831,6 +1840,7 @@ int main(int argc, char *argv[])
 
   /********************************/
   printf("\nElmergrid saving data:\n");
+  MemoryUsage();
 
   switch (outmethod) {
   case 1:
@@ -1947,6 +1957,7 @@ int main(int argc, char *argv[])
     break;
   }    
 
+  MemoryUsage();
   Goodbye();
   return(0);
 }

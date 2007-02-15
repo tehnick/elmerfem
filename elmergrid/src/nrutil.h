@@ -5,6 +5,7 @@
 #ifndef _NR_UTILS_H_
 #define _NR_UTILS_H_
 
+int MemoryUsage();
 void nrerror(char error_text[]);
 
 float *vector(int,int);
