@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SaveData.src,v $
+! * Revision 1.29  2007/02/14 13:39:38  raback
+! * *** empty log message ***
+! *
 ! * Revision 1.28  2007/02/09 11:50:23  raback
 ! * *** empty log message ***
 ! *
@@ -140,7 +143,8 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t),POINTER :: CurrentElement
   TYPE(Nodes_t) :: ElementNodes
   LOGICAL :: SubroutineVisited=.FALSE.,MovingMesh, GotCoeff, &
-      GotIt, GotOper, GotVar, ExactCoordinates, VariablesExist, Parallel
+      GotIt, GotOper, GotVar, ExactCoordinates, VariablesExist, &
+      ComplexEigen, Parallel
 
   CHARACTER(LEN=MAX_NAME_LEN) :: MessageL
 
@@ -162,7 +166,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       MaxVars, NoEigenValues, Ind, EigenDofs
   REAL (KIND=DP) :: CPUTime, CPUMemory
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.28 2007/02/09 11:50:23 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.29 2007/02/14 13:39:38 raback Exp $"
 
   SAVE SubroutineVisited, NumberOfVars, &
       NoPoints, PointIndex, CoordinateIndex, CoordinateDist, ResultPrefix, &
@@ -254,6 +258,8 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
 
   END IF
 
+
+  ComplexEigen = ListGetLogical(Solver % Values,'Complex Eigen Vectors',GotIt)
 
   MovingMesh = ListGetLogical(Solver % Values,'Moving Mesh',GotIt )
   
@@ -564,7 +570,11 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
                 ELSE
                   WRITE(Name,'("value: Eigen",I2," ",A,I2," at node ",I7)') j,TRIM(Var % Name),i,l
                 END IF
-                Value = REAL( Var % EigenVectors(j, Var%Dofs*(Ind-1)+i) )
+                IF(ComplexEigen) THEN
+                  Value = ABS( Var % EigenVectors(j, Var%Dofs*(Ind-1)+i) )
+                ELSE
+                  Value = REAL( Var % EigenVectors(j, Var%Dofs*(Ind-1)+i) )                  
+                END IF
                 CALL AddToSaveList( TRIM(Name), Value)
               END IF
             END DO
@@ -609,7 +619,11 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
           DO j=1,NoEigenValues
             DO i=1,Var % DOFs
               IF( ALL(Var % Perm(NodeIndexes(1:n)) > 0)) THEN
-                ElementValues(1:n) = Var % EigenVectors(j,Var%Dofs*(Var % Perm(NodeIndexes(1:n))-1)+i)
+                IF(ComplexEigen) THEN
+                  ElementValues(1:n) = ABS( Var % EigenVectors(j,Var%Dofs*(Var % Perm(NodeIndexes(1:n))-1)+i) )
+                ELSE
+                  ElementValues(1:n) = REAL( Var % EigenVectors(j,Var%Dofs*(Var % Perm(NodeIndexes(1:n))-1)+i) )
+                END IF
                 Value = SUM( CoordinatesBasis(k,1:n) * ElementValues(1:n) )             
                 IF(Var % DOFs == 1) THEN
                   WRITE(Name,'("value: Eigen",I2," ",A," in element ",I7)') j,TRIM(Var % Name),l
@@ -2009,7 +2023,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t), POINTER   :: CurrentElement, NextElement
   CHARACTER(LEN=MAX_NAME_LEN) :: SideFile, SideNamesFile, VarName, CondName, SideParFile
   CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: ValueNames(:)
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.28 2007/02/09 11:50:23 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.29 2007/02/14 13:39:38 raback Exp $"
 
   LOGICAL :: cand, Parallel
 
