@@ -60,6 +60,11 @@ CONTAINS
                  Solver % Matrix % Values
       Solver % Matrix % DampValues = Solver % Matrix % DampValues * omega
 
+      DO j=1,n
+        x(j)   =  REAL( Solver % Variable % EigenVectors(i,j) )
+        x(j+n) = AIMAG( Solver % Variable % EigenVectors(i,j) )
+      END DO
+
       CALL HarmonicScaleSystem( n, Solver % Matrix, b, x, 1 )
       IF ( Prec(1:4) == 'ilut' ) THEN
         stat = CRS_ILUT( Solver % Matrix, ILUTol )

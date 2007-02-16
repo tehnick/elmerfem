@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StressSolve.src,v $
+! * Revision 1.33  2006/12/22 11:19:08  jpr
+! * Small formatting changes.
+! *
 ! * Revision 1.32  2006/12/18 12:23:07  jpr
 ! * Added 'Harmonic analysis' option.
 ! *
@@ -339,7 +342,7 @@
         END FUNCTION StressInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.32 2006/12/18 12:23:07 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.33 2006/12/22 11:19:08 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -593,6 +596,7 @@
 
        IF ( ASSOCIATED(Solver % Matrix % BulkValues) ) THEN
          IF ( ConstantBulkMatrix .OR. ConstantBulkSystem .OR. ConstantSystem ) THEN
+           Solver % Matrix % DampValues = 0.0d0
            Solver % Matrix % Values = Solver % Matrix % BulkValues
          END IF
 
