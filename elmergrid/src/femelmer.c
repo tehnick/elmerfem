@@ -3357,11 +3357,11 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     if(info) {
       if(part == 1) 
 	printf("   %-5s %-10s %-10s %-8s %-8s %-8s %-8s %-8s\n",
-			   "part","elements","nodes","shared","bc elems","periodic","indirect","orphan");
+			   "part","elements","nodes","shared","bc elems","indirect","orphan","periodic");
       if(part)
 	printf("   %-5d %-10d %-10d %-8d %-8d %-8d %-8d %-8d\n",
 	       part,elementsinpart[part],ownnodes[part],sharednodes[part],sidesinpart[part],
-	       periodicinpart[part],indirectinpart[part],orphannodes);
+	       indirectinpart[part],orphannodes,periodicinpart[part]);
     }
   } /* of part */
 
