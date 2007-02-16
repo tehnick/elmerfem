@@ -26,10 +26,11 @@ CONTAINS
     ALLOCATE( x(2*n), b(2*n) )
     x = 0
     b = 0
-    b(1:n) = Solver % Matrix % RHS
 
     DirectLinearSolver = .TRUE.
     IF ( ListGetString( Solver % Values, 'Linear System Solver', Found) == 'iterative' ) THEN
+      b(1:n) = Solver % Matrix % RHS
+
       BMatrix => AllocateMatrix()
       BMatrix % NumberOfRows = Solver % Matrix % NumberOfRows
       BMatrix % Rows => Solver % Matrix % Rows
@@ -52,6 +53,8 @@ CONTAINS
       IF ( Prec(1:3) == 'ilu' .AND. prec(4:4) /= 't' ) READ( Prec(4:4), * ) ILUn
       DirectLinearSolver = .FALSE.
     ELSE
+      b(1:2*n:2) = Solver % Matrix % RHS
+
       OptimizeBW = ListGetLogical(Solver % Values, 'Optimize Bandwidth', Found)
       IF ( .NOT. Found ) OptimizeBW = .TRUE.
 
@@ -81,25 +84,16 @@ CONTAINS
       CALL Info( 'HarmonicSolve', Message )
 
       omega = 2 * PI * freqv(i,1)
-      Solver % Matrix % Values = -omega**2*Solver % Matrix % MassValues + &
-                 Solver % Matrix % Values
-      Solver % Matrix % DampValues = Solver % Matrix % DampValues * omega
 
       IF ( DirectLinearSolver ) THEN
-        DO j=1,n
-          b(2*(j-1)+1) = Solver % Matrix % RHS(j)
-          b(2*(j-1)+2) = 0.0d0
-          x(2*(j-1)+1) =  REAL(Solver % Variable % EigenVectors(i,j))
-          x(2*(j-1)+2) = AIMAG(Solver % Variable % EigenVectors(i,j))
-        END DO
         DO k=1,n
           kr = CMatrix % Rows(2*(k-1)+1)
           ki = CMatrix % Rows(2*(k-1)+2)
           DO j=Solver % Matrix % Rows(k),Solver % Matrix % Rows(k+1)-1
-            CMatrix % Values(kr)   =  Solver % Matrix % Values(j)
-            CMatrix % Values(kr+1) = -Solver % Matrix % Dampvalues(j)
-            CMatrix % Values(ki)   =  Solver % Matrix % Dampvalues(j)
-            CMatrix % Values(ki+1) =  Solver % Matrix % Values(j)
+            CMatrix % Values(kr)   =  Solver % Matrix % Values(j)-omega**2*Solver % Matrix % MassValues(j)
+            CMatrix % Values(kr+1) = -Solver % Matrix % Dampvalues(j) * omega
+            CMatrix % Values(ki)   =  Solver % Matrix % Dampvalues(j) * omega
+            CMatrix % Values(ki+1) =  Solver % Matrix % Values(j)-omega**2*Solver % Matrix % MassValues(j)
             kr = kr+2
             ki = ki+2
           END DO
@@ -109,6 +103,9 @@ CONTAINS
           Solver % Variable % EigenVectors(i,j) = DCMPLX(x(2*(j-1)+1),x(2*(j-1)+2))
         END DO
       ELSE
+        Solver % Matrix % Values = -omega**2*Solver % Matrix % MassValues + &
+                   Solver % Matrix % Values
+        Solver % Matrix % DampValues = Solver % Matrix % DampValues * omega
         DO j=1,n
           x(j)   =  REAL( Solver % Variable % EigenVectors(i,j) )
           x(j+n) = AIMAG( Solver % Variable % EigenVectors(i,j) )
@@ -122,15 +119,15 @@ CONTAINS
         END IF
         CALL HarmonicBiCG2( 2*n, Solver % Matrix, BMatrix, x, b, Rounds, TOL )
         CALL HarmonicScaleSystem( n, Solver % Matrix, b, x, -1 )
+
         DO j=1,n
           Solver % Variable % EigenVectors(i,j) = DCMPLX( x(j), x(j+n) )
         END DO
+        Solver % Variable % EigenValues(i) = omega
+        Solver % Matrix % Values = +omega**2*Solver % Matrix % MassValues + &
+                   Solver % Matrix % Values
+        Solver % Matrix % DampValues = Solver % Matrix % DampValues / omega
       END IF
-
-      Solver % Variable % EigenValues(i) = omega
-      Solver % Matrix % Values = +omega**2*Solver % Matrix % MassValues + &
-                 Solver % Matrix % Values
-      Solver % Matrix % DampValues = Solver % Matrix % DampValues / omega
     END DO
 
     DEALLOCATE( x, b )
