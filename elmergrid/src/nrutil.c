@@ -8,16 +8,15 @@
 #define SHOWMEM 0
 
 #if SHOWMEM
-static int nfloat=0, nint=0, cumnfloat=0, cumnint=0;
+static int nfloat=0, nint=0, cumnfloat=0, cumnint=0, locnint, locnfloat;
 
 int MemoryUsage()
 {
-  printf("Memory used real %d %d int %d %d\n",nfloat,cumnfloat,nint,cumnint);
+  if(locnint > 1000 || locnfloat > 1000) 
+    printf("Memory used real %d %d %d int %d %d %d\n",
+	   nfloat,cumnfloat,locnfloat,nint,cumnint,locnint);
+  locnfloat = locnint = 0;
 }
-#else
-int MemoryUsage()
-{
-}  
 #endif
 
 void nrerror(char error_text[])
@@ -53,8 +52,9 @@ int *ivector(int nl,int nh)
   if (!v) nrerror("allocation failure in ivector()");
 
  #if SHOWMEM
-  nint += (nh-nl+1+1)*sizeof(int);
-  cumnint += (nh-nl+1+1)*sizeof(int);
+  locnint = (nh-nl+1+1);
+  nint += locnint;
+  cumnint += locnint;
   MemoryUsage();
 #endif
 
@@ -94,8 +94,9 @@ double *dvector(int nl,int nh)
   if (!v) nrerror("allocation failure in dvector()");
 
 #if SHOWMEM
-  nfloat += (nh-nl+1+1)*sizeof(double);
-  cumnfloat += (nh-nl+1+1)*sizeof(double);
+  locnfloat = nh-nl+1+1;
+  nfloat += locnfloat;
+  cumnfloat += locnfloat;
   MemoryUsage();
 #endif
 
@@ -153,8 +154,9 @@ double **dmatrix(int nrl,int nrh,int ncl,int nch)
     m[i]=m[i-1]+ncol;
 
 #if SHOWMEM
-  nfloat += (nrow+1 + (nrow*ncol+1))*sizeof(double);
-  cumnfloat += (nrow+1 + (nrow*ncol+1))*sizeof(double);
+  locnfloat = (nrow+1 + (nrow*ncol+1));
+  nfloat += locnfloat;
+  cumnfloat += locnfloat;
   MemoryUsage();
 #endif
   
@@ -184,8 +186,9 @@ int **imatrix(int nrl,int nrh,int ncl,int nch)
     m[i]=m[i-1]+ncol;
 
 #if SHOWMEM
-  nint += (nrow+1 + (nrow*ncol+1))*sizeof(int);
-  cumnint += (nrow+1 + (nrow*ncol+1))*sizeof(int);
+  locnint = (nrow+1 + (nrow*ncol+1));
+  nint += locnint;
+  cumnint += locnint;
   MemoryUsage();
 #endif
   
@@ -256,7 +259,7 @@ void free_vector(float *v,int nl,int nh)
 void free_ivector(int *v,int nl,int nh)
 {
 #if SHOWMEM
-  cumnint -= (nh-nl+1+1)*sizeof(int);
+  cumnint -= (nh-nl+1+1);
 #endif
 
   free((FREE_ARG) (v+nl-1));
@@ -276,7 +279,7 @@ void free_lvector(unsigned long *v,int nl,int nh)
 void free_dvector(double *v,int nl,int nh)
 {
 #if SHOWMEM
-  cumnfloat -= (nh-nl+1+1)*sizeof(double);
+  cumnfloat -= (nh-nl+1+1);
 #endif
 
   free((FREE_ARG) (v+nl-1));
@@ -293,7 +296,7 @@ void free_dmatrix(double **m,int nrl,int nrh,int ncl,int nch)
 #if SHOWMEM
   int nrow=nrh-nrl+1;
   int ncol=nch-ncl+1;
-  cumnfloat -= (nrow+1 + (nrow*ncol+1))*sizeof(double);
+  cumnfloat -= (nrow+1 + (nrow*ncol+1));
 #endif
 
   free((FREE_ARG) (m[nrl]+ncl-1));
@@ -305,7 +308,7 @@ void free_imatrix(int **m,int nrl,int nrh,int ncl,int nch)
 #if SHOWMEM
   int nrow=nrh-nrl+1;
   int ncol=nch-ncl+1;
-  cumnint -= (nrow+1 + (nrow*ncol+1))*sizeof(int);
+  cumnint -= (nrow+1 + (nrow*ncol+1));
 #endif
 
   free((FREE_ARG) (m[nrl]+ncl-1));

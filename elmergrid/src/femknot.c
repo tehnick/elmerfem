@@ -5713,17 +5713,16 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
       newbounds += grid->rotateblocks;
   }
 
-  printf("b1\n");  
   for(j=0;j<data->noboundaries+newbounds;j++) {
     if(boundxy[j].created || j>=data->noboundaries) {
       bound[j] = boundxy[j];
       bound[j].created = TRUE;
+      bound[j].areasexist = FALSE;
 
       size = bound[j].nosides = boundxy[j].nosides * grid->totzelems; 
       if(j >= data->noboundaries) size = dataxy->noelements;
 
       bound[j].coordsystem = COORD_CART3;
-      bound[j].areas = Rvector(1,size);
       bound[j].side = Ivector(1,size);
       bound[j].side2 = Ivector(1,size);
       bound[j].material = Ivector(1,size);    
@@ -5750,7 +5749,6 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
   elem0 = 0;
   level = 0;
 
-  printf("b2\n");  
 
   for(cellk=1;cellk <= grid->zcells ;cellk++) {  
     

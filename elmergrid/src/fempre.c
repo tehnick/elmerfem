@@ -1206,7 +1206,6 @@ int main(int argc, char *argv[])
 
   /**********************************/
   printf("\nElmergrid loading data:\n");
-  MemoryUsage();
 
   dim = eg.dim;
   nofile = 0;
@@ -1434,8 +1433,6 @@ int main(int argc, char *argv[])
  redoelements:
 
   printf("\nElmergrid creating and manipulating meshes:\n");
-  MemoryUsage();
-
 
   if(nogrids > nomeshes && outmethod != 1) { 
 
@@ -1665,16 +1662,6 @@ int main(int argc, char *argv[])
 #endif
   }
 
-
-  /* Create a variable so that when saving data in ElmerPost format there is something to visualize */
-  for(k=0;k<nomeshes;k++) {
-    if(data[k].variables == 0) {
-      CreateVariable(&data[k],1,1,0.0,"Number",FALSE);
-      for(i=1;i<=data[k].alldofs[1];i++)
-	data[k].dofs[1][i] = (Real)(i);
-    }
-  }
-
   for(k=0;k<nomeshes;k++) 
     RotateTranslateScale(&data[k],&eg,info);
 
@@ -1735,11 +1722,9 @@ int main(int argc, char *argv[])
     if(info) printf("Renumbering material indexes finished\n");
   }
 
-
   for(k=0;k<nomeshes;k++) 
     if(eg.periodicdim[0] || eg.periodicdim[1] || eg.periodicdim[2]) 
       FindPeriodicNodes(&data[k],eg.periodicdim,info);
-
    
   for(k=0;k<nomeshes;k++) {
     int noopt = 0;
@@ -1840,7 +1825,6 @@ int main(int argc, char *argv[])
 
   /********************************/
   printf("\nElmergrid saving data:\n");
-  MemoryUsage();
 
   switch (outmethod) {
   case 1:
@@ -1857,15 +1841,27 @@ int main(int argc, char *argv[])
     break;
 
   case 3:
-    for(k=0;k<nomeshes;k++) 
+      /* Create a variable so that when saving data in ElmerPost format there is something to visualize */
+    for(k=0;k<nomeshes;k++) {
+      if(data[k].variables == 0) {
+	CreateVariable(&data[k],1,1,0.0,"Number",FALSE);
+	for(i=1;i<=data[k].alldofs[1];i++)
+	  data[k].dofs[1][i] = (Real)(i);	
+      }
       SaveSolutionElmer(&data[k],boundaries[k],eg.saveboundaries ? MAXBOUNDARIES:0,
 			eg.filesout[k],eg.decimals,info);
+    }
     break;
 
   case 4:
     printf("The output number 4 still refers to ep-file but will become obsolite in time\n");
     printf("Rather use number 3 for ElmerPost output format\n");
     for(k=0;k<nomeshes;k++) {
+      if(data[k].variables == 0) {
+	CreateVariable(&data[k],1,1,0.0,"Number",FALSE);
+	for(i=1;i<=data[k].alldofs[1];i++)
+	  data[k].dofs[1][i] = (Real)(i);	      
+      }
       SaveSolutionElmer(&data[k],boundaries[k],eg.saveboundaries ? MAXBOUNDARIES:0,
 			eg.filesout[k],eg.decimals,info);
     }
@@ -1957,7 +1953,6 @@ int main(int argc, char *argv[])
     break;
   }    
 
-  MemoryUsage();
   Goodbye();
   return(0);
 }

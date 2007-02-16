@@ -250,6 +250,7 @@ struct BoundaryType {
     points[MAXVARS], /* how many points for each side? */
     evars[MAXVARS];  /* does the variables exist? */
   Real totalarea,       /* total area of the side */
+    areasexist,
     *areas,             /* side areas */
     **vf,               /* view factors */
     **gf,               /* Gephart factors */

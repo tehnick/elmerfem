@@ -1576,10 +1576,10 @@ static int PartitionNodesByElements(struct FemType *data,int info)
 int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
 			    int partorder, Real corder[],int info)
 {
-  int i,j,k,ind;
+  int i,j,k,ind,minpart,maxpart;
   int noknots, noelements,nonodes,elemsinpart,periodic;
   int partitions1, partitions2, partitions3,partitions;
-  int *indx,*part1,*part2,*part3,*nopart,*inpart;
+  int *indx,*nopart,*inpart;
   Real xmax,xmin,ymax,ymin,zmax,zmin,arrange0;
   Real *arrange;
   Real x,y,z,cx,cy,cz,dx,dy,dz;
@@ -1626,7 +1626,6 @@ int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
 	if(zmax < data->z[i]) zmax = data->z[i];
       }
     }
-
     dx = xmax-xmin;
     dy = ymax-ymin;
     if(data->dim > 2) dz = zmax-zmin;
@@ -1652,14 +1651,13 @@ int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
     cy = 0.01;
     cz = 0.0001;
   }
-
   z = 0.0;
 
+  for(i=1;i<=noelements;i++) 
+    inpart[i] = 1;
+  
   if(partitions1 > 1) {
     if(info) printf("Ordering 1st direction with (%.3lg*x + %.3lg*y + %.3lg*z)\n",cx,cy,cz);
-
-    part1 = Ivector(1,noelements);
-
     if(periodic) arrange0 = cx * xmax + 0.5 * (cy*(ymin + ymax) + cz*(zmin + zmax));
 
     for(j=1;j<=noelements;j++) {
@@ -1679,21 +1677,16 @@ int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
       }
     }
     SortIndex(noelements,arrange,indx);
-    
-    for(i=1;i<=noelements;i++) 
-      part1[indx[i]] = (i*partitions1-1)/noelements+1;
+
+    for(i=1;i<=noelements;i++) {
+      ind = indx[i];
+      k = (i*partitions1-1)/noelements+1;
+      inpart[ind] = k;
+    }
   } 
-  else {
-    part1 = Ivector(1,noelements);
-    for(j=1;j<=noelements;j++) 
-      part1[j] = 1;
-  }
 
-
+ 
   /* Partition in the 2nd direction taking into account the 1st direction */
-  if(partitions2 > 1 || partitions3 > 1) 
-    part2 = Ivector(1,noelements);
-
   if(partitions2 > 1) {
     if(info) printf("Ordering in the 2nd direction.\n");
 
@@ -1725,24 +1718,18 @@ int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
       ind = indx[i];
       do {
 	j++;
-	k = (part1[ind]-1) * partitions2 + j;
+	k = (inpart[ind]-1) * partitions2 + j;
       }
       while(nopart[k] >= elemsinpart && j < partitions2);
       
       nopart[k] += 1;
-      part2[ind] = j;
+      inpart[ind] = (inpart[ind]-1)*partitions2 + j;
     }
   }  
-  else if(partitions3 > 1) {
-    for(j=1;j<=noelements;j++) 
-      part2[j] = 1;
-  }
-
 
   /* Partition in the 3rd direction taking into account the 1st and 2nd direction */
   if(partitions3 > 1) {
     if(info) printf("Ordering in the 3rd direction.\n");
-    part3 = Ivector(1,noelements);
 
     if(periodic) arrange0 = cx * zmax + 0.5 * (-cz*(xmin + xmax) - cy*(ymin + ymax));
 
@@ -1772,42 +1759,33 @@ int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
       ind = indx[i];
       do {
 	j++;
-	k = (part1[ind]-1)*partitions2*partitions3 + (part2[ind]-1)*partitions3 + j;
+	k = (inpart[ind]-1)*partitions3 + j;
       }
       while(nopart[k] >= elemsinpart && j < partitions3);
     
       nopart[k] += 1;
-      part3[ind] = j;
+      inpart[ind] = (inpart[ind]-1)*partitions3 + j;
     }
   }
-  
-  if(0) for(i=1;i<=noelements;i++) 
-    printf("i=%d  part=%d\n",i,part3[ind]);
 
-  /* Set the default partition for each element. */
-  if(partitions3 > 1) { 
-    for(i=1;i<=noelements;i++) 
-      inpart[i] = (part1[i]-1)*partitions2*partitions3 + (part2[i]-1)*partitions3 + part3[i];
+  for(i=1;i<=partitions;i++)
+    nopart[i] = 0;
+  for(i=1;i<=noelements;i++)
+    nopart[inpart[i]] += 1;
+  minpart = maxpart = nopart[1];
+  for(i=1;i<=partitions;i++) {
+    minpart = MIN( nopart[i], minpart );
+    maxpart = MAX( nopart[i], maxpart );
   }
-  else if(partitions2 > 1) {
-    for(i=1;i<=noelements;i++) 
-      inpart[i] = (part1[i]-1)*partitions2 + part2[i];
-  }    
-  else {
-    for(i=1;i<=noelements;i++) 
-      inpart[i] = part1[i];
-  }
+
 
   free_Rvector(arrange,1,noelements);
   free_Ivector(nopart,1,partitions);
   free_Ivector(indx,1,noelements);
-  free_Ivector(part1,1,noelements);
-  if(partitions2 > 1) free_Ivector(part2,1,noelements);
-  if(partitions3 > 1) free_Ivector(part3,1,noelements);
 
   PartitionNodesByElements(data,info);
 
-  if(info) printf("Succesfully made a simple partition\n");
+  if(info) printf("Succesfully made a partitioning with %d to %d elements.\n",minpart,maxpart);
 
   return(0);
 }
@@ -1817,7 +1795,7 @@ int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
 int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
 			 int partorder, Real corder[],int info)
 {
-  int i,j,k,ind;
+  int i,j,k,ind,minpart,maxpart;
   int noknots, noelements,nonodes,elemsinpart,periodic;
   int partitions1, partitions2, partitions3,partitions;
   int *indx,*part1,*part2,*part3,*nopart,*inpart,*nodepart;
@@ -1896,6 +1874,9 @@ int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
 
   z = 0.0;
 
+  for(i=1;i<=noknots;i++) 
+    nodepart[i] = 1;  
+
   if(partitions1 > 1) {
     if(info) printf("Ordering 1st direction with (%.3lg*x + %.3lg*y + %.3lg*z)\n",cx,cy,cz);
 
@@ -1916,20 +1897,14 @@ int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
     }
     SortIndex(noknots,arrange,indx);
     
-    for(i=1;i<=noknots;i++) 
-      part1[indx[i]] = (i*partitions1-1)/noknots+1;
+    for(i=1;i<=noknots;i++) {
+      ind = indx[i];
+      k = (i*partitions1-1)/noknots+1;
+      nodepart[ind] = k;
+    }
   } 
-  else {
-    part1 = Ivector(1,noknots);
-    for(j=1;j<=noknots;j++) 
-      part1[j] = 1;
-  }
-
 
   /* Partition in the 2nd direction taking into account the 1st direction */
-  if(partitions2 > 1 || partitions3 > 1) 
-    part2 = Ivector(1,noknots);
-
   if(partitions2 > 1) {
     if(info) printf("Ordering in the 2nd direction.\n");
 
@@ -1957,24 +1932,18 @@ int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
       ind = indx[i];
       do {
 	j++;
-	k = (part1[ind]-1) * partitions2 + j;
+	k = (nodepart[ind]-1) * partitions2 + j;
       }
       while(nopart[k] >= elemsinpart && j < partitions2);
       
       nopart[k] += 1;
-      part2[ind] = j;
+      nodepart[ind] = (nodepart[ind]-1)*partitions2 + j;
     }
   }  
-  else if(partitions3 > 1) {
-    for(j=1;j<=noknots;j++) 
-      part2[j] = 1;
-  }
-
 
   /* Partition in the 3rd direction taking into account the 1st and 2nd direction */
   if(partitions3 > 1) {
     if(info) printf("Ordering in the 3rd direction.\n");
-    part3 = Ivector(1,noknots);
 
     if(periodic) arrange0 = cx * zmax + 0.5 * (-cz*(xmin + xmax) - cy*(ymin + ymax));
 
@@ -1999,41 +1968,32 @@ int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
       ind = indx[i];
       do {
 	j++;
-	k = (part1[ind]-1)*partitions2*partitions3 + (part2[ind]-1)*partitions3 + j;
+	k = (nodepart[ind]-1)*partitions3 + j;
       }
       while(nopart[k] >= elemsinpart && j < partitions3);
     
       nopart[k] += 1;
-      part3[ind] = j;
+      nodepart[ind] = (nodepart[ind]-1)*partitions3 + j;
     }
   }
   
-  if(0) for(i=1;i<=noelements;i++) 
-    printf("i=%d  part=%d\n",i,part3[ind]);
-
-  /* Set the default partition for each element. */
-  if(partitions3 > 1) { 
-    for(i=1;i<=noknots;i++) 
-      nodepart[i] = (part1[i]-1)*partitions2*partitions3 + (part2[i]-1)*partitions3 + part3[i];
-  }
-  else if(partitions2 > 1) {
-    for(i=1;i<=noknots;i++) 
-      nodepart[i] = (part1[i]-1)*partitions2 + part2[i];
-  }    
-  else {
-    for(i=1;i<=noknots;i++) 
-      nodepart[i] = part1[i];
+  for(i=1;i<=partitions;i++)
+    nopart[i] = 0;
+  for(i=1;i<=noknots;i++)
+    nopart[nodepart[i]] += 1;
+  minpart = maxpart = nopart[1];
+  for(i=1;i<=partitions;i++) {
+    minpart = MIN( nopart[i], minpart );
+    maxpart = MAX( nopart[i], maxpart );
   }
 
   free_Rvector(arrange,1,noelements);
+  free_Ivector(nopart,1,partitions);
   free_Ivector(indx,1,noelements);
-  free_Ivector(part1,1,noknots);
-  if(partitions2 > 1) free_Ivector(part2,1,noknots);
-  if(partitions3 > 1) free_Ivector(part3,1,noknots);
 
   PartitionElementsByNodes(data,info);
 
-  if(info) printf("Succesfully made a simple partition\n");
+  if(info) printf("Succesfully made a partitioning with %d to %d nodes.\n",minpart,maxpart);
 
   return(0);
 }
@@ -2785,6 +2745,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   int *neededtimes,*elempart,*indxper,*elementsinpart,*periodicinpart,*indirectinpart,*sidesinpart;
   int maxneededtimes,periodic,periodictype,indirecttype,bcneeded,trueparent,*ownerpart;
   int *sharednodes,*ownnodes,reorder,*order,*invorder,*bcnodesaved,orphannodes;
+  int *bcnodedummy;
   FILE *out,*outfiles[MAXPARTITIONS+1];
 
   if(!data->created) {
@@ -2825,7 +2786,8 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   ownnodes = Ivector(1,partitions);
   sidetypes = Ivector(minelemtype,maxelemtype);
   bulktypes =  Imatrix(1,partitions,minelemtype,maxelemtype);
-  
+  bcnodedummy = Ivector(1,noknots);
+
   /* Order the nodes so that the different partitions have a continous interval of nodes.
      This information is used only just before the saving of node indexes in each instance. 
      This feature was coded for collaboration with Hypre library that assumes this. */
@@ -3018,7 +2980,8 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
    
   /*********** part.n.boundary *********************/
   /* This is still done in partition loop as the subroutines are quite complicated */
-  bcnodesaved = Ivector(1,noknots);
+
+  bcnodesaved = bcnodedummy;
 
   for(part=1;part<=partitions;part++) { 
     sprintf(filename,"%s.%d.%s","part",part,"boundary");
@@ -3111,7 +3074,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	}
       }
     }      
-    if(info && orphannodes) printf("There were %d orphan BC nodes in partition %d\n",orphannodes,part);
+    if(0 && orphannodes) printf("There were %d orphan BC nodes in partition %d\n",orphannodes,part);
 
     /* The second side for discontinuous boundary conditions.
 	 Note that this has not been treated for orphan control. */
@@ -3197,6 +3160,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
       int maxsides,nodesides,maxnodeconnections,connectednodes,m;
       int **nodepairs,*nodeconnections,**indpairs;      
 
+      nodeconnections = bcnodedummy;
       l = 0;
       maxsides = 0;
       nodesides = 0;
@@ -3256,7 +3220,6 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
       if(0) printf("Number of non-element connections is %d\n",nodesides);
       
       
-      nodeconnections = Ivector(1,noknots);
       for(i=1;i<=noknots;i++)
 	nodeconnections[i] = 0;
       
@@ -3366,7 +3329,6 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     /* End of indirect couplings */
 
 
-
     fclose(out);
 
     tottypes = 0;
@@ -3394,11 +3356,12 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
     if(info) {
       if(part == 1) 
-	printf("     %-10s %-10s %-10s %-10s %-10s %-10s %-10s\n",
-			   "partition","elements","nodes","shared","bc elems","periodic","indirect");
+	printf("   %-5s %-10s %-10s %-8s %-8s %-8s %-8s %-8s\n",
+			   "part","elements","nodes","shared","bc elems","periodic","indirect","orphan");
       if(part)
-	printf("     %-10d %-10d %-10d %-10d %-10d %-10d %-10d\n",
-	       part,elementsinpart[part],ownnodes[part],sharednodes[part],sidesinpart[part],periodicinpart[part],indirectinpart[part]);
+	printf("   %-5d %-10d %-10d %-8d %-8d %-8d %-8d %-8d\n",
+	       part,elementsinpart[part],ownnodes[part],sharednodes[part],sidesinpart[part],
+	       periodicinpart[part],indirectinpart[part],orphannodes);
     }
   } /* of part */
 
@@ -3517,7 +3480,7 @@ int ReorderElementsMetis(struct FemType *data,int info)
   i = CalculateIndexwidth(data,FALSE,perm);
   if(info) printf("Indexwidth of the new node order is %d.\n",i);
 
-  if(1) printf("Deallocating vectors needed for reordering.\n");
+  if(0) printf("Deallocating vectors needed for reordering.\n");
   free_Ivector(iperm,0,noknots-1);
   free_Ivector(perm,0,noknots-1);
 
