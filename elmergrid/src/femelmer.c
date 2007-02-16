@@ -1770,8 +1770,9 @@ int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
 
   for(i=1;i<=partitions;i++)
     nopart[i] = 0;
-  for(i=1;i<=noelements;i++)
+  for(i=1;i<=noelements;i++) 
     nopart[inpart[i]] += 1;
+
   minpart = maxpart = nopart[1];
   for(i=1;i<=partitions;i++) {
     minpart = MIN( nopart[i], minpart );
@@ -1979,8 +1980,9 @@ int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
   
   for(i=1;i<=partitions;i++)
     nopart[i] = 0;
-  for(i=1;i<=noknots;i++)
+  for(i=1;i<=noknots;i++) 
     nopart[nodepart[i]] += 1;
+  
   minpart = maxpart = nopart[1];
   for(i=1;i<=partitions;i++) {
     minpart = MIN( nopart[i], minpart );
