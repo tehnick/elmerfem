@@ -24,20 +24,19 @@ CONTAINS
 
     n = Solver % Matrix % NumberofRows
     ALLOCATE( x(2*n), b(2*n) )
-
     x = 0
     b = 0
     b(1:n) = Solver % Matrix % RHS
 
-    BMatrix => AllocateMatrix()
-    BMatrix % NumberOfRows = Solver % Matrix % NumberOfRows
-    BMatrix % Rows => Solver % Matrix % Rows
-    BMatrix % Cols => Solver % Matrix % Cols
-    BMatrix % Diag => Solver % Matrix % Diag
-    BMatrix % Values => Solver % Matrix % DampValues
-
     DirectLinearSolver = .TRUE.
     IF ( ListGetString( Solver % Values, 'Linear System Solver', Found) == 'iterative' ) THEN
+      BMatrix => AllocateMatrix()
+      BMatrix % NumberOfRows = Solver % Matrix % NumberOfRows
+      BMatrix % Rows => Solver % Matrix % Rows
+      BMatrix % Cols => Solver % Matrix % Cols
+      BMatrix % Diag => Solver % Matrix % Diag
+      BMatrix % Values => Solver % Matrix % DampValues
+
       Rounds = ListGetInteger( Solver % Values, 'Linear System Max Iterations', Found )
       IF ( .NOT. Found ) Rounds = 1000
 
@@ -53,12 +52,25 @@ CONTAINS
       IF ( Prec(1:3) == 'ilu' .AND. prec(4:4) /= 't' ) READ( Prec(4:4), * ) ILUn
       DirectLinearSolver = .FALSE.
     ELSE
-      OptimizeBW = ListGetLogical( Solver % Values, 'Optimize Bandwidth', Found )
+      OptimizeBW = ListGetLogical(Solver % Values, 'Optimize Bandwidth', Found)
       IF ( .NOT. Found ) OptimizeBW = .TRUE.
-      IF ( .NOT. ASSOCIATED(CMatrix) ) &
-        CMatrix => CreateMatrix( CurrentModel, Solver, Solver % Mesh, Solver % Variable % Perm, &
-                2*Solver % Variable % DOFs, MATRIX_CRS, OptimizeBW, &
-                                ListGetString( Solver % Values, 'Equation' ) )
+
+      CMatrix => Solver % Matrix
+      DO WHILE( ASSOCIATED(CMatrix) )
+        BMatrix => CMatrix
+        CMatrix => CMatrix % EMatrix
+        IF ( ASSOCIATED(CMatrix) ) THEN
+          IF ( CMatrix % Complex ) EXIT
+        END IF
+      END DO
+
+      IF ( .NOT. ASSOCIATED(CMatrix) ) THEN
+        CMatrix => CreateMatrix(CurrentModel, Solver, Solver % Mesh, &
+          Solver % Variable % Perm, 2*Solver % Variable % DOFs, &
+             MATRIX_CRS, OptimizeBW, ListGetString( Solver % Values, 'Equation'))
+         Cmatrix % Complex = .TRUE.
+         BMatrix % EMatrix => CMatrix
+      END IF
     END IF
 
     freqv => ListGetConstRealArray( Solver % Values, 'Frequency' )
@@ -77,18 +89,9 @@ CONTAINS
         DO j=1,n
           b(2*(j-1)+1) = Solver % Matrix % RHS(j)
           b(2*(j-1)+2) = 0.0d0
-          x(2*(j-1)+1) =  REAL( Solver % Variable % EigenVectors(i,j) )
-          x(2*(j-1)+2) = AIMAG( Solver % Variable % EigenVectors(i,j) )
+          x(2*(j-1)+1) =  REAL(Solver % Variable % EigenVectors(i,j))
+          x(2*(j-1)+2) = AIMAG(Solver % Variable % EigenVectors(i,j))
         END DO
-      ELSE
-        DO j=1,n
-          x(j)   =  REAL( Solver % Variable % EigenVectors(i,j) )
-          x(j+n) = AIMAG( Solver % Variable % EigenVectors(i,j) )
-        END DO
-        CALL HarmonicScaleSystem( n, Solver % Matrix, b, x, 1 )
-      END IF
-
-      IF ( DirectLinearSolver ) THEN
         DO k=1,n
           kr = CMatrix % Rows(2*(k-1)+1)
           ki = CMatrix % Rows(2*(k-1)+2)
@@ -97,12 +100,21 @@ CONTAINS
             CMatrix % Values(kr+1) = -Solver % Matrix % Dampvalues(j)
             CMatrix % Values(ki)   =  Solver % Matrix % Dampvalues(j)
             CMatrix % Values(ki+1) =  Solver % Matrix % Values(j)
-            kr = kr + 2
-            ki = ki + 2
+            kr = kr+2
+            ki = ki+2
           END DO
         END DO
         CALL DirectSolver( CMatrix, x, b, Solver )
+        DO j=1,n
+          Solver % Variable % EigenVectors(i,j) = DCMPLX(x(2*(j-1)+1),x(2*(j-1)+2))
+        END DO
       ELSE
+        DO j=1,n
+          x(j)   =  REAL( Solver % Variable % EigenVectors(i,j) )
+          x(j+n) = AIMAG( Solver % Variable % EigenVectors(i,j) )
+        END DO
+
+        CALL HarmonicScaleSystem( n, Solver % Matrix, b, x, 1 )
         IF ( Prec(1:4) == 'ilut' ) THEN
           stat = CRS_ILUT( Solver % Matrix, ILUTol )
         ELSE
@@ -110,25 +122,19 @@ CONTAINS
         END IF
         CALL HarmonicBiCG2( 2*n, Solver % Matrix, BMatrix, x, b, Rounds, TOL )
         CALL HarmonicScaleSystem( n, Solver % Matrix, b, x, -1 )
-      END IF
-
-      Solver % Matrix % Values = +omega**2*Solver % Matrix % MassValues + &
-                 Solver % Matrix % Values
-      Solver % Matrix % DampValues = Solver % Matrix % DampValues / omega
-
-      Solver % Variable % EigenValues(i) = omega
-      IF ( DirectLinearSolver ) THEN
-        DO j=1,n
-          Solver % Variable % EigenVectors(i,j) = DCMPLX( x(2*(j-1)+1), x(2*(j-1)+2) )
-        END DO
-      ELSE
         DO j=1,n
           Solver % Variable % EigenVectors(i,j) = DCMPLX( x(j), x(j+n) )
         END DO
       END IF
+
+      Solver % Variable % EigenValues(i) = omega
+      Solver % Matrix % Values = +omega**2*Solver % Matrix % MassValues + &
+                 Solver % Matrix % Values
+      Solver % Matrix % DampValues = Solver % Matrix % DampValues / omega
     END DO
 
-    DEALLOCATE( x, b, BMatrix )
+    DEALLOCATE( x, b )
+    IF ( .NOT.DirectLinearSolver ) DEALLOCATE( BMatrix )
 !------------------------------------------------------------------------------
    END SUBROUTINE SolveHarmonicSystem
 !------------------------------------------------------------------------------
