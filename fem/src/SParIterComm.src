@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterComm.src,v 1.13 2007/02/06 13:13:38 jpr Exp $
+! * $Id: SParIterComm.src,v 1.14 2007/02/07 11:42:23 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -58,17 +58,17 @@ CONTAINS
 !-----------------------------------------------------------------
   SUBROUTINE CheckBuffer( n )
 !-----------------------------------------------------------------
-     INTEGER :: n, i, ierr
+     INTEGER :: n, i, sz, ierr
      INTEGER*1, ALLOCATABLE :: SendBuffer(:)
 
      LOGICAL :: isfine
 
      SAVE SendBuffer
 
-     n = MAX( n, 2**20 )
+     sz = MAX( n, 2**20 )
 
      isfine = ALLOCATED(SendBuffer)
-     IF ( isfine ) isfine = 4*n <= SIZE(SendBuffer)
+     IF ( isfine ) isfine = 4*sz <= SIZE(SendBuffer)
      IF ( isfine ) RETURN
 
      IF ( ALLOCATED(SendBuffer) ) THEN
@@ -76,8 +76,8 @@ CONTAINS
         CALL MPI_BUFFER_DETACH( SendBuffer, i, ierr )
         DEALLOCATE( SendBuffer )
      END IF
-     ALLOCATE( SendBuffer( 4*n ) )
-     CALL MPI_BUFFER_ATTACH( SendBuffer, 4*n, ierr )
+     ALLOCATE( SendBuffer( 4*sz ) )
+     CALL MPI_BUFFER_ATTACH( SendBuffer, 4*sz, ierr )
 !-----------------------------------------------------------------
    END SUBROUTINE CheckBuffer
 !-----------------------------------------------------------------
