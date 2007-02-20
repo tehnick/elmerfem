@@ -4074,7 +4074,7 @@ int FindNewBoundaries(struct FemType *data,struct BoundaryType *bound,
 
       GetElementSide(element,side,1,data,sideind,&sideelemtype);
 
-      nonodes = sideelemtype / 100;
+      nonodes = sideelemtype % 100;
       identical = TRUE;
       for(i=0;i<nonodes;i++)
 	if(!boundnodes[sideind[i]]) identical = FALSE;
@@ -4397,7 +4397,7 @@ int FindBoundaryBoundary(struct FemType *data,struct BoundaryType *bound,int mat
 			 int *boundnodes,int *noboundnodes,int info)
 {
   int i,j,k,l;
-  int hits,nonodes,maxnodes,minnodes,elemtype,material,bounddim;
+  int hits,nonodes,nocorners,maxnodes,minnodes,elemtype,material,bounddim;
   Real ds,xmin,xmax,ymin,ymax,zmin,zmax,eps,dx1,dx2,dy1,dy2,dz1,dz2,ds1,ds2,dotprod;
   Real *anglesum;
   int *visited,sideind[MAXNODESD2],elemind[MAXNODESD2];
@@ -4416,10 +4416,6 @@ int FindBoundaryBoundary(struct FemType *data,struct BoundaryType *bound,int mat
   }
   if(info) printf("Finding nodes between boundary elements of type %d and %d\n",mat1,mat2);
 
-  anglesum = Rvector(1, data->noknots);
-  for(i=1;i<=data->noknots;i++)
-    anglesum[i] = 0.0;
-
   visited = Ivector(1,data->noknots);
   for(i=1;i<=data->noknots;i++)
     visited[i] = 0;
@@ -4427,7 +4423,6 @@ int FindBoundaryBoundary(struct FemType *data,struct BoundaryType *bound,int mat
   for(i=1;i<=data->noknots;i++)
     boundnodes[i] = 0;
   
-
   bounddim = 0;
   /* Set a tag to all nodes that are part of the other boundary */
   for(j=0;j < MAXBOUNDARIES;j++) {
@@ -4437,14 +4432,23 @@ int FindBoundaryBoundary(struct FemType *data,struct BoundaryType *bound,int mat
       if(bound[j].types[i] == mat1) {
 	GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],
 		       data,sideind,&elemtype);
-	nonodes = elemtype % 100;
-	for(k=0;k<nonodes;k++) {
-	  visited[sideind[k]] += 1;
-	}
 
-	nonodes = elemtype/100;
-	if(nonodes == 3 || nonodes == 4) {
-	  bounddim = 2;
+	nonodes = elemtype % 100;
+	nocorners = elemtype / 100;
+	
+	for(k=0;k<nocorners;k++) 
+	  visited[sideind[k]] += 1;
+	for(k=nocorners;k<nonodes;k++)
+	  visited[sideind[k]] -= 1;
+	
+	if(nocorners == 3 || nocorners == 4) {
+	  if(bounddim < 2) {
+	    anglesum = Rvector(1, data->noknots);
+	    for(k=1;k<=data->noknots;k++)
+	      anglesum[k] = 0.0;	    
+	    bounddim = 2;
+	  }
+	  nonodes = nocorners;
 	  for(k=0;k<nonodes;k++) {
 	    dx1 = data->x[sideind[(k+1)%nonodes]] - data->x[sideind[k]];
 	    dy1 = data->y[sideind[(k+1)%nonodes]] - data->y[sideind[k]];
@@ -4455,71 +4459,60 @@ int FindBoundaryBoundary(struct FemType *data,struct BoundaryType *bound,int mat
 	    ds1 = sqrt(dx1*dx1+dy1*dy1+dz1*dz1);
 	    ds2 = sqrt(dx2*dx2+dy2*dy2+dz2*dz2);
 	    dotprod = dx1*dx2 + dy1*dy2 + dz1*dz2;
-
+	    
 	    anglesum[sideind[k]] += acos(dotprod / (ds1*ds2));
 	  }
 	}
 
-      }
+      } 
     }
   }
   
-  maxnodes = minnodes = visited[1];
+  maxnodes = minnodes = abs(visited[1]);
   for(i=1;i<=data->noknots;i++) {
-    if(visited[i] > maxnodes) maxnodes = visited[i];
-    if(visited[i] < minnodes) minnodes = visited[i];
+    j = abs( visited[i] );
+    maxnodes = MAX( j, maxnodes );
+    minnodes = MIN( j, minnodes );
   }
+  if(info) printf("There are from %d to %d hits per node\n",minnodes,maxnodes);
   if(maxnodes < 2) {
     printf("FindBulkBoundary: Nodes must belong to more than %d elements.\n",maxnodes);
     return(2);
   }
-  if(info) printf("There are from %d to %d hits per node\n",minnodes,maxnodes);
 
-  
-  for(i=1;i<=data->noknots;i++) {
-    if(bounddim == 2) {
+  if(bounddim == 2) {
+    /* For corner nodes eliminate the ones with full angle */
+    for(i=1;i<=data->noknots;i++) {
       anglesum[i] /= 2.0 * FM_PI;
       if(anglesum[i] > 0.99) visited[i] = 0;
       if(anglesum[i] > 1.01) printf("FindBulkBoundary: surpricingly large angle %.3le in node %d\n",anglesum[i],i);
     }
-    else {
-      if(visited[i] == maxnodes) visited[i] = 0;      
-    }
+    free_Rvector(anglesum,1,data->noknots);
+
+    /* For higher order nodes eliminate the ones with more than one hits */
+    k = 0;
+    for(i=1;i<=data->noknots;i++) {
+      if(visited[i] == -1) 
+	visited[i] = 1;
+      else if(visited[i] < -1) {
+	k++;
+	visited[i] = 0;
+      }
+    }    
+    if(k && info) printf("Removed %d potential higher order side nodes from the list.\n",k);
   }
-  free_Rvector(anglesum,1,data->noknots);
 
+  if(bounddim == 1) {
+    if(visited[i] == maxnodes || visited[i] < 0) visited[i] = 0;      
+  }
 
+  /* Neighbour to anaything */
   if(mat2 == 0) {
     for(k=1;k<=data->noknots;k++) 
       if(visited[k]) 
 	boundnodes[k] = 1;
-
-#if 0
-    for(j=0;j < MAXBOUNDARIES;j++) {
-      if(!bound[j].created) continue;
-      for(i=1; i <= bound[j].nosides; i++) {
-	
-	if(bound[j].types[i] == mat1) continue;
-	GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],
-		       data,sideind,&elemtype);
-	nonodes = elemtype%100;
-	for(k=0;k<nonodes;k++) {
-	  boundnodes[sideind[k]] += 1;
-	}
-      }
-    }
-    for(k=1;k<=data->noknots;k++) {
-      if(!visited[k]) 
-	boundnodes[k] = 0;
-      else if(visited[k] < boundnodes[k])
-	boundnodes[k] = 0;
-      else if(visited[k] + boundnodes[k] < maxnodes) 
-	boundnodes[k] = 1;
-      else 
-	boundnodes[k] = 0;
-    }
-#endif
   }
+  /* Neighbour to other BCs */
   else if(mat2 == -11 || mat2 == -12 || mat2 == -10 || mat2 > 0) {
     for(j=0;j < MAXBOUNDARIES;j++) {
       if(!bound[j].created) continue;
@@ -4542,6 +4535,8 @@ int FindBoundaryBoundary(struct FemType *data,struct BoundaryType *bound,int mat
       }
     }
   }
+
+  /* Neighbour to major coordinate directions */
   else if(mat2 >= -2*data->dim && mat2 <= -1) {
     
     for(j=0;j < MAXBOUNDARIES;j++) {
