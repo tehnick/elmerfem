@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StatElecSolve.src,v $
+! * Revision 1.23  2007/01/12 08:12:40  apursula
+! * *** empty log message ***
+! *
 ! * Revision 1.22  2006/11/27 10:23:57  jpr
 ! * Removed some execess (unrelated) use of TRIM & POINTER.
 ! *
@@ -180,7 +183,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: PiezoMaterial, CalculateSurfCharge
   
   CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, CapMatrixFile, Name
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.22 2006/11/27 10:23:57 jpr Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.23 2007/01/12 08:12:40 apursula Exp $"
   
   
   SAVE LocalStiffMatrix, Load, LocalForce, Pwrk, PotDiff, &
@@ -486,7 +489,8 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   NonlinearIter = ListGetInteger( Solver % Values, &
       'Nonlinear System Max Iterations', GotIt )
   IF ( .NOT. GotIt ) NonlinearIter = 1
-  
+ 
+  NonlinearTol = 1.0d-12 
   NonlinearTol = ListGetConstReal( Solver % Values, &
       'Nonlinear System Convergence Tolerance', GotIt)
   
@@ -866,7 +870,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
        RelativeChange = 0.0d0
      END IF
      
-     IF(iter > 1 .AND. .NOT. CalculateCapMatrix) THEN
+     IF (.NOT. CalculateCapMatrix) THEN
        WRITE( Message, * ) 'Result Norm   : ',Norm
        CALL Info( 'StatElecSolve', Message, Level=4 )
        WRITE( Message, * ) 'Relative Change : ',RelativeChange
