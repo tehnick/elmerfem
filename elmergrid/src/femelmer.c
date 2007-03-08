@@ -310,19 +310,23 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,
   if(info) printf("Reading and writing %d degrees of freedom.\n",novctrs);
   sprintf(outstyle,"%%.%dlg ",decimals);
 
-  activestep = TRUE;
-  if(maxstep) timesteps = MAX(timesteps, maxstep);
+  activestep = FALSE;
+  if(maxstep) timesteps = MIN(timesteps, maxstep);
 
   for(step = 1; step <= timesteps; step++) {
         
-    if(dstep > 1) activestep = ((step-minstep)/dstep == 0); 
+    if (step>=minstep) activestep=((step-minstep)%dstep==0);
 
     for(k=0;k<nofiles;k++) 
       for(i=1; i <= noknots[k]; i++) {
 	do {
 	  fgets(line,MAXLINESIZE,in[k]);
-	  if(k==0 && strstr(line,"#time")) 
-	    fprintf(out,"%s",line);
+          if (activestep) {
+            if(k==0 && strstr(line,"#time")) {
+	      fprintf(out,"%s",line);
+	      fprintf(stderr,"%s",line);
+            }
+          }
 	}
 	while (line[0] == '#');
 
