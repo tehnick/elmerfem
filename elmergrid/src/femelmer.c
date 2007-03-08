@@ -181,18 +181,22 @@ end:
 
 
 
-int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int info)
+int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,
+				 int minstep, int maxstep, int dstep, int info)
 {
   int *noknots,*noelements,novctrs,elemcode,open;
   int totknots,totelements,sumknots,sumelements;
   int timesteps,i,j,k,l,step;
   int ind[MAXNODESD1];
-  int nofiles;
+  int nofiles,activestep;
   Real r, *res, x, y, z;
   FILE *in[MAXPARTITIONS+1],*out;
   char line[MAXLINESIZE],filename[MAXFILESIZE],text[MAXNAMESIZE],outstyle[MAXFILESIZE];
   char *cp;
 
+  if(minstep || maxstep || dstep) {
+    if(info) printf("Saving results in the interval from %d to %d with step %d\n",minstep,maxstep,dstep);
+  }
 
   for(i=0;;i++) {
     sprintf(filename,"%s.ep.%d",prefix,i);
@@ -211,6 +215,10 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int inf
     return(2);
   } else {
     if(info) printf("Loading Elmer results from %d partitions.\n",nofiles);
+  }
+
+  if(minstep || maxstep || dstep) {
+    if(info) printf("Saving results in the interval from %d to %d with step %d\n",minstep,maxstep,dstep);
   }
 
   noknots = Ivector(0,nofiles-1);
@@ -238,7 +246,7 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int inf
   totelements = sumelements;
   res = Rvector(1,novctrs);
 
-  if(info) printf("There are alltogether %d nodes and %d elements.\n",totknots,sumelements);
+  if(info) printf("There are altogether %d nodes and %d elements.\n",totknots,sumelements);
 
 
   AddExtension(outfile,filename,"ep");
@@ -302,7 +310,13 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int inf
   if(info) printf("Reading and writing %d degrees of freedom.\n",novctrs);
   sprintf(outstyle,"%%.%dlg ",decimals);
 
+  activestep = TRUE;
+  if(maxstep) timesteps = MAX(timesteps, maxstep);
+
   for(step = 1; step <= timesteps; step++) {
+        
+    if(dstep > 1) activestep = ((step-minstep)/dstep == 0); 
+
     for(k=0;k<nofiles;k++) 
       for(i=1; i <= noknots[k]; i++) {
 	do {
@@ -312,14 +326,17 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,int inf
 	}
 	while (line[0] == '#');
 
-	cp = line;
-	for(j=1;j <= novctrs;j++) 
-	  res[j] = next_real(&cp);
+	if(activestep) {
+	  cp = line;
+	  for(j=1;j <= novctrs;j++) 
+	    res[j] = next_real(&cp);
+	  
+	  fprintf(out,"%d ",k+1);
+	  for(j=1;j <= novctrs;j++) 
+	    fprintf(out,outstyle,res[j]);
+	  fprintf(out,"\n");
+	}
 
-	fprintf(out,"%d ",k+1);
-	for(j=1;j <= novctrs;j++) 
-	  fprintf(out,outstyle,res[j]);
-	fprintf(out,"\n");
       }
   }
 

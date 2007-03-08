@@ -189,6 +189,7 @@ static void Instructions()
   printf("-3d / -2d / -1d      : mesh is 3, 2 or 1-dimensional (applies to examples)\n");
   printf("-isoparam            : ensure that higher order elements are convex\n");
   printf("-nobound             : disable saving of boundary elements in ElmerPost format\n");
+  printf("-saveinterval int[3] : the first, last and step for fusing parallel data\n");
   if(0) printf("-names               : conserve name information where applicable\n");
 #if 0
   printf("-map str             : file with mapping info for mesh-to-mesh interpolation\n");
@@ -234,6 +235,7 @@ void InitParameters(struct ElmergridType *eg)
   eg->scale = FALSE;
   eg->order = FALSE;
   eg->boundbounds = 0;
+  eg->saveinterval[0] = eg->saveinterval[1] = eg->saveinterval[2] = 0;
   eg->bulkbounds = 0;
   eg->partorder = FALSE;
   eg->findsides = FALSE;
@@ -340,7 +342,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     if(strcmp(argv[arg],"-merge") == 0) {
       if(arg+1 >= argc) {
 	printf("Give a parameter for critical distance.\n");
-	return(18);
+	return(3);
       }
       else {
 	eg->merge = TRUE;
@@ -351,7 +353,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     if(strcmp(argv[arg],"-order") == 0) {
       if(arg+dim >= argc) {
 	printf("Give %d parameters for the order vector.\n",dim);
- 	return(11);
+ 	return(4);
       }
       else {
 	eg->order = TRUE;
@@ -374,7 +376,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     if(strcmp(argv[arg],"-scale") == 0) {
       if(arg+dim >= argc) {
 	printf("Give %d parameters for the scaling.\n",dim);
- 	return(12);
+ 	return(5);
      }
       else {
 	eg->scale = TRUE;
@@ -387,7 +389,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     if(strcmp(argv[arg],"-translate") == 0) {
       if(arg+dim >= argc) {
 	printf("Give %d parameters for the translate vector.\n",dim);
-	return(17);
+	return(6);
       }
       else {
 	eg->translate = TRUE;
@@ -397,10 +399,22 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
       }
     }
 
+    if(strcmp(argv[arg],"-saveinterval") == 0) {
+      if(arg+dim >= argc) {
+	printf("Give min, max and step for the interval.\n");
+	return(7);
+      }
+      else {
+	eg->saveinterval[0] = atoi(argv[arg+1]);
+	eg->saveinterval[1] = atoi(argv[arg+2]);
+	eg->saveinterval[2] = atoi(argv[arg+3]);
+      }
+    }
+
     if(strcmp(argv[arg],"-rotate") == 0 || strcmp(argv[arg],"-rotate") == 0) {
       if(arg+dim >= argc) {
 	printf("Give three parameters for the rotation angles.\n");
-	return(16);
+	return(8);
       }
       else {
 	eg->rotate = TRUE;
@@ -413,7 +427,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     if(strcmp(argv[arg],"-clone") == 0) {
       if(arg+dim >= argc) {
 	printf("Give the number of clones in each %d directions.\n",dim);
- 	return(13);
+ 	return(9);
      }
       else {
 	eg->clone[0] = atoi(argv[arg+1]);
@@ -424,7 +438,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     if(strcmp(argv[arg],"-clonesize") == 0) {
       if(arg+dim >= argc) {
 	printf("Give the clone size in each %d directions.\n",dim);
- 	return(15);
+ 	return(10);
       }
       else {
 	eg->clonesize[0] = atof(argv[arg+1]);
@@ -446,7 +460,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     if(strcmp(argv[arg],"-mirrorbc") == 0) {
       if(arg+1 >= argc) {
 	printf("Give the number of symmetry BC.\n");
- 	return(14);
+ 	return(11);
       }
       else {
 	eg->mirrorbc = atoi(argv[arg+1]);
@@ -496,7 +510,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     if(strcmp(argv[arg],"-reduce") == 0) {
       if(arg+2 >= argc) {
 	printf("Give two material for the interval.\n");
- 	return(8);
+ 	return(12);
       }
       else {
 	eg->reduce = TRUE;      
@@ -526,7 +540,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     if(strcmp(argv[arg],"-partition") == 0) {
       if(arg+dim >= argc) {
 	printf("The number of partitions in %d dims is required as paramaters.\n",dim);
-	return(3);
+	return(13);
       }
       else {
 	eg->partitions = 1;
@@ -549,7 +563,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     if(strcmp(argv[arg],"-partorder") == 0) {
       if(arg+dim >= argc) {
 	printf("Give %d parameters for the order vector.\n",dim);
- 	return(4);
+ 	return(14);
       }
       else {
 	eg->partorder = 1;
@@ -563,7 +577,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
 #if PARTMETIS
       if(arg+1 >= argc) {
 	printf("The number of partitions is required as a parameter\n");
-	return(5);
+	return(15);
       }
       else {
 	eg->metis = atoi(argv[arg+1]);
@@ -580,7 +594,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     if(strcmp(argv[arg],"-periodic") == 0) {
       if(arg+dim >= argc) {
 	printf("Give the periodic coordinate directions (e.g. 1 1 0)\n");
- 	return(9);
+ 	return(16);
       }
       else {
 	eg->periodicdim[0] = atoi(argv[arg+1]);
@@ -592,7 +606,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     if(strcmp(argv[arg],"-discont") == 0) {
       if(arg+1 >= argc) {
 	printf("Give the discontinuous boundary conditions.\n");
- 	return(10);
+ 	return(17);
       }
       else {
 	eg->discontbounds[eg->discont] = atoi(argv[arg+1]);
@@ -637,11 +651,11 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     if(strcmp(argv[arg],"-layer") == 0) {
       if(arg+4 >= argc) {
 	printf("Give four parameters for the layer: boundary, elements, thickness, ratio.\n");
-	return(19);
+	return(18);
       }
       else if(eg->layers == MAXBOUNDARIES) {
 	printf("There can only be %d layers, sorry.\n",MAXBOUNDARIES);
-	return(20);
+	return(19);
       }
       else {
 	eg->layerbounds[eg->layers] = atoi(argv[arg+1]);
@@ -656,7 +670,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     if(strcmp(argv[arg],"-layermove") == 0) {
       if(arg+1 >= argc) {
 	printf("Give maximum number of Jacobi filters.\n");
- 	return(11);
+ 	return(20);
       }
       else {
 	eg->layermove = atoi(argv[arg+1]);
@@ -668,11 +682,11 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     if(strcmp(argv[arg],"-divlayer") == 0) {
       if(arg+4 >= argc) {
 	printf("Give four parameters for the layer: boundary, elements, relative thickness, ratio.\n");
-	return(19);
+	return(21);
       }
       else if(abs(eg->layers) == MAXBOUNDARIES) {
 	printf("There can only be %d layers, sorry.\n",MAXBOUNDARIES);
-	return(20);
+	return(22);
       }
       else {
 	eg->layerbounds[abs(eg->layers)] = atoi(argv[arg+1]);
@@ -706,7 +720,7 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     if(strcmp(argv[arg],"-map") ==0) {
       if(arg+1 >= argc) {
 	printf("Give the name of the mapping file\n");
-	return(7);
+	return(23);
       }
       else {
 	strcpy(eg->mapfile,argv[arg+1]);
@@ -1397,8 +1411,9 @@ int main(int argc, char *argv[])
     break;
 
   case 15: 
-    if(info) printf("Partitioned solution is fused on-the-fly therefore no operation may be performed.\n");
-    FuseSolutionElmerPartitioned(eg.filesin[nofile],eg.filesout[nofile],eg.decimals,info);
+    if(info) printf("Partitioned solution is fused on-the-fly therefore no other operations may be performed.\n");
+    FuseSolutionElmerPartitioned(eg.filesin[nofile],eg.filesout[nofile],eg.decimals,
+				 eg.saveinterval[0],eg.saveinterval[1],eg.saveinterval[2],info);
     if(info) printf("Finishing with the fusion of partitioned Elmer solutions\n");
     Goodbye();
     break;

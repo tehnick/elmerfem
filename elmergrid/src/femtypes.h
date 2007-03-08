@@ -341,6 +341,7 @@ struct ElmergridType {
     connectbounds[MAXBOUNDARIES],
     partorder,
     nofilesin,
+    saveinterval[3],
     elementsredone,
     pelemmap[4*MAXMATERIALS],pelems,
     belemmap[4*MAXMATERIALS], belems,
