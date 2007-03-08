@@ -315,7 +315,11 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,
 
   for(step = 1; step <= timesteps; step++) {
         
-    if (step>=minstep) activestep=((step-minstep)%dstep==0);
+    if (step>=minstep) {
+      if ( dstep>0 ) {
+         activestep=((step-minstep)%dstep==0);
+      } else activestep=TRUE;
+    }
 
     for(k=0;k<nofiles;k++) 
       for(i=1; i <= noknots[k]; i++) {
