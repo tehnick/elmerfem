@@ -2771,7 +2771,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   char directoryname[MAXFILESIZE],subdirectoryname[MAXFILESIZE];
   int *neededtimes,*elempart,*indxper,*elementsinpart,*periodicinpart,*indirectinpart,*sidesinpart;
   int maxneededtimes,periodic,periodictype,indirecttype,bcneeded,trueparent,*ownerpart;
-  int *sharednodes,*ownnodes,reorder,*order,*invorder,*bcnodesaved,orphannodes;
+  int *sharednodes,*ownnodes,reorder,*order,*invorder,*bcnodesaved,*bcnodesaved2,orphannodes;
   int *bcnodedummy;
   FILE *out,*outfiles[MAXPARTITIONS+1];
 
@@ -3009,13 +3009,14 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   /* This is still done in partition loop as the subroutines are quite complicated */
 
   bcnodesaved = bcnodedummy;
+  bcnodesaved2 = Ivector(1,data->noknots);
 
   for(part=1;part<=partitions;part++) { 
     sprintf(filename,"%s.%d.%s","part",part,"boundary");
     out = fopen(filename,"w");
 
     for(i=1;i<=noknots;i++)
-      bcnodesaved[i] = FALSE;
+      bcnodesaved[i] = bcnodesaved2[i] = FALSE;
    
     for(i=minelemtype;i<=maxelemtype;i++)
       sidetypes[i] = 0;
@@ -3063,8 +3064,14 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	    fprintf(out," %d",sideind[l]);	  
 	}
 	fprintf(out,"\n");
-	for(l=0;l<nodesd1;l++)
-	  bcnodesaved[sideind[l]] = bound[j].types[i];
+
+	for(l=0;l<nodesd1;l++) {
+	  k = sideind[l];
+	  if(bcnodesaved[k]) 
+	    bcnodesaved2[k] = bound[j].types[i];
+	  else 
+	    bcnodesaved[k] = bound[j].types[i];
+	}
       }
     }
 
@@ -3083,11 +3090,22 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	  ind = sideind[l];
 	  for(k=1;k<=neededtimes[ind];k++)
 	    if(part == data->partitiontable[k][ind]) {
+
+	      /* Check whether the side is such that it belongs to the domain,
+		 if it does it cannot be an orphan node. */
+	      if( elempart[bound[j].parent[i]] == part) continue;
+	      if( elempart[bound[j].parent2[i]] == part) continue;
 	      
 	      if( bcnodesaved[ind] == bound[j].types[i]) continue;	  
-	      if( !bcnodesaved[ind]) bcnodesaved[ind] = bound[j].types[i];
+	      if( bcnodesaved2[ind] == bound[j].types[i]) continue;	  
 
+	      if(!bcnodesaved[ind]) 
+		bcnodesaved[ind] = bound[j].types[i];
+	      else if(!bcnodesaved2[ind]) 
+		bcnodesaved2[ind] = bound[j].types[i];
+		
 	      orphannodes++;
+	      
 	      sumsides++;
 	      sidetypes[101] += 1;
 
@@ -3392,6 +3410,8 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     }
   } /* of part */
 
+  free_Ivector(bcnodesaved2,1,noknots);
+  
 
   chdir("..");
   chdir("..");
