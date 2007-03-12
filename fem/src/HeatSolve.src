@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: HeatSolve.src,v $
+! * Revision 1.24  2006/12/01 20:23:51  jpr
+! * Still about 'Constant Bulk System' and time dependence.
+! *
 ! * Revision 1.22  2006/12/01 09:02:16  jpr
 ! * Initial changes to enable 'constant bulk system' for time dependent
 ! * simulations.
@@ -211,7 +214,7 @@
      LOGICAL :: AllocationsDone = .FALSE.,PhaseSpatial=.FALSE., &
         PhaseChange=.FALSE., CheckLatentHeatRelease=.FALSE., FirstTime, &
         HeaterControl, HeaterControlLocal, SmartTolReached=.FALSE., &
-        TransientHeaterControl, SmartHeaterAverage, CalculateLoads, ConstantBulk
+        TransientHeaterControl, SmartHeaterAverage, ConstantBulk, SaveBulk
 
      TYPE(Variable_t), POINTER :: TempSol,FlowSol,HeatSol,CurrentSol, MeshSol, DensitySol
      TYPE(ValueList_t), POINTER :: Equation,Material,SolverParams,BodyForce,BC,Constants
@@ -229,7 +232,6 @@
        PrevSolution(:), HC(:), Hwrk(:,:,:),MeshVelocity(:), XX(:), YY(:),ForceHeater(:)
 
      REAL(KIND=dp), ALLOCATABLE :: TSolution(:),TSolution1(:), vals(:)
-     REAL (KIND=dp), POINTER :: HeatLoads(:), PValues(:), MatrixValues(:), RHSValues(:)
      REAL(KIND=dp) :: Jx,Jy,Jz,JAbs, Power, MeltPoint
 
      REAL(KIND=dp), ALLOCATABLE :: MASS(:,:), &
@@ -285,7 +287,7 @@
 
      REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
 
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HeatSolve.src,v 1.23 2006/12/01 20:07:41 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HeatSolve.src,v 1.24 2006/12/01 20:23:51 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -333,8 +335,6 @@
        NSDOFs       =  FlowSol % DOFs
        FlowSolution => FlowSol % Values
      END IF
-
-     CalculateLoads = ListGetLogical(Solver % Values,'Calculate Nodal Load',Found)	
 
      DensitySol => VariableGet( Solver % Mesh % Variables, 'Density' )
 
@@ -452,19 +452,6 @@
          CALL Fatal( 'HeatSolve', 'Memory allocation error' )
        END IF
 
-       IF(CalculateLoads) THEN
-	ALLOCATE(MatrixValues(SIZE(StiffMatrix % Values)), RHSValues(SIZE(ForceVector)))
-        HeatSol => VariableGet( Solver % Mesh % Variables, 'Nodal Heat Load' )
-        IF(.NOT. ASSOCIATED (HeatSol)) THEN
-           ALLOCATE( HeatLoads( SIZE(Temperature) ), STAT=istat )
-           IF ( istat /= 0 ) CALL Fatal( 'PhaseChangeSolver', 'Memory allocation error.' )     
-           CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-              Solver, 'Nodal Heat Load', 1, HeatLoads, TempSol % Perm)
-         ELSE
-           HeatLoads => HeatSol % Values
-         END IF
-       END IF
- 
        NULLIFY( ForceHeater )
        IF ( HeaterControl ) THEN
           IF ( AllocationsDone ) DEALLOCATE( XX, YY, ForceHeater, HeaterArea, &
@@ -551,6 +538,7 @@
 
 
      ConstantBulk = GetLogical( SolverParams, 'Constant Bulk System', Found )
+     SaveBulk = ConstantBulk .OR. GetLogical( SolverParams, 'Save Bulk System', Found )
 !------------------------------------------------------------------------------
 
      SaveRelax = Relax
@@ -909,7 +897,7 @@
                CALL Condensate( N, STIFF, FORCE, TimeForce )
             END IF
 
-            CALL DefaultUpdateEquations( STIFF, FORCE, BulkUpdate=.TRUE. )
+            CALL DefaultUpdateEquations( STIFF, FORCE, SaveBulk )
          END IF
 !------------------------------------------------------------------------------
       END DO     !  Bulk elements
@@ -917,10 +905,6 @@
 
 1000  CONTINUE
 
-      IF(CalculateLoads) THEN
-        MatrixValues = StiffMatrix % Values
-        RHSValues = ForceVector
-      END IF		
 
 !------------------------------------------------------------------------------
 !     Neumann & Newton boundary conditions
@@ -1238,16 +1222,6 @@
 !------------------------------------------------------------------------------
     END DO ! of the nonlinear iteration
 !------------------------------------------------------------------------------
-
-    IF(CalculateLoads) THEN
-      CALL Info( 'HeatSolve', 'Computing Nodal Heat Load', Level=4 )
-      Pvalues => StiffMatrix % Values
-      StiffMatrix % Values => MatrixValues
-      CALL MatrixVectorMultiply( StiffMatrix, Temperature, HeatLoads)
-      HeatLoads = HeatLoads - RHSValues
-      StiffMatrix % Values => Pvalues
-    END IF
-
 
     IF(TransientHeaterControl) THEN
       PowerRelax = ListGetConstReal(Solver % Values,'Smart Heater Relaxation Factor', GotIt)
