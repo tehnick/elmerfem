@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StatElecSolve.src,v $
+! * Revision 1.25  2007/03/12 09:13:26  raback
+! * *** empty log message ***
+! *
 ! * Revision 1.24  2007/03/01 15:32:13  apursula
 ! * Activated output of norm and relative change
 ! *
@@ -186,7 +189,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: PiezoMaterial, CalculateSurfCharge, SaveBulk, ConstantBulk
   
   CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, CapMatrixFile, Name
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.24 2007/03/01 15:32:13 apursula Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.25 2007/03/12 09:13:26 raback Exp $"
   
   
   SAVE LocalStiffMatrix, Load, LocalForce, Pwrk, PotDiff, &
@@ -849,7 +852,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 
     IF(CalculateCapMatrix) THEN
-      CALL MatrixVectorMultiply( StiffMatrix % BulkValues, Potential, Charges)
+      CALL MatrixVectorMultiply( Solver % Matrix % BulkValues, Potential, Charges)
       Charges = Charges * PermittivityOfVacuum
       
       Permi = iter
