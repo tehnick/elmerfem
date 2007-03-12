@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: NavierStokesCylindrical.src,v 1.14 2006/10/13 06:04:48 jpr Exp $
+! * $Id: NavierStokesCylindrical.src,v 1.15 2007/01/30 15:20:47 apursula Exp $
 ! *****************************************************************************/
 
 MODULE NavierStokesCylindrical
@@ -978,7 +978,8 @@ MODULE NavierStokesCylindrical
 
    REAL(KIND=dp) :: Metric(3,3),SqrtMetric,Symb(3,3,3),dSymb(3,3,3,3)
    REAL(KIND=dp) :: u,v,w,s,x,y,z
-   REAL(KIND=dp) :: Force(4),Alpha,Normal(3),Tangent(3),Tangent2(3), Vect(3), SlipCoeff
+   REAL(KIND=dp) :: TangentForce(3), Force(4),Alpha,Normal(3),Tangent(3), &
+                     Tangent2(3), Vect(3), SlipCoeff
    REAL(KIND=dp), POINTER :: U_Integ(:),V_Integ(:),W_Integ(:),S_Integ(:)
 
    INTEGER :: i,j,k,t,q,p,c,DIM,N_Integ
@@ -1044,11 +1045,21 @@ REAL(KIND=dp) :: xx,yy,ydot,ydotdot
 !    Add to load: tangetial derivative of something
 !------------------------------------------------------------------------------
 !
-     Force = 0.0d0
      DO i=1,dim
-       Force(i) = SUM( NodalBeta(1:n)*dBasisdx(1:n,i) )
+       TangentForce(i) = SUM( NodalBeta(1:n)*dBasisdx(1:n,i) )
      END DO
 
+!------------------------------------------------------------------------------
+!    Add to load: given force in coordinate directions
+!------------------------------------------------------------------------------
+     Force = 0.0d0
+     DO i=1,c
+        Force(i) = Force(i) + SUM( LoadVector(i,1:n)*Basis(1:n) )
+     END DO
+
+!------------------------------------------------------------------------------
+!    Add to load: given force in normal direction
+!------------------------------------------------------------------------------
      Normal = NormalVector( Element, Nodes, u,v,.TRUE. )
      Alpha = SUM( NodalExtPressure(1:n)*Basis )
      IF ( NormalTangential ) THEN
@@ -1058,19 +1069,10 @@ REAL(KIND=dp) :: xx,yy,ydot,ydotdot
           Force(i) = Force(i) + Alpha * Normal(i)
        END DO
      END IF
-!
 !------------------------------------------------------------------------------
-!    Add to load: given force in normal direction
-!------------------------------------------------------------------------------
-!
+
      Alpha = SUM( NodalAlpha(1:n)*Basis )
 !
-!------------------------------------------------------------------------------
-!    Add to load: given force in coordinate directions
-!------------------------------------------------------------------------------
-     DO i=1,c
-        Force(i) = Force(i) + SUM( LoadVector(i,1:n)*Basis(1:n) )
-     END DO
 
      SELECT CASE( Element % Type % Dimension )
         CASE(1)
@@ -1136,6 +1138,7 @@ REAL(KIND=dp) :: xx,yy,ydot,ydotdot
              BoundaryVector(k) = BoundaryVector(k) + s * Basis(q) * Force(i)
           END IF
           BoundaryVector(k) = BoundaryVector(k) - s * Alpha * dBasisdx(q,i)
+          BoundaryVector(k) = BoundaryVector(k) + s * TangentForce(i) * Basis(q)
        END DO
        k = (q-1)*c + 1
        BoundaryVector(k) = BoundaryVector(k) - s * Alpha * Basis(q) * Symb(3,1,3)
