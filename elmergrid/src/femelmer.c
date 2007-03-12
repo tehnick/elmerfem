@@ -2027,7 +2027,7 @@ int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
 
 
 #if PARTMETIS 
-int PartitionMetisElements(struct FemType *data,int partitions,int info)
+int PartitionMetisElements(struct FemType *data,int partitions,int dual,int info)
 {
   int i,j,periodic, highorder, noelements, noknots, ne, nn, sides;
   int nodesd2, etype, numflag, nparts, edgecut;
@@ -2139,9 +2139,12 @@ int PartitionMetisElements(struct FemType *data,int partitions,int info)
 
   if(info) printf("Using %d nodes of %d possible nodes in the Metis graph\n",nn,noknots);
 
-
-  METIS_PartMeshNodal(&ne,&nn,metistopo,&etype,
-		      &numflag,&nparts,&edgecut,epart,npart);
+  if(dual) 
+    METIS_PartMeshDual(&ne,&nn,metistopo,&etype,
+		       &numflag,&nparts,&edgecut,epart,npart);
+  else
+    METIS_PartMeshNodal(&ne,&nn,metistopo,&etype,
+			&numflag,&nparts,&edgecut,epart,npart);
 
   /* Set the partition given by Metis for each element. */
   for(i=1;i<=noelements;i++) {
@@ -2247,18 +2250,18 @@ int PartitionMetisNodes(struct FemType *data,int partitions,int metisopt,int inf
     wgtflag = 1;
   }
 
-  if(data->periodicexist) metisopt = 2;
+  if(data->periodicexist) metisopt = 3;
   
   if(info) printf("Starting Metis graph partitioning call.\n");
 
 
-  if(metisopt == 1)
+  if(metisopt == 2)
     METIS_PartGraphRecursive(&nn,xadj,adjncy,vwgt,adjwgt,&wgtflag,
 			     &numflag,&nparts,&options[0],&edgecut,npart);
-  else if(metisopt == 2) 
+  else if(metisopt == 3) 
     METIS_PartGraphKway(&nn,xadj,adjncy,vwgt,adjwgt,&wgtflag,
 			&numflag,&nparts,&options[0],&edgecut,npart);
-  else if(metisopt == 3) 
+  else if(metisopt == 4) 
     METIS_PartGraphVKway(&nn,xadj,adjncy,vwgt,adjwgt,&wgtflag,
 			&numflag,&nparts,&options[0],&edgecut,npart);
   else 
