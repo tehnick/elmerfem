@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StatElecSolve.src,v $
+! * Revision 1.26  2007/03/12 10:11:08  raback
+! * *** empty log message ***
+! *
 ! * Revision 1.25  2007/03/12 09:13:26  raback
 ! * *** empty log message ***
 ! *
@@ -162,7 +165,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   REAL (KIND=DP), POINTER :: FluxOneTemp(:), FluxTwoTemp(:), FluxThreeTemp(:)
   REAL (KIND=DP), POINTER :: Ex(:), Ey(:), Ez(:), Dx(:), Dy(:), Dz(:)
   REAL (KIND=DP), POINTER :: We(:), WeTemp(:), Energy(:), SurfCh(:)
-  REAL (KIND=dp), POINTER :: SurfChTemp(:), SurfaceCharge(:)
+  REAL (KIND=dp), POINTER :: SurfChTemp(:), SurfaceCharge(:), PValues(:)
   REAL (KIND=dp), POINTER :: Charges(:)
   REAL (KIND=DP), POINTER :: Pwrk(:,:,:), Pz_w(:,:,:)
   REAL (KIND=DP), ALLOCATABLE :: CapMatrix(:,:)
@@ -189,7 +192,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: PiezoMaterial, CalculateSurfCharge, SaveBulk, ConstantBulk
   
   CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, CapMatrixFile, Name
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.25 2007/03/12 09:13:26 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.26 2007/03/12 10:11:08 raback Exp $"
   
   
   SAVE LocalStiffMatrix, Load, LocalForce, Pwrk, PotDiff, &
@@ -648,7 +651,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 !      Update global matrix and rhs vector from local matrix & vector
 !------------------------------------------------------------------------------
-      CALL DefaultUpdateEquations( LocalStiffMatrix, LocalForce, SaveBulk )
+      CALL DefaultUpdateEquations( LocalStiffMatrix, LocalForce, BulkUpdate = SaveBulk )
 !------------------------------------------------------------------------------
     END DO
     
@@ -852,7 +855,10 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 
     IF(CalculateCapMatrix) THEN
-      CALL MatrixVectorMultiply( Solver % Matrix % BulkValues, Potential, Charges)
+      PValues => Solver % Matrix % Values
+      Solver % Matrix % Values => Solver % Matrix % BulkValues
+      CALL MatrixVectorMultiply( Solver % Matrix, Potential, Charges)
+      Solver % Matrix % Values => PValues
       Charges = Charges * PermittivityOfVacuum
       
       Permi = iter

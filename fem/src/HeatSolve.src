@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: HeatSolve.src,v $
+! * Revision 1.25  2007/03/12 09:13:40  raback
+! * *** empty log message ***
+! *
 ! * Revision 1.24  2006/12/01 20:23:51  jpr
 ! * Still about 'Constant Bulk System' and time dependence.
 ! *
@@ -252,8 +255,7 @@
        GasConstant,AText,Hwrk, XX, YY, ForceHeater, Power, HeaterArea,  &
        HeaterDensity, HeaterSource, ControlHeaters, SmartTolReached,    &
        ReferenceTemperature, HeatExpansionCoeff, PrevPowerScaling, PowerScaling, &
-       MeltPoint, DoneTime, SmartHeaterNode, SmartHeaterBC, SmartHeaterAverage, &
-       MatrixValues, RHSValues, HeatLoads
+       MeltPoint, DoneTime, SmartHeaterNode, SmartHeaterBC, SmartHeaterAverage
 
 
      INTERFACE
@@ -287,7 +289,7 @@
 
      REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
 
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HeatSolve.src,v 1.24 2006/12/01 20:23:51 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HeatSolve.src,v 1.25 2007/03/12 09:13:40 raback Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -897,7 +899,7 @@
                CALL Condensate( N, STIFF, FORCE, TimeForce )
             END IF
 
-            CALL DefaultUpdateEquations( STIFF, FORCE, SaveBulk )
+            CALL DefaultUpdateEquations( STIFF, FORCE, BulkUpdate = SaveBulk )
          END IF
 !------------------------------------------------------------------------------
       END DO     !  Bulk elements
