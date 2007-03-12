@@ -1753,7 +1753,7 @@ int main(int argc, char *argv[])
 #if PARTMETIS
     if(eg.metis) {
       if(eg.partopt % 5 <= 1) 
-	PartitionMetisElements(&data[k],eg.metis,eg.partopt,info);
+	PartitionMetisElements(&data[k],eg.metis,eg.partopt % 5,info);
       else
 	PartitionMetisNodes(&data[k],eg.metis,eg.partopt % 5,info);      
       noopt = eg.partopt / 5;      
