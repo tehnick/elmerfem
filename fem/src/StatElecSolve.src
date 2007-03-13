@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StatElecSolve.src,v $
+! * Revision 1.27  2007/03/12 12:02:01  raback
+! * *** empty log message ***
+! *
 ! * Revision 1.26  2007/03/12 10:11:08  raback
 ! * *** empty log message ***
 ! *
@@ -192,7 +195,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: PiezoMaterial, CalculateSurfCharge, SaveBulk, ConstantBulk
   
   CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, CapMatrixFile, Name
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.26 2007/03/12 10:11:08 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.27 2007/03/12 12:02:01 raback Exp $"
   
   
   SAVE LocalStiffMatrix, Load, LocalForce, Pwrk, PotDiff, &
@@ -550,8 +553,8 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !        Check if this element belongs to a body where potential
 !        should be calculated
 !------------------------------------------------------------------------------
-      CurrentElement => Solver % Mesh % Elements(Solver % ActiveElements(t))
-      
+
+      CurrentElement => GetActiveElement(t)
       NodeIndexes => CurrentElement % NodeIndexes
       n = CurrentElement % TYPE % NumberOfNodes
       
@@ -652,6 +655,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !      Update global matrix and rhs vector from local matrix & vector
 !------------------------------------------------------------------------------
       CALL DefaultUpdateEquations( LocalStiffMatrix, LocalForce, BulkUpdate = SaveBulk )
+
 !------------------------------------------------------------------------------
     END DO
     
@@ -774,12 +778,12 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
     CALL SetDirichletBoundaries( Model,StiffMatrix,ForceVector, &
         Solver % Variable % Name,1,1,PotentialPerm )       
-    
+   
     IF(CalculateCapMatrix) THEN 
       CALL SetPermutationBoundaries( Model, StiffMatrix, ForceVector, &
           'Capacitance Body',PotentialPerm, iter)
     END IF
-    
+
     at = CPUTime() - at
     WRITE( Message, * ) 'Assembly (s)          :',at
     CALL Info( 'StatElecSolve', Message, Level=4 )
@@ -804,7 +808,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
         .OR. CalculateSurfCharge ) THEN 
       CALL GeneralElectricFlux( Model, Potential, PotentialPerm )
     END IF
-    
+
     IF ( CalculateEnergy ) THEN
       WRITE( Message, * ) 'Tot. Electric Energy  :', Wetot
       CALL Info( 'StatElecSolve', Message, Level=4 )
@@ -917,7 +921,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
      CALL Info('StatElecSolve',Message)
    END IF
    
-   
+
    IF ( ListGetLogical( Solver % Values, 'Adaptive Mesh Refinement', GotIt ) ) &
        CALL RefineMesh( Model, Solver, Potential, PotentialPerm, &
        ElectricInsideResidual, ElectricEdgeResidual, ElectricBoundaryResidual )
