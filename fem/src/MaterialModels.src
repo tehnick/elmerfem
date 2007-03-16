@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: MaterialModels.src,v 1.7 2006/12/06 20:27:52 raback Exp $
+! * $Id: MaterialModels.src,v 1.8 2006/12/11 08:12:23 raback Exp $
 ! ******************************************************************************/
 
 MODULE MaterialModels
@@ -571,12 +571,12 @@ this is not in USE
        CASE( 'ke','k-epsilon' )
           Var => VariableGet( CurrentModel % Variables, 'Kinetic Energy' )
           IF ( .NOT. ASSOCIATED( Var ) ) &
-             CALL Fatal( 'Viscosity Model', 'The kinetic energy variable not defined?' )
+             CALL Fatal( 'Heat Conductivity Model', 'The kinetic energy variable not defined?' )
           KE_K = SUM(Basis(1:n) * Var % Values(Var % Perm(Element % NodeIndexes)))
 
           Var => VariableGet( CurrentModel % Variables, 'Kinetic Dissipation' )
           IF ( .NOT. ASSOCIATED( Var ) ) &
-             CALL Fatal( 'Viscosity Model', 'The kinetic energy dissipation variable not defined?' )
+             CALL Fatal( 'Heat Conductivity Model', 'The kinetic energy dissipation variable not defined?' )
           KE_E = SUM(Basis(1:n) * Var % Values(Var % Perm(Element % NodeIndexes)))
 
           KECmu(1:n) = ListGetReal( Material, 'KE Cmu',n,Element % NodeIndexes )

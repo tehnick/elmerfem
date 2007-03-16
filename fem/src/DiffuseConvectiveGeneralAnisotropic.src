@@ -38,7 +38,7 @@
 ! *
 ! ******************************************************************************/
 ! *
-! * $Id: DiffuseConvectiveGeneralAnisotropic.src,v 1.6 2006/01/10 08:32:50 apursula Exp $
+! * $Id: DiffuseConvectiveGeneralAnisotropic.src,v 1.7 2006/02/01 08:07:57 jpr Exp $
 ! ******************************************************************************
 
 MODULE DiffuseConvectiveGeneral
@@ -453,7 +453,7 @@ MODULE DiffuseConvectiveGeneral
          IF ( Compressible ) Force = Force - Pressure * DivVelo
 
          Viscosity = SUM( NodalViscosity(1:n) * Basis(1:n) )
-         Viscosity = EffectiveViscosity( Viscosity, 1.0d0, Ux, Uy, Uz, &
+         Viscosity = EffectiveViscosity( Viscosity, Density, Ux, Uy, Uz, &
                Element, Nodes, n, n, u, v, w )
          IF ( Viscosity > 0.0d0 ) THEN
            IF ( .NOT.Compressible ) THEN

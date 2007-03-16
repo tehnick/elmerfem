@@ -38,7 +38,7 @@
 ! *
 ! ******************************************************************************/
 ! *
-! * $Id: DiffuseConvectiveAnisotropic.src,v 1.6 2006/01/10 08:32:50 apursula Exp $
+! * $Id: DiffuseConvectiveAnisotropic.src,v 1.7 2006/02/01 08:07:57 jpr Exp $
 ! ******************************************************************************
 
 MODULE DiffuseConvective
@@ -291,7 +291,7 @@ MODULE DiffuseConvective
 !------------------------------------------------------------------------------
             VNorm = SQRT( SUM(Velo(1:dim)**2) )
 
-#if 1
+#if 0
             Pe  = MIN( 1.0D0, mK*hK*C1*VNorm/(2*ABS(C2(1,1))) )
 
             Tau = 0.0D0
@@ -300,11 +300,11 @@ MODULE DiffuseConvective
             END IF
 #else
             C00 = C0
-            IF ( DT /= 0.0d0 ) C00 = C0 + CT / DT
+            IF ( DT /= 0.0d0 ) C00 = C0+CT/DT
 
             Pe1 = 0.0d0
             IF ( C00 /= 0.0d0 ) THEN
-              Pe1 = 2 * ABS(C2(1,1)) / ( mK * C00 * hK**2 )
+              Pe1 = 2*ABS(C2(1,1)) / (mK*C00*hK**2)
               Pe1 = C00 * hK**2 * MAX( 1.0d0, Pe1 )
             ELSE
               Pe1 = 2 * ABS(C2(1,1)) / mK
@@ -314,6 +314,7 @@ MODULE DiffuseConvective
             IF ( C2(1,1) /= 0.0d0 ) THEN
               Pe2 = ( mK * C1 * VNorm * hK ) / ABS(C2(1,1))
               Pe2 = 2 * ABS(C2(1,1)) * MAX( 1.0d0, Pe2 ) / mK
+              Pe  = MIN( 1.0D0, mK*hK*C1*VNorm/(2*ABS(C2(1,1))) )
             ELSE
               Pe2 = 2 * hK * C1 * VNorm
             END IF
@@ -406,7 +407,7 @@ MODULE DiffuseConvective
         IF ( Convection ) THEN
           IF ( Compressible ) Force = Force - Pressure * DivVelo
           Viscosity = SUM( NodalViscosity(1:n) * Basis(1:n) )
-          Viscosity = EffectiveViscosity( Viscosity, 1.0d0, UX, UY, UZ, &
+          Viscosity = EffectiveViscosity( Viscosity, Density, UX, UY, UZ, &
                        Element, Nodes, n, n, U, V, W )
           IF ( Viscosity > 0.0D0 ) THEN
             IF ( .NOT.Compressible ) THEN
