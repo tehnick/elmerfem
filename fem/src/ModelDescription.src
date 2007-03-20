@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ModelDescription.src,v 1.35 2007/01/16 07:36:14 jpr Exp $
+! * $Id: ModelDescription.src,v 1.36 2007/01/30 09:03:09 jpr Exp $
 ! *****************************************************************************/
 
 MODULE ModelDescription
@@ -2714,9 +2714,9 @@ CONTAINS
     CHARACTER(LEN=512) :: Row
     CHARACTER(MAX_NAME_LEN) :: Str, DateStr
 
-    LOGICAL :: gotIt, FreeSurfaceFlag, MoveBoundary
+    LOGICAL :: gotIt, FreeSurfaceFlag, MoveBoundary, MeshMoved
 
-    REAL(KIND=dp) :: Time,Dummy
+    REAL(KIND=dp) :: Time,Dummy, MeshScale
     INTEGER :: i,j,k,l,n,m,q,Node,idummy,DOFs,SavedCount,TimeStep
 !------------------------------------------------------------------------------
 
@@ -2780,6 +2780,8 @@ CONTAINS
 !------------------------------------------------------------------------------
 !   Count degrees of freedom to be saved
 !------------------------------------------------------------------------------
+    NULLIFY( Displacement, MeshUpdate )
+
     DOFs = 0
     Var => Model % Variables
     DO WHILE( ASSOCIATED( Var ) )
@@ -2865,7 +2867,6 @@ CONTAINS
        Model % NumberOfBulkElements+ Model % NumberOfBoundaryElements, &
           DOFs,TimeCount
 
-      NULLIFY( Displacement, MeshUpdate )
 
       Var => Model % Variables
       DO WHILE( ASSOCIATED( Var ) )
@@ -2984,6 +2985,17 @@ CONTAINS
 !   Coordinates
 !------------------------------------------------------------------------------
 !
+      MeshScale = 1.0_dp
+      DO i=1,Model % NumberOfSolvers
+        IF (Model % Solvers(i) % Variable % Name &
+             (1:Model % Solvers(i) % Variable % NameLen) == 'displacement') THEN
+           MeshMoved = ListGetLogical( Model % Solvers(i) % Values, &
+                       'Displace Mesh', Gotit )
+           IF ( Gotit .AND. .NOT. MeshMoved ) MeshScale = 0.0_dp
+        END IF
+      END DO
+
+
       DO i=1,Model % NumberOfNodes
          IF ( ASSOCIATED(Displacement) ) THEN
             k = Displacement % Perm(i)
@@ -2995,20 +3007,20 @@ CONTAINS
                SELECT CASE( Displacement % DOFs )
                   CASE(1)
                      WRITE(PostFileUnit,'(3E20.12E3)') &
-                          Model % Nodes % x(i) - Displacement % Values(k+1), &
+                          Model % Nodes % x(i) - MeshScale*Displacement % Values(k+1), &
                              Model % Nodes % y(i), Model % Nodes % z(i)
 
                   CASE(2)
                      WRITE(PostFileUnit,'(3E20.12E3)') &
-                          Model % Nodes % x(i) - Displacement % Values(k+1), &
-                          Model % Nodes % y(i) - Displacement % Values(k+2), &
+                          Model % Nodes % x(i) - MeshScale*Displacement % Values(k+1), &
+                          Model % Nodes % y(i) - MeshScale*Displacement % Values(k+2), &
                           Model % Nodes % z(i)
 
                   CASE(3)
                      WRITE(PostFileUnit,'(3E20.12E3)') &
-                          Model % Nodes % x(i) - Displacement % Values(k+1), &
-                          Model % Nodes % y(i) - Displacement % Values(k+2), &
-                          Model % Nodes % z(i) - Displacement % Values(k+3)
+                          Model % Nodes % x(i) - MeshScale*Displacement % Values(k+1), &
+                          Model % Nodes % y(i) - MeshScale*Displacement % Values(k+2), &
+                          Model % Nodes % z(i) - MeshScale*Displacement % Values(k+3)
                END SELECT
             ELSE IF ( l > 0 ) THEN
                k = MeshUpdate % DOFs * (l-1)
