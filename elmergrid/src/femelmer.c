@@ -256,8 +256,16 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,
     printf("opening of file was not successful\n");
     return(3);
   }
-  fprintf(out,"%d %d %d %d %s %s",totknots,totelements,novctrs+1,timesteps,"scalar: Partition",cp);
 
+  i = timesteps;
+  if(minstep || maxstep || dstep) {
+    if ( dstep>1 ) {
+      i = 0;
+      for(step = minstep; step <= maxstep; step++)
+        if((step-minstep)%dstep==0) i++;
+    } else i=maxstep-minstep+1;
+  }
+  fprintf(out,"%d %d %d %d %s %s",totknots,totelements,novctrs+1,i,"scalar: Partition",cp);
  
   if(info) printf("Reading and writing %d coordinates.\n",totknots);
   sprintf(outstyle,"%%.%dlg %%.%dlg %%.%dlg\n",decimals,decimals,decimals);
