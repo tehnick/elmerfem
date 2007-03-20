@@ -1604,6 +1604,56 @@ static int PartitionNodesByElements(struct FemType *data,int info)
 }
 
 
+static int PartitionNodesByElements2(struct FemType *data,int info)
+{
+  int i,j,k,noknots,nonodes,noelements,nopartitions,part,minpart,maxpart,elemtype,ind;
+  int *elempart,*nodepart,*nodesinpart;
+
+  if(!data->partitionexist) return(1);
+
+
+  noknots = data->noknots;
+  noelements = data->noelements;
+  nopartitions = data->nopartitions;
+  elempart = data->elempart;
+  nodepart = data->nodepart;
+
+  for(i=1;i<=noknots;i++)
+    nodepart[i] = 0;
+
+  for(j=1;j<=noelements;j++) {
+    elemtype = data->elementtypes[j];
+    nonodes = elemtype % 100;
+    part = elempart[j];
+    for(i=0;i<nonodes;i++) {
+      ind = data->topology[j][i];
+      if(nodepart[ind] == 0 || nodepart[ind] > part)
+	nodepart[ind] = part;
+    }
+  }
+
+  nodesinpart = Ivector(1,nopartitions);
+  for(j=1;j<=nopartitions;j++) 
+    nodesinpart[j] = 0;
+  for(i=1;i<=noknots;i++) {
+    part = nodepart[i];
+    nodesinpart[part] += 1;
+  }
+  minpart = maxpart = nodesinpart[1];
+  for(j=1;j<=nopartitions;j++) {
+    minpart = MIN( minpart, nodesinpart[j]);
+    maxpart = MAX( maxpart, nodesinpart[j]);
+  }
+
+  if(info) {
+    printf("Set the node partitions by the smallest element partition.\n");
+    printf("There are from %d to %d nodes in the %d partitions.\n",minpart,maxpart,nopartitions);
+  }  
+
+  free_Ivector(nodesinpart,1,nopartitions);
+  return(0);
+}
+
 
 
 int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
@@ -2161,13 +2211,19 @@ int PartitionMetisElements(struct FemType *data,int partitions,int dual,int info
       printf("Invalid partition %d for element %d\n",inpart[i],i);
   }
 
-  /* Set the partition given by Metis for each node. */
-  for(i=1;i<=noknots;i++) {
-    j = i;
-    if(periodic) j = neededby[indxper[i]];
-    data->nodepart[i] = npart[j-1]+1;
-    if(data->nodepart[i] < 1 || data->nodepart[i] > partitions) 
-      printf("Invalid partition %d for node %d\n",data->nodepart[i],i);
+  if( highorder ) {
+    PartitionNodesByElements(data,info);
+  }
+  else {
+    /* Set the partition given by Metis for each node. */
+    for(i=1;i<=noknots;i++) {
+      j = neededby[i];
+      if(periodic) j = neededby[indxper[i]];
+      if(!j) continue;		 
+      data->nodepart[i] = npart[j-1]+1;
+      if(data->nodepart[i] < 1 || data->nodepart[i] > partitions) 
+	printf("Invalid partition %d for node %d\n",data->nodepart[i],i);
+    }
   }
 
   free_Ivector(neededby,1,noknots);
@@ -3211,7 +3267,9 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
 
 
-    /* Boudary nodes that express indirect couplings between different partitions */
+    /* Boundary nodes that express indirect couplings between different partitions.
+       This makes it possible for ElmerSolver to create a matrix connection that 
+       is known to exist. */
     {
       int maxsides,nodesides,maxnodeconnections,connectednodes,m;
       int **nodepairs,*nodeconnections,**indpairs;      
@@ -3225,18 +3283,22 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
       /* First calculate the maximum number of additional sides */
       for(i=1;i<=noelements;i++) {
+
+	/* owner partition cannot cause an indirect coupling */
 	if(elempart[i] == part) continue;
 	
 	elemtype = data->elementtypes[i];
 	nodesd2 = elemtype%100;
 	
-	bcneeded = 0;
 	for(j=0;j < nodesd2;j++) {
-	  elemhit[j] = 0;
+	  elemhit[j] = FALSE;
 	  ind = data->topology[i][j];
 	  for(k=1;k<=neededtimes[ind];k++) 
 	    if(part == data->partitiontable[k][ind]) elemhit[j] = TRUE;
 	}
+
+	/* how many nodes are indirectly coupled within the element */
+	bcneeded = 0;
 	for(j=0;j < nodesd2;j++) 
 	  if(elemhit[j]) bcneeded++;
 
@@ -3265,7 +3327,8 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	  }
 	}
       }
-      
+
+      /* After first round allocate enough space */      
       if(l == 0) {
 	nodepairs = Imatrix(1,maxsides,1,2);
 	for(i=1;i<=maxsides;i++)
