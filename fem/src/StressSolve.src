@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StressSolve.src,v $
+! * Revision 1.34  2007/02/16 07:33:20  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.33  2006/12/22 11:19:08  jpr
 ! * Small formatting changes.
 ! *
@@ -342,7 +345,7 @@
         END FUNCTION StressInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.33 2006/12/22 11:19:08 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.34 2007/02/16 07:33:20 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -519,7 +522,6 @@
      MinIter = GetInteger( SolverParams, &
          'Nonlinear System Min Iterations',Found )
 
-
      EigenAnalysis = GetLogical( SolverParams, 'Eigen Analysis', Found )
      OrigEigenAnalysis = EigenAnalysis
 
@@ -546,16 +548,6 @@
        MaxIter = 2
      END IF
 
-     ModelLumping = GetLogical( SolverParams, 'Model Lumping', Found )
-     IF ( ModelLumping ) THEN       
-       FixDisplacement = GetLogical( SolverParams, 'Fix Displacement', Found )
-       IF(DIM /= 3) CALL Fatal('StressSolve','Model Lumping implemented only for 3D')
-!      MaxIter = 6
-!      MinIter = MaxIter
-       CALL CoordinateIntegrals(LumpedArea, LumpedCenter, LumpedMoments, &
-            Model % MaxElementNodes)
-     END IF
-
 !------------------------------------------------------------------------------
      Refactorize = GetLogical( SolverParams, 'Linear System Refactorize', Found )
      IF ( .NOT. Found ) Refactorize = .TRUE.
@@ -566,6 +558,20 @@
      ConstantBulkSystem = GetLogical( SolverParams, 'Constant Bulk System', Found )
      ConstantBulkMatrix = GetLogical( SolverParams, 'Constant Bulk Matrix', Found )
 !------------------------------------------------------------------------------
+
+     ModelLumping = GetLogical( SolverParams, 'Model Lumping', Found )
+     IF ( ModelLumping ) THEN       
+       FixDisplacement = GetLogical( SolverParams, 'Fix Displacement', Found )
+       IF(.NOT. Found) FixDisplacement = .TRUE.
+       IF(DIM /= 3) CALL Fatal('StressSolve','Model Lumping implemented only for 3D')
+!       MaxIter = 6
+!       MinIter = MaxIter
+       ConstantBulkSystem = .TRUE.
+       CALL CoordinateIntegrals(LumpedArea, LumpedCenter, LumpedMoments, &
+            Model % MaxElementNodes)
+       CALL LumpedCartesianMass()
+     END IF
+
 
      DO iter=1,MaxIter
        IF( StabilityAnalysis .OR. GeometricStiffness ) THEN
@@ -662,7 +668,7 @@
               + UzawaParameter * NormalDisplacement )
        END IF
 
-       IF ( Iter>MinIter .AND. RelativeChange<NonLinearTol ) EXIT
+       IF ( Iter> MinIter .AND. RelativeChange < NonLinearTol ) EXIT
 
        IF ( CalcStress .OR. CalcStressAll ) THEN
           IF( StabilityAnalysis .AND. Iter == 1 ) THEN
@@ -687,6 +693,11 @@
            CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Stress' )
            CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'VonMises' )
         END IF
+     END IF
+
+     ! The distorted mesh is useless in model lumping (this overcomes a bug also)
+     IF( ModelLumping .AND. MaxIter == 6) THEN
+       Displacement = 0.0d0
      END IF
 
      IF ( GetLogical( SolverParams, 'Adaptive Mesh Refinement', Found) ) THEN
@@ -1137,7 +1148,7 @@ CONTAINS
               VonMises, DisplPerm, StressPerm )
 !------------------------------------------------------------------------------
      INTEGER :: DisplPerm(:)
-     INTEGEr, POINTER :: StressPerm(:)
+     INTEGER, POINTER :: StressPerm(:)
      REAL(KIND=dp) :: VonMises(:), NodalStress(:), Displacement(:)
 !------------------------------------------------------------------------------
      TYPE(Nodes_t) :: Nodes
@@ -1397,6 +1408,7 @@ CONTAINS
 
      REAL(KIND=dp) :: Area, Center(:), Moments(:,:)
      INTEGER :: maxnodes
+     LOGICAL :: FoundBoundary
 
      REAL(KIND=dp) :: Coords(3)
      INTEGER :: power
@@ -1407,6 +1419,7 @@ CONTAINS
      INTEGER :: N_Integ
      LOGICAL :: stat
 
+     FoundBoundary = .FALSE.
      Area = 0.0
      Center = 0.0
      Moments = 0.0
@@ -1425,6 +1438,7 @@ CONTAINS
 !------------------------------------------------------------------------------
          IF(.NOT. GetLogical( BC, 'Model Lumping Boundary',Found )) CYCLE
          
+         FoundBoundary = .TRUE.
          n = GetElementNOFNodes()
          CALL GetElementNodes( ElementNodes )
 
@@ -1472,14 +1486,18 @@ CONTAINS
            END IF
 
          END DO
-       END DO 
-     
+       END DO
+         
+       IF(.NOT. FoundBoundary) THEN
+        CALL Fatal('StressSolve','Model lumping boudary must be defined')        
+       END IF
+   
        IF(power == 1) Center(1:DIM) = Center(1:DIM) / Area
      END DO
 
-     ! print *,'Area',Area
-     ! print *,'Center',Center(1:DIM)
-     ! print *,'Moments',Moments(1:DIM,1:DIM)
+      PRINT *,'Area',Area
+      PRINT *,'Center',Center(1:DIM)
+      PRINT *,'Moments',Moments(1:DIM,1:DIM)
    END SUBROUTINE CoordinateIntegrals
 
 
@@ -1613,9 +1631,9 @@ CONTAINS
 
          DO l=1,dim
            ind = dim * (k-1) + l
-           IF ( StiffMatrix % Format == MATRIX_SBAND ) THEN
+           IF ( StiffMatrix % FORMAT == MATRIX_SBAND ) THEN
              CALL SBand_SetDirichlet( StiffMatrix,ForceVector,ind,dCoords(l) )             
-           ELSE IF ( StiffMatrix % Format == MATRIX_CRS .AND. &
+           ELSE IF ( StiffMatrix % FORMAT == MATRIX_CRS .AND. &
               StiffMatrix % Symmetric ) THEN 
              CALL CRS_SetSymmDirichlet(StiffMatrix,ForceVector,ind,dCoords(l) )
            ELSE
@@ -1646,17 +1664,19 @@ CONTAINS
      REAL(KIND=dp) :: Basis(maxnodes)
      REAL(KIND=dp) :: dBasisdx(maxnodes,3),detJ,u,v,w
      REAL(KIND=dp), DIMENSION(:), POINTER :: U_Integ,V_Integ,W_Integ,S_Integ
-     REAL(KIND=dp) :: LocalDisp(DIM,maxnodes),Kmat(6,6),up, vp, wp, &
+     REAL(KIND=dp) :: LocalDisp(DIM,maxnodes),Kmat(6,6), Kmat2(6,6), up, vp, wp, &
          xp(maxnodes), yp(maxnodes), zp(maxnodes), KmatMin(6,6), KvecAtIP(6), &
          Strain(3,3),Stress(3,3), dFii, Dx, &
          ForceAtIp(3), MomentAtIp(3), Coord(3),Normal(3)
+     REAL(KIND=dp), POINTER :: NodalLoads(:), PValues(:)
+     LOGICAL, POINTER :: NodeVisited(:)
      INTEGER :: N_Integ, pn
      LOGICAL :: stat, CSymmetry, Isotropic
      CHARACTER(LEN=MAX_NAME_LEN) :: KmatFile
      TYPE(Nodes_t) :: ParentNodes
      TYPE(Element_t),POINTER :: Parent
 
-     SAVE ParentNodes, Kmat, KmatMin
+     SAVE ParentNodes, Kmat, KmatMin, NodalLoads, NodeVisited
 !------------------------------------------------------------------------------
 
      n = maxnodes
@@ -1670,8 +1690,59 @@ CONTAINS
 
      IF (Permutation == 1) THEN
        Kmat = 0.0d0       
+       Kmat2 = 0.0d0
        KmatMin = HUGE(KmatMin)
      END IF
+
+     IF(FixDisplacement ) THEN
+       IF(Permutation == 1) THEN
+         n = SIZE( Displacement ) / STDOFs
+         ALLOCATE( NodalLoads( 3*n ), NodeVisited( n ) )
+       END IF
+
+       PValues => Solver % Matrix % Values
+       Solver % Matrix % Values => Solver % Matrix % BulkValues
+       CALL MatrixVectorMultiply( Solver % Matrix, Displacement, NodalLoads)
+       Solver % Matrix % Values => PValues
+      
+       NodeVisited = .FALSE.
+
+       DO t = 1, Solver % Mesh % NumberOfBoundaryElements
+         Element => GetBoundaryElement(t)
+         IF ( .NOT. ActiveBoundaryElement() .OR. GetElementFamily() == 1 ) CYCLE
+         
+         BC => GetBC()
+         IF ( .NOT. ASSOCIATED( BC ) ) CYCLE
+         IF(.NOT. GetLogical( BC, 'Model Lumping Boundary',Found )) CYCLE
+         
+         n = GetElementNOFNodes()
+         CALL GetElementNodes( ElementNodes )
+
+         DO i=1,n
+           j = DisplPerm(i)
+           IF(NodeVisited(j)) CYCLE
+           NodeVisited(j) = .TRUE.
+           
+           Coord(1) = ElementNodes % x(i)
+           Coord(2) = ElementNodes % y(i)
+           Coord(3) = ElementNodes % z(i)
+           Coord = Coord - Center        
+
+           DO k=1,DIM
+             ForceAtIP(k) = NodalLoads(3*(j-1)+k)
+           END DO
+           MomentAtIp(1) = ForceAtIp(2) * Coord(3) - ForceAtIp(3) * Coord(2)
+           MomentAtIp(2) = ForceAtIp(3) * Coord(1) - ForceAtIp(1) * Coord(3)
+           MomentAtIp(3) = ForceAtIp(1) * Coord(2) - ForceAtIp(2) * Coord(1)
+
+           Kmat2(1:3,Permutation) = Kmat2(1:3,Permutation) + ForceAtIp 
+           Kmat2(4:6,Permutation) = Kmat2(4:6,Permutation) + MomentAtIp 
+         END DO
+       END DO
+
+       PRINT *,'Kmat2',Kmat2(:,Permutation)
+     END IF
+
 
      DO t = 1, Solver % Mesh % NumberOfBoundaryElements
        Element => GetBoundaryElement(t)
@@ -1717,9 +1788,9 @@ CONTAINS
        DO i = 1,n
          DO j = 1,pn
            IF ( Element % NodeIndexes(i) == Parent % NodeIndexes(j) ) THEN
-             xp(i) = Parent % Type % NodeU(j)
-             yp(i) = Parent % Type % NodeV(j)
-             zp(i) = Parent % Type % NodeW(j)
+             xp(i) = Parent % TYPE % NodeU(j)
+             yp(i) = Parent % TYPE % NodeV(j)
+             zp(i) = Parent % TYPE % NodeW(j)
              EXIT
            END IF
          END DO
@@ -1773,7 +1844,7 @@ CONTAINS
            CALL LocalStress( Stress, Strain, PoissonRatio, &
                ElasticModulus, HeatExpansionCoeff, LocalTemperature, &
                Isotropic, CSymmetry, PlaneStress, LocalDisp, Basis,  &
-                dBasisdx, ParentNodes, DIM, pn )
+               dBasisdx, ParentNodes, DIM, pn )
           
            ForceAtIp = MATMUL( Stress, Normal )
            MomentAtIp(1) = ForceAtIp(2) * Coord(3) - ForceAtIp(3) * Coord(2)
@@ -1813,6 +1884,10 @@ CONTAINS
        END DO
      END DO
 
+
+     PRINT *,'Kmat1',Kmat(:,Permutation)
+
+
      IF(Permutation == 6) THEN
        KmatFile = ListGetString(Solver % Values,'Model Lumping Filename',stat )
        IF(.NOT. stat) KmatFile = "Kmat.dat"
@@ -1825,6 +1900,14 @@ CONTAINS
        IF (FixDisplacement) THEN
          Kmat(1:3,:) = Kmat(1:3,:) / dX
          Kmat(4:6,:) = Kmat(4:6,:) / dFii         
+
+         Kmat2(1:3,:) = Kmat2(1:3,:) / dX
+         Kmat2(4:6,:) = Kmat2(4:6,:) / dFii         
+
+         IF( ListGetLogical(Solver % Values,'Symmetrisize',stat)) THEN
+           Kmat = (Kmat + TRANSPOSE(Kmat)) / 2.0d0
+           Kmat2 = (Kmat2 + TRANSPOSE(Kmat2)) / 2.0d0
+         END IF         
        ELSE
          Kmat = Kmat / Area
 
@@ -1837,13 +1920,13 @@ CONTAINS
          END DO
 
          ! Save the Kmatrix prior to inversion to external file
-         OPEN (10, FILE= TRIM(KmatFile) // '.' // TRIM("inv"))
+         OPEN (10, FILE= TRIM(KmatFile) // ".inv")
          DO i=1,Permutation
            WRITE(10,'(6ES17.8E3)') Kmat(i,:)
          END DO
          CLOSE(10)              
 
-         OPEN (10, FILE= TRIM(KmatFile) // '.' // TRIM("min-inv"))
+         OPEN (10, FILE= TRIM(KmatFile) // ".min-inv")
          DO i=1,Permutation
            WRITE(10,'(6ES17.8E3)') KmatMin(i,:)
          END DO
@@ -1858,10 +1941,6 @@ CONTAINS
          CALL InvertMatrix(KmatMin,Permutation)
        END IF
 
-       IF(FixDisplacement .AND. ListGetLogical(Solver % Values,'Symmetrisize',stat)) THEN
-         Kmat = (Kmat + TRANSPOSE(Kmat)) / 2.0d0
-       END IF
-
        ! Save the Kmatrix to an external file
        OPEN (10, FILE=KmatFile)
        DO i=1,Permutation
@@ -1869,8 +1948,14 @@ CONTAINS
        END DO
        CLOSE(10)
 
-       IF(.NOT. FixDisplacement) THEN
-         OPEN (10, FILE= TRIM(KmatFile) // '.' // TRIM("min"))
+       IF(FixDisplacement) THEN
+         OPEN (10, FILE=TRIM(KmatFile) // ".2")
+         DO i=1,Permutation
+           WRITE(10,'(6ES17.8E3)') Kmat2(i,:)
+         END DO
+         CLOSE(10)
+       ELSE
+         OPEN (10, FILE= TRIM(KmatFile) // ".min" )
          DO i=1,Permutation
            WRITE(10,'(6ES17.8E3)') Kmat(i,:)
          END DO
@@ -1878,15 +1963,152 @@ CONTAINS
        END IF
 
        ! Save the area center to an external file
-       OPEN (10, FILE= TRIM(KmatFile) // '.' // TRIM("center"))
-       DO i=1,3
-         WRITE(10,'(ES17.8E3)') Center(i)
-       END DO
+       OPEN (10, FILE= TRIM(KmatFile) // ".center")
+       WRITE(10,'(3ES17.8E3)') Center
        CLOSE(10)
      END IF
 
+     IF(FixDisplacement .AND. Permutation == 6) THEN
+       DEALLOCATE( NodalLoads, NodeVisited )
+     END IF
 
    END SUBROUTINE LumpedSprings
+
+
+!------------------------------------------------------------------------------
+! Generalized cartesian lumped mass matrix 
+!------------------------------------------------------------------------------
+    
+    SUBROUTINE LumpedCartesianMass() 
+      
+      REAL(KIND=dp) :: vol
+      TYPE(GaussIntegrationPoints_t) :: IntegStuff      
+      INTEGER :: iter, i, j, k, n, t, istat, mat_id, NoEigenModes
+      LOGICAL :: GotIt, stat      
+      REAL(KIND=dp) :: SqrtMetric,SqrtElementMetric,Amp,Dens
+      REAL(KIND=dp) :: Basis(Solver % Mesh % MaxElementNodes), &
+          dBasisdx(Solver % Mesh % MaxElementNodes, 3)
+      REAL(KIND=dp) :: Mass, x, y, z, U, V, W, S
+      REAL (KIND=DP) :: Moment0, Moment1(3), Moment2(3,3), Center(3), Mass(6,6)
+      CHARACTER(LEN=MAX_NAME_LEN) :: KmatFile
+         
+!------------------------------------------------------------------------------
+! Do some initialization stuff
+!------------------------------------------------------------------------------
+      
+      vol = 0.0d0
+      Moment0 = 0.0d0
+      Moment1 = 0.0d0
+      Moment2 = 0.0d0
+    
+!------------------------------------------------------------------------------
+! Integrate the lumped mass over the volume/area
+!------------------------------------------------------------------------------
+           
+      DO t = 1, Solver % NumberOfActiveElements
+        Element => Solver % Mesh % Elements( Solver % ActiveElements( t ) )
+        Model % CurrentElement => Element
+        
+        n = Element % TYPE % NumberOfNodes
+        NodeIndexes => Element % NodeIndexes
+        
+        ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes(1:n))
+        ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes(1:n))
+        ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(NodeIndexes(1:n))
+        
+        body_id = Element % BodyId
+        mat_id = ListGetInteger( Model % Bodies( body_id ) % Values, &
+            'Material', minv=1,maxv=Model % NumberOfMaterials )
+        Material => Model % Materials(mat_id) % Values      
+        Density(1:n) = ListGetReal( Material, 'Density', n, NodeIndexes(1:n) )                             
+        
+        IntegStuff = GaussPoints( Element )
+        
+        DO i=1,IntegStuff % n
+          
+          U = IntegStuff % u(i)
+          V = IntegStuff % v(i)
+          W = IntegStuff % w(i)
+!------------------------------------------------------------------------------
+!        Basis function values & derivatives at the integration point
+!------------------------------------------------------------------------------
+          stat = ElementInfo( Element,ElementNodes,U,V,W,&
+              SqrtElementMetric,Basis,dBasisdx)
+!------------------------------------------------------------------------------
+!      Coordinatesystem dependent info
+!------------------------------------------------------------------------------
+          s = SqrtElementMetric * IntegStuff % s(i)          
+          x = SUM(ElementNodes % x(1:n) * Basis(1:n))
+          y = SUM(ElementNodes % y(1:n) * Basis(1:n))
+          z = SUM(ElementNodes % z(1:n) * Basis(1:n))
+
+          IF ( CurrentCoordinateSystem() /= Cartesian ) THEN
+            s = 2.0 * PI * x * s
+          END IF
+          vol =  vol + S          
+          dens = SUM(Basis(1:n) * Density(1:n) )
+
+          Moment0 = Moment0 + s * dens
+          
+          Moment1(1) = Moment1(1) + s * x * dens
+          Moment1(2) = Moment1(2) + s * y * dens
+          Moment1(3) = Moment1(3) + s * z * dens
+          
+          Moment2(1,1) = Moment2(1,1) + s * x * x * dens
+          Moment2(1,2) = Moment2(1,2) + s * x * y * dens
+          Moment2(1,3) = Moment2(1,3) + s * x * z * dens
+          Moment2(2,2) = Moment2(2,2) + s * y * y * dens
+          Moment2(2,3) = Moment2(2,3) + s * y * z * dens
+          Moment2(3,3) = Moment2(3,3) + s * z * z * dens
+        END DO
+      END DO
+
+      IF(.TRUE.) THEN
+        Center = LumpedCenter
+      ELSE
+        ! One could also use the center of mass rather than center of force
+        Center = Moment1 / Moment0
+      END IF
+
+      Moment2(1,1) = Moment2(1,1) - Moment0 * Center(1) * Center(1)
+      Moment2(1,2) = Moment2(1,2) - Moment0 * Center(1) * Center(2)
+      Moment2(1,3) = Moment2(1,3) - Moment0 * Center(1) * Center(3)
+      Moment2(2,2) = Moment2(2,2) - Moment0 * Center(2) * Center(2)
+      Moment2(2,3) = Moment2(2,3) - Moment0 * Center(2) * Center(3)
+      Moment2(3,3) = Moment2(3,3) - Moment0 * Center(3) * Center(3)
+      
+      PRINT *,'Lumped Mass',Moment0
+      PRINT *,'Moment of Inertia',Moment2(1,1),Moment2(2,2),Moment2(3,3)
+      
+      CALL ListAddConstReal(Model % Simulation,'res: Mass',Moment0)
+      
+      CALL ListAddConstReal(Model % Simulation,'res: Lumped Center X',Center(1))
+      CALL ListAddConstReal(Model % Simulation,'res: Lumped Center Y',Center(2))
+      CALL ListAddConstReal(Model % Simulation,'res: Lumped Center Z',Center(3))
+      
+      CALL ListAddConstReal(Model % Simulation,'res: Moment of inertia XX',Moment2(1,1))
+      CALL ListAddConstReal(Model % Simulation,'res: Moment of inertia YY',Moment2(2,2))
+      CALL ListAddConstReal(Model % Simulation,'res: Moment of inertia ZZ',Moment2(3,3))
+      CALL ListAddConstReal(Model % Simulation,'res: Moment of inertia XY',Moment2(1,2))
+      CALL ListAddConstReal(Model % Simulation,'res: Moment of inertia XZ',Moment2(1,3))
+      CALL ListAddConstReal(Model % Simulation,'res: Moment of inertia YZ',Moment2(2,3))
+      
+      Mass = 0.0d0
+      DO i= 1,3
+        Mass(i,i) = Moment0
+      END DO
+      Mass(4:6,4:6) = Moment2
+
+      ! Save the area center to an external file
+      KmatFile = ListGetString(Solver % Values,'Model Lumping Filename',stat )
+      IF(.NOT. stat) KmatFile = "Kmat.dat"
+      OPEN (10, FILE= TRIM(KmatFile) // ".mass")
+      DO i=1,6
+        WRITE(10,'(6ES17.8E3)') Mass(i,:)
+      END DO
+      CLOSE(10)
+
+    END SUBROUTINE LumpedCartesianMass
 
 
   END SUBROUTINE StressSolver
@@ -1992,9 +2214,9 @@ CONTAINS
      DO l = 1,En
        DO k = 1,Pn
           IF ( Edge % NodeIndexes(l) == Element % NodeIndexes(k) ) THEN
-             x(l) = Element % Type % NodeU(k)
-             y(l) = Element % Type % NodeV(k)
-             z(l) = Element % Type % NodeW(k)
+             x(l) = Element % TYPE % NodeU(k)
+             y(l) = Element % TYPE % NodeV(k)
+             z(l) = Element % TYPE % NodeW(k)
              EXIT
           END IF
        END DO
@@ -2250,9 +2472,9 @@ CONTAINS
            DO j = 1,en
               DO k = 1,pn
                  IF ( Edge % NodeIndexes(j) == Element % NodeIndexes(k) ) THEN
-                    x(j) = Element % Type % NodeU(k)
-                    y(j) = Element % Type % NodeV(k)
-                    z(j) = Element % Type % NodeW(k)
+                    x(j) = Element % TYPE % NodeU(k)
+                    y(j) = Element % TYPE % NodeV(k)
+                    z(j) = Element % TYPE % NodeW(k)
                     EXIT
                  END IF
               END DO
@@ -2470,9 +2692,9 @@ CONTAINS
        ! Values of the stress tensor at node points:
        ! -------------------------------------------
        DO i = 1,n
-         u = Element % Type % NodeU(i)
-         v = Element % Type % NodeV(i)
-         w = Element % Type % NodeW(i)
+         u = Element % TYPE % NodeU(i)
+         v = Element % TYPE % NodeV(i)
+         w = Element % TYPE % NodeW(i)
 
          stat = ElementInfo( Element, Nodes, u, v, w, detJ, &
              Basis, dBasisdx )
