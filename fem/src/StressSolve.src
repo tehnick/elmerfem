@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StressSolve.src,v $
+! * Revision 1.36  2007/03/21 10:55:52  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.35  2007/03/20 11:37:51  raback
 ! * Added computation of lumped mass with the same center of coordinates
 ! * as the computation of lumped springs.
@@ -277,13 +280,13 @@
               NonlinearTol,s, UzawaParameter
 
      INTEGER ::  MaxIter, MinIter
-     TYPE(Variable_t), POINTER :: StressSol, TempSol, Var
+     TYPE(Variable_t), POINTER :: StressSol, TempSol, Var, TimeVar
 
      REAL(KIND=dp), POINTER :: Temperature(:),Displacement(:),Work(:,:,:), &
             VonMises(:), NodalStress(:), StressComp(:), ContactPressure(:), &
             NormalDisplacement(:), TransformMatrix(:,:), UWrk(:,:)
 
-     REAL(KIND=dp) :: UnitNorm, Unit1(3), Unit2(3), Unit3(3), Prevdt=-1
+     REAL(KIND=dp) :: UnitNorm, Unit1(3), Unit2(3), Unit3(3), Prevdt=-1, PrevTime=-1
 
      INTEGER, POINTER :: TempPerm(:),DisplPerm(:),StressPerm(:),NodeIndexes(:)
 
@@ -291,7 +294,8 @@
      LOGICAL :: PlaneStress, CalcStress, CalcStressAll, Isotropic = .TRUE.
      LOGICAL :: Contact = .FALSE.
      LOGICAL :: stat, stat2, stat3, RotateC, MeshDisplacementActive, &
-                ConstantBulkSystem, ConstantBulkMatrix, ConstantBulkMatrixInUse, ConstantSystem
+                ConstantBulkSystem, ConstantBulkMatrix, ConstantBulkMatrixInUse, ConstantSystem, &
+                UpdateSystem
 
      LOGICAL :: AllocationsDone = .FALSE., NormalTangential
      LOGICAL :: StabilityAnalysis = .FALSE., ModelLumping, FixDisplacement
@@ -314,7 +318,7 @@
        CalcStress, CalcStressAll, NodalDisplacement, Contact, ContactPressure, &
        NormalDisplacement, ContactLimit, LocalNormalDisplacement, &
        LocalContactPressure, PreStress, PreStrain, StressLoad, StrainLoad, Work, &
-       RotateC, TransformMatrix, body_id, NodalMeshVelo
+       RotateC, TransformMatrix, body_id, NodalMeshVelo, PrevTime
 !------------------------------------------------------------------------------
      INTEGER :: dim
      REAL(KIND=dp) :: at,at0,CPUTime,RealTime
@@ -349,7 +353,7 @@
         END FUNCTION StressInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.35 2007/03/20 11:37:51 raback Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.36 2007/03/21 10:55:52 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -563,13 +567,26 @@
      ConstantBulkMatrix = GetLogical( SolverParams, 'Constant Bulk Matrix', Found )
 !------------------------------------------------------------------------------
 
+     UpdateSystem = .FALSE.
+     IF( .NOT. ListGetString( CurrentModel % Simulation,'Simulation Type') == 'steady state') THEN
+       UpdateSystem = GetLogical( SolverParams, 'Update Transient System', Found )
+       IF(UpdateSystem) THEN
+         TimeVar => VariableGet( Solver % Mesh % Variables, 'Time' )            
+         IF (ABS(TimeVar % Values(1) - PrevTime) > AEPS) THEN
+           PrevTime = TimeVar % Values(1)
+         ELSE
+           UpdateSystem = .FALSE.
+         END IF
+       END IF
+     END IF
+
      ModelLumping = GetLogical( SolverParams, 'Model Lumping', Found )
      IF ( ModelLumping ) THEN       
        FixDisplacement = GetLogical( SolverParams, 'Fix Displacement', Found )
        IF(.NOT. Found) FixDisplacement = .TRUE.
        IF(DIM /= 3) CALL Fatal('StressSolve','Model Lumping implemented only for 3D')
-!       MaxIter = 6
-!       MinIter = MaxIter
+       MaxIter = 6
+       MinIter = MaxIter
        ConstantBulkSystem = .TRUE.
        CALL CoordinateIntegrals(LumpedArea, LumpedCenter, LumpedMoments, &
             Model % MaxElementNodes)
@@ -604,7 +621,7 @@
        ConstantBulkMatrixInUse = ConstantBulkMatrix .AND. &
            ASSOCIATED(Solver % Matrix % BulkValues)
 
-       IF ( ASSOCIATED(Solver % Matrix % BulkValues) ) THEN
+       IF ( ASSOCIATED(Solver % Matrix % BulkValues) .AND. .NOT. UpdateSystem) THEN
          IF ( ConstantBulkMatrix .OR. ConstantBulkSystem .OR. ConstantSystem ) THEN
            Solver % Matrix % DampValues = 0.0d0
            Solver % Matrix % Values = Solver % Matrix % BulkValues
@@ -697,11 +714,6 @@
            CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'Stress' )
            CALL InvalidateVariable( Model % Meshes, Solver % Mesh, 'VonMises' )
         END IF
-     END IF
-
-     ! The distorted mesh is useless in model lumping (this overcomes a bug also)
-     IF( ModelLumping .AND. MaxIter == 6) THEN
-       Displacement = 0.0d0
      END IF
 
      IF ( GetLogical( SolverParams, 'Adaptive Mesh Refinement', Found) ) THEN
@@ -1993,7 +2005,7 @@ CONTAINS
       REAL(KIND=dp) :: Basis(Solver % Mesh % MaxElementNodes), &
           dBasisdx(Solver % Mesh % MaxElementNodes, 3)
       REAL(KIND=dp) :: x, y, z, U, V, W, S
-      REAL (KIND=DP) :: Moment0, Moment1(3), Moment2(3,3), Center(3), Mass(6,6)
+      REAL (KIND=DP) :: Moment0, Moment1(3), Moment2(3,3), Center(3), MassMatrix(6,6)
       CHARACTER(LEN=MAX_NAME_LEN) :: KmatFile
          
 !------------------------------------------------------------------------------
@@ -2097,18 +2109,18 @@ CONTAINS
       CALL ListAddConstReal(Model % Simulation,'res: Moment of inertia XZ',Moment2(1,3))
       CALL ListAddConstReal(Model % Simulation,'res: Moment of inertia YZ',Moment2(2,3))
       
-      Mass = 0.0d0
+      MassMatrix = 0.0d0
       DO i= 1,3
-        Mass(i,i) = Moment0
+        MassMatrix(i,i) = Moment0
       END DO
-      Mass(4:6,4:6) = Moment2
+      MassMatrix(4:6,4:6) = Moment2
 
       ! Save the area center to an external file
       KmatFile = ListGetString(Solver % Values,'Model Lumping Filename',stat )
       IF(.NOT. stat) KmatFile = "Kmat.dat"
       OPEN (10, FILE= TRIM(KmatFile) // ".mass")
       DO i=1,6
-        WRITE(10,'(6ES17.8E3)') Mass(i,:)
+        WRITE(10,'(6ES17.8E3)') MassMatrix(i,:)
       END DO
       CLOSE(10)
 

@@ -21,6 +21,11 @@ CONTAINS
     REAL(KIND=dp) :: Omega = 10, norm, TOL=1.0d-6, s, ILUTol
     REAL(KIND=dp), POINTER :: Freqv(:,:)
     REAL(KIND=dp), ALLOCATABLE :: x(:), b(:)
+    REAL(KIND=dp), TARGET :: matfreqv(1,1)
+    REAL(KIND=dp) :: vecfreqv(1)
+    INTEGER, TARGET :: Dnodes(1)
+    INTEGER, POINTER :: NodeIndexes(:)
+	
 
     n = Solver % Matrix % NumberofRows
     ALLOCATE( x(2*n), b(2*n) )
@@ -76,7 +81,19 @@ CONTAINS
       END IF
     END IF
 
-    freqv => ListGetConstRealArray( Solver % Values, 'Frequency' )
+    ! This cumbersome way makes it possible to use the same data structure even in the case
+    ! of simulation mode being scanning 	
+    IF( ListGetString( CurrentModel % Simulation,'Simulation Type') == 'scanning') THEN
+      NodeIndexes => Dnodes
+      i = 1
+      NodeIndexes(i) = 1   
+      vecfreqv(1:1) = ListGetReal(Solver % Values,'Frequency',i,NodeIndexes)
+      matfreqv(1,1) = vecfreqv(1)
+      freqv => matfreqv
+      CALL ListAddConstReal( CurrentModel % Simulation,'res: Frequency',matfreqv(1,1))
+    ELSE
+      freqv => ListGetConstRealArray( Solver % Values, 'Frequency' )
+    END IF
 
     DO i=1,MIN(SIZE(freqv,1), Solver % NOFEigenValues)
       WRITE( Message, '(a,i5,e12.3)' ) 'Frequency sweep: ', i, freqv(i,1)
