@@ -38,7 +38,7 @@
 ! *
 ! ******************************************************************************/
 ! *
-! * $Id: DiffuseConvectiveGeneralAnisotropic.src,v 1.7 2006/02/01 08:07:57 jpr Exp $
+! * $Id: DiffuseConvectiveGeneralAnisotropic.src,v 1.8 2007/03/16 13:32:37 jpr Exp $
 ! ******************************************************************************
 
 MODULE DiffuseConvectiveGeneral
@@ -55,7 +55,7 @@ MODULE DiffuseConvectiveGeneral
    SUBROUTINE DiffuseConvectiveGenCompose( MassMatrix,StiffMatrix,ForceVector,  &
     LoadVector,NodalCT,NodalC0,NodalC1,NodalC2,PhaseChange,Temperature,Enthalpy,&
        Ux,Uy,Uz,MUx,MUy, MUz, NodalViscosity,NodalDensity,NodalPressure,        &
-         Compressible, Stabilize,Element,n,Nodes )
+         NodaldPressureDt,NodalPressureCoeff,Compressible, Stabilize,Element,n,Nodes )
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -118,7 +118,7 @@ MODULE DiffuseConvectiveGeneral
      REAL(KIND=dp), DIMENSION(:,:) :: MassMatrix,StiffMatrix
      REAL(KIND=dp) :: NodalC0(:),NodalC1(:),NodalCT(:),NodalC2(:,:,:)
      REAL(KIND=dp) :: Temperature(:),Enthalpy(:),NodalViscosity(:), &
-                      NodalPressure(:),dT, NodalDensity(:)
+       NodaldPressuredt(:),NodalPressureCoeff(:),NodalPressure(:),dT, NodalDensity(:)
 
      LOGICAL :: Stabilize,PhaseChange,Compressible
 
@@ -145,7 +145,7 @@ MODULE DiffuseConvectiveGeneral
 
      INTEGER :: i,j,k,c,p,q,t,dim,N_Integ,NBasis
 
-     REAL(KIND=dp) :: s,u,v,w,dEnth,dTemp,Viscosity,Pressure,DivVelo,dVelodx(3,3)
+     REAL(KIND=dp) :: s,u,v,w,dEnth,dTemp,Viscosity,Pressure,pCoeff,DivVelo,dVelodx(3,3)
 
      REAL(KIND=dp) :: SqrtMetric,Metric(3,3),Symb(3,3,3),dSymb(3,3,3,3)
 
@@ -450,7 +450,14 @@ MODULE DiffuseConvectiveGeneral
        Force = SUM( LoadVector(1:n)*Basis(1:n) ) + &
             JouleHeat( Element,Nodes,u,v,w,n )
        IF ( Convection ) THEN
-         IF ( Compressible ) Force = Force - Pressure * DivVelo
+!        IF ( Compressible ) Force = Force - Pressure * DivVelo
+         Pcoeff = SUM( NodalPressureCoeff(1:n) * Basis(1:n) )
+         IF ( Pcoeff /= 0.0_dp ) THEN
+           Force = Force + Pcoeff*SUM( NodalDPressureDt(1:n) * Basis(1:n) )
+           DO i=1,dim
+             Force = Force + Pcoeff*Velo(i)*SUM( NodalPressure(1:n)*dBasisdx(1:n,i) )
+           END DO
+         END IF
 
          Viscosity = SUM( NodalViscosity(1:n) * Basis(1:n) )
          Viscosity = EffectiveViscosity( Viscosity, Density, Ux, Uy, Uz, &
