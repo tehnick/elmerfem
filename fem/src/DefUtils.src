@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: DefUtils.src,v $
+! * Revision 1.36  2007/01/03 13:30:24  jpr
+! * OpenMP changes.
+! *
 ! * Revision 1.35  2007/01/03 09:11:18  jpr
 ! * Initial changes to enable openmp parallellization...
 ! *
@@ -168,7 +171,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.35 2007/01/03 09:11:18 jpr Exp $
+! * $Id: DefUtils.src,v 1.36 2007/01/03 13:30:24 jpr Exp $
 ! *
 ! *****************************************************************************/
 
@@ -499,11 +502,45 @@ CONTAINS
   END FUNCTION
 
 
+  RECURSIVE FUNCTION GetCReal( List, Name, Found ) RESULT(s)
+     TYPE(ValueList_t), POINTER :: List
+     CHARACTER(LEN=*) :: Name
+     LOGICAL, OPTIONAL :: Found
+     INTEGER, TARGET :: Dnodes(1)
+     INTEGER, POINTER :: NodeIndexes(:)
+
+     REAL(KIND=dp) :: s
+     REAL(KIND=dp), POINTER :: x(:)
+     TYPE(Element_t), POINTER :: Element
+
+     INTEGER :: n, nthreads, thread, istat
+
+     IF ( PRESENT( Found ) ) Found = .FALSE.
+
+     NodeIndexes => Dnodes
+     n = 1
+     NodeIndexes(n) = 1
+
+     x => GetStore(n)
+     x = 0.0d0
+     IF ( ASSOCIATED(List) ) THEN
+        IF ( PRESENT( Found ) ) THEN
+           x(1:n) = ListGetReal( List, Name, n, NodeIndexes, Found )
+        ELSE
+           x(1:n) = ListGetReal( List, Name, n, NodeIndexes )
+        END IF
+     END IF
+     s = x(1)
+  END FUNCTION GetCReal
+
+
 
   RECURSIVE FUNCTION GetReal( List, Name, Found, UElement ) RESULT(x)
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
      LOGICAL, OPTIONAL :: Found
+     INTEGER, TARGET :: Dnodes(1)
+     INTEGER, POINTER :: NodeIndexes(:)
      TYPE(Element_t), OPTIONAL, TARGET :: UElement
 
      REAL(KIND=dp), POINTER :: x(:)
@@ -516,14 +553,22 @@ CONTAINS
      Element => CurrentModel % CurrentElement
      IF ( PRESENT( UElement ) ) Element => UElement
 
-     n = GetElementNOFNodes( Element )
+     IF ( ASSOCIATED(Element) ) THEN
+       n = GetElementNOFNodes(Element)
+       NodeIndexes => Element % NodeIndexes
+     ELSE
+       n = 1
+       NodeIndexes => Dnodes
+       NodeIndexes(1) = 1
+     END IF
+
      x => GetStore(n)
      x = 0.0d0
      IF ( ASSOCIATED(List) ) THEN
         IF ( PRESENT( Found ) ) THEN
-           x(1:n) = ListGetReal( List, Name, n, Element % NodeIndexes, Found )
+           x(1:n) = ListGetReal( List, Name, n, NodeIndexes, Found )
         ELSE
-           x(1:n) = ListGetReal( List, Name, n, Element % NodeIndexes )
+           x(1:n) = ListGetReal( List, Name, n, NodeIndexes )
         END IF
      END IF
   END FUNCTION GetReal
