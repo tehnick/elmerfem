@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StatElecSolve.src,v $
+! * Revision 1.28  2007/03/13 07:36:42  raback
+! * *** empty log message ***
+! *
 ! * Revision 1.27  2007/03/12 12:02:01  raback
 ! * *** empty log message ***
 ! *
@@ -195,7 +198,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: PiezoMaterial, CalculateSurfCharge, SaveBulk, ConstantBulk
   
   CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, CapMatrixFile, Name
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.27 2007/03/12 12:02:01 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.28 2007/03/13 07:36:42 raback Exp $"
   
   
   SAVE LocalStiffMatrix, Load, LocalForce, Pwrk, PotDiff, &
@@ -522,11 +525,15 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   CALL Info( 'StatElecSolve', '-------------------------------------',Level=4 )
   CALL Info( 'StatElecSolve', 'STATELEC SOLVER:  ', Level=4 )
   CALL Info( 'StatElecSolve', '-------------------------------------',Level=4 )
-  CALL Info( 'StatElecSolve', 'Starting Assembly...', Level=4 )
-  
-
 
   DO iter = 1, NonlinearIter
+
+     IF ( NonlinearIter > 1 ) THEN
+        WRITE( Message, '(a,I4)' ) 'Electrostatic iteration', iter
+        CALL Info( 'StatElecSolve', ' ', LEVEL=4 )
+        CALL Info( 'StatElecSolve', Message, LEVEL=4 )
+     END IF
+     CALL Info( 'StatElecSolve', 'Starting Assembly...', Level=4 )
 
 !------------------------------------------------------------------------------
 !    Do the assembly
@@ -891,6 +898,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
        CALL Info( 'StatElecSolve', Message, Level=4 )
        WRITE( Message, * ) 'Relative Change : ',RelativeChange
        CALL Info( 'StatElecSolve', Message, Level=4 )       
+       CALL Info( 'StatElecSolve', ' ', Level=4 )       
        IF ( RelativeChange < NonlinearTol)  EXIT
      END IF
 
