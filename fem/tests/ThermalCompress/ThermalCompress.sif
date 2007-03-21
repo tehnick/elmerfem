@@ -61,14 +61,16 @@ Equation 1
 End
 
 
+$ RefT=293
+
 Material 1
-  Density = 5
+  Density = 1
   Viscosity = 1
-  Heat Capacity = 100
+  Heat Capacity = 1000
   Heat Conductivity  = 1.36986
-  Reference Temperature = 0
+  Reference Temperature = $RefT
   Compressibility Model = Thermal
-  Heat Expansion Coefficient = 0.1
+  Heat Expansion Coefficient = 0.25
 End
 
 
@@ -86,7 +88,7 @@ Boundary Condition 2
 
   Velocity 1 = 0
   Velocity 2 = 0
-  Temperature = 0.5
+  Temperature = $RefT+0.5
 End
 
 
@@ -95,12 +97,8 @@ Boundary Condition 3
 
   Velocity 1 = 0
   Velocity 2 = 0
-  Temperature
-    Variable Coordinate 1
-      Real
-        0  0.5
-        1 -0.5
-      End
+  Temperature = Variable Coordinate 1
+    Real MATC "RefT - tx + 0.5"
 End
 
 
@@ -110,5 +108,5 @@ Boundary Condition 4
 
   Velocity 1 = 0
   Velocity 2 = 0
-  Temperature = -0.5
+  Temperature = $ RefT - 0.5
 End
