@@ -487,16 +487,20 @@ int LoadElmerInput(struct FemType *data,struct BoundaryType *bound,
 {
   int noknots,noelements,nosides,maxelemtype;
   int sideind[MAXNODESD1],tottypes,elementtype;
-  int i,j,k,dummyint;
+  int i,j,k,dummyint,cdstat;
   FILE *in;
   char line[MAXLINESIZE],filename[MAXFILESIZE],directoryname[MAXFILESIZE];
 
 
   sprintf(directoryname,"%s",prefix);
-  chdir(directoryname);
+  cdstat = chdir(directoryname);
 
-  if(info) printf("Loading mesh in ElmerSolver format from directory %s.\n",
-		  directoryname);
+  if(info) {
+    if(cdstat) 
+      printf("Loading mesh in ElmerSolver format root directory %s.\n");
+    else
+      printf("Loading mesh in ElmerSolver format from directory %s.\n",directoryname);
+  }
 
   InitializeKnots(data);
 
@@ -632,7 +636,7 @@ int LoadElmerInput(struct FemType *data,struct BoundaryType *bound,
   bound->nosides = i;
   fclose(in); 
 
-  chdir("..");
+  if(!cdstat) chdir("..");
 
   return(0);
 }
@@ -2824,23 +2828,24 @@ optimizeownership:
 
 #define DEBUG 1
 int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
-			      char *prefix,int decimals,int info)
+			      char *prefix,int decimals,int halo,int info)
 /* Saves the mesh in a form that may be used as input 
    in Elmer calculations in parallel platforms. 
    */
 {
-  int noknots,noelements,sumsides,partitions,hit;
-  int nodesd2,nodesd1,discont,maxelemtype,minelemtype;
-  int part,elemtype,sideelemtype,*needednodes,*neededtwice;
+  int noknots,noelements,sumsides,partitions,hit,halotype;
+  int nodesd2,nodesd1,discont,maxelemtype,minelemtype,sidehits,elemsides,side;
+  int part,otherpart,part2,part3,elemtype,sideelemtype,*needednodes,*neededtwice;
   int **bulktypes,*sidetypes,tottypes;
-  int i,j,k,l,m,ind,ind2,sideind[MAXNODESD1],sidehit[MAXNODESD1],elemhit[MAXNODESD2];
+  int i,j,k,l,l2,m,ind,ind2,sideind[MAXNODESD1],sidehit[MAXNODESD1],elemhit[MAXNODESD2];
   char filename[MAXFILESIZE],filename2[MAXFILESIZE],outstyle[MAXFILESIZE];
   char directoryname[MAXFILESIZE],subdirectoryname[MAXFILESIZE];
   int *neededtimes,*elempart,*indxper,*elementsinpart,*periodicinpart,*indirectinpart,*sidesinpart;
   int maxneededtimes,periodic,periodictype,indirecttype,bcneeded,trueparent,*ownerpart;
   int *sharednodes,*ownnodes,reorder,*order,*invorder,*bcnodesaved,*bcnodesaved2,orphannodes;
-  int *bcnodedummy;
+  int *bcnodedummy,*elementhalo;
   FILE *out,*outfiles[MAXPARTITIONS+1];
+
 
   if(!data->created) {
     printf("You tried to save points that were never created.\n");
@@ -2920,13 +2925,13 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   if(info) printf("Saving mesh in parallel ElmerSolver format to directory %s/%s.\n",
 		  directoryname,subdirectoryname);
 
-
   elementsinpart = Ivector(1,partitions);
   periodicinpart = Ivector(1,partitions);
   indirectinpart = Ivector(1,partitions);
   sidesinpart = Ivector(1,partitions);
+  elementhalo = Ivector(1,partitions);
   for(i=1;i<=partitions;i++)
-    elementsinpart[i] = periodicinpart[i] = indirectinpart[i] = sidesinpart[i] = 0;
+    elementsinpart[i] = periodicinpart[i] = indirectinpart[i] = sidesinpart[i] = elementhalo[i] = 0;
 
   for(j=1;j<=partitions;j++)
     for(i=minelemtype;i<=maxelemtype;i++)
@@ -2941,7 +2946,16 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
       if(data->partitiontable[j][i]) neededtimes[i] += 1;
   }
   printf("Nodes belong to %d partitions in maximum\n",maxneededtimes);
+
+  if(halo) {
+    halotype = data->material[1];
+    for(i=1;i<=noelements;i++)
+      halotype = MAX( halotype, data->material[i]);
+    halotype++;
+    if(info) printf("Setting body index %d for the boundary halo\n",halotype);
+  }
   
+
 
   /*********** part.n.elements *********************/
   /* Save elements in all partitions and where they are needed */
@@ -2955,6 +2969,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     part = elempart[i];
 
     elemtype = data->elementtypes[i];
+    nodesd2 = elemtype%100;
     bulktypes[part][elemtype] += 1;
     elementsinpart[part] += 1;
 
@@ -2967,19 +2982,104 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     else {
       fprintf(outfiles[part],"%d %d %d ",i,data->material[i],elemtype);
     }
-    nodesd2 = elemtype%100;
 
+    otherpart = 0;
     for(j=0;j < nodesd2;j++) {
       ind = data->topology[i][j];
       if(reorder) ind = order[ind];
       fprintf(outfiles[part],"%d ",ind);
+      if(neededtimes[ind] > 1) otherpart++;
     }
     fprintf(outfiles[part],"\n");    
+
+
+    /* The face can be shared only if there are enough shared nodes */
+    if(halo && otherpart >= data->dim) {
+
+      /* If the saving of halo is requested check it for elements which have at least 
+	 two nodes in shared partitions. */
+      elemsides = elemtype / 100;
+      if(elemsides == 8) elemsides = 6;
+      else if(elemsides == 6) elemsides = 5;
+      else if(elemsides == 5) elemsides = 4;
+      
+      /* In order for the halo to be present the element should have a boundary 
+	 fully immersed in the other partition. */
+
+      for(side=0;side<elemsides;side++) {
+	GetElementSide(i,side,1,data,&sideind[0],&sideelemtype);
+
+	for(l=1;l<=neededtimes[sideind[0]];l++) {
+	  part2 = data->partitiontable[l][sideind[0]];
+	  if(part2 == part) continue;
+
+	  sidehits = 1;
+	  for(k=1;k<sideelemtype%100;k++) {
+	    for(l2=1;l2<=neededtimes[sideind[k]];l2++) {
+	      part3 = data->partitiontable[l2][sideind[k]];
+	      if(part2 == part3) sidehits++;
+	    }
+	  }
+
+	  if(sidehits == sideelemtype % 100 && elementhalo[part2] != i) {
+	    printf("Adding halo for partition %d and element %d\n",part2,i);
+
+	    fprintf(outfiles[part2],"%d %d %d ",i,halotype,elemtype);
+	    for(j=0;j < nodesd2;j++) {
+	      ind = data->topology[i][j];
+	      if(reorder) ind = order[ind];
+	      fprintf(outfiles[part2],"%d ",ind);
+	    }
+	    fprintf(outfiles[part2],"\n");    	    
+	    bulktypes[part2][elemtype] += 1;
+	    elementsinpart[part2] += 1;	
+
+	    /* Add the halo on-the-fly */
+	    
+	    for(j=0;j < nodesd2;j++) {
+	      ind = data->topology[i][j];
+	      hit = FALSE;
+	      for(k=1;k<=maxneededtimes;k++) {
+		part3 = data->partitiontable[k][ind];
+		if(part3 == part2) hit = TRUE;
+		if(!part3) break;
+	      }
+	      if(!hit) {
+		if(k <= maxneededtimes) {
+		  data->partitiontable[k][ind] = part2;
+		} 
+		else {
+		  maxneededtimes++;
+		  data->partitiontable[maxneededtimes] = Ivector(1,noknots);
+		  for(m=1;m<=noknots;m++)
+		    data->partitiontable[maxneededtimes][m] = 0;
+		  data->partitiontable[maxneededtimes][k] = part2;
+		  data->maxpartitiontable = maxneededtimes;
+		}
+	      }
+	    }
+
+ 
+	  }
+	}  
+      }
+    }
   }
 
   for(part=1;part<=partitions;part++)   
     fclose(outfiles[part]);
   /* part.n.elements saved */
+
+
+  if(halo) {
+    for(i=1;i<=noknots;i++) {
+      neededtimes[i] = 0;
+      for(j=1;j<=maxneededtimes;j++)
+	if(data->partitiontable[j][i]) neededtimes[i] += 1;
+    }
+    printf("With the halos nodes belong to %d partitions in maximum\n",maxneededtimes);
+  }
+ 
 
 
   periodictype = 0;
