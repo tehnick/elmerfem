@@ -3061,10 +3061,11 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 		} 
 		else {
 		  maxneededtimes++;
+		  printf("Allocating new column %d in partitiontable\n",maxneededtimes);
 		  data->partitiontable[maxneededtimes] = Ivector(1,noknots);
 		  for(m=1;m<=noknots;m++)
 		    data->partitiontable[maxneededtimes][m] = 0;
-		  data->partitiontable[maxneededtimes][k] = part2;
+		  data->partitiontable[maxneededtimes][ind] = part2;
 		  data->maxpartitiontable = maxneededtimes;
 		}
 	      }
@@ -3086,10 +3087,10 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     neededtimes2 = Ivector(1,noknots);
     for(i=1;i<=noknots;i++) {
       neededtimes2[i] = 0;
-      for(j=1;j<=maxneededtimes;j++)
+      for(j=1;j<=maxneededtimes;j++) 
 	if(data->partitiontable[j][i]) neededtimes2[i] += 1;
     }
-    printf("With the halos nodes belong to %d partitions in maximum\n",maxneededtimes);
+    if(info) printf("With the halos nodes belong to %d partitions in maximum\n",maxneededtimes);
   }
   else {
     neededtimes2 = neededtimes;
@@ -3136,6 +3137,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     if(reorder) i=invorder[l];
 
     for(j=1;j<=neededtimes2[i];j++) {
+
       k = data->partitiontable[j][i];
 	
       ind = i;
@@ -3157,6 +3159,8 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     fclose(outfiles[part]);
   /* part.n.nodes saved */
       
+  printf("partitioned nodes saved\n");
+
 
   /*********** part.n.shared *********************/
   for(part=1;part<=partitions;part++) {
@@ -3599,6 +3603,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   } /* of part */
 
   free_Ivector(bcnodesaved2,1,noknots);
+  if(halo) free_Ivector(neededtimes2,1,noknots);
   
 
   chdir("..");
