@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ElmerSolver.src,v 1.20 2006/12/29 13:57:53 edelmann Exp $
+! * $Id: ElmerSolver.src,v 1.21 2007/03/20 11:01:27 jpr Exp $
 ! ******************************************************************************
 
 !------------------------------------------------------------------------------
@@ -953,9 +953,9 @@
 !    Convert results file to post processing file, if requested
 !------------------------------------------------------------------------------
     TYPE(Variable_t), POINTER :: Var
-    INTEGER :: i, CurrentStep,nlen
     LOGICAL :: EigAnal = .FALSE.
     CHARACTER(LEN=MAX_NAME_LEN) :: Simul
+    INTEGER :: i, CurrentStep,nlen,timesteps
     
     Simul = ListGetString( CurrentModel % Simulation,  'Simulation Type' )
     
@@ -989,6 +989,18 @@
              CALL SetCurrentMesh( CurrentModel, Mesh )
 
              EigAnal = .FALSE.
+             timesteps = TotalTimeSteps
+             DO i=1,CurrentModel % NumberOfSolvers
+                IF (ASSOCIATED(CurrentModel % Solvers(i) % Mesh, Mesh)) THEN
+                   EigAnal = ListGetLogical( CurrentModel % &
+                       Solvers(i) % Values, 'Eigen Analysis', GotIt )
+                   EigAnal = EigAnal .OR. ListGetLogical( CurrentModel % &
+                       Solvers(i) % Values, 'Harmonic Analysis', GotIt )
+                   IF ( EigAnal ) timesteps = MAX( timesteps, &
+                            CurrentModel % Solvers(i) % NOFEigenValues )
+                END IF
+             END DO
+
              IF ( CurrentStep /= 0 ) THEN
                DO i=1,CurrentModel % NumberOfSolvers
                   IF (ASSOCIATED(CurrentModel % Solvers(i) % Mesh, Mesh)) THEN
@@ -1036,14 +1048,8 @@
                END DO
              END IF
 
-             IF ( .NOT. EigAnal ) THEN
-                IF ( CurrentModel % Solvers(1) % NOFEigenValues > 0 ) THEN
-                   CALL WritePostFile( PostName, OutputName, CurrentModel, &
-                      CurrentModel % Solvers(1) % NOFEigenValues, .TRUE. )
-                ELSE
-                   CALL WritePostFile( PostName, OutputName, &
-                      CurrentModel, TotalTimesteps, .TRUE. )
-                END IF
+             IF ( .NOT. EigAnal .OR. CurrentStep == 0 ) THEN
+               CALL WritePostFile( PostName, OutputName, CurrentModel, timesteps, .TRUE. )
              END IF
           END IF
           Mesh => Mesh % Next
