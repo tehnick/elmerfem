@@ -2267,7 +2267,7 @@ int PartitionMetisNodes(struct FemType *data,int partitions,int metisopt,int inf
     }
   }
 
-  if(info) printf("There are %d connections alltogether\n",totcon);
+  if(0) printf("There are %d connections alltogether.\n",totcon);
 
   xadj = Ivector(0,noknots);
   adjncy = Ivector(0,totcon-1);
@@ -2456,10 +2456,10 @@ static int CheckPartitioning(struct FemType *data,int info)
 }
 
 
-static int OptimizePartitioningAtGap(struct FemType *data,struct BoundaryType *bound,int info)
+static int OptimizePartitioningAtBoundary(struct FemType *data,struct BoundaryType *bound,int info)
 {
   int i,j,k,l,n,m,boundaryelems,ind,periodic,hit,hit2;
-  int dompart,part1,part2,newmam,mam1,mam2,part;
+  int dompart,part1,part2,newmam,mam1,mam2,part,discont;
   int nodesd2;
 
   if(!data->partitionexist) {
@@ -2467,7 +2467,7 @@ static int OptimizePartitioningAtGap(struct FemType *data,struct BoundaryType *b
     bigerror("Optimization not performed!");
   }
 
-  printf("Optimizing the partitioning at discontinous boundaries.\n");
+  if(0) printf("Optimizing the partitioning at boundaries.\n");
   
   /* Set the secondary parent to be a parent also because we want all 
      internal BCs to be within the same partition. 
@@ -2491,7 +2491,7 @@ static int OptimizePartitioningAtGap(struct FemType *data,struct BoundaryType *b
 	if(part1 == part2) continue;
 	  
 	/* The first iterations check which parents is ruling 
-	   thereafter choose pragnmatically the other to overcome
+	   thereafter choose pragmatically the other to overcome
 	   oscillating solutions. */
 	if(k < 5) {
 	  hit = hit2 = 0;
@@ -2532,11 +2532,11 @@ static int OptimizePartitioningAtGap(struct FemType *data,struct BoundaryType *b
 	}
       }
     }
-    if(info) printf("%d bulk elements with BCs removed from interface.\n",boundaryelems);
+    if(info && boundaryelems) printf("%d bulk elements with BCs removed from interface.\n",boundaryelems);
   } while(boundaryelems && k < 10);
 
  
-  if(info) printf("The partitioning at discontinous gaps was optimized.\n"); 
+  if(0) printf("The partitioning at discontinous gaps was optimized.\n"); 
   return(0);
 }
 
@@ -2562,7 +2562,7 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
   if(0) CheckPartitioning(data,info);
 
   /* This is the only routine that affects the ownership of elements */
-  OptimizePartitioningAtGap(data,bound,info);
+  OptimizePartitioningAtBoundary(data,bound,info);
 
   /* Create a table showing to which partitions nodes belong to */
   CreatePartitionTable(data,info);
@@ -2798,7 +2798,7 @@ optimizeownership:
       }
     }
 
-    if(info) printf("Changed the ownership of %d nodes\n",sharings);
+    if(info && sharings) printf("Changed the ownership of %d nodes\n",sharings);
 
   } while (sharings > 0 && m < 3);
 
@@ -3061,12 +3061,11 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 		} 
 		else {
 		  maxneededtimes++;
-		  printf("Allocating new column %d in partitiontable\n",maxneededtimes);
+		  if(0) printf("Allocating new column %d in partitiontable\n",maxneededtimes);
 		  data->partitiontable[maxneededtimes] = Ivector(1,noknots);
 		  for(m=1;m<=noknots;m++)
 		    data->partitiontable[maxneededtimes][m] = 0;
 		  data->partitiontable[maxneededtimes][ind] = part2;
-		  data->maxpartitiontable = maxneededtimes;
 		}
 	      }
 	    }
@@ -3084,13 +3083,20 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
 
   if(halo) {
+    int halonodes;
     neededtimes2 = Ivector(1,noknots);
+    halonodes = 0;
     for(i=1;i<=noknots;i++) {
       neededtimes2[i] = 0;
       for(j=1;j<=maxneededtimes;j++) 
 	if(data->partitiontable[j][i]) neededtimes2[i] += 1;
+      halonodes += neededtimes2[i] - neededtimes[i];
     }
-    if(info) printf("With the halos nodes belong to %d partitions in maximum\n",maxneededtimes);
+    if(data->maxpartitiontable < maxneededtimes) {
+      data->maxpartitiontable = maxneededtimes;
+      if(info) printf("With the halos nodes belong to %d partitions in maximum\n",maxneededtimes);
+    }
+    if(info) printf("There are %d additional shared nodes resulting from the halo.\n",halonodes);
   }
   else {
     neededtimes2 = neededtimes;
@@ -3159,8 +3165,6 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     fclose(outfiles[part]);
   /* part.n.nodes saved */
       
-  printf("partitioned nodes saved\n");
-
 
   /*********** part.n.shared *********************/
   for(part=1;part<=partitions;part++) {
