@@ -2843,7 +2843,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   int *neededtimes,*elempart,*indxper,*elementsinpart,*periodicinpart,*indirectinpart,*sidesinpart;
   int maxneededtimes,periodic,periodictype,indirecttype,bcneeded,trueparent,*ownerpart;
   int *sharednodes,*ownnodes,reorder,*order,*invorder,*bcnodesaved,*bcnodesaved2,orphannodes;
-  int *bcnodedummy,*elementhalo;
+  int *bcnodedummy,*elementhalo,*neededtimes2;
   FILE *out,*outfiles[MAXPARTITIONS+1];
 
 
@@ -2986,23 +2986,34 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     otherpart = 0;
     for(j=0;j < nodesd2;j++) {
       ind = data->topology[i][j];
+      if(neededtimes[ind] > 1) otherpart++;
       if(reorder) ind = order[ind];
       fprintf(outfiles[part],"%d ",ind);
-      if(neededtimes[ind] > 1) otherpart++;
     }
     fprintf(outfiles[part],"\n");    
 
 
     /* The face can be shared only if there are enough shared nodes */
-    if(halo && otherpart >= data->dim) {
+    if(halo && otherpart) {
 
       /* If the saving of halo is requested check it for elements which have at least 
 	 two nodes in shared partitions. */
       elemsides = elemtype / 100;
-      if(elemsides == 8) elemsides = 6;
-      else if(elemsides == 6) elemsides = 5;
-      else if(elemsides == 5) elemsides = 4;
-      
+      if(elemsides == 8) {
+	if(otherpart < 4) continue;
+	elemsides = 6;
+      }
+      else if(elemsides == 6) {
+	if(otherpart < 3) continue;
+	elemsides = 5;
+      }
+      else if(elemsides == 5) {
+	if(otherpart < 3) continue;
+	elemsides = 4;
+      }      
+      else 
+	if(otherpart < 2) continue;
+
       /* In order for the halo to be present the element should have a boundary 
 	 fully immersed in the other partition. */
 
@@ -3022,7 +3033,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	  }
 
 	  if(sidehits == sideelemtype % 100 && elementhalo[part2] != i) {
-	    printf("Adding halo for partition %d and element %d\n",part2,i);
+	    if(0) printf("Adding halo for partition %d and element %d\n",part2,i);
 
 	    fprintf(outfiles[part2],"%d %d %d ",i,halotype,elemtype);
 	    for(j=0;j < nodesd2;j++) {
@@ -3072,14 +3083,17 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
 
   if(halo) {
+    neededtimes2 = Ivector(1,noknots);
     for(i=1;i<=noknots;i++) {
-      neededtimes[i] = 0;
+      neededtimes2[i] = 0;
       for(j=1;j<=maxneededtimes;j++)
-	if(data->partitiontable[j][i]) neededtimes[i] += 1;
+	if(data->partitiontable[j][i]) neededtimes2[i] += 1;
     }
     printf("With the halos nodes belong to %d partitions in maximum\n",maxneededtimes);
   }
- 
+  else {
+    neededtimes2 = neededtimes;
+  }
 
 
   periodictype = 0;
@@ -3121,7 +3135,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     i = l;
     if(reorder) i=invorder[l];
 
-    for(j=1;j<=neededtimes[i];j++) {
+    for(j=1;j<=neededtimes2[i];j++) {
       k = data->partitiontable[j][i];
 	
       ind = i;
@@ -3154,9 +3168,9 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     i = l;
     if(reorder) i=invorder[l];
 
-    if(neededtimes[i] <= 1) continue;
+    if(neededtimes2[i] <= 1) continue;
 
-    for(j=1;j<=neededtimes[i];j++) {
+    for(j=1;j<=neededtimes2[i];j++) {
       k = data->partitiontable[j][i];
 	
       ind = i;
@@ -3165,7 +3179,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
       neededtwice[k] += 1; 
 
       fprintf(outfiles[k],"%d %d %d",ind,neededtimes[i],ownerpart[i]);      
-      for(m=1;m<=neededtimes[i];m++) 
+      for(m=1;m<=neededtimes2[i];m++) 
 	if(data->partitiontable[m][i] != ownerpart[i]) fprintf(outfiles[k]," %d",data->partitiontable[m][i]);
       fprintf(outfiles[k],"\n");
     }
