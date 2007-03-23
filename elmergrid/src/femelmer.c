@@ -3186,7 +3186,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
       neededtwice[k] += 1; 
 
-      fprintf(outfiles[k],"%d %d %d",ind,neededtimes[i],ownerpart[i]);      
+      fprintf(outfiles[k],"%d %d %d",ind,neededtimes2[i],ownerpart[i]);      
       for(m=1;m<=neededtimes2[i];m++) 
 	if(data->partitiontable[m][i] != ownerpart[i]) fprintf(outfiles[k]," %d",data->partitiontable[m][i]);
       fprintf(outfiles[k],"\n");
