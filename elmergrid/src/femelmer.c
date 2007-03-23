@@ -2972,18 +2972,9 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     nodesd2 = elemtype%100;
     bulktypes[part][elemtype] += 1;
     elementsinpart[part] += 1;
-
-    if(data->pelems) {
-      if(data->pelemtypes[i] > 0) 
-	fprintf(outfiles[part],"%d %d %dp%d ",i,data->material[i],elemtype,data->pelemtypes[i]);
-      else 
-	fprintf(outfiles[part],"%d %d %d ",i,data->material[i],elemtype);
-    }
-    else {
-      fprintf(outfiles[part],"%d %d %d ",i,data->material[i],elemtype);
-    }
-
     otherpart = 0;
+
+    fprintf(outfiles[part],"%d %d %d ",i,data->material[i],elemtype);
     for(j=0;j < nodesd2;j++) {
       ind = data->topology[i][j];
       if(neededtimes[ind] > 1) otherpart++;
