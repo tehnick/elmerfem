@@ -39,6 +39,8 @@ extern int errno;
 #include <X11/Xlib.h>
 #endif
 
+Display *auxXDisplay();
+
 static Display *tkXDisplay()
 {
     Display *ptr = NULL;
