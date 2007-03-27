@@ -3025,6 +3025,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
 	  if(sidehits == sideelemtype % 100 && elementhalo[part2] != i) {
 	    if(0) printf("Adding halo for partition %d and element %d\n",part2,i);
+	    elementhalo[part2] = i;
 
 	    fprintf(outfiles[part2],"%d %d %d ",i,halotype,elemtype);
 	    for(j=0;j < nodesd2;j++) {
