@@ -39,7 +39,9 @@ extern int errno;
 #include <X11/Xlib.h>
 #endif
 
+#ifndef WIN32
 Display *auxXDisplay();
+#endif
 
 static Display *tkXDisplay()
 {
