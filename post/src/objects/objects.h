@@ -107,3 +107,19 @@ typedef struct object_s
 
 OBJ_EXT object_t VisualObject,RotObject,*CurrentObject;
 OBJ_EXT double PiDiv180;
+
+void obj_object_initialize( object_t *object );
+object_t *obj_new(char *name);
+object_t *obj_add_object( object_t *object,char *name );
+object_t *obj_find( object_t *object,char *name );
+int obj_display_list( object_t *object,double t );
+void obj_init_transform( transform_t *transform );
+void obj_get_matrix(matrix_t matrix,object_t *object);
+void obj_get_matrix_transpose( matrix_t matrix,object_t *object );
+void obj_set_rotation_priority( object_t *object, rot_pri_t priority);
+void obj_set_transform_priority( object_t *object, trn_pri_t priority);
+int obj_set_parent( object_t *object,object_t *parent );
+void obj_rotate( object_t *object,double x,double y,double z,int which,int relative );
+void obj_scale( object_t *object,double x,double y,double z,int which, int relative );
+void obj_translate( object_t *object,double x,double y,double z,int which,int relative );
+void obj_set_matrix( object_t *object );

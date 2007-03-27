@@ -185,3 +185,25 @@ typedef enum
     particle_policy_fixed, particle_policy_adaptive
 } particle_integ_policy_t;
 
+
+int vis_initialize_arrow_visual();
+int vis_initialize_colscale_visual();
+int vis_initialize_contour_line_visual();
+int vis_initialize_isosurface_visual();
+void vis_triangle ( triangle_t *t,vertex_t *v,double *color,double CScl,double CAdd);
+int vis_initialize_mesh_visual();
+int vis_initialize_particle_visual();
+int vis_initialize_sphere_visual();
+int vis_add_visual_type( visual_type_t *VisualDef );
+visual_type_t *vis_get_visual_type(char *name);
+char *vis_get_visual_type_name(visual_t *visual);
+char *vis_get_visual_name(visual_t *visual);
+int vis_set_param( visual_t *visual, char *name,int intvalue,double doublevalue,void *ptrvalue );
+void vis_default_params( visual_t *visual );
+visual_t *vis_new_visual(char *name);
+visual_t *vis_link_visual( visual_t *list,visual_t *new );
+visual_t *vis_add_visual(visual_t *visual,char *name);
+void vis_delete_visual( visual_t *visual );
+int vis_display_visual( geometry_t *geometry, element_model_t *model, visual_t *VL,double t );
+int vis_display_list( geometry_t *geometry, element_model_t *model, visual_t *VL,double t );
+int vis_initialize_visual_types();

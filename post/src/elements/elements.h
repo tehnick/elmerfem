@@ -214,4 +214,7 @@ extern int ElmTetraFace[4][7];
 extern int ElmTetraFaceCubic[4][10];
 
 #endif
+
+void lu_mtrinv( double *, int );
+int elm_initialize_element_types();
 #endif

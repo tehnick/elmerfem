@@ -36,9 +36,12 @@
 
 
 /*
- * $Id: camera.h,v 1.2 1998/08/01 12:34:10 jpr Exp $ 
+ * $Id: camera.h,v 1.1.1.1 2005/05/31 06:29:21 vierinen Exp $ 
  *
  * $Log: camera.h,v $
+ * Revision 1.1.1.1  2005/05/31 06:29:21  vierinen
+ * ads
+ *
  * Revision 1.2  1998/08/01 12:34:10  jpr
  *
  * Added Id, started Log.
@@ -84,3 +87,15 @@ typedef struct camera_s
 
 CAM_EXT camera_t *Camera;
 
+
+void cam_set_viewport(camera_t *camera,double lx,double ly,double hx,double hy);
+void cam_set_projection( camera_t *camera,camera_proj_t projection );
+void cam_set_field_angle( camera_t *camera, double angle );
+void cam_set_look_from(camera_t *camera,double x,double y,double z,int relative);
+void cam_set_up_vector(camera_t *camera,double x,double y,double z );
+void cam_set_clip(camera_t *camera,double n,double f);
+void cam_set_look_to(camera_t *camera,double x,double y,double z,int relative);
+void cam_set_onoff( camera_t *camera,int onoff);
+camera_t *cam_add_camera( camera_t *camera,char *name );
+void cam_delete_list( camera_t *camera );
+int cam_display_list( camera_t *camera, object_t *object );

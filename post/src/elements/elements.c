@@ -76,6 +76,34 @@ int elm_add_element_type( element_type_t *Def )
     return TRUE;
 }
 
+int elm_2node_bar_initialize();
+int elm_3node_bar_initialize();
+int elm_4node_bar_initialize();
+
+int elm_3node_triangle_initialize();
+int elm_4node_triangle_initialize();
+int elm_6node_triangle_initialize();
+int elm_10node_triangle_initialize();
+
+int elm_4node_quad_initialize();
+int elm_5node_quad_initialize();
+int elm_8node_quad_initialize();
+int elm_9node_quad_initialize();
+int elm_12node_quad_initialize();
+int elm_16node_quad_initialize();
+int elm_4node_tetra_initialize();
+int elm_8node_tetra_initialize();
+int elm_10node_tetra_initialize();
+
+int elm_5node_pyramid_initialize();
+int elm_13node_pyramid_initialize();
+
+int elm_6node_wedge_initialize();
+
+int elm_8node_brick_initialize();
+int elm_20node_brick_initialize();
+int elm_27node_brick_initialize();
+
 /*******************************************************************************
  *
  *     Name:        elm_initialize_element_types
@@ -115,6 +143,7 @@ int elm_initialize_element_types()
 
     if ( !elm_5node_pyramid_initialize() )    return FALSE;
     if ( !elm_13node_pyramid_initialize() )    return FALSE;
+
     if ( !elm_6node_wedge_initialize() )    return FALSE;
 
     if ( !elm_8node_brick_initialize() )    return FALSE;

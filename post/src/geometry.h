@@ -154,3 +154,12 @@ typedef struct data_s
 {
     int a;    
 } data_t;
+
+
+void geo_free_groups( group_t *groups );
+int geo_add_vertex( geometry_t *geometry, vertex_t *vertex );
+void geo_free_edge_tables( geometry_t *geometry );
+void geo_free_vertex_face_tables( geometry_t *geometry );
+int geo_add_triangle( geometry_t *geometry, triangle_t *triangle );
+void geo_triangle_normal( geometry_t *geom,triangle_t *triangle );
+void geo_vertex_normals( geometry_t *geometry, double Ang ) ;

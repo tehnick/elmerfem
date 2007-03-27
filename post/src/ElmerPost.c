@@ -131,6 +131,9 @@ static void epSwapBuffers()
     UpdatePending = FALSE;
 }
 
+object_t *obj_find( object_t *, char * );
+object_t *obj_add_object( object_t *, char * );
+
 static int SetObject( ClientData cl,Tcl_Interp *interp,int argc,char **argv )
 {
    object_t *obj;
@@ -702,49 +705,49 @@ static int UpdateVariable( ClientData cl,Tcl_Interp *interp,int argc,char **argv
 
     if ( strcmp( argv[1], "VectorColor") == 0 )
 
-        GetScalarVariable( &VectorColor, Tcl_GetVar( TCLInterp,argv[1],TCL_GLOBAL_ONLY ),model, 0, TRUE );
+        GetScalarVariable( &VectorColor, (char *)Tcl_GetVar( TCLInterp,argv[1],TCL_GLOBAL_ONLY ),model, 0, TRUE );
 
     else if ( strcmp( argv[1], "VectorLength" ) == 0 )
 
-        GetScalarVariable( &VectorLength, Tcl_GetVar( TCLInterp,argv[1],TCL_GLOBAL_ONLY ),model, 0, TRUE );
+        GetScalarVariable( &VectorLength, (char *)Tcl_GetVar( TCLInterp,argv[1],TCL_GLOBAL_ONLY ),model, 0, TRUE );
 
     else if ( strcmp( argv[1], "VectorThreshold" ) == 0 )
 
-        GetScalarVariable( &VectorThreshold, Tcl_GetVar( TCLInterp,argv[1],TCL_GLOBAL_ONLY ),model, 0, TRUE );
+        GetScalarVariable( &VectorThreshold, (char *)Tcl_GetVar( TCLInterp,argv[1],TCL_GLOBAL_ONLY ),model, 0, TRUE );
 
     else if ( strcmp( argv[1], "MeshColor" ) == 0 )
 
         GetScalarVariable( &MeshColor[CurrentObject->Id],
-            Tcl_GetVar( TCLInterp,argv[1],TCL_GLOBAL_ONLY ),model,0,!MeshColorSetMinMax );
+            (char *)Tcl_GetVar( TCLInterp,argv[1],TCL_GLOBAL_ONLY ),model,0,!MeshColorSetMinMax );
 
    else if ( strcmp( argv[1], "ColorScaleColor" ) == 0 )
 
-        GetScalarVariable( &ColorScaleColor, Tcl_GetVar( TCLInterp,argv[1],TCL_GLOBAL_ONLY ),model, 0, !ColorScaleColorSetMinMax );
+        GetScalarVariable( &ColorScaleColor, (char *)Tcl_GetVar( TCLInterp,argv[1],TCL_GLOBAL_ONLY ),model, 0, !ColorScaleColorSetMinMax );
 
     else if ( strcmp( argv[1], "ContourColor" ) == 0 )
 
         GetScalarVariable( &ContourColor[CurrentObject->Id],
-             Tcl_GetVar( TCLInterp,argv[1],TCL_GLOBAL_ONLY ),model, 0, !ContourColorSetMinMax );
+             (char *)Tcl_GetVar( TCLInterp,argv[1],TCL_GLOBAL_ONLY ),model, 0, !ContourColorSetMinMax );
 
     else if ( strcmp( argv[1], "ContourContour" ) == 0 )
 
-        GetScalarVariable( &ContourContour[0], Tcl_GetVar( TCLInterp,argv[1],TCL_GLOBAL_ONLY ),model, 0, TRUE );
+        GetScalarVariable( &ContourContour[0], (char *)Tcl_GetVar( TCLInterp,argv[1],TCL_GLOBAL_ONLY ),model, 0, TRUE );
 
     else if ( strcmp( argv[1], "IsosurfaceColor" ) == 0 )
 
-        GetScalarVariable( &IsosurfaceColor, Tcl_GetVar( TCLInterp,argv[1],TCL_GLOBAL_ONLY ),model, 0, !IsosurfaceColorSetMinMax );
+        GetScalarVariable( &IsosurfaceColor, (char *)Tcl_GetVar( TCLInterp,argv[1],TCL_GLOBAL_ONLY ),model, 0, !IsosurfaceColorSetMinMax );
 
     else if ( strcmp( argv[1], "IsosurfaceContour" ) == 0 )
 
-        GetScalarVariable( &IsosurfaceContour, Tcl_GetVar( TCLInterp,argv[1],TCL_GLOBAL_ONLY ),model, 0, !IsosurfaceContourSetMinMax );
+        GetScalarVariable( &IsosurfaceContour, (char *)Tcl_GetVar( TCLInterp,argv[1],TCL_GLOBAL_ONLY ),model, 0, !IsosurfaceContourSetMinMax );
 
     else if ( strcmp( argv[1], "ParticleColor" ) == 0 )
 
-        GetScalarVariable( &ParticleColor, Tcl_GetVar( TCLInterp,argv[1],TCL_GLOBAL_ONLY ),model, 0, TRUE );
+        GetScalarVariable( &ParticleColor, (char *)Tcl_GetVar( TCLInterp,argv[1],TCL_GLOBAL_ONLY ),model, 0, TRUE );
 
     else if ( strcmp( argv[1], "SphereThreshold" ) == 0 )
 
-        GetScalarVariable( &SphereThreshold, Tcl_GetVar( TCLInterp,argv[1],TCL_GLOBAL_ONLY ),model, 0, TRUE );
+        GetScalarVariable( &SphereThreshold, (char *)Tcl_GetVar( TCLInterp,argv[1],TCL_GLOBAL_ONLY ),model, 0, TRUE );
 
     return TCL_OK;
 }
@@ -1057,7 +1060,7 @@ static int SetCamera(ClientData cl,Tcl_Interp *interp,int argc,char **argv)
         sscanf( Tcl_GetVar2( TCLInterp, "camera","up_x", TCL_GLOBAL_ONLY  ), "%f", &x );
         sscanf( Tcl_GetVar2( TCLInterp, "camera","up_y", TCL_GLOBAL_ONLY  ), "%f", &y );
         sscanf( Tcl_GetVar2( TCLInterp, "camera","up_z", TCL_GLOBAL_ONLY  ), "%f", &z );
-        cam_set_up_vector( camera,x,y,z,FALSE );
+        cam_set_up_vector( camera,x,y,z );
 
         sscanf( Tcl_GetVar2( TCLInterp, "camera","view_low_x", TCL_GLOBAL_ONLY  ),  "%f", &x );
         sscanf( Tcl_GetVar2( TCLInterp, "camera","view_low_y", TCL_GLOBAL_ONLY  ),  "%f", &y );
@@ -1140,6 +1143,8 @@ static int GroupDisplay(ClientData cl,Tcl_Interp *interp,int argc,char **argv)
 
     return TCL_OK;
 }
+
+char *mtc_domath( char * );
 
 static int MathCommand(ClientData cl,Tcl_Interp *interp,int argc,char **argv)
 {
@@ -1624,7 +1629,7 @@ int UpdateObject( ClientData cl,Tcl_Interp *interp,int argc,char **argv)
         } else VL->Next = NULL;
         CurrentObject->VisualList = (visual_t *)vis_link_visual( CurrentObject->VisualList,VL );
 
-        GetScalarVariable( &ParticleColor, Tcl_GetVar( TCLInterp,"ParticleColor",TCL_GLOBAL_ONLY ), model, 1, TRUE );
+        GetScalarVariable( &ParticleColor, (char *)Tcl_GetVar( TCLInterp,"ParticleColor",TCL_GLOBAL_ONLY ), model, 1, TRUE );
         GetVectorVariable( ParticleVelocity, Tcl_GetVar( TCLInterp,"ParticleVelocity",TCL_GLOBAL_ONLY ),model,  1 );
         GetParticleVariable( ParticleParticle, Tcl_GetVar( TCLInterp,"ParticleParticle",TCL_GLOBAL_ONLY ) );
 
@@ -1669,10 +1674,10 @@ int UpdateObject( ClientData cl,Tcl_Interp *interp,int argc,char **argv)
         } else VL->Next = NULL;
         CurrentObject->VisualList = (visual_t *)vis_link_visual( CurrentObject->VisualList,VL );
 
-        GetScalarVariable( &VectorColor, Tcl_GetVar( TCLInterp,"VectorColor",TCL_GLOBAL_ONLY ),model, 0, TRUE );
-        GetScalarVariable( &VectorLength, Tcl_GetVar( TCLInterp,"VectorLength",TCL_GLOBAL_ONLY ),model, 0, TRUE );
-        GetScalarVariable( &VectorThreshold, Tcl_GetVar( TCLInterp,"VectorThreshold",TCL_GLOBAL_ONLY ),model, 0, TRUE );
-        GetVectorVariable( VectorArrow, Tcl_GetVar( TCLInterp,"VectorArrow",TCL_GLOBAL_ONLY ),model, 0 );
+        GetScalarVariable( &VectorColor, (char *)Tcl_GetVar( TCLInterp,"VectorColor",TCL_GLOBAL_ONLY ),model, 0, TRUE );
+        GetScalarVariable( &VectorLength, (char *)Tcl_GetVar( TCLInterp,"VectorLength",TCL_GLOBAL_ONLY ),model, 0, TRUE );
+        GetScalarVariable( &VectorThreshold, (char *)Tcl_GetVar( TCLInterp,"VectorThreshold",TCL_GLOBAL_ONLY ),model, 0, TRUE );
+        GetVectorVariable( VectorArrow, (char *)Tcl_GetVar( TCLInterp,"VectorArrow",TCL_GLOBAL_ONLY ),model, 0 );
 
         vis_set_param( VL, "VectorData0", 0, 0.0, &VectorLength );
         vis_set_param( VL, "VectorData1", 0, 0.0, &VectorArrow[1] );
@@ -1708,7 +1713,7 @@ int UpdateObject( ClientData cl,Tcl_Interp *interp,int argc,char **argv)
         } else VL->Next = NULL;
         CurrentObject->VisualList = (visual_t *)vis_link_visual( CurrentObject->VisualList,VL );
 
-        GetScalarVariable( &ContourColor[CurrentObject->Id], Tcl_GetVar( TCLInterp,"ContourColor",
+        GetScalarVariable( &ContourColor[CurrentObject->Id], (char *)Tcl_GetVar( TCLInterp,"ContourColor",
                    TCL_GLOBAL_ONLY ),model, 0, !ContourColorSetMinMax );
 
         vis_set_param( VL, "ColorData",       0,            0.0, &ContourColor[CurrentObject->Id] );
@@ -1742,10 +1747,10 @@ int UpdateObject( ClientData cl,Tcl_Interp *interp,int argc,char **argv)
         } else VL->Next = NULL;
         CurrentObject->VisualList = (visual_t *)vis_link_visual( CurrentObject->VisualList,VL );
 
-        GetScalarVariable( &IsosurfaceColor, Tcl_GetVar( TCLInterp,"IsosurfaceColor",
+        GetScalarVariable( &IsosurfaceColor, (char *)Tcl_GetVar( TCLInterp,"IsosurfaceColor",
                    TCL_GLOBAL_ONLY ),model, 0, !IsosurfaceColorSetMinMax );
 
-        GetScalarVariable( &IsosurfaceContour, Tcl_GetVar( TCLInterp,"IsosurfaceContour",
+        GetScalarVariable( &IsosurfaceContour, (char *)Tcl_GetVar( TCLInterp,"IsosurfaceContour",
                  TCL_GLOBAL_ONLY ),model, 0, !IsosurfaceContourSetMinMax );
 
         GetVectorVariable( IsosurfaceNormal, Tcl_GetVar( TCLInterp,"IsosurfaceNormal",TCL_GLOBAL_ONLY ),model, 0 );
@@ -1786,9 +1791,9 @@ int UpdateObject( ClientData cl,Tcl_Interp *interp,int argc,char **argv)
         } else VL->Next = NULL;
         CurrentObject->VisualList = (visual_t *)vis_link_visual( CurrentObject->VisualList,VL );
 
-        GetScalarVariable( &SphereColor,Tcl_GetVar(TCLInterp,"SphereColor",TCL_GLOBAL_ONLY),model, 0, TRUE );
-        GetScalarVariable( &SphereRadius,Tcl_GetVar(TCLInterp,"SphereRadius",TCL_GLOBAL_ONLY),model, 0, TRUE );
-        GetScalarVariable( &SphereThreshold,Tcl_GetVar(TCLInterp,"SphereThreshold",TCL_GLOBAL_ONLY),model, 0, TRUE );
+        GetScalarVariable( &SphereColor,(char *)Tcl_GetVar(TCLInterp,"SphereColor",TCL_GLOBAL_ONLY),model, 0, TRUE );
+        GetScalarVariable( &SphereRadius,(char *)Tcl_GetVar(TCLInterp,"SphereRadius",TCL_GLOBAL_ONLY),model, 0, TRUE );
+        GetScalarVariable( &SphereThreshold,(char *)Tcl_GetVar(TCLInterp,"SphereThreshold",TCL_GLOBAL_ONLY),model, 0, TRUE );
 
         vis_set_param( VL, "ColorMap",          0,          0.0, SphereColorMap );
         vis_set_param( VL, "Material",          0,          0.0, SphereMaterial );
@@ -1812,7 +1817,7 @@ int UpdateObject( ClientData cl,Tcl_Interp *interp,int argc,char **argv)
         } else VL->Next = NULL;
         CurrentObject->VisualList = (visual_t *)vis_link_visual( CurrentObject->VisualList,VL );
 
-        GetScalarVariable( &MeshColor[CurrentObject->Id], Tcl_GetVar( TCLInterp,"MeshColor",TCL_GLOBAL_ONLY ),
+        GetScalarVariable( &MeshColor[CurrentObject->Id], (char *)Tcl_GetVar( TCLInterp,"MeshColor",TCL_GLOBAL_ONLY ),
                                      model, 0, !MeshColorSetMinMax );
 
         vis_set_param( VL, "ColorData",         0,        0.0, &MeshColor[CurrentObject->Id] );
@@ -1837,7 +1842,7 @@ int UpdateObject( ClientData cl,Tcl_Interp *interp,int argc,char **argv)
         } else VL->Next = NULL;
         CurrentObject->VisualList = (visual_t *)vis_link_visual( CurrentObject->VisualList,VL );
 
-        GetScalarVariable( &ColorScaleColor, Tcl_GetVar( TCLInterp,"ColorScaleColor",TCL_GLOBAL_ONLY ),
+        GetScalarVariable( &ColorScaleColor, (char *)Tcl_GetVar( TCLInterp,"ColorScaleColor",TCL_GLOBAL_ONLY ),
                                 model, 0, !ColorScaleColorSetMinMax );
 
         vis_set_param( VL, "ColorData",         0,        0.0, &ColorScaleColor );
