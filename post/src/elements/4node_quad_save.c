@@ -144,7 +144,7 @@ int elm_4node_quad_triangulate( geometry_t *geom,element_t *Elm )
     triangle.Edge[1] = TRUE;
     triangle.Edge[2] = FALSE;
 
-    if ( !geo_add_triangle( geom,&triangle,material ) )  return FALSE;
+    if ( !geo_add_triangle( geom,&triangle ) )  return FALSE;
 
     triangle.v[0] = Elm->Topology[0];
     triangle.v[1] = Elm->Topology[2];
@@ -156,7 +156,7 @@ int elm_4node_quad_triangulate( geometry_t *geom,element_t *Elm )
     triangle.Edge[1] = TRUE;
     triangle.Edge[2] = TRUE;
 
-    if ( !geo_add_triangle( geom,&triangle,material ) )  return FALSE;
+    if ( !geo_add_triangle( geom,&triangle ) )  return FALSE;
 #endif
 
     return TRUE;
