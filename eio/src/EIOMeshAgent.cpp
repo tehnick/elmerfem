@@ -233,7 +233,7 @@ int EIOMeshAgent::
 read_nextElementConnections(int& tag, int& body, int& type, int* pdofs, int* nodes )
 {
   int i, gotnodal;
-  char typestr[32];
+  char typestr[32], tagstr[32];
   fstream& str = meshFileStream[ELEMENTS];
   if(step == elementCount)
     {
@@ -241,9 +241,11 @@ read_nextElementConnections(int& tag, int& body, int& type, int* pdofs, int* nod
       step = 0;
       return -1;
     }
-  str >> tag >> body >> typestr ;
+  for( i=0; i<7; i++ ) pdofs[i] = 0;
+  str >> tagstr >> body >> typestr ;
+  sscanf( tagstr, "%d/%d", &tag, &pdofs[6] );
+
   gotnodal = 0;
-  for( i=0; i<6; i++ ) pdofs[i] = 0;
   for( i=0; i<strlen(typestr); i++ )
   {
      switch( typestr[i] ) {

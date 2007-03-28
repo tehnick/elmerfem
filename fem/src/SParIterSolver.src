@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterSolver.src,v 1.14 2007/02/06 13:13:39 jpr Exp $
+! * $Id: SParIterSolver.src,v 1.15 2007/02/20 08:36:36 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -549,7 +549,6 @@ real(kind=dp) :: cputime,st
   !
   !----------------------------------------------------------------------
   CALL ExchangeInterfaces( NbsIfMatrix, RecvdIfMatrix )
-
 !xxxxxxx
 
 #if 1
@@ -581,7 +580,6 @@ real(kind=dp) :: cputime,st
         IF ( RowInd > 0 ) THEN
            DO k = RecvdIfMatrix(i) % Rows(j), RecvdIfMatrix(i) % Rows(j+1) - 1
               ColInd = -1
-
               DO l = RowBuffer(RowInd),  RowBuffer(RowInd+1) - 1
 !
 !                Equation DOF numbering to partition nodal numbering:
@@ -949,7 +947,12 @@ real(kind=dp) :: cputime,st
   SplittedMatrix % IfMatrix(:) % NumberOfRows = 0
   DO i = 1, ParEnv % PEs
      IF ( ( OwnIfMatrix(i) % NumberOfRows   /= 0 ) .OR. &
-           ( RecvdIfMatrix(i) % NumberOfRows /= 0 ) ) THEN
+          ( RecvdIfMatrix(i) % NumberOfRows /= 0 ) ) THEN
+     END IF
+  END DO
+  DO i = 1, ParEnv % PEs
+     IF ( ( OwnIfMatrix(i) % NumberOfRows   /= 0 ) .OR. &
+          ( RecvdIfMatrix(i) % NumberOfRows /= 0 ) ) THEN
         CALL CombineCRSMatIndices( OwnIfMatrix(i), RecvdIfMatrix(i), &
                  SplittedMatrix % IfMatrix(i) )
      END IF
@@ -1547,9 +1550,7 @@ END SUBROUTINE ZeroSplittedMatrix
     !------------------------------------------------------------------
 
     GT => SplittedMatrix % GlueTable
-
     DO i = 1, SourceMatrix % NumberOfRows
-       
        GRow = (SourceMatrix % INVPerm(i) + DOFs-1) / DOFs
        GRow = DOFs * ParallelInfo % GlobalDOFs(GRow) - (DOFs-1-MOD(i-1,DOFs))
 
@@ -1778,9 +1779,11 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
       l=0
       DO k=SplittedMatrix % InsideMatrix % Rows(i),SplittedMatrix % InsideMatrix % Rows(i+1)-1
         IF ( SplittedMatrix % InsideMatrix % Values(k) /= 0 ) THEN
-          print*,parenv % mype, i,j,splittedmatrix % insidematrix % cols(k), &
+          print*,parenv % mype, i,j,k,splittedmatrix % insidematrix % cols(k), &
                splittedmatrix % insidematrix % values(k)
-          print*,splittedmatrix % insidematrix % grows(splittedmatrix % insidematrix % gorder(i))
+          print*,splittedmatrix % insidematrix % grows(splittedmatrix % insidematrix % gorder(i)), &
+                 splittedmatrix % insidematrix % grows(splittedmatrix % insidematrix % gorder( &
+                    splittedmatrix % insidematrix % cols(k)))
           print*,splittedmatrix % insidematrix % grows(i)
           l = 1
          END IF
@@ -1879,7 +1882,7 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
 
                  SplittedMatrix % ResBuf(nbind) % ResVal(VecEPerNB(nbind)) = XVec(i)
                  SplittedMatrix % ResBuf(nbind) % ResInd(VecEPerNB(nbind)) = &
-                   ParallelInfo % GlobalDOFs(k)*DOFs - (DOFs-1 - MOD( i-1, DOFs))
+                   ParallelInfo % GlobalDOFs(k)*DOFs - (DOFs-1-MOD(i-1,DOFs))
               END IF
            END DO
         END IF
@@ -2475,9 +2478,9 @@ SUBROUTINE CombineCRSMatIndices ( SMat1, SMat2, DMat )
   ! Local variables
 
   INTEGER :: i, j, k, i1, i2, j1, j2, ind, ind1, ind2, DRows, DCols, row, col
-  INTEGER, POINTER :: cols(:)
 
-  LOGICAL, ALLOCATABLE :: done(:)
+  INTEGER, POINTER :: cols(:)
+  LOGICAL, POINTER :: done(:)
 
   !*******************************************************************
 
@@ -2530,7 +2533,6 @@ SUBROUTINE CombineCRSMatIndices ( SMat1, SMat2, DMat )
   CALL CRS_SortMatrix( SSMat2 )
 
   DRows = SMat2 % NumberOfRows;
-
   DO i = 1, SMat1 % NumberOfRows
      ind1 = SearchIAItem( SMat2 % NumberOfRows, &
           SMat2 % GRows, SMat1 % GRows(i) )
@@ -2540,9 +2542,9 @@ SUBROUTINE CombineCRSMatIndices ( SMat1, SMat2, DMat )
   DCols = SIZE(SMat1 % Cols) + SIZE(SMat2 % Cols)
   DMat % NumberOfRows = DRows
   DMat % Ordered = .TRUE.
-  ALLOCATE( DMat % Rows( DRows + 1) )
-  ALLOCATE( DMat % GRows( DRows ) )
-  ALLOCATE( DMat % Cols( DCols ) )
+  ALLOCATE( DMat % Rows(DRows + 1) )
+  ALLOCATE( DMat % Cols(DCols) )
+  ALLOCATE( DMat % GRows(DRows) )
   ALLOCATE( DMat % RowOwner( DRows ) )
 
   !----------------------------------------------------------------------
@@ -2561,7 +2563,7 @@ SUBROUTINE CombineCRSMatIndices ( SMat1, SMat2, DMat )
      ind = -1
      IF ( i1 <= SMat1 % NumberOfRows ) THEN
         ind = SearchIAItem( SMat2 % NumberOfRows, &
-          SMat2 % GRows, SMat1 % GRows(i1) ) !, SMat2 % Gorder )
+          SMat2 % GRows, SMat1 % GRows(i1) )
      END IF
 
      IF ( i1 > SMat1 % NumberOfRows ) THEN
@@ -2601,31 +2603,40 @@ SUBROUTINE CombineCRSMatIndices ( SMat1, SMat2, DMat )
 	j1 = SMat1 % Rows(i1)
         j2 = SMat2 % Rows(Ind)
 
-	DO WHILE ( j1 < SMat1 % Rows(i1+1) .OR. &
-	           j2 < SMat2 % Rows(Ind+1) )
+	DO WHILE ( j1 < SMat1 % Rows(i1+1) .OR.  j2 < SMat2 % Rows(Ind+1) )
 
-	   IF ( (j1 <  SMat1 % Rows(i1+1) .AND. &
-	 	 j2 >= SMat2 % Rows(Ind+1)) &
-		.OR. (SMat1 % Cols(j1) < SMat2 % Cols(j2) &
-                .AND. j1 < SMat1 % Rows(i1+1) ) ) THEN
+	   IF ( j1 <  SMat1 % Rows(i1+1) .AND. &
+                j2 >= SMat2 % Rows(Ind+1) ) THEN
 
               DMat % Cols(col) = SMat1 % Cols(j1)
-	      col = col + 1
+	      Col = Col + 1
+	      j1 = j1 + 1
+
+	   ELSE IF ( j1 < SMat1 % Rows(i1+1) .AND. &
+             SMat1 % Cols(j1) < SMat2 % Cols(j2) ) THEN
+
+              DMat % Cols(col) = SMat1 % Cols(j1)
+	      Col = Col + 1
 	      j1 = j1 + 1
 	
-	   ELSE IF ( (j1 >= SMat1 % Rows(i1+1) .AND. &
-	       	      j2 <  SMat2 % Rows(Ind+1)) &
-		.OR. (SMat2 % Cols(j2) < SMat1 % Cols(j1)  &
-                .AND. j2 < SMat2 % Rows(Ind+1) ) ) THEN
+	   ELSE IF ( j1 >= SMat1 % Rows(i1+1) .AND. &
+                     j2 <  SMat2 % Rows(Ind+1) ) THEN
               
               DMat % Cols(col) = SMat2 % Cols(j2)
-	      col = col + 1
+	      Col = Col + 1
 	      j2 = j2 + 1
 	
+	   ELSE IF ( j2 < SMat2 % Rows(Ind+1) .AND. &
+              SMat2 % Cols(j2) < SMat1 % Cols(j1) ) THEN
+
+              DMat % Cols(col) = SMat2 % Cols(j2)
+	      Col = Col + 1
+	      j2 = j2 + 1
+
 	   ELSE IF ( SMat1 % Cols(j1) == SMat2 % Cols(j2) ) THEN
 
 	      DMat % Cols(col) = SMat1 % Cols(j1)
-	      col = col + 1
+	      Col = Col + 1
 	      j1 = j1 + 1; j2 = j2 + 1
               
 	   END IF
@@ -2634,7 +2645,6 @@ SUBROUTINE CombineCRSMatIndices ( SMat1, SMat2, DMat )
         Done(Ind) = .TRUE.
 	i1 = i1 + 1; i2 = i2 + 1
      END IF
-
   END DO
   DMat % Rows(Row) = Col
 
@@ -2642,7 +2652,6 @@ SUBROUTINE CombineCRSMatIndices ( SMat1, SMat2, DMat )
   Cols(1:col-1) = DMat % Cols(1:col-1)
   DEALLOCATE( DMat % Cols )
   DMAT % Cols => Cols
-
   DEALLOCATE( Done )
 END SUBROUTINE CombineCRSMatIndices
 
@@ -2834,7 +2843,6 @@ SUBROUTINE ClearInsideC( SourceMatrix, InsideMatrix, &
   ! stored in New* variables
   !
   DO p = 1, ParEnv % PEs
-
      IF ( RecvdIfMatrix(p) % NumberOfRows <= 0 ) CYCLE
 
      NewRow = 1; NewCol = 1; old_nv = 1
@@ -2893,7 +2901,6 @@ SUBROUTINE ClearInsideC( SourceMatrix, InsideMatrix, &
      RecvdIfMatrix(p) % Rows(NewRow) = NewCol
      RecvdIfMatrix(p) % NumberOfRows  = NewRow - 1
   END DO
-
 END SUBROUTINE ClearInsideC
 
 !*********************************************************************

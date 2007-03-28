@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterComm.src,v 1.14 2007/02/07 11:42:23 jpr Exp $
+! * $Id: SParIterComm.src,v 1.15 2007/02/19 20:39:15 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -1426,17 +1426,13 @@ SUBROUTINE ExchangeIfValues( NbsIfMatrix, RecvdIfMatrix, NeedMass )
   !----------------------------------------------------------------------
 
   DO i = 1, ParEnv % NumOfNeighbours
-
      CALL MPI_RECV( Rows, 1, MPI_INTEGER, MPI_ANY_SOURCE, &
              2000, MPI_COMM_WORLD, status, ierr )
      sproc = status(MPI_SOURCE)
 
      IF ( Rows == 0 ) THEN
- 
         RecvdIfMatrix(sproc+1) % NumberOfRows = 0
-
      ELSE
-
         CALL MPI_RECV( Cols, 1, MPI_INTEGER, sproc, 2001, &
                MPI_COMM_WORLD, status, ierr )
 
@@ -1572,7 +1568,7 @@ SUBROUTINE ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
               END IF
            ELSE
               WRITE( Message, * ) ParEnv % MyPE,'RHS receive error'
-              CALL Fatal( 'ExchangeRHSIf', Message )
+!             CALL Fatal( 'ExchangeRHSIf', Message )
            END IF
         END DO
 
@@ -1614,19 +1610,16 @@ SUBROUTINE BuildRevVecIndices( SplittedMatrix )
 
   TYPE (Matrix_t), POINTER :: CurrIf, InsideMatrix
   INTEGER :: i, j, k, l, n, VecLen, ind, ierr, destproc, sproc, TotLen
-  INTEGER :: TotalSize, FoundCount
+  INTEGER :: TotalSize, FoundCount,ncount
   INTEGER, POINTER :: RevBuff(:),RevInd(:)
   INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
-  INTEGER, DIMENSION(:), ALLOCATABLE :: GIndices,RowOwner
+  INTEGER, DIMENSION(:), ALLOCATABLE :: GIndices,RowOwner,nproc
   LOGICAL :: Found
-  LOGICAL, ALLOCATABLE :: Done(:,:)
+  LOGICAL*1, ALLOCATABLE :: Done(:,:)
 REAL(KIND=dp) :: tt,CPUTime
 
   !*********************************************************************
 tt = CPUTime()
-
-  ALLOCATE( Done(ParEnv % PEs, SplittedMatrix % InsideMatrix % NumberOfRows) )
-  Done = .FALSE.
 
   TotalSize = 0
   DO i = 1, ParEnv % PEs
@@ -1655,6 +1648,17 @@ tt = CPUTime()
   CALL CheckBuffer( TotalSize )
 
   InsideMatrix => SplittedMatrix % InsideMatrix
+
+  ncount = 0
+  ALLOCATE( nproc(Parenv % PEs) )
+  DO i=1,parenv % Pes
+     IF ( ParEnv % IsNeighbour(i) ) THEN
+        ncount = ncount + 1
+        nproc(i) = ncount
+     END IF
+  END DO
+  ALLOCATE( Done(ncount, InsideMatrix % NumberOfRows) )
+  Done = .FALSE.
 
   DO i = 1, ParEnv % PEs
      CurrIf => SplittedMatrix % IfMatrix(i)
@@ -1715,7 +1719,6 @@ tt = CPUTime()
               Revind => RevBuff(TotLen+1:)
            END IF
 
-
            FoundCount = 0
            DO n = 1, VecLen
               Ind = SearchIAItem( InsideMatrix %  NumberOfRows, &
@@ -1724,15 +1727,16 @@ tt = CPUTime()
               IF ( Ind > 0 ) THEN
                  RevInd(n) = Ind
 
-                 IF ( Done(i,Ind) ) CYCLE
-                 Done(i,Ind) = .TRUE.
+                 IF ( Done(nproc(i),Ind) ) CYCLE
+                 Done(nproc(i),Ind) = .TRUE.
 
                  Found = .FALSE.
                  DO k = 1,CurrIf % NumberOfRows
                     DO l = CurrIf % Rows(k), CurrIf % Rows(k+1) - 1
                        IF ( Currif % Cols(l) == GIndices(n) ) THEN
                           SplittedMatrix % IfLCols(i) % IfVec(l) = ind
-                          Found = .True.
+                          Found = .TRUE.
+                          EXIT
                        END IF
                     END DO
                  END DO
@@ -1748,33 +1752,27 @@ tt = CPUTime()
            Totlen = TotLen + VecLen
            RevInd => RevBuff(TotLen+1:)
         END IF 
-
         ParEnv % SendingNB(sproc+1) = .TRUE.
      END DO
 
      IF ( TotLen > 0 ) THEN
-        SplittedMatrix % VecIndices(i) % RevInd => RevBuff
+       SplittedMatrix % VecIndices(i) % RevInd => RevBuff
      ELSE
-        DEALLOCATE( RevBuff )
-        NULLIFY( SplittedMatrix % VecIndices(i) % RevInd )
+       DEALLOCATE( RevBuff )
+       NULLIFY( SplittedMatrix % VecIndices(i) % RevInd )
      END IF
   END DO
 
 !print*,parenv % mype, 'first recv: ', CPUTime()-tt
 !tt = CPUtime()
-!
-!
-!
+
   DO i = 1, ParEnv % PEs
      IF ( .NOT. ParEnv % IsNeighbour(i) ) CYCLE
 
      CurrIf => SplittedMatrix % NbsIfMatrix(i)
      IF ( CurrIf % NumberOfRows <= 0 ) THEN
-
         CALL MPI_BSEND( 0, 1, MPI_INTEGER, i-1, 5000, MPI_COMM_WORLD, ierr )
-
      ELSE
-
         VecLen = CurrIf % Rows(CurrIf % NumberOfRows+1) - 1
         CALL MPI_BSEND(VecLen, 1, MPI_INTEGER, i-1, &
                 5000, MPI_COMM_WORLD, ierr)
@@ -1803,18 +1801,18 @@ tt = CPUTime()
                5001, MPI_COMM_WORLD, status, ierr )
 
         DO n = 1, VecLen
-
            Ind = SearchIAItem( InsideMatrix % NumberOfRows, &
                InsideMatrix % GRows, GIndices(n), InsideMatrix % Gorder )
 
            IF ( Ind > 0 ) THEN
-              IF ( Done(i,Ind ) ) CYCLE
-              Done(i,Ind) = .TRUE.
+              IF ( Done(nproc(i),Ind ) ) CYCLE
+              Done(nproc(i),Ind) = .TRUE.
 
               DO k = 1,CurrIf % NumberOfRows
                  DO l = CurrIf % Rows(k), CurrIf % Rows(k+1) - 1
                     IF ( Currif % Cols(l) == GIndices(n) ) THEN
                        SplittedMatrix % IfLCols(i) % IfVec(l) = Ind
+                        EXIT
                     END IF
                  END DO
               END DO
@@ -1830,7 +1828,7 @@ tt = CPUTime()
         ParEnv % SendingNB(sproc+1) = .TRUE.
      END IF
   END DO
-  DEALLOCATE( Done )
+  DEALLOCATE( Done, nproc )
 !print*,parenv % mype, 'secnd recv: ', CPUTime()-tt
 
 END SUBROUTINE BuildRevVecIndices
@@ -1943,7 +1941,7 @@ SUBROUTINE Recv_LocIf( SplittedMatrix, ndim, v )
 
   !*********************************************************************
 
-  IF ( .NOT. ALLOCATED(DPBuffer) ) ALLOCATE( DPBuffer( ndim ) ) 
+  IF ( .NOT. ALLOCATED(DPBuffer) ) ALLOCATE(DPBuffer(ndim)) 
 
   DO i = 1, ParEnv % NumOfNeighbours
      CALL MPI_RECV( VecLen, 1, MPI_INTEGER, MPI_ANY_SOURCE, &
@@ -2245,7 +2243,7 @@ SUBROUTINE ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, XVec, DOF
 
   ! Local variables
 
-  INTEGER :: i, j, ierr, sproc, destproc, BufLen, ResInd, DOF,TotalSize
+  INTEGER :: i, j, k, ierr, sproc, destproc, BufLen, ResInd, DOF,TotalSize
   INTEGER, DIMENSION(:), ALLOCATABLE :: IndBuf
   TYPE (ResBufferT), POINTER :: CurrRBuf
   INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
@@ -2276,7 +2274,6 @@ SUBROUTINE ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, XVec, DOF
         IF ( .NOT. ASSOCIATED(CurrRBuf % ResInd) ) THEN
            CALL MPI_BSEND( 0, 1, MPI_INTEGER, destproc, 9000, MPI_COMM_WORLD, ierr )
         ELSE
-
            BufLen = SIZE( CurrRBuf % ResInd )
            CALL MPI_BSEND( BufLen, 1, MPI_INTEGER, destproc, 9000, MPI_COMM_WORLD, ierr )
 
@@ -2312,8 +2309,8 @@ SUBROUTINE ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, XVec, DOF
               ResInd = SourceMatrix % Perm(DOFs*ResInd-DOF)
               IF ( ResInd > 0 ) XVec(ResInd) = ValBuf(j)
            ELSE
-              WRITE( Message, * ) ParEnv % MyPE, 'Result Receive error: '
-              CALL Fatal( 'ExchangeResult', Message )
+!             WRITE( Message, * ) ParEnv % MyPE, 'Result Receive error: '
+!             CALL Fatal( 'ExchangeResult', Message )
            END IF
         END DO
 
