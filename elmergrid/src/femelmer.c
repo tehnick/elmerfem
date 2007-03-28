@@ -2974,7 +2974,10 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     elementsinpart[part] += 1;
     otherpart = 0;
 
-    fprintf(outfiles[part],"%d %d %d ",i,data->material[i],elemtype);
+    if(halo)
+      fprintf(outfiles[part],"%d/%d %d %d ",i,part,data->material[i],elemtype);
+    else
+      fprintf(outfiles[part],"%d %d %d ",i,data->material[i],elemtype);
     for(j=0;j < nodesd2;j++) {
       ind = data->topology[i][j];
       if(neededtimes[ind] > 1) otherpart++;
@@ -3027,7 +3030,10 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	    if(0) printf("Adding halo for partition %d and element %d\n",part2,i);
 	    elementhalo[part2] = i;
 
-	    fprintf(outfiles[part2],"%d %d %d ",i,halotype,elemtype);
+	    if(halo)
+	      fprintf(outfiles[part2],"%d/%d %d %d ",i,part,halotype,elemtype);
+	    else
+	      fprintf(outfiles[part2],"%d %d %d ",i,halotype,elemtype);
 	    for(j=0;j < nodesd2;j++) {
 	      ind = data->topology[i][j];
 	      if(reorder) ind = order[ind];
