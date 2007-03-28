@@ -2833,7 +2833,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
    in Elmer calculations in parallel platforms. 
    */
 {
-  int noknots,noelements,sumsides,partitions,hit,halotype;
+  int noknots,noelements,sumsides,partitions,hit;
   int nodesd2,nodesd1,discont,maxelemtype,minelemtype,sidehits,elemsides,side;
   int part,otherpart,part2,part3,elemtype,sideelemtype,*needednodes,*neededtwice;
   int **bulktypes,*sidetypes,tottypes;
@@ -2947,15 +2947,6 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   }
   printf("Nodes belong to %d partitions in maximum\n",maxneededtimes);
 
-  if(halo) {
-    halotype = data->material[1];
-    for(i=1;i<=noelements;i++)
-      halotype = MAX( halotype, data->material[i]);
-    halotype++;
-    if(info) printf("Setting body index %d for the boundary halo\n",halotype);
-  }
-  
-
 
   /*********** part.n.elements *********************/
   /* Save elements in all partitions and where they are needed */
@@ -3030,10 +3021,8 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	    if(0) printf("Adding halo for partition %d and element %d\n",part2,i);
 	    elementhalo[part2] = i;
 
-	    if(halo)
-	      fprintf(outfiles[part2],"%d/%d %d %d ",i,part,halotype,elemtype);
-	    else
-	      fprintf(outfiles[part2],"%d %d %d ",i,halotype,elemtype);
+	    fprintf(outfiles[part2],"%d/%d %d %d ",i,part,data->material[i],elemtype);
+
 	    for(j=0;j < nodesd2;j++) {
 	      ind = data->topology[i][j];
 	      if(reorder) ind = order[ind];
