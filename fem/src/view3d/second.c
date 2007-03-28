@@ -56,15 +56,8 @@ static struct tms t;
 static struct timeval tp;
 static struct timezone tzp;
 
-#ifndef HZ
-#define HZ CLK_TCK
-#endif
-
 double second( )
 {
-    times( &t );
-    return (double)t.tms_utime / (double)HZ;
-
     gettimeofday(&tp,&tzp);
     return tp.tv_sec + tp.tv_usec/1.0e6;
 }
