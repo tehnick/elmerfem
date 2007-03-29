@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ParallelUtils.src,v 1.9 2006/01/10 10:54:44 apursula Exp $
+! * $Id: ParallelUtils.src,v 1.10 2007/02/05 11:36:31 jpr Exp $
 ! ******************************************************************************
 
 MODULE ParallelUtils
@@ -82,16 +82,21 @@ CONTAINS
        TYPE(Solver_t) :: Solver
        TYPE(Matrix_t), POINTER :: Matrix
 !-------------------------------------------------------------------------------
-       INTEGER :: i, j, n, DOFs
+       TYPE(ParallelInfo_t), POINTER :: MatrixPI, MeshPI
+       INTEGER :: i, j, k, l, m, n, DOFs
+       LOGICAL :: DGSolver, Found
+       TYPE(Mesh_t), POINTER :: Mesh
+       TYPE(Element_t), POINTER :: Element
+       TYPE(NeighbourList_t), POINTER :: MtrxN, MeshN
 !-------------------------------------------------------------------------------
 
 #ifdef PARALLEL_FOR_REAL
        IF ( ParEnv % PEs <= 1 .OR. .NOT. ASSOCIATED(Solver % Matrix) ) RETURN
+       Mesh => Solver % Mesh
        DOFs = Solver % Variable % DOFs
        n = SIZE( Solver % Variable % Perm )
 
-       ALLOCATE( Matrix % Perm(DOFs*n), Matrix % InvPerm(DOFs*n) )
-
+       ALLOCATE( Matrix % Perm(DOFs*n), Matrix % InvPerm(DOFs*n)  )
        Matrix % Perm    = 0
        Matrix % INVPerm = 0
 
@@ -110,8 +115,89 @@ CONTAINS
           END IF
        END DO
 
+       Solver % Matrix % ParallelInfo => Solver % Mesh % ParallelInfo
+       DGSolver = ListGetLogical(Solver % Values, 'Discontinuous Galerkin', Found)
+
+       IF ( DOFs > 1 ) THEN
+         n = Solver % Mesh % NumberOfNodes
+         ALLOCATE( Solver % Matrix % ParallelInfo )
+         ALLOCATE( Solver % Matrix % ParallelInfo % NeighbourList(DOFs*n) )
+         CALL AllocateVector( Solver % Matrix % ParallelInfo % Interface, DOFs*n)
+         CALL AllocateVector( Solver % Matrix % ParallelInfo % GlobalDOFs, DOFs*n)
+
+         DO i=1,n
+            DO j=1,DOFs
+               Solver % Matrix % ParallelInfo % GlobalDOFs((i-1)*DOFs+j ) = &
+                 DOFs*(Solver % Mesh % ParallelInfo % GlobalDOFs(i)-1)+j
+               Solver % Matrix % ParallelInfo % Interface((i-1)*DOFs+j ) = &
+                 Solver % Mesh % ParallelInfo % Interface(i)
+               Solver % Matrix % ParallelInfo % NeighbourList((i-1)*DOFs+j ) % Neighbours => &
+                 Solver % Mesh % ParallelInfo % NeighbourList(i) % Neighbours
+            END DO
+         END DO
+       ELSE
+         IF ( DGSolver ) THEN
+           MeshPI => Solver % Mesh % ParallelInfo
+
+           ALLOCATE( Solver % Matrix % ParallelInfo )
+           MatrixPI => Solver % Matrix % ParallelInfo
+
+           n = 0
+           DO i=1,Mesh % NumberOfBulkElements
+             n = MAX(n,MAXVAL(Mesh % Elements(i) % DGIndexes))
+           END DO
+           ALLOCATE( MatrixPI % GlobalDOFs(n) )
+           DO i=1,Mesh % NumberOfBulkElements
+             DO j=1,SIZE(Mesh % Elements(i) % DGIndexes)
+               k = Mesh % Elements(i) % DGIndexes(j)
+               MatrixPI % GlobalDOFs(k) = 8*(Mesh % Elements(i) % ElementIndex)+j
+             END DO
+           END DO
+           ALLOCATE( MatrixPI % Interface(n), MatrixPI % NeighbourList(n) )
+
+           MatrixPI % Interface = .FALSE.
+           DO i=1,n
+             MtrxN => MatrixPI % NeighbourList(i)
+            MtrxN % Neighbours => NULL()
+           END DO
+
+           DO i=1,Mesh % NumberOfBulkElements
+             Element => Mesh % Elements(i)
+             IF ( ALL(MeshPI % Interface(Element % NodeIndexes)) ) THEN
+               DO j=1,Element % Type % NumberOfNodes
+                  K = Element % DGIndexes(j)
+                  L = Element % Nodeindexes(j)
+
+                  MeshN => MeshPI % NeighbourList(L)
+                  MtrxN => MatrixPI % NeighbourList(K)
+
+                  MatrixPI % Interface(k) = .TRUE.
+
+                  CALL AllocateVector( MtrxN % Neighbours, &
+                        SIZE(MeshN % Neighbours) )
+                  MtrxN % Neighbours = MeshN % Neighbours
+                  DO m=1,SIZE(MeshN % Neighbours)
+                   IF ( MeshN % Neighbours(m) == Element % PartIndex ) THEN
+                     MtrxN % Neighbours(1) = MeshN % Neighbours(m)
+                     MtrxN % Neighbours(m) = MeshN % Neighbours(1)
+                     EXIT
+                   END IF
+                  END DO
+               END DO
+             END IF
+           END DO
+           DO i=1,n
+             MtrxN => MatrixPI % NeighbourList(i)
+             IF ( .NOT.ASSOCIATED( MtrxN % Neighbours) ) THEN
+               CALL AllocateVector(MtrxN % Neighbours,1)
+               MtrxN % Neighbours(1) = ParEnv % myPE
+             END IF
+           END DO
+         END IF
+       END IF
+
        Matrix % ParMatrix => &
-          ParInitMatrix( Matrix, Solver % Mesh % ParallelInfo, DOFs )
+          ParInitMatrix( Matrix, Solver % Matrix % ParallelInfo )
 #endif
 !-------------------------------------------------------------------------------
     END SUBROUTINE ParallelInitMatrix
@@ -127,7 +213,7 @@ CONTAINS
        TYPE(Matrix_t), POINTER :: Matrix
 !-------------------------------------------------------------------------------
 #ifdef PARALLEL_FOR_REAL
-       CALL SParInitSolve( Matrix, x, b, r, DOFs, Mesh % ParallelInfo )
+       CALL SParInitSolve( Matrix, x, b, r, Matrix % ParallelInfo )
 #endif
 !-------------------------------------------------------------------------------
     END SUBROUTINE ParallelInitSolve
@@ -352,7 +438,6 @@ CONTAINS
     SUBROUTINE ParallelIter( SourceMatrix, ParallelInfo, DOFs, XVec, &
               RHSVec, Solver, SParMatrixDesc )
 !-------------------------------------------------------------------------------
-                                                                                                                               
        TYPE (Matrix_t) :: SourceMatrix
        TYPE (ParallelInfo_t) :: ParallelInfo
        INTEGER :: DOFs
@@ -361,12 +446,45 @@ CONTAINS
        TYPE (SParIterSolverGlobalD_t), POINTER :: SParMatrixDesc
                                                                                                                                
 #ifdef PARALLEL_FOR_REAL
-       CALL SParIterSolver( SourceMatrix, ParallelInfo, DOFs, XVec, &
+       CALL SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
                  RHSVec, Solver, SParMatrixDesc )
 #endif
 !-------------------------------------------------------------------------------
     END SUBROUTINE ParallelIter
 !-------------------------------------------------------------------------------
 
+
+!-------------------------------------------------------------------------------
+    SUBROUTINE ParallelAllReduceLogical( L )
+!-------------------------------------------------------------------------------
+      LOGICAL :: L
+#ifdef PARALLEL_FOR_REAL
+       IF ( ParEnv % PEs > 1) CALL SParIterReduceLogical(L)
+#endif
+!-------------------------------------------------------------------------------
+    END SUBROUTINE ParallelAllReduceLogical
+!-------------------------------------------------------------------------------
+
+
+!-------------------------------------------------------------------------------
+    SUBROUTINE ParallelBarrier
+!-------------------------------------------------------------------------------
+#ifdef PARALLEL_FOR_REAL
+       IF ( ParEnv % PEs > 1) CALL SParIterBarrier
+#endif
+!-------------------------------------------------------------------------------
+    END SUBROUTINE ParallelBarrier
+!-------------------------------------------------------------------------------
+
+
+!-------------------------------------------------------------------------------
+    SUBROUTINE ParallelActiveBarrier
+!-------------------------------------------------------------------------------
+#ifdef PARALLEL_FOR_REAL
+       IF ( ParEnv % PEs > 1 ) CALL SParIterActiveBarrier
+#endif
+!-------------------------------------------------------------------------------
+    END SUBROUTINE ParallelActiveBarrier
+!-------------------------------------------------------------------------------
 
 END MODULE ParallelUtils

@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.47  2007/03/28 10:21:40  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.46  2006/12/01 09:02:17  jpr
 ! * Initial changes to enable 'constant bulk system' for time dependent
 ! * simulations.
@@ -151,7 +154,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.46 2006/12/01 09:02:17 jpr Exp $
+! * $Id: MeshUtils.src,v 1.47 2007/03/28 10:21:40 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -513,6 +516,7 @@ CONTAINS
              DGIndex = DGIndex + 1
              Element % DGIndexes(j) = DGIndex
           END DO
+          Element % ElementIndex = ElementTags(i)
         ELSE
           NULLIFY( Element % DGIndexes )
         END IF
@@ -571,6 +575,7 @@ CONTAINS
     DO i=1,Mesh % NumberOfBulkElements
        LocalEPerm( ElementTags(i) - MinEIndex + 1 ) = i
     END DO
+    DEALLOCATE( ElementTags )
 
     ALLOCATE( Coord(3,Mesh % MaxElementNodes) )
 !------------------------------------------------------------------------------
@@ -722,7 +727,7 @@ CONTAINS
 
     IF ( Mesh % MaxElementDOFs <= 0 ) Mesh % MaxElementDOFs = Mesh % MaxElementNodes 
 
-    DEALLOCATE( Coord )
+    DEALLOCATE( Coord, LocalEPerm )
 
     NULLIFY( Model % FreeSurfaceNodes )
     NULLIFY( Model % BoundaryCurvatures )
@@ -885,132 +890,48 @@ CONTAINS
 
    IF ( parallel ) THEN
 
-      FoundDG = .FALSE.
-      DO i=1,Model % NumberOfSolvers
-        IF ( .NOT. ListGetLogical( Model % Solvers(i) % Values, &
-               'Discontinuous Galerkin', gotit ) ) CYCLE
+     ALLOCATE( Mesh % ParallelInfo % GlobalDOFs(n) )
+     Mesh % ParallelInfo % GlobalDOFs = 0
+     Mesh % ParallelInfo % GlobalDOFs(1:Mesh % NumberOfNodes) = NodeTags
 
-        str = ListGetString( Model % Solvers(i) % Values, 'Mesh', gotit )
-        IF ( gotIt ) THEN
-          DO j=1,LEN_TRIM(str)
-            IF (str(j:j)==' ') k=j-1
-          END DO
-          IF ( str(1:k)//CHAR(0) == TRIM(MeshDirPar) .AND. &
-               str(1:k)//'/'//TRIM(str(k+2:))//CHAR(0) == TRIM(MeshNamePar) ) FoundDG=.TRUE.
-        ELSE
-          FoundDG = .TRUE.
-        END IF
-      END DO
+     ALLOCATE( Mesh % ParallelInfo % NeighbourList(n), STAT=istat )
+     IF ( istat /= 0 ) CALL Fatal( 'LoadMesh', 'Unable to allocate mesh arrays.' )
 
-      IF ( .NOT. FoundDG ) THEN
-        ALLOCATE( Mesh % ParallelInfo % GlobalDOFs(n) )
-        Mesh % ParallelInfo % GlobalDOFs = 0
-        Mesh % ParallelInfo % GlobalDOFs(1:Mesh % NumberOfNodes) = NodeTags
+     DO i=1,n
+       NULLIFY( Mesh % ParallelInfo % NeighbourList(i) % Neighbours )
+     END DO
 
-        ALLOCATE( Mesh % ParallelInfo % NeighbourList(n), STAT=istat )
-        IF ( istat /= 0 ) CALL Fatal( 'LoadMesh', 'Unable to allocate mesh arrays.' )
+     CALL AllocateVector( Mesh % ParallelInfo % Interface, n, 'LoadMesh')
+     Mesh % ParallelInfo % Interface = .FALSE.
 
-        DO i=1,n
-          NULLIFY( Mesh % ParallelInfo % NeighbourList(i) % Neighbours )
-        END DO
+     CALL eio_get_part_description( fields,eio_info )
+     DO i=1,fields
+       CALL eio_get_part_node( tag,bndry,pCoord,npart,parts,eio_info )
+       IF ( eio_info /= 0 ) &
+          CALL Fatal( 'LoadMesh', 'Error in shared nodes definition.' )
+       k = LocalPerm( tag-MinIndex+1 )
 
-        CALL AllocateVector( Mesh % ParallelInfo % Interface, n, 'LoadMesh')
-        Mesh % ParallelInfo % Interface = .FALSE.
+       Mesh % ParallelInfo % INTERFACE(k) = .TRUE.
+       CALL AllocateVector( Mesh % ParallelInfo % NeighbourList(k) % Neighbours, npart )
+       Mesh % ParallelInfo % NeighbourList(k) % Neighbours = parts(1:npart) - 1
 
-        CALL eio_get_part_description( fields,eio_info )
-        DO i=1,fields
-          CALL eio_get_part_node( tag,bndry,pCoord,npart,parts,eio_info )
-          IF ( eio_info /= 0 ) &
-             CALL Fatal( 'LoadMesh', 'Error in shared nodes definition.' )
-          k = LocalPerm( tag-MinIndex+1 )
+       IF ( parts(1)-1 /= mype ) Mesh % ParallelInfo % NumberOfIfDOFs = &
+                 Mesh % ParallelInfo % NumberOfIfDOFs + 1
+     END DO
 
-          Mesh % ParallelInfo % INTERFACE(k) = .TRUE.
-          CALL AllocateVector( Mesh % ParallelInfo % NeighbourList(k) % Neighbours, npart )
-          Mesh % ParallelInfo % NeighbourList(k) % Neighbours = parts(1:npart) - 1
+     ! Number edge, face and elements dofs globally.
+     ! jv: work in progress with global dof numbering
 
-          IF ( parts(1)-1 /= mype ) Mesh % ParallelInfo % NumberOfIfDOFs = &
-                    Mesh % ParallelInfo % NumberOfIfDOFs + 1
-        END DO
+     !  CALL CreateGlobalNumbering( Mesh, n )
 
-        ! Number edge, face and elements dofs globally.
-        ! jv: work in progress with global dof numbering
-  
-        !  CALL CreateGlobalNumbering( Mesh, n )
-      ELSE
-        n = 0
-        DO i=1,Mesh % NumberOfBulkElements
-          n = MAX(n,MAXVAL(Mesh % Elements(i) % DGIndexes))
-        END DO
-        ALLOCATE( Mesh % ParallelInfo % GlobalDOFs(n) )
-        DO i=1,Mesh % NumberOfBulkElements
-          DO j=1,SIZE(Mesh % Elements(i) % DGIndexes)
-            k = Mesh % Elements(i) % DGIndexes(j)
-            Mesh % ParallelInfo % GlobalDOFs(k) = 8*(ElementTags(i)-1)+j
-          END DO
-        END DO
-        ALLOCATE( Mesh % ParallelInfo % Interface(n), &
-                  Mesh % ParallelInfo % NeighbourList(n) )
-
-        Mesh % ParallelInfo % Interface = .FALSE.
-        DO i=1,n
-          NULLIFY(Mesh % ParallelInfo % NeighbourList(i) % Neighbours)
-        END DO
-
-        ALLOCATE(iface(Mesh %NumberOfNodes), nlist(Mesh % NumberOfNodes) )
-        iface = .FALSE.
-        DO i=1,Mesh % NumberOFNodes
-          NULLIFY( nlist(i) % Neighbours )
-        END DO
-
-        CALL eio_get_part_description( fields,eio_info )
-        DO i=1,fields
-          CALL eio_get_part_node( tag,bndry,pCoord,npart,parts,eio_info )
-          IF ( eio_info /= 0 ) &
-             CALL Fatal( 'LoadMesh', 'Error in shared nodes definition.' )
-          k = LocalPerm(tag-MinIndex+1)
-
-          iface(k) = .TRUE.
-          CALL AllocateVector( nlist(k) % Neighbours, npart )
-          nlist(k) % Neighbours = parts(1:npart)-1
-          IF ( parts(1)-1 /= mype ) Mesh % ParallelInfo % NumberOfIfDOFs = &
-                    Mesh % ParallelInfo % NumberOfIfDOFs + 1
-        END DO
-
-        DO i=1,Mesh % NumberOfBulkElements
-          IF ( ALL(iface(Mesh % Elements(i) % NodeIndexes)) ) THEN
-            DO j=1,Mesh % Elements(i) % Type % NumberOfNodes
-               k = Mesh % Elements(i) % DGIndexes(j)
-               L = Mesh % Elements(i) % Nodeindexes(j)
-               Mesh % ParallelInfo % Interface(k) = .TRUE.
-               ALLOCATE( Mesh % ParallelInfo % NeighbourList(k) % Neighbours(SIZE(nlist(L) % Neighbours)))
-               Mesh % ParallelInfo % NeighbourList(k) % Neighbours=nlist(L) % Neighbours
-
-               DO m=1,SIZE(nlist(L) % Neighbours)
-                IF ( nlist(L) % Neighbours(m) == Mesh % Elements(i) % PartIndex ) THEN
-                  Mesh % ParallelInfo % NeighbourList(k) % Neighbours(m)=nlist(L) % Neighbours(1)
-                  Mesh % ParallelInfo % NeighbourList(k) % Neighbours(1)=nlist(L) % Neighbours(m)
-                  EXIT
-                END IF
-               END DO
-            END DO
-          END IF
-        END DO
-
-        DO i=1,Mesh % NumberOfNodes
-          IF ( ASSOCIATED(nlist(i) % Neighbours) ) DEALLOCATE(nlist(i) % Neighbours)
-        END DO
-        DEALLOCATE( iface, nlist )
-      END IF
-
-      DO i=1,n
-        IF ( .NOT.ASSOCIATED( Mesh % ParallelInfo % NeighbourList(i) % Neighbours) ) THEN
-           CALL AllocateVector(Mesh % ParallelInfo % NeighbourList(i) % Neighbours, 1 )
-           Mesh % ParallelInfo % NeighbourList(i) % Neighbours(1) = mype
-        END IF
-      END DO
+     DO i=1,n
+       IF ( .NOT.ASSOCIATED( Mesh % ParallelInfo % NeighbourList(i) % Neighbours) ) THEN
+          CALL AllocateVector(Mesh % ParallelInfo % NeighbourList(i) % Neighbours, 1 )
+          Mesh % ParallelInfo % NeighbourList(i) % Neighbours(1) = mype
+       END IF
+     END DO
    END IF
-
-   DEALLOCATE( LocalPerm, LocalEPerm, ElementTags )
+   DEALLOCATE( LocalPerm )
    CALL eio_close_mesh( eio_info )
    
    CALL eio_close( eio_info )
@@ -1195,7 +1116,7 @@ SUBROUTINE CreateGlobalNumbering( Mesh, NumberOfDOFs )
        CALL AllocateVector( Reorder, NumberOfDOFs )
        Reorder = (/ (i, i=1, NumberOfDOFs) /)
 
-       CALL FindActivePEs( Mesh % ParallelInfo )
+!      CALL FindActivePEs( Mesh % ParallelInfo )
 
        nstart = Mesh % NumberOfNodes+1
        nend = Mesh % NumberOfNodes + (Mesh % NumberOfEdges * Mesh % MaxEdgeDOFs)

@@ -39,6 +39,12 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MainUtils.src,v $
+! * Revision 1.23  2007/02/07 11:42:22  jpr
+! *
+! * Enabled "Exported Variable n" defintions of "Internal Solvers". Added
+! * keyword "Radiation Solver" to use if "Equation=Heat Equation" solver
+! * not present.
+! *
 ! * Revision 1.22  2006/12/20 09:23:32  jpr
 ! * Corrected messed up indentation.
 ! *
@@ -110,7 +116,7 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.src,v 1.22 2006/12/20 09:23:32 jpr Exp $
+! * $Id: MainUtils.src,v 1.23 2007/02/07 11:42:22 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MainUtils
@@ -1085,7 +1091,7 @@ CONTAINS
     LOGICAL :: TransientSimulation, SteadyStateReached
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: PrevNorm, RelativeChange, Tolerance, PrevDT = 0.0d0
-    INTEGER :: i,j,k,n
+    INTEGER :: i,j,k,n,ierr
     LOGICAL :: Found, AbsNorm, Convergence, RungeKutta
     LOGICAL, ALLOCATABLE :: DoneThis(:)
     TYPE(Solver_t), POINTER :: Solver
@@ -1113,10 +1119,12 @@ CONTAINS
       IF ( Found ) THEN
          IF ( When == 'before timestep' ) THEN
            CALL SolverActivate( Model,Solver,dt,TransientSimulation )
+           CALL ParallelBarrier
          END IF
       ELSE
          IF ( Solver % SolverExecWhen == SOLVER_EXEC_AHEAD_TIME ) THEN
             CALL SolverActivate( Model,Solver,dt,TransientSimulation )
+            CALL ParallelBarrier
          END IF
       END IF
     END DO
@@ -1221,7 +1229,7 @@ CONTAINS
 !         check for coupled system convergence
 !------------------------------------------------------------------------------
           IF ( i >= CoupledMinIter .OR. .NOT. TransientSimulation ) THEN
-             IF ( i /= CoupledMaxIter .OR..NOT. TransientSimulation ) THEN
+             IF ( i /= CoupledMaxIter .OR. .NOT. TransientSimulation ) THEN
                 IF ( PrevNorm + Solver % Variable % Norm == 0.0d0 ) THEN
                    RelativeChange = 0.0d0
                 ELSE
@@ -1234,24 +1242,28 @@ CONTAINS
                       '  ) :: ' // TRIM(ListGetString( Solver % Values, 'Equation'))
                 CALL Info( 'SolveEquations', Message, Level=3 )
 
-                absnorm = ListGetLogical( Solver % Values, 'Use Absolute Norm for Convergence', Found )
+                absnorm = ListGetLogical( Solver % Values, &
+                        'Use Absolute Norm for Convergence', Found )
                 IF ( .NOT. Found ) absnorm = .FALSE.
 
                 Tolerance = ListGetConstReal( Solver % Values,   &
                               'Steady State Convergence Tolerance', Found ) 
 
                 Convergence = .FALSE.
-                Convergence = Convergence .OR. (RelativeChange < Tolerance) .AND. .NOT. Absnorm
-                Convergence = Convergence .OR. (Solver % Variable % Norm < Tolerance) .AND. Absnorm
+                Convergence = Convergence .OR. &
+                   (RelativeChange < Tolerance) .AND. .NOT. Absnorm
+                Convergence = Convergence .OR. &
+                    (Solver % Variable % Norm < Tolerance) .AND. Absnorm
 
                 IF ( Found .AND. .NOT. Convergence ) THEN
                    DoneThis(k) = .FALSE.
                 ELSE
                    DoneThis(k) = .TRUE.
-                   IF( ALL(DoneThis) ) EXIT
                 END IF
              END IF
           END IF
+          CALL ParallelAllReduceLogical( DoneThis(k) )
+          IF( ALL(DoneThis) ) EXIT
 !------------------------------------------------------------------------------
        END DO
 !------------------------------------------------------------------------------
@@ -1283,11 +1295,14 @@ CONTAINS
       When = ListGetString( Solver % Values, 'Exec Solver', Found )
       IF (  Found ) THEN
          IF ( When == 'after timestep' ) THEN
-             CALL SolverActivate( Model,Solver,dt,TransientSimulation )
+           CALL SolverActivate( Model,Solver,dt,TransientSimulation )
+           CALL ParallelBarrier
          END IF
       ELSE
-         IF ( Solver % SolverExecWhen == SOLVER_EXEC_AFTER_TIME ) &
-            CALL SolverActivate( Model,Solver,dt,TransientSimulation )
+         IF ( Solver % SolverExecWhen == SOLVER_EXEC_AFTER_TIME ) THEN
+           CALL SolverActivate( Model,Solver,dt,TransientSimulation )
+           CALL ParallelBarrier
+         END IF
       END IF
     END DO
 

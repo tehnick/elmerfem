@@ -31,8 +31,7 @@ void STDCALLBULL FC_FUNC(solvehypre,SOLVEHYPRE)
  (
    int *nrows,int *rows, int *cols, double *vals, int *perm,
    int *invperm, int *globaldofs, int *owner,  double *xvec,
-   double *rhsvec, int *dofs, int *pe, int *ILUn, int *Rounds,
-   double *TOL
+   double *rhsvec, int *pe, int *ILUn, int *Rounds, double *TOL
  )
 {
    int i, j, k, *rcols;
@@ -62,11 +61,11 @@ st  = realtime_();
 
    ilower=1000000000;
    iupper=0;
-   for( i=0; i<local_size / *dofs; i++ )
+   for( i=0; i<local_size; i++ )
    {
       if ( owner[i] ) {
-        if ( iupper < *dofs*globaldofs[i] ) iupper=*dofs*globaldofs[i];
-        if ( ilower > *dofs*(globaldofs[i]-1)+1 ) ilower=*dofs*(globaldofs[i]-1)+1;
+        if ( iupper < globaldofs[i] ) iupper=globaldofs[i];
+        if ( ilower > globaldofs[i] ) ilower=globaldofs[i];
       }
    }
 
@@ -96,12 +95,12 @@ st  = realtime_();
            rcols = (int *)realloc( rcols, nnz*sizeof(int) );
            csize = nnz;
          }
-         irow = (invperm[i]+*dofs-1) / *dofs;
-         irow = *dofs*(globaldofs[irow-1]-1)+i%*dofs+1;
+         irow = invperm[i];
+         irow = globaldofs[irow-1]-1;
          for( k=0,j=rows[i]; j<rows[i+1]; j++,k++)
          {
-           rcols[k] = (invperm[cols[j-1]-1]+*dofs-1) / *dofs;
-           rcols[k] = *dofs*(globaldofs[rcols[k]-1]-1)+(cols[j-1]-1)%*dofs+1;
+           rcols[k] = invperm[cols[j-1]];
+           rcols[k] = globaldofs[rcols[k]-1]-1;
          }
          HYPRE_IJMatrixAddToValues(A, 1, &nnz, &irow, rcols, &vals[rows[i]-1]);
       }
@@ -117,10 +116,7 @@ st  = realtime_();
    /* Create the rhs and solution */
    rcols = (int *)malloc( local_size*sizeof(int) );
    txvec = (double *)malloc( local_size*sizeof(double) );
-   for( k=0,i=0; i < local_size / *dofs; i++ )
-   {
-      for( j=1; j<=*dofs; j++,k++ ) rcols[k] = *dofs*(globaldofs[i]-1)+j;
-   }
+   for( k=0,i=0; i<local_size; i++ ) rcols[k++] = globaldofs[i]-1;
 
    HYPRE_IJVectorCreate(MPI_COMM_WORLD, ilower, iupper,&b);
    HYPRE_IJVectorSetObjectType(b, HYPRE_PARCSR);
@@ -231,20 +227,17 @@ st = realtime_();
       HYPRE_EuclidDestroy(precond);
    }
 
-   for( k=0,i=0; i<local_size/ *dofs; i++ )
+   for( k=0,i=0; i<local_size; i++ )
    {
-      if ( owner[i] ) {
-        for( j=1; j<=*dofs; j++,k++ ) rcols[k] = *dofs*(globaldofs[i]-1)+j;
+      if ( owner[i] ) rcols[k++] = globaldofs[i]-1;
       }
    }
 
    HYPRE_IJVectorGetValues(x, k, rcols, txvec );
 
-   for( i=0,k=0; i<local_size/ *dofs; i++ ) {
+   for( i=0,k=0; i<local_size; i++ ) {
      if ( owner[i] ) {
-        for( j=0; j<*dofs; j++,k++ ) {
-         xvec[*dofs*(perm[i]-1)+j] = txvec[k];
-        }
+         xvec[perm[i]-1] = txvec[k++];
       }
    }
 fprintf( stderr, "solve time: %g\n", realtime_()-st );
