@@ -2828,7 +2828,8 @@ optimizeownership:
 
 #define DEBUG 1
 int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
-			      char *prefix,int decimals,int halo,int info)
+			      char *prefix,int decimals,int halo,int indirect,
+			      int info)
 /* Saves the mesh in a form that may be used as input 
    in Elmer calculations in parallel platforms. 
    */
@@ -3089,19 +3090,19 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     neededtimes2 = neededtimes;
   }
 
-
-  periodictype = 0;
-  for(j=0;j < MAXBOUNDARIES;j++) 
-    for(i=1; i <= bound[j].nosides; i++) 
-      if(bound[j].types[i] > periodictype) periodictype = bound[j].types[i];
-  periodictype++;
-  indirecttype = periodictype;
-  
-  if(periodic) {
-    if(info) printf("Periodic connections given index %d and elementtype 102.\n",periodictype);
-    indirecttype = periodictype + 1;
+  if(periodic || indirect) {
+    periodictype = 0;
+    for(j=0;j < MAXBOUNDARIES;j++) 
+      for(i=1; i <= bound[j].nosides; i++) 
+	if(bound[j].types[i] > periodictype) periodictype = bound[j].types[i];
+    periodictype++;
+    indirecttype = periodictype; 
+    if(periodic) {
+      if(info) printf("Periodic connections given index %d and elementtype 102.\n",periodictype);
+      indirecttype = periodictype + 1;
+    }
+    if(indirect && info) printf("Indirect connections given index %d and elementtype 102.\n",indirecttype);
   }
-  if(info) printf("Indirect connections given index %d and elementtype 102.\n",indirecttype);
 
   /* The output format is the same for all partitions */
   if(data->dim == 2) 
@@ -3379,7 +3380,8 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     /* Boundary nodes that express indirect couplings between different partitions.
        This makes it possible for ElmerSolver to create a matrix connection that 
        is known to exist. */
-    {
+
+    if (indirect) {
       int maxsides,nodesides,maxnodeconnections,connectednodes,m;
       int **nodepairs,*nodeconnections,**indpairs;      
 
@@ -3583,13 +3585,18 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     fclose(out);
 
     if(info) {
-      if(part == 1) 
-	printf("   %-5s %-10s %-10s %-8s %-8s %-8s %-8s %-8s\n",
-			   "part","elements","nodes","shared","bc elems","indirect","orphan","periodic");
-      if(part)
-	printf("   %-5d %-10d %-10d %-8d %-8d %-8d %-8d %-8d\n",
-	       part,elementsinpart[part],ownnodes[part],sharednodes[part],sidesinpart[part],
-	       indirectinpart[part],orphannodes,periodicinpart[part]);
+      if(part == 1) {
+	printf("   %-5s %-10s %-10s %-8s %-8s %-8s",
+			   "part","elements","nodes","shared","bc elems","orphan");
+	if(indirect) printf(" %-8s","indirect");
+	if(periodic) printf(" %-8s","periodic");
+	printf("\n");
+      }
+      printf("   %-5d %-10d %-10d %-8d %-8d %-8d",
+	     part,elementsinpart[part],ownnodes[part],sharednodes[part],sidesinpart[part],
+	     orphannodes,indirectinpart[part],periodicinpart[part]);
+      if(indirect) printf(" %-8d",indirectinpart[part]);
+      if(periodic) printf(" %-8d",periodicinpart[part]);
     }
   } /* of part */
 

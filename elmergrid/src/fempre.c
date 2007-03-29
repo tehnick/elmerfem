@@ -172,6 +172,7 @@ static void Instructions()
   printf("-metis int[2]        : the mesh will be partitioned with Metis\n");
 #endif
   printf("-halo                : create halo for the partitioning\n");
+  printf("-indirect            : create indirect connections in the partitioning\n");
   printf("-periodic int[3]     : decleare the periodic coordinate directions for parallel meshes\n");
   printf("-bcoffset int        : add an offset to the boundary conditions\n");
   printf("-discont int         : make the boundary to have secondary nodes\n");
@@ -227,6 +228,7 @@ void InitParameters(struct ElmergridType *eg)
   eg->nodes3d = 0;
   eg->metis = 0;
   eg->partitionhalo = FALSE;
+  eg->partitionindirect = FALSE;
   eg->reduce = FALSE;
   eg->increase = FALSE;
   eg->translate = FALSE;
@@ -371,6 +373,9 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
 
     if(strcmp(argv[arg],"-halo") == 0) {
       eg->partitionhalo = TRUE;
+    }
+    if(strcmp(argv[arg],"-indirect") == 0) {
+      eg->partitionindirect = TRUE;
     }
     if(strcmp(argv[arg],"-metisorder") == 0) {
       eg->order = 3;
@@ -1855,7 +1860,7 @@ int main(int argc, char *argv[])
     for(k=0;k<nomeshes;k++) {
       if(data[k].nopartitions > 1) 
 	SaveElmerInputPartitioned(&data[k],boundaries[k],eg.filesout[k],eg.decimals,
-				  eg.partitionhalo,info);
+				  eg.partitionhalo,eg.partitionindirect,info);
       else
 	SaveElmerInput(&data[k],boundaries[k],eg.filesout[k],eg.decimals,0,info);
     }

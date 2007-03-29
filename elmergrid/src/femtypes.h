@@ -341,6 +341,7 @@ struct ElmergridType {
     connectbounds[MAXBOUNDARIES],
     partorder,
     partitionhalo, /* create halo for the partitioning */
+    partitionindirect, /* should one create indirect connections between nodes */
     nofilesin,
     saveinterval[3],
     elementsredone,

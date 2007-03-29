@@ -28,5 +28,6 @@ int ReorderElementsMetis(struct FemType *data,int info);
 #endif
 int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noopt,int info);
 int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
-			      char *prefix,int decimals,int halo,int info);
+			      char *prefix,int decimals,int halo,int indirect,
+			      int info);
 
