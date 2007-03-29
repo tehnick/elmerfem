@@ -161,19 +161,6 @@ static void Instructions()
   printf("-cylinder            : map 2D/3D cylindrical mesh to a cartesian mesh\n");
   printf("-reduce int[2]       : reduce element order at material interval [int1 int2]\n");
   printf("-increase            : increase element order from linear to quadratic\n");
-#if 0
-  /* This functionality has moved into the ElmerSolver */
-  printf("-pelem int[3]        : p-elements of power int3 at interval [int1 int2]\n");
-  printf("-belem int[3]        : set bubble dofs to int3 at interval [int1 int2]\n");
-#endif
-  printf("-partition int[4]    : the mesh will be partitioned in main directions\n");
-  printf("-partorder real[3]   : in the above method, the direction of the ordering\n");
-#if PARTMETIS
-  printf("-metis int[2]        : the mesh will be partitioned with Metis\n");
-#endif
-  printf("-halo                : create halo for the partitioning\n");
-  printf("-indirect            : create indirect connections in the partitioning\n");
-  printf("-periodic int[3]     : decleare the periodic coordinate directions for parallel meshes\n");
   printf("-bcoffset int        : add an offset to the boundary conditions\n");
   printf("-discont int         : make the boundary to have secondary nodes\n");
   printf("-connect int         : make the boundary to have internal connection among its elements\n");
@@ -191,11 +178,28 @@ static void Instructions()
   printf("-3d / -2d / -1d      : mesh is 3, 2 or 1-dimensional (applies to examples)\n");
   printf("-isoparam            : ensure that higher order elements are convex\n");
   printf("-nobound             : disable saving of boundary elements in ElmerPost format\n");
+
+  printf("\nThe following keywords are related only to the parallel Elmer computations.\n");
+  printf("-partition int[4]    : the mesh will be partitioned in main directions\n");
+  printf("-partorder real[3]   : in the above method, the direction of the ordering\n");
+#if PARTMETIS
+  printf("-metis int[2]        : the mesh will be partitioned with Metis\n");
+#endif
+  printf("-halo                : create halo for the partitioning\n");
+  printf("-indirect            : create indirect connections in the partitioning\n");
+  printf("-periodic int[3]     : decleare the periodic coordinate directions for parallel meshes\n");
   printf("-saveinterval int[3] : the first, last and step for fusing parallel data\n");
+
   if(0) printf("-names               : conserve name information where applicable\n");
 #if 0
   printf("-map str             : file with mapping info for mesh-to-mesh interpolation\n");
 #endif
+#if 0
+  /* This functionality has moved into the ElmerSolver */
+  printf("-pelem int[3]        : p-elements of power int3 at interval [int1 int2]\n");
+  printf("-belem int[3]        : set bubble dofs to int3 at interval [int1 int2]\n");
+#endif
+
 }
 
 
