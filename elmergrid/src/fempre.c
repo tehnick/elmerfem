@@ -1034,7 +1034,14 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
       if(eg->dim == 3) sscanf(params,"%d%d%d",&eg->periodicdim[0],
 			      &eg->periodicdim[1],&eg->periodicdim[2]);
     }
-
+    else if(strstr(command,"HALO")) {
+      for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+      if(strstr(params,"TRUE")) eg->partitionhalo = TRUE;      
+    }
+    else if(strstr(command,"INDIRECT")) {
+      for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+      if(strstr(params,"TRUE")) eg->partitionindirect = TRUE;      
+    }
     else if(strstr(command,"BOUNDARY BOUNDARY")) {
       for(i=0;i<MAXBOUNDARIES;i++) {
 	if(i>0) Getline(params,in);
