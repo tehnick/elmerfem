@@ -3597,6 +3597,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	     orphannodes,indirectinpart[part],periodicinpart[part]);
       if(indirect) printf(" %-8d",indirectinpart[part]);
       if(periodic) printf(" %-8d",periodicinpart[part]);
+      printf("\n");
     }
   } /* of part */
 
