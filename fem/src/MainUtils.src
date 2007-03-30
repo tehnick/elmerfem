@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MainUtils.src,v $
+! * Revision 1.24  2007/03/29 12:20:07  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.23  2007/02/07 11:42:22  jpr
 ! *
 ! * Enabled "Exported Variable n" defintions of "Internal Solvers". Added
@@ -116,7 +119,7 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.src,v 1.23 2007/02/07 11:42:22 jpr Exp $
+! * $Id: MainUtils.src,v 1.24 2007/03/29 12:20:07 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MainUtils
@@ -1262,7 +1265,7 @@ CONTAINS
                 END IF
              END IF
           END IF
-          CALL ParallelAllReduceLogical( DoneThis(k) )
+          CALL ParallelAllReduceAnd( DoneThis(k) )
           IF( ALL(DoneThis) ) EXIT
 !------------------------------------------------------------------------------
        END DO

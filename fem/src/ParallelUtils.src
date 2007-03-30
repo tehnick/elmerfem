@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ParallelUtils.src,v 1.10 2007/02/05 11:36:31 jpr Exp $
+! * $Id: ParallelUtils.src,v 1.11 2007/03/29 12:20:07 jpr Exp $
 ! ******************************************************************************
 
 MODULE ParallelUtils
@@ -455,14 +455,14 @@ CONTAINS
 
 
 !-------------------------------------------------------------------------------
-    SUBROUTINE ParallelAllReduceLogical( L )
+    SUBROUTINE ParallelAllReduceAnd( L )
 !-------------------------------------------------------------------------------
       LOGICAL :: L
 #ifdef PARALLEL_FOR_REAL
-       IF ( ParEnv % PEs > 1) CALL SParIterReduceLogical(L)
+       IF ( ParEnv % PEs > 1) CALL SParIterAllReduceAnd(L)
 #endif
 !-------------------------------------------------------------------------------
-    END SUBROUTINE ParallelAllReduceLogical
+    END SUBROUTINE ParallelAllReduceAnd
 !-------------------------------------------------------------------------------
 
 

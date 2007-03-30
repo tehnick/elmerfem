@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterComm.src,v 1.16 2007/03/28 10:21:40 jpr Exp $
+! * $Id: SParIterComm.src,v 1.17 2007/03/29 12:20:07 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -1179,13 +1179,13 @@ END  SUBROUTINE SParIterActiveBarrier
 
 
 !-----------------------------------------------------------------------
-SUBROUTINE SParIterReduceLogical(L)
-    LOGICAL :: L
+SUBROUTINE SParIterAllReduceAnd(L)
+   LOGICAL :: L
 !-----------------------------------------------------------------------
-    INTEGER :: ierr
-    CALL MPI_ALLREDUCE(L,L,1,MPI_LOGICAL,MPI_LAND,MPI_COMM_WORLD,ierr)
+   INTEGER :: ierr
+   CALL MPI_ALLREDUCE(L,L,1,MPI_LOGICAL,MPI_LAND,MPI_COMM_WORLD,ierr)
 !-----------------------------------------------------------------------
-END  SUBROUTINE SParIterReduceLogical
+END  SUBROUTINE SParIterAllReduceAnd
 !-----------------------------------------------------------------------
 
 
