@@ -3211,7 +3211,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	bcneeded = 0;
 	for(l=0;l<nodesd1;l++) {
 	  ind = sideind[l];
-	  for(k=1;k<=neededtimes[ind];k++)
+	  for(k=1;k<=neededtimes2[ind];k++)
 	    if(part == data->partitiontable[k][ind]) bcneeded++;
 	}
 	if(bcneeded != nodesd1) continue;
@@ -3227,12 +3227,22 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	  if(bound[j].parent2[i]) 
 	    trueparent = (elempart[bound[j].parent2[i]] == part);
 	}	
-	if(!trueparent) continue;
+	if(!trueparent || !halo) continue;
 
 	sumsides++;	
 	sidetypes[sideelemtype] += 1;
-	fprintf(out,"%d %d %d %d %d",
-		sumsides,bound[j].types[i],bound[j].parent[i],bound[j].parent2[i],sideelemtype);
+	if(halo) {
+	  if(trueparent)
+	    fprintf(out,"%d/%d %d %d %d %d",
+		    sumsides,part,bound[j].types[i],bound[j].parent[i],bound[j].parent2[i],sideelemtype);
+	  else
+	    fprintf(out,"%d/%d %d %d %d %d",
+		    sumsides,elempart[bound[j].parent[i]],bound[j].types[i],bound[j].parent[i],bound[j].parent2[i],sideelemtype);	    
+	}
+	else {
+	  fprintf(out,"%d %d %d %d %d",
+		  sumsides,bound[j].types[i],bound[j].parent[i],bound[j].parent2[i],sideelemtype);	  
+	}
 	if(reorder) {
 	  for(l=0;l<nodesd1;l++)
 	    fprintf(out," %d",order[sideind[l]]);
