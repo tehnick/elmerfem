@@ -3227,7 +3227,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	  if(bound[j].parent2[i]) 
 	    trueparent = (elempart[bound[j].parent2[i]] == part);
 	}	
-	if(!trueparent || !halo) continue;
+	if(!trueparent && !halo) continue;
 
 	sumsides++;	
 	sidetypes[sideelemtype] += 1;
