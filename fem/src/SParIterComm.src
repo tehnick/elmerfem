@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterComm.src,v 1.20 2007/03/30 09:30:03 jpr Exp $
+! * $Id: SParIterComm.src,v 1.21 2007/03/30 10:06:26 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -268,7 +268,8 @@ CONTAINS
           CALL MPI_RECV( Active, j, MPI_INTEGER, i-1, &
               801, MPI_COMM_WORLD, status, ierr )
           DO k=1,j
-            NeighAll(i,j) = Active(j)
+            NeighAll(i,k) = Active(k)
+            IF ( Active(k)==MinActive ) ParEnv % IsNeighbour(i-1) = .TRUE.
           END DO
         END IF
       END DO
@@ -295,6 +296,7 @@ CONTAINS
 !-----------------------------------------------------------------------
   END SUBROUTINE FindActivePEs
 !-----------------------------------------------------------------------
+
 
 !***********************************************************************
 ! Try to agree about global numbering of nodes among active
