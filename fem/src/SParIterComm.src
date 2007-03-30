@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterComm.src,v 1.18 2007/03/30 04:15:07 jpr Exp $
+! * $Id: SParIterComm.src,v 1.19 2007/03/30 08:20:21 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -225,6 +225,37 @@ CONTAINS
           END IF
        END DO
     END DO
+
+#if 0
+    DO MinActive=1,ParEnv % PEs
+      IF ( Active(MinActive) ) EXIT
+    END DO
+    j = 0
+    DO i=1,ParEnv % PEs
+      IF ( ParEnv % IsNeighbour(i) ) THEN
+         j = j + 1
+         Active(j) = i-1
+      END IF
+    END DO
+
+    IF (Parenv % myPE /= MinActive ) THEN
+      CALL MPI_BSEND( Active, j, MPI_INTEGER, MinActive, &
+                   801, MPI_COMM_WORLD, ierr )
+
+      CALL MPI_RECV( Active, j, MPI_INTEGER, MinActive, &
+             802, MPI_COMM_WORLD, status, ierr )
+
+      DO i=1,j
+        ParEnv % IsNeighbour(Active(i)) = .TRUE.
+      END DO
+    ELSE
+      n = COUNT(Active)
+      DO i=1,ParEnv % PEs
+        CALL MPI_RECV( Active, j, MPI_INTEGER, MinActive, &
+               802, MPI_COMM_WORLD, status, ierr )
+      END DO
+    END IF
+#endif
     DEALLOCATE( Active )
 !-----------------------------------------------------------------------
   END SUBROUTINE FindActivePEs

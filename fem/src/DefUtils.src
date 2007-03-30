@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: DefUtils.src,v $
+! * Revision 1.39  2007/03/30 08:20:21  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.38  2007/03/30 06:03:44  jpr
 ! * *** empty log message ***
 ! *
@@ -177,7 +180,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.38 2007/03/30 06:03:44 jpr Exp $
+! * $Id: DefUtils.src,v 1.39 2007/03/30 08:20:21 jpr Exp $
 ! *
 ! *****************************************************************************/
 
@@ -1561,20 +1564,26 @@ CONTAINS
         Element => CurrentModel % CurrentElement
      END IF
 
-     IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
-        P1 => Element % BoundaryInfo % Left
-        P2 => Element % BoundaryInfo % Right
-        IF ( ASSOCIATED(P1) .AND. ASSOCIATED(P2) ) THEN
-          IF ( P1 % PartIndex/=ParEnv % myPE .AND. &
-               P2 % PartIndex/=ParEnv % myPE )RETURN
+     IF ( ParEnv % PEs > 1 ) THEN
+       IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
+          P1 => Element % BoundaryInfo % Left
+          P2 => Element % BoundaryInfo % Right
+          IF ( ASSOCIATED(P1) .AND. ASSOCIATED(P2) ) THEN
+            IF ( P1 % PartIndex/=ParEnv % myPE .AND. &
+                 P2 % PartIndex/=ParEnv % myPE )RETURN
 
-          IF ( P1 % PartIndex/=ParEnv % myPE .OR. &
-               P2 % PartIndex/=ParEnv % myPE ) THEN
-            G=G/2; F=F/2; 
+            IF ( P1 % PartIndex/=ParEnv % myPE .OR. &
+                 P2 % PartIndex/=ParEnv % myPE ) THEN
+              G=G/2; F=F/2; 
+            END IF
+          ELSE IF ( ASSOCIATED(P1) ) THEN
+            IF ( P1 % PartIndex /= ParEnv % myPE ) RETURN
+          ELSE IF ( ASSOCIATED(P2) ) THEN
+            IF ( P2 % PartIndex /= ParEnv % myPE ) RETURN
           END IF
-        END IF
-     ELSE IF ( Element % PartIndex /= ParEnv % myPE ) THEN
-        RETURN
+       ELSE IF ( Element % PartIndex/=ParEnv % myPE ) THEN
+          RETURN
+       END IF
      END IF
 
      Indexes => GetIndexStore()
@@ -1593,7 +1602,8 @@ CONTAINS
           END IF
           SaveValues => A % Values
           A % Values => A % BulkValues
-          CALL UpdateGlobalEquations( A,G,A % BulkRHS,f,n,x % DOFs,x % Perm(Indexes(1:n)) )
+          CALL UpdateGlobalEquations( A,G,A % BulkRHS,f,n, &
+                   x % DOFs,x % Perm(Indexes(1:n)) )
           A % Values => SaveValues
        END IF
      END IF
@@ -1641,20 +1651,26 @@ CONTAINS
      Indexes => GetIndexStore()
      n = GetElementDOFs( Indexes, Element, Solver )
 
-     IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
-        P1 => Element % BoundaryInfo % Left
-        P2 => Element % BoundaryInfo % Right
-        IF ( ASSOCIATED(P1) .AND. ASSOCIATED(P2) ) THEN
-          IF ( P1 % PartIndex/=ParEnv % myPE .AND. &
-               P2 % PartIndex/=ParEnv % myPE )RETURN
+     IF ( ParEnv % PEs > 1 ) THEN
+       IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
+          P1 => Element % BoundaryInfo % Left
+          P2 => Element % BoundaryInfo % Right
+          IF ( ASSOCIATED(P1) .AND. ASSOCIATED(P2) ) THEN
+            IF ( P1 % PartIndex/=ParEnv % myPE .AND. &
+                 P2 % PartIndex/=ParEnv % myPE )RETURN
 
-          IF ( P1 % PartIndex/=ParEnv % myPE .OR. &
-               P2 % PartIndex/=ParEnv % myPE ) THEN
-            GC=GC/2; FC=FC/2; 
+            IF ( P1 % PartIndex/=ParEnv % myPE .OR. &
+                 P2 % PartIndex/=ParEnv % myPE ) THEN
+              GC=GC/2; FC=FC/2; 
+            END IF
+          ELSE IF ( ASSOCIATED(P1) ) THEN
+            IF ( P1 % PartIndex/=ParEnv % myPE ) RETURN
+          ELSE IF ( ASSOCIATED(P2) ) THEN
+            IF ( P2 % PartIndex/=ParEnv % myPE ) RETURN
           END IF
-        END IF
-     ELSE IF ( Element % PartIndex /= ParEnv % myPE ) THEN
-        RETURN
+       ELSE IF ( Element % PartIndex/=ParEnv % myPE ) THEN
+          RETURN
+       END IF
      END IF
 
      ALLOCATE( G(DOFs*n,DOFs*n), F(DOFs*n) )
