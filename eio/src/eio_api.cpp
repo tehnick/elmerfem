@@ -519,7 +519,8 @@ EIOFC(EIO_GET_MESH_BNDRY_ELEMENT)
    int& type, int* nodes, double *coord,
    int& info)
 {
-  if(meshAgent->read_nextBoundaryElement(tag, boundary, 
+  int part;
+  if(meshAgent->read_nextBoundaryElement(tag, &part, boundary, 
 					 leftElement, rightElement, 
 					 type, nodes, coord) != -1)
     info = 0;
@@ -550,7 +551,8 @@ EIOFC(EIO_GET_MESH_ELEMENT_CONNS)
   (int& tag, int& body, int& type, int *pdofs, int *nodes, 
    int& info)
 {
-  if(meshAgent->read_nextElementConnections(tag, body, type, pdofs, nodes) != -1)
+  int part;
+  if(meshAgent->read_nextElementConnections(tag, &part, body, type, pdofs, nodes) != -1)
     info = 0;
   else info = -1;
 }

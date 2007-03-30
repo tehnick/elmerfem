@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: DefUtils.src,v $
+! * Revision 1.38  2007/03/30 06:03:44  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.37  2007/03/21 09:00:53  jpr
 ! * *** empty log message ***
 ! *
@@ -174,7 +177,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.37 2007/03/21 09:00:53 jpr Exp $
+! * $Id: DefUtils.src,v 1.38 2007/03/30 06:03:44 jpr Exp $
 ! *
 ! *****************************************************************************/
 
@@ -1537,7 +1540,7 @@ CONTAINS
      TYPE(Solver_t), POINTER   :: Solver
      TYPE(Matrix_t), POINTER   :: A
      TYPE(Variable_t), POINTER :: x
-     TYPE(Element_t), POINTER  :: Element
+     TYPE(Element_t), POINTER  :: Element, P1, P2
      REAL(KIND=dp), POINTER    :: b(:), SaveValues(:)
 
      INTEGER :: n
@@ -1559,14 +1562,16 @@ CONTAINS
      END IF
 
      IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
-        IF ( ASSOCIATED(Element % BoundaryInfo % Left) .AND. &
-             ASSOCIATED(Element % BoundaryInfo % Right) ) THEN
-           IF ( Element % BoundaryInfo % Left  % PartIndex/=ParEnv % myPE .AND. &
-                Element % BoundaryInfo % Right % PartIndex/=ParEnv % myPE )RETURN
-           IF ( Element % BoundaryInfo % Left  % PartIndex/=ParEnv % myPE .OR. &
-                Element % BoundaryInfo % Right % PartIndex/=ParEnv % myPE ) THEN
-             G=G/2; F=F/2; 
-           END IF
+        P1 => Element % BoundaryInfo % Left
+        P2 => Element % BoundaryInfo % Right
+        IF ( ASSOCIATED(P1) .AND. ASSOCIATED(P2) ) THEN
+          IF ( P1 % PartIndex/=ParEnv % myPE .AND. &
+               P2 % PartIndex/=ParEnv % myPE )RETURN
+
+          IF ( P1 % PartIndex/=ParEnv % myPE .OR. &
+               P2 % PartIndex/=ParEnv % myPE ) THEN
+            G=G/2; F=F/2; 
+          END IF
         END IF
      ELSE IF ( Element % PartIndex /= ParEnv % myPE ) THEN
         RETURN
@@ -1609,7 +1614,7 @@ CONTAINS
      TYPE(Solver_t), POINTER   :: Solver
      TYPE(Matrix_t), POINTER   :: A
      TYPE(Variable_t), POINTER :: x
-     TYPE(Element_t), POINTER  :: Element
+     TYPE(Element_t), POINTER  :: Element, P1, P2
      REAL(KIND=dp), POINTER    :: b(:), SaveValues(:)
 
      REAL(KIND=dp), POINTER :: G(:,:), F(:)
@@ -1637,14 +1642,16 @@ CONTAINS
      n = GetElementDOFs( Indexes, Element, Solver )
 
      IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
-        IF ( ASSOCIATED(Element % BoundaryInfo % Left) .AND. &
-             ASSOCIATED(Element % BoundaryInfo % Right) ) THEN
-           IF ( Element % BoundaryInfo % Left  % PartIndex/=ParEnv % myPE .AND. &
-                Element % BoundaryInfo % Right % PartIndex/=ParEnv % myPE )RETURN
-           IF ( Element % BoundaryInfo % Left  % PartIndex/=ParEnv % myPE .OR. &
-                Element % BoundaryInfo % Right % PartIndex/=ParEnv % myPE ) THEN
-             GC=GC/2; FC=FC/2; 
-           END IF
+        P1 => Element % BoundaryInfo % Left
+        P2 => Element % BoundaryInfo % Right
+        IF ( ASSOCIATED(P1) .AND. ASSOCIATED(P2) ) THEN
+          IF ( P1 % PartIndex/=ParEnv % myPE .AND. &
+               P2 % PartIndex/=ParEnv % myPE )RETURN
+
+          IF ( P1 % PartIndex/=ParEnv % myPE .OR. &
+               P2 % PartIndex/=ParEnv % myPE ) THEN
+            GC=GC/2; FC=FC/2; 
+          END IF
         END IF
      ELSE IF ( Element % PartIndex /= ParEnv % myPE ) THEN
         RETURN

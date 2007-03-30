@@ -346,12 +346,12 @@ extern "C" void STDCALLBULL FC_FUNC_(eio_set_mesh_bndry_element,EIO_SET_MESH_BND
 }
 
 extern "C" void STDCALLBULL FC_FUNC_(eio_get_mesh_bndry_element,EIO_GET_MESH_BNDRY_ELEMENT)
-  (int& tag, int& boundary, 
+  (int& tag, int& part, int& boundary, 
    int& leftElement, int& rightElement,
    int& type, int* nodes, double *coord,
    int& info)
 {
-  if(meshAgent->read_nextBoundaryElement(tag, boundary, 
+  if(meshAgent->read_nextBoundaryElement(tag, part, boundary, 
 					 leftElement, rightElement, 
 					 type, nodes, coord) != -1)
     info = 0;
@@ -371,10 +371,10 @@ extern "C" void STDCALLBULL FC_FUNC_(eio_get_mesh_description,EIO_GET_MESH_DESCR
   info = 0;
 }
 extern "C" void STDCALLBULL FC_FUNC_(eio_get_mesh_element_conns,EIO_GET_MESH_ELEMENT_CONNS)
-  (int& tag, int& body, int& type, int *pdofs, int *nodes, 
+  (int& tag, int& part, int& body, int& type, int *pdofs, int *nodes, 
    int& info)
 {
-  if(meshAgent->read_nextElementConnections(tag, body, type, pdofs, nodes) != -1)
+  if(meshAgent->read_nextElementConnections(tag, part, body, type, pdofs, nodes) != -1)
     info = 0;
   else info = -1;
 }

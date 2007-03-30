@@ -230,7 +230,7 @@ read_partDescriptor(int& shared)
 }
 
 int EIOMeshAgent::
-read_nextElementConnections(int& tag, int& body, int& type, int* pdofs, int* nodes )
+read_nextElementConnections(int& tag, int& part, int& body, int& type, int* pdofs, int* nodes )
 {
   int i, gotnodal;
   char typestr[32], tagstr[32];
@@ -241,9 +241,10 @@ read_nextElementConnections(int& tag, int& body, int& type, int* pdofs, int* nod
       step = 0;
       return -1;
     }
-  for( i=0; i<7; i++ ) pdofs[i] = 0;
+  for( i=0; i<6; i++ ) pdofs[i] = 0;
   str >> tagstr >> body >> typestr ;
-  sscanf( tagstr, "%d/%d", &tag, &pdofs[6] );
+  part = 0;
+  sscanf( tagstr, "%d/%d", &tag, &part );
 
   gotnodal = 0;
   for( i=0; i<strlen(typestr); i++ )
@@ -320,10 +321,11 @@ read_nextElementCoordinates(int& tag, int& body, int& type, int* nodes, double *
 
 
 int EIOMeshAgent::
-read_nextBoundaryElement(int& tag, int& boundary, int& leftElement,
+read_nextBoundaryElement(int& tag, int& part, int& boundary, int& leftElement,
                          int& rightElement, int& type, int* nodes, double* coord)
 {
   int i;
+  char tagstr[32];
   fstream& str = meshFileStream[BOUNDARY];
 
   if(step == boundaryElementCount)
@@ -337,7 +339,9 @@ read_nextBoundaryElement(int& tag, int& boundary, int& leftElement,
       cache_nodes();
     }
 
-  str >> tag >> boundary >> leftElement >> rightElement;
+  str >> tagstr >> boundary >> leftElement >> rightElement;
+  part = 0;
+  sscanf( tagstr, "%d/%d", &tag, &part );
 
   str >> type;
   int elNodes = elementNodes(type);
@@ -358,7 +362,7 @@ read_nextBoundaryElement(int& tag, int& boundary, int& leftElement,
       if(!ok)
 	{
 	  ++step;
-	  return read_nextBoundaryElement(tag, boundary, 
+	  return read_nextBoundaryElement(tag, part, boundary, 
 					  leftElement, rightElement, 
 					  type, nodes, coord);
 	}

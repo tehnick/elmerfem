@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterComm.src,v 1.17 2007/03/29 12:20:07 jpr Exp $
+! * $Id: SParIterComm.src,v 1.18 2007/03/30 04:15:07 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -92,7 +92,6 @@ CONTAINS
 !-----------------------------------------------------------------------
    FUNCTION ParCommInit( ) RESULT ( ParallelEnv ) 
 !-----------------------------------------------------------------------
-
      TYPE (ParEnv_t), POINTER :: ParallelEnv
 
     ! Local variables
@@ -132,11 +131,9 @@ CONTAINS
 !-----------------------------------------------------------------------
 
 
-  !********************************************************************
-  !********************************************************************
-  !
-  ! Initialize parallel execution environment
-  !
+!********************************************************************
+!********************************************************************
+! Initialize parallel execution environment
 !-----------------------------------------------------------------------
   SUBROUTINE ParEnvInit( SPMatrix, ParallelInfo, SourceMatrix )
 !-----------------------------------------------------------------------
@@ -169,8 +166,8 @@ CONTAINS
     CALL CheckBuffer( ParEnv % PEs**2 + MPI_BSEND_OVERHEAD )
 
     ALLOCATE( ParEnv % SendingNB( ParEnv % PEs ) )
-    ALLOCATE( ParEnv % Active( ParEnv % PEs ) )
-    ALLOCATE( ParEnv % IsNeighbour( ParEnv % PEs ) )
+    ALLOCATE( ParEnv % Active(ParEnv % PEs) )
+    ALLOCATE( ParEnv % IsNeighbour(ParEnv % PEs) )
 
     ParEnv % NumOfNeighbours = 0
     ParEnv % Active(:)       = .FALSE.
@@ -182,11 +179,11 @@ CONTAINS
     !------------------------------------------------------------------
     DO i=1,SourceMatrix % NumberOfRows
        k = SourceMatrix % INVPerm(i)
-       IF ( SIZE( ParallelInfo % NeighbourList(k) % Neighbours ) > 1 ) THEN
-          DO j=1,SIZE( ParallelInfo % NeighbourList(k) % Neighbours )
+       IF ( SIZE(ParallelInfo % NeighbourList(k) % Neighbours)>1 ) THEN
+          DO j=1,SIZE(ParallelInfo % NeighbourList(k) % Neighbours)
              proc = ParallelInfo % NeighbourList(k) % Neighbours(j)
              IF ( proc /= ParEnv % myPE ) THEN
-                IF ( .NOT. ParEnv % IsNeighbour(proc+1) ) THEN
+                IF ( .NOT.ParEnv % IsNeighbour(proc+1) ) THEN
                    ParEnv % IsNeighbour(proc+1) = .TRUE.
                    ParEnv % NumOfNeighbours = ParEnv % NumOfNeighbours+1
                 END IF

@@ -49,10 +49,10 @@ public:
   int read_descriptor(int& nodeC, int& elementC, int& boundaryElementC, 
 		      int& usedElementTypes, int* usedElementTypeTags,
 		      int* usedElementTypeCount);
-  int read_nextElementConnections(int& tag, int& body, int& type, int *pdofs, int* nodes);
+  int read_nextElementConnections(int& tag, int& part, int& body, int& type, int *pdofs, int* nodes);
   int read_nextElementCoordinates(int& tag, int& body, int& type, int* nodes,
 			     double *coord);
-  int read_nextBoundaryElement(int& tag, int& boundary,
+  int read_nextBoundaryElement(int& tag, int& part, int& boundary,
                                int& leftElement, int& rightElement,
                                int& type, int* nodes, double* coord);
   int read_allNodes(int *tags,double* coord);
