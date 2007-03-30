@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterComm.src,v 1.22 2007/03/30 10:18:05 jpr Exp $
+! * $Id: SParIterComm.src,v 1.23 2007/03/30 10:23:33 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -160,8 +160,10 @@ CONTAINS
     ! Local variables
     INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
     
-    INTEGER, ALLOCATABLE :: Active(:), Neigh(:), NeighAll(:,:)
+    INTEGER, ALLOCATABLE :: Active(:), Neigh(:), NeighAll(:,:), sReq(:),rReq(:)
     INTEGER :: i, j, k, ierr, proc, Group, MinActive
+    LOGICAL :: L
+    REAL(KIND=dp) :: RealTime, tstart, tend
 
     CALL CheckBuffer( ParEnv % PEs**2 + MPI_BSEND_OVERHEAD )
 
@@ -200,8 +202,42 @@ CONTAINS
     ParEnv % Active = ParEnv % IsNeighbour
     ParEnv % Active(parenv % myPE+1) = .TRUE.
 
-    ! This many exchanges are needed in the worst case for neighbouring 
-    ! information to propagate.
+!   ! This many exchanges are needed in the worst case for neighbouring 
+!   ! information to propagate.
+print*,parenv % mype, parenv % active; call flush(6)
+#if 0
+    ALLOCATE( Active(ParEnv % PEs),rreq(parenv % pes),sreq(parenv % pes) )
+    DO i=1,ParEnv % PEs
+       IF ( ParEnv % MYpe == i-1 ) CYCLE
+       CALL MPI_iBSEND( j, 1, MPI_INTEGER, i-1, &
+             500, MPI_COMM_WORLD, sReq(i), ierr )
+    END DO
+
+    DO i=1,ParEnv % PEs
+       IF ( ParEnv % MYpe == i-1 ) CYCLE
+       CALL MPI_iRECV( j, ParEnv % PEs, MPI_INTEGER, i-1, &
+             500, MPI_COMM_WORLD, rReq(i), ierr )
+    END DO
+
+    tstart = RealTIME()
+    tend   = RealTIME()
+    DO WHILE( tend-tstart<10 )
+      DO i=1,ParEnv % PEs
+        IF ( ParEnv % MYpe == i-1 ) CYCLE
+        CALL MPI_Test( rReq(i),ParEnv % Active(i), status, ierr)
+        tend = RealTime()
+      END DO
+    END DO
+
+    DO i=1,ParENv % PEs
+      IF ( ParEnv % MYpe == i-1 ) CYCLE
+      CALL MPI_Test( rReq(i),L, status, ierr)
+      IF ( .NOT. L ) CALL MPI_Cancel( rReq(i), ierr )
+      CALL MPI_Test( sReq(i),L, status, ierr)
+      IF ( .NOT. L ) CALL MPI_Cancel( sReq(i), ierr )
+      tend = RealTime()
+    END DO
+#else
     ALLOCATE( Active(ParEnv % PEs) )
     DO k = 1, ParEnv % PEs
        Active = 0
@@ -224,6 +260,8 @@ CONTAINS
           END IF
        END DO
     END DO
+#endif
+print*,parenv % mype, parenv % active,' A'; call flush(6)
 
     !------------------------------------------------------------------
     ! Sync all neighbouring information
@@ -243,56 +281,63 @@ CONTAINS
     IF (Parenv % myPE /= MinActive ) THEN
       CALL MPI_BSEND( j, 1, MPI_INTEGER, MinActive, &
                 800, MPI_COMM_WORLD, ierr )
-      CALL MPI_BSEND( Active, j, MPI_INTEGER, MinActive, &
-                801, MPI_COMM_WORLD, ierr )
+      IF ( j>0 ) THEN
+        CALL MPI_BSEND( Active, j, MPI_INTEGER, MinActive, &
+                 801, MPI_COMM_WORLD, ierr )
+      END IF
 
       CALL MPI_RECV( j, 1, MPI_INTEGER, MinActive, &
              802, MPI_COMM_WORLD, status, ierr )
-      CALL MPI_RECV( Active, j, MPI_INTEGER, MinActive, &
-             803, MPI_COMM_WORLD, status, ierr )
-
-      DO i=1,j
-        ParEnv % IsNeighbour(Active(i)+1) = .TRUE.
-      END DO
+      IF ( j>0 ) THEN
+        CALL MPI_RECV( Active, j, MPI_INTEGER, MinActive, &
+               803, MPI_COMM_WORLD, status, ierr )
+        DO i=1,j
+          ParEnv % IsNeighbour(Active(i)+1) = .TRUE.
+        END DO
+      END IF
     ELSE
-      ALLOCATE( NeighAll(ParEnv % PEs, ParEnv % PEs))
+      ALLOCATE( NeighAll(ParEnv % PEs, ParEnv % PEs) )
       NeighAll=-1
       DO k=1,j
         NeighAll(MinActive+1,j) = Active(j)
       END DO
 
-      DO i=1,ParEnv % PEs
-        IF ( ParEnv % Active(i).AND.i-1/=ParEnv % MyPE ) THEN
-          CALL MPI_RECV( j, 1, MPI_INTEGER, i-1, &
+      DO i=1,COUNT(ParEnv % Active)-1
+        CALL MPI_RECV( j, 1, MPI_INTEGER, MPI_ANY_SOURCE, &
               800, MPI_COMM_WORLD, status, ierr )
-          CALL MPI_RECV( Active, j, MPI_INTEGER, i-1, &
+        IF ( j>0 ) THEN
+          proc = status(MPI_SOURCE)
+          CALL MPI_RECV( Active, j, MPI_INTEGER, proc, &
               801, MPI_COMM_WORLD, status, ierr )
           DO k=1,j
-            NeighAll(i,k) = Active(k)
-            IF (Active(k)==MinActive) ParEnv % IsNeighbour(i) = .TRUE.
+            NeighAll(proc+1,k) = Active(k)
+            IF (Active(k)==MinActive) ParEnv % IsNeighbour(proc+1) = .TRUE.
           END DO
         END IF
       END DO
 
       DO i=1,Parenv % PEs
-        j = 0
-        DO k=1,ParEnv % PEs
-          IF ( ParEnv % Active(k) .AND. NeighAll(i,k)>= 0 ) THEN
-            j = j + 1
-            Active(j) = NeighAll(i,k)
-          END IF
-        END DO
-        IF ( ParEnv % Active(i) .AND. i-1/=ParEnv % MyPE ) THEN
+        IF ( ParEnv % Active(i) .AND. i-1/=MinActive ) THEN
+          j = 0
+          DO k=1,ParEnv % PEs
+            IF ( ParEnv % Active(k) .AND. NeighAll(i,k)>=0 ) THEN
+              j = j + 1
+              Active(j) = NeighAll(i,k)
+            END IF
+          END DO
           CALL MPI_BSEND( j, 1, MPI_INTEGER, i-1, &
                  802, MPI_COMM_WORLD, ierr )
-          CALL MPI_BSEND( Active, j, MPI_INTEGER, i-1, &
-                 803, MPI_COMM_WORLD, ierr )
+          IF ( j>0 ) THEN
+            CALL MPI_BSEND( Active, j, MPI_INTEGER, i-1, &
+                   803, MPI_COMM_WORLD, ierr )
+          END IF
         END IF
       END DO
       DEALLOCATE( NeighAll )
     END IF
     DEALLOCATE( Active )
     ParEnv % isNeighbour(ParEnv % myPE+1) = .FALSE.
+print*,parenv % mype, parenv % isneighbour,' B'; call flush(6)
 !-----------------------------------------------------------------------
   END SUBROUTINE FindActivePEs
 !-----------------------------------------------------------------------
