@@ -428,7 +428,7 @@
                    ' Upper Limit',n,Element % NodeIndexes, Found)
               IF (.NOT. Found) THEN
                  LimitedSolution(Element % Nodeindexes(1:N)) = .FALSE.
-                 WRITE(Message,'(a,i)') 'No upper limit of solution for element no. ', t
+                 WRITE(Message,'(a,i10)') 'No upper limit of solution for element no. ', t
                  CALL INFO(SolverName, Message, level=10)
               ELSE
                  LimitedSolution(Element % Nodeindexes(1:N)) = .TRUE.
@@ -691,7 +691,7 @@
                       HeatCapacity, C0, C1(1:N), HeatConductivity, &
                       .FALSE., Zero, Zero, TempVeloU, TempVeloV, TempVeloW, &
                       MeshVelocity(1,1:N),MeshVelocity(2,1:N),MeshVelocity(3,1:N),&
-                      Viscosity, Density, Pressure, &
+                      Viscosity, Density, Pressure, Zero, Zero,&
                       .FALSE., Stabilize, Bubbles, Element, n, ElementNodes )
               ! special coords (account for metric)
               !-----------------------------------
@@ -701,7 +701,7 @@
                       HeatCapacity, C0, C1(1:N), HeatConductivity, &
                       .FALSE., Zero, Zero, TempVeloU, TempVeloV, TempVeloW, &
                       MeshVelocity(1,1:N),MeshVelocity(2,1:N),MeshVelocity(3,1:N), Viscosity,&
-                      Density, Pressure,.FALSE.,&
+                      Density, Pressure, Zero, Zero,.FALSE.,&
                       Stabilize, Element, n, ElementNodes )
 
               END IF              
