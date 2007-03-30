@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.48  2007/03/29 12:20:07  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.47  2007/03/28 10:21:40  jpr
 ! * *** empty log message ***
 ! *
@@ -154,7 +157,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.47 2007/03/28 10:21:40 jpr Exp $
+! * $Id: MeshUtils.src,v 1.48 2007/03/29 12:20:07 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -482,7 +485,7 @@ CONTAINS
       Element % ElementIndex = i
 
       Element % PartIndex = inDOFs(7)-1
-      IF ( Element % PartIndex < 0 ) Element % PartIndex=ParEnv % myPE
+      IF ( Element % PartIndex < 0 ) Element % PartIndex=mype
 
       NULLIFY( Element % Type )
       NULLIFY( Element % BoundaryInfo )
@@ -634,6 +637,7 @@ CONTAINS
           END IF
         END DO
 
+        Mesh % Elements(i) % PartIndex = mype
         Mesh % Elements(i) % BodyId = 0
 
         DO j=1,Model % NumberOfBCs

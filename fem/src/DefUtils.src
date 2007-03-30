@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: DefUtils.src,v $
+! * Revision 1.37  2007/03/21 09:00:53  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.36  2007/01/03 13:30:24  jpr
 ! * OpenMP changes.
 ! *
@@ -171,7 +174,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.36 2007/01/03 13:30:24 jpr Exp $
+! * $Id: DefUtils.src,v 1.37 2007/03/21 09:00:53 jpr Exp $
 ! *
 ! *****************************************************************************/
 
@@ -1555,6 +1558,20 @@ CONTAINS
         Element => CurrentModel % CurrentElement
      END IF
 
+     IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
+        IF ( ASSOCIATED(Element % BoundaryInfo % Left) .AND. &
+             ASSOCIATED(Element % BoundaryInfo % Right) ) THEN
+           IF ( Element % BoundaryInfo % Left  % PartIndex/=ParEnv % myPE .AND. &
+                Element % BoundaryInfo % Right % PartIndex/=ParEnv % myPE )RETURN
+           IF ( Element % BoundaryInfo % Left  % PartIndex/=ParEnv % myPE .OR. &
+                Element % BoundaryInfo % Right % PartIndex/=ParEnv % myPE ) THEN
+             G=G/2; F=F/2; 
+           END IF
+        END IF
+     ELSE IF ( Element % PartIndex /= ParEnv % myPE ) THEN
+        RETURN
+     END IF
+
      Indexes => GetIndexStore()
      n = GetElementDOFs( Indexes, Element, Solver )
      CALL UpdateGlobalEquations( A,G,b,f,n,x % DOFs,x % Perm(Indexes(1:n)) )
@@ -1618,6 +1635,20 @@ CONTAINS
      DOFs = x % DOFs
      Indexes => GetIndexStore()
      n = GetElementDOFs( Indexes, Element, Solver )
+
+     IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
+        IF ( ASSOCIATED(Element % BoundaryInfo % Left) .AND. &
+             ASSOCIATED(Element % BoundaryInfo % Right) ) THEN
+           IF ( Element % BoundaryInfo % Left  % PartIndex/=ParEnv % myPE .AND. &
+                Element % BoundaryInfo % Right % PartIndex/=ParEnv % myPE )RETURN
+           IF ( Element % BoundaryInfo % Left  % PartIndex/=ParEnv % myPE .OR. &
+                Element % BoundaryInfo % Right % PartIndex/=ParEnv % myPE ) THEN
+             GC=GC/2; FC=FC/2; 
+           END IF
+        END IF
+     ELSE IF ( Element % PartIndex /= ParEnv % myPE ) THEN
+        RETURN
+     END IF
 
      ALLOCATE( G(DOFs*n,DOFs*n), F(DOFs*n) )
      DO i=1,n*DOFs/2
