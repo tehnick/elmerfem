@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterComm.src,v 1.19 2007/03/30 08:20:21 jpr Exp $
+! * $Id: SParIterComm.src,v 1.20 2007/03/30 09:30:03 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -160,8 +160,8 @@ CONTAINS
     ! Local variables
     INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
     
-    INTEGER, ALLOCATABLE :: Active(:)
-    INTEGER :: i, j, k, ierr, proc, Group
+    INTEGER, ALLOCATABLE :: Active(:), Neigh(:), NeighAll(:,:)
+    INTEGER :: i, j, k, ierr, proc, Group, MinActive
 
     CALL CheckBuffer( ParEnv % PEs**2 + MPI_BSEND_OVERHEAD )
 
@@ -202,7 +202,6 @@ CONTAINS
 
     ! This many exchanges are needed in the worst case for neighbouring 
     ! information to propagate.
-
     ALLOCATE( Active(ParEnv % PEs) )
     DO k = 1, ParEnv % PEs
        Active = 0
@@ -226,10 +225,13 @@ CONTAINS
        END DO
     END DO
 
-#if 0
-    DO MinActive=1,ParEnv % PEs
-      IF ( Active(MinActive) ) EXIT
+    !------------------------------------------------------------------
+    ! Sync all neighbouring information
+    !------------------------------------------------------------------
+    DO MinActive=0,ParEnv % PEs-1
+      IF ( ParEnv % Active(MinActive+1) ) EXIT
     END DO
+    Active = -1
     j = 0
     DO i=1,ParEnv % PEs
       IF ( ParEnv % IsNeighbour(i) ) THEN
@@ -239,24 +241,57 @@ CONTAINS
     END DO
 
     IF (Parenv % myPE /= MinActive ) THEN
+      CALL MPI_BSEND( j, 1, MPI_INTEGER, MinActive, &
+                800, MPI_COMM_WORLD, ierr )
       CALL MPI_BSEND( Active, j, MPI_INTEGER, MinActive, &
-                   801, MPI_COMM_WORLD, ierr )
+                801, MPI_COMM_WORLD, ierr )
 
-      CALL MPI_RECV( Active, j, MPI_INTEGER, MinActive, &
+      CALL MPI_RECV( j, 1, MPI_INTEGER, MinActive, &
              802, MPI_COMM_WORLD, status, ierr )
+      CALL MPI_RECV( Active, j, MPI_INTEGER, MinActive, &
+             803, MPI_COMM_WORLD, status, ierr )
 
       DO i=1,j
-        ParEnv % IsNeighbour(Active(i)) = .TRUE.
+        ParEnv % IsNeighbour(Active(i)+1) = .TRUE.
       END DO
     ELSE
-      n = COUNT(Active)
-      DO i=1,ParEnv % PEs
-        CALL MPI_RECV( Active, j, MPI_INTEGER, MinActive, &
-               802, MPI_COMM_WORLD, status, ierr )
+      ALLOCATE( NeighAll(ParEnv % PEs, ParEnv % PEs))
+      NeighAll=-1
+      DO k=1,j
+        NeighAll(MinActive+1,j) = Active(j)
       END DO
+
+      DO i=1,ParEnv % PEs
+        IF ( ParEnv % Active(i).AND.i-1/=ParEnv % MyPE ) THEN
+          CALL MPI_RECV( j, 1, MPI_INTEGER, i-1, &
+              800, MPI_COMM_WORLD, status, ierr )
+          CALL MPI_RECV( Active, j, MPI_INTEGER, i-1, &
+              801, MPI_COMM_WORLD, status, ierr )
+          DO k=1,j
+            NeighAll(i,j) = Active(j)
+          END DO
+        END IF
+      END DO
+
+      DO i=1,Parenv % PEs
+        j = 0
+        DO k=1,ParEnv % PEs
+          IF ( ParEnv % Active(k) .AND. NeighAll(i,k)>= 0 ) THEN
+            j = j + 1
+            Active(j) = NeighAll(i,k)
+          END IF
+        END DO
+        IF ( ParEnv % Active(i) .AND. i-1/=ParEnv % MyPE ) THEN
+          CALL MPI_BSEND( j, 1, MPI_INTEGER, i-1, &
+                 802, MPI_COMM_WORLD, ierr )
+          CALL MPI_BSEND( Active, j, MPI_INTEGER, i-1, &
+                 803, MPI_COMM_WORLD, ierr )
+        END IF
+      END DO
+      DEALLOCATE( NeighAll )
     END IF
-#endif
     DEALLOCATE( Active )
+    ParEnv % isNeighbour(ParEnv % myPE+1) = .FALSE.
 !-----------------------------------------------------------------------
   END SUBROUTINE FindActivePEs
 !-----------------------------------------------------------------------
