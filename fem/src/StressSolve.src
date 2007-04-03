@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StressSolve.src,v $
+! * Revision 1.37  2007/03/21 15:32:42  raback
+! * Perfecting harmonic scanning options for coupled damped analysis.
+! *
 ! * Revision 1.36  2007/03/21 10:55:52  jpr
 ! * *** empty log message ***
 ! *
@@ -353,7 +356,7 @@
         END FUNCTION StressInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.36 2007/03/21 10:55:52 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.37 2007/03/21 15:32:42 raback Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -1511,9 +1514,6 @@ CONTAINS
        IF(power == 1) Center(1:DIM) = Center(1:DIM) / Area
      END DO
 
-      PRINT *,'Area',Area
-      PRINT *,'Center',Center(1:DIM)
-      PRINT *,'Moments',Moments(1:DIM,1:DIM)
    END SUBROUTINE CoordinateIntegrals
 
 
@@ -1713,7 +1713,7 @@ CONTAINS
      IF(FixDisplacement ) THEN
        IF(Permutation == 1) THEN
          n = SIZE( Displacement ) / STDOFs
-         ALLOCATE( NodalLoads( 3*n ), NodeVisited( n ) )
+         ALLOCATE( NodalLoads( STDOFs * n ), NodeVisited( n ) )
        END IF
 
        PValues => Solver % Matrix % Values
@@ -1755,8 +1755,6 @@ CONTAINS
            Kmat2(4:6,Permutation) = Kmat2(4:6,Permutation) + MomentAtIp 
          END DO
        END DO
-
-       PRINT *,'Kmat2',Kmat2(:,Permutation)
      END IF
 
 
@@ -2079,6 +2077,9 @@ CONTAINS
         END DO
       END DO
 
+      IF(Vol < AEPS) RETURN
+
+
       IF(.TRUE.) THEN
         Center = LumpedCenter
       ELSE
@@ -2092,9 +2093,6 @@ CONTAINS
       Moment2(2,2) = Moment2(2,2) - Moment0 * Center(2) * Center(2)
       Moment2(2,3) = Moment2(2,3) - Moment0 * Center(2) * Center(3)
       Moment2(3,3) = Moment2(3,3) - Moment0 * Center(3) * Center(3)
-      
-      PRINT *,'Lumped Mass',Moment0
-      PRINT *,'Moment of Inertia',Moment2(1,1),Moment2(2,2),Moment2(3,3)
       
       CALL ListAddConstReal(Model % Simulation,'res: Mass',Moment0)
       
