@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterComm.src,v 1.26 2007/04/10 11:49:08 jpr Exp $
+! * $Id: SParIterComm.src,v 1.27 2007/04/10 11:51:04 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -182,8 +182,8 @@ CONTAINS
     ! Local variables
     INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
     
-    INTEGER, ALLOCATABLE :: Active(:), Neigh(:), sReq(:),rReq(:)
-    INTEGER :: i, j, k, ierr, proc, Group, MinActive
+    INTEGER :: i, j, k, ierr, proc, MinActive
+    INTEGER, ALLOCATABLE :: Active(:)
     LOGICAL :: L
     LOGICAL, ALLOCATABLE :: NeighAll(:,:)
     REAL(KIND=dp) :: RealTime, tstart, tend
@@ -280,6 +280,7 @@ CONTAINS
       NeighAll=.FALSE.
       DO k=1,j
         NeighAll(MinActive+1,Active(j)+1) = .TRUE.
+        NeighAll(Active(j)+1,MinActive+1) = .TRUE.
       END DO
 
       DO i=1,COUNT(ParEnv % Active)-1
@@ -291,6 +292,7 @@ CONTAINS
               801, MPI_COMM_WORLD, status, ierr )
           DO k=1,j
             NeighAll(Active(k)+1,proc+1) = .TRUE.
+            NeighAll(proc+1,Active(k)+1) = .TRUE.
             IF (Active(k)==MinActive) ParEnv % IsNeighbour(proc+1) = .TRUE.
           END DO
         END IF
