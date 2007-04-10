@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MainUtils.src,v $
+! * Revision 1.25  2007/03/30 04:15:07  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.24  2007/03/29 12:20:07  jpr
 ! * *** empty log message ***
 ! *
@@ -119,7 +122,7 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.src,v 1.24 2007/03/29 12:20:07 jpr Exp $
+! * $Id: MainUtils.src,v 1.25 2007/03/30 04:15:07 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MainUtils
@@ -1095,7 +1098,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     REAL(KIND=dp) :: PrevNorm, RelativeChange, Tolerance, PrevDT = 0.0d0
     INTEGER :: i,j,k,n,ierr
-    LOGICAL :: Found, AbsNorm, Convergence, RungeKutta
+    LOGICAL :: Found, AbsNorm, Convergence, RungeKutta, MeActive
     LOGICAL, ALLOCATABLE :: DoneThis(:)
     TYPE(Solver_t), POINTER :: Solver
     TYPE(Mesh_t),   POINTER :: Mesh
@@ -1328,7 +1331,7 @@ CONTAINS
      LOGICAL :: TransientSimulation
      REAL(KIND=dp) :: dt, OrigDT, DTScal
 !------------------------------------------------------------------------------
-     LOGICAL :: stat, Found, GB, FirstTime=.TRUE.
+     LOGICAL :: stat, Found, GB, FirstTime=.TRUE., MeActive
      INTEGER :: i, j, SolverAddr, BDOFs, execi, timestep
      REAL(KIND=dp) :: st
      TYPE(Variable_t), POINTER :: TimeVar
@@ -1394,6 +1397,11 @@ CONTAINS
      DTScal = ListGetConstReal( Solver % Values, "Timestep Scale", Found )
      IF ( .NOT. Found ) DTScal = 1.0d0
      Solver % dt = DTScal * dt
+
+     MeActive = ASSOCIATED(Solver % Matrix)
+     IF ( MeActive ) &
+        MeActive = MeActive.AND.Solver % Matrix % NumberOfRows>0
+     CALL ParallelActive( MeActive )
 
 #ifdef SGIn32
      SolverAddr = Solver % PROCEDURE
