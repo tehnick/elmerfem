@@ -23,6 +23,12 @@ void STDCALLBULL FC_FUNC_(mpi_null_delete_fn,MPI_NULL_DELETE_FN) () {}
 void STDCALLBULL FC_FUNC_(mpi_buffer_attach,MPI_BUFFER_ATTACH) ( void *buf, int *i, int *ierr ) {}
 void STDCALLBULL FC_FUNC_(mpi_allreduce,MPI_ALLREDUCE) () {}
 void STDCALLBULL FC_FUNC_(mpi_wtime,MPI_WTIME) () {}
+void STDCALLBULL FC_FUNC_(mpi_irecv,MPI_IRECV) () {}
+void STDCALLBULL FC_FUNC_(mpi_isend,MPI_ISEND) () {}
+void STDCALLBULL FC_FUNC_(mpi_test,MPI_TEST) () {}
+void STDCALLBULL FC_FUNC_(mpi_cancel,MPI_CANCEL) () {}
+void STDCALLBULL FC_FUNC_(mpi_ibsend,MPI_IBSEND) () {}
+
 void STDCALLBULL FC_FUNC_(mpi_wtick,MPI_WTICK) () {}
 void STDCALLBULL FC_FUNC_(pmpi_wtime,PMPI_WTIME) () {}
 void STDCALLBULL FC_FUNC_(pmpi_wtick,PMPI_WTICK) () {}
