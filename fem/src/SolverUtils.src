@@ -733,35 +733,12 @@ CONTAINS
 
      INTEGER :: n, NDOFs, NodeIndexes(:)
 !------------------------------------------------------------------------------
-     INTEGER :: i,j,k,dim,bf_id,nlen, Indexes(n)
+     INTEGER :: i,j,k,dim, Indexes(n)
      TYPE(Element_t), POINTER :: Element
-     LOGICAL :: Found
-     REAL(KIND=dp) :: Passive(n)
-     CHARACTER(LEN=MAX_NAME_LEN) :: PassName
 !------------------------------------------------------------------------------
 !    Update global matrix and rhs vector....
 !------------------------------------------------------------------------------
 
-!------------------------------------------------------------------------------
-!    Check first if this element has been defined passive
-!    Note: so far this is done elementwise
-!------------------------------------------------------------------------------
-
-     i = CurrentModel % CurrentElement % BodyId 
-     bf_id = ListGetInteger( CurrentModel % Bodies( i) % Values, &
-          'Body Force', Found, minv=1,maxv=CurrentModel % NumberOfBodyForces )
-     IF ( Found ) THEN
-        Passive = 0.0d0
-        nlen = LEN_TRIM( CurrentModel % Solver % Variable % Name )
-        PassName(1:nlen) = CurrentModel % Solver % Variable % Name(1:nlen)
-        PassName(nlen+1:nlen+8) = ' Passive'
-        Passive(1:n) = ListGetReal( CurrentModel % BodyForces(bf_id) % Values, &
-             PassName(1:nlen+8), n, CurrentModel % CurrentElement % NodeIndexes, Found )
-     END IF
-
-     IF ( Found .AND. COUNT( Passive(1:n) > 0 ) > COUNT( Passive(1:n) < 0 ) )  &
-          RETURN
-!------------------------------------------------------------------------------
      IF ( NormalTangentialNOFNodes > 0 ) THEN
        dim = CoordinateSystemDimension()
        Indexes = 0
@@ -977,13 +954,13 @@ CONTAINS
 
     LOGICAL :: Conditional
     LOGICAL, ALLOCATABLE :: DonePeriodic(:)
-    CHARACTER(LEN=MAX_NAME_LEN) :: CondName, PassName
+    CHARACTER(LEN=MAX_NAME_LEN) :: CondName
 
     INTEGER :: NoNodes,NoDims,bf_id,nlen, NOFNodesFound
     REAL(KIND=dp), POINTER :: CoordNodes(:,:), Condition(:), Work(:)
     REAL(KIND=dp) :: MinDist,Dist, Eps
     LOGICAL, ALLOCATABLE :: ActivePart(:), ActiveCond(:), ActivePartAll(:)
-    LOGICAL :: NodesFound, Passive
+    LOGICAL :: NodesFound
     TYPE(ValueList_t), POINTER :: ValueList
  
 !------------------------------------------------------------------------------
@@ -995,7 +972,6 @@ CONTAINS
     n = MAX( Model % NumberOfBodyForces,Model % NumberOfBCs)
     ALLOCATE( ActivePart(n), ActivePartAll(n), ActiveCond(n))
     CondName = Name(1:nlen) // ' Condition'
-    PassName = Name(1:nlen) // ' Passive'
  
     ALLOCATE( Indexes(Model % Mesh % MaxElementDOFs) )
 !------------------------------------------------------------------------------
@@ -1094,14 +1070,11 @@ CONTAINS
     ActivePart = .FALSE.
     ActiveCond = .FALSE.
     ActivePartAll = .FALSE.
-    Passive = .FALSE.
     DO bf_id=1,Model % NumberOFBodyForces
       ActivePart(bf_id) = ListCheckPresent( Model % BodyForces(bf_id) % Values, Name ) 
       ActivePartAll(bf_id) = ListCheckPresent( &
            Model % BodyForces(bf_id) % Values, Name(1:nlen) // ' DOFs' ) 
       ActiveCond(bf_id) = ListCheckPresent( Model % BodyForces(bf_id) % Values,CondName )      
-      Passive = ListCheckPresent( Model % BodyForces(bf_id) % Values, &
-           PassName )
     END DO
     
     IF ( ANY( ActivePart ) .OR. ANY(ActivePartAll) ) THEN
@@ -1203,19 +1176,6 @@ CONTAINS
       END IF
     END DO
 
-!------------------------------------------------------------------------------
-!   Take care of the matrix entries of passive elements
-!------------------------------------------------------------------------------
-
-    IF ( Passive ) THEN
-       DO i = 1, A % NumberOfRows
-          IF ( ABS(A % Values( A % Diag(i) ) ) < 1.0e-14 ) THEN
-             A % Values( A % Diag(i) ) = 1.0d0
-             b(i) = CurrentModel % Solver % Variable % Values(i)
-          END IF
-       END DO
-    END IF
-!------------------------------------------------------------------------------
 
   CONTAINS
 
