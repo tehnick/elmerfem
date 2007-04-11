@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.61  2007/04/11 11:58:56  apursula
+! * Added and fixed passive elements
+! *
 ! * Revision 1.59  2007/04/11 06:47:30  apursula
 ! * Added support for Passive elements
 ! *
@@ -186,7 +189,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.59 2007/04/11 06:47:30 apursula Exp $
+! * $Id: SolverUtils.src,v 1.61 2007/04/11 11:58:56 apursula Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -759,12 +762,13 @@ CONTAINS
            'Body Force', Found, minv=1,maxv=CurrentModel % NumberOfBodyForces )
        IF ( Found ) THEN
          Passive = -1.0d0
-         nlen = LEN_TRIM( CurrentModel % Solver % Variable % Name )
+         nlen = CurrentModel % Solver % Variable % NameLen
          PassName = CurrentModel % Solver % Variable % Name(1:nlen) // ' Passive'
          Passive(1:n) = ListGetReal( CurrentModel % BodyForces(bf_id) % Values, &
              PassName, n, CurrentModel % CurrentElement % NodeIndexes, Found )
-         IF ( Found .AND. COUNT( Passive(1:n) > 0 ) > COUNT( Passive(1:n) < 0 ) )  &
-             RETURN
+         IF ( Found ) THEN
+           IF ( COUNT( Passive(1:n) > 0 ) > COUNT( Passive(1:n) < 0 ) )  RETURN
+         END IF
        END IF
      END IF
 !------------------------------------------------------------------------------
