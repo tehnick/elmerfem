@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterComm.src,v 1.29 2007/04/13 08:28:08 jpr Exp $
+! * $Id: SParIterComm.src,v 1.30 2007/04/13 10:31:16 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -2723,8 +2723,8 @@ END SUBROUTINE Recv_LocIf
 
 
 !*********************************************************************
-SUBROUTINE SParActiveSUM(dres)
-   REAL(KIND=dp) :: dsum, dres
+SUBROUTINE SParActiveSUM(tsum)
+   REAL(KIND=dp) :: tsum
 !*********************************************************************
    REAL(KIND=dp) :: ssum,s,RealTime
    INTEGER :: i,n,twop,Active,myid,ierr
@@ -2766,10 +2766,10 @@ yyy = yyy + RealTime()-s
        IF ( myid+twop<Active ) THEN
          CALL MPI_RECV(ssum, 1, MPI_DOUBLE_PRECISION, &
             ActiveId(myid+twop), 7000, MPI_COMM_WORLD, status, ierr)
-         dres = dres + ssum
+         tsum = tsum + ssum
        END IF
      ELSE
-       CALL MPI_BSEND(dres, 1, MPI_DOUBLE_PRECISION, &
+       CALL MPI_BSEND(tsum, 1, MPI_DOUBLE_PRECISION, &
             ActiveId(myid-twop), 7000, MPI_COMM_WORLD, status, ierr)
        EXIT        
      END IF
@@ -2780,11 +2780,11 @@ yyy = yyy + RealTime()-s
    DO i=n,1,-1
      IF ( MOD(myid,2*twop)==0 ) THEN
        IF ( myid+twop<Active ) THEN
-         CALL MPI_BSEND(dres, 1, MPI_DOUBLE_PRECISION, &
+         CALL MPI_BSEND(tsum, 1, MPI_DOUBLE_PRECISION, &
             ActiveId(myid+twop), 7001, MPI_COMM_WORLD, status, ierr)
        END IF
      ELSE IF ( MOD(myid,twop)==0 ) THEN
-       CALL MPI_RECV(dres, 1, MPI_DOUBLE_PRECISION, &
+       CALL MPI_RECV(tsum, 1, MPI_DOUBLE_PRECISION, &
             ActiveId(myid-twop), 7001, MPI_COMM_WORLD, status, ierr)
      END IF
      twop = twop/2
