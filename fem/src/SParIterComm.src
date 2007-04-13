@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterComm.src,v 1.28 2007/04/10 12:32:50 jpr Exp $
+! * $Id: SParIterComm.src,v 1.29 2007/04/13 08:28:08 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -2728,8 +2728,9 @@ SUBROUTINE SParActiveSUM(dres)
 !*********************************************************************
    REAL(KIND=dp) :: ssum,s,RealTime
    INTEGER :: i,n,twop,Active,myid,ierr
+   INTEGER :: status(MPI_STATUS_SIZE)
    INTEGER, ALLOCATABLE :: ActiveId(:)
-   integer, dimension(MPI_STATUS_SIZE) :: status
+   SAVE ActiveId
 
 s = RealTime()
    IF ( COUNT(ParEnv % Active)==ParEnv % PEs ) THEN
@@ -2740,7 +2741,9 @@ yyy = yyy + RealTime()-s
      RETURN
    END IF
 
-   ALLOCATE( ActiveId(0:ParEnv % PEs-1) )
+   IF ( .NOT. ALLOCATED(ActiveId) ) &
+     ALLOCATE( ActiveId(0:ParEnv % PEs-1) )
+
    Active = 0
    DO i=0,ParEnv % PEs-1
      IF ( Parenv % Active(i+1) ) THEN
@@ -2786,7 +2789,6 @@ yyy = yyy + RealTime()-s
      END IF
      twop = twop/2
    END DO
-   DEALLOCATE( ActiveId )
 yyy = yyy + RealTime()-s
 !*********************************************************************
 END SUBROUTINE SParActiveSUM
