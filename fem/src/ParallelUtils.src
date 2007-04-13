@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ParallelUtils.src,v 1.12 2007/03/30 04:15:07 jpr Exp $
+! * $Id: ParallelUtils.src,v 1.13 2007/04/10 11:49:08 jpr Exp $
 ! ******************************************************************************
 
 MODULE ParallelUtils
@@ -115,23 +115,23 @@ CONTAINS
           END IF
        END DO
 
-       Solver % Matrix % ParallelInfo => Solver % Mesh % ParallelInfo
+       Matrix % ParallelInfo => Solver % Mesh % ParallelInfo
        DGSolver = ListGetLogical(Solver % Values, 'Discontinuous Galerkin', Found)
 
        IF ( DOFs > 1 ) THEN
          n = Solver % Mesh % NumberOfNodes
-         ALLOCATE( Solver % Matrix % ParallelInfo )
-         ALLOCATE( Solver % Matrix % ParallelInfo % NeighbourList(DOFs*n) )
-         CALL AllocateVector( Solver % Matrix % ParallelInfo % Interface, DOFs*n)
-         CALL AllocateVector( Solver % Matrix % ParallelInfo % GlobalDOFs, DOFs*n)
+         ALLOCATE( Matrix % ParallelInfo )
+         ALLOCATE( Matrix % ParallelInfo % NeighbourList(DOFs*n) )
+         CALL AllocateVector( Matrix % ParallelInfo % Interface, DOFs*n)
+         CALL AllocateVector( Matrix % ParallelInfo % GlobalDOFs, DOFs*n)
 
          DO i=1,n
             DO j=1,DOFs
-               Solver % Matrix % ParallelInfo % GlobalDOFs((i-1)*DOFs+j ) = &
+               Matrix % ParallelInfo % GlobalDOFs((i-1)*DOFs+j ) = &
                  DOFs*(Solver % Mesh % ParallelInfo % GlobalDOFs(i)-1)+j
-               Solver % Matrix % ParallelInfo % Interface((i-1)*DOFs+j ) = &
+               Matrix % ParallelInfo % Interface((i-1)*DOFs+j ) = &
                  Solver % Mesh % ParallelInfo % Interface(i)
-               Solver % Matrix % ParallelInfo % NeighbourList((i-1)*DOFs+j ) % Neighbours => &
+               Matrix % ParallelInfo % NeighbourList((i-1)*DOFs+j ) % Neighbours => &
                  Solver % Mesh % ParallelInfo % NeighbourList(i) % Neighbours
             END DO
          END DO
@@ -139,8 +139,8 @@ CONTAINS
          IF ( DGSolver ) THEN
            MeshPI => Solver % Mesh % ParallelInfo
 
-           ALLOCATE( Solver % Matrix % ParallelInfo )
-           MatrixPI => Solver % Matrix % ParallelInfo
+           ALLOCATE( Matrix % ParallelInfo )
+           MatrixPI => Matrix % ParallelInfo
 
            n = 0
            DO i=1,Mesh % NumberOfBulkElements
@@ -197,7 +197,7 @@ CONTAINS
        END IF
 
        Matrix % ParMatrix => &
-          ParInitMatrix( Matrix, Solver % Matrix % ParallelInfo )
+          ParInitMatrix( Matrix, Matrix % ParallelInfo )
 #endif
 !-------------------------------------------------------------------------------
     END SUBROUTINE ParallelInitMatrix

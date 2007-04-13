@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ViewFactors.src,v 1.13 2007/01/10 15:07:11 raback Exp $
+! * $Id: ViewFactors.src,v 1.14 2007/02/07 11:42:23 jpr Exp $
 ! ******************************************************************************
 
    MODULE ViewFactorGlobals
@@ -651,6 +651,10 @@
       INTEGER :: N,ipar(50),wsize
       REAL(KIND=dp), ALLOCATABLE :: work(:,:)
 
+      INTEGER  :: HUTI_D_CG
+      EXTERNAL :: HUTI_D_CG
+      INTEGER(KIND=addrInt) :: AddrFunc, iterProc, mvProc, pcondProc, dProc=0
+!------------------------------------------------------------------------------
       HUTI_NDIM = N
 
       ipar = 0
@@ -667,7 +671,11 @@
 
       HUTI_TOLERANCE = 1.0D-12
 
-      CALL HUTI_D_CG( x,b,ipar,dpar,work,Matvec,DiagPrec,0,0,0,0 )
+       iterProc  = AddrFunc(HUTI_D_CG)
+       mvProc    = AddrFunc(Matvec)
+       pcondProc = AddrFunc(DiagPrec)
+       CALL IterCall( iterProc,x,b,ipar,dpar,work,mvProc,pcondProc, &
+                 dProc, dProc, dProc, dProc )
           
       DEALLOCATE( work )
     END SUBROUTINE IterSolv 

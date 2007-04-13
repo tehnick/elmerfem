@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterSolver.src,v 1.16 2007/03/28 10:21:40 jpr Exp $
+! * $Id: SParIterSolver.src,v 1.17 2007/03/29 12:20:07 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -1456,6 +1456,8 @@ END SUBROUTINE ZeroSplittedMatrix
 SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
          RHSVec, XVec, Solver, ErrInfo )
 
+  USE IterSolve
+
   TYPE (SplittedMatrixT), POINTER :: SplittedMatrix
   TYPE(Matrix_t) :: SourceMatrix
   TYPE (ParallelInfo_t) :: ParallelInfo
@@ -1473,7 +1475,7 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
   REAL(KIND=dp), DIMENSION(:,:), POINTER :: Work
   REAL(KIND=dp), DIMENSION(:), ALLOCATABLE :: TmpXVec, TmpRHSVec
 
-  REAL(KIND=dp) :: ILUT_TOL
+  REAL(KIND=dp) :: ILUT_TOL, RealTime
   INTEGER :: ILUn
   CHARACTER(LEN=MAX_NAME_LEN) :: Preconditioner
 
@@ -1494,56 +1496,12 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
 
   !----------------------------------------------------------------------
   !
-  ! Initialize entries in HUTIter control array IPAR
-  !
-  !----------------------------------------------------------------------
-  HUTI_NDIM = SplittedMatrix % InsideMatrix % NumberOfRows
-
-  HUTI_MAXIT = ListGetInteger( Solver % Values, &
-         'Linear System Max Iterations' )
-
-  HUTI_TOLERANCE = ListGetConstReal( Solver % Values, &
-       'Linear System Convergence Tolerance' )
-
-  GlobalData % RelaxIters = ListGetInteger( Solver % Values, &
-                 'Relax Iters', Stat )
-
-  HUTI_INITIALX = HUTI_USERSUPPLIEDX
-
-  IF ( ParEnv % MyPE == 0 ) THEN
-    HUTI_DBUGLVL = ListGetInteger( Solver % Values, &
-          'Linear System Residual Output', Stat )
-    IF ( .NOT. stat ) HUTI_DBUGLVL = 1
-  ELSE
-     HUTI_DBUGLVL = 0
-  END IF
-
-  HUTI_STOPC = HUTI_TRESID_SCALED_BYB
-
-  !----------------------------------------------------------------------
-  !
-  ! Allocate work space for HUTI:
-  !------------------------------
-  HUTI_WRKDIM = HUTI_BICGSTAB_WORKSIZE
-
-  ALLOCATE( TmpXVec(SplittedMatrix % InsideMatrix % NumberOfRows) )
-
-  IF ( .NOT. ASSOCIATED( SplittedMatrix % Work ) ) THEN
-     ALLOCATE( SplittedMatrix % Work( HUTI_NDIM, HUTI_WRKDIM ) )
-  ELSE IF ( ( HUTI_NDIM   /= SIZE(SplittedMatrix % Work,1) ) .OR. &
-            ( HUTI_WRKDIM /= SIZE(SplittedMatrix % Work,2) ) ) THEN
-     DEALLOCATE( SplittedMatrix % Work )
-     ALLOCATE( SplittedMatrix % Work( HUTI_NDIM, HUTI_WRKDIM ) )
-  END IF
-  Work => SplittedMatrix % Work
-
-  !----------------------------------------------------------------------
-  !
   ! Initialize temporary xvec for iterator. The original XVec contains
   ! also the items on interfaces. Initialize also global pointer.
   !
   !----------------------------------------------------------------------
 
+  ALLOCATE( TmpXVec(SplittedMatrix % InsideMatrix % NumberOfRows) )
   j = 1
   DO i = 1, SourceMatrix % NumberOfRows
      k = SourceMatrix % INVPerm(i)
@@ -1579,12 +1537,12 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
       l=0
       DO k=SplittedMatrix % InsideMatrix % Rows(i),SplittedMatrix % InsideMatrix % Rows(i+1)-1
         IF ( SplittedMatrix % InsideMatrix % Values(k) /= 0 ) THEN
-          print*,parenv % mype, i,j,k,splittedmatrix % insidematrix % cols(k), &
-               splittedmatrix % insidematrix % values(k)
-          print*,splittedmatrix % insidematrix % grows(splittedmatrix % insidematrix % gorder(i)), &
-                 splittedmatrix % insidematrix % grows(splittedmatrix % insidematrix % gorder( &
-                    splittedmatrix % insidematrix % cols(k)))
-          print*,splittedmatrix % insidematrix % grows(i)
+!         print*,parenv % mype, i,j,k,splittedmatrix % insidematrix % cols(k), &
+!              splittedmatrix % insidematrix % values(k)
+!         print*,splittedmatrix % insidematrix % grows(splittedmatrix % insidematrix % gorder(i)), &
+!                splittedmatrix % insidematrix % grows(splittedmatrix % insidematrix % gorder( &
+!                   splittedmatrix % insidematrix % cols(k)))
+!         print*,splittedmatrix % insidematrix % grows(i)
           l = 1
          END IF
       END DO
@@ -1595,40 +1553,6 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
     END IF
   END DO
 
-  Preconditioner = ListGetString( Solver % Values, &
-      'Linear System Preconditioning',stat )
-
-  IF ( Preconditioner(1:4) == 'ilut' ) THEN
-
-    ILUT_TOL = ListGetConstReal( Solver % Values, &
-        'Linear System ILUT Tolerance',stat )
-
-    IF ( .NOT. SourceMatrix % Complex ) THEN
-       stat = CRS_ILUT( SplittedMatrix % InsideMatrix, ILUT_TOL )
-    ELSE
-       stat = CRS_ComplexILUT( SplittedMatrix % InsideMatrix, ILUT_TOL )
-    END IF
-
-  ELSE IF ( Preconditioner(1:3) == 'ilu' ) THEN
-
-    ILUn = ICHAR(Preconditioner(4:4)) - ICHAR('0')
-    IF ( ILUn  < 0 .OR. ILUn > 9 ) ILUn = 0
-    IF ( .NOT. SourceMatrix % Complex ) THEN
-       stat = CRS_IncompleteLU( SplittedMatrix % InsideMatrix, ILUn)
-    ELSE
-       stat = CRS_ComplexIncompleteLU( SplittedMatrix % InsideMatrix, ILUn)
-    END IF
-
-  ELSE
-
-    IF ( .NOT. SourceMatrix % Complex ) THEN
-       stat = CRS_IncompleteLU( SplittedMatrix % InsideMatrix, 0 )
-    ELSE
-       stat = CRS_ComplexIncompleteLU( SplittedMatrix % InsideMatrix, 0 )
-    END IF
-
-  END IF
-
  !----------------------------------------------------------------------
  !
  ! Call the main iterator routine
@@ -1636,24 +1560,20 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
  !----------------------------------------------------------------------
 
   IF ( .NOT. SourceMatrix % Complex ) THEN
-     CALL HUTI_DBICGSTAB_2SOLV( HUTI_NDIM, HUTI_WRKDIM, TmpXVec, &
-        TmpRHSVec, ipar, dpar, Work, SParMatrixVector, &
-           ParPrecondition, DPcond, SParDotProd, SParNorm, Dummy )
+xxx = RealTime()
+yyy = 0
+     CALL IterSolver( SplittedMatrix % InsideMatrix, TmpXVec, &
+        TmpRHSVec, Solver, SParDotProd, SParNorm, SParMatrixVector )
+if ( parenv % mype == 0 ) then
+print*,parenv % mype, RealTime()-xxx, yyy
+call flush(6)
+end if
   ELSE
-     HUTI_NDIM = HUTI_NDIM / 2
-     CALL HUTI_ZBICGSTAB_2SOLV( HUTI_NDIM, HUTI_WRKDIM, TmpXVec, &
-        TmpRHSVec, ipar, dpar, Work, ParComplexMatrixVector, &
-           ParComplexPrecondition, CPcond, &
-              ParComplexDotProd, ParComplexNorm, Dummy )
-     HUTI_NDIM = HUTI_NDIM * 2
+     CALL IterSolver( SplittedMatrix % InsideMatrix, TmpXVec, &
+       TmpRHSVec, Solver, ParComplexDotProd, ParComplexNorm,  &
+       ParComplexMatrixVector )
   END IF
 
-  IF ( HUTI_INFO /= HUTI_CONVERGENCE ) THEN
-     WRITE( Message, * ) 'Processor ',ParEnv % MyPE,' returned HUTI_INFO=', HUTI_INFO
-     CALL Error( 'SParIter Solve', Message )
-  END IF
-
-  ErrInfo % HUTIStatus = HUTI_INFO
   !----------------------------------------------------------------------
   !
   ! Collect the result
@@ -1886,6 +1806,7 @@ END SUBROUTINE ParIfMatrixVector
   INTEGER, POINTER :: Cols(:),Rows(:)
   REAL(KIND=dp), POINTER :: Vals(:)
 
+real(kind=dp) :: s, RealTime
   !*******************************************************************
 
   InsideMatrix => GlobalData % SplittedMatrix % InsideMatrix
@@ -1914,7 +1835,9 @@ END SUBROUTINE ParIfMatrixVector
      END IF
   END DO
 
+s = RealTime()
   CALL Send_LocIf( GlobalData % SplittedMatrix )
+yyy = yyy + RealTime()-s
 
   !----------------------------------------------------------------------
   !
@@ -1934,7 +1857,9 @@ END SUBROUTINE ParIfMatrixVector
      END DO
   END DO
 
+s = RealTime()
   CALL Recv_LocIf( GlobalData % SplittedMatrix, n, v )
+yyy = yyy + RealTime()-s
 #else
   CALL MV( n, SIZE(Cols), Rows,Cols, Vals, u,v )
 

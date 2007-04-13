@@ -38,7 +38,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: IterSolve.src,v 1.5 2006/01/10 08:27:35 apursula Exp $
+! * $Id: IterSolve.src,v 1.6 2006/12/01 09:02:17 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -98,9 +98,10 @@ CONTAINS
 
 !
 !------------------------------------------------------------------------------
-  SUBROUTINE IterSolver( A,x,b,SolverParam )
+  SUBROUTINE IterSolver( A,x,b,SolverParam,DotF,NormF,MatvecF )
 !------------------------------------------------------------------------------
 
+    USE SParIterGlobals
     IMPLICIT NONE
 
 !------------------------------------------------------------------------------
@@ -108,6 +109,9 @@ CONTAINS
 
     REAL(KIND=dp), DIMENSION(:) :: x,b
     TYPE(Matrix_t), POINTER :: A
+
+    EXTERNAL :: DotF, NormF, MatVecF
+    INTEGER, OPTIONAL :: DotF, NormF, MatvecF
 !------------------------------------------------------------------------------
 
     REAL(KIND=dp) :: dpar(50),stopfun,dnrm2
@@ -121,6 +125,15 @@ CONTAINS
     CHARACTER(LEN=MAX_NAME_LEN) :: str
 
     EXTERNAL MultigridPrec
+
+    INTEGER  :: HUTI_D_BICGSTAB, HUTI_D_TFQMR, HUTI_D_CG, HUTI_D_CGS, HUTI_D_GMRES
+    EXTERNAL :: HUTI_D_BICGSTAB, HUTI_D_TFQMR, HUTI_D_CG, HUTI_D_CGS, HUTI_D_GMRES
+
+    INTEGER  :: HUTI_Z_BICGSTAB, HUTI_Z_TFQMR, HUTI_Z_CG, HUTI_Z_CGS, HUTI_Z_GMRES
+    EXTERNAL :: HUTI_Z_BICGSTAB, HUTI_Z_TFQMR, HUTI_Z_CG, HUTI_Z_CGS, HUTI_Z_GMRES
+
+    INTEGER(KIND=Addrint) :: dotProc, normProc, pcondProc, &
+            pcondrProc=0, mvProc,AddrFunc, iterProc
 !------------------------------------------------------------------------------
     N = A % NumberOfRows
 
@@ -144,7 +157,6 @@ CONTAINS
 !------------------------------------------------------------------------------
 
     SELECT CASE ( IterType )
-
       CASE (ITER_BiCGStab)
         HUTI_WRKDIM = HUTI_BICGSTAB_WORKSIZE
         wsize = HUTI_WRKDIM
@@ -168,7 +180,6 @@ CONTAINS
         IF ( .NOT. GotIT ) HUTI_GMRES_RESTART = 10
         HUTI_WRKDIM = HUTI_GMRES_WORKSIZE + HUTI_GMRES_RESTART
         wsize = HUTI_WRKDIM
-
      END SELECT
 !------------------------------------------------------------------------------
           
@@ -177,8 +188,8 @@ CONTAINS
 
      HUTI_DBUGLVL  = ListGetInteger( SolverParam % Values, &
            'Linear System Residual Output', GotIt )
-
      IF ( .NOT.Gotit ) HUTI_DBUGLVL = 1
+     IF ( Parenv % myPE /= 0 ) HUTI_DBUGLVL=0
 
      IF ( .NOT. OutputLevelMask(6) )  HUTI_DBUGLVL = 0
 
@@ -219,7 +230,6 @@ CONTAINS
      ELSE
        CALL Warn( 'IterSolve', 'Unknown preconditioner type, feature disabled.' )
      END IF
-
 
      IF ( .NOT. ListGetLogical( SolverParam % Values, 'No Precondition Recompute',GotIt ) ) THEN
         n = ListGetInteger( SolverParam % Values, 'Linear System Precondition Recompute', GotIt )
@@ -264,251 +274,76 @@ CONTAINS
 !------------------------------------------------------------------------------
      FirstCall = .TRUE.
 
+     IF ( PRESENT(MatvecF) ) THEN
+       mvProc = AddrFunc( MatvecF )
+     ELSE
+       mvProc = AddrFunc( CRS_MatrixVectorProd )
+     END IF
 
-     GlobalMatrix => A
+     IF ( PRESENT(dotF) ) THEN
+       dotProc = AddrFunc( dotF )
+     ELSE
+       dotProc =0
+     END IF
+
+     IF ( PRESENT(normF) ) THEN
+       normProc = AddrFunc( normF )
+     ELSE
+       normProc =0
+     END IF
+
+     SELECT CASE( PCondType )
+       CASE (PRECOND_NONE)
+         pcondProc = 0
+
+       CASE (PRECOND_DIAGONAL)
+         pcondProc = AddrFunc( CRS_DiagPrecondition )
+
+       CASE (PRECOND_ILUn, PRECOND_ILUT)
+         pcondProc = AddrFunc( CRS_LUPrecondition )
+
+       CASE (PRECOND_MG)
+         pcondProc = AddrFunc( MultiGridPrec )
+
+       CASE DEFAULT
+         pcondProc = 0
+     END SELECT
 
      IF ( .NOT. A % Complex ) THEN
-!------------------------------------------------------------------------------
-     SELECT CASE ( IterType )
-!------------------------------------------------------------------------------
-
+       SELECT CASE ( IterType )
        CASE (ITER_BiCGStab)
-         SELECT CASE( PCondType )
-           CASE (PRECOND_NONE)
-             CALL huti_d_bicgstab( x, b, ipar, dpar, work, & 
-                CRS_MatrixVectorProd, 0, 0, 0, 0, STOPC )
-
-           CASE (PRECOND_DIAGONAL)
-             CALL huti_d_bicgstab( x, b, ipar, dpar, work, &
-                CRS_MatrixVectorProd, &
-                    CRS_DiagPrecondition, 0, 0, 0, STOPC )
-
-           CASE (PRECOND_ILUn, PRECOND_ILUT)
-             CALL huti_d_bicgstab( x, b, ipar, dpar, work, &
-                CRS_MatrixVectorProd, &
-                   CRS_LUPrecondition, 0, 0, 0, STOPC )
-
-           CASE (PRECOND_MG)
-             CALL huti_d_bicgstab( x, b, ipar, dpar, work, &
-                CRS_MatrixVectorProd, &
-                   MultiGridPrec, 0, 0, 0, STOPC )
-         END SELECT
-
-!------------------------------------------------------------------------------
-         
+          iterProc = AddrFunc( HUTI_D_BICGSTAB )
        CASE (ITER_TFQMR)
-         SELECT CASE( PCondType )
-           CASE (PRECOND_NONE)
-              CALL huti_d_tfqmr( x, b, ipar, dpar, work, &
-                 CRS_MatrixVectorProd, 0, 0, 0, 0, STOPC )
-
-           CASE (PRECOND_DIAGONAL)
-             CALL huti_d_tfqmr( x, b, ipar, dpar, work, &
-                CRS_MatrixVectorProd, &
-                   CRS_DiagPrecondition, 0, 0, 0, STOPC )
-
-           CASE (PRECOND_ILUn, PRECOND_ILUT)
-             CALL huti_d_tfqmr( x, b, ipar, dpar, work, &
-                CRS_MatrixVectorProd, &
-                   CRS_LUPrecondition, 0, 0, 0, STOPC )
-
-           CASE (PRECOND_MG)
-             CALL huti_d_tfqmr( x, b, ipar, dpar, work, &
-                CRS_MatrixVectorProd, &
-                   MultiGridPrec, 0, 0, 0, STOPC )
-         END SELECT
-
-!------------------------------------------------------------------------------
-
+          iterProc = AddrFunc( HUTI_D_TFQMR )
        CASE (ITER_CG)
-         SELECT CASE( PCondType )
-           CASE (PRECOND_NONE)
-             CALL huti_d_cg( x, b, ipar, dpar, work, &
-                 CRS_MatrixVectorProd, 0, 0, 0, 0, STOPC )
-
-           CASE (PRECOND_DIAGONAL)
-             CALL huti_d_cg( x, b, ipar, dpar, work, &
-                 CRS_MatrixVectorProd, &
-                     CRS_DiagPrecondition, 0, 0, 0, STOPC )
-
-           CASE (PRECOND_ILUn, PRECOND_ILUT)
-             CALL huti_d_cg( x, b, ipar, dpar, work, &
-                 CRS_MatrixVectorProd, &
-                     CRS_LUPrecondition, 0, 0, 0, STOPC )
-
-           CASE (PRECOND_MG)
-             CALL huti_d_cg( x, b, ipar, dpar, work, &
-                CRS_MatrixVectorProd, &
-                   MultiGridPrec, 0, 0, 0, STOPC )
-         END SELECT
-          
-
-!------------------------------------------------------------------------------
-
+          iterProc = AddrFunc( HUTI_D_CG )
        CASE (ITER_CGS)
-         SELECT CASE( PCondType )
-           CASE (PRECOND_NONE)
-             CALL huti_d_cgs( x, b, ipar, dpar, work, &
-                CRS_MatrixVectorProd, 0, 0, 0, 0, STOPC )
-
-           CASE (PRECOND_DIAGONAL)
-             CALL huti_d_cgs( x, b, ipar, dpar, work, &
-                CRS_MatrixVectorProd, &
-                   CRS_DiagPrecondition, 0, 0, 0, STOPC )
-
-           CASE (PRECOND_ILUn, PRECOND_ILUT)
-             CALL huti_d_cgs( x, b, ipar, dpar, work, &
-                CRS_MatrixVectorProd, &
-                    CRS_LUPrecondition, 0, 0, 0, STOPC )
-
-           CASE (PRECOND_MG)
-             CALL huti_d_cgs( x, b, ipar, dpar, work, &
-                CRS_MatrixVectorProd, &
-                   MultiGridPrec, 0, 0, 0, STOPC )
-         END SELECT
-          
-!------------------------------------------------------------------------------
-
+          iterProc = AddrFunc( HUTI_D_CGS )
        CASE (ITER_GMRES)
-         SELECT CASE( PCondType )
-           CASE (PRECOND_NONE)
-              CALL huti_d_gmres( x, b, ipar, dpar, work, CRS_MatrixVectorProd, &
-                                  0, 0, 0, 0, STOPC )
-
-           CASE (PRECOND_DIAGONAL)
-              CALL huti_d_gmres( x, b, ipar, dpar, work, &
-                 CRS_MatrixVectorProd, CRS_DiagPrecondition, 0, 0, 0, STOPC )
-
-           CASE (PRECOND_ILUn, PRECOND_ILUT)
-              CALL huti_d_gmres( x, b, ipar, dpar, work, &
-                   CRS_MatrixVectorProd, CRS_LUPrecondition, 0, 0, 0, STOPC )
-
-           CASE (PRECOND_MG)
-              CALL huti_d_gmres( x, b, ipar, dpar, work, &
-                   CRS_MatrixVectorProd, MultiGridPrec, 0, 0, 0, STOPC )
+          iterProc = AddrFunc( HUTI_D_GMRES )
        END SELECT
-!------------------------------------------------------------------------------
-     END SELECT
-!------------------------------------------------------------------------------
      ELSE
-     HUTI_NDIM = HUTI_NDIM / 2
-!------------------------------------------------------------------------------
-     SELECT CASE ( IterType )
-!------------------------------------------------------------------------------
+       HUTI_NDIM = HUTI_NDIM / 2
+       SELECT CASE ( IterType )
        CASE (ITER_BiCGStab)
-         SELECT CASE( PCondType )
-           CASE (PRECOND_NONE)
-             CALL huti_z_bicgstab( x,b,ipar,dpar,work, & 
-               CRS_ComplexMatrixVectorProd,0,0,0,0,STOPC )
-
-           CASE (PRECOND_DIAGONAL)
-             CALL huti_z_bicgstab( x,b,ipar,dpar,work, &
-                CRS_ComplexMatrixVectorProd, &
-                   CRS_ComplexDiagPrecondition,0,0,0,STOPC )
-
-           CASE (PRECOND_ILUn, PRECOND_ILUT)
-             CALL huti_z_bicgstab( x,b,ipar,dpar,work, &
-                CRS_ComplexMatrixVectorProd, &
-                   CRS_ComplexLUPrecondition,0,0,0,STOPC )
-
-           CASE (PRECOND_MG)
-             CALL huti_z_bicgstab( x,b,ipar,dpar,work, &
-                CRS_ComplexMatrixVectorProd, MultigridPrec,0,0,0,STOPC )
-         END SELECT
-
-!------------------------------------------------------------------------------
-         
+          iterProc = AddrFunc( HUTI_Z_BICGSTAB )
        CASE (ITER_TFQMR)
-         SELECT CASE( PCondType )
-           CASE (PRECOND_NONE)
-             CALL huti_z_tfqmr( x,b,ipar,dpar,work, &
-                 CRS_ComplexMatrixVectorProd,0,0,0,0,STOPC )
-
-           CASE (PRECOND_DIAGONAL)
-             CALL huti_z_tfqmr( x,b,ipar,dpar,work, &
-                CRS_ComplexMatrixVectorProd, &
-                   CRS_ComplexDiagPrecondition,0,0,0,STOPC )
-
-           CASE (PRECOND_ILUn, PRECOND_ILUT)
-             CALL huti_z_tfqmr( x,b,ipar,dpar,work, &
-                CRS_ComplexMatrixVectorProd, &
-                   CRS_ComplexLUPrecondition,0,0,0,STOPC )
-
-           CASE (PRECOND_MG)
-             CALL huti_z_tfqmr( x,b,ipar,dpar,work, &
-                CRS_ComplexMatrixVectorProd, MultigridPrec,0,0,0,STOPC )
-         END SELECT
-
-!------------------------------------------------------------------------------
-
+          iterProc = AddrFunc( HUTI_Z_TFQMR )
        CASE (ITER_CG)
-         SELECT CASE( PCondType )
-           CASE (PRECOND_NONE)
-             CALL huti_z_cg( x,b,ipar,dpar,work, &
-                 CRS_ComplexMatrixVectorProd,0,0,0,0,STOPC )
-
-           CASE (PRECOND_DIAGONAL)
-             CALL huti_z_cg( x,b,ipar,dpar,work, &
-                CRS_ComplexMatrixVectorProd, &
-                    CRS_ComplexDiagPrecondition,0,0,0,STOPC )
-
-           CASE (PRECOND_ILUn, PRECOND_ILUT)
-             CALL huti_z_cg( x,b,ipar,dpar,work, &
-                CRS_ComplexMatrixVectorProd, &
-                    CRS_ComplexLUPrecondition,0,0,0,STOPC )
-
-           CASE (PRECOND_MG)
-             CALL huti_z_cg( x,b,ipar,dpar,work, &
-                CRS_ComplexMatrixVectorProd, MultigridPrec,0,0,0,STOPC )
-         END SELECT
-
-!------------------------------------------------------------------------------
-
+          iterProc = AddrFunc( HUTI_Z_CG )
        CASE (ITER_CGS)
-         SELECT CASE( PCondType )
-           CASE (PRECOND_NONE)
-             CALL huti_z_cgs( x,b,ipar,dpar,work, CRS_ComplexMatrixVectorProd, &
-                                  0,0,0,0,STOPC )
-
-           CASE (PRECOND_DIAGONAL)
-             CALL huti_z_cgs( x,b,ipar,dpar,work, &
-                CRS_ComplexMatrixVectorProd, CRS_ComplexDiagPrecondition,0,0,0,STOPC )
-
-           CASE (PRECOND_ILUn, PRECOND_ILUT)
-             CALL huti_z_cgs( x,b,ipar,dpar,work, &
-                  CRS_ComplexMatrixVectorProd, CRS_ComplexLUPrecondition,0,0,0,STOPC )
-
-           CASE (PRECOND_MG)
-             CALL huti_z_cgs( x,b,ipar,dpar,work, &
-                CRS_ComplexMatrixVectorProd, MultigridPrec,0,0,0,STOPC )
-         END SELECT
-
-!------------------------------------------------------------------------------
-
+          iterProc = AddrFunc( HUTI_Z_CGS )
        CASE (ITER_GMRES)
-         SELECT CASE( PCondType )
-           CASE (PRECOND_NONE)
-             CALL huti_z_gmres( x,b,ipar,dpar,work, CRS_ComplexMatrixVectorProd, &
-                                  0,0,0,0,STOPC )
-
-           CASE (PRECOND_DIAGONAL)
-             CALL huti_z_gmres( x,b,ipar,dpar,work, &
-                CRS_ComplexMatrixVectorProd, CRS_ComplexDiagPrecondition,0,0,0,STOPC )
-
-           CASE (PRECOND_ILUn, PRECOND_ILUT)
-             CALL huti_z_gmres( x,b,ipar,dpar,work, &
-                  CRS_ComplexMatrixVectorProd, CRS_ComplexLUPrecondition,0,0,0,STOPC )
-
-           CASE (PRECOND_MG)
-             CALL huti_z_gmres( x,b,ipar,dpar,work, &
-                CRS_ComplexMatrixVectorProd, MultigridPrec,0,0,0,STOPC )
+          iterProc = AddrFunc( HUTI_Z_GMRES )
        END SELECT
-!------------------------------------------------------------------------------
-     END SELECT
-!------------------------------------------------------------------------------
      END IF
 !------------------------------------------------------------------------------
 
+     GlobalMatrix => A
+     CALL iterCall( iterProc, x, b, ipar, dpar, work, &
+       mvProc, pcondProc, pcondrProc, dotProc, normProc, STOPC )
+
+     IF ( A % Complex ) HUTI_NDIM = HUTI_NDIM * 2
 !------------------------------------------------------------------------------
      IF ( HUTI_INFO /= HUTI_CONVERGENCE ) THEN
         IF ( AbortNotConverged ) THEN
@@ -518,9 +353,7 @@ CONTAINS
         END IF
      END IF
 !------------------------------------------------------------------------------
-          
      DEALLOCATE( work )
-
 !------------------------------------------------------------------------------
   END SUBROUTINE IterSolver 
 !------------------------------------------------------------------------------

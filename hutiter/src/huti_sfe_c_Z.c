@@ -126,13 +126,13 @@ void  STDCALLBULL FC_FUNC_(huti_z_cg,HUTI_Z_CG) ( void *xvec, void *rhsvec,
 
   
 
-  if (*((int *) pcondrsubr) == 0)
+  if (pcondrsubr == NULL)
     pcondrsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
-  if (*((int *) pcondlsubr) == 0)
+  if (pcondlsubr == NULL)
     pcondlsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
-  if (*((int *) dotprodfun) == 0)
+  if (dotprodfun == NULL)
     dotprodfun = FC_FUNC(zdotu,ZDOTU);
-  if (*((int *) normfun) == 0)
+  if (normfun == NULL)
     normfun = FC_FUNC(dznrm2,DZNRM2);
 
   FC_FUNC_(huti_zcgsolv,HUTI_ZCGSOLV) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
@@ -163,13 +163,13 @@ void  STDCALLBULL FC_FUNC_(huti_z_tfqmr,HUTI_Z_TFQMR) ( void *xvec, void *rhsvec
 
   
 
-  if (*((int *) pcondrsubr) == 0)
+  if (pcondrsubr == NULL)
     pcondrsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
-  if (*((int *) pcondlsubr) == 0)
+  if (pcondlsubr == NULL)
     pcondlsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
-  if (*((int *) dotprodfun) == 0)
+  if (dotprodfun == NULL)
     dotprodfun = FC_FUNC(zdotu,ZDOTU);
-  if (*((int *) normfun) == 0)
+  if (normfun == NULL)
     normfun = FC_FUNC(dznrm2,DZNRM2);
 
   FC_FUNC_(huti_ztfqmrsolv,HUTI_ZTFQMRSOLV) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
@@ -199,13 +199,13 @@ void  STDCALLBULL FC_FUNC_(huti_z_cgs,HUTI_Z_CGS) ( void *xvec, void *rhsvec,
 
   
 
-  if (*((int *) pcondrsubr) == 0)
+  if (pcondrsubr == NULL)
     pcondrsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
-  if (*((int *) pcondlsubr) == 0)
+  if (pcondlsubr == NULL)
     pcondlsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
-  if (*((int *) dotprodfun) == 0)
+  if (dotprodfun == NULL)
     dotprodfun = FC_FUNC(zdotu,ZDOTU);
-  if (*((int *) normfun) == 0)
+  if (normfun == NULL)
     normfun = FC_FUNC(dznrm2,DZNRM2);
 
   FC_FUNC_(huti_zcgssolv,HUTI_ZCGSSOLV) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
@@ -235,13 +235,13 @@ void  STDCALLBULL FC_FUNC_(huti_z_qmr,HUTI_Z_QMR) ( void *xvec, void *rhsvec,
 
   
 
-  if (*((int *) pcondrsubr) == 0)
+  if (pcondrsubr == NULL)
     pcondrsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
-  if (*((int *) pcondlsubr) == 0)
+  if (pcondlsubr == NULL)
     pcondlsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
-  if (*((int *) dotprodfun) == 0)
+  if (dotprodfun == NULL)
     dotprodfun = FC_FUNC(zdotu,ZDOTU);
-  if (*((int *) normfun) == 0)
+  if (normfun == NULL)
     normfun = FC_FUNC(dznrm2,DZNRM2);
 
   FC_FUNC_(huti_zqmrsolv,HUTI_ZQMRSOLV) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
@@ -269,13 +269,13 @@ void  STDCALLBULL FC_FUNC_(huti_z_bicgstab,HUTI_Z_BICGSTAB) ( void *xvec, void *
 
   
 
-  if (*((int *) pcondrsubr) == 0)
+  if (pcondrsubr == NULL)
     pcondrsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
-  if (*((int *) pcondlsubr) == 0)
+  if (pcondlsubr == NULL)
     pcondlsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
-  if (*((int *) dotprodfun) == 0)
+  if (dotprodfun == NULL)
     dotprodfun = FC_FUNC(zdotu,ZDOTU);
-  if (*((int *) normfun) == 0)
+  if (normfun == NULL)
     normfun = FC_FUNC(dznrm2,DZNRM2);
 
   FC_FUNC_(huti_zbicgstabsolv,HUTI_ZBICGSTABSOLV) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
@@ -305,13 +305,13 @@ void  STDCALLBULL FC_FUNC_(huti_z_gmres,HUTI_Z_GMRES) ( void *xvec, void *rhsvec
 
   
 
-  if (*((int *) pcondrsubr) == 0)
+  if (pcondrsubr == NULL)
     pcondrsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
-  if (*((int *) pcondlsubr) == 0)
+  if (pcondlsubr == NULL)
     pcondlsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
-  if (*((int *) dotprodfun) == 0)
+  if (dotprodfun == NULL)
     dotprodfun = FC_FUNC(zdotc,ZDOTC);
-  if (*((int *) normfun) == 0)
+  if (normfun == NULL)
     normfun = FC_FUNC(dznrm2,DZNRM2);
 
   FC_FUNC_(huti_zgmressolv,HUTI_ZGMRESSOLV) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
@@ -340,13 +340,13 @@ void  STDCALLBULL FC_FUNC_(huti_z_bicgstab_2,HUTI_Z_BICGSTAB_2) ( void *xvec, vo
 
   
 
-  if (*((int *) pcondrsubr) == 0)
+  if (pcondrsubr == NULL)
     pcondrsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
-  if (*((int *) pcondlsubr) == 0)
+  if (pcondlsubr == NULL)
     pcondlsubr = FC_FUNC_(huti_zdummy_pcondfun,HUTI_ZDUMMY_PCONDFUN);
-  if (*((int *) dotprodfun) == 0)
+  if (dotprodfun == NULL)
     dotprodfun = FC_FUNC(zdotu,ZDOTU);
-  if (*((int *) normfun) == 0)
+  if (normfun == NULL)
     normfun = FC_FUNC(dznrm2,DZNRM2);
 
   FC_FUNC_(huti_zbicgstab_2solv,HUTI_ZBICGSTAB_2SOLV) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,

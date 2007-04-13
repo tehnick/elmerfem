@@ -118,7 +118,7 @@
         PotentialKnown, PotentialPerm, BoundaryPerm, BoundaryNodes, &
            Pot, Flx, P1, P2, Potential, ForceVector, Diagonal
 
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HelmholtzBEM.src,v 1.7 2006/01/10 08:27:35 apursula Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HelmholtzBEM.src,v 1.8 2006/11/27 10:23:57 jpr Exp $"
 
      EXTERNAL Matvec, Precond
 !------------------------------------------------------------------------------
@@ -763,6 +763,10 @@
        COMPLEX :: s
 
        LOGICAL :: AbortNotConverged
+
+       INTEGER  :: HUTI_Z_BICGSTAB
+       EXTERNAL :: HUTI_Z_BICGSTAB
+       INTEGER(KIND=addrInt) :: AddrFunc, iterProc, mvProc, pcondProc, dProc=0
 !------------------------------------------------------------------------------
        ipar = 0; dpar = 0
 
@@ -793,7 +797,11 @@
        IF ( .NOT. GotIt ) AbortNotConverged = .TRUE.
 
 !------------------------------------------------------------------------------
-       CALL HUTI_Z_BICGSTAB( x,b,ipar,dpar,work,matvec,Precond,0,0,0,0 )
+       iterProc  = AddrFunc(HUTI_Z_BICGSTAB)
+       mvProc    = AddrFunc(Matvec)
+       pcondProc = AddrFunc(precond)
+       CALL IterCall( iterProc,x,b,ipar,dpar,work,mvProc,pcondProc, &
+                 dProc, dProc, dProc, dProc )
 !------------------------------------------------------------------------------
 
        DEALLOCATE( Work )

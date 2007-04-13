@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: GebhardtFactors.src,v 1.7 2006/01/10 08:27:34 apursula Exp $
+! * $Id: GebhardtFactors.src,v 1.8 2007/02/07 11:42:22 jpr Exp $
 ! *****************************************************************************
 
 #define FULLMATRIX
@@ -474,6 +474,10 @@
         INTEGER :: ipar(50),wsize,N
         DOUBLE PRECISION, ALLOCATABLE :: work(:,:)
 
+        INTEGER  :: HUTI_D_CGS
+        EXTERNAL :: HUTI_D_CGS
+        INTEGER(KIND=addrInt) :: AddrFunc, iterProc, mvProc, dProc=0
+
         ipar = 0
         dpar = 0.0D0
 
@@ -494,7 +498,10 @@
 
         HUTI_TOLERANCE = 1.0d-10
 
-        CALL huti_d_cgs( x,b,ipar,dpar,work,matvec,0,0,0,0,0 )
+        mvProc   = AddrFunc( Matvec )
+        iterProc = AddrFunc(HUTI_D_CGS)
+        CALL iterCall( iterProc,x,b,ipar,dpar,work,mvProc, &
+               dProc, dProc, dProc, dProc, dProc )
           
         DEALLOCATE( work )
 

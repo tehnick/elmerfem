@@ -531,3 +531,43 @@ void STDCALLBULL FC_FUNC(execsimulationproc,EXECSIMULATIONPROC)
 {
    DoSimulationProc( (void (STDCALLBULL *)())*Function,Model );
 }
+
+
+
+/*--------------------------------------------------------------------------
+  INTERNAL: execute user material function
+  -------------------------------------------------------------------------*/
+static void DoIterCall( void (STDCALLBULL *iterProc)(),
+       void *x,void *b,void *ipar,void *dpar,void *work,
+       void (STDCALLBULL *mvProc)(),
+       void (STDCALLBULL *pcondProc)(),
+       void (STDCALLBULL *pcondrProc)(),
+       void (STDCALLBULL *dotProc)(),
+       void (STDCALLBULL *normProc)(),
+       void (STDCALLBULL *STOPC)() )
+/*
+       f_ptr mvProc, f_ptr pcondProc, f_ptr pcondrProc, f_ptr dotProc, f_ptr normProc, f_ptr STOPC )
+*/
+{ 
+  (*iterProc)( x,b,ipar,dpar,work,mvProc,pcondProc, 
+       pcondrProc,dotProc,normProc,STOPC );
+}
+
+/*--------------------------------------------------------------------------
+  This routine will call user defined material def. function
+  -------------------------------------------------------------------------*/
+void STDCALLBULL FC_FUNC(itercall,ITERCALL)
+     ( f_ptr iterProc, void *x, void *b, void *ipar, void *dpar, void *work, 
+       f_ptr mvProc, f_ptr pcondProc, f_ptr pcondrProc, f_ptr dotProc, f_ptr normProc, f_ptr STOPC )
+{
+   DoIterCall( (void (STDCALLBULL *)())*iterProc,x,b,ipar,dpar,work,
+       (void (STDCALLBULL *)())*mvProc, 
+       (void (STDCALLBULL *)())*pcondProc,
+       (void (STDCALLBULL *)())*pcondrProc,
+       (void (STDCALLBULL *)())*dotProc,
+       (void (STDCALLBULL *)())*normProc,
+       (void (STDCALLBULL *)())*STOPC );
+/*
+       mvProc, pcondProc, pcondrProc, dotProc, normProc, STOPC );
+*/
+}

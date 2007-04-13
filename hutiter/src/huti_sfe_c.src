@@ -3,7 +3,7 @@
  * huti_sfe_c.c - HUTIter library. Fron-ends for iterative solvers,
  *                C -version
  *
- * $Id: huti_sfe_c.src,v 1.4 2005/06/02 15:35:27 vierinen Exp $
+ * $Id: huti_sfe_c.src,v 1.5 2005/08/25 13:42:07 vierinen Exp $
  *
  */
 
@@ -92,13 +92,13 @@ void  STDCALLBULL MAKE_F_SUBRN(HUTI_,huti_,_CG,_cg) ( void *xvec, void *rhsvec,
 
   /* Here we take care of the "dynamic" bindings */
 
-  if (*((int *) pcondrsubr) == 0)
+  if (pcondrsubr == NULL)
     pcondrsubr = PRECD_DUMMY_PCONDFUN;
-  if (*((int *) pcondlsubr) == 0)
+  if (pcondlsubr == NULL)
     pcondlsubr = PRECD_DUMMY_PCONDFUN;
-  if (*((int *) dotprodfun) == 0)
+  if (dotprodfun == NULL)
     dotprodfun = PRECD_BLAS_DOTPRODFUN;
-  if (*((int *) normfun) == 0)
+  if (normfun == NULL)
     normfun = PRECD_BLAS_NORMFUN;
 
   MAKE_F_SUBRN(HUTI_,huti_,CGSOLV,cgsolv) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
@@ -129,13 +129,13 @@ void  STDCALLBULL MAKE_F_SUBRN(HUTI_,huti_,_TFQMR,_tfqmr) ( void *xvec, void *rh
 
   /* Here we take care of the "dynamic" bindings */
 
-  if (*((int *) pcondrsubr) == 0)
+  if (pcondrsubr == NULL)
     pcondrsubr = PRECD_DUMMY_PCONDFUN;
-  if (*((int *) pcondlsubr) == 0)
+  if (pcondlsubr == NULL)
     pcondlsubr = PRECD_DUMMY_PCONDFUN;
-  if (*((int *) dotprodfun) == 0)
+  if (dotprodfun == NULL)
     dotprodfun = PRECD_BLAS_DOTPRODFUN;
-  if (*((int *) normfun) == 0)
+  if (normfun == NULL)
     normfun = PRECD_BLAS_NORMFUN;
 
   MAKE_F_SUBRN(HUTI_,huti_,TFQMRSOLV,tfqmrsolv) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
@@ -165,13 +165,13 @@ void  STDCALLBULL MAKE_F_SUBRN(HUTI_,huti_,_CGS,_cgs) ( void *xvec, void *rhsvec
 
   /* Here we take care of the "dynamic" bindings */
 
-  if (*((int *) pcondrsubr) == 0)
+  if (pcondrsubr == NULL)
     pcondrsubr = PRECD_DUMMY_PCONDFUN;
-  if (*((int *) pcondlsubr) == 0)
+  if (pcondlsubr == NULL)
     pcondlsubr = PRECD_DUMMY_PCONDFUN;
-  if (*((int *) dotprodfun) == 0)
+  if (dotprodfun == NULL)
     dotprodfun = PRECD_BLAS_DOTPRODFUN;
-  if (*((int *) normfun) == 0)
+  if (normfun == NULL)
     normfun = PRECD_BLAS_NORMFUN;
 
   MAKE_F_SUBRN(HUTI_,huti_,CGSSOLV,cgssolv) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
@@ -201,13 +201,13 @@ void  STDCALLBULL MAKE_F_SUBRN(HUTI_,huti_,_QMR,_qmr) ( void *xvec, void *rhsvec
 
   /* Here we take care of the "dynamic" bindings */
 
-  if (*((int *) pcondrsubr) == 0)
+  if (pcondrsubr == NULL)
     pcondrsubr = PRECD_DUMMY_PCONDFUN;
-  if (*((int *) pcondlsubr) == 0)
+  if (pcondlsubr == NULL)
     pcondlsubr = PRECD_DUMMY_PCONDFUN;
-  if (*((int *) dotprodfun) == 0)
+  if (dotprodfun == NULL)
     dotprodfun = PRECD_BLAS_DOTPRODFUN;
-  if (*((int *) normfun) == 0)
+  if (normfun == NULL)
     normfun = PRECD_BLAS_NORMFUN;
 
   MAKE_F_SUBRN(HUTI_,huti_,QMRSOLV,qmrsolv) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
@@ -235,18 +235,21 @@ void  STDCALLBULL MAKE_F_SUBRN(HUTI_,huti_,_BICGSTAB,_bicgstab) ( void *xvec, vo
 
   /* Here we take care of the "dynamic" bindings */
 
-  if (*((int *) pcondrsubr) == 0)
+fprintf( stderr, "aahhh 0\n");
+  if (pcondrsubr == NULL)
     pcondrsubr = PRECD_DUMMY_PCONDFUN;
-  if (*((int *) pcondlsubr) == 0)
+  if (pcondlsubr == NULL)
     pcondlsubr = PRECD_DUMMY_PCONDFUN;
-  if (*((int *) dotprodfun) == 0)
+  if (dotprodfun == NULL)
     dotprodfun = PRECD_BLAS_DOTPRODFUN;
-  if (*((int *) normfun) == 0)
+  if (normfun == NULL)
     normfun = PRECD_BLAS_NORMFUN;
 
+fprintf( stderr, "aahhh 1\n");
   MAKE_F_SUBRN(HUTI_,huti_,BICGSTABSOLV,bicgstabsolv) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
                  ipar, dpar, work, matvecsubr, pcondlsubr, pcondrsubr,
                  dotprodfun, normfun, mstopfun );
+fprintf( stderr, "aahhh 2\n");
 
   return;
 }
@@ -271,13 +274,13 @@ void  STDCALLBULL MAKE_F_SUBRN(HUTI_,huti_,_GMRES,_gmres) ( void *xvec, void *rh
 
   /* Here we take care of the "dynamic" bindings */
 
-  if (*((int *) pcondrsubr) == 0)
+  if (pcondrsubr == NULL)
     pcondrsubr = PRECD_DUMMY_PCONDFUN;
-  if (*((int *) pcondlsubr) == 0)
+  if (pcondlsubr == NULL)
     pcondlsubr = PRECD_DUMMY_PCONDFUN;
-  if (*((int *) dotprodfun) == 0)
+  if (dotprodfun == NULL)
     dotprodfun = PRECD_BLAS_DOTPRODFUN_N;
-  if (*((int *) normfun) == 0)
+  if (normfun == NULL)
     normfun = PRECD_BLAS_NORMFUN;
 
   MAKE_F_SUBRN(HUTI_,huti_,GMRESSOLV,gmressolv) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,
@@ -306,13 +309,13 @@ void MAKE_F_SUBRN(HUTI_,huti_,_BICGSTAB_2,_bicgstab_2) ( void *xvec, void *rhsve
 
   /* Here we take care of the "dynamic" bindings */
 
-  if (*((int *) pcondrsubr) == 0)
+  if (pcondrsubr == NULL)
     pcondrsubr = PRECD_DUMMY_PCONDFUN;
-  if (*((int *) pcondlsubr) == 0)
+  if (pcondlsubr == NULL)
     pcondlsubr = PRECD_DUMMY_PCONDFUN;
-  if (*((int *) dotprodfun) == 0)
+  if (dotprodfun == NULL)
     dotprodfun = PRECD_BLAS_DOTPRODFUN;
-  if (*((int *) normfun) == 0)
+  if (normfun == NULL)
     normfun = PRECD_BLAS_NORMFUN;
 
   MAKE_F_SUBRN(HUTI_,huti_,BICGSTAB_2SOLV,bicgstab_2solv) ( &HUTI_NDIM, &HUTI_WRKDIM, xvec, rhsvec,

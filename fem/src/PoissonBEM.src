@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: PoissonBEM.src,v 1.9 2006/08/11 13:12:24 jpr Exp $
+! * $Id: PoissonBEM.src,v 1.10 2006/11/27 10:23:57 jpr Exp $
 ! ******************************************************************************
 
 !------------------------------------------------------------------------------
@@ -118,7 +118,7 @@
      SAVE Load, ElementNodes, VolumeSource, VolumeForce, AllocationsDone, &
       PotentialKnown, PotentialPerm, BoundaryPerm, BoundaryNodes, Pot, Flx
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: PoissonBEM.src,v 1.9 2006/08/11 13:12:24 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: PoissonBEM.src,v 1.10 2006/11/27 10:23:57 jpr Exp $"
 
      EXTERNAL Matvec, Precond
 !------------------------------------------------------------------------------
@@ -697,6 +697,10 @@ at = CPUTime()
        REAL(KIND=dp), ALLOCATABLE :: work(:,:)
 
        LOGICAL :: AbortNotConverged
+
+       INTEGER  :: HUTI_D_CGS
+       EXTERNAL :: HUTI_D_CGS
+       INTEGER(KIND=addrInt) :: AddrFunc, iterProc, mvProc, pcondProc, dProc=0
 !------------------------------------------------------------------------------
        ipar = 0; dpar = 0
 
@@ -727,7 +731,11 @@ at = CPUTime()
        IF ( .NOT. GotIt ) AbortNotConverged = .TRUE.
 
 !------------------------------------------------------------------------------
-       CALL HUTI_D_CGS( x,b,ipar,dpar,work,matvec,precond,0,0,0,0 )
+       iterProc  = AddrFunc(HUTI_D_CGS)
+       mvProc    = AddrFunc(Matvec)
+       pcondProc = AddrFunc(precond)
+       CALL IterCall( iterProc,x,b,ipar,dpar,work,mvProc,pcondProc, &
+                 dProc, dProc, dProc, dProc )
 !------------------------------------------------------------------------------
 
        DEALLOCATE( work )

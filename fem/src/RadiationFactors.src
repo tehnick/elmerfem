@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: RadiationFactors.src,v 1.10 2006/12/01 09:02:17 jpr Exp $
+! * $Id: RadiationFactors.src,v 1.11 2007/02/07 11:42:23 jpr Exp $
 ! *****************************************************************************
 
    MODULE RadiationFactorGlobals
@@ -982,6 +982,11 @@
        
        INTEGER :: ipar(50),wsize,N
        REAL (KIND=dp), ALLOCATABLE :: work(:,:)
+!------------------------------------------------------------------------------
+       INTEGER  :: HUTI_D_CGS
+       EXTERNAL :: HUTI_D_CGS
+       INTEGER(KIND=addrInt) :: AddrFunc, iterProc, mvProc, dProc=0
+!------------------------------------------------------------------------------
        
        ipar = 0
        dpar = 0.0D0
@@ -1003,7 +1008,10 @@
        
        HUTI_TOLERANCE = 1.0d-10
        
-       CALL huti_d_cgs( x,b,ipar,dpar,work,Rmatvec,0,0,0,0,0 )
+       iterProc  = AddrFunc(HUTI_D_CGS)
+       mvProc    = AddrFunc(rMatvec)
+       CALL IterCall( iterProc,x,b,ipar,dpar,work,mvProc, &
+                 dProc, dProc, dProc, dProc, dProc )
        
        DEALLOCATE( work )
        

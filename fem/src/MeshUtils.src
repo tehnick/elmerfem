@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.51  2007/03/30 09:30:02  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.50  2007/03/30 08:20:21  jpr
 ! * *** empty log message ***
 ! *
@@ -163,7 +166,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.50 2007/03/30 08:20:21 jpr Exp $
+! * $Id: MeshUtils.src,v 1.51 2007/03/30 09:30:02 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -3975,11 +3978,14 @@ CONTAINS
 !------------------------------------------------------------------------------
        TYPE(Mesh_t), POINTER :: Mesh, NewMesh
 !------------------------------------------------------------------------------
-       TYPE(Element_t), POINTER :: Edge, Face
-       INTEGER :: i,j,k,n
+       TYPE(Element_t), POINTER :: Edge, Face, Element, BoundaryElement
+       INTEGER :: i,j,k,l,m,n,p,q
        INTEGER, POINTER :: IntCnts(:),IntArray(:),Reorder(:)
+       INTEGER, ALLOCATABLE :: list1(:), list2(:)
+       LOGICAL, ALLOCATABLE :: InterfaceTag(:)
 
        INTEGER :: jedges
+       LOGICAL :: Found
 !------------------------------------------------------------------------------
 
        IF ( ParEnv % PEs <= 1 ) RETURN
@@ -4016,20 +4022,196 @@ CONTAINS
 !      interface nodes (the code immediately below
 !      will only count sizes):
 !      -------------------------------------------
+!
 
-       j = 0 ! Count interface elements
-       k = 0 ! For memory allocation
-       DO i = 1,Mesh % NumberOfEdges
-          Edge => Mesh % Edges(i)
-          IF ( ALL(Mesh % ParallelInfo % INTERFACE(Edge % NodeIndexes)) ) THEN
-             NewMesh % ParallelInfo % INTERFACE(Mesh % NumberOfNodes+i) = .TRUE.
-             j = j + 1
-             k = k + Edge % TYPE % NumberOfNodes
-          END IF
-       END DO
+       ! New version based on edges and faces (2. March 2007):
+       !=====================================================
+       SELECT CASE( CoordinateSystemDimension() )
+          
+       CASE(2)
+          !
+          ! Count interface nodes:
+          !-----------------------
+          p = 0 
+          DO i = 1, Mesh % NumberOfNodes
+             IF( Mesh % ParallelInfo % Interface(i) ) p = p+1
+          END DO
+!         WRITE(*,'(A,I4,A,I6,A)')'SplitMeshEqual: PE:', &
+!              Parenv % MyPE+1, ' Found',p,' interface nodes'
+          !
+          ! Determine possible interface edges:
+          !------------------------------------
+          ALLOCATE( InterfaceTag( Mesh % NumberOfEdges ) )
+          InterfaceTag = .FALSE.
+          DO i = 1,Mesh % NumberOfEdges
+             Edge => Mesh % Edges(i)
+             IF( ASSOCIATED(Edge % BoundaryInfo % Left) .AND. &
+                  ASSOCIATED(Edge % BoundaryInfo % Right) ) CYCLE
+             IF( .NOT.ALL( Mesh % ParallelInfo % Interface( Edge % NodeIndexes ) )) CYCLE
+             InterfaceTag(i) = .TRUE.
+          END DO
+          !
+          ! Eliminate false positives based on BoundaryElement -data:
+          !----------------------------------------------------------
+          DO i = 1,Mesh % NumberOfBoundaryElements
+             BoundaryElement => Mesh % Elements( Mesh % NumberOfBulkElements + i )
+             Element => BoundaryElement % BoundaryInfo % Left
+             IF( .NOT.ASSOCIATED( Element ) ) &
+                  Element => BoundaryElement % BoundaryInfo % Right
+             IF( .NOT.ASSOCIATED( Element ) ) CYCLE
+             
+             ALLOCATE( list1( SIZE( BoundaryElement % NodeIndexes )))
+             list1 = BoundaryElement % NodeIndexes
+             CALL Sort( SIZE(list1), list1 )
+             
+             DO j = 1,SIZE( Element % EdgeIndexes )
+                k = Element % EdgeIndexes(j)
+                Edge => Mesh % Edges(k)
+                IF( SIZE( Edge % NodeIndexes ) /= SIZE(list1) ) CYCLE
+                
+                ALLOCATE( list2( SIZE( Edge % NodeIndexes )))
+                list2 = Edge % NodeIndexes
+                CALL Sort( SIZE(list2), list2 )
 
-!      print *,'Found',j,'interface edges'
-       jedges = j
+                Found = .TRUE.
+                DO l = 1,SIZE(list2)
+                   Found = Found .AND. ( list1(l)==list2(l) )
+                END DO
+
+                DEALLOCATE(list2)
+                IF( Found ) InterfaceTag(k) = .FALSE.
+             END DO
+
+             DEALLOCATE(list1)
+          END DO
+          
+          ! Mark all new interface nodes and count interface edges:
+          !--------------------------------------------------------
+          p = 0
+          DO i = 1, Mesh % NumberOfEdges
+             IF( .NOT. InterfaceTag(i) ) CYCLE
+             Edge => Mesh % Edges(i)
+             
+             ! This is just for the edge count:
+             !---------------------------------
+             IF( NewMesh % ParallelInfo % Interface( Mesh % NumberOfNodes + i) ) CYCLE
+             
+             ! Mark interface nodes and count edges:
+             !--------------------------------------
+             NewMesh % ParallelInfo % Interface( Mesh % NumberOfNodes + i) = .TRUE.
+             p = p+1
+
+          END DO
+!         WRITE(*,'(A,I4,A,I6,A)')'SplitMeshEqual: PE:', &
+!              Parenv % MyPE+1, ' Found',p,' interface edges'
+          
+          DEALLOCATE( InterfaceTag )
+
+          j = p
+          k = 2*p ! check
+          
+       CASE(3)
+
+          ! Count interface nodes:
+          !-----------------------
+          p = 0 
+          DO i = 1, Mesh % NumberOfNodes
+             IF( Mesh % ParallelInfo % Interface(i) ) p = p+1
+          END DO
+!         WRITE(*,'(A,I4,A,I6,A)')'SplitMeshEqual: PE:', &
+!              Parenv % MyPE+1, ' Found',p,' interface nodes'
+
+          ! Determine possible interface faces:
+          !------------------------------------
+          ALLOCATE( InterfaceTag( Mesh % NumberOfFaces ) )
+          InterfaceTag = .FALSE.
+          DO i = 1,Mesh % NumberOfFaces
+             Face => Mesh % Faces(i)
+             IF( ASSOCIATED(Face % BoundaryInfo % Left) .AND. &
+                  ASSOCIATED(Face % BoundaryInfo % Right) ) CYCLE
+             IF( .NOT.ALL( Mesh % ParallelInfo % Interface( Face % NodeIndexes ) )) CYCLE
+             InterfaceTag(i) = .TRUE.
+          END DO
+          
+          ! Eliminate false interface faces based on BoundaryElement -data:
+          !----------------------------------------------------------------
+          DO i = 1,Mesh % NumberOfBoundaryElements
+             BoundaryElement => Mesh % Elements( Mesh % NumberOfBulkElements + i )
+             Element => BoundaryElement % BoundaryInfo % Left
+             IF( .NOT.ASSOCIATED(Element) ) &
+                  Element => BoundaryElement % BoundaryInfo % Right
+             IF( .NOT.ASSOCIATED(Element) ) CYCLE
+             
+             ALLOCATE( list1( SIZE( BoundaryElement % NodeIndexes )))
+             list1 = BoundaryElement % NodeIndexes
+             CALL Sort( SIZE(list1), list1 )
+             
+             DO j = 1,SIZE( Element % FaceIndexes )
+                k = Element % FaceIndexes(j)
+                Face => Mesh % Faces(k)
+                IF( SIZE( Face % NodeIndexes ) /= SIZE(list1) ) CYCLE
+                
+                ALLOCATE( list2( SIZE( Face % NodeIndexes )))
+                list2 = Face % NodeIndexes
+                CALL Sort( SIZE(list2), list2 )
+
+                Found = .TRUE.
+                DO l = 1,SIZE(list2)
+                   Found = Found .AND. ( list1(l)==list2(l) )
+                END DO
+                
+                DEALLOCATE(list2)
+
+                IF( Found ) InterfaceTag(k) = .FALSE.
+             END DO
+
+             DEALLOCATE(list1)
+          END DO
+          
+          ! Count interface faces:
+          !-----------------------
+          p = 0
+          DO i = 1, Mesh % NumberOfFaces
+             Face => Mesh % Faces(i)
+             IF( InterfaceTag(i) ) p = p+1
+          END DO
+!         WRITE(*,'(A,I4,A,I6,A)')'SplitMeshEqual: PE:', &
+!              Parenv % MyPE+1, ' Found',p,' interface faces'
+          
+          ! Mark all new interface nodes and count interface edges:
+          !--------------------------------------------------------
+          p = 0
+          DO i = 1, Mesh % NumberOfFaces
+             IF( .NOT. InterfaceTag(i) ) CYCLE
+             Face => Mesh % Faces(i)
+             
+             DO j = 1,SIZE( Face % EdgeIndexes )
+                k = Face % EdgeIndexes(j)
+                Edge => Mesh % Edges(k)
+                
+                ! This is just for the edge count:
+                !---------------------------------
+                IF( NewMesh % ParallelInfo % Interface( Mesh % NumberOfNodes + k) ) CYCLE
+                
+                ! Mark interface nodes and count edges:
+                !--------------------------------------
+                NewMesh % ParallelInfo % Interface( Mesh % NumberOfNodes + k) = .TRUE.
+                p = p+1
+             END DO
+          END DO
+!         WRITE(*,'(A,I4,A,I6,A)')'SplitMeshEqual: PE:', &
+!              Parenv % MyPE+1, ' Found',p,' interface edges'
+          
+          DEALLOCATE( InterfaceTag )
+
+          j = p
+          k = 3*p ! check
+          
+       END SELECT
+
+!======================================================================================================
+       j = p
+       jedges = p
 
 !      For bricks, check also the faces:
 !      ---------------------------------
@@ -4047,8 +4229,8 @@ CONTAINS
 
 !      print*,'Found',j-jedges,'interface faces'
 
-       CALL AllocateVector( IntCnts,  j )
-       CALL AllocateVector( IntArray, k )
+!      CALL AllocateVector( IntCnts,  j )
+!      CALL AllocateVector( IntArray, k )
 !
 !      Old mesh nodes were copied as is...
 !      -----------------------------------
@@ -4075,35 +4257,41 @@ CONTAINS
 !      to temporary work arrays:
 !      ---------------------------------------------
 !
-       j = 0
-       k = 0
-       DO i = 1,Mesh % NumberOfEdges
-          Edge => Mesh % Edges(i)
-          IF ( ALL(Mesh % ParallelInfo % INTERFACE(Edge % NodeIndexes)) ) THEN
-             j = j + 1
-             IntCnts(j) = Edge % TYPE % NumberOfNodes
-             IntArray( k+1:k+IntCnts(j) ) = &
-                Mesh % Parallelinfo % GlobalDOFs(Edge % NodeIndexes)
-             CALL Sort( IntCnts(j), IntArray(k+1:k+IntCnts(j)) )
-             k = k + IntCnts(j)
-          END IF
-       END DO
-!
-!      For bricks, check also the faces:
-!      ---------------------------------
-       DO i = 1,Mesh % NumberOfFaces
-          Face => Mesh % Faces(i)
-          IF( Face % TYPE % NumberOfNodes == 4 ) THEN
-             IF ( ALL( Mesh % ParallelInfo % INTERFACE(Face % NodeIndexes) ) ) THEN
-                j = j + 1
-                IntCnts(j) = Face % TYPE % NumberOfNodes
-                IntArray(k+1:k+IntCnts(j)) = &
-                     Mesh % ParallelInfo % GlobalDOFs(Face % NodeIndexes)
-                CALL Sort( IntCnts(j), IntArray(k+1:k+IntCnts(j)) )
-                k = k + IntCnts(j)
-             END IF
-          END IF
-       END DO
+! check also this:
+!      j = 0
+!      k = 0
+!      DO i = 1,Mesh % NumberOfEdges
+!         Edge => Mesh % Edges(i)
+!         
+!         ! Added check for parent elements 25.2.2007:
+!         Found = .NOT.( ASSOCIATED(edge % boundaryinfo % left) &
+!              .AND.  ASSOCIATED(edge % boundaryinfo % right) )
+!         
+!         IF ( ALL(Mesh % ParallelInfo % INTERFACE(Edge % NodeIndexes)) .AND. Found ) THEN
+!            j = j + 1
+!            IntCnts(j) = Edge % TYPE % NumberOfNodes
+!            IntArray( k+1:k+IntCnts(j) ) = &
+!                 Mesh % Parallelinfo % GlobalDOFs(Edge % NodeIndexes)
+!            CALL Sort( IntCnts(j), IntArray(k+1:k+IntCnts(j)) )
+!            k = k + IntCnts(j)
+!         END IF
+!      END DO
+!      !
+!      ! For bricks, check also the faces:
+!      ! ---------------------------------
+!      DO i = 1,Mesh % NumberOfFaces
+!         Face => Mesh % Faces(i)
+!         IF( Face % TYPE % NumberOfNodes == 4 ) THEN
+!            IF ( ALL( Mesh % ParallelInfo % INTERFACE(Face % NodeIndexes) ) ) THEN
+!               j = j + 1
+!               IntCnts(j) = Face % TYPE % NumberOfNodes
+!               IntArray(k+1:k+IntCnts(j)) = &
+!                    Mesh % ParallelInfo % GlobalDOFs(Face % NodeIndexes)
+!               CALL Sort( IntCnts(j), IntArray(k+1:k+IntCnts(j)) )
+!               k = k + IntCnts(j)
+!            END IF
+!         END IF
+!      END DO
 !
 !      Finally the beef, do the exchange of new
 !      interfaces. The parallel global numbering
@@ -4114,20 +4302,21 @@ CONTAINS
        Reorder = (/ (i, i=1,NewMesh % NumberOfNodes) /)
 
        k = NewMesh % Nodes % NumberOfNodes - Mesh % Nodes % NumberOfNodes
+
        CALL ParallelGlobalNumbering( NewMesh, k, IntCnts, IntArray, Reorder )
 
 !      Account for the reordering of the nodes:
 !      ----------------------------------------
        DO i=1,NewMesh % NumberOfBulkElements + &
-                        NewMesh % NumberOfBoundaryElements
+            NewMesh % NumberOfBoundaryElements
           NewMesh % Elements(i) % NodeIndexes = &
               Reorder( NewMesh % Elements(i) % NodeIndexes )
        END DO
 
-       DEALLOCATE( IntCnts, IntArray, Reorder )
+!      DEALLOCATE( IntCnts, IntArray, Reorder )
+!      DEALLOCATE( Reorder )
 !------------------------------------------------------------------------------
     END SUBROUTINE UpdateParallelMesh
-!------------------------------------------------------------------------------
   END FUNCTION SplitMeshEqual
 !------------------------------------------------------------------------------
 
