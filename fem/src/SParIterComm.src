@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterComm.src,v 1.31 2007/04/13 10:45:11 jpr Exp $
+! * $Id: SParIterComm.src,v 1.32 2007/04/13 10:57:31 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -2727,50 +2727,48 @@ SUBROUTINE SParActiveSUM(tsum)
    REAL(KIND=dp) :: tsum
 !*********************************************************************
    REAL(KIND=dp) :: ssum,s,RealTime
-   INTEGER :: i,n,twop,Active,myid,ierr
+   INTEGER :: i,n,twop,nActive,myid,ierr
    INTEGER :: status(MPI_STATUS_SIZE)
    INTEGER, ALLOCATABLE :: ActiveId(:)
    SAVE ActiveId
 
-s = RealTime()
+!s = RealTime()
    IF ( COUNT(ParEnv % Active)==ParEnv % PEs ) THEN
      ssum = tsum
      CALL MPI_ALLREDUCE( ssum, tsum, 1, MPI_DOUBLE_PRECISION, &
                MPI_SUM, MPI_COMM_WORLD, ierr )
-yyy = yyy + RealTime()-s
+!yyy = yyy + RealTime()-s
      RETURN
    END IF
 
    IF ( .NOT. ALLOCATED(ActiveId) ) &
      ALLOCATE( ActiveId(0:ParEnv % PEs-1) )
 
-   Active = 0
+   nActive = 0
    DO i=0,ParEnv % PEs-1
      IF ( Parenv % Active(i+1) ) THEN
-       IF ( i==ParEnv % MyPE ) myid=Active
-       ActiveId(Active) = i
-       Active = Active + 1
+       IF ( i==ParEnv % MyPE ) myid=nActive
+       ActiveId(nActive) = i
+       nActive = nActive + 1
      END IF
    END DO
 
-   i = Active
+   i = nActive
    DO n=0,31
      i = i / 2
      IF ( i==0 ) EXIT
    END DO
-   IF( 2**n<Active ) n=n+1
+   IF( 2**n<nActive ) n=n+1
 
    twop = 1
    DO i=1,n
-     IF ( MOD(myid,2*twop)==0 ) THEN
-       IF ( myid+twop<Active ) THEN
-         CALL MPI_RECV(ssum, 1, MPI_DOUBLE_PRECISION, &
-            ActiveId(myid+twop), 7000, MPI_COMM_WORLD, status, ierr)
-         tsum = tsum + ssum
-       END IF
+     IF ( MOD(myid,2*twop)==0 .AND. myid+twop<nActive ) THEN
+       CALL MPI_RECV(ssum, 1, MPI_DOUBLE_PRECISION, &
+          ActiveId(myid+twop), 7000, MPI_COMM_WORLD, status, ierr)
+       tsum = tsum + ssum
      ELSE
        CALL MPI_BSEND(tsum, 1, MPI_DOUBLE_PRECISION, &
-            ActiveId(myid-twop), 7000, MPI_COMM_WORLD, status, ierr)
+          ActiveId(myid-twop), 7000, MPI_COMM_WORLD, status, ierr)
        EXIT        
      END IF
      twop = twop*2
@@ -2778,18 +2776,16 @@ yyy = yyy + RealTime()-s
 
    twop = 2**(n-1)
    DO i=n,1,-1
-     IF ( MOD(myid,2*twop)==0 ) THEN
-       IF ( myid+twop<Active ) THEN
-         CALL MPI_BSEND(tsum, 1, MPI_DOUBLE_PRECISION, &
-            ActiveId(myid+twop), 7001, MPI_COMM_WORLD, status, ierr)
-       END IF
+     IF ( MOD(myid,2*twop)==0 .AND. myid+twop<nActive ) THEN
+       CALL MPI_BSEND(tsum, 1, MPI_DOUBLE_PRECISION, &
+          ActiveId(myid+twop), 7001, MPI_COMM_WORLD, status, ierr)
      ELSE IF ( MOD(myid,twop)==0 ) THEN
        CALL MPI_RECV(tsum, 1, MPI_DOUBLE_PRECISION, &
-            ActiveId(myid-twop), 7001, MPI_COMM_WORLD, status, ierr)
+          ActiveId(myid-twop), 7001, MPI_COMM_WORLD, status, ierr)
      END IF
      twop = twop/2
    END DO
-yyy = yyy + RealTime()-s
+!yyy = yyy + RealTime()-s
 !*********************************************************************
 END SUBROUTINE SParActiveSUM
 !*********************************************************************
