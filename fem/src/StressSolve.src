@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StressSolve.src,v $
+! * Revision 1.40  2007/04/16 09:41:16  raback
+! * Corrected a conflict in sprig constant computation.
+! *
 ! * Revision 1.39  2007/04/12 20:21:52  raback
 ! * Debugged lumped spring computation.
 ! *
@@ -362,7 +365,7 @@
         END FUNCTION StressInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.39 2007/04/12 20:21:52 raback Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.40 2007/04/16 09:41:16 raback Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -1976,12 +1979,13 @@ CONTAINS
       Moment0 = 0.0d0
       Moment1 = 0.0d0
       Moment2 = 0.0d0
-    
+      Center = LumpedCenter
+
 !------------------------------------------------------------------------------
 ! Integrate the lumped mass over the volume/area
 !------------------------------------------------------------------------------
            
-      DO t = 1, Solver % NumberOfActiveElements
+100   DO t = 1, Solver % NumberOfActiveElements
         Element => Solver % Mesh % Elements( Solver % ActiveElements( t ) )
         Model % CurrentElement => Element
         
@@ -2014,9 +2018,9 @@ CONTAINS
 !      Coordinatesystem dependent info
 !------------------------------------------------------------------------------
           s = SqrtElementMetric * IntegStuff % s(i)          
-          x = SUM(ElementNodes % x(1:n) * Basis(1:n))
-          y = SUM(ElementNodes % y(1:n) * Basis(1:n))
-          z = SUM(ElementNodes % z(1:n) * Basis(1:n))
+          x = SUM(ElementNodes % x(1:n) * Basis(1:n)) - Center(1)
+          y = SUM(ElementNodes % y(1:n) * Basis(1:n)) - Center(2)
+          z = SUM(ElementNodes % z(1:n) * Basis(1:n)) - Center(3)
 
           IF ( CurrentCoordinateSystem() /= Cartesian ) THEN
             s = 2.0 * PI * x * s
@@ -2030,31 +2034,23 @@ CONTAINS
           Moment1(2) = Moment1(2) + s * y * dens
           Moment1(3) = Moment1(3) + s * z * dens
           
-          Moment2(1,1) = Moment2(1,1) + s * x * x * dens
-          Moment2(1,2) = Moment2(1,2) + s * x * y * dens
-          Moment2(1,3) = Moment2(1,3) + s * x * z * dens
-          Moment2(2,2) = Moment2(2,2) + s * y * y * dens
-          Moment2(2,3) = Moment2(2,3) + s * y * z * dens
-          Moment2(3,3) = Moment2(3,3) + s * z * z * dens
+          Moment2(1,1) = Moment2(1,1) + s * ( y*y + z*z)  * dens
+          Moment2(2,2) = Moment2(2,2) + s * ( x*x + z*z )  * dens
+          Moment2(3,3) = Moment2(3,3) + s * ( x*x + y*y ) * dens
+ 
+          Moment2(1,2) = Moment2(1,2) - s * x * y * dens
+          Moment2(1,3) = Moment2(1,3) - s * x * z * dens
+          Moment2(2,3) = Moment2(2,3) - s * y * z * dens
         END DO
       END DO
 
       IF(Vol < AEPS) RETURN
 
 
-      IF(.TRUE.) THEN
-        Center = LumpedCenter
-      ELSE
+      IF(.FALSE.) THEN
         ! One could also use the center of mass rather than center of force
         Center = Moment1 / Moment0
       END IF
-
-      Moment2(1,1) = Moment2(1,1) - Moment0 * Center(1) * Center(1)
-      Moment2(1,2) = Moment2(1,2) - Moment0 * Center(1) * Center(2)
-      Moment2(1,3) = Moment2(1,3) - Moment0 * Center(1) * Center(3)
-      Moment2(2,2) = Moment2(2,2) - Moment0 * Center(2) * Center(2)
-      Moment2(2,3) = Moment2(2,3) - Moment0 * Center(2) * Center(3)
-      Moment2(3,3) = Moment2(3,3) - Moment0 * Center(3) * Center(3)
       
       CALL ListAddConstReal(Model % Simulation,'res: Mass',Moment0)
       
@@ -2107,14 +2103,10 @@ CONTAINS
 
      TYPE(Nodes_t) :: Nodes, EdgeNodes
      TYPE(Element_t), POINTER :: Element, Bndry
-
      INTEGER :: i,j,k,n,l,t,dim,DOFs,nd,Pn,En
      LOGICAL :: stat, Found
-
      REAL(KIND=dp) :: SqrtMetric, Metric(3,3), Symb(3,3,3), dSymb(3,3,3,3)
-
      REAL(KIND=dp) :: Normal(3), EdgeLength
-
      REAL(KIND=dp) :: u, v, w, s, detJ
 
      REAL(KIND=dp), ALLOCATABLE :: EdgeBasis(:), dEdgeBasisdx(:,:)
@@ -2128,7 +2120,6 @@ CONTAINS
 
      REAL(KIND=dp) :: Residual(3), ResidualNorm, Area
      REAL(KIND=dp) :: ForceSolved(3), Dir(3)
-
      REAL(KIND=dp) :: Displacement(3)
      REAL(KIND=dp) :: YoungsModulus
      REAL(KIND=dp) :: PoissonRatio
@@ -2136,9 +2127,7 @@ CONTAINS
      REAL(KIND=dp) :: Identity(3,3), YoungsAverage
 
      LOGICAL :: PlaneStress, Isotropic, CSymmetry = .FALSE.
-
      TYPE(ValueList_t), POINTER :: Material, Equation, BodyForce, BC
-
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
 
      SAVE Nodes, EdgeNodes
