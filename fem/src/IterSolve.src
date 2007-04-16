@@ -38,7 +38,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: IterSolve.src,v 1.6 2006/12/01 09:02:17 jpr Exp $
+! * $Id: IterSolve.src,v 1.7 2007/04/13 08:28:08 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -110,8 +110,7 @@ CONTAINS
     REAL(KIND=dp), DIMENSION(:) :: x,b
     TYPE(Matrix_t), POINTER :: A
 
-    EXTERNAL :: DotF, NormF, MatVecF
-    INTEGER, OPTIONAL :: DotF, NormF, MatvecF
+    INTEGER(KIND=AddrInt), OPTIONAL :: DotF, NormF, MatVecF
 !------------------------------------------------------------------------------
 
     REAL(KIND=dp) :: dpar(50),stopfun,dnrm2
@@ -275,19 +274,19 @@ CONTAINS
      FirstCall = .TRUE.
 
      IF ( PRESENT(MatvecF) ) THEN
-       mvProc = AddrFunc( MatvecF )
+       mvProc = MatvecF
      ELSE
        mvProc = AddrFunc( CRS_MatrixVectorProd )
      END IF
 
      IF ( PRESENT(dotF) ) THEN
-       dotProc = AddrFunc( dotF )
+       dotProc = dotF
      ELSE
        dotProc =0
      END IF
 
      IF ( PRESENT(normF) ) THEN
-       normProc = AddrFunc( normF )
+       normProc = normF
      ELSE
        normProc =0
      END IF

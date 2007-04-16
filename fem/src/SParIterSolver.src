@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterSolver.src,v 1.17 2007/03/29 12:20:07 jpr Exp $
+! * $Id: SParIterSolver.src,v 1.18 2007/04/13 08:28:08 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -1475,6 +1475,7 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
   REAL(KIND=dp), DIMENSION(:,:), POINTER :: Work
   REAL(KIND=dp), DIMENSION(:), ALLOCATABLE :: TmpXVec, TmpRHSVec
 
+  INTEGER(KIND=AddrInt) :: AddrFunc
   REAL(KIND=dp) :: ILUT_TOL, RealTime
   INTEGER :: ILUn
   CHARACTER(LEN=MAX_NAME_LEN) :: Preconditioner
@@ -1560,18 +1561,13 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
  !----------------------------------------------------------------------
 
   IF ( .NOT. SourceMatrix % Complex ) THEN
-xxx = RealTime()
-yyy = 0
      CALL IterSolver( SplittedMatrix % InsideMatrix, TmpXVec, &
-        TmpRHSVec, Solver, SParDotProd, SParNorm, SParMatrixVector )
-if ( parenv % mype == 0 ) then
-print*,parenv % mype, RealTime()-xxx, yyy
-call flush(6)
-end if
+        TmpRHSVec, Solver, AddrFunc(SParDotProd), AddrFunc(SParNorm), &
+          AddrFunc(SParMatrixVector) )
   ELSE
      CALL IterSolver( SplittedMatrix % InsideMatrix, TmpXVec, &
-       TmpRHSVec, Solver, ParComplexDotProd, ParComplexNorm,  &
-       ParComplexMatrixVector )
+       TmpRHSVec, Solver, AddrFunc(ParComplexDotProd), AddrFunc(ParComplexNorm), &
+         AddrFunc(ParComplexMatrixVector) )
   END IF
 
   !----------------------------------------------------------------------
