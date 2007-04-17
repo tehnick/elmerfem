@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.62  2007/04/11 13:35:13  apursula
+! * Fixes to passive elements
+! *
 ! * Revision 1.61  2007/04/11 11:58:56  apursula
 ! * Added and fixed passive elements
 ! *
@@ -189,7 +192,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.61 2007/04/11 11:58:56 apursula Exp $
+! * $Id: SolverUtils.src,v 1.62 2007/04/11 13:35:13 apursula Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -1295,51 +1298,40 @@ CONTAINS
     SUBROUTINE SetPointValues(n)
       INTEGER :: n
       REAL(KIND=dp) :: Work(n), Condition(n)        
-      REAL(KIND=dp), POINTER :: WorkB(:,:)
 
-      WorkB => ListGetConstRealArray( ValueList,Name)
-      IF( SIZE( WorkB,1) == 1) THEN
-        Work = WorkB(1,1)
-      ELSE IF( SIZE( WorkB,1) == n) THEN
-        Work = WorkB(1:n,1)
-      ELSE
-        CALL Warn('SetDirichletBoundaries','Invalid size of Dirichlet vector: '//Name(1:nlen))
-        RETURN
-      END IF
+      Work(1:n)  = ListGetReal( ValueList, Name, n, NodeIndexes, gotIt )
 
-      WorkB => ListGetConstRealArray( ValueList,CondName,Conditional)
-      IF(Conditional) THEN
-        IF( SIZE( WorkB,1) == 1) THEN
-          Condition = WorkB(1,1)
-        ELSE IF( SIZE( WorkB,1) == n) THEN
-          Condition = WorkB(1:n,1)
-        ELSE
-          CALL Warn('SetDirichletBoundaries','Invalid size of Dirichlet vector: '//TRIM(CondName))
-          RETURN
-        END IF
-      END IF
+      IF ( gotIt ) THEN
 
-      DO j=1,n
-        IF ( Conditional .AND. Condition(j) < 0.0d0 ) CYCLE
-        IF(NodeIndexes(j) > SIZE(Perm) .OR. NodeIndexes(j) < 1) THEN
-          CALL Warn('SetDirichletBoundaries','Invalid Node Number')
-          CYCLE
+        Condition(1:n) = 1.0d0
+        IF ( Conditional ) THEN
+          Condition(1:n) = ListGetReal( ValueList, CondName, n, NodeIndexes, gotIt )
+          Conditional = Conditional .AND. GotIt
         END IF
 
-        k = Perm(NodeIndexes(j))
-        IF ( k > 0 ) THEN
-          k = NDOFs * (k-1) + DOF
-          IF ( A % FORMAT == MATRIX_SBAND ) THEN
-            CALL SBand_SetDirichlet( A,b,k,Work(j) )
-          ELSE IF ( A % FORMAT == MATRIX_CRS .AND. A % Symmetric ) THEN
-            CALL CRS_SetSymmDirichlet( A,b,k,Work(j) )
-          ELSE
-            b(k) = Work(j)
-            CALL ZeroRow( A,k )
-            CALL SetMatrixElement( A,k,k,1.0d0 )
+        DO j=1,n
+          IF ( Conditional .AND. Condition(j) < 0.0d0 ) CYCLE
+          IF ( NodeIndexes(j) > SIZE(Perm) .OR. NodeIndexes(j) < 1 ) THEN
+            CALL Warn('SetDirichletBoundaries','Invalid Node Number')
+            CYCLE
           END IF
-        END IF
-      END DO
+
+          k = Perm(NodeIndexes(j))
+          IF ( k > 0 ) THEN
+            k = NDOFs * (k-1) + DOF
+            IF ( A % FORMAT == MATRIX_SBAND ) THEN
+              CALL SBand_SetDirichlet( A,b,k,Work(j) )
+            ELSE IF ( A % FORMAT == MATRIX_CRS .AND. A % Symmetric ) THEN
+              CALL CRS_SetSymmDirichlet( A,b,k,Work(j) )
+            ELSE
+              b(k) = Work(j)
+              CALL ZeroRow( A,k )
+              CALL SetMatrixElement( A,k,k,1.0d0 )
+            END IF
+          END IF
+        END DO
+      END IF
+
     END SUBROUTINE SetPointValues
 
 !------------------------------------------------------------------------------
