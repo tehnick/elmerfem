@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.63  2007/04/17 10:41:00  apursula
+! * Changed point Dirichlet BCs to use ListGetReal
+! *
 ! * Revision 1.62  2007/04/11 13:35:13  apursula
 ! * Fixes to passive elements
 ! *
@@ -192,7 +195,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.62 2007/04/11 13:35:13 apursula Exp $
+! * $Id: SolverUtils.src,v 1.63 2007/04/17 10:41:00 apursula Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -1754,28 +1757,33 @@ CONTAINS
        REAL(KIND=dp) :: Work(n)
        REAL(KIND=dp), POINTER :: WorkB(:,:)
        
-       WorkB => ListGetConstRealArray( ValueList,LoadName)
-       IF( SIZE( WorkB,1) == 1) THEN
-         Work = WorkB(1,1)
-       ELSE IF( SIZE( WorkB,1) == n) THEN
-         Work = WorkB(1:n,1)
-       ELSE
-         CALL Warn('SetNodalLoads','Invalid size of dirichlet vector: '//TRIM(Name))
-         RETURN
-       END IF
+       Work(1:n) = ListGetReal( ValueList, LoadName, n, NodeIndexes, gotIt )
+
+!       WorkB => ListGetConstRealArray( ValueList,LoadName)
+!       IF( SIZE( WorkB,1) == 1) THEN
+!         Work = WorkB(1,1)
+!       ELSE IF( SIZE( WorkB,1) == n) THEN
+!         Work = WorkB(1:n,1)
+!       ELSE
+!         CALL Warn('SetNodalLoads','Invalid size of dirichlet vector: '//TRIM(Name))
+!         RETURN
+!       END IF
        
-       DO j=1,n
-         IF(NodeIndexes(j) > SIZE(Perm) .OR. NodeIndexes(j) < 1) THEN
-           CALL Warn('SetNodalLoads','Invalid Node Number')
-           CYCLE
-         END IF
+       IF ( GotIt ) THEN
+         DO j=1,n
+           IF ( NodeIndexes(j) > SIZE(Perm) .OR. NodeIndexes(j) < 1 ) THEN
+             CALL Warn('SetNodalLoads','Invalid Node Number')
+             CYCLE
+           END IF
          
-         k = Perm(NodeIndexes(j))
-         IF ( k > 0 ) THEN
-           k = NDOFs * (k-1) + DOF
-           b(k) = b(k) + Work(j)
-         END IF
-       END DO
+           k = Perm(NodeIndexes(j))
+           IF ( k > 0 ) THEN
+             k = NDOFs * (k-1) + DOF
+             b(k) = b(k) + Work(j)
+           END IF
+         END DO
+       END IF
+
      END SUBROUTINE SetPointLoads
      
 !------------------------------------------------------------------------------
