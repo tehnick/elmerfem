@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterSolver.src,v 1.19 2007/04/16 07:42:03 jpr Exp $
+! * $Id: SParIterSolver.src,v 1.20 2007/04/18 11:57:58 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -2434,7 +2434,8 @@ SUBROUTINE GlueFinalize( SourceMatrix, SplittedMatrix, ParallelInfo )
 
   ALLOCATE( RecvdIfMatrix( ParEnv % PEs ) )
   RecvdIfMatrix(:) % NumberOfRows = 0
-  CALL ExchangeIfValues(SplittedMatrix % NbsIfMatrix,RecvdIfMatrix,NeedMass,NeedDamp)
+  CALL ExchangeIfValues(SplittedMatrix % NbsIfMatrix, &
+          RecvdIfMatrix,NeedMass,NeedDamp )
 
   !----------------------------------------------------------------------
   !

@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterComm.src,v 1.33 2007/04/13 12:00:19 jpr Exp $
+! * $Id: SParIterComm.src,v 1.34 2007/04/18 11:57:58 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -2253,8 +2253,16 @@ SUBROUTINE ExchangeIfValues( NbsIfMatrix, RecvdIfMatrix, NeedMass, NeedDamp )
         ALLOCATE( RecvdIfMatrix(sproc+1) % Cols(Cols) )
         ALLOCATE( RecvdIfMatrix(sproc+1) % GRows(Rows) )
         ALLOCATE( RecvdIfMatrix(sproc+1) % Values(Cols) )
-        ALLOCATE( RecvdIfMatrix(sproc+1) % MassValues(Cols) )
-        RecvdIfMatrix(sproc+1) % MassValues = 0.0d0
+        RecvdIfMatrix(sproc+1) % MassValues => NULL()
+        IF ( NeedMass ) THEN
+          ALLOCATE( RecvdIfMatrix(sproc+1) % MassValues(Cols) )
+          RecvdIfMatrix(sproc+1) % MassValues = 0.0d0
+        END IF
+        RecvdIfMatrix(sproc+1) % DampValues => NULL()
+        IF ( NeedDamp ) THEN
+          ALLOCATE( RecvdIfMatrix(sproc+1) % DampValues(Cols) )
+          RecvdIfMatrix(sproc+1) % DampValues = 0.0d0
+        END IF
 
         CALL MPI_RECV( RecvdIfMatrix(sproc+1) % GRows, Rows,  MPI_INTEGER, &
                   sproc, 2002, MPI_COMM_WORLD, status, ierr )
