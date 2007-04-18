@@ -3368,28 +3368,22 @@ static void GmshToElmerIndx(int elemtype,int elemind[])
 }
 
 
-
-int LoadGmshInput(struct FemType *data,struct BoundaryType *bound,
-		   char *prefix,int info)
-/* This procedure reads the mesh assuming Gmsh format */
+static int LoadGmshInput1(struct FemType *data,struct BoundaryType *bound,
+			  char *filename,int info)
 {
   int noknots,noelements,maxnodes,elematts,nodeatts,nosides,dim;
   int sideind[MAXNODESD1],elemind[MAXNODESD2],tottypes,elementtype,bcmarkers;
   int i,j,k,dummyint,*boundnodes,allocated,*revindx,maxindx;
   int elemno, gmshtype, regphys, regelem, elemnodes,maxelemtype,elemdim;
   FILE *in;
-  char *cp,line[MAXLINESIZE],filename[MAXFILESIZE];
+  char *cp,line[MAXLINESIZE];
 
 
-  sprintf(filename,"%s",prefix);
   if ((in = fopen(filename,"r")) == NULL) {
-    sprintf(filename,"%s.msh",prefix);
-    if ((in = fopen(filename,"r")) == NULL) {
-      printf("LoadElmerInput: The opening of the mesh file %s failed!\n",filename);
-      return(1);
-    }
+    printf("LoadElmerInput: The opening of the mesh file %s failed!\n",filename);
+    return(1);
   }
-  if(info) printf("Loading mesh in Gmsh format from file %s\n",filename);
+  if(info) printf("Loading mesh in Gmsh format 1.0 from file %s\n",filename);
 
   allocated = FALSE;
   dim = 3;
@@ -3531,6 +3525,207 @@ allocate:
 
   return(0);
 }
+
+
+static int LoadGmshInput2(struct FemType *data,struct BoundaryType *bound,
+			  char *filename,int info)
+{
+  int noknots,noelements,maxnodes,elematts,nodeatts,nosides,dim;
+  int sideind[MAXNODESD1],elemind[MAXNODESD2],tottypes,elementtype,bcmarkers;
+  int i,j,k,dummyint,*boundnodes,allocated,*revindx,maxindx;
+  int elemno, gmshtype, regphys, regelem, elemnodes,maxelemtype,elemdim;
+  FILE *in;
+  char *cp,line[MAXLINESIZE];
+
+
+  if ((in = fopen(filename,"r")) == NULL) {
+    printf("LoadElmerInput: The opening of the mesh file %s failed!\n",filename);
+    return(1);
+  }
+  if(info) printf("Loading mesh in Gmsh format 2.0 from file %s\n",filename);
+
+  allocated = FALSE;
+  dim = 3;
+  maxnodes = 0;
+  maxindx = 0;
+  maxelemtype = 0;
+
+allocate:
+
+  if(allocated) {
+    InitializeKnots(data);
+    data->dim = dim;
+    data->maxnodes = maxnodes;
+    data->noelements = noelements;
+    data->noknots = noknots;
+
+    if(info) printf("Allocating for %d knots and %d elements.\n",noknots,noelements);
+    AllocateKnots(data);
+
+    if(maxindx > noknots) {
+      revindx = Ivector(1,maxindx);
+      for(i=1;i<=maxindx;i++) revindx[i] = 0;
+    }
+    in = fopen(filename,"r");
+  }
+
+
+  for(;;) {
+    if(Getrow(line,in,TRUE)) goto end;
+    if(!line) goto end;
+    if(strstr(line,"END")) goto end;
+
+    /* Header info is not much needed */
+    if(strstr(line,"$MESHFORMAT")) {
+      Getrow(line,in,TRUE);
+      Getrow(line,in,TRUE);
+      if(!strstr(line,"$EndMeshFormat")) {
+	printf("MeshFormat section should end to string EndMeshFormat\n");
+	printf("%s\n",line);
+      }      
+    }
+      
+    if(strstr(line,"$NODES")) {
+      getline;
+      cp = line;
+      noknots = next_int(&cp);
+
+      for(i=1; i <= noknots; i++) {
+	getline;
+	cp = line;
+
+	j = next_int(&cp);
+	if(allocated) {
+	  if(maxindx > noknots) revindx[j] = i;
+	  data->x[i] = next_real(&cp);
+	  data->y[i] = next_real(&cp);
+	  if(dim > 2) data->z[i] = next_real(&cp);
+	}
+	else {
+	  maxindx = MAX(j,maxindx);
+	}
+      }
+      getline;
+    }
+    
+    if(strstr(line,"$ELEMENTS")) {
+      getline;
+      cp = line;
+      noelements = next_int(&cp);
+
+      for(i=1; i <= noelements; i++) {
+	getline;
+	
+	cp = line;
+	elemno = next_int(&cp);
+	gmshtype = next_int(&cp);
+	elementtype = GmshToElmerType(gmshtype);
+
+	regphys = next_int(&cp);
+	regelem = next_int(&cp);
+	elemnodes = next_int(&cp);
+
+	if(allocated) {
+	  elemnodes = elementtype % 100;
+	  data->elementtypes[i] = elementtype;
+
+	  regelem = next_int(&cp);
+	  if(regelem == 0) 
+	    regphys = 0;
+	  else 
+	    regphys = next_int(&cp);
+	  for(j=2;j<=regelem;j++)
+	    next_int(&cp);
+
+	  data->material[i] = regphys;
+	  for(j=0;j<elemnodes;j++)
+	    elemind[j] = next_int(&cp);
+	  
+	  GmshToElmerIndx(elementtype,elemind);	  
+
+	  for(j=0;j<elemnodes;j++)
+	    data->topology[i][j] = elemind[j];
+	}
+	else {
+	  maxelemtype = MAX(maxelemtype,elementtype);
+	}
+	
+      }
+      getline;
+    }
+
+  }
+
+ end:
+
+  fclose(in);
+
+  if(!allocated) {
+    maxnodes = maxelemtype % 100;
+    allocated = TRUE;
+    goto allocate;
+  }
+
+
+  if(maxindx > noknots) {
+    printf("Renumbering the Gmsh nodes from %d to %d\n",maxindx,noknots);
+
+    for(i=1; i <= noelements; i++) {
+      elementtype = data->elementtypes[i];
+      elemnodes = elementtype % 100; 
+
+      for(j=0;j<elemnodes;j++) {
+	k = data->topology[i][j];
+	if(k <= 0 || k > maxindx) 
+	  printf("index out of bounds %d\n",k);
+	else if(revindx[k] <= 0) 
+	  printf("unkonwn node %d %d in element %d\n",k,revindx[k],i);
+	else 
+	  data->topology[i][j] = revindx[k];
+      }      
+    }
+    free_Ivector(revindx,1,maxindx);
+  }
+
+  ElementsToBoundaryConditions(data,bound,info);
+
+  printf("Succesfully read the mesh from the Gmsh input file.\n");
+
+  return(0);
+}
+
+
+
+int LoadGmshInput(struct FemType *data,struct BoundaryType *bound,
+		   char *prefix,int info)
+{
+  FILE *in;
+  char line[MAXLINESIZE],filename[MAXFILESIZE];
+  int errno;
+
+  sprintf(filename,"%s",prefix);
+  if ((in = fopen(filename,"r")) == NULL) {
+    sprintf(filename,"%s.msh",prefix);
+    if ((in = fopen(filename,"r")) == NULL) {
+      printf("LoadElmerInput: The opening of the mesh file %s failed!\n",filename);
+      return(1);
+    }
+  }
+
+  Getrow(line,in,TRUE);
+  fclose(in);
+
+  if(strstr(line,"MESHFORMAT")) 
+    errno = LoadGmshInput2(data,bound,filename,info);
+  else
+    errno = LoadGmshInput1(data,bound,filename,info);
+     
+  return(errno);
+}
+
+
+
+
 
 
 
