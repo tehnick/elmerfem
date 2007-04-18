@@ -39,7 +39,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: Integration.src,v 1.8 2007/01/03 13:30:24 jpr Exp $
+! * $Id: Integration.src,v 1.9 2007/01/04 06:05:32 jpr Exp $
 ! *****************************************************************************
 
 MODULE Integration
@@ -525,7 +525,7 @@ CONTAINS
 !------------------------------------------------------------------------------
    SUBROUTINE GaussPointsInit
 !------------------------------------------------------------------------------
-     INTEGER :: n,istat
+     INTEGER :: i,n,istat
      INTEGER :: nthreads, thread, omp_get_num_threads, omp_get_thread_num
 
      IF ( .NOT. ALLOCATED(IntegStuff) ) THEN
@@ -536,6 +536,12 @@ CONTAINS
          nthreads = 1
 !$       nthreads = omp_get_num_threads()
          ALLOCATE( IntegStuff(nthreads) )
+         DO i=1,nthreads
+           IntegStuff(i) % u => NULL()
+           IntegStuff(i) % v => NULL()
+           IntegStuff(i) % w => NULL()
+           IntegStuff(i) % s => NULL()
+         END DO
          DO n=1,MAXN
            CALL ComputeGaussPoints1D( Points(1:n,n),Weights(1:n,n),n )
          END DO
