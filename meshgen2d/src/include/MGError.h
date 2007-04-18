@@ -2,6 +2,7 @@
 #define MGERROR_H
 
 #include <iostream>
+#include <stdlib.h>
 
 template<class T>
 inline void blm_error(const char* msg, const T &opt)
