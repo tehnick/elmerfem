@@ -40,15 +40,6 @@
 ! ******************************************************************************
 ! *
 ! * $Log: DefUtils.src,v $
-! * Revision 1.39  2007/03/30 08:20:21  jpr
-! * *** empty log message ***
-! *
-! * Revision 1.38  2007/03/30 06:03:44  jpr
-! * *** empty log message ***
-! *
-! * Revision 1.37  2007/03/21 09:00:53  jpr
-! * *** empty log message ***
-! *
 ! * Revision 1.36  2007/01/03 13:30:24  jpr
 ! * OpenMP changes.
 ! *
@@ -180,7 +171,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.39 2007/03/30 08:20:21 jpr Exp $
+! * $Id: DefUtils.src,v 1.40 2007/03/30 09:30:02 jpr Exp $
 ! *
 ! *****************************************************************************/
 
@@ -1721,7 +1712,7 @@ CONTAINS
 
     TYPE(Solver_t), POINTER :: Solver
     TYPE(Variable_t), POINTER :: x
-    TYPE(Element_t), POINTER :: Element
+    TYPE(Element_t), POINTER  :: Element, P1, P2
 
     INTEGER :: n
     INTEGER, POINTER :: Indexes(:)
@@ -1735,6 +1726,26 @@ CONTAINS
     x => Solver % Variable
     Indexes => GetIndexStore()
     n = GetElementDOFs( Indexes, Element, Solver )
+
+     IF ( ParEnv % PEs > 1 ) THEN
+       IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
+          P1 => Element % BoundaryInfo % Left
+          P2 => Element % BoundaryInfo % Right
+          IF ( ASSOCIATED(P1) .AND. ASSOCIATED(P2) ) THEN
+            IF ( P1 % PartIndex/=ParEnv % myPE .AND. &
+                 P2 % PartIndex/=ParEnv % myPE )RETURN
+
+            IF ( P1 % PartIndex/=ParEnv % myPE .OR. &
+                 P2 % PartIndex/=ParEnv % myPE ) F=F/2; 
+          ELSE IF ( ASSOCIATED(P1) ) THEN
+            IF ( P1 % PartIndex /= ParEnv % myPE ) RETURN
+          ELSE IF ( ASSOCIATED(P2) ) THEN
+            IF ( P2 % PartIndex /= ParEnv % myPE ) RETURN
+          END IF
+       ELSE IF ( Element % PartIndex/=ParEnv % myPE ) THEN
+          RETURN
+       END IF
+     END IF
 
     CALL UpdateGlobalForce( Solver % Matrix % RHS, &
        F, n, x % DOFs, x % Perm(Indexes(1:n)) )
@@ -1762,7 +1773,7 @@ CONTAINS
 
     TYPE(Solver_t), POINTER :: Solver
     TYPE(Variable_t), POINTER :: x
-    TYPE(Element_t), POINTER :: Element
+    TYPE(Element_t), POINTER  :: Element, P1, P2
 
     REAL(KIND=dp), ALLOCATABLE :: F(:)
 
@@ -1779,6 +1790,27 @@ CONTAINS
     DOFs = x % DOFs
     Indexes => GetIndexStore()
     n = GetElementDOFs( Indexes, Element, Solver )
+
+     IF ( ParEnv % PEs > 1 ) THEN
+       IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
+          P1 => Element % BoundaryInfo % Left
+          P2 => Element % BoundaryInfo % Right
+          IF ( ASSOCIATED(P1) .AND. ASSOCIATED(P2) ) THEN
+            IF ( P1 % PartIndex/=ParEnv % myPE .AND. &
+                 P2 % PartIndex/=ParEnv % myPE )RETURN
+
+            IF ( P1 % PartIndex/=ParEnv % myPE .OR. &
+                 P2 % PartIndex/=ParEnv % myPE ) FC=FC/2; 
+          ELSE IF ( ASSOCIATED(P1) ) THEN
+            IF ( P1 % PartIndex/=ParEnv % myPE ) RETURN
+          ELSE IF ( ASSOCIATED(P2) ) THEN
+            IF ( P2 % PartIndex/=ParEnv % myPE ) RETURN
+          END IF
+       ELSE IF ( Element % PartIndex/=ParEnv % myPE ) THEN
+          RETURN
+       END IF
+     END IF
+
 
     ALLOCATE( F(DOFs*n) )
     DO i=1,n*DOFs/2
@@ -1796,31 +1828,51 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  SUBROUTINE DefaultUpdateTimeForceR( F, UElement, USolver )
+   SUBROUTINE DefaultUpdateTimeForceR( F, UElement, USolver )
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: F(:)
-    TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
-    TYPE(Element_t), OPTIONAL, TARGET :: UElement
+     REAL(KIND=dp) :: F(:)
+     TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
+     TYPE(Element_t), OPTIONAL, TARGET :: UElement
+ 
+     TYPE(Solver_t), POINTER :: Solver
+     TYPE(Variable_t), POINTER :: x
+     TYPE(Element_t), POINTER  :: Element, P1, P2
+ 
+     INTEGER :: n
+     INTEGER, POINTER :: Indexes(:)
 
-    TYPE(Solver_t), POINTER :: Solver
-    TYPE(Variable_t), POINTER :: x
-    TYPE(Element_t), POINTER :: Element
+     Solver => CurrentModel % Solver
+     IF ( PRESENT(USolver) ) Solver => USolver
 
-    INTEGER :: n
-    INTEGER, POINTER :: Indexes(:)
+     Element => CurrentModel % CurrentElement
+     IF ( PRESENT(UElement) ) Element => UElement
 
-    Solver => CurrentModel % Solver
-    IF ( PRESENT(USolver) ) Solver => USolver
+     x => Solver % Variable
+     Indexes => GetIndexStore()
+     n = GetElementDOFs( Indexes, Element, Solver )
 
-    Element => CurrentModel % CurrentElement
-    IF ( PRESENT(UElement) ) Element => UElement
+     IF ( ParEnv % PEs > 1 ) THEN
+       IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
+          P1 => Element % BoundaryInfo % Left
+          P2 => Element % BoundaryInfo % Right
+          IF ( ASSOCIATED(P1) .AND. ASSOCIATED(P2) ) THEN
+            IF ( P1 % PartIndex/=ParEnv % myPE .AND. &
+                 P2 % PartIndex/=ParEnv % myPE )RETURN
 
-    x => Solver % Variable
-    Indexes => GetIndexStore()
-    n = GetElementDOFs( Indexes, Element, Solver )
+            IF ( P1 % PartIndex/=ParEnv % myPE .OR. &
+                 P2 % PartIndex/=ParEnv % myPE ) F=F/2; 
+          ELSE IF ( ASSOCIATED(P1) ) THEN
+            IF ( P1 % PartIndex /= ParEnv % myPE ) RETURN
+          ELSE IF ( ASSOCIATED(P2) ) THEN
+            IF ( P2 % PartIndex /= ParEnv % myPE ) RETURN
+          END IF
+       ELSE IF ( Element % PartIndex/=ParEnv % myPE ) THEN
+          RETURN
+       END IF
+     END IF
 
-    CALL UpdateTimeForce( Solver % Matrix,Solver % Matrix % RHS, &
-         F, n, x % DOFs, x % Perm(Indexes(1:n)) )
+     CALL UpdateTimeForce( Solver % Matrix,Solver % Matrix % RHS, &
+          F, n, x % DOFs, x % Perm(Indexes(1:n)) )
 !------------------------------------------------------------------------------
   END SUBROUTINE DefaultUpdateTimeForceR
 !------------------------------------------------------------------------------
@@ -1830,40 +1882,60 @@ CONTAINS
 !------------------------------------------------------------------------------
   SUBROUTINE DefaultUpdateTimeForceC( FC, UElement, USolver )
 !------------------------------------------------------------------------------
-    COMPLEX(KIND=dp) :: FC(:)
-    TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
-    TYPE(Element_t), OPTIONAL, TARGET :: UElement
+     COMPLEX(KIND=dp) :: FC(:)
+     TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
+     TYPE(Element_t), OPTIONAL, TARGET :: UElement
 
-    TYPE(Solver_t), POINTER :: Solver
-    TYPE(Variable_t), POINTER :: x
-    TYPE(Element_t), POINTER :: Element
-
-    REAL(KIND=dp), ALLOCATABLE :: F(:)
+     TYPE(Solver_t), POINTER :: Solver
+     TYPE(Variable_t), POINTER :: x
+     TYPE(Element_t), POINTER  :: Element, P1, P2
+ 
+     REAL(KIND=dp), ALLOCATABLE :: F(:)
 
     INTEGER :: i,n,DOFs
     INTEGER, POINTER :: Indexes(:)
 
-    Solver => CurrentModel % Solver
-    IF ( PRESENT(USolver) ) Solver => USolver
+     Solver => CurrentModel % Solver
+     IF ( PRESENT(USolver) ) Solver => USolver
 
-    Element => CurrentModel % CurrentElement
-    IF ( PRESENT(UElement) ) Element => UElement
+      Element => CurrentModel % CurrentElement
+      IF ( PRESENT(UElement) ) Element => UElement
 
-    x => Solver % Variable
-    DOFs = x % DOFs
-    Indexes => GetIndexStore()
-    n = GetElementDOFs( Indexes, Element, Solver )
+      x => Solver % Variable
+      DOFs = x % DOFs
+      Indexes => GetIndexStore()
+      n = GetElementDOFs( Indexes, Element, Solver )
 
-    ALLOCATE( F(DOFs*n) )
-    DO i=1,n*DOFs/2
-       F( 2*(i-1) + 1 ) =   REAL(FC(i))
-       F( 2*(i-1) + 2 ) = -AIMAG(FC(i))
-    END DO
+      IF ( ParEnv % PEs > 1 ) THEN
+        IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
+           P1 => Element % BoundaryInfo % Left
+           P2 => Element % BoundaryInfo % Right
+           IF ( ASSOCIATED(P1) .AND. ASSOCIATED(P2) ) THEN
+             IF ( P1 % PartIndex/=ParEnv % myPE .AND. &
+                  P2 % PartIndex/=ParEnv % myPE )RETURN
+ 
+             IF ( P1 % PartIndex/=ParEnv % myPE .OR. &
+                  P2 % PartIndex/=ParEnv % myPE ) FC=FC/2; 
+           ELSE IF ( ASSOCIATED(P1) ) THEN
+             IF ( P1 % PartIndex/=ParEnv % myPE ) RETURN
+           ELSE IF ( ASSOCIATED(P2) ) THEN
+             IF ( P2 % PartIndex/=ParEnv % myPE ) RETURN
+           END IF
+        ELSE IF ( Element % PartIndex/=ParEnv % myPE ) THEN
+           RETURN
+        END IF
+      END IF
 
-    CALL UpdateTimeForce( Solver % Matrix,Solver % Matrix % RHS, &
-             F, n, x % DOFs, x % Perm(Indexes(1:n)) )
+      ALLOCATE( F(DOFs*n) )
+      DO i=1,n*DOFs/2
+         F( 2*(i-1) + 1 ) =   REAL(FC(i))
+         F( 2*(i-1) + 2 ) = -AIMAG(FC(i))
+      END DO
 
-    DEALLOCATE( F ) 
+      CALL UpdateTimeForce( Solver % Matrix,Solver % Matrix % RHS, &
+               F, n, x % DOFs, x % Perm(Indexes(1:n)) )
+
+      DEALLOCATE( F ) 
 !------------------------------------------------------------------------------
   END SUBROUTINE DefaultUpdateTimeForceC
 !------------------------------------------------------------------------------
@@ -1880,7 +1952,7 @@ CONTAINS
      TYPE(Solver_t), POINTER   :: Solver
      TYPE(Matrix_t), POINTER   :: A
      TYPE(Variable_t), POINTER :: x
-     TYPE(Element_t), POINTER  :: Element
+     TYPE(Element_t), POINTER  :: Element, P1, P2
 
      INTEGER :: i,j,n
      INTEGER, POINTER :: Indexes(:)
@@ -1904,6 +1976,26 @@ CONTAINS
      Indexes => GetIndexStore()
      n = GetElementDOFs( Indexes, Element, Solver )
 
+     IF ( ParEnv % PEs > 1 ) THEN
+       IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
+          P1 => Element % BoundaryInfo % Left
+          P2 => Element % BoundaryInfo % Right
+          IF ( ASSOCIATED(P1) .AND. ASSOCIATED(P2) ) THEN
+            IF ( P1 % PartIndex/=ParEnv % myPE .AND. &
+                 P2 % PartIndex/=ParEnv % myPE )RETURN
+
+            IF ( P1 % PartIndex/=ParEnv % myPE .OR. &
+                 P2 % PartIndex/=ParEnv % myPE ) M=M/2
+          ELSE IF ( ASSOCIATED(P1) ) THEN
+            IF ( P1 % PartIndex /= ParEnv % myPE ) RETURN
+          ELSE IF ( ASSOCIATED(P2) ) THEN
+            IF ( P2 % PartIndex /= ParEnv % myPE ) RETURN
+          END IF
+       ELSE IF ( Element % PartIndex/=ParEnv % myPE ) THEN
+          RETURN
+       END IF
+     END IF
+
      IF ( .NOT. ASSOCIATED( A % MassValues ) ) THEN
        ALLOCATE( A % MassValues(SIZE(A % Values)) )
        A % MassValues = 0.0d0
@@ -1926,7 +2018,7 @@ CONTAINS
      TYPE(Solver_t), POINTER   :: Solver
      TYPE(Matrix_t), POINTER   :: A
      TYPE(Variable_t), POINTER :: x
-     TYPE(Element_t), POINTER  :: Element
+     TYPE(Element_t), POINTER  :: Element, P1, P2
 
      REAL(KIND=dp), ALLOCATABLE :: M(:,:)
 
@@ -1952,6 +2044,26 @@ CONTAINS
      DOFs = x % DOFs
      Indexes => GetIndexStore()
      n = GetElementDOFs( Indexes, Element, Solver )
+
+      IF ( ParEnv % PEs > 1 ) THEN
+        IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
+           P1 => Element % BoundaryInfo % Left
+           P2 => Element % BoundaryInfo % Right
+           IF ( ASSOCIATED(P1) .AND. ASSOCIATED(P2) ) THEN
+             IF ( P1 % PartIndex/=ParEnv % myPE .AND. &
+                  P2 % PartIndex/=ParEnv % myPE )RETURN
+ 
+             IF ( P1 % PartIndex/=ParEnv % myPE .OR. &
+                  P2 % PartIndex/=ParEnv % myPE ) MC=MC/2
+           ELSE IF ( ASSOCIATED(P1) ) THEN
+             IF ( P1 % PartIndex/=ParEnv % myPE ) RETURN
+           ELSE IF ( ASSOCIATED(P2) ) THEN
+             IF ( P2 % PartIndex/=ParEnv % myPE ) RETURN
+           END IF
+        ELSE IF ( Element % PartIndex/=ParEnv % myPE ) THEN
+           RETURN
+        END IF
+      END IF
 
      IF ( .NOT. ASSOCIATED( A % MassValues ) ) THEN
         ALLOCATE( A % MassValues(SIZE(A % Values)) )
@@ -1986,7 +2098,7 @@ CONTAINS
      TYPE(Solver_t), POINTER   :: Solver
      TYPE(Matrix_t), POINTER   :: A
      TYPE(Variable_t), POINTER :: x
-     TYPE(Element_t), POINTER  :: Element
+     TYPE(Element_t), POINTER  :: Element, P1, P2
 
      REAL(KIND=dp), POINTER :: SaveValues(:)
 
@@ -2010,6 +2122,26 @@ CONTAINS
 
      Indexes => GetIndexStore()
      n =  GetElementDOFs( Indexes, Element, Solver )
+
+     IF ( ParEnv % PEs > 1 ) THEN
+       IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
+          P1 => Element % BoundaryInfo % Left
+          P2 => Element % BoundaryInfo % Right
+          IF ( ASSOCIATED(P1) .AND. ASSOCIATED(P2) ) THEN
+            IF ( P1 % PartIndex/=ParEnv % myPE .AND. &
+                 P2 % PartIndex/=ParEnv % myPE )RETURN
+
+            IF ( P1 % PartIndex/=ParEnv % myPE .OR. &
+                 P2 % PartIndex/=ParEnv % myPE ) B=B/2;
+          ELSE IF ( ASSOCIATED(P1) ) THEN
+            IF ( P1 % PartIndex /= ParEnv % myPE ) RETURN
+          ELSE IF ( ASSOCIATED(P2) ) THEN
+            IF ( P2 % PartIndex /= ParEnv % myPE ) RETURN
+          END IF
+       ELSE IF ( Element % PartIndex/=ParEnv % myPE ) THEN
+          RETURN
+       END IF
+     END IF
 
      IF ( .NOT. ASSOCIATED( A % DampValues ) ) THEN
         ALLOCATE( A % DampValues(SIZE(A % Values)) ) 
@@ -2036,7 +2168,7 @@ CONTAINS
      TYPE(Solver_t), POINTER   :: Solver
      TYPE(Matrix_t), POINTER   :: A
      TYPE(Variable_t), POINTER :: x
-     TYPE(Element_t), POINTER  :: Element
+     TYPE(Element_t), POINTER  :: Element, P1, P2
 
      REAL(KIND=dp), POINTER :: SaveValues(:)
 
@@ -2063,6 +2195,26 @@ CONTAINS
      DOFs = x % DOFs
      Indexes => GetIndexStore()
      n =  GetElementDOFs( Indexes, Element, Solver )
+
+     IF ( ParEnv % PEs > 1 ) THEN
+       IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
+          P1 => Element % BoundaryInfo % Left
+          P2 => Element % BoundaryInfo % Right
+          IF ( ASSOCIATED(P1) .AND. ASSOCIATED(P2) ) THEN
+            IF ( P1 % PartIndex/=ParEnv % myPE .AND. &
+                 P2 % PartIndex/=ParEnv % myPE )RETURN
+
+            IF ( P1 % PartIndex/=ParEnv % myPE .OR. &
+                 P2 % PartIndex/=ParEnv % myPE ) BC=BC/2
+          ELSE IF ( ASSOCIATED(P1) ) THEN
+            IF ( P1 % PartIndex/=ParEnv % myPE ) RETURN
+          ELSE IF ( ASSOCIATED(P2) ) THEN
+            IF ( P2 % PartIndex/=ParEnv % myPE ) RETURN
+          END IF
+       ELSE IF ( Element % PartIndex/=ParEnv % myPE ) THEN
+          RETURN
+       END IF
+     END IF
 
      IF ( .NOT. ASSOCIATED( A % DampValues ) ) THEN
         ALLOCATE( A % DampValues(SIZE(A % Values)) ) 
@@ -2100,7 +2252,7 @@ CONTAINS
      TYPE(Solver_t), POINTER   :: Solver
      TYPE(Matrix_t), POINTER   :: A
      TYPE(Variable_t), POINTER :: x
-     TYPE(Element_t), POINTER  :: Element
+     TYPE(Element_t), POINTER  :: Element, P1, P2
 
      REAL(KIND=dp), POINTER :: SaveValues(:)
 
@@ -2124,6 +2276,28 @@ CONTAINS
 
      Indexes => GetIndexStore()
      n =  GetElementDOFs( Indexes, Element, Solver )
+
+     IF ( ParEnv % PEs > 1 ) THEN
+       IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
+          P1 => Element % BoundaryInfo % Left
+          P2 => Element % BoundaryInfo % Right
+          IF ( ASSOCIATED(P1) .AND. ASSOCIATED(P2) ) THEN
+            IF ( P1 % PartIndex/=ParEnv % myPE .AND. &
+                 P2 % PartIndex/=ParEnv % myPE )RETURN
+
+            IF ( P1 % PartIndex/=ParEnv % myPE .OR. &
+                 P2 % PartIndex/=ParEnv % myPE ) THEN
+              B=B/2; F=F/2; 
+            END IF
+          ELSE IF ( ASSOCIATED(P1) ) THEN
+            IF ( P1 % PartIndex /= ParEnv % myPE ) RETURN
+          ELSE IF ( ASSOCIATED(P2) ) THEN
+            IF ( P2 % PartIndex /= ParEnv % myPE ) RETURN
+          END IF
+       ELSE IF ( Element % PartIndex/=ParEnv % myPE ) THEN
+          RETURN
+       END IF
+     END IF
 
      IF ( .NOT. ASSOCIATED( A % BulkValues ) ) THEN
         ALLOCATE( A % BulkValues(SIZE(A % Values)) ) 
@@ -2155,7 +2329,7 @@ CONTAINS
      TYPE(Solver_t), POINTER   :: Solver
      TYPE(Matrix_t), POINTER   :: A
      TYPE(Variable_t), POINTER :: x
-     TYPE(Element_t), POINTER  :: Element
+     TYPE(Element_t), POINTER  :: Element, P1, P2
 
      REAL(KIND=dp), POINTER :: SaveValues(:)
 
@@ -2182,6 +2356,29 @@ CONTAINS
      DOFs = x % DOFs
      Indexes => GetIndexStore()
      n =  GetElementDOFs( Indexes, Element, Solver )
+
+     IF ( ParEnv % PEs > 1 ) THEN
+       IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
+          P1 => Element % BoundaryInfo % Left
+          P2 => Element % BoundaryInfo % Right
+          IF ( ASSOCIATED(P1) .AND. ASSOCIATED(P2) ) THEN
+            IF ( P1 % PartIndex/=ParEnv % myPE .AND. &
+                 P2 % PartIndex/=ParEnv % myPE )RETURN
+
+            IF ( P1 % PartIndex/=ParEnv % myPE .OR. &
+                 P2 % PartIndex/=ParEnv % myPE ) THEN
+              BC=BC/2; FC=FC/2;
+            END IF
+          ELSE IF ( ASSOCIATED(P1) ) THEN
+            IF ( P1 % PartIndex/=ParEnv % myPE ) RETURN
+          ELSE IF ( ASSOCIATED(P2) ) THEN
+            IF ( P2 % PartIndex/=ParEnv % myPE ) RETURN
+          END IF
+       ELSE IF ( Element % PartIndex/=ParEnv % myPE ) THEN
+          RETURN
+       END IF
+     END IF
+
 
      IF ( .NOT. ASSOCIATED( A % BulkValues ) ) THEN
         ALLOCATE( A % BulkValues(SIZE(A % Values)) ) 

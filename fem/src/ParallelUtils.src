@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ParallelUtils.src,v 1.13 2007/04/10 11:49:08 jpr Exp $
+! * $Id: ParallelUtils.src,v 1.14 2007/04/13 08:28:08 jpr Exp $
 ! ******************************************************************************
 
 MODULE ParallelUtils
@@ -118,7 +118,7 @@ CONTAINS
        Matrix % ParallelInfo => Solver % Mesh % ParallelInfo
        DGSolver = ListGetLogical(Solver % Values, 'Discontinuous Galerkin', Found)
 
-       IF ( DOFs > 1 ) THEN
+       IF ( .NOT. DGSolver ) THEN
          n = Solver % Mesh % NumberOfNodes
          ALLOCATE( Matrix % ParallelInfo )
          ALLOCATE( Matrix % ParallelInfo % NeighbourList(DOFs*n) )
@@ -127,11 +127,14 @@ CONTAINS
 
          DO i=1,n
             DO j=1,DOFs
-               Matrix % ParallelInfo % GlobalDOFs((i-1)*DOFs+j ) = &
+               k = (i-1)*DOFs+j
+               Matrix % ParallelInfo % GlobalDOFs(k) = &
                  DOFs*(Solver % Mesh % ParallelInfo % GlobalDOFs(i)-1)+j
-               Matrix % ParallelInfo % Interface((i-1)*DOFs+j ) = &
+               Matrix % ParallelInfo % Interface(k) = &
                  Solver % Mesh % ParallelInfo % Interface(i)
-               Matrix % ParallelInfo % NeighbourList((i-1)*DOFs+j ) % Neighbours => &
+               ALLOCATE( Matrix % ParallelInfo % NeighbourList(k) % Neighbours(SIZE( &
+                    Solver % Mesh % ParallelInfo % NeighbourList(i) % Neighbours)) )
+               Matrix % ParallelInfo % NeighbourList(k) % Neighbours = &
                  Solver % Mesh % ParallelInfo % NeighbourList(i) % Neighbours
             END DO
          END DO

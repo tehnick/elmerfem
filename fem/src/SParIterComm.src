@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterComm.src,v 1.32 2007/04/13 10:57:31 jpr Exp $
+! * $Id: SParIterComm.src,v 1.33 2007/04/13 12:00:19 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -183,12 +183,12 @@ CONTAINS
     ! Local variables
     INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
     
-    INTEGER :: i, j, k, ierr, proc, MinActive
+    INTEGER :: i, j, k, sz, ierr, proc, MinActive
     INTEGER, ALLOCATABLE :: Active(:)
     LOGICAL :: L
     LOGICAL, ALLOCATABLE :: NeighAll(:,:)
     REAL(KIND=dp) :: RealTime, tstart, tend
-
+    !******************************************************************
 
     CALL CheckBuffer( ParEnv % PEs**2 + MPI_BSEND_OVERHEAD )
 
@@ -325,9 +325,55 @@ CONTAINS
       END DO
       DEALLOCATE( NeighAll )
     END IF
-    DEALLOCATE( Active )
     ParEnv % isNeighbour(ParEnv % myPE+1) = .FALSE.
     ParEnv % NumOfNeighbours = COUNT(ParEnv % isNeighbour)
+
+    ! make sure that the owner of a matrix dof is one which
+    ! has it active:
+    ! -----------------------------------------------------
+    DO i=1,SIZE(SourceMatrix % Perm)
+      IF ( ParallelInfo % Interface(i) ) THEN
+
+        sz = SIZE(ParallelInfo % NeighbourList(i) % Neighbours)
+        DO j=1,sz
+          k = ParallelInfo % NeighbourList(i) % Neighbours(j)
+          IF ( k==ParEnv % Mype ) THEN
+            Active(j) = SourceMatrix % Perm(i)
+            EXIT
+          END IF
+        END DO
+
+        DO j=1,sz
+          k = ParallelInfo % NeighbourList(i) % Neighbours(j)
+          IF ( ParEnv % Mype/=k .AND. ParEnv % Active(k+1) ) THEN
+            CALL MPI_BSEND( SourceMatrix % Perm(i), 1, MPI_INTEGER, &
+                  k, 100, MPI_COMM_WORLD, ierr)
+          END IF
+        END DO
+
+        DO j=1,sz
+          k = ParallelInfo % NeighbourList(i) % Neighbours(j)
+          IF ( .NOT. ParEnv % Active(k+1) ) THEN
+            Active(j) = 0
+          ELSE IF ( ParEnv % Mype/=k ) THEN
+            CALL MPI_RECV( Active(j), 1, MPI_INTEGER, k, 100,  &
+                  MPI_COMM_WORLD, status, ierr)
+          END IF
+        END DO
+
+        DO j=1,sz
+          IF ( Active(j)/=0 ) THEN
+            k = ParallelInfo % NeighbourList(i) % Neighbours(j)
+            ParallelInfo % NeighbourList(i) % Neighbours(j) = &
+               ParallelInfo % NeighbourList(j) % Neighbours(1)
+            ParallelInfo % NeighbourList(i) % Neighbours(1) = k
+            EXIT
+          END IF
+        END DO
+      END IF
+    END DO
+
+    DEALLOCATE( Active )
 !-----------------------------------------------------------------------
   END SUBROUTINE FindActivePEs
 !-----------------------------------------------------------------------
@@ -2095,7 +2141,10 @@ END  SUBROUTINE SParIterAllReduceAnd
             sproc, 1005, MPI_COMM_WORLD, status, ierr )
      END IF
   END DO
+!*********************************************************************
 END SUBROUTINE ExchangeInterfaces
+!*********************************************************************
+
 
 !*********************************************************************
 !*********************************************************************
@@ -2104,7 +2153,7 @@ END SUBROUTINE ExchangeInterfaces
 ! to neighbour processors. This is done once on every non-linear iteration
 ! when the coefficient matrix has been assembled.
 !
-SUBROUTINE ExchangeIfValues( NbsIfMatrix, RecvdIfMatrix, NeedMass )
+SUBROUTINE ExchangeIfValues( NbsIfMatrix, RecvdIfMatrix, NeedMass, NeedDamp )
 
   USE types
   IMPLICIT NONE
@@ -2115,7 +2164,7 @@ SUBROUTINE ExchangeIfValues( NbsIfMatrix, RecvdIfMatrix, NeedMass )
 
   ! Local variables
 
-  LOGICAL :: NeedMass
+  LOGICAL :: NeedMass, NeedDamp
   INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
   INTEGER :: i, j, ierr, destproc, rows, cols, sproc, TotalSize
 
@@ -2174,6 +2223,10 @@ SUBROUTINE ExchangeIfValues( NbsIfMatrix, RecvdIfMatrix, NeedMass )
            IF ( NeedMass ) &
               CALL MPI_BSEND( NbsIfMatrix(i) % MassValues, Cols, &
                 MPI_DOUBLE_PRECISION, destproc, 2006, MPI_COMM_WORLD, ierr )
+
+           IF ( NeedDamp ) &
+              CALL MPI_BSEND( NbsIfMatrix(i) % DampValues, Cols, &
+                MPI_DOUBLE_PRECISION, destproc, 2006, MPI_COMM_WORLD, ierr )
            END IF
      END IF
   END DO
@@ -2218,17 +2271,23 @@ SUBROUTINE ExchangeIfValues( NbsIfMatrix, RecvdIfMatrix, NeedMass )
         IF ( NeedMass ) &
            CALL MPI_RECV( RecvdIfMatrix(sproc+1) % MassValues, Cols, &
              MPI_DOUBLE_PRECISION, sproc, 2006, MPI_COMM_WORLD, status, ierr )
+
+        IF ( NeedDamp ) &
+           CALL MPI_RECV( RecvdIfMatrix(sproc+1) % DampValues, Cols, &
+             MPI_DOUBLE_PRECISION, sproc, 2006, MPI_COMM_WORLD, status, ierr )
      END IF
 
   END DO
+!*********************************************************************
 END SUBROUTINE ExchangeIfValues
+!*********************************************************************
+
 
 !*********************************************************************
 !*********************************************************************
 !
 ! Exchange right-hand-side elements on the interface with neighbours
 !
-
 SUBROUTINE ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
           ParallelInfo, SourceRHS, TargetRHS )
 
@@ -2317,7 +2376,7 @@ SUBROUTINE ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
                  SourceRHS(Ind) = SourceRHS(Ind) + ValBuf(j)
               END IF
            ELSE
-              WRITE( Message, * ) ParEnv % MyPE,'RHS receive error'
+!             WRITE( Message, * ) ParEnv % MyPE,'RHS receive error'
 !             CALL Fatal( 'ExchangeRHSIf', Message )
            END IF
         END DO
@@ -2327,17 +2386,20 @@ SUBROUTINE ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
   END DO
 
   ! Clean up temporary work space
-
   DEALLOCATE( RHSbufInds )
+
+  ! copy source to target
   j = 0
   DO i = 1, SourceMatrix % NumberOfRows
      k = SourceMatrix % INVPerm(i)
-     IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
+     IF (ParallelInfo % NeighbourList(k) % Neighbours(1)==ParEnv % MyPE) THEN
         j = j + 1
         TargetRHS(j) = SourceRHS(i)
      END IF
   END DO
+!*********************************************************************
 END SUBROUTINE ExchangeRHSIf
+!*********************************************************************
 
 
 !*********************************************************************
@@ -2575,8 +2637,9 @@ tt = CPUTime()
   END DO
   DEALLOCATE( Done, nproc )
 !print*,parenv % mype, 'secnd recv: ', CPUTime()-tt
-
+!*********************************************************************
 END SUBROUTINE BuildRevVecIndices
+!*********************************************************************
 
 
 !*********************************************************************
@@ -2696,7 +2759,6 @@ SUBROUTINE Recv_LocIf( SplittedMatrix, ndim, v )
 
      IF ( VecLen > 0 ) THEN
         sproc = status(MPI_SOURCE)
-
         RevInd => SplittedMatrix % VecIndices(sproc+1) % RevInd
 
         IF ( VecLen > SIZE( DPBuffer ) ) THEN
@@ -2753,12 +2815,10 @@ SUBROUTINE SParActiveSUM(tsum)
      END IF
    END DO
 
-   i = nActive
-   DO n=0,31
-     i = i / 2
-     IF ( i==0 ) EXIT
+   n = 0
+   DO WHILE( 2**n<nActive )
+     n = n + 1
    END DO
-   IF( 2**n<nActive ) n=n+1
 
    twop = 1
    DO i=1,n
@@ -2857,8 +2917,7 @@ END FUNCTION SParNorm
 !
 ! Compute global dot product of vectors x and y
 !
-
-FUNCTION ParComplexDotProd( ndim, x, xind, y, yind ) result (dres)
+FUNCTION SParCDotProd( ndim, x, xind, y, yind ) result (dres)
 
   IMPLICIT NONE
 
@@ -2883,7 +2942,7 @@ FUNCTION ParComplexDotProd( ndim, x, xind, y, yind ) result (dres)
         dres = dres + x(i) * y(i)
      END DO
   ELSE
-     CALL Fatal( 'ParComplexDotProd', 'xind or yind not 1' )
+     CALL Fatal( 'SParCDotProd', 'xind or yind not 1' )
   END IF
 
   IF ( COUNT(Parenv % Active)==ParEnv % PEs ) THEN
@@ -2914,7 +2973,7 @@ FUNCTION ParComplexDotProd( ndim, x, xind, y, yind ) result (dres)
     END IF
   END IF
 !*********************************************************************
-END FUNCTION ParComplexDotProd
+END FUNCTION SParCDotProd
 !*********************************************************************
 
 
@@ -2923,7 +2982,7 @@ END FUNCTION ParComplexDotProd
 !
 ! Compute global 2-norm of vector x
 !
-FUNCTION ParComplexNorm( ndim, x, xind ) result (norm)
+FUNCTION SParCNorm( ndim, x, xind ) result (norm)
   IMPLICIT NONE
 
   ! Parameters
@@ -2943,7 +3002,7 @@ FUNCTION ParComplexNorm( ndim, x, xind ) result (norm)
   CALL SparActiveSUM(norm)
   norm = SQRT(norm)
 !*********************************************************************
-END FUNCTION ParComplexNorm
+END FUNCTION SParCNorm
 !*********************************************************************
 
 
@@ -2953,10 +3012,7 @@ END FUNCTION ParComplexNorm
 !
 ! Finalize MPI environment
 !
-
 SUBROUTINE ParEnvFinalize()
-
-  USE types
   IMPLICIT NONE
 
   ! local variables
@@ -2964,7 +3020,6 @@ SUBROUTINE ParEnvFinalize()
   INTEGER :: ierr
 
   !*********************************************************************
-
   CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
   CALL MPI_FINALIZE( ierr )
 
@@ -2972,8 +3027,11 @@ SUBROUTINE ParEnvFinalize()
      WRITE( Message, * ) 'MPI Finalization failed ! (ierr=', ierr, ')'
      CALL Fatal( 'ParEnvFinalize', Message )
   END IF
-
+!*********************************************************************
 END SUBROUTINE ParEnvFinalize
+!*********************************************************************
+
+
 
 !*********************************************************************
 !*********************************************************************
@@ -2983,7 +3041,6 @@ END SUBROUTINE ParEnvFinalize
 !
 !*********************************************************************
 SUBROUTINE ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, XVec )
-
   USE types
   IMPLICIT NONE
 
@@ -3068,7 +3125,7 @@ SUBROUTINE ExchangeResult( SourceMatrix, SplittedMatrix, ParallelInfo, XVec )
      END IF
   END DO
   CALL SparIterActiveBarrier
-
+!*********************************************************************
 END SUBROUTINE ExchangeResult
 !*********************************************************************
 
@@ -3127,8 +3184,9 @@ FUNCTION SearchNode( ParallelInfo, QueriedNode, First, Last ) RESULT ( Index )
   END IF
 
   RETURN
-
+!*********************************************************************
 END FUNCTION SearchNode
+!*********************************************************************
 
 
 !*********************************************************************
@@ -3187,12 +3245,14 @@ FUNCTION SearchIAItem( N, IArray, Item, SortOrder ) RESULT ( Index )
      END IF
   END DO
 
-  IF ( Index > 0 ) Index  = SortOrder(Index)
+ IF (Index>0) Index  = SortOrder(Index)
   RETURN
-
+!*********************************************************************
 END FUNCTION SearchIAItem
+!*********************************************************************
 
 
+!*********************************************************************
 ! Search an element Item from an ordered integer array(N) and return
 ! Index to that array element. Return value -1 means Item was not found.
 !
@@ -3217,12 +3277,9 @@ FUNCTION SearchIAItemLinear( N, IArray, Item ) RESULT ( Index )
        RETURN
      END IF
   END DO
-
+!*********************************************************************
 END FUNCTION SearchIAItemLinear
+!*********************************************************************
 
-
-!********************************************************************
-! End
-!********************************************************************
 
 END MODULE SParIterComm

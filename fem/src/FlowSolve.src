@@ -39,6 +39,9 @@
 ! ****************************************************************************/
 ! *
 ! * $Log: FlowSolve.src,v $
+! * Revision 1.31  2007/02/02 13:29:23  apursula
+! * Included possibility to define separate coordinate system for this solver
+! *
 ! * Revision 1.30  2007/01/30 15:19:40  apursula
 ! * Added logical variable MagneticForce into the call to Compose subroutines
 ! *
@@ -292,7 +295,7 @@
         END FUNCTION FlowInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.30 2007/01/30 15:19:40 apursula Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.31 2007/02/02 13:29:23 apursula Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -1266,14 +1269,12 @@
           CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, & 
                   'Velocity 3', 3, NSDOFs, FlowPerm )
         END IF
-
         CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, & 
                   'Pressure', NSDOFs, NSDOFs, FlowPerm )
       END IF
 !------------------------------------------------------------------------------
 
       CALL DefaultDirichletBCs()
-
       CALL Info( 'FlowSolve', 'Dirichlet conditions done', Level=4 )
 
 !------------------------------------------------------------------------------
@@ -1281,8 +1282,6 @@
 !------------------------------------------------------------------------------
       at = CPUTime() - at
       st = CPUTime()
-
-      CALL DefaultDirichletBCs()
 
       PrevUNorm = UNorm
 

@@ -38,7 +38,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: IterSolve.src,v 1.7 2007/04/13 08:28:08 jpr Exp $
+! * $Id: IterSolve.src,v 1.8 2007/04/16 07:42:03 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -344,7 +344,7 @@ CONTAINS
 
      IF ( A % Complex ) HUTI_NDIM = HUTI_NDIM * 2
 !------------------------------------------------------------------------------
-     IF ( HUTI_INFO /= HUTI_CONVERGENCE ) THEN
+     IF ( HUTI_INFO /= HUTI_CONVERGENCE .AND. ParEnv % myPE==0 ) THEN
         IF ( AbortNotConverged ) THEN
            CALL Fatal( 'IterSolve', 'Failed convergence tolerances.' )
         ELSE
