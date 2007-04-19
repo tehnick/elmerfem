@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.64  2007/04/17 11:06:37  apursula
+! * Changed point loads to use ListGetReal
+! *
 ! * Revision 1.63  2007/04/17 10:41:00  apursula
 ! * Changed point Dirichlet BCs to use ListGetReal
 ! *
@@ -195,7 +198,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.63 2007/04/17 10:41:00 apursula Exp $
+! * $Id: SolverUtils.src,v 1.64 2007/04/17 11:06:37 apursula Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -1213,6 +1216,7 @@ CONTAINS
       END IF
       
       IF(NodesFound) THEN           
+        Conditional = ListCheckPresent( Model % BCs(bc) % Values, CondName )      
         NodeIndexes => ListGetIntegerArray( Model % BCs(BC) % Values,'Target Nodes')
         n = SIZE(NodeIndexes)
         ValueList => Model % BCs(BC) % Values
