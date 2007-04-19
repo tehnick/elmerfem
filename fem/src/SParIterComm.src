@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterComm.src,v 1.34 2007/04/18 11:57:58 jpr Exp $
+! * $Id: SParIterComm.src,v 1.35 2007/04/18 12:37:22 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -216,41 +216,6 @@ CONTAINS
     END DO
 
     !------------------------------------------------------------------
-    ! Scan active procs using neighbourlists in GlobalDOFs
-    ! TODO: wont work for disconnected areas....
-    !------------------------------------------------------------------
-    ! initialize with first order information
-#if 0
-    ParEnv % Active = ParEnv % IsNeighbour
-    ParEnv % Active(parenv % myPE+1) = .TRUE.
-
-!   ! This many exchanges are needed in the worst case for neighbouring 
-!   ! information to propagate.
-    ALLOCATE( Active(ParEnv % PEs) )
-    DO k = 1, ParEnv % PEs
-       Active = 0
-       DO i=1,ParEnv % PEs
-          IF ( ParEnv % Active(i) ) Active(i) = 1
-       END DO
-
-       DO i=1,ParEnv % PEs
-          IF ( ParEnv % IsNeighbour(i) ) THEN
-             CALL MPI_BSEND( Active, ParEnv % PEs, MPI_INTEGER, i-1, &
-                  k, MPI_COMM_WORLD, ierr )
-          END IF
-       END DO
-
-       DO i=1,ParEnv % PEs
-          IF ( ParEnv % IsNeighbour(i) ) THEN
-             CALL MPI_RECV( Active, ParEnv % PEs, MPI_INTEGER, i-1, &
-                  k, MPI_COMM_WORLD, status, ierr )
-             ParEnv % Active = ParEnv % Active .OR. Active /= 0
-          END IF
-       END DO
-    END DO
-#endif
-
-    !------------------------------------------------------------------
     ! Sync all neighbouring information
     !------------------------------------------------------------------
     ALLOCATE( Active(ParEnv % PEs) )
@@ -328,7 +293,7 @@ CONTAINS
     ParEnv % isNeighbour(ParEnv % myPE+1) = .FALSE.
     ParEnv % NumOfNeighbours = COUNT(ParEnv % isNeighbour)
 
-    ! make sure that the owner of a matrix dof is one which
+    ! Make sure that the owner of a matrix dof is one that
     ! has it active:
     ! -----------------------------------------------------
     DO i=1,SIZE(SourceMatrix % Perm)
@@ -337,15 +302,9 @@ CONTAINS
         sz = SIZE(ParallelInfo % NeighbourList(i) % Neighbours)
         DO j=1,sz
           k = ParallelInfo % NeighbourList(i) % Neighbours(j)
-          IF ( k==ParEnv % Mype ) THEN
+          IF ( k == ParEnv % Mype ) THEN
             Active(j) = SourceMatrix % Perm(i)
-            EXIT
-          END IF
-        END DO
-
-        DO j=1,sz
-          k = ParallelInfo % NeighbourList(i) % Neighbours(j)
-          IF ( ParEnv % Mype/=k .AND. ParEnv % Active(k+1) ) THEN
+          ELSE IF ( ParEnv % Active(k+1) ) THEN
             CALL MPI_BSEND( SourceMatrix % Perm(i), 1, MPI_INTEGER, &
                   k, 100, MPI_COMM_WORLD, ierr)
           END IF
