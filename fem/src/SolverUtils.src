@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.65  2007/04/19 11:55:53  apursula
+! * Fixed a bug in conditional pointwise Dirichlet BCs
+! *
 ! * Revision 1.64  2007/04/17 11:06:37  apursula
 ! * Changed point loads to use ListGetReal
 ! *
@@ -198,7 +201,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.64 2007/04/17 11:06:37 apursula Exp $
+! * $Id: SolverUtils.src,v 1.65 2007/04/19 11:55:53 apursula Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -748,7 +751,7 @@ CONTAINS
 
      INTEGER :: n, NDOFs, NodeIndexes(:)
 !------------------------------------------------------------------------------
-     INTEGER :: i,j,k,dim,bf_id,nlen, Indexes(n)
+     INTEGER :: i,j,k,dim,bf_id,nlen,NbrNodes, Indexes(n)
      TYPE(Element_t), POINTER :: Element
      LOGICAL :: Found
      REAL(KIND=dp) :: Passive(n)
@@ -773,8 +776,9 @@ CONTAINS
          Passive = -1.0d0
          nlen = CurrentModel % Solver % Variable % NameLen
          PassName = CurrentModel % Solver % Variable % Name(1:nlen) // ' Passive'
-         Passive(1:n) = ListGetReal( CurrentModel % BodyForces(bf_id) % Values, &
-             PassName, n, CurrentModel % CurrentElement % NodeIndexes, Found )
+         NbrNodes = CurrentModel % CurrentElement % Type % NumberOfNodes
+         Passive(1:NbrNodes) = ListGetReal( CurrentModel % BodyForces(bf_id) % Values, &
+             PassName, NbrNodes, CurrentModel % CurrentElement % NodeIndexes, Found )
          IF ( Found ) THEN
            IF ( COUNT( Passive(1:n) > 0 ) > COUNT( Passive(1:n) < 0 ) )  RETURN
          END IF
