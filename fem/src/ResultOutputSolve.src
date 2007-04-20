@@ -21,7 +21,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ResultOutputSolve.src,v 1.9 2006/12/11 13:29:50 raback Exp $
+! * $Id: ResultOutputSolve.src,v 1.10 2006/12/12 07:29:45 edelmann Exp $
 ! *****************************************************************************
 
 
@@ -76,8 +76,13 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
       CALL Warn( 'ResultOutputSolver', &
                  'Unknown output format "' // TRIM(OutputFormat) // '"' )
       CALL Warn( 'ResultOutputSolver', &
-                 'Available formats are "GiD" (default), "VTK" and "DX"' )
+                 'Available formats are "GiD", "VTK" and "DX"' )
     END IF
+  END IF
+
+  IF(.NOT. (SaveGid .OR. SaveVTK .OR. SaveOpenDx)) THEN
+    CALL Warn('ResultOutputSolver','No output format was defined')
+    RETURN
   END IF
 
   IF( SaveGid ) CALL GiDOutputSolver( Model,Solver,dt,TransientSimulation )
@@ -202,7 +207,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
   DO i = 1, Model % NumberOfBulkElements !+ Model % NumberOfBoundaryElements
      Element => Model % Mesh % Elements(i)
 
-     Code = Element % Type % ElementCode
+     Code = Element % TYPE % ElementCode
      ListElemTypes(Code) = ListElemTypes(Code)+1
   END DO
   PRINT *,'Total number of elements =',SUM(ListElemTypes)
@@ -243,7 +248,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
      IF( .NOT.CoordinatesWritten ) THEN
         WRITE(10,'(A)') 'Coordinates'
         DO j = 1, Model % Mesh % NumberOfNodes
-           write(10,'(I6,3E16.6)') j, &
+           WRITE(10,'(I6,3E16.6)') j, &
                 Model % Mesh % Nodes % x(j), &
                 Model % Mesh % Nodes % y(j), &
                 Model % Mesh % Nodes % z(j)
@@ -261,7 +266,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
      DO j = 1, Model % NumberOfBulkElements !+ Model % NumberOfBoundaryElements
         Element => Model % Mesh % Elements(j)
 
-        Code = Element % Type % ElementCode
+        Code = Element % TYPE % ElementCode
         IF( Code /= i ) CYCLE
         body_id = Element % BodyId
 
@@ -407,7 +412,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
 
      IF( TransientSimulation ) THEN
         TimeVariable => VariableGet( Solver % Mesh % Variables, 'Time' )
-        print *,'Current time=',TimeVariable % Values(1)
+        PRINT *,'Current time=',TimeVariable % Values(1)
         WRITE(10,'(A,A,A,E16.6,A)') 'Result "',&
              TRIM(VectorFieldName),'" "Transient analysis" ', &
              TimeVariable % Values(1) ,' Vector OnNodes'
@@ -498,7 +503,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
 
      IF( TransientSimulation ) THEN
         TimeVariable => VariableGet( Solver % Mesh % Variables, 'Time' )
-        print *,'Current time=',TimeVariable % Values(1)
+        PRINT *,'Current time=',TimeVariable % Values(1)
         WRITE(10,'(A,A,A,E16.6,A)') 'Result "',&
              TRIM(TensorFieldName),'" "Transient analysis" ', &
              TimeVariable % Values(1) ,' Matrix OnNodes'
@@ -1118,8 +1123,8 @@ SUBROUTINE VtkOutputSolver( Model,Solver,dt,TransientSimulation )
     IF ( dt > 0.0 ) THEN; ENDIF
 
     IF ( nTime == 0 ) THEN
-        FilePrefix = GetString( Solver % Values,'Output File Name',GotIt )
-        IF ( .NOT.GotIt ) FilePrefix = "Output"
+      FilePrefix = GetString( Solver % Values,'Output File Name',GotIt )
+      IF ( .NOT.GotIt ) FilePrefix = "Output"
     END IF
     nTime = nTime + 1
 
@@ -1160,14 +1165,14 @@ CONTAINS
 
    Solvers: DO i = 1, Model % NumberOfSolvers
                 EigAnal = ListGetLogical( Model % Solvers(i) % Values, &
-                                          "Eigen Analysis" )
+                                          "Eigen Analysis", GotIt )
                 Var => Model % Solvers(i) % Variable
                 IF ( EigAnal .AND. ASSOCIATED(Var % EigenValues) ) THEN
                     DO j = 1, Model % Solvers(i) % NOfEigenValues
                         OrigValues => Var % Values
                         OrigDOFs = Var % DOFs
 
-                        IF ( Model % Solvers(i) % Matrix % Complex ) THEN
+                        IF ( Model % Solvers(i) % Matrix % COMPLEX ) THEN
                             Var % DOFs = Var % DOFs*2
                             ALLOCATE( Var % Values(2*SIZE(Var%EigenVectors,2)) )
                             FORALL ( k = 1:SIZE(Var % Values)/2 )
@@ -1845,13 +1850,13 @@ CONTAINS
 
    Solvers: DO i = 1, Model % NumberOfSolvers
                 EigAnal = ListGetLogical( Model % Solvers(i) % Values, &
-                                          "Eigen Analysis" )
+                                          "Eigen Analysis", GotIt )
                 Var => Model % Solvers(i) % Variable
                 IF ( EigAnal .AND. ASSOCIATED(Var % EigenValues) ) THEN
                     DO j = 1, Model % Solvers(i) % NOfEigenValues
                         OldValues => Var % Values
 
-                        IF ( Model % Solvers(i) % Matrix % Complex ) THEN
+                        IF ( Model % Solvers(i) % Matrix % COMPLEX ) THEN
                             ALLOCATE( Var % Values(2*SIZE(Var%EigenVectors,2)) )
                             FORALL ( k = 1:SIZE(Var % Values)/2 )
                                 Var%Values(2*k-1) = REAL(Var%EigenVectors(j,k))
