@@ -1,10 +1,10 @@
 SHELL = /bin/sh
 
 manual: 
-	pdflatex ElmerParamManual
+	pdflatex ElmerParamGuide
 
 update:
-	pdflatex ElmerParamManual
+	pdflatex ElmerParamGuide
 
 chmod:
 	chmod -R ug+rw,o= .
@@ -14,7 +14,7 @@ view:
 	acroread manual.pdf
 
 install:
-	mv ElmerParamManual.pdf ..
+	mv ElmerParamGuide.pdf ../ElmerParamManual.pdf
 
 clean:
 	/bin/rm -f *~ .*~ *.log *.aux *.bbl *.blg *.toc *.ilg *.idx *.ind
