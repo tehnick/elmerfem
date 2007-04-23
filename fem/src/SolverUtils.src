@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.66  2007/04/20 13:10:45  apursula
+! * Passive elements...
+! *
 ! * Revision 1.65  2007/04/19 11:55:53  apursula
 ! * Fixed a bug in conditional pointwise Dirichlet BCs
 ! *
@@ -201,7 +204,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.65 2007/04/19 11:55:53 apursula Exp $
+! * $Id: SolverUtils.src,v 1.66 2007/04/20 13:10:45 apursula Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -754,8 +757,9 @@ CONTAINS
      INTEGER :: i,j,k,dim,bf_id,nlen,NbrNodes, Indexes(n)
      TYPE(Element_t), POINTER :: Element
      LOGICAL :: Found
-     REAL(KIND=dp) :: Passive(n)
      CHARACTER(LEN=MAX_NAME_LEN) :: PassName
+     REAL(KIND=dp), ALLOCATABLE :: Passive(:)
+     SAVE Passive
 !------------------------------------------------------------------------------
 !    Update global matrix and rhs vector....
 !------------------------------------------------------------------------------
@@ -765,22 +769,32 @@ CONTAINS
 !    Note: so far this is done elementwise
 !------------------------------------------------------------------------------
 
-     i = CurrentModel % CurrentElement % BodyId 
+     Element => CurrentModel % CurrentElement
+     i = Element % BodyId 
 
 ! i == 0 for boundary elements
 
      IF ( i > 0 ) THEN
-       bf_id = ListGetInteger( CurrentModel % Bodies( i) % Values, &
+       bf_id = ListGetInteger( CurrentModel % Bodies(i) % Values, &
            'Body Force', Found, minv=1,maxv=CurrentModel % NumberOfBodyForces )
        IF ( Found ) THEN
-         Passive = -1.0d0
          nlen = CurrentModel % Solver % Variable % NameLen
          PassName = CurrentModel % Solver % Variable % Name(1:nlen) // ' Passive'
-         NbrNodes = CurrentModel % CurrentElement % Type % NumberOfNodes
-         Passive(1:NbrNodes) = ListGetReal( CurrentModel % BodyForces(bf_id) % Values, &
-             PassName, NbrNodes, CurrentModel % CurrentElement % NodeIndexes, Found )
-         IF ( Found ) THEN
-           IF ( COUNT( Passive(1:n) > 0 ) > COUNT( Passive(1:n) < 0 ) )  RETURN
+         IF ( ListCheckPresent(CurrentModel % BodyForces(bf_id) % Values, PassName) ) THEN
+           NbrNodes = Element % Type % NumberOfNodes
+           IF (ALLOCATED(Passive)) THEN
+             IF (SIZE(Passive)<NbrNodes ) THEN
+               DEALLOCATE(Passive)
+               ALLOCATE(Passive(NbrNodes))
+             END IF
+           ELSE
+             ALLOCATE(Passive(NbrNodes))
+           END IF
+           Passive(1:NbrNodes) = ListGetReal( CurrentModel % BodyForces(bf_id) % Values, &
+                    PassName, NbrNodes, Element % NodeIndexes, Found )
+           IF ( Found ) THEN
+             IF ( COUNT(Passive(1:NbrNodes)>0)>COUNT(Passive(1:NbrNodes)<0) ) RETURN
+           END IF
          END IF
        END IF
      END IF
@@ -788,7 +802,6 @@ CONTAINS
      IF ( NormalTangentialNOFNodes > 0 ) THEN
        dim = CoordinateSystemDimension()
        Indexes = 0
-       Element => CurrentModel % CurrentElement
        Indexes(1:Element % Type % NumberOfNodes) = &
              BoundaryReorder(Element % NodeIndexes)
        CALL RotateMatrix( LocalStiffMatrix, LocalForce, n, dim, NDOFs, &
@@ -1237,7 +1250,7 @@ CONTAINS
        DO i = 1, A % NumberOfRows
           IF ( ABS(A % Values( A % Diag(i) ) ) < 1.0e-14 ) THEN
              A % Values( A % Diag(i) ) = 1.0d0
-             b(i) = CurrentModel % Solver % Variable % Values(i)
+             b(i) = Model % Solver % Variable % Values(i)
           END IF
        END DO
     END IF
