@@ -39,20 +39,7 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MainUtils.src,v $
-! * Revision 1.27  2007/04/10 11:51:04  jpr
-! * *** empty log message ***
-! *
-! * Revision 1.26  2007/04/10 11:49:08  jpr
-! * *** empty log message ***
-! *
-! * Revision 1.25  2007/03/30 04:15:07  jpr
-! * *** empty log message ***
-! *
-! * Revision 1.24  2007/03/29 12:20:07  jpr
-! * *** empty log message ***
-! *
 ! * Revision 1.23  2007/02/07 11:42:22  jpr
-! *
 ! * Enabled "Exported Variable n" defintions of "Internal Solvers". Added
 ! * keyword "Radiation Solver" to use if "Equation=Heat Equation" solver
 ! * not present.
@@ -128,7 +115,7 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.src,v 1.27 2007/04/10 11:51:04 jpr Exp $
+! * $Id: MainUtils.src,v 1.28 2007/04/13 08:28:08 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MainUtils
@@ -1362,39 +1349,22 @@ CONTAINS
      END IF
 
      IF ( Solver % Mesh % Changed .OR. Solver % NumberOfActiveElements <= 0 ) THEN
-        Solver % NumberOFActiveElements = 0
-        EquationName = ListGetString( Solver % Values, 'Equation', stat )
+       Solver % NumberOFActiveElements = 0
+       EquationName = ListGetString( Solver % Values, 'Equation', stat )
 
-        IF ( Stat ) THEN
-           IF (  ASSOCIATED( Solver % ActiveElements ) ) DEALLOCATE( Solver % ActiveElements )
-           ALLOCATE( Solver % ActiveElements( Solver % Mesh % NumberOfBulkElements + &
-                        Solver % Mesh % NumberOFBoundaryElements ) )
+       IF ( Stat ) THEN
+          IF (  ASSOCIATED( Solver % ActiveElements ) ) DEALLOCATE( Solver % ActiveElements )
+          ALLOCATE( Solver % ActiveElements( Solver % Mesh % NumberOfBulkElements + &
+                       Solver % Mesh % NumberOFBoundaryElements ) )
 
-           GB = ListGetLogical( Solver % Values,'Bubbles in Global System', Found )
-           IF ( .NOT.Found ) GB=.TRUE.
-           BDOFs  = 0
-           DO i=1,Solver % Mesh % NumberOfBulkElements+Solver % Mesh % NumberOFBoundaryElements
-              CurrentElement => Solver % Mesh % Elements(i)
-              IF ( CheckElementEquation( Model, CurrentElement, EquationName ) ) THEN
-                 Solver % NumberOfActiveElements = Solver % NumberOFActiveElements + 1
-                 Solver % ActiveElements( Solver % NumberOFActiveElements ) = i
-
-                 IF ( .NOT. GB .AND. CurrentElement % BDOFs > 0 ) THEN
-                    ALLOCATE(CurrentElement % BubbleIndexes(CurrentElement % BDOFs))
-                    DO j=1,CurrentElement %  BDOFs
-                       BDOFs = BDOFs + 1
-                       CurrentElement % BubbleIndexes(j) = BDOFs
-                    END DO
-                 END IF
-              END IF
-           END DO
-
-           IF ( BDOFs>0 ) THEN
-             ALLOCATE( Solver % Variable % Pvalues(BDOFs*Solver % Variable % DOFs))
-             Solver % Variable % PValues = 0.0d0
-           END IF
-        END IF
-
+          DO i=1,Solver % Mesh % NumberOfBulkElements+Solver % Mesh % NumberOFBoundaryElements
+             CurrentElement => Solver % Mesh % Elements(i)
+             IF ( CheckElementEquation( Model, CurrentElement, EquationName ) ) THEN
+                Solver % NumberOfActiveElements = Solver % NumberOFActiveElements + 1
+                Solver % ActiveElements( Solver % NumberOFActiveElements ) = i
+             END IF
+          END DO
+       END IF
      END IF
 !------------------------------------------------------------------------------
      Solver % Mesh % OutputActive = .TRUE.
