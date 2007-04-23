@@ -535,7 +535,7 @@ void STDCALLBULL FC_FUNC(execsimulationproc,EXECSIMULATIONPROC)
 
 
 /*--------------------------------------------------------------------------
-  INTERNAL: execute user material function
+  INTERNAL: execute (Krylov) iterator 
   -------------------------------------------------------------------------*/
 static void DoIterCall( void (STDCALLBULL *iterProc)(),
        void *x,void *b,void *ipar,void *dpar,void *work,
@@ -554,7 +554,7 @@ static void DoIterCall( void (STDCALLBULL *iterProc)(),
 }
 
 /*--------------------------------------------------------------------------
-  This routine will call user defined material def. function
+  This routine will call (Krylov) iterator
   -------------------------------------------------------------------------*/
 void STDCALLBULL FC_FUNC(itercall,ITERCALL)
      ( f_ptr iterProc, void *x, void *b, void *ipar, void *dpar, void *work, 
