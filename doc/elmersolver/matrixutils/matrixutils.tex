@@ -176,6 +176,53 @@ eliminated for Dirichlet conditions is saved. Then the the nodal forces may be c
 %Displacement Load 1 DOFs = Equals Stress 1
 
 
+
+\section{Active and passive elements}
+
+In Elmer it is possible to define certain areas of the modeled geometry
+passive during the solution. This feature allows also deactivating and
+reactivating of the elements. An element being passive means that its
+contribution is not included into the global matrix equation. One
+could, for example, model two separate bodies heated with different
+heating power, and connect them with a third structure only after
+suitable time has elapsed. This all could be modeled within a single
+simulation.
+
+The geometry of the whole system is meshed as usual, and the passive
+elements are only omitted from the equations. The passive definition
+is done solverwise and elementwise. The former means that, eg., the
+temperature may be passive and the displacements active at the same
+element.
+
+The passive property of elements is defined with a real valued
+parameter with the name constructed from the name of the variable
+followed by \texttt{Passive} in the \texttt{Body Force} section.
+\ttbegin
+Body Force 1
+  Temperature Passive = Variable Time
+    Real
+      0.0    1.0
+      5.0    1.0
+      5.2   -1.0
+      8.0   -1.0
+    End
+End
+\ttend
+
+When the parameter obtains a value greater than zero the element is
+passive. In the above example, the temperature solver (ie. the heat
+equation solver) is passive from time instants 0.0 seconds to 5.1 s,
+and active after 5.1 seconds.
+
+Note that it is not possible to control components of vector valued
+variables separately. Thus the \texttt{Displacement 1},
+\texttt{Displacement 2} and \texttt{Displacement 3} variables of
+Stress analysis solver are all switched of with the keyword
+\texttt{Displacement Passive}. Also, the Navier-Stokes solver is
+controlled with the keyword \texttt{Flow Solution Passive} which
+affects both the pressure and the velocity components.
+
+
 \bibliography{elmerbib}
 \bibliographystyle{plain}
 
