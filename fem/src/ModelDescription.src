@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ModelDescription.src,v 1.37 2007/03/20 10:45:21 jpr Exp $
+! * $Id: ModelDescription.src,v 1.38 2007/04/24 08:52:04 jpr Exp $
 ! *****************************************************************************/
 
 MODULE ModelDescription
@@ -1546,6 +1546,13 @@ CONTAINS
       IF ( .NOT. stat .OR. .NOT. ASSOCIATED(ActiveSolvers) ) CYCLE
 
       DO k=1,SIZE(ActiveSolvers)
+         IF ( ActiveSolvers(k) <= 0 .OR. ActiveSolvers(k)>Model % NumberOfSolvers ) THEN
+           WRITE(Message, * ) 'Invalid solver number ', ActiveSolvers(k), &
+             ' in ActiveSolvers definition in equation block ', eqn
+           CALL Error( 'LoadModel', Message )
+           CYCLE
+         END IF
+
          Name = ListGetString( Model % Solvers(ActiveSolvers(k)) &
                   % Values, 'Mesh', GotMesh )
 
