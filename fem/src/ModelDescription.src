@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ModelDescription.src,v 1.36 2007/01/30 09:03:09 jpr Exp $
+! * $Id: ModelDescription.src,v 1.37 2007/03/20 10:45:21 jpr Exp $
 ! *****************************************************************************/
 
 MODULE ModelDescription
@@ -1546,57 +1546,71 @@ CONTAINS
       IF ( .NOT. stat .OR. .NOT. ASSOCIATED(ActiveSolvers) ) CYCLE
 
       DO k=1,SIZE(ActiveSolvers)
+         Name = ListGetString( Model % Solvers(ActiveSolvers(k)) &
+                  % Values, 'Mesh', GotMesh )
+
          ElementDef = ListGetString( Model % Equations(eqn) % Values, &
              'Element[' // CHAR(k+ICHAR('0')) // ']', stat )
 
         IF ( .NOT. stat ) THEN
           ElementDef = ListGetString( Model % Equations(eqn) % Values, &
                         'Element', stat )
-          IF ( .NOT. stat ) CYCLE
+          IF ( .NOT. stat ) THEN
+            IF ( ListGetLogical( Model % Solvers(ActiveSolvers(k)) % Values, &
+                        'Discontinuous Galerkin', stat ) ) THEN
+              Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,4) = 0
+              IF ( .NOT. GotMesh ) Def_Dofs(i,4) = MAX(Def_Dofs(i,4),0 )
+            END IF
+            CYCLE
+          END IF
         END IF
-
-        Name = ListGetString( Model % Solvers(ActiveSolvers(k)) % Values, 'Mesh', GotMesh )
 
         j = Index( ElementDef, 'n:' )
         IF ( j>0 ) THEN
           READ( ElementDef(j+2:), * ) l
-          IF (.NOT. GotMesh ) Def_Dofs(i,1) = MAX( Def_Dofs(i,1), l )
           Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,1) = l
+          IF (.NOT. GotMesh ) Def_Dofs(i,1) = MAX( Def_Dofs(i,1), l )
         END IF
 
         j = Index( ElementDef, 'e:' )
         IF ( j>0 ) THEN
           READ( ElementDef(j+2:), * ) l
-          IF ( .NOT. GotMesh ) Def_Dofs(i,2) = MAX(Def_Dofs(i,2), l )
           Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,2) = l
+          IF ( .NOT. GotMesh ) Def_Dofs(i,2) = MAX(Def_Dofs(i,2), l )
         END IF
 
         j = Index( ElementDef, 'f:' )
         IF ( j>0 ) THEN
           READ( ElementDef(j+2:), * ) l
-          IF ( .NOT. GotMesh ) Def_Dofs(i,3) = MAX(Def_Dofs(i,3), l )
           Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,3) = l
+          IF ( .NOT. GotMesh ) Def_Dofs(i,3) = MAX(Def_Dofs(i,3), l )
         END IF
 
         j = Index( ElementDef, 'd:' )
         IF ( j>0 ) THEN
           READ( ElementDef(j+2:), * ) l
-          IF ( .NOT. GotMesh ) Def_Dofs(i,4) = MAX(Def_Dofs(i,4), l )
           Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,4) = l
+          IF ( .NOT. GotMesh ) Def_Dofs(i,4) = MAX(Def_Dofs(i,4), l )
+        ELSE 
+          IF ( ListGetLogical( Model % Solvers(ActiveSolvers(k)) % Values, &
+                      'Discontinuous Galerkin', stat ) ) THEN
+            Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,4) = 0
+            IF ( .NOT. GotMesh ) Def_Dofs(i,4) = MAX(Def_Dofs(i,4),0 )
+          END IF
         END IF
 
         j = Index( ElementDef, 'b:' )
         IF ( j>0 ) THEN
           READ( ElementDef(j+2:), * ) l
-          IF ( .NOT. GotMesh ) Def_Dofs(i,5) = MAX(Def_Dofs(i,5), l )
           Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,5) = l
+          IF ( .NOT. GotMesh ) Def_Dofs(i,5) = MAX(Def_Dofs(i,5), l )
         END IF
 
         j = Index( ElementDef, 'p:' )
         IF ( j>0 ) THEN
           READ( ElementDef(j+2:), * ) l
-          IF ( .NOT. GotMesh ) Def_Dofs(i,6) = MAX(Def_Dofs(i,6), l )
           Model % Solvers(ActiveSolvers(k)) % Def_Dofs(i,6) = l
+          IF ( .NOT. GotMesh ) Def_Dofs(i,6) = MAX(Def_Dofs(i,6), l )
         END IF
       END DO
     END DO
