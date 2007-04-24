@@ -2499,7 +2499,8 @@ int LoadTriangleInput(struct FemType *data,struct BoundaryType *bound,
   int sideind[MAXNODESD1],elemind[MAXNODESD2],tottypes,elementtype,bcmarkers;
   int i,j,k,dummyint,*boundnodes;
   FILE *in;
-  char *cp,line[MAXLINESIZE],elemfile[MAXFILESIZE],nodefile[MAXFILESIZE];
+  char *cp,line[MAXLINESIZE],elemfile[MAXFILESIZE],nodefile[MAXFILESIZE], 
+    polyfile[MAXLINESIZE];
 
 
   if(info) printf("Loading mesh in Triangle format from file %s.*\n",prefix);
@@ -2584,7 +2585,76 @@ int LoadTriangleInput(struct FemType *data,struct BoundaryType *bound,
   }
   fclose(in);
 
-  FindNewBoundaries(data,bound,boundnodes,0,1,info);
+
+  sprintf(polyfile,"%s.poly",prefix);
+  if ((in = fopen(polyfile,"r")) == NULL) {
+    printf("LoadElmerInput: The opening of the poly file %s failed!\n",polyfile);
+    return(1);
+  }
+  else 
+    printf("Loading nodes from file %s\n",polyfile);
+
+  {
+    int bcelems,markers,ind1,ind2,bctype,j2,k2,hit;
+    int elemsides,sidelemtype,sideind[2],side,sideelemtype,elemind;
+
+    bctype = 1;
+    elemsides = 3;
+
+    getline;
+    getline;
+    sscanf(line,"%d %d",&bcelems,&markers);
+
+    CreateInverseTopology(data,info);
+
+    AllocateBoundary(bound,bcelems);
+
+    for(i=1;i<=bcelems;i++) {
+      
+      getline;
+      if(markers)
+	sscanf(line,"%d %d %d %d",&j,&ind1,&ind2,&bctype);
+      else 
+	sscanf(line,"%d %d %d %d",&j,&ind1,&ind2);
+     
+      /* find an element which owns both the nodes */
+      for(j=1;j<=data->maxinvtopo;j++) {
+	hit = FALSE;
+	k = data->invtopo[j][ind1];
+	if(!k) break;
+
+	for(j2=1;j2<=data->maxinvtopo;j2++) { 
+	  k2 = data->invtopo[j2][ind2];
+	  if(!k2) break;
+	  if(k == k2) {
+	    hit = TRUE;
+	    elemind = k;
+	    break;
+	  }
+	}
+	if(hit) break;
+      }
+      if(!hit) return(1);
+
+
+      /* Find the correct side of the triangular element */
+      for(side=0;side<elemsides;side++) {
+	GetElementSide(elemind,side,1,data,&sideind[0],&sideelemtype);
+	
+	hit = FALSE;
+	if(sideind[0] == ind1 && sideind[1] == ind2) hit = TRUE;
+	if(sideind[0] == ind2 && sideind[1] == ind1) hit = TRUE;
+
+	if(hit) {
+	  bound->parent[i] = elemind;
+	  bound->side[i] = side;
+	  bound->parent2[i] = 0;
+	  bound->side2[i] = 0;
+	  bound->types[i] = bctype;
+	}
+      }
+    }
+  } 
 
   printf("Succesfully read the mesh from the Triangle input file.\n");
 
