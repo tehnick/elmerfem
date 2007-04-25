@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ElmerSolver.src,v 1.23 2007/04/25 08:50:09 jpr Exp $
+! * $Id: ElmerSolver.src,v 1.25 2007/04/25 09:25:37 jpr Exp $
 ! ******************************************************************************
 
 !------------------------------------------------------------------------------
@@ -596,6 +596,29 @@
                        IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
                        IF ( k>0 ) Var % Values(k) = Work(j)
                      END DO
+                   END IF
+
+                   Solver => Var % Solver
+                   IF ( .NOT. ASSOCIATED(Solver) ) Solver => CurrentModel % Solver
+                   IF ( Transient .AND. Solver % TimeOrder==2 ) THEN
+                      Work(1:n) = GetReal( CurrentModel % BCs(i) % Values, &
+                             TRIM(Var % Name) // ' Velocity', GotIt )
+                      IF ( GotIt ) THEN
+                        DO j=1,n
+                          k = CurrentElement % NodeIndexes(j)
+                          IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
+                          IF ( k>0 ) Var % PrevValues(k,1) = Work(j)
+                        END DO
+                      END IF
+                      Work(1:n) = GetReal( CurrentModel % BCs(i) % Values, &
+                             TRIM(Var % Name) // ' Acceleration', GotIt )
+                      IF ( GotIt ) THEN
+                        DO j=1,n
+                          k = CurrentElement % NodeIndexes(j)
+                          IF ( ASSOCIATED(Var % Perm) ) k = Var % Perm(k)
+                          IF ( k>0 ) Var % PrevValues(k,2) = Work(j)
+                        END DO
+                      END IF
                    END IF
                  ELSE
                    CALL ListGetRealArray( CurrentModel % BCs(i) % Values, &
