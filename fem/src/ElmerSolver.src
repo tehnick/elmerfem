@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ElmerSolver.src,v 1.21 2007/03/20 11:01:27 jpr Exp $
+! * $Id: ElmerSolver.src,v 1.22 2007/03/22 07:39:52 jpr Exp $
 ! ******************************************************************************
 
 !------------------------------------------------------------------------------
@@ -434,6 +434,7 @@
 !------------------------------------------------------------------------------
      USE DefUtils
      INTEGER :: DOFs
+     TYPE(Solver_t), POINTER :: Solver
      INTEGER, ALLOCATABLE :: Indexes(:)
      REAL(KIND=dp),ALLOCATABLE :: Work(:)
 
@@ -470,6 +471,30 @@
                         IF ( ASSOCIATED(Var % Perm) ) k1 = Var % Perm(k1)
                         IF ( k1>0 ) Var % Values(k1) = Work(k)
                       END DO
+                    END IF
+
+                    Solver => Var % Solver
+                    IF ( .NOT. ASSOCIATED(Solver) ) Solver => CurrentModel % Solver
+                    IF ( Transient .AND. Solver % TimeOrder==2 ) THEN
+
+                      Work(1:n) = GetReal( CurrentModel % ICs(j) % Values, &
+                             Var % Name // ' Velocity', GotIt )
+                      IF ( GotIt ) THEN
+                        DO k=1,n
+                          k1 = Indexes(k)
+                          IF ( ASSOCIATED(Var % Perm) ) k1 = Var % Perm(k1)
+                          IF ( k1>0 ) Var % PrevValues(k1,1) = Work(k)
+                        END DO
+                      END IF
+                      Work(1:n) = GetReal( CurrentModel % ICs(j) % Values, &
+                             Var % Name // ' Acceleration', GotIt )
+                      IF ( GotIt ) THEN
+                        DO k=1,n
+                          k1 = Indexes(k)
+                          IF ( ASSOCIATED(Var % Perm) ) k1 = Var % Perm(k1)
+                          IF ( k1>0 ) Var % PrevValues(k1,2) = Work(k)
+                        END DO
+                      END IF
                     END IF
                  ELSE
                     CALL ListGetRealArray( CurrentModel % ICs(j) % Values, &
