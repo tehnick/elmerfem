@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterComm.src,v 1.35 2007/04/18 12:37:22 jpr Exp $
+! * $Id: SParIterComm.src,v 1.36 2007/04/19 07:20:55 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -296,6 +296,7 @@ CONTAINS
     ! Make sure that the owner of a matrix dof is one that
     ! has it active:
     ! -----------------------------------------------------
+#if 1
     DO i=1,SIZE(SourceMatrix % Perm)
       IF ( ParallelInfo % Interface(i) ) THEN
 
@@ -331,6 +332,7 @@ CONTAINS
         END DO
       END IF
     END DO
+#endif
 
     DEALLOCATE( Active )
 !-----------------------------------------------------------------------
@@ -1978,8 +1980,11 @@ END  SUBROUTINE SParIterActiveBarrier
 SUBROUTINE SParIterAllReduceAnd(L)
    LOGICAL :: L
 !-----------------------------------------------------------------------
+   LOGICAL :: L1
    INTEGER :: ierr
-   CALL MPI_ALLREDUCE(L,L,1,MPI_LOGICAL,MPI_LAND,MPI_COMM_WORLD,ierr)
+
+   L1 = L
+   CALL MPI_ALLREDUCE(L1,L,1,MPI_LOGICAL,MPI_LAND,MPI_COMM_WORLD,ierr)
 !-----------------------------------------------------------------------
 END  SUBROUTINE SParIterAllReduceAnd
 !-----------------------------------------------------------------------
