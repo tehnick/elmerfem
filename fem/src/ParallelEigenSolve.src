@@ -55,7 +55,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ParallelEigenSolve.src,v 1.10 2007/02/05 11:36:31 jpr Exp $
+! * $Id: ParallelEigenSolve.src,v 1.11 2007/02/06 13:13:38 jpr Exp $
 ! ******************************************************************************
 
 MODULE ParallelEigenSolve
@@ -216,6 +216,14 @@ INCLUDE "mpif.h"
               Which = 'SM'
          CASE( 'largest magnitude')
               Which = 'LM'
+         CASE( 'smallest real part')
+              Which = 'SR'
+         CASE( 'largest real part')
+              Which = 'LR'
+         CASE( 'smallest imag part' )
+              Which = 'SI'
+         CASE( 'largest imag part' )
+              Which = 'LI'
          CASE DEFAULT
               Which = 'SM'
          END SELECT
@@ -226,6 +234,14 @@ INCLUDE "mpif.h"
               Which = 'LM'
          CASE( 'largest magnitude')
               Which = 'SM'
+         CASE( 'smallest real part')
+              Which = 'LR'
+         CASE( 'largest real part')
+              Which = 'SR'
+         CASE( 'smallest imag part' )
+              Which = 'LI'
+         CASE( 'largest imag part' )
+              Which = 'SI'
          CASE DEFAULT
               Which = 'LM'
          END SELECT
@@ -246,6 +262,11 @@ INCLUDE "mpif.h"
 !     Compute LU-factors for (A-\sigma M) (if consistent mass matrix)
 !
       IF ( .NOT. Matrix % Lumped ) THEN
+         SigmaR = ListGetConstReal( Solver % Values,'Eigen System Shift', stat )
+         IF ( SigmaR /= 0.0d0 ) THEN
+            Matrix % Values = Matrix % Values - SigmaR * Matrix % MassValues
+         END IF
+
          Direct = ListGetString( Solver % Values, &
            'Linear System Solver', stat ) == 'direct'
          IF ( Direct ) Stat = CRS_ILUT(Matrix, 0.0d0)
