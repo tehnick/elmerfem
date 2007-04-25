@@ -39,6 +39,10 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.68  2007/04/23 14:04:55  jpr
+! * Added code to handle vector (as opposed to componentwise) arguments for
+! * pointwise Dirichlet settings & loads.
+! *
 ! * Revision 1.67  2007/04/23 08:57:41  jpr
 ! * Slight cleaning up of the "passsive" stuff...
 ! *
@@ -201,7 +205,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.67 2007/04/23 08:57:41 jpr Exp $
+! * $Id: SolverUtils.src,v 1.68 2007/04/23 14:04:55 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -560,13 +564,52 @@ CONTAINS
      INTEGER :: NodeIndexes(:)
 !------------------------------------------------------------------------------
      LOGICAL :: GotIt
-     INTEGER :: i,j,k,l
+     INTEGER :: i,j,k,l, bf_id, nlen, NbrNodes
      CHARACTER(LEN=MAX_NAME_LEN) :: Method
      REAL(KIND=dp) :: s,t
      REAL(KIND=dp) :: X(DOFs*n),V(DOFs*N),A(DOFs*N),LForce(n*DOFs)
-!------------------------------------------------------------------------------
+
+     TYPE(Element_t), POINTER :: Element
+     CHARACTER(LEN=MAX_NAME_LEN) :: PassName
+     REAL(KIND=dp), ALLOCATABLE :: Passive(:)
+     SAVE Passive
 
 !------------------------------------------------------------------------------
+!    Check first if this element has been defined passive
+!    Note: so far this is done elementwise
+!------------------------------------------------------------------------------
+
+     Element => CurrentModel % CurrentElement
+     i = Element % BodyId 
+
+! i == 0 for boundary elements
+
+     IF ( i > 0 ) THEN
+       bf_id = ListGetInteger( CurrentModel % Bodies(i) % Values, &
+           'Body Force', GotIt, minv=1,maxv=CurrentModel % NumberOfBodyForces )
+       IF ( GotIt ) THEN
+         nlen = CurrentModel % Solver % Variable % NameLen
+         PassName = CurrentModel % Solver % Variable % Name(1:nlen) // ' Passive'
+         IF ( ListCheckPresent(CurrentModel % BodyForces(bf_id) % Values, PassName) ) THEN
+           NbrNodes = Element % Type % NumberOfNodes
+           IF (ALLOCATED(Passive)) THEN
+             IF (SIZE(Passive)<NbrNodes ) THEN
+               DEALLOCATE(Passive)
+               ALLOCATE(Passive(NbrNodes))
+             END IF
+           ELSE
+             ALLOCATE(Passive(NbrNodes))
+           END IF
+           Passive(1:NbrNodes) = ListGetReal( CurrentModel % BodyForces(bf_id) % Values, &
+                    PassName, NbrNodes, Element % NodeIndexes, GotIt )
+           IF ( GotIt ) THEN
+             IF ( COUNT(Passive(1:NbrNodes)>0)>COUNT(Passive(1:NbrNodes)<0) ) RETURN
+           END IF
+         END IF
+       END IF
+     END IF
+!------------------------------------------------------------------------------
+
      IF ( Solver % Matrix % Lumped ) THEN
 !------------------------------------------------------------------------------
 #ifndef OLD_LUMPING
