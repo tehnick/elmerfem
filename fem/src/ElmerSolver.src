@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ElmerSolver.src,v 1.22 2007/03/22 07:39:52 jpr Exp $
+! * $Id: ElmerSolver.src,v 1.23 2007/04/25 08:50:09 jpr Exp $
 ! ******************************************************************************
 
 !------------------------------------------------------------------------------
@@ -473,13 +473,16 @@
                       END DO
                     END IF
 
+print*,'eh '; call flush(6)
                     Solver => Var % Solver
                     IF ( .NOT. ASSOCIATED(Solver) ) Solver => CurrentModel % Solver
                     IF ( Transient .AND. Solver % TimeOrder==2 ) THEN
 
+print*,'eh 1'; call flush(6)
                       Work(1:n) = GetReal( CurrentModel % ICs(j) % Values, &
-                             Var % Name // ' Velocity', GotIt )
+                             TRIM(Var % Name) // ' Velocity', GotIt )
                       IF ( GotIt ) THEN
+print*,'eh 2'; call flush(6)
                         DO k=1,n
                           k1 = Indexes(k)
                           IF ( ASSOCIATED(Var % Perm) ) k1 = Var % Perm(k1)
@@ -487,7 +490,7 @@
                         END DO
                       END IF
                       Work(1:n) = GetReal( CurrentModel % ICs(j) % Values, &
-                             Var % Name // ' Acceleration', GotIt )
+                             TRIM(Var % Name) // ' Acceleration', GotIt )
                       IF ( GotIt ) THEN
                         DO k=1,n
                           k1 = Indexes(k)
