@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: ElementDescription.src,v $
+! * Revision 1.29  2007/01/09 14:14:42  jpr
+! * Small cleanups / optimizations.
+! *
 ! * Revision 1.28  2007/01/08 11:42:08  jpr
 ! * *** empty log message ***
 ! *
@@ -131,7 +134,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: ElementDescription.src,v 1.28 2007/01/08 11:42:08 jpr Exp $
+! * $Id: ElementDescription.src,v 1.29 2007/01/09 14:14:42 jpr Exp $
 ! ******************************************************************************/
 
 MODULE ElementDescription
@@ -4296,6 +4299,108 @@ END IF
 
 
 !------------------------------------------------------------------------------
+ FUNCTION LGetEdgeMap( ElementFamily ) RESULT(EdgeMap)
+!------------------------------------------------------------------------------
+    INTEGER :: ElementFamily
+    INTEGER, POINTER :: EdgeMap(:,:)
+
+    INTEGER, TARGET :: LineEM(1,2)
+    INTEGER, TARGET :: TriangleEM(3,2)
+    INTEGER, TARGET :: QuadEM(4,2)
+    INTEGER, TARGET :: TetraEM(6,2)
+    INTEGER, TARGET :: PrismEM(8,2)
+    INTEGER, TARGET :: WedgeEM(9,2)
+    INTEGER, TARGET :: BrickEM(12,2)
+
+    LOGICAL :: Initialized = .FALSE.
+  
+    SAVE LineEM, TriangleEM, WedgeEM, BrickEM, TetraEM, QuadEM, PrismEM, Initialized
+
+    SELECT CASE(ElementFamily)
+    CASE(2)
+      EdgeMap => LineEM
+    CASE(3)
+      EdgeMap => TriangleEM
+    CASE(4) 
+      EdgeMap => QuadEM
+    CASE(5) 
+      EdgeMap => TetraEM
+    CASE(6) 
+      EdgeMap => PrismEM
+    CASE(7) 
+      EdgeMap => WedgeEM
+    CASE(8) 
+      EdgeMap => BrickEM
+    END SELECT
+ 
+     IF ( .NOT. Initialized ) THEN
+       Initialized = .TRUE.
+       SELECT CASE(ElementFamily)
+       CASE(2)
+         EdgeMap(1,:) = (/ 1,2 /)
+
+       CASE(3)
+         EdgeMap(1,:) = (/ 1,2 /)
+         EdgeMap(2,:) = (/ 2,3 /)
+         EdgeMap(3,:) = (/ 3,1 /)
+
+       CASE(4)
+         EdgeMap(1,:) = (/ 1,2 /)
+         EdgeMap(2,:) = (/ 2,3 /)
+         EdgeMap(3,:) = (/ 3,4 /)
+         EdgeMap(4,:) = (/ 4,1 /)
+
+       CASE(5)
+         EdgeMap(1,:) = (/ 1,2 /)
+         EdgeMap(2,:) = (/ 2,3 /)
+         EdgeMap(3,:) = (/ 3,1 /)
+         EdgeMap(4,:) = (/ 1,4 /)
+         EdgeMap(5,:) = (/ 2,4 /)
+         EdgeMap(6,:) = (/ 3,4 /)
+
+       CASE(6)
+         EdgeMap(1,:) = (/ 1,2 /)
+         EdgeMap(2,:) = (/ 2,3 /)
+         EdgeMap(3,:) = (/ 4,3 /)
+         EdgeMap(4,:) = (/ 1,4 /)
+         EdgeMap(5,:) = (/ 1,5 /)
+         EdgeMap(6,:) = (/ 2,5 /)
+         EdgeMap(7,:) = (/ 3,5 /)
+         EdgeMap(8,:) = (/ 4,5 /)
+ 
+       CASE(7)
+         EdgeMap(1,:) = (/ 1,2 /)
+         EdgeMap(2,:) = (/ 2,3 /)
+         EdgeMap(3,:) = (/ 3,1 /)
+         EdgeMap(4,:) = (/ 4,5 /)
+         EdgeMap(5,:) = (/ 5,6 /)
+         EdgeMap(6,:) = (/ 6,4 /)
+         EdgeMap(7,:) = (/ 1,4 /)
+         EdgeMap(8,:) = (/ 2,5 /)
+         EdgeMap(9,:) = (/ 3,6 /)
+
+       CASE(8)
+         EdgeMap(1,:)  = (/ 1,2 /)
+         EdgeMap(2,:)  = (/ 2,3 /)
+         EdgeMap(3,:)  = (/ 4,3 /)
+         EdgeMap(4,:)  = (/ 1,4 /)
+         EdgeMap(5,:)  = (/ 5,6 /)
+         EdgeMap(6,:)  = (/ 6,7 /)
+         EdgeMap(7,:)  = (/ 8,7 /)
+         EdgeMap(8,:)  = (/ 5,8 /)
+         EdgeMap(9,:)  = (/ 1,5 /)
+         EdgeMap(10,:) = (/ 2,6 /)
+         EdgeMap(11,:) = (/ 3,7 /)
+         EdgeMap(12,:) = (/ 4,8 /)
+       END SELECT
+     END IF
+!------------------------------------------------------------------------------
+  END FUNCTION LGetEdgeMap
+!------------------------------------------------------------------------------
+
+
+
+!------------------------------------------------------------------------------
    FUNCTION ElementDiameter( elm, nodes ) RESULT(hK)
 !------------------------------------------------------------------------------
 !******************************************************************************
@@ -4321,7 +4426,8 @@ END IF
 !    Local variables
 !------------------------------------------------------------------------------
      REAL(KIND=dp), DIMENSION(:), POINTER :: X,Y,Z
-
+     INTEGER :: i,j,k,Family
+     INTEGER, POINTER :: EdgeMap(:,:)
      REAL(KIND=dp) :: x0,y0,z0,hK,A,S,CX,CY,CZ
      REAL(KIND=dp) :: J11,J12,J13,J21,J22,J23,G11,G12,G21,G22
 !------------------------------------------------------------------------------
@@ -4330,13 +4436,11 @@ END IF
      Y => Nodes % y
      Z => Nodes % z
 
-     SELECT CASE( elm % Type % ElementCode / 100 )
+     Family = Elm % Type % ElementCode / 100
+     SELECT CASE( Family )
 
        CASE(1)
          hK = 0.0d0
-
-       CASE(2)
-         hK = (X(2)-X(1))**2 + (Y(2)-Y(1))**2 + (Z(2)-Z(1))**2
 
 !------------------------------------------------------------------------------
 !       Triangular element
@@ -4371,158 +4475,17 @@ END IF
           CY = (X(4)-X(1))**2 + (Y(4)-Y(1))**2 + (Z(4)-Z(1))**2
           hk = 2*CX*CY/(CX+CY)
 
-!------------------------------------------------------------------------------
-!      Tetrahedron
-!------------------------------------------------------------------------------
-       CASE(5)
-
-         CX = X(2) - X(1)
-         CY = Y(2) - Y(1)
-         CZ = Z(2) - Z(1)
-         hK = CX**2 + CY**2 + CZ**2
-
-         CX = X(3) - X(1)
-         CY = Y(3) - Y(1)
-         CZ = Z(3) - Z(1)
-         hK = MIN( hK, CX**2 + CY**2 + CZ**2 )
-
-         CX = X(4) - X(1)
-         CY = Y(4) - Y(1)
-         CZ = Z(4) - Z(1)
-         hK = MIN( hK, CX**2 + CY**2 + CZ**2 )
-          
-         CX = X(3) - X(2)
-         CY = Y(3) - Y(2)
-         CZ = Z(3) - Z(2)
-         hK = MIN( hK, CX**2 + CY**2 + CZ**2 )
-
-         CX = X(4) - X(2)
-         CY = Y(4) - Y(2)
-         CZ = Z(4) - Z(2)
-         hK = MIN( hK, CX**2 + CY**2 + CZ**2 )
-
-         CX = X(4) - X(3)
-         CY = Y(4) - Y(3)
-         CZ = Z(4) - Z(3)
-         hK = MIN( hK, CX**2 + CY**2 + CZ**2 )
-
-!------------------------------------------------------------------------------
-!      Pyramid
-!------------------------------------------------------------------------------
-      CASE(6)
-         CX = X(2) - X(1)
-         CY = Y(2) - Y(1)
-         CZ = Z(2) - Z(1)
-         hK = CX**2 + CY**2 + CZ**2
-
-         CX = X(3) - X(2)
-         CY = Y(3) - Y(2)
-         CZ = Z(3) - Z(2)
-         hK = MIN( hK, CX**2 + CY**2 + CZ**2 )
-
-         CX = X(4) - X(3)
-         CY = Y(4) - Y(3)
-         CZ = Z(4) - Z(3)
-         hK = MIN( hK, CX**2 + CY**2 + CZ**2 )
-          
-         CX = X(4) - X(1)
-         CY = Y(4) - Y(1)
-         CZ = Z(4) - Z(1)
-         hK = MIN( hK, CX**2 + CY**2 + CZ**2 )
-
-         CX = X(5) - X(1)
-         CY = Y(5) - Y(1)
-         CZ = Z(5) - Z(1)
-         hK = MIN( hK, CX**2 + CY**2 + CZ**2 )
-
-         CX = X(5) - X(2)
-         CY = Y(5) - Y(2)
-         CZ = Z(5) - Z(2)
-         hK = MIN( hK, CX**2 + CY**2 + CZ**2 )
-
-         CX = X(5) - X(3)
-         CY = Y(5) - Y(3)
-         CZ = Z(5) - Z(3)
-         hK = MIN( hK, CX**2 + CY**2 + CZ**2 )
-
-         CX = X(5) - X(4)
-         CY = Y(5) - Y(4)
-         CZ = Z(5) - Z(4)
-         hK = MIN( hK, CX**2 + CY**2 + CZ**2 )
-
-          
-!------------------------------------------------------------------------------
-!      Wedge
-!------------------------------------------------------------------------------
-      CASE(7)
-         CX = X(2) - X(1)
-         CY = Y(2) - Y(1)
-         CZ = Z(2) - Z(1)
-         hK = CX**2 + CY**2 + CZ**2
-
-         CX = X(3) - X(2)
-         CY = Y(3) - Y(2)
-         CZ = Z(3) - Z(2)
-         hK = MIN( hK, CX**2 + CY**2 + CZ**2 )
-
-         CX = X(3) - X(1)
-         CY = Y(3) - Y(1)
-         CZ = Z(3) - Z(1)
-         hK = MIN( hK, CX**2 + CY**2 + CZ**2 )
-          
-         CX = X(5) - X(4)
-         CY = Y(5) - Y(4)
-         CZ = Z(5) - Z(4)
-         hK = MIN( hK, CX**2 + CY**2 + CZ**2 )
-
-         CX = X(6) - X(5)
-         CY = Y(6) - Y(5)
-         CZ = Z(6) - Z(5)
-         hK = MIN( hK, CX**2 + CY**2 + CZ**2 )
-
-         CX = X(6) - X(4)
-         CY = Y(6) - Y(4)
-         CZ = Z(6) - Z(4)
-         hK = MIN( hK, CX**2 + CY**2 + CZ**2 )
-
-         CX = X(1) - X(4)
-         CY = Y(1) - Y(4)
-         CZ = Z(1) - Z(4)
-         hK = MIN( hK, CX**2 + CY**2 + CZ**2 )
-
-         CX = X(2) - X(5)
-         CY = Y(2) - Y(5)
-         CZ = Z(2) - Z(5)
-         hK = MIN( hK, CX**2 + CY**2 + CZ**2 )
-
-         CX = X(3) - X(6)
-         CY = Y(3) - Y(6)
-         CZ = Z(3) - Z(6)
-         hK = MIN( hK, CX**2 + CY**2 + CZ**2 )
-          
-!------------------------------------------------------------------------------
-!      Brick
-!------------------------------------------------------------------------------
-       CASE(8)
-         x0 = X(7) - X(1)
-         y0 = Y(7) - Y(1)
-         z0 = Z(7) - Z(1)
-         hK = x0*x0 + y0*y0 + z0*z0
-
-         x0 = X(8) - X(2)
-         y0 = Y(8) - Y(2)
-         z0 = Z(8) - Z(2)
-         hK = MIN( hK,x0*x0 + y0*y0 + z0*z0  )
-
-         x0 = X(5) - X(3)
-         y0 = Y(5) - Y(3)
-         z0 = Z(5) - Z(3)
-         hK = MIN( hK,x0*x0 + y0*y0 + z0*z0 )
-
-         x0 = X(6) - X(4)
-         y0 = Y(6) - Y(4)
-         z0 = Z(6) - Z(4)
-         hK = MIN( hK,x0*x0 + y0*y0 + z0*z0 )
+       CASE DEFAULT
+         EdgeMap => LGetEdgeMap(Family)
+         hk = HUGE(1.0_dp)
+         DO i=1,SIZE(EdgeMap,1)
+           j=EdgeMap(i,1)
+           k=EdgeMap(i,2)
+           x0 = X(j) - X(k)
+           y0 = Y(j) - Y(k)
+           z0 = Z(j) - Z(k)
+           hk = MIN(hK, x0**2 + y0**2 + z0**2)
+         END DO
      END SELECT
 
      hK = SQRT( hK )
