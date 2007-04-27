@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.69  2007/04/25 19:31:26  apursula
+! * Included passive element support in Add2ndOrderTime
+! *
 ! * Revision 1.68  2007/04/23 14:04:55  jpr
 ! * Added code to handle vector (as opposed to componentwise) arguments for
 ! * pointwise Dirichlet settings & loads.
@@ -205,7 +208,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.68 2007/04/23 14:04:55 jpr Exp $
+! * $Id: SolverUtils.src,v 1.69 2007/04/25 19:31:26 apursula Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -396,6 +399,63 @@ CONTAINS
 !------------------------------------------------------------------------------
 
    
+!------------------------------------------------------------------------------
+   FUNCTION CheckPassiveElement( UElement )  RESULT( IsPassive )
+!------------------------------------------------------------------------------
+     TYPE(Element_t), OPTIONAL, TARGET :: UElement
+     LOGICAL :: IsPassive
+
+     TYPE(Element_t), POINTER :: Element
+     REAL(KIND=dp), ALLOCATABLE :: Passive(:)
+     INTEGER :: body_id, bf_id, nlen, NbrNodes
+     LOGICAL :: Found
+     CHARACTER(LEN=MAX_NAME_LEN) :: PassName
+
+     SAVE Passive
+!------------------------------------------------------------------------------
+     
+!------------------------------------------------------------------------------
+!    Check if the current element has been defined passive
+!    Note: so far this is done elementwise
+!------------------------------------------------------------------------------
+
+     IsPassive = .FALSE.
+
+     IF ( PRESENT( UElement ) ) THEN
+       Element => UElement
+     ELSE
+       Element => CurrentModel % CurrentElement
+     END IF
+
+     body_id = Element % BodyId 
+     IF ( body_id <= 0 )  RETURN   ! body_id == 0 for boundary elements
+
+     bf_id = ListGetInteger( CurrentModel % Bodies(body_id) % Values, &
+         'Body Force', Found, minv=1,maxv=CurrentModel % NumberOfBodyForces )
+     IF ( .NOT. Found )  RETURN
+
+     nlen = CurrentModel % Solver % Variable % NameLen
+     PassName = CurrentModel % Solver % Variable % Name(1:nlen) // ' Passive'
+     IF ( ListCheckPresent(CurrentModel % BodyForces(bf_id) % Values, PassName) ) THEN
+       NbrNodes = Element % TYPE % NumberOfNodes
+       IF ( ALLOCATED(Passive) ) THEN
+         IF ( SIZE(Passive) < NbrNodes ) THEN
+           DEALLOCATE(Passive)
+           ALLOCATE( Passive(NbrNodes) )
+         END IF
+       ELSE
+         ALLOCATE( Passive(NbrNodes) )
+       END IF
+       Passive(1:NbrNodes) = ListGetReal( CurrentModel % BodyForces(bf_id) % Values, &
+           PassName, NbrNodes, Element % NodeIndexes, Found )
+       IF ( Found ) THEN
+         IF ( COUNT(Passive(1:NbrNodes)>0) > COUNT(Passive(1:NbrNodes)<0) )  IsPassive = .TRUE.
+       END IF
+     END IF
+   
+!------------------------------------------------------------------------------
+   END FUNCTION CheckPassiveElement
+!------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
@@ -564,50 +624,11 @@ CONTAINS
      INTEGER :: NodeIndexes(:)
 !------------------------------------------------------------------------------
      LOGICAL :: GotIt
-     INTEGER :: i,j,k,l, bf_id, nlen, NbrNodes
+     INTEGER :: i,j,k,l
      CHARACTER(LEN=MAX_NAME_LEN) :: Method
      REAL(KIND=dp) :: s,t
      REAL(KIND=dp) :: X(DOFs*n),V(DOFs*N),A(DOFs*N),LForce(n*DOFs)
 
-     TYPE(Element_t), POINTER :: Element
-     CHARACTER(LEN=MAX_NAME_LEN) :: PassName
-     REAL(KIND=dp), ALLOCATABLE :: Passive(:)
-     SAVE Passive
-
-!------------------------------------------------------------------------------
-!    Check first if this element has been defined passive
-!    Note: so far this is done elementwise
-!------------------------------------------------------------------------------
-
-     Element => CurrentModel % CurrentElement
-     i = Element % BodyId 
-
-! i == 0 for boundary elements
-
-     IF ( i > 0 ) THEN
-       bf_id = ListGetInteger( CurrentModel % Bodies(i) % Values, &
-           'Body Force', GotIt, minv=1,maxv=CurrentModel % NumberOfBodyForces )
-       IF ( GotIt ) THEN
-         nlen = CurrentModel % Solver % Variable % NameLen
-         PassName = CurrentModel % Solver % Variable % Name(1:nlen) // ' Passive'
-         IF ( ListCheckPresent(CurrentModel % BodyForces(bf_id) % Values, PassName) ) THEN
-           NbrNodes = Element % Type % NumberOfNodes
-           IF (ALLOCATED(Passive)) THEN
-             IF (SIZE(Passive)<NbrNodes ) THEN
-               DEALLOCATE(Passive)
-               ALLOCATE(Passive(NbrNodes))
-             END IF
-           ELSE
-             ALLOCATE(Passive(NbrNodes))
-           END IF
-           Passive(1:NbrNodes) = ListGetReal( CurrentModel % BodyForces(bf_id) % Values, &
-                    PassName, NbrNodes, Element % NodeIndexes, GotIt )
-           IF ( GotIt ) THEN
-             IF ( COUNT(Passive(1:NbrNodes)>0)>COUNT(Passive(1:NbrNodes)<0) ) RETURN
-           END IF
-         END IF
-       END IF
-     END IF
 !------------------------------------------------------------------------------
 
      IF ( Solver % Matrix % Lumped ) THEN
@@ -705,7 +726,6 @@ CONTAINS
      CALL UpdateGlobalForce( Solver % Matrix % Force(:,1), LForce, &
                   n, DOFs, NodeIndexes )
 !------------------------------------------------------------------------------
-
 !------------------------------------------------------------------------------
      Method = ListGetString( Solver % Values, 'Timestepping Method', GotIt )
      SELECT CASE(Method)
@@ -794,51 +814,19 @@ CONTAINS
 
      INTEGER :: n, NDOFs, NodeIndexes(:)
 !------------------------------------------------------------------------------
-     INTEGER :: i,j,k,dim,bf_id,nlen,NbrNodes, Indexes(n)
+     INTEGER :: i,j,k,dim, Indexes(n)
      TYPE(Element_t), POINTER :: Element
-     LOGICAL :: Found
-     CHARACTER(LEN=MAX_NAME_LEN) :: PassName
-     REAL(KIND=dp), ALLOCATABLE :: Passive(:)
-     SAVE Passive
 !------------------------------------------------------------------------------
 !    Update global matrix and rhs vector....
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
 !    Check first if this element has been defined passive
-!    Note: so far this is done elementwise
 !------------------------------------------------------------------------------
+     IF ( CheckPassiveElement() )  RETURN
 
+!------------------------------------------------------------------------------
      Element => CurrentModel % CurrentElement
-     i = Element % BodyId 
-
-! i == 0 for boundary elements
-
-     IF ( i > 0 ) THEN
-       bf_id = ListGetInteger( CurrentModel % Bodies(i) % Values, &
-           'Body Force', Found, minv=1,maxv=CurrentModel % NumberOfBodyForces )
-       IF ( Found ) THEN
-         nlen = CurrentModel % Solver % Variable % NameLen
-         PassName = CurrentModel % Solver % Variable % Name(1:nlen) // ' Passive'
-         IF ( ListCheckPresent(CurrentModel % BodyForces(bf_id) % Values, PassName) ) THEN
-           NbrNodes = Element % Type % NumberOfNodes
-           IF (ALLOCATED(Passive)) THEN
-             IF (SIZE(Passive)<NbrNodes ) THEN
-               DEALLOCATE(Passive)
-               ALLOCATE(Passive(NbrNodes))
-             END IF
-           ELSE
-             ALLOCATE(Passive(NbrNodes))
-           END IF
-           Passive(1:NbrNodes) = ListGetReal( CurrentModel % BodyForces(bf_id) % Values, &
-                    PassName, NbrNodes, Element % NodeIndexes, Found )
-           IF ( Found ) THEN
-             IF ( COUNT(Passive(1:NbrNodes)>0)>COUNT(Passive(1:NbrNodes)<0) ) RETURN
-           END IF
-         END IF
-       END IF
-     END IF
-!------------------------------------------------------------------------------
      IF ( NormalTangentialNOFNodes > 0 ) THEN
        dim = CoordinateSystemDimension()
        Indexes = 0
@@ -913,6 +901,9 @@ CONTAINS
 !------------------------------------------------------------------------------
 !    Update global matrix and rhs vector....
 !------------------------------------------------------------------------------
+
+     IF ( CheckPassiveElement() )  RETURN
+
      IF ( NormalTangentialNOFNodes > 0 ) THEN
        dim = CoordinateSystemDimension()
        Indexes = 0
@@ -970,8 +961,14 @@ CONTAINS
      REAL(KIND=dp) :: s,t
      REAL(KIND=dp), POINTER  :: SaveValues(:)
 !------------------------------------------------------------------------------
+!    Check first if this element has been defined passive
+!------------------------------------------------------------------------------
+     IF ( CheckPassiveElement() )  RETURN
+
+!------------------------------------------------------------------------------
 !    Update global matrix and rhs vector....
 !------------------------------------------------------------------------------
+
      IF ( StiffMatrix % Lumped ) THEN
        s = 0.d0
        t = 0.d0
