@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.70  2007/04/27 11:12:07  apursula
+! * Moved "passive" stuff into a new function CheckPassiveElement
+! *
 ! * Revision 1.69  2007/04/25 19:31:26  apursula
 ! * Included passive element support in Add2ndOrderTime
 ! *
@@ -208,7 +211,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.69 2007/04/25 19:31:26 apursula Exp $
+! * $Id: SolverUtils.src,v 1.70 2007/04/27 11:12:07 apursula Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -2145,6 +2148,8 @@ CONTAINS
     REAL(KIND=dp), TARGET :: y(Model % MaxElementNodes)
     REAL(KIND=dp), TARGET :: z(Model % MaxElementNodes)
 !------------------------------------------------------------------------------
+
+    IF ( NumberOfBoundaryNodes <= 0 ) RETURN
 
     BoundaryNormals = 0.0d0
 
