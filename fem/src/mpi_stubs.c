@@ -43,6 +43,22 @@ void STDCALLBULL FC_FUNC_(mpi_win_null_delete_fn,MPI_WIN_NULL_DELETE_FN) () {}
 void STDCALLBULL FC_FUNC_(mpi_comm_null_delete_fn,MPI_COMM_NULL_DELETE_FN) () {}
 void STDCALLBULL FC_FUNC_(mpi_comm_null_copy_fn,MPI_COMM_NULL_DELETE_FN) () {}
 
+void STDCALLBULL FC_FUNC_(mpi_waitall,MPI_WAITALL) () {}
+void STDCALLBULL FC_FUNC_(mpi_waitany,MPI_WAITANY) () {}
+void STDCALLBULL FC_FUNC_(mpi_wait,MPI_WAIT) () {}
+void STDCALLBULL FC_FUNC_(mpi_win_start,MPI_WIN_START) () {}
+void STDCALLBULL FC_FUNC_(mpi_win_test,MPI_WIN_TEST) () {}
+void STDCALLBULL FC_FUNC_(mpi_win_complete,MPI_WIN_COMPLETE) () {}
+void STDCALLBULL FC_FUNC_(mpi_testsome,MPI_TESTSOME) () {}
+void STDCALLBULL FC_FUNC_(mpi_startall,MPI_STARTALL) () {}
+void STDCALLBULL FC_FUNC_(mpi_start,MPI_START) () {}
+void STDCALLBULL FC_FUNC_(mpi_testall,MPI_TESTALL) () {}
+void STDCALLBULL FC_FUNC_(mpi_testany,MPI_TESTANY) () {}
+void STDCALLBULL FC_FUNC_(mpi_win_post,MPI_WIN_POST) () {}
+void STDCALLBULL FC_FUNC_(mpi_win_wait,MPI_WIN_WAIT) () {}
+void STDCALLBULL FC_FUNC_(mpi_waitsome,MPI_WAITSOME) () {}
+
+
 void STDCALLBULL MPI_Type_free() {}
 void STDCALLBULL MPI_Startall() {}
 void STDCALLBULL MPI_Gather() {}
