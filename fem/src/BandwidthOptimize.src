@@ -40,7 +40,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: BandwidthOptimize.src,v 1.6 2006/11/15 13:46:37 jpr Exp $
+! * $Id: BandwidthOptimize.src,v 1.7 2007/01/19 09:42:42 jpr Exp $
 ! ******************************************************************************
 
 !-------------------------------------------------------------------------------
@@ -103,12 +103,12 @@ CONTAINS
 
 !-------------------------------------------------------------------------------
    FUNCTION OptimizeBandwidth( ListMatrix, Perm, InvInitialReorder, LocalNodes, &
-             Optimize, Equation ) RESULT( HalfBandWidth )
+             Optimize, UseOptimized, Equation ) RESULT( HalfBandWidth )
 !-------------------------------------------------------------------------------
 use spariterglobals
 
      INTEGER, DIMENSION(:) :: Perm, InvInitialReorder
-     LOGICAL :: Optimize
+     LOGICAL :: Optimize, UseOptimized
      CHARACTER(LEN=*) :: Equation
      TYPE(ListMatrixPointer_t) :: ListMatrix(:)
 
@@ -245,7 +245,7 @@ use spariterglobals
      CALL Info( 'OptimizeBandwidth', Message, Level=4 )
      HalfBandWidth = HalfBandWidthAfter
 
-     IF ( HalfBandWidthBefore < HalfBandWidth ) THEN
+     IF ( HalfBandWidthBefore < HalfBandWidth .AND. .NOT. UseOptimized ) THEN
        CALL Info( 'OptimizeBandwidth',&
              'Bandwidth optimization rejected, using original ordering.',Level=4 )
        HalfBandWidth = HalfBandWidthBefore

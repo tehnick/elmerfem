@@ -38,7 +38,7 @@
 ! *
 ! ******************************************************************************/
 ! *
-! * $Id: ElementUtils.src,v 1.17 2007/01/19 12:11:06 jpr Exp $
+! * $Id: ElementUtils.src,v 1.18 2007/02/07 11:42:22 jpr Exp $
 ! ******************************************************************************
 
 MODULE ElementUtils
@@ -495,7 +495,7 @@ CONTAINS
 !------------------------------------------------------------------------------
      TYPE(ListMatrixPointer_t), POINTER :: ListMatrix(:)
      CHARACTER(LEN=MAX_NAME_LEN) :: Eq
-     LOGICAL :: GotIt, DG, GB
+     LOGICAL :: GotIt, DG, GB, UseOptimized
      INTEGER i,j,k,t,n, EDOFs, FDOFs, BDOFs
      TYPE(Element_t),POINTER :: CurrentElement
      INTEGER, ALLOCATABLE :: InvInitialReorder(:)
@@ -554,6 +554,9 @@ CONTAINS
         IF ( Perm(i) > 0 ) InvInitialReorder(Perm(i)) = i
      END DO
 
+     UseOptimized = ListGetLogical( Solver % Values, &
+       'Optimize Bandwidth Use Always', GotIt )
+
 !------------------------------------------------------------------------------
 !    Compute matrix structure and do bandwidth optimization if requested
 !------------------------------------------------------------------------------
@@ -563,12 +566,12 @@ CONTAINS
      IF ( PRESENT(Equation) ) THEN
         CALL MakeListMatrix( Model, Solver, Mesh, ListMatrix, Perm, k, Eq, DG, GB )
         n = OptimizeBandwidth( ListMatrix, Perm, InvInitialReorder, &
-                      k, OptimizeBW, Eq )
+                      k, OptimizeBW, UseOptimized, Eq )
      ELSE 
         CALL MakeListMatrix( Model, Solver, Mesh, ListMatrix, Perm, k, &
                 DGSolver=DG, GlobalBubbles=GB )
         n = OptimizeBandwidth( ListMatrix, Perm, InvInitialReorder, &
-                      k, OptimizeBW,' ' )
+                      k, OptimizeBW,UseOptimized, ' ' )
      ENDIF
 !------------------------------------------------------------------------------
 !    Ok, create and initialize the matrix

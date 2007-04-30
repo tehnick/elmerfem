@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterComm.src,v 1.36 2007/04/19 07:20:55 jpr Exp $
+! * $Id: SParIterComm.src,v 1.37 2007/04/25 11:07:18 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -296,7 +296,8 @@ CONTAINS
     ! Make sure that the owner of a matrix dof is one that
     ! has it active:
     ! -----------------------------------------------------
-#if 1
+#if 0
+tstart = RealTime()
     DO i=1,SIZE(SourceMatrix % Perm)
       IF ( ParallelInfo % Interface(i) ) THEN
 
@@ -306,8 +307,8 @@ CONTAINS
           IF ( k == ParEnv % Mype ) THEN
             Active(j) = SourceMatrix % Perm(i)
           ELSE IF ( ParEnv % Active(k+1) ) THEN
-            CALL MPI_BSEND( SourceMatrix % Perm(i), 1, MPI_INTEGER, &
-                  k, 100, MPI_COMM_WORLD, ierr)
+            CALL MPI_BSEND( SourceMatrix % Perm(i), 1, MPI_INTEGER, k, &
+              ParallelInfo % GlobalDOFs(i), MPI_COMM_WORLD, ierr)
           END IF
         END DO
 
@@ -316,8 +317,8 @@ CONTAINS
           IF ( .NOT. ParEnv % Active(k+1) ) THEN
             Active(j) = 0
           ELSE IF ( ParEnv % Mype/=k ) THEN
-            CALL MPI_RECV( Active(j), 1, MPI_INTEGER, k, 100,  &
-                  MPI_COMM_WORLD, status, ierr)
+            CALL MPI_RECV( Active(j), 1, MPI_INTEGER, k, &
+              ParallelInfo % GlobalDOFs(i),  MPI_COMM_WORLD, status, ierr)
           END IF
         END DO
 
@@ -332,6 +333,7 @@ CONTAINS
         END DO
       END IF
     END DO
+print*,parenv % mype, RealTime()-tstart; call flush(6)
 #endif
 
     DEALLOCATE( Active )
@@ -408,10 +410,12 @@ CONTAINS
      INTEGER, PARAMETER :: MaxIterates = 10
      INTEGER :: i,j,k,l,m,mm,n,nn,MinProc,MaxLcl,MaxGlb,InterfaceNodes
      INTEGER :: LIndex(100), IntN, Gindex, k1, k2, Iterate, p, q
-     INTEGER :: DataSize, TmpArray(3)
+     INTEGER :: DataSize, TmpArray(3),ddd
      INTEGER, POINTER :: IntArray(:),IntCnts(:),GIndices(:),Gorder(:)
+real(kind=dp) :: realtime, tstart
 !-----------------------------------------------------------------------
      CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
+tstart = realtime()
 
      Iterate = 0
 ! XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
@@ -765,7 +769,10 @@ CONTAINS
      ! they don't, ask them to return a request to be removed from our neighbour list:
      !---------------------------------------------------------------------------------
      DO i = n, Mesh % NumberOfNodes
-        IF( Mesh % ParallelInfo % GlobalDOFs(i) < 1 ) THEN
+!      IF( Mesh % ParallelInfo % GlobalDOFs(i) < 1 ) THEN
+         IF( Mesh % ParallelInfo % GlobalDOFs(i) < 1 .OR. &
+              SIZE(Mesh % ParallelInfo % NeighbourList(i) % Neighbours )>2 ) THEN
+
            !WRITE(*,'(A,I5,A,I8,A,2I8)') 'SParGlobalNumbering: PE',ParEnv % MyPE+1, &
            !     ' Did not receive global number for node(loc):', i, ' Parents nodes(glob):', &
            !     Mesh % ParallelInfo % GlobalDOFs( parentnodes(i,:) )
@@ -786,18 +793,21 @@ CONTAINS
      !
      ! Send the query (CASE 2):
      !--------------------------
+!ddd = 0
      DO i = 1, ParEnv % PEs              
         IF( i-1 == ParEnv % MyPE ) CYCLE
         IF( .NOT. ParEnv % IsNeighbour(i) ) CYCLE
 
         DataSize = 0
         IF( ASSOCIATED( Request2(i) % DATA ) ) DataSize = SIZE( Request2(i) % DATA )
+!ddd = ddd+DataSize
 
         CALL MPI_SEND( DataSize, 1, MPI_INTEGER, i-1, 900, MPI_COMM_WORLD, ierr)
         IF( DataSize < 1 ) CYCLE
 
         CALL MPI_BSEND( Request2(i) % DATA, DataSize, MPI_INTEGER, i-1, 950, MPI_COMM_WORLD, ierr)
      END DO
+!print *,'*****',ParEnv % MyPE+1,ddd
      !
      ! Receive the query (CASE 2):
      !----------------------------
@@ -1023,6 +1033,7 @@ CONTAINS
      DEALLOCATE( Request1, Request2 )
 
      CALL MPI_BARRIER( MPI_COMM_WORLD, ierr )
+!print*,'globnum: ', parenv % mype, RealTime()-tstart; call flush(6)
 
      RETURN
 
