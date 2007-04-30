@@ -1,7 +1,7 @@
 dnl 
 dnl Elmer specific M4sh macros 
 dnl
-dnl @version $Id: acx_elmer.m4,v 1.87 2006/12/21 12:48:17 jpr Exp $
+dnl @version $Id: acx_elmer.m4,v 1.88 2007/01/05 06:49:24 jpr Exp $
 dnl @author juha.vierinen@csc.fi 5/2005
 dnl
 
@@ -892,7 +892,7 @@ case "$canonical_host_type" in
 	fi
 
 	if test x"$CXX" != x; then
- 	case "$CC" in 
+ 	case "$CXX" in 
 	  icc | icc)
 		true
 	  ;;
