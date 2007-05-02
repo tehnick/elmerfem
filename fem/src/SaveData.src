@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SaveData.src,v $
+! * Revision 1.32  2007/05/02 14:28:11  raback
+! * *** empty log message ***
+! *
 ! * Revision 1.31  2007/03/09 13:43:39  raback
 ! * *** empty log message ***
 ! *
@@ -172,7 +175,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       MaxVars, NoEigenValues, Ind, EigenDofs
   REAL (KIND=DP) :: CPUTime, CPUMemory
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.31 2007/03/09 13:43:39 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.32 2007/05/02 14:28:11 raback Exp $"
 
   SAVE SubroutineVisited, NumberOfVars, &
       NoPoints, PointIndex, CoordinateIndex, CoordinateDist, ResultPrefix, &
@@ -473,10 +476,17 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         Value = VectorMeanDeviation(Var,Oper)
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName), Value)
         
-      CASE ('volume','int','int mean','int variance','potential energy',&
-          'diffusive energy','convective energy')
+      CASE ('int','int mean','int variance')
         Value = BulkIntegrals(Var, Oper, GotCoeff, CoefficientName)
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName), Value)
+
+      CASE ('volume','potential energy','diffusive energy','convective energy')
+        Value = BulkIntegrals(Var, Oper, GotCoeff, CoefficientName)
+	IF(GotCoeff) THEN
+          CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName)//' with '//TRIM(CoefficientName), Value)
+        ELSE
+          CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName), Value)
+        END IF
 
       CASE('boundary sum','boundary dofs','boundary mean','boundary max','boundary min',&
           'boundary max abs','boundary min abs')
@@ -2088,7 +2098,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t), POINTER   :: CurrentElement, NextElement
   CHARACTER(LEN=MAX_NAME_LEN) :: SideFile, SideNamesFile, VarName, CondName, SideParFile
   CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: ValueNames(:)
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.31 2007/03/09 13:43:39 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.32 2007/05/02 14:28:11 raback Exp $"
 
   LOGICAL :: cand, Parallel
 
