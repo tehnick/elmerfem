@@ -6277,9 +6277,10 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
     }
   }
 
-  ReorderElements(data,bound,FALSE,corder,info);    
 
   if(grid->rotate) {
+    ReorderElements(data,bound,FALSE,corder,info);    
+
     CylindricalCoordinateImprove(data,grid->rotateimprove,
 				 grid->rotateradius1,grid->rotateradius2);
 
