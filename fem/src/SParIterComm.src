@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterComm.src,v 1.37 2007/04/25 11:07:18 jpr Exp $
+! * $Id: SParIterComm.src,v 1.38 2007/04/30 06:48:41 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -2263,6 +2263,116 @@ SUBROUTINE ExchangeIfValues( NbsIfMatrix, RecvdIfMatrix, NeedMass, NeedDamp )
   END DO
 !*********************************************************************
 END SUBROUTINE ExchangeIfValues
+!*********************************************************************
+
+
+!*********************************************************************
+SUBROUTINE ExchangeSourceVec( SourceMatrix, SplittedMatrix, &
+            ParallelInfo, SourceVec )
+!*********************************************************************
+  TYPE (SplittedMatrixT) :: SplittedMatrix
+  TYPE (Matrix_t) :: SourceMatrix
+  TYPE (ParallelInfo_t) :: ParallelInfo
+  REAL(KIND=dp), DIMENSION(:) :: SourceVec
+
+  TYPE Buf_t
+    INTEGER, POINTER :: RHSind(:)
+    REAL(KIND=dp), POINTER :: RHSVec(:)
+  END TYPE Buf_t
+  TYPE(Buf_t), ALLOCATABLE :: Buf(:)
+
+  ! Local variables
+  INTEGER :: i, j, k, datalen, ierr, sproc, destproc, ind, psum, dl, DOF
+  INTEGER :: owner, request
+  INTEGER, DIMENSION(MPI_STATUS_SIZE) :: status
+  INTEGER, DIMENSION(:), ALLOCATABLE :: indbuf
+  INTEGER, DIMENSION(:), ALLOCATABLE :: RHSbufInds
+  REAL(KIND=dp), DIMENSION(:), ALLOCATABLE :: valbuf
+
+  ALLOCATE( RHSBufInds(ParEnv % PEs), Buf(ParEnv % PEs) )
+  RHSBufInds = 0
+
+  DO i = 1, SourceMatrix % NumberOfRows
+    k = SourceMatrix % INVPerm(i)
+    DO j=1,SIZE(ParallelInfo % NeighbourList(k) % Neighbours)
+      owner = ParallelInfo % NeighbourList(k) % Neighbours(j)
+      IF ( owner /= ParEnv % MyPE .AND. ParEnv % Active(owner+1) ) THEN
+         RHSbufInds(owner+1) = RHSbufInds(owner+1) + 1
+      END IF
+    END DO
+  END DO
+
+  DO I=1,ParEnv % PEs
+    IF ( RHSBufInds(i) > 0 ) THEN
+       ALLOCATE(Buf(i) % RHSInd(RHSBufInds(i)),Buf(i) % RHSVec(RHSBUfInds(i)))
+    END IF
+  END DO
+
+  RHSBufInds = 0
+  DO i = 1, SourceMatrix % NumberOfRows
+    k = SourceMatrix % INVPerm(i)
+    DO j=1,SIZE(ParallelInfo % NeighbourList(k) % Neighbours)
+      owner = ParallelInfo % NeighbourList(k) % Neighbours(j)
+      IF ( owner /= ParEnv % MyPE .AND. ParEnv % Active(owner+1) ) THEN
+         RHSbufInds(owner+1) = RHSbufInds(owner+1) + 1
+         Buf(owner+1) % RHSind(RHSbufInds(owner+1)) = &
+               ParallelInfo % GlobalDOFs(k)
+         Buf(owner+1) % RHSvec(RHSbufInds(owner+1)) = SourceVec(i)
+      END IF
+    END DO
+  END DO
+
+  DO i = 1, ParEnv % PEs
+    IF ( ParEnv % IsNeighbour(i) ) THEN
+       destproc = i - 1
+       DataLen = RHSbufInds(i)
+       IF ( DataLen <= 0 ) THEN
+          CALL MPI_BSEND( 0, 1, MPI_INTEGER, &
+               destproc, 3000, MPI_COMM_WORLD, ierr )
+       ELSE
+          CALL MPI_BSEND( DataLen, 1, MPI_INTEGER, &
+               destproc, 3000, MPI_COMM_WORLD, ierr )
+
+          CALL MPI_BSEND( Buf(i) % RHSind, DataLen, &
+             MPI_INTEGER, destproc, 3001, MPI_COMM_WORLD, ierr )
+
+          CALL MPI_BSEND( Buf(i) % RHSVec, DataLen, &
+             MPI_DOUBLE_PRECISION, destproc, 3002, MPI_COMM_WORLD, ierr )
+       END IF
+    END IF
+  END DO
+
+  DO i = 1, ParEnv % NumOfNeighbours
+     CALL MPI_RECV( DataLen, 1, MPI_INTEGER, MPI_ANY_SOURCE, &
+             3000, MPI_COMM_WORLD, status, ierr )
+     sproc = status(MPI_SOURCE)
+
+     IF ( DataLen /= 0 ) THEN
+        ALLOCATE( IndBuf(DataLen), ValBuf(DataLen) )
+        CALL MPI_RECV( IndBuf, DataLen, MPI_INTEGER, sproc, &
+                3001, MPI_COMM_WORLD, status, ierr )
+        CALL MPI_RECV( ValBuf, DataLen, MPI_DOUBLE_PRECISION, &
+             sproc, 3002, MPI_COMM_WORLD, status, ierr )
+        DO j = 1, DataLen
+           Ind = SearchNode( ParallelInfo, IndBuf(j) )
+           IF ( Ind /= -1 ) THEN
+              Ind = SourceMatrix % Perm(Ind)
+              IF ( Ind > 0 ) &
+                 SourceVec(Ind) = SourceVec(Ind) + ValBuf(j)
+           END IF
+        END DO
+        DEALLOCATE( IndBuf, ValBuf )
+     END IF
+  END DO
+
+  DO i=1,ParEnv % PEs
+    IF (RHSBufInds(i)>0) DEALLOCATE(Buf(i) % RHSInd, Buf(i) % RHSVec)
+  END DO
+  ! Clean up temporary work space
+  DEALLOCATE( Buf, RHSbufInds )
+
+!*********************************************************************
+END SUBROUTINE ExchangeSourceVec
 !*********************************************************************
 
 

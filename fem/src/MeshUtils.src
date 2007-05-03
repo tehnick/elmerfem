@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.52  2007/04/13 08:28:08  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.51  2007/03/30 09:30:02  jpr
 ! * *** empty log message ***
 ! *
@@ -166,7 +169,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.51 2007/03/30 09:30:02 jpr Exp $
+! * $Id: MeshUtils.src,v 1.52 2007/04/13 08:28:08 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -522,6 +525,7 @@ CONTAINS
           IF ( Def_Dofs(body,4) == 0 ) inDOFs(4) = n
         END IF
 
+        NULLIFY( Element % DGIndexes )
         IF ( inDOFs(4)>0 ) THEN
           CALL AllocateVector( Element % DGIndexes, inDOFs(4))
           DO j=1,inDOFs(4)
@@ -606,7 +610,7 @@ CONTAINS
       END IF
 
       IF ( Left >= MinEIndex .AND. Left <= MaxEIndex ) THEN
-         Left  = LocalEPerm( Left - MinEIndex + 1)
+         Left  = LocalEPerm(Left - MinEIndex + 1)
       ELSE IF ( Left > 0 ) THEN
          WRITE( Message, * ) mype,'BOUNDARY PARENT out of range: ', Tag, Left
          CALL Error( 'LoadMesh', Message )
@@ -614,7 +618,7 @@ CONTAINS
       END IF
 
       IF ( Right >= MinEIndex .AND. Right <= MaxEIndex ) THEN
-         Right = LocalEPerm( Right - MinEIndex + 1)
+         Right = LocalEPerm(Right - MinEIndex + 1)
       ELSE IF ( Right > 0 ) THEN
          WRITE( Message, * ) mype,'BOUNDARY PARENT out of range: ', Tag,Right
          CALL Error( 'LoadMesh', Message )

@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.71  2007/04/30 11:58:46  jpr
+! * In AvarageBoundaryNormals() check the #normals to avarage > 0.
+! *
 ! * Revision 1.70  2007/04/27 11:12:07  apursula
 ! * Moved "passive" stuff into a new function CheckPassiveElement
 ! *
@@ -211,7 +214,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.70 2007/04/27 11:12:07 apursula Exp $
+! * $Id: SolverUtils.src,v 1.71 2007/04/30 11:58:46 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -2666,9 +2669,6 @@ CONTAINS
     HarmonicAnalysis = Solver % NOFEigenValues>0 .AND. &
           ListGetLogical( Solver % Values, 'Harmonic Analysis',GotIt )
 
-!   Cant use scaling in parallel:
-!   --------------------------
-    IF ( ParEnv % PEs > 1 ) ScaleSystem = .FALSE.
 
     IF ( ScaleSystem .AND. .NOT. HarmonicAnalysis ) THEN
 !
@@ -2676,64 +2676,74 @@ CONTAINS
 !       (DAD)y = Db, where D = 1/SQRT(Diag(A)), and y = D^-1 x
 !     --------------------------------------------------------
       ALLOCATE( Diag(n) )
-      IF ( ParEnv % PEs <= 1 ) THEN
-         IF ( Solver % Matrix % COMPLEX ) THEN
-            DO i=1,n,2
-              j = A % Diag(i)
-              DiagReal  =  A % Values(j)
-              DiagImag  = -A % Values(j+1)
-              IF ( ABS(CMPLX(DiagReal,DiagImag,KIND=dp)) > 0.0d0 ) THEN
-                Diag(i)   = 1.0d0 / SQRT( ABS( CMPLX(DiagReal,DiagImag,KIND=dp) ) )
-                Diag(i+1) = 1.0d0 / SQRT( ABS( CMPLX(DiagReal,DiagImag,KIND=dp) ) )
-              ELSE
-                Diag(i)   = 1.0d0
-                Diag(i+1) = 1.0d0
-              END IF
-            END DO
-         ELSE
-            DO i=1,n
-              IF ( ABS( A % Values(A % Diag(i)) ) > 0.0d0 ) THEN
-                 Diag(i) = 1.0d0 / SQRT( ABS(A % Values(A % Diag(i))) )
-              ELSE
-                Diag(i) = 1.0d0
-              END IF
-            END DO
-         END IF
-
-         DO i=1,n
-            DO j=A % Rows(i), A % Rows(i+1)-1
-               A % Values(j) = A % Values(j) * &
-                 ( Diag(i) * Diag(A % Cols(j)) )
-            END DO
-         END DO
-
-         b(1:n) =  b(1:n) * Diag(1:n)
-
-         IF ( ASSOCIATED( A % MassValues ) ) THEN
-            IF (SIZE(A % Values)==SIZE(A % MassValues)) THEN
-               DO i=1,n
-                  DO j=A % Rows(i), A % Rows(i+1)-1
-                     A % MassValues(j) = A % MassValues(j) * &
-                           ( Diag(i) * Diag(A % Cols(j)) )
-                  END DO
-               END DO
-            END IF
-         END IF
-
-         IF ( ASSOCIATED( A % DampValues ) ) THEN
-            IF (SIZE(A % Values)==SIZE(A % DampValues)) THEN
-               DO i=1,n
-                  DO j=A % Rows(i), A % Rows(i+1)-1
-                     A % DampValues(j) = A % DampValues(j) * &
-                           ( Diag(i) * Diag(A % Cols(j)) )
-                  END DO
-               END DO
-            END IF
-         END IF
+      IF ( Solver % Matrix % Complex ) THEN
+        DO i=1,n,2
+          j = A % Diag(i)
+          Diag(i)   = A % Values(j)
+          Diag(i+1) = A % Values(j+1)
+        END DO
       ELSE
-         Diag = 1.0d0
+        Diag(1:n) = A % Values(A % Diag(1:n))
+      END IF
+
+      IF ( ParEnv % PEs>1 ) THEN
+         CALL ParallelDiagonal(Solver % Matrix, Diag)
+      END IF
+
+      IF ( Solver % Matrix % Complex ) THEN
+        DO i=1,n,2
+          DiagReal  =  Diag(i)
+          DiagImag  = -Diag(i+1)
+          IF ( ABS(CMPLX(DiagReal,DiagImag,KIND=dp))/=0.0d0 ) THEN
+            Diag(i)   = 1.0d0/SQRT(ABS(CMPLX(DiagReal,DiagImag,KIND=dp)))
+            Diag(i+1) = 1.0d0/SQRT(ABS(CMPLX(DiagReal,DiagImag,KIND=dp)))
+          ELSE
+            Diag(i)   = 1.0d0
+            Diag(i+1) = 1.0d0
+          END IF
+        END DO
+      ELSE
+        DO i=1,n
+          IF ( ABS(Diag(i)) /= 0.0_dp ) THEN
+            Diag(i) = 1.0_dp / SQRT(ABS(Diag(i)))
+          ELSE
+            Diag(i) = 1.0_dp
+          END IF
+        END DO
+      END IF
+
+      DO i=1,n
+         DO j=A % Rows(i), A % Rows(i+1)-1
+            A % Values(j) = A % Values(j) * &
+              ( Diag(i) * Diag(A % Cols(j)) )
+         END DO
+      END DO
+
+      b(1:n) =  b(1:n) * Diag(1:n)
+
+      IF ( ASSOCIATED( A % MassValues ) ) THEN
+         IF (SIZE(A % Values)==SIZE(A % MassValues)) THEN
+            DO i=1,n
+               DO j=A % Rows(i), A % Rows(i+1)-1
+                  A % MassValues(j) = A % MassValues(j) * &
+                        ( Diag(i) * Diag(A % Cols(j)) )
+               END DO
+            END DO
+         END IF
+      END IF
+
+      IF ( ASSOCIATED( A % DampValues ) ) THEN
+         IF (SIZE(A % Values)==SIZE(A % DampValues)) THEN
+            DO i=1,n
+               DO j=A % Rows(i), A % Rows(i+1)-1
+                  A % DampValues(j) = A % DampValues(j) * &
+                        ( Diag(i) * Diag(A % Cols(j)) )
+               END DO
+            END DO
+         END IF
       END IF
     END IF
+
     IF ( Solver % MultiGridLevel == -1  ) RETURN
 
 !------------------------------------------------------------------------------
@@ -2835,9 +2845,6 @@ CONTAINS
 !   -------------------------------------------
     IF ( ScaleSystem ) x(1:n) = x(1:n) / Diag(1:n)
 
-    NodalLoads => VariableGet( Solver % Mesh % Variables, &
-       Solver % Variable % Name(1:Solver % Variable % NameLen) // ' Loads' )
-
     IF ( ParEnv % PEs <= 1 ) THEN
        IF ( ALL( b(1:n) == 0.0d0 ) ) THEN
           x = 0.0d0
@@ -2852,75 +2859,6 @@ CONTAINS
              CALL DirectSolver( A, x, b, Solver )
           END IF
        END IF
-       
-
-       IF ( ScaleSystem ) THEN
-! 
-!         Solve x:  INV(D)x = y
-!         ----------------------
-          x(1:n) = x(1:n) * Diag(1:n)
-
-! 
-!         Scale the system back to original:
-!         ----------------------------------
-          DO i=1,n
-            DO j=A % Rows(i), A % Rows(i+1)-1
-              A % Values(j) = A % Values(j) / ( Diag(i) * Diag(A % Cols(j)) )
-            END DO
-          END DO
-
-          b(1:n) =  b(1:n) / Diag(1:n)
-
-          IF ( ASSOCIATED( A % MassValues ) ) THEN
-             IF (SIZE(A % Values)==SIZE(A % MassValues)) THEN
-                DO i=1,n
-                   DO j=A % Rows(i), A % Rows(i+1)-1
-                      A % MassValues(j) = A % MassValues(j) / &
-                            ( Diag(i) * Diag(A % Cols(j)) )
-                   END DO
-                END DO
-             END IF
-          END IF
-
-          IF ( ASSOCIATED( A % DampValues ) ) THEN
-             IF (SIZE(A % Values)==SIZE(A % DampValues)) THEN
-                DO i=1,n
-                   DO j=A % Rows(i), A % Rows(i+1)-1
-                      A % DampValues(j) = A % DampValues(j) / &
-                            ( Diag(i) * Diag(A % Cols(j)) )
-                   END DO
-                END DO
-             END IF
-          END IF
-
-          DEALLOCATE( Diag )
-       END IF
-
-       CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
-
-       IF ( ASSOCIATED(NodalLoads) .AND. ASSOCIATED(A % BulkValues) ) THEN
-         ALLOCATE( TempVector(n) )
-         SaveValues => A % Values
-         A % Values => A % BulkValues
-         CALL MatrixVectorMultiply( A, x, TempVector )
-         A % Values => SaveValues
-         TempVector = TempVector - A % BulkRHS
-         DO i=1,SIZE( NodalLoads % Perm )
-           IF ( NodalLoads % Perm(i)>0 .AND. Solver % Variable % Perm(i)>0 ) THEN
-              DO j=1,DOFs
-                NodalLoads % Values(DOFs*(NodalLoads % Perm(i)-1)+j) =  &
-                   TempVector(DOFs*(Solver % Variable % Perm(i)-1)+j)
-              END DO
-            END IF
-         END DO
-         DEALLOCATE( TempVector )
-       END IF
-
-       IF ( Relax ) THEN
-          x(1:n) = (1-Relaxation)*Px + Relaxation*x(1:n)
-       END IF
-       Norm = SQRT( SUM( x(1:n)**2 ) / n )
-!------------------------------------------------------------------------------
     ELSE
        IF ( Solver % MultiGridSolver ) THEN
           CALL MultiGridSolve( A, x, b, &
@@ -2929,13 +2867,81 @@ CONTAINS
           CALL ParallelIter( A, A % ParallelInfo, DOFs, &
                    x, b, Solver, A % ParMatrix )
        END IF
-!------------------------------------------------------------------------------
-       CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
-       IF ( Relax ) THEN
-          x(1:n) = (1-Relaxation)*Px + Relaxation*x(1:n)
+    END IF
+
+    IF ( ScaleSystem ) THEN
+! 
+!      Solve x:  INV(D)x = y
+!      ----------------------
+       x(1:n) = x(1:n) * Diag(1:n)
+
+! 
+!      Scale the system back to original:
+!      ----------------------------------
+       DO i=1,n
+         DO j=A % Rows(i), A % Rows(i+1)-1
+           A % Values(j) = A % Values(j) / ( Diag(i) * Diag(A % Cols(j)) )
+         END DO
+       END DO
+
+       b(1:n) =  b(1:n) / Diag(1:n)
+
+       IF ( ASSOCIATED( A % MassValues ) ) THEN
+          IF (SIZE(A % Values)==SIZE(A % MassValues)) THEN
+             DO i=1,n
+                DO j=A % Rows(i), A % Rows(i+1)-1
+                   A % MassValues(j) = A % MassValues(j) / &
+                         ( Diag(i) * Diag(A % Cols(j)) )
+                END DO
+             END DO
+          END IF
        END IF
-!------------------------------------------------------------------------------
-       Norm = ParallelNorm( n,x )
+
+       IF ( ASSOCIATED( A % DampValues ) ) THEN
+          IF (SIZE(A % Values)==SIZE(A % DampValues)) THEN
+             DO i=1,n
+                DO j=A % Rows(i), A % Rows(i+1)-1
+                   A % DampValues(j) = A % DampValues(j) / &
+                         ( Diag(i) * Diag(A % Cols(j)) )
+                END DO
+             END DO
+          END IF
+       END IF
+
+       DEALLOCATE( Diag )
+    END IF
+
+    CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
+
+    NodalLoads => VariableGet( Solver % Mesh % Variables, &
+       Solver % Variable % Name(1:Solver % Variable % NameLen) // ' Loads' )
+
+    IF ( ASSOCIATED(NodalLoads) .AND. ASSOCIATED(A % BulkValues) ) THEN
+      ALLOCATE( TempVector(n) )
+      SaveValues => A % Values
+      A % Values => A % BulkValues
+      CALL MatrixVectorMultiply( A, x, TempVector )
+      A % Values => SaveValues
+      TempVector = TempVector - A % BulkRHS
+      DO i=1,SIZE( NodalLoads % Perm )
+        IF ( NodalLoads % Perm(i)>0 .AND. Solver % Variable % Perm(i)>0 ) THEN
+           DO j=1,DOFs
+             NodalLoads % Values(DOFs*(NodalLoads % Perm(i)-1)+j) =  &
+                TempVector(DOFs*(Solver % Variable % Perm(i)-1)+j)
+           END DO
+         END IF
+      END DO
+      DEALLOCATE( TempVector )
+    END IF
+
+    IF ( Relax ) THEN
+       x(1:n) = (1-Relaxation)*Px + Relaxation*x(1:n)
+    END IF
+
+    IF ( ParEnv % PEs > 1 ) THEN
+      Norm = ParallelNorm( n,x )
+    ELSE
+      Norm = SQRT( SUM( x(1:n)**2 ) / n )
     END IF
 !------------------------------------------------------------------------------
 

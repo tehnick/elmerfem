@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ParallelUtils.src,v 1.14 2007/04/13 08:28:08 jpr Exp $
+! * $Id: ParallelUtils.src,v 1.15 2007/04/18 11:57:58 jpr Exp $
 ! ******************************************************************************
 
 MODULE ParallelUtils
@@ -147,13 +147,19 @@ CONTAINS
 
            n = 0
            DO i=1,Mesh % NumberOfBulkElements
-             n = MAX(n,MAXVAL(Mesh % Elements(i) % DGIndexes))
+             Element => Mesh % Elements(i)
+             IF ( .NOT. ASSOCIATED(Element % DGIndexes) ) CYCLE
+             n = MAX(n,MAXVAL(Element % DGIndexes))
            END DO
+
            ALLOCATE( MatrixPI % GlobalDOFs(n) )
+
            DO i=1,Mesh % NumberOfBulkElements
-             DO j=1,SIZE(Mesh % Elements(i) % DGIndexes)
-               k = Mesh % Elements(i) % DGIndexes(j)
-               MatrixPI % GlobalDOFs(k) = 8*(Mesh % Elements(i) % ElementIndex)+j
+             Element => Mesh % Elements(i)
+             IF ( .NOT. ASSOCIATED(Element % DGIndexes) ) CYCLE
+             DO j=1,SIZE(Element % DGIndexes)
+               k = Element % DGIndexes(j)
+               MatrixPI % GlobalDOFs(k) = 8*(Element % ElementIndex)+j
              END DO
            END DO
            ALLOCATE( MatrixPI % Interface(n), MatrixPI % NeighbourList(n) )
@@ -166,6 +172,7 @@ CONTAINS
 
            DO i=1,Mesh % NumberOfBulkElements
              Element => Mesh % Elements(i)
+             IF ( .NOT. ASSOCIATED(Element % DGIndexes) ) CYCLE
              IF ( ALL(MeshPI % Interface(Element % NodeIndexes)) ) THEN
                DO j=1,Element % Type % NumberOfNodes
                   K = Element % DGIndexes(j)
@@ -220,6 +227,22 @@ CONTAINS
 #endif
 !-------------------------------------------------------------------------------
     END SUBROUTINE ParallelInitSolve
+!-------------------------------------------------------------------------------
+
+!-------------------------------------------------------------------------------
+    SUBROUTINE ParallelDiagonal( Matrix, Diag )
+!-------------------------------------------------------------------------------
+       TYPE(Matrix_t), POINTER :: Matrix
+       REAL(KIND=dp) :: Diag(:)
+!-------------------------------------------------------------------------------
+
+       GlobalData     => Matrix % ParMatrix
+       ParEnv         =  GlobalData % ParEnv
+
+       CALL ExchangeSourceVec( Matrix, Matrix % ParMatrix % SplittedMatrix, &
+              Matrix % ParallelInfo, Diag )
+!-------------------------------------------------------------------------------
+    END SUBROUTINE ParallelDiagonal
 !-------------------------------------------------------------------------------
 
 

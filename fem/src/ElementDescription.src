@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: ElementDescription.src,v $
+! * Revision 1.30  2007/04/27 10:52:58  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.29  2007/01/09 14:14:42  jpr
 ! * Small cleanups / optimizations.
 ! *
@@ -134,7 +137,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: ElementDescription.src,v 1.29 2007/01/09 14:14:42 jpr Exp $
+! * $Id: ElementDescription.src,v 1.30 2007/04/27 10:52:58 jpr Exp $
 ! ******************************************************************************/
 
 MODULE ElementDescription
@@ -4477,7 +4480,7 @@ END IF
 
        CASE DEFAULT
          EdgeMap => LGetEdgeMap(Family)
-         hk = HUGE(1.0_dp)
+         hK = HUGE(1.0_dp)
          DO i=1,SIZE(EdgeMap,1)
            j=EdgeMap(i,1)
            k=EdgeMap(i,2)
@@ -4895,6 +4898,8 @@ END IF
     ELSE
        Element => Boundary % BoundaryInfo % Right
     END IF
+
+    IF ( .NOT. ASSOCIATED(Element) ) RETURN
 
     n = Element % Type % NumberOfNodes
     ALLOCATE( nx(n), ny(n), nz(n) )
