@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterComm.src,v 1.38 2007/04/30 06:48:41 jpr Exp $
+! * $Id: SParIterComm.src,v 1.39 2007/05/03 11:04:51 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -296,45 +296,43 @@ CONTAINS
     ! Make sure that the owner of a matrix dof is one that
     ! has it active:
     ! -----------------------------------------------------
-#if 0
-tstart = RealTime()
-    DO i=1,SIZE(SourceMatrix % Perm)
-      IF ( ParallelInfo % Interface(i) ) THEN
-
-        sz = SIZE(ParallelInfo % NeighbourList(i) % Neighbours)
-        DO j=1,sz
-          k = ParallelInfo % NeighbourList(i) % Neighbours(j)
-          IF ( k == ParEnv % Mype ) THEN
-            Active(j) = SourceMatrix % Perm(i)
-          ELSE IF ( ParEnv % Active(k+1) ) THEN
-            CALL MPI_BSEND( SourceMatrix % Perm(i), 1, MPI_INTEGER, k, &
-              ParallelInfo % GlobalDOFs(i), MPI_COMM_WORLD, ierr)
-          END IF
-        END DO
-
-        DO j=1,sz
-          k = ParallelInfo % NeighbourList(i) % Neighbours(j)
-          IF ( .NOT. ParEnv % Active(k+1) ) THEN
-            Active(j) = 0
-          ELSE IF ( ParEnv % Mype/=k ) THEN
-            CALL MPI_RECV( Active(j), 1, MPI_INTEGER, k, &
-              ParallelInfo % GlobalDOFs(i),  MPI_COMM_WORLD, status, ierr)
-          END IF
-        END DO
-
-        DO j=1,sz
-          IF ( Active(j)/=0 ) THEN
+    
+    IF ( .NOT. SourceMatrix % DGMatrix ) THEN
+      DO i=1,MIN( SIZE(ParallelInfo % Interface), SIZE(SourceMatrix % Perm) )
+        IF ( ParallelInfo % Interface(i) ) THEN
+          sz = SIZE(ParallelInfo % NeighbourList(i) % Neighbours)
+          DO j=1,sz
             k = ParallelInfo % NeighbourList(i) % Neighbours(j)
-            ParallelInfo % NeighbourList(i) % Neighbours(j) = &
-               ParallelInfo % NeighbourList(j) % Neighbours(1)
-            ParallelInfo % NeighbourList(i) % Neighbours(1) = k
-            EXIT
-          END IF
-        END DO
-      END IF
-    END DO
-print*,parenv % mype, RealTime()-tstart; call flush(6)
-#endif
+            IF ( k == ParEnv % Mype ) THEN
+              Active(j) = SourceMatrix % Perm(i)
+            ELSE IF ( ParEnv % Active(k+1) ) THEN
+              CALL MPI_BSEND( SourceMatrix % Perm(i), 1, MPI_INTEGER, k, &
+                ParallelInfo % GlobalDOFs(i), MPI_COMM_WORLD, ierr)
+            END IF
+          END DO
+
+          DO j=1,sz
+            k = ParallelInfo % NeighbourList(i) % Neighbours(j)
+            IF ( .NOT. ParEnv % Active(k+1) ) THEN
+              Active(j) = 0
+            ELSE IF ( ParEnv % Mype/=k ) THEN
+              CALL MPI_RECV( Active(j), 1, MPI_INTEGER, k, &
+                ParallelInfo % GlobalDOFs(i),  MPI_COMM_WORLD, status, ierr)
+            END IF
+          END DO
+
+          DO j=1,sz
+            IF ( Active(j)/=0 ) THEN
+              k = ParallelInfo % NeighbourList(i) % Neighbours(j)
+              ParallelInfo % NeighbourList(i) % Neighbours(j) = &
+                 ParallelInfo % NeighbourList(j) % Neighbours(1)
+              ParallelInfo % NeighbourList(i) % Neighbours(1) = k
+              EXIT
+            END IF
+          END DO
+        END IF
+      END DO
+    END IF
 
     DEALLOCATE( Active )
 !-----------------------------------------------------------------------
@@ -2863,12 +2861,8 @@ SUBROUTINE Recv_LocIf( SplittedMatrix, ndim, v )
                sproc, 6001, MPI_COMM_WORLD, status, ierr )
 
         DO k = 1, VecLen
-           IF ( RevInd(k) > 0 ) THEN
+           IF ( RevInd(k) > 0 ) &
               v(RevInd(k)) = v(RevInd(k)) + DPBuffer(k)
-           ELSE
-!             WRITE( Message, * ) ParEnv % MyPE, 'If Receive error: ', k,RevInd(k)
-!             CALL Error( 'Recv_LocIf', Message )
-           END IF
         END DO
      END IF
   END DO
@@ -2915,10 +2909,12 @@ SUBROUTINE SParActiveSUM(tsum)
 
    twop = 1
    DO i=1,n
-     IF ( MOD(myid,2*twop)==0 .AND. myid+twop<nActive ) THEN
-       CALL MPI_RECV(ssum, 1, MPI_DOUBLE_PRECISION, &
-          ActiveId(myid+twop), 7000, MPI_COMM_WORLD, status, ierr)
-       tsum = tsum + ssum
+     IF ( MOD(myid,2*twop)==0 ) THEN
+       IF (  myid+twop<nActive ) THEN
+         CALL MPI_RECV(ssum, 1, MPI_DOUBLE_PRECISION, &
+            ActiveId(myid+twop), 7000, MPI_COMM_WORLD, status, ierr)
+         tsum = tsum + ssum
+       END IF
      ELSE
        CALL MPI_BSEND(tsum, 1, MPI_DOUBLE_PRECISION, &
           ActiveId(myid-twop), 7000, MPI_COMM_WORLD, status, ierr)
@@ -2929,9 +2925,11 @@ SUBROUTINE SParActiveSUM(tsum)
 
    twop = 2**(n-1)
    DO i=n,1,-1
-     IF ( MOD(myid,2*twop)==0 .AND. myid+twop<nActive ) THEN
-       CALL MPI_BSEND(tsum, 1, MPI_DOUBLE_PRECISION, &
-          ActiveId(myid+twop), 7001, MPI_COMM_WORLD, status, ierr)
+     IF ( MOD(myid,2*twop)==0 ) THEN
+       IF ( myid+twop<nActive ) THEN
+         CALL MPI_BSEND(tsum, 1, MPI_DOUBLE_PRECISION, &
+            ActiveId(myid+twop), 7001, MPI_COMM_WORLD, status, ierr)
+       END IF
      ELSE IF ( MOD(myid,twop)==0 ) THEN
        CALL MPI_RECV(tsum, 1, MPI_DOUBLE_PRECISION, &
           ActiveId(myid-twop), 7001, MPI_COMM_WORLD, status, ierr)

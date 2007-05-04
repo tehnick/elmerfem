@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ParallelUtils.src,v 1.15 2007/04/18 11:57:58 jpr Exp $
+! * $Id: ParallelUtils.src,v 1.16 2007/05/03 11:04:51 jpr Exp $
 ! ******************************************************************************
 
 MODULE ParallelUtils
@@ -94,7 +94,7 @@ CONTAINS
        IF ( ParEnv % PEs <= 1 .OR. .NOT. ASSOCIATED(Solver % Matrix) ) RETURN
        Mesh => Solver % Mesh
        DOFs = Solver % Variable % DOFs
-       n = SIZE( Solver % Variable % Perm )
+       n = SIZE(Solver % Variable % Perm)
 
        ALLOCATE( Matrix % Perm(DOFs*n), Matrix % InvPerm(DOFs*n)  )
        Matrix % Perm    = 0
@@ -115,10 +115,7 @@ CONTAINS
           END IF
        END DO
 
-       Matrix % ParallelInfo => Solver % Mesh % ParallelInfo
-       DGSolver = ListGetLogical(Solver % Values, 'Discontinuous Galerkin', Found)
-
-       IF ( .NOT. DGSolver ) THEN
+       IF ( .NOT. Matrix % DGMatrix ) THEN
          n = Solver % Mesh % NumberOfNodes
          ALLOCATE( Matrix % ParallelInfo )
          ALLOCATE( Matrix % ParallelInfo % NeighbourList(DOFs*n) )
@@ -139,71 +136,69 @@ CONTAINS
             END DO
          END DO
        ELSE
-         IF ( DGSolver ) THEN
-           MeshPI => Solver % Mesh % ParallelInfo
+         MeshPI => Solver % Mesh % ParallelInfo
 
-           ALLOCATE( Matrix % ParallelInfo )
-           MatrixPI => Matrix % ParallelInfo
+         ALLOCATE( Matrix % ParallelInfo )
+         MatrixPI => Matrix % ParallelInfo
 
-           n = 0
-           DO i=1,Mesh % NumberOfBulkElements
-             Element => Mesh % Elements(i)
-             IF ( .NOT. ASSOCIATED(Element % DGIndexes) ) CYCLE
-             n = MAX(n,MAXVAL(Element % DGIndexes))
+         n = 0
+         DO i=1,Mesh % NumberOfBulkElements
+           Element => Mesh % Elements(i)
+           IF ( .NOT. ASSOCIATED(Element % DGIndexes) ) CYCLE
+           n = MAX(n,MAXVAL(Element % DGIndexes))
+         END DO
+
+         ALLOCATE( MatrixPI % GlobalDOFs(n) )
+
+         DO i=1,Mesh % NumberOfBulkElements
+           Element => Mesh % Elements(i)
+           IF ( .NOT. ASSOCIATED(Element % DGIndexes) ) CYCLE
+           DO j=1,SIZE(Element % DGIndexes)
+             k = Element % DGIndexes(j)
+             MatrixPI % GlobalDOFs(k) = 8*(Element % ElementIndex)+j
            END DO
+         END DO
+         ALLOCATE( MatrixPI % Interface(n), MatrixPI % NeighbourList(n) )
 
-           ALLOCATE( MatrixPI % GlobalDOFs(n) )
+         MatrixPI % Interface = .FALSE.
+         DO i=1,n
+           MtrxN => MatrixPI % NeighbourList(i)
+          MtrxN % Neighbours => NULL()
+         END DO
 
-           DO i=1,Mesh % NumberOfBulkElements
-             Element => Mesh % Elements(i)
-             IF ( .NOT. ASSOCIATED(Element % DGIndexes) ) CYCLE
-             DO j=1,SIZE(Element % DGIndexes)
-               k = Element % DGIndexes(j)
-               MatrixPI % GlobalDOFs(k) = 8*(Element % ElementIndex)+j
+         DO i=1,Mesh % NumberOfBulkElements
+           Element => Mesh % Elements(i)
+           IF ( .NOT. ASSOCIATED(Element % DGIndexes) ) CYCLE
+           IF ( ALL(MeshPI % Interface(Element % NodeIndexes)) ) THEN
+             DO j=1,Element % Type % NumberOfNodes
+                K = Element % DGIndexes(j)
+                L = Element % Nodeindexes(j)
+
+                MeshN => MeshPI % NeighbourList(L)
+                MtrxN => MatrixPI % NeighbourList(K)
+
+                MatrixPI % Interface(k) = .TRUE.
+
+                CALL AllocateVector( MtrxN % Neighbours, &
+                      SIZE(MeshN % Neighbours) )
+                MtrxN % Neighbours = MeshN % Neighbours
+                DO m=1,SIZE(MeshN % Neighbours)
+                 IF ( MeshN % Neighbours(m) == Element % PartIndex ) THEN
+                   MtrxN % Neighbours(1) = MeshN % Neighbours(m)
+                   MtrxN % Neighbours(m) = MeshN % Neighbours(1)
+                   EXIT
+                 END IF
+                END DO
              END DO
-           END DO
-           ALLOCATE( MatrixPI % Interface(n), MatrixPI % NeighbourList(n) )
-
-           MatrixPI % Interface = .FALSE.
-           DO i=1,n
-             MtrxN => MatrixPI % NeighbourList(i)
-            MtrxN % Neighbours => NULL()
-           END DO
-
-           DO i=1,Mesh % NumberOfBulkElements
-             Element => Mesh % Elements(i)
-             IF ( .NOT. ASSOCIATED(Element % DGIndexes) ) CYCLE
-             IF ( ALL(MeshPI % Interface(Element % NodeIndexes)) ) THEN
-               DO j=1,Element % Type % NumberOfNodes
-                  K = Element % DGIndexes(j)
-                  L = Element % Nodeindexes(j)
-
-                  MeshN => MeshPI % NeighbourList(L)
-                  MtrxN => MatrixPI % NeighbourList(K)
-
-                  MatrixPI % Interface(k) = .TRUE.
-
-                  CALL AllocateVector( MtrxN % Neighbours, &
-                        SIZE(MeshN % Neighbours) )
-                  MtrxN % Neighbours = MeshN % Neighbours
-                  DO m=1,SIZE(MeshN % Neighbours)
-                   IF ( MeshN % Neighbours(m) == Element % PartIndex ) THEN
-                     MtrxN % Neighbours(1) = MeshN % Neighbours(m)
-                     MtrxN % Neighbours(m) = MeshN % Neighbours(1)
-                     EXIT
-                   END IF
-                  END DO
-               END DO
-             END IF
-           END DO
-           DO i=1,n
-             MtrxN => MatrixPI % NeighbourList(i)
-             IF ( .NOT.ASSOCIATED( MtrxN % Neighbours) ) THEN
-               CALL AllocateVector(MtrxN % Neighbours,1)
-               MtrxN % Neighbours(1) = ParEnv % myPE
-             END IF
-           END DO
-         END IF
+           END IF
+         END DO
+         DO i=1,n
+           MtrxN => MatrixPI % NeighbourList(i)
+           IF ( .NOT.ASSOCIATED( MtrxN % Neighbours) ) THEN
+             CALL AllocateVector(MtrxN % Neighbours,1)
+             MtrxN % Neighbours(1) = ParEnv % myPE
+           END IF
+         END DO
        END IF
 
        Matrix % ParMatrix => &
