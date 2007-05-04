@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterSolver.src,v 1.22 2007/05/03 11:04:51 jpr Exp $
+! * $Id: SParIterSolver.src,v 1.23 2007/05/04 11:37:54 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -1544,11 +1544,8 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
   ALLOCATE(TmpRHSVec(SplittedMatrix % InsideMatrix % NumberOfRows))
   TmpRHSVec = 0
 
-  ALLOCATE(r(SIZE(RHSVec)))
-  r = RHSVec
   CALL ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
-         ParallelInfo, r, TmpRHSVec )
-  DEALLOCATE(r)
+         ParallelInfo, RHSVec, TmpRHSVec )
 
   !----------------------------------------------------------------------
   !
