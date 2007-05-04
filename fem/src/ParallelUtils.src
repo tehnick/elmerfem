@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ParallelUtils.src,v 1.16 2007/05/03 11:04:51 jpr Exp $
+! * $Id: ParallelUtils.src,v 1.17 2007/05/04 05:38:08 jpr Exp $
 ! ******************************************************************************
 
 MODULE ParallelUtils
@@ -210,10 +210,8 @@ CONTAINS
 
 
 !-------------------------------------------------------------------------------
-    SUBROUTINE ParallelInitSolve( Matrix, x, b, r, DOFs, Mesh  )
+    SUBROUTINE ParallelInitSolve( Matrix, x, b, r )
 !-------------------------------------------------------------------------------
-       TYPE(Mesh_t), POINTER :: Mesh
-       INTEGER :: DOFs
        REAL(KIND=dp) :: x(:), b(:), r(:)
        TYPE(Matrix_t), POINTER :: Matrix
 !-------------------------------------------------------------------------------
@@ -225,19 +223,19 @@ CONTAINS
 !-------------------------------------------------------------------------------
 
 !-------------------------------------------------------------------------------
-    SUBROUTINE ParallelDiagonal( Matrix, Diag )
+    SUBROUTINE ParallelSumVector( Matrix, x )
 !-------------------------------------------------------------------------------
-       TYPE(Matrix_t), POINTER :: Matrix
-       REAL(KIND=dp) :: Diag(:)
+       TYPE(Matrix_t) :: Matrix
+       REAL(KIND=dp) :: x(:)
 !-------------------------------------------------------------------------------
 
        GlobalData     => Matrix % ParMatrix
        ParEnv         =  GlobalData % ParEnv
 
        CALL ExchangeSourceVec( Matrix, Matrix % ParMatrix % SplittedMatrix, &
-              Matrix % ParallelInfo, Diag )
+              Matrix % ParallelInfo, x )
 !-------------------------------------------------------------------------------
-    END SUBROUTINE ParallelDiagonal
+    END SUBROUTINE ParallelSumVector
 !-------------------------------------------------------------------------------
 
 
@@ -263,7 +261,7 @@ CONTAINS
       TYPE(Matrix_t), POINTER :: Matrix
 !-------------------------------------------------------------------------------
       INTEGER :: i,ipar(1)
-      REAL(KIND=dp), POINTER :: Mx(:), Mr(:), Mb(:)
+      REAL(KIND=dp), POINTER :: Mx(:), Mr(:), Mb(:), r(:)
 
       TYPE(SplittedMatrixT), POINTER :: SP
       TYPE(Matrix_t), POINTER :: SavePtrIF(:), SavePtrNB(:), SavePtrIN
@@ -326,7 +324,7 @@ CONTAINS
          ELSE
             IF ( PRESENT(UseMassVals) ) THEN
                IF ( UseMassVals ) THEN
-                  SP => GlobalData % SplittedMatrix
+                  SP => Matrix % ParMatrix % SplittedMatrix
                   ALLOCATE( SavePtrIF( ParEnv % PEs ) )
                   ALLOCATE( SavePtrNB( ParEnv % PEs ) )
                   ALLOCATE( SavePtrIn )

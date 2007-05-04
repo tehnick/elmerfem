@@ -39,6 +39,10 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.72  2007/05/03 11:04:52  jpr
+! * Linear system scaling applied to parallel cases. A bug fix in parallel
+! * DG systems -> works now also on parts of the (meshed) domain.
+! *
 ! * Revision 1.71  2007/04/30 11:58:46  jpr
 ! * In AvarageBoundaryNormals() check the #normals to avarage > 0.
 ! *
@@ -214,7 +218,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.71 2007/04/30 11:58:46 jpr Exp $
+! * $Id: SolverUtils.src,v 1.72 2007/05/03 11:04:52 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -2687,7 +2691,7 @@ CONTAINS
       END IF
 
       IF ( ParEnv % PEs>1 ) THEN
-         CALL ParallelDiagonal(Solver % Matrix, Diag)
+         CALL ParallelSumVector(Solver % Matrix, Diag)
       END IF
 
       IF ( Solver % Matrix % Complex ) THEN

@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterSolver.src,v 1.21 2007/04/18 12:37:22 jpr Exp $
+! * $Id: SParIterSolver.src,v 1.22 2007/05/03 11:04:51 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -1525,7 +1525,7 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
   REAL(KIND=dp) :: dpar(HUTI_DPAR_DFLTSIZE)
   INTEGER :: ipar(HUTI_IPAR_DFLTSIZE)
   REAL(KIND=dp), DIMENSION(:,:), POINTER :: Work
-  REAL(KIND=dp), DIMENSION(:), ALLOCATABLE :: TmpXVec, TmpRHSVec
+  REAL(KIND=dp), DIMENSION(:), ALLOCATABLE :: TmpXVec, TmpRHSVec, r(:)
 
   INTEGER(KIND=AddrInt) :: AddrFunc
   REAL(KIND=dp) :: ILUT_TOL, RealTime
@@ -1541,11 +1541,14 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
   ! Initialize Right-Hand-Side
   !
   !----------------------------------------------------------------------
-  ALLOCATE( TmpRHSVec(SplittedMatrix % InsideMatrix % NumberOfRows) )
+  ALLOCATE(TmpRHSVec(SplittedMatrix % InsideMatrix % NumberOfRows))
   TmpRHSVec = 0
 
+  ALLOCATE(r(SIZE(RHSVec)))
+  r = RHSVec
   CALL ExchangeRHSIf( SourceMatrix, SplittedMatrix, &
-       ParallelInfo, RHSVec, TmpRHSVec )
+         ParallelInfo, r, TmpRHSVec )
+  DEALLOCATE(r)
 
   !----------------------------------------------------------------------
   !
