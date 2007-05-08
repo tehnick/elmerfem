@@ -39,11 +39,11 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Lists.src,v $
-! * Revision 1.31  2007/01/30 09:12:05  jpr
-! * *** empty log message ***
+! * Revision 1.32  2007/02/07 11:42:22  jpr
 ! *
-! * Revision 1.31  2007/01/22 08:42:57  jpr
-! * *** empty log message ***
+! * Enabled "Exported Variable n" defintions of "Internal Solvers". Added
+! * keyword "Radiation Solver" to use if "Equation=Heat Equation" solver
+! * not present.
 ! *
 ! * Revision 1.30  2007/01/11 07:40:04  jpr
 ! * Small bug fixes.
@@ -92,7 +92,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Lists.src,v 1.31 2007/01/30 09:12:05 jpr Exp $
+! * $Id: Lists.src,v 1.32 2007/02/07 11:42:22 jpr Exp $
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
@@ -512,9 +512,9 @@ CONTAINS
           to(i:i) = CHAR(j+U2L)
         ELSE
           to(i:i) = from(i:i)
+          IF ( to(i:i)=='[') k=i
         END IF
       END DO
-      k = INDEX(to,'[')
       IF ( k>0 ) n=k-1
     END FUNCTION StringToLowerCase
 !------------------------------------------------------------------------------
