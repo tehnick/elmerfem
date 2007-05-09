@@ -39,6 +39,10 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.53  2007/05/03 11:04:51  jpr
+! * Linear system scaling applied to parallel cases. A bug fix in parallel
+! * DG systems -> works now also on parts of the (meshed) domain.
+! *
 ! * Revision 1.52  2007/04/13 08:28:08  jpr
 ! * *** empty log message ***
 ! *
@@ -169,7 +173,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.52 2007/04/13 08:28:08 jpr Exp $
+! * $Id: MeshUtils.src,v 1.53 2007/05/03 11:04:51 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -532,7 +536,6 @@ CONTAINS
              DGIndex = DGIndex + 1
              Element % DGIndexes(j) = DGIndex
           END DO
-          Element % ElementIndex = ElementTags(i)
         ELSE
           NULLIFY( Element % DGIndexes )
         END IF
@@ -591,7 +594,6 @@ CONTAINS
     DO i=1,Mesh % NumberOfBulkElements
        LocalEPerm( ElementTags(i) - MinEIndex + 1 ) = i
     END DO
-    DEALLOCATE( ElementTags )
 
     ALLOCATE( Coord(3,Mesh % MaxElementNodes) )
 !------------------------------------------------------------------------------
@@ -911,6 +913,12 @@ CONTAINS
 
    IF ( parallel ) THEN
 
+      DO i=1,Mesh % NumberOfBulkElements
+        IF ( Mesh % Elements(i) % DGDOFs>1 ) THEN
+          Mesh % Elements(i) % ElementIndex = ElementTags(i)
+        END IF
+      END DO
+
      ALLOCATE( Mesh % ParallelInfo % GlobalDOFs(n) )
      Mesh % ParallelInfo % GlobalDOFs = 0
      Mesh % ParallelInfo % GlobalDOFs(1:Mesh % NumberOfNodes) = NodeTags
@@ -952,7 +960,7 @@ CONTAINS
        END IF
      END DO
    END IF
-   DEALLOCATE( LocalPerm )
+   DEALLOCATE( LocalPerm, ElementTags )
    CALL eio_close_mesh( eio_info )
    
    CALL eio_close( eio_info )
