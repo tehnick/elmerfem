@@ -43,24 +43,6 @@
 ! * Linear system scaling applied to parallel cases. A bug fix in parallel
 ! * DG systems -> works now also on parts of the (meshed) domain.
 ! *
-! * Revision 1.52  2007/04/13 08:28:08  jpr
-! * *** empty log message ***
-! *
-! * Revision 1.51  2007/03/30 09:30:02  jpr
-! * *** empty log message ***
-! *
-! * Revision 1.50  2007/03/30 08:20:21  jpr
-! * *** empty log message ***
-! *
-! * Revision 1.49  2007/03/30 06:03:44  jpr
-! * *** empty log message ***
-! *
-! * Revision 1.48  2007/03/29 12:20:07  jpr
-! * *** empty log message ***
-! *
-! * Revision 1.47  2007/03/28 10:21:40  jpr
-! * *** empty log message ***
-! *
 ! * Revision 1.46  2006/12/01 09:02:17  jpr
 ! * Initial changes to enable 'constant bulk system' for time dependent
 ! * simulations.
@@ -173,7 +155,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.53 2007/05/03 11:04:51 jpr Exp $
+! * $Id: MeshUtils.src,v 1.54 2007/05/09 07:27:32 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -913,11 +895,10 @@ CONTAINS
 
    IF ( parallel ) THEN
 
-      DO i=1,Mesh % NumberOfBulkElements
-        IF ( Mesh % Elements(i) % DGDOFs>1 ) THEN
-          Mesh % Elements(i) % ElementIndex = ElementTags(i)
-        END IF
-      END DO
+     DO i=1,Mesh % NumberOfBulkElements
+       IF ( Mesh % Elements(i) % DGDOFs>0 ) &
+         Mesh % Elements(i) % ElementIndex = ElementTags(i)
+     END DO
 
      ALLOCATE( Mesh % ParallelInfo % GlobalDOFs(n) )
      Mesh % ParallelInfo % GlobalDOFs = 0
