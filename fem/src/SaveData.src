@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SaveData.src,v $
+! * Revision 1.33  2007/05/02 14:55:53  raback
+! * *** empty log message ***
+! *
 ! * Revision 1.32  2007/05/02 14:28:11  raback
 ! * *** empty log message ***
 ! *
@@ -175,7 +178,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       MaxVars, NoEigenValues, Ind, EigenDofs
   REAL (KIND=DP) :: CPUTime, CPUMemory
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.32 2007/05/02 14:28:11 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.33 2007/05/02 14:55:53 raback Exp $"
 
   SAVE SubroutineVisited, NumberOfVars, &
       NoPoints, PointIndex, CoordinateIndex, CoordinateDist, ResultPrefix, &
@@ -482,7 +485,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
 
       CASE ('volume','potential energy','diffusive energy','convective energy')
         Value = BulkIntegrals(Var, Oper, GotCoeff, CoefficientName)
-	IF(GotCoeff) THEN
+        IF(GotCoeff) THEN
           CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName)//' with '//TRIM(CoefficientName), Value)
         ELSE
           CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName), Value)
@@ -1401,7 +1404,7 @@ CONTAINS
           ParentNodes % z(1:pn) = Mesh % Nodes % z(ParentIndexes(1:pn))
 
           IF(GotCoeff) THEN
-	    EnergyCoeff(1:n) = ListGetReal( Material, CoeffName, n, NodeIndexes )
+            EnergyCoeff(1:n) = ListGetReal( Material, CoeffName, n, NodeIndexes )
           ELSE
             EnergyCoeff(1:n) = 1.0d0
           END IF          
@@ -1413,7 +1416,7 @@ CONTAINS
               minv=1, maxv=Model % NumberOFMaterials )
           Material => Model % Materials(i) % Values
           IF(GotCoeff) THEN
-	    EnergyCoeff(1:n) = ListGetReal( Material, CoeffName, n, NodeIndexes )
+            EnergyCoeff(1:n) = ListGetReal( Material, CoeffName, n, NodeIndexes )
           ELSE
             EnergyCoeff(1:n) = 1.0d0
           END IF
@@ -1942,7 +1945,7 @@ CONTAINS
 !      must be avaluated using the nodes of the parent element.
 !------------------------------------------------------------------------------
             
-	  CALL GetParentUVW( Element, n, Parent, pn, Up, Vp, Wp, Basis)
+          CALL GetParentUVW( Element, n, Parent, pn, Up, Vp, Wp, Basis)
           
           stat = ElementInfo( Parent,ParentNodes,Up,Vp,Wp,SqrtElementMetric, &
               ParentBasis,ParentdBasisdx )
@@ -2098,7 +2101,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t), POINTER   :: CurrentElement, NextElement
   CHARACTER(LEN=MAX_NAME_LEN) :: SideFile, SideNamesFile, VarName, CondName, SideParFile
   CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: ValueNames(:)
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.32 2007/05/02 14:28:11 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.33 2007/05/02 14:55:53 raback Exp $"
 
   LOGICAL :: cand, Parallel
 

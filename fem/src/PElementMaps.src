@@ -42,7 +42,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: PElementMaps.src,v 1.6 2006/10/06 10:37:37 jpr Exp $
+! * $Id: PElementMaps.src,v 1.7 2007/01/05 13:11:43 jpr Exp $
 ! ******************************************************************************
 
 MODULE PElementMaps
@@ -894,7 +894,6 @@ CONTAINS
 
       Type(Element_t), INTENT(IN) :: Element
       LOGICAL :: retVal
-      INTEGER :: elementCode 
 
       ! Check elementcode and p element flag
       retVal = Element % Type % ElementCode/100==3 .AND. isPElement(Element)
@@ -924,7 +923,6 @@ CONTAINS
 
       Type(Element_t), INTENT(IN) :: Element
       LOGICAL :: retVal
-      INTEGER :: elementCode 
 
       ! Check elementcode and p element flag
       retVal = Element % Type % ElementCode/100==4 .AND. isPElement(Element)
@@ -1045,12 +1043,13 @@ CONTAINS
 
 
 
+!------------------------------------------------------------------------------
     FUNCTION getNumberOfGaussPoints( Element, Mesh ) RESULT(ngp)
+!------------------------------------------------------------------------------
       IMPLICIT NONE
       
       TYPE(Element_t) :: Element
       TYPE(Mesh_t), POINTER :: Mesh 
-      REAL(KIND=dp) :: k
       INTEGER :: edgeP, faceP, bubbleP, ngp, nb
 
       IF (.NOT. ASSOCIATED(Element % PDefs)) THEN
@@ -1112,10 +1111,14 @@ CONTAINS
       ngp = MAX(1, edgeP, faceP, bubbleP)
       ngp = (ngp+1)
       ngp = ngp ** Element % Type % Dimension
+!------------------------------------------------------------------------------
     END FUNCTION getNumberOfGaussPoints
+!------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
     FUNCTION getEdgeP( Element, Mesh ) RESULT(edgeP)
+!------------------------------------------------------------------------------
       IMPLICIT NONE
       
       TYPE(Element_t) :: Element 
@@ -1140,9 +1143,13 @@ CONTAINS
             edgeP = MAX(edgeP,Edge % PDefs % P)
          END DO
       END IF
+!------------------------------------------------------------------------------
     END FUNCTION getEdgeP
+!------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
     FUNCTION getFaceP( Element, Mesh ) RESULT(faceP)
+!------------------------------------------------------------------------------
       IMPLICIT NONE
 
       TYPE(Element_t) :: Element
@@ -1165,15 +1172,18 @@ CONTAINS
             faceP = MAX(faceP, Face % PDefs % P)
          END DO
       END IF
+!------------------------------------------------------------------------------
     END FUNCTION getFaceP
+!------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
     FUNCTION getNumberOfGaussPointsFace( Face, Mesh ) RESULT(ngp)
+!------------------------------------------------------------------------------
       IMPLICIT NONE
 
       TYPE(Element_t), POINTER :: Face, Edge
       TYPE(Mesh_t), POINTER :: Mesh
       INTEGER :: ngp, edgeP, i
-      LOGICAL :: correct 
 
       ! Get max p of edges contained in face
       edgeP = 0
@@ -1190,7 +1200,9 @@ CONTAINS
 
       ! Get number of Gauss points
       ngp = (MAX(edgeP, Face % PDefs % P) + 1) ** 2
+!------------------------------------------------------------------------------
     END FUNCTION
+!------------------------------------------------------------------------------
  
   
 !------------------------------------------------------------------------------
@@ -1214,7 +1226,7 @@ CONTAINS
     IMPLICIT NONE
     
     Type(Element_t) :: Element
-    INTEGER :: i, n
+    INTEGER :: n
     REAL(KIND=dp) :: U(:), V(:), W(:)
 
     ! If element is not p element return
@@ -1262,7 +1274,9 @@ CONTAINS
     CASE DEFAULT
        CALL Warn('PElementMaps::GetRefPElementNodes','Unknown element type')
     END SELECT
+!------------------------------------------------------------------------------
     END SUBROUTINE GetRefPElementNodes
+!------------------------------------------------------------------------------
 
 
 END MODULE

@@ -41,7 +41,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: PElementBase.src,v 1.6 2006/01/10 10:54:44 apursula Exp $
+! * $Id: PElementBase.src,v 1.7 2006/02/07 13:19:47 jpr Exp $
 ! ******************************************************************************
 
 MODULE PElementBase
@@ -87,6 +87,7 @@ MODULE PElementBase
       CASE (2)
          value = (1d0+u)/2d0
       CASE DEFAULT
+         value = 0.0_dp
          CALL Fatal('PElementBase::LineNodalPBasis', 'Unknown node for line')
       END SELECT
     END FUNCTION LineNodalPBasis
@@ -125,6 +126,7 @@ MODULE PElementBase
       CASE (2)
          grad = 1d0/2
       CASE DEFAULT
+         grad = 0.0_dp
          CALL Fatal('PElementBase::dLineNodalPBasis', 'Unknown node for line')
       END SELECT
     END FUNCTION dLineNodalPBasis
@@ -765,6 +767,7 @@ MODULE PElementBase
       CASE (4)
          value = (2d0-u+v)/2d0
       CASE DEFAULT
+         value = 0.0_dp
          CALL Fatal('PElementBase::QuadL', 'Unknown helper function L for quad')
       END SELECT
     END FUNCTION QuadL
@@ -1194,7 +1197,7 @@ MODULE PElementBase
       REAL (KIND=dp), INTENT(IN) :: u,v
       INTEGER, OPTIONAL :: localNumbers(3)
       ! Variables
-      REAL (KIND=dp) :: La, Lb, Lc, Lb_La, Lc_1, Lb_Laj, Lc_1n
+      REAL (KIND=dp) :: La, Lb, Lc, Lc_1, Lb_Laj, Lc_1n
       REAL (KIND=dp), DIMENSION(2) :: dLa, dLb, dLc, grad
       INTEGER :: local(3)
 
@@ -1230,7 +1233,7 @@ MODULE PElementBase
       REAL (KIND=dp), INTENT(IN) :: u,v
       INTEGER, OPTIONAL :: localNumbers(3)
       ! Variables
-      REAL (KIND=dp) :: La, Lb, Lc, Lb_La, Lc_1, Legi, Legj
+      REAL (KIND=dp) :: La, Lb, Lc, Lc_1, Legi, Legj
       REAL (KIND=dp), DIMENSION(2) :: dLa, dLb, dLc, grad
       INTEGER :: local(3)
 
@@ -2272,7 +2275,7 @@ MODULE PElementBase
       
       ! Variables
       INTEGER :: t
-      REAL (KIND=dp) :: Lb, La, Lb_La, vPhi
+      REAL (KIND=dp) :: Lb, La, vPhi
       REAL (KIND=dp), DIMENSION(3) :: grad, dLb_La, dLb, dLa
       
       ! Use default type (1) if type not present
@@ -3108,7 +3111,7 @@ MODULE PElementBase
       REAL(KIND=dp), INTENT(IN) :: u,v,w
       INTEGER, DIMENSION(4), OPTIONAL :: localNumbers
       ! Variables
-      REAL(KIND=dp) :: La, Lb, Lc, Lha, Lhc, Lb_La, Lc_1, Legi, Legj, parW 
+      REAL(KIND=dp) :: La, Lb, Lc, Lha, Lhc, Legi, Legj, parW 
       REAL(KIND=dp), DIMENSION(3) :: dLa, dLb, dLc, dLha, dLhc, dW, grad
       INTEGER :: local(4)
 

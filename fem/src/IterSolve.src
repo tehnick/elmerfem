@@ -38,7 +38,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: IterSolve.src,v 1.8 2007/04/16 07:42:03 jpr Exp $
+! * $Id: IterSolve.src,v 1.9 2007/04/18 11:57:58 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -152,6 +152,8 @@ CONTAINS
       IterType = ITER_CG
     ELSE IF ( str(1:5) == 'gmres' ) THEN
       IterType = ITER_GMRES
+    ELSE
+      IterType = ITER_BiCGStab
     END IF
 !------------------------------------------------------------------------------
 
@@ -227,6 +229,7 @@ CONTAINS
      ELSE IF ( str(1:9) == 'multigrid' ) THEN
        PCondType = PRECOND_MG
      ELSE
+       PCondType = PRECOND_NONE
        CALL Warn( 'IterSolve', 'Unknown preconditioner type, feature disabled.' )
      END IF
 

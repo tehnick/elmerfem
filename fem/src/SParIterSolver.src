@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterSolver.src,v 1.23 2007/05/04 11:37:54 jpr Exp $
+! * $Id: SParIterSolver.src,v 1.24 2007/05/04 11:39:54 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -223,68 +223,68 @@ real(kind=dp) :: cputime,st
              IF ( ParallelInfo % NeighbourList(ColInd) % Neighbours(1) == &
                                 ParEnv % MyPE ) THEN
 
-	      !----------------------------------------------------------
-	      !
-	      ! Connection is local-local
-	      !
-	      !----------------------------------------------------------
+              !----------------------------------------------------------
+              !
+              ! Connection is local-local
+              !
+              !----------------------------------------------------------
 
                 InsideMCols = InsideMCols + 1
                 AtLeastOneCol = 1
              ELSE
 
-	      !----------------------------------------------------------
-	      !
-	      ! Connection is local-if
-	      !
-	      !----------------------------------------------------------
+              !----------------------------------------------------------
+              !
+              ! Connection is local-if
+              !
+              !----------------------------------------------------------
 
                 CurrNbsL => ParallelInfo % NeighbourList( ColInd )
                 NbsIfMCols( CurrNbsL % Neighbours(1) + 1 ) = &
                      NbsIfMCols( CurrNbsL % Neighbours(1) + 1 ) + 1
                 NbsOCOR( CurrNbsL % Neighbours(1) + 1 ) = 1
-	  END IF
-	END DO
+          END IF
+        END DO
 
      ELSE
 
-	!----------------------------------------------------------------
-	!
-	! Connection is if-local or if-if
-	!
-	!----------------------------------------------------------------
+        !----------------------------------------------------------------
+        !
+        ! Connection is if-local or if-if
+        !
+        !----------------------------------------------------------------
 
-	DO j = SourceMatrix % Rows(i), SourceMatrix % Rows(i+1) - 1
+        DO j = SourceMatrix % Rows(i), SourceMatrix % Rows(i+1) - 1
 
            ColInd = SourceMatrix % INVPerm( SourceMatrix % Cols(j) )
 
-	   IF ( ParallelInfo % NeighbourList(ColInd) % Neighbours(1) == &
+           IF ( ParallelInfo % NeighbourList(ColInd) % Neighbours(1) == &
                             ParEnv % MyPE ) THEN
 
-	      !----------------------------------------------------------
-	      !
-	      ! Connection is if-local
-	      !
-	      !----------------------------------------------------------
+              !----------------------------------------------------------
+              !
+              ! Connection is if-local
+              !
+              !----------------------------------------------------------
 
-	      CurrNbsL => ParallelInfo % NeighbourList(RowInd)
+              CurrNbsL => ParallelInfo % NeighbourList(RowInd)
               OwnIfMCols( CurrNbsL % Neighbours(1) + 1) = &
                    OwnIfMCols( CurrNbsL % Neighbours(1) + 1) + 1
               OwnOCOR( CurrNbsL % Neighbours(1) + 1) = 1
               
-	   ELSE
+           ELSE
 
-	      !----------------------------------------------------------
-	      !
-	      ! Connection is if-if
-	      !
-	      !----------------------------------------------------------
-	      CurrNbsL => ParallelInfo % NeighbourList(ColInd)
+              !----------------------------------------------------------
+              !
+              ! Connection is if-if
+              !
+              !----------------------------------------------------------
+              CurrNbsL => ParallelInfo % NeighbourList(ColInd)
               NbsIfMCols( CurrNbsL % Neighbours(1) + 1) = &
                    NbsIfMCols( CurrNbsL % Neighbours(1) + 1) + 1
               NbsOCOR( CurrNbsL % Neighbours(1) + 1) = 1
-	   END IF
-	END DO
+           END IF
+        END DO
 
      END IF
 
@@ -346,12 +346,12 @@ real(kind=dp) :: cputime,st
 
      NbsIfMatrix(i) % NumberOfRows = NbsIfMRows(i)
      IF ( NbsIfMRows(i) /= 0 ) THEN
-	ALLOCATE( NbsIfMatrix(i) % Rows( NbsIfMRows(i)+1 ) )
-	ALLOCATE( NbsIfMatrix(i) % Cols( NbsIfMCols(i) ) )
-	ALLOCATE( NbsIfMatrix(i) % Diag( NbsIfMRows(i) ) )
-	ALLOCATE( NbsIfMatrix(i) % GRows( NbsIfMRows(i) ) )
-	ALLOCATE( NbsIfMatrix(i) % RowOwner( NbsIfMRows(i) ) )
-	ALLOCATE( NbsIfMatrix(i) % Values( NbsIfMCols(i) ) )
+        ALLOCATE( NbsIfMatrix(i) % Rows( NbsIfMRows(i)+1 ) )
+        ALLOCATE( NbsIfMatrix(i) % Cols( NbsIfMCols(i) ) )
+        ALLOCATE( NbsIfMatrix(i) % Diag( NbsIfMRows(i) ) )
+        ALLOCATE( NbsIfMatrix(i) % GRows( NbsIfMRows(i) ) )
+        ALLOCATE( NbsIfMatrix(i) % RowOwner( NbsIfMRows(i) ) )
+        ALLOCATE( NbsIfMatrix(i) % Values( NbsIfMCols(i) ) )
 
         NULLIFY( NbsIfMatrix(i) % MassValues )
         IF ( NeedMass ) ALLOCATE( NbsIfMatrix(i) % MassValues( NbsIfMCols(i) ) )
@@ -362,18 +362,18 @@ real(kind=dp) :: cputime,st
 
      OwnIfMatrix(i) % NumberOfRows = OwnIfMRows(i)
      IF ( OwnIfMRows(i) /= 0 ) THEN
-	ALLOCATE( OwnIfMatrix(i) % Rows( OwnIfMRows(i)+1 ) )
-	ALLOCATE( OwnIfMatrix(i) % Cols( OwnIfMCols(i) ) )
-	ALLOCATE( OwnIfMatrix(i) % Diag( OwnIfMRows(i) ) )
-	ALLOCATE( OwnIfMatrix(i) % GRows( OwnIfMRows(i) ) )
-	ALLOCATE( OwnIfMatrix(i) % Values( OwnIfMCols(i) ) )
-	ALLOCATE( OwnIfMatrix(i) % RowOwner( OwnIfMRows(i) ) )
+        ALLOCATE( OwnIfMatrix(i) % Rows( OwnIfMRows(i)+1 ) )
+        ALLOCATE( OwnIfMatrix(i) % Cols( OwnIfMCols(i) ) )
+        ALLOCATE( OwnIfMatrix(i) % Diag( OwnIfMRows(i) ) )
+        ALLOCATE( OwnIfMatrix(i) % GRows( OwnIfMRows(i) ) )
+        ALLOCATE( OwnIfMatrix(i) % Values( OwnIfMCols(i) ) )
+        ALLOCATE( OwnIfMatrix(i) % RowOwner( OwnIfMRows(i) ) )
 
         NULLIFY( OwnIfMatrix(i) % MassValues )
-	IF ( NeedMass ) ALLOCATE( OwnIfMatrix(i) % MassValues( OwnIfMCols(i) ) )
+        IF ( NeedMass ) ALLOCATE( OwnIfMatrix(i) % MassValues( OwnIfMCols(i) ) )
 
         NULLIFY( OwnIfMatrix(i) % DampValues )
-	IF ( NeedDamp ) ALLOCATE( OwnIfMatrix(i) % DampValues( OwnIfMCols(i) ) )
+        IF ( NeedDamp ) ALLOCATE( OwnIfMatrix(i) % DampValues( OwnIfMCols(i) ) )
      END IF
   END DO
 
@@ -393,39 +393,39 @@ real(kind=dp) :: cputime,st
      RowOwner = ParallelInfo % NeighbourList(RowInd) % Neighbours(1)
 
      IF ( RowOwner == ParEnv % MyPE ) THEN
-	!----------------------------------------------------------------
-	!
-	! Connection is local-local or local-if
-	!
-	!----------------------------------------------------------------
-	
-	DO j = SourceMatrix % Rows(i), SourceMatrix % Rows(i+1) - 1
+        !----------------------------------------------------------------
+        !
+        ! Connection is local-local or local-if
+        !
+        !----------------------------------------------------------------
+        
+        DO j = SourceMatrix % Rows(i), SourceMatrix % Rows(i+1) - 1
 
            ColInd = SourceMatrix % INVPerm( SourceMatrix % Cols(j) )
 
-	   IF ( ParallelInfo % NeighbourList(ColInd) % Neighbours(1) == &
-		ParEnv % MyPE ) THEN
+           IF ( ParallelInfo % NeighbourList(ColInd) % Neighbours(1) == &
+                ParEnv % MyPE ) THEN
 
-	      !----------------------------------------------------------
-	      !
-	      ! Connection is local-local
-	      !
-	      !----------------------------------------------------------
+              !----------------------------------------------------------
+              !
+              ! Connection is local-local
+              !
+              !----------------------------------------------------------
 
-	      SplittedMatrix % InsideMatrix % Cols( InsideMCols ) = &
+              SplittedMatrix % InsideMatrix % Cols( InsideMCols ) = &
                              SourceMatrix % Cols(j)
-	      SplittedMatrix % GlueTable % Inds(j) = InsideMCols
-	      AtLeastOneCol = 1
-	      InsideMCols = InsideMCols + 1
-	   ELSE
+              SplittedMatrix % GlueTable % Inds(j) = InsideMCols
+              AtLeastOneCol = 1
+              InsideMCols = InsideMCols + 1
+           ELSE
 
-	      !----------------------------------------------------------
-	      !
-	      ! Connection is local-if
-	      !
-	      !----------------------------------------------------------
+              !----------------------------------------------------------
+              !
+              ! Connection is local-if
+              !
+              !----------------------------------------------------------
 
-	      currifi = ParallelInfo % NeighbourList(Colind) % Neighbours(1) + 1
+              currifi = ParallelInfo % NeighbourList(Colind) % Neighbours(1) + 1
 
               NbsIfMatrix(currifi) % Cols(NbsIfMcols(currifi)) =  &
                   ParallelInfo  % GlobalDOFs(ColInd)
@@ -433,31 +433,31 @@ real(kind=dp) :: cputime,st
               NbsOCOR(currifi) = 1
               SplittedMatrix % GlueTable % Inds(j) = -(ParEnv % PEs + currifi)
 
-	   END IF
-	END DO
+           END IF
+        END DO
 
      ELSE
 
-	!----------------------------------------------------------------
-	!
-	! Connection is if-local or if-if
-	!
-	!----------------------------------------------------------------
+        !----------------------------------------------------------------
+        !
+        ! Connection is if-local or if-if
+        !
+        !----------------------------------------------------------------
 
-	DO j = SourceMatrix % Rows(i), SourceMatrix % Rows(i+1) - 1
+        DO j = SourceMatrix % Rows(i), SourceMatrix % Rows(i+1) - 1
 
            ColInd = SourceMatrix % INVPerm( SourceMatrix % Cols(j) )
 
-	   IF ( ParallelInfo % NeighbourList(ColInd) % Neighbours(1) == &
-		ParEnv % MyPE ) THEN
+           IF ( ParallelInfo % NeighbourList(ColInd) % Neighbours(1) == &
+              ParEnv % MyPE ) THEN
 
-	      !----------------------------------------------------------
-	      !
-	      ! Connection is if-local
-	      !
-	      !----------------------------------------------------------
+              !----------------------------------------------------------
+              !
+              ! Connection is if-local
+              !
+              !----------------------------------------------------------
 
-	      currifi = ParallelInfo % NeighbourList(RowInd) % Neighbours(1) + 1
+              currifi = ParallelInfo % NeighbourList(RowInd) % Neighbours(1) + 1
 
               OwnIfMatrix(currifi) % Cols(OwnIfMcols(currifi)) =  &
                   ParallelInfo  % GlobalDOFs(ColInd)
@@ -465,13 +465,13 @@ real(kind=dp) :: cputime,st
               OwnOCOR(currifi) = 1
               OwnIfMcols(currifi) = OwnIfMcols(currifi) + 1
 
-	   ELSE
+           ELSE
 
-	      !----------------------------------------------------------
-	      !
-	      ! Connection is if-if
-	      !
-	      !----------------------------------------------------------
+              !----------------------------------------------------------
+              !
+              ! Connection is if-if
+              !
+              !----------------------------------------------------------
               currifi = ParallelInfo % NeighbourList(ColInd) % Neighbours(1) + 1
 
               NbsIfMatrix(currifi) % Cols(NbsIfMcols(currifi)) =  &
@@ -479,8 +479,8 @@ real(kind=dp) :: cputime,st
               SplittedMatrix % GlueTable % Inds(j) = -(ParEnv % PEs + currifi)
               NbsOCOR(currifi) = 1
               NbsIfMcols(currifi) = NbsIfMcols(currifi) + 1
-	   END IF
-	END DO
+           END IF
+        END DO
 
      END IF
 
@@ -504,11 +504,11 @@ real(kind=dp) :: cputime,st
            OwnIfMatrix(j) % RowOwner(OwnIfMRows(j)) = RowOwner
         END IF
 
-	IF ( NbsOCOR(j) /= 0 ) THEN
-	   NbsIfMatrix(j) % Rows(NbsIfMRows(j))  = NbsOldCols(j)
-	   NbsIfMatrix(j) % GRows(NbsIfMRows(j)) = RowInd
-	   NbsIfMatrix(j) % RowOwner(NbsIfMRows(j)) = RowOwner
-	END IF
+        IF ( NbsOCOR(j) /= 0 ) THEN
+           NbsIfMatrix(j) % Rows(NbsIfMRows(j))  = NbsOldCols(j)
+           NbsIfMatrix(j) % GRows(NbsIfMRows(j)) = RowInd
+           NbsIfMatrix(j) % RowOwner(NbsIfMRows(j)) = RowOwner
+        END IF
      END DO
 
      InsideMRows = InsideMRows + AtLeastOneCol
@@ -526,10 +526,10 @@ real(kind=dp) :: cputime,st
 
   DO j = 1, ParEnv % PEs
      IF ( OwnIfMatrix(j) % NumberOfRows /= 0 ) &
-	  OwnIfMatrix(j) % Rows(OwnIfMRows(j)) = OwnIfMCols(j)
+          OwnIfMatrix(j) % Rows(OwnIfMRows(j)) = OwnIfMCols(j)
 
      IF ( NbsIfMatrix(j) % NumberOfRows /= 0 ) &
-	  NbsIfMatrix(j) % Rows(NbsIfMRows(j)) = NbsIfMCols(j)
+          NbsIfMatrix(j) % Rows(NbsIfMRows(j)) = NbsIfMCols(j)
   END DO
 
   DO j = 1, ParEnv % PEs
@@ -798,9 +798,9 @@ real(kind=dp) :: cputime,st
              SplittedMatrix % IfMatrix(i) % Cols)), &
              SplittedMatrix % IfLCols(i) % IfVec( SIZE( &
              SplittedMatrix % IfMatrix(i) % Cols ) )  )
-	SplittedMatrix % IfLCols(i) % IfVec   = 0
-	SplittedMatrix % IfVecs(i) % IfVec    = 0
-	SplittedMatrix % IfMatrix(i) % Values = 0.0d0
+        SplittedMatrix % IfLCols(i) % IfVec   = 0
+        SplittedMatrix % IfVecs(i) % IfVec    = 0
+        SplittedMatrix % IfMatrix(i) % Values = 0.0d0
 
         NULLIFY( SplittedMatrix % IfMatrix(i) % MassValues )
         IF ( NeedMass ) THEN
@@ -1634,8 +1634,8 @@ SUBROUTINE Solve( SourceMatrix, SplittedMatrix, ParallelInfo, &
   DO i = 1, SourceMatrix % NumberOfRows
      k = SourceMatrix % INVPerm(i)
      IF ( ParallelInfo % NeighbourList(k) % Neighbours(1)==ParEnv % MyPE ) THEN
-	j = j + 1
-	XVec(i) = TmpXVec(j)
+        j = j + 1
+        XVec(i) = TmpXVec(j)
      END IF
   END DO
 
@@ -1807,14 +1807,14 @@ SUBROUTINE SParIfMatrixVector( u, v, ipar )
      IfL => GlobalData % SplittedMatrix % IfLCols(i)
 
      IF ( CurrIf % NumberOfRows /= 0 ) THEN
-	IfV % IfVec(1:CurrIf % NumberOfRows) = 0.0
-	DO j = 1, CurrIf % NumberOfRows
-	   DO k = CurrIf % Rows(j), CurrIf % Rows(j+1) - 1
+        IfV % IfVec(1:CurrIf % NumberOfRows) = 0.0
+        DO j = 1, CurrIf % NumberOfRows
+           DO k = CurrIf % Rows(j), CurrIf % Rows(j+1) - 1
               Colind = IfL % IfVec(k)
               IF ( ColInd > 0 ) &
                 IfV % IfVec(j) = IfV % IfVec(j) + CurrIf % Values(k) * u(colind)
-	   END DO
-	END DO
+           END DO
+        END DO
      END IF
   END DO
 
@@ -1872,14 +1872,14 @@ real(kind=dp) :: s, RealTime
      IfL => GlobalData % SplittedMatrix % IfLCols(i)
 
      IF ( CurrIf % NumberOfRows /= 0 ) THEN
-	IfV % IfVec(1:CurrIf % NumberOfRows) = 0.0
-	DO j = 1, CurrIf % NumberOfRows
-	   DO k = CurrIf % Rows(j), CurrIf % Rows(j+1) - 1
+        IfV % IfVec(1:CurrIf % NumberOfRows) = 0.0
+        DO j = 1, CurrIf % NumberOfRows
+           DO k = CurrIf % Rows(j), CurrIf % Rows(j+1) - 1
               Colind = IfL % IfVec(k)
               IF ( ColInd > 0 ) &
                 IfV % IfVec(j) = IfV % IfVec(j) + CurrIf % Values(k)*u(colind)
-	   END DO
-	END DO
+           END DO
+        END DO
      END IF
   END DO
 
@@ -1961,18 +1961,18 @@ SUBROUTINE SParIfCMatrixVector( u, v, ipar )
         IfV => GlobalData % SplittedMatrix % IfVecs(i)
         IfL => GlobalData % SplittedMatrix % IfLCols(i)
 
-	IfV % IfVec(1:CurrIf % NumberOfRows) = 0.0d0
-	DO j = 1, CurrIf % NumberOfRows / 2
-	   DO k = CurrIf % Rows(2*j-1), CurrIf % Rows(2*j)-1, 2
+        IfV % IfVec(1:CurrIf % NumberOfRows) = 0.0d0
+        DO j = 1, CurrIf % NumberOfRows / 2
+           DO k = CurrIf % Rows(2*j-1), CurrIf % Rows(2*j)-1, 2
               IF ( IfL % IfVec(k) > 0 ) THEN
                 ColInd = (IfL % IfVec(k) + 1) / 2
                 A = CMPLX( CurrIf % Values(k), -CurrIf % Values(k+1), KIND=dp )
                 A = A * u(ColInd)
-                IfV % IfVec(2*j-1) = IfV % IfVec(2*j-1) + DREAL(A)
+                IfV % IfVec(2*j-1) = IfV % IfVec(2*j-1) + REAL(A)
                 IfV % IfVec(2*j-0) = IfV % IfVec(2*j-0) + AIMAG(A)
               END IF
-	   END DO
-	END DO
+           END DO
+        END DO
      END IF
   END DO
 
@@ -2040,18 +2040,18 @@ SUBROUTINE SParCMatrixVector( u, v, ipar )
         IfV => GlobalData % SplittedMatrix % IfVecs(i)
         IfL => GlobalData % SplittedMatrix % IfLCols(i)
 
-	IfV % IfVec(1:CurrIf % NumberOfRows) = 0.0d0
-	DO j = 1, CurrIf % NumberOfRows / 2
-	   DO k = CurrIf % Rows(2*j-1), CurrIf % Rows(2*j)-1, 2
+        IfV % IfVec(1:CurrIf % NumberOfRows) = 0.0d0
+        DO j = 1, CurrIf % NumberOfRows / 2
+           DO k = CurrIf % Rows(2*j-1), CurrIf % Rows(2*j)-1, 2
               IF ( IfL % IfVec(k) > 0 ) THEN
                 ColInd = (IfL % IfVec(k) + 1) / 2
                 A = CMPLX( CurrIf % Values(k), -CurrIf % Values(k+1), KIND=dp )
                 A = A * u(ColInd)
-                IfV % IfVec(2*j-1) = IfV % IfVec(2*j-1) + DREAL(A)
+                IfV % IfVec(2*j-1) = IfV % IfVec(2*j-1) + REAL(A)
                 IfV % IfVec(2*j-0) = IfV % IfVec(2*j-0) + AIMAG(A)
               END IF
-	   END DO
-	END DO
+           END DO
+        END DO
      END IF
   END DO
 
@@ -2141,11 +2141,11 @@ SUBROUTINE CountNeighbourConns( SourceMatrix, SplittedMatrix, ParallelInfo )
      IF ( ParallelInfo % Interface(k) ) THEN
         IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
            DO j = 1, SIZE( ParallelInfo % NeighbourList(k) % Neighbours )
-  	     IF ( ParallelInfo % NeighbourList(k) % Neighbours(j)/=ParEnv % MyPE ) THEN
-	        ResEPerNB(ParallelInfo % NeighbourList(k) % Neighbours(j)+1) = &
-	        ResEPerNB(ParallelInfo % NeighbourList(k) % Neighbours(j)+1) + 1
-	     END IF
-  	  END DO
+               IF ( ParallelInfo % NeighbourList(k) % Neighbours(j)/=ParEnv % MyPE ) THEN
+                ResEPerNB(ParallelInfo % NeighbourList(k) % Neighbours(j)+1) = &
+                ResEPerNB(ParallelInfo % NeighbourList(k) % Neighbours(j)+1) + 1
+             END IF
+            END DO
         ELSE
           RHSEPerNB(ParallelInfo % NeighbourList(k) % Neighbours(1)+1) = &
              RHSEPerNB(ParallelInfo % NeighbourList(k) % Neighbours(1)+1) + 1
@@ -2166,15 +2166,15 @@ SUBROUTINE CountNeighbourConns( SourceMatrix, SplittedMatrix, ParallelInfo )
      NULLIFY( SplittedMatrix % RHS(i) % RHSVec )
      NULLIFY( SplittedMatrix % RHS(i) % RHSInd )
      IF ( RHSEPerNB(i) /= 0 ) THEN
-	ALLOCATE( SplittedMatrix % RHS(i) % RHSVec( RHSEperNB(i) ) )
-	ALLOCATE( SplittedMatrix % RHS(i) % RHSind( RHSEperNB(i) ) )
+        ALLOCATE( SplittedMatrix % RHS(i) % RHSVec( RHSEperNB(i) ) )
+        ALLOCATE( SplittedMatrix % RHS(i) % RHSind( RHSEperNB(i) ) )
      END IF
 
      NULLIFY( SplittedMatrix % ResBuf(i) % ResVal )
      NULLIFY( SplittedMatrix % ResBuf(i) % ResInd )
      IF ( ResEPerNB(i) /= 0 ) THEN
-	ALLOCATE( SplittedMatrix % ResBuf(i) % ResVal( ResEPerNB(i) ) )
-	ALLOCATE( SplittedMatrix % ResBuf(i) % ResInd( ResEPerNB(i) ) )
+        ALLOCATE( SplittedMatrix % ResBuf(i) % ResVal( ResEPerNB(i) ) )
+        ALLOCATE( SplittedMatrix % ResBuf(i) % ResInd( ResEPerNB(i) ) )
      END IF
 
   END DO
@@ -2248,7 +2248,7 @@ SUBROUTINE CombineCRSMatIndices ( SMat1, SMat2, DMat )
      RETURN
 
   END IF
-	
+        
   !----------------------------------------------------------------------
   !
   ! First we have to compute the strorage allocations
@@ -2314,66 +2314,66 @@ SUBROUTINE CombineCRSMatIndices ( SMat1, SMat2, DMat )
 
      ELSE IF ( i2 > SMat2 % NumberOfRows .OR. Ind == -1 ) THEN
 
-	DMat % Rows(Row)     = Col
-	DMat % GRows(Row)    = SMat1 % GRows(i1)
-	DMat % RowOwner(Row) = SMat1 % RowOwner(i1)
-	Row = Row + 1
-	DO k = SMat1 % Rows(i1), SMat1 % Rows(i1+1) - 1
-	   DMat % Cols(Col) = SMat1 % Cols(k)
-	   Col = Col + 1
-	END DO
-	i1 = i1 + 1
+        DMat % Rows(Row)     = Col
+        DMat % GRows(Row)    = SMat1 % GRows(i1)
+        DMat % RowOwner(Row) = SMat1 % RowOwner(i1)
+        Row = Row + 1
+        DO k = SMat1 % Rows(i1), SMat1 % Rows(i1+1) - 1
+           DMat % Cols(Col) = SMat1 % Cols(k)
+           Col = Col + 1
+        END DO
+        i1 = i1 + 1
 
      ELSE IF ( Ind /= -1 ) then
-	      
-	DMat % Rows(Row)  = Col
-	DMat % GRows(Row) = SMat1 % GRows(i1)
-	DMat % RowOwner(Row) = SMat1 % RowOwner(i1)
-	Row = Row + 1
-	j1 = SMat1 % Rows(i1)
+              
+        DMat % Rows(Row)  = Col
+        DMat % GRows(Row) = SMat1 % GRows(i1)
+        DMat % RowOwner(Row) = SMat1 % RowOwner(i1)
+        Row = Row + 1
+        j1 = SMat1 % Rows(i1)
         j2 = SMat2 % Rows(Ind)
 
-	DO WHILE ( j1 < SMat1 % Rows(i1+1) .OR.  j2 < SMat2 % Rows(Ind+1) )
+        DO WHILE ( j1 < SMat1 % Rows(i1+1) .OR.  j2 < SMat2 % Rows(Ind+1) )
 
-	   IF ( j1 <  SMat1 % Rows(i1+1) .AND. &
+           IF ( j1 <  SMat1 % Rows(i1+1) .AND. &
                 j2 >= SMat2 % Rows(Ind+1) ) THEN
 
               DMat % Cols(col) = SMat1 % Cols(j1)
-	      Col = Col + 1
-	      j1 = j1 + 1
+              Col = Col + 1
+              j1 = j1 + 1
 
-	   ELSE IF ( j1 < SMat1 % Rows(i1+1) .AND. &
+           ELSE IF ( j1 < SMat1 % Rows(i1+1) .AND. &
              SMat1 % Cols(j1) < SMat2 % Cols(j2) ) THEN
 
               DMat % Cols(col) = SMat1 % Cols(j1)
-	      Col = Col + 1
-	      j1 = j1 + 1
-	
-	   ELSE IF ( j1 >= SMat1 % Rows(i1+1) .AND. &
+              Col = Col + 1
+              j1 = j1 + 1
+        
+           ELSE IF ( j1 >= SMat1 % Rows(i1+1) .AND. &
                      j2 <  SMat2 % Rows(Ind+1) ) THEN
               
               DMat % Cols(col) = SMat2 % Cols(j2)
-	      Col = Col + 1
-	      j2 = j2 + 1
-	
-	   ELSE IF ( j2 < SMat2 % Rows(Ind+1) .AND. &
+              Col = Col + 1
+              j2 = j2 + 1
+        
+           ELSE IF ( j2 < SMat2 % Rows(Ind+1) .AND. &
               SMat2 % Cols(j2) < SMat1 % Cols(j1) ) THEN
 
               DMat % Cols(col) = SMat2 % Cols(j2)
-	      Col = Col + 1
-	      j2 = j2 + 1
+              Col = Col + 1
+              j2 = j2 + 1
 
-	   ELSE IF ( SMat1 % Cols(j1) == SMat2 % Cols(j2) ) THEN
+           ELSE IF ( SMat1 % Cols(j1) == SMat2 % Cols(j2) ) THEN
 
-	      DMat % Cols(col) = SMat1 % Cols(j1)
-	      Col = Col + 1
-	      j1 = j1 + 1; j2 = j2 + 1
+              DMat % Cols(col) = SMat1 % Cols(j1)
+              Col = Col + 1
+              j1 = j1 + 1; j2 = j2 + 1
               
-	   END IF
-	END DO
+           END IF
+        END DO
 
         Done(Ind) = .TRUE.
-	i1 = i1 + 1; i2 = i2 + 1
+        i1 = i1 + 1; i2 = i2 + 1
      END IF
   END DO
   DMat % Rows(Row) = Col
@@ -2457,20 +2457,20 @@ SUBROUTINE GlueFinalize( SourceMatrix, SplittedMatrix, ParallelInfo )
   DO i = 1, ParEnv % PEs
      IF ( RecvdIfMatrix(i) % NumberOfRows /= 0 ) THEN
 
-	CurrIf => SplittedMatrix % IfMatrix(i)
-	DO j = 1, RecvdIfMatrix(i) % NumberOfRows
+        CurrIf => SplittedMatrix % IfMatrix(i)
+        DO j = 1, RecvdIfMatrix(i) % NumberOfRows
 
-	   RowInd = SearchIAItem( CurrIf % NumberOfRows, &
+           RowInd = SearchIAItem( CurrIf % NumberOfRows, &
                 CurrIf % GRows, RecvdIfMatrix(i) % GRows(j) )
 
-	   IF ( RowInd /= -1 ) THEN
-	      ! Value to be added to IfMatrix
+           IF ( RowInd /= -1 ) THEN
+              ! Value to be added to IfMatrix
 
-	      DO  k=RecvdIfMatrix(i) % Rows(j),RecvdIfMatrix(i) % Rows(j+1)-1
+              DO  k=RecvdIfMatrix(i) % Rows(j),RecvdIfMatrix(i) % Rows(j+1)-1
 
-		 DO l = CurrIf % Rows(RowInd), CurrIf % Rows(RowInd+1)-1
-		    IF ( RecvdIfMatrix(i) % Cols(k) == CurrIf % Cols(l) ) THEN
-		       CurrIf % Values(l) = CurrIf % Values(l) + &
+                DO l = CurrIf % Rows(RowInd), CurrIf % Rows(RowInd+1)-1
+                    IF ( RecvdIfMatrix(i) % Cols(k) == CurrIf % Cols(l) ) THEN
+                       CurrIf % Values(l) = CurrIf % Values(l) + &
                              RecvdIfMatrix(i) % Values(k)
                        IF ( NeedMass ) &
                           CurrIf % MassValues(l) = CurrIf % MassValues(l) + &
@@ -2478,20 +2478,20 @@ SUBROUTINE GlueFinalize( SourceMatrix, SplittedMatrix, ParallelInfo )
                        IF ( NeedDamp ) &
                           CurrIf % DampValues(l) = CurrIf % DampValues(l) + &
                                  RecvdIfMatrix(i) % DampValues(k)
-		       EXIT
-		    END IF
-		 END DO
-	      END DO
+                       EXIT
+                    END IF
+                 END DO
+              END DO
 
            ELSE
-  	      ! Value to be added to InsideMatrix
+                ! Value to be added to InsideMatrix
 
               RowInd = SearchIAItem( InsideMatrix % NumberOfRows, &
                   InsideMatrix % GRows, RecvdIfMatrix(i) % GRows(j), &
                       InsideMatrix % Gorder )
 
-	      IF ( RowInd > 0 ) THEN
-	         DO k = RecvdIfMatrix(i) % Rows(j), RecvdIfMatrix(i) % Rows(j+1) - 1
+              IF ( RowInd > 0 ) THEN
+                 DO k = RecvdIfMatrix(i) % Rows(j), RecvdIfMatrix(i) % Rows(j+1) - 1
                     l = RecvdIfMatrix(i) % Cols(k)
                     ColIndA = SearchNode( ParallelInfo,l )
                     IF ( ColIndA > 0 ) THEN
@@ -2502,8 +2502,8 @@ SUBROUTINE GlueFinalize( SourceMatrix, SplittedMatrix, ParallelInfo )
 
                     Found = .FALSE.
                     DO l = InsideMatrix % Rows(RowInd), InsideMatrix % Rows(RowInd+1) - 1
- 		       IF ( ColIndA == InsideMatrix % Cols(l) ) THEN
- 		          InsideMatrix % Values(l) = InsideMatrix % Values(l) + &
+                        IF ( ColIndA == InsideMatrix % Cols(l) ) THEN
+                           InsideMatrix % Values(l) = InsideMatrix % Values(l) + &
                                    RecvdIfMatrix(i) % Values(k)
                           IF ( NeedMass ) &
                              InsideMatrix % MassValues(l) = InsideMatrix % MassValues(l) + &
@@ -2512,8 +2512,8 @@ SUBROUTINE GlueFinalize( SourceMatrix, SplittedMatrix, ParallelInfo )
                              InsideMatrix % DampValues(l) = InsideMatrix % DampValues(l) + &
                                       RecvdIfMatrix(i) % DampValues(k)
                           Found = .TRUE.
- 		          EXIT
- 		       END IF
+                           EXIT
+                        END IF
                     END DO
 
                     IF ( .NOT. Found ) THEN
@@ -2522,13 +2522,13 @@ SUBROUTINE GlueFinalize( SourceMatrix, SplittedMatrix, ParallelInfo )
                                    RecvdIfMatrix(i) % Cols(k), ColIndA
                        CALL Flush(6)
                     END IF
-	         END DO
+                 END DO
               ELSE
                  PRINT*,ParEnv % MyPE, 'GlueFinalize: This should not happen 1', RowInd
                  CALL Flush(6)
               END IF
-	   END IF
-	END DO
+           END IF
+        END DO
      END IF
   END DO
 
@@ -2615,7 +2615,7 @@ SUBROUTINE ClearInsideC( SourceMatrix, InsideMatrix, &
                  NewCol = NewCol + 1
                  NC = 1
               END IF
-	   END DO
+           END DO
 
         ELSE
 
@@ -2634,7 +2634,7 @@ SUBROUTINE ClearInsideC( SourceMatrix, InsideMatrix, &
            NewRow = NewRow + 1
         END IF
         old_nv = NewCol
-	   
+           
      END DO
      RecvdIfMatrix(p) % Rows(NewRow) = NewCol
      RecvdIfMatrix(p) % NumberOfRows  = NewRow - 1
@@ -2675,10 +2675,10 @@ SUBROUTINE RenumberDOFs( SourceMatrix, SplittedMatrix, ParallelInfo )
   DO i = 1, SourceMatrix % NumberOfRows
      k = SourceMatrix % INVPerm(i)
      IF ( ParallelInfo % NeighbourList(k) % Neighbours(1) == ParEnv % MyPE ) THEN
-	Inside = Inside + 1
-	RevDofList(i) = Inside
+        Inside = Inside + 1
+        RevDofList(i) = Inside
      ELSE
-	RevDofList(i) = -1
+        RevDofList(i) = -1
      END IF
   END DO
 
@@ -2687,7 +2687,7 @@ SUBROUTINE RenumberDOFs( SourceMatrix, SplittedMatrix, ParallelInfo )
   InsideMatrix => SplittedMatrix % InsideMatrix
   DO i = 1, InsideMatrix % NumberOfRows
      DO j = InsideMatrix % Rows(i), InsideMatrix % Rows(i+1)-1
-	InsideMatrix % Cols(j) = RevDofList( InsideMatrix % Cols(j) )
+        InsideMatrix % Cols(j) = RevDofList( InsideMatrix % Cols(j) )
      END DO
   END DO
 

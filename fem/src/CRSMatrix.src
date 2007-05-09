@@ -39,7 +39,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: CRSMatrix.src,v 1.15 2007/01/04 08:02:33 jpr Exp $
+! * $Id: CRSMatrix.src,v 1.16 2007/01/09 14:14:42 jpr Exp $
 ! ******************************************************************************
 
 #include "huti_fdefs.h"
@@ -310,7 +310,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 !   Local variables
 !------------------------------------------------------------------------------
-    INTEGER :: k,n
+    INTEGER :: k
     REAL(KIND=dp), POINTER :: Values(:)
     INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
 !------------------------------------------------------------------------------
@@ -365,7 +365,7 @@ CONTAINS
 !   Local variables
 !------------------------------------------------------------------------------
  
-    INTEGER :: k,n
+    INTEGER :: k
     REAL(KIND=dp), POINTER :: Values(:)
     INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
 !------------------------------------------------------------------------------
@@ -674,7 +674,7 @@ END FUNCTION CRS_RowSum
 !------------------------------------------------------------------------------
     TYPE(Matrix_t) :: A
 
-    INTEGER :: i,j,k
+    INTEGER :: i,j
 
     DO i=1,A % NumberOfRows
       DO j=A % Rows(i),A % Rows(i+1)-1
@@ -870,7 +870,7 @@ END FUNCTION CRS_RowSum
     INTEGER :: i,j,n
 
     INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
-    REAL(KIND=dp), POINTER :: ILUValues(:), Values(:)
+    REAL(KIND=dp), POINTER :: Values(:)
 
     Diag   => GlobalMatrix % Diag
     Rows   => GlobalMatrix % Rows
@@ -933,7 +933,7 @@ END FUNCTION CRS_RowSum
 
     INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
     COMPLEX(KIND=dp) :: A
-    REAL(KIND=dp), POINTER :: ILUValues(:), Values(:)
+    REAL(KIND=dp), POINTER :: Values(:)
 
     Diag   => GlobalMatrix % Diag
     Rows   => GlobalMatrix % Rows
@@ -998,7 +998,7 @@ END FUNCTION CRS_RowSum
 !------------------------------------------------------------------------------
     LOGICAL :: Status
 
-    INTEGER :: i,j,k,l,m,n,istat
+    INTEGER :: i,j,k,l,n,istat
 
     INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
     REAL(KIND=dp), POINTER :: ILUValues(:), Values(:)
@@ -1151,7 +1151,7 @@ END FUNCTION CRS_RowSum
       TYPE(Matrix_t) :: A
       INTEGER :: n
 
-      INTEGER :: i,j,k,l,m,istat,RowMin,RowMax,Nonzeros
+      INTEGER :: i,j,k,l,istat,RowMin,RowMax,Nonzeros
 
       INTEGER :: C(n)
       INTEGER, POINTER :: Cols(:),Rows(:),Diag(:), &
@@ -1277,7 +1277,7 @@ END FUNCTION CRS_RowSum
 
     LOGICAL :: Status
 
-    INTEGER :: i,j,k,l,m,n,istat
+    INTEGER :: i,j,k,l,n,istat
 
     INTEGER, POINTER :: Cols(:),Rows(:),Diag(:)
     REAL(KIND=dp), POINTER ::  Values(:)
@@ -1462,7 +1462,7 @@ END FUNCTION CRS_RowSum
       TYPE(Matrix_t) :: A
       INTEGER :: n
 
-      INTEGER :: i,j,k,l,m,istat,RowMin,RowMax,Nonzeros
+      INTEGER :: i,j,k,l,istat,RowMin,RowMax,Nonzeros
 
       INTEGER :: C(n)
       INTEGER, POINTER :: Cols(:),Rows(:),Diag(:), &
@@ -1588,7 +1588,7 @@ END FUNCTION CRS_RowSum
     REAL(KIND=dp) :: TOL
 !------------------------------------------------------------------------------
     LOGICAL :: Status
-    INTEGER :: istat,n
+    INTEGER :: n
     REAL(KIND=dp) :: CPUTime, t
 !------------------------------------------------------------------------------
 
@@ -1627,10 +1627,8 @@ END FUNCTION CRS_RowSum
 !------------------------------------------------------------------------------
       INTEGER, PARAMETER :: WORKN = 128
 
-      INTEGER :: i,j,k,l,m,istat, RowMin, RowMax
+      INTEGER :: i,j,k,l,istat, RowMin, RowMax
       REAL(KIND=dp) :: NORMA
-
-      INTEGER(KIND=AddrInt) :: Memsize
 
       REAL(KIND=dp), POINTER :: Values(:), ILUValues(:), CWork(:)
 
@@ -1804,7 +1802,7 @@ END FUNCTION CRS_RowSum
     TYPE(Matrix_t) :: A
     REAL(KIND=dp) :: TOL
 !------------------------------------------------------------------------------
-    INTEGER :: n, istat
+    INTEGER :: n
     LOGICAL :: Status
     REAL(KIND=dp) :: CPUTime, t
 !------------------------------------------------------------------------------
@@ -1846,7 +1844,7 @@ END FUNCTION CRS_RowSum
 !------------------------------------------------------------------------------
       INTEGER, PARAMETER :: WORKN = 128
 
-      INTEGER :: i,j,k,l,m,istat,RowMin,RowMax
+      INTEGER :: i,j,k,l,istat,RowMin,RowMax
       REAL(KIND=dp) :: NORMA
 
       REAL(KIND=dp), POINTER :: Values(:)
@@ -2298,9 +2296,9 @@ END FUNCTION CRS_RowSum
 
 !------------------------------------------------------------------------------
     INTEGER, POINTER :: Cols(:),Rows(:)
-    REAL(KIND=dp), POINTER :: Values(:), w(:)
+    REAL(KIND=dp), POINTER :: Values(:)
 
-    INTEGER :: i,j,n,m
+    INTEGER :: i,j,n
     REAL(KIND=dp) :: s
 !------------------------------------------------------------------------------
 
