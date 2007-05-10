@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: GeneralUtils.src,v $
+! * Revision 1.14  2007/05/10 08:19:31  jpr
+! * Reduced usage of LEN_TRIM in ReadAndTrim().
+! *
 ! * Revision 1.10  2006/11/30 12:49:43  jpr
 ! * Store UMFPACK factorization (Numeric) in Matrix-structure. Added logical
 ! * keyword 'Linear System UMFpack Refactorize'.
@@ -72,7 +75,7 @@
 ! * Added AllocateVector/AllocateArray.
 ! *
 ! *
-! * $Id: GeneralUtils.src,v 1.13 2006/12/20 07:24:03 jpr Exp $
+! * $Id: GeneralUtils.src,v 1.14 2007/05/10 08:19:31 jpr Exp $
 ! ******************************************************************************/
 
 
@@ -595,9 +598,13 @@ CONTAINS
           READ( Unit,'(A)',END=10,ERR=10 ) readstr
 4         CONTINUE
         END IF
-        ninlen = LEN_TRIM( readstr )
+        DO ninlen=LEN(readstr),1,-1
+          IF ( readstr(ninlen:ninlen) /= ' ' ) EXIT 
+        END DO
      ELSE
-        inlen  = LEN_TRIM(readstr)
+        DO inlen=LEN(readstr),1,-1
+          IF ( readstr(inlen:inlen) /= ' ' ) EXIT 
+        END DO
         ninlen = inlen-ValueStarts+1
         IF ( Prefix == ' ' ) THEN
            readstr = readstr(ValueStarts:inlen)
@@ -633,7 +640,10 @@ CONTAINS
           ELSE
             READ( IncludeUnit,'(A)',END=10,ERR=10 ) readstr(i+1:MAXLEN)
           END IF
-          inlen = inlen + LEN_TRIM( readstr(i+1:MAXLEN) )
+          DO j=LEN(readstr),i+1,-1
+             IF ( readstr(j:j) /= ' ' ) EXIT
+          END DO
+          inlen = inlen + j-i
        END IF
        i = i + 1
      END DO

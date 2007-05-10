@@ -40,7 +40,6 @@
 ! *
 ! * $Log: Lists.src,v $
 ! * Revision 1.32  2007/02/07 11:42:22  jpr
-! *
 ! * Enabled "Exported Variable n" defintions of "Internal Solvers". Added
 ! * keyword "Radiation Solver" to use if "Equation=Heat Equation" solver
 ! * not present.
@@ -92,7 +91,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Lists.src,v 1.32 2007/02/07 11:42:22 jpr Exp $
+! * $Id: Lists.src,v 1.33 2007/05/08 13:12:15 jpr Exp $
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
@@ -490,32 +489,35 @@ CONTAINS
 !------------------------------------------------------------------------------
     FUNCTION StringToLowerCase( to,from,same_len ) RESULT(n)
 !------------------------------------------------------------------------------
-      CHARACTER(LEN=*) :: to,from
-      LOGICAL, OPTIONAL :: same_len
+      CHARACTER(LEN=*), INTENT(in)  :: from
+      CHARACTER(LEN=*), INTENT(out) :: to
+      LOGICAL, OPTIONAL, INTENT(in) :: same_len
 !------------------------------------------------------------------------------
       INTEGER :: n
-      INTEGER :: i,j,k,A=ICHAR('A'),Z=ICHAR('Z'),U2L=ICHAR('a')-ICHAR('A')
+      INTEGER :: i,j,nlen
+      INTEGER, PARAMETER :: A=ICHAR('A'),Z=ICHAR('Z'),U2L=ICHAR('a')-ICHAR('A')
 
       n = LEN(to)
       IF (.NOT.PRESENT(same_len)) THEN
-        i=LEN_TRIM(from)
+        DO i=LEN(from),1,-1
+          IF ( from(i:i) /= ' ' ) EXIT
+        END DO
         IF ( n>i ) THEN
           to(i+1:n) = ' '
           n=i
         END IF
       END IF
 
-      k = 0
-      DO i=1,n
+      nlen = n
+      DO i=1,nlen
         j = ICHAR( from(i:i) )
         IF ( j >= A .AND. j <= Z ) THEN
           to(i:i) = CHAR(j+U2L)
         ELSE
           to(i:i) = from(i:i)
-          IF ( to(i:i)=='[') k=i
+          IF ( to(i:i)=='[') n=i-1
         END IF
       END DO
-      IF ( k>0 ) n=k-1
     END FUNCTION StringToLowerCase
 !------------------------------------------------------------------------------
 
@@ -1540,7 +1542,9 @@ TYPE(ValueList_t), POINTER :: ptr
 
      IF ( Ptr % Type >= 8 ) THEN
         cmd = ptr % CValue
-        k = LEN_TRIM( cmd )
+        DO k=LEN(cmd),1,-1
+          IF ( cmd(k:k) /= ' ' ) EXIT
+        END DO
         CALL matc( cmd, tmp_str, k )
         READ( tmp_str(1:k), * ) F
      ELSE IF ( ptr % Procedure /= 0 ) THEN
@@ -1711,11 +1715,15 @@ TYPE(ValueList_t), POINTER :: ptr
      CASE( LIST_TYPE_CONSTANT_SCALAR_STR )
          TVar => VariableGet( CurrentModel % Variables, 'Time' ) 
          WRITE( cmd, '(a,e15.8)' ) 'st = ', TVar % Values(1)
-         k = LEN_TRIM( cmd )
+         DO k=LEN(cmd),1,-1
+           IF ( cmd(k:k) /= ' ' ) EXIT
+         END DO
          CALL matc( cmd, tmp_str, k )
 
          cmd = ptr % CValue
-         k = LEN_TRIM( cmd )
+         DO k=LEN(cmd),1,-1
+           IF ( cmd(k:k) /= ' ' ) EXIT
+         END DO
          CALL matc( cmd, tmp_str, k )
          READ( tmp_str(1:k), * ) F(1)
          F(2:n) = F(1)
@@ -1723,7 +1731,9 @@ TYPE(ValueList_t), POINTER :: ptr
      CASE( LIST_TYPE_VARIABLE_SCALAR_STR )
        TVar => VariableGet( CurrentModel % Variables, 'Time' ) 
        WRITE( cmd, * ) 'st = ', TVar % Values(1)
-       k = LEN_TRIM( cmd )
+       DO k=LEN(cmd),1,-1
+         IF ( cmd(k:k) /= ' ' ) EXIT
+       END DO
        CALL matc( cmd, tmp_str, k )
 
        DO i=1,n
@@ -1798,12 +1808,16 @@ TYPE(ValueList_t), POINTER :: ptr
          IF ( .NOT. ANY( T(1:j)==HUGE(1.0_dp) ) ) THEN
            DO l=1,j
              WRITE( cmd, * ) 'tx(',l-1,') = ', T(l)
-             k1 = LEN_TRIM( cmd )
+             DO k1=LEN(cmd),1,-1
+               IF ( cmd(k1:k1) /= ' ' ) EXIT
+             END DO
              CALL matc( cmd, tmp_str, k1 )
            END DO
 
            cmd = ptr % CValue
-           k1 = LEN_TRIM( cmd )
+           DO k1=LEN(cmd),1,-1
+             IF ( cmd(k1:k1) /= ' ' ) EXIT
+           END DO
            CALL matc( cmd, tmp_str, k1 )
            READ( tmp_str(1:k1), * ) F(i)
          END IF

@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: $
+! * $Id: HashTable.src,v 1.3 2006/01/10 08:27:34 apursula Exp $
 ! *****************************************************************************
 
 MODULE HashTable
@@ -181,10 +181,14 @@ CONTAINS
      CHARACTER(LEN=*) :: key
      INTEGER :: Size, Ind
 
-     INTEGER :: i
+     INTEGER :: i,keylen
+
+     DO keylen=LEN(key),1,-1
+       IF ( key(keylen:keylen) /= ' ' ) EXIT
+     END DO
 
      Ind = 0
-     DO i=1,LEN_TRIM(key)
+     DO i=1,keylen
         Ind = Ind*8 + ICHAR(key(i:i))
      END DO
 
@@ -207,8 +211,14 @@ CONTAINS
      INTEGER :: n1,n2
 
      equal = .FALSE.
-     n1 = LEN_TRIM(key1)
-     n2 = LEN_TRIM(Key2)
+
+     DO n1=LEN(key1),1,-1
+       IF ( key1(n1:n1) /= ' ' ) EXIT
+     END DO
+
+     DO n2=LEN(key2),1,-1
+       IF ( key2(n2:n2) /= ' ' ) EXIT
+     END DO
      IF ( n1 /= n2 ) RETURN
 
      equal = key1(1:n1) == key2(1:n1)
@@ -272,7 +282,7 @@ CONTAINS
     TYPE(HashValue_t), POINTER :: Value
 
     INTEGER :: stat
-    INTEGER :: n, count = 0
+    INTEGER :: n, keylen, count = 0
     TYPE(HashEntry_t), POINTER :: Entry
 
     Success = .TRUE.
@@ -299,7 +309,10 @@ CONTAINS
        Entry % Next  => Hash % Bucket(n) % Head
        Entry % Value => Value
        Entry % Key = ' '
-       Entry % Key(1:LEN_TRIM(key)) = key(1:LEN_TRIM(key))
+       DO keylen=LEN(key),1,-1
+          IF ( key(keylen:keylen) /= ' ' ) EXIT
+       END DO
+       Entry % Key(1:keylen) = key(1:keylen)
 
        Hash % Bucket(n) % Head => Entry
        Hash % TotalEntries = Hash % TotalEntries + 1
