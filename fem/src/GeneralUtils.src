@@ -39,12 +39,6 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: GeneralUtils.src,v $
-! * Revision 1.12  2006/12/20 07:20:36  jpr
-! * *** empty log message ***
-! *
-! * Revision 1.11  2006/12/20 04:40:54  jpr
-! * *** empty log message ***
-! *
 ! * Revision 1.10  2006/11/30 12:49:43  jpr
 ! * Store UMFPACK factorization (Numeric) in Matrix-structure. Added logical
 ! * keyword 'Linear System UMFpack Refactorize'.
@@ -78,7 +72,7 @@
 ! * Added AllocateVector/AllocateArray.
 ! *
 ! *
-! * $Id: GeneralUtils.src,v 1.12 2006/12/20 07:20:36 jpr Exp $
+! * $Id: GeneralUtils.src,v 1.13 2006/12/20 07:24:03 jpr Exp $
 ! ******************************************************************************/
 
 
@@ -101,6 +95,19 @@ END INTERFACE
 
 
 CONTAINS
+
+
+!------------------------------------------------------------------------------
+   PURE FUNCTION lentrim(str) RESULT(n)
+!------------------------------------------------------------------------------
+     CHARACTER(LEN=*), INTENT(IN) :: str
+     INTEGER :: n
+     DO n=LEN(str),1,-1
+       IF ( str(n:n) /= ' ' ) EXIT
+     END DO
+!------------------------------------------------------------------------------
+   END FUNCTION lentrim
+!------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
@@ -497,6 +504,7 @@ CONTAINS
   END SUBROUTINE OpenIncludeFile
 !------------------------------------------------------------------------------
 
+
 !------------------------------------------------------------------------------
    RECURSIVE FUNCTION ReadAndTrim( Unit,str,echo ) RESULT(l)
 !------------------------------------------------------------------------------
@@ -533,7 +541,7 @@ CONTAINS
      CHARACTER(LEN=MAXLEN) :: readstr = ' ', matcstr=' ' , IncludePath=' '
 
      LOGICAL :: InsideQuotes, OpenSection=.FALSE.
-     INTEGER :: i,j,k,ValueStarts=0,inlen,outlen, IncludeUnit=28,IncludeUnitBase=28
+     INTEGER :: i,j,k,ValueStarts=0,inlen,ninlen,outlen,IncludeUnit=28,IncludeUnitBase=28
 
      CHARACTER(LEN=MAX_NAME_LEN) :: Prefix = '  '
 
@@ -587,8 +595,10 @@ CONTAINS
           READ( Unit,'(A)',END=10,ERR=10 ) readstr
 4         CONTINUE
         END IF
+        ninlen = LEN_TRIM( readstr )
      ELSE
-        inlen = LEN_TRIM( readstr )
+        inlen  = LEN_TRIM(readstr)
+        ninlen = inlen-ValueStarts+1
         IF ( Prefix == ' ' ) THEN
            readstr = readstr(ValueStarts:inlen)
         ELSE IF ( Prefix == '::' ) THEN
@@ -604,6 +614,7 @@ CONTAINS
                  readstr(i:i) = ' '
               END IF
            END DO
+           ninlen = ninlen + LEN_TRIM(Prefix) + 1
            readstr = TRIM(Prefix) // ' ' // readstr(ValueStarts:inlen)
         END IF
      END IF
@@ -611,8 +622,8 @@ CONTAINS
      ValueStarts = 0
      InsideQuotes  = .FALSE.
 
-     inlen = LEN_TRIM( readstr )
      i = 1
+     inlen = ninlen
      DO WHILE( i <= inlen )
        IF ( readstr(i:i) == '"' ) InsideQuotes = .NOT.InsideQuotes
        IF ( .NOT. InsideQuotes .AND. readstr(i:i) == CHAR(92) .AND. i==inlen ) THEN
@@ -622,36 +633,34 @@ CONTAINS
           ELSE
             READ( IncludeUnit,'(A)',END=10,ERR=10 ) readstr(i+1:MAXLEN)
           END IF
-          inlen = LEN_TRIM( readstr )
+          inlen = inlen + LEN_TRIM( readstr(i+1:MAXLEN) )
        END IF
        i = i + 1
      END DO
 
-     inlen = LEN_TRIM( readstr )
      DO i=1,inlen
        IF ( readstr(i:i) == '$' ) THEN
-          inlen = LEN_TRIM( Readstr(i+1:) )
-          CALL matc( readstr(i+1:),matcstr,inlen )
-          readstr(i:) = ' '
-          DO j=0,inlen-1
+          ninlen = inlen - i
+          CALL matc( readstr(i+1:), matcstr, ninlen )
+          DO j=0,ninlen-1
              readstr(i+j:i+j) = matcstr(j+1:j+1)
           END DO
+          IF ( inlen >= i+ninlen ) readstr(i+ninlen:inlen) = ' '
+          inlen = i+ninlen-1
           EXIT
        END IF
      END DO
 
      IF ( PRESENT( Echo ) ) THEN
-        IF ( Echo ) WRITE( 6, '(a)' ) TRIM(readstr)
+        IF ( Echo ) WRITE( 6, '(a)' ) readstr(1:inlen)
      END IF
 
-     inlen = LEN_TRIM( readstr )
      i = 1
      DO WHILE(i <= inlen )
         IF (readstr(i:i) /= ' ' .AND. ICHAR(readstr(i:i)) /= 9 ) EXIT
         i = i + 1
      END DO
 
-     inlen =  LEN_TRIM( readstr )
      InsideQuotes = .FALSE.
      str = ' '
 
@@ -712,21 +721,19 @@ CONTAINS
      IF ( i <= inlen ) THEN
         Prefix = ' '
         IF ( ReadStr(i:i) == '=' ) THEN
-           ValueStarts = i + 1
+          ValueStarts = i + 1
         ELSE IF ( ReadStr(i:i) == '(' ) THEN
-           ValueStarts = i + 1
-           Prefix = 'Size'
+          ValueStarts = i + 1
+          Prefix = 'Size'
         ELSE IF ( ReadStr(i:i+1) == '::' ) THEN
-           ValueStarts = i + 2
-           Prefix = '::'
+          ValueStarts = i + 2
+          Prefix = '::'
         ELSE IF ( ICHAR(readstr(i:i)) < 32 ) THEN
-           DO WHILE( i <= inlen )
-             IF ( ICHAR(readstr(i:i)) >= 32 ) EXIT
-             i = i + 1
-           END DO
-           IF ( i <= inlen ) THEN
-              ValueStarts = i
-           END IF
+          DO WHILE( i <= inlen )
+            IF ( ICHAR(readstr(i:i)) >= 32 ) EXIT
+            i = i + 1
+          END DO
+          IF ( i <= inlen ) ValueStarts = i
         END IF
      END IF
      RETURN
