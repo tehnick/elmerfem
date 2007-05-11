@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: GeneralUtils.src,v $
+! * Revision 1.15  2007/05/10 10:42:55  jpr
+! * Some handoptimizations.
+! *
 ! * Revision 1.14  2007/05/10 08:19:31  jpr
 ! * Reduced usage of LEN_TRIM in ReadAndTrim().
 ! *
@@ -75,7 +78,7 @@
 ! * Added AllocateVector/AllocateArray.
 ! *
 ! *
-! * $Id: GeneralUtils.src,v 1.14 2007/05/10 08:19:31 jpr Exp $
+! * $Id: GeneralUtils.src,v 1.15 2007/05/10 10:42:55 jpr Exp $
 ! ******************************************************************************/
 
 
@@ -541,12 +544,14 @@ CONTAINS
      LOGICAL :: l
 
      CHARACTER(LEN=12) :: tmpstr
-     CHARACTER(LEN=MAXLEN) :: readstr = ' ', matcstr=' ' , IncludePath=' '
+     CHARACTER(LEN=MAXLEN) :: readstr = ' ', copystr = ' ', matcstr=' ' , IncludePath=' '
 
      LOGICAL :: InsideQuotes, OpenSection=.FALSE.
-     INTEGER :: i,j,k,ValueStarts=0,inlen,ninlen,outlen,IncludeUnit=28,IncludeUnitBase=28
+     INTEGER :: i,j,k,m,ValueStarts=0,inlen,ninlen,outlen,IncludeUnit=28,IncludeUnitBase=28
 
      CHARACTER(LEN=MAX_NAME_LEN) :: Prefix = '  '
+
+     INTEGER, PARAMETER :: A=ICHAR('A'),Z=ICHAR('Z'),U2L=ICHAR('a')-ICHAR('A'),Tab=9
 
      SAVE ReadStr, ValueStarts, Prefix, OpenSection
 
@@ -574,8 +579,8 @@ CONTAINS
 
           DO i=1,12
             j = ICHAR( readstr(i:i) )
-            IF ( j >= ICHAR('A') .AND. j<=ICHAR('Z') ) THEN
-              Tmpstr(i:i) = CHAR(j-ICHAR('A')+ICHAR('a'))
+            IF ( j >= A .AND. j<= Z ) THEN
+              Tmpstr(i:i) = CHAR(j+U2L)
             ELSE
               Tmpstr(i:i) = readstr(i:i)
             END IF
@@ -649,17 +654,35 @@ CONTAINS
      END DO
 
      DO i=1,inlen
-       IF ( readstr(i:i) == '$' ) THEN
-          ninlen = inlen - i
-          CALL matc( readstr(i+1:), matcstr, ninlen )
-          DO j=0,ninlen-1
-             readstr(i+j:i+j) = matcstr(j+1:j+1)
-          END DO
-          IF ( inlen >= i+ninlen ) readstr(i+ninlen:inlen) = ' '
-          inlen = i+ninlen-1
-          EXIT
-       END IF
+       IF ( readstr(i:i) == '$' ) EXIT
      END DO
+     IF ( i < inlen ) THEN
+       m = i
+       copystr(i:inlen) = readstr(i:inlen)
+       DO WHILE(i<=inlen)
+         IF ( copystr(i:i) == '$' ) THEN
+            DO j=i+1,inlen-1
+              IF ( copystr(j:j) == '$' ) EXIT
+            END DO
+            ninlen = j - i
+            CALL MATC( copystr(i+1:), matcstr, ninlen )
+            DO WHILE(ICHAR(matcstr(ninlen:ninlen))<32)
+              ninlen = ninlen-1
+            END DO
+            DO k=1,ninlen
+              readstr(m:m) = matcstr(k:k)
+              m = m + 1
+            END DO
+            i = j+1
+         ELSE
+            readstr(m:m) = copystr(i:i)
+            i = i + 1
+            m = m + 1
+         END IF
+       END DO
+       IF ( m <= inlen ) readstr(m:inlen) = ' '
+       inlen = m-1
+     END IF
 
      IF ( PRESENT( Echo ) ) THEN
         IF ( Echo ) WRITE( 6, '(a)' ) readstr(1:inlen)
@@ -667,7 +690,7 @@ CONTAINS
 
      i = 1
      DO WHILE(i <= inlen )
-        IF (readstr(i:i) /= ' ' .AND. ICHAR(readstr(i:i)) /= 9 ) EXIT
+        IF (readstr(i:i) /= ' ' .AND. ICHAR(readstr(i:i))/=Tab ) EXIT
         i = i + 1
      END DO
 
@@ -678,39 +701,39 @@ CONTAINS
      DO WHILE( i<=inlen )
         IF ( readstr(i:i) == '"' ) THEN
           InsideQuotes = .NOT.InsideQuotes
-          i = i + 1
-          IF ( i > inlen ) EXIT
+          i=i+1
+          IF ( i>inlen ) EXIT
         END IF
 
         IF ( .NOT.InsideQuotes ) THEN
            IF ( readstr(i:i) == '!' .OR. readstr(i:i) == '#' .OR. &
-                readstr(i:i) == '=' .OR. readstr(i:i) == '(' ) EXIT
-           IF ( readstr(i:i+1) == '::' ) EXIT 
-           IF ( ICHAR( readstr(i:i) ) < 32 ) EXIT
+                readstr(i:i) == '=' .OR. readstr(i:i) == '(' .OR. &
+                readstr(i:i+1) == '::' ) EXIT 
+           IF (ICHAR( readstr(i:i))<32.AND.ICHAR(readstr(i:i))/=Tab) EXIT
         END IF
 
         DO WHILE( i <= inlen )
           IF ( readstr(i:i) == '"'  ) THEN
             InsideQuotes = .NOT.InsideQuotes
-            i = i + 1
-            IF ( i > inlen ) EXIT
+            i=i+1
+            IF ( i>inlen ) EXIT
           END IF
 
           IF ( .NOT.InsideQuotes ) THEN
-             IF ( readstr(i:i) == ' ' .OR. readstr(i:i) == '=' .OR. &
-                  readstr(i:i) == '(' .OR. ICHAR(readstr(i:i)) == 9 ) EXIT
-             IF ( readstr(i:i+1) == '::' ) EXIT 
-             IF ( ICHAR( readstr(i:i) ) < 32 ) EXIT
+             IF ( readstr(i:i) == ' ' .OR. readstr(i:i)   == '=' .OR. &
+                  readstr(i:i) == '(' .OR. readstr(i:i+1) == '::' ) EXIT 
+             IF ( ICHAR( readstr(i:i))<32 ) EXIT
           END IF
 
-          IF ( k > outlen ) THEN
+          IF ( k>outlen ) THEN
              CALL Fatal( 'ReadAndTrim', 'Output length exeeded.' )
           END IF
 
           j = ICHAR( readstr(i:i) )
-          IF ( .NOT.InsideQuotes .AND. j>=ICHAR('A') .AND. j<=ICHAR('Z') ) THEN
-            j = j - ICHAR('A') + ICHAR('a')
-            str(k:k) = CHAR(j)
+          IF ( .NOT.InsideQuotes .AND. j>=A .AND. j<=Z ) THEN
+            str(k:k) = CHAR(j+U2L)
+          ELSE IF ( .NOT.InsideQuotes .AND. j==Tab ) THEN
+            str(k:k) = ' '
           ELSE
             str(k:k) = readstr(i:i)
           ENDIF
@@ -723,28 +746,28 @@ CONTAINS
         k = k + 1
 
         DO WHILE( i<=inlen )
-          IF ( readstr(i:i) /= ' ' .AND. ICHAR(readstr(i:i)) /= 9 ) EXIT
+          IF ( readstr(i:i) /= ' ' .AND. ICHAR(readstr(i:i))/=Tab ) EXIT
           i = i + 1
         END DO
      END DO
 
      IF ( i <= inlen ) THEN
-        Prefix = ' '
-        IF ( ReadStr(i:i) == '=' ) THEN
-          ValueStarts = i + 1
-        ELSE IF ( ReadStr(i:i) == '(' ) THEN
-          ValueStarts = i + 1
-          Prefix = 'Size'
-        ELSE IF ( ReadStr(i:i+1) == '::' ) THEN
-          ValueStarts = i + 2
-          Prefix = '::'
-        ELSE IF ( ICHAR(readstr(i:i)) < 32 ) THEN
-          DO WHILE( i <= inlen )
-            IF ( ICHAR(readstr(i:i)) >= 32 ) EXIT
-            i = i + 1
-          END DO
-          IF ( i <= inlen ) ValueStarts = i
-        END IF
+       Prefix = ' '
+       IF ( ReadStr(i:i) == '=' ) THEN
+         ValueStarts = i + 1
+       ELSE IF ( ReadStr(i:i) == '(' ) THEN
+         ValueStarts = i + 1
+         Prefix = 'Size'
+       ELSE IF ( ReadStr(i:i+1) == '::' ) THEN
+         ValueStarts = i + 2
+         Prefix = '::'
+       ELSE IF ( ICHAR(readstr(i:i)) < 32 ) THEN
+         DO WHILE( i <= inlen )
+           IF ( ICHAR(readstr(i:i)) >= 32 ) EXIT
+           i = i + 1
+         END DO
+         IF ( i <= inlen ) ValueStarts = i
+       END IF
      END IF
      RETURN
 10   CONTINUE
@@ -785,7 +808,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     ind = INDEX( BaseName,'[' )
     IF ( ind<=0 ) THEN
-      str = TRIM( BaseName ) // ' ' // TRIM( IntegerToString( Component ) )
+      str = TRIM(BaseName) // ' ' // TRIM( IntegerToString(Component) )
     ELSE
       DOFsTot = 0
       DO WHILE( .TRUE. )

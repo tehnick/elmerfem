@@ -466,30 +466,32 @@ void STDCALLBULL FC_FUNC(matc,MATC) ( FC_CHAR_PTR(cmd,l1), FC_CHAR_PTR(Value,l2)
 #define MAXLEN 8192
 
   static int been_here = 0;
-    char *ptr, cc[32], *cmdcopy;
+  char *ptr, c, cc[32];
+  int slen = *len;
 
-    if ( been_here==0 ) {
-       mtc_init( NULL, stdout, stderr ); 
-       strcpy( cc, "format( 12,\"rowform\")" );
-       mtc_domath( cc );
-       been_here = 1;
-     }
+  if ( been_here==0 ) {
+     mtc_init( NULL, stdout, stderr ); 
+     strcpy( cc, "format( 12,\"rowform\")" );
+     mtc_domath( cc );
+     been_here = 1;
+   }
 
-    cmd[*len] = '\0';
-    if ( ptr = (char *)mtc_domath( cmd ) ) 
-    {
-      strcpy( Value, (char *)ptr );
-      *len = strlen(Value)-1;
+  c = cmd[slen];
+  cmd[slen] = '\0';
+  if ( ptr = (char *)mtc_domath(cmd) ) 
+  {
+    strcpy( Value, (char *)ptr );
+    *len = strlen(Value)-1;
 
-      if ( strncmp( Value, "MATC ERROR:", 11 ) == 0 ) {
-          fprintf( stderr, "Solver input file error: %s\n", Value );
-          exit(0);
-      }
-    } else {
-      *len = 0;
-      *Value = ' ';
+    if ( strncmp( Value, "MATC ERROR:", 11 ) == 0 ) {
+        fprintf( stderr, "Solver input file error: %s\n", Value );
+        exit(0);
     }
-
+  } else {
+    *len = 0;
+    *Value = ' ';
+  }
+  cmd[slen]=c;
 }
 
 

@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ModelDescription.src,v 1.38 2007/04/24 08:52:04 jpr Exp $
+! * $Id: ModelDescription.src,v 1.39 2007/04/24 10:46:47 jpr Exp $
 ! *****************************************************************************/
 
 MODULE ModelDescription
@@ -76,27 +76,29 @@ CONTAINS
     LOGICAL, OPTIONAL :: Quiet
 
     INTEGER(KIND=AddrInt) :: Proc
-    INTEGER   :: i,j,LEN,q
+    INTEGER   :: i,j,slen,q
     CHARACTER :: Libname(MAX_NAME_LEN),Procname(MAX_NAME_LEN)
 !------------------------------------------------------------------------------
 
-    LEN = LEN_TRIM(str)
+    DO slen=LEN(str),1,-1
+      IF ( str(slen:slen) /= ' ' ) EXIT
+    END DO
 
     i = 1
-    DO WHILE( i <= LEN )
+    DO WHILE( i <= slen )
       IF ( str(i:i) == ' ' ) EXIT
       Libname(i) = str(i:i)
       i = i + 1
     END DO
     Libname(i) = CHAR(0)
 
-    DO WHILE( i <= LEN )
+    DO WHILE( i <= slen )
        IF ( str(i:i) /= ' ' ) EXIT
        i = i + 1
     END DO
 
     j = 1
-    DO WHILE( i <= LEN )
+    DO WHILE( i <= slen )
       IF (  str(i:i) == ' ' ) EXIT
       Procname(j) = str(i:i)
       i = i + 1
