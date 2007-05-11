@@ -39,6 +39,10 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: GeneralUtils.src,v $
+! * Revision 1.16  2007/05/11 07:19:25  jpr
+! * One may now terminate inplace MATC input (starting with $) by second $-sing.
+! * Allow tabulators in input files.
+! *
 ! * Revision 1.15  2007/05/10 10:42:55  jpr
 ! * Some handoptimizations.
 ! *
@@ -78,7 +82,7 @@
 ! * Added AllocateVector/AllocateArray.
 ! *
 ! *
-! * $Id: GeneralUtils.src,v 1.15 2007/05/10 10:42:55 jpr Exp $
+! * $Id: GeneralUtils.src,v 1.16 2007/05/11 07:19:25 jpr Exp $
 ! ******************************************************************************/
 
 
@@ -565,6 +569,7 @@ CONTAINS
      END IF
 
      IF ( ValueStarts == 0 ) THEN
+        tmpstr = ' '
         DO WHILE( .TRUE. )
           IF ( IncludeUnit < IncludeUnitBase ) THEN
             READ( IncludeUnit,'(A)',END=1,ERR=1 ) readstr
@@ -577,17 +582,22 @@ CONTAINS
             READ( Unit,'(A)',END=10,ERR=10 ) readstr
           END IF
 
-          DO i=1,12
-            j = ICHAR( readstr(i:i) )
+          i = 1
+          DO WHILE(readstr(i:i)==' '.OR. ICHAR(readstr(i:i))==Tab)
+            i=i+1
+          END DO
+
+          DO k=1,12
+            j = ICHAR( readstr(i+k-1:i+k-1) )
             IF ( j >= A .AND. j<= Z ) THEN
-              Tmpstr(i:i) = CHAR(j+U2L)
+              Tmpstr(k:k) = CHAR(j+U2L)
             ELSE
-              Tmpstr(i:i) = readstr(i:i)
+              Tmpstr(k:k) = readstr(i+k-1:i+k-1)
             END IF
           END DO
 
-          IF ( tmpstr(1:12) == 'include path' ) THEN
-            IncludePath = readstr(14:)
+          IF ( Tmpstr(1:12) == 'include path' ) THEN
+            IncludePath = readstr(i+13:)
           ELSE
             EXIT
           END IF
@@ -595,7 +605,7 @@ CONTAINS
 
         IF ( tmpstr(1:8) == 'include ' ) THEN
           IncludeUnit = IncludeUnit-1
-          CALL OpenIncludeFile( IncludeUnit, TRIM(readstr(9:)), IncludePath )
+          CALL OpenIncludeFile( IncludeUnit, TRIM(readstr(i+8:)), IncludePath )
           READ( IncludeUnit,'(A)',END=3,ERR=3 ) readstr
           GO TO 4
 3         CLOSE(IncludeUnit)
