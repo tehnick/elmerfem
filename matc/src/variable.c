@@ -56,9 +56,12 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: variable.c,v 1.4 2006/02/02 06:54:44 jpr Exp $ 
+ * $Id: variable.c,v 1.5 2006/02/07 10:21:42 jpr Exp $ 
  *
  * $Log: variable.c,v $
+ * Revision 1.5  2006/02/07 10:21:42  jpr
+ * Changed visibility of some variables to local scope.
+ *
  * Revision 1.4  2006/02/02 06:54:44  jpr
  * small formatting changes.
  *
@@ -259,7 +262,7 @@ void var_print(ptr) VARIABLE *ptr;
       PrintOut( "\nColumns %d trough %d\n\n", 
               k, min(NCOL(ptr) - 1, k + 7));
 
-    if (var_pinp)
+    if (var_pinp || var_rowintime )
       sprintf(fmt, "%%.%dg ",var_pprec); 
     else 
       sprintf(fmt, "%% %d.%dg",var_pprec+7,var_pprec); 
