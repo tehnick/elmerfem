@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: TimeIntegrate.src,v 1.5 2006/12/01 09:02:17 jpr Exp $
+! * $Id: TimeIntegrate.src,v 1.6 2006/12/01 20:07:42 jpr Exp $
 ! ******************************************************************************
 
 !------------------------------------------------------------------------------
@@ -67,11 +67,12 @@ CONTAINS
 
     DO i=1,NB
       s = 0.0d0
-      DO j=1,NB
-         IF ( j <= N ) &
+      DO j=1,N
             s = s + (1.0d0/dt) * MassMatrix(i,j) * PrevSolution(j) - &
                       (1-Beta) * StiffMatrix(i,j) * PrevSolution(j)
+      END DO
 
+      DO j=1,NB
          StiffMatrix(i,j) = Beta * StiffMatrix(i,j) + (1.0d0/dt)*MassMatrix(i,j)
       END DO
       Force(i) = Force(i) + s
@@ -99,54 +100,93 @@ CONTAINS
      NB1 = SIZE(StiffMatrix,1)
      NB2 = SIZE(StiffMatrix,2)
 
-     DO i=1,NB1
-       s = 0.0d0
-       DO j=1,NB2
-         SELECT CASE( Order)
-           CASE(1)
-           IF ( j <= N ) &
-             s = s + (1.0d0/dt)*MassMatrix(i,j)*PrevSolution(j,1)
+     SELECT CASE( Order)
+     CASE(1)
+       DO i=1,NB1
+         s = 0.0_dp
+         DO j=1,N
+           s = s + (1.0d0/dt)*MassMatrix(i,j)*PrevSolution(j,1)
+         END DO
+         Force(i) = Force(i) + s
+
+         DO j=1,NB2
            StiffMatrix(i,j) = (1.0d0/dt)*MassMatrix(i,j) + StiffMatrix(i,j)
-           CASE(2)
-           IF ( j <= N ) &
+         END DO
+       END DO
+
+     CASE(2)
+       DO i=1,NB1
+         s = 0.0_dp
+         DO j=1,N
              s = s + (1.0d0/dt)*MassMatrix(i,j) * ( &
                (4.d0/3.d0)*PrevSolution(j,1) - (1.d0/3.d0)*PrevSolution(j,2) )
+         END DO
+         Force(i) = Force(i) + s
+
+         DO j=1,NB2
            StiffMatrix(i,j) = (1.0d0/dt)*MassMatrix(i,j) &
              + (2.d0/3.d0)*StiffMatrix(i,j)
-           CASE(3)
-           IF ( j <= N ) &
-             s = s + (1.0d0/dt)*MassMatrix(i,j) * ( &
-               (18.d0/11.d0)*PrevSolution(j,1) &
-               - (9.d0/11.d0)*PrevSolution(j,2) &
-               + (2.d0/11.d0)*PrevSolution(j,3) )
+         END DO
+       END DO
+
+     CASE(3)
+       DO i=1,NB1
+         s = 0.0_dp
+         DO j=1,N
+           s = s + (1.0d0/dt)*MassMatrix(i,j) * ( &
+             (18.d0/11.d0)*PrevSolution(j,1) &
+             - (9.d0/11.d0)*PrevSolution(j,2) &
+             + (2.d0/11.d0)*PrevSolution(j,3) )
+         END DO
+         Force(i) = Force(i) + s
+
+         DO j=1,NB2
            StiffMatrix(i,j) = (1.0d0/dt)*MassMatrix(i,j) &
-             + (6.d0/11.d0)*StiffMatrix(i,j)
-           CASE(4)
-           IF ( j <= N ) &
-             s = s + (1.0d0/dt)*MassMatrix(i,j) * ( &
-               (48.d0/25.d0)*PrevSolution(j,1) &
-               - (36.d0/25.d0)*PrevSolution(j,2) &
-               + (16.d0/25.d0)*PrevSolution(j,3) &
-               - (3.d0/25.d0)*PrevSolution(j,4) )
+              + (6.d0/11.d0)*StiffMatrix(i,j)
+         END DO
+       END DO
+
+     CASE(4)
+       DO i=1,NB1
+         s = 0.0_dp
+         DO j=1,N
+           s = s + (1.0d0/dt)*MassMatrix(i,j) * ( &
+             (48.d0/25.d0)*PrevSolution(j,1) &
+             - (36.d0/25.d0)*PrevSolution(j,2) &
+             + (16.d0/25.d0)*PrevSolution(j,3) &
+             - (3.d0/25.d0)*PrevSolution(j,4) )
+         END DO
+         Force(i) = Force(i) + s
+
+         DO j=1,NB2
            StiffMatrix(i,j) = (1.0d0/dt)*MassMatrix(i,j) &
              + (12.d0/25.d0)*StiffMatrix(i,j)
-           CASE(5)
-           IF ( j <= N ) &
-             s = s + (1.0d0/dt)*MassMatrix(i,j) * ( &
-               (300.d0/137.d0)*PrevSolution(j,1) &
-               - (300.d0/137.d0)*PrevSolution(j,2) &
-               + (200.d0/137.d0)*PrevSolution(j,3) &
-               - (75.d0/137.d0)*PrevSolution(j,4) &
-               + (12.d0/137.d0)*PrevSolution(j,5) )
-           StiffMatrix(i,j) = (1.0d0/dt)*MassMatrix(i,j) &
-             + (60.d0/137.d0)*StiffMatrix(i,j)
-           CASE DEFAULT
-             WRITE( Message, * ) 'Invalid order BDF', Order
-             CALL Fatal( 'BDFLocal', Message )
-         END SELECT
+         END DO
        END DO
-       Force(i) = Force(i) + s
-     END DO
+
+     CASE(5)
+       DO i=1,NB1
+         s = 0.0_dp
+         DO j=1,N
+           s = s + (1.0d0/dt)*MassMatrix(i,j) * ( &
+             (300.d0/137.d0)*PrevSolution(j,1)    &
+             - (300.d0/137.d0)*PrevSolution(j,2)  &
+             + (200.d0/137.d0)*PrevSolution(j,3)  &
+             - (75.d0/137.d0)*PrevSolution(j,4)   &
+             + (12.d0/137.d0)*PrevSolution(j,5) )
+         END DO
+         Force(i) = Force(i) + s
+
+         DO j=1,NB2
+           StiffMatrix(i,j) = (1.0d0/dt) * MassMatrix(i,j) &
+              + (60.d0/137.d0)*StiffMatrix(i,j)
+         END DO
+       END DO
+
+     CASE DEFAULT
+        WRITE( Message, * ) 'Invalid order BDF', Order
+        CALL Fatal( 'BDFLocal', Message )
+     END SELECT
 !------------------------------------------------------------------------------
    END SUBROUTINE BDFLocal
 !------------------------------------------------------------------------------
@@ -237,14 +277,15 @@ CONTAINS
 
      DO i=1,NB
        s = 0.0d0
-       DO j=1,NB
-          IF ( j <= N ) &
-           s = s + (1.0d0/dt) * MassMatrix(i,j) * PrevSolution(j) - &
-               ForceCoeff * StiffMatrix(i,j) * PrevSolution(j)
-
-           StiffMatrix(i,j) = MassCoeff * StiffMatrix(i,j) + (1.0d0/dt)*MassMatrix(i,j)
+       DO j=1,N
+         s = s + (1.0d0/dt) * MassMatrix(i,j) * PrevSolution(j) - &
+              ForceCoeff * StiffMatrix(i,j) * PrevSolution(j)
        END DO
        Force(i) = Force(i) + s
+
+       DO j=1,NB
+           StiffMatrix(i,j) = MassCoeff * StiffMatrix(i,j) + (1.0d0/dt)*MassMatrix(i,j)
+       END DO
      END DO
 !------------------------------------------------------------------------------
    END SUBROUTINE FractionalStep
