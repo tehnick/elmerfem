@@ -467,7 +467,7 @@ void STDCALLBULL FC_FUNC(matc,MATC) ( FC_CHAR_PTR(cmd,l1), FC_CHAR_PTR(Value,l2)
 
   static int been_here = 0;
   char *ptr, c, cc[32];
-  int slen = *len;
+  int slen = *len, i;
 
   if ( been_here==0 ) {
      mtc_init( NULL, stdout, stderr ); 
@@ -481,7 +481,7 @@ void STDCALLBULL FC_FUNC(matc,MATC) ( FC_CHAR_PTR(cmd,l1), FC_CHAR_PTR(Value,l2)
   if ( ptr = (char *)mtc_domath(cmd) ) 
   {
     strcpy( Value, (char *)ptr );
-    *len = strlen(Value)-1;
+    *len = strlen(Value)-1; /* ignore linefeed! */
 
     if ( strncmp( Value, "MATC ERROR:", 11 ) == 0 ) {
         fprintf( stderr, "Solver input file error: %s\n", Value );

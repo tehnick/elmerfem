@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: GeneralUtils.src,v $
+! * Revision 1.17  2007/05/11 08:55:09  jpr
+! * Some modifications to 'include' statement.
+! *
 ! * Revision 1.16  2007/05/11 07:19:25  jpr
 ! * One may now terminate inplace MATC input (starting with $) by second $-sing.
 ! * Allow tabulators in input files.
@@ -82,7 +85,7 @@
 ! * Added AllocateVector/AllocateArray.
 ! *
 ! *
-! * $Id: GeneralUtils.src,v 1.16 2007/05/11 07:19:25 jpr Exp $
+! * $Id: GeneralUtils.src,v 1.17 2007/05/11 08:55:09 jpr Exp $
 ! ******************************************************************************/
 
 
@@ -585,9 +588,13 @@ CONTAINS
           i = 1
           DO WHILE(readstr(i:i)==' '.OR. ICHAR(readstr(i:i))==Tab)
             i=i+1
+            IF ( i>MAXLEN ) EXIT
           END DO
+          IF ( i>MAXLEN ) EXIT
 
           DO k=1,12
+            IF ( i+k-1>MAXLEN ) EXIT
+
             j = ICHAR( readstr(i+k-1:i+k-1) )
             IF ( j >= A .AND. j<= Z ) THEN
               Tmpstr(k:k) = CHAR(j+U2L)
@@ -676,9 +683,6 @@ CONTAINS
             END DO
             ninlen = j - i
             CALL MATC( copystr(i+1:), matcstr, ninlen )
-            DO WHILE(ICHAR(matcstr(ninlen:ninlen))<32)
-              ninlen = ninlen-1
-            END DO
             DO k=1,ninlen
               readstr(m:m) = matcstr(k:k)
               m = m + 1
