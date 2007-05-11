@@ -56,9 +56,12 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: variable.c,v 1.5 2006/02/07 10:21:42 jpr Exp $ 
+ * $Id: variable.c,v 1.6 2007/05/11 07:53:32 jpr Exp $ 
  *
  * $Log: variable.c,v $
+ * Revision 1.6  2007/05/11 07:53:32  jpr
+ * *** empty log message ***
+ *
  * Revision 1.5  2006/02/07 10:21:42  jpr
  * Changed visibility of some variables to local scope.
  *
@@ -244,10 +247,12 @@ void var_print(ptr) VARIABLE *ptr;
       for(j = 0; j < NCOL(ptr); j++)
         PrintOut( "%c",  (char)M(ptr,i,j));
       if (var_pinp)
+      {
         if (i < NROW(ptr)-1)
           PrintOut("\"\\");
         else
           PrintOut("\"");
+      }
       PrintOut( "\n");
     }
     return;
@@ -263,7 +268,7 @@ void var_print(ptr) VARIABLE *ptr;
               k, min(NCOL(ptr) - 1, k + 7));
 
     if (var_pinp || var_rowintime )
-      sprintf(fmt, "%%.%dg ",var_pprec); 
+      sprintf(fmt, "%%.%dg",var_pprec );
     else 
       sprintf(fmt, "%% %d.%dg",var_pprec+7,var_pprec); 
      
@@ -271,6 +276,7 @@ void var_print(ptr) VARIABLE *ptr;
     {
       if ( var_rowintime ) {
          for( j=0; j<NCOL(ptr); j++ ) {
+           if ( j>0 ) PrintOut(" ");
            PrintOut( fmt, M(ptr,i,j));
          }
       } else {
@@ -278,8 +284,7 @@ void var_print(ptr) VARIABLE *ptr;
            PrintOut( fmt, M(ptr,i,j+k));
 
          if (var_pinp)
-           if (i < NROW(ptr)-1)
-             PrintOut("\\");
+           if (i < NROW(ptr)-1) PrintOut("\\");
        }
 
       PrintOut("\n");
