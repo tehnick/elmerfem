@@ -2193,7 +2193,7 @@ int main(int argc,char **argv)
                   (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
 
     CurrentObject = &VisualObject;
-    CurrentObject->Name = strcpy( malloc( strlen("default") ), "default" );
+    CurrentObject->Name = strcpy( malloc(strlen("default")+1), "default" );
 
     obj_object_initialize( CurrentObject );
 
