@@ -1308,14 +1308,6 @@ static int MathCommand(ClientData cl,Tcl_Interp *interp,int argc,char **argv)
 #include <X11/Xlib.h>
 #include <X11/Xutil.h>
 
-static int ActivateGraphicsWindow( ClientData cl,Tcl_Interp *interp,int argc,char **argv )
-{
-#ifdef WIN32
-    ShowWindow( tkXWindow(), SW_SHOWNORMAL );
-#endif
-    return TCL_OK;
-}
-
 static unsigned int FontBase;
 
 Display *tkXDisplay()
@@ -1341,6 +1333,13 @@ Window tkXWindow()
 }
 
 
+static int ActivateGraphicsWindow( ClientData cl,Tcl_Interp *interp,int argc,char **argv )
+{
+#ifdef WIN32
+    ShowWindow( tkXWindow(), SW_SHOWNORMAL );
+#endif
+    return TCL_OK;
+}
 
 
 
