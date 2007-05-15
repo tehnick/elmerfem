@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: DefUtils.src,v $
+! * Revision 1.43  2007/05/11 10:29:12  jpr
+! * Small cleanups.
+! *
 ! * Revision 1.42  2007/05/09 07:40:48  jpr
 ! * Smallish cleanups.
 ! *
@@ -168,7 +171,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.42 2007/05/09 07:40:48 jpr Exp $
+! * $Id: DefUtils.src,v 1.43 2007/05/11 10:29:12 jpr Exp $
 ! *
 ! *****************************************************************************/
 
@@ -957,7 +960,7 @@ CONTAINS
         ALLOCATE( ElementNodes % x(n), ElementNodes % y(n),ElementNodes % z(n) )
      END IF
 
-     n = Element % TYPE % NumberOfNodes
+     n = Element % Type % NumberOfNodes
      ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(Element % NodeIndexes)
      ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(Element % NodeIndexes)
      ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(Element % NodeIndexes)
@@ -973,7 +976,7 @@ CONTAINS
      IF ( sz1 > Solver % Mesh % NumberOfNodes ) THEN
         Indexes => GetIndexStore()
         nd = GetElementDOFs( Indexes )
-        DO i=n+1,sz
+        DO i=n+1,nd
            IF ( Indexes(i)>0 .AND. Indexes(i)<=sz1 ) THEN
              ElementNodes % x(i) = Solver % Mesh % Nodes % x(Indexes(i))
              ElementNodes % y(i) = Solver % Mesh % Nodes % y(Indexes(i))
