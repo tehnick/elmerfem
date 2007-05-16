@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: DefUtils.src,v $
+! * Revision 1.44  2007/05/15 12:10:13  jpr
+! * Corrected a bug in GetElementNodes().
+! *
 ! * Revision 1.43  2007/05/11 10:29:12  jpr
 ! * Small cleanups.
 ! *
@@ -171,7 +174,7 @@
 ! * Revision 1.25  2004/02/27 10:35:38  jpr
 ! * Started log.
 ! *
-! * $Id: DefUtils.src,v 1.43 2007/05/11 10:29:12 jpr Exp $
+! * $Id: DefUtils.src,v 1.44 2007/05/15 12:10:13 jpr Exp $
 ! *
 ! *****************************************************************************/
 
@@ -3153,6 +3156,7 @@ CONTAINS
     INTEGER :: ElementFamily
     INTEGER, POINTER :: EdgeMap(:,:)
 
+    INTEGER, TARGET :: LineEM(1,2)
     INTEGER, TARGET :: TriangleEM(3,2)
     INTEGER, TARGET :: QuadEM(4,2)
     INTEGER, TARGET :: TetraEM(6,2)
@@ -3160,11 +3164,13 @@ CONTAINS
     INTEGER, TARGET :: WedgeEM(9,2)
     INTEGER, TARGET :: BrickEM(12,2)
 
-    LOGICAL :: Initialized = .FALSE.
+    LOGICAL :: Initialized(8) = .FALSE.
   
-    SAVE TriangleEM, WedgeEM, BrickEM, TetraEM, QuadEM, PrismEM, Initialized
+    SAVE LineEM, TriangleEM, WedgeEM, BrickEM, TetraEM, QuadEM, PrismEM, Initialized
 
     SELECT CASE(ElementFamily)
+    CASE(2)
+      EdgeMap => LineEM
     CASE(3)
       EdgeMap => TriangleEM
     CASE(4) 
@@ -3179,9 +3185,12 @@ CONTAINS
       EdgeMap => BrickEM
     END SELECT
  
-     IF ( .NOT. Initialized ) THEN
-       Initialized = .TRUE.
+     IF ( .NOT. Initialized(ElementFamily)) THEN
+       Initialized(ElementFamily) = .TRUE.
        SELECT CASE(ElementFamily)
+       CASE(2)
+         EdgeMap(1,:) = (/ 1,2 /)
+
        CASE(3)
          EdgeMap(1,:) = (/ 1,2 /)
          EdgeMap(2,:) = (/ 2,3 /)

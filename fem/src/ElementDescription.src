@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: ElementDescription.src,v $
+! * Revision 1.32  2007/05/11 10:29:12  jpr
+! * Small cleanups.
+! *
 ! * Revision 1.31  2007/05/03 11:04:51  jpr
 ! * Linear system scaling applied to parallel cases. A bug fix in parallel
 ! * DG systems -> works now also on parts of the (meshed) domain.
@@ -132,7 +135,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: ElementDescription.src,v 1.31 2007/05/03 11:04:51 jpr Exp $
+! * $Id: ElementDescription.src,v 1.32 2007/05/11 10:29:12 jpr Exp $
 ! ******************************************************************************/
 
 MODULE ElementDescription
@@ -4310,7 +4313,7 @@ END IF
     INTEGER, TARGET :: WedgeEM(9,2)
     INTEGER, TARGET :: BrickEM(12,2)
 
-    LOGICAL :: Initialized = .FALSE.
+    LOGICAL :: Initialized(8) = .FALSE.
   
     SAVE LineEM, TriangleEM, WedgeEM, BrickEM, TetraEM, QuadEM, PrismEM, Initialized
 
@@ -4331,8 +4334,8 @@ END IF
       EdgeMap => BrickEM
     END SELECT
  
-     IF ( .NOT. Initialized ) THEN
-       Initialized = .TRUE.
+     IF ( .NOT. Initialized(ElementFamily) ) THEN
+       Initialized(ElementFamily) = .TRUE.
        SELECT CASE(ElementFamily)
        CASE(2)
          EdgeMap(1,:) = (/ 1,2 /)
