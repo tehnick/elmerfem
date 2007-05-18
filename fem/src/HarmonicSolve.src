@@ -117,7 +117,7 @@ CONTAINS
         END DO
         CALL DirectSolver( CMatrix, x, b, Solver )
         DO j=1,n
-          Solver % Variable % EigenVectors(i,j) = DCMPLX(x(2*(j-1)+1),x(2*(j-1)+2))
+          Solver % Variable % EigenVectors(i,j) = CMPLX(x(2*(j-1)+1),x(2*(j-1)+2),KIND=dp)
         END DO
       ELSE
         Solver % Matrix % Values = -omega**2*Solver % Matrix % MassValues + &
@@ -138,7 +138,7 @@ CONTAINS
         CALL HarmonicScaleSystem( n, Solver % Matrix, b, x, -1 )
 
         DO j=1,n
-          Solver % Variable % EigenVectors(i,j) = DCMPLX( x(j), x(j+n) )
+          Solver % Variable % EigenVectors(i,j) = CMPLX( x(j), x(j+n),KIND=dp )
         END DO
         Solver % Variable % EigenValues(i) = omega
         Solver % Matrix % Values = +omega**2*Solver % Matrix % MassValues + &
