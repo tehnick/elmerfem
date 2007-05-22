@@ -38,7 +38,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: IterSolve.src,v 1.10 2007/05/09 07:40:48 jpr Exp $
+! * $Id: IterSolve.src,v 1.11 2007/05/22 08:09:21 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -60,6 +60,7 @@ MODULE IterSolve
    INTEGER, PARAMETER, PRIVATE :: ITER_CG           =           340
    INTEGER, PARAMETER, PRIVATE :: ITER_CGS          =           350
    INTEGER, PARAMETER, PRIVATE :: ITER_GMRES        =           360
+   INTEGER, PARAMETER, PRIVATE :: ITER_BiCGStab2    =           370
 
    !/*
    ! * Preconditioning type code
@@ -125,11 +126,11 @@ CONTAINS
 
     EXTERNAL MultigridPrec
 
-    INTEGER  :: HUTI_D_BICGSTAB_2, HUTI_D_TFQMR, HUTI_D_CG, HUTI_D_CGS, HUTI_D_GMRES
-    EXTERNAL :: HUTI_D_BICGSTAB_2, HUTI_D_TFQMR, HUTI_D_CG, HUTI_D_CGS, HUTI_D_GMRES
+    INTEGER  :: HUTI_D_BICGSTAB, HUTI_D_BICGSTAB_2, HUTI_D_TFQMR, HUTI_D_CG, HUTI_D_CGS, HUTI_D_GMRES
+    EXTERNAL :: HUTI_D_BICGSTAB, HUTI_D_BICGSTAB_2, HUTI_D_TFQMR, HUTI_D_CG, HUTI_D_CGS, HUTI_D_GMRES
 
-    INTEGER  :: HUTI_Z_BICGSTAB_2, HUTI_Z_TFQMR, HUTI_Z_CG, HUTI_Z_CGS, HUTI_Z_GMRES
-    EXTERNAL :: HUTI_Z_BICGSTAB_2, HUTI_Z_TFQMR, HUTI_Z_CG, HUTI_Z_CGS, HUTI_Z_GMRES
+    INTEGER  :: HUTI_Z_BICGSTAB, HUTI_Z_BICGSTAB_2, HUTI_Z_TFQMR, HUTI_Z_CG, HUTI_Z_CGS, HUTI_Z_GMRES
+    EXTERNAL :: HUTI_Z_BICGSTAB, HUTI_Z_BICGSTAB_2, HUTI_Z_TFQMR, HUTI_Z_CG, HUTI_Z_CGS, HUTI_Z_GMRES
 
     INTEGER(KIND=Addrint) :: dotProc, normProc, pcondProc, &
             pcondrProc=0, mvProc,AddrFunc, iterProc
@@ -142,7 +143,9 @@ CONTAINS
 !------------------------------------------------------------------------------
     str = ListGetString( SolverParam % Values,'Linear System Iterative Method' )
 
-    IF ( str(1:8) == 'bicgstab' ) THEN
+    IF ( str(1:9) == 'bicgstab2' ) THEN
+      IterType = ITER_BiCGStab2
+    ELSE IF ( str(1:8) == 'bicgstab' ) THEN
       IterType = ITER_BiCGStab
     ELSE IF ( str(1:5) == 'tfqmr' )THEN
       IterType = ITER_TFQMR
@@ -159,6 +162,10 @@ CONTAINS
 
     SELECT CASE ( IterType )
       CASE (ITER_BiCGStab)
+        HUTI_WRKDIM = HUTI_BICGSTAB_WORKSIZE
+        wsize = HUTI_WRKDIM
+
+      CASE (ITER_BiCGStab2)
         HUTI_WRKDIM = HUTI_BICGSTAB_2_WORKSIZE
         wsize = HUTI_WRKDIM
 
@@ -314,6 +321,8 @@ CONTAINS
      IF ( .NOT. A % Complex ) THEN
        SELECT CASE ( IterType )
        CASE (ITER_BiCGStab)
+          iterProc = AddrFunc( HUTI_D_BICGSTAB )
+       CASE (ITER_BiCGStab2)
           iterProc = AddrFunc( HUTI_D_BICGSTAB_2 )
        CASE (ITER_TFQMR)
           iterProc = AddrFunc( HUTI_D_TFQMR )
@@ -328,6 +337,8 @@ CONTAINS
        HUTI_NDIM = HUTI_NDIM / 2
        SELECT CASE ( IterType )
        CASE (ITER_BiCGStab)
+          iterProc = AddrFunc( HUTI_Z_BICGSTAB )
+       CASE (ITER_BiCGStab2)
           iterProc = AddrFunc( HUTI_Z_BICGSTAB_2 )
        CASE (ITER_TFQMR)
           iterProc = AddrFunc( HUTI_Z_TFQMR )
