@@ -38,7 +38,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: IterSolve.src,v 1.9 2007/04/18 11:57:58 jpr Exp $
+! * $Id: IterSolve.src,v 1.10 2007/05/09 07:40:48 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -125,11 +125,11 @@ CONTAINS
 
     EXTERNAL MultigridPrec
 
-    INTEGER  :: HUTI_D_BICGSTAB, HUTI_D_TFQMR, HUTI_D_CG, HUTI_D_CGS, HUTI_D_GMRES
-    EXTERNAL :: HUTI_D_BICGSTAB, HUTI_D_TFQMR, HUTI_D_CG, HUTI_D_CGS, HUTI_D_GMRES
+    INTEGER  :: HUTI_D_BICGSTAB_2, HUTI_D_TFQMR, HUTI_D_CG, HUTI_D_CGS, HUTI_D_GMRES
+    EXTERNAL :: HUTI_D_BICGSTAB_2, HUTI_D_TFQMR, HUTI_D_CG, HUTI_D_CGS, HUTI_D_GMRES
 
-    INTEGER  :: HUTI_Z_BICGSTAB, HUTI_Z_TFQMR, HUTI_Z_CG, HUTI_Z_CGS, HUTI_Z_GMRES
-    EXTERNAL :: HUTI_Z_BICGSTAB, HUTI_Z_TFQMR, HUTI_Z_CG, HUTI_Z_CGS, HUTI_Z_GMRES
+    INTEGER  :: HUTI_Z_BICGSTAB_2, HUTI_Z_TFQMR, HUTI_Z_CG, HUTI_Z_CGS, HUTI_Z_GMRES
+    EXTERNAL :: HUTI_Z_BICGSTAB_2, HUTI_Z_TFQMR, HUTI_Z_CG, HUTI_Z_CGS, HUTI_Z_GMRES
 
     INTEGER(KIND=Addrint) :: dotProc, normProc, pcondProc, &
             pcondrProc=0, mvProc,AddrFunc, iterProc
@@ -159,7 +159,7 @@ CONTAINS
 
     SELECT CASE ( IterType )
       CASE (ITER_BiCGStab)
-        HUTI_WRKDIM = HUTI_BICGSTAB_WORKSIZE
+        HUTI_WRKDIM = HUTI_BICGSTAB_2_WORKSIZE
         wsize = HUTI_WRKDIM
 
       CASE (ITER_TFQMR)
@@ -314,7 +314,7 @@ CONTAINS
      IF ( .NOT. A % Complex ) THEN
        SELECT CASE ( IterType )
        CASE (ITER_BiCGStab)
-          iterProc = AddrFunc( HUTI_D_BICGSTAB )
+          iterProc = AddrFunc( HUTI_D_BICGSTAB_2 )
        CASE (ITER_TFQMR)
           iterProc = AddrFunc( HUTI_D_TFQMR )
        CASE (ITER_CG)
@@ -328,7 +328,7 @@ CONTAINS
        HUTI_NDIM = HUTI_NDIM / 2
        SELECT CASE ( IterType )
        CASE (ITER_BiCGStab)
-          iterProc = AddrFunc( HUTI_Z_BICGSTAB )
+          iterProc = AddrFunc( HUTI_Z_BICGSTAB_2 )
        CASE (ITER_TFQMR)
           iterProc = AddrFunc( HUTI_Z_TFQMR )
        CASE (ITER_CG)
