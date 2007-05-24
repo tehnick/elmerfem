@@ -6653,9 +6653,10 @@ void ElementsToBoundaryConditions(struct FemType *data,
   int i,j,k,l,sideelemtype,sideelemtype2,elemind,elemind2,parent,sideelem,sameelem;
   int sideind[MAXNODESD1],sideind2[MAXNODESD1],elemsides,side,hit,same;
   int sidenodes,sidenodes2,maxelemtype,elemdim,sideelements,material;
-  int *moveelement,*parentorder,*possible,**invtopo,**checkside;
+  int *moveelement,*parentorder,*possible,**invtopo;
   int noelements,maxpossible,noknots,maxelemsides,twiceelem,sideelemdim;
   int debug;
+
 
   if(info) printf("Making elements to boundary conditions\n");
 
@@ -6749,11 +6750,6 @@ void ElementsToBoundaryConditions(struct FemType *data,
     }
   }
 
-  checkside = Imatrix(1,noelements,0,maxelemsides-1);
-  for(elemind=1;elemind <= data->noelements;elemind++) 
-    for(i=0;i<maxelemsides;i++)
-      checkside[elemind][i] = 0;
-
   sideelem = 0;
   sameelem = 0;
   twiceelem = 0;
@@ -6800,28 +6796,10 @@ void ElementsToBoundaryConditions(struct FemType *data,
 
 	if(hit < sidenodes) continue;
 
-#if 0
-	for(i=1;i<=maxelemsides && checkside[elemind2][i];i++) 
-	  if(checkside[elemind2][i] == side+1) {
-	    hit = 0;
-	    twiceelem++;
-	  }
-
-	if(hit == 0) continue;
-
-	checkside[elemind2][i] = side+1;
-#endif
-
 	if(same) {
 	  sameelem += 1;
 	  bound->parent2[sideelem] = parentorder[elemind2];
 	  bound->side2[sideelem] = side;		  
-#if 0
-	  if(sidenodes == 2) {
-	    if((sideind[0]-sideind[1])*(sideind2[0]-sideind2[1])<0) 	      
-	      bound->side2[sideelem] = -side-1;
-	  }		  
-#endif
 	  goto foundtwo;
 	}
 	else {
@@ -6851,8 +6829,10 @@ void ElementsToBoundaryConditions(struct FemType *data,
 
     if(debug) printf("HIT = %d\n",hit);
 
+
   foundtwo:
     if(0);
+
   }
 
   if(twiceelem) printf("Found %d sides that were multiply given\n",twiceelem);
@@ -6887,7 +6867,6 @@ void ElementsToBoundaryConditions(struct FemType *data,
   free_Ivector(parentorder,1,noelements);
   free_Ivector(moveelement,1,noelements); 
   free_Ivector(possible,1,noknots);
-  free_Imatrix(checkside,1,noelements,0,maxelemsides-1);
 
   return;
 }

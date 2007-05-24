@@ -862,13 +862,13 @@ int LoadNastranInput(struct FemType *data,struct BoundaryType *bound,
   if ((in = fopen(filename,"r")) == NULL) {
     AddExtension(prefix,filename,"nas");
     if ((in = fopen(filename,"r")) == NULL) {
-      printf("LoadAbaqusInput: opening of the Nastran file '%s' wasn't succesfull !\n",
+      printf("LoadNastranInput: opening of the Nastran file '%s' wasn't succesfull !\n",
 	     filename);
       return(1);
     }
   }
 
-  printf("Reading mesh from Nastran file %s.\n",filename);
+  if(info) printf("Reading mesh from Nastran file %s.\n",filename);
   InitializeKnots(data);
 
   allocated = FALSE;
@@ -1488,7 +1488,6 @@ end:
   if(info) printf("Finished reading the Fidap neutral file\n");
 
   return(0);
-
 }
 
 
