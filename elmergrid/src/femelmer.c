@@ -497,7 +497,7 @@ int LoadElmerInput(struct FemType *data,struct BoundaryType *bound,
 
   if(info) {
     if(cdstat) 
-      printf("Loading mesh in ElmerSolver format root directory %s.\n");
+      printf("Loading mesh in ElmerSolver format from root directory.\n");
     else
       printf("Loading mesh in ElmerSolver format from directory %s.\n",directoryname);
   }
