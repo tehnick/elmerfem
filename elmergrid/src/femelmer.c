@@ -372,9 +372,10 @@ static int FindParentSide(struct FemType *data,struct BoundaryType *bound,
 			  int sideelem,int sideelemtype,int *sideind)
 {
   int i,j,k,sideelemtype2,elemind,parent,normal;
-  int elemsides,side,sidenodes,hit,noparent, bulknodes;
+  int elemsides,side,sidenodes,nohits,hit,noparent, bulknodes;
   int sideind2[MAXNODESD1];
 
+  hit = FALSE;
 
   for(parent=1;parent<=2;parent++) {
     if(parent == 1) {
@@ -409,7 +410,6 @@ static int FindParentSide(struct FemType *data,struct BoundaryType *bound,
 	    for(i=0;i<sidenodes;i++) 
 	      if(sideind[(i+j)%sidenodes] != sideind2[i]) hit = FALSE;
 	    
-
 	    if(hit == TRUE) {
 	      if(parent == 1) {
 		bound->side[sideelem] = side;
@@ -427,21 +427,23 @@ static int FindParentSide(struct FemType *data,struct BoundaryType *bound,
       
       /* this finding of sides does not guarantee that normals are oriented correctly */
       normal = 1;
+      hit = FALSE;
  
-      for(side=0;side < elemsides;side++) {
+      for(side=0;;side++) {
 
 	GetElementSide(elemind,side,normal,data,&sideind2[0],&sideelemtype2);
-	sidenodes = sideelemtype%100;
 
-	if(sideelemtype != sideelemtype2) 
-	  printf("b) FindParentSide: somethings smells %d vs %d\n",
-		 sideelemtype,sideelemtype2);
+	if(sideelemtype2 < 300 && sideelemtype > 300) break;	
+	if(sideelemtype2 < 200 && sideelemtype > 200) break;		
+	if(sideelemtype != sideelemtype2) continue;
+	
+	sidenodes = sideelemtype % 100;
 
-	hit = 0;
+	nohits = 0;
 	for(j=0;j<sidenodes;j++) 
 	  for(i=0;i<sidenodes;i++) 
-	    if(sideind[i] == sideind2[j]) hit++;
-	if(hit == sidenodes) {
+	    if(sideind[i] == sideind2[j]) nohits++;
+	if(nohits == sidenodes) {
 	  hit = TRUE;
 	  if(parent == 1) {
 	    bound->side[sideelem] = side;
