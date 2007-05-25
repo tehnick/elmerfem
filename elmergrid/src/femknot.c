@@ -6775,6 +6775,8 @@ void ElementsToBoundaryConditions(struct FemType *data,
  
       for(side=0;;side++) {
 
+	if(debug) printf("elem1=%d l=%d elem2=%d side=%d\n",elemind,l,elemind2,side);
+
 	GetElementSide(elemind2,side,1,data,&sideind2[0],&sideelemtype2);
 
 	if(sideelemtype2 < 300 && sideelemtype > 300) break;	

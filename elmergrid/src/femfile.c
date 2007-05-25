@@ -3698,15 +3698,21 @@ allocate:
 	  elemnodes = elementtype % 100;
 	  data->elementtypes[i] = elementtype;
 
-	  regelem = next_int(&cp);
-	  if(regelem == 0) 
-	    regphys = 0;
+	  /* Point does not seem to have physical properties */
+	  if(gmshtype != 15) {
+	    regelem = next_int(&cp);
+	    if(regelem == 0) 
+	      regphys = 0;
+	    else 
+	      regphys = next_int(&cp);
+	    for(j=2;j<=regelem;j++)
+	      next_int(&cp);
+	  }
 	  else 
-	    regphys = next_int(&cp);
-	  for(j=2;j<=regelem;j++)
-	    next_int(&cp);
+	    regphys = 0;
 
 	  data->material[i] = regphys;
+
 	  for(j=0;j<elemnodes;j++)
 	    elemind[j] = next_int(&cp);
 	  
