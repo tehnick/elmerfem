@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StressSolve.src,v $
+! * Revision 1.43  2007/05/11 10:29:13  jpr
+! * Small cleanups.
+! *
 ! * Revision 1.41  2007/04/16 10:03:08  raback
 ! * Corrected definition of lumped mass.
 ! *
@@ -282,6 +285,12 @@
      TYPE(Nodes_t) :: ElementNodes
      TYPE(Element_t),POINTER :: Element
 
+     TYPE(Variable_t), POINTER :: ReferenceSol
+     REAL(KIND=dp), POINTER :: DispValues(:)
+     REAL(KIND=dp), ALLOCATABLE :: UpdateRef(:), Ref_rhs(:), NodalRefD(:)
+     INTEGER :: RefDofs, indx
+     LOGICAL, ALLOCATABLE :: UpdatePresent(:), UpdateActive(:)
+
      REAL(KIND=dp) :: RelativeChange,UNorm,PrevUNorm, &
               NonlinearTol,s, UzawaParameter
 
@@ -324,7 +333,8 @@
        CalcStress, CalcStressAll, NodalDisplacement, Contact, ContactPressure, &
        NormalDisplacement, ContactLimit, LocalNormalDisplacement, &
        LocalContactPressure, PreStress, PreStrain, StressLoad, StrainLoad, Work, &
-       RotateC, TransformMatrix, body_id, NodalMeshVelo, PrevTime
+       RotateC, TransformMatrix, body_id, NodalMeshVelo, PrevTime, &
+       ReferenceSol, UpdateRef, NodalRefD, Ref_rhs, UpdatePresent, UpdateActive
 !------------------------------------------------------------------------------
      INTEGER :: dim
      REAL(KIND=dp) :: at,at0,CPUTime,RealTime
@@ -359,7 +369,7 @@
         END FUNCTION StressInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.42 2007/04/17 06:57:28 raback Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.43 2007/05/11 10:29:13 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -425,7 +435,9 @@
                      NodalMeshVelo,          &
                      FORCE, MASS, DAMP, STIFF, LOAD, Beta, &
                      ContactLimit, LocalNormalDisplacement, LocalContactPressure, &
-                     TransformMatrix )
+                     TransformMatrix ,       &
+                     UpdateRef, NodalRefD, Ref_rhs,        &
+                     UpdatePresent, UpdateActive )
        END IF
 
        ALLOCATE( Density( N ),              &
@@ -450,6 +462,11 @@
                  LOAD( 4,N ), Beta( N ),      &
                  ContactLimit(N), LocalNormalDisplacement(N), &
                  LocalContactPressure(N),     &
+                 UpdateRef(N),                &
+                 NodalRefD(STDOFs*N),       &
+                 Ref_rhs(STDOFs*N),           &
+                 UpdatePresent( Model % NumberOfBodies ), &
+                 UpdateActive( Model % NumberOfBodies ), &
                  TransformMatrix(3,3),  STAT=istat )
 
 
@@ -507,6 +524,27 @@
 
        END IF
 
+!------------------------------------------------------------------------------
+!      Check if reference displacement present
+!------------------------------------------------------------------------------
+
+       IF ( .NOT. AllocationsDone ) THEN
+         UpdatePresent = .FALSE.
+         ReferenceSol => VariableGet( Solver % Mesh % Variables, 'Reference Displacement' )
+         IF ( ASSOCIATED( ReferenceSol ) ) THEN
+           DO i = 1, Model % NumberOfBodies
+             j = GetInteger( Model % Bodies(i) % Values, 'Body Force', Found )
+             IF ( .NOT. Found )  CYCLE
+
+             UpdatePresent(i) = ListCheckPresent( Model % BodyForces(j) % Values, &
+                 'Update Reference Displacement' )
+           END DO
+         END IF
+       END IF
+PRINT*, UpdatePresent
+
+!------------------------------------------------------------------------------
+
        IF ( istat /= 0 ) THEN
           CALL Fatal( 'StressSolve', 'Memory allocation error.' )
        END IF
@@ -525,7 +563,11 @@
         NodalStress => Var % Values
      END IF
 
+     RefDofs = ReferenceSol % DOFs
+     UpdateActive = .FALSE.
+     IF ( ANY( UpdatePresent ) )  DispValues => ReferenceSol % Values
 !------------------------------------------------------------------------------
+
      NonlinearTol = GetConstReal( SolverParams, &
         'Nonlinear System Convergence Tolerance', Found )
 
@@ -747,6 +789,30 @@
                 DisplPerm, STDOFs, .FALSE. )
      END IF
 
+!------------------------------------------------------------------------------
+!    Check where reference solution should be updated
+!    Note: update determined by bodies
+!------------------------------------------------------------------------------
+
+     IF ( ANY( UpdatePresent ) ) THEN
+
+       DO i = 1, Solver % NumberOfActiveElements
+         Element => GetActiveElement(i)
+
+         IF ( UpdateActive( Element % BodyId ) ) THEN
+           n = GetElementNOFNodes( Element )
+           DO j = 1, n
+             indx = Element % NodeIndexes(j)
+             DispValues( RefDofs * (indx - 1) + 1:  RefDofs * indx ) = &
+                 StressSol % Values( RefDofs * (indx - 1) + 1:  RefDofs * indx )
+           END DO
+         END IF
+       END DO
+
+     END IF
+
+!------------------------------------------------------------------------------
+
 CONTAINS
  
 !------------------------------------------------------------------------------
@@ -938,6 +1004,36 @@ CONTAINS
             CALL Default2ndOrderTime( MASS, DAMP, STIFF, FORCE )
          END IF
        END IF
+
+!------------------------------------------------------------------------------
+!      Check if reference of displacement has been changed
+!------------------------------------------------------------------------------
+       IF ( ANY( UpdatePresent ) ) THEN
+         IF ( ASSOCIATED( BodyForce ) ) THEN
+
+           UpdateRef(1:n) = GetReal( BodyForce, 'Update Reference Displacement', Found )
+           IF ( Found ) THEN
+             UpdateActive(body_id) = .TRUE.
+             IF ( COUNT( UpdateRef(1:n) < 0.0) > COUNT( UpdateRef(1:n) >= 0) )  THEN
+               UpdateActive(body_id) = .FALSE.
+               Ref_rhs = 0.0d0
+
+               DO i = 1, n
+                 DO j = 1, RefDofs
+                   NodalRefD((i-1)*RefDofs+j) = ReferenceSol % Values &
+                       ( RefDofs*(ReferenceSol % Perm(NodeIndexes(i))-1)+j)
+                 END DO
+               END DO
+
+               DO i = 1, n*RefDofs
+                 Ref_rhs(i) = SUM( STIFF(i,1:RefDofs*n) * NodalRefD(1:RefDofs*n) )
+               END DO
+               Force = Force + Ref_rhs
+             END IF
+           END IF
+         END IF
+       END IF
+
 !------------------------------------------------------------------------------
 !      Update global matrices from local matrices 
 !------------------------------------------------------------------------------
