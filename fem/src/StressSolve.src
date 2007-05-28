@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StressSolve.src,v $
+! * Revision 1.44  2007/05/25 11:58:36  apursula
+! * Added feature to change reference of displacement during solution
+! *
 ! * Revision 1.43  2007/05/11 10:29:13  jpr
 ! * Small cleanups.
 ! *
@@ -369,7 +372,7 @@
         END FUNCTION StressInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.43 2007/05/11 10:29:13 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.44 2007/05/25 11:58:36 apursula Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -528,20 +531,17 @@
 !      Check if reference displacement present
 !------------------------------------------------------------------------------
 
-       IF ( .NOT. AllocationsDone ) THEN
-         UpdatePresent = .FALSE.
-         ReferenceSol => VariableGet( Solver % Mesh % Variables, 'Reference Displacement' )
-         IF ( ASSOCIATED( ReferenceSol ) ) THEN
-           DO i = 1, Model % NumberOfBodies
-             j = GetInteger( Model % Bodies(i) % Values, 'Body Force', Found )
-             IF ( .NOT. Found )  CYCLE
+       UpdatePresent = .FALSE.
+       ReferenceSol => VariableGet( Solver % Mesh % Variables, 'Reference Displacement' )
+       IF ( ASSOCIATED( ReferenceSol ) ) THEN
+         DO i = 1, Model % NumberOfBodies
+           j = GetInteger( Model % Bodies(i) % Values, 'Body Force', Found )
+           IF ( .NOT. Found )  CYCLE
 
-             UpdatePresent(i) = ListCheckPresent( Model % BodyForces(j) % Values, &
-                 'Update Reference Displacement' )
-           END DO
-         END IF
+           UpdatePresent(i) = ListCheckPresent( Model % BodyForces(j) % Values, &
+               'Update Reference Displacement' )
+         END DO
        END IF
-PRINT*, UpdatePresent
 
 !------------------------------------------------------------------------------
 
@@ -563,9 +563,12 @@ PRINT*, UpdatePresent
         NodalStress => Var % Values
      END IF
 
-     RefDofs = ReferenceSol % DOFs
-     UpdateActive = .FALSE.
-     IF ( ANY( UpdatePresent ) )  DispValues => ReferenceSol % Values
+     IF ( ANY( UpdatePresent ) ) THEN
+       RefDofs = ReferenceSol % DOFs
+       UpdateActive = .FALSE.
+       DispValues => ReferenceSol % Values
+     END IF
+
 !------------------------------------------------------------------------------
 
      NonlinearTol = GetConstReal( SolverParams, &
