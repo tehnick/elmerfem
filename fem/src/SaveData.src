@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SaveData.src,v $
+! * Revision 1.36  2007/05/22 09:01:59  raback
+! * Flux computation in parallel case results now to constant number of entries.
+! *
 ! * Revision 1.35  2007/05/11 10:29:13  jpr
 ! * Small cleanups.
 ! *
@@ -154,7 +157,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       MaxVars, NoEigenValues, Ind, EigenDofs
   REAL (KIND=DP) :: CPUTime, CPUMemory
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.35 2007/05/11 10:29:13 jpr Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.36 2007/05/22 09:01:59 raback Exp $"
 
   SAVE SubroutineVisited, NumberOfVars, &
       NoPoints, PointIndex, CoordinateIndex, CoordinateDist, ResultPrefix, &
@@ -2079,7 +2082,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t), POINTER   :: CurrentElement, NextElement
   CHARACTER(LEN=MAX_NAME_LEN) :: SideFile, SideNamesFile, VarName, CondName, SideParFile
   CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: ValueNames(:)
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.35 2007/05/11 10:29:13 jpr Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.36 2007/05/22 09:01:59 raback Exp $"
 
   LOGICAL :: cand, Parallel
 
@@ -3255,7 +3258,6 @@ END SUBROUTINE SaveMaterials
 
 !------------------------------------------------------------------------------
 ! Additional routine for saving boundary values 
-! Written by Thomas Zwinger 
 !------------------------------------------------------------------------------
 SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
 !DEC$ATTRIBUTES DLLEXPORT :: SaveBoundaryValues
@@ -3393,12 +3395,15 @@ SUBROUTINE SaveBoundaryValues( Model,Solver,dt,TransientSimulation )
   !------------------------------------------------------
 
 
-  DO t=1,Solver % Mesh % NumberOfBoundaryElements
-
+  DO t=1,Solver % Mesh % NumberOfBoundaryElements     
+     BoundaryElement => GetBoundaryElement(t)
+     !------------------------------------------------------------------
+     ! do nothing, if we are dealing with a halo-element in parallel run
+     !------------------------------------------------------------------
+     IF (BoundaryElement % PartIndex .NE. Parenv % mype) CYCLE
      !--------------------------------
      ! get some information on element
-     !--------------------------------
-     BoundaryElement => GetBoundaryElement(t)
+     !--------------------------------    
      Model % CurrentElement => BoundaryElement
      NodeIndexes => BoundaryElement % NodeIndexes
      n = GetElementNOFNodes(BoundaryElement)
