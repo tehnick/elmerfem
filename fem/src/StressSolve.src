@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StressSolve.src,v $
+! * Revision 1.45  2007/05/28 10:47:52  apursula
+! * bug corrections to the previous...
+! *
 ! * Revision 1.44  2007/05/25 11:58:36  apursula
 ! * Added feature to change reference of displacement during solution
 ! *
@@ -372,7 +375,7 @@
         END FUNCTION StressInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.44 2007/05/25 11:58:36 apursula Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.45 2007/05/28 10:47:52 apursula Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -805,7 +808,7 @@
          IF ( UpdateActive( Element % BodyId ) ) THEN
            n = GetElementNOFNodes( Element )
            DO j = 1, n
-             indx = Element % NodeIndexes(j)
+             indx = StressSol % Perm( Element % NodeIndexes(j) )
              DispValues( RefDofs * (indx - 1) + 1:  RefDofs * indx ) = &
                  StressSol % Values( RefDofs * (indx - 1) + 1:  RefDofs * indx )
            END DO
