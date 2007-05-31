@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ElmerSolver.src,v 1.25 2007/04/25 09:25:37 jpr Exp $
+! * $Id: ElmerSolver.src,v 1.26 2007/04/25 09:40:05 jpr Exp $
 ! ******************************************************************************
 
 !------------------------------------------------------------------------------
@@ -382,6 +382,8 @@
 
      DO i=1,CurrentModel % NumberOfSolvers
         eq = ListGetString( CurrentModel % Solvers(i) % Values,'Equation', Found )
+        IF(.NOT. Found ) CYCLE
+
         Solver => CurrentModel % Solvers(i)
         InitSolver = ListGetLogical( Solver % Values, 'Initialize', Found )
         IF ( Found .AND. InitSolver ) THEN
@@ -655,6 +657,7 @@
 
      DO i=1,CurrentModel % NumberOfSolvers
         Solver => CurrentModel % Solvers(i)
+        IF ( Solver % Procedure==0 ) CYCLE
         IF ( Solver % SolverExecWhen == SOLVER_EXEC_AHEAD_ALL ) THEN
            CALL SolverActivate( CurrentModel,Solver,dt,Transient )
         END IF
@@ -871,6 +874,7 @@
 
      DO i=1,CurrentModel % NumberOfSolvers
         Solver => CurrentModel % Solvers(i)
+        IF ( Solver % Procedure==0 ) CYCLE
         When = ListGetString( Solver % Values, 'Exec Solver', GotIt )
         IF ( GotIt ) THEN
            IF ( When == 'after simulation' .OR. When == 'after all' ) THEN

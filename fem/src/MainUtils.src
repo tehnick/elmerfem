@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MainUtils.src,v $
+! * Revision 1.30  2007/05/11 10:29:12  jpr
+! * Small cleanups.
+! *
 ! * Revision 1.29  2007/04/23 12:29:09  jpr
 ! * Removed some old code.
 ! *
@@ -111,7 +114,7 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.src,v 1.29 2007/04/23 12:29:09 jpr Exp $
+! * $Id: MainUtils.src,v 1.30 2007/05/11 10:29:12 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MainUtils
@@ -1101,13 +1104,14 @@ CONTAINS
     IF ( TransientSimulation ) THEN
        DO k=1,Model % NumberOfSolvers
           Solver => Model % Solvers(k)
-          CALL InitializeTimestep( Solver )
+          IF ( Solver % Procedure/=0 ) CALL InitializeTimestep( Solver )
        END DO
     END IF
 !------------------------------------------------------------------------------
 
     DO k=1,Model % NumberOfSolvers
       Solver => Model % Solvers(k)
+      IF ( Solver % Procedure==0 ) CYCLE
 
       when  = ListGetString( Solver % Values, 'Exec Solver', Found )
       IF ( Found ) THEN
@@ -1153,6 +1157,10 @@ CONTAINS
        DO k=1,Model % NumberOfSolvers
 !------------------------------------------------------------------------------
           Solver => Model % Solvers(k)
+          IF ( Solver % Procedure==0 ) THEN
+             DoneThis(k) = .TRUE.
+             CYCLE
+          END IF
 
           When = ListGetString( Solver % Values, 'Exec Solver', Found )
           IF ( Found ) THEN
@@ -1285,6 +1293,7 @@ CONTAINS
 
     DO k=1,Model % NumberOfSolvers
       Solver => Model % Solvers(k)
+      IF ( Solver % Procedure==0 ) CYCLE
 
       When = ListGetString( Solver % Values, 'Exec Solver', Found )
       IF (  Found ) THEN
