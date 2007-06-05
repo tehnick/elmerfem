@@ -67,6 +67,56 @@ void GetElementInfo(int element,struct FemType *data,
   (*material) = data->material[element];
 }
 
+int GetElementDimension(int elementtype)
+{
+  int elemdim;
+
+  switch (elementtype / 100) {
+  case 1:
+    elemdim = 0;
+    break;
+  case 2: 
+    elemdim = 1;
+    break;
+  case 3:
+  case 4:
+    elemdim = 2;
+    break;
+  case 5:
+  case 6:
+  case 7:
+  case 8:
+    elemdim = 3;
+    break;
+  default:
+    printf("GetElementDimension: unknown elementtype %d\n",elementtype); 
+    
+  }
+  return(elemdim);
+}
+
+int GetMaxElementType(struct FemType *data)
+{
+  int i,maxelementtype;
+
+  maxelementtype = 0;
+  for(i=1;i<=data->noelements;i++)
+    if(data->elementtypes[i] > maxelementtype)
+      maxelementtype = data->elementtypes[i];
+
+  return(maxelementtype);
+}
+
+
+int GetMaxElementDimension(struct FemType *data)
+{
+  int maxelementtype,elemdim;
+
+  maxelementtype = GetMaxElementType(data);
+  elemdim = GetElementDimension(maxelementtype);
+  return(elemdim);
+}
+
 
 void GetElementSide(int element,int side,int normal,
 		    struct FemType *data,int *ind,int *sideelemtype)
@@ -404,6 +454,7 @@ void GetElementSide(int element,int side,int normal,
 #endif 
   }
 }
+
 
 
 int GetElementGraph(int element,int edge,struct FemType *data,int *ind)
@@ -3785,19 +3836,8 @@ int RemoveLowerDimensionalBoundaries(struct FemType *data,struct BoundaryType *b
   noelements = data->noelements;
   if(noelements < 1) return(1);
 
-  maxelemtype = 0;
-  for(j=1;j<=noelements;j++) {
-    elemtype = data->elementtypes[j];
-    maxelemtype = MAX( elemtype, maxelemtype );
-  }
-  if(maxelemtype > 500) 
-    maxelemdim = 3;
-  else if(maxelemtype > 300) 
-    maxelemdim = 2;
-  else if(maxelemtype > 200)
-    maxelemdim = 1;
-  else
-    maxelemdim = 0;
+  maxelemtype = GetMaxElementType(data);
+  maxelemdim = GetElementDimension(maxelemtype);
 
   if(info) printf("Maximum elementtype is %d and dimension %d\n",maxelemtype,maxelemdim);
   if(maxelemdim < 2) return(2);
@@ -3859,13 +3899,7 @@ static void FindEdges(struct FemType *data,struct BoundaryType *bound,
   maxelementtype = 0;
 
   printf("FindEdges: Finding edges of bulk elements of type %d\n",material);
-  for(i=1;i<=data->noelements;i++) {
-    if(data->material[i] == material) {
-      nomaterials++;
-      if(data->elementtypes[i] > maxelementtype)
-	maxelementtype = data->elementtypes[i];
-    }
-  }
+  maxelementtype = GetMaxElementType(data);
 
   if(maxelementtype/100 > 4) {
     printf("FindEdges: Implemented only for 2D elements!\n");
@@ -4690,11 +4724,7 @@ int IncreaseElementOrder(struct FemType *data,int info)
   }  
     
 
-  maxelemtype = 0;
-  for(i=1;i<=noelements;i++) {
-    if(data->elementtypes[i] > maxelemtype)
-      maxelemtype = data->elementtypes[i];
-  }
+  maxelemtype = GetMaxElementType(data);
 
   if(maxelemtype <= 303) 
     maxnodes = 6;
@@ -4793,10 +4823,8 @@ int IncreaseElementOrderOld(struct FemType *data,int info)
   noelements = data->noelements;
   noknots = data->noknots;
 
-  for(i=1;i<=noelements;i++) {
-    if(data->elementtypes[i] > maxelementtype)
-      maxelementtype = data->elementtypes[i];
-  }
+
+  maxelementtype = GetMaxElementType(data);
 
   if(maxelementtype/100 > 4) {
     printf("IncreaseElementOrder: Implemented only for 2D elements!\n");
@@ -6668,15 +6696,10 @@ void ElementsToBoundaryConditions(struct FemType *data,
   noelements = data->noelements;
   noknots = data->noknots;
 
-  maxelemtype = data->elementtypes[1];
-  for(i=1;i<=noelements;i++)
-    if(data->elementtypes[i] > maxelemtype) maxelemtype = data->elementtypes[i];
-
+  maxelemtype = GetMaxElementType(data);
   if(info) printf("Leading elementtype is %d\n",maxelemtype);
 
-  if(maxelemtype/100 > 4) elemdim = 3;
-  else if(maxelemtype/100 > 2) elemdim = 2;
-  else elemdim = 1;
+  elemdim = GetElementDimension(maxelemtype);
 
   moveelement = Ivector(1,noelements); 
   parentorder = Ivector(1,noelements);
@@ -7102,9 +7125,7 @@ int CreateBoundaryLayer(struct FemType *data,struct BoundaryType *bound,
 
   dim = data->dim;
   
-  maxelemtype = 0;
-  for(j=1;j<=data->noelements;j++) 
-    maxelemtype = MAX(maxelemtype, data->elementtypes[j]);
+  maxelemtype = GetMaxElementType(data);
   if(maxelemtype > 409) {
     printf("Subroutine implemented only up to 2nd degree!\n");
     return(2);
@@ -8149,10 +8170,8 @@ int CreateBoundaryLayerDivide(struct FemType *data,struct BoundaryType *bound,
 
 
   dim = data->dim;
-  
-  maxelemtype = 0;
-  for(j=1;j<=data->noelements;j++) 
-    maxelemtype = MAX(maxelemtype, data->elementtypes[j]);
+  maxelemtype = GetMaxElementType(data);
+
   if(maxelemtype > 409) {
     printf("Subroutine implemented only up to 2nd degree!\n");
     return(2);

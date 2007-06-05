@@ -5,7 +5,9 @@
    become obsolite. The routines mostly operate on structures 
    FemType and BoundaryType. */
 
-Real OneFunction(Real x,Real y);
+int GetElementDimension(int elementtype);
+int GetMaxElementType(struct FemType *data);
+int GetMaxElementDimension(struct FemType *data);
 void GetElementInfo(int element,struct FemType *data,
 		    Real *globalcoord,int *ind,int *material);
 void GetElementSide(int element,int side,int normal,

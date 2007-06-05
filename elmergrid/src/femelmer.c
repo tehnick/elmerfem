@@ -528,16 +528,8 @@ int LoadElmerInput(struct FemType *data,struct BoundaryType *bound,
     if(dummyint > maxelemtype) maxelemtype = dummyint;
   }
   fclose(in);
-  
-  if(maxelemtype < 300) {
-    data->dim = 1;
-  }
-  else if(maxelemtype < 500) {
-    data->dim = 2;
-  }
-  else {
-    data->dim = 3;
-  }
+
+  data->dim = GetElementDimension(maxelemtype);
 
   data->maxnodes = maxelemtype % 100;
   data->noknots = noknots;
@@ -2836,7 +2828,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
    in Elmer calculations in parallel platforms. 
    */
 {
-  int noknots,noelements,sumsides,partitions,hit;
+  int noknots,noelements,sumsides,partitions,hit,maxelemdim,elemdim,parent,parent2;
   int nodesd2,nodesd1,discont,maxelemtype,minelemtype,sidehits,elemsides,side;
   int part,otherpart,part2,part3,elemtype,sideelemtype,*needednodes,*neededtwice;
   int **bulktypes,*sidetypes,tottypes;
@@ -2878,9 +2870,8 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   }
 
   minelemtype = 101;
-  maxelemtype = 0;
-  for(i=1;i<=noelements;i++) 
-    maxelemtype = MAX( maxelemtype, data->elementtypes[i] );
+  maxelemtype = GetMaxElementType(data);
+  maxelemdim = GetElementDimension(maxelemtype);
   
   needednodes = Ivector(1,partitions);
   neededtwice = Ivector(1,partitions);
@@ -3233,17 +3224,23 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
 	sumsides++;	
 	sidetypes[sideelemtype] += 1;
+	elemdim = GetElementDimension(sideelemtype);
+
+	parent = bound[j].parent[i];
+	parent2 = bound[j].parent2[i];
+	if(maxelemdim > elemdim - 1) parent = parent2 = 0;
+
 	if(halo) {
 	  if(trueparent)
 	    fprintf(out,"%d/%d %d %d %d %d",
-		    sumsides,part,bound[j].types[i],bound[j].parent[i],bound[j].parent2[i],sideelemtype);
+		    sumsides,part,bound[j].types[i],parent,parent2,sideelemtype);
 	  else
 	    fprintf(out,"%d/%d %d %d %d %d",
-		    sumsides,elempart[bound[j].parent[i]],bound[j].types[i],bound[j].parent[i],bound[j].parent2[i],sideelemtype);	    
+		    sumsides,elempart[bound[j].parent[i]],bound[j].types[i],parent,parent2,sideelemtype);	    
 	}
 	else {
 	  fprintf(out,"%d %d %d %d %d",
-		  sumsides,bound[j].types[i],bound[j].parent[i],bound[j].parent2[i],sideelemtype);	  
+		  sumsides,bound[j].types[i],parent,parent2,sideelemtype);	  
 	}
 	if(reorder) {
 	  for(l=0;l<nodesd1;l++)

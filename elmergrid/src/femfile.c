@@ -3250,13 +3250,7 @@ omstart:
 
       Comsolrow(line,in);	            
       elemtype = elemnodes + elembasis;
-
-      if(elembasis > 400) 
-	elemdim = 3;
-      else if(elembasis > 200)
-	elemdim = 2;
-      else 
-	elemdim = 1;
+      elemdim = GetElementDimension(elemtype);
 
       if(debug) printf("Loading %d elements of type %d\n",k,elemtype);
       domains = noelements;
@@ -3840,11 +3834,7 @@ int SaveFastcapInput(struct FemType *data,
 
   quads = 0;
   triangles = 0;
-  maxelemtype = 0;
-  for(i=1;i<=noelements;i++) {
-    elemtype = data->elementtypes[i];
-    maxelemtype = MAX(elemtype,maxelemtype);
-  }
+  maxelemtype = GetMaxElementType(data);
   
   if(maxelemtype < 500) {    
     if(info) printf("Saving Fastcap mesh using bulk elements.\n");
