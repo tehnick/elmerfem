@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: HeatSolve.src,v $
+! * Revision 1.28  2007/05/11 10:29:12  jpr
+! * Small cleanups.
+! *
 ! * Revision 1.24  2006/12/01 20:23:51  jpr
 ! * Still about 'Constant Bulk System' and time dependence.
 ! *
@@ -286,7 +289,7 @@
 
      REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
 
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HeatSolve.src,v 1.27 2007/03/21 10:51:24 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HeatSolve.src,v 1.28 2007/05/11 10:29:12 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -1440,6 +1443,7 @@ CONTAINS
 
 !------------------------------------------------------------------------------
     SUBROUTINE EffectiveHeatCapacity
+      LOGICAL :: Found
 !------------------------------------------------------------------------------
 !     See if temperature gradient indside the element is large enough 
 !     to use  the c_p = SQRT( (dH/dx)^2 / (dT/dx)^2 ), otherwise
@@ -1459,10 +1463,9 @@ CONTAINS
 !------------------------------------------------------------------------------
 
         CASE('temporal')
-
           IF ( TransientSimulation .AND. ALLOCATED(TSolution) )  THEN
-            HeatCapacity(1:n) = Temperature( TempPerm(Element % NodeIndexes) ) - &
-                     TSolution( TempPerm(Element % NodeIndexes) )
+            HeatCapacity(1:n) = Temperature(TempPerm(Element % NodeIndexes)) - &
+                     TSolution(TempPerm(Element % NodeIndexes))
 
             IF ( ANY(ABS(HeatCapacity) < AEPS) ) THEN
               PhaseChangeModel = PHASE_SPATIAL_1
@@ -1499,24 +1502,22 @@ CONTAINS
       SELECT CASE( PhaseChangeModel )
 !------------------------------------------------------------------------------
       CASE( PHASE_SPATIAL_1 )
-        HeatCapacity(1:n) = ListGetDerivValue( Material, &
-                 'Enthalpy', n,Element % NodeIndexes )
-
+        HeatCapacity(1:n) = ListGetReal( Material, &
+             'Effective Heat Capacity', n,Element % NodeIndexes, Found )
+        IF ( .NOT. Found ) THEN
+          HeatCapacity(1:n) = ListGetDerivValue( Material, &
+               'Enthalpy', n,Element % NodeIndexes )
+        END IF
 !------------------------------------------------------------------------------
       CASE( PHASE_SPATIAL_2 )
         Enthalpy(1:n) = ListGetReal(Material,'Enthalpy',n,Element % NodeIndexes)
-
 !------------------------------------------------------------------------------
-
       CASE( PHASE_TEMPORAL )
         TSolution1 = Temperature(1:LocalNodes)
-
         Work(1:n) = ListGetReal( Material,'Enthalpy',n,Element % NodeIndexes )
-
         Temperature(1:LocalNodes) = TSolution
         Work(1:n) = Work(1:n) - ListGetReal( Material,'Enthalpy', &
-                          n,Element % NodeIndexes )
-
+                     n,Element % NodeIndexes )
         Temperature(1:LocalNodes) = TSolution1
         HeatCapacity(1:n) = Work(1:n) / HeatCapacity(1:n)
 !------------------------------------------------------------------------------
