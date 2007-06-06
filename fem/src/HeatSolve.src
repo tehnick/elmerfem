@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: HeatSolve.src,v $
+! * Revision 1.29  2007/06/06 07:19:06  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.28  2007/05/11 10:29:12  jpr
 ! * Small cleanups.
 ! *
@@ -289,7 +292,7 @@
 
      REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
 
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HeatSolve.src,v 1.28 2007/05/11 10:29:12 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HeatSolve.src,v 1.29 2007/06/06 07:19:06 jpr Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -552,20 +555,18 @@
 
 !------------------------------------------------------------------------------
      FirstTime = .TRUE.
+     ALLOCATE(PrevSolution(LocalNodes))
      
      DO WHILE( CumulativeTime < Timestep-1.0d-12 .OR. .NOT. TransientSimulation )
-
 !------------------------------------------------------------------------------
 !    The first time around this has been done by the caller...
 !------------------------------------------------------------------------------
-     IF ( TransientSimulation .AND. .NOT.FirstTime ) THEN
-       CALL InitializeTimestep( Solver )
-     END IF
+     IF ( TransientSimulation .AND. .NOT.FirstTime ) &
+       CALL InitializeTimestep(Solver)
      FirstTime = .FALSE.
 !------------------------------------------------------------------------------
 !    Save current solution
 !------------------------------------------------------------------------------
-     ALLOCATE( PrevSolution(LocalNodes) )
      PrevSolution = Temperature(1:LocalNodes)
 !------------------------------------------------------------------------------
 
@@ -588,9 +589,9 @@
        CALL Info( 'HeatSolve', 'Starting Assembly...', Level=4 )
 
        IF ( ConstantBulk .AND. ASSOCIATED(Solver % Matrix % BulkValues) ) THEN
-          Solver % Matrix % RHS = Solver % Matrix % BulkRHS
-          Solver % Matrix % Values = Solver % Matrix % BulkValues
-          GOTO 1000
+         Solver % Matrix % Values = Solver % Matrix % BulkValues
+         Solver % Matrix % RHS = Solver % Matrix % BulkRHS
+         GOTO 1000
        END IF
 
 !------------------------------------------------------------------------------
@@ -1185,15 +1186,15 @@
 !     node has jumped over the phase change interval, and if so, reduce
 !     timestep and or relaxation and recompute.
 !------------------------------------------------------------------------------
-      IF (PhaseChange .AND. CheckLatentHeatRelease .AND. iter/=Nonlineariter) THEN
+      IF (PhaseChange .AND. CheckLatentHeatRelease ) THEN
 !------------------------------------------------------------------------------
         IF ( CheckLatentHeat() ) THEN
           Temperature(1:LocalNodes) = PrevSolution
-
-          Norm = SQRT( SUM(Temperature(1:LocalNodes)**2)/LocalNodes )
+          Norm = PrevNorm
 
           IF ( TransientSimulation ) THEN
             dt = dt / 2
+            Solver % dt = dt
             WRITE( Message, * ) &
                   'Latent heat release check: reducing timestep to: ',dt
             CALL Info( 'HeatSolve', Message, Level=4 )
@@ -1208,7 +1209,7 @@
 
           CYCLE
         END IF
-        IF ( .NOT.TransientSimulation ) PrevSolution = Temperature(1:LocalNodes)
+        IF ( .NOT.TransientSimulation ) PrevSolution=Temperature(1:LocalNodes)
       END IF
 !------------------------------------------------------------------------------
 
@@ -1238,7 +1239,6 @@
 !------------------------------------------------------------------------------
     END DO ! of the nonlinear iteration
 !------------------------------------------------------------------------------
-
     IF(TransientHeaterControl) THEN
       PowerRelax = ListGetConstReal(Solver % Values,'Smart Heater Relaxation Factor', GotIt)
       PowerSensitivity = ListGetConstReal(Solver % Values,'Smart Heater Power Sensivity',GotIt)
@@ -1268,6 +1268,7 @@
     dt = Timestep - CumulativeTime
 
    END DO ! time interval
+   Solver % dt = Timestep
 
 !------------------------------------------------------------------------------
    CALL  ListAddConstReal( Solver % Values,  &
@@ -1587,7 +1588,6 @@ CONTAINS
                    PrevSolution(i) > PhaseChangeIntervals(2,j) ).OR. &
                  ( Temperature(i)  > PhaseChangeIntervals(2,j) .AND. &
                    PrevSolution(i) < PhaseChangeIntervals(1,j) )  ) THEN
-
               Failure = .TRUE.
               EXIT
             END IF
