@@ -352,7 +352,7 @@ int LoadAbaqusInput(struct FemType *data,struct BoundaryType *bound,
 {
   int noknots,noelements,elemcode,maxnodes,material;
   int mode,allocated,nvalue,nvalue2,maxknot,nosides;
-  int boundarytype,boundarynodes;
+  int boundarytype,boundarynodes,elsetactive;
   int *nodeindx,*boundindx;
   
   char filename[MAXFILESIZE];
@@ -378,10 +378,12 @@ int LoadAbaqusInput(struct FemType *data,struct BoundaryType *bound,
 
   allocated = FALSE;
   maxknot = 0;
+  elsetactive = FALSE;
 
   /* Because the file format doesn't provide the number of elements
      or nodes the results are read twice but registered only in the
      second time. */
+
 omstart:
 
   mode = 0;
@@ -417,8 +419,8 @@ omstart:
 	mode = 2;
       }
       else if(strstr(line,"ELEMENT")) {
-	material++;
-	if(strstr(line,"S3R"))
+	if(!elsetactive) material++;
+	if(strstr(line,"S3R") || strstr(line,"STRI3"))
 	  elemcode = 303;
 	else if(strstr(line,"2D4") || strstr(line,"SP4") || strstr(line,"AX4") 
 		|| strstr(line,"S4") || strstr(line,"CPE4")) 
@@ -438,16 +440,21 @@ omstart:
 	if(1) printf("Loading elements of type %d starting from element %d.\n",
 			elemcode,noelements);
       }
-      else if(strstr(line,"BOUNDARY")) {
+      else if(strstr(line,"BOUNDARY") || strstr(line,"CLOAD")) {
 	boundarytype++;
 	mode = 4;
       }
-      else if(strstr(line,"CLOAD")) {
+      else if(strstr(line,"NSET")) {
 	boundarytype++;
-	mode = 4;
+	mode = 5;
+      }
+      else if(strstr(line,"ELSET")) {
+	elsetactive = TRUE;
+	material += 1;
+	mode = 6;
       }
       else {
-	if(!allocated) printf("unknown: %s",line);
+	if(!allocated) printf("unknown command: %s",line);
 	mode = 0;
       }
     }
@@ -511,6 +518,32 @@ omstart:
 	  boundindx[boundarynodes] = boundarytype;
 	}
 	break;
+
+      case 5:
+	nvalue = StringToInteger(line,ivalues,10,',');
+
+	if(allocated) {
+	  for(i=0;i<nvalue;i++) {
+	    boundarynodes += 1;
+	    nodeindx[boundarynodes] = ivalues[i];
+	    boundindx[boundarynodes] = boundarytype;
+	  }
+	}
+	else
+	  boundarynodes += nvalue;
+	break;
+
+      case 6:
+	nvalue = StringToInteger(line,ivalues,10,',');
+
+	if(allocated) {
+	  for(i=0;i<nvalue;i++) {
+	    j = ivalues[i];
+	    data->material[j] = material;
+	  }
+	}
+	break;
+
       default:
 	printf("Unknown case: %d\n",mode);
       }      
@@ -3796,9 +3829,6 @@ int LoadGmshInput(struct FemType *data,struct BoundaryType *bound,
 
 
 
-
-
-
 int SaveFastcapInput(struct FemType *data,
 		     struct BoundaryType *bound,char *prefix,int decimals,int info)
 /* Saves the mesh in a form that may be used as input 
@@ -3912,3 +3942,224 @@ int SaveFastcapInput(struct FemType *data,
 
   return(0);
 }
+
+
+int UnvToElmerType(int unvtype)
+{
+  int elmertype;
+
+  switch (unvtype) {
+
+  case 11: 
+    elmertype = 202;
+    break;
+
+  case 41:
+    elmertype = 303;
+    break;
+
+  default:
+    printf("Unknown elementtype in universal mesh format\n");
+  }
+
+  return(elmertype);
+}
+
+
+
+int LoadUniversalMesh(struct FemType *data,char *prefix,int info)
+     /* Load the grid in universal file format */
+{
+  int noknots,noelements,elemcode,maxnodes;
+  int allocated,maxknot, dim,ind;
+  int reorderknots,reorderelements,nogroups,maxnode,maxelem,elid,eltype;
+  int nonodes,group,grouptype,mode;
+  int debug;
+  char filename[MAXFILESIZE],line[MAXLINESIZE],*cp;
+  int i,j,k,l,n;
+  FILE *in;
+
+
+  strcpy(filename,prefix);
+  if ((in = fopen(filename,"r")) == NULL) {
+    AddExtension(prefix,filename,"unv");
+    if ((in = fopen(filename,"r")) == NULL) {
+      printf("LoadUniversalMesh: opening of the universal mesh file '%s' wasn't succesfull !\n",
+	     filename);
+      return(1);
+    }
+  }
+
+  printf("Reading mesh from universal mesh file %s.\n",filename);
+  InitializeKnots(data);
+
+  dim = 3;
+  debug = FALSE;
+  allocated = FALSE;
+  reorderknots = FALSE;
+  reorderelements = FALSE;
+
+omstart:
+
+  maxnodes = 0;
+  nogroups = 0;
+  maxnode = 0;
+  maxelem = 0;
+  noknots = 0;
+  noelements = 0;
+
+
+  
+
+
+  for(;;) {
+
+  nextline:
+    if( !strncmp(line,"    -1",6)) mode = 0;
+    if(Getrow(line,in,FALSE)) goto end;
+    if(!line) goto end;
+
+    if( !strncmp(line,"    -1",6)) mode = 0;
+    else if( !strncmp(line,"  2411",6)) mode = 1;
+    else if( !strncmp(line,"  2412",6)) mode = 2;
+    else if( !strncmp(line,"  2467",6)) mode = 3;
+
+    /* node definition */
+    if( mode == 1) {
+      if(0) printf("Reading nodes\n");
+      for(;;) {
+	Getrow(line,in,FALSE);
+	if( !strncmp(line,"    -1",6)) goto nextline;
+
+	cp = line;
+	i = next_int(&cp);
+	noknots += 1;
+	if(i != noknots) reorderknots = TRUE;
+	maxnode = MAX(maxnode,i);
+	Getrow(line,in,FALSE);
+	
+	if(allocated) {
+	  cp = line;
+	  data->x[noknots] = next_real(&cp);
+	  data->y[noknots] = next_real(&cp);
+	  data->z[noknots] = next_real(&cp);
+	}
+      }
+    }
+
+
+    if( mode == 2) {
+      if(0) printf("Reading elements\n");
+      for(;;) {
+	Getrow(line,in,FALSE);
+	if( !strncmp(line,"    -1",6)) goto nextline;
+	
+	noelements += 1;
+	cp = line;
+	elid = next_int(&cp);
+	eltype = next_int(&cp);
+	i = next_int(&cp);
+	i = next_int(&cp);
+	i = next_int(&cp);
+	nonodes = next_int(&cp);
+	
+	if (!allocated) {
+	  maxnodes = MAX(maxnodes, nonodes);
+	  if(elid != noelements) reorderelements = TRUE;
+	  maxelem = MAX(maxelem, elid);
+	}
+	
+	if(eltype == 11) Getrow(line,in,FALSE);
+	Getrow(line,in,FALSE);
+	cp = line;
+	if(allocated) {
+	  data->elementtypes[elid] = UnvToElmerType(eltype);
+	  for(i=0;i<nonodes;i++)
+	    data->topology[elid][i] = next_int(&cp);
+	}
+      }    
+    }  
+
+    if( mode == 3) {
+      if(0) printf("Reading groups\n");
+
+      Getrow(line,in,FALSE);
+      if( !strncmp(line,"    -1",6)) goto nextline;
+      
+      cp = line;
+      for(i=1;i<=8;i++)
+	nogroups = next_int(&cp);
+
+      for(group=1;group<=nogroups;group++) {
+	Getrow(line,in,FALSE);
+	for(;;) {
+	  Getrow(line,in,FALSE);
+
+	  if( !strncmp(line,"    -1",6)) goto nextline;
+	  cp = line;
+	  for(i=1;i<=2;i++) {
+	    grouptype = next_int(&cp);
+	    ind = next_int(&cp);
+	    if( ind == 0 && i==1) goto newgroup;
+	    if( ind == 0 && i==2) continue;
+
+	    j = next_int(&cp);
+	    j = next_int(&cp);
+	    if(allocated) {
+	      if( grouptype == 8 ) {
+		data->material[ind] = group;
+	      }
+	      else if(grouptype == 7) {
+	      }
+	    }
+	  }
+	}
+      newgroup:
+	continue;
+      }
+    }
+
+
+  }
+
+end:
+
+  exit;
+
+  if(!allocated) {
+
+    if(reorderknots) printf("LoadUniversalMesh: Implement node reordering! (%d %d)\n",
+			    noknots,maxnode);
+    if(reorderelements) printf("LoadUniversalMesh: Implement element reordering! (%d %d)\n",
+			       noelements,maxelem);
+
+
+    if(noknots == 0 || noelements == 0 || maxnodes == 0) {
+      printf("Invalid mesh consits of %d knots and %d %d-node elements.\n",
+	     noknots,noelements,maxnodes);     
+      fclose(in);
+      return(2);
+    }
+
+    rewind(in);
+    data->noknots = noknots;
+    data->noelements = noelements;
+    data->maxnodes = maxnodes;
+    data->dim = dim;
+    
+    if(info) {
+      printf("Allocating for %d knots and %d %d-node elements.\n",
+	     noknots,noelements,maxnodes);
+    }  
+    AllocateKnots(data);
+    allocated = TRUE;
+
+    goto omstart;    
+  }
+  fclose(in);
+
+  if(info) printf("The Universal mesh was loaded from file %s.\n\n",filename);
+  return(0);
+}
+
+

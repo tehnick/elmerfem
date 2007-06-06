@@ -83,8 +83,9 @@ char *IOmethods[] = {
   /*13*/ "GID",
   /*14*/ "GMSH",
   /*15*/ "PARTITIONED",
-  /*16*/ "NASTRAN",
-  /*17*/ "FASTCAP"
+  /*16*/ "UNV",
+  /*17*/ "NASTRAN",
+  /*18*/ "FASTCAP"
 };
 
 
@@ -121,8 +122,9 @@ static void Instructions()
   printf("13) .msh      : GID mesh format\n");
   printf("14) .msh      : Gmsh mesh format\n");
   printf("15) .ep.i     : Partitioned ElmerPost format\n");
+  printf("16) .unv      : Universal mesh file format\n");
 #if 0
-  printf("16) .msh      : Nastran format\n");
+  printf("17) .msh      : Nastran format\n");
 #endif 
 
   printf("\nThe second parameter defines the output file format:\n");
@@ -133,7 +135,7 @@ static void Instructions()
   printf("5)  .inp      : Abaqus input format\n");
   printf("7)  .fidap    : Fidap format\n");
   printf("8)  .n .e .s  : Easymesh output format\n");
-  printf("17) .ep       : Fastcap input format.\n");
+  printf("18) .ep       : Fastcap input format.\n");
 #endif
 
   printf("\nThe third parameter is the name of the input file.\n");
@@ -1446,11 +1448,23 @@ int main(int argc, char *argv[])
       boundaries[nofile][i].created = FALSE; 
       boundaries[nofile][i].nosides = 0;
     }
+    if (LoadUniversalMesh(&(data[nofile]),eg.filesin[nofile],TRUE))
+      Goodbye();
+    ElementsToBoundaryConditions(&(data[nofile]),boundaries[nofile],TRUE);
+    nomeshes++;
+    break;
+
+  case 17:
+    boundaries[nofile] = (struct BoundaryType*)
+      malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
+    for(i=0;i<MAXBOUNDARIES;i++) {
+      boundaries[nofile][i].created = FALSE; 
+      boundaries[nofile][i].nosides = 0;
+    }
     if (LoadNastranInput(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],TRUE))
       Goodbye();
     nomeshes++;
     break;
-
 
   default:
     Instructions();
@@ -1918,7 +1932,7 @@ int main(int argc, char *argv[])
     EasymeshSave();
     break;
 
-  case 17:    
+  case 18:    
     for(k=0;k<nomeshes;k++) 
       SaveFastcapInput(&data[k],boundaries[k],eg.filesout[k],eg.decimals,info);
     break;

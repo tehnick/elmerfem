@@ -27,4 +27,5 @@ int LoadGmshInput(struct FemType *data,struct BoundaryType *bound,
 		  char *prefix,int info);
 int SaveFastcapInput(struct FemType *data,
 		     struct BoundaryType *bound,char *prefix,int decimals,int info);
+int LoadUniversalMesh(struct FemType *data,char *prefix,int info);
 
