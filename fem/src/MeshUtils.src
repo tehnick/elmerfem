@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.56  2007/05/09 09:17:00  jpr
+! * Added Body-section keyword Target Bodies(n).
+! *
 ! * Revision 1.55  2007/05/09 07:29:32  jpr
 ! * Use global element number in Element_t::ElementIndex if parallel & dg.
 ! *
@@ -158,7 +161,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.55 2007/05/09 07:29:32 jpr Exp $
+! * $Id: MeshUtils.src,v 1.56 2007/05/09 09:17:00 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -477,9 +480,11 @@ CONTAINS
       IF ( eio_info /= 0 ) EXIT
 
       IF ( PRESENT(Def_Dofs) ) THEN
-         DO j=1,6
-           IF ( Def_Dofs(body,j) >= 0 ) inDOFs(j)=Def_Dofs(body,j)
-         END DO
+         IF ( body>0 .AND. body<=SIZE(Def_Dofs,1) ) THEN
+           DO j=1,6
+             IF ( Def_Dofs(body,j) >= 0 ) inDOFs(j)=Def_Dofs(body,j)
+           END DO
+        END IF
       END IF
 
       Element => Mesh % Elements(i)
@@ -520,7 +525,9 @@ CONTAINS
         FaceDOFs(i) = inDOFs(3)
 
         IF ( PRESENT(Def_Dofs) ) THEN
-          IF ( Def_Dofs(body,4) == 0 ) inDOFs(4) = n
+          IF ( body>0 .AND. body<=SIZE(Def_Dofs,1) ) THEN
+            IF ( Def_Dofs(body,4) == 0 ) inDOFs(4) = n
+          END IF
         END IF
 
         NULLIFY( Element % DGIndexes )
