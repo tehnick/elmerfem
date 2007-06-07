@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SaveData.src,v $
+! * Revision 1.37  2007/05/28 10:42:41  zwinger
+! * Added exclusion of halo element for routine SaveBoundaryValues
+! *
 ! * Revision 1.36  2007/05/22 09:01:59  raback
 ! * Flux computation in parallel case results now to constant number of entries.
 ! *
@@ -157,7 +160,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       MaxVars, NoEigenValues, Ind, EigenDofs
   REAL (KIND=DP) :: CPUTime, CPUMemory
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.36 2007/05/22 09:01:59 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.37 2007/05/28 10:42:41 zwinger Exp $"
 
   SAVE SubroutineVisited, NumberOfVars, &
       NoPoints, PointIndex, CoordinateIndex, CoordinateDist, ResultPrefix, &
@@ -378,7 +381,8 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   !------------------------------------------------------------------------------
   ! Go through the variables and compute the desired statistical data
   !------------------------------------------------------------------------------
-  GotVar = .TRUE.
+  GotVar  = .TRUE.
+  GotOper = .FALSE.
   NULLIFY(OldVar)
   NoVar = 0
   
@@ -2082,7 +2086,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t), POINTER   :: CurrentElement, NextElement
   CHARACTER(LEN=MAX_NAME_LEN) :: SideFile, SideNamesFile, VarName, CondName, SideParFile
   CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: ValueNames(:)
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.36 2007/05/22 09:01:59 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.37 2007/05/28 10:42:41 zwinger Exp $"
 
   LOGICAL :: cand, Parallel
 
