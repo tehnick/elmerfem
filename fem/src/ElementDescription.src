@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: ElementDescription.src,v $
+! * Revision 1.33  2007/05/16 08:59:32  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.32  2007/05/11 10:29:12  jpr
 ! * Small cleanups.
 ! *
@@ -135,7 +138,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: ElementDescription.src,v 1.32 2007/05/11 10:29:12 jpr Exp $
+! * $Id: ElementDescription.src,v 1.33 2007/05/16 08:59:32 jpr Exp $
 ! ******************************************************************************/
 
 MODULE ElementDescription
@@ -2501,6 +2504,7 @@ END IF
 
      LOGICAL :: stat
 !------------------------------------------------------------------------------
+     stat = .TRUE.
      n    = Element % Type % NumberOfNodes
      dim  = Element % Type % Dimension
      cdim = CoordinateSystemDimension()
@@ -3170,7 +3174,10 @@ END IF
      ! Element (contravariant) metric and square root of determinant
      !--------------------------------------------------------------
      IF ( .NOT. ElementMetric( q, Element, Nodes, &
-           ElmMetric, detJ, dLBasisdx, LtoGMap ) ) RETURN
+           ElmMetric, detJ, dLBasisdx, LtoGMap ) ) THEN
+        stat = .FALSE.
+        RETURN
+     END IF
 
      ! Get global first derivatives:
      !------------------------------
