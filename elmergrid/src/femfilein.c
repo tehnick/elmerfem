@@ -3633,8 +3633,20 @@ int UnvToElmerType(int unvtype)
     elmertype = 303;
     break;
 
+  case 44:
+    elmertype = 404;
+    break;
+
+  case 111:
+    elmertype = 504;
+    break;
+
+  case 115:
+    elmertype = 808;
+    break;
+
   default:
-    printf("Unknown elementtype in universal mesh format\n");
+    printf("Unknown elementtype in universal mesh format: %d\n",unvtype);
   }
 
   return(elmertype);
