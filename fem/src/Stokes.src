@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: Stokes.src,v 1.4 2006/10/06 10:37:37 jpr Exp $
+! * $Id: Stokes.src,v 1.5 2006/10/06 10:39:45 jpr Exp $
 ! *****************************************************************************
 
 SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
@@ -711,8 +711,9 @@ CONTAINS
       r(1:n) = S(1:n) - omega*T(1:n)
       x(1:n) = x(1:n) + alpha*T1(1:n) + omega*T2(1:n)
       res = Pnorm(n,r)/Pnorm(n,b)
-      WRITE(*,'(a,I4,ES12.3,ES12.3)') 'OuterIteration residual for iterate', i, res, &
+      WRITE(Message,'(a,I4,ES12.3,ES12.3)') 'OuterIteration residual for iterate', i, res, &
           CPUTime() - tottime 
+      CALL Info('StokesSolver',Message,Level=4)
       IF ( res < TOL ) EXIT
     END DO
 !------------------------------------------------------------------------------
@@ -1019,8 +1020,9 @@ CONTAINS
       ! Check whether the convergence criterion is met 
       !--------------------------------------------------------------
       res = Pnorm(n,r)/Pnorm(n,b)
-      WRITE(*,'(a,I4,ES12.3,ES12.3)') 'InnerIteration residual for iterate', &
+      WRITE(Message,'(a,I4,ES12.3,ES12.3)') 'InnerIteration residual for iterate', &
           k, res, CPUTime() - tottime 
+      CALL Info('StokesSolver',Message,Level=4)
       ConvergedSol = ( res < TOL)
       IF (ConvergedSol) EXIT
     END DO
@@ -1316,10 +1318,10 @@ CONTAINS
     END IF
     IF ( ANY( PressureRHS /= 0.0d0 ) ) THEN
       !-----------------------------------------------------------------
-      CALL Info( 'StokesSolver', ' ', Level=4)
+      CALL Info( 'StokesSolver', ' ', Level=5)
       CALL Info( 'StokesSolver', &
-          'Iteration for the Schur complement preconditioner', Level=4)
-      CALL Info( 'StokesSolver', ' ', Level=4)
+          'Iteration for the Schur complement preconditioner', Level=5)
+      CALL Info( 'StokesSolver', ' ', Level=5)
       !-------------------------------------------------------------------
       IF (.NOT. TransientSimulation) THEN
         CALL BiCGStab( q, PS, Pressure, PressureRHS, InnerRounds, InnerTol )
@@ -1336,10 +1338,10 @@ CONTAINS
       Pressure(1:q) = 0.0d0
       IF ( ANY( PressureRHS2 /= 0.0d0 ) ) THEN
         !-----------------------------------------------------------------
-        CALL Info( 'StokesSolver', ' ', Level=4)
+        CALL Info( 'StokesSolver', ' ', Level=5)
         CALL Info( 'StokesSolver', &
-            'Iteration for the second Schur complement preconditioner', Level=4)
-        CALL Info( 'StokesSolver', ' ', Level=4)
+            'Iteration for the second Schur complement preconditioner', Level=5)
+        CALL Info( 'StokesSolver', ' ', Level=5)
         !-------------------------------------------------------------------
         CALL BiCGStab( q, PS2, Pressure, PressureRHS2, InnerRounds, InnerTol )
         DO j=1,q
@@ -1363,10 +1365,10 @@ CONTAINS
         PressureRHS(j) = z((dim+1)*(j-1)+1)
       END DO
       !-----------------------------------------------------------------
-      CALL Info( 'StokesSolver', ' ', Level=4)
+      CALL Info( 'StokesSolver', ' ', Level=5)
       CALL Info( 'StokesSolver', &
-          'Iteration for the Velocity 1 preconditioner', Level=4)
-      CALL Info( 'StokesSolver', ' ', Level=4)
+          'Iteration for the Velocity 1 preconditioner', Level=5)
+      CALL Info( 'StokesSolver', ' ', Level=5)
       !------------------------------------------------------------------
       IF (TransientSimulation) THEN
         CALL BiCGStab( q, PA1, Pressure, PressureRHS, InnerRounds, InnerTol )        
@@ -1381,10 +1383,10 @@ CONTAINS
         PressureRHS(j) = z((dim+1)*(j-1)+2)
       END DO
       !-----------------------------------------------------------------
-      CALL Info( 'StokesSolver', ' ', Level=4)
+      CALL Info( 'StokesSolver', ' ', Level=5)
       CALL Info( 'StokesSolver', &
-          'Iteration for the Velocity 2 preconditioner', Level=4)
-      CALL Info( 'StokesSolver', ' ', Level=4)
+          'Iteration for the Velocity 2 preconditioner', Level=5)
+      CALL Info( 'StokesSolver', ' ', Level=5)
       !------------------------------------------------------------------
       IF (TransientSimulation) THEN
         CALL BiCGStab( q, PA2, Pressure, PressureRHS, InnerRounds, InnerTol )        
@@ -1401,10 +1403,10 @@ CONTAINS
           PressureRHS(j) = z((dim+1)*(j-1)+3)
         END DO
         !-----------------------------------------------------------------
-        CALL Info( 'StokesSolver', ' ', Level=4)
+        CALL Info( 'StokesSolver', ' ', Level=5)
         CALL Info( 'StokesSolver', &
-            'Iteration for the Velocity 3 preconditioner', Level=4)
-        CALL Info( 'StokesSolver', ' ', Level=4)
+            'Iteration for the Velocity 3 preconditioner', Level=5)
+        CALL Info( 'StokesSolver', ' ', Level=5)
         !------------------------------------------------------------------
         IF (TransientSimulation) THEN
           CALL BiCGStab( q, PA3, Pressure, PressureRHS, InnerRounds, InnerTol )        
