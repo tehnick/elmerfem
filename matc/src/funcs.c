@@ -56,9 +56,12 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: funcs.c,v 1.1.1.1 2005/04/14 13:29:14 vierinen Exp $ 
+ * $Id: funcs.c,v 1.2 2005/05/27 12:26:20 vierinen Exp $ 
  *
  * $Log: funcs.c,v $
+ * Revision 1.2  2005/05/27 12:26:20  vierinen
+ * changed header install location
+ *
  * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
  * initial matc automake package
  *
@@ -300,7 +303,7 @@ VARIABLE *fnc_exec(fnc, par) FUNCTION *fnc; VARIABLE *par;
         {
           ptr = var_temp_copy(ptr);
           NAME(ptr) = STRCOPY(fnc->imports[i]);
-          lst_add(VARIABLES, ptr);
+          lst_add(VARIABLES, (LIST *)ptr);
         }
         par = (VARIABLE *)VAR_HEAD;
         VAR_HEAD = (LIST *)headsave;

@@ -56,9 +56,12 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: matc.c,v 1.5 2006/02/02 06:54:44 jpr Exp $ 
+ * $Id: matc.c,v 1.6 2006/02/07 10:21:42 jpr Exp $ 
  *
  * $Log: matc.c,v $
+ * Revision 1.6  2006/02/07 10:21:42  jpr
+ * Changed visibility of some variables to local scope.
+ *
  * Revision 1.5  2006/02/02 06:54:44  jpr
  * small formatting changes.
  *
@@ -208,7 +211,7 @@ char * mtc_domath( char *str )
 
   jmp_buf jmp, *savejmp;         /* save program context */
 
-  void (*sigfunc)() =  signal( SIGINT, sig_trap );
+  void (*sigfunc)() =  (void (*)())signal( SIGINT, sig_trap );
 
   if ( !str || !*str )
   {
@@ -920,7 +923,7 @@ void mem_free_all()
   return;
 }
 
-char *mem_alloc(size) unsigned int size;
+void *mem_alloc(size) size_t size;
 /*======================================================================
 ?  Allocate memory and link it to  memory allocation list.
 |

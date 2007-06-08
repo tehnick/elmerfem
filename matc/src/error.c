@@ -35,9 +35,12 @@
  ******************************************************************************/
 
 /*
- * $Id: error.c,v 1.1.1.1 2005/04/14 13:29:14 vierinen Exp $ 
+ * $Id: error.c,v 1.2 2005/05/27 12:26:19 vierinen Exp $ 
  *
  * $Log: error.c,v $
+ * Revision 1.2  2005/05/27 12:26:19  vierinen
+ * changed header install location
+ *
  * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
  * initial matc automake package
  *
@@ -51,7 +54,7 @@
 #include "elmer/matc.h"
 #include "str.h"
 
-void sig_trap()
+void sig_trap(int sig)
 /*======================================================================
 ?  Interrupt or floating point exeption. Free all memory allocated 
 |  after last call to doread, give an error message and

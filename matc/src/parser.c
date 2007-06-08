@@ -56,9 +56,12 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: parser.c,v 1.4 2006/02/02 06:54:44 jpr Exp $ 
+ * $Id: parser.c,v 1.5 2006/11/22 10:57:14 jpr Exp $ 
  *
  * $Log: parser.c,v $
+ * Revision 1.5  2006/11/22 10:57:14  jpr
+ * *** empty log message ***
+ *
  * Revision 1.4  2006/02/02 06:54:44  jpr
  * small formatting changes.
  *
@@ -80,8 +83,7 @@ $  usage of the function and type of the parameters
 static SYMTYPE symbol, bendsym;
 static char *str, csymbol[4096], buf[4096];
 
-int char_in_list(ch, list)
-     char ch, *list;
+int char_in_list(int ch, char *list)
 {
   char *p;
   

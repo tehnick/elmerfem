@@ -6,9 +6,12 @@
 
 
 /*
- * $Id: matc.h,v 1.1.1.1 2005/04/14 13:29:14 vierinen Exp $ 
+ * $Id: matc.h,v 1.1 2005/05/27 12:26:22 vierinen Exp $ 
  *
  * $Log: matc.h,v $
+ * Revision 1.1  2005/05/27 12:26:22  vierinen
+ * changed header install location
+ *
  * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
  * initial matc automake package
  *
@@ -23,6 +26,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <ctype.h>
 #include <math.h>
 #include <setjmp.h>
