@@ -50,49 +50,49 @@ extern void FC_FUNC_(huti_ccgsolv, HUTI_CCGSOLV) ( int *ndim, int *wrkdim,
 			void *xvec, void *rhsvec, int *ipar, double *dpar,
 			void *work, void (*matvecsubr)(),
 			void (*pcondlsubr)(), void (*pcondrsubr)(),
-			void (*dotprodfun)(), double (*normfun)(),
+			void (*dotprodfun)(), void (*normfun)(),
 			void (*stopcfun)() );
 
 extern void FC_FUNC_(huti_ccgssolv, HUTI_CCGSSOLV) ( int *ndim, int *wrkdim,
 			void *xvec, void *rhsvec, int *ipar, double *dpar,
 			void *work, void (*matvecsubr)(),
 			void (*pcondlsubr)(), void (*pcondrsubr)(),
-			void (*dotprodfun)(), double (*normfun)(),
+			void (*dotprodfun)(), void (*normfun)(),
 			void (*stopcfun)() );
 
 extern void FC_FUNC_(huti_cbicgstabsolv, HUTI_CBICGSTABSOLV) ( int *ndim, int *wrkdim,
 			void *xvec, void *rhsvec, int *ipar, double *dpar,
 			void *work, void (*matvecsubr)(),
 			void (*pcondlsubr)(), void (*pcondrsubr)(),
-			void (*dotprodfun)(), double (*normfun)(),
+			void (*dotprodfun)(), void (*normfun)(),
 			void (*stopcfun)() );
 
 extern void FC_FUNC_(huti_cqmrsolv, HUTI_CQMRSOLV) ( int *ndim, int *wrkdim,
 			void *xvec, void *rhsvec, int *ipar, double *dpar,
 			void *work, void (*matvecsubr)(),
 			void (*pcondlsubr)(), void (*pcondrsubr)(),
-			void (*dotprodfun)(), double (*normfun)(),
+			void (*dotprodfun)(), void (*normfun)(),
 			void (*stopcfun)() );
 
 extern void FC_FUNC_(huti_ctfqmrsolv, HUTI_CTFQMRSOLV) ( int *ndim, int *wrkdim,
 			void *xvec, void *rhsvec, int *ipar, double *dpar,
 			void *work, void (*matvecsubr)(),
 			void (*pcondlsubr)(), void (*pcondrsubr)(),
-			void (*dotprodfun)(), double (*normfun)(),
+			void (*dotprodfun)(), void (*normfun)(),
 			void (*stopcfun)() );
 
 extern void FC_FUNC_(huti_cgmressolv, HUTI_CGMRESSOLV) ( int *ndim, int *wrkdim,
 			void *xvec, void *rhsvec, int *ipar, double *dpar,
 			void *work, void (*matvecsubr)(),
 			void (*pcondlsubr)(), void (*pcondrsubr)(),
-			void (*dotprodfun)(), double (*normfun)(),
+			void (*dotprodfun)(), void (*normfun)(),
 			void (*stopcfun)() );
 
 extern void FC_FUNC_(huti_cbicgstab_2solv, HUTI_CBICGSTAB_2SOLV) ( int *ndim, int *wrkdim,
 			void *xvec, void *rhsvec, int *ipar, double *dpar,
 			void *work, void (*matvecsubr)(),
 			void (*pcondlsubr)(), void (*pcondrsubr)(),
-			void (*dotprodfun)(), double (*normfun)(),
+			void (*dotprodfun)(), void (*normfun)(),
 			void (*stopcfun)() );
 
 extern int huti_num_of_procs;
