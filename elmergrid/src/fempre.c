@@ -60,7 +60,8 @@
 #include "femknot.h"
 #include "feminfo.h"
 #include "femelmer.h"
-#include "femfile.h"
+#include "femfilein.h"
+#include "femfileout.h"
 #include "femfact.h"
 #include "easymesh.h"
 
