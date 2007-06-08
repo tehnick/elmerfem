@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: Stokes.src,v 1.5 2006/10/06 10:39:45 jpr Exp $
+! * $Id: Stokes.src,v 1.6 2007/06/08 12:04:08 raback Exp $
 ! *****************************************************************************
 
 SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
@@ -412,21 +412,21 @@ SUBROUTINE StokesSolver( Model,Solver,dt,TransientSimulation )
     ! Set boundary conditions for the preconditioners...
     !-------------------------------------------------------------------------
     IF (ComponentwisePreconditioning) THEN
-      CALL SetBoundaryConditions(Model, A1Matrix, 'Stokes 1', 1, 1,  &
-          Solver % Variable % Perm)
-      CALL SetBoundaryConditions(Model, A2Matrix, 'Stokes 2', 1, 1,  &
-          Solver % Variable % Perm)
-      IF (dim > 2) &
-          CALL SetBoundaryConditions(Model, A3Matrix, 'Stokes 3', 1, 1,  &
-          Solver % Variable % Perm)
+      CALL SetBoundaryConditions(Model, A1Matrix, ComponentName(Solver % Variable % name, 1), &
+          1, 1,  Solver % Variable % Perm)
+      CALL SetBoundaryConditions(Model, A2Matrix, ComponentName(Solver % Variable % name, 2), &
+          1, 1,  Solver % Variable % Perm)
+      IF( dim > 2 ) &
+          CALL SetBoundaryConditions(Model, A2Matrix, ComponentName(Solver % Variable % name, 3), &
+          1, 1,  Solver % Variable % Perm)
     ELSE
-      CALL SetBoundaryConditions(Model, AMatrix, 'Stokes 1', 1, dim,  &
-          Solver % Variable % Perm)
-      CALL SetBoundaryConditions(Model, AMatrix, 'Stokes 2', 2, dim,  &
-          Solver % Variable % Perm)
-      IF (dim > 2) &    
-          CALL SetBoundaryConditions(Model, AMatrix, 'Stokes 3', 3, dim,  &
-          Solver % Variable % Perm)
+       CALL SetBoundaryConditions(Model, AMatrix, ComponentName(Solver % Variable % name, 1), &
+          1, dim,  Solver % Variable % Perm)
+      CALL SetBoundaryConditions(Model, AMatrix, ComponentName(Solver % Variable % name, 2), &
+          2, dim,  Solver % Variable % Perm)
+      IF( dim > 2 ) &
+          CALL SetBoundaryConditions(Model, AMatrix, ComponentName(Solver % Variable % name, 3), &
+          3, dim,  Solver % Variable % Perm)
     END IF
 
     !-----------------------------------------------------------------------------
