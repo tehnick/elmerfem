@@ -1,7 +1,10 @@
 /*
- * $Id: main.c,v 1.10 2006/02/02 06:51:16 jpr Exp $ 
+ * $Id: main.c,v 1.11 2006/02/02 06:54:44 jpr Exp $ 
  *
  * $Log: main.c,v $
+ * Revision 1.11  2006/02/02 06:54:44  jpr
+ * small formatting changes.
+ *
  * Revision 1.9  2005/08/25 13:44:22  vierinen
  * windoze stuff
  *
@@ -44,13 +47,13 @@
 # endif
 #endif 
 
-void main( int argc, char **argv )
+int main( int argc, char **argv )
 {
   char strt[2000];
   char *str;
 
-  mtc_init( stdin, stdout, stderr );
-  mtc_domath( "source(\"mc.ini\")" );
+  (void)mtc_init( stdin, stdout, stderr );
+  str = (char *)mtc_domath( "source(\"mc.ini\")" );
 
   signal( SIGINT, SIG_IGN );
 
@@ -74,13 +77,13 @@ void main( int argc, char **argv )
       if( strcasecmp(str,"exit") == 0  || strcasecmp(str,"quit") == 0 )
 #endif
       {
-	return;
+	return 0;
       }
-      if ( *str ) fprintf( stdout, "%s\n", mtc_domath( str ) );
+      if ( *str ) fprintf( stdout, "%s\n", (char *)mtc_domath( str ) );
       
 #ifdef USE_READLINE
       free(str);
 #endif
     }  
-    return;
+    return 0;
 }

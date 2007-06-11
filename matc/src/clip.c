@@ -50,9 +50,12 @@
 
 
 /*
- * $Id: clip.c,v 1.1.1.1 2005/04/14 13:29:14 vierinen Exp $ 
+ * $Id: clip.c,v 1.2 2005/05/27 12:26:19 vierinen Exp $ 
  *
  * $Log: clip.c,v $
+ * Revision 1.2  2005/05/27 12:26:19  vierinen
+ * changed header install location
+ *
  * Revision 1.1.1.1  2005/04/14 13:29:14  vierinen
  * initial matc automake package
  *
@@ -77,7 +80,7 @@
            The theoretical number of points newer execeeds twice 
            the number in origin. 
 ************************************o*************************************/
-clip_poly(n,x,y)
+int clip_poly(n,x,y)
 int *n;                            /* Number of points in polygon      */
     double *x,*y;                  /* Coordinate arrays of the polygon */
 {

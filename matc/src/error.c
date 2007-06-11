@@ -35,9 +35,12 @@
  ******************************************************************************/
 
 /*
- * $Id: error.c,v 1.2 2005/05/27 12:26:19 vierinen Exp $ 
+ * $Id: error.c,v 1.3 2007/06/08 08:12:17 jpr Exp $ 
  *
  * $Log: error.c,v $
+ * Revision 1.3  2007/06/08 08:12:17  jpr
+ * *** empty log message ***
+ *
  * Revision 1.2  2005/05/27 12:26:19  vierinen
  * changed header install location
  *
@@ -75,7 +78,7 @@ void sig_trap(int sig)
   longjmp(*jmpbuf, 2);
 }
 
-void error(char *fmt,void *p1, void *p2)
+void error_old(char *fmt,void *p1, void *p2)
 /*======================================================================
 ?  An error is detected by the program. Free all memory allocated 
 |  after last call to doread, give an error message and

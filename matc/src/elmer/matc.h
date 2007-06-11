@@ -6,9 +6,12 @@
 
 
 /*
- * $Id: matc.h,v 1.1 2005/05/27 12:26:22 vierinen Exp $ 
+ * $Id: matc.h,v 1.2 2007/06/08 08:12:19 jpr Exp $ 
  *
  * $Log: matc.h,v $
+ * Revision 1.2  2007/06/08 08:12:19  jpr
+ * *** empty log message ***
+ *
  * Revision 1.1  2005/05/27 12:26:22  vierinen
  * changed header install location
  *
@@ -394,34 +397,55 @@ static int math_out_count;
 #endif
 #endif
 
+void mem_free_all(void);
+
+
 #ifdef MODULE_MATC
+static int math_out_allocated  = 0;
+void error( char *format, ... )
+{
+    va_list args;
+
+    va_start( args, format );
+#ifdef STRING_OUTPUT
+    if ( math_out_count+512 > math_out_allocated )
+    { 
+        math_out_allocated += 512;
+        math_out_str = (char *)realloc( math_out_str, math_out_allocated );
+    }
+    math_out_count += sprintf( &math_out_str[math_out_count], "MATC ERROR: " );
+    math_out_count += vsprintf( &math_out_str[math_out_count], format, args );
+#else
+    fprintf( math_err, "MATC ERROR: " );
+    vfprintf( math_err, format, args );
+#endif
+    va_end( args );
+
+    (void)mem_free_all();
+    longjmp( *jmpbuf, 2 );
+}
+
 void PrintOut( char *format, ... )
 {
-    static int math_out_allocated  = 0;
 
     va_list args;
 
     va_start( args, format );
 #ifdef STRING_OUTPUT
-
     if ( math_out_count+512 > math_out_allocated )
     { 
         math_out_allocated += 512;
         math_out_str = (char *)realloc( math_out_str, math_out_allocated );
     }
     math_out_count += vsprintf( &math_out_str[math_out_count], format, args );
-
 #else
-
     vfprintf( math_out, format, args );
-
 #endif
     va_end( args );
 }
 #else
-
-extern int PrintOut( char *format, ... );
-
+extern void error( char *format, ... );
+extern void PrintOut( char *format, ... );
 #endif
 
 /*******************************************************************

@@ -56,9 +56,12 @@ $  usage of the function and type of the parameters
 
 
 /*
- * $Id: matc.c,v 1.6 2006/02/07 10:21:42 jpr Exp $ 
+ * $Id: matc.c,v 1.7 2007/06/08 08:12:17 jpr Exp $ 
  *
  * $Log: matc.c,v $
+ * Revision 1.7  2007/06/08 08:12:17  jpr
+ * *** empty log message ***
+ *
  * Revision 1.6  2006/02/07 10:21:42  jpr
  * Changed visibility of some variables to local scope.
  *
@@ -828,7 +831,7 @@ VARIABLE *com_apply(ptr) VARIABLE *ptr;
   return res;
 }
 
-void mem_free(mem) char *mem;
+void mem_free(void *mem)
 /*======================================================================
 ?  Free memory given by argument, and unlink it from alloction list.
 |  Currently FREEMEM(ptr) is defined to be mem_free(ptr).

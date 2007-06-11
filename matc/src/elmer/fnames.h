@@ -10,9 +10,12 @@ char *doread( void );
 VARIABLE *com_quit( void );
 
 /*
- * $Id: fnames.h,v 1.1 2005/05/31 09:43:48 vierinen Exp $ 
+ * $Id: fnames.h,v 1.2 2007/06/08 08:12:19 jpr Exp $ 
  *
  * $Log: fnames.h,v $
+ * Revision 1.2  2007/06/08 08:12:19  jpr
+ * *** empty log message ***
+ *
  * Revision 1.1  2005/05/31 09:43:48  vierinen
  * oops
  *
@@ -26,11 +29,7 @@ VARIABLE *com_quit( void );
  *
  */
 
-#if 0
-void error( /* char * */);
-#define error(str) fprintf( stderr, str );
-#else
-#endif
+void error( char *fmt, ... );
 void sig_trap(int);
 int dogets(char *, char *);
 
@@ -239,6 +238,13 @@ void gra_viewpoint();
 void gra_getmatrix();
 void gra_setmatrix();
 void gra_dbuffer_null();
+void gra_com_init(void);
+void gra_init_matc(int devtype, char *name);
+void gra_mtrans(double,double,double,double *,double *,double *);
+
+/* clip.c */
+int clip_poly(int *,double *,double *);
+int clip_line(int *,double *,double *);
 
 /* c3d.c */
 VARIABLE *c3d_gc3d();
