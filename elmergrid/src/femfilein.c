@@ -3771,14 +3771,24 @@ omstart:
 
       Getrow(line,in,FALSE);
       if( !strncmp(line,"    -1",6)) goto nextline;
+
       
       cp = line;
       for(i=1;i<=8;i++)
 	nogroups = next_int(&cp);
+      group = 0;
 
-      for(group=1;group<=nogroups;group++) {
+      for(;;) {
 	Getrow(line,in,FALSE);
+	
+	if( !strncmp(line,"    -1",6)) goto nextline;
 
+	/* Used for the empty group created by salome */
+	if( !strncmp(line,"      ",6)) {
+	  continue;
+	}
+
+	group++;
 	if(allocated) {
 	  sscanf(line,"%s",entityname);
 	  strcpy(data->bodyname[group],entityname);
@@ -3791,6 +3801,7 @@ omstart:
 
 	  if( !strncmp(line,"    -1",6)) goto nextline;
 	  cp = line;
+
 	  for(i=1;i<=2;i++) {
 	    grouptype = next_int(&cp);
 	    ind = next_int(&cp);
@@ -3799,20 +3810,18 @@ omstart:
 
 	    j = next_int(&cp);
 	    j = next_int(&cp);
-	    if(allocated) {
-	      if( grouptype == 8 ) {
-		data->material[ind] = group;
-	      }
-	      else if(grouptype == 7) {
-		nopoints += 1;
+	    if( grouptype == 8 ) {
+	      if(allocated) data->material[ind] = group;
+	    }
+	    else if(grouptype == 7) {
+	      nopoints += 1;
+	      if(allocated) {
 		data->material[noelements+nopoints] = group;
 		data->elementtypes[noelements+nopoints] = 101;
 		data->topology[noelements+nopoints][0] = ind;
 	      }
 	    }
-	    else {
-	      if(grouptype == 7) nopoints += 1;
-	    }
+	    else goto newgroup;
 	  }
 	}
       newgroup:
