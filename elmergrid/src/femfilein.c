@@ -3712,7 +3712,7 @@ omstart:
 
     /* node definition */
     if( mode == 1) {
-      if(0) printf("Reading nodes\n");
+      if(0 && info && allocated) printf("Reading nodes\n");
       for(;;) {
 	Getrow(line,in,FALSE);
 	if( !strncmp(line,"    -1",6)) goto nextline;
@@ -3735,7 +3735,7 @@ omstart:
 
 
     if( mode == 2) {
-      if(0) printf("Reading elements\n");
+      if(0 && info && allocated) printf("Reading elements\n");
       for(;;) {
 	Getrow(line,in,FALSE);
 	if( !strncmp(line,"    -1",6)) goto nextline;
@@ -3767,7 +3767,7 @@ omstart:
     }  
 
     if( mode == 3) {
-      if(0) printf("Reading groups\n");
+      if(0 && info && allocated) printf("Reading groups\n");
 
       Getrow(line,in,FALSE);
       if( !strncmp(line,"    -1",6)) goto nextline;
@@ -3787,10 +3787,10 @@ omstart:
 	if( !strncmp(line,"      ",6)) continue;
 
 	group++;
+	k = 0;
 	if(allocated) {
 	  sscanf(line,"%s",entityname);
 	  strcpy(data->bodyname[group],entityname);
-	  if(info) printf("Found new entity %d: %s\n",group,entityname);
 	  data->bodynamesexist = TRUE;
 	}
 
@@ -3805,23 +3805,32 @@ omstart:
 	    ind = next_int(&cp);
 	    if( ind == 0 && i==1) goto newgroup;
 	    if( ind == 0 && i==2) continue;
+	    k++;
 
 	    j = next_int(&cp);
 	    j = next_int(&cp);
 	    if( grouptype == 8 ) {
-	      if(allocated) data->material[ind] = group;
+	      if(allocated) {
+		data->material[ind] = group;
+		elemcode = data->elementtypes[ind];
+	      }
 	    }
 	    else if(grouptype == 7) {
 	      nopoints += 1;
 	      if(allocated) {
+		elemcode = 101;
 		data->material[noelements+nopoints] = group;
-		data->elementtypes[noelements+nopoints] = 101;
+		data->elementtypes[noelements+nopoints] = elemcode;
 		data->topology[noelements+nopoints][0] = ind;
 	      }
 	    }
 	    else goto newgroup;
+
+	    if(0 && k == 1 && allocated && info)
+	      printf("Found new group %d with elements %d: %s\n",group,elemcode,entityname);
 	  }
 	}
+
       newgroup:
 	continue;
       }
