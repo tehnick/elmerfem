@@ -3784,15 +3784,13 @@ omstart:
 	if( !strncmp(line,"    -1",6)) goto nextline;
 
 	/* Used for the empty group created by salome */
-	if( !strncmp(line,"      ",6)) {
-	  continue;
-	}
+	if( !strncmp(line,"      ",6)) continue;
 
 	group++;
 	if(allocated) {
 	  sscanf(line,"%s",entityname);
 	  strcpy(data->bodyname[group],entityname);
-	  if(info) printf("Found new entity: %s\n",entityname);
+	  if(info) printf("Found new entity %d: %s\n",group,entityname);
 	  data->bodynamesexist = TRUE;
 	}
 
