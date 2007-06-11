@@ -3866,7 +3866,6 @@ end:
     maxgroup = MAX( maxgroup, data->material[i]);
   }
   if(mingroup == 0) {
-    printf("groups : %d %d\n",mingroup,maxgroup);
    for(i=1;i<=data->noelements;i++) 
      if(data->material[i] == 0) data->material[i] = maxgroup + 1;
   }

@@ -3812,11 +3812,8 @@ void RenumberMaterialTypes(struct FemType *data,struct BoundaryType *bound,int i
     for(j=1;j<=noelements;j++) 
       data->material[j] = mapmat[data->material[j]];
 
-    printf("bodybname = %d %d %d %d\n",data->bodynamesexist,minmat,maxmat,MAXBODIES-1);
-
     if(data->bodynamesexist) {
       for(j=minmat;j<=MIN(maxmat,MAXBODIES-1);j++) {
-	printf("j = %d %d\n",j,mapmat[j]);
 	if(mapmat[j]) 
 	  strcpy(data->bodyname[mapmat[j]],data->bodyname[j]);
       }
