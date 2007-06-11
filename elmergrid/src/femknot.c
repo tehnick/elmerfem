@@ -656,11 +656,11 @@ void InitializeKnots(struct FemType *data)
 
   for(i=0;i<MAXBODIES;i++) {
     strcpy(data->bodyname[i],""); 
-    sprintf(data->bodyname[i],"nnbody",i);
+    sprintf(data->bodyname[i],"body%d",i);
   }
   for(i=0;i<MAXBCS;i++) {
     strcpy(data->boundaryname[i],""); 
-    sprintf(data->boundaryname[i],"nnbc",i);
+    sprintf(data->boundaryname[i],"bc%d",i);
   }
 }
 
@@ -6845,6 +6845,8 @@ void ElementsToBoundaryConditions(struct FemType *data,
 	    data->boundarynamesexist = TRUE;
 	    if(material < MAXBODIES && material < MAXBOUNDARIES) 
 	      strcpy(data->boundaryname[material],data->bodyname[material]);
+	    if(!strncmp(data->boundaryname[material],"body",4))
+	      strncpy(data->boundaryname[material],"bnry",4);
 	  }
 
 	  if(moveelement[elemind] > 1) goto foundtwo;

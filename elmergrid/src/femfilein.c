@@ -3657,13 +3657,14 @@ int UnvToElmerType(int unvtype)
 int LoadUniversalMesh(struct FemType *data,char *prefix,int info)
      /* Load the grid in universal file format */
 {
-  int noknots,noelements,elemcode,maxnodes;
-  int allocated,maxknot, dim,ind;
+  int noknots,totknots,noelements,elemcode,maxnodes;
+  int allocated,maxknot,dim,ind;
   int reorderknots,reorderelements,nogroups,maxnode,maxelem,elid,eltype;
-  int nonodes,group,grouptype,mode;
-  int debug;
+  int nonodes,group,grouptype,mode,nopoints;
+  int debug,mingroup,maxgroup;
   char filename[MAXFILESIZE],line[MAXLINESIZE],*cp;
   int i,j,k,l,n;
+  char entityname[MAXNAMESIZE];
   FILE *in;
 
 
@@ -3694,6 +3695,7 @@ omstart:
   maxelem = 0;
   noknots = 0;
   noelements = 0;
+  nopoints = 0;
 
 
   for(;;) {
@@ -3776,6 +3778,14 @@ omstart:
 
       for(group=1;group<=nogroups;group++) {
 	Getrow(line,in,FALSE);
+
+	if(allocated) {
+	  sscanf(line,"%s",entityname);
+	  strcpy(data->bodyname[group],entityname);
+	  if(info) printf("Found new entity: %s\n",entityname);
+	  data->bodynamesexist = TRUE;
+	}
+
 	for(;;) {
 	  Getrow(line,in,FALSE);
 
@@ -3794,7 +3804,14 @@ omstart:
 		data->material[ind] = group;
 	      }
 	      else if(grouptype == 7) {
+		nopoints += 1;
+		data->material[noelements+nopoints] = group;
+		data->elementtypes[noelements+nopoints] = 101;
+		data->topology[noelements+nopoints][0] = ind;
 	      }
+	    }
+	    else {
+	      if(grouptype == 7) nopoints += 1;
 	    }
 	  }
 	}
@@ -3826,8 +3843,9 @@ end:
     }
 
     rewind(in);
+    totknots = noknots;
     data->noknots = noknots;
-    data->noelements = noelements;
+    data->noelements = noelements + nopoints;
     data->maxnodes = maxnodes;
     data->dim = dim;
     
@@ -3842,6 +3860,19 @@ end:
   }
   fclose(in);
 
+  mingroup = maxgroup = data->material[1];
+  for(i=1;i<=data->noelements;i++) {
+    mingroup = MIN( mingroup, data->material[i]);
+    maxgroup = MAX( maxgroup, data->material[i]);
+  }
+  if(mingroup == 0) {
+    printf("groups : %d %d\n",mingroup,maxgroup);
+   for(i=1;i<=data->noelements;i++) 
+     if(data->material[i] == 0) data->material[i] = maxgroup + 1;
+  }
+
+
+    
   if(info) printf("The Universal mesh was loaded from file %s.\n\n",filename);
   return(0);
 }
