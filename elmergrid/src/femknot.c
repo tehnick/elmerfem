@@ -99,12 +99,25 @@ int GetMaxElementType(struct FemType *data)
 {
   int i,maxelementtype;
 
-  maxelementtype = 0;
+  maxelementtype = data->elementtypes[1];
   for(i=1;i<=data->noelements;i++)
     if(data->elementtypes[i] > maxelementtype)
       maxelementtype = data->elementtypes[i];
 
   return(maxelementtype);
+}
+
+
+int GetMinElementType(struct FemType *data)
+{
+  int i,minelementtype;
+
+  minelementtype = data->elementtypes[1];
+  for(i=1;i<=data->noelements;i++)
+    if(data->elementtypes[i] < minelementtype)
+      minelementtype = data->elementtypes[i];
+
+  return(minelementtype);
 }
 
 
@@ -3772,6 +3785,9 @@ void RenumberBoundaryTypes(struct FemType *data,struct BoundaryType *bound,
       }
     }
   }
+  else {
+    if(info) printf("BCs ordered continously between %d and %d\n",minbc,maxbc);
+  }
 }  
   
 
@@ -3784,7 +3800,10 @@ void RenumberMaterialTypes(struct FemType *data,struct BoundaryType *bound,int i
   if(info) printf("Setting new material types\n");
   
   noelements = data->noelements;
-  if(noelements < 1) return;
+  if(noelements < 1) {
+    printf("There are no elements to set!\n");
+    return;
+  }
 
   doinit = TRUE;
   for(j=1;j<=noelements;j++) {
@@ -3818,6 +3837,9 @@ void RenumberMaterialTypes(struct FemType *data,struct BoundaryType *bound,int i
 	  strcpy(data->bodyname[mapmat[j]],data->bodyname[j]);
       }
     }
+  }
+  else {
+    if(info) printf("Materials ordered continously between %d and %d\n",minmat,maxmat);
   }
   free_Ivector(mapmat,minmat,maxmat);
 }
@@ -4744,7 +4766,6 @@ int IncreaseElementOrder(struct FemType *data,int info)
   }
 
   if(info) printf("New leading elementtype is %d\n",100*(maxelemtype/100)+maxnodes);
-
 
   newtopo = Imatrix(1,noelements,0,maxnodes-1);
     
@@ -6679,8 +6700,8 @@ void ElementsToBoundaryConditions(struct FemType *data,
 				  struct BoundaryType *bound,int info)
 {
   int i,j,k,l,sideelemtype,sideelemtype2,elemind,elemind2,parent,sideelem,sameelem;
-  int sideind[MAXNODESD1],sideind2[MAXNODESD1],elemsides,side,hit,same;
-  int sidenodes,sidenodes2,maxelemtype,elemdim,sideelements,material;
+  int sideind[MAXNODESD1],sideind2[MAXNODESD1],elemsides,side,hit,same,minelemtype;
+  int sidenodes,sidenodes2,maxelemtype,elemtype,elemdim,sideelements,material;
   int *moveelement,*parentorder,*possible,**invtopo;
   int noelements,maxpossible,noknots,maxelemsides,twiceelem,sideelemdim;
   int debug;
@@ -6697,9 +6718,13 @@ void ElementsToBoundaryConditions(struct FemType *data,
   noknots = data->noknots;
 
   maxelemtype = GetMaxElementType(data);
-  if(info) printf("Leading elementtype is %d\n",maxelemtype);
+  if(info) printf("Leading bulk elementtype is %d\n",maxelemtype);
+
+  minelemtype = GetMinElementType(data);
+  if(info) printf("Trailing bulk elementtype is %d\n",minelemtype);
 
   elemdim = GetElementDimension(maxelemtype);
+  if( elemdim - GetElementDimension(minelemtype) == 0) return;
 
   moveelement = Ivector(1,noelements); 
   parentorder = Ivector(1,noelements);
@@ -6766,7 +6791,8 @@ void ElementsToBoundaryConditions(struct FemType *data,
 
   for(elemind=1;elemind <= data->noelements;elemind++) { 
     if(moveelement[elemind]) continue;
-    for(i=0;i<data->elementtypes[elemind]%100;i++) {
+    elemtype = data->elementtypes[elemind];
+    for(i=0;i<elemtype%100;i++) {
       k = data->topology[elemind][i];
       for(l=1;invtopo[k][l];l++);
       invtopo[k][l] = elemind;

@@ -8,7 +8,8 @@ COMMON_SRCS =  \
 	femdef.h \
 	femelmer.h \
 	femfact.h \
-	femfile.h \
+	femfilein.h \
+	femfileout.h \
 	feminfo.h \
 	femknot.h \
 	femmesh.h \
@@ -20,7 +21,8 @@ COMMON_SRCS =  \
 	easymesh.c \
 	femelmer.c \
 	femfact.c \
-	femfile.c \
+	femfilein.c \
+	femfileout.c \
 	feminfo.c \
 	femknot.c \
 	femmesh.c \

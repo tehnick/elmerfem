@@ -31,6 +31,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
+#include <strings.h>
 #include <unistd.h>
 
 #include "nrutil.h"
@@ -3416,10 +3417,10 @@ allocate:
 static int LoadGmshInput2(struct FemType *data,struct BoundaryType *bound,
 			  char *filename,int info)
 {
-  int noknots,noelements,maxnodes,elematts,nodeatts,nosides,dim;
+  int noknots,noelements,maxnodes,elematts,nodeatts,nosides,dim,notags;
   int sideind[MAXNODESD1],elemind[MAXNODESD2],tottypes,elementtype,bcmarkers;
   int i,j,k,dummyint,*boundnodes,allocated,*revindx,maxindx;
-  int elemno, gmshtype, regphys, regelem, elemnodes,maxelemtype,elemdim;
+  int elemno, gmshtype, tagphys, taggeom, tagpart, elemnodes,maxelemtype,elemdim;
   FILE *in;
   char *cp,line[MAXLINESIZE];
 
@@ -3436,25 +3437,7 @@ static int LoadGmshInput2(struct FemType *data,struct BoundaryType *bound,
   maxindx = 0;
   maxelemtype = 0;
 
-allocate:
-
-  if(allocated) {
-    InitializeKnots(data);
-    data->dim = dim;
-    data->maxnodes = maxnodes;
-    data->noelements = noelements;
-    data->noknots = noknots;
-
-    if(info) printf("Allocating for %d knots and %d elements.\n",noknots,noelements);
-    AllocateKnots(data);
-
-    if(maxindx > noknots) {
-      revindx = Ivector(1,maxindx);
-      for(i=1;i<=maxindx;i++) revindx[i] = 0;
-    }
-    in = fopen(filename,"r");
-  }
-
+omstart:
 
   for(;;) {
     if(Getrow(line,in,TRUE)) goto end;
@@ -3462,16 +3445,16 @@ allocate:
     if(strstr(line,"END")) goto end;
 
     /* Header info is not much needed */
-    if(strstr(line,"$MESHFORMAT")) {
+    if(!strncasecmp(line,"$MeshFormat",11)) {
       Getrow(line,in,TRUE);
       Getrow(line,in,TRUE);
-      if(!strstr(line,"$EndMeshFormat")) {
-	printf("MeshFormat section should end to string EndMeshFormat\n");
+      if(strncasecmp(line,"$EndMeshFormat",14)) {
+	printf("MeshFormat section should end to string $EndMeshFormat\n");
 	printf("%s\n",line);
       }      
     }
       
-    if(strstr(line,"$NODES")) {
+    if(!strncasecmp(line,"$Nodes",6)) {
       getline;
       cp = line;
       noknots = next_int(&cp);
@@ -3494,7 +3477,7 @@ allocate:
       getline;
     }
     
-    if(strstr(line,"$ELEMENTS")) {
+    if(!strncasecmp(line,"$Elements",9)) {
       getline;
       cp = line;
       noelements = next_int(&cp);
@@ -3507,28 +3490,21 @@ allocate:
 	gmshtype = next_int(&cp);
 	elementtype = GmshToElmerType(gmshtype);
 
-	regphys = next_int(&cp);
-	regelem = next_int(&cp);
-	elemnodes = next_int(&cp);
-
 	if(allocated) {
 	  elemnodes = elementtype % 100;
 	  data->elementtypes[i] = elementtype;
 
 	  /* Point does not seem to have physical properties */
+	  tagphys = 0;
 	  if(gmshtype != 15) {
-	    regelem = next_int(&cp);
-	    if(regelem == 0) 
-	      regphys = 0;
-	    else 
-	      regphys = next_int(&cp);
-	    for(j=2;j<=regelem;j++)
+	    notags = next_int(&cp);
+	    if(notags > 0) tagphys = next_int(&cp);
+	    if(notags > 1) taggeom = next_int(&cp);
+	    if(notags > 2) tagpart = next_int(&cp);
+	    for(j=4;j<=notags;j++)
 	      next_int(&cp);
 	  }
-	  else 
-	    regphys = 0;
-
-	  data->material[i] = regphys;
+	  data->material[i] = tagphys;
 
 	  for(j=0;j<elemnodes;j++)
 	    elemind[j] = next_int(&cp);
@@ -3550,14 +3526,26 @@ allocate:
 
  end:
 
-  fclose(in);
 
   if(!allocated) {
     maxnodes = maxelemtype % 100;
-    allocated = TRUE;
-    goto allocate;
-  }
+    InitializeKnots(data);
+    data->dim = dim;
+    data->maxnodes = maxnodes;
+    data->noelements = noelements;
+    data->noknots = noknots;
 
+    if(info) printf("Allocating for %d knots and %d elements.\n",noknots,noelements);
+    AllocateKnots(data);
+
+    if(maxindx > noknots) {
+      revindx = Ivector(1,maxindx);
+      for(i=1;i<=maxindx;i++) revindx[i] = 0;
+    }
+    rewind(in);
+    allocated = TRUE;
+    goto omstart;
+  }
 
   if(maxindx > noknots) {
     printf("Renumbering the Gmsh nodes from %d to %d\n",maxindx,noknots);
@@ -3579,9 +3567,9 @@ allocate:
     free_Ivector(revindx,1,maxindx);
   }
 
-  ElementsToBoundaryConditions(data,bound,info);
+  if(1) ElementsToBoundaryConditions(data,bound,info);
 
-  printf("Succesfully read the mesh from the Gmsh input file.\n");
+  if(info) printf("Succesfully read the mesh from the Gmsh input file.\n");
 
   return(0);
 }

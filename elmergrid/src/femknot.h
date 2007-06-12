@@ -7,6 +7,7 @@
 
 int GetElementDimension(int elementtype);
 int GetMaxElementType(struct FemType *data);
+int GetMinElementType(struct FemType *data);
 int GetMaxElementDimension(struct FemType *data);
 void GetElementInfo(int element,struct FemType *data,
 		    Real *globalcoord,int *ind,int *material);
