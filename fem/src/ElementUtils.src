@@ -38,7 +38,7 @@
 ! *
 ! ******************************************************************************/
 ! *
-! * $Id: ElementUtils.src,v 1.19 2007/04/30 06:48:41 jpr Exp $
+! * $Id: ElementUtils.src,v 1.20 2007/05/04 05:38:08 jpr Exp $
 ! ******************************************************************************
 
 MODULE ElementUtils
@@ -494,6 +494,7 @@ CONTAINS
      TYPE(Matrix_t),POINTER :: Matrix
 !------------------------------------------------------------------------------
      TYPE(ListMatrixPointer_t), POINTER :: ListMatrix(:)
+     TYPE(ListMatrix_t), POINTER :: CList
      CHARACTER(LEN=MAX_NAME_LEN) :: Eq
      LOGICAL :: GotIt, DG, GB, UseOptimized
      INTEGER i,j,k,t,n, EDOFs, FDOFs, BDOFs
@@ -551,7 +552,7 @@ CONTAINS
      ALLOCATE( InvInitialReorder(k) )
      InvInitialReorder = 0
      DO i=1,SIZE(Perm)
-        IF ( Perm(i) > 0 ) InvInitialReorder(Perm(i)) = i
+        IF (Perm(i)>0) InvInitialReorder(Perm(i)) = i
      END DO
 
      UseOptimized = ListGetLogical( Solver % Values, &
@@ -566,7 +567,7 @@ CONTAINS
      IF ( PRESENT(Equation) ) THEN
         CALL MakeListMatrix( Model, Solver, Mesh, ListMatrix, Perm, k, Eq, DG, GB )
         n = OptimizeBandwidth( ListMatrix, Perm, InvInitialReorder, &
-                      k, OptimizeBW, UseOptimized, Eq )
+                   k, OptimizeBW, UseOptimized, Eq )
      ELSE 
         CALL MakeListMatrix( Model, Solver, Mesh, ListMatrix, Perm, k, &
                 DGSolver=DG, GlobalBubbles=GB )
@@ -696,55 +697,27 @@ CONTAINS
 !------------------------------------------------------------------------------
    REAL(KIND=dp) :: Normal(3),Tangent1(3),Tangent2(3)
 !------------------------------------------------------------------------------
-   REAL(KIND=dp) :: s
+   REAL(KIND=dp) :: n1,n2,n3
 !------------------------------------------------------------------------------
-   IF ( ABS( Normal(1) ) <= AEPS ) THEN
+   n1 = ABS(Normal(1))
+   n2 = ABS(Normal(2))
+   n3 = ABS(Normal(3))
 
-     Tangent1(1) = 1
-     Tangent1(2) = 0
-     Tangent1(3) = 0
-
-     Tangent2(1) = Normal(2)*Tangent1(3) - Normal(3)*Tangent1(2)
-     Tangent2(2) = Normal(3)*Tangent1(1) - Normal(1)*Tangent1(3)
-     Tangent2(3) = Normal(1)*Tangent1(2) - Normal(2)*Tangent1(1)
-
-   ELSE IF ( ABS( Normal(2) ) <= AEPS ) THEN
-
-     Tangent1(1) = 0
-     Tangent1(2) = 1
-     Tangent1(3) = 0
-
-     Tangent2(1) = Normal(2)*Tangent1(3) - Normal(3)*Tangent1(2)
-     Tangent2(2) = Normal(3)*Tangent1(1) - Normal(1)*Tangent1(3)
-     Tangent2(3) = Normal(1)*Tangent1(2) - Normal(2)*Tangent1(1)
-
-   ELSE IF ( ABS( Normal(3) ) <= AEPS ) THEN
-
-     Tangent2(1) = 0
-     Tangent2(2) = 0
-     Tangent2(3) = 1
-
-     Tangent1(1) = Normal(2)*Tangent2(3) - Normal(3)*Tangent2(2)
-     Tangent1(2) = Normal(3)*Tangent2(1) - Normal(1)*Tangent2(3)
-     Tangent1(3) = Normal(1)*Tangent2(2) - Normal(2)*Tangent2(1)
-
+   IF ( n1 <= n3 .OR. n1 <= n2 ) THEN
+     Tangent1(1) =  0.0_dp
+     Tangent1(2) = -Normal(3)
+     Tangent1(3) =  Normal(2)
    ELSE
-
-     Tangent1(1) =  Normal(2)
-     Tangent1(2) = -Normal(1)
-     Tangent1(3) =  0.0d0
-
-     s = SQRT( SUM( Tangent1**2 ) )
-     Tangent1 = Tangent1 / s
-
-     Tangent2(1) = Normal(2)*Tangent1(3) - Normal(3)*Tangent1(2)
-     Tangent2(2) = Normal(3)*Tangent1(1) - Normal(1)*Tangent1(3)
-     Tangent2(3) = Normal(1)*Tangent1(2) - Normal(2)*Tangent1(1)
-
-     s = SQRT( SUM( Tangent2**2 ) )
-     Tangent2 = Tangent2 / s
-
+     Tangent1(1) = -Normal(2)
+     Tangent1(2) =  Normal(1)
+     Tangent1(3) =  0.0_dp
    END IF
+
+   Tangent1 = Tangent1 / SQRT(SUM(Tangent1**2))
+   Tangent2(1) = Normal(2)*Tangent1(3) - Normal(3)*Tangent1(2)
+   Tangent2(2) = Normal(3)*Tangent1(1) - Normal(1)*Tangent1(3)
+   Tangent2(3) = Normal(1)*Tangent1(2) - Normal(2)*Tangent1(1)
+   Tangent2 = Tangent2 / SQRT(SUM(Tangent2**2))
 !------------------------------------------------------------------------------
  END SUBROUTINE TangentDirections
 !------------------------------------------------------------------------------
