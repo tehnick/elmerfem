@@ -1,0 +1,314 @@
+!/*****************************************************************************/
+! *
+! *  Elmer, A Finite Element Software for Multiphysical Problems
+! *
+! *  Copyright 1st April 1995 - , CSC - Scientific Computing Ltd., Finland
+! * 
+! *  This program is free software; you can redistribute it and/or
+! *  modify it under the terms of the GNU General Public License
+! *  as published by the Free Software Foundation; either version 2
+! *  of the License, or (at your option) any later version.
+! * 
+! *  This program is distributed in the hope that it will be useful,
+! *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! *  GNU General Public License for more details.
+! *
+! *  You should have received a copy of the GNU General Public License
+! *  along with this program (in file fem/GPL-2); if not, write to the 
+! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
+! *  Boston, MA 02110-1301, USA.
+! *
+! *****************************************************************************/
+!
+!/******************************************************************************
+! *
+! *  Module for computing fluxes of Poisson type of equations
+! *
+! ******************************************************************************
+! *
+! *  Authors: Peter Råback
+! *  Email:   Peter.Raback@csc.fi
+! *  Web:     http://www.csc.fi/elmer
+! *  Address: CSC - Scientific Computing Ltd.
+! *           Keilaranta 14
+! *           02101 Espoo, Finland 
+! *
+! *  Original Date: 20.06.2007
+! *
+! *****************************************************************************/
+! *
+! * $Log: StressSolve.src,v $
+! *
+! *****************************************************************************/
+
+!------------------------------------------------------------------------------
+SUBROUTINE FluxSolver( Model,Solver,dt,Transient )
+!DEC$ATTRIBUTES DLLEXPORT :: FluxSolver
+!------------------------------------------------------------------------------
+
+  USE CoordinateSystems
+  USE DefUtils
+
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  Solve stress equations for one timestep
+!
+!  ARGUMENTS:
+!
+!  TYPE(Model_t) :: Model,  
+!     INPUT: All model information (mesh,materials,BCs,etc...)
+!
+!  TYPE(Solver_t) :: Solver
+!     INPUT: Linear equation solver options
+!
+!  REAL(KIND=dp) :: dt,
+!     INPUT: Timestep size for time dependent simulations (NOTE: Not used
+!            currently)
+!
+!******************************************************************************
+
+  TYPE(Model_t)  :: Model
+  TYPE(Solver_t), TARGET :: Solver
+  LOGICAL ::  Transient
+  REAL(KIND=dp) :: dt
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+  TYPE(ValueList_t),POINTER :: SolverParams
+  CHARACTER(LEN=MAX_NAME_LEN) :: VarName, CondName
+  INTEGER :: dim
+  LOGICAL :: ConstantBulkMatrix, ConstantBulkMatrixInUse, CSymmetry
+  LOGICAL :: GotIt, AllocationsDone = .FALSE.
+  REAL(KIND=dp) :: Unorm
+  REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime
+  TYPE(Variable_t), POINTER :: FluxSol
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ComputeFlux.src$"
+  
+  SAVE AllocationsDone
+
+
+  CALL Info( 'FluxSolver', '-------------------------------------',Level=4 )
+  CALL Info( 'FluxSolver','Computing the flux',Level=4 )
+  CALL Info( 'FluxSolver', '-------------------------------------',Level=4 )
+
+!------------------------------------------------------------------------------
+!    Check if version number output is requested
+!------------------------------------------------------------------------------
+  IF ( .NOT. AllocationsDone ) THEN
+    IF ( ListGetLogical( GetSimulation(), 'Output Version Numbers', GotIt ) ) THEN
+      CALL Info( 'FluxSolver', 'FluxSolver version:', Level = 0 ) 
+      CALL Info( 'FluxSolver', VersionID, Level = 0 ) 
+      CALL Info( 'FluxSolver', ' ', Level = 0 ) 
+    END IF
+    AllocationsDone = .TRUE.
+  END IF
+  
+  DIM = CoordinateSystemDimension()
+!------------------------------------------------------------------------------
+!    Get variables needed for solution
+!------------------------------------------------------------------------------
+  IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
+  IF ( COUNT( Solver % Variable % Perm > 0 ) <= 0 ) RETURN
+  
+  FluxSol => Solver % Variable
+  IF( FluxSol % DOFs /= DIM) THEN
+    CALL Fatal('FluxSolver','The flux should have DOFs equal to DIM')
+  END IF
+  
+  SolverParams => GetSolverParams()
+  ConstantBulkMatrix = GetLogical( SolverParams, 'Constant Bulk Matrix', GotIt )
+  CSymmetry = CurrentCoordinateSystem() == AxisSymmetric .OR. &
+      CurrentCoordinateSystem() == CylindricSymmetric
+  
+  VarName = ListGetString(Solver % Values,'Flux Variable',GotIt )
+  IF(.NOT. gotIt) VarName = TRIM('Temperature')
+  CondName = ListGetString(Solver % Values,'Flux Coefficient',GotIt )
+  IF(.NOT. gotIt) CondName = TRIM('Heat Conductivity')
+  
+  at0 = RealTime()
+  
+  ConstantBulkMatrixInUse = ConstantBulkMatrix .AND. &
+      ASSOCIATED(Solver % Matrix % BulkValues)
+  
+  IF ( ConstantBulkMatrixInUse ) THEN
+    Solver % Matrix % Values = Solver % Matrix % BulkValues        
+    Solver % Matrix % RHS = 0.0_dp
+  ELSE
+    CALL DefaultInitialize()
+  END IF
+
+  CALL BulkAssembly()
+  CALL DefaultFinishAssembly()
+
+  at1 = RealTime()
+  WRITE(Message,* ) 'Assembly Time: ',at1-at0
+  CALL Info( 'FluxSolver', Message, Level=5 )
+        
+!------------------------------------------------------------------------------     
+  UNorm = DefaultSolve()
+!------------------------------------------------------------------------------     
+!    
+  at2 = RealTime()
+  WRITE(Message,* ) 'Solution Time: ',at2-at1
+  CALL Info( 'FluxSolver', Message, Level=5 )
+  
+  WRITE( Message, * ) 'Result Norm: ',UNorm
+  CALL Info( 'FluxSolver', Message, Level=4 )
+  
+CONTAINS
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE BulkAssembly()
+!------------------------------------------------------------------------------
+       
+    INTEGER :: elem,t,i,j,p,q,n,nd, Rank
+    REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:)
+    REAL(KIND=dp) :: s,u,v,w
+    TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
+    TYPE(Nodes_t) :: Nodes
+    TYPE(Element_t), POINTER :: Element
+    INTEGER, ALLOCATABLE :: Indexes(:)
+    REAL(KIND=dp) :: weight,detJ
+    REAL(KIND=dp), ALLOCATABLE :: LocalPotential(:)
+    REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:)
+    LOGICAL :: GotTensor, IsoTropic, stat
+    TYPE(ValueList_t), POINTER :: Material
+    REAL(KIND=dp), POINTER :: Conductivity(:,:,:)=>NULL()
+    
+    SAVE Conductivity, Nodes
+
+    n = MAX( Solver % Mesh % MaxElementDOFs, Solver % Mesh % MaxElementNodes )
+    ALLOCATE( Indexes(n), LocalPotential(n) )
+    ALLOCATE( STIFF(dim*n,dim*n), FORCE(dim*n) )
+    ALLOCATE( Basis(n), dBasisdx(n,3) )
+
+
+    DO elem = 1,Solver % NumberOFActiveElements
+         
+         
+      ! Element information
+      ! ---------------------
+      Element => GetActiveElement(elem)
+      CALL GetElementNodes( Nodes )
+      n = GetElementNOFNOdes()
+      nd = GetElementDOFs( Indexes )
+      
+      CALL GetScalarLocalSolution( LocalPotential, VarName )
+      
+      Material => GetMaterial()
+      CALL ListGetRealArray( Material, CondName, Conductivity, nd, Indexes, stat )
+      IF(Stat) THEN
+        Rank = GetTensorRank( Conductivity )
+      ELSE
+        Rank = 0
+      END IF
+         
+      ! Integrate local flux
+      ! -------------------------
+      IntegStuff = GaussPoints( Element )
+      STIFF  = 0.0d0
+      FORCE  = 0.0d0
+      
+      DO t=1,IntegStuff % n
+        u = IntegStuff % u(t)
+        v = IntegStuff % v(t)
+        w = IntegStuff % w(t)
+        Weight = IntegStuff % s(t)
+        
+        stat = ElementInfo( Element, Nodes, u, v, w, detJ, Basis, dBasisdx )
+        
+        Weight = Weight * detJ
+        IF ( CSymmetry ) Weight = Weight * SUM( Basis(1:n) * Nodes % x(1:n) )
+        
+        IF ( .NOT. ConstantBulkMatrixInUse ) THEN
+          DO p=1,nd
+            DO q=1,nd
+              DO i=1,dim
+                STIFF(dim*(p-1)+i,dim*(q-1)+i) = STIFF(dim*(p-1)+i,dim*(q-1)+i) + &
+                    Weight * Basis(q) * Basis(p)
+              END DO
+            END DO
+          END DO
+        END IF
+        
+        IF(Rank == 0) THEN
+          DO p=1,nd               
+            DO i=1,DIM
+              FORCE(DIM*(p-1)+i) = FORCE(DIM*(p-1)+i) - Weight * Basis(p) * &
+                  SUM( dBasisdx(1:nd,i) * LocalPotential(1:nd) ) 
+            END DO
+          END DO
+        ELSE IF(Rank == 1) THEN
+          DO p=1,nd               
+            DO i=1,DIM
+              FORCE(DIM*(p-1)+i) = FORCE(DIM*(p-1)+i) - Weight * Basis(p) * &
+                  SUM( Basis(1:nd) * Conductivity(1,1,1:nd) ) * &
+                  SUM( dBasisdx(1:nd,i) * LocalPotential(1:nd) ) 
+            END DO
+          END DO
+        ELSE IF(Rank == 2) THEN
+          DO p=1,nd               
+            DO i=1,DIM
+              FORCE(DIM*(p-1)+i) = FORCE(DIM*(p-1)+i) - Weight * Basis(p) * &
+                  SUM( Basis(1:nd) * Conductivity(i,1,1:nd) ) * &
+                  SUM( dBasisdx(1:nd,i) * LocalPotential(1:nd) ) 
+            END DO
+          END DO
+        ELSE	
+          DO p=1,nd               
+            DO i=1,DIM
+              DO J=1,DIM
+                FORCE(DIM*(p-1)+i) = FORCE(DIM*(p-1)+i) - Weight * Basis(p) * &
+                    SUM( Basis(1:nd) * Conductivity(i,j,1:nd) ) * &
+                    SUM( dBasisdx(1:nd,i) * LocalPotential(1:nd) ) 
+              END DO
+            END DO
+          END DO
+        END IF
+      END DO
+         
+!------------------------------------------------------------------------------
+!      Update global matrices from local matrices 
+!------------------------------------------------------------------------------
+      IF ( ConstantBulkMatrixInUse ) THEN
+        CALL DefaultUpdateForce( FORCE, BulkUpdate=.TRUE. )
+      ELSE
+        CALL DefaultUpdateEquations( STIFF, FORCE, BulkUpdate=.TRUE. )
+      END IF
+    END DO
+
+    DEALLOCATE( Indexes, LocalPotential )
+    DEALLOCATE( STIFF, FORCE )
+    DEALLOCATE( Basis, dBasisdx )
+    
+
+  END SUBROUTINE BulkAssembly
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  FUNCTION GetTensorRank( Tensor ) RESULT ( Rank )
+!------------------------------------------------------------------------------
+    REAL(KIND=dp), POINTER :: Tensor(:,:,:)
+    INTEGER :: Rank
+    
+    IF ( SIZE(Tensor,1) == 1 ) THEN
+      Rank = 1
+    ELSE IF ( SIZE(Tensor,2) == 1 ) THEN
+      Rank = 2
+    ELSE
+      Rank = 3
+    END IF
+!-----------------------------------------------------------------------------
+  END FUNCTION GetTensorRank
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+   END SUBROUTINE FluxSolver
+!------------------------------------------------------------------------------
+
