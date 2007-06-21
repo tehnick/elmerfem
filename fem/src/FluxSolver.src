@@ -39,8 +39,8 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: FluxSolver.src,v $
-! * Revision 1.1  2007/06/20 13:41:36  raback
-! * *** empty log message ***
+! * Revision 1.2  2007/06/21 09:51:43  raback
+! * Flux solver is no componentwise and with fewer bugs.
 ! *
 ! *
 ! *****************************************************************************/
@@ -89,7 +89,7 @@ SUBROUTINE FluxSolver( Model,Solver,dt,Transient )
   REAL(KIND=dp), POINTER :: ForceVector(:,:), SaveRHS(:)
   REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime
   TYPE(Variable_t), POINTER :: FluxSol
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ComputeFlux.src$"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FluxSolver.src,v 1.2 2007/06/21 09:51:43 raback Exp $"
   
   SAVE Visited
 
@@ -117,7 +117,6 @@ SUBROUTINE FluxSolver( Model,Solver,dt,Transient )
   IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
   IF ( COUNT( Solver % Variable % Perm > 0 ) <= 0 ) RETURN
   
-  ALLOCATE( ForceVector(dim,SIZE(Solver % Matrix % RHS) ) )  
   SolverParams => GetSolverParams()
 
 !-------------------------------------------------------------------------------
@@ -144,17 +143,18 @@ SUBROUTINE FluxSolver( Model,Solver,dt,Transient )
     DirMask = .TRUE.
   END IF
   
-  ConstantBulkMatrix = GetLogical( SolverParams, 'Constant Bulk Matrix', GotIt )
   CSymmetry = CurrentCoordinateSystem() == AxisSymmetric .OR. &
       CurrentCoordinateSystem() == CylindricSymmetric
   
   VarName = GetString(SolverParams,'Flux Variable',GotIt )
   IF(.NOT. gotIt) VarName = TRIM('Temperature')
+
   CondName = ListGetString(SolverParams,'Flux Coefficient',GotIt )
   IF(.NOT. gotIt) CondName = TRIM('Heat Conductivity')
   
   at0 = RealTime()
   
+  ConstantBulkMatrix = GetLogical( SolverParams, 'Constant Bulk Matrix', GotIt )
   ConstantBulkMatrixInUse = ConstantBulkMatrix .AND. &
       ASSOCIATED(Solver % Matrix % BulkValues)
   
@@ -163,12 +163,13 @@ SUBROUTINE FluxSolver( Model,Solver,dt,Transient )
   ELSE
     CALL DefaultInitialize()
   END IF
+
+  ALLOCATE(ForceVector(dim,SIZE(Solver % Matrix % RHS)))  
   ForceVector = 0.0_dp
   SaveRHS => Solver % Matrix % RHS
 !    
   CALL BulkAssembly()
   CALL DefaultFinishAssembly()
-
 
   at1 = RealTime()
   WRITE(Message,* ) 'Assembly Time: ',at1-at0
@@ -178,7 +179,7 @@ SUBROUTINE FluxSolver( Model,Solver,dt,Transient )
 
   TotNorm = 0.0_dp
   DO i=1,dim
-    IF(.NOT. DirMask(i)) CYCLE
+    IF( .NOT. DirMask(i) ) CYCLE
     Solver % Matrix % RHS => ForceVector(i,:)
     UNorm = DefaultSolve()
     TotNorm = TotNorm + Unorm ** 2
@@ -212,23 +213,21 @@ CONTAINS
        
     INTEGER :: elem,t,i,j,p,q,n,nd, Rank
     REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:,:)
-    REAL(KIND=dp) :: s,u,v,w
     TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
     TYPE(Nodes_t) :: Nodes
     TYPE(Element_t), POINTER :: Element
     REAL(KIND=dp) :: weight,grad(3),C(3,3),coeff,detJ
     REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:)
     REAL(KIND=dp), ALLOCATABLE :: LocalPotential(:)
-    LOGICAL :: GotTensor, IsoTropic, stat
+    LOGICAL :: Found
     TYPE(ValueList_t), POINTER :: Material
     REAL(KIND=dp), POINTER :: Conductivity(:,:,:)=>NULL()
     
     SAVE Conductivity, Nodes
     
     n = MAX( Solver % Mesh % MaxElementDOFs, Solver % Mesh % MaxElementNodes )
-    ALLOCATE( LocalPotential(n) )
-    ALLOCATE( Basis(n), dBasisdx(n,3) )
     ALLOCATE( STIFF(n,n), FORCE(dim,n) )
+    ALLOCATE( LocalPotential(n),Basis(n), dBasisdx(n,3) )
 
     DO elem = 1,Solver % NumberOFActiveElements
          
@@ -239,9 +238,9 @@ CONTAINS
       nd = GetElementNOFDOFs()
       n  = GetElementNOFNodes()
       
-      CALL GetRealArray( GetMaterial(), Conductivity, CondName, stat )
+      CALL GetRealArray( GetMaterial(), Conductivity, CondName, Found )
       Rank = 0
-      IF (Stat) Rank = GetTensorRank(Conductivity)
+      IF ( Found ) Rank = GetTensorRank(Conductivity)
       CALL GetScalarLocalSolution( LocalPotential, VarName )
       
       ! Integrate local stresses:
@@ -249,16 +248,17 @@ CONTAINS
       IntegStuff = GaussPoints( Element )
       STIFF  = 0.0_dp
       FORCE  = 0.0_dp
+
+      C = 0.0_dp
+      DO i=1,dim
+        C(i,i) = 1.0_dp
+      END DO
       
       DO t=1,IntegStuff % n
-        u = IntegStuff % u(t)
-        v = IntegStuff % v(t)
-        w = IntegStuff % w(t)
-        Weight = IntegStuff % s(t)
+        Found = ElementInfo( Element, Nodes, IntegStuff % u(t), &
+                IntegStuff % v(t), IntegStuff % w(t), detJ, Basis, dBasisdx )
         
-        stat = ElementInfo( Element, Nodes, u, v, w, detJ, Basis, dBasisdx )
-        
-        Weight = Weight * detJ
+        Weight = IntegStuff % s(t) * detJ
         IF ( CSymmetry ) Weight = Weight * SUM( Basis(1:n) * Nodes % x(1:n) )
         
         IF ( .NOT. ConstantBulkMatrixInUse ) THEN
@@ -269,14 +269,10 @@ CONTAINS
           END DO
         END IF
         
-        grad(1:dim) = MATMUL( LocalPotential(1:nd), dBasisdx(1:nd,1:dim) )
+        Grad(1:dim) = MATMUL( LocalPotential(1:nd), dBasisdx(1:nd,1:dim) )
         
-        C = 0
         SELECT CASE(Rank)
         CASE(0)
-          DO i=1,dim
-            C(i,i) = 1
-          END DO
         CASE(1)
           DO i=1,dim
             C(i,i) = SUM( Basis(1:n) * Conductivity(1,1,1:n) )
@@ -294,12 +290,8 @@ CONTAINS
         END SELECT
         
         DO i=1,dim
-          DO j=1,dim
-            coeff = Weight * C(i,j) * grad(j)
-            DO p=1,nd               
-              FORCE(i,p)=FORCE(i,p)-coeff*Basis(p)
-            END DO
-          END DO
+          Coeff = Weight * SUM( C(i,1:dim) * Grad(1:dim) )
+          FORCE(i,1:nd) = FORCE(i,1:nd) - Coeff*Basis(1:nd)
         END DO
       END DO
       
@@ -318,9 +310,7 @@ CONTAINS
       END DO
     END DO
     
-    DEALLOCATE( LocalPotential )
-    DEALLOCATE( STIFF, FORCE )
-    DEALLOCATE( Basis, dBasisdx )
+    DEALLOCATE( LocalPotential, STIFF, FORCE, Basis, dBasisdx )
 !------------------------------------------------------------------------------
   END SUBROUTINE BulkAssembly
 !------------------------------------------------------------------------------
