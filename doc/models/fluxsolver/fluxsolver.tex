@@ -1,0 +1,89 @@
+\chapter{Flux Computation}
+
+\modinfo{Module name}{\Idx{FluxSolver}}
+\modinfo{Module subroutines}{ForceSolver}
+\modinfo{Module authors}{Juha Ruokolainen, Peter Råback}
+\modinfo{Document authors}{Peter Råback}
+\modinfo{Document edited}{21.6.2007}
+
+
+\section{Introduction}
+
+This module is used to calculate the fluxes resulting usually from
+poisson kind of equations. These include, for example, the heat equation,
+the electrostatic equation, and the pressure equation for Darcy's flow.
+There are also flux computation subroutines that are built in the solvers
+but this provides a generic approach that should be easy to combine with
+most solvers.
+
+\section{Theory}
+
+The flux resulting from a potential field is assumed to be
+proportional to the gradient of the field, $\phi$. The
+proportinality factor is here called conductivity,
+$c$. The flux may therefore be expressed as
+\begin{equation}
+  q = -c \nabla \phi .
+  \label{eq:flux}
+\end{equation}
+For heat equation the potential would this be temperature 
+and the conductivity would be the heat conductivity. 
+
+\section{Implementation issues}
+
+The flux may be computed in many ways. Often for visualization purposes
+it suffices to take some nodal average of the element-wise computed
+fluxes. The most consistant method for flux computation is, however, 
+using the finite element method to solve the equation~(\ref{eq:flux}).
+The Galerkin method creates a diagonally dominated matrix equation
+that may be computed easily with iterative methods even with poor
+preconditioners.
+
+The flux computation may be done component-wise so that for each 
+component $q_i$, where $i=1\ldots\mbox{dim}$, is solved separately.
+This saves a significant amount of memory even though it slightly
+complicates the implementation. In the solver it is also possible to
+choose just one component as could be sometimes desirable.
+
+\section{Keywords}
+\sifbegin
+\sifitemnt{Solver}{solver id}
+\sifbegin
+\sifitemnt{Equation}{String Flux Solver}
+\sifitemnt{Procedure}{File "FluxSolver"\ "ForceSolver"}
+\sifitem{Variable}{String "-nooutput tempvar"}
+The variable is usually 
+only used to allocate the corresponding matrix. Therefore output is not 
+required unless the solver is only used to compute one component.
+\sifitem{Flux Result Variable}{String f1}
+This string gives the name of the variable that is known to be at 
+disposal for saving the results. This variable is allocated with 
+the following keyword.
+\sifitem{Exported Variable 1}{String "fl[Heat Flux:3]"}
+This command is used to allocate space for the result and at the 
+same time the components may be renamed to be later identified as a vector
+in ElmerPost. If only one component of the flux is computed this keyword
+is obsolite.
+\sifitem{Flux Variable}{String "Temperature"}
+This gives the name of the potential variable used to compute the gradient.
+By default the variable is \texttt{Temperature}.
+\sifitem{Flux Coefficient}{String "Heat Conductivity"}
+This gives the name of the potential variable used to compute the gradient.
+By default the coefficient is \texttt{Heat Conductivity}. If an 
+non-existing material parameter is given the coefficient will be assumed
+to be one, i.e. $c=1$. This way the solver may be used to compute the 
+gradient only.
+\sifitem{Flux Component}{Integer} 
+If only one component of the flux need to be computed it may be given by
+this keyword. If the keyword is not specified the solver computes all the components of the flux.
+\sifend
+The solver is easily solved even without preconditioning. Fox example, the
+following linear system control may be applied. 
+\sifbegin
+\sifitemnt{Linear System Solver}{"Iterative"}
+\sifitemnt{Linear System Iterative Method}{"BiCGStab"}
+\sifitemnt{Linear System Preconditioning}{None}
+\sifitemnt{Linear System Max Iterations}{500}
+\sifitemnt{Linear System Convergence Tolerance}{1.0e-10}
+\sifend
+\sifend
