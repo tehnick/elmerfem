@@ -189,6 +189,7 @@ EXTRA_DIST = \
 	FindOptimum.src \
 	FlowSolve.src \
 	FluidicForce.src \
+	FluxSolver.src \
 	FreeSurface.src \
 	FreeSurfaceReduced.src \
 	FreeSurfaceSolver.src \
