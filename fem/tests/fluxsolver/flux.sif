@@ -60,18 +60,20 @@ End
 
 
 Solver 2
-  Equation = String ComputeFlux
-  Procedure = File "./FluxSolver" "FluxSolver"
+  Equation = ComputeFlux
+  Procedure = "./FluxSolver" "FluxSolver"
 
-! compute just one component
+! to compute just one component:
+! ------------------------------
 !  Variable = fluxa
 !  Flux Variable = String Temperature
 !  Flux Component = Integer 1
 
-! compute all the components
+! to compute all omponents:
+! -------------------------
   Variable = -nooutput flux_temp
-  Flux Result Variable = String "fl"
-  Exported Variable 1 = "fl[Heat Flux:2]"
+  Flux Result Variable = String "F"
+  Exported Variable 1 = "F[Heat Flux:2]"
 
   Flux Variable = String Temperature
   Flux Coefficient = String "Heat Conductivity"
