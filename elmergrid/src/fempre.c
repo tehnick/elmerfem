@@ -63,7 +63,6 @@
 #include "femfilein.h"
 #include "femfileout.h"
 #include "femfact.h"
-#include "easymesh.h"
 
 
 #define MAXMETHODS 17
@@ -115,7 +114,8 @@ static void Instructions()
   printf("5)  .inp      : Abaqus input format by Ideas\n");
   printf("6)  .fil      : Abaqus output format\n");
   printf("7)  .FDNEUT   : Gambit (Fidap) neutral file\n");
-  printf("8)  .d        : Easymesh input format\n");
+  printf("8)  .unv      : Universal mesh file format\n");
+  if(0) printf("8)  .d        : Easymesh input format\n");
   printf("9)  .mphtxt   : Comsol Multiphysics mesh format\n");
   printf("10) .dat      : Fieldview format\n");
   printf("11) .node,.ele: Triangle 2D mesh format\n");
@@ -123,8 +123,8 @@ static void Instructions()
   printf("13) .msh      : GID mesh format\n");
   printf("14) .msh      : Gmsh mesh format\n");
   printf("15) .ep.i     : Partitioned ElmerPost format\n");
-  printf("16) .unv      : Universal mesh file format\n");
 #if 0
+  printf("16) .unv      : Universal mesh file format\n");
   printf("17) .msh      : Nastran format\n");
 #endif 
 
@@ -135,7 +135,7 @@ static void Instructions()
 #if 0
   printf("5)  .inp      : Abaqus input format\n");
   printf("7)  .fidap    : Fidap format\n");
-  printf("8)  .n .e .s  : Easymesh output format\n");
+  if(0) printf("8)  .n .e .s  : Easymesh output format\n");
   printf("18) .ep       : Fastcap input format.\n");
 #endif
 
@@ -1249,10 +1249,12 @@ int main(int argc, char *argv[])
       Goodbye();
     }
   }
+#if 0
   if(eg.inmethod != 8 && eg.outmethod == 5) {
     printf("To write Easymesh format you need to read easymesh format!\n");
     errorstat++;
   }
+#endif
 
 
   /**********************************/
@@ -1342,6 +1344,7 @@ int main(int argc, char *argv[])
     nomeshes++;
     break;
 
+#if 0
   case 8: 
     InitializeKnots(&(data[nofile]));
     if( Easymesh(argc,argv,&data[nofile].noknots,
@@ -1363,6 +1366,7 @@ int main(int argc, char *argv[])
       Goodbye();    
     nomeshes++;
     break;
+#endif
 
  case 9:
     boundaries[nofile] = (struct BoundaryType*)
@@ -1455,6 +1459,7 @@ int main(int argc, char *argv[])
     Goodbye();
     break;
 
+  case 8:
   case 16:
     boundaries[nofile] = (struct BoundaryType*)
       malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
@@ -1946,9 +1951,11 @@ int main(int argc, char *argv[])
       SaveFidapOutput(&data[k],eg.filesout[k],info,1,data[k].dofs[1]);
     break;
 
+#if 0
   case 8:
     EasymeshSave();
     break;
+#endif
 
   case 18:    
     for(k=0;k<nomeshes;k++) 
