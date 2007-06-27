@@ -193,6 +193,7 @@ EXTRA_DIST = \
 	FreeSurface.src \
 	FreeSurfaceReduced.src \
 	FreeSurfaceSolver.src \
+	PhaseChangeSolve.src \
 	GebhardtFactors.src \
 	GeneralUtils.src \
 	HarmonicSolve.src \
@@ -235,6 +236,7 @@ EXTRA_DIST = \
 	PElementMaps.src \
 	PoissonBEM.src \
 	PoissonBoltzmannSolve.src \
+	PhaseChangeSolve.src \
 	Radiation.src \
 	RadiationFactors.src \
 	RateOfChange.src \
