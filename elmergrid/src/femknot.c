@@ -3754,7 +3754,7 @@ int RemoveUnusedNodes(struct FemType *data,int info)
     j = indx[i];
     if(!j) continue;
     data->x[j] = data->x[i];
-    data->y[j] = data->x[i];
+    data->y[j] = data->y[i];
     if(data->dim == 3) data->z[j] = data->z[i];
   }
   data->noknots = activeknots;
