@@ -3702,14 +3702,66 @@ void ReorderElements(struct FemType *data,struct BoundaryType *bound,
   i = CalculateIndexwidth(data,FALSE,indx);
   printf("Indexwidth of the new node order is %d.\n",i);
 
-  if(0) return;
-
-  if(0) printf("Deallocating vectors needed for reordering.\n");
   free_Rvector(arrange,1,length);
   free_Ivector(indx,1,oldnoknots);
   free_Ivector(revindx,1,oldnoknots);
   free_Ivector(elemindx,1,oldnoelements);
   free_Ivector(revelemindx,1,oldnoelements);
+}
+
+
+
+int RemoveUnusedNodes(struct FemType *data,int info)
+{
+  int i,j,k;
+  int noelements,noknots,nonodes,activeknots;
+  int *indx;
+  
+  noelements = data->noelements;
+  noknots = data->noknots;
+  
+  indx = Ivector(1,noknots);
+  for(i=1;i<=noknots;i++) indx[i] = 0;
+  
+  for(j=1;j<=noelements;j++) {
+    nonodes = data->elementtypes[j] % 100;
+    for(i=0;i<nonodes;i++) 
+      indx[ data->topology[j][i] ] = 1;
+  }
+  
+  activeknots = 0;
+  for(i=1;i<=noknots;i++) {
+    if(indx[i]) {
+      activeknots += 1;
+      indx[i] = activeknots;
+    }  
+  }
+  
+  if( noknots == activeknots) {
+    if(info) printf("All %d nodes were used by the mesh elements\n",noknots);
+    return(1);
+  }
+
+  if(info) printf("Removing %d unused nodes (out of %d) from the mesh\n",noknots-activeknots,noknots);
+
+  for(j=1;j<=noelements;j++) {
+    nonodes = data->elementtypes[j] % 100;
+    for(i=0;i<nonodes;i++) 
+      data->topology[j][i] = indx[ data->topology[j][i] ];
+  }
+
+  for(i=1;i<=noknots;i++) {
+    j = indx[i];
+    if(!j) continue;
+    data->x[j] = data->x[i];
+    data->y[j] = data->x[i];
+    if(data->dim == 3) data->z[j] = data->z[i];
+  }
+  data->noknots = activeknots;
+  
+  free_Ivector(indx,1,noknots);
+
+  return(0);
 }
 
 

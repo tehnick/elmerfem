@@ -66,6 +66,7 @@ int SideToBulkElements(struct FemType *data,struct BoundaryType *bound,
 		       int *sidebulk,int sidetobulk,int info);
 void ReorderElements(struct FemType *data,struct BoundaryType *bound,
 		    int manual,Real corder[],int info);
+int RemoveUnusedNodes(struct FemType *data,int info);
 void RenumberBoundaryTypes(struct FemType *data,struct BoundaryType *bound,
 			   int renumber, int bcoffset, int info);
 void RenumberMaterialTypes(struct FemType *data,struct BoundaryType *bound,int info);
@@ -98,6 +99,7 @@ int CreateBoundaryLayerDivide(struct FemType *data,struct BoundaryType *bound,
 			      Real *layerratios, Real *layerthickness, int *layerparents,int info);
 int RotateTranslateScale(struct FemType *data,struct ElmergridType *eg,int info);
 int RemoveLowerDimensionalBoundaries(struct FemType *data,struct BoundaryType *bound,int info);
+
 int CreateDualGraph(struct FemType *data,int full,int info);
 int DestroyDualGraph(struct FemType *data,int info);
 int CreateInverseTopology(struct FemType *data,int info);

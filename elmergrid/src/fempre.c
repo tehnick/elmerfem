@@ -168,6 +168,7 @@ static void Instructions()
   printf("-discont int         : make the boundary to have secondary nodes\n");
   printf("-connect int         : make the boundary to have internal connection among its elements\n");
   printf("-removelowdim        : remove boundaries that are two ranks lower than highest dim\n");
+  printf("-removeunused        : remove nodes that are not used in any element\n");
   printf("-bulkorder           : renumber materials types from 1 so that every number is used\n");
   printf("-boundorder          : renumber boundary types from 1 so that every number is used\n");
   printf("-autoclean           : this performs the united action of the three above\n");
@@ -241,6 +242,7 @@ void InitParameters(struct ElmergridType *eg)
   eg->translate = FALSE;
   eg->isoparam = FALSE;
   eg->removelowdim = FALSE;
+  eg->removeunused = FALSE;
   eg->dim = 3;
   eg->center = FALSE;
   eg->scale = FALSE;
@@ -499,12 +501,19 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
       printf("Lower dimensional boundaries will be removed\n");
     }   
 
+    if(strcmp(argv[arg],"-removeunused") == 0) {
+      eg->removeunused = TRUE;
+      printf("Nodes that do not appear in any element will be removed\n");
+    }   
+
     if(strcmp(argv[arg],"-autoclean") == 0) {
       eg->removelowdim = TRUE;
       eg->bulkorder = TRUE;
       eg->boundorder = TRUE;
+      eg->removeunused = TRUE;
       printf("Lower dimensional boundaries will be removed\n");
       printf("Materials and boundaries will be renumbered\n");
+      printf("Nodes that do not appear in any element will be removed\n");
     }   
 
     if(strcmp(argv[arg],"-polar") == 0) {
@@ -1121,6 +1130,10 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
       for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
       if(strstr(params,"TRUE")) eg->removelowdim = TRUE; 
     }
+    else if(strstr(command,"REMOVE UNUSED NODES")) {
+      for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+      if(strstr(params,"TRUE")) eg->removeunused = TRUE; 
+    }
     else if(strstr(command,"REORDER MATERIAL")) {
       for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
       if(strstr(params,"TRUE")) eg->bulkorder = TRUE; 
@@ -1719,6 +1732,10 @@ int main(int argc, char *argv[])
   if(eg.removelowdim) 
     for(k=0;k<nomeshes;k++)
       RemoveLowerDimensionalBoundaries(&data[k],boundaries[k],info);
+
+  if(eg.removeunused) 
+    for(k=0;k<nomeshes;k++)
+      RemoveUnusedNodes(&data[k],info);
 
   if(eg.boundorder || eg.bcoffset) 
     for(k=0;k<nomeshes;k++) 

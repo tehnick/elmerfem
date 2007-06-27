@@ -326,6 +326,7 @@ struct ElmergridType {
     unitemeshes,
     reduce,
     removelowdim,
+    removeunused,
     increase,
     reducemat1,
     reducemat2,
