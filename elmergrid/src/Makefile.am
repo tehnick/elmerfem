@@ -4,7 +4,6 @@ bin_PROGRAMS = ElmerGrid
 
 COMMON_SRCS =  \
 	common.h \
-	easymesh.h \
 	femdef.h \
 	femelmer.h \
 	femfact.h \
@@ -18,7 +17,6 @@ COMMON_SRCS =  \
 	femtypes.h \
 	nrutil.h \
 	common.c \
-	easymesh.c \
 	femelmer.c \
 	femfact.c \
 	femfilein.c \
