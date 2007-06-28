@@ -6756,7 +6756,7 @@ void ElementsToBoundaryConditions(struct FemType *data,
   int sidenodes,sidenodes2,maxelemtype,elemtype,elemdim,sideelements,material;
   int *moveelement,*parentorder,*possible,**invtopo;
   int noelements,maxpossible,noknots,maxelemsides,twiceelem,sideelemdim;
-  int debug;
+  int debug,unmoved;
 
 
   if(info) printf("Making elements to boundary conditions\n");
@@ -6779,11 +6779,11 @@ void ElementsToBoundaryConditions(struct FemType *data,
   if( elemdim - GetElementDimension(minelemtype) == 0) return;
 
   moveelement = Ivector(1,noelements); 
-  parentorder = Ivector(1,noelements);
 
   sideelements = 0;
   maxelemtype = 0;
   maxelemsides = 0;
+  unmoved = 0;
 
   for(i=1;i<=noelements;i++) {
     moveelement[i] = FALSE;
@@ -6807,16 +6807,9 @@ void ElementsToBoundaryConditions(struct FemType *data,
 
   AllocateBoundary(bound,sideelements);
 
-  j = 0;
-  for(i=1;i<=noelements;i++) {
-    if(!moveelement[i]) parentorder[i] = ++j;
-    else parentorder[i] = 0;
-  }
-  if(info) printf("Parent elements were reordered up to indx %d.\n",j);
 
   possible = Ivector(1,noknots);
-  for(i=1;i<=noknots;i++)
-    possible[i] = 0; 
+  for(i=1;i<=noknots;i++) possible[i] = 0; 
   for(elemind=1;elemind <= data->noelements;elemind++) { 
     if(moveelement[elemind]) continue;
     for(i=0;i<data->elementtypes[elemind]%100;i++) {
@@ -6861,13 +6854,12 @@ void ElementsToBoundaryConditions(struct FemType *data,
 
     if(!moveelement[elemind]) continue;
 
+    same = FALSE;
     sideelemtype = data->elementtypes[elemind];
-
+    
     sidenodes = sideelemtype % 100;
     for(i=0;i<sidenodes;i++) 
       sideind[i] = data->topology[elemind][i];
-    
-    same = FALSE;
     
     for(l=1;l<=maxpossible;l++) {
       elemind2 = invtopo[sideind[0]][l];
@@ -6901,15 +6893,15 @@ void ElementsToBoundaryConditions(struct FemType *data,
 
 	if(same) {
 	  sameelem += 1;
-	  bound->parent2[sideelem] = parentorder[elemind2];
+	  bound->parent2[sideelem] = elemind2;
 	  bound->side2[sideelem] = side;		  
 	  goto foundtwo;
 	}
 	else {
 	  sideelem += 1;
 	  same = TRUE;
-	  if(debug) printf("sideelem=%d %d %d\n",sideelem,side,parentorder[elemind2]);
-	  bound->parent[sideelem] = parentorder[elemind2];
+	  if(debug) printf("sideelem=%d %d %d\n",sideelem,side,elemind2);
+	  bound->parent[sideelem] = elemind2;
 	  bound->side[sideelem] = side;
 	  bound->parent2[sideelem] = 0;
 	  bound->side2[sideelem] = 0;
@@ -6930,10 +6922,12 @@ void ElementsToBoundaryConditions(struct FemType *data,
 	  if(moveelement[elemind] > 1) goto foundtwo;
 	}
       }
-    }    
+    }
 
-    if(debug) printf("HIT = %d\n",hit);
-
+    if(!same) {
+      moveelement[elemind] = FALSE;
+      unmoved += 1;
+    }
 
   foundtwo:
     if(0);
@@ -6945,27 +6939,41 @@ void ElementsToBoundaryConditions(struct FemType *data,
 
   bound->nosides = sideelem;
 
-  if(sideelem == sideelements) 
+  if(sideelem == sideelements) {
     printf("Found correctly %d side elements.\n",sideelem);
+  }
   else {
     printf("Found %d side elements, could have found %d\n",sideelem,sideelements);
-    bound->nosides = sideelem;
+    printf("Leaving %d lower dimensional elements to be bulk elements\n",unmoved);
   }
 
 
+  /* Reorder remaining master elements */
+  parentorder = Ivector(1,noelements);
   j = 0;
   for(i=1;i<=noelements;i++) {
     if(!moveelement[i]) {
-      j = parentorder[i];
+      parentorder[i] = ++j;
 
       data->material[j] = data->material[i];
       k = data->elementtypes[j] = data->elementtypes[i];
-
+      
       for(l=0;l<k%100;l++) 
-	data->topology[j][l] = data->topology[i][l];
+	data->topology[j][l] = data->topology[i][l];     
     }
+    else 
+      parentorder[i] = 0;
   }
   data->noelements = j;
+  if(info) printf("Parent elements were reordered up to indx %d.\n",j);
+
+
+  /* Reorder boundary to point at the new arrangement of master elements */
+  for(i=1;i<=bound->nosides;i++) {
+    if(bound->parent[i])   bound->parent[i]  = parentorder[bound->parent[i]];
+    if(bound->parent2[i])  bound->parent2[i] = parentorder[bound->parent2[i]];
+  }
+
 
   if(info) printf("Moved %d elements (out of %d) to new positions\n",j,noelements);
 

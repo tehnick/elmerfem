@@ -1469,7 +1469,7 @@ int main(int argc, char *argv[])
     }
     if (LoadUniversalMesh(&(data[nofile]),eg.filesin[nofile],TRUE))
       Goodbye();
-    ElementsToBoundaryConditions(&(data[nofile]),boundaries[nofile],TRUE);
+    if(1) ElementsToBoundaryConditions(&(data[nofile]),boundaries[nofile],TRUE);
     nomeshes++;
     break;
 
