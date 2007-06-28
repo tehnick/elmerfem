@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: FluxSolver.src,v $
+! * Revision 1.5  2007/06/21 12:17:15  jpr
+! * Some small cleanups.
+! *
 ! * Revision 1.2  2007/06/21 09:51:43  raback
 ! * Flux solver is no componentwise and with fewer bugs.
 ! *
@@ -88,7 +91,7 @@ SUBROUTINE FluxSolver( Model,Solver,dt,Transient )
   REAL(KIND=dp), POINTER :: ForceVector(:,:), SaveRHS(:)
   REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime
   TYPE(Variable_t), POINTER :: FluxSol
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FluxSolver.src,v 1.4 2007/06/21 12:16:58 jpr Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FluxSolver.src,v 1.5 2007/06/21 12:17:15 jpr Exp $"
   
   SAVE Visited
 
@@ -226,7 +229,7 @@ CONTAINS
     
     n = MAX( Solver % Mesh % MaxElementDOFs, Solver % Mesh % MaxElementNodes )
     ALLOCATE( STIFF(n,n), FORCE(dim,n) )
-    ALLOCATE( LocalPotential(n),Basis(n), dBasisdx(n,3) )
+    ALLOCATE( LocalPotential(n), Basis(n), dBasisdx(n,3) )
 
     DO elem = 1,Solver % NumberOFActiveElements
          
