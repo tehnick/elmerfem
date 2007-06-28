@@ -1910,9 +1910,17 @@ int main(int argc, char *argv[])
 	SaveElmerInputPartitioned(&data[k],boundaries[k],eg.filesout[k],eg.decimals,
 				  eg.partitionhalo,eg.partitionindirect,info);
       else
-	SaveElmerInput(&data[k],boundaries[k],eg.filesout[k],eg.decimals,0,info);
+	SaveElmerInput(&data[k],boundaries[k],eg.filesout[k],eg.decimals,info);
     }
     break;
+
+  case 22:
+
+    for(k=0;k<nomeshes;k++) {
+      SaveElmerInputFemBem(&data[k],boundaries[k],eg.filesout[k],eg.decimals,info);
+    }
+    break;
+
 
   case 3:
       /* Create a variable so that when saving data in ElmerPost format there is something to visualize */

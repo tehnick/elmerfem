@@ -11,9 +11,10 @@ int FuseSolutionElmerPartitioned(char *prefix,char *outfile,int decimals,
 int SaveSolutionElmer(struct FemType *data,struct BoundaryType *bound,
 		      int nobound,char *prefix,int decimals,int info);
 int SaveSolutionElmerTriangles(struct FemType *data,char *prefix,int info);
-int SaveElmerInput(struct FemType *data,
-		   struct BoundaryType *bound,char *prefix,
-		   int decimals, int ver,int info);
+int SaveElmerInput(struct FemType *data,struct BoundaryType *bound,
+		   char *prefix,int decimals, int info);
+int SaveElmerInputFemBem(struct FemType *data,struct BoundaryType *bound,
+			 char *prefix,int decimals, int info);
 int ElmerToElmerMapQuick(struct FemType *data1,struct FemType *data2,
 			 char *mapfile,int info);
 int ElmerToElmerMap(struct FemType *data1,struct FemType *data2,int info);

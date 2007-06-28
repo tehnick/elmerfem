@@ -806,9 +806,8 @@ int SaveSolutionElmer(struct FemType *data,struct BoundaryType *bound,
 }
 
 
-int SaveElmerInput(struct FemType *data,
-		   struct BoundaryType *bound,char *prefix,
-		   int decimals,int ver,int info)
+int SaveElmerInput(struct FemType *data,struct BoundaryType *bound,
+		   char *prefix,int decimals,int info)
 /* Saves the mesh in a form that may be used as input 
    in Elmer calculations. 
    */
@@ -911,6 +910,8 @@ int SaveElmerInput(struct FemType *data,
     printf("opening of file was not successful\n");
     return(3);
   }
+
+  if(data->pelems) printf("P-element definitions will become obsolite in ElmerGrid\n");
 
   for(i=1;i<=noelements;i++) {
     elemtype = data->elementtypes[i];
@@ -1144,6 +1145,246 @@ int SaveElmerInput(struct FemType *data,
   
   return(0);
 }
+
+
+int SaveElmerInputFemBem(struct FemType *data,struct BoundaryType *bound,
+			 char *prefix,int decimals,int info)
+/* Saves the mesh in a form that may be used as input 
+   in Elmer calculations. Taylored to work with FEM/BEM coupling,
+   or other problems with mixed dimension of bulk elements.
+   */
+{
+  int noknots,noelements,material,sumsides,elemtype,fail,nobulkelements,bctype;
+  int sideelemtype,nodesd1,nodesd2,newtype,elemdim,maxelemdim,minbcmaterial;
+  int i,j,k,l,bulktypes[MAXELEMENTTYPE+1],sidetypes[MAXELEMENTTYPE+1],tottypes;
+  int ind[MAXNODESD1],ind2[MAXNODESD1],usedbody[MAXBODIES],usedbc[MAXBCS];
+  FILE *out,*out2;
+  char filename[MAXFILESIZE], outstyle[MAXFILESIZE];
+  char directoryname[MAXFILESIZE];
+
+  if(!data->created) {
+    printf("You tried to save points that were never created.\n");
+    return(1);
+  }
+
+  if(data->pelems) smallerror("P-element definitions are obsolite in ElmerGrid");
+  if(data->periodicexist) smallerror("Periodicity data is not saved in the FEM/BEM version");
+  if(data->connectexist) smallerror("Connectivity data is not saved in the FEM/BEM version");
+  if(data->nopartitions > 1) smallerror("Partitioning data is not saved in the FEM/BEM version");
+
+
+  noelements = data->noelements;
+  noknots = data->noknots;
+  sumsides = 0;
+
+  for(i=0;i<=MAXELEMENTTYPE;i++)
+    bulktypes[i] = sidetypes[i] = 0;
+  for(i=0;i<MAXBODIES;i++)
+    usedbody[i] = 0;
+  for(i=0;i<MAXBCS;i++)
+    usedbc[i] = 0;
+
+  sprintf(directoryname,"%s",prefix);
+
+  if(info) printf("Saving mesh in ElmerSolver format to directory %s.\n",
+		  directoryname);
+
+  fail = chdir(directoryname);
+  if(fail) {
+#ifdef MINGW32
+    fail = mkdir(directoryname);
+#else
+    fail = mkdir(directoryname,0700);
+#endif
+    if(fail) {
+      printf("Could not create a result directory!\n");
+      return(1);
+    }
+    else {
+      chdir(directoryname);
+    }
+  }
+  else {
+    printf("Reusing an existing directory\n");
+  }
+
+  sprintf(filename,"%s","mesh.nodes");
+  out = fopen(filename,"w");
+
+  if(info) printf("Saving %d coordinates to %s.\n",noknots,filename);  
+  if(out == NULL) {
+    printf("opening of file was not successful\n");
+    return(2);
+  }
+
+  if(data->dim == 1) {
+    sprintf(outstyle,"%%d %%d %%.%dlg 0.0 0.0\n",decimals);
+    for(i=1; i <= noknots; i++) 
+      fprintf(out,outstyle,i,-1,data->x[i]);
+  }
+  if(data->dim == 2) {
+    sprintf(outstyle,"%%d %%d %%.%dlg %%.%dlg 0.0\n",decimals,decimals);
+    for(i=1; i <= noknots; i++) 
+      fprintf(out,outstyle,i,-1,data->x[i],data->y[i]);
+  }
+  else if(data->dim == 3) {
+    sprintf(outstyle,"%%d %%d %%.%dlg %%.%dlg %%.%dlg\n",decimals,decimals,decimals);
+    for(i=1; i <= noknots; i++) 
+      fprintf(out,outstyle,i,-1,data->x[i],data->y[i],data->z[i]);    
+  }
+  fclose(out);
+
+
+  sprintf(filename,"%s","mesh.elements");
+  out = fopen(filename,"w");
+  if(out == NULL) {
+    printf("opening of file was not successful\n");
+    return(3);
+  }
+
+  maxelemdim = GetMaxElementDimension(data);
+  nobulkelements = 0;
+  minbcmaterial = 0;
+
+  for(i=1;i<=noelements;i++) {
+    elemtype = data->elementtypes[i];
+
+    material = data->material[i];
+    elemdim = GetElementDimension(elemtype);
+    if(elemdim < maxelemdim) {
+      if(!minbcmaterial) 
+	minbcmaterial = material;
+      else 
+	minbcmaterial = MIN(material, minbcmaterial);
+    }
+    else {
+      nobulkelements++;
+      if(material < MAXBODIES) usedbody[material] += 1;
+      fprintf(out,"%d %d %d",i,material,elemtype);
+      
+      bulktypes[elemtype] += 1;
+      nodesd2 = elemtype%100;
+      for(j=0;j < nodesd2;j++) 
+	fprintf(out," %d",data->topology[i][j]);
+      fprintf(out,"\n");          
+    }
+  }
+  fclose(out);
+
+  if(info) printf("Saving %d (of %d) body elements to mesh.boundary\n",nobulkelements,noelements);
+
+
+  sprintf(filename,"%s","mesh.boundary");
+  out = fopen(filename,"w");
+  if(out == NULL) {
+    printf("opening of file was not successful\n");
+    return(4);
+  }
+
+  sumsides = 0;
+
+  /* Save normal boundaries */
+  for(j=0;j < MAXBOUNDARIES;j++) {
+    if(bound[j].created == FALSE) continue;
+    if(bound[j].nosides == 0) continue;
+    
+    for(i=1; i <= bound[j].nosides; i++) {
+      GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],data,ind,&sideelemtype); 
+      sumsides++;
+      
+      fprintf(out,"%d %d %d %d %d",
+	      sumsides,bound[j].types[i],bound[j].parent[i],bound[j].parent2[i],sideelemtype);
+      
+      if(bound[j].types[i] < MAXBCS) usedbc[bound[j].types[i]] += 1;
+      sidetypes[sideelemtype] += 1;
+
+      nodesd1 = sideelemtype % 100;
+      for(l=0;l<nodesd1;l++)
+	fprintf(out," %d",ind[l]);
+      fprintf(out,"\n");
+    }
+  }
+
+  newtype = 0;
+  for(j=0;j < MAXBOUNDARIES;j++) {
+    if(bound[j].created == FALSE) continue;
+    for(i=1; i <= bound[j].nosides; i++) 
+      newtype = MAX(newtype, bound[j].types[i]);
+  }
+
+  for(i=1;i<=noelements;i++) {
+    elemtype = data->elementtypes[i];
+
+    elemdim = GetElementDimension(elemtype);
+    if(elemdim == maxelemdim) continue;
+
+    sumsides++;
+
+    material = data->material[i];
+    bctype = material-minbcmaterial+newtype+1;
+
+    if(bctype < MAXBCS) {
+      if(data->bodynamesexist && data->boundarynamesexist && usedbc[bctype] == 0) 
+	strcpy(data->bodyname[material],data->boundaryname[bctype]);
+      usedbc[bctype] += 1;
+    }
+    fprintf(out,"%d %d 0 0 %d",sumsides,bctype,elemtype);
+    sidetypes[elemtype] += 1;
+    nodesd1 = elemtype%100;
+    for(l=0;l<nodesd1;l++)
+      fprintf(out," %d",data->topology[i][l]);
+    fprintf(out,"\n");
+  }
+
+  fclose(out);
+  if(info) printf("Saving %d boundary elements to mesh.boundary\n",sumsides);
+
+
+  tottypes = 0;
+  for(i=0;i<=MAXELEMENTTYPE;i++) 
+    if(bulktypes[i] || sidetypes[i]) tottypes++;
+
+  sprintf(filename,"%s","mesh.header");
+  out = fopen(filename,"w");
+  if(info) printf("Saving header info with %d elementtypes to %s.\n",tottypes,filename);  
+  if(out == NULL) {
+    printf("opening of file was not successful\n");
+    return(4);
+  }
+  fprintf(out,"%-6d %-6d %-6d\n",
+	  noknots,nobulkelements,sumsides);
+  fprintf(out,"%-6d\n",tottypes);
+  for(i=0;i<=MAXELEMENTTYPE;i++) 
+    if(bulktypes[i] || sidetypes[i]) 
+      fprintf(out,"%-6d %-6d\n",i,bulktypes[i]+sidetypes[i]);
+  fclose(out);
+
+
+  if(data->boundarynamesexist || data->bodynamesexist) {
+    sprintf(filename,"%s","mesh.names");
+    out = fopen(filename,"w");
+    if(info) printf("Saving names info to %s.\n",filename);  
+    if(out == NULL) {
+      printf("opening of file was not successful\n");
+      return(5);
+    }
+    
+    if(data->boundarynamesexist) {
+      for(i=1;i<MAXBCS;i++) 
+	if(usedbc[i]) fprintf(out,"$ %s = %d\n",data->boundaryname[i],i);
+    }
+    if(data->bodynamesexist) {
+      for(i=1;i<MAXBODIES;i++) 
+	if(usedbody[i]) fprintf(out,"$ %s = %d\n",data->bodyname[i],i);
+    }     
+    fclose(out);
+  }
+  
+  chdir("..");
+  
+  return(0);
+}
+
 
 
 
