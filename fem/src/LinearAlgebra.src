@@ -40,7 +40,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: $
+! * $Id: LinearAlgebra.src,v 1.4 2006/01/10 08:51:48 apursula Exp $
 ! ******************************************************************************
 
 MODULE LinearAlgebra
@@ -445,10 +445,19 @@ MODULE LinearAlgebra
         t = A(i,i)*A(i+1,i+1) - A(i,i+1)*A(i+1,i)
         s = s - 4*t
         IF  (s >= 0) THEN
+          s = SQRT(s)
           j = j + 1
-          Vals(j) = (b+SQRT(s))/2
+          IF ( b>0 ) THEN
+            Vals(j) = (b+s)/2
+          ELSE
+            Vals(j) = 2*t/(b-s)
+          END IF
           j = j + 1
-          Vals(j) = (b-SQRT(s))/2
+          IF ( b > 0 ) THEN
+            Vals(j) = 2*t/(b+s)
+          ELSE
+            Vals(j) = (b-s)/2
+          END IF
         ELSE
           j = j + 1
           Vals(j)  = CMPLX(b, SQRT(-s),KIND=dp)/2

@@ -501,11 +501,13 @@ int RayHitBiLinear(
 
     if ( (D = B*B - 4*A*C)<0.0 ) return FALSE;
 
-    E = 1.0/(2*A);
-    D = E*sqrt(D);
-    B = E*B;
+    D = sqrt(D);
 
-    V = -B + D;
+    if ( B > 0 ) {
+      V = -2*C/(B+D);
+    } else {
+      V = (-B+D)/(2*A);
+    }
     if ( V>=0.0 && V<=1.0 )
     {
         if ( ABS(A0+C0*V) < 1.0e-12 )
@@ -520,7 +522,11 @@ int RayHitBiLinear(
         }
     }
 
-    V = -B - D;
+    if ( B > 0 ) {
+      V = -(B+D)/(2*A);
+    } else {
+      V = 2*C/(-B+D);
+    }
     if ( V>=0.0 && V<=1.0 )
     {
         if ( ABS(A0+C0*V) < 1.0e-12 )
@@ -647,14 +653,20 @@ int RayHitSphere(
 
      if ( (D = B*B - 4*A*C)<0.0 ) return FALSE;
 
-     E = 1.0/(2*A);
-     D = E*sqrt(D);
-     B = E*B;
+     D = sqrt(D);
 
-     T = -B + D;
+     if ( B > 0 ) {
+       T = -2*C/(B+D);
+     } else {
+       T = (-B+D)/(2*A);
+     }
      if ( T>EPS && T<1-EPS ) return TRUE;
 
-     T = -B - D;
+     if  ( B > 0 ) {
+       T = -(B+D)/(2*A);
+     } else {
+       T = 2*C/(-B+D);
+     }
      return T>EPS && T<1-EPS;
 }
 
@@ -709,18 +721,24 @@ int RayHitCylinder(
 
      if ( (D = (B*B - 4*A*C))<0.0 ) return FALSE;
 
-     E = 1.0/(2*A);
-     D = E*sqrt(D);
-     B = E*B;
+     D = sqrt(D);
 
-     T = -B + D;
+     if ( B > 0 ) {
+       T = -2*C/(B+D);
+     } else {
+       T = (-B+D)/(2*A);
+     }
      if ( T>EPS && T<1-EPS )
      {
          Z = FZ + T*DZ;
          if ( Z>=-CL && Z<=CL ) return TRUE;
      }
 
-     T = -B - D;
+     if ( B > 0 ) {
+       T = (-B+D)/(2*A);
+     } else {
+       T = 2*C/(-B+D);
+     }
      if ( T>EPS && T<1-EPS )
      {
          Z = FZ + T*DZ;
@@ -839,11 +857,13 @@ int RayHitRotationalQuadric(
 
      if ( (D = (B*B - 4*A*C))<0.0 ) return FALSE;
 
-     E = 1.0/(2*A);
-     D = E*sqrt(D);
-     B = E*B;
+     D = sqrt(D);
 
-     T = -B + D;
+     if ( B > 0 ) {
+       T = -2*C/(B+D);
+     } else {
+       T = (-B+D)/(2*A);
+     }
      if ( T>EPS && T<1-EPS )
      {
          Z = FZ + T*DZ;
@@ -852,7 +872,11 @@ int RayHitRotationalQuadric(
          if (Z>=RQd->ZMin && Z<=RQd->ZMax && R>=RQd->RMin && R<=RQd->RMax) return TRUE;
      }
 
-     T = -B - D;
+     if ( B > 0 ) {
+       T = -(B+D)/(2*A);
+     } else {
+       T = 2*C/(-B+D);
+     }
      if ( T>EPS && T<1-EPS )
      {
          Z = FZ + T*DZ;
@@ -931,11 +955,13 @@ int RayHitRotationalQuadric1(
 
      if ( (D = (B*B - 4*A*C))<0.0 ) return FALSE;
 
-     E = 1.0/(2*A);
-     D = E*sqrt(D);
-     B = E*B;
+     D = sqrt(D);
 
-     T = -B + D;
+     if ( B > 0  ) {
+       T = -2*C/(B+D);
+     } else {
+       T = (-B+D)/(2*A);
+     }
      if ( T>EPS && T<1-EPS )
      {
          Z = FZ + T*DZ;
@@ -944,7 +970,11 @@ int RayHitRotationalQuadric1(
          if (Z>=RQd->ZMin && Z<=RQd->ZMax && R>=R0 && R<=R1) return TRUE;
      }
 
-     T = -B - D;
+     if ( B > 0 ) {
+       T = -(B+D)/(2*A);
+     } else {
+       T = 2*C/(-B+D);
+     }
      if ( T>EPS && T<1-EPS )
      {
          Z = FZ + T*DZ;

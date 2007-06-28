@@ -40,6 +40,9 @@
 ! ******************************************************************************
 ! *
 ! * $Log: ElementDescription.src,v $
+! * Revision 1.34  2007/06/07 11:49:01  jpr
+! * ElementInfo return value was undefined.
+! *
 ! * Revision 1.33  2007/05/16 08:59:32  jpr
 ! * *** empty log message ***
 ! *
@@ -138,7 +141,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: ElementDescription.src,v 1.33 2007/05/16 08:59:32 jpr Exp $
+! * $Id: ElementDescription.src,v 1.34 2007/06/07 11:49:01 jpr Exp $
 ! ******************************************************************************/
 
 MODULE ElementDescription
@@ -4312,38 +4315,44 @@ END IF
     INTEGER :: ElementFamily
     INTEGER, POINTER :: EdgeMap(:,:)
 
-    INTEGER, TARGET :: LineEM(1,2)
-    INTEGER, TARGET :: TriangleEM(3,2)
-    INTEGER, TARGET :: QuadEM(4,2)
-    INTEGER, TARGET :: TetraEM(6,2)
-    INTEGER, TARGET :: PrismEM(8,2)
-    INTEGER, TARGET :: WedgeEM(9,2)
-    INTEGER, TARGET :: BrickEM(12,2)
+    INTEGER, TARGET :: Point(1,1)
+    INTEGER, TARGET :: Line(1,2)
+    INTEGER, TARGET :: Triangle(3,2)
+    INTEGER, TARGET :: Quad(4,2)
+    INTEGER, TARGET :: Tetra(6,2)
+    INTEGER, TARGET :: Prism(8,2)
+    INTEGER, TARGET :: Wedge(9,2)
+    INTEGER, TARGET :: Brick(12,2)
 
     LOGICAL :: Initialized(8) = .FALSE.
   
-    SAVE LineEM, TriangleEM, WedgeEM, BrickEM, TetraEM, QuadEM, PrismEM, Initialized
+    SAVE Line, Triangle, Wedge, Brick, Tetra, Quad, Prism, Initialized
 
     SELECT CASE(ElementFamily)
+    CASE(1)
+      EdgeMap => Point
     CASE(2)
-      EdgeMap => LineEM
+      EdgeMap => Line
     CASE(3)
-      EdgeMap => TriangleEM
+      EdgeMap => Triangle
     CASE(4) 
-      EdgeMap => QuadEM
+      EdgeMap => Quad
     CASE(5) 
-      EdgeMap => TetraEM
+      EdgeMap => Tetra
     CASE(6) 
-      EdgeMap => PrismEM
+      EdgeMap => Prism
     CASE(7) 
-      EdgeMap => WedgeEM
+      EdgeMap => Wedge
     CASE(8) 
-      EdgeMap => BrickEM
+      EdgeMap => Brick
     END SELECT
  
-     IF ( .NOT. Initialized(ElementFamily) ) THEN
+    IF ( .NOT. Initialized(ElementFamily) ) THEN
        Initialized(ElementFamily) = .TRUE.
        SELECT CASE(ElementFamily)
+       CASE(1)
+         EdgeMap(1,1) = 1
+
        CASE(2)
          EdgeMap(1,:) = (/ 1,2 /)
 
@@ -4644,11 +4653,12 @@ END IF
     d = b*b - 4*a*c
     IF ( d < 0.0d0 ) RETURN
 
-    r = 1.0d0/(2.0d0*a)
-    b = r*b
-    d = r*SQRT(d)
-
-    r = -b + d
+    d = SQRT(d)
+    IF ( b>0 ) THEN
+      r = -2*c/(b+d)
+    ELSE
+      r = (-b+d)/(2*a)
+    END IF
     IF ( r >= -1.0d0 .AND. r <= 1.0d0 ) THEN
       v = r
       u = (px - cx*r)/(bx + dx*r)
@@ -4659,6 +4669,11 @@ END IF
       END IF
     END IF
 
+    IF ( b>0 ) THEN
+      r = -(b+d)/(2*a)
+    ELSE
+      r = 2*c/(-b+d)
+    END IF
     r = -b - d
     IF ( r >= -1.0d0 .AND. r <= 1.0d0 ) THEN
       v = r

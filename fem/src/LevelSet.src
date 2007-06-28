@@ -1196,8 +1196,13 @@ CONTAINS
          s1 = -b / (2*a)
          s2 = -b / (2*a)
        ELSE
-         s1 = (-b + SQRT(s)) / (2*a)
-         s2 = (-b - SQRT(s)) / (2*a)
+         IF ( b>0 ) THEN
+           s1 = 2*c/(-b-SQRT(s))
+           s2 = (-b-SQRT(s))/(2*a)
+         ELSE
+           s1 = (-b+SQRT(s))/(2*a)
+           s2 = 2*c/(-b+SQRT(s))
+         END IF
        END IF
      END IF
      
