@@ -1155,9 +1155,9 @@ int SaveElmerInputFemBem(struct FemType *data,struct BoundaryType *bound,
    */
 {
   int noknots,noelements,material,sumsides,elemtype,fail,nobulkelements,bctype;
-  int sideelemtype,nodesd1,nodesd2,newtype,elemdim,maxelemdim,minbcmaterial;
+  int sideelemtype,nodesd1,nodesd2,newtype,elemdim,maxelemdim;
   int i,j,k,l,bulktypes[MAXELEMENTTYPE+1],sidetypes[MAXELEMENTTYPE+1],tottypes;
-  int ind[MAXNODESD1],ind2[MAXNODESD1],usedbody[MAXBODIES],usedbc[MAXBCS];
+  int ind[MAXNODESD1],ind2[MAXNODESD1],usedbody[MAXBODIES],usedbc[MAXBCS],bodyperm[MAXBODIES];
   FILE *out,*out2;
   char filename[MAXFILESIZE], outstyle[MAXFILESIZE];
   char directoryname[MAXFILESIZE];
@@ -1244,30 +1244,43 @@ int SaveElmerInputFemBem(struct FemType *data,struct BoundaryType *bound,
 
   maxelemdim = GetMaxElementDimension(data);
   nobulkelements = 0;
-  minbcmaterial = 0;
+
+  for(i=0;i<MAXBODIES;i++) bodyperm[i] = FALSE;
+  for(i=1;i<=noelements;i++) {
+    elemtype = data->elementtypes[i];
+    elemdim = GetElementDimension(elemtype);
+    material = data->material[i];
+
+    if(elemdim == maxelemdim) 
+      bodyperm[material] = 1;
+    else 
+      bodyperm[material] = -1;      
+  }
+  j = 0;
+  k = 0;
+  for(i=0;i<MAXBODIES;i++) {
+    if(bodyperm[i] > 0) bodyperm[i] = ++j;
+    if(bodyperm[i] < 0) bodyperm[i] = ++k;
+  }
+
 
   for(i=1;i<=noelements;i++) {
     elemtype = data->elementtypes[i];
 
-    material = data->material[i];
     elemdim = GetElementDimension(elemtype);
-    if(elemdim < maxelemdim) {
-      if(!minbcmaterial) 
-	minbcmaterial = material;
-      else 
-	minbcmaterial = MIN(material, minbcmaterial);
-    }
-    else {
-      nobulkelements++;
-      if(material < MAXBODIES) usedbody[material] += 1;
-      fprintf(out,"%d %d %d",i,material,elemtype);
-      
-      bulktypes[elemtype] += 1;
-      nodesd2 = elemtype%100;
-      for(j=0;j < nodesd2;j++) 
-	fprintf(out," %d",data->topology[i][j]);
-      fprintf(out,"\n");          
-    }
+    if(elemdim < maxelemdim) continue;
+
+    nobulkelements++;
+    material = data->material[i];
+    usedbody[material] += 1;
+    material = bodyperm[material];
+    fprintf(out,"%d %d %d",i,material,elemtype);
+    
+    bulktypes[elemtype] += 1;
+    nodesd2 = elemtype%100;
+    for(j=0;j < nodesd2;j++) 
+      fprintf(out," %d",data->topology[i][j]);
+    fprintf(out,"\n");          
   }
   fclose(out);
 
@@ -1321,13 +1334,15 @@ int SaveElmerInputFemBem(struct FemType *data,struct BoundaryType *bound,
     sumsides++;
 
     material = data->material[i];
-    bctype = material-minbcmaterial+newtype+1;
+    bctype = bodyperm[material] + newtype;
 
-    if(bctype < MAXBCS) {
+    if(bctype < MAXBCS && !usedbc[bctype]){
       if(data->bodynamesexist && data->boundarynamesexist && usedbc[bctype] == 0) 
-	strcpy(data->bodyname[material],data->boundaryname[bctype]);
+	strcpy(data->boundaryname[bctype],data->bodyname[material]);
       usedbc[bctype] += 1;
     }
+    usedbc[bctype] += 1;
+    
     fprintf(out,"%d %d 0 0 %d",sumsides,bctype,elemtype);
     sidetypes[elemtype] += 1;
     nodesd1 = elemtype%100;
@@ -1375,7 +1390,7 @@ int SaveElmerInputFemBem(struct FemType *data,struct BoundaryType *bound,
     }
     if(data->bodynamesexist) {
       for(i=1;i<MAXBODIES;i++) 
-	if(usedbody[i]) fprintf(out,"$ %s = %d\n",data->bodyname[i],i);
+	if(usedbody[i]) fprintf(out,"$ %s = %d\n",data->bodyname[i],bodyperm[i]);
     }     
     fclose(out);
   }

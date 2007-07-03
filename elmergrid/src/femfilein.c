@@ -3728,14 +3728,14 @@ omstart:
     if(!line) goto end;
 
     if( !strncmp(line,"    -1",6)) mode = 0;
-    else if( !strncmp(line,"  2411",6)) mode = 1;
-    else if( !strncmp(line,"  2412",6)) mode = 2;
-    else if( !strncmp(line,"  2467",6)) mode = 3;
-    else if( !strncmp(line,"  2435",6)) mode = 3;
-    else if( 0 && allocated && strncmp(line,"      ",6)) printf("Unknown command: %s",line);
+    else if( !strncmp(line,"  2411",6)) mode = 2411;
+    else if( !strncmp(line,"  2412",6)) mode = 2412;
+    else if( !strncmp(line,"  2467",6)) mode = 2467;
+    else if( !strncmp(line,"  2435",6)) mode = 2435;
+    else if(0 && allocated && strncmp(line,"      ",6)) printf("Unknown command: %s",line);
 
     /* node definition */
-    if( mode == 1) {
+    if( mode == 2411) {
       if(0 && info && allocated) printf("Reading nodes\n");
       for(;;) {
 	Getrow(line,in,FALSE);
@@ -3761,7 +3761,7 @@ omstart:
     }
 
 
-    if( mode == 2) {
+    if( mode == 2412) {
       if(0 && info && allocated) printf("Reading elements\n");
       for(;;) {
 	Getrow(line,in,FALSE);
@@ -3800,19 +3800,19 @@ omstart:
       }    
     }  
 
-    if( mode == 3) {
+    if( mode == 2467 || mode == 2435) {
       if(0 && info && allocated) printf("Reading groups\n");
       
       Getrow(line,in,FALSE);
       if( !strncmp(line,"    -1",6)) goto nextline;
-      
+
       for(;;) {
 	Getrow(line,in,FALSE);
 	
 	if( !strncmp(line,"    -1",6)) goto nextline;
 	
 	/* Used for the empty group created by salome */
-	if( !strncmp(line,"      ",6)) continue;
+	if( mode == 2467 && !strncmp(line,"            ",12)) continue;
 	
 	group++;
 
@@ -3821,6 +3821,7 @@ omstart:
 	  sscanf(line,"%s",entityname);
 	  strcpy(data->bodyname[group],entityname);
 	  data->bodynamesexist = TRUE;
+	  data->boundarynamesexist = TRUE;
 	}
 	
 	for(;;) {
@@ -3835,7 +3836,14 @@ omstart:
 	    if( ind == 0 && i==1) goto newgroup;
 	    if( ind == 0 && i==2) continue;
 	    k++;
-	    
+
+	    /* Temperary exception: jump over nodal element groups */	    
+	    if(grouptype == 7 && mode == 2435) {
+	      if(allocated) printf("Note: in field 2435 nodal point groups are currently omitted!\n");
+	      group--;
+	      goto newgroup;
+	    }
+
 	    j = next_int(&cp);
 	    j = next_int(&cp);
 	    if( grouptype == 8 ) {
@@ -3856,7 +3864,7 @@ omstart:
 	    }
 	    else goto newgroup;
 	    
-	    if(1 && k == 1 && allocated && info)
+	    if(k == 1 && allocated && info)
 	      printf("Found new group %d with elements %d: %s\n",group,elemcode,entityname);
 
 	  }
@@ -3872,6 +3880,8 @@ omstart:
 end:
 
   exit;
+  printf("done reading\n");
+
 
   if(!allocated) {
 
