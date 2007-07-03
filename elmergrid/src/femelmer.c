@@ -3041,7 +3041,7 @@ optimizeownership:
     if(sharings) 
       printf("%d problematic sharings may still exist\n",sharings);
     else 
-      printf("There shouldn't be any more problematic sharings, knok, knok...\n");
+      printf("There shouldn't be any more problematic sharings, knock, knock...\n");
   }
   CheckPartitioning(data,info);
 
