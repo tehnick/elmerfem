@@ -1159,7 +1159,7 @@ int SaveElmerInputFemBem(struct FemType *data,struct BoundaryType *bound,
   int noknots,noelements,material,sumsides,elemtype,fail,nobulkelements,bctype;
   int sideelemtype,nodesd1,nodesd2,newtype,elemdim,maxelemdim;
   int i,j,k,l,bulktypes[MAXELEMENTTYPE+1],sidetypes[MAXELEMENTTYPE+1],tottypes;
-  int ind[MAXNODESD1],ind2[MAXNODESD1],usedbody[MAXBODIES],usedbc[MAXBCS],bodyperm[MAXBODIES];
+  int ind[MAXNODESD1],ind2[MAXNODESD1],bodyperm[MAXBODIES],bcperm[MAXBCS];
   FILE *out,*out2;
   char filename[MAXFILESIZE], outstyle[MAXFILESIZE];
   char directoryname[MAXFILESIZE];
@@ -1181,10 +1181,6 @@ int SaveElmerInputFemBem(struct FemType *data,struct BoundaryType *bound,
 
   for(i=0;i<=MAXELEMENTTYPE;i++)
     bulktypes[i] = sidetypes[i] = 0;
-  for(i=0;i<MAXBODIES;i++)
-    usedbody[i] = 0;
-  for(i=0;i<MAXBCS;i++)
-    usedbc[i] = 0;
 
   sprintf(directoryname,"%s",prefix);
 
@@ -1262,7 +1258,7 @@ int SaveElmerInputFemBem(struct FemType *data,struct BoundaryType *bound,
   k = 0;
   for(i=0;i<MAXBODIES;i++) {
     if(bodyperm[i] > 0) bodyperm[i] = ++j;
-    if(bodyperm[i] < 0) bodyperm[i] = ++k;
+    if(bodyperm[i] < 0) bodyperm[i] = --k;
   }
 
 
@@ -1274,7 +1270,6 @@ int SaveElmerInputFemBem(struct FemType *data,struct BoundaryType *bound,
 
     nobulkelements++;
     material = data->material[i];
-    usedbody[material] += 1;
     material = bodyperm[material];
     fprintf(out,"%d %d %d",i,material,elemtype);
     
@@ -1297,6 +1292,18 @@ int SaveElmerInputFemBem(struct FemType *data,struct BoundaryType *bound,
   }
 
   sumsides = 0;
+  newtype = 0;
+  for(i=0;i<MAXBCS;i++) bcperm[i] = 0;
+  for(j=0;j < MAXBOUNDARIES;j++) {
+    if(bound[j].created == FALSE) continue;
+    for(i=1; i <= bound[j].nosides; i++) 
+      bcperm[bound[j].types[i]] = TRUE;
+  }
+  j = 0;
+  for(i=0;i<MAXBCS;i++) 
+    if(bcperm[i]) bcperm[i] = ++j;
+  newtype = j;
+
 
   /* Save normal boundaries */
   for(j=0;j < MAXBOUNDARIES;j++) {
@@ -1306,11 +1313,12 @@ int SaveElmerInputFemBem(struct FemType *data,struct BoundaryType *bound,
     for(i=1; i <= bound[j].nosides; i++) {
       GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],data,ind,&sideelemtype); 
       sumsides++;
+      material = bound[j].types[i];
+      material = bcperm[material];
       
       fprintf(out,"%d %d %d %d %d",
-	      sumsides,bound[j].types[i],bound[j].parent[i],bound[j].parent2[i],sideelemtype);
+	      sumsides,material,bound[j].parent[i],bound[j].parent2[i],sideelemtype);
       
-      if(bound[j].types[i] < MAXBCS) usedbc[bound[j].types[i]] += 1;
       sidetypes[sideelemtype] += 1;
 
       nodesd1 = sideelemtype % 100;
@@ -1320,12 +1328,8 @@ int SaveElmerInputFemBem(struct FemType *data,struct BoundaryType *bound,
     }
   }
 
-  newtype = 0;
-  for(j=0;j < MAXBOUNDARIES;j++) {
-    if(bound[j].created == FALSE) continue;
-    for(i=1; i <= bound[j].nosides; i++) 
-      newtype = MAX(newtype, bound[j].types[i]);
-  }
+  
+
 
   for(i=1;i<=noelements;i++) {
     elemtype = data->elementtypes[i];
@@ -1336,14 +1340,7 @@ int SaveElmerInputFemBem(struct FemType *data,struct BoundaryType *bound,
     sumsides++;
 
     material = data->material[i];
-    bctype = bodyperm[material] + newtype;
-
-    if(bctype < MAXBCS && !usedbc[bctype]){
-      if(data->bodynamesexist && data->boundarynamesexist && usedbc[bctype] == 0) 
-	strcpy(data->boundaryname[bctype],data->bodyname[material]);
-      usedbc[bctype] += 1;
-    }
-    usedbc[bctype] += 1;
+    bctype = abs(bodyperm[material]) + newtype;
     
     fprintf(out,"%d %d 0 0 %d",sumsides,bctype,elemtype);
     sidetypes[elemtype] += 1;
@@ -1376,6 +1373,7 @@ int SaveElmerInputFemBem(struct FemType *data,struct BoundaryType *bound,
       fprintf(out,"%-6d %-6d\n",i,bulktypes[i]+sidetypes[i]);
   fclose(out);
 
+  if(info) printf("Body and boundary numbers were permutated\n");
 
   if(data->boundarynamesexist || data->bodynamesexist) {
     sprintf(filename,"%s","mesh.names");
@@ -1389,12 +1387,19 @@ int SaveElmerInputFemBem(struct FemType *data,struct BoundaryType *bound,
     if(data->bodynamesexist) {
       fprintf(out,"! ----- names for bodies -----\n");
       for(i=1;i<MAXBODIES;i++) 
-	if(usedbody[i]) fprintf(out,"$ %s = %d\n",data->bodyname[i],bodyperm[i]);
+	if(bodyperm[i] > 0) fprintf(out,"$ %s = %d\n",data->bodyname[i],bodyperm[i]);
     }     
     if(data->boundarynamesexist) {
       fprintf(out,"! ----- names for boundaries -----\n");
-      for(i=1;i<MAXBCS;i++) 
-	if(usedbc[i]) fprintf(out,"$ %s = %d\n",data->boundaryname[i],i);
+      /* The reordered numbering of the original BCs */
+      for(i=1;i<MAXBCS;i++) {
+	if(bcperm[i]) 
+	  fprintf(out,"$ %s = %d\n",data->boundaryname[i],bcperm[i]);
+      }
+      /* Numbering of bodies that are actually saved as boundaries */
+      for(i=1;i<MAXBODIES;i++) 
+	if(bodyperm[i] < 0) 
+	  fprintf(out,"$ %s = %d\n",data->bodyname[i],abs(bodyperm[i])+newtype);
     }
     fclose(out);
   }
