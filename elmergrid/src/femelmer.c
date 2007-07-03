@@ -1130,16 +1130,16 @@ int SaveElmerInput(struct FemType *data,struct BoundaryType *bound,
       return(5);
     }
     
-    if(data->boundarynamesexist) {
-      fprintf(out,"! ----- names for boundaries -----\n");
-      for(i=1;i<MAXBCS;i++) 
-	if(usedbc[i]) fprintf(out,"$ %s = %d\n",data->boundaryname[i],i);
-    }
     if(data->bodynamesexist) {
       fprintf(out,"! ----- names for bodies -----\n");
       for(i=1;i<MAXBODIES;i++) 
 	if(usedbody[i]) fprintf(out,"$ %s = %d\n",data->bodyname[i],i);
     }     
+    if(data->boundarynamesexist) {
+      fprintf(out,"! ----- names for boundaries -----\n");
+      for(i=1;i<MAXBCS;i++) 
+	if(usedbc[i]) fprintf(out,"$ %s = %d\n",data->boundaryname[i],i);
+    }
     fclose(out);
   }
   
@@ -1386,16 +1386,16 @@ int SaveElmerInputFemBem(struct FemType *data,struct BoundaryType *bound,
       return(5);
     }
     
-    if(data->boundarynamesexist) {
-      fprintf(out,"! ----- names for boundaries -----\n");
-      for(i=1;i<MAXBCS;i++) 
-	if(usedbc[i]) fprintf(out,"$ %s = %d\n",data->boundaryname[i],i);
-    }
     if(data->bodynamesexist) {
       fprintf(out,"! ----- names for bodies -----\n");
       for(i=1;i<MAXBODIES;i++) 
 	if(usedbody[i]) fprintf(out,"$ %s = %d\n",data->bodyname[i],bodyperm[i]);
     }     
+    if(data->boundarynamesexist) {
+      fprintf(out,"! ----- names for boundaries -----\n");
+      for(i=1;i<MAXBCS;i++) 
+	if(usedbc[i]) fprintf(out,"$ %s = %d\n",data->boundaryname[i],i);
+    }
     fclose(out);
   }
   
