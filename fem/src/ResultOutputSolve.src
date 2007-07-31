@@ -21,7 +21,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ResultOutputSolve.src,v 1.10 2006/12/12 07:29:45 edelmann Exp $
+! * $Id: ResultOutputSolve.src,v 1.11 2007/04/20 17:47:48 raback Exp $
 ! *****************************************************************************
 
 
@@ -55,12 +55,13 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   TYPE(Solver_t) :: Solver
   TYPE(Model_t) :: Model
   REAL(KIND=dp) :: dt
-  LOGICAL :: TransientSimulation, SaveGid, SaveVTK, SaveOpenDx
+  LOGICAL :: TransientSimulation, SaveGid, SaveVTK, SaveOpenDx, SaveGmsh
 
   CHARACTER(10) :: OutputFormat
   LOGICAL :: Found
 
   SaveGid = ListGetLogical(Solver % Values,'Gid Format',Found)
+  SaveGmsh = ListGetLogical(Solver % Values,'Gmsh Format',Found)
   SaveVTK = ListGetLogical(Solver % Values,'VTK Format',Found)
   SaveOpenDx = ListGetLogical(Solver % Values,'Dx Format',Found)
 
@@ -72,6 +73,8 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
       SaveVTK = .TRUE.
     ELSE IF( OutputFormat == "dx" )THEN
       SaveOpenDx = .TRUE.
+    ELSE IF( OutputFormat == "gmsh" )THEN
+      SaveGmsh = .TRUE.
     ELSE
       CALL Warn( 'ResultOutputSolver', &
                  'Unknown output format "' // TRIM(OutputFormat) // '"' )
@@ -80,14 +83,16 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
     END IF
   END IF
 
-  IF(.NOT. (SaveGid .OR. SaveVTK .OR. SaveOpenDx)) THEN
+  IF(.NOT. (SaveGid .OR. SaveGmsh .OR. SaveVTK .OR. SaveOpenDx)) THEN
     CALL Warn('ResultOutputSolver','No output format was defined')
     RETURN
   END IF
 
   IF( SaveGid ) CALL GiDOutputSolver( Model,Solver,dt,TransientSimulation )
+  IF( SaveGmsh ) CALL GmshOutputSolver( Model,Solver,dt,TransientSimulation )
   IF( SaveVTK ) CALL VtkOutputSolver( Model,Solver,dt,TransientSimulation )
   IF( SaveOpenDx ) CALL DXOutputSolver( Model,Solver,dt,TransientSimulation )
+
 
 END SUBROUTINE ResultOutputSolver
 
@@ -101,7 +106,6 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
   TYPE(Solver_t) :: Solver
   TYPE(Model_t) :: Model
-
   REAL(KIND=dp) :: dt
   LOGICAL :: TransientSimulation
 !------------------------------------------------------------------------------
@@ -319,280 +323,498 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
   ! Write the GiD res-file:
   !------------------------
   IF( TransientSimulation .AND. FirstTimeStep ) THEN
-     OPEN(UNIT=10, FILE=ResFile )
-     WRITE(10,'(A)') 'GiD Post Result File 1.0'
-     FirstTimeStep = .FALSE.
+    OPEN(UNIT=10, FILE=ResFile )
+    WRITE(10,'(A)') 'GiD Post Result File 1.0'
+    FirstTimeStep = .FALSE.
   ELSEIF( TransientSimulation .AND. (.NOT.FirstTimeStep ) ) THEN
-     OPEN(UNIT=10, FILE=ResFile, POSITION='APPEND' )
+    OPEN(UNIT=10, FILE=ResFile, POSITION='APPEND' )
   ELSE
-     OPEN(UNIT=10, FILE=ResFile )
-     WRITE(10,'(A)') 'GiD Post Result File 1.0'
+    OPEN(UNIT=10, FILE=ResFile )
+    WRITE(10,'(A)') 'GiD Post Result File 1.0'
   END IF
 
   Nloop = 1
   IF( EigenAnalysis ) THEN
      Nloop = GetInteger( Solver % Values, 'Eigen System Values', Found )
      IF( .NOT.Found ) Nloop = 1
-  END IF
-  DO Loop = 1, Nloop
+   END IF
+   DO Loop = 1, Nloop
      PRINT *,'------------'
 
   ! First scalar fields:
   !----------------------
-  DO i = 1, 999
-     IF( i<10 ) THEN
-        WRITE(Txt,'(A,I2)') 'Scalar Field',i
-     ELSEIF( i<100 ) THEN
-        WRITE(Txt,'(A,I3)') 'Scalar Field',i
-     ELSEIF( i<1000 ) THEN
-        WRITE(Txt,'(A,I4)') 'Scalar Field',i
-     END IF
-
-     ScalarFieldName = GetString( Solver % Values, TRIM(Txt), Found )
-     IF(.NOT. Found) EXIT
-
-     Solution => VariableGet( Solver % Mesh % Variables, ScalarFieldName )
-     IF( .NOT.ASSOCIATED( Solution ) ) THEN
-        PRINT *,'Scalar field "',TRIM(ScalarFieldName),'" not found'
-     ELSE
-        PRINT *,'Scarar field',i,'= "',TRIM(ScalarFieldName),'"'
-        Perm => Solution % Perm
-
-        IF( .NOT.EigenAnalysis ) THEN
+     DO i = 1, 99
+       IF( i<10 ) THEN
+         WRITE(Txt,'(A,I2)') 'Scalar Field',i
+       ELSE
+         WRITE(Txt,'(A,I3)') 'Scalar Field',i
+       END IF
+       
+       ScalarFieldName = GetString( Solver % Values, TRIM(Txt), Found )
+       IF(.NOT. Found) EXIT
+       
+       Solution => VariableGet( Solver % Mesh % Variables, ScalarFieldName )
+       IF( .NOT.ASSOCIATED( Solution ) ) THEN
+         PRINT *,'Scalar field "',TRIM(ScalarFieldName),'" not found'
+       ELSE
+         PRINT *,'Scarar field',i,'= "',TRIM(ScalarFieldName),'"'
+         Perm => Solution % Perm
+         
+         IF( .NOT.EigenAnalysis ) THEN
            Values => Solution % Values
-        ELSE
+         ELSE
            Cvalues => Solution % EigenVectors(Loop,:)
-        END IF
-
-        IF( TransientSimulation ) THEN
+         END IF
+         
+         IF( TransientSimulation ) THEN
            TimeVariable => VariableGet( Solver % Mesh % Variables, 'Time' )
            PRINT *,'Current time=',TimeVariable % Values(1)
            WRITE(10,'(A,A,A,E16.6,A)') 'Result "',&
-                TRIM(ScalarFieldName),'" "Transient analysis" ', &
-                TimeVariable % Values(1) ,' Scalar OnNodes'
-        ELSE
+               TRIM(ScalarFieldName),'" "Transient analysis" ', &
+               TimeVariable % Values(1) ,' Scalar OnNodes'
+         ELSE
            IF( .NOT.EigenAnalysis ) THEN
-              WRITE(10,'(A,A,A,I2,A)') 'Result "',&
-                   TRIM(ScalarFieldName),'" "Steady analysis"',Loop,' Scalar OnNodes'
+             WRITE(10,'(A,A,A,I2,A)') 'Result "',&
+                 TRIM(ScalarFieldName),'" "Steady analysis"',Loop,' Scalar OnNodes'
            ELSE
-              WRITE(10,'(A,A,A,I2,A)') 'Result "',&
-                   TRIM(ScalarFieldName),'" "Eigen analysis"',Loop,' Scalar OnNodes'
+             WRITE(10,'(A,A,A,I2,A)') 'Result "',&
+                 TRIM(ScalarFieldName),'" "Eigen analysis"',Loop,' Scalar OnNodes'
            END IF
-        END IF
-
-        WRITE(10,'(A,A,A)') 'ComponentNames "',TRIM(ScalarFieldName),'"'
-        WRITE(10,'(A)') 'Values'
-        DO j = 1, Model % Mesh % NumberOfNodes
+         END IF
+         
+         WRITE(10,'(A,A,A)') 'ComponentNames "',TRIM(ScalarFieldName),'"'
+         WRITE(10,'(A)') 'Values'
+         DO j = 1, Model % Mesh % NumberOfNodes
            k = Perm(j)
            IF( .NOT.EigenAnalysis ) THEN
-              WRITE(10,'(I6,E16.6)') j, Values(k)
+             WRITE(10,'(I6,E16.6)') j, Values(k)
            ELSE
-              WRITE(10,'(I6,E16.6)') j, REAL(CValues(k))
+             WRITE(10,'(I6,E16.6)') j, REAL(CValues(k))
            END IF
-        END DO
-        WRITE(10,'(A)') 'end values'
-        WRITE(10,'(A)') ' '
-     END IF
-  END DO
+         END DO
+         WRITE(10,'(A)') 'end values'
+         WRITE(10,'(A)') ' '
+       END IF
+     END DO
 
-  ! Then vector fields:
-  !--------------------
-  DO i = 1, 999
-     IF( i<10 ) THEN
-        WRITE(Txt,'(A,I2)') 'Vector Field',i
-     ELSEIF( i<100 ) THEN
-        WRITE(Txt,'(A,I3)') 'Vector Field',i
-     ELSEIF( i<1000 ) THEN
-        WRITE(Txt,'(A,I4)') 'Vector Field',i
-     END IF
-
-     VectorFieldName = GetString( Solver % Values, TRIM(Txt), Found )
-     IF(.NOT. Found) EXIT
-     PRINT *,'Vector field',i,'= "',TRIM(VectorFieldName),'"'
-
-     IF( TransientSimulation ) THEN
-        TimeVariable => VariableGet( Solver % Mesh % Variables, 'Time' )
-        PRINT *,'Current time=',TimeVariable % Values(1)
-        WRITE(10,'(A,A,A,E16.6,A)') 'Result "',&
+     ! Then vector fields:
+     !--------------------
+     DO i = 1, 99
+       IF( i<10 ) THEN
+         WRITE(Txt,'(A,I2)') 'Vector Field',i
+       ELSE
+         WRITE(Txt,'(A,I3)') 'Vector Field',i
+       END IF
+       
+       VectorFieldName = GetString( Solver % Values, TRIM(Txt), Found )
+       IF(.NOT. Found) EXIT
+       PRINT *,'Vector field',i,'= "',TRIM(VectorFieldName),'"'
+       
+       IF( TransientSimulation ) THEN
+         TimeVariable => VariableGet( Solver % Mesh % Variables, 'Time' )
+         PRINT *,'Current time=',TimeVariable % Values(1)
+         WRITE(10,'(A,A,A,E16.6,A)') 'Result "',&
              TRIM(VectorFieldName),'" "Transient analysis" ', &
              TimeVariable % Values(1) ,' Vector OnNodes'
-     ELSE
-        IF( .NOT.EigenAnalysis ) THEN
+       ELSE
+         IF( .NOT.EigenAnalysis ) THEN
            WRITE(10,'(A,A,A,I2,A)') 'Result "',&
-                TRIM(VectorFieldName),'" "Steady analysis"',Loop,' Vector OnNodes'
-        ELSE
+               TRIM(VectorFieldName),'" "Steady analysis"',Loop,' Vector OnNodes'
+         ELSE
            WRITE(10,'(A,A,A,I2,A)') 'Result "',&
-                TRIM(VectorFieldName),'" "Eigen analysis"',Loop,' Vector OnNodes'
-        END IF
-     END IF
-
-!     WRITE(10,'(A,A,A)') 'Result "',&
-!          TRIM(VectorFieldName),'" "Steady analysis" 0.0e-8 Vector OnNodes'
-
-     WRITE(Txt,'(A)') 'ComponentNames '
-     DO j = 1, dim
-        IF(j<Dim) THEN
+               TRIM(VectorFieldName),'" "Eigen analysis"',Loop,' Vector OnNodes'
+         END IF
+       END IF
+       
+       WRITE(Txt,'(A)') 'ComponentNames '
+       DO j = 1, dim
+         IF(j<Dim) THEN
            WRITE(Txt,'(A,A,A,I2,A)' ) &
-                TRIM(Txt), ' "', TRIM(VectorFieldName),j,'",'
-        ELSE
+               TRIM(Txt), ' "', TRIM(VectorFieldName),j,'",'
+         ELSE
            WRITE(Txt,'(A,A,A,I2,A)' ) &
-                TRIM(Txt), ' "', TRIM(VectorFieldName),j,'"'
-        END IF
-     END DO
-     WRITE(10,'(A)') TRIM(Txt)
-     WRITE(10,'(A)') 'Values'
-
-     DO j = 1, Model % Mesh % NumberOfNodes
-        WRITE(Txt2,'(I10)') j
-        DO k = 1,dim
-
+               TRIM(Txt), ' "', TRIM(VectorFieldName),j,'"'
+         END IF
+       END DO
+       WRITE(10,'(A)') TRIM(Txt)
+       WRITE(10,'(A)') 'Values'
+       
+       DO j = 1, Model % Mesh % NumberOfNodes
+         WRITE(Txt2,'(I10)') j
+         DO k = 1,dim
+           
            ! Check if vector field components have been defined explicitely:
            !----------------------------------------------------------------
            WRITE(Txt3,'(A,I1,A,I1)') 'Vector Field ',i,' component ',k
            CompName = GetString( Solver % Values, TRIM(Txt3), Found )
            IF( Found ) THEN
-              WRITE(Txt,'(A)') TRIM(CompName)
+             WRITE(Txt,'(A)') TRIM(CompName)
            ELSE
-              WRITE(Txt,'(A,A,I1)') TRIM(VectorFieldName), ' ', k
+             WRITE(Txt,'(A,A,I1)') TRIM(VectorFieldName), ' ', k
            END IF
-
+           
            IF( j==1 ) PRINT *, TRIM(Txt3),' = "', TRIM(Txt),'"'
-
-!           WRITE(Txt,'(A,A,I1)') TRIM(VectorFieldName), ' ', k
-
+           
            Solution => VariableGet( Solver % Mesh % Variables, TRIM(Txt) )
            IF( .NOT.ASSOCIATED( Solution ) ) THEN
-              PRINT *,'Vector field component',k,' not found'
+             PRINT *,'Vector field component',k,' not found'
            ELSE
-              Perm => Solution % Perm
-              
-              IF( .NOT.EigenAnalysis ) THEN
-                 Values => Solution % Values
-                 WRITE(Txt2,'(A,E16.6)') TRIM(Txt2), Values( Perm(j) )
-              ELSE
-                 CValues => Solution % Eigenvectors(Loop,:)
-                 WRITE(Txt2,'(A,E16.6)') TRIM(Txt2), REAL(CValues( Perm(j) ) )
-
-              END IF
-
-
+             Perm => Solution % Perm
+             
+             IF( .NOT.EigenAnalysis ) THEN
+               Values => Solution % Values
+               WRITE(Txt2,'(A,E16.6)') TRIM(Txt2), Values( Perm(j) )
+             ELSE
+               CValues => Solution % Eigenvectors(Loop,:)
+               WRITE(Txt2,'(A,E16.6)') TRIM(Txt2), REAL(CValues( Perm(j) ) )
+             END IF
+             
            END IF
-        END DO
-        WRITE(10,'(A)') TRIM(Txt2)
-
+         END DO
+         WRITE(10,'(A)') TRIM(Txt2)
+         
+       END DO
+       WRITE(10,'(A)') 'end values'
      END DO
-     WRITE(10,'(A)') 'end values'
-  END DO
+     
 
-
-  ! Finally tensor fields:
-  !-----------------------
-  DO i = 1, 999
-     IF( i<10 ) THEN
-        WRITE(Txt,'(A,I2)') 'Tensor Field',i
-     ELSEIF( i<100 ) THEN
-        WRITE(Txt,'(A,I3)') 'Tensor Field',i
-     ELSEIF( i<1000 ) THEN
-        WRITE(Txt,'(A,I4)') 'Tensor Field',i
-     END IF
-
-     TensorFieldName = GetString( Solver % Values, TRIM(Txt), Found )
-     IF(.NOT. Found) EXIT
-
-     PRINT *,'Tensor field',i,'= "',TRIM(TensorFieldName),'"'
-
-     IF( TransientSimulation ) THEN
-        TimeVariable => VariableGet( Solver % Mesh % Variables, 'Time' )
-        PRINT *,'Current time=',TimeVariable % Values(1)
-        WRITE(10,'(A,A,A,E16.6,A)') 'Result "',&
+     ! Finally tensor fields:
+     !-----------------------
+     DO i = 1, 99
+       IF( i<10 ) THEN
+         WRITE(Txt,'(A,I2)') 'Tensor Field',i
+       ELSE
+         WRITE(Txt,'(A,I3)') 'Tensor Field',i
+       END IF
+       
+       TensorFieldName = GetString( Solver % Values, TRIM(Txt), Found )
+       IF(.NOT. Found) EXIT
+       
+       PRINT *,'Tensor field',i,'= "',TRIM(TensorFieldName),'"'
+       
+       IF( TransientSimulation ) THEN
+         TimeVariable => VariableGet( Solver % Mesh % Variables, 'Time' )
+         PRINT *,'Current time=',TimeVariable % Values(1)
+         WRITE(10,'(A,A,A,E16.6,A)') 'Result "',&
              TRIM(TensorFieldName),'" "Transient analysis" ', &
              TimeVariable % Values(1) ,' Matrix OnNodes'
-     ELSE
-        IF( .NOT.EigenAnalysis ) THEN
+       ELSE
+         IF( .NOT.EigenAnalysis ) THEN
            WRITE(10,'(A,A,A,I2,A)') 'Result "',&
-                TRIM(TensorFieldName),'" "Steady analysis"',Loop,' Matrix OnNodes'
-        ELSE
+               TRIM(TensorFieldName),'" "Steady analysis"',Loop,' Matrix OnNodes'
+         ELSE
            WRITE(10,'(A,A,A,I2,A)') 'Result "',&
-                TRIM(TensorFieldName),'" "Eigen analysis"',Loop,' Matrix OnNodes'
-        END IF
-
-     END IF
-
-!     WRITE(10,'(A,A,A)') 'Result "',&
-!          TRIM(TensorFieldName),'" "Steady analysis" 0.0e-8 Matrix OnNodes'
-
-     WRITE(Txt,'(A)') 'ComponentNames '
-     IF( dim == 2 ) THEN
-        TensorComponents = 3
-     ELSE
-        TensorComponents = 6
-     END IF
-
-     DO j = 1, TensorComponents
-        IF(j<Dim) THEN
+               TRIM(TensorFieldName),'" "Eigen analysis"',Loop,' Matrix OnNodes'
+         END IF
+         
+       END IF
+       
+       WRITE(Txt,'(A)') 'ComponentNames '
+       IF( dim == 2 ) THEN
+         TensorComponents = 3
+       ELSE
+         TensorComponents = 6
+       END IF
+       
+       DO j = 1, TensorComponents
+         IF(j<Dim) THEN
            WRITE(Txt,'(A,A,A,I2,A)' ) &
-                TRIM(Txt), ' "', TRIM(TensorFieldName),j,'",'
-        ELSE
+               TRIM(Txt), ' "', TRIM(TensorFieldName),j,'",'
+         ELSE
            WRITE(Txt,'(A,A,A,I2,A)' ) &
-                TRIM(Txt), ' "', TRIM(TensorFieldName),j,'"'
-        END IF
-     END DO
-     WRITE(10,'(A)') TRIM(Txt)
-     WRITE(10,'(A)') 'Values'
-
-     DO j = 1, Model % Mesh % NumberOfNodes
-        WRITE(Txt2,'(I10)') j
-        DO k = 1,TensorComponents
-
+               TRIM(Txt), ' "', TRIM(TensorFieldName),j,'"'
+         END IF
+       END DO
+       WRITE(10,'(A)') TRIM(Txt)
+       WRITE(10,'(A)') 'Values'
+       
+       DO j = 1, Model % Mesh % NumberOfNodes
+         WRITE(Txt2,'(I10)') j
+         DO k = 1,TensorComponents
+           
            ! Check if tensor field components have been defined explicitely:
            !----------------------------------------------------------------
            WRITE(Txt3,'(A,I1,A,I1)') 'Tensor Field ',i,' component ',k
            CompName = GetString( Solver % Values, TRIM(Txt3), Found )
            IF( Found ) THEN
-              WRITE(Txt,'(A)') TRIM(CompName)
+             WRITE(Txt,'(A)') TRIM(CompName)
            ELSE
-              WRITE(Txt,'(A,A,I1)') TRIM(TensorFieldName), ' ', k
+             WRITE(Txt,'(A,A,I1)') TRIM(TensorFieldName), ' ', k
            END IF
-
+           
            IF( j==1 ) PRINT *, TRIM(Txt3),' = "', TRIM(Txt),'"'
-
-!           WRITE(Txt,'(A,A,I1)') TRIM(TensorFieldName), ' ', k
-
+           
            Solution => VariableGet( Solver % Mesh % Variables, TRIM(Txt) )
            IF( .NOT.ASSOCIATED( Solution ) ) THEN
-              PRINT *,'Tensor field component',k,' not found'
+             PRINT *,'Tensor field component',k,' not found'
            ELSE
-              Perm => Solution % Perm
-              !Values => Solution % Values
-              !WRITE(Txt2,'(A,E16.6)') TRIM(Txt2), Values( Perm(j) )
-
-              IF( .NOT.EigenAnalysis ) THEN
-                 Values => Solution % Values
-                 WRITE(Txt2,'(A,E16.6)') TRIM(Txt2), Values( Perm(j) )
-              ELSE
-                 CValues => Solution % Eigenvectors(Loop,:)
-                 WRITE(Txt2,'(A,E16.6)') TRIM(Txt2), REAL(CValues( Perm(j) ) )
-              END IF
-
-
+             Perm => Solution % Perm
+             !Values => Solution % Values
+             !WRITE(Txt2,'(A,E16.6)') TRIM(Txt2), Values( Perm(j) )
+             
+             IF( .NOT.EigenAnalysis ) THEN
+               Values => Solution % Values
+               WRITE(Txt2,'(A,E16.6)') TRIM(Txt2), Values( Perm(j) )
+             ELSE
+               CValues => Solution % Eigenvectors(Loop,:)
+               WRITE(Txt2,'(A,E16.6)') TRIM(Txt2), REAL(CValues( Perm(j) ) )
+             END IF
 
            END IF
-        END DO
-        WRITE(10,'(A)') TRIM(Txt2)
-
+         END DO
+         WRITE(10,'(A)') TRIM(Txt2)
+         
+       END DO
+       WRITE(10,'(A)') 'end values'
      END DO
-     WRITE(10,'(A)') 'end values'
-  END DO
-
-END DO ! Nloop
+     
+   END DO ! Nloop
 
 
-  CLOSE(10)
+   CLOSE(10)
   
-  PRINT *,'Output complete.'
+   PRINT *,'Output complete.'
 
 !------------------------------------------------------------------------------
-END SUBROUTINE GiDOutputSolver
+ END SUBROUTINE GiDOutputSolver
+!------------------------------------------------------------------------------
+  
+
+
+!------------------------------------------------------------------------------
+SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
+!------------------------------------------------------------------------------
+  USE DefUtils
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Solver_t) :: Solver
+  TYPE(Model_t) :: Model
+  REAL(KIND=dp) :: dt
+  LOGICAL :: TransientSimulation
+!------------------------------------------------------------------------------
+! Local variables
+!------------------------------------------------------------------------------
+  TYPE(Element_t),POINTER :: Element
+  TYPE(Variable_t), POINTER :: Solution
+  INTEGER, POINTER :: Perm(:)
+  REAL(KIND=dp), POINTER :: Values(:)
+  COMPLEX(KIND=dp), POINTER :: CValues(:)
+  TYPE(Variable_t), POINTER :: TimeVariable
+  TYPE(ValueList_t), POINTER :: SolverParams
+
+  LOGICAL :: Found, CoordinatesWritten = .FALSE.
+  LOGICAL :: FirstTimeStep = .TRUE., EigenAnalysis = .FALSE.
+
+  INTEGER :: i,j,k,l,m,n,dim,dofs,Code, body_id, ElementCounter, Nloop, Loop
+  INTEGER :: tensorComponents, ElemNo, Nscalars, Nvectors, Ntensors, Ntot
+  INTEGER, PARAMETER :: MaxElemCode = 827
+  INTEGER :: ListElemTypes(MaxElemCode)
+  INTEGER, ALLOCATABLE :: ElementOrder(:)
+
+  CHARACTER(LEN=1024) :: OutputFile, Txt, FieldName, CompName
+
+  INTEGER :: ElemTypeOrder(15)
+
+  SAVE FirstTimeStep, ListElemTypes, ElementOrder, ElemNo, &
+      Nscalars, Nvectors, Ntensors, Ntot
+!------------------------------------------------------------------------------
+  ElemTypeOrder(:) = (/ 101, 202, 303, 404, 504, 808, 706, 605,  &
+                        203, 306, 408, 510, 820, 715, 613 /)
+
+  SolverParams => GetSolverParams()
+  EigenAnalysis = GetLogical( SolverParams, 'Eigen Analysis', Found )
+
+  OutputFile = GetString( Solver % Values, 'Output File Name', Found )
+  IF( .NOT.Found ) THEN
+    PRINT *,'Output File Name undefined.'
+    OutputFile = 'Output.gm'
+  END IF
+  PRINT *,'Output File Name = ',TRIM(OutputFile)
+
+  ! Write the GiD msh-file:
+  !------------------------
+  dim = CoordinateSystemDimension()
+  IF( CoordinatesWritten ) GOTO 10
+
+  n = Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+  ALLOCATE(ElementOrder(n))
+  ElementOrder = 0
+  ListElemTypes = 0
+  ElementCounter = 0
+
+  DO i = 1, n
+    Element => Model % Mesh % Elements(i)
+    Code = Element % TYPE % ElementCode
+    ListElemTypes(Code) = ListElemTypes(Code)+1
+  END DO
+  PRINT *,'Total number of elements =',SUM(ListElemTypes)
+
+  ! Order the elements so that they are saved in the order defined by the 
+  ! ElemTypeOrder vector. 
+  !----------------------------------------------------------------------
+  ElemNo = 0
+  DO j = 1,SIZE(ElemTypeOrder)
+    Code = ElemTypeOrder(j)
+    IF( ListElemTypes(code) == 0) CYCLE
+
+    DO i = 1, n
+      Element => Model % Mesh % Elements(i)
+      IF(Code /= Element % TYPE % ElementCode) CYCLE
+      ElemNo = ElemNo + 1
+      ElementOrder(ElemNo) = i
+    END DO
+  END DO
+
+  ! Check which scalars, vectors and tensors to save
+  !-------------------------------------------------
+  Nscalars = 0
+  Nvectors = 0
+  Ntensors = 0
+
+  DO j = 1,3
+    DO i = 1, 99
+      IF( i<10 ) THEN
+        IF(j==1) WRITE(Txt,'(A,I2)') 'Scalar Field',i
+        IF(j==2) WRITE(Txt,'(A,I2)') 'Vector Field',i
+        IF(j==3) WRITE(Txt,'(A,I2)') 'Tensor Field',i
+      ELSE
+        IF(j==1) WRITE(Txt,'(A,I3)') 'Scalar Field',i
+        IF(j==2) WRITE(Txt,'(A,I3)') 'Vector Field',i
+        IF(j==3) WRITE(Txt,'(A,I3)') 'Tensor Field',i
+      END IF
+      FieldName = GetString( Solver % Values, TRIM(Txt), Found )
+
+      IF(.NOT. Found) EXIT
+      Solution => VariableGet( Solver % Mesh % Variables, FieldName )
+      IF(.NOT. ASSOCIATED(Solution)) EXIT
+      
+      IF(j==1) Nscalars = i
+      IF(j==2) Nvectors = i
+      IF(j==3) Ntensors = i     
+    END DO
+  END DO
+
+  IF(Ntensors > 0) THEN
+    CALL Warn('GmshOutputSolver','Not implemented yet for tensors!')
+    Ntensors = 0
+  END IF
+  Ntot = Nscalars + Nvectors + Ntensors
+
+  IF(Ntot == 0) THEN
+    CALL Warn('GsmhOutputSolver','No variables defined for saving')
+  END IF
+
+  PRINT *,'Ntot',Nscalars,Nvectors,Ntensors
+
+  ! Save the one-time information
+  !-------------------------------------------------
+  OPEN(UNIT=10, FILE=OutputFile )
+
+  WRITE(10,'(A)') '$PostFormat'
+  WRITE(10,'(A)') '$1.4  0 8'
+  WRITE(10,'(A)') '$EndPostFormat'
+
+  WRITE(10,'(A)') '$View'
+  WRITE(10,'(A,I)') 'test',1
+
+  DO i = 1,SIZE(ElemTypeOrder)
+    Code = ElemTypeOrder(i)
+    n = ListElemTypes(code)
+    WRITE(10,'(I8,I8,I8)') n*Nscalars,n*Nvectors,n*Ntensors
+    IF(n > 0) PRINT *,'elements of type',Code,n
+  END DO
+
+  WRITE(10,'(I,I,I,I)') 0,0,0,0
+
+
+10 CONTINUE
+  
+  ! Save only the time-dependent information if subroutine visited again.
+  !---------------------------------------------------------------------
+  IF( .NOT. FirstTimeStep ) THEN
+    OPEN(UNIT=10, FILE=OutputFile, POSITION='APPEND' )
+  END IF
+  
+  Nloop = 1
+  IF( EigenAnalysis ) THEN
+    Nloop = GetInteger( Solver % Values, 'Eigen System Values', Found )
+    IF( .NOT.Found ) Nloop = 1
+  END IF
+
+  IF( TransientSimulation ) THEN
+    TimeVariable => VariableGet( Solver % Mesh % Variables, 'Time' )
+    PRINT *,'Current time=',TimeVariable % Values(1)
+    WRITE(10,'(E16.6)') TimeVariable % Values(1)
+  ELSE IF(.NOT. EigenAnalysis) THEN
+    WRITE(10,'(E16.6)') 1.0
+  ELSE
+    DO i=1,Nloop
+      WRITE(10,'(E16.6)') 1.0
+    END DO
+  END IF
+
+
+  DO j = 1,ElemNo
+    Element => Model % Mesh % Elements(ElementOrder(j))
+    Code = Element % TYPE % ElementCode
+    
+    DO i = 1, Ntot
+      IF( i <= Nscalars) THEN
+        IF( i < 10 ) THEN
+          WRITE(Txt,'(A,I2)') 'Scalar Field',i
+        ELSE
+          WRITE(Txt,'(A,I3)') 'Scalar Field',i
+        END IF
+      ELSE IF(i-Nscalars <= Nvectors) THEN
+         IF( i-Nscalars < 10 ) THEN
+           WRITE(Txt,'(A,I2)') 'Vector Field',i-Nscalars
+         ELSE
+           WRITE(Txt,'(A,I3)') 'Vector Field',i-Nscalars
+         END IF
+       ELSE
+         CALL Warn('GsmhOutputSolver','Do the tensors')
+       END IF
+       
+       FieldName = GetString( Solver % Values, TRIM(Txt), Found )
+       Solution => VariableGet( Solver % Mesh % Variables, FieldName )
+       Perm => Solution % Perm
+       dofs = Solution % DOFs
+
+       IF( .NOT.EigenAnalysis ) THEN
+         Values => Solution % Values
+       ELSE
+         Cvalues => Solution % EigenVectors(Loop,:)
+       END IF
+       
+       WRITE(10,'(100E18.8)') Model % Mesh % Nodes % x(Element % NodeIndexes)
+       WRITE(10,'(100E18.8)') Model % Mesh % Nodes % y(Element % NodeIndexes)
+       WRITE(10,'(100E18.8)') Model % Mesh % Nodes % z(Element % NodeIndexes)
+       
+       IF(i <= Nscalars) THEN
+         DO k = 1, MOD(Code,100)
+           WRITE(10,'(E18.8)') Values(Perm(Element % NodeIndexes(k)))
+         END DO
+       ELSE
+         DO k = 1, MOD(Code,100)
+           DO l = 1, dofs-1
+             WRITE(10,'(E18.8)', ADVANCE='NO') Values(dofs*(Perm(Element % NodeIndexes(k))-1)+l)
+           END DO
+           WRITE(10,'(E18.8)') Values(dofs*Perm(Element % NodeIndexes(k)))           
+         END DO
+       END IF
+       
+     END DO
+   END DO
+   
+   WRITE(10,'(A)') '$EndView'
+   
+   CLOSE(10)
+
+   FirstTimeStep = .FALSE.
+   PRINT *,'Gsmh Output complete.'
+   
+!------------------------------------------------------------------------------
+ END SUBROUTINE GmshOutputSolver
 !------------------------------------------------------------------------------
   
 
