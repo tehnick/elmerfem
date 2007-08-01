@@ -21,7 +21,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ResultOutputSolve.src,v 1.13 2007/07/31 14:08:58 raback Exp $
+! * $Id: ResultOutputSolve.src,v 1.14 2007/08/01 08:48:48 raback Exp $
 ! *****************************************************************************
 
 
@@ -603,11 +603,11 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
   TYPE(ValueList_t), POINTER :: SolverParams
 
   LOGICAL :: Found, GotField
-  LOGICAL :: EigenAnalysis = .FALSE.
+  LOGICAL :: EigenAnalysis = .FALSE., EigenActive
 
   INTEGER :: VisitedTimes = 0
   INTEGER :: i,j,k,l,m,n,dim,dofs,Code, body_id, Nloop, Loop, Vari, Rank
-  INTEGER :: tensorComponents, ElemNo, NumberOfAllElements
+  INTEGER :: ElemNo, NumberOfAllElements
   INTEGER, PARAMETER :: MaxElemCode = 827
   INTEGER :: ListElemTypes(MaxElemCode)
   INTEGER, ALLOCATABLE :: ElementOrder(:)
@@ -633,12 +633,19 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
     OutputFile = 'Output.gm'
   END IF
 
-  ! Write the GiD msh-file:
-  !------------------------
   dim = CoordinateSystemDimension()
   IF( VisitedTimes > 0 ) THEN
     OPEN(UNIT=10, FILE=OutputFile, POSITION='APPEND' )
     GOTO 10    
+  ELSE
+    ! Save the one-time information
+    !-------------------------------------------------
+    PRINT *,'Output File Name = ',TRIM(OutputFile)
+    OPEN(UNIT=10, FILE=OutputFile )
+    
+    WRITE(10,'(A)') '$PostFormat'
+    WRITE(10,'(A)') '1.4 0 8'
+    WRITE(10,'(A)') '$EndPostFormat'    
   END IF
 
   NumberOfAllElements = Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
@@ -702,14 +709,6 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
     GOTO 20
   END IF
 
-  ! Save the one-time information
-  !-------------------------------------------------
-  PRINT *,'Output File Name = ',TRIM(OutputFile)
-  OPEN(UNIT=10, FILE=OutputFile )
-
-  WRITE(10,'(A)') '$PostFormat'
-  WRITE(10,'(A)') '1.4 0 8'
-  WRITE(10,'(A)') '$EndPostFormat'
 
 10 CONTINUE
 
@@ -738,13 +737,15 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
       Perm => Solution % Perm
       dofs = Solution % DOFs
     
-      IF( EigenAnalysis ) THEN
+      EigenActive = .FALSE.
+      IF( EigenAnalysis ) EigenActive =  ASSOCIATED(Solution % EigenVectors)
+
+      IF(EigenActive) THEN
         PRINT *,'Do the eigen values'
+        Cvalues => Solution % EigenVectors(Loop,:)
         Nloop = GetInteger( Solver % Values, 'Eigen System Values', Found )
         IF( .NOT.Found ) Nloop = 1
-        Cvalues => Solution % EigenVectors(Loop,:)
       ELSE
-        Nloop = 1
         Values => Solution % Values
       END IF
       
@@ -767,8 +768,6 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
       
       WRITE(10,'(A)') '$View'
       WRITE(10,'(A,I)') TRIM(Solution % Name),1
-
-
       
       DO i = 1,SIZE(ElemTypeOrder)
         Code = ElemTypeOrder(i)
