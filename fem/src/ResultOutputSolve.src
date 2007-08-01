@@ -21,7 +21,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ResultOutputSolve.src,v 1.12 2007/07/31 12:33:40 raback Exp $
+! * $Id: ResultOutputSolve.src,v 1.13 2007/07/31 14:08:58 raback Exp $
 ! *****************************************************************************
 
 
@@ -602,11 +602,12 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
   TYPE(Variable_t), POINTER :: TimeVariable
   TYPE(ValueList_t), POINTER :: SolverParams
 
-  LOGICAL :: Found, CoordinatesWritten = .FALSE.
-  LOGICAL :: FirstTimeStep = .TRUE., EigenAnalysis = .FALSE.
+  LOGICAL :: Found, GotField
+  LOGICAL :: EigenAnalysis = .FALSE.
 
-  INTEGER :: i,j,k,l,m,n,dim,dofs,Code, body_id, ElementCounter, Nloop, Loop
-  INTEGER :: tensorComponents, ElemNo, Nscalars, Nvectors, Ntensors, Ntot
+  INTEGER :: VisitedTimes = 0
+  INTEGER :: i,j,k,l,m,n,dim,dofs,Code, body_id, Nloop, Loop, Vari, Rank
+  INTEGER :: tensorComponents, ElemNo, NumberOfAllElements
   INTEGER, PARAMETER :: MaxElemCode = 827
   INTEGER :: ListElemTypes(MaxElemCode)
   INTEGER, ALLOCATABLE :: ElementOrder(:)
@@ -615,34 +616,37 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
 
   INTEGER :: ElemTypeOrder(15)
 
-  SAVE FirstTimeStep, ListElemTypes, ElementOrder, ElemNo, &
-      Nscalars, Nvectors, Ntensors, Ntot
+  SAVE VisitedTimes, ListElemTypes, ElementOrder, ElemNo
+
 !------------------------------------------------------------------------------
   ElemTypeOrder(:) = (/ 101, 202, 303, 404, 504, 808, 706, 605,  &
                         203, 306, 408, 510, 820, 715, 613 /)
+
+  CALL Info('GsmhOutputSolver','Saving results in Gmsh format')
 
   SolverParams => GetSolverParams()
   EigenAnalysis = GetLogical( SolverParams, 'Eigen Analysis', Found )
 
   OutputFile = GetString( Solver % Values, 'Output File Name', Found )
   IF( .NOT.Found ) THEN
-    PRINT *,'Output File Name undefined.'
+    CALL Warn('GmshOutputSolver','Output File Name undefined')
     OutputFile = 'Output.gm'
   END IF
-  PRINT *,'Output File Name = ',TRIM(OutputFile)
 
   ! Write the GiD msh-file:
   !------------------------
   dim = CoordinateSystemDimension()
-  IF( CoordinatesWritten ) GOTO 10
+  IF( VisitedTimes > 0 ) THEN
+    OPEN(UNIT=10, FILE=OutputFile, POSITION='APPEND' )
+    GOTO 10    
+  END IF
 
-  n = Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
-  ALLOCATE(ElementOrder(n))
+  NumberOfAllElements = Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
+  ALLOCATE(ElementOrder(NumberOfAllElements))
   ElementOrder = 0
   ListElemTypes = 0
-  ElementCounter = 0
 
-  DO i = 1, n
+  DO i = 1, NumberOfAllElements
     Element => Model % Mesh % Elements(i)
     Code = Element % TYPE % ElementCode
     ListElemTypes(Code) = ListElemTypes(Code)+1
@@ -657,7 +661,7 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
     Code = ElemTypeOrder(j)
     IF( ListElemTypes(code) == 0) CYCLE
 
-    DO i = 1, n
+    DO i = 1, NumberOfAllElements
       Element => Model % Mesh % Elements(i)
       IF(Code /= Element % TYPE % ElementCode) CYCLE
       ElemNo = ElemNo + 1
@@ -665,156 +669,178 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
     END DO
   END DO
 
-  ! Check which scalars, vectors and tensors to save
+  ! Check that there is a field to work with
   !-------------------------------------------------
-  Nscalars = 0
-  Nvectors = 0
-  Ntensors = 0
-
-  DO j = 1,3
-    DO i = 1, 99
-      IF( i<10 ) THEN
-        IF(j==1) WRITE(Txt,'(A,I2)') 'Scalar Field',i
-        IF(j==2) WRITE(Txt,'(A,I2)') 'Vector Field',i
-        IF(j==3) WRITE(Txt,'(A,I2)') 'Tensor Field',i
+  GotField = .FALSE.
+  DO Rank = 0,2
+    DO Vari = 1, 99
+      IF( Vari < 10 ) THEN
+        IF(Rank==0) WRITE(Txt,'(A,I2)') 'Scalar Field',Vari
+        IF(Rank==1) WRITE(Txt,'(A,I2)') 'Vector Field',Vari
+        IF(Rank==2) WRITE(Txt,'(A,I2)') 'Tensor Field',Vari
       ELSE
-        IF(j==1) WRITE(Txt,'(A,I3)') 'Scalar Field',i
-        IF(j==2) WRITE(Txt,'(A,I3)') 'Vector Field',i
-        IF(j==3) WRITE(Txt,'(A,I3)') 'Tensor Field',i
+        IF(Rank==0) WRITE(Txt,'(A,I3)') 'Scalar Field',Vari
+        IF(Rank==1) WRITE(Txt,'(A,I3)') 'Vector Field',Vari
+        IF(Rank==2) WRITE(Txt,'(A,I3)') 'Tensor Field',Vari
       END IF
-      FieldName = GetString( Solver % Values, TRIM(Txt), Found )
 
+      FieldName = GetString( Solver % Values, TRIM(Txt), Found )
       IF(.NOT. Found) EXIT
+
+      IF( Rank == 2) THEN
+        CALL Warn('GmshOutputSolver','Not implemented yet for tensors!')
+        CYCLE
+      END IF
+
       Solution => VariableGet( Solver % Mesh % Variables, FieldName )
-      IF(.NOT. ASSOCIATED(Solution)) EXIT
-      
-      IF(j==1) Nscalars = i
-      IF(j==2) Nvectors = i
-      IF(j==3) Ntensors = i     
+      IF(ASSOCIATED(Solution)) GotField = .TRUE.
     END DO
   END DO
 
-  IF(Ntensors > 0) THEN
-    CALL Warn('GmshOutputSolver','Not implemented yet for tensors!')
-    Ntensors = 0
-  END IF
-  Ntot = Nscalars + Nvectors + Ntensors
-
-  IF(Ntot == 0) THEN
+  IF(.NOT. GotField) THEN
     CALL Warn('GsmhOutputSolver','No variables defined for saving')
+    GOTO 20
   END IF
-
-  PRINT *,'Ntot',Nscalars,Nvectors,Ntensors
 
   ! Save the one-time information
   !-------------------------------------------------
+  PRINT *,'Output File Name = ',TRIM(OutputFile)
   OPEN(UNIT=10, FILE=OutputFile )
 
   WRITE(10,'(A)') '$PostFormat'
   WRITE(10,'(A)') '1.4 0 8'
   WRITE(10,'(A)') '$EndPostFormat'
 
-  WRITE(10,'(A)') '$View'
-  WRITE(10,'(A,I)') 'test',1
+10 CONTINUE
 
-  DO i = 1,SIZE(ElemTypeOrder)
-    Code = ElemTypeOrder(i)
-    n = ListElemTypes(code)
-    WRITE(10,'(I8,I8,I8)') n*Nscalars,n*Nvectors,n*Ntensors
-    IF(n > 0) PRINT *,'elements of type',Code,n
+
+  DO Rank = 0,2
+    DO Vari = 1, 99
+      IF( Vari < 10 ) THEN
+        IF(Rank==0) WRITE(Txt,'(A,I2)') 'Scalar Field',Vari
+        IF(Rank==1) WRITE(Txt,'(A,I2)') 'Vector Field',Vari
+        IF(Rank==2) WRITE(Txt,'(A,I2)') 'Tensor Field',Vari
+      ELSE
+        IF(Rank==0) WRITE(Txt,'(A,I3)') 'Scalar Field',Vari
+        IF(Rank==1) WRITE(Txt,'(A,I3)') 'Vector Field',Vari
+        IF(Rank==2) WRITE(Txt,'(A,I3)') 'Tensor Field',Vari
+      END IF
+
+      FieldName = GetString( Solver % Values, TRIM(Txt), Found )
+      IF(.NOT. Found) EXIT
+
+      IF(Rank == 2) THEN
+        CALL Warn('GsmhOutputSolver','Do the tensors')
+        EXIT
+      END IF
+
+      Solution => VariableGet( Solver % Mesh % Variables, FieldName )
+      Perm => Solution % Perm
+      dofs = Solution % DOFs
+    
+      IF( EigenAnalysis ) THEN
+        PRINT *,'Do the eigen values'
+        Nloop = GetInteger( Solver % Values, 'Eigen System Values', Found )
+        IF( .NOT.Found ) Nloop = 1
+        Cvalues => Solution % EigenVectors(Loop,:)
+      ELSE
+        Nloop = 1
+        Values => Solution % Values
+      END IF
+      
+      ! Compute the number of active elements for this particular dof
+      !--------------------------------------------------------------
+      ListElemTypes = 0
+      DO i = 1, ElemNo
+        Element => Model % Mesh % Elements(ElementOrder(i))
+        Code = Element % TYPE % ElementCode
+        IF( ANY(Perm(Element %  NodeIndexes) == 0)) CYCLE
+        ListElemTypes(Code) = ListElemTypes(Code) + 1
+      END DO
+      IF( SUM(ListElemTypes) == 0) CYCLE
+      
+
+      ! Now write the view related to the current dof
+      !--------------------------------------------------------------
+
+      PRINT *,'Saving View for variable: ',TRIM(Solution % Name)
+      
+      WRITE(10,'(A)') '$View'
+      WRITE(10,'(A,I)') TRIM(Solution % Name),1
+
+
+      
+      DO i = 1,SIZE(ElemTypeOrder)
+        Code = ElemTypeOrder(i)
+        n = ListElemTypes(code)
+        IF(Rank == 0) THEN
+          WRITE(10,'(I8,I8,I8)') n,0,0
+        ELSE IF(Rank == 1) THEN
+          WRITE(10,'(I8,I8,I8)') 0,n,0
+        ELSE
+          WRITE(10,'(I8,I8,I8)') 0,0,n
+        END IF
+        ! IF(n > 0) PRINT *,'there are',n,'elements of TYPE',Code
+      END DO
+      
+      ! Saving of names data currently omitted
+      WRITE(10,'(I,I,I,I)') 0,0,0,0
+      
+      IF( TransientSimulation ) THEN
+        TimeVariable => VariableGet( Solver % Mesh % Variables, 'Time' )
+        PRINT *,'Current time=',TimeVariable % Values(1)
+        WRITE(10,'(E16.6)') TimeVariable % Values(1)
+      ELSE IF(.NOT. EigenAnalysis) THEN
+        WRITE(10,'(E16.6)') 1.0*VisitedTimes
+      ELSE
+        DO i=1,Nloop
+          WRITE(10,'(E16.6)') 1.0*i
+        END DO
+      END IF
+      
+      DO i = 1, ElemNo
+        Element => Model % Mesh % Elements(ElementOrder(i))
+        Code = Element % TYPE % ElementCode
+        IF( ANY(Perm(Element %  NodeIndexes) == 0)) CYCLE
+        
+        WRITE(10,'(100E18.8)') Model % Mesh % Nodes % x(Element % NodeIndexes)
+        WRITE(10,'(100E18.8)') Model % Mesh % Nodes % y(Element % NodeIndexes)
+        WRITE(10,'(100E18.8)') Model % Mesh % Nodes % z(Element % NodeIndexes)
+        
+        IF(Rank == 0) THEN
+          DO k = 1, MOD(Code,100)
+            WRITE(10,'(E18.8)') Values(Perm(Element % NodeIndexes(k)))
+          END DO
+        ELSE
+          DO k = 1, MOD(Code,100)
+            ! Always save three components for vectors!
+            DO l = 1, 2
+              WRITE(10,'(E18.8)', ADVANCE='NO') Values(dofs*(Perm(Element % NodeIndexes(k))-1)+l)
+            END DO
+            ! The third component usually only makes sense if it is related to the third coordinate
+            IF(dofs >= 3 .AND. dim >= 3) THEN
+              WRITE(10,'(E18.8)') Values(dofs*(Perm(Element % NodeIndexes(k))-1)+3)           
+            ELSE
+              WRITE(10,'(A)') ' 0.0'
+            END IF
+          END DO
+        END IF
+        
+      END DO
+      WRITE(10,'(A)') '$EndView'
+    END DO
   END DO
 
-  WRITE(10,'(I,I,I,I)') 0,0,0,0
 
+20 CONTINUE
 
-10 CONTINUE
-  
-  ! Save only the time-dependent information if subroutine visited again.
-  !---------------------------------------------------------------------
-  IF( .NOT. FirstTimeStep ) THEN
-    OPEN(UNIT=10, FILE=OutputFile, POSITION='APPEND' )
-  END IF
-  
-  Nloop = 1
-  IF( EigenAnalysis ) THEN
-    Nloop = GetInteger( Solver % Values, 'Eigen System Values', Found )
-    IF( .NOT.Found ) Nloop = 1
-  END IF
+  CLOSE(10)
+  VisitedTimes = VisitedTimes + 1
 
-  IF( TransientSimulation ) THEN
-    TimeVariable => VariableGet( Solver % Mesh % Variables, 'Time' )
-    PRINT *,'Current time=',TimeVariable % Values(1)
-    WRITE(10,'(E16.6)') TimeVariable % Values(1)
-  ELSE IF(.NOT. EigenAnalysis) THEN
-    WRITE(10,'(E16.6)') 1.0
-  ELSE
-    DO i=1,Nloop
-      WRITE(10,'(E16.6)') 1.0
-    END DO
-  END IF
-
-
-  DO j = 1,ElemNo
-    Element => Model % Mesh % Elements(ElementOrder(j))
-    Code = Element % TYPE % ElementCode
-    
-    DO i = 1, Ntot
-      IF( i <= Nscalars) THEN
-        IF( i < 10 ) THEN
-          WRITE(Txt,'(A,I2)') 'Scalar Field',i
-        ELSE
-          WRITE(Txt,'(A,I3)') 'Scalar Field',i
-        END IF
-      ELSE IF(i-Nscalars <= Nvectors) THEN
-         IF( i-Nscalars < 10 ) THEN
-           WRITE(Txt,'(A,I2)') 'Vector Field',i-Nscalars
-         ELSE
-           WRITE(Txt,'(A,I3)') 'Vector Field',i-Nscalars
-         END IF
-       ELSE
-         CALL Warn('GsmhOutputSolver','Do the tensors')
-       END IF
-       
-       FieldName = GetString( Solver % Values, TRIM(Txt), Found )
-       Solution => VariableGet( Solver % Mesh % Variables, FieldName )
-       Perm => Solution % Perm
-       dofs = Solution % DOFs
-
-       IF( .NOT.EigenAnalysis ) THEN
-         Values => Solution % Values
-       ELSE
-         Cvalues => Solution % EigenVectors(Loop,:)
-       END IF
-       
-       WRITE(10,'(100E18.8)') Model % Mesh % Nodes % x(Element % NodeIndexes)
-       WRITE(10,'(100E18.8)') Model % Mesh % Nodes % y(Element % NodeIndexes)
-       WRITE(10,'(100E18.8)') Model % Mesh % Nodes % z(Element % NodeIndexes)
-       
-       IF(i <= Nscalars) THEN
-         DO k = 1, MOD(Code,100)
-           WRITE(10,'(E18.8)') Values(Perm(Element % NodeIndexes(k)))
-         END DO
-       ELSE
-         DO k = 1, MOD(Code,100)
-           DO l = 1, dofs-1
-             WRITE(10,'(E18.8)', ADVANCE='NO') Values(dofs*(Perm(Element % NodeIndexes(k))-1)+l)
-           END DO
-           WRITE(10,'(E18.8)') Values(dofs*Perm(Element % NodeIndexes(k)))           
-         END DO
-       END IF
-       
-     END DO
-   END DO
-   
-   WRITE(10,'(A)') '$EndView'
-   
-   CLOSE(10)
-
-   FirstTimeStep = .FALSE.
-   PRINT *,'Gsmh Output complete.'
+  CALL Info('GsmhOutputSolver','Gmsh output complete')
    
 !------------------------------------------------------------------------------
- END SUBROUTINE GmshOutputSolver
+END SUBROUTINE GmshOutputSolver
 !------------------------------------------------------------------------------
   
 
