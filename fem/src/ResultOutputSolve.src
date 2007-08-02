@@ -21,7 +21,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ResultOutputSolve.src,v 1.14 2007/08/01 08:48:48 raback Exp $
+! * $Id: ResultOutputSolve.src,v 1.15 2007/08/01 09:45:20 raback Exp $
 ! *****************************************************************************
 
 
@@ -601,32 +601,37 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
   COMPLEX(KIND=dp), POINTER :: CValues(:)
   TYPE(Variable_t), POINTER :: TimeVariable
   TYPE(ValueList_t), POINTER :: SolverParams
-
-  LOGICAL :: Found, GotField
+  
+  LOGICAL :: Found, GotField, FileAppend
   LOGICAL :: EigenAnalysis = .FALSE., EigenActive
-
+  
   INTEGER :: VisitedTimes = 0
   INTEGER :: i,j,k,l,m,n,dim,dofs,Code, body_id, Nloop, Loop, Vari, Rank
   INTEGER :: ElemNo, NumberOfAllElements
   INTEGER, PARAMETER :: MaxElemCode = 827
+  INTEGER, TARGET :: PermIndexes(27)
   INTEGER :: ListElemTypes(MaxElemCode)
   INTEGER, ALLOCATABLE :: ElementOrder(:)
+  INTEGER, POINTER :: NodeIndexes(:)
 
-  CHARACTER(LEN=1024) :: OutputFile, Txt, FieldName, CompName
-
+  INTEGER, PARAMETER :: LENGTH = 1024
+  CHARACTER(LEN=LENGTH) :: OutputFile, Txt, FieldName, CompName
+  
   INTEGER :: ElemTypeOrder(15)
-
+  
   SAVE VisitedTimes, ListElemTypes, ElementOrder, ElemNo
-
+  
 !------------------------------------------------------------------------------
   ElemTypeOrder(:) = (/ 101, 202, 303, 404, 504, 808, 706, 605,  &
                         203, 306, 408, 510, 820, 715, 613 /)
-
+  
   CALL Info('GsmhOutputSolver','Saving results in Gmsh format')
-
+  
   SolverParams => GetSolverParams()
   EigenAnalysis = GetLogical( SolverParams, 'Eigen Analysis', Found )
-
+  FileAppend = GetLogical( SolverParams,'File Append',Found)
+  IF(.NOT. Found) FileAppend = .TRUE.
+  
   OutputFile = GetString( Solver % Values, 'Output File Name', Found )
   IF( .NOT.Found ) THEN
     CALL Warn('GmshOutputSolver','Output File Name undefined')
@@ -634,7 +639,7 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
   END IF
 
   dim = CoordinateSystemDimension()
-  IF( VisitedTimes > 0 ) THEN
+  IF( VisitedTimes > 0 .AND. FileAppend ) THEN
     OPEN(UNIT=10, FILE=OutputFile, POSITION='APPEND' )
     GOTO 10    
   ELSE
@@ -646,6 +651,8 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
     WRITE(10,'(A)') '$PostFormat'
     WRITE(10,'(A)') '1.4 0 8'
     WRITE(10,'(A)') '$EndPostFormat'    
+
+    IF( VisitedTimes > 0) DEALLOCATE(ElementOrder)
   END IF
 
   NumberOfAllElements = Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
@@ -724,7 +731,7 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
         IF(Rank==1) WRITE(Txt,'(A,I3)') 'Vector Field',Vari
         IF(Rank==2) WRITE(Txt,'(A,I3)') 'Tensor Field',Vari
       END IF
-
+      
       FieldName = GetString( Solver % Values, TRIM(Txt), Found )
       IF(.NOT. Found) EXIT
 
@@ -732,14 +739,19 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
         CALL Warn('GsmhOutputSolver','Do the tensors')
         EXIT
       END IF
-
+      
       Solution => VariableGet( Solver % Mesh % Variables, FieldName )
+
+      ! Eliminate possible blancos that are problematic for gmsh
+      !---------------------------------------------------------
+      CALL BlancoSubst(FieldName)
+
       Perm => Solution % Perm
       dofs = Solution % DOFs
-    
+      
       EigenActive = .FALSE.
       IF( EigenAnalysis ) EigenActive =  ASSOCIATED(Solution % EigenVectors)
-
+      
       IF(EigenActive) THEN
         PRINT *,'Do the eigen values'
         Cvalues => Solution % EigenVectors(Loop,:)
@@ -755,19 +767,21 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
       DO i = 1, ElemNo
         Element => Model % Mesh % Elements(ElementOrder(i))
         Code = Element % TYPE % ElementCode
-        IF( ANY(Perm(Element %  NodeIndexes) == 0)) CYCLE
+        NodeIndexes => Element % NodeIndexes
+        IF( ANY(Perm(NodeIndexes) == 0)) CYCLE
         ListElemTypes(Code) = ListElemTypes(Code) + 1
       END DO
       IF( SUM(ListElemTypes) == 0) CYCLE
       
-
+      
       ! Now write the view related to the current dof
       !--------------------------------------------------------------
-
-      PRINT *,'Saving View for variable: ',TRIM(Solution % Name)
+      
+      
+      PRINT *,'Saving View for variable: ',TRIM(FieldName)
       
       WRITE(10,'(A)') '$View'
-      WRITE(10,'(A,I)') TRIM(Solution % Name),1
+      WRITE(10,'(A,I)') TRIM(FieldName),1
       
       DO i = 1,SIZE(ElemTypeOrder)
         Code = ElemTypeOrder(i)
@@ -800,25 +814,29 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
       DO i = 1, ElemNo
         Element => Model % Mesh % Elements(ElementOrder(i))
         Code = Element % TYPE % ElementCode
-        IF( ANY(Perm(Element %  NodeIndexes) == 0)) CYCLE
+        NodeIndexes => Element % NodeIndexes
+        IF( ANY(Perm(NodeIndexes) == 0)) CYCLE
         
-        WRITE(10,'(100E18.8)') Model % Mesh % Nodes % x(Element % NodeIndexes)
-        WRITE(10,'(100E18.8)') Model % Mesh % Nodes % y(Element % NodeIndexes)
-        WRITE(10,'(100E18.8)') Model % Mesh % Nodes % z(Element % NodeIndexes)
+        n = element % Type % NumberOfNodes
+        CALL ElmerToGmshIndex(Code,n,NodeIndexes)
+
+        WRITE(10,'(100E18.8)') Model % Mesh % Nodes % x(NodeIndexes(1:n))
+        WRITE(10,'(100E18.8)') Model % Mesh % Nodes % y(NodeIndexes(1:n))
+        WRITE(10,'(100E18.8)') Model % Mesh % Nodes % z(NodeIndexes(1:n))
         
         IF(Rank == 0) THEN
           DO k = 1, MOD(Code,100)
-            WRITE(10,'(E18.8)') Values(Perm(Element % NodeIndexes(k)))
+            WRITE(10,'(E18.8)') Values(Perm(NodeIndexes(k)))
           END DO
         ELSE
           DO k = 1, MOD(Code,100)
             ! Always save three components for vectors!
             DO l = 1, 2
-              WRITE(10,'(E18.8)', ADVANCE='NO') Values(dofs*(Perm(Element % NodeIndexes(k))-1)+l)
+              WRITE(10,'(E18.8)', ADVANCE='NO') Values(dofs*(Perm(NodeIndexes(k))-1)+l)
             END DO
             ! The third component usually only makes sense if it is related to the third coordinate
             IF(dofs >= 3 .AND. dim >= 3) THEN
-              WRITE(10,'(E18.8)') Values(dofs*(Perm(Element % NodeIndexes(k))-1)+3)           
+              WRITE(10,'(E18.8)') Values(dofs*(Perm(NodeIndexes(k))-1)+3)           
             ELSE
               WRITE(10,'(A)') ' 0.0'
             END IF
@@ -835,9 +853,63 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
 
   CLOSE(10)
   VisitedTimes = VisitedTimes + 1
-
+  
   CALL Info('GsmhOutputSolver','Gmsh output complete')
-   
+
+CONTAINS
+
+  SUBROUTINE BlancoSubst(variable_name)
+    ! Subroutine by Kurt Baarman
+
+    IMPLICIT NONE
+    
+    CHARACTER(LEN=LENGTH) :: variable_name
+    CHARACTER(LEN=LENGTH),  PARAMETER :: &
+        NAMESET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_'
+    CHARACTER, PARAMETER :: GOOD = '_', BAD = ' ' 
+    INTEGER :: i, last = LENGTH
+    
+    last = SCAN(variable_name, TRIM(NAMESET), .TRUE.)
+    !WRITE (*,*) 'Original name: ',TRIM(variable_name)
+    
+    i = SCAN(variable_name(1:last), BAD)
+    DO WHILE (i /= 0)! .AND. i < last)
+      variable_name(i:i) = GOOD
+      i = SCAN(variable_name(1:last), BAD)
+    END DO
+    !WRITE (*,*) 'Altered name: ',TRIM(variable_name)
+    
+  END SUBROUTINE BlancoSubst
+
+
+  SUBROUTINE ElmerToGmshIndex(Code,n,NodeIndexes)
+
+    INTEGER :: Code
+    INTEGER, POINTER :: NodeIndexes(:)
+    INTEGER i,n
+
+    SELECT CASE( Code )
+
+    CASE(510)             
+      PermIndexes(1:n) = NodeIndexes(1:n)
+      PermIndexes(10) = NodeIndexes(9)
+      PermIndexes(9) = NodeIndexes(10)
+      NodeIndexes => PermIndexes
+      
+    CASE(306)
+      ! There seems to be conflicting data whether this is needed or not
+      PermIndexes(1:n) = NodeIndexes(1:n)
+      PermIndexes(5) = NodeIndexes(6)
+      PermIndexes(6) = NodeIndexes(5)     
+      NodeIndexes => PermIndexes
+
+    CASE DEFAULT
+            
+    END SELECT
+    
+  END SUBROUTINE ElmerToGmshIndex
+
+
 !------------------------------------------------------------------------------
 END SUBROUTINE GmshOutputSolver
 !------------------------------------------------------------------------------
