@@ -21,7 +21,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ResultOutputSolve.src,v 1.15 2007/08/01 09:45:20 raback Exp $
+! * $Id: ResultOutputSolve.src,v 1.16 2007/08/02 08:29:00 raback Exp $
 ! *****************************************************************************
 
 
@@ -602,7 +602,7 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
   TYPE(Variable_t), POINTER :: TimeVariable
   TYPE(ValueList_t), POINTER :: SolverParams
   
-  LOGICAL :: Found, GotField, FileAppend
+  LOGICAL :: Found, GotField, FileAppend, AlterTopology
   LOGICAL :: EigenAnalysis = .FALSE., EigenActive
   
   INTEGER :: VisitedTimes = 0
@@ -631,6 +631,7 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
   EigenAnalysis = GetLogical( SolverParams, 'Eigen Analysis', Found )
   FileAppend = GetLogical( SolverParams,'File Append',Found)
   IF(.NOT. Found) FileAppend = .TRUE.
+  AlterTopology = GetLogical( SolverParams,'Alter Topology',Found)
   
   OutputFile = GetString( Solver % Values, 'Output File Name', Found )
   IF( .NOT.Found ) THEN
@@ -639,21 +640,29 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
   END IF
 
   dim = CoordinateSystemDimension()
-  IF( VisitedTimes > 0 .AND. FileAppend ) THEN
-    OPEN(UNIT=10, FILE=OutputFile, POSITION='APPEND' )
-    GOTO 10    
-  ELSE
-    ! Save the one-time information
-    !-------------------------------------------------
-    PRINT *,'Output File Name = ',TRIM(OutputFile)
-    OPEN(UNIT=10, FILE=OutputFile )
-    
-    WRITE(10,'(A)') '$PostFormat'
-    WRITE(10,'(A)') '1.4 0 8'
-    WRITE(10,'(A)') '$EndPostFormat'    
-
-    IF( VisitedTimes > 0) DEALLOCATE(ElementOrder)
+  IF( VisitedTimes > 0 ) THEN
+    IF ( AlterTopology ) THEN
+      OPEN(UNIT=10, FILE=OutputFile, POSITION='APPEND' )
+      GOTO 5    
+    END IF
+    IF ( FileAppend ) THEN
+      OPEN(UNIT=10, FILE=OutputFile, POSITION='APPEND' )
+      GOTO 10    
+    END IF
   END IF
+
+  ! Save the one-time information
+  !-------------------------------------------------
+  PRINT *,'Output File Name = ',TRIM(OutputFile)
+  OPEN(UNIT=10, FILE=OutputFile )
+  
+  WRITE(10,'(A)') '$PostFormat'
+  WRITE(10,'(A)') '1.4 0 8'
+  WRITE(10,'(A)') '$EndPostFormat'    
+  
+5 CONTINUE
+
+  IF( VisitedTimes > 0) DEALLOCATE(ElementOrder)
 
   NumberOfAllElements = Model % NumberOfBulkElements + Model % NumberOfBoundaryElements
   ALLOCATE(ElementOrder(NumberOfAllElements))
@@ -665,7 +674,7 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
     Code = Element % TYPE % ElementCode
     ListElemTypes(Code) = ListElemTypes(Code)+1
   END DO
-  PRINT *,'Total number of elements =',SUM(ListElemTypes)
+  ! PRINT *,'Total number of elements =',SUM(ListElemTypes)
 
   ! Order the elements so that they are saved in the order defined by the 
   ! ElemTypeOrder vector. 
@@ -817,7 +826,7 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
         NodeIndexes => Element % NodeIndexes
         IF( ANY(Perm(NodeIndexes) == 0)) CYCLE
         
-        n = element % Type % NumberOfNodes
+        n = element % TYPE % NumberOfNodes
         CALL ElmerToGmshIndex(Code,n,NodeIndexes)
 
         WRITE(10,'(100E18.8)') Model % Mesh % Nodes % x(NodeIndexes(1:n))
