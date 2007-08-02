@@ -23,7 +23,6 @@ biblio:
 	bibtex linearplate/linearplate
 	bibtex linearrestriction/linearrestriction
 	bibtex navier-stokes/navier-stokes
-	bibtex operatorsplitting/operatorsplitting
 	bibtex PoissonBoltzmann/PoissonBoltzmann
 
 chmod:
