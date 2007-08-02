@@ -21,7 +21,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ResultOutputSolve.src,v 1.16 2007/08/02 08:29:00 raback Exp $
+! * $Id: ResultOutputSolve.src,v 1.17 2007/08/02 09:58:46 raback Exp $
 ! *****************************************************************************
 
 
@@ -790,7 +790,7 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
       PRINT *,'Saving View for variable: ',TRIM(FieldName)
       
       WRITE(10,'(A)') '$View'
-      WRITE(10,'(A,I)') TRIM(FieldName),1
+      WRITE(10,'(A,I8)') TRIM(FieldName),1
       
       DO i = 1,SIZE(ElemTypeOrder)
         Code = ElemTypeOrder(i)
@@ -806,7 +806,7 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
       END DO
       
       ! Saving of names data currently omitted
-      WRITE(10,'(I,I,I,I)') 0,0,0,0
+      WRITE(10,'(I8,I8,I8,I8)') 0,0,0,0
       
       IF( TransientSimulation ) THEN
         TimeVariable => VariableGet( Solver % Mesh % Variables, 'Time' )
