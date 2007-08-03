@@ -3,10 +3,10 @@
 \noindent
 \modinfo{Module name}{\Idx{ResultOutputSolve}}
 \modinfo{Module subroutines}{ResultOutputSolver}
-\modinfo{Module authors}{Erik Edelmann, Mikko Lyly}
+\modinfo{Module authors}{Erik Edelmann, Mikko Lyly, Peter Råback}
 \modinfo{Document authors}{Peter Råback}
 \modinfo{Document created}{11.12.2006}
-\modinfo{Document edited}{12.12.2006}
+\modinfo{Document edited}{3.8.2007}
 
 \section{Introduction}
 
@@ -14,7 +14,7 @@ This subroutine is intended for saving data in other than the native format
 of Elmer -- ElmerPost. The reason for using another postprocessing tool might
 be that some feature is missing in ElmerPost, or that the user is more aquinted 
 with some other visuzalition software. Currently supported formats include
-\Idx{GiD}, \Idx{VTK} legacy, and \Idx{Open DX}.
+\Idx{GiD}, \Idx{Gmsh}, \Idx{VTK} legacy, and \Idx{Open DX}.
 
 
 \section{Keywords}
@@ -27,10 +27,16 @@ The name of the equation. This is actually not much needed
 since there are no degrees of freedom associated with this solver.
 \sifitem{Procedure}{File "ResultOutputSolve"\ "ResultOutputSolver"}
 The name of the file and subroutine. 
+%
+\sifitem{Output File Name}{File}
+Specifies the name of the output file. 
+%
 \sifitem{Output Format}{String}
 This keyword the output format of choice. 
-The choices are \texttt{gid, vtk}, and \texttt{dx}. 
+The choices are \texttt{gid, gsmh, vtk}, and \texttt{dx}. 
+%
 \sifitemnt{Gid Format}{Logical}
+\sifitemnt{Gmsh Format}{Logical}
 \sifitemnt{Vtk Format}{Logical}
 \sifitem{Dx Format}{Logical}
 The user may also use the above logical keywords to set which of the formats is saved. 
@@ -38,7 +44,7 @@ This has more flexibility in that there may be several formats that are saved
 simultaneously where the \texttt{Output Format} keyword may only be used to activate one 
 solution type. 
 \sifend
-The following keywords related only to the GiD format. In other formats all available 
+The following keywords related only to the GiD and Gsmh formats. In the other formats all available 
 degrees of freedom are saved. 
 \sifbegin
 \sifitem{Scalar Field i}{String}
