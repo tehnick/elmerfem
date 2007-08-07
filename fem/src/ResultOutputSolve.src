@@ -21,7 +21,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ResultOutputSolve.src,v 1.17 2007/08/02 09:58:46 raback Exp $
+! * $Id: ResultOutputSolve.src,v 1.18 2007/08/02 11:14:32 baarman Exp $
 ! *****************************************************************************
 
 
@@ -835,17 +835,20 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
         
         IF(Rank == 0) THEN
           DO k = 1, MOD(Code,100)
-            WRITE(10,'(E18.8)') Values(Perm(NodeIndexes(k)))
+            ! NOTE: FMT currently allows writing of three digit exponents
+            ! This limitiation is also present below for
+            ! 2 and 3 dimensional fields.
+            WRITE(10,'(E18.8E3)') Values(Perm(NodeIndexes(k)))
           END DO
         ELSE
           DO k = 1, MOD(Code,100)
             ! Always save three components for vectors!
             DO l = 1, 2
-              WRITE(10,'(E18.8)', ADVANCE='NO') Values(dofs*(Perm(NodeIndexes(k))-1)+l)
+              WRITE(10,'(E18.8E3)', ADVANCE='NO') Values(dofs*(Perm(NodeIndexes(k))-1)+l)
             END DO
             ! The third component usually only makes sense if it is related to the third coordinate
             IF(dofs >= 3 .AND. dim >= 3) THEN
-              WRITE(10,'(E18.8)') Values(dofs*(Perm(NodeIndexes(k))-1)+3)           
+              WRITE(10,'(E18.8E3)') Values(dofs*(Perm(NodeIndexes(k))-1)+3)           
             ELSE
               WRITE(10,'(A)') ' 0.0'
             END IF
