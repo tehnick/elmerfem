@@ -21,7 +21,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ResultOutputSolve.src,v 1.18 2007/08/02 11:14:32 baarman Exp $
+! * $Id: ResultOutputSolve.src,v 1.19 2007/08/07 10:28:36 baarman Exp $
 ! *****************************************************************************
 
 
@@ -616,6 +616,7 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
 
   INTEGER, PARAMETER :: LENGTH = 1024
   CHARACTER(LEN=LENGTH) :: OutputFile, Txt, FieldName, CompName
+  CHARACTER(LEN=6), PARAMETER :: BodyIdField = 'bodyid'
   
   INTEGER :: ElemTypeOrder(15)
   
@@ -625,7 +626,7 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
   ElemTypeOrder(:) = (/ 101, 202, 303, 404, 504, 808, 706, 605,  &
                         203, 306, 408, 510, 820, 715, 613 /)
   
-  CALL Info('GsmhOutputSolver','Saving results in Gmsh format')
+  CALL Info('GmshOutputSolver','Saving results in Gmsh format')
   
   SolverParams => GetSolverParams()
   EigenAnalysis = GetLogical( SolverParams, 'Eigen Analysis', Found )
@@ -708,20 +709,23 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
       END IF
 
       FieldName = GetString( Solver % Values, TRIM(Txt), Found )
-      IF(.NOT. Found) EXIT
-
+      IF(.NOT. Found) EXIT 
       IF( Rank == 2) THEN
         CALL Warn('GmshOutputSolver','Not implemented yet for tensors!')
         CYCLE
       END IF
 
       Solution => VariableGet( Solver % Mesh % Variables, FieldName )
-      IF(ASSOCIATED(Solution)) GotField = .TRUE.
+      IF(ASSOCIATED(Solution)) THEN
+        GotField = .TRUE.
+      ELSE IF (FieldName==BodyIdField .AND. Rank==0) THEN
+        GotField = .TRUE.
+      END IF
     END DO
   END DO
 
   IF(.NOT. GotField) THEN
-    CALL Warn('GsmhOutputSolver','No variables defined for saving')
+    CALL Warn('GmshOutputSolver','No variables defined for saving')
     GOTO 20
   END IF
 
@@ -745,11 +749,24 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
       IF(.NOT. Found) EXIT
 
       IF(Rank == 2) THEN
-        CALL Warn('GsmhOutputSolver','Do the tensors')
+        CALL Warn('GmshOutputSolver','Do the tensors')
         EXIT
       END IF
       
       Solution => VariableGet( Solver % Mesh % Variables, FieldName )
+      IF(.NOT. ASSOCIATED(Solution)) THEN
+        IF(FieldName == BodyIdField .AND. Rank==0) THEN
+          ! Gmsh Doesn't seem to be capable of extracting a physical
+          ! volume. One workaround is to create a scalar field with
+          ! nodal values equal to the body id of the element.
+          CALL Warn('GmshOutputSolver', 'Implement Body Id output!')
+        ELSE
+          WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
+          CALL Warn('GmshOutputSolver', Txt)
+        END IF
+        CYCLE
+      END IF
+        
 
       ! Eliminate possible blancos that are problematic for gmsh
       !---------------------------------------------------------
@@ -866,7 +883,7 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
   CLOSE(10)
   VisitedTimes = VisitedTimes + 1
   
-  CALL Info('GsmhOutputSolver','Gmsh output complete')
+  CALL Info('GmshOutputSolver','Gmsh output complete')
 
 CONTAINS
 
