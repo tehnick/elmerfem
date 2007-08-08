@@ -29,10 +29,10 @@
 /* #undef DEC_ALPHA */
 
 /* "Mangling: lower case */
-#define ELMER_LINKTYP 1
+#define ELMER_LINKTYP 4
 
 /* Elmer solver default install directory */
-#define ELMER_SOLVER_HOME "/tmp/jpr/gcc/share/elmersolver"
+#define ELMER_SOLVER_HOME "/mnt/nas3/wrk/apursula/elm5.3/share/elmersolver"
 
 /* Define if using dynamic linking */
 #define ENABLE_DYNAMIC_LINKING 1
@@ -46,7 +46,7 @@
 #define F77_FUNC(name,NAME) name ## _
 
 /* As F77_FUNC, but for C identifiers containing underscores. */
-#define F77_FUNC_(name,NAME) name ## _
+#define F77_FUNC_(name,NAME) name ## __
 
 /* Char pointer mangling */
 #define FC_CHAR_PTR(P,L) char *P
@@ -63,7 +63,7 @@
 #define FC_FUNC(name,NAME) name ## _
 
 /* As FC_FUNC, but for C identifiers containing underscores. */
-#define FC_FUNC_(name,NAME) name ## _
+#define FC_FUNC_(name,NAME) name ## __
 
 /* Define if you have a ARPACK library. */
 #define HAVE_ARPACK 1
@@ -208,10 +208,10 @@
 /* #undef SIZEOF_LONG */
 
 /* The size of `off_t', as computed by sizeof. */
-#define SIZEOF_OFF_T 4
+#define SIZEOF_OFF_T 8
 
 /* The size of `void*', as computed by sizeof. */
-#define SIZEOF_VOIDP 0
+#define SIZEOF_VOIDP 8
 
 /* Detected platform. */
 /* #undef SOLARIS */
