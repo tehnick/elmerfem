@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SaveData.src,v $
+! * Revision 1.38  2007/06/07 11:49:22  jpr
+! * Some uinitialized variable accesses.
+! *
 ! * Revision 1.37  2007/05/28 10:42:41  zwinger
 ! * Added exclusion of halo element for routine SaveBoundaryValues
 ! *
@@ -160,7 +163,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       MaxVars, NoEigenValues, Ind, EigenDofs
   REAL (KIND=DP) :: CPUTime, CPUMemory
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.37 2007/05/28 10:42:41 zwinger Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.38 2007/06/07 11:49:22 jpr Exp $"
 
   SAVE SubroutineVisited, NumberOfVars, &
       NoPoints, PointIndex, CoordinateIndex, CoordinateDist, ResultPrefix, &
@@ -400,7 +403,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     END IF
       
     VariableName = ListGetString( Solver % Values, TRIM(Name), GotVar )
-    
+
     IF(GotVar) THEN      
       ! Check first two special case with no variables on the list
       IF(TRIM(VariableName) == 'cpu time') THEN
@@ -426,6 +429,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     END IF
     
     IF(.NOT. ASSOCIATED(Var)) CYCLE 
+
     
     IF(SIZE(Var % Values) == 1) THEN
       IF(.NOT. GotVar) CYCLE
@@ -451,7 +455,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     CoefficientName = ListGetString(Solver % Values,TRIM(Name),GotCoeff )
 
     IF ( GotOper ) THEN
-      
+
       SELECT CASE(Oper)
         
       CASE ('dofs','sum','max','min','max abs','min abs','mean','variance') 
@@ -493,9 +497,10 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         BoundaryFluxes = 0.0d0                 
         Minimum = 0.0d0
         Maximum = 0.0d0
+
         CALL BoundaryIntegrals(Var, Oper, GotCoeff, CoefficientName,&
             BoundaryFluxes,BoundaryHits)
-        
+
         DO j=1,Model % NumberOfBCs
            IF( ListGetLogical(Model % BCs(j) % Values,'Flux Integrate',gotIt ) .OR. &
                ListGetLogical(Model % BCs(j) % Values,'Save Scalars',gotIt ) ) THEN
@@ -538,6 +543,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       
     END IF
   END DO
+
 
   
   !------------------------------------------------------------------------------
@@ -1397,11 +1403,11 @@ CONTAINS
 
 
         CASE ('area')
-          i = ListGetInteger( Model % Bodies(Element % BodyId) % Values, 'Material', &
-              minv=1, maxv=Model % NumberOFMaterials )
-          Material => Model % Materials(i) % Values
-          IF(GotCoeff) THEN
-            EnergyCoeff(1:n) = ListGetReal( Material, CoeffName, n, NodeIndexes )
+           IF(GotCoeff) THEN
+             i = ListGetInteger( Model % Bodies(Element % BodyId) % Values, 'Material', &
+                 minv=1, maxv=Model % NumberOFMaterials )
+             Material => Model % Materials(i) % Values
+             EnergyCoeff(1:n) = ListGetReal( Material, CoeffName, n, NodeIndexes )
           ELSE
             EnergyCoeff(1:n) = 1.0d0
           END IF
@@ -2086,7 +2092,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t), POINTER   :: CurrentElement, NextElement
   CHARACTER(LEN=MAX_NAME_LEN) :: SideFile, SideNamesFile, VarName, CondName, SideParFile
   CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: ValueNames(:)
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.37 2007/05/28 10:42:41 zwinger Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.38 2007/06/07 11:49:22 jpr Exp $"
 
   LOGICAL :: cand, Parallel
 
