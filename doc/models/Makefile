@@ -2,10 +2,11 @@ SHELL = /bin/sh
 
 manual: 
 	pdflatex manual
-	makeindex manual
 	make biblio
+	makeindex manual
 	pdflatex manual
 	make biblio
+	makeindex manual
 	pdflatex manual
 
 update:
