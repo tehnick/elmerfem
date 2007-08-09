@@ -1,0 +1,71 @@
+\chapter{Reload existing simulation results}
+
+\noindent
+\modinfo{Module name}{\Idx{ReloadData}}
+\modinfo{Module subroutines}{\Idx{ReloadSolution}}
+\modinfo{Module authors}{Antti Pursula}
+\modinfo{Document authors}{Antti Pursula}
+\modinfo{Document created}{August 9th 2007}
+
+
+\section{Introduction}
+
+This subroutine is intended for repeated loading of existing results
+during simulation. An example of a typical application is to use
+previously computed fluid flow as a convection field for the transfer
+of a passive scalar variable. The module is implemented as a dummy
+solver which is defined in the command file just as the 'normal'
+solvers.
+
+This module offers extended features compared to the \texttt{\Idx{Restart
+File}} option in the \texttt{Simulation} section. The module reads a new
+solution step from the solution file on each timestep, whereas the
+restart file option reads only the initial state for a simulation.
+
+The module reads in all the available variales from the solution
+file. The solution file should be in the mesh directory. If the
+simulation takes more than a single steady state iteration per time
+step it is advicable to use \texttt{Exec Solver = Before Timestep} for
+this module.
+
+
+\section{Keywords}
+
+\sifbegin
+\sifitemnt{Solver}{solver id}
+\sifbegin
+\sifitem{Equation}{String "Reload Data"}
+The name of the equation. This is actually not much needed 
+since there are no degrees of freedom associated with this solver.
+
+\sifitem{Procedure}{File "ReloadData"\ "ReloadSolution"}
+The name of the file and subroutine. 
+\sifitem{Reload Solution File}{String "flow-data.dat"}
+The name of the old solution data file, eg. flow-data.dat
+
+\sifitem{Reload Starting Position}{Integer}
+The index of the timestep where to start reading. If the keyword is
+not given the reading is started from the first step in the file, or
+from the beginning of the reload range, if specified.
+
+\sifitemnt{Reload Range Minimum}{Integer}
+\sifitem{Reload Range Maximum}{Integer}
+The beginning and the end of the reading range. The timesteps on the
+range are read in cyclically if the current simulation has
+more timesteps than what there are on the range. 
+
+\sifitem{Reload Reading Intervals}{Integer}
+Defines the interval for reading in old results, defaults to 1. An
+integer $i$ larger than 1 defines that results are read in only on
+every $i$th timestep. However, consecutive steps are read in
+regardless of the value of $i$.
+
+\sifitem{Continuous Reading}{Logical True}
+When set to {\tt True} the reload solution file is kept open also between
+the timesteps. However, when reading is not started at the first
+solution step, or when the old solution is read in cyclically, it is
+advicable to switch this feature off. Defining {\tt False} will slow down
+reading especially from large ASCII files. 
+\sifend
+\sifend
+
