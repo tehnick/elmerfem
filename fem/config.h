@@ -29,10 +29,10 @@
 /* #undef DEC_ALPHA */
 
 /* "Mangling: lower case */
-#define ELMER_LINKTYP 4
+#define ELMER_LINKTYP 1
 
 /* Elmer solver default install directory */
-#define ELMER_SOLVER_HOME "/mnt/nas3/wrk/apursula/elm5.3/share/elmersolver"
+#define ELMER_SOLVER_HOME "/wrk/jpr/share/elmersolver"
 
 /* Define if using dynamic linking */
 #define ENABLE_DYNAMIC_LINKING 1
@@ -46,7 +46,7 @@
 #define F77_FUNC(name,NAME) name ## _
 
 /* As F77_FUNC, but for C identifiers containing underscores. */
-#define F77_FUNC_(name,NAME) name ## __
+#define F77_FUNC_(name,NAME) name ## _
 
 /* Char pointer mangling */
 #define FC_CHAR_PTR(P,L) char *P
@@ -63,7 +63,7 @@
 #define FC_FUNC(name,NAME) name ## _
 
 /* As FC_FUNC, but for C identifiers containing underscores. */
-#define FC_FUNC_(name,NAME) name ## __
+#define FC_FUNC_(name,NAME) name ## _
 
 /* Define if you have a ARPACK library. */
 #define HAVE_ARPACK 1
