@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MainUtils.src,v $
+! * Revision 1.32  2007/08/15 09:44:02  jpr
+! * Changes to update convergence criteria computations (Peter,Juha).
+! *
 ! * Revision 1.31  2007/05/31 09:30:01  jpr
 ! * *** empty log message ***
 ! *
@@ -117,7 +120,7 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.src,v 1.31 2007/05/31 09:30:01 jpr Exp $
+! * $Id: MainUtils.src,v 1.32 2007/08/15 09:44:02 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MainUtils
@@ -1186,7 +1189,11 @@ CONTAINS
                     'Timestepping Method', Found ) == 'runge-kutta'
           END IF
 
- 	  n = SIZE(Solver % Variable % Values)
+          n = 0
+          IF ( ASSOCIATED(Solver % Variable) ) THEN
+            IF ( ASSOCIATED(Solver % Variable % Values) ) &
+              n = SIZE(Solver % Variable % Values)
+          END IF
 
 !------------------------------------------------------------------------------
           Relaxation = ListGetConstReal( Solver % Values, &
@@ -1196,7 +1203,7 @@ CONTAINS
           NeedSol = ( ListGetString( Solver % Values, &
               'Steady State Convergence Measure', Stat ) == 'solution')  
 
-          IF ( Relax .OR. NeedSol ) THEN
+          IF ( Relax .OR. NeedSol .AND. n>0 ) THEN
             Stat = ASSOCIATED(Solver % Variable % SteadyValues)
             IF(Stat .AND. SIZE(Solver % Variable % SteadyValues) /= n) THEN
               DEALLOCATE(Solver % Variable % SteadyValues)
@@ -1209,7 +1216,7 @@ CONTAINS
             Solver % Variable % SteadyValues(1:n) = Solver % Variable % Values(1:n)
           END IF
 
-          IF ( RungeKutta ) THEN
+          IF ( RungeKutta .AND. n>0 ) THEN
 
             SELECT CASE( Solver % Order )
             CASE(2)
