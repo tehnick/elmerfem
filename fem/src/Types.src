@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: Types.src,v 1.14 2007/03/29 12:20:08 jpr Exp $
+! * $Id: Types.src,v 1.15 2007/05/04 05:38:08 jpr Exp $
 ! ******************************************************************************
 
 #include "../config.h"
@@ -316,9 +316,10 @@ MODULE Types
 
      INTEGER :: DOFs
      INTEGER, POINTER          :: Perm(:)
-     REAL(KIND=dp)             :: Norm
+     REAL(KIND=dp)             :: Norm, PrevNorm,NonlinChange, SteadyChange
      COMPLEX(KIND=dp), POINTER :: EigenValues(:),EigenVectors(:,:)
-     REAL(KIND=dp),    POINTER :: Values(:),PrevValues(:,:),PValues(:)
+     REAL(KIND=dp),    POINTER :: Values(:),PrevValues(:,:),PValues(:),&
+	NonlinValues(:), SteadyValues(:)
    END TYPE Variable_t
 
 !------------------------------------------------------------------------------

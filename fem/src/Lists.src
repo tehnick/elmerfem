@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Lists.src,v $
+! * Revision 1.34  2007/05/10 10:42:55  jpr
+! * Some handoptimizations.
+! *
 ! * Revision 1.32  2007/02/07 11:42:22  jpr
 ! * Enabled "Exported Variable n" defintions of "Internal Solvers". Added
 ! * keyword "Radiation Solver" to use if "Equation=Heat Equation" solver
@@ -91,7 +94,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Lists.src,v 1.33 2007/05/08 13:12:15 jpr Exp $
+! * $Id: Lists.src,v 1.34 2007/05/10 10:42:55 jpr Exp $
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
@@ -571,7 +574,11 @@ CONTAINS
       ptr % Values => Values
       NULLIFY( ptr % PrevValues )
       NULLIFY( ptr % EigenValues, ptr % EigenVectors )
-   
+
+      ptr % NonlinChange = 0.0_dp
+      ptr % SteadyChange = 0.0_dp
+      NULLIFY( ptr % NonlinValues, ptr % SteadyValues )
+
       ptr % Solver => Solver
       ptr % PrimaryMesh => Mesh
 

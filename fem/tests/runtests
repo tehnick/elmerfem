@@ -31,7 +31,7 @@ if test "$ELMER_HOME" = ""; then
     export ELMER_MESH2D="Mesh2D"
     export LD_LIBRARY_PATH=".:$ELMER_HOME:$LD_LIBRARY_PATH"
     # assume that stuff has been installed here
-    export PATH=/mnt/nas3/wrk/apursula/elm5.3/bin:$PATH
+    export PATH=/wrk/jpr/bin:$PATH
 else 
     # ELMER_HOME is defined, so we'll just use that
     printf "\$ELMER_HOME=%s\n" $ELMER_HOME
@@ -47,8 +47,8 @@ fi
 #
 # Autoconf substitutes these variables with correct values.
 #
-export F90="pathf90 -O -m64 -fPIC -fPIC -I. -Ibinio -I. -I$ELMER_INCLUDE"
-export LD="pathf90 -shared  -m64 -fPIC"
+export F90="gfortran -O -m64 -fPIC -fPIC -I. -Ibinio -I. -I$ELMER_INCLUDE"
+export LD="gfortran -shared  -m64 -fPIC"
 export LIBS="-L$ELMER_LIB "
 
 gcc -o findnorm$EXE_EXT findnorm.c

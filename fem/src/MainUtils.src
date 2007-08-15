@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MainUtils.src,v $
+! * Revision 1.31  2007/05/31 09:30:01  jpr
+! * *** empty log message ***
+! *
 ! * Revision 1.30  2007/05/11 10:29:12  jpr
 ! * Small cleanups.
 ! *
@@ -114,7 +117,7 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.src,v 1.30 2007/05/11 10:29:12 jpr Exp $
+! * $Id: MainUtils.src,v 1.31 2007/05/31 09:30:01 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MainUtils
@@ -853,6 +856,7 @@ CONTAINS
          Solver % SolverExecWhen = SOLVER_EXEC_ALWAYS
     END SELECT
 
+
     IF ( ListGetLogical( Solver % Values, 'Before All', Found ) ) THEN
        Solver % SolverExecWhen = SOLVER_EXEC_AHEAD_ALL
     ELSE IF ( ListGetLogical( Solver % Values, 'Before Simulation', Found ) ) THEN
@@ -1087,14 +1091,14 @@ CONTAINS
     INTEGER :: CoupledMinIter, CoupledMaxIter
     LOGICAL :: TransientSimulation, SteadyStateReached
 !------------------------------------------------------------------------------
-    REAL(KIND=dp) :: PrevNorm, RelativeChange, Tolerance, PrevDT = 0.0d0
-    INTEGER :: i,j,k,n,ierr
-    LOGICAL :: Found, AbsNorm, Convergence, RungeKutta, MeActive
+    REAL(KIND=dp) :: RelativeChange, Tolerance, PrevDT = 0.0d0, Relaxation
+    INTEGER :: i,j,k,n,ierr,istat
+    LOGICAL :: Found, Stat, AbsNorm, Convergence, RungeKutta, MeActive, Relax, NeedSol
     LOGICAL, ALLOCATABLE :: DoneThis(:)
     TYPE(Solver_t), POINTER :: Solver
     TYPE(Mesh_t),   POINTER :: Mesh
     CHARACTER(LEN=max_name_len) :: When
-    REAL(KIND=dp), ALLOCATABLE :: k1(:), k2(:), k3(:), k4(:)
+    REAL(KIND=dp), ALLOCATABLE :: k1(:), k2(:), k3(:), k4(:), Values0(:)
 !------------------------------------------------------------------------------
 
 
@@ -1104,14 +1108,14 @@ CONTAINS
     IF ( TransientSimulation ) THEN
        DO k=1,Model % NumberOfSolvers
           Solver => Model % Solvers(k)
-          IF ( Solver % Procedure/=0 ) CALL InitializeTimestep( Solver )
+          IF ( Solver % PROCEDURE/=0 ) CALL InitializeTimestep( Solver )
        END DO
     END IF
 !------------------------------------------------------------------------------
 
     DO k=1,Model % NumberOfSolvers
       Solver => Model % Solvers(k)
-      IF ( Solver % Procedure==0 ) CYCLE
+      IF ( Solver % PROCEDURE==0 ) CYCLE
 
       when  = ListGetString( Solver % Values, 'Exec Solver', Found )
       IF ( Found ) THEN
@@ -1157,7 +1161,7 @@ CONTAINS
        DO k=1,Model % NumberOfSolvers
 !------------------------------------------------------------------------------
           Solver => Model % Solvers(k)
-          IF ( Solver % Procedure==0 ) THEN
+          IF ( Solver % PROCEDURE==0 ) THEN
              DoneThis(k) = .TRUE.
              CYCLE
           END IF
@@ -1182,9 +1186,30 @@ CONTAINS
                     'Timestepping Method', Found ) == 'runge-kutta'
           END IF
 
-          PrevNorm = Solver % Variable % Norm
+ 	  n = SIZE(Solver % Variable % Values)
+
+!------------------------------------------------------------------------------
+          Relaxation = ListGetConstReal( Solver % Values, &
+              'Steady State Relaxation Factor', Relax )
+          Relax = Relax .AND. (Relaxation /= 1.0d0)
+
+          NeedSol = ( ListGetString( Solver % Values, &
+              'Steady State Convergence Measure', Stat ) == 'solution')  
+
+          IF ( Relax .OR. NeedSol ) THEN
+            Stat = ASSOCIATED(Solver % Variable % SteadyValues)
+            IF(Stat .AND. SIZE(Solver % Variable % SteadyValues) /= n) THEN
+              DEALLOCATE(Solver % Variable % SteadyValues)
+              Stat = .FALSE.
+            END IF
+            IF(.NOT. Stat) THEN
+              ALLOCATE( Solver % Variable % SteadyValues(n), STAT=istat ) 
+              IF ( istat /= 0 ) CALL Fatal( 'SolveEquations', 'Memory allocation error.' )
+            END IF
+            Solver % Variable % SteadyValues(1:n) = Solver % Variable % Values(1:n)
+          END IF
+
           IF ( RungeKutta ) THEN
-            n = SIZE(Solver % Variable % Values)
 
             SELECT CASE( Solver % Order )
             CASE(2)
@@ -1222,48 +1247,39 @@ CONTAINS
                                 ( k1 + 2*k2 + 2*k3 + k4 ) / 6
               DEALLOCATE( k1, k2, k3, k4 )
             END SELECT
-            Solver %  Variable % Norm = &
-                    SQRT( SUM( Solver % Variable % Values(1:n)**2 ) / n )
+!            Solver %  Variable % Norm = &
+!                    SQRT( SUM( Solver % Variable % Values(1:n)**2 ) / n )
+             Solver % Variable % Norm = ComputeNorm(Solver, n, Solver % Variable % Values)
           ELSE
              CALL SolverActivate( Model,Solver,dt,TransientSimulation )
-          END IF
+         END IF
 !------------------------------------------------------------------------------
 !         check for coupled system convergence
 !------------------------------------------------------------------------------
           IF ( i >= CoupledMinIter .OR. .NOT. TransientSimulation ) THEN
              IF ( i /= CoupledMaxIter .OR. .NOT. TransientSimulation ) THEN
-                IF ( PrevNorm + Solver % Variable % Norm == 0.0d0 ) THEN
-                   RelativeChange = 0.0d0
-                ELSE
-                   RelativeChange = 2.0d0*ABS(PrevNorm-Solver % Variable % Norm)/&
-                            ( PrevNorm + Solver % Variable % Norm )
-                END IF
 
-                WRITE( Message, '(a,g20.12,g20.12,a)') &
-                  '(NRM,RELC): (',Solver % Variable % Norm, RelativeChange, &
-                      '  ) :: ' // TRIM(ListGetString( Solver % Values, 'Equation'))
-                CALL Info( 'SolveEquations', Message, Level=3 )
-
-                absnorm = ListGetLogical( Solver % Values, &
-                        'Use Absolute Norm for Convergence', Found )
-                IF ( .NOT. Found ) absnorm = .FALSE.
-
-                Tolerance = ListGetConstReal( Solver % Values,   &
-                              'Steady State Convergence Tolerance', Found ) 
-
-                Convergence = .FALSE.
-                Convergence = Convergence .OR. &
-                   (RelativeChange < Tolerance) .AND. .NOT. Absnorm
-                Convergence = Convergence .OR. &
-                    (Solver % Variable % Norm < Tolerance) .AND. Absnorm
-
-                IF ( Found .AND. .NOT. Convergence ) THEN
-                   DoneThis(k) = .FALSE.
-                ELSE
-                   DoneThis(k) = .TRUE.
-                END IF
+               CALL ComputeChange(Solver,.TRUE.)
+               RelativeChange = Solver % Variable % SteadyChange	
+               
+               WRITE( Message, '(a,g20.12,g20.12,a)') &
+                   '(NRM,RELC): (',Solver % Variable % Norm, RelativeChange, &
+                   '  ) :: ' // TRIM(ListGetString( Solver % Values, 'Equation'))
+               CALL Info( 'SolveEquations', Message, Level=3 )
+               
+               Tolerance = ListGetConstReal( Solver % Values,   &
+                   'Steady State Convergence Tolerance', Found ) 
+               
+               IF ( Found ) THEN
+                 DoneThis(k) = (RelativeChange < Tolerance)
+               ELSE
+                 DoneThis(k) = .TRUE.
+               END IF
              END IF
-          END IF
+	  END IF
+
+	  Solver % Variable % PrevNorm = Solver % Variable % Norm
+
           CALL ParallelAllReduceAnd( DoneThis(k) )
           IF( ALL(DoneThis) ) EXIT
 !------------------------------------------------------------------------------
@@ -1293,7 +1309,7 @@ CONTAINS
 
     DO k=1,Model % NumberOfSolvers
       Solver => Model % Solvers(k)
-      IF ( Solver % Procedure==0 ) CYCLE
+      IF ( Solver % PROCEDURE==0 ) CYCLE
 
       When = ListGetString( Solver % Values, 'Exec Solver', Found )
       IF (  Found ) THEN

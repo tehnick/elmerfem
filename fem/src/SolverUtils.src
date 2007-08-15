@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.73  2007/05/04 11:37:54  jpr
+! * Some parallel solver updates.
+! *
 ! * Revision 1.72  2007/05/03 11:04:52  jpr
 ! * Linear system scaling applied to parallel cases. A bug fix in parallel
 ! * DG systems -> works now also on parts of the (meshed) domain.
@@ -218,7 +221,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.72 2007/05/03 11:04:52 jpr Exp $
+! * $Id: SolverUtils.src,v 1.73 2007/05/04 11:37:54 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -840,7 +843,7 @@ CONTAINS
      IF ( NormalTangentialNOFNodes > 0 ) THEN
        dim = CoordinateSystemDimension()
        Indexes = 0
-       Indexes(1:Element % Type % NumberOfNodes) = &
+       Indexes(1:Element % TYPE % NumberOfNodes) = &
              BoundaryReorder(Element % NodeIndexes)
        CALL RotateMatrix( LocalStiffMatrix, LocalForce, n, dim, NDOFs, &
           Indexes, BoundaryNormals, BoundaryTangent1, BoundaryTangent2 )
@@ -918,7 +921,7 @@ CONTAINS
        dim = CoordinateSystemDimension()
        Indexes = 0
        Element => CurrentModel % CurrentElement
-       Indexes(1:Element % Type % NumberOfNodes) = &
+       Indexes(1:Element % TYPE % NumberOfNodes) = &
              BoundaryReorder(Element % NodeIndexes)
        CALL RotateMatrix( LocalStiffMatrix, LocalForce, n, dim, NDOFs, &
           Indexes, BoundaryNormals, BoundaryTangent1, BoundaryTangent2 )
@@ -1138,7 +1141,7 @@ CONTAINS
             
             Model % CurrentElement => Element
             IF ( ActivePart(BC) ) THEN
-              n = Element % Type % NumberOfNodes
+              n = Element % TYPE % NumberOfNodes
               Indexes(1:n) = Element % NodeIndexes
             ELSE
               n = SgetElementDOFs( Indexes )
@@ -1159,7 +1162,7 @@ CONTAINS
             
             Model % CurrentElement => Element
             IF ( ActivePart(BC) ) THEN
-              n = Element % Type % NumberOfNodes
+              n = Element % TYPE % NumberOfNodes
               Indexes(1:n) = Element % NodeIndexes
             ELSE
               n = SgetElementDOFs( Indexes )
@@ -1200,7 +1203,7 @@ CONTAINS
         
         Model % CurrentElement => Element
         IF ( ActivePart(bf_id) ) THEN
-          n = Element % Type % NumberOfNodes
+          n = Element % TYPE % NumberOfNodes
           Indexes(1:n) = Element % NodeIndexes
         ELSE
           n = SgetElementDOFs( Indexes )
@@ -1690,7 +1693,7 @@ CONTAINS
           
           Model % CurrentElement => Element
           IF ( ActivePart(bf_id) ) THEN
-            n = Element % Type % NumberOfNodes
+            n = Element % TYPE % NumberOfNodes
             Indexes(1:n) = Element % NodeIndexes
           ELSE
             n = SgetElementDOFs( Indexes )
@@ -1727,7 +1730,7 @@ CONTAINS
 
         Model % CurrentElement => Element
         IF ( ActivePart(bf_id) ) THEN
-          n = Element % Type % NumberOfNodes
+          n = Element % TYPE % NumberOfNodes
           Indexes(1:n) = Element % NodeIndexes
         ELSE
           n = SgetElementDOFs( Indexes )
@@ -2171,7 +2174,7 @@ CONTAINS
                   Model % NumberOfBoundaryElements
 
       CurrentElement => Model % Elements(t)
-      IF ( CurrentElement % Type  % ElementCode < 200 ) CYCLE
+      IF ( CurrentElement % TYPE  % ElementCode < 200 ) CYCLE
 
       n = CurrentElement % TYPE % NumberOfNodes
       NodeIndexes => CurrentElement % NodeIndexes
@@ -2629,6 +2632,216 @@ CONTAINS
   END SUBROUTINE BackRotateNTSystem
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+  FUNCTION ComputeNorm(Solver, n, values) RESULT (Norm)
+!------------------------------------------------------------------------------
+    IMPLICIT NONE
+    TYPE(Solver_t), TARGET :: Solver
+    INTEGER :: n
+    REAL(KIND=dp), TARGET, OPTIONAL :: values(:)
+    
+    INTEGER :: NormDim, NormDofs, Dofs, i,j,k
+    REAL(KIND=dp) :: Norm
+    REAL(KIND=dp), POINTER :: x(:)
+    LOGICAL :: Stat
+
+    IF(PRESENT(values)) THEN
+      x => values
+    ELSE
+      x => Solver % Variable % Values
+    END IF
+
+    NormDim = ListGetInteger(Solver % Values,'Nonlinear System Norm Degree',Stat)
+    IF(.NOT. Stat) NormDim = 2
+
+    Dofs = Solver % Variable % Dofs
+    NormDofs = ListGetInteger(Solver % Values,'Nonlinear System Norm Dofs',Stat)
+    IF(.NOT. Stat) NormDofs = Dofs
+
+    IF ( ParEnv % PEs > 1 ) THEN
+      IF(Norm /= 2) CALL Warn('Compute Norm','Parallel norm currently available only in L2')
+      Norm = ParallelNorm( n, x )
+    ELSE
+      ! Zero is used instead of infinity as the sign for max norm!
+      !----------------------------------------------------------
+      IF( NormDofs < Dofs ) THEN
+        IF( NormDim /= 2) CALL Warn('ComputeNorm','For velocity norm only L2 is possible!')
+        Norm = 0.0d0
+        DO i=1,n/Dofs
+          DO j=1,NormDofs
+            k = Dofs*(i-1) + j
+            Norm = Norm + x(k)**2
+          END DO
+        END DO
+        Norm = SQRT( Norm / n )
+      ELSE IF( NormDim == 0) THEN
+        Norm = MAXVAL( ABS( x(1:n) ) )
+      ELSE IF ( NormDim == 1) THEN
+        Norm = SUM( ABS( x(1:n) ) ) / n 
+      ELSE IF ( NormDim == 2) THEN
+        Norm = SQRT( SUM( x(1:n)**2 ) / n )
+      ELSE
+        Norm = ( SUM( x(1:n)**NormDim ) / n ) ** (1.0d0/NormDim)
+      END IF
+    END IF
+!------------------------------------------------------------------------------
+  END FUNCTION ComputeNorm
+!------------------------------------------------------------------------------
+
+  
+!------------------------------------------------------------------------------
+  SUBROUTINE ComputeChange(Solver,SteadyState,values,values0)
+!------------------------------------------------------------------------------
+    TYPE(Solver_t), TARGET :: Solver
+    LOGICAL :: SteadyState
+    REAL(KIND=dp), OPTIONAL, TARGET :: values(:), values0(:)
+    INTEGER :: n
+    TYPE(Matrix_t), POINTER :: A
+    REAL(KIND=dp), POINTER :: b(:), x(:), r(:)
+    REAL(KIND=dp), POINTER :: x0(:)
+    REAL(KIND=dp) :: Norm, PrevNorm, rNorm, bNorm, Change, Relaxation
+    CHARACTER(LEN=MAX_NAME_LEN) :: ConvergenceType
+    LOGICAL :: Stat, ConvergenceAbsolute, Relax, RelaxBefore
+
+
+    IF(SteadyState) THEN
+      Relaxation = ListGetConstReal( Solver % Values, &
+          'Steady State Relaxation Factor', Relax )
+      Relax = Relax .AND. (Relaxation /= 1.0d0)
+      IF(Relax) THEN
+         RelaxBefore = ListGetLogical( Solver % Values, &
+          'Steady State Relaxation Before', Stat )      
+          IF (.NOT. Stat ) RelaxBefore = .TRUE.
+      END IF
+
+      ConvergenceType = ListGetString(Solver % Values,&
+          'Steady State Convergence Measure',Stat)
+      IF(.NOT. stat) ConvergenceType = 'norm' 
+      ConvergenceAbsolute = &
+          ListGetLogical(Solver % Values,'Steady State Convergence Absolute',Stat)
+      IF(.NOT. Stat) ConvergenceAbsolute = &
+          ListGetLogical(Solver % Values,'Use Absolute Norm for Convergence',Stat)
+    ELSE
+      Relaxation = ListGetConstReal( Solver % Values, &
+          'Nonlinear System Relaxation Factor', Relax )
+      Relax = Relax .AND. (Relaxation /= 1.0d0)
+      IF(Relax) THEN
+          RelaxBefore = ListGetLogical( Solver % Values, &
+          'Nonlinear System Relaxation Before', Stat )
+          IF (.NOT. Stat ) RelaxBefore = .TRUE.
+      END IF
+
+      ConvergenceType = ListGetString(Solver % Values,&
+          'Nonlinear System Convergence Measure',Stat)
+      IF(.NOT. stat) ConvergenceType = 'norm' 
+      ConvergenceAbsolute = &
+          ListGetLogical(Solver % Values,'Nonlinear System Convergence Absolute',Stat)
+      IF(.NOT. Stat) ConvergenceAbsolute = &
+          ListGetLogical(Solver % Values,'Use Absolute Norm for Convergence',Stat)
+    END IF
+
+    IF(PRESENT(values)) THEN
+      x => values
+    ELSE 
+      x => Solver % Variable % Values      
+    END IF
+    IF ( .NOT. ASSOCIATED(x) ) THEN
+      Solver % Variable % Norm = 0.0d0 
+      IF(SteadyState) THEN
+        Solver % Variable % SteadyChange = 0.0d0
+      ELSE
+        Solver % Variable % NonlinChange = 0.0d0
+      END IF
+      RETURN
+    END IF
+    n = SIZE(x)
+
+    IF(Relax .OR. ConvergenceType == 'solution') THEN
+      IF(PRESENT(values0)) THEN
+        x0 => values0
+      ELSE IF(SteadyState) THEN
+        IF(.NOT. ASSOCIATED(Solver % Variable % SteadyValues)) &
+            CALL Fatal('ComputeChange','Previous steady state solution is needed!')       
+        x0 => Solver % Variable % SteadyValues
+      ELSE
+        IF(.NOT. ASSOCIATED(Solver % Variable % NonlinValues)) &
+            CALL Fatal('ComputeChange','Previous nonlinear solution is needed')       
+        x0 => Solver % Variable % NonlinValues
+      END IF
+    END IF
+
+
+    IF(Relax .AND. RelaxBefore) THEN
+      x(1:n) = (1-Relaxation)*x0(1:n) + Relaxation*x(1:n)
+    END IF
+
+    IF(SteadyState) THEN
+      PrevNorm = Solver % Variable % PrevNorm
+    ELSE
+      PrevNorm = Solver % Variable % Norm
+    END IF
+    Norm = ComputeNorm(Solver, n, x)
+    Solver % Variable % Norm = Norm
+
+
+    SELECT CASE( ConvergenceType )
+    CASE('residual')
+      ! res = | Ax-b|
+      A = Solver % Matrix
+      b = Solver % Matrix % rhs
+      ALLOCATE(r(n))
+      CALL MatrixVectorMultiply( A, x, r)      
+      r = r - b
+      Change = ComputeNorm(Solver, n, r)
+      IF(.NOT. ConvergenceAbsolute) THEN
+        bNorm = ComputeNorm(Solver, n, b)
+        IF(bNorm > 0.0) THEN
+          Change = Change / bNorm
+        END IF
+      END IF
+      DEALLOCATE(r)
+
+    CASE('solution')      
+      ALLOCATE(r(n))
+      r = x-x0
+      Change = ComputeNorm(Solver, n, r)
+      IF( .NOT. ConvergenceAbsolute .AND. Norm + PrevNorm > 0.0) THEN
+        Change = Change * 2.0/ (Norm+PrevNorm)
+      END IF
+      DEALLOCATE(r)      
+
+    CASE('norm')
+      Change = ABS( Norm-PrevNorm )
+      IF( .NOT. ConvergenceAbsolute .AND. Norm + PrevNorm > 0.0) THEN
+        Change = Change * 2.0/ (Norm+PrevNorm)
+      END IF
+
+    CASE DEFAULT
+      CALL Warn('ComputeChange','Unknown convergence measure: '//TRIM(ConvergenceType))    
+      
+    END SELECT
+    
+    IF(SteadyState) THEN
+      Solver % Variable % SteadyChange = Change
+    ELSE
+      Solver % Variable % NonlinChange = Change
+    END IF
+
+    IF(Relax .AND. .NOT. RelaxBefore) THEN
+      x(1:n) = (1-Relaxation)*x0(1:n) + Relaxation*x(1:n)
+      Solver % Variable % Norm = ComputeNorm(Solver,n,x)
+    END IF
+
+    WRITE( Message, * ) 'Solution (Change,Norm,PrevNorm): ',Change, Norm, PrevNorm
+    CALL Info( 'ComputeChange', Message, Level=4 )
+!------------------------------------------------------------------------------
+  END SUBROUTINE ComputeChange
+!------------------------------------------------------------------------------
+    
+
+
+
+
 
 !------------------------------------------------------------------------------
   RECURSIVE SUBROUTINE SolveLinearSystem( A, b, &
@@ -2641,7 +2854,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     TYPE(Variable_t), POINTER :: Var, NodalLoads
     TYPE(Mesh_t), POINTER :: Mesh
-    LOGICAL :: Relax,GotIt, ScaleSystem, EigenAnalysis, HarmonicAnalysis
+    LOGICAL :: Relax,GotIt,Stat,ScaleSystem, EigenAnalysis, HarmonicAnalysis,NeedSol
     INTEGER :: n,i,j,k,l,istat
     CHARACTER(LEN=MAX_NAME_LEN) :: Method, ProcName
     INTEGER(KIND=AddrInt) :: Proc
@@ -2655,15 +2868,15 @@ CONTAINS
       Method = ListGetString( Solver % Values, 'Timestepping Method', GotIt)
       IF (  Method == 'runge-kutta' .OR. Method == 'explicit euler' ) THEN
         DO i=1,n
-           IF ( ABS( A % Values(A % Diag(i)) ) > 0.0d0 ) &
+          IF ( ABS( A % Values(A % Diag(i)) ) > 0.0d0 ) &
               x(i) = b(i) / A % Values(A % Diag(i))
         END DO
         CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
-        Norm = SQRT( SUM( x(1:n)**2 ) / n )
+        Norm = ComputeNorm(Solver, n, x) 
         RETURN
       END IF
     END IF
-
+    
     ScaleSystem = ListGetLogical( Solver % Values, 'Linear System Scaling', GotIt )
     IF ( .NOT. GotIt  ) ScaleSystem = .TRUE.
 
@@ -2680,7 +2893,7 @@ CONTAINS
 !       (DAD)y = Db, where D = 1/SQRT(Diag(A)), and y = D^-1 x
 !     --------------------------------------------------------
       ALLOCATE( Diag(n) )
-      IF ( Solver % Matrix % Complex ) THEN
+      IF ( Solver % Matrix % COMPLEX ) THEN
         DO i=1,n,2
           j = A % Diag(i)
           Diag(i)   = A % Values(j)
@@ -2694,7 +2907,7 @@ CONTAINS
          CALL ParallelSumVector(Solver % Matrix, Diag)
       END IF
 
-      IF ( Solver % Matrix % Complex ) THEN
+      IF ( Solver % Matrix % COMPLEX ) THEN
         DO i=1,n,2
           DiagReal  =  Diag(i)
           DiagImag  = -Diag(i+1)
@@ -2756,7 +2969,7 @@ CONTAINS
     IF ( HarmonicAnalysis ) THEN
       CALL SolveHarmonicSystem( Solver )
       CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
-      Norm = SQRT( SUM( x(1:n)**2 ) / n )
+      Norm = ComputeNorm(Solver, n, x) 
       Solver % Variable % Norm = Norm
       CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, &
                        Solver % Variable % Name )
@@ -2822,27 +3035,36 @@ CONTAINS
        END IF
        CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
 
-       Norm = SQRT( SUM( x(1:n)**2 ) / n )
+       Norm = ComputeNorm(Solver,n,x)
        Solver % Variable % Norm = Norm
 
        CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, &
                        Solver % Variable % Name )
        RETURN
-    END IF
+     END IF
 
 !------------------------------------------------------------------------------
+
     Relaxation = ListGetConstReal( Solver % Values, &
       'Nonlinear System Relaxation Factor', Relax )
-
     Relax = Relax .AND. (Relaxation /= 1.0d0)
 
-    IF ( Relax  ) THEN
-      ALLOCATE( Px(n), STAT=istat ) 
-      IF ( istat /= 0 ) THEN
-        CALL Fatal( 'SolveSystem', 'Memory allocation error.' )
+    NeedSol = ( ListGetString( Solver % Values, &
+        'Nonlinear System Convergence Measure', GotIt ) == 'solution')  
+
+    IF ( Relax .OR. NeedSol ) THEN
+      Stat = ASSOCIATED(Solver % Variable % NonlinValues)
+      IF(Stat .AND. SIZE(Solver % Variable % NonlinValues) /= n) THEN
+        DEALLOCATE(Solver % Variable % NonlinValues)
+        Stat = .FALSE.
       END IF
-      Px = x(1:n)
+      IF(.NOT. Stat) THEN
+        ALLOCATE( Solver % Variable % NonlinValues(n), STAT=istat ) 
+        IF ( istat /= 0 ) CALL Fatal( 'SolveSystem', 'Memory allocation error.' )
+      END IF
+      Solver % Variable % NonlinValues = x(1:n)
     END IF
+
 !------------------------------------------------------------------------------
 ! 
 !   Convert initial value to the scaled system:
@@ -2917,6 +3139,7 @@ CONTAINS
 
     CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
 
+
     NodalLoads => VariableGet( Solver % Mesh % Variables, &
        Solver % Variable % Name(1:Solver % Variable % NameLen) // ' Loads' )
 
@@ -2938,22 +3161,15 @@ CONTAINS
       DEALLOCATE( TempVector )
     END IF
 
-    IF ( Relax ) THEN
-       x(1:n) = (1-Relaxation)*Px + Relaxation*x(1:n)
-    END IF
 
-    IF ( ParEnv % PEs > 1 ) THEN
-      Norm = ParallelNorm( n,x )
-    ELSE
-      Norm = SQRT( SUM( x(1:n)**2 ) / n )
-    END IF
 !------------------------------------------------------------------------------
-
-    IF ( ALLOCATED(Px) ) DEALLOCATE( Px )
+! Compute the change of the solution with different methods 
+!------------------------------------------------------------------------------
+   CALL ComputeChange(Solver,.FALSE.)
+   Norm = Solver % Variable % Norm
 
 !------------------------------------------------------------------------------
 
-    Solver % Variable % Norm = Norm
     Solver % Variable % PrimaryMesh => Solver % Mesh
     CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, &
           Solver % Variable % Name(1:Solver % Variable % NameLen) )
@@ -2964,6 +3180,7 @@ CONTAINS
                    NodalLoads % Name(1:NodalLoads % NameLen) )
     END IF
 !------------------------------------------------------------------------------
+
   END SUBROUTINE SolveLinearSystem
 !------------------------------------------------------------------------------
 
@@ -3425,7 +3642,6 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
 !------------------------------------------------------------------------------
   
   NumberOfRows = StiffMatrix % NumberOfRows + RestMatrix % NumberOfRows
-PRINT*,SIZE(stiffmatrix % values), COUNT( stiffmatrix % values /= 0.0d0 )
   NumberOfValues = COUNT( StiffMatrix % Values /= 0.0d0 ) &
        + 2*SIZE( RestMatrix % Values ) + RestMatrix % NumberOfRows
 
@@ -3465,7 +3681,6 @@ k = k + tmprow(i)
      TmpRow(i) = TmpRow(i) + &
           RestMatrixTranspose % Rows(i+1) - RestMatrixTranspose % Rows(i)     
   END DO
-PRINT*,k,COUNT(stiffmatrix % values/=0.0d0)
 
 ! Assign row numbering for upper part of CollectionMatrix:
 !---------------------------------------------------------

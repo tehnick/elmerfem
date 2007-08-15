@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.57  2007/06/07 11:48:22  jpr
+! * Check Def_Dofs access for index overflows.
+! *
 ! * Revision 1.56  2007/05/09 09:17:00  jpr
 ! * Added Body-section keyword Target Bodies(n).
 ! *
@@ -161,7 +164,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.56 2007/05/09 09:17:00 jpr Exp $
+! * $Id: MeshUtils.src,v 1.57 2007/06/07 11:48:22 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -4398,10 +4401,17 @@ CONTAINS
 
           IF ( ASSOCIATED( Var % EigenVectors ) ) &
              DEALLOCATE( Var % EigenVectors )
+
+          IF ( ASSOCIATED( Var % SteadyValues ) ) &
+             DEALLOCATE( Var % SteadyValues )
+
+          IF ( ASSOCIATED( Var % NonlinValues ) ) &
+             DEALLOCATE( Var % NonlinValues )
        END IF
        NULLIFY( Var % EigenVectors, Var % EigenValues )
        NULLIFY( Var % Values, Var % PrevValues, Var % Perm )
-
+       NULLIFY( Var % SteadyValues, Var % NonlinValues )
+	
        Var => Var % Next
     END DO
 
@@ -4422,9 +4432,14 @@ CONTAINS
 
          IF ( ASSOCIATED( Var % EigenVectors ) ) &
             DEALLOCATE( Var % EigenVectors )
+
+         IF ( ASSOCIATED( Var % NonlinValues ) ) &
+            DEALLOCATE( Var % NonlinValues )
        END IF
        NULLIFY( Var % EigenVectors, Var % EigenValues )
        NULLIFY( Var % Values, Var % PrevValues, Var % Perm )
+       NULLIFY( Var % SteadyValues, Var % NonlinValues )
+
        Var => Var % Next
     END DO
 
