@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StatElecSolve.src,v $
+! * Revision 1.31  2007/06/07 11:47:45  jpr
+! * SAVE the ConstantBulk variable.
+! *
 ! * Revision 1.30  2007/05/11 10:29:13  jpr
 ! * Small cleanups.
 ! *
@@ -164,7 +167,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
       LocalStiffMatrix(:,:), Load(:), LocalForce(:), PotDiff(:)
   
   REAL(KIND=dp) :: Alpha, Beta, LayerH, Voltage, RelPerm1, RelPerm2
-  REAL(KIND=dp) :: PermittivityOfVacuum, Norm, PrevNorm, RelativeChange
+  REAL(KIND=dp) :: PermittivityOfVacuum, Norm, RelativeChange
   
   REAL (KIND=DP) :: Wetot, at0, RealTime
   REAL (KIND=DP) :: at, st, CPUTime, PotentialDifference, Capacitance
@@ -183,7 +186,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: PiezoMaterial, CalculateSurfCharge, SaveBulk, ConstantBulk
   
   CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, CapMatrixFile, Name
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.30 2007/05/11 10:29:13 jpr Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StatElecSolve.src,v 1.31 2007/06/07 11:47:45 jpr Exp $"
   
   
   SAVE LocalStiffMatrix, Load, LocalForce, Pwrk, PotDiff, &
@@ -783,9 +786,9 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !    Solve the system and we are done.
 !------------------------------------------------------------------------------
     st = CPUTime()
-    PrevNorm = Norm
     CALL SolveSystem( StiffMatrix, ParMatrix, ForceVector, &
         Potential, Norm, 1, Solver )
+    RelativeChange = Solver % Variable % NonlinChange
     st = CPUTime() - st
     WRITE( Message, * ) 'Solve (s)             :',st
     CALL Info( 'StatElecSolve', Message, Level=4 )
@@ -872,11 +875,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
       END DO
     END IF
    
-     IF ( PrevNorm + Norm /= 0.0d0 ) THEN
-       RelativeChange = 2.0d0 * ABS( PrevNorm-Norm ) / (PrevNorm + Norm)
-     ELSE
-       RelativeChange = 0.0d0
-     END IF
+
      
      IF (.NOT. CalculateCapMatrix) THEN
        WRITE( Message, * ) 'Result Norm   : ',Norm

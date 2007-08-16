@@ -39,7 +39,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: PoissonBoltzmannSolve.src,v 1.5 2006/01/10 12:57:09 apursula Exp $
+! * $Id: PoissonBoltzmannSolve.src,v 1.6 2006/11/27 10:23:57 jpr Exp $
 ! ******************************************************************************
     
 !------------------------------------------------------------------------------
@@ -100,7 +100,7 @@
      REAL (KIND=DP), ALLOCATABLE ::  Permittivity(:), &
        LocalStiffMatrix(:,:), Load(:), LocalForce(:), LocalPot(:)
 
-     REAL (KIND=DP) :: Norm, PrevNorm = 0.0, RelativeChange, TotEnergy, at0, RealTime
+     REAL (KIND=DP) :: Norm, RelativeChange, TotEnergy, at0, RealTime
      REAL (KIND=DP) :: at, st, CPUTime
 
      REAL (KIND=DP) :: Cboltz, Ccharge, Cunit, ReferenceTemperature, Npos, Nneg, &
@@ -317,8 +317,6 @@
 
      DO iter=1,NonlinearIter
 
-       PrevNorm = Norm
-
        at  = CPUTime()
        at0 = RealTime()
        CALL InitializeToZero( StiffMatrix, ForceVector )
@@ -463,9 +461,9 @@
 !    Solve the system and we are done.
 !------------------------------------------------------------------------------
        st = CPUTime()
-
        
        Norm = DefaultSolve()
+       RelativeChange = Solver % Variable % NonlinChange	
 
        st = CPUTime() - st
        WRITE( Message, * ) 'Solve (s)             :',st
@@ -475,12 +473,6 @@
        CALL Info( 'PoissonBoltzmannSolve', Message, Level=4 )
        Solver % Variable % Norm = Norm
 
-       IF ( PrevNorm + Norm /= 0.0d0 ) THEN
-         RelativeChange = 2.0d0 * ABS( PrevNorm-Norm ) / (PrevNorm + Norm)
-       ELSE
-         RelativeChange = 0.0d0
-       END IF
-       
        WRITE( Message, * ) 'Relative Change : ',RelativeChange
        CALL Info( 'PoissonBoltzmannSolve', Message, Level=4 )
        

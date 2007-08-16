@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: ElasticSolve.src,v $
+! * Revision 1.14  2006/11/27 10:23:56  jpr
+! * Removed some execess (unrelated) use of TRIM & POINTER.
+! *
 ! * Revision 1.12  2006/11/17 12:24:01  jpr
 ! * Some hopefully stabilizing changes to FSI BC treatment.
 ! *
@@ -107,7 +110,7 @@
      TYPE(Nodes_t) :: ElementNodes,ParentNodes,FlowNodes
      TYPE(Element_t),POINTER :: CurrentElement, ParentElement, FlowElement
 
-     REAL(KIND=dp) :: RelativeChange,UNorm,PrevUNorm,Gravity(3), &
+     REAL(KIND=dp) :: RelativeChange,UNorm,Gravity(3), &
          Tdiff,Normal(3),NewtonTol,NonlinearTol,s,TOL(1)
 
      INTEGER :: NewtonIter,NonlinearIter, FlowNOFNodes
@@ -149,7 +152,7 @@
      INTEGER :: TotalSteps,LoadStep, dim
 
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ElasticSolve.src,v 1.13 2006/11/22 11:43:35 jpr Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ElasticSolve.src,v 1.14 2006/11/27 10:23:56 jpr Exp $"
 
 
      INTERFACE
@@ -730,16 +733,9 @@
 !------------------------------------------------------------------------------
 !     Solve the system and check for convergence
 !------------------------------------------------------------------------------
-      PrevUNorm = Unorm
-
       CALL SolveSystem( StiffMatrix, ParMatrix, ForceVector, &
                Displacement, UNorm, STDOFs, Solver )
-
-      IF ( PrevUNorm + UNorm == 0.0d0 ) THEN
-         RelativeChange = 0.0d0
-      ELSE
-         RelativeChange = 2.0d0 * ABS( PrevUNorm - UNorm) / (PrevUNorm + UNorm)
-      END IF
+      RelativeChange = Solver % Variable % NonlinChange
 
       WRITE( Message, * ) 'Result Norm   : ',UNorm
       CALL Info( 'ElasticSolve', Message, Level=4 )

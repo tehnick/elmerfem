@@ -89,7 +89,7 @@
      TYPE(Element_t),POINTER :: CurrentElement
      TYPE(ValueList_t), POINTER :: Material
  
-     REAL(KIND=dp) :: Norm,PrevNorm,RelativeChange
+     REAL(KIND=dp) :: Norm,RelativeChange
      LOGICAL :: Stabilize = .FALSE., GotIt, AllocationsDone = .FALSE.
      INTEGER, POINTER :: SurfPerm(:), NodeIndexes(:)
      REAL(KIND=dp), POINTER :: Surface(:), ForceVector(:), Surf(:), PrevSurface(:) 
@@ -282,14 +282,13 @@
 !     Solve the system and check for convergence
 !------------------------------------------------------------------------------
      st = CPUTime()
-     PrevNorm = Norm
 
      CALL SolveSystem( StiffMatrix, ParMatrix, ForceVector, &
          Surface, Norm, 1, Solver )
+     RelativeChange = Solver % Variable % NonlinChange
+
      st = CPUTIme()-st
      totst = totst + st
-     
-     RelativeChange = 2*ABS(PrevNorm-Norm) / (PrevNorm + Norm)
       
      IF(NonlinearIter > 1) THEN
        WRITE( Message, * ) 'Iteration   : ',iter
@@ -567,7 +566,7 @@ CONTAINS
  
      INTEGER :: i,j,k,l,n,t,iter,istat,body_id,mat_id,bf_id,&
           CoordinateSystem, TimesVisited = 0
-     REAL(KIND=dp) :: Norm,PrevNorm,RelativeChange,x,y,s,a,b,c,d,x0,x1,y0,y1
+     REAL(KIND=dp) :: Norm,x,y,s,a,b,c,d,x0,x1,y0,y1
      INTEGER, POINTER :: NodeIndexes(:)
      LOGICAL :: GotIt, Convect, ExtractAllocated = .FALSE., DistanceAllocated=.FALSE.
      INTEGER, POINTER :: SurfPerm(:)
