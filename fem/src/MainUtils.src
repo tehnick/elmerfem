@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MainUtils.src,v $
+! * Revision 1.34  2007/08/16 13:54:18  raback
+! * *** empty log message ***
+! *
 ! * Revision 1.33  2007/08/15 11:38:41  jpr
 ! * Bug fix: in a few places check whether variable size>0 before accessing
 ! * variables values.
@@ -124,7 +127,7 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.src,v 1.33 2007/08/15 11:38:41 jpr Exp $
+! * $Id: MainUtils.src,v 1.34 2007/08/16 13:54:18 raback Exp $
 ! *****************************************************************************/
 
 MODULE MainUtils
@@ -1206,7 +1209,8 @@ CONTAINS
           Relax = Relax .AND. (Relaxation /= 1.0d0)
 
           NeedSol = ( ListGetString( Solver % Values, &
-              'Steady State Convergence Measure', Stat ) == 'solution')  
+              'Steady State Convergence Measure', Stat ) /= 'norm')  
+          NeedSol = NeedSol .AND. Stat
 
           IF ( ( Relax .OR. NeedSol ) .AND. n>0 ) THEN
             Stat = ASSOCIATED(Solver % Variable % SteadyValues)

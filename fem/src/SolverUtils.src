@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.75  2007/08/16 13:54:18  raback
+! * Minor update the convergence criteria stuff.
+! *
 ! * Revision 1.74  2007/08/15 09:44:02  jpr
 ! * Changes to update convergence criteria computations (Peter,Juha).
 ! *
@@ -224,7 +227,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.74 2007/08/15 09:44:02 jpr Exp $
+! * $Id: SolverUtils.src,v 1.75 2007/08/16 13:54:18 raback Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -2667,24 +2670,53 @@ CONTAINS
     ELSE
       ! Zero is used instead of infinity as the sign for max norm!
       !----------------------------------------------------------
-      IF( NormDofs < Dofs ) THEN
-        IF( NormDim /= 2) CALL Warn('ComputeNorm','For velocity norm only L2 is possible!')
-        Norm = 0.0d0
-        DO i=1,n/Dofs
-          DO j=1,NormDofs
-            k = Dofs*(i-1) + j
-            Norm = Norm + x(k)**2
+      IF( NormDofs < Dofs ) THEN        
+        IF( NormDim == 0) THEN
+          Norm = 0.0d0
+          DO i=1,n/Dofs
+            DO j=1,NormDofs
+              k = Dofs*(i-1) + j
+              Norm = MAX(Norm, ABS(x(k)))
+            END DO
           END DO
-        END DO
-        Norm = SQRT( Norm / n )
-      ELSE IF( NormDim == 0) THEN
-        Norm = MAXVAL( ABS( x(1:n) ) )
-      ELSE IF ( NormDim == 1) THEN
-        Norm = SUM( ABS( x(1:n) ) ) / n 
-      ELSE IF ( NormDim == 2) THEN
-        Norm = SQRT( SUM( x(1:n)**2 ) / n )
-      ELSE
-        Norm = ( SUM( x(1:n)**NormDim ) / n ) ** (1.0d0/NormDim)
+        ELSE IF( NormDim == 1) THEN
+          Norm = 0.0d0
+          DO i=1,n/Dofs
+            DO j=1,NormDofs
+              k = Dofs*(i-1) + j
+              Norm = Norm + ABS(x(k))
+            END DO
+          END DO
+          Norm = Norm / n 
+        ELSE IF( NormDim == 2) THEN
+          Norm = 0.0d0
+          DO i=1,n/Dofs
+            DO j=1,NormDofs
+              k = Dofs*(i-1) + j
+              Norm = Norm + x(k)**2
+            END DO
+          END DO
+          Norm = SQRT( Norm / n )
+        ELSE
+          Norm = 0.0d0
+          DO i=1,n/Dofs
+            DO j=1,NormDofs
+              k = Dofs*(i-1) + j
+              Norm = Norm + x(k)**NormDim
+            END DO
+          END DO
+          Norm = ( Norm / n ) ** (1.0d0/NormDim)
+        END IF
+      ELSE 
+        IF( NormDim == 0) THEN
+          Norm = MAXVAL( ABS( x(1:n) ) )
+        ELSE IF ( NormDim == 1) THEN
+          Norm = SUM( ABS( x(1:n) ) ) / n 
+        ELSE IF ( NormDim == 2) THEN
+          Norm = SQRT( SUM( x(1:n)**2 ) / n )
+        ELSE
+          Norm = ( SUM( x(1:n)**NormDim ) / n ) ** (1.0d0/NormDim)
+        END IF
       END IF
     END IF
 !------------------------------------------------------------------------------
@@ -2765,7 +2797,7 @@ CONTAINS
       n = SIZE(x)
     END IF
 
-    IF(Relax .OR. ConvergenceType == 'solution') THEN
+    IF(Relax .OR. ConvergenceType /= 'norm') THEN
       IF(PRESENT(values0)) THEN
         x0 => values0
       ELSE IF(SteadyState) THEN
@@ -2796,11 +2828,15 @@ CONTAINS
 
     SELECT CASE( ConvergenceType )
     CASE('residual')
-      ! res = | Ax-b|
-      A = Solver % Matrix
-      b = Solver % Matrix % rhs
+      !------------------------------------------------------------------
+      ! x is solution of A(x0)x=b, thus residual should be reall r=b-A(x)x 
+      ! Instead we use r=b-A(x0)x0 which unfortunately is one step behind.
+      !------------------------------------------------------------------
+      A => Solver % Matrix
+      b => Solver % Matrix % rhs
+
       ALLOCATE(r(n))
-      CALL MatrixVectorMultiply( A, x, r)      
+      CALL MatrixVectorMultiply( A, x0, r)      
       r = r - b
       Change = ComputeNorm(Solver, n, r)
       IF(.NOT. ConvergenceAbsolute) THEN
@@ -3060,7 +3096,8 @@ CONTAINS
     Relax = Relax .AND. (Relaxation /= 1.0d0)
 
     NeedSol = ( ListGetString( Solver % Values, &
-        'Nonlinear System Convergence Measure', GotIt ) == 'solution')  
+        'Nonlinear System Convergence Measure', GotIt ) /= 'norm')  
+    NeedSol = NeedSol .AND. GotIt
 
     IF ( Relax .OR. NeedSol ) THEN
       Stat = ASSOCIATED(Solver % Variable % NonlinValues)

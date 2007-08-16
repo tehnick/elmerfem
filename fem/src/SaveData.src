@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SaveData.src,v $
+! * Revision 1.39  2007/08/08 12:26:29  raback
+! * *** empty log message ***
+! *
 ! * Revision 1.38  2007/06/07 11:49:22  jpr
 ! * Some uinitialized variable accesses.
 ! *
@@ -163,7 +166,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       MaxVars, NoEigenValues, Ind, EigenDofs
   REAL (KIND=DP) :: CPUTime, CPUMemory
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.38 2007/06/07 11:49:22 jpr Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.39 2007/08/08 12:26:29 raback Exp $"
 
   SAVE SubroutineVisited, NumberOfVars, &
       NoPoints, PointIndex, CoordinateIndex, CoordinateDist, ResultPrefix, &
@@ -415,7 +418,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         CALL AddToSaveList('value: maximum memory usage (kb)',CPUMemory())
         CYCLE        
       END IF
-      
+
       Var => VariableGet( Model % Variables, TRIM(VariableName) )
       IF ( .NOT. ASSOCIATED( Var ) )  THEN
         Var => OldVar
@@ -457,7 +460,19 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     IF ( GotOper ) THEN
 
       SELECT CASE(Oper)
-        
+
+      CASE ('norm')
+        Value = Var % Norm
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value)
+
+      CASE ('nonlinear change')
+        Value = Var % NonlinChange
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value)
+
+      CASE ('steady state change')
+        Value = Var % SteadyChange
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value)
+
       CASE ('dofs','sum','max','min','max abs','min abs','mean','variance') 
         Value = VectorStatistics(Var,Oper)
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value)
@@ -2092,7 +2107,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t), POINTER   :: CurrentElement, NextElement
   CHARACTER(LEN=MAX_NAME_LEN) :: SideFile, SideNamesFile, VarName, CondName, SideParFile
   CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: ValueNames(:)
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.38 2007/06/07 11:49:22 jpr Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.39 2007/08/08 12:26:29 raback Exp $"
 
   LOGICAL :: cand, Parallel
 
