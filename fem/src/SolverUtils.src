@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.74  2007/08/15 09:44:02  jpr
+! * Changes to update convergence criteria computations (Peter,Juha).
+! *
 ! * Revision 1.73  2007/05/04 11:37:54  jpr
 ! * Some parallel solver updates.
 ! *
@@ -221,7 +224,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.73 2007/05/04 11:37:54 jpr Exp $
+! * $Id: SolverUtils.src,v 1.74 2007/08/15 09:44:02 jpr Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -2659,7 +2662,7 @@ CONTAINS
     IF(.NOT. Stat) NormDofs = Dofs
 
     IF ( ParEnv % PEs > 1 ) THEN
-      IF(Norm /= 2) CALL Warn('Compute Norm','Parallel norm currently available only in L2')
+      IF(NormDim /= 2) CALL Warn('Compute Norm','Parallel norm currently available only in L2')
       Norm = ParallelNorm( n, x )
     ELSE
       ! Zero is used instead of infinity as the sign for max norm!
@@ -2690,10 +2693,11 @@ CONTAINS
 
   
 !------------------------------------------------------------------------------
-  SUBROUTINE ComputeChange(Solver,SteadyState,values,values0)
+  SUBROUTINE ComputeChange(Solver,SteadyState,nsize,values,values0)
 !------------------------------------------------------------------------------
     TYPE(Solver_t), TARGET :: Solver
     LOGICAL :: SteadyState
+    INTEGER, OPTIONAL :: nsize
     REAL(KIND=dp), OPTIONAL, TARGET :: values(:), values0(:)
     INTEGER :: n
     TYPE(Matrix_t), POINTER :: A
@@ -2754,7 +2758,12 @@ CONTAINS
       END IF
       RETURN
     END IF
-    n = SIZE(x)
+
+    IF(PRESENT(nsize)) THEN
+      n = nsize
+    ELSE
+      n = SIZE(x)
+    END IF
 
     IF(Relax .OR. ConvergenceType == 'solution') THEN
       IF(PRESENT(values0)) THEN
@@ -2768,6 +2777,7 @@ CONTAINS
             CALL Fatal('ComputeChange','Previous nonlinear solution is needed')       
         x0 => Solver % Variable % NonlinValues
       END IF
+      IF(SIZE(x0) /= SIZE(x)) CALL Warn('ComputeChange','Possible mismatch in length of vectors!')
     END IF
 
 
@@ -3165,7 +3175,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 ! Compute the change of the solution with different methods 
 !------------------------------------------------------------------------------
-   CALL ComputeChange(Solver,.FALSE.)
+   CALL ComputeChange(Solver,.FALSE.,n, x)
    Norm = Solver % Variable % Norm
 
 !------------------------------------------------------------------------------

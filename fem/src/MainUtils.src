@@ -39,6 +39,10 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MainUtils.src,v $
+! * Revision 1.33  2007/08/15 11:38:41  jpr
+! * Bug fix: in a few places check whether variable size>0 before accessing
+! * variables values.
+! *
 ! * Revision 1.32  2007/08/15 09:44:02  jpr
 ! * Changes to update convergence criteria computations (Peter,Juha).
 ! *
@@ -120,7 +124,7 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.src,v 1.32 2007/08/15 09:44:02 jpr Exp $
+! * $Id: MainUtils.src,v 1.33 2007/08/15 11:38:41 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MainUtils
@@ -1193,6 +1197,7 @@ CONTAINS
           IF ( ASSOCIATED(Solver % Variable) ) THEN
             IF ( ASSOCIATED(Solver % Variable % Values) ) &
               n = SIZE(Solver % Variable % Values)
+            Solver % Variable % PrevNorm = Solver % Variable % Norm
           END IF
 
 !------------------------------------------------------------------------------
@@ -1203,7 +1208,7 @@ CONTAINS
           NeedSol = ( ListGetString( Solver % Values, &
               'Steady State Convergence Measure', Stat ) == 'solution')  
 
-          IF ( Relax .OR. NeedSol .AND. n>0 ) THEN
+          IF ( ( Relax .OR. NeedSol ) .AND. n>0 ) THEN
             Stat = ASSOCIATED(Solver % Variable % SteadyValues)
             IF(Stat .AND. SIZE(Solver % Variable % SteadyValues) /= n) THEN
               DEALLOCATE(Solver % Variable % SteadyValues)
@@ -1215,6 +1220,8 @@ CONTAINS
             END IF
             Solver % Variable % SteadyValues(1:n) = Solver % Variable % Values(1:n)
           END IF
+
+
 
           IF ( RungeKutta .AND. n>0 ) THEN
 
@@ -1254,19 +1261,17 @@ CONTAINS
                                 ( k1 + 2*k2 + 2*k3 + k4 ) / 6
               DEALLOCATE( k1, k2, k3, k4 )
             END SELECT
-!            Solver %  Variable % Norm = &
-!                    SQRT( SUM( Solver % Variable % Values(1:n)**2 ) / n )
              Solver % Variable % Norm = ComputeNorm(Solver, n, Solver % Variable % Values)
-          ELSE
+           ELSE
              CALL SolverActivate( Model,Solver,dt,TransientSimulation )
-         END IF
+           END IF
 !------------------------------------------------------------------------------
 !         check for coupled system convergence
 !------------------------------------------------------------------------------
           IF ( i >= CoupledMinIter .OR. .NOT. TransientSimulation ) THEN
              IF ( i /= CoupledMaxIter .OR. .NOT. TransientSimulation ) THEN
 
-               CALL ComputeChange(Solver,.TRUE.)
+               CALL ComputeChange(Solver,.TRUE., n)
                RelativeChange = Solver % Variable % SteadyChange	
                
                WRITE( Message, '(a,g20.12,g20.12,a)') &
@@ -1284,8 +1289,6 @@ CONTAINS
                END IF
              END IF
 	  END IF
-
-	  Solver % Variable % PrevNorm = Solver % Variable % Norm
 
           CALL ParallelAllReduceAnd( DoneThis(k) )
           IF( ALL(DoneThis) ) EXIT
