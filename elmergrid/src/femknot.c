@@ -4411,76 +4411,56 @@ int FindBulkBoundary(struct FemType *data,int mat1,int mat2,
   }
   else if(mat2 >= -2*data->dim && mat2 <= -1) {
 
-    for(i=1;i<=data->noelements;i++) {
-      
-      material = data->material[i];
-      if(material != mat1) continue;
-      nonodes = data->elementtypes[i]%100;
-
-      hits =  0;
-      for(j=0;j<nonodes;j++) {
-	k = data->topology[i][j];
-	if(visited[k] < maxnodes && visited[k]) hits++;
-      }
-
-      if(!hits) continue;
-
-      k = data->topology[i][0];
-      xmax = xmin = data->x[k];
-      if(data->dim >= 2) ymax = ymin = data->y[k];
-      if(data->dim >= 3) zmax = zmin = data->z[k];
-      
-      for(j=1;j<nonodes;j++) {
-	k = data->topology[i][j];
-	if(data->x[k] > xmax) xmax = data->x[k];
-	if(data->x[k] < xmin) xmin = data->x[k];
-	if(data->dim >= 2) {
-	  if(data->y[k] > ymax) ymax = data->y[k];
-	  if(data->y[k] < ymin) ymin = data->y[k];
+    j = TRUE;
+    for(i=1;i<=data->noknots;i++) 
+      if(visited[i]) {
+	if(j) {
+	  xmax = xmin = data->x[k];
+	  if(data->dim >= 2) ymax = ymin = data->y[k];
+	  if(data->dim >= 3) zmax = zmin = data->z[k];
+	  j = FALSE;
 	}
-	if(data->dim >= 3) {
-	  if(data->z[k] > zmax) zmax = data->z[k];
-	  if(data->z[k] < zmin) zmin = data->z[k];
+	else {
+	  if(data->x[i] > xmax) xmax = data->x[i];
+	  if(data->x[i] < xmin) xmin = data->x[i];
+	  if(data->dim >= 2) {
+	    if(data->y[i] > ymax) ymax = data->y[i];
+	    if(data->y[i] < ymin) ymin = data->y[i];
+	  }
+	  if(data->dim >= 3) {
+	    if(data->z[i] > zmax) zmax = data->z[i];
+	    if(data->z[i] < zmin) zmin = data->z[i];
+	  }
 	}
       }
-      ds = (xmax-xmin)*(xmax-xmin);
-      if(data->dim >= 2) ds += (ymax-ymin)*(ymax-ymin);
-      if(data->dim >= 3) ds += (zmax-zmin)*(zmax-zmin);
 
-      ds = sqrt(ds);
-      eps = 1.0e-3 * ds;
+    ds = (xmax-xmin)*(xmax-xmin);
+    if(data->dim >= 2) ds += (ymax-ymin)*(ymax-ymin);
+    if(data->dim >= 3) ds += (zmax-zmin)*(zmax-zmin);
+    
+    ds = sqrt(ds);
+    eps = 1.0e-5 * ds;
 
-      for(j=0;j<nonodes;j++) {
-	elemind[j] = 0;
-	k = data->topology[i][j];
-
-	if(!visited[k]) continue; 
+  
+    for(i=1;i<=data->noknots;i++) 
+      if(visited[i] < maxnodes && visited[i]) {
 	
 	if(data->dim == 1) {
-	  if(mat2 == -1 && fabs(data->x[k]-xmin) < eps) boundnodes[k] = 1;
-	  else if(mat2 == -2 && fabs(data->x[k]-xmax) < eps) boundnodes[k] = 1;
+	  if(mat2 == -1 && fabs(data->x[i]-xmin) < eps) boundnodes[i] = 1;
+	  else if(mat2 == -2 && fabs(data->x[i]-xmax) < eps) boundnodes[i] = 1;
 	}
 	if(data->dim >= 2) {
-	  if(mat2 == -1 && (fabs(data->y[k]-ymin) < eps)) elemind[j] = 1;
-	  else if(mat2 == -3 && (fabs(data->y[k]-ymax) < eps)) elemind[j] = 1;
-	  else if(mat2 == -4 && (fabs(data->x[k]-xmin) < eps)) elemind[j] = 1;
-	  else if(mat2 == -2 && (fabs(data->x[k]-xmax) < eps)) elemind[j] = 1;
+	  if(mat2 == -1 && (fabs(data->y[i]-ymin) < eps)) boundnodes[i] = 1;
+	  else if(mat2 == -3 && (fabs(data->y[i]-ymax) < eps)) boundnodes[i] = 1;
+	  else if(mat2 == -4 && (fabs(data->x[i]-xmin) < eps)) boundnodes[i] = 1;
+	  else if(mat2 == -2 && (fabs(data->x[i]-xmax) < eps)) boundnodes[i] = 1;
 	}	  
 	if(data->dim >= 3) {
-	  if(mat2 == -5 && fabs(data->z[k]-zmin) < eps) elemind[j] = 1;
-	  else if(mat2 == -6 && fabs(data->z[k]-zmax) < eps) elemind[j] = 1;
+	  if(mat2 == -5 && fabs(data->z[i]-zmin) < eps) boundnodes[i] = 1;
+	  else if(mat2 == -6 && fabs(data->z[i]-zmax) < eps) boundnodes[i] = 1;
 	}
       }
       
-      if(data->dim > 1) {
-	hits = 0;
-	for(j=0;j<nonodes;j++)
-	  hits += elemind[j];
-	
-	if(hits > 1) for(j=0;j<nonodes;j++) 
-	  if(elemind[j]) boundnodes[data->topology[i][j]] = 1;
-      }
-    }
   }
   else {
     printf("FindBulkBoundary: unknown option %d for finding a side\n",mat2);
