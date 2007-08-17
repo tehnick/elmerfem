@@ -358,13 +358,18 @@ omstart:
 	  elemcode = 404;
 	else if(strstr(line,"2D8") || strstr(line,"AX8"))
 	  elemcode = 408;
+	else if(strstr(line,"3D4"))
+	  elemcode = 504;
+	else if(strstr(line,"3D5"))
+	  elemcode = 605;
+	else if(strstr(line,"3D6"))
+	  elemcode = 706;
 	else if(strstr(line,"3D8"))
 	  elemcode = 808;
 	else if(strstr(line,"3D20"))
 	  elemcode = 820;
-	else if(strstr(line,"3D4"))
-	  elemcode = 504;
-	else printf("Unknown element code: %s\n",line);
+	else 
+	  printf("Unknown element code: %s\n",line);
 	
 	if(maxnodes < elemcode%100) maxnodes = elemcode%100;
 	mode = 3;
