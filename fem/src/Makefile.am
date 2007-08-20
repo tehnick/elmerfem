@@ -230,6 +230,7 @@ EXTRA_DIST = \
 	NavierStokesCylindrical.src \
 	NavierStokes.src \
 	NavierStokesGeneral.src \
+	NormalSolver.src \
 	ParallelEigenSolve.src \
 	ParallelUtils.src \
 	PElementBase.src \
