@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.76  2007/08/16 19:41:19  raback
+! * Improved the convergence control options and applied it to FlowSolve.
+! *
 ! * Revision 1.75  2007/08/16 13:54:18  raback
 ! * Minor update the convergence criteria stuff.
 ! *
@@ -227,7 +230,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.75 2007/08/16 13:54:18 raback Exp $
+! * $Id: SolverUtils.src,v 1.76 2007/08/16 19:41:19 raback Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -2878,8 +2881,17 @@ CONTAINS
       Solver % Variable % Norm = ComputeNorm(Solver,n,x)
     END IF
 
-    WRITE( Message, * ) 'Solution (Change,Norm,PrevNorm): ',Change, Norm, PrevNorm
-    CALL Info( 'ComputeChange', Message, Level=4 )
+    ! Steady state output is done within MainUtils
+    IF(SteadyState) THEN        
+      WRITE( Message, '(a,g18.10,g18.10,a)') 'SS (NRM,RELC): (',Norm, Change,&
+          ' ) :: '// TRIM(ListGetString( Solver % Values, 'Equation'))
+      CALL Info( 'ComputeChange', Message, Level=3 )
+    ELSE
+      WRITE( Message, '(a,g18.10,g18.10,a)') 'NS (NRM,RELC): (',Norm, Change,&
+          ' ) :: '// TRIM(ListGetString( Solver % Values, 'Equation'))
+      CALL Info( 'ComputeChange', Message, Level=3 )
+    END IF
+
 !------------------------------------------------------------------------------
   END SUBROUTINE ComputeChange
 !------------------------------------------------------------------------------

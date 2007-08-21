@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MainUtils.src,v $
+! * Revision 1.35  2007/08/16 19:41:19  raback
+! * Improved the convergence control options and applied it to FlowSolve.
+! *
 ! * Revision 1.34  2007/08/16 13:54:18  raback
 ! * *** empty log message ***
 ! *
@@ -127,7 +130,7 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.src,v 1.34 2007/08/16 13:54:18 raback Exp $
+! * $Id: MainUtils.src,v 1.35 2007/08/16 19:41:19 raback Exp $
 ! *****************************************************************************/
 
 MODULE MainUtils
@@ -1272,17 +1275,12 @@ CONTAINS
 !------------------------------------------------------------------------------
 !         check for coupled system convergence
 !------------------------------------------------------------------------------
+
           IF ( i >= CoupledMinIter .OR. .NOT. TransientSimulation ) THEN
              IF ( i /= CoupledMaxIter .OR. .NOT. TransientSimulation ) THEN
 
                CALL ComputeChange(Solver,.TRUE., n)
                RelativeChange = Solver % Variable % SteadyChange	
-               
-               WRITE( Message, '(a,g20.12,g20.12,a)') &
-                   '(NRM,RELC): (',Solver % Variable % Norm, RelativeChange, &
-                   '  ) :: ' // TRIM(ListGetString( Solver % Values, 'Equation'))
-               CALL Info( 'SolveEquations', Message, Level=3 )
-               
                Tolerance = ListGetConstReal( Solver % Values,   &
                    'Steady State Convergence Tolerance', Found ) 
                
@@ -1292,7 +1290,7 @@ CONTAINS
                  DoneThis(k) = .TRUE.
                END IF
              END IF
-	  END IF
+	  END IF 
 
           CALL ParallelAllReduceAnd( DoneThis(k) )
           IF( ALL(DoneThis) ) EXIT
