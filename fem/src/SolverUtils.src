@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SolverUtils.src,v $
+! * Revision 1.77  2007/08/21 07:19:26  raback
+! * Unified norm and change output.
+! *
 ! * Revision 1.76  2007/08/16 19:41:19  raback
 ! * Improved the convergence control options and applied it to FlowSolve.
 ! *
@@ -230,7 +233,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: SolverUtils.src,v 1.76 2007/08/16 19:41:19 raback Exp $
+! * $Id: SolverUtils.src,v 1.77 2007/08/21 07:19:26 raback Exp $
 ! *****************************************************************************/
 
 MODULE SolverUtils
@@ -2883,11 +2886,11 @@ CONTAINS
 
     ! Steady state output is done within MainUtils
     IF(SteadyState) THEN        
-      WRITE( Message, '(a,g18.10,g18.10,a)') 'SS (NRM,RELC): (',Norm, Change,&
+      WRITE( Message, '(a,g20.12,g20.12,a)') 'SS (NRM,RELC): (',Norm, Change,&
           ' ) :: '// TRIM(ListGetString( Solver % Values, 'Equation'))
       CALL Info( 'ComputeChange', Message, Level=3 )
     ELSE
-      WRITE( Message, '(a,g18.10,g18.10,a)') 'NS (NRM,RELC): (',Norm, Change,&
+      WRITE( Message, '(a,g20.12,g20.12,a)') 'NS (NRM,RELC): (',Norm, Change,&
           ' ) :: '// TRIM(ListGetString( Solver % Values, 'Equation'))
       CALL Info( 'ComputeChange', Message, Level=3 )
     END IF
