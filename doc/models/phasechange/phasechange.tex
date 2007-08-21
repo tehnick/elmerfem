@@ -167,70 +167,6 @@ regime by multiplying the suggested change by a constant factor.
 
 
 
-\subsection{Hybrid algorithm}
-
-The transient and steady-state algorithm are difficult to apply to cases 
-with many different time-scales. The steady-state algorithm converges rapidly to the 
-desired shape, however it does not have the inertia that would resist temporal 
-fluctuations. The transient algorithm, on the other hand, requires too many iterations 
-to be feasible. For that aim we study hybrid algorithms that would combine some of the 
-best properties of both methods.
-
-The desired form of the hybrid algorithm would be based on a  
-\Idx{Robin boundary condition} for the temperature. 
-\begin{equation}
-  q_n = L\rho V_n + g (T - T_m).
-\end{equation}
-This reduces to a Dirichlet condition when $g \rightarrow \infty$ and
-to the flux condition when $g=0$. On the other hand the Stefan condition
-may be expressed as 
-\begin{equation}
-  q_n = L\rho ( V_n - v_n ),  
-\end{equation}
-We use the following approximations
-\begin{equation}
-  v_n \approx \frac{dn}{dt} \approx \frac{1}{dt} \frac{1}{\Der{T}{n}} ( T - T_m ) .
-\end{equation}
-The normal derivative of temperature may be approximated by 
-\begin{equation}
-  \Der{T}{n} = \frac{\kappa\Der{T}{n}}{\kappa} \approx \frac{L \rho V_n }{p \kappa}
-\end{equation}
-where $p$ is the fraction of the heat flux that goes into solidification. 
-Combining the above yields,
-\begin{equation}
-  q_n = L \rho V_n + g (T_m - T)
-\end{equation}
-where 
-\begin{equation}
-  g = \frac{p \kappa}{dt \, V_n} 
-\end{equation}
-which is an equation of the desired form.
-For $dt \rightarrow \infty$ this
-retains the original steady state algorithm while for shorter timesteps the 
-inertia of the interface is naturally produced. 
-
-After the heat equation with the Robin condition has been solved there
-is possible two ways of tuning the interface positions. The first one would use
-the geometric ideas of the steady state algorithm. However, the instantaneous 
-temperature field may be such that there is no well defined temperature 
-isoline that would define the interface position. Therefore
-we rather use the transient algorithm to update the position. 
-After the solution the disbalance in the heat flux may be computed from 
-\begin{equation}
-  dq_n = g (T_m - T)
-\end{equation}
-and the interface velocity from
-\begin{equation}
-  v_n = \frac{g}{L \rho} (T - T_m).
-\end{equation}
-Once the normal velocity $v_n$ is computed one may proceed as in the 
-transient case. 
-
-The nice property of the hybrid algorithm is that the proposed interface velocity
-should not be sensitive on the coefficient of the Robin boundary condition. 
-This way the coefficient may be partly chosen so that the convergence 
-is optimal. 
-
 
 
 \section{Applicable cases and limitations}
@@ -280,20 +216,15 @@ where $\lambda$ is the factor given with this keyword. The default value for the
 is unity. If using the lumped model to accelerate the solution the final relaxation factor will the product of 
 the two.
 %
-\sifitem{Long Transition Timestep}{Real}
-There are three different regimes that may be used. This one
-defines the timestep at which the steady algorithm changes to 
-medium timestep algorithm.
+\sifitem{Steady Transition Timestep}{Real}
+By default the transient algorhitm is applied in time-dependent cases.
+However, if the timestep given by this flag is smaller than the current timestep the 
+steady state algorhitm is used even in the transient case. 
 %
-\sifitem{Short Transition Timestep}{Real}
+\sifitem{Averaging Transition Timestep}{Real}
 This keyword
-defines the timestep at which the medium timestep algorithm is switched to
-short timestep algorithm. 
-%
-\sifitem{Medium Timestep Algorithm}{String}
-The medium timestep algorithm. The options are ``steady'', ``hybrid'', and ``transient''.
-\sifitem{Short Timestep Algorithm}{String}
-The same options as the previous keyword.
+defines the timescale for the steady-state algorhitm in the transient case. If the timestep is smaller
+than given by this flag averaging is applied to the temperature field used to determine the isolines.
 \sifend
 %
 Some variables have a function only in steady state while others 
@@ -358,6 +289,7 @@ The steady state algorithm is solved by just one sweep.
 %
 \sifitem{Nonlinear System Convergence Tolerance}{Real}
 The tolerance for terminating the transient algorithm.
+%
 \sifitem{Stabilize}{Logical}
 The transient algorithm may require stabilization 
 which decreases the oscillations of the solution. 
