@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SaveData.src,v $
+! * Revision 1.40  2007/08/16 19:41:19  raback
+! * Improved the convergence control options and applied it to FlowSolve.
+! *
 ! * Revision 1.39  2007/08/08 12:26:29  raback
 ! * *** empty log message ***
 ! *
@@ -166,7 +169,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       MaxVars, NoEigenValues, Ind, EigenDofs
   REAL (KIND=DP) :: CPUTime, CPUMemory
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.39 2007/08/08 12:26:29 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.40 2007/08/16 19:41:19 raback Exp $"
 
   SAVE SubroutineVisited, NumberOfVars, &
       NoPoints, PointIndex, CoordinateIndex, CoordinateDist, ResultPrefix, &
@@ -223,7 +226,6 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     NoElements = 0
     PointCoordinates => ListGetConstRealArray(Solver % Values,'Save Coordinates',gotIt)
     IF(gotIt) THEN
-      NoCoordinates = SIZE(PointCoordinates,1)
       NoDims = SIZE(PointCoordinates,2)
       ExactCoordinates = ListGetLogical(Solver % Values,'Exact Coordinates',GotIt )      
       IF(ExactCoordinates) THEN
@@ -260,7 +262,6 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
 
 
   ComplexEigen = ListGetLogical(Solver % Values,'Complex Eigen Vectors',GotIt)
-
   MovingMesh = ListGetLogical(Solver % Values,'Moving Mesh',GotIt )
   
   IF(.NOT.SubroutineVisited .OR. MovingMesh) THEN
@@ -291,6 +292,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
 
     ! Write the value at the given coordinate points, really.
     ! Thus, find the point j's element and the local coordinates
+
     IF(NoElements > 0) THEN
 
       CoordinatesBasis = 0.0d0
@@ -2107,7 +2109,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t), POINTER   :: CurrentElement, NextElement
   CHARACTER(LEN=MAX_NAME_LEN) :: SideFile, SideNamesFile, VarName, CondName, SideParFile
   CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: ValueNames(:)
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.39 2007/08/08 12:26:29 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.40 2007/08/16 19:41:19 raback Exp $"
 
   LOGICAL :: cand, Parallel
 
