@@ -94,7 +94,7 @@ SUBROUTINE PhaseChangeSolve( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp), POINTER :: Surface(:), Temperature(:), ForceVector(:),  &
       x(:), y(:), z(:), Basis(:), dBasisdx(:,:), NodalTemp(:), &
       Conductivity(:), LatentHeat(:), TempDiff(:), Taverage(:), Taverage2(:), &
-      NormalY(:), NormalX(:), Weights(:), SurfaceMove(:), SurfaceMoveAve(:)
+      Normals(:), Weights(:), SurfaceMove(:), SurfaceMoveAve(:)
   REAL (KIND=dp), ALLOCATABLE :: PrevTemp(:), IsoSurf(:,:)
 
   REAL(KIND=dp), ALLOCATABLE :: &          
@@ -104,7 +104,7 @@ SUBROUTINE PhaseChangeSolve( Model,Solver,dt,TransientSimulation )
        NElems,ElementCode,Next,Vertex,ii,imin,NewtonAfterIter,Node, iter, LiquidInd, Visited = -1, &
        SubroutineVisited = 0, NormalDirection, TangentDirection, CoordMini(3), CoordMaxi(3), &
        Axis_node
-  INTEGER, POINTER :: NodeIndexes(:),TempPerm(:),SurfPerm(:),NormalPerm(:)
+  INTEGER, POINTER :: NodeIndexes(:),TempPerm(:),SurfPerm(:),NormalsPerm(:)
 
   LOGICAL :: Stat, FirstTime = .TRUE., Newton = .FALSE., UseTaverage, Debug, &
       PullControl, PullVelocitySet = .FALSE., IsoSurfAllocated, AllocationsDone = .FALSE., &
@@ -119,7 +119,7 @@ SUBROUTINE PhaseChangeSolve( Model,Solver,dt,TransientSimulation )
       Visited, Nodes, PNodes, NodalTemp, Conductivity, LatentHeat, &
       TempDiff, AllocationsDone, LocalStiffMatrix, LocalForceVector, LocalMassMatrix, &
       x, y, z, Basis, dBasisdx, norm, Axis_node, PullVelocitySet, &
-      NormalY, NormalX, Weights, AverageNormal, SurfaceMove, SurfaceMoveAve, &
+      Normals, Weights, NormalsPerm, AverageNormal, SurfaceMove, SurfaceMoveAve, &
       SurfaceVelocitySet
   
   !------------------------------------------------------------------------------
@@ -132,8 +132,6 @@ SUBROUTINE PhaseChangeSolve( Model,Solver,dt,TransientSimulation )
     IF(Stat) TransientAlgo = (dt < SteadyDt)
   END IF
   SteadyAlgo = .NOT. TransientAlgo    
-
-
 
   CALL Info('PhaseChangeSolve',                  '--------------------------------------------')
   IF(SteadyAlgo) CALL Info('PhaseChangeSolve',   'Using steady algorithm to find the isotherm')      
@@ -257,12 +255,15 @@ SUBROUTINE PhaseChangeSolve( Model,Solver,dt,TransientSimulation )
       IF ( istat /= 0 ) CALL Fatal( 'PhaseChangeSolver', 'Memory allocation error 3.' )          
     END IF  
 
-    HelpSol => VariableGet( Solver % Mesh % Variables, 'Normal Y', stat)
+    VariableName = ListGetString( Solver % Values, 'Normal Variable', Stat )
+    IF(Stat) THEN
+      HelpSol => VariableGet( Solver % Mesh % Variables, TRIM(VariableName) )
+    ELSE
+      HelpSol => VariableGet( Solver % Mesh % Variables, 'Normals',Stat )
+    END IF
     IF(ASSOCIATED(HelpSol)) THEN
-      NormalY => HelpSol % Values
-      NormalPerm => HelpSol % Perm
-      HelpSol => VariableGet( Solver % Mesh % Variables, 'Normal X')
-      NormalX => HelpSol % Values
+      Normals => HelpSol % Values
+      NormalsPerm => HelpSol % Perm
       AverageNormal = .TRUE.
     ELSE
       AverageNormal = .FALSE.
@@ -925,7 +926,7 @@ CONTAINS
     TYPE(Element_t), POINTER :: Parent      
     REAL(KIND=dp) :: Basis(3*nCoord),dBasisdx(3*nCoord,3), &
         X,Y,Z,U,V,W,S,detJ, TGrad(3,3),Flux,pu,pv,pw,pull, LocalHeat, &
-        NodalTemp(3*nCoord), xx(10),yy(10),zz(10),  NodalSurf(nCoord)
+        NodalTemp(3*nCoord), xx(10),yy(10),zz(10),  NodalSurf(nCoord), NodalNormal(2,nCoord)
     REAL(KIND=dp) :: Velo, Ny, Normal(3), StabFactor, StabCoeff, DerSurf, xcoord
     LOGICAL :: Stat
     INTEGER :: i,j,k,l,t,p,q, n, pn
@@ -943,6 +944,11 @@ CONTAINS
     Nodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
     Nodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
     NodalSurf(1:n) = Surface( SurfPerm(NodeIndexes) )
+   
+    IF(AverageNormal) THEN
+      NodalNormal(1,1:n) = Normals(2*NormalsPerm(NodeIndexes(1:n))-1)
+      NodalNormal(2,1:n) = Normals(2*NormalsPerm(NodeIndexes(1:n)))
+    END IF
 
     IF(TransientAlgo) THEN
       ALLOCATE( PNodes % x(10), PNodes % y(10), PNodes % z(10) )
@@ -971,8 +977,8 @@ CONTAINS
 !      END IF
       
       IF(AverageNormal) THEN
-        Normal(1) = SUM( Basis(1:n) * NormalX(SurfPerm(NodeIndexes(1:n))))
-        Normal(2) = SUM( Basis(1:n) * NormalY(SurfPerm(NodeIndexes(1:n))))
+        Normal(1) = SUM( Basis(1:n) * NodalNormal(1,1:n))
+        Normal(2) = SUM( Basis(1:n) * NodalNormal(2,1:n))
         Normal(3) = 0.0d0
       ELSE
         Normal = NormalVector( Element, Nodes, u, v, .TRUE. )         
@@ -1093,7 +1099,7 @@ CONTAINS
     
     ! internal variables:
     REAL(KIND=dp) :: Basis(3*nCoord),dBasisdx(3*nCoord,3), &
-        X,Y,Z,U,V,W,S,detJ,pull, NodalVelo(nCoord), xcoord
+        X,Y,Z,U,V,W,S,detJ,pull, NodalVelo(nCoord), xcoord, NodalNormal(2,nCoord)
     REAL(KIND=dp) :: Velo, StabFactor, StabCoeff
     LOGICAL :: Stat
     INTEGER :: i,j,k,l,t,p,q, n, pn
@@ -1112,6 +1118,12 @@ CONTAINS
     Nodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
     Nodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
     NodalVelo(1:n) = SurfaceMove( SurfPerm(NodeIndexes) )
+
+    IF(AverageNormal) THEN
+      NodalNormal(1,1:n) = Normals(2*NormalsPerm(NodeIndexes(1:n))-1)
+      NodalNormal(2,1:n) = Normals(2*NormalsPerm(NodeIndexes(1:n)))
+    END IF
+
 
 !      Numerical integration:
 !      ----------------------
@@ -1132,8 +1144,8 @@ CONTAINS
       xcoord = SUM( Nodes % x(1:nCoord) * Basis(1:nCoord) )
       
       IF(AverageNormal) THEN
-        Normal(1) = SUM( Basis(1:n) * NormalX(SurfPerm(NodeIndexes(1:n))))
-        Normal(2) = SUM( Basis(1:n) * NormalY(SurfPerm(NodeIndexes(1:n))))
+        Normal(1) = SUM( Basis(1:n) * NodalNormal(1,1:n) )
+        Normal(1) = SUM( Basis(1:n) * NodalNormal(2,1:n) ) 
         Normal(3) = 0.0d0
       ELSE
         Normal = NormalVector( Element, Nodes, u, v, .TRUE. )         
@@ -1212,11 +1224,13 @@ CONTAINS
   END SUBROUTINE PhaseChangeSolve
 !------------------------------------------------------------------------------
 
+
 !-------------------------------------------------------------------------------
   FUNCTION MeltingHeat(Model, Node, t) RESULT(Flux)
 !DEC$ATTRIBUTES DLLEXPORT :: MeltingHeat
 !-------------------------------------------------------------------------------
 ! This subroutine computes the heat flux resulting from solidification 
+! This 
 !-------------------------------------------------------------------------------
   USE Types
   USE Lists
@@ -1229,26 +1243,24 @@ CONTAINS
 !-------------------------------------------------------------------------------
   TYPE(Variable_t), POINTER :: NormalSol
   INTEGER:: k,n,i
-  INTEGER, POINTER :: NodeIndexes(:), NormalPerm(:) 
+  INTEGER, POINTER :: NodeIndexes(:), NormalsPerm(:) 
   REAL (KIND=dp):: NodeLatentHeat, Density, NormalPull, u, v
   REAL (KIND=dp):: UPull(3) = (/ 0,0,0 /), Normal(3), ElemLatentHeat(4)
-  REAL (KIND=dp), POINTER :: NormalX(:), NormalY(:)
+  REAL (KIND=dp), POINTER :: Normals(:)
   LOGICAL:: stat, NormalExist = .FALSE., Visited = .FALSE.
   TYPE(Nodes_t) :: Nodes
   TYPE(Element_t), POINTER :: CurrentElement, Parent
   
 !------------------------------------------------------------------------------
 
-  SAVE NormalExist, NormalX, NormalY, NormalPerm, Nodes
+  SAVE NormalExist, Normals, NormalsPerm, Nodes
 
 
   IF(.NOT. Visited) THEN
-    NormalSol  => VariableGet( Model % Variables, 'Normal Y',stat )
+    NormalSol  => VariableGet( Model % Variables, 'Normals',stat )
     IF(ASSOCIATED(NormalSol)) THEN
-      NormalPerm => NormalSol % Perm
-      NormalY => NormalSol % Values
-      NormalSol  => VariableGet( Model % Variables, 'Normal X' )
-      NormalX => NormalSol % Values     
+      NormalsPerm => NormalSol % Perm
+      Normals => NormalSol % Values
       NormalExist = .TRUE.
     ELSE
       n = Model % Mesh % MaxElementNodes  
@@ -1272,13 +1284,10 @@ CONTAINS
   
   UPull = 0.0
   UPull(1) = ListGetConstReal(Model % Simulation,'res: Pull Velocity 1',stat) 
-  IF(.NOT. stat) THEN
-    UPull(1) = ListGetConstReal(Model % Materials(k) % Values,'Convection Velocity 1',stat) 
-  END IF
+  IF(.NOT. stat) UPull(1) = ListGetConstReal(Model % Materials(k) % Values,'Convection Velocity 1',stat) 
+
   UPull(2) = ListGetConstReal(Model % Simulation,'res: Pull Velocity 2',stat) 
-  IF(.NOT. stat) THEN
-    UPull(2) = ListGetConstReal(Model % Materials(k) % Values,'Convection Velocity 2',stat) 
-  END IF
+  IF(.NOT. stat) UPull(2) = ListGetConstReal(Model % Materials(k) % Values,'Convection Velocity 2',stat) 
  
   Parent => CurrentElement % BoundaryInfo % Left
   k = ListGetInteger(Model % Bodies(Parent % BodyId) % Values,'Material')
@@ -1294,8 +1303,8 @@ CONTAINS
 !------------------------------------------------------------------------------
 
   IF( NormalExist ) THEN
-    Normal(1) = NormalX( NormalPerm( Node ))
-    Normal(2) = NormalY( NormalPerm( Node ))
+    Normal(1) = Normals( 2*NormalsPerm( Node ) - 1 )
+    Normal(2) = Normals( 2*NormalsPerm( Node ))
     Normal(3) = 0.0d0
   ELSE
     Nodes % x = Model % Nodes % x(NodeIndexes)
@@ -1320,213 +1329,3 @@ CONTAINS
 !------------------------------------------------------------------------------
 END FUNCTION MeltingHeat
 !------------------------------------------------------------------------------
-
-
-
-
-SUBROUTINE PhaseChangeNormal( Model,Solver,dt,TransientSimulation )
-!DEC$ATTRIBUTES DLLEXPORT :: PhaseChangeNormal
-!------------------------------------------------------------------------------
-! Computes normal of the phase change interface that is really on average 
-! on the neighbouring elements.
-!------------------------------------------------------------------------------
-  USE CoordinateSystems
-  USE SolverUtils
-  USE Differentials
-  USE Types
-  USE Lists
-  USE Integration
-  USE ElementDescription
-  USE GeneralUtils
-
-  IMPLICIT NONE
-
-  TYPE(Model_t)  :: Model
-  TYPE(Solver_t), TARGET :: Solver
-  LOGICAL ::  TransientSimulation
-  REAL(KIND=dp) :: dt
-!------------------------------------------------------------------------------
-!    Local variables
-!------------------------------------------------------------------------------
-  TYPE(Element_t), POINTER :: CurrentElement
-  TYPE(Variable_t), POINTER :: HelpSol, SurfSol
-  TYPE(Nodes_t) :: Nodes
-  TYPE(GaussIntegrationPoints_t) :: IntegStuff  
-  TYPE(Solver_t), POINTER :: PSolver
-  
-  REAL(KIND=dp) :: Normal(3), u, v, w, s, Temppi, DetJ 
-  REAL(KIND=dp), POINTER :: Surface(:), NormalY(:), NormalX(:), Weights(:), Basis(:), &
-      dBasisdx(:,:)
-  INTEGER :: i,j,k,t,n,p,istat,DIM,NoNodes,ElemCorners
-  INTEGER, POINTER :: NodeIndexes(:),SurfPerm(:)
-  
-  LOGICAL :: Stat, AllocationsDone = .FALSE.
-  
-  SAVE Nodes, Basis, dBasisdx, AllocationsDone, NormalY, NormalX, Weights, NoNodes, SurfPerm
-  
-!------------------------------------------------------------------------------
-
-  DIM = CoordinateSystemDimension()
-  IF(DIM /= 2) THEN
-    CALL Fatal('PhaseChangeSolve','Implemented only in 2D')
-  END IF
-
-!------------------------------------------------------------------------------
-! Get variables needed for solution
-!------------------------------------------------------------------------------
-  
-  IF(.NOT. AllocationsDone) THEN
-    
-    PSolver => Solver
-    
-    SurfSol  => VariableGet( Solver % Mesh % Variables, 'PhaseSurface' )
-    IF(.NOT. ASSOCIATED(SurfSol)) THEN
-      SurfSol  => VariableGet( Solver % Mesh % Variables, 'Surface' )    
-    END IF
-    
-    IF(ASSOCIATED(SurfSol)) THEN
-      Surface  => SurfSol % Values
-      SurfPerm => SurfSol % Perm
-    ELSE
-      CALL Fatal('PhaseChangeSolve','Surface field needed for Phase Change')
-    END IF
-    
-    IF( ALL(SurfPerm <= 0) ) THEN
-      CALL Fatal('PhaseChangeSolve','Surface field needed for Phase Change')
-    END IF
-
-    n = Solver % Mesh % MaxElementNodes  
-    NoNodes = SIZE(Surface)
-    
-    ALLOCATE( Nodes % x(n), Nodes % y(n), Nodes % z(n), Basis(n), dBasisdx(n,3), &
-        NormalY(NoNodes), NormalX(Nonodes), Weights(NoNodes), &
-        STAT=istat)
-    IF ( istat /= 0 ) CALL Fatal( 'PhaseChangeSolver', 'Memory allocation error 1.' )     
-
-    CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-        PSolver, 'Normal X', 1, NormalX, SurfSol % Perm)
-    
-    CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-        PSolver, 'Normal Y', 1, NormalY, SurfSol % Perm)
-    
-    Nodes % x = 0.0d0
-    Nodes % y = 0.0d0
-    Nodes % z = 0.0d0
-        
-    AllocationsDone = .TRUE.    
-  END IF
-
-  NormalX = 0.0d0
-  NormalY = 0.0d0
-
-        
-  DO t = 1, Solver % Mesh % NumberOfBulkElements + Solver % Mesh % NumberOfBoundaryElements      
-
-    CurrentElement => Solver % Mesh % Elements(t)
-
-    ElemCorners = CurrentElement % TYPE % ElementCode / 100
-    IF(ElemCorners > 4 .OR. ElemCorners < 2) CYCLE
-
-    n = CurrentElement % TYPE % NumberOfNodes
-    NodeIndexes => CurrentElement % NodeIndexes
-
-    IF( .NOT. ALL(SurfPerm(NodeIndexes) > 0)) CYCLE
-    
-    Nodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
-    Nodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
-
-    IntegStuff = GaussPoints( CurrentElement )
-    
-    DO k = 1,IntegStuff % n
-      
-      u = IntegStuff % u(k)
-      v = IntegStuff % v(k)
-      w = IntegStuff % w(k)
-      s = IntegStuff % s(k)
-      
-!        Basis function values & derivatives at the integration point:
-!        -------------------------------------------------------------
-      stat = ElementInfo( CurrentElement,Nodes,U,V,W,detJ,Basis,dBasisdx)
-      s = s * detJ
-            
-      Normal = NormalVector( CurrentElement, Nodes, u, v, .TRUE. )         
-
-      DO p=1,n
-        NormalX( SurfPerm(NodeIndexes(p)) ) = NormalX( SurfPerm(NodeIndexes(p))) + Basis(p) * Normal(1)
-        NormalY( SurfPerm(NodeIndexes(p)) ) = NormalY( SurfPerm(NodeIndexes(p))) + Basis(p) * Normal(2)
-        Weights( SurfPerm(NodeIndexes(p)) ) = Weights( SurfPerm(NodeIndexes(p))) + Basis(p) * s
-      END DO
-    END DO
-
-  END DO
-  
-  ! Normalize the normals
-  DO t=1,NoNodes
-    Temppi = SQRT( NormalX(t)**2.0 + NormalY(t)**2.0 )
-    NormalX(t) = NormalX(t) / Temppi
-    NormalY(t) = NormalY(t) / Temppi
-  END DO
-
-
-END SUBROUTINE PhaseChangeNormal
-!------------------------------------------------------------------------------
-
-
-
-SUBROUTINE SaveMovedNodes( Model,Solver,dt,TransientSimulation )
-!DEC$ATTRIBUTES DLLEXPORT :: SaveMovedNodes
-!------------------------------------------------------------------------------
-! Computes normal of the phase change interface that is really on average 
-! on the neighbouring elements.
-!------------------------------------------------------------------------------
-  USE CoordinateSystems
-  USE SolverUtils
-  USE Differentials
-  USE Types
-  USE Lists
-  USE Integration
-  USE ElementDescription
-  USE GeneralUtils
-
-  IMPLICIT NONE
-
-  TYPE(Model_t)  :: Model
-  TYPE(Solver_t), TARGET :: Solver
-  LOGICAL ::  TransientSimulation
-  REAL(KIND=dp) :: dt
-!------------------------------------------------------------------------------
-!    Local variables
-!------------------------------------------------------------------------------
-  TYPE(Element_t), POINTER :: CurrentElement
-  TYPE(Variable_t), POINTER :: HelpSol, SurfSol
-  TYPE(Nodes_t) :: Nodes
-  TYPE(GaussIntegrationPoints_t) :: IntegStuff  
-  TYPE(Solver_t), POINTER :: PSolver
-  
-  REAL(KIND=dp) :: Normal(3), u, v, w, s, Temppi, DetJ 
-  REAL(KIND=dp), POINTER :: Surface(:), NormalY(:), NormalX(:), Weights(:), Basis(:), &
-      dBasisdx(:,:)
-  INTEGER :: i,j,k,t,n,p,istat,DIM,NoNodes,ElemCorners
-  INTEGER, POINTER :: NodeIndexes(:),SurfPerm(:)
-  
-  LOGICAL :: Stat, AllocationsDone = .FALSE.
-  
-  CHARACTER(LEN=MAX_NAME_LEN) :: OutputName
-
-!------------------------------------------------------------------------------
-
-  OutputName = TRIM(OutputPath) // '/' // TRIM(Solver % Mesh % Name) // '/mesh.nodes2'         
-  
-  OPEN( 10,FILE=TRIM(OutputName), STATUS='unknown' )                 
-  DO i=1,Solver % Mesh % NumberOfNodes
-    WRITE( 10,'(i7,i3,f20.12,f20.12,f20.12)' ) i,-1,  &
-        Solver % Mesh % Nodes % x(i), Solver % Mesh % Nodes % y(i), &
-        Solver % Mesh % Nodes % z(i)
-  END DO
-  CLOSE(10)
-
-END SUBROUTINE SaveMovedNodes
-!------------------------------------------------------------------------------
-
-
-
