@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: NormalSolver.src,v $
+! * Revision 1.1  2007/08/20 12:21:48  jpr
+! * *** empty log message ***
+! *
 ! *
 ! *****************************************************************************/
 
@@ -85,7 +88,7 @@ SUBROUTINE NormalSolver( Model,Solver,dt,Transient )
   REAL(KIND=dp), POINTER :: ForceVector(:,:), SaveRHS(:)
   REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime
   TYPE(Variable_t), POINTER :: NrmSol
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: NormalSolver.src,v 1.6 2007/06/28 07:04:20 jpr Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: NormalSolver.src,v 1.1 2007/08/20 12:21:48 jpr Exp $"
   
   SAVE Visited
 
@@ -165,7 +168,6 @@ SUBROUTINE NormalSolver( Model,Solver,dt,Transient )
     Solver % Matrix % RHS => SaveRHS
   END DO
 
-
   DO i=1,Solver % Matrix % NumberOFRows
     nrm = 0.0_dp
     DO j=1,dim
@@ -190,9 +192,6 @@ SUBROUTINE NormalSolver( Model,Solver,dt,Transient )
   WRITE(Message,* ) 'Solution Time: ',at2-at1
   CALL Info( 'NormalSolver', Message, Level=5 )
   
-  WRITE( Message, * ) 'Result Norm: ',TotNorm
-  CALL Info( 'NormalSolver', Message, Level=4 )
-  
 CONTAINS
 
 
@@ -200,15 +199,16 @@ CONTAINS
   SUBROUTINE BulkAssembly()
 !------------------------------------------------------------------------------
        
-    INTEGER :: elem,t,i,j,p,q,n,nd, Rank
     REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:,:), Basis(:)
-    TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
-    TYPE(Nodes_t) :: Nodes
-    TYPE(Element_t), POINTER :: Element
     REAL(KIND=dp) :: Weight,Normal(3),detJ
+
     LOGICAL :: Found
-    
-    SAVE Nodes
+
+    INTEGER :: elem,t,i,j,p,q,n,nd, Rank
+
+    TYPE(Element_t), POINTER :: Element
+    TYPE(Nodes_t), SAVE :: Nodes
+    TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
     
     n = MAX( Solver % Mesh % MaxElementDOFs, Solver % Mesh % MaxElementNodes )
     ALLOCATE( STIFF(n,n), FORCE(dim,n), Basis(n) )
@@ -243,7 +243,7 @@ CONTAINS
           END DO
         END IF
         
-        Normal(1:dim) = NormalVector( Element, Nodes, &
+        Normal = NormalVector( Element, Nodes, &
            IntegStuff % u(t), IntegStuff % v(t), .TRUE. )
         DO i=1,dim
           FORCE(i,1:nd) = FORCE(i,1:nd) + Weight*Normal(i)*Basis(1:nd)
