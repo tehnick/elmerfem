@@ -23,7 +23,7 @@
 !
 !/******************************************************************************
 ! *
-! *  Module for computing fluxes of Poisson type of equations
+! *  Module for computing avarage normals for nodes
 ! *
 ! ******************************************************************************
 ! *
@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: NormalSolver.src,v $
+! * Revision 1.2  2007/08/21 07:56:46  jpr
+! * Minor polishing.
+! *
 ! * Revision 1.1  2007/08/20 12:21:48  jpr
 ! * *** empty log message ***
 ! *
@@ -88,13 +91,13 @@ SUBROUTINE NormalSolver( Model,Solver,dt,Transient )
   REAL(KIND=dp), POINTER :: ForceVector(:,:), SaveRHS(:)
   REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime
   TYPE(Variable_t), POINTER :: NrmSol
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: NormalSolver.src,v 1.1 2007/08/20 12:21:48 jpr Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: NormalSolver.src,v 1.2 2007/08/21 07:56:46 jpr Exp $"
   
   SAVE Visited
 
  
   CALL Info( 'NormalSolver', '-------------------------------------',Level=4 )
-  CALL Info( 'NormalSolver','Computing the flux',Level=4 )
+  CALL Info( 'NormalSolver','Computing the normals',Level=4 )
   CALL Info( 'NormalSolver', '-------------------------------------',Level=4 )
 
 !------------------------------------------------------------------------------
@@ -181,7 +184,6 @@ SUBROUTINE NormalSolver( Model,Solver,dt,Transient )
         NrmSol % Values(k) = nrm*NrmSol % Values(k)
       END DO
     END IF
-      
   END DO
 !------------------------------------------------------------------------------     
  
