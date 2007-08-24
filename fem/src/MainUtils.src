@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MainUtils.src,v $
+! * Revision 1.36  2007/08/21 07:19:26  raback
+! * Unified norm and change output.
+! *
 ! * Revision 1.35  2007/08/16 19:41:19  raback
 ! * Improved the convergence control options and applied it to FlowSolve.
 ! *
@@ -130,7 +133,7 @@
 ! * Changed strategy of allocation of solver primary variables somewhat.
 ! *
 ! * 
-! * $Id: MainUtils.src,v 1.35 2007/08/16 19:41:19 raback Exp $
+! * $Id: MainUtils.src,v 1.36 2007/08/21 07:19:26 raback Exp $
 ! *****************************************************************************/
 
 MODULE MainUtils
@@ -301,8 +304,9 @@ CONTAINS
     IF ( MaxFDOFs > 0 ) Ndeg = Ndeg + MaxFDOFs * Solver % Mesh % NumberOFFaces
     IF ( GlobalBubbles ) &
     Ndeg = Ndeg + MaxBDOFs * Solver % Mesh % NumberOfBulkElements
-    Ndeg = MAX( NDeg, MaxDGDOFs * (Solver % Mesh % NumberOfBulkElements+ &
-                        Solver % Mesh % NumberOfBoundaryElements) )
+    IF ( ListGetLogical( Solver % Values, 'Discontinuous Galerkin', Found ) ) &
+      Ndeg = MAX( NDeg, MaxDGDOFs * (Solver % Mesh % NumberOfBulkElements+ &
+              Solver % Mesh % NumberOfBoundaryElements) )
 
     Solver % Order = 1
 
