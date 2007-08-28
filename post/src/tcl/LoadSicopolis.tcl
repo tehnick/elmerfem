@@ -43,7 +43,7 @@ proc SicoRead { id slice wascii } {
     set  sicorunloadfile [open ".RUNLOADSICO" {WRONLY CREAT}]
     # write orders to shell script file that runs sico2elmer-process
     puts $sicorunloadfile "#!/bin/csh"
-    puts $sicorunloadfile "$ELMER_POST_HOME/sico2elmer/sico2elmer.exe << EOF >&! sico2elmer.log"
+    puts $sicorunloadfile "$ELMER_POST_HOME/../../bin/sico2elmer << EOF >&! sico2elmer.log"
     puts $sicorunloadfile "$id"
     puts $sicorunloadfile "1"
     puts $sicorunloadfile "$slice"
@@ -68,7 +68,7 @@ proc SicoRead { id slice wascii } {
     readfile "$id$slice.ep"; 
     echo "Read grid file $id$slice.ep"; 
     # load data
-    math source("$ELMER_POST_HOME/sico2elmer/loadsingle");
+    math source("$ELMER_POST_HOME/tcl/loadsingle");
     math sicoreadfile("$id",$slice,0);
     echo "Read data file $id$slice.dat"; 
 }
