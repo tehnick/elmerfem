@@ -39,6 +39,10 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Lists.src,v $
+! * Revision 1.36  2007/09/04 05:30:04  jpr
+! * Check that value arrays really exist for various ListGet* routines. The
+! * nonexistence might be due to inconsistent typing of keywords, for example.
+! *
 ! * Revision 1.35  2007/08/15 09:44:02  jpr
 ! * Changes to update convergence criteria computations (Peter,Juha).
 ! *
@@ -97,7 +101,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Lists.src,v 1.35 2007/08/15 09:44:02 jpr Exp $
+! * $Id: Lists.src,v 1.36 2007/09/04 05:30:04 jpr Exp $
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
@@ -1333,7 +1337,7 @@ TYPE(ValueList_t), POINTER :: ptr
      ELSE
        IF ( .NOT. ASSOCIATED(ptr % IValues) ) THEN
          WRITE(Message,*) 'Value type for property [', Name(1:k), &
-                 '] not used consitently.'
+                 '] not used consistently.'
          CALL Fatal( 'ListGetInteger', Message )
          RETURN
        END IF
@@ -1402,7 +1406,7 @@ TYPE(ValueList_t), POINTER :: ptr
 
      IF ( .NOT. ASSOCIATED(ptr % IValues) ) THEN
        WRITE(Message,*) 'Value type for property [', Name(1:k), &
-               '] not used consitently.'
+               '] not used consistently.'
        CALL Fatal( 'ListGetIntegerArray', Message )
        RETURN
      END IF
@@ -1576,7 +1580,7 @@ TYPE(ValueList_t), POINTER :: ptr
      ELSE
        IF ( .NOT. ASSOCIATED(ptr % FValues) ) THEN
          WRITE(Message,*) 'Value type for property [', Name(1:k), &
-                 '] not used consitently.'
+                 '] not used consistently.'
          CALL Fatal( 'ListGetConstReal', Message )
        ELSE
          F = ptr % Fvalues(1,1,1)
@@ -1660,7 +1664,7 @@ TYPE(ValueList_t), POINTER :: ptr
        ELSE
          IF ( .NOT. ASSOCIATED(ptr % FValues) ) THEN
            WRITE(Message,*) 'Value type for property [', Name(1:k), &
-                   '] not used consitently.'
+                   '] not used consistently.'
            CALL Fatal( 'ListGetReal', Message )
            RETURN
          END IF
@@ -1745,7 +1749,7 @@ TYPE(ValueList_t), POINTER :: ptr
            ELSE
              IF ( .NOT. ASSOCIATED(ptr % FValues) ) THEN
                WRITE(Message,*) 'Value type for property [', Name(1:k), &
-                       '] not used consitently.'
+                       '] not used consistently.'
                CALL Fatal( 'ListGetReal', Message )
                RETURN
              END IF
@@ -1927,7 +1931,7 @@ TYPE(ValueList_t), POINTER :: ptr
 
      IF ( .NOT. ASSOCIATED(ptr % FValues) ) THEN
        WRITE(Message,*) 'Value type for property [', Name(1:k), &
-               '] not used consitently.'
+               '] not used consistently.'
        CALL Fatal( 'ListGetConstRealArray', Message )
        RETURN
      END IF
@@ -1994,7 +1998,7 @@ TYPE(ValueList_t), POINTER :: ptr
 
      IF ( .NOT. ASSOCIATED(ptr % FValues) ) THEN
        WRITE(Message,*) 'Value type for property [', Name(1:k), &
-               '] not used consitently.'
+               '] not used consistently.'
        CALL Fatal( 'ListGetRealArray', Message )
        RETURN
      END IF
@@ -2128,7 +2132,7 @@ TYPE(ValueList_t), POINTER :: ptr
 
      IF ( .NOT. ASSOCIATED(ptr % FValues) ) THEN
        WRITE(Message,*) 'Value type for property [', Name(1:k), &
-               '] not used consitently.'
+               '] not used consistently.'
        CALL Fatal( 'ListGetRealArray', Message )
        RETURN
      END IF
