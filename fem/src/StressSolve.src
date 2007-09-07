@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: StressSolve.src,v $
+! * Revision 1.46  2007/05/31 08:18:16  apursula
+! * Corrected a bug in previous
+! *
 ! * Revision 1.45  2007/05/28 10:47:52  apursula
 ! * bug corrections to the previous...
 ! *
@@ -301,7 +304,7 @@
               NonlinearTol,s, UzawaParameter
 
      INTEGER ::  MaxIter, MinIter
-     TYPE(Variable_t), POINTER :: StressSol, TempSol, Var, TimeVar
+     TYPE(Variable_t), POINTER :: StressSol, Var, TimeVar
 
      REAL(KIND=dp), POINTER :: Temperature(:),Displacement(:),Work(:,:,:), &
             VonMises(:), NodalStress(:), StressComp(:), ContactPressure(:), &
@@ -375,7 +378,7 @@
         END FUNCTION StressInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.45 2007/05/28 10:47:52 apursula Exp $"
+     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StressSolve.src,v 1.46 2007/05/31 08:18:16 apursula Exp $"
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -401,12 +404,6 @@
      DisplPerm      => StressSol % Perm
      STDOFs         =  StressSol % DOFs
      Displacement   => StressSol % Values
-
-     TempSol => VariableGet( Solver % Mesh % Variables, 'Temperature' )
-     IF ( ASSOCIATED( TempSol) ) THEN
-       TempPerm    => TempSol % Perm
-       Temperature => TempSol % Values
-     END IF
 
      MeshDisplacementActive = ListGetLogical( Solver % Values,  &
                'Displace Mesh', Found )
