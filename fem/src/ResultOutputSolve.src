@@ -21,7 +21,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ResultOutputSolve.src,v 1.20 2007/08/07 13:45:44 baarman Exp $
+! * $Id: ResultOutputSolve.src,v 1.21 2007/08/15 11:42:44 jpr Exp $
 ! *****************************************************************************
 
 
@@ -252,7 +252,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
      IF( .NOT.CoordinatesWritten ) THEN
         WRITE(10,'(A)') 'Coordinates'
         DO j = 1, Model % Mesh % NumberOfNodes
-           WRITE(10,'(I6,3E16.6)') j, &
+           WRITE(10,'(I6,3E16.6E3)') j, &
                 Model % Mesh % Nodes % x(j), &
                 Model % Mesh % Nodes % y(j), &
                 Model % Mesh % Nodes % z(j)
@@ -369,7 +369,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
          IF( TransientSimulation ) THEN
            TimeVariable => VariableGet( Solver % Mesh % Variables, 'Time' )
            PRINT *,'Current time=',TimeVariable % Values(1)
-           WRITE(10,'(A,A,A,E16.6,A)') 'Result "',&
+           WRITE(10,'(A,A,A,E16.6E3,A)') 'Result "',&
                TRIM(ScalarFieldName),'" "Transient analysis" ', &
                TimeVariable % Values(1) ,' Scalar OnNodes'
          ELSE
@@ -387,9 +387,9 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
          DO j = 1, Model % Mesh % NumberOfNodes
            k = Perm(j)
            IF( .NOT.EigenAnalysis ) THEN
-             WRITE(10,'(I6,E16.6)') j, Values(k)
+             WRITE(10,'(I6,E16.6E3)') j, Values(k)
            ELSE
-             WRITE(10,'(I6,E16.6)') j, REAL(CValues(k))
+             WRITE(10,'(I6,E16.6E3)') j, REAL(CValues(k))
            END IF
          END DO
          WRITE(10,'(A)') 'end values'
@@ -413,7 +413,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
        IF( TransientSimulation ) THEN
          TimeVariable => VariableGet( Solver % Mesh % Variables, 'Time' )
          PRINT *,'Current time=',TimeVariable % Values(1)
-         WRITE(10,'(A,A,A,E16.6,A)') 'Result "',&
+         WRITE(10,'(A,A,A,E16.6E3,A)') 'Result "',&
              TRIM(VectorFieldName),'" "Transient analysis" ', &
              TimeVariable % Values(1) ,' Vector OnNodes'
        ELSE
@@ -463,10 +463,10 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
              
              IF( .NOT.EigenAnalysis ) THEN
                Values => Solution % Values
-               WRITE(Txt2,'(A,E16.6)') TRIM(Txt2), Values( Perm(j) )
+               WRITE(Txt2,'(A,E16.6E3)') TRIM(Txt2), Values( Perm(j) )
              ELSE
                CValues => Solution % Eigenvectors(Loop,:)
-               WRITE(Txt2,'(A,E16.6)') TRIM(Txt2), REAL(CValues( Perm(j) ) )
+               WRITE(Txt2,'(A,E16.6E3)') TRIM(Txt2), REAL(CValues( Perm(j) ) )
              END IF
              
            END IF
@@ -495,7 +495,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
        IF( TransientSimulation ) THEN
          TimeVariable => VariableGet( Solver % Mesh % Variables, 'Time' )
          PRINT *,'Current time=',TimeVariable % Values(1)
-         WRITE(10,'(A,A,A,E16.6,A)') 'Result "',&
+         WRITE(10,'(A,A,A,E16.6E3,A)') 'Result "',&
              TRIM(TensorFieldName),'" "Transient analysis" ', &
              TimeVariable % Values(1) ,' Matrix OnNodes'
        ELSE
@@ -550,14 +550,14 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
            ELSE
              Perm => Solution % Perm
              !Values => Solution % Values
-             !WRITE(Txt2,'(A,E16.6)') TRIM(Txt2), Values( Perm(j) )
+             !WRITE(Txt2,'(A,E16.6E3)') TRIM(Txt2), Values( Perm(j) )
              
              IF( .NOT.EigenAnalysis ) THEN
                Values => Solution % Values
-               WRITE(Txt2,'(A,E16.6)') TRIM(Txt2), Values( Perm(j) )
+               WRITE(Txt2,'(A,E16.6E3)') TRIM(Txt2), Values( Perm(j) )
              ELSE
                CValues => Solution % Eigenvectors(Loop,:)
-               WRITE(Txt2,'(A,E16.6)') TRIM(Txt2), REAL(CValues( Perm(j) ) )
+               WRITE(Txt2,'(A,E16.6E3)') TRIM(Txt2), REAL(CValues( Perm(j) ) )
              END IF
 
            END IF
@@ -828,12 +828,12 @@ SUBROUTINE GmshOutputSolver( Model,Solver,dt,TransientSimulation )
       IF( TransientSimulation ) THEN
         TimeVariable => VariableGet( Solver % Mesh % Variables, 'Time' )
         PRINT *,'Current time=',TimeVariable % Values(1)
-        WRITE(10,'(E16.6)') TimeVariable % Values(1)
+        WRITE(10,'(E16.6E3)') TimeVariable % Values(1)
       ELSE IF(.NOT. EigenAnalysis) THEN
-        WRITE(10,'(E16.6)') 1.0*VisitedTimes
+        WRITE(10,'(E16.6E3)') 1.0*VisitedTimes
       ELSE
         DO i=1,Nloop
-          WRITE(10,'(E16.6)') 1.0*i
+          WRITE(10,'(E16.6E3)') 1.0*i
         END DO
       END IF
       
