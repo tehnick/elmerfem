@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SaveData.src,v $
+! * Revision 1.41  2007/08/21 11:08:14  raback
+! * Corrected a tiny bug in allocation.
+! *
 ! * Revision 1.40  2007/08/16 19:41:19  raback
 ! * Improved the convergence control options and applied it to FlowSolve.
 ! *
@@ -147,7 +150,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   TYPE(Nodes_t) :: ElementNodes
   LOGICAL :: SubroutineVisited=.FALSE.,MovingMesh, GotCoeff, &
       GotIt, GotOper, GotVar, ExactCoordinates, VariablesExist, &
-      ComplexEigen, Parallel
+      ComplexEigen, Parallel, LiveGraph
 
   CHARACTER(LEN=MAX_NAME_LEN) :: MessageL
 
@@ -169,7 +172,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       MaxVars, NoEigenValues, Ind, EigenDofs
   REAL (KIND=DP) :: CPUTime, CPUMemory
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.40 2007/08/16 19:41:19 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.41 2007/08/21 11:08:14 raback Exp $"
 
   SAVE SubroutineVisited, NumberOfVars, &
       NoPoints, PointIndex, CoordinateIndex, CoordinateDist, ResultPrefix, &
@@ -177,7 +180,8 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       ExactCoordinates, CoordinatesElemNo, NoElements, ElementNodes, &
       ElementValues, CoordinatesBasis, PointCoordinates, NoDims, &
       BoundaryFluxes, BoundaryHits, VariablesExist, NoLines, &
-      LineCoordinates, ScalarParFile, Parallel, ParSolver, PrevNoValues
+      LineCoordinates, ScalarParFile, Parallel, ParSolver, PrevNoValues, &
+      LiveGraph
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
@@ -210,6 +214,8 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     
     ResultPrefix = ListGetString(Solver % Values,'Scalars Prefix',GotIt )
     IF(.NOT. gotIt) ResultPrefix = 'res:'
+
+    LiveGraph = ListGetLogical(Solver % Values,'Live Graph',GotIt) 
     
     NoLines = 0
     LineCoordinates => ListGetConstRealArray(Solver % Values,'Polyline Coordinates',gotIt)
@@ -743,6 +749,31 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   END IF
   CLOSE(10)
 
+  !------------------------------------------------------------------------------
+  ! Save data in livegraph format
+  !------------------------------------------------------------------------------
+
+  IF(LiveGraph) THEN
+    IF(SubroutineVisited) THEN 
+      OPEN (10, FILE=TRIM(ScalarsFile)//'.livegraph',POSITION='APPEND')      
+    ELSE 
+      OPEN (10, FILE=TRIM(ScalarsFile)//'.livegraph')
+      DO No=1,NoValues-1
+        WRITE (10,'(A)',advance='no') TRIM(ValueNames(No))//","
+      END DO
+      WRITE (10,'(A)') TRIM(ValueNames(NoValues))
+    END IF
+
+    DO No=1,NoValues-1
+      WRITE (10,'(ES22.12E3,A)',advance='no') Values(No),","
+    END DO
+    WRITE (10,'(ES22.12E3)') Values(NoValues)
+    CLOSE(10)
+  END IF
+
+  !------------------------------------------------------------------------------
+  ! Add data to the Simulation block for possible future use
+  !------------------------------------------------------------------------------
   DO No=1,NoValues
     CALL ListAddConstReal(Model % Simulation,TRIM(ValueNames(No)),Values(No))
   END DO
@@ -2109,7 +2140,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t), POINTER   :: CurrentElement, NextElement
   CHARACTER(LEN=MAX_NAME_LEN) :: SideFile, SideNamesFile, VarName, CondName, SideParFile
   CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: ValueNames(:)
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.40 2007/08/16 19:41:19 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.41 2007/08/21 11:08:14 raback Exp $"
 
   LOGICAL :: cand, Parallel
 
