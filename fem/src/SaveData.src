@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: SaveData.src,v $
+! * Revision 1.42  2007/09/07 10:41:41  raback
+! * *** empty log message ***
+! *
 ! * Revision 1.41  2007/08/21 11:08:14  raback
 ! * Corrected a tiny bug in allocation.
 ! *
@@ -172,7 +175,7 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       MaxVars, NoEigenValues, Ind, EigenDofs
   REAL (KIND=DP) :: CPUTime, CPUMemory
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.41 2007/08/21 11:08:14 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.42 2007/09/07 10:41:41 raback Exp $"
 
   SAVE SubroutineVisited, NumberOfVars, &
       NoPoints, PointIndex, CoordinateIndex, CoordinateDist, ResultPrefix, &
@@ -754,10 +757,11 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
   !------------------------------------------------------------------------------
 
   IF(LiveGraph) THEN
+  ! Save data as comma-separated-values (cvs-file)
     IF(SubroutineVisited) THEN 
-      OPEN (10, FILE=TRIM(ScalarsFile)//'.livegraph',POSITION='APPEND')      
+      OPEN (10, FILE=TRIM(ScalarsFile)//'.csv',POSITION='APPEND')      
     ELSE 
-      OPEN (10, FILE=TRIM(ScalarsFile)//'.livegraph')
+      OPEN (10, FILE=TRIM(ScalarsFile)//'.csv')
       DO No=1,NoValues-1
         WRITE (10,'(A)',advance='no') TRIM(ValueNames(No))//","
       END DO
@@ -2140,7 +2144,7 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t), POINTER   :: CurrentElement, NextElement
   CHARACTER(LEN=MAX_NAME_LEN) :: SideFile, SideNamesFile, VarName, CondName, SideParFile
   CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: ValueNames(:)
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.41 2007/08/21 11:08:14 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.42 2007/09/07 10:41:41 raback Exp $"
 
   LOGICAL :: cand, Parallel
 
