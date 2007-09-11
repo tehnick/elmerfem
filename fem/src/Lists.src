@@ -39,6 +39,10 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Lists.src,v $
+! * Revision 1.38  2007/09/11 06:32:53  jpr
+! * Fix allocations and stuff so that no elements required for mesh to mesh
+! * interpolation.
+! *
 ! * Revision 1.37  2007/09/04 07:15:24  jpr
 ! * Fix typos in previous commit.
 ! *
@@ -104,7 +108,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Lists.src,v 1.37 2007/09/04 07:15:24 jpr Exp $
+! * $Id: Lists.src,v 1.38 2007/09/11 06:32:53 jpr Exp $
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
@@ -581,6 +585,7 @@ CONTAINS
         NULLIFY( ptr % Perm )
       END IF
       ptr % Norm = 0.0d0
+      ptr % PrevNorm = 0.0d0
       ptr % Values => Values
       NULLIFY( ptr % PrevValues )
       NULLIFY( ptr % EigenValues, ptr % EigenVectors )
