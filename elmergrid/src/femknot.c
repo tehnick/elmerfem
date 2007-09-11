@@ -4301,7 +4301,7 @@ int FindBulkBoundary(struct FemType *data,int mat1,int mat2,
   for(i=1;i<=data->noelements;i++) {
     material = data->material[i];
     if(material == mat1) {
-      nonodes = data->elementtypes[i]%100;
+      nonodes = data->elementtypes[i] % 100;
       k = data->elementtypes[i]/100;
       if(k > elemdim) elemdim = k;
 
@@ -4362,7 +4362,7 @@ int FindBulkBoundary(struct FemType *data,int mat1,int mat2,
       if(visited[i] == maxnodes) visited[i] = 0;
     
     if(maxnodes < 2) {
-      printf("FindBulkBoundary: Nodes must belong to more than %d nodes.\n",maxnodes);
+      printf("FindBulkBoundary: Nodes must belong to more than %d elements.\n",maxnodes);
       return(2);
     }
   }  
@@ -4372,7 +4372,7 @@ int FindBulkBoundary(struct FemType *data,int mat1,int mat2,
       material = data->material[i];
       if(material == mat1) continue;
 
-      nonodes = data->elementtypes[i]%100;
+      nonodes = data->elementtypes[i] % 100;
       for(j=0;j<nonodes;j++) {
 	k = data->topology[i][j];
 	boundnodes[k] += 1;
