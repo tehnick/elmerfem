@@ -22,7 +22,7 @@ The first parameter defines the input file format:
 5)  .inp      : Abaqus input format by Ideas
 6)  .fil      : Abaqus output format
 7)  .FDNEUT   : Gambit (Fidap) neutral file
-8)  .d        : Easymesh input format
+8)  .unv      : Universal mesh file format
 9)  .mphtxt   : Comsol Multiphysics mesh format
 10) .dat      : Fieldview format
 11) .node,.ele: Triangle 2D mesh format
@@ -48,6 +48,7 @@ taken into account only when applicable to the given format.
 -triangles           : rectangles will be divided to triangles
 -merge real          : merges nodes that are close to each other
 -order real[3]       : reorder elements and nodes using c1*x+c2*y+c3*z
+-centralize          : set the center of the mesh to origin
 -scale real[3]       : scale the coordinates with vector real[3]
 -translate real[3]   : translate the nodes with vector real[3]
 -rotate real[3]      : rotate around the main axis with angles real[3]
@@ -58,14 +59,12 @@ taken into account only when applicable to the given format.
 -polar real          : map 2D mesh to a cylindrical shell with given radius
 -cylinder            : map 2D/3D cylindrical mesh to a cartesian mesh
 -reduce int[2]       : reduce element order at material interval [int1 int2]
--increase            : increase element order from one to two
--partition int[3]    : the mesh will be partitioned in main directions
--partorder real[3]   : in the above method, the direction of the ordering
--metis int           : the mesh will be partitioned with Metis
--periodic int[3]     : decleare the periodic coordinate directions
+-increase            : increase element order from linear to quadratic
 -bcoffset int        : add an offset to the boundary conditions
 -discont int         : make the boundary to have secondary nodes
+-connect int         : make the boundary to have internal connection among its elements
 -removelowdim        : remove boundaries that are two ranks lower than highest dim
+-removeunused        : remove nodes that are not used in any element
 -bulkorder           : renumber materials types from 1 so that every number is used
 -boundorder          : renumber boundary types from 1 so that every number is used
 -autoclean           : this performs the united action of the three above
@@ -75,9 +74,19 @@ taken into account only when applicable to the given format.
 -boundtype int[3]    : set sidetypes in interval [int1 int2] to type int3
 -layer int[2] real[2]: make a boundary layer for given boundary
 -layermove int       : apply Jacobi filter int times to move the layered mesh
+-divlayer int[2] real[2]: make a boundary layer for given boundary
 -3d / -2d / -1d      : mesh is 3, 2 or 1-dimensional (applies to examples)
 -isoparam            : ensure that higher order elements are convex
 -nobound             : disable saving of boundary elements in ElmerPost format
+
+The following keywords are related only to the parallel Elmer computations.
+-partition int[4]    : the mesh will be partitioned in main directions
+-partorder real[3]   : in the above method, the direction of the ordering
+-metis int[2]        : the mesh will be partitioned with Metis
+-halo                : create halo for the partitioning
+-indirect            : create indirect connections in the partitioning
+-periodic int[3]     : decleare the periodic coordinate directions for parallel meshes
+-saveinterval int[3] : the first, last and step for fusing parallel data
 
 Thank you for using Elmergrid!
 Send bug reports and feature wishes to peter.raback@csc.fi

@@ -93,9 +93,8 @@ created by the solver of Abaqus.
 \item \texttt{7)  .FDNEUT  : Fidap neutral file} \\
 Also created by Gambit, the preprocessor of Fluent.
 
-\item \texttt{8) .d : Easymesh file format} \\
-Some Easymesh subroutines are incorporated into 
-the program enabling 2D Delaney meshes.
+\item \texttt{8) .unv : Universal mesh file format} \\
+A subset of the universal mesh file format commands may be read by ElmerGrid.
 
 \item \texttt{9)  .mphtxt   : Comsol mesh format} \\
 The phhtxt format created by Comsol Multiphysics. 
@@ -290,49 +289,6 @@ linear meshes by making the quadratic.
 %the first two parameters. The desired power is given by the third parameter.
 %The p-elements are only seen in the Elmer mesh -format.
 %
-\sifitem{-partition}{Integer[DIM]} 
-There are two methods to partition geometry for parallel computing. This
-method takes each coordinate direction and divides the mesh in the number
-of slices given in the parameter list. For example option
-\texttt{-part 2 3 5} would split the mesh into 30 partitions. 
-Each split is done so that the number of elements in each partition
-is almost equal. The method is best suited for simple geometries 
-where more generic strategies usually do not work as well.
-%
-\sifitem{-partorder}{Real[DIM]} 
-The simple partitioning is done by dividing the elements
-into subgroups. The division is done by first ordering the nodes. This
-keyword is followed by the normal vector of the desired ordering.
-%
-\sifitem{-metis}{Integer}
-This utility does the partitioning utilizing the Metis library, see
-\URL{ttp://www-users.cs.umn.edu/~karypis/metis/}. Metis has subroutines
-for basic linear elements. Also higher order elements may be partitioned
-by first neglecting the higher order nodes.
-
-In partitioning a major problem is to save just the right information
-needed by each processor. There are some very complicated dependencies that
-result from the parallel solution of the matrix equations. To simplify these
-the communication, ElmerGrid does some load-balancing so that each processors
-owns roughly as many shared nodes. Also on the interfaces of more than two
-partitions the ownership is optimized so that nodes cannot be 
-indirectly related to each other in a way that is in conflict with 
-the parallel solution algorithm. 
-
-Note that this option may not be active if the code has been compiled
-without the Metis library.
-
-\sifitem{-periodic}{Integer[3]} 
-If the solution of the mesh is known to be periodic ElmerSolver uses
-a special kind of boundary condition. Also in partitioned meshes
-used in parallel computation the periodic boundaries must be known
-as they require the flow of information between opposing sides.
-This option finds periodic boundaries in the given directions 
-given by 0/1 logical values. If periodic boundary is found it is taken into
-account in saving and partitioning the mesh.
-The determination of the periodic nodes only works when there is one-to-one mapping
-between the nodes on the boundaries. 
-%
 \sifitem{-bcoffset}{Integer}
 Adds on offset to the boundary condition numbering. This may be usefull for multimesh
 computations where it is advisable that the same boundary numbers are not defined in 
@@ -344,6 +300,11 @@ For example, in solving the heat equation there may be a small gap between
 different bodies. To account for such discontinuities the mesh should
 have duplicate nodes over the discontinuity. This feature does exactly that
 and saves the boundary conditions for both sides.
+%
+\sifitem{-connect}{Integer}
+Makes the boundary to have internal connections between among its elements. This
+will enable connections in the resulting finite element matrices. The feature could 
+be used in setting constraints in the finite element solution. 
 %
 \sifitem{-removelowdim}{}
 Removes boundary elements that are two or more dimensions lower than the 
@@ -397,6 +358,11 @@ is given.
 This option activates a filter that is used to map the node coordinates 
 so that the boundary layers are fitted within the original geometry.
 %
+\sifitem{-divlayer}{Integer[2] Real[2]} 
+This option may be used to create boundary layers on an existing 2D mesh.
+The layer is created by splitting the trinagles or quadrilaterals 
+along the boundary to give a structured boundary laer mesh.
+%
 \sifitem{-3d / -2d / -1d}{}
 This option is usually not needed as the files most often have the information
 of the space dimension. The exception is the creation of an example file.
@@ -413,6 +379,78 @@ between the corner nodes.
 Disable the saving of boundary elements.
 This may sometimes be useful if there are a lot of boundaries and one is just interested 
 in the bulk elements.
+\sifend
+%
+There are a number of in-line parameters that are related only to the parallel Elmer computations.
+%
+\sifbegin
+\sifitem{-partition}{Integer[DIM+1]} 
+There are two methods to partition geometry for parallel computing. This
+method takes each coordinate direction and divides the mesh in the number
+of slices given in the parameter list. For example option
+\texttt{-part 2 3 5} would split the mesh into $2\times 3 \times 5 = 30$ partitions. 
+Each split is done so that the number of elements in each partition
+is almost equal. The method is best suited for simple geometries 
+where more generic strategies usually do not work as well.
+
+The last flag is an optional flag which defines whether the geometric division is done 
+primarily for the nodes or the elements. For value 0 the partition is first done for elements and
+thereafter for nodes, while for value 1 the order is opposite.
+%
+\sifitem{-partorder}{Real[DIM]} 
+The simple partitioning is done by dividing the elements
+into subgroups. The division is done by first ordering the nodes. This
+keyword is followed by the normal vector of the desired ordering.
+%
+\sifitem{-metis}{Integer[2]}
+This utility does the partitioning utilizing the Metis library, see
+\URL{ttp://www-users.cs.umn.edu/~karypis/metis/}. Metis has subroutines
+for basic linear elements. Also higher order elements may be partitioned
+by first neglecting the higher order nodes.
+
+The first integer defines the number of partitions while the second relates
+to the partitioning routine of Metis. The following subroutines may be used when ablicable,
+\begin{enumerate}
+\item[0:]    METIS\_PartMeshNodal
+\item[1:]    METIS\_PartMeshDual
+\item[2:]    METIS\_PartGraphRecursive
+\item[3:]    METIS\_PartGraphKway
+\item[4:]    METIS\_PartGraphVKway
+\end{enumerate}
+
+In partitioning a major problem is to save just the right information
+needed by each processor. There are some very complicated dependencies that
+result from the parallel solution of the matrix equations. To simplify these
+the communication, ElmerGrid does some load-balancing so that each processors
+owns roughly as many shared nodes. Also on the interfaces of more than two
+partitions the ownership is optimized so that nodes cannot be 
+indirectly related to each other in a way that is in conflict with 
+the parallel solution algorithm. 
+
+Note that this option may not be active if the code has been compiled
+without the Metis library.
+
+\sifitem{-halo}{}
+This flag creates a halo for the partitioning. This must be provided, for example, in
+discontinuous Galerkin computations where at the boundaries the gradient information 
+must also be computed. 
+
+\sifitem{-indirect}{}
+Creates the indirect connections in the partitioning. These are connections in 
+a finite element matrix that exist between two nodes but would not be apparent if
+only the partition in question would be studied.  
+
+\sifitem{-periodic}{Integer[3]} 
+If the solution of the mesh is known to be periodic ElmerSolver uses
+a special kind of boundary condition. Also in partitioned meshes
+used in parallel computation the periodic boundaries must be known
+as they require the flow of information between opposing sides.
+This option finds periodic boundaries in the given directions 
+given by 0/1 logical values. If periodic boundary is found it is taken into
+account in saving and partitioning the mesh.
+The determination of the periodic nodes only works when there is one-to-one mapping
+between the nodes on the boundaries. 
+%
 
 \sifend
 
