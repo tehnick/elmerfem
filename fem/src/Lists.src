@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Lists.src,v $
+! * Revision 1.37  2007/09/04 07:15:24  jpr
+! * Fix typos in previous commit.
+! *
 ! * Revision 1.36  2007/09/04 05:30:04  jpr
 ! * Check that value arrays really exist for various ListGet* routines. The
 ! * nonexistence might be due to inconsistent typing of keywords, for example.
@@ -101,7 +104,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Lists.src,v 1.36 2007/09/04 05:30:04 jpr Exp $
+! * $Id: Lists.src,v 1.37 2007/09/04 07:15:24 jpr Exp $
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
@@ -730,6 +733,8 @@ double precision :: t1,CPUTime
             n = InitialPermutation( Var % Perm, CurrentModel, PVar % Solver, &
                 CurrentModel % Mesh, ListGetString(PVar % Solver % Values,'Equation'), &
                  GlobalBubbles=GlobalBubbles )
+
+            IF ( n==0 ) n=CurrentModel % Mesh % NumberOfNodes
 
             IF ( n == CurrentModel % Mesh % NumberOfNodes ) THEN
                DO i=1,n 
