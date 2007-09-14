@@ -3241,7 +3241,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     if(halo && otherpart) {
 
       /* If the saving of halo is requested check it for elements which have at least 
-	 two nodes in shared partitions. */
+	 two nodes in shared partitions. First make this quick test. */
       elemsides = elemtype / 100;
       if(elemsides == 8) {
 	if(otherpart < 4) continue;
@@ -3259,7 +3259,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	if(otherpart < 2) continue;
 
       /* In order for the halo to be present the element should have a boundary 
-	 fully immersed in the other partition. */
+	 fully immersed in the other partition. This test takes more time. */
 
       for(side=0;side<elemsides;side++) {
 	GetElementSide(i,side,1,data,&sideind[0],&sideelemtype);
@@ -3278,6 +3278,8 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
 	  if(sidehits == sideelemtype % 100 && elementhalo[part2] != i) {
 	    if(0) printf("Adding halo for partition %d and element %d\n",part2,i);
+
+	    /* Remember that this element is saved for this partition */
 	    elementhalo[part2] = i;
 
 	    fprintf(outfiles[part2],"%d/%d %d %d ",i,part,data->material[i],elemtype);
@@ -3328,10 +3330,14 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   /* part.n.elements saved */
 
 
+  /* The partitiontable has been changed to include the halo elements. The need for saving the 
+     halo nodes may be checked by looking whether the number of how many partitions needs 
+     the element has changed. */
   if(halo) {
     int halonodes;
     neededtimes2 = Ivector(1,noknots);
     halonodes = 0;
+
     for(i=1;i<=noknots;i++) {
       neededtimes2[i] = 0;
       for(j=1;j<=maxneededtimes;j++) 
@@ -3348,6 +3354,8 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     neededtimes2 = neededtimes;
   }
 
+  /* Define new BC numbers for indirect and periodic connections. These should not be mixed with
+     existing BCs as they only serve the purpose of automatically creating the matrix structure. */
   if(periodic || indirect) {
     periodictype = 0;
     for(j=0;j < MAXBOUNDARIES;j++) 
@@ -3420,7 +3428,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
   for(l=1; l <= noknots; l++) {      
     i = l;
-    if(reorder) i=invorder[l];
+    if(reorder) i = invorder[l];
 
     if(neededtimes2[i] <= 1) continue;
 
@@ -3428,7 +3436,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
       k = data->partitiontable[j][i];
 	
       ind = i;
-      if(reorder) ind=order[i];
+      if(reorder) ind = order[i];
 
       neededtwice[k] += 1; 
 
@@ -3493,7 +3501,9 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 
 	parent = bound[j].parent[i];
 	parent2 = bound[j].parent2[i];
-	if(maxelemdim > elemdim - 1) parent = parent2 = 0;
+
+	/* The need of parents for DIM-2 boundaries may just create extra work */
+	if(maxelemdim > elemdim + 1) parent = parent2 = 0;
 
 	if(halo) {
 	  if(trueparent)
@@ -3516,6 +3526,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	}
 	fprintf(out,"\n");
 
+	/* Memorize that the node has already been saved as a regular BC. */
 	for(l=0;l<nodesd1;l++) {
 	  k = sideind[l];
 	  if(bcnodesaved[k]) 
@@ -3547,9 +3558,11 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	      if( elempart[bound[j].parent[i]] == part) continue;
 	      if( elempart[bound[j].parent2[i]] == part) continue;
 	      
+	      /* Check whether the nodes was not already saved */
 	      if( bcnodesaved[ind] == bound[j].types[i]) continue;	  
 	      if( bcnodesaved2[ind] == bound[j].types[i]) continue;	  
 
+	      /* Memorize if the node really was saved. */
 	      if(!bcnodesaved[ind]) 
 		bcnodesaved[ind] = bound[j].types[i];
 	      else if(!bcnodesaved2[ind]) 
@@ -3650,7 +3663,6 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     }
 
 
-
     /* Boundary nodes that express indirect couplings between different partitions.
        This makes it possible for ElmerSolver to create a matrix connection that 
        is known to exist. */
@@ -3675,18 +3687,17 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	elemtype = data->elementtypes[i];
 	nodesd2 = elemtype%100;
 	
+	/* Check how many nodes still belong to this partition, 
+	   if more than one there may be indirect coupling. */
 	for(j=0;j < nodesd2;j++) {
 	  elemhit[j] = FALSE;
 	  ind = data->topology[i][j];
 	  for(k=1;k<=neededtimes[ind];k++) 
 	    if(part == data->partitiontable[k][ind]) elemhit[j] = TRUE;
 	}
-
-	/* how many nodes are indirectly coupled within the element */
 	bcneeded = 0;
 	for(j=0;j < nodesd2;j++) 
 	  if(elemhit[j]) bcneeded++;
-
 	if(bcneeded <= 1) continue;
 	
 	if(l == 0) {
@@ -3713,7 +3724,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	}
       }
 
-      /* After first round allocate enough space */      
+      /* After first round allocate enough space to memorize all indirect non-element couplings. */      
       if(l == 0) {
 	nodepairs = Imatrix(1,maxsides,1,2);
 	for(i=1;i<=maxsides;i++)
