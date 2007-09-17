@@ -3447,7 +3447,7 @@ omstart:
   for(;;) {
     if(Getrow(line,in,TRUE)) goto end;
     if(!line) goto end;
-    if(strstr(line,"END")) goto end;
+    if(strstr(line,"END")) continue;
 
     /* Header info is not much needed */
     if(!strncasecmp(line,"$MeshFormat",11)) {
@@ -3459,9 +3459,10 @@ omstart:
       }      
     }
       
-    if(!strncasecmp(line,"$Nodes",6)) {
+    else if(!strncasecmp(line,"$Nodes",6)) {
       getline;
       cp = line;
+
       noknots = next_int(&cp);
 
       for(i=1; i <= noknots; i++) {
@@ -3482,7 +3483,7 @@ omstart:
       getline;
     }
     
-    if(!strncasecmp(line,"$Elements",9)) {
+    else if(!strncasecmp(line,"$Elements",9)) {
       getline;
       cp = line;
       noelements = next_int(&cp);
@@ -3525,6 +3526,9 @@ omstart:
 	
       }
       getline;
+    }
+    else {
+      if(!allocated) printf("Untreated command: %s",line);
     }
 
   }
