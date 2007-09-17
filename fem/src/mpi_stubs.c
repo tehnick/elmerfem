@@ -86,6 +86,16 @@ void STDCALLBULL MPI_Recv_init() {}
 void STDCALLBULL MPI_Wtime() {}
 void STDCALLBULL MPI_Send_init() {}
 
+void hpmp_flinteroperate() {}
+void hpmp_max() {}
+void hpmp_f_mpi_bottom() {}
+void hpmp_min() {}
+void hpmp_sum() {}
+void hpmp_int() {}
+void hpmp_double() {}
+void hpmp_comm_world() {}
+
+
 
 /* parpack */
 void STDCALLBULL FC_FUNC(pdneupd,PDNEUPD) ( void *a, void *b, void *c, void *d, void *e, void *f, void *g, void *a8, void *b9, void *c10, void *d11, void *e12, void *f13, void *g14, void *a15, void *b16, void *c17, void *d18, void *e19, void *a20, void *b21, void *c22, void *d23, void *e24, void *f25, void *g26, void *g27, void *g28,void *g29 ) {}

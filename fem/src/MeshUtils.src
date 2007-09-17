@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: MeshUtils.src,v $
+! * Revision 1.58  2007/08/15 09:44:02  jpr
+! * Changes to update convergence criteria computations (Peter,Juha).
+! *
 ! * Revision 1.57  2007/06/07 11:48:22  jpr
 ! * Check Def_Dofs access for index overflows.
 ! *
@@ -164,7 +167,7 @@
 ! * Added code to exit with a message if Mesh cannot be loaded.
 ! *
 ! *
-! * $Id: MeshUtils.src,v 1.57 2007/06/07 11:48:22 jpr Exp $
+! * $Id: MeshUtils.src,v 1.58 2007/08/15 09:44:02 jpr Exp $
 ! *****************************************************************************/
 
 MODULE MeshUtils
@@ -325,6 +328,7 @@ CONTAINS
     INTEGER, POINTER :: LocalPerm(:),LocalEPerm(:), &
            ElementTags(:), EdgeDOFs(:), FaceDOFs(:)
 
+
     LOGICAL, POINTER :: iface(:)
 
     TYPE(Nodes_t) :: ElementNodes
@@ -468,7 +472,11 @@ CONTAINS
 !   Mesh elements
 !------------------------------------------------------------------------------
     CALL AllocateVector( ElementTags, Mesh % NumberOfBulkElements+1, 'LoadMesh' )
+
+    EdgeDOFs => NULL()
     CALL AllocateVector( EdgeDOFs, Mesh % NumberOfBulkElements, 'LoadMesh' )
+
+    FaceDOFs => NULL()
     CALL AllocateVector( FaceDOFs, Mesh % NumberOfBulkElements, 'LoadMesh' )
 
     ElementTags = 0
@@ -882,7 +890,7 @@ CONTAINS
        END DO
      END IF
    END DO
-   DEALLOCATE( EdgeDOFs, FaceDOFs )
+   IF ( ASSOCIATED(EdgeDOFs) ) DEALLOCATE( EdgeDOFs, FaceDOFs )
 
    ! Reallocate coordinate arrays for iso-parametric p-elements:
    ! -----------------------------------------------------------

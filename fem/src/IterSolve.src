@@ -38,7 +38,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: IterSolve.src,v 1.13 2007/09/17 09:23:24 raback Exp $
+! * $Id: IterSolve.src,v 1.14 2007/09/17 10:05:23 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -301,7 +301,7 @@ CONTAINS
      IF ( PRESENT(MatvecF) ) THEN
        mvProc = MatvecF
      ELSE
-       IF ( A % Complex ) THEN
+       IF ( .NOT. A % Complex ) THEN
          mvProc = AddrFunc( CRS_MatrixVectorProd )
        ELSE
          mvProc = AddrFunc( CRS_ComplexMatrixVectorProd )

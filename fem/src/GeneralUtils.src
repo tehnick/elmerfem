@@ -39,6 +39,10 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: GeneralUtils.src,v $
+! * Revision 1.20  2007/09/11 06:32:49  jpr
+! * Fix allocations and stuff so that no elements required for mesh to mesh
+! * interpolation.
+! *
 ! * Revision 1.19  2007/05/11 10:29:12  jpr
 ! * Small cleanups.
 ! *
@@ -88,7 +92,7 @@
 ! * Added AllocateVector/AllocateArray.
 ! *
 ! *
-! * $Id: GeneralUtils.src,v 1.19 2007/05/11 10:29:12 jpr Exp $
+! * $Id: GeneralUtils.src,v 1.20 2007/09/11 06:32:49 jpr Exp $
 ! ******************************************************************************/
 
 
@@ -1146,7 +1150,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
     istat = -1
-    IF ( n >= 0 ) THEN
+    IF ( n > 0 ) THEN
        ALLOCATE( F(n), STAT=istat )
     END IF
     IF ( istat /=  0 ) THEN
@@ -1178,7 +1182,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
     istat = -1
-    IF ( n >= 0 ) THEN
+    IF ( n > 0 ) THEN
        ALLOCATE( f(n), STAT=istat )
     END IF
     IF ( istat /=  0 ) THEN
@@ -1210,7 +1214,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
     istat = -1
-    IF ( n >= 0 ) THEN
+    IF ( n > 0 ) THEN
        ALLOCATE( f(n), STAT=istat )
     END IF
     IF ( istat /=  0 ) THEN
@@ -1242,7 +1246,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
     istat = -1
-    IF ( n >= 0 ) THEN
+    IF ( n > 0 ) THEN
        ALLOCATE( f(n), STAT=istat )
     END IF
     IF ( istat /=  0 ) THEN
@@ -1274,7 +1278,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
     istat = -1
-    IF ( n >= 0 ) THEN
+    IF ( n > 0 ) THEN
        ALLOCATE( f(n), STAT=istat )
     END IF
     IF ( istat /=  0 ) THEN
@@ -1306,7 +1310,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
     istat = -1
-    IF ( n1 >= 0 .AND. n2 >= 0 ) THEN
+    IF ( n1 > 0 .AND. n2 > 0 ) THEN
        ALLOCATE( f(n1,n2), STAT=istat )
     END IF
     IF ( istat /=  0 ) THEN
@@ -1337,7 +1341,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
     istat = -1
-    IF ( n1 >= 0 .AND. n2 >= 0 ) THEN
+    IF ( n1 > 0 .AND. n2 > 0 ) THEN
        ALLOCATE( f(n1,n2), STAT=istat )
     END IF
     IF ( istat /=  0 ) THEN
@@ -1369,7 +1373,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
     istat = -1
-    IF ( n1 >= 0 .AND. n2 >= 0 ) THEN
+    IF ( n1 > 0 .AND. n2 > 0 ) THEN
        ALLOCATE( f(n1,n2), STAT=istat )
     END IF
     IF ( istat /=  0 ) THEN
@@ -1402,7 +1406,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
     istat = -1
-    IF ( n1 >= 0 .AND. n2 >= 0 ) THEN
+    IF ( n1 > 0 .AND. n2 > 0 ) THEN
        ALLOCATE( f(n1,n2), STAT=istat )
     END IF
     IF ( istat /=  0 ) THEN
