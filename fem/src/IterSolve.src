@@ -38,7 +38,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: IterSolve.src,v 1.11 2007/05/22 08:09:21 jpr Exp $
+! * $Id: IterSolve.src,v 1.12 2007/05/22 08:34:54 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -70,6 +70,7 @@ MODULE IterSolve
    INTEGER, PARAMETER, PRIVATE :: PRECOND_ILUn      =           420
    INTEGER, PARAMETER, PRIVATE :: PRECOND_ILUT      =           430
    INTEGER, PARAMETER, PRIVATE :: PRECOND_MG        =           440
+   INTEGER, PARAMETER, PRIVATE :: PRECOND_BILUn     =           450
 
    LOGICAL :: FirstCall = .TRUE.
 
@@ -83,8 +84,8 @@ CONTAINS
   FUNCTION STOPC( x,b,r,ipar,dpar ) RESULT(err)
 !------------------------------------------------------------------------------
 
-     integer :: ipar(*),n
-     double precision :: x(*),b(*),r(*),dpar(*),err,res(HUTI_NDIM)
+     INTEGER :: ipar(*),n
+     DOUBLE PRECISION :: x(*),b(*),r(*),dpar(*),err,res(HUTI_NDIM)
 
      n = HUTI_NDIM
 
@@ -97,7 +98,6 @@ CONTAINS
   END FUNCTION STOPC
 !------------------------------------------------------------------------------
 
-!
 !------------------------------------------------------------------------------
   SUBROUTINE IterSolver( A,x,b,SolverParam,DotF,NormF,MatvecF )
 !------------------------------------------------------------------------------
@@ -109,7 +109,7 @@ CONTAINS
     TYPE(Solver_t) :: SolverParam
 
     REAL(KIND=dp), DIMENSION(:) :: x,b
-    TYPE(Matrix_t), POINTER :: A
+    TYPE(Matrix_t), POINTER :: A, Adiag
 
     INTEGER(KIND=AddrInt), OPTIONAL :: DotF, NormF, MatVecF
 !------------------------------------------------------------------------------
@@ -117,7 +117,7 @@ CONTAINS
     REAL(KIND=dp) :: dpar(50),stopfun,dnrm2
 !   external stopfun
     REAL(KIND=dp), ALLOCATABLE :: work(:,:)
-    INTEGER :: k,N,ipar(50),wsize,istat,IterType,PCondType,ILUn
+    INTEGER :: k,N,ipar(50),wsize,istat,IterType,PCondType,ILUn,Blocks
 
     REAL(KIND=dp) :: ILUT_TOL
     LOGICAL :: Condition,GotIt,AbortNotConverged, Refactorize
@@ -233,6 +233,10 @@ CONTAINS
        ILUn = ICHAR(str(4:4)) - ICHAR('0')
        IF ( ILUn  < 0 .OR. ILUn > 9 ) ILUn = 0
        PCondType = PRECOND_ILUn
+     ELSE IF ( str(1:4) == 'bilu' ) THEN
+       ILUn = ICHAR(str(5:5)) - ICHAR('0')
+       IF ( ILUn  < 0 .OR. ILUn > 9 ) ILUn = 0
+       PCondType = PRECOND_BILUn
      ELSE IF ( str(1:9) == 'multigrid' ) THEN
        PCondType = PRECOND_MG
      ELSE
@@ -248,20 +252,31 @@ CONTAINS
         IF ( .NOT. Gotit ) Refactorize = .TRUE.
 
         IF (.NOT. ASSOCIATED(A % ILUValues).OR.(Refactorize .AND. MOD(A % SolveCount, n)==0) ) THEN
-           IF ( A % Format == MATRIX_CRS ) THEN
+           IF ( A % FORMAT == MATRIX_CRS ) THEN
 
-             IF ( A % Complex ) THEN
+             IF ( A % COMPLEX ) THEN
                 IF ( PCondType == PRECOND_ILUn ) THEN
                    Condition = CRS_ComplexIncompleteLU(A,ILUn)
                 ELSE IF ( PCondType == PRECOND_ILUT ) THEN
                    Condition = CRS_ComplexILUT( A,ILUT_TOL )
                 END IF
              ELSE
-                IF ( PCondType == PRECOND_ILUn ) THEN
-                   Condition = CRS_IncompleteLU(A,ILUn)
-                ELSE IF ( PCondType == PRECOND_ILUT ) THEN
-                   Condition = CRS_ILUT( A,ILUT_TOL )
-                END IF
+               IF ( PCondType == PRECOND_ILUn ) THEN
+                 Condition = CRS_IncompleteLU(A,ILUn)
+               ELSE IF ( PCondType == PRECOND_ILUT ) THEN
+                 Condition = CRS_ILUT( A,ILUT_TOL )
+               ELSE IF ( PCondType == PRECOND_BILUn ) THEN
+                 Blocks = SolverParam % Variable % Dofs
+                 ALLOCATE(Adiag)
+                 CALL CRS_BlockDiagonal(A,Adiag,Blocks)
+                 Condition = CRS_IncompleteLU(Adiag,ILUn)
+                 A % ILURows   => Adiag % ILURows
+                 A % ILUCols   => Adiag % ILUCols
+                 A % ILUDiag   => Adiag % ILUDiag
+                 A % ILUValues => Adiag % ILUValues
+                 DEALLOCATE(Adiag % Rows,Adiag % Cols, Adiag % Values)
+                 DEALLOCATE(Adiag)
+               END IF
              END IF
            ELSE
              IF ( PCondType == PRECOND_ILUn ) THEN
@@ -308,7 +323,9 @@ CONTAINS
        CASE (PRECOND_DIAGONAL)
          pcondProc = AddrFunc( CRS_DiagPrecondition )
 
-       CASE (PRECOND_ILUn, PRECOND_ILUT)
+       CASE (PRECOND_ILUn, PRECOND_ILUT, PRECOND_BILUn )
+
+         PRINT *,'b1'
          pcondProc = AddrFunc( CRS_LUPrecondition )
 
        CASE (PRECOND_MG)
@@ -318,7 +335,7 @@ CONTAINS
          pcondProc = 0
      END SELECT
 
-     IF ( .NOT. A % Complex ) THEN
+     IF ( .NOT. A % COMPLEX ) THEN
        SELECT CASE ( IterType )
        CASE (ITER_BiCGStab)
           iterProc = AddrFunc( HUTI_D_BICGSTAB )
@@ -356,7 +373,7 @@ CONTAINS
      CALL iterCall( iterProc, x, b, ipar, dpar, work, &
        mvProc, pcondProc, pcondrProc, dotProc, normProc, STOPC )
 
-     IF ( A % Complex ) HUTI_NDIM = HUTI_NDIM * 2
+     IF ( A % COMPLEX ) HUTI_NDIM = HUTI_NDIM * 2
 !------------------------------------------------------------------------------
      IF ( HUTI_INFO /= HUTI_CONVERGENCE .AND. ParEnv % myPE==0 ) THEN
         IF ( AbortNotConverged ) THEN

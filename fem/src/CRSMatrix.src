@@ -39,7 +39,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: CRSMatrix.src,v 1.16 2007/01/09 14:14:42 jpr Exp $
+! * $Id: CRSMatrix.src,v 1.17 2007/05/09 07:40:48 jpr Exp $
 ! ******************************************************************************
 
 #include "huti_fdefs.h"
@@ -187,7 +187,7 @@ CONTAINS
 !******************************************************************************
 !------------------------------------------------------------------------------
     TYPE(Matrix_t) :: A
-    LOGICAL, Optional :: ValuesToo
+    LOGICAL, OPTIONAL :: ValuesToo
 
     INTEGER :: i,j,n
 
@@ -965,6 +965,53 @@ END FUNCTION CRS_RowSum
     END DO
 !------------------------------------------------------------------------------
   END SUBROUTINE CRS_ComplexDiagPrecondition
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE CRS_BlockDiagonal(A,B,Blocks) 
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  DESCRIPTION:
+!    Pics the block diagonal entries from matrix A to build matrix B.
+!------------------------------------------------------------------------------
+
+    TYPE(Matrix_t) :: A, B
+    INTEGER :: Blocks
+    INTEGER :: i,j,k,l,kb,n
+
+    IF(Blocks <= 1) RETURN
+
+    N = A % NumberOfRows
+    B % NumberOfRows = N
+    B % Diag => A % Diag      
+    
+    kb = 0
+    DO i=1,N
+      DO k= A % Rows(i), A % Rows(i+1)-1
+        l = A % Cols(k)
+        IF( MOD(i,Blocks) == MOD(l,Blocks)) kb = kb + 1
+      END DO
+    END DO
+    ALLOCATE(B % Rows(N+1),B % Cols(kb), B % Values(kb))
+      
+    kb = 1
+    DO i=1,N
+      B % Rows(i) = kb
+      DO k = A % Rows(i), A % Rows(i+1)-1
+        l = A % Cols(k)
+        IF( MOD(i,Blocks) == MOD(l,Blocks) ) THEN
+          B % Values(kb) = A % Values(k)
+          B % Cols(kb) = A % Cols(k)
+          kb = kb + 1  
+        END IF
+      END DO
+    END DO
+    B % Rows(N+1) = kb
+
+!------------------------------------------------------------------------------
+  END SUBROUTINE CRS_BlockDiagonal
 !------------------------------------------------------------------------------
 
 
