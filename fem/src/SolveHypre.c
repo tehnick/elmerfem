@@ -22,7 +22,7 @@
 
 #ifdef HAVE_HYPRE
 #include <math.h>
-#include "utilities.h"
+// #include "utilities.h"
 #include "krylov.h"
 #include "HYPRE.h"
 #include "HYPRE_parcsr_ls.h"
@@ -230,7 +230,6 @@ st = realtime_();
    for( k=0,i=0; i<local_size; i++ )
    {
       if ( owner[i] ) rcols[k++] = globaldofs[i]-1;
-      }
    }
 
    HYPRE_IJVectorGetValues(x, k, rcols, txvec );
