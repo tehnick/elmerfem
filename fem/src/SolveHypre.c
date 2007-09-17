@@ -22,7 +22,7 @@
 
 #ifdef HAVE_HYPRE
 #include <math.h>
-// #include "utilities.h"
+#include "_hypre_utilities.h"
 #include "krylov.h"
 #include "HYPRE.h"
 #include "HYPRE_parcsr_ls.h"
@@ -96,15 +96,15 @@ st  = realtime_();
            csize = nnz;
          }
          irow = invperm[i];
-         irow = globaldofs[irow-1]-1;
+         irow = globaldofs[irow-1];
          for( k=0,j=rows[i]; j<rows[i+1]; j++,k++)
          {
-           rcols[k] = invperm[cols[j-1]];
-           rcols[k] = globaldofs[rcols[k]-1]-1;
+           rcols[k] = invperm[cols[j-1]-1];
+           rcols[k] = globaldofs[rcols[k]-1];
          }
          HYPRE_IJMatrixAddToValues(A, 1, &nnz, &irow, rcols, &vals[rows[i]-1]);
       }
-      free( rcols );
+        free( rcols );
    }
 
    /* Assemble after setting the coefficients */
@@ -116,7 +116,7 @@ st  = realtime_();
    /* Create the rhs and solution */
    rcols = (int *)malloc( local_size*sizeof(int) );
    txvec = (double *)malloc( local_size*sizeof(double) );
-   for( k=0,i=0; i<local_size; i++ ) rcols[k++] = globaldofs[i]-1;
+   for( k=0,i=0; i<local_size; i++ ) rcols[k++] = globaldofs[i];
 
    HYPRE_IJVectorCreate(MPI_COMM_WORLD, ilower, iupper,&b);
    HYPRE_IJVectorSetObjectType(b, HYPRE_PARCSR);
@@ -229,7 +229,7 @@ st = realtime_();
 
    for( k=0,i=0; i<local_size; i++ )
    {
-      if ( owner[i] ) rcols[k++] = globaldofs[i]-1;
+      if ( owner[i] ) rcols[k++] = globaldofs[i];
    }
 
    HYPRE_IJVectorGetValues(x, k, rcols, txvec );
