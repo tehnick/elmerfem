@@ -39,6 +39,9 @@
 ! *****************************************************************************/
 ! *
 ! * $Log: Lists.src,v $
+! * Revision 1.39  2007/09/11 08:23:09  jpr
+! * Add initialization of Variable % PrevNorm.
+! *
 ! * Revision 1.38  2007/09/11 06:32:53  jpr
 ! * Fix allocations and stuff so that no elements required for mesh to mesh
 ! * interpolation.
@@ -108,7 +111,7 @@
 ! * Started log.
 ! *
 ! *
-! * $Id: Lists.src,v 1.38 2007/09/11 06:32:53 jpr Exp $
+! * $Id: Lists.src,v 1.39 2007/09/11 08:23:09 jpr Exp $
 ! *****************************************************************************/
 
 !------------------------------------------------------------------------------
@@ -716,6 +719,7 @@ double precision :: t1,CPUTime
       END DO
 
       IF ( .NOT.ASSOCIATED( PVar ) ) RETURN
+
 !------------------------------------------------------------------------------
 
       IF ( .NOT.ASSOCIATED( Tmp ) ) THEN
@@ -749,7 +753,7 @@ double precision :: t1,CPUTime
          END IF
 
          CALL VariableAdd( Variables, PVar % PrimaryMesh, PVar % Solver, &
-           Name, PVar % DOFs, Var % Values, Var % Perm, PVar % Output ) 
+           PVar % Name, PVar % DOFs, Var % Values, Var % Perm, PVar % Output ) 
 
          Var => VariableGet( Variables, Name, ThisOnly=.TRUE. )
 
@@ -758,7 +762,7 @@ double precision :: t1,CPUTime
             ALLOCATE( Var % PrevValues( DOFs, SIZE(PVar % PrevValues,2) ) )
          END IF
 
-         IF ( PVar % Name == 'flow solution' ) THEN
+         IF ( PVar % Name(1:PVar % NameLen) == 'flow solution' ) THEN
            Vals => Var % Values( 1: SIZE(Var % Values) : PVar % DOFs )
            CALL VariableAdd( Variables, PVar % PrimaryMesh, PVar % Solver, &
                   'Velocity 1', 1,  Vals, Var % Perm, PVar % Output ) 
@@ -804,7 +808,7 @@ double precision :: t1,CPUTime
            IF ( PVar % DOFs > 1 ) THEN
              DO i=1,PVar % DOFs
                Vals => Var % Values( i: SIZE(Var % Values) : PVar % DOFs )
-               tmpname = ComponentName( Name, i )
+               tmpname = ComponentName( PVar % Name, i )
                CALL VariableAdd( Variables, PVar % PrimaryMesh, PVar % Solver, &
                        tmpname, 1, Vals, Var % Perm, PVar % Output ) 
 
@@ -827,7 +831,7 @@ double precision :: t1,CPUTime
       Var => Tmp
       NULLIFY( Var % Next )
 
-      IF ( PVar % Name == 'flow solution' ) THEN
+      IF ( PVar % Name(1:PVar % NameLen) == 'flow solution' ) THEN
         ALLOCATE( Var % Next )
         Var => Var % Next
         Var = VariableGet( PVar % PrimaryMesh % Variables, 'Velocity 1' )
@@ -850,7 +854,7 @@ double precision :: t1,CPUTime
       ELSE IF ( PVar % DOFs > 1 ) THEN
         DO i=1,PVar % DOFs
           ALLOCATE( Var % Next )
-          tmpname = ComponentName( Name, i )
+          tmpname = ComponentName( PVar % Name, i )
           Var % Next = VariableGet( PVar % PrimaryMesh % Variables, tmpname )
           Var => Var % Next
         END DO
@@ -881,7 +885,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
       Var % Valid = .TRUE.
       Var % ValuesChanged = .TRUE.
 
-      IF ( Var % Name == 'flow solution' ) THEN
+      IF ( Var % Name(1:Var % NameLen) == 'flow solution' ) THEN
         Tmp => VariableGet( Variables, 'Velocity 1', ThisOnly=.TRUE. )
         IF ( ASSOCIATED(Tmp) ) THEN
           Tmp % Valid = .TRUE.
@@ -909,7 +913,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
         END IF
       ELSE IF ( Var % DOFs > 1 ) THEN
         DO i = 1,Var % DOFs
-           tmpname = ComponentName( Name, i )
+           tmpname = ComponentName( Var % Name, i )
            Tmp => VariableGet( Variables, tmpname, ThisOnly=.TRUE. )
            IF ( ASSOCIATED(Tmp) ) THEN
              Tmp % Valid = .TRUE.
