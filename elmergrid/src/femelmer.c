@@ -3503,7 +3503,7 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	parent2 = bound[j].parent2[i];
 
 	/* The need of parents for DIM-2 boundaries may just create extra work */
-	if(maxelemdim > elemdim + 1) parent = parent2 = 0;
+	/* if(maxelemdim > elemdim + 1) parent = parent2 = 0; */
 
 	if(halo) {
 	  if(trueparent)
