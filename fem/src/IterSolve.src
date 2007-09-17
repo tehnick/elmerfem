@@ -38,7 +38,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: IterSolve.src,v 1.12 2007/05/22 08:34:54 jpr Exp $
+! * $Id: IterSolve.src,v 1.13 2007/09/17 09:23:24 raback Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -301,7 +301,11 @@ CONTAINS
      IF ( PRESENT(MatvecF) ) THEN
        mvProc = MatvecF
      ELSE
-       mvProc = AddrFunc( CRS_MatrixVectorProd )
+       IF ( A % Complex ) THEN
+         mvProc = AddrFunc( CRS_MatrixVectorProd )
+       ELSE
+         mvProc = AddrFunc( CRS_ComplexMatrixVectorProd )
+       END IF
      END IF
 
      IF ( PRESENT(dotF) ) THEN
@@ -321,12 +325,19 @@ CONTAINS
          pcondProc = 0
 
        CASE (PRECOND_DIAGONAL)
-         pcondProc = AddrFunc( CRS_DiagPrecondition )
+         IF ( .NOT. A % Complex ) THEN
+           pcondProc = AddrFunc( CRS_DiagPrecondition )
+         ELSE
+           pcondProc = AddrFunc( CRS_ComplexDiagPrecondition )
+         END IF
 
        CASE (PRECOND_ILUn, PRECOND_ILUT, PRECOND_BILUn )
 
-         PRINT *,'b1'
-         pcondProc = AddrFunc( CRS_LUPrecondition )
+         IF ( .NOT. A % Complex ) THEN
+           pcondProc = AddrFunc( CRS_LUPrecondition )
+         ELSE
+           pcondProc = AddrFunc( CRS_ComplexLUPrecondition )
+         END IF
 
        CASE (PRECOND_MG)
          pcondProc = AddrFunc( MultiGridPrec )
