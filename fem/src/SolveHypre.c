@@ -201,7 +201,7 @@ st = realtime_();
       /* Set some parameters (See Reference Manual for more parameters) */
       HYPRE_ParCSRBiCGSTABSetMaxIter(solver, *Rounds); /* max iterations */
       HYPRE_ParCSRBiCGSTABSetTol(solver, *TOL);       /* conv. tolerance */
-      HYPRE_ParCSRBiCGSTABSetStopCrit(solver, 1);     /* use the two norm as the stopping criteria */
+      HYPRE_ParCSRBiCGSTABSetStopCrit(solver, 0);     /* use the two norm as the stopping criteria */
       HYPRE_ParCSRBiCGSTABSetPrintLevel(solver, 2);   /* print solve info */
       HYPRE_ParCSRBiCGSTABSetLogging(solver, 1);      /* needed to get run info later */
 
