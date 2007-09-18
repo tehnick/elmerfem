@@ -1,0 +1,108 @@
+\chapter{Format of mesh files}
+\label{ch:meshformat}
+%\index{mesh file format}
+
+In this appendix the format of ElmerSolver mesh files is desribed.
+The mesh data are arranged into four separate files: {\tt mesh.header},
+{\tt mesh.nodes}, {\tt mesh.elements}, and {\tt mesh.boundary}.
+Here the contents of these files will be described.
+
+In the mesh files numeric codes are used for distinguishing  
+different element types. For the element type codes and the node numbering order 
+of the elements see also appendix \ref{elements}.
+
+
+\section{The format of header file}
+
+The header file {\tt mesh.header} tells how many nodes and elements
+are present in the mesh. The lines of this file are organized as
+\begin{verbatim}
+nodes elements boundary-elements
+nof_types
+type-code nof_elements
+type-code nof_elements
+...
+\end{verbatim}
+In the first line the numbers of nodes, elements, and
+boundary elements are given, while the count in the second line is
+the number of different element types used in the mesh. 
+The lines which follow give the numbers of elements 
+as sorted into different element types.
+
+For example, the following header file
+\begin{verbatim}
+300 261 76
+2
+404 261
+202 76
+\end{verbatim}
+tells us that the mesh is composed of 300 nodes, 261 elements, and 
+76 boundary elements. Two different element types are used in the mesh:
+there are 261 elements of type code 404 (bilinear quadrilateral) and 
+76 elements of type code 202 (linear line element).
+
+
+\section{The format of node file}
+%\tlpindtt{mesh.nodes}
+
+The file {\tt mesh.nodes} contains node data so that each line defines 
+one node. Each line starts with two integers followed by three 
+real numbers:
+\begin{verbatim}
+n1 p x y z
+n2 p x y z
+ ...
+nn p x y z
+\end{verbatim}
+The first integer is the identification number for the node.
+The second integer is a partition index for parallel execution and is 
+not usually referenced by the solver in the case of sequential runs. If 
+the partition index is not of particular use, it may be set to be
+-1 (or 1). The real numbers are the spatial coordinates of the
+node. Three coordinates should always be given, even if
+the simulation was done in 1D or 2D. It 
+is also noted that the nodes may be listed in any order.
+
+\section{The format of element file}
+%\tlpindtt{mesh.elements}
+
+The {\tt mesh.elements} file contains element data
+arranged as
+\begin{verbatim}
+e1 body type n1 ... nn
+e2 body type n1 ... nn
+...
+en body type n1 ... nn
+\end{verbatim}
+Each line starts with an integer which is used for identifying the element. 
+The integer {\tt body} defines the material body which this element is part of.
+Then the element type code and element nodes are listed. 
+For example, the element file might start with the following lines: 
+\begin{verbatim}
+1 1 404 1 2 32 31
+2 1 404 2 3 33 32
+3 1 404 3 4 34 33
+4 1 404 4 5 35 34
+...
+\end{verbatim}
+
+\section{The format of boundary element file}
+%\tlpindtt{mesh.boundary}
+
+The elements that form the boundary are listed in the file {\tt mesh.boundary}.
+This file is similar to the {\tt mesh.elements} file and is organized as
+\begin{verbatim}
+e1 bndry p1 p2 type n1 ... nn
+e2 bndry p1 p2 type n1 ... nn
+...
+en bndry p1 p2 type n1 ... nn
+\end{verbatim}
+The first integer is again the identification number of the
+boundary element. Next the identification number of the part of the boundary where 
+this element is located is given. Whether the boundary element can be represented as 
+the side of a parent element defined in the file {\tt mesh.elements} is indicated using
+the two parent element numbers {\tt p1} and {\tt p2}.
+If the boundary element is located on an outer boundary of the body, it has  
+only one parent element and either of these two integers may be set to be zero.
+It is also possible that both parent element numbers are zeros. 
+Finally the element type code and element nodes are listed. 
