@@ -95,6 +95,15 @@ void hpmp_int() {}
 void hpmp_double() {}
 void hpmp_comm_world() {}
 
+void MPI_Probe() {}
+void MPI_Send() {}
+void hpmp_long() {}
+void MPI_Get_count() {}
+void MPI_Type_vector() {}
+void MPI_Irsend() {}
+void hpmp_lor() {}
+
+
 
 
 /* parpack */
