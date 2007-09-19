@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterSolver.src,v 1.26 2007/09/18 06:00:45 jpr Exp $
+! * $Id: SParIterSolver.src,v 1.27 2007/09/19 06:22:34 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -1308,6 +1308,8 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
   INTEGER, ALLOCATABLE :: owner(:), aperm(:)
   INTEGER, DIMENSION(:), ALLOCATABLE :: VecEPerNB
 
+   INTEGER, POINTER :: nb(:)
+
   LOGICAL :: NeedMass, NeedDamp, Found
 
 #ifdef HAVE_HYPRE
@@ -1349,54 +1351,51 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
       ALLOCATE( Owner(n), aperm(n) )
       owner = 0; aperm = 0;
 
-      i = 0
-      IF ( ParEnv % MyPE /= 0 ) THEN
-        CALL MPI_RECV( i, 1, MPI_INTEGER, &
+
+      j = 0
+      IF ( ParEnv % MyPE /= 0 ) &
+        CALL MPI_RECV( j, 1, MPI_INTEGER, &
             ParEnv % myPE-1, 801, MPI_COMM_WORLD, status, ierr )
-      END IF
-
-      DO j=1,n
-         IF ( ParallelInfo % NeighbourList(j) % Neighbours(1)==ParEnv % MyPE) THEN
-           i = i + 1
-           aperm(j) = i
-           owner(j) = 1
-         END IF
-      END DO
-
-      IF ( ParEnv % MyPE < ParEnv % PEs-1 ) THEN
-        CALL MPI_BSEND( i, 1, MPI_INTEGER, &
-                   ParEnv % myPE+1, 801, MPI_COMM_WORLD, ierr )
-      END IF
 
       DO i=1,n
-        IF ( ParallelInfo % NeighbourList(i) % &
-                 Neighbours(1) == ParEnv % MyPE ) THEN
-           DO j=2,SIZE(ParallelInfo % NeighbourList(i) % Neighbours)
-             IF ( Parenv % Active(ParallelInfo % NeighbourList(i) % Neighbours(j)+1) ) THEN
-               buf(1) = Parallelinfo % GlobalDOFs(i)
-               buf(2) = aperm(i)
-               CALL MPI_BSEND( buf, 2, MPI_INTEGER, &
-                  ParallelInfo % NeighbourList(i) % Neighbours(j), 800, MPI_COMM_WORLD, ierr )
-             END IF
+        nb => ParallelInfo % NeighbourList(i) % Neighbours(:)
+        IF ( nb(1)==ParEnv % MyPE ) THEN
+          Owner(i) = 1
+          j = j + 1
+          Aperm(i) = j
+        END IF
+      END DO
+
+      IF ( ParEnv % MyPE < ParEnv % PEs-1 ) &
+        CALL MPI_BSEND( j, 1, MPI_INTEGER, &
+           ParEnv % myPE+1, 801, MPI_COMM_WORLD, ierr )
+
+
+      DO i=1,n
+        IF ( owner(i) /= 0 ) THEN
+           nb => ParallelInfo % NeighbourList(i) % Neighbours(:)
+           DO j=2,SIZE(nb)
+             buf(1) = Parallelinfo % GlobalDOFs(i)
+             buf(2) = Aperm(i)
+             CALL MPI_BSEND( buf,2,MPI_INTEGER,nb(j),800,MPI_COMM_WORLD,ierr )
            END DO
         END IF
       END DO
-      DO i=1,n
-        IF ( ParallelInfo % NeighbourList(i) % &
-                 Neighbours(1) /= ParEnv % MyPE ) THEN
-          IF ( Parenv % Active(ParallelInfo % NeighbourList(i) % Neighbours(1)++1) ) THEN
-            CALL MPI_RECV( buf, 2, MPI_INTEGER, &
-                ParallelInfo % NeighbourList(i) % Neighbours(1), 800, MPI_COMM_WORLD, status, ierr )
-            j = SearchNode( ParallelInfo, buf(1) )
-            IF ( J > 0 ) aperm(j) = buf(2)
-          END IF
+
+      i = 0
+      DO WHILE(i<COUNT(owner==0))
+        CALL MPI_RECV( buf,2,MPI_INTEGER,MPI_ANY_SOURCE,800,MPI_COMM_WORLD,status,ierr )
+        j = SearchIAItem( n, ParallelInfo % GlobalDOFs, buf(1) )
+        IF ( j > 0 ) THEN
+          Aperm(j) = buf(2)
+          i = i + 1
         END IF
       END DO
 
 
       CALL SolveHYPRE( SourceMatrix % NumberOfRows, SourceMatrix % Rows, &
         SourceMatrix % Cols, SourceMatrix % Values, SourceMatrix % Perm, &
-         SourceMatrix % InvPerm, aperm, Owner, Xvec, RHSvec, &
+         SourceMatrix % InvPerm, Aperm, Owner, Xvec, RHSvec, &
             ParEnv % MyPE, ILUn, Rounds, TOL  )
 
       DEALLOCATE( owner, aperm )
