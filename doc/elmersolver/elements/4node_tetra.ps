@@ -1,0 +1,179 @@
+%!
+%%BoundingBox: 100 50 340 340
+%
+
+save
+gsave
+
+/Times-Roman findfont
+dup length dict
+begin
+   {1 index /FID ne {def} {pop pop} ifelse} forall
+   /Encoding ISOLatin1Encoding def
+   currentdict
+end
+/Times-Scand exch definefont pop
+
+/Times-Scand findfont .1 scalefont setfont
+
+100 100 translate
+200 200 scale
+0.0025 setlinewidth
+
+/u 0 def
+/v 0 def
+/w 0 def
+
+/u0 0.0 def
+/v0 0.0 def
+/w0 0.0 def
+
+/u1 1.0 def
+/v1 0.0 def
+/w1 0.0 def
+
+/u2 0.0 def
+/v2 1.0 def
+/w2 0.0 def
+
+/u3 0.0 def
+/v3 0.0 def
+/w3 1.0 def
+
+/x {
+     1 u sub v sub w sub 0 mul
+     u 1.0 mul
+     v 0.5 mul
+     w 0.5  mul
+     add add add
+   } def
+
+/y {
+     1 u sub v sub w sub 0 mul
+     u 0 mul
+     v 3 4 div sqrt mul
+     w 1 3 div mul
+     add add add
+   } def
+
+/z {
+     1 u sub v sub w sub 0 mul
+     u 0 mul
+     v 0 mul
+     w 3 4 div sqrt mul
+     add add add
+   } def
+
+/xyz {
+%   /ar 3.14159 180 div def
+%   /c 0 cos def
+%   /s 0 sin def
+%
+%   /xx z .5 sub def
+%   /zz y .5 sub def
+%
+%   /zzz xx s mul zz c mul add  .5 mul .5 add def
+%   xx c mul zz s neg mul add .5 mul .5 add zzz 1 add div
+%   z zzz 1 add div
+%    x y 1 add div 
+%    z y 1 add div
+  x y
+
+ } def
+   
+
+0.01 setlinewidth
+newpath
+/u 0 def
+/v 0 def
+/w 0 def
+0 0 moveto
+0 0.02 1.25 { /u exch def xyz lineto } for
+stroke
+x y moveto
+(u) show
+
+newpath
+/u 0 def
+0 0 moveto
+0 0.02 1.25 { /v exch def xyz lineto } for
+stroke
+x y moveto
+(w) show
+
+newpath
+/u 0 def
+/v 0 def
+0 0 moveto
+0 0.02 1.25 { /w exch def xyz lineto } for
+stroke
+x y moveto
+(v) show
+
+0.0025 setlinewidth
+newpath
+/u 1 def
+/v 0 def
+/w 0 def
+1 0 moveto
+0 0.02 1.0 { /v exch def /u 1 v sub def xyz lineto } for
+stroke
+
+newpath
+/u 1 def
+/v 0 def
+0 0 moveto
+0 0.02 1 { /w exch def /u 1 w sub def xyz lineto } for
+stroke
+
+newpath
+/u 0 def
+/v 1 def
+0 0 moveto
+0 0.02 1 { /w exch def /v 1 w sub def xyz lineto } for
+stroke
+
+newpath
+/u u0 def
+/v v0 def
+/w w0 def
+xyz 0.025 0 360 arc
+fill
+x y 0.125 sub moveto
+(1) show
+
+newpath
+/u u1 def
+/v v1 def
+/w w1 def
+xyz 0.025 0 360 arc
+fill
+x y 0.125 sub moveto
+(2) show
+
+newpath
+/u u2 def
+/v v2 def
+/w w2 def
+xyz 0.025 0 360 arc
+fill
+x 0.125 add y 0.05 add moveto
+(4) show
+
+newpath
+/u u3 def
+/v v3 def
+/w w3 def
+xyz 0.025 0 360 arc
+fill
+x 0.125 add y 0.05 sub moveto
+(3) show
+
+/Times-Scand findfont 0.1 scalefont setfont
+
+%0 -0.2 moveto
+%(504, lineaarinen tetraedri) show
+
+grestore
+restore
+showpage
