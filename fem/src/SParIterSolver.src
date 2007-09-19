@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterSolver.src,v 1.27 2007/09/19 06:22:34 jpr Exp $
+! * $Id: SParIterSolver.src,v 1.29 2007/09/19 10:37:17 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -1349,15 +1349,24 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
       IF ( .NOT. Found ) Rounds=1000
  
 
+
+      !
+      ! Hypre wants to have a continuous ascending numbering across
+      ! partitions, try creating such a beast:
+      ! ------------------------------------------------------------
       n = SIZE(ParallelInfo % GlobalDOFs)
       ALLOCATE( Owner(n), aperm(n) )
       owner = 0; aperm = 0;
 
+      ! receive our lowest index:
+      ! -------------------------
       j = 0
       IF ( ParEnv % MyPE /= 0 ) &
         CALL MPI_RECV( j, 1, MPI_INTEGER, &
             ParEnv % myPE-1, 801, MPI_COMM_WORLD, status, ierr )
 
+      ! give a number to dofs owned by us:
+      ! -----------------------------------
       DO i=1,n
         nb => ParallelInfo % NeighbourList(i) % Neighbours(:)
         IF ( nb(1)==ParEnv % MyPE ) THEN
@@ -1367,13 +1376,14 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
         END IF
       END DO
 
+      ! next pe in line needs it's base:
+      ! --------------------------------
       IF ( ParEnv % MyPE < ParEnv % PEs-1 ) &
         CALL MPI_BSEND( j, 1, MPI_INTEGER, &
            ParEnv % myPE+1, 801, MPI_COMM_WORLD, ierr )
 
 
       ALLOCATE( neigh(Parenv % PEs),sz(ParEnv % NumOfNeighbours) )
-
       k = 0
       DO i=1,ParEnv % PEs
         IF( ParEnv % IsNeighbour(i) ) THEN
@@ -1440,6 +1450,7 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
           DEALLOCATE( buf_aa, buf_gg )
         END IF
       END DO
+      ! ------------------------------------------------------------
 
       CALL SolveHYPRE( SourceMatrix % NumberOfRows, SourceMatrix % Rows, &
         SourceMatrix % Cols, SourceMatrix % Values, SourceMatrix % Perm, &
