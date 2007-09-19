@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterSolver.src,v 1.29 2007/09/19 10:37:17 jpr Exp $
+! * $Id: SParIterSolver.src,v 1.30 2007/09/19 10:42:29 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -1349,7 +1349,6 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
       IF ( .NOT. Found ) Rounds=1000
  
 
-
       !
       ! Hypre wants to have a continuous ascending numbering across
       ! partitions, try creating such a beast:
@@ -1383,6 +1382,9 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
            ParEnv % myPE+1, 801, MPI_COMM_WORLD, ierr )
 
 
+      ! the rest is to communicate the numbering of shared dofs
+      ! from owners to others that share the dofs:
+      ! --------------------------------------------------------
       ALLOCATE( neigh(Parenv % PEs),sz(ParEnv % NumOfNeighbours) )
       k = 0
       DO i=1,ParEnv % PEs
