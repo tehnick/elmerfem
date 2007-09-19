@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: ParallelUtils.src,v 1.17 2007/05/04 05:38:08 jpr Exp $
+! * $Id: ParallelUtils.src,v 1.18 2007/05/04 11:37:53 jpr Exp $
 ! ******************************************************************************
 
 MODULE ParallelUtils
@@ -155,7 +155,7 @@ CONTAINS
            IF ( .NOT. ASSOCIATED(Element % DGIndexes) ) CYCLE
            DO j=1,SIZE(Element % DGIndexes)
              k = Element % DGIndexes(j)
-             MatrixPI % GlobalDOFs(k) = 8*(Element % ElementIndex)+j
+             MatrixPI % GlobalDOFs(k) = 8*(Element % ElementIndex-1)+j
            END DO
          END DO
          ALLOCATE( MatrixPI % Interface(n), MatrixPI % NeighbourList(n) )
@@ -163,7 +163,7 @@ CONTAINS
          MatrixPI % Interface = .FALSE.
          DO i=1,n
            MtrxN => MatrixPI % NeighbourList(i)
-          MtrxN % Neighbours => NULL()
+           MtrxN % Neighbours => NULL()
          END DO
 
          DO i=1,Mesh % NumberOfBulkElements

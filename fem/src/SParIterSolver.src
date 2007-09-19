@@ -1303,12 +1303,13 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
 
   CHARACTER(LEN=MAX_NAME_LEN) :: Prec
   REAL(KIND=dp) :: TOL
-  INTEGER :: ILUn, Rounds, buf(2),status(MPI_STATUS_SIZE)
+  INTEGER :: ILUn, Rounds, buf(2), src, status(MPI_STATUS_SIZE), ssz
 
-  INTEGER, ALLOCATABLE :: owner(:), aperm(:)
   INTEGER, DIMENSION(:), ALLOCATABLE :: VecEPerNB
+  INTEGER, ALLOCATABLE :: Owner(:), Aperm(:), &
+      buf_a(:,:), buf_g(:,:), buf_aa(:), buf_gg(:), sz(:), neigh(:)
 
-   INTEGER, POINTER :: nb(:)
+  INTEGER, POINTER :: nb(:)
 
   LOGICAL :: NeedMass, NeedDamp, Found
 
@@ -1347,10 +1348,10 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
            'Linear System Max Iterations', Found )
       IF ( .NOT. Found ) Rounds=1000
  
+
       n = SIZE(ParallelInfo % GlobalDOFs)
       ALLOCATE( Owner(n), aperm(n) )
       owner = 0; aperm = 0;
-
 
       j = 0
       IF ( ParEnv % MyPE /= 0 ) &
@@ -1371,27 +1372,74 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
            ParEnv % myPE+1, 801, MPI_COMM_WORLD, ierr )
 
 
+      ALLOCATE( neigh(Parenv % PEs),sz(ParEnv % NumOfNeighbours) )
+
+      k = 0
+      DO i=1,ParEnv % PEs
+        IF( ParEnv % IsNeighbour(i) ) THEN
+          k=k+1
+          neigh(i)=k
+        END IF
+      END DO
+
+      sz = 0
       DO i=1,n
-        IF ( owner(i) /= 0 ) THEN
-           nb => ParallelInfo % NeighbourList(i) % Neighbours(:)
-           DO j=2,SIZE(nb)
-             buf(1) = Parallelinfo % GlobalDOFs(i)
-             buf(2) = Aperm(i)
-             CALL MPI_BSEND( buf,2,MPI_INTEGER,nb(j),800,MPI_COMM_WORLD,ierr )
-           END DO
+        IF ( owner(i) == 1 ) THEN
+          nb => ParallelInfo % NeighbourList(i) % Neighbours(:)
+          DO j=2,SIZE(nb)
+            k = neigh(nb(j)+1)
+            sz(k) = sz(k) + 1
+          END DO
         END IF
       END DO
 
-      i = 0
-      DO WHILE(i<COUNT(owner==0))
-        CALL MPI_RECV( buf,2,MPI_INTEGER,MPI_ANY_SOURCE,800,MPI_COMM_WORLD,status,ierr )
-        j = SearchIAItem( n, ParallelInfo % GlobalDOFs, buf(1) )
-        IF ( j > 0 ) THEN
-          Aperm(j) = buf(2)
-          i = i + 1
+      ALLOCATE( buf_a(MAXVAL(sz),ParEnv % NumOfNeighbours), &
+                buf_g(MAXVAL(sz),ParEnv % NumOfNeighbours) )
+
+      sz = 0
+      DO i=1,n
+        IF ( owner(i) /= 0  ) THEN
+          nb => ParallelInfo % NeighbourList(i) % Neighbours(:)
+          DO j=2,SIZE(nb)
+            k = neigh(nb(j)+1)
+            sz(k) = sz(k) + 1
+            buf_a(sz(k),k) = Aperm(i)
+            buf_g(sz(k),k) = ParallelInfo % GlobalDOFs(i)
+          END DO
         END IF
       END DO
 
+      DO i=1,ParEnv % PEs
+        IF ( .NOT. ParEnv % IsNeighbour(i) ) CYCLE
+ 
+        k = neigh(i)
+        j = sz(k)
+        CALL MPI_BSEND( j,1,MPI_INTEGER,i-1,802,MPI_COMM_WORLD,ierr )
+        IF ( j>0 ) THEN
+          CALL MPI_BSEND( buf_a(1:j,k),j,MPI_INTEGER,i-1,803,MPI_COMM_WORLD,ierr )
+          CALL MPI_BSEND( buf_g(1:j,k),j,MPI_INTEGER,i-1,804,MPI_COMM_WORLD,ierr )
+        END IF
+      END DO 
+
+      DEALLOCATE( buf_a, buf_g, neigh, sz )
+
+      DO i=1,ParEnv % NumOfNeighbours
+        CALL MPI_RECV( ssz,1,MPI_INTEGER,MPI_ANY_SOURCE,802,MPI_COMM_WORLD,status,ierr )
+        IF ( ssz>0 ) THEN
+          src = status(MPI_SOURCE)
+          ALLOCATE( buf_aa(ssz), buf_gg(ssz) )
+
+          CALL MPI_RECV( buf_aa,ssz,MPI_INTEGER,src,803,MPI_COMM_WORLD,status,ierr )
+          CALL MPI_RECV( buf_gg,ssz,MPI_INTEGER,src,804,MPI_COMM_WORLD,status,ierr )
+
+          DO j=1,ssz
+            k = SearchIAItem( n, ParallelInfo % GlobalDOFs, buf_gg(j) )
+            IF ( k>0 ) Aperm(k) = buf_aa(j)
+          END DO
+
+          DEALLOCATE( buf_aa, buf_gg )
+        END IF
+      END DO
 
       CALL SolveHYPRE( SourceMatrix % NumberOfRows, SourceMatrix % Rows, &
         SourceMatrix % Cols, SourceMatrix % Values, SourceMatrix % Perm, &

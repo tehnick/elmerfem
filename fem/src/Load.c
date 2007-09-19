@@ -547,9 +547,6 @@ static void DoIterCall( void (STDCALLBULL *iterProc)(),
        void (STDCALLBULL *dotProc)(),
        void (STDCALLBULL *normProc)(),
        void (STDCALLBULL *STOPC)() )
-/*
-       f_ptr mvProc, f_ptr pcondProc, f_ptr pcondrProc, f_ptr dotProc, f_ptr normProc, f_ptr STOPC )
-*/
 { 
   (*iterProc)( x,b,ipar,dpar,work,mvProc,pcondProc, 
        pcondrProc,dotProc,normProc,STOPC );
@@ -569,7 +566,4 @@ void STDCALLBULL FC_FUNC(itercall,ITERCALL)
        (void (STDCALLBULL *)())*dotProc,
        (void (STDCALLBULL *)())*normProc,
        (void (STDCALLBULL *)())*STOPC );
-/*
-       mvProc, pcondProc, pcondrProc, dotProc, normProc, STOPC );
-*/
 }
