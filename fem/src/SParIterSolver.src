@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterSolver.src,v 1.25 2007/05/09 07:40:48 jpr Exp $
+! * $Id: SParIterSolver.src,v 1.26 2007/09/18 06:00:45 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -1295,17 +1295,17 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
   ! Local variables
 
   TYPE (ErrInfoT) :: ErrInfo
-  INTEGER :: i, j, grow,gcol, nbind
+  INTEGER :: i, j, n,grow,gcol, nbind
   TYPE (SplittedMatrixT), POINTER :: SplittedMatrix
-  INTEGER :: k, l, nodeind, ifind, dd, rowind
+  INTEGER :: k, l, nodeind, ifind, dd, rowind, ierr
   TYPE (Matrix_t), POINTER :: CurrIf
   TYPE (GlueTableT), POINTER :: GT
 
   CHARACTER(LEN=MAX_NAME_LEN) :: Prec
   REAL(KIND=dp) :: TOL
-  INTEGER :: ILUn, Rounds
+  INTEGER :: ILUn, Rounds, buf(2),status(MPI_STATUS_SIZE)
 
-  INTEGER, ALLOCATABLE :: owner(:)
+  INTEGER, ALLOCATABLE :: owner(:), aperm(:)
   INTEGER, DIMENSION(:), ALLOCATABLE :: VecEPerNB
 
   LOGICAL :: NeedMass, NeedDamp, Found
@@ -1331,7 +1331,7 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
 
 #ifdef HAVE_HYPRE
     IF (ListGetLogical(CurrentModel % Solver % Values,  &
-           'Linear System Use HYPRE')) THEN
+           'Linear System Use HYPRE', Found )) THEN
 
       Prec = ListGetString( Solver % Values, & 
           'Linear System Preconditioning', Found )
@@ -1345,19 +1345,61 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
            'Linear System Max Iterations', Found )
       IF ( .NOT. Found ) Rounds=1000
  
-      ALLOCATE(Owner(SIZE(ParallelInfo % GlobalDOFs)))
-      owner = 0
+      n = SIZE(ParallelInfo % GlobalDOFs)
+      ALLOCATE( Owner(n), aperm(n) )
+      owner = 0; aperm = 0;
 
-      DO i=1,SIZE(Parallelinfo % GlobalDOFs)
-        IF ( ParallelInfo % NeighbourList(i) % &
-                 Neighbours(1) == ParEnv % MyPE ) owner(i) = 1
+      i = 0
+      IF ( ParEnv % MyPE /= 0 ) THEN
+        CALL MPI_RECV( i, 1, MPI_INTEGER, &
+            ParEnv % myPE-1, 801, MPI_COMM_WORLD, status, ierr )
+      END IF
+
+      DO j=1,n
+         IF ( ParallelInfo % NeighbourList(j) % Neighbours(1)==ParEnv % MyPE) THEN
+           i = i + 1
+           aperm(j) = i
+           owner(j) = 1
+         END IF
       END DO
 
-      CALL SolveHYPRE( SourceMatrix % NumberOfRows, SourceMatrix % Rows,         &
-        SourceMatrix % Cols, SourceMatrix % Values, SOurceMatrix % Perm,    &
-         SourceMatrix % InvPerm, ParallelInfo % GlobalDOFs, Owner, Xvec, RHSvec, &
+      IF ( ParEnv % MyPE < ParEnv % PEs-1 ) THEN
+        CALL MPI_BSEND( i, 1, MPI_INTEGER, &
+                   ParEnv % myPE+1, 801, MPI_COMM_WORLD, ierr )
+      END IF
+
+      DO i=1,n
+        IF ( ParallelInfo % NeighbourList(i) % &
+                 Neighbours(1) == ParEnv % MyPE ) THEN
+           DO j=2,SIZE(ParallelInfo % NeighbourList(i) % Neighbours)
+             IF ( Parenv % Active(ParallelInfo % NeighbourList(i) % Neighbours(j)+1) ) THEN
+               buf(1) = Parallelinfo % GlobalDOFs(i)
+               buf(2) = aperm(i)
+               CALL MPI_BSEND( buf, 2, MPI_INTEGER, &
+                  ParallelInfo % NeighbourList(i) % Neighbours(j), 800, MPI_COMM_WORLD, ierr )
+             END IF
+           END DO
+        END IF
+      END DO
+      DO i=1,n
+        IF ( ParallelInfo % NeighbourList(i) % &
+                 Neighbours(1) /= ParEnv % MyPE ) THEN
+          IF ( Parenv % Active(ParallelInfo % NeighbourList(i) % Neighbours(1)++1) ) THEN
+            CALL MPI_RECV( buf, 2, MPI_INTEGER, &
+                ParallelInfo % NeighbourList(i) % Neighbours(1), 800, MPI_COMM_WORLD, status, ierr )
+            j = SearchNode( ParallelInfo, buf(1) )
+            IF ( J > 0 ) aperm(j) = buf(2)
+          END IF
+        END IF
+      END DO
+
+
+      CALL SolveHYPRE( SourceMatrix % NumberOfRows, SourceMatrix % Rows, &
+        SourceMatrix % Cols, SourceMatrix % Values, SourceMatrix % Perm, &
+         SourceMatrix % InvPerm, aperm, Owner, Xvec, RHSvec, &
             ParEnv % MyPE, ILUn, Rounds, TOL  )
-      DEALLOCATE( owner )
+
+      DEALLOCATE( owner, aperm )
 
       ALLOCATE( VecEPerNB( ParEnv % PEs ) )
       VecEPerNB = 0
