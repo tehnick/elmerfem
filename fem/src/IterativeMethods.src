@@ -40,7 +40,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: IterativeMethods.src,v 1.1 2007/09/20 12:14:47 raback Exp $
+! * $Id: IterativeMethods.src,v 1.2 2007/09/20 12:50:40 jpr Exp $
 ! *****************************************************************************
 
 
@@ -63,18 +63,20 @@
 
 MODULE IterativeMethods
   
-  USE CRSMatrix
-   
+  USE CRSMatrix  
   IMPLICIT NONE
   
   
 CONTAINS
   
-  SUBROUTINE itermethod_sgs( ndim, wrkdim, xvec, rhsvec, &
+
+  SUBROUTINE itermethod_sgs( xvec, rhsvec, &
       ipar, dpar, work, matvecsubr, pcondlsubr, &
       pcondrsubr, dotprodfun, normfun, stopcfun )
         
+
     IMPLICIT NONE
+
     EXTERNAL matvecsubr, pcondlsubr, pcondrsubr
     EXTERNAL dotprodfun, normfun, stopcfun
     DOUBLE PRECISION :: dotprodfun
@@ -82,16 +84,18 @@ CONTAINS
     DOUBLE PRECISION :: stopcfun
     
     ! Parameters
-    INTEGER :: ndim, wrkdim
-    DOUBLE PRECISION, DIMENSION(ndim) :: xvec, rhsvec
+    INTEGER :: ndim
+    DOUBLE PRECISION :: xvec(:), rhsvec(:), work(:,:)
     INTEGER, DIMENSION(HUTI_IPAR_DFLTSIZE) :: ipar
     DOUBLE PRECISION, DIMENSION(HUTI_DPAR_DFLTSIZE) :: dpar
-    DOUBLE PRECISION, DIMENSION(ndim,wrkdim) :: work
-    
+
     INTEGER :: Rounds, OutputInterval
     REAL(KIND=dp) :: MinTol, MaxTol, Residual, Omega
     LOGICAL :: Converged, Diverged
 
+    PRINT *,'bsize',SIZE(rhsvec), SIZE(xvec)
+
+    ndim = HUTI_NDIM
     Rounds = HUTI_MAXIT
     MinTol = HUTI_TOLERANCE
     MaxTol = HUTI_MAXTOLERANCE
@@ -109,7 +113,7 @@ CONTAINS
  !------------------------------------------------------------------------------
       TYPE(Matrix_t), POINTER :: A
       INTEGER :: Rounds
-      DOUBLE PRECISION, DIMENSION(n) :: x,b
+      DOUBLE PRECISION :: x(:),b(:)
       DOUBLE PRECISION :: Omega
       INTEGER :: i,j,k,n
       INTEGER, POINTER :: Cols(:),Rows(:)
@@ -125,14 +129,14 @@ CONTAINS
 
       ALLOCATE( R(n) )
       
-      PRINT *,'start matvec'
-      CALL matvecsubr( A, x, r )
-      PRINT *,'end matvec'
+      CALL matvecsubr( x, r, ipar )
      
       r(1:n) = b(1:n) - r(1:n)
       
-      PRINT *,'start dotprod'
-      bnorm = SQRT( dotprodfun(n, b, b) )
+      PRINT *,'start dotprod',n,SIZE(b),bnorm 
+      PRINT *,'b',MAXVAL(b(1:n)),MINVAL(b(1:n))
+!      bnorm = SQRT( dotprodfun(n, b, b) )
+      bnorm = SQRT(SUM(b(1:n)*b(1:n)))
       PRINT *,'end dotprod'
 
       rnorm = SQRT( dotprodfun(n, r, r) )
@@ -158,7 +162,7 @@ CONTAINS
           x(i) = x(i) + Omega * (b(i)-s) / Values(A % Diag(i))
         END DO
         
-        CALL matvecsubr( A, x, r )
+        CALL matvecsubr( x, r, ipar )
         r(1:n) = b(1:n) - r(1:n)
         rnorm = SQRT( dotprodfun(n, r, r) )
         
@@ -179,7 +183,7 @@ CONTAINS
 
 
 
-  SUBROUTINE itermethod_jacobi( ndim, wrkdim, xvec, rhsvec, &
+  SUBROUTINE itermethod_jacobi( xvec, rhsvec, &
       ipar, dpar, work, matvecsubr, pcondlsubr, &
       pcondrsubr, dotprodfun, normfun, stopcfun )
        
@@ -192,16 +196,16 @@ CONTAINS
     DOUBLE PRECISION :: stopcfun
     
     ! Parameters
-    INTEGER :: ndim, wrkdim
-    DOUBLE PRECISION, DIMENSION(ndim) :: xvec, rhsvec
+    INTEGER :: ndim
+    DOUBLE PRECISION :: xvec(:), rhsvec(:), work(:,:)
     INTEGER, DIMENSION(HUTI_IPAR_DFLTSIZE) :: ipar
     DOUBLE PRECISION, DIMENSION(HUTI_DPAR_DFLTSIZE) :: dpar
-    DOUBLE PRECISION, DIMENSION(ndim,wrkdim) :: work
-    
+
     INTEGER :: Rounds, OutputInterval
     REAL(KIND=dp) :: MinTol, MaxTol, Residual
     LOGICAL :: Converged, Diverged
     
+    ndim = HUTI_NDIM
     Rounds = HUTI_MAXIT
     MinTol = HUTI_TOLERANCE
     MaxTol = HUTI_MAXTOLERANCE
@@ -234,7 +238,7 @@ CONTAINS
       
       ALLOCATE( R(n) )
       
-      CALL matvecsubr( A, x, r )
+      CALL matvecsubr( x, r, ipar )
       r(1:n) = b(1:n) - r(1:n)
       
       bnorm = SQRT( dotprodfun(n, b, b) )
@@ -247,7 +251,7 @@ CONTAINS
       
       DO i=1,Rounds
         x(1:n) = x(1:n) + r(1:n) / A % Values(A % diag(1:n))
-        CALL matvecsubr( A, x, r )
+        CALL matvecsubr( x, r, ipar )
         
         r(1:n) = b(1:n) - r(1:n)
         rnorm = SQRT( dotprodfun(n, r, r) )
@@ -272,11 +276,13 @@ CONTAINS
   
 
 
-  SUBROUTINE itermethod_bicgstabl( ndim, wrkdim, xvec, rhsvec, &
+  SUBROUTINE itermethod_bicgstabl( xvec, rhsvec, &
       ipar, dpar, work, matvecsubr, pcondlsubr, &
       pcondrsubr, dotprodfun, normfun, stopcfun )
     
+
     IMPLICIT NONE
+
     EXTERNAL matvecsubr, pcondlsubr, pcondrsubr
     EXTERNAL dotprodfun, normfun, stopcfun
     DOUBLE PRECISION :: dotprodfun
@@ -284,16 +290,16 @@ CONTAINS
     DOUBLE PRECISION :: stopcfun
     
     ! Parameters
-    INTEGER :: ndim, wrkdim
-    DOUBLE PRECISION, DIMENSION(ndim) :: xvec, rhsvec
+    INTEGER :: ndim
+    DOUBLE PRECISION :: xvec(:), rhsvec(:), work(:,:)
     INTEGER, DIMENSION(HUTI_IPAR_DFLTSIZE) :: ipar
     DOUBLE PRECISION, DIMENSION(HUTI_DPAR_DFLTSIZE) :: dpar
-    DOUBLE PRECISION, DIMENSION(ndim,wrkdim) :: work
     
     INTEGER :: Rounds, OutputInterval, PolynomialDegree
     REAL(KIND=dp) :: MinTol, MaxTol, Residual
     LOGICAL :: Converged, Diverged
     
+    ndim = HUTI_NDIM
     Rounds = HUTI_MAXIT
     MinTol = HUTI_TOLERANCE
     MaxTol = HUTI_MAXTOLERANCE
