@@ -2,7 +2,7 @@
 /*
   huti_defs.h - HUTIter libarary definitions 
 
-  $Id: huti_defs.h,v 1.1.1.1 1998/07/31 10:19:08 jim Exp $
+  $Id: huti_defs.h,v 1.1.1.1 2005/04/15 10:31:18 vierinen Exp $
 
  */
 
@@ -27,6 +27,7 @@
 #define HUTI_OK 0
 #define HUTI_CONVERGENCE 1
 #define HUTI_MAXITER 2
+#define HUTI_DIVERGENCE 3
 
 /* QMR method */
 
@@ -62,6 +63,7 @@
 /* BiCGSTAB(2) method */
 
 #define HUTI_BICGSTAB_2_RHO 45
+
 
 /* HUTI debug levels */
 
@@ -147,6 +149,13 @@
 /* Input parameters supplied by user */
 
 #define HUTI_TOLERANCE dpar[0]
+#define HUTI_MAXTOLERANCE dpar[1]
+
+
+/* Parameters related to other solver in Elmer */
+#define HUTI_SGSPARAM dpar[2]
+#define HUTI_BICGSTABL_L ipar[15]
+
 
 /*  
  * End of definitions
