@@ -39,7 +39,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: CRSMatrix.src,v 1.18 2007/09/17 09:23:24 raback Exp $
+! * $Id: CRSMatrix.src,v 1.19 2007/09/20 12:14:52 raback Exp $
 ! ******************************************************************************
 
 #include "huti_fdefs.h"
@@ -985,7 +985,6 @@ END FUNCTION CRS_RowSum
 
     N = A % NumberOfRows
     B % NumberOfRows = N
-    B % Diag => A % Diag      
     
     kb = 0
     DO i=1,N
@@ -994,7 +993,7 @@ END FUNCTION CRS_RowSum
         IF( MOD(i,Blocks) == MOD(l,Blocks)) kb = kb + 1
       END DO
     END DO
-    ALLOCATE(B % Rows(N+1),B % Cols(kb), B % Values(kb))
+    ALLOCATE(B % Rows(N+1),B % Cols(kb), B % Values(kb), B % Diag(n))
       
     kb = 1
     DO i=1,N

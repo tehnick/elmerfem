@@ -38,7 +38,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: IterSolve.src,v 1.17 2007/09/20 12:14:51 raback Exp $
+! * $Id: IterSolve.src,v 1.18 2007/09/20 12:41:15 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -318,16 +318,20 @@ CONTAINS
                  Condition = CRS_ILUT( A,ILUT_TOL )
                ELSE IF ( PCondType == PRECOND_BILUn ) THEN
                  Blocks = SolverParam % Variable % Dofs
-                 Adiag => AllocateMatrix()
-                 CALL CRS_BlockDiagonal(A,Adiag,Blocks)
-                 Condition = CRS_IncompleteLU(Adiag,ILUn)
-                 A % ILURows   => Adiag % ILURows
-                 A % ILUCols   => Adiag % ILUCols
-                 A % ILUValues => Adiag % ILUValues
-                 A % ILUDiag   => Adiag % ILUDiag                 
-                 IF(ILUn > 0) THEN
-                   DEALLOCATE(Adiag % Rows,Adiag % Cols, Adiag % Values)
-                   DEALLOCATE(Adiag)
+                 IF ( Blocks <= 1 ) THEN
+                   Condition = CRS_IncompleteLU(A,ILUn)
+                 ELSE
+                   Adiag => AllocateMatrix()
+                   CALL CRS_BlockDiagonal(A,Adiag,Blocks)
+                   Condition = CRS_IncompleteLU(Adiag,ILUn)
+                   A % ILURows   => Adiag % ILURows
+                   A % ILUCols   => Adiag % ILUCols
+                   A % ILUValues => Adiag % ILUValues
+                   A % ILUDiag   => Adiag % ILUDiag                 
+                   IF (ILUn > 0) THEN
+                     DEALLOCATE(Adiag % Rows,Adiag % Cols, Adiag % Diag, Adiag % Values)
+                   END IF
+                   DEALLOCATE( Adiag )
                  END IF
                END IF
              END IF
