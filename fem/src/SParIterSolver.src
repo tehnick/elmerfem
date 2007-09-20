@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterSolver.src,v 1.30 2007/09/19 10:42:29 jpr Exp $
+! * $Id: SParIterSolver.src,v 1.31 2007/09/19 11:11:58 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -1303,11 +1303,11 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
 
   CHARACTER(LEN=MAX_NAME_LEN) :: Prec
   REAL(KIND=dp) :: TOL
-  INTEGER :: ILUn, Rounds, buf(2), src, status(MPI_STATUS_SIZE), ssz
+  INTEGER :: ILUn, Rounds, buf(2), src, status(MPI_STATUS_SIZE), ssz,nob
 
   INTEGER, DIMENSION(:), ALLOCATABLE :: VecEPerNB
-  INTEGER, ALLOCATABLE :: Owner(:), Aperm(:), &
-      buf_a(:,:), buf_g(:,:), buf_aa(:), buf_gg(:), sz(:), neigh(:)
+  INTEGER, ALLOCATABLE :: Owner(:), Aperm(:), n_nownbuf(:), g_nownbuf(:), &
+      i_nownbuf(:), buf_a(:,:), buf_g(:,:), buf_aa(:), buf_gg(:), sz(:), neigh(:)
 
   INTEGER, POINTER :: nb(:)
 
@@ -1354,8 +1354,8 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
       ! partitions, try creating such a beast:
       ! ------------------------------------------------------------
       n = SIZE(ParallelInfo % GlobalDOFs)
-      ALLOCATE( Owner(n), aperm(n) )
-      owner = 0; aperm = 0;
+      ALLOCATE( Owner(n), Aperm(n) )
+      Owner = 0; Aperm = 0;
 
       ! receive our lowest index:
       ! -------------------------
@@ -1396,7 +1396,7 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
 
       sz = 0
       DO i=1,n
-        IF ( owner(i) == 1 ) THEN
+        IF ( Owner(i) == 1 ) THEN
           nb => ParallelInfo % NeighbourList(i) % Neighbours(:)
           DO j=2,SIZE(nb)
             k = neigh(nb(j)+1)
@@ -1408,9 +1408,13 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
       ALLOCATE( buf_a(MAXVAL(sz),ParEnv % NumOfNeighbours), &
                 buf_g(MAXVAL(sz),ParEnv % NumOfNeighbours) )
 
-      sz = 0
+      nob = COUNT( owner==0 )
+      ALLOCATE( n_nownbuf(nob), g_nownbuf(nob), i_nownbuf(nob) )
+
+      sz  = 0
+      nob = 0
       DO i=1,n
-        IF ( owner(i) /= 0  ) THEN
+        IF ( Owner(i) /= 0  ) THEN
           nb => ParallelInfo % NeighbourList(i) % Neighbours(:)
           DO j=2,SIZE(nb)
             k = neigh(nb(j)+1)
@@ -1418,18 +1422,24 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
             buf_a(sz(k),k) = Aperm(i)
             buf_g(sz(k),k) = ParallelInfo % GlobalDOFs(i)
           END DO
+        ELSE
+          nob = nob + 1
+          i_nownbuf(nob) = nob
+          n_nownbuf(nob)= i
+          g_nownbuf(nob)= ParallelInfo % GlobalDOFs(i)
         END IF
       END DO
+      IF ( nob>0 ) CALL SortI( nob,g_nownbuf,n_nownbuf )
 
       DO i=1,ParEnv % PEs
-        IF ( .NOT. ParEnv % IsNeighbour(i) ) CYCLE
- 
-        k = neigh(i)
-        j = sz(k)
-        CALL MPI_BSEND( j,1,MPI_INTEGER,i-1,802,MPI_COMM_WORLD,ierr )
-        IF ( j>0 ) THEN
-          CALL MPI_BSEND( buf_a(1:j,k),j,MPI_INTEGER,i-1,803,MPI_COMM_WORLD,ierr )
-          CALL MPI_BSEND( buf_g(1:j,k),j,MPI_INTEGER,i-1,804,MPI_COMM_WORLD,ierr )
+        IF ( ParEnv % IsNeighbour(i) ) THEN
+          k = neigh(i)
+          ssz = sz(k)
+          CALL MPI_BSEND( ssz,1,MPI_INTEGER,i-1,802,MPI_COMM_WORLD,ierr )
+          IF ( ssz>0 ) THEN
+            CALL MPI_BSEND( buf_a(1:ssz,k),ssz,MPI_INTEGER,i-1,803,MPI_COMM_WORLD,ierr )
+            CALL MPI_BSEND( buf_g(1:ssz,k),ssz,MPI_INTEGER,i-1,804,MPI_COMM_WORLD,ierr )
+          END IF
         END IF
       END DO 
 
@@ -1445,13 +1455,15 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
           CALL MPI_RECV( buf_gg,ssz,MPI_INTEGER,src,804,MPI_COMM_WORLD,status,ierr )
 
           DO j=1,ssz
-            k = SearchIAItem( n, ParallelInfo % GlobalDOFs, buf_gg(j) )
-            IF ( k>0 ) Aperm(k) = buf_aa(j)
+            k = SearchIAItem( nob, g_nownbuf, buf_gg(j), i_nownbuf )
+            IF ( k>0 ) Aperm(n_nownbuf(k)) = buf_aa(j)
           END DO
 
           DEALLOCATE( buf_aa, buf_gg )
         END IF
       END DO
+
+      DEALLOCATE( n_nownbuf, g_nownbuf, i_nownbuf )
       ! ------------------------------------------------------------
 
       CALL SolveHYPRE( SourceMatrix % NumberOfRows, SourceMatrix % Rows, &
