@@ -38,7 +38,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: IterSolve.src,v 1.19 2007/09/20 13:09:22 jpr Exp $
+! * $Id: IterSolve.src,v 1.20 2007/09/20 13:19:55 raback Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -103,6 +103,25 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+FUNCTION VectorNorm2(n,x) RESULT (norm)
+  INTEGER :: n
+  REAL(KIND=dp) :: x(n),norm
+  REAL(KIND=dp) :: dnrm2
+  EXTERNAL :: dnrm2
+
+  norm = DNRM2(N, X, 1)
+END FUNCTION VectorNorm2
+
+
+FUNCTION DotProduct(n,x,y) RESULT (res)
+  INTEGER :: n
+  REAL(KIND=dp) :: x(n),y(n),res
+  REAL(KIND=dp) :: ddot
+  EXTERNAL :: ddot
+  
+  res = DDOT(N, X, 1, Y, 1)
+END FUNCTION DotProduct
+
 
 #ifndef HUTI_MAXTOLERANCE
 #define HUTI_MAXTOLERANCE dpar(2)
@@ -112,6 +131,9 @@ CONTAINS
 #endif
 #ifndef HUTI_BICGSTABL_L
 #define HUTI_BICGSTABL_L ipar(16)
+#endif
+#ifndef HUTI_DIVERGENCE
+#define HUTI_DIVERGENCE 3
 #endif
 
 
@@ -182,7 +204,7 @@ CONTAINS
     ELSE IF ( str(1:3) == 'sgs' ) THEN
       IterType = ITER_SGS
     ELSE IF ( str(1:6) == 'jacobi' ) THEN
-      IterType = ITER_SGS
+      IterType = ITER_jacobi
     ELSE
       IterType = ITER_BiCGStab
     END IF
@@ -222,11 +244,22 @@ CONTAINS
 
       /*******  Solvers from IterativeMethods.src ******/
       CASE (ITER_SGS)
+        HUTI_WRKDIM = 1
+        wsize = HUTI_WRKDIM
         HUTI_SGSPARAM = ListGetConstReal( SolverParam % Values,'SGS Overrelaxation Factor',&
             GotIt,minv=1.0_dp,maxv=2.0_dp)
+        IF(.NOT. GotIt) HUTI_SGSPARAM = 1.8
+
+      CASE (ITER_Jacobi)
+        HUTI_WRKDIM = 1
+        wsize = HUTI_WRKDIM
 
       CASE (ITER_BICGSTABL)
-        HUTI_BICGSTABL_L = ListGetInteger( SolverParam % Values,'BiCGstabl polynomial degree',minv=2)
+        HUTI_WRKDIM = 1
+        wsize = HUTI_WRKDIM
+        HUTI_BICGSTABL_L = ListGetInteger( SolverParam % Values,'BiCGstabl polynomial degree',&
+            GotIt,minv=2)
+        IF(.NOT. GotIt) HUTI_BICGSTABL_L = 2
 
      END SELECT
 !------------------------------------------------------------------------------
@@ -422,15 +455,18 @@ CONTAINS
 
        CASE (ITER_SGS)
          iterProc = AddrFunc( itermethod_sgs )
-         dotProc = AddrFunc(ddot)
+         dotProc = AddrFunc(DotProduct)
+         normproc = AddrFunc(VectorNorm2)
 
        CASE (ITER_JACOBI)
          iterProc = AddrFunc( itermethod_jacobi )
-         dotProc = AddrFunc(ddot)
+         dotProc = AddrFunc(DotProduct)
+         normproc = AddrFunc(VectorNorm2)
 
        CASE (ITER_BICGSTABL)
          iterProc = AddrFunc( itermethod_bicgstabl )
-         dotProc = AddrFunc(ddot)
+         dotProc = AddrFunc(DotProduct)
+         normproc = AddrFunc(VectorNorm2)
 
        END SELECT
 
@@ -452,10 +488,6 @@ CONTAINS
        END SELECT
      END IF
 
-     PRINT *,'itertype',itertype,iterproc,dotproc,mvproc,HUTI_NDIM
-
-     PRINT *,'sizes',SIZE(x),size(b)
-
 !------------------------------------------------------------------------------
 
      GlobalMatrix => A
@@ -465,11 +497,13 @@ CONTAINS
      IF ( A % COMPLEX ) HUTI_NDIM = HUTI_NDIM * 2
 !------------------------------------------------------------------------------
      IF ( HUTI_INFO /= HUTI_CONVERGENCE .AND. ParEnv % myPE==0 ) THEN
-        IF ( AbortNotConverged ) THEN
-           CALL Fatal( 'IterSolve', 'Failed convergence tolerances.' )
-        ELSE
-           CALL Error( 'IterSolve', 'Failed convergence tolerances.' )
-        END IF
+       IF( HUTI_INFO == HUTI_DIVERGENCE ) THEN
+         CALL Fatal( 'IterSolve', 'System diverged over tolerance.' )
+       ELSE IF ( AbortNotConverged ) THEN
+         CALL Fatal( 'IterSolve', 'Failed convergence tolerances.' )
+       ELSE
+         CALL Error( 'IterSolve', 'Failed convergence tolerances.' )
+       END IF
      END IF
 !------------------------------------------------------------------------------
      DEALLOCATE( work )
