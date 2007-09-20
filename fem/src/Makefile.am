@@ -205,6 +205,7 @@ EXTRA_DIST = \
 	Integration.src \
 	Interpolation.src \
 	IterSolve.src \
+	IterativeMethods.src \
 	KESolver.src \
 	LevelSet.src \
 	LinearAlgebra.src \
