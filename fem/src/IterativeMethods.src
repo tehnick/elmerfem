@@ -1,0 +1,546 @@
+!/*****************************************************************************/
+! *
+! *  Elmer, A Finite Element Software for Multiphysical Problems
+! *
+! *  Copyright 1st April 1995 - , CSC - Scientific Computing Ltd., Finland
+! * 
+! *  This program is free software; you can redistribute it and/or
+! *  modify it under the terms of the GNU General Public License
+! *  as published by the Free Software Foundation; either version 2
+! *  of the License, or (at your option) any later version.
+! * 
+! *  This program is distributed in the hope that it will be useful,
+! *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! *  GNU General Public License for more details.
+! *
+! *  You should have received a copy of the GNU General Public License
+! *  along with this program (in file fem/GPL-2); if not, write to the 
+! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
+! *  Boston, MA 02110-1301, USA.
+! *
+! *****************************************************************************/
+!
+!/******************************************************************************
+! *
+! *  Module containing iterative methods. Uses the calling procedure of the 
+! *  HUTIter package for similar interfacing. The idea is that the future 
+! *  development of iterative methods could be placed in this module. 
+! *
+! ******************************************************************************
+! *
+! *  Authors: Juha Ruokolainen, Peter Råback
+! *  Email:   Juha.Ruokolainen@csc.fi
+! *  Web:     http://www.csc.fi/elmer
+! *  Address: CSC - Scientific Computing Ltd.
+! *           Keilaranta 14
+! *           02101 Espoo, Finland 
+! *
+! *  Original Date: 20.9.2007
+! *
+! ****************************************************************************/
+! *
+! * $Id: IterativeMethods.src,v 1.16 2007/09/18 09:10:39 jpr Exp $
+! *****************************************************************************
+
+
+
+
+#include "huti_fdefs.h"
+
+! if using old huti_fdefs.h, later obsolite
+#ifndef HUTI_MAXTOLERANCE
+#define HUTI_MAXTOLERANCE dpar(2)
+#endif
+#ifndef HUTI_SGSPARAM
+#define HUTI_SGSPARAM dpar(3)
+#endif
+#ifndef HUTI_BICGSTABL_L
+#define HUTI_BICGSTABL_L ipar(16)
+#endif
+
+
+
+MODULE IterativeMethods
+  
+  USE CRSMatrix
+   
+  IMPLICIT NONE
+  
+  
+CONTAINS
+  
+  SUBROUTINE itermethod_sgs( ndim, wrkdim, xvec, rhsvec, &
+      ipar, dpar, work, matvecsubr, pcondlsubr, &
+      pcondrsubr, dotprodfun, normfun, stopcfun )
+        
+    EXTERNAL matvecsubr, pcondlsubr, pcondrsubr
+    EXTERNAL dotprodfun, normfun, stopcfun
+    DOUBLE PRECISION :: dotprodfun
+    DOUBLE PRECISION :: normfun
+    DOUBLE PRECISION :: stopcfun
+    
+    ! Parameters
+    INTEGER :: ndim, wrkdim
+    DOUBLE PRECISION, DIMENSION(ndim) :: xvec, rhsvec
+    INTEGER, DIMENSION(HUTI_IPAR_DFLTSIZE) :: ipar
+    DOUBLE PRECISION, DIMENSION(HUTI_DPAR_DFLTSIZE) :: dpar
+    DOUBLE PRECISION, DIMENSION(ndim,wrkdim) :: work
+    
+    IMPLICIT NONE
+    INTEGER :: Rounds, OutputInterval
+    REAL(KIND=dp) :: MinTol, MaxTol, Residual, Omega
+    LOGICAL :: Converged, Diverged
+
+    Rounds = HUTI_MAXIT
+    MinTol = HUTI_TOLERANCE
+    MaxTol = HUTI_MAXTOLERANCE
+    OutputInterval = HUTI_DBUGLVL 
+    Omega = HUTI_SGSPARAM
+
+    CALL sgs(ndim, GlobalMatrix, xvec, rhsvec, Rounds, MinTol, MaxTol, Residual, &
+        Converged, Diverged, OutputInterval, Omega)
+    
+  CONTAINS 
+ 
+!------------------------------------------------------------------------------
+    SUBROUTINE SGS( n, A, x, b, Rounds, MinTolerance, MaxTolerance, Residual, &
+        Converged, Diverged, OutputInterval, Omega )
+ !------------------------------------------------------------------------------
+      TYPE(Matrix_t), POINTER :: A
+      INTEGER :: Rounds
+      DOUBLE PRECISION, DIMENSION(n) :: x,b
+      DOUBLE PRECISION :: Omega
+      INTEGER :: i,j,k,n
+      INTEGER, POINTER :: Cols(:),Rows(:)
+      DOUBLE PRECISION, POINTER :: Values(:), R(:)
+      LOGICAL :: Converged, Diverged
+      INTEGER :: OutputInterval
+      DOUBLE PRECISION :: MinTolerance, MaxTolerance, Residual, bnorm,rnorm,w,s
+
+      Rows   => A % Rows
+      Cols   => A % Cols
+      Values => A % Values
+      
+
+      ALLOCATE( R(n) )
+      
+      PRINT *,'start matvec'
+      CALL matvecsubr( A, x, r )
+      PRINT *,'end matvec'
+     
+      r(1:n) = b(1:n) - r(1:n)
+      
+      PRINT *,'start dotprod'
+      bnorm = SQRT( dotprodfun(n, b, b) )
+      PRINT *,'end dotprod'
+
+      rnorm = SQRT( dotprodfun(n, r, r) )
+      Residual = rnorm / bnorm
+      Converged = (Residual < MinTolerance) 
+      Diverged = (Residual > MaxTolerance)     
+      IF( Converged .OR. Diverged) RETURN
+      
+      DO k=1,Rounds
+        DO i=1,n
+          s = 0.0d0
+          DO j=Rows(i),Rows(i+1)-1
+            s = s + x(Cols(j)) * Values(j)
+          END DO
+          x(i) = x(i) + Omega * (b(i)-s) / Values(A % Diag(i))
+        END DO
+        
+        DO i=n,1,-1
+          s = 0.0d0
+          DO j=Rows(i),Rows(i+1)-1
+            s = s + x(Cols(j)) * Values(j)
+          END DO
+          x(i) = x(i) + Omega * (b(i)-s) / Values(A % Diag(i))
+        END DO
+        
+        CALL matvecsubr( A, x, r )
+        r(1:n) = b(1:n) - r(1:n)
+        rnorm = SQRT( dotprodfun(n, r, r) )
+        
+        Residual = rnorm / bnorm
+        IF( MOD(k,OutputInterval) == 0) THEN
+          WRITE (*, '(I8, E11.4)') k, residual
+        END IF
+        
+        Converged = (Residual < MinTolerance) 
+        Diverged = (Residual > MaxTolerance)     
+        IF( Converged .OR. Diverged) RETURN
+        
+      END DO
+    END SUBROUTINE SGS
+!------------------------------------------------------------------------------
+  END SUBROUTINE itermethod_sgs
+  
+
+
+
+  SUBROUTINE itermethod_jacobi( ndim, wrkdim, xvec, rhsvec, &
+      ipar, dpar, work, matvecsubr, pcondlsubr, &
+      pcondrsubr, dotprodfun, normfun, stopcfun )
+       
+    EXTERNAL matvecsubr, pcondlsubr, pcondrsubr
+    EXTERNAL dotprodfun, normfun, stopcfun
+    DOUBLE PRECISION :: dotprodfun
+    DOUBLE PRECISION :: normfun
+    DOUBLE PRECISION :: stopcfun
+    
+    ! Parameters
+    INTEGER :: ndim, wrkdim
+    DOUBLE PRECISION, DIMENSION(ndim) :: xvec, rhsvec
+    INTEGER, DIMENSION(HUTI_IPAR_DFLTSIZE) :: ipar
+    DOUBLE PRECISION, DIMENSION(HUTI_DPAR_DFLTSIZE) :: dpar
+    DOUBLE PRECISION, DIMENSION(ndim,wrkdim) :: work
+    
+    IMPLICIT NONE
+    INTEGER :: Rounds, OutputInterval
+    REAL(KIND=dp) :: MinTol, MaxTol, Residual
+    LOGICAL :: Converged, Diverged
+    
+    Rounds = HUTI_MAXIT
+    MinTol = HUTI_TOLERANCE
+    MaxTol = HUTI_MAXTOLERANCE
+    OutputInterval = HUTI_DBUGLVL 
+       
+    CALL jacobi(ndim, GlobalMatrix, xvec, rhsvec, Rounds, MinTol, MaxTol, Residual, &
+        Converged, Diverged, OutputInterval )
+    
+
+  CONTAINS 
+    
+    
+    SUBROUTINE Jacobi( n, A, x, b, Rounds, MinTolerance, MaxTolerance, Residual, &
+        Converged, Diverged, OutputInterval) 
+!------------------------------------------------------------------------------
+      TYPE(Matrix_t), POINTER :: A
+      INTEGER :: Rounds
+      REAL(KIND=dp) :: x(:),b(:)
+      LOGICAL :: Converged, Diverged
+      REAL(KIND=dp) :: MinTolerance, MaxTolerance, Residual
+      INTEGER :: OutputInterval
+      REAL(KIND=dp) :: bnorm,rnorm
+      REAL(KIND=dp), POINTER :: R(:)
+!------------------------------------------------------------------------------
+      INTEGER :: i,n
+!------------------------------------------------------------------------------
+      
+      Converged = .FALSE.
+      Diverged = .FALSE.
+      
+      ALLOCATE( R(n) )
+      
+      CALL matvecsubr( A, x, r )
+      r(1:n) = b(1:n) - r(1:n)
+      
+      bnorm = SQRT( dotprodfun(n, b, b) )
+      rnorm = SQRT( dotprodfun(n, r, r) )
+      
+      Residual = rnorm / bnorm
+      Converged = (Residual < MinTolerance) 
+      Diverged = (Residual > MaxTolerance)     
+      IF( Converged .OR. Diverged) RETURN
+      
+      DO i=1,Rounds
+        x(1:n) = x(1:n) + r(1:n) / A % Values(A % diag(1:n))
+        CALL matvecsubr( A, x, r )
+        
+        r(1:n) = b(1:n) - r(1:n)
+        rnorm = SQRT( dotprodfun(n, r, r) )
+        
+        Residual = rnorm / bnorm
+        
+        IF( MOD(i,OutputInterval) == 0) THEN
+          WRITE (*, '(I8, E11.4)') i, residual
+        END IF
+        
+        Converged = (Residual < MinTolerance) 
+        Diverged = (Residual > MaxTolerance)     
+        IF( Converged .OR. Diverged) EXIT
+      END DO
+      
+      DEALLOCATE( R )
+      
+    END SUBROUTINE Jacobi
+    
+!------------------------------------------------------------------------------
+  END SUBROUTINE itermethod_jacobi
+  
+
+
+  SUBROUTINE itermethod_bicgstabl( ndim, wrkdim, xvec, rhsvec, &
+      ipar, dpar, work, matvecsubr, pcondlsubr, &
+      pcondrsubr, dotprodfun, normfun, stopcfun )
+    
+    EXTERNAL matvecsubr, pcondlsubr, pcondrsubr
+    EXTERNAL dotprodfun, normfun, stopcfun
+    DOUBLE PRECISION :: dotprodfun
+    DOUBLE PRECISION :: normfun
+    DOUBLE PRECISION :: stopcfun
+    
+    ! Parameters
+    INTEGER :: ndim, wrkdim
+    DOUBLE PRECISION, DIMENSION(ndim) :: xvec, rhsvec
+    INTEGER, DIMENSION(HUTI_IPAR_DFLTSIZE) :: ipar
+    DOUBLE PRECISION, DIMENSION(HUTI_DPAR_DFLTSIZE) :: dpar
+    DOUBLE PRECISION, DIMENSION(ndim,wrkdim) :: work
+    
+    IMPLICIT NONE
+    INTEGER :: Rounds, OutputInterval, PolynomialDegree
+    REAL(KIND=dp) :: MinTol, MaxTol, Residual
+    LOGICAL :: Converged, Diverged
+    
+    Rounds = HUTI_MAXIT
+    MinTol = HUTI_TOLERANCE
+    MaxTol = HUTI_MAXTOLERANCE
+    OutputInterval = HUTI_DBUGLVL 
+    PolynomialDegree = HUTI_BICGSTABL_L 
+ 
+    CALL RealBiCGStabl(ndim, GlobalMatrix, xvec, rhsvec, Rounds, MinTol, PolynomialDegree )
+
+
+  CONTAINS
+
+!-----------------------------------------------------------------------------------
+    SUBROUTINE RealBiCGStabl( n, A, x, b, MaxRounds, Tol, l, StoppingCriterionType )
+!-----------------------------------------------------------------------------------
+!   This subroutine solves real linear systems Ax = b by using the BiCGStab(l) algorithm 
+!   with l >= 2 and the right-oriented ILU(n) preconditioning. It has been written 
+!   using as a starting point the work of D.R. Fokkema:
+!
+!   subroutine zbistbl v1.1 1998    
+! 
+!   Copyright (c) 1995-1998 by D.R. Fokkema.
+!   Permission to copy all or part of this work is granted, 
+!   provided that the copies are not made or distributed 
+!   for resale, and that the copyright notice and this 
+!   notice are retained. 
+!
+!----------------------------------------------------------------------------------- 
+      INTEGER :: l   ! polynomial degree
+      INTEGER :: n, MaxRounds   
+      TYPE(Matrix_t), POINTER :: A
+      REAL(KIND=dp) :: x(n), b(n)
+      REAL(KIND=dp) :: Tol
+      INTEGER, OPTIONAL :: StoppingCriterionType 
+!------------------------------------------------------------------------------
+      REAL(KIND=dp) :: zero, one, t(n), kappa0, kappal 
+      REAL(KIND=dp) :: dnrm2, rnrm0, rnrm, mxnrmx, mxnrmr, errorind, &
+          delta = 1.0d-2, bnrm, bw_errorind, tottime
+      INTEGER :: i, j, rr, r, u, xp, bp, z, zz, y0, yl, y, k, iwork(l-1), stat, Round, &
+          IluOrder
+      REAL(KIND=dp) :: work(n,3+2*(l+1)), rwork(l+1,3+2*(l+1)), &
+          alpha, beta, omega, rho0, rho1, sigma, ddot, varrho, hatgamma
+      LOGICAL rcmp, xpdt, GotIt, BackwardError  
+      CHARACTER(LEN=MAX_NAME_LEN) :: str
+!------------------------------------------------------------------------------
+    
+      IF ( l < 2) CALL Fatal( 'RealBiCGStabl', 'Polynomial degree < 2' )
+      
+      IF ( ALL(x == 0.0d0) ) x = b
+      
+      zero = 0.0d0
+      one =  1.0d0
+      work = 0.0d0
+      rwork = 0.0d0
+      
+      rr = 1
+      r = rr+1
+      u = r+(l+1)
+      xp = u+(l+1)
+      bp = xp+1
+      
+      z = 1
+      zz = z+(l+1)
+      y0 = zz+(l+1)
+      yl = y0+1
+      y = yl+1
+      
+      CALL CRS_MatrixVectorMultiply( A, x, work(1:n,r) )
+      work(1:n,r) = b(1:n) - work(1:n,r)
+      bnrm = dnrm2(n, b(1:n), 1)
+      
+      work(1:n,rr) = work(1:n,r) 
+      work(1:n,bp) = work(1:n,r)
+      work(1:n,xp) = x(1:n)
+      x(1:n) = zero
+      rnrm0 = dnrm2(n, work(1:n,r), 1)
+      rnrm = rnrm0
+      mxnrmx = rnrm0
+      mxnrmr = rnrm0
+      
+      alpha = zero
+      omega = one
+      sigma = one
+      rho0 = one
+
+      !-------------------------------------------------------------------
+      ! Check whether the initial guess satisfies the stopping criterion
+      !--------------------------------------------------------------------
+      errorind = rnrm/bnrm
+      
+      IF (errorind > Tol) THEN
+        
+        Round = 0
+        DO WHILE ( errorind > Tol .AND. Round < MaxRounds) 
+          Round = Round + 1 
+          !-------------------------
+          ! --- The BiCG part ---
+          !-------------------------
+          rho0 = -omega*rho0
+          
+          DO k=1,l
+            rho1 = ddot(n, work(1:n,rr), 1, work(1:n,r+k-1), 1)
+            IF (rho0 == zero) THEN
+              CALL Fatal( 'RealBiCGStab(l)', 'Breakdown error.' )
+            ENDIF
+            beta = alpha*(rho1/rho0)
+            rho0 = rho1
+            DO j=0,k-1
+              work(1:n,u+j) = work(1:n,r+j) - beta*work(1:n,u+j)
+            ENDDO
+            t(1:n) = work(1:n,u+k-1)
+            CALL CRS_LUSolve( n, A, t )
+            CALL CRS_MatrixVectorMultiply( A, t, work(1:n,u+k) )      
+            sigma = ddot(n, work(1:n,rr), 1, work(1:n,u+k), 1)
+            IF (sigma == zero) THEN
+              CALL Fatal( 'RealBiCGStab(l)', 'Breakdown error.' )
+            ENDIF
+            alpha = rho1/sigma
+            x(1:n) = x(1:n) + alpha * work(1:n,u)
+            DO j=0,k-1
+              work(1:n,r+j) = work(1:n,r+j) - alpha * work(1:n,u+j+1)
+            ENDDO
+            t(1:n) = work(1:n,r+k-1)
+            CALL CRS_LUSolve( n, A, t ) 
+            CALL CRS_MatrixVectorMultiply( A, t, work(1:n,r+k) )  
+            rnrm = dnrm2(n, work(1:n,r), 1)
+            mxnrmx = MAX (mxnrmx, rnrm)
+            mxnrmr = MAX (mxnrmr, rnrm)
+          ENDDO
+
+          !--------------------------------------
+          ! --- The convex polynomial part ---
+          !--------------------------------------
+          
+          DO i=1,l+1
+            DO j=1,i
+              rwork(i,j) = ddot(n, work(1:n,r+i-1), 1, work(1:n,r+j-1),1 ) 
+            END DO
+          END DO
+          DO j=2,l+1
+            rwork(1:j-1,j) = rwork(j,1:j-1)
+          END DO
+          
+          rwork(1:l+1,zz:zz+l) = rwork(1:l+1,z:z+l)
+          CALL dgetrf (l-1, l-1, rwork(2:l,zz+1:zz+l-1), l-1, &
+              iwork, stat)
+          
+          ! --- tilde r0 and tilde rl (small vectors)
+          
+          rwork(1,y0) = -one
+          rwork(2:l,y0) = rwork(2:l,z) 
+          CALL dgetrs('n', l-1, 1, rwork(2:l,zz+1:zz+l-1), l-1, iwork, &
+              rwork(2:l,y0), l-1, stat)
+          rwork(l+1,y0) = zero
+          
+          rwork(1,yl) = zero
+          rwork(2:l,yl) = rwork(2:l,z+l) 
+          CALL dgetrs ('n', l-1, 1, rwork(2:l,zz+1:zz+l-1), l-1, iwork, &
+              rwork(2:l,yl), l-1, stat)
+          rwork(l+1,yl) = -one
+          
+          ! --- Convex combination
+          
+          CALL dsymv ('u', l+1, one, rwork(1:l+1,z:z+l), l+1, &
+              rwork(1:l+1,y0), 1, zero, rwork(1:l+1,y), 1)
+          kappa0 = SQRT( ddot(l+1, rwork(1:l+1,y0), 1, rwork(1:l+1,y), 1) )
+          CALL dsymv ('u', l+1, one, rwork(1:l+1,z:z+l), l+1, &
+              rwork(1:l+1,yl), 1, zero, rwork(1:l+1,y), 1)
+          kappal = SQRT( ddot(l+1, rwork(1:l+1,yl), 1, rwork(1:l+1,y), 1) )
+          CALL dsymv ('u', l+1, one, rwork(1:l+1,z:z+l), l+1, &
+              rwork(1:l+1,y0), 1, zero, rwork(1:l+1,y), 1)
+          varrho = ddot(l+1, rwork(1:l+1,yl), 1, rwork(1:l+1,y), 1) / &
+              (kappa0*kappal)
+          hatgamma = varrho/ABS(varrho) * MAX(ABS(varrho),7d-1) * &
+              kappa0/kappal
+          rwork(1:l+1,y0) = rwork(1:l+1,y0) - hatgamma * rwork(1:l+1,yl)
+          
+          !  --- Update
+          
+          omega = rwork(l+1,y0)
+          DO j=1,l
+            work(1:n,u) = work(1:n,u) - rwork(j+1,y0) * work(1:n,u+j)
+            x(1:n) = x(1:n) + rwork(j+1,y0) * work(1:n,r+j-1)
+            work(1:n,r) = work(1:n,r) - rwork(j+1,y0) * work(1:n,r+j)
+          ENDDO
+          
+          
+          CALL dsymv ('u', l+1, one, rwork(1:l+1,z:z+l), l+1, &
+              rwork(1:l+1,y0), 1, zero, rwork(1:l+1,y), 1)
+          rnrm = SQRT( ddot(l+1, rwork(1:l+1,y0), 1, rwork(1:l+1,y), 1) )
+          
+          !---------------------------------------
+          !  --- The reliable update part ---
+          !---------------------------------------
+          
+          mxnrmx = MAX (mxnrmx, rnrm)
+          mxnrmr = MAX (mxnrmr, rnrm)
+          xpdt = (rnrm < delta*rnrm0 .AND. rnrm0 < mxnrmx)
+          rcmp = ((rnrm < delta*mxnrmr .AND. rnrm0 < mxnrmr) .OR. xpdt)
+          IF (rcmp) THEN
+            ! PRINT *, 'Performing residual update...'
+            t(1:n) = x(1:n)
+            CALL CRS_LUSolve( n, A, t )         
+            CALL CRS_MatrixVectorMultiply( A, t, work(1:n,r) )
+            work(1:n,r) = work(1:n,bp) - work(1:n,r)
+            mxnrmr = rnrm
+            IF (xpdt) THEN
+              ! PRINT *, 'Performing solution update...'
+              work(1:n,xp) = work(1:n,xp) + t(1:n)
+              x(1:n) = zero
+              work(1:n,bp) = work(1:n,r)
+              mxnrmx = rnrm
+            ENDIF
+          ENDIF
+          
+          IF (rcmp) THEN
+            IF (xpdt) THEN       
+              t(1:n) = work(1:n,xp)
+            ELSE
+              t(1:n) = t(1:n) + work(1:n,xp)  
+            END IF
+          ELSE
+            t(1:n) = x(1:n)
+            CALL CRS_LUSolve( n, A, t ) 
+            t(1:n) =  t(1:n) + work(1:n,xp)
+          END IF
+          
+          errorind = rnrm/bnrm
+          WRITE(*,'(I4,ES12.3)') Round, errorind
+          
+        END DO
+      
+        !------------------------------------------------------------
+        ! We have solved z = P*x, with P the preconditioner, so finally 
+        ! solve the true unknown x
+        !------------------------------------------------------------
+        CALL CRS_LUSolve( n, A, x )
+        
+      END IF
+      
+      x(1:n) = x(1:n) + work(1:n,xp)
+      
+      WRITE(*,'(a,ES12.3)') 'The 2-norm of the solution: ', &
+          dnrm2( n, x(1:n),1 )  
+
+!------------------------------------------------------------------------------
+    END SUBROUTINE RealBiCGStabl
+!------------------------------------------------------------------------------
+
+  END SUBROUTINE itermethod_bicgstabl
+
+END MODULE IterativeMethods

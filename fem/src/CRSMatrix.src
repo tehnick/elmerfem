@@ -39,7 +39,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: CRSMatrix.src,v 1.17 2007/05/09 07:40:48 jpr Exp $
+! * $Id: CRSMatrix.src,v 1.18 2007/09/17 09:23:24 raback Exp $
 ! ******************************************************************************
 
 #include "huti_fdefs.h"
@@ -1004,6 +1004,7 @@ END FUNCTION CRS_RowSum
         IF( MOD(i,Blocks) == MOD(l,Blocks) ) THEN
           B % Values(kb) = A % Values(k)
           B % Cols(kb) = A % Cols(k)
+	  IF( B % Cols(kb) == i) B % Diag(i) = kb
           kb = kb + 1  
         END IF
       END DO
