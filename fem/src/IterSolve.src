@@ -38,7 +38,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: IterSolve.src,v 1.16 2007/09/18 09:10:39 jpr Exp $
+! * $Id: IterSolve.src,v 1.17 2007/09/20 12:14:51 raback Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -129,7 +129,7 @@ CONTAINS
     INTEGER(KIND=AddrInt), OPTIONAL :: DotF, NormF, MatVecF
 !------------------------------------------------------------------------------
 
-    REAL(KIND=dp) :: dpar(50),stopfun,dnrm2
+    REAL(KIND=dp) :: dpar(50),stopfun
 !   external stopfun
     REAL(KIND=dp), ALLOCATABLE :: work(:,:)
     INTEGER :: k,N,ipar(50),wsize,istat,IterType,PCondType,ILUn,Blocks
@@ -141,10 +141,15 @@ CONTAINS
 
     EXTERNAL MultigridPrec
 
-    INTEGER  :: HUTI_D_BICGSTAB, HUTI_D_BICGSTAB_2, HUTI_D_TFQMR, HUTI_D_CG, HUTI_D_CGS, HUTI_D_GMRES
-    EXTERNAL :: HUTI_D_BICGSTAB, HUTI_D_BICGSTAB_2, HUTI_D_TFQMR, HUTI_D_CG, HUTI_D_CGS, HUTI_D_GMRES
-    INTEGER  :: HUTI_Z_BICGSTAB, HUTI_Z_BICGSTAB_2, HUTI_Z_TFQMR, HUTI_Z_CG, HUTI_Z_CGS, HUTI_Z_GMRES
-    EXTERNAL :: HUTI_Z_BICGSTAB, HUTI_Z_BICGSTAB_2, HUTI_Z_TFQMR, HUTI_Z_CG, HUTI_Z_CGS, HUTI_Z_GMRES
+    INTEGER  :: HUTI_D_BICGSTAB, HUTI_D_BICGSTAB_2, HUTI_D_TFQMR, &
+                HUTI_D_CG, HUTI_D_CGS, HUTI_D_GMRES
+    EXTERNAL :: HUTI_D_BICGSTAB, HUTI_D_BICGSTAB_2, HUTI_D_TFQMR, &
+                HUTI_D_CG, HUTI_D_CGS, HUTI_D_GMRES
+
+    INTEGER  :: HUTI_Z_BICGSTAB, HUTI_Z_BICGSTAB_2, HUTI_Z_TFQMR, &
+                HUTI_Z_CG, HUTI_Z_CGS, HUTI_Z_GMRES
+    EXTERNAL :: HUTI_Z_BICGSTAB, HUTI_Z_BICGSTAB_2, HUTI_Z_TFQMR, &
+                HUTI_Z_CG, HUTI_Z_CGS, HUTI_Z_GMRES
 
     REAL(KIND=dp) :: ddot, dnrm2
     EXTERNAL :: ddot, dnrm2
@@ -221,7 +226,7 @@ CONTAINS
             GotIt,minv=1.0_dp,maxv=2.0_dp)
 
       CASE (ITER_BICGSTABL)
-        HUTI_BICGSTABL_L = ListGetInteger( SolverParam % Values,'BiCGstabl polynomial degree',minv=2)       
+        HUTI_BICGSTABL_L = ListGetInteger( SolverParam % Values,'BiCGstabl polynomial degree',minv=2)
 
      END SELECT
 !------------------------------------------------------------------------------
