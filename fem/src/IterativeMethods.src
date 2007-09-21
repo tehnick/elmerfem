@@ -40,7 +40,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: IterativeMethods.src,v 1.4 2007/09/20 19:30:34 raback Exp $
+! * $Id: IterativeMethods.src,v 1.5 2007/09/21 08:13:53 raback Exp $
 ! *****************************************************************************
 
 
@@ -281,6 +281,7 @@ CONTAINS
 !------------------------------------------------------------------------------
   
 
+
 !------------------------------------------------------------------------------
   SUBROUTINE itermethod_bicgstabl( xvec, rhsvec, &
       ipar, dpar, work, matvecsubr, pcondlsubr, &
@@ -382,29 +383,28 @@ CONTAINS
       CALL CRS_MatrixVectorMultiply( A, x, work(1:n,r) )
       work(1:n,r) = b(1:n) - work(1:n,r)
       bnrm = dnrm2(n, b(1:n), 1)
-      
-      work(1:n,rr) = work(1:n,r) 
-      work(1:n,bp) = work(1:n,r)
-      work(1:n,xp) = x(1:n)
-      x(1:n) = zero
       rnrm0 = dnrm2(n, work(1:n,r), 1)
-      rnrm = rnrm0
-      mxnrmx = rnrm0
-      mxnrmr = rnrm0
-      
-      alpha = zero
-      omega = one
-      sigma = one
-      rho0 = one
 
       !-------------------------------------------------------------------
       ! Check whether the initial guess satisfies the stopping criterion
       !--------------------------------------------------------------------
-      errorind = rnrm / bnrm
+      errorind = rnrm0 / bnrm
       Converged = (errorind < Tol)
       Diverged = (errorind > MaxTol)
       IF( Converged .OR. Diverged) RETURN
 
+      work(1:n,rr) = work(1:n,r) 
+      work(1:n,bp) = work(1:n,r)
+      work(1:n,xp) = x(1:n)
+
+      rnrm = rnrm0
+      mxnrmx = rnrm0
+      mxnrmr = rnrm0      
+      x(1:n) = zero      
+      alpha = zero
+      omega = one
+      sigma = one
+      rho0 = one
 
       DO Round = 1, MaxRounds
 
