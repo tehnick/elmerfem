@@ -216,6 +216,10 @@ st = realtime_();
             argv[1] = str;
             HYPRE_EuclidSetParams( precond, 2, argv );
         }
+
+        /* Set the PCG preconditioner */
+        HYPRE_BiCGSTABSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_EuclidSolve,
+                   (HYPRE_PtrToSolverFcn) HYPRE_EuclidSetup, precond);
       } else {
        /* Now set up the ParaSails preconditioner and specify any parameters */
         HYPRE_ParaSailsCreate(MPI_COMM_WORLD, &precond);
@@ -226,11 +230,11 @@ st = realtime_();
           HYPRE_ParaSailsSetSym(precond, *sai_sym);
           HYPRE_ParaSailsSetLogging(precond, 3);
         }
+        /* Set the PCG preconditioner */
+        HYPRE_BiCGSTABSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_ParaSailsSolve,
+                   (HYPRE_PtrToSolverFcn) HYPRE_ParaSailsSetup, precond);
       }
 
-      /* Set the PCG preconditioner */
-      HYPRE_BiCGSTABSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_ParaSailsSolve,
-                   (HYPRE_PtrToSolverFcn) HYPRE_ParaSailsSetup, precond);
 
       /* Now setup and solve! */
       HYPRE_ParCSRBiCGSTABSetup(solver, parcsr_A, par_b, par_x);
