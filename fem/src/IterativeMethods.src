@@ -40,7 +40,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: IterativeMethods.src,v 1.3 2007/09/20 13:19:32 raback Exp $
+! * $Id: IterativeMethods.src,v 1.4 2007/09/20 19:30:34 raback Exp $
 ! *****************************************************************************
 
 
@@ -74,11 +74,11 @@ MODULE IterativeMethods
 CONTAINS
   
 
+!------------------------------------------------------------------------------
   SUBROUTINE itermethod_sgs( xvec, rhsvec, &
       ipar, dpar, work, matvecsubr, pcondlsubr, &
       pcondrsubr, dotprodfun, normfun, stopcfun )
         
-
     IMPLICIT NONE
 
     EXTERNAL matvecsubr, pcondlsubr, pcondrsubr
@@ -179,10 +179,12 @@ CONTAINS
     END SUBROUTINE SGS
 !------------------------------------------------------------------------------
   END SUBROUTINE itermethod_sgs
-  
+ !------------------------------------------------------------------------------
+ 
 
 
-  SUBROUTINE itermethod_jacobi( xvec, rhsvec, &
+ !------------------------------------------------------------------------------
+ SUBROUTINE itermethod_jacobi( xvec, rhsvec, &
       ipar, dpar, work, matvecsubr, pcondlsubr, &
       pcondrsubr, dotprodfun, normfun, stopcfun )
        
@@ -276,9 +278,10 @@ CONTAINS
     
 !------------------------------------------------------------------------------
   END SUBROUTINE itermethod_jacobi
+!------------------------------------------------------------------------------
   
 
-
+!------------------------------------------------------------------------------
   SUBROUTINE itermethod_bicgstabl( xvec, rhsvec, &
       ipar, dpar, work, matvecsubr, pcondlsubr, &
       pcondrsubr, dotprodfun, normfun, stopcfun )
@@ -563,5 +566,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
   END SUBROUTINE itermethod_bicgstabl
+!------------------------------------------------------------------------------
+
 
 END MODULE IterativeMethods

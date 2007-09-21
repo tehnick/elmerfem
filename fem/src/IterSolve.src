@@ -38,7 +38,7 @@
 ! *
 ! ****************************************************************************/
 ! *
-! * $Id: IterSolve.src,v 1.20 2007/09/20 13:19:55 raback Exp $
+! * $Id: IterSolve.src,v 1.21 2007/09/20 19:30:34 raback Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -247,7 +247,7 @@ END FUNCTION DotProduct
         HUTI_WRKDIM = 1
         wsize = HUTI_WRKDIM
         HUTI_SGSPARAM = ListGetConstReal( SolverParam % Values,'SGS Overrelaxation Factor',&
-            GotIt,minv=1.0_dp,maxv=2.0_dp)
+            GotIt,minv=0.0_dp,maxv=2.0_dp)
         IF(.NOT. GotIt) HUTI_SGSPARAM = 1.8
 
       CASE (ITER_Jacobi)
@@ -270,9 +270,10 @@ END FUNCTION DotProduct
      HUTI_DBUGLVL  = ListGetInteger( SolverParam % Values, &
            'Linear System Residual Output', GotIt )
      IF ( .NOT.Gotit ) HUTI_DBUGLVL = 1
-     IF ( Parenv % myPE /= 0 ) HUTI_DBUGLVL=0
 
+     IF ( Parenv % myPE /= 0 ) HUTI_DBUGLVL=0
      IF ( .NOT. OutputLevelMask(6) )  HUTI_DBUGLVL = 0
+
 
      HUTI_MAXIT = ListGetInteger( SolverParam % Values, &
          'Linear System Max Iterations', minv=1 )
@@ -457,16 +458,20 @@ END FUNCTION DotProduct
          iterProc = AddrFunc( itermethod_sgs )
          dotProc = AddrFunc(DotProduct)
          normproc = AddrFunc(VectorNorm2)
+         ! Eliminate the MOD(i,0) problem in later testing
+         IF( HUTI_DBUGLVL == 0) HUTI_DBUGLVL = HUGE( HUTI_DBUGLVL )
 
        CASE (ITER_JACOBI)
          iterProc = AddrFunc( itermethod_jacobi )
          dotProc = AddrFunc(DotProduct)
          normproc = AddrFunc(VectorNorm2)
+         IF( HUTI_DBUGLVL == 0) HUTI_DBUGLVL = HUGE( HUTI_DBUGLVL )
 
        CASE (ITER_BICGSTABL)
          iterProc = AddrFunc( itermethod_bicgstabl )
          dotProc = AddrFunc(DotProduct)
          normproc = AddrFunc(VectorNorm2)
+         IF( HUTI_DBUGLVL == 0) HUTI_DBUGLVL = HUGE( HUTI_DBUGLVL )
 
        END SELECT
 
