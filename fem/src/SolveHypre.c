@@ -31,7 +31,9 @@ void STDCALLBULL FC_FUNC(solvehypre,SOLVEHYPRE)
  (
    int *nrows,int *rows, int *cols, double *vals, int *perm,
    int *invperm, int *globaldofs, int *owner,  double *xvec,
-   double *rhsvec, int *pe, int *ILUn, int *Rounds, double *TOL
+   double *rhsvec, int *pe, int *ILUn, int *Rounds, double *TOL,
+   double *sai_threshold, int *sai_maxlevels, double *sai_filter,
+   int *sai_sym, int *use_parasails
  )
 {
    int i, j, k, *rcols;
@@ -205,18 +207,30 @@ st = realtime_();
       HYPRE_ParCSRBiCGSTABSetPrintLevel(solver, 2);   /* print solve info */
       HYPRE_ParCSRBiCGSTABSetLogging(solver, 1);      /* needed to get run info later */
 
-      HYPRE_EuclidCreate( MPI_COMM_WORLD, &precond );
-      {
-          static char *argv[5], str[3];
-          argv[0] = "-level";
-          sprintf( str, "%d", *ILUn );
-          argv[1] = str;
-          HYPRE_EuclidSetParams( precond, 2, argv );
+      if ( *use_parasails == 0 ) {
+        HYPRE_EuclidCreate( MPI_COMM_WORLD, &precond );
+        {
+            static char *argv[5], str[3];
+            argv[0] = "-level";
+            sprintf( str, "%d", *ILUn );
+            argv[1] = str;
+            HYPRE_EuclidSetParams( precond, 2, argv );
+        }
+      } else {
+       /* Now set up the ParaSails preconditioner and specify any parameters */
+        HYPRE_ParaSailsCreate(MPI_COMM_WORLD, &precond);
+        {
+          /* Set some parameters (See Reference Manual for more parameters) */
+          HYPRE_ParaSailsSetParams(precond, *sai_threshold, *sai_maxlevels);
+          HYPRE_ParaSailsSetFilter(precond, *sai_filter);
+          HYPRE_ParaSailsSetSym(precond, *sai_sym);
+          HYPRE_ParaSailsSetLogging(precond, 3);
+        }
       }
 
-      /* Set the BiCGSTAB preconditioner */
-       HYPRE_BiCGSTABSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_EuclidSolve,
-              (HYPRE_PtrToSolverFcn) HYPRE_EuclidSetup, precond);
+      /* Set the PCG preconditioner */
+      HYPRE_BiCGSTABSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_ParaSailsSolve,
+                   (HYPRE_PtrToSolverFcn) HYPRE_ParaSailsSetup, precond);
 
       /* Now setup and solve! */
       HYPRE_ParCSRBiCGSTABSetup(solver, parcsr_A, par_b, par_x);
@@ -224,7 +238,11 @@ st = realtime_();
 
       /* Destroy solver and preconditioner */
       HYPRE_ParCSRBiCGSTABDestroy(solver);
-      HYPRE_EuclidDestroy(precond);
+      if ( *use_parasails == 0 ) {
+        HYPRE_EuclidDestroy(precond);
+      } else {
+        HYPRE_ParaSailsDestroy(precond);
+      }      
    }
 
    for( k=0,i=0; i<local_size; i++ )

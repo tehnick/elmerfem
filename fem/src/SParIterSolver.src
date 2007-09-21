@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterSolver.src,v 1.31 2007/09/19 11:11:58 jpr Exp $
+! * $Id: SParIterSolver.src,v 1.32 2007/09/20 06:23:29 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -1302,8 +1302,9 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
   TYPE (GlueTableT), POINTER :: GT
 
   CHARACTER(LEN=MAX_NAME_LEN) :: Prec
-  REAL(KIND=dp) :: TOL
-  INTEGER :: ILUn, Rounds, buf(2), src, status(MPI_STATUS_SIZE), ssz,nob
+  REAL(KIND=dp) :: TOL, sai_filter, sai_threshold
+  INTEGER :: ILUn, Rounds, buf(2), src, status(MPI_STATUS_SIZE), ssz,nob, &
+      use_parasails, sai_maxlevel, sai_sym
 
   INTEGER, DIMENSION(:), ALLOCATABLE :: VecEPerNB
   INTEGER, ALLOCATABLE :: Owner(:), Aperm(:), n_nownbuf(:), g_nownbuf(:), &
@@ -1316,10 +1317,11 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
 #ifdef HAVE_HYPRE
     INTERFACE
       SUBROUTINE SolveHYPRE( n, Rows, Cols, Vals, Perm, INVPerm, GDOFs, &
-           Owner, Xvec, RHSVec, PE, ILUn, Rounds, TOL )
+           Owner, Xvec, RHSVec, PE, ILUn, Rounds, TOL, threshold, maxlevel, &
+           filter, symmetry, usepara )
         INTEGER :: n, Rows(n), Cols(n), Perm(n), INVPerm(n), GDOFs(n), &
-                   PE, Owner(n), Rounds, ILUn
-        DOUBLE PRECISION :: Vals(n), Xvec(n), RHSvec(n), TOL
+                   PE, Owner(n), Rounds, ILUn, usepara, symmetry, maxlevel
+        DOUBLE PRECISION :: Vals(n),Xvec(n),RHSvec(n),TOL,threshold,filter
       END SUBROUTINE SolveHYPRE
     END INTERFACE
 #endif
@@ -1341,13 +1343,33 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
 
       ILUn = 0
       IF(Prec(1:3)=='ilu'.AND.Prec(4:4)/='t') READ(Prec(4:), *) ILUn
+
+      use_parasails=0;
+      IF(Prec == 'parasails') use_parasails=1
+
       TOL = ListGetConstReal( Solver % Values, &
            'Linear System Convergence Tolerance', Found )
       IF ( .NOT. Found ) TOL=1.0d-6
       Rounds = ListGetInteger( Solver % Values, &
            'Linear System Max Iterations', Found )
       IF ( .NOT. Found ) Rounds=1000
- 
+
+      sai_threshold = ListGetConstReal( Solver % Values, &
+           'ParaSails Threshold', Found )
+      IF ( .NOT. Found ) sai_threshold = -0.95d0;
+
+      sai_filter = ListGetConstReal( Solver % Values, &
+           'ParaSails Filter', Found )
+      IF ( .NOT. Found ) sai_filter = -0.95d0;
+
+      sai_sym = ListGetInteger( Solver % Values, &
+           'ParaSails Symmetry', Found )
+      IF ( .NOT. Found ) sai_sym = 0;
+
+      sai_maxlevel = ListGetInteger( Solver % Values, &
+           'ParaSails Maxlevel', Found )
+      IF ( .NOT. Found ) sai_maxlevel = 1;
+
 
       !
       ! Hypre wants to have a continuous ascending numbering across
@@ -1469,7 +1491,8 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
       CALL SolveHYPRE( SourceMatrix % NumberOfRows, SourceMatrix % Rows, &
         SourceMatrix % Cols, SourceMatrix % Values, SourceMatrix % Perm, &
          SourceMatrix % InvPerm, Aperm, Owner, Xvec, RHSvec, &
-            ParEnv % MyPE, ILUn, Rounds, TOL  )
+            ParEnv % MyPE, ILUn, Rounds, TOL, sai_threshold, sai_maxlevel, &
+                sai_filter, sai_sym, use_parasails )
 
       DEALLOCATE( owner, aperm )
 
