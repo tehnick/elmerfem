@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: Multigrid.src,v 1.17 2007/01/09 08:37:07 raback Exp $
+! * $Id: Multigrid.src,v 1.18 2007/05/04 11:37:53 jpr Exp $
 ! *****************************************************************************/
 
 MODULE Multigrid
@@ -1200,7 +1200,6 @@ CONTAINS
 !      Create the Projectors between different levels
 !      ---------------------------------------------
 
-
     IF( .NOT. ListGetLogical(Solver % Values,'MG Recompute Projector',GotIt) ) THEN
       NewLinearSystem = .NOT. ASSOCIATED(Matrix1 % Parent)
     END IF
@@ -2140,7 +2139,9 @@ CONTAINS
     IF(CompMat) THEN
       CALL AMGBondsComplex(Amat, Bonds, CandList)
     ELSE IF(PseudoGeometric) THEN
-      CALL AMGBondsGeometric(Amat, Bonds, CandList)      
+print *,'geom bonds'
+      CALL AMGBondsGeometric(Amat, Bonds, CandList, NoComponents)      
+print *,'end geom bonds'
     ELSE
       CALL AMGBonds(Amat, Bonds, CandList)      
     END IF
@@ -2566,15 +2567,16 @@ CONTAINS
   END SUBROUTINE AMGBonds
 
 !------------------------------------------------------------------------------
-! Create the initial list for measure of importance using geometric information.
+! Create the initial list for measure of importance using geometric distance 
+! information and topology information from the matrix..
 !------------------------------------------------------------------------------
 
-  SUBROUTINE AMGBondsGeometric(Amat, Bonds, Cands)
+  SUBROUTINE AMGBondsGeometric(Amat, Bonds, Cands, Components)
     
     LOGICAL, POINTER :: Bonds(:)
     TYPE(Matrix_t), POINTER  :: Amat
     INTEGER, POINTER :: Cands(:)
-    INTEGER :: Components, Component1    
+    INTEGER :: Components
 
     INTEGER :: nods, cnods, diagsign, maxconn, posnew, negnew, MaxConns, MinConns
     INTEGER :: i,j,k,cj,ci,ind, elimnods,posbonds,nobonds,measind
@@ -2597,7 +2599,7 @@ CONTAINS
     DirLim = ListGetConstReal(Solver % Values,'MG Eliminate Dirichlet Limit',GotIt)
     IF(.NOT. GotIt) DirLim = 1.0d-8      
 
-    nods = Amat % NumberOfRows
+    nods   = Amat % NumberOfRows
     Rows   => Amat % Rows
     Cols   => Amat % Cols
     Values => Amat % Values
@@ -2623,10 +2625,11 @@ CONTAINS
       maxbond = 0.0
        
       IF ( Level == Solver % MultiGridTotal ) THEN
-        k = ind
+        k = ind	
       ELSE
         k = AMG(Level+1) % InvCF(ind)
       END IF
+      k = (k-1) / Components + 1
 
       x0 = Mesh % Nodes % x(k)
       y0 = Mesh % Nodes % y(k)
@@ -2646,6 +2649,7 @@ CONTAINS
         ELSE
           k = AMG(Level+1) % InvCF(cj)
         END IF
+        k = (k-1) / Components + 1
         
         x1 = Mesh % Nodes % x(k)
         y1 = Mesh % Nodes % y(k)
