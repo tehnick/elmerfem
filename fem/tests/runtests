@@ -47,13 +47,12 @@ fi
 #
 # Autoconf substitutes these variables with correct values.
 #
-export F90="gfortran -O3 -march=pentium4 -mtune=pentium4 -msse2 -ffast-math -funroll-loops -fPIC -I. -Ibinio -I. -I$ELMER_INCLUDE"
+export F90="gfortran -g -O3 -msse2 -funroll-loops -ftree-vectorize -ffast-math -march=pentium4 -mtune=pentium4 -fPIC -I. -Ibinio -I. -I$ELMER_INCLUDE"
 export LD="gfortran -shared  "
 export LIBS="-L$ELMER_LIB "
 
 gcc -o findnorm$EXE_EXT findnorm.c
-gcc -o compare$EXE_EXT compare.c -lm
-chmod 775 findnorm$EXE_EXT compare$EXE_EXT
+chmod 775 findnorm$EXE_EXT
 
 total=0
 passed=0
@@ -65,7 +64,6 @@ else
 fi
 
 for dir in $dirs; do
-
       total=`expr $total + 1`
       cwd=`pwd`
       cd $dir
@@ -74,10 +72,7 @@ for dir in $dirs; do
 
       success=`grep "ALL DONE" test.log | wc -l`
       if test $success -ge 1; then
-	  correctResult=`cat TEST.RESULT`
-	  grep "(NRM,RELC)" test.log > temp.log
-	  resultNorm=`../findnorm$EXE_EXT temp.log`
-	  success=`../compare$EXE_EXT $resultNorm $correctResult`
+	success=`../findnorm$EXE_EXT test.log`
       fi
 
       if test $success -ge 1; then
