@@ -24,7 +24,9 @@ int main(int argc, char **argv)
          if ( ptr ) sscanf( ptr,"EPS=%lf", &target_eps );         
          success = compare( norm, target_nrm, target_eps );
          if ( !success ) {
-           fprintf( stderr, "\n[FAILED]: %s", line );
+           n = strlen(line)-1;
+           while( line[n]==10 || line[n]==13 ) line[n--] = '\0';
+           fprintf( stderr, "[FAILED]: %s, Computed NRM=%g: ", line, norm );
            break;
          }
       }
