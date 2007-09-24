@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: SParIterSolver.src,v 1.32 2007/09/20 06:23:29 jpr Exp $
+! * $Id: SParIterSolver.src,v 1.33 2007/09/21 11:25:49 jpr Exp $
 ! *****************************************************************************
 
 #include "huti_fdefs.h"
@@ -1304,7 +1304,7 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
   CHARACTER(LEN=MAX_NAME_LEN) :: Prec
   REAL(KIND=dp) :: TOL, sai_filter, sai_threshold
   INTEGER :: ILUn, Rounds, buf(2), src, status(MPI_STATUS_SIZE), ssz,nob, &
-      use_parasails, sai_maxlevel, sai_sym
+      use_parasails, sai_maxlevel, sai_sym, gind
 
   INTEGER, DIMENSION(:), ALLOCATABLE :: VecEPerNB
   INTEGER, ALLOCATABLE :: Owner(:), Aperm(:), n_nownbuf(:), g_nownbuf(:), &
@@ -1342,14 +1342,17 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
           'Linear System Preconditioning', Found )
 
       ILUn = 0
-      IF(Prec(1:3)=='ilu'.AND.Prec(4:4)/='t') READ(Prec(4:), *) ILUn
-
       use_parasails=0;
-      IF(Prec == 'parasails') use_parasails=1
+      IF ( Prec(1:3)=='ilu' .AND. Prec(4:4)/='t') THEN
+        READ( Prec(4:), * ) ILUn
+      ELSE IF( Prec == 'parasails' ) THEN
+        use_parasails=1
+      END IF
 
       TOL = ListGetConstReal( Solver % Values, &
            'Linear System Convergence Tolerance', Found )
       IF ( .NOT. Found ) TOL=1.0d-6
+
       Rounds = ListGetInteger( Solver % Values, &
            'Linear System Max Iterations', Found )
       IF ( .NOT. Found ) Rounds=1000
@@ -1370,7 +1373,6 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
            'ParaSails Maxlevel', Found )
       IF ( .NOT. Found ) sai_maxlevel = 1;
 
-
       !
       ! Hypre wants to have a continuous ascending numbering across
       ! partitions, try creating such a beast:
@@ -1381,9 +1383,9 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
 
       ! receive our lowest index:
       ! -------------------------
-      j = 0
+      gind = 0
       IF ( ParEnv % MyPE /= 0 ) &
-        CALL MPI_RECV( j, 1, MPI_INTEGER, &
+        CALL MPI_RECV( gind, 1, MPI_INTEGER, &
             ParEnv % myPE-1, 801, MPI_COMM_WORLD, status, ierr )
 
       ! give a number to dofs owned by us:
@@ -1392,15 +1394,15 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
         nb => ParallelInfo % NeighbourList(i) % Neighbours(:)
         IF ( nb(1)==ParEnv % MyPE ) THEN
           Owner(i) = 1
-          j = j + 1
-          Aperm(i) = j
+          gind = gind + 1
+          Aperm(i) = gind
         END IF
       END DO
 
       ! next pe in line needs it's base:
       ! --------------------------------
       IF ( ParEnv % MyPE < ParEnv % PEs-1 ) &
-        CALL MPI_BSEND( j, 1, MPI_INTEGER, &
+        CALL MPI_BSEND( gind, 1, MPI_INTEGER, &
            ParEnv % myPE+1, 801, MPI_COMM_WORLD, ierr )
 
 
@@ -1447,8 +1449,8 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
         ELSE
           nob = nob + 1
           i_nownbuf(nob) = nob
-          n_nownbuf(nob)= i
-          g_nownbuf(nob)= ParallelInfo % GlobalDOFs(i)
+          n_nownbuf(nob) = i
+          g_nownbuf(nob) = ParallelInfo % GlobalDOFs(i)
         END IF
       END DO
       IF ( nob>0 ) CALL SortI( nob,g_nownbuf,n_nownbuf )
@@ -1494,7 +1496,7 @@ SUBROUTINE SParIterSolver( SourceMatrix, ParallelInfo, XVec, &
             ParEnv % MyPE, ILUn, Rounds, TOL, sai_threshold, sai_maxlevel, &
                 sai_filter, sai_sym, use_parasails )
 
-      DEALLOCATE( owner, aperm )
+      DEALLOCATE( Owner, Aperm )
 
       ALLOCATE( VecEPerNB( ParEnv % PEs ) )
       VecEPerNB = 0
