@@ -12,7 +12,7 @@ int main(int argc, char **argv)
    char line[MAX_LENGTH+1], *ptr;
 
    static double norm, f, target_nrm, target_eps = 1e-5;
-   int n, case_ind = 0, success;
+   int n, success;
 
    success = 0;
    while( fgets( line, MAX_LENGTH, fp ) )
@@ -22,9 +22,11 @@ int main(int argc, char **argv)
          if ( ptr ) sscanf( ptr,"NRM=%lf", &target_nrm );
          ptr = strstr( line, "EPS=" );         
          if ( ptr ) sscanf( ptr,"EPS=%lf", &target_eps );         
-         case_ind++;
          success = compare( norm, target_nrm, target_eps );
-         if ( !success ) break;
+         if ( !success ) {
+           fprintf( stderr, "\n[FAILED]: %s", line );
+           break;
+         }
       }
       else if ( strstr( line, "(NRM,RELC)" ) ) {
         ptr = line;
