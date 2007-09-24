@@ -74,10 +74,7 @@ for dir in $dirs; do
 
       success=`grep "ALL DONE" test.log | wc -l`
       if test $success -ge 1; then
-	  correctResult=`cat TEST.RESULT`
-	  grep "(NRM,RELC)" test.log > temp.log
-	  resultNorm=`../findnorm$EXE_EXT temp.log`
-	  success=`../compare$EXE_EXT $resultNorm $correctResult`
+	  success=`../findnorm$EXE_EXT test.log`
       fi
 
       if test $success -ge 1; then
