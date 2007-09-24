@@ -26,12 +26,11 @@ int main(int argc, char **argv)
          success = compare( norm, target_nrm, target_eps );
          if ( !success ) break;
       }
-      if ( !strstr( line, "(NRM,RELC)" ) ) continue;
-      ptr = line;
-      while( *ptr != '\0' && *ptr!='+' && *ptr != '-' && *ptr != '.' && !isdigit(*ptr) ) ptr++;
-      n = sscanf( ptr, "%lf", &f );
-      if ( n==1 && f != 0.0 )  {
-         norm = f;
+      else if ( strstr( line, "(NRM,RELC)" ) ) {
+        ptr = line;
+        while( *ptr != '\0' && *ptr!='+' && *ptr != '-' && *ptr != '.' && !isdigit(*ptr) ) ptr++;
+        n = sscanf( ptr, "%lf", &f );
+        if ( n==1 && f != 0.0 ) norm = f;
       }
    }
 
