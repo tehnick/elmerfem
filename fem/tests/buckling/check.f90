@@ -13,12 +13,14 @@ PROGRAM CHECK
   READ(2,*) R, Tol
   CLOSE(2)
 
-  OPEN(3,FILE='TEST.RESULT', STATUS='UNKNOWN')
+  OPEN(3,FILE='tmp.log', STATUS='UNKNOWN')
   IF( ABS( REAL(C)-R ) < Tol ) THEN
-     WRITE(3,'(2F8.1)' ) -1.0, 0.0     !    Passed
+     WRITE(3,'(A,2F8.1)' ) '(NRM,RELC): ',-1.0, 0.0     !    Passed
   ELSE
-     WRITE(3,'(2F8.1)' )  1.0, 0.0     !    Failed
+     WRITE(3,'(A,2F8.1)' ) '(NRM,RELC): ', 1.0, 0.0     !    Failed
   END IF
+  WRITE(3,'(a)' )  'END TEST CASE 1, NRM=-1'
+  WRITE(3,'(a)' )  'ALL DONE'
   CLOSE(3)
 
 END PROGRAM CHECK

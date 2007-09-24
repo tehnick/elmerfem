@@ -7,6 +7,7 @@ run:
 	grep -i '(' test.log > out2.txt
 	grep -i 'eigen' out2.txt > out3.txt
 	./check
+	mv tmp.log test.log
 	chmod 775 *
 
 clean:
