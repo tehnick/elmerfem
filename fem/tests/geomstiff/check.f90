@@ -13,7 +13,7 @@ PROGRAM CHECK
   READ(2,*) R, Tol
   CLOSE(2)
 
-  OPEN(3,FILE='tmp.log', STATUS='UNKNOWN')
+  OPEN(3,FILE='test.log', STATUS='UNKNOWN')
   IF( ABS( REAL(C)-R ) < Tol ) THEN
      WRITE(3,'(A,2F8.1)' ) '(NRM,RELC): ',-1.0, 0.0     !    Passed
   ELSE

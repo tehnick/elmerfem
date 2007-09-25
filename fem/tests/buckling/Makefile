@@ -11,5 +11,5 @@ run:
 	chmod 775 *
 
 clean:
-	/bin/rm -r buckling out*.txt
+	/bin/rm -r buckling out*.txt check$(EXE_EXT)
 	/bin/rm test.log temp.log mon.out

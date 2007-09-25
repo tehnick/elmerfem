@@ -11,5 +11,5 @@ run:
 	chmod 775 *
 
 clean:
-	/bin/rm -r geomstiff out*.txt
+	/bin/rm -r geomstiff out*.txt check$(EXE_EXT)
 	/bin/rm test.log temp.log mon.out
