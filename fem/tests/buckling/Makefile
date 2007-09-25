@@ -6,7 +6,7 @@ run:
 	$(ELMER_SOLVER)
 	grep -i '(' test.log > out2.txt
 	grep -i 'eigen' out2.txt > out3.txt
-	./check
+	./check$(EXE_EXT)
 	/bin/mv tmp.log test.log
 	chmod 775 *
 
