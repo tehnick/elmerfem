@@ -65,6 +65,7 @@ else
 fi
 
 for dir in $dirs; do
+
       total=`expr $total + 1`
       cwd=`pwd`
       cd $dir
@@ -73,7 +74,7 @@ for dir in $dirs; do
 
       success=`grep "ALL DONE" test.log | wc -l`
       if test $success -ge 1; then
-	success=`../findnorm$EXE_EXT test.log`
+	  success=`../findnorm$EXE_EXT test.log`
       fi
 
       if test $success -ge 1; then
@@ -81,7 +82,7 @@ for dir in $dirs; do
           printf "			[PASSED]\n"
 	  make -i clean > /dev/null 2>&1
       else
-          printf "Look at [%s/test.log] for details\n" $dir
+          printf "look at [%s/test.log] for details\n" $dir
       fi
       cd $cwd
 done

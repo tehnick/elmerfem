@@ -226,7 +226,7 @@
 /* #undef SUNOS */
 
 /* Version number of package */
-#define VERSION "5.3.2"
+#define VERSION "5.4.0"
 
 /* Detected platform2. */
 /* #undef WIN32 */

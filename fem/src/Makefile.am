@@ -136,7 +136,7 @@ install-exec-local:
 	$(CP) ViewFactors$(EXEEXT) $(prefix)/bin
 	$(CP) GebhardtFactors$(EXEEXT) $(prefix)/bin
 	$(CP) libelmersolver$(SHL_EXT) $(prefix)/lib
-	$(CP) elmerf90 $(prefix)/bin
+	$(CP) elmerf90 elmerf90-nosh elmerld $(prefix)/bin
 if USE_MPI
 	$(CP) ElmerSolver_mpi$(EXEEXT) $(prefix)/bin
 endif
@@ -279,5 +279,7 @@ EXTRA_DIST = \
 	elements.def \
 	f_stubs.c    \
 	elmerf90.in  \
+	elmerld.in  \
+	elmerf90-nosh.in  \
 	_muldc3.oo   \
 	SOLVER.KEYWORDS

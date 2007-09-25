@@ -38,7 +38,8 @@ build_triplet = @build@
 host_triplet = @host@
 target_triplet = @target@
 DIST_COMMON = $(srcdir)/Makefile.am $(srcdir)/Makefile.in \
-	$(srcdir)/elmerf90.in $(srcdir)/make.bin $(srcdir)/make.dep
+	$(srcdir)/elmerf90-nosh.in $(srcdir)/elmerf90.in \
+	$(srcdir)/elmerld.in $(srcdir)/make.bin $(srcdir)/make.dep
 bin_PROGRAMS = SC2Elmer$(EXEEXT)
 subdir = src
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
@@ -49,7 +50,7 @@ am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
 	$(ACLOCAL_M4)
 mkinstalldirs = $(install_sh) -d
 CONFIG_HEADER = $(top_builddir)/config.h
-CONFIG_CLEAN_FILES = elmerf90
+CONFIG_CLEAN_FILES = elmerf90 elmerf90-nosh elmerld
 am__installdirs = "$(DESTDIR)$(bindir)"
 binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
@@ -518,6 +519,8 @@ EXTRA_DIST = \
 	elements.def \
 	f_stubs.c    \
 	elmerf90.in  \
+	elmerld.in  \
+	elmerf90-nosh.in  \
 	_muldc3.oo   \
 	SOLVER.KEYWORDS
 
@@ -555,6 +558,10 @@ $(top_srcdir)/configure: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
 $(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
 	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
 elmerf90: $(top_builddir)/config.status $(srcdir)/elmerf90.in
+	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
+elmerf90-nosh: $(top_builddir)/config.status $(srcdir)/elmerf90-nosh.in
+	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
+elmerld: $(top_builddir)/config.status $(srcdir)/elmerld.in
 	cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@
 install-binPROGRAMS: $(bin_PROGRAMS)
 	@$(NORMAL_INSTALL)
@@ -1089,7 +1096,7 @@ install-exec-local:
 	$(CP) ViewFactors$(EXEEXT) $(prefix)/bin
 	$(CP) GebhardtFactors$(EXEEXT) $(prefix)/bin
 	$(CP) libelmersolver$(SHL_EXT) $(prefix)/lib
-	$(CP) elmerf90 $(prefix)/bin
+	$(CP) elmerf90 elmerf90-nosh elmerld $(prefix)/bin
 @USE_MPI_TRUE@	$(CP) ElmerSolver_mpi$(EXEEXT) $(prefix)/bin
 
 clean-local:
