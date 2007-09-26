@@ -38,7 +38,7 @@
 ! *
 ! *****************************************************************************/
 ! *
-! * $Id: Multigrid.src,v 1.18 2007/05/04 11:37:53 jpr Exp $
+! * $Id: Multigrid.src,v 1.19 2007/09/23 11:36:47 raback Exp $
 ! *****************************************************************************/
 
 MODULE Multigrid
@@ -1149,11 +1149,11 @@ CONTAINS
     IF(.NOT. GotIt) DirectLimit = 10
 
     IF ( Level <= 1 .OR. n < DirectLimit) THEN
+!     IF(.FALSE.) CALL SaveMatrix(Matrix1, 'proj.dat')          
       IF ( .NOT. Parallel ) THEN
         IF ( ListGetLogical( Solver % Values, 'MG Lowest Linear Solver Iterative',gotit ) ) THEN
           CALL IterSolver( Matrix1, Solution, ForceVector, Solver )
         ELSE
-          CALL SaveMatrix(Matrix1, 'proj.dat')          
           CALL DirectSolver( Matrix1, Solution, ForceVector, Solver )
         END IF
       ELSE
@@ -1170,9 +1170,7 @@ CONTAINS
 !      Parallel initializations:
 !      -------------------------
     IF ( Parallel ) THEN
-      CALL ParallelInitSolve( Matrix1, Solution, ForceVector, &
-          Residual )
-      
+      CALL ParallelInitSolve( Matrix1, Solution, ForceVector, Residual )
       PMatrix => ParallelMatrix( Matrix1 ) 
     END IF
 
@@ -2071,11 +2069,131 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+! Apply compatible relaxation for the current C/F split and based on the 
+! convergence behavior include some of the F nodes to the new candidate list.
+!------------------------------------------------------------------------------
+
+     SUBROUTINE CompatibleRelaxation(Amat, Solver, CF, CandList, nods, newcands)
+       
+       TYPE(Matrix_t), POINTER  :: Amat
+       TYPE(solver_t), TARGET :: Solver
+       INTEGER, POINTER :: CF(:)
+       INTEGER, POINTER :: CandList(:)
+       INTEGER :: nods, newcands
+       
+       INTEGER :: i, j, k, Rounds
+       REAL(KIND=dp), POINTER :: Ones(:), Zeros(:)
+       REAL(KIND=dp) :: Limit, MaxRatio, Ratio
+       INTEGER :: cnods, nods, cnods, RatioClasses(101)
+       LOGICAL :: GotIt
+       
+       Rounds = ListGetInteger(Solver % Values,'MG Compatible Relax Rounds',GotIt)
+       IF(.NOT. GotIt) Rounds = 3
+       
+       ALLOCATE(Ones(nods),Zeros(nods))
+       
+       k = 0
+       DO i=1,nods
+         IF(CF(i) <= 0) THEN
+           Ones(i) = 1.0
+           k = k+1
+         ELSE
+           Ones(i) = 0.0
+         END IF
+       END DO
+       Zeros = 0.0
+       
+       IterMethod = ListGetString( Solver % Values, 'MG Smoother', Found )
+       
+       IF ( .NOT. Found ) THEN
+         IterMethod = ListGetString( Solver % Values, &
+             'Linear System Iterative Method', Found )
+       END IF
+       IF ( .NOT. Found ) IterMethod = 'jacobi'
+       
+       SELECT CASE( IterMethod )
+       CASE( 'gs' )                         
+         CALL CR_GS( Amat, Ones, Zeros, CF, Rounds )
+         
+       CASE( 'sor','sgs','psgs')                                     
+         CALL CR_SGS( Amat, Ones, Zeros, CF, Rounds)
+         
+       CASE( 'csgs')                                     
+         CALL CR_CSGS( nods, Amat, Ones, Zeros, CF, Rounds)       
+         
+       CASE DEFAULT
+         CALL CR_Jacobi( Amat, Ones, Zeros, CF, Rounds )
+       END SELECT
+       
+       MaxRatio = 0.0d0
+       RatioClasses = 0
+       DO i=1,nods
+         IF(CF(i) <= 0) THEN
+           Ratio = ABS(Zeros(i))
+           j = INT(10*Ratio)+1
+           IF(j > 0 .AND. j <= 10) THEN
+             RatioClasses(j) = RatioClasses(j) + 1
+           ELSE IF(j > 0) THEN
+             RatioClasses(11) = RatioClasses(11) + 1            
+           ELSE IF(j < 0) THEN
+             RatioClasses(12) = RatioClasses(12) + 1                        
+           END IF
+           MaxRatio = MAX(Ratio, MaxRatio) 
+         END IF
+       END DO
+              
+       WRITE( Message, '(A)' ) 'Compatible relaxation classes (interval, no and %)'
+       CALL Info('CompatibleRelaxation',Message)
+       
+       DO i=1,13
+         IF(RatioClasses(i) > 0) THEN
+           IF(i==11) THEN
+             WRITE( Message, '(F3.1,A,A,I9,F9.3)' ) 1.0,' - ','...',RatioClasses(i),100.0*RatioClasses(i)/k
+           ELSE IF(i==12) THEN
+             WRITE( Message, '(A,A,F3.1,I9,F9.3)' ) '...',' - ',0.0,RatioClasses(i),100.0*RatioClasses(i)/k
+           ELSE
+             WRITE( Message, '(F3.1,A,F3.1,I9,F9.3)' ) 0.1*(i-1),' - ',0.1*i,RatioClasses(i),100.0*RatioClasses(i)/k
+           END IF
+           CALL Info('CompatibleRelaxation',Message)
+         END IF
+       END DO
+       
+       WRITE( Message, '(A,ES15.5)' ) 'Compatible relaxation merit',MaxRatio
+       CALL Info('CompatibleRelaxation',Message)
+       
+       newcands = 0
+       Limit = ListGetConstReal(Solver % Values,'MG Compatible Relax Limit',GotIt)
+       IF(GotIt) THEN
+         DO i=1,nods         
+           Ratio = ABS(Zeros(i))
+           IF(Ratio <= Limit) CYCLE 
+           
+           IF(CF(i) > 0) THEN
+             CALL Warn('CompatibleRelaxation','Coarse nodes should relax well!?')
+           END IF
+           
+           ! Add the node to the list of candidates and eliminate the old C/F info
+           newcands = newcands + 1
+           CF(i) = 0
+           CandList(i) = 1
+         END DO
+         
+         IF(newcands > 0) THEN
+           WRITE(Message,'(A,I8)') 'Number of new candidate nodes using CR ',newcands
+           CALL Info('ChooseCoarseNodes',Message)         
+         END IF
+       END IF
+
+       DEALLOCATE(Ones, Zeros)
+       
+     END SUBROUTINE CompatibleRelaxation
+
 
 !------------------------------------------------------------------------------
 ! Create a coarse mesh given the fine mesh and the stiffness matrix. 
 ! The coarse nodes may be selected in a number of ways and after the 
-! selection a new mesh is made of them. This mesh is the used to create
+! selection a new mesh is made of them. This mesh is then used to create
 ! a projection between the coarse and fine degrees of freedom. 
 !------------------------------------------------------------------------------
 
@@ -2088,12 +2206,12 @@ CONTAINS
     INTEGER, POINTER :: CF(:)
     INTEGER, POINTER, OPTIONAL :: InvCF(:)
 
-    INTEGER :: nods, cnods, Rounds, RatioClasses(101), elimnods, Component1, NoComponents, cj
+    INTEGER :: nods, cnods, newcands, Rounds, RatioClasses(101), elimnods, &
+        Component1, NoComponents, cj, CRiter
     INTEGER, POINTER :: CandList(:)
-    LOGICAL :: CompMat, PseudoGeometric
+    LOGICAL :: CompMat, PseudoGeometric, UseCR
     LOGICAL, POINTER :: Bonds(:)
     REAL(KIND=dp), POINTER :: Ones(:), Zeros(:)
-    REAL(KIND=dp) :: Limit, MaxRatio, Ratio
     INTEGER, POINTER :: Cols(:),Rows(:)
 
     NoComponents = Components
@@ -2124,40 +2242,62 @@ CONTAINS
 
     ! Make the candidate and strong bond list for determining the coarse nodes    
     tt2 = CPUTime()
-    IF(NoComponents <= 1) THEN
-      CandList = 1
-    ELSE    
-      DO i=1,NoComponents
-        IF(i==Component1) THEN
-          CandList(i:nods:NoComponents) = 1
-        ELSE
-          CandList(i:nods:NoComponents) = 0          
-        END IF
-      END DO
-    END IF
-
-    IF(CompMat) THEN
-      CALL AMGBondsComplex(Amat, Bonds, CandList)
-    ELSE IF(PseudoGeometric) THEN
-print *,'geom bonds'
-      CALL AMGBondsGeometric(Amat, Bonds, CandList, NoComponents)      
-print *,'end geom bonds'
-    ELSE
-      CALL AMGBonds(Amat, Bonds, CandList)      
-    END IF
-
-    WRITE( Message,'(A,F8.2)') 'MG strong bond definition time', CPUTime() - tt2
-    CALL Info( 'ChooseCoarseNodes', Message, Level=5 )
-
-    tt2 = CPUTime()
     CF = 0
+
+    UseCR =  ListGetLogical(Solver % Values,'MG Compatible Relax Init',GotIt) 
+    CRiter = 0
+
+    IF( UseCR ) THEN
+      CandList = 0
+      Bonds = .TRUE.
+      CALL AMGBondsDirichlet(Amat, Bonds, CandList)
+      CALL CompatibleRelaxation(Amat, Solver, CF, CandList, nods, newcands)
+    ELSE 
+      IF(NoComponents == 1) THEN
+        CandList = 1
+      ELSE    
+        DO i=1,NoComponents
+          IF(i==Component1) THEN
+            CandList(i:nods:NoComponents) = 1
+          ELSE
+            CandList(i:nods:NoComponents) = 0          
+          END IF
+        END DO
+      END IF
+      
+      IF(CompMat) THEN
+        CALL AMGBondsComplex(Amat, Bonds, CandList)
+      ELSE IF(PseudoGeometric) THEN
+        CALL AMGBondsGeometric(Amat, Bonds, CandList, NoComponents)      
+      ELSE
+        CALL AMGBonds(Amat, Bonds, CandList)      
+      END IF
+
+      WRITE( Message,'(A,F8.2)') 'MG strong bond definition time', CPUTime() - tt2
+      CALL Info( 'ChooseCoarseNodes', Message, Level=5 )
+    END IF
+
+100 tt2 = CPUTime()
+
     CALL AMGCoarse(Amat, CandList, Bonds, CF, CompMat)
     
-    IF(.NOT. CompMat) THEN
+    IF(.NOT. (CompMat .OR. UseCR) ) THEN
       IF( ListGetLogical(Solver % Values,'MG Positive Connection Eliminate',GotIt)) THEN
         CALL AMGPositiveBonds(Amat, Bonds, CandList, CF)
       END IF
     END IF
+
+    IF( ListGetLogical(Solver % Values,'MG Compatible Relax Merit',GotIt) ) THEN
+      CRIter = CRiter + 1
+      CandList = 0
+      CALL CompatibleRelaxation(Amat, Solver, CF, CandList, nods, newcands)
+      PRINT *,'CR iteration',CRiter
+      IF(newcands > 0) GOTO 100
+    END IF
+
+    WRITE( Message, '(A,F8.2)' ) 'MG coarse nodes selection time', CPUTime() - tt2
+    CALL Info( 'ChooseCoarseNodes', Message, Level=5 )
+
 
     ! Make the coarse nodes of each variable to be the same
     IF(.NOT. IdenticalProjs .AND. NoComponents > 1) THEN
@@ -2167,9 +2307,6 @@ print *,'end geom bonds'
         END IF
       END DO
     END IF    
-
-    WRITE( Message, '(A,F8.2)' ) 'MG coarse nodes selection time', CPUTime() - tt2
-    CALL Info( 'ChooseCoarseNodes', Message, Level=5 )
 
     ! Set the CF vector to be zero for fine nodes and an order number for coarse nodes
     cnods = 0
@@ -2187,148 +2324,6 @@ print *,'end geom bonds'
 
     WRITE(Message,'(A,F5.1,A)') 'Coarse node fraction',(100.0*cnods)/nods,' %'
     CALL Info('ChooseCoarseNodes',Message)
-
-
-    IF( ListGetLogical(Solver % Values,'MG Compatible Relax Merit',GotIt) ) THEN
-      Rounds = ListGetInteger(Solver % Values,'MG Compatible Relax Rounds',GotIt)
-      IF(.NOT. GotIt) Rounds = 3
-
-      ALLOCATE(Ones(nods),Zeros(nods))
-      
-100   k = 0
-      DO i=1,nods
-        IF(CF(i) <= 0) THEN
-          Ones(i) = 1.0
-          k = k+1
-        ELSE
-          Ones(i) = 0.0
-        END IF
-      END DO
-      Zeros = 0.0
-      
-      IterMethod = ListGetString( Solver % Values, 'MG Smoother', Found )
-      
-      IF ( .NOT. Found ) THEN
-        IterMethod = ListGetString( Solver % Values, &
-            'Linear System Iterative Method', Found )
-      END IF
-      IF ( .NOT. Found ) IterMethod = 'jacobi'
-      
-      SELECT CASE( IterMethod )
-        CASE( 'gs' )                         
-        CALL CR_GS( Amat, Ones, Zeros, CF, Rounds )
-        
-        CASE( 'sor','sgs','psgs')                                     
-        CALL CR_SGS( Amat, Ones, Zeros, CF, Rounds)
-
-        CASE( 'csgs')                                     
-        CALL CR_CSGS( nods, Amat, Ones, Zeros, CF, Rounds)       
-
-      CASE DEFAULT
-        CALL CR_Jacobi( Amat, Ones, Zeros, CF, Rounds )
-      END SELECT
-      
-      MaxRatio = 0.0d0
-      RatioClasses = 0
-      DO i=1,nods
-        IF(CF(i) <= 0) THEN
-          Ratio = ABS(Zeros(i))
-          j = INT(10*Ratio)+1
-          IF(j > 0 .AND. j <= 10) THEN
-            RatioClasses(j) = RatioClasses(j) + 1
-          ELSE IF(j > 0) THEN
-            RatioClasses(11) = RatioClasses(11) + 1            
-          ELSE IF(j < 0) THEN
-            RatioClasses(12) = RatioClasses(12) + 1                        
-          END IF
-          MaxRatio = MAX(Ratio, MaxRatio) 
-        END IF
-      END DO
-
-         
-      WRITE( Message, '(A)' ) 'Compatible relaxation classes (interval, no and %)'
-      CALL Info('ChooseCoarseNodes',Message)
-
-      DO i=1,13
-        IF(RatioClasses(i) > 0) THEN
-          IF(i==11) THEN
-            WRITE( Message, '(F3.1,A,A,I9,F9.3)' ) 1.0,' - ','...',RatioClasses(i),100.0*RatioClasses(i)/k
-          ELSE IF(i==12) THEN
-            WRITE( Message, '(A,A,F3.1,I9,F9.3)' ) '...',' - ',0.0,RatioClasses(i),100.0*RatioClasses(i)/k
-          ELSE
-            WRITE( Message, '(F3.1,A,F3.1,I9,F9.3)' ) 0.1*(i-1),' - ',0.1*i,RatioClasses(i),100.0*RatioClasses(i)/k
-          END IF
-          CALL Info('ChooseCoarseNodes',Message)      
-        END IF
-      END DO
- 
-      WRITE( Message, '(A,ES15.5)' ) 'Compatible relaxation merit',MaxRatio
-      CALL Info('ChooseCoarseNodes',Message)
-
-      k = 0
-      Limit = ListGetConstReal(Solver % Values,'MG Compatible Relax Limit',GotIt)
-      IF(GotIt) THEN
-        DO i=1,nods         
-          IF(CandList(i) == 0) CYCLE
-          Ratio = ABS(Zeros(i))
-          IF(Ratio <= Limit) CYCLE 
-          
-          IF(CF(i) > 0) THEN
-            CALL WARN('ChooseCoarseNodes','Coarse nodes should relax well!?')
-          ELSE
-            k = k + 1
-            CF(i) = -1
-          END IF
-        END DO
-        
-        k = 0
-        DO i=1,nods         
-          IF(CandList(i) == 0) CYCLE
-          IF(CF(i) >= 0) CYCLE
-
-          CF(i) = 1
-          k = k + 1
-
-          IF(CompMat) CF(i+1) = CF(i) 
-
-          DO j=Rows(i),Rows(i+1)-1
-            cj = Cols(j)
-
-            IF(cj == i .OR. CandList(i) == 0) CYCLE
-            IF(Bonds(j) .AND. CF(cj) < 0) THEN
-              CF(cj) = 0        
-              IF(CompMat) CF(cj+1) = CF(cj)
-            END IF
-          END DO
-        END DO
-      END IF
-
-      IF(k > 0) THEN
-        WRITE(Message,'(A,I8)') 'Number of added nodes using CR ',k
-        CALL Info('ChooseCoarseNodes',Message)
-        
-        GOTO 100
-      END IF
-
-      DEALLOCATE(Ones, Zeros)
-
-      cnods = 0
-      DO i=1,nods
-        IF(CF(i) < 0) THEN
-          CF(i) = 0
-        ELSE IF(CF(i) > 0) THEN
-          cnods = cnods + 1
-          CF(i) = cnods
-        END IF
-      END DO
-
-      WRITE(Message,'(A,I8)') 'Coarse mesh nodes after CR ',cnods
-      CALL Info('ChooseCoarseNodes',Message)
-      
-      WRITE(Message,'(A,F5.1)') 'Coarse node percentage after CR ',(100.0*cnods)/nods
-      CALL Info('ChooseCoarseNodes',Message)      
-
-    END IF
 
     DEALLOCATE(Bonds, CandList)
 
@@ -2448,6 +2443,7 @@ print *,'end geom bonds'
         maxbond = ABS(maxbond)
       END IF
    
+      ! Mark Dirichlet nodes with negative sign in order to favour boundaries in future
       IF( maxbond < DirLim * ABS(Values (Amat % Diag(ind)) ) ) THEN
         IF(ElimDir) THEN
           Cands(ind) = -1
@@ -2544,7 +2540,6 @@ print *,'end geom bonds'
 
       posbonds = posbonds + posnew
       negbonds = negbonds + negnew
-
     END DO
 
 
@@ -2565,6 +2560,71 @@ print *,'end geom bonds'
     CALL Info('AMGBonds',Message)
 
   END SUBROUTINE AMGBonds
+
+
+!------------------------------------------------------------------------------
+! Mark the Dirichlet bonds
+!------------------------------------------------------------------------------
+
+  SUBROUTINE AMGBondsDirichlet(Amat, Bonds, Cands)
+    
+    LOGICAL, POINTER :: Bonds(:)
+    TYPE(Matrix_t), POINTER  :: Amat
+    INTEGER, POINTER :: Cands(:)
+    INTEGER :: Components, Component1    
+
+    REAL(KIND=dp) :: NegLim, PosLim
+    INTEGER :: nods, cnods, diagsign, maxconn, posnew, negnew, MaxConns, MinConns
+    INTEGER :: i,j,k,cj,ci,ind, elimnods,posbonds,negbonds,measind
+    INTEGER, POINTER :: Cols(:),Rows(:)
+    LOGICAL :: debug, ElimDir, minmaxset, AllowPosLim
+    REAL(KIND=dp), POINTER :: Values(:), measures(:)
+    REAL(KIND=dp) :: maxbond, minbond, dirlim, meas, measlim
+
+    debug = .FALSE.
+    IF(debug) CALL Info('AMGBondsDirichlet','Marking the dirichlet conditions')
+
+    ! In the first time deselect the Dirichlet nodes from the candidate list
+    ! their value is determined at the finest level and need not to be recomputed
+    ElimDir = EliminateDir
+    IF(.NOT. ElimDir ) RETURN
+
+    DirLim = ListGetConstReal(Solver % Values,'MG Eliminate Dirichlet Limit',GotIt)
+    IF(.NOT. GotIt) DirLim = 1.0d-8      
+
+    nods = Amat % NumberOfRows
+    Rows   => Amat % Rows
+    Cols   => Amat % Cols
+    Values => Amat % Values
+
+    elimnods = 0
+    DO ind=1,nods
+
+      IF(Cands(ind) == 0) CYCLE
+
+      maxbond = 0.0d0
+      DO j=Rows(ind),Rows(ind+1)-1
+        cj = Cols(j)
+        IF(Cands(cj) /= 0 .AND. cj /= ind ) THEN
+          maxbond = ABS( Values(j) )
+        END IF
+      END DO
+
+      ! Mark Dirichlet nodes with negative sign in order to favour boundaries in future
+      IF( maxbond < DirLim * ABS(Values (Amat % Diag(ind)) ) ) THEN
+        IF(ElimDir) THEN
+          Cands(ind) = -1
+          elimnods = elimnods + 1
+        END IF
+      END IF
+    END DO
+    
+    IF(elimnods > 0) THEN
+      WRITE(Message,'(A,I8)') 'Number of eliminated nodes',elimnods
+      CALL Info('AMGBondsDirichlet',Message)
+    END IF
+
+  END SUBROUTINE AMGBondsDirichlet
 
 !------------------------------------------------------------------------------
 ! Create the initial list for measure of importance using geometric distance 
@@ -2983,40 +3043,17 @@ print *,'end geom bonds'
 
 
 !------------------------------------------------------------------------------
-! Add the priority of a node after its neighbours have been decleared to be fine.
-!------------------------------------------------------------------------------
- 
-  SUBROUTINE AddPriority(Con,GatLims,ConInd,RevConInd,ind)
-
-    INTEGER :: Con(:), GatLims(:), ConInd(:), RevConInd(:)
-    INTEGER :: ind,i,j,k,oldorder,neworder,points
-
-    points = Con(ind) + 1
-
-    oldorder = ConInd(ind)
-    neworder = GatLims(points)
-    Con(ind) = points
-    GatLims(points) = GatLims(points) - 1
-    
-    IF(neworder /= oldorder) THEN
-      j = RevConInd(neworder)
-
-      ConInd(ind) = neworder
-      ConInd(j) = oldorder
-
-      RevConInd(neworder) = ind
-      RevConInd(oldorder) = j
-    END IF
-
-  END SUBROUTINE AddPriority
-
-
-!------------------------------------------------------------------------------
 ! Creates a coarse mesh using the given list of strong connections. 
 ! Only nodes assigned by the Cands vector may be included in the 
-! coarse set. The subroutine returns the vector CF which is 
+! coarse set - others are ignored. The subroutine returns the vector CF which is 
 ! nonzero for coarse nodes. The nodes are chosen using a heuristics which
-! takes into account the strength of the coupling and consistancy of direction.
+! takes into account the strength of the coupling.
+!
+! There are three possible coarsening modes
+! 0) find a new start only in dire need
+! 1) find a new start if the suggested start is worse than previous new start
+! 2) find a new start if the suggested start is worse that theoretical best start
+! 3) keep list of all points and always choose the highest priority
 !
 ! CF includes the classification of the nodes
 ! coarse nodes > 0, undecided = 0, fine nodes < 0
@@ -3044,16 +3081,10 @@ print *,'end geom bonds'
     Cols   => Amat % Cols
     Values => Amat % Values
 
-    ! There are three possible coarsening modes
-    ! 0) find a new start only in dire need
-    ! 1) find a new start if the suggested start is worse than previous new start
-    ! 2) find a new start if the suggested start is worse that theoretical best start
-    ! 3) keep list of all points and always choose the highest priority
     CoarseningMode = ListGetInteger(Solver % Values,'MG Coarsening Mode',&
         GotIt,minv=0,maxv=3)
 
     debug = .FALSE.
-
 
     ALLOCATE(Con(nods))
     Con = 0
@@ -3063,11 +3094,21 @@ print *,'end geom bonds'
     cind = 0
     find = 0
 
-    ! Make the tightly bonded neighbours to be fine nodes 
+    ! Make the tightly bonded neighbours of course nodes to be fine nodes 
+    ! This has an effect only if the CF list has been initialized	
     DO ind = 1, nods
-      IF(CF(ind) < 1) CYCLE
+      IF(CF(ind) == 0) CYCLE
+      
+      IF(CF(ind) < 0) THEN
+        find = find + 1
+        CF(ind) = -find
+        CYCLE
+      END IF
+
       cind = cind + 1
       CF(ind) = cind
+
+      IF(Cands(ind) == 0) CYCLE
 
       DO i=Rows(ind),Rows(ind+1)-1
         IF(.NOT. Bonds(i)) CYCLE
@@ -3079,13 +3120,14 @@ print *,'end geom bonds'
         END IF
       END DO
     END DO
-    IF(find+cind > 0) PRINT *,'A priori set fine and coarse nodes',find,cind
+    IF(find+cind > 0) PRINT *,'A priori set fine and coarse nodes',find,cind,nods-find-cind
 
 
     ! Calculate the initial measure of of importance
     ! unvisited neighbour get 1 point, and a decided coarse node 2 points   
+
     DO ind = 1, nods      
-      ! Give points only for points that need to be approximated
+      ! Points are obtained when a neighbour is undicided or fine node
       IF(CF(ind) > 0) CYCLE
       IF(Cands(ind) <= 0) CYCLE
       
@@ -3093,6 +3135,7 @@ print *,'end geom bonds'
         IF(.NOT. Bonds(i)) CYCLE
         ci = Cols(i)
         IF(Cands(ci) > 0) THEN
+          ! Only give points to undicided points	
           IF(CF(ci) == 0) THEN
             IF(CF(ind) == 0) Con(ci) = Con(ci) + 1
             IF(CF(ind) < 0)  Con(ci) = Con(ci) + 2
@@ -3100,9 +3143,10 @@ print *,'end geom bonds'
         END IF
       END DO
     END DO
-    
+
 
     ! Add some weight if the node is connected to a Dirichlet node
+    ! This way the coarse nodes selection will follow the natural boundaries
     FollowBounds = ListGetInteger(Solver % Values,'MG Boundary Priority',GotIt)
     IF(FollowBounds /= 0) THEN
       DO ind = 1, nods
@@ -3120,6 +3164,7 @@ print *,'end geom bonds'
       END IF
     END IF
 
+    ! Boundaries may have been marked with negative index, remove that
     DO ind = 1, nods
       Cands(ind) = MAX(Cands(ind),0)
     END DO
@@ -3129,10 +3174,12 @@ print *,'end geom bonds'
       MaxCon = MAXVAL( Con ) 
       GatMax = 2 * MaxCon + 1
       
+      ! Bookkeeping is kept on category boundaries of the points
       ALLOCATE( GatLims(GatMax), GatNos(GatMax) )
       GatLims = 0
       GatNos = 0
       
+      ! Number of points in different categories 
       DO ind = 1, nods
         IF(Con(ind) == 0) CYCLE
         GatNos(Con(ind)) = GatNos(Con(ind)) + 1 
@@ -3390,13 +3437,9 @@ print *,'end geom bonds'
             ind0 = maxi
           END IF
           
-          IF(CoarseningMode == 1 .AND. RefCon < MaxCon) THEN
-            GOTO 10
-          END IF
+          IF(CoarseningMode == 1 .AND. RefCon < MaxCon) GOTO 10
           
-          IF(CoarseningMode == 0 .AND. RefCon < 1) THEN
-            GOTO 10
-          END IF
+          IF(CoarseningMode == 0 .AND. RefCon < 1) GOTO 10
           
         END IF
 
@@ -3406,6 +3449,22 @@ print *,'end geom bonds'
       WRITE(Message,'(A,I8)') 'Coarsening algorhitm starts',newstarts
       CALL Info('AMGCoarse',Message)
 
+    END IF
+
+
+    ! Assign unassigned nodes in the candidate list to be coarse nodes
+    k = 0
+    DO ind = 1, nods
+      IF(Cands(ind) > 0 .AND. CF(ind) == 0) THEN
+        k = k + 1
+        cind = cind + 1
+        CF(ind) = cind
+      END IF
+    END DO
+
+    IF(k > 0) THEN
+      WRITE(Message,'(A,I8)') 'Enforced coarse nodes',k
+      CALL Info('AMGCoarse',Message)      
     END IF
 
     WRITE(Message,'(A,I8)') 'Coarsening algorhitm tests',loops
@@ -3665,7 +3724,7 @@ print *,'end geom bonds'
            END DO
 
            IF(posi == 0 .AND. negi == 0) THEN
-             PRINT *,'The node is not connected to c-neighbours',ind,inds(1:no)
+             IF(Debug) PRINT *,'The node is not connected to c-neighbours',ind,inds(1:no)
              projnodes =  0
              inds(1:no) = 0
              coeffs(1:no) = 0.0
@@ -3872,7 +3931,7 @@ print *,'end geom bonds'
          CALL Info('InterpolateF2C',Message)
 
          Projector => AllocateMatrix()
-         Projector % NumberOfRows = Fdofs/Components
+         Projector % NumberOfRows = Fdofs / Components
 
          ALLOCATE( PCols(PRows(Fdofs/Components+1)-1), PValues(PRows(Fdofs/Components+1)-1) )           
          AllocationsDone = .TRUE.
@@ -3894,6 +3953,8 @@ print *,'end geom bonds'
 
 !-----------------------------------------------------------------------------
 !     A pseudo geometric version of the previous
+!     Here the stregth of connections is assumed to be inversily proportional
+!     to the distance between nodes. 
 !------------------------------------------------------------------------------
      FUNCTION InterpolateF2CGeometric( Fmat, CF, DOFs) RESULT (Projector)
 !------------------------------------------------------------------------------
@@ -4454,8 +4515,7 @@ print *,'end geom bonds'
            CF(ind) = Cdofs
          END IF
        END DO
-       
-       
+              
      END FUNCTION ComplexInterpolateF2C
 !-------------------------------------------------------------------------
 
