@@ -35,6 +35,7 @@ if test "$ELMER_HOME" = ""; then
 else 
     # ELMER_HOME is defined, so we'll just use that
     printf "\$ELMER_HOME=%s\n" $ELMER_HOME
+    export ELMER_HOME=`echo $ELMER_HOME | sed 's.:..' | sed 's.\\\./.'`
     export ELMER_LIB="$ELMER_HOME/share/elmersolver/lib"
     export ELMER_INCLUDE="$ELMER_HOME/share/elmersolver/include"
     export ELMER_GRID="$ELMER_HOME/bin/ElmerGrid"
@@ -47,13 +48,14 @@ fi
 #
 # Autoconf substitutes these variables with correct values.
 #
-export F90="gfortran -g -O3 -msse2 -funroll-loops -ftree-vectorize -ffast-math -march=pentium4 -mtune=pentium4 -fPIC -I. -Ibinio -I. -I$ELMER_INCLUDE"
-export LD="gfortran -shared  "
+#export F90="gfortran -g -O3 -msse2 -funroll-loops -ftree-vectorize -ffast-math -march=pentium4 -mtune=pentium4 -fPIC -I. -Ibinio -I. -I$ELMER_INCLUDE"
+#export LD="gfortran -shared  "
+export LD=elmerld
+export F90=elmerf90-nosh
 export LIBS="-L$ELMER_LIB "
 
-gcc -o findnorm$EXE_EXT findnorm.c
-gcc -o compare$EXE_EXT compare.c -lm
-chmod 775 findnorm$EXE_EXT compare$EXE_EXT
+gcc -o findnorm$EXE_EXT findnorm.c -lm
+chmod 775 findnorm$EXE_EXT
 
 total=0
 passed=0
@@ -64,6 +66,7 @@ else
    dirs="$*"
 fi
 
+echo $dirs
 for dir in $dirs; do
 
       total=`expr $total + 1`
