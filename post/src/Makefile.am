@@ -80,15 +80,17 @@ install-data-local:
 	@echo "Instaling help to ${ELMER_POST_DATADIR}/help"
 	mkdir -p $(ELMER_POST_DATADIR)/help
 	cp -r help/* $(ELMER_POST_DATADIR)/help
+	rm -rf `find $(ELMER_POST_DATADIR)/help -name .svn`
 
 	@echo "Instaling tcl scripts to ${ELMER_POST_DATADIR}/tcl"
 	mkdir -p $(ELMER_POST_DATADIR)/tcl
 	cp -r tcl/* $(ELMER_POST_DATADIR)/tcl
+	rm -rf `find $(ELMER_POST_DATADIR)/tcl -name .svn`
 
 	@echo "Instaling initialization scripts to ${ELMER_POST_DATADIR}/lib"
 	mkdir -p $(ELMER_POST_DATADIR)/lib
 	cp -r lib/* $(ELMER_POST_DATADIR)/lib
-
+	rm -rf `find $(ELMER_POST_DATADIR)/lib -name .svn`
 
 #
 # Copy the help and tcl
@@ -97,6 +99,7 @@ dist-hook:
 	cp -r tcl $(distdir)
 	cp -r help $(distdir)
 	cp -r lib $(distdir)
+	rm -rf `find $(distdir)/ -name .svn`
 	rm -rf `find $(distdir)/ -name CVS`
 	rm -rf `find $(distdir)/ -name \#*`
 	rm -rf `find $(distdir)/ -name *~`

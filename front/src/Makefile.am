@@ -74,10 +74,12 @@ install-data-local:
 
 	mkdir -p "${prefix}/share/elmerfront/tcl"
 	cp -r ./tcl/* "${prefix}/share/elmerfront/tcl"
+	rm -rf `find $(prefix)/share/elmerfront/tcl -name .svn`
 
 	@echo "Installing *.edf *.rgb to ${prefix}/share/elmerfront/lib"
 	mkdir -p "${prefix}/share/elmerfront/lib"
 	cp -r ./lib/* "${prefix}/share/elmerfront/lib"
+	rm -rf `find $(prefix)/share/elmerfront/lib -name .svn`
 
 
 
