@@ -7,3 +7,4 @@ run:
 
 clean:
 	/bin/rm test.log temp.log mon.out
+	/bin/rm -r Mesh

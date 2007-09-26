@@ -8,4 +8,5 @@ run:
 
 clean:
 	/bin/rm test.log temp.log mon.out dg.ep AdvReactDG$(SHL_EXT) AdvReactDG$(OBJ_EXT)
+	/bin/rm -r square
 

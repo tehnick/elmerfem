@@ -9,4 +9,4 @@ run:
 
 clean:
 	/bin/rm test.log temp.log mon.out WaveEq$(SHL_EXT) WaveEq$(OBJ_EXT) so_locations
-#	/bin/rm -r square
+	/bin/rm -r square
