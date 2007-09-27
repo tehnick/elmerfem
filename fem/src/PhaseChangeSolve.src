@@ -120,7 +120,7 @@ SUBROUTINE PhaseChangeSolve( Model,Solver,dt,TransientSimulation )
       TempDiff, AllocationsDone, LocalStiffMatrix, LocalForceVector, LocalMassMatrix, &
       x, y, z, Basis, dBasisdx, norm, Axis_node, PullVelocitySet, &
       Normals, Weights, NormalsPerm, AverageNormal, SurfaceMove, SurfaceMoveAve, &
-      SurfaceVelocitySet
+      SurfaceVelocitySet, CoordMax, CoordMin, CoordMaxi, CoordMini, UPull
   
   !------------------------------------------------------------------------------
   ! Decide which kind of algorithm to use for the current timestep size
@@ -257,9 +257,9 @@ SUBROUTINE PhaseChangeSolve( Model,Solver,dt,TransientSimulation )
 
     VariableName = ListGetString( Solver % Values, 'Normal Variable', Stat )
     IF(Stat) THEN
-      HelpSol => VariableGet( Solver % Mesh % Variables, TRIM(VariableName) )
+      HelpSol => VariableGet( Solver % Mesh % Variables, TRIM(VariableName), ThisOnly=.TRUE. )
     ELSE
-      HelpSol => VariableGet( Solver % Mesh % Variables, 'Normals',Stat )
+      HelpSol => VariableGet( Solver % Mesh % Variables, 'Normals',ThisOnly=.TRUE. )
     END IF
     IF(ASSOCIATED(HelpSol)) THEN
       Normals => HelpSol % Values
@@ -1257,7 +1257,7 @@ CONTAINS
 
 
   IF(.NOT. Visited) THEN
-    NormalSol  => VariableGet( Model % Variables, 'Normals',stat )
+    NormalSol  => VariableGet( Model % Variables, 'Normals',ThisOnly=.TRUE. )
     IF(ASSOCIATED(NormalSol)) THEN
       NormalsPerm => NormalSol % Perm
       Normals => NormalSol % Values
