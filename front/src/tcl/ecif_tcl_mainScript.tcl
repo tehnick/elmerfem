@@ -184,16 +184,20 @@ proc startGUI {} {
 
 proc setElmerFrontPaths {} {
     global Info env
+
+    set Info(ELMER_FRONT_INSTALL_LIB) "/wrk/jpr/share/elmerfront/lib"
+    set Info(ELMER_FRONT_INSTALL_TCL) "/wrk/jpr/share/elmerfront/tcl"
+
+    if { [info exists env(ELMER_HOME)] } {
+      set Info(ELMER_FRONT_INSTALL_LIB) "$env(ELMER_HOME)/share/elmerfront/lib"
+      set Info(ELMER_FRONT_INSTALL_TCL) "$env(ELMER_HOME)/share/elmerfront/tcl"
+    }
+
     if { [info exists env(ELMER_FRONT_HOME)] } {
       set Info(ELMER_FRONT_INSTALL_LIB) "$env(ELMER_FRONT_HOME)/lib"
       set Info(ELMER_FRONT_INSTALL_TCL) "$env(ELMER_FRONT_HOME)/tcl"
-    } else if { [info exists env(ELMER_HOME)] } {
-      set Info(ELMER_FRONT_INSTALL_LIB) "$env(ELMER_HOME)/share/elmerfront/lib"
-      set Info(ELMER_FRONT_INSTALL_TCL) "$env(ELMER_HOME)/share/elmerfront/tcl"
-    } else {
-      set Info(ELMER_FRONT_INSTALL_LIB) "/wrk/jpr/share/elmerfront/lib"
-      set Info(ELMER_FRONT_INSTALL_TCL) "/wrk/jpr/share/elmerfront/tcl"
     }
+
 
     set Info(ELMER_FRONT_BUILD_LIB) "./lib"
     set Info(ELMER_FRONT_BUILD_TCL) "./tcl"
