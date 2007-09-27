@@ -7479,9 +7479,13 @@ Tcl_MainLoop()
 {
   // This is needed at least for Unix, to prevent
   // continuos cpu-cycle consumption
-#ifdef UNIX
-  Tcl_CreateTimerHandler(1, tcl_DisplayIdleProc, displayIdleData);
-#else
+  //#ifdef UNIX
+  //  Tcl_CreateTimerHandler(1, tcl_DisplayIdleProc, displayIdleData);
+  //#else
+  //  Tcl_CreateTimerHandler(1, tcl_DisplayIdleProc, displayIdleData);
+  //#endif
+
+#if !defined(WIN32)
   Tcl_CreateTimerHandler(1, tcl_DisplayIdleProc, displayIdleData);
 #endif
 
