@@ -2090,6 +2090,45 @@ void TestTkEvent()
     Tk_Sleep( 100 );
 }
 
+static int WindowSize( ClientData cl,Tcl_Interp *interp,int argc,char **argv )
+{
+   if ( argc < 3 ) {
+      sprintf( interp->result, "Usage: winsize width height" );
+      return TCL_ERROR;
+   }
+
+   int width  = atoi( *++argv );
+   int height = atoi( *++argv );
+
+#ifdef WIN32
+   SetWindowPos( auxGetHWND(), HWND_TOP, 0, 0, width, height, SWP_NOMOVE);
+#else
+   XResizeWindow( (Display *)tkXDisplay(), tkXWindow(), width, height );
+#endif
+
+   return TCL_OK;
+}
+
+static int WindowPosition( ClientData cl,Tcl_Interp *interp,int argc,char **argv )
+{
+   if ( argc < 3 ) {
+      sprintf( interp->result, "Usage: winpos xpos ypos" );
+      return TCL_ERROR;
+   }
+
+   int ox = atoi( *++argv );
+   int oy = atoi( *++argv );
+
+#ifdef WIN32
+   SetWindowPos( auxGetHWND(), HWND_TOP, ox, oy, 0, 0, SWP_NOSIZE);
+#else
+   XMoveWindow( (Display *)tkXDisplay(), tkXWindow(), ox, oy );
+#endif
+
+   return TCL_OK;
+}
+
+
 int main(int argc,char **argv)
 {
     static char init[1024],initcommands[1024],tmp[1024],ephome[512];
@@ -2190,6 +2229,12 @@ int main(int argc,char **argv)
 
     Tcl_CreateCommand( TCLInterp, "ActivateGraphicsWindow", ActivateGraphicsWindow,
                   (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
+
+    Tcl_CreateCommand( TCLInterp, "winsize", (Tcl_CmdProc *)WindowSize,
+		       (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
+    
+    Tcl_CreateCommand( TCLInterp, "winpos", (Tcl_CmdProc *)WindowPosition, 
+		       (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
 
     CurrentObject = &VisualObject;
     CurrentObject->Name = strcpy( malloc(strlen("default")+1), "default" );
