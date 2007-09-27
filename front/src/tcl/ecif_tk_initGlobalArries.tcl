@@ -2274,7 +2274,7 @@ proc FRONT_SET_INITIAL_GENERIC_FIELD_PROPERTIES {} {
   setFieldProperties2 "" $fn \
     { { Display 0 }
       { FieldValueType String }
-      { Limits {Set { "BANDED" "Sparse" } }}
+      { Limits {Set { "BANDED" "UMFPack" } }}
     }
 
   set fn LINEAR_SYSTEM_ITERATIVE_METHOD
