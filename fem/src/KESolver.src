@@ -644,12 +644,15 @@ CONTAINS
 !------------------------------------------------------------------------------
 !      Coordinatesystem dependent info
 !------------------------------------------------------------------------------
-       X = SUM( Nodes % x(1:n)*Basis(1:n) )
-       Y = SUM( Nodes % y(1:n)*Basis(1:n) )
-       Z = SUM( nodes % z(1:n)*Basis(1:n) )
-       CALL CoordinateSystemInfo(Metric,SqrtMetric,Symb,dSymb,X,Y,Z)
+       s = detJ * S_Integ(t)
+       IF ( CurrentCoordinateSystem() /= Cartesian ) THEN
+         X = SUM( Nodes % x(1:n)*Basis(1:n) )
+         Y = SUM( Nodes % y(1:n)*Basis(1:n) )
+         Z = SUM( nodes % z(1:n)*Basis(1:n) )
+         CALL CoordinateSystemInfo(Metric,SqrtMetric,Symb,dSymb,X,Y,Z)
 
-       s = SqrtMetric * detJ * S_Integ(t)
+         s = s * SqrtMetric
+       END IF
 
 !      Velocity from previous iteration at the integration point
 !------------------------------------------------------------------------------
@@ -669,7 +672,7 @@ CONTAINS
           Strain = 0.5d0 * ( dVelodx + TRANSPOSE(dVelodx) )
           Secinv = 2 * SUM( Strain * Strain )
        ELSE
-          SecInv = SecondInvariant( Velo,dVelodx ) / 2
+          SecInv = SecondInvariant( Velo,dVelodx,Metric,Symb ) / 2
        END IF
 !------------------------------------------------------------------------------
 !      Coefficient of the convection and time derivative terms
