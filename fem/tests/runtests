@@ -34,7 +34,8 @@ if test "$ELMER_HOME" = ""; then
     export PATH=/wrk/jpr/bin:$PATH
 else 
     # ELMER_HOME is defined, so we'll just use that
-    printf "\$ELMER_HOME=%s\n" $ELMER_HOME
+    printf "ELMER_HOME=%s\n" $ELMER_HOME
+    export ELMER_HOME=`echo $ELMER_HOME | sed 's+.:+/&+'`
     export ELMER_HOME=`echo $ELMER_HOME | sed 's.:..' | sed 's.\\\./.'`
     export ELMER_LIB="$ELMER_HOME/share/elmersolver/lib"
     export ELMER_INCLUDE="$ELMER_HOME/share/elmersolver/include"
@@ -48,7 +49,7 @@ fi
 #
 # Autoconf substitutes these variables with correct values.
 #
-#export F90="gfortran -g -O3 -msse2 -funroll-loops -ftree-vectorize -ffast-math -march=pentium4 -mtune=pentium4 -fPIC -I. -Ibinio -I. -I$ELMER_INCLUDE"
+#export F90="gfortran -O -fPIC -I. -Ibinio -I. -I$ELMER_INCLUDE"
 #export LD="gfortran -shared  "
 export LD=elmerld
 export F90=elmerf90-nosh
