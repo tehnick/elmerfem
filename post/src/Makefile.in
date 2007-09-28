@@ -278,7 +278,7 @@ SUBDIRS = tk glaux camera graphics modules sico2elmer objects visuals tcl elemen
 @NOTWINDOWS_TRUE@	./tk/libtk.a
 
 @NOTWINDOWS_TRUE@QueryGLXExt_SOURCES = QueryGLXExt.c 
-@NOTWINDOWS_TRUE@EXTRA_DIST = screensave.c window.c
+@NOTWINDOWS_TRUE@EXTRA_DIST = screensave.c
 ElmerPost_LDFLAGS = $(SH_EXPALL_FLAG)
 ELMER_POST_DATADIR = $(prefix)/share/elmerpost
 all: all-recursive
@@ -665,22 +665,18 @@ uninstall-info: uninstall-info-recursive
 	uninstall-binPROGRAMS uninstall-info-am
 
 
-@NOTWINDOWS_TRUE@all-local: screensave.so window.so
+@NOTWINDOWS_TRUE@all-local: screensave.so
 @NOTWINDOWS_TRUE@clean-local:
 @NOTWINDOWS_TRUE@	rm *.so
 
 @NOTWINDOWS_TRUE@screensave.so: screensave.$(OBJEXT)
 @NOTWINDOWS_TRUE@	$(CC) $(CFLAGS) $(LDFLAGS) $(SH_LDFLAGS) -o $@ $< $(LIBS)
 
-@NOTWINDOWS_TRUE@window.so: window.$(OBJEXT)
-@NOTWINDOWS_TRUE@	$(CC) $(CFLAGS) $(LDFLAGS) $(SH_LDFLAGS) -o $@ $< glaux/libglaux.a tk/libtk.a $(LIBS) 
-
 install-data-local:
 	@echo "Instaling modules to ${ELMER_POST_DATADIR}/modules"
 
 	mkdir -p $(ELMER_POST_DATADIR)/modules
 	-cp screensave.so $(ELMER_POST_DATADIR)/modules 
-	-cp window.so $(ELMER_POST_DATADIR)/modules
 
 	@echo "Instaling help to ${ELMER_POST_DATADIR}/help"
 	mkdir -p $(ELMER_POST_DATADIR)/help

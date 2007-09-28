@@ -26,17 +26,14 @@ ElmerPost_LDADD=\
 
 QueryGLXExt_SOURCES=QueryGLXExt.c 
 
-all-local: screensave.so window.so
+all-local: screensave.so
 clean-local:
 	rm *.so
 
-EXTRA_DIST=screensave.c window.c
+EXTRA_DIST=screensave.c
 
 screensave.so: screensave.$(OBJEXT)
 	$(CC) $(CFLAGS) $(LDFLAGS) $(SH_LDFLAGS) -o $@ $< $(LIBS)
-
-window.so: window.$(OBJEXT)
-	$(CC) $(CFLAGS) $(LDFLAGS) $(SH_LDFLAGS) -o $@ $< glaux/libglaux.a tk/libtk.a $(LIBS) 
 
 else
 
@@ -75,7 +72,6 @@ install-data-local:
 
 	mkdir -p $(ELMER_POST_DATADIR)/modules
 	-cp screensave.so $(ELMER_POST_DATADIR)/modules 
-	-cp window.so $(ELMER_POST_DATADIR)/modules
 
 	@echo "Instaling help to ${ELMER_POST_DATADIR}/help"
 	mkdir -p $(ELMER_POST_DATADIR)/help
