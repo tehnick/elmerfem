@@ -726,6 +726,9 @@ GL_LIBS
 GLU_CFLAGS
 GLU_LIBS
 TCLTK_LIBS
+canonical_host_type
+IBM_IS_PIECE_OF_SHIT_TRUE
+IBM_IS_PIECE_OF_SHIT_FALSE
 LIBOBJS
 LTLIBOBJS'
 ac_subst_files=''
@@ -7859,7 +7862,150 @@ fi
 
 
 LIBS="$LIBS $MATC_LIBS $EIOC_LIBS $LIBS $GL_LIBS $GLU_LIBS $TCLTK_LIBS"
-if $acx_platform_def == "WIN32"; then
+
+
+
+
+if test -z "$host"; then
+  host=unknown
+fi
+canonical_host_type=$host
+if test "$host" = unknown; then
+  { { echo "$as_me:$LINENO: error: configuring for unknown system type, your build will most likely be screwed." >&5
+echo "$as_me: error: configuring for unknown system type, your build will most likely be screwed." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+
+case "$canonical_host_type" in
+  *-*-darwin*)
+	LDFLAGS="$LDFLAGS -L/sw/lib"
+	CFLAGS="$CFLAGS -I/sw/include"
+	CXXFLAGS="$CXXFLAGS -I/sw/include"
+  ;;
+esac
+
+
+
+
+
+acx_platform_def="GENERIC"
+case "$canonical_host_type" in
+  *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
+	acx_platform_def="BSD"
+
+cat >>confdefs.h <<\_ACEOF
+#define BSD 1
+_ACEOF
+
+  ;;
+  *-*-freebsd*)
+	acx_platform_def="BSD"
+
+cat >>confdefs.h <<\_ACEOF
+#define BSD 1
+_ACEOF
+
+  ;;
+  alpha*-dec-osf*)
+	acx_platform_def="DEC_ALPHA"
+
+cat >>confdefs.h <<\_ACEOF
+#define DEC_ALPHA 1
+_ACEOF
+
+  ;;
+  *-*-darwin*)
+
+cat >>confdefs.h <<\_ACEOF
+#define DARWIN 1
+_ACEOF
+
+  ;;
+  *-*-cygwin*)
+	acx_platform_def="WIN32"
+
+cat >>confdefs.h <<\_ACEOF
+#define CYGWIN 1
+_ACEOF
+
+  ;;
+  *-*-mingw*)
+	acx_platform_def="WIN32"
+
+cat >>confdefs.h <<\_ACEOF
+#define MINGW32 1
+_ACEOF
+
+
+cat >>confdefs.h <<\_ACEOF
+#define WIN32 1
+_ACEOF
+
+  ;;
+  *-*-linux* | *-*-gnu*)
+
+cat >>confdefs.h <<\_ACEOF
+#define LINUX 1
+_ACEOF
+
+  ;;
+  i[3456]86-*-sco3.2v5*)
+
+cat >>confdefs.h <<\_ACEOF
+#define BASTARDS 1
+_ACEOF
+
+  ;;
+  rs6000-ibm-aix* | powerpc-ibm-aix*)
+	acx_platform_def="AIX"
+
+cat >>confdefs.h <<\_ACEOF
+#define AIX 1
+_ACEOF
+
+  ;;
+  hppa*-hp-hpux*)
+
+cat >>confdefs.h <<\_ACEOF
+#define HPUX 1
+_ACEOF
+
+  ;;
+  *-sgi-*)
+
+cat >>confdefs.h <<\_ACEOF
+#define SGI 1
+_ACEOF
+
+  ;;
+  sparc-sun-sunos4*)
+
+cat >>confdefs.h <<\_ACEOF
+#define SUNOS 1
+_ACEOF
+
+  ;;
+  sparc-sun-solaris2* | i386-pc-solaris2*)
+
+cat >>confdefs.h <<\_ACEOF
+#define SOLARIS 1
+_ACEOF
+
+  ;;
+esac
+
+
+
+if test "$acx_platform_def" = "AIX"; then
+  IBM_IS_PIECE_OF_SHIT_TRUE=
+  IBM_IS_PIECE_OF_SHIT_FALSE='#'
+else
+  IBM_IS_PIECE_OF_SHIT_TRUE='#'
+  IBM_IS_PIECE_OF_SHIT_FALSE=
+fi
+
+
+if test "$acx_platform_def"="WIN32"; then
   LIBS="$LIBS -lgdi32"
 fi
 CFLAGS="$CFLAGS $GL_CFLAGS $GLU_CFLAGS $TCLTK_INCLUDE"
@@ -7998,6 +8144,13 @@ if test -z "${USE_WINDOWS_COMPILER_TRUE}" && test -z "${USE_WINDOWS_COMPILER_FAL
   { { echo "$as_me:$LINENO: error: conditional \"USE_WINDOWS_COMPILER\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
 echo "$as_me: error: conditional \"USE_WINDOWS_COMPILER\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+if test -z "${IBM_IS_PIECE_OF_SHIT_TRUE}" && test -z "${IBM_IS_PIECE_OF_SHIT_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"IBM_IS_PIECE_OF_SHIT\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"IBM_IS_PIECE_OF_SHIT\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
@@ -8689,11 +8842,14 @@ GL_LIBS!$GL_LIBS$ac_delim
 GLU_CFLAGS!$GLU_CFLAGS$ac_delim
 GLU_LIBS!$GLU_LIBS$ac_delim
 TCLTK_LIBS!$TCLTK_LIBS$ac_delim
+canonical_host_type!$canonical_host_type$ac_delim
+IBM_IS_PIECE_OF_SHIT_TRUE!$IBM_IS_PIECE_OF_SHIT_TRUE$ac_delim
+IBM_IS_PIECE_OF_SHIT_FALSE!$IBM_IS_PIECE_OF_SHIT_FALSE$ac_delim
 LIBOBJS!$LIBOBJS$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 18; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 21; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5
