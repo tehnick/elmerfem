@@ -2101,7 +2101,7 @@ static int WindowSize( ClientData cl,Tcl_Interp *interp,int argc,char **argv )
    int height = atoi( *++argv );
 
 #ifdef WIN32
-   SetWindowPos( auxGetHWND(), HWND_TOP, 0, 0, width, height, SWP_NOMOVE);
+   SetWindowPos( auxGetHWND(), HWND_TOP, 0, 0, width, height, SWP_NOMOVE | SWP_NOACTIVATE );
 #else
    XResizeWindow( (Display *)tkXDisplay(), tkXWindow(), width, height );
 #endif
@@ -2120,7 +2120,7 @@ static int WindowPosition( ClientData cl,Tcl_Interp *interp,int argc,char **argv
    int oy = atoi( *++argv );
 
 #ifdef WIN32
-   SetWindowPos( auxGetHWND(), HWND_TOP, ox, oy, 0, 0, SWP_NOSIZE);
+   SetWindowPos( auxGetHWND(), HWND_TOP, ox, oy, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE );
 #else
    XMoveWindow( (Display *)tkXDisplay(), tkXWindow(), ox, oy );
 #endif
