@@ -41,14 +41,21 @@ set PSFileName ""
 proc saveimage { File outps }   {
   global GlobalOptions PSFileName
 
-  if { $outps } {
-     set PSFileName $File
-     set GlobalOptions(OutputPS) 1
-     display
-     set GlobalOptions(OutputPS) 0
-     display
+  if { $outps == 1 } {
+      puts "ps"
+      set PSFileName $File
+      set GlobalOptions(OutputPS) 1
+      display
+      set GlobalOptions(OutputPS) 0
+      display
   } else {
-     screensave $File
+      if { $outps == 0 } {
+	  puts "ppm"
+	  screensave $File
+      } else {
+	  puts "jpg"
+	  savejpg $File
+      }
   }
 }
 
@@ -75,7 +82,8 @@ proc SaveImage {} {
     radiobutton $w.rb2 -value 0 -variable "OUTPS" -text "PPM Image"
     checkbutton $w.rb3  -variable "GlobalOptions(FitToPagePS)" -text "Fit PS to page"
     radiobutton $w.rb1 -value 1 -variable "OUTPS" -text "Postscript"
-    pack $w.sp1 $w.rb1 $w.rb3 $w.rb2
+    radiobutton $w.rb4 -value 2 -variable "OUTPS" -text "JPG Image"
+    pack $w.sp1 $w.rb1 $w.rb3 $w.rb2 $w.rb4
 
 #    pack $w.rb3 -side top
 
