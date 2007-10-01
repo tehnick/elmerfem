@@ -3,16 +3,16 @@
 //
 // Module for compressing and saving ElmerPost-pictures in MPEG1 format
 //
-// Compile e.g. as follows:
+// Compile e.g. as follows (you need ffmpeg installed in $FFMPEG):
 //
 //   MinGW: 
 //
 //     > gcc -shared -O -I$FFMPEG/include -L$FFMPEG/lib -o savempg.dll 
-//           savempg.c -lopengl32 -ltcl84 -lavcodec -lavutil -lz
+//               savempg.c -lopengl32 -ltcl84 -lavcodec -lavutil
 //
 //   Linux:
 //
-//     > more or less the same (-lGL -ltcl -lavcodec -lavutil -lz)
+//     > more or less the same (-lGL -ltcl -lavcodec -lavutil)
 //
 // Copy the shared library into $ELMER_POST_HOME/modules and run ElmerPost
 //
@@ -77,6 +77,7 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
   static unsigned char *buffer;
   static int count_frames = 0;
   static char *state;
+  static int initialized = 0;
 
   if( argc<2 ) {
     SetMessage( interp, "too few arguments" );
@@ -131,7 +132,17 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
     oy = viewp[1];
     nx = viewp[2]+1;
     ny = viewp[3]+1;
-    
+
+    // Must be even:
+    //--------------
+    if( nx % 2 || ny % 2 ) {
+      SetMessage( interp, "win size must be even" );
+      fprintf( stdout, "State: stopped\n" );
+      fflush( stdout );
+      fclose( outfile );
+      return TCL_ERROR;
+    }
+
     // Allocate memory for RGB data:
     //------------------------------
     if ( !(buffer=(unsigned char *)malloc(3*nx*ny)) ) {
@@ -142,8 +153,11 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
 
     // Initialize libavcodec:
     //-----------------------
-    avcodec_init();
-    avcodec_register_all();
+    if( !initialized ) {
+      avcodec_init();
+      avcodec_register_all();
+      initialized = 1;
+    }
 
     // Choose MPEG1 codec:
     //---------------------
@@ -180,11 +194,11 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
       return TCL_ERROR;
     }
     
-    outbuf_size = 100000;
+    outbuf_size = 200000;
     outbuf = malloc( outbuf_size );
     size = c->width * c->height;
 
-    if( !(picture_buf = malloc((size * 3)/2) ) ) {
+    if( !(picture_buf = malloc( (size * 3)/2) ) ) {
       SetMessage( interp, "can't allocate memory" );
       free( buffer );
       fclose( outfile );
@@ -228,16 +242,17 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
     //--------------------------------------------------
     for( y=0; y<c->height; y++ ) {
       for( x=0; x<c->width; x++ ) {
-	float R = (float)buffer[3*x+0 + (ny-y)*3*nx];
-	float G = (float)buffer[3*x+1 + (ny-y)*3*nx];
-	float B = (float)buffer[3*x+2 + (ny-y)*3*nx];
-	
+	float R = (float)buffer[3*x+0 + (ny-y-1)*3*nx];
+	float G = (float)buffer[3*x+1 + (ny-y-1)*3*nx];
+	float B = (float)buffer[3*x+2 + (ny-y-1)*3*nx];
+
 	unsigned char Y = (unsigned char)( 0.257*R + 0.504*G + 0.098*B) + 16;
 	unsigned char U = (unsigned char)(-0.148*R - 0.291*G + 0.439*B) + 128;
 	unsigned char V = (unsigned char)( 0.439*R - 0.368*G - 0.071*B) + 128;
-	
-	picture->data[0][y   * picture->linesize[0] + x  ] = Y;
-	if( !( x % 2 || y % 2 ) ) {
+
+	picture->data[0][ y * picture->linesize[0] + x  ] = Y;
+
+	if( !(x % 2) && !(y % 2)  ) {
 	  picture->data[1][y/2 * picture->linesize[1] + x/2] = U;
 	  picture->data[2][y/2 * picture->linesize[2] + x/2] = V;
 	}
