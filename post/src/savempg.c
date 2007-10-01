@@ -7,8 +7,8 @@
 //
 //   MinGW: 
 //
-//     > gcc -shared -O -o savempg.dll savempg.c 
-//           -lopengl32 -ltcl84 -lavcodec -lavutil -lz
+//     > gcc -shared -O -I$FFMPEG/include -L$FFMPEG/lib -o savempg.dll 
+//           savempg.c -lopengl32 -ltcl84 -lavcodec -lavutil -lz
 //
 //   Linux:
 //
@@ -180,7 +180,7 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
       return TCL_ERROR;
     }
     
-    outbuf_size = 40000;
+    outbuf_size = 100000;
     outbuf = malloc( outbuf_size );
     size = c->width * c->height;
 
