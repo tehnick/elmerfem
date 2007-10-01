@@ -47,6 +47,8 @@
 //
 
 
+#include <../../config.h>
+
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -59,6 +61,7 @@
 #endif
 
 #include "glpfile.h"
+
 
 double LLx, LLy, URx, URy;
 extern GLPtext       *texthead;

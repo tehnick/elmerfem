@@ -38,8 +38,15 @@
 // Include necessary headers.
 //
 
+#include <../../config.h>
+
 #include "glp.h"
 #include <math.h>
+#include <stdlib.h>
+#ifdef HAVE_STRING_H
+#include <string.h>
+#endif
+
 //#define DEBUG
 
 
