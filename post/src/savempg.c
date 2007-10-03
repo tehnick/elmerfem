@@ -18,13 +18,13 @@
 //
 // Copy the shared library into $ELMER_POST_HOME/modules and run ElmerPost
 //
-// Usage:
+// Usage in Elmer-Post:
 //
-//   Elmer-Post: savempg status file
-//
-// where status is either "start", "append" or "stop". File defaults to 
-// "elmerpost.mpg" (this argument is neglected unless status == start).
-//
+//    savempg bitrate value       [ default value: 400000 (bps)          ]
+//    savempg start file.mpg      [ initializes video compressor         ]
+//    savempg append              [ adds current frame to video sequence ]
+//    savempg stop                [ finalizes video compressor           ]
+//    
 // Parsed together from screensave.c && the ffmpeg samples
 //
 // Written by: ML, 30. Sept. 2007
@@ -43,44 +43,33 @@
 #include <inttypes.h>
 #include <GL/gl.h>
 #include <tcl.h>
-
-#if !(defined(WIN32) || defined(win32))
-#include <errno.h>
-extern int errno;
-#endif
-
 #include <ffmpeg/avcodec.h>
 
-#define INBUF_SIZE    4096
-
+#define INBUF_SIZE 4096
 #define STATE_READY   0
 #define STATE_STARTED 1
 
 #undef MPEG4
 
 void SetMessage( Tcl_Interp *interp, char *message ) {
-#if defined(WIN32) || defined(win32)
   sprintf( interp->result, "savempg: %s\n", message );
-#else
-  sprintf( interp->result, "savempg: %s:\n%s\n", message, strerror(errno) );
-#endif
 }
 
 static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
   static AVCodec *codec;
-  static AVCodecContext *c = NULL;
-  static AVFrame *picture, *RGBpicture;
-  static int out_size, size, stride, y, outbuf_size;
-  static int nx, ny, ox, oy, viewp[4];
+  static AVCodecContext *context = NULL;
+  static AVFrame *YUVpicture;
+  static AVFrame *RGBpicture;
+  static int MPGbytes, PIXsize, RGBstride;
+  static int y, nx, ny, ox, oy, viewp[4];
   static int i_state = STATE_READY;
   static int initialized = 0;
   static int count_frames = 0;
-  static uint8_t *outbuf, *picture_buf;
-  static char fname[256];
-  static FILE *outfile;
-  static unsigned char *buffer, *rowbuffer;
-  static char *state;
   static int bitrate = 400000;
+  static int MPGbufsize = 200000;
+  static uint8_t *MPGoutbuf, *YUVbuffer, *RGBbuffer, *RGBrowbuf;
+  static FILE *MPGfile;
+  static char *state, fname[256];
 
   if( argc<2 ) {
     SetMessage( interp, "too few arguments" );
@@ -88,11 +77,27 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
   }
 
   state = argv[1];
+  //===========================================================================
+  //                              SET QUALITY
+  //===========================================================================
   if( !strncmp( state, "bitrate", 7 ) ) {
+
+    // Can't change while running:
+    //----------------------------
+    if( i_state != STATE_READY ) {
+      SetMessage( interp, "can't change bitrate when running" );
+      return TCL_ERROR;
+    }
+
     if( argc >= 3 )
       bitrate = atoi( argv[2] );
+    
+    fprintf( stdout, "savempg: bitrate set to: %d bps\n", bitrate );
+    fflush( stdout );
+
     return TCL_OK;
-  } 
+  }
+
   //===========================================================================
   //                           START COMPRESSION
   //===========================================================================
@@ -119,45 +124,48 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
     
     // Open output file:
     //------------------
-    if( (outfile = fopen(fname, "wb")) == NULL ) {
+    if( (MPGfile = fopen(fname, "wb")) == NULL ) {
       SetMessage( interp, "can't open file" );
       return TCL_ERROR;
     }
 
-    fprintf( stdout, "Saving frames to: %s\n", fname );
-    fprintf( stdout, "libavcodec version: %s\n", 
+    fprintf( stdout, "savempg: saving to: %s\n", fname );
+    fprintf( stdout, "savempg: libavcodec: %s\n", 
 	     AV_STRINGIFY(LIBAVCODEC_VERSION) );
-    fprintf( stdout, "libavutil version: %s\n", 
+    fprintf( stdout, "savempg: libavutil: %s\n", 
 	     AV_STRINGIFY(LIBAVUTIL_VERSION) );
     fflush( stdout );
 
     count_frames = 0;
 
-    // Determine size:
-    //-----------------
+    // Determine view port size etc.:
+    //-------------------------------
     glGetIntegerv( GL_VIEWPORT, viewp );
     ox = viewp[0];
     oy = viewp[1];
     nx = viewp[2]+1;
     ny = viewp[3]+1;
-    stride = 3*nx;
+    PIXsize = nx*ny;
+    RGBstride = 3*nx;
 
     // Must be even:
     //--------------
     if( nx % 2 || ny % 2 ) {
-      SetMessage( interp, "view port must be even" );
-      fprintf( stdout, "State: stopped\n" );
+      fprintf( stdout, "savempg: state: stopped\n" );
       fflush( stdout );
-      fclose( outfile );
+      fclose( MPGfile );
+      SetMessage( interp, "view port must be even" );
       return TCL_ERROR;
     }
 
-    // Allocate memory for RGB data:
-    //------------------------------
-    if ( !(buffer = (unsigned char *)malloc(3*nx*ny)) ||
-	 !(rowbuffer = (unsigned char *)malloc(3*nx)) ) {
+    // Allocate memory:
+    //-----------------
+    if ( !(RGBbuffer = malloc(RGBstride*ny)) ||
+	 !(RGBrowbuf = malloc(RGBstride)) ||
+	 !(YUVbuffer = malloc(3*(PIXsize/2))) ||
+	 !(MPGoutbuf = malloc(MPGbufsize)) ) {
+      fclose( MPGfile );
       SetMessage( interp, "can't allocate memory" );
-      fclose( outfile );
       return TCL_ERROR;
     }
 
@@ -178,58 +186,58 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
 #endif
 
     if( !codec ) {
+      free( RGBbuffer );
+      free( RGBrowbuf );
+      free( YUVbuffer );
+      free( MPGoutbuf );
+      fclose( MPGfile );
       SetMessage( interp, "can't find codec" );
-      free( buffer );
-      free( rowbuffer );
-      fclose( outfile );
       return TCL_ERROR;
     }
     
     // Init codec context etc.:
     //--------------------------
-    c = avcodec_alloc_context();
-    picture = avcodec_alloc_frame();
+    context = avcodec_alloc_context();
+
+    context->bit_rate = bitrate;
+    context->width = nx;
+    context->height = ny;
+    context->time_base = (AVRational){ 1, 25 };
+    context->gop_size = 10;
+    context->max_b_frames = 1;
+    context->pix_fmt = PIX_FMT_YUV420P;
+  
+    if( avcodec_open( context, codec ) < 0 ) {
+      free( RGBbuffer );
+      free( RGBrowbuf );
+      free( YUVbuffer );
+      free( MPGoutbuf );
+      fclose( MPGfile );
+      SetMessage( interp, "can't open codec" );
+      return TCL_ERROR;
+    }
+
+    YUVpicture = avcodec_alloc_frame();
     RGBpicture = avcodec_alloc_frame();
 
-    c->bit_rate = bitrate;
-    c->width = nx;
-    c->height = ny;
-    c->time_base = (AVRational){ 1, 25 };
-    c->gop_size = 10;
-    c->max_b_frames = 1;
-    c->pix_fmt = PIX_FMT_YUV420P;
-  
-    if( avcodec_open( c, codec ) < 0 ) {
-      SetMessage( interp, "can't open codec" );
-      free( buffer );
-      free( rowbuffer );
-      fclose( outfile );
-      return TCL_ERROR;
-    }
+    YUVpicture->data[0] = YUVbuffer;
+    YUVpicture->data[1] = YUVbuffer + PIXsize;
+    YUVpicture->data[2] = YUVbuffer + PIXsize + PIXsize / 4;
+    YUVpicture->linesize[0] = nx;
+    YUVpicture->linesize[1] = nx / 2;
+    YUVpicture->linesize[2] = nx / 2;
 
-    outbuf_size = 200000;
-    size = c->width * c->height;
-
-    if( !(outbuf = malloc(outbuf_size)) ||
-	!(picture_buf = malloc(3*(size/2))) ) {
-      SetMessage( interp, "can't allocate memory" );
-      free( buffer );
-      free( rowbuffer );
-      fclose( outfile );      
-      return TCL_ERROR;
-    }
-    
-    picture->data[0] = picture_buf;
-    picture->data[1] = picture->data[0] + size;
-    picture->data[2] = picture->data[1] + size / 4;
-    picture->linesize[0] = c->width;
-    picture->linesize[1] = c->width / 2;
-    picture->linesize[2] = c->width / 2;
+    RGBpicture->data[0] = RGBbuffer;
+    RGBpicture->data[1] = RGBbuffer;
+    RGBpicture->data[2] = RGBbuffer;
+    RGBpicture->linesize[0] = RGBstride;
+    RGBpicture->linesize[1] = RGBstride;
+    RGBpicture->linesize[2] = RGBstride;
     
     // Set state "started":
     //----------------------
     i_state = STATE_STARTED;
-    fprintf( stdout, "State: started\n" );
+    fprintf( stdout, "savempg: state: started\n" );
     fflush( stdout );
     
     return TCL_OK;
@@ -250,41 +258,33 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
     // Read RGB data:
     //---------------
     glReadBuffer( GL_FRONT );
-    glReadPixels( ox, oy, nx, ny, GL_RGB, GL_UNSIGNED_BYTE, buffer );
+    glReadPixels( ox, oy, nx, ny, GL_RGB, GL_UNSIGNED_BYTE, RGBbuffer );
 
     // The picture is upside down - flip it:
     //---------------------------------------
     for( y=0; y<ny/2; y++ ) {
-      unsigned char *row1 = buffer + stride * y;
-      unsigned char *row2 = buffer + stride * (ny-1-y);
-      memcpy( rowbuffer, row1, stride );
-      memcpy( row1, row2, stride );
-      memcpy( row2, rowbuffer, stride );
+      uint8_t *RGBrow1 = RGBbuffer + RGBstride*y;
+      uint8_t *RGBrow2 = RGBbuffer + RGBstride*(ny-1-y);
+      memcpy( RGBrowbuf, RGBrow1, RGBstride );
+      memcpy( RGBrow1, RGBrow2, RGBstride );
+      memcpy( RGBrow2, RGBrowbuf, RGBstride );
     }
 
     // Convert to YUV:
     //----------------
-    RGBpicture->data[0] = buffer;
-    RGBpicture->data[1] = buffer;
-    RGBpicture->data[2] = buffer;
-    RGBpicture->linesize[0] = stride;
-    RGBpicture->linesize[1] = stride;
-    RGBpicture->linesize[2] = stride;
-
-    img_convert( (AVPicture*)picture, PIX_FMT_YUV420P, 
-		 (AVPicture*)RGBpicture, PIX_FMT_RGB24, 
-		 nx, ny );
+    img_convert( (AVPicture*)YUVpicture, PIX_FMT_YUV420P, 
+		 (AVPicture*)RGBpicture, PIX_FMT_RGB24, nx, ny );
 
     // Encode frame:
     //--------------
-    out_size = avcodec_encode_video( c, outbuf, outbuf_size, picture );
+    MPGbytes = avcodec_encode_video( context, MPGoutbuf, MPGbufsize, YUVpicture );
     count_frames++;
 
-    fprintf( stdout, "encoded frame %5d (size:%6d bytes)\n", 
-	     count_frames, out_size );
+    fprintf( stdout, "savempg: encoded frame %5d (size:%6d bytes)\n", 
+	     count_frames, MPGbytes );
     fflush( stdout );
 
-    fwrite( outbuf, 1, out_size, outfile );
+    fwrite( MPGoutbuf, 1, MPGbytes, MPGfile );
     
     return TCL_OK;
   } 
@@ -303,42 +303,42 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
 
     // Get the delayed frames:
     //-------------------------
-    for( ; out_size; ) {
+    for( ; MPGbytes; ) {
       fflush( stdout );
-      out_size = avcodec_encode_video( c, outbuf, outbuf_size, NULL );
+      MPGbytes = avcodec_encode_video( context, MPGoutbuf, MPGbufsize, NULL );
       count_frames++;
-      fprintf( stdout, "wrote frame   %5d (size:%6d bytes)\n", 
-	       count_frames, out_size );
-      fwrite( outbuf, 1, out_size, outfile );
+      fprintf( stdout, "savempg: wrote frame   %5d (size:%6d bytes)\n", 
+	       count_frames, MPGbytes );
+      fwrite( MPGoutbuf, 1, MPGbytes, MPGfile );
     }
     
     // Add sequence end code:
     //-----------------------
 #if !defined(MPEG4)
-    outbuf[0] = 0x00;
-    outbuf[1] = 0x00;
-    outbuf[2] = 0x01;
-    outbuf[3] = 0xb7;
-    fwrite( outbuf, 1, 4, outfile );
+    MPGoutbuf[0] = 0x00;
+    MPGoutbuf[1] = 0x00;
+    MPGoutbuf[2] = 0x01;
+    MPGoutbuf[3] = 0xb7;
+    fwrite( MPGoutbuf, 1, 4, MPGfile );
 #endif
-    fclose( outfile );
+    fclose( MPGfile );
 
-    free( picture_buf );
-    free( outbuf );
+    free( YUVbuffer );
+    free( MPGoutbuf );
     
     // Finalize:
     //-----------
-    avcodec_close( c );
-    av_free( c );
-    av_free( picture );
+    avcodec_close( context );
+    av_free( context );
+    av_free( YUVpicture );
     av_free( RGBpicture );
     
     i_state = STATE_READY;
-    fprintf( stdout, "State: stopped\n" );
+    fprintf( stdout, "savempg: state: stopped\n" );
     fflush( stdout );
 
-    free( buffer );
-    free( rowbuffer );
+    free( RGBbuffer );
+    free( RGBrowbuf );
     
     return TCL_OK;
   } 
