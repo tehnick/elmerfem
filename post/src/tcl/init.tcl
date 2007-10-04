@@ -190,27 +190,53 @@ rotpriority local
 UpdateObject
 
 puts "loading math init"
-
 math "source(\"$ELMER_POST_HOME/lib/mc.ini\")"
-
 #
 # load shared modules from post/modules directory
 #
 if { [file exists $ELMER_POST_HOME/modules] } {
-  set mods [glob $ELMER_POST_HOME/modules/*];
-  
-  set n [llength $mods];
-  do i 0 [@ $n-1] {
-     set mod [lindex $mods $i];
-     if { [file exists $mod] } {
-        puts "Loading external module: $mod";
-        load $mod [file rootname [file tail $mod]]
-     }
-  }
+    set mods [glob $ELMER_POST_HOME/modules/*];
+    #
+    # Add menubutton "Modules" to menubar
+    #
+    menubutton .menubar.modules -menu .menubar.modules.menu \
+	-text "Modules" -underline 0
+    menu .menubar.modules.menu
+    pack .menubar.modules -side right
+    
+    set n [llength $mods];
+    do i 0 [@ $n-1] {
+	set mod [lindex $mods $i];
+	if { [file exists $mod] } {
+	    puts "Loading external module: $mod";
+	    load $mod [file rootname [file tail $mod]];
+	    #
+	    # Add module to "Modules":
+	    #
+	    set modfile [file tail $mod];	    
+	    #
+	    # Module name:
+	    #
+	    regexp (.*).so $modfile tmp module_name;
+	    if { $module_name == "" } {
+	    	regexp (.*).dll $modfile tmp module_name;
+	    }
+	    #
+	    # Load tcl script:
+	    #
+	    if { $module_name != "" } {
+		set tclfile $module_name.tcl;
+		set modsource $ELMER_POST_HOME/tcl/$tclfile;
+		if { [file exist $modsource] } {
+		    puts "Sourcing script: $modsource";
+		    source $modsource;
+		    .menubar.modules.menu add command -underline 0
+		    .menubar.modules.menu entryconfigure last \
+			-label $module_name -command $module_name.Control
+		}
+	    }
+	}
+    }
 }
-
-
-
-
 
 puts "done initializing"
