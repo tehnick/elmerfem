@@ -17,7 +17,7 @@
 #*
 #*******************************************************************************
 #*
-#*                     Author:       Juha Ruokolainen
+#*                     Author:       Mikko Lyly
 #*
 #*                    Address: Center for Scientific Computing
 #*                                Tietotie 6, P.O. BOX 405
@@ -34,21 +34,25 @@
 #*
 #*******************************************************************************
 set savempg_start_stop_state "Start"
+set savempg_append_state "-"
 set savempg_bitrate 1000000
 set MPGFileName "elmerpost.mpg"
 #
 # Helper procs:
 #
 proc savempg_start_stop {  } {
-    global savempg_start_stop_state savempg_bitrate MPGFileName
+    global savempg_start_stop_state savempg_append_state \
+	savempg_bitrate MPGFileName
 
     if { $savempg_start_stop_state == "Start" } {
 	savempg bitrate $savempg_bitrate
 	savempg start $MPGFileName
 	set savempg_start_stop_state "Stop"
+        set savempg_append_state "Append"
     } else {
 	savempg stop
 	set savempg_start_stop_state "Start"
+        set savempg_append_state "-"
     }
 }
 
@@ -61,18 +65,20 @@ proc savempg_append { } {
 }
 
 proc savempg_close { } {
-    global savempg_start_stop_state
+    global savempg_start_stop_state savempg_append_state
 
     if { $savempg_start_stop_state == "Stop" } {
 	savempg stop
 	set savempg_start_stop_state "Start"
+	set savempg_append_state "-"
     }
 }
 #
 # Main control:
 #
 proc savempg.Control { } {
-    global savempg_control savempg_start_stop_state savempg_bitrate MPGFileName
+    global savempg_control savempg_start_stop_state savempg_append_state \
+	savempg_bitrate MPGFileName
 
     set savempg_control .savempg_control
     
@@ -94,10 +100,10 @@ proc savempg.Control { } {
     #
     frame $savempg_control.bitrate
 
-    label $savempg_control.bitrate.label1 -width 8 -text "Bitrate:   "
+    label $savempg_control.bitrate.label1 -width 8 -text "Bitrate:"
     entry $savempg_control.bitrate.value -width 10 \
 	-textvariable savempg_bitrate
-    label $savempg_control.bitrate.label2 -width 3 -text "bps"
+    label $savempg_control.bitrate.label2 -width 28 -text "bits per second (relative to 25 fps)"
     pack $savempg_control.bitrate.label1 $savempg_control.bitrate.value \
 	$savempg_control.bitrate.label2 -side left 
     
@@ -108,7 +114,7 @@ proc savempg.Control { } {
     frame $savempg_control.file
     
     label $savempg_control.file.label -width 8 -text "File name:"
-    entry $savempg_control.file.name -width 30 -textvariable MPGFileName
+    entry $savempg_control.file.name -width 32 -textvariable MPGFileName
     button $savempg_control.file.button -text "Browse.." \
 	-command { set MPGFileName [tk_getSaveFile -parent .savempg_control \
 					-title "Save Video Clip To File"]; }
@@ -132,7 +138,8 @@ proc savempg.Control { } {
 	-side left -expand 1 -fill x
 
     frame $savempg_control.append_button
-    button $savempg_control.append_button.append -text "Append" \
+    button $savempg_control.append_button.append \
+	-textvariable savempg_append_state \
 	-command savempg_append
     pack $savempg_control.append_button.append -side left -expand 1 -fill x
 

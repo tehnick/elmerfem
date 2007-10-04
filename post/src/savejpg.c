@@ -91,7 +91,8 @@ static int SaveJPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
     fclose( outfile );
     return TCL_ERROR;
   }
-  fprintf( stderr, "Saving %s (quality: %d)... ", fname, quality );  
+  fprintf( stdout, "Saving %s (quality: %d)... ", fname, quality );
+  fflush( stdout );
   
   // Copy RGB-data into buffer:
   //----------------------------
@@ -123,7 +124,8 @@ static int SaveJPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
   fclose( outfile );
   
   jpeg_destroy_compress( &cinfo );
-  fprintf( stderr, "done [ok]\n" );  
+  fprintf( stdout, "done [ok]\n" );  
+  fflush( stdout );
 
   free( buffer );
   return TCL_OK;

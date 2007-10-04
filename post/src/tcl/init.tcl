@@ -191,6 +191,7 @@ UpdateObject
 
 puts "loading math init"
 math "source(\"$ELMER_POST_HOME/lib/mc.ini\")"
+
 #
 # load shared modules from post/modules directory
 #
@@ -217,9 +218,11 @@ if { [file exists $ELMER_POST_HOME/modules] } {
 	    #
 	    # Module name:
 	    #
-	    regexp (.*).so $modfile tmp module_name;
-	    if { $module_name == "" } {
-	    	regexp (.*).dll $modfile tmp module_name;
+	    set tmp ""
+	    set module_name ""
+	    regexp (.*).so $modfile tmp module_name
+	    if { $module_name == ""  } {
+	    	regexp (.*).dll $modfile tmp module_name
 	    }
 	    #
 	    # Load tcl script:

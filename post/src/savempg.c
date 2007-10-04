@@ -92,7 +92,7 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
     if( argc >= 3 )
       bitrate = atoi( argv[2] );
     
-    fprintf( stdout, "savempg: bitrate set to: %d bps\n", bitrate );
+    fprintf( stdout, "savempg: bitrate: %d bps\n", bitrate );
     fflush( stdout );
 
     return TCL_OK;
@@ -129,7 +129,7 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
       return TCL_ERROR;
     }
 
-    fprintf( stdout, "savempg: saving to: %s\n", fname );
+    fprintf( stdout, "savempg: file: %s\n", fname );
     fprintf( stdout, "savempg: libavcodec: %s\n", 
 	     AV_STRINGIFY(LIBAVCODEC_VERSION) );
     fprintf( stdout, "savempg: libavutil: %s\n", 
@@ -280,7 +280,7 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
     MPGbytes = avcodec_encode_video( context, MPGoutbuf, MPGbufsize, YUVpicture );
     count_frames++;
 
-    fprintf( stdout, "savempg: encoded frame %5d (size:%6d bytes)\n", 
+    fprintf( stdout, "savempg: frame %5d: %6d bytes\n", 
 	     count_frames, MPGbytes );
     fflush( stdout );
 
@@ -307,7 +307,7 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
       fflush( stdout );
       MPGbytes = avcodec_encode_video( context, MPGoutbuf, MPGbufsize, NULL );
       count_frames++;
-      fprintf( stdout, "savempg: wrote frame   %5d (size:%6d bytes)\n", 
+      fprintf( stdout, "savempg: frame %5d: %6d bytes\n", 
 	       count_frames, MPGbytes );
       fwrite( MPGoutbuf, 1, MPGbytes, MPGfile );
     }
