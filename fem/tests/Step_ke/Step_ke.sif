@@ -1,4 +1,4 @@
-$ bndry_layer = 0.05
+$ bndry_layer = 0.01
 
 Header
   Mesh DB "." "Step_ke"
@@ -6,16 +6,13 @@ End
 
 
 Simulation
-  Max Output Level = 3
+! Max Output Level = 3
   Coordinate System = Cartesian 2D
 
   Simulation Type = Steady
-
   Steady State Max Iterations  = 200
-  Output Intervals = 100
 
-! Output File = "Step_small.result"
-! Post File = "Step_small.ep"
+  Post File = "Step_small.ep"
 End
 
 
@@ -39,35 +36,57 @@ Initial Condition 1
   Velocity 1 = 0
   Velocity 2 = 0
 
-  Kinetic Energy = 0.003
-  Kinetic Dissipation = 0.0001
+  Zeta = Real 1
+  f = real -1
+  Kinetic Energy = 0.03
+  Kinetic Dissipation = 0.001
 End
 
 
-
 Solver 1
-  Equation = Kepsilon
+  Equation = Zeta-f
 
-  Procedure = "KESolver" "KESolver"
-  Variable = KEpsilon[Kinetic Energy:1 Kinetic Dissipation:1]
+  Procedure = "Zeta-F-Solver" "ZetaFSolver"
+  Variable = ZetaF[Zeta:1 f:1]
  
   Stabilization Method = String Bubbles
   Nonlinear System Max Iterations = 1
   Nonlinear System Convergence Tolerance = 1.0e-5
   Nonlinear System Newton After Iterations = 20
   Nonlinear System Newton After Tolerance = 1.0e-3
-  Nonlinear System Relaxation Factor = 0.75
+  Nonlinear System Relaxation Factor = 0.5
 
-  Linear System Solver = Iterative
+  Linear System Solver = Direct
   Linear System Max Iterations = 1000
   Linear System Iterative Method = BiCGStab
-  Linear System Preconditioning = ILU3
+  Linear System Preconditioning = ILU0
   Linear System Convergence Tolerance = 1.0e-7
 
   Steady State Convergence Tolerance = 1.0e-5
 End
 
 Solver 2
+  Equation = Kepsilon
+
+  Procedure = "KESolver" "KESolver"
+  Variable = KEpsilon[Kinetic Energy:1 Kinetic Dissipation:1]
+ 
+  Nonlinear System Max Iterations = 1
+  Nonlinear System Convergence Tolerance = 1.0e-5
+  Nonlinear System Newton After Iterations = 20
+  Nonlinear System Newton After Tolerance = 1.0e-3
+  Nonlinear System Relaxation Factor = 0.5
+
+  Linear System Solver = Direct
+  Linear System Max Iterations = 1000
+  Linear System Iterative Method = BiCGStab
+  Linear System Preconditioning = ILU0
+  Linear System Convergence Tolerance = 1.0e-7
+
+  Steady State Convergence Tolerance = 1.0e-5
+End
+
+Solver 3
   Equation = Navier-Stokes
 
   Stabilization Method = String Bubbles
@@ -75,7 +94,7 @@ Solver 2
   Nonlinear System Convergence Tolerance = 1.0e-5
   Nonlinear System Newton After Iterations = 10
   Nonlinear System Newton After Tolerance  = 1.0e-2
-  Nonlinear System Relaxation Factor = 0.75
+  Nonlinear System Relaxation Factor = 0.5
 
   Linear System Solver = Iterative
   Linear System Max Iterations = 1000
@@ -87,17 +106,13 @@ Solver 2
 End
 
 
-Equation 1 :: Active Solvers(2) = 1 2
+Equation 1 :: Active Solvers(3) = 1 2 3
 
 
 Material 1
-  Viscosity = $1/19000.0
+  Viscosity = $1/1000.0
   Density = 1
-  KE SigmaK = 1.00
-  KE SigmaE = 1.30
-  KE C1     = 1.44
-  KE C2     = 1.92
-  KE Cmu    = 0.09
+  KE Model = "zeta-f"
   KE Clip   = Real 1.0e-6
   Viscosity Model = ke
 End
@@ -111,7 +126,7 @@ Boundary Condition 1
 
   Velocity 1 = Variable Coordinate 2
       Real
-        1.0000 $ bndry_layer^2
+        1.0000 0
         1.1250 0.4375
         1.2500 0.7500
         1.3750 0.9375
@@ -119,7 +134,7 @@ Boundary Condition 1
         1.6250 0.9375
         1.7500 0.7500
         1.8750 0.4375
-        2.0000 $ bndry_layer^2
+        2.0000 0
       End
 
    Velocity 2 = 0
@@ -133,11 +148,17 @@ Boundary Condition 2
   Target Boundaries(3) = 2 4 5
   Name = "Walls x"
 
+  Velocity 1 = 0
   Velocity 2 = 0
 
-  Flow Force BC = True
-  Wall Law = True
-  Boundary Layer Thickness =  $bndry_layer
+! Flow Force BC = True
+! Wall Law = True
+! Boundary Layer Thickness =  $bndry_layer
+
+  f = Real -0.1
+  Zeta = Real 0.1
+  Kinetic Energy = 0
+  Kinetic Dissipation  = 0
 End
 
 Boundary Condition 3
@@ -145,13 +166,19 @@ Boundary Condition 3
   Name =  "Walls y"
 
   Velocity 1 = 0
+  Velocity 2 = 0
 
-  Flow Force BC = True
-  Wall Law = True
-  Boundary Layer Thickness = $bndry_layer
+! Flow Force BC = True
+! Wall Law = True
+! Boundary Layer Thickness = $bndry_layer
+
+  f = Real -0.1
+  Zeta = Real 0.1
+  Kinetic Energy = 0
+  Kinetic Dissipation = 0
 End
 
 
-$fprintf( stdout, "TEST CASE 1\n");
+$fprintf( stderr, "TEST CASE 1\n");
 RUN
-$fprintf( stdout, "END TEST CASE 1: Target NRM=0.191766471278\n" );
+$fprintf( stderr, "END TEST CASE 1: Target NRM=0.191766471278\n" );
