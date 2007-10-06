@@ -103,7 +103,7 @@ proc savempg.Control { } {
     label $savempg_control.bitrate.label1 -width 8 -text "Bitrate:"
     entry $savempg_control.bitrate.value -width 10 \
 	-textvariable savempg_bitrate
-    label $savempg_control.bitrate.label2 -width 28 -text "bits per second (relative to 25 fps)"
+    label $savempg_control.bitrate.label2 -text "bits per second (relative to 25 fps)"
     pack $savempg_control.bitrate.label1 $savempg_control.bitrate.value \
 	$savempg_control.bitrate.label2 -side left 
     

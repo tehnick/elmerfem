@@ -2092,16 +2092,38 @@ void TestTkEvent()
 
 static int WindowSize( ClientData cl,Tcl_Interp *interp,int argc,char **argv )
 {
+   int width, height, dx, dy, ox, oy, nx, ny, viewp[4];
+
+
    if ( argc < 3 ) {
       sprintf( interp->result, "Usage: winsize width height" );
       return TCL_ERROR;
    }
 
-   int width  = atoi( *++argv );
-   int height = atoi( *++argv );
+   width  = atoi( *++argv );
+   height = atoi( *++argv );
 
 #ifdef WIN32
    SetWindowPos( auxGetHWND(), HWND_TOP, 0, 0, width, height, SWP_NOMOVE | SWP_NOACTIVATE );
+
+   // Measure the viewport size and make corrections winsize if necessary:
+   //---------------------------------------------------------------------
+   opengl_draw();
+   glGetIntegerv( GL_VIEWPORT, viewp );
+
+   ox = viewp[0];
+   oy = viewp[1];
+   nx = viewp[2]+1;
+   ny = viewp[3]+1;
+
+   dx = width - nx;
+   dy = height -ny;
+
+   width += dx;
+   height += dy;
+
+   SetWindowPos( auxGetHWND(), HWND_TOP, 0, 0, width, height, SWP_NOMOVE | SWP_NOACTIVATE );
+
 #else
    XResizeWindow( (Display *)tkXDisplay(), tkXWindow(), width, height );
 #endif
