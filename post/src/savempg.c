@@ -6,22 +6,22 @@
 // Compile e.g. as follows (you'll need ffmpeg installed in $FFMPEG):
 //
 //   MinGW: 
-//
 //     > gcc -shared -O -I$FFMPEG/include -L$FFMPEG/lib -o savempg.dll 
 //               savempg.c -lopengl32 -ltcl84 -lavcodec -lavutil -lz
-//
 //   Linux:
-//
 //     > more or less the same (-lGL -ltcl -lavcodec -lavutil -lz)
 //
-// Note that the libraries required depend on the libavcodec build.
+// ( Note that the libraries required depend on the libavcodec build. )
 //
 // Copy the shared library into $ELMER_POST_HOME/modules and run ElmerPost
 //
 // Usage in Elmer-Post:
 //
-//    savempg bitrate value       [ default value: 1000000 (bps)         ]
-//    savempg start file.mpg      [ initializes video compressor         ]
+//    savempg codec name          [ default: mpg1 ( mpg2, mpg2, yuv4 )   ]
+//    savempg bitrate value       [ default: 1000000 bps                 ]
+//    savempg gopsize value       [ default: 20 frames                   ]
+//    savempg bframes value       [ default: 2 frames                    ]
+//    savempg start file.es       [ initializes video compressor         ]
 //    savempg append              [ adds current frame to video sequence ]
 //    savempg stop                [ finalizes video compressor           ]
 //    
@@ -49,8 +49,8 @@
 #define INBUF_SIZE 4096
 #define STATE_READY 0
 #define STATE_STARTED 1
-#define DEFAULT_B_FRAMES 0
-#define DEFAULT_GOP_SIZE 12
+#define DEFAULT_B_FRAMES 2
+#define DEFAULT_GOP_SIZE 20
 #define DEFAULT_BITRATE 1000000
 #define DEFAULT_MPG_BUFSIZE 500000
 
@@ -96,17 +96,20 @@ void print_info( int count_frames, AVCodecContext *context, int bytes ) {
 }
 
 static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
-  static AVCodec *codec;
+  static AVCodec *codec = NULL;
   static AVCodecContext *context = NULL;
-  static AVFrame *YUVpicture;
-  static AVFrame *RGBpicture;
+  static AVFrame *YUVpicture = NULL;
+  static AVFrame *RGBpicture = NULL;
   static int bytes, PIXsize, stride;
   static int y, nx, ny, ox, oy, viewp[4];
   static int i_state = STATE_READY;
   static int initialized = 0;
   static int count_frames = 0;
   static int bitrate = DEFAULT_BITRATE;
+  static int gopsize = DEFAULT_GOP_SIZE;
+  static int bframes = DEFAULT_B_FRAMES;
   static int MPGbufsize = DEFAULT_MPG_BUFSIZE;
+  static int codec_id = CODEC_ID_MPEG1VIDEO;
   static FILE *MPGfile;
   static char *state, fname[256];
   static buffer_t buff;
@@ -118,7 +121,52 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
 
   state = argv[1];
   //===========================================================================
-  //                              SET QUALITY
+  //                             SELECT CODEC
+  //===========================================================================
+  if( !strncmp( state, "codec", 5 ) ) {
+
+    // Can't change while running:
+    //----------------------------
+    if( i_state != STATE_READY ) {
+      SetMessage( interp, "can't change codec when running" );
+      return TCL_ERROR;
+    }
+
+    // Default is MPEG1:
+    //------------------
+    codec_id = CODEC_ID_MPEG1VIDEO;
+
+    if( argc >= 3 ) {
+      char *c = argv[2];
+
+      if( !strncmp( c, "mpg1", 4 ) ) {
+	codec_id = CODEC_ID_MPEG1VIDEO;
+	fprintf( stdout, "savempg: codec: mpg1\n" );
+      }
+
+      if( !strncmp( c, "mpg2", 4 ) ) {
+	codec_id = CODEC_ID_MPEG2VIDEO;
+	fprintf( stdout, "savempg: codec: mpg2\n" );
+      }
+
+      if( !strncmp( c, "mpg4", 4 ) ) {
+	codec_id = CODEC_ID_MPEG4;
+	fprintf( stdout, "savempg: codec: mpg4\n" );
+      }
+
+      if( !strncmp( c, "yuv4", 4 ) ) {
+	codec_id = CODEC_ID_RAWVIDEO;
+	fprintf( stdout, "savempg: codec: yuv4\n" );
+      }
+    }
+    
+    fflush( stdout );
+
+    return TCL_OK;
+  }
+
+  //===========================================================================
+  //                              SET BITRATE
   //===========================================================================
   if( !strncmp( state, "bitrate", 7 ) ) {
 
@@ -129,10 +177,67 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
       return TCL_ERROR;
     }
 
+    bitrate = DEFAULT_BITRATE;
+
     if( argc >= 3 )
       bitrate = atoi( argv[2] );
     
+    if( bitrate < 100000 )
+      bitrate = 100000;
+
     fprintf( stdout, "savempg: bitrate: %d bps\n", bitrate );
+    fflush( stdout );
+
+    return TCL_OK;
+  }
+
+  //===========================================================================
+  //                              SET GOPSIZE
+  //===========================================================================
+  if( !strncmp( state, "gopsize", 7 ) ) {
+
+    // Can't change while running:
+    //----------------------------
+    if( i_state != STATE_READY ) {
+      SetMessage( interp, "can't change gopsize when running" );
+      return TCL_ERROR;
+    }
+
+    gopsize = DEFAULT_GOP_SIZE;
+
+    if( argc >= 3 )
+      gopsize = atoi( argv[2] );
+
+    if( gopsize < 1 )
+      gopsize = 1;
+    
+    fprintf( stdout, "savempg: gop: %d frames\n", gopsize );
+    fflush( stdout );
+
+    return TCL_OK;
+  }
+
+  //===========================================================================
+  //                              SET B-FRAMES
+  //===========================================================================
+  if( !strncmp( state, "bframes", 7 ) ) {
+
+    // Can't change while running:
+    //----------------------------
+    if( i_state != STATE_READY ) {
+      SetMessage( interp, "can't change bframes when running" );
+      return TCL_ERROR;
+    }
+
+    bframes = DEFAULT_B_FRAMES;
+
+    if( argc >= 3 )
+      bframes = atoi( argv[2] );
+    
+    if( bframes < 0 )
+      bframes = 0;
+
+    fprintf( stdout, "savempg: bframes: %d\n", bframes );
     fflush( stdout );
 
     return TCL_OK;
@@ -153,11 +258,7 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
     // Detemine output file name:
     //---------------------------
     if( argc < 3 ) {
-#if defined(MPEG4)
-      strcpy( fname, "elmerpost.raw" );
-#else
-      strcpy( fname, "elmerpost.m1v" );
-#endif
+      strcpy( fname, "elmerpost.es" );
     } else {
       strncpy( fname, argv[2], 256 );
     }
@@ -200,6 +301,9 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
 
     // Allocate memory:
     //-----------------
+    if( codec_id == CODEC_ID_RAWVIDEO )
+      MPGbufsize = 3*(PIXsize/2);
+
     if ( !(buff.RGB = (uint8_t*)malloc(stride*ny)) ||
 	 !(buff.ROW = (uint8_t*)malloc(stride)) ||
 	 !(buff.YUV = (uint8_t*)malloc(3*(PIXsize/2))) ||
@@ -219,11 +323,7 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
 
     // Choose codec:
     //--------------
-#if defined(MPEG4)
-    codec = avcodec_find_encoder( CODEC_ID_MPEG4 );
-#else
-    codec = avcodec_find_encoder( CODEC_ID_MPEG1VIDEO );
-#endif
+    codec = avcodec_find_encoder( codec_id );
 
     if( !codec ) {
       free_buffers( &buff );
@@ -235,15 +335,16 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
     // Init codec context etc.:
     //--------------------------
     context = avcodec_alloc_context();
+
     context->bit_rate = bitrate;
     context->width = nx;
     context->height = ny;
     context->time_base = (AVRational){ 1, 25 };
-    context->gop_size = DEFAULT_GOP_SIZE;
-    context->max_b_frames = DEFAULT_B_FRAMES;
+    context->gop_size = gopsize;
+    context->max_b_frames = bframes;
     context->pix_fmt = PIX_FMT_YUV420P;
     context->flags |= CODEC_FLAG_PSNR;
-
+    
     if( avcodec_open( context, codec ) < 0 ) {
       avcodec_close( context );
       av_free( context );
@@ -254,6 +355,7 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
     }
 
     YUVpicture = avcodec_alloc_frame();
+
     YUVpicture->data[0] = buff.YUV;
     YUVpicture->data[1] = buff.YUV + PIXsize;
     YUVpicture->data[2] = buff.YUV + PIXsize + PIXsize / 4;
@@ -262,6 +364,7 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
     YUVpicture->linesize[2] = nx / 2;
 
     RGBpicture = avcodec_alloc_frame();
+
     RGBpicture->data[0] = buff.RGB;
     RGBpicture->data[1] = buff.RGB;
     RGBpicture->data[2] = buff.RGB;
@@ -269,6 +372,13 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
     RGBpicture->linesize[1] = stride;
     RGBpicture->linesize[2] = stride;
     
+    // Write .ym4 header for raw video:
+    //----------------------------------
+    if( codec_id == CODEC_ID_RAWVIDEO ) {
+      fprintf( MPGfile, "YUV4MPEG2 W%d H%d F25:1 Ip A1:1", nx, ny );
+      fprintf( MPGfile, "%c", (char)0x0a );
+    }
+
     // Set state "started":
     //----------------------
     i_state = STATE_STARTED;
@@ -319,6 +429,11 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
     print_info( count_frames, context, bytes );
     fflush( stdout );
 
+    if( codec_id == CODEC_ID_RAWVIDEO ) {
+      fprintf( MPGfile, "FRAME" );
+      fprintf( MPGfile, "%c", (char)0x0a );
+    }
+
     fwrite( buff.MPG, 1, bytes, MPGfile );
     
     return TCL_OK;
@@ -350,13 +465,13 @@ static int SaveMPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
     
     // Add sequence end code:
     //-----------------------
-#if !defined(MPEG4)
-    buff.MPG[0] = 0x00;
-    buff.MPG[1] = 0x00;
-    buff.MPG[2] = 0x01;
-    buff.MPG[3] = 0xb7;
-    fwrite( buff.MPG, 1, 4, MPGfile );
-#endif
+    if( codec_id == CODEC_ID_MPEG1VIDEO ) {
+      buff.MPG[0] = 0x00;
+      buff.MPG[1] = 0x00;
+      buff.MPG[2] = 0x01;
+      buff.MPG[3] = 0xb7;
+      fwrite( buff.MPG, 1, 4, MPGfile );
+    }
 
     // Finalize:
     //-----------

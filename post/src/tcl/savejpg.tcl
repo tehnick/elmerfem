@@ -62,7 +62,7 @@ proc savejpg.Control { } {
     label $savejpg_control.quality.label1 -width 8 -text "Quality:   "
     entry $savejpg_control.quality.value -width 5 \
 	-textvariable savejpg_quality
-    label $savejpg_control.quality.label2 -width 20 -text "(1=low ... 100=best)"
+    label $savejpg_control.quality.label2 -text "(1=low ... 100=best)"
     pack $savejpg_control.quality.label1 $savejpg_control.quality.value \
 	$savejpg_control.quality.label2 -side left 
     
