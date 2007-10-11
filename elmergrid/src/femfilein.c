@@ -3248,13 +3248,13 @@ static void GmshToElmerIndx(int elemtype,int elemind[])
     elemind[9] = tmpind[8];    
     break;
 
-    /* There seems to be conflicting data whether this is needed or not */
+    /* There seems to be conflicting data whether this is needed or not 
   case 306:        
     tmpind[4] = elemind[4];
     tmpind[5] = elemind[5];
     elemind[4] = tmpind[5];
     elemind[5] = tmpind[4];    
-    break;
+    break; */
   }
 
 }
