@@ -274,6 +274,7 @@ EXTRA_DIST = \
 	TimeIntegrate.src \
 	TransportEquation.src \
 	Types.src \
+	V2FSolver.src \
 	ViewFactors.src \
 	Walls.src \
 	elements.def \

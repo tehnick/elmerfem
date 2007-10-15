@@ -215,7 +215,7 @@ this ise not in USE
      INTEGER(KIND=AddrInt) :: Fnc
 
      TYPE(Variable_t), POINTER :: Var
-     REAL(KIND=dp) :: KE_K, KE_E, Clip, Cmu, KECmu(n)
+     REAL(KIND=dp) :: KE_K, KE_E, KE_Z, CT, TimeScale,Clip, Cmu, Vals(n)
 
      CHARACTER(LEN=MAX_NAME_LEN) :: str
 
@@ -360,22 +360,47 @@ this ise not in USE
          Viscosity = Viscosity + Density * c2 * h**2 * SQRT( 2*ss ) / 2
          
        CASE( 'ke','k-epsilon' )
-         Var => VariableGet( CurrentModel % Variables, 'Kinetic Energy' )
-         IF ( .NOT. ASSOCIATED( Var ) ) &
-             CALL Fatal( 'Viscosity Model', 'The kinetic energy variable not defined?' )
-         KE_K = SUM(Basis(1:n) * Var % Values(Var % Perm(Element % NodeIndexes)))
+         IF (ListGetString(Material,'KE Model',gotIt)/='v2-f' ) THEN
+           Var => VariableGet( CurrentModel % Variables, 'Kinetic Energy' )
+           IF ( .NOT. ASSOCIATED( Var ) ) &
+               CALL Fatal( 'Viscosity Model', 'The kinetic energy variable not defined?' )
+           KE_K = SUM(Basis(1:n) * Var % Values(Var % Perm(Element % NodeIndexes)))
+           
+           Var => VariableGet( CurrentModel % Variables, 'Kinetic Dissipation' )
+           IF ( .NOT. ASSOCIATED( Var ) ) &
+               CALL Fatal( 'Viscosity Model', 'The kinetic dissipation rate variable not defined?' )
+           KE_E = SUM(Basis(1:n) * Var % Values(Var % Perm(Element % NodeIndexes)))
          
-         Var => VariableGet( CurrentModel % Variables, 'Kinetic Dissipation' )
-         IF ( .NOT. ASSOCIATED( Var ) ) &
-             CALL Fatal( 'Viscosity Model', 'The kinetic energy dissipation variable not defined?' )
-         KE_E = SUM(Basis(1:n) * Var % Values(Var % Perm(Element % NodeIndexes)))
+           Vals(1:n) = ListGetReal( Material, 'KE Cmu',n,Element % NodeIndexes )
+           Cmu = SUM( Basis(1:n) * Vals(1:n) )
+
+           Clip       = ListGetConstReal( Material, 'KE Clip' )
          
-         KECmu(1:n) = ListGetReal( Material, 'KE Cmu',n,Element % NodeIndexes )
-         Clip       = ListGetConstReal( Material, 'KE Clip' )
+           PVisc = Viscosity + Cmu*Density*KE_K**2 / KE_E
+         ELSE
+           Var => VariableGet( CurrentModel % Variables, 'Kinetic Energy' )
+           IF ( .NOT. ASSOCIATED( Var ) ) &
+               CALL Fatal( 'Viscosity Model', 'The kinetic energy variable not defined?' )
+           KE_K = SUM(Basis(1:n) * Var % Values(Var % Perm(Element % NodeIndexes)))
          
-         Cmu = SUM( Basis(1:n) * KECmu(1:n) )
+           Var => VariableGet( CurrentModel % Variables, 'Kinetic Dissipation' )
+           IF ( .NOT. ASSOCIATED( Var ) ) &
+               CALL Fatal( 'Viscosity Model', 'The kinetic dissipation rate variable not defined?' )
+           KE_E = SUM(Basis(1:n) * Var % Values(Var % Perm(Element % NodeIndexes)))
          
-         PVisc = Viscosity + Cmu*Density*KE_K**2 / KE_E
+           Var => VariableGet( CurrentModel % Variables, 'V2' )
+           IF ( .NOT. ASSOCIATED( Var ) ) &
+               CALL Fatal( 'Viscosity Model', 'The V2 variable not defined?' )
+           KE_Z = SUM(Basis(1:n) * Var % Values(Var % Perm(Element % NodeIndexes)))
+         
+           Vals(1:n) = ListGetReal( Material, 'V2-F CT',n,Element % NodeIndexes )
+           CT = SUM( Basis(1:n) * Vals(1:n) )
+           TimeScale = KE_K/KE_E*SQRT(1+CT**2*Viscosity/Density*KE_E/KE_K**2)
+
+           Vals(1:n) = ListGetReal( Material, 'KE Cmu',n,Element % NodeIndexes )
+           Cmu = SUM( Basis(1:n) * Vals(1:n) )
+           PVisc = Viscosity + Cmu*Density*KE_Z*TimeScale
+         END IF
 
        CASE( 'rng k-epsilon' )
          Var => VariableGet( CurrentModel % Variables, 'Effective Viscosity')
@@ -526,7 +551,7 @@ this is not in USE
      INTEGER(KIND=AddrInt) :: Fnc
 
      TYPE(Variable_t), POINTER :: Var
-     REAL(KIND=dp) :: KE_K, KE_E, Clip, Cmu, KECmu(n)
+     REAL(KIND=dp) :: KE_K, KE_E, Clip, Cmu, Vals(n)
 
      CHARACTER(LEN=MAX_NAME_LEN) :: str
 !------------------------------------------------------------------------------
@@ -579,8 +604,8 @@ this is not in USE
              CALL Fatal( 'Heat Conductivity Model', 'The kinetic energy dissipation variable not defined?' )
           KE_E = SUM(Basis(1:n) * Var % Values(Var % Perm(Element % NodeIndexes)))
 
-          KECmu(1:n) = ListGetReal( Material, 'KE Cmu',n,Element % NodeIndexes )
-          Cmu = SUM( Basis(1:n) * KECmu(1:n) )
+          Vals(1:n) = ListGetReal( Material, 'KE Cmu',n,Element % NodeIndexes )
+          Cmu = SUM( Basis(1:n) * Vals(1:n) )
 
           c1n(1:n) = ListGetReal( Material, 'Heat Capacity',n,Element % NodeIndexes )
           c_p = SUM( Basis(1:n) * c1n(1:n) )
