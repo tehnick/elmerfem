@@ -34,13 +34,12 @@ FUNCTION Epsilon( Model,n,Eval ) RESULT(E)
   U = Element % Type % NodeU(i)
   V = Element % Type % NodeV(i)
   W = Element % Type % NodeW(i)
-
   CALL GetElementNodes( Nodes, Element )
   stat = ElementInfo( Element,Nodes,U,V,W,detJ, Basis )
-
-  CALL GetParentUVW( Element,ne,Parent,np,U,V,W,Basis )
+  Normal = NormalVector( Element,Nodes,  U, V, .FALSE. )
 
   CALL GetElementNodes( ParentNodes, Parent )
+  CALL GetParentUVW( Element,ne,Parent,np,U,V,W,Basis )
   stat = ElementInfo( Parent,ParentNodes,U,V,W,detJ, &
             Basis, dBasisdx )
 
@@ -48,7 +47,6 @@ FUNCTION Epsilon( Model,n,Eval ) RESULT(E)
   rho(1:np) = GetReal( Material, 'Density',   UElement=Parent )
   mu(1:np)  = GetReal( Material, 'Viscosity', UElement=Parent )
 
-  Normal = NormalVector( Element,Nodes,  0.0d0, 0.0d0, .FALSE. )
   CALL GetScalarLocalSolution( Kvals, 'Kinetic Energy', Parent )
 
   KVals(1:np) = SQRT(KVals(1:np))
@@ -59,5 +57,5 @@ FUNCTION Epsilon( Model,n,Eval ) RESULT(E)
 
   Relax = GetCReal( GetBC(), 'Epsilon Relax', stat )
   IF ( .NOT. Stat ) Relax = 0.5_dp
-  E = (1-Relax) * Eval + Relax * 2*(mu(1)/rho(1))*Kder**2
+  E = (1-Relax)*Eval + Relax*2*(mu(1)/rho(1))*Kder**2
 END FUNCTION Epsilon

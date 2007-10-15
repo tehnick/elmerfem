@@ -67,15 +67,10 @@ Solver 1
   Nonlinear System Convergence Tolerance = 1.0e-5
   Nonlinear System Newton After Iterations = 20
   Nonlinear System Newton After Tolerance = 1.0e-3
-  Nonlinear System Relaxation Factor = 0.5
+  Nonlinear System Relaxation Factor = 0.75
 
   Linear System Solver = Direct
   Linear System Direct Method = UMFPack
-  Linear System Max Iterations = 1000
-  Linear System Iterative Method = BiCGStab
-  Linear System Preconditioning = ILU0
-  Linear System Convergence Tolerance = 1.0e-7
-
   Steady State Convergence Tolerance = 1.0e-4
 End
 
@@ -85,7 +80,7 @@ Solver 2
   Procedure = "KESolver" "KESolver"
   Variable = KEpsilon[Kinetic Energy:1 Kinetic Dissipation:1]
  
-  Nonlinear System Max Iterations = 1
+  Nonlinear System Max Iterations = 5
   Nonlinear System Convergence Tolerance = 1.0e-5
   Nonlinear System Newton After Iterations = 20
   Nonlinear System Newton After Tolerance = 1.0e-3
@@ -93,11 +88,6 @@ Solver 2
 
   Linear System Solver = Direct
   Linear System Direct Method = UMFPack
-  Linear System Max Iterations = 1000
-  Linear System Iterative Method = BiCGStab
-  Linear System Preconditioning = ILU0
-  Linear System Convergence Tolerance = 1.0e-7
-
   Steady State Convergence Tolerance = 1.0e-4
 End
 
@@ -105,24 +95,19 @@ Solver 3
   Equation = Navier-Stokes
 
   Stabilization Method = String Bubbles
-  Nonlinear System Max Iterations = 1
+  Nonlinear System Max Iterations = 2
   Nonlinear System Convergence Tolerance = 1.0e-5
+  Nonlinear System Relaxation Factor = 0.75
   Nonlinear System Newton After Iterations = 10
   Nonlinear System Newton After Tolerance  = 1.0e-3
-  Nonlinear System Relaxation Factor = 0.8
 
   Linear System Solver = Direct
   Linear System Direct Method = UMFPack
-  Linear System Max Iterations = 1000
-  Linear System Iterative Method = BiCGStabL
-  Linear System Preconditioning = ILU2
-  Linear System Convergence Tolerance = 1.0e-7
-
   Steady State Convergence Tolerance = 1.0e-4
 End
 
 Solver 4
-  exec solver = after simulation
+  Exec Solver = After Simulation
   Equation = SaveLine
   Procedure = "SaveData" "SaveLine"
   Filename = "curve.dat"
@@ -181,15 +166,15 @@ Boundary Condition 4
   Velocity 1 = 0
   Velocity 2 = 0
 
-  f  = Real 0.0
+  F  = Real 0.0
   V2 = Real 0.0
   Kinetic Energy = 0
 
   Kinetic Dissipation = Variable Kinetic Dissipation
     Real Procedure "Epsilon-BC" "Epsilon"
-  Epsilon Relax = Real 0.25
+  Epsilon Relax = Real 0.1
 End
 
 $fprintf( stderr, "TEST CASE 1\n");
 RUN
-$fprintf( stderr, "END TEST CASE 1: Target NRM=6.81503326667\n" );
+$fprintf( stderr, "END TEST CASE 1: Target NRM= 6.81555726849, EPS=1e-4\n" );
