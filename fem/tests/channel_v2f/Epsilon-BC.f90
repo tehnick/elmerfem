@@ -11,7 +11,7 @@ FUNCTION Epsilon( Model,n,Eval ) RESULT(E)
 
   INTEGER :: i, ne, np
   REAL(KIND=dp) :: rho(32), mu(32), KVals(32), detJ,U,V,W
-  REAL(KIND=dp) :: Kder,Normal(3),Basis(32),dBasisdx(32,3)
+  REAL(KIND=dp) :: Kder,Normal(3),Basis(32),dBasisdx(32,3),Relax
 
   TYPE(ValueList_t), POINTER :: Material
   TYPE(Nodes_t) :: Nodes, ParentNodes
@@ -21,7 +21,8 @@ FUNCTION Epsilon( Model,n,Eval ) RESULT(E)
 
   Element => Model % CurrentElement
   Parent  => Element % BoundaryInfo % Left
-  IF ( .NOT. ASSOCIATED(Parent) ) Parent => Element % BoundaryInfo % Right
+  IF ( .NOT. ASSOCIATED(Parent) ) &
+    Parent => Element % BoundaryInfo % Right
 
   ne = Element % Type % NumberOfNodes
   np = Parent  % Type % NumberOfNodes
@@ -55,5 +56,8 @@ FUNCTION Epsilon( Model,n,Eval ) RESULT(E)
   DO i=1,3
     Kder = Kder + SUM(dBasisdx(1:np,i)*Kvals(1:np))*Normal(i)
   END DO
-  E = 0.9_dp * Eval + 0.1_dp * 2*(mu(1)/rho(1))*Kder**2
+
+  Relax = GetCReal( GetBC(), 'Epsilon Relax', stat )
+  IF ( .NOT. Stat ) Relax = 0.5_dp
+  E = (1-Relax) * Eval + Relax * 2*(mu(1)/rho(1))*Kder**2
 END FUNCTION Epsilon
