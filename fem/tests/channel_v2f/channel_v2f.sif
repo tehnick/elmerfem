@@ -1,22 +1,17 @@
-$ bndry_layer = 0.01
-
 Header
   Mesh DB "." "channel"
 End
+
 Simulation
   Coordinate System = Cartesian 2D
   Max Output Level = 3
 
   Simulation Type = Steady
-  Steady State Max Iterations  = 2000
+  Steady State Max Iterations  = 100
 
   Initialize Dirichlet Conditions =Logical False
 
-  Post File = "Step_small.ep"
-  Output File = a.d
-  Output Intervals = 10
-! Restart File = a.d
-! Restart Position = 0
+! Post File = "channel.ep"
 End
 
 
@@ -24,14 +19,6 @@ Body 1
   Name  = "Flow"
   Equation  = 1
   Material  = 1
-  Initial Condition = 1
-End
-
-
-Body 2
-  Name  = "Flow1"
-  Equation = 1
-  Material = 1
   Initial Condition = 1
 End
 
@@ -74,6 +61,7 @@ Solver 1
   Steady State Convergence Tolerance = 1.0e-4
 End
 
+
 Solver 2
   Equation = Kepsilon
 
@@ -91,6 +79,7 @@ Solver 2
   Steady State Convergence Tolerance = 1.0e-4
 End
 
+
 Solver 3
   Equation = Navier-Stokes
 
@@ -105,6 +94,7 @@ Solver 3
   Linear System Direct Method = UMFPack
   Steady State Convergence Tolerance = 1.0e-4
 End
+
 
 Solver 4
   Exec Solver = After Simulation
@@ -155,10 +145,12 @@ Boundary Condition 2
   Save Line = Logical True
 End
 
+
 Boundary Condition 3
   Target Boundaries = 3
   Velocity 2 = 0
 End
+
 
 Boundary Condition 4
   Target Boundaries = 4
