@@ -285,7 +285,7 @@
          Viscosity(1:n) = GetReal( Material,'Viscosity' )
 !------------------------------------------------------------------------------
          CALL GetScalarLocalSolution( V2, 'V2' )
-         CALL GetScalarLocalSolution( f, 'f' )
+         CALL GetScalarLocalSolution( F, 'F' )
          CALL GetScalarLocalSolution( KinEne, 'Kinetic Energy' )
          CALL GetScalarLocalSolution( KinDis, 'Kinetic Dissipation' )
 
@@ -436,9 +436,9 @@ CONTAINS
 
      dim = CoordinateSystemDimension()
 
-     FORCE = 0.0D0
-     STIFF = 0.0D0
-     MASS  = 0.0D0
+     FORCE = 0.0_dp
+     STIFF = 0.0_dp
+     MASS  = 0.0_dp
 
      Bubbles = .TRUE.
 !------------------------------------------------------------------------------
@@ -499,7 +499,7 @@ CONTAINS
        IF ( CurrentCoordinateSystem() == Cartesian ) THEN
           Secinv = 2*SUM(Strain * Strain)
        ELSE
-          SecInv = SecondInvariant( Velo,dVelodx,Metric,Symb )/2
+          SecInv = SecondInvariant(Velo,dVelodx,Metric,Symb)/2
        END IF
 
 !------------------------------------------------------------------------------
@@ -559,8 +559,6 @@ CONTAINS
           IF ( CurrentCoordinateSystem() == Cartesian ) THEN
              DO i=1,dim
                A(1,1) = A(1,1) + EffVisc * dBasisdx(q,i) * dBasisdx(p,i)
-               A(2,1) = A(2,1) - LengthScale**2 / (K*TimeScale) * &
-                        dBasisdx(q,i)*dBasisdx(p,i)
                A(2,2) = A(2,2) + LengthScale**2 * dBasisdx(q,i) * dBasisdx(p,i)
              END DO
           ELSE
