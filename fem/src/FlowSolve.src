@@ -205,7 +205,7 @@
 
      INTEGER :: i,j,k,n,nb,nd,t,iter,LocalNodes,istat
 
-     TYPE(ValueList_t),POINTER :: Material
+     TYPE(ValueList_t),POINTER :: Material, BC
      TYPE(Nodes_t) :: ElementNodes
      TYPE(Element_t),POINTER :: Element
 
@@ -1032,9 +1032,7 @@
 !          NOTE: the following will replace STIFF and FORCE
 !          with the combined information
 !------------------------------------------------------------------------------
-
-           CALL Add1stOrderTime( MASS, STIFF, &
-             FORCE, dt, nd, NSDOFs, FlowPerm(Indexes(1:nd)), Solver )
+           CALL Default1stOrderTime( MASS, STIFF, FORCE )
          END IF
 
          IF ( nb > 0 ) THEN
@@ -1055,195 +1053,150 @@
 !------------------------------------------------------------------------------
 !     Neumann & Newton boundary conditions
 !------------------------------------------------------------------------------
-      DO t = Solver % Mesh % NumberOfBulkElements + 1, &
-                Solver % Mesh % NumberOfBulkElements + &
-                   Solver % Mesh % NumberOfBoundaryElements
+      DO t = 1,Solver % Mesh % NumberOfBoundaryElements
 
-        Element => Solver % Mesh % Elements(t)
-!------------------------------------------------------------------------------
-!       Set the current element pointer in the model structure to 
-!       reflect the element being processed
-!------------------------------------------------------------------------------
-        Model % CurrentElement => Solver % Mesh % Elements(t)
-!------------------------------------------------------------------------------
-        n = Element % TYPE % NumberOfNodes
-        NodeIndexes => Element % NodeIndexes
+        Element => GetBoundaryElement(t)
+        IF ( .NOT. ActiveBoundaryElement() ) CYCLE
 
-        IF ( ANY( FlowPerm( NodeIndexes ) <= 0 ) ) CYCLE
+        n = GetElementNOFNodes()
 !
 !       The element type 101 (point element) can only be used
 !       to set Dirichlet BCs, so skip ´em at this stage.
 !
-        IF ( Element % TYPE % ElementCode == 101 ) CYCLE
+        IF ( GetElementFamily() == 101 ) CYCLE
 
         CALL GetElementNodes( ElementNodes )
 
-!------------------------------------------------------------------------------
-        DO i=1,Model % NumberOfBCs
-!------------------------------------------------------------------------------
-          IF ( Element % BoundaryInfo % Constraint == &
-                 Model % BCs(i) % Tag ) THEN
-!------------------------------------------------------------------------------
-            GotForceBC = ListGetLogical(Model % BCs(i) % Values, &
-                       'Flow Force BC',gotIt )
+        BC => GetBC()
 
-            IF ( GotForceBC ) THEN
+!------------------------------------------------------------------------------
+        GotForceBC = GetLogical( BC, 'Flow Force BC',gotIt )
 
-              FORCE  = 0.0d0
-              LoadVector  = 0.0d0
-              Alpha       = 0.0d0
-              ExtPressure = 0.0d0
-              Beta        = 0.0d0
-              STIFF = 0.0d0
+        IF ( GotForceBC ) THEN
+          FORCE  = 0.0d0
+          LoadVector  = 0.0d0
+          Alpha       = 0.0d0
+          ExtPressure = 0.0d0
+          Beta        = 0.0d0
+          STIFF = 0.0d0
 !------------------------------------------------------------------------------
-!             (at the moment the following is done...)
-!             BC: \tau \cdot n = \alpha n +  @\beta/@t + R_k u_k + F
+!         (at the moment the following is done...)
+!         BC: \tau \cdot n = \alpha n +  @\beta/@t + R_k u_k + F
 !------------------------------------------------------------------------------
 !------------------------------------------------------------------------------
-!             normal force BC: \tau\cdot n = \alpha n
+!         normal force BC: \tau\cdot n = \alpha n
 !------------------------------------------------------------------------------
-              IF ( ListGetLogical(Model % BCs(i) % Values, &
-                                       'Free Surface',gotIt) ) THEN
-                Alpha(1:n) = ListGetReal( &
-                    Model % BCs(i) % Values,'Surface Tension Coefficient', &
-                                  n,NodeIndexes ) 
-              END IF
+          IF ( GetLogical( BC, 'Free Surface',gotIt) ) THEN
+            Alpha(1:n) = GetReal( BC,'Surface Tension Coefficient' )
+          END IF
 
-              ExtPressure(1:n) = ListGetReal( Model % BCs(i) % Values, &
-                  'External Pressure',n, NodeIndexes,GotForceBC )
+          ExtPressure(1:n) = GetReal( BC, 'External Pressure', GotForceBC )
 !------------------------------------------------------------------------------
-!             tangential force BC:
-!             \tau\cdot n = @\beta/@t (tangential derivative of something)
+!         tangential force BC:
+!         \tau\cdot n = @\beta/@t (tangential derivative of something)
 !------------------------------------------------------------------------------
               
-              IF ( ASSOCIATED( TempSol ) ) THEN
-                Beta(1:n) = ListGetReal( Model % BCs(i) % Values, &
-                 'Surface Tension Expansion Coefficient',n,NodeIndexes,gotIt )
+          IF ( ASSOCIATED( TempSol ) ) THEN
+            Beta(1:n) = GetReal( BC, &
+             'Surface Tension Expansion Coefficient',gotIt )
 
-                IF ( gotIt ) THEN
-                  DO j=1,n
-                    k = TempPerm( NodeIndexes(j) )
-                    IF ( k>0 ) Beta(j) = 1.0D0 - Beta(j) * Temperature(k)
-                  END DO
-
-                  Beta(1:n) = Beta(1:n) * ListGetReal( &
-                    Model % BCs(i) % Values,'Surface Tension Coefficient', &
-                                  n,NodeIndexes ) 
-                ELSE
-                  Beta(1:n) = ListGetReal( &
-                    Model % BCs(i) % Values,'Surface Tension Coefficient', &
-                                  n,NodeIndexes,gotIt ) 
-                END IF
-              END IF
-
-!------------------------------------------------------------------------------
-!             force in given direction BC: \tau\cdot n = F
-!------------------------------------------------------------------------------
-
-              LoadVector(1,1:n) =  ListGetReal( Model % BCs(i) % Values, &
-                        'Pressure 1',n,NodeIndexes,GotIt )
-
-              LoadVector(2,1:n) =  ListGetReal( Model % BCs(i) % Values, &
-                        'Pressure 2',n,NodeIndexes,GotIt )
-
-              LoadVector(3,1:n) =  ListGetReal( Model % BCs(i) % Values, &
-                        'Pressure 3',n,NodeIndexes,GotIt )
-
-              LoadVector(4,1:n) =  ListGetReal( Model % BCs(i) % Values, &
-                        'Mass Flux',n,NodeIndexes,GotIt )
-
-!------------------------------------------------------------------------------
-!             slip boundary condition BC: \tau\cdot n = R_k u_k
-!------------------------------------------------------------------------------
-
-              SlipCoeff = 0.0d0
-              SlipCoeff(1,1:n) =  ListGetReal( Model % BCs(i) % Values, &
-                    'Slip Coefficient 1',n,NodeIndexes,GotIt )
-
-              SlipCoeff(2,1:n) =  ListGetReal( Model % BCs(i) % Values, &
-                    'Slip Coefficient 2',n,NodeIndexes,GotIt )
-
-              SlipCoeff(3,1:n) =  ListGetReal( Model % BCs(i) % Values, &
-                    'Slip Coefficient 3',n,NodeIndexes,GotIt )
-
-              NormalTangential = ListGetLogical( Model % BCs(i) % Values, &
-                     'Normal-Tangential Velocity', GotIt )
-               
-!------------------------------------------------------------------------------
-              SELECT CASE( CurrentCoordinateSystem() )
-              CASE( Cartesian )
-
-                CALL NavierStokesBoundary(  STIFF, FORCE, &
-                 LoadVector, Alpha, Beta, ExtPressure, SlipCoeff, NormalTangential,   &
-                    Element, n, ElementNodes )
-
-             CASE( Cylindric, CylindricSymmetric,  AxisSymmetric )
-
-                CALL NavierStokesCylindricalBoundary( STIFF, &
-                 FORCE, LoadVector, Alpha, Beta, ExtPressure, SlipCoeff, &
-                     NormalTangential, Element, n, ElementNodes)
-
-             CASE DEFAULT
-
-                CALL NavierStokesGeneralBoundary( STIFF, &
-                 FORCE, LoadVector, Alpha, Beta, ExtPressure, SlipCoeff, &
-                    Element, n, ElementNodes)
-
-             END SELECT
-
-!------------------------------------------------------------------------------
-
-              IF ( ListGetLogical( Model % BCs(i) % Values, &
-                        'Wall Law',GotIt ) ) THEN
-                !/*
-                ! * TODO: note that the following is not really valid, the
-                ! * pointer to the Material structure is from the remains
-                ! * of the last of the bulk elements.
-                ! */
-                Density(1:n)   = ListGetReal(Material,'Density',n,NodeIndexes)
-                Viscosity(1:n) = ListGetReal(Material,'Viscosity',n,NodeIndexes)
-
-                LayerThickness(1:n) = ListGetReal( Model % BCs(i) % Values, &
-                        'Boundary Layer Thickness',n,NodeIndexes )
-
-                SurfaceRoughness(1:n) = ListGetReal( Model % BCs(i) % Values, &
-                        'Surface Roughness',n,NodeIndexes,GotIt )
-
-                SELECT CASE( NSDOFs )
-                  CASE(3)
-                    U(1:n) = FlowSolution( NSDOFs*FlowPerm(NodeIndexes)-2 )
-                    V(1:n) = FlowSolution( NSDOFs*FlowPerm(NodeIndexes)-1 )
-                    W(1:n) = 0.0d0
-                
-                  CASE(4)
-                    U(1:n) = FlowSolution( NSDOFs*FlowPerm(NodeIndexes)-3 )
-                    V(1:n) = FlowSolution( NSDOFs*FlowPerm(NodeIndexes)-2 )
-                    W(1:n) = FlowSolution( NSDOFs*FlowPerm(NodeIndexes)-1 )
-                END SELECT
-
-                CALL NavierStokesWallLaw( STIFF,FORCE,     &
-                  LayerThickness,SurfaceRoughness,Viscosity,Density,U,V,W, &
-                         Element,n, ElementNodes )
-              END IF
-!------------------------------------------------------------------------------
-
-              IF ( TransientSimulation ) THEN
-                MASS = 0.0d0
-                CALL Add1stOrderTime( MASS, STIFF, &
-                  FORCE, dt, n, NSDOFs,FlowPerm(NodeIndexes), Solver )
-              END IF
-
-!------------------------------------------------------------------------------
-!             Add local stiffness matrix and force vector to
-!             global matrix & vector
-!------------------------------------------------------------------------------
-              CALL UpdateGlobalEquations( StiffMatrix, STIFF, &
-                    ForceVector, FORCE, n, NSDOFs, FlowPerm(NodeIndexes) )
-!------------------------------------------------------------------------------
+            IF ( gotIt ) THEN
+              DO j=1,n
+                k = TempPerm( NodeIndexes(j) )
+                IF ( k>0 ) Beta(j) = 1.0D0 - Beta(j) * Temperature(k)
+              END DO
+              Beta(1:n) = Beta(1:n) * GetReal(BC, 'Surface Tension Coefficient' )
+            ELSE
+              Beta(1:n) = GetReal( BC,'Surface Tension Coefficient', gotIt ) 
             END IF
-!------------------------------------------------------------------------------
           END IF
-        END DO
+
+!------------------------------------------------------------------------------
+!         force in given direction BC: \tau\cdot n = F
+!------------------------------------------------------------------------------
+
+          LoadVector(1,1:n) =  GetReal( BC, 'Pressure 1', GotIt )
+          LoadVector(2,1:n) =  GetReal( BC, 'Pressure 2', GotIt )
+          LoadVector(3,1:n) =  GetReal( BC, 'Pressure 3', GotIt )
+          LoadVector(4,1:n) =  GetReal( BC, 'Mass Flux', GotIt )
+
+!------------------------------------------------------------------------------
+!         slip boundary condition BC: \tau\cdot n = R_k u_k
+!------------------------------------------------------------------------------
+
+          SlipCoeff = 0.0d0
+          SlipCoeff(1,1:n) =  GetReal( BC, 'Slip Coefficient 1',GotIt )
+          SlipCoeff(2,1:n) =  GetReal( BC, 'Slip Coefficient 2',GotIt )
+          SlipCoeff(3,1:n) =  GetReal( BC, 'Slip Coefficient 3',GotIt )
+          NormalTangential = GetLogical( BC, &
+                 'Normal-Tangential Velocity', GotIt )
+           
+!------------------------------------------------------------------------------
+          SELECT CASE( CurrentCoordinateSystem() )
+          CASE( Cartesian )
+
+            CALL NavierStokesBoundary(  STIFF, FORCE, &
+             LoadVector, Alpha, Beta, ExtPressure, SlipCoeff, NormalTangential,   &
+                Element, n, ElementNodes )
+
+         CASE( Cylindric, CylindricSymmetric,  AxisSymmetric )
+
+            CALL NavierStokesCylindricalBoundary( STIFF, &
+             FORCE, LoadVector, Alpha, Beta, ExtPressure, SlipCoeff, &
+                 NormalTangential, Element, n, ElementNodes)
+
+         CASE DEFAULT
+
+            CALL NavierStokesGeneralBoundary( STIFF, &
+             FORCE, LoadVector, Alpha, Beta, ExtPressure, SlipCoeff, &
+                Element, n, ElementNodes)
+
+         END SELECT
+
+!------------------------------------------------------------------------------
+
+          IF ( GetLogical( BC, 'Wall Law',GotIt ) ) THEN
+            !/*
+            ! * TODO: note that the following is not really valid, the
+            ! * pointer to the Material structure is from the remains
+            ! * of the last of the bulk elements.
+            ! */
+            Density(1:n)   = GetReal( Material, 'Density' )
+            Viscosity(1:n) = GetReal( Material, 'Viscosity' )
+
+            LayerThickness(1:n) = GetReal( BC, 'Boundary Layer Thickness' )
+            SurfaceRoughness(1:n) = GetReal( BC, 'Surface Roughness',GotIt )
+
+            SELECT CASE( NSDOFs )
+              CASE(3)
+                U(1:n) = FlowSolution( NSDOFs*FlowPerm(NodeIndexes)-2 )
+                V(1:n) = FlowSolution( NSDOFs*FlowPerm(NodeIndexes)-1 )
+                W(1:n) = 0.0d0
+            
+              CASE(4)
+                U(1:n) = FlowSolution( NSDOFs*FlowPerm(NodeIndexes)-3 )
+                V(1:n) = FlowSolution( NSDOFs*FlowPerm(NodeIndexes)-2 )
+                W(1:n) = FlowSolution( NSDOFs*FlowPerm(NodeIndexes)-1 )
+            END SELECT
+
+            CALL NavierStokesWallLaw( STIFF,FORCE,     &
+              LayerThickness,SurfaceRoughness,Viscosity,Density,U,V,W, &
+                     Element,n, ElementNodes )
+          END IF
+!------------------------------------------------------------------------------
+
+          IF ( TransientSimulation ) THEN
+            MASS = 0.0d0
+            CALL Default1stOrderTime( MASS, STIFF, FORCE )
+          END IF
+
+!------------------------------------------------------------------------------
+!         Add local stiffness matrix and force vector to
+!         global matrix & vector
+!--------------------------------------------------------------------------
+          CALL DefaultUpdateEquations( STIFF, FORCE )
+!------------------------------------------------------------------------------
+        END IF
       END DO
 !------------------------------------------------------------------------------
 
