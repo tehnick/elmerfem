@@ -2741,14 +2741,21 @@ CONTAINS
     TYPE(Matrix_t), POINTER :: A
     REAL(KIND=dp), POINTER :: b(:), x(:), r(:)
     REAL(KIND=dp), POINTER :: x0(:)
-    REAL(KIND=dp) :: Norm, PrevNorm, rNorm, bNorm, Change, Relaxation
+    REAL(KIND=dp) :: Norm, PrevNorm, rNorm, bNorm, Change, Relaxation, tmp(1)
     CHARACTER(LEN=MAX_NAME_LEN) :: ConvergenceType
+    INTEGER, TARGET  ::  nn=1, Dnodes(1)
+    INTEGER, POINTER :: Indexes(:)
     LOGICAL :: Stat, ConvergenceAbsolute, Relax, RelaxBefore
 
+    Indexes => Dnodes
+    Indexes(1) = 1
 
     IF(SteadyState) THEN
-      Relaxation = ListGetConstReal( Solver % Values, &
-          'Steady State Relaxation Factor', Relax )
+!     Relaxation = ListGetConstReal( Solver % Values, &
+!         'Steady State Relaxation Factor', Relax )
+      tmp = ListGetReal( Solver % Values, &
+          'Steady State Relaxation Factor', nn, Indexes, Relax )
+      Relaxation = tmp(1)
       Relax = Relax .AND. (Relaxation /= 1.0d0)
       IF(Relax) THEN
          RelaxBefore = ListGetLogical( Solver % Values, &
@@ -2764,8 +2771,11 @@ CONTAINS
       IF(.NOT. Stat) ConvergenceAbsolute = &
           ListGetLogical(Solver % Values,'Use Absolute Norm for Convergence',Stat)
     ELSE
-      Relaxation = ListGetConstReal( Solver % Values, &
-          'Nonlinear System Relaxation Factor', Relax )
+!     Relaxation = ListGetConstReal( Solver % Values, &
+!         'Nonlinear System Relaxation Factor', Relax )
+      tmp = ListGetReal( Solver % Values, &
+          'Nonlinear System Relaxation Factor', nn, Indexes, Relax )
+      Relaxation = tmp(1)
       Relax = Relax .AND. (Relaxation /= 1.0d0)
       IF(Relax) THEN
           RelaxBefore = ListGetLogical( Solver % Values, &

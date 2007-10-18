@@ -39,14 +39,7 @@
 SUBROUTINE PhaseChangeSolve( Model,Solver,dt,TransientSimulation )
 !DEC$ATTRIBUTES DLLEXPORT :: PhaseChangeSolve
 !------------------------------------------------------------------------------
-  USE CoordinateSystems
-  USE SolverUtils
-  USE Differentials
-  USE Types
-  USE Lists
-  USE Integration
-  USE ElementDescription
-  USE GeneralUtils
+  USE DefUtils
 
   IMPLICIT NONE
 !------------------------------------------------------------------------------
@@ -169,7 +162,7 @@ SUBROUTINE PhaseChangeSolve( Model,Solver,dt,TransientSimulation )
     CALL Fatal('PhaseChangeSolve','Temperature field needed for Phase Change')
   END IF
 
-  Relax = ListGetConstReal( Solver % Values,  & 
+  Relax = GetCReal( Solver % Values,  & 
       'Nonlinear System Relaxation Factor', stat )
   IF ( .NOT. stat ) Relax = 1.0d0
   NonlinearIter = ListGetInteger( Solver % Values, &
@@ -397,17 +390,17 @@ SUBROUTINE PhaseChangeSolve( Model,Solver,dt,TransientSimulation )
             
     IF(ListGetLogical(Solver % Values,'Use Average Velocity',Stat)) THEN
       IF(SurfaceVelocitySet) THEN            
-        LocalRelax = ListGetConstReal(Solver % Values,'Velocity Averaging Factor')
+        LocalRelax = GetCReal(Solver % Values,'Velocity Averaging Factor')
         SurfaceMoveAve = LocalRelax * SurfaceMove + (1-LocalRelax) * SurfaceMoveAve               
       ELSE
         SurfaceMoveAve = SurfaceMove
         SurfaceVelocitySet = .TRUE.
       END IF
-      LocalRelax = ListGetConstReal(Solver % Values,'Velocity Relaxation Factor',Stat)
+      LocalRelax = GetCReal(Solver % Values,'Velocity Relaxation Factor',Stat)
       IF(.NOT. Stat) LocalRelax = 1.0d0
       SurfaceMove = LocalRelax * SurfaceMove + (1-LocalRelax) * SurfaceMoveAve
     ELSE
-      LocalRelax = ListGetConstReal(Solver % Values,'Velocity Relaxation Factor',Stat)
+      LocalRelax = GetCReal(Solver % Values,'Velocity Relaxation Factor',Stat)
       IF(.NOT. Stat) LocalRelax = 1.0d0
       SurfaceMove = LocalRelax * SurfaceMove + (1-LocalRelax) * PrevTemp
     END IF
@@ -500,7 +493,7 @@ SUBROUTINE PhaseChangeSolve( Model,Solver,dt,TransientSimulation )
       END IF
 
       NULLIFY(HelpSol2)
-      AverageRelax2 = ListGetConstReal(Solver % Values,'Temperature Averaging Factor',stat)
+      AverageRelax2 = GetCReal(Solver % Values,'Temperature Averaging Factor',stat)
       IF(stat) THEN
         HelpSol2 => VariableGet( Solver % Mesh % Variables, 'Taverage Slow' )
         IF(.NOT. ASSOCIATED (HelpSol2)) THEN
@@ -516,7 +509,7 @@ SUBROUTINE PhaseChangeSolve( Model,Solver,dt,TransientSimulation )
         HelpSol % Values = TempSol % Values
         IF(ASSOCIATED(HelpSol2)) HelpSol2 % Values = TempSol % Values        
       ELSE      
-        AverageRelax = ListGetConstReal( Solver % Values,'Temperature Relaxation Factor')
+        AverageRelax = GetCReal( Solver % Values,'Temperature Relaxation Factor')
         IF(.NOT. ASSOCIATED(HelpSol2)) THEN
           HelpSol % Values = (1.0d0-AverageRelax) * HelpSol % Values + AverageRelax * TempSol % Values
         ELSE
@@ -811,7 +804,7 @@ SUBROUTINE PhaseChangeSolve( Model,Solver,dt,TransientSimulation )
 
 
 !    IF(.NOT. UseTAverage .AND. dt < SteadyDt) THEN
-!      LocaRelax = Relax * ListGetConstReal( Solver % Values,'Temperature Relaxation Factor')
+!      LocaRelax = Relax * GetCReal( Solver % Values,'Temperature Relaxation Factor')
 !    ELSE
       LocalRelax = Relax 
 !    END IF

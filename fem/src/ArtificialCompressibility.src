@@ -62,12 +62,7 @@ SUBROUTINE CompressibilityScale( Model,Solver,dt,TransientSimulation )
 !     INPUT: Steady state or transient simulation
 !
 !******************************************************************************
-  USE Types
-  USE Lists
-  USE Integration
-  USE ElementDescription
-  USE SolverUtils
-
+  USE DefUtils
 
   IMPLICIT NONE
 !------------------------------------------------------------------------------
@@ -217,7 +212,7 @@ SUBROUTINE CompressibilityScale( Model,Solver,dt,TransientSimulation )
       'Artificial Compressibility Scaling',GotIt)
   IF(.NOT. GotIt) CompressScaleOld = 1.0
 
-  Relax = ListGetConstReal( &
+  Relax = GetCReal( &
       Solver % Values, 'Nonlinear System Relaxation Factor',gotIt )
   IF(.NOT. gotIt) Relax = 1.0;
 

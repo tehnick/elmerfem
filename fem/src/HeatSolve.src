@@ -518,7 +518,7 @@
                       'Nonlinear System Newton After Iterations', Found )
      IF ( NewtonIter == 0) NewtonLinearization = .TRUE.
 
-     Relax = GetConstReal( SolverParams, &
+     Relax = GetCReal( SolverParams, &
                'Nonlinear System Relaxation Factor',Found )
      IF ( .NOT.Found ) Relax = 1
 
@@ -1081,7 +1081,7 @@
       IF(HeaterControl .AND. NewtonLinearization .AND. SmartTolReached) THEN
       
         IF(.NOT. TransientHeaterControl) THEN
-          Relax = GetConstReal( SolverParams, &
+          Relax = GetCReal( SolverParams, &
               'Nonlinear System Relaxation Factor', Found )
           
           IF ( Found .AND. Relax /= 1.0d0 ) THEN
@@ -1240,7 +1240,7 @@
     END DO ! of the nonlinear iteration
 !------------------------------------------------------------------------------
     IF(TransientHeaterControl) THEN
-      PowerRelax = ListGetConstReal(Solver % Values,'Smart Heater Relaxation Factor', GotIt)
+      PowerRelax = GetCReal(Solver % Values,'Smart Heater Relaxation Factor', GotIt)
       PowerSensitivity = ListGetConstReal(Solver % Values,'Smart Heater Power Sensivity',GotIt)
       IF(.NOT. GotIt) PowerSensitivity = 4.0d0
       PowerScaling = PowerScaling * (1 + PowerSensitivity * PowerRelax * (MeltPoint/yave - 1.0d0) ) 
