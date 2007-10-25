@@ -1,0 +1,1012 @@
+!/*****************************************************************************
+! *
+! *       Elmer, A Computational Fluid Dynamics Program.
+! *
+! *       Copyright 1st April 1995 -> , CSC - Scientific Computing Ltd, Findland.
+! *
+! *       All rights reserved. No part of this program may be used,
+! *       reproduced or transmitted in any form or by any means
+! *       without the written permission of CSC.
+! *
+! ****************************************************************************/
+!
+!  Solves the transient/steady state Reynolds Equation that is a dimensinally reduced form of 
+!  the Stokes equation in the case of narrow channels. 
+!
+! *****************************************************************************
+! *
+! *                    Author: Peter Råback, Antti Pursula
+! *
+! *                 Address:  CSC - Scientific Computing Ltd.
+! *                           Keilaranta 14, P.O. BOX 405
+! *                           02101 Espoo, Finland
+! *                           Tel. +358 0 457 2080
+! *                           EMail: Peter.Raback@csc.fi
+! *
+! *              Original Date: 23.10.2007
+! *
+! *                Modified by: Peter Råback
+! *
+! *       Date of modification: 23.10.2007
+! *
+! ****************************************************************************/
+
+
+SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
+ !DEC$ATTRIBUTES DLLEXPORT :: ReynoldsSolver
+!------------------------------------------------------------------------------
+
+  USE DefUtils
+  USE Types
+  USE Lists
+  USE Integration
+  USE ElementDescription
+  USE SolverUtils
+
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Solver_t), TARGET :: Solver
+  TYPE(Model_t) :: Model
+  REAL(KIND=dp) :: dt
+  LOGICAL :: TransientSimulation
+!------------------------------------------------------------------------------
+! Local variables
+!------------------------------------------------------------------------------
+  TYPE(Nodes_t) :: ElementNodes
+  TYPE(Element_t),POINTER :: Element, Parent
+  TYPE(ValueList_t), POINTER :: Material, BC 
+
+  INTEGER, PARAMETER :: Compressibility_None = 1, Compressibility_Weak = 2, &
+      Compressibility_GasIsothermal = 3, Compressibility_GasAdiabatic = 4
+  INTEGER, PARAMETER :: Viscosity_Newtonian = 1, Viscosity_Rarefied = 2
+
+  INTEGER :: iter, i, j, k, l, n, nd, t, istat, mat_id, mat_idold, &
+      NoIterations, ViscosityType, CompressibilityType 
+  INTEGER, POINTER :: NodeIndexes(:), PressurePerm(:)
+
+  LOGICAL :: GotIt, stat, AllocationsDone = .FALSE., SubroutineVisited = .FALSE., &
+      UseVelocity, SideCorrection, Bubbles, PartIntSliding
+  REAL(KIND=dp), POINTER :: Pressure(:)
+  REAL(KIND=dp) :: Norm, ReferencePressure, NonlinearTol, HeatRatio, BulkModulus, &
+      ViscCorr, mfp0, Pres, Dens
+  REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), MASS(:,:), FORCE(:), TimeForce(:), &
+      Viscosity(:), GapHeight(:), NormalVelocity(:), TangentVelocity(:,:), Velocity(:,:), &
+      Admittance(:), Impedance(:), ElemPressure(:)
+
+  CHARACTER(LEN=MAX_NAME_LEN) :: ViscosityModel, CompressibilityModel
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ReynoldsSolver.f90$"
+
+
+  SAVE ElementNodes, Viscosity, GapHeight, Velocity, TangentVelocity, NormalVelocity, &
+      Admittance, FORCE, STIFF, MASS, TimeForce, ElemPressure, AllocationsDone
+
+ 
+!------------------------------------------------------------------------------
+!    Check if version number output is requested
+!------------------------------------------------------------------------------
+  IF ( .NOT. AllocationsDone ) THEN
+    IF ( ListGetLogical( GetSimulation(), 'Output Version Numbers', GotIt ) ) THEN
+      CALL Info( 'MEMReynolds', 'MEMReynolds version:', Level = 0 ) 
+      CALL Info( 'MEMReynolds', VersionID, Level = 0 ) 
+      CALL Info( 'MEMReynolds', ' ', Level = 0 ) 
+    END IF
+  END IF
+
+  CALL Info('ReynoldsSolver','---------------------------------------',Level=5)
+  IF(TransientSimulation) THEN
+    CALL Info('ReynoldsSolver','Solving the transient Reynolds equation',Level=5)
+  ELSE
+    CALL Info('ReynoldsSolver','Solving the steady-state Reynolds equation',Level=5)    
+  END IF
+  CALL Info('ReynoldsSolver','---------------------------------------',Level=5)
+
+!------------------------------------------------------------------------------
+! Get variables needed for solution
+!------------------------------------------------------------------------------
+
+  Bubbles = GetLogical( Solver % Values, 'Bubbles', GotIt )
+  PartIntSliding = GetLogical(Solver % Values,'Partial Integrate Sliding',GotIt)
+  
+  IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
+  IF(Solver % Variable % Dofs /= 1) THEN
+    CALL Fatal('ReynoldsSolver','Impossible number of dofs! (should be 1)')    
+  END IF
+  Pressure     => Solver % Variable % Values
+  PressurePerm => Solver % Variable % Perm
+  IF( COUNT( PressurePerm > 0 ) <= 0) RETURN
+
+!------------------------------------------------------------------------------
+! Do some initial stuff
+!------------------------------------------------------------------------------
+
+  SideCorrection = .FALSE.
+  DO i=1,Model % NumberOfBCs
+    stat = GetLogical(Model % BCs(i) % Values,'Open Side',gotIt) 
+    IF(stat) SideCorrection = .TRUE.
+  END DO
+
+  NoIterations = GetInteger( Solver % Values,'Nonlinear System Max Iterations',GotIt)
+  IF(.NOT. GotIt) NoIterations = 1
+  NonlinearTol = GetCReal( Solver % Values,'Nonlinear System Convergence Tolerance',gotIt)
+  
+!------------------------------------------------------------------------------
+! Allocate some permanent storage, this is done first time only
+!------------------------------------------------------------------------------
+  IF ( .NOT. AllocationsDone  ) THEN
+    N = Solver % Mesh % MaxElementNodes
+
+    ALLOCATE(ElementNodes % x( N ),  &
+        ElementNodes % y( N ),       &
+        ElementNodes % z( N ),       &
+        Viscosity( N ),              &
+        GapHeight(N),          &
+        Velocity(3,N),         &
+        TangentVelocity(3,N),  &
+        NormalVelocity(N),     &
+        Admittance(N),         &
+        FORCE( 2*N ),           &
+        STIFF( 2*N, 2*N ), &
+        MASS( 2*N, 2*N ), &
+        TimeForce( 2*N ), &
+        ElemPressure(N), &
+        STAT=istat )
+
+    IF ( istat /= 0 ) CALL FATAL('ReynoldsSolver','Memory allocation error')
+    
+    AllocationsDone = .TRUE.
+  END IF 
+
+!------------------------------------------------------------------------------
+! Iterate over any nonlinearity of material or source
+!------------------------------------------------------------------------------
+  
+  mat_idold = 0
+
+  CALL Info('ReynoldsSolver','-------------------------------------------------',Level=5)
+
+  DO iter = 1,NoIterations
+
+    WRITE(Message,'(A,T35,I5)') 'Reynolds iteration:',iter
+    CALL Info('ReynoldsSolver',Message,Level=5)
+
+    CALL DefaultInitialize()
+
+!    Do the bulk assembly:
+!    ---------------------
+
+    DO t=1,Solver % NumberOfActiveElements
+
+      Element => GetActiveElement(t)
+      n  = GetElementNOFNodes()
+      nd = GetElementNOFDOFs()
+      
+      CALL GetElementNodes( ElementNodes )
+      CALL GetScalarLocalSolution( ElemPressure )
+      
+!------------------------------------------------------------------------------
+!       Get material parameters
+!------------------------------------------------------------------------------        
+      mat_id = GetInteger( Model % Bodies( Element % Bodyid ) % Values, 'Material')
+      Material => Model % Materials(mat_id) % Values
+      
+      GapHeight(1:n) = GetReal(Material,'Gap Height')
+
+      Velocity(1,1:n) = GetReal(Material,'Surface Velocity 1',UseVelocity)
+      Velocity(2,1:n) = GetReal(Material,'Surface Velocity 2',GotIt)
+      UseVelocity = UseVelocity .OR. GotIt
+      Velocity(3,1:n) = GetReal(Material,'Surface Velocity 3',GotIt)
+      UseVelocity = UseVelocity .OR. GotIt
+
+      IF(.NOT. UseVelocity) THEN
+        TangentVelocity(1,1:n) = GetReal(Material,'Tangent Velocity 1',GotIt) 
+        TangentVelocity(2,1:n) = GetReal(Material,'Tangent Velocity 2',GotIt)
+        TangentVelocity(3,1:n) = GetReal(Material,'Tangent Velocity 3',GotIt)
+        NormalVelocity(1:n) = GetReal(Material,'Normal Velocity',GotIt)
+      END IF
+
+      Viscosity(1:n) = GetReal( Material, 'Viscosity')
+      Admittance(1:n) = GetReal( Material, 'Flow Admittance', GotIt)
+      
+      IF(mat_id /= mat_idold) THEN                  
+
+        mat_idold = mat_id
+
+        ViscosityModel = GetString(Material,'Viscosity Model',GotIt)
+        IF(GotIt) THEN
+          IF( ViscosityModel == 'newtonian') THEN
+            ViscosityType = Viscosity_Newtonian
+            IF( ViscosityModel == 'rarefied') THEN
+              ViscosityType = Viscosity_Rarefied
+              mfp0 = GetCReal(Material,'Mean Free Path',GotIt)            
+            ELSE
+              CALL Warn('ReynoldsSolver','Unknown viscosity model')
+            END IF
+          END IF
+        ELSE
+          ViscosityType = Viscosity_Newtonian          
+        END IF
+          
+        CompressibilityModel = GetString(Material,'Compressibility Model',GotIt)        
+        IF(GotIt) THEN
+          IF(CompressibilityModel == 'incompressible') THEN
+            CompressibilityType = Compressibility_None
+          ELSE IF(CompressibilityModel == 'weakly incompressible') THEN
+            CompressibilityType = Compressibility_Weak
+            BulkModulus = GetCReal( Material, 'Bulk Modulus')
+          ELSE IF(CompressibilityModel == 'isothermal ideal gas') THEN
+            CompressibilityType = Compressibility_GasIsothermal
+            ReferencePressure = GetCReal( Material,'Reference Pressure')           
+          ELSE IF(CompressibilityModel == 'adiabatic ideal gas') THEN
+            CompressibilityType = Compressibility_GasAdiabatic
+            HeatRatio = GetCReal( Material, 'Specific Heat Ratio')
+            ReferencePressure = GetCReal( Material,'Reference Pressure')                      
+          ELSE
+            CALL Warn('ReynoldsSolver','Unknown compressibility model')
+          END IF
+        ELSE          
+          CompressibilityType = Compressibility_None
+        END IF
+      END IF
+
+      STIFF = 0.0d0
+      MASS = 0.0d0
+      FORCE = 0.0d0
+      
+      CALL LocalMatrix(   MASS, STIFF, FORCE, Element, n, nd, ElementNodes) 
+                    
+!------------------------------------------------------------------------------
+!  In time dependent simulation add mass matrix to stiff matrix
+!------------------------------------------------------------------------------
+      TimeForce  = 0.0_dp
+      IF ( TransientSimulation ) THEN
+        CALL Default1stOrderTime( MASS,STIFF,FORCE)
+      END IF
+
+!------------------------------------------------------------------------------
+!  Update global matrices from local matrices
+!------------------------------------------------------------------------------
+      IF (  Bubbles ) THEN
+        CALL Condensate( N, STIFF, FORCE, TimeForce )
+      END IF
+
+      CALL DefaultUpdateEquations( STIFF, FORCE )
+
+!------------------------------------------------------------------------------
+    END DO 
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+!    Neumann & Newton BCs:
+!------------------------------------------------------------------------------
+
+    IF(SideCorrection) THEN
+          
+     DO t=1, Solver % Mesh % NumberOfBoundaryElements
+        Element => GetBoundaryElement(t)
+        IF ( .NOT. ActiveBoundaryElement() ) CYCLE
+
+        n  = GetElementNOFNodes()
+        nd = GetElementNOFDOFs()
+        IF ( GetElementFamily() == 1 ) CYCLE
+
+        BC => GetBC()
+        IF ( .NOT. ASSOCIATED( BC ) ) CYCLE
+
+        stat = GetLogical(BC,'Open Side',gotIt) 
+        IF(.NOT. stat) CYCLE
+!------------------------------------------------------------------------------
+        NodeIndexes => Element % NodeIndexes
+          
+        IF ( ANY( PressurePerm(NodeIndexes(1:n)) == 0 ) ) CYCLE
+        
+        Parent => Element % BoundaryInfo % Left
+        stat = ASSOCIATED( Parent )
+        IF ( stat ) stat = stat .AND. ALL(PressurePerm(Parent % NodeIndexes) > 0)
+        
+        IF(.NOT. stat) THEN
+          Parent => ELement % BoundaryInfo % Right            
+          stat = ASSOCIATED( Parent )
+          IF ( stat ) stat = stat .AND. ALL(PressurePerm(Parent % NodeIndexes) > 0)
+          IF ( .NOT. stat )  CALL Fatal( 'ReynoldsSolver', &
+              'No proper parent element available for specified boundary' )
+        END IF
+        
+        Model % CurrentElement => Parent
+        CALL GetElementNodes( ElementNodes )
+
+        mat_id = GetInteger( Model % Bodies(Parent % BodyId) % Values,'Material')
+        Material => Model % Materials(mat_id) % Values
+        
+        GapHeight(1:n) = GetReal(Material,'Gap Height')
+        Viscosity(1:n) = GetReal( Material, 'Viscosity')
+        
+        STIFF = 0.0d0
+        MASS = 0.0d0
+        FORCE = 0.0d0
+          
+!------------------------------------------------------------------------------
+!             Get element local matrix and rhs vector
+!------------------------------------------------------------------------------
+
+        CALL LocalBoundary( MASS, STIFF, FORCE, Element, n, ElementNodes )
+                    
+!------------------------------------------------------------------------------
+!             Update global matrix and rhs vector from local matrix & vector
+!------------------------------------------------------------------------------
+        IF ( TransientSimulation ) THEN
+          MASS = 0.d0
+          CALL Default1stOrderTime( MASS, STIFF, FORCE )
+        END IF
+        
+        CALL DefaultUpdateEquations( STIFF, FORCE )
+
+!------------------------------------------------------------------------------
+      END DO
+!------------------------------------------------------------------------------
+    END IF
+
+
+    CALL DefaultFinishAssembly()
+    CALL DefaultDirichletBCs()
+    CALL Info( 'ReynoldsSolver', 'Dirichlet conditions done', Level=4 )
+
+!    Solve the system and we are done:
+!    ---------------------------------
+
+    Norm = DefaultSolve()
+        
+    IF (Solver % Variable % NonlinChange < NonlinearTol) EXIT
+  END DO
+  
+  CALL Info('ReynoldsSolver','-------------------------------------------------',Level=5)
+  
+CONTAINS
+
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE LocalMatrix(MassMatrix, StiffMatrix, ForceVector, Element, n, nd, Nodes)
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: MassMatrix(:,:), StiffMatrix(:,:), ForceVector(:)
+    INTEGER :: n, nd
+    TYPE(Nodes_t) :: Nodes
+    TYPE(Element_t), POINTER :: Element
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3), SqrtElementMetric
+    REAL(KIND=dp) :: x,y,z,Metric(3,3),SqrtMetric,Symb(3,3,3),dSymb(3,3,3,3),Normal(3)    
+    REAL(KIND=dp) :: U, V, W, S, MS, MM, L, A, B, HR, SL(3), SLR, SLL(3)
+    REAL(KIND=dp) :: Normal(3), Velo(3), NormalVelo, TangentVelo(3), Damp, Pres, TotPres, Gap, &
+        Visc, mfp, Kn, Density, DensityDer
+    LOGICAL :: Stat
+    INTEGER :: i,p,q,t,DIM, NBasis, CoordSys
+    TYPE(GaussIntegrationPoints_t) :: IntegStuff
+
+!------------------------------------------------------------------------------
+    DIM = CoordinateSystemDimension()
+    CoordSys = CurrentCoordinateSystem()
+
+    Metric = 0.0d0
+    Metric(1,1) = 1.0d0
+    Metric(2,2) = 1.0d0
+    Metric(3,3) = 1.0d0
+
+!------------------------------------------------------------------------------
+!   Numerical integration
+!------------------------------------------------------------------------------
+
+    NBasis = n
+    IF ( Bubbles ) THEN
+      NBasis = 2*n
+      IntegStuff = GaussPoints( Element, Element % TYPE % GaussPoints2 )
+    ELSE
+      NBasis = nd
+      IntegStuff = GaussPoints( Element )
+    END IF
+
+!------------------------------------------------------------------------------
+    DO t=1,IntegStuff % n
+
+      U = IntegStuff % u(t)
+      V = IntegStuff % v(t)
+      W = IntegStuff % w(t)
+      S = IntegStuff % s(t)
+
+!------------------------------------------------------------------------------
+!      Basis function values & derivatives at the integration point
+!------------------------------------------------------------------------------
+      stat = ElementInfo( Element, Nodes, U, V, W, SqrtElementMetric, &
+          Basis, dBasisdx, Bubbles = Bubbles)
+    
+      s = s * SqrtElementMetric
+      IF ( CoordSys /= Cartesian ) THEN
+        X = SUM( Nodes % X(1:n) * Basis(1:n) )
+        Y = SUM( Nodes % Y(1:n) * Basis(1:n) )
+        Z = SUM( Nodes % Z(1:n) * Basis(1:n) )
+        CALL CoordinateSystemInfo( Metric,SqrtMetric,Symb,dSymb,X,Y,Z )
+        s = s * SqrtMetric
+      END IF
+
+!------------------------------------------------------------------------------
+!      Parameters at integration point
+!------------------------------------------------------------------------------
+
+      IF(UseVelocity) THEN
+        IF( ASSOCIATED( Element % BoundaryInfo)) THEN
+          Normal = NormalVector( Element,Nodes,u,v,.TRUE. )
+        ELSE
+          Normal = NormalVector( Element,Nodes,u,v,.FALSE. )
+        END IF
+        DO i=1,3
+          Velo(i) = SUM( Basis(1:n) * Velocity(i,1:n) )
+        END DO
+        NormalVelo = SUM( Normal * Velo)
+        TangentVelo = Velo - NormalVelo * Normal
+      ELSE
+        NormalVelo = SUM( Basis(1:n) * NormalVelocity(1:n) )
+        DO i=1,3
+          TangentVelo(i) = SUM( Basis(1:n) * TangentVelocity(i,1:n) )
+        END DO
+      END IF
+
+      Damp = SUM(Basis(1:n) * Admittance(1:n))
+      Pres = SUM(Basis(1:n) * ElemPressure(1:n))
+      Gap = SUM(Basis(1:n) * GapHeight(1:n))
+      TotPres = ReferencePressure + Pres
+
+!------------------------------------------------------------------------------
+!  Different material models. The "density" is used only as a functional form,
+!  not as absolute value.
+!------------------------------------------------------------------------------
+
+      SELECT CASE (ViscosityType)
+
+      CASE (Viscosity_Newtonian)
+        Visc = SUM(Basis(1:n) * Viscosity(1:n))
+       
+      CASE (Viscosity_Rarefied)
+        Visc = SUM(Basis(1:n) * Viscosity(1:n))
+        mfp = mfp0 * ReferencePressure / TotPres
+        Kn = mfp / ABS(Gap)
+        Visc = Visc / (1+9.638*Kn**1.159)
+
+      END SELECT
+
+!------------------------------------------------------------------------------
+
+      SELECT CASE (CompressibilityType) 
+
+      CASE (Compressibility_None)
+        Density = 1.0d0
+        DensityDer = 0.0d0
+        
+      CASE (Compressibility_Weak)
+        Density = EXP(Pres/BulkModulus)
+        DensityDer = Density / BulkModulus
+        
+      CASE (Compressibility_GasIsothermal)         
+        Density = TotPres 
+        DensityDer = 1.0d0
+        
+      CASE(Compressibility_GasAdiabatic) 
+        Density = TotPres ** (1.0/HeatRatio)
+        DensityDer = (1/HeatRatio) * TotPres ** (1.0/HeatRatio - 1.0)
+        
+      END SELECT
+      
+!------------------------------------------------------------------------------
+!  Coefficients of the differential equation at integration point
+!------------------------------------------------------------------------------
+
+      ! Multipliers of p: Stiffness matrix 
+      MS = -Density * Gap**3.0d0 / (12 * Visc)
+      HR = -Damp * Density
+
+      ! Multipliers of dp/dt: Mass matrix 
+      MM = -DensityDer * Gap
+      
+      ! right-hand-side: Force vector 
+      L = Density * NormalVelo
+
+      ! tangential velocity part of rhs. This is integrated by parts for simplicity.
+      SL = 0.0d0
+      SLR = 0.0d0
+      SLL = 0.0d0
+
+      IF(PartIntSliding) THEN
+        SL = -0.5 * Density * Gap * TangentVelo 
+      ELSE
+        DO i=1,dim
+          IF( UseVelocity ) THEN
+            ! The plane element automatically omits the derivative in normal direction
+            SLR = SLR + 0.5 * Density * SUM( dBasisdx(1:n,i) * Velocity(i,1:n) * GapHeight(1:n)) 
+          ELSE
+            SLR = SLR + 0.5 * Density * SUM( dBasisdx(1:n,i) * TangentVelocity(i,1:n) * GapHeight(1:n)) 
+          END IF
+        END DO
+         ! Implicit part: coefficient of the pressure gradient
+        SLL = -0.5* DensityDer * Gap * Velo 
+      END IF
+
+!------------------------------------------------------------------------------
+!      The Reynolds equation
+!------------------------------------------------------------------------------
+      DO p=1,NBasis
+        DO q=1,NBasis
+          A = HR * Basis(q) * Basis(p) 
+          B = MM * Basis(q) * Basis(p)
+          
+          DO i=1,DIM
+            DO j=1,DIM
+              A = A + MS * Metric(i,j) * dBasisdx(q,i) * dBasisdx(p,j)
+              A = A + SLL(j) * Metric(i,j) * dBasisdx(q,i) * Basis(p)
+            END DO
+          END DO
+          
+          StiffMatrix(p,q) = StiffMatrix(p,q) + s * A 
+          MassMatrix(p,q)  = MassMatrix(p,q)  + s * B
+        END DO
+        
+        ForceVector(p) = ForceVector(p) + s * Basis(p) * L
+        ForceVector(p) = ForceVector(p) + s * Basis(p) * SLR         
+
+        DO i=1,DIM
+          ForceVector(p) = ForceVector(p) + s * dBasisdx(p,i) * SL(i)         
+        END DO
+        
+      END DO
+    END DO
+
+!------------------------------------------------------------------------------
+  END SUBROUTINE LocalMatrix
+!------------------------------------------------------------------------------
+
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE LocalBoundary(MassMatrix, StiffMatrix, ForceVector, Element, n, Nodes)
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: MassMatrix(:,:), StiffMatrix(:,:), ForceVector(:)
+    INTEGER :: n
+    TYPE(Nodes_t) :: Nodes
+    TYPE(Element_t), POINTER :: Element
+!------------------------------------------------------------------------------
+    COMPLEX(KIND=dp) :: Impedance 
+    REAL(KIND=dp) :: SqrtElementMetric,U,V,W,S
+    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3),X,Y,Z
+    REAL(KIND=dp) :: Visc, dl, mfp, Kn, Damp, TotPres, Pres, Density, Gap, A
+    LOGICAL :: Stat
+    INTEGER :: i,p,q,t,DIM,CoordSys
+    TYPE(GaussIntegrationPoints_t) :: IntegStuff
+!------------------------------------------------------------------------------
+    DIM = CoordinateSystemDimension()
+    CoordSys = CurrentCoordinateSystem()
+
+!------------------------------------------------------------------------------
+!   Numerical integration
+!------------------------------------------------------------------------------
+    IntegStuff = GaussPoints( Element )
+!------------------------------------------------------------------------------
+    DO t=1,IntegStuff % n
+      U = IntegStuff % u(t)
+      V = IntegStuff % v(t)
+      W = IntegStuff % w(t)
+      S = IntegStuff % s(t)
+!------------------------------------------------------------------------------
+!      Basis function values & derivatives at the integration point
+!------------------------------------------------------------------------------
+      stat = ElementInfo( Element, Nodes, U, V, W, SqrtElementMetric, &
+          Basis, dBasisdx )
+      
+      s = s * SqrtElementMetric
+      
+      Gap = SUM( GapHeight(1:n) * Basis(1:n) )
+      Pres = SUM( ElemPressure(1:n) * Basis(1:n))
+      TotPres = ReferencePressure + Pres
+      
+      SELECT CASE (ViscosityType)
+        
+      CASE (Viscosity_Newtonian)
+        Visc = SUM(Basis(1:n) * Viscosity(1:n))
+        dl = 0.8488             
+        
+      CASE (Viscosity_Rarefied)
+        Visc = SUM(Basis(1:n) * Viscosity(1:n))
+        mfp = mfp0 * ReferencePressure / TotPres
+        Kn = mfp / ABS(Gap)
+        Visc = Visc / (1+9.638*Kn**1.159)
+        dl = 0.8488*(1.0+2.676*Kn**0.659)
+      END SELECT
+      
+      Damp = Gap / (12 * dl * Visc)
+      
+!------------------------------------------------------------------------------
+       
+      SELECT CASE (CompressibilityType) 
+        
+      CASE (Compressibility_None)
+        Density = 1.0d0
+        
+      CASE (Compressibility_Weak)
+        Density = EXP(Pres/BulkModulus)
+        
+      CASE (Compressibility_GasIsothermal)         
+        Density = TotPres 
+        
+      CASE(Compressibility_GasAdiabatic) 
+        Density = TotPres ** (1.0/HeatRatio)
+        
+      END SELECT
+
+!------------------------------------------------------------------------------       
+       A = -Damp * Gap * Density
+!------------------------------------------------------------------------------
+       DO p=1,n
+         DO q=1,n
+           StiffMatrix(p,q) = StiffMatrix(p,q) + s * Basis(q) * Basis(p) * A
+         END DO
+       END DO
+!------------------------------------------------------------------------------
+     END DO
+!------------------------------------------------------------------------------
+   END SUBROUTINE LocalBoundary
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+END SUBROUTINE ReynoldsSolver
+!------------------------------------------------------------------------------
+
+
+
+
+
+!------------------------------------------------------------------------------
+SUBROUTINE ReynoldsHeatingSolver( Model,Solver,dt,TransientSimulation )
+ !DEC$ATTRIBUTES DLLEXPORT :: ReynoldsHeatingSolver
+!------------------------------------------------------------------------------
+
+  USE DefUtils
+  USE Types
+  USE Lists
+  USE Integration
+  USE ElementDescription
+  USE SolverUtils
+
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Solver_t), TARGET :: Solver
+  TYPE(Model_t) :: Model
+  REAL(KIND=dp) :: dt
+  LOGICAL :: TransientSimulation
+!------------------------------------------------------------------------------
+! Local variables
+!------------------------------------------------------------------------------
+  TYPE(Variable_t), POINTER :: PressureVar
+  TYPE(Nodes_t) :: ElementNodes
+  TYPE(Element_t),POINTER :: Element, Parent
+  TYPE(ValueList_t), POINTER :: Material
+
+  INTEGER, PARAMETER :: Viscosity_Newtonian = 1, Viscosity_Rarefied = 2
+
+  INTEGER :: iter, i, j, k, l, n, nd, t, istat, mat_id, mat_idold, ViscosityType
+  INTEGER, POINTER :: NodeIndexes(:), PressurePerm(:)
+
+  LOGICAL :: GotIt, stat, UseVelocity, AllocationsDone = .FALSE.
+
+  REAL(KIND=dp), POINTER :: Pressure(:)
+  REAL(KIND=dp) :: Norm, ReferencePressure, mfp0, HeatSlide, HeatPres, HeatTotal, &
+      Pforce(3), Vforce(3), TotForce
+  REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:), Viscosity(:), GapHeight(:), &
+      NormalVelocity(:), TangentVelocity(:,:), Velocity(:,:), ElemPressure(:)
+  CHARACTER(LEN=MAX_NAME_LEN) :: ViscosityModel, PressureName
+
+
+  SAVE ElementNodes, Viscosity, Velocity, TangentVelocity, NormalVelocity, &
+      GapHeight, FORCE, STIFF, ElemPressure, AllocationsDone
+
+ 
+!------------------------------------------------------------------------------
+!    Check if version number output is requested
+!------------------------------------------------------------------------------
+
+  CALL Info('ReynoldsHeatingSolver','------------------------------------------------',Level=5)
+  CALL Info('ReynoldsHeatingSolver','Solving for viscous heating of Reynolds equation',Level=5)
+  CALL Info('ReynoldsHeatingSolver','------------------------------------------------',Level=5)
+
+!------------------------------------------------------------------------------
+! Get variables needed for solution
+!------------------------------------------------------------------------------
+
+  IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
+  IF(Solver % Variable % Dofs /= 1) THEN
+    CALL Fatal('ReynoldsHeatingSolver','Impossible number of dofs! (should be 1)')    
+  END IF
+
+  PressureName = GetString(Solver % Values,'Reynolds Pressure Variable Name',GotIt)
+  IF(.NOT. GotIt) PressureName = 'FilmPressure'
+
+  PressureVar => VariableGet( Solver % Mesh % Variables, PressureName)
+  IF(.NOT. ASSOCIATED(PressureVar)) THEN
+    CALL Warn('ReynoldsHeatingSolver','Could not get variable: '//TRIM(PressureName))
+    RETURN
+  END IF
+
+  Pressure => PressureVar % Values
+  PressurePerm => PressureVar % Perm
+  IF( COUNT( PressurePerm > 0 ) <= 0) RETURN
+  
+!------------------------------------------------------------------------------
+! Allocate some permanent storage, this is done first time only
+!------------------------------------------------------------------------------
+  IF ( .NOT. AllocationsDone  ) THEN
+    N = Solver % Mesh % MaxElementNodes
+
+    ALLOCATE(ElementNodes % x( N ),  &
+        ElementNodes % y( N ),       &
+        ElementNodes % z( N ),       &
+        Viscosity( N ),              &
+        GapHeight(N),          &
+        Velocity(3,N),         &
+        TangentVelocity(3,N),  &
+        NormalVelocity(N),     &
+        FORCE( N ),           &
+        STIFF( N, N ), &
+        ElemPressure(N), &
+        STAT=istat )
+
+    IF ( istat /= 0 ) CALL FATAL('ReynoldsHeatingSolver','Memory allocation error')    
+    AllocationsDone = .TRUE.
+  END IF 
+
+!------------------------------------------------------------------------------
+! Iterate over any nonlinearity of material or source
+!------------------------------------------------------------------------------
+  
+  mat_idold = 0
+  HeatSlide = 0.0d0
+  HeatPres = 0.0d0
+  Pforce = 0.0d0
+  Vforce = 0.0d0
+
+  CALL DefaultInitialize()
+
+!    Do the bulk assembly:
+!    ---------------------
+
+  DO t=1,Solver % NumberOfActiveElements
+    
+    Element => GetActiveElement(t)
+    n  = GetElementNOFNodes()
+    nd = GetElementNOFDOFs()
+    
+    CALL GetElementNodes( ElementNodes )
+
+    NodeIndexes => Element % NodeIndexes         
+    ElemPressure(1:n) = Pressure(PressurePerm(NodeIndexes(1:n)))
+
+!    CALL GetScalarLocalSolution( ElemPressure )
+      
+!------------------------------------------------------------------------------
+!       Get material parameters
+!------------------------------------------------------------------------------        
+    mat_id = GetInteger( Model % Bodies( Element % Bodyid ) % Values, 'Material')
+    Material => Model % Materials(mat_id) % Values
+    
+    GapHeight(1:n) = GetReal(Material,'Gap Height')
+    Viscosity(1:n) = GetReal( Material, 'Viscosity')
+
+    Velocity(1,1:n) = GetReal(Material,'Surface Velocity 1',UseVelocity)
+    Velocity(2,1:n) = GetReal(Material,'Surface Velocity 2',GotIt)
+    UseVelocity = UseVelocity .OR. GotIt
+    Velocity(3,1:n) = GetReal(Material,'Surface Velocity 3',GotIt)
+    UseVelocity = UseVelocity .OR. GotIt
+    
+    IF(.NOT. UseVelocity) THEN
+      TangentVelocity(1,1:n) = GetReal(Material,'Tangent Velocity 1',GotIt) 
+      TangentVelocity(2,1:n) = GetReal(Material,'Tangent Velocity 2',GotIt)
+      TangentVelocity(3,1:n) = GetReal(Material,'Tangent Velocity 3',GotIt)
+      NormalVelocity(1:n) = GetReal(Material,'Normal Velocity',GotIt)
+    END IF
+    
+    IF(mat_id /= mat_idold) THEN                  
+      
+      mat_idold = mat_id
+      
+      ViscosityModel = GetString(Material,'Viscosity Model',GotIt)
+      IF(GotIt) THEN
+        IF( ViscosityModel == 'newtonian') THEN
+          ViscosityType = Viscosity_Newtonian
+          IF( ViscosityModel == 'rarefied') THEN
+            ViscosityType = Viscosity_Rarefied
+            mfp0 = GetCReal(Material,'Mean Free Path',GotIt)            
+          ELSE
+            CALL Warn('ReynoldsHeatingSolver','Unknown viscosity model')
+          END IF
+        END IF
+      ELSE
+        ViscosityType = Viscosity_Newtonian          
+      END IF
+    END IF
+    
+    STIFF = 0.0d0
+    FORCE = 0.0d0
+    
+    CALL LocalMatrix( STIFF, FORCE, Element, n, nd, ElementNodes) 
+    CALL DefaultUpdateEquations( STIFF, FORCE )
+  END DO
+    
+!------------------------------------------------------------------------------
+
+  CALL DefaultFinishAssembly()
+
+!    Solve the system and we are done:
+!    ---------------------------------
+
+ 
+  Norm = DefaultSolve()
+  
+  HeatTotal = HeatPres + HeatSlide
+  WRITE(Message,'(A,T35,ES15.4)') 'Pressure heating (W): ',HeatPres
+  CALL Info('ReynoldsHeatingSolver',Message,Level=5)
+  WRITE(Message,'(A,T35,ES15.4)') 'Sliding heating (W): ',HeatSlide
+  CALL Info('ReynoldsHeatingSolver',Message,Level=5)
+  WRITE(Message,'(A,T35,ES15.4)') 'Reynolds heating (W): ',HeatTotal
+  CALL Info('ReynoldsHeatingSolver',Message,Level=5)
+
+  TotForce = SQRT( SUM((Pforce + Vforce)**2) )
+  DO i=1,3
+    IF(Pforce(i) > 1.0e-6 * TotForce) THEN
+      WRITE(Message,'(A,I1,A,T35,ES15.4)') 'Pressure force ',i,' (N):',Pforce(i)
+      CALL Info('ReynoldsHeatingSolver',Message,Level=5)
+    END IF
+    IF(Vforce(i) > 1.0e-6 * TotForce) THEN
+      WRITE(Message,'(A,I1,A,T35,ES15.4)') 'Sliding force ',i,' (N):',Vforce(i)
+      CALL Info('ReynoldsHeatingSolver',Message,Level=5)
+    END IF
+  END DO
+
+  CALL ListAddConstReal( Model % Simulation,'res: Reynolds heating',HeatTotal)
+  CALL ListAddConstReal( Model % Simulation,'res: Reynolds force',TotForce)
+
+
+  CALL Info('ReynoldsHeatingSolver','-------------------------------------------------',Level=5)
+  
+CONTAINS
+
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE LocalMatrix(StiffMatrix, ForceVector, Element, n, nd, Nodes)
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: StiffMatrix(:,:), ForceVector(:)
+    INTEGER :: n, nd
+    TYPE(Nodes_t) :: Nodes
+    TYPE(Element_t), POINTER :: Element
+!------------------------------------------------------------------------------
+    REAL(KIND=dp) :: Basis(n),dBasisdx(n,3), SqrtElementMetric
+    REAL(KIND=dp) :: x,y,z,Metric(3,3),SqrtMetric,Symb(3,3,3),dSymb(3,3,3,3),Normal(3)    
+    REAL(KIND=dp) :: U, V, W, S, A, LV, LS
+    REAL(KIND=dp) :: Normal(3), Velo(3), TangentVelo(3), Pres, Gap, GradPres(3), &
+        Visc, mfp, Kn, TotPres
+    LOGICAL :: Stat
+    INTEGER :: i,p,q,t,DIM, NBasis, CoordSys
+    TYPE(GaussIntegrationPoints_t) :: IntegStuff
+
+!------------------------------------------------------------------------------
+    DIM = CoordinateSystemDimension()
+    CoordSys = CurrentCoordinateSystem()
+
+    Metric = 0.0d0
+    Metric(1,1) = 1.0d0
+    Metric(2,2) = 1.0d0
+    Metric(3,3) = 1.0d0
+
+!------------------------------------------------------------------------------
+!   Numerical integration
+!------------------------------------------------------------------------------
+
+    NBasis = nd
+    IntegStuff = GaussPoints( Element )
+
+!------------------------------------------------------------------------------
+    DO t=1,IntegStuff % n
+
+      U = IntegStuff % u(t)
+      V = IntegStuff % v(t)
+      W = IntegStuff % w(t)
+      S = IntegStuff % s(t)
+
+!------------------------------------------------------------------------------
+!      Basis function values & derivatives at the integration point
+!------------------------------------------------------------------------------
+      stat = ElementInfo( Element, Nodes, U, V, W, SqrtElementMetric, &
+          Basis, dBasisdx)
+    
+      s = s * SqrtElementMetric
+      IF ( CoordSys /= Cartesian ) THEN
+        X = SUM( Nodes % X(1:n) * Basis(1:n) )
+        Y = SUM( Nodes % Y(1:n) * Basis(1:n) )
+        Z = SUM( Nodes % Z(1:n) * Basis(1:n) )
+        CALL CoordinateSystemInfo( Metric,SqrtMetric,Symb,dSymb,X,Y,Z )
+        s = s * SqrtMetric
+      END IF
+
+!------------------------------------------------------------------------------
+!      Parameters at integration point
+!------------------------------------------------------------------------------
+
+      IF(UseVelocity) THEN
+        IF( ASSOCIATED( Element % BoundaryInfo)) THEN
+          Normal = NormalVector( Element,Nodes,u,v,.TRUE. )
+        ELSE
+          Normal = NormalVector( Element,Nodes,u,v,.FALSE. )
+        END IF
+        DO i=1,3
+          Velo(i) = SUM( Basis(1:n) * Velocity(i,1:n) )
+        END DO
+        TangentVelo = Velo - SUM(Normal * Velo) * Normal
+      ELSE
+         DO i=1,3
+          TangentVelo(i) = SUM( Basis(1:n) * TangentVelocity(i,1:n) )
+        END DO
+      END IF
+
+      Pres = SUM(Basis(1:n) * ElemPressure(1:n))
+      TotPres = ReferencePressure + Pres
+      Gap = SUM(Basis(1:n) * GapHeight(1:n))
+      DO i=1,dim
+        GradPres(i) = SUM(dBasisdx(1:n,i) * ElemPressure(1:n))
+      END DO
+
+!------------------------------------------------------------------------------
+!  Different viscosity models. Should be consistant with the main solver.
+!------------------------------------------------------------------------------
+
+      SELECT CASE (ViscosityType)
+
+      CASE (Viscosity_Newtonian)
+        Visc = SUM(Basis(1:n) * Viscosity(1:n))
+       
+      CASE (Viscosity_Rarefied)
+        Visc = SUM(Basis(1:n) * Viscosity(1:n))
+        mfp = mfp0 * ReferencePressure / TotPres
+        Kn = mfp / ABS(Gap)
+        Visc = Visc / (1+9.638*Kn**1.159)
+
+      END SELECT
+      
+!------------------------------------------------------------------------------
+!  Coefficients of the differential equation at integration point
+!------------------------------------------------------------------------------
+      
+      ! heating effect of pressure flow
+      LV = (Gap**3.0 / (12 * Visc) ) * SUM(GradPres(1:dim)*GradPres(1:dim))
+      HeatPres = HeatPres + s * LV
+
+      ! effect of sliding
+      LS = (Visc / Gap) * SUM(TangentVelo(1:dim) * TangentVelo(1:dim)) 
+      HeatSlide = HeatSlide + s * LS
+
+      Pforce = Pforce + s * Pres * Normal
+      Vforce = Vforce + s * Visc * TangentVelo / Gap
+
+      DO p=1,NBasis
+        DO q=1,NBasis
+          A = Basis(q) * Basis(p)           
+          StiffMatrix(p,q) = StiffMatrix(p,q) + s * A 
+        END DO
+        
+        ForceVector(p) = ForceVector(p) + s * Basis(p) * (LV + LS)
+      END DO
+    END DO
+
+!------------------------------------------------------------------------------
+  END SUBROUTINE LocalMatrix
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+END SUBROUTINE ReynoldsHeatingSolver
+!------------------------------------------------------------------------------
+
