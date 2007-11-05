@@ -1094,9 +1094,10 @@ CONTAINS
     TYPE(Matrix_t), POINTER :: Matrix2, Pmatrix
     TYPE(Matrix_t), POINTER :: ProjPN, ProjQT, ProjT 
     
-    INTEGER :: i,j,k,l,m,n,n2,k1,k2,iter,MaxIter = 100, DirectLimit, MinLevel
+    INTEGER :: i,j,k,l,m,n,n2,k1,k2,iter,MaxIter = 100, DirectLimit, &
+        MinLevel, ComponentMode, ProjectorDOFs
     LOGICAL :: Condition, Found, Parallel, Project,EliminateDir
-    CHARACTER(LEN=MAX_NAME_LEN) :: str,IterMethod,mgname
+    CHARACTER(LEN=MAX_NAME_LEN) :: str,IterMethod,FileName
     INTEGER, POINTER :: CF(:), InvCF(:)
     
     REAL(KIND=dp), POINTER :: Residual(:), Work(:), Residual2(:), &
@@ -1106,9 +1107,9 @@ CONTAINS
         ILUTOL, alpha, beta, omega, rho, oldrho    
     REAL(KIND=dp) :: CPUTime, tt, tt2
 
-    LOGICAL :: NewLinearSystem, gotit, IdenticalSets, IdenticalProjs
+    LOGICAL :: NewLinearSystem, gotit
 
-    SAVE NewLinearSystem, AMG, MinLevel
+    SAVE NewLinearSystem, AMG, MinLevel, ComponentMode, ProjectorDOFs
     
 !------------------------------------------------------------------------------
 
@@ -1149,7 +1150,6 @@ CONTAINS
     IF(.NOT. GotIt) DirectLimit = 10
 
     IF ( Level <= 1 .OR. n < DirectLimit) THEN
-!     IF(.FALSE.) CALL SaveMatrix(Matrix1, 'proj.dat')          
       IF ( .NOT. Parallel ) THEN
         IF ( ListGetLogical( Solver % Values, 'MG Lowest Linear Solver Iterative',gotit ) ) THEN
           CALL IterSolver( Matrix1, Solution, ForceVector, Solver )
@@ -1221,72 +1221,91 @@ CONTAINS
       IF(.NOT. GotIt) EliminateDir = .TRUE.
       IF(Level /= Solver % MultiGridTotal) EliminateDir = .FALSE.
 
-      IdenticalProjs = ListGetLogical(Solver % Values,'MG Identical Component Projectors',GotIt) 
-      IdenticalSets = ListGetLogical(Solver % Values,'MG Identical Component Sets',GotIt)
-      IF(IdenticalProjs) IdenticalSets = .TRUE.
-
-      IF( IdenticalSets ) THEN
-        CALL ChooseCoarseNodes(Matrix1, Solver, ProjT, DOFs, CF, InvCF)
+      ! Determine projector with one dof and use it for others
+      ! 0 - no component mode
+      ! 1 - only allow block diagonal connections, otherwise normal routines 
+      ! 2 - determine C/F split from one dof, and then copy it for other dofs
+      ! 3 - determine C/F split and projector from one dof, then project everything with it
+      ComponentMode = ListGetInteger( Solver % Values, 'MG Component Mode', Found )
+      IF( ComponentMode == 3) THEN
+        ProjectorDofs = Dofs
       ELSE
+        ProjectorDofs = 1
+      END IF     
+      
+      IF(ComponentMode == 0) THEN
         CALL ChooseCoarseNodes(Matrix1, Solver, ProjT, 1, CF, InvCF)
-      END IF
-
-!      CALL SaveMatrix(ProjT, 'proj.dat')
-      
-      ! The initial projection matrix is a transpose of the wanted one. 
-      ! It is needed only in determining the matrix structure. 
-      
-      ProjPN => CRS_Transpose( ProjT )
-      ProjQT => ProjPN
-      
-      Matrix1 % Ematrix => ProjPN
-      ProjPN % Perm => CF
-     
-
-      ! Make the cnodes point to the set of original nodes
-      AMG(Level) % InvCF => InvCF
-      IF(Level < Solver % MultiGridTotal .AND. ASSOCIATED(InvCF)) THEN
-        DO i=1,SIZE(InvCF)
-          IF(InvCF(i) > 0) InvCF(i) = AMG(Level+1) % InvCF(InvCF(i))
-        END DO
+      ELSE IF(ComponentMode == 3) THEN
+        CALL ChooseCoarseNodes(Matrix1, Solver, ProjT, DOFs, CF, InvCF)        
+      ELSE        
+        CALL ChooseCoarseNodes(Matrix1, Solver, ProjT, DOFs, CF )
       END IF
  
+      IF( ListGetLogical(Solver % Values,'MG Projector Matrix Save',GotIt) ) THEN
+        WRITE(Filename,'(A,I1,A)') 'P',Level,'.dat'
+        CALL SaveMatrix(ProjT,TRIM(FileName))          
+      END IF
+
+      ! The initial projection matrix is a transpose of the wanted one. 
+      ! It is needed only in determining the matrix structure.       
+      ProjPN => CRS_Transpose( ProjT )
+      ProjQT => ProjPN      
+      Matrix1 % Ematrix => ProjPN
+
+      ! Make the cnodes point to the set of original nodes
+      IF( ComponentMode == 0 .OR. ComponentMode == 3) THEN
+        ProjPN % Perm => CF
+        AMG(Level) % InvCF => InvCF
+        IF(Level < Solver % MultiGridTotal .AND. ASSOCIATED(InvCF)) THEN
+          DO i=1,SIZE(InvCF)
+            IF(InvCF(i) > 0) InvCF(i) = AMG(Level+1) % InvCF(InvCF(i))
+          END DO
+        END IF
+      END IF
+
       !     CALL ParallelInitMatrix( Solver, Solver % Matrix )
-     
+      
       !     Project higher  level coefficient matrix to the
       !     lower level: A_low = ProjPN * A_high * ProjQT^T
       !            -----------------------------------------------
       
       tt2 = CPUTime()
       
-      IF(IdenticalProjs) THEN
-        CALL CRS_ProjectMatrixCreate( Matrix1, ProjPN, ProjT, Matrix2, DOFs)
-      ELSE 
-        l = MAX( Matrix1 % NumberOfRows / ProjT % NumberOfRows, 1)
-        CALL CRS_ProjectMatrixCreate( Matrix1, ProjPN, ProjT, Matrix2, l)
-      END IF
-      CALL FreeMatrix(ProjT)      
+ 
 
-      WRITE(Message,'(A,F5.1,A)') 'Coarse matrix element fraction',&
+      IF ( Matrix1 % NumberOfRows /=  ProjectorDOFs * ProjT % NumberOfRows) THEN
+        PRINT *,'proj dofs',Matrix1 % NumberOfRows, ProjT % NumberOfRows,dofs 
+        CALL Warn('AMGSolve','Projector incompatible with matrix size')
+      END IF
+
+      CALL CRS_ProjectMatrixCreate( Matrix1, ProjPN, ProjT, Matrix2, ProjectorDOFs)
+      CALL FreeMatrix(ProjT)      
+      
+      WRITE(Message,'(A,F6.1,A)') 'Coarse matrix element fraction',&
           100.0 *  SIZE(Matrix2 % Cols) / SIZE(Matrix1 % Cols),' %'
       CALL Info('AMGSolve',Message)
-      
+  
+      IF( ListGetLogical(Solver % Values,'MG Projected Matrix Save') ) THEN
+        WRITE(Filename,'(A,I1,A)') 'B',Level,'.dat'
+        CALL SaveMatrix(Matrix2,TRIM(FileName))          
+      END IF
+
       Matrix2 % Child  => Matrix1
       Matrix1 % Parent => Matrix2
-
+      
       WRITE( Message, '(A,F8.2)' ) 'Coarse matrix projection time', CPUTime() - tt2
       CALL Info( 'AMGSolve', Message, Level=5 )
-
+      
       IF( ListGetLogical(Solver % Values,'MG Coarse Nodes Save', GotIt) ) THEN
         CALL AMGTest(0)
-!        CALL AMGTest(1)
-!        CALL AMGTest(2)         
+        !        CALL AMGTest(1)
+        !        CALL AMGTest(2)         
       END IF
     ELSE
       Matrix2 => Matrix1 % Parent
       ProjPN => Matrix1 % Ematrix
       ProjQT => ProjPN
-      CF => ProjPN % Perm
+      IF( ComponentMode == 0 .OR. ComponentMode == 3) CF => ProjPN % Perm
     END IF
 
     n  = Matrix1 % NumberOfRows
@@ -1322,7 +1341,7 @@ CONTAINS
           'MG Level Convergence Tolerance', Found )
       IF ( .NOT. Found ) Tolerance = HUGE(Tolerance)
     END IF
-    
+   
 !------------------------------------------------------------------------------
 !
 !      Params for pre/post smoothing steps:
@@ -1332,7 +1351,7 @@ CONTAINS
 !      Smoothing iterative method:
 !      ---------------------------
     IterMethod = ListGetString( Solver % Values, 'MG Smoother', Found )
-   
+    
     IF ( .NOT. Found ) THEN
       IterMethod = ListGetString( Solver % Values, &
           'Linear System Iterative Method', Found )
@@ -1420,15 +1439,16 @@ CONTAINS
       WRITE( Message, '(A,F8.2)' ) 'MG iter time: ', CPUTime() - tt
       CALL Info( 'AMGSolve', Message, Level=5 )
 
-      IF(ASSOCIATED(AMG)) THEN
-        DO i = MinLevel,Solver % MultiGridTotal
-          IF(ASSOCIATED(AMG(i) % InvCF)) DEALLOCATE(AMG(i) % InvCF)
-        END DO
-        DEALLOCATE(AMG)
+      IF( ProjectorDOFs == 1) THEN
+        IF(ASSOCIATED(AMG)) THEN
+          DO i = MinLevel,Solver % MultiGridTotal
+            IF(ASSOCIATED(AMG(i) % InvCF)) DEALLOCATE(AMG(i) % InvCF)
+          END DO
+          DEALLOCATE(AMG)
+        END IF
       END IF
-
     END IF
-    
+   
     RETURN
 !------------------------------------------------------------------------------
 
@@ -1467,7 +1487,8 @@ CONTAINS
       R1 => Residual(1:n)
       R2 => Residual2(1:n2)
 
-      CALL CRS_ProjectVector( ProjPN, R1, R2, Trans = .FALSE. )
+      CALL CRS_ProjectVector( ProjPN, R1, R2, ProjectorDOFs, Trans = .FALSE. )
+
 !
 !      Recursively solve (PAQ)z = Pr:
 !      ------------------------------
@@ -1491,7 +1512,7 @@ CONTAINS
       R1 => Residual (1:n)
       R2 => Solution2(1:n2)
       
-      CALL CRS_ProjectVector( ProjQT, R2, R1, Trans = .TRUE. )
+      CALL CRS_ProjectVector( ProjQT, R2, R1, ProjectorDOFs, Trans = .TRUE. )
 
       Solution(1:n) = Solution(1:n) + Residual(1:n)
 !
@@ -2085,7 +2106,7 @@ CONTAINS
        INTEGER :: i, j, k, Rounds
        REAL(KIND=dp), POINTER :: Ones(:), Zeros(:)
        REAL(KIND=dp) :: Limit, MaxRatio, Ratio
-       INTEGER :: cnods, RatioClasses(101)
+       INTEGER :: cnods, nods, cnods, RatioClasses(101)
        LOGICAL :: GotIt
        
        Rounds = ListGetInteger(Solver % Values,'MG Compatible Relax Rounds',GotIt)
@@ -2181,7 +2202,7 @@ CONTAINS
          
          IF(newcands > 0) THEN
            WRITE(Message,'(A,I8)') 'Number of new candidate nodes using CR ',newcands
-           CALL Info('ChooseCoarseNodes',Message)         
+           CALL Info('CompatibleRelaxation',Message)         
          END IF
        END IF
 
@@ -2253,16 +2274,13 @@ CONTAINS
       CALL AMGBondsDirichlet(Amat, Bonds, CandList)
       CALL CompatibleRelaxation(Amat, Solver, CF, CandList, nods, newcands)
     ELSE 
-      IF(NoComponents == 1) THEN
-        CandList = 1
-      ELSE    
+      IF(ComponentMode >= 2) THEN
+        CandList = 0
         DO i=1,NoComponents
-          IF(i==Component1) THEN
-            CandList(i:nods:NoComponents) = 1
-          ELSE
-            CandList(i:nods:NoComponents) = 0          
-          END IF
+          IF(i == Component1) CandList(i:nods:NoComponents) = 1
         END DO
+      ELSE
+        CandList = 1
       END IF
       
       IF(CompMat) THEN
@@ -2270,7 +2288,7 @@ CONTAINS
       ELSE IF(PseudoGeometric) THEN
         CALL AMGBondsGeometric(Amat, Bonds, CandList, NoComponents)      
       ELSE
-        CALL AMGBonds(Amat, Bonds, CandList)      
+        CALL AMGBonds(Amat, Bonds, CandList, NoComponents)      
       END IF
 
       WRITE( Message,'(A,F8.2)') 'MG strong bond definition time', CPUTime() - tt2
@@ -2300,13 +2318,14 @@ CONTAINS
 
 
     ! Make the coarse nodes of each variable to be the same
-    IF(.NOT. IdenticalProjs .AND. NoComponents > 1) THEN
+    IF(NoComponents > 1 .AND. ComponentMode == 2) THEN
       DO i=1,NoComponents
-        IF(i/=Component1) THEN
+        IF(i /= Component1) THEN
           CF(i:nods:NoComponents) = CF(Component1:nods:NoComponents)
         END IF
       END DO
     END IF    
+
 
     ! Set the CF vector to be zero for fine nodes and an order number for coarse nodes
     cnods = 0
@@ -2319,6 +2338,10 @@ CONTAINS
       END IF
     END DO
     
+!    PRINT *,'CF',CF
+
+
+
     WRITE(Message,'(A,I8)') 'Coarse mesh nodes ',cnods
     CALL Info('ChooseCoarseNodes',Message)
 
@@ -2332,21 +2355,21 @@ CONTAINS
     IF(CompMat) THEN
       Projector => ComplexInterpolateF2C( Amat, CF )      
     ELSE IF(PseudoGeometric) THEN
-      Projector => InterpolateF2CGeometric( Amat, CF, NoComponents)
-    ELSE IF(IdenticalProjs) THEN
-      Projector => InterpolateF2C( Amat, CF, NoComponents)
+      Projector => InterpolateF2CDistance( Amat, CF, NoComponents)
     ELSE
-      Projector => InterpolateF2C( Amat, CF, 1)      
+      Projector => InterpolateF2C( Amat, CF, NoComponents)
     END IF
 
     WRITE( Message, '(A,F8.2)' ) 'MG projection matrix creation time: ', CPUTime() - tt2
     CALL Info( 'ChooseCoarseNodes', Message, Level=5 )
 
-    IF(PRESENT(InvCF)) THEN
-      ALLOCATE(InvCF(cnods))
-      DO i=1,nods
-        IF(CF(i) > 0) InvCF(CF(i)) = i
-      END DO
+    IF(ComponentMode == 0 .OR. ComponentMode == 3) THEN
+      IF(PRESENT(InvCF)) THEN
+        ALLOCATE(InvCF(cnods))
+        DO i=1,nods
+          IF(CF(i) > 0) InvCF(CF(i)) = i
+        END DO
+      END IF
     END IF
 
   END SUBROUTINE ChooseCoarseNodes
@@ -2357,12 +2380,12 @@ CONTAINS
 ! make the inverse table for important connections
 !------------------------------------------------------------------------------
 
-  SUBROUTINE AMGBonds(Amat, Bonds, Cands)
+  SUBROUTINE AMGBonds(Amat, Bonds, Cands, Components)
     
     LOGICAL, POINTER :: Bonds(:)
     TYPE(Matrix_t), POINTER  :: Amat
     INTEGER, POINTER :: Cands(:)
-    INTEGER :: Components, Component1    
+    INTEGER :: Components
 
     REAL(KIND=dp) :: NegLim, PosLim
     INTEGER :: nods, cnods, diagsign, maxconn, posnew, negnew, MaxConns, MinConns
@@ -2422,6 +2445,9 @@ CONTAINS
       minmaxset = .FALSE.
       DO j=Rows(ind),Rows(ind+1)-1
         cj = Cols(j)
+
+        IF( MOD(ind, Components) /= MOD(cj, Components) ) CYCLE
+
         IF(Cands(cj) /= 0 .AND. cj /= ind ) THEN
           IF(minmaxset) THEN
             maxbond = MAX(maxbond, Values(j))
@@ -2460,6 +2486,10 @@ CONTAINS
 
       DO j=Rows(ind),Rows(ind+1)-1
         cj = Cols(j)
+
+        ! For multi-component equation assume block structure when building the projector
+        IF( MOD(ind, Components) /= MOD(cj, Components) ) CYCLE
+
         IF(Cands(cj) /= 0 .AND. cj /= ind ) THEN
           IF(diagsign * Values(j) <= 0.0) THEN
             meas = ABS(Values(j)) / (NegLim * maxbond)
@@ -2518,6 +2548,7 @@ CONTAINS
             
             cj = Cols(j)
             IF(Cands(cj) == 0 .OR. cj == ind ) CYCLE
+            IF( MOD(ind, Components) /= MOD(cj, Components) ) CYCLE
  
             meas = ABS(measures(j-Rows(ind)+1))
             IF(meas > measlim) THEN
@@ -3113,6 +3144,7 @@ CONTAINS
       DO i=Rows(ind),Rows(ind+1)-1
         IF(.NOT. Bonds(i)) CYCLE
         ci = Cols(i)
+
         IF(Cands(ci) == 0) CYCLE
         IF(CF(ci) == 0) THEN
           find = find + 1
@@ -3134,6 +3166,7 @@ CONTAINS
       DO i=Rows(ind),Rows(ind+1)-1
         IF(.NOT. Bonds(i)) CYCLE
         ci = Cols(i)
+
         IF(Cands(ci) > 0) THEN
           ! Only give points to undicided points	
           IF(CF(ci) == 0) THEN
@@ -3154,6 +3187,7 @@ CONTAINS
         DO i=Rows(ind),Rows(ind+1)-1
           IF(.NOT. Bonds(i)) CYCLE
           ci = Cols(i)
+
           IF(Cands(ci) == -1) THEN
             Con(ind) = Con(ind) + FollowBounds
           END IF
@@ -3446,7 +3480,7 @@ CONTAINS
         ind = maxi
       END DO
 
-      WRITE(Message,'(A,I8)') 'Coarsening algorhitm starts',newstarts
+      WRITE(Message,'(A,I8)') 'Coarsening algorithm starts',newstarts
       CALL Info('AMGCoarse',Message)
 
     END IF
@@ -3467,11 +3501,11 @@ CONTAINS
       CALL Info('AMGCoarse',Message)      
     END IF
 
-    WRITE(Message,'(A,I8)') 'Coarsening algorhitm tests',loops
+    WRITE(Message,'(A,I8)') 'Coarsening algorithm tests',loops
     CALL Info('AMGCoarse',Message)
-    WRITE(Message,'(A,I8)') 'Coarsening algorhitm c-nodes',cind
+    WRITE(Message,'(A,I8)') 'Coarsening algorithm c-nodes',cind
     CALL Info('AMGCoarse',Message)
-    WRITE(Message,'(A,I8)') 'Coarsening algorhitm f-nodes',find
+    WRITE(Message,'(A,I8)') 'Coarsening algorithm f-nodes',find
     CALL Info('AMGCoarse',Message)
 
   END SUBROUTINE AMGCoarse
@@ -3495,23 +3529,25 @@ CONTAINS
        TYPE(Matrix_t), POINTER :: Projector
 !------------------------------------------------------------------------------
        INTEGER, PARAMETER :: FSIZE=1000, CSIZE=100
-       INTEGER :: i, j, k, l, Fdofs, Cdofs, ind, ci, cj, Component1, Components, node
+       INTEGER :: i, j, k, l, Fdofs, Cdofs, ind, ci, cj, Component1, Components, &
+           IncComponents, node
        REAL(KIND=dp), POINTER :: PValues(:), FValues(:)
        INTEGER, POINTER :: FRows(:), FCols(:), PRows(:), PCols(:), CoeffsInds(:)
        REAL(KIND=dp) :: bond, value, possum, negsum, poscsum, negcsum, diagsum, &
            ProjLim, negbond, posbond, maxbond
        LOGICAL :: Debug, AllocationsDone, DirectInterpolate, Lumping
        INTEGER :: inds(FSIZE), posinds(CSIZE), neginds(CSIZE), no, diag, InfoNode, &
-           posno, negno, negi, posi, projnodes, DirectLimit
+           posno, negno, negi, posi, projnodes, DirectLimit, entries
        REAL(KIND=dp) :: coeffs(FSIZE), poscoeffs(CSIZE), negcoeffs(CSIZE), wsum, &
-           refbond, posmax, negmax
+           refbond, posmax, negmax, favorneg
 
        Debug = .FALSE.
+
 
        IF(Debug) CALL Info('InterpolateF2C','Starting interpolation')
        
        ProjLim = ListGetConstReal(Solver % Values,'MG Projection Limit',GotIt)
-       IF(.NOT. GotIt) ProjLim = 0.1
+       IF(.NOT. GotIt) ProjLim = 0.5
 
        Lumping = ListGetLogical(Solver % Values,'MG Projection Lumping',GotIt)
 
@@ -3525,13 +3561,16 @@ CONTAINS
          END IF
        END IF
 
-       Component1 = ListGetInteger(Solver % Values,'MG Determining Component',GotIt,minv=1,maxv=DOFs)
-       IF(.NOT. GotIt) Component1 = 1
+       FavorNeg = ListGetConstReal(Solver % Values,'MG Negative Connection Favor Factor',GotIt)
+       IF(.NOT. GotIt) FavorNeg = 1.0d0
 
        Components = DOFs
-       IF(.NOT. IdenticalProjs) THEN
-         Components = 1
+       IF(ComponentMode == 3) THEN
+         Component1 = ListGetInteger(Solver % Values,'MG Determining Component',minv=1,maxv=DOFs)
+         IncComponents = DOFs
+       ELSE
          Component1 = 1
+         IncComponents = 1
        END IF
 
        InfoNode = ListGetInteger(Solver % Values,'MG Info Node',GotIt)
@@ -3544,7 +3583,7 @@ CONTAINS
        ALLOCATE(CoeffsInds(Fdofs))
        CoeffsInds = 0
 
-       ! Calculate the order of the new dofs
+       ! Calculate the order of the new coarse nodes
        Cdofs = 0
        DO ind = 1,Fdofs
          IF(CF(ind) > 0) THEN
@@ -3555,7 +3594,12 @@ CONTAINS
        
        ! Initialize stuff before allocations
        AllocationsDone = .FALSE.
-       ALLOCATE( PRows(Fdofs+1) )
+
+       IF(ComponentMode == 3) THEN
+         ALLOCATE( PRows(Fdofs/Components+1) )
+       ELSE
+         ALLOCATE( PRows(Fdofs+1) )         
+       END IF
        PRows(1) = 1
 
        ! Go through the fine dofs and make a projection based on the strongly coupled nodes
@@ -3566,10 +3610,12 @@ CONTAINS
        neginds = 0
        poscoeffs = 0.0
        negcoeffs = 0.0
+       entries = 0
 
-       DO ind=Component1,Fdofs,Components
+       DO ind=Component1,Fdofs,IncComponents
 
-         node = (ind-Component1) / Components + 1
+         ! In component mode this corresponds to a physical node with multiple dofs
+         node = (ind-Component1) / IncComponents + 1
 
          Debug = (node == InfoNode) 
 
@@ -3590,12 +3636,13 @@ CONTAINS
              DO i=FRows(ind),FRows(ind+1)-1
                ci = Fcols(i)
 
-               IF(MOD(ci-Component1,Components) /= 0) CYCLE
+               ! We desire a block-diagonal projector
+               IF(MOD(ci,Components) /= MOD(ind,Components)) CYCLE
 
                value = FValues(i)
                IF(ABS(value) < 1.0d-50) CYCLE
                no = no + 1
-               inds(no) = FCols(i)
+               inds(no) = ci
                coeffs(no) = value
                IF(ci == ind) THEN
                  diag = no
@@ -3618,7 +3665,7 @@ CONTAINS
              DO i=FRows(ind),FRows(ind+1)-1
                ci = Fcols(i)
 
-               IF(MOD(ci-Component1,Components) /= 0) CYCLE
+               IF(MOD(ci,Components) /= MOD(ind,Components)) CYCLE
 
                IF(CF(ci) > 0 .OR. ci == ind) THEN
                  value = FValues(i)
@@ -3628,7 +3675,7 @@ CONTAINS
                  coeffs(no) = value
                  CoeffsInds(ci) = no
                  IF(ci == ind) diag = no
-              END IF
+               END IF
              END DO
 
              
@@ -3636,13 +3683,15 @@ CONTAINS
              DO i=FRows(ind),FRows(ind+1)-1
                ci = Fcols(i)
 
-               IF(MOD(ci-Component1,Components) /= 0) CYCLE
+               IF(MOD(ci,Components) /= MOD(ind,Components)) CYCLE
 
                IF(CF(ci) > 0 .OR. ci == ind) CYCLE
                
                DO j=FRows(ci),FRows(ci+1)-1
                  cj = Fcols(j)
                  IF(ci == cj) CYCLE
+
+                 IF(MOD(cj,Components) /= MOD(ind,Components)) CYCLE
 
                  value = Fvalues(i) * Fvalues(j) / Fvalues(Fmat % diag(ci))
                  IF(ABS(value) < 1.0d-50) CYCLE
@@ -3665,7 +3714,16 @@ CONTAINS
 
              CoeffsInds(inds(1:no)) = 0
            END IF
+
              
+           k = MOD(inds(1),Components)
+           IF( ANY(MOD(inds(1:no),Components) /= k)) THEN
+             PRINT *,'no',no
+             PRINT *,'inds',inds(1:no)
+             PRINT *,'mod',MOD(inds(1:no),Components)
+           END IF
+
+
            IF(Debug) THEN
              PRINT *,'ind no diag',ind,no,diag
              PRINT *,'coeffs',coeffs(1:no)
@@ -3697,7 +3755,7 @@ CONTAINS
              coeffs(diag) = coeffs(diag) - SUM(coeffs(1:no))
            END IF
           
-           ! If the diagonal is negative the invert the selection 
+           ! If the diagonal is negative then invert the selection 
            IF(coeffs(diag) < 0.0) THEN
              coeffs(1:no) = -coeffs(1:no)
            END IF
@@ -3724,7 +3782,7 @@ CONTAINS
            END DO
 
            IF(posi == 0 .AND. negi == 0) THEN
-             IF(Debug) PRINT *,'The node is not connected to c-neighbours',ind,inds(1:no)
+             IF(.TRUE.) PRINT *,'The node is not connected to c-neighbours',ind,inds(1:no)
              projnodes =  0
              inds(1:no) = 0
              coeffs(1:no) = 0.0
@@ -3734,9 +3792,9 @@ CONTAINS
            posno = 0
            negno = 0
 
-           ! Decide the algorhitm knowing which weights dominate +/-
+           ! Decide the algorithm knowing which weights dominate +/-
            ! Negative weights dominate
-           IF(posi == 0 .OR. ABS(possum) <= ABS(negsum)) THEN
+           IF(posi == 0 .OR. ABS(possum) <= ABS(negsum) * FavorNeg) THEN
 
              IF(negi == 0) THEN
                PRINT *,'Negatively bonded node has no c-neighbours',ind,negsum,possum,posi
@@ -3769,7 +3827,7 @@ CONTAINS
 
              negi = negno             
              posi = 0
-             refbond = -ProjLim * negsum * negmax / negcsum 
+             refbond = -ProjLim * negsum * negmax / (FavorNeg * negcsum)
 
              ! Add possible positive weights
              IF(possum > refbond) THEN
@@ -3840,7 +3898,7 @@ CONTAINS
 
              posi = posno
              negi = 0             
-             refbond = ProjLim * possum * posmax / poscsum 
+             refbond = ProjLim * possum * posmax / ( poscsum * FavorNeg )
 
              IF(-negsum > refbond) THEN
                ! Order the negative coefficients in an increasing order
@@ -3890,10 +3948,11 @@ CONTAINS
              wsum = 0.0
 
              IF(posi == 0) THEN
-               diagsum = diagsum + possum
+               diagsum = diagsum + possum / FavorNeg
              END IF    
+
              IF(negi == 0) THEN
-               diagsum = diagsum + negsum
+               diagsum = (diagsum + negsum) / FavorNeg
              END IF            
 
              DO i=1,negi
@@ -3904,8 +3963,9 @@ CONTAINS
                PValues(Prows(node)+i-1) = value
                wsum = wsum + value
              END DO
+
              DO i=1,posi
-               value = -possum * poscoeffs(i) / (poscsum * diagsum)
+               value = -possum * poscoeffs(i) / (poscsum * diagsum * FavorNeg)
                ci = posinds(i)
                IF(Debug) PRINT *,'F+: Pij',ind,CF(ci),value
                PCols(Prows(node)+i+negi-1) = CF(ci)
@@ -3922,18 +3982,29 @@ CONTAINS
 
 20       IF(Debug) PRINT *,'ind nodes',ind,projnodes
          PRows(node+1) = PRows(node) + projnodes
+         entries = entries + projnodes
 
        END DO
 
        ! Allocate space for the projection matrix and thereafter do the loop again
        IF(.NOT. AllocationsDone) THEN
-         WRITE(Message,'(A,I8)') 'Size of the projector',PRows(Fdofs+1)-1
-         CALL Info('InterpolateF2C',Message)
 
          Projector => AllocateMatrix()
-         Projector % NumberOfRows = Fdofs / Components
+         IF( ComponentMode == 3) THEN
+           no = Fdofs / Components
+         ELSE
+           no = Fdofs
+         END IF
 
-         ALLOCATE( PCols(PRows(Fdofs/Components+1)-1), PValues(PRows(Fdofs/Components+1)-1) )           
+         Projector % NumberOfRows = no
+         ALLOCATE( PCols(entries), PValues(entries) )           
+
+         WRITE(Message,'(A,I8)') 'Projector matrix size',no
+         CALL Info('InterpolateF2C',Message)
+
+         WRITE(Message,'(A,F8.2)') 'Projector nodes in average',1.0*entries/no
+         CALL Info('InterpolateF2C',Message)
+
          AllocationsDone = .TRUE.
          PCols   = 0
          PValues = 0
@@ -3945,10 +4016,21 @@ CONTAINS
          GOTO 10
        END IF
 
+       IF(Debug) THEN
+         no = MAXVAL(Pcols) 
+         IF( no /= Cdofs) PRINT *,'********* MAXVAL(Pcols)',no,Cdofs
+         
+         no = MINVAL(PCols) 
+         IF( no < 1) PRINT *,'********** MINVAL(Pcols)',no      
+         
+         PRINT *,'Projector interval',MINVAL(PValues),MAXVAL(Pvalues)
+       END IF
+
        DEALLOCATE(CoeffsInds)
        
      END FUNCTION InterpolateF2C
 !-------------------------------------------------------------------------
+
 
 
 !-----------------------------------------------------------------------------
@@ -3956,7 +4038,7 @@ CONTAINS
 !     Here the stregth of connections is assumed to be inversily proportional
 !     to the distance between nodes. 
 !------------------------------------------------------------------------------
-     FUNCTION InterpolateF2CGeometric( Fmat, CF, DOFs) RESULT (Projector)
+     FUNCTION InterpolateF2CDistance( Fmat, CF, DOFs) RESULT (Projector)
 !------------------------------------------------------------------------------
        USE Interpolation
        USE CRSMatrix
@@ -3984,7 +4066,7 @@ CONTAINS
        IF(Debug) CALL Info('InterpolateF2C','Starting interpolation')
        
        ProjLim = ListGetConstReal(Solver % Values,'MG Projection Limit',GotIt)
-       IF(.NOT. GotIt) ProjLim = 0.1
+       IF(.NOT. GotIt) ProjLim = 0.5
 
        Pow = ListGetConstReal(Solver % Values,'MG Geometric Power',GotIt)
        IF(.NOT. GotIt) Pow = 1.0d0
@@ -4001,12 +4083,6 @@ CONTAINS
 
        Component1 = ListGetInteger(Solver % Values,'MG Determining Component',GotIt,minv=1,maxv=DOFs)
        IF(.NOT. GotIt) Component1 = 1
-
-       Components = DOFs
-       IF(.NOT. IdenticalProjs) THEN
-         Components = 1
-         Component1 = 1
-       END IF
 
        InfoNode = ListGetInteger(Solver % Values,'MG Info Node',GotIt)
        InfoLevel = ListGetInteger(Solver % Values,'MG Info Level',GotIt)
@@ -4204,7 +4280,7 @@ CONTAINS
 
        DEALLOCATE(CoeffsInds)
        
-     END FUNCTION InterpolateF2CGeometric
+     END FUNCTION InterpolateF2CDistance
 !-------------------------------------------------------------------------
 
 
@@ -4242,7 +4318,7 @@ CONTAINS
 
        
        ProjLim = ListGetConstReal(Solver % Values,'MG Projection Limit',GotIt)
-       IF(.NOT. GotIt) ProjLim = 0.1
+       IF(.NOT. GotIt) ProjLim = 0.5
 
        Lumping = ListGetLogical(Solver % Values,'MG Projection Lumping',GotIt)
 
@@ -4588,8 +4664,8 @@ CONTAINS
         Outa = 0.0d0
         Outb = 0.0d0
         
-        CALL CRS_ProjectVector( ProjPN, Ina, Outa, Trans = .FALSE. )
-        CALL CRS_ProjectVector( ProjPN, Inb, Outb, Trans = .FALSE. )        
+        CALL CRS_ProjectVector( ProjPN, Ina, Outa, 1, Trans = .FALSE. )
+        CALL CRS_ProjectVector( ProjPN, Inb, Outb, 1, Trans = .FALSE. )        
 
         OPEN (10,FILE=Filename)        
         DO i=1,nods2
@@ -4622,8 +4698,8 @@ CONTAINS
         PRINT *,'Initial Interval y',MINVAL(Inb),MAXVAL(Inb)
         PRINT *,'Initial Mean Values',SUM(Ina)/SIZE(Ina),SUM(Inb)/SIZE(Inb)
 
-        CALL CRS_ProjectVector( ProjQT, Ina, Outa, Trans = .TRUE. )
-        CALL CRS_ProjectVector( ProjQT, Inb, Outb, Trans = .TRUE. )        
+        CALL CRS_ProjectVector( ProjQT, Ina, Outa, 1, Trans = .TRUE. )
+        CALL CRS_ProjectVector( ProjQT, Inb, Outb, 1, Trans = .TRUE. )        
 
         PRINT *,'Final Interval x',MINVAL(Outa),MAXVAL(Outa),SUM(Outa)/SIZE(Outa)
         PRINT *,'Final Interval y',MINVAL(Outb),MAXVAL(Outb),SUM(Outb)/SIZE(Outb)
@@ -4847,10 +4923,11 @@ CONTAINS
 
 
 !-------------------------------------------------------------------------------
-  SUBROUTINE CRS_ProjectVector( PMatrix, u, v, Trans )
+  SUBROUTINE CRS_ProjectVector( PMatrix, u, v, DOFs, Trans )
 !-------------------------------------------------------------------------------
     TYPE(Matrix_t), POINTER :: PMatrix
     REAL(KIND=dp), POINTER :: u(:),v(:)
+    INTEGER :: DOFs
     LOGICAL, OPTIONAL :: Trans
 !-------------------------------------------------------------------------------
     INTEGER :: i,j,k,l,n
@@ -4866,26 +4943,60 @@ CONTAINS
     Cols   => PMatrix % Cols
     Values => PMatrix % Values
 
+    IF(Trans) THEN
+      IF(SIZE(u)/DOFS /= n) THEN
+        PRINT *,'dofs',dofs,'u',SIZE(u),'n',n,'u/dofs',SIZE(u)/dofs        
+        CALL Fatal('CRS_ProjectVector','Incompatible transpose sizes')
+      END IF
+    ELSE      
+      IF(SIZE(v)/DOFS /= n) THEN
+        PRINT *,'dofs',dofs,'v',SIZE(v),'n',n,'v/dofs',SIZE(v)/dofs
+        CALL Fatal('CRS_ProjectVector','Incompatible sizes')
+      END IF
+    END IF
+
     v = 0.0d0
 
-    IF ( LTrans ) THEN
-      DO i=1,n
-        DO j=Rows(i),Rows(i+1)-1
-          v(Cols(j)) = v(Cols(j)) + u(i) * Values(j)
+    IF( DOFs == 1) THEN
+      IF ( LTrans ) THEN
+        DO i=1,n
+          DO j=Rows(i),Rows(i+1)-1
+            v(Cols(j)) = v(Cols(j)) + u(i) * Values(j)
+          END DO
         END DO
-      END DO
+      ELSE
+        DO i=1,n
+          DO j = Rows(i), Rows(i+1)-1
+            v(i) = v(i) + u(Cols(j)) * Values(j)
+          END DO
+        END DO
+      END IF
     ELSE
-      DO i=1,n
-        DO j = Rows(i), Rows(i+1)-1
-          v(i) = v(i) + u(Cols(j)) * Values(j)
+      IF ( LTrans ) THEN
+        DO i=1,n
+          DO j=Rows(i),Rows(i+1)-1
+            DO k=1,DOFs
+              v(DOFs*(Cols(j)-1)+k) = &
+                  v(DOFs*(Cols(j)-1)+k) + u(DOFs*(i-1)+k) * Values(j)
+            END DO
+          END DO
         END DO
-      END DO
+      ELSE
+        DO i=1,n
+          DO j = Rows(i), Rows(i+1)-1
+            DO k=1,DOFs
+              v(DOFs*(i-1)+k) = &
+                  v(DOFs*(i-1)+k) + u(DOFs*(Cols(j)-1)+k) * Values(j)
+            END DO
+          END DO
+        END DO
+      END IF      
     END IF
 !-------------------------------------------------------------------------------
   END SUBROUTINE CRS_ProjectVector
 !-------------------------------------------------------------------------------
 
-
+#if 0
 !------------------------------------------------------------------------------
   SUBROUTINE CRS_ProjectMatrix( A, P, Q, B, DOFs)
 !------------------------------------------------------------------------------
@@ -5070,7 +5181,7 @@ CONTAINS
 !------------------------------------------------------------------------------
   END SUBROUTINE CRS_ProjectMatrix
 !------------------------------------------------------------------------------
-
+#endif
 
 
 !------------------------------------------------------------------------------
@@ -5142,7 +5253,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-    SUBROUTINE CRS_ProjectMatrixCreate( A, P, R, B, DOFs) 
+    SUBROUTINE CRS_ProjectMatrixCreate( A, P, R, B, DOFs ) 
 !------------------------------------------------------------------------------
 !
 !     Project matrix A to B: B = PAR
@@ -5152,19 +5263,22 @@ CONTAINS
       INTEGER :: DOFs
 !------------------------------------------------------------------------------
       INTEGER, POINTER :: L1(:), L2(:)
-      REAL(KIND=dp) :: s
+      REAL(KIND=dp) :: s, Epsilon
       REAL(KIND=dp), POINTER :: R1(:),R2(:)
-      INTEGER :: i,j,k,l,NA,NB,ci,cj,ck,cl,NoRow,i2,j2
-      INTEGER :: TotalNonzeros, comp1, comp2
+      INTEGER :: i,ia,j,k,l,m,n,NA,NB,ci,cj,ck,cl,NoRow,i2,j2
+      INTEGER :: TotalNonzeros
       LOGICAL :: AllocationsDone 
-      INTEGER, ALLOCATABLE :: Row(:), Ind(:)
+      INTEGER, ALLOCATABLE :: Ind(:), Row(:)
 !------------------------------------------------------------------------------
 
       AllocationsDone = .FALSE.
       NA = A % NumberOfRows
-      NB = P % NumberOfRows
+      NB = DOFs * P % NumberOfRows
       ALLOCATE( Row( NA ), Ind( NB ) )
- 
+
+
+      Epsilon = ListGetConstReal(Solver % Values,'MG Matrix Create Epsilon')
+
       B => AllocateMatrix()      
       B % NumberOfRows = P % NumberOfRows * DOFs
       ALLOCATE( B % Rows( B % NumberOfRows + 1 ), &
@@ -5189,8 +5303,8 @@ CONTAINS
               ck = A % Cols(k) 
               
               DO l=R % Rows(ck), R % Rows(ck+1)-1
-                cl = R % Cols(l)
-                
+
+                cl = R % Cols(l)                
                 i2 = Row(cl)
                 
                 IF ( i2 == 0) THEN
@@ -5205,7 +5319,6 @@ CONTAINS
                     B % Values(i2) = P % Values(j) * A % Values(k) * R % Values(l)
                   END IF
                 ELSE IF(AllocationsDone) THEN
-                  j2 = B % Rows(i) + NoRow - 1
                   B % Values(i2) = B % Values(i2) + P % Values(j) * A % Values(k) * R % Values(l)
                 END IF
               END DO
@@ -5219,38 +5332,47 @@ CONTAINS
           B % Rows(i+1) = B % Rows(i) + NoRow
           TotalNonzeros  = TotalNonzeros + NoRow
         END DO
+
       ELSE  ! DOFs /= 1
+
         DO i=1,P % NumberOfRows
-          DO comp1 = 1,DOFs
+          DO m = 1,DOFs
+            ia = DOFs * (i-1) + m 
             
-            NoRow = 0
+            NoRow = 0            
             DO j=P % Rows(i),P % Rows(i+1)-1          
-              cj = DOFs * (P % Cols(j)-1) + comp1
+
+              cj = DOFs * (P % Cols(j)-1) + m
               
               DO k=A % Rows(cj), A % Rows(cj+1)-1
-                ck = (A % Cols(k) - 1) / DOFs + 1
-                
+
+                IF( ABS(A % Values(k)) < Epsilon) CYCLE
+ 
+                ck = A % Cols(k)
+                n = MOD(ck-1,DOFs)+1
+                ck = (ck-1) / DOFs + 1
+
                 DO l=R % Rows(ck), R % Rows(ck+1)-1
-                  DO comp2 = 1, DOFs
-                    cl = DOFs * (R % Cols(l)-1) + comp2
-                    i2 = Row(cl)
+
+                  cl = DOFs * (R % Cols(l)-1) + n
+                  i2 = Row(cl)
                     
-                    IF ( i2 == 0) THEN
-                      NoRow = NoRow + 1
-                      Ind(NoRow) = cl
-                      i2 = B % Rows(DOFs*(i-1)+comp1) + NoRow - 1                   
-                      Row(cl) = i2
-                      
-                      IF(AllocationsDone) THEN
-                        IF(DOFs*(i-1) + comp1 == cl) B % diag(cl) = i2 
-                        B % Cols(i2) = cl                     
-                        B % Values(i2) = P % Values(j) * A % Values(k) * R % Values(l)
-                      END IF
-                    ELSE IF(AllocationsDone) THEN
-                      j2 = B % Rows(DOFs*(i-1)+comp1) + NoRow - 1
+                  IF ( i2 == 0 ) THEN
+                    NoRow = NoRow + 1
+                    Ind(NoRow) = cl
+                    i2 = B % Rows(ia) + NoRow - 1
+                    Row(cl) = i2
+                    
+                    IF(AllocationsDone) THEN
+                      IF(ia == cl) B % diag(cl) = i2 
+                      B % Cols(i2) = cl                     
+                      B % Values(i2) = P % Values(j) * A % Values(k) * R % Values(l)
+                    END IF
+                  ELSE
+                    IF(AllocationsDone) THEN
                       B % Values(i2) = B % Values(i2) + P % Values(j) * A % Values(k) * R % Values(l)
                     END IF
-                  END DO
+                  END IF
                 END DO
               END DO
             END DO
@@ -5258,8 +5380,8 @@ CONTAINS
             DO j=1,NoRow
               Row(Ind(j)) = 0
             END DO
-
-            B % Rows(DOFs*(i-1)+comp1+1) = B % Rows(DOFs*(i-1)+comp1) + NoRow
+            
+            B % Rows(ia+1) = B % Rows(ia) + NoRow
             TotalNonzeros  = TotalNonzeros + NoRow
           END DO
         END DO
@@ -5274,6 +5396,9 @@ CONTAINS
       END IF
 
       DEALLOCATE( Row, Ind )
+
+      WRITE( Message,'(A,I8)' ) 'Projected matrix created with size',TotalNonZeros
+      CALL Info( 'CRS_ProjectMatrixCreate', Message )
       
     END SUBROUTINE CRS_ProjectMatrixCreate
 
@@ -5284,6 +5409,8 @@ CONTAINS
     CHARACTER(LEN=*) :: FileName
 
     INTEGER :: i,j,k
+
+    PRINT *,'Saving matrix ',TRIM(FileName),' of size ',A % NumberOfRows
 
     OPEN (10, FILE=FileName) 
 
