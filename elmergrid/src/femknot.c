@@ -5240,7 +5240,7 @@ static void CylindricalCoordinateTransformation(struct FemType *data,Real r1,Rea
     } /* r <= r2 */
   }
 
-  eps = 1.0e-3*data->minsize;
+  eps = 1.0e-3 * data->minsize;
 
   candidates = 0;
   candidatelist = Ivector(1,data->noknots);
@@ -5272,7 +5272,6 @@ static void CylindricalCoordinateTransformation(struct FemType *data,Real r1,Rea
     candidatelist[candidates] = i;
   }
   printf("%d/%d candidates for duplicate nodes.\n",candidates,data->noknots);
-
 
   hits = tests = trials = 0;
   for(j=1;j<=candidates;j++) {
@@ -6195,115 +6194,93 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
      is only partially rotated. */
 
   if(grid->rotate && grid->rotateblocks < 4) {
-
-    k = 0;
+    int o,p;
+    o = p = 0;
 
     for(element=1;element<=data->noelements;element++) {
-      int blocks,indexlist[12]={0,1,2,3,4,5,6,7,0,3,7,4};
-      Real eps;
+      int blocks, maxradi,addtype;
+      Real eps,fii,rad,meanrad,maxrad,xc,yc,dfii,fii0,rads[4],fiis[4];
 
-      eps = 1.0e-8;
+      eps = 1.0e-3;
       blocks = grid->rotateblocks;
 
-      for(l=0;l<=2;l++) {
-	meanx = meany = 0.0;
-	absx = absy = 0.0;
+      for(side=0;side<6;side++) {
+	GetElementSide(element,side,1,data,&sideind[0],&sideelemtype);
+	
+	meanrad = 0.0;
+	maxrad = 0.0;
+
 	for(i=0;i<4;i++) {
-	  ind1 = data->topology[element][indexlist[i+4*l]];
-	  meanx += data->x[ind1];
-	  meany += data->y[ind1];
-	  absx  += fabs(data->x[ind1]);
-	  absy  += fabs(data->y[ind1]);
+	  xc = data->x[sideind[i]];
+	  yc = data->y[sideind[i]];
+
+	  rad = sqrt(yc*yc+xc*xc);
+	  fii = 2*atan2(yc,xc)/M_PI;  /* Map fii to [0 4] */
+
+	  rads[i] = rad;
+	  fiis[i] = fii;
+
+	  if(rad > maxrad) {
+	    maxrad = rad;
+	    maxradi = i;
+	  }
+	  meanrad += 0.25 * rad;
 	}
-	meanx /= 4.0;
-	meany /= 4.0;
-	absx  /= 4.0;
-	absy  /= 4.0;
+
+       	fii0 = fiis[maxradi];
+	dfii = 0.0;
+	for(i=0;i<4;i++) {
+	  if(rads[i] > eps * maxrad) {
+	    if( fabs(fiis[i]-fii0) >  dfii) dfii = fabs(fiis[i]-fii0);
+	  }
+	}
+
+	if(dfii > eps) continue;
+
+	addtype = -1;
 
 	/* BCs for zero angle */
-	if(l==0 && absy < eps && meanx > 0.0) {
-	  if(meanx < grid->rotateradius2) {
-	    bound[j].nosides++;
-	    k = bound[j].nosides;
-	    bound[j].side[k] = 4;
-	    bound[j].parent[k] = element;
-	    bound[j].types[k] = sidetype+1;
-	  }
-	  else {
-	    bound[j+2].nosides++;
-	    k = bound[j+2].nosides;
-	    bound[j+2].side[k] = 4;
-	    bound[j+2].parent[k] = element;
-	    bound[j+2].types[k] = sidetype+3;	
-	  }
+	if(fabs(fii0) < eps) {
+	  o++;
+	  if(meanrad < grid->rotateradius2) 
+	    addtype = 0;
+	  else
+	    addtype = 2;
 	}
-
 	/* BCs for angles 90, 180 or 270. */
-	if(l==1 || l==2) {
-	  if(blocks==1 && absx < eps && meany > 0.0) {
-	    if(meany < grid->rotateradius2) {
-	      bound[j+1].nosides++;
-	      k = bound[j+1].nosides;
-	      if(l==1) bound[j+1].side[k] = 5;
-	      if(l==2) bound[j+1].side[k] = 3;
-	      bound[j+1].parent[k] = element;
-	      bound[j+1].types[k] = sidetype+2;	
-	    }
-	    else {
-	      bound[j+3].nosides++;
-	      k = bound[j+3].nosides;
-	      if(l==1) bound[j+3].side[k] = 5;
-	      if(l==2) bound[j+3].side[k] = 3;
-	      bound[j+3].parent[k] = element;
-	      bound[j+3].types[k] = sidetype+4;	
-	    }
-	  }
-	  if(blocks==2 && absy < eps && meanx < 0.0) {
-	    if(meanx > -grid->rotateradius2) {
-	      bound[j+1].nosides++;
-	      k = bound[j+1].nosides;
-	      if(l==1) bound[j+1].side[k] = 5;
-	      if(l==2) bound[j+1].side[k] = 3;
-	      bound[j+1].parent[k] = element;
-	      bound[j+1].types[k] = sidetype+2;	
-	    }
-	    else {
-	      bound[j+3].nosides++;
-	      k = bound[j+3].nosides;
-	      if(l==1) bound[j+3].side[k] = 5;
-	      if(l==2) bound[j+3].side[k] = 3;
-	      bound[j+3].parent[k] = element;
-	      bound[j+3].types[k] = sidetype+4;	
-	    }
-	  }
-	  if(blocks==3 && absx < eps && meany < 0.0) {
-	    if(meany > -grid->rotateradius2) {
-	      bound[j+1].nosides++;
-	      k = bound[j+1].nosides;
-	      if(l==1) bound[j+1].side[k] = 5;
-	      if(l==2) bound[j+1].side[k] = 3;
-	      bound[j+1].parent[k] = element;
-	      bound[j+1].types[k] = sidetype+2;
-	    }
-	    else {
-	      bound[j+3].nosides++;
-	      k = bound[j+3].nosides;
-	      if(l==1) bound[j+3].side[k] = 5;
-	      if(l==2) bound[j+3].side[k] = 3;
-	      bound[j+3].parent[k] = element;
-	      bound[j+3].types[k] = sidetype+4;
-	    }
-	  }
+	else if(fabs(fii0-blocks) < eps) {
+	  p++;
+	  if(meanrad < grid->rotateradius2) 
+	    addtype = 1;
+	  else
+	    addtype = 3;
+	}	  
+	
+	if( addtype >= 0) {
+	  bound[j+addtype].nosides++;
+	  k = bound[j+addtype].nosides;
+	  bound[j+addtype].side[k] = side;
+	  bound[j+addtype].parent[k] = element;
+	  bound[j+addtype].types[k] = sidetype+addtype+1;
 	}
       }
     }
+    
+    printf("o=%d p=%d\n",o,p);
+    
     printf("Symmetry BCs [%d %d %d %d] have [%d %d %d %d] sides.\n",
 	   j,j+1,j+2,j+3,bound[j].nosides,bound[j+1].nosides,
 	   bound[j+2].nosides,bound[j+3].nosides); 
-    for(l=0;l<4;l++) 
-      if(bound[j+l].nosides < 1) bound[j+l].created = FALSE;
+    for(l=0;l<4;l++) {
+      if(bound[j+l].nosides == 0) 
+	bound[j+l].created = FALSE;
+      else
+	bound[j+l].created = TRUE;
+    }
+    j += 4;
   }
-  data->noboundaries = j+4;
+
+  data->noboundaries = j+1;
 
 #if 0
   for(i=0;i<j+4;i++) {
@@ -6786,7 +6763,6 @@ void ElementsToBoundaryConditions(struct FemType *data,
   if(sideelements == 0) return;
 
   AllocateBoundary(bound,sideelements);
-
 
   possible = Ivector(1,noknots);
   for(i=1;i<=noknots;i++) possible[i] = 0; 
