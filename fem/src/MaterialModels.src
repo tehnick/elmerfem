@@ -395,7 +395,7 @@ this ise not in USE
          
            Vals(1:n) = ListGetReal( Material, 'V2-F CT',n,Element % NodeIndexes )
            CT = SUM( Basis(1:n) * Vals(1:n) )
-           TimeScale = KE_K/KE_E*SQRT(1+CT**2*Viscosity/Density*KE_E/KE_K**2)
+           TimeScale = MAX( KE_K/KE_E, CT*SQRT(Viscosity/Density/KE_E) )
 
            Vals(1:n) = ListGetReal( Material, 'KE Cmu',n,Element % NodeIndexes )
            Cmu = SUM( Basis(1:n) * Vals(1:n) )

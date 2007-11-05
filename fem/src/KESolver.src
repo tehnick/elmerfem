@@ -86,14 +86,14 @@
 !
      LOGICAL :: AllocationsDone = .FALSE.
 
-     CHARACTER(LEN=MAX_NAME_LEN) :: KEModel
+     CHARACTER(LEN=MAX_NAME_LEN) :: KEModel, V2FModel
 
      TYPE(Variable_t), POINTER :: FlowSol, KE
 
      INTEGER, POINTER :: FlowPerm(:),KinPerm(:)
 
      INTEGER :: NSDOFs,NewtonIter,NonlinearIter
-     REAL(KIND=dp) :: NonlinearTol,NewtonTol, Clip
+     REAL(KIND=dp) :: NonlinearTol,NewtonTol, Clip, V2FCp
 
      REAL(KIND=dp), POINTER :: KEpsilon(:),KineticDissipation(:), &
                    FlowSolution(:), ElectricCurrent(:), ForceVector(:)
@@ -255,6 +255,8 @@
 
             KEModel = GetString( Material, 'KE Model', GotIt )
             IF ( .NOT. GotIt ) KEModel = 'standard'
+
+            V2FModel = GetString( Material, 'V2-F Model', GotIt )
          END IF
 !------------------------------------------------------------------------------
          CALL GetElementNodes( ElementNodes )
@@ -340,6 +342,9 @@
              V2FCT(1:n) = 6.0_dp
              CALL ListAddConstReal( Material, 'V2-F CT', V2FCT(1) )
            END IF
+
+           V2FCp = GetCReal( Material, 'V2-F Cp', GotIt )
+           IF ( .NOT. GotIt ) V2FCp = 0.05_dp
          END IF
 !------------------------------------------------------------------------------
          Density(1:n)   = GetReal( Material,'Density' )
@@ -568,9 +573,10 @@ CONTAINS
 
      REAL(KIND=dp) :: A(2,2),M(2,2),Prod,div,ProdTensor(3,3)
      INTEGER :: i,j,c,p,q,t,dim,N_Integ,NBasis
-     REAL(KIND=dp) :: LoadatIp(2),Cmu,Rho,mu,Tmu,Effmu(2),TimeScale,Re_T,LC1
+     REAL(KIND=dp) :: LoadatIp(2),Cmu,Rho,mu,Tmu,Effmu(2),TimeScale,Re_T,LC1,LC2
 
-     REAL(KIND=dp) :: s,u,v,w, K,E,Eta,Strain(3,3), alpha,oldalpha,dalpha,err,ww,olderr,derr
+     REAL(KIND=dp) :: s,u,v,w, K,E,Eta,Strain(3,3), GradAsymm(3,3), nu, Cv,&
+             alpha,oldalpha,dalpha,err,ww,olderr,derr
 
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
 
@@ -671,23 +677,27 @@ CONTAINS
 
        Cmu = SUM( KECMu(1:n) * Basis(1:n) )
 
+       LC1 = SUM( KEC1(1:n) * Basis(1:n) )
+       LC2 = SUM( KEC2(1:n) * Basis(1:n) )
+
        IF ( KEModel=='v2-f' ) THEN
          LV2 = SUM( LocalV2(1:n) * Basis(1:n) )
-         LCT  = SUM( V2FCT(1:n) * Basis(1:n) )
+         LCT = SUM( V2FCT(1:n) * Basis(1:n) )
+         LC1 = 1.4_dp * (1+V2FCp*SQRT(K/LV2))
 
-         Re_T = K**2 / ( (mu/Rho)*E )
-         TimeScale = K/E*SQRT(1+LCT**2/Re_T)
+         Timescale = MAX(K/E,LCT*SQRT(mu/rho/E))
          Tmu = Rho * Cmu * LV2 * TimeScale
 
-         div = Strain(1,1) + Strain(2,2) + Strain(3,3)
-         ProdTensor = 2*Tmu*Strain
-         DO i=1,3
-           ProdTensor(i,i) = ProdTensor(i,i) - 2.0_dp*(Tmu*div+K)/3.0_dp
-         END DO
-         Prod = SUM(ProdTensor * dVelodx) / Rho
+!        div = Strain(1,1) + Strain(2,2) + Strain(3,3)
+!        ProdTensor = 2*Tmu*Strain
+!        DO i=1,3
+!          ProdTensor(i,i) = ProdTensor(i,i) - 2.0_dp*(Tmu*div+K)/3.0_dp
+!        END DO
+!        Prod = SUM(ProdTensor * dVelodx) / Rho
+         Prod = Tmu * SecInv / Rho
        ELSE
          Tmu  = Rho * Cmu*K**2  / E
-         Prod = Tmu * SecInv
+         Prod = Tmu * SecInv / Rho
        END IF
 
        Effmu(1) = mu + Tmu / SigmaK
@@ -695,9 +705,9 @@ CONTAINS
 
        C0(1) = Rho
        IF ( KEModel == 'v2-f' ) THEN
-         C0(2) = Rho * SUM(Basis(1:n)*KEC2(1:n)) / TimeScale
+         C0(2) = Rho * LC2 / TimeScale
        ELSE
-         C0(2) = Rho * SUM(Basis(1:n)*KEC2(1:n)) * E / K
+         C0(2) = Rho * LC2 * E / K
        END IF
 
 ! moved to ---> rhs
@@ -797,10 +807,9 @@ CONTAINS
         !-------------------------------
         LoadAtIP(1) = Rho*Prod
         IF ( KEModel=='v2-f' ) THEN
-          LC1 = 1.4_dp * (1+0.05_dp*SQRT(K/LV2))
           LoadAtIP(2) = Rho*LC1*Prod/TimeScale
         ELSE
-          LoadAtIP(2) = Rho*SUM(KEC1(1:n)*Basis(1:n)) * E/K * Prod
+          LoadAtIP(2) = Rho*LC1*E/K*Prod
         END IF
 
         IF ( UseRNGModel ) &
