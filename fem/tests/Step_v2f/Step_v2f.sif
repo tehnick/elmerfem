@@ -54,6 +54,26 @@ End
 
 
 Solver 1
+  Equation = V2-F
+
+  Procedure = "V2FSolver" "V2F_LDM"
+  Variable = V2F[V2:1 F:1]
+
+  Stabilization Method = String Bubbles
+  Nonlinear System Max Iterations = 1
+  Nonlinear System Convergence Tolerance = 1.0e-5
+  Nonlinear System Newton After Iterations = 20
+  Nonlinear System Newton After Tolerance = 1.0e-3
+  Nonlinear System Relaxation Factor = 0.75
+
+  Linear System Solver = Direct
+  Linear System Direct Method = UMFPack
+  Steady State Convergence Tolerance = 1.0e-4
+End
+
+
+
+Solver 2
   Equation = Kepsilon
 
   Procedure = "KESolver" "KESolver"
@@ -73,7 +93,7 @@ Solver 1
 End
 
 
-Solver 2
+Solver 3
   Equation = Navier-Stokes
 
   Stabilization Method = String Bubbles
@@ -81,25 +101,6 @@ Solver 2
   Nonlinear System Convergence Tolerance = 1.0e-5
   Nonlinear System Newton After Iterations = 10
   Nonlinear System Newton After Tolerance  = 1.0e-2
-  Nonlinear System Relaxation Factor = 0.75
-
-  Linear System Solver = Direct
-  Linear System Direct Method = UMFPack
-  Steady State Convergence Tolerance = 1.0e-4
-End
-
-
-Solver 3
-  Equation = V2-F
-
-  Procedure = "V2FSolver" "V2FSolver"
-  Variable = V2F[V2:1 F:1]
-
-  Stabilization Method = String Bubbles
-  Nonlinear System Max Iterations = 1
-  Nonlinear System Convergence Tolerance = 1.0e-5
-  Nonlinear System Newton After Iterations = 20
-  Nonlinear System Newton After Tolerance = 1.0e-3
   Nonlinear System Relaxation Factor = 0.75
 
   Linear System Solver = Direct
@@ -235,4 +236,4 @@ End
 
 $fprintf( stderr, "TEST CASE 1\n");
 RUN
-$fprintf( stderr, "END TEST CASE 1: Target NRM=106.003019582,EPS=1e-4\n" );
+$fprintf( stderr, "END TEST CASE 1: Target NRM=17.2012740445,EPS=1e-4\n" );
