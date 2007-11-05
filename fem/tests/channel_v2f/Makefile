@@ -1,4 +1,4 @@
-# Backward facing step / k-epsilon model test
+# channel flow / v2-f model test
 #
 run:
 	$(F90) -c Epsilon-BC.f90

@@ -39,14 +39,14 @@ Initial Condition 1
     Real MATC "5*tx"
 
   Kinetic Dissipation = Variable Coordinate 2
-    Real MATC "50*tx"
+    Real MATC "50*tx+20"
 End
 
 
 Solver 1
   Equation = V2-F
 
-  Procedure = "V2FSolver" "V2FSolver"
+  Procedure = "V2FSolver" "V2F_LDM"
   Variable = V2F[V2:1 F:1]
  
   Stabilization Method = String Bubbles
@@ -111,9 +111,6 @@ Material 1
   Viscosity = $ 1/395
   Density = 1
 
-  KE CMu = Real 0.22
-  V2-F CT = real 6
-
   KE Model = "V2-F"
   Viscosity Model = ke
   KE Clip = Real 1.0e-12
@@ -164,9 +161,9 @@ Boundary Condition 4
 
   Kinetic Dissipation = Variable Kinetic Dissipation
     Real Procedure "Epsilon-BC" "Epsilon"
-  Epsilon Relax = Real 0.1
+  Epsilon Relax = Real 0.2
 End
 
 $fprintf( stderr, "TEST CASE 1\n");
 RUN
-$fprintf( stderr, "END TEST CASE 1: Target NRM= 6.174273760842, EPS=1e-3\n" );
+$fprintf( stderr, "END TEST CASE 1: Target NRM=6.79910371199 , EPS=1e-3\n" );
