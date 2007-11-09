@@ -1200,6 +1200,25 @@
       END DO
 !------------------------------------------------------------------------------
 
+      !
+      ! IMPLEMENT NOSLIP WALL BC CODE:
+      ! ------------------------------
+      DO i=1,Model % NumberOFBCs
+        BC => Model % BCs(i) % Values
+        IF ( GetLogical(  BC, 'Noslip wall BC', gotit ) ) THEN
+          IF ( VarName  == 'flow solution' ) THEN
+            CALL ListAddConstReal( BC, 'Velocity 1', 0.0_dp )
+            CALL ListAddConstReal( BC, 'Velocity 2', 0.0_dp )
+            IF ( NSDOFs>3 ) CALL ListAddConstReal( BC, 'Velocity 3', 0.0_dp )
+          ELSE
+            DO j=1,NSDOFs-1
+              CALL ListAddConstReal( BC, ComponentName( &
+                 Solver % Variable % Name, j), 0.0_dp )
+            END DO
+          END IF
+        END IF
+      END DO
+
       IF ( VarName  == 'flow solution' ) THEN
          CALL SetNodalLoads( Model, StiffMatrix, ForceVector, & 
                   'Velocity 1', 1, NSDOFs, FlowPerm )

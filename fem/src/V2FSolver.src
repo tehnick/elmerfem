@@ -314,6 +314,14 @@
 
 !------------------------------------------------------------------------------
 
+      DO i=1,Model % NumberOFBCs
+        BC => Model % BCs(i) % Values
+        IF ( GetLogical(  BC, 'Noslip wall BC', gotit ) ) THEN
+          CALL ListAddConstReal( BC, 'F',  0.0_dp )
+          CALL ListAddConstReal( BC, 'V2', 0.0_dp )
+        END IF
+      END DO
+
       CALL DefaultFinishAssembly()
 !------------------------------------------------------------------------------
 !     Dirichlet boundary conditions
