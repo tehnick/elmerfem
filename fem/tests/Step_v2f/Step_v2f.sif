@@ -46,7 +46,7 @@ Initial Condition 1
    Real MATC "l=10*0.0127; s=2*tx/l-1; 1-s^2"
 
   Kinetic Energy = Variable Coordinate 2
-   Real MATC "l=10*0.0127; s=2*tx/l-1; 1-s^2"
+   Real MATC "l=10*0.0127; s=2*tx/l-1; 1-s^2+1"
 
   Kinetic Dissipation = 3
 End
@@ -85,7 +85,7 @@ Solver 2
   Nonlinear System Newton After Iterations = 20
   Nonlinear System Newton After Tolerance = 1.0e-3
   Nonlinear System Relaxation Factor = Variable Time
-    Real MATC "max(min((tx/15) 0.75) 0.1)"
+    Real MATC "max(min((tx/10) 0.75) 0.1)"
 
   Linear System Solver = Direct
   Linear System Direct Method = UMFPack
@@ -96,7 +96,7 @@ End
 Solver 3
   Equation = Navier-Stokes
 
-  Stabilization Method = String Bubbles
+  Stabilization Method = Bubbles
   Nonlinear System Max Iterations = 1
   Nonlinear System Convergence Tolerance = 1.0e-5
   Nonlinear System Newton After Iterations = 10
@@ -222,15 +222,7 @@ End
 Boundary Condition 3
   Target Boundaries(4) = 4 5 6 7
 
-  Velocity 1 = 0
-  Velocity 2 = 0
-  F  = Real 0
-  V2 = Real 0
-  Kinetic Energy = 0
-  Kinetic Dissipation = Variable Kinetic Dissipation
-    Real Procedure "./Epsilon-BC" "Epsilon"
-  Epsilon Relax = Variable Time
-    Real MATC "max(min((tx/15) 0.75) 0.1)"
+  Noslip Wall BC = Logical True
 End
 
 
