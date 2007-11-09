@@ -9,7 +9,7 @@ Simulation
   Simulation Type = Steady
   Steady State Max Iterations  = 500
 
-! Post File = "channel.ep"
+  Post File = "channel.ep"
 ! Output File = "channel.dat"
 ! Output Intervals = 100
   Restart File = channel.dat
@@ -48,15 +48,15 @@ End
 Solver 1
   Equation = V2-F
 
-  Procedure = "V2FSolver" "V2F"
-  Variable = V2F[V2:1 F:1 D:1]
+  Procedure = "V2FSolver" "V2F_LDM"
+  Variable = V2F[V2:1 F:1]
  
   Stabilization Method = String Bubbles
   Nonlinear System Max Iterations = 1
   Nonlinear System Convergence Tolerance = 1.0e-5
   Nonlinear System Newton After Iterations = 20
   Nonlinear System Newton After Tolerance = 1.0e-3
-  Nonlinear System Relaxation Factor = 0.35
+  Nonlinear System Relaxation Factor = 0.75
 
   Linear System Solver = Direct
   Linear System Direct Method = UMFPack
@@ -74,7 +74,7 @@ Solver 2
   Nonlinear System Convergence Tolerance = 1.0e-5
   Nonlinear System Newton After Iterations = 20
   Nonlinear System Newton After Tolerance = 1.0e-3
-  Nonlinear System Relaxation Factor = 0.1
+  Nonlinear System Relaxation Factor = 0.25
 
   Linear System Solver = Direct
   Linear System Direct Method = UMFPack
@@ -88,7 +88,7 @@ Solver 3
   Stabilization Method = Bubbles
   Nonlinear System Max Iterations = 1
   Nonlinear System Convergence Tolerance = 1.0e-5
-  Nonlinear System Relaxation Factor = 0.35
+  Nonlinear System Relaxation Factor = 0.75
   Nonlinear System Newton After Iterations = 10
   Nonlinear System Newton After Tolerance  = 1.0e-3
 
@@ -163,18 +163,9 @@ End
 Boundary Condition 3
   Target Boundaries(2) = 3 4
 
-  Velocity 1 = 0
-  Velocity 2 = 0
-
-  F  = Real 0.0
-  V2 = Real 0.0
-  Kinetic Energy = 0
-
-  Kinetic Dissipation = Variable Kinetic Dissipation
-    Real Procedure "Epsilon-BC" "Epsilon"
-  Epsilon Relax = Real 0.25
+  Noslip Wall BC = Logical True
 End
 
 $fprintf( stderr, "TEST CASE 1\n");
 RUN
-$fprintf( stderr, "END TEST CASE 1: Target NRM=8.29899523052, EPS=1e-3\n" );
+$fprintf( stderr, "END TEST CASE 1: Target NRM=8.23717175523, EPS=1e-3\n" );
