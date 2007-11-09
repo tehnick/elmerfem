@@ -937,8 +937,8 @@ CONTAINS
 
        DO p=1,np
          DO q=1,np
-           STIFF(2*p,2*q)   = STIFF(2*p,2*q) + s*Relax*Basis(q)*Basis(p)
-           STIFF(2*p,2*q-1) = STIFF(2*p,2*q-1) - s*2*mu/rho*Kder**2*BasisK(q)*Basis(p)/K
+           STIFF(2*p,2*q)   = STIFF(2*p,2*q) + s*Basis(q)*Basis(p)
+           STIFF(2*p,2*q-1) = STIFF(2*p,2*q-1) - s*Relax*2*mu/rho*Kder**2*BasisK(q)/K*Basis(p)
          END DO
          FORCE(2*p) = FORCE(2*p) - s*(1-Relax)*E*Basis(p)
        END DO
