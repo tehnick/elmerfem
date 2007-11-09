@@ -1096,7 +1096,7 @@ CONTAINS
     
     INTEGER :: i,j,k,l,m,n,n2,k1,k2,iter,MaxIter = 100, DirectLimit, &
         MinLevel, ComponentMode, ProjectorDOFs
-    LOGICAL :: Condition, Found, Parallel, Project,EliminateDir
+    LOGICAL :: Condition, Found, Parallel, Project, EliminateDir, Cluster
     CHARACTER(LEN=MAX_NAME_LEN) :: str,IterMethod,FileName
     INTEGER, POINTER :: CF(:), InvCF(:)
     
@@ -1104,7 +1104,7 @@ CONTAINS
         Work2(:),  Solution2(:), P(:), Q(:), Z(:), R1(:), R2(:)
     REAL(KIND=dp), POINTER :: Ri(:), T(:), T1(:), T2(:), S(:), V(:)    
     REAL(KIND=dp) :: ResidualNorm, RHSNorm, Tolerance, &
-        ILUTOL, alpha, beta, omega, rho, oldrho    
+        ILUTOL, Alpha, beta, omega, rho, oldrho
     REAL(KIND=dp) :: CPUTime, tt, tt2
 
     LOGICAL :: NewLinearSystem, gotit
@@ -1187,6 +1187,7 @@ CONTAINS
     ResidualNorm = MGnorm( n, Residual ) / RHSNorm
 
     Tolerance = ListGetConstReal( Solver % Values,'Linear System Convergence Tolerance' )
+    Cluster = ListGetLogical( Solver % Values,'MG Cluster',GotIt) 
 
 !---------------------------------------------------------------------
 !
@@ -1240,7 +1241,10 @@ CONTAINS
       ELSE        
         CALL ChooseCoarseNodes(Matrix1, Solver, ProjT, DOFs, CF )
       END IF
- 
+
+      WRITE( Message, '(A,F8.2)' ) 'MG projection matrix creation time: ', CPUTime() - tt
+      CALL Info( 'AMGSolve', Message, Level=5 )
+
       IF( ListGetLogical(Solver % Values,'MG Projector Matrix Save',GotIt) ) THEN
         WRITE(Filename,'(A,I1,A)') 'P',Level,'.dat'
         CALL SaveMatrix(ProjT,TRIM(FileName))          
@@ -1252,40 +1256,48 @@ CONTAINS
       ProjQT => ProjPN      
       Matrix1 % Ematrix => ProjPN
 
+      !     CALL ParallelInitMatrix( Solver, Solver % Matrix )
+
+      IF( Cluster .AND. ListGetLogical(Solver % Values,'MG Cluster Fast Matrix',GotIt) ) THEN
+        CALL CRS_ClusterMatrixCreate( Matrix1, CF, Matrix2, ProjectorDOFs)       
+      ELSE
+        !     Project higher  level coefficient matrix to the
+        !     lower level: A_low = ProjPN * A_high * ProjQT^T
+        !            -----------------------------------------------        
+        CALL CRS_ProjectMatrixCreate( Matrix1, ProjPN, ProjT, Matrix2, ProjectorDOFs)
+      END IF
+      
       ! Make the cnodes point to the set of original nodes
-      IF( ComponentMode == 0 .OR. ComponentMode == 3) THEN
-        ProjPN % Perm => CF
-        AMG(Level) % InvCF => InvCF
-        IF(Level < Solver % MultiGridTotal .AND. ASSOCIATED(InvCF)) THEN
-          DO i=1,SIZE(InvCF)
-            IF(InvCF(i) > 0) InvCF(i) = AMG(Level+1) % InvCF(InvCF(i))
-          END DO
+      IF(.NOT. Cluster) THEN
+        IF( ComponentMode == 0 .OR. ComponentMode == 3) THEN
+          ProjPN % Perm => CF
+          AMG(Level) % InvCF => InvCF
+          IF(Level < Solver % MultiGridTotal .AND. ASSOCIATED(InvCF)) THEN
+            DO i=1,SIZE(InvCF)
+              IF(InvCF(i) > 0) InvCF(i) = AMG(Level+1) % InvCF(InvCF(i))
+            END DO
+          END IF
         END IF
       END IF
-
-      !     CALL ParallelInitMatrix( Solver, Solver % Matrix )
-      
-      !     Project higher  level coefficient matrix to the
-      !     lower level: A_low = ProjPN * A_high * ProjQT^T
-      !            -----------------------------------------------
-      
-      tt2 = CPUTime()
-      
- 
+PRINT *,'a4'
 
       IF ( Matrix1 % NumberOfRows /=  ProjectorDOFs * ProjT % NumberOfRows) THEN
         PRINT *,'proj dofs',Matrix1 % NumberOfRows, ProjT % NumberOfRows,dofs 
         CALL Warn('AMGSolve','Projector incompatible with matrix size')
       END IF
-
-      CALL CRS_ProjectMatrixCreate( Matrix1, ProjPN, ProjT, Matrix2, ProjectorDOFs)
       CALL FreeMatrix(ProjT)      
-      
-      WRITE(Message,'(A,F6.1,A)') 'Coarse matrix element fraction',&
-          100.0 *  SIZE(Matrix2 % Cols) / SIZE(Matrix1 % Cols),' %'
-      CALL Info('AMGSolve',Message)
-  
-      IF( ListGetLogical(Solver % Values,'MG Projected Matrix Save') ) THEN
+
+
+      tt2 = CPUTime()
+
+      IF(Cluster) THEN
+        Alpha = ListGetConstReal(Solver % Values,'MG Cluster Alpha',GotIt)
+        IF(.NOT. GotIt) Alpha = 2.0d0
+        Matrix2 % Values = Matrix2 % Values / Alpha
+      END IF
+
+       
+      IF( ListGetLogical(Solver % Values,'MG Projected Matrix Save', GotIt ) ) THEN
         WRITE(Filename,'(A,I1,A)') 'B',Level,'.dat'
         CALL SaveMatrix(Matrix2,TRIM(FileName))          
       END IF
@@ -1439,7 +1451,7 @@ CONTAINS
       WRITE( Message, '(A,F8.2)' ) 'MG iter time: ', CPUTime() - tt
       CALL Info( 'AMGSolve', Message, Level=5 )
 
-      IF( ProjectorDOFs == 1) THEN
+      IF( ProjectorDOFs == 1 .AND. .NOT. Cluster) THEN
         IF(ASSOCIATED(AMG)) THEN
           DO i = MinLevel,Solver % MultiGridTotal
             IF(ASSOCIATED(AMG(i) % InvCF)) DEALLOCATE(AMG(i) % InvCF)
@@ -2103,10 +2115,11 @@ CONTAINS
        INTEGER, POINTER :: CandList(:)
        INTEGER :: nods, newcands
        
+       ! Local variables
+       INTEGER :: cnods, RatioClasses(101)       
        INTEGER :: i, j, k, Rounds
        REAL(KIND=dp), POINTER :: Ones(:), Zeros(:)
        REAL(KIND=dp) :: Limit, MaxRatio, Ratio
-       INTEGER :: cnods, nods, cnods, RatioClasses(101)
        LOGICAL :: GotIt
        
        Rounds = ListGetInteger(Solver % Values,'MG Compatible Relax Rounds',GotIt)
@@ -2168,13 +2181,16 @@ CONTAINS
        CALL Info('CompatibleRelaxation',Message)
        
        DO i=1,13
-         IF(RatioClasses(i) > 0) THEN
+         IF( RatioClasses(i) > 0) THEN
            IF(i==11) THEN
-             WRITE( Message, '(F3.1,A,A,I9,F9.3)' ) 1.0,' - ','...',RatioClasses(i),100.0*RatioClasses(i)/k
+             WRITE( Message, '(F3.1,A,A,I9,F9.3)' ) 1.0,' - ','...',&
+                 RatioClasses(i),100.0d0*RatioClasses(i)/nods
            ELSE IF(i==12) THEN
-             WRITE( Message, '(A,A,F3.1,I9,F9.3)' ) '...',' - ',0.0,RatioClasses(i),100.0*RatioClasses(i)/k
+             WRITE( Message, '(A,A,F3.1,I9,F9.3)' ) '...',' - ',&
+                 0.0,RatioClasses(i),100.0d0*RatioClasses(i)/nods
            ELSE
-             WRITE( Message, '(F3.1,A,F3.1,I9,F9.3)' ) 0.1*(i-1),' - ',0.1*i,RatioClasses(i),100.0*RatioClasses(i)/k
+             WRITE( Message, '(F3.1,A,F3.1,I9,F9.3)' ) 0.1*(i-1),' - ',&
+                 0.1*i,RatioClasses(i),100.0d0*RatioClasses(i)/nods
            END IF
            CALL Info('CompatibleRelaxation',Message)
          END IF
@@ -2262,9 +2278,7 @@ CONTAINS
 
 
     ! Make the candidate and strong bond list for determining the coarse nodes    
-    tt2 = CPUTime()
     CF = 0
-
     UseCR =  ListGetLogical(Solver % Values,'MG Compatible Relax Init',GotIt) 
     CRiter = 0
 
@@ -2290,15 +2304,16 @@ CONTAINS
       ELSE
         CALL AMGBonds(Amat, Bonds, CandList, NoComponents)      
       END IF
-
-      WRITE( Message,'(A,F8.2)') 'MG strong bond definition time', CPUTime() - tt2
-      CALL Info( 'ChooseCoarseNodes', Message, Level=5 )
     END IF
 
-100 tt2 = CPUTime()
 
-    CALL AMGCoarse(Amat, CandList, Bonds, CF, CompMat)
-    
+100 IF(Cluster) THEN
+      CALL AMGCluster(Amat, CandList, Bonds, CF, CompMat)
+    ELSE
+      CALL AMGCoarse(Amat, CandList, Bonds, CF, CompMat)     
+    END IF
+      
+
     IF(.NOT. (CompMat .OR. UseCR) ) THEN
       IF( ListGetLogical(Solver % Values,'MG Positive Connection Eliminate',GotIt)) THEN
         CALL AMGPositiveBonds(Amat, Bonds, CandList, CF)
@@ -2313,9 +2328,6 @@ CONTAINS
       IF(newcands > 0) GOTO 100
     END IF
 
-    WRITE( Message, '(A,F8.2)' ) 'MG coarse nodes selection time', CPUTime() - tt2
-    CALL Info( 'ChooseCoarseNodes', Message, Level=5 )
-
 
     ! Make the coarse nodes of each variable to be the same
     IF(NoComponents > 1 .AND. ComponentMode == 2) THEN
@@ -2326,33 +2338,35 @@ CONTAINS
       END DO
     END IF    
 
-
     ! Set the CF vector to be zero for fine nodes and an order number for coarse nodes
-    cnods = 0
-    DO i=1,nods
-      IF(CF(i) < 0) THEN
-        CF(i) = 0
-      ELSE IF(CF(i) > 0) THEN
-        cnods = cnods + 1
-        CF(i) = cnods
-      END IF
-    END DO
-    
-!    PRINT *,'CF',CF
+    IF(Cluster) THEN
+      cnods = MAXVAL(CF)
+    ELSE
+      cnods = 0
+      DO i=1,nods
+        IF(CF(i) < 0) THEN
+          CF(i) = 0
+        ELSE IF(CF(i) > 0) THEN
+          cnods = cnods + 1
+          CF(i) = cnods
+        END IF
+      END DO
+      
+      WRITE(Message,'(A,I8)') 'Coarse mesh nodes ',cnods
+      CALL Info('ChooseCoarseNodes',Message)
+      
+      WRITE(Message,'(A,F5.1,A)') 'Coarse node fraction',(100.0*cnods)/nods,' %'
+      CALL Info('ChooseCoarseNodes',Message)
+    END IF
 
-
-
-    WRITE(Message,'(A,I8)') 'Coarse mesh nodes ',cnods
-    CALL Info('ChooseCoarseNodes',Message)
-
-    WRITE(Message,'(A,F5.1,A)') 'Coarse node fraction',(100.0*cnods)/nods,' %'
-    CALL Info('ChooseCoarseNodes',Message)
 
     DEALLOCATE(Bonds, CandList)
 
     tt2 = CPUTime()
 
-    IF(CompMat) THEN
+    IF(Cluster) THEN
+      Projector => ClusterInterpolate( Amat, CF, NoComponents) 
+    ELSE IF(CompMat) THEN
       Projector => ComplexInterpolateF2C( Amat, CF )      
     ELSE IF(PseudoGeometric) THEN
       Projector => InterpolateF2CDistance( Amat, CF, NoComponents)
@@ -2360,17 +2374,18 @@ CONTAINS
       Projector => InterpolateF2C( Amat, CF, NoComponents)
     END IF
 
-    WRITE( Message, '(A,F8.2)' ) 'MG projection matrix creation time: ', CPUTime() - tt2
-    CALL Info( 'ChooseCoarseNodes', Message, Level=5 )
-
-    IF(ComponentMode == 0 .OR. ComponentMode == 3) THEN
-      IF(PRESENT(InvCF)) THEN
-        ALLOCATE(InvCF(cnods))
-        DO i=1,nods
-          IF(CF(i) > 0) InvCF(CF(i)) = i
-        END DO
+    IF(.NOT. Cluster) THEN
+      IF(ComponentMode == 0 .OR. ComponentMode == 3) THEN
+        IF(PRESENT(InvCF)) THEN
+          ALLOCATE(InvCF(cnods))
+          DO i=1,nods
+            IF(CF(i) > 0) InvCF(CF(i)) = i
+          END DO
+        END IF
       END IF
     END IF
+
+    CALL Info('ChooseCoarseNodes','Coarse set chosen')
 
   END SUBROUTINE ChooseCoarseNodes
 
@@ -3512,6 +3527,286 @@ CONTAINS
 
 
 
+
+!------------------------------------------------------------------------------
+! Creates clusters of nodes using the given list of strong connections. 
+! Only nodes assigned by the Cands vector may be included in the 
+! clusters - others are ignored. The subroutine returns the vector CF which tells
+! to which cluster each node belongs to.
+!------------------------------------------------------------------------------
+
+  SUBROUTINE AMGCluster(Amat, Cands, Bonds, CF, CompMat)
+    
+    TYPE(Matrix_t), POINTER :: Amat
+    LOGICAL :: Bonds(:)
+    INTEGER, POINTER :: Cands(:), CF(:)
+    LOGICAL :: CompMat
+
+    INTEGER :: nods, cnods    
+    INTEGER :: i,j,k,cj,ci,ind,maxi,maxi2,newstarts, loops, minneigh, maxneigh, &
+        MaxCon, MaxConInd, RefCon, RefCon2, prevstart, cind, find, ind0, &
+        CoarseningMode, GatMax, anods, FollowBounds, points, neworder, oldorder, &
+        nextind, sumcon, maxsumcon
+    INTEGER, POINTER :: Con(:)
+    LOGICAL :: debug
+    INTEGER, POINTER :: Cols(:),Rows(:)
+    INTEGER, ALLOCATABLE :: GatLims(:), GatNos(:), ConInd(:), RevConInd(:)
+    REAL(KIND=dp), POINTER :: Values(:)
+    
+    nods = Amat % NumberOfRows
+    Rows   => Amat % Rows
+    Cols   => Amat % Cols
+    Values => Amat % Values
+
+    debug = .FALSE.
+
+    ALLOCATE(Con(nods))
+    Con = 0
+    newstarts = 0
+    cnods = 0
+    loops = 0
+    cind = 0
+    find = 0
+
+
+    ! Calculate the initial measure of of importance
+    ! unclustered points gets one point 
+    Con = 0
+    DO ind = 1, nods      
+      IF(Cands(ind) > 0 .AND. CF(ind) == 0) Con(ind) = 1
+    END DO
+    ! Add a point for each clustered neighbour 
+    DO ind = 1, nods      
+      IF(Cands(ind) > 0 .AND. CF(ind) > 0) THEN
+        DO i=Rows(ind),Rows(ind+1)-1
+          IF(.NOT. Bonds(i)) CYCLE
+          ci = Cols(i)          
+          IF(Cands(ci) > 0 .AND. CF(ci) == 0) THEN
+            Con(ci) = Con(ci) + 1
+          END IF
+        END DO
+      END IF
+    END DO
+
+
+    ! Add some weight if the node is connected to a Dirichlet node
+    ! This way the clustering will follow the natural boundaries
+    FollowBounds = ListGetInteger(Solver % Values,'MG Boundary Priority',GotIt)
+    IF(FollowBounds /= 0) THEN
+      DO ind = 1, nods
+        IF(Cands(ind) <= 0) CYCLE
+        DO i=Rows(ind),Rows(ind+1)-1
+          IF(.NOT. Bonds(i)) CYCLE
+          ci = Cols(i)
+          IF(Cands(ci) == -1) THEN
+            Con(ind) = Con(ind) + FollowBounds
+          END IF
+        END DO
+      END DO
+    END IF
+    ! Boundaries may have been marked with negative index, remove that
+    DO ind = 1, nods
+      Cands(ind) = MAX(Cands(ind),0)
+    END DO
+
+
+!    PRINT *,'Cands',Cands
+!    PRINT *,'Init Con',Con
+
+
+    MaxCon = MAXVAL( Con ) 
+    GatMax = 2 * MaxCon + 100
+    
+    ! Bookkeeping is kept on category boundaries of the points
+    ALLOCATE( GatLims(GatMax), GatNos(GatMax) )
+    GatLims = 0
+    GatNos = 0
+    
+    ! Number of points in different categories 
+    DO ind = 1, nods
+      IF(Con(ind) == 0) CYCLE
+      GatNos(Con(ind)) = GatNos(Con(ind)) + 1 
+    END DO
+    anods = SUM(GatNos)
+    
+    DO ind = 2, MaxCon
+      GatLims(ind) = GatLims(ind-1) + GatNos(ind-1)
+    END DO
+    
+    ALLOCATE( ConInd(nods), RevConInd(anods) )
+    ConInd = 0
+    RevConInd = 0
+    
+    GatNos = 0
+    DO ind = 1, nods
+      IF(Con(ind) == 0) CYCLE
+      GatNos(Con(ind)) = GatNos(Con(ind)) + 1 
+      ConInd(ind) = GatNos(Con(ind)) + GatLims(Con(ind))
+    END DO
+    
+    RevConInd = 0
+    DO ind = 1, nods
+      IF(Con(ind) == 0) CYCLE
+      RevConInd(ConInd(ind)) = ind
+    END DO
+    
+    
+    DO WHILE( MaxCon > 0 ) 
+      ind = RevConInd(anods)
+      
+      ! Assume that the center of clustering is the node with maximum weight,
+      ! or any of its strongly coupled neighbours. Compute the total weight of
+      ! the candidate clusters. 
+      
+      ! Compute first the cluster points for the point with maximum points
+      sumcon = 0
+      DO j=Rows(ind),Rows(ind+1)-1
+        IF(Bonds(j)) THEN
+          cj = Cols(j)        
+          IF(CF(cj) == 0) sumcon = sumcon + Con(cj) 
+        END IF
+      END DO
+      maxsumcon = sumcon
+      nextind = ind
+
+!      PRINT *,'reference points',ind,sumcon
+      
+      ! Next compute the cluster points for all its strongly coupled neighbours
+      DO j=Rows(ind),Rows(ind+1)-1
+        IF(Bonds(j)) THEN
+          sumcon = 0
+          cj = Cols(j)                  
+          IF(CF(cj) == 0 .AND. Cands(cj) > 0) THEN
+            DO i=Rows(cj),Rows(cj+1)-1
+              IF(Bonds(i)) THEN
+                ci = Cols(i)          
+                IF(CF(ci) == 0) sumcon = sumcon + Con(ci)
+              END IF
+            END DO
+          END IF
+          IF(sumcon > maxsumcon) THEN
+!            PRINT *,'new points',cj,sumcon
+            maxsumcon = sumcon
+            nextind = cj
+          END IF
+
+!          PRINT *,'candidate points',cj,sumcon        
+        END IF
+      END DO
+
+!      PRINT *,'nextind',ind,nextind,sumcon
+
+      ! The new center for clustering is nextind
+      ind = nextind
+      cind = cind + 1
+      CF(ind) = cind
+      cnods = cnods + 1
+      
+      ! Go through all strongly bonded neighbours to 'ind'
+      DO j=Rows(ind),Rows(ind+1)-1
+        IF(.NOT. Bonds(j)) CYCLE
+        cj = Cols(j)
+        
+        IF(CF(cj) == 0) THEN
+          CF(cj) = cind
+          cnods = cnods + 1
+          IF(Cands(cj) == 0) CYCLE
+          
+          ! Recompute the measure of importance for the neighbours
+          DO i=Rows(cj),Rows(cj+1)-1
+            IF(Bonds(i)) THEN
+              ci = Cols(i)          
+              IF(Cands(ci) > 0 .AND. CF(ci) == 0) THEN
+                loops = loops + 1
+                
+                points = Con(ci) + 1
+                
+                oldorder = ConInd(ci)
+                IF(GatLims(points) == 0) GatLims(points) = anods
+                neworder = GatLims(points)
+                Con(ci) = points
+                GatLims(points) = GatLims(points) - 1
+                
+                IF(neworder /= oldorder) THEN
+                  k = RevConInd(neworder)
+                  
+                  ConInd(ci) = neworder
+                  ConInd(k) = oldorder
+                  
+                  RevConInd(neworder) = ci
+                  RevConInd(oldorder) = k
+                END IF
+                
+              END IF
+            END IF
+          END DO
+        END IF
+      END DO
+      
+      ! Shorten the list from top in case the node is already set
+      Refcon = 0
+      DO WHILE( anods > 0 .AND. CF(RevConInd(anods)) /= 0 )
+        MaxCon = Con(RevConInd(anods))          
+        Refcon = MAX(MaxCon,RefCon)
+        anods = anods - 1
+        Refcon = MAX(MaxCon,RefCon)            
+      END DO
+      
+      IF(anods > 0) THEN
+        MaxCon = Con(RevConInd(anods))
+        RefCon = MAX(MaxCon,RefCon)
+        GatLims((MaxCon+1):(Refcon+1)) = 0
+      ELSE        
+        MaxCon = 0
+      END IF
+    END DO
+    
+    DEALLOCATE(Con, GatLims, GatNos, ConInd, RevConInd)
+
+
+
+    ! Assign unassigned nodes in the candidate list to be coarse nodes
+    IF(.FALSE.) THEN
+      k = 0
+      DO ind = 1, nods
+        IF(Cands(ind) > 0 .AND. CF(ind) == 0) THEN
+          k = k + 1
+          cind = cind + 1
+          CF(ind) = cind
+        END IF
+      END DO
+      
+      IF(k > 0) THEN
+        WRITE(Message,'(A,I8)') 'Enforced coarse nodes',k
+        CALL Info('AMGCoarse',Message)      
+      END IF
+    END IF
+
+    WRITE(Message,'(A,I8)') 'Clustering algorithm tests',loops
+    CALL Info('AMGCoarse',Message)
+    WRITE(Message,'(A,I8)') 'Clustering algorithm clusters',cind
+    CALL Info('AMGCoarse',Message)
+    WRITE(Message,'(A,I8)') 'Clustering algorithm nodes',cnods
+    CALL Info('AMGCoarse',Message)
+
+
+!    OPEN (10,FILE='clusters.dat')
+!    DO i=1,nods
+!      WRITE (10,'(3ES17.8E3,I6)') Mesh % Nodes % X(i), &
+!          Solver % Mesh % Nodes % Y(i), Solver % Mesh % Nodes % Z(i), CF(i)
+!    END DO
+!    CLOSE(10)
+    
+!    PRINT *,'prestop'
+!    STOP
+!    PRINT *,'poststop'
+    
+
+
+  END SUBROUTINE AMGCluster
+
+
+
 !-----------------------------------------------------------------------------
 !     make a matrix projection such that fine nodes are expressed with coarse nodes
 !     Xf = P Xc, with given set of coarse nodes, CF, and the stiffness matrix
@@ -4596,6 +4891,108 @@ CONTAINS
 !-------------------------------------------------------------------------
 
 
+
+!-----------------------------------------------------------------------------
+!     Make the interpolation for the cluster AMG
+!------------------------------------------------------------------------------
+     FUNCTION ClusterInterpolate( Fmat, CF, DOFs) RESULT (Projector)
+!------------------------------------------------------------------------------
+       USE Interpolation
+       USE CRSMatrix
+       USE CoordinateSystems
+!-------------------------------------------------------------------------------
+       TYPE(Matrix_t), TARGET  :: Fmat
+       INTEGER, POINTER :: CF(:)
+       INTEGER :: DOFs
+       TYPE(Matrix_t), POINTER :: Projector
+!------------------------------------------------------------------------------
+       INTEGER :: i, j, k, l, Fdofs, Cdofs, ind, Component1, Components, IncComponents, node
+       REAL(KIND=dp), POINTER :: PValues(:), FValues(:), TmpValues(:)
+       INTEGER, POINTER :: FRows(:), FCols(:), PRows(:), PCols(:), ClusterSize(:)
+       INTEGER, POINTER :: TmpRows(:), TmpCols(:)
+       INTEGER :: minsize, maxsize, no, nocluster
+       LOGICAL :: Debug
+
+       Debug = .FALSE.
+       IF(Debug) CALL Info('InterpolateF2C','Starting interpolation')
+      
+       Components = DOFs
+       IF(ComponentMode == 3) THEN
+         Component1 = ListGetInteger(Solver % Values,'MG Determining Component',minv=1,maxv=DOFs)
+         IncComponents = DOFs
+       ELSE
+         Component1 = 1
+         IncComponents = 1
+       END IF
+
+       Fdofs = Fmat % NumberOfRows
+       FRows   => Fmat % Rows
+       FCols   => Fmat % Cols
+       FValues => Fmat % Values
+       
+       ! Calculate the order of the new coarse nodes
+       Cdofs = MAXVAL(CF)       
+       ALLOCATE( ClusterSize(Cdofs) )                
+       ClusterSize = 0
+       nocluster = 0
+       DO ind = 1, Fdofs
+         IF(CF(ind) > 0) THEN
+           ClusterSize(CF(ind)) = ClusterSize(CF(ind)) + 1
+         ELSE
+           nocluster = nocluster + 1
+         END IF
+       END DO
+       maxsize = MAXVAL(ClusterSize)
+       minsize = MINVAL(ClusterSize)      
+
+       PRINT *,'Number of nodes',Fdofs
+       PRINT *,'Number of clusters',Cdofs
+       PRINT *,'Maximum clustersize',maxsize
+       PRINT *,'Minimum clustersize',minsize
+       PRINT *,'Average clustersize',1.0*(Fdofs-nocluster)/Cdofs
+       PRINT *,'Nodes in no clusters',nocluster
+
+       Projector => AllocateMatrix()
+       IF( ComponentMode == 3) THEN
+         no = Fdofs / Components
+       ELSE
+         no = Fdofs
+       END IF
+       Projector % NumberOfRows = no
+       ALLOCATE( Prows(no+1), PCols(no), PValues(no) )
+
+       Prows(1) = 1
+       PValues = 1.0d0
+       no = 0
+       DO ind=1,Fdofs
+         IF( CF(ind) > 0) THEN
+           no = no + 1 
+           PCols(no) = CF(ind)
+         END IF
+         PRows(ind + 1) = no + 1
+       END DO
+
+       Projector % Rows   => PRows
+       IF( no < Projector % NumberOfRows) THEN
+         ALLOCATE( Projector % Cols(no), Projector % Values(no) )
+         Projector % Cols(1:no) = PCols(1:no)
+         Projector % Values(1:no) = PValues(1:no)
+         DEALLOCATE(PCols, PValues)
+       ELSE
+         Projector % Cols   => PCols 
+         Projector % Values => PValues
+       END IF
+
+       i = PRows(Fdofs+1)-1
+
+       DEALLOCATE(ClusterSize)
+
+       CALL Info('ClusterInterpolate','Cluster projector ready')
+       
+     END FUNCTION ClusterInterpolate
+!-------------------------------------------------------------------------
+
+
  
 !------------------------------------------------------------------------------
 !   This subroutine may be used to check that mapping Xf = P Xc is accurate.
@@ -5198,24 +5595,21 @@ CONTAINS
        
        INTEGER, ALLOCATABLE :: Row(:)
        INTEGER :: NVals
-       INTEGER :: i,j,k,istat
-       
+       INTEGER :: i,j,k,istat,n
+
        B => AllocateMatrix()
        
        NVals = SIZE( A % Values )
-
        B % NumberOfRows = MAXVAL( A % Cols )
 
        ALLOCATE( B % Rows( B % NumberOfRows +1 ), B % Cols( NVals ), &
-           B % Values( Nvals ), B % Diag( B % NumberOfRows ), STAT=istat )
+           B % Values( Nvals ), B % Diag( B % NumberOfRows ), Row( B % NumberOfRows ), &
+           STAT=istat )
        IF ( istat /= 0 )  CALL Fatal( 'CRS_Transpose', &
            'Memory allocation error.' )
-       
+
        B % Diag = 0
-       
-       ALLOCATE( Row( B % NumberOfRows ) )
-       Row = 0
-       
+       Row = 0       
        DO i = 1, NVals
          Row( A % Cols(i) ) = Row( A % Cols(i) ) + 1
        END DO
@@ -5229,10 +5623,12 @@ CONTAINS
        DO i = 1, B % NumberOfRows
          Row(i) = B % Rows(i)
        END DO
-       
+      
        DO i = 1, A % NumberOfRows
+
          DO j = A % Rows(i), A % Rows(i+1) - 1
            k = A % Cols(j)
+
            IF ( Row(k) < B % Rows(k+1) ) THEN 
              B % Cols( Row(k) ) = i
              B % Values( Row(k) ) = A % Values(j)
@@ -5267,7 +5663,7 @@ CONTAINS
       REAL(KIND=dp), POINTER :: R1(:),R2(:)
       INTEGER :: i,ia,j,k,l,m,n,NA,NB,ci,cj,ck,cl,NoRow,i2,j2
       INTEGER :: TotalNonzeros
-      LOGICAL :: AllocationsDone 
+      LOGICAL :: AllocationsDone, GotIt 
       INTEGER, ALLOCATABLE :: Ind(:), Row(:)
 !------------------------------------------------------------------------------
 
@@ -5277,7 +5673,8 @@ CONTAINS
       ALLOCATE( Row( NA ), Ind( NB ) )
 
 
-      Epsilon = ListGetConstReal(Solver % Values,'MG Matrix Create Epsilon')
+      Epsilon = ListGetConstReal(Solver % Values,'MG Matrix Create Epsilon',GotIt)
+      IF(.NOT. GotIt) Epsilon = TINY(Epsilon)
 
       B => AllocateMatrix()      
       B % NumberOfRows = P % NumberOfRows * DOFs
@@ -5399,8 +5796,139 @@ CONTAINS
 
       WRITE( Message,'(A,I8)' ) 'Projected matrix created with size',TotalNonZeros
       CALL Info( 'CRS_ProjectMatrixCreate', Message )
-      
+
+      WRITE(Message,'(A,F6.2)') 'Coarse matrix reduction factor',&
+          1.0 *  SIZE(Matrix1 % Cols) / TotalNonZeros
+      CALL Info('CRS_ProjectMatrixCreate',Message)
+       
     END SUBROUTINE CRS_ProjectMatrixCreate
+
+
+
+
+!------------------------------------------------------------------------------
+    SUBROUTINE CRS_ClusterMatrixCreate( A, CF, B, DOFs ) 
+!------------------------------------------------------------------------------
+!
+!     Project matrix A to B: B = PAR
+!
+!------------------------------------------------------------------------------
+      TYPE(Matrix_t), POINTER :: A,B
+      INTEGER, POINTER :: CF(:)
+      INTEGER :: DOFs
+!------------------------------------------------------------------------------
+      INTEGER, POINTER :: L1(:), L2(:)
+      REAL(KIND=dp) :: s, Epsilon
+      REAL(KIND=dp), POINTER :: R1(:),R2(:)
+      INTEGER :: i,ia,j,k,l,m,n,NA,NB,ci,cj,ck,cl,NoRow,i2,j2,indi,prevnewrow,newrow,newcol
+      INTEGER :: TotalNonzeros
+      LOGICAL :: AllocationsDone, GotIt 
+      INTEGER, ALLOCATABLE :: Ind(:), Row(:), Sizes(:), CumSizes(:), ClusterOrder(:)
+!------------------------------------------------------------------------------
+
+      AllocationsDone = .FALSE.
+      NA = A % NumberOfRows
+      NB = MAXVAL(CF)
+
+      ALLOCATE( Sizes(NB), CumSizes(NB), ClusterOrder(NA), Row( NA ), Ind( NB ) )
+
+      ! Order the dofs in the order of the clusters
+      Sizes = 0
+      DO i=1,NA
+        Sizes( CF(i) ) = Sizes( CF(i) ) + 1
+      END DO
+      CumSizes = 0
+      DO i=1,NB-1
+        CumSizes(i+1) = CumSizes(i) + Sizes(i) 
+      END DO
+      Sizes = 0
+      DO i=1,NA
+        j = CF(i)
+        Sizes( j ) = Sizes( j ) + 1
+        ind = Sizes( j ) + CumSizes( j )
+        ClusterOrder(ind) = i
+      END DO
+    
+      !      PRINT *,'ClusterOrder',ClusterOrder
+      !      PRINT *,'Sizes',Sizes
+      !      PRINT *,'CumSizes',CumSizes
+
+      B => AllocateMatrix()      
+      B % NumberOfRows = NB
+      ALLOCATE( B % Rows( NB + 1 ), &
+          B % Diag( NB ), &
+          B % RHS( NB ) )        
+      B % RHS = 0.0d0
+      B % Diag = 0
+      B % Rows(1) = 1
+
+      NoRow = 0
+      Row = 0
+      Ind = 0
+      prevnewrow = 0
+10    TotalNonzeros = 0
+
+      IF(DOFs == 1) THEN
+        DO indi=1,NA
+          
+          i = ClusterOrder(indi) 
+
+          newrow = CF(i)
+
+          IF(prevnewrow /= newrow) THEN
+            IF(newrow > 1) B % Rows(newrow) = B % Rows(newrow-1) + NoRow
+            DO j=1,NoRow
+              Row(Ind(j)) = 0
+            END DO
+            NoRow = 0
+            prevnewrow = newrow
+          END IF
+
+          DO j=A % Rows(i),A % Rows(i+1)-1          
+            cj = A % Cols(j)
+
+            newcol = CF(cj)
+            i2 = Row(newcol)
+
+            IF ( i2 == 0) THEN
+              NoRow = NoRow + 1
+              TotalNonzeros = TotalNonzeros + 1
+              Ind(NoRow) = newcol
+              i2 = B % Rows(newrow) + NoRow - 1                   
+              Row(newcol) = i2
+                  
+              IF(AllocationsDone) THEN
+                IF(newrow == newcol) B % Diag(newrow) = i2
+                B % Cols(i2) = newcol                     
+                B % Values(i2) = A % Values(j)
+              END IF
+            ELSE IF(AllocationsDone) THEN
+              B % Values(i2) = B % Values(i2) + A % Values(j)
+            END IF
+          END DO
+        END DO
+      END IF
+
+      IF(.NOT. AllocationsDone) THEN
+        ALLOCATE( B % Cols( TotalNonzeros ), B % Values( TotalNonzeros ) )
+        B % Cols = 0
+        B % Values = 0.0d0
+        AllocationsDone = .TRUE.
+        GOTO 10 
+      END IF
+      
+      DEALLOCATE(  Sizes, CumSizes, ClusterOrder, Row, Ind )
+      
+      WRITE( Message,'(A,I8)' ) 'Clustered matrix created with size',TotalNonZeros
+      CALL Info( 'CRS_ClusterMatrixCreate', Message )
+      
+      WRITE(Message,'(A,F6.2)') 'Coarse matrix reduction factor',&
+          1.0 *  SIZE(Matrix1 % Cols) / TotalNonZeros
+      CALL Info('CRS_ClusterMatrixCreate',Message)
+
+    END SUBROUTINE CRS_ClusterMatrixCreate
+
+
 
 
   SUBROUTINE SaveMatrix( A, FileName)
