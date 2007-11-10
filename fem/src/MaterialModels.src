@@ -43,10 +43,7 @@
 
 MODULE MaterialModels
  
-   USE CoordinateSystems
-   USE Integration
-   USE LinearAlgebra
-   USE ElementDescription
+   USE DefUtils
 
    IMPLICIT NONE
    INTEGER, PARAMETER :: Incompressible = 0, UserDefined1 = 1,UserDefined2 = 2
@@ -215,6 +212,8 @@ this ise not in USE
      INTEGER(KIND=AddrInt) :: Fnc
 
      TYPE(Variable_t), POINTER :: Var
+
+     REAL(KIND=dp) :: dist,F2,F3
      REAL(KIND=dp) :: KE_K, KE_E, KE_Z, CT, TimeScale,Clip, Cmu, Vals(n)
 
      CHARACTER(LEN=MAX_NAME_LEN) :: str
@@ -406,6 +405,28 @@ this ise not in USE
          Var => VariableGet( CurrentModel % Variables, 'Effective Viscosity')
          PVisc = SUM( Basis(1:n) * Var % Values( Var % Perm( Element % NodeIndexes )))
  
+       CASE( 'sst k-omega' )
+         Var => VariableGet( CurrentModel % Variables, 'Kinetic Energy' )
+         IF ( .NOT. ASSOCIATED( Var ) ) &
+           CALL Fatal( 'Viscosity Model', 'The kinetic energy variable not defined?' )
+         KE_K = SUM(Basis(1:n) * Var % Values(Var % Perm(Element % NodeIndexes)))
+         
+         Var => VariableGet( CurrentModel % Variables, 'Kinetic Dissipation' )
+         IF ( .NOT. ASSOCIATED( Var ) ) &
+           CALL Fatal( 'Viscosity Model', 'The kinetic dissipation rate variable not defined?' )
+         KE_E = SUM(Basis(1:n) * Var % Values(Var % Perm(Element % NodeIndexes)))
+
+         Var => VariableGet( CurrentModel % Variables, 'Wall distance' )
+         IF ( .NOT. ASSOCIATED( Var ) ) &
+           CALL Fatal( 'Viscosity Model', 'The wall distance variable not defined?' )
+         dist = SUM(Basis(1:n) * Var % Values(Var % Perm(Element % NodeIndexes)))
+         
+         F2 = TANH(MAX(2*SQRT(KE_K)/(0.09_dp*KE_E*dist),500*viscosity/(density*KE_E*dist**2))**2)
+         F3 = 1-TANH((150*viscosity/density/KE_E/dist**2)**4)
+         F3 = 1
+
+         PVisc = Viscosity+0.31_dp*density*KE_K/MAX(0.31_dp*KE_E,SQRT(ss)*F2*F3)
+
        CASE( 'levelset' )
          TempSol => VariableGet( CurrentModel % Variables, 'Surface' )
          IF ( ASSOCIATED( TempSol) ) THEN
