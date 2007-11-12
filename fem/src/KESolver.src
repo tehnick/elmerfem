@@ -61,8 +61,6 @@
 !  REAL(KIND=dp) :: dt,
 !     INPUT: Timestep size for time dependent simulations
 !
-! CAVEAT: only Implicit Euler timestepping method currently usable.
-!
 !******************************************************************************
      TYPE(Model_t)  :: Model
      TYPE(Solver_t) :: Solver
@@ -77,12 +75,12 @@
      INTEGER :: i,j,k,l,n,t,iter,k1,k2,body_id,eq_id,istat,LocalNodes,bf_id,DOFs
 
      TYPE(Nodes_t)   :: ElementNodes
-     TYPE(Element_t),POINTER :: CurrentElement
+     TYPE(Element_t),POINTER :: Element
 
      REAL(KIND=dp) :: RelativeChange,Norm,PrevNorm,S,C
 
      INTEGER, POINTER :: NodeIndexes(:)
-     LOGICAL :: Stabilize = .TRUE.,NewtonLinearization = .FALSE.,gotIt
+     LOGICAL :: NewtonLinearization = .FALSE.,gotIt
 !
      LOGICAL :: AllocationsDone = .FALSE.
 
@@ -190,9 +188,6 @@
 !------------------------------------------------------------------------------
 !    Do some additional initialization, and go for it
 !------------------------------------------------------------------------------
-!    Stabilize = ListGetLogical( Solver % Values,'Stabilize',GotIt )
-     Stabilize = .FALSE.
-
      NonlinearTol = ListGetConstReal( Solver % Values, &
         'Nonlinear System Convergence Tolerance',gotIt )
 
@@ -207,6 +202,14 @@
 
      IF ( .NOT.GotIt ) NonlinearIter = 1
 
+
+!------------------------------------------------------------------------------
+      DO i=1,Model % NumberOFBCs
+        BC => Model % BCs(i) % Values
+        IF ( GetLogical(  BC, 'Noslip wall BC', gotit ) ) THEN
+          CALL ListAddConstReal( BC, 'Kinetic Energy', 0.0_dp )
+        END IF
+      END DO
 !------------------------------------------------------------------------------
 
      DO iter=1,NonlinearIter
@@ -245,8 +248,8 @@
 !        Check if this element belongs to a body where kinetic energy
 !        should be calculated
 !------------------------------------------------------------------------------
-         CurrentElement => GetActiveElement(t)
-         IF ( CurrentElement % BodyId /= body_id ) THEN
+         Element => GetActiveElement(t)
+         IF ( Element % BodyId /= body_id ) THEN
             Material => GetMaterial()
             Equation => GetEquation()
 
@@ -261,7 +264,7 @@
 !------------------------------------------------------------------------------
          CALL GetElementNodes( ElementNodes )
          n = GetElementNOFNodes()
-         NodeIndexes => CurrentElement % NodeIndexes
+         NodeIndexes => Element % NodeIndexes
 !------------------------------------------------------------------------------
          CALL GetScalarLocalSolution( LocalV2, 'V2' )
          CALL GetScalarLocalSolution( LocalKinEnergy, 'Kinetic Energy' )
@@ -354,7 +357,7 @@
 !        Get element local matrices, and RHS vectors
 !------------------------------------------------------------------------------
          CALL LocalMatrix( MASS,STIFF,FORCE,LOAD, &
-           U,V,W, Stabilize,CurrentElement,n,ElementNodes )
+           U,V,W, Element,n,ElementNodes )
 !------------------------------------------------------------------------------
          TimeForce = 0.0_dp
          IF ( TransientSimulation ) THEN
@@ -371,11 +374,11 @@
 
 !------------------------------------------------------------------------------
       DO t = 1, Solver % Mesh % NumberOfBoundaryElements
-        CurrentElement => GetBoundaryElement(t)
+        Element => GetBoundaryElement(t)
         IF ( .NOT. ActiveBoundaryElement() ) CYCLE
 !------------------------------------------------------------------------------
         n = GetElementNOFNodes()
-        NodeIndexes => CurrentElement % NodeIndexes
+        NodeIndexes => Element % NodeIndexes
 
         BC => GetBC()
 
@@ -432,18 +435,11 @@
 
             IF ( GetLogical( BC, 'Epsilon Wall BC', gotIt ) .OR. &
                  GetLogical( BC, 'Noslip Wall BC',  gotIt ) ) THEN
-              CALL EpsilonWall( CurrentElement, n, STIFF, FORCE )
+              CALL EpsilonWall( Element, n, STIFF, FORCE )
             END IF
         END IF
       END DO
 !------------------------------------------------------------------------------
-
-      DO i=1,Model % NumberOFBCs
-        BC => Model % BCs(i) % Values
-        IF ( GetLogical(  BC, 'Noslip wall BC', gotit ) ) THEN
-          CALL ListAddConstReal( BC, 'Kinetic Energy', 0.0_dp )
-        END IF
-      END DO
 
       CALL DefaultFinishAssembly()
 !------------------------------------------------------------------------------
@@ -512,7 +508,7 @@ CONTAINS
 
 !------------------------------------------------------------------------------
    SUBROUTINE LocalMatrix( MASS,STIFF,FORCE, &
-         LOAD, UX,UY,UZ,Stabilize,Element,n,Nodes )
+         LOAD, UX,UY,UZ,Element,n,Nodes )
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -533,20 +529,9 @@ CONTAINS
 !  REAL(KIND=dp) :: LOAD(:)
 !     INPUT:
 !
-!  REAL(KIND=dp) :: NodalCT,NodalC0,NodalC1
-!     INPUT: Coefficient of the time derivative term, 0 degree term, and
-!            the convection term respectively
-!
-!  REAL(KIND=dp) :: NodalC2(:)
-!     INPUT: Nodal values of the diffusion term coefficient tensor
-!
 !  REAL(KIND=dp) :: UX(:),UY(:),UZ(:)
 !     INPUT: Nodal values of velocity components from previous iteration
 !           used only if coefficient of the convection term (C1) is nonzero
-!
-!  LOGICAL :: Stabilize
-!     INPUT: Should stabilzation be used ? Used only if coefficient of the
-!            convection term (C1) is nonzero
 !
 !  TYPE(Element_t) :: Element
 !       INPUT: Structure describing the element (dimension,nof nodes,
@@ -566,8 +551,6 @@ CONTAINS
      REAL(KIND=dp), DIMENSION(:)   :: FORCE,UX,UY,UZ
      REAL(KIND=dp), DIMENSION(:,:) :: MASS,STIFF,LOAD
 
-     LOGICAL :: Stabilize
-
      INTEGER :: n
 
      TYPE(Nodes_t) :: Nodes
@@ -584,7 +567,7 @@ CONTAINS
      REAL(KIND=dp) :: Velo(3),dVelodx(3,3)
 
      REAL(KIND=dp) :: A(2,2),M(2,2),Prod,div,ProdTensor(3,3)
-     INTEGER :: i,j,c,p,q,t,dim,N_Integ,NBasis
+     INTEGER :: i,j,c,p,q,t,dim,NBasis
      REAL(KIND=dp) :: LoadatIp(2),Cmu,Rho,mu,Tmu,Effmu(2),TimeScale,Re_T,LC1,LC2
 
      REAL(KIND=dp) :: s,u,v,w, K,E,Eta,Strain(3,3), GradAsymm(3,3), nu, Cv,&
@@ -592,10 +575,8 @@ CONTAINS
 
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
 
-     REAL(KIND=dp) :: C0(2),C1,CT,C2(2),dC2dx(3),SecInv,X,Y,Z,LV2,LCT,SigmaK,SigmaE
      REAL(KIND=dp) :: Metric(3,3),Symb(3,3,3),dSymb(3,3,3,3),SqrtMetric
-
-     REAL(KIND=dp), DIMENSION(:), POINTER :: U_Integ,V_Integ,W_Integ,S_Integ
+     REAL(KIND=dp) :: C0(2),C1,CT,C2(2),dC2dx(3),SecInv,X,Y,Z,LV2,LCT,SigmaK,SigmaE
 
      LOGICAL :: stat,Convection, Bubbles, UseRNGModel
 
@@ -621,28 +602,22 @@ CONTAINS
         IntegStuff = GaussPoints( element )
      END IF
 
-     U_Integ => IntegStuff % u
-     V_Integ => IntegStuff % v
-     W_Integ => IntegStuff % w
-     S_Integ => IntegStuff % s
-     N_Integ =  IntegStuff % n
-
 !------------------------------------------------------------------------------
 !    Now we start integrating
 !------------------------------------------------------------------------------
-     DO t=1,N_Integ
-       u = U_Integ(t)
-       v = V_Integ(t)
-       w = W_Integ(t)
+     DO t=1,IntegStuff % n
+       u = IntegStuff % u(t)
+       v = IntegStuff % v(t)
+       w = IntegStuff % w(t)
 !------------------------------------------------------------------------------
 !      Basis function values & derivatives at the integration point
 !------------------------------------------------------------------------------
        stat = ElementInfo( Element,Nodes,u,v,w,detJ, &
-             Basis,dBasisdx,ddBasisddx,Stabilize,Bubbles )
+             Basis,dBasisdx,Bubbles=Bubbles )
 !------------------------------------------------------------------------------
 !      Coordinatesystem dependent info
 !------------------------------------------------------------------------------
-       s = detJ * S_Integ(t)
+       s = detJ * IntegStuff % s(t)
        IF ( CurrentCoordinateSystem() /= Cartesian ) THEN
          X = SUM( Nodes % x(1:n)*Basis(1:n) )
          Y = SUM( Nodes % y(1:n)*Basis(1:n) )

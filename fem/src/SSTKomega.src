@@ -60,8 +60,6 @@
 !  REAL(KIND=dp) :: dt,
 !     INPUT: Timestep size for time dependent simulations
 !
-! CAVEAT: only Implicit Euler timestepping method currently usable.
-!
 !******************************************************************************
      TYPE(Model_t)  :: Model
      TYPE(Solver_t) :: Solver
@@ -73,40 +71,29 @@
 !    Local variables
 !------------------------------------------------------------------------------
      TYPE(Matrix_t),POINTER  :: StiffMatrix
-     INTEGER :: i,j,k,l,n,t,iter,k1,k2,body_id,eq_id,istat,LocalNodes,bf_id,DOFs
+     INTEGER :: iter,t,body_id,eq_id,istat,LocalNodes,bf_id,DOFs
 
      TYPE(Nodes_t)   :: ElementNodes
-     TYPE(Element_t),POINTER :: CurrentElement
+     TYPE(Element_t),POINTER :: Element
 
-     REAL(KIND=dp) :: RelativeChange,Norm,PrevNorm,S,C
-
-     INTEGER, POINTER :: NodeIndexes(:)
+     REAL(KIND=dp) :: RelativeChange,Norm,PrevNorm
      LOGICAL :: Stabilize = .TRUE.,NewtonLinearization = .FALSE.,gotIt
-!
-     LOGICAL :: AllocationsDone = .FALSE.
 
-     CHARACTER(LEN=MAX_NAME_LEN) :: KEModel, V2FModel
+     LOGICAL :: AllocationsDone = .FALSE.
 
      TYPE(Variable_t), POINTER :: FlowSol, KE
 
-     INTEGER, POINTER :: FlowPerm(:),KinPerm(:)
+     INTEGER, POINTER :: KinPerm(:)
 
-     INTEGER :: NSDOFs,NewtonIter,NonlinearIter
-     REAL(KIND=dp) :: NonlinearTol,NewtonTol, Clip, V2FCp
-
-     REAL(KIND=dp), POINTER :: KEpsilon(:),KineticDissipation(:), &
-                   FlowSolution(:), ElectricCurrent(:), ForceVector(:)
+     INTEGER :: NewtonIter,NonlinearIter
+     REAL(KIND=dp) :: NonlinearTol,NewtonTol
 
      REAL(KIND=dp), ALLOCATABLE :: MASS(:,:), &
-       STIFF(:,:), LOAD(:,:),FORCE(:),U(:),V(:),W(:), &
-           Density(:),Viscosity(:), LocalDissipation(:), &
-                 LocalKinEnergy(:), TimeForce(:)
+       STIFF(:,:), LOAD(:,:),FORCE(:), LocalKinEnergy(:), TimeForce(:)
 
      TYPE(ValueList_t), POINTER :: BC, Equation, Material
 
-     SAVE U,V,W,MASS,STIFF,LOAD,FORCE, &
-       ElementNodes,Density, AllocationsDone,Viscosity,LocalNodes, &
-           LocalDissipation,LocalKinEnergy, TimeForce
+     SAVE MASS,STIFF,LOAD,FORCE, ElementNodes,AllocationsDone,TimeForce
 
      REAL(KIND=dp) :: at,at0,CPUTime,RealTime, KMax, EMax, KVal, EVal
 !------------------------------------------------------------------------------
@@ -117,7 +104,7 @@
 !------------------------------------------------------------------------------
      IF ( .NOT. AllocationsDone ) THEN
         IF ( ListGetLogical( GetSimulation(), 'Output Version Numbers', GotIt ) ) THEN
-           CALL Info( 'SSTKOmega', 'K-Epsilon Solver version:', Level = 0 ) 
+           CALL Info( 'SSTKOmega', 'SSTKomega Solver version:', Level = 0 ) 
            CALL Info( 'SSTKOmega', VersionID, Level = 0 ) 
            CALL Info( 'SSTKOmega', ' ', Level = 0 ) 
         END IF
@@ -132,7 +119,6 @@
      IF ( ASSOCIATED( KE ) ) THEN
        DOFs     =  KE % DOFs
        KinPerm  => KE % Perm
-       KEpsilon => KE % Values
      END IF
 
      LocalNodes = COUNT( KinPerm > 0 )
@@ -145,12 +131,7 @@
      IF ( .NOT. AllocationsDone ) THEN
        N = Solver % Mesh % MaxElementDOFs
 
-       ALLOCATE( U( N ), V( N ), W( N ),  &
-                 Density( N ), &
-                 Viscosity(N), &
-                 LocalKinEnergy( N ),     &
-                 LocalDissipation( N ),&
-                 MASS( 2*DOFs*N,2*DOFs*N ), &
+       ALLOCATE( MASS( 2*DOFs*N,2*DOFs*N ), &
                  STIFF( 2*DOFs*N,2*DOFs*N ),LOAD( DOFs,N ), &
                  FORCE( 2*DOFs*N ), TimeForce( 2*DOFs*N ), STAT=istat )
 
@@ -180,6 +161,13 @@
      IF ( .NOT.GotIt ) NonlinearIter = 1
 
 !------------------------------------------------------------------------------
+      DO i=1,Model % NumberOFBCs
+        BC => Model % BCs(i) % Values
+        IF ( GetLogical(  BC, 'Noslip wall BC', gotit ) ) THEN
+          CALL ListAddConstReal( BC, 'Kinetic Energy', 0.0_dp )
+        END IF
+      END DO
+!------------------------------------------------------------------------------
 
      DO iter=1,NonlinearIter
 
@@ -190,7 +178,7 @@
        CALL Info( 'SSTKOmega', ' ', Level=4 )
        CALL Info( 'SSTKOmega', &
           '-------------------------------------', Level=4 )
-       WRITE( Message, * ) 'KEpsilon iteration: ', iter
+       WRITE( Message, * ) 'SSTKomega iteration: ', iter
        CALL Info( 'SSTKOmega', Message, Level=4 )
        CALL Info( 'SSTKOmega', &
           '-------------------------------------', Level=4 )
@@ -217,33 +205,21 @@
 !        Check if this element belongs to a body where kinetic energy
 !        should be calculated
 !------------------------------------------------------------------------------
-         CurrentElement => GetActiveElement(t)
-         IF ( CurrentElement % BodyId /= body_id ) THEN
+         Element => GetActiveElement(t)
+         IF ( Element % BodyId /= body_id ) THEN
             Material => GetMaterial()
             Equation => GetEquation()
          END IF
 !------------------------------------------------------------------------------
          CALL GetElementNodes( ElementNodes )
          n = GetElementNOFNodes()
-         NodeIndexes => CurrentElement % NodeIndexes
 !------------------------------------------------------------------------------
-         CALL GetScalarLocalSolution( LocalKinEnergy, 'Kinetic Energy' )
-         CALL GetScalarLocalSolution( LocalDissipation, 'Kinetic Dissipation' )
-
-         CALL GetScalarLocalSolution( U, 'Velocity 1' )
-         CALL GetScalarLocalSolution( V, 'Velocity 2' )
-         CALL GetScalarLocalSolution( W, 'Velocity 3' )
-
-!------------------------------------------------------------------------------
-
-         Density(1:n)   = GetReal( Material,'Density' )
-         Viscosity(1:n) = GetReal( Material,'Viscosity' )
 
 !------------------------------------------------------------------------------
 !        Get element local matrices, and RHS vectors
 !------------------------------------------------------------------------------
          CALL LocalMatrix( MASS,STIFF,FORCE,LOAD, &
-           U,V,W, CurrentElement,n,ElementNodes )
+           U,V,W, Element,n,ElementNodes )
 !------------------------------------------------------------------------------
          TimeForce = 0.0_dp
          IF ( TransientSimulation ) THEN
@@ -342,17 +318,6 @@ CONTAINS
 !  REAL(KIND=dp) :: LOAD(:)
 !     INPUT:
 !
-!  REAL(KIND=dp) :: NodalCT,NodalC0,NodalC1
-!     INPUT: Coefficient of the time derivative term, 0 degree term, and
-!            the convection term respectively
-!
-!  REAL(KIND=dp) :: NodalC2(:)
-!     INPUT: Nodal values of the diffusion term coefficient tensor
-!
-!  REAL(KIND=dp) :: UX(:),UY(:),UZ(:)
-!     INPUT: Nodal values of velocity components from previous iteration
-!           used only if coefficient of the convection term (C1) is nonzero
-!
 !  TYPE(Element_t) :: Element
 !       INPUT: Structure describing the element (dimension,nof nodes,
 !               interpolation degree, etc...)
@@ -384,7 +349,8 @@ CONTAINS
      REAL(KIND=dp) :: Basis(2*n)
      REAL(KIND=dp) :: dBasisdx(2*n,3),detJ
 
-     REAL(KIND=dp) :: Velo(3),dVelodx(3,3), Distance(n)
+     REAL(KIND=dp) :: UX(n), UY(n), UZ(n), Velo(3), dVelodx(3,3), Energy(n), &
+                      Dissipation(n), Distance(n), Density(n), Viscosity(n)
 
      REAL(KIND=dp) :: A(2,2),M(2,2),Prod,div,ProdTensor(3,3)
      INTEGER :: i,j,c,p,q,t,dim,NBasis
@@ -403,7 +369,17 @@ CONTAINS
 !------------------------------------------------------------------------------
 
      dim = CoordinateSystemDimension()
+
+     Viscosity(1:n) = GetReal( Material, 'Viscosity' )
+     Density(1:n) = GetReal( Material, 'Density' )
+
+     CALL GetScalarLocalSolution( UX, 'Velocity 1' )
+     CALL GetScalarLocalSolution( UY, 'Velocity 2' )
+     CALL GetScalarLocalSolution( UZ, 'Velocity 3' )
+
+     CALL GetScalarLocalSolution( Energy, 'Kinetic energy' )
      CALL GetScalarLocalSolution( Distance, 'Wall Distance' )
+     CALL GetScalarLocalSolution( Dissipation, 'Kinetic Dissipation' )
 
      FORCE = 0.0D0
      STIFF = 0.0D0
@@ -472,19 +448,17 @@ CONTAINS
 
 !------------------------------------------------------------------------------
 
-       K = SUM( LocalKinEnergy(1:n) * Basis(1:n) )
-       Omega = SUM( LocalDissipation(1:n) * Basis(1:n) )
+       K = SUM( Energy(1:n) * Basis(1:n) )
+       Omega = SUM( Dissipation(1:n) * Basis(1:n) )
 
        DO i=1,dim
-         GradK(i) = SUM( dBasisdx(1:n,i) * LocalKinEnergy(1:n) )
-         GradO(i) = SUM( dBasisdx(1:n,i) * LocalDissipation(1:n) )
+         GradK(i) = SUM( dBasisdx(1:n,i) * Energy(1:n) )
+         GradO(i) = SUM( dBasisdx(1:n,i) * Dissipation(1:n) )
        END DO
 
-       rho = SUM( Density(1:n) * Basis(1:n) )
-       mu  = SUM( Viscosity(1:n) * Basis(1:n) )
-
+       mu   = SUM( Viscosity(1:n) * Basis(1:n) )
+       rho  = SUM( Density(1:n) * Basis(1:n) )
        dist = SUM( Distance(1:n) * Basis(1:n) )
-
 
        CD = 0.0_dp
        DO i=1,dim
