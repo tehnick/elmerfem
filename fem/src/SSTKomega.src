@@ -71,7 +71,7 @@
 !    Local variables
 !------------------------------------------------------------------------------
      TYPE(Matrix_t),POINTER  :: StiffMatrix
-     INTEGER :: iter,t,body_id,eq_id,istat,LocalNodes,bf_id,DOFs
+     INTEGER :: i,j,k,n,iter,t,body_id,eq_id,istat,LocalNodes,bf_id,DOFs
 
      TYPE(Nodes_t)   :: ElementNodes
      TYPE(Element_t),POINTER :: Element
@@ -218,8 +218,7 @@
 !------------------------------------------------------------------------------
 !        Get element local matrices, and RHS vectors
 !------------------------------------------------------------------------------
-         CALL LocalMatrix( MASS,STIFF,FORCE,LOAD, &
-           U,V,W, Element,n,ElementNodes )
+         CALL LocalMatrix( MASS,STIFF,FORCE,LOAD,Element,n,ElementNodes )
 !------------------------------------------------------------------------------
          TimeForce = 0.0_dp
          IF ( TransientSimulation ) THEN
@@ -235,11 +234,20 @@
       CALL Info( 'SSTKOmega', 'Assembly done', Level=4 )
 
 !------------------------------------------------------------------------------
-
       CALL DefaultFinishAssembly()
+
 !------------------------------------------------------------------------------
 !     Dirichlet boundary conditions
 !------------------------------------------------------------------------------
+
+      DO t=1,Solver % Mesh % NumberOfBoundaryElements
+        Element => GetBoundaryElement(t) 
+        IF ( .NOT. ActiveBoundaryElement() ) CYCLE
+        n = GetElementNOFDOFs()
+        IF (GetLogical(BC, 'Omega Wall BC', gotIt ).OR. &
+            GetLogical(BC, 'Noslip Wall BC',  gotIt)) CALL OmegaWall(Element,n)
+      END DO
+
       CALL DefaultDirichletBCs()
 !------------------------------------------------------------------------------
       CALL Info( 'SSTKOmega', 'Set boundaries done', Level=4 )
@@ -296,8 +304,7 @@
 CONTAINS
 
 !------------------------------------------------------------------------------
-   SUBROUTINE LocalMatrix( MASS,STIFF,FORCE, &
-         LOAD, UX,UY,UZ,Element,n,Nodes )
+   SUBROUTINE LocalMatrix( MASS,STIFF,FORCE, LOAD, Element,n,Nodes )
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -333,7 +340,7 @@ CONTAINS
 
      IMPLICIT NONE
 
-     REAL(KIND=dp), DIMENSION(:)   :: FORCE,UX,UY,UZ
+     REAL(KIND=dp), DIMENSION(:)   :: FORCE
      REAL(KIND=dp), DIMENSION(:,:) :: MASS,STIFF,LOAD
 
      INTEGER :: n
@@ -493,8 +500,7 @@ CONTAINS
        Effmu(1) = mu + Tmu / SigmaK
        Effmu(2) = mu + Tmu / SigmaO
 
-       Strain = 2*Tmu*Strain
-       Prod = SUM(Strain*dVelodx)
+       Prod = SUM(2*Tmu*Strain*dVelodx)
 !------------------------------------------------------------------------------
 !      Loop over basis functions of both unknowns and weights
 !------------------------------------------------------------------------------
@@ -551,7 +557,7 @@ CONTAINS
 
         ! Load at the integration point:
         !-------------------------------
-        LoadAtIP(1) = Rho*Prod
+        LoadAtIP(1) = Prod
         LoadAtIP(2) = Rho*rGamma/Tmu*Prod
 
 !------------------------------------------------------------------------------
@@ -562,6 +568,52 @@ CONTAINS
       END DO
 !------------------------------------------------------------------------------
    END SUBROUTINE LocalMatrix
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+   SUBROUTINE OmegaWall( Element,n )
+!------------------------------------------------------------------------------
+     TYPE(Element_t), POINTER :: Element
+     INTEGER :: n
+!------------------------------------------------------------------------------
+     REAL(KIND=dp) :: Distance(32), omega_wall, dist, mu(32), rho(32)
+     INTEGER :: i,j,np
+     TYPE(Element_t), POINTER :: Parent
+!------------------------------------------------------------------------------
+     Parent => Element % BoundaryInfo % Left
+     IF ( .NOT. ASSOCIATED(Parent) ) &
+       Parent => Element % BoundaryInfo % Right
+
+     np = GetElementNOFDOFs(Parent)
+
+     rho(1:np)= GetReal( GetMaterial(Parent), 'Density', UElement=Parent )
+     mu(1:np) = GetReal( GetMaterial(Parent), 'Viscosity', UElement=Parent )
+
+     CALL GetScalarLocalSolution( Distance, 'Wall distance', Parent )
+
+     omega_wall = 1.d10
+     DO i=1,np
+       j = Parent % NodeIndexes(i)
+       IF ( ANY( j==Element % NodeIndexes(1:n) ) ) CYCLE
+
+       omega_wall = 6*mu(i)/rho(i)/0.075_dp/Distance(i)**2
+
+       j = 2*Solver % Variable % Perm(j)
+       CALL ZeroRow( Solver % Matrix, j )
+       Solver % Matrix % RHS(j) = omega_wall
+       CALL SetMatrixElement( Solver % Matrix, j,j, 1.0_dp )
+     END DO
+
+     DO i=1,n
+       j = 2*Solver % Variable % Perm(Element % NodeIndexes(i))
+       CALL ZeroRow( Solver % Matrix, j )
+       Solver % Matrix % RHS(j) = 10*omega_wall
+       CALL SetMatrixElement( Solver % Matrix, j,j, 1.0_dp )
+     END DO
+
+!------------------------------------------------------------------------------
+   END SUBROUTINE OmegaWall
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
