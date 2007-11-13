@@ -463,9 +463,9 @@ CONTAINS
        F2 = MAX( 2*SQRT(K)/0.09_dp/Omega/dist,500*mu/rho/omega/dist**2 )
        F2 = TANH(F2**2)
 
-       ! don't use SST near rough walls; NOT IN USE
-!      F3 = 1-TANH((150*mu/rho/omega/dist**2)**4)
-       F3 = 1
+       ! don't use SST near rough walls; NOW IN USE
+       F3 = 1-TANH((150*mu/rho/omega/dist**2)**4)
+!      F3 = 1
 
        ! Rotation and curvature correction of Schweighofer & Hellsten; NOT IN USE
 !      F4 = VorticityMeasure/StrainMeasure*(VorticityMeasure/StrainMeasure-1)
@@ -483,7 +483,7 @@ CONTAINS
        Effmu(1) = mu + Tmu / SigmaK
        Effmu(2) = mu + Tmu / SigmaO
 
-       Prod = SUM(2*Tmu*Strain*dVelodx)
+       Prod = 2*Tmu*SUM(Strain*dVelodx)
 !------------------------------------------------------------------------------
 !      Loop over basis functions of both unknowns and weights
 !------------------------------------------------------------------------------
@@ -541,7 +541,7 @@ CONTAINS
         ! Load at the integration point:
         !-------------------------------
         LoadAtIP(1) = Prod
-        LoadAtIP(2) = rho*rGamma/Tmu*Prod
+        LoadAtIP(2) = rho*rGamma*Prod/Tmu
 
 !------------------------------------------------------------------------------
         DO p=1,NBasis
@@ -581,6 +581,7 @@ CONTAINS
        IF ( ANY( j==Element % NodeIndexes(1:n) ) ) CYCLE
 
        omega_wall = 2*mu(i)/rho(i)/0.09_dp/Distance(i)**2
+!      omega_wall = 6*mu(i)/rho(i)/0.075_dp/Distance(i)**2
 
        j = 2*Solver % Variable % Perm(j)
        Solver % Matrix % RHS(j) = omega_wall
