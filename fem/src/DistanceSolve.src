@@ -93,7 +93,10 @@ SUBROUTINE DistanceSolver( Model,Solver,dt,TransientSimulation )
      n = Mesh % NumberOfNodes
      IF ( ALL( Solver % Variable % Values == 0.0_dp ) ) &
        Solver % Variable % Values(Solver % Variable % Perm(1:n)) = &
-           SQRT(Mesh % Nodes % x(1:n)**2+Mesh % Nodes % y(1:n)**2+Mesh % Nodes % z(1:n)**2 )
+           SQRT( Mesh % Nodes % x(1:n)**2 + &
+                 Mesh % Nodes % y(1:n)**2 + &
+                 Mesh % Nodes % z(1:n)**2 )
+
      AllocationsDone = .TRUE.
   END IF
 
@@ -190,12 +193,15 @@ CONTAINS
       DO j=1,nd
          STIFF(i,j) = STIFF(i,j) + IP % s(t) * DetJ * &
            SUM( Grad(1:dim) * dBasisdx(j,1:dim) ) * Basis(i)
+
          STIFF(i,j) = STIFF(i,j) + IP % s(t) * DetJ * stab * SU(i) * SU(j)
+
          IF ( RelaxDT > 0 ) STIFF(i,j) = STIFF(i,j) + &
           1._dp/RelaxDT*IP % s(t) * detJ * Basis(j) * Basis(i)
       END DO
       END DO
       FORCE(1:nd) = FORCE(1:nd) + IP % s(t) * DetJ * (Basis(1:nd)+stab*SU(1:nd))
+
       IF ( RelaxDT > 0 ) FORCE(1:nd) = FORCE(1:nd) + &
          1._dp/RelaxDT*IP % s(t) * DetJ * Basis(1:nd)*SUM(Basis(1:nd)*SOL(1:nd))
     END DO

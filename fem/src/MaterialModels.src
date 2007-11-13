@@ -419,13 +419,15 @@ this ise not in USE
          Var => VariableGet( CurrentModel % Variables, 'Wall distance' )
          IF ( .NOT. ASSOCIATED( Var ) ) &
            CALL Fatal( 'Viscosity Model', 'The wall distance variable not defined?' )
-         dist = SUM(Basis(1:n) * Var % Values(Var % Perm(Element % NodeIndexes)))
+         Dist = SUM(Basis(1:n) * Var % Values(Var % Perm(Element % NodeIndexes)))
          
-         F2 = TANH(MAX(2*SQRT(KE_K)/(0.09_dp*KE_E*dist),500*viscosity/(density*KE_E*dist**2))**2)
-         F3 = 1-TANH((150*viscosity/density/KE_E/dist**2)**4)
+         F2 = TANH( MAX(2*SQRT(KE_K)/(0.09_dp*KE_E*Dist), &
+              500._dp*Viscosity/(Density*KE_E*Dist**2))**2)
+
+!        F3 = 1-TANH((150*Viscosity/Density/KE_E/Dist**2)**4)
          F3 = 1
 
-         PVisc = Viscosity+0.31_dp*density*KE_K/MAX(0.31_dp*KE_E,SQRT(ss)*F2*F3)
+         PVisc = Viscosity+0.31_dp*Density*KE_K/MAX(0.31_dp*KE_E,SQRT(ss)*F2*F3)
 
        CASE( 'levelset' )
          TempSol => VariableGet( CurrentModel % Variables, 'Surface' )
