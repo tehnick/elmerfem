@@ -463,9 +463,9 @@ CONTAINS
        F2 = MAX( 2*SQRT(K)/0.09_dp/Omega/dist,500*mu/rho/omega/dist**2 )
        F2 = TANH(F2**2)
 
-       ! don't use SST near rough walls; NOW IN USE
-       F3 = 1-TANH((150*mu/rho/omega/dist**2)**4)
-!      F3 = 1
+       ! don't use SST near rough walls; NOT IN USE
+!      F3 = 1-TANH((150*mu/rho/omega/dist**2)**4)
+       F3 = 1
 
        ! Rotation and curvature correction of Schweighofer & Hellsten; NOT IN USE
 !      F4 = VorticityMeasure/StrainMeasure*(VorticityMeasure/StrainMeasure-1)
@@ -541,7 +541,7 @@ CONTAINS
         ! Load at the integration point:
         !-------------------------------
         LoadAtIP(1) = Prod
-        LoadAtIP(2) = rho*rGamma*Prod/Tmu
+        LoadAtIP(2) = rho * rGamma * Prod * Omega / K
 
 !------------------------------------------------------------------------------
         DO p=1,NBasis
@@ -580,8 +580,8 @@ CONTAINS
        j = Parent % NodeIndexes(i)
        IF ( ANY( j==Element % NodeIndexes(1:n) ) ) CYCLE
 
-       omega_wall = 2*mu(i)/rho(i)/0.09_dp/Distance(i)**2
-!      omega_wall = 6*mu(i)/rho(i)/0.075_dp/Distance(i)**2
+!      omega_wall = 2*mu(i)/0.09_dp/rho(i)/Distance(i)**2
+       omega_wall = 6*mu(i)/rho(i)/0.075_dp/Distance(i)**2
 
        j = 2*Solver % Variable % Perm(j)
        Solver % Matrix % RHS(j) = omega_wall
@@ -589,12 +589,12 @@ CONTAINS
        CALL SetMatrixElement( Solver % Matrix, j,j, 1.0_dp )
      END DO
 
-     DO i=1,n
-       j = 2*Solver % Variable % Perm(Element % NodeIndexes(i))
-       Solver % Matrix % RHS(j) = 10*omega_wall
-       CALL ZeroRow( Solver % Matrix, j )
-       CALL SetMatrixElement( Solver % Matrix, j,j, 1.0_dp )
-     END DO
+!    DO i=1,n
+!      j = 2*Solver % Variable % Perm(Element % NodeIndexes(i))
+!      Solver % Matrix % RHS(j) = 10*omega_wall
+!      CALL ZeroRow( Solver % Matrix, j )
+!      CALL SetMatrixElement( Solver % Matrix, j,j, 1.0_dp )
+!    END DO
 
 !------------------------------------------------------------------------------
    END SUBROUTINE OmegaWall
