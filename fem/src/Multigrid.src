@@ -65,9 +65,12 @@ CONTAINS
        TYPE(Solver_t) :: Solver
        REAL(KIND=dp) :: ForceVector(:), Solution(:)
 !------------------------------------------------------------------------------
-       LOGICAL :: Found
+       LOGICAL :: Found, Algebraic
 
-       IF ( ListGetLogical( Solver % Values, 'MG Algebraic', Found ) ) THEN
+       Algebraic = ListGetLogical( Solver % Values, 'MG Algebraic', Found ) .OR. &
+           ListGetLogical( Solver % Values, 'MG Cluster', Found )
+
+       IF ( Algebraic ) THEN
          CALL AMGSolve( Matrix1, Solution, ForceVector, DOFs, Solver, Level, NewSystem )
        ELSE
          CALL GMGSolve( Matrix1, Solution, ForceVector, DOFs, Solver, Level, NewSystem )
@@ -399,8 +402,6 @@ CONTAINS
 !      ------------
        DO iter = 1,MaxIter
           ResidualNorm = MGSweep() / RHSNorm
-!         CALL MGSweep( ResidualNorm )
-!         ResidualNorm = ResidualNorm / RHSNorm
 
           WRITE(Message,'(A,I4,A,I5,A,E20.12E3)') 'MG Residual at level:', &
                  Level, ' iter:', iter,' is:', ResidualNorm
@@ -451,18 +452,29 @@ CONTAINS
        LOGICAL :: Found
        REAL(KIND=dp) :: RNorm
 !------------------------------------------------------------------------------
-       INTEGER :: Sweeps
+       INTEGER :: Sweeps, InvLevel
+       INTEGER, POINTER :: Iters(:)
        REAL(KIND=dp), POINTER :: R1(:),R2(:)
 !------------------------------------------------------------------------------
 
 !      Presmoothing:
 !      -------------
-       Rounds = ListGetInteger( Solver % Values, &
-         'MG Pre Smoothing Iterations', Found )
-       IF(.NOT. Found) Rounds = 1
 
-       Sweeps = ListGetInteger( Solver % Values, 'MG Sweeps', Found )
-       IF ( .NOT. Found ) Sweeps = 1
+       InvLevel = 1 + Solver % MultiGridTotal - Level
+
+       Iters => ListGetIntegerArray( Solver % Values,'MG Pre Smoothing Iterations',Found)
+       IF(Found) THEN
+         Rounds = Iters(MIN(InvLevel,SIZE(Iters)))
+       ELSE        
+         Rounds = 1
+       END IF
+
+       Iters => ListGetIntegerArray( Solver % Values,'MG Sweeps',Found)
+       IF(Found) THEN
+         Sweeps = Iters(MIN(InvLevel,SIZE(Iters)))
+       ELSE        
+         Sweeps = 1
+       END IF
 
        RNorm = Smooth( Matrix1, Solution, ForceVector, &
                Residual, IterMethod, Rounds )
@@ -509,9 +521,12 @@ CONTAINS
 !
 !     Post smoothing:
 !     ---------------
-      Rounds = ListGetInteger( Solver % Values, &
-        'MG Post Smoothing Iterations', Found )
-      IF(.NOT. Found) Rounds = 1
+      Iters => ListGetIntegerArray( Solver % Values,'MG Post Smoothing Iterations',Found)
+      IF(Found) THEN
+        Rounds = Iters(MIN(InvLevel,SIZE(Iters)))
+      ELSE        
+        Rounds = 1
+      END IF
 
       RNorm = Smooth( Matrix1, Solution, ForceVector, &
              Residual, IterMethod, Rounds )
@@ -1095,21 +1110,21 @@ CONTAINS
     TYPE(Matrix_t), POINTER :: ProjPN, ProjQT, ProjT 
     
     INTEGER :: i,j,k,l,m,n,n2,k1,k2,iter,MaxIter = 100, DirectLimit, &
-        MinLevel, ComponentMode, ProjectorDOFs
-    LOGICAL :: Condition, Found, Parallel, Project, EliminateDir, Cluster
+        MinLevel, ComponentMode, ProjectorDOFs, OrigSize=0, InvLevel
+    LOGICAL :: Condition, Found, Parallel, Project, EliminateDir, Cluster, CoarseSave
     CHARACTER(LEN=MAX_NAME_LEN) :: str,IterMethod,FileName
     INTEGER, POINTER :: CF(:), InvCF(:)
     
     REAL(KIND=dp), POINTER :: Residual(:), Work(:), Residual2(:), &
-        Work2(:),  Solution2(:), P(:), Q(:), Z(:), R1(:), R2(:)
+        Work2(:),  Solution2(:), P(:), Q(:), Z(:), R1(:), R2(:), TmpArray(:,:)
     REAL(KIND=dp), POINTER :: Ri(:), T(:), T1(:), T2(:), S(:), V(:)    
     REAL(KIND=dp) :: ResidualNorm, RHSNorm, Tolerance, &
         ILUTOL, Alpha, beta, omega, rho, oldrho
-    REAL(KIND=dp) :: CPUTime, tt, tt2
+    REAL(KIND=dp) :: CPUTime, tt, tt2, tt3
 
     LOGICAL :: NewLinearSystem, gotit
 
-    SAVE NewLinearSystem, AMG, MinLevel, ComponentMode, ProjectorDOFs
+    SAVE NewLinearSystem, AMG, MinLevel, ComponentMode, ProjectorDOFs, OrigSize
     
 !------------------------------------------------------------------------------
 
@@ -1126,6 +1141,7 @@ CONTAINS
 !      Initialize:
 !      -----------
     Parallel = ParEnv % PEs > 1
+    InvLevel = 1 + Solver % MultiGridTotal - Level
 
     ! This is a counter that for the first full resursive round keeps the 
     ! flag NewLinearSystem true.
@@ -1150,7 +1166,9 @@ CONTAINS
     IF(.NOT. GotIt) DirectLimit = 10
 
     IF ( Level <= 1 .OR. n < DirectLimit) THEN
-      IF ( .NOT. Parallel ) THEN
+      IF( ListGetLogical( Solver % Values,'MG Lowest Linear Solver Unsolve',GotIt)) THEN
+        CONTINUE
+      ELSE IF ( .NOT. Parallel ) THEN
         IF ( ListGetLogical( Solver % Values, 'MG Lowest Linear Solver Iterative',gotit ) ) THEN
           CALL IterSolver( Matrix1, Solution, ForceVector, Solver )
         ELSE
@@ -1187,7 +1205,10 @@ CONTAINS
     ResidualNorm = MGnorm( n, Residual ) / RHSNorm
 
     Tolerance = ListGetConstReal( Solver % Values,'Linear System Convergence Tolerance' )
+
     Cluster = ListGetLogical( Solver % Values,'MG Cluster',GotIt) 
+
+    CoarseSave = ListGetLogical(Solver % Values,'MG Coarse Level Save',GotIt)
 
 !---------------------------------------------------------------------
 !
@@ -1208,8 +1229,7 @@ CONTAINS
       IF(ASSOCIATED(Matrix1 % Parent)) CALL FreeMatrix(Matrix1 % Parent)
       IF(ASSOCIATED(Matrix1 % Ematrix)) CALL FreeMatrix(Matrix1 % Ematrix)
 
-      ! In the first time compute the node angles
-      IF( Level == Solver % MultiGridTotal) THEN
+      IF( CoarseSave .AND. Level == Solver % MultiGridTotal) THEN
         ALLOCATE(AMG(Solver % MultiGridTotal))
       END IF
 
@@ -1234,95 +1254,103 @@ CONTAINS
         ProjectorDofs = 1
       END IF     
       
-      IF(ComponentMode == 0) THEN
-        CALL ChooseCoarseNodes(Matrix1, Solver, ProjT, 1, CF, InvCF)
-      ELSE IF(ComponentMode == 3) THEN
-        CALL ChooseCoarseNodes(Matrix1, Solver, ProjT, DOFs, CF, InvCF)        
-      ELSE        
-        CALL ChooseCoarseNodes(Matrix1, Solver, ProjT, DOFs, CF )
+      IF(Cluster) THEN
+        ProjectorDOFs = DOFs
+        CALL ChooseClusterNodes(Matrix1, Solver, DOFs, CF)      
+        ProjPN => TransposeClusterInterpolate( Matrix1, CF, DOFs) 
+        CALL CRS_ClusterMatrixCreate( Matrix1, CF, Matrix2, DOFs)       
+        TmpArray => ListGetConstRealArray(Solver % Values,'MG Cluster Alpha', gotIt )
+        IF(gotIt) THEN
+          Alpha = TmpArray(MIN(InvLevel,SIZE(TmpArray,1)),1)
+          Matrix2 % Values = Matrix2 % Values / Alpha
+        END IF
+      ELSE
+        IF(ComponentMode == 0) THEN
+          CALL ChooseCoarseNodes(Matrix1, Solver, ProjT, 1, CF, InvCF)
+        ELSE IF(ComponentMode == 3) THEN
+          CALL ChooseCoarseNodes(Matrix1, Solver, ProjT, DOFs, CF, InvCF)        
+        ELSE        
+          CALL ChooseCoarseNodes(Matrix1, Solver, ProjT, DOFs, CF )
+        END IF
+
+        IF( ListGetLogical(Solver % Values,'MG Projector Matrix Save',GotIt) ) THEN
+          WRITE(Filename,'(A,I1,A)') 'P',Level,'.dat'
+          CALL SaveMatrix(ProjT,TRIM(FileName))          
+        END IF
+
+        ! The initial projection matrix is a transpose of the wanted one. 
+        ! It is needed only in determining the matrix structure.       
+        ProjPN => CRS_Transpose( ProjT )
+      !     CALL ParallelInitMatrix( Solver, Solver % Matrix )
+        CALL CRS_ProjectMatrixCreate( Matrix1, ProjPN, ProjT, Matrix2, ProjectorDOFs)
+        CALL FreeMatrix(ProjT)             
       END IF
 
-      WRITE( Message, '(A,F8.2)' ) 'MG projection matrix creation time: ', CPUTime() - tt
-      CALL Info( 'AMGSolve', Message, Level=5 )
-
-      IF( ListGetLogical(Solver % Values,'MG Projector Matrix Save',GotIt) ) THEN
-        WRITE(Filename,'(A,I1,A)') 'P',Level,'.dat'
-        CALL SaveMatrix(ProjT,TRIM(FileName))          
-      END IF
-
-      ! The initial projection matrix is a transpose of the wanted one. 
-      ! It is needed only in determining the matrix structure.       
-      ProjPN => CRS_Transpose( ProjT )
       ProjQT => ProjPN      
       Matrix1 % Ematrix => ProjPN
+      Matrix2 % Child  => Matrix1
+      Matrix1 % Parent => Matrix2
 
-      !     CALL ParallelInitMatrix( Solver, Solver % Matrix )
+      WRITE( Message, '(A,F8.2)' ) 'MG coarse matrix creation time: ', CPUTime() - tt
+      CALL Info( 'AMGSolve', Message, Level=5 )
 
-      IF( Cluster .AND. ListGetLogical(Solver % Values,'MG Cluster Fast Matrix',GotIt) ) THEN
-        CALL CRS_ClusterMatrixCreate( Matrix1, CF, Matrix2, ProjectorDOFs)       
-      ELSE
-        !     Project higher  level coefficient matrix to the
-        !     lower level: A_low = ProjPN * A_high * ProjQT^T
-        !            -----------------------------------------------        
-        CALL CRS_ProjectMatrixCreate( Matrix1, ProjPN, ProjT, Matrix2, ProjectorDOFs)
-      END IF
-      
+
       ! Make the cnodes point to the set of original nodes
-      IF(.NOT. Cluster) THEN
+      IF(CoarseSave) THEN
         IF( ComponentMode == 0 .OR. ComponentMode == 3) THEN
           ProjPN % Perm => CF
-          AMG(Level) % InvCF => InvCF
-          IF(Level < Solver % MultiGridTotal .AND. ASSOCIATED(InvCF)) THEN
-            DO i=1,SIZE(InvCF)
-              IF(InvCF(i) > 0) InvCF(i) = AMG(Level+1) % InvCF(InvCF(i))
-            END DO
+          
+          IF(Cluster) THEN
+            ! Make a table showing the clustering
+            
+            AMG(Level) % CF => CF            
+            IF(OrigSize == 0) OrigSize = SIZE(CF)
+            ALLOCATE( InvCF(OrigSize) )
+            InvCF = 0
+            AMG(Level) % InvCF => InvCF           
+            
+            IF(Level ==  Solver % MultiGridTotal) THEN
+              InvCF = CF 
+            ELSE
+              DO i=1,OrigSize
+                j = AMG(Level+1) % InvCF(i)
+                IF(j > 0) InvCF(i) = CF( j )
+              END DO
+            END IF
+          END IF
+        ELSE   
+          ! Make the cnodes point to the set of original nodes         
+          IF(Level < Solver % MultiGridTotal) THEN
+            IF( ASSOCIATED(InvCF)) THEN
+              AMG(Level) % InvCF => InvCF
+              DO i=1,SIZE(InvCF)
+                IF(InvCF(i) > 0) InvCF(i) = AMG(Level+1) % InvCF(InvCF(i))
+              END DO
+            END IF
           END IF
         END IF
       END IF
-PRINT *,'a4'
 
-      IF ( Matrix1 % NumberOfRows /=  ProjectorDOFs * ProjT % NumberOfRows) THEN
-        PRINT *,'proj dofs',Matrix1 % NumberOfRows, ProjT % NumberOfRows,dofs 
-        CALL Warn('AMGSolve','Projector incompatible with matrix size')
-      END IF
-      CALL FreeMatrix(ProjT)      
-
-
-      tt2 = CPUTime()
-
-      IF(Cluster) THEN
-        Alpha = ListGetConstReal(Solver % Values,'MG Cluster Alpha',GotIt)
-        IF(.NOT. GotIt) Alpha = 2.0d0
-        Matrix2 % Values = Matrix2 % Values / Alpha
-      END IF
-
-       
       IF( ListGetLogical(Solver % Values,'MG Projected Matrix Save', GotIt ) ) THEN
         WRITE(Filename,'(A,I1,A)') 'B',Level,'.dat'
         CALL SaveMatrix(Matrix2,TRIM(FileName))          
       END IF
-
-      Matrix2 % Child  => Matrix1
-      Matrix1 % Parent => Matrix2
-      
-      WRITE( Message, '(A,F8.2)' ) 'Coarse matrix projection time', CPUTime() - tt2
-      CALL Info( 'AMGSolve', Message, Level=5 )
-      
-      IF( ListGetLogical(Solver % Values,'MG Coarse Nodes Save', GotIt) ) THEN
+            
+      IF( CoarseSave .AND. .NOT. Cluster) THEN
         CALL AMGTest(0)
         !        CALL AMGTest(1)
         !        CALL AMGTest(2)         
       END IF
     ELSE
+      ! .NOT. new linear system
       Matrix2 => Matrix1 % Parent
       ProjPN => Matrix1 % Ematrix
       ProjQT => ProjPN
       IF( ComponentMode == 0 .OR. ComponentMode == 3) CF => ProjPN % Perm
-    END IF
-
+    END IF  
+ 
     n  = Matrix1 % NumberOfRows
     n2 = Matrix2 % NumberOfRows
-
     Residual2 => Matrix2 % RHS
     ALLOCATE( Work(n), Work2(n2), Solution2(n2) )
 
@@ -1360,8 +1388,8 @@ PRINT *,'a4'
 !      ------------------------------------
 
 !
-!      Smoothing iterative method:
-!      ---------------------------
+!   Smoothing iterative method:
+!   ---------------------------
     IterMethod = ListGetString( Solver % Values, 'MG Smoother', Found )
     
     IF ( .NOT. Found ) THEN
@@ -1369,7 +1397,7 @@ PRINT *,'a4'
           'Linear System Iterative Method', Found )
     END IF
     IF ( .NOT. Found ) IterMethod = 'jacobi'
-    
+
     SELECT CASE( IterMethod )
       CASE( 'cg' )
       ALLOCATE( Z(n), P(n), Q(n) )
@@ -1377,17 +1405,16 @@ PRINT *,'a4'
       CASE( 'bicgstab' )
       ALLOCATE( P(n), Ri(n), T(n), T1(n), T2(n), S(n), V(n) )
     END SELECT
-!
-!      Smoothing preconditiong, if not given
-!      diagonal preconditioning is used:
-!      -------------------------------------
 
+
+!   Smoothing preconditiong, if not given diagonal preconditioning is used:
+!   ----------------------------------------------------------------------
     str = ListGetString( Solver % Values, 'MG Preconditioning', Found )
     IF ( .NOT. Found ) THEN
       str = ListGetString( Solver % Values, &
           'Linear System Preconditioning', Found )
     END IF
-    
+   
     IF ( str == 'ilut' )  THEN
       IF ( NewLinearSystem ) THEN
         ILUTOL = ListGetConstReal( Solver % Values,'MG ILUT Tolerance', GotIt )
@@ -1414,12 +1441,11 @@ PRINT *,'a4'
       END IF      
     END IF
 
+
 !------------------------------------------------------------------------------
-!
 !      Ok, lets go:
 !      ------------
     DO iter = 1,MaxIter
-
       ResidualNorm = MGSweep() / RHSNorm
      
       WRITE(Message,'(A,I4,A,I5,A,E20.12E3)') 'MG Residual at level:', &
@@ -1428,6 +1454,7 @@ PRINT *,'a4'
       
       IF ( ResidualNorm < Tolerance ) EXIT
     END DO
+
     
 !------------------------------------------------------------------------------
 !
@@ -1451,16 +1478,20 @@ PRINT *,'a4'
       WRITE( Message, '(A,F8.2)' ) 'MG iter time: ', CPUTime() - tt
       CALL Info( 'AMGSolve', Message, Level=5 )
 
-      IF( ProjectorDOFs == 1 .AND. .NOT. Cluster) THEN
-        IF(ASSOCIATED(AMG)) THEN
-          DO i = MinLevel,Solver % MultiGridTotal
-            IF(ASSOCIATED(AMG(i) % InvCF)) DEALLOCATE(AMG(i) % InvCF)
-          END DO
-          DEALLOCATE(AMG)
+      IF(CoarseSave) THEN
+        IF(Cluster) CALL ClusterTest()
+
+        IF( ProjectorDOFs == 1) THEN
+          IF(ASSOCIATED(AMG)) THEN
+            DO i = MinLevel,Solver % MultiGridTotal
+              IF(ASSOCIATED(AMG(i) % InvCF)) DEALLOCATE(AMG(i) % InvCF)
+            END DO
+            DEALLOCATE(AMG)
+          END IF
         END IF
       END IF
     END IF
-   
+
     RETURN
 !------------------------------------------------------------------------------
 
@@ -1475,20 +1506,31 @@ PRINT *,'a4'
       REAL(KIND=dp) :: RNorm
 !------------------------------------------------------------------------------
       INTEGER :: Sweeps
+      INTEGER, POINTER :: Iters(:)
       REAL(KIND=dp), POINTER :: R1(:),R2(:)
+
 !------------------------------------------------------------------------------
 
 !      Presmoothing:
 !      -------------
-      Rounds = ListGetInteger( Solver % Values,'MG Pre Smoothing Iterations', GotIt )
-      IF(.NOT. GotIt) Rounds = 1
 
-      Sweeps = ListGetInteger( Solver % Values, 'MG Sweeps', GotIt )
-      IF ( .NOT. GotIt ) Sweeps = 1
-
-      RNorm = Smooth( Matrix1, Solution, ForceVector,Residual, IterMethod, Rounds)
-
-!
+      Iters => ListGetIntegerArray( Solver % Values,'MG Pre Smoothing Iterations',GotIt)
+      IF(GotIt) THEN
+        Rounds = Iters(MIN(InvLevel,SIZE(Iters)))
+      ELSE        
+        Rounds = 1
+      END IF
+      
+      Iters => ListGetIntegerArray( Solver % Values,'MG Sweeps',GotIt)
+      j = SIZE(Iters)
+      IF(GotIt) THEN
+        Sweeps = Iters(MIN(InvLevel,SIZE(Iters)))
+      ELSE        
+        Sweeps = 1
+      END IF
+      
+      RNorm = AMGSmooth( Matrix1, Solution, ForceVector,Residual, IterMethod, Rounds)
+      
 !------------------------------------------------------------------------------
 !
 !      Solve (PAQ)z = Pr, x = x + Qz:
@@ -1499,9 +1541,9 @@ PRINT *,'a4'
       R1 => Residual(1:n)
       R2 => Residual2(1:n2)
 
+
       CALL CRS_ProjectVector( ProjPN, R1, R2, ProjectorDOFs, Trans = .FALSE. )
 
-!
 !      Recursively solve (PAQ)z = Pr:
 !      ------------------------------
       Solution2 = 0.0d0
@@ -1509,32 +1551,31 @@ PRINT *,'a4'
 !      numbers of W-cycles
       DO i=1,Sweeps
         Work2(1:n2) = Solution2(1:n2)
-
+        
         CALL MultigridSolve( Matrix2, Work2, Residual2, DOFs, &
-                  Solver, Level-1,NewLinearSystem )
-
+            Solver, Level-1,NewLinearSystem )
+        
         Solution2(1:n2) = Solution2(1:n2) + Work2(1:n2)
       END DO
 
-      IF(ListGetLogical(Solver % Values,'MG Compatible Relax Merit Only',GotIt)) STOP
-
-!
 !      Compute x = x + Qz:
 !      -------------------
       R1 => Residual (1:n)
       R2 => Solution2(1:n2)
       
-      CALL CRS_ProjectVector( ProjQT, R2, R1, ProjectorDOFs, Trans = .TRUE. )
-
+      CALL CRS_ProjectVector( ProjQT, R2, R1, ProjectorDOFs, Trans = .TRUE. )      
       Solution(1:n) = Solution(1:n) + Residual(1:n)
-!
+
 !      Post smoothing:
 !      ---------------
-      Rounds = ListGetInteger( Solver % Values, &
-          'MG Post Smoothing Iterations', GotIt )
-      IF(.NOT. GotIt) Rounds = 1
+      Iters => ListGetIntegerArray( Solver % Values,'MG Post Smoothing Iterations',GotIt)
+      IF(GotIt) THEN
+        Rounds = Iters(MIN(InvLevel,SIZE(Iters)))
+      ELSE        
+        Rounds = 1
+      END IF
 
-      RNorm = Smooth( Matrix1, Solution, ForceVector, Residual, IterMethod, Rounds)
+      RNorm = AMGSmooth( Matrix1, Solution, ForceVector, Residual, IterMethod, Rounds)
 !------------------------------------------------------------------------------
     END FUNCTION MGSweep
 !------------------------------------------------------------------------------
@@ -1542,7 +1583,7 @@ PRINT *,'a4'
 
 
 !------------------------------------------------------------------------------
-    FUNCTION Smooth( A, x, b, r, IterMethod, Rounds) RESULT(RNorm)
+    FUNCTION AMGSmooth( A, x, b, r, IterMethod, Rounds) RESULT(RNorm)
 !------------------------------------------------------------------------------
       TYPE(Matrix_t), POINTER :: A
       INTEGER :: Rounds
@@ -1552,9 +1593,9 @@ PRINT *,'a4'
       TYPE(Matrix_t), POINTER :: M
       INTEGER :: n
       REAL(KIND=dp), POINTER :: Mx(:),Mb(:),Mr(:)
-      LOGICAL :: CRSmoother
+      REAL(KIND=dp) :: Omega
 !------------------------------------------------------------------------------
-
+      
       IF ( .NOT. Parallel ) THEN
         M  => A
         Mx => x
@@ -1567,38 +1608,68 @@ PRINT *,'a4'
       
       n = M % NumberOfRows
       
+      IF( IterMethod(1:1) == 'w') THEN
+        TmpArray => ListGetConstRealArray(Solver % Values,'MG Smoother Relaxation Factor')
+        IF( ASSOCIATED(TmpArray)) THEN
+          Omega = TmpArray(MIN(InvLevel,SIZE(TmpArray,1)),1)
+        ELSE
+          Omega = 1.0d0
+        END IF
+      END IF
+      
+      
       SELECT CASE( IterMethod )
-        CASE( 'cg' )
+        
+      ! Krylow smoothers
+      CASE( 'cg' )
         CALL CG( n, A, M, Mx, Mb, Mr, Rounds )
 
-        CASE( 'ccg' )
-        CALL CCG( n, A, M, Mx, Mb, Mr, Rounds )
-
-        CASE( 'bicgstab' )
+      CASE( 'bicgstab' )
         CALL BiCG( n, A, M, Mx, Mb, Mr, Rounds )
         
-        CASE( 'gs' )                         
-        CALL GS( n, A, M, Mx, Mb, Mr, Rounds )
-
-        CASE( 'sor', 'sgs' )                                     
-        CALL SGS( n, A, M, Mx, Mb, Mr, Rounds)
-
-        CASE( 'psgs' )                                     
-        CALL PostSGS( n, A, M, Mx, Mb, Mr, CF, Rounds)
-
-        CASE( 'csgs' )                                     
-        DO i=1,n/2
-          IF(CF(2*i-1) > 0 .AND. CF(2*i) <= 0) PRINT *,'****** c1:',CF(2*i-1),CF(2*i)
-          IF(CF(2*i-1) <= 0 .AND. CF(2*i) > 0) PRINT *,'****** c2:',CF(2*i-1),CF(2*i)
-        END DO
-        CALL CSGS( n, A, M, Mx, Mb, Mr, Rounds)
-
-        CASE( 'cjacobi' )                                     
+      ! Basic iterative smoothers
+      CASE( 'jacobi' ) 
         CALL Jacobi( n, A, M, Mx, Mb, Mr, Rounds )
-
-      CASE DEFAULT
+        
+      CASE( 'gs' )                         
+        CALL GS( n, A, M, Mx, Mb, Mr, Rounds )
+        
+      CASE( 'sgs' )                                     
+        CALL SGS( n, A, M, Mx, Mb, Mr, Rounds)
+        
+      ! Basic iterative smoothers with relaxation
+      CASE( 'wjacobi' )                                     
+        CALL SmoothedJacobi( n, A, M, Mx, Mb, Mr, Omega, Rounds )
+        
+      CASE( 'wgs' )                                   
+        CALL SmoothedGS( n, A, M, Mx, Mb, Mr, Omega, Rounds )
+        
+      CASE( 'wsgs' )                                     
+        CALL SmoothedSGS( n, A, M, Mx, Mb, Mr, Omega, Rounds)
+        
+      ! complex valued smoothers
+      CASE( 'csgs' )                                     
+        CALL ComplexSGS( n, A, M, Mx, Mb, Mr, Rounds)
+        
+      CASE( 'cjacobi' )                                     
+        CALL ComplexJacobi( n, A, M, Mx, Mb, Mr, Rounds )
+        
+      CASE( 'ccg' )
+        CALL ComplexCG( n, A, M, Mx, Mb, Mr, Rounds )
+                  
+      ! smoother for finer lewel only
+      CASE( 'psgs' )                                     
+        CALL PostSGS( n, A, M, Mx, Mb, Mr, CF, Rounds)
+        
+       ! Jacobi for testing
+      CASE( 'test gs' ) 
+       CALL TestGS( n, A, M, Mx, Mb, Mr, Rounds )
+ 
+     CASE DEFAULT
+        CALL Warn('AMGSmooth','Unknown smoother, using Jacobi')
         CALL Jacobi( n, A, M, Mx, Mb, Mr, Rounds )
       END SELECT
+
       
       CALL MGmv( A, x, r, .TRUE. )
       r = b - r
@@ -1606,7 +1677,7 @@ PRINT *,'a4'
       
       RNorm = MGnorm( n, Mr ) 
 !------------------------------------------------------------------------------
-    END FUNCTION Smooth
+    END FUNCTION AMGSmooth
 !------------------------------------------------------------------------------
 
 
@@ -1693,8 +1764,31 @@ PRINT *,'a4'
     END SUBROUTINE Jacobi
 !------------------------------------------------------------------------------
 
+
 !------------------------------------------------------------------------------
-    SUBROUTINE CJacobi( n, A, M, rx, rb, rr, Rounds )
+    SUBROUTINE SmoothedJacobi( n, A, M, x, b, r, w, Rounds )
+!------------------------------------------------------------------------------
+       TYPE(Matrix_t), POINTER :: A, M
+       INTEGER :: Rounds
+       REAL(KIND=dp) :: w, x(:),b(:),r(:)
+!------------------------------------------------------------------------------
+       INTEGER :: i,n
+!------------------------------------------------------------------------------
+       DO i=1,Rounds
+          CALL MGmv( A, x, r )
+          r(1:n) = b(1:n) - r(1:n)
+
+          r(1:n) = r(1:n) / M % Values(M % Diag)
+          x(1:n) = x(1:n) + w * r(1:n)
+       END DO
+!------------------------------------------------------------------------------
+     END SUBROUTINE SmoothedJacobi
+!------------------------------------------------------------------------------
+
+
+
+!------------------------------------------------------------------------------
+    SUBROUTINE ComplexJacobi( n, A, M, rx, rb, rr, Rounds )
 !------------------------------------------------------------------------------
        TYPE(Matrix_t), POINTER :: A, M
        INTEGER :: n,Rounds
@@ -1731,7 +1825,7 @@ PRINT *,'a4'
        END DO
 
 !------------------------------------------------------------------------------
-     END SUBROUTINE CJacobi
+     END SUBROUTINE ComplexJacobi
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
@@ -1751,6 +1845,7 @@ PRINT *,'a4'
        Rows   => A % Rows
        Cols   => A % Cols
        Values => A % Values
+
        
        DO k=1,Rounds
 
@@ -1768,6 +1863,102 @@ PRINT *,'a4'
      END SUBROUTINE GS
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+    SUBROUTINE TestGS( n, A, M, x, b, r, Rounds )
+!------------------------------------------------------------------------------
+       TYPE(Matrix_t), POINTER :: A, M
+       INTEGER :: Rounds
+       REAL(KIND=dp) :: x(:),b(:),r(:)
+!------------------------------------------------------------------------------
+       INTEGER :: i,j,k,l,n,o,nsize
+       REAL(KIND=dp) :: s
+       INTEGER, POINTER :: Cols(:),Rows(:)
+       REAL(KIND=dp), POINTER :: Values(:)
+!------------------------------------------------------------------------------
+     
+       n = A % NumberOfRows
+       Rows   => A % Rows
+       Cols   => A % Cols
+       Values => A % Values
+
+
+       PRINT *,'TestGS: Starting',&
+           ASSOCIATED(Rows),ASSOCIATED(Cols),ASSOCIATED(Values),ASSOCIATED(M % diag)
+       PRINT *,'TestGS: Sizes',&
+           SIZE(Rows),SIZE(Cols),SIZE(Values),SIZE(M % diag),SIZE(b),SIZE(r)
+       PRINT *,'TestGS: MinVal',&
+           MINVAL(Rows),MINVAL(Cols),MINVAL(Values),MINVAL(M % diag)
+       PRINT *,'TestGS: MaxVal',&
+           MAXVAL(Rows),MAXVAL(Cols),MAXVAL(Values),MAXVAL(M % diag)
+             
+
+       nsize = SIZE(Cols)
+
+      
+       DO k=1,Rounds
+
+         DO i=1,n
+           s = 0.0d0
+           
+           DO j=Rows(i),Rows(i+1)-1
+             IF(j<1 .OR. j>nsize) THEN
+               PRINT *,'TestGs A:',i,j
+             END IF
+             o = Cols(j)
+             IF(o<1 .OR. o>n) THEN
+               PRINT *,'TestGs B:',i,j,o
+             END IF             
+             s = s + x(o) * Values(j)
+           END DO
+           
+           l = M % diag(i)
+           IF(l<1 .OR. l>nsize) THEN
+             PRINT *,'TestGs C:',i,j,o,l
+           END IF
+           r(i) = (b(i)-s) / M % Values(l)
+           x(i) = x(i) + r(i)
+         END DO
+       END DO
+
+       PRINT *,'TestGS: Finished'
+!------------------------------------------------------------------------------
+     END SUBROUTINE TestGS
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+    SUBROUTINE SmoothedGS( n, A, M, x, b, r, w, Rounds )
+!------------------------------------------------------------------------------
+       TYPE(Matrix_t), POINTER :: A, M
+       INTEGER :: Rounds
+       REAL(KIND=dp) :: w, x(:),b(:),r(:)
+!------------------------------------------------------------------------------
+       INTEGER :: i,j,k,n
+       REAL(KIND=dp) :: s
+       INTEGER, POINTER :: Cols(:),Rows(:)
+       REAL(KIND=dp), POINTER :: Values(:)
+!------------------------------------------------------------------------------
+     
+       n = A % NumberOfRows
+       Rows   => A % Rows
+       Cols   => A % Cols
+       Values => A % Values
+
+       
+       DO k=1,Rounds
+
+         DO i=1,n
+           s = 0.0d0
+           DO j=Rows(i),Rows(i+1)-1
+             s = s + x(Cols(j)) * Values(j)
+           END DO
+
+           r(i) = (b(i)-s) / M % Values(M % Diag(i))
+           x(i) = x(i) + w * r(i)
+         END DO
+       END DO
+!------------------------------------------------------------------------------
+     END SUBROUTINE SmoothedGS
+!------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
      SUBROUTINE SGS( n, A, M, x, b, r, Rounds )
@@ -1807,9 +1998,46 @@ PRINT *,'a4'
      END SUBROUTINE SGS
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+     SUBROUTINE SmoothedSGS( n, A, M, x, b, r, w, Rounds )
+!------------------------------------------------------------------------------
+       TYPE(Matrix_t), POINTER :: A, M
+       INTEGER :: Rounds
+       REAL(KIND=dp) :: w, x(:),b(:),r(:)
+       INTEGER :: i,j,k,n
+       REAL(KIND=dp) :: s
+       INTEGER, POINTER :: Cols(:),Rows(:)
+       REAL(KIND=dp), POINTER :: Values(:)
+
+       n = A % NumberOfRows
+       Rows   => A % Rows
+       Cols   => A % Cols
+       Values => A % Values
+       
+       DO k=1,Rounds
+         DO i=1,n
+           s = 0.0d0
+           DO j=Rows(i),Rows(i+1)-1
+             s = s + x(Cols(j)) * Values(j)
+           END DO
+           r(i) = (b(i)-s) / M % Values(M % Diag(i))
+           x(i) = x(i) + w * r(i)
+         END DO
+
+         DO i=n,1,-1
+           s = 0.0d0
+           DO j=Rows(i),Rows(i+1)-1
+             s = s + x(Cols(j)) * Values(j)
+           END DO
+           r(i) = (b(i)-s) / M % Values(M % Diag(i))
+           x(i) = x(i) + w * r(i)
+         END DO         
+       END DO
+     END SUBROUTINE SmoothedSGS
+!------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-     SUBROUTINE CSGS( n, A, M, rx, rb, rr, Rounds )
+     SUBROUTINE ComplexSGS( n, A, M, rx, rb, rr, Rounds )
 !------------------------------------------------------------------------------
        TYPE(Matrix_t), POINTER :: A, M
        INTEGER :: Rounds
@@ -1869,7 +2097,7 @@ PRINT *,'a4'
          rb(2*i-0) =  AIMAG( b(i) )
        END DO
 
-     END SUBROUTINE CSGS
+     END SUBROUTINE ComplexSGS
 !------------------------------------------------------------------------------
 
 
@@ -1911,7 +2139,7 @@ PRINT *,'a4'
 
 
 !------------------------------------------------------------------------------
-    SUBROUTINE CCG( n, A, M, rx, rb, rr, Rounds )
+    SUBROUTINE ComplexCG( n, A, M, rx, rb, rr, Rounds )
 !------------------------------------------------------------------------------
        INTEGER :: i,n, Rounds
        TYPE(Matrix_t), POINTER :: A,M
@@ -1957,7 +2185,7 @@ PRINT *,'a4'
          rb(2*i-0) =  AIMAG( b(i) )
        END DO
 !------------------------------------------------------------------------------
-    END SUBROUTINE CCG
+     END SUBROUTINE ComplexCG
 !------------------------------------------------------------------------------
 
 
@@ -2217,7 +2445,7 @@ PRINT *,'a4'
          END DO
          
          IF(newcands > 0) THEN
-           WRITE(Message,'(A,I8)') 'Number of new candidate nodes using CR ',newcands
+           WRITE(Message,'(A,T30,I8)') 'Number of CR candidates',newcands
            CALL Info('CompatibleRelaxation',Message)         
          END IF
        END IF
@@ -2271,8 +2499,8 @@ PRINT *,'a4'
 
     PseudoGeometric = ListGetLogical(Solver % Values,'MG Pseudo Geometric',GotIt)
 
-    Rows   => Amat % Rows
-    Cols   => Amat % Cols
+    Rows => Amat % Rows
+    Cols => Amat % Cols
     nods = Amat % NumberOfRows
     ALLOCATE( Bonds(SIZE(Amat % Cols)), CandList(nods), CF(nods) )
 
@@ -2307,18 +2535,14 @@ PRINT *,'a4'
     END IF
 
 
-100 IF(Cluster) THEN
-      CALL AMGCluster(Amat, CandList, Bonds, CF, CompMat)
-    ELSE
-      CALL AMGCoarse(Amat, CandList, Bonds, CF, CompMat)     
-    END IF
-      
+100 CALL AMGCoarse(Amat, CandList, Bonds, CF, CompMat)     
 
-    IF(.NOT. (CompMat .OR. UseCR) ) THEN
+    IF(.NOT. (CompMat .OR. UseCR .OR. Cluster) ) THEN
       IF( ListGetLogical(Solver % Values,'MG Positive Connection Eliminate',GotIt)) THEN
         CALL AMGPositiveBonds(Amat, Bonds, CandList, CF)
       END IF
     END IF
+
 
     IF( ListGetLogical(Solver % Values,'MG Compatible Relax Merit',GotIt) ) THEN
       CRIter = CRiter + 1
@@ -2339,34 +2563,28 @@ PRINT *,'a4'
     END IF    
 
     ! Set the CF vector to be zero for fine nodes and an order number for coarse nodes
-    IF(Cluster) THEN
-      cnods = MAXVAL(CF)
-    ELSE
-      cnods = 0
-      DO i=1,nods
-        IF(CF(i) < 0) THEN
-          CF(i) = 0
-        ELSE IF(CF(i) > 0) THEN
-          cnods = cnods + 1
-          CF(i) = cnods
-        END IF
-      END DO
-      
-      WRITE(Message,'(A,I8)') 'Coarse mesh nodes ',cnods
-      CALL Info('ChooseCoarseNodes',Message)
-      
-      WRITE(Message,'(A,F5.1,A)') 'Coarse node fraction',(100.0*cnods)/nods,' %'
-      CALL Info('ChooseCoarseNodes',Message)
-    END IF
+    cnods = 0
+    DO i=1,nods
+      IF(CF(i) < 0) THEN
+        CF(i) = 0
+      ELSE IF(CF(i) > 0) THEN
+        cnods = cnods + 1
+        CF(i) = cnods
+      END IF
+    END DO
+    
+    WRITE(Message,'(A,T30,I8)') 'Coarse mesh nodes ',cnods
+    CALL Info('ChooseCoarseNodes',Message)
+    
+    WRITE(Message,'(A,T30,F8.3,A)') 'Coarse node fraction',(100.0*cnods)/nods,' %'
+    CALL Info('ChooseCoarseNodes',Message)
 
 
     DEALLOCATE(Bonds, CandList)
 
     tt2 = CPUTime()
 
-    IF(Cluster) THEN
-      Projector => ClusterInterpolate( Amat, CF, NoComponents) 
-    ELSE IF(CompMat) THEN
+    IF(CompMat) THEN
       Projector => ComplexInterpolateF2C( Amat, CF )      
     ELSE IF(PseudoGeometric) THEN
       Projector => InterpolateF2CDistance( Amat, CF, NoComponents)
@@ -2374,9 +2592,13 @@ PRINT *,'a4'
       Projector => InterpolateF2C( Amat, CF, NoComponents)
     END IF
 
-    IF(.NOT. Cluster) THEN
-      IF(ComponentMode == 0 .OR. ComponentMode == 3) THEN
-        IF(PRESENT(InvCF)) THEN
+
+    IF(ComponentMode == 0 .OR. ComponentMode == 3) THEN
+      IF(PRESENT(InvCF)) THEN
+        IF(Cluster) THEN
+          ALLOCATE(InvCF(nods))
+          InvCF = CF
+        ELSE
           ALLOCATE(InvCF(cnods))
           DO i=1,nods
             IF(CF(i) > 0) InvCF(CF(i)) = i
@@ -2384,10 +2606,550 @@ PRINT *,'a4'
         END IF
       END IF
     END IF
-
+    
     CALL Info('ChooseCoarseNodes','Coarse set chosen')
 
   END SUBROUTINE ChooseCoarseNodes
+
+!------------------------------------------------------------------------------
+! Create the clusters
+!------------------------------------------------------------------------------
+
+  SUBROUTINE ChooseClusterNodes(Amat, Solver, Components, CF)
+    
+    TYPE(Matrix_t), POINTER  :: Amat
+    TYPE(solver_t), TARGET :: Solver
+    INTEGER :: Components
+    INTEGER, POINTER :: CF(:)
+
+    INTEGER :: matsize, nodesize, Component1
+    LOGICAL, POINTER :: Bonds(:), Fixed(:)
+    INTEGER, POINTER :: Cols(:),Rows(:)
+
+    Component1 = 1
+    IF(Components > 1) THEN
+      Component1 = ListGetInteger(Solver % Values,'MG Determining Component',&
+          GotIt,minv=1,maxv=Components)
+      IF(.NOT. GotIt) Component1 = 1
+    END IF
+
+    Rows => Amat % Rows
+    Cols => Amat % Cols
+    matsize = Amat % NumberOfRows
+    nodesize = matsize / Components
+    ALLOCATE( Bonds(SIZE(Amat % Cols)), Fixed(nodesize), CF(nodesize) )
+
+    CALL AMGClusterBonds(Amat, Bonds, Fixed, Components,Component1)      
+    CALL AMGClusterForm(Amat, Bonds, Fixed, Components, Component1, CF)
+
+    DEALLOCATE(Bonds, Fixed)
+
+    CALL Info('ChooseClusterNodes','Clusters chosen')
+
+  END SUBROUTINE ChooseClusterNodes
+
+!------------------------------------------------------------------------------
+! Create the initial list for measure of importance and
+! make the inverse table for important connections
+!------------------------------------------------------------------------------
+
+  SUBROUTINE AMGClusterBonds(Amat, Bonds, Fixed, Components, Component1)
+    
+    LOGICAL, POINTER :: Bonds(:), Fixed(:)
+    TYPE(Matrix_t), POINTER  :: Amat
+    INTEGER :: Components, Component1
+
+    REAL(KIND=dp) :: StrongLim
+    INTEGER :: nods, cnods, matsize, nodesize, maxconn, newbonds, MaxConns, MinConns
+    INTEGER :: i,j,k,cj,ci,no,elimnods,strongbonds,nodeind,matind
+    INTEGER, POINTER :: Cols(:),Rows(:),localind(:)
+    LOGICAL :: ElimDir, Choose
+    REAL(KIND=dp), POINTER :: Values(:), measures(:)
+    REAL(KIND=dp) :: maxbond, diagbond, dirlim, meas
+
+    StrongLim = ListGetConstReal(Solver % Values,'MG Strong Connection Limit',GotIt)
+    IF(.NOT. GotIt) StrongLim = 0.06
+    MaxConns = ListGetInteger(Solver % Values,'MG Strong Connection Maximum',GotIt)
+    MinConns = ListGetInteger(Solver % Values,'MG Strong Connection Minimum',GotIt)
+    ElimDir = EliminateDir
+    DirLim = ListGetConstReal(Solver % Values,'MG Eliminate Dirichlet Limit',GotIt)
+    IF(.NOT. GotIt) DirLim = 1.0d-8      
+
+    matsize = Amat % NumberOfRows
+    Rows   => Amat % Rows
+    Cols   => Amat % Cols
+    Values => Amat % Values    
+    nodesize = matsize / Components
+
+    maxconn = 0
+    DO matind=1,matsize
+      maxconn = MAX(maxconn,Rows(matind+1)-Rows(matind))
+    END DO
+    ALLOCATE(measures(maxconn),localind(maxconn))
+
+    Bonds = .FALSE.
+    Fixed = .FALSE.
+    strongbonds = 0
+    elimnods = 0
+
+    DO nodeind=1,nodesize
+
+      matind = (nodeind-1)*Components + Component1
+      no = 0
+      maxbond = 0.0d0
+
+      DO j=Rows(matind),Rows(matind+1)-1
+        cj = Cols(j)
+        IF( MOD(matind, Components) /= MOD(cj, Components) ) CYCLE
+
+        IF(cj /= matind ) THEN
+          no = no + 1
+          localind(no) = j
+          measures(no) = ABS( Values(j) )
+        ELSE
+          diagbond = ABS(Values(j))
+        END IF
+      END DO
+
+      IF(no > 0) maxbond = MAXVAL( measures(1:no) )
+
+      ! Mark Dirichlet nodes with negative sign in order to favor boundaries in future
+      IF( ElimDir .AND. maxbond < DirLim * diagbond ) THEN
+        Fixed(nodeind) = .TRUE.
+        elimnods = elimnods + 1
+        CYCLE
+      END IF
+
+      IF(no == 0) CYCLE
+
+      Choose = .FALSE.
+      IF(MaxConns > 0 .AND. no > MaxConns) Choose = .TRUE.
+      IF(MinConns > 0 .AND. no > MinConns) Choose = .TRUE.
+
+      ! Check whether the tentative list would give the right number anaway
+      IF(Choose) THEN
+        newbonds = 0
+        DO i=1,no
+          IF( measures(i) >= Stronglim * maxbond) newbonds = newbonds + 1
+        END DO
+        IF(MaxConns > 0 .AND. newbonds <= MaxConns) Choose = .FALSE.
+        IF(MinConns > 0 .AND. newbonds >= MinConns) Choose = .FALSE.
+      END IF
+
+      IF(.NOT. Choose) THEN
+        newbonds = 0
+        DO i=1,no
+          IF( measures(i) >= StrongLim * maxbond) THEN
+            newbonds = newbonds + 1
+            Bonds(LocalInd(i)) = .TRUE.
+          END IF
+        END DO
+        strongbonds = strongbonds + newbonds
+      ELSE
+        CALL SortR(no,LocalInd,measures)
+        IF(MaxConns > 0 .AND. newbonds > MaxConns) THEN
+          strongbonds = strongbonds + MaxConns
+          DO i=1,MaxConns
+            Bonds(LocalInd(i)) = .TRUE.
+          END DO
+        END IF
+
+        IF(MinConns > 0 .AND. newbonds < MinConns) THEN
+          strongbonds = strongbonds + MinConns
+          DO i=1,MinConns
+            Bonds(LocalInd(i)) = .TRUE.
+          END DO
+        END IF
+      END IF
+    END DO
+
+    DEALLOCATE(measures, localind)
+
+    IF(elimnods > 0) THEN
+      WRITE(Message,'(A,T30,I8)') 'Number of eliminated nodes',elimnods
+      CALL Info('AMGClusterBonds',Message)
+    END IF
+    WRITE(Message,'(A,T30,I8)') 'Number of possible connections',SIZE(Bonds)
+    CALL Info('AMGClusterBonds',Message)
+    WRITE(Message,'(A,T30,I8)') 'Number of strong connections',strongbonds
+    CALL Info('AMGClusterBonds',Message)
+    WRITE(Message,'(A,T30,F8.3)') 'Average number of strong bonds',&
+        1.0*strongbonds/nodesize
+    CALL Info('AMGClusterBonds',Message)
+
+  END SUBROUTINE AMGClusterBonds
+
+
+!------------------------------------------------------------------------------
+! Creates clusters of nodes using the given list of strong connections. 
+! Only nodes assigned by the Cands vector may be included in the 
+! clusters - others are ignored. The subroutine returns the vector CF which tells
+! to which cluster each node belongs to.
+!------------------------------------------------------------------------------
+
+  SUBROUTINE AMGClusterForm(Amat, Bonds, Fixed, Components, Component1, CF)
+    
+    TYPE(Matrix_t), POINTER :: Amat
+    INTEGER :: Components, Component1
+    LOGICAL :: Bonds(:), Fixed(:)
+    INTEGER, POINTER :: CF(:)
+
+    INTEGER :: nods, cnods    
+    INTEGER :: i,j,k,cj,ci,nodeci,nodecj, &
+        MaxCon, MaxConInd, RefCon, cind, find, rind, &
+        GatMax, anods, points, neworder, oldorder, nodesize,matsize,&
+        nextind, sumcon, maxsumcon, ClusterSize, nbonds, &
+        nsize, nodeind, matind, BoundPoints, ClusterPoints
+    INTEGER :: LocalCon(100), LocalInd(100)
+    REAL(KIND=dp) :: LocalVal(100),maxv
+    INTEGER, POINTER :: Con(:)
+    INTEGER, POINTER :: Cols(:),Rows(:)
+    INTEGER, ALLOCATABLE :: GatLims(:), GatNos(:), ConInd(:), RevConInd(:)
+    REAL(KIND=dp), POINTER :: Values(:)
+    LOGICAL :: ClusterOrphans
+    
+
+    BoundPoints = ListGetInteger(Solver % Values,'MG Boundary Priority',GotIt)
+    ClusterPoints = ListGetInteger(Solver % Values,'MG Cluster Priority',GotIt)
+    IF(.NOT. GotIt) ClusterPoints = 0*BoundPoints + 1
+    ClusterSize = ListGetInteger(Solver % Values,'MG Cluster Size',GotIt)
+    ! Paricularly for small clusters the orphan control seems to be important
+    ClusterOrphans = ListGetLogical(Solver % Values,'MG Cluster Orphans',GotIt)
+    IF(.NOT. GotIt) ClusterOrphans = .TRUE.
+
+    matsize = Amat % NumberOfRows
+    nodesize = matsize / Components
+    Rows   => Amat % Rows
+    Cols   => Amat % Cols
+    Values => Amat % Values
+
+    CF = 0
+    ALLOCATE(Con(nodesize))
+    Con = 0
+    cnods = 0
+    cind = 0
+
+    ! Set an initial measure of importance
+    DO nodeind = 1, nodesize
+      IF(Fixed(nodeind)) THEN
+        Con(nodeind) = 0
+      ELSE
+        Con(nodeind) = 1
+      END IF
+    END DO
+
+    ! Add a point for each clustered neighbour 
+    DO nodeind = 1, nodesize
+      IF(CF(nodeind) > 0) THEN
+        matind = Components*(nodeind-1) + Component1
+        DO i=Rows(matind),Rows(matind+1)-1
+          IF(.NOT. Bonds(i)) CYCLE
+          ci = Cols(i)     
+          nodeci = (ci-Component1) / Components + 1
+          IF(.NOT. Fixed(nodeci) .AND. CF(nodeci) == 0) THEN
+            Con(nodeci) = Con(nodeci) + ClusterPoints
+          END IF
+        END DO
+      END IF
+    END DO
+
+    ! Add some weight if the node is connected to a Dirichlet node
+    ! This way the clustering will follow the natural boundaries
+    IF(BoundPoints /= 0) THEN
+      DO nodeind = 1, nodesize
+        IF(Fixed(nodeind)) CYCLE
+        matind = Components*(nodeind-1) + Component1
+        DO i=Rows(matind),Rows(matind+1)-1
+          IF(.NOT. Bonds(i)) CYCLE
+          ci = Cols(i)
+          nodeci = (ci-Component1) / Components + 1
+          IF(Fixed(nodeci)) THEN
+            Con(nodeind) = Con(nodeind) + BoundPoints
+          END IF
+        END DO
+      END DO
+    END IF
+
+    MaxCon = MAXVAL( Con ) 
+    GatMax = 2 * MaxCon + 100
+    
+    ! Bookkeeping is kept on category boundaries of the points
+    ALLOCATE( GatLims(GatMax), GatNos(GatMax) )
+    GatLims = 0
+    GatNos = 0
+    
+    ! Number of points in different categories 
+    DO nodeind = 1, nodesize
+      IF(Con(nodeind) == 0) CYCLE
+      GatNos(Con(nodeind)) = GatNos(Con(nodeind)) + 1 
+    END DO
+    anods = SUM(GatNos)
+    
+    DO nodeind = 2, MaxCon
+      GatLims(nodeind) = GatLims(nodeind-1) + GatNos(nodeind-1)
+    END DO
+    
+    ALLOCATE( ConInd(nodesize), RevConInd(anods) )
+    ConInd = 0
+    RevConInd = 0
+    
+    GatNos = 0
+    DO nodeind = 1, nodesize
+      IF(Con(nodeind) == 0) CYCLE
+      GatNos(Con(nodeind)) = GatNos(Con(nodeind)) + 1
+      ConInd(nodeind) = GatNos(Con(nodeind)) + GatLims(Con(nodeind))
+    END DO
+    
+    RevConInd = 0
+    DO nodeind = 1, nodesize
+      IF(Con(nodeind) == 0) CYCLE
+      RevConInd(ConInd(nodeind)) = nodeind
+    END DO
+
+    DO WHILE( MaxCon > 0 ) 
+      nodeind = RevConInd(anods)
+        
+      IF(ClusterSize /= 0) THEN    
+        ! Assume that the cluster consists of the point with maximum weight and its
+        ! closest tightly coupled neighbours.
+        n = 0
+        nbonds = 0
+        matind = Components*(nodeind-1)+Component1
+        DO j=Rows(matind),Rows(matind+1)-1
+
+          IF(Bonds(j)) THEN
+            cj = Cols(j)   
+            nodecj = (cj-Component1) / Components + 1
+            IF( Fixed(nodecj) ) CYCLE
+
+            nbonds = nbonds + 1    
+            IF(CF(nodecj) == 0) THEN
+              n = n + 1
+              LocalCon(n) = Con(nodecj)
+              LocalInd(n) = nodecj
+              LocalVal(n) = ABS( Values(j) )
+            END IF
+          END IF
+        END DO
+        
+        ! Favor maximum number of connections before strength of connections
+        IF( n > ClusterSize - 1 ) THEN
+          maxv = MAXVAL(LocalVal(1:n))
+          LocalVal(1:n) = 0.5 * LocalVal(1:n)/maxv + LocalCon(1:n)
+          CALL SortR(n,LocalInd,LocalVal)
+          n = ClusterSize - 1
+        END IF
+        
+        ! If a tightly coupled node cannot be a start of a new cluster join it 
+        ! to the cluster of its most stronly coupled neighbour
+        ! The other option is that the orphan node builds its own cluster.
+        IF( ClusterOrphans .AND. n == 0 .AND. nbonds > 0) THEN
+          maxv = 0.0d0
+          DO j=Rows(matind),Rows(matind+1)-1
+            IF(Bonds(j)) THEN
+              cj = Cols(j)
+              nodecj = (cj-Component1) / Components + 1               
+              IF( Fixed(nodecj) ) CYCLE
+              IF( CF(nodecj) > 0) THEN
+                IF( ABS(Values(j)) > maxv) THEN
+                  maxv = ABS( Values(j) )
+                  rind = CF(nodecj)
+                END IF
+              END IF
+            END IF
+          END DO
+        ELSE
+          cind = cind + 1
+          rind = cind
+        END IF
+
+        DO j=0,n
+          IF(j==0) THEN
+            nodecj = nodeind
+          ELSE
+            nodecj = LocalInd(j)
+          END IF
+
+          CF(nodecj) = rind
+          cnods = cnods + 1
+            
+          ! Recompute the measure of importance for the neighbours
+          cj = Components*(nodecj-1) + Component1
+          DO i=Rows(cj),Rows(cj+1)-1
+            IF(Bonds(i)) THEN
+              ci = Cols(i)          
+              nodeci = (ci-Component1)/Components + 1
+              IF(.NOT. Fixed(nodeci) .AND. CF(nodeci) == 0) THEN
+
+                DO l=1,ClusterPoints
+                  points = Con(nodeci) + 1
+                  oldorder = ConInd(nodeci)
+                  IF(GatLims(points) == 0) GatLims(points) = anods
+                  neworder = GatLims(points)
+                  Con(nodeci) = points
+                  GatLims(points) = GatLims(points) - 1
+
+                  IF(neworder /= oldorder) THEN
+                    k = RevConInd(neworder)
+                    
+                    ConInd(nodeci) = neworder
+                    ConInd(k) = oldorder
+                    
+                    RevConInd(neworder) = nodeci
+                    RevConInd(oldorder) = k
+                  END IF
+                END DO
+
+              END IF
+            END IF
+          END DO
+        END DO
+      END IF
+
+      ! Assume that the center of clustering is the node with maximum weight,
+      ! or any of its strongly coupled neighbours. Compute the total weight of
+      ! the candidate clusters.       
+      ! Compute first the cluster points for the point with maximum points
+      IF(ClusterSize == 0) THEN
+        sumcon = 0
+        nbonds = 0
+        matind = Components*(nodeind-1) + Component1
+        DO j=Rows(matind),Rows(matind+1)-1
+          IF(Bonds(j)) THEN
+            cj = Cols(j)        
+            nodecj = (cj-Component1)/Components + 1
+            nbonds = nbonds + 1
+            IF(CF(nodecj) == 0) sumcon = sumcon + Con(nodecj) 
+          END IF
+        END DO
+        maxsumcon = sumcon
+        nextind = nodeind
+
+        IF(ClusterOrphans .AND. sumcon == 0 .AND. nbonds > 0) THEN
+          ! If a tightly coupled node cannot be a start of a new cluster join it 
+          ! to the cluster of its most stronly coupled neighbour
+          maxv = 0.0d0
+          DO j=Rows(matind),Rows(matind+1)-1
+            IF(Bonds(j)) THEN
+              cj = Cols(j)   
+              nodecj = (cj-Component1)/Components + 1
+              IF( Fixed(nodecj) ) CYCLE
+              IF( CF(nodecj) > 0) THEN
+                IF( ABS(Values(j)) > maxv) THEN
+                  maxv = ABS( Values(j) )
+                  rind = CF(nodecj)
+                END IF
+              END IF
+            END IF
+          END DO
+        ELSE
+          ! Next compute the cluster points for all its strongly coupled 
+          ! unclustered neighbours
+          nbonds = 0
+          DO j=Rows(matind),Rows(matind+1)-1
+            IF(Bonds(j)) THEN
+              sumcon = 0
+              cj = Cols(j)                  
+              nodecj = (cj-Component1)/Components + 1
+              IF(.NOT. Fixed(nodecj) .AND. CF(nodecj) == 0) THEN
+                DO i=Rows(cj),Rows(cj+1)-1
+                  IF(Bonds(i)) THEN
+                    ci = Cols(i)          
+                    nodeci = (ci-Component1)/Components + 1
+                    IF(CF(nodeci) == 0) sumcon = sumcon + Con(nodeci)
+                  END IF
+                END DO
+              END IF
+              IF(sumcon > maxsumcon) THEN
+                maxsumcon = sumcon
+                nextind = nodecj
+              END IF
+            END IF
+          END DO
+          cind = cind + 1
+          rind = cind
+        END IF
+
+        ! The new center for clustering is nextind
+        nodeind = nextind
+        CF(nodeind) = rind
+        cnods = cnods + 1
+      
+        ! Go through all strongly bonded neighbours to 'ind'
+        matind = Components*(nodeind-1) + Component1
+        DO j=Rows(matind),Rows(matind+1)-1
+          IF(.NOT. Bonds(j)) CYCLE
+          cj = Cols(j)
+          nodecj = (cj-Component1)/Components + 1
+
+          IF(CF(nodecj) == 0) THEN
+            CF(nodecj) = cind
+            cnods = cnods + 1
+            IF(Fixed(nodecj)) CYCLE
+            
+            ! Recompute the measure of importance for the neighbours
+            DO i=Rows(cj),Rows(cj+1)-1
+              IF(Bonds(i)) THEN
+                ci = Cols(i)          
+                nodeci = (ci-Component1)/Components + 1
+                IF(.NOT. Fixed(nodeci) .AND. CF(nodeci) == 0) THEN
+                  
+                  DO l=1,ClusterPoints
+                    points = Con(nodeci) + 1
+                    oldorder = ConInd(nodeci)
+                    IF(GatLims(points) == 0) GatLims(points) = anods
+                    neworder = GatLims(points)
+                    Con(nodeci) = points
+                    GatLims(points) = GatLims(points) - 1
+                    
+                    IF(neworder /= oldorder) THEN
+                      k = RevConInd(neworder)
+                      
+                      ConInd(nodeci) = neworder
+                      ConInd(k) = oldorder
+                      
+                      RevConInd(neworder) = nodeci
+                      RevConInd(oldorder) = k
+                    END IF
+                  END DO
+
+                END IF
+              END IF
+            END DO
+          END IF
+        END DO
+
+      END IF
+      
+      ! Shorten the list from top in case the node is already set
+      Refcon = 0
+      DO WHILE( anods > 0 .AND. CF(RevConInd(anods)) /= 0 )
+        MaxCon = Con(RevConInd(anods))          
+        Refcon = MAX(MaxCon,RefCon)
+        anods = anods - 1
+        Refcon = MAX(MaxCon,RefCon)            
+      END DO
+      
+      IF(anods > 0) THEN
+        MaxCon = Con(RevConInd(anods))
+        RefCon = MAX(MaxCon,RefCon)
+        GatLims((MaxCon+1):(Refcon+1)) = 0
+      ELSE        
+        MaxCon = 0
+      END IF
+    END DO
+    
+    DEALLOCATE(Con, GatLims, GatNos, ConInd, RevConInd)
+
+    WRITE(Message,'(A,I8)') 'Clustering algorithm clusters',cind
+    CALL Info('AMGCoarse',Message)
+    WRITE(Message,'(A,I8)') 'Clustering algorithm nodes',cnods
+    CALL Info('AMGCoarse',Message)
+
+  END SUBROUTINE AMGClusterForm
+
+
+
 
 
 !------------------------------------------------------------------------------
@@ -2590,19 +3352,19 @@ PRINT *,'a4'
 
 
     IF(elimnods > 0) THEN
-      WRITE(Message,'(A,I8)') 'Number of eliminated nodes',elimnods
+      WRITE(Message,'(A,T30,I8)') 'Number of eliminated nodes',elimnods
       CALL Info('AMGBonds',Message)
     END IF
-    WRITE(Message,'(A,I8)') 'Number of possible connections',SIZE(Bonds)
+    WRITE(Message,'(A,T30,I8)') 'Number of possible connections',SIZE(Bonds)
     CALL Info('AMGBonds',Message)
     j = posbonds + negbonds
-    WRITE(Message,'(A,I8)') 'Number of strong connections',j
+    WRITE(Message,'(A,T30,I8)') 'Number of strong connections',j
     CALL Info('AMGBonds',Message)
     IF(posbonds > 0) THEN
-      WRITE(Message,'(A,I8)') 'Number of positive connections',posbonds
+      WRITE(Message,'(A,T30,I8)') 'Number of positive connections',posbonds
       CALL Info('AMGBonds',Message)
     END IF
-    WRITE(Message,'(A,F8.3)') 'Strong bonds for each dof',1.0*j/nods
+    WRITE(Message,'(A,T30,F8.3)') 'Average number of strong bonds',1.0*j/nods
     CALL Info('AMGBonds',Message)
 
   END SUBROUTINE AMGBonds
@@ -3527,283 +4289,6 @@ PRINT *,'a4'
 
 
 
-
-!------------------------------------------------------------------------------
-! Creates clusters of nodes using the given list of strong connections. 
-! Only nodes assigned by the Cands vector may be included in the 
-! clusters - others are ignored. The subroutine returns the vector CF which tells
-! to which cluster each node belongs to.
-!------------------------------------------------------------------------------
-
-  SUBROUTINE AMGCluster(Amat, Cands, Bonds, CF, CompMat)
-    
-    TYPE(Matrix_t), POINTER :: Amat
-    LOGICAL :: Bonds(:)
-    INTEGER, POINTER :: Cands(:), CF(:)
-    LOGICAL :: CompMat
-
-    INTEGER :: nods, cnods    
-    INTEGER :: i,j,k,cj,ci,ind,maxi,maxi2,newstarts, loops, minneigh, maxneigh, &
-        MaxCon, MaxConInd, RefCon, RefCon2, prevstart, cind, find, ind0, &
-        CoarseningMode, GatMax, anods, FollowBounds, points, neworder, oldorder, &
-        nextind, sumcon, maxsumcon
-    INTEGER, POINTER :: Con(:)
-    LOGICAL :: debug
-    INTEGER, POINTER :: Cols(:),Rows(:)
-    INTEGER, ALLOCATABLE :: GatLims(:), GatNos(:), ConInd(:), RevConInd(:)
-    REAL(KIND=dp), POINTER :: Values(:)
-    
-    nods = Amat % NumberOfRows
-    Rows   => Amat % Rows
-    Cols   => Amat % Cols
-    Values => Amat % Values
-
-    debug = .FALSE.
-
-    ALLOCATE(Con(nods))
-    Con = 0
-    newstarts = 0
-    cnods = 0
-    loops = 0
-    cind = 0
-    find = 0
-
-
-    ! Calculate the initial measure of of importance
-    ! unclustered points gets one point 
-    Con = 0
-    DO ind = 1, nods      
-      IF(Cands(ind) > 0 .AND. CF(ind) == 0) Con(ind) = 1
-    END DO
-    ! Add a point for each clustered neighbour 
-    DO ind = 1, nods      
-      IF(Cands(ind) > 0 .AND. CF(ind) > 0) THEN
-        DO i=Rows(ind),Rows(ind+1)-1
-          IF(.NOT. Bonds(i)) CYCLE
-          ci = Cols(i)          
-          IF(Cands(ci) > 0 .AND. CF(ci) == 0) THEN
-            Con(ci) = Con(ci) + 1
-          END IF
-        END DO
-      END IF
-    END DO
-
-
-    ! Add some weight if the node is connected to a Dirichlet node
-    ! This way the clustering will follow the natural boundaries
-    FollowBounds = ListGetInteger(Solver % Values,'MG Boundary Priority',GotIt)
-    IF(FollowBounds /= 0) THEN
-      DO ind = 1, nods
-        IF(Cands(ind) <= 0) CYCLE
-        DO i=Rows(ind),Rows(ind+1)-1
-          IF(.NOT. Bonds(i)) CYCLE
-          ci = Cols(i)
-          IF(Cands(ci) == -1) THEN
-            Con(ind) = Con(ind) + FollowBounds
-          END IF
-        END DO
-      END DO
-    END IF
-    ! Boundaries may have been marked with negative index, remove that
-    DO ind = 1, nods
-      Cands(ind) = MAX(Cands(ind),0)
-    END DO
-
-
-!    PRINT *,'Cands',Cands
-!    PRINT *,'Init Con',Con
-
-
-    MaxCon = MAXVAL( Con ) 
-    GatMax = 2 * MaxCon + 100
-    
-    ! Bookkeeping is kept on category boundaries of the points
-    ALLOCATE( GatLims(GatMax), GatNos(GatMax) )
-    GatLims = 0
-    GatNos = 0
-    
-    ! Number of points in different categories 
-    DO ind = 1, nods
-      IF(Con(ind) == 0) CYCLE
-      GatNos(Con(ind)) = GatNos(Con(ind)) + 1 
-    END DO
-    anods = SUM(GatNos)
-    
-    DO ind = 2, MaxCon
-      GatLims(ind) = GatLims(ind-1) + GatNos(ind-1)
-    END DO
-    
-    ALLOCATE( ConInd(nods), RevConInd(anods) )
-    ConInd = 0
-    RevConInd = 0
-    
-    GatNos = 0
-    DO ind = 1, nods
-      IF(Con(ind) == 0) CYCLE
-      GatNos(Con(ind)) = GatNos(Con(ind)) + 1 
-      ConInd(ind) = GatNos(Con(ind)) + GatLims(Con(ind))
-    END DO
-    
-    RevConInd = 0
-    DO ind = 1, nods
-      IF(Con(ind) == 0) CYCLE
-      RevConInd(ConInd(ind)) = ind
-    END DO
-    
-    
-    DO WHILE( MaxCon > 0 ) 
-      ind = RevConInd(anods)
-      
-      ! Assume that the center of clustering is the node with maximum weight,
-      ! or any of its strongly coupled neighbours. Compute the total weight of
-      ! the candidate clusters. 
-      
-      ! Compute first the cluster points for the point with maximum points
-      sumcon = 0
-      DO j=Rows(ind),Rows(ind+1)-1
-        IF(Bonds(j)) THEN
-          cj = Cols(j)        
-          IF(CF(cj) == 0) sumcon = sumcon + Con(cj) 
-        END IF
-      END DO
-      maxsumcon = sumcon
-      nextind = ind
-
-!      PRINT *,'reference points',ind,sumcon
-      
-      ! Next compute the cluster points for all its strongly coupled neighbours
-      DO j=Rows(ind),Rows(ind+1)-1
-        IF(Bonds(j)) THEN
-          sumcon = 0
-          cj = Cols(j)                  
-          IF(CF(cj) == 0 .AND. Cands(cj) > 0) THEN
-            DO i=Rows(cj),Rows(cj+1)-1
-              IF(Bonds(i)) THEN
-                ci = Cols(i)          
-                IF(CF(ci) == 0) sumcon = sumcon + Con(ci)
-              END IF
-            END DO
-          END IF
-          IF(sumcon > maxsumcon) THEN
-!            PRINT *,'new points',cj,sumcon
-            maxsumcon = sumcon
-            nextind = cj
-          END IF
-
-!          PRINT *,'candidate points',cj,sumcon        
-        END IF
-      END DO
-
-!      PRINT *,'nextind',ind,nextind,sumcon
-
-      ! The new center for clustering is nextind
-      ind = nextind
-      cind = cind + 1
-      CF(ind) = cind
-      cnods = cnods + 1
-      
-      ! Go through all strongly bonded neighbours to 'ind'
-      DO j=Rows(ind),Rows(ind+1)-1
-        IF(.NOT. Bonds(j)) CYCLE
-        cj = Cols(j)
-        
-        IF(CF(cj) == 0) THEN
-          CF(cj) = cind
-          cnods = cnods + 1
-          IF(Cands(cj) == 0) CYCLE
-          
-          ! Recompute the measure of importance for the neighbours
-          DO i=Rows(cj),Rows(cj+1)-1
-            IF(Bonds(i)) THEN
-              ci = Cols(i)          
-              IF(Cands(ci) > 0 .AND. CF(ci) == 0) THEN
-                loops = loops + 1
-                
-                points = Con(ci) + 1
-                
-                oldorder = ConInd(ci)
-                IF(GatLims(points) == 0) GatLims(points) = anods
-                neworder = GatLims(points)
-                Con(ci) = points
-                GatLims(points) = GatLims(points) - 1
-                
-                IF(neworder /= oldorder) THEN
-                  k = RevConInd(neworder)
-                  
-                  ConInd(ci) = neworder
-                  ConInd(k) = oldorder
-                  
-                  RevConInd(neworder) = ci
-                  RevConInd(oldorder) = k
-                END IF
-                
-              END IF
-            END IF
-          END DO
-        END IF
-      END DO
-      
-      ! Shorten the list from top in case the node is already set
-      Refcon = 0
-      DO WHILE( anods > 0 .AND. CF(RevConInd(anods)) /= 0 )
-        MaxCon = Con(RevConInd(anods))          
-        Refcon = MAX(MaxCon,RefCon)
-        anods = anods - 1
-        Refcon = MAX(MaxCon,RefCon)            
-      END DO
-      
-      IF(anods > 0) THEN
-        MaxCon = Con(RevConInd(anods))
-        RefCon = MAX(MaxCon,RefCon)
-        GatLims((MaxCon+1):(Refcon+1)) = 0
-      ELSE        
-        MaxCon = 0
-      END IF
-    END DO
-    
-    DEALLOCATE(Con, GatLims, GatNos, ConInd, RevConInd)
-
-
-
-    ! Assign unassigned nodes in the candidate list to be coarse nodes
-    IF(.FALSE.) THEN
-      k = 0
-      DO ind = 1, nods
-        IF(Cands(ind) > 0 .AND. CF(ind) == 0) THEN
-          k = k + 1
-          cind = cind + 1
-          CF(ind) = cind
-        END IF
-      END DO
-      
-      IF(k > 0) THEN
-        WRITE(Message,'(A,I8)') 'Enforced coarse nodes',k
-        CALL Info('AMGCoarse',Message)      
-      END IF
-    END IF
-
-    WRITE(Message,'(A,I8)') 'Clustering algorithm tests',loops
-    CALL Info('AMGCoarse',Message)
-    WRITE(Message,'(A,I8)') 'Clustering algorithm clusters',cind
-    CALL Info('AMGCoarse',Message)
-    WRITE(Message,'(A,I8)') 'Clustering algorithm nodes',cnods
-    CALL Info('AMGCoarse',Message)
-
-
-!    OPEN (10,FILE='clusters.dat')
-!    DO i=1,nods
-!      WRITE (10,'(3ES17.8E3,I6)') Mesh % Nodes % X(i), &
-!          Solver % Mesh % Nodes % Y(i), Solver % Mesh % Nodes % Z(i), CF(i)
-!    END DO
-!    CLOSE(10)
-    
-!    PRINT *,'prestop'
-!    STOP
-!    PRINT *,'poststop'
-    
-
-
-  END SUBROUTINE AMGCluster
 
 
 
@@ -4906,24 +5391,12 @@ PRINT *,'a4'
        INTEGER :: DOFs
        TYPE(Matrix_t), POINTER :: Projector
 !------------------------------------------------------------------------------
-       INTEGER :: i, j, k, l, Fdofs, Cdofs, ind, Component1, Components, IncComponents, node
-       REAL(KIND=dp), POINTER :: PValues(:), FValues(:), TmpValues(:)
+       INTEGER :: i, j, k, l, Fdofs, Cdofs, ind, Components, node
+       REAL(KIND=dp), POINTER :: PValues(:), FValues(:)
        INTEGER, POINTER :: FRows(:), FCols(:), PRows(:), PCols(:), ClusterSize(:)
-       INTEGER, POINTER :: TmpRows(:), TmpCols(:)
-       INTEGER :: minsize, maxsize, no, nocluster
-       LOGICAL :: Debug
+       INTEGER :: no, nocluster
 
-       Debug = .FALSE.
-       IF(Debug) CALL Info('InterpolateF2C','Starting interpolation')
-      
        Components = DOFs
-       IF(ComponentMode == 3) THEN
-         Component1 = ListGetInteger(Solver % Values,'MG Determining Component',minv=1,maxv=DOFs)
-         IncComponents = DOFs
-       ELSE
-         Component1 = 1
-         IncComponents = 1
-       END IF
 
        Fdofs = Fmat % NumberOfRows
        FRows   => Fmat % Rows
@@ -4931,6 +5404,7 @@ PRINT *,'a4'
        FValues => Fmat % Values
        
        ! Calculate the order of the new coarse nodes
+       Fdofs = SIZE(CF)
        Cdofs = MAXVAL(CF)       
        ALLOCATE( ClusterSize(Cdofs) )                
        ClusterSize = 0
@@ -4942,15 +5416,17 @@ PRINT *,'a4'
            nocluster = nocluster + 1
          END IF
        END DO
-       maxsize = MAXVAL(ClusterSize)
-       minsize = MINVAL(ClusterSize)      
 
-       PRINT *,'Number of nodes',Fdofs
-       PRINT *,'Number of clusters',Cdofs
-       PRINT *,'Maximum clustersize',maxsize
-       PRINT *,'Minimum clustersize',minsize
-       PRINT *,'Average clustersize',1.0*(Fdofs-nocluster)/Cdofs
-       PRINT *,'Nodes in no clusters',nocluster
+       WRITE(Message,'(A,T30,I8)') 'Number of nodes',Fdofs
+       CALL Info('ClusterInterpolate',Message)
+       WRITE(Message,'(A,T30,I8)') 'Number of clusters',Cdofs
+       CALL Info('ClusterInterpolate',Message)
+       IF(nocluster > 0) THEN
+         WRITE(Message,'(A,T30,I8)') 'Unclustered nodes',nocluster
+         CALL Info('ClusterInterpolate',Message)
+       END IF
+       WRITE(Message,'(A,T30,F8.3)')'Average clustersize',1.0*(Fdofs-nocluster)/Cdofs
+       CALL Info('ClusterInterpolate',Message)
 
        Projector => AllocateMatrix()
        IF( ComponentMode == 3) THEN
@@ -4983,8 +5459,6 @@ PRINT *,'a4'
          Projector % Values => PValues
        END IF
 
-       i = PRows(Fdofs+1)-1
-
        DEALLOCATE(ClusterSize)
 
        CALL Info('ClusterInterpolate','Cluster projector ready')
@@ -4993,7 +5467,100 @@ PRINT *,'a4'
 !-------------------------------------------------------------------------
 
 
- 
+
+ !-----------------------------------------------------------------------------
+!     Make the interpolation for the cluster AMG
+!------------------------------------------------------------------------------
+     FUNCTION TransposeClusterInterpolate( Fmat, CF, DOFs) RESULT (Projector)
+!------------------------------------------------------------------------------
+       USE Interpolation
+       USE CRSMatrix
+       USE CoordinateSystems
+!-------------------------------------------------------------------------------
+       TYPE(Matrix_t), TARGET  :: Fmat
+       INTEGER, POINTER :: CF(:)
+       INTEGER :: DOFs
+       TYPE(Matrix_t), POINTER :: Projector
+!------------------------------------------------------------------------------
+       INTEGER :: i, j, k, l, Fdofs, Cdofs, ind, Components, node
+       REAL(KIND=dp), POINTER :: PValues(:), FValues(:)
+       INTEGER, POINTER :: FRows(:), FCols(:), PRows(:), PCols(:), ClusterSize(:)
+       INTEGER :: no, nocluster
+
+       Components = DOFs
+
+       Fdofs = Fmat % NumberOfRows
+       FRows   => Fmat % Rows
+       FCols   => Fmat % Cols
+       FValues => Fmat % Values
+       
+       ! Calculate the order of the new coarse nodes
+       Fdofs = SIZE(CF)
+       Cdofs = MAXVAL(CF)       
+       ALLOCATE( ClusterSize(Cdofs) )                
+
+       ClusterSize = 0
+       nocluster = 0
+       DO ind = 1, Fdofs
+         j = CF(ind)
+         IF(j > 0) THEN
+           ClusterSize(j) = ClusterSize(j) + 1
+         ELSE
+           nocluster = nocluster + 1
+         END IF
+       END DO
+
+       WRITE(Message,'(A,T35,I8)') 'Number of nodes',Fdofs
+       CALL Info('TransposeClusterInterpolate',Message)
+       WRITE(Message,'(A,T35,I8)') 'Number of clusters',Cdofs
+       CALL Info('TransposeClusterInterpolate',Message)
+       IF(nocluster > 0) THEN
+         WRITE(Message,'(A,T35,I8)') 'Unclustered nodes',nocluster
+         CALL Info('TransposeClusterInterpolate',Message)
+       END IF
+       WRITE(Message,'(A,T35,F8.2)')'Average clustersize',1.0*(Fdofs-nocluster)/Cdofs
+       CALL Info('TransposeClusterInterpolate',Message)
+
+       Projector => AllocateMatrix()
+       IF( ComponentMode == 3) THEN
+         no = Fdofs / Components
+       ELSE
+         no = Fdofs
+       END IF
+       no = Cdofs
+
+       Projector % NumberOfRows = Cdofs
+       ALLOCATE( Prows(Cdofs+1), PCols(Fdofs-nocluster), PValues(Fdofs-nocluster) )
+       
+       Prows(1) = 1
+       DO ind = 1, Cdofs
+         Prows(ind+1) = Prows(ind) + ClusterSize(ind) 
+       END DO
+
+       ClusterSize = 0       
+       PValues = 1.0d0
+       DO ind=1,Fdofs
+         j = CF(ind)
+         IF( j > 0) THEN
+           ClusterSize(j) = ClusterSize(j) + 1
+           no = ClusterSize(j) + Prows(j) - 1
+           PCols(no) = ind
+         END IF
+       END DO
+
+       Projector % Rows   => PRows
+       Projector % Cols   => PCols 
+       Projector % Values => PValues
+
+       DEALLOCATE(ClusterSize)
+
+       CALL Info('TransposeClusterInterpolate','Cluster projector ready')
+       
+     END FUNCTION TransposeClusterInterpolate
+!-------------------------------------------------------------------------
+
+
+
 !------------------------------------------------------------------------------
 !   This subroutine may be used to check that mapping Xf = P Xc is accurate.
 !   The list of original nodes for each level is stored in the Cnodes vector.
@@ -5126,6 +5693,40 @@ PRINT *,'a4'
     END SUBROUTINE AMGTest
 
 !------------------------------------------------------------------------------
+
+
+
+!------------------------------------------------------------------------------
+    SUBROUTINE ClusterTest() 
+!------------------------------------------------------------------------------
+
+      LOGICAL :: Visited = .FALSE.
+
+      SAVE Visited
+
+      IF(Visited) RETURN
+      Visited = .TRUE.
+
+
+      OPEN (10,FILE='clusters.dat')        
+      
+      DO i=1,OrigSize
+        WRITE (10,'(3ES17.8E3)',ADVANCE='NO') &
+            Mesh % Nodes % X(i), Mesh % Nodes % Y(i), Mesh % Nodes % Z(i)
+        DO j=MinLevel, Solver % MultiGridTotal - 1
+          WRITE (10,'(I6)',ADVANCE='NO') AMG(j) % InvCF(i)
+        END DO
+        WRITE (10,'(I6)') AMG(Solver % MultiGridTotal) % InvCF(i)
+      END DO
+
+      PRINT *,'Writing levels',Level,Solver % MultiGridTotal
+
+      CLOSE(10)
+
+    END SUBROUTINE ClusterTest
+!------------------------------------------------------------------------------
+
+
 
 
 !----------------------------------------------------------------------------
@@ -5801,63 +6402,74 @@ PRINT *,'a4'
           1.0 *  SIZE(Matrix1 % Cols) / TotalNonZeros
       CALL Info('CRS_ProjectMatrixCreate',Message)
        
-    END SUBROUTINE CRS_ProjectMatrixCreate
-
-
-
-
+   END SUBROUTINE CRS_ProjectMatrixCreate
 !------------------------------------------------------------------------------
-    SUBROUTINE CRS_ClusterMatrixCreate( A, CF, B, DOFs ) 
+
+
+
+ !------------------------------------------------------------------------------
+   SUBROUTINE CRS_ClusterMatrixCreate( A, CF, B, Components ) 
 !------------------------------------------------------------------------------
 !
-!     Project matrix A to B: B = PAR
+!     Project cluster matrix A to B: B = PAR
+!     The projector is formed implicitely.
 !
 !------------------------------------------------------------------------------
       TYPE(Matrix_t), POINTER :: A,B
       INTEGER, POINTER :: CF(:)
-      INTEGER :: DOFs
+      INTEGER :: Components
 !------------------------------------------------------------------------------
       INTEGER, POINTER :: L1(:), L2(:)
       REAL(KIND=dp) :: s, Epsilon
       REAL(KIND=dp), POINTER :: R1(:),R2(:)
       INTEGER :: i,ia,j,k,l,m,n,NA,NB,ci,cj,ck,cl,NoRow,i2,j2,indi,prevnewrow,newrow,newcol
+      INTEGER :: nodecj,comp,NmatA,NmatB,mati,NnodA,NnodB,nodi
       INTEGER :: TotalNonzeros
-      LOGICAL :: AllocationsDone, GotIt 
-      INTEGER, ALLOCATABLE :: Ind(:), Row(:), Sizes(:), CumSizes(:), ClusterOrder(:)
+      LOGICAL :: AllocationsDone, GotIt, debug 
+      INTEGER, ALLOCATABLE :: Ind(:), Row(:), Sizes(:), CumSizes(:), ClusterOrder(:), &
+          Interval(:,:)
 !------------------------------------------------------------------------------
 
       AllocationsDone = .FALSE.
-      NA = A % NumberOfRows
-      NB = MAXVAL(CF)
 
-      ALLOCATE( Sizes(NB), CumSizes(NB), ClusterOrder(NA), Row( NA ), Ind( NB ) )
+      NmatA = A % NumberOfRows
+      NnodA = NmatA / Components
+
+      NnodB = MAXVAL(CF)
+      NmatB = NnodB * Components
+
+      ALLOCATE( Sizes(NnodB), CumSizes(NnodB+1), ClusterOrder(NnodA), &
+          Row( NmatA ), Ind( NmatB ) )
 
       ! Order the dofs in the order of the clusters
       Sizes = 0
-      DO i=1,NA
-        Sizes( CF(i) ) = Sizes( CF(i) ) + 1
+      DO i=1,NnodA
+        IF( CF(i) > 0 ) THEN
+          Sizes( CF(i) ) = Sizes( CF(i) ) + 1
+        END IF
       END DO
+
       CumSizes = 0
-      DO i=1,NB-1
+      DO i=1,NnodB
         CumSizes(i+1) = CumSizes(i) + Sizes(i) 
       END DO
+
       Sizes = 0
-      DO i=1,NA
+      ClusterOrder = 0
+
+      DO i=1,NnodA
         j = CF(i)
+        IF(j == 0) CYCLE
         Sizes( j ) = Sizes( j ) + 1
-        ind = Sizes( j ) + CumSizes( j )
-        ClusterOrder(ind) = i
+        indi = Sizes( j ) + CumSizes( j )
+        ClusterOrder(indi) = i
       END DO
-    
-      !      PRINT *,'ClusterOrder',ClusterOrder
-      !      PRINT *,'Sizes',Sizes
-      !      PRINT *,'CumSizes',CumSizes
 
       B => AllocateMatrix()      
-      B % NumberOfRows = NB
-      ALLOCATE( B % Rows( NB + 1 ), &
-          B % Diag( NB ), &
-          B % RHS( NB ) )        
+      B % NumberOfRows = NmatB 
+      ALLOCATE( B % Rows( NmatB + 1 ), &
+          B % Diag( NmatB ), &
+          B % RHS( NmatB ) )        
       B % RHS = 0.0d0
       B % Diag = 0
       B % Rows(1) = 1
@@ -5866,17 +6478,21 @@ PRINT *,'a4'
       Row = 0
       Ind = 0
       prevnewrow = 0
+
+
 10    TotalNonzeros = 0
 
-      IF(DOFs == 1) THEN
+      IF(Components == 1) THEN
+        NA = NnodA
+        NB = NnodB
+
         DO indi=1,NA
-          
+
           i = ClusterOrder(indi) 
+          IF(i == 0) CYCLE
 
-          newrow = CF(i)
-
+          newrow = CF(i)          
           IF(prevnewrow /= newrow) THEN
-            IF(newrow > 1) B % Rows(newrow) = B % Rows(newrow-1) + NoRow
             DO j=1,NoRow
               Row(Ind(j)) = 0
             END DO
@@ -5888,6 +6504,10 @@ PRINT *,'a4'
             cj = A % Cols(j)
 
             newcol = CF(cj)
+            IF(newcol == 0) CYCLE
+ 
+            IF( ABS(A % Values(j)) < AEPS) CYCLE
+ 
             i2 = Row(newcol)
 
             IF ( i2 == 0) THEN
@@ -5896,7 +6516,7 @@ PRINT *,'a4'
               Ind(NoRow) = newcol
               i2 = B % Rows(newrow) + NoRow - 1                   
               Row(newcol) = i2
-                  
+
               IF(AllocationsDone) THEN
                 IF(newrow == newcol) B % Diag(newrow) = i2
                 B % Cols(i2) = newcol                     
@@ -5905,6 +6525,65 @@ PRINT *,'a4'
             ELSE IF(AllocationsDone) THEN
               B % Values(i2) = B % Values(i2) + A % Values(j)
             END IF
+          END DO
+          
+          B % Rows(newrow+1) = B % Rows(newrow) + NoRow
+         
+        END DO
+      ELSE
+ 
+        DO indi=1,NnodB          
+
+          DO comp=1,Components
+            
+            DO nodi=CumSizes(indi)+1,CumSizes(indi+1)
+              
+              i = ClusterOrder(nodi) 
+              IF(i == 0) CYCLE          
+              mati = Components*(i-1) + comp
+              newrow = Components*(CF(i)-1) + comp
+              
+              IF(indi /= CF(i)) PRINT *,'************** indi',indi,nodi,comp,i,CF(i)
+              
+              IF(prevnewrow /= newrow) THEN
+                DO j=1,NoRow
+                  Row(Ind(j)) = 0
+                END DO
+                NoRow = 0
+                prevnewrow = newrow
+              END IF
+              
+              DO j=A % Rows(mati),A % Rows(mati+1)-1          
+                cj = A % Cols(j)
+                nodecj = (cj-1)/Components + 1
+                k = CF(nodecj)
+                IF(k == 0) CYCLE
+                
+                IF( ABS(A % Values(j)) < AEPS) CYCLE
+                
+                newcol = Components*(k-1) + MOD(cj-1,Components) + 1
+                
+                i2 = Row(newcol)
+                
+                IF ( i2 == 0) THEN
+                  NoRow = NoRow + 1
+                  TotalNonzeros = TotalNonzeros + 1
+                  Ind(NoRow) = newcol
+                  i2 = B % Rows(newrow) + NoRow - 1                   
+                  Row(newcol) = i2
+                  
+                  IF(AllocationsDone) THEN
+                    IF(newrow == newcol) B % Diag(newrow) = i2
+                    B % Cols(i2) = newcol                     
+                    B % Values(i2) = A % Values(j)
+                  END IF
+                ELSE IF(AllocationsDone) THEN
+                  B % Values(i2) = B % Values(i2) + A % Values(j)
+                END IF
+              END DO
+              B % Rows(newrow+1) = B % Rows(newrow) + NoRow         
+              
+            END DO
           END DO
         END DO
       END IF
@@ -5916,7 +6595,7 @@ PRINT *,'a4'
         AllocationsDone = .TRUE.
         GOTO 10 
       END IF
-      
+
       DEALLOCATE(  Sizes, CumSizes, ClusterOrder, Row, Ind )
       
       WRITE( Message,'(A,I8)' ) 'Clustered matrix created with size',TotalNonZeros
