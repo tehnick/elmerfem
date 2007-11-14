@@ -405,6 +405,19 @@ this ise not in USE
          Var => VariableGet( CurrentModel % Variables, 'Effective Viscosity')
          PVisc = SUM( Basis(1:n) * Var % Values( Var % Perm( Element % NodeIndexes )))
  
+       CASE( 'k-omega' )
+         Var => VariableGet( CurrentModel % Variables, 'Kinetic Energy' )
+         IF ( .NOT. ASSOCIATED( Var ) ) &
+           CALL Fatal( 'Viscosity Model', 'The kinetic energy variable not defined?' )
+         KE_K = SUM(Basis(1:n) * Var % Values(Var % Perm(Element % NodeIndexes)))
+         
+         Var => VariableGet( CurrentModel % Variables, 'Kinetic Dissipation' )
+         IF ( .NOT. ASSOCIATED( Var ) ) &
+           CALL Fatal( 'Viscosity Model', 'The kinetic dissipation rate variable not defined?' )
+         KE_E = SUM(Basis(1:n) * Var % Values(Var % Perm(Element % NodeIndexes)))
+
+         PVisc = Viscosity + Density * KE_K / KE_E
+
        CASE( 'sst k-omega' )
          Var => VariableGet( CurrentModel % Variables, 'Kinetic Energy' )
          IF ( .NOT. ASSOCIATED( Var ) ) &
