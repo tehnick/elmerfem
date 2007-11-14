@@ -173,6 +173,7 @@ EXTRA_DIST = \
 	DiffuseConvectiveAnisotropic.src \
 	DiffuseConvectiveGeneralAnisotropic.src \
 	DirectSolve.src \
+	DistanceSolve.src \
 	EigenSolve.src \
 	ElasticSolve.src \
 	ElectricForce.src \
