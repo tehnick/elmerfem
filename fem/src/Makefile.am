@@ -263,6 +263,7 @@ EXTRA_DIST = \
 	SParIterPrecond.src \
 	SParIterSolver.src \
 	SparseMatrix.src \
+	SSTKomega.src \
 	StatCurrentSolve.src \
 	StatElecSolve.src \
 	StatMagSolve.src \
@@ -275,6 +276,8 @@ EXTRA_DIST = \
 	TransportEquation.src \
 	Types.src \
 	V2FSolver.src \
+	Komega.src \
+	SSTKomega.src \
 	ViewFactors.src \
 	Walls.src \
 	elements.def \
