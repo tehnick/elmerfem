@@ -1,5 +1,6 @@
 Header
   Mesh DB "." "diffuser"
+echo on
 End
 
 Simulation
@@ -37,8 +38,12 @@ Solver 1
   Nonlinear System Relaxation Factor = 1
   Distance Pseudo DT = Real 0.01
 
-  Linear System Solver = Direct
-  Linear System Direct Method = UMFPack
+  Linear System Solver = Iterative
+  Linear System Preconditioning  = ILU0
+  Linear System Max Iterations   = 500
+  Linear System Convergence Tolerance = 1e-8
+  Linear System Iterative Method = BiCGStabL
+
   Steady State Convergence Tolerance = 1.0e-4
 End
 
@@ -53,10 +58,14 @@ Solver 2
   Nonlinear System Convergence Tolerance = 1.0e-5
   Nonlinear System Newton After Iterations = 20
   Nonlinear System Newton After Tolerance = 1.0e-3
-  Nonlinear System Relaxation Factor = 0.5
+  Nonlinear System Relaxation Factor = 0.75
 
-  Linear System Solver = Direct
-  Linear System Direct Method = UMFPack
+  Linear System Solver = Iterative
+  Linear System Preconditioning  = ILU0
+  Linear System Max Iterations   = 500
+  Linear System Convergence Tolerance = 1e-8
+  Linear System Iterative Method = BiCGStabL
+
   Steady State Convergence Tolerance = 1.0e-4
 End
 
@@ -71,8 +80,12 @@ Solver 3
   Nonlinear System Newton After Iterations = 10
   Nonlinear System Newton After Tolerance  = 1.0e-3
 
-  Linear System Solver = Direct
-  Linear System Direct Method = UMFPack
+  Linear System Solver = Iterative
+  Linear System Preconditioning  = ILU0
+  Linear System Max Iterations   = 500
+  Linear System Convergence Tolerance = 1e-8
+  Linear System Iterative Method = BiCGStabL
+
   Steady State Convergence Tolerance = 1.0e-4
 End
 
@@ -83,21 +96,19 @@ Solver 4
   Procedure = "SaveData" "SaveLine"
   Filename = "curve.dat"
 
-$x = -3 3 6 14 17 20 24 27 30 34
-$x = (5+x)*0.127
-Polyline coordinates(20,2) =  $ x(0) 0 x(0) 1 x(1) 0 x(1) 1 x(2) 0 x(2) 1 \
-                                x(3) 0 x(3) 1 x(4) 0 x(4) 1 x(5) 0 x(5) 1 \
-                                x(6) 0 x(6) 1 x(7) 0 x(7) 1 x(8) 0 x(8) 1 \
-                                x(9) 0 x(9) 1
+$ x = -3 3 6 14 17 20 24 27 30 34; x = (5+x)*0.127
+$ n = (0:9)*4
+$ y(n)=x; y(n+2)=x; y(n+1)=0; y(n+3)=1
+
+  Polyline coordinates(20,2) =  $ y
 End
 
 
 Equation 1 :: Active Solvers(3) = 1 2 3
 
-
 Material 1
-  Density = 1
-  Viscosity = $25*0.127/20000
+  Density = 10000
+  Viscosity = $25*0.127/2
   Viscosity Model = sst k-omega
 End
  
@@ -105,6 +116,8 @@ End
 Boundary Condition 1
   Target Boundaries = 1
 
+  ! use inlet values from restart file (channel flow):
+  ! --------------------------------------------------
   Velocity 1 = Equals Velocity 1
   Kinetic Energy = Equals Kinetic Energy
   Kinetic Dissipation = Equals Kinetic Dissipation
@@ -114,6 +127,8 @@ End
 Boundary Condition 2
   Target Boundaries = 2
 
+  ! outlet BC:
+  ! ----------
   Pressure   = 0
   Velocity 2 = 0
 End
