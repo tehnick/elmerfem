@@ -55,8 +55,11 @@ Solver 1
   Nonlinear System Relaxation Factor = Real 0.35
   Nonlinear System Newton After Tolerance = 1.0e-3
 
-  Linear System Solver = Direct
-  Linear System Direct Method = UMFPack
+  Linear System Solver = Iterative
+  Linear System Preconditioning  = ILU0
+  Linear System Max Iterations   = 500
+  Linear System Convergence Tolerance = 1e-8
+  Linear System Iterative Method = BiCGStabL
   Steady State Convergence Tolerance = 1.0e-4
 End
 
@@ -71,8 +74,11 @@ Solver 2
   Nonlinear System Newton After Tolerance  = 1.0e-2
   Nonlinear System Relaxation Factor = 0.75
 
-  Linear System Solver = Direct
-  Linear System Direct Method = UMFPack
+  Linear System Solver = Iterative
+  Linear System Preconditioning  = ILU0
+  Linear System Max Iterations   = 500
+  Linear System Convergence Tolerance = 1e-8
+  Linear System Iterative Method = BiCGStabL
   Steady State Convergence Tolerance = 1.0e-4
 End
 
@@ -82,7 +88,6 @@ Solver 3
   Equation = SaveLine
   Procedure = "SaveData" "SaveLine"
   Filename = "curve.dat"
-
   Polyline Coordinates(2,2) = Real $ (14*0.0127) 0 (14*0.0127) 0.127
 End
 
@@ -149,31 +154,30 @@ $ y = 0.127000000000E-001 \
 
 
 ! (V2 F K Epsilon U) at inlet as computed from channel flow
-$ v = 19 5 % \
- 0.1E-8 0 0.1E-9 0.261786E3 0 \
- 0.281109E1 0.206194E3 0.213497E2 0.113993E5 0.994830E1 \
- 0.252579E1 0.108472E3 0.119292E2 0.282118E4 0.124224E2 \
- 0.219348E1 0.725484E2 0.978697E1 0.158636E4 0.144692E2 \
- 0.192908E1 0.512887E2 0.853926E1 0.950109E3 0.166111E2 \
- 0.168538E1 0.370201E2 0.744215E1 0.590560E3 0.186800E2 \
- 0.140633E1 0.264363E2 0.622921E1 0.359611E3 0.207083E2 \
- 0.109205E1 0.178174E2 0.472364E1 0.190936E3 0.226506E2 \
- 0.835585E0 0.112783E2 0.320459E1 0.817285E2 0.241885E2 \
- 0.750700E0 0.883353E1 0.253040E1 0.450903E2 0.247760E2 \
- 0.835585E0 0.112783E2 0.320459E1 0.817285E2 0.241885E2 \
- 0.109205E1 0.178174E2 0.472364E1 0.190936E3 0.226506E2 \
- 0.140633E1 0.264363E2 0.622921E1 0.359611E3 0.207083E2 \
- 0.168538E1 0.370201E2 0.744215E1 0.590560E3 0.186800E2 \
- 0.192908E1 0.512887E2 0.853926E1 0.950109E3 0.166111E2 \
- 0.219348E1 0.725484E2 0.978697E1 0.158636E4 0.144692E2 \
- 0.252579E1 0.108472E3 0.119292E2 0.282118E4 0.124224E2 \
- 0.281109E1 0.206194E3 0.213497E2 0.113993E5 0.994830E1 \
- 0.1E-8 0 0.1E-9 0.261785712202E3 0
+$ v = 0 \
+ 0.994830E1 \
+ 0.124224E2 \
+ 0.144692E2 \
+ 0.166111E2 \
+ 0.186800E2 \
+ 0.207083E2 \
+ 0.226506E2 \
+ 0.241885E2 \
+ 0.247760E2 \
+ 0.241885E2 \
+ 0.226506E2 \
+ 0.207083E2 \
+ 0.186800E2 \
+ 0.166111E2 \
+ 0.144692E2 \
+ 0.124224E2 \
+ 0.994830E1 \
+ 0
 
 
  Velocity 1 = Variable Coordinate 2
  Real
-   $ for(i=0:18) { y(i) (44.2*v(i,4)/24.77) }
+   $ for(i=0:18) { y(i) (44.2*v(i)/24.77) }
  End
 
  Velocity 2 = 0
