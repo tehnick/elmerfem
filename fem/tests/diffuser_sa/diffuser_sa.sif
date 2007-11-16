@@ -60,9 +60,13 @@ Solver 2
   Nonlinear System Newton After Tolerance = 1.0e-3
   Nonlinear System Relaxation Factor = 0.25
 
-  Linear System Solver = Direct
-  Linear System Direct Method = UMFPack
-  Steady State Convergence Tolerance = 1.0e-4
+  Linear System Solver = Iterative
+  Linear System Preconditioning  = ILU0
+  Linear System Max Iterations   = 500
+  Linear System Convergence Tolerance = 1e-8
+  Linear System Iterative Method = BiCGStabL
+
+  Steady State Convergence Tolerance = 1.0e-6
 End
 
 
@@ -103,8 +107,8 @@ End
 Equation 1 :: Active Solvers(3) = 1 2 3
 
 Material 1
-  Density = 10000
-  Viscosity = $25*0.127/2
+  Density = 1
+  Viscosity = $25*0.127/20000
   Viscosity Model = Spalart-Allmaras
 End
  
@@ -136,4 +140,4 @@ End
 
 $fprintf( stderr, "TEST CASE 1\n");
 RUN
-$fprintf( stderr, "END TEST CASE 1: Target NRM=8.28045585016, EPS=1e-3\n" );
+$fprintf( stderr, "END TEST CASE 1: Target NRM=8.29711867742, EPS=1e-3\n" );
