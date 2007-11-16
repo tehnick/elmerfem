@@ -442,7 +442,7 @@ CONTAINS
        g  = r + Cw2 * (r**6-r)
        fw = g*((1+Cw3**6)/(g**6+Cw3**6))**(1._dp/6._dp)
 
-       Effmu = mu + rho*Tmu
+       Effmu = (mu + rho*Tmu)/Sigma
 !------------------------------------------------------------------------------
 !      Loop over basis functions of both unknowns and weights
 !------------------------------------------------------------------------------
@@ -459,7 +459,7 @@ CONTAINS
 !------------------------------------------------------------------------------
           IF ( CurrentCoordinateSystem() == Cartesian ) THEN
              DO i=1,dim
-               A = A + Effmu * dBasisdx(q,i) * dBasisdx(p,i)
+               A = A + Effmu * dBasisdx(q,i) * dBasisdx(p,i) 
              END DO
           ELSE
              DO i=1,dim
@@ -473,7 +473,7 @@ CONTAINS
 !           The convection term
 !------------------------------------------------------------------------------
           DO i=1,dim
-            A = A + rho * (Velo(i)-Cb2*GradTmu(i)) * dBasisdx(q,i) * Basis(p)
+            A = A + rho * (Velo(i)-Cb2*GradTmu(i)/Sigma) * dBasisdx(q,i) * Basis(p)
           END DO
 
           MASS(p,q)  = MASS(p,q)  + s*M
