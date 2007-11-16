@@ -23,7 +23,7 @@
 !
 !/******************************************************************************
 ! *
-! *  Module containing a solver for the SSTKomega-turbulence model.
+! *  Module containing a solver for the Spalart-Allmaras-turbulence model.
 ! *
 ! ******************************************************************************
 ! *
@@ -34,7 +34,7 @@
 ! *           Keilaranta 14
 ! *           02101 Espoo, Finland 
 ! *
-! *  Original Date: 10 Nov 1997
+! *  Original Date: 16 Nov 1997
 ! *
 ! ****************************************************************************/
 
@@ -47,7 +47,7 @@
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
-!  Solve the (RC)SST K-Omega model equations !
+!  Solve the Spalart-Allmaras model equation !
 !
 !  ARGUMENTS:
 !
@@ -344,8 +344,8 @@ CONTAINS
      CALL GetScalarLocalSolution( UY, 'Velocity 2' )
      CALL GetScalarLocalSolution( UZ, 'Velocity 3' )
 
+     CALL GetScalarLocalSolution( TViscosity )
      CALL GetScalarLocalSolution( Distance, 'Wall Distance' )
-     CALL GetScalarLocalSolution( TViscosity, 'Turbulent Viscosity' )
 
      FORCE = 0.0_dp
      STIFF = 0.0_dp
@@ -460,7 +460,6 @@ CONTAINS
           IF ( CurrentCoordinateSystem() == Cartesian ) THEN
              DO i=1,dim
                A = A + Effmu * dBasisdx(q,i) * dBasisdx(p,i)
-               A = A - rho * Cb2 * GradTmu(i) * dBasisdx(q,i) * Basis(p)
              END DO
           ELSE
              DO i=1,dim
@@ -474,7 +473,7 @@ CONTAINS
 !           The convection term
 !------------------------------------------------------------------------------
           DO i=1,dim
-            A = A + rho * Velo(i) * dBasisdx(q,i) * Basis(p)
+            A = A + rho * (Velo(i)-Cb2*GradTmu(i)) * dBasisdx(q,i) * Basis(p)
           END DO
 
           MASS(p,q)  = MASS(p,q)  + s*M
