@@ -1,0 +1,843 @@
+!/*****************************************************************************/
+! *
+! *  Elmer, A Finite Element Software for Multiphysical Problems
+! *
+! *  Copyright 1st April 1995 - , CSC - Scientific Computing Ltd., Finland
+! * 
+! *  This program is free software; you can redistribute it and/or
+! *  modify it under the terms of the GNU General Public License
+! *  as published by the Free Software Foundation; either version 2
+! *  of the License, or (at your option) any later version.
+! * 
+! *  This program is distributed in the hope that it will be useful,
+! *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! *  GNU General Public License for more details.
+! *
+! *  You should have received a copy of the GNU General Public License
+! *  along with this program (in file fem/GPL-2); if not, write to the 
+! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
+! *  Boston, MA 02110-1301, USA.
+! *
+! *****************************************************************************/
+!
+!/******************************************************************************
+! *
+! *  Module containing the smoothers used in multigrid solvers.
+! *  The routines were moved from module Multigrid.  
+! *
+! ******************************************************************************
+! *
+! *  Authors: Juha Ruokolainen
+! *  Email:   Juha.Ruokolainen@csc.fi
+! *  Web:     http://www.csc.fi/elmer
+! *  Address: CSC - Scientific Computing Ltd.
+! *           Keilaranta 14
+! *           02101 Espoo, Finland 
+! *
+! *  Original Date: 2001
+! *
+! *****************************************************************************/
+! *
+! * $Id: Smoothers.src,v 1.19 2007/09/23 11:36:47 raback Exp $
+! *****************************************************************************/
+ 
+MODULE Smoothers
+
+  USE Types
+  USE CRSMatrix
+  USE ParallelUtils  
+  USE Lists
+
+  IMPLICIT NONE
+
+CONTAINS
+
+!------------------------------------------------------------------------------
+    FUNCTION MGSmooth( Solver, A, x, b, r, Level, PreSmooth, CF) RESULT(RNorm)
+!------------------------------------------------------------------------------
+      TYPE(Solver_t), POINTER :: Solver
+      TYPE(Matrix_t), POINTER :: A
+      INTEGER :: Level
+      REAL(KIND=dp), TARGET :: x(:),b(:),r(:),RNorm
+      LOGICAL PreSmooth
+      INTEGER, POINTER, OPTIONAL :: CF(:)
+!------------------------------------------------------------------------------
+      CHARACTER(LEN=MAX_NAME_LEN) :: IterMethod
+      LOGICAL :: Parallel, Found
+      TYPE(Matrix_t), POINTER :: M
+      INTEGER :: n, Rounds, InvLevel
+      INTEGER, POINTER :: Iters(:)
+      REAL(KIND=dp), POINTER :: Mx(:),Mb(:),Mr(:)
+      REAL(KIND=dp) :: Omega
+      REAL(KIND=dp), ALLOCATABLE :: Q(:), Z(:), Ri(:), T(:), T1(:), T2(:), S(:), V(:), Pr(:)
+      REAL(KIND=dp), POINTER :: TmpArray(:,:)
+!------------------------------------------------------------------------------
+      
+      SAVE Z, Pr, Q, Ri, T, T1, T2, S, V
+
+      Parallel = ParEnv % PEs > 1
+
+      IF ( .NOT. Parallel ) THEN
+        M  => A
+        Mx => x
+        Mb => b
+        Mr => r
+      ELSE
+        CALL ParallelUpdateSolve( A,x,r )
+        M => ParallelMatrix( A, Mx, Mb, Mr )
+      END IF
+      
+      n = M % NumberOfRows
+      InvLevel = 1 + Solver % MultiGridTotal - Level
+
+!      Smoothing iterative method:
+!      ---------------------------
+      IterMethod = ListGetString( Solver % Values, 'MG Smoother', Found )
+      
+      IF ( .NOT. Found ) THEN
+        IterMethod = ListGetString( Solver % Values, &
+            'Linear System Iterative Method', Found )
+      END IF
+      IF ( .NOT. Found ) IterMethod = 'jacobi'
+
+      
+      IF(Presmooth) THEN
+        SELECT CASE( IterMethod )
+        CASE( 'cg' )
+          ALLOCATE( Z(n), Pr(n), Q(n) )
+          
+        CASE( 'bicgstab' )
+          ALLOCATE( Pr(n), Ri(n), T(n), T1(n), T2(n), S(n), V(n) )
+        END SELECT
+        
+        Iters => ListGetIntegerArray( Solver % Values,'MG Pre Smoothing Iterations',Found)
+        IF(Found) THEN
+          Rounds = Iters(MIN(InvLevel,SIZE(Iters)))
+        ELSE        
+          Rounds = 1
+        END IF
+      ELSE
+        Iters => ListGetIntegerArray( Solver % Values,'MG Post Smoothing Iterations',Found)
+        IF(Found) THEN
+          Rounds = Iters(MIN(InvLevel,SIZE(Iters)))
+        ELSE        
+          Rounds = 1
+        END IF
+      END IF
+
+    
+      IF( IterMethod(1:1) == 'w') THEN
+        TmpArray => ListGetConstRealArray(Solver % Values,'MG Smoother Relaxation Factor')
+        IF( ASSOCIATED(TmpArray)) THEN
+          Omega = TmpArray(MIN(InvLevel,SIZE(TmpArray,1)),1)
+        ELSE
+          Omega = 1.0d0
+        END IF
+      END IF
+      
+      
+      SELECT CASE( IterMethod )
+        
+      CASE( 'jacobi' ) 
+        CALL Jacobi( n, A, M, Mx, Mb, Mr, Rounds )
+        
+      CASE( 'gs' )                         
+        CALL GS( n, A, M, Mx, Mb, Mr, Rounds )
+        
+      CASE( 'sgs' )                                     
+        CALL SGS( n, A, M, Mx, Mb, Mr, Rounds)
+        
+      CASE( 'wjacobi' )                                     
+        CALL SmoothedJacobi( n, A, M, Mx, Mb, Mr, Omega, Rounds )
+        
+      CASE( 'wgs' )                                   
+        CALL SmoothedGS( n, A, M, Mx, Mb, Mr, Omega, Rounds )
+        
+      CASE( 'wsgs' )                                     
+        CALL SmoothedSGS( n, A, M, Mx, Mb, Mr, Omega, Rounds)
+        
+      CASE( 'csgs' )                                     
+        CALL CSGS( n, A, M, Mx, Mb, Mr, Rounds)
+        
+      CASE( 'cjacobi' )                                     
+        CALL CJacobi( n, A, M, Mx, Mb, Mr, Rounds )
+        
+      CASE( 'psgs' )                                     
+        CALL PostSGS( n, A, M, Mx, Mb, Mr, CF, Rounds)
+
+      CASE( 'cg' )
+        CALL CG( n, A, M, Mx, Mb, Mr, Rounds )
+
+      CASE( 'ccg' )
+        CALL CCG( n, A, M, Mx, Mb, Mr, Rounds )
+       
+      CASE( 'bicgstab' )
+        CALL BiCG( n, A, M, Mx, Mb, Mr, Rounds )
+
+
+        
+     CASE DEFAULT
+        CALL Warn('MGSmooth','Unknown smoother, using Jacobi')
+        CALL Jacobi( n, A, M, Mx, Mb, Mr, Rounds )
+      END SELECT
+
+      
+      CALL MGmv( A, x, r, .TRUE. )
+      r = b - r
+      IF ( Parallel ) Mr = Mb - Mr
+      
+      RNorm = MGnorm( n, Mr ) 
+
+
+      IF(.NOT. Presmooth) THEN
+        SELECT CASE( IterMethod )
+        CASE( 'cg' )
+          DEALLOCATE( Z, Pr, Q)
+          
+        CASE( 'bicgstab' )
+          DEALLOCATE( Pr, Ri, T, T1, T2, S, V )
+        END SELECT
+      END IF
+
+!------------------------------------------------------------------------------
+
+    CONTAINS 
+
+!------------------------------------------------------------------------------
+      FUNCTION MGnorm( n, x ) RESULT(s)
+!------------------------------------------------------------------------------
+        INTEGER :: n
+        REAL(KIND=dp) :: s,x(:)
+!------------------------------------------------------------------------------
+        IF ( .NOT. Parallel ) THEN
+          s = SQRT( DOT_PRODUCT( x(1:n), x(1:n) ) )
+        ELSE
+          s = ParallelNorm( n, x )
+        END IF
+!------------------------------------------------------------------------------
+      END FUNCTION MGnorm
+!------------------------------------------------------------------------------
+
+      
+!------------------------------------------------------------------------------
+      FUNCTION MGdot( n, x, y ) RESULT(s)
+!------------------------------------------------------------------------------
+        INTEGER :: n
+        REAL(KIND=dp) :: s,x(:),y(:)
+!------------------------------------------------------------------------------
+        IF ( .NOT. Parallel ) THEN
+          s = DOT_PRODUCT( x(1:n), y(1:n) )
+        ELSE
+          s = ParallelDot( n, x, y )
+        END IF
+!------------------------------------------------------------------------------
+      END FUNCTION MGdot
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+    FUNCTION MGCdot( n, x, y ) RESULT(s)
+!------------------------------------------------------------------------------
+       INTEGER :: n
+       COMPLEX(KIND=dp) :: s,x(:),y(:)
+!------------------------------------------------------------------------------
+       s = DOT_PRODUCT( x(1:n), y(1:n) )
+!------------------------------------------------------------------------------
+    END FUNCTION MGCdot
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+      SUBROUTINE MGmv( A, x, b, Update )
+!------------------------------------------------------------------------------
+        REAL(KIND=dp) :: x(:), b(:)
+        LOGICAL, OPTIONAL :: Update
+        TYPE(Matrix_t), POINTER :: A
+!------------------------------------------------------------------------------
+
+        IF ( .NOT. Parallel ) THEN
+          CALL CRS_MatrixVectorMultiply( A, x, b )
+        ELSE
+          IF ( PRESENT( Update ) ) THEN
+            CALL ParallelMatrixVector( A,x,b,Update )
+          ELSE
+            CALL ParallelMatrixVector( A,x,b )
+          END IF
+        END IF
+!------------------------------------------------------------------------------
+      END SUBROUTINE MGmv
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+      SUBROUTINE MGCmv( A, x, b, Update )
+!------------------------------------------------------------------------------
+        COMPLEX(KIND=dp) :: x(:), b(:)
+        LOGICAL, OPTIONAL :: Update
+        TYPE(Matrix_t), POINTER :: A
+!------------------------------------------------------------------------------
+        CALL CRS_ComplexMatrixVectorMultiply( A, x, b )
+!------------------------------------------------------------------------------
+      END SUBROUTINE MGCmv
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+      SUBROUTINE Jacobi( n, A, M, x, b, r, Rounds )
+!------------------------------------------------------------------------------
+        TYPE(Matrix_t), POINTER :: A, M
+        INTEGER :: Rounds
+        REAL(KIND=dp) :: x(:),b(:),r(:)
+!------------------------------------------------------------------------------
+        INTEGER :: i,n
+!------------------------------------------------------------------------------
+        DO i=1,Rounds
+          CALL MGmv( A, x, r )
+          r(1:n) = b(1:n) - r(1:n)
+          
+          r(1:n) = r(1:n) / M % Values(M % Diag)
+          x(1:n) = x(1:n) + r(1:n)
+        END DO
+!------------------------------------------------------------------------------
+      END SUBROUTINE Jacobi
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+      SUBROUTINE SmoothedJacobi( n, A, M, x, b, r, w, Rounds )
+!------------------------------------------------------------------------------
+        TYPE(Matrix_t), POINTER :: A, M
+        INTEGER :: Rounds
+        REAL(KIND=dp) :: w, x(:),b(:),r(:)
+!------------------------------------------------------------------------------
+        INTEGER :: i,n
+!------------------------------------------------------------------------------
+        DO i=1,Rounds
+          CALL MGmv( A, x, r )
+          r(1:n) = b(1:n) - r(1:n)
+          
+          r(1:n) = r(1:n) / M % Values(M % Diag)
+          x(1:n) = x(1:n) + w * r(1:n)
+        END DO
+!------------------------------------------------------------------------------
+      END SUBROUTINE SmoothedJacobi
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+      SUBROUTINE CJacobi( n, A, M, rx, rb, rr, Rounds )
+!------------------------------------------------------------------------------
+        TYPE(Matrix_t), POINTER :: A, M
+        INTEGER :: n,Rounds
+        REAL(KIND=dp) :: rx(:),rb(:),rr(:)
+!------------------------------------------------------------------------------
+        COMPLEX(KIND=dp) :: x(n/2),b(n/2),r(n/2)
+        INTEGER :: i,j,diag
+!------------------------------------------------------------------------------
+
+        DO i=1,n/2
+          r(i) = CMPLX( rr(2*i-1), rr(2*i),KIND=dp )
+          x(i) = CMPLX( rx(2*i-1), rx(2*i),KIND=dp )
+          b(i) = CMPLX( rb(2*i-1), rb(2*i),KIND=dp )
+        END DO
+        
+        DO j=1,Rounds
+          CALL MGCmv( A, x, r )
+          r(1:n/2) = b(1:n/2) - r(1:n/2)
+          
+          DO i=1,n/2
+            diag = M % diag(2*i-1)
+            r(i) = r(i) / CMPLX( M % Values(diag), M % Values(diag+1),KIND=dp)
+            x(i) = x(i) + r(i)
+          END DO
+        END DO
+        
+        DO i=1,n/2
+          rr(2*i-1) =  REAL( r(i) )
+          rr(2*i-0) =  AIMAG( r(i) )
+          rx(2*i-1) =  REAL( x(i) )
+          rx(2*i-0) =  AIMAG( x(i) )
+          rb(2*i-1) =  REAL( b(i) )
+          rb(2*i-0) =  AIMAG( b(i) )
+        END DO
+
+!------------------------------------------------------------------------------
+      END SUBROUTINE CJacobi
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+      SUBROUTINE GS( n, A, M, x, b, r, Rounds )
+!------------------------------------------------------------------------------
+        TYPE(Matrix_t), POINTER :: A, M
+        INTEGER :: Rounds
+        REAL(KIND=dp) :: x(:),b(:),r(:)
+!------------------------------------------------------------------------------
+        INTEGER :: i,j,k,n
+        REAL(KIND=dp) :: s
+        INTEGER, POINTER :: Cols(:),Rows(:)
+        REAL(KIND=dp), POINTER :: Values(:)
+!------------------------------------------------------------------------------
+     
+        n = A % NumberOfRows
+        Rows   => A % Rows
+        Cols   => A % Cols
+        Values => A % Values
+                
+        DO k=1,Rounds
+          
+          DO i=1,n
+            s = 0.0d0
+            DO j=Rows(i),Rows(i+1)-1
+              s = s + x(Cols(j)) * Values(j)
+            END DO
+            
+            r(i) = (b(i)-s) / M % Values(M % Diag(i))
+            x(i) = x(i) + r(i)
+          END DO
+        END DO
+!------------------------------------------------------------------------------
+      END SUBROUTINE GS
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+      SUBROUTINE SmoothedGS( n, A, M, x, b, r, w, Rounds )
+!------------------------------------------------------------------------------
+        TYPE(Matrix_t), POINTER :: A, M
+        INTEGER :: Rounds
+        REAL(KIND=dp) :: w, x(:),b(:),r(:)
+!------------------------------------------------------------------------------
+        INTEGER :: i,j,k,n
+        REAL(KIND=dp) :: s
+        INTEGER, POINTER :: Cols(:),Rows(:)
+        REAL(KIND=dp), POINTER :: Values(:)
+!------------------------------------------------------------------------------
+     
+        n = A % NumberOfRows
+        Rows   => A % Rows
+        Cols   => A % Cols
+        Values => A % Values
+
+       
+        DO k=1,Rounds
+          DO i=1,n
+            s = 0.0d0
+            DO j=Rows(i),Rows(i+1)-1
+              s = s + x(Cols(j)) * Values(j)
+            END DO
+            
+            r(i) = (b(i)-s) / M % Values(M % Diag(i))
+            x(i) = x(i) + w * r(i)
+          END DO
+        END DO
+!------------------------------------------------------------------------------
+      END SUBROUTINE SmoothedGS
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+      SUBROUTINE SGS( n, A, M, x, b, r, Rounds )
+!------------------------------------------------------------------------------
+        TYPE(Matrix_t), POINTER :: A, M
+        INTEGER :: Rounds
+        REAL(KIND=dp) :: x(:),b(:),r(:)
+        INTEGER :: i,j,k,n
+        REAL(KIND=dp) :: s
+        INTEGER, POINTER :: Cols(:),Rows(:)
+        REAL(KIND=dp), POINTER :: Values(:)
+        
+        n = A % NumberOfRows
+        Rows   => A % Rows
+        Cols   => A % Cols
+        Values => A % Values
+        
+        DO k=1,Rounds
+          DO i=1,n
+            s = 0.0d0
+            DO j=Rows(i),Rows(i+1)-1
+              s = s + x(Cols(j)) * Values(j)
+            END DO
+            r(i) = (b(i)-s) / M % Values(M % Diag(i))
+            x(i) = x(i) + r(i)
+          END DO
+          
+          DO i=n,1,-1
+            s = 0.0d0
+            DO j=Rows(i),Rows(i+1)-1
+              s = s + x(Cols(j)) * Values(j)
+            END DO
+            r(i) = (b(i)-s) / M % Values(M % Diag(i))
+            x(i) = x(i) + r(i)
+          END DO
+        END DO
+      END SUBROUTINE SGS
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+      SUBROUTINE SmoothedSGS( n, A, M, x, b, r, w, Rounds )
+!------------------------------------------------------------------------------
+        TYPE(Matrix_t), POINTER :: A, M
+        INTEGER :: Rounds
+        REAL(KIND=dp) :: w, x(:),b(:),r(:)
+        INTEGER :: i,j,k,n
+        REAL(KIND=dp) :: s
+        INTEGER, POINTER :: Cols(:),Rows(:)
+        REAL(KIND=dp), POINTER :: Values(:)
+        
+        n = A % NumberOfRows
+        Rows   => A % Rows
+        Cols   => A % Cols
+        Values => A % Values
+        
+        DO k=1,Rounds
+          DO i=1,n
+            s = 0.0d0
+            DO j=Rows(i),Rows(i+1)-1
+              s = s + x(Cols(j)) * Values(j)
+            END DO
+            r(i) = (b(i)-s) / M % Values(M % Diag(i))
+            x(i) = x(i) + w * r(i)
+          END DO
+          
+          DO i=n,1,-1
+            s = 0.0d0
+            DO j=Rows(i),Rows(i+1)-1
+              s = s + x(Cols(j)) * Values(j)
+            END DO
+            r(i) = (b(i)-s) / M % Values(M % Diag(i))
+            x(i) = x(i) + w * r(i)
+          END DO
+        END DO
+      END SUBROUTINE SmoothedSGS
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+      SUBROUTINE CSGS( n, A, M, rx, rb, rr, Rounds )
+!------------------------------------------------------------------------------
+        TYPE(Matrix_t), POINTER :: A, M
+        INTEGER :: Rounds
+        REAL(KIND=dp) :: rx(:),rb(:),rr(:)
+        INTEGER :: i,j,k,n,l
+        INTEGER, POINTER :: Cols(:),Rows(:)
+        REAL(KIND=dp), POINTER :: Values(:)
+        COMPLEX(KIND=dp) :: r(n/2),b(n/2),x(n/2),s
+        
+        DO i=1,n/2
+          r(i) = CMPLX( rr(2*i-1), rr(2*i), KIND=dp )
+          x(i) = CMPLX( rx(2*i-1), rx(2*i), KIND=dp )
+          b(i) = CMPLX( rb(2*i-1), rb(2*i), KIND=dp )
+        END DO
+        
+        Rows   => A % Rows
+        Cols   => A % Cols
+        Values => A % Values
+        
+        DO k=1,Rounds
+          DO i=1,n/2
+            s = 0.0d0
+            
+            DO j=Rows(2*i-1),Rows(2*i)-1,2             
+              s = s + x((Cols(j)+1)/2) * CMPLX( Values(j), -Values(j+1),KIND=dp)
+            END DO
+            
+            j = A % Diag(2*i-1)
+            r(i) = (b(i)-s) / CMPLX( Values(j), -Values(j+1),KIND=dp )
+            x(i) = x(i) + r(i)
+          END DO
+          
+          DO i=n/2,1,-1
+            s = 0.0d0
+            
+            DO j=Rows(2*i-1),Rows(2*i)-1,2             
+              s = s + x((Cols(j)+1)/2) * CMPLX( Values(j), -Values(j+1),KIND=dp)
+            END DO
+            
+            j = A % Diag(2*i-1)
+            r(i) = (b(i)-s) / CMPLX( Values(j), -Values(j+1),KIND=dp )
+            x(i) = x(i) + r(i)
+          END DO
+          
+        END DO
+        
+        DO i=1,n/2
+          rr(2*i-1) =  REAL( r(i) )
+          rr(2*i-0) =  AIMAG( r(i) )
+          rx(2*i-1) =  REAL( x(i) )
+          rx(2*i-0) =  AIMAG( x(i) )
+          rb(2*i-1) =  REAL( b(i) )
+          rb(2*i-0) =  AIMAG( b(i) )
+        END DO
+        
+      END SUBROUTINE CSGS
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+      SUBROUTINE PostSGS( n, A, M, x, b, r, f, Rounds )
+!------------------------------------------------------------------------------
+        TYPE(Matrix_t), POINTER :: A, M
+        INTEGER :: Rounds
+        INTEGER, POINTER :: f(:)
+        REAL(KIND=dp) :: x(:),b(:),r(:)
+        INTEGER :: i,j,k,n
+        REAL(KIND=dp) :: s
+        INTEGER, POINTER :: Cols(:),Rows(:)
+        REAL(KIND=dp), POINTER :: Values(:)
+        
+        n = A % NumberOfRows
+        Rows   => A % Rows
+        Cols   => A % Cols
+        Values => A % Values
+        
+        DO k=1,Rounds
+          
+          DO i=1,n
+            IF(f(i) /= 0) CYCLE
+            s = 0.0d0
+            DO j=Rows(i),Rows(i+1)-1
+              s = s + x(Cols(j)) * Values(j)
+            END DO
+            r(i) = (b(i)-s) / M % Values(M % Diag(i))
+            x(i) = x(i) + r(i)
+          END DO
+          DO i=1,n
+            IF(f(i) == 0) CYCLE
+            s = 0.0d0
+            DO j=Rows(i),Rows(i+1)-1
+              s = s + x(Cols(j)) * Values(j)
+            END DO
+            r(i) = (b(i)-s) / M % Values(M % Diag(i))
+            x(i) = x(i) + r(i)
+          END DO
+          
+          DO i=n,1,-1
+            IF(f(i) /= 0) CYCLE
+            s = 0.0d0
+            DO j=Rows(i),Rows(i+1)-1
+              s = s + x(Cols(j)) * Values(j)
+            END DO
+            r(i) = (b(i)-s) / M % Values(M % Diag(i))
+            x(i) = x(i) + r(i)
+          END DO
+          DO i=n,1,-1
+            IF(f(i) == 0) CYCLE
+            s = 0.0d0
+            DO j=Rows(i),Rows(i+1)-1
+              s = s + x(Cols(j)) * Values(j)
+            END DO
+            r(i) = (b(i)-s) / M % Values(M % Diag(i))
+            x(i) = x(i) + r(i)
+          END DO
+          
+        END DO
+      END SUBROUTINE PostSGS
+!------------------------------------------------------------------------------
+
+
+
+!------------------------------------------------------------------------------
+      SUBROUTINE CG( n, A, M, x, b, r, Rounds )
+!------------------------------------------------------------------------------
+        TYPE(Matrix_t), POINTER :: A,M
+        INTEGER :: Rounds
+        REAL(KIND=dp) :: x(:),b(:),r(:)
+        REAL(KIND=dp) :: alpha,rho,oldrho
+!------------------------------------------------------------------------------
+        INTEGER :: i,n
+!------------------------------------------------------------------------------
+        CALL MGmv( A, x, r )
+        r(1:n) = b(1:n) - r(1:n)
+        
+        DO i=1,Rounds
+          Z(1:n) = r(1:n)
+          CALL CRS_LUSolve( n, M, Z )
+          rho = MGdot( n, r, Z )
+          
+          IF ( i == 1 ) THEN
+            Pr(1:n) = Z(1:n)
+          ELSE
+            Pr(1:n) = Z(1:n) + rho * Pr(1:n) / oldrho
+          END IF
+          
+          CALL MGmv( A, Pr, Q )
+          alpha  = rho / MGdot( n, Pr, Q )
+          oldrho = rho
+          
+          x(1:n) = x(1:n) + alpha * Pr(1:n)
+          r(1:n) = r(1:n) - alpha * Q(1:n)
+        END DO
+!------------------------------------------------------------------------------
+      END SUBROUTINE CG
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+      SUBROUTINE CCG( n, A, M, rx, rb, rr, Rounds )
+!------------------------------------------------------------------------------
+        INTEGER :: i,n, Rounds
+        TYPE(Matrix_t), POINTER :: A,M
+        REAL(KIND=dp) :: rx(:),rb(:),rr(:)
+        COMPLEX(KIND=dp) :: alpha,rho,oldrho
+        COMPLEX(KIND=dp) :: r(n/2),b(n/2),x(n/2)
+        COMPLEX(KIND=dp) :: Z(n), Pc(n), Q(n)
+!------------------------------------------------------------------------------
+        DO i=1,n/2
+          r(i) = CMPLX( rr(2*i-1), rr(2*i),KIND=dp )
+          x(i) = CMPLX( rx(2*i-1), rx(2*i),KIND=dp )
+          b(i) = CMPLX( rb(2*i-1), rb(2*i),KIND=dp )
+        END DO
+        
+        CALL MGCmv( A, x, r )
+        r(1:n/2) = b(1:n/2) - r(1:n/2)
+        
+        DO i=1,Rounds
+          Z(1:n/2) = r(1:n/2)
+          CALL CRS_ComplexLUSolve( n, M, Z )
+          rho = MGCdot( n/2, r, Z )
+          
+          IF ( i == 1 ) THEN
+            Pc(1:n/2) = Z(1:n/2)
+          ELSE
+            Pc(1:n/2) = Z(1:n/2) + rho * Pc(1:n/2) / oldrho
+          END IF
+          
+          CALL MGCmv( A, Pc, Q )
+          alpha  = rho / MGCdot( n/2, Pc, Q )
+          oldrho = rho
+          
+          x(1:n/2) = x(1:n/2) + alpha * Pc(1:n/2)
+          r(1:n/2) = r(1:n/2) - alpha * Q(1:n/2)
+        END DO
+
+        DO i=1,n/2
+          rr(2*i-1) =  REAL( r(i) )
+          rr(2*i-0) =  AIMAG( r(i) )
+          rx(2*i-1) =  REAL( x(i) )
+          rx(2*i-0) =  AIMAG( x(i) )
+          rb(2*i-1) =  REAL( b(i) )
+          rb(2*i-0) =  AIMAG( b(i) )
+        END DO
+!------------------------------------------------------------------------------
+      END SUBROUTINE CCG
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+      SUBROUTINE BiCG( n, A, M, x, b, r, Rounds )
+!------------------------------------------------------------------------------
+        TYPE(Matrix_t), POINTER :: A,M
+        INTEGER :: Rounds
+        REAL(KIND=dp) :: x(:),b(:),r(:)
+!------------------------------------------------------------------------------
+        INTEGER :: i,n
+        REAL(KIND=dp) :: alpha,beta,omega,rho,oldrho
+!------------------------------------------------------------------------------
+        CALL MGmv( A, x, r )
+        r(1:n) = b(1:n) - r(1:n)
+        
+        Ri(1:n) = r(1:n)
+        Pr(1:n) = 0
+        V(1:n) = 0
+        omega  = 1
+        alpha  = 0
+        oldrho = 1
+        
+        DO i=1,Rounds
+          rho = MGdot( n, r, Ri )
+          
+          beta = alpha * rho / ( oldrho * omega )
+          Pr(1:n) = r(1:n) + beta * (Pr(1:n) - omega*V(1:n))
+          
+          V(1:n) = Pr(1:n)
+          CALL CRS_LUSolve( n, M, V )
+          T1(1:n) = V(1:n)
+          CALL MGmv( A, T1, V )
+
+          alpha = rho / MGdot( n, Ri, V )
+          
+          S(1:n) = r(1:n) - alpha * V(1:n)
+          
+          T(1:n) = S(1:n)
+          CALL CRS_LUSolve( n, M, T )
+          T2(1:n) = T(1:n)
+          CALL MGmv( A, T2, T )
+          omega = MGdot( n,T,S ) / MGdot( n,T,T )
+
+          oldrho = rho
+          r(1:n) = S(1:n) - omega*T(1:n)
+          x(1:n) = x(1:n) + alpha*T1(1:n) + omega*T2(1:n)
+        END DO
+!------------------------------------------------------------------------------
+      END SUBROUTINE BiCG
+!------------------------------------------------------------------------------
+
+
+
+!------------------------------------------------------------------------------
+! Gauss-Seidel for testing purposes
+!------------------------------------------------------------------------------
+      SUBROUTINE TestGS( n, A, M, x, b, r, Rounds )
+!------------------------------------------------------------------------------
+        TYPE(Matrix_t), POINTER :: A, M
+        INTEGER :: Rounds
+        REAL(KIND=dp) :: x(:),b(:),r(:)
+!------------------------------------------------------------------------------
+        INTEGER :: i,j,k,l,n,o,nsize
+        REAL(KIND=dp) :: s
+        INTEGER, POINTER :: Cols(:),Rows(:)
+        REAL(KIND=dp), POINTER :: Values(:)
+!------------------------------------------------------------------------------
+     
+        n = A % NumberOfRows
+        Rows   => A % Rows
+        Cols   => A % Cols
+        Values => A % Values
+        
+        PRINT *,'TestGS: Starting',&
+            ASSOCIATED(Rows),ASSOCIATED(Cols),ASSOCIATED(Values),ASSOCIATED(M % diag)
+        PRINT *,'TestGS: Sizes',&
+            SIZE(Rows),SIZE(Cols),SIZE(Values),SIZE(M % diag),SIZE(b),SIZE(r)
+        PRINT *,'TestGS: MinVal',&
+            MINVAL(Rows),MINVAL(Cols),MINVAL(Values),MINVAL(M % diag)
+        PRINT *,'TestGS: MaxVal',&
+            MAXVAL(Rows),MAXVAL(Cols),MAXVAL(Values),MAXVAL(M % diag)
+        
+        nsize = SIZE(Cols)
+        
+        
+        DO k=1,Rounds
+          
+          DO i=1,n
+            s = 0.0d0
+            
+            DO j=Rows(i),Rows(i+1)-1
+              IF(j<1 .OR. j>nsize) THEN
+                PRINT *,'TestGs A:',i,j
+              END IF
+              o = Cols(j)
+              IF(o<1 .OR. o>n) THEN
+                PRINT *,'TestGs B:',i,j,o
+              END IF
+              s = s + x(o) * Values(j)
+            END DO
+            
+            l = M % diag(i)
+            IF(l<1 .OR. l>nsize) THEN
+              PRINT *,'TestGs C:',i,j,o,l
+            END IF
+            r(i) = (b(i)-s) / M % Values(l)
+            x(i) = x(i) + r(i)
+          END DO
+        END DO
+        
+        PRINT *,'TestGS: Finished'
+!------------------------------------------------------------------------------
+      END SUBROUTINE TestGS
+!------------------------------------------------------------------------------
+
+    END FUNCTION MGSmooth
+
+  END MODULE Smoothers
