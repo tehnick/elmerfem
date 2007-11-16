@@ -300,6 +300,7 @@ BINARIES = AdvectionDiffusion$(SHL_EXT) \
 	V2FSolver$(SHL_EXT) \
 	Komega$(SHL_EXT) \
 	SSTKomega$(SHL_EXT) \
+	Spalart-Allmaras$(SHL_EXT) \
 	PoissonBoltzmannSolve$(SHL_EXT) \
 	Electrokinetics$(SHL_EXT) \
 	StressSolve$(SHL_EXT) \
@@ -503,6 +504,7 @@ EXTRA_DIST = \
 	SolverUtils.src \
 	SolveSBand.src \
 	SolveHypre.c   \
+	Spalart-Allmaras.src\
 	SParIterComm.src \
 	SParIterGlobals.src \
 	SParIterPrecond.src \
@@ -943,6 +945,7 @@ Interpolation.$(OBJEXT): Interpolation.f90 ElementDescription.$(OBJEXT) Lists.$(
 IterativeMethods.$(OBJEXT): IterativeMethods.f90 CRSMatrix.$(OBJEXT) Types.$(OBJEXT)
 IterSolve.$(OBJEXT): IterSolve.f90 CRSMatrix.$(OBJEXT) SParIterGlobals.$(OBJEXT) BandMatrix.$(OBJEXT) IterativeMethods.$(OBJEXT) Lists.$(OBJEXT)
 KESolver.$(OBJEXT): KESolver.f90 DefUtils.$(OBJEXT) MaterialModels.$(OBJEXT)
+Komega.$(OBJEXT): Komega.f90 DefUtils.$(OBJEXT) MaterialModels.$(OBJEXT)
 LevelSet.$(OBJEXT): LevelSet.f90 MaterialModels.$(OBJEXT) DefUtils.$(OBJEXT) Integration.$(OBJEXT) Lists.$(OBJEXT) ElementDescription.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
 LinearAlgebra.$(OBJEXT): LinearAlgebra.f90 Types.$(OBJEXT)
 Lists.$(OBJEXT): Lists.f90 PElementMaps.$(OBJEXT) GeneralUtils.$(OBJEXT) Messages.$(OBJEXT) Types.$(OBJEXT)
@@ -992,6 +995,7 @@ solve_real.$(OBJEXT): solve_real.f90
 Solver.$(OBJEXT): Solver.f90 GeneralUtils.$(OBJEXT) Types.$(OBJEXT)
 SolverUtils.$(OBJEXT): SolverUtils.f90 EigenSolve.$(OBJEXT) Multigrid.$(OBJEXT) HarmonicSolve.$(OBJEXT) ParallelUtils.$(OBJEXT) DirectSolve.$(OBJEXT) ElementUtils.$(OBJEXT) ParallelEigenSolve.$(OBJEXT) IterSolve.$(OBJEXT) MeshUtils.$(OBJEXT) LinearAlgebra.$(OBJEXT) TimeIntegrate.$(OBJEXT) ModelDescription.$(OBJEXT) Types.$(OBJEXT)
 SolveSBand.$(OBJEXT): SolveSBand.f90 Types.$(OBJEXT)
+Spalart-Allmaras.$(OBJEXT): Spalart-Allmaras.f90 DefUtils.$(OBJEXT) MaterialModels.$(OBJEXT)
 SParIterComm.$(OBJEXT): SParIterComm.f90 SParIterGlobals.$(OBJEXT) GeneralUtils.$(OBJEXT) Types.$(OBJEXT)
 SParIterGlobals.$(OBJEXT): SParIterGlobals.f90 Types.$(OBJEXT)
 SParIterPrecond.$(OBJEXT): SParIterPrecond.f90 SParIterGlobals.$(OBJEXT) SParIterComm.$(OBJEXT) Types.$(OBJEXT)
