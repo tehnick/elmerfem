@@ -383,7 +383,7 @@ CONTAINS
 
           WRITE(Message,'(A,I4,A,I5,A,E20.12E3)') 'MG Residual at level:', &
                  Level, ' iter:', iter,' is:', ResidualNorm
-          CALL Info( 'MultigridSolve', Message, Level=5 )
+          CALL Info( 'GMGSolve', Message, Level=5 )
 
           IF ( ResidualNorm < Tolerance ) EXIT
        END DO
@@ -405,7 +405,7 @@ CONTAINS
 
        IF ( Level == Solver % MultiGridTotal ) THEN
           WRITE( Message,'(A,F8.2)') 'MG iter time: ', CPUTime() - tt
-          CALL Info( 'MultigridSolve', Message, Level=5 )
+          CALL Info( 'GMGSolve', Message, Level=5 )
        END IF
 
 
@@ -3211,7 +3211,7 @@ CONTAINS
 
        Debug = .FALSE.
 
-       IF(Debug) CALL Info('InterpolateF2C','Starting interpolation')
+       IF(Debug) CALL Info('InterpolateF2CDistance','Starting interpolation')
        
        ProjLim = ListGetConstReal(Solver % Values,'MG Projection Limit',GotIt)
        IF(.NOT. GotIt) ProjLim = 0.5
@@ -3408,7 +3408,7 @@ CONTAINS
        ! Allocate space for the projection matrix and thereafter do the loop again
        IF(.NOT. AllocationsDone) THEN
          WRITE(Message,'(A,I8)') 'Size of the projector',PRows(Fdofs+1)-1
-         CALL Info('InterpolateF2CGeometric',Message)
+         CALL Info('InterpolateF2CDistance',Message)
 
          Projector => AllocateMatrix()
          Projector % NumberOfRows = Fdofs/Components
@@ -4489,7 +4489,7 @@ CONTAINS
 
     IF(.FALSE.) THEN 
       WRITE(Message,'(A,I2)') 'Starting level ',Level
-      CALL Info('AMGSolve',Message)
+      CALL Info('CMGSolve',Message)
     END IF
 
     Mesh => Solver % Mesh    
@@ -4551,7 +4551,7 @@ CONTAINS
 !      Compute residual:
 !      -----------------
     IF(SIZE(Solution) /= Matrix1 % NumberOfRows) THEN
-      CALL WARN('AMGSolve','Solution and matrix sizes differ')
+      CALL WARN('CMGSolve','Solution and matrix sizes differ')
     END IF
 
     CALL MGmv( Matrix1, Solution, Residual, .TRUE. )
@@ -4578,9 +4578,9 @@ CONTAINS
       IF(ASSOCIATED(Matrix1 % Parent)) CALL FreeMatrix(Matrix1 % Parent)
       IF(ASSOCIATED(Matrix1 % Ematrix)) CALL FreeMatrix(Matrix1 % Ematrix)
 
-      CALL Info('AMGSolve','')
+      CALL Info('CMGSolve','')
       WRITE( Message, '(A,I3)' ) 'Creating a new matrix and projector for level',Level
-      CALL Info('AMGSolve', Message)
+      CALL Info('CMGSolve', Message)
       MinLevel = MIN(MinLevel,Level)
       
       EliminateDir = ListGetLogical(Solver % Values,'MG Eliminate Dirichlet',GotIt) 
@@ -4596,7 +4596,7 @@ CONTAINS
       END IF
  
       WRITE( Message, '(A,F8.2)' ) 'MG coarse matrix creation time: ', CPUTime() - tt
-      CALL Info( 'AMGSolve', Message, Level=5 )
+      CALL Info( 'CMGSolve', Message, Level=5 )
 
       Matrix2 % Child  => Matrix1
       Matrix1 % Parent => Matrix2
@@ -4704,7 +4704,7 @@ CONTAINS
      
       WRITE(Message,'(A,I4,A,I5,A,E20.12E3)') 'MG Residual at level:', &
           Level, ' iter:', iter,' is:', ResidualNorm
-      CALL Info( 'AMGSolve', Message, Level=5 )
+      CALL Info( 'CMGSolve', Message, Level=5 )
       
       IF ( ResidualNorm < Tolerance ) EXIT
     END DO
@@ -4722,7 +4722,7 @@ CONTAINS
     
     IF ( Level == Solver % MultiGridTotal ) THEN
       WRITE( Message, '(A,F8.2)' ) 'MG iter time: ', CPUTime() - tt
-      CALL Info( 'AMGSolve', Message, Level=5 )
+      CALL Info( 'CMGSolve', Message, Level=5 )
 
       IF(CoarseSave) CALL SaveClusters()
     END IF
@@ -4896,8 +4896,8 @@ CONTAINS
     nodesize = matsize / Components
     ALLOCATE( Bonds(SIZE(Amat % Cols)), Fixed(nodesize), CF(nodesize) )
 
-    CALL AMGClusterBonds(Amat, Bonds, Fixed, Components,Component1)      
-    CALL AMGClusterForm(Amat, Bonds, Fixed, Components, Component1, CF)
+    CALL CMGBonds(Amat, Bonds, Fixed, Components,Component1)      
+    CALL CMGClusterForm(Amat, Bonds, Fixed, Components, Component1, CF)
 
     DEALLOCATE(Bonds, Fixed)
 
@@ -4910,7 +4910,7 @@ CONTAINS
 ! make the inverse table for important connections
 !------------------------------------------------------------------------------
 
-  SUBROUTINE AMGClusterBonds(Amat, Bonds, Fixed, Components, Component1)
+  SUBROUTINE CMGBonds(Amat, Bonds, Fixed, Components, Component1)
     
     LOGICAL, POINTER :: Bonds(:), Fixed(:)
     TYPE(Matrix_t), POINTER  :: Amat
@@ -5024,17 +5024,17 @@ CONTAINS
 
     IF(elimnods > 0) THEN
       WRITE(Message,'(A,T30,I8)') 'Number of eliminated nodes',elimnods
-      CALL Info('AMGClusterBonds',Message)
+      CALL Info('CMGBonds',Message)
     END IF
     WRITE(Message,'(A,T30,I8)') 'Number of possible connections',SIZE(Bonds)
-    CALL Info('AMGClusterBonds',Message)
+    CALL Info('CMGBonds',Message)
     WRITE(Message,'(A,T30,I8)') 'Number of strong connections',strongbonds
-    CALL Info('AMGClusterBonds',Message)
+    CALL Info('CMGBonds',Message)
     WRITE(Message,'(A,T30,F8.3)') 'Average number of strong bonds',&
         1.0*strongbonds/nodesize
-    CALL Info('AMGClusterBonds',Message)
+    CALL Info('CMGBonds',Message)
 
-  END SUBROUTINE AMGClusterBonds
+  END SUBROUTINE CMGBonds
 
 
 !------------------------------------------------------------------------------
@@ -5044,7 +5044,7 @@ CONTAINS
 ! to which cluster each node belongs to.
 !------------------------------------------------------------------------------
 
-  SUBROUTINE AMGClusterForm(Amat, Bonds, Fixed, Components, Component1, CF)
+  SUBROUTINE CMGClusterForm(Amat, Bonds, Fixed, Components, Component1, CF)
     
     TYPE(Matrix_t), POINTER :: Amat
     INTEGER :: Components, Component1
@@ -5442,11 +5442,11 @@ CONTAINS
     DEALLOCATE(Con, GatLims, GatNos, ConInd, RevConInd)
 
     WRITE(Message,'(A,I8)') 'Clustering algorithm clusters',cind
-    CALL Info('AMGCoarse',Message)
+    CALL Info('CMGClusterFrom',Message)
     WRITE(Message,'(A,I8)') 'Clustering algorithm nodes',cnods
-    CALL Info('AMGCoarse',Message)
+    CALL Info('CMGClusterForm',Message)
 
-  END SUBROUTINE AMGClusterForm
+  END SUBROUTINE CMGClusterForm
 
 
 
