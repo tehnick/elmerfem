@@ -252,6 +252,7 @@ EXTRA_DIST = \
 	SaveData.src \
 	ShellSolve.src \
 	Smitc.src \
+	Smoothers.src \
 	SolveBand.src \
 	solve_cmplx.src \
 	solve_real.src \
