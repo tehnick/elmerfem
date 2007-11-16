@@ -492,65 +492,6 @@ this ise not in USE
 
 
 
-
-#if 0
-this is not in USE
-!------------------------------------------------------------------------------
-   SUBROUTINE KEPhi( SecInv,Ux,Uy,Uz,Element,Nodes )
-!------------------------------------------------------------------------------
-
-     REAL(KIND=dp)  :: Ux(:),Uy(:),Uz(:),SecInv(:)
-     TYPE(Nodes_t)     :: Nodes
-     TYPE(Element_t)   :: Element
-
-!------------------------------------------------------------------------------
-     REAL(KIND=dp) :: Basis(MAX_ELEMENT_NODES),dBasisdx(MAX_ELEMENT_NODES,3)
-     REAL(KIND=dp) :: s,u,v,w,SqrtMetric,SqrtElementMetric,Velo(3)
-     REAL(KIND=dp) :: Metric(3,3),dVelodx(3,3), &
-                           CtrMetric(3,3),Symb(3,3,3),dSymb(3,3,3,3)
-
-     LOGICAL :: stat
-     INTEGER :: i,j,n
-!------------------------------------------------------------------------------
-
-     n = Element % TYPE % NumberOfNodes
-
-     DO i=1,n
-!------------------------------------------------------------------------------
-!     Basis function values & derivatives at the calculation point
-!------------------------------------------------------------------------------
-        u = Element % TYPE % NodeU(i)
-        v = Element % TYPE % NodeV(i)
-        w = Element % TYPE % NodeW(i)
-
-        stat = ElementInfo( Element,Nodes,u,v,w, &
-          SqrtElementMetric, Basis,dBasisdx )
-!------------------------------------------------------------------------------
-!       Coordinate system dependent information
-!------------------------------------------------------------------------------
-        CALL CoordinateSystemInfo( Metric,SqrtMetric,Symb,dSymb, &
-               Nodes % x(i),Nodes % y(i),Nodes % z(i) )
-!------------------------------------------------------------------------------
-
-        DO j=1,3
-          dVelodx(1,j) = SUM( Ux(1:n)*dBasisdx(1:n,j) )
-          dVelodx(2,j) = SUM( Uy(1:n)*dBasisdx(1:n,j) )
-          dVelodx(3,j) = SUM( Uz(1:n)*dBasisdx(1:n,j) )
-        END DO
-
-        Velo(1) = Ux(i)
-        Velo(2) = Uy(i)
-        Velo(3) = Uz(i)
-        SecInv(i) = SecondInvariant( Velo,dVelodx,Metric,Symb ) / 2.0d0
-
-     END DO
-
-!------------------------------------------------------------------------------
-   END SUBROUTINE KEPhi
-!------------------------------------------------------------------------------
-#endif
-
-
 !------------------------------------------------------------------------------
    FUNCTION EffectiveConductivity( Conductivity,Density,Element, &
         Temperature,Ux,Uy,Uz,Nodes,n,nd,u,v,w ) RESULT(PCond)
@@ -601,6 +542,8 @@ this is not in USE
 !------------------------------------------------------------------------------
      SELECT CASE( ConductivityFlag )
        CASE( 'ke','k-epsilon', 'turbulent' )
+          stat = ElementInfo( Element,Nodes,u,v,w,detJ,Basis )
+
           c1n(1:n) = GetReal( Material, 'Heat Capacity' )
           c_p = SUM( Basis(1:n) * c1n(1:n) )
 
@@ -623,7 +566,6 @@ this is not in USE
          Fnc = GetProcAddr( str, Quiet=.TRUE. )
 
          stat = ElementInfo( Element,Nodes,u,v,w, detJ, Basis,dBasisdx )
-
          Temp(1) = SUM( Basis(1:nd) * Temperature(1:nd) )
          DO i=1,3
             dTempdx(i,1) = SUM( dBasisdx(1:nd,i) * Temperature(1:nd) )

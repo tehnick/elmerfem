@@ -427,7 +427,14 @@ CONTAINS
        Cb2 = 0.6220_dp
        Cv1 = 7.1_dp
        Sigma = 2._dp/3._dp
-       Cw1 = Cb1/0.41_dp**2 + (1+Cb2)/Sigma
+
+       ! Rotation and curvature correction of Schweighofer & Helsten; NOT IN USE
+       ! -----------------------------------------------------------------------
+!      r = VorticityMeasure/StrainMeasure*(VorticityMeasure/StrainMeasure-1)
+!      r = 1._dp / (1+3.6_dp*r)
+       r = 1._dp
+       Cw1 = r*(Cb1/0.41_dp**2 + (1+Cb2)/Sigma)
+
        Cw2 = 0.3_dp
        Cw3 = 2.0_dp
 
@@ -483,7 +490,6 @@ CONTAINS
 
         ! Load at the integration point:
         !-------------------------------
-        LoadAtIp = 0._dp
         LoadAtIp = 3._dp*rho * Cb1 * St * Tmu/4
 
 !------------------------------------------------------------------------------
