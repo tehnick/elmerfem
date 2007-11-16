@@ -404,6 +404,15 @@ this ise not in USE
        CASE( 'rng k-epsilon' )
          Var => VariableGet( CurrentModel % Variables, 'Effective Viscosity')
          PVisc = SUM( Basis(1:n) * Var % Values( Var % Perm( Element % NodeIndexes )))
+
+       CASE( 'spalart-allmaras' )
+         Var => VariableGet( CurrentModel % Variables, 'Turbulent Viscosity')
+         IF ( .NOT. ASSOCIATED( Var ) ) &
+           CALL Fatal( 'Viscosity Model', 'The turbulent viscosity variable not defined?' )
+         PVisc = SUM( Basis(1:n) * Var % Values( Var % Perm( Element % NodeIndexes )))
+         c1 = Pvisc/(Viscosity/Density)
+         c1 = c1**3 / (c1**3 + 7.1_dp**3) 
+         Pvisc = Viscosity + pvisc*Density*c1
  
        CASE( 'k-omega' )
          Var => VariableGet( CurrentModel % Variables, 'Kinetic Energy' )

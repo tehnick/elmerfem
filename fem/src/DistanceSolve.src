@@ -1,3 +1,4 @@
+
 SUBROUTINE DistanceSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 !/*****************************************************************************/
@@ -70,8 +71,8 @@ SUBROUTINE DistanceSolver( Model,Solver,dt,TransientSimulation )
 
   TYPE(ValueList_t), POINTER :: SolverParams, BC
 
-  REAL(KIND=dp) :: Pnorm,Norm,RelaxDT,TOL
-  INTEGER :: n, nb, nd, t, i,j,istat, active, MaxIter
+  REAL(KIND=dp) :: Pnorm,Norm,RelaxDT,TOL,x0,y0,z0,x1,y1,z1
+  INTEGER :: n, nb, nd, t, i,j,k,istat, active, MaxIter
   TYPE(Mesh_t), POINTER :: Mesh
   TYPE(ValueList_t), POINTER :: BodyForce
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:)
@@ -241,4 +242,88 @@ CONTAINS
 
 !------------------------------------------------------------------------------
 END SUBROUTINE DistanceSolver
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+SUBROUTINE DistanceSolver1( Model,Solver,dt,TransientSimulation )
+!------------------------------------------------------------------------------
+
+!******************************************************************************
+  USE DefUtils
+
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Solver_t) :: Solver
+  TYPE(Model_t) :: Model
+
+  REAL(KIND=dp) :: dt
+  LOGICAL :: TransientSimulation
+!------------------------------------------------------------------------------
+! Local variables
+!------------------------------------------------------------------------------
+  LOGICAL :: AllocationsDone = .FALSE., Found
+  TYPE(Element_t),POINTER :: Element
+
+  TYPE(ValueList_t), POINTER :: SolverParams, BC
+
+  REAL(KIND=dp) :: Pnorm,Norm,RelaxDT,TOL,x0,y0,z0,dist
+  INTEGER :: n, nb, nd, t, i,j,k,istat, active, MaxIter
+  INTEGER, POINTER :: APerm(:), BPerm(:)
+  TYPE(Mesh_t), POINTER :: Mesh
+  TYPE(ValueList_t), POINTER :: BodyForce
+  REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), FORCE(:)
+
+  SAVE STIFF, FORCE, AllocationsDone
+!------------------------------------------------------------------------------
+
+  Mesh => GetMesh()
+  ALLOCATE( APerm(Mesh % NumberOfNodes), BPerm(Mesh % NumberOfNodes) )
+  Aperm = 0
+  Bperm = 0
+  nb = 0
+  DO t=1,Mesh % NumberOfBoundaryElements
+    Element => GetBoundaryElement(t)
+    IF ( .NOT. ActiveBoundaryElement() ) CYCLE
+
+    BC => GetBC()
+    IF ( ListCheckPresent( BC, Solver % Variable % Name) .OR. &
+         GetLogical( BC, 'Noslip Wall BC', Found ) ) THEN
+      n = GetElementNOFNodes()
+      DO i=1,n
+        j = Element % NodeIndexes(i)
+        IF ( Bperm(j) == 0 ) THEN
+          nb = nb + 1
+          Aperm(nb) = j
+          Bperm(j)  = nb
+        END IF
+      END DO
+    END IF
+  END DO
+
+  Solver % Variable % Values = HUGE(1._dp)
+  DO i=1,Mesh % NumberOfNodes
+    k = Solver % Variable % Perm(i)
+    IF ( k <= 0 ) CYCLE
+
+    IF ( Bperm(i) /= 0 ) THEN
+      Solver % Variable % Values(k) = 0.0_dp
+      CYCLE
+    END IF
+
+    x0 = Mesh % Nodes % x(i)
+    y0 = Mesh % Nodes % y(i)
+    z0 = Mesh % Nodes % z(i)
+    DO j=1,nb
+      dist = (Mesh % Nodes % x(Aperm(j))-x0)**2 + &
+             (Mesh % Nodes % y(Aperm(j))-y0)**2 + &
+             (Mesh % Nodes % z(Aperm(j))-z0)**2
+      Solver % Variable % Values(k) = MIN(Solver % Variable % Values(k), dist)
+    END DO
+  END DO
+  Solver % Variable % Norm   = SQRT(SUM(Solver % Variable % Values)) 
+  Solver % Variable % Values = SQRT(Solver % Variable % Values)
+
+  DEALLOCATE( APerm, BPerm )
+!------------------------------------------------------------------------------
+END SUBROUTINE DistanceSolver1
 !------------------------------------------------------------------------------
