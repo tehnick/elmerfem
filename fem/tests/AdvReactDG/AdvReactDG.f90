@@ -71,7 +71,7 @@
      TYPE(Element_t), POINTER :: Element, Face, &
        ParentElement, LeftParent, RightParent
 
-     LOGICAL :: AllocationsDone = .FALSE., Found, Stat
+     LOGICAL :: AllocationsDone = .FALSE., Found, Stat, CompressibleFlow
      INTEGER :: Active, DIM
      INTEGER :: n1,n2, k, n, t, istat, i, j, NumberOfFAces, Indexes(128)
      REAL(KIND=dp) :: Norm, at, st, CPUTime
@@ -80,7 +80,7 @@
 
      TYPE(Mesh_t), POINTER :: Mesh
      TYPE(Variable_t), POINTER ::  Var
-     SAVE MASS, STIFF, LOAD, FORCE, Velo, Gamma, AllocationsDone, DIM
+     SAVE MASS, STIFF, LOAD, FORCE, Velo, Gamma, AllocationsDone, DIM, CompressibleFlow
 !*******************************************************************************
 
      TYPE( Element_t ), POINTER :: Faces(:)
@@ -97,7 +97,6 @@
         Faces => Mesh % Faces
         NumberOfFaces = Mesh % NumberOfFaces
      END IF
-
      ! Initialize & allocate some permanent storage, this is done first time only:
      !----------------------------------------------------------------------------
      IF ( .NOT. AllocationsDone ) THEN
@@ -105,7 +104,11 @@
         ALLOCATE( FORCE(N), MASS(n,n), STIFF(N,N), LOAD(N),  &
                   Velo(3,N), Gamma(n), STAT = istat )
         
-       IF ( istat /= 0 ) CALL FATAL('AdvReactDG','Memory allocation error.' )
+       IF ( istat /= 0 ) THEN
+          CALL FATAL('AdvReactDG','Memory allocation error.' )
+       ELSE
+          CALL INFO('AdvReactDG','Memory allocation done',Level=1 )
+       END IF
        DIM = CoordinateSystemDimension()
        AllocationsDone = .TRUE.
      END IF
@@ -126,6 +129,7 @@
         Velo(1,1:n) = GetReal( Material, 'u 1', Found )
         Velo(2,1:n) = GetReal( Material, 'u 2', Found )
         Velo(3,1:n) = GetReal( Material, 'u 3', Found )
+        
         Gamma(1:n)  = GetReal( Material, 'Gamma', Found )
 
         CALL LocalMatrix( MASS, STIFF, FORCE, LOAD, Velo, Gamma, Element, n ) 
@@ -175,6 +179,7 @@
        Velo(1,1:n) = GetReal( Material, 'u 1', Found )
        Velo(2,1:n) = GetReal( Material, 'u 2', Found )
        Velo(3,1:n) = GetReal( Material, 'u 3', Found )
+
 
        BC => GetBC()
        LOAD = 0.0d0
@@ -230,7 +235,7 @@
          Var % Values(1:n1) = Var % Values(1:n1) / Ref
        END WHERE
        DEALLOCATE( Ref )
-     END IF
+    END IF
 
    CONTAINS
 
@@ -243,7 +248,7 @@
        TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
        REAL(KIND=dp) :: Basis(n),dBasisdx(n,3)
-       REAL(KIND=dp) :: detJ,U,V,W,S,A,L,cu(3),divu,g
+       REAL(KIND=dp) :: detJ,U,V,W,S,A,L,cu(3),g
        LOGICAL :: Stat
        INTEGER :: i,p,q,t,dim
        TYPE(GaussIntegrationPoints_t) :: IntegStuff
@@ -276,18 +281,16 @@
          g = SUM( Basis(1:n) * Gamma(1:n) )
 
          cu   = 0.0d0
-         divu = 0.0d0
          DO i=1,dim
            cu(i) = SUM( Basis(1:n) * Velo(i,1:n) )
-           divu = divu + SUM( Velo(i,1:n) * dBasisdx(1:n,i) )
          END DO
 !------------------------------------------------------------------------------
-!        The advection-reaction equation
+!        The advection-reaction equation: dc/dt + grad(u . c) + gamma c = s
 !------------------------------------------------------------------------------
          DO p=1,n
             DO q=1,n
               MASS(p,q)  = MASS(p,q)  + s * Basis(q) * Basis(p)
-              STIFF(p,q) = STIFF(p,q) + s * (g-divu) * Basis(q) * Basis(p)
+              STIFF(p,q) = STIFF(p,q) + s * g * Basis(q) * Basis(p)
               DO i=1,dim
                 STIFF(p,q) = STIFF(p,q) - s * cu(i) * Basis(q) * dBasisdx(p,i)
               END DO
