@@ -67,9 +67,18 @@ CONTAINS
        REAL(KIND=dp) :: ForceVector(:), Solution(:)
 !------------------------------------------------------------------------------
        LOGICAL :: Found, Algebraic, Cluster, Geometric
-
-       Algebraic = ListGetLogical( Solver % Values, 'MG Algebraic', Found ) 
-       Cluster = ListGetLogical( Solver % Values, 'MG Cluster', Found )
+       CHARACTER(LEN=MAX_NAME_LEN) :: MGMethod    
+       
+       MGMethod = ListGetString( Solver % Values,'MG Method',Found) 
+       IF( Found ) THEN
+         Cluster = ( MGmethod == 'cluster' ) 
+         Algebraic = ( MGmethod == 'algebraic' ) 
+         Geometric = ( MGmethod == 'geometric' )  
+       ELSE
+         Algebraic = ListGetLogical( Solver % Values, 'MG Algebraic', Found ) 
+         Cluster = ListGetLogical( Solver % Values, 'MG Cluster', Found )
+         Geometric = ListGetLogical( Solver % Values, 'MG Geometric', Found )
+       END IF
 
        IF ( Algebraic ) THEN
          CALL AMGSolve( Matrix1, Solution, ForceVector, DOFs, Solver, Level, NewSystem )
@@ -173,7 +182,7 @@ CONTAINS
  
        Tolerance = ListGetConstReal( Solver % Values, &
           'Linear System Convergence Tolerance' )
- 
+
 !      IF ( ResidualNorm < Tolerance ) THEN
 !         DEALLOCATE( Residual )
 !         RETURN
@@ -305,6 +314,7 @@ CONTAINS
 !      Global iteration parameters:
 !      ----------------------------
        MaxIter = 1
+
        IF ( Level == Solver % MultiGridTotal ) THEN
           MaxIter = ListGetInteger( Solver % Values,&
               'MG Max Iterations', Found )
@@ -343,6 +353,7 @@ CONTAINS
          str = ListGetString( Solver % Values,'Linear System Preconditioning', Found )
        END IF
 
+
        IF ( str == 'ilut' )  THEN
 
           IF ( NewLinearSystem ) THEN
@@ -373,6 +384,7 @@ CONTAINS
           END IF
 
        END IF
+
 
 !------------------------------------------------------------------------------
 !
@@ -430,9 +442,17 @@ CONTAINS
 !      Presmoothing:
 !      -------------
 
+       Iters => ListGetIntegerArray( Solver % Values,'MG Sweeps',Found)
+       j = SIZE(Iters)
+       IF(Found) THEN
+         Sweeps = Iters(MIN(InvLevel,SIZE(Iters)))
+       ELSE        
+         Sweeps = 1
+       END IF
+
        PSolver => Solver
        RNorm = MGSmooth( PSolver, Matrix1, Solution, ForceVector, &
-               Residual, Level, .TRUE. )
+               Residual, Level, DOFs, .TRUE. )
 !
 !------------------------------------------------------------------------------
 !
@@ -448,6 +468,7 @@ CONTAINS
          CALL CRS_ApplyProjector( ProjPN, R1, Permutation, &
                 R2, Permutation2, Trans = .FALSE. )
       END DO
+
 !
 !     Recursively solve (PAQ)z = Pr:
 !     ------------------------------
@@ -478,7 +499,7 @@ CONTAINS
 !     ---------------
 
       RNorm = MGSmooth( PSolver, Matrix1, Solution, ForceVector, &
-          Residual, Level, .FALSE. )
+          Residual, Level, DOFs, .FALSE. )
 !------------------------------------------------------------------------------
     END FUNCTION GMGSweep
 !------------------------------------------------------------------------------
@@ -781,18 +802,18 @@ CONTAINS
     TYPE(Solver_t), POINTER :: PSolver
    
     INTEGER :: i,j,k,l,m,n,n2,k1,k2,iter,MaxIter = 100, DirectLimit, &
-        MinLevel, ComponentMode, ProjectorDOFs, InvLevel
+        MinLevel, InvLevel
     LOGICAL :: Condition, Found, Parallel, EliminateDir, CoarseSave
     CHARACTER(LEN=MAX_NAME_LEN) :: str,IterMethod,FileName
     INTEGER, POINTER :: CF(:), InvCF(:)
     
     REAL(KIND=dp), POINTER :: Residual(:), Work(:), Residual2(:), Work2(:),  Solution2(:)
     REAL(KIND=dp) :: ResidualNorm, RHSNorm, Tolerance, ILUTOL
-    REAL(KIND=dp) :: CPUTime, tt, tt2, tt3
+    REAL(KIND=dp) :: CPUTime, tt
 
     LOGICAL :: NewLinearSystem, gotit
 
-    SAVE NewLinearSystem, AMG, MinLevel, ComponentMode, ProjectorDOFs
+    SAVE NewLinearSystem, AMG, MinLevel
     
 !------------------------------------------------------------------------------
 
@@ -814,13 +835,6 @@ CONTAINS
     ! This is a counter that for the first full resursive round keeps the 
     ! flag NewLinearSystem true.
     IF ( Level == Solver % MultiGridLevel ) THEN
-
-      PRINT *,'Matrix',ASSOCIATED(Matrix1 % Perm),&
-          ASSOCIATED(Matrix1 % InvPerm),&
-           ASSOCIATED(Matrix1 % Grows),&
-          ASSOCIATED(Matrix1 % RowOwner), &
-         ASSOCIATED(Matrix1 % Gorder)
-
       NewLinearSystem = .TRUE.
       MinLevel = Solver % MultiGridLevel
 
@@ -838,11 +852,11 @@ CONTAINS
     n = Matrix1 % NumberOfRows
 
     DirectLimit = ListGetInteger(Solver % Values,'MG Lowest Linear Solver Limit',GotIt) 
-    IF(.NOT. GotIt) DirectLimit = 10
+    IF(.NOT. GotIt) DirectLimit = 20
 
     IF ( Level <= 1 .OR. n < DirectLimit) THEN
-      IF( ListGetLogical( Solver % Values,'MG Lowest Linear Solver Unsolve',GotIt)) THEN
-        CONTINUE
+      IF ( ListGetLogical( Solver % Values, 'MG Lowest Linear Solver Unsolve',gotit ) ) THEN
+        RETURN
       ELSE IF ( .NOT. Parallel ) THEN
         IF ( ListGetLogical( Solver % Values, 'MG Lowest Linear Solver Iterative',gotit ) ) THEN
           CALL IterSolver( Matrix1, Solution, ForceVector, Solver )
@@ -855,7 +869,7 @@ CONTAINS
       END IF
       RETURN
     END IF
-    
+
     n = Matrix1 % NumberOfRows
     ALLOCATE( Residual(n) )
     Residual = 0.0d0
@@ -906,7 +920,7 @@ CONTAINS
         ALLOCATE(AMG(Solver % MultiGridTotal))
       END IF
 
-      CALL Info('AMGSolve','')
+      CALL Info('AMGSolve','------------------------------------------------')
       WRITE( Message, '(A,I3)' ) 'Creating a new matrix and projector for level',Level
       CALL Info('AMGSolve', Message)
       MinLevel = MIN(MinLevel,Level)
@@ -916,24 +930,8 @@ CONTAINS
       IF(Level /= Solver % MultiGridTotal) EliminateDir = .FALSE.
 
       ! Determine projector with one dof and use it for others
-      ! 0 - no component mode
-      ! 1 - only allow block diagonal connections, otherwise normal routines 
-      ! 2 - determine C/F split from one dof, and then copy it for other dofs
-      ! 3 - determine C/F split and projector from one dof, then project everything with it
-      ComponentMode = ListGetInteger( Solver % Values, 'MG Component Mode', Found )
-      IF( ComponentMode == 3) THEN
-        ProjectorDofs = Dofs
-      ELSE
-        ProjectorDofs = 1
-      END IF     
-      
-      IF(ComponentMode == 0) THEN
-        CALL ChooseCoarseNodes(Matrix1, Solver, ProjT, 1, CF, InvCF)
-      ELSE IF(ComponentMode == 3) THEN
-        CALL ChooseCoarseNodes(Matrix1, Solver, ProjT, DOFs, CF, InvCF)        
-      ELSE        
-        CALL ChooseCoarseNodes(Matrix1, Solver, ProjT, DOFs, CF )
-      END IF
+      ! Determine C/F split and projector from one dof, then project everything with it
+      CALL ChooseCoarseNodes(Matrix1, Solver, ProjT, DOFs, CF, InvCF)        
       
       IF( ListGetLogical(Solver % Values,'MG Projector Matrix Save',GotIt) ) THEN
         WRITE(Filename,'(A,I1,A)') 'P',Level,'.dat'
@@ -944,7 +942,7 @@ CONTAINS
       ! It is needed only in determining the matrix structure.       
       ProjPN => CRS_Transpose( ProjT )
       !     CALL ParallelInitMatrix( Solver, Solver % Matrix )
-      CALL CRS_ProjectMatrixCreate( Matrix1, ProjPN, ProjT, Matrix2, ProjectorDOFs)
+      CALL CRS_ProjectMatrixCreate( Matrix1, ProjPN, ProjT, Matrix2, DOFs)
       CALL FreeMatrix(ProjT)             
 
       Matrix2 % Child  => Matrix1
@@ -957,17 +955,14 @@ CONTAINS
 
       ! Make the cnodes point to the set of original nodes
       IF(CoarseSave) THEN
-        IF( ComponentMode == 0 .OR. ComponentMode == 3) THEN
-          ProjPN % Perm => CF
-        ELSE   
-          ! Make the cnodes point to the set of original nodes         
-          IF(Level < Solver % MultiGridTotal) THEN
-            IF( ASSOCIATED(InvCF)) THEN
-              AMG(Level) % InvCF => InvCF
-              DO i=1,SIZE(InvCF)
-                IF(InvCF(i) > 0) InvCF(i) = AMG(Level+1) % InvCF(InvCF(i))
-              END DO
-            END IF
+        ProjPN % Perm => CF
+        ! Make the cnodes point to the set of original nodes         
+        IF(Level < Solver % MultiGridTotal) THEN
+          IF( ASSOCIATED(InvCF)) THEN
+            AMG(Level) % InvCF => InvCF
+            DO i=1,SIZE(InvCF)
+              IF(InvCF(i) > 0) InvCF(i) = AMG(Level+1) % InvCF(InvCF(i))
+            END DO
           END IF
         END IF
       END IF
@@ -982,11 +977,11 @@ CONTAINS
         !        CALL AMGTest(1)
         !        CALL AMGTest(2)         
       END IF
+
     ELSE
       ! .NOT. new linear system
       Matrix2 => Matrix1 % Parent      
-      IF( ComponentMode == 0 .OR. ComponentMode == 3) CF => ProjPN % Perm
-
+      CF => ProjPN % Perm
       ProjPN => Matrix1 % Ematrix
       ProjQT => ProjPN      
     END IF  
@@ -996,7 +991,6 @@ CONTAINS
     Residual2 => Matrix2 % RHS
     ALLOCATE( Work(n), Work2(n2), Solution2(n2) )
 
-    
 !------------------------------------------------------------------------------
 !      Global iteration parameters:
 !      ----------------------------
@@ -1062,20 +1056,18 @@ CONTAINS
       END IF      
     END IF
 
-
 !------------------------------------------------------------------------------
 !      Ok, lets go:
 !      ------------
     DO iter = 1,MaxIter
       ResidualNorm = AMGSweep() / RHSNorm
-     
+    
       WRITE(Message,'(A,I4,A,I5,A,E20.12E3)') 'MG Residual at level:', &
           Level, ' iter:', iter,' is:', ResidualNorm
       CALL Info( 'AMGSolve', Message, Level=5 )
       
       IF ( ResidualNorm < Tolerance ) EXIT
     END DO
-
     
 !------------------------------------------------------------------------------
 !
@@ -1092,17 +1084,15 @@ CONTAINS
       CALL Info( 'AMGSolve', Message, Level=5 )
 
       IF(CoarseSave) THEN
-        IF( ProjectorDOFs == 1) THEN
-          IF(ASSOCIATED(AMG)) THEN
-            DO i = MinLevel,Solver % MultiGridTotal
-              IF(ASSOCIATED(AMG(i) % InvCF)) DEALLOCATE(AMG(i) % InvCF)
-            END DO
-            DEALLOCATE(AMG)
-          END IF
+        IF(ASSOCIATED(AMG)) THEN
+          DO i = MinLevel,Solver % MultiGridTotal
+            IF(ASSOCIATED(AMG(i) % InvCF)) DEALLOCATE(AMG(i) % InvCF)
+          END DO
+          DEALLOCATE(AMG)
         END IF
       END IF
     END IF
-
+ 
     RETURN
 !------------------------------------------------------------------------------
 
@@ -1134,7 +1124,8 @@ CONTAINS
       END IF
       
       PSolver => Solver
-      RNorm = MGSmooth( PSolver, Matrix1, Solution, ForceVector,Residual, Level, .TRUE.)
+      RNorm = MGSmooth( PSolver, Matrix1, Solution, ForceVector,Residual, &
+          Level, DOFs, .TRUE.)
       
 !------------------------------------------------------------------------------
 !
@@ -1146,7 +1137,7 @@ CONTAINS
       R1 => Residual(1:n)
       R2 => Residual2(1:n2)
 
-      CALL CRS_ProjectVector( ProjPN, R1, R2, ProjectorDOFs, Trans = .FALSE. )
+      CALL CRS_ProjectVector( ProjPN, R1, R2, DOFs, Trans = .FALSE. )
  
 !      Recursively solve (PAQ)z = Pr:
 !      ------------------------------
@@ -1158,7 +1149,7 @@ CONTAINS
         
         CALL MultigridSolve( Matrix2, Work2, Residual2, DOFs, &
             Solver, Level-1,NewLinearSystem )
-        
+
         Solution2(1:n2) = Solution2(1:n2) + Work2(1:n2)
       END DO
 
@@ -1167,14 +1158,15 @@ CONTAINS
       R1 => Residual (1:n)
       R2 => Solution2(1:n2)
       
-      CALL CRS_ProjectVector( ProjQT, R2, R1, ProjectorDOFs, Trans = .TRUE. )      
+      CALL CRS_ProjectVector( ProjQT, R2, R1, DOFs, Trans = .TRUE. )      
 
       Solution(1:n) = Solution(1:n) + Residual(1:n)
 
 
 !      Post smoothing:
 !      ---------------
-      RNorm = MGSmooth( PSolver, Matrix1, Solution, ForceVector, Residual, Level, .FALSE.)
+      RNorm = MGSmooth( PSolver, Matrix1, Solution, ForceVector, Residual, &
+          Level, DOFs, .FALSE.)
 !------------------------------------------------------------------------------
     END FUNCTION AMGSweep
 !------------------------------------------------------------------------------
@@ -1257,11 +1249,10 @@ CONTAINS
        INTEGER, POINTER :: CandList(:)
        INTEGER :: nods, newcands
        
-       ! Local variables
-       INTEGER :: cnods, RatioClasses(101)       
        INTEGER :: i, j, k, Rounds
        REAL(KIND=dp), POINTER :: Ones(:), Zeros(:)
        REAL(KIND=dp) :: Limit, MaxRatio, Ratio
+       INTEGER :: cnods, RatioClasses(101)
        LOGICAL :: GotIt
        
        Rounds = ListGetInteger(Solver % Values,'MG Compatible Relax Rounds',GotIt)
@@ -1323,16 +1314,13 @@ CONTAINS
        CALL Info('CompatibleRelaxation',Message)
        
        DO i=1,13
-         IF( RatioClasses(i) > 0) THEN
+         IF(RatioClasses(i) > 0) THEN
            IF(i==11) THEN
-             WRITE( Message, '(F3.1,A,A,I9,F9.3)' ) 1.0,' - ','...',&
-                 RatioClasses(i),100.0d0*RatioClasses(i)/nods
+             WRITE( Message, '(F3.1,A,A,I9,F9.3)' ) 1.0,' - ','...',RatioClasses(i),100.0*RatioClasses(i)/k
            ELSE IF(i==12) THEN
-             WRITE( Message, '(A,A,F3.1,I9,F9.3)' ) '...',' - ',&
-                 0.0,RatioClasses(i),100.0d0*RatioClasses(i)/nods
+             WRITE( Message, '(A,A,F3.1,I9,F9.3)' ) '...',' - ',0.0,RatioClasses(i),100.0*RatioClasses(i)/k
            ELSE
-             WRITE( Message, '(F3.1,A,F3.1,I9,F9.3)' ) 0.1*(i-1),' - ',&
-                 0.1*i,RatioClasses(i),100.0d0*RatioClasses(i)/nods
+             WRITE( Message, '(F3.1,A,F3.1,I9,F9.3)' ) 0.1*(i-1),' - ',0.1*i,RatioClasses(i),100.0*RatioClasses(i)/k
            END IF
            CALL Info('CompatibleRelaxation',Message)
          END IF
@@ -1359,8 +1347,8 @@ CONTAINS
          END DO
          
          IF(newcands > 0) THEN
-           WRITE(Message,'(A,T30,I8)') 'Number of CR candidates',newcands
-           CALL Info('CompatibleRelaxation',Message)         
+           WRITE(Message,'(A,I8)') 'Number of new candidate nodes using CR ',newcands
+           CALL Info('ChooseCoarseNodes',Message)         
          END IF
        END IF
 
@@ -1386,14 +1374,13 @@ CONTAINS
     INTEGER, POINTER, OPTIONAL :: InvCF(:)
 
     INTEGER :: nods, cnods, newcands, Rounds, RatioClasses(101), elimnods, &
-        Component1, NoComponents, cj, CRiter
+        Component1, cj, CRiter
     INTEGER, POINTER :: CandList(:)
     LOGICAL :: CompMat, PseudoGeometric, UseCR
     LOGICAL, POINTER :: Bonds(:)
     REAL(KIND=dp), POINTER :: Ones(:), Zeros(:)
     INTEGER, POINTER :: Cols(:),Rows(:)
 
-    NoComponents = Components
     Component1 = 1
     IF(Components > 1) THEN
       Component1 = ListGetInteger(Solver % Values,'MG Determining Component',&
@@ -1407,10 +1394,6 @@ CONTAINS
       CALL Info('ChooseCoarseNodes','Assuming complex valued matrix')
     END IF
 
-    IF(CompMat) THEN
-      NoComponents = 2
-    END IF
-
     PseudoGeometric = ListGetLogical(Solver % Values,'MG Pseudo Geometric',GotIt)
 
     Rows => Amat % Rows
@@ -1422,6 +1405,9 @@ CONTAINS
     ! Make the candidate and strong bond list for determining the coarse nodes    
     CF = 0
     UseCR =  ListGetLogical(Solver % Values,'MG Compatible Relax Init',GotIt) 
+    IF(UseCR .AND. Components > 1) THEN
+      CALL Fatal('CompatibleRelaxation','CR may only be applied to cases with 1 DOFs!')
+    END IF
     CRiter = 0
 
     IF( UseCR ) THEN
@@ -1430,21 +1416,19 @@ CONTAINS
       CALL AMGBondsDirichlet(Amat, Bonds, CandList)
       CALL CompatibleRelaxation(Amat, Solver, CF, CandList, nods, newcands)
     ELSE 
-      IF(ComponentMode >= 2) THEN
+      IF( Components > 1) THEN
         CandList = 0
-        DO i=1,NoComponents
-          IF(i == Component1) CandList(i:nods:NoComponents) = 1
-        END DO
-      ELSE
+        CandList(Component1:nods:Components) = 1
+       ELSE
         CandList = 1
       END IF
       
       IF(CompMat) THEN
         CALL AMGBondsComplex(Amat, Bonds, CandList)
       ELSE IF(PseudoGeometric) THEN
-        CALL AMGBondsGeometric(Amat, Bonds, CandList, NoComponents)      
+        CALL AMGBondsGeometric(Amat, Bonds, CandList, Components)      
       ELSE
-        CALL AMGBonds(Amat, Bonds, CandList, NoComponents)      
+        CALL AMGBonds(Amat, Bonds, CandList, Components)      
       END IF
     END IF
 
@@ -1458,23 +1442,15 @@ CONTAINS
     END IF
 
 
-    IF( ListGetLogical(Solver % Values,'MG Compatible Relax Merit',GotIt) ) THEN
+    IF( Components == 1 .AND. &
+        ListGetLogical(Solver % Values,'MG Compatible Relax Merit',GotIt) ) THEN
       CRIter = CRiter + 1
       CandList = 0
+      PRINT *,'a1',Components
       CALL CompatibleRelaxation(Amat, Solver, CF, CandList, nods, newcands)
-      PRINT *,'CR iteration',CRiter
+      PRINT *,'CR iteration',CRiter,newcands
       IF(newcands > 0) GOTO 100
     END IF
-
-
-    ! Make the coarse nodes of each variable to be the same
-    IF(NoComponents > 1 .AND. ComponentMode == 2) THEN
-      DO i=1,NoComponents
-        IF(i /= Component1) THEN
-          CF(i:nods:NoComponents) = CF(Component1:nods:NoComponents)
-        END IF
-      END DO
-    END IF    
 
     ! Set the CF vector to be zero for fine nodes and an order number for coarse nodes
     cnods = 0
@@ -1487,35 +1463,27 @@ CONTAINS
       END IF
     END DO
     
-    WRITE(Message,'(A,T30,I8)') 'Coarse mesh nodes ',cnods
+    WRITE(Message,'(A,F8.3)') 'Coarse node ratio',1.0d0*nods/cnods
     CALL Info('ChooseCoarseNodes',Message)
-    
-    WRITE(Message,'(A,T30,F8.3,A)') 'Coarse node fraction',(100.0*cnods)/nods,' %'
-    CALL Info('ChooseCoarseNodes',Message)
-
 
     DEALLOCATE(Bonds, CandList)
-
-    tt2 = CPUTime()
 
     IF(CompMat) THEN
       Projector => ComplexInterpolateF2C( Amat, CF )      
     ELSE IF(PseudoGeometric) THEN
-      Projector => InterpolateF2CDistance( Amat, CF, NoComponents)
+      Projector => InterpolateF2CDistance( Amat, CF, Components)
     ELSE
-      Projector => InterpolateF2C( Amat, CF, NoComponents)
+      Projector => InterpolateF2C( Amat, CF, Components)
     END IF
 
-    IF(ComponentMode == 0 .OR. ComponentMode == 3) THEN
-      IF(PRESENT(InvCF)) THEN
-        ALLOCATE(InvCF(cnods))
-        DO i=1,nods
-          IF(CF(i) > 0) InvCF(CF(i)) = i
-        END DO
-      END IF
+    IF(PRESENT(InvCF)) THEN
+      ALLOCATE(InvCF(cnods))
+      DO i=1,nods
+        IF(CF(i) > 0) InvCF(CF(i)) = i
+      END DO
     END IF
     
-    CALL Info('ChooseCoarseNodes','Coarse set chosen')
+!    CALL Info('ChooseCoarseNodes','Coarse set chosen')
 
   END SUBROUTINE ChooseCoarseNodes
 
@@ -1544,7 +1512,7 @@ CONTAINS
     IF(debug) CALL Info('AMGBonds','Making a list of strong matrix connections')
 
     NegLim = ListGetConstReal(Solver % Values,'MG Strong Connection Limit',GotIt)
-    IF(.NOT. GotIt) NegLim = 0.25
+    IF(.NOT. GotIt) NegLim = 0.06
 
     ! Negative connections are more useful for the interpolation, but also 
     ! positive strong connection may be taken into account
@@ -1615,7 +1583,7 @@ CONTAINS
       END IF
    
       ! Mark Dirichlet nodes with negative sign in order to favour boundaries in future
-      IF( maxbond < DirLim * ABS(Values (Amat % Diag(ind)) ) ) THEN
+      IF( maxbond <= DirLim * ABS(Values (Amat % Diag(ind)) ) ) THEN
         IF(ElimDir) THEN
           Cands(ind) = -1
           elimnods = elimnods + 1
@@ -1720,19 +1688,19 @@ CONTAINS
 
 
     IF(elimnods > 0) THEN
-      WRITE(Message,'(A,T30,I8)') 'Number of eliminated nodes',elimnods
+      WRITE(Message,'(A,I8)') 'Number of eliminated nodes',elimnods
       CALL Info('AMGBonds',Message)
     END IF
-    WRITE(Message,'(A,T30,I8)') 'Number of possible connections',SIZE(Bonds)
-    CALL Info('AMGBonds',Message)
-    j = posbonds + negbonds
-    WRITE(Message,'(A,T30,I8)') 'Number of strong connections',j
-    CALL Info('AMGBonds',Message)
+!    WRITE(Message,'(A,I8)') 'Number of possible connections',SIZE(Bonds)
+!    CALL Info('AMGBonds',Message)
+!    j = posbonds + negbonds
+!    WRITE(Message,'(A,I8)') 'Number of strong connections',j
+!    CALL Info('AMGBonds',Message)
     IF(posbonds > 0) THEN
-      WRITE(Message,'(A,T30,I8)') 'Number of positive connections',posbonds
+      WRITE(Message,'(A,I8)') 'Number of positive connections',posbonds
       CALL Info('AMGBonds',Message)
     END IF
-    WRITE(Message,'(A,T30,F8.3)') 'Average number of strong bonds',1.0*j/nods
+    WRITE(Message,'(A,F8.3)') 'Average number of strong bonds',1.0*Components*j/nods
     CALL Info('AMGBonds',Message)
 
   END SUBROUTINE AMGBonds
@@ -2245,7 +2213,8 @@ CONTAINS
     INTEGER :: nods, cnods    
     INTEGER :: i,j,k,cj,ci,ind,maxi,maxi2,newstarts, loops, minneigh, maxneigh, &
         MaxCon, MaxConInd, RefCon, RefCon2, prevstart, cind, find, ind0, &
-        CoarseningMode, GatMax, anods, FollowBounds, points, neworder, oldorder
+        CoarseningMode, GatMax, anods, FollowBounds, points, &
+        neworder, oldorder
     INTEGER, POINTER :: Con(:)
     LOGICAL :: debug
     INTEGER, POINTER :: Cols(:),Rows(:)
@@ -2257,8 +2226,11 @@ CONTAINS
     Cols   => Amat % Cols
     Values => Amat % Values
 
+    FollowBounds = ListGetInteger(Solver % Values,'MG Boundary Priority',GotIt)
+    IF(.NOT. GotIt) FollowBounds = 1
     CoarseningMode = ListGetInteger(Solver % Values,'MG Coarsening Mode',&
         GotIt,minv=0,maxv=3)
+    IF(.NOT. GotIt) CoarseningMode = 3
 
     debug = .FALSE.
 
@@ -2270,7 +2242,7 @@ CONTAINS
     cind = 0
     find = 0
 
-    ! Make the tightly bonded neighbours of course nodes to be fine nodes 
+    ! Make the tightly bonded neighbours of coarse nodes to be fine nodes 
     ! This has an effect only if the CF list has been initialized	
     DO ind = 1, nods
       IF(CF(ind) == 0) CYCLE
@@ -2325,7 +2297,6 @@ CONTAINS
 
     ! Add some weight if the node is connected to a Dirichlet node
     ! This way the coarse nodes selection will follow the natural boundaries
-    FollowBounds = ListGetInteger(Solver % Values,'MG Boundary Priority',GotIt)
     IF(FollowBounds /= 0) THEN
       DO ind = 1, nods
         IF(Cands(ind) <= 0) CYCLE
@@ -2646,12 +2617,12 @@ CONTAINS
       CALL Info('AMGCoarse',Message)      
     END IF
 
-    WRITE(Message,'(A,I8)') 'Coarsening algorithm tests',loops
+!    WRITE(Message,'(A,I8)') 'Coarsening algorithm tests',loops
+!    CALL Info('AMGCoarse',Message)
+    WRITE(Message,'(A,I8)') 'Number of coarse nodes',cind
     CALL Info('AMGCoarse',Message)
-    WRITE(Message,'(A,I8)') 'Coarsening algorithm c-nodes',cind
-    CALL Info('AMGCoarse',Message)
-    WRITE(Message,'(A,I8)') 'Coarsening algorithm f-nodes',find
-    CALL Info('AMGCoarse',Message)
+!    WRITE(Message,'(A,I8)') 'Number of fine nodes',find
+!    CALL Info('AMGCoarse',Message)
 
   END SUBROUTINE AMGCoarse
 
@@ -2677,8 +2648,7 @@ CONTAINS
        TYPE(Matrix_t), POINTER :: Projector
 !------------------------------------------------------------------------------
        INTEGER, PARAMETER :: FSIZE=1000, CSIZE=100
-       INTEGER :: i, j, k, l, Fdofs, Cdofs, ind, ci, cj, Component1, Components, &
-           IncComponents, node
+       INTEGER :: i, j, k, l, Fdofs, Cdofs, ind, ci, cj, Component1, Components, node
        REAL(KIND=dp), POINTER :: PValues(:), FValues(:)
        INTEGER, POINTER :: FRows(:), FCols(:), PRows(:), PCols(:), CoeffsInds(:)
        REAL(KIND=dp) :: bond, value, possum, negsum, poscsum, negcsum, diagsum, &
@@ -2695,7 +2665,7 @@ CONTAINS
        IF(Debug) CALL Info('InterpolateF2C','Starting interpolation')
        
        ProjLim = ListGetConstReal(Solver % Values,'MG Projection Limit',GotIt)
-       IF(.NOT. GotIt) ProjLim = 0.5
+       IF(.NOT. GotIt) ProjLim = 0.6
 
        Lumping = ListGetLogical(Solver % Values,'MG Projection Lumping',GotIt)
 
@@ -2713,12 +2683,10 @@ CONTAINS
        IF(.NOT. GotIt) FavorNeg = 1.0d0
 
        Components = DOFs
-       IF(ComponentMode == 3) THEN
-         Component1 = ListGetInteger(Solver % Values,'MG Determining Component',minv=1,maxv=DOFs)
-         IncComponents = DOFs
-       ELSE
-         Component1 = 1
-         IncComponents = 1
+       Component1 = 1
+       IF(Components > 1) THEN
+         Component1 = ListGetInteger(Solver % Values,'MG Determining Component',GotIt,minv=1,maxv=DOFs)
+         IF(.NOT. GotIt) Component1 = 1
        END IF
 
        InfoNode = ListGetInteger(Solver % Values,'MG Info Node',GotIt)
@@ -2742,12 +2710,7 @@ CONTAINS
        
        ! Initialize stuff before allocations
        AllocationsDone = .FALSE.
-
-       IF(ComponentMode == 3) THEN
-         ALLOCATE( PRows(Fdofs/Components+1) )
-       ELSE
-         ALLOCATE( PRows(Fdofs+1) )         
-       END IF
+       ALLOCATE( PRows(Fdofs/Components+1) )
        PRows(1) = 1
 
        ! Go through the fine dofs and make a projection based on the strongly coupled nodes
@@ -2760,10 +2723,10 @@ CONTAINS
        negcoeffs = 0.0
        entries = 0
 
-       DO ind=Component1,Fdofs,IncComponents
+       DO ind=Component1,Fdofs,Components
 
          ! In component mode this corresponds to a physical node with multiple dofs
-         node = (ind-Component1) / IncComponents + 1
+         node = (ind-Component1) / Components + 1
 
          Debug = (node == InfoNode) 
 
@@ -3138,11 +3101,7 @@ CONTAINS
        IF(.NOT. AllocationsDone) THEN
 
          Projector => AllocateMatrix()
-         IF( ComponentMode == 3) THEN
-           no = Fdofs / Components
-         ELSE
-           no = Fdofs
-         END IF
+         no = Fdofs / Components
 
          Projector % NumberOfRows = no
          ALLOCATE( PCols(entries), PValues(entries) )           
@@ -3879,7 +3838,6 @@ CONTAINS
 
 
 
-
 !----------------------------------------------------------------------------
 !   The following subroutines are CR (Compatible Relaxation) versions of the
 !   simple relaxation schemes. The relaxation speed of equation Ax = 0 to x=0
@@ -4278,7 +4236,7 @@ CONTAINS
 
 
       Epsilon = ListGetConstReal(Solver % Values,'MG Matrix Create Epsilon',GotIt)
-      IF(.NOT. GotIt) Epsilon = TINY(Epsilon)
+      IF(.NOT. GotIt) Epsilon = SQRT(TINY(Epsilon))
 
       B => AllocateMatrix()      
       B % NumberOfRows = P % NumberOfRows * DOFs
@@ -4398,8 +4356,8 @@ CONTAINS
 
       DEALLOCATE( Row, Ind )
 
-      WRITE( Message,'(A,I8)' ) 'Projected matrix created with size',TotalNonZeros
-      CALL Info( 'CRS_ProjectMatrixCreate', Message )
+!      WRITE( Message,'(A,I8)' ) 'Projected matrix created with size',TotalNonZeros
+!      CALL Info( 'CRS_ProjectMatrixCreate', Message )
 
       WRITE(Message,'(A,F6.2)') 'Coarse matrix reduction factor',&
           1.0 *  SIZE(Matrix1 % Cols) / TotalNonZeros
@@ -4519,12 +4477,10 @@ CONTAINS
     n = Matrix1 % NumberOfRows
 
     DirectLimit = ListGetInteger(Solver % Values,'MG Lowest Linear Solver Limit',GotIt) 
-    IF(.NOT. GotIt) DirectLimit = 10
+    IF(.NOT. GotIt) DirectLimit = 20
 
     IF ( Level <= 1 .OR. n < DirectLimit) THEN
-      IF( ListGetLogical( Solver % Values,'MG Lowest Linear Solver Unsolve',GotIt)) THEN
-        CONTINUE
-      ELSE IF ( .NOT. Parallel ) THEN
+      IF ( .NOT. Parallel ) THEN
         IF ( ListGetLogical( Solver % Values, 'MG Lowest Linear Solver Iterative',gotit ) ) THEN
           CALL IterSolver( Matrix1, Solution, ForceVector, Solver )
         ELSE
@@ -4578,7 +4534,7 @@ CONTAINS
       IF(ASSOCIATED(Matrix1 % Parent)) CALL FreeMatrix(Matrix1 % Parent)
       IF(ASSOCIATED(Matrix1 % Ematrix)) CALL FreeMatrix(Matrix1 % Ematrix)
 
-      CALL Info('CMGSolve','')
+      CALL Info('CMGSolve','-------------------------------------------------')
       WRITE( Message, '(A,I3)' ) 'Creating a new matrix and projector for level',Level
       CALL Info('CMGSolve', Message)
       MinLevel = MIN(MinLevel,Level)
@@ -4595,7 +4551,7 @@ CONTAINS
         Matrix2 % Values = Matrix2 % Values / Alpha
       END IF
  
-      WRITE( Message, '(A,F8.2)' ) 'MG coarse matrix creation time: ', CPUTime() - tt
+      WRITE( Message, '(A,F8.3)' ) 'MG coarse matrix creation time (s): ', CPUTime() - tt
       CALL Info( 'CMGSolve', Message, Level=5 )
 
       Matrix2 % Child  => Matrix1
@@ -4758,7 +4714,8 @@ CONTAINS
       END IF
       
       PSolver => Solver
-      RNorm = MGSmooth( PSolver, Matrix1, Solution, ForceVector,Residual, Level, .TRUE.)
+      RNorm = MGSmooth( PSolver, Matrix1, Solution, ForceVector,Residual, &
+          Level, DOFs, .TRUE.)
       
 !------------------------------------------------------------------------------
 !
@@ -4798,7 +4755,8 @@ CONTAINS
 !      Post smoothing:
 !      ---------------
 
-      RNorm = MGSmooth( PSolver, Matrix1, Solution, ForceVector, Residual, Level, .FALSE.)
+      RNorm = MGSmooth( PSolver, Matrix1, Solution, ForceVector, Residual, &
+          Level, DOFs, .FALSE.)
 !------------------------------------------------------------------------------
     END FUNCTION CMGSweep
 !------------------------------------------------------------------------------
@@ -4869,7 +4827,7 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-! Create the clusters
+! Create the clusters 
 !------------------------------------------------------------------------------
 
   SUBROUTINE ChooseClusterNodes(Amat, Solver, Components, CF)
@@ -4901,13 +4859,13 @@ CONTAINS
 
     DEALLOCATE(Bonds, Fixed)
 
-    CALL Info('ChooseClusterNodes','Clusters chosen')
+    IF(.FALSE.) CALL Info('ChooseClusterNodes','Clusters chosen')
 
   END SUBROUTINE ChooseClusterNodes
 
 !------------------------------------------------------------------------------
-! Create the initial list for measure of importance and
-! make the inverse table for important connections
+! Mark the strong connections based on the relative absolute magnitude of the 
+! matrix element.
 !------------------------------------------------------------------------------
 
   SUBROUTINE CMGBonds(Amat, Bonds, Fixed, Components, Component1)
@@ -4928,6 +4886,7 @@ CONTAINS
     IF(.NOT. GotIt) StrongLim = 0.06
     MaxConns = ListGetInteger(Solver % Values,'MG Strong Connection Maximum',GotIt)
     MinConns = ListGetInteger(Solver % Values,'MG Strong Connection Minimum',GotIt)
+
     ElimDir = EliminateDir
     DirLim = ListGetConstReal(Solver % Values,'MG Eliminate Dirichlet Limit',GotIt)
     IF(.NOT. GotIt) DirLim = 1.0d-8      
@@ -4978,19 +4937,16 @@ CONTAINS
       END IF
 
       IF(no == 0) CYCLE
-
       Choose = .FALSE.
-      IF(MaxConns > 0 .AND. no > MaxConns) Choose = .TRUE.
-      IF(MinConns > 0 .AND. no > MinConns) Choose = .TRUE.
 
       ! Check whether the tentative list would give the right number anaway
-      IF(Choose) THEN
+      IF(MaxConns > 0 .OR. MinConns > 0) THEN
         newbonds = 0
         DO i=1,no
           IF( measures(i) >= Stronglim * maxbond) newbonds = newbonds + 1
         END DO
-        IF(MaxConns > 0 .AND. newbonds <= MaxConns) Choose = .FALSE.
-        IF(MinConns > 0 .AND. newbonds >= MinConns) Choose = .FALSE.
+        IF(MaxConns > 0 .AND. newbonds > MaxConns) Choose = .TRUE.
+        IF(MinConns > 0 .AND. newbonds < MinConns) Choose = .TRUE.
       END IF
 
       IF(.NOT. Choose) THEN
@@ -5012,8 +4968,9 @@ CONTAINS
         END IF
 
         IF(MinConns > 0 .AND. newbonds < MinConns) THEN
-          strongbonds = strongbonds + MinConns
-          DO i=1,MinConns
+          no = MIN(MinConns, no)
+          strongbonds = strongbonds + no
+          DO i=1,no
             Bonds(LocalInd(i)) = .TRUE.
           END DO
         END IF
@@ -5023,14 +4980,10 @@ CONTAINS
     DEALLOCATE(measures, localind)
 
     IF(elimnods > 0) THEN
-      WRITE(Message,'(A,T30,I8)') 'Number of eliminated nodes',elimnods
+      WRITE(Message,'(A,I8)') 'Number of eliminated nodes',elimnods
       CALL Info('CMGBonds',Message)
     END IF
-    WRITE(Message,'(A,T30,I8)') 'Number of possible connections',SIZE(Bonds)
-    CALL Info('CMGBonds',Message)
-    WRITE(Message,'(A,T30,I8)') 'Number of strong connections',strongbonds
-    CALL Info('CMGBonds',Message)
-    WRITE(Message,'(A,T30,F8.3)') 'Average number of strong bonds',&
+    WRITE(Message,'(A,F8.3)') 'Average number of strong bonds',&
         1.0*strongbonds/nodesize
     CALL Info('CMGBonds',Message)
 
@@ -5056,7 +5009,8 @@ CONTAINS
         MaxCon, MaxConInd, RefCon, cind, find, rind, &
         GatMax, anods, points, neworder, oldorder, nodesize,matsize,&
         nextind, sumcon, maxsumcon, ClusterSize, nbonds, &
-        nsize, nodeind, nodeind2, matind, BoundPoints, ClusterPoints, ClusterMode
+        nsize, nodeind, nodeind2, matind, BoundPoints, ClusterPoints, &
+        ConnectionPoints, ClusterMode
     INTEGER :: LocalCon(100), LocalInd(100)
     REAL(KIND=dp) :: LocalVal(100),LocalVal2(100), maxv
     INTEGER, POINTER :: Con(:)
@@ -5067,8 +5021,11 @@ CONTAINS
     
 
     BoundPoints = ListGetInteger(Solver % Values,'MG Boundary Priority',GotIt)
+    IF(.NOT. GotIt) BoundPoints = 1
     ClusterPoints = ListGetInteger(Solver % Values,'MG Cluster Priority',GotIt)
-    IF(.NOT. GotIt) ClusterPoints = 1
+    IF(.NOT. GotIt) ClusterPoints = MIN(1,BoundPoints+1)
+    ConnectionPoints = ListGetInteger(Solver % Values,'MG Connection Priority',GotIt)
+    IF(.NOT. GotIt) ConnectionPoints = 1
     ClusterSize = ListGetInteger(Solver % Values,'MG Cluster Size',GotIt)
     ! Paricularly for small clusters the orphan control seems to be important
     ClusterOrphans = ListGetLogical(Solver % Values,'MG Cluster Orphans',GotIt)
@@ -5200,7 +5157,7 @@ CONTAINS
         ! Favor maximum number of connections before strength of connections
         IF( n > ClusterSize - 1 ) THEN
           maxv = MAXVAL(LocalVal(1:n))
-          LocalVal(1:n) = 0.5 * LocalVal(1:n) / maxv + LocalCon(1:n)
+          LocalVal(1:n) = 0.999 * ConnectionPoints * LocalVal(1:n) / maxv + LocalCon(1:n)
           CALL SortR(n,LocalInd,LocalVal)
 
           IF( ClusterMode == 2 ) THEN
@@ -5441,11 +5398,11 @@ CONTAINS
     
     DEALLOCATE(Con, GatLims, GatNos, ConInd, RevConInd)
 
-    WRITE(Message,'(A,I8)') 'Clustering algorithm clusters',cind
-    CALL Info('CMGClusterFrom',Message)
-    WRITE(Message,'(A,I8)') 'Clustering algorithm nodes',cnods
+    WRITE(Message,'(A,I8)') 'Number of clusters',cind
     CALL Info('CMGClusterForm',Message)
-
+    WRITE(Message,'(A,F8.3)') 'Average size of clusters',1.0*cnods/cind
+    CALL Info('CMGClusterForm',Message)
+    
   END SUBROUTINE CMGClusterForm
 
 
@@ -5555,6 +5512,9 @@ CONTAINS
       ALLOCATE( Sizes(NnodB), CumSizes(NnodB+1), ClusterOrder(NnodA), &
           Row( NmatA ), Ind( NmatB ) )
 
+      Epsilon = ListGetConstReal(Solver % Values,'MG Matrix Create Epsilon',GotIt)
+      IF(.NOT. GotIt) Epsilon = SQRT(TINY(Epsilon))
+
       ! Order the dofs in the order of the clusters
       Sizes = 0
       DO i=1,NnodA
@@ -5620,7 +5580,7 @@ CONTAINS
             newcol = CF(cj)
             IF(newcol == 0) CYCLE
  
-            IF( ABS(A % Values(j)) < AEPS) CYCLE
+            IF( ABS(A % Values(j)) < Epsilon) CYCLE
  
             i2 = Row(newcol)
 
@@ -5657,8 +5617,6 @@ CONTAINS
               mati = Components*(i-1) + comp
               newrow = Components*(CF(i)-1) + comp
               
-              IF(indi /= CF(i)) PRINT *,'************** indi',indi,nodi,comp,i,CF(i)
-              
               IF(prevnewrow /= newrow) THEN
                 DO j=1,NoRow
                   Row(Ind(j)) = 0
@@ -5673,7 +5631,7 @@ CONTAINS
                 k = CF(nodecj)
                 IF(k == 0) CYCLE
                 
-                IF( ABS(A % Values(j)) < AEPS) CYCLE
+                IF( ABS(A % Values(j)) < Epsilon) CYCLE
                 
                 newcol = Components*(k-1) + MOD(cj-1,Components) + 1
                 
@@ -5712,11 +5670,8 @@ CONTAINS
 
       DEALLOCATE(  Sizes, CumSizes, ClusterOrder, Row, Ind )
       
-      WRITE( Message,'(A,I8)' ) 'Clustered matrix created with size',TotalNonZeros
-      CALL Info( 'CRS_ClusterMatrixCreate', Message )
-      
-      WRITE(Message,'(A,F6.2)') 'Coarse matrix reduction factor',&
-          1.0 *  SIZE(Matrix1 % Cols) / TotalNonZeros
+      WRITE(Message,'(A,F8.3)') 'Coarse matrix reduction factor',&
+          1.0 *  SIZE(A % Cols) / TotalNonZeros
       CALL Info('CRS_ClusterMatrixCreate',Message)
 
     END SUBROUTINE CRS_ClusterMatrixCreate

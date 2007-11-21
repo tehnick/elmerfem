@@ -54,11 +54,11 @@ MODULE Smoothers
 CONTAINS
 
 !------------------------------------------------------------------------------
-    FUNCTION MGSmooth( Solver, A, x, b, r, Level, PreSmooth, CF) RESULT(RNorm)
+    FUNCTION MGSmooth( Solver, A, x, b, r, Level, DOFs, PreSmooth, CF) RESULT(RNorm)
 !------------------------------------------------------------------------------
       TYPE(Solver_t), POINTER :: Solver
       TYPE(Matrix_t), POINTER :: A
-      INTEGER :: Level
+      INTEGER :: Level, DOFs
       REAL(KIND=dp), TARGET :: x(:),b(:),r(:),RNorm
       LOGICAL PreSmooth
       INTEGER, POINTER, OPTIONAL :: CF(:)
@@ -99,18 +99,25 @@ CONTAINS
         IterMethod = ListGetString( Solver % Values, &
             'Linear System Iterative Method', Found )
       END IF
-      IF ( .NOT. Found ) IterMethod = 'jacobi'
+      IF ( .NOT. Found ) THEN
+        IF( DOFs == 1) THEN
+          IterMethod = 'sgs'
+        ELSE
+          IterMethod = 'bsgs'
+        END IF
+      END IF
+
+      SELECT CASE( IterMethod )
+      CASE( 'cg' )
+        ALLOCATE( Z(n), Pr(n), Q(n) )
+        
+      CASE( 'bicgstab' )
+        ALLOCATE( Pr(n), Ri(n), T(n), T1(n), T2(n), S(n), V(n) )
+      END SELECT
 
       
       IF(Presmooth) THEN
-        SELECT CASE( IterMethod )
-        CASE( 'cg' )
-          ALLOCATE( Z(n), Pr(n), Q(n) )
-          
-        CASE( 'bicgstab' )
-          ALLOCATE( Pr(n), Ri(n), T(n), T1(n), T2(n), S(n), V(n) )
-        END SELECT
-        
+       
         Iters => ListGetIntegerArray( Solver % Values,'MG Pre Smoothing Iterations',Found)
         IF(Found) THEN
           Rounds = Iters(MIN(InvLevel,SIZE(Iters)))
@@ -136,7 +143,6 @@ CONTAINS
         END IF
       END IF
       
-      
       SELECT CASE( IterMethod )
         
       CASE( 'jacobi' ) 
@@ -144,10 +150,16 @@ CONTAINS
         
       CASE( 'gs' )                         
         CALL GS( n, A, M, Mx, Mb, Mr, Rounds )
-        
+
+      CASE( 'bgs' )                         
+        CALL GS( n, A, M, Mx, Mb, Mr, Rounds )
+       
       CASE( 'sgs' )                                     
         CALL SGS( n, A, M, Mx, Mb, Mr, Rounds)
-        
+
+      CASE( 'bsgs' )                                     
+        CALL BSGS( n, A, M, Mx, Mb, Mr, DOFs, Rounds)
+       
       CASE( 'wjacobi' )                                     
         CALL SmoothedJacobi( n, A, M, Mx, Mb, Mr, Omega, Rounds )
         
@@ -175,30 +187,31 @@ CONTAINS
       CASE( 'bicgstab' )
         CALL BiCG( n, A, M, Mx, Mb, Mr, Rounds )
 
+      CASE( 'test gs' )                                   
+        CALL TestGS( n, A, M, Mx, Mb, Mr, Rounds )
 
-        
-     CASE DEFAULT
+
+      CASE DEFAULT
         CALL Warn('MGSmooth','Unknown smoother, using Jacobi')
         CALL Jacobi( n, A, M, Mx, Mb, Mr, Rounds )
       END SELECT
+
 
       
       CALL MGmv( A, x, r, .TRUE. )
       r = b - r
       IF ( Parallel ) Mr = Mb - Mr
-      
+     
       RNorm = MGnorm( n, Mr ) 
 
 
-      IF(.NOT. Presmooth) THEN
-        SELECT CASE( IterMethod )
-        CASE( 'cg' )
-          DEALLOCATE( Z, Pr, Q)
-          
-        CASE( 'bicgstab' )
-          DEALLOCATE( Pr, Ri, T, T1, T2, S, V )
-        END SELECT
-      END IF
+      SELECT CASE( IterMethod )
+      CASE( 'cg' )
+        DEALLOCATE( Z, Pr, Q)
+        
+      CASE( 'bicgstab' )
+        DEALLOCATE( Pr, Ri, T, T1, T2, S, V )
+      END SELECT
 
 !------------------------------------------------------------------------------
 
@@ -403,6 +416,46 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+      SUBROUTINE BGS( n, A, M, x, b, r, DOFs, Rounds )
+!------------------------------------------------------------------------------
+        TYPE(Matrix_t), POINTER :: A, M
+        INTEGER :: DOFs, Rounds
+        REAL(KIND=dp) :: x(:),b(:),r(:)
+!------------------------------------------------------------------------------
+        INTEGER :: i,j,k,n,id,dof
+        REAL(KIND=dp) :: s(DOFs)
+        INTEGER, POINTER :: Cols(:),Rows(:)
+        REAL(KIND=dp), POINTER :: Values(:)
+!------------------------------------------------------------------------------
+     
+        n = A % NumberOfRows
+        Rows   => A % Rows
+        Cols   => A % Cols
+        Values => A % Values
+                
+        DO k=1,Rounds          
+          DO i=1,n / DOFs
+            s = 0.0d0
+            DO dof=1,DOFs
+              id = (i-1)*DOFs + dof
+              DO j=Rows(id),Rows(id+1)-1
+                s(dof) = s(dof) + x(Cols(j)) * Values(j)
+              END DO
+            END DO
+            DO dof=1,DOFs
+              id = (i-1)*DOFs + dof             
+              r(id) = (b(id)-s(dof)) / M % Values(M % Diag(id))
+              x(id) = x(id) + r(id)
+            END DO
+          END DO
+        END DO
+!------------------------------------------------------------------------------
+      END SUBROUTINE BGS
+!------------------------------------------------------------------------------
+
+
+
+!------------------------------------------------------------------------------
       SUBROUTINE SmoothedGS( n, A, M, x, b, r, w, Rounds )
 !------------------------------------------------------------------------------
         TYPE(Matrix_t), POINTER :: A, M
@@ -477,6 +530,59 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
+! Block Symmetric Gauss Seidel 
+!------------------------------------------------------------------------------
+      SUBROUTINE BSGS( n, A, M, x, b, r, DOFs, Rounds )
+!------------------------------------------------------------------------------
+        TYPE(Matrix_t), POINTER :: A, M
+        INTEGER :: DOFs, Rounds
+        REAL(KIND=dp) :: x(:),b(:),r(:)
+        INTEGER :: i,j,k,n,id,dof
+        REAL(KIND=dp) :: s(DOFs)
+        INTEGER, POINTER :: Cols(:),Rows(:)
+        REAL(KIND=dp), POINTER :: Values(:)
+        
+        n = A % NumberOfRows
+        Rows   => A % Rows
+        Cols   => A % Cols
+        Values => A % Values
+
+        DO k=1,Rounds
+          DO i=1,n/DOFs
+            s = 0.0d0
+            DO dof = 1,DOFs
+              id = (i-1)*DOFs + dof
+              DO j=Rows(id),Rows(id+1)-1
+                s(dof) = s(dof) + x(Cols(j)) * Values(j)
+              END DO
+            END DO
+            DO dof = 1,DOFs
+              id = (i-1)*DOFs + dof
+              r(id) = (b(id)-s(dof)) / M % Values(M % Diag(id))
+              x(id) = x(id) + r(id)
+            END DO
+          END DO
+          
+          DO i=n/DOFs,1,-1
+            s = 0.0d0
+            DO dof = 1,DOFs
+              id = (i-1)*DOFs + dof
+              DO j=Rows(id),Rows(id+1)-1
+                s(dof) = s(dof) + x(Cols(j)) * Values(j)
+              END DO
+            END DO
+            DO dof = 1,DOFs
+              id = (i-1)*DOFs + dof
+              r(id) = (b(id)-s(dof)) / M % Values(M % Diag(id))
+              x(id) = x(id) + r(id)
+            END DO
+          END DO
+        END DO
+      END SUBROUTINE BSGS
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
       SUBROUTINE SmoothedSGS( n, A, M, x, b, r, w, Rounds )
 !------------------------------------------------------------------------------
         TYPE(Matrix_t), POINTER :: A, M
@@ -513,6 +619,7 @@ CONTAINS
         END DO
       END SUBROUTINE SmoothedSGS
 !------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
       SUBROUTINE CSGS( n, A, M, rx, rb, rr, Rounds )
@@ -799,7 +906,7 @@ CONTAINS
         PRINT *,'TestGS: Starting',&
             ASSOCIATED(Rows),ASSOCIATED(Cols),ASSOCIATED(Values),ASSOCIATED(M % diag)
         PRINT *,'TestGS: Sizes',&
-            SIZE(Rows),SIZE(Cols),SIZE(Values),SIZE(M % diag),SIZE(b),SIZE(r)
+            SIZE(Cols),SIZE(Values),SIZE(Rows)-1,SIZE(M % diag),SIZE(b),SIZE(r)
         PRINT *,'TestGS: MinVal',&
             MINVAL(Rows),MINVAL(Cols),MINVAL(Values),MINVAL(M % diag)
         PRINT *,'TestGS: MaxVal',&

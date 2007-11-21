@@ -250,7 +250,7 @@ CONTAINS
     INTEGER :: MaxDGDOFs, MaxNDOFs, MaxEDOFs, MaxFDOFs, MaxBDOFs
 
     LOGICAL :: Found, BandwidthOptimize, EigAnal, ComplexFlag, &
-    MultigridActive, VariableOutput, GlobalBubbles, HarmonicAnal
+    MultigridActive, VariableOutput, GlobalBubbles, HarmonicAnal, MGAlgebraic
 
     CHARACTER(LEN=MAX_NAME_LEN) :: str,eq,var_name, tmpname
 
@@ -1037,6 +1037,14 @@ CONTAINS
 !      ---------------------------
        IF ( MultigridActive ) THEN
 
+          str = ListGetString( Solver % Values,'MG Method',Found) 
+          IF( Found ) THEN
+            MGAlgebraic = ( str == 'algebraic' ) .OR. ( str == 'cluster')
+          ELSE	    
+            MGAlgebraic = ListGetLogical( Solver % Values, 'MG Algebraic', Found ) &
+	       .OR. ListGetLogical( Solver % Values, 'MG Cluster', Found )
+          END IF
+
           Solver % MultiGridTotal = ListGetInteger( Solver % Values, &
                         'MG Levels', Found, minv=1 )
 
@@ -1044,8 +1052,14 @@ CONTAINS
              Solver % MultiGridTotal = ListGetInteger( Solver % Values, &
                      'Multigrid Levels', Found, minv=1 )
           END IF
-          IF ( .NOT. Found ) Solver % MultiGridTotal = 1
-!
+          IF ( .NOT. Found ) THEN
+	    IF( MGAlgebraic ) THEN 
+	      Solver % MultiGridTotal = 10
+            ELSE
+	      Solver % MultiGridTotal = 3	    
+	    END IF
+          END IF
+
 !         Check if h/2 splitting of mesh requested:
 !         ------------------------------------------
           Solver % MultiGridEqualSplit = ListGetLogical( &
