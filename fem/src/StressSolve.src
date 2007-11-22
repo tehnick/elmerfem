@@ -308,13 +308,14 @@
 
      REAL(KIND=dp), POINTER :: Temperature(:),Displacement(:),Work(:,:,:), &
             VonMises(:), NodalStress(:), StressComp(:), ContactPressure(:), &
-            NormalDisplacement(:), TransformMatrix(:,:), UWrk(:,:)
+            NormalDisplacement(:), TransformMatrix(:,:), UWrk(:,:), &
+	RayleighAlpha(:), RayleighBeta(:)	
 
      REAL(KIND=dp) :: UnitNorm, Unit1(3), Unit2(3), Unit3(3), Prevdt=-1, PrevTime=-1
 
      INTEGER, POINTER :: TempPerm(:),DisplPerm(:),StressPerm(:),NodeIndexes(:)
 
-     LOGICAL :: GotForceBC,Found
+     LOGICAL :: GotForceBC,Found,RayleighDamping
      LOGICAL :: PlaneStress, CalcStress, CalcStressAll, Isotropic = .TRUE.
      LOGICAL :: Contact = .FALSE.
      LOGICAL :: stat, stat2, stat3, RotateC, MeshDisplacementActive, &
@@ -343,7 +344,8 @@
        NormalDisplacement, ContactLimit, LocalNormalDisplacement, &
        LocalContactPressure, PreStress, PreStrain, StressLoad, StrainLoad, Work, &
        RotateC, TransformMatrix, body_id, NodalMeshVelo, PrevTime, &
-       ReferenceSol, UpdateRef, NodalRefD, Ref_rhs, UpdatePresent, UpdateActive
+       ReferenceSol, UpdateRef, NodalRefD, Ref_rhs, UpdatePresent, UpdateActive, &
+       RayleighAlpha, RayleighBeta, RayleighDamping
 !------------------------------------------------------------------------------
      INTEGER :: dim
      REAL(KIND=dp) :: at,at0,CPUTime,RealTime
@@ -425,6 +427,8 @@
        IF ( AllocationsDone ) THEN
          DEALLOCATE( Density,                &
                      Damping,                &
+	             RayleighAlpha,          &
+                     RayleighBeta,           &
                      DampCoeff,              &
                      SpringCoeff,            &
                      ReferenceTemperature,   &
@@ -445,6 +449,8 @@
 
        ALLOCATE( Density( N ),              &
                  Damping( N ),              &
+                 RayleighAlpha( N ),        &
+                 RayleighBeta( N ),         &
                  DampCoeff( N ),            &
                  PreStress( 6,N ),          &
                  PreStrain( 6,N ),          &
@@ -853,6 +859,14 @@ CONTAINS
        END IF
        Damping(1:n) = GetReal( Material, 'Damping', Found )
 
+       RayleighDamping = GetLogical( Material, 'Rayleigh damping', Found )
+       RayleighAlpha = 0.0d0
+       RayleighBeta = 0.0d0
+       IF( RayleighDamping ) THEN
+	  RayleighAlpha(1:N) = GetReal( Material, 'Rayleigh alpha', Found )
+	  RayleighBeta(1:N) = GetReal( Material, 'Rayleigh beta', Found )
+       END IF
+
        CALL InputTensor( HeatExpansionCoeff, Isotropic,  &
            'Heat Expansion Coefficient', Material, n, NodeIndexes )
 
@@ -990,7 +1004,8 @@ CONTAINS
                PreStress, PreStrain, StressLoad, StrainLoad, HeatExpansionCoeff,    &
                LocalTemperature, Element, n, ntot, ElementNodes, StabilityAnalysis  &
                .AND. iter>1, GeometricStiffness .AND. iter>1, NodalDisplacement,    &
-               RotateC, TransformMatrix, NodalMeshVelo )
+               RotateC, TransformMatrix, NodalMeshVelo, RayleighDamping,            &
+               RayleighAlpha, RayleighBeta )
           END IF
 
        CASE DEFAULT

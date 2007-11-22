@@ -143,7 +143,8 @@ MODULE StressLocal
      NodalPoisson, NodalDensity, NodalDamping, PlaneStress, Isotropic,           &
      NodalPreStress, NodalPreStrain, NodalStressLoad, NodalStrainLoad,           &
      NodalHeatExpansion, NodalTemperature, Element, n, ntot, Nodes, StabilityAnalysis, &
-     GeometricStiffness, NodalDisplacement, RotateC, TransformMatrix, NodalMeshVelo )
+     GeometricStiffness, NodalDisplacement, RotateC, TransformMatrix, NodalMeshVelo, &
+     RayleighDamping, RayleighAlpha, RayleighBeta  )
 !------------------------------------------------------------------------------
      REAL(KIND=dp) :: STIFF(:,:), MASS(:,:), DAMP(:,:), FORCE(:), LOAD(:,:)
      REAL(KIND=dp) :: NodalTemperature(:),ElasticModulus(:,:,:)
@@ -151,10 +152,12 @@ MODULE StressLocal
      REAL(KIND=dp) :: NodalStressLoad(:,:), NodalStrainLoad(:,:)
      REAL(KIND=dp) :: NodalDisplacement(:,:), NodalHeatExpansion(:,:,:)
      REAL(KIND=dp) :: TransformMatrix(:,:), NodalMeshVelo(:,:)
+     REAL(KIND=dp) :: RayleighAlpha(:), RayleighBeta(:)
      REAL(KIND=dp), DIMENSION(:) :: NodalPoisson, NodalDensity, NodalDamping
 
      LOGICAL :: PlaneStress, Isotropic, StabilityAnalysis, GeometricStiffness
-     LOGICAL :: RotateC
+     LOGICAL :: RotateC, RayleighDamping
+
 
      TYPE(Nodes_t) :: Nodes
      TYPE(Element_t) :: Element
@@ -567,6 +570,10 @@ MODULE StressLocal
     DAMP  = ( DAMP  + TRANSPOSE(DAMP) )  / 2.0d0
     MASS  = ( MASS  + TRANSPOSE(MASS) )  / 2.0d0
     STIFF = ( STIFF + TRANSPOSE(STIFF) ) / 2.0d0
+
+    IF( RayleighDamping ) THEN
+        DAMP = RayleighAlpha(1) * MASS + RayleighBeta(1) * STIFF
+    END IF
 !------------------------------------------------------------------------------
  END SUBROUTINE StressCompose
 !------------------------------------------------------------------------------
