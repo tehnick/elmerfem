@@ -344,7 +344,7 @@ CONTAINS
 
      REAL(KIND=dp) :: StrainMeasure,VorticityMeasure,X,Y,Z,SigmaK,  &
              SigmaO,Beta,CD,F1,F2,F3,F4,rGamma, GradK(3), GradO(3), &
-             GradRho(3), Gravity(3), Pr_rho(n), Pr, c3_omega(n), c3
+            Gravity(3), rho_g, Pr_rho(n), Pr, c3_omega(n), c3
 
      REAL(KIND=dp), POINTER :: gWork(:,:)
 
@@ -369,9 +369,9 @@ CONTAINS
      CALL ElementDensity( Density, n )
 
      Pr_rho(1:n) = GetReal( Material, 'Turbulent Prandtl Number', stat )
-     IF ( .NOT. stat ) Pr_rho(1:n) = 0.9_dp
+     IF ( .NOT. stat ) Pr_rho(1:n) = 0.85_dp
 
-     c3_omega(1:n) = GetReal( Material, 'Dissipation buoyancy cofficient', stat )
+     c3_omega(1:n) = GetReal( Material, 'Dissipation buoyancy coefficient', stat )
      IF ( .NOT. stat ) c3_omega(1:n) = 0.0_dp
 
      CALL GetScalarLocalSolution( UX, 'Velocity 1' )
@@ -463,8 +463,9 @@ CONTAINS
 
        mu   = SUM( Viscosity(1:n) * Basis(1:n) )
        rho  = SUM( Density(1:n) * Basis(1:n) )
+       rho_g = 0._dp
        DO i=1,dim
-         GradRho(i) = SUM(Density(1:n) * dBasisdx(1:n,i))
+         rho_g = rho_g + SUM(Density(1:n) * dBasisdx(1:n,i)) * Gravity(i)
        END DO
        dist = SUM( Distance(1:n) * Basis(1:n) )
 
@@ -501,11 +502,11 @@ CONTAINS
        Effmu(1) = mu + Tmu / SigmaK
        Effmu(2) = mu + Tmu / SigmaO
 
-       ProdK = SUM((2*Tmu*Strain-2/3._dp*rho*Ident*K)*dVelodx)    - &
-             Tmu * SUM(GradRho(1:dim) * Gravity(1:dim)) / (rho * Pr)
+       ProdK = SUM((2*Tmu*Strain-2/3._dp*rho*Ident*K)*dVelodx)     - &
+             Tmu * rho_g / (rho * Pr)
 
        ProdO = SUM((2*rho*Strain-2/3._dp*rho*Ident*Omega)*dVelodx) - &
-             c3 * rho * SUM(GradRho(1:dim) * Gravity(1:dim)) / (rho * Pr)
+             c3 * rho_g / Pr
 !------------------------------------------------------------------------------
 !      Loop over basis functions of both unknowns and weights
 !------------------------------------------------------------------------------
