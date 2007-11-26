@@ -372,8 +372,6 @@ this ise not in USE
          
            Vals(1:n) = ListGetReal( Material, 'KE Cmu',n,Element % NodeIndexes )
            Cmu = SUM( Basis(1:n) * Vals(1:n) )
-
-           Clip       = ListGetConstReal( Material, 'KE Clip' )
          
            PVisc = Viscosity + Cmu*Density*KE_K**2 / KE_E
          ELSE
@@ -398,6 +396,7 @@ this ise not in USE
 
            Vals(1:n) = ListGetReal( Material, 'KE Cmu',n,Element % NodeIndexes )
            Cmu = SUM( Basis(1:n) * Vals(1:n) )
+
            PVisc = Viscosity + Cmu*Density*KE_Z*TimeScale
          END IF
 
@@ -525,7 +524,8 @@ this ise not in USE
 
      CHARACTER(LEN=MAX_NAME_LEN) :: ConductivityFlag
      TYPE(ValueList_t), POINTER :: Material
-     REAL(KIND=dp) :: x, y, z, c1n(n), Temp(1), dTempdx(3,1), Pr_t, c_p, mu, DetJ
+     REAL(KIND=dp) :: x, y, z, c1n(n), Temp(1), dTempdx(3,1), Pr_t, c_p,&
+                      mu, Tmu, DetJ
 
      ! Temperature is needed for thermal models
      TYPE(Variable_t), POINTER :: TempSol 
@@ -557,9 +557,9 @@ this ise not in USE
             Pr_t = 0.85_dp
           END IF
 
-          mu = EffectiveViscosity( mu,Density,Ux,Uy,Uz,Element, &
-                      Nodes,n,nd,u,v,w )
-          PCond = Conductivity + c_p * mu / Pr_t
+          Tmu = EffectiveViscosity( mu,Density,Ux,Uy,Uz,Element, &
+                        Nodes,n,nd,u,v,w ) - mu
+          PCond = Conductivity + c_p * Tmu / Pr_t
 
        CASE( 'user function' )
          str = ListGetString( Material, 'Heat Conductivity Function' )
