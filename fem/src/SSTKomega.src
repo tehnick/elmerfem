@@ -342,8 +342,11 @@ CONTAINS
 
      REAL(KIND=dp) :: s,u,v,w, K,Omega,Strain(3,3), Vorticity(3,3), dist
 
-     REAL(KIND=dp) :: StrainMeasure,VorticityMeasure,X,Y,Z,SigmaK, &
-             SigmaO,Beta,CD,F1,F2,F3,F4,rGamma, GradK(3), GradO(3)
+     REAL(KIND=dp) :: StrainMeasure,VorticityMeasure,X,Y,Z,SigmaK,  &
+             SigmaO,Beta,CD,F1,F2,F3,F4,rGamma, GradK(3), GradO(3), &
+             GradRho(3), Gravity(3), Pr_rho(n), Pr, c3_omega(n), c3
+
+     REAL(KIND=dp), POINTER :: gWork(:,:)
 
      REAL(KIND=dp) :: Metric(3,3),Symb(3,3,3),dSymb(3,3,3,3),SqrtMetric
 
@@ -354,8 +357,22 @@ CONTAINS
 
      dim = CoordinateSystemDimension()
 
+     gWork => ListGetConstRealArray( Model % Constants,'Gravity',GotIt)
+     IF ( GotIt ) THEN
+       Gravity = gWork(1:3,1)*gWork(4,1)
+     ELSE
+       Gravity    =  0.00_dp
+       Gravity(2) = -9.81_dp
+     END IF
+
      Viscosity(1:n) = GetReal( Material, 'Viscosity' )
-     Density(1:n) = GetReal( Material, 'Density' )
+     CALL ElementDensity( Density, n )
+
+     Pr_rho(1:n) = GetReal( Material, 'Turbulent Prandtl Number', stat )
+     IF ( .NOT. stat ) Pr_rho(1:n) = 0.9_dp
+
+     c3_omega(1:n) = GetReal( Material, 'Dissipation buoyancy cofficient', stat )
+     IF ( .NOT. stat ) c3_omega(1:n) = 0.0_dp
 
      CALL GetScalarLocalSolution( UX, 'Velocity 1' )
      CALL GetScalarLocalSolution( UY, 'Velocity 2' )
@@ -446,7 +463,13 @@ CONTAINS
 
        mu   = SUM( Viscosity(1:n) * Basis(1:n) )
        rho  = SUM( Density(1:n) * Basis(1:n) )
+       DO i=1,dim
+         GradRho(i) = SUM(Density(1:n) * dBasisdx(1:n,i))
+       END DO
        dist = SUM( Distance(1:n) * Basis(1:n) )
+
+       Pr = SUM( Basis(1:n) * Pr_rho(1:n) )
+       c3 = SUM( Basis(1:n) * c3_omega(1:n) )
 
        CD = MAX(2*rho/1.168_dp/Omega*SUM(GradK(1:dim)*GradO(1:dim)),1.d-10)
 
@@ -478,8 +501,11 @@ CONTAINS
        Effmu(1) = mu + Tmu / SigmaK
        Effmu(2) = mu + Tmu / SigmaO
 
-       ProdK = SUM((2*Tmu*Strain-2/3._dp*rho*Ident*K)*dVelodx)
-       ProdO = SUM((2*rho*Strain-2/3._dp*rho*Ident*Omega)*dVelodx)
+       ProdK = SUM((2*Tmu*Strain-2/3._dp*rho*Ident*K)*dVelodx)    - &
+             Tmu * SUM(GradRho(1:dim) * Gravity(1:dim)) / (rho * Pr)
+
+       ProdO = SUM((2*rho*Strain-2/3._dp*rho*Ident*Omega)*dVelodx) - &
+             c3 * rho * SUM(GradRho(1:dim) * Gravity(1:dim)) / (rho * Pr)
 !------------------------------------------------------------------------------
 !      Loop over basis functions of both unknowns and weights
 !------------------------------------------------------------------------------

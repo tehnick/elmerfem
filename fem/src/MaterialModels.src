@@ -583,5 +583,57 @@ this ise not in USE
    END FUNCTION EffectiveConductivity
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+   SUBROUTINE ElementDensity( Density, n )
+!------------------------------------------------------------------------------
+     INTEGER :: n
+     REAL(KIND=dp) :: Density(:)
+!------------------------------------------------------------------------------
+     REAL(KIND=dp) :: HeatCapacity(n), SpecificHeatRatio, GasConstant(n), &
+      ReferencePressure, Pressure(n), Temperature(n), ReferenceTemperature(n), &
+      HeatExpansionCoeff(n)
+     LOGICAL :: Found
+     TYPE(ValueList_t), POINTER :: Material
+
+     Material => GetMaterial()
+
+     SELECT CASE( GetString( Material, 'Compressibility Model', Found) )
+     CASE( 'perfect gas', 'ideal gas' )
+        HeatCapacity(1:n) = GetReal( Material, 'Heat Capacity' )
+        SpecificHeatRatio = ListGetConstReal( Material, &
+                 'Specific Heat Ratio', Found )
+        IF ( .NOT.Found ) SpecificHeatRatio = 5.d0/3.d0
+
+        GasConstant(1:n) = ( SpecificHeatRatio - 1.d0 ) *  &
+            HeatCapacity(1:n) / SpecificHeatRatio
+
+        ReferencePressure = GetCReal( Material, 'Reference Pressure', Found )
+        IF ( .NOT.Found ) ReferencePressure = 0.0d0
+
+        CALL GetScalarLocalSolution( Pressure, 'Pressure' )
+        CALL GetScalarLocalSolution( Temperature, 'Temperature' )
+
+        Density(1:n) = ( Pressure(1:n) + ReferencePressure ) / &
+            ( GasConstant(1:n) * Temperature(1:n) )
+
+     CASE( 'thermal' )
+        HeatExpansionCoeff(1:n) = GetReal( Material, &
+              'Heat Expansion Coefficient' )
+
+        ReferenceTemperature(1:n) = GetReal( Material, &
+              'Reference Temperature' )
+        CALL GetScalarLocalSolution( Temperature, 'Temperature' )
+
+        Density(1:n) = GetReal( Material,'Density' )
+        Density(1:n) = Density(1:n) * ( 1 - HeatExpansionCoeff(1:n)  * &
+           (  Temperature(1:n) - ReferenceTemperature(1:n) ) )
+
+     CASE( 'user defined' )
+        CALL GetScalarLocalSolution( Density, 'Density' )
+
+     CASE DEFAULT
+        Density(1:n) = GetReal( Material, 'Density' )
+     END SELECT
+   END SUBROUTINE ElementDensity
 
 END MODULE MaterialModels
