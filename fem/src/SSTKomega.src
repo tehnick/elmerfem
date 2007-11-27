@@ -477,7 +477,9 @@ CONTAINS
 
        Sound_speed_sq = (SUM(Basis(1:n)*Pressure(1:n))+ReferencePressure) * &
                      SpecificHeatRatio / rho
-       Mach_number_sq = K / Sound_speed_sq
+
+       Mach_number_sq = 0._dp
+       IF ( Sound_speed_sq > 0._dp ) Mach_number_sq = K / Sound_speed_sq
 
        Pr = SUM( Basis(1:n) * Pr_rho(1:n) )
        c3 = SUM( Basis(1:n) * c3_omega(1:n) )
