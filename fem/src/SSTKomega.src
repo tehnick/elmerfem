@@ -340,11 +340,13 @@ CONTAINS
      INTEGER :: i,j,c,p,q,t,dim,NBasis
      REAL(KIND=dp) :: LoadatIp(2),Cmu,Rho,mu,Tmu,Effmu(2)
 
-     REAL(KIND=dp) :: s,u,v,w, K,Omega,Strain(3,3), Vorticity(3,3), dist
+     REAL(KIND=dp) :: s,u,v,w, K,Omega,Strain(3,3), Vorticity(3,3), dist, &
+            Mach_number_sq, Sound_speed_sq
 
      REAL(KIND=dp) :: StrainMeasure,VorticityMeasure,X,Y,Z,SigmaK,  &
              SigmaO,Beta,CD,F1,F2,F3,F4,rGamma, GradK(3), GradO(3), &
-            Gravity(3), rho_g, Pr_rho(n), Pr, c3_omega(n), c3
+             Gravity(3), rho_g, Pr_rho(n), Pr, c3_omega(n), c3, Pressure(n), &
+             ReferencePressure, SpecificHeatRatio
 
      REAL(KIND=dp), POINTER :: gWork(:,:)
 
@@ -373,6 +375,10 @@ CONTAINS
 
      c3_omega(1:n) = GetReal( Material, 'Dissipation buoyancy coefficient', stat )
      IF ( .NOT. stat ) c3_omega(1:n) = 0.0_dp
+
+     SpecificheatRatio = GetCReal( Material, 'Specific Heat Ratio' )
+     CALL getScalarLocalSolution( Pressure, 'Pressure' )
+     ReferencePressure = GetCReal( Material, 'Reference Pressure', stat )
 
      CALL GetScalarLocalSolution( UX, 'Velocity 1' )
      CALL GetScalarLocalSolution( UY, 'Velocity 2' )
@@ -469,6 +475,10 @@ CONTAINS
        END DO
        dist = SUM( Distance(1:n) * Basis(1:n) )
 
+       Sound_speed_sq = (SUM(Basis(1:n)*Pressure(1:n))+ReferencePressure) * &
+                     SpecificHeatRatio / rho
+       Mach_number_sq = K / Sound_speed_sq
+
        Pr = SUM( Basis(1:n) * Pr_rho(1:n) )
        c3 = SUM( Basis(1:n) * c3_omega(1:n) )
 
@@ -502,8 +512,8 @@ CONTAINS
        Effmu(1) = mu + Tmu / SigmaK
        Effmu(2) = mu + Tmu / SigmaO
 
-       ProdK = SUM((2*Tmu*Strain-2/3._dp*rho*Ident*K)*dVelodx)     - &
-             Tmu * rho_g / (rho * Pr)
+       ProdK = SUM((2*Tmu*Strain-2/3._dp*rho*Ident*K)*dVelodx) - &
+             Tmu * rho_g / (rho * Pr) - 2*rho*0.09_dp*K*Omega*Mach_number_sq
 
        ProdO = SUM((2*rho*Strain-2/3._dp*rho*Ident*Omega)*dVelodx) - &
              c3 * rho_g / Pr
