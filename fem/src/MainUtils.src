@@ -246,8 +246,10 @@ CONTAINS
 
     INTEGER, POINTER :: Perm(:)
 
-    INTEGER :: i,j,k,l,NDeg,Nrows,nSize,n,DOFs,MatrixFormat,istat
+    INTEGER(KIND=AddrInt) :: InitProc
+
     INTEGER :: MaxDGDOFs, MaxNDOFs, MaxEDOFs, MaxFDOFs, MaxBDOFs
+    INTEGER :: i,j,k,l,NDeg,Nrows,nSize,n,DOFs,MatrixFormat,istat
 
     LOGICAL :: Found, BandwidthOptimize, EigAnal, ComplexFlag, &
     MultigridActive, VariableOutput, GlobalBubbles, HarmonicAnal, MGAlgebraic
@@ -255,20 +257,30 @@ CONTAINS
     CHARACTER(LEN=MAX_NAME_LEN) :: str,eq,var_name, tmpname
 
     TYPE(Mesh_t),   POINTER :: NewMesh,OldMesh
-    TYPE(Matrix_t), POINTER :: NewMatrix, Oldmatrix
     TYPE(Element_t), POINTER :: CurrentElement
+    TYPE(Matrix_t), POINTER :: NewMatrix, Oldmatrix
 
     TYPE(Variable_t), POINTER :: Var
     TYPE(Variable_t), POINTER :: NewVariable
 
     REAL(KIND=dp) :: tt, CPUTime
-
     REAL(KIND=dp), POINTER :: freqv(:,:)
 
     EXTERNAL FlowSolver, HeatSolver, MagneticSolver, StressSolver, MeshSolver
     INTEGER :: FlowSolver, HeatSolver, MagneticSolver, StressSolver, MeshSolver
 
     !------------------------------------------------------------------------------
+
+    str = ListGetString( Solver  % Values, 'Procedure', Found )
+    IF ( Found ) THEN
+      InitProc = GetProcAddr( TRIM(str)//'_Init', abort=.FALSE. )
+      IF ( InitProc /= 0 ) THEN
+        CALL ExecSolver( InitProc, CurrentModel, Solver, &
+                 Solver % dt, Transient )
+      END IF
+    END IF
+ 
+
     MaxNDOFs  = 0
     MaxDGDOFs = 0
     DO i=1,Solver % Mesh % NumberOFBulkElements
@@ -351,7 +363,7 @@ CONTAINS
     MatrixFormat = GetMatrixFormat( CurrentModel, Name )
 
     BandwidthOptimize = ListGetLogical( Solver % Values, &
-                'Optimize Bandwidth', Found )
+            'Optimize Bandwidth', Found )
     IF ( .NOT. Found ) BandwidthOptimize = .TRUE.
 
     VariableOutput = ListGetLogical( Solver % Values, 'Variable Output', Found )
@@ -673,6 +685,9 @@ CONTAINS
       !------------------------------------------------------------------------------
       CASE DEFAULT
       !------------------------------------------------------------------------------
+      str = ListGetString( Solver % Values, 'Procedure' )
+      Solver % Procedure = GetProcAddr(str)
+
       NULLIFY( Solver % Matrix )
       NULLIFY( Solver % Variable )
       Solver % TimeOrder = 0
@@ -761,8 +776,6 @@ CONTAINS
         Solver % Variable % Norm = 0.0d0
         NULLIFY( Solver % Variable % Values )
       END IF
-      str = ListGetString( Solver  % Values, 'Procedure' )
-      Solver % PROCEDURE = GetProcAddr(str)
       !------------------------------------------------------------------------------
     END SELECT
 

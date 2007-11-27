@@ -162,7 +162,7 @@ static void fortranMangle(char *orig, char *mangled)
   loaded library and name of the routine.
   -------------------------------------------------------------------------*/
 void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
-      FC_CHAR_PTR(Library,l1), FC_CHAR_PTR(Name,l2) )
+      int *abort_not_found, FC_CHAR_PTR(Library,l1), FC_CHAR_PTR(Name,l2) )
 {
 /*--------------------------------------------------------------------------*/
    void (*Function)(),*Handle;
@@ -247,7 +247,7 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
          exit(0);
      }
 
-   if ( (Function = (void(*)())dlsym( Handle,NewName ) ) == NULL )
+   if ( (Function = (void(*)())dlsym( Handle,NewName)) == NULL && *abort_not_found )
    {
       fprintf( stderr, "Load: FATAL: Can't find procedure [%s]\n", NewName );
       exit(0);
@@ -324,7 +324,7 @@ void *STDCALLBULL FC_FUNC(loadfunction,LOADFUNCTION) ( int *Quiet,
      }
 
 
-   if ( (Function = (void *)GetProcAddress( Handle,NewName ) ) == NULL )
+   if ( (Function = (void *)GetProcAddress(Handle,NewName)) == NULL && *abort_not_found )
    {
      fprintf( stderr,"Load: FATAL: Can't find procedure [%s]\n", NewName );
      exit(0);

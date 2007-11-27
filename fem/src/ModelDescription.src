@@ -51,10 +51,10 @@ MODULE ModelDescription
     IMPLICIT NONE
 
     INTERFACE
-      FUNCTION LoadFunction( Quiet,Libname,Procname ) RESULT(Proc)
+      FUNCTION LoadFunction( Quiet,Abort_not_found,Libname,Procname ) RESULT(Proc)
         USE Types
         CHARACTER :: Libname(*),Procname(*)
-        INTEGER :: Quiet
+        INTEGER :: Quiet, Abort_not_found
         INTEGER(KIND=AddrInt) :: Proc
       END FUNCTION LoadFunction
     END INTERFACE
@@ -70,13 +70,13 @@ MODULE ModelDescription
 CONTAINS
 
 !------------------------------------------------------------------------------
-  FUNCTION GetProcAddr( str, Quiet ) RESULT( Proc )
+  FUNCTION GetProcAddr( str, Quiet, Abort ) RESULT( Proc )
 !------------------------------------------------------------------------------
     CHARACTER(LEN=*) :: str
-    LOGICAL, OPTIONAL :: Quiet
+    LOGICAL, OPTIONAL :: Quiet, Abort
 
     INTEGER(KIND=AddrInt) :: Proc
-    INTEGER   :: i,j,slen,q
+    INTEGER   :: i,j,slen,q,a
     CHARACTER :: Libname(MAX_NAME_LEN),Procname(MAX_NAME_LEN)
 !------------------------------------------------------------------------------
 
@@ -110,7 +110,13 @@ CONTAINS
     IF ( PRESENT(Quiet) ) THEN
        IF ( Quiet ) q = 1
     END IF
-    Proc = LoadFunction( q,Libname,Procname )
+
+    a = 1
+    IF ( PRESENT(abort) ) THEN
+       IF ( .NOT. abort ) a=0
+    END IF
+
+    Proc = LoadFunction( q,a,Libname,Procname )
   END FUNCTION GetProcAddr
 !------------------------------------------------------------------------------
 
