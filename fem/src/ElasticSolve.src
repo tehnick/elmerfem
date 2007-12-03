@@ -66,6 +66,28 @@
 !******************************************************************************
 
 !------------------------------------------------------------------------------
+  SUBROUTINE ElasticSolver_Init( Model,Solver,dt,Transient )
+!------------------------------------------------------------------------------
+    USE DefUtils
+
+    TYPE(Model_t)  :: Model
+    TYPE(Solver_t) :: Solver
+    REAL(KIND=dp) :: DT
+    LOGICAL :: Transient
+!------------------------------------------------------------------------------
+    INTEGER :: dim
+!------------------------------------------------------------------------------
+    IF ( .NOT. ListCheckPresent(Solver % Values,'Variable') ) THEN
+      dim = CoordinateSystemDimension()
+      CALL ListAddInteger( Solver % Values, 'Variable DOFs', dim )
+      CALL ListAddString( Solver % Values, 'Variable', 'Displacement' )
+    END IF
+    CALL ListAddInteger( Solver % Values, 'Time derivative order', 2 )
+!------------------------------------------------------------------------------
+  END SUBROUTINE ElasticSolver_Init
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
    SUBROUTINE ElasticSolver( Model, Solver, dt, TransientSimulation )
 !DEC$ATTRIBUTES DLLEXPORT :: ElasticSolver
 !------------------------------------------------------------------------------
