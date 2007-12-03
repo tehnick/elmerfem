@@ -76,13 +76,15 @@
     LOGICAL :: Transient
 !------------------------------------------------------------------------------
     INTEGER :: dim
+    TYPE(ValueList_t), POINTER :: SolverParams
 !------------------------------------------------------------------------------
-    IF ( .NOT. ListCheckPresent(Solver % Values,'Variable') ) THEN
+    SolverParams => GetSolverParams()
+    IF ( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN
       dim = CoordinateSystemDimension()
-      CALL ListAddInteger( Solver % Values, 'Variable DOFs', dim )
-      CALL ListAddString( Solver % Values, 'Variable', 'Displacement' )
+      CALL ListAddInteger( SolverParams, 'Variable DOFs', dim )
+      CALL ListAddString( SolverParams, 'Variable', 'Displacement' )
     END IF
-    CALL ListAddInteger( Solver % Values, 'Time derivative order', 2 )
+    CALL ListAddInteger( SolverParams, 'Time derivative order', 2 )
 !------------------------------------------------------------------------------
   END SUBROUTINE ElasticSolver_Init
 !------------------------------------------------------------------------------

@@ -52,6 +52,29 @@
 ! *       Date of modification: 29.5.2001, 21.8.2001
 ! *
 ! *****************************************************************************/
+
+!------------------------------------------------------------------------------
+  SUBROUTINE ShellSolver_Init( Model,Solver,dt,Transient )
+!------------------------------------------------------------------------------
+    USE DefUtils
+
+    TYPE(Model_t)  :: Model
+    TYPE(Solver_t) :: Solver
+    REAL(KIND=dp) :: DT
+    LOGICAL :: Transient
+!------------------------------------------------------------------------------
+    TYPE(ValueList_t), POINTER :: SolverParams
+!------------------------------------------------------------------------------
+    SolverParams => GetSolverParams()
+    IF ( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN
+      CALL ListAddInteger( SolverParams, 'Variable DOFs', 6 )
+      CALL ListAddString( SolverParams, 'Variable', 'Deflection' )
+    END IF
+    CALL ListAddInteger( SolverParams, 'Time derivative order', 2 )
+!------------------------------------------------------------------------------
+  END SUBROUTINE ShellSolver_Init
+!------------------------------------------------------------------------------
+
  
 !------------------------------------------------------------------------------
    SUBROUTINE ShellSolver( Model,Solver,dt,TransientSimulation )
