@@ -575,6 +575,8 @@ CONTAINS
 
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
 
+     REAL(KIND=dp) :: SpecificHeatRatio, Pressure(n), ReferencePressure, &
+          Sound_speed_sq, Mach_number_sq
      REAL(KIND=dp) :: Metric(3,3),Symb(3,3,3),dSymb(3,3,3,3),SqrtMetric
      REAL(KIND=dp) :: C0(2),C1,CT,C2(2),dC2dx(3),SecInv,X,Y,Z,LV2,LCT,SigmaK,SigmaE
 
@@ -592,6 +594,11 @@ CONTAINS
      Bubbles = .TRUE.
 
      UseRNGModel = KEModel == 'rng'
+
+     CALL ElementDensity( Density, n )
+     SpecificheatRatio = GetCReal( Material, 'Specific Heat Ratio', stat )
+     CALL getScalarLocalSolution( Pressure, 'Pressure' )
+     ReferencePressure = GetCReal( Material, 'Reference Pressure', stat )
 
 !------------------------------------------------------------------------------
 !    Integration stuff
@@ -666,6 +673,11 @@ CONTAINS
 
        LC1 = SUM( KEC1(1:n) * Basis(1:n) )
        LC2 = SUM( KEC2(1:n) * Basis(1:n) )
+
+       Sound_speed_sq = (SUM(Basis(1:n)*Pressure(1:n))+ReferencePressure) * &
+                     SpecificHeatRatio / rho
+       Mach_number_sq = 0._dp
+       IF ( Sound_speed_sq > 0._dp ) Mach_number_sq = K/Sound_speed_sq
 
        IF ( KEModel=='v2-f' ) THEN
          LV2 = SUM( LocalV2(1:n) * Basis(1:n) )
@@ -792,7 +804,7 @@ CONTAINS
 
         ! Load at the integration point:
         !-------------------------------
-        LoadAtIP(1) = Rho*Prod
+        LoadAtIP(1) = rho*(Prod-2*E*Mach_number_sq)
         IF ( KEModel=='v2-f' ) THEN
           LoadAtIP(2) = Rho*LC1*Prod/TimeScale
         ELSE
