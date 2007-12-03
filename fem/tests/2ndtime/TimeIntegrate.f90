@@ -1,5 +1,26 @@
+
+!------------------------------------------------------------------------------
+SUBROUTINE TimeIntTest_Init( Model,Solver,dt,TransientSimulation )
+!------------------------------------------------------------------------------
+  USE DefUtils
+
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+  TYPE(Solver_t) :: Solver
+  TYPE(Model_t) :: Model
+
+  REAL(KIND=dp) :: dt
+  LOGICAL :: TransientSimulation
+!------------------------------------------------------------------------------
+  CALL ListAddInteger( GetSolverParams(), 'Time Derivative Order', 2 )
+!------------------------------------------------------------------------------
+END SUBROUTINE TimeIntTest_Init
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
 SUBROUTINE TimeIntTest( Model,Solver,dt,TransientSimulation )
-!DEC$ATTRIBUTES DLLEXPORT :: TimeIntTest
+!------------------------------------------------------------------------------
   USE DefUtils
 
   IMPLICIT NONE
