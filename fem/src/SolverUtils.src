@@ -1082,13 +1082,14 @@ CONTAINS
     REAL(KIND=dp), POINTER :: CoordNodes(:,:), Condition(:), Work(:)
     REAL(KIND=dp) :: MinDist,Dist, Eps
     LOGICAL, ALLOCATABLE :: ActivePart(:), ActiveCond(:), ActivePartAll(:)
-    LOGICAL :: NodesFound, Passive
     TYPE(ValueList_t), POINTER :: ValueList
+    LOGICAL :: NodesFound, Passive, zeroing_done(3) = .FALSE.
  
 !------------------------------------------------------------------------------
 ! These logical vectors are used to minimize extra effort in setting up different BCs
 !------------------------------------------------------------------------------
 
+    IF ( DOF<= 0 ) zeroing_done = .FALSE.
     nlen = LEN_TRIM(Name)
 
     n = MAX( Model % NumberOfBodyForces,Model % NumberOfBCs)
@@ -1326,7 +1327,9 @@ CONTAINS
 
     SUBROUTINE SetElementValues(n)
       INTEGER :: n
-      REAL(KIND=dp) :: Condition(n), Work(n)
+      INTEGER :: i,j,k,l,m,dim
+      LOGICAL :: CheckNT
+      REAL(KIND=dp) :: Condition(n), Work(n), RotVec(3)
       
       IF ( DOF > 0 ) THEN
         Work(1:n)  = ListGetReal( ValueList, Name, n, Indexes, gotIt )
@@ -1337,25 +1340,52 @@ CONTAINS
         CALL ListGetRealArray( ValueList, Name, WorkA, n, Indexes, gotIt )
       END IF
 
+      CheckNT = .FALSE.
+      IF ( NormalTangentialNOFNodes>0 .AND. NDOFs>0 ) THEN
+        dim = CoordinateSystemDimension()
+        CheckNT = .TRUE.
+        IF ( ALL(BoundaryReorder(Indexes(1:n))>0) ) CheckNT = .FALSE.
+        IF ( ALL(BoundaryReorder(Indexes(1:n))<1) ) CheckNT = .FALSE.
+      END IF
+
       IF ( gotIt ) THEN
         IF ( Conditional ) THEN
           Condition(1:n) = ListGetReal( ValueList, CondName, n, Indexes, gotIt )
           Conditional = Conditional .AND. GotIt
         END IF
+
         DO j=1,n
           IF ( Conditional .AND. Condition(j) < 0.0d0 ) CYCLE
           k = Perm(Indexes(j))
           IF ( k > 0 ) THEN
             IF ( DOF>0 ) THEN
-              k = NDOFs * (k-1) + DOF
-              IF ( A % FORMAT == MATRIX_SBAND ) THEN
-                CALL SBand_SetDirichlet( A,b,k,Work(j) )
-              ELSE IF ( A % FORMAT == MATRIX_CRS .AND. A % Symmetric ) THEN
-                CALL CRS_SetSymmDirichlet( A,b,k,Work(j) )
+              IF ( CheckNT .AND. BoundaryReorder(Indexes(j)) > 0 ) THEN
+                RotVec = 0._dp
+                RotVec(DOF) = 1._dp
+                CALL RotateNTSystem( RotVec, Indexes(j) )
+                DO k=1,dim
+                  IF ( ABS(RotVec(k)) > 1.d-9 ) THEN
+                    l = NDOFs * (Perm(Indexes(j))-1) + k
+                    IF (.NOT. zeroing_done(k) ) THEN
+                      Zeroing_done(k) = .TRUE.
+                      b(l) = 0._dp
+                      CALL ZeroRow( A,l )
+                      CALL SetMatrixElement( A,l,l,1.0d0 )
+                    END IF
+                    b(l) = b(l) + RotVec(k) * Work(j)
+                  END IF
+                END DO
               ELSE
-                b(k) = Work(j)
-                CALL ZeroRow( A,k )
-                CALL SetMatrixElement( A,k,k,1.0d0 )
+                k = NDOFs * (k-1) + DOF
+                IF ( A % FORMAT == MATRIX_SBAND ) THEN
+                  CALL SBand_SetDirichlet( A,b,k,Work(j) )
+                ELSE IF ( A % FORMAT == MATRIX_CRS .AND. A % Symmetric ) THEN
+                  CALL CRS_SetSymmDirichlet( A,b,k,Work(j) )
+                ELSE
+                  b(k) = Work(j)
+                  CALL ZeroRow( A,k )
+                  CALL SetMatrixElement( A,k,k,1.0d0 )
+                END IF
               END IF
             ELSE
               DO l=1,MIN( NDOFs, SIZE(Worka,1) )
@@ -1374,7 +1404,6 @@ CONTAINS
           END IF
         END DO
       END IF
-    
     END SUBROUTINE SetElementValues
   
 !------------------------------------------------------------------------------
@@ -2596,6 +2625,45 @@ CONTAINS
   END SUBROUTINE InvalidateVariable
 !------------------------------------------------------------------------------
 
+
+!------------------------------------------------------------------------------
+  SUBROUTINE RotateNTSystem( Vec, NodeNumber )
+!------------------------------------------------------------------------------
+     REAL(KIND=dp) :: Vec(:)
+     INTEGER :: NodeNumber
+!------------------------------------------------------------------------------
+     INTEGER :: i,j,k, dim
+     REAL(KIND=dp) :: Bu,Bv,Bw,RM(3,3)
+!------------------------------------------------------------------------------
+
+     IF ( NormalTangentialNOFNodes <= 0 ) RETURN
+
+     dim = CoordinateSystemDimension()
+
+     k = BoundaryReorder(NodeNumber)
+     IF ( k <= 0 ) RETURN
+
+     IF ( dim < 3 ) THEN
+       Bu = Vec(1)
+       Bv = Vec(2)
+       Vec(1) =  BoundaryNormals(k,1)*Bu + BoundaryNormals(k,2)*Bv
+       Vec(2) = -BoundaryNormals(k,2)*Bu + BoundaryNormals(k,1)*Bv
+     ELSE
+       Bu = Vec(1)
+       Bv = Vec(2)
+       Bw = Vec(3)
+
+       RM(:,1) = BoundaryNormals(k,:)
+       RM(:,2) = BoundaryTangent1(k,:)
+       RM(:,3) = BoundaryTangent2(k,:)
+
+       Vec(1) = RM(1,1)*Bu + RM(2,1)*Bv + RM(3,1)*Bw
+       Vec(2) = RM(1,2)*Bu + RM(2,2)*Bv + RM(3,2)*Bw
+       Vec(3) = RM(1,3)*Bu + RM(2,3)*Bv + RM(3,3)*Bw
+     END IF
+!------------------------------------------------------------------------------
+  END SUBROUTINE RotateNTSystem
+!------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
   SUBROUTINE BackRotateNTSystem( Solution, Perm, NDOFs )
