@@ -55,14 +55,15 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   TYPE(Solver_t) :: Solver
   TYPE(Model_t) :: Model
   REAL(KIND=dp) :: dt
-  LOGICAL :: TransientSimulation, SaveGid, SaveVTK, SaveOpenDx, SaveGmsh
+  LOGICAL :: TransientSimulation, SaveGid, SaveVTK, SaveOpenDx, SaveGmsh, SaveVTU
 
   CHARACTER(10) :: OutputFormat
   LOGICAL :: Found
-
+    
   SaveGid = ListGetLogical(Solver % Values,'Gid Format',Found)
   SaveGmsh = ListGetLogical(Solver % Values,'Gmsh Format',Found)
   SaveVTK = ListGetLogical(Solver % Values,'VTK Format',Found)
+  SaveVTU = ListGetLogical(Solver % Values,'VTU Format',Found)
   SaveOpenDx = ListGetLogical(Solver % Values,'Dx Format',Found)
 
   OutputFormat = GetString( Solver % Values, 'Output Format', Found )
@@ -71,6 +72,8 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
       SaveGid = .TRUE.
     ELSE IF( OutputFormat == "vtk" )THEN
       SaveVTK = .TRUE.
+    ELSE IF( OutputFormat == "vtu" )THEN
+      SaveVTU = .TRUE.
     ELSE IF( OutputFormat == "dx" )THEN
       SaveOpenDx = .TRUE.
     ELSE IF( OutputFormat == "gmsh" )THEN
@@ -79,11 +82,11 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
       CALL Warn( 'ResultOutputSolver', &
                  'Unknown output format "' // TRIM(OutputFormat) // '"' )
       CALL Warn( 'ResultOutputSolver', &
-                 'Available formats are "GiD", "VTK" and "DX"' )
+                 'Available formats are "GiD", "VTK", "VTU" and "DX"' )
     END IF
   END IF
 
-  IF(.NOT. (SaveGid .OR. SaveGmsh .OR. SaveVTK .OR. SaveOpenDx)) THEN
+  IF(.NOT. (SaveGid .OR. SaveGmsh .OR. SaveVTK .OR. SaveVTU .OR. SaveOpenDx)) THEN
     CALL Warn('ResultOutputSolver','No output format was defined')
     RETURN
   END IF
@@ -91,6 +94,7 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   IF( SaveGid ) CALL GiDOutputSolver( Model,Solver,dt,TransientSimulation )
   IF( SaveGmsh ) CALL GmshOutputSolver( Model,Solver,dt,TransientSimulation )
   IF( SaveVTK ) CALL VtkOutputSolver( Model,Solver,dt,TransientSimulation )
+  IF( SaveVTU ) CALL VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   IF( SaveOpenDx ) CALL DXOutputSolver( Model,Solver,dt,TransientSimulation )
 
 
@@ -137,6 +141,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
 
   SAVE FirstTimeStep
 !------------------------------------------------------------------------------
+
   PyramidMap605(1,:) = (/ 3, 5, 4, 1 /)
   PyramidMap605(2,:) = (/ 3, 5, 2, 1 /)
 
@@ -2234,3 +2239,479 @@ CONTAINS
 
 END SUBROUTINE DXOutputSolver
 
+
+
+
+
+
+!------------------------------------------------------------------------------
+! The Vtu output solver begins here
+!------------------------------------------------------------------------------
+SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
+!DEC$ATTRIBUTES DLLEXPORT :: VtuOutputSolver
+!------------------------------------------------------------------------------
+
+  USE DefUtils 
+  USE MeshUtils
+  USE ElementDescription
+  
+  IMPLICIT NONE
+  TYPE(Solver_t) :: Solver
+  TYPE(Model_t) :: Model
+  REAL(dp) :: dt
+  LOGICAL :: TransientSimulation
+  
+  INTEGER, SAVE :: nTime = 0
+  LOGICAL :: GotIt, Parallel
+  CHARACTER(MAX_NAME_LEN), SAVE :: FilePrefix
+  CHARACTER(MAX_NAME_LEN) :: VtuFile, PvtuFile 
+  TYPE(Mesh_t), POINTER :: Mesh
+  TYPE(Variable_t), POINTER :: Var
+  INTEGER :: i, j, k, Partitions, Part
+  CHARACTER(MAX_NAME_LEN) :: Dir
+ 
+
+  IF ( nTime == 0 ) THEN
+    CALL Info('VtuOutputSolver','Saving results in VTK XML format')
+    FilePrefix = GetString( Solver % Values,'Output File Name',GotIt )
+    IF ( .NOT.GotIt ) FilePrefix = "Output"
+  END IF
+  nTime = nTime + 1
+  
+  Partitions = ParEnv % PEs
+  Part = ParEnv % MyPE
+  Parallel = (Partitions > 1) .OR. ListGetLogical(Solver % Values,'Test Parallel',GotIt)
+
+  Mesh => Model % Meshes
+  DO WHILE( ASSOCIATED(Mesh) )
+    IF ( .NOT.Mesh % OutputActive ) THEN
+      Mesh => Mesh % next
+      CYCLE
+    END IF
+    
+    IF (LEN_TRIM(Mesh % Name) > 0 ) THEN
+      Dir = TRIM(Mesh % Name) // "/"
+    ELSE
+      Dir = "./"
+    END IF
+    
+    CALL SetCurrentMesh( Model, Mesh )
+
+    IF(Parallel .AND. Part == 0) THEN
+      WRITE( PvtuFile,'(A,A,I4.4,".pvtu")' ) TRIM(Dir),TRIM(FilePrefix),nTime
+      CALL WritePvtuFile( PvtuFile, Model, .TRUE. )
+    END IF
+
+    IF ( Parallel ) THEN
+      WRITE( VtuFile,'(A,A,I4.4,A,I4.4,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),Part+1,"par",nTime
+    ELSE
+      WRITE( VtuFile,'(A,A,I4.4,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),nTime
+    END IF
+    CALL WriteVtuFile( VtuFile, Model, .TRUE. )
+    
+    Mesh => Mesh % next
+  END DO
+
+CONTAINS
+
+  
+  SUBROUTINE WriteVtuFile( VtuFile, Model, SubtractDisp )
+    CHARACTER(LEN=*), INTENT(IN) :: VtuFile
+    TYPE(Model_t) :: Model 
+    LOGICAL, INTENT(IN) :: SubtractDisp
+    INTEGER, PARAMETER :: VtuUnit = 58
+    TYPE(Variable_t), POINTER :: Var,Var1
+    CHARACTER(LEN=512) :: str
+    !LOGICAL :: FreeSurfaceFlag
+    INTEGER :: i,j,k,dofs,Rank,cumn,n,dim,vari,sdofs
+    CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, TensorFieldName, FieldName
+    LOGICAL :: ScalarsExist, VectorsExist, Found, VeloFlag
+    TYPE(Variable_t), POINTER :: Solution
+    INTEGER, POINTER :: Perm(:)
+    REAL(KIND=dp), POINTER :: Values(:)
+    TYPE(Solver_t), POINTER :: Solver
+    TYPE(Element_t), POINTER :: CurrentElement
+
+    
+    OPEN( UNIT=VtuUnit, FILE=VtuFile, STATUS='UNKNOWN' )
+    Solver => Model % Solver
+    dim = CoordinateSystemDimension()
+
+    !FreeSurfaceFlag = FreeSurface( Model )
+    
+    WRITE( VtuUnit,'(A)') '<VTKFile type="UnstructuredGrid" version="0.1" byte_order="LittleEndian">'
+    WRITE( VtuUnit,'(A)') '  <UnstructuredGrid>'
+    WRITE( VtuUnit,'(A,I0,A,I0,A)') '    <Piece NumberOfPoints="',Model % NumberOfNodes,&
+        '" NumberOfCells="',Model%NumberOfBulkElements + Model%NumberOfBoundaryElements,'">'
+    
+    ! nodewise information
+    !-------------------------------------
+    ScalarFieldName = GetString( Solver % Values,'Scalar Field 1',ScalarsExist)
+    VectorFieldName = GetString( Solver % Values,'Vector Field 1',VectorsExist)
+    IF( ScalarsExist .AND. VectorsExist) THEN
+      WRITE( VtuUnit,'(A)') '      <PointData Scalars="'//TRIM(ScalarFieldName)&
+          //'" Vectors="'//TRIM(VectorFieldName)//'">'
+    ELSE IF( ScalarsExist ) THEN
+      WRITE( VtuUnit,'(A)') '      <PointData Scalars="'//TRIM(ScalarFieldName)//'">'
+    ELSE IF( VectorsExist ) THEN
+      WRITE( VtuUnit,'(A)') '      <PointData Vectors="'//TRIM(VectorFieldName)//'">'
+    ELSE
+      CALL Warn('WriteVtkXMLFile','Are there really no scalars or vectors?')
+    END IF
+
+    
+    DO Rank = 0,2
+      DO Vari = 1, 99
+        IF( Vari < 10 ) THEN
+          IF(Rank==0) WRITE(Txt,'(A,I2)') 'Scalar Field',Vari
+          IF(Rank==1) WRITE(Txt,'(A,I2)') 'Vector Field',Vari
+          IF(Rank==2) WRITE(Txt,'(A,I2)') 'Tensor Field',Vari
+        ELSE
+          IF(Rank==0) WRITE(Txt,'(A,I3)') 'Scalar Field',Vari
+          IF(Rank==1) WRITE(Txt,'(A,I3)') 'Vector Field',Vari
+          IF(Rank==2) WRITE(Txt,'(A,I3)') 'Tensor Field',Vari
+        END IF
+        
+        FieldName = GetString( Solver % Values, TRIM(Txt), Found )
+        IF(.NOT. Found) EXIT
+        
+        IF(Rank == 2) THEN
+          CALL Warn('VtuOutputSolver','Do the tensors')
+          EXIT
+        END IF
+        
+        Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName) )
+
+        IF(.NOT. ASSOCIATED(Solution)) THEN
+          IF(FieldName == 'velocity') THEN
+            FieldName = 'flow solution'
+            Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName) )
+            IF(.NOT. ASSOCIATED(Solution)) THEN
+              CALL Warn('WriteVtuXMLFile', 'Velocity and flow solution do not exist')
+            END IF
+          ELSE
+            WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
+            CALL Warn('WriteVtuXMLFile', Txt)
+          END IF
+        END IF
+
+        IF( ASSOCIATED(Solution % EigenVectors)) THEN
+          CALL Warn('WriteVtuXMLFile','Do the eigen values')
+        END IF
+
+        VeloFlag = (FieldName == 'flow solution')
+
+        Perm => Solution % Perm
+        dofs = Solution % DOFs
+        Values => Solution % Values
+        
+        IF( Rank == 0) THEN
+          WRITE( VtuUnit,'(A)') '        <DataArray type="Float32" Name="'//TRIM(FieldName)&
+              //'" NumberOfComponents="1" format="ascii">'    
+          DO i = 1, Model % Mesh % NumberOfNodes
+            j = Perm(i)
+            IF(j > 0) THEN
+              WRITE( VtuUnit,'(E16.6E3)', ADVANCE='no') Values(j)              
+            ELSE
+              WRITE( VtuUnit,'(A)', ADVANCE='no') '0.0 '  
+            END IF
+          END DO
+          WRITE( VtuUnit,'(A)') ' '
+          WRITE( VtuUnit,'(A)') '        </DataArray>'
+        ELSE
+          IF(VeloFlag) THEN
+            sdofs = MAX(dofs - 1,3)            
+            WRITE( VtuUnit,'(A,I1,A)') '        <DataArray type="Float32" Name="velocity"'&
+                //' NumberOfComponents="',sdofs,'" format="ascii">'    
+          ELSE
+            sdofs = MAX(dofs,3)
+            WRITE( VtuUnit,'(A,I1,A)') '        <DataArray type="Float32" Name="'//TRIM(FieldName)&
+                //'" NumberOfComponents="',sdofs,'" format="ascii">'    
+          END IF
+
+          DO i = 1, Model % Mesh % NumberOfNodes
+            j = Perm(i)
+            IF(VeloFlag) THEN
+              DO k=1,sdofs
+                IF( j == 0 .OR. k > dofs - 1) THEN
+                  WRITE( VtuUnit,'(A)', ADVANCE='no') '0.0 '  
+                ELSE
+                  WRITE( VtuUnit,'(E16.6E3)', ADVANCE='no') Values(dofs*(j-1)+k)              
+                END IF
+              END DO
+            ELSE
+              DO k=1,sdofs
+                IF(j==0 .OR. k > dofs) THEN
+                  WRITE( VtuUnit,'(A)', ADVANCE='no') '0.0 '  
+                ELSE                  
+                  WRITE( VtuUnit,'(E16.6E3)', ADVANCE='no') Values(dofs*(j-1)+k)              
+                END IF
+              END DO
+            END IF
+          END DO
+          WRITE( VtuUnit,'(A)') ' '
+          WRITE( VtuUnit,'(A)') '        </DataArray>'
+        END IF
+      END DO
+    END DO
+    WRITE( VtuUnit,'(A)') '      </PointData>'
+
+    
+    ! Elementwise information
+    !-------------------------------------
+    IF(.FALSE.) THEN
+      WRITE( VtuUnit,'(A)') '      <CellData>'
+      WRITE( VtuUnit,'(A)') '        <DataArray type="Int32" Name="body" format="ascii">'
+      DO i = 1, Model%NumberOfBulkElements + Model%NumberOfBoundaryElements      
+        CurrentElement => Model % Elements(i)
+        IF( i <= Model % NumberOfBulkElements) THEN
+          n = CurrentElement % BodyId
+        ELSE
+          n = 0
+        END IF
+        WRITE( VtuUnit, '(I0," ")',ADVANCE='NO') n
+      END DO
+      WRITE( VtuUnit,'(A)') '        </DataArray>'
+      WRITE( VtuUnit,'(A)') '      </CellData>'
+    END IF
+
+    ! Coordinates of each point
+    !-------------------------------------
+    WRITE( VtuUnit,'(A)') '      <Points>'
+    WRITE( VtuUnit,'(A)') '        <DataArray type="Float32" NumberOfComponents="3" format="ascii">'    
+    DO i = 1, Model % Mesh % NumberOfNodes
+      IF(dim == 3) THEN
+        WRITE(VtuUnit,'(3E16.6E3)') Model % Mesh % Nodes % x(i), &
+            Model % Mesh % Nodes % y(i), Model % Mesh % Nodes % z(i)
+      ELSE
+        WRITE(VtuUnit,'(2E16.6E3," 0.0")') Model % Mesh % Nodes % x(i), &
+            Model % Mesh % Nodes % y(i)
+      END IF
+    END DO
+    WRITE( VtuUnit,'(A)') '        </DataArray>'
+    WRITE( VtuUnit,'(A)') '      </Points>'
+
+
+    ! Write out the mesh
+    !-------------------------------------
+    WRITE( VtuUnit,'(A)') '      <Cells>'
+    WRITE( VtuUnit,'(A)') '        <DataArray type="Int32" Name="connectivity" format="ascii">'
+    DO i = 1, Model%NumberOfBulkElements + Model%NumberOfBoundaryElements      
+      CurrentElement => Model % Elements(i)
+      WRITE( VtuUnit, '(50(" ",I0))') CurrentElement % NodeIndexes-1
+    END DO
+    WRITE( VtuUnit,'(A)') '        </DataArray>'
+
+    cumn = 0
+    WRITE( VtuUnit,'(A)') '        <DataArray type="Int32" Name="offsets" format="ascii">'
+    DO i = 1, Model%NumberOfBulkElements + Model%NumberOfBoundaryElements      
+      CurrentElement => Model % Elements(i)
+      n = CurrentElement % TYPE % NumberOfNodes
+      cumn = cumn + n
+      WRITE( VtuUnit, '(I0," ")',ADVANCE='NO') cumn
+    END DO
+    WRITE( VtuUnit,'(A)') ' '
+    WRITE( VtuUnit,'(A)') '        </DataArray>'
+
+    WRITE( VtuUnit,'(A)') '        <DataArray type="Int32" Name="types" format="ascii">'
+    DO i = 1, Model%NumberOfBulkElements + Model%NumberOfBoundaryElements      
+      CurrentElement => Model % Elements(i)
+      n = Elmer2VTKElement(CurrentElement % TYPE % ElementCode)
+      WRITE( VtuUnit, '(I0," ")',ADVANCE='NO') n
+    END DO
+    WRITE( VtuUnit,'(A)') ' '
+    WRITE( VtuUnit,'(A)') '        </DataArray>'
+    WRITE( VtuUnit,'(A)') '      </Cells>'
+
+
+    WRITE( VtuUnit,'(A)') '    </Piece>'
+    WRITE( VtuUnit,'(A)') '  </UnstructuredGrid>'
+    WRITE( VtuUnit,'(A)') '</VTKFile>'
+
+    CLOSE( VtuUnit )
+  
+  END SUBROUTINE WriteVtuFile
+    
+
+
+  SUBROUTINE WritePvtuFile( VtuFile, Model, SubtractDisp )
+    CHARACTER(LEN=*), INTENT(IN) :: VtuFile
+    TYPE(Model_t) :: Model 
+    LOGICAL, INTENT(IN) :: SubtractDisp
+    INTEGER, PARAMETER :: VtuUnit = 58
+    TYPE(Variable_t), POINTER :: Var,Var1
+    CHARACTER(LEN=512) :: str
+    !LOGICAL :: FreeSurfaceFlag
+    INTEGER :: i,j,k,dofs,Rank,cumn,n,dim,vari,sdofs
+    CHARACTER(LEN=1024) :: Txt, ScalarFieldName, VectorFieldName, TensorFieldName, FieldName
+    LOGICAL :: ScalarsExist, VectorsExist, Found, VeloFlag
+    TYPE(Variable_t), POINTER :: Solution
+    INTEGER, POINTER :: Perm(:)
+    REAL(KIND=dp), POINTER :: Values(:)
+    TYPE(Solver_t), POINTER :: Solver
+    TYPE(Element_t), POINTER :: CurrentElement
+
+    
+    OPEN( UNIT=VtuUnit, FILE=VtuFile, STATUS='UNKNOWN' )
+    Solver => Model % Solver
+    dim = CoordinateSystemDimension()
+
+    !FreeSurfaceFlag = FreeSurface( Model )
+    
+    WRITE( VtuUnit,'(A)') '<VTKFile type="PUnstructuredGrid" version="0.1" byte_order="LittleEndian">'
+    WRITE( VtuUnit,'(A)') '  <PUnstructuredGrid>'
+
+
+    
+    ! nodewise information
+    !-------------------------------------
+    ScalarFieldName = GetString( Solver % Values,'Scalar Field 1',ScalarsExist)
+    VectorFieldName = GetString( Solver % Values,'Vector Field 1',VectorsExist)
+    IF( ScalarsExist .AND. VectorsExist) THEN
+      WRITE( VtuUnit,'(A)') '    <PPointData Scalars="'//TRIM(ScalarFieldName)&
+          //'" Vectors="'//TRIM(VectorFieldName)//'">'
+    ELSE IF( ScalarsExist ) THEN
+      WRITE( VtuUnit,'(A)') '    <PPointData Scalars="'//TRIM(ScalarFieldName)//'">'
+    ELSE IF( VectorsExist ) THEN
+      WRITE( VtuUnit,'(A)') '    <PPointData Vectors="'//TRIM(VectorFieldName)//'">'
+    ELSE
+      CALL Warn('WriteVtkXMLFile','Are there really no scalars or vectors?')
+    END IF
+
+    
+    DO Rank = 0,2
+      DO Vari = 1, 99
+        IF( Vari < 10 ) THEN
+          IF(Rank==0) WRITE(Txt,'(A,I2)') 'Scalar Field',Vari
+          IF(Rank==1) WRITE(Txt,'(A,I2)') 'Vector Field',Vari
+          IF(Rank==2) WRITE(Txt,'(A,I2)') 'Tensor Field',Vari
+        ELSE
+          IF(Rank==0) WRITE(Txt,'(A,I3)') 'Scalar Field',Vari
+          IF(Rank==1) WRITE(Txt,'(A,I3)') 'Vector Field',Vari
+          IF(Rank==2) WRITE(Txt,'(A,I3)') 'Tensor Field',Vari
+        END IF
+        
+        FieldName = GetString( Solver % Values, TRIM(Txt), Found )
+        IF(.NOT. Found) EXIT
+        
+        IF(Rank == 2) THEN
+          CALL Warn('WritePvtuFile','Do the tensors')
+          EXIT
+        END IF
+        
+        Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName) )
+
+        IF(.NOT. ASSOCIATED(Solution)) THEN
+          IF(FieldName == 'velocity') THEN
+            FieldName = 'flow solution'
+            Solution => VariableGet( Model % Mesh % Variables, TRIM(FieldName) )
+            IF(.NOT. ASSOCIATED(Solution)) THEN
+              CALL Warn('WriteVtuXMLFile', 'Velocity and flow solution do not exist')
+            END IF
+          ELSE
+            WRITE(Txt, '(A,A)') 'Nonexistent variable: ',TRIM(FieldName)
+            CALL Warn('WritePvtuFile', Txt)
+          END IF
+        END IF
+
+        IF( ASSOCIATED(Solution % EigenVectors)) THEN
+          CALL Warn('WritePvtuFile','Do the eigen values')
+        END IF
+
+        VeloFlag = (FieldName == 'flow solution')
+
+        Perm => Solution % Perm
+        dofs = Solution % DOFs
+        Values => Solution % Values
+        
+        IF( Rank == 0) THEN
+          WRITE( VtuUnit,'(A)') '      <PDataArray type="Float32" Name="'//TRIM(FieldName)&
+              //'" NumberOfComponents="1" format="ascii"/>'    
+        ELSE
+          IF(VeloFlag) THEN
+            sdofs = MAX(dofs - 1,3)            
+            WRITE( VtuUnit,'(A,I1,A)') '      <PDataArray type="Float32" Name="velocity"'&
+                //' NumberOfComponents="',sdofs,'" format="ascii"/>'    
+          ELSE
+            sdofs = MAX(dofs,3)
+            WRITE( VtuUnit,'(A,I1,A)') '      <PDataArray type="Float32" Name="'//TRIM(FieldName)&
+                //'" NumberOfComponents="',sdofs,'" format="ascii"/>'    
+          END IF
+        END IF
+      END DO
+    END DO
+    WRITE( VtuUnit,'(A)') '    </PPointData>'
+
+    
+    ! Elementwise information
+    !-------------------------------------
+    IF(.FALSE.) THEN
+      WRITE( VtuUnit,'(A)') '      <PCellData>'
+      WRITE( VtuUnit,'(A)') '        <PDataArray type="Int32" Name="body" format="ascii"/>'
+      WRITE( VtuUnit,'(A)') '      </PCellData>'
+    END IF
+
+    ! Coordinates of each point
+    !-------------------------------------
+    WRITE( VtuUnit,'(A)') '      <PPoints>'
+    WRITE( VtuUnit,'(A)') '        <DataArray type="Float32" NumberOfComponents="3" format="ascii"/>'    
+    WRITE( VtuUnit,'(A)') '      </PPoints>' 
+
+    DO i=1,Partitions
+      WRITE( VtuUnit,'(A,I4.4,A,I4.4,Aq)' ) '    <Piece Source="'//&
+          TRIM(FilePrefix),i,"par",nTime,'.vtu"/>'
+    END DO
+
+    WRITE( VtuUnit,'(A)') '  </PUnstructuredGrid>'
+    WRITE( VtuUnit,'(A)') '</VTKFile>'
+
+    CLOSE( VtuUnit )
+  
+  END SUBROUTINE WritePvtuFile
+
+
+
+  FUNCTION Elmer2VtkElement( ElmerCode ) RESULT ( VTKCode )
+    INTEGER :: ElmerCode, VTKCode
+    
+    SELECT CASE (ElmerCode)
+    CASE( 101 )
+      VTKCode = 1
+    CASE( 202 )
+      VTKCode = 3
+    CASE( 203 )
+      VTKCode = 21
+    CASE( 303 )
+      VTKCode = 5
+    CASE( 306 )
+      VTKCode = 22
+    CASE( 404 )
+      VTKCode = 9
+    CASE( 408 )
+      VTKCode = 23
+    CASE( 409 )
+      CALL Fatal('Elmer2VtkElement','Implement 409')
+    CASE( 504 )
+      VTKCode = 10
+    CASE( 510 )
+      VTKCode = 24
+    CASE( 605 )
+      VTKCode = 14
+    CASE( 706 )
+      VTKCode = 13
+    CASE( 808 )
+      VTKCode = 12
+    CASE( 820 )
+      VTKCode = 25
+    CASE DEFAULT
+      PRINT *,'ELmerCode',ElmerCode
+      CALL Fatal('Elmer2VtkElement','Not Implemented for elementtype')
+      
+    END SELECT
+  END FUNCTION Elmer2VtkElement
+
+
+!------------------------------------------------------------------------------
+END SUBROUTINE VtuOutputSolver
+!------------------------------------------------------------------------------
+  
