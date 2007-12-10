@@ -2262,7 +2262,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: TransientSimulation
   
   INTEGER, SAVE :: nTime = 0
-  LOGICAL :: GotIt, Parallel, MovingMesh
+  LOGICAL :: GotIt, Parallel, FixedMesh
   CHARACTER(MAX_NAME_LEN), SAVE :: FilePrefix
   CHARACTER(MAX_NAME_LEN) :: VtuFile, PvtuFile 
   TYPE(Mesh_t), POINTER :: Mesh
@@ -2275,15 +2275,16 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     CALL Info('VtuOutputSolver','Saving results in VTK XML format')
     FilePrefix = GetString( Solver % Values,'Output File Name',GotIt )
     IF ( .NOT.GotIt ) FilePrefix = "Output"
+
+    nTime = ListGetInteger(Solver % Values,'Time Series Offset',GotIt)
   END IF
   nTime = nTime + 1
   
   Partitions = ParEnv % PEs
   Part = ParEnv % MyPE
-  Parallel = (Partitions > 1) .OR. ListGetLogical(Solver % Values,'Test Parallel',GotIt)
+  Parallel = (Partitions > 1) .OR. ListGetLogical(Solver % Values,'Enforce Parallel format',GotIt)
 
-  MovingMesh = ListGetLogical(Solver % Values,'Moving Mesh',GotIt)
-  IF(.NOT. GotIt) MovingMesh = .TRUE.
+  FixedMesh = ListGetLogical(Solver % Values,'Fixed Mesh',GotIt)
 
   Mesh => Model % Meshes
   DO WHILE( ASSOCIATED(Mesh) )
@@ -2310,7 +2311,7 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
     ELSE
       WRITE( VtuFile,'(A,A,I4.4,".vtu")' ) TRIM(Dir),TRIM(FilePrefix),nTime
     END IF
-    CALL WriteVtuFile( VtuFile, Model, MovingMesh )
+    CALL WriteVtuFile( VtuFile, Model, FixedMesh )
     
     Mesh => Mesh % next
   END DO
@@ -2318,10 +2319,10 @@ SUBROUTINE VtuOutputSolver( Model,Solver,dt,TransientSimulation )
 CONTAINS
 
   
-  SUBROUTINE WriteVtuFile( VtuFile, Model, AddDisp )
+  SUBROUTINE WriteVtuFile( VtuFile, Model, RemoveDisp )
     CHARACTER(LEN=*), INTENT(IN) :: VtuFile
     TYPE(Model_t) :: Model 
-    LOGICAL, INTENT(IN) :: AddDisp
+    LOGICAL, INTENT(IN) :: RemoveDisp
     INTEGER, PARAMETER :: VtuUnit = 58
     TYPE(Variable_t), POINTER :: Var,Var1
     CHARACTER(LEN=512) :: str
@@ -2365,7 +2366,7 @@ CONTAINS
 
     DispDofs = 0
     Disp2Dofs = 0
-    IF(AddDisp) THEN
+    IF(RemoveDisp) THEN
       Solution => VariableGet( Model % Mesh % Variables, 'Displacement' )     
       IF( ASSOCIATED( Solution ) ) THEN
         DispPerm => Solution % Perm
@@ -2511,17 +2512,17 @@ CONTAINS
       IF(dispdofs > 0) THEN
         j = DispPerm(i)
         IF( j > 0 ) THEN
-          x = x + DispValues(dispdofs*(j-1)+1)
-          y = y + DispValues(dispdofs*(j-1)+2)
-          IF(dispdofs == 3) z = z + DispValues(dispdofs*(j-1)+3)
+          x = x - DispValues(dispdofs*(j-1)+1)
+          y = y - DispValues(dispdofs*(j-1)+2)
+          IF(dispdofs == 3) z = z - DispValues(dispdofs*(j-1)+3)
         END IF
       END IF      
       IF(disp2dofs > 0 .AND. j==0) THEN
         j = Disp2Perm(i)
         IF( j > 0 ) THEN
-          x = x + Disp2Values(disp2dofs*(j-1)+1)
-          y = y + Disp2Values(disp2dofs*(j-1)+2)
-          IF(dispdofs == 3) z = z + Disp2Values(disp2dofs*(j-1)+3)
+          x = x - Disp2Values(disp2dofs*(j-1)+1)
+          y = y - Disp2Values(disp2dofs*(j-1)+2)
+          IF(disp2dofs == 3) z = z - Disp2Values(disp2dofs*(j-1)+3)
         END IF
       END IF
 
@@ -2746,7 +2747,7 @@ CONTAINS
     CASE( 820 )
       VTKCode = 25
     CASE DEFAULT
-      PRINT *,'ELmerCode',ElmerCode
+      PRINT *,'ElmerCode',ElmerCode
       CALL Fatal('Elmer2VtkElement','Not Implemented for elementtype')
       
     END SELECT
