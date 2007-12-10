@@ -1341,7 +1341,7 @@ CONTAINS
       END IF
 
       CheckNT = .FALSE.
-      IF ( NormalTangentialNOFNodes>0 .AND. NDOFs>0 ) THEN
+      IF ( NormalTangentialNOFNodes>0 .AND. DOF>0 ) THEN
         dim = CoordinateSystemDimension()
         CheckNT = .TRUE.
         IF ( ALL(BoundaryReorder(Indexes(1:n))>0) ) CheckNT = .FALSE.
@@ -1367,7 +1367,7 @@ CONTAINS
                   IF ( ABS(RotVec(k)) > 1.d-9 ) THEN
                     l = NDOFs * (Perm(Indexes(j))-1) + k
                     IF (.NOT. zeroing_done(k) ) THEN
-                      Zeroing_done(k) = .TRUE.
+                      zeroing_done(k) = .TRUE.
                       b(l) = 0._dp
                       CALL ZeroRow( A,l )
                       CALL SetMatrixElement( A,l,l,1.0d0 )

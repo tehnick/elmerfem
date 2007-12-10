@@ -137,7 +137,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
      IF ( INDEX(FileName,':') == 0 .AND. FileName(1:1) /= '/' .AND. &
-               FileName(1:1) /= '\\' ) THEN
+               FileName(1:1) /= Backslash ) THEN
 
        k0 = 1
        k1 = INDEX( IncludePath, ';' )
@@ -1833,7 +1833,7 @@ CONTAINS
 !------------------------------------------------------------------------------
     FName = FileName
     IF ( INDEX( FileName, ':') == 0 .AND. FileName(1:1) /= '/' .AND. &
-             FileName(1:1) /= '\\' ) THEN
+             FileName(1:1) /= Backslash ) THEN
       IF ( LEN_TRIM(OutputPath) > 0 ) THEN
         FName = TRIM(OutputPath) // '/' // TRIM(FileName)
       END IF
@@ -2205,7 +2205,7 @@ CONTAINS
     IF ( Cont .AND. RestartFileOpen ) GOTO 30
 
     IF ( INDEX( RestartFile, ':') == 0 .AND. RestartFile(1:1) /= '/' &
-         .AND. RestartFile(1:1) /= '\\' .AND. LEN_TRIM(OutputPath) > 0 ) THEN
+         .AND. RestartFile(1:1) /= Backslash .AND. LEN_TRIM(OutputPath) > 0 ) THEN
       FName = TRIM(OutputPath) // '/' // TRIM(RestartFile)
     ELSE
       FName = RestartFile
@@ -2750,7 +2750,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
     IF ( INDEX( PostFile, ':') == 0 .AND. PostFile(1:1) /= '/' .AND. &
-             PostFile(1:1) /= '\\' ) THEN
+             PostFile(1:1) /= Backslash ) THEN
 
       IF ( LEN_TRIM(OutputPath) > 0 ) THEN
         IF ( AppendFlag .AND. Model % Mesh % SavesDone /= 0 )  THEN
@@ -2777,7 +2777,7 @@ CONTAINS
 
     IF ( .NOT.AppendFlag ) THEN
       IF ( INDEX( ResultFile, ':') == 0 .AND. ResultFile(1:1) /= '/' .AND. &
-               ResultFile(1:1) /= '\\' ) THEN
+               ResultFile(1:1) /= Backslash ) THEN
         IF ( LEN_TRIM(OutputPath) > 0 ) THEN
           OPEN( OutputUnit,File=TRIM(OutputPath) // '/' &
               // TRIM(ResultFile),STATUS='OLD' )
