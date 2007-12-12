@@ -334,7 +334,7 @@
      REAL(KIND=dp), POINTER :: Temperature(:),Displacement(:),Work(:,:,:), &
             VonMises(:), NodalStress(:), StressComp(:), ContactPressure(:), &
             NormalDisplacement(:), TransformMatrix(:,:), UWrk(:,:), &
-	RayleighAlpha(:), RayleighBeta(:)	
+	RayleighAlpha(:), RayleighBeta(:), SaveRHS(:)
 
      REAL(KIND=dp) :: UnitNorm, Unit1(3), Unit2(3), Unit3(3), Prevdt=-1, PrevTime=-1
 
@@ -347,21 +347,21 @@
                 ConstantBulkSystem, ConstantBulkMatrix, ConstantBulkMatrixInUse, ConstantSystem, &
                 UpdateSystem
 
-     LOGICAL :: AllocationsDone = .FALSE., NormalTangential
+     LOGICAL :: AllocationsDone = .FALSE., NormalTangential, HarmonicAnalysis
      LOGICAL :: StabilityAnalysis = .FALSE., ModelLumping, FixDisplacement
      LOGICAL :: GeometricStiffness = .FALSE., EigenAnalysis=.FALSE., OrigEigenAnalysis, &
            Refactorize = .TRUE.
 
      REAL(KIND=dp),ALLOCATABLE:: MASS(:,:),STIFF(:,:),&
-       DAMP(:,:), LOAD(:,:),FORCE(:), &
+       DAMP(:,:), LOAD(:,:),LOAD_im(:,:),FORCE(:),FORCE_im(:), &
        LocalTemperature(:),ElasticModulus(:,:,:),PoissonRatio(:), &
        HeatExpansionCoeff(:,:,:),DampCoeff(:),SpringCoeff(:),Beta(:), &
-       ReferenceTemperature(:), Density(:), Damping(:), &
+       ReferenceTemperature(:), Density(:), Damping(:), Beta_im(:), &
        NodalDisplacement(:,:), ContactLimit(:), LocalNormalDisplacement(:), &
        LocalContactPressure(:), PreStress(:,:), PreStrain(:,:), &
        StressLoad(:,:), StrainLoad(:,:), NodalMeshVelo(:,:)
 
-     SAVE MASS,DAMP, STIFF,LOAD, &
+     SAVE MASS,DAMP, STIFF,LOAD,LOAD_im,FORCE_im,Beta_im, &
        FORCE,ElementNodes,DampCoeff,SpringCoeff,Beta,Density, Damping, &
        LocalTemperature,AllocationsDone,ReferenceTemperature, &
        ElasticModulus, PoissonRatio,HeatExpansionCoeff, VonMises, NodalStress, &
@@ -441,6 +441,7 @@
      END IF
 
      UNorm = Solver % Variable % Norm
+
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
@@ -465,6 +466,7 @@
                      StressLoad, StrainLoad, &
                      NodalDisplacement,      &
                      NodalMeshVelo,          &
+                     FORCE_im, LOAD_im, Beta_im, &
                      FORCE, MASS, DAMP, STIFF, LOAD, Beta, &
                      ContactLimit, LocalNormalDisplacement, LocalContactPressure, &
                      TransformMatrix ,       &
@@ -488,12 +490,14 @@
                  ElasticModulus(6,6,N),       &
                  PoissonRatio( N ),           &
                  FORCE( STDOFs*N ),           &
+                 FORCE_im( STDOFs*N ),        &
                  MASS(  STDOFs*N,STDOFs*N ),  &
                  DAMP(  STDOFs*N,STDOFs*N ),  &
                  STIFF( STDOFs*N,STDOFs*N ),  &
                  NodalDisplacement( 3, N ),   &
                  NodalMeshVelo( 3, N ),       &
                  LOAD( 4,N ), Beta( N ),      &
+                 LOAD_im( 4,N ), Beta_im( N ),      &
                  ContactLimit(N), LocalNormalDisplacement(N), &
                  LocalContactPressure(N),     &
                  UpdateRef(N),                &
@@ -638,6 +642,7 @@
        MaxIter = 2
      END IF
 
+     HarmonicAnalysis = getLogical( Solver % Values, 'Harmonic Analysis', Found )
 !------------------------------------------------------------------------------
      Refactorize = GetLogical( SolverParams, 'Linear System Refactorize', Found )
      IF ( .NOT. Found ) Refactorize = .TRUE.
@@ -984,6 +989,13 @@ CONTAINS
          LOAD(3,1:n)  = GetReal( BodyForce, 'Stress Bodyforce 3', Found )
          LOAD(4,1:n)  = GetReal( BodyForce, 'Stress Pressure', Found )
 
+         IF ( HarmonicAnalysis ) THEN
+           LOAD_im(1,1:n)  = GetReal( BodyForce, 'Stress Bodyforce 1 im', Found )
+           LOAD_im(2,1:n)  = GetReal( BodyForce, 'Stress Bodyforce 2 im', Found )
+           LOAD_im(3,1:n)  = GetReal( BodyForce, 'Stress Bodyforce 3 im', Found )
+           LOAD_im(4,1:n)  = GetReal( BodyForce, 'Stress Pressure im', Found )
+         END IF
+
          CALL ListGetRealArray( BodyForce, 'Stress', Work, n, NodeIndexes, Found )
          IF ( Found ) THEN
             k = SIZE(Work,1)
@@ -1020,11 +1032,11 @@ CONTAINS
        SELECT CASE( CurrentCoordinateSystem() )
        CASE( Cartesian, AxisSymmetric, CylindricSymmetric )
           IF ( ConstantBulkMatrixInUse ) THEN
-            CALL StressForceCompose( FORCE, LOAD, ElasticModulus, PoissonRatio,     &
-              PlaneStress, Isotropic,StressLoad, StrainLoad, HeatExpansionCoeff,    &
+            CALL StressForceCompose( FORCE, FORCE_im, LOAD, LOAD_im, ElasticModulus, PoissonRatio, &
+              PlaneStress, Isotropic,StressLoad, StrainLoad, HeatExpansionCoeff,         &
               LocalTemperature, Element, n, ntot, ElementNodes, RotateC, TransformMatrix )
           ELSE
-            CALL StressCompose( MASS, DAMP, STIFF, FORCE, LOAD, ElasticModulus,     &
+            CALL StressCompose( MASS, DAMP, STIFF, FORCE, FORCE_im, LOAD, LOAD_im, ElasticModulus,  &
                PoissonRatio, Density, Damping, PlaneStress, Isotropic,              &
                PreStress, PreStrain, StressLoad, StrainLoad, HeatExpansionCoeff,    &
                LocalTemperature, Element, n, ntot, ElementNodes, StabilityAnalysis  &
@@ -1082,8 +1094,20 @@ CONTAINS
 !------------------------------------------------------------------------------
        IF ( ConstantBulkMatrixInUse ) THEN
          CALL DefaultUpdateForce( FORCE, BulkUpdate=.TRUE. )
+         IF ( HarmonicAnalysis ) THEN
+           SaveRHS => Solver % Matrix % RHS
+           Solver % Matrix % RHS => Solver % Matrix % RHS_im
+           CALL DefaultUpdateForce( FORCE_im, BulkUpdate=.FALSE. )
+           Solver % Matrix % RHS => SaveRHS
+         END IF
        ELSE
          CALL DefaultUpdateEquations( STIFF, FORCE, BulkUpdate=.TRUE. )
+         IF ( HarmonicAnalysis ) THEN
+           SaveRHS => Solver % Matrix % RHS
+           Solver % Matrix % RHS => Solver % Matrix % RHS_im
+           CALL DefaultUpdateForce( FORCE_im, BulkUpdate=.FALSE. )
+           Solver % Matrix % RHS => SaveRHS
+         END IF
 
          IF ( Solver % NOFEigenValues>0 .OR. &
            ConstantBulkMatrix .OR. ConstantBulkSystem .OR. ConstantSystem ) THEN
@@ -1125,36 +1149,35 @@ CONTAINS
           !----------------------------------------------
           GotForceBC = .FALSE.
           LOAD(1,1:n) = GetReal( BC, 'Force 1',Found )
-          GotForceBC = GotForceBC .OR. Found
           LOAD(2,1:n) = GetReal( BC, 'Force 2',Found )
-          GotForceBC = GotForceBC .OR. Found
           LOAD(3,1:n) = GetReal( BC, 'Force 3',Found )
-          GotForceBC = GotForceBC .OR. Found
           Beta(1:n) =  GetReal( BC, 'Normal Force',Found )
-          GotForceBC = GotForceBC .OR. Found
+
+          IF ( HarmonicAnalysis ) THEN
+            LOAD_im(1,1:n) = GetReal( BC, 'Force 1 im',Found )
+            LOAD_im(2,1:n) = GetReal( BC, 'Force 2 im',Found )
+            LOAD_im(3,1:n) = GetReal( BC, 'Force 3 im',Found )
+            Beta_im(1:n) =  GetReal( BC, 'Normal Force im',Found )
+          END IF
+
           CALL ListGetRealArray( BC, 'Stress', Work, &
                   n, NodeIndexes, Found )
-          GotForceBC = GotForceBC .OR. Found
           StressLoad = 0.0d0
           IF ( Found ) THEN
              k = SIZE(Work,1)
              StressLoad(1:k,1:n) = Work(1:k,1,1:n)
           END IF
+
           DampCoeff(1:n) =  GetReal( BC, 'Damping', Found )
-          GotForceBC = GotForceBC .OR. Found
           SpringCoeff(1:n) =  GetReal( BC, 'Spring', Found )
-          GotForceBC = GotForceBC .OR. Found
           ContactLimit(1:n) =  GetReal( BC, 'Contact Limit', Found )
-          GotForceBC = GotForceBC .OR. Found
 
           IF(ModelLumping .AND. .NOT. FixDisplacement) THEN
             IF(GetLogical( BC, 'Model Lumping Boundary',Found )) THEN
               CALL LumpedLoads( iter, LumpedArea, LumpedCenter, LumpedMoments, Load )
-              GotForceBC = .TRUE.
             END IF
           END IF
 
-          IF ( .NOT. GotForceBC ) CYCLE
 !---------------------------------------------------------------------------
           IF( Contact ) THEN
              CALL GetScalarLocalSolution( LocalContactPressure, 'Contact Pressure' )
@@ -1166,8 +1189,9 @@ CONTAINS
 
           SELECT CASE( CurrentCoordinateSystem() )
           CASE( Cartesian, AxisSymmetric, CylindricSymmetric )
-             CALL StressBoundary( STIFF,DAMP,FORCE,LOAD,SpringCoeff,DampCoeff, &
-              Beta, StressLoad, NormalTangential, Element,n,ntot,ElementNodes )
+             CALL StressBoundary( STIFF,DAMP,FORCE,FORCE_im, LOAD, LOAD_im, &
+               SpringCoeff,DampCoeff, Beta, Beta_im, StressLoad, NormalTangential,   &
+               Element,n,ntot,ElementNodes )
           CASE DEFAULT
              DAMP = 0.0d0
              CALL StressGeneralBoundary( STIFF,FORCE, LOAD, SpringCoeff,Beta, &
@@ -1184,6 +1208,12 @@ CONTAINS
           ! Update global matrices from local matrices:;
           !---------------------------------------------
           CALL DefaultUpdateEquations( STIFF, FORCE, BulkUpdate=ConstantSystem )
+          IF ( HarmonicAnalysis ) THEN
+            SaveRHS => Solver % Matrix % RHS
+            Solver % Matrix % RHS => Solver % Matrix % RHS_im
+            CALL DefaultUpdateForce( FORCE_im, BulkUpdate=.FALSE. )
+            Solver % Matrix % RHS => SaveRHS
+          END IF
           IF ( Solver % NOFEigenValues>0 .OR. ConstantSystem.AND.Transient ) THEN
              CALL DefaultUpdateDamp( DAMP )
           END IF

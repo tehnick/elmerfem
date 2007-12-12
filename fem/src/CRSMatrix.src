@@ -634,12 +634,13 @@ END FUNCTION CRS_RowSum
     IF ( istat == 0 .AND. AllocValues ) THEN
       ALLOCATE( A % Values(k), STAT=istat )
     END IF
-    NULLIFY( A % ILUValues )
-    NULLIFY( A % CILUValues )
 
     IF ( istat /= 0 ) THEN
       CALL Fatal( 'CreateMatrix', 'Memory allocation error.' )
     END IF
+
+    NULLIFY( A % ILUValues )
+    NULLIFY( A % CILUValues )
 
     InvPerm => A % Diag ! just available memory space...
     j = 0

@@ -45,18 +45,12 @@
 ! * Revision 1.35  2007/08/16 19:41:19  raback
 ! * Improved the convergence control options and applied it to FlowSolve.
 ! *
-! * Revision 1.34  2007/08/16 13:54:18  raback
-! * *** empty log message ***
-! *
 ! * Revision 1.33  2007/08/15 11:38:41  jpr
 ! * Bug fix: in a few places check whether variable size>0 before accessing
 ! * variables values.
 ! *
 ! * Revision 1.32  2007/08/15 09:44:02  jpr
 ! * Changes to update convergence criteria computations (Peter,Juha).
-! *
-! * Revision 1.31  2007/05/31 09:30:01  jpr
-! * *** empty log message ***
 ! *
 ! * Revision 1.30  2007/05/11 10:29:12  jpr
 ! * Small cleanups.
@@ -913,13 +907,19 @@ CONTAINS
     IF ( .NOT. ASSOCIATED( Solver % Variable % Values ) ) RETURN
 !------------------------------------------------------------------------------
 
+    HarmonicAnal = ListGetLogical( Solver % Values, 'Harmonic Analysis', Found )
+
     IF ( ASSOCIATED( Solver % Matrix ) ) THEN
        ALLOCATE( Solver % Matrix % RHS(Solver % Matrix % NumberOFRows) )
        Solver % Matrix % RHS = 0.0d0
+
+       IF ( HarmonicAnal ) THEN
+         ALLOCATE( Solver % Matrix % RHS_im(Solver % Matrix % NumberOFRows) )
+         Solver % Matrix % RHS_im = 0.0d0
+       END IF
     END IF
 !------------------------------------------------------------------------------
 
-    HarmonicAnal = ListGetLogical( Solver % Values, 'Harmonic Analysis', Found )
     EigAnal = ListGetLogical( Solver % Values, 'Eigen Analysis', Found )
 
     IF ( Transient .AND. .NOT. EigAnal .AND. .NOT. HarmonicAnal ) THEN

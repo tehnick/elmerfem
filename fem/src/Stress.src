@@ -139,7 +139,7 @@ MODULE StressLocal
   CONTAINS
 
 !------------------------------------------------------------------------------
-   SUBROUTINE StressCompose( MASS, DAMP, STIFF, FORCE, LOAD, ElasticModulus,     &
+   SUBROUTINE StressCompose( MASS, DAMP, STIFF, FORCE, FORCE_im, LOAD, LOAD_im, ElasticModulus, &
      NodalPoisson, NodalDensity, NodalDamping, PlaneStress, Isotropic,           &
      NodalPreStress, NodalPreStrain, NodalStressLoad, NodalStrainLoad,           &
      NodalHeatExpansion, NodalTemperature, Element, n, ntot, Nodes, StabilityAnalysis, &
@@ -147,6 +147,7 @@ MODULE StressLocal
      RayleighDamping, RayleighAlpha, RayleighBeta  )
 !------------------------------------------------------------------------------
      REAL(KIND=dp) :: STIFF(:,:), MASS(:,:), DAMP(:,:), FORCE(:), LOAD(:,:)
+     REAL(KIND=dp) :: FORCE_im(:), LOAD_im(:,:)
      REAL(KIND=dp) :: NodalTemperature(:),ElasticModulus(:,:,:)
      REAL(KIND=dp) :: NodalPreStress(:,:), NodalPreStrain(:,:)
      REAL(KIND=dp) :: NodalStressLoad(:,:), NodalStrainLoad(:,:)
@@ -167,7 +168,7 @@ MODULE StressLocal
      REAL(KIND=dp) :: Basis(ntot)
      REAL(KIND=dp) :: dBasisdx(ntot,3),detJ
 
-     REAL(KIND=dp) :: LoadAtIp(3), Poisson, Young
+     REAL(KIND=dp) :: LoadAtIp(3), LoadatIp_im(3), Poisson, Young
 
      REAL(KIND=dp), DIMENSION(3,3) :: A,M,D,HeatExpansion
      REAL(KIND=dp) :: Temperature,Density, C(6,6), Damping,MeshVelo(3)
@@ -194,6 +195,7 @@ MODULE StressLocal
      CSymmetry = CSymmetry .OR. CurrentCoordinateSystem() == AxisSymmetric
      CSymmetry = CSymmetry .OR. CurrentCoordinateSystem() == CylindricSymmetric
 
+     FORCE_im = 0.0D0
      FORCE = 0.0D0
      STIFF = 0.0D0
      MASS  = 0.0D0
@@ -444,7 +446,8 @@ MODULE StressLocal
            G(3,6) = dBasisdx(p,1)
          END SELECT
 
-         LoadatIp = 0.0d0
+         LoadAtIp    = 0.0d0
+         LoadAtIp_im = 0.0d0
          DO i=1,dim
            DO j=1,6
              LoadAtIp(i) = LoadAtIp(i) + StressLoad(j) * G(i,j)
@@ -543,6 +546,9 @@ MODULE StressLocal
            LoadAtIp(i) = LoadAtIp(i) + &
                SUM( LOAD(i,1:n)*Basis(1:n) ) * Basis(p) + &
                SUM( LOAD(4,1:n)*Basis(1:n) ) * dBasisdx(p,i)
+           LoadAtIp_im(i) = LoadAtIp_im(i) + &
+               SUM( LOAD_im(i,1:n)*Basis(1:n) ) * Basis(p) + &
+               SUM( LOAD_im(4,1:n)*Basis(1:n) ) * dBasisdx(p,i)
          END DO
 
          IF ( NeedHeat ) THEN
@@ -563,6 +569,7 @@ MODULE StressLocal
 
          DO i=1,dim
            FORCE(dim*(p-1)+i) = FORCE(dim*(p-1)+i) + s*LoadAtIp(i)
+           FORCE_im(dim*(p-1)+i) = FORCE_im(dim*(p-1)+i) + s*LoadAtIp_im(i)
          END DO
       END DO
     END DO
@@ -580,11 +587,12 @@ MODULE StressLocal
 
 
 !------------------------------------------------------------------------------
-   SUBROUTINE StressForceCompose( FORCE, LOAD, ElasticModulus, NodalPoisson,     &
+   SUBROUTINE StressForceCompose( FORCE, FORCE_im, LOAD, LOAD_im, ElasticModulus, NodalPoisson,     &
      PlaneStress, Isotropic,NodalStressLoad, NodalStrainLoad, NodalHeatExpansion,&
      NodalTemperature, Element, n, ntot, Nodes,  RotateC, TransformMatrix )
 !------------------------------------------------------------------------------
      REAL(KIND=dp) :: FORCE(:), LOAD(:,:)
+     REAL(KIND=dp) :: FORCE_im(:), LOAD_im(:,:)
      REAL(KIND=dp) :: NodalTemperature(:),ElasticModulus(:,:,:)
      REAL(KIND=dp) :: NodalStressLoad(:,:), NodalStrainLoad(:,:)
      REAL(KIND=dp) :: NodalHeatExpansion(:,:,:)
@@ -601,7 +609,7 @@ MODULE StressLocal
      REAL(KIND=dp) :: Basis(ntot)
      REAL(KIND=dp) :: dBasisdx(ntot,3),detJ
 
-     REAL(KIND=dp) :: LoadAtIp(3), Poisson, Young
+     REAL(KIND=dp) :: LoadAtIp(3), LoadAtIp_im(3), Poisson, Young
 
      REAL(KIND=dp), DIMENSION(3,3) :: HeatExpansion
      REAL(KIND=dp) :: Temperature, C(6,6)
@@ -628,6 +636,7 @@ MODULE StressLocal
      CSymmetry = CSymmetry .OR. CurrentCoordinateSystem() == CylindricSymmetric
 
      FORCE = 0.0D0
+     FORCE_im = 0.0D0
 
      NeedHeat = ANY( NodalTemperature(1:n) /= 0.0d0 )
      !    
@@ -817,6 +826,7 @@ MODULE StressLocal
          END SELECT
 
          LoadatIp = 0.0d0
+         LoadatIp_im = 0.0d0
          DO i=1,dim
            DO j=1,6
              LoadAtIp(i) = LoadAtIp(i) + StressLoad(j) * G(i,j)
@@ -832,6 +842,9 @@ MODULE StressLocal
            LoadAtIp(i) = LoadAtIp(i) + &
                SUM( LOAD(i,1:n)*Basis(1:n) ) * Basis(p) + &
                SUM( LOAD(4,1:n)*Basis(1:n) ) * dBasisdx(p,i)
+           LoadAtIp_im(i) = LoadAtIp_im(i) + &
+               SUM( LOAD_im(i,1:n)*Basis(1:n) ) * Basis(p) + &
+               SUM( LOAD_im(4,1:n)*Basis(1:n) ) * dBasisdx(p,i)
          END DO
 
          IF ( NeedHeat ) THEN
@@ -852,6 +865,7 @@ MODULE StressLocal
 
          DO i=1,dim
            FORCE(dim*(p-1)+i) = FORCE(dim*(p-1)+i) + s*LoadAtIp(i)
+           FORCE_im(dim*(p-1)+i) = FORCE_im(dim*(p-1)+i) + s*LoadAtIp_im(i)
          END DO
       END DO
     END DO
@@ -860,11 +874,12 @@ MODULE StressLocal
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
- SUBROUTINE StressBoundary( STIFF,DAMP,FORCE,LOAD, NodalSpring,NodalDamp, &
-             NodalBeta,NodalStress,NormalTangential,Element,n,ntot,Nodes )
+ SUBROUTINE StressBoundary( STIFF,DAMP,FORCE,FORCE_im,LOAD,LOAD_im,NodalSpring,NodalDamp, &
+             NodalBeta,NodalBeta_im,NodalStress,NormalTangential,Element,n,ntot,Nodes )
    USE ElementUtils
 !------------------------------------------------------------------------------
    REAL(KIND=dp) :: NodalSpring(:),NodalDamp(:),NodalBeta(:),LOAD(:,:)
+   REAL(KIND=dp) :: LOAD_im(:,:),FORCE_im(:),NodalBeta_im(:)
    TYPE(Element_t),POINTER  :: Element
    TYPE(Nodes_t)    :: Nodes
    REAL(KIND=dp) :: STIFF(:,:),DAMP(:,:),FORCE(:), NodalStress(:,:)
@@ -876,7 +891,7 @@ MODULE StressLocal
    REAL(KIND=dp) :: dBasisdx(ntot,3),detJ
 
    REAL(KIND=dp) :: u,v,w,s
-   REAL(KIND=dp) :: LoadAtIp(3),SpringCoeff(3),DampCoeff(3),Beta,Normal(3),&
+   REAL(KIND=dp) :: LoadAtIp(3),LoadAtIp_im(3), SpringCoeff(3),DampCoeff(3),Beta,Normal(3),&
                     Tangent(3), Tangent2(3), Vect(3), Stress(3,3)
    REAL(KIND=dp), POINTER :: U_Integ(:),V_Integ(:),W_Integ(:),S_Integ(:)
 
@@ -894,6 +909,7 @@ MODULE StressLocal
    STIFF = 0.0d0
    DAMP  = 0.0d0
    FORCE = 0.0D0
+   FORCE_im = 0.0D0
 !
 !  Integration stuff
 !
@@ -922,15 +938,19 @@ MODULE StressLocal
 !------------------------------------------------------------------------------
 
      LoadAtIp = 0.0d0
+     LoadAtIp_im = 0.0d0
      DO i=1,dim
        LoadAtIp(i) = SUM( LOAD(i,1:n)*Basis(1:n) )
+       LoadAtIp_im(i) = SUM( LOAD_im(i,1:n)*Basis(1:n) )
      END DO
 
      Normal = NormalVector( Element,Nodes,u,v,.TRUE. )
      IF ( NormalTangential ) THEN
        LoadAtIp(1) = LoadAtIp(1) + SUM( NodalBeta(1:n)*Basis(1:n) )
+       LoadAtIp_im(1) = LoadAtIp_im(1) + SUM( NodalBeta_im(1:n)*Basis(1:n) )
      ELSE
        LoadAtIp = LoadAtIp + SUM( NodalBeta(1:n)*Basis(1:n) ) * Normal
+       LoadAtIp_im = LoadAtIp_im + SUM( NodalBeta_im(1:n)*Basis(1:n) ) * Normal
      END IF
 
      Stress = 0.0d0
@@ -1023,10 +1043,13 @@ MODULE StressLocal
                k = (q-1)*dim + j
                FORCE(k) = FORCE(k) + &
                    s * Basis(q) * LoadAtIp(i) * Vect(j)
+               FORCE_im(k) = FORCE_im(k) + &
+                   s * Basis(q) * LoadAtIp_im(i) * Vect(j)
             END DO
          ELSE
             k = (q-1)*dim + i
             FORCE(k) = FORCE(k) + s * Basis(q) * LoadAtIp(i)
+            FORCE_im(k) = FORCE_im(k) + s * Basis(q) * LoadAtIp_im(i)
          END IF
        END DO
      END DO

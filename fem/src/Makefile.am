@@ -197,7 +197,6 @@ EXTRA_DIST = \
 	PhaseChangeSolve.src \
 	GebhardtFactors.src \
 	GeneralUtils.src \
-	HarmonicSolve.src \
 	HashTable.src \
 	HeatSolve.src \
 	HelmholtzBEM.src \

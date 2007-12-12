@@ -243,7 +243,6 @@ MODULE SolverUtils
    USE IterSolve
    USE ElementUtils
    USE TimeIntegrate
-   USE HarmonicSolve
 
    USE ModelDescription
    USE MeshUtils
@@ -3106,12 +3105,7 @@ CONTAINS
 !   If solving harmonic analysis go there:
 !   --------------------------------------
     IF ( HarmonicAnalysis ) THEN
-      CALL SolveHarmonicSystem( Solver )
-      CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
-      Norm = ComputeNorm(Solver, n, x) 
-      Solver % Variable % Norm = Norm
-      CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, &
-                       Solver % Variable % Name )
+      CALL SolveHarmonicSystem( A, Solver )
       RETURN
     END IF
 
@@ -3608,6 +3602,112 @@ CONTAINS
 !------------------------------------------------------------------------------
   END SUBROUTINE CondensateP
 !------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+   SUBROUTINE SolveHarmonicSystem( G, Solver )
+!------------------------------------------------------------------------------
+    TYPE(Solver_t) :: Solver
+    TYPE(Matrix_t), TARGET :: G
+!------------------------------------------------------------------------------
+    TYPE(Matrix_t), POINTER :: BMatrix, A => NULL()
+    INTEGER :: Rounds = 1000,i,j,k,n, ILUn, kr, ki, DOFs
+    LOGICAL :: stat, Found, OptimizeBW, DirectLinearSolver
+    CHARACTER(LEN=MAX_NAME_LEN) :: Name
+    REAL(KIND=dp) :: Omega = 10, norm, TOL=1.0d-6, s, ILUTol
+    REAL(KIND=dp), POINTER :: Freqv(:,:)
+    REAL(KIND=dp), ALLOCATABLE :: x(:), b(:)
+    REAL(KIND=dp), TARGET :: matfreqv(1,1)
+    REAL(KIND=dp) :: vecfreqv(1)
+    INTEGER, TARGET :: Dnodes(1)
+    INTEGER, POINTER :: NodeIndexes(:)
+	
+    n = Solver % Matrix % NumberofRows
+    DOFs = Solver % Variable % DOFs * 2
+
+    OptimizeBW = ListGetLogical(Solver % Values, 'Optimize Bandwidth', Found)
+    IF ( .NOT. Found ) OptimizeBW = .TRUE.
+
+    A => G
+    DO WHILE( ASSOCIATED(A) )
+      BMatrix => A
+      A => A % EMatrix
+      IF ( ASSOCIATED(A) ) THEN
+        IF ( A % Complex ) EXIT
+      END IF
+    END DO
+
+    IF ( .NOT. ASSOCIATED(A) ) THEN
+      A => CreateMatrix( CurrentModel, Solver, Solver % Mesh,   &
+        Solver % Variable % Perm, DOFs, MATRIX_CRS, OptimizeBW, &
+           ListGetString( Solver % Values, 'Equation') )
+       A % Complex = .TRUE.
+       BMatrix % EMatrix => A
+    END IF
+
+    ALLOCATE( x(2*n), b(2*n) )
+    x = 0
+    b(1:2*n:2) = G % RHS(1:n)
+    b(2:2*n:2) = G % RHS_im(1:n)
+
+    DO i=1,Solver % Variable % DOFs
+      Name = ComponentName( Solver % Variable % Name, i ) 
+      CALL SetDirichletBoundaries( CurrentModel, A, b, TRIM(Name) // ' im', &
+                 2*i, DOFs, Solver % Variable % Perm )
+    END DO
+
+    ! This cumbersome way makes it possible to use the same data structure even in the case
+    ! of simulation mode being scanning 	
+    IF( ListGetString( CurrentModel % Simulation,'Simulation Type') == 'scanning') THEN
+      NodeIndexes => Dnodes
+      i = 1
+      NodeIndexes(i) = 1   
+      vecfreqv(1:1) = ListGetReal(Solver % Values,'Frequency',i,NodeIndexes)
+      matfreqv(1,1) = vecfreqv(1)
+      freqv => matfreqv
+      CALL ListAddConstReal( CurrentModel % Simulation,'res: Frequency',matfreqv(1,1))
+    ELSE
+      freqv => ListGetConstRealArray( Solver % Values, 'Frequency' )
+    END IF
+
+    CALL ListAddLogical( Solver % Values, 'Harmonic Analysis', .FALSE. )
+
+    DO i=1,MIN(SIZE(freqv,1), Solver % NOFEigenValues)
+      WRITE( Message, '(a,i5,e12.3)' ) 'Frequency sweep: ', i, freqv(i,1)
+      CALL Info( 'HarmonicSolve', ' ' )
+      CALL Info( 'HarmonicSolve', Message )
+
+      omega = 2 * PI * freqv(i,1)
+      DO k=1,n
+        kr = A % Rows(2*(k-1)+1)
+        ki = A % Rows(2*(k-1)+2)
+        DO j=G % Rows(k),G % Rows(k+1)-1
+          A % Values(kr)   =  G % Values(j) - &
+                omega**2*G % MassValues(j)
+          A % Values(kr+1) = -G % Dampvalues(j) * omega
+          A % Values(ki)   =  G % Dampvalues(j) * omega
+          A % Values(ki+1) =  G % Values(j) - &
+                omega**2*G % MassValues(j)
+          kr = kr + 2
+          ki = ki + 2
+        END DO
+      END DO
+
+      CALL SolveLinearSystem( A, b, x, Norm, DOFs, Solver )
+
+      DO j=1,n
+        Solver % Variable % EigenVectors(i,j) = &
+                   CMPLX( x(2*(j-1)+1),x(2*(j-1)+2),KIND=dp )
+      END DO
+    END DO
+
+    CALL ListAddLogical( Solver % Values, 'Harmonic Analysis', .TRUE. )
+
+    DEALLOCATE( x, b )
+!------------------------------------------------------------------------------
+   END SUBROUTINE SolveHarmonicSystem
+!------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
 SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
