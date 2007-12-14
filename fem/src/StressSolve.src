@@ -331,6 +331,8 @@
      INTEGER ::  MaxIter, MinIter
      TYPE(Variable_t), POINTER :: StressSol, Var, TimeVar
 
+     CHARACTER(LEN=MAX_NAME_LEN) :: eqname
+
      REAL(KIND=dp), POINTER :: Temperature(:),Displacement(:),Work(:,:,:), &
             VonMises(:), NodalStress(:), StressComp(:), ContactPressure(:), &
             NormalDisplacement(:), TransformMatrix(:,:), UWrk(:,:), &
@@ -514,9 +516,12 @@
 
        IF ( .NOT. AllocationsDone ) THEN
           CalcStressAll = GetLogical( SolverParams, 'Calculate Stresses',Found )
+          eqname = GetString( SolverParams, 'Equation' )
 
           CalcStress = .FALSE.
           DO i=1,Model % NumberOfEquations
+             IF ( .NOT. GetLogical(Model % Equations(i) % Values,eqname,Found) ) CYCLE
+
              CalcStress = CalcStress .OR. GetLogical( &
                  Model % Equations(i) % Values, 'Calculate Stresses', Found )
 
