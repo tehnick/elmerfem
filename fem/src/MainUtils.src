@@ -1401,7 +1401,7 @@ CONTAINS
      REAL(KIND=dp) :: dt, OrigDT, DTScal
 !------------------------------------------------------------------------------
      LOGICAL :: stat, Found, GB, FirstTime=.TRUE., MeActive
-     INTEGER :: i, j, SolverAddr, BDOFs, execi, timestep
+     INTEGER :: i, j, SolverAddr, BDOFs, execi, timestep, maxdim
      REAL(KIND=dp) :: st
      TYPE(Variable_t), POINTER :: TimeVar
      TYPE(Element_t), POINTER :: CurrentElement
@@ -1434,13 +1434,16 @@ CONTAINS
           ALLOCATE( Solver % ActiveElements( Solver % Mesh % NumberOfBulkElements + &
                        Solver % Mesh % NumberOFBoundaryElements ) )
 
+          Maxdim = 0
           DO i=1,Solver % Mesh % NumberOfBulkElements+Solver % Mesh % NumberOFBoundaryElements
              CurrentElement => Solver % Mesh % Elements(i)
              IF ( CheckElementEquation( Model, CurrentElement, EquationName ) ) THEN
                 Solver % NumberOfActiveElements = Solver % NumberOFActiveElements + 1
                 Solver % ActiveElements( Solver % NumberOFActiveElements ) = i
+                Maxdim = MAX( CurrentElement % Type % Dimension, Maxdim )
              END IF
           END DO
+          CALL ListAddInteger( Solver % Values, 'Active Mesh Dimension', Maxdim )
        END IF
      END IF
 !------------------------------------------------------------------------------
