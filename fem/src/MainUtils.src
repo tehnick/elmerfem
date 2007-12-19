@@ -243,7 +243,7 @@ CONTAINS
     INTEGER(KIND=AddrInt) :: InitProc
 
     INTEGER :: MaxDGDOFs, MaxNDOFs, MaxEDOFs, MaxFDOFs, MaxBDOFs
-    INTEGER :: i,j,k,l,NDeg,Nrows,nSize,n,DOFs,MatrixFormat,istat
+    INTEGER :: i,j,k,l,NDeg,Nrows,nSize,n,DOFs,MatrixFormat,istat,Maxdim
 
     LOGICAL :: Found, BandwidthOptimize, EigAnal, ComplexFlag, &
     MultigridActive, VariableOutput, GlobalBubbles, HarmonicAnal, MGAlgebraic
@@ -264,6 +264,18 @@ CONTAINS
     INTEGER :: FlowSolver, HeatSolver, MagneticSolver, StressSolver, MeshSolver
 
     !------------------------------------------------------------------------------
+
+    eq = ListGetString( Solver % Values, 'Equation', Found )
+    IF ( Found ) THEN
+      MAXdim = 0
+      DO i=1,Solver % Mesh % NumberOfBulkElements+Solver % Mesh % NumberOFBoundaryElements
+         CurrentElement => Solver % Mesh % Elements(i)
+         IF ( CheckElementEquation( CurrentModel, CurrentElement, eq ) ) THEN
+           Maxdim = MAX( CurrentElement % Type % Dimension, Maxdim )
+         END IF
+      END DO
+      CALL ListAddInteger( Solver % Values, 'Active Mesh Dimension', Maxdim )
+    END IF
 
     str = ListGetString( Solver  % Values, 'Procedure', Found )
     IF ( Found ) THEN
