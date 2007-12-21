@@ -3616,16 +3616,32 @@ CONTAINS
 !------------------------------------------------------------------------------
     TYPE(Matrix_t), POINTER :: BMatrix, A => NULL()
     INTEGER :: Rounds = 1000,i,j,k,n, ILUn, kr, ki, DOFs
-    LOGICAL :: stat, Found, OptimizeBW, DirectLinearSolver
+    LOGICAL :: stat, Found, OptimizeBW, DirectLinearSolver,Real_given,Imag_given
     CHARACTER(LEN=MAX_NAME_LEN) :: Name
     REAL(KIND=dp) :: Omega = 10, norm, TOL=1.0d-6, s, ILUTol
     REAL(KIND=dp), POINTER :: Freqv(:,:)
     REAL(KIND=dp), ALLOCATABLE :: x(:), b(:)
     REAL(KIND=dp), TARGET :: matfreqv(1,1)
     REAL(KIND=dp) :: vecfreqv(1)
+    TYPE(ValueList_t), POINTER :: BC
     INTEGER, TARGET :: Dnodes(1)
     INTEGER, POINTER :: NodeIndexes(:)
 	
+    DO j=1,Solver % Variable % DOFs
+      Name = ComponentName( Solver % Variable % Name, j ) 
+      DO i=1,CurrentModel % NumberOFBCs
+        BC => CurrentModel % BCs(i) % Values
+        real_given = ListCheckPresent( BC, Name )
+        imag_given = ListCheckPresent( BC, TRIM(Name) // ' im' )
+
+        IF ( real_given .AND. .NOT. imag_given ) THEN
+          CALL ListAddConstReal( BC, TRIM(Name) // ' im', 0._dp)
+        ELSE IF ( imag_given .AND. .NOT. real_given ) THEN
+          CALL ListAddConstReal( BC, Name, 0._dp )
+        END IF
+      END DO
+    END DO
+
     n = Solver % Matrix % NumberofRows
     DOFs = Solver % Variable % DOFs * 2
 
@@ -3645,20 +3661,14 @@ CONTAINS
       A => CreateMatrix( CurrentModel, Solver, Solver % Mesh,   &
         Solver % Variable % Perm, DOFs, MATRIX_CRS, OptimizeBW, &
            ListGetString( Solver % Values, 'Equation') )
-       A % Complex = .TRUE.
-       BMatrix % EMatrix => A
+      A % Complex = .TRUE.
+      BMatrix % EMatrix => A
     END IF
 
     ALLOCATE( x(2*n), b(2*n) )
     x = 0
     b(1:2*n:2) = G % RHS(1:n)
     b(2:2*n:2) = G % RHS_im(1:n)
-
-    DO i=1,Solver % Variable % DOFs
-      Name = ComponentName( Solver % Variable % Name, i ) 
-      CALL SetDirichletBoundaries( CurrentModel, A, b, TRIM(Name) // ' im', &
-                 2*i, DOFs, Solver % Variable % Perm )
-    END DO
 
     ! This cumbersome way makes it possible to use the same data structure even in the case
     ! of simulation mode being scanning 	
@@ -3686,22 +3696,30 @@ CONTAINS
         kr = A % Rows(2*(k-1)+1)
         ki = A % Rows(2*(k-1)+2)
         DO j=G % Rows(k),G % Rows(k+1)-1
-          A % Values(kr)   =  G % Values(j) - &
-                omega**2*G % MassValues(j)
+          A % Values(kr)   =  G % Values(j) - omega**2*G % MassValues(j)
           A % Values(kr+1) = -G % Dampvalues(j) * omega
           A % Values(ki)   =  G % Dampvalues(j) * omega
-          A % Values(ki+1) =  G % Values(j) - &
-                omega**2*G % MassValues(j)
+          A % Values(ki+1) =  G % Values(j) - omega**2*G % MassValues(j)
           kr = kr + 2
           ki = ki + 2
         END DO
+      END DO
+
+      DO j=1,Solver % Variable % DOFs
+        Name = ComponentName( Solver % Variable % Name, j ) 
+
+        CALL SetDirichletBoundaries( CurrentModel, A, b, Name, &
+               2*j-1, DOFs, Solver % Variable % Perm )
+
+        CALL SetDirichletBoundaries( CurrentModel, A, b, TRIM(Name) // ' im', &
+               2*j, DOFs, Solver % Variable % Perm )
       END DO
 
       CALL SolveLinearSystem( A, b, x, Norm, DOFs, Solver )
 
       DO j=1,n
         Solver % Variable % EigenVectors(i,j) = &
-                   CMPLX( x(2*(j-1)+1),x(2*(j-1)+2),KIND=dp )
+                 CMPLX( x(2*(j-1)+1),x(2*(j-1)+2),KIND=dp )
       END DO
     END DO
 
@@ -3918,10 +3936,8 @@ SUBROUTINE SolveWithLinearRestriction( StiffMatrix, ForceVector, Solution, &
 ! Calculate number of values / row for upper part of ColectionMatrix:
 !--------------------------------------------------------------------
   TmpRow = 0
-k = 0
   DO i = 1, StiffMatrix % NumberOfRows
      TmpRow(i) = COUNT( StiffMatrix % Values(StiffMatrix % Rows(i):StiffMatrix % Rows(i+1)-1)/=0.0d0 )
-k = k + tmprow(i)
      TmpRow(i) = TmpRow(i) + &
           RestMatrixTranspose % Rows(i+1) - RestMatrixTranspose % Rows(i)     
   END DO
@@ -4052,18 +4068,18 @@ IF ( tmprow(i) /= collectionmatrix % rows(i+1) ) STOP 1
            collectionmatrix % rows(i):collectionmatrix % rows(i+1)-1)==0) ) &
        collectionmatrix % values(collectionmatrix % diag(i)) = 1
   END DO
-  ! try not to interfere with dirichlet conditions:
-  ! -----------------------------------------------
-  DO i=1,stiffmatrix % numberofrows
-     scl = stiffmatrix % values(stiffmatrix % diag(i))
-     stiffmatrix % values(stiffmatrix % diag(i))=0
-     IF ( ALL( stiffmatrix % values( stiffmatrix % rows(i):stiffmatrix % rows(i+1)-1 ) == 0 ) ) THEN
-       collectionmatrix % values( collectionmatrix % rows(i): &
-            collectionmatrix % rows(i+1)-1 )  = 0
-       stiffmatrix % values( stiffmatrix % diag(i) ) = scl
-       collectionmatrix % values( collectionmatrix % diag(i) ) = scl
-     END IF
-  END DO
+! ! try not to interfere with dirichlet conditions:
+! ! -----------------------------------------------
+! DO i=1,stiffmatrix % numberofrows
+!    scl = stiffmatrix % values(stiffmatrix % diag(i))
+!    stiffmatrix % values(stiffmatrix % diag(i))=0
+!    IF ( ALL( stiffmatrix % values( stiffmatrix % rows(i):stiffmatrix % rows(i+1)-1 ) == 0 ) ) THEN
+!      collectionmatrix % values( collectionmatrix % rows(i): &
+!           collectionmatrix % rows(i+1)-1 )  = 0
+!      stiffmatrix % values( stiffmatrix % diag(i) ) = scl
+!      collectionmatrix % values( collectionmatrix % diag(i) ) = scl
+!    END IF
+! END DO
 
 
   CALL Info( 'SolveWithLinearRestriction', 'CollectionMatrix done' )
