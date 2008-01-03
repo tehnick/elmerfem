@@ -468,7 +468,7 @@ CONTAINS
         Visc = SUM(Basis(1:n) * Viscosity(1:n))
         mfp = mfp0 * ReferencePressure / TotPres
         Kn = mfp / ABS(Gap)
-        Visc = Visc / (1+9.638*Kn**1.159)
+        Visc = Visc / (1+9.638_dp*Kn**1.159_dp)
 
       END SELECT
 
@@ -489,8 +489,8 @@ CONTAINS
         DensityDer = 1.0d0
         
       CASE(Compressibility_GasAdiabatic) 
-        Density = TotPres ** (1.0/HeatRatio)
-        DensityDer = (1/HeatRatio) * TotPres ** (1.0/HeatRatio - 1.0)
+        Density = TotPres ** (1.0_dp/HeatRatio)
+        DensityDer = (1/HeatRatio) * TotPres ** (1.0_dp/HeatRatio - 1.0_dp)
         
       END SELECT
       
@@ -499,7 +499,7 @@ CONTAINS
 !------------------------------------------------------------------------------
 
       ! Multipliers of p: Stiffness matrix 
-      MS = -Density * Gap**3.0d0 / (12 * Visc)
+      MS = -Density * Gap**3 / (12 * Visc)
       HR = -Damp * Density
 
       ! Multipliers of dp/dt: Mass matrix 
@@ -514,18 +514,18 @@ CONTAINS
       SLL = 0.0d0
 
       IF(PartIntSliding) THEN
-        SL = -0.5 * Density * Gap * TangentVelo 
+        SL = -0.5_dp * Density * Gap * TangentVelo 
       ELSE
         DO i=1,dim
           IF( UseVelocity ) THEN
             ! The plane element automatically omits the derivative in normal direction
-            SLR = SLR + 0.5 * Density * SUM( dBasisdx(1:n,i) * Velocity(i,1:n) * GapHeight(1:n)) 
+            SLR = SLR + 0.5_dp * Density * SUM( dBasisdx(1:n,i) * Velocity(i,1:n) * GapHeight(1:n)) 
           ELSE
-            SLR = SLR + 0.5 * Density * SUM( dBasisdx(1:n,i) * TangentVelocity(i,1:n) * GapHeight(1:n)) 
+            SLR = SLR + 0.5_dp * Density * SUM( dBasisdx(1:n,i) * TangentVelocity(i,1:n) * GapHeight(1:n)) 
           END IF
         END DO
          ! Implicit part: coefficient of the pressure gradient
-        SLL = -0.5* DensityDer * Gap * Velo 
+        SLL = -0.5_dp* DensityDer * Gap * Velo 
       END IF
 
 !------------------------------------------------------------------------------
@@ -608,14 +608,14 @@ CONTAINS
         
       CASE (Viscosity_Newtonian)
         Visc = SUM(Basis(1:n) * Viscosity(1:n))
-        dl = 0.8488             
+        dl = 0.8488_dp
         
       CASE (Viscosity_Rarefied)
         Visc = SUM(Basis(1:n) * Viscosity(1:n))
         mfp = mfp0 * ReferencePressure / TotPres
         Kn = mfp / ABS(Gap)
-        Visc = Visc / (1+9.638*Kn**1.159)
-        dl = 0.8488*(1.0+2.676*Kn**0.659)
+        Visc = Visc / (1+9.638_dp*Kn**1.159_dp)
+        dl = 0.8488_dp*(1+2.676_dp*Kn**0.659_dp)
       END SELECT
       
       Damp = Gap / (12 * dl * Visc)
@@ -972,7 +972,7 @@ CONTAINS
         Visc = SUM(Basis(1:n) * Viscosity(1:n))
         mfp = mfp0 * ReferencePressure / TotPres
         Kn = mfp / ABS(Gap)
-        Visc = Visc / (1+9.638*Kn**1.159)
+        Visc = Visc / (1+9.638_dp*Kn**1.159_dp)
 
       END SELECT
       
@@ -981,7 +981,7 @@ CONTAINS
 !------------------------------------------------------------------------------
       
       ! heating effect of pressure flow
-      LV = (Gap**3.0 / (12 * Visc) ) * SUM(GradPres(1:dim)*GradPres(1:dim))
+      LV = (Gap**3 / (12 * Visc) ) * SUM(GradPres(1:dim)*GradPres(1:dim))
       HeatPres = HeatPres + s * LV
 
       ! effect of sliding

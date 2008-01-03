@@ -2013,11 +2013,11 @@ CONTAINS
         IF(Cands(cj) == 0 .OR. cj == ind ) CYCLE
         
         j2 = j + Rows(ind+1) - Rows(ind)
-        meas = SQRT( Values(j)**2.0 + Values(j2)**2.0 )
+        meas = SQRT( Values(j)**2 + Values(j2)**2 )
         maxbond = MAX(meas,maxbond)
       END DO
      
-      meas = SQRT(Values (Amat % Diag(ind)) ** 2.0 + Values (Amat % Diag(ind+1)) ** 2.0 )
+      meas = SQRT(Values (Amat % Diag(ind)) ** 2 + Values (Amat % Diag(ind+1)) ** 2 )
 
       IF( maxbond < DirLim * meas ) THEN
         IF(ElimDir) THEN
@@ -2035,7 +2035,7 @@ CONTAINS
         IF(Cands(cj) == 0 .OR. cj == ind ) CYCLE
 
         j2 = j + Rows(ind+1) - Rows(ind)
-        meas = SQRT( Values(j)**2.0 + Values(j2)**2.0 ) / (NegLim * maxbond)
+        meas = SQRT( Values(j)**2 + Values(j2)**2 ) / (NegLim * maxbond)
         measures(j-Rows(ind)+1) = meas
         IF(meas > 1.0) THEN
           Bonds(j) = .TRUE.
@@ -3275,7 +3275,7 @@ CONTAINS
              z1 = Mesh % Nodes % z(k)
 
              s2 = (x1-x0)*(x1-x0) + (y1-y0)*(y1-y0) + (z1-z0)*(z1-z0)
-             value = s2 ** (-Pow/2.0)
+             value = s2 ** (-Pow/2.0_dp)
 
              posmax = MAX(posmax,value)
              no = no + 1
@@ -3309,7 +3309,7 @@ CONTAINS
                  z1 = Mesh % Nodes % z(k)
 
                  s2 = (x1-x0)*(x1-x0) + (y1-y0)*(y1-y0) + (z1-z0)*(z1-z0)
-                 value = s2 ** (-Pow/2.0)
+                 value = s2 ** (-Pow/2.0_dp)
 
                  posmax = MAX(posmax,value)
                  no = no + 1

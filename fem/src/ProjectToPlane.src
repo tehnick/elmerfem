@@ -314,8 +314,8 @@ SUBROUTINE ProjectToPlane( Model,Solver,dt,TransientSimulation )
           FaceNodes % z(1:corners) = ElementNodes % z(inds(1:corners))
         ELSE
           FaceNodes % x(1:corners) = SQRT( &
-              ElementNodes % x(inds(1:corners))**2.0d0 + &
-              ElementNodes % y(inds(1:corners)) **2.0d0 )                       
+              ElementNodes % x(inds(1:corners))**2 + &
+              ElementNodes % y(inds(1:corners))**2 )                       
           FaceNodes % y(1:corners) = 0.0d0            
           FaceNodes % z(1:corners) = ElementNodes % z(inds(1:corners))                       
         END IF
@@ -390,7 +390,7 @@ SUBROUTINE ProjectToPlane( Model,Solver,dt,TransientSimulation )
             Field2 = SUM( IntBasis(:,k2) * Values3D( Dofs3D*(Perm3D(IntNodes(:,k2))-1) + l) )      
             Vals(l) = Vals(l) + 0.5d0 * (Field1 + Field2) * cf
           END DO
-          Vals = Vals / (2.0*PI)
+          Vals = Vals / (2.0_dp*PI)
         ELSE
           Vals = Vals / (IntExtent(1)-IntExtent(Int)) 
         END IF

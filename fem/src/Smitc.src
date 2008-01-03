@@ -389,7 +389,7 @@
            qeff = SUM(HoleFraction(1:n)*Basis(1:n))
            rho = (1.0d0-qeff) * SUM( Density(1:n)*Basis(1:n) )
            Tmatrix = 0.0d0
-           Tmatrix(1,1) = SQRT(1.0d0-qeff**2.0d0) * SUM( Tension(1:n)*Basis(1:n) ) * h
+           Tmatrix(1,1) = SQRT(1.0d0-qeff**2) * SUM( Tension(1:n)*Basis(1:n) ) * h
            Tmatrix(2,2) = Tmatrix(1,1)
          ELSE
            CALL IsotropicElasticity(Ematrix,Gmatrix, &
@@ -548,18 +548,18 @@
        b = 2*a/sq
 
        IF(Tuvw > b-2*a) THEN
-         k = (Tuvw-0.63*(b-2*a)) * (b-2*a)**3.0d0 / 3.0d0
+         k = (Tuvw-0.63_dp*(b-2*a)) * (b-2*a)**3 / 3.0d0
        ELSE
-         k = ((b-2*a)-0.63*Tuvw) * Tuvw**3.0d0 / 3.0d0
+         k = ((b-2*a)-0.63_dp*Tuvw) * Tuvw**3 / 3.0d0
        END IF
 
        Ematrix = 0.0d0
-       Ematrix(1,1) = (1.0d0-sq)/(1.0d0-Puvw**2.0d0) + 0.5d0*sq * (1.0d0-sq)**2.0d0
+       Ematrix(1,1) = (1.0d0-sq)/(1.0d0-Puvw**2) + 0.5d0*sq * (1.0d0-sq)**2
        Ematrix(2,2) = Ematrix(1,1)
-       Ematrix(1,2) = Puvw * (1.0d0-sq)/(1.0-Puvw**2.0d0)
+       Ematrix(1,2) = Puvw * (1.0d0-sq)/(1.0-Puvw**2)
        Ematrix(2,1) = Ematrix(1,2)
        Ematrix(3,3) = 0.5d0*(1.0d0-sq)/(1.0d0+Puvw) + &
-           1.5d0*k*sq*(1-sq)/(b*(1.0d0+Puvw)*Tuvw**3.0d0)
+           1.5d0*k*sq*(1-sq)/(b*(1.0d0+Puvw)*Tuvw**3)
 
        Guvw = Euvw * Ematrix(3,3) ! * 2.0d0? 
 

@@ -528,7 +528,7 @@
 
      FreeSIter = ListGetInteger( Solver % Values, &
         'Free Surface After Iterations', GotIt, minv=0 )
-      IF ( .NOT. GotIt ) FreeSIter = 0
+     IF ( .NOT. GotIt ) FreeSIter = 0
 !------------------------------------------------------------------------------
 !    We do our own relaxation...
 !------------------------------------------------------------------------------
@@ -1036,8 +1036,7 @@
          END IF
 
          IF ( nb > 0 ) THEN
-            CALL NSCondensate( nd, nb, NSDOFs-1, STIFF, &
-                            FORCE, TimeForce )
+            CALL NSCondensate( nd, nb, NSDOFs-1, STIFF, FORCE, TimeForce )
          END IF
 
 !------------------------------------------------------------------------------
@@ -1050,6 +1049,7 @@
 
       CALL Info( 'FlowSolve', 'Assembly done', Level=4 )
 
+#if 1
 !------------------------------------------------------------------------------
 !     Neumann & Newton boundary conditions
 !------------------------------------------------------------------------------
@@ -1198,6 +1198,7 @@
 !------------------------------------------------------------------------------
         END IF
       END DO
+#endif
 !------------------------------------------------------------------------------
 
       !
@@ -1253,8 +1254,6 @@
         CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, & 
                   'Pressure', NSDOFs, NSDOFs, FlowPerm )
       END IF
-!------------------------------------------------------------------------------
-
       CALL DefaultDirichletBCs()
       CALL Info( 'FlowSolve', 'Dirichlet conditions done', Level=4 )
 

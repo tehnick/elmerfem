@@ -2552,7 +2552,7 @@ CONTAINS
   Distances = HUGE(Distances)
  
   rn(1:DIM) = Direction(1:DIM)
-  ss = SQRT(SUM(rn(1:DIM)**2.0))
+  ss = SQRT(SUM(rn(1:DIM)**2))
   rn = rn / ss
 
   DO t=1,Mesh % NumberOfBulkElements
@@ -2576,7 +2576,7 @@ CONTAINS
           rs(3) = ElementNodes % z(j) - ElementNodes % z(i)
         END IF
         
-        ss = SQRT(SUM(rs(1:DIM)**2.0))
+        ss = SQRT(SUM(rs(1:DIM)**2))
         sn = SUM(rs(1:DIM)*rn(1:DIM))
 
         IF(ss < SQRT(2.0) * ABS(sn)) THEN

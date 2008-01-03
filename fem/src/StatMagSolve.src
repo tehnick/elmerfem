@@ -527,8 +527,8 @@
        
        DO i=1, Model%NumberofNodes
          IF(MagneticPerm(i) > 0) THEN
-           Br(MagneticPerm(i)) = SQRT( Br(MagneticPerm(i))**2.0 + Brim(MagneticPerm(i))**2.0 )
-           Bz(MagneticPerm(i)) = SQRT( Bz(MagneticPerm(i))**2.0 + Bzim(MagneticPerm(i))**2.0 )
+           Br(MagneticPerm(i)) = SQRT( Br(MagneticPerm(i))**2 + Brim(MagneticPerm(i))**2 )
+           Bz(MagneticPerm(i)) = SQRT( Bz(MagneticPerm(i))**2 + Bzim(MagneticPerm(i))**2 )
            Brim(MagneticPerm(i)) = 0.0d0
            Bzim(MagneticPerm(i)) = 0.0d0
          END IF
@@ -568,7 +568,7 @@
 
    IF(HarmonicSimulation .AND. CalculateJouleHeating) THEN
     
-     jc = 0.5d0 * (2.0*PI*AngularFrequency)**2.0
+     jc = 0.5d0 * (2.0*PI*AngularFrequency)**2
      
      DO i=1, Model%NumberofNodes
        IF(MagneticPerm(i) > 0) THEN
