@@ -215,22 +215,22 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
         IF(GotIt) THEN
           IF( ViscosityModel == 'newtonian') THEN
             ViscosityType = Viscosity_Newtonian
-            IF( ViscosityModel == 'rarefied') THEN
-              ViscosityType = Viscosity_Rarefied
-              mfp0 = GetCReal(Material,'Mean Free Path',GotIt)            
-            ELSE
-              CALL Warn('ReynoldsSolver','Unknown viscosity model')
-            END IF
+          ELSE IF( ViscosityModel == 'rarefied') THEN
+            ViscosityType = Viscosity_Rarefied
+            mfp0 = GetCReal(Material,'Mean Free Path')            
+            ReferencePressure = GetCReal( Material,'Reference Pressure')           
+          ELSE
+            CALL Warn('ReynoldsSolver','Unknown viscosity model')
           END IF
         ELSE
           ViscosityType = Viscosity_Newtonian          
         END IF
-          
+
         CompressibilityModel = GetString(Material,'Compressibility Model',GotIt)        
         IF(GotIt) THEN
           IF(CompressibilityModel == 'incompressible') THEN
             CompressibilityType = Compressibility_None
-          ELSE IF(CompressibilityModel == 'weakly incompressible') THEN
+          ELSE IF(CompressibilityModel == 'weakly compressible') THEN
             CompressibilityType = Compressibility_Weak
             BulkModulus = GetCReal( Material, 'Bulk Modulus')
           ELSE IF(CompressibilityModel == 'isothermal ideal gas') THEN
@@ -481,7 +481,7 @@ CONTAINS
         DensityDer = 0.0d0
         
       CASE (Compressibility_Weak)
-        Density = EXP(Pres/BulkModulus)
+        Density = EXP(TotPres/BulkModulus)
         DensityDer = Density / BulkModulus
         
       CASE (Compressibility_GasIsothermal)         
@@ -817,12 +817,12 @@ SUBROUTINE ReynoldsHeatingSolver( Model,Solver,dt,TransientSimulation )
       IF(GotIt) THEN
         IF( ViscosityModel == 'newtonian') THEN
           ViscosityType = Viscosity_Newtonian
-          IF( ViscosityModel == 'rarefied') THEN
-            ViscosityType = Viscosity_Rarefied
-            mfp0 = GetCReal(Material,'Mean Free Path',GotIt)            
-          ELSE
-            CALL Warn('ReynoldsHeatingSolver','Unknown viscosity model')
-          END IF
+        ELSE IF( ViscosityModel == 'rarefied') THEN
+          ViscosityType = Viscosity_Rarefied
+          mfp0 = GetCReal(Material,'Mean Free Path')            
+          ReferencePressure = GetCReal( Material,'Reference Pressure')           
+        ELSE
+          CALL Warn('ReynoldsHeatingSolver','Unknown viscosity model')
         END IF
       ELSE
         ViscosityType = Viscosity_Newtonian          
