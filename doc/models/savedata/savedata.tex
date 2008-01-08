@@ -2,11 +2,11 @@
 
 \noindent
 \modinfo{Module name}{\Idx{SaveData}}
-\modinfo{Module subroutines}{\Idx{SaveScalars}, \Idx{SaveLine}, \Idx{SaveMaterials}}
+\modinfo{Module subroutines}{\Idx{SaveScalars}, \Idx{SaveLine}, \Idx{SaveMaterials}, \Idx{SaveBoundaryValues}}
 \modinfo{Module authors}{Peter Råback, Ville Savolainen, Thomas Zwinger}
 \modinfo{Document authors}{Peter Råback}
 \modinfo{Document created}{Oct 3rd 2002}
-\modinfo{Document updated}{June 1st 2004}
+\modinfo{Document updated}{January 8th 2008}
 
 \section{Introduction}
 
@@ -23,7 +23,7 @@ an additional file with the suffix \texttt{.name} is saved.
 It tells what variables are at each column.
 In addition there is a utility called \texttt{SaveMaterials} 
 that may be used to create additional
-field variables from the material parameters. 
+field variables from the material parameters. A similar procedure \texttt{SaveBoundaryValues} stores parameters defined on boundaries as variables for the whole mesh. This can be of help if a boundary condition that is not directly accessible from the variables (like a normal component of a vector field) should be evaluated in the post-processing step.
 
 \section{Theory}
 
@@ -268,5 +268,18 @@ The flux may only be saved on lines defined by boundary conditions.
 The user may choose a number of parameters (i=1,\ldots,99) which
 will be save as variables. This may be particularly handy if one wants to
 visualize how the parameters depend on the position over the domain.
+\sifend
+\sifend
+
+\subsection*{Keywords of subroutine SaveBoundaryValues}
+
+\sifbegin
+\sifitemnt{Solver}{solver id}
+\sifbegin
+\sifitemnt{Procedure}{File "SaveData"\ "SaveBoundaryValues"}
+\sifitem{Parameter i}{String}
+The user may choose a number of parameters (i=1,\ldots,99) which
+will be save as variables. These parameters will then be stored as variables with the values assigned as they were found on the specific boundary. Bulk values and values on boundaries with the parameter not being defined are set to zero by default.
+
 \sifend
 \sifend
