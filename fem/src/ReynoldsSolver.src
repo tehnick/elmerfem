@@ -55,20 +55,22 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
   TYPE(Nodes_t) :: ElementNodes
   TYPE(Element_t),POINTER :: Element, Parent
   TYPE(ValueList_t), POINTER :: Material, BC 
+  TYPE(Variable_t), POINTER :: VarTemp
 
   INTEGER, PARAMETER :: Compressibility_None = 1, Compressibility_Weak = 2, &
       Compressibility_GasIsothermal = 3, Compressibility_GasAdiabatic = 4
   INTEGER, PARAMETER :: Viscosity_Newtonian = 1, Viscosity_Rarefied = 2
 
   INTEGER :: iter, i, j, k, l, n, nd, t, istat, mat_id, mat_idold, &
-      NoIterations, ViscosityType, CompressibilityType 
+      NoIterations, ViscosityType, CompressibilityType, added, removed
   INTEGER, POINTER :: NodeIndexes(:), PressurePerm(:)
 
+  LOGICAL, POINTER :: PeriodicNodes(:)
   LOGICAL :: GotIt, stat, AllocationsDone = .FALSE., SubroutineVisited = .FALSE., &
-      UseVelocity, SideCorrection, Bubbles, PartIntSliding
-  REAL(KIND=dp), POINTER :: Pressure(:)
+      UseVelocity, SideCorrection, Bubbles, PartIntSliding, Cavitation, Converged
+  REAL(KIND=dp), POINTER :: Pressure(:), CavitationValues(:), LoadValues(:)
   REAL(KIND=dp) :: Norm, ReferencePressure, NonlinearTol, HeatRatio, BulkModulus, &
-      ViscCorr, mfp0, Pres, Dens
+      ViscCorr, mfp0, Pres, Dens, CavitationPressure
   REAL(KIND=dp), ALLOCATABLE :: STIFF(:,:), MASS(:,:), FORCE(:), TimeForce(:), &
       Viscosity(:), GapHeight(:), NormalVelocity(:), TangentVelocity(:,:), Velocity(:,:), &
       Admittance(:), Impedance(:), ElemPressure(:)
@@ -78,7 +80,8 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
 
 
   SAVE ElementNodes, Viscosity, GapHeight, Velocity, TangentVelocity, NormalVelocity, &
-      Admittance, FORCE, STIFF, MASS, TimeForce, ElemPressure, AllocationsDone
+      Admittance, FORCE, STIFF, MASS, TimeForce, ElemPressure, AllocationsDone, &
+      PeriodicNodes
 
  
 !------------------------------------------------------------------------------
@@ -105,7 +108,10 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 
   Bubbles = GetLogical( Solver % Values, 'Bubbles', GotIt )
+
   PartIntSliding = GetLogical(Solver % Values,'Partial Integrate Sliding',GotIt)
+
+  CavitationPressure = GetConstReal(Solver % Values,'Cavitation Pressure',Cavitation)
   
   IF ( .NOT. ASSOCIATED( Solver % Matrix ) ) RETURN
   IF(Solver % Variable % Dofs /= 1) THEN
@@ -132,6 +138,28 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 ! Allocate some permanent storage, this is done first time only
 !------------------------------------------------------------------------------
+  IF(Cavitation) THEN
+    VarTemp => VariableGet( Model % Mesh % Variables, TRIM(Solver % Variable % Name) // ' Cavitation' )
+    IF (.NOT.ASSOCIATED(VarTemp)) THEN
+      WRITE(Message,'(A)') TRIM(Solver % Variable % Name) // ' Cavitation: not associated'
+      CALL FATAL('ReynoldsSolver', Message)
+    END IF
+    CavitationValues => VarTemp % Values
+
+    ! Initialize this so that an uninitialized defult (zero) is not cavitation
+    DO i=1,SIZE(CavitationValues) 
+      IF( ABS(CavitationValues(i)) < 1.0d-20 ) CavitationValues(i) = -1.0
+    END DO
+
+    VarTemp => VariableGet( Model % Mesh % Variables, TRIM(Solver % Variable % Name) // ' Loads' )
+    IF (.NOT.ASSOCIATED(VarTemp)) THEN
+      WRITE(Message,'(A)') TRIM(Solver % Variable % Name) // ' Loads: not associated'
+      CALL FATAL('ReynoldsSolver', Message)
+    END IF
+    LoadValues => VarTemp % Values
+  END IF
+
+
   IF ( .NOT. AllocationsDone  ) THEN
     N = Solver % Mesh % MaxElementNodes
 
@@ -150,11 +178,34 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
         TimeForce( 2*N ), &
         ElemPressure(N), &
         STAT=istat )
-
     IF ( istat /= 0 ) CALL FATAL('ReynoldsSolver','Memory allocation error')
-    
+
+
+    IF( Cavitation ) THEN
+      ALLOCATE(PeriodicNodes(SIZE(Pressure)))
+      PeriodicNodes = .FALSE.
+      
+      DO t=1, Solver % Mesh % NumberOfBoundaryElements
+        Element => GetBoundaryElement(t)
+        IF ( .NOT. ActiveBoundaryElement() ) CYCLE
+        
+        n  = GetElementNOFNodes()
+        IF ( GetElementFamily() == 1 ) CYCLE
+        
+        IF ( ANY( PressurePerm(Element % NodeIndexes(1:n)) == 0 ) ) CYCLE
+        
+        BC => GetBC()
+        IF ( ASSOCIATED( BC ) ) THEN    
+          IF( GetLogical(BC,'Periodic BC ' // TRIM(Solver % Variable % Name),GotIt) ) THEN
+            PeriodicNodes( PressurePerm(Element % NodeIndexes(1:n))) = .TRUE.
+          END IF
+        END IF
+      END DO
+    END IF
+
     AllocationsDone = .TRUE.
-  END IF 
+  END IF
+
 
 !------------------------------------------------------------------------------
 ! Iterate over any nonlinearity of material or source
@@ -269,7 +320,7 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
         CALL Condensate( N, STIFF, FORCE, TimeForce )
       END IF
 
-      CALL DefaultUpdateEquations( STIFF, FORCE )
+      CALL DefaultUpdateEquations( STIFF, FORCE, BulkUpdate = Cavitation )
 
 !------------------------------------------------------------------------------
     END DO 
@@ -339,7 +390,7 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
           CALL Default1stOrderTime( MASS, STIFF, FORCE )
         END IF
         
-        CALL DefaultUpdateEquations( STIFF, FORCE )
+        CALL DefaultUpdateEquations( STIFF, FORCE, BulkUpdate = Cavitation )
 
 !------------------------------------------------------------------------------
       END DO
@@ -355,8 +406,40 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
 !    ---------------------------------
 
     Norm = DefaultSolve()
-        
-    IF (Solver % Variable % NonlinChange < NonlinearTol) EXIT
+
+    added = 0
+    removed = 0
+    IF(Cavitation) THEN
+      DO i=1,SIZE(Pressure)
+        IF( PeriodicNodes(i)) THEN
+          CavitationValues(i) = -1.0
+        ELSE IF( CavitationValues(i) > 0.0 ) THEN
+          IF( LoadValues(i) > 1.0d-20 ) THEN
+            removed = removed + 1
+            CavitationValues(i) = -1.0
+          END IF
+        ELSE
+          IF( Pressure(i) < CavitationPressure - 1.0d-6) THEN
+            added = added + 1
+            CavitationValues(i) = 1.0
+          END IF
+        END IF
+      END DO
+
+      IF(added > 0) THEN
+        WRITE(Message,'(A,I7,A)') 'Added',added,' nodes from the cavitation set'
+        CALL Info('ReynoldsSolver',Message,Level=5)
+      END IF
+      IF(removed > 0) THEN
+        WRITE(Message,'(A,I5,A)') 'Removed',removed,' nodes from the cavitation set'
+        CALL Info('ReynoldsSolver',Message,Level=5)
+      END IF      
+
+    END IF
+
+    Converged = (Solver % Variable % NonlinChange < NonlinearTol)
+    IF( Converged .AND. (added + removed <= GetInteger(Solver % Values,&
+        'Cavitation Set Maximum Change',Stat)) ) EXIT
   END DO
   
   CALL Info('ReynoldsSolver','-------------------------------------------------',Level=5)
