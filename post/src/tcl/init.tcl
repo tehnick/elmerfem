@@ -231,7 +231,7 @@ if { [file exists $ELMER_POST_HOME/modules] } {
 		set tclfile $module_name.tcl;
 		set modsource $ELMER_POST_HOME/tcl/$tclfile;
 		if { [file exist $modsource] } {
-		    puts "Sourcing script: $modsource";
+		    puts "Source script: $modsource";
 		    source $modsource;
 		    .menubar.modules.menu add command -underline 0
 		    .menubar.modules.menu entryconfigure last \
