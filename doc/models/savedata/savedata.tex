@@ -18,7 +18,7 @@ lines in matrix format. Scalars are saved with the subroutine
 \texttt{SaveLine}, correspondingly.
 The results are easily 
 then utilized by MatLab, Excel or any other program that can 
-read ascii data. In addition to the number values also
+read ASCII data. In addition to the number values also
 an additional file with the suffix \texttt{.name} is saved. 
 It tells what variables are at each column.
 In addition there is a utility called \texttt{SaveMaterials} 
@@ -31,12 +31,12 @@ The theoretical problem in saving data comes from the fact that
 often the data should be saved in points or lines that were not 
 a priori defined. 
 
-If there are relatively few points the dummy algorhitm
+If there are relatively few points the dummy algorithm
 where each element is checked for including the 
-node may be used. For the lines, however, this algorhitm
+node may be used. For the lines, however, this algorithm
 might become quite expensive as there may be many points
 that constitute the line. Therefore we only look for intersections
-of element faces and the lines. Each element face is devided into triangles.
+of element faces and the lines. Each element face is divided into triangles.
 The triangle has points $\vec{e}_1$, $\vec{e}_2$ and $\vec{e}_3$. The
 line is drawn between points $\vec{r}_1$ and $\vec{r}_2$.
 Therefore the line goes through the point only if
@@ -85,7 +85,7 @@ the variance
   $\delta f = \sqrt{ <f^2> - <f>^2} $.
 
 It is possible to compute energy type of lumped quantities
-by intgrating over the domain. The energy of the field $f$ resulting 
+by integrating over the domain. The energy of the field $f$ resulting 
 from a diffusion equation is 
 \begin{equation}
   E_{diff} = \frac{1}{2} \int_\Omega \nabla f \cdot c \nabla f \, d\Omega,
@@ -177,7 +177,7 @@ Some operators do not work on the solution itself but use other info related to 
 Operator \texttt{dofs} simply returns the length of 
 the variable under study. Operator \texttt{norm} returns the last computed norm of the 
 field variable, and operators \texttt{nonlinear change} and \texttt{steady state change} return
-the last computed convergence measures at the nonlinear and staedy state levels. 
+the last computed convergence measures at the nonlinear and steady state levels. 
 
 There may be up to 99 different operators.
 If the variable is a vector the statistics is performed on its length.
@@ -252,7 +252,7 @@ The diffusion constant (by default $\kappa$ is {\tt Heat Conductivity})
 \sifitem{Save Line}{Logical}
 The flag activates the saving of the boundary condition as a line.
 The subroutine tries to save the finite-element lines as a chain of points
-to enable nice postprosessing with MatLab or similar tools.
+to enable nice preprocessing with MatLab or similar tools.
 The flux may only be saved on lines defined by boundary conditions.
 \sifend
 \sifend
@@ -267,7 +267,7 @@ The flux may only be saved on lines defined by boundary conditions.
 \sifitem{Parameter i}{String}
 The user may choose a number of parameters (i=1,\ldots,99) which
 will be save as variables. This may be particularly handy if one wants to
-visualize how the parameters depend on the position over the domain.
+visualize how the parameters depend on the position over the domain. Values in bodies with the assigned material list not containing the keyword of the parameter are set to zero by default.
 \sifend
 \sifend
 
@@ -277,9 +277,11 @@ visualize how the parameters depend on the position over the domain.
 \sifitemnt{Solver}{solver id}
 \sifbegin
 \sifitemnt{Procedure}{File "SaveData"\ "SaveBoundaryValues"}
+\sifitem{Variable}{String -nooutput dummyvar}
+a dummy variable for the solver that does not show up
+\sifitem{Variable DOFs} {Integer  1}
 \sifitem{Parameter i}{String}
 The user may choose a number of parameters (i=1,\ldots,99) which
 will be save as variables. These parameters will then be stored as variables with the values assigned as they were found on the specific boundary. Bulk values and values on boundaries with the parameter not being defined are set to zero by default.
-
 \sifend
 \sifend
