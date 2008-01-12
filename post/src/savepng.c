@@ -55,7 +55,7 @@ static int SavePNG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
   if( argc < 2 ) {
     strcpy( fname, "elmerpost.png" );
   } else {
-    strncpy( fname,argv[1], 256 );
+    strncpy( fname, argv[1], 256 );
   }
 
   // Open file:
@@ -202,16 +202,12 @@ static int SavePNG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
   }
   
   png_write_end( png_ptr, NULL );
-  
+
   // Cleanup:
   //----------
-  for (y=0; y<ny; y++)
-    free( row_pointers[y] );
   free(row_pointers);
-  
   fclose( image );
   free( buffer );
-
   fprintf( stdout, "done\n");
   fflush( stdout );
 
