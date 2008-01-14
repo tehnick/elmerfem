@@ -4,7 +4,7 @@
 //
 // Compile e.g. as follows:
 //
-//   MinGW: gcc -Wall -shared -O -o savepng.dll savepng.c -lopengl32 -ltcl84 -lpng -lz
+//   MinGW: gcc -Wall -shared -O -o savepng.dll savepng.c -lopengl32 -ltcl84 -lpng
 //
 // Copy the shared library into $ELMER_POST_HOME/modules and ruin ElmerPost
 //

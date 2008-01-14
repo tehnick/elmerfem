@@ -10,27 +10,30 @@
 #include "FTGLPixmapFont.h"
 #include "FTGLBitmapFont.h"
 
-#if defined(WIN32) || defined(win32)
-#define FONT_FILE "C:\\WINDOWS\\Fonts\\arial.ttf"
-#else
-#define FONT_FILE "/usr/share/fonts/truetype/freefont/FreeSans.ttf"
-#endif
-
-static char* fontfile = FONT_FILE;
-static FTGLPixmapFont* Font;
+static FTGLPixmapFont *Font;
 static int FirstTime = 1;
 
 extern "C" void fontstuff( double x, double y, 
 			   double r, double g, double b, 
 			   int fontsize, char *txt ) {
   
+  static char *elmer_post_home;
+  static char fontfile[2048];
+  
   if( FirstTime ) {
-    fprintf( stdout, "Opening font %s\n", fontfile );
+    elmer_post_home = getenv( "ELMER_POST_HOME" );
+    fprintf( stdout, "getenv: ELMER_POST_HOME=%s\n", elmer_post_home );
+#if defined(WIN32)
+    sprintf( fontfile, "%s\\lib\\FreeSans.ttf", elmer_post_home );
+#else
+    sprintf( fontfile, "%s/lib/FreeSans.ttf", elmer_post_home );
+#endif
+    fprintf( stdout, "Load font: %s\n", fontfile );
     fflush( stdout );
     Font = new FTGLPixmapFont( fontfile );    
     if( Font->Error() )
       {
-	fprintf( stderr, "Failed opening font!!!\n" );
+	fprintf( stderr, "Load font failed!\n" );
 	fflush( stderr );
 	return;
       }

@@ -1,12 +1,19 @@
 // fttext.c
 //
-// Module for displaying text using freetype2 fonts with ElmerPost. Based on libFTGL.
+// Module for displaying text using freetype2 fonts with ElmerPost. Based on libFTGL. Requires "FreeSans.ttf" in $ELMER_HOME_POST/lib.
 //
 // Compile e.g. as follows:
 //
 //   Linux: gcc -shared -Wall -fPIC -I/usr/include/FTGL -I/usr/include/freetype2 -I/usr/include/tcl8.4 -O -o fttext.so fontstuff.cpp fttext.c -lGL -lGLU -ltcl8.4 -lfreetype -lftgl_pic
 //
-// Copy the shared library into $ELMER_POST_HOME/modules and ruin ElmerPost
+//   Mingw: g++ -Wall -I/mingw/include/freetype2 -I/mingw/include/FTGL -c -O -o fontstuff.o fontstuff.cpp
+//
+// Make ElmerPost with -DFTGL and re-link as:
+//
+//          g++ ... fontstuff.o... -lfreetype -lftgl.... -lftgl -lfreetype
+//
+// Linux: Copy the shared library into $ELMER_POST_HOME/modules and ruin
+// ElmerPost. Mingw: The module is linked statically in ElmerPost.exe.
 //
 // Usage:
 //

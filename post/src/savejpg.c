@@ -31,6 +31,7 @@
 #include <string.h>
 #include <GL/gl.h>
 #include <tcl.h>
+
 #include <jpeglib.h>
 
 #if !(defined(WIN32) || defined(win32))
