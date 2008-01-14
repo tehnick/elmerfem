@@ -3192,9 +3192,11 @@ CONTAINS
 
     IF ( Relax .OR. NeedSol ) THEN
       Stat = ASSOCIATED(Solver % Variable % NonlinValues)
-      IF(Stat .AND. SIZE(Solver % Variable % NonlinValues) /= n) THEN
-        DEALLOCATE(Solver % Variable % NonlinValues)
-        Stat = .FALSE.
+      IF( Stat ) THEN
+        IF ( SIZE(Solver % Variable % NonlinValues) /= n) THEN
+          DEALLOCATE(Solver % Variable % NonlinValues)
+          Stat = .FALSE.
+        END IF
       END IF
       IF(.NOT. Stat) THEN
         ALLOCATE( Solver % Variable % NonlinValues(n), STAT=istat ) 
