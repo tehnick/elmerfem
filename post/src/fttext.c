@@ -4,7 +4,7 @@
 //
 // Compile e.g. as follows:
 //
-//   Linux: gcc -shared -Wall -fPIC -I/usr/include/FTGL -I/usr/include/freetype2 -I/usr/include/tcl8.4 -O -o fttext.dll fontstuff.cpp fttext.c -lGL -lGLU -ltcl8.4 -lfreetype -lftgl_pic
+//   Linux: gcc -shared -Wall -fPIC -I/usr/include/FTGL -I/usr/include/freetype2 -I/usr/include/tcl8.4 -O -o fttext.so fontstuff.cpp fttext.c -lGL -lGLU -ltcl8.4 -lfreetype -lftgl_pic
 //
 // Copy the shared library into $ELMER_POST_HOME/modules and ruin ElmerPost
 //
@@ -21,7 +21,7 @@
 #endif
 
 #include <stdio.h>
-#include <stdlib.h>
+#include <stdlib.h> 
 #include <string.h>
 #include <GL/gl.h>
 #include <tcl.h>
