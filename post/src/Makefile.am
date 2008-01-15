@@ -12,6 +12,7 @@ ElmerPost_SOURCES=\
 	LUDecomp.c \
 	second.c \
 	cplusplus.cpp \
+	fttext.cpp \
 	teksti.c 
 
 ElmerPost_LDADD=\
@@ -48,7 +49,8 @@ ElmerPost_SOURCES=\
 	geometry.h \
 	LUDecomp.c \
 	second.c \
-	cplusplus.cpp 
+	cplusplus.cpp \
+	fttext.cpp
 
 ElmerPost_LDADD=\
 	./camera/libcamera.a \
