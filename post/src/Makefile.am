@@ -90,6 +90,10 @@ install-data-local:
 	cp -r lib/* $(ELMER_POST_DATADIR)/lib
 	rm -rf `find $(ELMER_POST_DATADIR)/lib -name .svn`
 
+	@echo "Installing fonts to $(ELMER_POST_DATADIR)/fonts"
+	mkdir -p $(ELMER_POST_DATADIR)/fonts
+	cp -r fonts/* $(ELMER_POST_DATADIR)/fonts
+	rm -rf `find $(ELMER_POST_DATADIR)/fonts -name .svn`
 #
 # Copy the help and tcl
 #

@@ -64,15 +64,15 @@ extern "C" void FtRender() {
 
   if( (r!=s) || (t!=0)) {
     char *elmer_post_home = getenv("ELMER_POST_HOME");
-    fprintf(stdout, "%d %d %d fttext: getenv: ELMER_POST_HOME=%s\n",
-	    r, s, t, elmer_post_home);
+    fprintf(stdout, "fttext: getenv: ELMER_POST_HOME=%s\n", 
+	    elmer_post_home);
     fflush(stdout);
     
 #if defined(WIN32) || defined(win32)
-    sprintf(ftgl.ttffile, "%s\\lib\\fonts\\TrueType\\%s.ttf",
+    sprintf(ftgl.ttffile, "%s\\fonts\\TrueType\\%s.ttf",
 	    elmer_post_home, ftgl.ttf);
 #else
-    sprintf(ftgl.ttffile, "%s/lib/fonts/TrueType/%s.ttf",
+    sprintf(ftgl.ttffile, "%s/fonts/TrueType/%s.ttf",
 	    elmer_post_home, ftgl.ttf);
 #endif
 
