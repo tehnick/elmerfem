@@ -22,7 +22,7 @@
  *                                Tietotie 6, P.O. BOX 405
  *                                  02101 Espoo, Finland
  *                                  Tel. +358 0 457 2723
- *                                Telefax: +358 0 457 2302
+ *                                Telefax:  +358 0 457 2302
  *                              EMail: Juha.Ruokolainen@csc.fi
  *
  *                       Date: 27 Sep 1995
@@ -105,6 +105,13 @@ static int NumberOfScalarVariables, NumberOfVectorVariables, NumberOfParticleVar
 int CurrentTimeStep, GraphicsClearOn = 1, KeepScale = 0, NormalUpdate = 1;
 
 double xmin,xmax,ymin,ymax,zmin,zmax;
+
+// Optional FTGL-text rendering functionality:
+//=============================================
+#if defined(FTGL)
+FtFont(ClientData,Tcl_Interp*,int,char**);
+FtText(ClientData,Tcl_Interp*,int,char**);
+#endif
 
 static void fpe_sig( int sig ) { signal( SIGFPE, fpe_sig ); }
 
@@ -2090,58 +2097,6 @@ void TestTkEvent()
     Tk_Sleep( 100 );
 }
 
-// FTGL-functionality for Windows:
-//--------------------------------
-#if defined(FTGL) && defined(WIN32)
-static double x, y, r, g, b;
-static int fontsize;
-static char txt[1024];
-
-static void Ftstuff() {
-  fontstuff(x,y,r,g,b,fontsize,txt);
-}
-
-static int Fttext( ClientData cl, Tcl_Interp *interp, int argc, char **argv ) {
-
-  // Defaults:
-  //----------
-  x = -0.45;
-  y = -0.15;
-  strcpy( txt, "text" );
-  fontsize = 144;
-  r = 1.0;
-  g = 1.0;
-  b = 1.0;
-
-  // User defined arguments:
-  //------------------------
-  if( argc > 1 )
-    x = atof(argv[1]);
-
-  if( argc > 2 )
-    y = atof(argv[2]);
-
-  if( argc > 3 ) 
-    strcpy( txt, argv[3] );
-
-  if( argc > 4 )
-    fontsize = atoi(argv[4]);
-
-  if( argc > 5 )
-    r = atof(argv[5]);
-
-  if( argc > 6 )
-    g = atof(argv[6]);
-
-  if( argc > 7 )
-    b = atof(argv[7]);
-
-  user_hook_before_all = Ftstuff;
-
-  return TCL_OK;
-}
-#endif
-
 static int WindowSize( ClientData cl,Tcl_Interp *interp,int argc,char **argv )
 {
    int width, height, dx, dy, ox, oy, nx, ny, viewp[4];
@@ -2311,7 +2266,10 @@ int main(int argc,char **argv)
 		       (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
 
 #if defined(FTGL)
-    Tcl_CreateCommand( TCLInterp, "fttext", (Tcl_CmdProc *)Fttext, 
+    Tcl_CreateCommand( TCLInterp, "fttext", (Tcl_CmdProc *)FtText, 
+		       (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
+
+    Tcl_CreateCommand( TCLInterp, "ftfont", (Tcl_CmdProc *)FtFont, 
 		       (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
 #endif
 
