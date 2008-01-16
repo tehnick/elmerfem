@@ -1560,7 +1560,7 @@ static int ShowString( ClientData cl,Tcl_Interp *interp,int argc,char **argv )
 
     glRasterPos3f( x,y,z );
 
-    if ( argc >= 6 ) MakeRasterFont( argv[5] );
+    // if ( argc >= 6 ) MakeRasterFont( argv[5] );
     PrintString( argv[4] );
 
     glPopMatrix();
