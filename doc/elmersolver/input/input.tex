@@ -2,99 +2,232 @@
 \noindent
                                                                                                                  
 \section{Introduction}
+
+Solving partial differential equation (PDE) models with the solver of Elmer
+requires that a precise description of the problem is given using 
+the so-called solver input file, briefly referred to as the sif file. 
+This file contains user-prepared input data which specify the location of mesh files and 
+control the selection of physical models, material parameters, boundary conditions, 
+initial conditions, stopping tolerances for iterative solvers, etc. 
+In this chapter, the general structure of the file is described. We explain
+how the input data is organized into different sections and describe the general keyword syntax 
+which is used in these sections to define the values of various model parameters and to control
+the solution procedures.
+
+In the case of simple problem setups the solver input file may be written automatically by 
+the preprocessor of Elmer software, so that knowing the solver input file format may be unnecessary.
+Creating a more complicated setup, or using keywords introduced by the user, however, requires 
+the knowledge of the file format and keyword syntax. 
+
+In the following the general structure of the input file is first illustrated by using simple examples,
+without trying to explain all possibilities in an exhaustive manner.
+We then describe the keyword syntax in more detail, showing also how model parameters 
+whose values depend on solution fields can be created. The later chapters of this manual, 
+and Elmer Models Manual, which focuses on describing the PDE models Elmer can handle, provide more
+detailed material on specific issues. Elmer Tutorial Manual also gives complete
+examples of solver input files.
+
+%Such dependencies can generally be created by means of
+%tabular data,  MATC  functions, or Fortran  functions. MATC has the benefit of being an interpreted 
+%language, making an additional compilation step with a compiler unnecessary.
+
                                                                                                                  
-The solver input (.sif) file describes the
-computational case for the solver.  The
-input file is used to give the solver
-the mesh directory,  material parameters, initial
-conditions, boundary conditions, etc.
-One  may add his/her own keywords to the file,
-which solvers may ask using special runtime routines.
-The different parameters given in input file may
-depend on solution fields, and may be given as constants, tabulated
-values,  MATC  functions, or Fortran  functions. MATC is an
-interpreted language, which doesn't need any
-additional compilation step, or a compiler.
+%The solver input (.sif) file describes the
+%computational case for the solver.  The
+%input file is used to give the solver
+%the mesh directory,  material parameters, initial
+%conditions, boundary conditions, etc.
+%One  may add his/her own keywords to the file,
+%which solvers may ask using special runtime routines.
+%The different parameters given in input file may
+%depend on solution fields, and may be given as constants, tabulated
+%values,  MATC  functions, or Fortran  functions. MATC is an
+%interpreted language, which doesn't need any
+%additional compilation step, or a compiler.
 
-\section{A Sample input file}
+\section{The sections of solver input file}
 
-The input file consists of different sections
+The material of the solver input file is organized into different sections.  
+Each section is generally started with a row containing the name of the section, followed by a number of
+keyword commands, and ended with a row containing the word {\tt End}. 
+The names for starting new sections are
 \begin{itemize}
-\item Header section
-\item Simulation section
-\item Body n - sections
-\item Initial Condition n - sections
-\item Body Force n - sections
-\item Material n - sections
-\item Equation n - sections
-\item Boundary Condition n - sections
+\item {\tt Header}
+\item {\tt Simulation}
+\item {\tt Constants}
+\item {\tt Body n}
+\item {\tt Material n}
+\item {\tt Body Force n}
+\item {\tt Equation n}
+\item {\tt Solver n}
+\item {\tt Boundary Condition n}
+\item {\tt Initial Condition n}
 \end{itemize}
+Here {\tt n} associated with the section name represents an integer identifier needed for distinguishing between 
+sections of the same type. A basic keyword command included in a section
+is nothing more than a statement which sets the value of a keyword
+with an equal sign. 
 
-Each section consists of the name of the section, a number of
-keyword-value pairs, and a row containing the word 'End'.
-A sample input file header might be 
+In the following we describe how the sections are basically arranged without 
+trying to explain all possibilities in an exhaustive manner. 
+The later chapters of this manual and Elmer Models Manual provide more
+detailed material on specific issues. Elmer Tutorial Manual also gives complete
+examples of solver input files. 
 
+\paragraph{Header section.} The location of mesh files is usually given in the header section. Often this is also
+the only declaration given in the header section. If the Elmer mesh files (see Appendix A) are located in the 
+directory ./1d, the header section may simply be 
+% A sample input file header might be 
 \ttbegin
-Check Keywords "Warn"
 Header
   Mesh DB "." "1d"
 End
 \ttend
+Note that separate equations can nevertheless be discretized using different meshes if the location of mesh files is given 
+in the solver section described below. 
+%Other commands that may be given in the header section are 
 
-Here only the placing of the mesh files is given. The simulation
-section contains several fields that concern the case as a whole:
-
+\paragraph{Simulation section.} The simulation section is used for giving general information that is not specific
+to a particular PDE model involved in the simulation. This information describes the coordinate system used,
+indicates whether the problem is stationary or evolutionary, defines the file names for outputting, etc.
+%The simulation
+%section contains several fields that concern the case as a whole:
+Without trying to describe many possibilities and the details of commands, 
+we only give the following simple example:  
 \ttbegin
 Simulation
   Coordinate System = "Cartesian 1D"
   Coordinate Mapping(3) = 1 2 3
-  Simulation Type = Steady
-  Output Intervals(1) = 1
+  Simulation Type = Steady State
   Steady State Max Iterations = 1
+  Output Intervals(1) = 1
   Post File = "1dheat.ep"
   Output File = "1dheat.dat"
 End
 \ttend
 
-The computational domain might consist of several different subdomains or
-'bodies', for each body the equation definition section, initial condition
-section, body force section and material definition section numbers are
-given. These sections are described later.
 
+
+\paragraph{Constants section.} The constants section is used for defining certain physical constants. 
+For example the gravity vector and the Stefan-Boltzmann constant may be defined using the commands 
 \ttbegin
-Body
-  Equation = 1
+Constants
+  Gravity(4) = 0 -1 0 9.82
+  Stefan Boltzmann = 5.67e-08
+End
+\ttend
+If the constants are not actually 
+needed in the simulation, this section can also be left empty. 
+
+\paragraph{Body, material, body force and initial condition sections.} The Elmer mesh files 
+contain information on how the computational region
+is divided into parts referred to as bodies. A body section associates
+each body with an equation set, material properties, body forces, and initial conditions by 
+referring to definitions given in a specified equation section, material section, body force section, and
+initial condition section. To manage to do this, the different sections of the same type are distinguished
+by integer identifiers that are parts of the section names. Note that the integer in the body section name 
+is an identifier for the body itself. 
+
+For example, one may define 
+\ttbegin
+Body 1
   Material = 1
   Body Force = 1
+  Equation = 1
+  Initial Condition = 2
 End
 \ttend
-
-The body force definition is used to give the volume forces, if any,
-for the equation solvers. Here a source term for the Poisson equation
-is given as constant 1:
-
+Material properties, body forces, an equation set, and initial conditions 
+are then defined in the material section 
+\ttbegin
+Material 1
+  ...
+End
+\ttend
+the body force section
 \ttbegin
 Body Force 1
-  Source = Real 1
+  ...
 End
 \ttend
-
-The equation section defines the set of equation solvers for a subdomain
-of the whole computational  domain to be activated.  Note that previously
-we attached the equation definition to a body definition. This time only
-one equation solver is activated.
-
+the equation section
 \ttbegin
 Equation 1
-  Active Solvers(1) = 1
+  ...
 End
 \ttend
+and the initial condition section
+\ttbegin
+ Initial Condition 2
+  ...
+End
+\ttend
+What material properties and body forces need to be specified depends on the mathematical models 
+involved in the simulation, and the initial condition section used for giving initial values is only relevant
+in the solution of evolutionary problems. We here omit the discussion of these very model-dependent 
+issues; after reading this introductory chapter the reader should be able to understand
+the related documentation given in Elmer Models Manual, which focuses on describing the different mathematical models,
+while the contents of equation section will be described next.
 
-The solver sections are used to define the equations solver and all the
-solver dependent parameters, such as linear system solver options, and
-the file name and name of the solver procedure, the name of the solver
-variable, etc.
+%The computational domain might consist of several different subdomains or
+%'bodies', for each body the equation definition section, initial condition
+%section, body force section and material definition section numbers are
+%given. These sections are described later.
+%\ttbegin
+%Body
+%  Equation = 1
+%  Material = 1
+%  Body Force = 1
+%End
+%\ttend
 
+%The body force definition is used to give the volume forces, if any,
+%for the equation solvers. Here a source term for the Poisson equation
+%is given as constant 1:
+
+%\ttbegin
+%Body Force 1
+%  Source = Real 1
+%End
+%\ttend
+
+\paragraph{Equation and solver sections.}
+Equation section provides us a way to associate each body with a set of equation solvers. 
+That is, if the set defined consists of more than one equation solver, several physical phenomena 
+may be considered to occur simultaneously over the same region of space.
+Individual equation solvers are actually defined in solver sections, the contents of an equation section
+being basically a list of integer identifiers for finding the solver sections that define the solvers.
+%The equation section defines the set of equation solvers for a subdomain
+%of the whole computational  domain to be activated.  Note that previously
+%we attached the equation definition to a body definition. This time only
+%one equation solver is activated.
+The keyword commands given in the solver sections then control the selection of physical models, 
+linearization procedures of nonlinear models, 
+the selection of solution methods for resulting linear equations, convergence tolerances, etc.  
+
+For example, if only two solvers are needed, one may simply define a list of two solver identifiers 
+\ttbegin
+Equation 1
+  Active Solvers(2) = 1 2
+End
+\ttend
+%The solver sections are used to define the equations solver and all the
+%solver dependent parameters, such as linear system solver options, and
+%the file name and name of the solver procedure, the name of the solver
+%variable, etc.
+Then the solver definitions are read from the solver sections 
+\ttbegin
+Solver 1
+  ...
+End
+\ttend
+and 
+\ttbegin
+Solver 2
+  ...
+End
+\ttend
+Finally, we give an example of solver definitions, without trying to explain the commands at this point:
 \ttbegin
 Solver 1
  Equation = "Poisson"
@@ -106,137 +239,243 @@ Solver 1
 End
 \ttend
 
-Boundary condition sections give the boundary conditions for the different
-equations. The boundary condition is mapped to boundaries of the mesh by
-giving the keyword Target Boundaries. Below the meaning is that Boundary
-Condition 1 is attached to boundaries 1, and 2:
-
+\paragraph{Boundary condition section.}Boundary condition sections define the boundary conditions for the different
+equations. The Elmer mesh files contain information on how the boundaries of the bodies are divided
+into parts distinguished by their own boundary numbers. The keyword {\tt Target Boundaries} is used to list 
+the boundary numbers that form the domain for imposing the boundary condition. 
+%The boundary condition is mapped to boundaries of the mesh by
+%giving the keyword Target Boundaries. Below the meaning is that Boundary
+%Condition 1 is attached to boundaries 1, and 2:
+For example the declaration 
 \ttbegin
 Boundary  Condition 1
   Target Boundaries(2) = 1 2
-   Potential = Real 0
+  ...
 End
 \ttend
+means that the boundary condition definitions that follow concern the two parts having the boundary numbers 1 and 2.
+
+\paragraph{}
+We finally note that some commands, such as comments started with the symbol ! and MATC expressions described below, 
+may also be placed outside section definitions. An exception of this type is also the command
+\ttbegin
+Check Keywords "Warn"
+\ttend
+usually placed in the beginning of the input file. When this command is given, the solver 
+outputs warning messages if the input file contains keywords that are not listed in the file
+of known keywords. If new keywords are introduced, misleading warning messages can be avoided
+by adding the new keywords to the keyword file {\tt SOLVER.KEYWORDS}, located in the directory
+of the shared library files of ElmerSolver. 
+ 
+ 
+
+
+
+
+
+
+
 
 \section{Keyword syntax}
-
-A keyword is given a value with the equals sing:
-
+As already illustrated,
+a basic keyword command used in the solver input file
+is a statement which sets the value of a solution parameter with the equal sign.
+Such a command in its full form also contains the data type declaration; for example
 \ttbegin
-Density  = 1000 ! water
+Density = Real 1000.0
 \ttend
-
-If the keyword is not known to the Elmer Solver the type of the
-value  must also be given
-
-\ttbegin
-My Parameter = Real 1000
-\ttend
-
-Valid value types are
+Valid data types generally are
 \begin{itemize}
-\item Real
-\item Integer
-\item Logical
-\item String
-\item File
+\item {\tt Real}
+\item {\tt Integer}
+\item {\tt Logical}
+\item {\tt String}
+\item {\tt File}
 \end{itemize}
-Most parameters may depend on field variables defined in the current run:
-
+If the keyword is listed in the keyword file {\tt SOLVER.KEYWORDS}, the data type declaration
+may be omitted. Therefore, in the case of our example, we may also define
 \ttbegin
-Density = Variable Temperature)
+Density = 1000.0
+\ttend
+
+The value of a keyword may also be an array of elements of specified data type, 
+with the array size definition associated with the keyword. We recall our previous examples
+of the equation and boundary condition sections, where we defined two lists of integers
+using the commands
+\ttbegin
+Active Solvers(2) = 1 2
+\ttend
+and
+\ttbegin
+Target Boundaries(2) = 1 2
+\ttend
+Two-dimensional arrays are also possible and may be defined as
+\ttbegin
+My Parameter Array(3,3) = Real 1 2 3 \keno
+                               4 5 6 \keno
+                               7 8 9 
+
+\ttend
+%A keyword may be defined to be a array insted of a scalar
+%value, the array may be defined by giving the size of the array as in
+
+%If the keyword is not known to the Elmer Solver the type of the
+%value  must also be given
+%
+%\ttbegin
+%My Parameter = Real 1000
+%\ttend
+
+
+\paragraph{Defining parameters depending on field variables.}
+Most solver parameters may depend on time, or on the field variables defined in the current simulation run. 
+Such dependencies can generally be created by means of
+tabular data,  MATC  functions, or Fortran  functions. MATC has the benefit of being an interpreted 
+language, making an additional compilation step with a compiler unnecessary.
+
+Simple interpolating functions can be created by means of tabular data. The following example
+defines the parameter {\tt Density} the value of which depends on the variable 
+{\tt Temperature}:
+\ttbegin
+Density = Variable Temperature
+  Real
+    0    900
+    273 1000
+    300 1020
+    400 1000
+End
+\ttend
+This means that the value of {\tt Density} is 900 when {\tt Temperature} is 0, and
+the following lines are interpreted similarly. Elmer then uses linear interpolation
+to approximate the parameter for argument values not given in the table.
+%linearily interpolated between 0-273 between values 900 and 1000, etc.
+If the value of the independent variable is outside the data set,
+the first or the last interpolating function which can be created from the
+tabulated values is used to extrapolate the value of the parameter. 
+
+If the field variable has several independent components, such as the components of
+displacement vector, the independent components may be used as arguments in 
+a function definition.  
+%The components of the array valued variables (defined for example in solver
+%section) are given a name with the component number attached, i.e. 
+For example, if a three-component field variable is defined in a solver section
+using the commands
+\ttbegin
+Variable = "Displ"
+Variable DOFs = 3
+\ttend
+then the solver of Elmer knows, in addition to the three-component vector {\tt Displ}, 
+three scalar fields {\tt Displ 1}, {\tt Displ 2} and {\tt Displ 3}. 
+These scalar fields may be used as independent variables in parameter definitions,
+and used in the definitions of initial and boundary conditions, etc.
+
+More complicated functions can be defined using MATC language. Here the basic usage 
+of MATC in connection with the solver input file is illustrated; 
+for an additional documentation, see a separate manual for MATC. For example,
+one may define
+\ttbegin
+Density = Variable Temperature
   MATC "1000*(1-1.0e-4*(tx-273))"
 \ttend
-
-This would mean, that the value of Density is dependent on Tempereture as:
+This means that the parameter {\tt Density} depends on the value of {\tt Temperature} as
 \begin{equation}
   \rho =  \rho_0(1-\beta(T-T_0)),
 \end{equation}
-with $\rho_0=1000, beta=10^{-4}$ and $T_0=273$.
-The value of the independent variable is known as "tx" in the MATC language.
-In addition the variable "st" will contain the current steady iteration
-number or simulation time, if the run is steady or transient respectively.
-If the independent variable has more than one component, the variable "tx"
-will contain all the component values in (tx(0),tx(1),...,tx(n-1), where n
-is the number of components of the independent variable. In the same manner
-a user Fortran 90 function may be substituted in  place of the MATC function
+with $\rho_0=1000, \beta=10^{-4}$ and $T_0=273$. Note that
+the value of the independent variable is known as {\tt tx} in the MATC expression.
+%Similarly, the variable {\tt st} is the current steady state iteration
+%number or simulation time, if a steady, coupled problem or a transient problem, respectively,
+%is solved.
 
+If the independent variable has more than one component, the variable {\tt tx}
+will contain all the components in values {\tt tx(0)},{\tt tx(1)},...,{\tt tx(n-1)}, where 
+{\tt n} is the number of the components of the independent variable. 
+A MATC expression may also take several scalar arguments; one may define, for example,
+\ttbegin
+My Parameter = Variable Time, Displ 1
+  Real MATC "..."
+\ttend
+The values of the scalar fields {\tt Time} and {\tt Displ 1} 
+can then be referred in the associated MATC expression by the names {\tt tx(0)} and {\tt tx(1)}, respectively.
+
+In addition to using MATC functions, Fortran 90 functions may also be used to create parameter 
+definitions, etc. In the same manner as MATC functions are used, we may define
 \ttbegin
 Density  = Variable Temperature
   Procedure "filename" "proc"
 \ttend
-
-Where the file "filename" should contain the shareable .so (Unix) or .dll
+In this case the file "filename" should contain a shareable .so (Unix) or .dll
 (Windows) code for the user function whose name is "proc".  The call interface
 for the Fortran function is as follows
-
 \ttbegin
 FUNCTION proc( Model, n, T ) RESULT(dens)
   USE DefUtils)
   IMPLICIT None
-  TYPE(Model_t) :: Model)
+  TYPE(Model_t) :: Model
   INTEGER :: n
   REAL(KIND=dp) :: T, dens
 
   dens = 1000*(1-1.0d-4(T-273.0d0))
 END FUNCTION proc
 \ttend
+The Model structure contains pointers to all information about the model, and may be
+used to obtain field variable values, node coordinates, etc. The argument n is
+the index of the node to be processed, and T is the value of the independent variable
+at the node. The function should finally return the value of the dependent
+variable. 
 
-The Model structure contains the whole definition of the Elmer run, and may be
-used to obtain field variable values, nodal coordinates, etc. The argument n is
-the node number to be processed, and t is the value of the independent variable
-at the nodal point. The routine should return the value  of the dependent
-variable. Another example might be
-
+The independent variable can also be composed of
+several independent components. We may thus define
 \ttbegin
 Density = Variable Coordinate
- Procedure "filename" "proc"
+  Procedure "filename" "proc"
 \ttend
+Now the argument T in the Fortran function interface should be a real array of three values, 
+which give the x,y and z coordinates of the current node. 
 
-Now the argument t would be an array of three values, which would contain the
-x,y, and z  coordinates of the current nodal point. One  more way to give the
-dependency is give a tabulated  pair of values:
+%A keyword may be defined to be a array insted of a scalar
+%value, the array may be defined by giving the size of the array as in
+%
+%\ttbegin
+%Active Solver(2) = 1 2
+%Target Boundaries(3) = 2 4 5
+%My Parameter Array(3,3) = Real 1 2 3 \keno
+%                               4 5 6 \keno
+%                               7 8 9 
+%
+%\ttend
 
+
+\paragraph{Parameterized keyword commands.} The solver input file also offers possibilities
+for creating parameterized commands that utilize MATC. In the solver input file an expression 
+following the symbol \$ is generally interpreted to be in MATC language. If the solver input file
+contains the lines
 \ttbegin
-Density = Variable Temperature
-  Real
-   0 900
-   273 1000
-   300 1020
-   400 1000
+\$solvertype = "Iterative"
+\$tol = 1.0e-6
+\ttend
+then one may define, e.g.,
+\ttbegin
+Solver 1
+  ...
+  Linear System Solver = \$solvertype
+  Linear System Convergence Tolerance = \$tol
+  ...
+End
+
+Solver 2
+  ...
+  Linear System Solver = \$solvertype
+  Linear System Convergence Tolerance = \$100*tol
+  ...
 End
 \ttend
 
-This means, that when Temperature is 0, Density gets value 900, and is
-linearily interpolated between 0-273 between values 900 and 1000, etc.
-If the value of the independent variable is outside the range of the
-tablulated values,the first or the last of the linear equations from the
-tabulated  values is used to extrapolate the value of the dependent
-variable. A keyword may be defined to be a array insted of a scalar
-value, the array may be defined by giving the size of the array as in
 
-\ttbegin
-Active Solver(2) = 1 2
-Target Boundaries(3) = 2 4 5
-My Parameter Array(3,3) = Real 1 2 3 \keno
-                               4 5 6 \keno
-                               7 8 9 
 
-\ttend
 
-The components of the array valued variables (defined for example in solver
-section) are given a name with the component number attached, i.e. if the
-solver section has a definition of  a field variable
 
-\ttbegin
-Variable = "Displ"
-Variable DOFs = 3
-\ttend
 
-then Elmer Solver knows in addition to the vector Displ three scalar fields
-'Displ 1', 'Displ 2' and 'Displ 3'.   These latter field names may be used
-to set initial conditions, boundary conditions for the components and
-used as independent variables  in parameter definitions,etc.
 
 \bibliography{elmerbib}
 \bibliographystyle{plain}
