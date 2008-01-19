@@ -51,6 +51,9 @@ ACX_CHECK_GLU
 ACX_TCLTK([],[AC_MSG_ERROR([Tcl/tk not found, use TCLTK_LIBS environment variable or --with-tcltk="-L/path/to/ -ltcl8.4 -ltk8.4" to point to it's location.])])
 CPPFLAGS="$CPPFLAGS $TCLTK_INCLUDE"
 
+sinclude(acx_ftgl.m4)
+ACX_FTGL([],[AC_MSG_ERROR([FTGL not available.])])
+
 # Checks for typedefs, structures, and compiler characteristics.
 AC_TYPE_SIZE_T
 AC_HEADER_TIME
@@ -72,9 +75,9 @@ AC_DEFINE_UNQUOTED(ELMER_POST_HOME,"${prefix}/share/elmerpost", [Elmer post defa
 
 AM_CONDITIONAL(NOTWINDOWS, test "$acx_platform_def" != "WIN32")
 
-LIBS="$LIBS $GL_LIBS $GLU_LIBS $MATC_LIBS $TCLTK_LIBS"
-CFLAGS="$CFLAGS $GL_CFLAGS $GLU_CFLAGS"
-CXXFLAGS="$CXXFLAGS $GL_CFLAGS $GLU_CFLAGS"
+LIBS="$FTGL_LIBS $LIBS $GL_LIBS $GLU_LIBS $MATC_LIBS $TCLTK_LIBS $FT_LIBS $FTGL_LIBS $ICONV_LIBS"
+CFLAGS="$CFLAGS $GL_CFLAGS $GLU_CFLAGS $FT_CFLAGS"
+CXXFLAGS="$CXXFLAGS $GL_CFLAGS $GLU_CFLAGS $FT_CFLAGS"
 
 AC_CONFIG_FILES([Makefile
                  src/Makefile
@@ -110,6 +113,6 @@ Libs:
   OpenGL                    $GL_LIBS $GLU_LIBS
   MATC			    $MATC_LIBS
   Tcl/Tk		    $TCLTK_LIBS
-
+  FTGL                      $FTGL_LIBS $FT_LIBS $ICONV_LIBS
 ])
 

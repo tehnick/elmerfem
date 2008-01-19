@@ -3,13 +3,17 @@
 // Description: Provides FTGL text rendering functionality for ElmerPost
 // Usage:       fttext string [x y]
 //              ftfont font [size r g b]
-// Compilation: export CFLAGS="-DFGL -I/usr/include/freetype2 -I/usr/include/FTGL"
-//              export CXXFLAGS="-DFGL -I/usr/include/freetype2 -I/usr/include/FTGL"
-//              export LIBS="-lfreetype -lftgl -liconv"
+// Compilation: export CFLAGS="-DHAVE_FTGL -I/usr/include/freetype2 -I/usr/include/FTGL"
+//              export CXXFLAGS="-DHAVE_FTGL -I/usr/include/freetype2 -I/usr/include/FTGL"
+//              export LIBS="-lfreetype -lftgl" (take also -liconv into account)
 // Written by:  Mikko Lyly
 // Date:        15. Jan 2008
 //-----------------------------------------------------------------------------------
-#if defined(FTGL)
+#if defined(HAVE_CONFIG_H)
+#include "../config.h"
+#endif
+
+#if HAVE_FTGL
 
 #include <stdlib.h>
 #include <stdio.h>
