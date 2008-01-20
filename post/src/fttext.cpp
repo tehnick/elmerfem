@@ -59,6 +59,7 @@ static ftgl_t ftgl;
 static ic_t ic;
 
 extern "C" void (*user_hook_before_all)();
+extern "C" void (*user_hook_after_all)();
 
 static void FtInit() {
   strcpy(ftgl.txt, "");
@@ -124,8 +125,14 @@ extern "C" void FtRender() {
   glColor3f(ftgl.r, ftgl.g, ftgl.b);
   glRasterPos3f(ftgl.x, ftgl.y, 0.0);
   
+  glDisable(GL_LIGHTING);
+  glDisable(GL_TEXTURE_1D);
+
   ftgl.Font->FaceSize(ftgl.size);
   ftgl.Font->Render(ftgl.txt);
+
+  glEnable(GL_TEXTURE_1D);
+  glEnable(GL_LIGHTING);
 
   glPopMatrix();
   glMatrixMode(GL_MODELVIEW);
@@ -193,7 +200,7 @@ extern "C" int FtText(ClientData cl, Tcl_Interp *interp,
 #endif
   strcpy(ftgl.txt, ic.outbuf );
 
-  user_hook_before_all = FtRender;
+  user_hook_after_all = FtRender;
 
   Tcl_Eval(interp, "display");
   

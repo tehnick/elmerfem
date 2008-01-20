@@ -315,6 +315,7 @@
        PRINT *,'********************************************************'
        PRINT *,'Newton iter',nonliniter
        PRINT *,'********************************************************'
+	CALL FLUSH
 
        IF ( StabilityAnalysis ) THEN
          SELECT CASE( NonLinIter )
@@ -345,6 +346,7 @@
 
      at = CPUTime() - at
      PRINT *,'Assembly (s): ',at
+	CALL FLUSH
 
 !    Solve the system and we are done:
 !    ---------------------------------
@@ -365,7 +367,7 @@
        Maxcomponent = MAX( Unorm, MAX(MAX(Deflection(6*i-5), &
            Deflection(6*i-4)),Deflection(6*i-3)) )
      END DO
-     PRINT *,'Max deflection =',Unorm
+     !PRINT *,'Max deflection =',Unorm
      MaximumDeflection = Unorm
 
      Unorm = 0.0d0
@@ -384,7 +386,7 @@
      st = CPUTime() - st
      PRINT *,'Solve (s):    ',st
      PRINT *,'Relative change =',RelChange, RelUChange
-
+	CALL FLUSH
 
      IF( RelChange < NonlinConvTol ) THEN
        StressComputation = GetLogical( SolverParams, 'Stress Computation', GotIt )
@@ -394,6 +396,7 @@
 
      IF( StressComputation .AND. Solver % NOFEigenValues <= 0  ) THEN
         PRINT *,'Entering stress calculation routines...'
+	CALL FLUSH
         CALL CalculateStresses()
      END IF ! If Stress Calculation
 
@@ -564,6 +567,7 @@
      IF ( nPL > 0 ) THEN
        
        PRINT *,'INFO: ShellSolver: Point loads set at', nPL, 'nodes'
+	CALL FLUSH
        DO iPL = 1, nPL
           xp = PointLoad(iPL, 1)
           yp = PointLoad(iPL, 2)
@@ -856,6 +860,7 @@
 
         at = CPUTime() - at
         PRINT *,'Stress calculation (s): ',at
+	CALL FLUSH
 
 !       Finally, release the auxiliary arrays:
 !       -------------------------------------- 
@@ -1467,16 +1472,17 @@
           Tblock( 6*i-0, 6*i-0 ) =  1.0d0
        END DO
 
-       STIFF = MATMUL( STIFF, Tblock )
-       STIFF = MATMUL( TRANSPOSE( Tblock ), STIFF )
+	i = 6*n
+       STIFF(1:i,1:i) = MATMUL( STIFF(1:i,1:i), Tblock(1:i,1:i) )
+       STIFF(1:i,1:i) = MATMUL( TRANSPOSE( Tblock(1:i,1:i) ), STIFF(1:i,1:i) )
 
        IF( StabilityAnalysis ) THEN
-         MASS = MATMUL( MASS, Tblock )
-         MASS = MATMUL( TRANSPOSE( Tblock ), MASS )
+         MASS(1:i,1:i) = MATMUL( MASS(1:i,1:i), Tblock(1:i,1:i) )
+         MASS(1:i,1:i) = MATMUL( TRANSPOSE( Tblock(1:i,1:i) ), MASS(1:i,1:i) )
        END IF
 
        IF( LargeDeflection ) THEN
-          NonlinForce(1:6*n) = MATMUL( TRANSPOSE(Tblock), NonlinForce(1:6*n) )
+          NonlinForce(1:i) = MATMUL( TRANSPOSE(Tblock(1:i,1:i)), NonlinForce(1:i) )
        END IF
 
 !      Finally, return the stiffness matrix w.r.t. the original system:
@@ -1491,17 +1497,18 @@
           END DO
        END DO
 
-       STIFF = MATMUL( STIFF, Tblock )
-       STIFF = MATMUL( TRANSPOSE( Tblock ), STIFF )
+       i = 6*n
+       STIFF(1:i,1:i) = MATMUL( STIFF(1:i,1:i), Tblock(1:i,1:i) )
+       STIFF(1:i,1:i) = MATMUL( TRANSPOSE( Tblock(1:i,1:i) ), STIFF(1:i,1:i) )
 
        IF( LargeDeflection ) THEN
-         NonlinForce(1:6*n) = MATMUL( TRANSPOSE(Tblock), NonlinForce(1:6*n) )
+         NonlinForce(1:i) = MATMUL( TRANSPOSE(Tblock(1:i,1:i)), NonlinForce(1:i) )
          FORCE = FORCE + NonlinForce
        END IF
 
        IF( StabilityAnalysis ) THEN
-         MASS = MATMUL( MASS, Tblock )
-         MASS = MATMUL( TRANSPOSE( Tblock ), MASS )
+         MASS(1:i,1:i) = MATMUL( MASS(1:i,1:i), Tblock(1:i,1:i) )
+         MASS(1:i,1:i) = MATMUL( TRANSPOSE( Tblock(1:i,1:i) ), MASS(1:i,1:i) )
        END IF
 
        STIFF = ( STIFF + TRANSPOSE(STIFF) ) / 2.0d0
@@ -2073,6 +2080,7 @@
              Kappa = (Thickness**2)/(Thickness**2 + alpha*(h**2))
           CASE DEFAULT
              PRINT *,'ERROR: Illegal number of nodes for Smitc elements.'
+	CALL FLUSH
           END SELECT
 !------------------------------------------------------------------------------
      END SUBROUTINE ShearCorrectionFactor
@@ -2298,7 +2306,7 @@
 
        CASE DEFAULT
           PRINT *,'ERROR: Illegal number of nodes for Smitc elements.'
-
+	CALL FLUSH
        END SELECT
 !------------------------------------------------------------------------------
      END SUBROUTINE CovariantInterpolation
