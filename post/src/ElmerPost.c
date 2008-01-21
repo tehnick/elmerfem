@@ -1924,7 +1924,7 @@ void epMouseDownProc(int Xpos, int Ypos)
     Window root,child;
     static GLint viewport[4];
     transform_t *transform;
-    double scalex,scaley,scalez;
+    double scale;
 
 #ifndef WIN32
     XQueryPointer( tkXDisplay(),tkXWindow(),&root,&child,&x_root,&y_root,&x,&y,&epMouseDown );
@@ -1964,22 +1964,22 @@ void epMouseDownProc(int Xpos, int Ypos)
                 obj_scale( CurrentObject,sx,sy,sz,'a',TRUE );
             } else
             {
-	        // scalez = 0.4;
+	        // scale = 0.4;
 	        glGetIntegerv(GL_VIEWPORT, viewport);
 	        transform = &CurrentObject->Transform;
-  	        scalez=180.0/(double)(viewport[2]+1)/transform->SclZ;
+  	        scale=180.0/(double)(viewport[3]+1)/transform->SclZ;
 
                 if ( epMouseDown & ShiftMask )
                 {
                     if ( ABS(Ypos-y) > ABS(Xpos-x) )
-                        az = scalez*(y-Ypos);
+                        az = scale*(y-Ypos);
                     else
-                        az = scalez*(Xpos-x);
+                        az = scale*(Xpos-x);
                 } else {
                     if ( ABS(y-Ypos) > ABS(x-Xpos) )
-                        ax = scalez*(y-Ypos);
+                        ax = scale*(y-Ypos);
                     else
-                        ay = scalez*(x-Xpos);
+                        ay = scale*(x-Xpos);
                 }
 
                 obj_rotate( CurrentObject,ax,ay,az,'a',TRUE );
@@ -1995,14 +1995,13 @@ void epMouseDownProc(int Xpos, int Ypos)
                 else
                     tz = 0.03*(x-Xpos);
             } else {
-	        // scalex = scaley = 0.01;
+	        // scale = 0.01;
   	        glGetIntegerv(GL_VIEWPORT, viewport);
 	        transform = &CurrentObject->Transform;
-	        scalex = 2.0/(double)(viewport[2]+1)/transform->SclZ;
-	        scaley = 2.0/(double)(viewport[3]+1)/transform->SclZ;
+	        scale = 2.0/(double)(viewport[3]+1)/transform->SclZ;
 
-                tx = scalex*(x-Xpos);
-                ty = scaley*(Ypos-y);
+                tx = scale*(x-Xpos);
+                ty = scale*(Ypos-y);
             }
             obj_translate( CurrentObject,tx,ty,tz,'a',TRUE );
         }
