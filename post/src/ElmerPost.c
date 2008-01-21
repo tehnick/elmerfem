@@ -1922,6 +1922,9 @@ void epMouseDownProc(int Xpos, int Ypos)
 {
     int x,y,x_root,y_root;
     Window root,child;
+    static GLint viewport[4];
+    transform_t *transform;
+    double scalex,scaley,scalez;
 
 #ifndef WIN32
     XQueryPointer( tkXDisplay(),tkXWindow(),&root,&child,&x_root,&y_root,&x,&y,&epMouseDown );
@@ -1961,17 +1964,22 @@ void epMouseDownProc(int Xpos, int Ypos)
                 obj_scale( CurrentObject,sx,sy,sz,'a',TRUE );
             } else
             {
+	        // scalez = 0.4;
+	        glGetIntegerv(GL_VIEWPORT, viewport);
+	        transform = &CurrentObject->Transform;
+  	        scalez=180.0/(double)(viewport[2]+1)/transform->SclZ;
+
                 if ( epMouseDown & ShiftMask )
                 {
                     if ( ABS(Ypos-y) > ABS(Xpos-x) )
-                        az = 0.4*(y-Ypos);
+                        az = scalez*(y-Ypos);
                     else
-                        az = 0.4*(Xpos-x);
+                        az = scalez*(Xpos-x);
                 } else {
                     if ( ABS(y-Ypos) > ABS(x-Xpos) )
-                        ax = 0.4*(y-Ypos);
+                        ax = scalez*(y-Ypos);
                     else
-                        ay = 0.4*(x-Xpos);
+                        ay = scalez*(x-Xpos);
                 }
 
                 obj_rotate( CurrentObject,ax,ay,az,'a',TRUE );
@@ -1987,8 +1995,14 @@ void epMouseDownProc(int Xpos, int Ypos)
                 else
                     tz = 0.03*(x-Xpos);
             } else {
-                tx = 0.01*(x-Xpos);
-                ty = 0.01*(Ypos-y);
+	        // scalex = scaley = 0.01;
+  	        glGetIntegerv(GL_VIEWPORT, viewport);
+	        transform = &CurrentObject->Transform;
+	        scalex = 2.0/(double)(viewport[2]+1)/transform->SclZ;
+	        scaley = 2.0/(double)(viewport[3]+1)/transform->SclZ;
+
+                tx = scalex*(x-Xpos);
+                ty = scaley*(Ypos-y);
             }
             obj_translate( CurrentObject,tx,ty,tz,'a',TRUE );
         }
