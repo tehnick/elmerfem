@@ -1540,8 +1540,25 @@ CONTAINS
      TYPE(Element_t), POINTER  :: Element, P1, P2
      REAL(KIND=dp), POINTER    :: b(:), SaveValues(:)
 
-     INTEGER :: n
+     CHARACTER(LEN=MAX_NAME_LEN) :: str
+
+     LOGICAL :: Found
+
+     INTEGER :: n, nd
+     INTEGER(KIND=AddrInt) :: Proc
      INTEGER, POINTER :: Indexes(:)
+
+     INTERFACE 
+       SUBROUTINE ExecLocalProc( Proc, Model, Solver, G, F, Element, n, nd )
+         USE Types
+         INTEGER(KIND=AddrInt) :: Proc
+         TYPE(Model_t)   :: Model
+         TYPE(Solver_t)  :: Solver
+         TYPE(Element_t) :: Element
+         INTEGER :: n, nd
+         REAL(KIND=dp) :: G(:,:), F(:)
+       END SUBROUTINE ExecLocalProc
+     END INTERFACE
 
      IF ( PRESENT( USolver ) ) THEN
         Solver => USolver
@@ -1556,6 +1573,22 @@ CONTAINS
         Element => UElement 
      ELSE
         Element => CurrentModel % CurrentElement
+     END IF
+
+     IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
+       str = ListGetString( Solver  % Values, 'Boundary Element Procedure', Found )
+     ELSE
+       str = ListGetString( Solver  % Values, 'Bulk Element Procedure', Found )
+     END IF
+
+     IF ( Found ) THEN
+       Proc = GetProcAddr( str, abort=.FALSE.,quiet=.TRUE. )
+       IF ( Proc /= 0 ) THEN
+         n  = GetElementNOFNodes( Element )
+         nd = GetElementNOFDOFs( Element, Solver )
+         CALL ExecLocalProc( Proc, CurrentModel, Solver, &
+                G, F, Element, n, nd )
+       END IF
      END IF
 
      IF ( ParEnv % PEs > 1 ) THEN

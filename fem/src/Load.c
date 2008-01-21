@@ -535,7 +535,6 @@ void STDCALLBULL FC_FUNC(execsimulationproc,EXECSIMULATIONPROC)
 }
 
 
-
 /*--------------------------------------------------------------------------
   INTERNAL: execute (Krylov) iterator 
   -------------------------------------------------------------------------*/
@@ -567,3 +566,22 @@ void STDCALLBULL FC_FUNC(itercall,ITERCALL)
        (void (STDCALLBULL *)())*normProc,
        (void (STDCALLBULL *)())*STOPC );
 }
+
+/*--------------------------------------------------------------------------
+  INTERNAL: execute localmatrix call
+  -------------------------------------------------------------------------*/
+static void DoLocalCall( void (STDCALLBULL *localProc)(),
+  void *Model,void *Solver,void *G, void *F, void *Element,void *n,void *nd )
+{ 
+  (*localProc)( Model, Solver, G, F, Element, n, nd );
+}
+
+/*--------------------------------------------------------------------------
+  This routine will call local matrix add-on
+  -------------------------------------------------------------------------*/
+void STDCALLBULL FC_FUNC(execlocalproc, EXECLOCALPROC )
+     ( f_ptr localProc, void *Model,void *Solver,void *G, void *F, void *Element,void *n,void *nd )
+{
+   DoLocalCall( (void (STDCALLBULL *)())*localProc,Model,Solver,G,F,Element,n,nd );
+}
+
