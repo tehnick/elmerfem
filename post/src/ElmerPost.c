@@ -1918,6 +1918,18 @@ void Reshape( GLsizei x,GLsizei y)
     DrawItSomeTimeWhenIdle();
 }
 
+void CompRot( matrix_t M ) {
+  static double bx, by, bz;
+
+  bx = M[0][0]*ax + M[1][0]*ay + M[2][0]*az;
+  by = M[0][1]*ax + M[1][1]*ay + M[2][1]*az;
+  bz = M[0][2]*ax + M[1][2]*ay + M[2][2]*az;
+
+  ax = bx;
+  ay = by;
+  az = bz;
+}
+
 void epMouseDownProc(int Xpos, int Ypos)
 {
     int x,y,x_root,y_root;
@@ -1980,6 +1992,11 @@ void epMouseDownProc(int Xpos, int Ypos)
                         ax = scale*(y-Ypos);
                     else
                         ay = scale*(x-Xpos);
+
+		    // Compensate for rotation matrix:
+		    //--------------------------------
+		    CompRot( transform->RotMatrix );
+
                 }
 
                 obj_rotate( CurrentObject,ax,ay,az,'a',TRUE );
