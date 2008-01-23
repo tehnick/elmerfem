@@ -50,8 +50,8 @@ int SolutionFromMeshToMesh(struct CellType *cell1, struct GridType *grid1,
 			   struct CellType *cell2, struct GridType *grid2, 
 			   struct FemType *data2,
 			   int mapgeo,int variable,int info);
-int ElementsToTriangles(struct FemType *data,
-			struct BoundaryType *bound,int info);
+int ElementsToTriangles(struct FemType *data,struct BoundaryType *bound,
+			Real critangle,int info);
 int IncreaseElementOrder(struct FemType *data,int info);
 int PolarCoordinates(struct FemType *data,Real rad,int info);
 int CylinderCoordinates(struct FemType *data,int info);

@@ -224,6 +224,7 @@ void InitParameters(struct ElmergridType *eg)
   eg->nofilesin = 1;
   eg->unitemeshes = FALSE;
   eg->triangles = FALSE;
+  eg->triangleangle = 0.0;
   eg->rotate = FALSE;
   eg->polar = FALSE;
   eg->cylinder = FALSE;
@@ -350,6 +351,11 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[])
     if(strcmp(argv[arg],"-triangles") ==0) {
       eg->triangles = TRUE;
       printf("The rectangles will be split to triangles.\n");
+      if(arg+1 < argc) {
+	if(strcmp(argv[arg+1],"-")) {
+	  eg->triangleangle = atof(argv[arg+1]);
+	}
+      }
     }
 
     if(strcmp(argv[arg],"-merge") == 0) {
@@ -885,6 +891,9 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
 
     if(strstr(command,"DECIMALS")) {
       sscanf(params,"%d",&eg->decimals);
+    }
+    else if(strstr(command,"TRIANGLES CRITICAL ANGLE")) {
+      sscanf(params,"%le",&eg->triangleangle);
     }
     else if(strstr(command,"TRIANGLES")) {
       for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
@@ -1558,8 +1567,11 @@ int main(int argc, char *argv[])
   
   /* Divide quadrilateral meshes into triangular meshes */
   for(k=0;k<nomeshes;k++) 
-    if(nogrids && (eg.triangles || grids[k].triangles == TRUE))
-      ElementsToTriangles(&data[k],boundaries[k],info);
+    if(nogrids && (eg.triangles || grids[k].triangles == TRUE)) {
+      Real criticalangle;
+      criticalangle = MAX(eg.triangleangle , grids[k].triangleangle);
+      ElementsToTriangles(&data[k],boundaries[k],criticalangle,info);
+    }
 
   /* Make a boundary layer with two different methods */
   if(eg.layers > 0) 

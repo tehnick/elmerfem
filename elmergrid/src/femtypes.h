@@ -52,6 +52,7 @@ struct GridType {
     elemorder,     
     elemmidpoints, 
     wantedelems,
+    limitdxverify,
     wantedelems3d,
     wantednodes3d,
     firstmaterial, /* first material to be included in mesh */
@@ -84,6 +85,8 @@ struct GridType {
   Real dx0,    /* global mesh scale in x-direction */
     dy0,
     dz0,
+    limitdx, 
+    triangleangle,
     xyratio, /* ratio between dx0 and dy0 */
     xzratio;
   Real rotateradius1,rotateradius2,rotateimprove;
@@ -359,7 +362,8 @@ struct ElmergridType {
     clonesize[3],
     layerratios[MAXBOUNDARIES], 
     layerthickness[MAXBOUNDARIES],
-    layereps,
+    layereps, 
+    triangleangle, 
     partcorder[3],
     polarradius;
 

@@ -1589,6 +1589,9 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info)
       sscanf(params,"%d",&elemcode);
     }
     
+    else if(strstr(command,"TRIANGLES CRITICAL ANGLE")) {
+      sscanf(params,"%le",&(*grid)[k].triangleangle);      
+    }
     else if(strstr(command,"TRIANGLES")) {
       for(i=0;i<MAXLINESIZE;i++) params[i] = toupper(params[i]);
       if(strstr(params,"TRUE")) (*grid)[k].triangles = TRUE;
@@ -1601,7 +1604,15 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info)
     else if(strstr(command,"SURFACE ELEMENTS")) {
       sscanf(params,"%d",&(*grid)[k].wantedelems);
     }
-    
+    else if(strstr(command,"REFERENCE DENSITY")) {
+      sscanf(params,"%le",&(*grid)[k].limitdx);
+      (*grid)[k].autoratio = 3;     
+    }
+    else if(strstr(command,"VERIFY DENSITY")) {
+      for(i=0;i<MAXLINESIZE;i++) params[i] = toupper(params[i]);
+      if(strstr(params,"TRUE")) (*grid)[k].limitdxverify = TRUE;
+      if(strstr(params,"FALSE")) (*grid)[k].limitdxverify = FALSE;
+    }
     else if(strstr(command,"VOLUME ELEMENTS")) {
       sscanf(params,"%d",&(*grid)[k].wantedelems3d);
     }

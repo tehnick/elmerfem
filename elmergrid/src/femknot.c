@@ -2507,81 +2507,68 @@ int SolutionFromMeshToMesh(struct CellType *cell1, struct GridType *grid1,
 
 
 int ElementsToTriangles(struct FemType *data,struct BoundaryType *bound,
-			int info)
+			Real critangle,int info)
 /* Make triangles out of rectangular elements */
 {
   int i,j,k,l,side,elem,i1,i2,isum,foundside,sideelemtype;
-  int noelements,elementtype,triangletype,triangles,noknots,nonodes;
-  int **newtopo,*newmaterial,*newelementtypes,newnodes,*indx,*needed;
+  int noelements,elementtype,triangletype,triangles,noknots,nonodes,newelements,newtype,newmaxnodes;
+  int **newtopo,*newmaterial,*newelementtypes,newnodes,*indx,*needed,*divisions,*division1;
   int sideind[MAXNODESD1], sideind2[MAXNODESD1];
+  int allocated,maxanglej,evenodd,newelem;
   Real dx1,dx2,dy1,dy2,ds1,ds2;
+  Real angles[4],maxangle;
   struct FemType data2;
 
   noelements  = data->noelements;
   noknots = data->noknots;
-
-  elementtype = data->elementtypes[1];
-  for(i=1;i<=data->noelements;i++) {
-    if(data->elementtypes[i] != elementtype)
-      printf("ElementsToTriangles: Implemented only for constant elementtypes (%d,%d).\n",
-	     data->elementtypes[i],elementtype);
-  }
-
-  switch(elementtype) {
-  case 404:
-    triangletype = 303;
-    newnodes = 3;
-    triangles = 2;
-    break;
-  case 405:
-    triangletype = 303;
-    newnodes = 3;
-    triangles = 4;
-    break;
-  case 409:
-    triangletype = 306;
-    newnodes = 6;
-    triangles = 2;
-    break;
-  case 416:
-    triangletype = 310;
-    newnodes = 10;
-    triangles = 2;
-    break;
-  default:
-    printf("ElementsToTriangles: not implemented for elementtype %d\n",elementtype);
-    return(1);
-  }
+  allocated = FALSE;
 
   needed = Ivector(1,noknots);
   for(i=1;i<=noknots;i++)
     needed[i] = 0;
-
   nonodes = elementtype / 100;
   for(i=1;i<=noelements;i++) {
     for(j=0;j<nonodes;j++)
       needed[data->topology[i][j]] += 1;
   }
 
+  divisions = Ivector(1,noelements);
+  division1 = Ivector(1,noelements);
+  for(i=1;i<=noelements;i++)
+    divisions[i] = division1[i] = 0;
 
   /* First divide the elements along the shorter diameter */
-  newtopo = Imatrix(1,triangles*noelements,0,newnodes-1);
-  newmaterial = Ivector(1,triangles*noelements);
-  newelementtypes = Ivector(1,triangles*noelements);
 
-  data2 = *data;
-  data2.topology = newtopo;
-  data2.material = newmaterial;
-  data2.elementtypes = newelementtypes;
+  newelements = 0;
+  newmaxnodes = 0;
 
-  
+ omstart:
+
   for(i=1;i<=noelements;i++) {
 
-    newelementtypes[2*i-1] = triangletype;
-    newelementtypes[2*i] = triangletype;
+    elementtype = data->elementtypes[i];
 
+    /* compute the four angles and divide the rectangle so that the largest angle is split */
+    maxangle = 0.0;
+    maxanglej = 0;
+    for(j=0;j<4;j++) {
+      dx1 = data->x[data->topology[i][(j+3)%4]] - data->x[data->topology[i][j]];
+      dy1 = data->y[data->topology[i][(j+3)%4]] - data->y[data->topology[i][j]];
+      dx2 = data->x[data->topology[i][(j+1)%4]] - data->x[data->topology[i][j]];
+      dy2 = data->y[data->topology[i][(j+1)%4]] - data->y[data->topology[i][j]];
+      ds1 = sqrt(dx1*dx1+dy1*dy1);
+      ds2 = sqrt(dx2*dx2+dy2*dy2);
+      angles[j] = (180.0/M_PI) * acos((dx1*dx2+dy1*dy2)/(ds1*ds2));
+      if( abs(angles[j] > maxangle)) {
+	maxangle = abs(angles[j]);
+	maxanglej = j;
+      }
+    }
+    
+    evenodd = maxanglej % 2;
+
+#if 0
     /* compute the diagonals in order to make division along the shorter one */
-
     dx1 = data->x[data->topology[i][0]] - data->x[data->topology[i][2]];
     dy1 = data->y[data->topology[i][0]] - data->y[data->topology[i][2]];
     dx2 = data->x[data->topology[i][1]] - data->x[data->topology[i][3]];
@@ -2594,112 +2581,178 @@ int ElementsToTriangles(struct FemType *data,struct BoundaryType *bound,
       ds1 *= 2;
 
     if(needed[data->topology[i][1]] <= 2 && (needed[data->topology[i][3]]) <= 2) 
-      ds2 *= 2;
+      ds2 *= 2; 
+    
+    if(ds1 > ds2) 
+      evenodd = 1;
+    else 
+      evenodd = 0;
+#endif
 
-    if(elementtype == 404 || elementtype == 409 || elementtype == 416) {
-      if(ds1 > ds2) {
-	newtopo[2*i-1][0] = data->topology[i][0];
-	newtopo[2*i-1][1] = data->topology[i][1];
-	newtopo[2*i-1][2] = data->topology[i][3];
-	newmaterial[2*i-1]= data->material[i];
-	newtopo[2*i][0]   = data->topology[i][2];
-	newtopo[2*i][1]   = data->topology[i][3];
-	newtopo[2*i][2]   = data->topology[i][1];
-	newmaterial[2*i]  = data->material[i];
-      }
-      else {
-	newtopo[2*i-1][0] = data->topology[i][1];
-	newtopo[2*i-1][1] = data->topology[i][2];
-	newtopo[2*i-1][2] = data->topology[i][0];
-	newmaterial[2*i-1]= data->material[i];
-	newtopo[2*i][0]   = data->topology[i][3];
-	newtopo[2*i][1]   = data->topology[i][0];
-	newtopo[2*i][2]   = data->topology[i][2];
-	newmaterial[2*i]  = data->material[i];
-      }
+    /* The default is that no triangularization is performed */
+    if( maxangle < critangle ) {
+      triangles = 1;
+      newtype = elementtype;
+      newnodes = elementtype % 100;
     }
-    if(elementtype == 409) {
-      if(ds1 > ds2) {
-	newtopo[2*i-1][3] = data->topology[i][4];
-	newtopo[2*i-1][4] = data->topology[i][8];
-	newtopo[2*i-1][5] = data->topology[i][7];
-	newtopo[2*i][3]   = data->topology[i][6];
-	newtopo[2*i][4]   = data->topology[i][8];
-	newtopo[2*i][5]   = data->topology[i][5];      
-      }
-      else {
-	newtopo[2*i-1][3] = data->topology[i][5];
-	newtopo[2*i-1][4] = data->topology[i][8];
-	newtopo[2*i-1][5] = data->topology[i][4];
-	newtopo[2*i][3]   = data->topology[i][7];
-	newtopo[2*i][4]   = data->topology[i][8];
-	newtopo[2*i][5]   = data->topology[i][6];            	
-      }
-    }
-
-    if(elementtype == 416) {
-      if(ds1 > ds2) {
-	newtopo[2*i-1][3] = data->topology[i][4];
-	newtopo[2*i-1][4] = data->topology[i][5];
-	newtopo[2*i-1][5] = data->topology[i][13];
-	newtopo[2*i-1][6] = data->topology[i][15];
-	newtopo[2*i-1][7] = data->topology[i][10];
-	newtopo[2*i-1][8] = data->topology[i][11];
-	newtopo[2*i-1][9] = data->topology[i][12];
-
-	newtopo[2*i][3]   = data->topology[i][8];
-	newtopo[2*i][4]   = data->topology[i][9];
-	newtopo[2*i][5]   = data->topology[i][15];
-	newtopo[2*i][6]   = data->topology[i][13];
-	newtopo[2*i][7]   = data->topology[i][6];      
-	newtopo[2*i][8]   = data->topology[i][7];      
-	newtopo[2*i][9]   = data->topology[i][14];      
-      }
-      else {
-	newtopo[2*i-1][3] = data->topology[i][6];
-	newtopo[2*i-1][4] = data->topology[i][7];
-	newtopo[2*i-1][5] = data->topology[i][14];
-	newtopo[2*i-1][6] = data->topology[i][12];
-	newtopo[2*i-1][7] = data->topology[i][4];
-	newtopo[2*i-1][8] = data->topology[i][5];
-	newtopo[2*i-1][9] = data->topology[i][13];
-
-	newtopo[2*i][3]   = data->topology[i][10];
-	newtopo[2*i][4]   = data->topology[i][11];
-	newtopo[2*i][5]   = data->topology[i][12];
-	newtopo[2*i][6]   = data->topology[i][14];
-	newtopo[2*i][7]   = data->topology[i][8];            	
-	newtopo[2*i][8]   = data->topology[i][9];            	
-	newtopo[2*i][9]   = data->topology[i][15];            	
+    else {
+      switch(elementtype) {
+      case 404:
+	newtype = 303;
+	newnodes = 3;
+	triangles = 2;
+	break;
+      case 405:
+	newtype = 303;
+	newnodes = 3;
+	triangles = 4;
+	break;
+      case 409:
+	newtype = 306;
+	newnodes = 6;
+	triangles = 2;
+	break;
+      case 416:
+	newtype = 310;
+	newnodes = 10;
+	triangles = 2;
+	break;
+      default:
+	printf("ElementsToTriangles: not implemented for elementtype %d\n",elementtype);
+	return(1);
       }
     }
 
-    if(elementtype == 405) {
-      newtopo[4*i-3][0] = data->topology[i][0];
-      newtopo[4*i-3][1] = data->topology[i][1];
-      newtopo[4*i-3][2] = data->topology[i][4];
-      newmaterial[4*i-3]= data->material[i];
-      newtopo[4*i-2][0] = data->topology[i][1];
-      newtopo[4*i-2][1] = data->topology[i][2];
-      newtopo[4*i-2][2] = data->topology[i][4];
-      newmaterial[4*i-2]= data->material[i];
-      newtopo[4*i-1][0] = data->topology[i][2];
-      newtopo[4*i-1][1] = data->topology[i][3];
-      newtopo[4*i-1][2] = data->topology[i][4];
-      newmaterial[4*i-1]= data->material[i];
-      newtopo[4*i][0]   = data->topology[i][3];
-      newtopo[4*i][1]   = data->topology[i][0];
-      newtopo[4*i][2]   = data->topology[i][4];
-      newmaterial[4*i]  = data->material[i];      
+    newmaxnodes = MAX( newnodes, newmaxnodes );
+    
+
+    if(!allocated) {
+      divisions[i] = triangles;
+      division1[i] = newelements;
+      newelements += triangles; 
+      continue;
+    }
+
+    for(j=division1[i]+1;j<=division1[i]+divisions[i];j++) {
+      newelementtypes[j] = newtype;
+      newmaterial[j] = data->material[i];
+    }
+
+    newelem = division1[i]+1;
+    if(triangles == 1) {
+      for(j=0;j<newnodes;j++)
+	newtopo[newelem][j] = data->topology[i][j];
+    }
+    else {
+      if(elementtype == 404 || elementtype == 409 || elementtype == 416) {
+	if(evenodd) {
+	  newtopo[newelem][0] = data->topology[i][0];
+	  newtopo[newelem][1] = data->topology[i][1];
+	  newtopo[newelem][2] = data->topology[i][3];
+	  newtopo[newelem+1][0] = data->topology[i][2];
+	  newtopo[newelem+1][1] = data->topology[i][3];
+	  newtopo[newelem+1][2] = data->topology[i][1];
+	}
+	else {
+	  newtopo[newelem][0] = data->topology[i][1];
+	  newtopo[newelem][1] = data->topology[i][2];
+	  newtopo[newelem][2] = data->topology[i][0];
+	  newtopo[newelem+1][0] = data->topology[i][3];
+	  newtopo[newelem+1][1] = data->topology[i][0];
+	  newtopo[newelem+1][2] = data->topology[i][2];
+	}
+      }
+      if(elementtype == 409) {
+	if(evenodd) {
+	  newtopo[newelem][3] = data->topology[i][4];
+	  newtopo[newelem][4] = data->topology[i][8];
+	  newtopo[newelem][5] = data->topology[i][7];
+	  newtopo[newelem+1][3] = data->topology[i][6];
+	  newtopo[newelem+1][4] = data->topology[i][8];
+	  newtopo[newelem+1][5] = data->topology[i][5];      
+	}
+	else {
+	  newtopo[newelem][3] = data->topology[i][5];
+	  newtopo[newelem][4] = data->topology[i][8];
+	  newtopo[newelem][5] = data->topology[i][4];
+	  newtopo[newelem+1][3] = data->topology[i][7];
+	  newtopo[newelem+1][4] = data->topology[i][8];
+	  newtopo[newelem+1][5] = data->topology[i][6];            	
+	}
+      }
+      if(elementtype == 416) {
+	if(evenodd) {
+	  newtopo[newelem][3] = data->topology[i][4];
+	  newtopo[newelem][4] = data->topology[i][5];
+	  newtopo[newelem][5] = data->topology[i][13];
+	  newtopo[newelem][6] = data->topology[i][15];
+	  newtopo[newelem][7] = data->topology[i][10];
+	  newtopo[newelem][8] = data->topology[i][11];
+	  newtopo[newelem][9] = data->topology[i][12];
+	  
+	  newtopo[newelem+1][3] = data->topology[i][8];
+	  newtopo[newelem+1][4] = data->topology[i][9];
+	  newtopo[newelem+1][5] = data->topology[i][15];
+	  newtopo[newelem+1][6] = data->topology[i][13];
+	  newtopo[newelem+1][7] = data->topology[i][6];      
+	  newtopo[newelem+1][8] = data->topology[i][7];      
+	  newtopo[newelem+1][9] = data->topology[i][14];      
+	}
+	else {
+	  newtopo[newelem][3] = data->topology[i][6];
+	  newtopo[newelem][4] = data->topology[i][7];
+	  newtopo[newelem][5] = data->topology[i][14];
+	  newtopo[newelem][6] = data->topology[i][12];
+	  newtopo[newelem][7] = data->topology[i][4];
+	  newtopo[newelem][8] = data->topology[i][5];
+	  newtopo[newelem][9] = data->topology[i][13];
+	  
+	  newtopo[newelem+1][3] = data->topology[i][10];
+	  newtopo[newelem+1][4] = data->topology[i][11];
+	  newtopo[newelem+1][5] = data->topology[i][12];
+	  newtopo[newelem+1][6] = data->topology[i][14];
+	  newtopo[newelem+1][7] = data->topology[i][8];            	
+	  newtopo[newelem+1][8] = data->topology[i][9];            	
+	  newtopo[newelem+1][9] = data->topology[i][15];            	
+	}
+      }
+      else if(elementtype == 405) {
+	newtopo[newelem][0] = data->topology[i][0];
+	newtopo[newelem][1] = data->topology[i][1];
+	newtopo[newelem][2] = data->topology[i][4];
+	newtopo[newelem+1][0] = data->topology[i][1];
+	newtopo[newelem+1][1] = data->topology[i][2];
+	newtopo[newelem+1][2] = data->topology[i][4];
+	newtopo[newelem+2][0] = data->topology[i][2];
+	newtopo[newelem+2][1] = data->topology[i][3];
+	newtopo[newelem+2][2] = data->topology[i][4];
+	newtopo[newelem+3][0] = data->topology[i][3];
+	newtopo[newelem+3][1] = data->topology[i][0];
+	newtopo[newelem+3][2] = data->topology[i][4];
+      }
     }
   }
 
+
+  if(!allocated)  {
+
+    newtopo = Imatrix(1,newelements,0,newmaxnodes-1);
+    newmaterial = Ivector(1,newelements);
+    newelementtypes = Ivector(1,newelements);
+    allocated = TRUE;
+    
+    data2 = *data;
+    data2.topology = newtopo;
+    data2.material = newmaterial;
+    data2.elementtypes = newelementtypes;
+
+    goto omstart;
+  }
 
 
   /* Then make the corresponding mapping for the BCs. 
      This is done in a brute-force way where all the 
      possible new elements are checked. */
-
 
   for(j=0;j < MAXBOUNDARIES;j++) {
     if(!bound[j].created) continue;
@@ -2727,16 +2780,21 @@ int ElementsToTriangles(struct FemType *data,struct BoundaryType *bound,
 	  continue;
 	}
 	
+	if(divisions[k] == 1) {
+	  elem = division1[k]+1;
+	  side = bound[j].side[i];
+	  isum = 2;
+	  goto nextparent;
+	}
 
-	/* Test for all possible elements that could be parents */
-	for(elem = triangles*(k-1)+1;elem <= k*triangles;elem++) {
-	  
+	/* Test for all possible elements that could be parents */       
+	for(elem=division1[k]+1;elem<=division1[k]+divisions[k];elem++) {
 	  isum = 0;
 	  for(i1=0;i1<3;i1++) {
 	    if(newtopo[elem][i1] == sideind[0]) isum++;
 	    if(newtopo[elem][i1] == sideind[1]) isum++;
 	  }
-  
+	  
 	  if(isum != 2) continue;
 	  
 	  for(side=0;side<3;side++) { 
@@ -2751,17 +2809,17 @@ int ElementsToTriangles(struct FemType *data,struct BoundaryType *bound,
 	    if(isum == 2) goto nextparent;
 	  }
 	}
-
+	
       nextparent:
 	if(isum == 2) {
-	  if(l == 1) {
-	    bound[j].parent[i] = elem;
-	    bound[j].side[i] = side;
-	  }
-	  if(l == 2) {
-	    bound[j].parent2[i] = elem;
-	    bound[j].side2[i] = side;
-	  }
+	    if(l == 1) {
+	      bound[j].parent[i] = elem;
+	      bound[j].side[i] = side;
+	    }
+	    if(l == 2) {
+	      bound[j].parent2[i] = elem;
+	      bound[j].side2[i] = side;
+	    }
 	}     
 	else {
 	  printf("Failed to find parent for side %d of %d (parent %d)\n",i,j,k);
@@ -2775,14 +2833,17 @@ int ElementsToTriangles(struct FemType *data,struct BoundaryType *bound,
   free_Ivector(data->material,1,noelements);
   free_Ivector(data->elementtypes,1,noelements);
   free_Ivector(needed,1,noknots);
+  free_Ivector(divisions,1,noelements);
+  free_Ivector(division1,1,noelements);
 
   data->topology = newtopo;
   data->elementtypes = newelementtypes;
   data->material = newmaterial;
-  data->noelements *= triangles;
-  data->maxnodes = newnodes;
+  data->noelements = newelements;
+  data->maxnodes = newmaxnodes;
 
-  if(info) printf("The mesh was reconstructed from %d triangles\n",triangles*noelements);
+  if(info) printf("There are %d elements after triangularization (was %d)\n",
+		  newelements,noelements);
 
   return(0);
 }
@@ -6265,8 +6326,6 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
 	}
       }
     }
-    
-    printf("o=%d p=%d\n",o,p);
     
     printf("Symmetry BCs [%d %d %d %d] have [%d %d %d %d] sides.\n",
 	   j,j+1,j+2,j+3,bound[j].nosides,bound[j+1].nosides,

@@ -55,10 +55,13 @@ void InitGrid(struct GridType *grid)
   grid->layered = FALSE;
   grid->layeredbc = TRUE;
   grid->triangles = FALSE;
+  grid->triangleangle = 0.0;
   grid->partitions = FALSE;
-  grid->wantedelems = 100;
+  grid->wantedelems = 0;
   grid->wantedelems3d = 0;
   grid->wantednodes3d = 0;
+  grid->limitdx = 0.0;
+  grid->limitdxverify = FALSE;
 
   grid->dimension = 2;
   grid->xcells = grid->ycells = grid->zcells = 0;
@@ -410,7 +413,7 @@ void SetElementDivision(struct GridType *grid,int info)
   int i,j,nx,ny,nxmax,nymax;
   int sumxelems,sumyelems,sumxyelems;
   Real ratio,linearlimit;
-  Real dxmax,dymax,dx,dy;
+  Real dxmax,dymax,dx,dy,dxlimit;
 
   printf("SetElementDivision\n");
 
@@ -421,16 +424,6 @@ void SetElementDivision(struct GridType *grid,int info)
   nx = grid->xcells;
   ny = grid->ycells;
   linearlimit = 0.001;
-
-
-  /* In axisymmetric case set the symmetry axis */
-  /* This mainly caused some confusion and is thus eliminated. */
-#if 0
-  /* This has been eliminated since it just causes confusion */
-  if(grid->coordsystem == COORD_AXIS) 
-    for(j=0;j<=MAXCELLS+1;j++)
-      grid->structure[j][0] = MAT_ORIGO;
-#endif
 
   /* Lets number the cells from left to right and up to down. */
   grid->nocells = 0;
@@ -480,8 +473,10 @@ void SetElementDivision(struct GridType *grid,int info)
   }
 
   sumxelems = 0;
-  for(i=1;i<=nx;i++)
+  for(i=1;i<=nx;i++) {
+    if(grid->dimension == 1 && !grid->numbered[1][i]) continue;
     sumxelems += grid->xelems[i];
+  }
   sumyelems = 0;
   for(i=1;i<=ny;i++)  
     sumyelems += grid->yelems[i];
@@ -495,7 +490,7 @@ void SetElementDivision(struct GridType *grid,int info)
 
   /* Allocate elements for both axis separately */
   if(grid->autoratio == 2) {
-
+    
     if(sumxelems > grid->totxelems) {
       printf("SetElementDivision: %d is too few elements in x-direction\n",grid->totxelems);
       grid->totxelems = sumxelems+1;
@@ -504,11 +499,15 @@ void SetElementDivision(struct GridType *grid,int info)
       printf("SetElementDivision: %d is too few elements in y-direction\n",grid->totyelems);
       grid->totyelems = sumyelems+1;
     }   
-
+    
     for(;sumxelems < grid->totxelems;) {
       dxmax = 0.0;
       for(i=1;i<=nx;i++) {
 	if(grid->xelems[i] == 0) continue;
+	
+	/* Don't put elements to passive subcells */
+	if(grid->dimension == 1 && !grid->numbered[1][i]) continue; 
+	
 	if(grid->xlinear[i] == TRUE || grid->xelems[i]==1) 
 	  dx = (grid->x[i] - grid->x[i-1])/grid->xelems[i];
 	else {
@@ -545,7 +544,7 @@ void SetElementDivision(struct GridType *grid,int info)
       grid->xelems[nxmax] += 1;
       sumxelems++;
     }
-
+  
 
     if(grid->dimension > 1) {
       for(;sumyelems < grid->totyelems;) {
@@ -574,16 +573,15 @@ void SetElementDivision(struct GridType *grid,int info)
   }   
 
 
-
   /* Both axis dependently */
   if(grid->autoratio == 1)  {
-
+    
     sumxyelems = 0;
-    for(;sumxyelems < grid->wantedelems;) {
+    for(;;) {
       dxmax = 0.0;
 
       for(i=1;i<=nx;i++) {
-
+	
 	if(grid->xelems[i] == 0) continue;
 	if(grid->xlinear[i] || grid->xelems[i]==1) 
 	  dx = (grid->x[i] - grid->x[i-1])/grid->xelems[i];
@@ -654,15 +652,17 @@ void SetElementDivision(struct GridType *grid,int info)
 	  nymax = i;
 	}
       }      
+      dymax /= grid->xyratio;
 
-
-      if(grid->xyratio * dxmax > dymax) {
+      if(dxmax > dymax) {
 	grid->xelems[nxmax] += 1;
 	sumxelems++;
+	dxlimit = dxmax;
       }
       else {
 	grid->yelems[nymax] += 1;
 	sumyelems++;
+	dxlimit = dymax;
       }
       
       sumxyelems = 0;
@@ -670,8 +670,98 @@ void SetElementDivision(struct GridType *grid,int info)
 	for(i=1;i<=grid->xcells;i++) 
 	  if(grid->numbered[j][i]) sumxyelems += grid->xelems[i] * grid->yelems[j];
 
+      if(grid->wantedelems <= sumxyelems) break;
     }
   }    
+
+
+
+  if(grid->autoratio == 3 || grid->limitdxverify)  {
+    
+    dxlimit = grid->limitdx;
+
+    for(i=1;i<=nx;i++) {
+      
+      for(;;) {       
+	if(grid->xlinear[i] || grid->xelems[i]==0) 
+	  dx = (grid->x[i] - grid->x[i-1])/(grid->xelems[i]+1);
+	else {
+	  if(grid->xexpand[i] > 0.0) {
+	    ratio = pow(grid->xexpand[i],1./grid->xelems[i]);
+	    dx = (grid->x[i] - grid->x[i-1]) * 
+	      (1.-ratio) / (1.-pow(ratio,(Real)(grid->xelems[i]+1)));
+	    if(ratio < 1.)   
+	      dx *= grid->xexpand[i];
+	  }
+	  else if(grid->xelems[i]==1) {
+	    dx = (grid->x[i] - grid->x[i-1])/(grid->xelems[i]+1);
+	  } 
+	  else if((grid->xelems[i]+1)%2 == 0) {
+	    ratio = pow(-grid->xexpand[i],1./(grid->xelems[i]/2));
+	    dx = 0.5 * (grid->x[i] - grid->x[i-1]) * 
+	      (1.-ratio) / (1.-pow(ratio,(Real)(grid->xelems[i]/2+1)));
+	  }
+	  else if((grid->xelems[i]+1)%2 == 1) {
+	    ratio = pow(-grid->xexpand[i],1./((grid->xelems[i]+1)/2));
+	    dx = (grid->x[i] - grid->x[i-1]) / 
+	      (2.0*(1.-pow(ratio,(Real)((grid->xelems[i]+1)/2)))/
+	       (1-ratio) + pow(ratio,(Real)((grid->xelems[i]+1)/2+0.5)));
+	  }
+	}
+	dx *= grid->xdens[i];
+
+	if( dx < (1+1.0e-6)*dxlimit ) 
+	  grid->xelems[i] += 1;
+	else
+	  break;
+      }
+      sumxelems += grid->xelems[i];
+    }      
+
+
+    for(i=1;i<=ny;i++) {
+      
+      for(;;) {
+	if(grid->ylinear[i] || grid->yelems[i]==0) 
+	  dy = (grid->y[i] - grid->y[i-1])/(grid->yelems[i]+1);
+	else {
+	  if(grid->yexpand[i] > 0.0) {
+	    ratio = pow(grid->yexpand[i],1./grid->yelems[i]);
+	    dy = (grid->y[i] - grid->y[i-1]) * 
+	      (1.-ratio) / (1.-pow(ratio,(Real)(grid->yelems[i]+1)));
+	    if(ratio < 1.)   
+	      dy *= grid->yexpand[i];
+	  }
+	  else if(grid->yelems[i]==1) {
+	    dy = (grid->y[i] - grid->y[i-1])/(grid->yelems[i]+1);
+	  } 
+	  else if((grid->yelems[i]+1)%2 == 0) {
+	    ratio = pow(-grid->yexpand[i],1./(grid->yelems[i]/2));
+	    dy = 0.5 * (grid->y[i] - grid->y[i-1]) * 
+	      (1.-ratio) / (1.-pow(ratio,(Real)(grid->yelems[i]/2+1)));
+	  }
+	  else if((grid->yelems[i]+1)%2 == 1) {
+	    ratio = pow(-grid->yexpand[i],1./((grid->yelems[i]+1)/2));
+	    dy = (grid->y[i] - grid->y[i-1]) / 
+	      (2.0*(1.-pow(ratio,(Real)((grid->yelems[i]+1)/2)))/
+	       (1-ratio) + pow(ratio,(Real)((grid->yelems[i]+1)/2+0.5)));
+	  }
+	}
+	
+	dy *= grid->ydens[i] / grid->xyratio;
+	if( dy < (1+1.0e-6)*dxlimit ) 
+	  grid->yelems[i] += 1;
+	else
+	  break; 
+      }
+      sumyelems += grid->yelems[i];
+    }      
+    
+    sumxyelems = 0;
+    for(j=1;j<=grid->ycells;j++)
+      for(i=1;i<=grid->xcells;i++) 
+	if(grid->numbered[j][i]) sumxyelems += grid->xelems[i] * grid->yelems[j];
+  }
 
 
   /* Put the linearity flags if there is only one division. */
