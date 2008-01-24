@@ -810,7 +810,7 @@ CONTAINS
 
 !------------------------------------------------------------------------------
    SUBROUTINE UpdateGlobalEquations( StiffMatrix, LocalStiffMatrix, &
-           ForceVector, LocalForce, n, NDOFs, NodeIndexes )
+      ForceVector, LocalForce, n, NDOFs, NodeIndexes, RotateNT )
 !------------------------------------------------------------------------------
 !******************************************************************************
 ! 
@@ -840,9 +840,11 @@ CONTAINS
 
      REAL(KIND=dp) :: LocalStiffMatrix(:,:),LocalForce(:),ForceVector(:)
 
+     LOGICAL, OPTIONAL :: RotateNT
      INTEGER :: n, NDOFs, NodeIndexes(:)
 !------------------------------------------------------------------------------
      INTEGER :: i,j,k,dim, Indexes(n)
+     LOGICAL :: Rotate
      TYPE(Element_t), POINTER :: Element
 !------------------------------------------------------------------------------
 !    Update global matrix and rhs vector....
@@ -854,8 +856,12 @@ CONTAINS
      IF ( CheckPassiveElement() )  RETURN
 
 !------------------------------------------------------------------------------
+
+     Rotate = .TRUE.
+     IF ( PRESENT(RotateNT) ) Rotate = RotateNT
+
      Element => CurrentModel % CurrentElement
-     IF ( NormalTangentialNOFNodes > 0 ) THEN
+     IF ( Rotate .AND. NormalTangentialNOFNodes > 0 ) THEN
        dim = CoordinateSystemDimension()
        Indexes = 0
        Indexes(1:Element % TYPE % NumberOfNodes) = &
@@ -893,7 +899,7 @@ CONTAINS
 
 !------------------------------------------------------------------------------
    SUBROUTINE UpdateGlobalForce(ForceVector, LocalForce, n, &
-             NDOFs, NodeIndexes )
+             NDOFs, NodeIndexes, RotateNT )
 !------------------------------------------------------------------------------
 !******************************************************************************
 ! 
@@ -920,11 +926,12 @@ CONTAINS
 !******************************************************************************
 !------------------------------------------------------------------------------
      REAL(KIND=dp) :: LocalForce(:),ForceVector(:)
+     LOGICAL, OPTIONAL :: RotateNT
      INTEGER :: n, NDOFs, NodeIndexes(:)
 !------------------------------------------------------------------------------
      TYPE(Element_t), POINTER :: Element
      INTEGER :: i,j,k, dim,indexes(n)
-     LOGICAL :: rot
+     LOGICAL :: Rotate
      REAL(KIND=dp) :: LocalStiffMatrix(n*NDOFs,n*NDOFs), LForce(n*NDOFs)
 !------------------------------------------------------------------------------
 !    Update global matrix and rhs vector....
@@ -932,7 +939,10 @@ CONTAINS
 
      IF ( CheckPassiveElement() )  RETURN
 
-     IF ( NormalTangentialNOFNodes > 0 ) THEN
+     Rotate = .TRUE.
+     IF ( PRESENT(RotateNT) ) Rotate=RotateNT
+
+     IF ( RotateNT .AND. NormalTangentialNOFNodes > 0 ) THEN
        dim = CoordinateSystemDimension()
        Indexes = 0
        Element => CurrentModel % CurrentElement
@@ -941,6 +951,7 @@ CONTAINS
        CALL RotateMatrix( LocalStiffMatrix, LocalForce, n, dim, NDOFs, &
           Indexes, BoundaryNormals, BoundaryTangent1, BoundaryTangent2 )
      END IF
+
      DO i=1,n
        IF ( NodeIndexes(i) > 0 ) THEN
          DO j=1,NDOFs
@@ -3277,8 +3288,6 @@ CONTAINS
        DEALLOCATE( Diag )
     END IF
 
-    CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
-
 
     NodalLoads => VariableGet( Solver % Mesh % Variables, &
        Solver % Variable % Name(1:Solver % Variable % NameLen) // ' Loads' )
@@ -3299,8 +3308,10 @@ CONTAINS
          END IF
       END DO
       DEALLOCATE( TempVector )
+      CALL BackRotateNTSystem( NodalLoads % Values, NodalLoads % Perm, DOFs )
     END IF
 
+    CALL BackRotateNTSystem( x, Solver % Variable % Perm, DOFs )
 
 !------------------------------------------------------------------------------
 ! Compute the change of the solution with different methods 
