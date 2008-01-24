@@ -1630,7 +1630,7 @@ CONTAINS
           SaveValues => A % Values
           A % Values => A % BulkValues
           CALL UpdateGlobalEquations( A,G,A % BulkRHS,f,n, &
-                   x % DOFs,x % Perm(Indexes(1:n)) )
+                   x % DOFs,x % Perm(Indexes(1:n)), RotateNT=.FALSE. )
           A % Values => SaveValues
        END IF
      END IF
@@ -1727,7 +1727,8 @@ CONTAINS
          END IF
           SaveValues => A % Values
           A % Values => A % BulkValues
-          CALL UpdateGlobalEquations( A,G,A % BulkRHS,f,n,x % DOFs,x % Perm(Indexes(1:n)) )
+          CALL UpdateGlobalEquations( A,G,A % BulkRHS,f,n, &
+            x % DOFs,x % Perm(Indexes(1:n)), RotateNT=.FALSE. )
           A % Values => SaveValues
        END IF
      END IF
@@ -1792,7 +1793,7 @@ CONTAINS
            Solver % Matrix % BulkRHS = 0.0_dp
          END IF
          CALL UpdateGlobalForce( Solver % Matrix % BulkRHS, &
-            F, n, x % DOFs, x % Perm(Indexes(1:n)) )
+            F, n, x % DOFs, x % Perm(Indexes(1:n)), RotateNT=.FALSE. )
       END IF
     END IF
 !------------------------------------------------------------------------------
