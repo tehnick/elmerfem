@@ -16,7 +16,7 @@
 // Defaults:
 //
 //   file = elmerpost.jpg
-//   quality = 50 (1=bad, 100=good)
+//   quality = 85 (1=bad, 100=good)
 //
 // Modified from screensave.c 
 //
@@ -24,6 +24,8 @@
 
 #if defined(WIN32) || defined(win32)
 #include <windows.h>
+// This is to avoid redefinition of INT32 in jmoreconfig.h:
+#define XMD_H
 #endif
 
 #include <stdio.h>
@@ -47,7 +49,7 @@ static int SaveJPG( ClientData cl,Tcl_Interp *interp,int argc,char **argv ) {
   struct jpeg_error_mgr jerr;
   FILE *outfile;
   JSAMPROW row_pointer[1];
-  int row_stride, quality = 50;
+  int row_stride, quality = 85;
   
   // Determine file name & quality:
   //--------------------------------
