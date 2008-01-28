@@ -52,11 +52,11 @@ binPROGRAMS_INSTALL = $(INSTALL_PROGRAM)
 PROGRAMS = $(bin_PROGRAMS)
 am__ElmerPost_SOURCES_DIST = ElmerPost.c elmerpost.h geometry.c \
 	geometry.h LUDecomp.c second.c cplusplus.cpp fttext.cpp \
-	teksti.c
+	ElmerPost-res.rc teksti.c
 @NOTWINDOWS_FALSE@am_ElmerPost_OBJECTS = ElmerPost.$(OBJEXT) \
 @NOTWINDOWS_FALSE@	geometry.$(OBJEXT) LUDecomp.$(OBJEXT) \
 @NOTWINDOWS_FALSE@	second.$(OBJEXT) cplusplus.$(OBJEXT) \
-@NOTWINDOWS_FALSE@	fttext.$(OBJEXT)
+@NOTWINDOWS_FALSE@	fttext.$(OBJEXT) ElmerPost-res.$(OBJEXT)
 @NOTWINDOWS_TRUE@am_ElmerPost_OBJECTS = ElmerPost.$(OBJEXT) \
 @NOTWINDOWS_TRUE@	geometry.$(OBJEXT) LUDecomp.$(OBJEXT) \
 @NOTWINDOWS_TRUE@	second.$(OBJEXT) cplusplus.$(OBJEXT) \
@@ -243,7 +243,8 @@ SUBDIRS = tk glaux camera graphics modules sico2elmer objects visuals tcl elemen
 @NOTWINDOWS_FALSE@	LUDecomp.c \
 @NOTWINDOWS_FALSE@	second.c \
 @NOTWINDOWS_FALSE@	cplusplus.cpp \
-@NOTWINDOWS_FALSE@	fttext.cpp
+@NOTWINDOWS_FALSE@	fttext.cpp \
+@NOTWINDOWS_FALSE@	ElmerPost-res.rc
 
 @NOTWINDOWS_TRUE@ElmerPost_SOURCES = \
 @NOTWINDOWS_TRUE@	ElmerPost.c \
@@ -285,7 +286,7 @@ ELMER_POST_DATADIR = $(prefix)/share/elmerpost
 all: all-recursive
 
 .SUFFIXES:
-.SUFFIXES: .c .cpp .o .obj
+.SUFFIXES: .c .cpp .o .obj .rc
 $(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__configure_deps)
 	@for dep in $?; do \
 	  case '$(am__configure_deps)' in \
@@ -681,6 +682,13 @@ uninstall-am: uninstall-binPROGRAMS
 
 @NOTWINDOWS_TRUE@screensave.so: screensave.$(OBJEXT)
 @NOTWINDOWS_TRUE@	$(CC) $(CFLAGS) $(LDFLAGS) $(SH_LDFLAGS) -o $@ $< $(LIBS)
+
+# WINDOWS
+
+@NOTWINDOWS_FALSE@.rc.o:
+@NOTWINDOWS_FALSE@	windres $^ -o $@
+@NOTWINDOWS_FALSE@%.o : %.rc
+@NOTWINDOWS_FALSE@	windres $^ -o $@
 
 install-data-local:
 	@echo "Instaling modules to ${ELMER_POST_DATADIR}/modules"

@@ -40,6 +40,11 @@ else
 
 # WINDOWS
 
+.rc.o:
+	windres $^ -o $@
+%.o : %.rc
+	windres $^ -o $@
+
 bin_PROGRAMS=ElmerPost 
 
 ElmerPost_SOURCES=\
@@ -50,7 +55,8 @@ ElmerPost_SOURCES=\
 	LUDecomp.c \
 	second.c \
 	cplusplus.cpp \
-	fttext.cpp
+	fttext.cpp \
+	ElmerPost-res.rc
 
 ElmerPost_LDADD=\
 	./camera/libcamera.a \
