@@ -90,7 +90,8 @@ struct GridType {
     xyratio, /* ratio between dx0 and dy0 */
     xzratio;
   Real rotateradius1,rotateradius2,rotateimprove;
-  int rotate,rotateblocks,rotatecurve,rotatecartesian;
+  int rotate,rotateblocks,rotatecurve,rotatecartesian,mappings,
+    reduceordermatmin,reduceordermatmax;
   Real curverad,curveangle,curvezet,polarradius;
   Real x[MAXCELLS+1],     /* vertical lines in the goemetry */
     y[MAXCELLS+1],        /* horizontal lines in the geometry */
@@ -107,11 +108,9 @@ struct GridType {
     xdens[MAXCELLS+1],    /* local density of the mesh in the subcells */
     ydens[MAXCELLS+1],
     zdens[MAXCELLS+1];
-  int mappings,
-    mappingtype[MAXMAPPINGS],
+  int mappingtype[MAXMAPPINGS],
     mappingline[MAXMAPPINGS],
     mappingpoints[MAXMAPPINGS];
-  int reduceordermatmin,reduceordermatmax;
   Real mappinglimits[2*MAXMAPPINGS],
     *mappingparams[MAXMAPPINGS];
 };

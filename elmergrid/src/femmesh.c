@@ -487,9 +487,6 @@ void SetElementDivision(struct GridType *grid,int info)
     grid->totyelems = 1;
   }
 
-  printf("autoratio: %d %.3le\n",grid->autoratio,grid->limitdx);
-
-
   /* Allocate elements for both axis separately */
   if(grid->autoratio == 2) {
     
@@ -681,8 +678,6 @@ void SetElementDivision(struct GridType *grid,int info)
   if(grid->autoratio == 3 || grid->limitdxverify)  {
     
     dxlimit = grid->limitdx;
-
-    printf("dxlimit = %.3le\n",dxlimit);
 
     for(i=1;i<=nx;i++) {
       

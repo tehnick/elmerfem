@@ -1001,8 +1001,6 @@ int LoadElmergridOld(struct GridType **grid,int *nogrids,char *prefix,int info)
     case 31:
     case 32:
 
-      sscanf(line,"%d",&l);
-
       for(i=grid[k]->mappings;i<grid[k]->mappings+l;i++) {
 	Getline(line,in);
 	cp=line; 
@@ -1678,26 +1676,32 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info)
     }
     
     else if(strstr(command,"GEOMETRY MAPPINGS")) {     
+      if(k > 0) (*grid)[k].mappings = 0;
+
+      printf("k=%d maps=%d\n",k,(*grid)[k].mappings);
+
       for(i=0;i<MAXLINESIZE;i++) params[i] = toupper(params[i]);
-      for(i=grid[k]->mappings;i<MAXMAPPINGS;i++) {
-	if(i>grid[k]->mappings) Getline(params,in);
+      for(i=(*grid)[k].mappings;i<MAXMAPPINGS;i++) {
+	if(i>(*grid)[k].mappings) Getline(params,in);
+
+	printf("i=%d line=%s\n",i,params);
 
 	if(strstr(params,"END")) break;
 	cp=params; 
-	grid[k]->mappingtype[i] = next_int(&cp);	
+	(*grid)[k].mappingtype[i] = next_int(&cp);	
 #if 0
-	grid[k]->mappingtype[i] += 50*SGN(grid[k]->mappingtype[i]);
+	(*grid)[k].mappingtype[i] += 50*SGN((*grid)[k].mappingtype[i]);
 #endif
-	grid[k]->mappingline[i] = next_int(&cp);
-	grid[k]->mappinglimits[2*i] = next_real(&cp);
-	grid[k]->mappinglimits[2*i+1] = next_real(&cp);
-	grid[k]->mappingpoints[i] = next_int(&cp);
-	grid[k]->mappingparams[i] = Rvector(0,grid[k]->mappingpoints[i]);
-	for(j=0;j<grid[k]->mappingpoints[i];j++) 
-	  grid[k]->mappingparams[i][j] = next_real(&cp);
+	(*grid)[k].mappingline[i] = next_int(&cp);
+	(*grid)[k].mappinglimits[2*i] = next_real(&cp);
+	(*grid)[k].mappinglimits[2*i+1] = next_real(&cp);
+	(*grid)[k].mappingpoints[i] = next_int(&cp);
+	(*grid)[k].mappingparams[i] = Rvector(0,(*grid)[k].mappingpoints[i]);
+	for(j=0;j<(*grid)[k].mappingpoints[i];j++) 
+	  (*grid)[k].mappingparams[i][j] = next_real(&cp);
       }      
       printf("Loaded %d geometry mappings\n",i);
-      grid[k]->mappings = i;      
+      (*grid)[k].mappings = i;      
     }
 
     else if(strstr(command,"END") ) {      
