@@ -1067,6 +1067,28 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
       for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
       if(strstr(params,"TRUE")) eg->partitionindirect = TRUE;      
     }
+    else if(strstr(command,"BOUNDARY TYPE MAPPINGS")) {
+      for(i=0;i<MAXMATERIALS;i++) {
+	if(i>0) Getline(params,in);
+	for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+	if(strstr(params,"END")) break;
+	cp = params;      
+	sscanf(params,"%d%d%d",&eg->sidemap[3*i],&eg->sidemap[3*i+1],&eg->sidemap[3*i+2]);
+      }
+      printf("Found %d boundary type mappings\n",i);
+      eg->sidemappings = i;
+    }
+    else if(strstr(command,"BULK TYPE MAPPINGS")) {
+      for(i=0;i<MAXMATERIALS;i++) {
+	if(i>0) Getline(params,in);
+	for(j=0;j<MAXLINESIZE;j++) params[j] = toupper(params[j]);
+	if(strstr(params,"END")) break;
+	cp = params;      
+	sscanf(params,"%d%d%d",&eg->bulkmap[3*i],&eg->bulkmap[3*i+1],&eg->bulkmap[3*i+2]);
+      }
+      printf("Found %d bulk type mappings\n",i);
+      eg->bulkmappings = i;
+    }
     else if(strstr(command,"BOUNDARY BOUNDARY")) {
       for(i=0;i<MAXBOUNDARIES;i++) {
 	if(i>0) Getline(params,in);
