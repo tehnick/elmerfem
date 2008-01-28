@@ -487,6 +487,8 @@ void SetElementDivision(struct GridType *grid,int info)
     grid->totyelems = 1;
   }
 
+  printf("autoratio: %d %.3le\n",grid->autoratio,grid->limitdx);
+
 
   /* Allocate elements for both axis separately */
   if(grid->autoratio == 2) {
@@ -657,12 +659,12 @@ void SetElementDivision(struct GridType *grid,int info)
       if(dxmax > dymax) {
 	grid->xelems[nxmax] += 1;
 	sumxelems++;
-	dxlimit = dxmax;
+	dxlimit = (1.0-1.0e-6)*dxmax;
       }
       else {
 	grid->yelems[nymax] += 1;
 	sumyelems++;
-	dxlimit = dymax;
+	dxlimit = (1.0-1.0e-6)*dymax;
       }
       
       sumxyelems = 0;
@@ -679,6 +681,8 @@ void SetElementDivision(struct GridType *grid,int info)
   if(grid->autoratio == 3 || grid->limitdxverify)  {
     
     dxlimit = grid->limitdx;
+
+    printf("dxlimit = %.3le\n",dxlimit);
 
     for(i=1;i<=nx;i++) {
       
@@ -710,7 +714,7 @@ void SetElementDivision(struct GridType *grid,int info)
 	}
 	dx *= grid->xdens[i];
 
-	if( dx < (1+1.0e-6)*dxlimit ) 
+	if( dx > dxlimit ) 
 	  grid->xelems[i] += 1;
 	else
 	  break;
@@ -749,7 +753,7 @@ void SetElementDivision(struct GridType *grid,int info)
 	}
 	
 	dy *= grid->ydens[i] / grid->xyratio;
-	if( dy < (1+1.0e-6)*dxlimit ) 
+	if( dy > dxlimit ) 
 	  grid->yelems[i] += 1;
 	else
 	  break; 
