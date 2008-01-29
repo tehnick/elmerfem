@@ -708,10 +708,10 @@ am__fastdepCC_FALSE
 CPP
 GREP
 EGREP
-MATC_LIBS
 USE_64BIT_ARCH_TRUE
 USE_64BIT_ARCH_FALSE
 B64FLAGS
+MATC_LIBS
 MAINTAINER_MODE_TRUE
 MAINTAINER_MODE_FALSE
 MAINT
@@ -1314,8 +1314,8 @@ Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
   --with-debug            Use debugging flags (environment variables override)
-  --with-matc=<lib>       use MATC library <lib>
   --with-64bits=yes(/no)  Try to compile using 64 bits (default)
+  --with-matc=<lib>       use MATC library <lib>
 
 Some influential environment variables:
   CC          C compiler command
@@ -2716,6 +2716,7 @@ esac
 else
   RANLIB="$ac_cv_prog_RANLIB"
 fi
+
 
 
 ac_ext=c
@@ -4451,181 +4452,6 @@ _ACEOF
 fi
 
 
-LIBS="-L. $LIBS -L$prefix/lib"
-LDFLAGS="-L. $LDFLAGS -L$prefix/lib"
-
-
-
-acx_matc_ok=no
-
-
-# Check whether --with-matc was given.
-if test "${with_matc+set}" = set; then
-  withval=$with_matc;
-fi
-
-case $with_matc in
-	yes | "") ;;
-	no) acx_matc_ok=disable ;;
-	-* | */* | *.a | *.so | *.so.* | *.o) MATC_LIBS="$with_matc" ;;
-	*) MATC_LIBS="-l$with_matc" ;;
-esac
-
-acx_matc_save_LIBS="$LIBS"
-
-# First, check EIO_LIBS environment variable
-if test $acx_matc_ok = no; then
-if test "x$MATC_LIBS" != x; then
-	save_LIBS="$LIBS"; LIBS="$MATC_LIBS $LIBS"
-	{ echo "$as_me:$LINENO: checking for mtc_init in $MATC_LIBS" >&5
-echo $ECHO_N "checking for mtc_init in $MATC_LIBS... $ECHO_C" >&6; }
-	cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char mtc_init ();
-int
-main ()
-{
-return mtc_init ();
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
-if { (ac_try="$ac_link"
-case "(($ac_try" in
-  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
-  *) ac_try_echo=$ac_try;;
-esac
-eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
-  (eval "$ac_link") 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } && {
-	 test -z "$ac_c_werror_flag" ||
-	 test ! -s conftest.err
-       } && test -s conftest$ac_exeext &&
-       $as_test_x conftest$ac_exeext; then
-  acx_matc_ok=yes
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-	MATC_LIBS=""
-fi
-
-rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
-      conftest$ac_exeext conftest.$ac_ext
-	{ echo "$as_me:$LINENO: result: $acx_matc_ok" >&5
-echo "${ECHO_T}$acx_matc_ok" >&6; }
-	LIBS="$save_LIBS"
-fi
-fi
-
-# Generic MATC library?
-if test "$acx_matc_ok" = no; then
-	{ echo "$as_me:$LINENO: checking for mtc_init in -lmatc" >&5
-echo $ECHO_N "checking for mtc_init in -lmatc... $ECHO_C" >&6; }
-if test "${ac_cv_lib_matc_mtc_init+set}" = set; then
-  echo $ECHO_N "(cached) $ECHO_C" >&6
-else
-  ac_check_lib_save_LIBS=$LIBS
-LIBS="-lmatc -lm $LIBS"
-cat >conftest.$ac_ext <<_ACEOF
-/* confdefs.h.  */
-_ACEOF
-cat confdefs.h >>conftest.$ac_ext
-cat >>conftest.$ac_ext <<_ACEOF
-/* end confdefs.h.  */
-
-/* Override any GCC internal prototype to avoid an error.
-   Use char because int might match the return type of a GCC
-   builtin and then its argument prototype would still apply.  */
-#ifdef __cplusplus
-extern "C"
-#endif
-char mtc_init ();
-int
-main ()
-{
-return mtc_init ();
-  ;
-  return 0;
-}
-_ACEOF
-rm -f conftest.$ac_objext conftest$ac_exeext
-if { (ac_try="$ac_link"
-case "(($ac_try" in
-  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
-  *) ac_try_echo=$ac_try;;
-esac
-eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
-  (eval "$ac_link") 2>conftest.er1
-  ac_status=$?
-  grep -v '^ *+' conftest.er1 >conftest.err
-  rm -f conftest.er1
-  cat conftest.err >&5
-  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-  (exit $ac_status); } && {
-	 test -z "$ac_c_werror_flag" ||
-	 test ! -s conftest.err
-       } && test -s conftest$ac_exeext &&
-       $as_test_x conftest$ac_exeext; then
-  ac_cv_lib_matc_mtc_init=yes
-else
-  echo "$as_me: failed program was:" >&5
-sed 's/^/| /' conftest.$ac_ext >&5
-
-	ac_cv_lib_matc_mtc_init=no
-fi
-
-rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
-      conftest$ac_exeext conftest.$ac_ext
-LIBS=$ac_check_lib_save_LIBS
-fi
-{ echo "$as_me:$LINENO: result: $ac_cv_lib_matc_mtc_init" >&5
-echo "${ECHO_T}$ac_cv_lib_matc_mtc_init" >&6; }
-if test $ac_cv_lib_matc_mtc_init = yes; then
-  acx_matc_ok=yes; MATC_LIBS="-lmatc"
-fi
-
-fi
-
-
-
-LIBS="$acx_matc_save_LIBS"
-
-# Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
-if test x"$acx_matc_ok" = xyes; then
-
-cat >>confdefs.h <<\_ACEOF
-#define HAVE_MATC 1
-_ACEOF
-
-        :
-else
-        acx_matc_ok=no
-        { { echo "$as_me:$LINENO: error: libmatc $ELMER_LIBERRORMSG" >&5
-echo "$as_me: error: libmatc $ELMER_LIBERRORMSG" >&2;}
-   { (exit 1); exit 1; }; }
-fi
-
-LIBS="$LIBS $MATC_LIBS"
-
-
 # On IRIX 5.3, sys/types and inttypes.h are conflicting.
 
 
@@ -5412,6 +5238,182 @@ echo "${ECHO_T}oh yes" >&6; }
    fi
 fi
 
+
+
+
+LIBS="-L. $LIBS -L$prefix/lib"
+LDFLAGS="-L. $LDFLAGS -L$prefix/lib"
+
+
+
+acx_matc_ok=no
+
+
+# Check whether --with-matc was given.
+if test "${with_matc+set}" = set; then
+  withval=$with_matc;
+fi
+
+case $with_matc in
+	yes | "") ;;
+	no) acx_matc_ok=disable ;;
+	-* | */* | *.a | *.so | *.so.* | *.o) MATC_LIBS="$with_matc" ;;
+	*) MATC_LIBS="-l$with_matc" ;;
+esac
+
+acx_matc_save_LIBS="$LIBS"
+
+# First, check EIO_LIBS environment variable
+if test $acx_matc_ok = no; then
+if test "x$MATC_LIBS" != x; then
+	save_LIBS="$LIBS"; LIBS="$MATC_LIBS $LIBS"
+	{ echo "$as_me:$LINENO: checking for mtc_init in $MATC_LIBS" >&5
+echo $ECHO_N "checking for mtc_init in $MATC_LIBS... $ECHO_C" >&6; }
+	cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char mtc_init ();
+int
+main ()
+{
+return mtc_init ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext &&
+       $as_test_x conftest$ac_exeext; then
+  acx_matc_ok=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	MATC_LIBS=""
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext conftest.$ac_ext
+	{ echo "$as_me:$LINENO: result: $acx_matc_ok" >&5
+echo "${ECHO_T}$acx_matc_ok" >&6; }
+	LIBS="$save_LIBS"
+fi
+fi
+
+# Generic MATC library?
+if test "$acx_matc_ok" = no; then
+	{ echo "$as_me:$LINENO: checking for mtc_init in -lmatc" >&5
+echo $ECHO_N "checking for mtc_init in -lmatc... $ECHO_C" >&6; }
+if test "${ac_cv_lib_matc_mtc_init+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lmatc -lm $LIBS"
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char mtc_init ();
+int
+main ()
+{
+return mtc_init ();
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext &&
+       $as_test_x conftest$ac_exeext; then
+  ac_cv_lib_matc_mtc_init=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	ac_cv_lib_matc_mtc_init=no
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ echo "$as_me:$LINENO: result: $ac_cv_lib_matc_mtc_init" >&5
+echo "${ECHO_T}$ac_cv_lib_matc_mtc_init" >&6; }
+if test $ac_cv_lib_matc_mtc_init = yes; then
+  acx_matc_ok=yes; MATC_LIBS="-lmatc"
+fi
+
+fi
+
+
+
+LIBS="$acx_matc_save_LIBS"
+
+# Finally, execute ACTION-IF-FOUND/ACTION-IF-NOT-FOUND:
+if test x"$acx_matc_ok" = xyes; then
+
+cat >>confdefs.h <<\_ACEOF
+#define HAVE_MATC 1
+_ACEOF
+
+        :
+else
+        acx_matc_ok=no
+        { { echo "$as_me:$LINENO: error: libmatc $ELMER_LIBERRORMSG" >&5
+echo "$as_me: error: libmatc $ELMER_LIBERRORMSG" >&2;}
+   { (exit 1); exit 1; }; }
+fi
+
+LIBS="$LIBS $MATC_LIBS"
 
 
 
@@ -6204,8 +6206,8 @@ am__fastdepCC_FALSE!$am__fastdepCC_FALSE$ac_delim
 CPP!$CPP$ac_delim
 GREP!$GREP$ac_delim
 EGREP!$EGREP$ac_delim
-MATC_LIBS!$MATC_LIBS$ac_delim
 USE_64BIT_ARCH_TRUE!$USE_64BIT_ARCH_TRUE$ac_delim
+USE_64BIT_ARCH_FALSE!$USE_64BIT_ARCH_FALSE$ac_delim
 _ACEOF
 
   if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 97; then
@@ -6247,8 +6249,8 @@ _ACEOF
 ac_delim='%!_!# '
 for ac_last_try in false false false false false :; do
   cat >conf$$subs.sed <<_ACEOF
-USE_64BIT_ARCH_FALSE!$USE_64BIT_ARCH_FALSE$ac_delim
 B64FLAGS!$B64FLAGS$ac_delim
+MATC_LIBS!$MATC_LIBS$ac_delim
 MAINTAINER_MODE_TRUE!$MAINTAINER_MODE_TRUE$ac_delim
 MAINTAINER_MODE_FALSE!$MAINTAINER_MODE_FALSE$ac_delim
 MAINT!$MAINT$ac_delim
