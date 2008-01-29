@@ -93,17 +93,14 @@ endif
 endif
 
 
-# Take resource files into account in case of windres:
 if HAVE_WINDRES
+
+# Take resource files into account in case of windres:
+
 .rc.o:
 	windres $^ -o $@
 %.o : %.rc
 	windres $^ -o $@
-
-endif
-
-
-if HAVE_WINDRES
 
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libelmersolver$(SHL_EXT) mpi_stubs$(OBJ_EXT)
 	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
@@ -187,8 +184,15 @@ endif
 clean-local:
 	$(RM) $(ALL) *.o *.mod *.f90 *.F *.fpp *~ *.a *.so *.dll \#* mpif mpif.h ElmerSolver ElmerSolver_mpi
 
+
+if HAVE_WINDRES
+bin_PROGRAMS = SC2Elmer 
+SC2Elmer_SOURCES = SC2Elmer.c Sico2Elmer-res.rc
+else
 bin_PROGRAMS = SC2Elmer 
 SC2Elmer_SOURCES = SC2Elmer.c
+endif
+
 
 if USE_LOCAL_MPIF_H
 mpif:
