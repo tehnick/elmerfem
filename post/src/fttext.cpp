@@ -31,20 +31,18 @@
 #include <windows.h>
 #endif
 
-#define FTGLSTRLEN 1024
+#define FTGLSTRLEN 4096
 
 typedef struct {
-  char inbuf[FTGLSTRLEN];
-  char outbuf[FTGLSTRLEN];
-  char txt[FTGLSTRLEN];
   double x, y;
-  char ttf[FTGLSTRLEN];
-  char current_ttf[FTGLSTRLEN];
   int size;
   double r, g, b;
   int init_ok;
-  char ttffile[FTGLSTRLEN];
   FTGLPixmapFont *Font;
+  char txt[FTGLSTRLEN];
+  char ttf[FTGLSTRLEN];
+  char current_ttf[FTGLSTRLEN];
+  char ttffile[FTGLSTRLEN];
 } ftgl_t;
 
 static ftgl_t ftgl;
@@ -158,21 +156,25 @@ extern "C" int FtFont(ClientData cl, Tcl_Interp *interp,
 
 extern "C" int FtText(ClientData cl, Tcl_Interp *interp, 
 		      int argc, char **argv) {
-  static Tcl_Encoding encoding;
-  static Tcl_DString *dstPtr;
-  static char *res;
 
   if(!ftgl.init_ok)
     FtInit();
   
-  memset(ftgl.inbuf, 0, FTGLSTRLEN);
-
   strcpy(ftgl.txt, "");
   ftgl.x = -0.9;
   ftgl.y = -0.9;
   
-  if(argc > 1) 
-    strcpy( ftgl.inbuf, argv[1] );
+  if(argc > 1) {
+
+    // TCL uses internally UTF-8. We want
+    //  text in system default for FTGL:
+    //---------------------------------------
+    Tcl_DString ds;
+    Tcl_DStringInit(&ds);
+    char *res = Tcl_UtfToExternalDString(NULL, argv[1], -1, &ds);
+    strcpy(ftgl.txt, res);
+    Tcl_DStringFree(&ds);
+  }
   
   if(argc > 2)
     ftgl.x = atof(argv[2]);
@@ -180,16 +182,6 @@ extern "C" int FtText(ClientData cl, Tcl_Interp *interp,
   if(argc > 3)
     ftgl.y = atof(argv[3]);
   
-  // TCL uses internally UTF-8. We want UTF-8859-15 for FTGL:
-  //---------------------------------------------------------
-  encoding = Tcl_GetEncoding(interp, "UTF-8859-15");
-  dstPtr = (Tcl_DString*)(&ftgl.outbuf);
-  res = Tcl_UtfToExternalDString(encoding, ftgl.inbuf, 
-			    strlen(ftgl.inbuf), dstPtr);
-  strcpy(ftgl.txt, res);
-  Tcl_DStringFree(dstPtr);
-  Tcl_FreeEncoding(encoding);
-
   user_hook_after_all = FtRender;
 
   Tcl_Eval(interp, "display");
