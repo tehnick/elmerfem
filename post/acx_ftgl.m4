@@ -2,48 +2,6 @@ AC_DEFUN([ACX_FTGL], [
 AC_REQUIRE([AC_PATH_X])
 AC_PREREQ(2.50)
 #
-# For MinGW, test for -liconv:
-#
-acx_liconv_ok=yes
-if test "$acx_platform_def" = "WIN32"; then
-   acx_liconv_ok=no
-   #
-   # look for "libiconv_open" instead of "iconv_open":
-   #
-   AC_CHECK_LIB( [iconv], [libiconv_open], 
-                 [acx_liconv_ok=yes; ICONV_LIBS="-liconv"],
-                 [ICONV_LIBS=""] )
-
-   if test "$acx_liconv_ok" = no; then
-     AC_MSG_RESULT([
-   ***************************************
-   ***   WARNING: -liconv not found    ***
-   ***   FreeType2 rendering disabled  ***
-   ***           Try adding:           ***
-   ***  -L/path/to -liconv in LDFLAGS  ***
-   ***         and reconfigure         ***
-   ***************************************
-     ])
-   fi
-fi
-#
-# Look for iconv.h:
-#
-acx_iconv_h=no
-AC_CHECK_HEADER( [iconv.h], [acx_iconv_h_ok=yes] )
-
-if test "$acx_iconv_h_ok" = no; then
-   AC_MSG_RESULT([
-   ***************************************
-   ***   WARNING: iconv.h not found    ***
-   ***  FreeType2 rendering disabled   ***
-   ***          Try adding:            ***
-   ***  -I/path/to iconv.h in CFLAGS   ***
-   ***         and reconfigure         ***
-   ***************************************
-  ])
-fi
-#
 # Look for freetype-config:
 #
 acx_ft_ok=no
@@ -136,14 +94,6 @@ if test "$acx_lftgl_ok" = no; then
 fi
 
 if test "$acx_ftgl_h_ok" = no; then
-   acx_ftgl_ok=no;
-fi
-
-if test "$acx_liconv_ok" = no; then
-   acx_ftgl_ok=no;
-fi
-
-if test "$acx_iconv_h_ok" = no; then
    acx_ftgl_ok=no;
 fi
 #

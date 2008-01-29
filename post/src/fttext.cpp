@@ -5,7 +5,7 @@
 //              ftfont font [size r g b]
 // Compilation: export CFLAGS="-DHAVE_FTGL -I/usr/include/freetype2 -I/usr/include/FTGL"
 //              export CXXFLAGS="-DHAVE_FTGL -I/usr/include/freetype2 -I/usr/include/FTGL"
-//              export LIBS="-lfreetype -lftgl" (take also -liconv into account)
+//              export LIBS="-lfreetype -lftgl"
 // Written by:  Mikko Lyly
 // Date:        15. Jan 2008
 //-----------------------------------------------------------------------------------
@@ -31,11 +31,11 @@
 #include <windows.h>
 #endif
 
-#include <iconv.h>
-
 #define FTGLSTRLEN 1024
 
 typedef struct {
+  char inbuf[FTGLSTRLEN];
+  char outbuf[FTGLSTRLEN];
   char txt[FTGLSTRLEN];
   double x, y;
   char ttf[FTGLSTRLEN];
@@ -47,16 +47,7 @@ typedef struct {
   FTGLPixmapFont *Font;
 } ftgl_t;
 
-typedef struct {
-  iconv_t cd;
-  char inbuf[FTGLSTRLEN];
-  char outbuf[FTGLSTRLEN];
-  size_t insize;
-  size_t outsize;
-} ic_t;
-
 static ftgl_t ftgl;
-static ic_t ic;
 
 extern "C" void (*user_hook_before_all)();
 extern "C" void (*user_hook_after_all)();
@@ -66,12 +57,11 @@ static void FtInit() {
   ftgl.x = -0.9;
   ftgl.y = -0.9;
   strcpy(ftgl.ttf, "FreeSans");
-  ftgl.size = 40;
+  ftgl.size = 30;
   ftgl.r = 1.0;
   ftgl.g = 1.0;
   ftgl.b = 1.0;
   ftgl.init_ok = 1;
-  ic.cd = iconv_open("ISO-8859-15", "UTF-8");
   return;
 }
 
@@ -80,7 +70,7 @@ extern "C" void FtRender() {
   unsigned int s = strlen(ftgl.ttf);
   int t = strcmp(ftgl.ttf, ftgl.current_ttf);
 
-  if( (r!=s) || (t!=0)) {
+  if( (r!=s) || (t!=0) || ftgl.Font->Error() ) {
     char *elmer_post_home = getenv("ELMER_POST_HOME");
     fprintf(stdout, "fttext: getenv: ELMER_POST_HOME=%s\n", 
 	    elmer_post_home);
@@ -109,7 +99,7 @@ extern "C" void FtRender() {
     strncpy(ftgl.current_ttf, ftgl.ttf, strlen(ftgl.ttf));
   }
   
-  if(!ftgl.Font) {
+  if( ftgl.Font->Error() ) {
     fprintf(stderr, "fttext: error: no font loaded!\n");
     fflush(stderr);
     return;
@@ -168,18 +158,21 @@ extern "C" int FtFont(ClientData cl, Tcl_Interp *interp,
 
 extern "C" int FtText(ClientData cl, Tcl_Interp *interp, 
 		      int argc, char **argv) {
+  static Tcl_Encoding encoding;
+  static Tcl_DString *dstPtr;
+  static char *res;
+
   if(!ftgl.init_ok)
     FtInit();
   
-  memset(ic.inbuf, 0, FTGLSTRLEN);
-  memset(ic.outbuf, 0, FTGLSTRLEN);
+  memset(ftgl.inbuf, 0, FTGLSTRLEN);
 
   strcpy(ftgl.txt, "");
   ftgl.x = -0.9;
   ftgl.y = -0.9;
   
   if(argc > 1) 
-    strcpy( ic.inbuf, argv[1] );
+    strcpy( ftgl.inbuf, argv[1] );
   
   if(argc > 2)
     ftgl.x = atof(argv[2]);
@@ -189,16 +182,13 @@ extern "C" int FtText(ClientData cl, Tcl_Interp *interp,
   
   // TCL uses internally UTF-8. We want UTF-8859-15 for FTGL:
   //---------------------------------------------------------
-  ic.insize = strlen(ic.inbuf);
-  ic.outsize = FTGLSTRLEN;
-  const char *inptr = ic.inbuf;
-  char *outptr = ic.outbuf;
-#if defined(WIN32) || defined(win32)
-  iconv(ic.cd, (const char**) &inptr, &ic.insize, &outptr, &ic.outsize);
-#else
-  iconv(ic.cd, (char**) &inptr, &ic.insize, &outptr, &ic.outsize);
-#endif
-  strcpy(ftgl.txt, ic.outbuf );
+  encoding = Tcl_GetEncoding(interp, "UTF-8859-15");
+  dstPtr = (Tcl_DString*)(&ftgl.outbuf);
+  res = Tcl_UtfToExternalDString(encoding, ftgl.inbuf, 
+			    strlen(ftgl.inbuf), dstPtr);
+  strcpy(ftgl.txt, res);
+  Tcl_DStringFree(dstPtr);
+  Tcl_FreeEncoding(encoding);
 
   user_hook_after_all = FtRender;
 

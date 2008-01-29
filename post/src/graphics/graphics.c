@@ -49,6 +49,7 @@
  ******************************************************************************/
 
 #define MODULE_GRAPHICS
+#define NO_VIEWPORT_FRAME
 
 #include "../elmerpost.h"
 
@@ -108,7 +109,9 @@ void gra_init()
     glDepthRange( 0.0,1.0 );
     glDepthMask( GL_TRUE );
     glDepthFunc( GL_LEQUAL );
-#if 0
+
+    // Enable anti-aliasing:
+#if 1
     glEnable( GL_BLEND );
     glEnable( GL_LINE_SMOOTH );
     glEnable( GL_POLYGON_SMOOTH );
@@ -117,6 +120,9 @@ void gra_init()
 
 void gra_draw_viewport_frame()
 {
+#if defined(NO_VIEWPORT_FRAME)
+  return;
+#endif
     float Color[4];
 
     GLboolean DepthEnabled;
@@ -134,6 +140,7 @@ void gra_draw_viewport_frame()
     glLoadIdentity(); 
 
     glGetFloatv( GL_CURRENT_COLOR,Color );
+
     glColor4f( 0.0,1.0,0.0,1.0 );
 
     glBegin( GL_LINE_LOOP );
