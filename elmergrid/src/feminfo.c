@@ -38,6 +38,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
+#include <float.h>
 #include <math.h>
 #include <stdarg.h>
 
@@ -50,13 +51,18 @@
 #include "femknot.h"
 #include "feminfo.h"
 
-
 char line[MAXLINESIZE];
+int matcactive;
+
+#ifndef DISABLE_MATC
+char *mtc_domath(const char *);
+void mtc_init(FILE * input, FILE * output, FILE * error);
+#endif
 
 int Getline(char *line1,FILE *io) 
 {
   int i,isend;
-  char line0[MAXLINESIZE],*charend;
+  char line0[MAXLINESIZE],*charend,*matcpntr,*matcpntr0;
 
   for(i=0;i<MAXLINESIZE;i++) 
     line0[i] = ' ';
@@ -68,7 +74,21 @@ int Getline(char *line1,FILE *io)
 
   if(isend) return(1);
 
-  if(line0[0] == '#' || line0[0] == '!') goto newline;
+  if(line0[0] == '#' || line0[0] == '%' || line0[0] == '!') goto newline;
+  if(!matcactive && line0[0] == '*') goto newline;
+
+#ifndef DISABLE_MATC
+  if(matcactive) {
+    matcpntr0 = strchr(line0,'$');
+    if(matcpntr0) {
+      matcpntr = mtc_domath(&matcpntr0[1]);
+      if(matcpntr) {
+	strcpy(matcpntr0, matcpntr);
+	if(0) printf("A: %s\n%s\n",matcpntr0,matcpntr);
+      }
+    }
+  }
+#endif 
 
   if(strstr(line0,"subcell boundaries")) goto newline;
   if(strstr(line0,"material structure")) goto newline;
@@ -85,7 +105,7 @@ int Getline(char *line1,FILE *io)
 int GetCommand(char *line1,char *line2,FILE *io) 
 {
   int i,j,isend,empty;
-  char line0[MAXLINESIZE],*charend;
+  char line0[MAXLINESIZE],*charend,*matcpntr0,*matcpntr;
 
  newline:
 
@@ -101,7 +121,27 @@ int GetCommand(char *line1,char *line2,FILE *io)
   for(i=1;i<20;i++) if(line0[0] != ' ') empty = FALSE;
   if(empty) goto newline;
 
-  if(line0[0] == '*' ||  line0[0] == '#' || line0[0] == '!' || line0[0] == '\n') goto newline;
+  if(line0[0] == '#' || line0[0] == '%' || line0[0] == '!' || line0[0] == '\n') goto newline;
+  if(!matcactive && line0[0] == '*') goto newline;
+
+#ifndef DISABLE_MATC
+
+
+  if(matcactive) {
+    matcpntr0 = strchr(line0,'$');
+    if(matcpntr0) {
+      matcpntr = mtc_domath(&matcpntr0[1]);
+      if(matcpntr) {
+	strcpy(matcpntr0, matcpntr);
+	if(0) printf("B: %s\n%s\n",matcpntr0,matcpntr);
+      }
+      else {
+	if(0) printf("B0: %s\n",matcpntr0);
+	goto newline;
+      }
+    }
+  }
+#endif 
 
   j = 0;
   for(i=0;i<MAXLINESIZE;i++) {
@@ -126,7 +166,21 @@ int GetCommand(char *line1,char *line2,FILE *io)
     charend = fgets(line2,MAXLINESIZE,io);
     isend = (charend == NULL);
     if(isend) return(2);
-    if(line2[0] == '*' || line2[0] == '#' || line2[0] == '!') goto newline2;
+    if(line2[0] == '#' || line2[0] == '%' || line2[0] == '!') goto newline2;
+    if(!matcactive && line2[0] == '*') goto newline2;
+
+#ifndef DISABLE_MATC
+    if(matcactive) {
+      matcpntr0 = strchr(line2,'$');
+      if(matcpntr0) {
+	matcpntr = mtc_domath(&matcpntr0[1]);
+	if(matcpntr) {
+	  strcpy(matcpntr0, matcpntr);
+	  if(0) printf("C: %s\n%s\n",matcpntr0,matcpntr);
+	}
+      }
+    }
+#endif 
   }
   
   return(0);
@@ -631,7 +685,7 @@ int SaveElmergrid(struct GridType *grid,int nogrids,char *prefix,int info)
   if(dim >= 2 && grid->ycells > maxsameline) sameline = FALSE;
   if(dim >= 3 && grid->zcells > maxsameline) sameline = FALSE;
   
-  fprintf(out,"***** ElmerGrid input file for structured grid generation *****\n");
+  fprintf(out,"#####  ElmerGrid input file for structured grid generation  ######\n");
   fprintf(out,"Version = 210903\n");
 
   fprintf(out,"Coordinate System = ");
@@ -678,7 +732,7 @@ int SaveElmergrid(struct GridType *grid,int nogrids,char *prefix,int info)
 
   if(grid->mappings > 0) {
     fprintf(out,"Geometry Mappings\n");
-    fprintf(out,"! mode  line  limits(2)   Np  params(Np)\n");
+    fprintf(out,"# mode  line  limits(2)   Np  params(Np)\n");
     for(i=0;i<grid->mappings;i++) {
       fprintf(out,"  %-5d %-5d %-7.5lg %-7.5lg %-3d ",
 	      grid->mappingtype[i],grid->mappingline[i],
@@ -718,7 +772,7 @@ int SaveElmergrid(struct GridType *grid,int nogrids,char *prefix,int info)
   
     if(dim == 3) {
       fprintf(out,"Extruded Structure\n");
-      fprintf(out,"! %-8s %-8s %-8s\n","1stmat", "lastmat","newmat");
+      fprintf(out,"# %-8s %-8s %-8s\n","1stmat", "lastmat","newmat");
       for(i=1;i<=grid[j].zcells;i++) 
 	fprintf(out,"  %-8d %-8d %-8d\n",
 		grid[j].zfirstmaterial[i],grid[j].zlastmaterial[i],
@@ -728,7 +782,7 @@ int SaveElmergrid(struct GridType *grid,int nogrids,char *prefix,int info)
 
     if(grid[j].noboundaries > 0) {
       fprintf(out,"Boundary Definitions\n");
-      fprintf(out,"! %-8s %-8s %-8s\n","type","out","int"); 
+      fprintf(out,"# %-8s %-8s %-8s\n","type","out","int"); 
       for(i=0;i<grid[j].noboundaries;i++)
 	fprintf(out,"  %-8d %-8d %-8d %-8d\n",
 		grid[j].boundtype[i],grid[j].boundext[i],
@@ -1264,7 +1318,7 @@ int LoadElmergridOld(struct GridType **grid,int *nogrids,char *prefix,int info)
       break;
 
     default:
-      printf("Unknown case: %s",line);
+      if(0) printf("Unknown case: %s",line);
     }
 
   }
@@ -1317,6 +1371,8 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info)
   maxnodes = 4;
   totelems = 0;
 
+  matcactive = FALSE;
+
   for(;;) {
     if(GetCommand(command,params,in)) {
       printf("Reached the end of command file\n");
@@ -1341,6 +1397,20 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info)
       }
       *nogrids += 1;
     }      
+
+    else if(strstr(command,"MATC")) {
+      for(i=0;i<MAXLINESIZE;i++) params[i] = toupper(params[i]);
+      if(strstr(params,"FALSE")) 
+	matcactive = FALSE;
+      else {
+	matcactive = TRUE;
+	mtc_init(NULL, stdout, stderr);
+	strcpy(command, "format( 12 )");	
+	mtc_domath(command);	 
+	printf("MATC language activated with 12 digit accuracy.\n");	
+      }
+    }
+
     
     else if(strstr(command,"COORDINATE SYSTEM")) {
       for(i=0;i<MAXLINESIZE;i++) params[i] = toupper(params[i]);
@@ -1678,13 +1748,9 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info)
     else if(strstr(command,"GEOMETRY MAPPINGS")) {     
       if(k > 0) (*grid)[k].mappings = 0;
 
-      printf("k=%d maps=%d\n",k,(*grid)[k].mappings);
-
       for(i=0;i<MAXLINESIZE;i++) params[i] = toupper(params[i]);
       for(i=(*grid)[k].mappings;i<MAXMAPPINGS;i++) {
 	if(i>(*grid)[k].mappings) Getline(params,in);
-
-	printf("i=%d line=%s\n",i,params);
 
 	if(strstr(params,"END")) break;
 	cp=params; 
@@ -1721,7 +1787,7 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info)
     }
 
     else {
-      printf("Unknown command: %s",command);
+      if(0) printf("Unknown command: %s",command);
     }
   }
 
