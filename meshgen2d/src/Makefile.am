@@ -33,8 +33,22 @@ COMMON_SRCS =  \
 	VoronoiVertex.cpp \
 	VSVertex.cpp 
 
+if HAVE_WINDRES
+
+.rc.o:
+	windres $^ -o $@
+%.o : %.rc
+	windres $^ -o $@
+
+ElmerMesh2D_SOURCES=$(COMMON_SRCS) ElmerMesh2D-res.rc
+Mesh2D_SOURCES=$(COMMON_SRCS) Mesh2D-res.rc
+
+else
+
 ElmerMesh2D_SOURCES=$(COMMON_SRCS)
 Mesh2D_SOURCES=$(COMMON_SRCS)
+
+endif
 
 ElmerMesh2D_LDADD = \
 	$(MESHGEN2D_LIBS)
