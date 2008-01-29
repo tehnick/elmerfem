@@ -11,6 +11,7 @@ include make.dep
 NORMAL_TARGETS=mpif libelmersolver$(SHL_EXT) ElmerSolver$(EXE_EXT) $(BINARIES) ViewFactors$(EXE_EXT) GebhardtFactors$(EXE_EXT)
 MPI_TARGETS=ElmerSolver_mpi$(EXE_EXT)
 
+
 if USE_MPI
 ELMER_TARGETS=$(NORMAL_TARGETS) $(MPI_TARGETS)
 else
@@ -19,7 +20,20 @@ endif
 
 all-local: $(ELMER_TARGETS)
 
-SUFFIXES: .f90 .so .src
+if HAVE_WINDRES
+SUFFIXES: .f90 .so .src .rc
+else
+SUFFIXES: .f90 .so .src 
+endif
+
+
+if HAVE_WINDRES
+.rc.o:
+	windres $^ -o $@
+%.o : %.rc
+	windres $^ -o $@
+endif
+
 
 if USE_CPP
 # Use basic CPP
@@ -93,14 +107,10 @@ endif
 endif
 
 
+
 if HAVE_WINDRES
 
 # Take resource files into account in case of windres:
-
-.rc.o:
-	windres $^ -o $@
-%.o : %.rc
-	windres $^ -o $@
 
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libelmersolver$(SHL_EXT) mpi_stubs$(OBJ_EXT)
 	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \

@@ -1020,7 +1020,13 @@ Walls.$(OBJEXT): Walls.f90
 
 all-local: $(ELMER_TARGETS)
 
-SUFFIXES: .f90 .so .src
+@HAVE_WINDRES_TRUE@SUFFIXES: .f90 .so .src .rc
+@HAVE_WINDRES_FALSE@SUFFIXES: .f90 .so .src 
+
+@HAVE_WINDRES_TRUE@.rc.o:
+@HAVE_WINDRES_TRUE@	windres $^ -o $@
+@HAVE_WINDRES_TRUE@%.o : %.rc
+@HAVE_WINDRES_TRUE@	windres $^ -o $@
 
 # Use basic CPP
 @USE_CPP_TRUE@.src.f90:
@@ -1077,11 +1083,6 @@ $(SOLVEROBJS): mpif
 @IBM_IS_PIECE_OF_SHIT_FALSE@@USE_MPI_TRUE@	      -L. -lelmersolver $(PARPACK_LIBS) $(MPI_LIBS) $(EXTRA_LIBS)
 
 # Take resource files into account in case of windres:
-
-@HAVE_WINDRES_TRUE@.rc.o:
-@HAVE_WINDRES_TRUE@	windres $^ -o $@
-@HAVE_WINDRES_TRUE@%.o : %.rc
-@HAVE_WINDRES_TRUE@	windres $^ -o $@
 
 @HAVE_WINDRES_TRUE@ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libelmersolver$(SHL_EXT) mpi_stubs$(OBJ_EXT)
 @HAVE_WINDRES_TRUE@	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
