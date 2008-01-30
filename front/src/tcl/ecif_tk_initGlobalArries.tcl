@@ -342,8 +342,8 @@ proc FRONT_INIT {} {
   set Info(GebhardtFactors,proc,WIN32)  "GebhardtFactors.exe"
   set Info(Mesh2D,proc,WIN32)           "ElmerMesh2D.exe"
   set Info(Mesh3D,proc,WIN32)           "ElmerMesh3D.exe"  ;# Not in use:-)
-  set Info(Results,proc,WIN32)          "ElmerPost.bat"
-  set Info(Post,proc,WIN32)             "ElmerPost.bat"
+  set Info(Results,proc,WIN32)          "ElmerPost.exe"
+  set Info(Post,proc,WIN32)             "ElmerPost.exe"
   set Info(Solver,proc,WIN32)           "ElmerSolver.exe"
   set Info(Viewfactors,proc,WIN32)      "ViewFactors.exe"
   set Info(F90,proc,WIN32)              "f90.exe"
