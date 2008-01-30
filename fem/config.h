@@ -208,10 +208,10 @@
 /* #undef SIZEOF_LONG */
 
 /* The size of `off_t', as computed by sizeof. */
-#define SIZEOF_OFF_T 8
+#define SIZEOF_OFF_T 4
 
 /* The size of `void*', as computed by sizeof. */
-#define SIZEOF_VOIDP 8
+#define SIZEOF_VOIDP 0
 
 /* Detected platform. */
 /* #undef SOLARIS */
