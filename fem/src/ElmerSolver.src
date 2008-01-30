@@ -1009,6 +1009,23 @@
     INTEGER :: i, CurrentStep,nlen,timesteps
     
     Simul = ListGetString( CurrentModel % Simulation,  'Simulation Type' )
+
+    OutputFile = ListGetString( CurrentModel % Simulation,'Output File',GotIt )
+    IF ( Gotit ) THEN
+      IF ( ParEnv % PEs > 1 ) THEN
+        DO i=1,MAX_NAME_LEN
+          IF ( OutputFile(i:i) == ' ' ) EXIT
+        END DO
+        OutputFile(i:i) = '.'
+        IF ( ParEnv % MyPE < 10 ) THEN
+          WRITE( OutputFile(i+1:), '(i1)' ) ParEnv % MyPE
+        ELSE IF ( ParEnv % MyPE < 100 ) THEN
+          WRITE( OutputFile(i+1:), '(i2)' ) ParEnv % MyPE
+        ELSE
+          WRITE( OutputFile(i+1:), '(i3)' ) ParEnv % MyPE
+        END IF
+      END IF
+    END IF
     
     PostFile = ListGetString( CurrentModel % Simulation,'Post File',GotIt )
     IF ( GotIt ) THEN
