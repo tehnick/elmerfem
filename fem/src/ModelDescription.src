@@ -3016,6 +3016,8 @@ CONTAINS
 !
       MeshScale = 1.0_dp
       DO i=1,Model % NumberOfSolvers
+        IF ( Model % Solvers(i) % Variable % NameLen <= 0 ) CYCLE
+
         IF (Model % Solvers(i) % Variable % Name &
              (1:Model % Solvers(i) % Variable % NameLen) == 'displacement') THEN
            MeshMoved = ListGetLogical( Model % Solvers(i) % Values, &
