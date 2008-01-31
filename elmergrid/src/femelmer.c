@@ -569,13 +569,12 @@ int LoadElmerInput(struct FemType *data,struct BoundaryType *bound,
     if(info) printf("Loading %d Elmer elements from %s\n",noelements,filename);
 
   for(i=1; i <= noelements; i++) {
-    fscanf(in,"%d",&dummyint);
-    if(i != dummyint) printf("LoadElmerInput: i=%d element=%d\n",
-				 i,dummyint);
-    fscanf(in,"%d",&(data->material[i]));
-    fscanf(in,"%d",&(data->elementtypes[i]));
-    for(j=0;j< data->elementtypes[i]%100 ;j++) 
-      fscanf(in,"%d",&(data->topology[i][j]));
+    fscanf(in,"%d",&j);
+    if(0 && i != j) printf("LoadElmerInput: i=%d element=%d\n",i,dummyint);
+    fscanf(in,"%d",&(data->material[j]));
+    fscanf(in,"%d",&(data->elementtypes[j]));
+    for(k=0;k< data->elementtypes[j]%100 ;k++) 
+      fscanf(in,"%d",&(data->topology[j][k]));
   }
   fclose(in);
 
