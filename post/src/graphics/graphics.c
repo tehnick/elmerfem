@@ -111,7 +111,7 @@ void gra_init()
     glDepthFunc( GL_LEQUAL );
 
     // Enable anti-aliasing:
-#if 1
+#if 0
     glEnable( GL_BLEND );
     glEnable( GL_LINE_SMOOTH );
     glEnable( GL_POLYGON_SMOOTH );
