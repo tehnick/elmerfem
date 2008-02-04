@@ -127,7 +127,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
   LOGICAL :: FirstTimeStep = .TRUE., EigenAnalysis = .FALSE.
 
   INTEGER :: i,j,k,m,n,dim, Code, body_id, ElementCounter, Nloop, Loop
-  INTEGER :: tensorComponents
+  INTEGER :: tensorComponents, SteadyStep = 0
   INTEGER, PARAMETER :: MaxElemCode = 1000
   INTEGER :: ListElemTypes(MaxElemCode)
 
@@ -188,6 +188,8 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
 
   SolverParams => GetSolverParams()
   EigenAnalysis = GetLogical( SolverParams, 'Eigen Analysis', Found )
+
+  SteadyStep = SteadyStep + 1
 
   OutputFile = GetString( Solver % Values, 'Output File Name', Found )
   IF( .NOT.Found ) THEN
@@ -327,15 +329,12 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
   
   ! Write the GiD res-file:
   !------------------------
-  IF( TransientSimulation .AND. FirstTimeStep ) THEN
+  IF( FirstTimeStep ) THEN
     OPEN(UNIT=10, FILE=ResFile )
     WRITE(10,'(A)') 'GiD Post Result File 1.0'
     FirstTimeStep = .FALSE.
-  ELSEIF( TransientSimulation .AND. (.NOT.FirstTimeStep ) ) THEN
-    OPEN(UNIT=10, FILE=ResFile, POSITION='APPEND' )
   ELSE
-    OPEN(UNIT=10, FILE=ResFile )
-    WRITE(10,'(A)') 'GiD Post Result File 1.0'
+    OPEN(UNIT=10, FILE=ResFile, POSITION='APPEND' )
   END IF
 
   Nloop = 1
@@ -343,6 +342,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
      Nloop = GetInteger( Solver % Values, 'Eigen System Values', Found )
      IF( .NOT.Found ) Nloop = 1
    END IF
+
    DO Loop = 1, Nloop
      PRINT *,'------------'
 
@@ -380,7 +380,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
          ELSE
            IF( .NOT.EigenAnalysis ) THEN
              WRITE(10,'(A,A,A,I2,A)') 'Result "',&
-                 TRIM(ScalarFieldName),'" "Steady analysis"',Loop,' Scalar OnNodes'
+                 TRIM(ScalarFieldName),'" "Steady analysis"',SteadyStep,' Scalar OnNodes'
            ELSE
              WRITE(10,'(A,A,A,I2,A)') 'Result "',&
                  TRIM(ScalarFieldName),'" "Eigen analysis"',Loop,' Scalar OnNodes'
@@ -424,7 +424,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
        ELSE
          IF( .NOT.EigenAnalysis ) THEN
            WRITE(10,'(A,A,A,I2,A)') 'Result "',&
-               TRIM(VectorFieldName),'" "Steady analysis"',Loop,' Vector OnNodes'
+               TRIM(VectorFieldName),'" "Steady analysis"',SteadyStep,' Vector OnNodes'
          ELSE
            WRITE(10,'(A,A,A,I2,A)') 'Result "',&
                TRIM(VectorFieldName),'" "Eigen analysis"',Loop,' Vector OnNodes'
@@ -506,7 +506,7 @@ SUBROUTINE GiDOutputSolver( Model,Solver,dt,TransientSimulation )
        ELSE
          IF( .NOT.EigenAnalysis ) THEN
            WRITE(10,'(A,A,A,I2,A)') 'Result "',&
-               TRIM(TensorFieldName),'" "Steady analysis"',Loop,' Matrix OnNodes'
+               TRIM(TensorFieldName),'" "Steady analysis"',SteadyStep,' Matrix OnNodes'
          ELSE
            WRITE(10,'(A,A,A,I2,A)') 'Result "',&
                TRIM(TensorFieldName),'" "Eigen analysis"',Loop,' Matrix OnNodes'
