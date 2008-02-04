@@ -311,8 +311,10 @@ SUBROUTINE ForceCompute( Model,Solver,dt,TransientSimulation )
     IF( SumForces ) THEN    
       IF( k > 1) EXIT	
       Areas(1) = SUM(Areas)
-      Forces(1,1:3) = SUM(Forces(:,1:3))
-      Moments(1,1:3) = SUM(Moments(:,1:3))
+      DO i=1,3
+        Forces(1,i) = SUM(Forces(:,i))
+        Moments(1,i) = SUM(Moments(:,i))
+      END DO  	 
       WRITE( BoundaryName, '("")') 
     ELSE
       IF ( .NOT. ListGetLogical(Model % BCs(k) % Values,'Calculate Fluidic Force',stat ) ) CYCLE
