@@ -32,13 +32,49 @@ criteria of the individual solvers that must be met simulataneously.
 
 These keywords are located in the Solver section of each solver, if requited at all.
 \sifbegin
-\sifitem{Nonlinear System Convergence Tolerance}{Real} 
+\sifitem{Nonlinear System Convergence Measure}{String} 
+The change of solution between two consecutive iterations may be estimated by a number 
+of different measures which are envoked by values \texttt{norm}, \texttt{solution} and
+\texttt{residual}. The default way of checking for convergence is to test the 
+change of norm
+\begin{equation}
+  \delta =  2*||u_i|-|u_{i-1}|| / (|u_i|+|u_{i-1}|).
+\end{equation}
+This measure is rather liberal since the norm of two solutions may be the same
+even though the solutions would not. Therefore it is often desirable to look at the 
+norm of change,
+\begin{equation}
+  \delta = 2*|u_i-u_{i-1}| / (|u_i|+|u_{i-1}|).
+\end{equation}
+The third choice is to use a backward norm of the residual 
+where the old solution is used with the new
+matrix. 
+\begin{equation}
+  \delta = |Ax_{i-1}-b| / |b|.
+\end{equation}
+In the current implementation this norm lags one step behind and therefore always 
+performs one extra iteration.
+%
+\sifitem{Nonlinear System Norm Degree}{Integer}
+The choice of norms used in the evaluation of the convergence measures is not self evident.
+The default is the $L2$ norm. This keyword may be used to replace this by $Ln$ norm 
+where value $n=0$ corresponds to the infinity (i.e. maximum) norm.
+%
+\sifitem{Nonlinear System Norm Dofs}{Integer}
+For vector valued field variables by default all components are used in the computation of
+the norm. However, sometimes it may be desirable only to use some of them. This keyword 
+may be used to give the number of components used in the evaluation. For example, in the 
+Navier-Stokes equations the norm is only taken in respect to the velocity components while 
+pressure is omitted.
+%
+\sifitem{Nonlinear System Convergence Absolute}{Logical}
+This keyword may be used to enforce absolute convergence measures rather than relative. 
+The default is \texttt{False}.
+%
+\sifitem{Nonlinear System \Idx{Convergence Tolerance}}{Real} 
 This keyword gives a criterion to
 terminate the nonlinear iteration after the relative change of the norm of the field variable
-between two consecutive iterations is small enough
-$$
- ||u_i-u_{i-1}|| < \epsilon ||u_i||,
-$$
+between two consecutive iterations is small enough $\delta < \epsilon$,
 where $\epsilon$ is the value given with this keyword.
 %
 \sifitem{Nonlinear System Max Iterations}{Integer}
@@ -57,13 +93,13 @@ Change the nonlinear solver type to
 Newton iteration, if the relative change of the norm of the field variable meets a
 tolerance criterion:
 $$
- ||u_i-u_{i-1}|| < \epsilon ||u_i||,
+ \delta < \epsilon,
 $$
 where $\epsilon$ is the value given with this keyword.
 %
-\sifitem{Nonlinear System Relaxation Factor}{Real} 
+\sifitem{Nonlinear System \Idx{Relaxation Factor}}{Real} 
 Giving this keyword triggers the use
-of  relaxation in the nonlinear equation solver.
+of relaxation in the nonlinear equation solver.
 Using a factor below unity is sometimes required to achive convergence of the nonlinear system.
 Typical values range between 0.3 and unity. If one must use smaller values for the relaxation
 factor some other methods to boost up the convergence might be needed to improve the convergence.
@@ -74,23 +110,27 @@ $$
 where $\lambda$ is the factor given with this keyword. The default value for the relaxation factor
 is unity. 
 %
-\sifitem{Steady State Convergence Tolerance}{Real}
-With this keyword a equation specific steady state or coupled system
-convergence tolerance is given.
-All the active equation solvers must meet their own tolerances before the 
-whole system is deemed converged.
-The tolerance criterion is:
-$$
- ||u_i-u_{i-1}|| < \epsilon ||u_i||,
-$$
-where $\epsilon$ is the value given with this keyword.
+\sifend
+
+
+Many of the keywords used to control the \texttt{Nonlinear System} have a corresponding 
+keyword for the {Steady State}. Basically the operation is similar except the 
+reference value for the current solution $u_i$ is the last converged value of the nonlinear system
+before starting a new loosely coupled iteration cycle. Otherwise the explanations given above are valid.
+\sifbegin
+\sifitemnt{Steady State Convergence Measure}{String} 
+\sifitemnt{Steady State Norm Degree}{Integer}
+\sifitemnt{Steady State Norm Dofs}{Integer}
+\sifitemnt{Steady State Convergence Tolerance}{Real}
+\sifitemnt{Steady State Relaxation Factor}{Real}
 \sifend 
-These keywords are located in the \texttt{Simulation} section
+Additionally these keywords are located in the \texttt{Simulation} section
 of the command file.
 \sifbegin
 \sifitem{Steady State Max Iterations}{Integer}
 The maximum number of coupled system iterations. For steady state analysis this means
 it litelarly, for transient analysis this is the maximum number of iterations within each timestep.
+%
 \sifitem{Steady State Min Iterations}{Integer}
 Sometimes the coupling is such that nontrivial solutions are obtained only after some basic
 cycle is repeated. Therefore the user may sometimes need to set also the minimum number of

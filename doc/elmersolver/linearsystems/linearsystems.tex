@@ -55,18 +55,18 @@ mentioned.
 %solvers from LAPACK are used.
  
  
-\section{Direct methods}
+\section{\Idx{Direct methods}}
 
 Linear systems may be solved in a robust way by using direct methods. 
 There are two different options for direct methods in ElmerSolver. 
-The default method utilizes the well-known LAPACK collection
+The default method utilizes the well-known \Idx{LAPACK} collection
 of subroutines for band matrices. In practice, 
 this solution method can only be used for the solution of small linear systems as 
 the operation count for this method is of order $n^3$.
 
 The other direct solver takes use of the UMFPACK
 routines to solve sparse linear systems~\cite{umfpack1}.
-UMFPACK uses the Unsymmetric MultiFrontal method.
+\Idx{UMFPACK} uses the Unsymmetric MultiFrontal method.
 In practice it may be the most efficient method for solving 
 2D problems as long as there is enough memory available
 which means hundreds of thousands of degrees of freedom.
@@ -86,7 +86,7 @@ iterative solution of linear systems. These methods may be applied to the
 solution large linear systems but rapid convergence generally requires that 
 these methods have to be used in combination with preconditioning.
 
-\subsection{Krylov subspace methods}
+\subsection{\Idx{Krylov subspace methods}}
 
 The Krylov subspace methods available in ElmerSolver are
 \begin{itemize}
@@ -170,7 +170,7 @@ preconditioner matrix $M$ in the form $M=LU$ where $L$ and $U$ are lower and upp
 triangular with certain elements that arise in the factorization process ignored. 
 
 There are several ways to choose a set of matrix positions that are allowed to be filled 
-with nonzero elements. ILU preconditioners of fill level $N$ referred to 
+with nonzero elements. \Idx{ILU preconditioners} of fill level $N$ referred to 
 as the ILU(N) preconditioners are built so that ILU(0) accepts nonzero elements in the positions 
 in which $A$ has nonzero elements. ILU(1) admits nonzero elements in the positions that are 
 filled if the first step of Gaussian elimination is performed for $A$. 
@@ -224,7 +224,7 @@ A class of iterative methods referred to as multilevel methods provides an effic
 way to solve large linear systems. For certain class of problems they perform nearly 
 optimally, the operation count needed to obtain a solution being nearly of 
 order $n$. Two different multilevel-method approaches are available in 
-ElmerSolver, namely the geometric multigrid (GMG) and algebraic multigrid (AMG).  
+ElmerSolver, namely the \Idx{geometric multigrid} (GMG) and \Idx{algebraic multigrid} (AMG).  
 
 \subsection{Geometric multigrid}
 
@@ -291,7 +291,13 @@ The solution phase uses the resulting components to perform a normal multigrid
 cycling until a desired accuracy is reached. The solution phase is similar
 to that of the GMG.
 
-The coarsening is performed using a standard coarsening algorhitm. 
+Note that the AMG solvers in ElmerSolver are not fully mature. They may provide good solutions for 
+some problems while desperately failing for others. 
+
+
+\subsubsection*{Classical Ruge-St{\"u}ben algorhitm}
+
+The coarsening is performed using a standard Ruge-St{\"u}ben coarsening algorhitm. 
 The possible connections are defined by the 
 entries in the matrix $A$. The variable $i$ is strongly coupled
 to to another variable $j$ if 
@@ -358,6 +364,19 @@ remains constant.
 The truncation is essential in preventing the 
 filling of the coarse level matrices.
 
+\subsubsection*{Cluster multigrid}
+There is also an implementation of the agglomeration or cluster multigrid method. 
+It is a variant of the algebraic multigrid method. In this method the components are
+grouped and the coarse-level matrices are created simply by summing up the corresponding 
+rows and columns. In other words, the projection matrix includes just ones and zeros. 
+
+The cluster multigrid method should be more robust for problems where it is difficult to
+generate on optimal projection matrix. However, for simple problems it is usually beaten 
+by the standard Ruge-St{\"u}ben method.
+
+
+
+\subsubsection*{}
 
 \subsection{Preconditioning by multilevel methods}\label{MultilevelPreconditioning}
 
@@ -495,7 +514,7 @@ significantly, the preconditioner may not be efficient anymore.
 %In order to use a band matrix solver effectively, a bandwidth optimization procedure is needed.
 %ElmerSolver provides the Cuthill-McKee algorithm for bandwidth optimization. 
 If the value of this keyword is set to be {\tt True}, 
-the Cuthill-McKee bandwidth optimization scheme is used to order the unknowns
+the Cuthill-McKee \Idx{bandwidth optimization} scheme is used to order the unknowns
 in such a way that band matrices can be handled efficiently. 
 The use of this option is recommended when the direct solver or incomplete factorization 
 preconditioners are used.
@@ -590,11 +609,8 @@ in connection with smoothing iterations.
 \sifend
 
 The keywords for the algebraic multigrid solver are in a large part the same as
-for the geometric multigrid. There are, however, some special keywords that
-only relate to AMG.
+for the geometric multigrid. There are however some keywords that are only related to AMG.
 \sifbegin
-\sifitem{MG Algebraic}{Logical True}
-Enforces the use of algebraic multigrid.
 \sifitem{MG Lowest Linear Solver Limit}{Integer}
 This value gives a lower limit for the set of coarse nodes after which
 the recursive multilevel routine is terminated. A proper value 
@@ -629,6 +645,22 @@ only a small number of coarse connection. This gives the smallest number
 of nodes for which direct interpolation is used.
 \sifend
 
+And finally, there are also some keywords that only related to the clustering multigrid.
+\sifbegin
+  \sifitem{MG Cluster Size}{Integer}
+   The desired choice of the cluster. Possible choices are 2,3,4,5,\ldots and zero which
+  corresponds to the maximum cluster.
+  \sifitem{MG Cluster Alpha}{Real}
+   In the clustering algorhitm the coarse level matrix is not optimal for getting 
+   the correct convergence. Tuning this value between 1--2 may give better performance.
+  \sifitem{MG Strong Connection Limit}{Real}
+  This is used similarly as in the AMG method except it related to positive and negative
+  connections alike.
+  \sifitem{MG Strong Connection Minimum}{Integer}
+  If the number of strong connections with the given limit is smaller than this number
+  then increase the set of strong connection if available connections exist.
+\sifend
+
 
 
 
@@ -638,7 +670,7 @@ of nodes for which direct interpolation is used.
 
 To be efficient, iteration methods require that a matrix-vector product
 for a sparse matrix is efficiently implemented. A special
-storage scheme called the Compressed Row Storage (CRS) \cite{Barrett93} is used in ElmerSolver
+storage scheme called the \Idx{Compressed Row Storage} (CRS) \cite{Barrett93} is used in ElmerSolver
 to store only those matrix coefficients that differ from zero.
 
 The matrix structure is defined in module Types as:
