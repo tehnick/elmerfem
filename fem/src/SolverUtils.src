@@ -2499,48 +2499,16 @@ CONTAINS
     LOGICAL :: Transient
 !------------------------------------------------------------------------------
     Simulation = ListGetString( CurrentModel % Simulation, 'Simulation Type' )
-
     IF ( Simulation == 'transient' ) THEN
       Method = ListGetString( Solver % Values, 'Timestepping Method' )
       Order = MIN(Solver % DoneTime, Solver % Order)
 
-      IF ( Order <= 0 ) RETURN
+      IF ( Order <= 0 .OR. Solver % TimeOrder /= 1 .OR. Method=='bdf' ) RETURN
 
-      ForceVector = ForceVector - Solver % Matrix % Force(:,1)
-
-      IF ( Method /= 'bdf' .OR. Solver % TimeOrder > 1 ) THEN
-        SELECT CASE( Solver % TimeOrder )
-          CASE(1)
-            IF ( Solver % Beta == 0.0d0 ) THEN
-               ForceVector = ForceVector + Solver % Matrix % Force(:,1) 
-            ELSE
-               ForceVector = ForceVector + Solver % Beta * &
-                 Solver % Matrix % Force(:,1) + &
-                    ( 1 - Solver % Beta ) * Solver % Matrix % Force(:,2)
-            END IF
-
-          CASE(2)
-            SELECT CASE(Method)
-            CASE DEFAULT
-              ForceVector = ForceVector + Solver % Matrix % Force(:,1)
-            END SELECT
-          END SELECT
-      ELSE
-        SELECT CASE( Order)
-          CASE(1)
-            ForceVector = ForceVector + Solver % Matrix % Force(:,1)
-          CASE(2)
-            ForceVector = ForceVector + (2.d0/3.d0)*Solver % Matrix % Force(:,1)
-          CASE(3)
-            ForceVector = ForceVector + (6.d0/11.d0)*Solver % Matrix % Force(:,1)
-          CASE(4)
-            ForceVector = ForceVector + (12.d0/25.d0)*Solver % Matrix % Force(:,1)
-          CASE(5)
-            ForceVector = ForceVector + (60.d0/137.d0)*Solver % Matrix % Force(:,1)
-          CASE DEFAULT
-            WRITE( Message, * ) 'Invalid order BDF', Order
-            CALL Fatal( 'FinishAssembly', Message )
-        END SELECT
+      IF ( Solver % Beta /= 0.0d0 ) THEN
+        ForceVector = ForceVector + Solver % Beta * &
+            Solver % Matrix % Force(:,1) + &
+                ( 1 - Solver % Beta ) * Solver % Matrix % Force(:,2)
       END IF
     END IF
 !------------------------------------------------------------------------------

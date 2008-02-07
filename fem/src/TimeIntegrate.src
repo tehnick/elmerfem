@@ -118,14 +118,13 @@ CONTAINS
        DO i=1,NB1
          s = 0.0_dp
          DO j=1,N
-             s = s + (1.0d0/dt)*MassMatrix(i,j) * ( &
-               (4.d0/3.d0)*PrevSolution(j,1) - (1.d0/3.d0)*PrevSolution(j,2) )
+             s = s + (1.0_dp/dt)*MassMatrix(i,j) * ( &
+                   2.0_dp*PrevSolution(j,1) - 0.5_dp*PrevSolution(j,2) )
          END DO
          Force(i) = Force(i) + s
 
          DO j=1,NB2
-           StiffMatrix(i,j) = (1.0d0/dt)*MassMatrix(i,j) &
-             + (2.d0/3.d0)*StiffMatrix(i,j)
+           StiffMatrix(i,j) = (1.5d0/dt)*MassMatrix(i,j) + StiffMatrix(i,j)
          END DO
        END DO
 
@@ -134,15 +133,15 @@ CONTAINS
          s = 0.0_dp
          DO j=1,N
            s = s + (1.0d0/dt)*MassMatrix(i,j) * ( &
-             (18.d0/11.d0)*PrevSolution(j,1) &
-             - (9.d0/11.d0)*PrevSolution(j,2) &
-             + (2.d0/11.d0)*PrevSolution(j,3) )
+             3._dp*PrevSolution(j,1) &
+             - (3._dp/2._dp)*PrevSolution(j,2) &
+             + (1._dp/3._dp)*PrevSolution(j,3) )
          END DO
          Force(i) = Force(i) + s
 
          DO j=1,NB2
-           StiffMatrix(i,j) = (1.0d0/dt)*MassMatrix(i,j) &
-              + (6.d0/11.d0)*StiffMatrix(i,j)
+           StiffMatrix(i,j) = (11._dp/(6._dp*dt))*MassMatrix(i,j) &
+              + StiffMatrix(i,j)
          END DO
        END DO
 
@@ -150,17 +149,17 @@ CONTAINS
        DO i=1,NB1
          s = 0.0_dp
          DO j=1,N
-           s = s + (1.0d0/dt)*MassMatrix(i,j) * ( &
-             (48.d0/25.d0)*PrevSolution(j,1) &
-             - (36.d0/25.d0)*PrevSolution(j,2) &
-             + (16.d0/25.d0)*PrevSolution(j,3) &
-             - (3.d0/25.d0)*PrevSolution(j,4) )
+           s = s + (1._dp/dt)*MassMatrix(i,j) * ( &
+             4._dp*PrevSolution(j,1) &
+             - 3._dp*PrevSolution(j,2) &
+             + (4._dp/3._dp)*PrevSolution(j,3) &
+             - (1._dp/4._dp)*PrevSolution(j,4) )
          END DO
          Force(i) = Force(i) + s
 
          DO j=1,NB2
-           StiffMatrix(i,j) = (1.0d0/dt)*MassMatrix(i,j) &
-             + (12.d0/25.d0)*StiffMatrix(i,j)
+           StiffMatrix(i,j) = (12.0d0/(25._dp*dt))*MassMatrix(i,j) &
+             + StiffMatrix(i,j)
          END DO
        END DO
 
@@ -168,18 +167,18 @@ CONTAINS
        DO i=1,NB1
          s = 0.0_dp
          DO j=1,N
-           s = s + (1.0d0/dt)*MassMatrix(i,j) * ( &
-             (300.d0/137.d0)*PrevSolution(j,1)    &
-             - (300.d0/137.d0)*PrevSolution(j,2)  &
-             + (200.d0/137.d0)*PrevSolution(j,3)  &
-             - (75.d0/137.d0)*PrevSolution(j,4)   &
-             + (12.d0/137.d0)*PrevSolution(j,5) )
+           s = s + (1._dp/dt)*MassMatrix(i,j) * ( &
+             5._dp*PrevSolution(j,1)    &
+             - 5._dp*PrevSolution(j,2)  &
+             + (10._dp/3._dp)*PrevSolution(j,3)  &
+             - (5._dp/4._dp)*PrevSolution(j,4)   &
+             + (1._dp/5._dp)*PrevSolution(j,5) )
          END DO
          Force(i) = Force(i) + s
 
          DO j=1,NB2
-           StiffMatrix(i,j) = (1.0d0/dt) * MassMatrix(i,j) &
-              + (60.d0/137.d0)*StiffMatrix(i,j)
+           StiffMatrix(i,j) = (137._dp/(60._dp*dt)) * MassMatrix(i,j) &
+              + StiffMatrix(i,j)
          END DO
        END DO
 
