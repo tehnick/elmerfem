@@ -2506,7 +2506,7 @@ CONTAINS
       IF ( Order <= 0 .OR. Solver % TimeOrder /= 1 .OR. Method=='bdf' ) RETURN
 
       IF ( Solver % Beta /= 0.0d0 ) THEN
-        ForceVector = ForceVector + Solver % Beta * &
+        ForceVector = ForceVector + ( Solver % Beta - 1 ) * &
             Solver % Matrix % Force(:,1) + &
                 ( 1 - Solver % Beta ) * Solver % Matrix % Force(:,2)
       END IF
