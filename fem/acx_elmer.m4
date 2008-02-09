@@ -1558,7 +1558,7 @@ if $SHARED_LIBS || $ENABLE_DYNAMIC_LINKING; then
       shl_load_api=true
     else
         case "$canonical_host_type" in
-  	*-*-cygwin* | *-*-mingw*)
+  	*-*-mingw*)
 		# in windows, no generic test seems to work 
 		AC_MSG_CHECKING([for LoadLibrary in windows])
 		AC_LINK_IFELSE(
