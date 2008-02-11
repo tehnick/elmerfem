@@ -32,6 +32,10 @@ PROGRAM Solver
    CHARACTER(LEN=MAX_NAME_LEN) :: DateStr
    REAL(KIND=dp) :: CT, RT, CPUTime, RealTime
 
+#if defined(MINGW32)
+   CALL SET_STDIO_BUFS()
+#endif
+
    CT = CPUtime()
    RT = RealTime()
    DateStr = FormatDate()

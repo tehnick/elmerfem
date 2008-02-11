@@ -71,6 +71,17 @@ void corename_()
 #define f_ptr long int *
 #endif
 
+#if defined(MINGW32)
+/*--------------------------------------------------------------------------
+  work around mingw rxvt shell stdio/err buffering troubles
+  -------------------------------------------------------------------------*/
+void STDCALLBULL FC_FUNC(set_stdio_bufs,SET_STDIO_BUFS) ()
+{
+   setvbuf( stdout, NULL, _IOLBF, 2048 );
+   setvbuf( stderr, NULL, _IONBF, 2048 );
+}
+#endif
+
 /*--------------------------------------------------------------------------
   This routine will create a directory given name of the directory.
   -------------------------------------------------------------------------*/
