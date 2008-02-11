@@ -2526,8 +2526,8 @@ int ElementsToTriangles(struct FemType *data,struct BoundaryType *bound,
   needed = Ivector(1,noknots);
   for(i=1;i<=noknots;i++)
     needed[i] = 0;
-  nonodes = elementtype / 100;
   for(i=1;i<=noelements;i++) {
+    nonodes = data->elementtypes[i] / 100;
     for(j=0;j<nonodes;j++)
       needed[data->topology[i][j]] += 1;
   }
@@ -2559,37 +2559,19 @@ int ElementsToTriangles(struct FemType *data,struct BoundaryType *bound,
       ds1 = sqrt(dx1*dx1+dy1*dy1);
       ds2 = sqrt(dx2*dx2+dy2*dy2);
       angles[j] = (180.0/M_PI) * acos((dx1*dx2+dy1*dy2)/(ds1*ds2));
+      
+      /* Slightly favor divisions where corner is split */
+      if(needed[data->topology[i][j]] == 1) angles[j] *= 1.001;
+
       if( abs(angles[j] > maxangle)) {
 	maxangle = abs(angles[j]);
 	maxanglej = j;
       }
-    }
-    
+    }    
     evenodd = maxanglej % 2;
 
-#if 0
-    /* compute the diagonals in order to make division along the shorter one */
-    dx1 = data->x[data->topology[i][0]] - data->x[data->topology[i][2]];
-    dy1 = data->y[data->topology[i][0]] - data->y[data->topology[i][2]];
-    dx2 = data->x[data->topology[i][1]] - data->x[data->topology[i][3]];
-    dy2 = data->y[data->topology[i][1]] - data->y[data->topology[i][3]];
-    ds1 = dx1*dx1+dy1*dy1;
-    ds2 = dx2*dx2+dy2*dy2;
 
-    /* In case of corner nodes favor division where corner is split */
-    if(needed[data->topology[i][0]] <= 2 && (needed[data->topology[i][2]]) <= 2) 
-      ds1 *= 2;
-
-    if(needed[data->topology[i][1]] <= 2 && (needed[data->topology[i][3]]) <= 2) 
-      ds2 *= 2; 
-    
-    if(ds1 > ds2) 
-      evenodd = 1;
-    else 
-      evenodd = 0;
-#endif
-
-    /* The default is that no triangularization is performed */
+    /* No triangularization is performed unless the crtical angle is exceeded. */
     if( maxangle < critangle ) {
       triangles = 1;
       newtype = elementtype;
