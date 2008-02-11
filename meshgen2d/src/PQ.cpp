@@ -2,6 +2,7 @@
 #include <algorithm>
 #include <assert.h>
 #include <iostream>
+#include <string.h>
 
 pq::
 pq(int chunk)
