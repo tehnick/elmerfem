@@ -4,11 +4,11 @@
 /* Detected platform. */
 /* #undef AIX */
 
-/* 32 bit arch. */
-/* #undef ARCH_32_BITS */
+/* Couldn't determine. sticking with 32 bits. */
+#define ARCH_32_BITS 0
 
-/* Couldn't determine. sticking with 64 just in case. */
-#define ARCH_64_BITS 1
+/* 64 bit arch. */
+/* #undef ARCH_64_BITS */
 
 /* Detected platform. */
 /* #undef BASTARDS */
@@ -32,7 +32,7 @@
 #define ELMER_LINKTYP 1
 
 /* Elmer solver default install directory */
-#define ELMER_SOLVER_HOME "/usr/local/share/elmersolver"
+#define ELMER_SOLVER_HOME "/wrk/jpr/elmerfem/trunk/share/elmersolver"
 
 /* Define if using dynamic linking */
 #define ENABLE_DYNAMIC_LINKING 1

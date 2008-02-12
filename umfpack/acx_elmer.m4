@@ -955,7 +955,7 @@ case "$ac_cv_sizeof_voidp" in
     AC_DEFINE(ARCH_32_BITS, 1,[32 bit arch.]) 
   ;;
   *)
-    AC_DEFINE(ARCH_64_BITS, 1,[Couldn't determine. sticking with 64 just in case.])
+    AC_DEFINE(ARCH_32_BITS, 1,[Couldn't determine. sticking with 32 bits.])
   ;;
 esac
 
