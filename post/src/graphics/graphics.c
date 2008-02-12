@@ -189,9 +189,17 @@ void gra_set_projection( camera_proj_t Proj,double FieldAngle,
 void gra_bbox( double XMin,double XMax,double YMin,double YMax,double ZMin,double ZMax )
 {
     GLboolean TexEnabled,DepthEnabled;
+    void gra_set_colormap( colormap_t * );
+    colormap_t *gra_get_colormap(), *SaveColorMap;
 
+#if 0
     glGetBooleanv(GL_TEXTURE_1D,&TexEnabled);
     if (  TexEnabled )  glDisable(GL_TEXTURE_1D);
+#else
+    SaveColorMap = gra_get_colormap();
+    gra_set_colormap( NULL );
+#endif
+
 #if 0
     glGetBooleanv(GL_DEPTH_TEST,&DepthEnabled);
     if ( DepthEnabled ) glDisable(GL_DEPTH_TEST);
@@ -267,7 +275,12 @@ void gra_bbox( double XMin,double XMax,double YMin,double YMax,double ZMin,doubl
     glEnd();
     glEnable( GL_LIGHTING );
 
+#if 0
     if ( TexEnabled )   glEnable( GL_TEXTURE_1D );
+#else
+    gra_set_colormap( SaveColorMap );
+#endif
+
 #if 0
     if ( DepthEnabled ) glEnable( GL_DEPTH_TEST );
 #endif

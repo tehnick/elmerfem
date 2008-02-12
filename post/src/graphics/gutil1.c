@@ -149,21 +149,31 @@ void gra_set_material( material_t *Material )
  ******************************************************************************/
 void gra_set_colormap( colormap_t *ColorMap )
 {
+    static rgb_t v = { 255,255,255 };
     int N;
+    static colormap_t ctr;
+    colormap_t *ct = ColorMap;
 
-    if ( !ColorMap || !ColorMap->Values || ColorMap->NumberOfEntries <= 1 )
-        { glDisable( GL_TEXTURE_1D ); return; }
+    if ( !ct || !ct->Values || ct->NumberOfEntries <= 1 )
+    {
+/*        { glDisable( GL_TEXTURE_1D ); return } */
+          
+          ct = &ctr;
+          ct->Changed = TRUE;
+          ct->Values = &v;
+          ct->NumberOfEntries = 1;
+    }
 
     glEnable( GL_TEXTURE_1D );
 
-    if ( ColorMap == CurrentColormap && !ColorMap->Changed ) return;
+    if ( ct == CurrentColormap && !ct->Changed ) return;
 
     glGetIntegerv( GL_MAX_TEXTURE_SIZE, &N );
 
-    if ( ColorMap->NumberOfEntries > N )
+    if ( ct->NumberOfEntries > N )
     {
         fprintf( stderr, "gra_set_colormap: Colormap size [%d] too "
-                         "big for this OpenGL-implementation\n", ColorMap->NumberOfEntries );
+                         "big for this OpenGL-implementation\n", ct->NumberOfEntries );
         return;
     }
 
@@ -173,15 +183,19 @@ void gra_set_colormap( colormap_t *ColorMap )
 
     glTexEnvf( GL_TEXTURE_ENV,GL_TEXTURE_ENV_MODE,GL_MODULATE );
 
-    glTexImage1D( GL_TEXTURE_1D, 0, 3, ColorMap->NumberOfEntries, 0,
-             GL_RGB, GL_UNSIGNED_BYTE, ColorMap->Values );
+    glTexImage1D( GL_TEXTURE_1D, 0, 3, ct->NumberOfEntries, 0,
+             GL_RGB, GL_UNSIGNED_BYTE, ct->Values );
 
     glEnable( GL_TEXTURE_1D );
 
-    ColorMap->Changed = FALSE;
-    CurrentColormap = ColorMap;
+    ct->Changed = FALSE;
+    CurrentColormap = ct;
 }
 
+colormap_t *gra_get_colormap()
+{
+   return CurrentColormap;
+}
 
 /*******************************************************************************
  *

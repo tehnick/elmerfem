@@ -168,7 +168,7 @@ void vis_triangle
 static void vis_draw_edge(vertex_t *vertex,int v0,int v1,double *color,double CScl,
                        double CAdd,line_style_t style,double width)
 {
-    double c0,c1;
+    double c0=0.0,c1=1.0;
 
     /*
      *  if color function given scale values to 0-1
@@ -208,7 +208,7 @@ static int vis_mesh( geometry_t *geometry, element_model_t *model, mesh_t *Mesh,
 
     edge_list_t *edge;
 
-    double width = Mesh->LineWidth*0.005,CScl,CAdd,*C=NULL;
+    double width = Mesh->LineWidth*0.005,CScl=1.0,CAdd=0.0,*C=NULL;
 
     int i,j,quick,N=geometry->VertexCount,NT=geometry->TriangleCount;
 
