@@ -54,7 +54,7 @@ void opengl_draw(),Mouse();
 
 static int UpdatePending = FALSE;
 
-#ifndef WIN32
+#ifndef MINGW32
 #include <sys/time.h>
 #endif
 
@@ -1307,7 +1307,7 @@ static int MathCommand(ClientData cl,Tcl_Interp *interp,int argc,char **argv)
     return TCL_OK;
 }
 
-#ifndef WIN32
+#ifndef MINGW32
 #include <GL/glx.h>
 #else
 #include <winuser.h>
@@ -1320,7 +1320,7 @@ static unsigned int FontBase;
 Display *tkXDisplay()
 {
     Display *ptr = NULL;
-#ifndef WIN32
+#ifndef MINGW32
     ptr = auxXDisplay();
 #endif
     return ptr;
@@ -1330,7 +1330,7 @@ Window tkXWindow()
 {
     Window ptr = 0;
 
-#ifdef WIN32
+#ifdef MINGW32
     ptr = auxGetHWND();
 #else
     ptr = auxXWindow();
@@ -1342,7 +1342,7 @@ Window tkXWindow()
 
 static int ActivateGraphicsWindow( ClientData cl,Tcl_Interp *interp,int argc,char **argv )
 {
-#ifdef WIN32
+#ifdef MINGW32
     ShowWindow( tkXWindow(), SW_SHOWNORMAL );
 #endif
     return TCL_OK;
@@ -1465,7 +1465,7 @@ void MakeRasterFontDefault()
 }
 
 
-#ifndef WIN32  
+#ifndef MINGW32  
 
 void InitializeXFonts()
 {
@@ -1580,7 +1580,7 @@ static int SetFont( ClientData cl,Tcl_Interp *interp,int argc,char **argv )
         return TCL_ERROR;
     }
 
-#ifdef WIN32
+#ifdef MINGW32
     MakeRasterFontDefault();
 #else
     MakeRasterFont( argv[1] );
@@ -1938,7 +1938,7 @@ void epMouseDownProc(int Xpos, int Ypos)
     transform_t *transform;
     double scale;
 
-#ifndef WIN32
+#ifndef MINGW32
     XQueryPointer( tkXDisplay(),tkXWindow(),&root,&child,&x_root,&y_root,&x,&y,&epMouseDown );
 #else
     auxGetMouseLoc( &x, &y );
@@ -2028,7 +2028,7 @@ void epMouseDownProc(int Xpos, int Ypos)
 
         opengl_draw();
 
-#ifndef WIN32
+#ifndef MINGW32
         XQueryPointer( tkXDisplay(),tkXWindow(),&root,&child,&x_root,&y_root,&x,&y,&epMouseDown );
 #else
         epMouseDown = 0;
@@ -2045,7 +2045,7 @@ void epMouseDownProc(int Xpos, int Ypos)
     if ( epMouseDownTakesTooLong ) { opengl_draw(); }
 }
 
-#ifndef WIN32
+#ifndef MINGW32
 void Mouse( AUX_EVENTREC *event )
 {
     int MouseXPosition =  event->data[AUX_MOUSEX];
@@ -2074,7 +2074,7 @@ void Mouse( )
     auxGetMouseLoc( &MouseXPosition, &MouseYPosition );
 
     if ( MouseXPosition >= 0 && MouseXPosition < GraphicsXSize &&
-        MouseYPosition >= 0 && MouseYPosition < GraphicsYSize )
+         MouseYPosition >= 0 && MouseYPosition < GraphicsYSize )
     {
         epMouseDownProc(  MouseXPosition, MouseYPosition );
     }
@@ -2087,7 +2087,7 @@ static int UpdateDisplay(ClientData cl,Tcl_Interp *interp,int argc,char **argv)
     Window root,child;
 
 
-#ifndef WIN32
+#ifndef MINGW32
     XQueryPointer( tkXDisplay(),tkXWindow(),&root,&child,&x_root,&y_root,&x,&y,&epMouseDown );
 #else
     auxGetMouseLoc( &x, &y );
@@ -2110,26 +2110,21 @@ static int UpdateDisplay(ClientData cl,Tcl_Interp *interp,int argc,char **argv)
 
 void TestTkEvent()
 {
-    int x,y,x_root,y_root;
-    Window root,child;
-    int i;
-
     BreakLoop = FALSE;
 
-    while( Tcl_DoOneEvent( TCL_DONT_WAIT ) );
-
-#ifdef WIN32
+    while( Tcl_DoOneEvent(TCL_DONT_WAIT) );
+#ifdef MINGW32
     if ( GetKeyState( VK_LBUTTON ) & 0x8000 ) Mouse();
     if ( GetKeyState( VK_MBUTTON ) & 0x8000 ) Mouse();
-
     if ( GetKeyState( VK_RBUTTON ) & 0x8000 ) Mouse();
 #endif
-    Tk_Sleep( 100 );
+    Tk_Sleep(100);
 }
 
 static int WindowSize( ClientData cl,Tcl_Interp *interp,int argc,char **argv )
 {
-   int width, height, dx, dy, ox, oy, nx, ny, viewp[4];
+   unsigned int width, height;
+   int dx, dy, ox, oy, nx, ny, viewp[4];
 
 
    if ( argc < 3 ) {
@@ -2140,7 +2135,7 @@ static int WindowSize( ClientData cl,Tcl_Interp *interp,int argc,char **argv )
    width  = atoi( *++argv );
    height = atoi( *++argv );
 
-#ifdef WIN32
+#ifdef MINGW32
    SetWindowPos( auxGetHWND(), HWND_TOP, 0, 0, width, height, SWP_NOMOVE | SWP_NOACTIVATE );
 
    // Measure the viewport size and make corrections winsize if necessary:
@@ -2162,7 +2157,7 @@ static int WindowSize( ClientData cl,Tcl_Interp *interp,int argc,char **argv )
    SetWindowPos( auxGetHWND(), HWND_TOP, 0, 0, width, height, SWP_NOMOVE | SWP_NOACTIVATE );
 
 #else
-   XResizeWindow( (Display *)tkXDisplay(), tkXWindow(), width, height );
+   XResizeWindow( tkXDisplay(), tkXWindow(), width, height );
 #endif
 
    return TCL_OK;
@@ -2178,7 +2173,7 @@ static int WindowPosition( ClientData cl,Tcl_Interp *interp,int argc,char **argv
    int ox = atoi( *++argv );
    int oy = atoi( *++argv );
 
-#ifdef WIN32
+#ifdef MINGW32
    SetWindowPos( auxGetHWND(), HWND_TOP, ox, oy, 0, 0, SWP_NOSIZE | SWP_NOACTIVATE );
 #else
    XMoveWindow( (Display *)tkXDisplay(), tkXWindow(), ox, oy );
@@ -2197,7 +2192,7 @@ int main(int argc,char **argv)
     if ( getenv("ELMER_POST_HOME") == NULL )
     {
       /* use default installation directory just if nothing is set */
-#if defined(WIN32) || defined(MINGW32)  
+#if defined(MINGW32)
       _snprintf( ephome, 512, "ELMER_POST_HOME=%s", ELMER_POST_HOME );
 #else
       snprintf( ephome, 512, "ELMER_POST_HOME=%s", ELMER_POST_HOME );
@@ -2482,7 +2477,7 @@ int main(int argc,char **argv)
 
     while( Tk_DoOneEvent(TCL_DONT_WAIT) );
 
-#ifdef WIN32
+#ifdef MINGW32
     auxReshapeFunc( (AUXRESHAPEPROC)Reshape );
     auxExposeFunc( (AUXEXPOSEPROC)Reshape );
     auxIdleFunc( (AUXIDLEPROC)TestTkEvent );
@@ -2497,7 +2492,7 @@ int main(int argc,char **argv)
 
     gra_init();
 
-#ifndef WIN32
+#ifndef MINGW32
     InitializeXFonts();
 #else
     MakeRasterFontDefault();
@@ -2512,22 +2507,9 @@ int main(int argc,char **argv)
       Tcl_DStringFree( &dstring );
     }
     
-#if defined(WIN32) || defined(MINGW32)   
-    /*    *init = '\0';
-    if ( getenv("ELMER_POST_HOME") )
-    {
-        strncat( init,getenv("ELMER_POST_HOME"),511);
-        strncat( init,"/",511 );
-    }
-    strncat( init,"lib/mc.ini",511 );
-    fprintf( stdout, "MATC Initialization File: [%s]\n", init );
-    fflush(stdout);
-    mtc_domath( init ); */
-#endif
-    
-#ifdef WIN32
+#ifdef MINGW32
     auxMainLoop( (AUXMAINPROC)DrawItSomeTimeWhenIdle );
 #else
-    auxMainLoop( TestTkEvent );
+    auxMainLoop( DrawItSomeTimeWhenIdle );
 #endif
 }
