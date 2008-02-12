@@ -1991,8 +1991,9 @@ fi
 AC_SUBST(SH_EXPALL_FLAG)
 
 ])
-m4trace:acx_elmer.m4:1582: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
+m4trace:acx_elmer.m4:1584: -1- AC_DEFUN([ACX_PLATFORM_DEFS], [
 AC_REQUIRE([ACX_HOST])
+acx_platform_mgw="FALSE"
 acx_platform_def="GENERIC"
 case "$canonical_host_type" in
   *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
@@ -2015,6 +2016,7 @@ case "$canonical_host_type" in
         AC_DEFINE([CYGWIN],1,[Detected platform.])
   ;;
   *-*-mingw*)
+	acx_platform_mgw="TRUE"
 	acx_platform_def="WIN32"
         AC_DEFINE([MINGW32],1,[Detected platform.])
         AC_DEFINE([WIN32],1,[Detected platform2.])
@@ -2045,7 +2047,7 @@ esac
 
 AM_CONDITIONAL(IBM_IS_PIECE_OF_SHIT, test "$acx_platform_def" = "AIX")
 ])
-m4trace:acx_elmer.m4:1620: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
+m4trace:acx_elmer.m4:1622: -1- AC_DEFUN([ACX_COMPILER_FIXES], [
 AC_REQUIRE([ACX_SHLIB_STUFF])
 case "$FC" in
    ifc)
@@ -2081,7 +2083,7 @@ esac
 AC_SUBST(SH_LDFLAGS)
 AC_SUBST(SH_LD)
 ])
-m4trace:acx_elmer.m4:1802: -1- AC_DEFUN([ACX_TCLTK], [
+m4trace:acx_elmer.m4:1804: -1- AC_DEFUN([ACX_TCLTK], [
 AC_REQUIRE([AC_PATH_X])
 AC_PREREQ(2.50)
 acx_tcltk_ok=no
@@ -2255,7 +2257,7 @@ else
         $2
 fi
 ])
-m4trace:acx_elmer.m4:1824: -1- AC_DEFUN([ACX_FORTRAN_CPP], [
+m4trace:acx_elmer.m4:1826: -1- AC_DEFUN([ACX_FORTRAN_CPP], [
 AC_PREREQ(2.50)
 acx_fortran_cpp_ok=no
 
@@ -2267,7 +2269,7 @@ case "$FC" in
 esac
 AC_SUBST(FORTRAN_CPP_FLAG)
 ])
-m4trace:acx_elmer.m4:1848: -1- AC_DEFUN([ACX_LANG_COMPILER_MS], [AC_CACHE_CHECK([whether we are using the Microsoft _AC_LANG compiler],
+m4trace:acx_elmer.m4:1850: -1- AC_DEFUN([ACX_LANG_COMPILER_MS], [AC_CACHE_CHECK([whether we are using the Microsoft _AC_LANG compiler],
                 [acx_cv_[]_AC_LANG_ABBREV[]_compiler_ms],
 [AC_COMPILE_IFELSE([AC_LANG_PROGRAM([], [[#ifndef _MSC_VER
        choke me
@@ -2902,7 +2904,7 @@ m4trace:configure.in:51: -1- ACX_TCLTK([], [AC_MSG_ERROR([Tcl/tk not found, use 
 m4trace:configure.in:51: -1- _m4_warn([obsolete], [The macro `AC_HELP_STRING' is obsolete.
 You should run autoupdate.], [autoconf/general.m4:209: AC_HELP_STRING is expanded from...
 autoconf/general.m4:1391: AC_ARG_WITH is expanded from...
-acx_elmer.m4:1802: ACX_TCLTK is expanded from...
+acx_elmer.m4:1804: ACX_TCLTK is expanded from...
 configure.in:51: the top level])
 m4trace:configure.in:51: -1- m4_pattern_allow([^TCLTK_LIBS$])
 m4trace:configure.in:51: -2- m4_pattern_allow([^HAVE_MATC$])
@@ -3062,7 +3064,12 @@ m4trace:configure.in:76: -1- m4_pattern_allow([^NOTWINDOWS_TRUE$])
 m4trace:configure.in:76: -1- m4_pattern_allow([^NOTWINDOWS_FALSE$])
 m4trace:configure.in:76: -1- _AM_SUBST_NOTMAKE([NOTWINDOWS_TRUE])
 m4trace:configure.in:76: -1- _AM_SUBST_NOTMAKE([NOTWINDOWS_FALSE])
-m4trace:configure.in:94: -1- m4_pattern_allow([^LIB@&t@OBJS$])
-m4trace:configure.in:94: -1- m4_pattern_allow([^LTLIBOBJS$])
-m4trace:configure.in:94: -1- _AC_AM_CONFIG_HEADER_HOOK([$ac_file])
-m4trace:configure.in:94: -1- _AM_OUTPUT_DEPENDENCY_COMMANDS
+m4trace:configure.in:77: -1- AM_CONDITIONAL([NOTMINGW32], [test "$acx_platform_mgw" != "TRUE" ])
+m4trace:configure.in:77: -1- m4_pattern_allow([^NOTMINGW32_TRUE$])
+m4trace:configure.in:77: -1- m4_pattern_allow([^NOTMINGW32_FALSE$])
+m4trace:configure.in:77: -1- _AM_SUBST_NOTMAKE([NOTMINGW32_TRUE])
+m4trace:configure.in:77: -1- _AM_SUBST_NOTMAKE([NOTMINGW32_FALSE])
+m4trace:configure.in:95: -1- m4_pattern_allow([^LIB@&t@OBJS$])
+m4trace:configure.in:95: -1- m4_pattern_allow([^LTLIBOBJS$])
+m4trace:configure.in:95: -1- _AC_AM_CONFIG_HEADER_HOOK([$ac_file])
+m4trace:configure.in:95: -1- _AM_OUTPUT_DEPENDENCY_COMMANDS

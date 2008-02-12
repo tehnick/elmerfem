@@ -1,5 +1,5 @@
 
-if NOTWINDOWS
+if NOTMINGW32
 
 noinst_LIBRARIES=libtk.a
 

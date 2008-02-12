@@ -1528,6 +1528,7 @@ AC_SUBST(SH_EXPALL_FLAG)
 AC_DEFUN([ACX_PLATFORM_DEFS],
 [
 AC_REQUIRE([ACX_HOST])
+acx_platform_mgw="FALSE"
 acx_platform_def="GENERIC"
 case "$canonical_host_type" in
   *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
@@ -1550,6 +1551,7 @@ case "$canonical_host_type" in
         AC_DEFINE([CYGWIN],1,[Detected platform.])
   ;;
   *-*-mingw*)
+	acx_platform_mgw="TRUE"
 	acx_platform_def="WIN32"
         AC_DEFINE([MINGW32],1,[Detected platform.])
         AC_DEFINE([WIN32],1,[Detected platform2.])

@@ -749,6 +749,8 @@ SH_LDFLAGS
 SH_LD
 NOTWINDOWS_TRUE
 NOTWINDOWS_FALSE
+NOTMINGW32_TRUE
+NOTMINGW32_FALSE
 LTLIBOBJS'
 ac_subst_files=''
       ac_precious_vars='build_alias
@@ -2124,6 +2126,7 @@ esac
 
 
 
+acx_platform_mgw="FALSE"
 acx_platform_def="GENERIC"
 case "$canonical_host_type" in
   *-*-386bsd* | *-*-openbsd* | *-*-netbsd*)
@@ -2166,6 +2169,7 @@ _ACEOF
 
   ;;
   *-*-mingw*)
+	acx_platform_mgw="TRUE"
 	acx_platform_def="WIN32"
         
 cat >>confdefs.h <<\_ACEOF
@@ -11729,6 +11733,14 @@ else
   NOTWINDOWS_FALSE=
 fi
 
+ if test "$acx_platform_mgw" != "TRUE" ; then
+  NOTMINGW32_TRUE=
+  NOTMINGW32_FALSE='#'
+else
+  NOTMINGW32_TRUE='#'
+  NOTMINGW32_FALSE=
+fi
+
 
 LIBS="$FTGL_LIBS $LIBS $GL_LIBS $GLU_LIBS $MATC_LIBS $TCLTK_LIBS $FT_LIBS $FTGL_LIBS"
 CFLAGS="$CFLAGS $GL_CFLAGS $GLU_CFLAGS $FT_CFLAGS"
@@ -11885,6 +11897,13 @@ if test -z "${NOTWINDOWS_TRUE}" && test -z "${NOTWINDOWS_FALSE}"; then
   { { echo "$as_me:$LINENO: error: conditional \"NOTWINDOWS\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
 echo "$as_me: error: conditional \"NOTWINDOWS\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+if test -z "${NOTMINGW32_TRUE}" && test -z "${NOTMINGW32_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"NOTMINGW32\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"NOTMINGW32\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
@@ -12606,10 +12625,12 @@ SH_LDFLAGS!$SH_LDFLAGS$ac_delim
 SH_LD!$SH_LD$ac_delim
 NOTWINDOWS_TRUE!$NOTWINDOWS_TRUE$ac_delim
 NOTWINDOWS_FALSE!$NOTWINDOWS_FALSE$ac_delim
+NOTMINGW32_TRUE!$NOTMINGW32_TRUE$ac_delim
+NOTMINGW32_FALSE!$NOTMINGW32_FALSE$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 38; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 40; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5
