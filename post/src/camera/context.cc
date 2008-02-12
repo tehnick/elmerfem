@@ -253,14 +253,14 @@ fprintf( stderr, "yseD: %d\n", used );
 
       case GL_PASS_THROUGH_TOKEN :
 #ifdef DEBUG
-          cout << "UpdatePage: Ignoring passthrough token " << current[1] << "...\n" << flush;
+          std::cout << "UpdatePage: Ignoring passthrough token " << current[1] << "...\n" << std::flush;
 #endif /* DEBUG */
           current += 2;
           used -= 2;
           break;
 
       default :
-          cout << "UpdatePage: Ignoring unknwon token " << current[0] << "...\n" << flush;
+          std::cout << "UpdatePage: Ignoring unknwon token " << current[0] << "...\n" << std::flush;
           current ++;
           used --;
           break;

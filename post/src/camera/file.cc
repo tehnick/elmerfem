@@ -95,7 +95,7 @@ GLPfile :: GLPfile(char *print_name,	// I - Name of file/printer
 
   // Next open the indicated file...
 
-  outfile = new fstream(print_name, ios::out);
+  outfile = new std::fstream(print_name, std::ios::out);
   if (outfile == NULL)
     return;
 
@@ -388,7 +388,7 @@ GLPfile :: EndPage(void)
   *outfile << "grestore\n";
   *outfile << "showpage\n";
   *outfile << "%%EndPage\n";
-  *outfile << flush;
+  *outfile << std::flush;
 
   // Delete everything from the bounding box and primitive lists...
 

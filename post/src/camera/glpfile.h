@@ -52,7 +52,7 @@ class GLPfile : public GLPcontext	//// GLPfile class
 {
   private:
 	  int		page_count;	// Page count
-          fstream	*outfile;	// Output file
+          std::fstream	*outfile;	// Output file
 
   public:
           GLPfile(char *print_name,
