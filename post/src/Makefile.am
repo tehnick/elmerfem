@@ -58,6 +58,17 @@ ElmerPost_SOURCES=\
 	fttext.cpp \
 	ElmerPost-res.rc
 
+if NOTMINGW32
+ElmerPost_LDADD=\
+	./camera/libcamera.a \
+	./elements/libelements.a \
+	./modules/libmodule.a \
+	./objects/libobjects.a \
+	./visuals/libvisuals.a \
+	./graphics/libgraphics.a \
+	./glaux/libglaux.a \
+	./tk/libtk.a
+else
 ElmerPost_LDADD=\
 	./camera/libcamera.a \
 	./elements/libelements.a \
@@ -69,6 +80,7 @@ ElmerPost_LDADD=\
 	-lgdi32 \
 	-luser32 \
 	-ladvapi32
+endif
 endif
 
 ElmerPost_LDFLAGS=$(SH_EXPALL_FLAG)
