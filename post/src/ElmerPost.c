@@ -2510,6 +2510,6 @@ int main(int argc,char **argv)
 #ifdef MINGW32
     auxMainLoop( (AUXMAINPROC)DrawItSomeTimeWhenIdle );
 #else
-    auxMainLoop( DrawItSomeTimeWhenIdle );
+    auxMainLoop(TestTkEvent);
 #endif
 }
