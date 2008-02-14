@@ -242,6 +242,7 @@ EXTRA_DIST = \
 	ElmerSolver.src \
 	EnergyRelease.src \
 	FDiffusion3D.src \
+	FilterTimeSeries.src \
 	ExchangeCorrelations.src \
 	FDiffusion.src \
 	FindOptimum.src \

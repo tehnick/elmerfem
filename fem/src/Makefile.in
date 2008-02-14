@@ -313,7 +313,8 @@ BINARIES = AdvectionDiffusion$(SHL_EXT) \
         LevelSet$(SHL_EXT)  \
         FluxSolver$(SHL_EXT) \
         NormalSolver$(SHL_EXT) \
-        DistanceSolve$(SHL_EXT)
+        DistanceSolve$(SHL_EXT) \
+        FilterTimeSeries$(SHL_EXT) 
 
 SOLVEROBJS = \
 		NavierStokes$(OBJ_EXT)				\
@@ -422,6 +423,7 @@ EXTRA_DIST = \
 	ElmerSolver.src \
 	EnergyRelease.src \
 	FDiffusion3D.src \
+	FilterTimeSeries.src \
 	ExchangeCorrelations.src \
 	FDiffusion.src \
 	FindOptimum.src \
@@ -906,7 +908,7 @@ BandwidthOptimize.$(OBJEXT): BandwidthOptimize.f90 SParIterGlobals.$(OBJEXT) Ele
 CoordinateSystems.$(OBJEXT): CoordinateSystems.f90 Types.$(OBJEXT)
 CRSMatrix.$(OBJEXT): CRSMatrix.f90 GeneralUtils.$(OBJEXT)
 DCRComplexSolve.$(OBJEXT): DCRComplexSolve.f90 Radiation.$(OBJEXT) Integration.$(OBJEXT) Lists.$(OBJEXT) ElementDescription.$(OBJEXT) CoordinateSystems.$(OBJEXT) LinearAlgebra.$(OBJEXT) Adaptive.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
-DefUtils.$(OBJEXT): DefUtils.f90 PElementMaps.$(OBJEXT) Adaptive.$(OBJEXT) Integration.$(OBJEXT) SolverUtils.$(OBJEXT)
+DefUtils.$(OBJEXT): DefUtils.f90 PElementMaps.$(OBJEXT) Adaptive.$(OBJEXT) Integration.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
 DFTSolver.$(OBJEXT): DFTSolver.f90 DefUtils.$(OBJEXT) ExchangeCorrelations.$(OBJEXT) LinearAlgebra.$(OBJEXT)
 Differentials.$(OBJEXT): Differentials.f90 ElementDescription.$(OBJEXT) LinearAlgebra.$(OBJEXT) Types.$(OBJEXT)
 DiffuseConvectiveAnisotropic.$(OBJEXT): DiffuseConvectiveAnisotropic.f90 MaterialModels.$(OBJEXT) Differentials.$(OBJEXT) Integration.$(OBJEXT)
@@ -926,6 +928,7 @@ EnergyRelease.$(OBJEXT): EnergyRelease.f90 DefUtils.$(OBJEXT)
 ExchangeCorrelations.$(OBJEXT): ExchangeCorrelations.f90
 FDiffusion3D.$(OBJEXT): FDiffusion3D.f90 Integration.$(OBJEXT) Lists.$(OBJEXT) LinearAlgebra.$(OBJEXT) ElementDescription.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
 FDiffusion.$(OBJEXT): FDiffusion.f90 Integration.$(OBJEXT) Lists.$(OBJEXT) LinearAlgebra.$(OBJEXT) ElementDescription.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
+FilterTimeSeries.$(OBJEXT): FilterTimeSeries.f90 DefUtils.$(OBJEXT)
 FindOptimum.$(OBJEXT): FindOptimum.f90 Integration.$(OBJEXT) Lists.$(OBJEXT) MeshUtils.$(OBJEXT) ElementDescription.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
 FlowSolve.$(OBJEXT): FlowSolve.f90 NavierStokes.$(OBJEXT) NavierStokesCylindrical.$(OBJEXT) DefUtils.$(OBJEXT) Radiation.$(OBJEXT) NavierStokesGeneral.$(OBJEXT) FreeSurface.$(OBJEXT) CoordinateSystems.$(OBJEXT) ElementDescription.$(OBJEXT) Adaptive.$(OBJEXT) Types.$(OBJEXT)
 FluidicForce.$(OBJEXT): FluidicForce.f90 MaterialModels.$(OBJEXT) DefUtils.$(OBJEXT) Integration.$(OBJEXT) Lists.$(OBJEXT) MeshUtils.$(OBJEXT) ElementDescription.$(OBJEXT) Types.$(OBJEXT) SolverUtils.$(OBJEXT)
@@ -994,7 +997,7 @@ SolveBand.$(OBJEXT): SolveBand.f90 Types.$(OBJEXT)
 solve_cmplx.$(OBJEXT): solve_cmplx.f90 Types.$(OBJEXT)
 solve_real.$(OBJEXT): solve_real.f90
 Solver.$(OBJEXT): Solver.f90 GeneralUtils.$(OBJEXT) Types.$(OBJEXT)
-SolverUtils.$(OBJEXT): SolverUtils.f90 EigenSolve.$(OBJEXT) Multigrid.$(OBJEXT) ParallelUtils.$(OBJEXT) DirectSolve.$(OBJEXT) ElementUtils.$(OBJEXT) ParallelEigenSolve.$(OBJEXT) IterSolve.$(OBJEXT) MeshUtils.$(OBJEXT) LinearAlgebra.$(OBJEXT) TimeIntegrate.$(OBJEXT) ModelDescription.$(OBJEXT) Types.$(OBJEXT)
+SolverUtils.$(OBJEXT): SolverUtils.f90 Multigrid.$(OBJEXT) EigenSolve.$(OBJEXT) ParallelUtils.$(OBJEXT) DirectSolve.$(OBJEXT) ElementUtils.$(OBJEXT) ParallelEigenSolve.$(OBJEXT) IterSolve.$(OBJEXT) MeshUtils.$(OBJEXT) LinearAlgebra.$(OBJEXT) TimeIntegrate.$(OBJEXT) ModelDescription.$(OBJEXT) Types.$(OBJEXT)
 SolveSBand.$(OBJEXT): SolveSBand.f90 Types.$(OBJEXT)
 Spalart-Allmaras.$(OBJEXT): Spalart-Allmaras.f90 DefUtils.$(OBJEXT) MaterialModels.$(OBJEXT)
 SParIterComm.$(OBJEXT): SParIterComm.f90 SParIterGlobals.$(OBJEXT) GeneralUtils.$(OBJEXT) Types.$(OBJEXT)
