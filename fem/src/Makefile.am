@@ -339,6 +339,7 @@ EXTRA_DIST = \
 	Komega.src \
 	SSTKomega.src \
 	ViewFactors.src \
+	VorticitySolver.src \
 	Walls.src \
 	elements.def \
 	f_stubs.c    \
