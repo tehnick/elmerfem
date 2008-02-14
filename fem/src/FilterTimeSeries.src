@@ -89,7 +89,7 @@ SUBROUTINE FilterTimeSeries( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp) :: CumWeight(99)
   REAL(KIND=dp), POINTER :: MeanField(:), InstField(:), Component(:)
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SAverageData.src,v 1.42 2007/09/07 10:41:41 raback Exp $"
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SFilterTimeSeries.src,v 1.42 2007/09/07 10:41:41 raback Exp $"
 
 
 !------------------------------------------------------------------------------
@@ -124,13 +124,8 @@ SUBROUTINE FilterTimeSeries( Model,Solver,dt,TransientSimulation )
   DO NoVar = 1,99
 
     GotStuff = .FALSE.
-        
-    ! Find the filtered variable
-    IF(NoVar < 10) THEN 
-      WRITE (Name,'(A,I2)') 'Variable',NoVar
-    ELSE
-      WRITE (Name,'(A,I3)') 'Variable',NoVar
-    END IF
+
+    Name = ParameterName('Variable',NoVar)
     VarName = ListGetString( Solver % Values, TRIM(Name), Found )
     IF(Found) THEN      
       Var => VariableGet( Model % Variables, TRIM(VarName) )
@@ -150,22 +145,14 @@ SUBROUTINE FilterTimeSeries( Model,Solver,dt,TransientSimulation )
     END IF
    
     ! Other powers than ^1
-    IF(NoVar < 10) THEN
-      WRITE (Name,'(A,I2)') 'Operator',NoVar
-    ELSE
-      WRITE (Name,'(A,I3)') 'Operator',NoVar    
-    END IF
+    Name = ParameterName('Operator',NoVar)
     Oper = ListGetString(Solver % Values,TRIM(Name),Found)
     IF(.NOT. Found) Oper = 'none'
     GotStuff = GotStuff .OR. Found
 
     ! Start watch time
     ratio = 1.0_dp
-    IF(NoVar < 10) THEN
-      WRITE (Name,'(A,I2)') 'Start Time',NoVar
-    ELSE
-      WRITE (Name,'(A,I3)') 'Start Time',NoVar    
-    END IF
+    Name = ParameterName('Start Time',NoVar)
     t0 = GetCReal(Solver % Values,TRIM(Name), Found )
     IF ( Found ) THEN
       IF( time < t0 ) THEN
@@ -177,11 +164,7 @@ SUBROUTINE FilterTimeSeries( Model,Solver,dt,TransientSimulation )
     GotStuff = GotStuff .OR. Found
 
     ! Stop watch time
-    IF(NoVar < 10) THEN
-      WRITE (Name,'(A,I2)') 'Stop Time',NoVar
-    ELSE
-      WRITE (Name,'(A,I3)') 'Stop Time',NoVar    
-    END IF
+    Name = ParameterName('Stop Time',NoVar)
     t1 = GetCReal(Solver % Values,TRIM(Name), Found )
     IF ( Found ) THEN
       IF( time - dt > t1 ) THEN
@@ -193,11 +176,7 @@ SUBROUTINE FilterTimeSeries( Model,Solver,dt,TransientSimulation )
     GotStuff = GotStuff .OR. Found
 
     ! Reset mean after elapsed time
-    IF(NoVar < 10) THEN
-      WRITE (Name,'(A,I2)') 'Reset Interval',NoVar
-    ELSE
-      WRITE (Name,'(A,I3)') 'Reset Interval',NoVar    
-    END IF
+    Name = ParameterName('Reset Interval',NoVar)
     st = GetCReal(Solver % Values,TRIM(Name), Found )
     IF ( Found ) THEN
       IF ( INT((time-t0)/st) /= INT((time-t0-dt)/st) ) THEN
@@ -210,52 +189,33 @@ SUBROUTINE FilterTimeSeries( Model,Solver,dt,TransientSimulation )
 
     ! Relax by giving time scale
     Relax = 1.0_dp
-    IF(NoVar < 10) THEN
-      WRITE (Name,'(A,I2)') 'Decay Time',NoVar
-    ELSE
-      WRITE (Name,'(A,I3)') 'Decay Time',NoVar    
-    END IF
+    Name = ParameterName('Decay Time',NoVar)
     st = GetCReal(Solver % Values,TRIM(Name), Found )
     IF ( Found ) Relax = EXP(-dt/st)
     GotStuff = GotStuff .OR. Found
 
     ! Filter with externally provided function (sin, cos, ...)
     Phase = 1.0_dp
-    IF(NoVar < 10) THEN
-      WRITE (Name,'(A,I2)') 'Time Filter',NoVar
-    ELSE
-      WRITE (Name,'(A,I3)') 'Time Filter',NoVar    
-    END IF
+    Name = ParameterName('Time Filter',NoVar)
     st = GetCReal(Solver % Values,TRIM(Name), Found )
     IF(Found) Phase = st
     GotStuff = GotStuff .OR. Found
 
-    ! Explicitly perform sine series of given degree
-    IF(NoVar < 10) THEN
-      WRITE (Name,'(A,I2)') 'Sine Series',NoVar
-    ELSE
-      WRITE (Name,'(A,I3)') 'Sine Series',NoVar    
-    END IF
+    ! Explicitly perform sine and cosine series of given degree
+    Name = ParameterName('Sine Series',NoVar)
     Nsine = GetInteger(Solver % Values,TRIM(Name), Found )
-
-    ! Explicitly perform cosine series of given degree
-    IF(NoVar < 10) THEN
-      WRITE (Name,'(A,I2)') 'Cosine Series',NoVar
-    ELSE
-      WRITE (Name,'(A,I3)') 'Cosine Series',NoVar    
-    END IF
+    Name = ParameterName('Cosine Series',NoVar)
     Ncosine = GetInteger(Solver % Values,TRIM(Name), Found )
-
-
-
     Nseries = MAX(Nsine,Ncosine)
     GotStuff = GotStuff .OR. (Nseries > 0)
+
 
     ! If no new control  parameters were obtained exit the loop
     IF(.NOT. GotStuff) EXIT
 
     IF(Nseries > 0) THEN
-      freq = GetCReal(Solver % Values,'Frequency',Found )
+      Name = ParameterName('Frequency',NoVar)
+      freq = GetCReal(Solver % Values,TRIM(Name),Found )
       IF(.NOT. Found) CALL Fatal('FilterTimeSeries','Fourier series requires frequency')
     END IF
 
@@ -269,11 +229,7 @@ SUBROUTINE FilterTimeSeries( Model,Solver,dt,TransientSimulation )
     ELSE IF(Ncosine > 0) THEN
       FilterName = 'Cosine'
     ELSE
-      IF(NoVar < 10) THEN
-        WRITE (FilterName,'(A,I2)') 'Filter',NoVar
-      ELSE
-        WRITE (FilterName,'(A,I3)') 'Filter',NoVar
-      END IF
+      FilterName = ParameterName('Filter',NoVar)
     END IF
     WRITE (MeanVarName,'(A)') TRIM(FilterName)//' '//TRIM(VarName)
 
@@ -338,7 +294,7 @@ SUBROUTINE FilterTimeSeries( Model,Solver,dt,TransientSimulation )
     ! weight for the filtered set
     cold = CumWeight(NoVar)/(CumWeight(NoVar)+Weight)
  
-    ! For fourier series normalize the component appropriately
+    ! For fourier series normalize the component appropriately as <sin^2>=<cos^2>=1/2
     IF(Nseries > 0) THEN
       fcoeff = 2*PI*freq*(time-t0)
       ! weight for the current timestep
@@ -349,7 +305,6 @@ SUBROUTINE FilterTimeSeries( Model,Solver,dt,TransientSimulation )
       cnew = phase * Weight/(CumWeight(NoVar)+Weight)
       LoopSize = Nsize
     END IF
-
 
    
     DO i=1,LoopSize
@@ -396,6 +351,31 @@ SUBROUTINE FilterTimeSeries( Model,Solver,dt,TransientSimulation )
     NULLIFY(MeanField)
   
   END DO
+
+
+CONTAINS
+
+
+  FUNCTION ParameterName( BaseName, No ) RESULT(str)
+!------------------------------------------------------------------------------
+    INTEGER :: No
+    CHARACTER(LEN=*) :: BaseName
+!------------------------------------------------------------------------------
+    CHARACTER(LEN=MAX_NAME_LEN) :: str
+    INTEGER :: i
+!------------------------------------------------------------------------------
+
+    IF(No < 10) THEN
+      WRITE (str,'(A,I2)') TRIM(BaseName),NoVar
+    ELSE IF(No < 100) THEN
+      WRITE (str,'(A,I3)') TRIM(BaseName),NoVar
+    ELSE IF(No < 1000) THEN
+      WRITE (str,'(A,I4)') TRIM(BaseName),NoVar
+    END IF
+
+!------------------------------------------------------------------------------
+  END FUNCTION ParameterName
+!------------------------------------------------------------------------------
 
   
 !------------------------------------------------------------------------------
