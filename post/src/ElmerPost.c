@@ -1045,7 +1045,8 @@ static int SetCamera(ClientData cl,Tcl_Interp *interp,int argc,char **argv)
 
     camera_t *camera = NULL;
 
-    camera = (camera_t *)cam_add_camera( Camera,Tcl_GetVar2( TCLInterp,"camera","name", TCL_GLOBAL_ONLY ) );
+    camera = (camera_t *)cam_add_camera( Camera,
+           (char *)Tcl_GetVar2( TCLInterp,"camera","name", TCL_GLOBAL_ONLY ) );
 
     if ( camera ) {
         sscanf( Tcl_GetVar2( TCLInterp, "camera","display", TCL_GLOBAL_ONLY ), "%s", str );
@@ -1635,9 +1636,12 @@ int UpdateObject( ClientData cl,Tcl_Interp *interp,int argc,char **argv)
         } else VL->Next = NULL;
         CurrentObject->VisualList = (visual_t *)vis_link_visual( CurrentObject->VisualList,VL );
 
-        GetScalarVariable( &ParticleColor, (char *)Tcl_GetVar( TCLInterp,"ParticleColor",TCL_GLOBAL_ONLY ), model, 1, TRUE );
-        GetVectorVariable( ParticleVelocity, Tcl_GetVar( TCLInterp,"ParticleVelocity",TCL_GLOBAL_ONLY ),model,  1 );
-        GetParticleVariable( ParticleParticle, Tcl_GetVar( TCLInterp,"ParticleParticle",TCL_GLOBAL_ONLY ) );
+        GetScalarVariable( &ParticleColor, (char *)Tcl_GetVar( TCLInterp,
+              "ParticleColor",TCL_GLOBAL_ONLY ), model, 1, TRUE );
+        GetVectorVariable( ParticleVelocity, (char *)Tcl_GetVar( TCLInterp,
+              "ParticleVelocity",TCL_GLOBAL_ONLY ),model,  1 );
+        GetParticleVariable( ParticleParticle, (char *)Tcl_GetVar( TCLInterp,
+              "ParticleParticle",TCL_GLOBAL_ONLY ) );
 
         vis_set_param( VL, "Style", ParticleStyle, 0.0, NULL );
 
@@ -1733,7 +1737,7 @@ int UpdateObject( ClientData cl,Tcl_Interp *interp,int argc,char **argv)
             static char name[32];
 
             sprintf( name, "%d", i );
-            str = Tcl_GetVar2( TCLInterp, "ContourValues",name, TCL_GLOBAL_ONLY );
+            str = (char *)Tcl_GetVar2( TCLInterp, "ContourValues",name, TCL_GLOBAL_ONLY );
             if ( str ) sscanf( str,  "%lf", &L[i] );
         }
 
@@ -1759,7 +1763,8 @@ int UpdateObject( ClientData cl,Tcl_Interp *interp,int argc,char **argv)
         GetScalarVariable( &IsosurfaceContour, (char *)Tcl_GetVar( TCLInterp,"IsosurfaceContour",
                  TCL_GLOBAL_ONLY ),model, 0, !IsosurfaceContourSetMinMax );
 
-        GetVectorVariable( IsosurfaceNormal, Tcl_GetVar( TCLInterp,"IsosurfaceNormal",TCL_GLOBAL_ONLY ),model, 0 );
+        GetVectorVariable( IsosurfaceNormal, (char *)Tcl_GetVar( TCLInterp,
+                 "IsosurfaceNormal",TCL_GLOBAL_ONLY ),model, 0 );
         vis_set_param( VL, "Style",   IsosurfaceStyle+1, 0.0,     NULL );
         vis_set_param( VL, "ColorData",       0,            0.0, &IsosurfaceColor );
         vis_set_param( VL, "ContourData",     0,            0.0, &IsosurfaceContour );
@@ -2253,35 +2258,67 @@ int main(int argc,char **argv)
 
     Tcl_StaticPackage(TCLInterp, "Tk", Tk_Init, Tk_SafeInit);
 
-    Tcl_CreateCommand( TCLInterp, "GetInterpolate",  GetInterpolate,  (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
-    Tcl_CreateCommand( TCLInterp, "GetColorMap",     GetColorMap,     (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
-    Tcl_CreateCommand( TCLInterp, "StopProcessing",  StopProcessing,  (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
-    Tcl_CreateCommand( TCLInterp, "UpdateBackColor", UpdateBackColor, (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
-    Tcl_CreateCommand( TCLInterp, "UpdateColor",     UpdateColor,     (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
-    Tcl_CreateCommand( TCLInterp, "UpdateEdgeColor", UpdateEdgeColor, (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
-    Tcl_CreateCommand( TCLInterp, "UpdateVariable",  UpdateVariable,  (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
-    Tcl_CreateCommand( TCLInterp, "c_TimeStep",      TimeStep,        (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
-    Tcl_CreateCommand( TCLInterp, "c_LoadCamera",    LoadCamera,      (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
-    Tcl_CreateCommand( TCLInterp, "c_CurrentCamera", CurrentCamera,   (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
-    Tcl_CreateCommand( TCLInterp, "c_SetCamera",     SetCamera,       (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
-    Tcl_CreateCommand( TCLInterp, "UpdateDisplay",   UpdateDisplay,   (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
-    Tcl_CreateCommand( TCLInterp, "c_MathCommand",   MathCommand,     (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
-    Tcl_CreateCommand( TCLInterp, "UpdateObject",    UpdateObject,    (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
+    Tcl_CreateCommand( TCLInterp, "GetInterpolate",  (Tcl_CmdProc *)GetInterpolate,
+                 (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
 
-    Tcl_CreateCommand( TCLInterp, "group",          GroupDisplay, (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
-    Tcl_CreateCommand( TCLInterp, "setfont",        SetFont,      (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
+    Tcl_CreateCommand( TCLInterp, "GetColorMap",     (Tcl_CmdProc *)GetColorMap,
+                  (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
 
-    Tcl_CreateCommand( TCLInterp, "object", SetObject, (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
-    Tcl_CreateCommand( TCLInterp, "parent", SetParentObject, (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
+    Tcl_CreateCommand( TCLInterp, "StopProcessing",  (Tcl_CmdProc *)StopProcessing,
+                  (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
 
-    Tcl_CreateCommand( TCLInterp, "normals", RecomputeNormals, (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
+    Tcl_CreateCommand( TCLInterp, "UpdateBackColor", (Tcl_CmdProc *)UpdateBackColor,
+                  (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
 
-#if 0
-    Tcl_CreateCommand( TCLInterp, "showtext",        ShowString,      (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
-#endif
-    Tcl_CreateCommand( TCLInterp, "clip",            ClipPlane,      (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
+    Tcl_CreateCommand( TCLInterp, "UpdateColor",     (Tcl_CmdProc *)UpdateColor,
+                  (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
 
-    Tcl_CreateCommand( TCLInterp, "ActivateGraphicsWindow", ActivateGraphicsWindow,
+    Tcl_CreateCommand( TCLInterp, "UpdateEdgeColor", (Tcl_CmdProc *)UpdateEdgeColor,
+                  (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
+
+    Tcl_CreateCommand( TCLInterp, "UpdateVariable",  (Tcl_CmdProc *)UpdateVariable,
+                  (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
+
+    Tcl_CreateCommand( TCLInterp, "c_TimeStep",      (Tcl_CmdProc *)TimeStep,
+                  (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
+
+    Tcl_CreateCommand( TCLInterp, "c_LoadCamera",    (Tcl_CmdProc *)LoadCamera,
+                  (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
+
+    Tcl_CreateCommand( TCLInterp, "c_CurrentCamera", (Tcl_CmdProc *)CurrentCamera,
+                  (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
+
+    Tcl_CreateCommand( TCLInterp, "c_SetCamera",     (Tcl_CmdProc *)SetCamera,
+                  (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
+
+    Tcl_CreateCommand( TCLInterp, "UpdateDisplay",   (Tcl_CmdProc *)UpdateDisplay,
+                  (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
+
+    Tcl_CreateCommand( TCLInterp, "c_MathCommand",   (Tcl_CmdProc *)MathCommand,
+                  (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
+
+    Tcl_CreateCommand( TCLInterp, "UpdateObject",    (Tcl_CmdProc *)UpdateObject,
+                  (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
+
+    Tcl_CreateCommand( TCLInterp, "group",          (Tcl_CmdProc *)GroupDisplay,
+                  (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
+
+    Tcl_CreateCommand( TCLInterp, "setfont",        (Tcl_CmdProc *)SetFont,
+                  (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
+
+    Tcl_CreateCommand( TCLInterp, "object", (Tcl_CmdProc *)SetObject,
+                  (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
+
+    Tcl_CreateCommand( TCLInterp, "parent", (Tcl_CmdProc *)SetParentObject,
+                  (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
+
+    Tcl_CreateCommand( TCLInterp, "normals", (Tcl_CmdProc *)RecomputeNormals,
+                  (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
+
+    Tcl_CreateCommand( TCLInterp, "clip", (Tcl_CmdProc *)ClipPlane,
+                  (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
+
+    Tcl_CreateCommand( TCLInterp, "ActivateGraphicsWindow", (Tcl_CmdProc *)ActivateGraphicsWindow,
                   (ClientData)NULL, (Tcl_CmdDeleteProc *)NULL );
 
     Tcl_CreateCommand( TCLInterp, "winsize", (Tcl_CmdProc *)WindowSize,
