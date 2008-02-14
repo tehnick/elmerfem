@@ -1,0 +1,88 @@
+\chapter{Vorticity Computation}
+
+\modinfo{Module name}{\Idx{VorticitySolver}}
+\modinfo{Module subroutines}{VorticitySolver}
+\modinfo{Module authors}{Peter Råback}
+\modinfo{Document authors}{Peter Råback}
+\modinfo{Document edited}{14.2.2008}
+
+
+\section{Introduction}
+
+This module is used to calculate the vorticity of vector fields.
+Vorticity may be of interest mainly in the postprocessing of 
+flow fields or electromagnetic fields.
+
+\section{Theory}
+
+The vorticity $\Vec{w}$ of a vector field $\Vec{v}$ is obtained 
+simply from the curl of the field,
+\begin{equation}
+  \Vec{w} = \nabla \times \Vec{v} .
+  \label{eq:vorticity}
+\end{equation}
+Component-wise the equations for the vorticity read 
+\begin{eqnarray}
+  w_x & = & \Der{v_z}{y} - \Der{v_y}{z} \\
+  w_y & = & \Der{v_x}{z} - \Der{v_z}{x} \\
+  w_z & = & \Der{v_y}{x} - \Der{v_x}{y} .
+  \label{eq:vorticity2}
+\end{eqnarray}
+Thus, all three components exist only in 3D while in 2D and axisymmetric
+cases only the $z$-component is present
+
+The most consist ant method for computing the vorticity 
+in conjunction with the finite elements is to solve the 
+equations~(\ref{eq:vorticity2}) using the Galerkin method.
+The resulting matrix is diagonally dominated and 
+may be computed easily with iterative methods even with poor
+preconditioners. In 3D
+the vorticity computation may be done component-wise so that each 
+component $w_i$, where $i=1,2,3$, is solved separately.
+This saves some memory and may also save 
+in the overall time consumption.
+If only one component is
+desired in the 3D computations then the $z$-component is computed.
+
+\section{Keywords}
+\sifbegin
+\sifitemnt{Solver}{solver id}
+\sifbegin
+\sifitemnt{Equation}{String Vorticity Solver}
+\sifitemnt{Procedure}{File "VorticitySolver"\ "VorticitySolver"}
+\sifitem{Vorticity Variable}{String "Velocity"}
+This gives the name of the vector variable used to compute the 
+vorticity. By default the variable is \texttt{Velocity}.
+\sifitem{Constant Bulk Matrix}{Logical}
+This keyword may be used to activate the saving of the stiffness matrix if the same solver
+is called repeatedly. The stiffness matrix depends only on geometric information and is hence the same
+if the geometry is unaltered.
+\sifend
+%
+The following keywords are not usually needed as they are set by the
+initialization procedure of the solver.
+\sifbegin
+\sifitem{Variable}{String "-nooutput tempvar"}
+The variable is usually 
+only used to allocate the corresponding matrix. Therefore output is not 
+required unless the solver is only used to compute one component.
+\sifitem{Vorticity Result Variable}{String f1}
+This string gives the name of the variable that is known to be at 
+disposal for saving the results. This variable is allocated with 
+the following keyword.
+\sifitem{Exported Variable 1}{String "fl[Vorticity:3]"}
+This command is used to allocate space for the result and at the 
+same time the components may be renamed to be later identified as a vector
+in ElmerPost. If only one component of the flux is computed this keyword
+is obsolete.
+\sifend
+The solver is easily solved even without preconditioning. Fox example, the
+following linear system control may be applied. 
+\sifbegin
+\sifitemnt{Linear System Solver}{"Iterative"}
+\sifitemnt{Linear System Iterative Method}{"cg"}
+\sifitemnt{Linear System Preconditioning}{None}
+\sifitemnt{Linear System Max Iterations}{500}
+\sifitemnt{Linear System Convergence Tolerance}{1.0e-10}
+\sifend
+\sifend
