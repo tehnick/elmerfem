@@ -16,7 +16,7 @@ Simulation
   Output Intervals = 1
 
 !  Output File = "TempDist.dat"
-!  Post File = "TempDist.ep"
+  Post File = "TempDist.ep"
 End
 
 Constants
@@ -61,29 +61,22 @@ End
 
 Solver 2
   Equation = ComputeFlux
-  Procedure = "./FluxSolver" "FluxSolver"
+  Procedure = "FluxSolver" "FluxSolver"
 
-! to compute just one component:
+! to compute just one component give its name:
 ! ------------------------------
-!  Variable = fluxa
-!  Flux Variable = String Temperature
 !  Flux Component = Integer 1
-
-! to compute all omponents:
-! -------------------------
-  Variable = -nooutput flux_temp
-  Flux Result Variable = String "F"
-  Exported Variable 1 = "F[Heat Flux:2]"
 
   Flux Variable = String Temperature
   Flux Coefficient = String "Heat Conductivity"
 
-  Linear System Solver = "Iterative"
-  Linear System Iterative Method = "BiCGStab"
-  Linear System Preconditioning = None
-  Linear System Residual Output = 10
-  Linear System Max Iterations = Integer 500
-  Linear System Convergence Tolerance = 1.0e-10
+! these are taken care by the defaults
+!  Linear System Solver = "Iterative"
+!  Linear System Iterative Method = "cg"
+!  Linear System Preconditioning = None
+!  Linear System Residual Output = 10
+!  Linear System Max Iterations = Integer 500
+!  Linear System Convergence Tolerance = 1.0e-10
 End
 
 
