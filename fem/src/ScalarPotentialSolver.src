@@ -65,14 +65,14 @@
     END IF
     CALL ListAddInteger( SolverParams, 'Time derivative order', 0 )
 
-    ! Add linear system defaults: cg+diagonal
+    ! Add linear system defaults: cg+ILU0
     IF(.NOT. ListCheckPresent(SolverParams,'Linear System Solver')) THEN
       CALL Info('ScalarPotentialSolver_init','Setting defaults for linear system solver')
       CALL ListAddString(SolverParams,'Linear System Solver','Iterative')
       IF(.NOT. ListCheckPresent(SolverParams,'Linear System Iterative Method')) &
-          CALL ListAddString(SolverParams,'Linear System Iterative Method','ILU0')
+          CALL ListAddString(SolverParams,'Linear System Iterative Method','cg')
       IF(.NOT. ListCheckPresent(SolverParams,'Linear System Preconditioning')) &
-          CALL ListAddString(SolverParams,'Linear System Preconditioning','diagonal')
+          CALL ListAddString(SolverParams,'Linear System Preconditioning','ILU0')
       IF(.NOT. ListCheckPresent(SolverParams,'Linear System Max Iterations')) &
           CALL ListAddInteger(SolverParams,'Linear System Max Iterations',500)
       IF(.NOT. ListCheckPresent(SolverParams,'Linear System Residual Output')) &
@@ -165,8 +165,9 @@ SUBROUTINE ScalarPotentialSolver( Model,Solver,dt,Transient )
       CurrentCoordinateSystem() == CylindricSymmetric
   
   VarName = GetString(SolverParams,'Flux Variable')
-  CondName = ListGetString(SolverParams,'Flux Coefficient')
-  
+  CondName = ListGetString(SolverParams,'Flux Coefficient',GotIt)
+  IF(.NOT. GotIt) CondName = 'none'
+
   at0 = RealTime()
   
   ConstantBulkMatrix = GetLogical( SolverParams, 'Constant Bulk Matrix', GotIt )
