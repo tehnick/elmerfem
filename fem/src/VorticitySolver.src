@@ -194,13 +194,14 @@ SUBROUTINE VorticitySolver( Model,Solver,dt,Transient )
   
   IF ( ConstantBulkMatrixInUse ) THEN
     Solver % Matrix % Values = Solver % Matrix % BulkValues        
+    Solver % Matrix % RHS = 0.0_dp
   ELSE
     CALL DefaultInitialize()
   END IF
 
   ! If vorticity has many components, compute them one-by-one
   IF(Dofs > 1) THEN
-    ALLOCATE(ForceVectors(Dofs,SIZE(Solver % Matrix % RHS)))  
+    ALLOCATE(ForceVectors(Dofs-1,SIZE(Solver % Matrix % RHS)))  
     ForceVectors = 0.0_dp
     SaveRHS => Solver % Matrix % RHS
   END IF
@@ -215,9 +216,12 @@ SUBROUTINE VorticitySolver( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------     
 
   IF(Dofs > 1) THEN
-    TotNorm = 0.0_dp
     DO i=1,Dofs
-      Solver % Matrix % RHS => ForceVectors(i,:)
+      IF(i==1) THEN
+        Solver % Matrix % RHS => SaveRHS
+      ELSE
+        Solver % Matrix % RHS => ForceVectors(i-1,:)
+      END IF
       UNorm = DefaultSolve()
       TotNorm = TotNorm + Unorm ** 2
       DO j=1,Solver % Matrix % NumberOfRows
@@ -231,7 +235,7 @@ SUBROUTINE VorticitySolver( Model,Solver,dt,Transient )
     Solver % Matrix % RHS => SaveRHS
     Solver % Variable % Norm = Totnorm
   ELSE
-    UNorm = DefaultSolve()
+    TotNorm = DefaultSolve()
   END IF
 !------------------------------------------------------------------------------     
   
@@ -333,10 +337,13 @@ CONTAINS
         IF(Dofs > 1) Solver % Matrix % RHS => SaveRHS
         CALL DefaultUpdateEquations( STIFF, FORCE(1,1:nd), &
             BulkUpdate=ConstantBulkMatrix )
+      ELSE
+        CALL DefaultUpdateForce( FORCE(1,1:nd) )        
       END IF
 
-      DO i=1,Dofs
-        IF(Dofs > 1) Solver % Matrix % RHS => ForceVectors(i,:)
+      ! Assembly the 2nd and 3rd r.h.s. in 3D case
+      DO i=2,Dofs
+        Solver % Matrix % RHS => ForceVectors(i-1,:)
         CALL DefaultUpdateForce( FORCE(i,1:nd) )
       END DO
     END DO
