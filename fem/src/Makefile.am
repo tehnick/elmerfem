@@ -307,6 +307,7 @@ EXTRA_DIST = \
 	ResultToResult.src \
 	RigidBodyReduction.src \
 	SaveData.src \
+	ScalarPotentialSolver.src \
 	ShellSolve.src \
 	Smitc.src \
 	Smoothers.src \
