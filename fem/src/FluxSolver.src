@@ -48,6 +48,62 @@
 ! *
 ! *****************************************************************************/
 
+
+!------------------------------------------------------------------------------
+  SUBROUTINE FluxSolver_Init( Model,Solver,dt,Transient )
+!------------------------------------------------------------------------------
+    USE DefUtils
+
+    TYPE(Model_t)  :: Model
+    TYPE(Solver_t) :: Solver
+    REAL(KIND=dp) :: DT
+    LOGICAL :: Transient
+!------------------------------------------------------------------------------
+    TYPE(ValueList_t), POINTER :: SolverParams
+    INTEGER :: dim
+!------------------------------------------------------------------------------
+    SolverParams => GetSolverParams()
+    dim = CoordinateSystemDimension()
+
+    IF ( .NOT. ListCheckPresent( SolverParams,'Variable') ) THEN
+      CALL ListAddInteger( SolverParams, 'Variable DOFs', 1 )
+      IF(ListCheckPresent(SolverParams,'Flux Component')) THEN
+        CALL ListAddString( SolverParams,'Variable','Flux' )
+      ELSE
+        CALL ListAddString( SolverParams, 'Variable','-nooutput flux_temp' )
+        CALL ListAddString(SolverParams, 'Flux Result Variable','F')
+        IF(dim == 2) THEN
+          CALL ListAddString(SolverParams, 'Exported Variable 1','F[Flux:2]')
+        ELSE IF(dim == 3) THEN
+          CALL ListAddString(SolverParams, 'Exported Variable 1','F[Flux:3]')
+        ELSE
+          CALL Fatal('VortictySolver_init','Flux computation makes sense only in 2D and 3D')
+        END IF
+      END IF
+    END IF
+    CALL ListAddInteger( SolverParams, 'Time derivative order', 0 )
+
+    ! Add linear system defaults: cg+diagonal
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Solver')) &
+      CALL ListAddString(SolverParams,'Linear System Solver','Iterative')
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Iterative Method')) &
+      CALL ListAddString(SolverParams,'Linear System Iterative Method','cg')
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Preconditioning')) &
+      CALL ListAddString(SolverParams,'Linear System Preconditioning','diagonal')
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Max Iterations')) &
+      CALL ListAddInteger(SolverParams,'Linear System Max Iterations',500)
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Residual Output')) &
+      CALL ListAddInteger(SolverParams,'Linear System Residual Output',10)
+    IF(.NOT. ListCheckPresent(SolverParams,'Linear System Convergence Tolerance')) &
+      CALL ListAddConstReal(SolverParams,'Linear System Convergence Tolerance',1.0e-10_dp)
+
+!------------------------------------------------------------------------------
+  END SUBROUTINE FluxSolver_Init
+!------------------------------------------------------------------------------
+
+
+
+
 !------------------------------------------------------------------------------
 SUBROUTINE FluxSolver( Model,Solver,dt,Transient )
 !------------------------------------------------------------------------------
@@ -127,17 +183,15 @@ SUBROUTINE FluxSolver( Model,Solver,dt,Transient )
 !-------------------------------------------------------------------------------
   ActiveDir = GetInteger( SolverParams, 'Flux Component', GotIt) 
   IF(GotIt) THEN
-    DirMask = .FALSE.
-    DirMask(ActiveDir) = .TRUE.
     Dofs = 1
   ELSE
     VarName = GetString(SolverParams,'Flux Result Variable',GotIt )
     IF(.NOT. gotIt) VarName = 'Flux'
-    FluxSol => VariableGet( Solver % Mesh % Variables,  VarName )
+    FluxSol => VariableGet( Solver % Mesh % Variables, VarName )
     IF(ASSOCIATED(FluxSol)) THEN
       Dofs = FluxSol % DOFs
       IF(Dofs /= DIM) THEN
-        CALL Fatal('FluxSolver','The flux should have DOFs equal to 1 or DIM')
+        CALL Fatal('FluxSolver','The flux should have DOFs equal to DIM')
       END IF
     ELSE
       CALL Fatal('FluxSolver','Flux Result Variable is missing: '//TRIM(VarName))      
@@ -162,43 +216,49 @@ SUBROUTINE FluxSolver( Model,Solver,dt,Transient )
   
   IF ( ConstantBulkMatrixInUse ) THEN
     Solver % Matrix % Values = Solver % Matrix % BulkValues        
+    Solver % Matrix % rhs = 0.0_dp
   ELSE
     CALL DefaultInitialize()
   END IF
-
-  ALLOCATE(ForceVector(dim,SIZE(Solver % Matrix % RHS)))  
-  ForceVector = 0.0_dp
-  SaveRHS => Solver % Matrix % RHS
-!    
+  
+  IF(Dofs > 1) THEN
+    ALLOCATE(ForceVector(Dofs-1,SIZE(Solver % Matrix % RHS)))  
+    ForceVector = 0.0_dp
+    SaveRHS => Solver % Matrix % RHS
+  END IF
+  
   CALL BulkAssembly()
   CALL DefaultFinishAssembly()
-
+  
   at1 = RealTime()
   WRITE(Message,* ) 'Assembly Time: ',at1-at0
   CALL Info( 'FluxSolver', Message, Level=5 )
 !        
 !------------------------------------------------------------------------------     
 
-  TotNorm = 0.0_dp
-  DO i=1,dim
-    IF( .NOT. DirMask(i) ) CYCLE
-    Solver % Matrix % RHS => ForceVector(i,:)
-    UNorm = DefaultSolve()
-    TotNorm = TotNorm + Unorm ** 2
-    IF( Dofs > 1) THEN
+  IF(Dofs > 1) THEN
+    TotNorm = 0.0_dp
+    DO i=1,Dofs
+      IF(i==1) THEN
+        Solver % Matrix % RHS => SaveRHS
+      ELSE
+        Solver % Matrix % RHS => ForceVector(i-1,:)
+      END IF
+      UNorm = DefaultSolve()
+      TotNorm = TotNorm + Unorm ** 2
       DO j=1,Solver % Matrix % NumberOfRows
         FluxSol % Values(DOFs*(j-1)+i) = Solver % Variable % Values(j)
       END DO
-    END IF
+    END DO
+    DEALLOCATE( ForceVector )  
     Solver % Matrix % RHS => SaveRHS
-  END DO
-  TotNorm = SQRT(TotNorm)
+    TotNorm = SQRT(TotNorm)
+    Solver % Variable % Norm = Totnorm
+  ELSE	   
+    TotNorm = DefaultSolve()
+  END IF
 !------------------------------------------------------------------------------     
- 
-  DEALLOCATE( ForceVector )
-  Solver % Matrix % RHS => SaveRHS
-  Solver % Variable % Norm = Totnorm
-  
+
   at2 = RealTime()
   WRITE(Message,* ) 'Solution Time: ',at2-at1
   CALL Info( 'FluxSolver', Message, Level=5 )
@@ -258,7 +318,7 @@ CONTAINS
       
       DO t=1,IntegStuff % n
         Found = ElementInfo( Element, Nodes, IntegStuff % u(t), &
-                IntegStuff % v(t), IntegStuff % w(t), detJ, Basis, dBasisdx )
+            IntegStuff % v(t), IntegStuff % w(t), detJ, Basis, dBasisdx )
         
         Weight = IntegStuff % s(t) * detJ
         IF ( CSymmetry ) Weight = Weight * SUM( Basis(1:n) * Nodes % x(1:n) )
@@ -291,23 +351,30 @@ CONTAINS
           END DO
         END SELECT
         
-        DO i=1,dim
-          Coeff = Weight * SUM( C(i,1:dim) * Grad(1:dim) )
-          FORCE(i,1:nd) = FORCE(i,1:nd) - Coeff*Basis(1:nd)
-        END DO
+        IF(Dofs == 1) THEN
+          Coeff = Weight * SUM( C(ActiveDir,1:dim) * Grad(1:dim) )
+          FORCE(1,1:nd) = FORCE(1,1:nd) - Coeff*Basis(1:nd)
+        ELSE		
+          DO i=1,dim	
+            Coeff = Weight * SUM( C(i,1:dim) * Grad(1:dim) )
+            FORCE(i,1:nd) = FORCE(i,1:nd) - Coeff*Basis(1:nd)
+          END DO
+        END IF
       END DO
-      
+
 !------------------------------------------------------------------------------
 !      Update global matrices from local matrices 
 !------------------------------------------------------------------------------
       IF ( .NOT. ConstantBulkMatrixInUse ) THEN
-        Solver % Matrix % RHS => SaveRHS
+        IF(Dofs > 1) Solver % Matrix % RHS => SaveRHS
         CALL DefaultUpdateEquations( STIFF, FORCE(1,1:nd), &
             BulkUpdate=ConstantBulkMatrix )
+      ELSE
+        CALL DefaultUpdateForce( FORCE(1,1:nd) )       
       END IF
 
-      DO i=1,dim
-        Solver % Matrix % RHS => ForceVector(i,:)
+      DO i=2,Dofs
+        Solver % Matrix % RHS => ForceVector(i-1,:)
         CALL DefaultUpdateForce( FORCE(i,1:nd) )
       END DO
     END DO
