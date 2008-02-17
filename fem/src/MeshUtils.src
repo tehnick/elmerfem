@@ -607,7 +607,10 @@ CONTAINS
        LocalEPerm( ElementTags(i) - MinEIndex + 1 ) = i
     END DO
 
-    ALLOCATE( Coord(3,Mesh % MaxElementNodes) )
+    CALL ReadElementPropertyFile( TRIM(MeshNamePar) // &
+         '/mesh.elements.data', Mesh )
+
+    ALLOCATE( coord(3,Mesh % MaxElementNodes) )
 !------------------------------------------------------------------------------
 !            Mesh boundary elements
 !------------------------------------------------------------------------------
@@ -996,6 +999,95 @@ CONTAINS
 !------------------------------------------------------------------------------
   END FUNCTION LoadMesh
 !------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE ReadElementPropertyFile(FileName,Mesh)
+     CHARACTER(LEN=*) :: FileName
+     TYPE(Mesh_t) :: Mesh
+!------------------------------------------------------------------------------
+    INTEGER, PARAMETER :: MAXLEN=1024
+    CHARACTER(LEN=MAXLEN) :: str
+    INTEGER :: i,j,n
+    REAL(KIND=dp) :: x
+    TYPE(Element_t), POINTER :: Element
+    TYPE(ElementData_t), POINTER :: PD,PD1
+
+    OPEN( Unit=10, File=FileName, ERR=10 )
+    DO WHILE( ReadAndTrim(10,str) )
+      IF ( str(1:8) == 'element:' ) THEN
+        READ( str(9:),*) i
+        IF ( i<0 .OR. i>Mesh % NumberOFBulkElements ) THEN
+          CALL Fatal( 'ReadElementProperties', 'Element id out of range.' )
+        END IF
+
+        Element => Mesh % Elements(i)
+        PD => Element % PropertyData
+
+        DO WHILE(ReadAndTrim(10,str))
+          IF ( str(1:3) == 'End' ) EXIT
+
+          i = Index( str, ':' )
+          IF ( i<= 0 ) CYCLE
+
+          IF ( .NOT.ASSOCIATED(PD)  ) THEN
+            ALLOCATE( Element % PropertyData )
+            PD => Element % PropertyData
+          ELSE
+            DO WHILE(ASSOCIATED(PD))
+              IF ( PD % Name==TRIM(str(1:i)) ) EXIT
+              PD1 => PD
+              PD => PD % Next
+            END DO
+            
+            IF (.NOT. ASSOCIATED(PD) ) THEN
+              ALLOCATE(PD1 % Next)
+              PD => PD1 % Next
+              PD % Name = TRIM(str(1:i))
+            END IF
+          END IF
+
+          j = i + 1
+          n = 0
+          DO WHILE(j<=LEN_TRIM(str))
+            READ( str(j:), *, END=20,ERR=20 ) x
+            n = n + 1
+            DO WHILE(j<=LEN_TRIM(str) .AND. str(j:j)==' ')
+              j = j + 1
+            END DO
+            DO WHILE(j<=LEN_TRIM(str) .AND. str(j:j)/=' ')
+              j = j + 1
+            END DO
+          END DO
+20        CONTINUE
+          IF ( n>0 ) THEN
+            ALLOCATE(PD % Values(n))
+            j = i + 1
+            n = 1
+            DO WHILE(j<=LEN_TRIM(str))
+              READ( str(j:), *, END=30,ERR=30 ) PD % Values(n)
+              n = n + 1
+              DO WHILE(j<=LEN_TRIM(str) .AND. str(j:j)==' ')
+                j = j + 1
+              END DO
+              DO WHILE(j<=LEN_TRIM(str) .AND. str(j:j)/=' ')
+                j = j + 1
+              END DO
+            END DO
+30          CONTINUE
+          END IF
+        END DO
+      END IF
+    END DO
+
+    CLOSE(10)
+
+10  CONTINUE
+
+!------------------------------------------------------------------------------
+  END SUBROUTINE ReadElementPropertyFile
+!------------------------------------------------------------------------------
+
 
 
 !------------------------------------------------------------------------------

@@ -574,7 +574,7 @@ CONTAINS
      REAL(KIND=dp), ALLOCATABLE :: ZeroNodes(:,:,:), Direction(:)
      INTEGER, POINTER :: DistancePerm(:)
      INTEGER :: ZeroLevels, ReinitializeInterval, ExtractInterval
-     LOGICAL :: Reinitialize, Extract
+     LOGICAL :: Reinitialize, Extrct
      REAL(KIND=dp) :: Relax, dt, r, NarrowBand, DsMax
      REAL(KIND=dp), ALLOCATABLE :: ElemVelo(:,:), SurfaceFlux(:)
      REAL(KIND=dp) :: at,totat,st,totst,CPUTime
@@ -603,12 +603,12 @@ CONTAINS
      END IF
 
      IF( ExtractInterval == 0) THEN
-       Extract = Reinitialize
+       Extrct = Reinitialize
      ELSE
-       Extract = Reinitialize .OR. ( MOD(TimesVisited, ExtractInterval) == 0 )
+       Extrct = Reinitialize .OR. ( MOD(TimesVisited, ExtractInterval) == 0 )
      END IF
      
-     IF(.NOT. Extract) THEN
+     IF(.NOT. Extrct) THEN
        CALL Info( 'LevelSetDistance','--------------------------------------', Level=4 )
        CALL Info( 'LevelSetDistance','Doing nothing this time', Level=4 )
        CALL Info( 'LevelSetDistance','--------------------------------------', Level=4 )          

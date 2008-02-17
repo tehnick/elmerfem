@@ -1658,13 +1658,16 @@ CONTAINS
          END DO
       ELSE
          OneMeshName = .TRUE.
-         MeshDir = "." // CHAR(0)
+         MeshDir = "."
       END IF
-      MeshName(i:i) = CHAR(0)
     END IF
 
     NULLIFY( Model % Meshes )
     IF ( MeshDir(1:1) /= ' ' ) THEN
+
+      k = LEN_TRIM(MeshName)
+      IF ( MeshName(k:k)==CHAR(0)) MeshName(k:k) = ' '
+
       Model % Meshes => LoadMesh( Model, MeshDir, MeshName, &
           BoundariesOnly, numprocs, mype, def_dofs )
 
@@ -1719,7 +1722,7 @@ CONTAINS
           END DO
         ELSE
           OneMeshName = .TRUE.
-          MeshDir = "." // CHAR(0)
+          MeshDir = "."
         END IF
         MeshName(i:i) = CHAR(0)
 
@@ -1756,6 +1759,9 @@ CONTAINS
         END IF
 
         Def_Dofs = Model % Solvers(s) % Def_Dofs
+
+        k = LEN_TRIM(MeshName)
+        IF ( MeshName(k:k)==CHAR(0)) MeshName(k:k) = ' '
 
         Model % Solvers(s) % Mesh => &
           LoadMesh( Model,MeshDir,MeshName,BoundariesOnly,numprocs,mype,def_dofs )

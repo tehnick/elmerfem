@@ -119,7 +119,7 @@ use spariterglobals
      INTEGER, ALLOCATABLE :: PermLocal(:),DoneIndex(:)
      LOGICAL :: Newroot, Finished
      INTEGER :: MinDegree,StartNode,MaxLevel
-     INTEGER :: Index,i,j,k,n,k1,k2,HalfBandWidthBefore,HalfBandWidthAfter
+     INTEGER :: Indx,i,j,k,n,k1,k2,HalfBandWidthBefore,HalfBandWidthAfter
 
      TYPE(Element_t),POINTER :: Element
      TYPE(ListMatrix_t), POINTER :: p
@@ -202,18 +202,18 @@ use spariterglobals
 !-------------------------------------------------------------------------------
 !    This loop really does the thing
 !-------------------------------------------------------------------------------
-     Index = 1
-     PermLocal(Index) = StartNode
-     DoneIndex(StartNode) = Index
-     Index = Index + 1
+     Indx = 1
+     PermLocal(Indx) = StartNode
+     DoneIndex(StartNode) = Indx
+     Indx = Indx + 1
 
      DO i=1,LocalNodes
        IF ( PermLocal(i)==0 ) THEN
          DO j=1,LocalNodes
            IF ( DoneIndex(j)==0 ) THEN
-             PermLocal(Index) = j
-             DoneIndex(j) = Index
-             Index = Index + 1
+             PermLocal(Indx) = j
+             DoneIndex(j) = Indx
+             Indx = Indx + 1
              EXIT
            END IF
          END DO
@@ -272,9 +272,9 @@ use spariterglobals
            k = p % Index
            IF ( k <= LocalNodes ) THEN
              IF ( DoneIndex(k) == 0 ) THEN
-               PermLocal(Index) = k
-               DoneIndex(k) = Index
-               Index = Index + 1
+               PermLocal(Indx) = k
+               DoneIndex(k) = Indx
+               Indx = Indx + 1
              END IF
            END IF
            p => p % Next
@@ -528,7 +528,7 @@ NOT CURRENT AT THE MOMENT...
 
      LOGICAL(KIND=1), ALLOCATABLE :: DoneAlready(:)
      INTEGER :: MaxDegree,StartNode
-     INTEGER :: Index,i,j,k,n,k1,k2
+     INTEGER :: Indx,i,j,k,n,k1,k2
 
      TYPE(Element_t),POINTER :: Element
      TYPE(ElementListPointer_t), DIMENSION(:), POINTER :: List
@@ -554,7 +554,7 @@ NOT CURRENT AT THE MOMENT...
      Perm = 0
      Perm(StartNode) = N
 
-     Index = N-1
+     Indx = N-1
      CALL Renumber(List(StartNode) % ListHead)
 
 !
@@ -622,8 +622,8 @@ NOT CURRENT AT THE MOMENT...
                END IF
              END DO
 
-             Perm(k) = Index
-             Index = Index - 1
+             Perm(k) = Indx
+             Indx = Indx - 1
              DoneAlready(k) = .TRUE.
              CALL Renumber( List(k) % ListHead )
            END IF

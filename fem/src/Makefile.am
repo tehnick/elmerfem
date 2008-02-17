@@ -342,6 +342,7 @@ EXTRA_DIST = \
 	ViewFactors.src \
 	VorticitySolver.src \
 	Walls.src \
+	iso_varying_string.src \
 	elements.def \
 	f_stubs.c    \
 	elmerf90.in  \

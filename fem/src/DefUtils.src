@@ -635,6 +635,33 @@ CONTAINS
 
 
 
+  FUNCTION GetElementProperty( Name, UElement ) RESULT(vals)
+    CHARACTER(LEN=*) :: Name
+    REAL(KIND=dp), POINTER :: Vals(:)
+    TYPE(Element_t), POINTER, OPTIONAL :: UElement
+
+    TYPE(ElementData_t), POINTER :: p
+
+    TYPE(Element_t), POINTER :: Element
+
+    Element => CurrentModel % CurrentElement
+    IF ( PRESENT( UElement ) ) Element => UElement
+
+
+    Vals => NULL()
+    p=> Element % PropertyData
+
+    DO WHILE( ASSOCIATED(p) )
+      IF ( Name==p % Name ) THEN
+        Vals => p % Values
+        RETURN
+      END IF
+      p => p % Next
+    END DO
+  END FUNCTION GetElementProperty
+
+
+
   FUNCTION GetActiveElement(t,USolver) RESULT(Element)
      INTEGER :: t
      TYPE(Element_t), POINTER :: Element
@@ -652,7 +679,7 @@ CONTAINS
         WRITE( Message, * ) 'Invalid element number requested: ', t
         CALL Fatal( 'GetActiveElement', Message )
      END IF
-  END FUNCTION
+  END FUNCTION GetActiveElement
 
 
 
@@ -673,7 +700,7 @@ CONTAINS
         WRITE( Message, * ) 'Invalid element number requested: ', t
         CALL Fatal( 'GetBoundaryElement', Message )
      END IF
-  END FUNCTION
+  END FUNCTION GetBoundaryElement
 
 
 

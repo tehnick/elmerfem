@@ -45,6 +45,7 @@
 MODULE Types
  
    USE Messages
+   USE iso_varying_string
 
    INTEGER, PARAMETER :: MAX_NAME_LEN = 128
 
@@ -348,10 +349,16 @@ MODULE Types
    TYPE BoundaryInfo_t
      TYPE(Factors_t), POINTER :: GebhardtFactors
      INTEGER :: Constraint, OutBody
-!    INTEGER :: Constraint
-!    INTEGER, POINTER :: OutBody(:)
      TYPE(Element_t), POINTER :: Left,Right
    END TYPE BoundaryInfo_t
+
+!-------------------------------------------------------------------------------
+
+   TYPE ElementData_t
+     TYPE(ElementData_t), POINTER :: Next=>NULL()
+     TYPE(varying_string) :: Name
+     REAL(KIND=dp), POINTER :: Values(:)=>NULL()
+   END TYPE ElementData_t
 
 !-------------------------------------------------------------------------------
 
@@ -368,7 +375,8 @@ MODULE Types
          NodeIndexes,   EdgeIndexes, FaceIndexes, &
          BubbleIndexes, DGIndexes
 
-     TYPE(PElementDefs_t), POINTER :: PDefs
+     TYPE(PElementDefs_t), POINTER :: PDefs=>NULL()
+     TYPE(ElementData_t),  POINTER :: PropertyData=>NULL()
    END TYPE Element_t
 
 !-------------------------------------------------------------------------------
