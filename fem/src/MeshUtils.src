@@ -607,7 +607,11 @@ CONTAINS
        LocalEPerm( ElementTags(i) - MinEIndex + 1 ) = i
     END DO
 
-    CALL ReadElementPropertyFile( TRIM(MeshNamePar) // &
+    i = LEN_TRIM(MeshNamePar)
+    DO WHILE(MeshNamePar(i:i)==CHAR(0))
+      i=i-1
+    END DO
+    CALL ReadElementPropertyFile( TRIM(MeshNamePar(1:i)) // &
          '/mesh.elements.data', Mesh )
 
     ALLOCATE( coord(3,Mesh % MaxElementNodes) )
@@ -1013,7 +1017,7 @@ CONTAINS
     TYPE(Element_t), POINTER :: Element
     TYPE(ElementData_t), POINTER :: PD,PD1
 
-    OPEN( Unit=10, File=FileName, ERR=10 )
+    OPEN( Unit=10, File=FileName, STATUS='OLD', ERR=10 )
     DO WHILE( ReadAndTrim(10,str) )
       IF ( str(1:8) == 'element:' ) THEN
         READ( str(9:),*) i
@@ -1033,6 +1037,7 @@ CONTAINS
           IF ( .NOT.ASSOCIATED(PD)  ) THEN
             ALLOCATE( Element % PropertyData )
             PD => Element % PropertyData
+            PD % Name = TRIM(str(1:i))
           ELSE
             DO WHILE(ASSOCIATED(PD))
               IF ( PD % Name==TRIM(str(1:i)) ) EXIT
