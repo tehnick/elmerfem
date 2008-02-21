@@ -71,6 +71,10 @@ void MainWindow::createMenus()
   meshMenu = menuBar()->addMenu(tr("&Mesh"));
   meshMenu->addAction(meshcontrolAct);
   meshMenu->addAction(remeshAct);
+
+  // Help menu
+  helpMenu = menuBar()->addMenu(tr("&Help"));
+  helpMenu->addAction(aboutAct);
 }
 
 
@@ -131,7 +135,30 @@ void MainWindow::createActions()
   remeshAct->setShortcut(tr("Ctrl+R"));
   remeshAct->setStatusTip(tr("Remesh"));
   connect(remeshAct, SIGNAL(triggered()), this, SLOT(remesh()));
+
+  // Help -> About
+  aboutAct = new QAction(QIcon(), tr("&About..."), this);
+  aboutAct->setShortcut(tr("Ctrl+A"));
+  aboutAct->setStatusTip(tr("About the program"));
+  connect(aboutAct, SIGNAL(triggered()), this, SLOT(showabout()));
 }
+
+
+
+void MainWindow::showabout()
+{
+  QMessageBox::about(this, tr("About Mesh3D"),
+		     tr("Mesh3D is a three dimensional finite element mesh "
+			"generator for Elmer. The program uses tetlib/tetgen "
+			"as the Delaunay engine. For more information about "
+			"the usage of tetlib/tetgen and its command line "
+			"switches, see http://tetgen.berlios.de/. "
+			"More information about Elmer can be found from "
+			" http://www.csc.fi/elmer/. "
+			"Written by Mikko Lyly, 2008"));
+
+}
+
 
 
 // Mesh -> Control...
@@ -528,15 +555,12 @@ void MainWindow::makeElmerMesh()
 
   int *trifacelist = out.trifacelist;
 
-  std::cout << in.firstnumber << std::endl;
-  std::cout << out.firstnumber << std::endl;
-
   for(int i=0; i < mesh->boundaryelements; i++) {
     boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
 
-    if(out.trifacemarkerlist)
+    if(out.trifacemarkerlist) 
       boundaryelement->index = out.trifacemarkerlist[i];
-
+    
     int u = (*trifacelist++) - out.firstnumber;
     int v = (*trifacelist++) - out.firstnumber;
     int w = (*trifacelist++) - out.firstnumber;
@@ -588,6 +612,8 @@ void MainWindow::makeElmerMesh()
   // Compose new GL-objects:
   glWidget->objects = glWidget->makeObjects();
   glWidget->updateGL();
+
+  logMessage("Input file processed");
 }
 
 

@@ -59,10 +59,13 @@ void MeshingThread::run()
     
     if(abort)
       return;
+    
+    // Must be cleared:
+    delete [] out->trifacemarkerlist;
 
     out->initialize();    
     out->firstnumber = 1;
-
+    
     // Call tetgen:
     sprintf(ss, "%s", (const char*)(tetgenControlString.toAscii()));
     tetrahedralize(ss, in, out);
