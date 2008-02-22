@@ -324,7 +324,6 @@ GLuint GLWidget::makeObjects()
   boundaryconditions++;
 
   for(j=0; j<boundaryconditions; j++) {
-
     GLuint list = glGenLists(1);
     glNewList(list, GL_COMPILE);
     
@@ -383,7 +382,29 @@ GLuint GLWidget::makeObjects()
     glEnd();
   
     glEndList();
+
   }
 
   return boundaryconditions;
+}
+
+
+
+void GLWidget::clearMesh()
+{
+  if(mesh != (mesh_t*)NULL) {
+    if(mesh->element != (element_t*)NULL) 
+      delete [] mesh->element;
+    
+    if(mesh->boundaryelement != (boundaryelement_t*)NULL) 
+      delete [] mesh->boundaryelement;
+    
+    if(mesh->edge != (edge_t*)NULL) 
+      delete [] mesh->edge;
+    
+    if(mesh->node != (node_t*)NULL)
+      delete [] mesh->node;
+    
+    delete [] mesh;
+  }
 }

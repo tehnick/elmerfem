@@ -24,6 +24,8 @@ public:
     unsigned char *colorMap;
     GLint colorMapEntries;
 
+    void clearMesh();
+
 public slots:
 
 signals:

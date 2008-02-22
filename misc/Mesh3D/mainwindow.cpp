@@ -316,7 +316,7 @@ void MainWindow::saveElmerMesh(QString dirName)
   file.open(QIODevice::WriteOnly);
   QTextStream nodes(&file);
   
-  for(int i=0; i<mesh->nodes; i++) {
+  for(int i=0; i < mesh->nodes; i++) {
     node_t *node = &mesh->node[i];
 
     nodes << i+1 << " -1 ";
@@ -447,6 +447,7 @@ void MainWindow::readInputFile(QString fileName)
   QString baseFileName = absolutePath + "/" + baseName;
   sprintf(cs, "%s", (const char*)(baseFileName.toAscii()));
 
+  in.deinitialize();
   in.initialize();
 
   if(fileSuffix=="node") {
@@ -473,10 +474,10 @@ void MainWindow::makeElmerMesh()
 {
   Helpers helpers;
 
-  delete(glWidget->mesh);
+  glWidget->clearMesh();
   glWidget->mesh = new mesh_t;
   mesh_t *mesh = glWidget->mesh;
-
+  
   // Nodes:
   mesh->nodes = out.numberofpoints;
   mesh->node = new node_t[mesh->nodes];
@@ -558,7 +559,8 @@ void MainWindow::makeElmerMesh()
   for(int i=0; i < mesh->boundaryelements; i++) {
     boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
 
-    if(out.trifacemarkerlist) 
+    boundaryelement->index = 0;
+    if(out.trifacemarkerlist != (int*)NULL)
       boundaryelement->index = out.trifacemarkerlist[i];
     
     int u = (*trifacelist++) - out.firstnumber;
