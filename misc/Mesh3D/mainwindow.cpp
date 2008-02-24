@@ -155,9 +155,10 @@ void MainWindow::createActions()
 void MainWindow::showabout()
 {
   QMessageBox::about(this, tr("About Mesh3D"),
-		     tr("Mesh3D is a three dimensional tetrahedral finite "
-			"element mesh generator for Elmer. The program is "
-			"based on tetlib and nglib:\n\n"
+		     tr("Mesh3D is a preprocessor for three dimensional "
+			"modeling with Elmer finite element software. "
+			"The program uses tetlib and nglib as tetrahedral "
+			"Delaunay mesh generators:\n\n"
 			"http://tetgen.berlios.de/\n"
 			"http://www.hpfem.jku.at/netgen/\n"
 			"http://www.csc.fi/elmer/\n\n"
@@ -172,6 +173,7 @@ void MainWindow::meshcontrol()
 {
   meshControl->show();
 }
+
 
 
 // Edit -> Sif...
@@ -204,7 +206,9 @@ void MainWindow::remesh()
       logMessage("Remesh: error: no input data for tetlib");
       return;
     }
-    
+
+    tetlibControlString = meshControl->tetlibControlString;
+
   } else if(meshControl->generatorType == GEN_NGLIB) {
 
     if(!nglibInputOk) {
@@ -212,7 +216,17 @@ void MainWindow::remesh()
       return;
     }
 
-
+    char backgroundmesh[1024];
+    sprintf(backgroundmesh, "%s",
+	    (const char*)(meshControl->nglibBackgroundmesh.toAscii()));
+    
+    ngmesh = nglib::Ng_NewMesh();
+    
+    mp.maxh = meshControl->nglibMaxH.toDouble();
+    mp.fineness = meshControl->nglibFineness.toDouble();
+    mp.secondorder = 0;
+    mp.meshsize_filename = backgroundmesh;
+    
   } else {
 
     logMessage("Remesh: uknown generator type");
@@ -221,7 +235,6 @@ void MainWindow::remesh()
   }
 
   // Start meshing thread:
-  tetlibControlString = meshControl->tetlibControlString;
   int gt = meshControl->generatorType;
   meshingThread.generate(gt, tetlibControlString, in, out, ngmesh, nggeom, mp);
 
@@ -328,6 +341,11 @@ void MainWindow::saveElmerMesh(QString dirName)
   file.setFileName("mesh.header");
   file.open(QIODevice::WriteOnly);
   QTextStream header(&file);
+
+  std::cout << "Saving " << mesh->nodes << " nodes\n";
+  std::cout << "Saving " << mesh->elements << " elements\n";
+  std::cout << "Saving " << mesh->boundaryelements << " boundary elements\n";
+  std::cout.flush();
 
   header << mesh->nodes << " ";
   header << mesh->elements << " ";
@@ -465,7 +483,7 @@ void MainWindow::boundarySelected(int boundary)
 
 
 
-// Read input file and populate tetgen's in-structure:
+// Read input file and populate mesh generator's input structures:
 //-----------------------------------------------------------------------------
 void MainWindow::readInputFile(QString fileName)
 {
@@ -482,39 +500,37 @@ void MainWindow::readInputFile(QString fileName)
 
     in.deinitialize();
     in.initialize();
-    
-    if(fileSuffix=="node") {
+
+    if(fileSuffix == "node") {
       in.load_node(cs); 
-    } else if(fileSuffix=="smesh" || fileSuffix=="poly") {
+    } else if(fileSuffix == "smesh" || fileSuffix=="poly") {
       in.load_poly(cs);
-    } else if (fileSuffix=="stl") {
+    } else if (fileSuffix == "stl") {
       in.load_stl(cs); 
-    } else if (fileSuffix=="off") {
+    } else if (fileSuffix == "off") {
       in.load_off(cs); 
-    } else if (fileSuffix=="ply") {
+    } else if (fileSuffix == "ply") {
       in.load_ply(cs); 
-    } else if (fileSuffix=="mesh") {
+    } else if (fileSuffix == "mesh") {
       in.load_medit(cs);
+    } else {
+      logMessage("Read input file: error: illegal file type for tetlib");
+      tetlibInputOk = false;      
+      return;
     }
-    
+        
     tetlibInputOk = true;
 
   } else if (meshControl->generatorType==GEN_NGLIB) {    
 
     if(fileSuffix != "stl") {
-      logMessage("ReadInputFile: nglib: only stl format is supported");
+      logMessage("Read input file: error: illegan file type for nglib");
+      nglibInputOk = false;      
       return;
     }
 
-    mp.maxh = meshControl->nglibMaxH.toDouble();
-    mp.fineness = meshControl->nglibFineness.toDouble();
-    mp.secondorder = 0;
-    char backgroundmesh[1024];
-    sprintf(backgroundmesh, "%s", (const char*)(meshControl->nglibBackgroundmesh.toAscii()));
-    mp.meshsize_filename = backgroundmesh;
-
     nglib::Ng_Init();
-
+    
     nggeom = nglib::Ng_STL_LoadGeometry((const char*)(fileName.toAscii()));
     
     if (!nggeom) {
@@ -522,13 +538,11 @@ void MainWindow::readInputFile(QString fileName)
       // should we clear the Ng_structures before saying goodbye?
       return;
     }
-
+    
     int rv = nglib::Ng_STL_InitSTLGeometry(nggeom);
     std::cout << "InitSTLGeometry: NG_result=" << rv << std::endl;
     std::cout.flush();
-
-    ngmesh = nglib::Ng_NewMesh();
-
+    
     nglibInputOk = true;
 
   } else {
@@ -670,11 +684,16 @@ void MainWindow::makeElmerMeshFromTetlib()
   int *tetrahedronlist = out.tetrahedronlist;
 
   REAL *attribute = out.tetrahedronattributelist;
+  int na =  out.numberoftetrahedronattributes;
+  // std::cout << "Nof tet-attributes " << na << std::endl;
 
   for(int i=0; i< mesh->elements; i++) {
     element_t *element = &mesh->element[i];
 
-    element->index = (int)(*attribute++);
+    element->index = (int)attribute[na*(i+1)-1];
+    //element->index = (int)(*attribute++);
+    // std::cout << i << " " << element->index << "\n";
+    // std::cout.flush();
 
     element->vertex[0] = (*tetrahedronlist++) - out.firstnumber;
     element->vertex[1] = (*tetrahedronlist++) - out.firstnumber;
@@ -782,7 +801,6 @@ void MainWindow::makeElmerMeshFromNglib()
     boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
 
     boundaryelement->index = 1; // default
-    // ?????
     //boundaryelement->index = nglib::Ng_GetSurfaceElementSurfaceNumber(i+1);
 
     nglib::Ng_GetSurfaceElement(ngmesh, i+1, boundaryelement->vertex);
