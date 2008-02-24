@@ -1,27 +1,37 @@
 #ifndef MESHCONTROL_H
 #define MESHCONTROL_H
 
-#include <QtGui>
-#include <QWidget>
+#define GEN_TETLIB 1000
+#define GEN_NGLIB  1001
 
-class QPushButton;
+#include "ui_meshcontrol.h"
 
-class MeshControl : public QWidget
+class MeshControl : public QDialog
 {
   Q_OBJECT
-
+    
 public:
   MeshControl(QWidget *parent = 0);
   ~MeshControl();
 
-  QString tetgenControlString;
+  int generatorType;
+  QString tetlibControlString;
+  QString nglibMaxH;
+  QString nglibFineness;
+  QString nglibBackgroundmesh;
 
 private slots:
-  void defineControlString(const QString &qs);
-  void defaultControlString();
+  void tetlibClicked();
+  void nglibClicked(); 
+  void defineTetlibControlString(const QString &qs);
+  void defineNglibMaxH(const QString &qs);
+  void defineNglibFineness(const QString &qs);
+  void defineNglibBackgroundmesh(const QString &qs);
+  void defaultControls();
 
 private:
-  QLineEdit *meshControlEdit;
+  Ui::MeshcontrolForm ui;
+
 };
 
 #endif

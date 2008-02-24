@@ -3,43 +3,62 @@
 #include "meshcontrol.h"
 
 MeshControl::MeshControl(QWidget *parent)
-  : QWidget(parent)
+  : QDialog(parent)
 {
-  setWindowFlags(Qt::Drawer);
+  ui.setupUi(this);
 
-  QLabel *meshControlLabel = new QLabel(tr("tetlib control string:"));
-  meshControlEdit = new QLineEdit(this);
-  connect(meshControlEdit, SIGNAL(textChanged(const QString&)), this, SLOT(defineControlString(const QString&)));
+  connect(ui.tetlibRadioButton, SIGNAL(clicked()), this, SLOT(tetlibClicked()));
+  connect(ui.nglibRadioButton, SIGNAL(clicked()), this, SLOT(nglibClicked()));
+  connect(ui.tetlibStringEdit, SIGNAL(textChanged(const QString&)), this, SLOT(defineTetlibControlString(const QString&)));
+  connect(ui.nglibMaxHEdit, SIGNAL(textChanged(const QString&)), this, SLOT(defineNglibMaxH(const QString&)));
+  connect(ui.nglibFinenessEdit, SIGNAL(textChanged(const QString&)), this, SLOT(defineNglibFineness(const QString&)));
+  connect(ui.nglibBgmeshEdit, SIGNAL(textChanged(const QString&)), this, SLOT(defineNglibBackgroundmesh(const QString&)));
+  connect(ui.defaultsButton, SIGNAL(clicked()), this, SLOT(defaultControls()));
+  connect(ui.closeButton, SIGNAL(clicked()), this, SLOT(close()));
 
-  QPushButton *clearButton = new QPushButton(tr("&Default"));
-  connect(clearButton, SIGNAL(clicked()), this, SLOT(defaultControlString()));
-  
-  QPushButton *closeButton = new QPushButton(tr("&Close"));
-  connect(closeButton, SIGNAL(clicked()), this, SLOT(close()));
-
-  QVBoxLayout *layout = new QVBoxLayout;
-
-  layout->addWidget(meshControlLabel);
-  layout->addWidget(meshControlEdit);
-  layout->addWidget(clearButton);
-  layout->addWidget(closeButton);
-  setLayout(layout);
-  
-  defaultControlString();
-
-  setWindowTitle(tr("Mesh control"));
+  defaultControls();
 }
 
 MeshControl::~MeshControl()
 {
 }
 
-void MeshControl::defineControlString(const QString &qs)
+void MeshControl::tetlibClicked()
 {
-  tetgenControlString = qs;
+  generatorType = GEN_TETLIB;
 }
 
-void MeshControl::defaultControlString()
+void MeshControl::nglibClicked()
 {
-  meshControlEdit->setText("Jpq1.414V");  
+  generatorType = GEN_NGLIB;
+}
+
+void MeshControl::defineTetlibControlString(const QString &qs)
+{
+  tetlibControlString = qs;
+}
+
+void MeshControl::defineNglibMaxH(const QString &qs)
+{
+  nglibMaxH = qs;
+}
+
+void MeshControl::defineNglibFineness(const QString &qs)
+{
+  nglibFineness = qs;
+}
+
+void MeshControl::defineNglibBackgroundmesh(const QString &qs)
+{
+  nglibBackgroundmesh = qs;
+}
+
+void MeshControl::defaultControls()
+{
+  ui.tetlibRadioButton->setChecked(true);
+  generatorType = GEN_TETLIB;
+  ui.tetlibStringEdit->setText("JApq1.414V");
+  ui.nglibMaxHEdit->setText("1000000");
+  ui.nglibFinenessEdit->setText("0.5");
+  ui.nglibBgmeshEdit->setText("");
 }

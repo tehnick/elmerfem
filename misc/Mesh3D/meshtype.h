@@ -5,10 +5,14 @@
 
 typedef struct {
   double x[3];
+  int index;
 } node_t;
 
 typedef struct {
   int vertex[2];
+  double normal[3];
+  int parent[2];
+  int index;
 } edge_t;
 
 typedef struct {
@@ -20,6 +24,7 @@ typedef struct {
 
 typedef struct {
   int vertex[4];
+  int index;
 } element_t;
 
 typedef struct {

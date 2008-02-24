@@ -1,16 +1,18 @@
 #include <QtGui>
 #include <QFile>
 #include <iostream>
+#include <fstream>
+
 #include "mainwindow.h"
 #include "glwidget.h"
 #include "meshingthread.h"
 #include "sifwindow.h"
 #include "meshcontrol.h"
-#include <tetgen.h>
+
 
 
 // Construct main window...
-//---------------------------
+//-----------------------------------------------------------------------------
 MainWindow::MainWindow()
 {
   glWidget = new GLWidget;
@@ -25,25 +27,28 @@ MainWindow::MainWindow()
   createToolBars();
   createStatusBar();
   
-  setWindowTitle(tr("Mesh3D"));
+  setWindowTitle(tr("Elmer Mesh3D (experimental)"));
 
   // glWidget emits (int) when a boundary is selected by double clicking:
   connect(glWidget, SIGNAL(selectedBoundary(int)), this, SLOT(boundarySelected(int)));
 
   // meshing thread emits (void) when the mesh generation is completed:
   connect(&meshingThread, SIGNAL(generatorFinished()), this, SLOT(meshOk()));
+
+  tetlibInputOk = false;
+  nglibInputOk = false;
 }
 
 
-// Dtor...
-//---------
+// dtor...
+//-----------------------------------------------------------------------------
 MainWindow::~MainWindow()
 {
 }
 
 
 // Create status bar...
-//----------------------
+//-----------------------------------------------------------------------------
 void MainWindow::createStatusBar()
 {
     statusBar()->showMessage(tr("Ready"));
@@ -51,7 +56,7 @@ void MainWindow::createStatusBar()
 
 
 // Create menus...
-//-----------------
+//-----------------------------------------------------------------------------
 void MainWindow::createMenus()
 {
   // File menu
@@ -80,7 +85,7 @@ void MainWindow::createMenus()
 
 
 // Create tool bars...
-//---------------------
+//-----------------------------------------------------------------------------
 void MainWindow::createToolBars()
 {
   // File toolbar
@@ -92,7 +97,7 @@ void MainWindow::createToolBars()
 
 
 // Create actions...
-//-------------------
+//-----------------------------------------------------------------------------
 void MainWindow::createActions()
 {
   // File -> Open file
@@ -145,24 +150,24 @@ void MainWindow::createActions()
 
 
 
+// About dialog...
+//-----------------------------------------------------------------------------
 void MainWindow::showabout()
 {
   QMessageBox::about(this, tr("About Mesh3D"),
-		     tr("Mesh3D is a three dimensional finite element mesh "
-			"generator for Elmer. The program uses tetlib/tetgen "
-			"as the Delaunay engine. For more information about "
-			"the usage of tetlib/tetgen and its command line "
-			"switches, see http://tetgen.berlios.de/. "
-			"More information about Elmer can be found from "
-			" http://www.csc.fi/elmer/. "
+		     tr("Mesh3D is a three dimensional tetrahedral finite "
+			"element mesh generator for Elmer. The program is "
+			"based on tetlib and nglib:\n\n"
+			"http://tetgen.berlios.de/\n"
+			"http://www.hpfem.jku.at/netgen/\n"
+			"http://www.csc.fi/elmer/\n\n"
 			"Written by Mikko Lyly, 2008"));
-
 }
 
 
 
 // Mesh -> Control...
-//--------------------
+//-----------------------------------------------------------------------------
 void MainWindow::meshcontrol()
 {
   meshControl->show();
@@ -170,7 +175,7 @@ void MainWindow::meshcontrol()
 
 
 // Edit -> Sif...
-//---------------------
+//-----------------------------------------------------------------------------
 void MainWindow::showsif()
 {
   sifWindow->show();
@@ -179,7 +184,7 @@ void MainWindow::showsif()
 
 
 // Log message...
-//-----------------------
+//-----------------------------------------------------------------------------
 void MainWindow::logMessage(QString message)
 {
   std::cout << std::string(message.toAscii()) << std::endl;
@@ -190,17 +195,35 @@ void MainWindow::logMessage(QString message)
 
 
 // Mesh -> Remesh...
-//------------------
+//-----------------------------------------------------------------------------
 void MainWindow::remesh()
 {
-  if(in.numberofpoints==0) {
-    logMessage("Remesh: error: no input data");
+  if(meshControl->generatorType == GEN_TETLIB) {
+
+    if(!tetlibInputOk) {
+      logMessage("Remesh: error: no input data for tetlib");
+      return;
+    }
+    
+  } else if(meshControl->generatorType == GEN_NGLIB) {
+
+    if(!nglibInputOk) {
+      logMessage("Remesh: error: no input data for nglib");
+      return;
+    }
+
+
+  } else {
+
+    logMessage("Remesh: uknown generator type");
     return;
+
   }
 
   // Start meshing thread:
-  tetgenControlString = meshControl->tetgenControlString;
-  meshingThread.generate(tetgenControlString, in, out);
+  tetlibControlString = meshControl->tetlibControlString;
+  int gt = meshControl->generatorType;
+  meshingThread.generate(gt, tetlibControlString, in, out, ngmesh, nggeom, mp);
 
   logMessage("Mesh generation initiated");
   statusBar()->showMessage(tr("Generating mesh..."));
@@ -209,14 +232,25 @@ void MainWindow::remesh()
 
 
 
-// Mesh is ready (slot receives signal from MeshingThread::run):
-//--------------------------------------------------------------
+// Mesh is ready (signaled by MeshingThread::run):
+//-----------------------------------------------------------------------------
 void MainWindow::meshOk()
 {
   logMessage("Mesh generation completed");
 
-  // The rest is done in the main thread:
-  makeElmerMesh();
+  if(meshControl->generatorType == GEN_TETLIB) {
+
+    makeElmerMeshFromTetlib();
+
+  } else if(meshControl->generatorType == GEN_NGLIB) {
+    
+    makeElmerMeshFromNglib();
+
+  } else {
+    
+    logMessage("MeshOk: error: unknown mesh generator");
+
+  }
 
   statusBar()->showMessage(tr("Ready"));
 }
@@ -225,42 +259,32 @@ void MainWindow::meshOk()
 
 
 // File -> Open...
-//------------------
+//-----------------------------------------------------------------------------
 void MainWindow::open()
 {
   QString fileName = QFileDialog::getOpenFileName(this);
 
   if (!fileName.isEmpty()) {
-    logMessage("Opening file " + fileName);
     
     QFileInfo fi(fileName);
     QString absolutePath = fi.absolutePath();
     QDir::setCurrent(absolutePath);
-
+    
   } else {
+    
     logMessage("Unable to open file: file name is empty");
     return;
+
   }
   
   readInputFile(fileName);
-
-  if(!in.numberofpoints) {
-    logMessage("Nothing to mesh");
-    return;
-  }
-
-  // Launch meshing thread:
-  tetgenControlString = meshControl->tetgenControlString;
-  meshingThread.generate(tetgenControlString, in, out);
-  
-  logMessage("Mesh generation initiated");
-  statusBar()->showMessage(tr("Generating mesh..."));
+  remesh();
 }
 
 
 
 // File -> Save...
-//------------------
+//-----------------------------------------------------------------------------
 void MainWindow::save()
 {
   if(glWidget->mesh==NULL) {
@@ -271,10 +295,14 @@ void MainWindow::save()
   QString dirName = QFileDialog::getExistingDirectory(this);
 
   if (!dirName.isEmpty()) {
+
     logMessage("Output directory " + dirName);
+
   } else {
+
     logMessage("Unable to save: directory undefined");
     return;
+
   }
   
   saveElmerMesh(dirName);
@@ -284,7 +312,7 @@ void MainWindow::save()
 
 
 // Write out mesh files in elmer-format:
-//---------------------------------------
+//-----------------------------------------------------------------------------
 void MainWindow::saveElmerMesh(QString dirName)
 {
   logMessage("Saving elmer mesh files");
@@ -335,7 +363,12 @@ void MainWindow::saveElmerMesh(QString dirName)
   for(int i=0; i < mesh->elements; i++) {
     element_t *element = &mesh->element[i];
 
-    elements << i+1 << " 1" << " 504 ";
+    int index = element->index;
+
+    if(index<=0)
+      index=1;
+
+    elements << i+1 << " " << index << " 504 ";
     elements << element->vertex[0]+1 << " ";
     elements << element->vertex[1]+1 << " ";
     elements << element->vertex[2]+1 << " ";
@@ -394,15 +427,13 @@ void MainWindow::saveElmerMesh(QString dirName)
 
 
 
-// This slot receives signal (int) from glWidget::select
-// when a boundary has been selected by double clicking:
-//-------------------------------------------------------
+// Boundady selected by double clicking (signaled by glWidget::select):
+//-----------------------------------------------------------------------------
 void MainWindow::boundarySelected(int boundary)
 {
   if( boundary > -1 ) {
     QString qs = "Selected boundary " + QString::number(boundary);
     statusBar()->showMessage(qs);
-    // logMessage(qs);
   } else {
     QString qs = "Ready";;
     statusBar()->showMessage(qs);    
@@ -435,7 +466,7 @@ void MainWindow::boundarySelected(int boundary)
 
 
 // Read input file and populate tetgen's in-structure:
-//-----------------------------------------------------
+//-----------------------------------------------------------------------------
 void MainWindow::readInputFile(QString fileName)
 {
   char cs[1024];
@@ -447,30 +478,72 @@ void MainWindow::readInputFile(QString fileName)
   QString baseFileName = absolutePath + "/" + baseName;
   sprintf(cs, "%s", (const char*)(baseFileName.toAscii()));
 
-  in.deinitialize();
-  in.initialize();
+  if(meshControl->generatorType==GEN_TETLIB) {
 
-  if(fileSuffix=="node") {
-    in.load_node(cs); 
-  } else if(fileSuffix=="smesh" || fileSuffix=="poly") {
-    in.load_poly(cs);
-    in.load_mtr(cs); // only if control string contains 'm'
-  } else if (fileSuffix=="stl") {
-    in.load_stl(cs); 
-  } else if (fileSuffix=="off") {
-    in.load_off(cs); 
-  } else if (fileSuffix=="ply") {
-    in.load_ply(cs); 
-  } else if (fileSuffix=="mesh") {
-    in.load_medit(cs);
+    in.deinitialize();
+    in.initialize();
+    
+    if(fileSuffix=="node") {
+      in.load_node(cs); 
+    } else if(fileSuffix=="smesh" || fileSuffix=="poly") {
+      in.load_poly(cs);
+    } else if (fileSuffix=="stl") {
+      in.load_stl(cs); 
+    } else if (fileSuffix=="off") {
+      in.load_off(cs); 
+    } else if (fileSuffix=="ply") {
+      in.load_ply(cs); 
+    } else if (fileSuffix=="mesh") {
+      in.load_medit(cs);
+    }
+    
+    tetlibInputOk = true;
+
+  } else if (meshControl->generatorType==GEN_NGLIB) {    
+
+    if(fileSuffix != "stl") {
+      logMessage("ReadInputFile: nglib: only stl format is supported");
+      return;
+    }
+
+    mp.maxh = meshControl->nglibMaxH.toDouble();
+    mp.fineness = meshControl->nglibFineness.toDouble();
+    mp.secondorder = 0;
+    char backgroundmesh[1024];
+    sprintf(backgroundmesh, "%s", (const char*)(meshControl->nglibBackgroundmesh.toAscii()));
+    mp.meshsize_filename = backgroundmesh;
+
+    nglib::Ng_Init();
+
+    nggeom = nglib::Ng_STL_LoadGeometry((const char*)(fileName.toAscii()));
+    
+    if (!nggeom) {
+      logMessage("Ng_STL_LoadGeometry failed");
+      // should we clear the Ng_structures before saying goodbye?
+      return;
+    }
+
+    int rv = nglib::Ng_STL_InitSTLGeometry(nggeom);
+    std::cout << "InitSTLGeometry: NG_result=" << rv << std::endl;
+    std::cout.flush();
+
+    ngmesh = nglib::Ng_NewMesh();
+
+    nglibInputOk = true;
+
+  } else {
+
+    logMessage("ReadInputFile: error: unknown mesh generator");
+    return;
+
   }
 }
+  
 
 
-
-// Populate elmer's mesh structure and make GL-object:
-//-----------------------------------------------------
-void MainWindow::makeElmerMesh()
+// Populate elmer's mesh structure and make GL-objects (tetlib):
+//-----------------------------------------------------------------------------
+void MainWindow::makeElmerMeshFromTetlib()
 {
   Helpers helpers;
 
@@ -559,7 +632,7 @@ void MainWindow::makeElmerMesh()
   for(int i=0; i < mesh->boundaryelements; i++) {
     boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
 
-    boundaryelement->index = 0;
+    boundaryelement->index = 1; // default
     if(out.trifacemarkerlist != (int*)NULL)
       boundaryelement->index = out.trifacemarkerlist[i];
     
@@ -596,9 +669,13 @@ void MainWindow::makeElmerMesh()
 
   int *tetrahedronlist = out.tetrahedronlist;
 
+  REAL *attribute = out.tetrahedronattributelist;
+
   for(int i=0; i< mesh->elements; i++) {
     element_t *element = &mesh->element[i];
-    
+
+    element->index = (int)(*attribute++);
+
     element->vertex[0] = (*tetrahedronlist++) - out.firstnumber;
     element->vertex[1] = (*tetrahedronlist++) - out.firstnumber;
     element->vertex[2] = (*tetrahedronlist++) - out.firstnumber;
@@ -619,8 +696,152 @@ void MainWindow::makeElmerMesh()
 }
 
 
+// Populate elmer's mesh structure and make GL-objects (nglib):
+//-----------------------------------------------------------------------------
+void MainWindow::makeElmerMeshFromNglib()
+{
+  Helpers helpers;
+  
+  glWidget->clearMesh();
+  glWidget->mesh = new mesh_t;
+  mesh_t *mesh = glWidget->mesh;
+  
+  // Nodes:
+  mesh->nodes = nglib::Ng_GetNP(ngmesh);
+  mesh->node = new node_t[mesh->nodes];
+  
+  double xmin = +9e9;
+  double xmax = -9e9;
+
+  double ymin = +9e9;
+  double ymax = -9e9;
+
+  double zmin = +9e9;
+  double zmax = -9e9;
+
+  for(int i=0; i < mesh->nodes; i++) {
+    node_t *node = &mesh->node[i];
+
+    nglib::Ng_GetPoint(ngmesh, i+1, node->x);
+    
+    if(node->x[0] > xmax) 
+      xmax = node->x[0];
+    
+    if(node->x[0] < xmin) 
+      xmin = node->x[0];
+    
+    if(node->x[1] > ymax) 
+      ymax = node->x[1];
+
+    if(node->x[1] < ymin) 
+      ymin = node->x[1];
+
+    if(node->x[2] > zmax) 
+      zmax = node->x[2];
+
+    if(node->x[2] < zmin) 
+      zmin = node->x[2];
+  }
+
+  double xmid = (xmax+xmin)/2.0;
+  double ymid = (ymax+ymin)/2.0;
+  double zmid = (zmax+zmin)/2.0;
+
+  double xlen = (xmax-xmin)/2.0;
+  double ylen = (ymax-ymin)/2.0;
+  double zlen = (zmax-zmin)/2.0;
+
+  double s = xlen;
+
+  if(ylen > s)
+    s = ylen;
+
+  if(zlen > s)
+    s = zlen;
+
+  s *= 2.0;
+  
+  // Scale to fit unit cube:
+  for(int i=0; i < mesh->nodes; i++) {
+    node_t *node = &mesh->node[i];
+
+    node->x[0] -= xmid;
+    node->x[1] -= ymid;
+    node->x[2] -= zmid;
+
+    node->x[0] /= s;
+    node->x[1] /= s;
+    node->x[2] /= s;
+  }
+
+  // Boundary elements:				       
+  mesh->boundaryelements = nglib::Ng_GetNSE(ngmesh);
+  mesh->boundaryelement = new boundaryelement_t[mesh->boundaryelements];
+
+  for(int i=0; i < mesh->boundaryelements; i++) {
+    boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
+
+    boundaryelement->index = 1; // default
+    // ?????
+    //boundaryelement->index = nglib::Ng_GetSurfaceElementSurfaceNumber(i+1);
+
+    nglib::Ng_GetSurfaceElement(ngmesh, i+1, boundaryelement->vertex);
+    
+    int u = --boundaryelement->vertex[0];
+    int v = --boundaryelement->vertex[1];
+    int w = --boundaryelement->vertex[2];
+
+    // Normal:
+    static double a[3], b[3], c[3];
+
+    a[0] = mesh->node[v].x[0] - mesh->node[u].x[0];
+    a[1] = mesh->node[v].x[1] - mesh->node[u].x[1];
+    a[2] = mesh->node[v].x[2] - mesh->node[u].x[2];
+
+    b[0] = mesh->node[w].x[0] - mesh->node[u].x[0];
+    b[1] = mesh->node[w].x[1] - mesh->node[u].x[1];
+    b[2] = mesh->node[w].x[2] - mesh->node[u].x[2];
+
+    helpers.crossProduct(a,b,c);
+    helpers.normalize(c);
+
+    boundaryelement->normal[0] = c[0];
+    boundaryelement->normal[1] = c[1];
+    boundaryelement->normal[2] = c[2];
+  }
+
+  // Elements:
+  mesh->elements = nglib:: Ng_GetNE(ngmesh);
+  mesh->element = new element_t[mesh->elements];
+
+  for(int i=0; i< mesh->elements; i++) {
+    element_t *element = &mesh->element[i];
+
+    nglib::Ng_GetVolumeElement(ngmesh, i+1, element->vertex);
+    
+    element->vertex[0]--;
+    element->vertex[1]--;
+    element->vertex[2]--;
+    element->vertex[3]--;
+  }
+
+  // Delete old objects, if any:
+  if(glWidget->objects) {
+    glDeleteLists(1, glWidget->objects);
+    glWidget->objects = 0;
+  }
+
+  // Compose new GL-objects:
+  glWidget->objects = glWidget->makeObjects();
+  glWidget->updateGL();
+
+  logMessage("Input file processed");
+}
 
 
+
+// Make solver input file for steady heat conduction...
+//-----------------------------------------------------------------------------
 void MainWindow::makeSteadyHeatSif()
 {
   if(glWidget->mesh==NULL) {

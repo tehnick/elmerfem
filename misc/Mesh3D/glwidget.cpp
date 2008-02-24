@@ -9,10 +9,13 @@
 #include "mainwindow.h"
 
 
+// Construct glWidget...
+//-----------------------------------------------------------------------------
 GLWidget::GLWidget(QWidget *parent)
   : QGLWidget(parent)
 {
-  backgroundColor = QColor::fromRgb(192, 192, 192, 255);
+  backgroundColor = QColor::fromRgb(255, 255, 255, 255);
+  // backgroundColor = QColor::fromRgb(192, 192, 192, 255);
   objects = 0;
   colorMapEntries = 0;
 
@@ -20,6 +23,9 @@ GLWidget::GLWidget(QWidget *parent)
 }
 
 
+
+// dtor...
+//-----------------------------------------------------------------------------
 GLWidget::~GLWidget()
 {
   makeCurrent();
@@ -28,18 +34,27 @@ GLWidget::~GLWidget()
   delete(mesh);
 }
 
+
+
+// Min size hint...
+//-----------------------------------------------------------------------------
 QSize GLWidget::minimumSizeHint() const
 {
   return QSize(64, 64);
 }
 
 
+
+// Default size...
+//-----------------------------------------------------------------------------
 QSize GLWidget::sizeHint() const
 {
   return QSize(720, 576);
 }
 
 
+// Init GL...
+//-----------------------------------------------------------------------------
 void GLWidget::initializeGL()
 {
   static GLfloat light_ambient[]  = {0.0, 0.0, 0.0, 1.0};
@@ -74,7 +89,6 @@ void GLWidget::initializeGL()
   glEnable(GL_LINE_SMOOTH);
 
   // Set up colormap:
-  //-----------------
   glEnable(GL_TEXTURE_1D);
   glGetIntegerv(GL_MAX_TEXTURE_SIZE, &colorMapEntries);
 
@@ -104,6 +118,9 @@ void GLWidget::initializeGL()
 }
 
 
+
+// Make virgin colormap...
+//-----------------------------------------------------------------------------
 void GLWidget::clearColorMap()
 {
   unsigned char *cm = colorMap;
@@ -122,6 +139,8 @@ void GLWidget::clearColorMap()
 }
 
 
+// Paint event...
+//-----------------------------------------------------------------------------
 void GLWidget::paintGL()
 {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -136,6 +155,8 @@ void GLWidget::paintGL()
 }
 
 
+// Resize window...
+//-----------------------------------------------------------------------------
 void GLWidget::resizeGL(int width, int height)
 {
   double _top = 1.0;
@@ -153,12 +174,18 @@ void GLWidget::resizeGL(int width, int height)
 }
 
 
+
+// Mouse button clicked...
+//-----------------------------------------------------------------------------
 void GLWidget::mousePressEvent(QMouseEvent *event)
 {
   lastPos = event->pos();
 }
 
 
+
+// Mouse wheel rotates...
+//-----------------------------------------------------------------------------
 void GLWidget::wheelEvent(QWheelEvent *event)
 {
   double s = exp(-(double)(event->delta())*0.001);
@@ -169,6 +196,8 @@ void GLWidget::wheelEvent(QWheelEvent *event)
 }
 
 
+// Mouse moves...
+//-----------------------------------------------------------------------------
 void GLWidget::mouseMoveEvent(QMouseEvent *event)
 {
   GLint viewport[4];
@@ -180,7 +209,6 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
   if (event->buttons() & Qt::LeftButton) {
     
     // Rotation:
-    //----------
     double ax = -(double)dy;
     double ay = (double)dx;
     double az = 0.0;
@@ -194,7 +222,6 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
   } else if (event->buttons() & Qt::RightButton) {
 
     // Translation:
-    //--------------
     double s = 2.0/(double)(viewport[3]+1);
     double ax = s*dx;
     double ay = s*dy;
@@ -207,7 +234,6 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
   } else if (event->buttons() & Qt::MidButton) {
 
     // Scale:
-    //--------
     double s = exp(dy*0.01);
     glScaled(s, s, s);
     updateGL();
@@ -218,6 +244,9 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
 }
 
 
+
+// Mouse button double clicked...
+//-----------------------------------------------------------------------------
 void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
 {
   static GLuint buffer[1024];
@@ -273,7 +302,6 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
   glMatrixMode(GL_MODELVIEW);
 
   // Highlight the selected boundary by redefining the colormap:
-  //------------------------------------------------------------
   clearColorMap();
 
   if(nearest != 0xffffffff) {
@@ -299,6 +327,9 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
 }
 
 
+
+// Get current matrix and its inverse...
+//-----------------------------------------------------------------------------
 void GLWidget::getMatrix()
 {
   glGetDoublev(GL_MODELVIEW_MATRIX, matrix);
@@ -306,13 +337,15 @@ void GLWidget::getMatrix()
 }
 
 
+
+// Compose GL object lists...
+//-----------------------------------------------------------------------------
 GLuint GLWidget::makeObjects()
 {
   int i, j, boundaryconditions;
   boundaryelement_t *boundaryelement;
 
   // First, scan boundary elements to determine the biggest index:
-  //---------------------------------------------------------------
   boundaryconditions = 0;
   for(i=0; i < mesh->boundaryelements; i++) {
     boundaryelement = &mesh->boundaryelement[i];
@@ -390,6 +423,8 @@ GLuint GLWidget::makeObjects()
 
 
 
+// Delete mesh...
+//-----------------------------------------------------------------------------
 void GLWidget::clearMesh()
 {
   if(mesh != (mesh_t*)NULL) {
