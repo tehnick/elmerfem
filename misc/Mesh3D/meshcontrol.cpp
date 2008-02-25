@@ -57,7 +57,7 @@ void MeshControl::defaultControls()
 {
   ui.tetlibRadioButton->setChecked(true);
   generatorType = GEN_TETLIB;
-  ui.tetlibStringEdit->setText("JApq1.414V");
+  ui.tetlibStringEdit->setText("nnJApq1.414V");
   ui.nglibMaxHEdit->setText("1000000");
   ui.nglibFinenessEdit->setText("0.5");
   ui.nglibBgmeshEdit->setText("");

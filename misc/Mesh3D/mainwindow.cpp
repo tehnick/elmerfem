@@ -207,6 +207,7 @@ void MainWindow::remesh()
       return;
     }
 
+    // must have "J" in control string:
     tetlibControlString = meshControl->tetlibControlString;
 
   } else if(meshControl->generatorType == GEN_NGLIB) {
@@ -365,7 +366,9 @@ void MainWindow::saveElmerMesh(QString dirName)
   for(int i=0; i < mesh->nodes; i++) {
     node_t *node = &mesh->node[i];
 
-    nodes << i+1 << " -1 ";
+    int index = node->index;
+
+    nodes << i+1 << " " << index << " ";
     nodes << node->x[0] << " ";
     nodes << node->x[1] << " ";
     nodes << node->x[2] << "\n";
@@ -383,8 +386,8 @@ void MainWindow::saveElmerMesh(QString dirName)
 
     int index = element->index;
 
-    if(index<=0)
-      index=1;
+    if(index < 1)
+      index = 1;
 
     elements << i+1 << " " << index << " 504 ";
     elements << element->vertex[0]+1 << " ";
@@ -403,8 +406,14 @@ void MainWindow::saveElmerMesh(QString dirName)
   for(int i=0; i < mesh->boundaryelements; i++) {
     boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
 
-    int parent1 = 0;
-    int parent2 = 0;
+    int parent1 = boundaryelement->parent[0];
+    int parent2 = boundaryelement->parent[1];
+
+    if(parent1 < 0)
+      parent1 = 0;
+
+    if(parent2 < 0)
+      parent2 = 0;
 
     boundary << i+1 << " ";
     boundary << boundaryelement->index << " ";
@@ -423,7 +432,6 @@ void MainWindow::saveElmerMesh(QString dirName)
   file.open(QIODevice::WriteOnly);
   QTextStream sif(&file);
 
-  
   QApplication::setOverrideCursor(Qt::WaitCursor);
   sif << sifWindow->textEdit->toPlainText();
   QApplication::restoreOverrideCursor();
@@ -450,11 +458,15 @@ void MainWindow::saveElmerMesh(QString dirName)
 void MainWindow::boundarySelected(int boundary)
 {
   if( boundary > -1 ) {
+
     QString qs = "Selected boundary " + QString::number(boundary);
     statusBar()->showMessage(qs);
+
   } else {
+
     QString qs = "Ready";;
     statusBar()->showMessage(qs);    
+
   }
 
   // Find the boundary condition block in sif:
@@ -501,9 +513,7 @@ void MainWindow::readInputFile(QString fileName)
     in.deinitialize();
     in.initialize();
 
-    if(fileSuffix == "node") {
-      in.load_node(cs); 
-    } else if(fileSuffix == "smesh" || fileSuffix=="poly") {
+    if(fileSuffix == "smesh" || fileSuffix=="poly") {
       in.load_poly(cs);
     } else if (fileSuffix == "stl") {
       in.load_stl(cs); 
@@ -586,6 +596,8 @@ void MainWindow::makeElmerMeshFromTetlib()
     node->x[0] = *pointlist++;
     node->x[1] = *pointlist++;
     node->x[2] = *pointlist++;
+
+    node->index = -1; // default
     
     if(node->x[0] > xmax) 
       xmax = node->x[0];
@@ -637,11 +649,16 @@ void MainWindow::makeElmerMeshFromTetlib()
     node->x[2] /= s;
   }
 
+  // Edges:
+  mesh->edges = 0;
+  mesh->edge = new edge_t[0];
+
   // Boundary elements:
   mesh->boundaryelements = out.numberoftrifaces;
   mesh->boundaryelement = new boundaryelement_t[mesh->boundaryelements];
 
   int *trifacelist = out.trifacelist;
+  int *adjtetlist = out.adjtetlist;
 
   for(int i=0; i < mesh->boundaryelements; i++) {
     boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
@@ -649,7 +666,15 @@ void MainWindow::makeElmerMeshFromTetlib()
     boundaryelement->index = 1; // default
     if(out.trifacemarkerlist != (int*)NULL)
       boundaryelement->index = out.trifacemarkerlist[i];
-    
+
+    boundaryelement->parent[0] = -1; // default
+    boundaryelement->parent[1] = -1;
+    // must have "nn" in control string:
+    if(out.adjtetlist != (int*)NULL) {
+      boundaryelement->parent[0] = *adjtetlist++;
+      boundaryelement->parent[1] = *adjtetlist++;
+    }
+
     int u = (*trifacelist++) - out.firstnumber;
     int v = (*trifacelist++) - out.firstnumber;
     int w = (*trifacelist++) - out.firstnumber;
@@ -682,23 +707,21 @@ void MainWindow::makeElmerMeshFromTetlib()
   mesh->element = new element_t[mesh->elements];
 
   int *tetrahedronlist = out.tetrahedronlist;
-
   REAL *attribute = out.tetrahedronattributelist;
   int na =  out.numberoftetrahedronattributes;
-  // std::cout << "Nof tet-attributes " << na << std::endl;
 
   for(int i=0; i< mesh->elements; i++) {
     element_t *element = &mesh->element[i];
-
-    element->index = (int)attribute[na*(i+1)-1];
-    //element->index = (int)(*attribute++);
-    // std::cout << i << " " << element->index << "\n";
-    // std::cout.flush();
 
     element->vertex[0] = (*tetrahedronlist++) - out.firstnumber;
     element->vertex[1] = (*tetrahedronlist++) - out.firstnumber;
     element->vertex[2] = (*tetrahedronlist++) - out.firstnumber;
     element->vertex[3] = (*tetrahedronlist++) - out.firstnumber;
+
+    element->index = 1; // default
+    // must have "A" in control string:
+    if(out.tetrahedronattributelist != (REAL*)NULL) 
+      element->index = (int)attribute[na*(i+1)-1];
   }
 
   // Delete old objects, if any:
@@ -742,7 +765,9 @@ void MainWindow::makeElmerMeshFromNglib()
     node_t *node = &mesh->node[i];
 
     nglib::Ng_GetPoint(ngmesh, i+1, node->x);
-    
+
+    node->index = -1; // default
+
     if(node->x[0] > xmax) 
       xmax = node->x[0];
     
@@ -793,6 +818,10 @@ void MainWindow::makeElmerMeshFromNglib()
     node->x[2] /= s;
   }
 
+  // Edges:
+  mesh->edges = 0;
+  mesh->edge = new edge_t[0];
+
   // Boundary elements:				       
   mesh->boundaryelements = nglib::Ng_GetNSE(ngmesh);
   mesh->boundaryelement = new boundaryelement_t[mesh->boundaryelements];
@@ -801,7 +830,9 @@ void MainWindow::makeElmerMeshFromNglib()
     boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
 
     boundaryelement->index = 1; // default
-    //boundaryelement->index = nglib::Ng_GetSurfaceElementSurfaceNumber(i+1);
+
+    boundaryelement->parent[0] = -1; 
+    boundaryelement->parent[1] = -1;
 
     nglib::Ng_GetSurfaceElement(ngmesh, i+1, boundaryelement->vertex);
     
@@ -841,6 +872,8 @@ void MainWindow::makeElmerMeshFromNglib()
     element->vertex[1]--;
     element->vertex[2]--;
     element->vertex[3]--;
+
+    element->index = 1; // default
   }
 
   // Delete old objects, if any:
@@ -869,7 +902,7 @@ void MainWindow::makeSteadyHeatSif()
 
   QTextEdit *textEdit = sifWindow->textEdit;
 
-  textEdit->append("! Sif skeleton for heat conduction\n");
+  textEdit->append("! Sif skeleton for steady heat conduction\n");
 
   textEdit->append("Header");
   textEdit->append("  CHECK KEYWORDS Warn");
