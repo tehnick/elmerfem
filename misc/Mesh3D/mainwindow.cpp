@@ -83,7 +83,7 @@ void MainWindow::loadPlugins()
     std::cout << "Unable to get proc address for 'tetgenio'\n";
     std::cout.flush();
 #ifndef WIN32
-    dclose(hTetgen);
+    dlclose(hTetlib);
 #endif
     return;
   }

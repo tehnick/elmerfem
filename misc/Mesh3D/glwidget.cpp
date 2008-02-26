@@ -99,9 +99,10 @@ void GLWidget::initializeGL()
   std::cout << "Colormap entries: " << colorMapEntries << std::endl;
   std::cout.flush();
 
-  delete(colorMap);
+  // delete(colorMap);
   colorMap = new unsigned char[3*colorMapEntries];
   clearColorMap();
+
 
   glTexParameterf(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
   glTexParameterf(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
