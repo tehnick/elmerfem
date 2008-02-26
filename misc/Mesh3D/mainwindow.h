@@ -4,13 +4,19 @@
 #define GEN_TETLIB 1000
 #define GEN_NGLIB  1001
 
+#ifdef WIN32
+#include <windows.h>
+#else
+#include <dlfcn.h>
+#endif
+
 #include <QMainWindow>
 #include "glwidget.h"
 #include "meshingthread.h"
 #include "sifwindow.h"
 #include "meshcontrol.h"
 
-#include <tetgen.h>
+#include "tetgen.h"
 
 namespace nglib {
 #include <nglib.h>
@@ -66,11 +72,21 @@ private:
   QAction *meshcontrolAct;    // Mesh -> Control...
   QAction *aboutAct;          // Help -> About...
 
+  // tetlib:
+  typedef tetgenio* (*tetgenio_t)();
+  tetgenio_t ptetgenio;
+#ifdef WIN32
+  HINSTANCE hTetlib;
+#else
+  void *hTetlib;
+#endif
   QString tetlibControlString;
-  tetgenio in;
-  tetgenio out;
+  tetgenio *in;
+  tetgenio *out;
   bool tetlibInputOk;
-
+  bool tetlibPresent;
+  
+  // nglib:
   nglib::Ng_Mesh *ngmesh;
   nglib::Ng_STL_Geometry *nggeom;
   nglib::Ng_Meshing_Parameters mp;
@@ -78,12 +94,12 @@ private:
 
   MeshingThread meshingThread;
   
+  void loadPlugins();
   void readInputFile(QString fileName);
   void saveElmerMesh(QString dirName);
   void makeElmerMeshFromTetlib();
   void makeElmerMeshFromNglib();
   void logMessage(QString message);
-
 };
 
 #endif

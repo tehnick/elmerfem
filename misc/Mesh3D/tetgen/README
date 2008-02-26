@@ -1,0 +1,47 @@
+Using tetgen with Mesh3D requires modification of tetgen's original files.
+The modified files are then used to create an explicitely linkable shared
+library (for dynamical linking at run-time).
+
+The modifications are availables as pathces, which you can find in this
+directory. The patches apply against tetgen 1.4.2.
+
+Prequisites:
+
+- copy in this directory tetgen.h, tetgen.cxx, and predicates.cxx
+
+==========================================================================
+
+Usage:
+
+$ patch -p0 < patch_tetgen.cxx
+$ patch -p0 < patch_tetgen.h
+
+Using the patched files, compile tetgen's lib as follows:
+
+Linux:
+
+$ g++ -fPIC -c predicates.cxx
+$ g++ -fPIC -c -O -DTETLIBRARY tetgen.cxx
+$ g++ -shared -o libtet.so predicates.o tetgen.o 
+
+MinGW:
+
+$ g++ -c predicates.cxx
+$ g++ -O -DWIN32 -DTETLIBRARY -c tetgen.cxx
+$ g++ -shared predicates.o tetgen.o -o libtet.dll
+
+Place the modified header and lib (so/dll) in the main directory of Mesh3D.
+
+There is also a testmain, which can be used to test the library. Usage:
+
+Linux:
+
+$ g++ -o testmain testmain.cpp -ldl
+
+MinGW:
+
+$ g++ -o testmain.exe testmain.cpp
+
+Finally:
+
+$ ./testmain

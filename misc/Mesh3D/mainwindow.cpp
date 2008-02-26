@@ -15,6 +15,8 @@
 //-----------------------------------------------------------------------------
 MainWindow::MainWindow()
 {
+  loadPlugins();
+
   glWidget = new GLWidget;
   setCentralWidget(glWidget);
 
@@ -35,8 +37,8 @@ MainWindow::MainWindow()
   // meshing thread emits (void) when the mesh generation is completed:
   connect(&meshingThread, SIGNAL(generatorFinished()), this, SLOT(meshOk()));
 
-  tetlibInputOk = false;
   nglibInputOk = false;
+  tetlibInputOk = false;
 }
 
 
@@ -45,6 +47,53 @@ MainWindow::MainWindow()
 MainWindow::~MainWindow()
 {
 }
+
+
+// Load plugins...
+//-----------------------------------------------------------------------------
+void MainWindow::loadPlugins()
+{
+  tetlibPresent = false;
+
+  std::cout << "Load libtet...";
+
+#ifdef WIN32
+  hTetlib = LoadLibrary(TEXT("./libtet.dll"));
+#else
+  hTetlib = dlopen("./libtet.so", RTLD_LAZY);  
+#endif
+  
+  if(!hTetlib) {
+    std::cout << "failed\n";
+    std::cout << "tetlib functionality disabled\n";
+    std::cout.flush();
+    return;
+  }
+
+  std::cout << "done\n";
+  std::cout.flush();
+  
+#ifdef WIN32
+  ptetgenio = (tetgenio_t) GetProcAddress(hTetlib, "CreateObjectOfTetgenio");
+#else
+  ptetgenio = (tetgenio_t) dlsym(hTetlib, "CreateObjectOfTetgenio");  
+#endif
+  
+  if(!ptetgenio) {
+    std::cout << "Unable to get proc address for 'tetgenio'\n";
+    std::cout.flush();
+#ifndef WIN32
+    dclose(hTetgen);
+#endif
+    return;
+  }
+  
+  in = (ptetgenio)();
+  out = (ptetgenio)();  
+
+  tetlibPresent = true;
+}
+
 
 
 // Create status bar...
@@ -202,6 +251,11 @@ void MainWindow::remesh()
 {
   if(meshControl->generatorType == GEN_TETLIB) {
 
+    if(!tetlibPresent) {
+      logMessage("tetlib functionality disabled");
+      return;
+    }
+
     if(!tetlibInputOk) {
       logMessage("Remesh: error: no input data for tetlib");
       return;
@@ -237,7 +291,7 @@ void MainWindow::remesh()
 
   // Start meshing thread:
   int gt = meshControl->generatorType;
-  meshingThread.generate(gt, tetlibControlString, in, out, ngmesh, nggeom, mp);
+  meshingThread.generate(gt, tetlibControlString, in, out, ngmesh, nggeom, mp, hTetlib);
 
   logMessage("Mesh generation initiated");
   statusBar()->showMessage(tr("Generating mesh..."));
@@ -510,19 +564,24 @@ void MainWindow::readInputFile(QString fileName)
 
   if(meshControl->generatorType==GEN_TETLIB) {
 
-    in.deinitialize();
-    in.initialize();
+    if(!tetlibPresent) {
+      logMessage("tetlib functionality disabled");
+      return;
+    }
+
+    in->deinitialize();
+    in->initialize();
 
     if(fileSuffix == "smesh" || fileSuffix=="poly") {
-      in.load_poly(cs);
+      in->load_poly(cs);
     } else if (fileSuffix == "stl") {
-      in.load_stl(cs); 
+      in->load_stl(cs); 
     } else if (fileSuffix == "off") {
-      in.load_off(cs); 
+      in->load_off(cs); 
     } else if (fileSuffix == "ply") {
-      in.load_ply(cs); 
+      in->load_ply(cs); 
     } else if (fileSuffix == "mesh") {
-      in.load_medit(cs);
+      in->load_medit(cs);
     } else {
       logMessage("Read input file: error: illegal file type for tetlib");
       tetlibInputOk = false;      
@@ -545,7 +604,6 @@ void MainWindow::readInputFile(QString fileName)
     
     if (!nggeom) {
       logMessage("Ng_STL_LoadGeometry failed");
-      // should we clear the Ng_structures before saying goodbye?
       return;
     }
     
@@ -576,7 +634,7 @@ void MainWindow::makeElmerMeshFromTetlib()
   mesh_t *mesh = glWidget->mesh;
   
   // Nodes:
-  mesh->nodes = out.numberofpoints;
+  mesh->nodes = out->numberofpoints;
   mesh->node = new node_t[mesh->nodes];
 
   double xmin = +9e9;
@@ -588,7 +646,7 @@ void MainWindow::makeElmerMeshFromTetlib()
   double zmin = +9e9;
   double zmax = -9e9;
 
-  REAL *pointlist = out.pointlist;
+  REAL *pointlist = out->pointlist;
 
   for(int i=0; i < mesh->nodes; i++) {
     node_t *node = &mesh->node[i];
@@ -654,30 +712,30 @@ void MainWindow::makeElmerMeshFromTetlib()
   mesh->edge = new edge_t[0];
 
   // Boundary elements:
-  mesh->boundaryelements = out.numberoftrifaces;
+  mesh->boundaryelements = out->numberoftrifaces;
   mesh->boundaryelement = new boundaryelement_t[mesh->boundaryelements];
 
-  int *trifacelist = out.trifacelist;
-  int *adjtetlist = out.adjtetlist;
+  int *trifacelist = out->trifacelist;
+  int *adjtetlist = out->adjtetlist;
 
   for(int i=0; i < mesh->boundaryelements; i++) {
     boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
 
     boundaryelement->index = 1; // default
-    if(out.trifacemarkerlist != (int*)NULL)
-      boundaryelement->index = out.trifacemarkerlist[i];
+    if(out->trifacemarkerlist != (int*)NULL)
+      boundaryelement->index = out->trifacemarkerlist[i];
 
     boundaryelement->parent[0] = -1; // default
     boundaryelement->parent[1] = -1;
     // must have "nn" in control string:
-    if(out.adjtetlist != (int*)NULL) {
+    if(out->adjtetlist != (int*)NULL) {
       boundaryelement->parent[0] = *adjtetlist++;
       boundaryelement->parent[1] = *adjtetlist++;
     }
 
-    int u = (*trifacelist++) - out.firstnumber;
-    int v = (*trifacelist++) - out.firstnumber;
-    int w = (*trifacelist++) - out.firstnumber;
+    int u = (*trifacelist++) - out->firstnumber;
+    int v = (*trifacelist++) - out->firstnumber;
+    int w = (*trifacelist++) - out->firstnumber;
 
     boundaryelement->vertex[0] = u;
     boundaryelement->vertex[1] = v;
@@ -703,24 +761,24 @@ void MainWindow::makeElmerMeshFromTetlib()
   }
 
   // Elements:
-  mesh->elements = out.numberoftetrahedra;
+  mesh->elements = out->numberoftetrahedra;
   mesh->element = new element_t[mesh->elements];
 
-  int *tetrahedronlist = out.tetrahedronlist;
-  REAL *attribute = out.tetrahedronattributelist;
-  int na =  out.numberoftetrahedronattributes;
+  int *tetrahedronlist = out->tetrahedronlist;
+  REAL *attribute = out->tetrahedronattributelist;
+  int na =  out->numberoftetrahedronattributes;
 
   for(int i=0; i< mesh->elements; i++) {
     element_t *element = &mesh->element[i];
 
-    element->vertex[0] = (*tetrahedronlist++) - out.firstnumber;
-    element->vertex[1] = (*tetrahedronlist++) - out.firstnumber;
-    element->vertex[2] = (*tetrahedronlist++) - out.firstnumber;
-    element->vertex[3] = (*tetrahedronlist++) - out.firstnumber;
+    element->vertex[0] = (*tetrahedronlist++) - out->firstnumber;
+    element->vertex[1] = (*tetrahedronlist++) - out->firstnumber;
+    element->vertex[2] = (*tetrahedronlist++) - out->firstnumber;
+    element->vertex[3] = (*tetrahedronlist++) - out->firstnumber;
 
     element->index = 1; // default
     // must have "A" in control string:
-    if(out.tetrahedronattributelist != (REAL*)NULL) 
+    if(out->tetrahedronattributelist != (REAL*)NULL) 
       element->index = (int)attribute[na*(i+1)-1];
   }
 
