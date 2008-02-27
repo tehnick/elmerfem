@@ -8,7 +8,7 @@ DEPENDPATH += . forms
 INCLUDEPATH += .
 
 QT += opengl
-LIBS += -lng -ldl
+LIBS += -lng
 
 # Input
 HEADERS += glwidget.h \

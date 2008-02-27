@@ -311,11 +311,11 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
   if(nearest != 0xffffffff) {
 
     // Emit to MainWidow:
-    emit(selectedBoundary(nearest-1)); 
+    emit(selectedBoundary(nearest)); 
 
-    colorMap[3*nearest-3] = 255;
-    colorMap[3*nearest-2] = 0;
-    colorMap[3*nearest-1] = 0;
+    colorMap[3*nearest] = 255;
+    colorMap[3*nearest+1] = 0;
+    colorMap[3*nearest+2] = 0;
   } else {
 
     // Nothing selected:
