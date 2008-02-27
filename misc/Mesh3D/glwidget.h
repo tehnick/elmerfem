@@ -19,6 +19,8 @@ public:
     mesh_t *mesh;
 
     GLuint objects;
+    GLuint firstList;
+    GLuint lastList;
     GLuint makeObjects();
 
     unsigned char *colorMap;

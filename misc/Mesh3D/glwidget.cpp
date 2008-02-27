@@ -17,9 +17,12 @@ GLWidget::GLWidget(QWidget *parent)
   backgroundColor = QColor::fromRgb(255, 255, 255, 255);
   // backgroundColor = QColor::fromRgb(192, 192, 192, 255);
   objects = 0;
+  firstList = 0;
+  lastList = 0;
   colorMapEntries = 0;
 
   mesh = NULL;
+
 }
 
 
@@ -29,9 +32,9 @@ GLWidget::GLWidget(QWidget *parent)
 GLWidget::~GLWidget()
 {
   makeCurrent();
-  glDeleteLists(1, objects);
-  delete(colorMap);
-  delete(mesh);
+  glDeleteLists(firstList, objects);
+  delete [] colorMap;
+  clearMesh();
 }
 
 
@@ -99,7 +102,7 @@ void GLWidget::initializeGL()
   std::cout << "Colormap entries: " << colorMapEntries << std::endl;
   std::cout.flush();
 
-  delete  [] colorMap;
+  // delete  [] colorMap;
   colorMap = new unsigned char[3*colorMapEntries];
   clearColorMap();
 
@@ -147,9 +150,9 @@ void GLWidget::paintGL()
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   if(objects) {
-    for(GLuint i=0; i<objects; i++) {
-      glPushName(i+1);
-      glCallList(i+1); 
+    for(GLuint i=firstList; i<=lastList; i++) {
+      glPushName(i);
+      glCallList(i); 
       glPopName();
     }
   }
@@ -357,9 +360,21 @@ GLuint GLWidget::makeObjects()
 
   boundaryconditions++;
 
-  for(j=0; j<boundaryconditions; j++) {
+  firstList = 0;
+  lastList = 0;
+
+  for(j=1; j<boundaryconditions; j++) {
     GLuint list = glGenLists(1);
     glNewList(list, GL_COMPILE);
+
+    //std::cout << "Generating list: " << list << "\n";
+    //std::cout.flush();
+
+    if(j==1)
+      firstList = list;
+
+    if(j==(boundaryconditions-1))
+      lastList = list;
     
     glBegin(GL_TRIANGLES);
 
@@ -419,7 +434,7 @@ GLuint GLWidget::makeObjects()
 
   }
 
-  return boundaryconditions;
+  return lastList - firstList + 1;
 }
 
 

@@ -784,7 +784,7 @@ void MainWindow::makeElmerMeshFromTetlib()
 
   // Delete old objects, if any:
   if(glWidget->objects) {
-    glDeleteLists(1, glWidget->objects);
+    glDeleteLists(glWidget->firstList, glWidget->objects);
     glWidget->objects = 0;
   }
 
@@ -936,7 +936,7 @@ void MainWindow::makeElmerMeshFromNglib()
 
   // Delete old objects, if any:
   if(glWidget->objects) {
-    glDeleteLists(1, glWidget->objects);
+    glDeleteLists(glWidget->firstList, glWidget->objects);
     glWidget->objects = 0;
   }
 
@@ -1058,5 +1058,5 @@ void MainWindow::makeSteadyHeatSif()
     }
   }
 
-  delete tmp;  
+  delete [] tmp;  
 }
