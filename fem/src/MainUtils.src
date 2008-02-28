@@ -1462,6 +1462,12 @@ CONTAINS
         MeActive = MeActive.AND.Solver % Matrix % NumberOfRows>0
      CALL ParallelActive( MeActive )
 
+     IF ( Solver % Variable % NameLen > 0 ) THEN
+       CALL ListSetNameSpace(Solver % Variable % Name(1:Solver % Variable % NameLen))
+     ELSE
+       CALL ListSetNameSpace('')
+     END IF
+
 #ifdef SGIn32
      SolverAddr = Solver % PROCEDURE
      CALL ExecSolver( SolverAddr, Model, Solver, DTScal*dt, TransientSimulation)
@@ -1469,6 +1475,8 @@ CONTAINS
      CALL ExecSolver( &
               Solver % PROCEDURE, Model, Solver, DTScal*dt, TransientSimulation)
 #endif
+     CALL ListSetNameSpace('')
+
      Solver % dt = OrigDT
 !------------------------------------------------------------------------------
    END SUBROUTINE SolverActivate

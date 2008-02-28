@@ -198,6 +198,7 @@ MODULE Lists
      END FUNCTION ExecConstRealFunction
    END INTERFACE
 
+   TYPE(Varying_string), PRIVATE :: NameSpace
 
 CONTAINS
 
@@ -1306,6 +1307,72 @@ TYPE(ValueList_t), POINTER :: ptr
    END SUBROUTINE ListAddDepRealArray
 !------------------------------------------------------------------------------
 
+!------------------------------------------------------------------------------
+   SUBROUTINE ListSetNameSpace(str)
+!------------------------------------------------------------------------------
+     CHARACTER(LEN=*) :: str
+!------------------------------------------------------------------------------
+     NameSpace = str
+!------------------------------------------------------------------------------
+   END SUBROUTINE ListSetNameSpace
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+   FUNCTION ListGetNameSpace(str) RESULT(l)
+!------------------------------------------------------------------------------
+    LOGICAL :: l 
+    TYPE(Varying_string) :: str
+!------------------------------------------------------------------------------
+    l = .FALSE.
+    IF ( LEN(NameSpace) > 0 ) THEN
+      l = .TRUE.
+      str = NameSpace
+    END IF
+!------------------------------------------------------------------------------
+   END FUNCTION ListGetNameSpace
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+   FUNCTION ListFind( list, name ) RESULT(ptr)
+!------------------------------------------------------------------------------
+     TYPE(ValueList_t), POINTER :: list, ptr
+     CHARACTER(LEN=*) :: name
+!------------------------------------------------------------------------------
+     TYPE(Variable_t), POINTER :: Var
+     TYPE(Varying_string) :: strn
+     CHARACTER(LEN=LEN_TRIM(Name)) :: str
+!------------------------------------------------------------------------------
+     INTEGER :: k, n
+
+     k = StringToLowerCase( str,Name,.TRUE. )
+
+     ptr => List
+     DO WHILE( ASSOCIATED(ptr) )
+       n = ptr % NameLen
+       IF ( n==k ) THEN
+         IF ( ptr % Name(1:n) == str(1:n) ) EXIT
+       END IF
+       ptr => ptr % Next
+     END DO
+
+     IF ( .NOT. ASSOCIATED(ptr) ) THEN
+       IF ( ListGetNameSpace(strn) ) THEN
+         strn = strn //' '//str(1:k)
+         k = LEN(strn)
+         ptr => List
+         DO WHILE( ASSOCIATED(ptr) )
+            n = ptr % NameLen
+            IF ( n==k ) THEN
+              IF ( ptr % Name(1:n) == strn ) EXIT
+            END IF
+            ptr => ptr % Next
+         END DO
+       END IF
+     END IF
+!------------------------------------------------------------------------------
+   END FUNCTION ListFind
+!------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
    RECURSIVE FUNCTION ListGetInteger( List,Name,gotIt,minv,maxv ) RESULT(L)
@@ -1322,16 +1389,7 @@ TYPE(ValueList_t), POINTER :: ptr
 !------------------------------------------------------------------------------
      IF ( PRESENT(gotIt) ) gotIt = .TRUE.
 
-     k = StringToLowerCase( str,Name,.TRUE. )
-     ptr => List
-     DO WHILE( ASSOCIATED(ptr) )
-       n = ptr % NameLen
-       IF ( n==k ) THEN
-         IF ( ptr % Name(1:k) == str(1:k) ) EXIT
-       END IF
-       ptr => ptr % Next
-     END DO
-
+     ptr => ListFind(List,Name)
      IF ( .NOT.ASSOCIATED(ptr) ) THEN
        L = 0
        IF ( PRESENT(gotIt) ) THEN
@@ -1395,16 +1453,7 @@ TYPE(ValueList_t), POINTER :: ptr
      IF ( PRESENT(gotIt) ) gotIt = .TRUE.
      NULLIFY( IValues )
 
-     k = StringToLowerCase( str,Name,.TRUE. )
-     ptr => List
-     DO WHILE( ASSOCIATED(ptr) )
-       n = ptr % NameLen
-       IF ( n==k ) THEN
-         IF ( ptr % Name(1:k) == str(1:k) ) EXIT
-       END IF
-       ptr => ptr % Next
-     END DO
-
+     ptr => ListFind(List,Name)
      IF ( .NOT.ASSOCIATED(ptr) ) THEN
        IF ( PRESENT(gotIt) ) THEN 
          gotIt = .FALSE.
@@ -1454,16 +1503,7 @@ TYPE(ValueList_t), POINTER :: ptr
 !------------------------------------------------------------------------------
      IF ( PRESENT(gotIt) ) gotIt = .TRUE.
 
-     k = StringToLowerCase( str,Name, .TRUE. )
-     ptr => List
-     DO WHILE( ASSOCIATED(ptr) )
-       n = ptr % NameLen
-       IF ( n==k ) THEN
-         IF ( ptr % Name(1:k) == str(1:k) ) EXIT
-       END IF
-       ptr => ptr % Next
-     END DO
-
+     ptr => ListFind(List,Name)
      IF ( .NOT.ASSOCIATED(ptr) ) THEN
        L = .FALSE.
        IF ( PRESENT(gotIt) ) THEN
@@ -1498,16 +1538,7 @@ TYPE(ValueList_t), POINTER :: ptr
 !------------------------------------------------------------------------------
      IF ( PRESENT(gotIt) ) gotIt = .TRUE.
 
-     k = StringToLowerCase( str,Name,.TRUE. )
-     ptr => List
-     DO WHILE( ASSOCIATED(ptr) )
-       n = ptr % NameLen
-       IF ( n==k ) THEN
-         IF ( ptr % Name(1:n) == str(1:k) ) EXIT
-       END IF
-       ptr => ptr % Next
-     END DO
-
+     ptr => ListFind(List,Name)
      IF ( .NOT.ASSOCIATED(ptr) ) THEN
        S = ' '
        IF ( PRESENT(gotIt) ) THEN
@@ -1552,16 +1583,7 @@ TYPE(ValueList_t), POINTER :: ptr
      F = 0.0D0
      IF ( PRESENT(gotIt) ) gotIt = .TRUE.
 
-     k = StringToLowerCase( str,Name,.TRUE. )
-     ptr => List
-     DO WHILE( ASSOCIATED(ptr) )
-       n = ptr % NameLen
-       IF ( n==k ) THEN
-         IF ( ptr % Name(1:k) == str(1:k) ) EXIT
-       END IF
-       ptr => ptr % Next
-     END DO
-
+     ptr => ListFind(List,Name)
      IF ( .NOT.ASSOCIATED(ptr) ) THEN
        IF ( PRESENT(gotIt) ) THEN
          gotIt = .FALSE.
@@ -1643,16 +1665,7 @@ TYPE(ValueList_t), POINTER :: ptr
      F = 0.0D0
      IF ( PRESENT(GotIt) ) GotIt = .TRUE.
 
-     k = StringToLowerCase( str,Name,.TRUE. )
-     ptr => List
-     DO WHILE( ASSOCIATED(ptr) )
-       l = ptr % NameLen
-       IF ( l==k ) THEN
-         IF ( ptr % Name(1:k) == str(1:k) ) EXIT
-       END IF
-       ptr => ptr % Next
-     END DO
-
+     ptr => ListFind(List,Name)
      IF ( .NOT.ASSOCIATED(ptr) ) THEN
        IF ( PRESENT(GotIt) ) THEN
          GotIt = .FALSE.
@@ -1920,16 +1933,7 @@ TYPE(ValueList_t), POINTER :: ptr
      IF ( PRESENT(gotIt) ) gotIt = .TRUE.
      NULLIFY( F ) 
 
-     k = StringToLowerCase( str,Name,.TRUE. )
-     ptr => List
-     DO WHILE( ASSOCIATED(ptr) )
-       n = ptr % NameLen
-       IF ( n==k ) THEN
-         IF ( ptr % Name(1:k) == str(1:k) ) EXIT
-       END IF
-       ptr => ptr % Next
-     END DO
-
+     ptr => ListFind(List,Name)
      IF ( .NOT.ASSOCIATED(ptr) ) THEN
        IF ( PRESENT(GotIt) ) THEN
          gotIt = .FALSE.
@@ -1987,16 +1991,7 @@ TYPE(ValueList_t), POINTER :: ptr
 !------------------------------------------------------------------------------
      IF ( PRESENT(gotIt) ) gotIt = .TRUE.
 
-     k = StringToLowerCase( str,Name,.TRUE. )
-     ptr => List
-     DO WHILE( ASSOCIATED(ptr) )
-       nlen = ptr % NameLen
-       IF ( nlen==k ) THEN
-         IF ( ptr % Name(1:k) == str(1:k) ) EXIT
-       END IF
-       ptr => ptr % Next
-     END DO
-
+     ptr => ListFind(List,Name)
      IF ( .NOT.ASSOCIATED(ptr) ) THEN
        IF ( PRESENT(GotIt) ) THEN
          gotIt = .FALSE.
@@ -2126,15 +2121,7 @@ TYPE(ValueList_t), POINTER :: ptr
      F = 0.0D0
      k = StringToLowerCase( str,Name,.TRUE. )
 
-     ptr => List
-     DO WHILE( ASSOCIATED(ptr) )
-       l = ptr % NameLen
-       IF ( l==k ) THEN
-         IF ( ptr % Name(1:k) == str(1:k) ) EXIT
-       END IF
-       ptr => ptr % Next
-     END DO
-
+     ptr => ListFind(List,Name)
      IF ( .NOT.ASSOCIATED(ptr) ) THEN
        CALL Warn( 'ListGetDerivValue', ' ' )
        WRITE( Message, * ) 'Requested property: ', &
