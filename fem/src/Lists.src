@@ -198,7 +198,7 @@ MODULE Lists
      END FUNCTION ExecConstRealFunction
    END INTERFACE
 
-   TYPE(Varying_string), PRIVATE :: NameSpace
+   TYPE(Varying_string), SAVE, PRIVATE :: NameSpace
 
 CONTAINS
 
@@ -1059,21 +1059,9 @@ CALL Info( 'VariableGet', Message, Level=7 )
      CHARACTER(LEN=*) :: Name
      LOGICAL :: Found
 !------------------------------------------------------------------------------
-TYPE(ValueList_t), POINTER :: ptr
-
-     INTEGER :: k,n
-     CHARACTER(LEN=LEN_TRIM(Name)) :: str
+     TYPE(ValueList_t), POINTER :: ptr
 !------------------------------------------------------------------------------
-     k = StringToLowerCase( str,Name,.TRUE. )
-     ptr => List
-     DO WHILE( ASSOCIATED(ptr) )
-       n = ptr % NameLen
-       IF ( n==k ) THEN
-         IF ( ptr % Name(1:k) == str(1:k) ) EXIT
-       END IF
-       ptr => ptr % Next
-     END DO
-
+     ptr => ListFind(List,Name)
      Found = ASSOCIATED( ptr )
 !------------------------------------------------------------------------------
    END FUNCTION ListCheckPresent
@@ -1324,7 +1312,7 @@ TYPE(ValueList_t), POINTER :: ptr
     TYPE(Varying_string) :: str
 !------------------------------------------------------------------------------
     l = .FALSE.
-    IF ( LEN(NameSpace) > 0 ) THEN
+    IF ( NameSpace /= '' ) THEN
       l = .TRUE.
       str = NameSpace
     END IF
@@ -1397,7 +1385,7 @@ TYPE(ValueList_t), POINTER :: ptr
        ELSE
          CALL Warn( 'ListGetInteger', ' ' )
          WRITE( Message, * ) 'Requested property: ', &
-             '[',Name(1:k),'], not found'
+             '[',TRIM(Name),'], not found'
          CALL Warn( 'ListGetInteger', Message )
          CALL Warn( 'ListGetInteger', ' ' )
        END IF
@@ -1408,7 +1396,7 @@ TYPE(ValueList_t), POINTER :: ptr
        L = ExecIntFunction( ptr % Procedure, CurrentModel )
      ELSE
        IF ( .NOT. ASSOCIATED(ptr % IValues) ) THEN
-         WRITE(Message,*) 'Value type for property [', Name(1:k), &
+         WRITE(Message,*) 'Value type for property [', TRIM(Name), &
                  '] not used consistently.'
          CALL Fatal( 'ListGetInteger', Message )
          RETURN
@@ -1419,7 +1407,7 @@ TYPE(ValueList_t), POINTER :: ptr
 
      IF ( PRESENT( minv ) ) THEN
         IF ( L < minv ) THEN
-           WRITE( Message, *) 'Given value ', L, ' for property: ', '[', Name(1:k),']', &
+           WRITE( Message, *) 'Given value ', L, ' for property: ', '[', TRIM(Name),']', &
                ' smaller than given minimum: ', minv
            CALL Fatal( 'ListGetInteger', Message )
         END IF
@@ -1427,7 +1415,7 @@ TYPE(ValueList_t), POINTER :: ptr
 
      IF ( PRESENT( maxv ) ) THEN
         IF ( L > maxv ) THEN
-           WRITE( Message,*)  'Given value ', L, ' for property: ', '[', Name(1:k),']', &
+           WRITE( Message,*)  'Given value ', L, ' for property: ', '[', TRIM(Name),']', &
                ' larger than given maximum: ', maxv
            CALL Fatal( 'ListGetInteger', Message )
         END IF
@@ -1460,7 +1448,7 @@ TYPE(ValueList_t), POINTER :: ptr
        ELSE
          CALL Warn( 'ListGetIntegerArray', ' ' )
          WRITE( Message, * ) 'Requested property: ', &
-             '[',Name(1:k),'], not found'
+             '[',TRIM(Name),'], not found'
          CALL Warn( 'ListGetIntegerArray', Message )
          CALL Warn( 'ListGetIntegerArray', ' ' )
        END IF
@@ -1468,7 +1456,7 @@ TYPE(ValueList_t), POINTER :: ptr
      END IF
 
      IF ( .NOT. ASSOCIATED(ptr % IValues) ) THEN
-       WRITE(Message,*) 'Value type for property [', Name(1:k), &
+       WRITE(Message,*) 'Value type for property [', TRIM(Name), &
                '] not used consistently.'
        CALL Fatal( 'ListGetIntegerArray', Message )
        RETURN
@@ -1511,7 +1499,7 @@ TYPE(ValueList_t), POINTER :: ptr
        ELSE
          CALL Warn( 'ListGetLogical', ' ' )
          WRITE( Message, * ) 'Requested property: ', &
-             '[',Name(1:k),'], not found'
+             '[',TRIM(Name),'], not found'
          CALL Warn( 'ListGetLogical', Message )
          CALL Warn( 'ListGetLogical', ' ' )
        END IF
@@ -1546,7 +1534,7 @@ TYPE(ValueList_t), POINTER :: ptr
        ELSE
          CALL Warn( 'ListGetString', ' ' )
          WRITE( Message, * ) 'Requested property: ', &
-             '[',Name(1:k),'], not found'
+             '[',TRIM(Name),'], not found'
          CALL Warn( 'ListGetString', Message )
          CALL Warn( 'ListGetString', ' ' )
        END IF
@@ -1590,7 +1578,7 @@ TYPE(ValueList_t), POINTER :: ptr
        ELSE
          CALL Warn( 'ListGetConstReal', ' ' )
          WRITE( Message, * ) 'Requested property: ', &
-             '[',Name(1:k),'], not found'
+             '[',TRIM(Name),'], not found'
          CALL Warn( 'ListGetConstReal', Message )
          CALL Warn( 'ListGetConstReal', ' ' )
        END IF
@@ -1615,7 +1603,7 @@ TYPE(ValueList_t), POINTER :: ptr
        F = ExecConstRealFunction( ptr % Procedure,CurrentModel,xx,yy,zz )
      ELSE
        IF ( .NOT. ASSOCIATED(ptr % FValues) ) THEN
-         WRITE(Message,*) 'Value type for property [', Name(1:k), &
+         WRITE(Message,*) 'Value type for property [', TRIM(Name), &
                  '] not used consistently.'
          CALL Fatal( 'ListGetConstReal', Message )
        ELSE
@@ -1625,7 +1613,7 @@ TYPE(ValueList_t), POINTER :: ptr
 
      IF ( PRESENT( minv ) ) THEN
         IF ( F < minv ) THEN
-           WRITE( Message, *) 'Given value ', F, ' for property: ', '[', Name(1:k),']', &
+           WRITE( Message, *) 'Given value ', F, ' for property: ', '[', TRIM(Name),']', &
                ' smaller than given minimum: ', minv
            CALL Fatal( 'ListGetInteger', Message )
         END IF
@@ -1633,7 +1621,7 @@ TYPE(ValueList_t), POINTER :: ptr
 
      IF ( PRESENT( maxv ) ) THEN
         IF ( F > maxv ) THEN
-           WRITE( Message, *) 'Given value ', F, ' for property: ', '[', Name(1:k),']', &
+           WRITE( Message, *) 'Given value ', F, ' for property: ', '[', TRIM(Name),']', &
                ' larger than given maximum: ', maxv
            CALL Fatal( 'ListGetInteger', Message )
         END IF
@@ -1672,7 +1660,7 @@ TYPE(ValueList_t), POINTER :: ptr
        ELSE
          CALL Warn( 'ListGetReal', ' ' )
          WRITE( Message, * ) 'Requested property: ', &
-             '[',Name(1:k),'], not found'
+             '[',TRIM(Name),'], not found'
          CALL Warn( 'ListGetReal', Message )
          CALL Warn( 'ListGetReal', ' ' )
        END IF
@@ -1690,7 +1678,7 @@ TYPE(ValueList_t), POINTER :: ptr
          END DO
        ELSE
          IF ( .NOT. ASSOCIATED(ptr % FValues) ) THEN
-           WRITE(Message,*) 'Value type for property [', Name(1:k), &
+           WRITE(Message,*) 'Value type for property [', TRIM(Name), &
                    '] not used consistently.'
            CALL Fatal( 'ListGetReal', Message )
            RETURN
@@ -1775,7 +1763,7 @@ TYPE(ValueList_t), POINTER :: ptr
                           NodeIndexes(i), T )
            ELSE
              IF ( .NOT. ASSOCIATED(ptr % FValues) ) THEN
-               WRITE(Message,*) 'Value type for property [', Name(1:k), &
+               WRITE(Message,*) 'Value type for property [', TRIM(Name), &
                        '] not used consistently.'
                CALL Fatal( 'ListGetReal', Message )
                RETURN
@@ -1899,7 +1887,7 @@ TYPE(ValueList_t), POINTER :: ptr
 
      IF ( PRESENT( minv ) ) THEN
         IF ( MINVAL(F(1:n)) < minv ) THEN
-           WRITE( Message,*) 'Given value ', MINVAL(F(1:n)), ' for property: ', '[', Name(1:k),']', &
+           WRITE( Message,*) 'Given value ', MINVAL(F(1:n)), ' for property: ', '[', TRIM(Name),']', &
                ' smaller than given minimum: ', minv
            CALL Fatal( 'ListGetReal', Message )
         END IF
@@ -1907,7 +1895,7 @@ TYPE(ValueList_t), POINTER :: ptr
 
      IF ( PRESENT( maxv ) ) THEN
         IF ( MAXVAL(F(1:n)) > maxv ) THEN
-           WRITE( Message,*) 'Given value ', MAXVAL(F(1:n)), ' for property: ', '[', Name(1:k),']', &
+           WRITE( Message,*) 'Given value ', MAXVAL(F(1:n)), ' for property: ', '[', TRIM(Name),']', &
                ' larger than given maximum ', maxv
            CALL Fatal( 'ListGetReal', Message )
         END IF
@@ -1940,7 +1928,7 @@ TYPE(ValueList_t), POINTER :: ptr
        ELSE
          CALL Warn( 'ListGetConstRealArray', ' ' )
          WRITE( Message, * ) 'Requested property: ', &
-             '[',Name(1:k),'], not found'
+             '[',TRIM(Name),'], not found'
          CALL Warn( 'ListGetConstRealArray', Message )
          CALL Warn( 'ListGetConstRealArray', ' ' )
        END IF
@@ -1948,7 +1936,7 @@ TYPE(ValueList_t), POINTER :: ptr
      END IF
 
      IF ( .NOT. ASSOCIATED(ptr % FValues) ) THEN
-       WRITE(Message,*) 'Value type for property [', Name(1:k), &
+       WRITE(Message,*) 'Value type for property [', TRIM(Name), &
                '] not used consistently.'
        CALL Fatal( 'ListGetConstRealArray', Message )
        RETURN
@@ -1998,7 +1986,7 @@ TYPE(ValueList_t), POINTER :: ptr
        ELSE
          CALL Warn( 'ListGetRealArray', ' ' )
          WRITE( Message, * ) 'Requested property: ', &
-             '[',Name(1:k),'], not found'
+             '[',TRIM(Name),'], not found'
          CALL Warn( 'ListGetRealArray', Message )
          CALL Warn( 'ListGetRealArray', ' ' )
        END IF
@@ -2006,7 +1994,7 @@ TYPE(ValueList_t), POINTER :: ptr
      END IF
 
      IF ( .NOT. ASSOCIATED(ptr % FValues) ) THEN
-       WRITE(Message,*) 'Value type for property [', Name(1:k), &
+       WRITE(Message,*) 'Value type for property [', TRIM(Name), &
                '] not used consistently.'
        CALL Fatal( 'ListGetRealArray', Message )
        RETURN
@@ -2125,14 +2113,14 @@ TYPE(ValueList_t), POINTER :: ptr
      IF ( .NOT.ASSOCIATED(ptr) ) THEN
        CALL Warn( 'ListGetDerivValue', ' ' )
        WRITE( Message, * ) 'Requested property: ', &
-           '[',Name(1:k),'], not found'
+           '[',TRIM(Name),'], not found'
        CALL Warn( 'ListGetDerivValue', Message )
        CALL Warn( 'ListGetDerivValue', ' ' )
        RETURN
      END IF
 
      IF ( .NOT. ASSOCIATED(ptr % FValues) ) THEN
-       WRITE(Message,*) 'Value type for property [', Name(1:k), &
+       WRITE(Message,*) 'Value type for property [', TRIM(Name), &
                '] not used consistently.'
        CALL Fatal( 'ListGetRealArray', Message )
        RETURN
