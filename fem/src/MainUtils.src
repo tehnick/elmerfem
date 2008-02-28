@@ -1462,11 +1462,8 @@ CONTAINS
         MeActive = MeActive.AND.Solver % Matrix % NumberOfRows>0
      CALL ParallelActive( MeActive )
 
-     IF ( Solver % Variable % NameLen > 0 ) THEN
-       CALL ListSetNameSpace(Solver % Variable % Name(1:Solver % Variable % NameLen))
-     ELSE
-       CALL ListSetNameSpace('')
-     END IF
+     str = ListGetString( Solver % Values, 'Namespace', Found )
+     IF (Found) CALL ListSetNameSpace(TRIM(str))
 
 #ifdef SGIn32
      SolverAddr = Solver % PROCEDURE
