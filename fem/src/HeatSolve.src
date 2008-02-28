@@ -948,25 +948,15 @@
 
           IF ( Found .AND. RadiationFlag(1:4) /= 'none' ) THEN
 
-            Emissivity = SUM( GetReal(BC, &
-              Solver % Variable % Name(1:Solver % Variable % Namelen) &
-                         // ' Emissivity', Found) ) / n
-            IF ( .NOT. Found ) &
-              Emissivity = SUM( GetReal(BC, 'Emissivity') ) / n
+            Emissivity = SUM( GetReal(BC, 'Emissivity') ) / n
 !------------------------------------------------------------------------------
             IF (  RadiationFlag(1:9) == 'idealized' ) THEN
-              AText(1:n) = GetReal( BC, 'External ' // &
-                         Solver % Variable % Name(1:Solver % Variable % Namelen), Found )
-               IF ( .NOT. Found ) &
-                 AText(1:n) = GetReal( BC, 'External Temperature' )
+              AText(1:n) = GetReal( BC, 'External Temperature' )
             ELSE
               CALL DiffuseGrayRadiation( Model, Solver, Element, & 
                   Temperature, TempPerm, ForceVector, VisibleFraction)
               IF( GetLogical( BC, 'Radiation Boundary Open', Found) ) THEN
-                AText(1:n) = GetReal( BC, 'External ' // &
-                         Solver % Variable % Name(1:Solver % Variable % Namelen), Found )
-                IF ( .NOT. Found ) &
-                   AText(1:n) = GetReal( BC, 'External Temperature' )
+                AText(1:n) = GetReal( BC, 'External Temperature' )
                 Atext(1:n) = ( (1 - VisibleFraction) * Atext(1:n)**4 + &
                     VisibleFraction * Text**4 ) ** 0.25_dp
               ELSE
@@ -995,10 +985,7 @@
             END DO
           END IF  ! of radition
 !------------------------------------------------------------------------------
-          Work(1:n) = GetReal( BC, Solver % Variable % Name(1:Solver % Variable % Namelen) &
-                    // ' Transfer Coefficient',Found )
-          IF ( .NOT. Found ) &
-            Work(1:n) = GetReal( BC, 'Heat Transfer Coefficient',Found )
+          Work(1:n) = GetReal( BC, 'Heat Transfer Coefficient',Found )
           IF ( GetLogical( BC, 'Heat Gap', Found ) ) THEN
             IF ( GetLogical( BC, 'Heat Gap Implicit', Found ) ) THEN
                AText(1:n) = 0.0d0
@@ -1007,10 +994,7 @@
             END IF
           ELSE
             IF ( ANY(Work(1:n) /= 0.0d0) ) THEN
-               AText(1:n) = GetReal( BC, 'External ' // &
-                  Solver % Variable % Name(1:Solver % Variable % Namelen), Found )
-               IF (.NOT. Found ) &
-                  AText(1:n) = GetReal( BC, 'External Temperature',Found )
+               AText(1:n) = GetReal( BC, 'External Temperature',Found )
             ELSE
                AText(1:n) = 0.0d0
             END IF
@@ -1028,11 +1012,7 @@
 !------------------------------------------------------------------------------
 !         BC: -k@T/@n = g
 !------------------------------------------------------------------------------
-          LOAD(1:n) = LOAD(1:n) + &
-              GetReal( BC, Solver % Variable % Name &
-                  (1:Solver % Variable % Namelen) // ' Flux', Found )
-          IF ( .NOT. Found ) &
-              LOAD(1:n) = LOAD(1:n) +  GetReal( BC, 'Heat Flux', Found )
+          LOAD(1:n) = LOAD(1:n) +  GetReal( BC, 'Heat Flux', Found )
 !------------------------------------------------------------------------------
 !         Get element matrix and rhs due to boundary conditions ...
 !------------------------------------------------------------------------------
