@@ -20,6 +20,14 @@ public:
   QString nglibFineness;
   QString nglibBackgroundmesh;
 
+  Ui::MeshcontrolForm ui;
+
+  bool tetlibPresent;
+  bool nglibPresent;
+
+public slots:
+  void defaultControls();
+
 private slots:
   void tetlibClicked();
   void nglibClicked(); 
@@ -27,10 +35,6 @@ private slots:
   void defineNglibMaxH(const QString &qs);
   void defineNglibFineness(const QString &qs);
   void defineNglibBackgroundmesh(const QString &qs);
-  void defaultControls();
-
-private:
-  Ui::MeshcontrolForm ui;
 
 };
 

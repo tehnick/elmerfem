@@ -15,6 +15,7 @@
 #endif
 
 #include "tetlib_api.h"
+#include "nglib_api.h"
 
 namespace nglib {
 #include <nglib.h>
@@ -30,8 +31,8 @@ public:
 
   void generate(int generatorType, QString cs, TetlibAPI *tetlibAPI, 
 		nglib::Ng_Mesh *ngmesh, nglib::Ng_STL_Geometry *nggeom, 
-		nglib::Ng_Meshing_Parameters &mp);
-  
+		nglib::Ng_Meshing_Parameters *mp, NglibAPI *nglibAPI);
+
 signals:
   void generatorFinished();
   
@@ -48,13 +49,14 @@ private:
   int generatorType;
 
   // tetlib:
-  TetlibAPI *tetlibAPI;
   QString tetgenControlString;
+  TetlibAPI *tetlibAPI;
   tetgenio *in;
   tetgenio *out;
   delegate_tetrahedralize_t delegate_tetrahedralize;
 
   // nglib:
+  NglibAPI *nglibAPI;
   nglib::Ng_Mesh *ngmesh;
   nglib::Ng_STL_Geometry *nggeom;
   nglib::Ng_Meshing_Parameters *mp;

@@ -6,14 +6,18 @@
 
 #include <QMainWindow>
 #include "tetlib_api.h"
+#include "nglib_api.h"
 #include "glwidget.h"
 #include "meshingthread.h"
 #include "sifwindow.h"
 #include "meshcontrol.h"
 
+#if 0
 namespace nglib {
 #include <nglib.h>
 }
+#endif
+
 
 class QAction;
 class QMenu;
@@ -66,19 +70,21 @@ private:
   QAction *aboutAct;          // Help -> About...
 
   // tetlib:
-  TetlibAPI *tetlibAPI;
   bool tetlibPresent;
+  TetlibAPI *tetlibAPI;
   tetgenio *in;
   tetgenio *out;
-  bool tetlibInputOk;
   QString tetlibControlString;
+  bool tetlibInputOk;
   
   // nglib:
-  bool nglibInputOk;
+  bool nglibPresent;
+  NglibAPI *nglibAPI;
   nglib::Ng_Mesh *ngmesh;
   nglib::Ng_STL_Geometry *nggeom;
-  nglib::Ng_Meshing_Parameters mp;
-
+  nglib::Ng_Meshing_Parameters *mp;
+  bool nglibInputOk;
+  
   // meshing thread:
   MeshingThread meshingThread;
   

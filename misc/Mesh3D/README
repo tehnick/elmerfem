@@ -4,10 +4,14 @@ Build instructions:
 Prequisites:
 
    - qt 4.3.3 (or newer)
+
+Optional components:
+
    - tetlib 1.4.2 (or newer)
    - nglib 4.5 (or newer)
 
-Tetlib should be installed as described in ./tetgen/REAEDME.
+Tetlib should be installed as described in ../tetgen_patches/REAEDME
+Nglib should be installed as described in ../netgen_patches/README
 
 Please read the file LICENSES before using any of these software packages.
 
@@ -18,15 +22,10 @@ Build as follows:
 Edit "Mesh3D.pro" and add the following lines somewhere in the file:
 
    QT += opengl
-   LIBS += -lng
-
-When compiling for Linux, the line LIBS should be defined here as:
-
-   LIBS += -lng -ldl
 
 Finally:
 
    $ qmake
    $ make
 
-This should produce the executable "./release/Mesh3D".
+This should produce the executable "./release/Mesh3D". If the libs of tetgen and netgen are found in the path, their functionality will be available to the main program. If the libs are not found, the main program will run, but with some functionality disabled.

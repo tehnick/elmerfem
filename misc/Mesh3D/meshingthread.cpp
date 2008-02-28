@@ -22,13 +22,12 @@ MeshingThread::~MeshingThread()
   wait();
 }
 
-
 void MeshingThread::generate(int generatorType, QString cs,
 			     TetlibAPI *tetlibAPI,
 			     nglib::Ng_Mesh *ngmesh,
 			     nglib::Ng_STL_Geometry *nggeom,
-			     nglib::Ng_Meshing_Parameters &mp)
-  
+			     nglib::Ng_Meshing_Parameters *mp,
+			     NglibAPI *nglibAPI)
 {
   QMutexLocker locker(&mutex);
 
@@ -40,9 +39,10 @@ void MeshingThread::generate(int generatorType, QString cs,
   this->out = tetlibAPI->out;
   this->delegate_tetrahedralize = tetlibAPI->delegate_tetrahedralize;
 
+  this->nglibAPI = nglibAPI;
   this->ngmesh = ngmesh;
   this->nggeom = nggeom;
-  this->mp = &mp;
+  this->mp = mp;
 
   if (!isRunning()) {
     start(LowPriority);
@@ -88,22 +88,22 @@ void MeshingThread::run()
       
     } else if(generatorType==GEN_NGLIB) {
       
-      int rv = nglib::Ng_STL_MakeEdges(nggeom, ngmesh, mp);
+      int rv = nglibAPI->Ng_STL_MakeEdges(nggeom, ngmesh, mp);
       std::cout << "Make Edges: Ng_result=" << rv << std::endl;
       
-      rv = nglib::Ng_STL_GenerateSurfaceMesh(nggeom, ngmesh, mp);
+      rv = nglibAPI->Ng_STL_GenerateSurfaceMesh(nggeom, ngmesh, mp);
       std::cout << "Generate Surface Mesh: Ng_result=" << rv << std::endl;
       
-      rv = nglib::Ng_GenerateVolumeMesh(ngmesh, mp);
+      rv = nglibAPI->Ng_GenerateVolumeMesh(ngmesh, mp);
       std::cout << "Generate Volume Mesh: Ng_result=" << rv << std::endl;
       
-      int np = nglib::Ng_GetNP(ngmesh);
+      int np = nglibAPI->Ng_GetNP(ngmesh);
       std::cout << "Meshing thtread: nodes: " << np << std::endl;
       
-      int ne = nglib::Ng_GetNE(ngmesh);
+      int ne = nglibAPI->Ng_GetNE(ngmesh);
       std::cout << "Meshing thtread: elements: " << ne << std::endl;
 
-      int nse = nglib::Ng_GetNSE(ngmesh);
+      int nse = nglibAPI->Ng_GetNSE(ngmesh);
       std::cout << "Meshing thtread: boundary elements: " << nse << std::endl;      
       std::cout.flush();
       

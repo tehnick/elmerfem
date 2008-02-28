@@ -1,6 +1,7 @@
 #include <iostream>
 #include "tetlib_api.h"
 
+using namespace std;
 
 TetlibAPI::TetlibAPI()
 {
@@ -14,7 +15,7 @@ TetlibAPI::~TetlibAPI()
 
 bool TetlibAPI::loadTetlib()
 {
-  std::cout << "Load tetlib...";
+  cout << "Load tetlib...";
 
 #ifdef WIN32
   hTetlib = LoadLibrary(TEXT("./libtet.dll"));
@@ -23,14 +24,14 @@ bool TetlibAPI::loadTetlib()
 #endif
   
   if(!hTetlib) {
-    std::cout << "failed\n";
-    std::cout << "tetlib functionality disabled\n";
-    std::cout.flush();
+    cout << "failed\n";
+    cout << "tetlib functionality disabled\n";
+    cout.flush();
     return false;
   }
 
-  std::cout << "done\n";
-  std::cout.flush();
+  cout << "done\n";
+  cout.flush();
   
 #ifdef WIN32
   ptetgenio = (tetgenio_t) GetProcAddress(hTetlib, "CreateObjectOfTetgenio");
@@ -39,8 +40,8 @@ bool TetlibAPI::loadTetlib()
 #endif
   
   if(!ptetgenio) {
-    std::cout << "Unable to get proc address for 'tetgenio'\n";
-    std::cout.flush();
+    cout << "Unable to get proc address for 'tetgenio'\n";
+    cout.flush();
 #ifndef WIN32
     dlclose(hTetlib);
 #endif
@@ -57,8 +58,8 @@ bool TetlibAPI::loadTetlib()
 #endif
 
   if(!delegate_tetrahedralize) {
-    std::cout << "Unable to get proc address for 'delegate_tetrahedralize'\n";
-    std::cout.flush();
+    cout << "Unable to get proc address for 'delegate_tetrahedralize'\n";
+    cout.flush();
 #ifndef WIN32
     dlclose(hTetlib);
 #endif

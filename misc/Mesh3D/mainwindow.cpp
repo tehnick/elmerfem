@@ -14,6 +14,13 @@ MainWindow::MainWindow()
   this->in = tetlibAPI->in;
   this->out = tetlibAPI->out;
   
+  // Load nglib
+  nglibAPI = new NglibAPI;
+  nglibPresent = nglibAPI->loadNglib();
+  this->mp = nglibAPI->mp;
+  this->ngmesh = nglibAPI->ngmesh;
+  this->nggeom = nglibAPI->nggeom;
+
   // widgets
   glWidget = new GLWidget;
   setCentralWidget(glWidget);
@@ -170,6 +177,25 @@ void MainWindow::showabout()
 //-----------------------------------------------------------------------------
 void MainWindow::meshcontrol()
 {
+  meshControl->tetlibPresent = tetlibPresent;
+  meshControl->nglibPresent = nglibPresent;
+  
+  if(!tetlibPresent) {
+    meshControl->tetlibPresent = false;
+    meshControl->ui.nglibRadioButton->setChecked(true);
+    meshControl->ui.tetlibRadioButton->setEnabled(false);
+    meshControl->ui.tetlibStringEdit->setEnabled(false);
+  }
+
+  if(!nglibPresent) {
+    meshControl->nglibPresent = false;
+    meshControl->ui.tetlibRadioButton->setChecked(true);
+    meshControl->ui.nglibRadioButton->setEnabled(false);
+    meshControl->ui.nglibMaxHEdit->setEnabled(false);
+    meshControl->ui.nglibFinenessEdit->setEnabled(false);
+    meshControl->ui.nglibBgmeshEdit->setEnabled(false);
+  }
+
   meshControl->show();
 }
 
@@ -216,6 +242,11 @@ void MainWindow::remesh()
 
   } else if(meshControl->generatorType == GEN_NGLIB) {
 
+    if(!nglibPresent) {
+      logMessage("nglib functionality disabled");
+      return;
+    }
+
     if(!nglibInputOk) {
       logMessage("Remesh: error: no input data for nglib");
       return;
@@ -225,12 +256,12 @@ void MainWindow::remesh()
     sprintf(backgroundmesh, "%s",
 	    (const char*)(meshControl->nglibBackgroundmesh.toAscii()));
     
-    ngmesh = nglib::Ng_NewMesh();
+    ngmesh = nglibAPI->Ng_NewMesh();
     
-    mp.maxh = meshControl->nglibMaxH.toDouble();
-    mp.fineness = meshControl->nglibFineness.toDouble();
-    mp.secondorder = 0;
-    mp.meshsize_filename = backgroundmesh;
+    mp->maxh = meshControl->nglibMaxH.toDouble();
+    mp->fineness = meshControl->nglibFineness.toDouble();
+    mp->secondorder = 0;
+    mp->meshsize_filename = backgroundmesh;
     
   } else {
 
@@ -241,7 +272,7 @@ void MainWindow::remesh()
 
   // Start meshing thread:
   int gt = meshControl->generatorType;
-  meshingThread.generate(gt, tetlibControlString, tetlibAPI, ngmesh, nggeom, mp);
+  meshingThread.generate(gt, tetlibControlString, tetlibAPI, ngmesh, nggeom, mp, nglibAPI);
 
   logMessage("Mesh generation initiated");
   statusBar()->showMessage(tr("Generating mesh..."));
@@ -542,22 +573,27 @@ void MainWindow::readInputFile(QString fileName)
 
   } else if (meshControl->generatorType==GEN_NGLIB) {    
 
+    if(!nglibPresent) {
+      logMessage("nglib functionality disabled");
+      return;
+    }
+
     if(fileSuffix != "stl") {
       logMessage("Read input file: error: illegan file type for nglib");
       nglibInputOk = false;      
       return;
     }
 
-    nglib::Ng_Init();
+    nglibAPI->Ng_Init();
     
-    nggeom = nglib::Ng_STL_LoadGeometry((const char*)(fileName.toAscii()));
+    nggeom = nglibAPI->Ng_STL_LoadGeometry((const char*)(fileName.toAscii()), 0);
     
     if (!nggeom) {
       logMessage("Ng_STL_LoadGeometry failed");
       return;
     }
     
-    int rv = nglib::Ng_STL_InitSTLGeometry(nggeom);
+    int rv = nglibAPI->Ng_STL_InitSTLGeometry(nggeom);
     std::cout << "InitSTLGeometry: NG_result=" << rv << std::endl;
     std::cout.flush();
     
@@ -749,7 +785,7 @@ void MainWindow::makeElmerMeshFromNglib()
   mesh_t *mesh = glWidget->mesh;
   
   // Nodes:
-  mesh->nodes = nglib::Ng_GetNP(ngmesh);
+  mesh->nodes = nglibAPI->Ng_GetNP(ngmesh);
   mesh->node = new node_t[mesh->nodes];
   
   double xmin = +9e9;
@@ -764,7 +800,7 @@ void MainWindow::makeElmerMeshFromNglib()
   for(int i=0; i < mesh->nodes; i++) {
     node_t *node = &mesh->node[i];
 
-    nglib::Ng_GetPoint(ngmesh, i+1, node->x);
+    nglibAPI->Ng_GetPoint(ngmesh, i+1, node->x);
 
     node->index = -1; // default
 
@@ -815,7 +851,7 @@ void MainWindow::makeElmerMeshFromNglib()
   mesh->edge = new edge_t[0];
 
   // Boundary elements:				       
-  mesh->boundaryelements = nglib::Ng_GetNSE(ngmesh);
+  mesh->boundaryelements = nglibAPI->Ng_GetNSE(ngmesh);
   mesh->boundaryelement = new boundaryelement_t[mesh->boundaryelements];
 
   for(int i=0; i < mesh->boundaryelements; i++) {
@@ -826,7 +862,7 @@ void MainWindow::makeElmerMeshFromNglib()
     boundaryelement->parent[0] = -1; 
     boundaryelement->parent[1] = -1;
 
-    nglib::Ng_GetSurfaceElement(ngmesh, i+1, boundaryelement->vertex);
+    nglibAPI->Ng_GetSurfaceElement(ngmesh, i+1, boundaryelement->vertex);
     
     int u = --boundaryelement->vertex[0];
     int v = --boundaryelement->vertex[1];
@@ -852,13 +888,13 @@ void MainWindow::makeElmerMeshFromNglib()
   }
 
   // Elements:
-  mesh->elements = nglib:: Ng_GetNE(ngmesh);
+  mesh->elements = nglibAPI->Ng_GetNE(ngmesh);
   mesh->element = new element_t[mesh->elements];
 
   for(int i=0; i< mesh->elements; i++) {
     element_t *element = &mesh->element[i];
 
-    nglib::Ng_GetVolumeElement(ngmesh, i+1, element->vertex);
+    nglibAPI->Ng_GetVolumeElement(ngmesh, i+1, element->vertex);
     
     element->vertex[0]--;
     element->vertex[1]--;

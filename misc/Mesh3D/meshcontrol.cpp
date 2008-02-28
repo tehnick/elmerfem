@@ -5,6 +5,9 @@
 MeshControl::MeshControl(QWidget *parent)
   : QDialog(parent)
 {
+  tetlibPresent = true;
+  nglibPresent = true;
+
   ui.setupUi(this);
 
   connect(ui.tetlibRadioButton, SIGNAL(clicked()), this, SLOT(tetlibClicked()));
@@ -55,8 +58,14 @@ void MeshControl::defineNglibBackgroundmesh(const QString &qs)
 
 void MeshControl::defaultControls()
 {
-  ui.tetlibRadioButton->setChecked(true);
   generatorType = GEN_TETLIB;
+  ui.tetlibRadioButton->setChecked(true);
+
+  if(!tetlibPresent) {
+    ui.nglibRadioButton->setChecked(true);
+    generatorType = GEN_NGLIB;
+  }
+
   ui.tetlibStringEdit->setText("nnJApq1.414V");
   ui.nglibMaxHEdit->setText("1000000");
   ui.nglibFinenessEdit->setText("0.5");
