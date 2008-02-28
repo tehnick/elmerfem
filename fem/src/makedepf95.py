@@ -29,10 +29,10 @@ class SimpleF90Parser:
         self.separator = re.compile('[\t, ;]')
         self.comment = re.compile('!')
         self.newline = re.compile('\n')
-        self.usest = re.compile('use[ \t]+([a-zA-Z0-9]+)[ \t,\n;:]',re.I)
-        self.modulest = re.compile('module[ \t]+([a-zA-Z0-9]+)[ \t]*\n$',re.I)
+        self.usest = re.compile('use[ \t]+([a-zA-Z0-9_]+)[ \t,\n;:]',re.I)
+        self.modulest = re.compile('module[ \t]+([a-zA-Z0-9_]+)[ \t]*\n$',re.I)
         self.endst = re.compile('end',re.I)
-        self.prevWord = re.compile('[\t, ;\n]+([a-zA-Z0-9]+)[\t, ;\n]+$')
+        self.prevWord = re.compile('[\t, ;\n]+([a-zA-Z0-9_]+)[\t, ;\n]+$')
         
         self.usedModules={}
         self.definedModules={}
