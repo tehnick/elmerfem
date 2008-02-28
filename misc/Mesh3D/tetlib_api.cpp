@@ -34,37 +34,33 @@ bool TetlibAPI::loadTetlib()
   cout.flush();
   
 #ifdef WIN32
-  ptetgenio = (tetgenio_t) GetProcAddress(hTetlib, "CreateObjectOfTetgenio");
+#define DLSYMPROC GetProcAddress
 #else
-  ptetgenio = (tetgenio_t) dlsym(hTetlib, "CreateObjectOfTetgenio");  
+#define DLSYMPROC GetProcAddress
 #endif
-  
-  if(!ptetgenio) {
-    cout << "Unable to get proc address for 'tetgenio'\n";
-    cout.flush();
+
+  if(!(ptetgenio = (tetgenio_t) DLSYMPROC(hTetlib, "CreateObjectOfTetgenio")))
+    {
+      cout << "Unable to get proc address for 'tetgenio'\n";
+      cout.flush();
 #ifndef WIN32
-    dlclose(hTetlib);
+      dlclose(hTetlib);
 #endif
-    return false;
-  }
+      return false;
+    }
   
   in = (ptetgenio)();
   out = (ptetgenio)(); 
 
-#ifdef WIN32
-  delegate_tetrahedralize = (delegate_tetrahedralize_t) GetProcAddress(hTetlib, "delegate_tetrahedralize");
-#else
-  delegate_tetrahedralize = (delegate_tetrahedralize_t) dlsym(hTetlib, "delegate_tetrahedralize");
-#endif
-
-  if(!delegate_tetrahedralize) {
-    cout << "Unable to get proc address for 'delegate_tetrahedralize'\n";
-    cout.flush();
+  if(!(delegate_tetrahedralize = (delegate_tetrahedralize_t) DLSYMPROC(hTetlib, "delegate_tetrahedralize")))
+    {
+      cout << "Unable to get proc address for 'delegate_tetrahedralize'\n";
+      cout.flush();
 #ifndef WIN32
-    dlclose(hTetlib);
+      dlclose(hTetlib);
 #endif
-    return false;
-  }
+      return false;
+    }
   
   return true;
 }

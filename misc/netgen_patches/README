@@ -1,0 +1,36 @@
+The package netgen.tar.gz in this directory (if present) is a CVS checkout 
+of netgen's repository at 27. Feb 2008, containing the files needed to build
+nglib (for license, see netgen/LGPL).
+
+If the package is not present, you can obtain the relevant files by performing
+an CVS checkout from Netgen's repository. Follow the instructions on netgen's
+we site:
+
+     http://www.hpfem.jku.at/netgen/
+
+In order to build a shared object of nglib for Mesh3D, you will have to:
+
+- unzip the package: tar xvfz netgen.tar.gz (or CVS checkout)
+- Copy the file COofMP.cpp in netgen/ngcore
+- Copy the file makedll.sh in netgen/ngcore
+- Copy the file testmain.cpp in netgen/ngcore
+- Edit the file netgen/libsrc/interface/nglib.h by removing the comments in:
+
+// #ifdef __cplusplus
+// extern "C" 
+// {
+// #endif
+
+// #ifdef __cplusplus
+//  }
+// #endif
+
+- cd to netgen/ngcore and run the script "makedll.sh"
+
+- test the lib as:
+
+ g++ testmain.cpp
+ ./a cube.surf
+
+- copy ngcore/libng.dll and libsrc/interface/nglib.h in Mesh3D's main dir.
+

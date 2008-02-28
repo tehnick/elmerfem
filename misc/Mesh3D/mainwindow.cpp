@@ -4,6 +4,8 @@
 #include <fstream>
 #include "mainwindow.h"
 
+using namespace std;
+
 // Construct main window...
 //-----------------------------------------------------------------------------
 MainWindow::MainWindow()
@@ -214,8 +216,8 @@ void MainWindow::showsif()
 //-----------------------------------------------------------------------------
 void MainWindow::logMessage(QString message)
 {
-  std::cout << std::string(message.toAscii()) << std::endl;
-  std::cout.flush();
+  cout << string(message.toAscii()) << endl;
+  cout.flush();
 }
 
 
@@ -378,10 +380,10 @@ void MainWindow::saveElmerMesh(QString dirName)
   file.open(QIODevice::WriteOnly);
   QTextStream header(&file);
 
-  std::cout << "Saving " << mesh->nodes << " nodes\n";
-  std::cout << "Saving " << mesh->elements << " elements\n";
-  std::cout << "Saving " << mesh->boundaryelements << " boundary elements\n";
-  std::cout.flush();
+  cout << "Saving " << mesh->nodes << " nodes\n";
+  cout << "Saving " << mesh->elements << " elements\n";
+  cout << "Saving " << mesh->boundaryelements << " boundary elements\n";
+  cout.flush();
 
   header << mesh->nodes << " ";
   header << mesh->elements << " ";
@@ -594,8 +596,8 @@ void MainWindow::readInputFile(QString fileName)
     }
     
     int rv = nglibAPI->Ng_STL_InitSTLGeometry(nggeom);
-    std::cout << "InitSTLGeometry: NG_result=" << rv << std::endl;
-    std::cout.flush();
+    cout << "InitSTLGeometry: NG_result=" << rv << endl;
+    cout.flush();
     
     nglibInputOk = true;
 

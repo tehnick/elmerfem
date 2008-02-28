@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include "meshingthread.h"
 
+using namespace std;
 
 MeshingThread::MeshingThread(QObject *parent)
   : QThread(parent)
@@ -70,9 +71,9 @@ void MeshingThread::run()
 
     if(generatorType==GEN_TETLIB) {
       
-      std::cout << "Mesh generator: control string: " << std::string(tetgenControlString.toAscii()) << std::endl;
-      std::cout << "Mesh generator: input points: " << in->numberofpoints << std::endl;
-      std::cout.flush();
+      cout << "Mesh generator: control string: " << string(tetgenControlString.toAscii()) << endl;
+      cout << "Mesh generator: input points: " << in->numberofpoints << endl;
+      cout.flush();
       
       out->deinitialize();
       out->initialize();    
@@ -81,36 +82,36 @@ void MeshingThread::run()
       if(delegate_tetrahedralize)
 	delegate_tetrahedralize(1, NULL, ss, in, out, NULL, NULL);      
       
-      std::cout << "Mesh generator: nodes: " << out->numberofpoints << std::endl;
-      std::cout << "Mesh generator: elements: " << out->numberoftetrahedra << std::endl;
-      std::cout << "Mesh generator: boundary elements: " << out->numberoftrifaces << std::endl;
-      std::cout.flush();
+      cout << "Mesh generator: nodes: " << out->numberofpoints << endl;
+      cout << "Mesh generator: elements: " << out->numberoftetrahedra << endl;
+      cout << "Mesh generator: boundary elements: " << out->numberoftrifaces << endl;
+      cout.flush();
       
     } else if(generatorType==GEN_NGLIB) {
       
       int rv = nglibAPI->Ng_STL_MakeEdges(nggeom, ngmesh, mp);
-      std::cout << "Make Edges: Ng_result=" << rv << std::endl;
+      cout << "Make Edges: Ng_result=" << rv << endl;
       
       rv = nglibAPI->Ng_STL_GenerateSurfaceMesh(nggeom, ngmesh, mp);
-      std::cout << "Generate Surface Mesh: Ng_result=" << rv << std::endl;
+      cout << "Generate Surface Mesh: Ng_result=" << rv << endl;
       
       rv = nglibAPI->Ng_GenerateVolumeMesh(ngmesh, mp);
-      std::cout << "Generate Volume Mesh: Ng_result=" << rv << std::endl;
+      cout << "Generate Volume Mesh: Ng_result=" << rv << endl;
       
       int np = nglibAPI->Ng_GetNP(ngmesh);
-      std::cout << "Meshing thtread: nodes: " << np << std::endl;
+      cout << "Meshing thtread: nodes: " << np << endl;
       
       int ne = nglibAPI->Ng_GetNE(ngmesh);
-      std::cout << "Meshing thtread: elements: " << ne << std::endl;
+      cout << "Meshing thtread: elements: " << ne << endl;
 
       int nse = nglibAPI->Ng_GetNSE(ngmesh);
-      std::cout << "Meshing thtread: boundary elements: " << nse << std::endl;      
-      std::cout.flush();
+      cout << "Meshing thtread: boundary elements: " << nse << endl;      
+      cout.flush();
       
     } else {
       
-      std::cout << "Meshgen: unknown generator type\n";
-      std::cout.flush();
+      cout << "Meshgen: unknown generator type\n";
+      cout.flush();
       
     }
        

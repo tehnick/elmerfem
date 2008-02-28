@@ -7,6 +7,7 @@
 #include "glwidget.h"
 #include "mainwindow.h"
 
+using namespace std;
 
 // Construct glWidget...
 //-----------------------------------------------------------------------------
@@ -96,12 +97,12 @@ void GLWidget::initializeGL()
   glEnable(GL_TEXTURE_1D);
   glGetIntegerv(GL_MAX_TEXTURE_SIZE, &colorMapEntries);
 
-  std::cout << "Initializing GL" << std::endl;
-  std::cout << "Vendor: " << glGetString(GL_VENDOR) << std::endl;
-  std::cout << "Renderer: " << glGetString(GL_RENDERER) << std::endl;
-  std::cout << "GL Version: " << glGetString(GL_VERSION) << std::endl;
-  std::cout << "Colormap entries: " << colorMapEntries << std::endl;
-  std::cout.flush();
+  cout << "Initialize GL" << endl;
+  cout << "Vendor: " << glGetString(GL_VENDOR) << endl;
+  cout << "Renderer: " << glGetString(GL_RENDERER) << endl;
+  cout << "GL Version: " << glGetString(GL_VERSION) << endl;
+  cout << "Colormap entries: " << colorMapEntries << endl;
+  cout.flush();
 
   // delete  [] colorMap;
   colorMap = new unsigned char[3*colorMapEntries];
@@ -369,8 +370,8 @@ GLuint GLWidget::makeObjects()
     GLuint list = glGenLists(1);
     glNewList(list, GL_COMPILE);
 
-    //std::cout << "Generating list: " << list << "\n";
-    //std::cout.flush();
+    //cout << "Generating list: " << list << "\n";
+    //cout.flush();
 
     if(j==1)
       firstList = list;
