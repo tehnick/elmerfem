@@ -14,7 +14,7 @@
 #include <dlfcn.h>
 #endif
 
-#include "tetgen.h"
+#include "tetlib_api.h"
 
 namespace nglib {
 #include <nglib.h>
@@ -28,15 +28,9 @@ public:
   MeshingThread(QObject *parent = 0);
   ~MeshingThread();
 
-#ifdef WIN32
-  void generate(int generatorType, QString cs, tetgenio *in, tetgenio *out, 
-		nglib::Ng_Mesh *ngmesh, nglib::Ng_STL_Geometry *nggeom,
-		nglib::Ng_Meshing_Parameters &mp, HINSTANCE hTetlib);
-#else
-  void generate(int generatorType, QString cs, tetgenio *in, tetgenio *out, 
-		nglib::Ng_Mesh *ngmesh, nglib::Ng_STL_Geometry *nggeom,
-		nglib::Ng_Meshing_Parameters &mp, void *hTetlib);
-#endif
+  void generate(int generatorType, QString cs, TetlibAPI *tetlibAPI, 
+		nglib::Ng_Mesh *ngmesh, nglib::Ng_STL_Geometry *nggeom, 
+		nglib::Ng_Meshing_Parameters &mp);
   
 signals:
   void generatorFinished();
@@ -54,17 +48,10 @@ private:
   int generatorType;
 
   // tetlib:
-  typedef void (*delegate_tetrahedralize_t)(int, char *tetgenbehavior,
-					    char*, tetgenio*, tetgenio*, 
-					    tetgenio*, tetgenio*);
+  TetlibAPI *tetlibAPI;
   QString tetgenControlString;
   tetgenio *in;
   tetgenio *out;
-#ifdef WIN32
-  HINSTANCE hTetlib;
-#else
-  void *hTetlib;
-#endif
   delegate_tetrahedralize_t delegate_tetrahedralize;
 
   // nglib:

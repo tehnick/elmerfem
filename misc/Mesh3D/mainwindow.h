@@ -16,7 +16,7 @@
 #include "sifwindow.h"
 #include "meshcontrol.h"
 
-#include "tetgen.h"
+#include "tetlib_api.h"
 
 namespace nglib {
 #include <nglib.h>
@@ -73,28 +73,22 @@ private:
   QAction *aboutAct;          // Help -> About...
 
   // tetlib:
-  typedef tetgenio* (*tetgenio_t)();
-  tetgenio_t ptetgenio;
-#ifdef WIN32
-  HINSTANCE hTetlib;
-#else
-  void *hTetlib;
-#endif
-  QString tetlibControlString;
+  TetlibAPI *tetlibAPI;
+  bool tetlibPresent;
   tetgenio *in;
   tetgenio *out;
   bool tetlibInputOk;
-  bool tetlibPresent;
+  QString tetlibControlString;
   
   // nglib:
+  bool nglibInputOk;
   nglib::Ng_Mesh *ngmesh;
   nglib::Ng_STL_Geometry *nggeom;
   nglib::Ng_Meshing_Parameters mp;
-  bool nglibInputOk;
 
+  // meshing thread:
   MeshingThread meshingThread;
   
-  void loadPlugins();
   void readInputFile(QString fileName);
   void saveElmerMesh(QString dirName);
   void makeElmerMeshFromTetlib();

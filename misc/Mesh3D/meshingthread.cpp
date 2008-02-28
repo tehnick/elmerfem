@@ -24,36 +24,22 @@ MeshingThread::~MeshingThread()
 }
 
 
-#ifdef WIN32
-void MeshingThread::generate(int generatorType, QString cs, 
-			     tetgenio *in, tetgenio *out,
+void MeshingThread::generate(int generatorType,
+			     QString cs, TetlibAPI *tetlibAPI,
 			     nglib::Ng_Mesh *ngmesh,
 			     nglib::Ng_STL_Geometry *nggeom,
-			     nglib::Ng_Meshing_Parameters &mp,
-			     HINSTANCE hTetlib)
-#else
-void MeshingThread::generate(int generatorType, QString cs, 
-			     tetgenio *in, tetgenio *out,
-			     nglib::Ng_Mesh *ngmesh,
-			     nglib::Ng_STL_Geometry *nggeom,
-			     nglib::Ng_Meshing_Parameters &mp,
-			     void *hTetlib)
-#endif
+			     nglib::Ng_Meshing_Parameters &mp)
+  
 {
   QMutexLocker locker(&mutex);
 
   this->generatorType = generatorType;
 
   this->tetgenControlString = cs;
-  this->in = in;
-  this->out = out;
-  this->hTetlib = hTetlib;
-
-#ifdef WIN32
-  delegate_tetrahedralize = (delegate_tetrahedralize_t)GetProcAddress(hTetlib, "delegate_tetrahedralize");
-#else
-  delegate_tetrahedralize = (delegate_tetrahedralize_t)dlsym(hTetlib, "delegate_tetrahedralize");
-#endif
+  this->tetlibAPI = tetlibAPI;
+  this->in = tetlibAPI->in;
+  this->out = tetlibAPI->out;
+  this->delegate_tetrahedralize = tetlibAPI->delegate_tetrahedralize;
 
   this->ngmesh = ngmesh;
   this->nggeom = nggeom;
@@ -93,7 +79,6 @@ void MeshingThread::run()
       out->initialize();    
       
       sprintf(ss, "%s", (const char*)(tetgenControlString.toAscii()));
-      //tetrahedralize(ss, in, out);
       if(delegate_tetrahedralize)
 	delegate_tetrahedralize(1, NULL, ss, in, out, NULL, NULL);      
       
