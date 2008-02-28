@@ -2,14 +2,7 @@
 #include <QFile>
 #include <iostream>
 #include <fstream>
-
 #include "mainwindow.h"
-#include "glwidget.h"
-#include "meshingthread.h"
-#include "sifwindow.h"
-#include "meshcontrol.h"
-
-
 
 // Construct main window...
 //-----------------------------------------------------------------------------
@@ -651,18 +644,10 @@ void MainWindow::makeElmerMeshFromTetlib()
 
   s *= 2.0;
   
-  // Scale to fit unit cube:
-  for(int i=0; i < mesh->nodes; i++) {
-    node_t *node = &mesh->node[i];
-
-    node->x[0] -= xmid;
-    node->x[1] -= ymid;
-    node->x[2] -= zmid;
-
-    node->x[0] /= s;
-    node->x[1] /= s;
-    node->x[2] /= s;
-  }
+  glWidget->drawScale = s;
+  glWidget->drawTranslate[0] = xmid;
+  glWidget->drawTranslate[1] = ymid;
+  glWidget->drawTranslate[2] = zmid;
 
   // Edges:
   mesh->edges = 0;
@@ -820,18 +805,10 @@ void MainWindow::makeElmerMeshFromNglib()
 
   s *= 2.0;
   
-  // Scale to fit unit cube:
-  for(int i=0; i < mesh->nodes; i++) {
-    node_t *node = &mesh->node[i];
-
-    node->x[0] -= xmid;
-    node->x[1] -= ymid;
-    node->x[2] -= zmid;
-
-    node->x[0] /= s;
-    node->x[1] /= s;
-    node->x[2] /= s;
-  }
+  glWidget->drawScale = s;
+  glWidget->drawTranslate[0] = xmid;
+  glWidget->drawTranslate[1] = ymid;
+  glWidget->drawTranslate[2] = zmid;
 
   // Edges:
   mesh->edges = 0;

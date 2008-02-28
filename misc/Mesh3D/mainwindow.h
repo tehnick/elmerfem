@@ -4,19 +4,12 @@
 #define GEN_TETLIB 1000
 #define GEN_NGLIB  1001
 
-#ifdef WIN32
-#include <windows.h>
-#else
-#include <dlfcn.h>
-#endif
-
 #include <QMainWindow>
+#include "tetlib_api.h"
 #include "glwidget.h"
 #include "meshingthread.h"
 #include "sifwindow.h"
 #include "meshcontrol.h"
-
-#include "tetlib_api.h"
 
 namespace nglib {
 #include <nglib.h>

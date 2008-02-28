@@ -1,7 +1,6 @@
 #include <QtGui>
 #include <iostream>
 #include <stdio.h>
-
 #include "meshingthread.h"
 
 
@@ -24,8 +23,8 @@ MeshingThread::~MeshingThread()
 }
 
 
-void MeshingThread::generate(int generatorType,
-			     QString cs, TetlibAPI *tetlibAPI,
+void MeshingThread::generate(int generatorType, QString cs,
+			     TetlibAPI *tetlibAPI,
 			     nglib::Ng_Mesh *ngmesh,
 			     nglib::Ng_STL_Geometry *nggeom,
 			     nglib::Ng_Meshing_Parameters &mp)

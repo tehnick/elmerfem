@@ -26,6 +26,9 @@ public:
     unsigned char *colorMap;
     GLint colorMapEntries;
 
+    double drawScale;
+    double drawTranslate[3];
+
     void clearMesh();
 
 public slots:
