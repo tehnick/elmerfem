@@ -435,6 +435,8 @@
 !------------------------------------------------------------------------------
      USE DefUtils
      INTEGER :: DOFs
+     CHARACTER(LEN=MAX_NAME_LEN) :: str
+     LOGICAL :: Found
      TYPE(Solver_t), POINTER :: Solver
      INTEGER, ALLOCATABLE :: Indexes(:)
      REAL(KIND=dp),ALLOCATABLE :: Work(:)
@@ -463,6 +465,13 @@
                  ELSE
                    DOFs = GetElementDOFs( Indexes )
                  END IF
+
+                 Solver => Var % Solver
+                 IF ( .NOT. ASSOCIATED(Solver) ) Solver => CurrentModel % Solver
+
+                 str = ListGetString( Solver % Values, 'Namespace', Found )
+                 IF (Found) CALL ListSetNamespace(TRIM(str))
+
                  IF ( Var % DOFs <= 1 ) THEN
                     Work(1:n) = GetReal( CurrentModel % ICs(j) % Values, &
                            Var % Name, GotIt )
@@ -474,10 +483,8 @@
                       END DO
                     END IF
 
-                    Solver => Var % Solver
-                    IF ( .NOT. ASSOCIATED(Solver) ) Solver => CurrentModel % Solver
-                    IF ( Transient .AND. Solver % TimeOrder==2 ) THEN
 
+                    IF ( Transient .AND. Solver % TimeOrder==2 ) THEN
                       Work(1:n) = GetReal( CurrentModel % ICs(j) % Values, &
                              TRIM(Var % Name) // ' Velocity', GotIt )
                       IF ( GotIt ) THEN
@@ -511,6 +518,7 @@
                       END DO
                     END IF
                  END IF
+                 CALL ListSetNamespace('')
                  Var => Var % Next
                END DO
              END IF
@@ -588,6 +596,12 @@
 
                Var => Mesh % Variables
                DO WHILE( ASSOCIATED(Var) )
+                 Solver => Var % Solver
+                 IF ( .NOT. ASSOCIATED(Solver) ) Solver => CurrentModel % Solver
+
+                 str = ListGetString( Solver % Values, 'Namespace', Found )
+                 IF (Found) CALL ListSetNamespace(TRIM(str))
+
                  IF ( Var % DOFs <= 1 ) THEN
                    Work(1:n) = ListGetReal( CurrentModel % BCs(i) % Values, &
                      Var % Name, n, CurrentElement % NodeIndexes, gotIt )
@@ -599,8 +613,6 @@
                      END DO
                    END IF
 
-                   Solver => Var % Solver
-                   IF ( .NOT. ASSOCIATED(Solver) ) Solver => CurrentModel % Solver
                    IF ( Transient .AND. Solver % TimeOrder==2 ) THEN
                       Work(1:n) = GetReal( CurrentModel % BCs(i) % Values, &
                              TRIM(Var % Name) // ' Velocity', GotIt )
@@ -634,6 +646,7 @@
                      END DO
                    END IF
                  END IF
+                 CALL ListSetNamespace('')
                  Var => Var % Next
                END DO
              END IF
