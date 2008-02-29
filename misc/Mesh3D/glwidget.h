@@ -30,6 +30,7 @@ public:
     double drawTranslate[3];
 
     void clearMesh();
+    void findBoundaryElementEdges(mesh_t*);
 
 public slots:
 

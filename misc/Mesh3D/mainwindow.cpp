@@ -230,7 +230,7 @@ void MainWindow::remesh()
   if(meshControl->generatorType == GEN_TETLIB) {
 
     if(!tetlibPresent) {
-      logMessage("tetlib functionality disabled");
+      logMessage("tetlib functionality unavailable");
       return;
     }
 
@@ -245,7 +245,7 @@ void MainWindow::remesh()
   } else if(meshControl->generatorType == GEN_NGLIB) {
 
     if(!nglibPresent) {
-      logMessage("nglib functionality disabled");
+      logMessage("nglib functionality unavailable");
       return;
     }
 
@@ -548,7 +548,7 @@ void MainWindow::readInputFile(QString fileName)
   if(meshControl->generatorType==GEN_TETLIB) {
 
     if(!tetlibPresent) {
-      logMessage("tetlib functionality disabled");
+      logMessage("tetlib functionality unavailable");
       return;
     }
 
@@ -576,12 +576,12 @@ void MainWindow::readInputFile(QString fileName)
   } else if (meshControl->generatorType==GEN_NGLIB) {    
 
     if(!nglibPresent) {
-      logMessage("nglib functionality disabled");
+      logMessage("nglib functionality unavailable");
       return;
     }
 
     if(fileSuffix != "stl") {
-      logMessage("Read input file: error: illegan file type for nglib");
+      logMessage("Read input file: error: illegal file type for nglib");
       nglibInputOk = false;      
       return;
     }
@@ -773,6 +773,10 @@ void MainWindow::makeElmerMeshFromTetlib()
   glWidget->updateGL();
 
   logMessage("Input file processed");
+
+
+  // ?????
+  // glWidget->findBoundaryElementEdges(mesh);
 }
 
 

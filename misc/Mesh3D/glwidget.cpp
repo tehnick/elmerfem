@@ -15,7 +15,6 @@ GLWidget::GLWidget(QWidget *parent)
   : QGLWidget(parent)
 {
   backgroundColor = QColor::fromRgb(255, 255, 255, 255);
-  // backgroundColor = QColor::fromRgb(192, 192, 192, 255);
   objects = 0;
   firstList = 0;
   lastList = 0;
@@ -485,4 +484,136 @@ void GLWidget::clearMesh()
     
     delete [] mesh;
   }
+}
+
+// Find edges for boundary elements...
+//-----------------------------------------------------------------------------
+void GLWidget::findBoundaryElementEdges(mesh_t *mesh)
+{
+#define PARENT_UNKNOWN -1
+#define PARENT_MORETHANTWO -2
+
+  typedef struct {
+    int node;
+    int parent[2];
+    void *next;
+  } hash_t;
+
+  int keys = mesh->nodes;
+
+  hash_t *hash = new hash_t[keys];
+
+  for(int i=0; i<keys; i++) {
+    hash[i].node = -1;
+    hash[i].parent[0] = PARENT_UNKNOWN;
+    hash[i].parent[1] = PARENT_UNKNOWN;
+    hash[i].next = NULL;
+  }
+
+  for(int i=0; i < mesh->boundaryelements; i++) {
+    boundaryelement_t *be = &mesh->boundaryelement[i];
+
+    int v0 = be->vertex[0];
+    int v1 = be->vertex[1];
+    int v2 = be->vertex[2];
+    
+    // edge 0-1
+    int m = (v0<v1) ? v0 : v1;
+    int n = (v0<v1) ? v1 : v0;
+    
+    hash_t *h = &hash[m];
+    bool found = false;
+
+    while(h->node > -1) {
+      if(h->node == n) {
+	found = true;
+	break;
+      }
+      h = (hash_t*)h->next;
+    }
+
+    if(!found) {
+      h->node = n;
+      h->next = new hash_t;
+      h = (hash_t*)h->next;
+      h->node = -1;
+      h->next = NULL;
+    }
+
+    // edge 1-2
+    m = (v1<v2) ? v1 : v2;
+    n = (v1<v2) ? v2 : v1;
+
+    h = &hash[m];
+    found = false;
+
+    while(h->node > -1) {
+      if(h->node == n) {
+	found = true;
+	break;
+      }
+      h = (hash_t*)h->next;
+    }
+
+    if(!found) {
+      h->node = n;
+      h->next = new hash_t;
+      h = (hash_t*)h->next;
+      h->node = -1;
+      h->next = NULL;
+    }
+
+    // edge 2-0
+    m = (v2<v0) ? v2 : v0;
+    n = (v2<v0) ? v0 : v2;
+
+    h = &hash[m];
+    found = false;
+
+    while(h->node > -1) {
+      if(h->node == n) {
+	found = true;
+	break;
+      }
+      h = (hash_t*)h->next;
+    }
+
+    if(!found) {
+      h->node = n;
+      h->next = new hash_t;
+      h = (hash_t*)h->next;
+      h->node = -1;
+      h->next = NULL;
+    }
+  }
+
+
+  // count edges:
+  int edges = 0;
+  for(int i=0; i<keys; i++) {
+    hash_t *h = &hash[i];
+    while(h->node > -1) {
+      edges++;
+      h = (hash_t*)h->next;
+    }
+  }
+
+  cout << "Found " << edges << " edges" << endl;
+
+  mesh->edges = edges;
+  mesh->edge = new edge_t[edges];
+
+  edges = 0;
+  for(int i=0; i<keys; i++) {
+    hash_t *h = &hash[i];
+    while(h->node > -1) {
+      mesh->edge[edges].vertex[0] = i;
+      mesh->edge[edges].vertex[1] = h->node;
+      edges++;
+      h = (hash_t*)h->next;
+    }
+  }
+
+  // is this sufficient?
+  delete [] hash;
 }
