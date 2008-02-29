@@ -489,7 +489,7 @@ CONTAINS
       TYPE(Model_t) :: Model
       CHARACTER(LEN=*) :: Equation
 
-      LOGICAL :: Flag,GotIt
+      LOGICAL :: Flag,Found
 
       INTEGER :: k,body_id
        
@@ -499,7 +499,7 @@ CONTAINS
          k = ListGetInteger( Model % Bodies(body_id) % Values, 'Equation', &
                  minv=1, maxv=Model % NumberOFEquations )
          IF ( k > 0 ) THEN
-           Flag = ListGetLogical(Model % Equations(k) % Values,Equation,gotIt)
+           Flag = ListGetLogical(Model % Equations(k) % Values,Equation,Found)
          END IF
       END IF
 !---------------------------------------------------------------------------
@@ -926,6 +926,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
     END FUNCTION VariableGet 
 !------------------------------------------------------------------------------
 
+
 !------------------------------------------------------------------------------
   FUNCTION ListAllocate() RESULT(ptr)
 !------------------------------------------------------------------------------
@@ -984,7 +985,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
             ELSE
                Prev % Next => ptr % Next
             END IF
-            CALL ListDelete( ptr )
+            CALL ListDelete(ptr)
             EXIT
          ELSE
            Prev => ptr
@@ -1051,6 +1052,81 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+   SUBROUTINE ListSetNameSpace(str)
+!------------------------------------------------------------------------------
+     CHARACTER(LEN=*) :: str
+!------------------------------------------------------------------------------
+     NameSpace = str
+!------------------------------------------------------------------------------
+   END SUBROUTINE ListSetNameSpace
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+   FUNCTION ListGetNameSpace(str) RESULT(l)
+!------------------------------------------------------------------------------
+    LOGICAL :: l 
+    TYPE(Varying_string) :: str
+!------------------------------------------------------------------------------
+    l = .FALSE.
+    IF ( NameSpace /= '' ) THEN
+      l = .TRUE.
+      str = NameSpace
+    END IF
+!------------------------------------------------------------------------------
+   END FUNCTION ListGetNameSpace
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+   FUNCTION ListFind( list, name, Found) RESULT(ptr)
+!------------------------------------------------------------------------------
+     TYPE(ValueList_t), POINTER :: list, ptr
+     CHARACTER(LEN=*) :: name
+     LOGICAL, OPTIONAL :: Found
+!------------------------------------------------------------------------------
+     TYPE(Varying_string) :: strn
+     CHARACTER(LEN=LEN_TRIM(Name)) :: str
+!------------------------------------------------------------------------------
+     INTEGER :: k, n
+
+     k = StringToLowerCase( str,Name,.TRUE. )
+
+     ptr => List
+     DO WHILE( ASSOCIATED(ptr) )
+       n = ptr % NameLen
+       IF ( n==k ) THEN
+         IF ( ptr % Name(1:n) == str(1:n) ) EXIT
+       END IF
+       ptr => ptr % Next
+     END DO
+
+     IF ( .NOT. ASSOCIATED(ptr) ) THEN
+       IF ( ListGetNameSpace(strn) ) THEN
+         strn = strn //' '//str(1:k)
+         k = LEN(strn)
+         ptr => List
+         DO WHILE( ASSOCIATED(ptr) )
+            n = ptr % NameLen
+            IF ( n==k ) THEN
+              IF ( ptr % Name(1:n) == strn ) EXIT
+            END IF
+            ptr => ptr % Next
+         END DO
+       END IF
+     END IF
+
+     IF ( PRESENT(Found) ) THEN
+       Found = ASSOCIATED(ptr)
+     ELSE IF (.NOT.ASSOCIATED(ptr) ) THEN
+       CALL Warn( 'ListFind', ' ' )
+       WRITE(Message,*) 'Requested property: ', '[',TRIM(Name),'], not found'
+       CALL Warn( 'ListFind', Message )
+       CALL Warn( 'ListFind', ' ' )
+     END IF
+!------------------------------------------------------------------------------
+   END FUNCTION ListFind
+!------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
    FUNCTION ListCheckPresent( List,Name ) RESULT(Found)
@@ -1061,8 +1137,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: ptr
 !------------------------------------------------------------------------------
-     ptr => ListFind(List,Name)
-     Found = ASSOCIATED( ptr )
+     ptr => ListFind(List,Name,Found)
 !------------------------------------------------------------------------------
    END FUNCTION ListCheckPresent
 !------------------------------------------------------------------------------
@@ -1292,105 +1367,25 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
      ptr % NameLen = StringToLowerCase( ptr % Name,Name )
      ptr % DepNameLen = StringToLowerCase( ptr % DependName,DependName )
+!------------------------------------------------------------------------------
    END SUBROUTINE ListAddDepRealArray
 !------------------------------------------------------------------------------
 
-!------------------------------------------------------------------------------
-   SUBROUTINE ListSetNameSpace(str)
-!------------------------------------------------------------------------------
-     CHARACTER(LEN=*) :: str
-!------------------------------------------------------------------------------
-     NameSpace = str
-!------------------------------------------------------------------------------
-   END SUBROUTINE ListSetNameSpace
-!------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-   FUNCTION ListGetNameSpace(str) RESULT(l)
-!------------------------------------------------------------------------------
-    LOGICAL :: l 
-    TYPE(Varying_string) :: str
-!------------------------------------------------------------------------------
-    l = .FALSE.
-    IF ( NameSpace /= '' ) THEN
-      l = .TRUE.
-      str = NameSpace
-    END IF
-!------------------------------------------------------------------------------
-   END FUNCTION ListGetNameSpace
-!------------------------------------------------------------------------------
-
-!------------------------------------------------------------------------------
-   FUNCTION ListFind( list, name ) RESULT(ptr)
-!------------------------------------------------------------------------------
-     TYPE(ValueList_t), POINTER :: list, ptr
-     CHARACTER(LEN=*) :: name
-!------------------------------------------------------------------------------
-     TYPE(Variable_t), POINTER :: Var
-     TYPE(Varying_string) :: strn
-     CHARACTER(LEN=LEN_TRIM(Name)) :: str
-!------------------------------------------------------------------------------
-     INTEGER :: k, n
-
-     k = StringToLowerCase( str,Name,.TRUE. )
-
-     ptr => List
-     DO WHILE( ASSOCIATED(ptr) )
-       n = ptr % NameLen
-       IF ( n==k ) THEN
-         IF ( ptr % Name(1:n) == str(1:n) ) EXIT
-       END IF
-       ptr => ptr % Next
-     END DO
-
-     IF ( .NOT. ASSOCIATED(ptr) ) THEN
-       IF ( ListGetNameSpace(strn) ) THEN
-         strn = strn //' '//str(1:k)
-         k = LEN(strn)
-         ptr => List
-         DO WHILE( ASSOCIATED(ptr) )
-            n = ptr % NameLen
-            IF ( n==k ) THEN
-              IF ( ptr % Name(1:n) == strn ) EXIT
-            END IF
-            ptr => ptr % Next
-         END DO
-       END IF
-     END IF
-!------------------------------------------------------------------------------
-   END FUNCTION ListFind
-!------------------------------------------------------------------------------
-
-
-!------------------------------------------------------------------------------
-   RECURSIVE FUNCTION ListGetInteger( List,Name,gotIt,minv,maxv ) RESULT(L)
+   RECURSIVE FUNCTION ListGetInteger( List,Name,Found,minv,maxv ) RESULT(L)
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
      INTEGER :: L
-     LOGICAL, OPTIONAL :: gotIt
+     LOGICAL, OPTIONAL :: Found
      INTEGER, OPTIONAL :: minv,maxv
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: ptr
-     INTEGER :: k,n
-     CHARACTER(LEN=LEN_TRIM(Name)) :: str
 !------------------------------------------------------------------------------
-     IF ( PRESENT(gotIt) ) gotIt = .TRUE.
-
-     ptr => ListFind(List,Name)
-     IF ( .NOT.ASSOCIATED(ptr) ) THEN
-       L = 0
-       IF ( PRESENT(gotIt) ) THEN
-         gotIt = .FALSE.
-       ELSE
-         CALL Warn( 'ListGetInteger', ' ' )
-         WRITE( Message, * ) 'Requested property: ', &
-             '[',TRIM(Name),'], not found'
-         CALL Warn( 'ListGetInteger', Message )
-         CALL Warn( 'ListGetInteger', ' ' )
-       END IF
-       RETURN
-     END IF
+     L = 0
+     ptr => ListFind(List,Name,Found)
+     IF (.NOT.ASSOCIATED(ptr) ) RETURN
 
      IF ( ptr % Procedure /= 0 ) THEN
        L = ExecIntFunction( ptr % Procedure, CurrentModel )
@@ -1407,7 +1402,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
      IF ( PRESENT( minv ) ) THEN
         IF ( L < minv ) THEN
-           WRITE( Message, *) 'Given value ', L, ' for property: ', '[', TRIM(Name),']', &
+           WRITE( Message, *) 'Given value ',L,' for property: ','[', TRIM(Name),']', &
                ' smaller than given minimum: ', minv
            CALL Fatal( 'ListGetInteger', Message )
         END IF
@@ -1415,7 +1410,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
      IF ( PRESENT( maxv ) ) THEN
         IF ( L > maxv ) THEN
-           WRITE( Message,*)  'Given value ', L, ' for property: ', '[', TRIM(Name),']', &
+           WRITE( Message,*) 'Given value ',L,' for property: ','[', TRIM(Name),']', &
                ' larger than given maximum: ', maxv
            CALL Fatal( 'ListGetInteger', Message )
         END IF
@@ -1425,35 +1420,19 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
 
 !------------------------------------------------------------------------------
-   RECURSIVE FUNCTION ListGetIntegerArray( List,Name,GotIt ) RESULT( IValues )
+   RECURSIVE FUNCTION ListGetIntegerArray( List,Name,Found ) RESULT( IValues )
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*)  :: Name
-     LOGICAL, OPTIONAL :: gotIt
+     LOGICAL, OPTIONAL :: Found
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: ptr
-
+     INTEGER :: i,n
      INTEGER, POINTER :: IValues(:)
-
-     INTEGER :: i,k,N
-     CHARACTER(LEN=LEN_TRIM(Name)) :: str
 !------------------------------------------------------------------------------
-     IF ( PRESENT(gotIt) ) gotIt = .TRUE.
      NULLIFY( IValues )
-
-     ptr => ListFind(List,Name)
-     IF ( .NOT.ASSOCIATED(ptr) ) THEN
-       IF ( PRESENT(gotIt) ) THEN 
-         gotIt = .FALSE.
-       ELSE
-         CALL Warn( 'ListGetIntegerArray', ' ' )
-         WRITE( Message, * ) 'Requested property: ', &
-             '[',TRIM(Name),'], not found'
-         CALL Warn( 'ListGetIntegerArray', Message )
-         CALL Warn( 'ListGetIntegerArray', ' ' )
-       END IF
-       RETURN
-     END IF
+     ptr => ListFind(List,Name,Found)
+     IF ( .NOT.ASSOCIATED(ptr) ) RETURN
 
      IF ( .NOT. ASSOCIATED(ptr % IValues) ) THEN
        WRITE(Message,*) 'Value type for property [', TRIM(Name), &
@@ -1462,8 +1441,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
        RETURN
      END IF
 
-     N = SIZE(ptr % IValues)
-     IValues => Ptr % IValues(1:N)
+     n = SIZE(ptr % IValues)
+     IValues => Ptr % IValues(1:n)
 
      IF ( ptr % Procedure /= 0 ) THEN
        IValues = 0
@@ -1477,35 +1456,18 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
 
 !------------------------------------------------------------------------------
-   RECURSIVE FUNCTION ListGetLogical( List,Name,gotIt ) RESULT(L)
+   RECURSIVE FUNCTION ListGetLogical( List,Name,Found ) RESULT(L)
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
      LOGICAL :: L
-     LOGICAL, OPTIONAL :: gotIt
+     LOGICAL, OPTIONAL :: Found
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: ptr
-
-     INTEGER :: k,n
-     CHARACTER(LEN=LEN_TRIM(NAME)) :: str
 !------------------------------------------------------------------------------
-     IF ( PRESENT(gotIt) ) gotIt = .TRUE.
-
-     ptr => ListFind(List,Name)
-     IF ( .NOT.ASSOCIATED(ptr) ) THEN
-       L = .FALSE.
-       IF ( PRESENT(gotIt) ) THEN
-         gotIt = .FALSE.
-       ELSE
-         CALL Warn( 'ListGetLogical', ' ' )
-         WRITE( Message, * ) 'Requested property: ', &
-             '[',TRIM(Name),'], not found'
-         CALL Warn( 'ListGetLogical', Message )
-         CALL Warn( 'ListGetLogical', ' ' )
-       END IF
-       RETURN
-     END IF
-
+     L = .FALSE.
+     ptr => ListFind(List,Name,Found)
+     IF ( .NOT.ASSOCIATED(ptr) ) RETURN
      L = ptr % Lvalue
 !------------------------------------------------------------------------------
    END FUNCTION ListGetLogical
@@ -1513,34 +1475,18 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
 
 !------------------------------------------------------------------------------
-   RECURSIVE FUNCTION ListGetString( List,Name,gotIt ) RESULT(S)
+   RECURSIVE FUNCTION ListGetString( List,Name,Found ) RESULT(S)
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
-     LOGICAL, OPTIONAL :: gotIt
+     LOGICAL, OPTIONAL :: Found
      CHARACTER(LEN=MAX_NAME_LEN) :: S
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: ptr
-     INTEGER :: k,n
-     CHARACTER(LEN=LEN_TRIM(Name)) :: str
 !------------------------------------------------------------------------------
-     IF ( PRESENT(gotIt) ) gotIt = .TRUE.
-
-     ptr => ListFind(List,Name)
-     IF ( .NOT.ASSOCIATED(ptr) ) THEN
-       S = ' '
-       IF ( PRESENT(gotIt) ) THEN
-         gotIt = .FALSE.
-       ELSE
-         CALL Warn( 'ListGetString', ' ' )
-         WRITE( Message, * ) 'Requested property: ', &
-             '[',TRIM(Name),'], not found'
-         CALL Warn( 'ListGetString', Message )
-         CALL Warn( 'ListGetString', ' ' )
-       END IF
-       RETURN
-     END IF
-
+     S = ' '
+     ptr => ListFind(List,Name,Found)
+     IF ( .NOT.ASSOCIATED(ptr) ) RETURN
      S = ptr % Cvalue
 !------------------------------------------------------------------------------
    END FUNCTION ListGetString
@@ -1549,54 +1495,35 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
 
 !------------------------------------------------------------------------------
-   RECURSIVE FUNCTION ListGetConstReal( List,Name,gotIt,x,y,z,minv,maxv ) RESULT(F)
+   RECURSIVE FUNCTION ListGetConstReal( List,Name,Found,x,y,z,minv,maxv ) RESULT(F)
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
      REAL(KIND=dp) :: F
-     LOGICAL, OPTIONAL :: gotIt
+     LOGICAL, OPTIONAL :: Found
      REAL(KIND=dp), OPTIONAL :: x,y,z
      REAL(KIND=dp), OPTIONAL :: minv,maxv
 !------------------------------------------------------------------------------
-     TYPE(ValueList_t), POINTER :: ptr
-
      TYPE(Variable_t), POINTER :: Variable
-
+     TYPE(ValueList_t), POINTER :: ptr
      REAL(KIND=dp) :: xx,yy,zz
-
      INTEGER :: i,j,k,n
-     CHARACTER(LEN=LEN_TRIM(NAME)) :: str
      CHARACTER(LEN=MAX_NAME_LEN) :: cmd,tmp_str
 !------------------------------------------------------------------------------
-     F = 0.0D0
-     IF ( PRESENT(gotIt) ) gotIt = .TRUE.
+     F = 0.0_dp
+     ptr => ListFind(List,Name,Found)
+     IF ( .NOT.ASSOCIATED(ptr) ) RETURN
 
-     ptr => ListFind(List,Name)
-     IF ( .NOT.ASSOCIATED(ptr) ) THEN
-       IF ( PRESENT(gotIt) ) THEN
-         gotIt = .FALSE.
-       ELSE
-         CALL Warn( 'ListGetConstReal', ' ' )
-         WRITE( Message, * ) 'Requested property: ', &
-             '[',TRIM(Name),'], not found'
-         CALL Warn( 'ListGetConstReal', Message )
-         CALL Warn( 'ListGetConstReal', ' ' )
-       END IF
-       RETURN
-     END IF
-
-     xx = 0.0d0
-     yy = 0.0d0
-     zz = 0.0d0
+     xx = 0.0_dp
+     yy = 0.0_dp
+     zz = 0.0_dp
      IF ( PRESENT(x) ) xx = x
      IF ( PRESENT(y) ) yy = y
      IF ( PRESENT(z) ) zz = z
 
      IF ( Ptr % Type >= 8 ) THEN
         cmd = ptr % CValue
-        DO k=LEN(cmd),1,-1
-          IF ( cmd(k:k) /= ' ' ) EXIT
-        END DO
+        k = LEN_TRIM( ptr % CValue )
         CALL matc( cmd, tmp_str, k )
         READ( tmp_str(1:k), * ) F
      ELSE IF ( ptr % Procedure /= 0 ) THEN
@@ -1632,40 +1559,24 @@ CALL Info( 'VariableGet', Message, Level=7 )
 #define MAX_FNC 32
 
 !------------------------------------------------------------------------------
-   RECURSIVE FUNCTION ListGetReal( List,Name,N,NodeIndexes,gotIt,minv,maxv ) RESULT(F)
+   RECURSIVE FUNCTION ListGetReal( List,Name,N,NodeIndexes,Found,minv,maxv ) RESULT(F)
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*)  :: Name
      INTEGER :: N,NodeIndexes(:)
      REAL(KIND=dp)  :: F(N)
-     LOGICAL, OPTIONAL :: GotIt
+     LOGICAL, OPTIONAL :: Found
      REAL(KIND=dp), OPTIONAL :: minv,maxv
 !------------------------------------------------------------------------------
-     TYPE(ValueList_t), POINTER :: ptr
-
      TYPE(Variable_t), POINTER :: Variable, CVar, TVar
-
+     TYPE(ValueList_t), POINTER :: ptr
      REAL(KIND=dp) :: T(MAX_FNC)
      INTEGER :: i,j,k,k1,l,l0,l1,lsize
-     CHARACTER(LEN=LEN_TRIM(Name)) :: str
      CHARACTER(LEN=MAX_NAME_LEN) ::  cmd, tmp_str
 !------------------------------------------------------------------------------
-     F = 0.0D0
-     IF ( PRESENT(GotIt) ) GotIt = .TRUE.
-
-     ptr => ListFind(List,Name)
-     IF ( .NOT.ASSOCIATED(ptr) ) THEN
-       IF ( PRESENT(GotIt) ) THEN
-         GotIt = .FALSE.
-       ELSE
-         CALL Warn( 'ListGetReal', ' ' )
-         WRITE( Message, * ) 'Requested property: ', &
-             '[',TRIM(Name),'], not found'
-         CALL Warn( 'ListGetReal', Message )
-         CALL Warn( 'ListGetReal', ' ' )
-       END IF
-       RETURN
-     END IF
+     F = 0.0_dp
+     ptr => ListFind(List,Name,Found)
+     IF ( .NOT.ASSOCIATED(ptr) ) RETURN
 
      SELECT CASE(ptr % Type)
      CASE( LIST_TYPE_CONSTANT_SCALAR )
@@ -1776,15 +1687,11 @@ CALL Info( 'VariableGet', Message, Level=7 )
      CASE( LIST_TYPE_CONSTANT_SCALAR_STR )
          TVar => VariableGet( CurrentModel % Variables, 'Time' ) 
          WRITE( cmd, '(a,e15.8)' ) 'st = ', TVar % Values(1)
-         DO k=LEN(cmd),1,-1
-           IF ( cmd(k:k) /= ' ' ) EXIT
-         END DO
+         k = LEN_TRIM(cmd)
          CALL matc( cmd, tmp_str, k )
 
          cmd = ptr % CValue
-         DO k=LEN(cmd),1,-1
-           IF ( cmd(k:k) /= ' ' ) EXIT
-         END DO
+         k = LEN_TRIM(cmd)
          CALL matc( cmd, tmp_str, k )
          READ( tmp_str(1:k), * ) F(1)
          F(2:n) = F(1)
@@ -1792,9 +1699,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
      CASE( LIST_TYPE_VARIABLE_SCALAR_STR )
        TVar => VariableGet( CurrentModel % Variables, 'Time' ) 
        WRITE( cmd, * ) 'st = ', TVar % Values(1)
-       DO k=LEN(cmd),1,-1
-         IF ( cmd(k:k) /= ' ' ) EXIT
-       END DO
+       k = LEN_TRIM(cmd)
        CALL matc( cmd, tmp_str, k )
 
        DO i=1,n
@@ -1869,16 +1774,12 @@ CALL Info( 'VariableGet', Message, Level=7 )
          IF ( .NOT. ANY( T(1:j)==HUGE(1.0_dp) ) ) THEN
            DO l=1,j
              WRITE( cmd, * ) 'tx(',l-1,') = ', T(l)
-             DO k1=LEN(cmd),1,-1
-               IF ( cmd(k1:k1) /= ' ' ) EXIT
-             END DO
+             k1 = LEN_TRIM(cmd)
              CALL matc( cmd, tmp_str, k1 )
            END DO
 
            cmd = ptr % CValue
-           DO k1=LEN(cmd),1,-1
-             IF ( cmd(k1:k1) /= ' ' ) EXIT
-           END DO
+           k1 = LEN_TRIM(cmd)
            CALL matc( cmd, tmp_str, k1 )
            READ( tmp_str(1:k1), * ) F(i)
          END IF
@@ -1906,34 +1807,20 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
 
 !------------------------------------------------------------------------------
-   RECURSIVE FUNCTION ListGetConstRealArray( List,Name,GotIt ) RESULT( F )
+   RECURSIVE FUNCTION ListGetConstRealArray( List,Name,Found ) RESULT( F )
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
-     LOGICAL, OPTIONAL :: gotIt
+     LOGICAL, OPTIONAL :: Found
 !------------------------------------------------------------------------------
      REAL(KIND=dp), POINTER  :: F(:,:)
+     INTEGER :: i,j,N1,N2
      TYPE(ValueList_t), POINTER :: ptr
-     TYPE(Variable_t), POINTER :: Variable
-     INTEGER :: i,j,k,n,N1,N2
-     CHARACTER(LEN=LEN_TRIM(Name)) :: str
 !------------------------------------------------------------------------------
-     IF ( PRESENT(gotIt) ) gotIt = .TRUE.
      NULLIFY( F ) 
 
-     ptr => ListFind(List,Name)
-     IF ( .NOT.ASSOCIATED(ptr) ) THEN
-       IF ( PRESENT(GotIt) ) THEN
-         gotIt = .FALSE.
-       ELSE
-         CALL Warn( 'ListGetConstRealArray', ' ' )
-         WRITE( Message, * ) 'Requested property: ', &
-             '[',TRIM(Name),'], not found'
-         CALL Warn( 'ListGetConstRealArray', Message )
-         CALL Warn( 'ListGetConstRealArray', ' ' )
-       END IF
-       RETURN
-     END IF
+     ptr => ListFind(List,Name,Found)
+     IF ( .NOT.ASSOCIATED(ptr) ) RETURN
 
      IF ( .NOT. ASSOCIATED(ptr % FValues) ) THEN
        WRITE(Message,*) 'Value type for property [', TRIM(Name), &
@@ -1960,38 +1847,23 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
 
 !------------------------------------------------------------------------------
-   RECURSIVE SUBROUTINE ListGetRealArray( List,Name,F,N,NodeIndexes,gotIt )
+   RECURSIVE SUBROUTINE ListGetRealArray( List,Name,F,N,NodeIndexes,Found )
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: List
      CHARACTER(LEN=*) :: Name
-     LOGICAL, OPTIONAL :: gotIt
+     LOGICAL, OPTIONAL :: Found
      INTEGER :: N,NodeIndexes(:)
      REAL(KIND=dp), POINTER :: F(:,:,:), G(:,:)
 !------------------------------------------------------------------------------
-
      TYPE(ValueList_t), POINTER :: ptr
 
      TYPE(Variable_t), POINTER :: Variable, CVar
 
      REAL(KIND=dp) :: T(MAX_FNC)
      INTEGER :: i,j,k,nlen,N1,N2
-     CHARACTER(LEN=LEN_TRIM(Name)) :: str
 !------------------------------------------------------------------------------
-     IF ( PRESENT(gotIt) ) gotIt = .TRUE.
-
-     ptr => ListFind(List,Name)
-     IF ( .NOT.ASSOCIATED(ptr) ) THEN
-       IF ( PRESENT(GotIt) ) THEN
-         gotIt = .FALSE.
-       ELSE
-         CALL Warn( 'ListGetRealArray', ' ' )
-         WRITE( Message, * ) 'Requested property: ', &
-             '[',TRIM(Name),'], not found'
-         CALL Warn( 'ListGetRealArray', Message )
-         CALL Warn( 'ListGetRealArray', ' ' )
-       END IF
-       RETURN
-     END IF
+     ptr => ListFind(List,Name,Found)
+     IF ( .NOT.ASSOCIATED(ptr) ) RETURN
 
      IF ( .NOT. ASSOCIATED(ptr % FValues) ) THEN
        WRITE(Message,*) 'Value type for property [', TRIM(Name), &
@@ -2019,7 +1891,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
        IF ( ptr % Procedure /= 0 ) THEN
          DO i=1,N1
            DO j=1,N2
-             F(i,j,1) = ExecConstRealFunction( ptr % Procedure,CurrentModel,0.0d0,0.0d0,0.0d0 )
+             F(i,j,1) = ExecConstRealFunction( ptr % Procedure, &
+                  CurrentModel, 0.0_dp, 0.0_dp, 0.0_dp )
            END DO
          END DO
        END IF
@@ -2080,8 +1953,8 @@ CALL Info( 'VariableGet', Message, Level=7 )
      CASE DEFAULT
        F = 0.0d0
        DO i=1,N1
-         IF ( PRESENT( GotIt ) ) THEN
-           F(i,1,:) = ListGetReal( List,Name,N,NodeIndexes,GotIt )
+         IF ( PRESENT( Found ) ) THEN
+           F(i,1,:) = ListGetReal( List,Name,N,NodeIndexes,Found )
          ELSE
            F(i,1,:) = ListGetReal( List,Name,N,NodeIndexes )
          END IF
@@ -2102,22 +1975,12 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
      TYPE(Variable_t), POINTER :: Variable
      TYPE(ValueList_t), POINTER :: ptr
-     REAL(KIND=dp) :: T
      INTEGER :: i,k,l
-     CHARACTER(LEN=LEN_TRIM(Name)) :: str
+     REAL(KIND=dp) :: T
 !------------------------------------------------------------------------------
      F = 0.0D0
-     k = StringToLowerCase( str,Name,.TRUE. )
-
      ptr => ListFind(List,Name)
-     IF ( .NOT.ASSOCIATED(ptr) ) THEN
-       CALL Warn( 'ListGetDerivValue', ' ' )
-       WRITE( Message, * ) 'Requested property: ', &
-           '[',TRIM(Name),'], not found'
-       CALL Warn( 'ListGetDerivValue', Message )
-       CALL Warn( 'ListGetDerivValue', ' ' )
-       RETURN
-     END IF
+     IF ( .NOT.ASSOCIATED(ptr) ) RETURN
 
      IF ( .NOT. ASSOCIATED(ptr % FValues) ) THEN
        WRITE(Message,*) 'Value type for property [', TRIM(Name), &
