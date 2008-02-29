@@ -490,23 +490,42 @@ void GLWidget::clearMesh()
 //-----------------------------------------------------------------------------
 void GLWidget::findBoundaryElementEdges(mesh_t *mesh)
 {
-#define PARENT_UNKNOWN -1
-#define PARENT_MORETHANTWO -2
-
+#define UNKNOWN -1
+#define MORETHANTWO -2
+#define INLINESTUFF \
+    if(!found) { \
+      h->node = n; \
+      h->parent[0] = i; \
+      h->parent[1] = UNKNOWN; \
+      h->next = new hash_t; \
+      h = (hash_t*)h->next; \
+      h->node = UNKNOWN; \
+      h->parent[0] = UNKNOWN; \
+      h->parent[1] = UNKNOWN; \
+      h->next = NULL; \
+    } else { \
+      if(h->parent[1] == UNKNOWN ) { \
+	h->parent[1] = i; \
+      } else { \
+	h->parent[0] = MORETHANTWO; \
+	h->parent[1] = MORETHANTWO; \
+      } \
+    } 
+  
   typedef struct {
     int node;
     int parent[2];
     void *next;
   } hash_t;
-
+  
   int keys = mesh->nodes;
 
   hash_t *hash = new hash_t[keys];
 
   for(int i=0; i<keys; i++) {
-    hash[i].node = -1;
-    hash[i].parent[0] = PARENT_UNKNOWN;
-    hash[i].parent[1] = PARENT_UNKNOWN;
+    hash[i].node = UNKNOWN;
+    hash[i].parent[0] = UNKNOWN;
+    hash[i].parent[1] = UNKNOWN;
     hash[i].next = NULL;
   }
 
@@ -524,21 +543,15 @@ void GLWidget::findBoundaryElementEdges(mesh_t *mesh)
     hash_t *h = &hash[m];
     bool found = false;
 
-    while(h->node > -1) {
+    while(h->node > UNKNOWN) {
       if(h->node == n) {
 	found = true;
 	break;
       }
       h = (hash_t*)h->next;
     }
-
-    if(!found) {
-      h->node = n;
-      h->next = new hash_t;
-      h = (hash_t*)h->next;
-      h->node = -1;
-      h->next = NULL;
-    }
+    
+    INLINESTUFF
 
     // edge 1-2
     m = (v1<v2) ? v1 : v2;
@@ -547,7 +560,7 @@ void GLWidget::findBoundaryElementEdges(mesh_t *mesh)
     h = &hash[m];
     found = false;
 
-    while(h->node > -1) {
+    while(h->node > UNKNOWN) {
       if(h->node == n) {
 	found = true;
 	break;
@@ -555,13 +568,7 @@ void GLWidget::findBoundaryElementEdges(mesh_t *mesh)
       h = (hash_t*)h->next;
     }
 
-    if(!found) {
-      h->node = n;
-      h->next = new hash_t;
-      h = (hash_t*)h->next;
-      h->node = -1;
-      h->next = NULL;
-    }
+    INLINESTUFF
 
     // edge 2-0
     m = (v2<v0) ? v2 : v0;
@@ -570,7 +577,7 @@ void GLWidget::findBoundaryElementEdges(mesh_t *mesh)
     h = &hash[m];
     found = false;
 
-    while(h->node > -1) {
+    while(h->node > UNKNOWN) {
       if(h->node == n) {
 	found = true;
 	break;
@@ -578,37 +585,35 @@ void GLWidget::findBoundaryElementEdges(mesh_t *mesh)
       h = (hash_t*)h->next;
     }
 
-    if(!found) {
-      h->node = n;
-      h->next = new hash_t;
-      h = (hash_t*)h->next;
-      h->node = -1;
-      h->next = NULL;
-    }
+    INLINESTUFF
   }
-
 
   // count edges:
   int edges = 0;
   for(int i=0; i<keys; i++) {
     hash_t *h = &hash[i];
-    while(h->node > -1) {
+    while(h->node > UNKNOWN) {
       edges++;
       h = (hash_t*)h->next;
     }
   }
-
-  cout << "Found " << edges << " edges" << endl;
-
+  
+  cout << "Found " << edges << " edges on boundary" << endl;
+  
   mesh->edges = edges;
+  delete [] mesh->edge;
   mesh->edge = new edge_t[edges];
-
+  
   edges = 0;
   for(int i=0; i<keys; i++) {
     hash_t *h = &hash[i];
-    while(h->node > -1) {
+    while(h->node > UNKNOWN) {
       mesh->edge[edges].vertex[0] = i;
       mesh->edge[edges].vertex[1] = h->node;
+      mesh->edge[edges].parent[0] = h->parent[0];
+      mesh->edge[edges].parent[1] = h->parent[1];
+      // cout << edges << " " << i << " " << h->node << " " 
+      // << h->parent[0] << " " << h->parent[1] << endl;
       edges++;
       h = (hash_t*)h->next;
     }

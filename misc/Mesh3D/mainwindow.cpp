@@ -762,6 +762,9 @@ void MainWindow::makeElmerMeshFromTetlib()
       element->index = (int)attribute[na*(i+1)-1];
   }
 
+  // edges:
+  glWidget->findBoundaryElementEdges(mesh);
+
   // Delete old objects, if any:
   if(glWidget->objects) {
     glDeleteLists(glWidget->firstList, glWidget->objects);
@@ -774,9 +777,6 @@ void MainWindow::makeElmerMeshFromTetlib()
 
   logMessage("Input file processed");
 
-
-  // ?????
-  // glWidget->findBoundaryElementEdges(mesh);
 }
 
 
@@ -909,6 +909,9 @@ void MainWindow::makeElmerMeshFromNglib()
 
     element->index = 1; // default
   }
+
+  // edges:
+  glWidget->findBoundaryElementEdges(mesh);
 
   // Delete old objects, if any:
   if(glWidget->objects) {
