@@ -119,6 +119,7 @@ dist-hook:
 	cp -r tcl $(distdir)
 	cp -r help $(distdir)
 	cp -r lib $(distdir)
+	cp -r fonts $(distdir)
 	rm -rf `find $(distdir)/ -name .svn`
 	rm -rf `find $(distdir)/ -name CVS`
 	rm -rf `find $(distdir)/ -name \#*`
