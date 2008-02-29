@@ -185,8 +185,8 @@ proc startGUI {} {
 proc setElmerFrontPaths {} {
     global Info env
 
-    set Info(ELMER_FRONT_INSTALL_LIB) "/c/Elmer5.4/share/elmerfront/lib"
-    set Info(ELMER_FRONT_INSTALL_TCL) "/c/Elmer5.4/share/elmerfront/tcl"
+    set Info(ELMER_FRONT_INSTALL_LIB) "/wrk/jpr/bb/share/elmerfront/lib"
+    set Info(ELMER_FRONT_INSTALL_TCL) "/wrk/jpr/bb/share/elmerfront/tcl"
 
     if { [info exists env(ELMER_HOME)] } {
       set Info(ELMER_FRONT_INSTALL_LIB) "$env(ELMER_HOME)/share/elmerfront/lib"
@@ -297,11 +297,11 @@ proc initEnvironment {} {
     set Info(ELMER_HOME) $env(ELMER_HOME)
 
     if { ![file isdirectory $Info(ELMER_HOME)] } {
-      set Info(ELMER_HOME) "/c/Elmer5.4"
+      set Info(ELMER_HOME) "/wrk/jpr/bb"
     }
 
   } else {
-    set Info(ELMER_HOME) "/c/Elmer5.4"
+    set Info(ELMER_HOME) "/wrk/jpr/bb"
   }
 
 

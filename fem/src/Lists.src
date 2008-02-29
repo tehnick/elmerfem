@@ -484,7 +484,6 @@ CONTAINS
 !   should be solved
 !---------------------------------------------------------------------------
     FUNCTION CheckElementEquation( Model,Element,Equation ) Result(Flag)
-
       TYPE(Element_t), POINTER :: Element
       TYPE(Model_t) :: Model
       CHARACTER(LEN=*) :: Equation
@@ -1053,28 +1052,28 @@ CALL Info( 'VariableGet', Message, Level=7 )
 
 
 !------------------------------------------------------------------------------
-   SUBROUTINE ListSetNameSpace(str)
+   SUBROUTINE ListSetNamespace(str)
 !------------------------------------------------------------------------------
      CHARACTER(LEN=*) :: str
 !------------------------------------------------------------------------------
      NameSpace = str
 !------------------------------------------------------------------------------
-   END SUBROUTINE ListSetNameSpace
+   END SUBROUTINE ListSetNamespace
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
-   FUNCTION ListGetNameSpace(str) RESULT(l)
+   FUNCTION ListGetNamespace(str) RESULT(l)
 !------------------------------------------------------------------------------
     LOGICAL :: l 
     TYPE(Varying_string) :: str
 !------------------------------------------------------------------------------
     l = .FALSE.
-    IF ( NameSpace /= '' ) THEN
+    IF ( Namespace /= '' ) THEN
       l = .TRUE.
-      str = NameSpace
+      str = Namespace
     END IF
 !------------------------------------------------------------------------------
-   END FUNCTION ListGetNameSpace
+   END FUNCTION ListGetNamespace
 !------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
@@ -1101,7 +1100,7 @@ CALL Info( 'VariableGet', Message, Level=7 )
      END DO
 
      IF ( .NOT. ASSOCIATED(ptr) ) THEN
-       IF ( ListGetNameSpace(strn) ) THEN
+       IF ( ListGetNamespace(strn) ) THEN
          strn = strn //' '//str(1:k)
          k = LEN(strn)
          ptr => List
@@ -1454,7 +1453,6 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
 
 
-
 !------------------------------------------------------------------------------
    RECURSIVE FUNCTION ListGetLogical( List,Name,Found ) RESULT(L)
 !------------------------------------------------------------------------------
@@ -1493,7 +1491,6 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
 
 
-
 !------------------------------------------------------------------------------
    RECURSIVE FUNCTION ListGetConstReal( List,Name,Found,x,y,z,minv,maxv ) RESULT(F)
 !------------------------------------------------------------------------------
@@ -1514,19 +1511,18 @@ CALL Info( 'VariableGet', Message, Level=7 )
      ptr => ListFind(List,Name,Found)
      IF ( .NOT.ASSOCIATED(ptr) ) RETURN
 
-     xx = 0.0_dp
-     yy = 0.0_dp
-     zz = 0.0_dp
-     IF ( PRESENT(x) ) xx = x
-     IF ( PRESENT(y) ) yy = y
-     IF ( PRESENT(z) ) zz = z
-
      IF ( Ptr % Type >= 8 ) THEN
         cmd = ptr % CValue
         k = LEN_TRIM( ptr % CValue )
         CALL matc( cmd, tmp_str, k )
         READ( tmp_str(1:k), * ) F
      ELSE IF ( ptr % Procedure /= 0 ) THEN
+        xx = 0.0_dp
+        yy = 0.0_dp
+        zz = 0.0_dp
+        IF ( PRESENT(x) ) xx = x
+        IF ( PRESENT(y) ) yy = y
+        IF ( PRESENT(z) ) zz = z
        F = ExecConstRealFunction( ptr % Procedure,CurrentModel,xx,yy,zz )
      ELSE
        IF ( .NOT. ASSOCIATED(ptr % FValues) ) THEN
@@ -1805,7 +1801,6 @@ CALL Info( 'VariableGet', Message, Level=7 )
 !------------------------------------------------------------------------------
 
 
-
 !------------------------------------------------------------------------------
    RECURSIVE FUNCTION ListGetConstRealArray( List,Name,Found ) RESULT( F )
 !------------------------------------------------------------------------------
@@ -1818,7 +1813,6 @@ CALL Info( 'VariableGet', Message, Level=7 )
      TYPE(ValueList_t), POINTER :: ptr
 !------------------------------------------------------------------------------
      NULLIFY( F ) 
-
      ptr => ListFind(List,Name,Found)
      IF ( .NOT.ASSOCIATED(ptr) ) RETURN
 
@@ -1843,7 +1837,6 @@ CALL Info( 'VariableGet', Message, Level=7 )
      END IF
    END FUNCTION ListGetConstRealArray
 !------------------------------------------------------------------------------
-
 
 
 !------------------------------------------------------------------------------

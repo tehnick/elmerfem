@@ -32,7 +32,7 @@
 #define ELMER_LINKTYP 1
 
 /* Elmer solver default install directory */
-#define ELMER_SOLVER_HOME "/wrk/jpr/elmerfem/trunk/share/elmersolver"
+#define ELMER_SOLVER_HOME "/wrk/jpr/bb/share/elmersolver"
 
 /* Define if using dynamic linking */
 #define ENABLE_DYNAMIC_LINKING 1
@@ -226,7 +226,7 @@
 /* #undef SUNOS */
 
 /* Version number of package */
-#define VERSION "5.4.0"
+#define VERSION "5.5.0"
 
 /* Detected platform2. */
 /* #undef WIN32 */
