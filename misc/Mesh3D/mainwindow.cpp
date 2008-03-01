@@ -10,13 +10,13 @@ using namespace std;
 //-----------------------------------------------------------------------------
 MainWindow::MainWindow()
 {
-  // Load tetlib
+  // load tetlib
   tetlibAPI = new TetlibAPI;
   tetlibPresent = tetlibAPI->loadTetlib();
   this->in = tetlibAPI->in;
   this->out = tetlibAPI->out;
   
-  // Load nglib
+  // load nglib
   nglibAPI = new NglibAPI;
   nglibPresent = nglibAPI->loadNglib();
   this->mp = nglibAPI->mp;
@@ -29,24 +29,28 @@ MainWindow::MainWindow()
   sifWindow = new SifWindow(this);
   meshControl = new MeshControl(this);
 
+  // meshing thread
+  meshingThread = new MeshingThread;
+
   // helpers
   meshutils = new Meshutils;
 
+  // actions
   createActions();
   createMenus();
   createToolBars();
   createStatusBar();
   
-  setWindowTitle(tr("Elmer Mesh3D (experimental)"));
-
   // glWidget emits (int) when a boundary is selected by double clicking:
   connect(glWidget, SIGNAL(selectedBoundary(int)), this, SLOT(boundarySelected(int)));
 
   // meshing thread emits (void) when the mesh generation is completed:
-  connect(&meshingThread, SIGNAL(generatorFinished()), this, SLOT(meshOk()));
+  connect(meshingThread, SIGNAL(generatorFinished()), this, SLOT(meshOk()));
 
   nglibInputOk = false;
   tetlibInputOk = false;
+
+  setWindowTitle(tr("Elmer Mesh3D (experimental)"));
 }
 
 
@@ -277,7 +281,7 @@ void MainWindow::remesh()
 
   // Start meshing thread:
   int gt = meshControl->generatorType;
-  meshingThread.generate(gt, tetlibControlString, tetlibAPI, ngmesh, nggeom, mp, nglibAPI);
+  meshingThread->generate(gt, tetlibControlString, tetlibAPI, ngmesh, nggeom, mp, nglibAPI);
 
   logMessage("Mesh generation initiated");
   statusBar()->showMessage(tr("Generating mesh..."));
@@ -618,62 +622,22 @@ void MainWindow::readInputFile(QString fileName)
 //-----------------------------------------------------------------------------
 void MainWindow::makeElmerMeshFromTetlib()
 {
-  Helpers helpers;
-
   meshutils->clearMesh(glWidget->mesh);
-  glWidget->mesh = new mesh_t;
-  mesh_t *mesh = glWidget->mesh;
-  
-  // Nodes:
-  mesh->nodes = out->numberofpoints;
-  mesh->node = new node_t[mesh->nodes];
+  glWidget->mesh = tetlibAPI->createElmerMeshStructure();
 
-  double xmin = +9e9;
-  double xmax = -9e9;
+  meshutils->clearMesh(glWidget->sharpedgemesh);
+  glWidget->sharpedgemesh = meshutils->findSharpEdges(glWidget->mesh);
 
-  double ymin = +9e9;
-  double ymax = -9e9;
+  double *bb = meshutils->boundingBox(glWidget->mesh);
 
-  double zmin = +9e9;
-  double zmax = -9e9;
+  // Scaling factors for drawing:
+  double xmid = (bb[0] + bb[1])/2.0;
+  double ymid = (bb[2] + bb[3])/2.0;
+  double zmid = (bb[4] + bb[5])/2.0;
 
-  REAL *pointlist = out->pointlist;
-
-  for(int i=0; i < mesh->nodes; i++) {
-    node_t *node = &mesh->node[i];
-    
-    node->x[0] = *pointlist++;
-    node->x[1] = *pointlist++;
-    node->x[2] = *pointlist++;
-
-    node->index = -1; // default
-    
-    if(node->x[0] > xmax) 
-      xmax = node->x[0];
-    
-    if(node->x[0] < xmin) 
-      xmin = node->x[0];
-    
-    if(node->x[1] > ymax) 
-      ymax = node->x[1];
-
-    if(node->x[1] < ymin) 
-      ymin = node->x[1];
-
-    if(node->x[2] > zmax) 
-      zmax = node->x[2];
-
-    if(node->x[2] < zmin) 
-      zmin = node->x[2];
-  }
-
-  double xmid = (xmax+xmin)/2.0;
-  double ymid = (ymax+ymin)/2.0;
-  double zmid = (zmax+zmin)/2.0;
-
-  double xlen = (xmax-xmin)/2.0;
-  double ylen = (ymax-ymin)/2.0;
-  double zlen = (zmax-zmin)/2.0;
+  double xlen = (bb[1] - bb[0])/2.0;
+  double ylen = (bb[3] - bb[2])/2.0;
+  double zlen = (bb[5] - bb[4])/2.0;
 
   double s = xlen;
 
@@ -690,98 +654,19 @@ void MainWindow::makeElmerMeshFromTetlib()
   glWidget->drawTranslate[1] = ymid;
   glWidget->drawTranslate[2] = zmid;
 
-  // Edges:
-  mesh->edges = 0;
-  mesh->edge = new edge_t[0];
-
-  // Boundary elements:
-  mesh->boundaryelements = out->numberoftrifaces;
-  mesh->boundaryelement = new boundaryelement_t[mesh->boundaryelements];
-
-  int *trifacelist = out->trifacelist;
-  int *adjtetlist = out->adjtetlist;
-
-  for(int i=0; i < mesh->boundaryelements; i++) {
-    boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
-
-    boundaryelement->index = 1; // default
-    if(out->trifacemarkerlist != (int*)NULL)
-      boundaryelement->index = out->trifacemarkerlist[i];
-
-    boundaryelement->parent[0] = -1; // default
-    boundaryelement->parent[1] = -1;
-    // must have "nn" in control string:
-    if(out->adjtetlist != (int*)NULL) {
-      boundaryelement->parent[0] = *adjtetlist++;
-      boundaryelement->parent[1] = *adjtetlist++;
-    }
-
-    int u = (*trifacelist++) - out->firstnumber;
-    int v = (*trifacelist++) - out->firstnumber;
-    int w = (*trifacelist++) - out->firstnumber;
-
-    boundaryelement->vertex[0] = u;
-    boundaryelement->vertex[1] = v;
-    boundaryelement->vertex[2] = w;
-
-    // Normal:
-    static double a[3], b[3], c[3];
-
-    a[0] = mesh->node[v].x[0] - mesh->node[u].x[0];
-    a[1] = mesh->node[v].x[1] - mesh->node[u].x[1];
-    a[2] = mesh->node[v].x[2] - mesh->node[u].x[2];
-
-    b[0] = mesh->node[w].x[0] - mesh->node[u].x[0];
-    b[1] = mesh->node[w].x[1] - mesh->node[u].x[1];
-    b[2] = mesh->node[w].x[2] - mesh->node[u].x[2];
-
-    helpers.crossProduct(a,b,c);
-    helpers.normalize(c);
-
-    boundaryelement->normal[0] = c[0];
-    boundaryelement->normal[1] = c[1];
-    boundaryelement->normal[2] = c[2];
-  }
-
-  // Elements:
-  mesh->elements = out->numberoftetrahedra;
-  mesh->element = new element_t[mesh->elements];
-
-  int *tetrahedronlist = out->tetrahedronlist;
-  REAL *attribute = out->tetrahedronattributelist;
-  int na =  out->numberoftetrahedronattributes;
-
-  for(int i=0; i< mesh->elements; i++) {
-    element_t *element = &mesh->element[i];
-
-    element->vertex[0] = (*tetrahedronlist++) - out->firstnumber;
-    element->vertex[1] = (*tetrahedronlist++) - out->firstnumber;
-    element->vertex[2] = (*tetrahedronlist++) - out->firstnumber;
-    element->vertex[3] = (*tetrahedronlist++) - out->firstnumber;
-
-    element->index = 1; // default
-    // must have "A" in control string:
-    if(out->tetrahedronattributelist != (REAL*)NULL) 
-      element->index = (int)attribute[na*(i+1)-1];
-  }
-
-  // edges:
-  meshutils->findBoundaryElementEdges(mesh);
-  glWidget->sharpedgemesh = new mesh_t;
-  meshutils->findSharpEdges(mesh, glWidget->sharpedgemesh);
-
   // Delete old objects, if any:
   if(glWidget->objects) {
     glDeleteLists(glWidget->firstList, glWidget->objects);
     glWidget->objects = 0;
   }
-
+  
   // Compose new GL-objects:
   glWidget->objects = glWidget->makeObjects();
   glWidget->updateGL();
 
-  logMessage("Input file processed");
+  delete [] bb;
 
+  logMessage("Input file processed");
 }
 
 
@@ -789,58 +674,23 @@ void MainWindow::makeElmerMeshFromTetlib()
 //-----------------------------------------------------------------------------
 void MainWindow::makeElmerMeshFromNglib()
 {
-  Helpers helpers;
-  
   meshutils->clearMesh(glWidget->mesh);
-  glWidget->mesh = new mesh_t;
-  mesh_t *mesh = glWidget->mesh;
-  
-  // Nodes:
-  mesh->nodes = nglibAPI->Ng_GetNP(ngmesh);
-  mesh->node = new node_t[mesh->nodes];
-  
-  double xmin = +9e9;
-  double xmax = -9e9;
+  nglibAPI->ngmesh = this->ngmesh;
+  glWidget->mesh = nglibAPI->createElmerMeshStructure();
 
-  double ymin = +9e9;
-  double ymax = -9e9;
+  meshutils->clearMesh(glWidget->sharpedgemesh);
+  glWidget->sharpedgemesh = meshutils->findSharpEdges(glWidget->mesh);
 
-  double zmin = +9e9;
-  double zmax = -9e9;
+  double *bb = meshutils->boundingBox(glWidget->mesh);
 
-  for(int i=0; i < mesh->nodes; i++) {
-    node_t *node = &mesh->node[i];
+  // Scaling factors for drawing:
+  double xmid = (bb[0] + bb[1])/2.0;
+  double ymid = (bb[2] + bb[3])/2.0;
+  double zmid = (bb[4] + bb[5])/2.0;
 
-    nglibAPI->Ng_GetPoint(ngmesh, i+1, node->x);
-
-    node->index = -1; // default
-
-    if(node->x[0] > xmax) 
-      xmax = node->x[0];
-    
-    if(node->x[0] < xmin) 
-      xmin = node->x[0];
-    
-    if(node->x[1] > ymax) 
-      ymax = node->x[1];
-
-    if(node->x[1] < ymin) 
-      ymin = node->x[1];
-
-    if(node->x[2] > zmax) 
-      zmax = node->x[2];
-
-    if(node->x[2] < zmin) 
-      zmin = node->x[2];
-  }
-
-  double xmid = (xmax+xmin)/2.0;
-  double ymid = (ymax+ymin)/2.0;
-  double zmid = (zmax+zmin)/2.0;
-
-  double xlen = (xmax-xmin)/2.0;
-  double ylen = (ymax-ymin)/2.0;
-  double zlen = (zmax-zmin)/2.0;
+  double xlen = (bb[1] - bb[0])/2.0;
+  double ylen = (bb[3] - bb[2])/2.0;
+  double zlen = (bb[5] - bb[4])/2.0;
 
   double s = xlen;
 
@@ -857,69 +707,6 @@ void MainWindow::makeElmerMeshFromNglib()
   glWidget->drawTranslate[1] = ymid;
   glWidget->drawTranslate[2] = zmid;
 
-  // Edges:
-  mesh->edges = 0;
-  mesh->edge = new edge_t[0];
-
-  // Boundary elements:				       
-  mesh->boundaryelements = nglibAPI->Ng_GetNSE(ngmesh);
-  mesh->boundaryelement = new boundaryelement_t[mesh->boundaryelements];
-
-  for(int i=0; i < mesh->boundaryelements; i++) {
-    boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
-
-    boundaryelement->index = 1; // default
-
-    boundaryelement->parent[0] = -1; 
-    boundaryelement->parent[1] = -1;
-
-    nglibAPI->Ng_GetSurfaceElement(ngmesh, i+1, boundaryelement->vertex);
-    
-    int u = --boundaryelement->vertex[0];
-    int v = --boundaryelement->vertex[1];
-    int w = --boundaryelement->vertex[2];
-
-    // Normal:
-    static double a[3], b[3], c[3];
-
-    a[0] = mesh->node[v].x[0] - mesh->node[u].x[0];
-    a[1] = mesh->node[v].x[1] - mesh->node[u].x[1];
-    a[2] = mesh->node[v].x[2] - mesh->node[u].x[2];
-
-    b[0] = mesh->node[w].x[0] - mesh->node[u].x[0];
-    b[1] = mesh->node[w].x[1] - mesh->node[u].x[1];
-    b[2] = mesh->node[w].x[2] - mesh->node[u].x[2];
-
-    helpers.crossProduct(a,b,c);
-    helpers.normalize(c);
-
-    boundaryelement->normal[0] = c[0];
-    boundaryelement->normal[1] = c[1];
-    boundaryelement->normal[2] = c[2];
-  }
-
-  // Elements:
-  mesh->elements = nglibAPI->Ng_GetNE(ngmesh);
-  mesh->element = new element_t[mesh->elements];
-
-  for(int i=0; i< mesh->elements; i++) {
-    element_t *element = &mesh->element[i];
-
-    nglibAPI->Ng_GetVolumeElement(ngmesh, i+1, element->vertex);
-    
-    element->vertex[0]--;
-    element->vertex[1]--;
-    element->vertex[2]--;
-    element->vertex[3]--;
-
-    element->index = 1; // default
-  }
-
-  // edges:
-  meshutils->findBoundaryElementEdges(mesh);
-  glWidget->sharpedgemesh = new mesh_t;
-  meshutils->findSharpEdges(mesh, glWidget->sharpedgemesh);
-
   // Delete old objects, if any:
   if(glWidget->objects) {
     glDeleteLists(glWidget->firstList, glWidget->objects);
@@ -929,6 +716,8 @@ void MainWindow::makeElmerMeshFromNglib()
   // Compose new GL-objects:
   glWidget->objects = glWidget->makeObjects();
   glWidget->updateGL();
+
+  delete [] bb;
 
   logMessage("Input file processed");
 }

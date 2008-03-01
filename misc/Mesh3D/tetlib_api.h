@@ -12,6 +12,9 @@
 
 #include "tetgen.h"
 
+#include "helpers.h"
+#include "meshutils.h"
+
 typedef void (*delegate_tetrahedralize_t)(int, char*, char*, tetgenio*, tetgenio*, tetgenio*, tetgenio*);
 
 class TetlibAPI
@@ -34,6 +37,8 @@ class TetlibAPI
   tetgenio *out;
 
   delegate_tetrahedralize_t delegate_tetrahedralize;
+
+  mesh_t* createElmerMeshStructure();
 
 };
 

@@ -14,6 +14,9 @@ namespace nglib {
 #include "nglib.h"
 }
 
+#include "helpers.h"
+#include "meshutils.h"
+
 typedef nglib::Ng_Meshing_Parameters* (*Ng_Meshing_Parameters_t)();
 typedef nglib::Ng_STL_Geometry* (*Ng_STL_LoadGeometry_t)(const char*, int);
 typedef nglib::Ng_Result (*Ng_STL_InitSTLGeometry_t)(nglib::Ng_STL_Geometry*);
@@ -62,6 +65,7 @@ class NglibAPI
   nglib::Ng_STL_Geometry *nggeom;
   nglib::Ng_Meshing_Parameters *mp;
 
+  mesh_t* createElmerMeshStructure();
 };
 
 #endif // #ifndef TETLIB_API_H

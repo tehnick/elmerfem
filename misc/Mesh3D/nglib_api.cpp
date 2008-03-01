@@ -75,3 +75,86 @@ bool NglibAPI::loadNglib()
   
   return true;
 }
+
+// Populate elmer's mesh structure:
+//-----------------------------------------------------------------------------
+mesh_t* NglibAPI::createElmerMeshStructure()
+{
+  Helpers helpers;
+  Meshutils meshutils;
+  
+  // Create new mesh structure:
+  mesh_t *mesh = new mesh_t;
+
+  // Nodes:
+  mesh->nodes = Ng_GetNP(ngmesh);
+  mesh->node = new node_t[mesh->nodes];
+
+  for(int i=0; i < mesh->nodes; i++) {
+    node_t *node = &mesh->node[i];
+
+    Ng_GetPoint(ngmesh, i+1, node->x);
+
+    node->index = -1; // default
+  }
+
+  // Boundary elements:				       
+  mesh->boundaryelements = Ng_GetNSE(ngmesh);
+  mesh->boundaryelement = new boundaryelement_t[mesh->boundaryelements];
+
+  for(int i=0; i < mesh->boundaryelements; i++) {
+    boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
+
+    boundaryelement->index = 1; // default
+
+    boundaryelement->parent[0] = -1; 
+    boundaryelement->parent[1] = -1;
+
+    Ng_GetSurfaceElement(ngmesh, i+1, boundaryelement->vertex);
+    
+    int u = --boundaryelement->vertex[0];
+    int v = --boundaryelement->vertex[1];
+    int w = --boundaryelement->vertex[2];
+
+    // Normal:
+    static double a[3], b[3], c[3];
+
+    a[0] = mesh->node[v].x[0] - mesh->node[u].x[0];
+    a[1] = mesh->node[v].x[1] - mesh->node[u].x[1];
+    a[2] = mesh->node[v].x[2] - mesh->node[u].x[2];
+
+    b[0] = mesh->node[w].x[0] - mesh->node[u].x[0];
+    b[1] = mesh->node[w].x[1] - mesh->node[u].x[1];
+    b[2] = mesh->node[w].x[2] - mesh->node[u].x[2];
+
+    helpers.crossProduct(a,b,c);
+    helpers.normalize(c);
+
+    boundaryelement->normal[0] = c[0];
+    boundaryelement->normal[1] = c[1];
+    boundaryelement->normal[2] = c[2];
+  }
+
+  // Elements:
+  mesh->elements = Ng_GetNE(ngmesh);
+  mesh->element = new element_t[mesh->elements];
+
+  for(int i=0; i< mesh->elements; i++) {
+    element_t *element = &mesh->element[i];
+
+    Ng_GetVolumeElement(ngmesh, i+1, element->vertex);
+    
+    element->vertex[0]--;
+    element->vertex[1]--;
+    element->vertex[2]--;
+    element->vertex[3]--;
+
+    element->index = 1; // default
+  }
+
+  // Edges:
+  meshutils.findBoundaryElementEdges(mesh);
+
+  return mesh;
+}
+

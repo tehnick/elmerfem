@@ -80,16 +80,18 @@ private:
   bool nglibInputOk;
   
   // meshing thread:
-  MeshingThread meshingThread;
+  MeshingThread *meshingThread;
+
+  // mesh utilities:
+  Meshutils *meshutils;
   
+  // private functions:
   void readInputFile(QString fileName);
   void saveElmerMesh(QString dirName);
   void makeElmerMeshFromTetlib();
   void makeElmerMeshFromNglib();
   void logMessage(QString message);
 
-  // utilities
-  Meshutils *meshutils;
 };
 
 #endif
