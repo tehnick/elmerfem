@@ -29,6 +29,9 @@ MainWindow::MainWindow()
   sifWindow = new SifWindow(this);
   meshControl = new MeshControl(this);
 
+  // helpers
+  meshutils = new Meshutils;
+
   createActions();
   createMenus();
   createToolBars();
@@ -617,7 +620,7 @@ void MainWindow::makeElmerMeshFromTetlib()
 {
   Helpers helpers;
 
-  glWidget->clearMesh();
+  meshutils->clearMesh(glWidget->mesh);
   glWidget->mesh = new mesh_t;
   mesh_t *mesh = glWidget->mesh;
   
@@ -763,7 +766,9 @@ void MainWindow::makeElmerMeshFromTetlib()
   }
 
   // edges:
-  glWidget->findBoundaryElementEdges(mesh);
+  meshutils->findBoundaryElementEdges(mesh);
+  glWidget->sharpedgemesh = new mesh_t;
+  meshutils->findSharpEdges(mesh, glWidget->sharpedgemesh);
 
   // Delete old objects, if any:
   if(glWidget->objects) {
@@ -786,7 +791,7 @@ void MainWindow::makeElmerMeshFromNglib()
 {
   Helpers helpers;
   
-  glWidget->clearMesh();
+  meshutils->clearMesh(glWidget->mesh);
   glWidget->mesh = new mesh_t;
   mesh_t *mesh = glWidget->mesh;
   
@@ -911,7 +916,9 @@ void MainWindow::makeElmerMeshFromNglib()
   }
 
   // edges:
-  glWidget->findBoundaryElementEdges(mesh);
+  meshutils->findBoundaryElementEdges(mesh);
+  glWidget->sharpedgemesh = new mesh_t;
+  meshutils->findSharpEdges(mesh, glWidget->sharpedgemesh);
 
   // Delete old objects, if any:
   if(glWidget->objects) {

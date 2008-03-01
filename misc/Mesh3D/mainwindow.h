@@ -11,13 +11,7 @@
 #include "meshingthread.h"
 #include "sifwindow.h"
 #include "meshcontrol.h"
-
-#if 0
-namespace nglib {
-#include <nglib.h>
-}
-#endif
-
+#include "meshutils.h"
 
 class QAction;
 class QMenu;
@@ -93,6 +87,9 @@ private:
   void makeElmerMeshFromTetlib();
   void makeElmerMeshFromNglib();
   void logMessage(QString message);
+
+  // utilities
+  Meshutils *meshutils;
 };
 
 #endif

@@ -35,7 +35,7 @@ GLWidget::~GLWidget()
   makeCurrent();
   glDeleteLists(firstList, objects);
   delete [] colorMap;
-  clearMesh();
+  // meshutils->clearMesh(mesh);
 }
 
 
@@ -361,10 +361,10 @@ GLuint GLWidget::makeObjects()
   }
 
   boundaryconditions++;
-
+  
   firstList = 0;
   lastList = 0;
-
+  
   for(j=1; j<boundaryconditions; j++) {
     GLuint list = glGenLists(1);
     glNewList(list, GL_COMPILE);
@@ -454,171 +454,45 @@ GLuint GLWidget::makeObjects()
       }
     }
     
-    glEnd();
-  
+    glEnd();  
     glEndList();
 
   }
 
+#if 0
+  // Sharp edges:
+  GLuint list = glGenLists(1);
+  glNewList(list, GL_COMPILE);
+  lastList++;
+  
+  glLineWidth(1.0);  
+  glBegin(GL_LINES);
+  
+  for(int i=0; i<sharpedgemesh->edges; i++) {
+    edge_t *edge = &sharpedgemesh->edge[i];
+
+    int vertex0 = edge->vertex[0];
+    int vertex1 = edge->vertex[1];
+    
+    x0[0] = (mesh->node[vertex0].x[0] - drawTranslate[0]) / drawScale;
+    x0[1] = (mesh->node[vertex0].x[1] - drawTranslate[1]) / drawScale;
+    x0[2] = (mesh->node[vertex0].x[2] - drawTranslate[2]) / drawScale;
+    
+    x1[0] = (mesh->node[vertex1].x[0] - drawTranslate[0]) / drawScale;
+    x1[1] = (mesh->node[vertex1].x[1] - drawTranslate[1]) / drawScale;
+    x1[2] = (mesh->node[vertex1].x[2] - drawTranslate[2]) / drawScale;
+    
+    glTexCoord1d(1.0); // last = 1.0 = black
+
+    glVertex3dv(x0);
+    glVertex3dv(x1);
+
+  }
+
+  glEnd();
+  glEndList();
+#endif
+
+  //return lastList - firstList;
   return lastList - firstList + 1;
-}
-
-
-
-// Delete mesh...
-//-----------------------------------------------------------------------------
-void GLWidget::clearMesh()
-{
-  if(mesh != (mesh_t*)NULL) {
-    if(mesh->element != (element_t*)NULL) 
-      delete [] mesh->element;
-    
-    if(mesh->boundaryelement != (boundaryelement_t*)NULL) 
-      delete [] mesh->boundaryelement;
-    
-    if(mesh->edge != (edge_t*)NULL) 
-      delete [] mesh->edge;
-    
-    if(mesh->node != (node_t*)NULL)
-      delete [] mesh->node;
-    
-    delete [] mesh;
-  }
-}
-
-// Find edges for boundary elements...
-//-----------------------------------------------------------------------------
-void GLWidget::findBoundaryElementEdges(mesh_t *mesh)
-{
-#define UNKNOWN -1
-#define MORETHANTWO -2
-#define INLINESTUFF \
-    if(!found) { \
-      h->node = n; \
-      h->parent[0] = i; \
-      h->parent[1] = UNKNOWN; \
-      h->next = new hash_t; \
-      h = (hash_t*)h->next; \
-      h->node = UNKNOWN; \
-      h->parent[0] = UNKNOWN; \
-      h->parent[1] = UNKNOWN; \
-      h->next = NULL; \
-    } else { \
-      if(h->parent[1] == UNKNOWN ) { \
-	h->parent[1] = i; \
-      } else { \
-	h->parent[0] = MORETHANTWO; \
-	h->parent[1] = MORETHANTWO; \
-      } \
-    } 
-  
-  typedef struct {
-    int node;
-    int parent[2];
-    void *next;
-  } hash_t;
-  
-  int keys = mesh->nodes;
-
-  hash_t *hash = new hash_t[keys];
-
-  for(int i=0; i<keys; i++) {
-    hash[i].node = UNKNOWN;
-    hash[i].parent[0] = UNKNOWN;
-    hash[i].parent[1] = UNKNOWN;
-    hash[i].next = NULL;
-  }
-
-  for(int i=0; i < mesh->boundaryelements; i++) {
-    boundaryelement_t *be = &mesh->boundaryelement[i];
-
-    int v0 = be->vertex[0];
-    int v1 = be->vertex[1];
-    int v2 = be->vertex[2];
-    
-    // edge 0-1
-    int m = (v0<v1) ? v0 : v1;
-    int n = (v0<v1) ? v1 : v0;
-    
-    hash_t *h = &hash[m];
-    bool found = false;
-
-    while(h->node > UNKNOWN) {
-      if(h->node == n) {
-	found = true;
-	break;
-      }
-      h = (hash_t*)h->next;
-    }
-    
-    INLINESTUFF
-
-    // edge 1-2
-    m = (v1<v2) ? v1 : v2;
-    n = (v1<v2) ? v2 : v1;
-
-    h = &hash[m];
-    found = false;
-
-    while(h->node > UNKNOWN) {
-      if(h->node == n) {
-	found = true;
-	break;
-      }
-      h = (hash_t*)h->next;
-    }
-
-    INLINESTUFF
-
-    // edge 2-0
-    m = (v2<v0) ? v2 : v0;
-    n = (v2<v0) ? v0 : v2;
-
-    h = &hash[m];
-    found = false;
-
-    while(h->node > UNKNOWN) {
-      if(h->node == n) {
-	found = true;
-	break;
-      }
-      h = (hash_t*)h->next;
-    }
-
-    INLINESTUFF
-  }
-
-  // count edges:
-  int edges = 0;
-  for(int i=0; i<keys; i++) {
-    hash_t *h = &hash[i];
-    while(h->node > UNKNOWN) {
-      edges++;
-      h = (hash_t*)h->next;
-    }
-  }
-  
-  cout << "Found " << edges << " edges on boundary" << endl;
-  
-  mesh->edges = edges;
-  delete [] mesh->edge;
-  mesh->edge = new edge_t[edges];
-  
-  edges = 0;
-  for(int i=0; i<keys; i++) {
-    hash_t *h = &hash[i];
-    while(h->node > UNKNOWN) {
-      mesh->edge[edges].vertex[0] = i;
-      mesh->edge[edges].vertex[1] = h->node;
-      mesh->edge[edges].parent[0] = h->parent[0];
-      mesh->edge[edges].parent[1] = h->parent[1];
-      // cout << edges << " " << i << " " << h->node << " " 
-      // << h->parent[0] << " " << h->parent[1] << endl;
-      edges++;
-      h = (hash_t*)h->next;
-    }
-  }
-
-  // is this sufficient?
-  delete [] hash;
 }

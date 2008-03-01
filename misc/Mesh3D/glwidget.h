@@ -3,6 +3,7 @@
 
 #include <QGLWidget>
 #include "helpers.h"
+#include "meshutils.h"
 
 class GLWidget : public QGLWidget
 {
@@ -16,7 +17,9 @@ public:
     QSize sizeHint() const;
 
     Helpers helpers;
+    Meshutils meshutils;
     mesh_t *mesh;
+    mesh_t *sharpedgemesh;
 
     GLuint objects;
     GLuint firstList;
@@ -28,9 +31,6 @@ public:
 
     double drawScale;
     double drawTranslate[3];
-
-    void clearMesh();
-    void findBoundaryElementEdges(mesh_t*);
 
 public slots:
 
