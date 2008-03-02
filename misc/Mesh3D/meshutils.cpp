@@ -50,7 +50,25 @@ double* Meshutils::boundingBox(mesh_t *mesh)
       zmin = node->x[2];
   }
   
-  double *result = new double[6];
+  double xmid = (xmin + xmax)/2.0;
+  double ymid = (ymin + ymax)/2.0;
+  double zmid = (zmin + zmax)/2.0;
+
+  double xlen = (xmax - xmin)/2.0;
+  double ylen = (ymax - ymin)/2.0;
+  double zlen = (zmax - zmin)/2.0;
+
+  double s = xlen;
+
+  if(ylen > s)
+    s = ylen;
+  
+  if(zlen > s)
+    s = zlen;
+  
+  s *= 1.1;
+  
+  double *result = new double[10];
 
   result[0] = xmin;
   result[1] = xmax;
@@ -58,6 +76,12 @@ double* Meshutils::boundingBox(mesh_t *mesh)
   result[3] = ymax;
   result[4] = zmin;
   result[5] = zmax;
+
+  result[6] = xmid;
+  result[7] = ymid;
+  result[8] = zmid;
+
+  result[9] = s;
 
   return result;
 }
@@ -86,16 +110,17 @@ void Meshutils::clearMesh(mesh_t *mesh)
 
 // Find edges for boundary elements...
 //-----------------------------------------------------------------------------
-
 void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
 {
+#define UNKNOWN -1
+
   int keys = mesh->nodes;
 
   class hashEntry {
   public:
     int node;
-    int parents;
-    int parent[2];
+    int boundaryelements;
+    int *boundaryelement;
     hashEntry *next;
   };
   
@@ -104,35 +129,43 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
   bool found;
   hashEntry *h;
 
-#define RESETENTRY                 \
-    h->node = -1;                  \
-    h->parents = 0;                \
-    h->parent[0] = -1;             \
-    h->parent[1] = -1;             \
+#define RESETENTRY                                         \
+    h->node = UNKNOWN;                                     \
+    h->boundaryelements = 0;                               \
+    h->boundaryelement = NULL;                             \
     h->next = NULL;
 
-#define INLINESTUFF                \
-    h = &hash[m];                  \
-    found = false;                 \
-    while(h->next) {               \
-      if(h->node == n) {           \
-	found = true;              \
-	break;                     \
-      }                            \
-      h = h->next;                 \
-    }                              \
-    if(!found) {                   \
-      h->node = n;                 \
-      h->parents = 1;              \
-      h->parent[0] = i;            \
-      h->next = new hashEntry;     \
-      h = h->next;                 \
-      RESETENTRY;                  \
-    } else {                       \
-      if(h->parents < 2)           \
-	h->parent[h->parents] = i; \
-      h->parents++;                \
+#define INLINESTUFF                                        \
+    h = &hash[m];                                          \
+    found = false;                                         \
+    while(h->next) {                                       \
+      if(h->node == n) {                                   \
+	found = true;                                      \
+	break;                                             \
+      }                                                    \
+      h = h->next;                                         \
+    }                                                      \
+                                                           \
+    if(!found) {                                           \
+      h->node = n;                                         \
+      h->boundaryelements = 1;                             \
+      h->boundaryelement = new int[1];                     \
+      h->boundaryelement[0] = i;                           \
+      h->next = new hashEntry;                             \
+      h = h->next;                                         \
+      RESETENTRY;                                          \
+    } else {                                               \
+      int *tmp = new int[h->boundaryelements];             \
+      for(int j=0; j<h->boundaryelements; j++)             \
+        tmp[j] = h->boundaryelement[j];                    \
+      delete [] h->boundaryelement;                        \
+      h->boundaryelement = new int[h->boundaryelements+1]; \
+      for(int j=0; j<h->boundaryelements; j++)             \
+        h->boundaryelement[j] = tmp[j];                    \
+      h->boundaryelement[h->boundaryelements++] = i;       \
+      delete [] tmp;                                       \
     }
+
 
   for(int i=0; i<keys; i++) {
     h = &hash[i];
@@ -142,38 +175,35 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
   for(int i=0; i < mesh->boundaryelements; i++) {
     boundaryelement_t *be = &mesh->boundaryelement[i];
 
-    int v0 = be->vertex[0];
-    int v1 = be->vertex[1];
-    int v2 = be->vertex[2];
+    int n0 = be->node[0];
+    int n1 = be->node[1];
+    int n2 = be->node[2];
     
     // edge 0-1
-    int m = (v0<v1) ? v0 : v1;
-    int n = (v0<v1) ? v1 : v0;
+    int m = (n0<n1) ? n0 : n1;
+    int n = (n0<n1) ? n1 : n0;
 
     INLINESTUFF;
         
     // edge 1-2
-    m = (v1<v2) ? v1 : v2;
-    n = (v1<v2) ? v2 : v1;
+    m = (n1<n2) ? n1 : n2;
+    n = (n1<n2) ? n2 : n1;
 
     INLINESTUFF;
 
     // edge 2-0
-    m = (v2<v0) ? v2 : v0;
-    n = (v2<v0) ? v0 : v2;
+    m = (n2<n0) ? n2 : n0;
+    n = (n2<n0) ? n0 : n2;
 
     INLINESTUFF;
-
   }
 
-  // count:
+  // count edges:
   int edges = 0;
   for(int i=0; i<keys; i++) {
     h = &hash[i];
-    while(h->next) {
+    while(h = h->next) 
       edges++;
-      h = h->next;
-    }
   }
 
   cout << "Found " << edges << " edges on boundary" << endl;
@@ -187,86 +217,131 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
     h = &hash[i];
     while(h->next) {
       edge_t *e = &mesh->edge[edges++];
-      e->vertex[0] = i;
-      e->vertex[1] = h->node;
-      e->normal[0] = 0.0;
-      e->normal[1] = 0.0;
-      e->normal[2] = 0.0;
-      e->parent[0] = h->parent[0];
-      e->parent[1] = h->parent[1];
-      if((h->parents <= 0) || (h->parents > 2)) {
-	e->parent[0] = -2;
-	e->parent[1] = -2;
-      }
-      e->index = -1;
+      e->node[0] = i;
+      e->node[1] = h->node;
+      e->boundaryelements = h->boundaryelements;
+      e->boundaryelement = new int[e->boundaryelements];
+      for(int j=0; j < e->boundaryelements; j++)
+	e->boundaryelement[j] = h->boundaryelement[j];
+      e->index = UNKNOWN;
       h = h->next;
     }
   }
 
   delete [] hash;
+
+  // Inverse mapping
+  for(int i=0; i < mesh->edges; i++) {
+    edge_t *e = &mesh->edge[i];
+
+    for(int j=0; j < e->boundaryelements; j++) {
+      int k = e->boundaryelement[j];
+      boundaryelement_t *be = &mesh->boundaryelement[k];
+
+      for(int r=0; r<3; r++) {
+	if(be->edge[r] < 0) {
+	  be->edge[r] = i;
+	  break;
+	}
+      }
+    }
+  }  
 }
 
 
 
 // Find sharp edges for boundary elements...
 //-----------------------------------------------------------------------------
-mesh_t* Meshutils::findSharpEdges(mesh_t *mesh)
+void Meshutils::findSharpEdges(mesh_t *mesh, double limit)
 {
 #define PI 3.14159
-#define LIMIT 20.0
+#define UNKNOWN -1
+#define SHARP 0
   
-  double *angle = new double[mesh->edges];
-  
+  cout << "Limit: " << limit << " degrees" << endl;
+  cout.flush();
+
+  double angle;
   int count = 0;
+  
   for(int i=0; i<mesh->edges; i++) {
     edge_t *edge = &mesh->edge[i];
-    
-    int p0 = edge->parent[0];
-    int p1 = edge->parent[1];
-    
-    if(p0 < 0 || p1 < 0) {
-      // trivially sharp:
-      angle[i] = 180.0;
-    } else {
-      // compute sharpness:
-      double *n0 = mesh->boundaryelement[p0].normal;
-      double *n1 = mesh->boundaryelement[p1].normal;
+
+    edge->index = UNKNOWN;
+
+    if( edge->boundaryelements == 2 ) {
+      int b0 = edge->boundaryelement[0];
+      int b1 = edge->boundaryelement[1];    
+      double *n0 = mesh->boundaryelement[b0].normal;
+      double *n1 = mesh->boundaryelement[b1].normal;
       double cosofangle = n0[0]*n1[0] + n0[1]*n1[1] + n0[2]*n1[2];
-      angle[i] = acos(cosofangle) / PI * 180.0;
+      angle = acos(cosofangle) / PI * 180.0;
+    } else {
+      angle = 180.0;
     }    
-
-    if(sqrt(angle[i]*angle[i]) > LIMIT)
+    
+    if(sqrt(angle*angle) > limit) {
+      edge->index = SHARP;
       count++;
-  }
-
-  cout << "Found " << count << " sharp edges" << endl;
-
-  // Allocate new mesh:
-  mesh_t *newmesh = new mesh_t;
-
-  newmesh->nodes = 0;
-  newmesh->node = NULL;
-  newmesh->boundaryelements = 0;
-  newmesh->boundaryelement = NULL;
-  newmesh->elements = 0;
-  newmesh->element = NULL;
-  newmesh->edges = count;
-  newmesh->edge = new edge_t[count];
-
-  count = 0;
-  for(int i=0; i<mesh->edges; i++) {
-    edge_t *edge = &mesh->edge[i];
-    if(sqrt(angle[i]*angle[i]) > LIMIT) {
-      edge_t *newedge = &newmesh->edge[count++];
-      newedge->vertex[0] = edge->vertex[0];
-      newedge->vertex[1] = edge->vertex[1];
-      newedge->parent[0] = edge->parent[0];
-      newedge->parent[1] = edge->parent[1];
-      newedge->index = edge->index;
     }
   }
 
-  delete [] angle;
+  cout << "Found " << count << " sharp edges" << endl;
+}
 
-  return newmesh;
+
+// Divide boundary by sharp edges...
+//-----------------------------------------------------------------------------
+void Meshutils::divideBoundaryBySharpEdges(mesh_t *mesh)
+{
+#define UNKNOWN -1
+#define SHARP 0
+
+  class Bc {
+  public:
+    void propagateIndex(mesh_t* mesh, int index, int i) {
+      boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
+
+      // index is ok
+      if(boundaryelement->index != UNKNOWN)
+	return;
+
+      // set index
+      boundaryelement->index = index;
+
+      // propagate index
+      for(int j=0; j<3; j++) {
+	int k = boundaryelement->edge[j];
+	edge_t *edge = &mesh->edge[k];
+
+	// skip sharp edges
+	if(edge->index != SHARP) {
+	  for(int m=0; m < edge->boundaryelements; m++) {
+	    int n = edge->boundaryelement[m];
+	    propagateIndex(mesh, index, n);
+	  }
+	}
+      }
+    }
+  };
+  
+  Bc *bc = new Bc;
+  
+  // reset bc-indices:
+  for(int i=0; i < mesh->boundaryelements; i++)
+    mesh->boundaryelement[i].index = UNKNOWN;
+
+  // recursively determine boundary parts:
+  int index = 0;
+  for(int i=0; i < mesh->boundaryelements; i++) {
+    boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
+    if(boundaryelement->index == UNKNOWN) {
+      index++;
+      bc->propagateIndex(mesh, index, i);
+    }
+  }
+
+  cout << "Divided boudary into " << index << " parts" << endl;
+
+  delete bc;
 }

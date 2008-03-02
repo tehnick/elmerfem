@@ -9,21 +9,22 @@ typedef struct {
 } node_t;
 
 typedef struct {
-  int vertex[2];
-  double normal[3];
-  int parent[2];
+  int node[2];
+  int boundaryelements;
+  int *boundaryelement;
   int index;
 } edge_t;
 
 typedef struct {
-  int vertex[3];
-  double normal[3];
-  int parent[2];
+  int node[3];
+  int edge[3];
+  int element[2];
   int index;
+  double normal[3];
 } boundaryelement_t;
 
 typedef struct {
-  int vertex[4];
+  int node[4];
   int index;
 } element_t;
 

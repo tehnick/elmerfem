@@ -107,14 +107,18 @@ mesh_t* NglibAPI::createElmerMeshStructure()
 
     boundaryelement->index = 1; // default
 
-    boundaryelement->parent[0] = -1; 
-    boundaryelement->parent[1] = -1;
+    boundaryelement->edge[0] = -1;
+    boundaryelement->edge[1] = -1;
+    boundaryelement->edge[2] = -1;
 
-    Ng_GetSurfaceElement(ngmesh, i+1, boundaryelement->vertex);
+    boundaryelement->element[0] = -1; 
+    boundaryelement->element[1] = -1;
+
+    Ng_GetSurfaceElement(ngmesh, i+1, boundaryelement->node);
     
-    int u = --boundaryelement->vertex[0];
-    int v = --boundaryelement->vertex[1];
-    int w = --boundaryelement->vertex[2];
+    int u = --boundaryelement->node[0];
+    int v = --boundaryelement->node[1];
+    int w = --boundaryelement->node[2];
 
     // Normal:
     static double a[3], b[3], c[3];
@@ -142,12 +146,12 @@ mesh_t* NglibAPI::createElmerMeshStructure()
   for(int i=0; i< mesh->elements; i++) {
     element_t *element = &mesh->element[i];
 
-    Ng_GetVolumeElement(ngmesh, i+1, element->vertex);
+    Ng_GetVolumeElement(ngmesh, i+1, element->node);
     
-    element->vertex[0]--;
-    element->vertex[1]--;
-    element->vertex[2]--;
-    element->vertex[3]--;
+    element->node[0]--;
+    element->node[1]--;
+    element->node[2]--;
+    element->node[3]--;
 
     element->index = 1; // default
   }

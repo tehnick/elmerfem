@@ -391,21 +391,21 @@ GLuint GLWidget::makeObjects()
 
 	glNormal3dv(boundaryelement->normal); 
 	
-	int vertex0 = boundaryelement->vertex[0];
-	int vertex1 = boundaryelement->vertex[1];
-	int vertex2 = boundaryelement->vertex[2];
+	int n0 = boundaryelement->node[0];
+	int n1 = boundaryelement->node[1];
+	int n2 = boundaryelement->node[2];
 	
-	x0[0] = (mesh->node[vertex0].x[0] - drawTranslate[0]) / drawScale;
-	x0[1] = (mesh->node[vertex0].x[1] - drawTranslate[1]) / drawScale;
-	x0[2] = (mesh->node[vertex0].x[2] - drawTranslate[2]) / drawScale;
+	x0[0] = (mesh->node[n0].x[0] - drawTranslate[0]) / drawScale;
+	x0[1] = (mesh->node[n0].x[1] - drawTranslate[1]) / drawScale;
+	x0[2] = (mesh->node[n0].x[2] - drawTranslate[2]) / drawScale;
 
-	x1[0] = (mesh->node[vertex1].x[0] - drawTranslate[0]) / drawScale;
-	x1[1] = (mesh->node[vertex1].x[1] - drawTranslate[1]) / drawScale;
-	x1[2] = (mesh->node[vertex1].x[2] - drawTranslate[2]) / drawScale;
+	x1[0] = (mesh->node[n1].x[0] - drawTranslate[0]) / drawScale;
+	x1[1] = (mesh->node[n1].x[1] - drawTranslate[1]) / drawScale;
+	x1[2] = (mesh->node[n1].x[2] - drawTranslate[2]) / drawScale;
 
-	x2[0] = (mesh->node[vertex2].x[0] - drawTranslate[0]) / drawScale;
-	x2[1] = (mesh->node[vertex2].x[1] - drawTranslate[1]) / drawScale;
-	x2[2] = (mesh->node[vertex2].x[2] - drawTranslate[2]) / drawScale;
+	x2[0] = (mesh->node[n2].x[0] - drawTranslate[0]) / drawScale;
+	x2[1] = (mesh->node[n2].x[1] - drawTranslate[1]) / drawScale;
+	x2[2] = (mesh->node[n2].x[2] - drawTranslate[2]) / drawScale;
 
 	glVertex3dv(x0);
 	glVertex3dv(x1);
@@ -427,21 +427,21 @@ GLuint GLWidget::makeObjects()
 
 	glNormal3dv(boundaryelement->normal); 
 
-	int vertex0 = boundaryelement->vertex[0];
-	int vertex1 = boundaryelement->vertex[1];
-	int vertex2 = boundaryelement->vertex[2];
+	int n0 = boundaryelement->node[0];
+	int n1 = boundaryelement->node[1];
+	int n2 = boundaryelement->node[2];
 
-	x0[0] = (mesh->node[vertex0].x[0] - drawTranslate[0]) / drawScale;
-	x0[1] = (mesh->node[vertex0].x[1] - drawTranslate[1]) / drawScale;
-	x0[2] = (mesh->node[vertex0].x[2] - drawTranslate[2]) / drawScale;
+	x0[0] = (mesh->node[n0].x[0] - drawTranslate[0]) / drawScale;
+	x0[1] = (mesh->node[n0].x[1] - drawTranslate[1]) / drawScale;
+	x0[2] = (mesh->node[n0].x[2] - drawTranslate[2]) / drawScale;
 	
-	x1[0] = (mesh->node[vertex1].x[0] - drawTranslate[0]) / drawScale;
-	x1[1] = (mesh->node[vertex1].x[1] - drawTranslate[1]) / drawScale;
-	x1[2] = (mesh->node[vertex1].x[2] - drawTranslate[2]) / drawScale;
+	x1[0] = (mesh->node[n1].x[0] - drawTranslate[0]) / drawScale;
+	x1[1] = (mesh->node[n1].x[1] - drawTranslate[1]) / drawScale;
+	x1[2] = (mesh->node[n1].x[2] - drawTranslate[2]) / drawScale;
 	
-	x2[0] = (mesh->node[vertex2].x[0] - drawTranslate[0]) / drawScale;
-	x2[1] = (mesh->node[vertex2].x[1] - drawTranslate[1]) / drawScale;
-	x2[2] = (mesh->node[vertex2].x[2] - drawTranslate[2]) / drawScale;
+	x2[0] = (mesh->node[n2].x[0] - drawTranslate[0]) / drawScale;
+	x2[1] = (mesh->node[n2].x[1] - drawTranslate[1]) / drawScale;
+	x2[2] = (mesh->node[n2].x[2] - drawTranslate[2]) / drawScale;
 	
 	glVertex3dv(x0);
 	glVertex3dv(x1);
@@ -471,21 +471,21 @@ GLuint GLWidget::makeObjects()
   for(int i=0; i<sharpedgemesh->edges; i++) {
     edge_t *edge = &sharpedgemesh->edge[i];
 
-    int vertex0 = edge->vertex[0];
-    int vertex1 = edge->vertex[1];
+    int node0 = edge->node[0];
+    int node1 = edge->node[1];
     
-    x0[0] = (mesh->node[vertex0].x[0] - drawTranslate[0]) / drawScale;
-    x0[1] = (mesh->node[vertex0].x[1] - drawTranslate[1]) / drawScale;
-    x0[2] = (mesh->node[vertex0].x[2] - drawTranslate[2]) / drawScale;
+    x0[0] = (mesh->node[node0].x[0] - drawTranslate[0]) / drawScale;
+    x0[1] = (mesh->node[node0].x[1] - drawTranslate[1]) / drawScale;
+    x0[2] = (mesh->node[node0].x[2] - drawTranslate[2]) / drawScale;
     
-    x1[0] = (mesh->node[vertex1].x[0] - drawTranslate[0]) / drawScale;
-    x1[1] = (mesh->node[vertex1].x[1] - drawTranslate[1]) / drawScale;
-    x1[2] = (mesh->node[vertex1].x[2] - drawTranslate[2]) / drawScale;
+    x1[0] = (mesh->node[node1].x[0] - drawTranslate[0]) / drawScale;
+    x1[1] = (mesh->node[node1].x[1] - drawTranslate[1]) / drawScale;
+    x1[2] = (mesh->node[node1].x[2] - drawTranslate[2]) / drawScale;
     
     glTexCoord1d(1.0); // last = 1.0 = black
 
-    glVertex3dv(x0);
-    glVertex3dv(x1);
+    glNode3dv(x0);
+    glNode3dv(x1);
 
   }
 

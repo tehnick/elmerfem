@@ -19,7 +19,6 @@ public:
     Helpers helpers;
     Meshutils meshutils;
     mesh_t *mesh;
-    mesh_t *sharpedgemesh;
 
     GLuint objects;
     GLuint firstList;

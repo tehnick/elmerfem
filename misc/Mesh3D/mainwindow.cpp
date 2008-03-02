@@ -28,6 +28,7 @@ MainWindow::MainWindow()
   setCentralWidget(glWidget);
   sifWindow = new SifWindow(this);
   meshControl = new MeshControl(this);
+  boundaryDivide = new BoundaryDivide(this);
 
   // meshing thread
   meshingThread = new MeshingThread;
@@ -44,8 +45,11 @@ MainWindow::MainWindow()
   // glWidget emits (int) when a boundary is selected by double clicking:
   connect(glWidget, SIGNAL(selectedBoundary(int)), this, SLOT(boundarySelected(int)));
 
-  // meshing thread emits (void) when the mesh generation is completed:
+  // meshingThread emits (void) when the mesh generation is completed:
   connect(meshingThread, SIGNAL(generatorFinished()), this, SLOT(meshOk()));
+
+  // boundaryDivide emits (void) when "divide button" has been clicked:
+  connect(boundaryDivide, SIGNAL(signalDoDivision(double)), this, SLOT(slotDoDivision(double)));
 
   nglibInputOk = false;
   tetlibInputOk = false;
@@ -90,6 +94,7 @@ void MainWindow::createMenus()
   // Mesh menu
   meshMenu = menuBar()->addMenu(tr("&Mesh"));
   meshMenu->addAction(meshcontrolAct);
+  meshMenu->addAction(boundarydivideAct);
   meshMenu->addAction(remeshAct);
 
   // Help menu
@@ -150,6 +155,12 @@ void MainWindow::createActions()
   meshcontrolAct->setStatusTip(tr("Mesh control"));
   connect(meshcontrolAct, SIGNAL(triggered()), this, SLOT(meshcontrol()));
 
+  // Mesh -> Divide boundary
+  boundarydivideAct = new QAction(QIcon(), tr("&Divide boundary..."), this);
+  boundarydivideAct->setShortcut(tr("Ctrl+D"));
+  boundarydivideAct->setStatusTip(tr("Divide boundary by sharp edges"));
+  connect(boundarydivideAct, SIGNAL(triggered()), this, SLOT(boundarydivide()));
+
   // Mesh -> Remesh
   remeshAct = new QAction(QIcon(), tr("&Remesh..."), this);
   remeshAct->setShortcut(tr("Ctrl+R"));
@@ -206,6 +217,40 @@ void MainWindow::meshcontrol()
   }
 
   meshControl->show();
+}
+
+
+
+// Mesh -> Divide boundary...
+//-----------------------------------------------------------------------------
+void MainWindow::boundarydivide()
+{
+  boundaryDivide->show();
+}
+
+
+
+// Make boundary division by sharp edges (siglalled by boundaryDivide)...
+//-----------------------------------------------------------------------------
+void MainWindow::slotDoDivision(double angle)
+{
+  if(glWidget->mesh == NULL) {
+    logMessage("No mesh to divide");
+    return;
+  }
+  
+  meshutils->findSharpEdges(glWidget->mesh, angle);
+  meshutils->divideBoundaryBySharpEdges(glWidget->mesh);
+  
+  // Delete old objects, if any:
+  if(glWidget->objects) {
+    glDeleteLists(glWidget->firstList, glWidget->objects);
+    glWidget->objects = 0;
+  }
+  
+  // Compose new GL-objects:
+  glWidget->objects = glWidget->makeObjects();
+  glWidget->updateGL();
 }
 
 
@@ -434,10 +479,10 @@ void MainWindow::saveElmerMesh(QString dirName)
       index = 1;
 
     elements << i+1 << " " << index << " 504 ";
-    elements << element->vertex[0]+1 << " ";
-    elements << element->vertex[1]+1 << " ";
-    elements << element->vertex[2]+1 << " ";
-    elements << element->vertex[3]+1 << "\n";
+    elements << element->node[0]+1 << " ";
+    elements << element->node[1]+1 << " ";
+    elements << element->node[2]+1 << " ";
+    elements << element->node[3]+1 << "\n";
   }
 
   file.close();
@@ -450,23 +495,23 @@ void MainWindow::saveElmerMesh(QString dirName)
   for(int i=0; i < mesh->boundaryelements; i++) {
     boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
 
-    int parent1 = boundaryelement->parent[0];
-    int parent2 = boundaryelement->parent[1];
+    int e0 = boundaryelement->element[0] + 1;
+    int e1 = boundaryelement->element[1] + 1;
 
-    if(parent1 < 0)
-      parent1 = 0;
+    if(e0 < 1)
+      e0 = 0;
 
-    if(parent2 < 0)
-      parent2 = 0;
+    if(e1 < 1)
+      e1 = 0;
 
     boundary << i+1 << " ";
     boundary << boundaryelement->index << " ";
-    boundary << parent1 << " ";
-    boundary << parent2 << " ";
+    boundary << e0 << " ";
+    boundary << e1 << " ";
     boundary << "303 ";
-    boundary << boundaryelement->vertex[0]+1 << " ";
-    boundary << boundaryelement->vertex[1]+1 << " ";
-    boundary << boundaryelement->vertex[2]+1 << "\n";
+    boundary << boundaryelement->node[0]+1 << " ";
+    boundary << boundaryelement->node[1]+1 << " ";
+    boundary << boundaryelement->node[2]+1 << "\n";
   }
 
   file.close();
@@ -625,34 +670,13 @@ void MainWindow::makeElmerMeshFromTetlib()
   meshutils->clearMesh(glWidget->mesh);
   glWidget->mesh = tetlibAPI->createElmerMeshStructure();
 
-  meshutils->clearMesh(glWidget->sharpedgemesh);
-  glWidget->sharpedgemesh = meshutils->findSharpEdges(glWidget->mesh);
-
+  // Scaling factors for drawing:
   double *bb = meshutils->boundingBox(glWidget->mesh);
 
-  // Scaling factors for drawing:
-  double xmid = (bb[0] + bb[1])/2.0;
-  double ymid = (bb[2] + bb[3])/2.0;
-  double zmid = (bb[4] + bb[5])/2.0;
-
-  double xlen = (bb[1] - bb[0])/2.0;
-  double ylen = (bb[3] - bb[2])/2.0;
-  double zlen = (bb[5] - bb[4])/2.0;
-
-  double s = xlen;
-
-  if(ylen > s)
-    s = ylen;
-
-  if(zlen > s)
-    s = zlen;
-
-  s *= 2.0;
-  
-  glWidget->drawScale = s;
-  glWidget->drawTranslate[0] = xmid;
-  glWidget->drawTranslate[1] = ymid;
-  glWidget->drawTranslate[2] = zmid;
+  glWidget->drawTranslate[0] = bb[6];
+  glWidget->drawTranslate[1] = bb[7];
+  glWidget->drawTranslate[2] = bb[8];
+  glWidget->drawScale = bb[9];
 
   // Delete old objects, if any:
   if(glWidget->objects) {
@@ -678,34 +702,13 @@ void MainWindow::makeElmerMeshFromNglib()
   nglibAPI->ngmesh = this->ngmesh;
   glWidget->mesh = nglibAPI->createElmerMeshStructure();
 
-  meshutils->clearMesh(glWidget->sharpedgemesh);
-  glWidget->sharpedgemesh = meshutils->findSharpEdges(glWidget->mesh);
-
+  // Scaling factors for drawing:
   double *bb = meshutils->boundingBox(glWidget->mesh);
 
-  // Scaling factors for drawing:
-  double xmid = (bb[0] + bb[1])/2.0;
-  double ymid = (bb[2] + bb[3])/2.0;
-  double zmid = (bb[4] + bb[5])/2.0;
-
-  double xlen = (bb[1] - bb[0])/2.0;
-  double ylen = (bb[3] - bb[2])/2.0;
-  double zlen = (bb[5] - bb[4])/2.0;
-
-  double s = xlen;
-
-  if(ylen > s)
-    s = ylen;
-
-  if(zlen > s)
-    s = zlen;
-
-  s *= 2.0;
-  
-  glWidget->drawScale = s;
-  glWidget->drawTranslate[0] = xmid;
-  glWidget->drawTranslate[1] = ymid;
-  glWidget->drawTranslate[2] = zmid;
+  glWidget->drawTranslate[0] = bb[6];
+  glWidget->drawTranslate[1] = bb[7];
+  glWidget->drawTranslate[2] = bb[8];
+  glWidget->drawScale = bb[9];
 
   // Delete old objects, if any:
   if(glWidget->objects) {
