@@ -13,22 +13,23 @@ Prequisites:
 
 Usage:
 
-$ patch -p0 < patch_tetgen.cxx
 $ patch -p0 < patch_tetgen.h
 
-Using the patched files, compile tetgen's lib as follows:
+Using the patched header, compile tetgen's lib as follows:
 
 Linux:
 
 $ g++ -fPIC -c predicates.cxx
 $ g++ -fPIC -c -O -DTETLIBRARY tetgen.cxx
-$ g++ -shared -o libtet.so predicates.o tetgen.o 
+$ g++ -fPIC -c ElmerAPI.cpp
+$ g++ -shared -o libtet.so predicates.o ElmerAPI.o tetgen.o 
 
 MinGW:
 
 $ g++ -c predicates.cxx
 $ g++ -O -DWIN32 -DTETLIBRARY -c tetgen.cxx
-$ g++ -shared predicates.o tetgen.o -o libtet.dll
+$ g++ -c ElmerAPI.cpp
+$ g++ -shared predicates.o tetgen.o ElmerAPI.o -o libtet.dll
 
 Place the modified header and lib (so/dll) in the main directory of Mesh3D.
 
