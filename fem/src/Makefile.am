@@ -333,6 +333,7 @@ EXTRA_DIST = \
 	Stress.src \
 	StressGeneral.src \
 	StressSolve.src \
+	StructuredMeshMapper.src \
 	TimeIntegrate.src \
 	TransportEquation.src \
 	Types.src \
