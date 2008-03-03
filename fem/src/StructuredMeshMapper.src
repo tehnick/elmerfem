@@ -1,0 +1,429 @@
+!/*****************************************************************************/
+! *
+! *  Elmer, A Finite Element Software for Multiphysical Problems
+! *
+! *  Copyright 1st April 1995 - , CSC - Scientific Computing Ltd., Finland
+! * 
+! *  This program is free software; you can redistribute it and/or
+! *  modify it under the terms of the GNU General Public License
+! *  as published by the Free Software Foundation; either version 2
+! *  of the License, or (at your option) any later version.
+! * 
+! *  This program is distributed in the hope that it will be useful,
+! *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+! *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+! *  GNU General Public License for more details.
+! *
+! *  You should have received a copy of the GNU General Public License
+! *  along with this program (in file fem/GPL-2); if not, write to the 
+! *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, 
+! *  Boston, MA 02110-1301, USA.
+! *
+! *****************************************************************************/
+!
+!/******************************************************************************
+! *
+! *  Module for mapping the mesh between given top and bottom surfaces for 
+! *  structured meshes where nodes are aligned with a given coordinate direction. 
+! *
+! ******************************************************************************
+! *
+! *  Authors: Peter Råback
+! *  Email:   Peter.Raback@csc.fi
+! *  Web:     http://www.csc.fi/elmer
+! *  Address: CSC - Scientific Computing Ltd.
+! *           Keilaranta 14
+! *           02101 Espoo, Finland 
+! *
+! *  Original Date: 3.3.2008
+! *
+! *****************************************************************************/
+! *
+! * $Log: StructuredMeshMapper.src,v $
+! *
+! *****************************************************************************/
+
+!------------------------------------------------------------------------------
+SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
+!------------------------------------------------------------------------------
+
+  USE CoordinateSystems
+  USE DefUtils
+
+  IMPLICIT NONE
+!------------------------------------------------------------------------------
+!******************************************************************************
+!
+!  This solver assumes that the mesh is structural so that it could have 
+!  been obtained by extrusion in the direction of interest. For the given 
+!  direction the corresponding top and bottom node is computed for every node
+!  and this information is used to perform linear mapping in between.  
+!
+!  ARGUMENTS:
+!
+!  TYPE(Model_t) :: Model,  
+!     INPUT: All model information (mesh,materials,BCs,etc...)
+!
+!  TYPE(Solver_t) :: Solver
+!     INPUT: Linear equation solver options
+!
+!  REAL(KIND=dp) :: dt,
+!     INPUT: Timestep size for time dependent simulations (NOTE: Not used
+!            currently)
+!
+!******************************************************************************
+
+  TYPE(Model_t)  :: Model
+  TYPE(Solver_t), TARGET :: Solver
+  LOGICAL ::  Transient
+  REAL(KIND=dp) :: dt
+!------------------------------------------------------------------------------
+!    Local variables
+!------------------------------------------------------------------------------
+  TYPE(ValueList_t),POINTER :: SolverParams
+  CHARACTER(LEN=MAX_NAME_LEN) :: VarName
+  INTEGER :: i,j,k,n,dim,DOFs,itop,ibot,ii,jj,Rounds,BotMode,TopMode,nsize, &
+      ActiveDirection,elem
+  INTEGER, POINTER :: MaskPerm(:),TopPerm(:),BotPerm(:),TopPointer(:),&
+      BotPointer(:),UpPointer(:),DownPointer(:),NodeIndexes(:)
+  LOGICAL :: GotIt, Found, Visited = .FALSE., Initialized = .FALSE.,&
+      DisplacementMode, MaskExist
+  REAL(KIND=dp) :: UnitVector(3),x0loc,x0bot,x0top,xloc,wtop,BotVal,TopVal,&
+      ElemVector(3),DotPro,Eps,Length
+  REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime
+  REAL(KIND=dp), POINTER :: Coord(:),BotField(:),TopField(:),Field(:),Surface(:)
+  TYPE(Variable_t), POINTER :: Var
+  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StructuredMeshMapper.src$"
+  TYPE(Element_t), POINTER :: Element
+  TYPE(Nodes_t), SAVE :: Nodes
+  TYPE(ValueList_t),POINTER :: BC
+
+  
+  SAVE Visited,Initialized,UnitVector,Coord,MaskExist,MaskPerm,TopPointer,BotPointer,&
+      TopMode,BotMode,TopField,BotField,TopPerm,BotPerm,Field,Surface
+ 
+  CALL Info( 'StructuredMeshMapper','---------------------------------------',Level=4 )
+  CALL Info( 'StructuredMeshMapper','Performing mapping on a structured mesh ',Level=4 )
+  CALL Info( 'StructuredMeshMapper','---------------------------------------',Level=4 )
+
+!------------------------------------------------------------------------------
+!    Check if version number output is requested
+!------------------------------------------------------------------------------
+  IF ( .NOT. Visited ) THEN
+    IF ( ListGetLogical( GetSimulation(), 'Output Version Numbers', GotIt ) ) THEN
+      CALL Info( 'StructuredMeshMapper', 'StructuredMeshMapper version:', Level = 0 ) 
+      CALL Info( 'StructuredMeshMapper', VersionID, Level = 0 ) 
+      CALL Info( 'StructuredMeshMapper', ' ', Level = 0 ) 
+    END IF
+    Visited = .TRUE.
+  END IF
+    
+  
+!------------------------------------------------------------------------------
+!   Initialize the pointers to top and bottom nodes 
+!------------------------------------------------------------------------------
+
+  SolverParams => GetSolverParams()
+
+
+  IF( .NOT. Initialized ) THEN
+
+    IF(.FALSE.) PRINT *,'start init'
+    at0 = CPUTime()
+
+    NULLIFY(Field)
+
+    ! Choose active direction coordinate and set corresponding unit vector
+    !---------------------------------------------------------------------
+    DIM = CoordinateSystemDimension()
+    ActiveDirection = GetInteger(SolverParams,'Active Coordinate')
+    IF(ActiveDirection == 1) THEN
+      Var => VariableGet( Solver % Mesh % Variables,'Coordinate 1')
+    ELSE IF(ActiveDirection == 2) THEN
+      Var => VariableGet( Solver % Mesh % Variables,'Coordinate 2')
+    ELSE IF(ActiveDirection == 3) THEN 
+      Var => VariableGet( Solver % Mesh % Variables,'Coordinate 3')
+    ELSE 
+      CALL Fatal('StructuredMeshMapper','Invalid value for Active Coordinate')
+    END IF
+    Coord => Var % Values
+    UnitVector = 0.0_dp
+    UnitVector(ActiveDirection) = 1.0_dp
+
+    ! Allocate pointers to top and bottom, and temporary pointers up and down
+    !------------------------------------------------------------------------
+    nsize = SIZE( Coord )
+
+    ALLOCATE(TopPointer(nsize),UpPointer(nsize))
+    DO i=1,nsize
+      TopPointer(i) = i
+      UpPointer(i) = i
+    END DO
+    ALLOCATE(BotPointer(nsize),DownPointer(nsize))
+    DO i=1,nsize
+      BotPointer(i) = i
+      DownPointer(i) = i
+    END DO
+
+    ! If mask variable is provided only those nodes will be moved
+    !-----------------------------------------------------------   
+    VarName = GetString(SolverParams,'Mapping Mask Variable',GotIt )
+    MaskExist = .FALSE.
+    IF(GotIt) THEN
+      Var => VariableGet( Model % Variables,  VarName )
+      IF(ASSOCIATED(Var)) THEN
+        MaskPerm => Var % Perm
+        MaskExist = ASSOCIATED(MaskPerm)
+      END IF
+    END IF
+
+    ! Determine the pointer up and down using dot product as criterion
+    !-----------------------------------------------------------------
+    Eps = GetConstReal(SolverParams,'Dot Product Tolerance',GotIt)
+    IF(.NOT. GotIt) Eps = 0.01_dp
+
+    IF(.FALSE.) PRINT *,'determine up and down pointers'
+
+    DO elem = 1,Solver % Mesh % NumberOfBulkElements      
+      Element => Solver % Mesh % Elements(elem)
+      NodeIndexes => Element % NodeIndexes
+      Model % CurrentElement => Element
+      CALL GetElementNodes( Nodes )
+      n  = GetElementNOFNodes()
+
+      IF( MaskExist ) THEN
+        IF( ANY(MaskPerm(NodeIndexes) == 0) ) CYCLE
+      END IF
+
+
+      DO i=1,n
+        ii = NodeIndexes(i)
+        DO j=i+1,n
+          jj = NodeIndexes(j)
+
+          ElemVector(1) = Nodes % x(j) - Nodes % x(i)
+          ElemVector(2) = Nodes % y(j) - Nodes % y(i)
+          ElemVector(3) = Nodes % z(j) - Nodes % z(i)
+          Length = SQRT(SUM(ElemVector*ElemVector))
+          DotPro = SUM(ElemVector * UnitVector) / Length
+          
+          IF(DotPro > 1.0_dp - Eps) THEN
+            UpPointer(ii) = jj
+            DownPointer(jj) = ii
+          ELSE IF(DotPro < Eps - 1.0_dp) THEN
+            DownPointer(ii) = jj
+            UpPointer(jj) = ii
+          END IF
+        END DO
+      END DO
+    END DO
+    
+    ! Pointer to top and bottom are found recursively using up and down
+    !------------------------------------------------------------------
+    IF(.FALSE.) PRINT *,'determine top and bottom pointers'
+
+    Found = .TRUE.
+    Rounds = 0
+    DO WHILE(Found) 
+      Found = .FALSE.
+      DO i=1,nsize
+        IF( MaskExist ) THEN
+          IF( MaskPerm(i) == 0) CYCLE
+        END IF
+        j = UpPointer(i)
+        IF( TopPointer(i) /= TopPointer( j ) ) THEN
+          Found = .TRUE.
+          TopPointer(i) = TopPointer( j )
+        END IF
+        j = DownPointer(i)
+        IF( BotPointer(i) /= BotPointer( j ) ) THEN
+          Found = .TRUE.
+          BotPointer(i) = BotPointer( j )
+        END IF
+      END DO
+      IF( Found ) Rounds = Rounds + 1
+    END DO
+
+    DEALLOCATE( UpPointer, DownPointer )
+    at1 = CPUTime()
+  
+    WRITE(Message,* ) 'Top and bottom pointer init rounds: ',Rounds
+    CALL Info('StructuredMeshMapper',Message)
+    WRITE(Message,* ) 'Top and bottom pointer init time: ',at1-at0
+    CALL Info('StructuredMeshMapper',Message)
+   
+    Initialized = .TRUE.
+  END IF
+  at0 = CPUTime()
+
+
+  ! End of initialization
+  !-------------------------------------------------------
+
+  ! Get either variable or constant values for top surface
+  !-------------------------------------------------------
+  TopMode = 0
+  TopVal = GetCReal(SolverParams,'Top Surface Level',GotIt)
+
+  IF(GotIt) THEN
+    TopMode = 1
+  ELSE
+    VarName = GetString(SolverParams,'Top Surface Variable Name',GotIt )
+    IF(GotIt) THEN
+      Var => VariableGet( Solver % Mesh % Variables,  VarName )
+      IF(ASSOCIATED(Var)) THEN
+        IF(Var % DOFs /= 1) THEN
+          CALL Fatal('StructuredMeshMapper','Top surface variable should have only 1 dof')
+        ELSE
+          TopField => Var % Values
+          TopPerm => Var % Perm
+          TopMode = 2
+        END IF
+      ELSE
+        CALL Fatal('StructuredMeshMapper','Top surface variable is missing: '//TRIM(VarName))
+      END IF
+    END IF
+  END IF
+
+  IF(TopMode == 0) THEN
+    TopMode = 3
+    IF(.NOT. ASSOCIATED(Field)) THEN
+      N = Solver % Mesh % MaxElementNodes
+      ALLOCATE(Field(nsize),Surface(n))
+      Field = 0.0_dp
+    END IF
+    DO elem = 1, Solver % Mesh % NumberOfBoundaryElements
+      Element => GetBoundaryElement(elem)
+      BC => GetBC()
+      IF ( ASSOCIATED( BC ) ) THEN
+        NodeIndexes => Element % NodeIndexes
+        n = GetElementNOFNodes()
+        Surface(1:n) = GetReal( BC,'Top Surface',Found )
+        IF(Found) Field(NodeIndexes(1:n)) = Surface(1:n) 
+      END IF
+    END DO
+  END IF
+
+
+  ! Get either variable or constant values for bottom surface
+  !----------------------------------------------------------
+  BotMode = 0
+  BotVal = GetCReal(SolverParams,'Bottom Surface Level',GotIt)
+  IF(GotIt) THEN
+    BotMode = 1
+  ELSE
+    VarName = GetString(SolverParams,'Bottom Surface Variable Name',GotIt )
+    IF(GotIt) THEN
+      Var => VariableGet( Solver % Mesh % Variables,  VarName )
+      IF(ASSOCIATED(Var)) THEN
+        IF( Var % DOFs /= 1) THEN
+          CALL Fatal('StructuredMeshMapper','Bottom surface variable should have only 1 dof')
+        ELSE
+          BotField => Var % Values
+          BotPerm => Var % Perm
+          BotMode = 2
+        END IF
+      ELSE
+        CALL Fatal('StructuredMeshMapper','Bottom surface variable is missing: '//TRIM(VarName))
+      END IF
+    END IF
+  END IF
+  IF( BotMode == 0) THEN
+    BotMode = 3
+    IF(.NOT. ASSOCIATED(Field)) THEN
+      N = Solver % Mesh % MaxElementNodes
+      ALLOCATE(Field(nsize),Surface(n))
+      Field = 0.0_dp
+    END IF
+    DO elem = 1, Solver % Mesh % NumberOfBoundaryElements
+      Element => GetBoundaryElement(elem)
+      BC => GetBC()
+      IF ( ASSOCIATED( BC ) ) THEN
+        NodeIndexes => Element % NodeIndexes
+        n = GetElementNOFNodes()
+        Surface(1:n) = GetReal( BC,'Bottom Surface',Found )
+        IF(Found) Field(NodeIndexes(1:n)) = Surface(1:n) 
+      END IF
+    END DO
+  END IF
+
+  
+  ! Get the new mapping using linear interpolation from bottom and top
+  !-------------------------------------------------------------------
+  IF(.FALSE.) PRINT *,'perform linear mapping'
+  DO i=1,nsize
+    IF( MaskExist ) THEN
+      IF( MaskPerm(i) == 0) CYCLE
+    END IF
+    itop = TopPointer(i)
+    ibot = BotPointer(i)
+
+    IF( i == itop .OR. i == ibot ) CYCLE
+    x0top = Coord(itop)
+    x0bot = Coord(ibot)
+    x0loc = Coord(i)
+
+    wtop = (x0loc-x0bot)/(x0top-x0bot);
+    
+    IF(TopMode == 2) THEN
+      TopVal = TopField(TopPerm(itop))
+    ELSE IF(TopMode == 3) THEN
+      TopVal = Field(itop)
+    END IF
+
+    IF(BotMode == 2) THEN
+      BotVal = BotField(BotPerm(ibot))
+    ELSE IF(BotMode == 3) THEN    
+      BotVal = Field(ibot)
+    END IF
+
+    xloc = wtop * TopVal + (1.0_dp - wtop) * BotVal
+    IF(DisplacementMode) THEN
+      Coord(i) = Coord(i) + xloc
+    ELSE
+      Coord(i) = xloc
+    END IF
+  END DO
+
+    
+  ! Map to top and bottom themselves for very last
+  !-----------------------------------------------
+  DisplacementMode = GetLogical(SolverParams,'Displacement Mode',Found)
+  DO i=1,nsize
+    IF( MaskExist ) THEN
+      IF( MaskPerm(i) == 0) CYCLE
+    END IF
+    IF( i == TopPointer(i) ) THEN
+      IF(TopMode == 2) THEN
+        TopVal = TopField(TopPerm(i))
+      ELSE IF(TopMode == 3) THEN
+        TopVal = Field(i)
+      END IF
+      IF(DisplacementMode) THEN
+        Coord(i) = Coord(i) + TopVal
+      ELSE
+        Coord(i) = TopVal
+      END IF
+    END IF
+    IF( i == BotPointer(i) ) THEN
+      IF(BotMode == 2) THEN
+        BotVal = BotField(BotPerm(i))
+      ELSE IF(BotMode == 3) THEN
+        BotVal = Field(i)
+      END IF
+      IF(DisplacementMode) THEN
+        Coord(i) = Coord(i) + BotVal
+      ELSE
+        Coord(i) = BotVal
+      END IF
+    END IF
+  END DO
+
+  at1 = CPUTime()
+
+  WRITE(Message,* ) 'Active coordinate mapping time: ',at1-at0
+  CALL Info('StructuredMeshMapper',Message)
+
+!------------------------------------------------------------------------------
+END SUBROUTINE StructuredMeshMapper
+!------------------------------------------------------------------------------
