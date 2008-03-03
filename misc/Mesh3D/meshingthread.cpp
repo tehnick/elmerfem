@@ -38,6 +38,7 @@ void MeshingThread::generate(int generatorType, QString cs,
   this->tetlibAPI = tetlibAPI;
   this->in = tetlibAPI->in;
   this->out = tetlibAPI->out;
+
   this->delegate_tetrahedralize = tetlibAPI->delegate_tetrahedralize;
 
   this->nglibAPI = nglibAPI;
@@ -79,7 +80,8 @@ void MeshingThread::run()
       out->initialize();    
       
       sprintf(ss, "%s", (const char*)(tetgenControlString.toAscii()));
-      if(delegate_tetrahedralize)
+
+      if(delegate_tetrahedralize) 
 	delegate_tetrahedralize(1, NULL, ss, in, out, NULL, NULL);      
       
       cout << "Mesh generator: nodes: " << out->numberofpoints << endl;
@@ -117,7 +119,7 @@ void MeshingThread::run()
        
     // emit "ok" to the main thread:
     if(!restart)
-      emit(generatorFinished());
+      emit(signalMeshOk());
     
     mutex.lock();
     

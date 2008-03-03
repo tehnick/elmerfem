@@ -1,9 +1,7 @@
 #include <iostream>
 #include <math.h>
 #include "meshutils.h"
-
 using namespace std;
-
 
 Meshutils::Meshutils()
 {
@@ -114,6 +112,12 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
 {
 #define UNKNOWN -1
 
+#define RESETENTRY              \
+    h->node = UNKNOWN;          \
+    h->boundaryelements = 0;    \
+    h->boundaryelement = NULL;  \
+    h->next = NULL;
+
   int keys = mesh->nodes;
 
   class hashEntry {
@@ -129,73 +133,55 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
   bool found;
   hashEntry *h;
 
-#define RESETENTRY                                         \
-    h->node = UNKNOWN;                                     \
-    h->boundaryelements = 0;                               \
-    h->boundaryelement = NULL;                             \
-    h->next = NULL;
-
-#define INLINESTUFF                                        \
-    h = &hash[m];                                          \
-    found = false;                                         \
-    while(h->next) {                                       \
-      if(h->node == n) {                                   \
-	found = true;                                      \
-	break;                                             \
-      }                                                    \
-      h = h->next;                                         \
-    }                                                      \
-                                                           \
-    if(!found) {                                           \
-      h->node = n;                                         \
-      h->boundaryelements = 1;                             \
-      h->boundaryelement = new int[1];                     \
-      h->boundaryelement[0] = i;                           \
-      h->next = new hashEntry;                             \
-      h = h->next;                                         \
-      RESETENTRY;                                          \
-    } else {                                               \
-      int *tmp = new int[h->boundaryelements];             \
-      for(int j=0; j<h->boundaryelements; j++)             \
-        tmp[j] = h->boundaryelement[j];                    \
-      delete [] h->boundaryelement;                        \
-      h->boundaryelement = new int[h->boundaryelements+1]; \
-      for(int j=0; j<h->boundaryelements; j++)             \
-        h->boundaryelement[j] = tmp[j];                    \
-      h->boundaryelement[h->boundaryelements++] = i;       \
-      delete [] tmp;                                       \
-    }
-
-
   for(int i=0; i<keys; i++) {
     h = &hash[i];
     RESETENTRY;
   }
 
+  static int edgemap[][2] = {{0,1}, {1,2}, {2,0}};
+  
   for(int i=0; i < mesh->boundaryelements; i++) {
     boundaryelement_t *be = &mesh->boundaryelement[i];
-
-    int n0 = be->node[0];
-    int n1 = be->node[1];
-    int n2 = be->node[2];
     
-    // edge 0-1
-    int m = (n0<n1) ? n0 : n1;
-    int n = (n0<n1) ? n1 : n0;
+    // loop over edges
+    for(int e=0; e<3; e++) {
 
-    INLINESTUFF;
-        
-    // edge 1-2
-    m = (n1<n2) ? n1 : n2;
-    n = (n1<n2) ? n2 : n1;
+      int n0 = be->node[edgemap[e][0]];
+      int n1 = be->node[edgemap[e][1]];
 
-    INLINESTUFF;
+      int m = (n0<n1) ? n0 : n1;
+      int n = (n0<n1) ? n1 : n0;
 
-    // edge 2-0
-    m = (n2<n0) ? n2 : n0;
-    n = (n2<n0) ? n0 : n2;
-
-    INLINESTUFF;
+      h = &hash[m];
+      found = false;
+      while(h->next) {                                       
+	if(h->node == n) {
+	  found = true;
+	  break;
+	}
+	h = h->next;
+      }                                                      
+      
+      if(!found) {
+	h->node = n;
+	h->boundaryelements = 1;
+	h->boundaryelement = new int[1];
+	h->boundaryelement[0] = i;
+	h->next = new hashEntry;
+	h = h->next;
+	RESETENTRY;
+      } else {
+	int *tmp = new int[h->boundaryelements];
+	for(int j=0; j<h->boundaryelements; j++)
+	  tmp[j] = h->boundaryelement[j];
+	delete [] h->boundaryelement;
+	h->boundaryelement = new int[h->boundaryelements+1];
+	for(int j=0; j<h->boundaryelements; j++)
+	  h->boundaryelement[j] = tmp[j];
+	h->boundaryelement[h->boundaryelements++] = i;
+	delete [] tmp;
+      }
+    }
   }
 
   // count edges:
@@ -230,7 +216,7 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
 
   delete [] hash;
 
-  // Inverse mapping
+  // Inverse map
   for(int i=0; i < mesh->edges; i++) {
     edge_t *e = &mesh->edge[i];
 

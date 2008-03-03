@@ -34,7 +34,7 @@ public:
 		nglib::Ng_Meshing_Parameters *mp, NglibAPI *nglibAPI);
 
 signals:
-  void generatorFinished();
+  void signalMeshOk();
   
 protected:
   void run();

@@ -312,7 +312,7 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
   if(nearest != 0xffffffff) {
 
     // Emit to MainWidow:
-    emit(selectedBoundary(nearest)); 
+    emit(signalBoundarySelected(nearest)); 
 
     colorMap[3*nearest] = 255;
     colorMap[3*nearest+1] = 0;
@@ -320,7 +320,7 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
   } else {
 
     // Nothing selected:
-    emit(selectedBoundary(-1)); 
+    emit(signalBoundarySelected(-1)); 
   }
 
   glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, colorMapEntries,

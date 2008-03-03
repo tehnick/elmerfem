@@ -43,10 +43,10 @@ MainWindow::MainWindow()
   createStatusBar();
   
   // glWidget emits (int) when a boundary is selected by double clicking:
-  connect(glWidget, SIGNAL(selectedBoundary(int)), this, SLOT(boundarySelected(int)));
+  connect(glWidget, SIGNAL(signalBoundarySelected(int)), this, SLOT(slotBoundarySelected(int)));
 
   // meshingThread emits (void) when the mesh generation is completed:
-  connect(meshingThread, SIGNAL(generatorFinished()), this, SLOT(meshOk()));
+  connect(meshingThread, SIGNAL(signalMeshOk()), this, SLOT(slotMeshOk()));
 
   // boundaryDivide emits (void) when "divide button" has been clicked:
   connect(boundaryDivide, SIGNAL(signalDoDivision(double)), this, SLOT(slotDoDivision(double)));
@@ -337,7 +337,7 @@ void MainWindow::remesh()
 
 // Mesh is ready (signaled by MeshingThread::run):
 //-----------------------------------------------------------------------------
-void MainWindow::meshOk()
+void MainWindow::slotMeshOk()
 {
   logMessage("Mesh generation completed");
 
@@ -544,7 +544,7 @@ void MainWindow::saveElmerMesh(QString dirName)
 
 // Boundady selected by double clicking (signaled by glWidget::select):
 //-----------------------------------------------------------------------------
-void MainWindow::boundarySelected(int boundary)
+void MainWindow::slotBoundarySelected(int boundary)
 {
   if( boundary > -1 ) {
 

@@ -36,8 +36,8 @@ private slots:
   void remesh();              // Mesh -> Remesh...
   void showabout();           // Help -> About...
 
-  void meshOk();
-  void boundarySelected(int);
+  void slotMeshOk();
+  void slotBoundarySelected(int);
   void slotDoDivision(double);
   
 private:
@@ -91,11 +91,11 @@ private:
   Meshutils *meshutils;
   
   // private functions:
-  void readInputFile(QString fileName);
-  void saveElmerMesh(QString dirName);
+  void readInputFile(QString);
+  void saveElmerMesh(QString);
   void makeElmerMeshFromTetlib();
   void makeElmerMeshFromNglib();
-  void logMessage(QString message);
+  void logMessage(QString);
 
 };
 

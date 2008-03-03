@@ -34,19 +34,19 @@ public:
 public slots:
 
 signals:
-    void selectedBoundary(int boundary);
+    void signalBoundarySelected(int);
 
 protected:
     void initializeGL();
     void paintGL();
-    void resizeGL(int width, int height);
+    void resizeGL(int, int);
 
     void clearColorMap();
 
-    void mouseDoubleClickEvent(QMouseEvent *event);
-    void mousePressEvent(QMouseEvent *event);
-    void mouseMoveEvent(QMouseEvent *event);
-    void wheelEvent(QWheelEvent *event);
+    void mouseDoubleClickEvent(QMouseEvent*);
+    void mousePressEvent(QMouseEvent*);
+    void mouseMoveEvent(QMouseEvent*);
+    void wheelEvent(QWheelEvent*);
 
 private:
 
