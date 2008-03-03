@@ -278,7 +278,7 @@ void Meshutils::findSharpEdges(mesh_t *mesh, double limit)
 
 // Divide boundary by sharp edges...
 //-----------------------------------------------------------------------------
-void Meshutils::divideBoundaryBySharpEdges(mesh_t *mesh)
+int Meshutils::divideBoundaryBySharpEdges(mesh_t *mesh)
 {
 #define UNKNOWN -1
 #define SHARP 0
@@ -330,4 +330,6 @@ void Meshutils::divideBoundaryBySharpEdges(mesh_t *mesh)
   cout << "Divided boudary into " << index << " parts" << endl;
 
   delete bc;
+
+  return index;
 }

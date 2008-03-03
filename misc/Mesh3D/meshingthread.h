@@ -14,8 +14,8 @@
 #include <dlfcn.h>
 #endif
 
-#include "tetlib_api.h"
-#include "nglib_api.h"
+#include "plugins/tetlib_api.h"
+#include "plugins/nglib_api.h"
 
 namespace nglib {
 #include <nglib.h>

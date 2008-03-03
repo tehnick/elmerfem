@@ -23,33 +23,28 @@ MainWindow::MainWindow()
   this->ngmesh = nglibAPI->ngmesh;
   this->nggeom = nglibAPI->nggeom;
 
-  // widgets
+  // widgets and helpers
   glWidget = new GLWidget;
   setCentralWidget(glWidget);
   sifWindow = new SifWindow(this);
   meshControl = new MeshControl(this);
   boundaryDivide = new BoundaryDivide(this);
-
-  // meshing thread
   meshingThread = new MeshingThread;
-
-  // helpers
   meshutils = new Meshutils;
 
-  // actions
   createActions();
   createMenus();
   createToolBars();
   createStatusBar();
   
   // glWidget emits (int) when a boundary is selected by double clicking:
-  connect(glWidget, SIGNAL(signalBoundarySelected(int)), this, SLOT(slotBoundarySelected(int)));
+  connect(glWidget, SIGNAL(signalBoundarySelected(int)), this, SLOT(boundarySelectedSlot(int)));
 
   // meshingThread emits (void) when the mesh generation is completed:
-  connect(meshingThread, SIGNAL(signalMeshOk()), this, SLOT(slotMeshOk()));
+  connect(meshingThread, SIGNAL(signalMeshOk()), this, SLOT(meshOkSlot()));
 
   // boundaryDivide emits (void) when "divide button" has been clicked:
-  connect(boundaryDivide, SIGNAL(signalDoDivision(double)), this, SLOT(slotDoDivision(double)));
+  connect(boundaryDivide, SIGNAL(signalDoDivision(double)), this, SLOT(doDivisionSlot(double)));
 
   nglibInputOk = false;
   tetlibInputOk = false;
@@ -62,7 +57,6 @@ MainWindow::MainWindow()
 //-----------------------------------------------------------------------------
 MainWindow::~MainWindow()
 {
-  delete tetlibAPI;
 }
 
 
@@ -124,13 +118,13 @@ void MainWindow::createActions()
   openAct = new QAction(QIcon("./icons/book_open.png"), tr("&Open..."), this);
   openAct->setShortcut(tr("Ctrl+O"));
   openAct->setStatusTip(tr("Open model input file"));
-  connect(openAct, SIGNAL(triggered()), this, SLOT(open()));
+  connect(openAct, SIGNAL(triggered()), this, SLOT(openSlot()));
   
   // File -> Save file
   saveAct = new QAction(QIcon("./icons/disk.png"), tr("&Save..."), this);
   saveAct->setShortcut(tr("Ctrl+S"));
   saveAct->setStatusTip(tr("Save mesh"));
-  connect(saveAct, SIGNAL(triggered()), this, SLOT(save()));
+  connect(saveAct, SIGNAL(triggered()), this, SLOT(saveSlot()));
 
   // File -> Exit
   exitAct = new QAction(QIcon("./icons/cancel.png"), tr("E&xit"), this);
@@ -142,43 +136,43 @@ void MainWindow::createActions()
   showsifAct = new QAction(QIcon(), tr("&Sif..."), this);
   showsifAct->setShortcut(tr("Ctrl+I"));
   showsifAct->setStatusTip(tr("Edit solver input file"));
-  connect(showsifAct, SIGNAL(triggered()), this, SLOT(showsif()));
+  connect(showsifAct, SIGNAL(triggered()), this, SLOT(showsifSlot()));
 
   // Edit -> Steady heat sif...
   steadyHeatSifAct = new QAction(QIcon(), tr("&Steady heat..."), this);
   steadyHeatSifAct->setStatusTip(tr("Sif skeleton for steady heat conduction"));
-  connect(steadyHeatSifAct, SIGNAL(triggered()), this, SLOT(makeSteadyHeatSif()));
+  connect(steadyHeatSifAct, SIGNAL(triggered()), this, SLOT(makeSteadyHeatSifSlot()));
 
   // Mesh -> Control
   meshcontrolAct = new QAction(QIcon(), tr("&Control..."), this);
   meshcontrolAct->setShortcut(tr("Ctrl+M"));
   meshcontrolAct->setStatusTip(tr("Mesh control"));
-  connect(meshcontrolAct, SIGNAL(triggered()), this, SLOT(meshcontrol()));
+  connect(meshcontrolAct, SIGNAL(triggered()), this, SLOT(meshcontrolSlot()));
 
   // Mesh -> Divide boundary
   boundarydivideAct = new QAction(QIcon(), tr("&Divide boundary..."), this);
   boundarydivideAct->setShortcut(tr("Ctrl+D"));
   boundarydivideAct->setStatusTip(tr("Divide boundary by sharp edges"));
-  connect(boundarydivideAct, SIGNAL(triggered()), this, SLOT(boundarydivide()));
+  connect(boundarydivideAct, SIGNAL(triggered()), this, SLOT(boundarydivideSlot()));
 
   // Mesh -> Remesh
   remeshAct = new QAction(QIcon(), tr("&Remesh..."), this);
   remeshAct->setShortcut(tr("Ctrl+R"));
   remeshAct->setStatusTip(tr("Remesh"));
-  connect(remeshAct, SIGNAL(triggered()), this, SLOT(remesh()));
+  connect(remeshAct, SIGNAL(triggered()), this, SLOT(remeshSlot()));
 
   // Help -> About
   aboutAct = new QAction(QIcon(), tr("&About..."), this);
   aboutAct->setShortcut(tr("Ctrl+A"));
   aboutAct->setStatusTip(tr("About the program"));
-  connect(aboutAct, SIGNAL(triggered()), this, SLOT(showabout()));
+  connect(aboutAct, SIGNAL(triggered()), this, SLOT(showaboutSlot()));
 }
 
 
 
 // About dialog...
 //-----------------------------------------------------------------------------
-void MainWindow::showabout()
+void MainWindow::showaboutSlot()
 {
   QMessageBox::about(this, tr("About Mesh3D"),
 		     tr("Mesh3D is a preprocessor for three dimensional "
@@ -195,10 +189,10 @@ void MainWindow::showabout()
 
 // Mesh -> Control...
 //-----------------------------------------------------------------------------
-void MainWindow::meshcontrol()
+void MainWindow::meshcontrolSlot()
 {
-  meshControl->tetlibPresent = tetlibPresent;
-  meshControl->nglibPresent = nglibPresent;
+  meshControl->tetlibPresent = this->tetlibPresent;
+  meshControl->nglibPresent = this->nglibPresent;
   
   if(!tetlibPresent) {
     meshControl->tetlibPresent = false;
@@ -223,16 +217,16 @@ void MainWindow::meshcontrol()
 
 // Mesh -> Divide boundary...
 //-----------------------------------------------------------------------------
-void MainWindow::boundarydivide()
+void MainWindow::boundarydivideSlot()
 {
   boundaryDivide->show();
 }
 
 
 
-// Make boundary division by sharp edges (siglalled by boundaryDivide)...
+// Make boundary division by sharp edges (signalled by boundaryDivide)...
 //-----------------------------------------------------------------------------
-void MainWindow::slotDoDivision(double angle)
+void MainWindow::doDivisionSlot(double angle)
 {
   if(glWidget->mesh == NULL) {
     logMessage("No mesh to divide");
@@ -240,7 +234,10 @@ void MainWindow::slotDoDivision(double angle)
   }
   
   meshutils->findSharpEdges(glWidget->mesh, angle);
-  meshutils->divideBoundaryBySharpEdges(glWidget->mesh);
+  int parts = meshutils->divideBoundaryBySharpEdges(glWidget->mesh);
+
+  QString qs = "Boundary divided into " + QString::number(parts) + " parts";
+  statusBar()->showMessage(qs);
   
   // Delete old objects, if any:
   if(glWidget->objects) {
@@ -257,7 +254,7 @@ void MainWindow::slotDoDivision(double angle)
 
 // Edit -> Sif...
 //-----------------------------------------------------------------------------
-void MainWindow::showsif()
+void MainWindow::showsifSlot()
 {
   sifWindow->show();
 }
@@ -269,6 +266,7 @@ void MainWindow::showsif()
 void MainWindow::logMessage(QString message)
 {
   cout << string(message.toAscii()) << endl;
+  statusBar()->showMessage(message);
   cout.flush();
 }
 
@@ -277,7 +275,7 @@ void MainWindow::logMessage(QString message)
 
 // Mesh -> Remesh...
 //-----------------------------------------------------------------------------
-void MainWindow::remesh()
+void MainWindow::remeshSlot()
 {
   if(meshControl->generatorType == GEN_TETLIB) {
 
@@ -337,7 +335,7 @@ void MainWindow::remesh()
 
 // Mesh is ready (signaled by MeshingThread::run):
 //-----------------------------------------------------------------------------
-void MainWindow::slotMeshOk()
+void MainWindow::meshOkSlot()
 {
   logMessage("Mesh generation completed");
 
@@ -360,10 +358,9 @@ void MainWindow::slotMeshOk()
 
 
 
-
 // File -> Open...
 //-----------------------------------------------------------------------------
-void MainWindow::open()
+void MainWindow::openSlot()
 {
   QString fileName = QFileDialog::getOpenFileName(this);
 
@@ -381,14 +378,14 @@ void MainWindow::open()
   }
   
   readInputFile(fileName);
-  remesh();
+  remeshSlot();
 }
 
 
 
 // File -> Save...
 //-----------------------------------------------------------------------------
-void MainWindow::save()
+void MainWindow::saveSlot()
 {
   if(glWidget->mesh==NULL) {
     logMessage("Unable to save mesh: no data");
@@ -544,7 +541,7 @@ void MainWindow::saveElmerMesh(QString dirName)
 
 // Boundady selected by double clicking (signaled by glWidget::select):
 //-----------------------------------------------------------------------------
-void MainWindow::slotBoundarySelected(int boundary)
+void MainWindow::boundarySelectedSlot(int boundary)
 {
   if( boundary > -1 ) {
 
@@ -673,10 +670,10 @@ void MainWindow::makeElmerMeshFromTetlib()
   // Scaling factors for drawing:
   double *bb = meshutils->boundingBox(glWidget->mesh);
 
-  glWidget->drawTranslate[0] = bb[6];
-  glWidget->drawTranslate[1] = bb[7];
-  glWidget->drawTranslate[2] = bb[8];
-  glWidget->drawScale = bb[9];
+  glWidget->drawTranslate[0] = bb[6]; // x-center
+  glWidget->drawTranslate[1] = bb[7]; // y-center
+  glWidget->drawTranslate[2] = bb[8]; // z-center
+  glWidget->drawScale = bb[9];         // scaling
 
   // Delete old objects, if any:
   if(glWidget->objects) {
@@ -705,10 +702,10 @@ void MainWindow::makeElmerMeshFromNglib()
   // Scaling factors for drawing:
   double *bb = meshutils->boundingBox(glWidget->mesh);
 
-  glWidget->drawTranslate[0] = bb[6];
-  glWidget->drawTranslate[1] = bb[7];
-  glWidget->drawTranslate[2] = bb[8];
-  glWidget->drawScale = bb[9];
+  glWidget->drawTranslate[0] = bb[6]; // x-center
+  glWidget->drawTranslate[1] = bb[7]; // y-center
+  glWidget->drawTranslate[2] = bb[8]; // z-center
+  glWidget->drawScale = bb[9];         // scaling
 
   // Delete old objects, if any:
   if(glWidget->objects) {
@@ -729,7 +726,7 @@ void MainWindow::makeElmerMeshFromNglib()
 
 // Make solver input file for steady heat conduction...
 //-----------------------------------------------------------------------------
-void MainWindow::makeSteadyHeatSif()
+void MainWindow::makeSteadyHeatSifSlot()
 {
   if(glWidget->mesh==NULL) {
     logMessage("Unable to create sif: no mesh");

@@ -11,7 +11,7 @@ BoundaryDivide::BoundaryDivide(QWidget *parent)
   connect(ui.divideButton, SIGNAL(clicked()), this, SLOT(divideBoundary()));
   connect(ui.closeButton, SIGNAL(clicked()), this, SLOT(close()));
 
-  ui.angleDegreeEdit->setText("20");
+  ui.angleDegreeEdit->setText("20.0");
 }
 
 BoundaryDivide::~BoundaryDivide()
