@@ -36,7 +36,7 @@ bool TetlibAPI::loadTetlib()
 #ifdef WIN32
 #define DLSYMPROC GetProcAddress
 #else
-#define DLSYMPROC GetProcAddress
+#define DLSYMPROC dlsym
 #endif
 
   if(!(ptetgenio = (tetgenio_t) DLSYMPROC(hTetlib, "CreateObjectOfTetgenio")))

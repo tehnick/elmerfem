@@ -36,7 +36,7 @@ bool NglibAPI::loadNglib()
 #ifdef WIN32
 #define DLSYMPROC GetProcAddress
 #else
-#define DLSYMPROC GetProcAddress
+#define DLSYMPROC dlsym
 #endif
 
   if(!(pNg_Meshing_Parameters = (Ng_Meshing_Parameters_t) DLSYMPROC(hNglib, "CreateObjectOfNg_Meshing_Parameters")))

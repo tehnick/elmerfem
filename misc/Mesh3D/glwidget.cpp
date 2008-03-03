@@ -386,7 +386,7 @@ GLuint GLWidget::makeObjects()
 
       if(boundaryelement->index == j) {
 	
-	double colorValue = (double)(j)/(double)(colorMapEntries);
+	double colorValue = (double)(j+firstList-1)/(double)(colorMapEntries);
 	glTexCoord1d(colorValue);
 
 	glNormal3dv(boundaryelement->normal); 
