@@ -75,6 +75,7 @@ void MainWindow::createMenus()
   // File menu
   fileMenu = menuBar()->addMenu(tr("&File"));
   fileMenu->addAction(openAct);
+  fileMenu->addAction(loadAct);
   fileMenu->addAction(saveAct);
   fileMenu->addSeparator();
   fileMenu->addAction(exitAct);
@@ -119,6 +120,12 @@ void MainWindow::createActions()
   openAct->setShortcut(tr("Ctrl+O"));
   openAct->setStatusTip(tr("Open model input file"));
   connect(openAct, SIGNAL(triggered()), this, SLOT(openSlot()));
+  
+  // File -> Load mesh
+  loadAct = new QAction(QIcon("./icons/cog.png"), tr("&Load..."), this);
+  loadAct->setShortcut(tr("Ctrl+L"));
+  loadAct->setStatusTip(tr("Load Elmer mesh files"));
+  connect(loadAct, SIGNAL(triggered()), this, SLOT(loadSlot()));
   
   // File -> Save file
   saveAct = new QAction(QIcon("./icons/disk.png"), tr("&Save..."), this);
@@ -382,6 +389,27 @@ void MainWindow::openSlot()
 }
 
 
+// File -> Load...
+//-----------------------------------------------------------------------------
+void MainWindow::loadSlot()
+{
+  QString dirName = QFileDialog::getExistingDirectory(this);
+
+  if (!dirName.isEmpty()) {
+
+    logMessage("Loading from directory " + dirName);
+
+  } else {
+
+    logMessage("Unable to load mesh: directory undefined");
+    return;
+
+  }
+  
+  loadElmerMesh(dirName);
+}
+
+
 
 // File -> Save...
 //-----------------------------------------------------------------------------
@@ -408,6 +436,14 @@ void MainWindow::saveSlot()
   saveElmerMesh(dirName);
 }
 
+
+
+// Load mesh files in elmer-format:
+//-----------------------------------------------------------------------------
+void MainWindow::loadElmerMesh(QString dirName)
+{
+  logMessage("Loading elmer mesh files");
+}
 
 
 
