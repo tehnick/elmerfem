@@ -333,6 +333,7 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
     END DO
   END IF
 
+  DisplacementMode = GetLogical(SolverParams,'Displacement Mode',Found)
   
   ! Get the new mapping using linear interpolation from bottom and top
   !-------------------------------------------------------------------
@@ -374,7 +375,6 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
     
   ! Map to top and bottom themselves for very last
   !-----------------------------------------------
-  DisplacementMode = GetLogical(SolverParams,'Displacement Mode',Found)
   DO i=1,nsize
     IF( MaskExist ) THEN
       IF( MaskPerm(i) == 0) CYCLE
