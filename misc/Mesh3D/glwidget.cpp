@@ -9,6 +9,7 @@
 
 using namespace std;
 
+
 // Construct glWidget...
 //-----------------------------------------------------------------------------
 GLWidget::GLWidget(QWidget *parent)
@@ -16,9 +17,6 @@ GLWidget::GLWidget(QWidget *parent)
 {
   backgroundColor = QColor::fromRgb(255, 255, 255, 255);
   objects = 0;
-  firstList = 0;
-  lastList = 0;
-  colorMapEntries = 0;
   drawScale = 1.0;
   drawTranslate[0] = 0.0;
   drawTranslate[1] = 0.0;
@@ -33,9 +31,8 @@ GLWidget::GLWidget(QWidget *parent)
 GLWidget::~GLWidget()
 {
   makeCurrent();
-  glDeleteLists(firstList, objects);
-  delete [] colorMap;
-  // meshutils->clearMesh(mesh);
+  for(int i=0; i<(int)objects; i++)
+    glDeleteLists(glListMap[i], 1);
 }
 
 
@@ -61,87 +58,53 @@ QSize GLWidget::sizeHint() const
 //-----------------------------------------------------------------------------
 void GLWidget::initializeGL()
 {
-  static GLfloat light_ambient[]  = {0.0, 0.0, 0.0, 1.0};
-  static GLfloat light_diffuse[]  = {1.0, 1.0, 1.0, 1.0};
-  static GLfloat light_specular[] = {1.0, 1.0, 1.0, 1.0};
-  static GLfloat light_position[] = {0.0, 0.0, 5.0, 1.0};
-  
-  static GLfloat mat_ambient[]    = {0.7, 0.7, 0.7, 1.0};
-  static GLfloat mat_diffuse[]    = {0.8, 0.8, 0.8, 1.0};
-  static GLfloat mat_specular[]   = {1.0, 1.0, 1.0, 1.0};
-  static GLfloat high_shininess[] = {100.0};
-  
-  glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
-  glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
-  glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular);
-  glLightfv(GL_LIGHT0, GL_POSITION, light_position);
-  //glLightModeli(GL_LIGHT_MODEL_TWO_SIDE,1);
-  
-  glMaterialfv(GL_FRONT, GL_AMBIENT, mat_ambient);
-  glMaterialfv(GL_FRONT, GL_DIFFUSE, mat_diffuse);
-  glMaterialfv(GL_FRONT, GL_SPECULAR, mat_specular);
-  glMaterialfv(GL_FRONT, GL_SHININESS, high_shininess);
-  
-  // glEnable(GL_LIGHTING);
-  glEnable(GL_LIGHT0);
-  glDepthFunc(GL_LESS);
-  glEnable(GL_DEPTH_TEST);
-  //glEnable(GL_NORMALIZE);
-  glEnable(GL_COLOR_MATERIAL);
-  //glColorMaterial(GL_FRONT_AND_BACK,GL_AMBIENT_AND_DIFFUSE);
-  glShadeModel(GL_SMOOTH);
-  glEnable(GL_LINE_SMOOTH);
-
-  // Set up colormap:
-  glEnable(GL_TEXTURE_1D);
-  glGetIntegerv(GL_MAX_TEXTURE_SIZE, &colorMapEntries);
-
   cout << "Initialize GL" << endl;
   cout << "Vendor: " << glGetString(GL_VENDOR) << endl;
   cout << "Renderer: " << glGetString(GL_RENDERER) << endl;
   cout << "GL Version: " << glGetString(GL_VERSION) << endl;
-  cout << "Colormap entries: " << colorMapEntries << endl;
   cout.flush();
 
-  // delete  [] colorMap;
-  colorMap = new unsigned char[3*colorMapEntries];
-  clearColorMap();
+  static GLfloat light_ambient[]  = {0.2, 0.2, 0.2, 1.0};
+  static GLfloat light_diffuse[]  = {0.8, 0.8, 0.8, 1.0};
+  static GLfloat light_specular[] = {1.0, 1.0, 1.0, 1.0};
+  static GLfloat light_position[] = {1.0,-2.0, 2.0, 0.0};
 
+  static GLfloat mat_ambient[]    = {0.2, 0.2, 0.2, 1.0};
+  static GLfloat mat_diffuse[]    = {0.8, 0.8, 0.8, 1.0};
+  static GLfloat mat_specular[]   = {0.8, 0.8, 0.8, 1.0};
+  static GLfloat high_shininess[] = {100.0};
 
-  glTexParameterf(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-  glTexParameterf(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  glTexParameterf(GL_TEXTURE_1D, GL_TEXTURE_WRAP_S, GL_CLAMP);
+  glMatrixMode(GL_MODELVIEW);
+  glLoadIdentity();
+
+  glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, 1);
+  glEnable(GL_LIGHTING);
+
+  glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
+  glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
+  glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular);
+  glLightfv(GL_LIGHT0, GL_POSITION, light_position);
+  glEnable(GL_LIGHT0);
+   
+  glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, mat_ambient);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, mat_diffuse);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, mat_specular);
+  glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, high_shininess);
+  glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
+  glEnable(GL_COLOR_MATERIAL);
   
-  glTexEnvf(GL_TEXTURE_ENV, GL_TEXTURE_ENV_MODE, GL_MODULATE);
+  glEnable(GL_DEPTH_TEST);
+  glDepthFunc(GL_LESS);
+  glDepthRange(-10.0, 10.0);
 
-  glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, colorMapEntries,
-	       0, GL_RGB, GL_UNSIGNED_BYTE, colorMap);
+  glShadeModel(GL_SMOOTH);
+  glEnable(GL_LINE_SMOOTH);
 
-  glBindTexture(GL_TEXTURE_1D, 0);
+  glEnable(GL_NORMALIZE);
 
   qglClearColor(backgroundColor);
 }
 
-
-
-// Make virgin colormap...
-//-----------------------------------------------------------------------------
-void GLWidget::clearColorMap()
-{
-  unsigned char *cm = colorMap;
-
-  // First n-1 entries are cyan
-  for(int i=0; i<colorMapEntries-1; i++) {
-    *cm++ = 0;
-    *cm++ = 255;
-    *cm++ = 255;
-  }
-
-  // Last is black
-  *cm++ = 0;
-  *cm++ = 0;
-  *cm++ = 0;
-}
 
 
 // Paint event...
@@ -151,9 +114,9 @@ void GLWidget::paintGL()
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
   if(objects) {
-    for(GLuint i=firstList; i<=lastList; i++) {
+    for(int i=0; i<(int)objects; i++) {
       glPushName(i);
-      glCallList(i); 
+      glCallList(glListMap[i]); 
       glPopName();
     }
   }
@@ -306,28 +269,34 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
   glPopMatrix();
   glMatrixMode(GL_MODELVIEW);
 
-  // Highlight the selected boundary by redefining the colormap:
-  clearColorMap();
+  // Clear the previous selections:
+  for(int i=0; i<sizeofGlMaps; i++) {
+    if(glSelected[i]) {
+      glDeleteLists(glListMap[i], 1);
+      glSelected[i] = false;
+      GLuint current = generateBoundaryList(glBcMap[i],0,1,1);
+      glListMap[i] = current;
+    }
+  }
 
+  // Highlight the selected boundary:
   if(nearest != 0xffffffff) {
 
-    // Emit to MainWidow:
-    emit(signalBoundarySelected(nearest)); 
+    // Emit result to mainwindow:
+    emit(signalBoundarySelected(glBcMap[nearest])); 
 
-    colorMap[3*nearest] = 255;
-    colorMap[3*nearest+1] = 0;
-    colorMap[3*nearest+2] = 0;
+    // Highlight current selection:
+    glDeleteLists(glListMap[nearest], 1);
+    glSelected[nearest] = true;
+    GLuint current = generateBoundaryList(glBcMap[nearest],1,0,0);
+    glListMap[nearest] = current;
+
   } else {
 
-    // Nothing selected:
+    // Emit "nothing selected":
     emit(signalBoundarySelected(-1)); 
   }
 
-  glTexImage1D(GL_TEXTURE_1D, 0, GL_RGB, colorMapEntries,
-	       0, GL_RGB, GL_UNSIGNED_BYTE, colorMap);
-
-  glBindTexture(GL_TEXTURE_1D, 0);
-  
   updateGL();
 }
 
@@ -347,158 +316,149 @@ void GLWidget::getMatrix()
 //-----------------------------------------------------------------------------
 GLuint GLWidget::makeObjects()
 {
-  int i, j, boundaryconditions;
-  double x0[3], x1[3], x2[3];
+  int i;
   boundaryelement_t *boundaryelement;
 
   if(mesh == NULL) {
-    firstList = 0;
-    lastList = -1;
+    objects = 0;
     return 0;
   }
 
-  // First, scan boundary elements to determine the biggest index:
-  boundaryconditions = 0;
+
+  // First, scan boundary elements to determine the number of bcs:
+  int *bctable = new int[mesh->boundaryelements];
+  for(i=0; i < mesh->boundaryelements; i++)
+    bctable[i] = 0;
+
+  for(i=0; i < mesh->boundaryelements; i++) {
+    boundaryelement = &mesh->boundaryelement[i];
+    if(boundaryelement->index > 0)
+      bctable[boundaryelement->index]++;
+  }    
+  
+  int bcs = 0;
+  for(i=0; i < mesh->boundaryelements; i++) {
+    if(bctable[i] > 0)
+      bcs++;
+  }  
+
+  cout << "Boundary parts: " << bcs << endl;
+  
+  sizeofGlMaps = bcs;
+  glBcMap = new int[bcs];
+  glListMap = new GLuint[bcs];
+  glSelected = new bool[bcs];
+
+  bcs = 0;
+  for(i=0; i < mesh->boundaryelements; i++) {
+    if(bctable[i] > 0) {
+      glBcMap[bcs] = i;
+      glListMap[bcs] = 0;
+      glSelected[bcs] = false;
+      bcs++;
+    }
+  }
+  
+  for(i=0; i<bcs; i++) {
+    GLuint currentList = generateBoundaryList(glBcMap[i],0,1,1);
+    glListMap[i] = currentList;
+  }
+  
+  delete [] bctable; 
+
+  updateGL();
+  getMatrix();
+
+  return bcs;
+}
+
+// Generate boundary list...
+//-----------------------------------------------------------------------------
+GLuint GLWidget::generateBoundaryList(int index, double R, double G, double B)
+{
+  int i;
+  double x0[3], x1[3], x2[3];
+  boundaryelement_t *boundaryelement;
+
+  GLuint list = glGenLists(1);
+  glNewList(list, GL_COMPILE);
+  
+  // Triangles:
+  glBegin(GL_TRIANGLES);  
+
+  for(i=0; i < mesh->boundaryelements; i++) {
+    boundaryelement = &mesh->boundaryelement[i];
+    
+    if(boundaryelement->index == index) {
+      glColor3d(R,G,B);
+      
+      glNormal3dv(boundaryelement->normal); 
+      
+      int n0 = boundaryelement->node[0];
+      int n1 = boundaryelement->node[1];
+      int n2 = boundaryelement->node[2];
+      
+      x0[0] = (mesh->node[n0].x[0] - drawTranslate[0]) / drawScale;
+      x0[1] = (mesh->node[n0].x[1] - drawTranslate[1]) / drawScale;
+      x0[2] = (mesh->node[n0].x[2] - drawTranslate[2]) / drawScale;
+      
+      x1[0] = (mesh->node[n1].x[0] - drawTranslate[0]) / drawScale;
+      x1[1] = (mesh->node[n1].x[1] - drawTranslate[1]) / drawScale;
+      x1[2] = (mesh->node[n1].x[2] - drawTranslate[2]) / drawScale;
+      
+      x2[0] = (mesh->node[n2].x[0] - drawTranslate[0]) / drawScale;
+      x2[1] = (mesh->node[n2].x[1] - drawTranslate[1]) / drawScale;
+      x2[2] = (mesh->node[n2].x[2] - drawTranslate[2]) / drawScale;
+      
+      glVertex3dv(x0);
+      glVertex3dv(x1);
+      glVertex3dv(x2);
+    }
+  }
+  glEnd();
+  
+  // Lines:
+  glBegin(GL_LINES);
+  glLineWidth(1.0);
+
   for(i=0; i < mesh->boundaryelements; i++) {
     boundaryelement = &mesh->boundaryelement[i];
 
-    if(boundaryelement->index > boundaryconditions)
-      boundaryconditions = boundaryelement->index;
-  }
+    if(boundaryelement->index == index) {
 
-  boundaryconditions++;
-  
-  firstList = 0;
-  lastList = 0;
-  
-  for(j=1; j<boundaryconditions; j++) {
-    GLuint list = glGenLists(1);
-    glNewList(list, GL_COMPILE);
-
-    //cout << "Generating list: " << list << "\n";
-    //cout.flush();
-
-    if(j==1)
-      firstList = list;
-
-    if(j==(boundaryconditions-1))
-      lastList = list;
-    
-    glBegin(GL_TRIANGLES);
-
-    // Triangles:
-    for(i=0; i < mesh->boundaryelements; i++) {
-      boundaryelement = &mesh->boundaryelement[i];
-
-      if(boundaryelement->index == j) {
-	
-	double colorValue = (double)(j+firstList-1)/(double)(colorMapEntries);
-	glTexCoord1d(colorValue);
-
-	glNormal3dv(boundaryelement->normal); 
-	
-	int n0 = boundaryelement->node[0];
-	int n1 = boundaryelement->node[1];
-	int n2 = boundaryelement->node[2];
-	
-	x0[0] = (mesh->node[n0].x[0] - drawTranslate[0]) / drawScale;
-	x0[1] = (mesh->node[n0].x[1] - drawTranslate[1]) / drawScale;
-	x0[2] = (mesh->node[n0].x[2] - drawTranslate[2]) / drawScale;
-
-	x1[0] = (mesh->node[n1].x[0] - drawTranslate[0]) / drawScale;
-	x1[1] = (mesh->node[n1].x[1] - drawTranslate[1]) / drawScale;
-	x1[2] = (mesh->node[n1].x[2] - drawTranslate[2]) / drawScale;
-
-	x2[0] = (mesh->node[n2].x[0] - drawTranslate[0]) / drawScale;
-	x2[1] = (mesh->node[n2].x[1] - drawTranslate[1]) / drawScale;
-	x2[2] = (mesh->node[n2].x[2] - drawTranslate[2]) / drawScale;
-
-	glVertex3dv(x0);
-	glVertex3dv(x1);
-	glVertex3dv(x2);
-      }
+      glColor3d(0,0,0); // black
+      
+      glNormal3dv(boundaryelement->normal); 
+      
+      int n0 = boundaryelement->node[0];
+      int n1 = boundaryelement->node[1];
+      int n2 = boundaryelement->node[2];
+      
+      x0[0] = (mesh->node[n0].x[0] - drawTranslate[0]) / drawScale;
+      x0[1] = (mesh->node[n0].x[1] - drawTranslate[1]) / drawScale;
+      x0[2] = (mesh->node[n0].x[2] - drawTranslate[2]) / drawScale;
+      
+      x1[0] = (mesh->node[n1].x[0] - drawTranslate[0]) / drawScale;
+      x1[1] = (mesh->node[n1].x[1] - drawTranslate[1]) / drawScale;
+      x1[2] = (mesh->node[n1].x[2] - drawTranslate[2]) / drawScale;
+      
+      x2[0] = (mesh->node[n2].x[0] - drawTranslate[0]) / drawScale;
+      x2[1] = (mesh->node[n2].x[1] - drawTranslate[1]) / drawScale;
+      x2[2] = (mesh->node[n2].x[2] - drawTranslate[2]) / drawScale;
+      
+      glVertex3dv(x0);
+      glVertex3dv(x1);
+      
+      glVertex3dv(x1);
+      glVertex3dv(x2);
+      
+      glVertex3dv(x2);
+      glVertex3dv(x0);
     }
-    glEnd();
-    
-    glBegin(GL_LINES);
-    glLineWidth(1.0);
-    
-    // Lines:
-    for(i=0; i < mesh->boundaryelements; i++) {
-      boundaryelement = &mesh->boundaryelement[i];
-
-      if(boundaryelement->index == j) {
-
-	glTexCoord1d(1.0); // last = 1.0 = black
-
-	glNormal3dv(boundaryelement->normal); 
-
-	int n0 = boundaryelement->node[0];
-	int n1 = boundaryelement->node[1];
-	int n2 = boundaryelement->node[2];
-
-	x0[0] = (mesh->node[n0].x[0] - drawTranslate[0]) / drawScale;
-	x0[1] = (mesh->node[n0].x[1] - drawTranslate[1]) / drawScale;
-	x0[2] = (mesh->node[n0].x[2] - drawTranslate[2]) / drawScale;
-	
-	x1[0] = (mesh->node[n1].x[0] - drawTranslate[0]) / drawScale;
-	x1[1] = (mesh->node[n1].x[1] - drawTranslate[1]) / drawScale;
-	x1[2] = (mesh->node[n1].x[2] - drawTranslate[2]) / drawScale;
-	
-	x2[0] = (mesh->node[n2].x[0] - drawTranslate[0]) / drawScale;
-	x2[1] = (mesh->node[n2].x[1] - drawTranslate[1]) / drawScale;
-	x2[2] = (mesh->node[n2].x[2] - drawTranslate[2]) / drawScale;
-	
-	glVertex3dv(x0);
-	glVertex3dv(x1);
-	
-	glVertex3dv(x1);
-	glVertex3dv(x2);
-	
-	glVertex3dv(x2);
-	glVertex3dv(x0);
-      }
-    }
-    
-    glEnd();  
-    glEndList();
-
   }
-
-#if 0
-  // Sharp edges:
-  GLuint list = glGenLists(1);
-  glNewList(list, GL_COMPILE);
-  lastList++;
   
-  glLineWidth(1.0);  
-  glBegin(GL_LINES);
-  
-  for(int i=0; i<sharpedgemesh->edges; i++) {
-    edge_t *edge = &sharpedgemesh->edge[i];
-
-    int node0 = edge->node[0];
-    int node1 = edge->node[1];
-    
-    x0[0] = (mesh->node[node0].x[0] - drawTranslate[0]) / drawScale;
-    x0[1] = (mesh->node[node0].x[1] - drawTranslate[1]) / drawScale;
-    x0[2] = (mesh->node[node0].x[2] - drawTranslate[2]) / drawScale;
-    
-    x1[0] = (mesh->node[node1].x[0] - drawTranslate[0]) / drawScale;
-    x1[1] = (mesh->node[node1].x[1] - drawTranslate[1]) / drawScale;
-    x1[2] = (mesh->node[node1].x[2] - drawTranslate[2]) / drawScale;
-    
-    glTexCoord1d(1.0); // last = 1.0 = black
-
-    glNode3dv(x0);
-    glNode3dv(x1);
-
-  }
-
-  glEnd();
+  glEnd();  
   glEndList();
-#endif
-
-  //return lastList - firstList;
-  return lastList - firstList + 1;
+  
+  return list;
 }

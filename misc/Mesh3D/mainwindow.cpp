@@ -249,7 +249,8 @@ void MainWindow::doDivisionSlot(double angle)
   
   // Delete old objects, if any:
   if(glWidget->objects) {
-    glDeleteLists(glWidget->firstList, glWidget->objects);
+    for(int i=0; i<(int)glWidget->objects; i++)
+      glDeleteLists(glWidget->glListMap[i], 1);
     glWidget->objects = 0;
   }
   
@@ -582,7 +583,8 @@ void MainWindow::loadElmerMesh(QString dirName)
 
   // Delete old objects, if any:
   if(glWidget->objects) {
-    glDeleteLists(glWidget->firstList, glWidget->objects);
+    for(int i=0; i<(int)glWidget->objects; i++)
+      glDeleteLists(glWidget->glListMap[i], 1);
     glWidget->objects = 0;
   }
   
@@ -858,7 +860,8 @@ void MainWindow::makeElmerMeshFromTetlib()
 
   // Delete old objects, if any:
   if(glWidget->objects) {
-    glDeleteLists(glWidget->firstList, glWidget->objects);
+    for(int i=0; i<(int)glWidget->objects; i++)
+      glDeleteLists(glWidget->glListMap[i], 1);
     glWidget->objects = 0;
   }
   
@@ -890,7 +893,8 @@ void MainWindow::makeElmerMeshFromNglib()
 
   // Delete old objects, if any:
   if(glWidget->objects) {
-    glDeleteLists(glWidget->firstList, glWidget->objects);
+    for(int i=0; i<(int)glWidget->objects; i++)
+      glDeleteLists(glWidget->glListMap[i], 1);
     glWidget->objects = 0;
   }
 

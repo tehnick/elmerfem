@@ -21,15 +21,15 @@ public:
     mesh_t *mesh;
 
     GLuint objects;
-    GLuint firstList;
-    GLuint lastList;
     GLuint makeObjects();
-
-    unsigned char *colorMap;
-    GLint colorMapEntries;
 
     double drawScale;
     double drawTranslate[3];
+
+    int sizeofGlMaps;
+    int *glBcMap;         // maps {0,1,2,..} -> {bc indices}
+    GLuint *glListMap;    // maps {0,1,2,..} -> {gl list indices]
+    bool *glSelected;     // indicates currently selected bcs
 
 public slots:
 
@@ -40,8 +40,6 @@ protected:
     void initializeGL();
     void paintGL();
     void resizeGL(int, int);
-
-    void clearColorMap();
 
     void mouseDoubleClickEvent(QMouseEvent*);
     void mousePressEvent(QMouseEvent*);
@@ -56,6 +54,8 @@ private:
 
     QPoint lastPos;
     QColor backgroundColor;
+
+    GLuint generateBoundaryList(int,double,double,double);
 };
 
 #endif
