@@ -351,6 +351,12 @@ GLuint GLWidget::makeObjects()
   double x0[3], x1[3], x2[3];
   boundaryelement_t *boundaryelement;
 
+  if(mesh == NULL) {
+    firstList = 0;
+    lastList = -1;
+    return 0;
+  }
+
   // First, scan boundary elements to determine the biggest index:
   boundaryconditions = 0;
   for(i=0; i < mesh->boundaryelements; i++) {

@@ -24,7 +24,7 @@ bool TetlibAPI::loadTetlib()
 #endif
   
   if(!hTetlib) {
-    cout << "failed\n";
+    cout << "unable to load library\n";
     cout << "tetlib functionality unavailable\n";
     cout.flush();
     return false;

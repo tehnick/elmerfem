@@ -106,6 +106,7 @@ void MainWindow::createToolBars()
   // File toolbar
   fileToolBar = addToolBar(tr("&File"));
   fileToolBar->addAction(openAct);
+  fileToolBar->addAction(loadAct);
   fileToolBar->addAction(saveAct);
   fileToolBar->addAction(exitAct);
 }
@@ -443,8 +444,152 @@ void MainWindow::saveSlot()
 void MainWindow::loadElmerMesh(QString dirName)
 {
   logMessage("Loading elmer mesh files");
-}
 
+  QFile file;
+  QDir::setCurrent(dirName);
+
+  // Header:
+  file.setFileName("mesh.header");
+  if(!file.exists()) {
+    logMessage("mesh.header does not exist");
+    return;
+  }
+  file.open(QIODevice::ReadOnly);
+  QTextStream mesh_header(&file);
+
+  int nodes, elements, boundaryelements, types, type, ntype;
+
+  mesh_header >> nodes >> elements >> boundaryelements;
+  mesh_header >> types;
+
+  cout << "mesh.header:" << endl;
+  cout << nodes << " " << elements << " " << boundaryelements << endl;
+  cout << types << endl;
+  
+  // the the moment only triangles and tetrahedron are accepted:
+  for(int i=0; i<types; i++) {
+    mesh_header >> type >> ntype;
+    cout << type << " " << ntype << endl;
+    if( (type != 303) && (type != 504) ) {
+      logMessage("Illegal element type (not implemented)");
+      return;
+    }
+  }
+  
+  file.close();
+
+  // Nodes:
+  file.setFileName("mesh.nodes");
+  if(!file.exists()) {
+    logMessage("mesh.nodes does not exist");
+    return;
+  }
+  file.open(QIODevice::ReadOnly);
+  QTextStream mesh_node(&file);
+
+  int number, index;
+  double x, y, z;
+
+  // now we need to allocate a new mesh:
+  meshutils->clearMesh(glWidget->mesh);
+  glWidget->mesh = new mesh_t;
+  mesh_t *mesh = glWidget->mesh;
+  
+  mesh->nodes = nodes;
+  mesh->node = new node_t[nodes];
+
+  for(int i=0; i<nodes; i++) {
+    node_t *node = &mesh->node[i];
+    mesh_node >> number >> index >> x >> y >> z;
+    node->x[0] = x;
+    node->x[1] = y;
+    node->x[2] = z;
+    node->index = index;
+  }
+
+  file.close();  
+
+  // Elements:
+  file.setFileName("mesh.elements");
+  if(!file.exists()) {
+    logMessage("mesh.elements does not exist");
+    meshutils->clearMesh(mesh);
+    return;
+  }
+  file.open(QIODevice::ReadOnly);
+  QTextStream mesh_elements(&file);
+
+  mesh->elements = elements;
+  mesh->element = new element_t[elements];
+
+  int n0, n1, n2, n3;
+  for(int i=0; i<elements; i++) {
+    element_t *element = &mesh->element[i];
+    mesh_elements >> number >> index >> type >> n0 >> n1 >> n2 >> n3;
+    element->node[0] = n0-1;
+    element->node[1] = n1-1;
+    element->node[2] = n2-1;
+    element->node[3] = n3-1;
+    element->index = index;
+  }
+
+  file.close();
+
+  // Boundary elements:
+  file.setFileName("mesh.boundary");
+  if(!file.exists()) {
+    logMessage("mesh.boundary does not exist");
+    meshutils->clearMesh(mesh);
+    return;
+  }
+  file.open(QIODevice::ReadOnly);
+  QTextStream mesh_boundary(&file);
+
+  mesh->boundaryelements = boundaryelements;
+  mesh->boundaryelement = new boundaryelement_t[boundaryelements];
+
+  int parent0, parent1;
+  for(int i=0; i<boundaryelements; i++) {
+    boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
+    mesh_boundary >> number >> index >> parent0 >> parent1 >> type >> n0 >> n1 >> n2;
+
+    boundaryelement->node[0] = n0-1;
+    boundaryelement->node[1] = n1-1;
+    boundaryelement->node[2] = n2-1;
+    boundaryelement->edge[0] = -1;
+    boundaryelement->edge[1] = -1;
+    boundaryelement->edge[2] = -1;
+    boundaryelement->element[0] = parent0-1;
+    boundaryelement->element[1] = parent1-1;
+    boundaryelement->normal[0] = 0.0;
+    boundaryelement->normal[1] = 0.0;
+    boundaryelement->normal[2] = 0.0;
+    boundaryelement->index = index;
+  }
+
+  file.close();
+
+  // Finalize:
+  logMessage("Ready");
+
+  // Scaling factors for drawing:
+  double *bb = meshutils->boundingBox(glWidget->mesh);
+
+  glWidget->drawTranslate[0] = bb[6]; // x-center
+  glWidget->drawTranslate[1] = bb[7]; // y-center
+  glWidget->drawTranslate[2] = bb[8]; // z-center
+  glWidget->drawScale = bb[9];         // scaling
+
+  // Delete old objects, if any:
+  if(glWidget->objects) {
+    glDeleteLists(glWidget->firstList, glWidget->objects);
+    glWidget->objects = 0;
+  }
+  
+  // Compose new GL-objects:
+  glWidget->objects = glWidget->makeObjects();
+  glWidget->updateGL();
+}
 
 
 // Write out mesh files in elmer-format:

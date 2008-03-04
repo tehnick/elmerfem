@@ -24,7 +24,7 @@ bool NglibAPI::loadNglib()
 #endif
   
   if(!hNglib) {
-    cout << "failed\n";
+    cout << "unable to load library\n";
     cout << "nglib functionality unavailable\n";
     cout.flush();
     return false;

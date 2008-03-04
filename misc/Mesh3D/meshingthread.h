@@ -18,7 +18,7 @@
 #include "plugins/nglib_api.h"
 
 namespace nglib {
-#include <nglib.h>
+#include "plugins/nglib.h"
 }
 
 class MeshingThread : public QThread

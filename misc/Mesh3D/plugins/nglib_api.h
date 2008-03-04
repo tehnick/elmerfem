@@ -68,4 +68,4 @@ class NglibAPI
   mesh_t* createElmerMeshStructure();
 };
 
-#endif // #ifndef TETLIB_API_H
+#endif // #ifndef NGLIB_API_H
