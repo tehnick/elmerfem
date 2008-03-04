@@ -93,7 +93,6 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
   REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime
   REAL(KIND=dp), POINTER :: Coord(:),BotField(:),TopField(:),Field(:),Surface(:)
   TYPE(Variable_t), POINTER :: Var
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: StructuredMeshMapper.src$"
   TYPE(Element_t), POINTER :: Element
   TYPE(Nodes_t), SAVE :: Nodes
   TYPE(ValueList_t),POINTER :: BC
@@ -106,19 +105,6 @@ SUBROUTINE StructuredMeshMapper( Model,Solver,dt,Transient )
   CALL Info( 'StructuredMeshMapper','Performing mapping on a structured mesh ',Level=4 )
   CALL Info( 'StructuredMeshMapper','---------------------------------------',Level=4 )
 
-!------------------------------------------------------------------------------
-!    Check if version number output is requested
-!------------------------------------------------------------------------------
-  IF ( .NOT. Visited ) THEN
-    IF ( ListGetLogical( GetSimulation(), 'Output Version Numbers', GotIt ) ) THEN
-      CALL Info( 'StructuredMeshMapper', 'StructuredMeshMapper version:', Level = 0 ) 
-      CALL Info( 'StructuredMeshMapper', VersionID, Level = 0 ) 
-      CALL Info( 'StructuredMeshMapper', ' ', Level = 0 ) 
-    END IF
-    Visited = .TRUE.
-  END IF
-    
-  
 !------------------------------------------------------------------------------
 !   Initialize the pointers to top and bottom nodes 
 !------------------------------------------------------------------------------
