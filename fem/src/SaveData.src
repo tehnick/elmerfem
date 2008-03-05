@@ -476,12 +476,24 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         Value = Var % Norm
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value)
 
+      CASE ('log norm')
+        Value = LOG10(Var % Norm)
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value)
+
       CASE ('nonlinear change')
         Value = Var % NonlinChange
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value)
 
+      CASE ('log nonlinear change')
+        Value = LOG10(Var % NonlinChange)
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value)
+
       CASE ('steady state change')
         Value = Var % SteadyChange
+        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value)
+
+      CASE ('log steady state change')
+        Value = LOG10(Var % SteadyChange)
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value)
 
       CASE ('dofs','sum','max','min','max abs','min abs','mean','variance') 
@@ -588,11 +600,12 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
 
     DO WHILE( ASSOCIATED( Var ) )
       
-      IF ( .NOT. Var % Output .OR. SIZE(Var % Values) == 1) THEN  
+      IF ( .NOT. Var % Output .OR. SIZE(Var % Values) == 1) THEN
+        
         CONTINUE
 
       ELSE IF (ASSOCIATED (Var % EigenVectors)) THEN
-        
+
         NoEigenValues = SIZE(Var % EigenValues) 
         EigenDofs = SIZE( Var % EigenVectors(1,:) ) / SIZE( Var % Perm )
 
@@ -619,12 +632,15 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
 
       ELSE IF( Var % Dofs == 1) THEN          
         ! The variables exist always also as scalars, therefore omit vectors. 
+
         Ind = l
         IF(ASSOCIATED(Var % Perm)) Ind = Var % Perm(l)
+
         IF(Ind > 0) THEN
           WRITE(Name,'("value: ",A," at node ",I7)') TRIM( Var % Name ), l
           CALL AddToSaveList( TRIM(Name), Var % Values(Ind))        
         END IF
+
       END IF
 
       Var => Var % Next      
