@@ -342,7 +342,7 @@ GLuint GLWidget::makeObjects()
       bcs++;
   }  
 
-  cout << "Boundary parts: " << bcs << endl;
+  // cout << "Boundary parts: " << bcs << endl;
   
   sizeofGlMaps = bcs;
   glBcMap = new int[bcs];
@@ -454,6 +454,32 @@ GLuint GLWidget::generateBoundaryList(int index, double R, double G, double B)
       
       glVertex3dv(x2);
       glVertex3dv(x0);
+
+#if 0
+      // draw normals:
+      double a[3];
+
+      glColor3d(1,0,0); // red
+
+      a[0] = x0[0] + boundaryelement->normal[0] / 10.0;
+      a[1] = x0[1] + boundaryelement->normal[1] / 10.0;
+      a[2] = x0[2] + boundaryelement->normal[2] / 10.0;
+      glVertex3dv(x0);
+      glVertex3dv(a);
+
+      a[0] = x1[0] + boundaryelement->normal[0] / 10.0;
+      a[1] = x1[1] + boundaryelement->normal[1] / 10.0;
+      a[2] = x1[2] + boundaryelement->normal[2] / 10.0;
+      glVertex3dv(x1);
+      glVertex3dv(a);
+
+      a[0] = x2[0] + boundaryelement->normal[0] / 10.0;
+      a[1] = x2[1] + boundaryelement->normal[1] / 10.0;
+      a[2] = x2[2] + boundaryelement->normal[2] / 10.0;
+      glVertex3dv(x2);
+      glVertex3dv(a);
+#endif
+
     }
   }
   

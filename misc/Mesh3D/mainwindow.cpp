@@ -570,6 +570,10 @@ void MainWindow::loadElmerMesh(QString dirName)
 
   file.close();
 
+  // Edges:
+  meshutils->findBoundaryElementEdges(mesh);
+  meshutils->findBoundaryElementNormals(mesh);
+
   // Finalize:
   logMessage("Ready");
 

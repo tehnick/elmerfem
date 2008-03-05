@@ -116,27 +116,14 @@ mesh_t* NglibAPI::createElmerMeshStructure()
 
     Ng_GetSurfaceElement(ngmesh, i+1, boundaryelement->node);
     
-    int u = --boundaryelement->node[0];
-    int v = --boundaryelement->node[1];
-    int w = --boundaryelement->node[2];
+    boundaryelement->node[0]--;
+    boundaryelement->node[1]--;
+    boundaryelement->node[2]--;
 
-    // Normal:
-    static double a[3], b[3], c[3];
-
-    a[0] = mesh->node[v].x[0] - mesh->node[u].x[0];
-    a[1] = mesh->node[v].x[1] - mesh->node[u].x[1];
-    a[2] = mesh->node[v].x[2] - mesh->node[u].x[2];
-
-    b[0] = mesh->node[w].x[0] - mesh->node[u].x[0];
-    b[1] = mesh->node[w].x[1] - mesh->node[u].x[1];
-    b[2] = mesh->node[w].x[2] - mesh->node[u].x[2];
-
-    helpers.crossProduct(a,b,c);
-    helpers.normalize(c);
-
-    boundaryelement->normal[0] = c[0];
-    boundaryelement->normal[1] = c[1];
-    boundaryelement->normal[2] = c[2];
+    // swap orientation:
+    int tmp = boundaryelement->node[1];
+    boundaryelement->node[1] = boundaryelement->node[2];
+    boundaryelement->node[2] = tmp;
   }
 
   // Elements:
@@ -156,9 +143,14 @@ mesh_t* NglibAPI::createElmerMeshStructure()
     element->index = 1; // default
   }
 
-  // Edges:
+  // Find parents for boundary elements:
+  meshutils.findBoundaryElementParents(mesh);
+
+  // Find edges for boundary elements:
   meshutils.findBoundaryElementEdges(mesh);
+
+  // Compute normals for boundary elements:
+  meshutils.findBoundaryElementNormals(mesh);
 
   return mesh;
 }
-

@@ -148,92 +148,11 @@ mesh_t* TetlibAPI::createElmerMeshStructure()
     boundaryelement->node[0] = u;
     boundaryelement->node[1] = v;
     boundaryelement->node[2] = w;
-
-    // Normal (modulo sign):
-    static double a[3], b[3], c[3];
-
-    a[0] = mesh->node[v].x[0] - mesh->node[u].x[0];
-    a[1] = mesh->node[v].x[1] - mesh->node[u].x[1];
-    a[2] = mesh->node[v].x[2] - mesh->node[u].x[2];
-
-    b[0] = mesh->node[w].x[0] - mesh->node[u].x[0];
-    b[1] = mesh->node[w].x[1] - mesh->node[u].x[1];
-    b[2] = mesh->node[w].x[2] - mesh->node[u].x[2];
-
-    helpers.crossProduct(a,b,c);
-    helpers.normalize(c);
-    
-    boundaryelement->normal[0] = c[0];
-    boundaryelement->normal[1] = c[1];
-    boundaryelement->normal[2] = c[2];
-
-    // Determine sign of the normal:
-
-    // a) which parent element has bigger index?
-    int e0 = boundaryelement->element[0];
-    int e1 = boundaryelement->element[1];
-
-    int bigger;
-    if( (e0<0) && (e1<0) ) {
-      // both parents unknown
-      bigger = -1;
-    } else if(e1<0) {
-      // e0 known, e1 unknown
-      bigger = e0;
-    } else {
-      // both parents known
-      bigger = e0;
-      int i0 = mesh->element[e0].index;
-      int i1 = mesh->element[e1].index;
-      if(i1 > i0)
-	bigger = e1;
-    }
-
-    // b) normal should points from bigger to smaller element index:
-    if(bigger > -1) {
-      int q;
-      double center_boundaryelement[3], center_element[3], center_difference[3];
-      
-      center_boundaryelement[0] = mesh->node[u].x[0] + mesh->node[v].x[0] + mesh->node[w].x[0];
-      center_boundaryelement[1] = mesh->node[u].x[1] + mesh->node[v].x[1] + mesh->node[w].x[1];
-      center_boundaryelement[2] = mesh->node[u].x[2] + mesh->node[v].x[2] + mesh->node[w].x[2];
-      
-      center_boundaryelement[0] /= 3.0;
-      center_boundaryelement[1] /= 3.0;
-      center_boundaryelement[2] /= 3.0;
-
-      element_t *e = &mesh->element[bigger];
-      
-      u = e->node[0];
-      v = e->node[1];
-      w = e->node[2];
-      q = e->node[3];
-      
-      center_element[0] = mesh->node[u].x[0] + mesh->node[v].x[0] + mesh->node[w].x[0] + mesh->node[q].x[0];
-      center_element[1] = mesh->node[u].x[1] + mesh->node[v].x[1] + mesh->node[w].x[1] + mesh->node[q].x[1];
-      center_element[2] = mesh->node[u].x[2] + mesh->node[v].x[2] + mesh->node[w].x[2] + mesh->node[q].x[2];
-
-      center_element[0] /= 4.0;
-      center_element[1] /= 4.0;
-      center_element[2] /= 4.0;
-
-      center_difference[0] = center_element[0] - center_boundaryelement[0];
-      center_difference[1] = center_element[1] - center_boundaryelement[1];
-      center_difference[2] = center_element[2] - center_boundaryelement[2];
-
-      // dot product must be negative
-      double dp = center_difference[0]*c[0] + center_difference[1]*c[1] + center_difference[2]*c[2];
-
-      if(dp>0.0) {
-	boundaryelement->normal[0] = -c[0];
-	boundaryelement->normal[1] = -c[1];
-	boundaryelement->normal[2] = -c[2];
-      }
-    }
   }
 
   // Edges:
   meshutils.findBoundaryElementEdges(mesh);
+  meshutils.findBoundaryElementNormals(mesh);
 
   return mesh;
 }
