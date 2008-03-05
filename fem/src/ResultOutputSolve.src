@@ -54,12 +54,45 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   IMPLICIT NONE
   TYPE(Solver_t) :: Solver
   TYPE(Model_t) :: Model
-  REAL(KIND=dp) :: dt
+  REAL(KIND=dp) :: dt, t0, t1, CPUTime
   LOGICAL :: TransientSimulation, SaveGid, SaveVTK, SaveOpenDx, SaveGmsh, SaveVTU
+  INTEGER :: nInterval=1, nstep=0
+  INTEGER, POINTER :: OutputIntervals(:), TimeSteps(:)
 
   CHARACTER(10) :: OutputFormat
-  LOGICAL :: Found
+  LOGICAL :: Found, UseIntervals, SaveNow
+
+  SAVE nstep, ninterval
     
+
+  t0 = CPUTime()
+
+  UseIntervals = GetLogical(Solver % Values,'Use Output Intervals',Found)
+  IF(.NOT. Found) UseIntervals = .TRUE.
+
+  IF(UseIntervals) THEN
+    OutputIntervals => ListGetIntegerArray( CurrentModel % Simulation, &
+        'Output Intervals', Found )
+    IF(Found) THEN
+      nstep = nstep + 1
+      Timesteps => ListGetIntegerArray( CurrentModel % Simulation, &
+          'Timestep Intervals', Found )
+      IF( Found ) THEN
+        IF(nstep > Timesteps(ninterval) ) THEN
+          ninterval = ninterval + 1
+          nstep = 1
+        END IF
+      END IF
+      SaveNow = ( MOD( nstep-1, OutputIntervals(nInterval) ) == 0)
+      IF(.NOT. SaveNow) THEN
+        RETURN
+      END IF
+    END IF
+  END IF
+
+
+  CALL Info( 'ResultOutputSolver', '-------------------------------------')
+
   SaveGid = ListGetLogical(Solver % Values,'Gid Format',Found)
   SaveGmsh = ListGetLogical(Solver % Values,'Gmsh Format',Found)
   SaveVTK = ListGetLogical(Solver % Values,'VTK Format',Found)
@@ -69,6 +102,7 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
   OutputFormat = GetString( Solver % Values, 'Output Format', Found )
   IF(Found) THEN
     IF( OutputFormat == "gid" )THEN
+      CALL Info( 'ResultOutputSolve', 'Omitting this step')        
       SaveGid = .TRUE.
     ELSE IF( OutputFormat == "vtk" )THEN
       SaveVTK = .TRUE.
@@ -83,6 +117,7 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
                  'Unknown output format "' // TRIM(OutputFormat) // '"' )
       CALL Warn( 'ResultOutputSolver', &
                  'Available formats are "GiD", "VTK", "VTU" and "DX"' )
+      RETURN
     END IF
   END IF
 
@@ -91,12 +126,35 @@ SUBROUTINE ResultOutputSolver( Model,Solver,dt,TransientSimulation )
     RETURN
   END IF
 
-  IF( SaveGid ) CALL GiDOutputSolver( Model,Solver,dt,TransientSimulation )
-  IF( SaveGmsh ) CALL GmshOutputSolver( Model,Solver,dt,TransientSimulation )
-  IF( SaveVTK ) CALL VtkOutputSolver( Model,Solver,dt,TransientSimulation )
-  IF( SaveVTU ) CALL VtuOutputSolver( Model,Solver,dt,TransientSimulation )
-  IF( SaveOpenDx ) CALL DXOutputSolver( Model,Solver,dt,TransientSimulation )
+  ! Finally go for it and write desired data
+  !-----------------------------------------
 
+  IF( SaveGid ) THEN
+    CALL Info( 'ResultOutputSolver','Saving results in GiD format' )    
+    CALL GiDOutputSolver( Model,Solver,dt,TransientSimulation )
+  END IF
+  IF( SaveGmsh ) THEN
+    CALL Info( 'ResultOutputSolver','Saving results in gmsh format' )        
+    CALL GmshOutputSolver( Model,Solver,dt,TransientSimulation )
+  END IF
+  IF( SaveVTK ) THEN
+    CALL Info( 'ResultOutputSolver','Saving results in legacy vtk format' )            
+    CALL VtkOutputSolver( Model,Solver,dt,TransientSimulation )
+  END IF
+  IF( SaveVTU ) THEN
+    CALL Info( 'ResultOutputSolver','Saving results in xml vtu format' )               
+    CALL VtuOutputSolver( Model,Solver,dt,TransientSimulation )
+  END IF
+  IF( SaveOpenDx ) THEN
+    CALL Info( 'ResultOutputSolver','Saving results in OpenDX format' )                   
+    CALL DXOutputSolver( Model,Solver,dt,TransientSimulation )
+  END IF
+
+  t1 = CPUTime()
+
+  WRITE( Message, * ) 'Time used for saving: ',t1-t0
+  CALL Info( 'ResultOutputSolver', Message )
+  CALL Info( 'ResultOutputSolver', '-------------------------------------')
 
 END SUBROUTINE ResultOutputSolver
 
@@ -2503,35 +2561,53 @@ CONTAINS
     WRITE( VtuUnit,'(A)') '      <Points>'
     WRITE( VtuUnit,'(A)') '        <DataArray type="Float32" NumberOfComponents="3" format="ascii">'    
 
-    DO i = 1, Model % Mesh % NumberOfNodes
-      x = Model % Mesh % Nodes % x(i)
-      y = Model % Mesh % Nodes % y(i)
-      z = Model % Mesh % Nodes % z(i)
-      
-      j = 0
-      IF(dispdofs > 0) THEN
-        j = DispPerm(i)
-        IF( j > 0 ) THEN
-          x = x - DispValues(dispdofs*(j-1)+1)
-          y = y - DispValues(dispdofs*(j-1)+2)
-          IF(dispdofs == 3) z = z - DispValues(dispdofs*(j-1)+3)
-        END IF
-      END IF      
-      IF(disp2dofs > 0 .AND. j==0) THEN
-        j = Disp2Perm(i)
-        IF( j > 0 ) THEN
-          x = x - Disp2Values(disp2dofs*(j-1)+1)
-          y = y - Disp2Values(disp2dofs*(j-1)+2)
-          IF(disp2dofs == 3) z = z - Disp2Values(disp2dofs*(j-1)+3)
-        END IF
-      END IF
 
-      IF(dim == 3) THEN
-        WRITE(VtuUnit,'(3E16.6E3)') x, y, z
-      ELSE
-        WRITE(VtuUnit,'(2E16.6E3," 0.0")') x, y
-      END IF
-    END DO
+    ! If displacement field is active remove the displacement from the coordinates
+    IF( dispdofs > 0 .OR. disp2dofs > 0) THEN
+      DO i = 1, Model % Mesh % NumberOfNodes
+        x = Model % Mesh % Nodes % x(i)
+        y = Model % Mesh % Nodes % y(i)
+        z = Model % Mesh % Nodes % z(i)
+        
+        j = 0
+        IF(dispdofs > 0) THEN
+          j = DispPerm(i)
+          IF( j > 0 ) THEN
+            x = x - DispValues(dispdofs*(j-1)+1)
+            y = y - DispValues(dispdofs*(j-1)+2)
+            IF(dispdofs == 3) z = z - DispValues(dispdofs*(j-1)+3)
+          END IF
+        END IF
+        IF(disp2dofs > 0 .AND. j==0) THEN
+          j = Disp2Perm(i)
+          IF( j > 0 ) THEN
+            x = x - Disp2Values(disp2dofs*(j-1)+1)
+            y = y - Disp2Values(disp2dofs*(j-1)+2)
+            IF(disp2dofs == 3) z = z - Disp2Values(disp2dofs*(j-1)+3)
+          END IF
+        END IF
+
+        IF(dim == 3) THEN
+          WRITE(VtuUnit,'(3E16.6E3)') x, y, z
+        ELSE
+          WRITE(VtuUnit,'(2E16.6E3," 0.0")') x, y
+        END IF
+      END DO
+    ELSE
+      DO i = 1, Model % Mesh % NumberOfNodes
+        x = Model % Mesh % Nodes % x(i)
+        y = Model % Mesh % Nodes % y(i)
+        z = Model % Mesh % Nodes % z(i)
+        
+        IF(dim == 3) THEN
+          WRITE(VtuUnit,'(3E16.6E3)') x, y, z
+        ELSE
+          WRITE(VtuUnit,'(2E16.6E3," 0.0")') x, y
+        END IF
+      END DO
+    END IF
+
+
     WRITE( VtuUnit,'(A)') '        </DataArray>'
     WRITE( VtuUnit,'(A)') '      </Points>'
 
