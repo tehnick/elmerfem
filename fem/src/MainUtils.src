@@ -1159,6 +1159,8 @@ CONTAINS
     TYPE(Solver_t), POINTER :: Solver
     TYPE(Mesh_t),   POINTER :: Mesh
     CHARACTER(LEN=max_name_len) :: When
+    TYPE(Variable_t), POINTER :: IterV
+    REAL(KIND=dp), POINTER :: steadyIt,nonlnIt
     REAL(KIND=dp), ALLOCATABLE :: k1(:), k2(:), k3(:), k4(:), Values0(:)
 !------------------------------------------------------------------------------
 
@@ -1171,6 +1173,9 @@ CONTAINS
           Solver => Model % Solvers(k)
           IF ( Solver % PROCEDURE/=0 ) CALL InitializeTimestep( Solver )
        END DO
+
+       IterV => VariableGet(Model % Solvers(1) % Mesh % Variables, 'coupled iter')
+       steadyIt    => IterV % Values(1)
     END IF
 !------------------------------------------------------------------------------
 
@@ -1204,6 +1209,8 @@ CONTAINS
           WRITE( Message, * ) 'Coupled system iteration: ', i
           CALL Info( 'SolveEquations', Message, Level=3 )
           CALL Info( 'SolveEquations', '-------------------------------------', Level=3 )
+
+          steadyIt = i
        END IF
 
        DoneThis = .FALSE.
@@ -1275,7 +1282,6 @@ CONTAINS
             END IF
             Solver % Variable % SteadyValues(1:n) = Solver % Variable % Values(1:n)
           END IF
-
 
 
           IF ( RungeKutta .AND. n>0 ) THEN
@@ -1407,10 +1413,9 @@ CONTAINS
      LOGICAL :: stat, Found, GB, FirstTime=.TRUE., MeActive
      INTEGER :: i, j, SolverAddr, BDOFs, execi, timestep, maxdim
      REAL(KIND=dp) :: st
-     TYPE(Variable_t), POINTER :: TimeVar
+     TYPE(Variable_t), POINTER :: TimeVar, IterV
      TYPE(Element_t), POINTER :: CurrentElement
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, str
-
      SAVE TimeVar, FirstTime
 !------------------------------------------------------------------------------
      CALL SetCurrentMesh( Model, Solver % Mesh )
@@ -1464,6 +1469,9 @@ CONTAINS
 
      str = ListGetString( Solver % Values, 'Namespace', Found )
      IF (Found) CALL ListSetNamespace(TRIM(str))
+
+     iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )
+     iterV % Values(1) = 1
 
 #ifdef SGIn32
      SolverAddr = Solver % PROCEDURE

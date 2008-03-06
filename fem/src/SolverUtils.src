@@ -2795,14 +2795,13 @@ CONTAINS
     CHARACTER(LEN=MAX_NAME_LEN) :: ConvergenceType
     INTEGER, TARGET  ::  nn=1, Dnodes(1)
     INTEGER, POINTER :: Indexes(:)
+    TYPE(Variable_t), POINTER :: iterV
     LOGICAL :: Stat, ConvergenceAbsolute, Relax, RelaxBefore
 
     Indexes => Dnodes
     Indexes(1) = 1
 
     IF(SteadyState) THEN
-!     Relaxation = ListGetConstReal( Solver % Values, &
-!         'Steady State Relaxation Factor', Relax )
       tmp = ListGetReal( Solver % Values, &
           'Steady State Relaxation Factor', nn, Indexes, Relax )
       Relaxation = tmp(1)
@@ -2821,8 +2820,6 @@ CONTAINS
       IF(.NOT. Stat) ConvergenceAbsolute = &
           ListGetLogical(Solver % Values,'Use Absolute Norm for Convergence',Stat)
     ELSE
-!     Relaxation = ListGetConstReal( Solver % Values, &
-!         'Nonlinear System Relaxation Factor', Relax )
       tmp = ListGetReal( Solver % Values, &
           'Nonlinear System Relaxation Factor', nn, Indexes, Relax )
       Relaxation = tmp(1)
@@ -2840,6 +2837,9 @@ CONTAINS
           ListGetLogical(Solver % Values,'Nonlinear System Convergence Absolute',Stat)
       IF(.NOT. Stat) ConvergenceAbsolute = &
           ListGetLogical(Solver % Values,'Use Absolute Norm for Convergence',Stat)
+
+      iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )
+      iterV % Values(1) = iterV % Values(1) + 1 
     END IF
 
     IF(PRESENT(values)) THEN

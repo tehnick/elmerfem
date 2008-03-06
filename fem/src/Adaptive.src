@@ -541,6 +541,14 @@ CONTAINS
     CALL VariableAdd( NewMesh % Variables, NewMesh, Solver, &
                  'Timestep interval', 1, Var % Values )
 
+    Var => VariableGet( RefMesh % Variables,'Coupled iter',ThisOnly=.TRUE. )
+    CALL VariableAdd( NewMesh % Variables, NewMesh, Solver, &
+                 'Coupled iter', 1, Var % Values )
+
+    Var => VariableGet( RefMesh % Variables,'Nonlin iter',ThisOnly=.TRUE. )
+    CALL VariableAdd( NewMesh % Variables, NewMesh, Solver, &
+                 'Nonlin iter', 1, Var % Values )
+
     ! Initialize the field variables for the new mesh. These are
     ! interpolated from the old meshes variables. Vector variables
     ! are in the variable lists in two ways: as vectors and as
@@ -579,7 +587,8 @@ CONTAINS
     DO WHILE( ASSOCIATED( Var ) )
        SELECT CASE( Var % Name )
        CASE( 'coordinate 1', 'coordinate 2', 'coordinate 3', 'time' , &
-             'timestep', 'timestep size', 'timestep interval' )
+             'timestep', 'timestep size', 'timestep interval', &
+             'coupled iter', 'nonlin iter' )
        CASE DEFAULT
           IF ( Var % DOFs == 1 ) THEN
              Found = .FALSE.

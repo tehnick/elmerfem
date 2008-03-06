@@ -59,7 +59,8 @@
 
      REAL(KIND=dp) :: s,dt,dtfunc
      REAL(KIND=dP), POINTER :: WorkA(:,:,:) => NULL()
-     REAL(KIND=dp), POINTER :: sTime(:), sStep(:), sInterval(:), sSize(:)
+     REAL(KIND=dp), POINTER :: sTime(:), sStep(:), sInterval(:), sSize(:), &
+                               steadyIt(:),nonlinIt(:)
 
      TYPE(Element_t),POINTER :: CurrentElement
      REAL(KIND=dp), POINTER ::  TimeVariable(:)
@@ -257,14 +258,18 @@
          CoupledMaxIter = 1
        END IF
 
-       ALLOCATE( sTime(1), sStep(1), sInterval(1), sSize(1) )
+       ALLOCATE( sTime(1), sStep(1), sInterval(1), sSize(1), &
+                 steadyIt(1), nonLinit(1) )
 
        Time = 0
-       dt   = 0.0d0
-       sTime(1) = 0.0d0
+       dt   = 0._dp
+       sTime(1) = 0._dp
        sStep(1) = Time
        sSize(1) = dt
-       sInterval(1) = 0
+       sInterval(1) = 0._dp
+
+       steadyIt = 0
+       nonlinIt = 0
 
        CoupledMinIter = ListGetInteger( CurrentModel % Simulation, &
                   'Steady State Min Iterations', GotIt )
@@ -423,6 +428,11 @@
        CALL VariableAdd( Mesh % Variables, Mesh, Solver, 'Timestep', 1, sStep )
        CALL VariableAdd( Mesh % Variables, Mesh, Solver, 'Timestep size', 1, sSize )
        CALL VariableAdd( Mesh % Variables, Mesh, Solver, 'Timestep interval', 1, sInterval )
+
+       CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
+               'nonlin iter', 1, nonlinIt )
+       CALL VariableAdd( Mesh % Variables, Mesh, Solver, &
+               'coupled iter', 1, steadyIt )
        Mesh => Mesh % Next
      END DO
 !------------------------------------------------------------------------------
@@ -698,6 +708,7 @@
          sStep(1) = Time
          sSize(1) = dt
          sInterval(1) = interval
+         IF (.NOT. Transient ) steadyIt(1) = steadyIt(1) + 1
 !------------------------------------------------------------------------------
          IF ( ParEnv % MyPE == 0 ) THEN
            CALL Info( 'MAIN', ' ', Level=3 )

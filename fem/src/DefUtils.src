@@ -313,6 +313,59 @@ CONTAINS
   END FUNCTION GetNOFActive
 
 
+  FUNCTION GetTime() RESULT(st)
+     REAL(KIND=dp) :: st
+     TYPE(Variable_t), POINTER :: v
+
+     v => CurrentModel % Solver % Mesh % Variables
+     v => VariableGet( v, 'time' )
+     st = v % Values(1)
+  END FUNCTION GetTime
+
+  FUNCTION GetTimeStep() RESULT(st)
+     INTEGER(KIND=dp) :: st
+     TYPE(Variable_t), POINTER :: v
+
+     v => CurrentModel % Solver % Mesh % Variables
+     v => VariableGet( v, 'timestep' )
+     st = NINT(v % Values(1))
+  END FUNCTION GetTimestep
+
+  FUNCTION GetTimeStepInterval() RESULT(st)
+     INTEGER(KIND=dp) :: st
+     TYPE(Variable_t), POINTER :: v
+
+     v => CurrentModel % Solver % Mesh % Variables
+     v => VariableGet( v, 'timestep interval')
+     st = NINT(v % Values(1))
+  END FUNCTION GetTimestepInterval
+
+  FUNCTION GetTimeStepSize() RESULT(st)
+     INTEGER(KIND=dp) :: st
+     TYPE(Variable_t), POINTER :: v
+
+     v => CurrentModel % Solver % Mesh % Variables
+     v => VariableGet( v, 'timestep size')
+     st = NINT(v % Values(1))
+  END FUNCTION GetTimestepSize
+
+  FUNCTION GetCoupledIter() RESULT(st)
+     INTEGER(KIND=dp) :: st
+     TYPE(Variable_t), POINTER :: v
+
+     v => CurrentModel % Solver % Mesh % Variables
+     v => VariableGet( v, 'coupled iter')
+     st = NINT(v % Values(1))
+  END FUNCTION GetCoupledIter
+
+  FUNCTION GetNonlinIter() RESULT(st)
+     INTEGER(KIND=dp) :: st
+     TYPE(Variable_t), POINTER :: v
+
+     v => CurrentModel % Solver % Mesh % Variables
+     v => VariableGet( v, 'nonlin iter')
+     st = NINT(v % Values(1))
+  END FUNCTION GetNonlinIter
 
   FUNCTION GetNOFBoundaryElements( UMesh ) RESULT(n)
     INTEGER :: n
