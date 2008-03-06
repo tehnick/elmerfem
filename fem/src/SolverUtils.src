@@ -2702,7 +2702,7 @@ CONTAINS
     INTEGER :: n
     REAL(KIND=dp), TARGET, OPTIONAL :: values(:)
     
-    INTEGER :: NormDim, NormDofs, Dofs, i,j,k
+    INTEGER :: NormDim, NormDofs, Dofs,i,j,k,totn
     REAL(KIND=dp) :: Norm
     REAL(KIND=dp), POINTER :: x(:)
     LOGICAL :: Stat
@@ -2722,7 +2722,8 @@ CONTAINS
 
     IF ( ParEnv % PEs > 1 ) THEN
       IF(NormDim /= 2) CALL Warn('Compute Norm','Parallel norm currently available only in L2')
-      Norm = ParallelNorm( n, x )
+      totn = ParallelActiveSUM( 1._dp*n )
+      Norm = SQRT(ParallelDOT(n,x,x) / totn)
     ELSE
       ! Zero is used instead of infinity as the sign for max norm!
       !----------------------------------------------------------
