@@ -501,16 +501,27 @@ CONTAINS
 
 
 !-------------------------------------------------------------------------------
-    FUNCTION ParallelActiveSUM(R) RESULT(rsum)
+    FUNCTION ParallelReduction(R,oper_arg) RESULT(rsum)
 !-------------------------------------------------------------------------------
       REAL(KIND=dp) :: R, rsum
-
+      INTEGER, OPTIONAL :: oper_arg
+!-------------------------------------------------------------------------------
+      INTEGER :: oper
+!-------------------------------------------------------------------------------
       rsum = r
 #ifdef PARALLEL_FOR_REAL
-      IF ( ParEnv % PEs>1) CALL SparActiveSUM(rsum)
+      IF ( ParEnv % PEs>1) THEN
+        oper = 0
+        IF (PRESENT(oper_arg)) THEN
+          oper=oper_arg
+        ELSE
+          oper = 0
+        END IF
+        CALL SparActiveSUM(rsum,oper)
+      END IF
 #endif
 !-------------------------------------------------------------------------------
-    END FUNCTION ParallelActiveSUM
+    END FUNCTION ParallelReduction
 !-------------------------------------------------------------------------------
 
 

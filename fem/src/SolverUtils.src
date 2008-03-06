@@ -2703,7 +2703,7 @@ CONTAINS
     REAL(KIND=dp), TARGET, OPTIONAL :: values(:)
     
     INTEGER :: NormDim, NormDofs, Dofs,i,j,k,totn
-    REAL(KIND=dp) :: Norm
+    REAL(KIND=dp) :: Norm, nscale
     REAL(KIND=dp), POINTER :: x(:)
     LOGICAL :: Stat
 
@@ -2720,61 +2720,61 @@ CONTAINS
     NormDofs = ListGetInteger(Solver % Values,'Nonlinear System Norm Dofs',Stat)
     IF(.NOT. Stat) NormDofs = Dofs
 
-    IF ( ParEnv % PEs > 1 ) THEN
-      IF(NormDim /= 2) CALL Warn('Compute Norm','Parallel norm currently available only in L2')
-      totn = ParallelActiveSUM( 1._dp*n )
-      Norm = SQRT(ParallelDOT(n,x,x) / totn)
-    ELSE
-      ! Zero is used instead of infinity as the sign for max norm!
-      !----------------------------------------------------------
-      IF( NormDofs < Dofs ) THEN        
-        IF( NormDim == 0) THEN
-          Norm = 0.0d0
-          DO i=1,n/Dofs
-            DO j=1,NormDofs
-              k = Dofs*(i-1) + j
-              Norm = MAX(Norm, ABS(x(k)))
-            END DO
+    totn = ParallelReduction(1._dp*n)
+    nscale = NormDOFs*totn/(1._dp*DOFs)
+
+    ! Zero is used instead of infinity as the sign for max norm!
+    !----------------------------------------------------------
+    IF( NormDofs < Dofs ) THEN        
+      SELECT CASE(NormDim)
+      CASE(0)
+        Norm = 0.0d0
+        DO i=1,n/Dofs
+          DO j=1,NormDofs
+            k = Dofs*(i-1) + j
+            Norm = MAX(Norm, ABS(x(k)))
           END DO
-        ELSE IF( NormDim == 1) THEN
-          Norm = 0.0d0
-          DO i=1,n/Dofs
-            DO j=1,NormDofs
-              k = Dofs*(i-1) + j
-              Norm = Norm + ABS(x(k))
-            END DO
+        END DO
+        Norm = ParallelReduction(Norm,2)
+      CASE(1)
+        Norm = 0.0d0
+        DO i=1,n/Dofs
+          DO j=1,NormDofs
+            k = Dofs*(i-1) + j
+            Norm = Norm + ABS(x(k))
           END DO
-          Norm = Norm / n 
-        ELSE IF( NormDim == 2) THEN
-          Norm = 0.0d0
-          DO i=1,n/Dofs
-            DO j=1,NormDofs
-              k = Dofs*(i-1) + j
-              Norm = Norm + x(k)**2
-            END DO
+        END DO
+        Norm = ParallelReduction(Norm)/nscale
+      CASE(2)
+        Norm = 0.0d0
+        DO i=1,n/Dofs
+          DO j=1,NormDofs
+            k = Dofs*(i-1) + j
+            Norm = Norm + x(k)**2
           END DO
-          Norm = SQRT( Norm / n )
-        ELSE
-          Norm = 0.0d0
-          DO i=1,n/Dofs
-            DO j=1,NormDofs
-              k = Dofs*(i-1) + j
-              Norm = Norm + x(k)**NormDim
-            END DO
+        END DO
+        Norm = SQRT(ParallelReduction(Norm)/nscale)
+      CASE DEFAULT
+        Norm = 0.0d0
+        DO i=1,n/Dofs
+          DO j=1,NormDofs
+            k = Dofs*(i-1) + j
+            Norm = Norm + x(k)**NormDim
           END DO
-          Norm = ( Norm / n ) ** (1.0d0/NormDim)
-        END IF
-      ELSE 
-        IF( NormDim == 0) THEN
-          Norm = MAXVAL( ABS( x(1:n) ) )
-        ELSE IF ( NormDim == 1) THEN
-          Norm = SUM( ABS( x(1:n) ) ) / n 
-        ELSE IF ( NormDim == 2) THEN
-          Norm = SQRT( SUM( x(1:n)**2 ) / n )
-        ELSE
-          Norm = ( SUM( x(1:n)**NormDim ) / n ) ** (1.0d0/NormDim)
-        END IF
-      END IF
+        END DO
+        Norm = (ParallelReduction(Norm)/nscale)**(1.0d0/NormDim)
+      END SELECT
+    ELSE 
+      SELECT CASE(NormDim)
+      CASE(0)
+        Norm = MAXVAL(ABS(x(1:n)))
+      CASE(1)
+        Norm = ParallelReduction(SUM(ABS(x(1:n))))/nscale
+      CASE(2)
+        Norm = SQRT(ParallelReduction(SUM(x(1:n)**2))/nscale)
+      CASE DEFAULT
+        Norm = (ParallelReduction(SUM(x(1:n)**NormDim))/nscale)**(1.0d0/NormDim)
+      END SELECT
     END IF
 !------------------------------------------------------------------------------
   END FUNCTION ComputeNorm
