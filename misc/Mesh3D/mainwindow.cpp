@@ -329,20 +329,54 @@ void MainWindow::remeshSlot()
     mp->meshsize_filename = backgroundmesh;
 
   } else if(meshControl->generatorType == GEN_ELMERGRID) {
+
+    // ***** ELMERGRID *****
+
+    // clear old mesh:
+    meshutils->clearMesh(glWidget->mesh);
+
+    // allocate new mesh:
+    glWidget->mesh = new mesh_t;
+    mesh_t *mesh = glWidget->mesh;
     
-    logMessage("nyt tarttis tehda jotain...");
-
-    mesh_t *testi;
-    testi = elmergridAPI->createElmerMeshStructure();
-
-    // glWidget->mesh = testi;
-
-    cout << "Solmuja tuli: " << testi->nodes << endl;
+    // elmergrid contructs the new mesh:
+    elmergridAPI->createElmerMeshStructure(mesh);
+    
+    cout << "Solmuja: " << glWidget->mesh->nodes << endl;
+    cout << "Elementteja: " << glWidget->mesh->elements << endl;
+    cout << "Reunaelementteja: " << glWidget->mesh->boundaryelements << endl;
     cout.flush();
-
+    
+    // Edges:
+    meshutils->findBoundaryElementEdges(mesh);
+    cout << "ok 1" << endl; cout.flush();
+    meshutils->findBoundaryElementNormals(mesh);
+    cout << "ok 2" << endl; cout.flush();
+    
+    // Finalize:
+    logMessage("Ready");
+    
+    // Scaling factors for drawing:
+    double *bb = meshutils->boundingBox(glWidget->mesh);
+    
+    glWidget->drawTranslate[0] = bb[6]; // x-center
+    glWidget->drawTranslate[1] = bb[7]; // y-center
+    glWidget->drawTranslate[2] = bb[8]; // z-center
+    glWidget->drawScale = bb[9];        //  scaling
+    
+    // Delete old GL-objects, if any:
+    if(glWidget->objects) {
+      for(int i=0; i<(int)glWidget->objects; i++)
+	glDeleteLists(glWidget->glListMap[i], 1);
+      glWidget->objects = 0;
+    }
+    
+    // Compose new GL-objects:
+    glWidget->objects = glWidget->makeObjects();
+    glWidget->updateGL();
+    
     return;
-
-
+    
   } else {
 
     logMessage("Remesh: uknown generator type");

@@ -6,6 +6,7 @@
 #define GEN_ELMERGRID 1002
 
 #include "meshtype.h"
+#include "meshutils.h"
 
 class ElmergridAPI
 {
@@ -13,7 +14,7 @@ class ElmergridAPI
   ElmergridAPI();
   ~ElmergridAPI();
   
-  mesh_t* createElmerMeshStructure();
+  void createElmerMeshStructure(mesh_t*);
 
 };
 

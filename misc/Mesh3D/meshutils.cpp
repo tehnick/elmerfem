@@ -352,8 +352,10 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
       e->boundaryelements = h->boundaryelements;
       e->boundaryelement = new int[e->boundaryelements];
 
-      for(int j=0; j < e->boundaryelements; j++)
+      for(int j=0; j < e->boundaryelements; j++) {
 	e->boundaryelement[j] = h->boundaryelement[j];
+	//????? cout << i << " " << j << " " << h->boundaryelement[j] << endl;
+      }
 
       e->index = UNKNOWN;
       h = h->next;
@@ -369,7 +371,7 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
     for(int j=0; j < e->boundaryelements; j++) {
       int k = e->boundaryelement[j];
       boundaryelement_t *be = &mesh->boundaryelement[k];
-
+      
       for(int r=0; r<3; r++) {
 	if(be->edge[r] < 0) {
 	  be->edge[r] = i;
@@ -379,7 +381,6 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
     }
   }  
 }
-
 
 
 // Find sharp edges for boundary elements...
