@@ -48,7 +48,7 @@ fi
 #
 # Autoconf substitutes these variables with correct values.
 #
-#export F90="gfortran -O -fPIC -I. -Ibinio -I. -I$ELMER_INCLUDE"
+#export F90="gfortran -g -O3 -msse2 -funroll-loops -ftree-vectorize -ffast-math -march=pentium4 -mtune=pentium4 -fPIC -I. -Ibinio -I. -I$ELMER_INCLUDE"
 #export LD="gfortran -shared  "
 export LD=elmerld
 export F90=elmerf90-nosh
@@ -66,6 +66,7 @@ else
    dirs="$*"
 fi
 
+cputime="0"
 for dir in $dirs; do
 
       total=`expr $total + 1`
@@ -77,11 +78,12 @@ for dir in $dirs; do
       success=`grep "ALL DONE" test.log | wc -l`
       if test $success -ge 1; then
 	  success=`../findnorm$EXE_EXT test.log`
+	  cputime=`../findnorm$EXE_EXT test.log $cputime`
       fi
 
       if test $success -ge 1; then
 	  passed=`expr $passed + 1`
-          printf "			[PASSED]\n"
+          printf "			[PASSED], Cumulative CPU time=$cputime\n"
 	  make -i clean > /dev/null 2>&1
       else
           printf "look at [%s/test.log] for details\n" $dir

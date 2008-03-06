@@ -41,7 +41,7 @@ int main(int argc, char **argv)
    }
 
    if ( argc<=2 ) {
-     fprintf( stdout, "%d\n", success, CPUT, REALT );
+     fprintf( stdout, "%d\n", success );
    } else {
      fprintf( stdout, "%g\n", atof(argv[2])+CPUT );
    }
