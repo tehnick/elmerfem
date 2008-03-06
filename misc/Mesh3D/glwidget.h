@@ -58,6 +58,8 @@ private:
     QColor backgroundColor;
 
     GLuint generateBoundaryList(int,double,double,double);
+    
+    bool ctrlPressed;
 };
 
 #endif

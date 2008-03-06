@@ -23,7 +23,7 @@ MainWindow::MainWindow()
   this->ngmesh = nglibAPI->ngmesh;
   this->nggeom = nglibAPI->nggeom;
 
-  // elmergrid:
+  // elmergrid
   elmergridAPI = new ElmergridAPI;
 
   // widgets and helpers
@@ -94,6 +94,7 @@ void MainWindow::createMenus()
   meshMenu = menuBar()->addMenu(tr("&Mesh"));
   meshMenu->addAction(meshcontrolAct);
   meshMenu->addAction(boundarydivideAct);
+  meshMenu->addAction(boundaryunifyAct);
   meshMenu->addAction(remeshAct);
 
   // Help menu
@@ -167,6 +168,12 @@ void MainWindow::createActions()
   boundarydivideAct->setStatusTip(tr("Divide boundary by sharp edges"));
   connect(boundarydivideAct, SIGNAL(triggered()), this, SLOT(boundarydivideSlot()));
 
+  // Mesh -> Unify boundary
+  boundaryunifyAct = new QAction(QIcon(), tr("&Unify boundary..."), this);
+  boundaryunifyAct->setShortcut(tr("Ctrl+U"));
+  boundaryunifyAct->setStatusTip(tr("Unify boundary (merge selected)"));
+  connect(boundaryunifyAct, SIGNAL(triggered()), this, SLOT(boundaryunifySlot()));
+
   // Mesh -> Remesh
   remeshAct = new QAction(QIcon(), tr("&Remesh..."), this);
   remeshAct->setShortcut(tr("Ctrl+R"));
@@ -232,6 +239,50 @@ void MainWindow::meshcontrolSlot()
 void MainWindow::boundarydivideSlot()
 {
   boundaryDivide->show();
+}
+
+
+
+// Mesh -> unify boundary...
+//-----------------------------------------------------------------------------
+void MainWindow::boundaryunifySlot()
+{
+  int targetindex = -1;
+  for(int i=0; i < glWidget->sizeofGlMaps; i++) {
+    if(glWidget->glSelected[i]) {
+      if(targetindex < 0) {
+	targetindex = glWidget->glBcMap[i];
+	break;
+      }
+    }
+  }
+  
+  mesh_t *mesh = glWidget->mesh;
+  for(int i=0; i < glWidget->sizeofGlMaps; i++) {
+    if(glWidget->glSelected[i]) {
+      for(int j=0; j < mesh->boundaryelements; j++) {
+	boundaryelement_t *be = &mesh->boundaryelement[j];
+	if(be->index == glWidget->glBcMap[i]) 
+	  be->index = targetindex;
+      }
+    }
+  }
+  
+  cout << "Selected boundary parts marked with index " << targetindex << endl;
+  cout.flush();
+  
+  // Delete old objects, if any:
+  if(glWidget->objects) {
+    for(int i=0; i < (int)glWidget->objects; i++)
+      glDeleteLists(glWidget->glListMap[i], 1);
+    glWidget->objects = 0;
+  }
+  
+  // Compose new GL-objects:
+  glWidget->objects = glWidget->makeObjects();
+  glWidget->updateGL();
+
+  logMessage("Selected boundary parts unified");
 }
 
 

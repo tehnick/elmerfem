@@ -148,7 +148,7 @@ void GLWidget::resizeGL(int width, int height)
 //-----------------------------------------------------------------------------
 void GLWidget::keyPressEvent(QKeyEvent *event)
 {
-  cout << "press" << endl;
+  ctrlPressed = true;
 }
 
 
@@ -156,7 +156,7 @@ void GLWidget::keyPressEvent(QKeyEvent *event)
 //-----------------------------------------------------------------------------
 void GLWidget::keyReleaseEvent(QKeyEvent *event)
 {
-  cout << "release" << endl;
+  ctrlPressed = false;
 }
 
 
@@ -289,12 +289,14 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
   glMatrixMode(GL_MODELVIEW);
 
   // Clear the previous selections:
-  for(int i=0; i<sizeofGlMaps; i++) {
-    if(glSelected[i]) {
-      glDeleteLists(glListMap[i], 1);
-      glSelected[i] = false;
-      GLuint current = generateBoundaryList(glBcMap[i],0,1,1);
-      glListMap[i] = current;
+  if(!ctrlPressed) {
+    for(int i=0; i<sizeofGlMaps; i++) {
+      if(glSelected[i]) {
+	glDeleteLists(glListMap[i], 1);
+	glSelected[i] = false;
+	GLuint current = generateBoundaryList(glBcMap[i],0,1,1);
+	glListMap[i] = current;
+      }
     }
   }
 
