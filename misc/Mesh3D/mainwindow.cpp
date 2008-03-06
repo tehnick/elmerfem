@@ -339,19 +339,18 @@ void MainWindow::remeshSlot()
     glWidget->mesh = new mesh_t;
     mesh_t *mesh = glWidget->mesh;
     
-    // elmergrid contructs the new mesh:
+    // let elmergrid contruct the new mesh:
     elmergridAPI->createElmerMeshStructure(mesh);
     
-    cout << "Solmuja: " << glWidget->mesh->nodes << endl;
-    cout << "Elementteja: " << glWidget->mesh->elements << endl;
-    cout << "Reunaelementteja: " << glWidget->mesh->boundaryelements << endl;
+    cout << "Nodes: " << mesh->nodes << endl;
+    cout << "Elements: " << mesh->elements << endl;
+    cout << "Boundaryelements: " << mesh->boundaryelements << endl;
     cout.flush();
     
     // Edges:
     meshutils->findBoundaryElementEdges(mesh);
-    cout << "ok 1" << endl; cout.flush();
+    meshutils->findBoundaryElementParents(mesh);
     meshutils->findBoundaryElementNormals(mesh);
-    cout << "ok 2" << endl; cout.flush();
     
     // Finalize:
     logMessage("Ready");
@@ -362,7 +361,7 @@ void MainWindow::remeshSlot()
     glWidget->drawTranslate[0] = bb[6]; // x-center
     glWidget->drawTranslate[1] = bb[7]; // y-center
     glWidget->drawTranslate[2] = bb[8]; // z-center
-    glWidget->drawScale = bb[9];        //  scaling
+    glWidget->drawScale = bb[9];         // scaling
     
     // Delete old GL-objects, if any:
     if(glWidget->objects) {

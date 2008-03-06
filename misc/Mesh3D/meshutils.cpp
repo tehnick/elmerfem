@@ -107,7 +107,7 @@ void Meshutils::clearMesh(mesh_t *mesh)
 
 
 // Find parents for boundary elements...
-//-----------------------------------------------------------------------------
+//----------------------------------------------------------------------------
 void Meshutils::findBoundaryElementParents(mesh_t *mesh)
 {
 #define UNKNOWN -1
@@ -125,8 +125,6 @@ void Meshutils::findBoundaryElementParents(mesh_t *mesh)
     int element[2];
     hashEntry *next;
   };
-
-  cout << "ok, here we are: find parents for boundary elements" << endl;
 
   int keys = mesh->nodes;
   
@@ -232,7 +230,6 @@ void Meshutils::findBoundaryElementParents(mesh_t *mesh)
       if((h->node[0] == n1) && (h->node[1] == n2)) {
 	be->element[0] = h->element[0];
 	be->element[1] = h->element[1];
-	// cout << i << " " << be->element[0] << " " << be->element[1] << endl;
       }
       h = h->next;
     }
@@ -354,7 +351,6 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
 
       for(int j=0; j < e->boundaryelements; j++) {
 	e->boundaryelement[j] = h->boundaryelement[j];
-	//????? cout << i << " " << j << " " << h->boundaryelement[j] << endl;
       }
 
       e->index = UNKNOWN;
@@ -372,7 +368,7 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
       int k = e->boundaryelement[j];
       boundaryelement_t *be = &mesh->boundaryelement[k];
       
-      for(int r=0; r<3; r++) {
+      for(int r=0; r < be->edges; r++) {
 	if(be->edge[r] < 0) {
 	  be->edge[r] = i;
 	  break;
@@ -380,6 +376,29 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
       }
     }
   }  
+
+#if 0
+  cout << "*********************" << endl;
+  for(int i=0; i<mesh->edges; i++)
+    cout << "Edge " << i << " nodes " << mesh->edge[i].node[0] << " "<< mesh->edge[i].node[0] << endl;
+
+  for(int i=0; i<mesh->boundaryelements; i++)
+    cout << "Boundaryelement " << i << " nodes " 
+	 << mesh->boundaryelement[i].node[0] << " " 
+	 << mesh->boundaryelement[i].node[1] << " "
+	 << mesh->boundaryelement[i].node[2] << " "
+	 << " Edges " 
+	 << mesh->boundaryelement[i].edge[0] << " " 
+	 << mesh->boundaryelement[i].edge[1] << " "
+	 << mesh->boundaryelement[i].edge[2] << " "
+	 << " Parents " 
+	 << mesh->boundaryelement[i].element[0] << " " 
+	 << mesh->boundaryelement[i].element[1] << " "
+	 << endl;
+
+  cout.flush();
+#endif
+
 }
 
 
@@ -496,7 +515,7 @@ void Meshutils::findBoundaryElementNormals(mesh_t *mesh)
     u = boundaryelement->node[0];
     v = boundaryelement->node[1];
     w = boundaryelement->node[2];
-    
+
     // Calculate normal (modulo sign):
     a[0] = mesh->node[v].x[0] - mesh->node[u].x[0];
     a[1] = mesh->node[v].x[1] - mesh->node[u].x[1];

@@ -84,7 +84,7 @@ void ElmergridAPI::createElmerMeshStructure(mesh_t *mesh)
   b->edge[1] = -1;
   b->edge[2] = -1;
   b->elements = 0;
-  b->element = NULL;
+  b->element = new int[2]; // reserve space for 2 (will be corrected)
   b->index = 1;
 
   b = &mesh->boundaryelement[1];
@@ -100,7 +100,7 @@ void ElmergridAPI::createElmerMeshStructure(mesh_t *mesh)
   b->edge[1] = -1;
   b->edge[2] = -1;
   b->elements = 0;
-  b->element = NULL;
+  b->element = new int[2]; // reserve space for 2 (will be corrected)
   b->index = 1;
 
   b = &mesh->boundaryelement[2];
@@ -114,11 +114,10 @@ void ElmergridAPI::createElmerMeshStructure(mesh_t *mesh)
   b->edge = new int[3];
   b->edge[0] = -1;
   b->edge[1] = -1;
-  b->edge[2] = -1;
-  b->edge = NULL;
+  b->edge[2] = -1; 
   b->elements = 0;
-  b->element = NULL;
-  b->index = 1;
+  b->element = new int[2]; // reserve space for 2 (will be corrected)
+ b->index = 1;
 
   b = &mesh->boundaryelement[3];
   b->code = 303;
@@ -133,12 +132,8 @@ void ElmergridAPI::createElmerMeshStructure(mesh_t *mesh)
   b->edge[1] = -1;
   b->edge[2] = -1;
   b->elements = 0;
-  b->element = NULL;
+  b->element = new int[2]; // reserve space for 2 (will be corrected)
   b->index = 1;
-
-  // edges:
-  //mesh->edges = 0;
-  //mesh->edge = NULL;
 
   cout << "ok, palautan nyt uuden verkon" << endl;
   cout.flush();
