@@ -1,8 +1,9 @@
 #ifndef MESHCONTROL_H
 #define MESHCONTROL_H
 
-#define GEN_TETLIB 1000
-#define GEN_NGLIB  1001
+#define GEN_TETLIB    1000
+#define GEN_NGLIB     1001
+#define GEN_ELMERGRID 1002
 
 #include "ui_meshcontrol.h"
 
@@ -19,6 +20,7 @@ public:
   QString nglibMaxH;
   QString nglibFineness;
   QString nglibBackgroundmesh;
+  QString elmerGridControlString;
 
   Ui::MeshcontrolForm ui;
 
@@ -31,10 +33,12 @@ public slots:
 private slots:
   void tetlibClicked();
   void nglibClicked(); 
+  void elmerGridClicked();
   void defineTetlibControlString(const QString &qs);
   void defineNglibMaxH(const QString &qs);
   void defineNglibFineness(const QString &qs);
   void defineNglibBackgroundmesh(const QString &qs);
+  void defineElmerGridControlString(const QString &qs);
 
 };
 

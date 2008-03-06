@@ -23,6 +23,9 @@ MainWindow::MainWindow()
   this->ngmesh = nglibAPI->ngmesh;
   this->nggeom = nglibAPI->nggeom;
 
+  // elmergrid:
+  elmergridAPI = new ElmergridAPI;
+
   // widgets and helpers
   glWidget = new GLWidget;
   setCentralWidget(glWidget);
@@ -324,7 +327,22 @@ void MainWindow::remeshSlot()
     mp->fineness = meshControl->nglibFineness.toDouble();
     mp->secondorder = 0;
     mp->meshsize_filename = backgroundmesh;
+
+  } else if(meshControl->generatorType == GEN_ELMERGRID) {
     
+    logMessage("nyt tarttis tehda jotain...");
+
+    mesh_t *testi;
+    testi = elmergridAPI->createElmerMeshStructure();
+
+    // glWidget->mesh = testi;
+
+    cout << "Solmuja tuli: " << testi->nodes << endl;
+    cout.flush();
+
+    return;
+
+
   } else {
 
     logMessage("Remesh: uknown generator type");
@@ -858,6 +876,11 @@ void MainWindow::readInputFile(QString fileName)
     cout.flush();
     
     nglibInputOk = true;
+
+  } else if (meshControl->generatorType==GEN_ELMERGRID) {    
+
+    logMessage("nyt tarttis lukea inputfilee, kai" );
+    return;
 
   } else {
 

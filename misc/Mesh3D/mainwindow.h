@@ -1,12 +1,14 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#define GEN_TETLIB 1000
-#define GEN_NGLIB  1001
+#define GEN_TETLIB    1000
+#define GEN_NGLIB     1001
+#define GEN_ELMERGRID 1002
 
 #include <QMainWindow>
 #include "plugins/tetlib_api.h"
 #include "plugins/nglib_api.h"
+#include "plugins/elmergrid_api.h"
 #include "glwidget.h"
 #include "meshingthread.h"
 #include "sifwindow.h"
@@ -87,6 +89,9 @@ private:
   nglib::Ng_STL_Geometry *nggeom;
   nglib::Ng_Meshing_Parameters *mp;
   bool nglibInputOk;
+
+  // elmergrid:
+  ElmergridAPI *elmergridAPI;
   
   // private functions:
   void readInputFile(QString);
