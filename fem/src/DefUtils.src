@@ -341,12 +341,12 @@ CONTAINS
   END FUNCTION GetTimestepInterval
 
   FUNCTION GetTimeStepSize() RESULT(st)
-     INTEGER(KIND=dp) :: st
+     REAL(KIND=dp) :: st
      TYPE(Variable_t), POINTER :: v
 
      v => CurrentModel % Solver % Mesh % Variables
      v => VariableGet( v, 'timestep size')
-     st = NINT(v % Values(1))
+     st = v % Values(1)
   END FUNCTION GetTimestepSize
 
   FUNCTION GetCoupledIter() RESULT(st)
