@@ -11,7 +11,7 @@ int main(int argc, char **argv)
    FILE *fp = fopen( argv[1], "r" );
    char line[MAX_LENGTH+1], *ptr;
 
-   static double norm, f, target_nrm, target_eps = 1e-5;
+   static double norm, f, target_nrm, target_eps = 1e-5, REALT, CPUT;
    int n, success;
 
    success = 0;
@@ -35,10 +35,16 @@ int main(int argc, char **argv)
         while( *ptr != '\0' && *ptr!='+' && *ptr != '-' && *ptr != '.' && !isdigit(*ptr) ) ptr++;
         n = sscanf( ptr, "%lf", &f );
         if ( n==1 && f != 0.0 ) norm = f;
+      } else if ( ptr = strstr( line, "(CPU,REAL):" )  ) {
+        sscanf(  ptr+11, "%lf %lf", &CPUT, &REALT); 
       }
    }
 
-   fprintf( stdout, "%d\n", success );
+   if ( argc<=2 ) {
+     fprintf( stdout, "%d\n", success, CPUT, REALT );
+   } else {
+     fprintf( stdout, "%g\n", atof(argv[2])+CPUT );
+   }
 }
 
 
