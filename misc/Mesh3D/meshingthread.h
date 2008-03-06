@@ -1,10 +1,6 @@
 #ifndef MESHINGTHREAD_H
 #define MESHINGTHREAD_H
 
-#define GEN_TETLIB 1000
-#define GEN_NGLIB  1001
-#define GEN_ELMERGRID 1002
-
 #include <QMutex>
 #include <QThread>
 #include <QWaitCondition>

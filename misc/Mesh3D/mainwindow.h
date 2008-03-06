@@ -1,10 +1,6 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#define GEN_TETLIB    1000
-#define GEN_NGLIB     1001
-#define GEN_ELMERGRID 1002
-
 #include <QMainWindow>
 #include "plugins/tetlib_api.h"
 #include "plugins/nglib_api.h"

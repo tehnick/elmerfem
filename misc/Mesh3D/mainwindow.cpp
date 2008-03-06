@@ -93,9 +93,10 @@ void MainWindow::createMenus()
   // Mesh menu
   meshMenu = menuBar()->addMenu(tr("&Mesh"));
   meshMenu->addAction(meshcontrolAct);
+  meshMenu->addAction(remeshAct);
+  meshMenu->addSeparator();
   meshMenu->addAction(boundarydivideAct);
   meshMenu->addAction(boundaryunifyAct);
-  meshMenu->addAction(remeshAct);
 
   // Help menu
   helpMenu = menuBar()->addMenu(tr("&Help"));
@@ -189,23 +190,6 @@ void MainWindow::createActions()
 
 
 
-// About dialog...
-//-----------------------------------------------------------------------------
-void MainWindow::showaboutSlot()
-{
-  QMessageBox::about(this, tr("About Mesh3D"),
-		     tr("Mesh3D is a preprocessor for three dimensional "
-			"modeling with Elmer finite element software. "
-			"The program uses tetlib and nglib as tetrahedral "
-			"Delaunay mesh generators:\n\n"
-			"http://tetgen.berlios.de/\n"
-			"http://www.hpfem.jku.at/netgen/\n"
-			"http://www.csc.fi/elmer/\n\n"
-			"Written by Mikko Lyly, 2008"));
-}
-
-
-
 // Mesh -> Control...
 //-----------------------------------------------------------------------------
 void MainWindow::meshcontrolSlot()
@@ -270,17 +254,8 @@ void MainWindow::boundaryunifySlot()
   
   cout << "Selected boundary parts marked with index " << targetindex << endl;
   cout.flush();
-  
-  // Delete old objects, if any:
-  if(glWidget->objects) {
-    for(int i=0; i < (int)glWidget->objects; i++)
-      glDeleteLists(glWidget->glListMap[i], 1);
-    glWidget->objects = 0;
-  }
-  
-  // Compose new GL-objects:
-  glWidget->objects = glWidget->makeObjects();
-  glWidget->updateGL();
+
+  glWidget->rebuildBoundaryLists();
 
   logMessage("Selected boundary parts unified");
 }
@@ -302,16 +277,7 @@ void MainWindow::doDivisionSlot(double angle)
   QString qs = "Boundary divided into " + QString::number(parts) + " parts";
   statusBar()->showMessage(qs);
   
-  // Delete old objects, if any:
-  if(glWidget->objects) {
-    for(int i=0; i<(int)glWidget->objects; i++)
-      glDeleteLists(glWidget->glListMap[i], 1);
-    glWidget->objects = 0;
-  }
-  
-  // Compose new GL-objects:
-  glWidget->objects = glWidget->makeObjects();
-  glWidget->updateGL();
+  glWidget->rebuildBoundaryLists();
 }
 
 
@@ -322,18 +288,6 @@ void MainWindow::showsifSlot()
 {
   sifWindow->show();
 }
-
-
-
-// Log message...
-//-----------------------------------------------------------------------------
-void MainWindow::logMessage(QString message)
-{
-  cout << string(message.toAscii()) << endl;
-  statusBar()->showMessage(message);
-  cout.flush();
-}
-
 
 
 
@@ -382,15 +336,10 @@ void MainWindow::remeshSlot()
   } else if(meshControl->generatorType == GEN_ELMERGRID) {
 
     // ***** ELMERGRID *****
-
-    // clear old mesh:
     meshutils->clearMesh(glWidget->mesh);
-
-    // allocate new mesh:
     glWidget->mesh = new mesh_t;
     mesh_t *mesh = glWidget->mesh;
     
-    // let elmergrid contruct the new mesh:
     elmergridAPI->createElmerMeshStructure(mesh);
     
     cout << "Nodes: " << mesh->nodes << endl;
@@ -398,32 +347,13 @@ void MainWindow::remeshSlot()
     cout << "Boundaryelements: " << mesh->boundaryelements << endl;
     cout.flush();
     
-    // Edges:
+    // this is just for the test case:
     meshutils->findBoundaryElementEdges(mesh);
     meshutils->findBoundaryElementParents(mesh);
     meshutils->findBoundaryElementNormals(mesh);
-    
-    // Finalize:
+
     logMessage("Ready");
-    
-    // Scaling factors for drawing:
-    double *bb = meshutils->boundingBox(glWidget->mesh);
-    
-    glWidget->drawTranslate[0] = bb[6]; // x-center
-    glWidget->drawTranslate[1] = bb[7]; // y-center
-    glWidget->drawTranslate[2] = bb[8]; // z-center
-    glWidget->drawScale = bb[9];         // scaling
-    
-    // Delete old GL-objects, if any:
-    if(glWidget->objects) {
-      for(int i=0; i<(int)glWidget->objects; i++)
-	glDeleteLists(glWidget->glListMap[i], 1);
-      glWidget->objects = 0;
-    }
-    
-    // Compose new GL-objects:
-    glWidget->objects = glWidget->makeObjects();
-    glWidget->updateGL();
+    glWidget->rebuildBoundaryLists();
     
     return;
     
@@ -456,7 +386,7 @@ void MainWindow::meshOkSlot()
     makeElmerMeshFromTetlib();
 
   } else if(meshControl->generatorType == GEN_NGLIB) {
-    
+
     makeElmerMeshFromNglib();
 
   } else {
@@ -701,24 +631,7 @@ void MainWindow::loadElmerMesh(QString dirName)
   // Finalize:
   logMessage("Ready");
 
-  // Scaling factors for drawing:
-  double *bb = meshutils->boundingBox(glWidget->mesh);
-
-  glWidget->drawTranslate[0] = bb[6]; // x-center
-  glWidget->drawTranslate[1] = bb[7]; // y-center
-  glWidget->drawTranslate[2] = bb[8]; // z-center
-  glWidget->drawScale = bb[9];         // scaling
-
-  // Delete old objects, if any:
-  if(glWidget->objects) {
-    for(int i=0; i<(int)glWidget->objects; i++)
-      glDeleteLists(glWidget->glListMap[i], 1);
-    glWidget->objects = 0;
-  }
-  
-  // Compose new GL-objects:
-  glWidget->objects = glWidget->makeObjects();
-  glWidget->updateGL();
+  glWidget->rebuildBoundaryLists();
 }
 
 
@@ -983,26 +896,7 @@ void MainWindow::makeElmerMeshFromTetlib()
   meshutils->clearMesh(glWidget->mesh);
   glWidget->mesh = tetlibAPI->createElmerMeshStructure();
 
-  // Scaling factors for drawing:
-  double *bb = meshutils->boundingBox(glWidget->mesh);
-
-  glWidget->drawTranslate[0] = bb[6]; // x-center
-  glWidget->drawTranslate[1] = bb[7]; // y-center
-  glWidget->drawTranslate[2] = bb[8]; // z-center
-  glWidget->drawScale = bb[9];         // scaling
-
-  // Delete old objects, if any:
-  if(glWidget->objects) {
-    for(int i=0; i<(int)glWidget->objects; i++)
-      glDeleteLists(glWidget->glListMap[i], 1);
-    glWidget->objects = 0;
-  }
-  
-  // Compose new GL-objects:
-  glWidget->objects = glWidget->makeObjects();
-  glWidget->updateGL();
-
-  delete [] bb;
+  glWidget->rebuildBoundaryLists();
 
   logMessage("Input file processed");
 }
@@ -1016,26 +910,7 @@ void MainWindow::makeElmerMeshFromNglib()
   nglibAPI->ngmesh = this->ngmesh;
   glWidget->mesh = nglibAPI->createElmerMeshStructure();
 
-  // Scaling factors for drawing:
-  double *bb = meshutils->boundingBox(glWidget->mesh);
-
-  glWidget->drawTranslate[0] = bb[6]; // x-center
-  glWidget->drawTranslate[1] = bb[7]; // y-center
-  glWidget->drawTranslate[2] = bb[8]; // z-center
-  glWidget->drawScale = bb[9];         // scaling
-
-  // Delete old objects, if any:
-  if(glWidget->objects) {
-    for(int i=0; i<(int)glWidget->objects; i++)
-      glDeleteLists(glWidget->glListMap[i], 1);
-    glWidget->objects = 0;
-  }
-
-  // Compose new GL-objects:
-  glWidget->objects = glWidget->makeObjects();
-  glWidget->updateGL();
-
-  delete [] bb;
+  glWidget->rebuildBoundaryLists();
 
   logMessage("Input file processed");
 }
@@ -1153,3 +1028,31 @@ void MainWindow::makeSteadyHeatSifSlot()
 
   delete [] tmp;  
 }
+
+
+// About dialog...
+//-----------------------------------------------------------------------------
+void MainWindow::showaboutSlot()
+{
+  QMessageBox::about(this, tr("About Mesh3D"),
+		     tr("Mesh3D is a preprocessor for three dimensional "
+			"modeling with Elmer finite element software. "
+			"The program uses tetlib and nglib as tetrahedral "
+			"Delaunay mesh generators:\n\n"
+			"http://tetgen.berlios.de/\n"
+			"http://www.hpfem.jku.at/netgen/\n"
+			"http://www.csc.fi/elmer/\n\n"
+			"Written by Mikko Lyly, 2008"));
+}
+
+
+
+// Log message...
+//-----------------------------------------------------------------------------
+void MainWindow::logMessage(QString message)
+{
+  cout << string(message.toAscii()) << endl;
+  statusBar()->showMessage(message);
+  cout.flush();
+}
+

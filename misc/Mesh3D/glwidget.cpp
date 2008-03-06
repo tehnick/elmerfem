@@ -332,6 +332,30 @@ void GLWidget::getMatrix()
 }
 
 
+// Rebuild boundary lists...
+//-----------------------------------------------------------------------------
+void GLWidget::rebuildBoundaryLists()
+{
+  double *bb = meshutils.boundingBox(mesh);
+  
+  drawTranslate[0] = bb[6]; // x-center
+  drawTranslate[1] = bb[7]; // y-center
+  drawTranslate[2] = bb[8]; // z-center
+  drawScale = bb[9];         // scaling
+
+  delete [] bb;
+    
+  if(objects) {
+    for(int i=0; i < (int)objects; i++)
+      glDeleteLists(glListMap[i], 1);
+    objects = 0;
+  }
+  
+  objects = makeObjects();
+  updateGL();
+}
+
+
 
 // Compose GL object lists...
 //-----------------------------------------------------------------------------
@@ -344,7 +368,6 @@ GLuint GLWidget::makeObjects()
     objects = 0;
     return 0;
   }
-
 
   // First, scan boundary elements to determine the number of bcs:
   int *bctable = new int[mesh->boundaryelements];

@@ -3,6 +3,10 @@
 #ifndef MESHTYPE_H
 #define MESHTYPE_H
 
+#define GEN_TETLIB    1000
+#define GEN_NGLIB     1001
+#define GEN_ELMERGRID 1002
+
 class node_t {
  public:
   double x[3];

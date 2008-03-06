@@ -137,20 +137,22 @@ mesh_t* NglibAPI::createElmerMeshStructure()
     boundaryelement->node[2] = tmp;
   }
 
+
   // Elements:
   mesh->elements = Ng_GetNE(ngmesh);
   mesh->element = new element_t[mesh->elements];
 
+
   for(int i=0; i< mesh->elements; i++) {
     element_t *element = &mesh->element[i];
 
-    Ng_GetVolumeElement(ngmesh, i+1, element->node);
-    
     element->code = 504;
 
     element->nodes = 4;
     element->node = new int[4];
 
+    Ng_GetVolumeElement(ngmesh, i+1, element->node);
+        
     element->node[0]--;
     element->node[1]--;
     element->node[2]--;

@@ -16,17 +16,16 @@ public:
     QSize minimumSizeHint() const;
     QSize sizeHint() const;
 
-    Helpers helpers;
-    Meshutils meshutils;
     mesh_t *mesh;
 
     GLuint objects;
     GLuint makeObjects();
+    void rebuildBoundaryLists();
 
     double drawScale;
     double drawTranslate[3];
 
-    int sizeofGlMaps;
+    int sizeofGlMaps;     // size of the following list-maps:
     int *glBcMap;         // maps {0,1,2,..} -> {bc indices}
     GLuint *glListMap;    // maps {0,1,2,..} -> {gl list indices]
     bool *glSelected;     // indicates currently selected bcs
@@ -49,6 +48,8 @@ protected:
     void keyReleaseEvent(QKeyEvent*);
 
 private:
+    Helpers helpers;
+    Meshutils meshutils;
 
     GLdouble matrix[16];
     GLdouble invmatrix[16];

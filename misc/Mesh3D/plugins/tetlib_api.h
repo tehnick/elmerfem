@@ -1,10 +1,6 @@
 #ifndef TETLIB_API_H
 #define TETLIB_API_H
 
-#define GEN_TETLIB 1000
-#define GEN_NGLIB  1001
-#define GEN_ELMERGRID 1002
-
 #ifdef WIN32
 #include <windows.h>
 #else
