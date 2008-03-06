@@ -103,6 +103,11 @@ mesh_t* TetlibAPI::createElmerMeshStructure()
   
   for(int i=0; i< mesh->elements; i++) {
     element_t *element = &mesh->element[i];
+
+    element->code = 504;
+
+    element->nodes = 4;
+    element->node = new int[4];
     
     element->node[0] = (*tetrahedronlist++) - out->firstnumber;
     element->node[1] = (*tetrahedronlist++) - out->firstnumber;
@@ -124,6 +129,17 @@ mesh_t* TetlibAPI::createElmerMeshStructure()
 
   for(int i=0; i < mesh->boundaryelements; i++) {
     boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
+
+    boundaryelement->code = 303;
+
+    boundaryelement->nodes = 3;
+    boundaryelement->node = new int[3];
+
+    boundaryelement->edges = 3;
+    boundaryelement->edge = new int[3];
+
+    boundaryelement->elements = 2;
+    boundaryelement->element = new int[2];
 
     boundaryelement->index = 1; // default
     if(out->trifacemarkerlist != (int*)NULL)

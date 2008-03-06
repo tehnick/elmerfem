@@ -334,17 +334,27 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
   // delete [] mesh->edge;
   mesh->edge = new edge_t[edges];
 
+  // Create edges:
   edges = 0;
   for(int i=0; i<keys; i++) {
     h = &hash[i];
     while(h->next) {
       edge_t *e = &mesh->edge[edges++];
+      
+      e->code = 202;
+
+      e->nodes = 2;
+      e->node = new int[2];
+
       e->node[0] = i;
       e->node[1] = h->node;
+
       e->boundaryelements = h->boundaryelements;
       e->boundaryelement = new int[e->boundaryelements];
+
       for(int j=0; j < e->boundaryelements; j++)
 	e->boundaryelement[j] = h->boundaryelement[j];
+
       e->index = UNKNOWN;
       h = h->next;
     }

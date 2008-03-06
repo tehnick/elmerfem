@@ -1,6 +1,7 @@
 #include <QtGui>
 #include <QtOpenGL>
 #include <QWheelEvent>
+#include <QKeyEvent>
 #include <math.h>
 #include <iostream>
 #include <stdio.h>
@@ -143,11 +144,29 @@ void GLWidget::resizeGL(int width, int height)
 
 
 
+// Key pressed...
+//-----------------------------------------------------------------------------
+void GLWidget::keyPressEvent(QKeyEvent *event)
+{
+  cout << "press" << endl;
+}
+
+
+// Key released...
+//-----------------------------------------------------------------------------
+void GLWidget::keyReleaseEvent(QKeyEvent *event)
+{
+  cout << "release" << endl;
+}
+
+
+
 // Mouse button clicked...
 //-----------------------------------------------------------------------------
 void GLWidget::mousePressEvent(QMouseEvent *event)
 {
   lastPos = event->pos();
+  setFocus();
 }
 
 

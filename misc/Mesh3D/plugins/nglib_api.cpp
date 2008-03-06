@@ -105,6 +105,17 @@ mesh_t* NglibAPI::createElmerMeshStructure()
   for(int i=0; i < mesh->boundaryelements; i++) {
     boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
 
+    boundaryelement->code = 303;
+
+    boundaryelement->nodes = 3;
+    boundaryelement->node = new int[3];
+    
+    boundaryelement->edges = 3;
+    boundaryelement->edge = new int[3];
+
+    boundaryelement->elements = 2;
+    boundaryelement->element = new int[2];
+
     boundaryelement->index = 1; // default
 
     boundaryelement->edge[0] = -1;
@@ -135,6 +146,11 @@ mesh_t* NglibAPI::createElmerMeshStructure()
 
     Ng_GetVolumeElement(ngmesh, i+1, element->node);
     
+    element->code = 504;
+
+    element->nodes = 4;
+    element->node = new int[4];
+
     element->node[0]--;
     element->node[1]--;
     element->node[2]--;

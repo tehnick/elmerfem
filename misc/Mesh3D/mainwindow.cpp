@@ -60,6 +60,7 @@ MainWindow::~MainWindow()
 }
 
 
+
 // Create status bar...
 //-----------------------------------------------------------------------------
 void MainWindow::createStatusBar()
@@ -527,6 +528,12 @@ void MainWindow::loadElmerMesh(QString dirName)
   for(int i=0; i<elements; i++) {
     element_t *element = &mesh->element[i];
     mesh_elements >> number >> index >> type >> n0 >> n1 >> n2 >> n3;
+
+    element->code = 504;
+
+    element->nodes = 4;
+    element->node = new int[4];
+
     element->node[0] = n0-1;
     element->node[1] = n1-1;
     element->node[2] = n2-1;
@@ -554,17 +561,32 @@ void MainWindow::loadElmerMesh(QString dirName)
     boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
     mesh_boundary >> number >> index >> parent0 >> parent1 >> type >> n0 >> n1 >> n2;
 
+    boundaryelement->code = 303;
+
+    boundaryelement->nodes = 3;
+    boundaryelement->node = new int[3];
+
+    boundaryelement->edges = 3;
+    boundaryelement->edge = new int[3];
+
+    boundaryelement->elements = 2;
+    boundaryelement->element = new int[2];
+
     boundaryelement->node[0] = n0-1;
     boundaryelement->node[1] = n1-1;
     boundaryelement->node[2] = n2-1;
+
     boundaryelement->edge[0] = -1;
     boundaryelement->edge[1] = -1;
     boundaryelement->edge[2] = -1;
+
     boundaryelement->element[0] = parent0-1;
     boundaryelement->element[1] = parent1-1;
+
     boundaryelement->normal[0] = 0.0;
     boundaryelement->normal[1] = 0.0;
     boundaryelement->normal[2] = 0.0;
+
     boundaryelement->index = index;
   }
 
