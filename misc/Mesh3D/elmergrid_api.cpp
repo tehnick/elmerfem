@@ -2,7 +2,6 @@
 #include "elmergrid_api.h"
 #include "egmain.h"
 
-
 using namespace std;
 
 ElmergridAPI::ElmergridAPI()
@@ -17,7 +16,7 @@ ElmergridAPI::~ElmergridAPI()
   cout << "Destructing ElmergridAPI" << endl;
   cout.flush();
 }
- 
+
 
 void ElmergridAPI::createElmerMeshStructure(mesh_t *mesh)
 {
@@ -28,15 +27,8 @@ void ElmergridAPI::createElmerMeshStructure(mesh_t *mesh)
   relh=1.0;
   meshmode=1;
 
-  cout << "start egmain" << endl;
-  cout.flush();
 
-  int retval = 0;
   egmain("angle",meshmode,relh,mesh);
-
-  cout << retval << " " << mesh->nodes << " stop egmain" << endl;
-  cout.flush();
-
 
 
 #else
@@ -154,8 +146,11 @@ void ElmergridAPI::createElmerMeshStructure(mesh_t *mesh)
   b->elements = 0;
   b->element = new int[2]; // reserve space for 2 (will be corrected)
   b->index = 1;
-#endif
 
+  // edges:
+  //mesh->edges = 0;
+  //mesh->edge = NULL;
+#endif
 
   cout << "ok, palautan nyt uuden verkon" << endl;
   cout.flush();

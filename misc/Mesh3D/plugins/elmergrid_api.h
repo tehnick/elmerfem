@@ -2,7 +2,6 @@
 #define ELMERGRID_API_H
 
 #include "meshtype.h"
-#include "meshutils.h"
 
 class ElmergridAPI
 {
@@ -15,3 +14,4 @@ class ElmergridAPI
 };
 
 #endif // #ifndef ELMERGRID_API_H
+ 
