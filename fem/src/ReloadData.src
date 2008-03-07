@@ -80,21 +80,12 @@ SUBROUTINE ReloadSolution( Model,Solver,dt,TransientSimulation )
   INTEGER :: FirstStep, LastStep, StartingStep, StepsBetween
   INTEGER :: k, Round = 0, Visit = 0
   
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: $"
-
   SAVE Round, FirstStep, LastStep, Visit, StepsBetween, ContReading
 
 !------------------------------------------------------------------------------
 !    Check if version number output is requested
 !------------------------------------------------------------------------------
   IF ( Visit == 0 ) THEN
-    IF ( ListGetLogical( Model % Simulation, &
-        'Output Version Numbers', GotIt ) ) THEN
-      CALL Info( 'ReloadSolution', 'ReloadSolution version:', Level = 0 ) 
-      CALL Info( 'ReloadSolution', VersionID, Level = 0 ) 
-      CALL Info( 'ReloadSolution', ' ', Level = 0 ) 
-    END IF
-
     FirstStep = GetInteger( Solver % Values, 'Reload Range Minimum', GotIt )
     IF ( .NOT. GotIt )  FirstStep = 1
 

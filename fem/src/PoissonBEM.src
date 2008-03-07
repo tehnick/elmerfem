@@ -118,19 +118,8 @@
      SAVE Load, ElementNodes, VolumeSource, VolumeForce, AllocationsDone, &
       PotentialKnown, PotentialPerm, BoundaryPerm, BoundaryNodes, Pot, Flx
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: PoissonBEM.src,v 1.10 2006/11/27 10:23:57 jpr Exp $"
 
      EXTERNAL Matvec, Precond
-!------------------------------------------------------------------------------
-!    Check if version number output is requested
-!------------------------------------------------------------------------------
-     IF ( .NOT. AllocationsDone ) THEN
-        IF ( ListGetLogical( GetSimulation(), 'Output Version Numbers', GotIt ) ) THEN
-           CALL Info( 'PoissonBEM', 'PoissonBEM Solver version:', Level = 0 ) 
-           CALL Info( 'PoissonBEM', VersionID, Level = 0 ) 
-           CALL Info( 'PoissonBEM', ' ', Level = 0 ) 
-        END IF
-     END IF
 
 !------------------------------------------------------------------------------
 !    Get variables needed for solution

@@ -91,7 +91,6 @@ SUBROUTINE NormalSolver( Model,Solver,dt,Transient )
   REAL(KIND=dp), POINTER :: ForceVector(:,:), SaveRHS(:)
   REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime
   TYPE(Variable_t), POINTER :: NrmSol
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: NormalSolver.src,v 1.2 2007/08/21 07:56:46 jpr Exp $"
   
   SAVE Visited
 
@@ -100,18 +99,6 @@ SUBROUTINE NormalSolver( Model,Solver,dt,Transient )
   CALL Info( 'NormalSolver','Computing the normals',Level=4 )
   CALL Info( 'NormalSolver', '-------------------------------------',Level=4 )
 
-!------------------------------------------------------------------------------
-!    Check if version number output is requested
-!------------------------------------------------------------------------------
-  IF ( .NOT. Visited ) THEN
-    IF ( ListGetLogical( GetSimulation(), 'Output Version Numbers', GotIt ) ) THEN
-      CALL Info( 'NormalSolver', 'NormalSolver version:', Level = 0 ) 
-      CALL Info( 'NormalSolver', VersionID, Level = 0 ) 
-      CALL Info( 'NormalSolver', ' ', Level = 0 ) 
-    END IF
-    Visited = .TRUE.
-  END IF
-  
   dim = CoordinateSystemDimension()
 !------------------------------------------------------------------------------
 !    Get variables needed for solution

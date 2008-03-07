@@ -162,24 +162,11 @@
      REAL(KIND=dp) :: Mass, PreviousMass
      INTEGER, DIMENSION( Model %  NumberOfBulkElements) :: ElementList
 
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: AdvectionDiffusion.src,v 1.8 2006/11/16 07:51:39 jpr Exp $"
-
      SAVE LocalMassMatrix,LocalStiffMatrix,Load,C0,C1,CT,C2,Diffusivity, &
          TimeForce, LocalForce, ElementNodes,AllocationsDone, &
          U, V, W, LocalTemperature,Density, HeatCapacity, Pressure, &
          GasConstant, SpeciesTransferCoeff, Hwrk, MU, MV, MW, Mass, &
          ParentNodes, SExt, SoretDiffusivity
-
-!------------------------------------------------------------------------------
-!    Check if version number output is requested
-!------------------------------------------------------------------------------
-      IF ( .NOT. AllocationsDone ) THEN
-        IF ( ListGetLogical( GetSimulation(), 'Output Version Numbers', GotIt ) ) THEN
-          CALL Info( 'AdvectionDiffusion', 'AdvectionDiffusion version:', Level = 0 ) 
-          CALL Info( 'AdvectionDiffusion', VersionID, Level = 0 ) 
-          CALL Info( 'AdvectionDiffusion', ' ', Level = 0 ) 
-        END IF
-      END IF
 
 !------------------------------------------------------------------------------
 !    Get variables needed for solution

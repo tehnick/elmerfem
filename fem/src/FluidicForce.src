@@ -112,16 +112,6 @@ SUBROUTINE ForceCompute( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t), POINTER   :: CurrentElement, Parent
   CHARACTER(LEN=MAX_NAME_LEN) :: ShearFilename, MessageL, ViscosityFlag
   CHARACTER(LEN=MAX_NAME_LEN) :: CompressibilityFlag, BoundaryName, VariableName
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FluidicForce.src,v 1.7 2007/05/22 08:23:46 raback Exp $"
-
-!------------------------------------------------------------------------------
-!    Check if version number output is requested
-!------------------------------------------------------------------------------
-  IF ( ListGetLogical( GetSimulation(), 'Output Version Numbers', stat ) ) THEN
-    CALL Info( 'FluidicForce', 'FluidicForce version:', Level = 0 ) 
-    CALL Info( 'FluidicForce', VersionID, Level = 0 ) 
-    CALL Info( 'FluidicForce', ' ', Level = 0 ) 
-  END IF
 
   DO i=1,Model % NumberOfSolvers
      FlowSolver => Model % Solvers(i)

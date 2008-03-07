@@ -295,18 +295,6 @@
         END FUNCTION FlowInsideResidual
      END INTERFACE
 !------------------------------------------------------------------------------
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: FlowSolve.src,v 1.34 2007/08/15 09:44:01 jpr Exp $"
-
-!------------------------------------------------------------------------------
-!    Check if version number output is requested
-!------------------------------------------------------------------------------
-     IF ( .NOT. AllocationsDone ) THEN
-        IF ( ListGetLogical( GetSimulation(), 'Output Version Numbers', GotIt ) ) THEN
-           CALL Info( 'FlowSolve', 'FlowSolver version:', Level = 0 ) 
-           CALL Info( 'FlowSolve', VersionID, Level = 0 ) 
-           CALL Info( 'FlowSolve', ' ', Level = 0 ) 
-        END IF
-     END IF
 
 !------------------------------------------------------------------------------
 !    Get variables needed for solving the system
@@ -1063,7 +1051,7 @@
 !       The element type 101 (point element) can only be used
 !       to set Dirichlet BCs, so skip ´em at this stage.
 !
-        IF ( GetElementFamily() == 101 ) CYCLE
+        IF ( GetElementFamily() == 1 ) CYCLE
 
         CALL GetElementNodes( ElementNodes )
 
@@ -1071,6 +1059,7 @@
 
 !------------------------------------------------------------------------------
         GotForceBC = GetLogical( BC, 'Flow Force BC',gotIt )
+        IF ( .NOT. gotIt ) GotForceBC = .TRUE.
 
         IF ( GotForceBC ) THEN
           FORCE  = 0.0d0
@@ -1087,7 +1076,7 @@
 !         normal force BC: \tau\cdot n = \alpha n
 !------------------------------------------------------------------------------
           IF ( GetLogical( BC, 'Free Surface',gotIt) ) THEN
-            Alpha(1:n) = GetReal( BC,'Surface Tension Coefficient' )
+            Alpha(1:n) = GetReal( BC,'Surface Tension Coefficient', gotIt )
           END IF
 
           ExtPressure(1:n) = GetReal( BC, 'External Pressure', GotForceBC )

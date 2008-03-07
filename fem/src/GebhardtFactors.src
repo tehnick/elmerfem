@@ -186,15 +186,12 @@
        IF ( CurrentElement % TYPE % ElementCode /= 101 ) THEN
          DO i=1,Model % NumberOfBCs
            IF ( Model % BCs(i) % Tag == k ) THEN
-             IF ( ListGetLogical( Model % BCs(i) % Values,'Heat Flux BC', GotIt) ) THEN
-               RadiationFlag = ListGetString( Model % BCs(i) % Values, &
-                              'Radiation', GotIt )
-
-               IF ( RadiationFlag(1:12) == 'diffuse gray' ) THEN
-                 RadiationSurfaces = RadiationSurfaces + 1
-                 ElementNumbers(RadiationSurfaces) = t
-                 Model % Elements(RadiationSurfaces) = Model % Elements(t)
-               END IF
+             RadiationFlag = ListGetString( Model % BCs(i) % Values, &
+                            'Radiation', GotIt )
+             IF ( RadiationFlag(1:12) == 'diffuse gray' ) THEN
+               RadiationSurfaces = RadiationSurfaces + 1
+               ElementNumbers(RadiationSurfaces) = t
+               Model % Elements(RadiationSurfaces) = Model % Elements(t)
              END IF
            END IF
          END DO

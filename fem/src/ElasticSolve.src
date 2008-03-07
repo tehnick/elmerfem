@@ -179,8 +179,6 @@
      INTEGER :: TotalSteps,LoadStep, dim
 
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ElasticSolve.src,v 1.15 2007/08/16 20:18:16 raback Exp $"
-
 
      INTERFACE
         FUNCTION ElastBoundaryResidual( Model,Edge,Mesh,Quant,Perm, Gnorm ) RESULT(Indicator)
@@ -210,18 +208,6 @@
           INTEGER :: Perm(:)
         END FUNCTION ElastInsideResidual
      END INTERFACE
-
-
-!------------------------------------------------------------------------------
-!    Check if version number output is requested
-!------------------------------------------------------------------------------
-     IF ( .NOT. AllocationsDone ) THEN
-       IF ( ListGetLogical( GetSimulation(), 'Output Version Numbers', GotIt ) ) THEN
-         CALL Info( 'ElasticSolve', 'ElasticSolve version:', Level = 0 ) 
-         CALL Info( 'ElasticSolve', VersionID, Level = 0 ) 
-         CALL Info( 'ElasticSolve', ' ', Level = 0 ) 
-       END IF
-     END IF
 
 
 !------------------------------------------------------------------------------

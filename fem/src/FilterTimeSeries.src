@@ -89,19 +89,7 @@ SUBROUTINE FilterTimeSeries( Model,Solver,dt,TransientSimulation )
   REAL(KIND=dp) :: CumWeight(99)
   REAL(KIND=dp), POINTER :: MeanField(:), InstField(:), Component(:)
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SFilterTimeSeries.src,v 1.42 2007/09/07 10:41:41 raback Exp $"
 
-
-!------------------------------------------------------------------------------
-!    Check if version number output is requested
-!------------------------------------------------------------------------------
-  IF ( .NOT. SubroutineVisited ) THEN
-    IF ( ListGetLogical( GetSimulation(), 'Output Version Numbers', Found ) ) THEN
-      CALL Info( 'FilterTimeSeries', 'FilterTimeSeries version:', Level = 0 ) 
-      CALL Info( 'FilterTimeSeries', VersionID, Level = 0 ) 
-      CALL Info( 'FilterTimeSeries', ' ', Level = 0 ) 
-    END IF
-  END IF
 !------------------------------------------------------------------------------
 
   CALL Info( 'FilterTimeSeries', '-----------------------------------------', Level=4 )

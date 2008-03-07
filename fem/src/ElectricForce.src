@@ -112,21 +112,9 @@ SUBROUTINE StatElecForce( Model,Solver,dt,TransientSimulation )
   LOGICAL :: stat, CalculateMoment, ActiveBoundary, DoDisplacedBoundaries, FirstTime = .TRUE.
   CHARACTER(LEN=MAX_NAME_LEN) :: EqName1, EqName2, VariableName
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ElectricForce.src,v 1.8 2006/11/27 10:23:56 jpr Exp $"
-
   SAVE FirstTime, ForceDensity, Pwrk
 !------------------------------------------------------------------------------
 
-!------------------------------------------------------------------------------
-!    Check if version number output is requested
-!------------------------------------------------------------------------------
-  IF ( FirstTime ) THEN
-    IF ( ListGetLogical( GetSimulation(), 'Output Version Numbers', stat ) ) THEN
-      CALL Info( 'StatElecForce', 'ElectricForce version:', Level = 0 ) 
-      CALL Info( 'StatElecForce', VersionID, Level = 0 ) 
-      CALL Info( 'StatElecForce', ' ', Level = 0 ) 
-    END IF
-  END IF
 
   DIM = CoordinateSystemDimension()
 

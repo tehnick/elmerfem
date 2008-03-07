@@ -177,39 +177,33 @@
        IF ( CurrentElement % TYPE % ElementCode /= 101 ) THEN
          DO i=1,Model % NumberOfBCs
            IF ( Model % BCs(i) % Tag == k ) THEN
-             IF ( ListGetLogical( Model % BCs(i) % Values,'Heat Flux BC', GotIt) ) THEN
-               RadiationFlag = ListGetString( Model % BCs(i) % Values, &
-                   'Radiation', GotIt )
-               
-               IF ( RadiationFlag(1:12) == 'diffuse gray' ) THEN
-                 
-                 l = MAX(1, ListGetInteger( Model % BCs(i) % Values,'Radiation Boundary',GotIt) )
+             RadiationFlag = ListGetString( Model % BCs(i) % Values, &
+                 'Radiation', GotIt )
+             IF ( RadiationFlag(1:12) == 'diffuse gray' ) THEN
+               l = MAX(1, ListGetInteger( Model % BCs(i) % Values,'Radiation Boundary',GotIt) )
+               MaxRadiationBody = MAX(l, MaxRadiationBody)
 
-                 MaxRadiationBody = MAX(l, MaxRadiationBody)
-                 
-                 NodeIndexes =>  CurrentElement % NodeIndexes
-                 n = CurrentElement % TYPE % NumberOfNodes
+               NodeIndexes =>  CurrentElement % NodeIndexes
+               n = CurrentElement % TYPE % NumberOfNodes
 
-                 ActiveNodes(NodeIndexes) = .TRUE.
-                 RadiationSurfaces = RadiationSurfaces + 1
+               ActiveNodes(NodeIndexes) = .TRUE.
+               RadiationSurfaces = RadiationSurfaces + 1
                  
-                 IF(GeometryFixedAfter == TimesVisited) THEN
-                   MeshU(1:n) = ListGetReal(Model % BCs(i) % Values,'Mesh Update 1',n,NodeIndexes,GotIt)
-                   IF(.NOT. GotIt) THEN
-                     WRITE (Message,'(A,I3)') 'Freezing Mesh Update 1 for bc',i
-                     CALL Info('RadiationFactors',Message)
-                     CALL ListAddDepReal( Model % BCs(i) % Values,'Mesh Update 1', &
-                         'Mesh Update 1',2, x0, y0 )
-                   END IF
-                   MeshU(1:n) = ListGetReal(Model % BCs(i) % Values,'Mesh Update 2',n,NodeIndexes,GotIt)
-                   IF(.NOT. GotIt) THEN
-                     WRITE (Message,'(A,I3)') 'Freezing Mesh Update 2 for bc',i
-                     CALL Info('RadiationFactors',Message)
-                     CALL ListAddDepReal( Model % BCs(i) % Values,'Mesh Update 2', &
-                         'Mesh Update 2',2, x0, y0 )
-                   END IF
+               IF(GeometryFixedAfter == TimesVisited) THEN
+                 MeshU(1:n) = ListGetReal(Model % BCs(i) % Values,'Mesh Update 1',n,NodeIndexes,GotIt)
+                 IF(.NOT. GotIt) THEN
+                   WRITE (Message,'(A,I3)') 'Freezing Mesh Update 1 for bc',i
+                   CALL Info('RadiationFactors',Message)
+                   CALL ListAddDepReal( Model % BCs(i) % Values,'Mesh Update 1', &
+                       'Mesh Update 1',2, x0, y0 )
                  END IF
-
+                 MeshU(1:n) = ListGetReal(Model % BCs(i) % Values,'Mesh Update 2',n,NodeIndexes,GotIt)
+                 IF(.NOT. GotIt) THEN
+                   WRITE (Message,'(A,I3)') 'Freezing Mesh Update 2 for bc',i
+                   CALL Info('RadiationFactors',Message)
+                   CALL ListAddDepReal( Model % BCs(i) % Values,'Mesh Update 2', &
+                       'Mesh Update 2',2, x0, y0 )
+                 END IF
                END IF
              END IF
            END IF
@@ -399,21 +393,15 @@
        IF ( CurrentElement % TYPE % ElementCode /= 101 ) THEN
          DO i=1,Model % NumberOfBCs
            IF ( Model % BCs(i) % Tag == k ) THEN
-             IF ( ListGetLogical( Model % BCs(i) % Values,'Heat Flux BC', GotIt) ) THEN
-               RadiationFlag = ListGetString( Model % BCs(i) % Values, &
-                   'Radiation', GotIt )
-
-               IF ( RadiationFlag(1:12) == 'diffuse gray' ) THEN
-                 
-                 l = MAX(1, ListGetInteger( Model % BCs(i) % Values,'Radiation Boundary',GotIt) )
-                 NodeIndexes =>  CurrentElement % NodeIndexes
-                 n = CurrentElement % TYPE % NumberOfNodes
-
-                 IF(l == RadiationBody) THEN
-                   RadiationSurfaces = RadiationSurfaces + 1
-                   ElementNumbers(RadiationSurfaces) = t
-                 END IF
-
+             RadiationFlag = ListGetString( Model % BCs(i) % Values, &
+                 'Radiation', GotIt )
+             IF ( RadiationFlag(1:12) == 'diffuse gray' ) THEN
+               l = MAX(1, ListGetInteger( Model % BCs(i) % Values,'Radiation Boundary',GotIt) )
+               NodeIndexes =>  CurrentElement % NodeIndexes
+               n = CurrentElement % TYPE % NumberOfNodes
+               IF(l == RadiationBody) THEN
+                 RadiationSurfaces = RadiationSurfaces + 1
+                 ElementNumbers(RadiationSurfaces) = t
                END IF
              END IF
            END IF

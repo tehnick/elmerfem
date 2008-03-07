@@ -131,7 +131,6 @@ SUBROUTINE ScalarPotentialSolver( Model,Solver,dt,Transient )
   REAL(KIND=dp), POINTER :: ForceVector(:,:), SaveRHS(:)
   REAL(KIND=dp) :: at0,at1,at2,CPUTime,RealTime
   TYPE(Variable_t), POINTER :: ScalarPotentialSol
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: ScalarPotentialSolver.src,v 1.5 2007/06/21 12:17:15 jpr Exp $"
   
   SAVE Visited
 
@@ -140,18 +139,6 @@ SUBROUTINE ScalarPotentialSolver( Model,Solver,dt,Transient )
   CALL Info( 'ScalarPotentialSolver','Computing scalar potential of a vector field',Level=4 )
   CALL Info( 'ScalarPotentialSolver', '-------------------------------------',Level=4 )
 
-!------------------------------------------------------------------------------
-!    Check if version number output is requested
-!------------------------------------------------------------------------------
-  IF ( .NOT. Visited ) THEN
-    IF ( ListGetLogical( GetSimulation(), 'Output Version Numbers', GotIt ) ) THEN
-      CALL Info( 'ScalarPotentialSolver', 'ScalarPotentialSolver version:', Level = 0 ) 
-      CALL Info( 'ScalarPotentialSolver', VersionID, Level = 0 ) 
-      CALL Info( 'ScalarPotentialSolver', ' ', Level = 0 ) 
-    END IF
-    Visited = .TRUE.
-  END IF
-  
   dim = CoordinateSystemDimension()
 !------------------------------------------------------------------------------
 !    Get variables needed for solution

@@ -212,7 +212,7 @@
 
      INTEGER, POINTER :: NodeIndexes(:)
      LOGICAL :: Stabilize = .TRUE., Bubbles = .TRUE., UseBubbles,NewtonLinearization = .FALSE., &
-         Found, GotIt
+         Found, GotIt, HeatFluxBC
 ! Which compressibility model is used
      CHARACTER(LEN=MAX_NAME_LEN) :: CompressibilityFlag, ConvectionField
      INTEGER :: CompressibilityModel
@@ -292,18 +292,6 @@
 
      REAL(KIND=dp) :: at,at0,totat,st,totst,t1,CPUTime,RealTime
 
-     CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: HeatSolve.src,v 1.29 2007/06/06 07:19:06 jpr Exp $"
-
-!------------------------------------------------------------------------------
-!    Check if version number output is requested
-!------------------------------------------------------------------------------
-     IF ( .NOT. AllocationsDone ) THEN
-        IF ( ListGetLogical( GetSimulation(), 'Output Version Numbers', Found ) ) THEN
-           CALL Info( 'HeatSolve', 'HeatSolver version:', Level = 0 ) 
-           CALL Info( 'HeatSolve', VersionID, Level = 0 ) 
-           CALL Info( 'HeatSolve', ' ', Level = 0 ) 
-        END IF
-     END IF
 
 !------------------------------------------------------------------------------
 !    The View and Gebhardt factors may change. If this is necessary, this is 
@@ -935,8 +923,10 @@
         IF ( GetElementFamily() == 1 ) CYCLE
 
         BC => GetBC()
-        IF ( GetLogical( BC, 'Heat Flux BC',Found) ) THEN
+        HeatFluxBC = GetLogical( BC, 'Heat Flux BC', Found )
+        IF ( .NOT. Found ) HeatFluxBC = .TRUE.
 
+        IF ( HeatFluxBC ) THEN
           CALL GetElementNodes( ElementNodes )
 
           HeatTransferCoeff = 0.0D0

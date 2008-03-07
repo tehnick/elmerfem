@@ -213,12 +213,10 @@
        BC => GetBC()
        IF ( .NOT. ASSOCIATED( BC ) ) CYCLE
 
-       IF ( GetLogical( BC, 'Heat Flux BC', GotIt) ) THEN
-         RadiationFlag = GetString( BC, 'Radiation',GotIt )
-         IF ( GotIt .AND. RadiationFlag(1:12) == 'diffuse gray' ) THEN
-           i = MAX(1, GetInteger( BC, 'Radiation Boundary', GotIt ))
-           MaxRadiationBody = MAX(i, MaxRadiationBody)
-         END IF
+       RadiationFlag = GetString( BC, 'Radiation',GotIt )
+       IF ( GotIt .AND. RadiationFlag(1:12) == 'diffuse gray' ) THEN
+         i = MAX(1, GetInteger( BC, 'Radiation Boundary', GotIt ))
+         MaxRadiationBody = MAX(i, MaxRadiationBody)
        END IF
      END DO
 
@@ -245,16 +243,14 @@
          BC => GetBC()
          IF ( .NOT. ASSOCIATED( BC ) ) CYCLE
          
-         IF ( GetLogical( BC,'Heat Flux BC',GotIt) ) THEN
-           RadiationFlag = GetString( BC, 'Radiation', GotIt )
-           IF ( GotIt .AND. RadiationFlag(1:12) == 'diffuse gray' ) THEN
-             i = MAX(1, GetInteger( BC, 'Radiation Boundary', GotIt ))
-             IF(i == RadiationBody) THEN
-               RadiationOpen = RadiationOpen .OR. GetLogical( BC, 'Radiation Boundary Open', GotIt )
-               RadiationSurfaces = RadiationSurfaces + 1
-               j = t + Model % NumberOFBulkElements
-               RadElements(RadiationSurfaces) = Model % Elements(j)
-             END IF
+         RadiationFlag = GetString( BC, 'Radiation', GotIt )
+         IF ( GotIt .AND. RadiationFlag(1:12) == 'diffuse gray' ) THEN
+           i = MAX(1, GetInteger( BC, 'Radiation Boundary', GotIt ))
+           IF(i == RadiationBody) THEN
+             RadiationOpen = RadiationOpen .OR. GetLogical( BC, 'Radiation Boundary Open', GotIt )
+             RadiationSurfaces = RadiationSurfaces + 1
+             j = t + Model % NumberOFBulkElements
+             RadElements(RadiationSurfaces) = Model % Elements(j)
            END IF
          END IF
        END DO

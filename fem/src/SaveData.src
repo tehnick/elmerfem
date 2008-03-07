@@ -175,8 +175,6 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       MaxVars, NoEigenValues, Ind, EigenDofs
   REAL (KIND=DP) :: CPUTime, CPUMemory
 
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.42 2007/09/07 10:41:41 raback Exp $"
-
   SAVE SubroutineVisited, NumberOfVars, &
       NoPoints, PointIndex, CoordinateIndex, CoordinateDist, ResultPrefix, &
       Values, ValueNames, NoCoordinates, ScalarsFile, ScalarNamesFile, &
@@ -186,16 +184,6 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
       LineCoordinates, ScalarParFile, Parallel, ParSolver, PrevNoValues, &
       LiveGraph
 
-!------------------------------------------------------------------------------
-!    Check if version number output is requested
-!------------------------------------------------------------------------------
-  IF ( .NOT. SubroutineVisited ) THEN
-    IF ( ListGetLogical( GetSimulation(), 'Output Version Numbers', GotIt ) ) THEN
-      CALL Info( 'SaveScalars', 'SaveData version:', Level = 0 ) 
-      CALL Info( 'SaveScalars', VersionID, Level = 0 ) 
-      CALL Info( 'SaveScalars', ' ', Level = 0 ) 
-    END IF
-  END IF
 !------------------------------------------------------------------------------
 
   Mesh => Model % Meshes
@@ -2160,7 +2148,6 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
   TYPE(Element_t), POINTER   :: CurrentElement, NextElement
   CHARACTER(LEN=MAX_NAME_LEN) :: SideFile, SideNamesFile, VarName, CondName, SideParFile
   CHARACTER(LEN=MAX_NAME_LEN), ALLOCATABLE :: ValueNames(:)
-  CHARACTER(LEN=MAX_NAME_LEN) :: VersionID = "$Id: SaveData.src,v 1.42 2007/09/07 10:41:41 raback Exp $"
 
   LOGICAL :: cand, Parallel
 
@@ -2168,16 +2155,6 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
       Basis, NoResults, NoEigenValues, Values, PrevDoneTime, Parallel, &
       ParSolver, SideParFile
 
-!------------------------------------------------------------------------------
-!    Check if version number output is requested
-!------------------------------------------------------------------------------
-  IF ( .NOT. SubroutineVisited ) THEN
-    IF ( ListGetLogical( GetSimulation(), 'Output Version Numbers', GotIt ) ) THEN
-      CALL Info( 'SaveLine', 'SaveData version:', Level = 0 ) 
-      CALL Info( 'SaveLine', VersionID, Level = 0 ) 
-      CALL Info( 'SaveLine', ' ', Level = 0 ) 
-    END IF
-  END IF
 !------------------------------------------------------------------------------
 
   Mesh => Model % Meshes
