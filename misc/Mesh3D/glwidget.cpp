@@ -428,115 +428,116 @@ GLuint GLWidget::makeObjects()
 GLuint GLWidget::generateBoundaryList(int index, double R, double G, double B)
 {
   int i;
-  double x0[3], x1[3], x2[3];
+  double x0[3], x1[3], x2[3], x3[3];
   boundaryelement_t *boundaryelement;
 
   GLuint list = glGenLists(1);
   glNewList(list, GL_COMPILE);
-  
-  // Triangles:
-  glBegin(GL_TRIANGLES);  
 
   for(i=0; i < mesh->boundaryelements; i++) {
     boundaryelement = &mesh->boundaryelement[i];
 
-    if(boundaryelement->index == index) {
-      glColor3d(R,G,B);
+    if(boundaryelement->index == index && boundaryelement->code == 303) {
       
       glNormal3dv(boundaryelement->normal); 
-      
-      int n0 = boundaryelement->node[0];
-      int n1 = boundaryelement->node[1];
-      int n2 = boundaryelement->node[2];
 
-      // cout << n0 << " " << n1 << " " << n2 << endl; cout.flush();
-      
-      x0[0] = (mesh->node[n0].x[0] - drawTranslate[0]) / drawScale;
-      x0[1] = (mesh->node[n0].x[1] - drawTranslate[1]) / drawScale;
-      x0[2] = (mesh->node[n0].x[2] - drawTranslate[2]) / drawScale;
-      
-      x1[0] = (mesh->node[n1].x[0] - drawTranslate[0]) / drawScale;
-      x1[1] = (mesh->node[n1].x[1] - drawTranslate[1]) / drawScale;
-      x1[2] = (mesh->node[n1].x[2] - drawTranslate[2]) / drawScale;
-      
-      x2[0] = (mesh->node[n2].x[0] - drawTranslate[0]) / drawScale;
-      x2[1] = (mesh->node[n2].x[1] - drawTranslate[1]) / drawScale;
-      x2[2] = (mesh->node[n2].x[2] - drawTranslate[2]) / drawScale;
-      
-      glVertex3dv(x0);
-      glVertex3dv(x1);
-      glVertex3dv(x2);
+      if(boundaryelement->code == 303) {
+	glBegin(GL_TRIANGLES);
+	
+	glColor3d(R,G,B);
+
+	int n0 = boundaryelement->node[0];
+	int n1 = boundaryelement->node[1];
+	int n2 = boundaryelement->node[2];
+	
+	x0[0] = (mesh->node[n0].x[0] - drawTranslate[0]) / drawScale;
+	x0[1] = (mesh->node[n0].x[1] - drawTranslate[1]) / drawScale;
+	x0[2] = (mesh->node[n0].x[2] - drawTranslate[2]) / drawScale;
+	
+	x1[0] = (mesh->node[n1].x[0] - drawTranslate[0]) / drawScale;
+	x1[1] = (mesh->node[n1].x[1] - drawTranslate[1]) / drawScale;
+	x1[2] = (mesh->node[n1].x[2] - drawTranslate[2]) / drawScale;
+	
+	x2[0] = (mesh->node[n2].x[0] - drawTranslate[0]) / drawScale;
+	x2[1] = (mesh->node[n2].x[1] - drawTranslate[1]) / drawScale;
+	x2[2] = (mesh->node[n2].x[2] - drawTranslate[2]) / drawScale;
+	
+	glVertex3dv(x0);
+	glVertex3dv(x1);
+	glVertex3dv(x2);
+
+	glEnd();
+
+	glBegin(GL_LINES);
+	glLineWidth(1.0);
+	glColor3d(0,0,0);
+
+	glVertex3dv(x0);
+	glVertex3dv(x1);
+
+	glVertex3dv(x1);
+	glVertex3dv(x2);
+
+	glVertex3dv(x2);
+	glVertex3dv(x0);
+	
+	glEnd();
+      }
+
+      if(boundaryelement->code == 404) {
+	glBegin(GL_QUADS);
+	
+	glColor3d(R,G,B);
+	
+	int n0 = boundaryelement->node[0];
+	int n1 = boundaryelement->node[1];
+	int n2 = boundaryelement->node[2];
+	int n3 = boundaryelement->node[3];
+	
+	x0[0] = (mesh->node[n0].x[0] - drawTranslate[0]) / drawScale;
+	x0[1] = (mesh->node[n0].x[1] - drawTranslate[1]) / drawScale;
+	x0[2] = (mesh->node[n0].x[2] - drawTranslate[2]) / drawScale;
+	
+	x1[0] = (mesh->node[n1].x[0] - drawTranslate[0]) / drawScale;
+	x1[1] = (mesh->node[n1].x[1] - drawTranslate[1]) / drawScale;
+	x1[2] = (mesh->node[n1].x[2] - drawTranslate[2]) / drawScale;
+	
+	x2[0] = (mesh->node[n2].x[0] - drawTranslate[0]) / drawScale;
+	x2[1] = (mesh->node[n2].x[1] - drawTranslate[1]) / drawScale;
+	x2[2] = (mesh->node[n2].x[2] - drawTranslate[2]) / drawScale;
+	
+	x3[0] = (mesh->node[n3].x[0] - drawTranslate[0]) / drawScale;
+	x3[1] = (mesh->node[n3].x[1] - drawTranslate[1]) / drawScale;
+	x3[2] = (mesh->node[n3].x[2] - drawTranslate[2]) / drawScale;
+	
+	glVertex3dv(x0);
+	glVertex3dv(x1);
+	glVertex3dv(x2);
+	glVertex3dv(x3);
+
+	glEnd();
+
+	glBegin(GL_LINES);
+	glLineWidth(1.0);
+	glColor3d(0,0,0);
+
+	glVertex3dv(x0);
+	glVertex3dv(x1);
+
+	glVertex3dv(x1);
+	glVertex3dv(x2);
+	
+	glVertex3dv(x2);
+	glVertex3dv(x3);
+	
+	glVertex3dv(x3);
+	glVertex3dv(x0);
+	
+	glEnd();
+      }
     }
   }
-  glEnd();
   
-  // Lines:
-  glBegin(GL_LINES);
-  glLineWidth(1.0);
-
-  for(i=0; i < mesh->boundaryelements; i++) {
-    boundaryelement = &mesh->boundaryelement[i];
-
-    if(boundaryelement->index == index) {
-
-      glColor3d(0,0,0); // black
-      
-      glNormal3dv(boundaryelement->normal); 
-      
-      int n0 = boundaryelement->node[0];
-      int n1 = boundaryelement->node[1];
-      int n2 = boundaryelement->node[2];
-      
-      x0[0] = (mesh->node[n0].x[0] - drawTranslate[0]) / drawScale;
-      x0[1] = (mesh->node[n0].x[1] - drawTranslate[1]) / drawScale;
-      x0[2] = (mesh->node[n0].x[2] - drawTranslate[2]) / drawScale;
-      
-      x1[0] = (mesh->node[n1].x[0] - drawTranslate[0]) / drawScale;
-      x1[1] = (mesh->node[n1].x[1] - drawTranslate[1]) / drawScale;
-      x1[2] = (mesh->node[n1].x[2] - drawTranslate[2]) / drawScale;
-      
-      x2[0] = (mesh->node[n2].x[0] - drawTranslate[0]) / drawScale;
-      x2[1] = (mesh->node[n2].x[1] - drawTranslate[1]) / drawScale;
-      x2[2] = (mesh->node[n2].x[2] - drawTranslate[2]) / drawScale;
-      
-      glVertex3dv(x0);
-      glVertex3dv(x1);
-      
-      glVertex3dv(x1);
-      glVertex3dv(x2);
-      
-      glVertex3dv(x2);
-      glVertex3dv(x0);
-
-#if 0
-      // draw normals:
-      double a[3];
-
-      glColor3d(1,0,0); // red
-
-      a[0] = x0[0] + boundaryelement->normal[0] / 10.0;
-      a[1] = x0[1] + boundaryelement->normal[1] / 10.0;
-      a[2] = x0[2] + boundaryelement->normal[2] / 10.0;
-      glVertex3dv(x0);
-      glVertex3dv(a);
-
-      a[0] = x1[0] + boundaryelement->normal[0] / 10.0;
-      a[1] = x1[1] + boundaryelement->normal[1] / 10.0;
-      a[2] = x1[2] + boundaryelement->normal[2] / 10.0;
-      glVertex3dv(x1);
-      glVertex3dv(a);
-
-      a[0] = x2[0] + boundaryelement->normal[0] / 10.0;
-      a[1] = x2[1] + boundaryelement->normal[1] / 10.0;
-      a[2] = x2[2] + boundaryelement->normal[2] / 10.0;
-      glVertex3dv(x2);
-      glVertex3dv(a);
-#endif
-
-    }
-  }
-  
-  glEnd();  
   glEndList();
   
   return list;
