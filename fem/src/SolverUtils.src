@@ -2767,7 +2767,7 @@ CONTAINS
     ELSE 
       SELECT CASE(NormDim)
       CASE(0)
-        Norm = MAXVAL(ABS(x(1:n)))
+        Norm = ParallelReduction(MAXVAL(ABS(x(1:n))))
       CASE(1)
         Norm = ParallelReduction(SUM(ABS(x(1:n))))/nscale
       CASE(2)
