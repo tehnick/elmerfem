@@ -346,7 +346,7 @@ void GLWidget::rebuildBoundaryLists()
   drawScale = bb[9];         // scaling
 
   delete [] bb;
-    
+ 
   if(objects) {
     for(int i=0; i < (int)objects; i++)
       glDeleteLists(glListMap[i], 1);
@@ -354,6 +354,7 @@ void GLWidget::rebuildBoundaryLists()
   }
   
   objects = makeObjects();
+
   updateGL();
 }
 
@@ -370,6 +371,7 @@ GLuint GLWidget::makeObjects()
     objects = 0;
     return 0;
   }
+
 
   // First, scan boundary elements to determine the number of bcs:
   int *bctable = new int[mesh->boundaryelements];
@@ -388,7 +390,7 @@ GLuint GLWidget::makeObjects()
       bcs++;
   }  
 
-  // cout << "Boundary parts: " << bcs << endl;
+  cout << "Boundary parts: " << bcs << endl;
   
   sizeofGlMaps = bcs;
   glBcMap = new int[bcs];
@@ -411,6 +413,7 @@ GLuint GLWidget::makeObjects()
     GLuint currentList = generateBoundaryList(glBcMap[i],0,1,1);
     glListMap[i] = currentList;
   }
+
   
   delete [] bctable; 
 
@@ -436,7 +439,7 @@ GLuint GLWidget::generateBoundaryList(int index, double R, double G, double B)
 
   for(i=0; i < mesh->boundaryelements; i++) {
     boundaryelement = &mesh->boundaryelement[i];
-    
+
     if(boundaryelement->index == index) {
       glColor3d(R,G,B);
       
@@ -445,6 +448,8 @@ GLuint GLWidget::generateBoundaryList(int index, double R, double G, double B)
       int n0 = boundaryelement->node[0];
       int n1 = boundaryelement->node[1];
       int n2 = boundaryelement->node[2];
+
+      // cout << n0 << " " << n1 << " " << n2 << endl; cout.flush();
       
       x0[0] = (mesh->node[n0].x[0] - drawTranslate[0]) / drawScale;
       x0[1] = (mesh->node[n0].x[1] - drawTranslate[1]) / drawScale;

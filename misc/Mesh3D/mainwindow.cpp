@@ -398,20 +398,29 @@ void MainWindow::remeshSlot()
     glWidget->mesh = new mesh_t;
     mesh_t *mesh = glWidget->mesh;
     
+
+    logMessage("eg api start");
     elmergridAPI->createElmerMeshStructure(mesh);
-    
+    logMessage("eg api end");
+
     cout << "Nodes: " << mesh->nodes << endl;
     cout << "Elements: " << mesh->elements << endl;
     cout << "Boundaryelements: " << mesh->boundaryelements << endl;
     cout.flush();
     
     // this is just for the test case:
-    meshutils->findBoundaryElementEdges(mesh);
-    meshutils->findBoundaryElementParents(mesh);
-    meshutils->findBoundaryElementNormals(mesh);
+    cout << "a1" << endl;
+   if(0) meshutils->findBoundaryElementEdges(mesh);
+    cout << "a2" << endl;
+   if(0) meshutils->findBoundaryElementParents(mesh);
+   cout << "a3" << endl;
+   if(0) meshutils->findBoundaryElementNormals(mesh);
 
     logMessage("Ready");
     glWidget->rebuildBoundaryLists();
+    
+    cout << "back" << endl;
+
     
     return;
     

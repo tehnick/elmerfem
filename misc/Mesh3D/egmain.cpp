@@ -1161,10 +1161,10 @@ int main(int argc, char *argv[])
     for(i=0;i<mesh->elements;i++) {
       e = &mesh->element[i];
       e->code = data[0].elementtypes[i+1];
-      e->nodes = e->nodes % 100;
+      e->nodes = e->code % 100;
       e->node = new int[e->nodes];
       for(j=0;j<e->nodes;j++)
-	e->node[j] = data[0].topology[i+1][j];
+	e->node[j] = data[0].topology[i+1][j]-1;
       e->index = data[0].material[i+1];
     }
   }  
@@ -1187,10 +1187,11 @@ int main(int argc, char *argv[])
       
 
       b->code = data[0].elementtypes[i+1];
-      b->nodes = b->nodes % 100;
+      b->nodes = b->code % 100;
       b->node = new int[b->nodes];
-      for(j=0;j<b->nodes;j++)
-	b->node[j] = data[0].topology[i+1][j];
+      for(j=0;j<b->nodes;j++) {
+	b->node[j] = data[0].topology[i+1][j]-1;
+      }
       b->index = data[0].material[i+1];
     }
   }
