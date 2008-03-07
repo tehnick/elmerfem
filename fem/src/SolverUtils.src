@@ -329,7 +329,7 @@ CONTAINS
        NormalTangentialName = TRIM(NormalTangentialName) // ' Velocity'
      ELSE
        NormalTangentialName = TRIM(NormalTangentialName) // ' ' // &
-        Solver % Variable % Name(1:Solver % Variable % Namelen)
+                   GetVarName(Solver % Variable)
      END IF
 
      dim = CoordinateSystemDimension()
@@ -463,7 +463,7 @@ CONTAINS
      IF ( .NOT. Found )  RETURN
 
      nlen = CurrentModel % Solver % Variable % NameLen
-     PassName = CurrentModel % Solver % Variable % Name(1:nlen) // ' Passive'
+     PassName = GetVarName(CurrentModel % Solver % Variable) // ' Passive'
      IF ( ListCheckPresent(CurrentModel % BodyForces(bf_id) % Values, PassName) ) THEN
        NbrNodes = Element % TYPE % NumberOfNodes
        IF ( ALLOCATED(Passive) ) THEN
@@ -3259,7 +3259,7 @@ CONTAINS
 
 
     NodalLoads => VariableGet( Solver % Mesh % Variables, &
-       Solver % Variable % Name(1:Solver % Variable % NameLen) // ' Loads' )
+       GetVarName(Solver % Variable) // ' Loads' )
 
     IF ( ASSOCIATED(NodalLoads) .AND. ASSOCIATED(A % BulkValues) ) THEN
       ALLOCATE( TempVector(n) )
@@ -3292,12 +3292,12 @@ CONTAINS
 
     Solver % Variable % PrimaryMesh => Solver % Mesh
     CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, &
-          Solver % Variable % Name(1:Solver % Variable % NameLen) )
+          GetVarName(Solver % Variable) )
 
     IF ( ASSOCIATED( NodalLoads ) ) THEN
       NodalLoads % PrimaryMesh => Solver % Mesh
       CALL InvalidateVariable( CurrentModel % Meshes, Solver % Mesh, &
-                   NodalLoads % Name(1:NodalLoads % NameLen) )
+                   GetVarName(NodalLoads) )
     END IF
 !------------------------------------------------------------------------------
 

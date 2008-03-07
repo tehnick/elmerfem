@@ -236,14 +236,14 @@
 
           
           P1(1:n) = ListGetReal( Model % BCs(i) % Values, &
-               Solver % Variable % Name(1:Solver % Variable % Namelen)//' 1', n, NodeIndexes, GotIt )
+               ComponentName(Solver % Variable,1), n, NodeIndexes, GotIt )
 
           IF ( .NOT. GotIt ) THEN
              P1(1:n) = ListGetReal( Model % BCs(i) % Values, 'Potential 1' , n, NodeIndexes, GotIt )
           END IF
 
           P2(1:n) = ListGetReal( Model % BCs(i) % Values, &
-               Solver % Variable % Name(1:Solver % Variable % Namelen)//' 2', n, NodeIndexes, GotIt )
+               ComponentName(Solver % Variable,2), n, NodeIndexes, GotIt )
 
           IF ( .NOT. GotIt ) THEN
              P2(1:n) = ListGetReal( Model % BCs(i) % Values, 'Potential 2' , n, NodeIndexes, GotIt )

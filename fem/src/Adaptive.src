@@ -280,8 +280,8 @@ CONTAINS
 !   Add nodal average of the computed estimate to the
 !   solution error to the mesh variable list:
 !   --------------------------------------------------
-    NLen = Solver % Variable % NameLen
-    VarName = Solver % Variable % Name(1:NLen)
+    VarName = GetVarName(Solver % Variable)
+    NLen = LEN_TRIM(VarName)
     Var => VariableGet( RefMesh % Variables, &
          VarName(1:NLen)  // '.error', ThisOnly=.TRUE. )
 

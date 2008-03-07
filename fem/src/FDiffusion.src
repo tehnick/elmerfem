@@ -425,11 +425,11 @@ SUBROUTINE FourierDiffusionSolver( Model,Solver,dt,TransientSimulation )
 !    Dirichlet BCs:
 !    --------------
      CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, &
-          Solver % Variable % Name(1:Solver % Variable % Namelen) // ' 1', 1, &
+          ComponentName(Solver % Variable,1), 1, &
              Solver % Variable % DOFs, SomeQuantityPerm )
 
      CALL SetDirichletBoundaries( Model, StiffMatrix, ForceVector, &
-          Solver % Variable % Name(1:Solver % Variable % Namelen) // ' 2', 2, &
+          ComponentName(Solver % Variable,2), 2, &
              Solver % Variable % DOFs, SomeQuantityPerm )
 
      CALL Info( 'FourierDiffusionSolve', 'Assembly done', Level=4 )

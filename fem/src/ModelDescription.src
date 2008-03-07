@@ -1876,10 +1876,7 @@ CONTAINS
       DO WHILE( ASSOCIATED(Var) )
         IF ( Var % Output ) THEN
            IF ( Var % DOFs > 1 .AND. SIZE(Var % Values)>1 ) THEN
-             DO k=LEN(Var % Name),1,-1
-               IF ( Var % Name(k:k) /= ' ' ) EXIT
-             END DO
-
+             k = LEN_TRIM(Var % Name)
              IF ( Var % Name(1:10) /= 'coordinate' .OR. FreeSurfaceFlag ) THEN
                WRITE( OutputUnit,* ) Var % Name(1:k),Var % DOFs, &
                   ' :', 'fs' ! TRIM(ListGetString( Var % Solver % Values, 'Equation' ))
@@ -1899,10 +1896,7 @@ CONTAINS
         IF ( Var % Output ) THEN
 
            IF ( Var % DOFs == 1 .AND. SIZE(Var % Values)>1 ) THEN
-             DO k=LEN(Var % Name),1,-1
-               IF ( Var % Name(k:k) /= ' ' ) EXIT
-             END DO
-
+             k = LEN_TRIM(Var % Name)
              IF ( Var % Name(1:10) /= 'coordinate' .OR. FreeSurfaceFlag ) THEN
                WRITE( OutputUnit,* ) Var % Name(1:k),Var % DOFs, &
                 ' :', 'fs' ! TRIM(ListGetString( Var % Solver % Values, 'Equation' ))
@@ -1949,10 +1943,7 @@ CONTAINS
     DO WHILE( ASSOCIATED(Var) )
       IF ( Var % Output .AND. Var % DOFs==1 .AND. SIZE(Var % Values)>1 ) THEN
 
-         DO k=LEN(Var % Name),1,-1
-            IF ( Var % Name(k:k) /= ' ' ) EXIT
-         END DO
-
+         k = LEN_TRIM(Var % Name)
          IF ( Var % Name(1:10) /= 'coordinate' .OR. FreeSurfaceFlag ) THEN
             IF ( SaveAll .OR. Var % ValuesChanged ) THEN
                CALL WriteVarName( OutputUnit,PosUnit,Var % Name(1:k),VarPos(j) )

@@ -116,7 +116,6 @@ INTEGER FUNCTION RigidBody( Model, Solver, A, b, x, n, DOFs, Norm )
   INTEGER :: NbrRigids, NbrFixed, LBody, RBody
   INTEGER :: istat, i, j, k, m, t, p, l
   LOGICAL :: AllocationsDone = .FALSE., Mass, Damp
-  CHARACTER(LEN=MAX_NAME_LEN) :: VarName
 
   INTRINSIC PACK, MERGE
 
@@ -259,7 +258,6 @@ INTEGER FUNCTION RigidBody( Model, Solver, A, b, x, n, DOFs, Norm )
 
      Visited = .FALSE.
      FixedIndex = 0
-     VarName = Solver % Variable % Name
 
      NbrFixed = 0
 
@@ -280,13 +278,13 @@ INTEGER FUNCTION RigidBody( Model, Solver, A, b, x, n, DOFs, Norm )
                 Model % BCs(i) % Tag ) THEN
 
               Work(1:m) = ListGetReal( Model % BCs(i) % Values, &
-                   TRIM(VarName) // ' 1',m,NodeIndexes, gotIt )
+                   ComponentName(Solver % Variable,1),m,NodeIndexes, gotIt )
               IF ( .NOT. GotIt )   Work(1:m) = &
                    ListGetReal( Model % BCs(i) % Values, &
-                   TRIM(VarName) // ' 2',m,NodeIndexes, gotIt )
+                   ComponentName(Solver % Variable,1),m,NodeIndexes, gotIt )
               IF ( .NOT. GotIt )   Work(1:m) = &
                    ListGetReal( Model % BCs(i) % Values, &
-                   TRIM(VarName) // ' 3',m,NodeIndexes, gotIt )
+                   ComponentName(Solver % Variable,3),m,NodeIndexes, gotIt )
               IF ( .NOT. GotIt )  CYCLE
 
 

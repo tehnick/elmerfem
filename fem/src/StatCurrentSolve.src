@@ -430,7 +430,7 @@
 !------------------------------------------------------------------------------
 
      CALL SetNodalLoads( Model,StiffMatrix,ForceVector, &
-               Solver % Variable % Name,1,1,PotentialPerm )
+               ComponentName(Solver % Variable),1,1,PotentialPerm )
 
 !------------------------------------------------------------------------------
 !    FinishAssembly must be called after all other assembly steps, but before
@@ -442,7 +442,7 @@
 !    Dirichlet boundary conditions
 !------------------------------------------------------------------------------
      CALL SetDirichletBoundaries( Model,StiffMatrix,ForceVector, &
-               Solver % Variable % Name,1,1,PotentialPerm )
+            ComponentName(Solver % Variable),1,1,PotentialPerm )
 
      at = CPUTime() - at
      WRITE( Message, * ) 'Assembly (s)          :',at

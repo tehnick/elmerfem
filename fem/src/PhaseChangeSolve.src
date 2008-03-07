@@ -262,7 +262,8 @@ SUBROUTINE PhaseChangeSolve( Model,Solver,dt,TransientSimulation )
       AverageNormal = .FALSE.
     END IF
 
-    HelpSol => VariableGet( Solver % Mesh % Variables, TRIM(Solver % Variable % Name)//'Move', stat)
+    HelpSol => VariableGet( Solver % Mesh % Variables, &
+         TRIM(ComponentName(Solver % Variable))//'Move', stat)
     IF(ASSOCIATED(HelpSol)) THEN
       SurfaceMove => HelpSol % Values
     ELSE
@@ -270,11 +271,12 @@ SUBROUTINE PhaseChangeSolve( Model,Solver,dt,TransientSimulation )
       IF ( istat /= 0 ) CALL Fatal( 'PhaseChangeSolver', 'Memory allocation error.' )           
       SurfaceMove = 0.0d0
       CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-          PSolver,TRIM(Solver % Variable % Name)//'Move',1,SurfaceMove,SurfPerm)
+          PSolver,TRIM(ComponentName(Solver % Variable))//'Move',1,SurfaceMove,SurfPerm)
     END IF
 
     IF(ListGetLogical(Solver % Values,'Use Average Velocity',Stat)) THEN
-      HelpSol => VariableGet( Solver % Mesh % Variables, TRIM(Solver % Variable % Name)//'MoveAve', stat)
+      HelpSol => VariableGet( Solver % Mesh % Variables, &
+             TRIM(ComponentName(Solver % Variable))//'MoveAve', stat)
       IF(ASSOCIATED(HelpSol)) THEN
         SurfaceMoveAve => HelpSol % Values
       ELSE
@@ -282,7 +284,7 @@ SUBROUTINE PhaseChangeSolve( Model,Solver,dt,TransientSimulation )
         IF ( istat /= 0 ) CALL Fatal( 'PhaseChangeSolver', 'Memory allocation error.' )           
         SurfaceMoveAve = 0.0d0
         CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, &
-            PSolver,TRIM(Solver % Variable % Name)//'MoveAve',1,SurfaceMoveAve,SurfPerm)
+            PSolver,TRIM(ComponentName(Solver % Variable))//'MoveAve',1,SurfaceMoveAve,SurfPerm)
       END IF
     END IF
 

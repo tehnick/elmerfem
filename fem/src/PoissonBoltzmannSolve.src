@@ -195,7 +195,7 @@
          IF ( istat /= 0 ) THEN
            CALL Fatal( 'StatElecSolve', 'Memory allocation error 2' )
          END IF
-         WRITE (NameField,'(A,A)') TRIM(Solver % Variable % Name),' Field'
+         WRITE (NameField,'(A,A)') TRIM(ComponentName(Solver % Variable)),' Field'
        END IF
 
        CalculateCharge = ListGetLogical( Solver % Values, &
@@ -203,7 +203,7 @@
        IF ( .NOT. GotIt )  CalculateCharge = .TRUE.
        IF ( CalculateCharge )  THEN
          ALLOCATE( ChargeField( Model % NumberOfNodes ), STAT=istat )
-         WRITE (NameCharge,'(A,A)') TRIM(Solver % Variable % Name),' Charge'
+         WRITE (NameCharge,'(A,A)') TRIM(ComponentName(Solver % Variable)),' Charge'
          IF ( istat /= 0 ) THEN
            CALL Fatal( 'StatElecSolve', 'Memory allocation error 3' )
          END IF
@@ -219,7 +219,7 @@
 
        IF ( CalculateEnergy ) THEN
          ALLOCATE( EnergyField( Model%NumberOfNodes ), STAT=istat )
-         WRITE (NameEnergy,'(A,A)') TRIM(Solver % Variable % Name),' Energy'
+         WRITE (NameEnergy,'(A,A)') TRIM(ComponentName(Solver % Variable)),' Energy'
          IF ( istat /= 0 ) THEN
            CALL Fatal( 'StatElecSolve', 'Memory allocation error 4' )
          END IF
@@ -452,7 +452,7 @@
 !    Dirichlet boundary conditions
 !------------------------------------------------------------------------------
        CALL SetDirichletBoundaries( Model,StiffMatrix,ForceVector, &
-           Solver % Variable % Name,1,1,PotentialPerm )
+           ComponentName(Solver % Variable),1,1,PotentialPerm )
 
        at = CPUTime() - at
        WRITE( Message, * ) 'Assembly (s)          :',at

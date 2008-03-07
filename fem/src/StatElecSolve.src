@@ -674,8 +674,8 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 !         Memorize the min and max potential as given by Dirichtlet BCs
 !------------------------------------------------------------------------------          
-          Load(1:n) = ListGetReal(Model % BCs(i) % Values,Solver % Variable % Name,&
-              n, NodeIndexes, gotIt)
+          Load(1:n) = ListGetReal(Model % BCs(i) % Values, &
+             ComponentName(Solver % Variable), n, NodeIndexes, gotIt)
           IF(GotIt) THEN
             MinPotential = MIN(MinPotential, MINVAL(Load(1:n)))
             MaxPotential = MAX(MaxPotential, MAXVAL(Load(1:n)))             
@@ -748,7 +748,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
     
     CALL SetNodalLoads( Model,StiffMatrix,ForceVector, &
-        Solver % Variable % Name,1,1,PotentialPerm )       
+        Componentname(Solver % Variable),1,1,PotentialPerm )       
 	
 !------------------------------------------------------------------------------
 !    FinishAssembly must be called after all other assembly steps, but before
@@ -760,7 +760,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !    Dirichlet boundary conditions
 !------------------------------------------------------------------------------
     CALL SetDirichletBoundaries( Model,StiffMatrix,ForceVector, &
-        Solver % Variable % Name,1,1,PotentialPerm )       
+        ComponentName(Solver % Variable),1,1,PotentialPerm )       
    
     IF(CalculateCapMatrix) THEN 
       CALL SetPermutationBoundaries( Model, StiffMatrix, ForceVector, &
@@ -1184,7 +1184,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
              n = Element % TYPE % NumberOfNodes
              
              Dirichlet(1:n) = GetReal( Model % BCs(k) % Values, & 
-                   Solver % Variable % Name, GotIt,  Element )
+                   ComponentName(Solver % Variable), GotIt,  Element )
              IF ( .NOT. GotIt )  CYCLE
 
              BoundaryNodes % x(1:n) = Model % Nodes % x( NodeIndexes )
@@ -1855,8 +1855,8 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !
 !       Check if dirichlet BC given:
 !       ----------------------------
-        s = ListGetConstReal( Model % BCs(j) % Values, Model % Solver % Variable % Name, &
-             Dirichlet )
+        s = ListGetConstReal( Model % BCs(j) % Values, &
+              ComponentName(Model % Solver % Variable), Dirichlet )
 
 !       Get various flux bc options:
 !       ----------------------------

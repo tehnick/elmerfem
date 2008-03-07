@@ -113,7 +113,7 @@ SUBROUTINE DistanceSolver( Model,Solver,dt,TransientSimulation )
   DO i=1,Model % NumberOFBCs
     BC => Model % BCs(i) % Values
     IF ( GetLogical( BC, 'Noslip Wall BC', Found ) ) &
-      CALL ListAddConstReal( BC, Solver % Variable % Name, 0.0_dp )
+      CALL ListAddConstReal( BC, ComponentName(Solver % Variable), 0.0_dp )
   END DO
 
   DO i=1,MaxIter
@@ -286,7 +286,7 @@ SUBROUTINE DistanceSolver1( Model,Solver,dt,TransientSimulation )
     IF ( .NOT. ActiveBoundaryElement() ) CYCLE
 
     BC => GetBC()
-    IF ( ListCheckPresent( BC, Solver % Variable % Name) .OR. &
+    IF ( ListCheckPresent(BC,ComponentName(Solver % Variable)).OR. &
          GetLogical( BC, 'Noslip Wall BC', Found ) ) THEN
       n = GetElementNOFNodes()
       DO i=1,n

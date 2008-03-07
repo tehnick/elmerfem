@@ -127,9 +127,10 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
 ! Allocate some permanent storage, this is done first time only
 !------------------------------------------------------------------------------
   IF(Cavitation) THEN
-    VarTemp => VariableGet( Model % Mesh % Variables, TRIM(Solver % Variable % Name) // ' Cavitation' )
+    VarTemp => VariableGet( Model % Mesh % Variables, &
+           GetVarName(Solver % Variable) // ' Cavitation' )
     IF (.NOT.ASSOCIATED(VarTemp)) THEN
-      WRITE(Message,'(A)') TRIM(Solver % Variable % Name) // ' Cavitation: not associated'
+      WRITE(Message,'(A)') TRIM(ComponentName(Solver % Variable)) // ' Cavitation: not associated'
       CALL FATAL('ReynoldsSolver', Message)
     END IF
     CavitationValues => VarTemp % Values
@@ -139,9 +140,10 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
       IF( ABS(CavitationValues(i)) < 1.0d-20 ) CavitationValues(i) = -1.0
     END DO
 
-    VarTemp => VariableGet( Model % Mesh % Variables, TRIM(Solver % Variable % Name) // ' Loads' )
+    VarTemp => VariableGet( Model % Mesh % Variables, &
+       GetVarName(Solver % Variable) // ' Loads' )
     IF (.NOT.ASSOCIATED(VarTemp)) THEN
-      WRITE(Message,'(A)') TRIM(Solver % Variable % Name) // ' Loads: not associated'
+      WRITE(Message,'(A)') GetVarName(Solver % Variable) // ' Loads: not associated'
       CALL FATAL('ReynoldsSolver', Message)
     END IF
     LoadValues => VarTemp % Values
@@ -184,7 +186,7 @@ SUBROUTINE ReynoldsSolver( Model,Solver,dt,TransientSimulation )
         
         BC => GetBC()
         IF ( ASSOCIATED( BC ) ) THEN    
-          IF( GetLogical(BC,'Periodic BC ' // TRIM(Solver % Variable % Name),GotIt) ) THEN
+          IF( GetLogical(BC,'Periodic BC ' // TRIM(ComponentName(Solver % Variable)),GotIt) ) THEN
             PeriodicNodes( PressurePerm(Element % NodeIndexes(1:n))) = .TRUE.
           END IF
         END IF

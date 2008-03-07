@@ -129,8 +129,6 @@ INTEGER FUNCTION EliminatePeriodic( Model, Solver, A, b, x, n, DOFs, Norm )
 
   C => A % EMatrix
 
-  nLen = LEN_TRIM(Name)
-
   IF ( .NOT. ASSOCIATED( C ) ) THEN
      Perm => Solver % Variable % Perm
 
@@ -144,7 +142,8 @@ INTEGER FUNCTION EliminatePeriodic( Model, Solver, A, b, x, n, DOFs, Norm )
 
      DO i=1,Model % NumberOfBCs
         DO DOF=1,DOFs
-           Name = Solver % Variable % Name
+           Name = ComponentName(Solver % Variable)
+           nLen = LEN_TRIM(Name)
 
            IF ( DOFs > 1 ) THEN
               WRITE( Name, '(a,i1)' ) Name(1:nlen) // ' ', DOF

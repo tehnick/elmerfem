@@ -2586,8 +2586,11 @@ CONTAINS
      ! Clear dirichlet BCs for face & edge DOFs:
      ! -----------------------------------
      DO DOF=1,x % DOFs
-       name = x % name
-       IF ( x % DOFs > 1 ) name = ComponentName(name,DOF)
+       IF ( x % DOFs>1 ) THEN
+         name = ComponentName(x,DOF)
+       ELSE
+         name = ComponentName(x)
+       END IF
 
        DO i=1,Solver % Mesh % NumberOfBoundaryElements
           Element => GetBoundaryElement(i)
