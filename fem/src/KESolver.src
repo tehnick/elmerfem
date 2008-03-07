@@ -37,10 +37,38 @@
 ! *  Original Date: 08 Jun 1997
 ! *
 ! ****************************************************************************/
+!------------------------------------------------------------------------------
+   SUBROUTINE KESolver_Init( Model,Solver,dt,TransientSimulation )
+!------------------------------------------------------------------------------
+     USE DefUtils
+
+     IMPLICIT NONE
+!------------------------------------------------------------------------------
+
+     TYPE(Model_t)  :: Model
+     TYPE(Solver_t) :: Solver
+
+     REAL(KIND=dp) :: dt
+     LOGICAL :: TransientSimulation
+!------------------------------------------------------------------------------
+     TYPE(ValueList_t), POINTER :: SolverParams
+     LOGICAL :: Found
+     CHARACTER(LEN=MAX_NAME_LEN) :: str
+!------------------------------------------------------------------------------
+     SolverParams => GetSolverParams()
+
+     str = GetString( SolverParams,'Variable', Found )
+     IF ( .NOT. Found ) str = 'K-eps'
+     IF ( INDEX( str, '[' ) <= 0 ) THEN
+       CALL ListAddString( SolverParams, 'Variable', &
+             TRIM(str) // '[Kinetic Energy:1 Kinetic Dissipation:1]' )
+     END IF
+!------------------------------------------------------------------------------
+   END SUBROUTINE KESolver_Init
+!------------------------------------------------------------------------------
 
 !------------------------------------------------------------------------------
    SUBROUTINE KESolver( Model,Solver,dt,TransientSimulation )
-!DEC$ATTRIBUTES DLLEXPORT :: KESolver
 !------------------------------------------------------------------------------
      USE DefUtils
 
