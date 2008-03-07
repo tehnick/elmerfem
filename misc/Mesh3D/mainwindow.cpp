@@ -97,6 +97,9 @@ void MainWindow::createMenus()
   meshMenu->addSeparator();
   meshMenu->addAction(boundarydivideAct);
   meshMenu->addAction(boundaryunifyAct);
+  meshMenu->addSeparator();
+  meshMenu->addAction(hideselectedAct);
+  meshMenu->addAction(showallAct);
 
   // Help menu
   helpMenu = menuBar()->addMenu(tr("&Help"));
@@ -163,6 +166,12 @@ void MainWindow::createActions()
   meshcontrolAct->setStatusTip(tr("Mesh control"));
   connect(meshcontrolAct, SIGNAL(triggered()), this, SLOT(meshcontrolSlot()));
 
+  // Mesh -> Remesh
+  remeshAct = new QAction(QIcon(), tr("&Remesh..."), this);
+  remeshAct->setShortcut(tr("Ctrl+R"));
+  remeshAct->setStatusTip(tr("Remesh"));
+  connect(remeshAct, SIGNAL(triggered()), this, SLOT(remeshSlot()));
+
   // Mesh -> Divide boundary
   boundarydivideAct = new QAction(QIcon(), tr("&Divide boundary..."), this);
   boundarydivideAct->setShortcut(tr("Ctrl+D"));
@@ -175,11 +184,17 @@ void MainWindow::createActions()
   boundaryunifyAct->setStatusTip(tr("Unify boundary (merge selected)"));
   connect(boundaryunifyAct, SIGNAL(triggered()), this, SLOT(boundaryunifySlot()));
 
-  // Mesh -> Remesh
-  remeshAct = new QAction(QIcon(), tr("&Remesh..."), this);
-  remeshAct->setShortcut(tr("Ctrl+R"));
-  remeshAct->setStatusTip(tr("Remesh"));
-  connect(remeshAct, SIGNAL(triggered()), this, SLOT(remeshSlot()));
+  // Mesh -> Hide selected
+  hideselectedAct = new QAction(QIcon(), tr("&Hide selected..."), this);
+  //hideselectedAct->setShortcut(tr("Ctrl+H"));
+  hideselectedAct->setStatusTip(tr("Hide selected boundaries"));
+  connect(hideselectedAct, SIGNAL(triggered()), this, SLOT(hideselectedSlot()));
+
+  // Mesh -> Show all
+  showallAct = new QAction(QIcon(), tr("&Show all..."), this);
+  //showallAct->setShortcut(tr("Ctrl+A"));
+  showallAct->setStatusTip(tr("Show all boundaries"));
+  connect(showallAct, SIGNAL(triggered()), this, SLOT(showallSlot()));
 
   // Help -> About
   aboutAct = new QAction(QIcon(), tr("&About..."), this);
@@ -269,6 +284,38 @@ void MainWindow::boundaryunifySlot()
   glWidget->rebuildBoundaryLists();
 
   logMessage("Selected boundary parts unified");
+}
+
+
+// Mesh -> Hide selected...
+//-----------------------------------------------------------------------------
+void MainWindow::hideselectedSlot()
+{
+  if(glWidget->mesh == NULL) {
+    logMessage("There is nothing to hide");
+    return;
+  }
+  
+  for(int i=0; i < glWidget->sizeofGlMaps; i++) {
+    if(glWidget->glSelected[i]) 
+      glWidget->glActiveList[i] = false;
+  }
+  
+  //glWidget->rebuildBoundaryLists();
+
+  logMessage("Selected boundary parts are now hidden");
+}
+
+
+// Mesh -> Show all...
+//-----------------------------------------------------------------------------
+void MainWindow::showallSlot()
+{
+  for(int i=0; i < glWidget->sizeofGlMaps; i++) {
+    glWidget->glActiveList[i] = true;
+  }
+
+  logMessage("All boundary parts are now visible");
 }
 
 

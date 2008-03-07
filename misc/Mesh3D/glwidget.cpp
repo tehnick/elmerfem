@@ -116,9 +116,11 @@ void GLWidget::paintGL()
 
   if(objects) {
     for(int i=0; i<(int)objects; i++) {
-      glPushName(i);
-      glCallList(glListMap[i]); 
-      glPopName();
+      if(glActiveList[i]) {
+	glPushName(i);
+	glCallList(glListMap[i]); 
+	glPopName();
+      }
     }
   }
 }
@@ -392,6 +394,7 @@ GLuint GLWidget::makeObjects()
   glBcMap = new int[bcs];
   glListMap = new GLuint[bcs];
   glSelected = new bool[bcs];
+  glActiveList = new bool[bcs];
 
   bcs = 0;
   for(i=0; i < mesh->boundaryelements; i++) {
@@ -399,6 +402,7 @@ GLuint GLWidget::makeObjects()
       glBcMap[bcs] = i;
       glListMap[bcs] = 0;
       glSelected[bcs] = false;
+      glActiveList[bcs] = true;
       bcs++;
     }
   }

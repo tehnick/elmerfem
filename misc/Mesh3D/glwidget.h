@@ -29,6 +29,7 @@ public:
     int *glBcMap;         // maps {0,1,2,..} -> {bc indices}
     GLuint *glListMap;    // maps {0,1,2,..} -> {gl list indices]
     bool *glSelected;     // indicates currently selected bcs
+    bool *glActiveList;   // indicates currently active lists
 
 public slots:
 
@@ -60,7 +61,7 @@ private:
 
     GLuint generateBoundaryList(int,double,double,double);
     
-    bool ctrlPressed;
+    bool ctrlPressed; // true when ctrl is down, false otherwise
 };
 
 #endif
