@@ -83,8 +83,8 @@ void ElmergridAPI::createElmerMeshStructure(mesh_t *mesh)
   b->edge[0] = -1;
   b->edge[1] = -1;
   b->edge[2] = -1;
-  b->elements = 0;
-  b->element = new int[2]; // reserve space for 2 (will be corrected)
+  //b->elements = 0;
+  //b->element = new int[2]; // reserve space for 2 (will be corrected)
   b->index = 1;
 
   b = &mesh->boundaryelement[1];
@@ -99,8 +99,8 @@ void ElmergridAPI::createElmerMeshStructure(mesh_t *mesh)
   b->edge[0] = -1;
   b->edge[1] = -1;
   b->edge[2] = -1;
-  b->elements = 0;
-  b->element = new int[2]; // reserve space for 2 (will be corrected)
+  //b->elements = 0;
+  //b->element = new int[2]; // reserve space for 2 (will be corrected)
   b->index = 1;
 
   b = &mesh->boundaryelement[2];
@@ -115,8 +115,8 @@ void ElmergridAPI::createElmerMeshStructure(mesh_t *mesh)
   b->edge[0] = -1;
   b->edge[1] = -1;
   b->edge[2] = -1; 
-  b->elements = 0;
-  b->element = new int[2]; // reserve space for 2 (will be corrected)
+  //b->elements = 0;
+  //b->element = new int[2]; // reserve space for 2 (will be corrected)
  b->index = 1;
 
   b = &mesh->boundaryelement[3];
@@ -131,8 +131,8 @@ void ElmergridAPI::createElmerMeshStructure(mesh_t *mesh)
   b->edge[0] = -1;
   b->edge[1] = -1;
   b->edge[2] = -1;
-  b->elements = 0;
-  b->element = new int[2]; // reserve space for 2 (will be corrected)
+  //b->elements = 0;
+  //b->element = new int[2]; // reserve space for 2 (will be corrected)
   b->index = 1;
 
   cout << "ok, palautan nyt uuden verkon" << endl;

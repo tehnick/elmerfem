@@ -228,6 +228,11 @@ void Meshutils::findBoundaryElementParents(mesh_t *mesh)
     h = &hash[n0];
     while(h->next) {
       if((h->node[0] == n1) && (h->node[1] == n2)) {
+
+	// should we deallocate be->element if it exists?
+	be->elements = 2;
+	be->element = new int[2];
+
 	be->element[0] = h->element[0];
 	be->element[1] = h->element[1];
       }

@@ -231,6 +231,13 @@ void MainWindow::boundarydivideSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::boundaryunifySlot()
 {
+  mesh_t *mesh = glWidget->mesh;
+
+  if(mesh == NULL) {
+    logMessage("No boundaries to unify");
+    return;
+  }
+  
   int targetindex = -1;
   for(int i=0; i < glWidget->sizeofGlMaps; i++) {
     if(glWidget->glSelected[i]) {
@@ -240,8 +247,12 @@ void MainWindow::boundaryunifySlot()
       }
     }
   }
+
+  if(targetindex < 0) {
+    logMessage("No boundaries selected");
+    return;
+  }
   
-  mesh_t *mesh = glWidget->mesh;
   for(int i=0; i < glWidget->sizeofGlMaps; i++) {
     if(glWidget->glSelected[i]) {
       for(int j=0; j < mesh->boundaryelements; j++) {

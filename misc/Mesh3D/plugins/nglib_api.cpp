@@ -113,17 +113,13 @@ mesh_t* NglibAPI::createElmerMeshStructure()
     boundaryelement->edges = 3;
     boundaryelement->edge = new int[3];
 
-    boundaryelement->elements = 2;
-    boundaryelement->element = new int[2];
-
     boundaryelement->index = 1; // default
 
     boundaryelement->edge[0] = -1;
     boundaryelement->edge[1] = -1;
     boundaryelement->edge[2] = -1;
 
-    boundaryelement->element[0] = -1; 
-    boundaryelement->element[1] = -1;
+    // data for boundaryelement->element is not available
 
     Ng_GetSurfaceElement(ngmesh, i+1, boundaryelement->node);
     
