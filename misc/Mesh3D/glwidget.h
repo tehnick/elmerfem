@@ -1,9 +1,21 @@
 #ifndef GLWIDGET_H
 #define GLWIDGET_H
 
+#define EDGELIST     2000
+#define BOUNDARYLIST 2001
+
 #include <QGLWidget>
 #include "helpers.h"
 #include "meshutils.h"
+
+class list_t {
+ public:
+  int type;          // EDGELIST, BOUNDARYLIST, ...
+  int index;         // Boundary condition index
+  GLuint object;     // GL list index
+  bool selected;     // Currently selected
+  bool visible;      // Currently visible
+};
 
 class GLWidget : public QGLWidget
 {
@@ -18,18 +30,13 @@ public:
 
     mesh_t *mesh;
 
-    GLuint objects;
-    GLuint makeObjects();
+    int lists;
+    list_t *list;
+    GLuint makeLists();
     void rebuildBoundaryLists();
 
-    double drawScale;
     double drawTranslate[3];
-
-    int sizeofGlMaps;     // size of the following list-maps:
-    int *glBcMap;         // maps {0,1,2,..} -> {bc indices}
-    GLuint *glListMap;    // maps {0,1,2,..} -> {gl list indices]
-    bool *glSelected;     // indicates currently selected bcs
-    bool *glActiveList;   // indicates currently active lists
+    double drawScale;
 
 public slots:
 
@@ -61,7 +68,7 @@ private:
 
     GLuint generateBoundaryList(int,double,double,double);
     
-    bool ctrlPressed; // true when ctrl is down, false otherwise
+    bool ctrlPressed; // true while ctrl key is held down
 };
 
 #endif

@@ -17,7 +17,7 @@ GLWidget::GLWidget(QWidget *parent)
   : QGLWidget(parent)
 {
   backgroundColor = QColor::fromRgb(255, 255, 255, 255);
-  objects = 0;
+  lists = 0;
   drawScale = 1.0;
   drawTranslate[0] = 0.0;
   drawTranslate[1] = 0.0;
@@ -32,8 +32,10 @@ GLWidget::GLWidget(QWidget *parent)
 GLWidget::~GLWidget()
 {
   makeCurrent();
-  for(int i=0; i<(int)objects; i++)
-    glDeleteLists(glListMap[i], 1);
+  for(int i=0; i < (int)lists; i++) {
+    list_t *l = &list[i];
+    glDeleteLists(l->object, 1);
+  }
 }
 
 
@@ -113,12 +115,13 @@ void GLWidget::initializeGL()
 void GLWidget::paintGL()
 {
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-  if(objects) {
-    for(int i=0; i<(int)objects; i++) {
-      if(glActiveList[i]) {
+  
+  if(lists) {
+    for(int i=0; i<(int)lists; i++) {
+      list_t *l = &list[i];
+      if(l->visible) {
 	glPushName(i);
-	glCallList(glListMap[i]); 
+	glCallList(l->object); 
 	glPopName();
       }
     }
@@ -292,28 +295,28 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
 
   // Clear the previous selections:
   if(!ctrlPressed) {
-    for(int i=0; i<sizeofGlMaps; i++) {
-      if(glSelected[i]) {
-	glDeleteLists(glListMap[i], 1);
-	glSelected[i] = false;
-	GLuint current = generateBoundaryList(glBcMap[i],0,1,1);
-	glListMap[i] = current;
+    for(int i=0; i < lists; i++) {
+      list_t *l = &list[i];
+      if(l->selected) {
+	glDeleteLists(l->object, 1);
+	l->selected = false;
+	l->object = generateBoundaryList(l->index, 0, 1, 1);
       }
     }
   }
 
   // Highlight the selected boundary:
   if(nearest != 0xffffffff) {
+    list_t *l = &list[nearest];
 
     // Emit result to mainwindow:
-    emit(signalBoundarySelected(glBcMap[nearest])); 
+    emit(signalBoundarySelected(l->index));
 
     // Highlight current selection:
-    glDeleteLists(glListMap[nearest], 1);
-    glSelected[nearest] = true;
-    GLuint current = generateBoundaryList(glBcMap[nearest],1,0,0);
-    glListMap[nearest] = current;
-
+    glDeleteLists(l->object, 1);
+    l->selected = true;
+    l->object = generateBoundaryList(l->index , 1, 0, 0);
+    
   } else {
 
     // Emit "nothing selected":
@@ -334,6 +337,7 @@ void GLWidget::getMatrix()
 }
 
 
+
 // Rebuild boundary lists...
 //-----------------------------------------------------------------------------
 void GLWidget::rebuildBoundaryLists()
@@ -347,13 +351,15 @@ void GLWidget::rebuildBoundaryLists()
 
   delete [] bb;
  
-  if(objects) {
-    for(int i=0; i < (int)objects; i++)
-      glDeleteLists(glListMap[i], 1);
-    objects = 0;
+  if(lists) {
+    for(int i=0; i < (int)lists; i++) {
+      list_t *l = &list[i];
+      glDeleteLists(l->object, 1);
+    }
+    lists = 0;
   }
   
-  objects = makeObjects();
+  lists = makeLists();
 
   updateGL();
 }
@@ -362,16 +368,15 @@ void GLWidget::rebuildBoundaryLists()
 
 // Compose GL object lists...
 //-----------------------------------------------------------------------------
-GLuint GLWidget::makeObjects()
+GLuint GLWidget::makeLists()
 {
   int i;
-  boundaryelement_t *boundaryelement;
+  // boundaryelement_t *boundaryelement;
 
   if(mesh == NULL) {
-    objects = 0;
+    lists = 0;
     return 0;
   }
-
 
   // First, scan boundary elements to determine the number of bcs:
   int *bctable = new int[mesh->boundaryelements];
@@ -379,7 +384,7 @@ GLuint GLWidget::makeObjects()
     bctable[i] = 0;
 
   for(i=0; i < mesh->boundaryelements; i++) {
-    boundaryelement = &mesh->boundaryelement[i];
+    boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
     if(boundaryelement->index > 0)
       bctable[boundaryelement->index]++;
   }    
@@ -391,36 +396,36 @@ GLuint GLWidget::makeObjects()
   }  
 
   cout << "Boundary parts: " << bcs << endl;
-  
-  sizeofGlMaps = bcs;
-  glBcMap = new int[bcs];
-  glListMap = new GLuint[bcs];
-  glSelected = new bool[bcs];
-  glActiveList = new bool[bcs];
 
+  // TODO: We'll everntually have to scan for edges as well
+
+  lists = bcs;
+  list = new list_t[lists];
+  
   bcs = 0;
   for(i=0; i < mesh->boundaryelements; i++) {
     if(bctable[i] > 0) {
-      glBcMap[bcs] = i;
-      glListMap[bcs] = 0;
-      glSelected[bcs] = false;
-      glActiveList[bcs] = true;
+      list_t *l = &list[bcs];
+      l->type = BOUNDARYLIST;
+      l->index = i;
+      l->object = 0;
+      l->selected = false;
+      l->visible = true;
       bcs++;
     }
   }
   
   for(i=0; i<bcs; i++) {
-    GLuint currentList = generateBoundaryList(glBcMap[i],0,1,1);
-    glListMap[i] = currentList;
+    list_t *l = &list[i];
+    l->object = generateBoundaryList(l->index, 0, 1, 1);
   }
-
   
   delete [] bctable; 
 
   updateGL();
   getMatrix();
 
-  return bcs;
+  return lists;
 }
 
 // Generate boundary list...
@@ -431,13 +436,13 @@ GLuint GLWidget::generateBoundaryList(int index, double R, double G, double B)
   double x0[3], x1[3], x2[3], x3[3];
   boundaryelement_t *boundaryelement;
 
-  GLuint list = glGenLists(1);
-  glNewList(list, GL_COMPILE);
+  GLuint current = glGenLists(1);
+  glNewList(current, GL_COMPILE);
 
   for(i=0; i < mesh->boundaryelements; i++) {
     boundaryelement = &mesh->boundaryelement[i];
 
-    if(boundaryelement->index == index && boundaryelement->code == 303) {
+    if(boundaryelement->index == index) {
       
       glNormal3dv(boundaryelement->normal); 
 
@@ -469,6 +474,7 @@ GLuint GLWidget::generateBoundaryList(int index, double R, double G, double B)
 	glEnd();
 
 	glBegin(GL_LINES);
+
 	glLineWidth(1.0);
 	glColor3d(0,0,0);
 
@@ -518,6 +524,7 @@ GLuint GLWidget::generateBoundaryList(int index, double R, double G, double B)
 	glEnd();
 
 	glBegin(GL_LINES);
+
 	glLineWidth(1.0);
 	glColor3d(0,0,0);
 
@@ -540,5 +547,5 @@ GLuint GLWidget::generateBoundaryList(int index, double R, double G, double B)
   
   glEndList();
   
-  return list;
+  return current;
 }

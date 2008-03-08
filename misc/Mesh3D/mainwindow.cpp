@@ -247,6 +247,8 @@ void MainWindow::boundarydivideSlot()
 void MainWindow::boundaryunifySlot()
 {
   mesh_t *mesh = glWidget->mesh;
+  int lists = glWidget->lists;
+  list_t *list = glWidget->list;
 
   if(mesh == NULL) {
     logMessage("No boundaries to unify");
@@ -254,10 +256,11 @@ void MainWindow::boundaryunifySlot()
   }
   
   int targetindex = -1;
-  for(int i=0; i < glWidget->sizeofGlMaps; i++) {
-    if(glWidget->glSelected[i]) {
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];
+    if(l->selected) {
       if(targetindex < 0) {
-	targetindex = glWidget->glBcMap[i];
+	targetindex = l->index;
 	break;
       }
     }
@@ -268,11 +271,12 @@ void MainWindow::boundaryunifySlot()
     return;
   }
   
-  for(int i=0; i < glWidget->sizeofGlMaps; i++) {
-    if(glWidget->glSelected[i]) {
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];    
+    if(l->selected) {
       for(int j=0; j < mesh->boundaryelements; j++) {
 	boundaryelement_t *be = &mesh->boundaryelement[j];
-	if(be->index == glWidget->glBcMap[i]) 
+	if(be->index == l->index) 
 	  be->index = targetindex;
       }
     }
@@ -291,19 +295,22 @@ void MainWindow::boundaryunifySlot()
 //-----------------------------------------------------------------------------
 void MainWindow::hideselectedSlot()
 {
-  if(glWidget->mesh == NULL) {
+  mesh_t *mesh = glWidget->mesh;
+  int lists = glWidget->lists;
+  list_t *list = glWidget->list;
+
+  if(mesh == NULL) {
     logMessage("There is nothing to hide");
     return;
   }
   
-  for(int i=0; i < glWidget->sizeofGlMaps; i++) {
-    if(glWidget->glSelected[i]) 
-      glWidget->glActiveList[i] = false;
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];
+    if(l->selected) 
+      l->visible = false;
   }
   
-  //glWidget->rebuildBoundaryLists();
-
-  logMessage("Selected boundary parts are now hidden");
+  logMessage("Selected boundary parts hidden");
 }
 
 
@@ -311,11 +318,15 @@ void MainWindow::hideselectedSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::showallSlot()
 {
-  for(int i=0; i < glWidget->sizeofGlMaps; i++) {
-    glWidget->glActiveList[i] = true;
+  int lists = glWidget->lists;
+  list_t *list = glWidget->list;
+  
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];
+    l->visible = true;
   }
 
-  logMessage("All boundary parts are now visible");
+  logMessage("All boundary parts visible");
 }
 
 
@@ -324,13 +335,15 @@ void MainWindow::showallSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::doDivisionSlot(double angle)
 {
-  if(glWidget->mesh == NULL) {
+  mesh_t *mesh = glWidget->mesh;
+
+  if(mesh == NULL) {
     logMessage("No mesh to divide");
     return;
   }
   
-  meshutils->findSharpEdges(glWidget->mesh, angle);
-  int parts = meshutils->divideBoundaryBySharpEdges(glWidget->mesh);
+  meshutils->findSharpEdges(mesh, angle);
+  int parts = meshutils->divideBoundaryBySharpEdges(mesh);
 
   QString qs = "Boundary divided into " + QString::number(parts) + " parts";
   statusBar()->showMessage(qs);
@@ -410,18 +423,17 @@ void MainWindow::remeshSlot()
     
     // this is just for the test case:
     cout << "a1" << endl;
-   if(0) meshutils->findBoundaryElementEdges(mesh);
+    if(0) meshutils->findBoundaryElementEdges(mesh);
     cout << "a2" << endl;
-   if(0) meshutils->findBoundaryElementParents(mesh);
-   cout << "a3" << endl;
-   if(0) meshutils->findBoundaryElementNormals(mesh);
-
+    if(0) meshutils->findBoundaryElementParents(mesh);
+    cout << "a3" << endl;
+    if(0) meshutils->findBoundaryElementNormals(mesh);
+    
     logMessage("Ready");
     glWidget->rebuildBoundaryLists();
     
     cout << "back" << endl;
 
-    
     return;
     
   } else {
@@ -956,7 +968,7 @@ void MainWindow::readInputFile(QString fileName)
   
 
 
-// Populate elmer's mesh structure and make GL-objects (tetlib):
+// Populate elmer's mesh structure and make GL-lists (tetlib):
 //-----------------------------------------------------------------------------
 void MainWindow::makeElmerMeshFromTetlib()
 {
@@ -969,7 +981,7 @@ void MainWindow::makeElmerMeshFromTetlib()
 }
 
 
-// Populate elmer's mesh structure and make GL-objects (nglib):
+// Populate elmer's mesh structure and make GL-lists (nglib):
 //-----------------------------------------------------------------------------
 void MainWindow::makeElmerMeshFromNglib()
 {
