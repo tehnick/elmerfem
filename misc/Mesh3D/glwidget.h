@@ -11,10 +11,10 @@
 class list_t {
  public:
   int type;          // EDGELIST, BOUNDARYLIST, ...
-  int index;         // Boundary condition index
-  GLuint object;     // GL list index
-  bool selected;     // Currently selected
-  bool visible;      // Currently visible
+  int index;         // Boundary condition as defined in input file
+  GLuint object;     // GL list index as returned by glGenLists()
+  bool selected;     // Currently selected?
+  bool visible;      // Currently visible?
 };
 
 class GLWidget : public QGLWidget
@@ -33,7 +33,7 @@ public:
     int lists;
     list_t *list;
     GLuint makeLists();
-    void rebuildBoundaryLists();
+    void rebuildLists();
 
     double drawTranslate[3];
     double drawScale;
@@ -56,8 +56,8 @@ protected:
     void keyReleaseEvent(QKeyEvent*);
 
 private:
-    Helpers helpers;
-    Meshutils meshutils;
+    Helpers *helpers;
+    Meshutils *meshutils;
 
     GLdouble matrix[16];
     GLdouble invmatrix[16];
@@ -66,7 +66,7 @@ private:
     QPoint lastPos;
     QColor backgroundColor;
 
-    GLuint generateBoundaryList(int,double,double,double);
+    GLuint generateList(int, double, double, double);
     
     bool ctrlPressed; // true while ctrl key is held down
 };

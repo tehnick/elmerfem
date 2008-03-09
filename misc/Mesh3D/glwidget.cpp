@@ -23,6 +23,9 @@ GLWidget::GLWidget(QWidget *parent)
   drawTranslate[1] = 0.0;
   drawTranslate[2] = 0.0;
   mesh = NULL;
+
+  helpers = new Helpers;
+  meshutils = new Meshutils;
 }
 
 
@@ -36,6 +39,9 @@ GLWidget::~GLWidget()
     list_t *l = &list[i];
     glDeleteLists(l->object, 1);
   }
+
+  delete helpers;
+  delete meshutils;
 }
 
 
@@ -64,7 +70,7 @@ void GLWidget::initializeGL()
   cout << "Initialize GL" << endl;
   cout << "Vendor: " << glGetString(GL_VENDOR) << endl;
   cout << "Renderer: " << glGetString(GL_RENDERER) << endl;
-  cout << "GL Version: " << glGetString(GL_VERSION) << endl;
+  cout << "Version: " << glGetString(GL_VERSION) << endl;
   cout.flush();
 
   static GLfloat light_ambient[]  = {0.2, 0.2, 0.2, 1.0};
@@ -275,8 +281,9 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
   
   GLuint smallestz = 0xffffffff;
   GLuint nearest = 0xffffffff;
-  if(hits!=0) {
-    for (i=0,j=0; i<hits; i++) {
+
+  if(hits != 0) {
+    for (i=0, j=0; i<hits; i++) {
       GLuint minz = buffer[j+1];
       GLuint resultz = buffer[j+3];
       
@@ -300,7 +307,7 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
       if(l->selected) {
 	glDeleteLists(l->object, 1);
 	l->selected = false;
-	l->object = generateBoundaryList(l->index, 0, 1, 1);
+	l->object = generateList(l->index, 0, 1, 1);
       }
     }
   }
@@ -310,12 +317,12 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
     list_t *l = &list[nearest];
 
     // Emit result to mainwindow:
-    emit(signalBoundarySelected(l->index));
+    emit(signalBoundarySelected(nearest));
 
     // Highlight current selection:
     glDeleteLists(l->object, 1);
     l->selected = true;
-    l->object = generateBoundaryList(l->index , 1, 0, 0);
+    l->object = generateList(l->index, 1, 0, 0);
     
   } else {
 
@@ -333,21 +340,21 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
 void GLWidget::getMatrix()
 {
   glGetDoublev(GL_MODELVIEW_MATRIX, matrix);
-  helpers.invertMatrix(matrix, invmatrix);
+  helpers->invertMatrix(matrix, invmatrix);
 }
 
 
 
 // Rebuild boundary lists...
 //-----------------------------------------------------------------------------
-void GLWidget::rebuildBoundaryLists()
+void GLWidget::rebuildLists()
 {
-  double *bb = meshutils.boundingBox(mesh);
+  double *bb = meshutils->boundingBox(mesh);
   
   drawTranslate[0] = bb[6]; // x-center
   drawTranslate[1] = bb[7]; // y-center
   drawTranslate[2] = bb[8]; // z-center
-  drawScale = bb[9];         // scaling
+  drawScale = bb[9];        // scaling
 
   delete [] bb;
  
@@ -371,7 +378,6 @@ void GLWidget::rebuildBoundaryLists()
 GLuint GLWidget::makeLists()
 {
   int i;
-  // boundaryelement_t *boundaryelement;
 
   if(mesh == NULL) {
     lists = 0;
@@ -379,32 +385,30 @@ GLuint GLWidget::makeLists()
   }
 
   // First, scan boundary elements to determine the number of bcs:
-  int *bctable = new int[mesh->boundaryelements];
+  int *tmp = new int[mesh->boundaryelements];
   for(i=0; i < mesh->boundaryelements; i++)
-    bctable[i] = 0;
+    tmp[i] = 0;
 
   for(i=0; i < mesh->boundaryelements; i++) {
     boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
     if(boundaryelement->index > 0)
-      bctable[boundaryelement->index]++;
+      tmp[boundaryelement->index]++;
   }    
   
   int bcs = 0;
   for(i=0; i < mesh->boundaryelements; i++) {
-    if(bctable[i] > 0)
+    if(tmp[i] > 0)
       bcs++;
   }  
 
   cout << "Boundary parts: " << bcs << endl;
-
-  // TODO: We'll everntually have to scan for edges as well
 
   lists = bcs;
   list = new list_t[lists];
   
   bcs = 0;
   for(i=0; i < mesh->boundaryelements; i++) {
-    if(bctable[i] > 0) {
+    if(tmp[i] > 0) {
       list_t *l = &list[bcs];
       l->type = BOUNDARYLIST;
       l->index = i;
@@ -417,10 +421,34 @@ GLuint GLWidget::makeLists()
   
   for(i=0; i<bcs; i++) {
     list_t *l = &list[i];
-    l->object = generateBoundaryList(l->index, 0, 1, 1);
+    l->object = generateList(l->index, 0, 1, 1);
   }
   
-  delete [] bctable; 
+  delete [] tmp; 
+
+  // TODO: We'll eventually have to scan for edges as well
+#if 0
+  // Then, scan for edges to determine the number of bcs:
+  tmp = new int[mesh->edges];
+  for(i=0; i < mesh->edges; i++) {
+    cout << "test: " << mesh->edge[i].index << endl;
+    tmp[i] = 0;
+  }
+
+  for(i=0; i < mesh->edges; i++) {
+    edge_t *edge = &mesh->edge[i];
+    if(edge->index > 0)
+      tmp[edge->index]++;
+  }    
+  
+  int bcs2 = 0;
+  for(i=0; i < mesh->edges; i++) {
+    if(tmp[i] > 0)
+      bcs2++;
+  }  
+
+  cout << "Edges: " << bcs2 << endl;  
+#endif
 
   updateGL();
   getMatrix();
@@ -428,19 +456,17 @@ GLuint GLWidget::makeLists()
   return lists;
 }
 
-// Generate boundary list...
+// Generate list...
 //-----------------------------------------------------------------------------
-GLuint GLWidget::generateBoundaryList(int index, double R, double G, double B)
+GLuint GLWidget::generateList(int index, double R, double G, double B)
 {
-  int i;
   double x0[3], x1[3], x2[3], x3[3];
-  boundaryelement_t *boundaryelement;
 
   GLuint current = glGenLists(1);
   glNewList(current, GL_COMPILE);
 
-  for(i=0; i < mesh->boundaryelements; i++) {
-    boundaryelement = &mesh->boundaryelement[i];
+  for(int i=0; i < mesh->boundaryelements; i++) {
+    boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
 
     if(boundaryelement->index == index) {
       
@@ -449,7 +475,7 @@ GLuint GLWidget::generateBoundaryList(int index, double R, double G, double B)
       if(boundaryelement->code == 303) {
 	glBegin(GL_TRIANGLES);
 	
-	glColor3d(R,G,B);
+	glColor3d(R, G, B);
 
 	int n0 = boundaryelement->node[0];
 	int n1 = boundaryelement->node[1];
@@ -476,7 +502,7 @@ GLuint GLWidget::generateBoundaryList(int index, double R, double G, double B)
 	glBegin(GL_LINES);
 
 	glLineWidth(1.0);
-	glColor3d(0,0,0);
+	glColor3d(0.0, 0.0, 0.0);
 
 	glVertex3dv(x0);
 	glVertex3dv(x1);
@@ -493,7 +519,7 @@ GLuint GLWidget::generateBoundaryList(int index, double R, double G, double B)
       if(boundaryelement->code == 404) {
 	glBegin(GL_QUADS);
 	
-	glColor3d(R,G,B);
+	glColor3d(R, G, B);
 	
 	int n0 = boundaryelement->node[0];
 	int n1 = boundaryelement->node[1];
@@ -526,7 +552,7 @@ GLuint GLWidget::generateBoundaryList(int index, double R, double G, double B)
 	glBegin(GL_LINES);
 
 	glLineWidth(1.0);
-	glColor3d(0,0,0);
+	glColor3d(0.0, 0.0, 0.0);
 
 	glVertex3dv(x0);
 	glVertex3dv(x1);

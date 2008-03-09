@@ -6,6 +6,7 @@
 
 using namespace std;
 
+
 // Construct main window...
 //-----------------------------------------------------------------------------
 MainWindow::MainWindow()
@@ -26,7 +27,7 @@ MainWindow::MainWindow()
   // elmergrid
   elmergridAPI = new ElmergridAPI;
 
-  // widgets and helpers
+  // widgets and utilities
   glWidget = new GLWidget;
   setCentralWidget(glWidget);
   sifWindow = new SifWindow(this);
@@ -228,6 +229,9 @@ void MainWindow::meshcontrolSlot()
     meshControl->ui.nglibBgmeshEdit->setEnabled(false);
   }
 
+  if(!tetlibPresent && !nglibPresent) 
+    meshControl->ui.elmerGridRadioButton->setChecked(true);  
+
   meshControl->show();
 }
 
@@ -285,7 +289,7 @@ void MainWindow::boundaryunifySlot()
   cout << "Selected boundary parts marked with index " << targetindex << endl;
   cout.flush();
 
-  glWidget->rebuildBoundaryLists();
+  glWidget->rebuildLists();
 
   logMessage("Selected boundary parts unified");
 }
@@ -348,7 +352,7 @@ void MainWindow::doDivisionSlot(double angle)
   QString qs = "Boundary divided into " + QString::number(parts) + " parts";
   statusBar()->showMessage(qs);
   
-  glWidget->rebuildBoundaryLists();
+  glWidget->rebuildLists();
 }
 
 
@@ -430,7 +434,7 @@ void MainWindow::remeshSlot()
     if(0) meshutils->findBoundaryElementNormals(mesh);
     
     logMessage("Ready");
-    glWidget->rebuildBoundaryLists();
+    glWidget->rebuildLists();
     
     cout << "back" << endl;
 
@@ -579,14 +583,9 @@ void MainWindow::loadElmerMesh(QString dirName)
   cout << nodes << " " << elements << " " << boundaryelements << endl;
   cout << types << endl;
   
-  // the the moment only triangles and tetrahedron are accepted:
   for(int i=0; i<types; i++) {
     mesh_header >> type >> ntype;
     cout << type << " " << ntype << endl;
-    if( (type != 303) && (type != 504) ) {
-      logMessage("Illegal element type (not implemented)");
-      return;
-    }
   }
   
   file.close();
@@ -635,21 +634,18 @@ void MainWindow::loadElmerMesh(QString dirName)
   mesh->elements = elements;
   mesh->element = new element_t[elements];
 
-  int n0, n1, n2, n3;
   for(int i=0; i<elements; i++) {
     element_t *element = &mesh->element[i];
-    mesh_elements >> number >> index >> type >> n0 >> n1 >> n2 >> n3;
 
-    element->code = 504;
-
-    element->nodes = 4;
-    element->node = new int[4];
-
-    element->node[0] = n0-1;
-    element->node[1] = n1-1;
-    element->node[2] = n2-1;
-    element->node[3] = n3-1;
+    mesh_elements >> number >> index >> type;
     element->index = index;
+    element->code = type;
+    element->nodes = element->code % 100;
+    element->node = new int[element->nodes];
+    for(int j=0; j < element->nodes; j++) {
+      mesh_elements >> element->node[j];
+      element->node[j] -= 1;
+    }
   }
 
   file.close();
@@ -670,35 +666,39 @@ void MainWindow::loadElmerMesh(QString dirName)
   int parent0, parent1;
   for(int i=0; i<boundaryelements; i++) {
     boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
-    mesh_boundary >> number >> index >> parent0 >> parent1 >> type >> n0 >> n1 >> n2;
 
-    boundaryelement->code = 303;
+    mesh_boundary >> number >> index >> parent0 >> parent1 >> type;
 
-    boundaryelement->nodes = 3;
-    boundaryelement->node = new int[3];
-
-    boundaryelement->edges = 3;
-    boundaryelement->edge = new int[3];
+    boundaryelement->index = index;
 
     boundaryelement->elements = 2;
-    boundaryelement->element = new int[2];
-
-    boundaryelement->node[0] = n0-1;
-    boundaryelement->node[1] = n1-1;
-    boundaryelement->node[2] = n2-1;
-
-    boundaryelement->edge[0] = -1;
-    boundaryelement->edge[1] = -1;
-    boundaryelement->edge[2] = -1;
-
+    boundaryelement->element = new int[boundaryelement->elements];
     boundaryelement->element[0] = parent0-1;
     boundaryelement->element[1] = parent1-1;
 
-    boundaryelement->normal[0] = 0.0;
-    boundaryelement->normal[1] = 0.0;
-    boundaryelement->normal[2] = 0.0;
+    boundaryelement->code = type;
+    boundaryelement->nodes = boundaryelement->code % 100;
+    boundaryelement->node = new int[boundaryelement->nodes];
 
-    boundaryelement->index = index;
+    for(int j=0; j < boundaryelement->nodes; j++) {
+      mesh_boundary >> boundaryelement->node[j];
+      boundaryelement->node[j] -= 1;
+    }
+
+    switch ((int)(boundaryelement->code/100)) {
+    case 3:
+      boundaryelement->edges = 3;
+      break;
+    case 4:
+      boundaryelement->edges = 4;
+      break;
+    default:
+      boundaryelement->edges = 0;
+    }
+
+    boundaryelement->edge = new int[boundaryelement->edges];
+    for(int j=0; j<boundaryelement->edges; j++)
+      boundaryelement->edge[j] = -1;
   }
 
   file.close();
@@ -710,7 +710,7 @@ void MainWindow::loadElmerMesh(QString dirName)
   // Finalize:
   logMessage("Ready");
 
-  glWidget->rebuildBoundaryLists();
+  glWidget->rebuildLists();
 }
 
 
@@ -844,26 +844,33 @@ void MainWindow::saveElmerMesh(QString dirName)
 
 // Boundady selected by double clicking (signaled by glWidget::select):
 //-----------------------------------------------------------------------------
-void MainWindow::boundarySelectedSlot(int boundary)
+void MainWindow::boundarySelectedSlot(int index)
 {
-  if( boundary > -1 ) {
+  QString qs;
 
-    QString qs = "Selected boundary " + QString::number(boundary);
-    statusBar()->showMessage(qs);
-
-  } else {
-
-    QString qs = "Ready";;
-    statusBar()->showMessage(qs);    
-
+  if(index < 0) {
+    statusBar()->showMessage("Ready");    
+    return;
   }
 
+  list_t *l = &glWidget->list[index];
+  
+  if(l->type == BOUNDARYLIST) {
+    qs = "Selected boundary " + QString::number(l->index);
+  } else if(l->type == EDGELIST) {
+    qs = "Selected edge " + QString::number(l->index);
+  } else {
+    qs = "Selected object " + QString::number(l->index) + " (type unknown)";
+  }
+
+  statusBar()->showMessage(qs);    
+  
   // Find the boundary condition block in sif:
   QTextEdit *textEdit = sifWindow->textEdit;
   QTextCursor cursor = textEdit->textCursor();
 
   textEdit->moveCursor(QTextCursor::Start);
-  QString qs = "Target boundaries(1) = " + QString::number(boundary);
+  qs = "Target boundaries(1) = " + QString::number(l->index);
   bool found = textEdit->find(qs);
 
   // Select and highlight bc block:
@@ -975,7 +982,7 @@ void MainWindow::makeElmerMeshFromTetlib()
   meshutils->clearMesh(glWidget->mesh);
   glWidget->mesh = tetlibAPI->createElmerMeshStructure();
 
-  glWidget->rebuildBoundaryLists();
+  glWidget->rebuildLists();
 
   logMessage("Input file processed");
 }
@@ -989,7 +996,7 @@ void MainWindow::makeElmerMeshFromNglib()
   nglibAPI->ngmesh = this->ngmesh;
   glWidget->mesh = nglibAPI->createElmerMeshStructure();
 
-  glWidget->rebuildBoundaryLists();
+  glWidget->rebuildLists();
 
   logMessage("Input file processed");
 }
@@ -1134,4 +1141,3 @@ void MainWindow::logMessage(QString message)
   statusBar()->showMessage(message);
   cout.flush();
 }
-
