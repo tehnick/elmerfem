@@ -505,7 +505,7 @@ int Meshutils::divideBoundaryBySharpEdges(mesh_t *mesh)
   return index;
 }
 
-// Divide boundary by sharp edges...
+// Find boundary element normals...
 //-----------------------------------------------------------------------------
 void Meshutils::findBoundaryElementNormals(mesh_t *mesh)
 {

@@ -3,10 +3,14 @@
 #ifndef MESHTYPE_H
 #define MESHTYPE_H
 
-#define GEN_TETLIB    1000
-#define GEN_NGLIB     1001
-#define GEN_ELMERGRID 1002
+#define GEN_TETLIB       1000
+#define GEN_NGLIB        1001
+#define GEN_ELMERGRID    1002
 
+#define BOUNDARY_ELEMENT 3001
+#define BULK_ELEMENT     3002
+
+// node structure
 class node_t {
  public:
   double x[3];
@@ -14,8 +18,22 @@ class node_t {
   int index;
 };
 
+// zero dimensional objects
+class point_t {
+ public:
+  int nature;
+
+  int code;
+
+  int nodes;
+  int node;
+};
+
+// one dimensional objects
 class edge_t {
  public:
+  int nature;
+
   int code;
 
   int nodes;
@@ -27,8 +45,11 @@ class edge_t {
   int index;
 };
 
+// two dimensional objects
 class boundaryelement_t {
  public:
+  int nature;
+
   int code;
 
   int nodes;
@@ -45,8 +66,11 @@ class boundaryelement_t {
   int index;
 };
 
+// three dimensional objects
 class element_t {
  public:
+  int nature;
+
   int code;
 
   int nodes;
@@ -55,10 +79,14 @@ class element_t {
   int index;
 };
 
+// mesh structure
 class mesh_t {
  public:
   int nodes;
   node_t *node;
+
+  int points;
+  point_t *point;
 
   int edges;
   edge_t *edge;

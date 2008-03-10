@@ -571,6 +571,7 @@ void MainWindow::loadElmerMesh(QString dirName)
     logMessage("mesh.header does not exist");
     return;
   }
+
   file.open(QIODevice::ReadOnly);
   QTextStream mesh_header(&file);
 
@@ -579,16 +580,78 @@ void MainWindow::loadElmerMesh(QString dirName)
   mesh_header >> nodes >> elements >> boundaryelements;
   mesh_header >> types;
 
-  cout << "mesh.header:" << endl;
-  cout << nodes << " " << elements << " " << boundaryelements << endl;
-  cout << types << endl;
+  // cout << "mesh.header:" << endl;
+  // cout << nodes << " " << elements << " " << boundaryelements << endl;
+  // cout << types << endl;
+
+  int elements_zero_d = 0;
+  int elements_one_d = 0;
+  int elements_two_d = 0;
+  int elements_three_d = 0;
   
   for(int i=0; i<types; i++) {
     mesh_header >> type >> ntype;
-    cout << type << " " << ntype << endl;
+    //cout << type << " " << ntype << endl;
+    
+    switch(type/100) {
+    case 1:
+      elements_zero_d += ntype;
+      break;
+    case 2:
+      elements_one_d += ntype;
+      break;
+    case 3:
+    case 4:
+      elements_two_d += ntype;
+      break;
+    case 5:
+    case 8:
+      elements_three_d += ntype;
+      break;
+    default:
+      cout << "Unknown element family (possibly not implamented)" << endl;
+      cout.flush();
+      exit(0);
+    }
   }
   
   file.close();
+
+  cout << "Summary:" << endl;
+  cout << "Nodes: " << nodes << endl;
+  cout << "0d elements: " << elements_zero_d << endl;
+  cout << "1d elements: " << elements_one_d << endl;
+  cout << "2d elements: " << elements_two_d << endl;
+  cout << "3d elements: " << elements_three_d << endl;
+  cout.flush();
+
+
+
+
+  // rework from here
+
+
+
+
+  // allocate the new mesh:
+  meshutils->clearMesh(glWidget->mesh);
+  glWidget->mesh = new mesh_t;
+  mesh_t *mesh = glWidget->mesh;
+  
+  mesh->nodes = nodes;
+  mesh->node = new node_t[nodes];
+
+  mesh->points = elements_zero_d;
+  mesh->point = new point_t[mesh->points];
+
+  mesh->edges = elements_one_d;
+  mesh->edge = new edge_t[mesh->edges];
+
+  mesh->boundaryelements = elements_two_d;
+  mesh->boundaryelement = new boundaryelement_t[mesh->boundaryelements];
+
+  mesh->elements = elements_three_d;
+  mesh->element = new element_t[mesh->elements];
 
   // Nodes:
   file.setFileName("mesh.nodes");
@@ -596,19 +659,12 @@ void MainWindow::loadElmerMesh(QString dirName)
     logMessage("mesh.nodes does not exist");
     return;
   }
+
   file.open(QIODevice::ReadOnly);
   QTextStream mesh_node(&file);
-
+  
   int number, index;
   double x, y, z;
-
-  // now we need to allocate a new mesh:
-  meshutils->clearMesh(glWidget->mesh);
-  glWidget->mesh = new mesh_t;
-  mesh_t *mesh = glWidget->mesh;
-  
-  mesh->nodes = nodes;
-  mesh->node = new node_t[nodes];
 
   for(int i=0; i<nodes; i++) {
     node_t *node = &mesh->node[i];
@@ -628,24 +684,66 @@ void MainWindow::loadElmerMesh(QString dirName)
     meshutils->clearMesh(mesh);
     return;
   }
+
   file.open(QIODevice::ReadOnly);
   QTextStream mesh_elements(&file);
 
-  mesh->elements = elements;
-  mesh->element = new element_t[elements];
+  int current_point = 0;
+  int current_edge = 0;
+  int current_boundaryelement = 0;
+  int current_element = 0;
 
   for(int i=0; i<elements; i++) {
-    element_t *element = &mesh->element[i];
-
     mesh_elements >> number >> index >> type;
-    element->index = index;
-    element->code = type;
-    element->nodes = element->code % 100;
-    element->node = new int[element->nodes];
-    for(int j=0; j < element->nodes; j++) {
-      mesh_elements >> element->node[j];
-      element->node[j] -= 1;
+
+    switch(type/100) {
+    case 1:
+      break;
+
+    case 2:
+      break;
+
+    case 3:
+    case 4:
+      boundaryelement_t *boundaryelement = &mesh->boundaryelement[current_boundaryelement++];
+      boundaryelement->nature = BULK_ELEMENT;
+      boundaryelement->index = index;
+      boundaryelement->code = type;
+      boundaryelement->nodes = boundaryelement->code % 100;
+      boundaryelement->node = new int[boundaryelement->nodes];
+      for(int j=0; j < boundaryelement->nodes; j++) {
+	mesh_elements >> boundaryelement->node[j];
+	boundaryelement->node[j] -= 1;
+      }
+      
+      boundaryelement->elements = 0;
+      boundaryelement->element = new int[2];
+      boundaryelement->element[0] = -1;
+      boundaryelement->element[1] = -1;
+
+      break;
+
+    case 5:
+    case 8:
+      element_t *element = &mesh->element[current_element++];
+      element->nature = BULK_ELEMENT;
+      element->index = index;
+      element->code = type;
+      element->nodes = element->code % 100;
+      element->node = new int[element->nodes];
+      for(int j=0; j < element->nodes; j++) {
+	mesh_elements >> element->node[j];
+	element->node[j] -= 1;
+      }
+      break;
+
+    default:
+      cout << "Unknown element type (possibly not implemented" << endl;
+      cout.flush();
+      exit(0);
+      break;
     }
+
   }
 
   file.close();
@@ -657,52 +755,76 @@ void MainWindow::loadElmerMesh(QString dirName)
     meshutils->clearMesh(mesh);
     return;
   }
+
   file.open(QIODevice::ReadOnly);
   QTextStream mesh_boundary(&file);
 
-  mesh->boundaryelements = boundaryelements;
-  mesh->boundaryelement = new boundaryelement_t[boundaryelements];
-
   int parent0, parent1;
   for(int i=0; i<boundaryelements; i++) {
-    boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
-
     mesh_boundary >> number >> index >> parent0 >> parent1 >> type;
 
-    boundaryelement->index = index;
+    switch(type/100) {
+    case 1:
+      break;
 
-    boundaryelement->elements = 2;
-    boundaryelement->element = new int[boundaryelement->elements];
-    boundaryelement->element[0] = parent0-1;
-    boundaryelement->element[1] = parent1-1;
+    case 2:
+      edge_t *edge = &mesh->edge[current_edge++];
+      edge->nature = BOUNDARY_ELEMENT;
+      edge->index = index;
+      edge->boundaryelements = 2;
+      edge->boundaryelement = new int[edge->boundaryelements];
+      edge->boundaryelement[0] = parent0-1;
+      edge->boundaryelement[1] = parent1-1;
+      edge->code = type;
+      edge->nodes = edge->code % 100;
+      edge->node = new int[edge->nodes];
+      
+      for(int j=0; j < edge->nodes; j++) {
+	mesh_boundary >> edge->node[j];
+	edge->node[j] -= 1;
+      }
 
-    boundaryelement->code = type;
-    boundaryelement->nodes = boundaryelement->code % 100;
-    boundaryelement->node = new int[boundaryelement->nodes];
+      break;
 
-    for(int j=0; j < boundaryelement->nodes; j++) {
-      mesh_boundary >> boundaryelement->node[j];
-      boundaryelement->node[j] -= 1;
-    }
-
-    switch ((int)(boundaryelement->code/100)) {
     case 3:
-      boundaryelement->edges = 3;
-      break;
     case 4:
-      boundaryelement->edges = 4;
-      break;
-    default:
-      boundaryelement->edges = 0;
-    }
+      boundaryelement_t *boundaryelement = &mesh->boundaryelement[current_boundaryelement++];
+      boundaryelement->nature = BOUNDARY_ELEMENT;
+      boundaryelement->index = index;
+      boundaryelement->elements = 2;
+      boundaryelement->element = new int[boundaryelement->elements];
+      boundaryelement->element[0] = parent0-1;
+      boundaryelement->element[1] = parent1-1;
+      boundaryelement->code = type;
+      boundaryelement->nodes = boundaryelement->code % 100;
+      boundaryelement->node = new int[boundaryelement->nodes];
+      
+      for(int j=0; j < boundaryelement->nodes; j++) {
+	mesh_boundary >> boundaryelement->node[j];
+	boundaryelement->node[j] -= 1;
+      }
 
-    boundaryelement->edge = new int[boundaryelement->edges];
-    for(int j=0; j<boundaryelement->edges; j++)
-      boundaryelement->edge[j] = -1;
+      boundaryelement->edges = (int)(boundaryelement->code/100);      
+      boundaryelement->edge = new int[boundaryelement->edges];
+
+      for(int j=0; j<boundaryelement->edges; j++)
+	boundaryelement->edge[j] = -1;
+      
+      break;
+
+    case 5:
+    case 8:
+      // can't be boundary elements
+      break;
+
+    default:
+      break;
+    }
   }
 
   file.close();
 
+  //?????
   // Edges:
   meshutils->findBoundaryElementEdges(mesh);
   meshutils->findBoundaryElementNormals(mesh);
