@@ -91,8 +91,9 @@
          YPLUS = DENSIT * UFRIC * DIST / VISCOS
          IF ( DABS(FX) <= TOL ) EXIT
       END DO
+print*,iter, abs(fx)
 
-      IF ( DABS(FX) > 1.0D-6 ) WRITE(*,*)'Problems in SOLVE_UFRIC, FX=',FX
+      IF ( DABS(FX) > 1.0d-9 ) WRITE(*,*)'Problems in SOLVE_UFRIC, FX=',FX
 
       RETURN
       END
@@ -197,8 +198,8 @@
           (YPLUS/11.0D0)*DEXP(-0.33*YPLUS) )  &
           + 7.8D0*(YPLUS/11.0D0)  &
           *(  &
-          DEXP(-YPLUS/11.0D0)-DEXP(-0.033*YPLUS)  &
-          +0.033D0*YPLUS*DEXP(-0.033*YPLUS) &
+          DEXP(-YPLUS/11.0D0)-DEXP(-0.33*YPLUS)  &
+          +0.33D0*YPLUS*DEXP(-0.33*YPLUS) &
           )
 
       RETURN
