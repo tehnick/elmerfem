@@ -3,7 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include "mainwindow.h"
-
+ 
 using namespace std;
 
 
@@ -426,11 +426,11 @@ void MainWindow::remeshSlot()
     cout.flush();
     
     // this is just for the test case:
-    cout << "a1" << endl;
+    cout << "find edges?" << endl;
     if(0) meshutils->findBoundaryElementEdges(mesh);
-    cout << "a2" << endl;
+    cout << "find parents?" << endl;
     if(0) meshutils->findBoundaryElementParents(mesh);
-    cout << "a3" << endl;
+    cout << "find normals?" << endl;
     if(0) meshutils->findBoundaryElementNormals(mesh);
     
     logMessage("Ready");
@@ -1085,6 +1085,13 @@ void MainWindow::readInputFile(QString fileName)
   } else if (meshControl->generatorType==GEN_ELMERGRID) {    
 
     logMessage("nyt tarttis lukea inputfilee, kai" );
+    
+    int errstat = elmergridAPI->loadElmerMeshStructure((const char*)(fileName.toAscii()));
+    
+    if (errstat) {
+      logMessage("loadElmerMeshStructure failed!");
+      return;
+    }
     return;
 
   } else {
