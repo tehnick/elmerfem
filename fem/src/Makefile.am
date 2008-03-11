@@ -69,10 +69,17 @@ if USE_WINDOWS_COMPILER
 EliminatePeriodic.$(SHLEXT): EliminateDirichlet$(OBJ_EXT) EliminatePeriodic$(OBJ_EXT)
 	$(SH_LD) $(SH_LDFLAGS) $(SH_LINKING_TO_FLAGS) $(B64FLAGS) -o $@ $*$(OBJ_EXT) $(EXTRA_LIBS) EliminateDirichlet$(OBJ_EXT) -L. -lelmersolver
 
+if USE_MPI
 libelmersolver$(SHL_EXT): $(SOLVEROBJS) mpi_stubs$(OBJ_EXT) binio/libbinio.a
 	$(RM) $@
 	$(CP) _muldc3.oo _muldc3.o
 	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS) mpi_stubs$(OBJ_EXT) _muldc3.o -L. -Lbinio -lbinio
+else
+libelmersolver$(SHL_EXT): $(SOLVEROBJS) binio/libbinio.a
+	$(RM) $@
+	$(CP) _muldc3.oo _muldc3.o
+	$(SH_LD2) $(SH_LDFLAGS) $(B64FLAGS) $(LDFLAGS) -o $@ $(SOLVEROBJS) $(SOLVER_LIBS)  $(MPI_LIBS) _muldc3.o -L. -Lbinio -lbinio
+endif
 
 else
 
@@ -114,19 +121,19 @@ if HAVE_WINDRES
 
 ElmerSolver$(EXE_EXT): Solver$(OBJ_EXT) libelmersolver$(SHL_EXT) mpi_stubs$(OBJ_EXT) ElmerSolver-res.o
 	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
-	      -o ElmerSolver$(EXE_EXT) Solver$(OBJ_EXT) mpi_stubs$(OBJ_EXT) \
+	      -o ElmerSolver$(EXE_EXT) Solver$(OBJ_EXT) \
 		ElmerSolver-res.o \
 	      -L. -lelmersolver $(EXTRA_LIBS) 
 
 ViewFactors$(EXE_EXT): libelmersolver$(SHL_EXT) ViewFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT) ViewFactors-res.o
 	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
-	      -o ViewFactors$(EXE_EXT) ViewFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT) \
+	      -o ViewFactors$(EXE_EXT) ViewFactors$(OBJ_EXT) \
 		ViewFactors-res.o \
 	      -L. -lelmersolver viewaxis/libviewaxis.a view3d/libview3d.a $(EXTRA_LIBS)
 
 GebhardtFactors$(EXE_EXT): libelmersolver$(SHL_EXT) GebhardtFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT) GebhardtFactors-res.o
 	$(FC) $(SH_LINKING_TO_FLAGS) $(RPATH_ELMER) $(B64FLAGS) $(LDFLAGS) \
-	      -o GebhardtFactors$(EXE_EXT) GebhardtFactors$(OBJ_EXT) mpi_stubs$(OBJ_EXT) \
+	      -o GebhardtFactors$(EXE_EXT) GebhardtFactors$(OBJ_EXT) \
 		GebhardtFactors-res.o \
 	      -L. -lelmersolver viewaxis/libviewaxis.a view3d/libview3d.a $(EXTRA_LIBS)
 
