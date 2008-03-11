@@ -18,21 +18,24 @@ ElmergridAPI::~ElmergridAPI()
   cout.flush();
 }
  
+int ElmergridAPI::loadElmerMeshStructure(const char *filename)
+{
+  int retval = eg_loadmesh(filename); 
+  return retval;
+}
+
 
 void ElmergridAPI::createElmerMeshStructure(mesh_t *mesh)
 {
 #if 1
   int meshmode;
-  double relh;
   
-  relh=1.0;
   meshmode=1;
 
   cout << "start egmain" << endl;
   cout.flush();
 
-  int retval = 0;
-  egmain("angle",meshmode,relh,mesh);
+  int retval = eg_transfermesh("default",mesh);
 
   cout << retval << " " << mesh->nodes << " stop egmain" << endl;
   cout.flush();
