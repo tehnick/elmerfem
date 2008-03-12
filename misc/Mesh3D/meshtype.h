@@ -7,6 +7,7 @@
 #define GEN_NGLIB        1001      // netgen
 #define GEN_ELMERGRID    1002      // elmergrid
 
+#define PDE_UNKNOWN      3000      // pde uknown
 #define PDE_BOUNDARY     3001      // pde boundary
 #define PDE_BULK         3002      // pde bulk
 
