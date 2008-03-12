@@ -247,6 +247,7 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
 //-----------------------------------------------------------------------------
 void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
 {
+  static list_t dummylist;
   static GLuint buffer[1024];
   const int bufferSize = sizeof(buffer)/sizeof(GLuint);
   
@@ -307,7 +308,13 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
       if(l->selected) {
 	glDeleteLists(l->object, 1);
 	l->selected = false;
-	l->object = generateSurfaceList(l->index, 0, 1, 1);
+
+	if(l->type == SURFACELIST) {
+	  l->object = generateSurfaceList(l->index, 0, 1, 1);
+	} else if(l->type == EDGELIST) {
+	  l->object = generateEdgeList(l->index, 0, 1, 0);
+	}
+
       }
     }
   }
@@ -316,22 +323,26 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
   if(nearest != 0xffffffff) {
     list_t *l = &list[nearest];
 
-    // ?????
-    cout << l->nature << endl;
-    cout.flush();
-
     // Emit result to mainwindow:
-    emit(signalBoundarySelected(nearest));
+    emit(signalBoundarySelected(l));
+    //emit(signalBoundarySelected(nearest));
 
     // Highlight current selection:
     glDeleteLists(l->object, 1);
     l->selected = true;
-    l->object = generateSurfaceList(l->index, 1, 0, 0);
+
+    if(l->type == SURFACELIST) {
+      l->object = generateSurfaceList(l->index, 1, 0, 0);
+    } else if(l->type == EDGELIST) {
+      l->object = generateEdgeList(l->index, 1, 0, 0);
+    }
     
   } else {
 
     // Emit "nothing selected":
-    emit(signalBoundarySelected(-1)); 
+    dummylist.nature = -1;
+    dummylist.index = -1;
+    emit(signalBoundarySelected(&dummylist)); 
   }
 
   updateGL();
@@ -415,7 +426,7 @@ GLuint GLWidget::makeLists()
       surface_bcs++;
   }  
   
-  cout << "Boundary conditions on surface elements: " << surface_bcs << endl;
+  cout << "Bcs / mat.indices on surface elements: " << surface_bcs << endl;
 
   // Scan edge elements to determine the number of bcs on edges:
   //---------------------------------------------------------------------------
@@ -436,7 +447,7 @@ GLuint GLWidget::makeLists()
       edge_bcs++;
   }  
   
-  cout << "Boundary conditions on edge elements: " << edge_bcs << endl;  
+  cout << "Bcs / mat.indoces on edge elements: " << edge_bcs << endl;  
 
   // Scan edge elements to determine the number of bcs on edges:
   //---------------------------------------------------------------------------
@@ -445,7 +456,7 @@ GLuint GLWidget::makeLists()
 
   // TODO
 
-  cout << "Boundary conditions on point elements: " << point_bcs << endl;  
+  cout << "Bcs / mat.indices on point elements: " << point_bcs << endl;  
 
   // Generate lists:
   //---------------------------------------------------------------------------
@@ -468,13 +479,6 @@ GLuint GLWidget::makeLists()
       l->visible = true;
     }
   }
-
-#if 0  
-  for(i=0; i<surface_bcs; i++) {
-    list_t *l = &list[i];
-    l->object = generateSurfaceList(l->index, 0, 1, 1);
-  }
-#endif
   
   // Edge lists:
   for(i=0; i < mesh->edges; i++) {
@@ -489,13 +493,6 @@ GLuint GLWidget::makeLists()
     }
   }
   
-#if 0
-  for(i=0; i<edge_bcs; i++) {
-    list_t *l = &list[surface_bcs + i];
-    l->object = generateEdgeList(l->index, 0, 1, 1);
-  }
-#endif
-
   updateGL();
   getMatrix();
 
@@ -516,6 +513,8 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
 
   GLuint current = glGenLists(1);
   glNewList(current, GL_COMPILE);
+
+  glLineWidth(1.0);
 
   for(int i=0; i < mesh->surfaces; i++) {
     surface_t *surface = &mesh->surface[i];
@@ -637,6 +636,8 @@ GLuint GLWidget::generateEdgeList(int index, double R, double G, double B)
   GLuint current = glGenLists(1);
   glNewList(current, GL_COMPILE);
   
+  glLineWidth(4.0);
+
   for(int i=0; i < mesh->edges; i++) {
     edge_t *edge = &mesh->edge[i];
 

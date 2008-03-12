@@ -10,8 +10,8 @@
 
 class list_t {
  public:
-  int nature;
-  int type;          // EDGELIST, BOUNDARYLIST, ...
+  int nature;        // PDE_BOUNDARY, PDE_BULK, ...
+  int type;          // EDGELIST, SURFACELIST, ...
   int index;         // Boundary condition as defined in input file
   GLuint object;     // GL list index as returned by glGenLists()
   bool selected;     // Currently selected?
@@ -42,7 +42,7 @@ public:
 public slots:
 
 signals:
-    void signalBoundarySelected(int);
+ void signalBoundarySelected(list_t*);
 
 protected:
     void initializeGL();

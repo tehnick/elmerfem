@@ -39,7 +39,7 @@ private slots:
   void showaboutSlot();           // Help -> About...
 
   void meshOkSlot();              // signal emitted by meshingThread
-  void boundarySelectedSlot(int); // signal emitted by glWidget
+  void boundarySelectedSlot(list_t*); // signal emitted by glWidget
   void doDivisionSlot(double);    // signal emitted by boundaryDivide
   
 private:

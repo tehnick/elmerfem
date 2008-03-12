@@ -41,13 +41,15 @@ MainWindow::MainWindow()
   createToolBars();
   createStatusBar();
   
+  // glWidget emits (list_t*) when a boundary is selected by double clicking:
+  connect(glWidget, SIGNAL(signalBoundarySelected(list_t*)), this, SLOT(boundarySelectedSlot(list_t*)));
   // glWidget emits (int) when a boundary is selected by double clicking:
-  connect(glWidget, SIGNAL(signalBoundarySelected(int)), this, SLOT(boundarySelectedSlot(int)));
+  //connect(glWidget, SIGNAL(signalBoundarySelected(int)), this, SLOT(boundarySelectedSlot(int)));
 
   // meshingThread emits (void) when the mesh generation is completed:
   connect(meshingThread, SIGNAL(signalMeshOk()), this, SLOT(meshOkSlot()));
 
-  // boundaryDivide emits (void) when "divide button" has been clicked:
+  // boundaryDivide emits (double) when "divide button" has been clicked:
   connect(boundaryDivide, SIGNAL(signalDoDivision(double)), this, SLOT(doDivisionSlot(double)));
 
   nglibInputOk = false;
@@ -829,7 +831,6 @@ void MainWindow::loadElmerMesh(QString dirName)
 
   file.close();
 
-  //?????
   // Edges:
   meshutils->findBoundaryElementEdges(mesh);
   meshutils->findBoundaryElementNormals(mesh);
@@ -971,19 +972,17 @@ void MainWindow::saveElmerMesh(QString dirName)
 
 // Boundady selected by double clicking (signaled by glWidget::select):
 //-----------------------------------------------------------------------------
-void MainWindow::boundarySelectedSlot(int index)
+void MainWindow::boundarySelectedSlot(list_t *l)
 {
   QString qs;
 
-  if(index < 0) {
+  if(l->index < 0) {
     statusBar()->showMessage("Ready");    
     return;
   }
 
-  list_t *l = &glWidget->list[index];
-  
   if(l->type == SURFACELIST) {
-    qs = "Selected boundary " + QString::number(l->index);
+    qs = "Selected surface " + QString::number(l->index);
   } else if(l->type == EDGELIST) {
     qs = "Selected edge " + QString::number(l->index);
   } else {
@@ -1220,8 +1219,14 @@ void MainWindow::makeSteadyHeatSifSlot()
   int maxindex = 0;
   for(int i=0; i < mesh->surfaces; i++) {
     surface_t *surface = &mesh->surface[i];
-    if(surface->index > maxindex)
+    if((surface->nature == PDE_BOUNDARY) && (surface->index > maxindex))
       maxindex = surface->index;
+  }
+
+  for(int i=0; i < mesh->edges; i++) {
+    edge_t *edge = &mesh->edge[i];
+    if((edge->nature == PDE_BOUNDARY) && (edge->index > maxindex))
+      maxindex = edge->index;
   }
   maxindex++;
 
@@ -1232,7 +1237,14 @@ void MainWindow::makeSteadyHeatSifSlot()
 
   for(int i=0; i < mesh->surfaces; i++) {
     surface_t *surface = &mesh->surface[i];
-    tmp[surface->index] = true;
+    if(surface->nature == PDE_BOUNDARY)
+      tmp[surface->index] = true;
+  }
+  
+  for(int i=0; i < mesh->edges; i++) {
+    edge_t *edge = &mesh->edge[i];
+    if(edge->nature == PDE_BOUNDARY)
+      tmp[edge->index] = true;
   }
   
   int j = 0;
