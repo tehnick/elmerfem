@@ -307,7 +307,7 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
       if(l->selected) {
 	glDeleteLists(l->object, 1);
 	l->selected = false;
-	l->object = generateList(l->index, 0, 1, 1);
+	l->object = generateSurfaceList(l->index, 0, 1, 1);
       }
     }
   }
@@ -316,13 +316,17 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
   if(nearest != 0xffffffff) {
     list_t *l = &list[nearest];
 
+    // ?????
+    cout << l->nature << endl;
+    cout.flush();
+
     // Emit result to mainwindow:
     emit(signalBoundarySelected(nearest));
 
     // Highlight current selection:
     glDeleteLists(l->object, 1);
     l->selected = true;
-    l->object = generateList(l->index, 1, 0, 0);
+    l->object = generateSurfaceList(l->index, 1, 0, 0);
     
   } else {
 
@@ -384,102 +388,150 @@ GLuint GLWidget::makeLists()
     return 0;
   }
 
-  // First, scan boundary elements to determine the number of bcs:
-  int *tmp = new int[mesh->boundaryelements];
-  for(i=0; i < mesh->boundaryelements; i++)
-    tmp[i] = 0;
+  // The rule for composing lists to display is the following:
+  //---------------------------------------------------------------------------
+  // - All surface elements with index >= 0 will be drawn - one list/index
+  // - All edge elements with index >= 0 will be drawn - one list/index
+  // - All point elements with index >= 0 will be drawn - one list/index
+  //---------------------------------------------------------------------------
+  
 
-  for(i=0; i < mesh->boundaryelements; i++) {
-    boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
-    if(boundaryelement->index > 0)
-      tmp[boundaryelement->index]++;
+  // Scan surface elements to determine the number of bcs on surfaces:
+  //---------------------------------------------------------------------------
+  int surface_bcs = 0;
+  int *surface_tmp = new int[mesh->surfaces];
+  
+  for(i=0; i < mesh->surfaces; i++)
+    surface_tmp[i] = 0;
+  
+  for(i=0; i < mesh->surfaces; i++) {
+    surface_t *surface = &mesh->surface[i];
+    if(surface->index > 0)
+      surface_tmp[surface->index]++;
   }    
   
-  int bcs = 0;
-  for(i=0; i < mesh->boundaryelements; i++) {
-    if(tmp[i] > 0)
-      bcs++;
+  for(i=0; i < mesh->surfaces; i++) {
+    if(surface_tmp[i] > 0)
+      surface_bcs++;
   }  
-
-  cout << "Boundary parts: " << bcs << endl;
-
-  lists = bcs;
-  list = new list_t[lists];
   
-  bcs = 0;
-  for(i=0; i < mesh->boundaryelements; i++) {
-    if(tmp[i] > 0) {
-      list_t *l = &list[bcs];
-      l->type = BOUNDARYLIST;
-      l->index = i;
-      l->object = 0;
-      l->selected = false;
-      l->visible = true;
-      bcs++;
-    }
-  }
-  
-  for(i=0; i<bcs; i++) {
-    list_t *l = &list[i];
-    l->object = generateList(l->index, 0, 1, 1);
-  }
-  
-  delete [] tmp; 
+  cout << "Boundary conditions on surface elements: " << surface_bcs << endl;
 
-  // TODO: We'll eventually have to scan for edges as well
-#if 0
-  // Then, scan for edges to determine the number of bcs:
-  tmp = new int[mesh->edges];
-  for(i=0; i < mesh->edges; i++) {
-    cout << "test: " << mesh->edge[i].index << endl;
-    tmp[i] = 0;
-  }
-
+  // Scan edge elements to determine the number of bcs on edges:
+  //---------------------------------------------------------------------------
+  int edge_bcs = 0;
+  int *edge_tmp = new int[mesh->edges];
+  
+  for(i=0; i < mesh->edges; i++)
+    edge_tmp[i] = 0;
+  
   for(i=0; i < mesh->edges; i++) {
     edge_t *edge = &mesh->edge[i];
     if(edge->index > 0)
-      tmp[edge->index]++;
+      edge_tmp[edge->index]++;
   }    
   
-  int bcs2 = 0;
   for(i=0; i < mesh->edges; i++) {
-    if(tmp[i] > 0)
-      bcs2++;
+    if(edge_tmp[i] > 0)
+      edge_bcs++;
   }  
+  
+  cout << "Boundary conditions on edge elements: " << edge_bcs << endl;  
 
-  cout << "Edges: " << bcs2 << endl;  
+  // Scan edge elements to determine the number of bcs on edges:
+  //---------------------------------------------------------------------------
+  int point_bcs = 0;
+  int *point_tmp = new int[mesh->points];
+
+  // TODO
+
+  cout << "Boundary conditions on point elements: " << point_bcs << endl;  
+
+  // Generate lists:
+  //---------------------------------------------------------------------------
+  lists = surface_bcs + edge_bcs + point_bcs;
+  list = new list_t[lists];
+  int current_index = 0;
+
+  cout << "Generating " << lists << " lists to display" << endl;
+  cout.flush();
+
+  // Surface lists:
+  for(i=0; i < mesh->surfaces; i++) {
+    if(surface_tmp[i] > 0) {
+      list_t *l = &list[current_index++];
+      l->nature = PDE_BOUNDARY;   // fix this as this is not always the case
+      l->type = SURFACELIST;
+      l->index = i;
+      l->object = generateSurfaceList(l->index, 0, 1, 1);
+      l->selected = false;
+      l->visible = true;
+    }
+  }
+
+#if 0  
+  for(i=0; i<surface_bcs; i++) {
+    list_t *l = &list[i];
+    l->object = generateSurfaceList(l->index, 0, 1, 1);
+  }
+#endif
+  
+  // Edge lists:
+  for(i=0; i < mesh->edges; i++) {
+    if(edge_tmp[i] > 0) {
+      list_t *l = &list[current_index++];
+      l->nature = PDE_BOUNDARY;   // fix this as this is not always the case
+      l->type = EDGELIST;
+      l->index = i;
+      l->object = generateEdgeList(l->index, 0, 1, 0);
+      l->selected = false;
+      l->visible = true;
+    }
+  }
+  
+#if 0
+  for(i=0; i<edge_bcs; i++) {
+    list_t *l = &list[surface_bcs + i];
+    l->object = generateEdgeList(l->index, 0, 1, 1);
+  }
 #endif
 
   updateGL();
   getMatrix();
 
+  delete [] surface_tmp;
+  delete [] edge_tmp;
+  delete [] point_tmp;
+
   return lists;
 }
 
-// Generate list...
+
+
+// Generate surface list...
 //-----------------------------------------------------------------------------
-GLuint GLWidget::generateList(int index, double R, double G, double B)
+GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
 {
   double x0[3], x1[3], x2[3], x3[3];
 
   GLuint current = glGenLists(1);
   glNewList(current, GL_COMPILE);
 
-  for(int i=0; i < mesh->boundaryelements; i++) {
-    boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
+  for(int i=0; i < mesh->surfaces; i++) {
+    surface_t *surface = &mesh->surface[i];
 
-    if(boundaryelement->index == index) {
+    if(surface->index == index) {
       
-      glNormal3dv(boundaryelement->normal); 
+      glNormal3dv(surface->normal); 
 
-      if(boundaryelement->code == 303) {
+      if(surface->code == 303) {
 	glBegin(GL_TRIANGLES);
 	
 	glColor3d(R, G, B);
 
-	int n0 = boundaryelement->node[0];
-	int n1 = boundaryelement->node[1];
-	int n2 = boundaryelement->node[2];
+	int n0 = surface->node[0];
+	int n1 = surface->node[1];
+	int n2 = surface->node[2];
 	
 	x0[0] = (mesh->node[n0].x[0] - drawTranslate[0]) / drawScale;
 	x0[1] = (mesh->node[n0].x[1] - drawTranslate[1]) / drawScale;
@@ -516,15 +568,15 @@ GLuint GLWidget::generateList(int index, double R, double G, double B)
 	glEnd();
       }
 
-      if(boundaryelement->code == 404) {
+      if(surface->code == 404) {
 	glBegin(GL_QUADS);
 	
 	glColor3d(R, G, B);
 	
-	int n0 = boundaryelement->node[0];
-	int n1 = boundaryelement->node[1];
-	int n2 = boundaryelement->node[2];
-	int n3 = boundaryelement->node[3];
+	int n0 = surface->node[0];
+	int n1 = surface->node[1];
+	int n2 = surface->node[2];
+	int n3 = surface->node[3];
 	
 	x0[0] = (mesh->node[n0].x[0] - drawTranslate[0]) / drawScale;
 	x0[1] = (mesh->node[n0].x[1] - drawTranslate[1]) / drawScale;
@@ -568,6 +620,47 @@ GLuint GLWidget::generateList(int index, double R, double G, double B)
 	
 	glEnd();
       }
+    }
+  }
+  
+  glEndList();
+  
+  return current;
+}
+
+
+//-----------------------------------------------------------------------------
+GLuint GLWidget::generateEdgeList(int index, double R, double G, double B)
+{
+  double x0[3], x1[3];
+
+  GLuint current = glGenLists(1);
+  glNewList(current, GL_COMPILE);
+  
+  for(int i=0; i < mesh->edges; i++) {
+    edge_t *edge = &mesh->edge[i];
+
+    if(edge->index == index) {
+      
+      glBegin(GL_LINES);
+	
+      glColor3d(R, G, B);
+      
+      int n0 = edge->node[0];
+      int n1 = edge->node[1];
+	
+      x0[0] = (mesh->node[n0].x[0] - drawTranslate[0]) / drawScale;
+      x0[1] = (mesh->node[n0].x[1] - drawTranslate[1]) / drawScale;
+      x0[2] = (mesh->node[n0].x[2] - drawTranslate[2]) / drawScale;
+	
+      x1[0] = (mesh->node[n1].x[0] - drawTranslate[0]) / drawScale;
+      x1[1] = (mesh->node[n1].x[1] - drawTranslate[1]) / drawScale;
+      x1[2] = (mesh->node[n1].x[2] - drawTranslate[2]) / drawScale;
+	
+      glVertex3dv(x0);
+      glVertex3dv(x1);
+
+      glEnd();
     }
   }
   

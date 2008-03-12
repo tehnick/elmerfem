@@ -278,8 +278,8 @@ void MainWindow::boundaryunifySlot()
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];    
     if(l->selected) {
-      for(int j=0; j < mesh->boundaryelements; j++) {
-	boundaryelement_t *be = &mesh->boundaryelement[j];
+      for(int j=0; j < mesh->surfaces; j++) {
+	surface_t *be = &mesh->surface[j];
 	if(be->index == l->index) 
 	  be->index = targetindex;
       }
@@ -415,6 +415,11 @@ void MainWindow::remeshSlot()
     glWidget->mesh = new mesh_t;
     mesh_t *mesh = glWidget->mesh;
     
+    mesh->nodes = 0;
+    mesh->points = 0;
+    mesh->edges = 0;
+    mesh->surfaces = 0;
+    mesh->elements = 0;
 
     logMessage("eg api start");
     elmergridAPI->createElmerMeshStructure(mesh);
@@ -422,7 +427,7 @@ void MainWindow::remeshSlot()
 
     cout << "Nodes: " << mesh->nodes << endl;
     cout << "Elements: " << mesh->elements << endl;
-    cout << "Boundaryelements: " << mesh->boundaryelements << endl;
+    cout << "Surfaces: " << mesh->surfaces << endl;
     cout.flush();
     
     // this is just for the test case:
@@ -575,13 +580,13 @@ void MainWindow::loadElmerMesh(QString dirName)
   file.open(QIODevice::ReadOnly);
   QTextStream mesh_header(&file);
 
-  int nodes, elements, boundaryelements, types, type, ntype;
+  int nodes, elements, surfaces, types, type, ntype;
 
-  mesh_header >> nodes >> elements >> boundaryelements;
+  mesh_header >> nodes >> elements >> surfaces;
   mesh_header >> types;
 
   // cout << "mesh.header:" << endl;
-  // cout << nodes << " " << elements << " " << boundaryelements << endl;
+  // cout << nodes << " " << elements << " " << surfaces << endl;
   // cout << types << endl;
 
   int elements_zero_d = 0;
@@ -647,8 +652,8 @@ void MainWindow::loadElmerMesh(QString dirName)
   mesh->edges = elements_one_d;
   mesh->edge = new edge_t[mesh->edges];
 
-  mesh->boundaryelements = elements_two_d;
-  mesh->boundaryelement = new boundaryelement_t[mesh->boundaryelements];
+  mesh->surfaces = elements_two_d;
+  mesh->surface = new surface_t[mesh->surfaces];
 
   mesh->elements = elements_three_d;
   mesh->element = new element_t[mesh->elements];
@@ -690,7 +695,7 @@ void MainWindow::loadElmerMesh(QString dirName)
 
   int current_point = 0;
   int current_edge = 0;
-  int current_boundaryelement = 0;
+  int current_surface = 0;
   int current_element = 0;
 
   for(int i=0; i<elements; i++) {
@@ -705,28 +710,28 @@ void MainWindow::loadElmerMesh(QString dirName)
 
     case 3:
     case 4:
-      boundaryelement_t *boundaryelement = &mesh->boundaryelement[current_boundaryelement++];
-      boundaryelement->nature = BULK_ELEMENT;
-      boundaryelement->index = index;
-      boundaryelement->code = type;
-      boundaryelement->nodes = boundaryelement->code % 100;
-      boundaryelement->node = new int[boundaryelement->nodes];
-      for(int j=0; j < boundaryelement->nodes; j++) {
-	mesh_elements >> boundaryelement->node[j];
-	boundaryelement->node[j] -= 1;
+      surface_t *surface = &mesh->surface[current_surface++];
+      surface->nature = PDE_BULK;
+      surface->index = index;
+      surface->code = type;
+      surface->nodes = surface->code % 100;
+      surface->node = new int[surface->nodes];
+      for(int j=0; j < surface->nodes; j++) {
+	mesh_elements >> surface->node[j];
+	surface->node[j] -= 1;
       }
       
-      boundaryelement->elements = 0;
-      boundaryelement->element = new int[2];
-      boundaryelement->element[0] = -1;
-      boundaryelement->element[1] = -1;
+      surface->elements = 0;
+      surface->element = new int[2];
+      surface->element[0] = -1;
+      surface->element[1] = -1;
 
       break;
 
     case 5:
     case 8:
       element_t *element = &mesh->element[current_element++];
-      element->nature = BULK_ELEMENT;
+      element->nature = PDE_BULK;
       element->index = index;
       element->code = type;
       element->nodes = element->code % 100;
@@ -760,7 +765,7 @@ void MainWindow::loadElmerMesh(QString dirName)
   QTextStream mesh_boundary(&file);
 
   int parent0, parent1;
-  for(int i=0; i<boundaryelements; i++) {
+  for(int i=0; i<surfaces; i++) {
     mesh_boundary >> number >> index >> parent0 >> parent1 >> type;
 
     switch(type/100) {
@@ -769,12 +774,12 @@ void MainWindow::loadElmerMesh(QString dirName)
 
     case 2:
       edge_t *edge = &mesh->edge[current_edge++];
-      edge->nature = BOUNDARY_ELEMENT;
+      edge->nature = PDE_BOUNDARY;
       edge->index = index;
-      edge->boundaryelements = 2;
-      edge->boundaryelement = new int[edge->boundaryelements];
-      edge->boundaryelement[0] = parent0-1;
-      edge->boundaryelement[1] = parent1-1;
+      edge->surfaces = 2;
+      edge->surface = new int[edge->surfaces];
+      edge->surface[0] = parent0-1;
+      edge->surface[1] = parent1-1;
       edge->code = type;
       edge->nodes = edge->code % 100;
       edge->node = new int[edge->nodes];
@@ -788,27 +793,27 @@ void MainWindow::loadElmerMesh(QString dirName)
 
     case 3:
     case 4:
-      boundaryelement_t *boundaryelement = &mesh->boundaryelement[current_boundaryelement++];
-      boundaryelement->nature = BOUNDARY_ELEMENT;
-      boundaryelement->index = index;
-      boundaryelement->elements = 2;
-      boundaryelement->element = new int[boundaryelement->elements];
-      boundaryelement->element[0] = parent0-1;
-      boundaryelement->element[1] = parent1-1;
-      boundaryelement->code = type;
-      boundaryelement->nodes = boundaryelement->code % 100;
-      boundaryelement->node = new int[boundaryelement->nodes];
+      surface_t *surface = &mesh->surface[current_surface++];
+      surface->nature = PDE_BOUNDARY;
+      surface->index = index;
+      surface->elements = 2;
+      surface->element = new int[surface->elements];
+      surface->element[0] = parent0-1;
+      surface->element[1] = parent1-1;
+      surface->code = type;
+      surface->nodes = surface->code % 100;
+      surface->node = new int[surface->nodes];
       
-      for(int j=0; j < boundaryelement->nodes; j++) {
-	mesh_boundary >> boundaryelement->node[j];
-	boundaryelement->node[j] -= 1;
+      for(int j=0; j < surface->nodes; j++) {
+	mesh_boundary >> surface->node[j];
+	surface->node[j] -= 1;
       }
 
-      boundaryelement->edges = (int)(boundaryelement->code/100);      
-      boundaryelement->edge = new int[boundaryelement->edges];
+      surface->edges = (int)(surface->code/100);      
+      surface->edge = new int[surface->edges];
 
-      for(int j=0; j<boundaryelement->edges; j++)
-	boundaryelement->edge[j] = -1;
+      for(int j=0; j<surface->edges; j++)
+	surface->edge[j] = -1;
       
       break;
 
@@ -856,15 +861,15 @@ void MainWindow::saveElmerMesh(QString dirName)
 
   cout << "Saving " << mesh->nodes << " nodes\n";
   cout << "Saving " << mesh->elements << " elements\n";
-  cout << "Saving " << mesh->boundaryelements << " boundary elements\n";
+  cout << "Saving " << mesh->surfaces << " boundary elements\n";
   cout.flush();
 
   header << mesh->nodes << " ";
   header << mesh->elements << " ";
-  header << mesh->boundaryelements << "\n";
+  header << mesh->surfaces << "\n";
 
   header << "2\n";
-  header << "303 " << mesh->boundaryelements << "\n";
+  header << "303 " << mesh->surfaces << "\n";
   header << "504 " << mesh->elements << "\n";
 
   file.close();
@@ -914,11 +919,11 @@ void MainWindow::saveElmerMesh(QString dirName)
   file.open(QIODevice::WriteOnly);
   QTextStream boundary(&file);
   
-  for(int i=0; i < mesh->boundaryelements; i++) {
-    boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
+  for(int i=0; i < mesh->surfaces; i++) {
+    surface_t *surface = &mesh->surface[i];
 
-    int e0 = boundaryelement->element[0] + 1;
-    int e1 = boundaryelement->element[1] + 1;
+    int e0 = surface->element[0] + 1;
+    int e1 = surface->element[1] + 1;
 
     if(e0 < 1)
       e0 = 0;
@@ -927,13 +932,13 @@ void MainWindow::saveElmerMesh(QString dirName)
       e1 = 0;
 
     boundary << i+1 << " ";
-    boundary << boundaryelement->index << " ";
+    boundary << surface->index << " ";
     boundary << e0 << " ";
     boundary << e1 << " ";
     boundary << "303 ";
-    boundary << boundaryelement->node[0]+1 << " ";
-    boundary << boundaryelement->node[1]+1 << " ";
-    boundary << boundaryelement->node[2]+1 << "\n";
+    boundary << surface->node[0]+1 << " ";
+    boundary << surface->node[1]+1 << " ";
+    boundary << surface->node[2]+1 << "\n";
   }
 
   file.close();
@@ -977,7 +982,7 @@ void MainWindow::boundarySelectedSlot(int index)
 
   list_t *l = &glWidget->list[index];
   
-  if(l->type == BOUNDARYLIST) {
+  if(l->type == SURFACELIST) {
     qs = "Selected boundary " + QString::number(l->index);
   } else if(l->type == EDGELIST) {
     qs = "Selected edge " + QString::number(l->index);
@@ -1213,10 +1218,10 @@ void MainWindow::makeSteadyHeatSifSlot()
   mesh_t *mesh = glWidget->mesh;
 
   int maxindex = 0;
-  for(int i=0; i < mesh->boundaryelements; i++) {
-    boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
-    if(boundaryelement->index > maxindex)
-      maxindex = boundaryelement->index;
+  for(int i=0; i < mesh->surfaces; i++) {
+    surface_t *surface = &mesh->surface[i];
+    if(surface->index > maxindex)
+      maxindex = surface->index;
   }
   maxindex++;
 
@@ -1225,9 +1230,9 @@ void MainWindow::makeSteadyHeatSifSlot()
   for(int i=0; i<maxindex; i++) 
     tmp[i] = false;
 
-  for(int i=0; i < mesh->boundaryelements; i++) {
-    boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
-    tmp[boundaryelement->index] = true;
+  for(int i=0; i < mesh->surfaces; i++) {
+    surface_t *surface = &mesh->surface[i];
+    tmp[surface->index] = true;
   }
   
   int j = 0;

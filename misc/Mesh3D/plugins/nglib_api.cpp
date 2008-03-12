@@ -86,6 +86,12 @@ mesh_t* NglibAPI::createElmerMeshStructure()
   // Create new mesh structure:
   mesh_t *mesh = new mesh_t;
 
+  mesh->nodes = 0;
+  mesh->points = 0;
+  mesh->edges = 0;
+  mesh->surfaces = 0;
+  mesh->elements = 0;
+
   // Nodes:
   mesh->nodes = Ng_GetNP(ngmesh);
   mesh->node = new node_t[mesh->nodes];
@@ -99,38 +105,40 @@ mesh_t* NglibAPI::createElmerMeshStructure()
   }
 
   // Boundary elements:				       
-  mesh->boundaryelements = Ng_GetNSE(ngmesh);
-  mesh->boundaryelement = new boundaryelement_t[mesh->boundaryelements];
+  mesh->surfaces = Ng_GetNSE(ngmesh);
+  mesh->surface = new surface_t[mesh->surfaces];
 
-  for(int i=0; i < mesh->boundaryelements; i++) {
-    boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
+  for(int i=0; i < mesh->surfaces; i++) {
+    surface_t *surface = &mesh->surface[i];
 
-    boundaryelement->code = 303;
+    surface->nature = PDE_BOUNDARY;
 
-    boundaryelement->nodes = 3;
-    boundaryelement->node = new int[3];
+    surface->code = 303;
+
+    surface->nodes = 3;
+    surface->node = new int[3];
     
-    boundaryelement->edges = 3;
-    boundaryelement->edge = new int[3];
+    surface->edges = 3;
+    surface->edge = new int[3];
 
-    boundaryelement->index = 1; // default
+    surface->index = 1; // default
 
-    boundaryelement->edge[0] = -1;
-    boundaryelement->edge[1] = -1;
-    boundaryelement->edge[2] = -1;
+    surface->edge[0] = -1;
+    surface->edge[1] = -1;
+    surface->edge[2] = -1;
 
-    // data for boundaryelement->element is not available
+    // data for surface->element is not available
 
-    Ng_GetSurfaceElement(ngmesh, i+1, boundaryelement->node);
+    Ng_GetSurfaceElement(ngmesh, i+1, surface->node);
     
-    boundaryelement->node[0]--;
-    boundaryelement->node[1]--;
-    boundaryelement->node[2]--;
+    surface->node[0]--;
+    surface->node[1]--;
+    surface->node[2]--;
 
     // swap orientation:
-    int tmp = boundaryelement->node[1];
-    boundaryelement->node[1] = boundaryelement->node[2];
-    boundaryelement->node[2] = tmp;
+    int tmp = surface->node[1];
+    surface->node[1] = surface->node[2];
+    surface->node[2] = tmp;
   }
 
 
@@ -141,6 +149,8 @@ mesh_t* NglibAPI::createElmerMeshStructure()
 
   for(int i=0; i< mesh->elements; i++) {
     element_t *element = &mesh->element[i];
+
+    element->nature = PDE_BULK;
 
     element->code = 504;
 

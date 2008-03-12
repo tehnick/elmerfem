@@ -92,8 +92,8 @@ void Meshutils::clearMesh(mesh_t *mesh)
     if(mesh->element != (element_t*)NULL) 
       delete [] mesh->element;
     
-    if(mesh->boundaryelement != (boundaryelement_t*)NULL) 
-      delete [] mesh->boundaryelement;
+    if(mesh->surface != (surface_t*)NULL) 
+      delete [] mesh->surface;
     
     if(mesh->edge != (edge_t*)NULL) 
       delete [] mesh->edge;
@@ -200,8 +200,8 @@ void Meshutils::findBoundaryElementParents(mesh_t *mesh)
   cout << "Found total of " << faces << " faces" << endl;
 
   // Finally find parents:
-  for(int i=0; i < mesh->boundaryelements; i++) {
-    boundaryelement_t *be = &mesh->boundaryelement[i];
+  for(int i=0; i < mesh->surfaces; i++) {
+    surface_t *be = &mesh->surface[i];
     
     int n0 = be->node[0];
     int n1 = be->node[1];
@@ -252,8 +252,8 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
 
 #define RESETENTRY              \
     h->node = UNKNOWN;          \
-    h->boundaryelements = 0;    \
-    h->boundaryelement = NULL;  \
+    h->surfaces = 0;    \
+    h->surface = NULL;  \
     h->next = NULL;
 
   int keys = mesh->nodes;
@@ -261,8 +261,8 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
   class hashEntry {
   public:
     int node;
-    int boundaryelements;
-    int *boundaryelement;
+    int surfaces;
+    int *surface;
     hashEntry *next;
   };
   
@@ -278,8 +278,8 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
 
   static int edgemap[][2] = {{0,1}, {1,2}, {2,0}};
   
-  for(int i=0; i < mesh->boundaryelements; i++) {
-    boundaryelement_t *be = &mesh->boundaryelement[i];
+  for(int i=0; i < mesh->surfaces; i++) {
+    surface_t *be = &mesh->surface[i];
     
     // loop over edges
     for(int e=0; e<3; e++) {
@@ -302,21 +302,21 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
       
       if(!found) {
 	h->node = n;
-	h->boundaryelements = 1;
-	h->boundaryelement = new int[1];
-	h->boundaryelement[0] = i;
+	h->surfaces = 1;
+	h->surface = new int[1];
+	h->surface[0] = i;
 	h->next = new hashEntry;
 	h = h->next;
 	RESETENTRY;
       } else {
-	int *tmp = new int[h->boundaryelements];
-	for(int j=0; j<h->boundaryelements; j++)
-	  tmp[j] = h->boundaryelement[j];
-	delete [] h->boundaryelement;
-	h->boundaryelement = new int[h->boundaryelements+1];
-	for(int j=0; j<h->boundaryelements; j++)
-	  h->boundaryelement[j] = tmp[j];
-	h->boundaryelement[h->boundaryelements++] = i;
+	int *tmp = new int[h->surfaces];
+	for(int j=0; j<h->surfaces; j++)
+	  tmp[j] = h->surface[j];
+	delete [] h->surface;
+	h->surface = new int[h->surfaces+1];
+	for(int j=0; j<h->surfaces; j++)
+	  h->surface[j] = tmp[j];
+	h->surface[h->surfaces++] = i;
 	delete [] tmp;
       }
     }
@@ -351,11 +351,11 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
       e->node[0] = i;
       e->node[1] = h->node;
 
-      e->boundaryelements = h->boundaryelements;
-      e->boundaryelement = new int[e->boundaryelements];
+      e->surfaces = h->surfaces;
+      e->surface = new int[e->surfaces];
 
-      for(int j=0; j < e->boundaryelements; j++) {
-	e->boundaryelement[j] = h->boundaryelement[j];
+      for(int j=0; j < e->surfaces; j++) {
+	e->surface[j] = h->surface[j];
       }
 
       e->index = UNKNOWN;
@@ -369,9 +369,9 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
   for(int i=0; i < mesh->edges; i++) {
     edge_t *e = &mesh->edge[i];
 
-    for(int j=0; j < e->boundaryelements; j++) {
-      int k = e->boundaryelement[j];
-      boundaryelement_t *be = &mesh->boundaryelement[k];
+    for(int j=0; j < e->surfaces; j++) {
+      int k = e->surface[j];
+      surface_t *be = &mesh->surface[k];
       
       for(int r=0; r < be->edges; r++) {
 	if(be->edge[r] < 0) {
@@ -387,18 +387,18 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
   for(int i=0; i<mesh->edges; i++)
     cout << "Edge " << i << " nodes " << mesh->edge[i].node[0] << " "<< mesh->edge[i].node[0] << endl;
 
-  for(int i=0; i<mesh->boundaryelements; i++)
-    cout << "Boundaryelement " << i << " nodes " 
-	 << mesh->boundaryelement[i].node[0] << " " 
-	 << mesh->boundaryelement[i].node[1] << " "
-	 << mesh->boundaryelement[i].node[2] << " "
+  for(int i=0; i<mesh->surfaces; i++)
+    cout << "Surface " << i << " nodes " 
+	 << mesh->surface[i].node[0] << " " 
+	 << mesh->surface[i].node[1] << " "
+	 << mesh->surface[i].node[2] << " "
 	 << " Edges " 
-	 << mesh->boundaryelement[i].edge[0] << " " 
-	 << mesh->boundaryelement[i].edge[1] << " "
-	 << mesh->boundaryelement[i].edge[2] << " "
+	 << mesh->surface[i].edge[0] << " " 
+	 << mesh->surface[i].edge[1] << " "
+	 << mesh->surface[i].edge[2] << " "
 	 << " Parents " 
-	 << mesh->boundaryelement[i].element[0] << " " 
-	 << mesh->boundaryelement[i].element[1] << " "
+	 << mesh->surface[i].element[0] << " " 
+	 << mesh->surface[i].element[1] << " "
 	 << endl;
 
   cout.flush();
@@ -426,11 +426,11 @@ void Meshutils::findSharpEdges(mesh_t *mesh, double limit)
 
     edge->index = UNKNOWN;
 
-    if( edge->boundaryelements == 2 ) {
-      int b0 = edge->boundaryelement[0];
-      int b1 = edge->boundaryelement[1];    
-      double *n0 = mesh->boundaryelement[b0].normal;
-      double *n1 = mesh->boundaryelement[b1].normal;
+    if( edge->surfaces == 2 ) {
+      int b0 = edge->surface[0];
+      int b1 = edge->surface[1];    
+      double *n0 = mesh->surface[b0].normal;
+      double *n1 = mesh->surface[b1].normal;
       double cosofangle = n0[0]*n1[0] + n0[1]*n1[1] + n0[2]*n1[2];
       angle = acos(cosofangle) / PI * 180.0;
     } else {
@@ -457,24 +457,24 @@ int Meshutils::divideBoundaryBySharpEdges(mesh_t *mesh)
   class Bc {
   public:
     void propagateIndex(mesh_t* mesh, int index, int i) {
-      boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
+      surface_t *surface = &mesh->surface[i];
 
       // index is ok
-      if(boundaryelement->index != UNKNOWN)
+      if(surface->index != UNKNOWN)
 	return;
 
       // set index
-      boundaryelement->index = index;
+      surface->index = index;
 
       // propagate index
       for(int j=0; j<3; j++) {
-	int k = boundaryelement->edge[j];
+	int k = surface->edge[j];
 	edge_t *edge = &mesh->edge[k];
 
 	// skip sharp edges
 	if(edge->index != SHARP) {
-	  for(int m=0; m < edge->boundaryelements; m++) {
-	    int n = edge->boundaryelement[m];
+	  for(int m=0; m < edge->surfaces; m++) {
+	    int n = edge->surface[m];
 	    propagateIndex(mesh, index, n);
 	  }
 	}
@@ -485,14 +485,14 @@ int Meshutils::divideBoundaryBySharpEdges(mesh_t *mesh)
   Bc *bc = new Bc;
   
   // reset bc-indices:
-  for(int i=0; i < mesh->boundaryelements; i++)
-    mesh->boundaryelement[i].index = UNKNOWN;
+  for(int i=0; i < mesh->surfaces; i++)
+    mesh->surface[i].index = UNKNOWN;
 
   // recursively determine boundary parts:
   int index = 0;
-  for(int i=0; i < mesh->boundaryelements; i++) {
-    boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
-    if(boundaryelement->index == UNKNOWN) {
+  for(int i=0; i < mesh->surfaces; i++) {
+    surface_t *surface = &mesh->surface[i];
+    if(surface->index == UNKNOWN) {
       index++;
       bc->propagateIndex(mesh, index, i);
     }
@@ -510,16 +510,16 @@ int Meshutils::divideBoundaryBySharpEdges(mesh_t *mesh)
 void Meshutils::findBoundaryElementNormals(mesh_t *mesh)
 {
   static double a[3], b[3], c[3];
-  double center_boundaryelement[3], center_element[3], center_difference[3];
+  double center_surface[3], center_element[3], center_difference[3];
   Helpers *helpers = new Helpers;
   int u, v, w, q, e0, e1, i0, i1, bigger;
 
-  for(int i=0; i < mesh->boundaryelements; i++) {
-    boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
+  for(int i=0; i < mesh->surfaces; i++) {
+    surface_t *surface = &mesh->surface[i];
     
-    u = boundaryelement->node[0];
-    v = boundaryelement->node[1];
-    w = boundaryelement->node[2];
+    u = surface->node[0];
+    v = surface->node[1];
+    w = surface->node[2];
 
     // Calculate normal (modulo sign):
     a[0] = mesh->node[v].x[0] - mesh->node[u].x[0];
@@ -533,15 +533,15 @@ void Meshutils::findBoundaryElementNormals(mesh_t *mesh)
     helpers->crossProduct(a,b,c);
     helpers->normalize(c);
     
-    boundaryelement->normal[0] = c[0];
-    boundaryelement->normal[1] = c[1];
-    boundaryelement->normal[2] = c[2];
+    surface->normal[0] = c[0];
+    surface->normal[1] = c[1];
+    surface->normal[2] = c[2];
     
     // Determine sign:
     //----------------
     // a) which parent element has bigger index?
-    e0 = boundaryelement->element[0];
-    e1 = boundaryelement->element[1];
+    e0 = surface->element[0];
+    e1 = surface->element[1];
     
     if( (e0<0) && (e1<0) ) {
       // both parents unknown
@@ -560,19 +560,19 @@ void Meshutils::findBoundaryElementNormals(mesh_t *mesh)
     
     // b) normal should points from bigger to smaller parent index:
     if(bigger > -1) {
-      center_boundaryelement[0] = mesh->node[u].x[0] 
+      center_surface[0] = mesh->node[u].x[0] 
 	                        + mesh->node[v].x[0]
                                 + mesh->node[w].x[0];
-      center_boundaryelement[1] = mesh->node[u].x[1]
+      center_surface[1] = mesh->node[u].x[1]
                                 + mesh->node[v].x[1]
                                 + mesh->node[w].x[1];
-      center_boundaryelement[2] = mesh->node[u].x[2]
+      center_surface[2] = mesh->node[u].x[2]
                                 + mesh->node[v].x[2]
                                 + mesh->node[w].x[2];
       
-      center_boundaryelement[0] /= 3.0;
-      center_boundaryelement[1] /= 3.0;
-      center_boundaryelement[2] /= 3.0;
+      center_surface[0] /= 3.0;
+      center_surface[1] /= 3.0;
+      center_surface[2] /= 3.0;
       
       element_t *e = &mesh->element[bigger];
       
@@ -598,9 +598,9 @@ void Meshutils::findBoundaryElementNormals(mesh_t *mesh)
       center_element[1] /= 4.0;
       center_element[2] /= 4.0;
       
-      center_difference[0] = center_element[0] - center_boundaryelement[0];
-      center_difference[1] = center_element[1] - center_boundaryelement[1];
-      center_difference[2] = center_element[2] - center_boundaryelement[2];
+      center_difference[0] = center_element[0] - center_surface[0];
+      center_difference[1] = center_element[1] - center_surface[1];
+      center_difference[2] = center_element[2] - center_surface[2];
       
       // dot product must be negative
       double dp = center_difference[0]*c[0]
@@ -608,9 +608,9 @@ void Meshutils::findBoundaryElementNormals(mesh_t *mesh)
                 + center_difference[2]*c[2];
       
       if(dp > 0.0) {
-	boundaryelement->normal[0] = -c[0];
-	boundaryelement->normal[1] = -c[1];
-	boundaryelement->normal[2] = -c[2];
+	surface->normal[0] = -c[0];
+	surface->normal[1] = -c[1];
+	surface->normal[2] = -c[2];
 
       }
     }

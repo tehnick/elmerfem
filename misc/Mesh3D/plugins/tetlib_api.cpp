@@ -76,6 +76,12 @@ mesh_t* TetlibAPI::createElmerMeshStructure()
 
   // Create new mesh structure:
   mesh_t *mesh = new mesh_t;
+
+  mesh->nodes = 0;
+  mesh->points = 0;
+  mesh->edges = 0;
+  mesh->surfaces = 0;
+  mesh->elements = 0;
   
   // Nodes:
   mesh->nodes = out->numberofpoints;
@@ -104,6 +110,8 @@ mesh_t* TetlibAPI::createElmerMeshStructure()
   for(int i=0; i< mesh->elements; i++) {
     element_t *element = &mesh->element[i];
 
+    element->nature = PDE_BULK;
+
     element->code = 504;
 
     element->nodes = 4;
@@ -121,49 +129,51 @@ mesh_t* TetlibAPI::createElmerMeshStructure()
   }
   
   // Boundary elements:
-  mesh->boundaryelements = out->numberoftrifaces;
-  mesh->boundaryelement = new boundaryelement_t[mesh->boundaryelements];
+  mesh->surfaces = out->numberoftrifaces;
+  mesh->surface = new surface_t[mesh->surfaces];
 
   int *trifacelist = out->trifacelist;
   int *adjtetlist = out->adjtetlist;
 
-  for(int i=0; i < mesh->boundaryelements; i++) {
-    boundaryelement_t *boundaryelement = &mesh->boundaryelement[i];
+  for(int i=0; i < mesh->surfaces; i++) {
+    surface_t *surface = &mesh->surface[i];
 
-    boundaryelement->code = 303;
+    surface->nature = PDE_BOUNDARY;
 
-    boundaryelement->nodes = 3;
-    boundaryelement->node = new int[3];
+    surface->code = 303;
 
-    boundaryelement->edges = 3;
-    boundaryelement->edge = new int[3];
+    surface->nodes = 3;
+    surface->node = new int[3];
 
-    boundaryelement->elements = 2;
-    boundaryelement->element = new int[2];
+    surface->edges = 3;
+    surface->edge = new int[3];
 
-    boundaryelement->index = 1; // default
+    surface->elements = 2;
+    surface->element = new int[2];
+
+    surface->index = 1; // default
     if(out->trifacemarkerlist != (int*)NULL)
-      boundaryelement->index = out->trifacemarkerlist[i];
+      surface->index = out->trifacemarkerlist[i];
 
-    boundaryelement->edge[0] = -1;
-    boundaryelement->edge[1] = -1;
-    boundaryelement->edge[2] = -1;
+    surface->edge[0] = -1;
+    surface->edge[1] = -1;
+    surface->edge[2] = -1;
     
-    boundaryelement->element[0] = -1; // default
-    boundaryelement->element[1] = -1;
+    surface->element[0] = -1; // default
+    surface->element[1] = -1;
     // must have "nn" in control string:
     if(out->adjtetlist != (int*)NULL) {
-      boundaryelement->element[0] = (*adjtetlist++) - out->firstnumber;
-      boundaryelement->element[1] = (*adjtetlist++) - out->firstnumber;
+      surface->element[0] = (*adjtetlist++) - out->firstnumber;
+      surface->element[1] = (*adjtetlist++) - out->firstnumber;
     }
 
     int u = (*trifacelist++) - out->firstnumber;
     int v = (*trifacelist++) - out->firstnumber;
     int w = (*trifacelist++) - out->firstnumber;
 
-    boundaryelement->node[0] = u;
-    boundaryelement->node[1] = v;
-    boundaryelement->node[2] = w;
+    surface->node[0] = u;
+    surface->node[1] = v;
+    surface->node[2] = w;
   }
 
   // Edges:

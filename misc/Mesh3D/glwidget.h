@@ -1,8 +1,8 @@
 #ifndef GLWIDGET_H
 #define GLWIDGET_H
 
-#define EDGELIST     2000
-#define BOUNDARYLIST 2001
+#define EDGELIST    2000
+#define SURFACELIST 2001
 
 #include <QGLWidget>
 #include "helpers.h"
@@ -10,6 +10,7 @@
 
 class list_t {
  public:
+  int nature;
   int type;          // EDGELIST, BOUNDARYLIST, ...
   int index;         // Boundary condition as defined in input file
   GLuint object;     // GL list index as returned by glGenLists()
@@ -66,7 +67,8 @@ private:
     QPoint lastPos;
     QColor backgroundColor;
 
-    GLuint generateList(int, double, double, double);
+    GLuint generateSurfaceList(int, double, double, double);
+    GLuint generateEdgeList(int, double, double, double);
     
     bool ctrlPressed; // true while ctrl key is held down
 };

@@ -797,11 +797,11 @@ static int ExportMeshDefinition(int inmethod,int outmethod,int nofile,char *file
 
 int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_t *mesh)
 {
-  int i,j,k,allocated,boundaryelements,elemdim;
+  int i,j,k,allocated,surfaces,elemdim;
   int sideelemtype,ind[MAXNODESD1];
  
   node_t *n;
-  boundaryelement_t *b;
+  surface_t *b;
   element_t *e;
   edge_t *s;
   
@@ -840,7 +840,7 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
     }
     
     allocated = FALSE;
-  do_b:    boundaryelements = 0;
+  do_b:    surfaces = 0;
     
     for(j=0;j<MAXBOUNDARIES;j++) {
       if(bound[j].created == FALSE) continue;
@@ -849,20 +849,20 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
 	GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],dat,ind,&sideelemtype); 
 	
 	if(sideelemtype / 100 < 3 || sideelemtype > 4) continue;
-	boundaryelements += 1;
+	surfaces += 1;
 	
 	if(allocated) {
-	  b = &mesh->boundaryelement[boundaryelements-1];
+	  b = &mesh->surface[surfaces-1];
 	  b->elements = 0;
 	  b->element = new int[2]; 
 	  
 	  if(bound[j].parent[i]) {
 	    b->elements += 1;
-	    s->boundaryelement[0] = bound[j].parent[i]-1;
+	    s->surface[0] = bound[j].parent[i]-1;
 	  }
 	  if(bound[j].parent2[i]) {
 	    b->elements += 1;	
-	    s->boundaryelement[1] = bound[j].parent2[i]-1;
+	    s->surface[1] = bound[j].parent2[i]-1;
 	  }
 	  
 	  b->normal[0] = 0.0;
@@ -880,8 +880,8 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
     }
     
     if(!allocated) {
-      mesh->boundaryelements = boundaryelements;
-      mesh->boundaryelement = new boundaryelement_t[mesh->boundaryelements];      
+      mesh->surfaces = surfaces;
+      mesh->surface = new surface_t[mesh->surfaces];      
       allocated = TRUE;
       goto do_b;
     }
@@ -890,11 +890,11 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
   else if(elemdim == 2) {
     mesh->elements = 0;
     
-    mesh->boundaryelements = dat->noelements;
-    mesh->boundaryelement = new boundaryelement_t[mesh->boundaryelements];
+    mesh->surfaces = dat->noelements;
+    mesh->surface = new surface_t[mesh->surfaces];
     
-    for(i=0;i<mesh->boundaryelements;i++) {
-      b = &mesh->boundaryelement[i];
+    for(i=0;i<mesh->surfaces;i++) {
+      b = &mesh->surface[i];
       
       b->elements = 0;
       b->element = new int[2]; 
@@ -912,7 +912,7 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
     }
 
     allocated = FALSE;
-  do_s:    boundaryelements = 0;
+  do_s:    surfaces = 0;
     
     for(j=0;j<MAXBOUNDARIES;j++) {
       if(bound[j].created == FALSE) continue;
@@ -921,20 +921,20 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
 	GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],dat,ind,&sideelemtype); 
 	
 	if(sideelemtype / 100 != 2) continue;
-	boundaryelements += 1;
+	surfaces += 1;
 	
 	if(allocated) {
-	  s = &mesh->edge[boundaryelements-1];
-	  s->boundaryelements = 0;
-	  s->boundaryelement = new int[2]; 
+	  s = &mesh->edge[surfaces-1];
+	  s->surfaces = 0;
+	  s->surface = new int[2]; 
 	  
 	  if(bound[j].parent[i]) {
-	    s->boundaryelements += 1;
-	    s->boundaryelement[0] = bound[j].parent[i]-1;
+	    s->surfaces += 1;
+	    s->surface[0] = bound[j].parent[i]-1;
 	  }
 	  if(bound[j].parent2[i]) {
-	    s->boundaryelements += 1;
-	    s->boundaryelement[1] = bound[j].parent2[i]-1;
+	    s->surfaces += 1;
+	    s->surface[1] = bound[j].parent2[i]-1;
 	  }
 	  s->code = sideelemtype;
 	  s->nodes = s->code % 100;
@@ -948,7 +948,7 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
    }
 
     if(!allocated) {
-      mesh->edges = boundaryelements;
+      mesh->edges = surfaces;
       mesh->edge = new edge_t[mesh->edges];
       allocated = TRUE;
       goto do_s;
@@ -958,7 +958,7 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
     printf("Implemented only for element dimensions 2 and 3 (not %d)\n",elemdim);
   }
  
-  printf("Copied mesh = %d %d %d %d\n",mesh->elements,mesh->boundaryelements,mesh->edges,mesh->nodes);
+  printf("Copied mesh = %d %d %d %d\n",mesh->elements,mesh->surfaces,mesh->edges,mesh->nodes);
   return(0);
 }
 #endif
