@@ -1266,7 +1266,8 @@ void MainWindow::makeSteadyHeatSifSlot()
   textEdit->append("  Stefan Boltzmann = 5.67e-08");
   textEdit->append("End\n");
 
-  // Boundary condition blocks:
+  // find out mesh domain ids:
+  // -------------------------
   mesh_t *mesh = glWidget->mesh;
   char str[1024];
 
@@ -1288,14 +1289,50 @@ void MainWindow::makeSteadyHeatSifSlot()
     if((edge->nature == PDE_BULK) && (edge->index > maxindex))
       maxindex = edge->index;
   }
-  if ( maxindex == 0 ) maxindex=1;
+  if ( maxindex==0 ) maxindex=1;
+
+  bool *etmp = new bool[maxindex];
+  int  *body_id = new int[maxindex];
+
+  for(int i=0; i<maxindex; i++) etmp[i] = false;
+
+  maxindex = 0;
+  for(int i=0; i < mesh->elements; i++) {
+    element_t *element = &mesh->element[i];
+    if(element->nature == PDE_BULK)
+      if ( !etmp[element->index] ) {
+        etmp[element->index] = true;
+        body_id[maxindex++] = element->index;
+      }
+  }
+
+  for(int i=0; i < mesh->surfaces; i++) {
+    surface_t *surface = &mesh->surface[i];
+    if(surface->nature == PDE_BULK)
+      if ( !etmp[surface->index] ) {
+        etmp[surface->index] = true;
+        body_id[maxindex++] = surface->index;
+      }
+  }
+  
+  for(int i=0; i < mesh->edges; i++) {
+    edge_t *edge = &mesh->edge[i];
+    if(edge->nature == PDE_BULK)
+      if ( !etmp[edge->index] ) {
+        etmp[edge->index] = true;
+        body_id[maxindex++] = edge->index;
+      }
+  }
+  if ( maxindex==0 ) { maxindex=1; body_id[0]=1; }
 
   textEdit->append("Body 1");
   textEdit->append("  Name = \"Body1\"");
   sprintf( str, "  Target Bodies(%d)=", maxindex );
   for( int i=0; i<maxindex; i++ ) {
-     sprintf( str, "%s %d", str, i+1 );
+     sprintf( str, "%s %d", str, body_id[i] );
   }
+  delete [] etmp; delete [] body_id;
+
   textEdit->append(str);
   textEdit->append("  Body Force = 1");
   textEdit->append("  Equation = 1");
