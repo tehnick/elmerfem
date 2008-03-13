@@ -514,118 +514,164 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
   GLuint current = glGenLists(1);
   glNewList(current, GL_COMPILE);
 
-  glLineWidth(1.0);
+  // Draw triangles:
+  //-----------------
+  glBegin(GL_TRIANGLES);
 
   for(int i=0; i < mesh->surfaces; i++) {
     surface_t *surface = &mesh->surface[i];
 
-    if(surface->index == index) {
+    if((surface->index == index) && (surface->code == 303)) {
+      glColor3d(R, G, B);
+
+      glNormal3dv(surface->normal); 
+      
+      int n0 = surface->node[0];
+      int n1 = surface->node[1];
+      int n2 = surface->node[2];
+      
+      x0[0] = (mesh->node[n0].x[0] - drawTranslate[0]) / drawScale;
+      x0[1] = (mesh->node[n0].x[1] - drawTranslate[1]) / drawScale;
+      x0[2] = (mesh->node[n0].x[2] - drawTranslate[2]) / drawScale;
+      
+      x1[0] = (mesh->node[n1].x[0] - drawTranslate[0]) / drawScale;
+      x1[1] = (mesh->node[n1].x[1] - drawTranslate[1]) / drawScale;
+      x1[2] = (mesh->node[n1].x[2] - drawTranslate[2]) / drawScale;
+      
+      x2[0] = (mesh->node[n2].x[0] - drawTranslate[0]) / drawScale;
+      x2[1] = (mesh->node[n2].x[1] - drawTranslate[1]) / drawScale;
+      x2[2] = (mesh->node[n2].x[2] - drawTranslate[2]) / drawScale;
+      
+      glVertex3dv(x0);
+      glVertex3dv(x1);
+      glVertex3dv(x2);
+    }
+  }
+
+  glEnd();
+
+  // Draw quads:
+  //------------
+  glBegin(GL_QUADS);
+  
+  for(int i=0; i < mesh->surfaces; i++) {
+    surface_t *surface = &mesh->surface[i];
+
+    if((surface->index == index) && (surface->code == 404)) {
+      glColor3d(R, G, B);
       
       glNormal3dv(surface->normal); 
+      
+      int n0 = surface->node[0];
+      int n1 = surface->node[1];
+      int n2 = surface->node[2];
+      int n3 = surface->node[3];
+      
+      x0[0] = (mesh->node[n0].x[0] - drawTranslate[0]) / drawScale;
+      x0[1] = (mesh->node[n0].x[1] - drawTranslate[1]) / drawScale;
+      x0[2] = (mesh->node[n0].x[2] - drawTranslate[2]) / drawScale;
+      
+      x1[0] = (mesh->node[n1].x[0] - drawTranslate[0]) / drawScale;
+      x1[1] = (mesh->node[n1].x[1] - drawTranslate[1]) / drawScale;
+      x1[2] = (mesh->node[n1].x[2] - drawTranslate[2]) / drawScale;
+      
+      x2[0] = (mesh->node[n2].x[0] - drawTranslate[0]) / drawScale;
+      x2[1] = (mesh->node[n2].x[1] - drawTranslate[1]) / drawScale;
+      x2[2] = (mesh->node[n2].x[2] - drawTranslate[2]) / drawScale;
+      
+      x3[0] = (mesh->node[n3].x[0] - drawTranslate[0]) / drawScale;
+      x3[1] = (mesh->node[n3].x[1] - drawTranslate[1]) / drawScale;
+      x3[2] = (mesh->node[n3].x[2] - drawTranslate[2]) / drawScale;
+      
+      glVertex3dv(x0);
+      glVertex3dv(x1);
+      glVertex3dv(x2);
+      glVertex3dv(x3);      
+    }
+  }
 
-      if(surface->code == 303) {
-	glBegin(GL_TRIANGLES);
-	
-	glColor3d(R, G, B);
+  glEnd();
 
-	int n0 = surface->node[0];
-	int n1 = surface->node[1];
-	int n2 = surface->node[2];
-	
-	x0[0] = (mesh->node[n0].x[0] - drawTranslate[0]) / drawScale;
-	x0[1] = (mesh->node[n0].x[1] - drawTranslate[1]) / drawScale;
-	x0[2] = (mesh->node[n0].x[2] - drawTranslate[2]) / drawScale;
-	
-	x1[0] = (mesh->node[n1].x[0] - drawTranslate[0]) / drawScale;
-	x1[1] = (mesh->node[n1].x[1] - drawTranslate[1]) / drawScale;
-	x1[2] = (mesh->node[n1].x[2] - drawTranslate[2]) / drawScale;
-	
-	x2[0] = (mesh->node[n2].x[0] - drawTranslate[0]) / drawScale;
-	x2[1] = (mesh->node[n2].x[1] - drawTranslate[1]) / drawScale;
-	x2[2] = (mesh->node[n2].x[2] - drawTranslate[2]) / drawScale;
-	
-	glVertex3dv(x0);
-	glVertex3dv(x1);
-	glVertex3dv(x2);
 
-	glEnd();
+  // Draw lines:
+  //------------
+  glLineWidth(1.0);
+  glDisable(GL_LIGHTING);
+  glColor3d(0, 0, 0);
+  glBegin(GL_LINES);
+  
+  for(int i=0; i < mesh->surfaces; i++) {
+    surface_t *surface = &mesh->surface[i];
+    
+    if((surface->index == index) && (surface->code == 303)) {
+      int n0 = surface->node[0];
+      int n1 = surface->node[1];
+      int n2 = surface->node[2];
+      
+      x0[0] = (mesh->node[n0].x[0] - drawTranslate[0]) / drawScale;
+      x0[1] = (mesh->node[n0].x[1] - drawTranslate[1]) / drawScale;
+      x0[2] = (mesh->node[n0].x[2] - drawTranslate[2]) / drawScale;
+      
+      x1[0] = (mesh->node[n1].x[0] - drawTranslate[0]) / drawScale;
+      x1[1] = (mesh->node[n1].x[1] - drawTranslate[1]) / drawScale;
+      x1[2] = (mesh->node[n1].x[2] - drawTranslate[2]) / drawScale;
+      
+      x2[0] = (mesh->node[n2].x[0] - drawTranslate[0]) / drawScale;
+      x2[1] = (mesh->node[n2].x[1] - drawTranslate[1]) / drawScale;
+      x2[2] = (mesh->node[n2].x[2] - drawTranslate[2]) / drawScale;
+      
+      glVertex3dv(x0);
+      glVertex3dv(x1);
 
-	glBegin(GL_LINES);
-	glDisable(GL_LIGHTING);
+      glVertex3dv(x1);
+      glVertex3dv(x2);
 
-	glLineWidth(1.0);
-	glColor3d(0.0, 0.0, 0.0);
-
-	glVertex3dv(x0);
-	glVertex3dv(x1);
-
-	glVertex3dv(x1);
-	glVertex3dv(x2);
-
-	glVertex3dv(x2);
-	glVertex3dv(x0);
-	
-	glEnable(GL_LIGHTING);
-	glEnd();
-      }
-
-      if(surface->code == 404) {
-	glBegin(GL_QUADS);
-	
-	glColor3d(R, G, B);
-	
-	int n0 = surface->node[0];
-	int n1 = surface->node[1];
-	int n2 = surface->node[2];
-	int n3 = surface->node[3];
-	
-	x0[0] = (mesh->node[n0].x[0] - drawTranslate[0]) / drawScale;
-	x0[1] = (mesh->node[n0].x[1] - drawTranslate[1]) / drawScale;
-	x0[2] = (mesh->node[n0].x[2] - drawTranslate[2]) / drawScale;
-	
-	x1[0] = (mesh->node[n1].x[0] - drawTranslate[0]) / drawScale;
-	x1[1] = (mesh->node[n1].x[1] - drawTranslate[1]) / drawScale;
-	x1[2] = (mesh->node[n1].x[2] - drawTranslate[2]) / drawScale;
-	
-	x2[0] = (mesh->node[n2].x[0] - drawTranslate[0]) / drawScale;
-	x2[1] = (mesh->node[n2].x[1] - drawTranslate[1]) / drawScale;
-	x2[2] = (mesh->node[n2].x[2] - drawTranslate[2]) / drawScale;
-	
-	x3[0] = (mesh->node[n3].x[0] - drawTranslate[0]) / drawScale;
-	x3[1] = (mesh->node[n3].x[1] - drawTranslate[1]) / drawScale;
-	x3[2] = (mesh->node[n3].x[2] - drawTranslate[2]) / drawScale;
-	
-	glVertex3dv(x0);
-	glVertex3dv(x1);
-	glVertex3dv(x2);
-	glVertex3dv(x3);
-
-	glEnd();
-
-	glBegin(GL_LINES);
-	glDisable(GL_LIGHTING);
-
-	glLineWidth(1.0);
-	glColor3d(0.0, 0.0, 0.0);
-
-	glVertex3dv(x0);
-	glVertex3dv(x1);
-
-	glVertex3dv(x1);
-	glVertex3dv(x2);
-	
-	glVertex3dv(x2);
-	glVertex3dv(x3);
-	
-	glVertex3dv(x3);
-	glVertex3dv(x0);
-	
-	glEnable(GL_LIGHTING);
-	glEnd();
-      }
+      glVertex3dv(x2);
+      glVertex3dv(x0);
     }
   }
   
+  for(int i=0; i < mesh->surfaces; i++) {
+    surface_t *surface = &mesh->surface[i];
+
+    if((surface->index == index) && (surface->code == 404)) {      
+      int n0 = surface->node[0];
+      int n1 = surface->node[1];
+      int n2 = surface->node[2];
+      int n3 = surface->node[3];
+      
+      x0[0] = (mesh->node[n0].x[0] - drawTranslate[0]) / drawScale;
+      x0[1] = (mesh->node[n0].x[1] - drawTranslate[1]) / drawScale;
+      x0[2] = (mesh->node[n0].x[2] - drawTranslate[2]) / drawScale;
+      
+      x1[0] = (mesh->node[n1].x[0] - drawTranslate[0]) / drawScale;
+      x1[1] = (mesh->node[n1].x[1] - drawTranslate[1]) / drawScale;
+      x1[2] = (mesh->node[n1].x[2] - drawTranslate[2]) / drawScale;
+      
+      x2[0] = (mesh->node[n2].x[0] - drawTranslate[0]) / drawScale;
+      x2[1] = (mesh->node[n2].x[1] - drawTranslate[1]) / drawScale;
+      x2[2] = (mesh->node[n2].x[2] - drawTranslate[2]) / drawScale;
+      
+      x3[0] = (mesh->node[n3].x[0] - drawTranslate[0]) / drawScale;
+      x3[1] = (mesh->node[n3].x[1] - drawTranslate[1]) / drawScale;
+      x3[2] = (mesh->node[n3].x[2] - drawTranslate[2]) / drawScale;
+      
+      glVertex3dv(x0);
+      glVertex3dv(x1);
+
+      glVertex3dv(x1);
+      glVertex3dv(x2);
+
+      glVertex3dv(x2);
+      glVertex3dv(x3);
+
+      glVertex3dv(x3);
+      glVertex3dv(x0);      
+    }
+  }
+  glEnd();
+
+  glEnable(GL_LIGHTING);
   glEndList();
   
   return current;
