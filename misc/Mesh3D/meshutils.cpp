@@ -435,9 +435,6 @@ void Meshutils::findSharpEdges(mesh_t *mesh, double limit)
 
     edge->index = UNKNOWN;
 
-    cout << edge->surfaces << endl;
-    cout.flush();
-
     if(edge->surfaces == 2) {
       int b0 = edge->surface[0];
       int b1 = edge->surface[1];    

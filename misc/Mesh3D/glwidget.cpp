@@ -249,7 +249,7 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
   } else if (event->buttons() & Qt::MidButton) {
 
     // Scale:
-    double s = exp(-dy*0.01);
+    double s = exp(dy*0.01);
     glScaled(s, s, s);
     updateGL();
   }
@@ -324,16 +324,9 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
   if(nearest != 0xffffffff) {
     list_t *l = &list[nearest];
 
-    // substitute surfaceedgelists with the underlying edgelists:
-    if(l->type == SURFACEEDGELIST) {
-      for(i=0; i<lists; i++) {
-	list_t *l2 = &list[i];
-	if((l2->type == SURFACELIST) && (l2->index == l->index)) {
-	  l = l2;
-	  break;
-	}
-      }
-    }
+    // substitute surfaceedgelists with the parent surfacelist:
+    if(l->type == SURFACEEDGELIST)
+      l = &list[l->parent];
 
     // if not ctrl pressed, clear all except this one:
     if(!ctrlPressed) {
@@ -442,12 +435,17 @@ GLuint GLWidget::makeLists()
   // The rule for composing lists to display is the following:
   //---------------------------------------------------------------------------
   // - All surface elements with index >= 0 will be drawn - one list/index
+  //   (list->type = SURFACELIST)
+  // - For each surface element list, one auxiliary list will be drawn
+  //   (list->type = SURFACEEDGELIST)
   // - All edge elements with index >= 0 will be drawn - one list/index
+  //   (list->type = EDGELIST)
   // - All point elements with index >= 0 will be drawn - one list/index
+  //   (list->type = POINTLIST)
   //---------------------------------------------------------------------------
   
 
-  // Scan surface elements to determine the number of bcs on surfaces:
+  // Scan surface elements to determine the number of bcs:
   //---------------------------------------------------------------------------
   int surface_bcs = 0;
   int *surface_tmp = new int[mesh->surfaces];
@@ -468,7 +466,7 @@ GLuint GLWidget::makeLists()
   
   cout << "Bcs / materials on surface elements: " << surface_bcs << endl;
 
-  // Scan edge elements to determine the number of bcs on edges:
+  // Scan edge elements to determine the number of bcs:
   //---------------------------------------------------------------------------
   int edge_bcs = 0;
   int *edge_tmp = new int[mesh->edges];
@@ -489,7 +487,7 @@ GLuint GLWidget::makeLists()
   
   cout << "Bcs / materials on edge elements: " << edge_bcs << endl;  
 
-  // Scan edge elements to determine the number of bcs on edges:
+  // Scan edge elements to determine the number of bcs:
   //---------------------------------------------------------------------------
   int point_bcs = 0;
   int *point_tmp = new int[mesh->points];
@@ -500,7 +498,6 @@ GLuint GLWidget::makeLists()
 
   // Generate lists:
   //---------------------------------------------------------------------------
-  //lists = surface_bcs + edge_bcs + point_bcs;
   lists = 2*surface_bcs + edge_bcs + point_bcs;
   list = new list_t[lists];
   int current_index = 0;
@@ -518,15 +515,19 @@ GLuint GLWidget::makeLists()
       l->type = SURFACELIST;
       l->index = i;
       l->object = generateSurfaceList(l->index, 0, 1, 1);
+      l->child = current_index;
+      l->parent = -1;
       l->selected = false;
       l->visible = true;
 
-      // edges of trias & quads (just for better visual outlook):
+      // edges of surface elements (just for visual outlook):
       l = &list[current_index++];
       l->nature = PDE_UNKNOWN;
       l->type = SURFACEEDGELIST;
       l->index = i;
       l->object = generateSurfaceEdgeList(l->index, 0, 0, 0);
+      l->child = -1;
+      l->parent = current_index-2;
       l->selected = false;
       l->visible = true;
     }
@@ -540,6 +541,8 @@ GLuint GLWidget::makeLists()
       l->type = EDGELIST;
       l->index = i;
       l->object = generateEdgeList(l->index, 0, 1, 0);
+      l->child = -1;
+      l->parent = -1;
       l->selected = false;
       l->visible = true;
     }
@@ -745,7 +748,7 @@ GLuint GLWidget::generateSurfaceEdgeList(int index, double R, double G, double B
 }
 
 
-
+// Generate edge list...
 //-----------------------------------------------------------------------------
 GLuint GLWidget::generateEdgeList(int index, double R, double G, double B)
 {

@@ -1,9 +1,10 @@
 #ifndef GLWIDGET_H
 #define GLWIDGET_H
 
-#define EDGELIST        2000
-#define SURFACELIST     2001
-#define SURFACEEDGELIST 2002
+#define POINTLIST       2000
+#define EDGELIST        2001
+#define SURFACELIST     2002
+#define SURFACEEDGELIST 2003
 
 #include <QGLWidget>
 #include "helpers.h"
@@ -15,6 +16,8 @@ class list_t {
   int type;          // EDGELIST, SURFACELIST, ...
   int index;         // Boundary condition as defined in input file
   GLuint object;     // GL list index as returned by glGenLists()
+  int child;         // Index to the child list (-1 = no child)
+  int parent;        // Index to the parent list (-1 = no parent)
   bool selected;     // Currently selected?
   bool visible;      // Currently visible?
 };

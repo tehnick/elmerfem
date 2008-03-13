@@ -31,14 +31,11 @@ MainWindow::MainWindow()
   glWidget = new GLWidget;
   setCentralWidget(glWidget);
   sifWindow = new SifWindow(this);
-
   meshControl = new MeshControl(this);
   meshControl->nglibPresent = nglibPresent;
   meshControl->tetlibPresent = tetlibPresent;
-
   meshControl->defaultControls();
   boundaryDivide = new BoundaryDivide(this);
-
   meshingThread = new MeshingThread;
   meshutils = new Meshutils;
 
@@ -75,7 +72,7 @@ MainWindow::~MainWindow()
 //-----------------------------------------------------------------------------
 void MainWindow::createStatusBar()
 {
-    statusBar()->showMessage(tr("Ready"));
+  statusBar()->showMessage(tr("Ready"));
 }
 
 
@@ -209,8 +206,8 @@ void MainWindow::createActions()
   connect(showallAct, SIGNAL(triggered()), this, SLOT(showallSlot()));
 
   // Mesh -> Reset
-  resetAct = new QAction(QIcon(), tr("&Reset position..."), this);
-  resetAct->setStatusTip(tr("Reset position"));
+  resetAct = new QAction(QIcon(), tr("&Reset model..."), this);
+  resetAct->setStatusTip(tr("Reset model"));
   connect(resetAct, SIGNAL(triggered()), this, SLOT(resetSlot()));
 
   // Help -> About
@@ -295,9 +292,9 @@ void MainWindow::boundaryunifySlot()
     list_t *l = &list[i];    
     if(l->selected) {
       for(int j=0; j < mesh->surfaces; j++) {
-	surface_t *be = &mesh->surface[j];
-	if(be->index == l->index) 
-	  be->index = targetindex;
+	surface_t *s = &mesh->surface[j];
+	if(s->index == l->index) 
+	  s->index = targetindex;
       }
     }
   }
@@ -332,17 +329,13 @@ void MainWindow::hidesurfacemeshSlot()
       l->visible = !l->visible;
       vis = l->visible;
 
-      // do not set visible if the corresponding surfacelist is not visible
-      for(int j=0; j<lists; j++) {
-	list_t *l2 = &list[j];
-	if((l2->type == SURFACELIST) && (l2->index == l->index)) {
-	  if(!l2->visible) {
-	    l->visible = false;
-	    break;
-	  }
-	}
+      // do not set visible if the parent surfacelist is not visible
+      int p = l->parent;
+      if(p >= 0) {
+	list_t *lp = &list[p];
+	if(!lp->visible)
+	  l->visible = false;
       }
-
     }
   }
 
@@ -368,11 +361,11 @@ void MainWindow::hideselectedSlot()
     if(l->selected) {
       l->visible = false;
 
-      // hide also all surfaceedgelists with index == l->index
-      for(int j=0; j<lists; j++) {
-	list_t *l2 = &list[j];
-	if((l2->type == SURFACEEDGELIST) && (l2->index == l->index))
-	  l2->visible = false;
+      // hide also all the child surfaceedgelist
+      int c = l->child;
+      if(c >= 0) {
+	list_t *lc = &list[c];
+	lc->visible = false;
       }
     }
   }
@@ -412,6 +405,7 @@ void MainWindow::resetSlot()
   }
 
   glLoadIdentity();
+  glWidget->rebuildLists();
   glWidget->updateGL();
 
   logMessage("Model reset");
