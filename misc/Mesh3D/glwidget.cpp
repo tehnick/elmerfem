@@ -587,12 +587,12 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
   // Draw triangles:
   //-----------------
   glBegin(GL_TRIANGLES);
+  glColor3d(R, G, B);
 
   for(int i=0; i < mesh->surfaces; i++) {
     surface_t *surface = &mesh->surface[i];
 
     if((surface->index == index) && (surface->code == 303)) {
-      glColor3d(R, G, B);
 
       glNormal3dv(surface->normal); 
       
@@ -623,12 +623,12 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
   // Draw quads:
   //------------
   glBegin(GL_QUADS);
+  glColor3d(R, G, B);
   
   for(int i=0; i < mesh->surfaces; i++) {
     surface_t *surface = &mesh->surface[i];
 
     if((surface->index == index) && (surface->code == 404)) {
-      glColor3d(R, G, B);
       
       glNormal3dv(surface->normal); 
       
