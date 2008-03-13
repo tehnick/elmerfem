@@ -108,6 +108,7 @@ void MainWindow::createMenus()
   meshMenu->addAction(hidesurfacemeshAct);
   meshMenu->addAction(hideselectedAct);
   meshMenu->addAction(showallAct);
+  meshMenu->addAction(resetAct);
 
   // Help menu
   helpMenu = menuBar()->addMenu(tr("&Help"));
@@ -204,9 +205,13 @@ void MainWindow::createActions()
 
   // Mesh -> Show all
   showallAct = new QAction(QIcon(), tr("&Show all..."), this);
-  //showallAct->setShortcut(tr("Ctrl+A"));
   showallAct->setStatusTip(tr("Show all boundaries"));
   connect(showallAct, SIGNAL(triggered()), this, SLOT(showallSlot()));
+
+  // Mesh -> Reset
+  resetAct = new QAction(QIcon(), tr("&Reset position..."), this);
+  resetAct->setStatusTip(tr("Reset position"));
+  connect(resetAct, SIGNAL(triggered()), this, SLOT(resetSlot()));
 
   // Help -> About
   aboutAct = new QAction(QIcon(), tr("&About..."), this);
@@ -297,12 +302,12 @@ void MainWindow::boundaryunifySlot()
     }
   }
   
-  cout << "Selected boundary parts marked with index " << targetindex << endl;
+  cout << "Selected surfaces marked with index " << targetindex << endl;
   cout.flush();
 
   glWidget->rebuildLists();
 
-  logMessage("Selected boundary parts unified");
+  logMessage("Selected surfaces unified");
 }
 
 
@@ -376,9 +381,35 @@ void MainWindow::showallSlot()
     l->visible = true;
   }
 
-  logMessage("All boundary parts visible");
+  logMessage("All objects visible");
 }
 
+
+
+// Mesh -> Reset...
+//-----------------------------------------------------------------------------
+void MainWindow::resetSlot()
+{
+  int lists = glWidget->lists;
+  list_t *list = glWidget->list;
+  
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];
+    l->visible = true;
+    l->selected = false;
+  }
+
+#if 0
+  glWidget->glRotated(s, bx, by, bz);
+  glWidget->glTranslated(ax, ay, az);
+  glWidget->glScaled(s, s, s);
+#endif
+
+  glLoadIdentity();
+  glWidget->updateGL();
+
+  logMessage("Model reset");
+}
 
 
 // Make boundary division by sharp edges (signalled by boundaryDivide)...
