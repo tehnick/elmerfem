@@ -273,6 +273,8 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
 
   GLint hits;
   GLint i, j;
+
+  updateGL();
   
   glSelectBuffer(bufferSize, buffer);
   glRenderMode(GL_SELECT);
@@ -317,26 +319,6 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
   glMatrixMode(GL_PROJECTION);
   glPopMatrix();
   glMatrixMode(GL_MODELVIEW);
-
-  // Clear the previous selections:
-#if 0
-  if(!ctrlPressed) {
-    for(int i=0; i < lists; i++) {
-      list_t *l = &list[i];
-      if(l->selected) {
-	glDeleteLists(l->object, 1);
-	l->selected = false;
-
-	if(l->type == SURFACELIST) {
-	  l->object = generateSurfaceList(l->index, 0, 1, 1); // cyan
-	} else if(l->type == EDGELIST) {
-	  l->object = generateEdgeList(l->index, 0, 1, 0); // green
-	}
-
-      }
-    }
-  }
-#endif
 
   // Highlight the selected boundary:
   if(nearest != 0xffffffff) {
@@ -397,6 +379,7 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
 
     // Emit "nothing selected":
     dummylist.nature = -1;
+    dummylist.type = -1;
     dummylist.index = -1;
     emit(signalBoundarySelected(&dummylist));
 
