@@ -99,6 +99,7 @@ void MainWindow::createMenus()
   meshMenu->addAction(boundarydivideAct);
   meshMenu->addAction(boundaryunifyAct);
   meshMenu->addSeparator();
+  meshMenu->addAction(hidesurfacemeshAct);
   meshMenu->addAction(hideselectedAct);
   meshMenu->addAction(showallAct);
 
@@ -185,9 +186,13 @@ void MainWindow::createActions()
   boundaryunifyAct->setStatusTip(tr("Unify boundary (merge selected)"));
   connect(boundaryunifyAct, SIGNAL(triggered()), this, SLOT(boundaryunifySlot()));
 
+  // Mesh -> Hide surface mesh
+  hidesurfacemeshAct = new QAction(QIcon(), tr("&Hide surface mesh..."), this);
+  hidesurfacemeshAct->setStatusTip(tr("Hide surface mesh (do not outline surface elements)"));
+  connect(hidesurfacemeshAct, SIGNAL(triggered()), this, SLOT(hidesurfacemeshSlot()));
+
   // Mesh -> Hide selected
   hideselectedAct = new QAction(QIcon(), tr("&Hide selected..."), this);
-  //hideselectedAct->setShortcut(tr("Ctrl+H"));
   hideselectedAct->setStatusTip(tr("Hide selected boundaries"));
   connect(hideselectedAct, SIGNAL(triggered()), this, SLOT(hideselectedSlot()));
 
@@ -294,6 +299,28 @@ void MainWindow::boundaryunifySlot()
   logMessage("Selected boundary parts unified");
 }
 
+
+// Mesh -> Hide surface mesh...
+//-----------------------------------------------------------------------------
+void MainWindow::hidesurfacemeshSlot()
+{
+  mesh_t *mesh = glWidget->mesh;
+  int lists = glWidget->lists;
+  list_t *list = glWidget->list;
+
+  if(mesh == NULL) {
+    logMessage("There is no surface mesh to hide");
+    return;
+  }
+  
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];
+    if(l->type == SURFACEEDGELIST) 
+      l->visible = false;
+  }
+  
+  logMessage("Surface mesh hidden");
+}
 
 // Mesh -> Hide selected...
 //-----------------------------------------------------------------------------
@@ -987,12 +1014,22 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     return;
   }
 
-  if(l->type == SURFACELIST) {
-    qs = "Selected surface " + QString::number(l->index);
-  } else if(l->type == EDGELIST) {
-    qs = "Selected edge " + QString::number(l->index);
+  if(!l->selected) {
+    if(l->type == SURFACELIST) {
+      qs = "Selected surface " + QString::number(l->index);
+    } else if(l->type == EDGELIST) {
+      qs = "Selected edge " + QString::number(l->index);
+    } else {
+      qs = "Selected object " + QString::number(l->index) + " (type unknown)";
+    }
   } else {
-    qs = "Selected object " + QString::number(l->index) + " (type unknown)";
+    if(l->type == SURFACELIST) {
+      qs = "Unselected surface " + QString::number(l->index);
+    } else if(l->type == EDGELIST) {
+      qs = "Unselected edge " + QString::number(l->index);
+    } else {
+      qs = "Unselected object " + QString::number(l->index) + " (type unknown)";
+    }
   }
 
   statusBar()->showMessage(qs);    

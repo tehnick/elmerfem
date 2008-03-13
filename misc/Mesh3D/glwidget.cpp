@@ -74,13 +74,13 @@ void GLWidget::initializeGL()
   cout.flush();
 
   static GLfloat light_ambient[]  = {0.2, 0.2, 0.2, 1.0};
-  static GLfloat light_diffuse[]  = {0.8, 0.8, 0.8, 1.0};
+  static GLfloat light_diffuse[]  = {0.6, 0.6, 0.6, 1.0};
   static GLfloat light_specular[] = {1.0, 1.0, 1.0, 1.0};
   static GLfloat light_position[] = {1.0,-2.0, 2.0, 0.0};
 
   static GLfloat mat_ambient[]    = {0.2, 0.2, 0.2, 1.0};
-  static GLfloat mat_diffuse[]    = {0.8, 0.8, 0.8, 1.0};
-  static GLfloat mat_specular[]   = {0.8, 0.8, 0.8, 1.0};
+  static GLfloat mat_diffuse[]    = {0.6, 0.6, 0.6, 1.0};
+  static GLfloat mat_specular[]   = {0.9, 0.9, 0.9, 1.0};
   static GLfloat high_shininess[] = {100.0};
 
   glMatrixMode(GL_MODELVIEW);
