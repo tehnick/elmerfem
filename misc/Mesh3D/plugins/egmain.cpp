@@ -75,7 +75,7 @@ static struct GridType *grids;
 static struct FemType data[MAXCASES];
 static struct BoundaryType *boundaries[MAXCASES];
 static struct ElmergridType eg;
-int info,nogrids,nomeshes;
+int info,nogrids,nomeshes,activemesh;
 
   char *IOmethods[] = {
     /*0*/ "EG",
@@ -790,8 +790,6 @@ static int ExportMeshDefinition(int inmethod,int outmethod,int nofile,char *file
 }
 
 
-
-
 #else
 
 
@@ -826,6 +824,7 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
   
   /* For 3D save bulk elements & boundary elements */
   if(elemdim == 3) {
+
     mesh->elements = dat->noelements;
     mesh->element = new element_t[mesh->elements];
     
@@ -834,23 +833,27 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
       e->code = dat->elementtypes[i+1];
       e->nodes = e->code % 100;
       e->node = new int[e->nodes];
+      e->nature = PDE_BULK;
+
       for(j=0;j<e->nodes;j++)
 	e->node[j] = dat->topology[i+1][j]-1;
       e->index = dat->material[i+1];
     }
-    
+
+
     allocated = FALSE;
   do_b:    surfaces = 0;
     
+
     for(j=0;j<MAXBOUNDARIES;j++) {
       if(bound[j].created == FALSE) continue;
-      
+
       for(i=1;i<=bound[j].nosides;i++) {
 	GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],dat,ind,&sideelemtype); 
 	
-	if(sideelemtype / 100 < 3 || sideelemtype > 4) continue;
+	if(sideelemtype / 100 < 3 || sideelemtype / 100 > 4) continue;
 	surfaces += 1;
-	
+       
 	if(allocated) {
 	  b = &mesh->surface[surfaces-1];
 	  b->elements = 0;
@@ -858,17 +861,25 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
 	  
 	  if(bound[j].parent[i]) {
 	    b->elements += 1;
-	    s->surface[0] = bound[j].parent[i]-1;
+	    b->element[0] = bound[j].parent[i]-1;
 	  }
+	  else {
+	    b->element[0] = -1;
+	  }
+
 	  if(bound[j].parent2[i]) {
 	    b->elements += 1;	
-	    s->surface[1] = bound[j].parent2[i]-1;
+	    b->element[1] = bound[j].parent2[i]-1;
+	  } 
+	  else {
+	    b->element[1] = -1;
 	  }
-	  
+	   
 	  b->normal[0] = 0.0;
 	  b->normal[1] = 0.0;
 	  b->normal[2] = -1.0;
 	  
+	  b->nature = PDE_BOUNDARY;
 	  b->code = sideelemtype;
 	  b->nodes = b->code % 100;
 	  b->node = new int[b->nodes];
@@ -898,6 +909,8 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
       
       b->elements = 0;
       b->element = new int[2]; 
+      b->element[0] = -1;
+      b->element[1] = -1;
       
       b->normal[0] = 0.0;
       b->normal[1] = 0.0;
@@ -906,6 +919,8 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
       b->code = dat->elementtypes[i+1];
       b->nodes = b->code % 100;
       b->node = new int[b->nodes];
+      b->nature = PDE_BULK;
+
       for(j=0;j<b->nodes;j++) 
 	b->node[j] = dat->topology[i+1][j]-1;
       b->index = dat->material[i+1];
@@ -932,13 +947,20 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
 	    s->surfaces += 1;
 	    s->surface[0] = bound[j].parent[i]-1;
 	  }
+	  else {
+	    s->surface[0] = -1;
+	  }
 	  if(bound[j].parent2[i]) {
 	    s->surfaces += 1;
 	    s->surface[1] = bound[j].parent2[i]-1;
 	  }
+	  else {
+	    s->surface[1] = -1;
+	  }
 	  s->code = sideelemtype;
 	  s->nodes = s->code % 100;
 	  s->node = new int[s->nodes];
+	  s->nature = PDE_BOUNDARY;
 
 	  for(k=0;k<s->nodes;k++) 
 	    s->node[k] = ind[k]-1;
@@ -957,8 +979,7 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
   else {
     printf("Implemented only for element dimensions 2 and 3 (not %d)\n",elemdim);
   }
- 
-  printf("Copied mesh = %d %d %d %d\n",mesh->elements,mesh->surfaces,mesh->edges,mesh->nodes);
+
   return(0);
 }
 #endif
@@ -982,11 +1003,14 @@ static int DetermineFileType(char *filename,int info)
     else if(strstr(filename,".fdneut") || strstr(filename,".FDNEUT")) mode = 7;
     else if(strstr(filename,".unv")) mode = 8;
     else if(strstr(filename,".mphtxt")) mode = 9;
-    else if(strstr(filename,".gmsh")) mode = 14;
+    else if(strstr(filename,".msh")) mode = 14;
   }
   if(mode == -1) {
     if(info) printf("Could not determine the filetype based on the suffix\n");
   }
+
+  if(info) printf("Filetype determined by suffix: %d\n",mode);
+
   return(mode);
 }
 
@@ -994,16 +1018,21 @@ static int DetermineFileType(char *filename,int info)
 
 static int ImportMeshDefinition(int inmethod,int nofile,char *filename,int *nogrids)
 {
-  int i,errorstat,dim;
+  int i,j,k,errorstat,dim;
+  static int visited = FALSE;
+
 
   *nogrids = 0;
-  if(inmethod != 1 && inmethod != 3 && inmethod != 15) {
-    boundaries[nofile] = (struct BoundaryType*)
-      malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
-    for(i=0;i<MAXBOUNDARIES;i++) {
-      boundaries[nofile][i].created = FALSE; 
-      boundaries[nofile][i].nosides = 0;
-    }    
+  if(!visited) {
+    for(k=0;k<MAXCASES;k++) {
+      boundaries[k] = (struct BoundaryType*)
+	malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
+      for(i=0;i<MAXBOUNDARIES;i++) {
+	boundaries[k][i].created = FALSE; 
+	boundaries[k][i].nosides = 0;
+      }    
+    }
+    visited = TRUE;
   }
 
   /* Native format of ElmerGrid gets specieal treatment */
@@ -1099,17 +1128,27 @@ static int ImportMeshDefinition(int inmethod,int nofile,char *filename,int *nogr
 
 static int ManipulateMeshDefinition(int inmethod,int outmethod,Real relh)
 {
+  static int visited = FALSE;
   int i,j,k;
   Real mergeeps;
 
   if(info) printf("\nElmergrid creating and manipulating meshes:\n");
+
     
   if(inmethod == 1 && outmethod != 1) {
-    for(k=0;k<nogrids;k++) {	    
-      boundaries[k] = (struct BoundaryType*)
-	malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	    
-      CreateElmerGridMesh(&(grids[k]),&(data[k]),boundaries[k],relh,info);
+    printf("nogrids = %d\n",nogrids);
+
+    if(visited) {
+      for(k=0;k<MAXCASES;k++) {	    
+	if(data[k].created) {
+	  DestroyKnots(&data[k]);
+	  for(i=0;i<MAXBOUNDARIES;i++) 
+	    DestroyBoundary(boundaries[k]);
+	}
+      }
     }
+    for(k=0;k<nogrids;k++) 
+      CreateElmerGridMesh(&(grids[k]),&(data[k]),boundaries[k],relh,info);
     nomeshes = nogrids;
   }
 
@@ -1152,27 +1191,21 @@ static int ManipulateMeshDefinition(int inmethod,int outmethod,Real relh)
 				eg.layerparents, info);
   }
 
-  if(outmethod != 1 && eg.dim != 2) { 
+  if(1 && outmethod != 1 && eg.dim != 2) { 
     j = MAX(1,nogrids);
+
+    printf("j = %d\n",j);
 
     for(k=0;k<j;k++) {
       if(grids[k].dimension == 3 || grids[k].rotate) {
 
-	boundaries[j] = (struct BoundaryType*)
-	  malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
-	
-	for(i=0;i<MAXBOUNDARIES;i++) 
-	  boundaries[j][i].created = FALSE;
-
 	CreateKnotsExtruded(&(data[k]),boundaries[k],&(grids[k]),
 			    &(data[j]),boundaries[j],info);
-#if 1
-	DestroyKnots(&data[k]);
-	for(i=0;i<MAXBOUNDARIES;i++) 
-	  DestroyBoundary(&boundaries[k][i]);
-#endif
+	activemesh = j;
+#if EXE_MODE
 	data[k] = data[j];
 	boundaries[k] = boundaries[j];
+#endif
       }
     }
   }
@@ -1248,7 +1281,7 @@ static int ManipulateMeshDefinition(int inmethod,int outmethod,Real relh)
 }
 
 
-
+  
 
 #if LIB_MODE
 int eg_loadmesh(const char *filename0)
@@ -1260,19 +1293,23 @@ int eg_loadmesh(const char *filename0)
   long ii;  
   char filename[MAXFILESIZE];
 
+  activemesh = 0;
   strcpy(filename,filename0);
 
 
   info = TRUE;
-  if(info) printf("\nStarting program Elmergrid\n");
+  if(info) printf("\nElmerGrid loading data from file: %s\n",filename);
   
   if(visited) {
-    DestroyKnots(&data[0]);
-    for(i=0;i<MAXBOUNDARIES;i++) 
-      DestroyBoundary(boundaries[0]);
+    for(k=0;k<MAXCASES;k++) {
+      DestroyKnots(&data[k]);
+      for(i=0;i<MAXBOUNDARIES;i++) 
+	DestroyBoundary(boundaries[k]);
+    }
   }
   else {
     grids = (struct GridType*)malloc((size_t) (MAXCASES)*sizeof(struct GridType));     
+    visited = TRUE;
   }
 
   InitParameters(&eg);
@@ -1280,6 +1317,7 @@ int eg_loadmesh(const char *filename0)
   info = TRUE;
 
   inmethod = DetermineFileType(filename,info);
+
   if(inmethod < 0) return(1);
   if(inmethod == 0) {
     errorstat = LoadCommands(filename,&eg,grids,1,IOmethods,info);
@@ -1291,8 +1329,6 @@ int eg_loadmesh(const char *filename0)
   }
   strcpy(eg.filesin[0],filename);
 
-  /**********************************/
-  if(info) printf("\nElmergrid loading data:\n");
    
   nofile = 0;
   nomeshes = 0;
@@ -1302,6 +1338,8 @@ int eg_loadmesh(const char *filename0)
 
   if(errorstat) return(errorstat);
   nomeshes += nogrids;
+
+  return(0);
 }
 
 
@@ -1311,13 +1349,26 @@ int eg_transfermesh(char *str,mesh_t *mesh)
   int inmethod,outmethod,errorstat;
   Real relh=1.0;
   info = TRUE;
-  
+
+  if(info) printf("\nElmerGrid manipulating and importing data\n");
+ 
+  mesh->nodes = 0;
+  mesh->points = 0;
+  mesh->edges = 0;
+  mesh->surfaces = 0;
+  mesh->elements = 0;
+
+  if(nomeshes == 0) {
+    printf("No mesh to work with!\n");
+    return(1);
+  }
+
   inmethod = eg.inmethod;
   outmethod = 0;
   
   ManipulateMeshDefinition(inmethod,outmethod,relh);
-  
-  errorstat = ConvertEgTypeToMeshType(&data[0],boundaries[0],mesh);
+
+  errorstat = ConvertEgTypeToMeshType(&data[activemesh],boundaries[activemesh],mesh);
   if(info) printf("Done converting mesh\n");
 
   return(errorstat);

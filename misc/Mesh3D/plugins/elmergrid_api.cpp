@@ -28,20 +28,7 @@ int ElmergridAPI::loadElmerMeshStructure(const char *filename)
 void ElmergridAPI::createElmerMeshStructure(mesh_t *mesh)
 {
 #if 1
-  int meshmode;
-  
-  meshmode=1;
-
-  cout << "start egmain" << endl;
-  cout.flush();
-
   int retval = eg_transfermesh("default",mesh);
-
-  cout << retval << " " << mesh->nodes << " stop egmain" << endl;
-  cout.flush();
-
-
-
 #else
     // nodes:
   mesh->nodes = 4;
@@ -157,9 +144,8 @@ void ElmergridAPI::createElmerMeshStructure(mesh_t *mesh)
   b->elements = 0;
   b->element = new int[2]; // reserve space for 2 (will be corrected)
   b->index = 1;
-#endif
-
 
   cout << "ok, palautan nyt uuden verkon" << endl;
   cout.flush();
+#endif
 }

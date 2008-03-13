@@ -492,15 +492,7 @@ void MainWindow::remeshSlot()
     glWidget->mesh = new mesh_t;
     mesh_t *mesh = glWidget->mesh;
     
-    mesh->nodes = 0;
-    mesh->points = 0;
-    mesh->edges = 0;
-    mesh->surfaces = 0;
-    mesh->elements = 0;
-
-    logMessage("eg api start");
     elmergridAPI->createElmerMeshStructure(mesh);
-    logMessage("eg api end");
 
     cout << "Nodes: " << mesh->nodes << endl;
     cout << "Elements: " << mesh->elements << endl;
@@ -512,13 +504,9 @@ void MainWindow::remeshSlot()
     if(0) meshutils->findBoundaryElementEdges(mesh);
     cout << "find parents?" << endl;
     if(0) meshutils->findBoundaryElementParents(mesh);
-    cout << "find normals?" << endl;
-    if(0) meshutils->findBoundaryElementNormals(mesh);
-    
-    logMessage("Ready");
+ 
+    meshutils->findBoundaryElementNormals(mesh);
     glWidget->rebuildLists();
-    
-    cout << "back" << endl;
 
     return;
     
@@ -1175,8 +1163,6 @@ void MainWindow::readInputFile(QString fileName)
 
   } else if (meshControl->generatorType==GEN_ELMERGRID) {    
 
-    logMessage("nyt tarttis lukea inputfilee, kai" );
-    
     int errstat = elmergridAPI->loadElmerMeshStructure((const char*)(fileName.toAscii()));
     
     if (errstat) {
