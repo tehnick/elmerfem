@@ -311,17 +311,18 @@ void MainWindow::hideselectedSlot()
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
     if(l->selected) {
+      l->visible = false;
 
-      // hide all objects with index == l->index
+      // hide all surfaceedgelists with index == l->index
       for(int j=0; j<lists; j++) {
 	list_t *l2 = &list[j];
-	if(l2->index == l->index)
+	if((l2->type == SURFACEEDGELIST) && (l2->index == l->index))
 	  l2->visible = false;
       }
     }
   }
   
-  logMessage("Selected boundary parts hidden");
+  logMessage("Selected objects hidden");
 }
 
 

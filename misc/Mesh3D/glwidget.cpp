@@ -203,7 +203,7 @@ void GLWidget::mousePressEvent(QMouseEvent *event)
 //-----------------------------------------------------------------------------
 void GLWidget::wheelEvent(QWheelEvent *event)
 {
-  double s = exp((double)(event->delta())*0.001);
+  double s = exp(-(double)(event->delta())*0.001);
   glScaled(s, s, s);
   updateGL();
   lastPos = event->pos();
@@ -249,7 +249,7 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
   } else if (event->buttons() & Qt::MidButton) {
 
     // Scale:
-    double s = exp(dy*0.01);
+    double s = exp(-dy*0.01);
     glScaled(s, s, s);
     updateGL();
   }
@@ -587,13 +587,12 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
   // Draw triangles:
   //-----------------
   glBegin(GL_TRIANGLES);
-  glColor3d(R, G, B);
+  glColor3d(R, G, B);      
 
   for(int i=0; i < mesh->surfaces; i++) {
     surface_t *surface = &mesh->surface[i];
 
     if((surface->index == index) && (surface->code == 303)) {
-
       glNormal3dv(surface->normal); 
       
       int n0 = surface->node[0];
@@ -623,13 +622,11 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
   // Draw quads:
   //------------
   glBegin(GL_QUADS);
-  glColor3d(R, G, B);
   
   for(int i=0; i < mesh->surfaces; i++) {
     surface_t *surface = &mesh->surface[i];
 
     if((surface->index == index) && (surface->code == 404)) {
-      
       glNormal3dv(surface->normal); 
       
       int n0 = surface->node[0];
@@ -679,12 +676,12 @@ GLuint GLWidget::generateSurfaceEdgeList(int index, double R, double G, double B
 
   GLuint current = glGenLists(1);
   glNewList(current, GL_COMPILE);
-
+ 
   // Draw lines:
   //------------
   glLineWidth(1.0);
   glDisable(GL_LIGHTING);
-  glColor3d(0, 0, 0);
+  glColor3d(R, G, B);
   glBegin(GL_LINES);
   
   for(int i=0; i < mesh->surfaces; i++) {
@@ -773,20 +770,15 @@ GLuint GLWidget::generateEdgeList(int index, double R, double G, double B)
 
   GLuint current = glGenLists(1);
   glNewList(current, GL_COMPILE);
-  
+  glColor3d(R, G, B);  
   glLineWidth(4.0);
-
   glDisable(GL_LIGHTING);
+  glBegin(GL_LINES);
 
   for(int i=0; i < mesh->edges; i++) {
     edge_t *edge = &mesh->edge[i];
 
     if(edge->index == index) {
-      
-      glBegin(GL_LINES);
-	
-      glColor3d(R, G, B);
-      
       int n0 = edge->node[0];
       int n1 = edge->node[1];
 	
@@ -800,13 +792,11 @@ GLuint GLWidget::generateEdgeList(int index, double R, double G, double B)
 	
       glVertex3dv(x0);
       glVertex3dv(x1);
-
-      glEnd();
     }
   }
   
-  glEnable(GL_LIGHTING);
-
+  glEnd();
+  glEnable(GL_LIGHTING);  
   glEndList();
   
   return current;
