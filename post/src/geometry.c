@@ -156,13 +156,16 @@ int geo_add_edge( geometry_t *geometry,int v0,int v1,element_t *elm )
     int swap;
     edge_list_t *ptr;
 
+    if ( !GlobalOptions.VolumeEdges && elm->ElementType->ElementCode>=500 ) return TRUE;
+
     if ( v0 > v1 ) { swap = v0; v0 = v1; v1 = swap; }
 
     if ( v0 >= geometry->VertexCount || v1 >= geometry->VertexCount )
     {
-        fprintf( stderr, "geo_add_edge: vertex number [%d,%d] out of range\n", v0,v1);
-        return FALSE;
+       fprintf( stderr, "geo_add_edge: vertex number [%d,%d] out of range\n", v0,v1);
+       return FALSE;
     }
+
 
     for( ptr=geometry->Edges[v0].EdgeList; ptr != NULL; ptr=ptr->Next )
     {

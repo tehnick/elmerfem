@@ -279,8 +279,12 @@ proc ReadFile {} {
     checkbutton $w.sides.vol -text "Generate Volume Element Sides" \
              -variable GlobalOptions(VolumeSides)
 
+    checkbutton $w.sides.vol_edge -text "Generate Volume Element Edges" \
+             -variable GlobalOptions(VolumeEdges)
+
     pack $w.sides.surf -side top -expand 1 -fill x
     pack $w.sides.vol  -side top -expand 1 -fill x
+    pack $w.sides.vol_edge  -side top -expand 1 -fill x
     pack $w.sides -side top 
 
     label $w.sp1 -text "\nFile Information:\n" -font "Helvetica-Bold 12"

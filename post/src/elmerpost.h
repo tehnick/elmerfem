@@ -108,6 +108,7 @@ typedef struct
 typedef struct
 {
     int VolumeSides;
+    int VolumeEdges;
     int SurfaceSides;
     int StereoMode;
     int OutputPS, FitToPagePS;
@@ -115,7 +116,7 @@ typedef struct
 } global_options_t;
 
 #ifdef MODULE_MAIN
-  global_options_t GlobalOptions = { FALSE,TRUE,FALSE,FALSE,TRUE,0.03,5.00 };
+  global_options_t GlobalOptions = { FALSE,FALSE,TRUE,FALSE,FALSE,TRUE,0.03,5.00 };
 #else
   extern global_options_t GlobalOptions;
 #endif

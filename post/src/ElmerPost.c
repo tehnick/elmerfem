@@ -2475,8 +2475,12 @@ int main(int argc,char **argv)
 
     strcpy( tmp , "GlobalOptions(SurfaceSides)" );
     Tcl_LinkVar( TCLInterp, tmp, (char *)&GlobalOptions.SurfaceSides, TCL_LINK_INT );
+
     strcpy( tmp , "GlobalOptions(VolumeSides)" );
     Tcl_LinkVar( TCLInterp, tmp, (char *)&GlobalOptions.VolumeSides, TCL_LINK_INT );
+
+    strcpy( tmp , "GlobalOptions(VolumeEdges)" );
+    Tcl_LinkVar( TCLInterp, tmp, (char *)&GlobalOptions.VolumeEdges, TCL_LINK_INT );
 
     strcpy( tmp , "GlobalOptions(StereoMode)" );
     Tcl_LinkVar( TCLInterp, tmp, (char *)&GlobalOptions.StereoMode, TCL_LINK_INT );
