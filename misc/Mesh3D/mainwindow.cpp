@@ -630,7 +630,7 @@ void MainWindow::saveSlot()
     return;
   }
 
-  QString dirName = QFileDialog::getSaveFileName(this);
+  QString dirName = QFileDialog::getExistingDirectory(this);
 
   if (!dirName.isEmpty()) {
 
@@ -1267,8 +1267,37 @@ void MainWindow::makeSteadyHeatSifSlot()
   textEdit->append("  Stefan Boltzmann = 5.67e-08");
   textEdit->append("End\n");
 
+  // Boundary condition blocks:
+  mesh_t *mesh = glWidget->mesh;
+  char str[1024];
+
+  int maxindex = 0;
+  for(int i=0; i < mesh->elements; i++) {
+    element_t *element = &mesh->element[i];
+    if((element->nature == PDE_BULK) && (element->index > maxindex))
+      maxindex = element->index;
+  }
+
+  for(int i=0; i < mesh->surfaces; i++) {
+    surface_t *surface = &mesh->surface[i];
+    if((surface->nature == PDE_BULK) && (surface->index > maxindex))
+      maxindex = surface->index;
+  }
+
+  for(int i=0; i < mesh->edges; i++) {
+    edge_t *edge = &mesh->edge[i];
+    if((edge->nature == PDE_BULK) && (edge->index > maxindex))
+      maxindex = edge->index;
+  }
+  if ( maxindex == 0 ) maxindex=1;
+
   textEdit->append("Body 1");
   textEdit->append("  Name = \"Body1\"");
+  sprintf( str, "  Target Bodies(%d)=", maxindex );
+  for( int i=0; i<maxindex; i++ ) {
+     sprintf( str, "%s %d", str, i+1 );
+  }
+  textEdit->append(str);
   textEdit->append("  Body Force = 1");
   textEdit->append("  Equation = 1");
   textEdit->append("  Material = 1");
@@ -1309,9 +1338,6 @@ void MainWindow::makeSteadyHeatSifSlot()
 
 
   // Boundary condition blocks:
-  mesh_t *mesh = glWidget->mesh;
-
-  int maxindex = 0;
   for(int i=0; i < mesh->surfaces; i++) {
     surface_t *surface = &mesh->surface[i];
     if((surface->nature == PDE_BOUNDARY) && (surface->index > maxindex))
