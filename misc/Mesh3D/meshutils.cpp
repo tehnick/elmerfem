@@ -252,8 +252,8 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
 
 #define RESETENTRY              \
     h->node = UNKNOWN;          \
-    h->surfaces = 0;    \
-    h->surface = NULL;  \
+    h->surfaces = 0;            \
+    h->surface = NULL;          \
     h->next = NULL;
 
   int keys = mesh->nodes;
@@ -276,16 +276,29 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
     RESETENTRY;
   }
 
-  static int edgemap[][2] = {{0,1}, {1,2}, {2,0}};
+  static int triedgemap[][2] = {{0,1}, {1,2}, {2,0}};
+  static int quadedgemap[][2] = {{0,1}, {1,2}, {2,3}, {3,0}};
   
   for(int i=0; i < mesh->surfaces; i++) {
     surface_t *be = &mesh->surface[i];
     
     // loop over edges
-    for(int e=0; e<3; e++) {
+    for(int e=0; e < be->edges; e++) {
 
-      int n0 = be->node[edgemap[e][0]];
-      int n1 = be->node[edgemap[e][1]];
+      cout << be->edges << " " << be->edge[0] << " " << be->edge[1] << endl;
+      cout.flush();
+
+      int n0, n1;
+      if(be->code == 303) {
+	n0 = be->node[triedgemap[e][0]];
+	n1 = be->node[triedgemap[e][1]];
+      } else if(be->code == 404) {
+	n0 = be->node[quadedgemap[e][0]];
+	n1 = be->node[quadedgemap[e][1]];
+      } else {
+	cout << "findBoundaryElementEdges: error: unknown element code" << endl;
+	exit(0);
+      }
 
       int m = (n0<n1) ? n0 : n1;
       int n = (n0<n1) ? n1 : n0;
@@ -333,7 +346,6 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
   cout << "Found " << edges << " edges on boundary" << endl;
 
   mesh->edges = edges;
-  // delete [] mesh->edge;
   mesh->edge = new edge_t[edges];
 
   // Create edges:
@@ -426,7 +438,10 @@ void Meshutils::findSharpEdges(mesh_t *mesh, double limit)
 
     edge->index = UNKNOWN;
 
-    if( edge->surfaces == 2 ) {
+    cout << edge->surfaces << endl;
+    cout.flush();
+
+    if(edge->surfaces == 2) {
       int b0 = edge->surface[0];
       int b1 = edge->surface[1];    
       double *n0 = mesh->surface[b0].normal;
@@ -467,7 +482,7 @@ int Meshutils::divideBoundaryBySharpEdges(mesh_t *mesh)
       surface->index = index;
 
       // propagate index
-      for(int j=0; j<3; j++) {
+      for(int j=0; j<surface->edges; j++) {
 	int k = surface->edge[j];
 	edge_t *edge = &mesh->edge[k];
 

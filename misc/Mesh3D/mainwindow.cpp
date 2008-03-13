@@ -411,12 +411,6 @@ void MainWindow::resetSlot()
     l->selected = false;
   }
 
-#if 0
-  glWidget->glRotated(s, bx, by, bz);
-  glWidget->glTranslated(ax, ay, az);
-  glWidget->glScaled(s, s, s);
-#endif
-
   glLoadIdentity();
   glWidget->updateGL();
 
@@ -517,6 +511,22 @@ void MainWindow::remeshSlot()
     cout << "find parents?" << endl;
     if(0) meshutils->findBoundaryElementParents(mesh);
  
+    // hack for avoiding problems in 3d:
+    cout << "***" << mesh->surfaces << endl;
+    cout.flush();
+
+#if 0
+    for(int i=0; i < mesh->surfaces; i++) {
+      surface_t *s = &mesh->surface[i];
+      s->edges = 4;
+      s->edge[0] = -1;
+      s->edge[1] = -1;
+      s->edge[2] = -1;
+      s->edge[3] = -1;
+    }
+#endif
+    
+    meshutils->findBoundaryElementEdges(mesh);
     meshutils->findBoundaryElementNormals(mesh);
     glWidget->rebuildLists();
 
