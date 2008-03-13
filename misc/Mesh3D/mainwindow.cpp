@@ -31,8 +31,14 @@ MainWindow::MainWindow()
   glWidget = new GLWidget;
   setCentralWidget(glWidget);
   sifWindow = new SifWindow(this);
+
   meshControl = new MeshControl(this);
+  meshControl->nglibPresent = nglibPresent;
+  meshControl->tetlibPresent = tetlibPresent;
+
+  meshControl->defaultControls();
   boundaryDivide = new BoundaryDivide(this);
+
   meshingThread = new MeshingThread;
   meshutils = new Meshutils;
 
@@ -186,9 +192,9 @@ void MainWindow::createActions()
   boundaryunifyAct->setStatusTip(tr("Unify boundary (merge selected)"));
   connect(boundaryunifyAct, SIGNAL(triggered()), this, SLOT(boundaryunifySlot()));
 
-  // Mesh -> Hide surface mesh
-  hidesurfacemeshAct = new QAction(QIcon(), tr("&Hide surface mesh..."), this);
-  hidesurfacemeshAct->setStatusTip(tr("Hide surface mesh (do not outline surface elements)"));
+  // Mesh -> Hide/Show surface mesh
+  hidesurfacemeshAct = new QAction(QIcon(), tr("&Hide/Show surface mesh..."), this);
+  hidesurfacemeshAct->setStatusTip(tr("Hide/show surface mesh (do/do not outline surface elements)"));
   connect(hidesurfacemeshAct, SIGNAL(triggered()), this, SLOT(hidesurfacemeshSlot()));
 
   // Mesh -> Hide selected
@@ -217,7 +223,7 @@ void MainWindow::meshcontrolSlot()
 {
   meshControl->tetlibPresent = this->tetlibPresent;
   meshControl->nglibPresent = this->nglibPresent;
-  
+
   if(!tetlibPresent) {
     meshControl->tetlibPresent = false;
     meshControl->ui.nglibRadioButton->setChecked(true);
@@ -305,21 +311,26 @@ void MainWindow::boundaryunifySlot()
 void MainWindow::hidesurfacemeshSlot()
 {
   mesh_t *mesh = glWidget->mesh;
-  int lists = glWidget->lists;
   list_t *list = glWidget->list;
+  int lists = glWidget->lists, vis;
 
   if(mesh == NULL) {
-    logMessage("There is no surface mesh to hide");
+    logMessage("There is no surface mesh to hide/show");
     return;
   }
   
+  vis = false;
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
     if(l->type == SURFACEEDGELIST) 
-      l->visible = false;
+    {
+      l->visible = !l->visible;
+      vis = l->visible;
+    }
   }
-  
-  logMessage("Surface mesh hidden");
+
+ if ( !vis ) logMessage("Surface mesh hidden");
+ else logMessage("Surface message shown");
 }
 
 // Mesh -> Hide selected...
@@ -578,7 +589,7 @@ void MainWindow::saveSlot()
     return;
   }
 
-  QString dirName = QFileDialog::getExistingDirectory(this);
+  QString dirName = QFileDialog::getSaveFileName(this);
 
   if (!dirName.isEmpty()) {
 
@@ -883,9 +894,11 @@ void MainWindow::saveElmerMesh(QString dirName)
 
   statusBar()->showMessage(tr("Saving..."));
 
-  QFile file;
-  QDir::setCurrent(dirName);
+  QDir dir(dirName);
+  if ( !dir.exists() ) dir.mkdir(dirName);
+  dir.setCurrent(dirName);
 
+  QFile file;
   mesh_t *mesh = glWidget->mesh;
 
   // Header:

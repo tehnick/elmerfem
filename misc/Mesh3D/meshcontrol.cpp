@@ -2,6 +2,8 @@
 #include <iostream>
 #include "meshcontrol.h"
 
+#include <stdio.h>
+
 using namespace std;
 
 MeshControl::MeshControl(QWidget *parent)
@@ -82,8 +84,13 @@ void MeshControl::defaultControls()
   ui.tetlibRadioButton->setChecked(true);
 
   if(!tetlibPresent) {
-    ui.nglibRadioButton->setChecked(true);
     generatorType = GEN_NGLIB;
+    ui.nglibRadioButton->setChecked(true);
+  }
+
+  if(!tetlibPresent && !nglibPresent) {
+    generatorType = GEN_ELMERGRID;
+    ui.elmerGridRadioButton->setChecked(true);
   }
 
   ui.tetlibStringEdit->setText("nnJApq1.414V");
