@@ -779,6 +779,11 @@ void MainWindow::loadElmerMesh(QString dirName)
   int current_surface = 0;
   int current_element = 0;
 
+  surface_t *surface = NULL;
+  element_t *element = NULL;
+  edge_t *edge = NULL;
+  point_t *point = NULL;
+
   for(int i=0; i<elements; i++) {
     mesh_elements >> number >> index >> type;
 
@@ -791,7 +796,7 @@ void MainWindow::loadElmerMesh(QString dirName)
 
     case 3:
     case 4:
-      surface_t *surface = &mesh->surface[current_surface++];
+      surface = &mesh->surface[current_surface++];
       surface->nature = PDE_BULK;
       surface->index = index;
       surface->code = type;
@@ -811,7 +816,7 @@ void MainWindow::loadElmerMesh(QString dirName)
 
     case 5:
     case 8:
-      element_t *element = &mesh->element[current_element++];
+      element = &mesh->element[current_element++];
       element->nature = PDE_BULK;
       element->index = index;
       element->code = type;
@@ -854,7 +859,7 @@ void MainWindow::loadElmerMesh(QString dirName)
       break;
 
     case 2:
-      edge_t *edge = &mesh->edge[current_edge++];
+      edge = &mesh->edge[current_edge++];
       edge->nature = PDE_BOUNDARY;
       edge->index = index;
       edge->surfaces = 2;
@@ -874,7 +879,7 @@ void MainWindow::loadElmerMesh(QString dirName)
 
     case 3:
     case 4:
-      surface_t *surface = &mesh->surface[current_surface++];
+      surface = &mesh->surface[current_surface++];
       surface->nature = PDE_BOUNDARY;
       surface->index = index;
       surface->elements = 2;
