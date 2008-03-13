@@ -332,6 +332,12 @@ static int vis_mesh( geometry_t *geometry, element_model_t *model, mesh_t *Mesh,
 
     if ( Mesh->Style == mesh_style_line || Mesh->Style == mesh_style_line_and_surf )
     {
+
+        glMatrixMode(GL_PROJECTION);
+        glPushMatrix();
+        glTranslatef(0.0,0.0,0.01);
+        glMatrixMode(GL_MODELVIEW);
+
         gra_set_material( Mesh->EdgeMaterial );
 
         if ( Mesh->LineStyle == line_style_cylinder )
@@ -357,6 +363,9 @@ static int vis_mesh( geometry_t *geometry, element_model_t *model, mesh_t *Mesh,
                     if ( RealTime() - dt > TooLong1 )
                     {
                         epMouseDownTakesTooLong++;
+                        glMatrixMode(GL_PROJECTION);
+                        glPopMatrix();
+                        glMatrixMode( GL_MODELVIEW );
                         return FALSE;
                     }
 
@@ -385,6 +394,9 @@ static int vis_mesh( geometry_t *geometry, element_model_t *model, mesh_t *Mesh,
                     {
                         epMouseDownTakesTooLong++;
                         gra_end_lines();
+                        glMatrixMode(GL_PROJECTION);
+                        glPopMatrix();
+                        glMatrixMode( GL_MODELVIEW );
                         return FALSE;
                     }
 
@@ -392,6 +404,9 @@ static int vis_mesh( geometry_t *geometry, element_model_t *model, mesh_t *Mesh,
             }
             gra_end_lines();
         }
+        glMatrixMode(GL_PROJECTION);
+        glPopMatrix();
+        glMatrixMode( GL_MODELVIEW );
     }
 
     return TRUE;
