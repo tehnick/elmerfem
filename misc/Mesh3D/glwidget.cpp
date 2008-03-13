@@ -492,13 +492,13 @@ GLuint GLWidget::makeLists()
       l->visible = true;
     }
   }
-  
-  updateGL();
-  getMatrix();
 
   delete [] surface_tmp;
   delete [] edge_tmp;
   delete [] point_tmp;
+  
+  updateGL();
+  getMatrix();
 
   return lists;
 }
@@ -551,6 +551,7 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
 	glEnd();
 
 	glBegin(GL_LINES);
+	glDisable(GL_LIGHTING);
 
 	glLineWidth(1.0);
 	glColor3d(0.0, 0.0, 0.0);
@@ -564,6 +565,7 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
 	glVertex3dv(x2);
 	glVertex3dv(x0);
 	
+	glEnable(GL_LIGHTING);
 	glEnd();
       }
 
@@ -601,6 +603,7 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
 	glEnd();
 
 	glBegin(GL_LINES);
+	glDisable(GL_LIGHTING);
 
 	glLineWidth(1.0);
 	glColor3d(0.0, 0.0, 0.0);
@@ -617,6 +620,7 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
 	glVertex3dv(x3);
 	glVertex3dv(x0);
 	
+	glEnable(GL_LIGHTING);
 	glEnd();
       }
     }
@@ -637,6 +641,8 @@ GLuint GLWidget::generateEdgeList(int index, double R, double G, double B)
   glNewList(current, GL_COMPILE);
   
   glLineWidth(4.0);
+
+  glDisable(GL_LIGHTING);
 
   for(int i=0; i < mesh->edges; i++) {
     edge_t *edge = &mesh->edge[i];
@@ -665,6 +671,8 @@ GLuint GLWidget::generateEdgeList(int index, double R, double G, double B)
     }
   }
   
+  glEnable(GL_LIGHTING);
+
   glEndList();
   
   return current;
