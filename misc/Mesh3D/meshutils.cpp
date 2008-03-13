@@ -285,9 +285,6 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
     // loop over edges
     for(int e=0; e < be->edges; e++) {
 
-      cout << be->edges << " " << be->edge[0] << " " << be->edge[1] << endl;
-      cout.flush();
-
       int n0, n1;
       if(be->code == 303) {
 	n0 = be->node[triedgemap[e][0]];
