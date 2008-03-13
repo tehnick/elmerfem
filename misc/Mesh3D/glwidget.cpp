@@ -203,7 +203,7 @@ void GLWidget::mousePressEvent(QMouseEvent *event)
 //-----------------------------------------------------------------------------
 void GLWidget::wheelEvent(QWheelEvent *event)
 {
-  double s = exp(-(double)(event->delta())*0.001);
+  double s = exp((double)(event->delta())*0.001);
   glScaled(s, s, s);
   updateGL();
   lastPos = event->pos();
@@ -319,6 +319,7 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
   glMatrixMode(GL_MODELVIEW);
 
   // Clear the previous selections:
+#if 0
   if(!ctrlPressed) {
     for(int i=0; i < lists; i++) {
       list_t *l = &list[i];
@@ -327,14 +328,15 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
 	l->selected = false;
 
 	if(l->type == SURFACELIST) {
-	  l->object = generateSurfaceList(l->index, 0, 1, 1);
+	  l->object = generateSurfaceList(l->index, 0, 1, 1); // cyan
 	} else if(l->type == EDGELIST) {
-	  l->object = generateEdgeList(l->index, 0, 1, 0);
+	  l->object = generateEdgeList(l->index, 0, 1, 0); // green
 	}
 
       }
     }
   }
+#endif
 
   // Highlight the selected boundary:
   if(nearest != 0xffffffff) {
@@ -351,17 +353,44 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
       }
     }
 
+    // if not ctrl pressed, clear all except this one:
+    if(!ctrlPressed) {
+      for(i=0; i < lists; i++) {
+	list_t *l2 = &list[i];
+	if(l2->selected && (l2->index != l->index)) {
+	  glDeleteLists(l2->object, 1);
+	  l2->selected = false;	  
+	  if(l2->type == SURFACELIST) {
+	    l2->object = generateSurfaceList(l2->index, 0, 1, 1); // cyan
+	  } else if(l->type == EDGELIST) {
+	    l2->object = generateEdgeList(l2->index, 0, 1, 0); // green
+	  }
+	}
+      }
+    }
+
     // Emit result to mainwindow:
     emit(signalBoundarySelected(l));
     
-    // Highlight current selection:
-    glDeleteLists(l->object, 1);
-    l->selected = true;
+    // Toggle selection:
+    l->selected = !l->selected;
     
+    glDeleteLists(l->object, 1);
+
+    // Highlight current selection:
     if(l->type == SURFACELIST) {
-      l->object = generateSurfaceList(l->index, 1, 0, 0);
+      if(l->selected) {
+	l->object = generateSurfaceList(l->index, 1, 0, 0); // red
+      } else {
+	l->object = generateSurfaceList(l->index, 0, 1, 1); // cyan
+      }
+
     } else if(l->type == EDGELIST) {
-      l->object = generateEdgeList(l->index, 1, 0, 0);
+      if(l->selected) {
+	l->object = generateEdgeList(l->index, 1, 0, 0); // red
+      } else {
+	l->object = generateEdgeList(l->index, 0, 1, 0); // green
+      }
     }
     
   } else {
@@ -454,7 +483,7 @@ GLuint GLWidget::makeLists()
       surface_bcs++;
   }  
   
-  cout << "Bcs / mat.indices on surface elements: " << surface_bcs << endl;
+  cout << "Bcs / materials on surface elements: " << surface_bcs << endl;
 
   // Scan edge elements to determine the number of bcs on edges:
   //---------------------------------------------------------------------------
@@ -475,7 +504,7 @@ GLuint GLWidget::makeLists()
       edge_bcs++;
   }  
   
-  cout << "Bcs / mat.indoces on edge elements: " << edge_bcs << endl;  
+  cout << "Bcs / materials on edge elements: " << edge_bcs << endl;  
 
   // Scan edge elements to determine the number of bcs on edges:
   //---------------------------------------------------------------------------
@@ -484,7 +513,7 @@ GLuint GLWidget::makeLists()
 
   // TODO
 
-  cout << "Bcs / mat.indices on point elements: " << point_bcs << endl;  
+  cout << "Bcs / materials on point elements: " << point_bcs << endl;  
 
   // Generate lists:
   //---------------------------------------------------------------------------

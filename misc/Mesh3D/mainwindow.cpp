@@ -43,8 +43,6 @@ MainWindow::MainWindow()
   
   // glWidget emits (list_t*) when a boundary is selected by double clicking:
   connect(glWidget, SIGNAL(signalBoundarySelected(list_t*)), this, SLOT(boundarySelectedSlot(list_t*)));
-  // glWidget emits (int) when a boundary is selected by double clicking:
-  //connect(glWidget, SIGNAL(signalBoundarySelected(int)), this, SLOT(boundarySelectedSlot(int)));
 
   // meshingThread emits (void) when the mesh generation is completed:
   connect(meshingThread, SIGNAL(signalMeshOk()), this, SLOT(meshOkSlot()));
