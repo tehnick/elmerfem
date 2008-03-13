@@ -331,6 +331,18 @@ void MainWindow::hidesurfacemeshSlot()
     {
       l->visible = !l->visible;
       vis = l->visible;
+
+      // do not set visible if the corresponding surfacelist is not visible
+      for(int j=0; j<lists; j++) {
+	list_t *l2 = &list[j];
+	if((l2->type == SURFACELIST) && (l2->index == l->index)) {
+	  if(!l2->visible) {
+	    l->visible = false;
+	    break;
+	  }
+	}
+      }
+
     }
   }
 
@@ -356,7 +368,7 @@ void MainWindow::hideselectedSlot()
     if(l->selected) {
       l->visible = false;
 
-      // hide all surfaceedgelists with index == l->index
+      // hide also all surfaceedgelists with index == l->index
       for(int j=0; j<lists; j++) {
 	list_t *l2 = &list[j];
 	if((l2->type == SURFACEEDGELIST) && (l2->index == l->index))
