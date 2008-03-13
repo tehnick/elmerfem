@@ -98,6 +98,9 @@ void Meshutils::clearMesh(mesh_t *mesh)
     if(mesh->edge != (edge_t*)NULL) 
       delete [] mesh->edge;
     
+    if(mesh->point != (point_t*)NULL) 
+      delete [] mesh->point;
+    
     if(mesh->node != (node_t*)NULL)
       delete [] mesh->node;
     
@@ -201,11 +204,11 @@ void Meshutils::findBoundaryElementParents(mesh_t *mesh)
 
   // Finally find parents:
   for(int i=0; i < mesh->surfaces; i++) {
-    surface_t *be = &mesh->surface[i];
+    surface_t *s = &mesh->surface[i];
     
-    int n0 = be->node[0];
-    int n1 = be->node[1];
-    int n2 = be->node[2];
+    int n0 = s->node[0];
+    int n1 = s->node[1];
+    int n2 = s->node[2];
     
     if(n2 < n1) {
       int tmp = n2;
@@ -229,12 +232,12 @@ void Meshutils::findBoundaryElementParents(mesh_t *mesh)
     while(h->next) {
       if((h->node[0] == n1) && (h->node[1] == n2)) {
 
-	// should we deallocate be->element if it exists?
-	be->elements = 2;
-	be->element = new int[2];
+	// should we deallocate s->element if it exists?
+	s->elements = 2;
+	s->element = new int[2];
 
-	be->element[0] = h->element[0];
-	be->element[1] = h->element[1];
+	s->element[0] = h->element[0];
+	s->element[1] = h->element[1];
       }
       h = h->next;
     }
@@ -280,18 +283,18 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
   static int quadedgemap[][2] = {{0,1}, {1,2}, {2,3}, {3,0}};
   
   for(int i=0; i < mesh->surfaces; i++) {
-    surface_t *be = &mesh->surface[i];
+    surface_t *s = &mesh->surface[i];
     
     // loop over edges
-    for(int e=0; e < be->edges; e++) {
+    for(int e=0; e < s->edges; e++) {
 
       int n0, n1;
-      if(be->code == 303) {
-	n0 = be->node[triedgemap[e][0]];
-	n1 = be->node[triedgemap[e][1]];
-      } else if(be->code == 404) {
-	n0 = be->node[quadedgemap[e][0]];
-	n1 = be->node[quadedgemap[e][1]];
+      if(s->code == 303) {
+	n0 = s->node[triedgemap[e][0]];
+	n1 = s->node[triedgemap[e][1]];
+      } else if(s->code == 404) {
+	n0 = s->node[quadedgemap[e][0]];
+	n1 = s->node[quadedgemap[e][1]];
       } else {
 	cout << "findBoundaryElementEdges: error: unknown element code" << endl;
 	exit(0);
@@ -352,6 +355,8 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
     while(h->next) {
       edge_t *e = &mesh->edge[edges++];
       
+      e->nature = PDE_UNKNOWN;
+
       e->code = 202;
 
       e->nodes = 2;
@@ -380,11 +385,11 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
 
     for(int j=0; j < e->surfaces; j++) {
       int k = e->surface[j];
-      surface_t *be = &mesh->surface[k];
+      surface_t *s = &mesh->surface[k];
       
-      for(int r=0; r < be->edges; r++) {
-	if(be->edge[r] < 0) {
-	  be->edge[r] = i;
+      for(int r=0; r < s->edges; r++) {
+	if(s->edge[r] < 0) {
+	  s->edge[r] = i;
 	  break;
 	}
       }
@@ -594,10 +599,12 @@ void Meshutils::findBoundaryElementNormals(mesh_t *mesh)
                         + mesh->node[v].x[0]
                         + mesh->node[w].x[0]
                         + mesh->node[q].x[0];
+
       center_element[1] = mesh->node[u].x[1]
                         + mesh->node[v].x[1]
                         + mesh->node[w].x[1]
                         + mesh->node[q].x[1];
+
       center_element[2] = mesh->node[u].x[2]
                         + mesh->node[v].x[2]
                         + mesh->node[w].x[2]

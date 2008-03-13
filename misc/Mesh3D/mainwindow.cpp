@@ -340,7 +340,7 @@ void MainWindow::hidesurfacemeshSlot()
   }
 
  if ( !vis ) logMessage("Surface mesh hidden");
- else logMessage("Surface message shown");
+ else logMessage("Surface mesh shown");
 }
 
 // Mesh -> Hide selected...
@@ -520,7 +520,7 @@ void MainWindow::remeshSlot()
     }
 #endif
     
-    meshutils->findBoundaryElementEdges(mesh);
+    //meshutils->findBoundaryElementEdges(mesh);
     meshutils->findBoundaryElementNormals(mesh);
     glWidget->rebuildLists();
 
@@ -940,6 +940,67 @@ void MainWindow::saveElmerMesh(QString dirName)
 
   QFile file;
   mesh_t *mesh = glWidget->mesh;
+  
+  int maxcode = 1000;
+  int *bulk_by_type = new int[maxcode];
+  int *boundary_by_type = new int[maxcode];
+
+  for(int i=0; i<maxcode; i++) {
+    bulk_by_type[i] = 0;
+    boundary_by_type[i] = 0;
+  }
+
+  for(int i=0; i < mesh->elements; i++) {
+    element_t *e = &mesh->element[i];
+
+    if(e->nature == PDE_BULK) 
+      bulk_by_type[e->code]++;
+
+    if(e->nature == PDE_BOUNDARY)
+      boundary_by_type[e->code]++;
+  }
+
+  for(int i=0; i < mesh->surfaces; i++) {
+    surface_t *s = &mesh->surface[i];
+
+    if(s->nature == PDE_BULK)
+      bulk_by_type[s->code]++;
+
+    if(s->nature == PDE_BOUNDARY)
+      boundary_by_type[s->code]++;
+  }
+
+  for(int i=0; i < mesh->edges; i++) {
+    edge_t *e = &mesh->edge[i];
+
+    if(e->nature == PDE_BULK)
+      bulk_by_type[e->code]++;
+
+    if(e->nature == PDE_BOUNDARY)
+      boundary_by_type[e->code]++;
+  }
+
+  for(int i=0; i < mesh->points; i++) {
+    point_t *p = &mesh->point[i];
+
+    if(p->nature == PDE_BULK)
+      bulk_by_type[p->code]++;
+
+    if(p->nature == PDE_BOUNDARY)
+      boundary_by_type[p->code]++;
+  }
+
+  int bulk_elements = 0;
+  int boundary_elements = 0;
+  int element_types = 0;
+
+  for(int i=0; i<maxcode; i++) {
+    bulk_elements += bulk_by_type[i];
+    boundary_elements += boundary_by_type[i];
+
+    if((bulk_by_type[i]>0) || (boundary_by_type[i]>0))
+      element_types++;
+  }
 
   // Header:
   file.setFileName("mesh.header");
@@ -947,17 +1008,20 @@ void MainWindow::saveElmerMesh(QString dirName)
   QTextStream header(&file);
 
   cout << "Saving " << mesh->nodes << " nodes\n";
-  cout << "Saving " << mesh->elements << " elements\n";
-  cout << "Saving " << mesh->surfaces << " boundary elements\n";
+  cout << "Saving " << bulk_elements << " elements\n";
+  cout << "Saving " << boundary_elements << " boundary elements\n";
   cout.flush();
 
   header << mesh->nodes << " ";
-  header << mesh->elements << " ";
-  header << mesh->surfaces << "\n";
+  header << bulk_elements << " ";
+  header << boundary_elements << "\n";
 
-  header << "2\n";
-  header << "303 " << mesh->surfaces << "\n";
-  header << "504 " << mesh->elements << "\n";
+  header << element_types << "\n";
+
+  for(int i=0; i<maxcode; i++) {
+    if((bulk_by_type[i]>0) || (boundary_by_type[i]>0))
+      header << i << " " << bulk_by_type[i] + boundary_by_type[i] << "\n";
+  }
 
   file.close();
 
@@ -985,18 +1049,42 @@ void MainWindow::saveElmerMesh(QString dirName)
   QTextStream elements(&file);
   
   for(int i=0; i < mesh->elements; i++) {
-    element_t *element = &mesh->element[i];
-
-    int index = element->index;
-
+    element_t *e = &mesh->element[i];
+    int index = e->index;
     if(index < 1)
       index = 1;
+    if(e->nature == PDE_BULK) {
+      elements << i+1 << " " << index << " " << e->code << " ";
+      for(int j=0; j < e->nodes; j++) 
+	elements << e->node[j]+1 << " ";
+      elements << "\n";
+    }
+  }
 
-    elements << i+1 << " " << index << " 504 ";
-    elements << element->node[0]+1 << " ";
-    elements << element->node[1]+1 << " ";
-    elements << element->node[2]+1 << " ";
-    elements << element->node[3]+1 << "\n";
+  for(int i=0; i < mesh->surfaces; i++) {
+    surface_t *s = &mesh->surface[i];
+    int index = s->index;
+    if(index < 1)
+      index = 1;
+    if(s->nature == PDE_BULK) {
+      elements << i+1 << " " << index << " " << s->code << " ";
+      for(int j=0; j < s->nodes; j++) 
+	elements << s->node[j]+1 << " ";
+      elements << "\n";
+    }
+  }
+
+  for(int i=0; i < mesh->edges; i++) {
+    edge_t *e = &mesh->edge[i];
+    int index = e->index;
+    if(index < 1)
+      index = 1;
+    if(e->nature == PDE_BULK) {
+      elements << i+1 << " " << index << " " << e->code << " ";
+      for(int j=0; j<e->nodes; j++) 
+	elements << e->node[j]+1 << " ";
+      elements << "\n";
+    }
   }
 
   file.close();
@@ -1005,27 +1093,55 @@ void MainWindow::saveElmerMesh(QString dirName)
   file.setFileName("mesh.boundary");
   file.open(QIODevice::WriteOnly);
   QTextStream boundary(&file);
-  
+
   for(int i=0; i < mesh->surfaces; i++) {
-    surface_t *surface = &mesh->surface[i];
-
-    int e0 = surface->element[0] + 1;
-    int e1 = surface->element[1] + 1;
-
+    surface_t *s = &mesh->surface[i];
+    int e0 = s->element[0] + 1;
+    int e1 = s->element[1] + 1;
     if(e0 < 1)
       e0 = 0;
-
     if(e1 < 1)
       e1 = 0;
+    int index = s->index;
+    if(index < 1)
+      index = 1;
+    if(s->nature == PDE_BOUNDARY) {
+      boundary << i+1 << " " << index << " " << e0 << " " << e1 << " " << s->code << " ";
+      for(int j=0; j < s->nodes; j++) 
+	boundary << s->node[j]+1 << " ";
+      boundary << "\n";
+    }
+  }
 
-    boundary << i+1 << " ";
-    boundary << surface->index << " ";
-    boundary << e0 << " ";
-    boundary << e1 << " ";
-    boundary << "303 ";
-    boundary << surface->node[0]+1 << " ";
-    boundary << surface->node[1]+1 << " ";
-    boundary << surface->node[2]+1 << "\n";
+  for(int i=0; i < mesh->edges; i++) {
+    edge_t *e = &mesh->edge[i];
+    int s0 = e->surface[0] + 1;
+    int s1 = e->surface[1] + 1;
+    if(s0 < 1)
+      s0 = 0;
+    if(s1 < 1)
+      s1 = 0;
+    int index = e->index;
+    if(index < 1)
+      index = 1;
+    if(e->nature == PDE_BOUNDARY) {
+      boundary << i+1 << " " << index << " " << s0 << " " << s1 << " " << e->code << " ";
+      for(int j=0; j < e->nodes; j++) 
+	boundary << e->node[j]+1 << " ";
+      boundary << "\n";
+    }
+  }
+
+  for(int i=0; i < mesh->points; i++) {
+    point_t *p = &mesh->point[i];
+    int index = p->index;
+    if(index < 1)
+      index = 1;
+    // Todo: parents
+    if(p->nature == PDE_BOUNDARY) {
+      boundary << i+1 << " " << index << " " << -1 << " " << -1 << " " << p->code << " ";
+      boundary << p->node+1 << "´\n";
+    }
   }
 
   file.close();
