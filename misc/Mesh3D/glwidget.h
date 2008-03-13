@@ -1,8 +1,9 @@
 #ifndef GLWIDGET_H
 #define GLWIDGET_H
 
-#define EDGELIST    2000
-#define SURFACELIST 2001
+#define EDGELIST        2000
+#define SURFACELIST     2001
+#define SURFACEEDGELIST 2002
 
 #include <QGLWidget>
 #include "helpers.h"
@@ -68,6 +69,7 @@ private:
     QColor backgroundColor;
 
     GLuint generateSurfaceList(int, double, double, double);
+    GLuint generateSurfaceEdgeList(int, double, double, double);
     GLuint generateEdgeList(int, double, double, double);
     
     bool ctrlPressed; // true while ctrl key is held down

@@ -107,7 +107,7 @@ void GLWidget::initializeGL()
   glDepthRange(-10.0, 10.0);
 
   glShadeModel(GL_SMOOTH);
-  glEnable(GL_LINE_SMOOTH);
+  // glEnable(GL_LINE_SMOOTH);
 
   glEnable(GL_NORMALIZE);
 
@@ -125,9 +125,26 @@ void GLWidget::paintGL()
   if(lists) {
     for(int i=0; i<(int)lists; i++) {
       list_t *l = &list[i];
+
       if(l->visible) {
 	glPushName(i);
-	glCallList(l->object); 
+	
+	if(l->type == SURFACEEDGELIST) {
+	  
+	  // translate slightly towards viewer
+	  glMatrixMode(GL_PROJECTION);
+	  glPushMatrix();
+	  glTranslated(0, 0, 0.01);
+	  glCallList(l->object); 
+	  glPopMatrix();
+	  glMatrixMode(GL_MODELVIEW);
+
+	} else {
+
+	  glCallList(l->object); 
+
+	}
+
 	glPopName();
       }
     }
@@ -323,14 +340,24 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
   if(nearest != 0xffffffff) {
     list_t *l = &list[nearest];
 
+    // substitute surfaceedgelists with the underlying edgelists:
+    if(l->type == SURFACEEDGELIST) {
+      for(i=0; i<lists; i++) {
+	list_t *l2 = &list[i];
+	if((l2->type == SURFACELIST) && (l2->index == l->index)) {
+	  l = l2;
+	  break;
+	}
+      }
+    }
+
     // Emit result to mainwindow:
     emit(signalBoundarySelected(l));
-    //emit(signalBoundarySelected(nearest));
-
+    
     // Highlight current selection:
     glDeleteLists(l->object, 1);
     l->selected = true;
-
+    
     if(l->type == SURFACELIST) {
       l->object = generateSurfaceList(l->index, 1, 0, 0);
     } else if(l->type == EDGELIST) {
@@ -342,7 +369,8 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
     // Emit "nothing selected":
     dummylist.nature = -1;
     dummylist.index = -1;
-    emit(signalBoundarySelected(&dummylist)); 
+    emit(signalBoundarySelected(&dummylist));
+
   }
 
   updateGL();
@@ -460,7 +488,8 @@ GLuint GLWidget::makeLists()
 
   // Generate lists:
   //---------------------------------------------------------------------------
-  lists = surface_bcs + edge_bcs + point_bcs;
+  //lists = surface_bcs + edge_bcs + point_bcs;
+  lists = 2*surface_bcs + edge_bcs + point_bcs;
   list = new list_t[lists];
   int current_index = 0;
 
@@ -470,11 +499,22 @@ GLuint GLWidget::makeLists()
   // Surface lists:
   for(i=0; i < mesh->surfaces; i++) {
     if(surface_tmp[i] > 0) {
+
+      // triangles & quads:
       list_t *l = &list[current_index++];
       l->nature = PDE_BOUNDARY;   // fix this as this is not always the case
       l->type = SURFACELIST;
       l->index = i;
       l->object = generateSurfaceList(l->index, 0, 1, 1);
+      l->selected = false;
+      l->visible = true;
+
+      // edges of trias & quads (just for better visual outlook):
+      l = &list[current_index++];
+      l->nature = PDE_UNKNOWN;
+      l->type = SURFACEEDGELIST;
+      l->index = i;
+      l->object = generateSurfaceEdgeList(l->index, 0, 0, 0);
       l->selected = false;
       l->visible = true;
     }
@@ -502,6 +542,7 @@ GLuint GLWidget::makeLists()
 
   return lists;
 }
+
 
 
 
@@ -592,6 +633,23 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
 
   glEnd();
 
+  glEndList();
+  
+  return current;
+}
+
+
+
+
+
+// Generate surface edge list...
+//-----------------------------------------------------------------------------
+GLuint GLWidget::generateSurfaceEdgeList(int index, double R, double G, double B)
+{
+  double x0[3], x1[3], x2[3], x3[3];
+
+  GLuint current = glGenLists(1);
+  glNewList(current, GL_COMPILE);
 
   // Draw lines:
   //------------
@@ -676,6 +734,7 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
   
   return current;
 }
+
 
 
 //-----------------------------------------------------------------------------
