@@ -335,7 +335,7 @@ static int vis_mesh( geometry_t *geometry, element_model_t *model, mesh_t *Mesh,
 
         glMatrixMode(GL_PROJECTION);
         glPushMatrix();
-        glTranslatef(0.0,0.0,0.01);
+        glTranslatef(0.0,0.0,0.005);
         glMatrixMode(GL_MODELVIEW);
 
         gra_set_material( Mesh->EdgeMaterial );
