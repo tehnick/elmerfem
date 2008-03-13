@@ -10,8 +10,7 @@ class ElmergridAPI
   ~ElmergridAPI();
   
   int loadElmerMeshStructure(const char*);
-  void createElmerMeshStructure(mesh_t*);
-
+  int createElmerMeshStructure(mesh_t *mesh,const char *options);
 };
 
 #endif // #ifndef ELMERGRID_API_H

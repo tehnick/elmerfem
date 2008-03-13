@@ -403,6 +403,49 @@ void AddExtension(const char *fname1,char *fname2,const char *newext)
   strcat(fname2,newext);
 }
 
+int StringToStrings(const char *buf,char args[10][10],int maxcnt,char separator)
+/*  Finds real numbers separated by a certain separator from a string.
+    'buf'       - input string ending to a EOF
+    'dest'      - a vector of real numbers
+    'maxcnt'    - maximum number of real numbers to be read
+    'separator'	- the separator of real numbers
+    The number of numbers found is returned in the function value.
+    */
+{
+  int i,cnt,totlen,finish;
+  char *ptr1 = (char *)buf, *ptr2;
+  
+
+  totlen = strlen(buf);
+  finish = 0;
+  cnt = 0;
+
+  if (!buf[0]) return 0;
+
+  do {
+    ptr2 = strchr(ptr1,separator);
+    if(ptr2) {
+      for(i=0;i<10;i++) {
+	args[cnt][i] = ptr1[i];
+	if(ptr1 + i >= ptr2) break;
+      }
+      args[cnt][i] = '\0';
+      ptr1 = ptr2+1;
+    }
+    else {
+      for(i=0;i<10;i++) {
+	if(ptr1 + i >= buf+totlen) break;
+	args[cnt][i] = ptr1[i];
+      }
+      args[cnt][i] = '\0';
+      finish = 1;
+    }
+    
+    cnt++;
+  } while (cnt < maxcnt && !finish);
+  
+  return cnt;
+}
 
 
 int StringToReal(const char *buf,Real *dest,int maxcnt,char separator)

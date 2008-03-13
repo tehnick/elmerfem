@@ -498,7 +498,7 @@ void MainWindow::remeshSlot()
     glWidget->mesh = new mesh_t;
     mesh_t *mesh = glWidget->mesh;
     
-    elmergridAPI->createElmerMeshStructure(mesh);
+    elmergridAPI->createElmerMeshStructure(mesh, meshControl->elmerGridControlString.toAscii());
 
     cout << "Nodes: " << mesh->nodes << endl;
     cout << "Elements: " << mesh->elements << endl;

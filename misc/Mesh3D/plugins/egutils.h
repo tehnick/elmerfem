@@ -53,6 +53,7 @@ int  Minimi(Real *vector,int first,int last);
 Real Maximum(Real *vector,int first,int last);
 int  Maximi(Real *vector,int first,int last);
 void AddExtension(const char *fname1,char *fname2,const char *newext);
+int StringToStrings(const char *buf,char argv[10][10],int argc,char separator);
 int StringToReal(const char *buf,Real *dest,int maxcnt,char separator);
 int StringToInteger(const char *buf,int *dest,int maxcnt,char separator);
 int next_int(char **start);

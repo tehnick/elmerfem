@@ -25,10 +25,11 @@ int ElmergridAPI::loadElmerMeshStructure(const char *filename)
 }
 
 
-void ElmergridAPI::createElmerMeshStructure(mesh_t *mesh)
+int ElmergridAPI::createElmerMeshStructure(mesh_t *mesh,const char *options)
 {
 #if 1
-  int retval = eg_transfermesh("default",mesh);
+  int retval = eg_transfermesh(mesh,options);
+  return retval;
 #else
     // nodes:
   mesh->nodes = 4;

@@ -98,114 +98,7 @@ int info,nogrids,nomeshes,activemesh;
 
 
 
-#if EXE_MODE
-static void Goodbye()
-{
-  printf("\nThank you for using Elmergrid!\n");
-  printf("Send bug reports and feature wishes to peter.raback@csc.fi\n");
-  exit(0);
-}
-
-static void Instructions()
-{
-  printf("****************** Elmergrid ************************\n");
-  printf("This program can create simple 2D structured meshes consisting of\n");
-  printf("linear, quadratic or cubic rectangles or triangles. The meshes may\n");
-  printf("also be extruded and revolved to create 3D forms. In addition many\n");
-  printf("mesh formats may be imported into Elmer software. Some options have\n");
-  printf("not been properly tested. Contact the author if you face problems.\n\n");
-
-  printf("The program has two operation modes\n");
-  printf("A) Command file mode which has the command file as the only argument\n");
-  printf("   'ElmerGrid commandfile.eg'\n\n");
-
-  printf("B) Inline mode which expects at least three input parameters\n");
-  printf("   'ElmerGrid 1 3 test'\n\n");
-  printf("The first parameter defines the input file format:\n");
-  printf("1)  .grd      : Elmergrid file format\n");
-  printf("2)  .mesh.*   : Elmer input format\n");
-  printf("3)  .ep       : Elmer output format\n");
-  printf("4)  .ansys    : Ansys input format\n");
-  printf("5)  .inp      : Abaqus input format by Ideas\n");
-  printf("6)  .msh      : Nastran format\n");
-  printf("7)  .FDNEUT   : Gambit (Fidap) neutral file\n");
-  printf("8)  .unv      : Universal mesh file format\n");
-  printf("9)  .mphtxt   : Comsol Multiphysics mesh format\n");
-  printf("10) .dat      : Fieldview format\n");
-  printf("11) .node,.ele: Triangle 2D mesh format\n");
-  printf("12) .mesh     : Medit mesh format\n");
-  printf("13) .msh      : GID mesh format\n");
-  printf("14) .msh      : Gmsh mesh format\n");
-  printf("15) .ep.i     : Partitioned ElmerPost format\n");
-
-  printf("\nThe second parameter defines the output file format:\n");
-  printf("1)  .grd      : ElmerGrid file format\n");
-  printf("2)  .mesh.*   : ElmerSolver format (also partitioned .part format)\n");
-  printf("3)  .ep       : ElmerPost format\n");
-
-  printf("\nThe third parameter is the name of the input file.\n");
-  printf("If the file does not exist, an example with the same name is created.\n");
-  printf("The default output file name is the same with a different suffix.\n\n");
-
-  printf("There are several additional in-line parameters that are\n");
-  printf("taken into account only when applicable to the given format.\n");
-
-  printf("-out str             : name of the output file\n");
-  printf("-in str              : name of a secondary input file\n");
-  printf("-silent              : do not echo run time information\n");
-  printf("-decimals            : number of decimals in the saved mesh (eg. 8)\n");
-  printf("-triangles           : rectangles will be divided to triangles\n");
-  printf("-relh real           : give relative mesh density parameter for ElmerGrid meshing\n");
-  printf("-merge real          : merges nodes that are close to each other\n");
-  printf("-order real[3]       : reorder elements and nodes using c1*x+c2*y+c3*z\n");
-  printf("-centralize          : set the center of the mesh to origin\n");
-  printf("-scale real[3]       : scale the coordinates with vector real[3]\n");
-  printf("-translate real[3]   : translate the nodes with vector real[3]\n");
-  printf("-rotate real[3]      : rotate around the main axis with angles real[3]\n");
-  printf("-clone int[3]        : make ideantilcal copies of the mesh\n");
-  printf("-clonesize real[3]   : the size of the mesh to be cloned if larger to the original\n");
-  printf("-unite               : the meshes will be united\n");
-  printf("-polar real          : map 2D mesh to a cylindrical shell with given radius\n");
-  printf("-cylinder            : map 2D/3D cylindrical mesh to a cartesian mesh\n");
-  printf("-reduce int[2]       : reduce element order at material interval [int1 int2]\n");
-  printf("-increase            : increase element order from linear to quadratic\n");
-  printf("-bcoffset int        : add an offset to the boundary conditions\n");
-  printf("-discont int         : make the boundary to have secondary nodes\n");
-  printf("-connect int         : make the boundary to have internal connection among its elements\n");
-  printf("-removelowdim        : remove boundaries that are two ranks lower than highest dim\n");
-  printf("-removeunused        : remove nodes that are not used in any element\n");
-  printf("-bulkorder           : renumber materials types from 1 so that every number is used\n");
-  printf("-boundorder          : renumber boundary types from 1 so that every number is used\n");
-  printf("-autoclean           : this performs the united action of the three above\n");
-  printf("-bulkbound int[3]    : set the union of materials [int1 int2] to be boundary int3\n");
-  printf("-boundbound int[3]   : set the union of boundaries [int1 int2] to be boundary int3\n");
-  printf("-bulktype int[3]     : set material types in interval [int1 int2] to type int3\n");
-  printf("-boundtype int[3]    : set sidetypes in interval [int1 int2] to type int3\n");
-  printf("-layer int[2] real[2]: make a boundary layer for given boundary\n");
-  printf("-layermove int       : apply Jacobi filter int times to move the layered mesh\n");
-  printf("-divlayer int[2] real[2]: make a boundary layer for given boundary\n");
-  printf("-3d / -2d / -1d      : mesh is 3, 2 or 1-dimensional (applies to examples)\n");
-  printf("-isoparam            : ensure that higher order elements are convex\n");
-  printf("-nobound             : disable saving of boundary elements in ElmerPost format\n");
-
-  printf("\nThe following keywords are related only to the parallel Elmer computations.\n");
-  printf("-partition int[4]    : the mesh will be partitioned in main directions\n");
-  printf("-partorder real[3]   : in the above method, the direction of the ordering\n");
-#if HAVE_METIS
-  printf("-metis int[2]        : the mesh will be partitioned with Metis\n");
-#endif
-  printf("-halo                : create halo for the partitioning\n");
-  printf("-indirect            : create indirect connections in the partitioning\n");
-  printf("-periodic int[3]     : decleare the periodic coordinate directions for parallel meshes\n");
-  printf("-saveinterval int[3] : the first, last and step for fusing parallel data\n");
-
-  if(0) printf("-names               : conserve name information where applicable\n");
-}
-
-
-
-
-int InlineParameters(struct ElmergridType *eg,int argc,char *argv[],char *IOmethods[],int info)
+int InlineParameters(struct ElmergridType *eg,int argc,char *argv[],char *IOmethods[],int first,int info)
 {
   int arg,i,dim;
   char command[MAXLINESIZE];
@@ -213,38 +106,39 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[],char *IOmeth
   dim = eg->dim;
 
   /* Type of input file */
-  strcpy(command,argv[1]);
-  for(i=0;i<MAXLINESIZE;i++) command[i] = toupper(command[i]);
-  for(i=0;i<=MAXFORMATS;i++) {
-    if(strstr(command,IOmethods[i])) {
-      eg->inmethod = i;
-      break;
+  if(first > 3) {
+    strcpy(command,argv[1]);
+    for(i=0;i<MAXLINESIZE;i++) command[i] = toupper(command[i]);
+    for(i=0;i<=MAXFORMATS;i++) {
+      if(strstr(command,IOmethods[i])) {
+	eg->inmethod = i;
+	break;
+      }
     }
-  }
-  if(i>MAXFORMATS) eg->inmethod = atoi(argv[1]);
+    if(i>MAXFORMATS) eg->inmethod = atoi(argv[1]);
+    
 
-
-  /* Type of output file (fewer options) */
-  strcpy(command,argv[2]);
-  for(i=0;i<MAXLINESIZE;i++) command[i] = toupper(command[i]);
-  for(i=1;i<=MAXFORMATS;i++) {
-    if(strstr(command,IOmethods[i])) {
-      eg->outmethod = i;
-      break;
+    /* Type of output file (fewer options) */
+    strcpy(command,argv[2]);
+    for(i=0;i<MAXLINESIZE;i++) command[i] = toupper(command[i]);
+    for(i=1;i<=MAXFORMATS;i++) {
+      if(strstr(command,IOmethods[i])) {
+	eg->outmethod = i;
+	break;
+      }
     }
-  }
-  if(i>MAXFORMATS) eg->outmethod = atoi(argv[2]);
+    if(i>MAXFORMATS) eg->outmethod = atoi(argv[2]);
  
-
-  /* Name of output file */
-  strcpy(eg->filesin[0],argv[3]);
-  strcpy(eg->filesout[0],eg->filesin[0]);
-  strcpy(eg->mapfile,eg->filesin[0]);
+    /* Name of output file */
+    strcpy(eg->filesin[0],argv[3]);
+    strcpy(eg->filesout[0],eg->filesin[0]);
+    strcpy(eg->mapfile,eg->filesin[0]);
+  }
 
 
   /* The optional inline parameters */
 
-  for(arg=4;arg <argc; arg++) {
+  for(arg=first;arg <argc; arg++) {
 
     if(strcmp(argv[arg],"-silent") == 0) {
       eg->silent = TRUE;
@@ -717,6 +611,116 @@ int InlineParameters(struct ElmergridType *eg,int argc,char *argv[],char *IOmeth
 }
 
 
+#if EXE_MODE
+static void Goodbye()
+{
+  printf("\nThank you for using Elmergrid!\n");
+  printf("Send bug reports and feature wishes to peter.raback@csc.fi\n");
+  exit(0);
+}
+
+static void Instructions()
+{
+  printf("****************** Elmergrid ************************\n");
+  printf("This program can create simple 2D structured meshes consisting of\n");
+  printf("linear, quadratic or cubic rectangles or triangles. The meshes may\n");
+  printf("also be extruded and revolved to create 3D forms. In addition many\n");
+  printf("mesh formats may be imported into Elmer software. Some options have\n");
+  printf("not been properly tested. Contact the author if you face problems.\n\n");
+
+  printf("The program has two operation modes\n");
+  printf("A) Command file mode which has the command file as the only argument\n");
+  printf("   'ElmerGrid commandfile.eg'\n\n");
+
+  printf("B) Inline mode which expects at least three input parameters\n");
+  printf("   'ElmerGrid 1 3 test'\n\n");
+  printf("The first parameter defines the input file format:\n");
+  printf("1)  .grd      : Elmergrid file format\n");
+  printf("2)  .mesh.*   : Elmer input format\n");
+  printf("3)  .ep       : Elmer output format\n");
+  printf("4)  .ansys    : Ansys input format\n");
+  printf("5)  .inp      : Abaqus input format by Ideas\n");
+  printf("6)  .msh      : Nastran format\n");
+  printf("7)  .FDNEUT   : Gambit (Fidap) neutral file\n");
+  printf("8)  .unv      : Universal mesh file format\n");
+  printf("9)  .mphtxt   : Comsol Multiphysics mesh format\n");
+  printf("10) .dat      : Fieldview format\n");
+  printf("11) .node,.ele: Triangle 2D mesh format\n");
+  printf("12) .mesh     : Medit mesh format\n");
+  printf("13) .msh      : GID mesh format\n");
+  printf("14) .msh      : Gmsh mesh format\n");
+  printf("15) .ep.i     : Partitioned ElmerPost format\n");
+
+  printf("\nThe second parameter defines the output file format:\n");
+  printf("1)  .grd      : ElmerGrid file format\n");
+  printf("2)  .mesh.*   : ElmerSolver format (also partitioned .part format)\n");
+  printf("3)  .ep       : ElmerPost format\n");
+
+  printf("\nThe third parameter is the name of the input file.\n");
+  printf("If the file does not exist, an example with the same name is created.\n");
+  printf("The default output file name is the same with a different suffix.\n\n");
+
+  printf("There are several additional in-line parameters that are\n");
+  printf("taken into account only when applicable to the given format.\n");
+
+  printf("-out str             : name of the output file\n");
+  printf("-in str              : name of a secondary input file\n");
+  printf("-silent              : do not echo run time information\n");
+  printf("-decimals            : number of decimals in the saved mesh (eg. 8)\n");
+  printf("-triangles           : rectangles will be divided to triangles\n");
+  printf("-relh real           : give relative mesh density parameter for ElmerGrid meshing\n");
+  printf("-merge real          : merges nodes that are close to each other\n");
+  printf("-order real[3]       : reorder elements and nodes using c1*x+c2*y+c3*z\n");
+  printf("-centralize          : set the center of the mesh to origin\n");
+  printf("-scale real[3]       : scale the coordinates with vector real[3]\n");
+  printf("-translate real[3]   : translate the nodes with vector real[3]\n");
+  printf("-rotate real[3]      : rotate around the main axis with angles real[3]\n");
+  printf("-clone int[3]        : make ideantilcal copies of the mesh\n");
+  printf("-clonesize real[3]   : the size of the mesh to be cloned if larger to the original\n");
+  printf("-unite               : the meshes will be united\n");
+  printf("-polar real          : map 2D mesh to a cylindrical shell with given radius\n");
+  printf("-cylinder            : map 2D/3D cylindrical mesh to a cartesian mesh\n");
+  printf("-reduce int[2]       : reduce element order at material interval [int1 int2]\n");
+  printf("-increase            : increase element order from linear to quadratic\n");
+  printf("-bcoffset int        : add an offset to the boundary conditions\n");
+  printf("-discont int         : make the boundary to have secondary nodes\n");
+  printf("-connect int         : make the boundary to have internal connection among its elements\n");
+  printf("-removelowdim        : remove boundaries that are two ranks lower than highest dim\n");
+  printf("-removeunused        : remove nodes that are not used in any element\n");
+  printf("-bulkorder           : renumber materials types from 1 so that every number is used\n");
+  printf("-boundorder          : renumber boundary types from 1 so that every number is used\n");
+  printf("-autoclean           : this performs the united action of the three above\n");
+  printf("-bulkbound int[3]    : set the union of materials [int1 int2] to be boundary int3\n");
+  printf("-boundbound int[3]   : set the union of boundaries [int1 int2] to be boundary int3\n");
+  printf("-bulktype int[3]     : set material types in interval [int1 int2] to type int3\n");
+  printf("-boundtype int[3]    : set sidetypes in interval [int1 int2] to type int3\n");
+  printf("-layer int[2] real[2]: make a boundary layer for given boundary\n");
+  printf("-layermove int       : apply Jacobi filter int times to move the layered mesh\n");
+  printf("-divlayer int[2] real[2]: make a boundary layer for given boundary\n");
+  printf("-3d / -2d / -1d      : mesh is 3, 2 or 1-dimensional (applies to examples)\n");
+  printf("-isoparam            : ensure that higher order elements are convex\n");
+  printf("-nobound             : disable saving of boundary elements in ElmerPost format\n");
+
+  printf("\nThe following keywords are related only to the parallel Elmer computations.\n");
+  printf("-partition int[4]    : the mesh will be partitioned in main directions\n");
+  printf("-partorder real[3]   : in the above method, the direction of the ordering\n");
+#if HAVE_METIS
+  printf("-metis int[2]        : the mesh will be partitioned with Metis\n");
+#endif
+  printf("-halo                : create halo for the partitioning\n");
+  printf("-indirect            : create indirect connections in the partitioning\n");
+  printf("-periodic int[3]     : decleare the periodic coordinate directions for parallel meshes\n");
+  printf("-saveinterval int[3] : the first, last and step for fusing parallel data\n");
+
+  if(0) printf("-names               : conserve name information where applicable\n");
+}
+
+
+
+
+
+
+
 static int PartitionMesh(int nofile) 
 {
   /* Partititioning related stuff */
@@ -1132,12 +1136,9 @@ static int ManipulateMeshDefinition(int inmethod,int outmethod,Real relh)
   int i,j,k;
   Real mergeeps;
 
-  if(info) printf("\nElmergrid creating and manipulating meshes:\n");
+  if(info) printf("\nElmergrid creating and manipulating meshes\n");
 
-    
   if(inmethod == 1 && outmethod != 1) {
-    printf("nogrids = %d\n",nogrids);
-
     if(visited) {
       for(k=0;k<MAXCASES;k++) {	    
 	if(data[k].created) {
@@ -1147,8 +1148,10 @@ static int ManipulateMeshDefinition(int inmethod,int outmethod,Real relh)
 	}
       }
     }
-    for(k=0;k<nogrids;k++) 
+    for(k=0;k<nogrids;k++) {
+      printf("relh =%.5le \n",relh);
       CreateElmerGridMesh(&(grids[k]),&(data[k]),boundaries[k],relh,info);
+    }
     nomeshes = nogrids;
   }
 
@@ -1191,14 +1194,10 @@ static int ManipulateMeshDefinition(int inmethod,int outmethod,Real relh)
 				eg.layerparents, info);
   }
 
-  if(1 && outmethod != 1 && eg.dim != 2) { 
+  if(outmethod != 1 && eg.dim != 2) { 
     j = MAX(1,nogrids);
-
-    printf("j = %d\n",j);
-
     for(k=0;k<j;k++) {
       if(grids[k].dimension == 3 || grids[k].rotate) {
-
 	CreateKnotsExtruded(&(data[k]),boundaries[k],&(grids[k]),
 			    &(data[j]),boundaries[j],info);
 	activemesh = j;
@@ -1344,14 +1343,18 @@ int eg_loadmesh(const char *filename0)
 
 
 
-int eg_transfermesh(char *str,mesh_t *mesh)
+int eg_transfermesh(mesh_t *mesh,const char *str)
 {
-  int inmethod,outmethod,errorstat;
+  int i,inmethod,outmethod,errorstat;
   Real relh=1.0;
   info = TRUE;
+  char arguments[10][10],**argv;
+  int argc;
+  static int visited = FALSE;
 
+  
   if(info) printf("\nElmerGrid manipulating and importing data\n");
- 
+
   mesh->nodes = 0;
   mesh->points = 0;
   mesh->edges = 0;
@@ -1363,10 +1366,19 @@ int eg_transfermesh(char *str,mesh_t *mesh)
     return(1);
   }
 
+  if(!visited) {
+    argv = (char**) malloc((size_t) 10*sizeof(char*));
+    visited = TRUE;
+  }
+  argc = StringToStrings(str,arguments,10,' ');
+  for(i=0;i<argc;i++) argv[i] = &arguments[i][0];
+
+  errorstat = InlineParameters(&eg,argc,argv,IOmethods,0,info);
+
   inmethod = eg.inmethod;
   outmethod = 0;
-  
-  ManipulateMeshDefinition(inmethod,outmethod,relh);
+
+  ManipulateMeshDefinition(inmethod,outmethod,eg.relh);
 
   errorstat = ConvertEgTypeToMeshType(&data[activemesh],boundaries[activemesh],mesh);
   if(info) printf("Done converting mesh\n");
@@ -1417,7 +1429,7 @@ int main(int argc, char *argv[])
     Goodbye();
   } 
   else {
-    errorstat = InlineParameters(&eg,argc,argv,IOmethods,info);
+    errorstat = InlineParameters(&eg,argc,argv,IOmethods,4,info);
     if(errorstat) Goodbye();
   }
   inmethod = eg.inmethod;
