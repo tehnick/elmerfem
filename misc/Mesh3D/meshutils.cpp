@@ -141,6 +141,8 @@ void Meshutils::findBoundaryElementParents(mesh_t *mesh)
     RESETENTRY0;
   }
 
+  // TODO: only tetrahedron at the moment
+
   static int facemap[][3] = {{0,1,2}, {0,1,3}, {0,2,3}, {1,2,3}};
   
   for(int i=0; i < mesh->elements; i++) {
@@ -561,7 +563,7 @@ int Meshutils::divideBoundaryBySharpEdges(mesh_t *mesh)
     }
   }
 
-  cout << "Divided boudary into " << index << " parts" << endl;
+  cout << "Surface divided into " << index << " parts" << endl;
 
   delete bc;
 
@@ -596,9 +598,9 @@ void Meshutils::findBoundaryElementNormals(mesh_t *mesh)
     helpers->crossProduct(a,b,c);
     helpers->normalize(c);
     
-    surface->normal[0] = c[0];
-    surface->normal[1] = c[1];
-    surface->normal[2] = c[2];
+    surface->normal[0] = -c[0];
+    surface->normal[1] = -c[1];
+    surface->normal[2] = -c[2];
     
     // Determine sign:
     //----------------
@@ -621,48 +623,46 @@ void Meshutils::findBoundaryElementNormals(mesh_t *mesh)
 	bigger = e1;
     }
     
-    // b) normal should points from bigger to smaller parent index:
+    // b) normal should point to the parent with smaller index:
     if(bigger > -1) {
-      center_surface[0] = mesh->node[u].x[0] 
-	                        + mesh->node[v].x[0]
-                                + mesh->node[w].x[0];
-      center_surface[1] = mesh->node[u].x[1]
-                                + mesh->node[v].x[1]
-                                + mesh->node[w].x[1];
-      center_surface[2] = mesh->node[u].x[2]
-                                + mesh->node[v].x[2]
-                                + mesh->node[w].x[2];
-      
-      center_surface[0] /= 3.0;
-      center_surface[1] /= 3.0;
-      center_surface[2] /= 3.0;
+
+      // Compute center point of the surface element:
+      center_surface[0] = 0.0;
+      center_surface[1] = 0.0;
+      center_surface[2] = 0.0;
+
+      for(int i=0; i < surface->nodes; i++) {
+	int j = surface->node[i];
+	node_t *n = &mesh->node[j];
+	center_surface[0] += n->x[0];
+	center_surface[1] += n->x[1];
+	center_surface[2] += n->x[2];
+      }
+
+      center_surface[0] /= (double)(surface->nodes);
+      center_surface[1] /= (double)(surface->nodes);
+      center_surface[2] /= (double)(surface->nodes);
       
       element_t *e = &mesh->element[bigger];
-      
-      u = e->node[0];
-      v = e->node[1];
-      w = e->node[2];
-      q = e->node[3];
-      
-      center_element[0] = mesh->node[u].x[0]
-                        + mesh->node[v].x[0]
-                        + mesh->node[w].x[0]
-                        + mesh->node[q].x[0];
 
-      center_element[1] = mesh->node[u].x[1]
-                        + mesh->node[v].x[1]
-                        + mesh->node[w].x[1]
-                        + mesh->node[q].x[1];
+      // compute center point of the parent element:
+      center_element[0] = 0.0;
+      center_element[1] = 0.0;
+      center_element[2] = 0.0;
 
-      center_element[2] = mesh->node[u].x[2]
-                        + mesh->node[v].x[2]
-                        + mesh->node[w].x[2]
-                        + mesh->node[q].x[2];
-      
-      center_element[0] /= 4.0;
-      center_element[1] /= 4.0;
-      center_element[2] /= 4.0;
-      
+      for(int i=0; i < e->nodes; i++) {
+	int j = e->node[i];
+	node_t *n = &mesh->node[j];
+	center_element[0] += n->x[0];
+	center_element[1] += n->x[1];
+	center_element[2] += n->x[2];
+      }
+
+      center_element[0] /= (double)(e->nodes);
+      center_element[1] /= (double)(e->nodes);
+      center_element[2] /= (double)(e->nodes);
+
+      // difference of the centers:
       center_difference[0] = center_element[0] - center_surface[0];
       center_difference[1] = center_element[1] - center_surface[1];
       center_difference[2] = center_element[2] - center_surface[2];
@@ -673,9 +673,22 @@ void Meshutils::findBoundaryElementNormals(mesh_t *mesh)
                 + center_difference[2]*c[2];
       
       if(dp > 0.0) {
-	surface->normal[0] = -c[0];
-	surface->normal[1] = -c[1];
-	surface->normal[2] = -c[2];
+	surface->normal[0] = -surface->normal[0];
+	surface->normal[1] = -surface->normal[1];
+	surface->normal[2] = -surface->normal[2];
+
+	// also change the orientation of the surface element:
+	if(surface->code == 303) {
+	  int tmp = surface->node[1];
+	  surface->node[1] = surface->node[2];
+	  surface->node[2] = tmp;
+	}
+
+	if(surface->code == 404) {
+	  int tmp = surface->node[1];
+	  surface->node[1] = surface->node[3];
+	  surface->node[3] = tmp;
+	}
 
       }
     }
