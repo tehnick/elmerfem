@@ -139,6 +139,16 @@ void GLWidget::paintGL()
 	  glPopMatrix();
 	  glMatrixMode(GL_MODELVIEW);
 
+	} else if(l->type == EDGELIST) {
+	  
+	  // translate slightly towards viewer
+	  glMatrixMode(GL_PROJECTION);
+	  glPushMatrix();
+	  glTranslated(0, 0, 0.02);
+	  glCallList(l->object); 
+	  glPopMatrix();
+	  glMatrixMode(GL_MODELVIEW);
+
 	} else {
 
 	  glCallList(l->object); 
