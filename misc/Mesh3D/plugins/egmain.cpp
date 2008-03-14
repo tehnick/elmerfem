@@ -878,7 +878,7 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
 	  else {
 	    b->element[1] = -1;
 	  }
-	   
+	   	 
 	  b->normal[0] = 0.0;
 	  b->normal[1] = 0.0;
 	  b->normal[2] = -1.0;
@@ -890,6 +890,11 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
 	  for(k=0;k<b->nodes;k++) 
 	    b->node[k] = ind[k]-1;
 	  b->index = bound[j].types[i];
+
+	  b->edges = b->nodes;
+	  b->edge = new int[b->edges];
+	  for(k=0;k<b->edges;k++)
+	    b->edge[k] = -1;	    
 	}
       }
     }
@@ -928,6 +933,13 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
       for(j=0;j<b->nodes;j++) 
 	b->node[j] = dat->topology[i+1][j]-1;
       b->index = dat->material[i+1];
+
+#if 0
+      b->edges = b->nodes;
+      b->edge = new int[b->edges];
+      for(k=0;k<b->edges;k++)
+	b->edge[k] = -1;	
+#endif
     }
 
     allocated = FALSE;
@@ -1346,9 +1358,8 @@ int eg_loadmesh(const char *filename0)
 int eg_transfermesh(mesh_t *mesh,const char *str)
 {
   int i,inmethod,outmethod,errorstat;
-  Real relh=1.0;
   info = TRUE;
-  char arguments[10][10],**argv;
+  static char arguments[10][10],**argv;
   int argc;
   static int visited = FALSE;
 
