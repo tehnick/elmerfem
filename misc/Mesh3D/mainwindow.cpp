@@ -505,17 +505,10 @@ void MainWindow::remeshSlot()
     cout << "Surfaces: " << mesh->surfaces << endl;
     cout.flush();
     
-    // this is just for the test case:
-    cout << "find edges?" << endl;
-    if(0) meshutils->findBoundaryElementEdges(mesh);
-    cout << "find parents?" << endl;
+    meshutils->findBoundaryElementEdges(mesh);
+
     if(0) meshutils->findBoundaryElementParents(mesh);
  
-    // hack for avoiding problems in 3d:
-    cout << "***" << mesh->surfaces << endl;
-    cout.flush();
-    
-    //meshutils->findBoundaryElementEdges(mesh);
     meshutils->findBoundaryElementNormals(mesh);
     glWidget->rebuildLists();
 
