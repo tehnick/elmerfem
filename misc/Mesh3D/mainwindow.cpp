@@ -655,10 +655,6 @@ void MainWindow::loadElmerMesh(QString dirName)
   mesh_header >> nodes >> elements >> surfaces;
   mesh_header >> types;
 
-  // cout << "mesh.header:" << endl;
-  // cout << nodes << " " << elements << " " << surfaces << endl;
-  // cout << types << endl;
-
   int elements_zero_d = 0;
   int elements_one_d = 0;
   int elements_two_d = 0;
@@ -666,7 +662,6 @@ void MainWindow::loadElmerMesh(QString dirName)
   
   for(int i=0; i<types; i++) {
     mesh_header >> type >> ntype;
-    //cout << type << " " << ntype << endl;
     
     switch(type/100) {
     case 1:
@@ -694,19 +689,11 @@ void MainWindow::loadElmerMesh(QString dirName)
 
   cout << "Summary:" << endl;
   cout << "Nodes: " << nodes << endl;
-  cout << "0d elements: " << elements_zero_d << endl;
-  cout << "1d elements: " << elements_one_d << endl;
-  cout << "2d elements: " << elements_two_d << endl;
-  cout << "3d elements: " << elements_three_d << endl;
+  cout << "point elements: " << elements_zero_d << endl;
+  cout << "edge elements: " << elements_one_d << endl;
+  cout << "surface elements: " << elements_two_d << endl;
+  cout << "volume elements: " << elements_three_d << endl;
   cout.flush();
-
-
-
-
-  // rework from here
-
-
-
 
   // allocate the new mesh:
   meshutils->clearMesh(glWidget->mesh);
@@ -768,19 +755,36 @@ void MainWindow::loadElmerMesh(QString dirName)
   int current_surface = 0;
   int current_element = 0;
 
+  point_t *point = NULL;
+  edge_t *edge = NULL;
   surface_t *surface = NULL;
   element_t *element = NULL;
-  edge_t *edge = NULL;
-  point_t *point = NULL;
 
   for(int i=0; i<elements; i++) {
     mesh_elements >> number >> index >> type;
 
     switch(type/100) {
     case 1:
+      // todo
       break;
 
     case 2:
+      edge = &mesh->edge[current_edge++];
+      edge->nature = PDE_BULK;
+      edge->index = index;
+      edge->code = type;
+      edge->nodes = edge->code % 100;
+      edge->node = new int[edge->nodes];
+      for(int j=0; j < edge->nodes; j++) {
+	mesh_elements >> edge->node[j];
+	edge->node[j] -= 1;
+      }
+      
+      edge->surfaces = 0;
+      edge->surface = new int[2];
+      edge->surface[0] = -1;
+      edge->surface[1] = -1;
+
       break;
 
     case 3:
@@ -794,10 +798,13 @@ void MainWindow::loadElmerMesh(QString dirName)
       for(int j=0; j < surface->nodes; j++) {
 	mesh_elements >> surface->node[j];
 	surface->node[j] -= 1;
-      }
-      
-      surface->elements = 0;
-      surface->element = new int[2];
+      }      
+      surface->edges = (int)(surface->code/100);
+      surface->edge = new int[surface->edges];
+      for(int j=0; j<surface->edges; j++)
+	surface->edge[j] = -1;
+      surface->elements = 2;
+      surface->element = new int[surface->elements];
       surface->element[0] = -1;
       surface->element[1] = -1;
 
@@ -845,6 +852,7 @@ void MainWindow::loadElmerMesh(QString dirName)
 
     switch(type/100) {
     case 1:
+      // todo
       break;
 
     case 2:
@@ -857,8 +865,7 @@ void MainWindow::loadElmerMesh(QString dirName)
       edge->surface[1] = parent1-1;
       edge->code = type;
       edge->nodes = edge->code % 100;
-      edge->node = new int[edge->nodes];
-      
+      edge->node = new int[edge->nodes];      
       for(int j=0; j < edge->nodes; j++) {
 	mesh_boundary >> edge->node[j];
 	edge->node[j] -= 1;
@@ -878,17 +885,14 @@ void MainWindow::loadElmerMesh(QString dirName)
       surface->code = type;
       surface->nodes = surface->code % 100;
       surface->node = new int[surface->nodes];
-      
       for(int j=0; j < surface->nodes; j++) {
 	mesh_boundary >> surface->node[j];
 	surface->node[j] -= 1;
       }
-
-      surface->edges = (int)(surface->code/100);      
+      surface->edges = (int)(surface->code/100);
       surface->edge = new int[surface->edges];
-
       for(int j=0; j<surface->edges; j++)
-	surface->edge[j] = -1;
+	surface->edge[j] = -1;      
       
       break;
 
@@ -904,7 +908,7 @@ void MainWindow::loadElmerMesh(QString dirName)
 
   file.close();
 
-  // Edges:
+  // Todo: should we always do this?
   meshutils->findBoundaryElementEdges(mesh);
   meshutils->findBoundaryElementNormals(mesh);
 
@@ -913,6 +917,7 @@ void MainWindow::loadElmerMesh(QString dirName)
 
   glWidget->rebuildLists();
 }
+
 
 
 // Write out mesh files in elmer-format:
