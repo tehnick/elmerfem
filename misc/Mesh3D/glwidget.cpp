@@ -23,6 +23,7 @@ GLWidget::GLWidget(QWidget *parent)
   drawTranslate[1] = 0.0;
   drawTranslate[2] = 0.0;
   mesh = NULL;
+  drawSharpEdges = false;
 
   helpers = new Helpers;
   meshutils = new Meshutils;
@@ -129,7 +130,7 @@ void GLWidget::paintGL()
       if(l->visible) {
 	glPushName(i);
 	
-	if(l->type == SURFACEEDGELIST) {
+	if((l->type == SURFACEEDGELIST) || (l->type == SHARPEDGELIST)) {
 	  
 	  // translate slightly towards viewer
 	  glMatrixMode(GL_PROJECTION);
@@ -144,6 +145,7 @@ void GLWidget::paintGL()
 	  // translate slightly towards viewer
 	  glMatrixMode(GL_PROJECTION);
 	  glPushMatrix();
+	  // translation should be slightly bigger here than before
 	  glTranslated(0, 0, 0.02);
 	  glCallList(l->object); 
 	  glPopMatrix();
@@ -166,17 +168,17 @@ void GLWidget::paintGL()
 //-----------------------------------------------------------------------------
 void GLWidget::resizeGL(int width, int height)
 {
-  double _top = 1.0;
-  double _bottom = -1.0;
-  double _left = -(double)width / (double)height;
-  double _right = (double)width / (double)height;
+  double top = 1.0;
+  double bottom = -1.0;
+  double left = -(double)width / (double)height;
+  double right = (double)width / (double)height;
   double _near = -10.0;
   double _far = 10.0;
 
   glViewport(0, 0, width, height);
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-  glOrtho(_left, _right, _top, _bottom, _near, _far);
+  glOrtho(left, right, top, bottom, _near, _far);
   glMatrixMode(GL_MODELVIEW);
 }
 
@@ -334,6 +336,9 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
   if(nearest != 0xffffffff) {
     list_t *l = &list[nearest];
 
+    if(l->type == SHARPEDGELIST)
+      goto skipped;
+    
     // substitute surfaceedgelists with the parent surfacelist:
     if(l->type == SURFACEEDGELIST)
       l = &list[l->parent];
@@ -361,6 +366,8 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
     l->selected = !l->selected;
     
     glDeleteLists(l->object, 1);
+
+  skipped:
 
     // Highlight current selection:
     if(l->type == SURFACELIST) {
@@ -452,6 +459,7 @@ GLuint GLWidget::makeLists()
   //   (list->type = EDGELIST)
   // - All point elements with index >= 0 will be drawn - one list/index
   //   (list->type = POINTLIST)
+  // - if drawSharpEdges == true, a list of sharp edges will be drawn
   //---------------------------------------------------------------------------
   
 
@@ -508,7 +516,13 @@ GLuint GLWidget::makeLists()
 
   // Generate lists:
   //---------------------------------------------------------------------------
-  lists = 2*surface_bcs + edge_bcs + point_bcs;
+  lists = 2*surface_bcs;  // surfaces + surface edges (child)
+  lists += edge_bcs;      // edges
+  lists += point_bcs;     // points
+
+  if(drawSharpEdges)      // sharp edges
+    lists++;
+  
   list = new list_t[lists];
   int current_index = 0;
 
@@ -559,6 +573,19 @@ GLuint GLWidget::makeLists()
   }
 
   // Point lists: TODO
+
+  // Sharp edges:
+  if(drawSharpEdges) {
+    list_t *l = &list[current_index++];
+    l->nature = PDE_UNKNOWN;
+    l->type = SHARPEDGELIST;
+    l->index = -1;
+    l->object = generateSharpEdgeList(0, 0, 1); // blue
+    l->child = -1;
+    l->parent = -1;
+    l->selected = false;
+    l->visible = true;
+  }
 
   delete [] surface_tmp;
   delete [] edge_tmp;
@@ -777,6 +804,48 @@ GLuint GLWidget::generateEdgeList(int index, double R, double G, double B)
     edge_t *edge = &mesh->edge[i];
 
     if(edge->index == index) {
+      int n0 = edge->node[0];
+      int n1 = edge->node[1];
+	
+      x0[0] = (mesh->node[n0].x[0] - drawTranslate[0]) / drawScale;
+      x0[1] = (mesh->node[n0].x[1] - drawTranslate[1]) / drawScale;
+      x0[2] = (mesh->node[n0].x[2] - drawTranslate[2]) / drawScale;
+	
+      x1[0] = (mesh->node[n1].x[0] - drawTranslate[0]) / drawScale;
+      x1[1] = (mesh->node[n1].x[1] - drawTranslate[1]) / drawScale;
+      x1[2] = (mesh->node[n1].x[2] - drawTranslate[2]) / drawScale;
+	
+      glVertex3dv(x0);
+      glVertex3dv(x1);
+    }
+  }
+  
+  glEnd();
+  glEnable(GL_LIGHTING);  
+  glEndList();
+  
+  return current;
+}
+
+
+
+// Generate sharp edge list...
+//-----------------------------------------------------------------------------
+GLuint GLWidget::generateSharpEdgeList(double R, double G, double B)
+{
+  double x0[3], x1[3];
+
+  GLuint current = glGenLists(1);
+  glNewList(current, GL_COMPILE);
+  glColor3d(R, G, B);  
+  glLineWidth(2.0);
+  glDisable(GL_LIGHTING);
+  glBegin(GL_LINES);
+  
+  for(int i=0; i < mesh->edges; i++) {
+    edge_t *edge = &mesh->edge[i];
+
+    if(edge->sharp_edge) {
       int n0 = edge->node[0];
       int n1 = edge->node[1];
 	

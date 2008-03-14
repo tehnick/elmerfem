@@ -104,6 +104,7 @@ void MainWindow::createMenus()
   meshMenu->addAction(boundaryunifyAct);
   meshMenu->addSeparator();
   meshMenu->addAction(hidesurfacemeshAct);
+  meshMenu->addAction(hidesharpedgesAct);
   meshMenu->addAction(hideselectedAct);
   meshMenu->addAction(showallAct);
   meshMenu->addAction(resetAct);
@@ -195,6 +196,11 @@ void MainWindow::createActions()
   hidesurfacemeshAct = new QAction(QIcon(), tr("&Hide/Show surface mesh..."), this);
   hidesurfacemeshAct->setStatusTip(tr("Hide/show surface mesh (do/do not outline surface elements)"));
   connect(hidesurfacemeshAct, SIGNAL(triggered()), this, SLOT(hidesurfacemeshSlot()));
+
+  // Mesh -> Hide/Show sharp edges
+  hidesharpedgesAct = new QAction(QIcon(), tr("&Hide/Show sharp edges..."), this);
+  hidesharpedgesAct->setStatusTip(tr("Hide/show sharp edges"));
+  connect(hidesharpedgesAct, SIGNAL(triggered()), this, SLOT(hidesharpedgesSlot()));
 
   // Mesh -> Hide selected
   hideselectedAct = new QAction(QIcon(), tr("&Hide selected..."), this);
@@ -317,7 +323,7 @@ void MainWindow::boundaryunifySlot()
 }
 
 
-// Mesh -> Hide surface mesh...
+// Mesh -> Hide/Show surface mesh...
 //-----------------------------------------------------------------------------
 void MainWindow::hidesurfacemeshSlot()
 {
@@ -351,6 +357,42 @@ void MainWindow::hidesurfacemeshSlot()
  if ( !vis ) logMessage("Surface mesh hidden");
  else logMessage("Surface mesh shown");
 }
+
+
+// Mesh -> Hide/Show sharp edges...
+//-----------------------------------------------------------------------------
+void MainWindow::hidesharpedgesSlot()
+{
+  mesh_t *mesh = glWidget->mesh;
+  list_t *list = glWidget->list;
+  int lists = glWidget->lists, vis, present;
+
+  if(mesh == NULL) {
+    logMessage("There are no sharp edges to hide/show");
+    return;
+  }
+  
+  vis = false;
+  present = false;
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];
+    if(l->type == SHARPEDGELIST)  {
+      present = true;
+      l->visible = !l->visible;
+      vis = l->visible;
+    }
+  }
+  
+  if(!present) {
+    logMessage("There are no sharp edges to hide (not computed yet)");
+    return;
+  }
+  
+  if ( !vis ) logMessage("Sharp edges hidden");
+  else logMessage("Sharp edges shown");
+}
+
+
 
 // Mesh -> Hide selected...
 //-----------------------------------------------------------------------------
@@ -399,8 +441,7 @@ void MainWindow::showallSlot()
 }
 
 
-
-// Mesh -> Reset...
+// Mesh -> Reset model view...
 //-----------------------------------------------------------------------------
 void MainWindow::resetSlot()
 {
@@ -418,6 +459,8 @@ void MainWindow::resetSlot()
     l->visible = true;
     l->selected = false;
   }
+
+  glWidget->drawSharpEdges = false;
 
   glLoadIdentity();
   glWidget->rebuildLists();
@@ -444,6 +487,8 @@ void MainWindow::doDivisionSlot(double angle)
   QString qs = "Boundary divided into " + QString::number(parts) + " parts";
   statusBar()->showMessage(qs);
   
+  glWidget->drawSharpEdges = true;
+
   glWidget->rebuildLists();
 }
 
@@ -467,6 +512,8 @@ void MainWindow::remeshSlot()
     return;
   }
   
+  glWidget->drawSharpEdges = false;
+
   if(activeGenerator == GEN_TETLIB) {
 
     if(!tetlibPresent) {

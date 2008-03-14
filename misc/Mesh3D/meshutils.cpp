@@ -348,10 +348,10 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
     for(int e=0; e < s->edges; e++) {
 
       int n0, n1;
-      if(s->code == 303) {
+      if((int)(s->code/100) == 3) {
 	n0 = s->node[triedgemap[e][0]];
 	n1 = s->node[triedgemap[e][1]];
-      } else if(s->code == 404) {
+      } else if((int)(s->code/100) == 4) {
 	n0 = s->node[quadedgemap[e][0]];
 	n1 = s->node[quadedgemap[e][1]];
       } else {
@@ -497,19 +497,19 @@ void Meshutils::findSharpEdges(mesh_t *mesh, double limit)
     edge_t *edge = &mesh->edge[i];
 
     if(edge->surfaces == 2) {
-      int b0 = edge->surface[0];
-      int b1 = edge->surface[1];    
-      double *n0 = mesh->surface[b0].normal;
-      double *n1 = mesh->surface[b1].normal;
+      int s0 = edge->surface[0];
+      int s1 = edge->surface[1];    
+      double *n0 = mesh->surface[s0].normal;
+      double *n1 = mesh->surface[s1].normal;
       double cosofangle = n0[0]*n1[0] + n0[1]*n1[1] + n0[2]*n1[2];
       angle = acos(cosofangle) / PI * 180.0;
     } else {
       angle = 180.0;
     }    
     
-    edge->sharp_edge = true;
+    edge->sharp_edge = false;
     if(sqrt(angle*angle) > limit) {
-      edge->sharp_edge = false;
+      edge->sharp_edge = true;
       count++;
     }
   }
@@ -543,7 +543,7 @@ int Meshutils::divideBoundaryBySharpEdges(mesh_t *mesh)
 	edge_t *edge = &mesh->edge[k];
 
 	// skip sharp edges
-	if(edge->sharp_edge) {
+	if(!edge->sharp_edge) {
 	  for(int m=0; m < edge->surfaces; m++) {
 	    int n = edge->surface[m];
 	    propagateIndex(mesh, index, n);
@@ -563,10 +563,8 @@ int Meshutils::divideBoundaryBySharpEdges(mesh_t *mesh)
   int index = 0;
   for(int i=0; i < mesh->surfaces; i++) {
     surface_t *surface = &mesh->surface[i];
-    if(surface->index == UNKNOWN) {
-      index++;
-      bc->propagateIndex(mesh, index, i);
-    }
+    if(surface->index == UNKNOWN) 
+      bc->propagateIndex(mesh, ++index, i);
   }
 
   cout << "Surface divided into " << index << " parts" << endl;
@@ -583,7 +581,7 @@ void Meshutils::findBoundaryElementNormals(mesh_t *mesh)
   static double a[3], b[3], c[3];
   double center_surface[3], center_element[3], center_difference[3];
   Helpers *helpers = new Helpers;
-  int u, v, w, q, e0, e1, i0, i1, bigger;
+  int u, v, w, e0, e1, i0, i1, bigger;
 
   for(int i=0; i < mesh->surfaces; i++) {
     surface_t *surface = &mesh->surface[i];
@@ -591,10 +589,14 @@ void Meshutils::findBoundaryElementNormals(mesh_t *mesh)
     u = surface->node[0];
     v = surface->node[1];
 
-    if(surface->code == 404) {
+    if((int)(surface->code/100) == 3) {
+      w = surface->node[2];
+    } else if((int)(surface->code/100) == 4) {
       w = surface->node[3];
     } else {
-      w = surface->node[2];
+      cout << "findBoundaryElementNormals: error: unknown code" << endl;
+      cout.flush();
+      exit(0);
     }
 
     // Calculate normal (modulo sign):
@@ -615,7 +617,9 @@ void Meshutils::findBoundaryElementNormals(mesh_t *mesh)
     
     // Determine sign:
     //----------------
+
     // a) which parent element has bigger index?
+
     e0 = surface->element[0];
     e1 = surface->element[1];
     
@@ -635,6 +639,7 @@ void Meshutils::findBoundaryElementNormals(mesh_t *mesh)
     }
     
     // b) normal should point to the parent with smaller index:
+
     if(bigger > -1) {
 
       // Compute center point of the surface element:
@@ -688,19 +693,22 @@ void Meshutils::findBoundaryElementNormals(mesh_t *mesh)
 	surface->normal[1] = -surface->normal[1];
 	surface->normal[2] = -surface->normal[2];
 
-	// also change the orientation of the surface element:
+	// change orientation of the surface element:
 	if(surface->code == 303) {
 	  int tmp = surface->node[1];
 	  surface->node[1] = surface->node[2];
 	  surface->node[2] = tmp;
-	}
 
-	if(surface->code == 404) {
+	} else if(surface->code == 404) {
 	  int tmp = surface->node[1];
 	  surface->node[1] = surface->node[3];
 	  surface->node[3] = tmp;
-	}
 
+	} else {
+	  cout << "findSurfaceElementNormals: error: unable to change element orientation" << endl;
+	  cout.flush();
+	  exit(0);
+	}
       }
     }
   }

@@ -12,7 +12,7 @@
 #define PDE_BOUNDARY     3001      // pde boundary
 #define PDE_BULK         3002      // pde bulk
 
-// node structure
+// node class
 class node_t {
  public:
   double x[3];                     // 3d-coordinates
@@ -26,7 +26,7 @@ class element_t {
   int code;                        // element code for Elmer (504, 808, ...)
   int nodes;                       // number of nodes
   int *node;                       // list of nodes
-  int index;                       // mat index as defined in input file
+  int index;                       // bc/mat index as defined in input file
 };
 
 // zero dimensional elements
@@ -39,7 +39,7 @@ class point_t: public element_t {
 // one dimensional elements
 class edge_t: public element_t {
  public:
-  bool sharp_edge;
+  bool sharp_edge;                 // marker
   int surfaces;                    // number of parent surfaces
   int *surface;                    // list of parent surfaces
 };
@@ -55,7 +55,7 @@ class surface_t: public element_t {
 };
 
 
-// mesh structure
+// mesh class
 class mesh_t {
  public:
   int nodes;                       // number of nodes
