@@ -55,6 +55,7 @@ MainWindow::MainWindow()
 
   nglibInputOk = false;
   tetlibInputOk = false;
+  activeGenerator = GEN_UNKNOWN;
 
   setWindowTitle(tr("Elmer Mesh3D (experimental)"));
 }
@@ -453,13 +454,18 @@ void MainWindow::showsifSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::remeshSlot()
 {
-  if(meshControl->generatorType == GEN_TETLIB) {
+  if(activeGenerator == GEN_UNKNOWN) {
+    logMessage("Unable to mesh: no mesh generator");
+    return;
+  }
+  
+  if(activeGenerator == GEN_TETLIB) {
 
     if(!tetlibPresent) {
       logMessage("tetlib functionality unavailable");
       return;
     }
-
+    
     if(!tetlibInputOk) {
       logMessage("Remesh: error: no input data for tetlib");
       return;
@@ -468,7 +474,7 @@ void MainWindow::remeshSlot()
     // must have "J" in control string:
     tetlibControlString = meshControl->tetlibControlString;
 
-  } else if(meshControl->generatorType == GEN_NGLIB) {
+  } else if(activeGenerator == GEN_NGLIB) {
 
     if(!nglibPresent) {
       logMessage("nglib functionality unavailable");
@@ -491,7 +497,7 @@ void MainWindow::remeshSlot()
     mp->secondorder = 0;
     mp->meshsize_filename = backgroundmesh;
 
-  } else if(meshControl->generatorType == GEN_ELMERGRID) {
+  } else if(activeGenerator == GEN_ELMERGRID) {
 
     // ***** ELMERGRID *****
     meshutils->clearMesh(glWidget->mesh);
@@ -505,18 +511,9 @@ void MainWindow::remeshSlot()
     cout << "Surfaces: " << mesh->surfaces << endl;
     cout.flush();
     
-    // this is just for the test case:
-    cout << "find edges?" << endl;
-    for( int n=0; n<mesh->surfaces; n++ )
-    {
-      surface_t *surface = &mesh->surface[n];
-      surface->edges = (int)(surface->code/100);
-      surface->edge = new int[surface->edges];
-      for(int j=0; j<surface->edges; j++)
-         surface->edge[j] = -1;
-    }
     meshutils->findBoundaryElementEdges(mesh);
-    meshutils->findBoundaryElementParents(mesh);
+
+    if(0) meshutils->findBoundaryElementParents(mesh);
  
     meshutils->findBoundaryElementNormals(mesh);
     glWidget->rebuildLists();
@@ -1315,6 +1312,118 @@ void MainWindow::readInputFile(QString fileName)
   QString baseFileName = absolutePath + "/" + baseName;
   sprintf(cs, "%s", (const char*)(baseFileName.toAscii()));
 
+  activeGenerator = GEN_UNKNOWN;
+
+  // Choose generator according to fileSuffix:
+  //------------------------------------------
+  if((fileSuffix == "smesh") || 
+     (fileSuffix == "poly")) {
+
+    if(!tetlibPresent) {
+      logMessage("unable to mesh - tetlib unavailable");
+      return;
+    }
+
+    activeGenerator = GEN_TETLIB;
+    cout << "Selected tetlib for smesh/poly-format" << endl;
+
+    in->deinitialize();
+    in->initialize();
+    in->load_poly(cs);
+
+    tetlibInputOk = true;
+
+  } else if(fileSuffix == "off") {
+
+    if(!tetlibPresent) {
+      logMessage("unable to mesh - tetlib unavailable");
+      return;
+    }
+
+    activeGenerator = GEN_TETLIB;
+    cout << "Selected tetlib for off-format" << endl;
+
+    in->deinitialize();
+    in->initialize();
+    in->load_off(cs);
+
+    tetlibInputOk = true;
+
+  } else if(fileSuffix == "ply") {
+
+    if(!tetlibPresent) {
+      logMessage("unable to mesh - tetlib unavailable");
+      return;
+    }
+
+    activeGenerator = GEN_TETLIB;
+    cout << "Selected tetlib for ply-format" << endl;
+
+    in->deinitialize();
+    in->initialize();
+    in->load_ply(cs);
+
+    tetlibInputOk = true;
+
+  } else if(fileSuffix == "mesh") {
+
+    if(!tetlibPresent) {
+      logMessage("unable to mesh - tetlib unavailable");
+      return;
+    }
+
+    activeGenerator = GEN_TETLIB;
+    cout << "Selected tetlib for mesh-format" << endl;
+
+    in->deinitialize();
+    in->initialize();
+    in->load_medit(cs);
+
+    tetlibInputOk = true;
+
+  } else if(fileSuffix == "stl") {
+
+    if(!tetlibPresent) {
+      logMessage("unable to mesh - tetlib unavailable");
+      return;
+    }
+
+    activeGenerator = GEN_TETLIB;
+    cout << "Selected tetlib for stl-format" << endl;
+
+    in->deinitialize();
+    in->initialize();
+    in->load_stl(cs);
+
+    tetlibInputOk = true;
+
+  } else if((fileSuffix == "grd") ||
+	    (fileSuffix == "FDNEUT") ||
+	    (fileSuffix == "msh") ||
+	    (fileSuffix == "mphtxt") ||
+	    (fileSuffix == "unv")) {
+
+    activeGenerator = GEN_ELMERGRID;
+    cout << "Selected elmergrid" << endl;    
+
+    int errstat = elmergridAPI->loadElmerMeshStructure((const char*)(fileName.toAscii()));
+    
+    if (errstat)
+      logMessage("loadElmerMeshStructure failed!");
+
+    return;
+
+  } else {
+
+    logMessage("Unable to open file: file type unknown");
+    activeGenerator = GEN_UNKNOWN;
+    return;
+
+  }
+
+#if 0
+  // old stuff:
+
   if(meshControl->generatorType==GEN_TETLIB) {
 
     if(!tetlibPresent) {
@@ -1387,6 +1496,8 @@ void MainWindow::readInputFile(QString fileName)
     return;
 
   }
+#endif
+
 }
   
 
@@ -1418,17 +1529,6 @@ void MainWindow::makeElmerMeshFromNglib()
 }
 
 
-static int scan_element_index( int count, element_t *buf )
-{
-  int maxindex = 0;
-  for(int i=0; i < count; i++) {
-    element_t *element = &buf[i];
-    if((element->nature == PDE_BULK) && (element->index > maxindex))
-      maxindex = element->index;
-  }
-  return maxindex;
-}
-     
 
 // Make solver input file for steady heat conduction...
 //-----------------------------------------------------------------------------
@@ -1470,11 +1570,27 @@ void MainWindow::makeSteadyHeatSifSlot()
   // find out mesh domain ids:
   // -------------------------
   mesh_t *mesh = glWidget->mesh;
+  element_t *element;
   char str[1024];
 
-  int maxindex = scan_element_index( mesh->elements, mesh->element );
-  maxindex += scan_element_index( mesh->edges, mesh->edge );
-  maxindex += scan_element_index( mesh->surfaces, mesh->surface );
+  int maxindex = 0;
+  for(int i=0; i < mesh->elements; i++) {
+    element = &mesh->element[i];
+    if((element->nature == PDE_BULK) && (element->index > maxindex))
+      maxindex = element->index;
+  }
+
+  for(int i=0; i < mesh->surfaces; i++) {
+    element = &mesh->surface[i];
+    if((element->nature == PDE_BULK) && (element->index > maxindex))
+      maxindex = element->index;
+  }
+
+  for(int i=0; i < mesh->edges; i++) {
+    element = &mesh->edge[i];
+    if((element->nature == PDE_BULK) && (element->index > maxindex))
+      maxindex = element->index;
+  }
   maxindex++;
 
   bool *body_tmp = new bool[maxindex];
@@ -1482,20 +1598,32 @@ void MainWindow::makeSteadyHeatSifSlot()
 
   for(int i=0; i<maxindex; i++) body_tmp[i] = false;
 
-  element_t *buf[3] = { mesh->element, mesh->surface, mesh->edge };
-  int count[3] = { mesh->elements, mesh->surfaces, mesh->edges };
-
   maxindex = 0;
-  for( int n=0; n<3; n++ )
-  {
-    for(int i=0; i < count[n]; i++) {
-      element_t *element = &buf[n][i];
-      if(element->nature == PDE_BULK)
-        if ( !body_tmp[element->index] ) {
-           body_tmp[element->index] = true;
-           body_id[maxindex++] = element->index;
-        }
-    }
+  for(int i=0; i < mesh->elements; i++) {
+    element = &mesh->element[i];
+    if(element->nature == PDE_BULK)
+      if ( !body_tmp[element->index] ) {
+        body_tmp[element->index] = true;
+        body_id[maxindex++] = element->index;
+      }
+  }
+
+  for(int i=0; i < mesh->surfaces; i++) {
+    element = &mesh->surface[i];
+    if(element->nature == PDE_BULK)
+      if ( !body_tmp[element->index] ) {
+        body_tmp[element->index] = true;
+        body_id[maxindex++] = element->index;
+      }
+  }
+  
+  for(int i=0; i < mesh->edges; i++) {
+    element = &mesh->edge[i];
+    if(element->nature == PDE_BULK)
+      if ( !body_tmp[element->index] ) {
+        body_tmp[element->index] = true;
+        body_id[maxindex++] = element->index;
+      }
   }
 
   textEdit->append("Body 1");
@@ -1548,13 +1676,13 @@ void MainWindow::makeSteadyHeatSifSlot()
 
   // Boundary condition blocks:
   for(int i=0; i < mesh->surfaces; i++) {
-    element_t *element = &mesh->surface[i];
+    element = &mesh->surface[i];
     if((element->nature == PDE_BOUNDARY) && (element->index > maxindex))
       maxindex = element->index;
   }
 
   for(int i=0; i < mesh->edges; i++) {
-    element_t *element = &mesh->edge[i];
+    element = &mesh->edge[i];
     if((element->nature == PDE_BOUNDARY) && (element->index > maxindex))
       maxindex = element->index;
   }
@@ -1566,13 +1694,13 @@ void MainWindow::makeSteadyHeatSifSlot()
     tmp[i] = false;
 
   for(int i=0; i < mesh->surfaces; i++) {
-    element_t *element = &mesh->surface[i];
+    element = &mesh->surface[i];
     if(element->nature == PDE_BOUNDARY)
       tmp[element->index] = true;
   }
   
   for(int i=0; i < mesh->edges; i++) {
-    element_t *element = &mesh->edge[i];
+    element = &mesh->edge[i];
     if(element->nature == PDE_BOUNDARY)
       tmp[element->index] = true;
   }
