@@ -488,8 +488,6 @@ void Meshutils::findSharpEdges(mesh_t *mesh, double limit)
   for(int i=0; i<mesh->edges; i++) {
     edge_t *edge = &mesh->edge[i];
 
-    edge->index = UNKNOWN;
-
     if(edge->surfaces == 2) {
       int b0 = edge->surface[0];
       int b1 = edge->surface[1];    
@@ -501,8 +499,9 @@ void Meshutils::findSharpEdges(mesh_t *mesh, double limit)
       angle = 180.0;
     }    
     
+    edge->sharp_edge = true;
     if(sqrt(angle*angle) > limit) {
-      edge->index = SHARP;
+      edge->sharp_edge = false;
       count++;
     }
   }
@@ -536,7 +535,7 @@ int Meshutils::divideBoundaryBySharpEdges(mesh_t *mesh)
 	edge_t *edge = &mesh->edge[k];
 
 	// skip sharp edges
-	if(edge->index != SHARP) {
+	if(edge->sharp_edge) {
 	  for(int m=0; m < edge->surfaces; m++) {
 	    int n = edge->surface[m];
 	    propagateIndex(mesh, index, n);

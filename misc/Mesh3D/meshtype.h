@@ -19,7 +19,6 @@ class node_t {
   int index;                       // optional tag
 };
 
-
 // base element class
 class element_t {
  public:
@@ -40,6 +39,7 @@ class point_t: public element_t {
 // one dimensional elements
 class edge_t: public element_t {
  public:
+  bool sharp_edge;
   int surfaces;                    // number of parent surfaces
   int *surface;                    // list of parent surfaces
 };
