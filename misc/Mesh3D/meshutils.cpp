@@ -88,29 +88,30 @@ double* Meshutils::boundingBox(mesh_t *mesh)
 //-----------------------------------------------------------------------------
 void Meshutils::clearMesh(mesh_t *mesh)
 {
-  if(mesh != (mesh_t*)NULL) {
-    if(mesh->element != (element_t*)NULL) 
-      delete [] mesh->element;
-    mesh->elements = 0;
-    
-    if(mesh->surface != (surface_t*)NULL) 
-      delete [] mesh->surface;
-    mesh->surfaces = 0;
-    
-    if(mesh->edge != (edge_t*)NULL) 
-      delete [] mesh->edge;
-    mesh->edges = 0;
-    
-    if(mesh->point != (point_t*)NULL) 
-      delete [] mesh->point;
-    mesh->points = 0;
-    
-    if(mesh->node != (node_t*)NULL)
-      delete [] mesh->node;
-    mesh->nodes = 0;
-    
-    delete [] mesh;
-  }
+  if(mesh == NULL)
+    return;
+
+  if(mesh->element) 
+    delete [] mesh->element;
+  mesh->elements = 0;
+  
+  if(mesh->surface) 
+    delete [] mesh->surface;
+  mesh->surfaces = 0;
+  
+  if(mesh->edge) 
+    delete [] mesh->edge;
+  mesh->edges = 0;
+  
+  if(mesh->point) 
+    delete [] mesh->point;
+  mesh->points = 0;
+  
+  if(mesh->node)
+    delete [] mesh->node;
+  mesh->nodes = 0;
+  
+  delete mesh;
 }
 
 
@@ -203,7 +204,7 @@ void Meshutils::findBoundaryElementParents(mesh_t *mesh)
   int faces = 0;
   for(int i=0; i<keys; i++) {
     h = &hash[i];
-    while(h = h->next) 
+    while((h = h->next) != NULL) 
       faces++;
   }
   
@@ -398,7 +399,7 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
   int edges = 0;
   for(int i=0; i<keys; i++) {
     h = &hash[i];
-    while(h = h->next) 
+    while((h = h->next) != NULL) 
       edges++;
   }
 

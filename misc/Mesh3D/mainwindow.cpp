@@ -276,7 +276,7 @@ void MainWindow::boundaryunifySlot()
   int targetindex = -1;
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
-    if(l->selected) {
+    if(l->selected && (l->nature == PDE_BOUNDARY)) {
       if(targetindex < 0) {
 	targetindex = l->index;
 	break;
@@ -291,12 +291,20 @@ void MainWindow::boundaryunifySlot()
   
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];    
-    if(l->selected) {
+    if(l->selected && (l->nature == PDE_BOUNDARY)) {
+
       for(int j=0; j < mesh->surfaces; j++) {
 	surface_t *s = &mesh->surface[j];
-	if(s->index == l->index) 
+	if((s->index == l->index) && (s->nature == PDE_BOUNDARY)) 
 	  s->index = targetindex;
       }
+
+      for(int j=0; j < mesh->edges; j++) {
+	edge_t *e = &mesh->edge[j];
+	if((e->index == l->index) && (e->nature == PDE_BOUNDARY)) 
+	  e->index = targetindex;
+      }
+
     }
   }
   
