@@ -329,7 +329,7 @@ void MainWindow::hidesurfacemeshSlot()
       l->visible = !l->visible;
       vis = l->visible;
 
-      // do not set visible if the parent surfacelist is not visible
+      // do not set visible if the parent surface list is hidden
       int p = l->parent;
       if(p >= 0) {
 	list_t *lp = &list[p];
@@ -508,17 +508,6 @@ void MainWindow::remeshSlot()
     // hack for avoiding problems in 3d:
     cout << "***" << mesh->surfaces << endl;
     cout.flush();
-
-#if 0
-    for(int i=0; i < mesh->surfaces; i++) {
-      surface_t *s = &mesh->surface[i];
-      s->edges = 4;
-      s->edge[0] = -1;
-      s->edge[1] = -1;
-      s->edge[2] = -1;
-      s->edge[3] = -1;
-    }
-#endif
     
     //meshutils->findBoundaryElementEdges(mesh);
     meshutils->findBoundaryElementNormals(mesh);
@@ -941,6 +930,7 @@ void MainWindow::saveElmerMesh(QString dirName)
   QFile file;
   mesh_t *mesh = glWidget->mesh;
   
+  // Elmer's elements codes are smaller than 1000
   int maxcode = 1000;
   int *bulk_by_type = new int[maxcode];
   int *boundary_by_type = new int[maxcode];
@@ -1005,22 +995,23 @@ void MainWindow::saveElmerMesh(QString dirName)
   // Header:
   file.setFileName("mesh.header");
   file.open(QIODevice::WriteOnly);
-  QTextStream header(&file);
+  QTextStream mesh_header(&file);
 
   cout << "Saving " << mesh->nodes << " nodes\n";
   cout << "Saving " << bulk_elements << " elements\n";
   cout << "Saving " << boundary_elements << " boundary elements\n";
   cout.flush();
 
-  header << mesh->nodes << " ";
-  header << bulk_elements << " ";
-  header << boundary_elements << "\n";
+  mesh_header << mesh->nodes << " ";
+  mesh_header << bulk_elements << " ";
+  mesh_header << boundary_elements << "\n";
 
-  header << element_types << "\n";
+  mesh_header << element_types << "\n";
 
   for(int i=0; i<maxcode; i++) {
-    if((bulk_by_type[i]>0) || (boundary_by_type[i]>0))
-      header << i << " " << bulk_by_type[i] + boundary_by_type[i] << "\n";
+    int j = bulk_by_type[i] + boundary_by_type[i];
+    if(j > 0) 
+      mesh_header << i << " " << j << "\n";
   }
 
   file.close();
@@ -1046,18 +1037,22 @@ void MainWindow::saveElmerMesh(QString dirName)
   // Elements:
   file.setFileName("mesh.elements");
   file.open(QIODevice::WriteOnly);
-  QTextStream elements(&file);
-  
+  QTextStream mesh_element(&file);
+
+  int current = 0;
+
   for(int i=0; i < mesh->elements; i++) {
     element_t *e = &mesh->element[i];
     int index = e->index;
     if(index < 1)
       index = 1;
     if(e->nature == PDE_BULK) {
-      elements << i+1 << " " << index << " " << e->code << " ";
+      mesh_element << ++current << " ";
+      mesh_element << index << " ";
+      mesh_element << e->code << " ";
       for(int j=0; j < e->nodes; j++) 
-	elements << e->node[j]+1 << " ";
-      elements << "\n";
+	mesh_element << e->node[j]+1 << " ";
+      mesh_element << "\n";
     }
   }
 
@@ -1067,10 +1062,12 @@ void MainWindow::saveElmerMesh(QString dirName)
     if(index < 1)
       index = 1;
     if(s->nature == PDE_BULK) {
-      elements << i+1 << " " << index << " " << s->code << " ";
+      mesh_element << ++current << " ";
+      mesh_element << index << " ";
+      mesh_element << s->code << " ";
       for(int j=0; j < s->nodes; j++) 
-	elements << s->node[j]+1 << " ";
-      elements << "\n";
+	mesh_element << s->node[j]+1 << " ";
+      mesh_element << "\n";
     }
   }
 
@@ -1080,10 +1077,25 @@ void MainWindow::saveElmerMesh(QString dirName)
     if(index < 1)
       index = 1;
     if(e->nature == PDE_BULK) {
-      elements << i+1 << " " << index << " " << e->code << " ";
+      mesh_element << ++current << " ";
+      mesh_element << index << " ";
+      mesh_element << e->code << " ";
       for(int j=0; j<e->nodes; j++) 
-	elements << e->node[j]+1 << " ";
-      elements << "\n";
+	mesh_element << e->node[j]+1 << " ";
+      mesh_element << "\n";
+    }
+  }
+
+  for(int i=0; i < mesh->points; i++) {
+    point_t *p = &mesh->point[i];
+    int index = p->index;
+    if(index < 1)
+      index = 1;
+    if(p->nature == PDE_BULK) {
+      mesh_element << ++current << " ";
+      mesh_element << index << " ";
+      mesh_element << p->code << " ";
+      mesh_element << p->node << "\n";
     }
   }
 
@@ -1092,24 +1104,29 @@ void MainWindow::saveElmerMesh(QString dirName)
   // Boundary elements:
   file.setFileName("mesh.boundary");
   file.open(QIODevice::WriteOnly);
-  QTextStream boundary(&file);
+  QTextStream mesh_boundary(&file);
+
+  current = 0;
 
   for(int i=0; i < mesh->surfaces; i++) {
     surface_t *s = &mesh->surface[i];
     int e0 = s->element[0] + 1;
     int e1 = s->element[1] + 1;
-    if(e0 < 1)
+    if(e0 < 0)
       e0 = 0;
-    if(e1 < 1)
+    if(e1 < 0)
       e1 = 0;
     int index = s->index;
     if(index < 1)
       index = 1;
     if(s->nature == PDE_BOUNDARY) {
-      boundary << i+1 << " " << index << " " << e0 << " " << e1 << " " << s->code << " ";
+      mesh_boundary << ++current << " ";
+      mesh_boundary << index << " ";
+      mesh_boundary << e0 << " " << e1 << " ";
+      mesh_boundary << s->code << " ";
       for(int j=0; j < s->nodes; j++) 
-	boundary << s->node[j]+1 << " ";
-      boundary << "\n";
+	mesh_boundary << s->node[j]+1 << " ";
+      mesh_boundary << "\n";
     }
   }
 
@@ -1117,18 +1134,21 @@ void MainWindow::saveElmerMesh(QString dirName)
     edge_t *e = &mesh->edge[i];
     int s0 = e->surface[0] + 1;
     int s1 = e->surface[1] + 1;
-    if(s0 < 1)
+    if(s0 < 0)
       s0 = 0;
-    if(s1 < 1)
+    if(s1 < 0)
       s1 = 0;
     int index = e->index;
     if(index < 1)
       index = 1;
     if(e->nature == PDE_BOUNDARY) {
-      boundary << i+1 << " " << index << " " << s0 << " " << s1 << " " << e->code << " ";
+      mesh_boundary << ++current << " ";
+      mesh_boundary << index << " ";
+      mesh_boundary << s0 << " " << s1 << " ";
+      mesh_boundary << e->code << " ";
       for(int j=0; j < e->nodes; j++) 
-	boundary << e->node[j]+1 << " ";
-      boundary << "\n";
+	mesh_boundary << e->node[j]+1 << " ";
+      mesh_boundary << "\n";
     }
   }
 
@@ -1139,8 +1159,11 @@ void MainWindow::saveElmerMesh(QString dirName)
       index = 1;
     // Todo: parents
     if(p->nature == PDE_BOUNDARY) {
-      boundary << i+1 << " " << index << " " << -1 << " " << -1 << " " << p->code << " ";
-      boundary << p->node+1 << "´\n";
+      mesh_boundary << ++current << " ";
+      mesh_boundary << index << " ";
+      mesh_boundary << -1 << " " << -1 << " ";
+      mesh_boundary << p->code << " ";
+      mesh_boundary << p->node+1 << "´\n";
     }
   }
 
@@ -1165,6 +1188,9 @@ void MainWindow::saveElmerMesh(QString dirName)
   startinfo << "skeleton.sif\n1\n";
 
   file.close();
+
+  delete [] bulk_by_type;
+  delete [] boundary_by_type;
 
   statusBar()->showMessage(tr("Ready"));
 }
