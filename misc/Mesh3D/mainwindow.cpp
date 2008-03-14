@@ -505,9 +505,18 @@ void MainWindow::remeshSlot()
     cout << "Surfaces: " << mesh->surfaces << endl;
     cout.flush();
     
+    // this is just for the test case:
+    cout << "find edges?" << endl;
+    for( int n=0; n<mesh->surfaces; n++ )
+    {
+      surface_t *surface = &mesh->surface[n];
+      surface->edges = (int)(surface->code/100);
+      surface->edge = new int[surface->edges];
+      for(int j=0; j<surface->edges; j++)
+         surface->edge[j] = -1;
+    }
     meshutils->findBoundaryElementEdges(mesh);
-
-    if(0) meshutils->findBoundaryElementParents(mesh);
+    meshutils->findBoundaryElementParents(mesh);
  
     meshutils->findBoundaryElementNormals(mesh);
     glWidget->rebuildLists();
@@ -1409,6 +1418,17 @@ void MainWindow::makeElmerMeshFromNglib()
 }
 
 
+static int scan_element_index( int count, element_t *buf )
+{
+  int maxindex = 0;
+  for(int i=0; i < count; i++) {
+    element_t *element = &buf[i];
+    if((element->nature == PDE_BULK) && (element->index > maxindex))
+      maxindex = element->index;
+  }
+  return maxindex;
+}
+     
 
 // Make solver input file for steady heat conduction...
 //-----------------------------------------------------------------------------
@@ -1450,27 +1470,11 @@ void MainWindow::makeSteadyHeatSifSlot()
   // find out mesh domain ids:
   // -------------------------
   mesh_t *mesh = glWidget->mesh;
-  element_t *element;
   char str[1024];
 
-  int maxindex = 0;
-  for(int i=0; i < mesh->elements; i++) {
-    element = &mesh->element[i];
-    if((element->nature == PDE_BULK) && (element->index > maxindex))
-      maxindex = element->index;
-  }
-
-  for(int i=0; i < mesh->surfaces; i++) {
-    element = &mesh->surface[i];
-    if((element->nature == PDE_BULK) && (element->index > maxindex))
-      maxindex = element->index;
-  }
-
-  for(int i=0; i < mesh->edges; i++) {
-    element = &mesh->edge[i];
-    if((element->nature == PDE_BULK) && (element->index > maxindex))
-      maxindex = element->index;
-  }
+  int maxindex = scan_element_index( mesh->elements, mesh->element );
+  maxindex += scan_element_index( mesh->edges, mesh->edge );
+  maxindex += scan_element_index( mesh->surfaces, mesh->surface );
   maxindex++;
 
   bool *body_tmp = new bool[maxindex];
@@ -1478,32 +1482,20 @@ void MainWindow::makeSteadyHeatSifSlot()
 
   for(int i=0; i<maxindex; i++) body_tmp[i] = false;
 
-  maxindex = 0;
-  for(int i=0; i < mesh->elements; i++) {
-    element = &mesh->element[i];
-    if(element->nature == PDE_BULK)
-      if ( !body_tmp[element->index] ) {
-        body_tmp[element->index] = true;
-        body_id[maxindex++] = element->index;
-      }
-  }
+  element_t *buf[3] = { mesh->element, mesh->surface, mesh->edge };
+  int count[3] = { mesh->elements, mesh->surfaces, mesh->edges };
 
-  for(int i=0; i < mesh->surfaces; i++) {
-    element = &mesh->surface[i];
-    if(element->nature == PDE_BULK)
-      if ( !body_tmp[element->index] ) {
-        body_tmp[element->index] = true;
-        body_id[maxindex++] = element->index;
-      }
-  }
-  
-  for(int i=0; i < mesh->edges; i++) {
-    element = &mesh->edge[i];
-    if(element->nature == PDE_BULK)
-      if ( !body_tmp[element->index] ) {
-        body_tmp[element->index] = true;
-        body_id[maxindex++] = element->index;
-      }
+  maxindex = 0;
+  for( int n=0; n<3; n++ )
+  {
+    for(int i=0; i < count[n]; i++) {
+      element_t *element = &buf[n][i];
+      if(element->nature == PDE_BULK)
+        if ( !body_tmp[element->index] ) {
+           body_tmp[element->index] = true;
+           body_id[maxindex++] = element->index;
+        }
+    }
   }
 
   textEdit->append("Body 1");
@@ -1556,13 +1548,13 @@ void MainWindow::makeSteadyHeatSifSlot()
 
   // Boundary condition blocks:
   for(int i=0; i < mesh->surfaces; i++) {
-    element = &mesh->surface[i];
+    element_t *element = &mesh->surface[i];
     if((element->nature == PDE_BOUNDARY) && (element->index > maxindex))
       maxindex = element->index;
   }
 
   for(int i=0; i < mesh->edges; i++) {
-    element = &mesh->edge[i];
+    element_t *element = &mesh->edge[i];
     if((element->nature == PDE_BOUNDARY) && (element->index > maxindex))
       maxindex = element->index;
   }
@@ -1574,13 +1566,13 @@ void MainWindow::makeSteadyHeatSifSlot()
     tmp[i] = false;
 
   for(int i=0; i < mesh->surfaces; i++) {
-    element = &mesh->surface[i];
+    element_t *element = &mesh->surface[i];
     if(element->nature == PDE_BOUNDARY)
       tmp[element->index] = true;
   }
   
   for(int i=0; i < mesh->edges; i++) {
-    element = &mesh->edge[i];
+    element_t *element = &mesh->edge[i];
     if(element->nature == PDE_BOUNDARY)
       tmp[element->index] = true;
   }

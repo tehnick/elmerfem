@@ -264,6 +264,8 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
   class hashEntry {
   public:
     int node;
+    int nature;
+    int index;
     int surfaces;
     int *surface;
     hashEntry *next;
@@ -278,6 +280,55 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
     h = &hash[i];
     RESETENTRY;
   }
+
+  if ( mesh->edge && mesh->edges>0 ) {  
+    // add existing edges first:
+    for( int i=0; i<mesh->edges; i++ )
+    {
+      edge_t *edge=&mesh->edge[i];
+      int n0 = edge->node[0];
+      int n1 = edge->node[1];
+
+      int m = (n0<n1) ? n0 : n1;
+      int n = (n0<n1) ? n1 : n0;
+
+      h = &hash[m];
+      found = false;
+      while(h->next) {                                       
+        if(h->node == n) {
+          found = true;
+          break;
+        }
+        h = h->next;
+      }                                                      
+      
+      if(!found) {
+        h->node = n;
+        h->surfaces = 1;
+        h->surface = new int[1];
+        h->surface[0] = i;
+        h->index = edge->index;
+        h->nature = edge->nature;
+        h->next = new hashEntry;
+        h = h->next;
+        RESETENTRY;
+      } else {
+        int *tmp  = new int[h->surfaces];
+        for(int j=0; j<h->surfaces; j++)
+          tmp[j] = h->surface[j];
+        delete [] h->surface;
+        h->surface = new int[h->surfaces+1];
+        for(int j=0; j<h->surfaces; j++)
+           h->surface[j] = tmp[j];
+        h->surface[h->surfaces++] = i;
+        delete [] tmp;
+      }
+    }
+
+    mesh->edges = 0;
+    delete [] mesh->edge;
+  }
+
 
   static int triedgemap[][2] = {{0,1}, {1,2}, {2,0}};
   static int quadedgemap[][2] = {{0,1}, {1,2}, {2,3}, {3,0}};
@@ -318,19 +369,20 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
 	h->surfaces = 1;
 	h->surface = new int[1];
 	h->surface[0] = i;
+        h->index = UNKNOWN;
+        h->nature = PDE_UNKNOWN;
 	h->next = new hashEntry;
 	h = h->next;
 	RESETENTRY;
       } else {
-	int *tmp = new int[h->surfaces];
-	for(int j=0; j<h->surfaces; j++)
-	  tmp[j] = h->surface[j];
-	delete [] h->surface;
-	h->surface = new int[h->surfaces+1];
-	for(int j=0; j<h->surfaces; j++)
-	  h->surface[j] = tmp[j];
-	h->surface[h->surfaces++] = i;
-	delete [] tmp;
+        int *tmp  = new int[h->surfaces];
+        for(int j=0; j<h->surfaces; j++)
+          tmp[j] = h->surface[j];
+        delete [] h->surface;
+        h->surface = new int[h->surfaces+1];
+        for(int j=0; j<h->surfaces; j++)
+           h->surface[j] = tmp[j];
+        h->surface[h->surfaces++] = i;
       }
     }
   }
@@ -355,10 +407,8 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
     while(h->next) {
       edge_t *e = &mesh->edge[edges++];
       
-      e->nature = PDE_UNKNOWN;
-
+      e->nature = h->nature;
       e->code = 202;
-
       e->nodes = 2;
       e->node = new int[2];
 
@@ -372,7 +422,7 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
 	e->surface[j] = h->surface[j];
       }
 
-      e->index = UNKNOWN;
+      e->index = h->index;
       h = h->next;
     }
   }
