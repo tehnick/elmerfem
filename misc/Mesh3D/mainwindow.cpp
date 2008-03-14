@@ -695,7 +695,7 @@ void MainWindow::loadElmerMesh(QString dirName)
   cout << "volume elements: " << elements_three_d << endl;
   cout.flush();
 
-  // allocate the new mesh:
+  // Allocate the new mesh:
   meshutils->clearMesh(glWidget->mesh);
   glWidget->mesh = new mesh_t;
   mesh_t *mesh = glWidget->mesh;
@@ -1085,7 +1085,7 @@ void MainWindow::saveElmerMesh(QString dirName)
       mesh_element << ++current << " ";
       mesh_element << index << " ";
       mesh_element << e->code << " ";
-      for(int j=0; j<e->nodes; j++) 
+      for(int j=0; j<e->nodes; j++)
 	mesh_element << e->node[j]+1 << " ";
       mesh_element << "\n";
     }
@@ -1100,7 +1100,9 @@ void MainWindow::saveElmerMesh(QString dirName)
       mesh_element << ++current << " ";
       mesh_element << index << " ";
       mesh_element << p->code << " ";
-      mesh_element << p->node << "\n";
+      for(int j=0; j < p->nodes; j++)
+	mesh_element << p->node[j]+1 << " ";
+      mesh_element << "\n";
     }
   }
 
@@ -1168,7 +1170,9 @@ void MainWindow::saveElmerMesh(QString dirName)
       mesh_boundary << index << " ";
       mesh_boundary << -1 << " " << -1 << " ";
       mesh_boundary << p->code << " ";
-      mesh_boundary << p->node+1 << "´\n";
+      for(int j=0; j < p->nodes; j++) 
+	mesh_boundary << p->node[j]+1 << " ";
+      mesh_boundary << "\n";
     }
   }
 
