@@ -1186,14 +1186,19 @@ void MainWindow::saveElmerMesh(QString dirName)
 
   for(int i=0; i < mesh->points; i++) {
     point_t *p = &mesh->point[i];
+    int e0 = p->edge[0] + 1;
+    int e1 = p->edge[1] + 1;
+    if(e0 < 0)
+      e0 = 0;
+    if(e1 < 0)
+      e1 = 0;
     int index = p->index;
     if(index < 1)
       index = 1;
-    // Todo: parents
     if(p->nature == PDE_BOUNDARY) {
       mesh_boundary << ++current << " ";
       mesh_boundary << index << " ";
-      mesh_boundary << -1 << " " << -1 << " ";
+      mesh_boundary << e0 << " " << e1 << " ";
       mesh_boundary << p->code << " ";
       for(int j=0; j < p->nodes; j++) 
 	mesh_boundary << p->node[j]+1 << " ";
