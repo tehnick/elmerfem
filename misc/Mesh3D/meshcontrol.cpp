@@ -74,8 +74,6 @@ void MeshControl::defineNglibBackgroundmesh(const QString &qs)
 void MeshControl::defineElmerGridControlString(const QString &qs)
 {
   elmerGridControlString = qs;
-  // cout << string(elmerGridControlString.toAscii()) << endl;
-  // cout.flush();
 }
 
 void MeshControl::defaultControls()
@@ -97,5 +95,5 @@ void MeshControl::defaultControls()
   ui.nglibMaxHEdit->setText("1000000");
   ui.nglibFinenessEdit->setText("0.5");
   ui.nglibBgmeshEdit->setText("");
-  ui.elmerGridStringEdit->setText("default");
+  ui.elmerGridStringEdit->setText("-relh 1.0");
 }
