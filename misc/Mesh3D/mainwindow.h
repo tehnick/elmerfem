@@ -80,6 +80,8 @@ private:
   QAction *remeshAct;             // Mesh -> Remesh...
   QAction *aboutAct;              // Help -> About...
 
+  int activeGenerator;            // Currently active generator
+
   // tetlib:
   bool tetlibPresent;
   TetlibAPI *tetlibAPI;
@@ -98,15 +100,14 @@ private:
 
   // elmergrid:
   ElmergridAPI *elmergridAPI;
-  
+
   // private functions:
   void readInputFile(QString);
   void loadElmerMesh(QString);
   void saveElmerMesh(QString);
   void makeElmerMeshFromTetlib();
   void makeElmerMeshFromNglib();
-  void logMessage(QString);
-
+  void logMessage(QString);  
 };
 
 #endif
