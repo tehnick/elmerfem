@@ -395,9 +395,15 @@ void MainWindow::showallSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::resetSlot()
 {
+  mesh_t *mesh = glWidget->mesh;
   int lists = glWidget->lists;
   list_t *list = glWidget->list;
   
+  if(mesh == NULL) {
+    logMessage("There is nothing to reset");
+    return;
+  }
+
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
     l->visible = true;
