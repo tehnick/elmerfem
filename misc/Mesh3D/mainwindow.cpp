@@ -384,7 +384,7 @@ void MainWindow::hidesharpedgesSlot()
   }
   
   if(!present) {
-    logMessage("There are no sharp edges to hide (not computed yet)");
+    logMessage("There are no sharp edges (yet) to hide");
     return;
   }
   
@@ -437,6 +437,8 @@ void MainWindow::showallSlot()
     l->visible = true;
   }
 
+  glWidget->drawSharpEdges = true;
+
   logMessage("All objects visible");
 }
 
@@ -459,8 +461,6 @@ void MainWindow::resetSlot()
     l->visible = true;
     l->selected = false;
   }
-
-  glWidget->drawSharpEdges = false;
 
   glLoadIdentity();
   glWidget->rebuildLists();
