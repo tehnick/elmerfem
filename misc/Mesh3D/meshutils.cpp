@@ -90,28 +90,53 @@ void Meshutils::clearMesh(mesh_t *mesh)
 {
   if(mesh == NULL)
     return;
-
-  if(mesh->element) 
+    
+  if(mesh->elements > 0) {
+    for(int i=0; i < mesh->elements; i++)
+      if(mesh->element[i].node)
+	delete [] mesh->element[i].node;
     delete [] mesh->element;
-  mesh->elements = 0;
-  
-  if(mesh->surface) 
+  }
+
+  if(mesh->surfaces > 0) {
+    for(int i=0; i < mesh->surfaces; i++) {
+      if(mesh->surface[i].node)
+	delete [] mesh->surface[i].node;
+      if(mesh->surface[i].edge)
+	delete [] mesh->surface[i].edge;
+      if(mesh->surface[i].element)
+	delete [] mesh->surface[i].element;
+    }
     delete [] mesh->surface;
-  mesh->surfaces = 0;
-  
-  if(mesh->edge) 
+  }
+
+  if(mesh->edges > 0) {
+    for(int i=0; i < mesh->edges; i++) {
+      if(mesh->edge[i].node)
+	delete [] mesh->edge[i].node;
+      if(mesh->edge[i].surface)
+	delete [] mesh->edge[i].surface;
+    }
     delete [] mesh->edge;
-  mesh->edges = 0;
-  
-  if(mesh->point) 
+  }
+
+  if(mesh->points > 0) {
+    for(int i=0; i < mesh->points; i++) {
+      if(mesh->point[i].node)
+	delete [] mesh->point[i].node;
+      if(mesh->point[i].edge)
+	delete [] mesh->point[i].edge;
+    }
     delete [] mesh->point;
-  mesh->points = 0;
+  }
   
-  if(mesh->node)
+  if(mesh->nodes > 0)
     delete [] mesh->node;
-  mesh->nodes = 0;
   
   delete mesh;
+
+  cout << "Mesh cleared" << endl;
+  cout.flush();
 }
 
 

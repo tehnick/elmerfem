@@ -180,5 +180,9 @@ mesh_t* TetlibAPI::createElmerMeshStructure()
   meshutils.findBoundaryElementEdges(mesh);
   meshutils.findBoundaryElementNormals(mesh);
 
+  // Points:
+  mesh->points = 0;
+  mesh->point == NULL;
+  
   return mesh;
 }
