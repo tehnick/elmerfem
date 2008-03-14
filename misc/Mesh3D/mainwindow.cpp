@@ -1383,6 +1383,7 @@ void MainWindow::makeSteadyHeatSifSlot()
 
   QTextEdit *textEdit = sifWindow->textEdit;
 
+  textEdit->clear();
   textEdit->append("! Sif skeleton for steady heat conduction\n");
 
   textEdit->append("Header");
@@ -1431,19 +1432,19 @@ void MainWindow::makeSteadyHeatSifSlot()
     if((edge->nature == PDE_BULK) && (edge->index > maxindex))
       maxindex = edge->index;
   }
-  if ( maxindex==0 ) maxindex=1;
+  maxindex++;
 
-  bool *etmp = new bool[maxindex];
-  int  *body_id = new int[maxindex];
+  bool *body_tmp = new bool[maxindex];
+  int  *body_id  = new  int[maxindex];
 
-  for(int i=0; i<maxindex; i++) etmp[i] = false;
+  for(int i=0; i<maxindex; i++) body_tmp[i] = false;
 
   maxindex = 0;
   for(int i=0; i < mesh->elements; i++) {
     element_t *element = &mesh->element[i];
     if(element->nature == PDE_BULK)
-      if ( !etmp[element->index] ) {
-        etmp[element->index] = true;
+      if ( !body_tmp[element->index] ) {
+        body_tmp[element->index] = true;
         body_id[maxindex++] = element->index;
       }
   }
@@ -1451,8 +1452,8 @@ void MainWindow::makeSteadyHeatSifSlot()
   for(int i=0; i < mesh->surfaces; i++) {
     surface_t *surface = &mesh->surface[i];
     if(surface->nature == PDE_BULK)
-      if ( !etmp[surface->index] ) {
-        etmp[surface->index] = true;
+      if ( !body_tmp[surface->index] ) {
+        body_tmp[surface->index] = true;
         body_id[maxindex++] = surface->index;
       }
   }
@@ -1460,8 +1461,8 @@ void MainWindow::makeSteadyHeatSifSlot()
   for(int i=0; i < mesh->edges; i++) {
     edge_t *edge = &mesh->edge[i];
     if(edge->nature == PDE_BULK)
-      if ( !etmp[edge->index] ) {
-        etmp[edge->index] = true;
+      if ( !body_tmp[edge->index] ) {
+        body_tmp[edge->index] = true;
         body_id[maxindex++] = edge->index;
       }
   }
@@ -1471,9 +1472,9 @@ void MainWindow::makeSteadyHeatSifSlot()
   textEdit->append("  Name = \"Body1\"");
   sprintf( str, "  Target Bodies(%d)=", maxindex );
   for( int i=0; i<maxindex; i++ ) {
-     sprintf( str, "%s %d", str, body_id[i] );
+     sprintf( str, "%s %d", str, max(body_id[i],1) );
   }
-  delete [] etmp; delete [] body_id;
+  delete [] body_tmp; delete [] body_id;
 
   textEdit->append(str);
   textEdit->append("  Body Force = 1");
