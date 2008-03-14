@@ -18,44 +18,8 @@ class node_t {
   int index;                       // optional tag
 };
 
-// zero dimensional elements
-class point_t {
- public:
-  int nature;                      // PDE_BOUNDARY, PDE_BULK, ...
-  int code;                        // element code for Elmer (101)
-  int nodes;                       // number of nodes (0 or 1)
-  int node;                        // node number
-  int index;                       // bc/mat index as defined in input file
-};
 
-// one dimensional elements
-class edge_t {
- public:
-  int nature;                      // PDE_BOUNDARY, PDE_BULK, ...
-  int code;                        // element code for Elmer (202, 203, ...)
-  int nodes;                       // number of nodes (2, 3, ...)
-  int *node;                       // list of nodes
-  int surfaces;                    // number of parent surfaces
-  int *surface;                    // list of parent surfaces
-  int index;                       // bc/mat index as defined in input file
-};
-
-// two dimensional elements
-class surface_t {
- public:
-  int nature;                      // PDE_BOUNDARY, PDE_BULK, ...
-  int code;                        // element code for Elmer (303, 306, ...)
-  int nodes;                       // number of nodes (3, 4, ...)
-  int *node;                       // list of nodes
-  int edges;                       // number of edges
-  int *edge;                       // list of edges
-  int elements;                    // number of parent elements
-  int *element;                    // list of parent elements
-  double normal[3];                // unit (outward) normal
-  int index;                       // bc/mat index as defined in input file
-};
-
-// three dimensional objects
+// base element class
 class element_t {
  public:
   int nature;                      // PDE_BULK, ...
@@ -64,6 +28,29 @@ class element_t {
   int *node;                       // list of nodes
   int index;                       // mat index as defined in input file
 };
+
+// zero dimensional elements
+class point_t: public element_t {
+ public:
+};
+
+// one dimensional elements
+class edge_t: public element_t {
+ public:
+  int surfaces;                    // number of parent surfaces
+  int *surface;                    // list of parent surfaces
+};
+
+// two dimensional elements
+class surface_t: public element_t {
+ public:
+  int edges;                       // number of edges
+  int *edge;                       // list of edges
+  int elements;                    // number of parent elements
+  int *element;                    // list of parent elements
+  double normal[3];                // unit (outward) normal
+};
+
 
 // mesh structure
 class mesh_t {
