@@ -206,7 +206,7 @@ void MainWindow::createActions()
   connect(showallAct, SIGNAL(triggered()), this, SLOT(showallSlot()));
 
   // Mesh -> Reset
-  resetAct = new QAction(QIcon(), tr("&Reset model..."), this);
+  resetAct = new QAction(QIcon(), tr("&Reset model view..."), this);
   resetAct->setStatusTip(tr("Reset model"));
   connect(resetAct, SIGNAL(triggered()), this, SLOT(resetSlot()));
 
