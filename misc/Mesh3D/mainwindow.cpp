@@ -1283,25 +1283,55 @@ void MainWindow::boundarySelectedSlot(list_t *l)
   statusBar()->showMessage(qs);    
   
   // Find the boundary condition block in sif:
-  QTextEdit *textEdit = sifWindow->textEdit;
-  QTextCursor cursor = textEdit->textCursor();
-
-  textEdit->moveCursor(QTextCursor::Start);
-  qs = "Target boundaries(1) = " + QString::number(l->index);
-  bool found = textEdit->find(qs);
-
-  // Select and highlight bc block:
-  if(found) {
-    textEdit->moveCursor(QTextCursor::Up);
-    textEdit->moveCursor(QTextCursor::Up);
-    textEdit->find("Boundary");
+  if(l->nature == PDE_BOUNDARY) {
+    QTextEdit *textEdit = sifWindow->textEdit;
+    QTextCursor cursor = textEdit->textCursor();
     
-    cursor.movePosition(QTextCursor::StartOfWord, QTextCursor::KeepAnchor);
-    textEdit->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
-    textEdit->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
-    textEdit->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
-    textEdit->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
-    cursor.select(QTextCursor::BlockUnderCursor);
+    textEdit->moveCursor(QTextCursor::Start);
+    qs = "Target boundaries(1) = " + QString::number(l->index);
+    bool found = textEdit->find(qs);
+    
+    // Select and highlight bc block:
+    if(found) {
+      textEdit->moveCursor(QTextCursor::Up);
+      textEdit->moveCursor(QTextCursor::Up);
+      textEdit->find("Boundary");
+      
+      cursor.movePosition(QTextCursor::StartOfWord, QTextCursor::KeepAnchor);
+      textEdit->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
+      textEdit->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
+      textEdit->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
+      textEdit->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
+      cursor.select(QTextCursor::BlockUnderCursor);
+    }
+  }
+
+  // Find the body block in sif:
+  if(l->nature == PDE_BULK) {
+    QTextEdit *textEdit = sifWindow->textEdit;
+    QTextCursor cursor = textEdit->textCursor();
+
+    textEdit->moveCursor(QTextCursor::Start);
+    qs = "Target bodies(1) = " + QString::number(l->index);
+    bool found = textEdit->find(qs);
+    
+    // Select and highlight body block:
+    if(found) {
+      textEdit->moveCursor(QTextCursor::Up);
+      textEdit->moveCursor(QTextCursor::Up);
+      textEdit->moveCursor(QTextCursor::Up);
+      textEdit->find("Body");
+      
+      cursor.movePosition(QTextCursor::StartOfWord, QTextCursor::KeepAnchor);
+      textEdit->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
+      textEdit->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
+      textEdit->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
+      textEdit->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
+      textEdit->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
+      textEdit->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
+      textEdit->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
+      cursor.select(QTextCursor::BlockUnderCursor);
+    }
   }
 }
 
@@ -1577,7 +1607,7 @@ void MainWindow::makeSteadyHeatSifSlot()
 
   textEdit->append("Body 1");
   textEdit->append("  Name = \"Body1\"");
-  sprintf( str, "  Target Bodies(%d)=", maxindex );
+  sprintf( str, "  Target Bodies(%d) =", maxindex );
   for( int i=0; i<maxindex; i++ ) {
      sprintf( str, "%s %d", str, max(body_id[i],1) );
   }

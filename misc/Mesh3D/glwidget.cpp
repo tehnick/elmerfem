@@ -456,7 +456,7 @@ GLuint GLWidget::makeLists()
   for(i=0; i < mesh->surfaces; i++) {
     surface_t *surface = &mesh->surface[i];
     if(surface->index > 0)
-      surface_tmp[surface->index]++;
+      surface_tmp[surface->index] = surface->nature;
   }    
   
   for(i=0; i < mesh->surfaces; i++) {
@@ -477,7 +477,7 @@ GLuint GLWidget::makeLists()
   for(i=0; i < mesh->edges; i++) {
     edge_t *edge = &mesh->edge[i];
     if(edge->index > 0)
-      edge_tmp[edge->index]++;
+      edge_tmp[edge->index] = edge->nature;
   }    
   
   for(i=0; i < mesh->edges; i++) {
@@ -487,7 +487,7 @@ GLuint GLWidget::makeLists()
   
   cout << "Bcs / materials on edge elements: " << edge_bcs << endl;  
 
-  // Scan edge elements to determine the number of bcs:
+  // Scan point elements to determine the number of bcs:
   //---------------------------------------------------------------------------
   int point_bcs = 0;
   int *point_tmp = new int[mesh->points];
@@ -511,7 +511,7 @@ GLuint GLWidget::makeLists()
 
       // triangles & quads:
       list_t *l = &list[current_index++];
-      l->nature = PDE_BOUNDARY;   // fix this as this is not always the case
+      l->nature = surface_tmp[i];
       l->type = SURFACELIST;
       l->index = i;
       l->object = generateSurfaceList(l->index, 0, 1, 1);
@@ -537,7 +537,7 @@ GLuint GLWidget::makeLists()
   for(i=0; i < mesh->edges; i++) {
     if(edge_tmp[i] > 0) {
       list_t *l = &list[current_index++];
-      l->nature = PDE_BOUNDARY;   // fix this as this is not always the case
+      l->nature = edge_tmp[i]; 
       l->type = EDGELIST;
       l->index = i;
       l->object = generateEdgeList(l->index, 0, 1, 0);
@@ -547,6 +547,8 @@ GLuint GLWidget::makeLists()
       l->visible = true;
     }
   }
+
+  // Point lists: TODO
 
   delete [] surface_tmp;
   delete [] edge_tmp;
