@@ -1417,25 +1417,26 @@ void MainWindow::makeSteadyHeatSifSlot()
   // find out mesh domain ids:
   // -------------------------
   mesh_t *mesh = glWidget->mesh;
+  element_t *element;
   char str[1024];
 
   int maxindex = 0;
   for(int i=0; i < mesh->elements; i++) {
-    element_t *element = &mesh->element[i];
+    element = &mesh->element[i];
     if((element->nature == PDE_BULK) && (element->index > maxindex))
       maxindex = element->index;
   }
 
   for(int i=0; i < mesh->surfaces; i++) {
-    surface_t *surface = &mesh->surface[i];
-    if((surface->nature == PDE_BULK) && (surface->index > maxindex))
-      maxindex = surface->index;
+    element = &mesh->surface[i];
+    if((element->nature == PDE_BULK) && (element->index > maxindex))
+      maxindex = element->index;
   }
 
   for(int i=0; i < mesh->edges; i++) {
-    edge_t *edge = &mesh->edge[i];
-    if((edge->nature == PDE_BULK) && (edge->index > maxindex))
-      maxindex = edge->index;
+    element = &mesh->edge[i];
+    if((element->nature == PDE_BULK) && (element->index > maxindex))
+      maxindex = element->index;
   }
   maxindex++;
 
@@ -1446,7 +1447,7 @@ void MainWindow::makeSteadyHeatSifSlot()
 
   maxindex = 0;
   for(int i=0; i < mesh->elements; i++) {
-    element_t *element = &mesh->element[i];
+    element = &mesh->element[i];
     if(element->nature == PDE_BULK)
       if ( !body_tmp[element->index] ) {
         body_tmp[element->index] = true;
@@ -1455,23 +1456,22 @@ void MainWindow::makeSteadyHeatSifSlot()
   }
 
   for(int i=0; i < mesh->surfaces; i++) {
-    surface_t *surface = &mesh->surface[i];
-    if(surface->nature == PDE_BULK)
-      if ( !body_tmp[surface->index] ) {
-        body_tmp[surface->index] = true;
-        body_id[maxindex++] = surface->index;
+    element = &mesh->surface[i];
+    if(element->nature == PDE_BULK)
+      if ( !body_tmp[element->index] ) {
+        body_tmp[element->index] = true;
+        body_id[maxindex++] = element->index;
       }
   }
   
   for(int i=0; i < mesh->edges; i++) {
-    edge_t *edge = &mesh->edge[i];
-    if(edge->nature == PDE_BULK)
-      if ( !body_tmp[edge->index] ) {
-        body_tmp[edge->index] = true;
-        body_id[maxindex++] = edge->index;
+    element = &mesh->edge[i];
+    if(element->nature == PDE_BULK)
+      if ( !body_tmp[element->index] ) {
+        body_tmp[element->index] = true;
+        body_id[maxindex++] = element->index;
       }
   }
-  if ( maxindex==0 ) { maxindex=1; body_id[0]=1; }
 
   textEdit->append("Body 1");
   textEdit->append("  Name = \"Body1\"");
@@ -1523,15 +1523,15 @@ void MainWindow::makeSteadyHeatSifSlot()
 
   // Boundary condition blocks:
   for(int i=0; i < mesh->surfaces; i++) {
-    surface_t *surface = &mesh->surface[i];
-    if((surface->nature == PDE_BOUNDARY) && (surface->index > maxindex))
-      maxindex = surface->index;
+    element = &mesh->surface[i];
+    if((element->nature == PDE_BOUNDARY) && (element->index > maxindex))
+      maxindex = element->index;
   }
 
   for(int i=0; i < mesh->edges; i++) {
-    edge_t *edge = &mesh->edge[i];
-    if((edge->nature == PDE_BOUNDARY) && (edge->index > maxindex))
-      maxindex = edge->index;
+    element = &mesh->edge[i];
+    if((element->nature == PDE_BOUNDARY) && (element->index > maxindex))
+      maxindex = element->index;
   }
   maxindex++;
 
@@ -1541,15 +1541,15 @@ void MainWindow::makeSteadyHeatSifSlot()
     tmp[i] = false;
 
   for(int i=0; i < mesh->surfaces; i++) {
-    surface_t *surface = &mesh->surface[i];
-    if(surface->nature == PDE_BOUNDARY)
-      tmp[surface->index] = true;
+    element = &mesh->surface[i];
+    if(element->nature == PDE_BOUNDARY)
+      tmp[element->index] = true;
   }
   
   for(int i=0; i < mesh->edges; i++) {
-    edge_t *edge = &mesh->edge[i];
-    if(edge->nature == PDE_BOUNDARY)
-      tmp[edge->index] = true;
+    element = &mesh->edge[i];
+    if(element->nature == PDE_BOUNDARY)
+      tmp[element->index] = true;
   }
   
   int j = 0;
