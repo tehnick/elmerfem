@@ -1750,7 +1750,8 @@ void MainWindow::showaboutSlot()
 			"http://tetgen.berlios.de/\n"
 			"http://www.hpfem.jku.at/netgen/\n"
 			"http://www.csc.fi/elmer/\n\n"
-			"Written by Mikko Lyly, 2008"));
+			"Written by Mikko Lyly, Juha Ruokolainen, and "
+			"Peter Råback, 2008"));
 }
 
 

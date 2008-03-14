@@ -589,7 +589,12 @@ void Meshutils::findBoundaryElementNormals(mesh_t *mesh)
     
     u = surface->node[0];
     v = surface->node[1];
-    w = surface->node[2];
+
+    if(surface->code == 404) {
+      w = surface->node[3];
+    } else {
+      w = surface->node[2];
+    }
 
     // Calculate normal (modulo sign):
     a[0] = mesh->node[v].x[0] - mesh->node[u].x[0];
