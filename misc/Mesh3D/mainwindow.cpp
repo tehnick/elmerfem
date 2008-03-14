@@ -765,7 +765,20 @@ void MainWindow::loadElmerMesh(QString dirName)
 
     switch(type/100) {
     case 1:
-      // todo
+      point = &mesh->point[current_point++];
+      point->nature = PDE_BULK;
+      point->index = index;
+      point->code = type;
+      point->nodes = point->code % 100;
+      point->node = new int[point->nodes];
+      for(int j=0; j < point->nodes; j++) {
+	mesh_elements >> point->node[j];
+	point->node[j] -= 1;
+      }
+      point->edges = 2;
+      point->edge = new int[point->edges];
+      point->edge[0] = -1;
+      point->edge[1] = -1;
       break;
 
     case 2:
@@ -779,9 +792,8 @@ void MainWindow::loadElmerMesh(QString dirName)
 	mesh_elements >> edge->node[j];
 	edge->node[j] -= 1;
       }
-      
       edge->surfaces = 0;
-      edge->surface = new int[2];
+      edge->surface = new int[edge->surfaces];
       edge->surface[0] = -1;
       edge->surface[1] = -1;
 
@@ -852,7 +864,20 @@ void MainWindow::loadElmerMesh(QString dirName)
 
     switch(type/100) {
     case 1:
-      // todo
+      point = &mesh->point[current_point++];
+      point->nature = PDE_BOUNDARY;
+      point->index = index;
+      point->edges = 2;
+      point->edge = new int[point->edges];
+      point->edge[0] = parent0-1;
+      point->edge[1] = parent0-1;
+      point->code = type;
+      point->nodes = point->code % 100;
+      point->node = new int[point->nodes];
+      for(int j=0; j < point->nodes; j++) {
+	mesh_elements >> point->node[j];
+	point->node[j] -= 1;
+      }
       break;
 
     case 2:

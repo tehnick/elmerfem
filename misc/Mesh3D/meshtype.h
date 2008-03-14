@@ -32,6 +32,8 @@ class element_t {
 // zero dimensional elements
 class point_t: public element_t {
  public:
+  int edges;                       // number of parent edges
+  int *edge;                       // list of parent edges
 };
 
 // one dimensional elements
@@ -44,8 +46,8 @@ class edge_t: public element_t {
 // two dimensional elements
 class surface_t: public element_t {
  public:
-  int edges;                       // number of edges
-  int *edge;                       // list of edges
+  int edges;                       // number of child edges
+  int *edge;                       // list of child edges
   int elements;                    // number of parent elements
   int *element;                    // list of parent elements
   double normal[3];                // unit (outward) normal
