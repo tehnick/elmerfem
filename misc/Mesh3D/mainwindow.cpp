@@ -537,8 +537,8 @@ void MainWindow::remeshSlot()
   }
 
   // Start meshing thread:
-  int gt = meshControl->generatorType;
-  meshingThread->generate(gt, tetlibControlString, tetlibAPI, ngmesh, nggeom, mp, nglibAPI);
+  meshingThread->generate(activeGenerator, tetlibControlString,
+			  tetlibAPI, ngmesh, nggeom, mp, nglibAPI);
 
   logMessage("Mesh generation initiated");
   statusBar()->showMessage(tr("Generating mesh..."));
@@ -553,11 +553,11 @@ void MainWindow::meshOkSlot()
 {
   logMessage("Mesh generation completed");
 
-  if(meshControl->generatorType == GEN_TETLIB) {
+  if(activeGenerator == GEN_TETLIB) {
 
     makeElmerMeshFromTetlib();
 
-  } else if(meshControl->generatorType == GEN_NGLIB) {
+  } else if(activeGenerator == GEN_NGLIB) {
 
     makeElmerMeshFromNglib();
 
@@ -1322,6 +1322,8 @@ void MainWindow::readInputFile(QString fileName)
   sprintf(cs, "%s", (const char*)(baseFileName.toAscii()));
 
   activeGenerator = GEN_UNKNOWN;
+  tetlibInputOk = false;
+  nglibInputOk = false;
 
   // Choose generator according to fileSuffix:
   //------------------------------------------
@@ -1392,19 +1394,51 @@ void MainWindow::readInputFile(QString fileName)
 
   } else if(fileSuffix == "stl") {
 
-    if(!tetlibPresent) {
-      logMessage("unable to mesh - tetlib unavailable");
-      return;
+    // for stl there are two alternative generators:
+    if(meshControl->generatorType == GEN_NGLIB) {
+      
+      cout << "nglib" << endl;
+
+      if(!nglibPresent) {
+	logMessage("unable to mesh - nglib unavailable");
+	return;
+      }
+      
+      activeGenerator = GEN_NGLIB;
+      cout << "Selected nglib for stl-format" << endl;
+
+      nglibAPI->Ng_Init();
+      
+      nggeom = nglibAPI->Ng_STL_LoadGeometry((const char*)(fileName.toAscii()), 0);
+      
+      if(!nggeom) {
+	logMessage("Ng_STL_LoadGeometry failed");
+	return;
+      }
+      
+      int rv = nglibAPI->Ng_STL_InitSTLGeometry(nggeom);
+      cout << "InitSTLGeometry: NG_result=" << rv << endl;
+      cout.flush();
+      
+      nglibInputOk = true;
+      
+    } else {
+
+      if(!tetlibPresent) {
+	logMessage("unable to mesh - tetlib unavailable");
+	return;
+      }
+      
+      activeGenerator = GEN_TETLIB;
+      cout << "Selected tetlib for stl-format" << endl;
+      
+      in->deinitialize();
+      in->initialize();
+      in->load_stl(cs);
+      
+      tetlibInputOk = true;
+      
     }
-
-    activeGenerator = GEN_TETLIB;
-    cout << "Selected tetlib for stl-format" << endl;
-
-    in->deinitialize();
-    in->initialize();
-    in->load_stl(cs);
-
-    tetlibInputOk = true;
 
   } else if((fileSuffix == "grd") ||
 	    (fileSuffix == "FDNEUT") ||
@@ -1413,7 +1447,7 @@ void MainWindow::readInputFile(QString fileName)
 	    (fileSuffix == "unv")) {
 
     activeGenerator = GEN_ELMERGRID;
-    cout << "Selected elmergrid" << endl;    
+    cout << "Selected elmergrid" << endl;
 
     int errstat = elmergridAPI->loadElmerMeshStructure((const char*)(fileName.toAscii()));
     
@@ -1429,84 +1463,6 @@ void MainWindow::readInputFile(QString fileName)
     return;
 
   }
-
-#if 0
-  // old stuff:
-
-  if(meshControl->generatorType==GEN_TETLIB) {
-
-    if(!tetlibPresent) {
-      logMessage("tetlib functionality unavailable");
-      return;
-    }
-
-    in->deinitialize();
-    in->initialize();
-
-    if(fileSuffix == "smesh" || fileSuffix=="poly") {
-      in->load_poly(cs);
-    } else if (fileSuffix == "stl") {
-      in->load_stl(cs); 
-    } else if (fileSuffix == "off") {
-      in->load_off(cs); 
-    } else if (fileSuffix == "ply") {
-      in->load_ply(cs); 
-    } else if (fileSuffix == "mesh") {
-      in->load_medit(cs);
-    } else {
-      logMessage("Read input file: error: illegal file type for tetlib");
-      tetlibInputOk = false;      
-      return;
-    }
-        
-    tetlibInputOk = true;
-
-  } else if (meshControl->generatorType==GEN_NGLIB) {    
-
-    if(!nglibPresent) {
-      logMessage("nglib functionality unavailable");
-      return;
-    }
-
-    if(fileSuffix != "stl") {
-      logMessage("Read input file: error: illegal file type for nglib");
-      nglibInputOk = false;      
-      return;
-    }
-
-    nglibAPI->Ng_Init();
-    
-    nggeom = nglibAPI->Ng_STL_LoadGeometry((const char*)(fileName.toAscii()), 0);
-    
-    if (!nggeom) {
-      logMessage("Ng_STL_LoadGeometry failed");
-      return;
-    }
-    
-    int rv = nglibAPI->Ng_STL_InitSTLGeometry(nggeom);
-    cout << "InitSTLGeometry: NG_result=" << rv << endl;
-    cout.flush();
-    
-    nglibInputOk = true;
-
-  } else if (meshControl->generatorType==GEN_ELMERGRID) {    
-
-    int errstat = elmergridAPI->loadElmerMeshStructure((const char*)(fileName.toAscii()));
-    
-    if (errstat) {
-      logMessage("loadElmerMeshStructure failed!");
-      return;
-    }
-    return;
-
-  } else {
-
-    logMessage("ReadInputFile: error: unknown mesh generator");
-    return;
-
-  }
-#endif
-
 }
   
 
