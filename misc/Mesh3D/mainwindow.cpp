@@ -202,9 +202,9 @@ void MainWindow::createActions()
   hidesharpedgesAct->setStatusTip(tr("Hide/show sharp edges"));
   connect(hidesharpedgesAct, SIGNAL(triggered()), this, SLOT(hidesharpedgesSlot()));
 
-  // Mesh -> Hide selected
-  hideselectedAct = new QAction(QIcon(), tr("&Hide selected..."), this);
-  hideselectedAct->setStatusTip(tr("Hide selected boundaries"));
+  // Mesh -> Hide/Show selected
+  hideselectedAct = new QAction(QIcon(), tr("&Hide/Show selected..."), this);
+  hideselectedAct->setStatusTip(tr("Hide/show selected objects"));
   connect(hideselectedAct, SIGNAL(triggered()), this, SLOT(hideselectedSlot()));
 
   // Mesh -> Show all
@@ -328,15 +328,15 @@ void MainWindow::boundaryunifySlot()
 void MainWindow::hidesurfacemeshSlot()
 {
   mesh_t *mesh = glWidget->mesh;
+  int lists = glWidget->lists;
   list_t *list = glWidget->list;
-  int lists = glWidget->lists, vis;
 
   if(mesh == NULL) {
     logMessage("There is no surface mesh to hide/show");
     return;
   }
   
-  vis = false;
+  bool vis = false;
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
     if(l->type == SURFACEEDGELIST) 
@@ -364,15 +364,15 @@ void MainWindow::hidesurfacemeshSlot()
 void MainWindow::hidesharpedgesSlot()
 {
   mesh_t *mesh = glWidget->mesh;
+  int lists = glWidget->lists;
   list_t *list = glWidget->list;
-  int lists = glWidget->lists, vis;
 
   if(mesh == NULL) {
     logMessage("There are no sharp edges to hide/show");
     return;
   }
   
-  vis = false;
+  bool vis = false;
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
     if(l->type == SHARPEDGELIST)  {
@@ -387,7 +387,7 @@ void MainWindow::hidesharpedgesSlot()
 
 
 
-// Mesh -> Hide selected...
+// Mesh -> Hide/Show selected...
 //-----------------------------------------------------------------------------
 void MainWindow::hideselectedSlot()
 {
@@ -396,25 +396,28 @@ void MainWindow::hideselectedSlot()
   list_t *list = glWidget->list;
 
   if(mesh == NULL) {
-    logMessage("There is nothing to hide");
+    logMessage("There is nothing to hide/show");
     return;
   }
-  
+
+  bool vis = false;
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
     if(l->selected) {
-      l->visible = false;
+      l->visible = !l->visible;
+      vis = l->visible;
 
       // hide also all the child surfaceedgelist
       int c = l->child;
       if(c >= 0) {
 	list_t *lc = &list[c];
-	lc->visible = false;
+	lc->visible = l->visible;
       }
     }
   }
   
-  logMessage("Selected objects hidden");
+  if ( !vis ) logMessage("Selected objects hidden");
+  else logMessage("Selected objects shown");
 }
 
 
@@ -1787,7 +1790,7 @@ void MainWindow::showaboutSlot()
   QMessageBox::about(this, tr("About Mesh3D"),
 		     tr("Mesh3D is a preprocessor for three dimensional "
 			"modeling with Elmer finite element software. "
-			"The program uses tetlib and nglib as tetrahedral "
+			"The program can use tetlib and nglib as tetrahedral "
 			"Delaunay mesh generators:\n\n"
 			"http://tetgen.berlios.de/\n"
 			"http://www.hpfem.jku.at/netgen/\n"
