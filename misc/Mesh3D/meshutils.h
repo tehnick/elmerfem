@@ -11,12 +11,12 @@ class Meshutils
   Meshutils();
   ~Meshutils();
 
-  void clearMesh(mesh_t *mesh);
-  void findBoundaryElementEdges(mesh_t*);
-  void findBoundaryElementParents(mesh_t*);
-  void findBoundaryElementNormals(mesh_t*);
+  void clearMesh(mesh_t*);
+  void findSurfaceElementEdges(mesh_t*);
+  void findSurfaceElementParents(mesh_t*);
+  void findSurfaceElementNormals(mesh_t*);
   void findSharpEdges(mesh_t*, double);
-  int divideBoundaryBySharpEdges(mesh_t*);
+  int divideSurfaceBySharpEdges(mesh_t*);
   double* boundingBox(mesh_t*);
 };
 #endif // #ifndef MESHUTILS_H

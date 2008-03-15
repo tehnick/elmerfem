@@ -93,18 +93,18 @@ void Meshutils::clearMesh(mesh_t *mesh)
     
   if(mesh->elements > 0) {
     for(int i=0; i < mesh->elements; i++)
-      if(mesh->element[i].node)
+      if(mesh->element->nodes > 0)
 	delete [] mesh->element[i].node;
     delete [] mesh->element;
   }
 
   if(mesh->surfaces > 0) {
     for(int i=0; i < mesh->surfaces; i++) {
-      if(mesh->surface[i].node)
+      if(mesh->surface->nodes > 0)
 	delete [] mesh->surface[i].node;
-      if(mesh->surface[i].edge)
+      if(mesh->surface->edges > 0)
 	delete [] mesh->surface[i].edge;
-      if(mesh->surface[i].element)
+      if(mesh->surface->elements > 0)
 	delete [] mesh->surface[i].element;
     }
     delete [] mesh->surface;
@@ -112,9 +112,9 @@ void Meshutils::clearMesh(mesh_t *mesh)
 
   if(mesh->edges > 0) {
     for(int i=0; i < mesh->edges; i++) {
-      if(mesh->edge[i].node)
+      if(mesh->edge->nodes > 0)
 	delete [] mesh->edge[i].node;
-      if(mesh->edge[i].surface)
+      if(mesh->edge->surfaces > 0)
 	delete [] mesh->edge[i].surface;
     }
     delete [] mesh->edge;
@@ -122,9 +122,9 @@ void Meshutils::clearMesh(mesh_t *mesh)
 
   if(mesh->points > 0) {
     for(int i=0; i < mesh->points; i++) {
-      if(mesh->point[i].node)
+      if(mesh->point->nodes > 0)
 	delete [] mesh->point[i].node;
-      if(mesh->point[i].edge)
+      if(mesh->point->edges > 0)
 	delete [] mesh->point[i].edge;
     }
     delete [] mesh->point;
@@ -142,7 +142,7 @@ void Meshutils::clearMesh(mesh_t *mesh)
 
 // Find parents for boundary elements...
 //----------------------------------------------------------------------------
-void Meshutils::findBoundaryElementParents(mesh_t *mesh)
+void Meshutils::findSurfaceElementParents(mesh_t *mesh)
 {
 #define UNKNOWN -1
 
@@ -282,7 +282,7 @@ void Meshutils::findBoundaryElementParents(mesh_t *mesh)
 
 // Find edges for boundary elements...
 //-----------------------------------------------------------------------------
-void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
+void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
 {
 #define UNKNOWN -1
 
@@ -547,7 +547,7 @@ void Meshutils::findSharpEdges(mesh_t *mesh, double limit)
 
 // Divide boundary by sharp edges...
 //-----------------------------------------------------------------------------
-int Meshutils::divideBoundaryBySharpEdges(mesh_t *mesh)
+int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
 {
 #define UNKNOWN -1
 #define SHARP 0
@@ -603,7 +603,7 @@ int Meshutils::divideBoundaryBySharpEdges(mesh_t *mesh)
 
 // Find boundary element normals...
 //-----------------------------------------------------------------------------
-void Meshutils::findBoundaryElementNormals(mesh_t *mesh)
+void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
 {
   static double a[3], b[3], c[3];
   double center_surface[3], center_element[3], center_difference[3];

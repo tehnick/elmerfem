@@ -473,7 +473,7 @@ void MainWindow::doDivisionSlot(double angle)
   }
   
   meshutils->findSharpEdges(mesh, angle);
-  int parts = meshutils->divideBoundaryBySharpEdges(mesh);
+  int parts = meshutils->divideSurfaceBySharpEdges(mesh);
 
   QString qs = "Boundary divided into " + QString::number(parts) + " parts";
   statusBar()->showMessage(qs);
@@ -562,11 +562,11 @@ void MainWindow::remeshSlot()
       for(int j=0; j<surface->edges; j++)
         surface->edge[j] = -1;
     }
-    meshutils->findBoundaryElementEdges(mesh);
+    meshutils->findSurfaceElementEdges(mesh);
 
-    if(0) meshutils->findBoundaryElementParents(mesh);
+    if(0) meshutils->findSurfaceElementParents(mesh);
  
-    meshutils->findBoundaryElementNormals(mesh);
+    meshutils->findSurfaceElementNormals(mesh);
     glWidget->rebuildLists();
 
     return;
@@ -990,8 +990,8 @@ void MainWindow::loadElmerMesh(QString dirName)
   file.close();
 
   // Todo: should we always do this?
-  meshutils->findBoundaryElementEdges(mesh);
-  meshutils->findBoundaryElementNormals(mesh);
+  meshutils->findSurfaceElementEdges(mesh);
+  meshutils->findSurfaceElementNormals(mesh);
 
   // Finalize:
   logMessage("Ready");

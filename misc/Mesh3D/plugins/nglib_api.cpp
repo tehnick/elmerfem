@@ -167,14 +167,14 @@ mesh_t* NglibAPI::createElmerMeshStructure()
     element->index = 1; // default
   }
 
-  // Find parents for boundary elements:
-  meshutils.findBoundaryElementParents(mesh);
+  // Find parents for surface elements:
+  meshutils.findSurfaceElementParents(mesh);
 
-  // Find edges for boundary elements:
-  meshutils.findBoundaryElementEdges(mesh);
+  // Find edges for surface elements:
+  meshutils.findSurfaceElementEdges(mesh);
 
   // Compute normals for boundary elements:
-  meshutils.findBoundaryElementNormals(mesh);
+  meshutils.findSurfaceElementNormals(mesh);
 
   return mesh;
 }

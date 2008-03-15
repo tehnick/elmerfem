@@ -513,10 +513,12 @@ GLuint GLWidget::makeLists()
 
   // Generate lists:
   //---------------------------------------------------------------------------
-  lists = 2*surface_bcs;  // surfaces + surface edges (child)
-  lists += edge_bcs;      // edges
-  lists += point_bcs;     // points
-  lists += 1;             // sharp edges
+  lists = 0;
+  lists += surface_bcs;   // surface elements
+  lists += surface_bcs;   // surface mesh lines (child of surf.elems.)
+  lists += edge_bcs;      // edge elements
+  lists += point_bcs;     // point elements
+  lists += 1;             // sharp edges on surfaces
   
   list = new list_t[lists];
   int current_index = 0;
@@ -610,7 +612,7 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
   for(int i=0; i < mesh->surfaces; i++) {
     surface_t *surface = &mesh->surface[i];
 
-    if((surface->index == index) && (surface->code == 303)) {
+    if((surface->index == index) && ( (int)(surface->code/100) == 3 ) ) {
       glNormal3dv(surface->normal); 
       
       int n0 = surface->node[0];
@@ -644,7 +646,7 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
   for(int i=0; i < mesh->surfaces; i++) {
     surface_t *surface = &mesh->surface[i];
 
-    if((surface->index == index) && (surface->code == 404)) {
+    if((surface->index == index) && ( (int)(surface->code/100) == 4 ) ) {
       glNormal3dv(surface->normal); 
       
       int n0 = surface->node[0];
@@ -705,7 +707,7 @@ GLuint GLWidget::generateSurfaceEdgeList(int index, double R, double G, double B
   for(int i=0; i < mesh->surfaces; i++) {
     surface_t *surface = &mesh->surface[i];
     
-    if((surface->index == index) && (surface->code == 303)) {
+    if((surface->index == index) && ( (int)(surface->code/100) == 3 ) ) {
       int n0 = surface->node[0];
       int n1 = surface->node[1];
       int n2 = surface->node[2];
@@ -736,7 +738,7 @@ GLuint GLWidget::generateSurfaceEdgeList(int index, double R, double G, double B
   for(int i=0; i < mesh->surfaces; i++) {
     surface_t *surface = &mesh->surface[i];
 
-    if((surface->index == index) && (surface->code == 404)) {      
+    if((surface->index == index) && ( (int)(surface->code/100) == 4 ) ) {
       int n0 = surface->node[0];
       int n1 = surface->node[1];
       int n2 = surface->node[2];
