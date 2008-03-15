@@ -365,7 +365,7 @@ void MainWindow::hidesharpedgesSlot()
 {
   mesh_t *mesh = glWidget->mesh;
   list_t *list = glWidget->list;
-  int lists = glWidget->lists, vis, present;
+  int lists = glWidget->lists, vis;
 
   if(mesh == NULL) {
     logMessage("There are no sharp edges to hide/show");
@@ -373,19 +373,12 @@ void MainWindow::hidesharpedgesSlot()
   }
   
   vis = false;
-  present = false;
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
     if(l->type == SHARPEDGELIST)  {
-      present = true;
       l->visible = !l->visible;
       vis = l->visible;
     }
-  }
-  
-  if(!present) {
-    logMessage("There are no sharp edges (yet) to hide");
-    return;
   }
   
   if ( !vis ) logMessage("Sharp edges hidden");
@@ -437,8 +430,6 @@ void MainWindow::showallSlot()
     l->visible = true;
   }
 
-  glWidget->drawSharpEdges = true;
-
   logMessage("All objects visible");
 }
 
@@ -487,8 +478,6 @@ void MainWindow::doDivisionSlot(double angle)
   QString qs = "Boundary divided into " + QString::number(parts) + " parts";
   statusBar()->showMessage(qs);
   
-  glWidget->drawSharpEdges = true;
-
   glWidget->rebuildLists();
 }
 
@@ -512,8 +501,6 @@ void MainWindow::remeshSlot()
     return;
   }
   
-  glWidget->drawSharpEdges = false;
-
   if(activeGenerator == GEN_TETLIB) {
 
     if(!tetlibPresent) {

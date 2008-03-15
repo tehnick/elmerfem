@@ -455,6 +455,8 @@ void Meshutils::findBoundaryElementEdges(mesh_t *mesh)
 	e->surface[j] = h->surface[j];
       }
 
+      e->sharp_edge = false;
+
       e->index = h->index;
       h = h->next;
     }

@@ -44,8 +44,6 @@ public:
   double drawTranslate[3];
   double drawScale;
 
-  bool drawSharpEdges;
-  
 public slots:
 
 signals:

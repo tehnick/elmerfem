@@ -10,7 +10,6 @@
 
 using namespace std;
 
-
 // Construct glWidget...
 //-----------------------------------------------------------------------------
 GLWidget::GLWidget(QWidget *parent)
@@ -23,7 +22,6 @@ GLWidget::GLWidget(QWidget *parent)
   drawTranslate[1] = 0.0;
   drawTranslate[2] = 0.0;
   mesh = NULL;
-  drawSharpEdges = false;
 
   helpers = new Helpers;
   meshutils = new Meshutils;
@@ -332,18 +330,19 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
   glPopMatrix();
   glMatrixMode(GL_MODELVIEW);
 
-  // Highlight the selected boundary:
+  // highlight the selected boundary:
   if(nearest != 0xffffffff) {
     list_t *l = &list[nearest];
 
+    // skip sharp edge list
     if(l->type == SHARPEDGELIST)
-      goto skipped;
+      return;
     
-    // substitute surfaceedgelists with the parent surfacelist:
+    // substitute surfaceedgelist with the parent surfacelist:
     if(l->type == SURFACEEDGELIST)
       l = &list[l->parent];
 
-    // if not ctrl pressed, clear all except this one:
+    // if not ctrl pressed, rebuild all selected lists except this one:
     if(!ctrlPressed) {
       for(i=0; i < lists; i++) {
 	list_t *l2 = &list[i];
@@ -366,8 +365,6 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
     l->selected = !l->selected;
     
     glDeleteLists(l->object, 1);
-
-  skipped:
 
     // Highlight current selection:
     if(l->type == SURFACELIST) {
@@ -459,7 +456,7 @@ GLuint GLWidget::makeLists()
   //   (list->type = EDGELIST)
   // - All point elements with index >= 0 will be drawn - one list/index
   //   (list->type = POINTLIST)
-  // - if drawSharpEdges == true, a list of sharp edges will be drawn
+  // - A list of sharp edges will be drawn
   //---------------------------------------------------------------------------
   
 
@@ -519,9 +516,7 @@ GLuint GLWidget::makeLists()
   lists = 2*surface_bcs;  // surfaces + surface edges (child)
   lists += edge_bcs;      // edges
   lists += point_bcs;     // points
-
-  if(drawSharpEdges)      // sharp edges
-    lists++;
+  lists += 1;             // sharp edges
   
   list = new list_t[lists];
   int current_index = 0;
@@ -575,17 +570,15 @@ GLuint GLWidget::makeLists()
   // Point lists: TODO
 
   // Sharp edges:
-  if(drawSharpEdges) {
-    list_t *l = &list[current_index++];
-    l->nature = PDE_UNKNOWN;
-    l->type = SHARPEDGELIST;
-    l->index = -1;
-    l->object = generateSharpEdgeList(0, 0, 1); // blue
-    l->child = -1;
-    l->parent = -1;
-    l->selected = false;
-    l->visible = true;
-  }
+  list_t *l = &list[current_index++];
+  l->nature = PDE_UNKNOWN;
+  l->type = SHARPEDGELIST;
+  l->index = -1;
+  l->object = generateSharpEdgeList(0, 0, 0); // black
+  l->child = -1;
+  l->parent = -1;
+  l->selected = false;
+  l->visible = true;
 
   delete [] surface_tmp;
   delete [] edge_tmp;
@@ -838,7 +831,7 @@ GLuint GLWidget::generateSharpEdgeList(double R, double G, double B)
   GLuint current = glGenLists(1);
   glNewList(current, GL_COMPILE);
   glColor3d(R, G, B);  
-  glLineWidth(2.0);
+  glLineWidth(1.0);
   glDisable(GL_LIGHTING);
   glBegin(GL_LINES);
   
