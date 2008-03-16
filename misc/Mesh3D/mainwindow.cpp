@@ -94,6 +94,7 @@ void MainWindow::createMenus()
   editMenu->addAction(showsifAct);
   editMenu->addSeparator();
   editMenu->addAction(steadyHeatSifAct);
+  editMenu->addAction(linElastSifAct);
 
   // Mesh menu
   meshMenu = menuBar()->addMenu(tr("&Mesh"));
@@ -125,6 +126,7 @@ void MainWindow::createToolBars()
   fileToolBar->addAction(openAct);
   fileToolBar->addAction(loadAct);
   fileToolBar->addAction(saveAct);
+  fileToolBar->addSeparator();
   fileToolBar->addAction(exitAct);
 }
 
@@ -153,20 +155,25 @@ void MainWindow::createActions()
 
   // File -> Exit
   exitAct = new QAction(QIcon(":/icons/exit.png"), tr("E&xit"), this);
-  exitAct->setShortcut(tr("Ctrl+Q"));
+  exitAct->setShortcut(tr("Alt+X"));
   exitAct->setStatusTip(tr("Exit"));
   connect(exitAct, SIGNAL(triggered()), this, SLOT(close()));
 
   // Edit -> Sif
-  showsifAct = new QAction(QIcon(":/icons/edit.png"), tr("&Sif..."), this);
+  showsifAct = new QAction(QIcon(":/icons/edit.png"), tr("&Solver input file..."), this);
   showsifAct->setShortcut(tr("Ctrl+S"));
   showsifAct->setStatusTip(tr("Edit solver input file"));
   connect(showsifAct, SIGNAL(triggered()), this, SLOT(showsifSlot()));
 
-  // Edit -> Steady heat sif...
-  steadyHeatSifAct = new QAction(QIcon(), tr("&Steady heat..."), this);
+  // Edit -> Steady heat conduntion...
+  steadyHeatSifAct = new QAction(QIcon(), tr("Heat conduction..."), this);
   steadyHeatSifAct->setStatusTip(tr("Sif skeleton for steady heat conduction"));
   connect(steadyHeatSifAct, SIGNAL(triggered()), this, SLOT(makeSteadyHeatSifSlot()));
+
+  // Edit -> Linear elasticity...
+  linElastSifAct = new QAction(QIcon(), tr("Linear elasticity..."), this);
+  linElastSifAct->setStatusTip(tr("Sif skeleton for linear elasticity"));
+  connect(linElastSifAct, SIGNAL(triggered()), this, SLOT(makeLinElastSifSlot()));
 
   // Mesh -> Control
   meshcontrolAct = new QAction(QIcon(":/icons/configure.png"), tr("&Configure..."), this);
@@ -193,12 +200,12 @@ void MainWindow::createActions()
   connect(boundaryunifyAct, SIGNAL(triggered()), this, SLOT(boundaryunifySlot()));
 
   // Mesh -> Hide/Show surface mesh
-  hidesurfacemeshAct = new QAction(QIcon(), tr("&Hide/Show surface mesh..."), this);
+  hidesurfacemeshAct = new QAction(QIcon(), tr("Hide/Show surface mesh..."), this);
   hidesurfacemeshAct->setStatusTip(tr("Hide/show surface mesh (do/do not outline surface elements)"));
   connect(hidesurfacemeshAct, SIGNAL(triggered()), this, SLOT(hidesurfacemeshSlot()));
 
   // Mesh -> Hide/Show sharp edges
-  hidesharpedgesAct = new QAction(QIcon(), tr("&Hide/Show sharp edges..."), this);
+  hidesharpedgesAct = new QAction(QIcon(), tr("Hide/Show sharp edges..."), this);
   hidesharpedgesAct->setStatusTip(tr("Hide/show sharp edges"));
   connect(hidesharpedgesAct, SIGNAL(triggered()), this, SLOT(hidesharpedgesSlot()));
 
@@ -208,18 +215,17 @@ void MainWindow::createActions()
   connect(hideselectedAct, SIGNAL(triggered()), this, SLOT(hideselectedSlot()));
 
   // Mesh -> Show all
-  showallAct = new QAction(QIcon(), tr("&Show all..."), this);
+  showallAct = new QAction(QIcon(), tr("Show all..."), this);
   showallAct->setStatusTip(tr("Show all boundaries"));
   connect(showallAct, SIGNAL(triggered()), this, SLOT(showallSlot()));
 
   // Mesh -> Reset
-  resetAct = new QAction(QIcon(), tr("&Reset model view..."), this);
+  resetAct = new QAction(QIcon(), tr("Reset model view..."), this);
   resetAct->setStatusTip(tr("Reset model"));
   connect(resetAct, SIGNAL(triggered()), this, SLOT(resetSlot()));
 
   // Help -> About
-  aboutAct = new QAction(QIcon(":/icons/info.png"), tr("&Info..."), this);
-  // aboutAct->setShortcut(tr("Ctrl+A"));
+  aboutAct = new QAction(QIcon(":/icons/info.png"), tr("Info..."), this);
   aboutAct->setStatusTip(tr("Information about the program"));
   connect(aboutAct, SIGNAL(triggered()), this, SLOT(showaboutSlot()));
 }
@@ -1338,52 +1344,52 @@ void MainWindow::boundarySelectedSlot(list_t *l)
   
   // Find the boundary condition block in sif:
   if(l->nature == PDE_BOUNDARY) {
-    QTextEdit *textEdit = sifWindow->textEdit;
-    QTextCursor cursor = textEdit->textCursor();
+    QTextEdit *te = sifWindow->textEdit;
+    QTextCursor cursor = te->textCursor();
     
-    textEdit->moveCursor(QTextCursor::Start);
+    te->moveCursor(QTextCursor::Start);
     qs = "Target boundaries(1) = " + QString::number(l->index);
-    bool found = textEdit->find(qs);
+    bool found = te->find(qs);
     
     // Select and highlight bc block:
     if(found) {
-      textEdit->moveCursor(QTextCursor::Up);
-      textEdit->moveCursor(QTextCursor::Up);
-      textEdit->find("Boundary");
+      te->moveCursor(QTextCursor::Up);
+      te->moveCursor(QTextCursor::Up);
+      te->find("Boundary");
       
       cursor.movePosition(QTextCursor::StartOfWord, QTextCursor::KeepAnchor);
-      textEdit->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
-      textEdit->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
-      textEdit->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
-      textEdit->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
+      te->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
+      te->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
+      te->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
+      te->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
       cursor.select(QTextCursor::BlockUnderCursor);
     }
   }
 
   // Find the body block in sif:
   if(l->nature == PDE_BULK) {
-    QTextEdit *textEdit = sifWindow->textEdit;
-    QTextCursor cursor = textEdit->textCursor();
+    QTextEdit *te = sifWindow->textEdit;
+    QTextCursor cursor = te->textCursor();
 
-    textEdit->moveCursor(QTextCursor::Start);
+    te->moveCursor(QTextCursor::Start);
     qs = "Target bodies(1) = " + QString::number(l->index);
-    bool found = textEdit->find(qs);
+    bool found = te->find(qs);
     
     // Select and highlight body block:
     if(found) {
-      textEdit->moveCursor(QTextCursor::Up);
-      textEdit->moveCursor(QTextCursor::Up);
-      textEdit->moveCursor(QTextCursor::Up);
-      textEdit->find("Body");
+      te->moveCursor(QTextCursor::Up);
+      te->moveCursor(QTextCursor::Up);
+      te->moveCursor(QTextCursor::Up);
+      te->find("Body");
       
       cursor.movePosition(QTextCursor::StartOfWord, QTextCursor::KeepAnchor);
-      textEdit->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
-      textEdit->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
-      textEdit->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
-      textEdit->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
-      textEdit->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
-      textEdit->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
-      textEdit->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
+      te->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
+      te->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
+      te->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
+      te->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
+      te->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
+      te->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
+      te->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
       cursor.select(QTextCursor::BlockUnderCursor);
     }
   }
@@ -1583,79 +1589,167 @@ void MainWindow::makeElmerMeshFromNglib()
 //-----------------------------------------------------------------------------
 void MainWindow::makeSteadyHeatSifSlot()
 {
-  if(glWidget->mesh==NULL) {
+  if(glWidget->mesh == NULL) {
     logMessage("Unable to create sif: no mesh");
     return;
   }
 
-  QTextEdit *textEdit = sifWindow->textEdit;
+  QTextEdit *te = sifWindow->textEdit;
 
-  textEdit->clear();
-  textEdit->append("! Sif skeleton for steady heat conduction\n");
+  te->clear();
 
-  textEdit->append("Header");
-  textEdit->append("  CHECK KEYWORDS Warn");
-  textEdit->append("  Mesh DB \".\" \".\"");
-  textEdit->append("  Include Path \"\"");
-  textEdit->append("  Results Directory \"\"");
-  textEdit->append("End\n");
+  te->append("! Sif skeleton for steady heat conduction\n");
+
+  te->append("Header");
+  te->append("  CHECK KEYWORDS Warn");
+  te->append("  Mesh DB \".\" \".\"");
+  te->append("  Include Path \"\"");
+  te->append("  Results Directory \"\"");
+  te->append("End\n");
   
-  textEdit->append("Simulation");
-  textEdit->append("  Max Output Level = 4");
-  textEdit->append("  Coordinate System = \"Cartesian 3D\"");
-  textEdit->append("  Coordinate Mapping(3) = 1 2 3");
-  textEdit->append("  Simulation Type = \"Steady State\"");
-  textEdit->append("  Steady State Max Iterations = 1");
-  textEdit->append("  Output Intervals = 1");
-  textEdit->append("  Solver Input File = \"skeleton.sif\"");
-  textEdit->append("  Post File = \"skeleton.ep\"");
-  textEdit->append("End\n");
+  te->append("Simulation");
+  te->append("  Max Output Level = 4");
+  te->append("  Coordinate System = \"Cartesian 3D\"");
+  te->append("  Coordinate Mapping(3) = 1 2 3");
+  te->append("  Simulation Type = \"Steady State\"");
+  te->append("  Steady State Max Iterations = 1");
+  te->append("  Output Intervals = 1");
+  te->append("  Solver Input File = \"skeleton.sif\"");
+  te->append("  Post File = \"skeleton.ep\"");
+  te->append("End\n");
 
-  textEdit->append("Constants");
-  textEdit->append("  Gravity(4) = 0 -1 0 9.82");
-  textEdit->append("  Stefan Boltzmann = 5.67e-08");
-  textEdit->append("End\n");
+  te->append("Constants");
+  te->append("  Gravity(4) = 0 -1 0 9.82");
+  te->append("  Stefan Boltzmann = 5.67e-08");
+  te->append("End\n");
 
   // Body blocks:
   //-------------
   makeSifBodyBlocks();
 
-  textEdit->append("Equation 1");
-  textEdit->append("  Name = \"Heat equation\"");
-  textEdit->append("  Active Solvers(1) = 1");
-  textEdit->append("End\n");
+  te->append("Equation 1");
+  te->append("  Name = \"Heat equation\"");
+  te->append("  Active Solvers(1) = 1");
+  te->append("End\n");
 
-  textEdit->append("Solver 1");
-  textEdit->append("  Exec Solver = \"Always\"");
-  textEdit->append("  Equation = \"Heat Equation\"");
-  textEdit->append("  Variable = \"Temperature\"");
-  textEdit->append("  Variable Dofs = 1");
-  textEdit->append("  Linear System Solver = \"Iterative\"");
-  textEdit->append("  Linear System Iterative Method = \"BiCGStab\"");
-  textEdit->append("  Linear System Max Iterations = 350");
-  textEdit->append("  Linear System Convergence Tolerance = 1.0e-08");
-  textEdit->append("  Linear System Abort Not Converged = True");
-  textEdit->append("  Linear System Preconditioning = \"ILU0\"");
-  textEdit->append("  Linear System Residual Output = 1");
-  textEdit->append("  Nonlinear System Convergence Tolerance = 1.0e-08");
-  textEdit->append("  Nonlinear System Max Iterations = 1");
-  textEdit->append("  Steady State Convergence Tolerance = 1.0e-08");
-  textEdit->append("End\n");
+  te->append("Solver 1");
+  te->append("  Exec Solver = \"Always\"");
+  te->append("  Equation = \"Heat Equation\"");
+  te->append("  Variable = \"Temperature\"");
+  te->append("  Variable Dofs = 1");
+  te->append("  Linear System Solver = \"Iterative\"");
+  te->append("  Linear System Iterative Method = \"BiCGStab\"");
+  te->append("  Linear System Max Iterations = 350");
+  te->append("  Linear System Convergence Tolerance = 1.0e-08");
+  te->append("  Linear System Abort Not Converged = True");
+  te->append("  Linear System Preconditioning = \"ILU0\"");
+  te->append("  Linear System Residual Output = 1");
+  te->append("  Nonlinear System Convergence Tolerance = 1.0e-08");
+  te->append("  Nonlinear System Max Iterations = 1");
+  te->append("  Steady State Convergence Tolerance = 1.0e-08");
+  te->append("End\n");
 
-  textEdit->append("Material 1");
-  textEdit->append("  Name = \"Material1\"");
-  textEdit->append("  Density = 1");
-  textEdit->append("  Heat Conductivity = 1");
-  textEdit->append("End\n");
+  te->append("Material 1");
+  te->append("  Name = \"Material1\"");
+  te->append("  Density = 1");
+  te->append("  Heat Conductivity = 1");
+  te->append("End\n");
 
-  textEdit->append("Body Force 1");
-  textEdit->append("  Name = \"BodyForce1\"");
-  textEdit->append("  Heat Source = 1");
-  textEdit->append("End\n");
+  te->append("Body Force 1");
+  te->append("  Name = \"BodyForce1\"");
+  te->append("  Heat Source = 1");
+  te->append("End\n");
 
   // BC-blocks:
   //-----------
   QString BCtext = "!  Temperature = 0\n!  Heat flux = 0";
+  makeSifBoundaryBlocks(BCtext);
+}
+
+
+
+// Make solver input file for linear elasticity...
+//-----------------------------------------------------------------------------
+void MainWindow::makeLinElastSifSlot()
+{
+  if(glWidget->mesh == NULL) {
+    logMessage("Unable to create sif: no mesh");
+    return;
+  }
+  
+  QTextEdit *te = sifWindow->textEdit;
+
+  te->clear();
+
+  te->append("! Sif skeleton for linear elasticity\n");
+
+  te->append("Header");
+  te->append("  CHECK KEYWORDS Warn");
+  te->append("  Mesh DB \".\" \".\"");
+  te->append("  Include Path \"\"");
+  te->append("  Results Directory \"\"");
+  te->append("End\n");
+  
+  te->append("Simulation");
+  te->append("  Max Output Level = 4");
+  te->append("  Coordinate System = \"Cartesian 3D\"");
+  te->append("  Coordinate Mapping(3) = 1 2 3");
+  te->append("  Simulation Type = \"Steady State\"");
+  te->append("  Steady State Max Iterations = 1");
+  te->append("  Output Intervals = 1");
+  te->append("  Solver Input File = \"skeleton.sif\"");
+  te->append("  Post File = \"skeleton.ep\"");
+  te->append("End\n");
+
+  te->append("Constants");
+  te->append("  Gravity(4) = 0 -1 0 9.82");
+  te->append("  Stefan Boltzmann = 5.67e-08");
+  te->append("End\n");
+
+  // Body blocks:
+  //-------------
+  makeSifBodyBlocks();
+
+  te->append("Equation 1");
+  te->append("  Name = \"Elasticity analysis\"");
+  te->append("  Active Solvers(1) = 1");
+  te->append("End\n");
+
+  te->append("Solver 1");
+  te->append("  Exec Solver = \"Always\"");
+  te->append("  Equation = \"Elasticity analysis\"");
+  te->append("  Procedure = \"StressSolve\" \"StressSolver\"");
+  te->append("  Variable = \"Displacement\"");
+  te->append("  Variable Dofs = 3");
+  te->append("  Linear System Solver = \"Iterative\"");
+  te->append("  Linear System Iterative Method = \"BiCGStab\"");
+  te->append("  Linear System Max Iterations = 350");
+  te->append("  Linear System Convergence Tolerance = 1.0e-08");
+  te->append("  Linear System Abort Not Converged = True");
+  te->append("  Linear System Preconditioning = \"ILU0\"");
+  te->append("  Linear System Residual Output = 1");
+  te->append("  Nonlinear System Convergence Tolerance = 1.0e-08");
+  te->append("  Nonlinear System Max Iterations = 1");
+  te->append("  Steady State Convergence Tolerance = 1.0e-08");
+  te->append("End\n");
+
+  te->append("Material 1");
+  te->append("  Name = \"Material1\"");
+  te->append("  Density = 1");
+  te->append("  Youngs modulus = 1");
+  te->append("  Poisson ratio = 0.3");
+  te->append("End\n");
+
+  te->append("Body Force 1");
+  te->append("  Name = \"BodyForce1\"");
+  te->append("  Stress BodyForce 1 = 1");
+  te->append("  Stress BodyForce 2 = 0");
+  te->append("  Stress BodyForce 3 = 0");
+  te->append("End\n");
+
+  // BC-blocks:
+  //-----------
+  QString BCtext = "!  Displacement 1 = 0\n!  Displacement 2 = 0\n!  Displacement 3 = 0";
   makeSifBoundaryBlocks(BCtext);
 }
 
@@ -1666,7 +1760,7 @@ void MainWindow::makeSteadyHeatSifSlot()
 void MainWindow::makeSifBodyBlocks()
 {
   mesh_t *mesh = glWidget->mesh;
-  QTextEdit *textEdit = sifWindow->textEdit;
+  QTextEdit *te = sifWindow->textEdit;
 
   // find out mesh domain ids:
   // -------------------------
@@ -1749,8 +1843,8 @@ void MainWindow::makeSifBodyBlocks()
       }
   }
 
-  textEdit->append("Body 1");
-  textEdit->append("  Name = \"Body1\"");
+  te->append("Body 1");
+  te->append("  Name = \"Body1\"");
   sprintf( str, "  Target Bodies(%d) =", maxindex );
   for( int i=0; i<maxindex; i++ ) 
      sprintf( str, "%s %d", str, max(body_id[i],1) );
@@ -1758,11 +1852,11 @@ void MainWindow::makeSifBodyBlocks()
   delete [] body_tmp;
   delete [] body_id;
 
-  textEdit->append(str);
-  textEdit->append("  Body Force = 1");
-  textEdit->append("  Equation = 1");
-  textEdit->append("  Material = 1");
-  textEdit->append("End\n");
+  te->append(str);
+  te->append("  Body Force = 1");
+  te->append("  Equation = 1");
+  te->append("  Material = 1");
+  te->append("End\n");
 }
 
 
@@ -1771,7 +1865,7 @@ void MainWindow::makeSifBodyBlocks()
 void MainWindow::makeSifBoundaryBlocks(QString BCtext)
 {
   mesh_t *mesh = glWidget->mesh;
-  QTextEdit *textEdit = sifWindow->textEdit;
+  QTextEdit *te = sifWindow->textEdit;
 
   int maxindex = -1;
   for(int i=0; i < mesh->surfaces; i++) {
@@ -1817,10 +1911,10 @@ void MainWindow::makeSifBoundaryBlocks(QString BCtext)
   int j = 0;
   for(int i=1; i < maxindex; i++) {
     if(tmp[i]) {
-      textEdit->append("Boundary condition " + QString::number(++j));
-      textEdit->append("  Target boundaries(1) = " + QString::number(i));
-      textEdit->append(BCtext);
-      textEdit->append("End\n");
+      te->append("Boundary condition " + QString::number(++j));
+      te->append("  Target boundaries(1) = " + QString::number(i));
+      te->append(BCtext);
+      te->append("End\n");
     }
   }
 
