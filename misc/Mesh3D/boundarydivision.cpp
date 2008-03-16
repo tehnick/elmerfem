@@ -27,4 +27,5 @@ void BoundaryDivide::divideBoundary()
 {
   double angle = angleDegree.toDouble();
   emit(signalDoDivision(angle));
+  close();
 }

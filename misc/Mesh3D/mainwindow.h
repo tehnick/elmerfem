@@ -114,6 +114,7 @@ private:
   void logMessage(QString);
   void makeSifBodyBlocks();
   void makeSifBoundaryBlocks(QString);
+  int determineDimension(mesh_t*);
 
 };
 

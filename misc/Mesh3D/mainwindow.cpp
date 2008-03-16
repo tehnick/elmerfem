@@ -1593,6 +1593,13 @@ void MainWindow::makeSteadyHeatSifSlot()
     logMessage("Unable to create sif: no mesh");
     return;
   }
+  
+  int dim = determineDimension(glWidget->mesh);
+
+  if(dim < 1) {
+    logMessage("Model dimension inconsistent with SIF syntax");
+    return;
+  }
 
   QTextEdit *te = sifWindow->textEdit;
 
@@ -1609,7 +1616,12 @@ void MainWindow::makeSteadyHeatSifSlot()
   
   te->append("Simulation");
   te->append("  Max Output Level = 4");
-  te->append("  Coordinate System = \"Cartesian 3D\"");
+  if(dim == 3)
+    te->append("  Coordinate System = \"Cartesian 3D\"");
+  if(dim == 2)
+    te->append("  Coordinate System = \"Cartesian 2D\"");
+  if(dim == 1)
+    te->append("  Coordinate System = \"Cartesian 1D\"");
   te->append("  Coordinate Mapping(3) = 1 2 3");
   te->append("  Simulation Type = \"Steady State\"");
   te->append("  Steady State Max Iterations = 1");
@@ -1677,6 +1689,13 @@ void MainWindow::makeLinElastSifSlot()
     return;
   }
   
+  int dim = determineDimension(glWidget->mesh);
+  
+  if(dim < 1) {
+    logMessage("Model dimension inconsistent with SIF syntax");
+    return;
+  }
+
   QTextEdit *te = sifWindow->textEdit;
 
   te->clear();
@@ -1692,7 +1711,12 @@ void MainWindow::makeLinElastSifSlot()
   
   te->append("Simulation");
   te->append("  Max Output Level = 4");
-  te->append("  Coordinate System = \"Cartesian 3D\"");
+  if(dim == 3)
+    te->append("  Coordinate System = \"Cartesian 3D\"");
+  if(dim == 2)
+    te->append("  Coordinate System = \"Cartesian 2D\"");
+  if(dim == 1)
+    te->append("  Coordinate System = \"Cartesian 1D\"");
   te->append("  Coordinate Mapping(3) = 1 2 3");
   te->append("  Simulation Type = \"Steady State\"");
   te->append("  Steady State Max Iterations = 1");
@@ -1720,7 +1744,12 @@ void MainWindow::makeLinElastSifSlot()
   te->append("  Equation = \"Elasticity analysis\"");
   te->append("  Procedure = \"StressSolve\" \"StressSolver\"");
   te->append("  Variable = \"Displacement\"");
-  te->append("  Variable Dofs = 3");
+  if(dim == 3)
+    te->append("  Variable Dofs = 3");
+  if(dim == 2)
+    te->append("  Variable Dofs = 2");
+  if(dim == 1)
+    te->append("  Variable Dofs = 1");
   te->append("  Linear System Solver = \"Iterative\"");
   te->append("  Linear System Iterative Method = \"BiCGStab\"");
   te->append("  Linear System Max Iterations = 350");
@@ -1742,17 +1771,52 @@ void MainWindow::makeLinElastSifSlot()
 
   te->append("Body Force 1");
   te->append("  Name = \"BodyForce1\"");
-  te->append("  Stress BodyForce 1 = 1");
-  te->append("  Stress BodyForce 2 = 0");
-  te->append("  Stress BodyForce 3 = 0");
+  if(dim >= 1) 
+    te->append("  Stress BodyForce 1 = 1");
+  if(dim >= 2) 
+    te->append("  Stress BodyForce 2 = 0");
+  if(dim >= 3) 
+    te->append("  Stress BodyForce 3 = 0");
   te->append("End\n");
 
   // BC-blocks:
   //-----------
-  QString BCtext = "!  Displacement 1 = 0\n!  Displacement 2 = 0\n!  Displacement 3 = 0";
+  QString BCtext = "";
+  if(dim >= 1)
+    BCtext.append("!  Displacement 1 = 0");
+  if(dim >= 2)
+    BCtext.append("\n!  Displacement 2 = 0");
+  if(dim >= 3)
+    BCtext.append("\n!  Displacement 3 = 0");
   makeSifBoundaryBlocks(BCtext);
 }
 
+
+
+// Determine the spatial dimension of the model...
+//-----------------------------------------------------------------------------
+int MainWindow::determineDimension(mesh_t *mesh)
+{
+  for(int i=0; i < mesh->elements; i++) {
+    element_t *e = &mesh->element[i];
+    if(e->nature == PDE_BULK) 
+      return 3;
+  }
+
+  for(int i=0; i < mesh->surfaces; i++) {
+    surface_t *s = &mesh->surface[i];
+    if(s->nature == PDE_BULK) 
+      return 2;
+  }
+
+  for(int i=0; i < mesh->edges; i++) {
+    edge_t *e = &mesh->edge[i];
+    if(e->nature == PDE_BULK) 
+      return 1;
+  }
+
+  return 0;
+}
 
 
 // Make body blocks in SIF:
