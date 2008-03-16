@@ -134,25 +134,25 @@ void MainWindow::createToolBars()
 void MainWindow::createActions()
 {
   // File -> Open file
-  openAct = new QAction(QIcon("./icons/book_open.png"), tr("&Open..."), this);
+  openAct = new QAction(QIcon("./icons/fileopen.png"), tr("&Open..."), this);
   openAct->setShortcut(tr("Ctrl+O"));
   openAct->setStatusTip(tr("Open model input file"));
   connect(openAct, SIGNAL(triggered()), this, SLOT(openSlot()));
   
   // File -> Load mesh
-  loadAct = new QAction(QIcon("./icons/cog.png"), tr("&Load..."), this);
+  loadAct = new QAction(QIcon("./icons/reload.png"), tr("&Load..."), this);
   loadAct->setShortcut(tr("Ctrl+L"));
   loadAct->setStatusTip(tr("Load Elmer mesh files"));
   connect(loadAct, SIGNAL(triggered()), this, SLOT(loadSlot()));
   
   // File -> Save file
-  saveAct = new QAction(QIcon("./icons/disk.png"), tr("&Save..."), this);
+  saveAct = new QAction(QIcon("./icons/filesave.png"), tr("&Save..."), this);
   saveAct->setShortcut(tr("Ctrl+S"));
   saveAct->setStatusTip(tr("Save mesh"));
   connect(saveAct, SIGNAL(triggered()), this, SLOT(saveSlot()));
 
   // File -> Exit
-  exitAct = new QAction(QIcon("./icons/cancel.png"), tr("E&xit"), this);
+  exitAct = new QAction(QIcon("./icons/exit.png"), tr("E&xit"), this);
   exitAct->setShortcut(tr("Ctrl+Q"));
   exitAct->setStatusTip(tr("Exit"));
   connect(exitAct, SIGNAL(triggered()), this, SLOT(close()));
