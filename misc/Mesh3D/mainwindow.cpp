@@ -134,31 +134,31 @@ void MainWindow::createToolBars()
 void MainWindow::createActions()
 {
   // File -> Open file
-  openAct = new QAction(QIcon("./icons/fileopen.png"), tr("&Open..."), this);
+  openAct = new QAction(QIcon(":/icons/fileopen.png"), tr("&Open..."), this);
   openAct->setShortcut(tr("Ctrl+O"));
   openAct->setStatusTip(tr("Open model input file"));
   connect(openAct, SIGNAL(triggered()), this, SLOT(openSlot()));
   
   // File -> Load mesh
-  loadAct = new QAction(QIcon("./icons/fileimport.png"), tr("&Import..."), this);
+  loadAct = new QAction(QIcon(":/icons/fileimport.png"), tr("&Import..."), this);
   loadAct->setShortcut(tr("Ctrl+I"));
   loadAct->setStatusTip(tr("Import Elmer mesh files"));
   connect(loadAct, SIGNAL(triggered()), this, SLOT(loadSlot()));
   
   // File -> Save file
-  saveAct = new QAction(QIcon("./icons/fileexport.png"), tr("&Export..."), this);
+  saveAct = new QAction(QIcon(":/icons/fileexport.png"), tr("&Export..."), this);
   saveAct->setShortcut(tr("Ctrl+E"));
   saveAct->setStatusTip(tr("Export Elmer mesh files"));
   connect(saveAct, SIGNAL(triggered()), this, SLOT(saveSlot()));
 
   // File -> Exit
-  exitAct = new QAction(QIcon("./icons/exit.png"), tr("E&xit"), this);
+  exitAct = new QAction(QIcon(":/icons/exit.png"), tr("E&xit"), this);
   exitAct->setShortcut(tr("Ctrl+Q"));
   exitAct->setStatusTip(tr("Exit"));
   connect(exitAct, SIGNAL(triggered()), this, SLOT(close()));
 
   // Edit -> Sif
-  showsifAct = new QAction(QIcon("./icons/edit.png"), tr("&Sif..."), this);
+  showsifAct = new QAction(QIcon(":/icons/edit.png"), tr("&Sif..."), this);
   showsifAct->setShortcut(tr("Ctrl+S"));
   showsifAct->setStatusTip(tr("Edit solver input file"));
   connect(showsifAct, SIGNAL(triggered()), this, SLOT(showsifSlot()));
@@ -169,25 +169,25 @@ void MainWindow::createActions()
   connect(steadyHeatSifAct, SIGNAL(triggered()), this, SLOT(makeSteadyHeatSifSlot()));
 
   // Mesh -> Control
-  meshcontrolAct = new QAction(QIcon("./icons/configure.png"), tr("&Configure..."), this);
+  meshcontrolAct = new QAction(QIcon(":/icons/configure.png"), tr("&Configure..."), this);
   meshcontrolAct->setShortcut(tr("Ctrl+C"));
   meshcontrolAct->setStatusTip(tr("Configure mesh generators"));
   connect(meshcontrolAct, SIGNAL(triggered()), this, SLOT(meshcontrolSlot()));
 
   // Mesh -> Remesh
-  remeshAct = new QAction(QIcon("./icons/redo.png"), tr("&Remesh..."), this);
+  remeshAct = new QAction(QIcon(":/icons/redo.png"), tr("&Remesh..."), this);
   remeshAct->setShortcut(tr("Ctrl+R"));
   remeshAct->setStatusTip(tr("Remesh"));
   connect(remeshAct, SIGNAL(triggered()), this, SLOT(remeshSlot()));
 
   // Mesh -> Divide boundary
-  boundarydivideAct = new QAction(QIcon("./icons/divide.png"), tr("&Divide boundary..."), this);
+  boundarydivideAct = new QAction(QIcon(":/icons/divide.png"), tr("&Divide boundary..."), this);
   boundarydivideAct->setShortcut(tr("Ctrl+D"));
   boundarydivideAct->setStatusTip(tr("Divide boundary by sharp edges"));
   connect(boundarydivideAct, SIGNAL(triggered()), this, SLOT(boundarydivideSlot()));
 
   // Mesh -> Unify boundary
-  boundaryunifyAct = new QAction(QIcon("./icons/unify.png"), tr("&Unify boundary..."), this);
+  boundaryunifyAct = new QAction(QIcon(":/icons/unify.png"), tr("&Unify boundary..."), this);
   boundaryunifyAct->setShortcut(tr("Ctrl+U"));
   boundaryunifyAct->setStatusTip(tr("Unify boundary (merge selected)"));
   connect(boundaryunifyAct, SIGNAL(triggered()), this, SLOT(boundaryunifySlot()));
@@ -218,7 +218,7 @@ void MainWindow::createActions()
   connect(resetAct, SIGNAL(triggered()), this, SLOT(resetSlot()));
 
   // Help -> About
-  aboutAct = new QAction(QIcon("./icons/info.png"), tr("&Info..."), this);
+  aboutAct = new QAction(QIcon(":/icons/info.png"), tr("&Info..."), this);
   // aboutAct->setShortcut(tr("Ctrl+A"));
   aboutAct->setStatusTip(tr("Information about the program"));
   connect(aboutAct, SIGNAL(triggered()), this, SLOT(showaboutSlot()));
