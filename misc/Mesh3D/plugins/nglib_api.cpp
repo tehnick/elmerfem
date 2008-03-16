@@ -176,5 +176,7 @@ mesh_t* NglibAPI::createElmerMeshStructure()
   // Compute normals for boundary elements:
   meshutils.findSurfaceElementNormals(mesh);
 
+  mesh->dim = 3;
+
   return mesh;
 }

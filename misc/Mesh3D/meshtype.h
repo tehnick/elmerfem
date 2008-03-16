@@ -58,6 +58,7 @@ class surface_t: public element_t {
 // mesh class
 class mesh_t {
  public:
+  int dim;                         // model dimension
   int nodes;                       // number of nodes
   node_t *node;                    // array of nodes
   int points;                      // number of point elements

@@ -1594,7 +1594,7 @@ void MainWindow::makeSteadyHeatSifSlot()
     return;
   }
   
-  int dim = determineDimension(glWidget->mesh);
+  int dim = glWidget->mesh->dim;
 
   if(dim < 1) {
     logMessage("Model dimension inconsistent with SIF syntax");
@@ -1689,8 +1689,8 @@ void MainWindow::makeLinElastSifSlot()
     return;
   }
   
-  int dim = determineDimension(glWidget->mesh);
-  
+  int dim = glWidget->mesh->dim;
+
   if(dim < 1) {
     logMessage("Model dimension inconsistent with SIF syntax");
     return;
@@ -1789,33 +1789,6 @@ void MainWindow::makeLinElastSifSlot()
   if(dim >= 3)
     BCtext.append("\n!  Displacement 3 = 0");
   makeSifBoundaryBlocks(BCtext);
-}
-
-
-
-// Determine the spatial dimension of the model...
-//-----------------------------------------------------------------------------
-int MainWindow::determineDimension(mesh_t *mesh)
-{
-  for(int i=0; i < mesh->elements; i++) {
-    element_t *e = &mesh->element[i];
-    if(e->nature == PDE_BULK) 
-      return 3;
-  }
-
-  for(int i=0; i < mesh->surfaces; i++) {
-    surface_t *s = &mesh->surface[i];
-    if(s->nature == PDE_BULK) 
-      return 2;
-  }
-
-  for(int i=0; i < mesh->edges; i++) {
-    edge_t *e = &mesh->edge[i];
-    if(e->nature == PDE_BULK) 
-      return 1;
-  }
-
-  return 0;
 }
 
 
