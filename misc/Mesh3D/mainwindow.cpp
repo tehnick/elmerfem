@@ -1607,94 +1607,9 @@ void MainWindow::makeSteadyHeatSifSlot()
   textEdit->append("  Stefan Boltzmann = 5.67e-08");
   textEdit->append("End\n");
 
-  // find out mesh domain ids:
-  // -------------------------
-  mesh_t *mesh = glWidget->mesh;
-  char str[1024];
-
-  int maxindex=0;
-  for( int i=0; i<mesh->elements; i++)
-  {
-    element_t *element=&mesh->element[i];
-    if ( element->nature==PDE_BULK && element->index > maxindex )
-      maxindex = element->index;
-  }
-
-  for( int i=0; i<mesh->surfaces; i++)
-  {
-    element_t *element=&mesh->surface[i];
-    if ( element->nature==PDE_BULK && element->index > maxindex )
-      maxindex = element->index;
-  }
-
-  for( int i=0; i<mesh->edges; i++)
-  {
-    element_t *element=&mesh->edge[i];
-    if ( element->nature==PDE_BULK && element->index > maxindex )
-      maxindex = element->index;
-  }
-
-  for( int i=0; i<mesh->points; i++)
-  {
-    element_t *element=&mesh->point[i];
-    if ( element->nature==PDE_BULK && element->index > maxindex )
-      maxindex = element->index;
-  }
-  maxindex++;
-
-  bool *body_tmp = new bool[maxindex];
-  int  *body_id  = new  int[maxindex];
-
-
-  for(int i=0; i<maxindex; i++) body_tmp[i] = false;
-
-  maxindex = 0;
-  for(int i=0; i <mesh->elements; i++) {
-    element_t *element = &mesh->element[i];
-    if(element->nature == PDE_BULK)
-      if ( !body_tmp[element->index] ) {
-        body_tmp[element->index] = true;
-        body_id[maxindex++] = element->index;
-      }
-  }
-  for(int i=0; i <mesh->surfaces; i++) {
-    element_t *element = &mesh->surface[i];
-    if(element->nature == PDE_BULK)
-      if ( !body_tmp[element->index] ) {
-        body_tmp[element->index] = true;
-        body_id[maxindex++] = element->index;
-      }
-  }
-  for(int i=0; i <mesh->edges; i++) {
-    element_t *element = &mesh->edge[i];
-    if(element->nature == PDE_BULK)
-      if ( !body_tmp[element->index] ) {
-        body_tmp[element->index] = true;
-        body_id[maxindex++] = element->index;
-      }
-  }
-  for(int i=0; i <mesh->points; i++) {
-    element_t *element = &mesh->point[i];
-    if(element->nature == PDE_BULK)
-      if ( !body_tmp[element->index] ) {
-        body_tmp[element->index] = true;
-        body_id[maxindex++] = element->index;
-      }
-  }
-
-  textEdit->append("Body 1");
-  textEdit->append("  Name = \"Body1\"");
-  sprintf( str, "  Target Bodies(%d) =", maxindex );
-  for( int i=0; i<maxindex; i++ ) {
-     sprintf( str, "%s %d", str, max(body_id[i],1) );
-  }
-  delete [] body_tmp; delete [] body_id;
-
-  textEdit->append(str);
-  textEdit->append("  Body Force = 1");
-  textEdit->append("  Equation = 1");
-  textEdit->append("  Material = 1");
-  textEdit->append("End\n");
+  // Body blocks:
+  //-------------
+  makeSifBodyBlocks();
 
   textEdit->append("Equation 1");
   textEdit->append("  Name = \"Heat equation\"");
@@ -1729,8 +1644,127 @@ void MainWindow::makeSteadyHeatSifSlot()
   textEdit->append("  Heat Source = 1");
   textEdit->append("End\n");
 
+  // BC-blocks:
+  //-----------
+  QString BCtext = "!  Temperature = 0\n!  Heat flux = 0";
+  makeSifBoundaryBlocks(BCtext);
+}
 
-  // Boundary condition blocks:
+
+
+// Make body blocks in SIF:
+//-----------------------------------------------------------------------------
+void MainWindow::makeSifBodyBlocks()
+{
+  mesh_t *mesh = glWidget->mesh;
+  QTextEdit *textEdit = sifWindow->textEdit;
+
+  // find out mesh domain ids:
+  // -------------------------
+  char str[1024];
+  int maxindex=-1;
+  for( int i=0; i<mesh->elements; i++)
+  {
+    element_t *element=&mesh->element[i];
+    if ( element->nature==PDE_BULK && element->index > maxindex )
+      maxindex = element->index;
+  }
+
+  for( int i=0; i<mesh->surfaces; i++)
+  {
+    element_t *element=&mesh->surface[i];
+    if ( element->nature==PDE_BULK && element->index > maxindex )
+      maxindex = element->index;
+  }
+
+  for( int i=0; i<mesh->edges; i++)
+  {
+    element_t *element=&mesh->edge[i];
+    if ( element->nature==PDE_BULK && element->index > maxindex )
+      maxindex = element->index;
+  }
+
+  for( int i=0; i<mesh->points; i++)
+  {
+    element_t *element=&mesh->point[i];
+    if ( element->nature==PDE_BULK && element->index > maxindex )
+      maxindex = element->index;
+  }
+  maxindex++;
+
+  if(maxindex == 0)
+    return;
+
+  bool *body_tmp = new bool[maxindex];
+  int  *body_id  = new  int[maxindex];
+
+  for(int i=0; i<maxindex; i++)
+    body_tmp[i] = false;
+
+  maxindex = 0;
+
+  for(int i=0; i <mesh->elements; i++) {
+    element_t *element = &mesh->element[i];
+
+    if(element->nature == PDE_BULK)
+      if ( !body_tmp[element->index] ) {
+        body_tmp[element->index] = true;
+        body_id[maxindex++] = element->index;
+      }
+  }
+
+  for(int i=0; i <mesh->surfaces; i++) {
+    element_t *element = &mesh->surface[i];
+    if(element->nature == PDE_BULK)
+      if ( !body_tmp[element->index] ) {
+        body_tmp[element->index] = true;
+        body_id[maxindex++] = element->index;
+      }
+  }
+
+  for(int i=0; i <mesh->edges; i++) {
+    element_t *element = &mesh->edge[i];
+    if(element->nature == PDE_BULK)
+      if ( !body_tmp[element->index] ) {
+        body_tmp[element->index] = true;
+        body_id[maxindex++] = element->index;
+      }
+  }
+
+  for(int i=0; i <mesh->points; i++) {
+    element_t *element = &mesh->point[i];
+    if(element->nature == PDE_BULK)
+      if ( !body_tmp[element->index] ) {
+        body_tmp[element->index] = true;
+        body_id[maxindex++] = element->index;
+      }
+  }
+
+  textEdit->append("Body 1");
+  textEdit->append("  Name = \"Body1\"");
+  sprintf( str, "  Target Bodies(%d) =", maxindex );
+  for( int i=0; i<maxindex; i++ ) 
+     sprintf( str, "%s %d", str, max(body_id[i],1) );
+
+  delete [] body_tmp;
+  delete [] body_id;
+
+  textEdit->append(str);
+  textEdit->append("  Body Force = 1");
+  textEdit->append("  Equation = 1");
+  textEdit->append("  Material = 1");
+  textEdit->append("End\n");
+}
+
+
+// Make boundary condition blocks in SIF:
+//-----------------------------------------------------------------------------
+void MainWindow::makeSifBoundaryBlocks(QString BCtext)
+{
+  mesh_t *mesh = glWidget->mesh;
+  QTextEdit *textEdit = sifWindow->textEdit;
+
+  int maxindex = -1;
   for(int i=0; i < mesh->surfaces; i++) {
     element_t *element = &mesh->surface[i];
     if((element->nature == PDE_BOUNDARY) && (element->index > maxindex))
@@ -1747,6 +1781,9 @@ void MainWindow::makeSteadyHeatSifSlot()
       maxindex = element->index;
   }
   maxindex++;
+
+  if(maxindex == 0)
+    return;
 
   bool *tmp = new bool[maxindex];
 
@@ -1767,20 +1804,20 @@ void MainWindow::makeSteadyHeatSifSlot()
     if( element->nature == PDE_BOUNDARY )
       tmp[element->index] = true;
   }
-  
+
   int j = 0;
   for(int i=1; i < maxindex; i++) {
     if(tmp[i]) {
       textEdit->append("Boundary condition " + QString::number(++j));
       textEdit->append("  Target boundaries(1) = " + QString::number(i));
-      textEdit->append("!  Temperature = 0");
-      textEdit->append("!  Heat flux = 0");
+      textEdit->append(BCtext);
       textEdit->append("End\n");
     }
   }
 
-  delete [] tmp;  
+  delete [] tmp;
 }
+
 
 
 // About dialog...
@@ -1791,14 +1828,13 @@ void MainWindow::showaboutSlot()
 		     tr("Mesh3D is a preprocessor for three dimensional "
 			"modeling with Elmer finite element software. "
 			"The program can use elmergrid, tetlib, and nglib, "
-			"as mesh generators:\n\n"
+			"as finite element mesh generators:\n\n"
 			"http://www.csc.fi/elmer/\n"
 			"http://tetgen.berlios.de/\n"
 			"http://www.hpfem.jku.at/netgen/\n\n"
 			"Written by Mikko Lyly, Juha Ruokolainen, and "
 			"Peter Råback, 2008"));
 }
-
 
 
 // Log message...

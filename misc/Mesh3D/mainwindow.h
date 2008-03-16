@@ -109,7 +109,10 @@ private:
   void saveElmerMesh(QString);
   void makeElmerMeshFromTetlib();
   void makeElmerMeshFromNglib();
-  void logMessage(QString);  
+  void logMessage(QString);
+  void makeSifBodyBlocks();
+  void makeSifBoundaryBlocks(QString);
+
 };
 
 #endif
