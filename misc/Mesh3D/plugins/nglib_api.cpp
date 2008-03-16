@@ -18,9 +18,9 @@ bool NglibAPI::loadNglib()
   cout << "Load nglib...";
 
 #ifdef WIN32
-  hNglib = LoadLibrary(TEXT("./libng.dll"));
+  hNglib = LoadLibrary(TEXT("libng.dll"));
 #else
-  hNglib = dlopen("./libng.so", RTLD_LAZY);  
+  hNglib = dlopen("libng.so", RTLD_LAZY);  
 #endif
   
   if(!hNglib) {

@@ -18,9 +18,9 @@ bool TetlibAPI::loadTetlib()
   cout << "Load tetlib...";
 
 #ifdef WIN32
-  hTetlib = LoadLibrary(TEXT("./libtet.dll"));
+  hTetlib = LoadLibrary(TEXT("libtet.dll"));
 #else
-  hTetlib = dlopen("./libtet.so", RTLD_LAZY);  
+  hTetlib = dlopen("libtet.so", RTLD_LAZY);  
 #endif
   
   if(!hTetlib) {
