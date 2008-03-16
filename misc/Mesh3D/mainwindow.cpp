@@ -400,6 +400,13 @@ void MainWindow::hideselectedSlot()
     return;
   }
 
+  bool surfaceedgelists_visible = false;
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];
+    if(l->type == SURFACEEDGELIST)
+      surfaceedgelists_visible |= l->visible;
+  } 
+  
   bool vis = false;
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
@@ -412,6 +419,8 @@ void MainWindow::hideselectedSlot()
       if(c >= 0) {
 	list_t *lc = &list[c];
 	lc->visible = l->visible;
+	if(!surfaceedgelists_visible)
+	  lc->visible = false;
       }
     }
   }
