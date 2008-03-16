@@ -140,15 +140,15 @@ void MainWindow::createActions()
   connect(openAct, SIGNAL(triggered()), this, SLOT(openSlot()));
   
   // File -> Load mesh
-  loadAct = new QAction(QIcon("./icons/reload.png"), tr("&Load..."), this);
-  loadAct->setShortcut(tr("Ctrl+L"));
-  loadAct->setStatusTip(tr("Load Elmer mesh files"));
+  loadAct = new QAction(QIcon("./icons/fileimport.png"), tr("&Import..."), this);
+  loadAct->setShortcut(tr("Ctrl+I"));
+  loadAct->setStatusTip(tr("Import Elmer mesh files"));
   connect(loadAct, SIGNAL(triggered()), this, SLOT(loadSlot()));
   
   // File -> Save file
-  saveAct = new QAction(QIcon("./icons/filesave.png"), tr("&Save..."), this);
-  saveAct->setShortcut(tr("Ctrl+S"));
-  saveAct->setStatusTip(tr("Save mesh"));
+  saveAct = new QAction(QIcon("./icons/fileexport.png"), tr("&Export..."), this);
+  saveAct->setShortcut(tr("Ctrl+E"));
+  saveAct->setStatusTip(tr("Export Elmer mesh files"));
   connect(saveAct, SIGNAL(triggered()), this, SLOT(saveSlot()));
 
   // File -> Exit
@@ -158,8 +158,8 @@ void MainWindow::createActions()
   connect(exitAct, SIGNAL(triggered()), this, SLOT(close()));
 
   // Edit -> Sif
-  showsifAct = new QAction(QIcon(), tr("&Sif..."), this);
-  showsifAct->setShortcut(tr("Ctrl+I"));
+  showsifAct = new QAction(QIcon("./icons/edit.png"), tr("&Sif..."), this);
+  showsifAct->setShortcut(tr("Ctrl+S"));
   showsifAct->setStatusTip(tr("Edit solver input file"));
   connect(showsifAct, SIGNAL(triggered()), this, SLOT(showsifSlot()));
 
@@ -169,13 +169,13 @@ void MainWindow::createActions()
   connect(steadyHeatSifAct, SIGNAL(triggered()), this, SLOT(makeSteadyHeatSifSlot()));
 
   // Mesh -> Control
-  meshcontrolAct = new QAction(QIcon(), tr("&Control..."), this);
-  meshcontrolAct->setShortcut(tr("Ctrl+M"));
-  meshcontrolAct->setStatusTip(tr("Mesh control"));
+  meshcontrolAct = new QAction(QIcon("./icons/configure.png"), tr("&Configure..."), this);
+  meshcontrolAct->setShortcut(tr("Ctrl+C"));
+  meshcontrolAct->setStatusTip(tr("Configure mesh generators"));
   connect(meshcontrolAct, SIGNAL(triggered()), this, SLOT(meshcontrolSlot()));
 
   // Mesh -> Remesh
-  remeshAct = new QAction(QIcon(), tr("&Remesh..."), this);
+  remeshAct = new QAction(QIcon("./icons/redo.png"), tr("&Remesh..."), this);
   remeshAct->setShortcut(tr("Ctrl+R"));
   remeshAct->setStatusTip(tr("Remesh"));
   connect(remeshAct, SIGNAL(triggered()), this, SLOT(remeshSlot()));
@@ -218,9 +218,9 @@ void MainWindow::createActions()
   connect(resetAct, SIGNAL(triggered()), this, SLOT(resetSlot()));
 
   // Help -> About
-  aboutAct = new QAction(QIcon(), tr("&About..."), this);
-  aboutAct->setShortcut(tr("Ctrl+A"));
-  aboutAct->setStatusTip(tr("About the program"));
+  aboutAct = new QAction(QIcon("./icons/info.png"), tr("&Info..."), this);
+  // aboutAct->setShortcut(tr("Ctrl+A"));
+  aboutAct->setStatusTip(tr("Information about the program"));
   connect(aboutAct, SIGNAL(triggered()), this, SLOT(showaboutSlot()));
 }
 
@@ -1787,14 +1787,14 @@ void MainWindow::makeSteadyHeatSifSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::showaboutSlot()
 {
-  QMessageBox::about(this, tr("About Mesh3D"),
+  QMessageBox::about(this, tr("Information about Mesh3D"),
 		     tr("Mesh3D is a preprocessor for three dimensional "
 			"modeling with Elmer finite element software. "
-			"The program can use tetlib and nglib as tetrahedral "
-			"Delaunay mesh generators:\n\n"
+			"The program can use elmergrid, tetlib, and nglib, "
+			"as mesh generators:\n\n"
+			"http://www.csc.fi/elmer/\n"
 			"http://tetgen.berlios.de/\n"
-			"http://www.hpfem.jku.at/netgen/\n"
-			"http://www.csc.fi/elmer/\n\n"
+			"http://www.hpfem.jku.at/netgen/\n\n"
 			"Written by Mikko Lyly, Juha Ruokolainen, and "
 			"Peter Råback, 2008"));
 }
