@@ -181,13 +181,13 @@ void MainWindow::createActions()
   connect(remeshAct, SIGNAL(triggered()), this, SLOT(remeshSlot()));
 
   // Mesh -> Divide boundary
-  boundarydivideAct = new QAction(QIcon(), tr("&Divide boundary..."), this);
+  boundarydivideAct = new QAction(QIcon("./icons/divide.png"), tr("&Divide boundary..."), this);
   boundarydivideAct->setShortcut(tr("Ctrl+D"));
   boundarydivideAct->setStatusTip(tr("Divide boundary by sharp edges"));
   connect(boundarydivideAct, SIGNAL(triggered()), this, SLOT(boundarydivideSlot()));
 
   // Mesh -> Unify boundary
-  boundaryunifyAct = new QAction(QIcon(), tr("&Unify boundary..."), this);
+  boundaryunifyAct = new QAction(QIcon("./icons/unify.png"), tr("&Unify boundary..."), this);
   boundaryunifyAct->setShortcut(tr("Ctrl+U"));
   boundaryunifyAct->setStatusTip(tr("Unify boundary (merge selected)"));
   connect(boundaryunifyAct, SIGNAL(triggered()), this, SLOT(boundaryunifySlot()));

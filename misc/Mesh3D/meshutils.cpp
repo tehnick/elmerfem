@@ -1,4 +1,5 @@
 #include <iostream>
+#include <stdlib.h>
 #include <math.h>
 #include "meshutils.h"
 using namespace std;
