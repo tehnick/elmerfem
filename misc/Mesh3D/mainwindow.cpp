@@ -1616,12 +1616,7 @@ void MainWindow::makeSteadyHeatSifSlot()
   
   te->append("Simulation");
   te->append("  Max Output Level = 4");
-  if(cdim == 3)
-    te->append("  Coordinate System = \"Cartesian 3D\"");
-  if(cdim == 2)
-    te->append("  Coordinate System = \"Cartesian 2D\"");
-  if(cdim == 1)
-    te->append("  Coordinate System = \"Cartesian 1D\"");
+  te->append("  Coordinate System = \"Cartesian\"");
   te->append("  Coordinate Mapping(3) = 1 2 3");
   te->append("  Simulation Type = \"Steady State\"");
   te->append("  Steady State Max Iterations = 1");
@@ -1711,12 +1706,7 @@ void MainWindow::makeLinElastSifSlot()
   
   te->append("Simulation");
   te->append("  Max Output Level = 4");
-  if(cdim == 3)
-    te->append("  Coordinate System = \"Cartesian 3D\"");
-  if(cdim == 2)
-    te->append("  Coordinate System = \"Cartesian 2D\"");
-  if(cdim == 1)
-    te->append("  Coordinate System = \"Cartesian 1D\"");
+  te->append("  Coordinate System = \"Cartesian\"");
   te->append("  Coordinate Mapping(3) = 1 2 3");
   te->append("  Simulation Type = \"Steady State\"");
   te->append("  Steady State Max Iterations = 1");
@@ -1744,11 +1734,11 @@ void MainWindow::makeLinElastSifSlot()
   te->append("  Equation = \"Elasticity analysis\"");
   te->append("  Procedure = \"StressSolve\" \"StressSolver\"");
   te->append("  Variable = \"Displacement\"");
-  if(dim == 3)
+  if(cdim == 3)
     te->append("  Variable Dofs = 3");
-  if(dim == 2)
+  if(cdim == 2)
     te->append("  Variable Dofs = 2");
-  if(dim == 1)
+  if(cdim == 1)
     te->append("  Variable Dofs = 1");
   te->append("  Linear System Solver = \"Iterative\"");
   te->append("  Linear System Iterative Method = \"BiCGStab\"");
@@ -1771,22 +1761,22 @@ void MainWindow::makeLinElastSifSlot()
 
   te->append("Body Force 1");
   te->append("  Name = \"BodyForce1\"");
-  if(dim >= 1) 
+  if(cdim >= 1) 
     te->append("  Stress BodyForce 1 = 1");
-  if(dim >= 2) 
+  if(cdim >= 2) 
     te->append("  Stress BodyForce 2 = 0");
-  if(dim >= 3) 
+  if(cdim >= 3) 
     te->append("  Stress BodyForce 3 = 0");
   te->append("End\n");
 
   // BC-blocks:
   //-----------
   QString BCtext = "";
-  if(dim >= 1)
+  if(cdim >= 1)
     BCtext.append("!  Displacement 1 = 0");
-  if(dim >= 2)
+  if(cdim >= 2)
     BCtext.append("\n!  Displacement 2 = 0");
-  if(dim >= 3)
+  if(cdim >= 3)
     BCtext.append("\n!  Displacement 3 = 0");
   makeSifBoundaryBlocks(BCtext);
 }

@@ -815,8 +815,6 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
   elemdim =  mesh->dim = GetMaxElementDimension(dat);
   printf("Setting elements of %ddim\n",elemdim); 
 
-  
-  mesh->dim = MAX(data->dim, elemdim);
   mesh->nodes = dat->noknots;
   mesh->node = new node_t[mesh->nodes];
   
