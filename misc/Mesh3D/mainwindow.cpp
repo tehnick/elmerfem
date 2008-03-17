@@ -522,6 +522,7 @@ void MainWindow::showallSlot()
 }
 
 
+
 // Mesh -> Reset model view...
 //-----------------------------------------------------------------------------
 void MainWindow::resetSlot()
@@ -1461,6 +1462,9 @@ void MainWindow::boundarySelectedSlot(list_t *l)
   }
 
   statusBar()->showMessage(qs);    
+
+  glWidget->stateDrawSelected = true;
+  hideselectedAct->setIcon(QIcon(":/icons/dialog-ok.png"));
   
   // Find the boundary condition block in sif:
   if(l->nature == PDE_BOUNDARY) {
