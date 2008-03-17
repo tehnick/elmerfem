@@ -611,7 +611,7 @@ GLuint GLWidget::makeLists()
       l->child = -1;
       l->parent = current_index-2;
       l->selected = false;
-      l->visible = true;
+      l->visible = stateDrawSurfaceMesh;
     }
   }
   
@@ -641,7 +641,7 @@ GLuint GLWidget::makeLists()
   l->child = -1;
   l->parent = -1;
   l->selected = false;
-  l->visible = true;
+  l->visible = stateDrawSharpEdges;
 
   delete [] surface_tmp;
   delete [] edge_tmp;

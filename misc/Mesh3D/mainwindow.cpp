@@ -238,16 +238,16 @@ void MainWindow::createActions()
   if(glWidget->stateDrawSelected)
     hideselectedAct->setIcon(QIcon(":/icons/dialog-ok.png"));
 
-  // Mesh -> shade model -> Flat
-  flatShadeAct = new QAction(QIcon(), tr("Flat shade..."), this);
-  flatShadeAct->setStatusTip(tr("Set shading model to flat"));
+  // Mesh -> Shade model -> Flat
+  flatShadeAct = new QAction(QIcon(), tr("Flat shade"), this);
+  flatShadeAct->setStatusTip(tr("Set shade model to flat"));
   connect(flatShadeAct, SIGNAL(triggered()), this, SLOT(flatShadeSlot()));
   if(glWidget->stateFlatShade)
     flatShadeAct->setIcon(QIcon(":/icons/dialog-ok.png"));
 
-  // Mesh -> shade model -> Smooth
-  smoothShadeAct = new QAction(QIcon(), tr("Smooth shade..."), this);
-  smoothShadeAct->setStatusTip(tr("Set shading model to smooth"));
+  // Mesh -> Shade model -> Smooth
+  smoothShadeAct = new QAction(QIcon(), tr("Smooth shade"), this);
+  smoothShadeAct->setStatusTip(tr("Set shade model to smooth"));
   connect(smoothShadeAct, SIGNAL(triggered()), this, SLOT(smoothShadeSlot()));
   if(!glWidget->stateFlatShade)
     smoothShadeAct->setIcon(QIcon(":/icons/dialog-ok.png"));
@@ -550,16 +550,16 @@ void MainWindow::resetSlot()
   glWidget->rebuildLists();
   glWidget->updateGL();
 
-  logMessage("Model reset");
+  logMessage("Reset model view");
 }
 
 
-// Mesh -> Shading model -> Flat
+// Mesh -> Shade model... -> Flat
 //-----------------------------------------------------------------------------
 void MainWindow::flatShadeSlot()
 {
   if(glWidget->mesh == NULL) {
-    logMessage("Unable to change shading model when mesh is empty");
+    logMessage("Refusing to change shade model when mesh is empty");
     return;
   }
 
@@ -573,12 +573,12 @@ void MainWindow::flatShadeSlot()
 }
 
 
-// Mesh -> Shading model -> Smooth
+// Mesh -> Shade model... -> Smooth
 //-----------------------------------------------------------------------------
 void MainWindow::smoothShadeSlot()
 {
   if(glWidget->mesh == NULL) {
-    logMessage("Unable to change shading model when mesh is empty");
+    logMessage("Refusing to change shade model when mesh is empty");
     return;
   }
 
