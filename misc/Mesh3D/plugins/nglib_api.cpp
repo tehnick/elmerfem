@@ -177,6 +177,7 @@ mesh_t* NglibAPI::createElmerMeshStructure()
   meshutils.findSurfaceElementNormals(mesh);
 
   mesh->dim = 3;
+  mesh->cdim = 3;
 
   return mesh;
 }

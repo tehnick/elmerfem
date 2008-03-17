@@ -185,6 +185,7 @@ mesh_t* TetlibAPI::createElmerMeshStructure()
   mesh->point == NULL;
   
   mesh->dim = 3;
+  mesh->cdim = 3;
 
   return mesh;
 }

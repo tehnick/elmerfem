@@ -25,6 +25,8 @@ GLWidget::GLWidget(QWidget *parent)
 
   helpers = new Helpers;
   meshutils = new Meshutils;
+
+  ctrlPressed = false;
 }
 
 
