@@ -8,6 +8,7 @@ DEPENDPATH += . forms plugins
 INCLUDEPATH += . plugins
 
 QT += opengl
+RC_FILE += Mesh3D.rc
 
 # Input
 HEADERS += boundarydivision.h \

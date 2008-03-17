@@ -108,7 +108,7 @@ void MainWindow::createMenus()
   meshMenu->addAction(hidesharpedgesAct);
   meshMenu->addAction(hideselectedAct);
   meshMenu->addSeparator();
-  shadeMenu = meshMenu->addMenu(tr("Shade model..."));
+  shadeMenu = meshMenu->addMenu(tr("Shade model"));
   shadeMenu->addAction(flatShadeAct);
   shadeMenu->addAction(smoothShadeAct);
   meshMenu->addSeparator();
@@ -183,13 +183,13 @@ void MainWindow::createActions()
   showsifAct->setStatusTip(tr("Edit solver input file"));
   connect(showsifAct, SIGNAL(triggered()), this, SLOT(showsifSlot()));
 
-  // Edit -> Steady heat conduntion...
-  steadyHeatSifAct = new QAction(QIcon(), tr("Heat conduction..."), this);
+  // Edit -> Steady heat conduntion
+  steadyHeatSifAct = new QAction(QIcon(), tr("Heat conduction"), this);
   steadyHeatSifAct->setStatusTip(tr("Sif skeleton for steady heat conduction"));
   connect(steadyHeatSifAct, SIGNAL(triggered()), this, SLOT(makeSteadyHeatSifSlot()));
 
-  // Edit -> Linear elasticity...
-  linElastSifAct = new QAction(QIcon(), tr("Linear elasticity..."), this);
+  // Edit -> Linear elasticity
+  linElastSifAct = new QAction(QIcon(), tr("Linear elasticity"), this);
   linElastSifAct->setStatusTip(tr("Sif skeleton for linear elasticity"));
   connect(linElastSifAct, SIGNAL(triggered()), this, SLOT(makeLinElastSifSlot()));
 
@@ -200,7 +200,7 @@ void MainWindow::createActions()
   connect(meshcontrolAct, SIGNAL(triggered()), this, SLOT(meshcontrolSlot()));
 
   // Mesh -> Remesh
-  remeshAct = new QAction(QIcon(":/icons/edit-redo.png"), tr("&Remesh..."), this);
+  remeshAct = new QAction(QIcon(":/icons/edit-redo.png"), tr("&Remesh"), this);
   remeshAct->setShortcut(tr("Ctrl+R"));
   remeshAct->setStatusTip(tr("Remesh"));
   connect(remeshAct, SIGNAL(triggered()), this, SLOT(remeshSlot()));
@@ -212,27 +212,27 @@ void MainWindow::createActions()
   connect(boundarydivideAct, SIGNAL(triggered()), this, SLOT(boundarydivideSlot()));
 
   // Mesh -> Unify boundary
-  boundaryunifyAct = new QAction(QIcon(":/icons/unify.png"), tr("&Unify boundary..."), this);
+  boundaryunifyAct = new QAction(QIcon(":/icons/unify.png"), tr("&Unify boundary"), this);
   boundaryunifyAct->setShortcut(tr("Ctrl+U"));
   boundaryunifyAct->setStatusTip(tr("Unify boundary (merge selected)"));
   connect(boundaryunifyAct, SIGNAL(triggered()), this, SLOT(boundaryunifySlot()));
 
   // Mesh -> Show surface mesh
-  hidesurfacemeshAct = new QAction(QIcon(), tr("Show surface mesh..."), this);
+  hidesurfacemeshAct = new QAction(QIcon(), tr("Show surface mesh"), this);
   hidesurfacemeshAct->setStatusTip(tr("Show/hide surface mesh (do/do not outline surface elements)"));
   connect(hidesurfacemeshAct, SIGNAL(triggered()), this, SLOT(hidesurfacemeshSlot()));
   if(glWidget->stateDrawSurfaceMesh)
     hidesurfacemeshAct->setIcon(QIcon(":/icons/dialog-ok.png"));
 
   // Mesh -> Show sharp edges
-  hidesharpedgesAct = new QAction(QIcon(), tr("Show sharp edges..."), this);
+  hidesharpedgesAct = new QAction(QIcon(), tr("Show sharp edges"), this);
   hidesharpedgesAct->setStatusTip(tr("Show/hide sharp edges"));
   connect(hidesharpedgesAct, SIGNAL(triggered()), this, SLOT(hidesharpedgesSlot()));
   if(glWidget->stateDrawSharpEdges)
     hidesharpedgesAct->setIcon(QIcon(":/icons/dialog-ok.png"));
 
   // Mesh -> Show selected
-  hideselectedAct = new QAction(QIcon(), tr("&Show selected..."), this);
+  hideselectedAct = new QAction(QIcon(), tr("&Show selected"), this);
   hideselectedAct->setStatusTip(tr("Show/hide selected objects"));
   connect(hideselectedAct, SIGNAL(triggered()), this, SLOT(hideselectedSlot()));
   if(glWidget->stateDrawSelected)
@@ -253,17 +253,17 @@ void MainWindow::createActions()
     smoothShadeAct->setIcon(QIcon(":/icons/dialog-ok.png"));
 
   // Mesh -> Show all
-  showallAct = new QAction(QIcon(), tr("Show all..."), this);
-  showallAct->setStatusTip(tr("Show all boundaries"));
+  showallAct = new QAction(QIcon(), tr("Show all"), this);
+  showallAct->setStatusTip(tr("Show all objects"));
   connect(showallAct, SIGNAL(triggered()), this, SLOT(showallSlot()));
 
   // Mesh -> Reset
-  resetAct = new QAction(QIcon(), tr("Reset model view..."), this);
-  resetAct->setStatusTip(tr("Reset model"));
+  resetAct = new QAction(QIcon(), tr("Reset model view"), this);
+  resetAct->setStatusTip(tr("Reset model view"));
   connect(resetAct, SIGNAL(triggered()), this, SLOT(resetSlot()));
 
   // Help -> About
-  aboutAct = new QAction(QIcon(":/icons/help-about.png"), tr("Info..."), this);
+  aboutAct = new QAction(QIcon(":/icons/help-about.png"), tr("About..."), this);
   aboutAct->setStatusTip(tr("Information about the program"));
   connect(aboutAct, SIGNAL(triggered()), this, SLOT(showaboutSlot()));
 }
