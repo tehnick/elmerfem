@@ -812,7 +812,7 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
     return(1);
   }
   
-  elemdim =  GetMaxElementDimension(dat);
+  elemdim =  mesh->dim = GetMaxElementDimension(dat);
   printf("Setting elements of %ddim\n",elemdim); 
 
   
@@ -1366,9 +1366,9 @@ int eg_transfermesh(mesh_t *mesh,const char *str)
   
   if(info) printf("\nElmerGrid manipulating and importing data\n");
 
-  mesh->nodes = 0;
+  mesh->nodes  = 0;
   mesh->points = 0;
-  mesh->edges = 0;
+  mesh->edges  = 0;
   mesh->surfaces = 0;
   mesh->elements = 0;
 
@@ -1392,6 +1392,7 @@ int eg_transfermesh(mesh_t *mesh,const char *str)
   ManipulateMeshDefinition(inmethod,outmethod,eg.relh);
 
   errorstat = ConvertEgTypeToMeshType(&data[activemesh],boundaries[activemesh],mesh);
+
   if(info) printf("Done converting mesh\n");
 
   return(errorstat);

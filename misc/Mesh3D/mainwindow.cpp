@@ -1594,7 +1594,7 @@ void MainWindow::makeSteadyHeatSifSlot()
     return;
   }
   
-  int dim = glWidget->mesh->dim;
+  int dim = glWidget->mesh->dim, cdim = glWidget->mesh->cdim;
 
   if(dim < 1) {
     logMessage("Model dimension inconsistent with SIF syntax");
@@ -1616,11 +1616,11 @@ void MainWindow::makeSteadyHeatSifSlot()
   
   te->append("Simulation");
   te->append("  Max Output Level = 4");
-  if(dim == 3)
+  if(cdim == 3)
     te->append("  Coordinate System = \"Cartesian 3D\"");
-  if(dim == 2)
+  if(cdim == 2)
     te->append("  Coordinate System = \"Cartesian 2D\"");
-  if(dim == 1)
+  if(cdim == 1)
     te->append("  Coordinate System = \"Cartesian 1D\"");
   te->append("  Coordinate Mapping(3) = 1 2 3");
   te->append("  Simulation Type = \"Steady State\"");
@@ -1689,7 +1689,7 @@ void MainWindow::makeLinElastSifSlot()
     return;
   }
   
-  int dim = glWidget->mesh->dim;
+  int dim = glWidget->mesh->dim, cdim = glWidget->mesh->cdim;
 
   if(dim < 1) {
     logMessage("Model dimension inconsistent with SIF syntax");
@@ -1711,11 +1711,11 @@ void MainWindow::makeLinElastSifSlot()
   
   te->append("Simulation");
   te->append("  Max Output Level = 4");
-  if(dim == 3)
+  if(cdim == 3)
     te->append("  Coordinate System = \"Cartesian 3D\"");
-  if(dim == 2)
+  if(cdim == 2)
     te->append("  Coordinate System = \"Cartesian 2D\"");
-  if(dim == 1)
+  if(cdim == 1)
     te->append("  Coordinate System = \"Cartesian 1D\"");
   te->append("  Coordinate Mapping(3) = 1 2 3");
   te->append("  Simulation Type = \"Steady State\"");
