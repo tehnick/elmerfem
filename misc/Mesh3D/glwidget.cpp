@@ -117,7 +117,7 @@ void GLWidget::initializeGL()
   static GLfloat light_ambient[]  = {0.2, 0.2, 0.2, 1.0};
   static GLfloat light_diffuse[]  = {0.6, 0.6, 0.6, 1.0};
   static GLfloat light_specular[] = {1.0, 1.0, 1.0, 1.0};
-  static GLfloat light_position[] = {1.0,-5.0, 2.0, 0.0};
+  static GLfloat light_position[] = {0.0, 0.0,-5.0, 0.0};
 
   static GLfloat mat_ambient[]    = {0.2, 0.2, 0.2, 1.0};
   static GLfloat mat_diffuse[]    = {0.6, 0.6, 0.6, 1.0};
@@ -142,7 +142,7 @@ void GLWidget::initializeGL()
   glMaterialfv(GL_FRONT_AND_BACK, GL_SHININESS, high_shininess);
   glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE);
   glEnable(GL_COLOR_MATERIAL);
-  
+
   glEnable(GL_DEPTH_TEST);
   glDepthFunc(GL_LESS);
   glDepthRange(-10.0, 10.0);
@@ -218,7 +218,7 @@ void GLWidget::resizeGL(int width, int height)
   glViewport(0, 0, width, height);
   glMatrixMode(GL_PROJECTION);
   glLoadIdentity();
-  glOrtho(left, right, top, bottom, _near, _far);
+  glOrtho(left, right, bottom, top, _near, _far);
   glMatrixMode(GL_MODELVIEW);
 }
 
@@ -272,6 +272,8 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
 
   int dx = event->x() - lastPos.x();
   int dy = event->y() - lastPos.y();
+
+  dy = -dy;
   
   if (event->buttons() & Qt::LeftButton) {
     
