@@ -66,9 +66,17 @@ double* Meshutils::boundingBox(mesh_t *mesh)
     s = zlen;
   
   s *= 1.1;
-  
+
+  bool sx = xmin==xmax;
+  bool sy = ymin==ymax;
+  bool sz = zmin==zmax;
+  mesh->cdim = 3;
+  if ( sz && sy || sz && sx || sx && sy )
+    mesh->cdim=1;
+  else if ( sz || sy || sx)
+    mesh->cdim=2;
+
   double *result = new double[10];
-  bool sx, sy, sz;
 
   result[0] = xmin;
   result[1] = xmax;
@@ -82,15 +90,6 @@ double* Meshutils::boundingBox(mesh_t *mesh)
   result[8] = zmid;
 
   result[9] = s;
-
-  sx = xmin==xmax;
-  sy = ymin==ymax;
-  sz = zmin==zmax;
-  mesh->cdim = 3;
-  if ( sz && sy || sz && sx || sx && sy )
-    mesh->cdim=1;
-  else if ( sz || sy || sx)
-    mesh->cdim = 2;
 
   return result;
 }
@@ -348,24 +347,16 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
       
       if(!found) {
         h->node = n;
-        h->surfaces = 1;
-        h->surface = new int[1];
-        h->surface[0] = i;
-        h->index = edge->index;
+        h->surfaces = edge->surfaces;
+        h->surface = new int[edge->surfaces];
+        for( int j=0; j<edge->surfaces; j++ ) {
+          h->surface[j] = edge->surface[j];
+        }
+        h->index  = edge->index;
         h->nature = edge->nature;
         h->next = new hashEntry;
         h = h->next;
         RESETENTRY;
-      } else {
-        int *tmp  = new int[h->surfaces];
-        for(int j=0; j<h->surfaces; j++)
-          tmp[j] = h->surface[j];
-        delete [] h->surface;
-        h->surface = new int[h->surfaces+1];
-        for(int j=0; j<h->surfaces; j++)
-           h->surface[j] = tmp[j];
-        h->surface[h->surfaces++] = i;
-        delete [] tmp;
       }
     }
 
@@ -376,6 +367,7 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
 
   static int triedgemap[][2] = {{0,1}, {1,2}, {2,0}};
   static int quadedgemap[][2] = {{0,1}, {1,2}, {2,3}, {3,0}};
+
   
   for(int i=0; i < mesh->surfaces; i++) {
     surface_t *s = &mesh->surface[i];
@@ -420,13 +412,23 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
 	RESETENTRY;
       } else {
         int *tmp  = new int[h->surfaces];
+
+        found = false;
         for(int j=0; j<h->surfaces; j++)
+        {
           tmp[j] = h->surface[j];
-        delete [] h->surface;
-        h->surface = new int[h->surfaces+1];
-        for(int j=0; j<h->surfaces; j++)
-           h->surface[j] = tmp[j];
-        h->surface[h->surfaces++] = i;
+          if ( tmp[j] == i ) found=true; 
+        }
+        if ( found ) {
+          delete [] tmp;
+        } else {
+          delete [] h->surface;
+          h->surface = new int[h->surfaces+1];
+          for(int j=0; j<h->surfaces; j++)
+             h->surface[j] = tmp[j];
+          h->surface[h->surfaces++] = i;
+          delete [] tmp;
+        }
       }
     }
   }
@@ -460,7 +462,9 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
       e->node[1] = h->node;
 
       e->surfaces = h->surfaces;
-      e->surface = new int[e->surfaces];
+      e->surface = new int[max(e->surfaces,2)];
+      e->surface[0] = -1;
+      e->surface[1] = -1;
 
       for(int j=0; j < e->surfaces; j++) {
 	e->surface[j] = h->surface[j];
