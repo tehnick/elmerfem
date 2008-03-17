@@ -297,7 +297,6 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
 #define UNKNOWN -1
 
 #define RESETENTRY              \
-    h->node = UNKNOWN;          \
     h->surfaces = 0;            \
     h->surface = NULL;          \
     h->next = NULL;
@@ -306,7 +305,8 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
 
   class hashEntry {
   public:
-    int node;
+    int nodes;
+    int *node;
     int nature;
     int index;
     int surfaces;
@@ -338,7 +338,7 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
       h = &hash[m];
       found = false;
       while(h->next) {                                       
-        if(h->node == n) {
+        if(h->node[0] == n) {
           found = true;
           break;
         }
@@ -346,7 +346,13 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
       }                                                      
       
       if(!found) {
-        h->node = n;
+        h->nodes = edge->nodes-1;
+        h->node = new int[h->nodes];
+        h->node[0] = n;
+        for( int j=1; j<h->nodes; j++ )
+        {
+          h->node[j] = edge->node[j+1];
+        }
         h->surfaces = edge->surfaces;
         h->surface = new int[edge->surfaces];
         for( int j=0; j<edge->surfaces; j++ ) {
@@ -365,8 +371,8 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
   }
 
 
-  static int triedgemap[][2] = {{0,1}, {1,2}, {2,0}};
-  static int quadedgemap[][2] = {{0,1}, {1,2}, {2,3}, {3,0}};
+  static int triedgemap[][4] = { {0,1,3,6}, {1,2,4,7}, {2,0,5,8} };
+  static int quadedgemap[][4] = {{0,1,4,8}, {1,2,5,9}, {2,3,6,10}, {3,0,7,11}};
 
   
   for(int i=0; i < mesh->surfaces; i++) {
@@ -374,14 +380,17 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
     
     // loop over edges
     for(int e=0; e < s->edges; e++) {
-
-      int n0, n1;
+      int n0, n1,nrest[2] = { -1,-1 };
       if((int)(s->code/100) == 3) {
 	n0 = s->node[triedgemap[e][0]];
 	n1 = s->node[triedgemap[e][1]];
+	if ( s->code>=306) nrest[0] = s->node[triedgemap[e][2]];
+	if ( s->code>=309) nrest[1] = s->node[triedgemap[e][3]];
       } else if((int)(s->code/100) == 4) {
 	n0 = s->node[quadedgemap[e][0]];
 	n1 = s->node[quadedgemap[e][1]];
+	if ( s->code>=408) nrest[0] = s->node[triedgemap[e][2]];
+	if ( s->code>=412) nrest[1] = s->node[triedgemap[e][3]];
       } else {
 	cout << "findBoundaryElementEdges: error: unknown element code" << endl;
 	exit(0);
@@ -393,7 +402,7 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
       h = &hash[m];
       found = false;
       while(h->next) {                                       
-	if(h->node == n) {
+	if(h->node[0] == n) {
 	  found = true;
 	  break;
 	}
@@ -401,7 +410,14 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
       }                                                      
       
       if(!found) {
-	h->node = n;
+        h->nodes = 1;
+        h->nodes += nrest[0] >=0 ? 0:1;
+        h->nodes += nrest[1] >=0 ? 0:1;
+        h->node = new int[h->nodes];
+        h->node[0] = n;
+        for( int j=1; j<h->nodes; j++ )
+          h->node[j] = nrest[j-1];
+
 	h->surfaces = 1;
 	h->surface = new int[1];
 	h->surface[0] = i;
@@ -454,12 +470,13 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
       edge_t *e = &mesh->edge[edges++];
       
       e->nature = h->nature;
-      e->code = 202;
-      e->nodes = 2;
-      e->node = new int[2];
-
+      e->nodes = h->nodes+1;
+      e->node = new int[e->nodes];
       e->node[0] = i;
-      e->node[1] = h->node;
+      for( int j=1; j<e->nodes; j++ )
+        e->node[j] = h->node[j-1];
+
+      e->code = 200 + e->nodes;
 
       e->surfaces = h->surfaces;
       e->surface = new int[max(e->surfaces,2)];
