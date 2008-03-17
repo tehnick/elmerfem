@@ -813,8 +813,10 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
   }
   
   elemdim =  GetMaxElementDimension(dat);
-  printf("Setting elements in %ddim\n",elemdim); 
+  printf("Setting elements of %ddim\n",elemdim); 
+
   
+  mesh->dim = MAX(data->dim, elemdim);
   mesh->nodes = dat->noknots;
   mesh->node = new node_t[mesh->nodes];
   
@@ -934,12 +936,10 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
 	b->node[j] = dat->topology[i+1][j]-1;
       b->index = dat->material[i+1];
 
-#if 0
       b->edges = b->nodes;
       b->edge = new int[b->edges];
       for(k=0;k<b->edges;k++)
 	b->edge[k] = -1;	
-#endif
     }
 
     allocated = FALSE;
