@@ -158,7 +158,7 @@ void MainWindow::createActions()
   exitAct = new QAction(QIcon(":/icons/application-exit.png"), tr("E&xit"), this);
   exitAct->setShortcut(tr("Alt+X"));
   exitAct->setStatusTip(tr("Exit"));
-  connect(exitAct, SIGNAL(triggered()), this, SLOT(close()));
+  connect(exitAct, SIGNAL(triggered()), this, SLOT(closeMainWindowSlot()));
 
   // Edit -> Sif
   showsifAct = new QAction(QIcon(":/icons/document-properties.png"), tr("&Solver input file..."), this);
@@ -236,6 +236,16 @@ void MainWindow::createActions()
   connect(aboutAct, SIGNAL(triggered()), this, SLOT(showaboutSlot()));
 }
 
+
+// Close mainwindow...
+//-----------------------------------------------------------------------------
+void MainWindow::closeMainWindowSlot()
+{
+  sifWindow->close();
+  meshControl->close();
+  boundaryDivide->close();
+  close();
+}
 
 
 // Mesh -> Control...

@@ -673,6 +673,8 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
   return index;
 }
 
+
+
 // Find boundary element normals...
 //-----------------------------------------------------------------------------
 void Meshutils::findSurfaceElementNormals(mesh_t *mesh)

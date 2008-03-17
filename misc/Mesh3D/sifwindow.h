@@ -3,8 +3,9 @@
 
 #include <QWidget>
 
-class QPushButton;
 class QTextEdit;
+class QPushButton;
+class QMenu;
 
 class SifWindow : public QWidget
 {
@@ -25,6 +26,7 @@ private slots:
 private:
   QPushButton *closeButton;
   QPushButton *clearButton;
+
 };
 
 #endif

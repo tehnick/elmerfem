@@ -43,6 +43,8 @@ private slots:
   void shadeSlot();               // Mesh -> Reset...
   void showaboutSlot();           // Help -> About...
 
+  void closeMainWindowSlot();     // Close MainWindow
+
   void meshOkSlot();              // signal emitted by meshingThread
   void boundarySelectedSlot(list_t*); // signal emitted by glWidget
   void doDivisionSlot(double);    // signal emitted by boundaryDivide

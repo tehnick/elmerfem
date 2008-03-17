@@ -45,7 +45,7 @@
 SifWindow::SifWindow(QWidget *parent)
   : QWidget(parent)
 {
-  setWindowFlags(Qt::Drawer);
+  setWindowFlags(Qt::Window);
 
   textEdit = new QTextEdit;
   textEdit->setLineWrapMode(QTextEdit::NoWrap);
