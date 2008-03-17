@@ -1,3 +1,43 @@
+/*****************************************************************************
+ *                                                                           *
+ *  Elmer, A Finite Element Software for Multiphysical Problems              *
+ *                                                                           *
+ *  Copyright 1st April 1995 - , CSC - Scientific Computing Ltd., Finland    *
+ *                                                                           *
+ *  This program is free software; you can redistribute it and/or            *
+ *  modify it under the terms of the GNU General Public License              *
+ *  as published by the Free Software Foundation; either version 2           *
+ *  of the License, or (at your option) any later version.                   *
+ *                                                                           *
+ *  This program is distributed in the hope that it will be useful,          *
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of           *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the            *
+ *  GNU General Public License for more details.                             *
+ *                                                                           *
+ *  You should have received a copy of the GNU General Public License        *
+ *  along with this program (in file fem/GPL-2); if not, write to the        *
+ *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,         *
+ *  Boston, MA 02110-1301, USA.                                              *
+ *                                                                           *
+ *****************************************************************************/
+
+/*****************************************************************************
+ *                                                                           *
+ *  ELMER/Mesh3D mainwindow                                                  *
+ *                                                                           *
+ *****************************************************************************
+ *                                                                           *
+ *  Authors: Mikko Lyly, Juha Ruokolainen and Peter Råback                   *
+ *  Email:   Juha.Ruokolainen@csc.fi                                         *
+ *  Web:     http://www.csc.fi/elmer                                         *
+ *  Address: CSC - Scientific Computing Ltd.                                 *
+ *           Keilaranta 14                                                   *
+ *           02101 Espoo, Finland                                            *
+ *                                                                           *
+ *  Original Date: 15 Mar 2008                                               *
+ *                                                                           *
+ *****************************************************************************/
+
 #include <QtGui>
 #include <QFile>
 #include <iostream>
@@ -131,6 +171,7 @@ void MainWindow::createToolBars()
 }
 
 
+
 // Create actions...
 //-----------------------------------------------------------------------------
 void MainWindow::createActions()
@@ -225,7 +266,7 @@ void MainWindow::createActions()
   connect(resetAct, SIGNAL(triggered()), this, SLOT(resetSlot()));
 
   // Help -> About
-  aboutAct = new QAction(QIcon(":/icons/help-about.png"), tr("Info..."), this);
+  aboutAct = new QAction(QIcon(":/icons/help-about.png"), tr("About..."), this);
   aboutAct->setStatusTip(tr("Information about the program"));
   connect(aboutAct, SIGNAL(triggered()), this, SLOT(showaboutSlot()));
 }
@@ -329,6 +370,7 @@ void MainWindow::boundaryunifySlot()
 }
 
 
+
 // Mesh -> Hide/Show surface mesh...
 //-----------------------------------------------------------------------------
 void MainWindow::hidesurfacemeshSlot()
@@ -363,6 +405,7 @@ void MainWindow::hidesurfacemeshSlot()
  if ( !vis ) logMessage("Surface mesh hidden");
  else logMessage("Surface mesh shown");
 }
+
 
 
 // Mesh -> Hide/Show sharp edges...
