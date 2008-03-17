@@ -1225,7 +1225,7 @@ static int ManipulateMeshDefinition(int inmethod,int outmethod,Real relh)
   if(eg.unitemeshes) {
     for(k=1;k<nomeshes;k++)
       UniteMeshes(&data[0],&data[k],boundaries[0],boundaries[k],info);
-    nomeshes = nogrids = 1;
+    nomeshes = 1;
   }
 
   for(k=0;k<nomeshes;k++) {
