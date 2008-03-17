@@ -168,6 +168,13 @@ void MainWindow::createToolBars()
   fileToolBar->addAction(saveAct);
   fileToolBar->addSeparator();
   fileToolBar->addAction(exitAct);
+
+  // Mesh toolbar
+  meshToolBar = addToolBar(tr("&Mesh"));
+  meshToolBar->addAction(meshcontrolAct);
+  meshToolBar->addAction(remeshAct);
+  meshToolBar->addAction(boundarydivideAct);
+  meshToolBar->addAction(boundaryunifyAct);
 }
 
 
