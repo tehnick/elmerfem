@@ -411,8 +411,8 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
       
       if(!found) {
         h->nodes = 1;
-        h->nodes += nrest[0] >=0 ? 0:1;
-        h->nodes += nrest[1] >=0 ? 0:1;
+        h->nodes += nrest[0] >=0 ? 1:0;
+        h->nodes += nrest[1] >=0 ? 1:0;
         h->node = new int[h->nodes];
         h->node[0] = n;
         for( int j=1; j<h->nodes; j++ )
