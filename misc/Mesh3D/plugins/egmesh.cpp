@@ -1265,6 +1265,10 @@ void DestroyKnots(struct FemType *data)
   free_Rvector(data->x,1,data->noknots);
   free_Rvector(data->y,1,data->noknots);
   free_Rvector(data->z,1,data->noknots);
+  
+  data->noknots = 0;
+  data->noelements = 0;
+  data->maxnodes = 0;
 }
 
 
@@ -1876,7 +1880,7 @@ static int CreateNewNodes(struct FemType *data,int *order,int material,int newkn
   newsize = noknots+newknots;
   newx = Rvector(1,newsize);
   newy = Rvector(1,newsize);
-  if(data->dim == 3) newz = Rvector(1,newsize);
+  newz = Rvector(1,newsize);
 
   neworder = Ivector(1,newsize);
 
@@ -1891,8 +1895,8 @@ static int CreateNewNodes(struct FemType *data,int *order,int material,int newkn
     neworder[j] = i;
     newx[j] = data->x[i];
     newy[j] = data->y[i];
-    if(data->dim == 3)
-      newz[j] = data->z[i];
+    newz[j] = data->z[i];
+
     for(k=1;k<MAXDOFS;k++) {
       if(lmax = data->edofs[k])
 	for(l=1;l<=lmax;l++) 
@@ -1904,8 +1908,7 @@ static int CreateNewNodes(struct FemType *data,int *order,int material,int newkn
       neworder[j] = -i;
       newx[j] = data->x[i];
       newy[j] = data->y[i];
-      if(data->dim == 3) 
-	newz[j] = data->z[i];
+      newz[j] = data->z[i];
       for(k=1;k<MAXDOFS;k++) {
 	if(lmax = data->edofs[k])
 	  for(l=1;l<=lmax;l++) 
@@ -1938,7 +1941,7 @@ static int CreateNewNodes(struct FemType *data,int *order,int material,int newkn
   /* Destroy old vectors and set the pointers to the new vectors. */
   free_Rvector(data->x,1,noknots);
   free_Rvector(data->y,1,noknots);
-  if(data->dim == 3) free_Rvector(data->z,1,noknots);
+  free_Rvector(data->z,1,noknots);
 
   for(k=1;k<MAXDOFS;k++)
     if(data->edofs[k]) free_Rvector(data->dofs[k],1,noknots);
@@ -1946,7 +1949,7 @@ static int CreateNewNodes(struct FemType *data,int *order,int material,int newkn
   data->noknots = newsize;
   data->x = newx;
   data->y = newy;
-  if(data->dim == 3) data->z = newz;
+  data->z = newz;
 
   for(k=1;k<MAXDOFS;k++) {
     if(data->edofs[k]) {
@@ -2669,6 +2672,9 @@ int UniteMeshes(struct FemType *data1,struct FemType *data2,
     bound1[k].types = bound2[j].types;
     bound1[k].normal = bound2[j].normal;
 
+    bound2[j].created = FALSE;
+    bound2[j].nosides = 0;
+
     for(i=1; i <= bound1[k].nosides; i++) {
       bound1[k].parent[i] += data1->noelements;
       if(bound1[k].parent2[i])
@@ -2682,16 +2688,16 @@ int UniteMeshes(struct FemType *data1,struct FemType *data2,
   newelementtypes = Ivector(1,noelements);
   newx = Rvector(1,noknots);
   newy = Rvector(1,noknots);
-  if(data1->dim == 3) newz = Rvector(1,noknots);
+  newz = Rvector(1,noknots);
   for(i=1;i<=data1->noknots;i++) {
     newx[i] = data1->x[i];
     newy[i] = data1->y[i];
-    if(data1->dim == 3) newz[i] = data1->z[i];
+    newz[i] = data1->z[i];
   }
   for(i=1;i<=data2->noknots;i++) {
     newx[i+data1->noknots] = data2->x[i];
     newy[i+data1->noknots] = data2->y[i];
-    if(data1->dim == 3) newz[i+data1->noknots] = data2->z[i];
+    newz[i+data1->noknots] = data2->z[i];
   }
 
   for(i=1;i<=data1->noelements;i++) {
@@ -2711,15 +2717,12 @@ int UniteMeshes(struct FemType *data1,struct FemType *data2,
 
   free_Imatrix(data1->topology,1,data1->noelements,0,data1->maxnodes-1);
   free_Ivector(data1->material,1,data1->noelements);
+  free_Ivector(data1->elementtypes,1,data1->noelements);
   free_Rvector(data1->x,1,data1->noknots);
   free_Rvector(data1->y,1,data1->noknots);
-  if(data1->dim == 3) free_Rvector(data1->z,1,data1->noknots);
+  free_Rvector(data1->z,1,data1->noknots);
 
-  free_Imatrix(data2->topology,1,data2->noelements,0,data2->maxnodes-1);
-  free_Ivector(data2->material,1,data2->noelements);
-  free_Rvector(data2->x,1,data2->noknots);
-  free_Rvector(data2->y,1,data2->noknots);
-  if(data1->dim == 3) free_Rvector(data2->z,1,data2->noknots);
+  DestroyKnots(data2);
   
   data1->noelements = noelements;
   data1->noknots  = noknots;
@@ -2728,7 +2731,7 @@ int UniteMeshes(struct FemType *data1,struct FemType *data2,
   data1->elementtypes = newelementtypes; 
   data1->x = newx;
   data1->y = newy;
-  if(data1->dim == 3) data1->z = newz;
+  data1->z = newz;
 
 
   if(info) printf("Two meshes were united to one with %d nodes and %d elements.\n",
@@ -2762,17 +2765,15 @@ int CloneMeshes(struct FemType *data,struct BoundaryType *bound,
 
   maxcoord[0] = mincoord[0] = data->x[1];
   maxcoord[1] = mincoord[1] = data->y[1];
-  if(data->dim > 2) maxcoord[2] = mincoord[2] = data->z[1];
+  maxcoord[2] = mincoord[2] = data->z[1];
 
   for(i=1;i<=data->noknots;i++) {
     if(data->x[i] > maxcoord[0]) maxcoord[0] = data->x[i]; 
     if(data->x[i] < mincoord[0]) mincoord[0] = data->x[i]; 
     if(data->y[i] > maxcoord[1]) maxcoord[1] = data->y[i]; 
     if(data->y[i] < mincoord[1]) mincoord[1] = data->y[i]; 
-    if(data->dim > 2) {
-      if(data->z[i] > maxcoord[2]) maxcoord[2] = data->z[i]; 
-      if(data->z[i] < mincoord[2]) mincoord[2] = data->z[i]; 
-    }
+    if(data->z[i] > maxcoord[2]) maxcoord[2] = data->z[i]; 
+    if(data->z[i] < mincoord[2]) mincoord[2] = data->z[i]; 
   }
 
   for(i=0;i<data->dim;i++) {
@@ -2791,7 +2792,7 @@ int CloneMeshes(struct FemType *data,struct BoundaryType *bound,
   newelementtypes = Ivector(1,noelements);
   newx = Rvector(1,noknots);
   newy = Rvector(1,noknots);
-  if(data->dim == 3) newz = Rvector(1,noknots);
+  newz = Rvector(1,noknots);
 
 
   for(l=0;l<ncopies[2];l++) {
@@ -2803,7 +2804,7 @@ int CloneMeshes(struct FemType *data,struct BoundaryType *bound,
 
 	  newx[ind] = data->x[i] + j*meshsize[0];
 	  newy[ind] = data->y[i] + k*meshsize[1];
-	  if(data->dim == 3) newz[ind] = data->z[i] + l*meshsize[2];
+	  newz[ind] = data->z[i] + l*meshsize[2];
 	}
       }
     }
@@ -2906,7 +2907,7 @@ int CloneMeshes(struct FemType *data,struct BoundaryType *bound,
   free_Ivector(data->material,1,data->noelements);
   free_Rvector(data->x,1,data->noknots);
   free_Rvector(data->y,1,data->noknots);
-  if(data->dim == 3) free_Rvector(data->z,1,data->noknots);
+  free_Rvector(data->z,1,data->noknots);
 
   data->noelements = noelements;
   data->noknots  = noknots;
@@ -2915,7 +2916,7 @@ int CloneMeshes(struct FemType *data,struct BoundaryType *bound,
   data->elementtypes = newelementtypes; 
   data->x = newx;
   data->y = newy;
-  if(data->dim == 3) data->z = newz;
+  data->z = newz;
 
   if(info) printf("The mesh was copied to several identical meshes\n");
 
@@ -2946,17 +2947,15 @@ int MirrorMeshes(struct FemType *data,struct BoundaryType *bound,
 
   maxcoord[0] = mincoord[0] = data->x[1];
   maxcoord[1] = mincoord[1] = data->y[1];
-  if(data->dim > 2) maxcoord[2] = mincoord[2] = data->z[1];
+  maxcoord[2] = mincoord[2] = data->z[1];
 
   for(i=1;i<=data->noknots;i++) {
     if(data->x[i] > maxcoord[0]) maxcoord[0] = data->x[i]; 
     if(data->x[i] < mincoord[0]) mincoord[0] = data->x[i]; 
     if(data->y[i] > maxcoord[1]) maxcoord[1] = data->y[i]; 
     if(data->y[i] < mincoord[1]) mincoord[1] = data->y[i]; 
-    if(data->dim > 2) {
-      if(data->z[i] > maxcoord[2]) maxcoord[2] = data->z[i]; 
-      if(data->z[i] < mincoord[2]) mincoord[2] = data->z[i]; 
-    }
+    if(data->z[i] > maxcoord[2]) maxcoord[2] = data->z[i]; 
+    if(data->z[i] < mincoord[2]) mincoord[2] = data->z[i]; 
   }
 
   for(i=0;i<data->dim;i++) {
@@ -2981,7 +2980,7 @@ int MirrorMeshes(struct FemType *data,struct BoundaryType *bound,
   newelementtypes = Ivector(1,noelements);
   newx = Rvector(1,noknots);
   newy = Rvector(1,noknots);
-  if(data->dim == 3) newz = Rvector(1,noknots);
+  newz = Rvector(1,noknots);
 
   ind0 = 0;
   
@@ -2995,7 +2994,7 @@ int MirrorMeshes(struct FemType *data,struct BoundaryType *bound,
 	  
 	  newx[ind] = (1-2*axis1) * data->x[i];
 	  newy[ind] = (1-2*axis2) * data->y[i];
-	  if(data->dim == 3) newz[ind] = (1-2*axis3)*data->z[i];
+	  newz[ind] = (1-2*axis3)*data->z[i];
 	  
 	  newmaterial[ind] = data->material[i];
 	  newelementtypes[ind] = data->elementtypes[i]; 
@@ -3105,7 +3104,7 @@ int MirrorMeshes(struct FemType *data,struct BoundaryType *bound,
   free_Ivector(data->material,1,data->noelements);
   free_Rvector(data->x,1,data->noknots);
   free_Rvector(data->y,1,data->noknots);
-  if(data->dim == 3) free_Rvector(data->z,1,data->noknots);
+  free_Rvector(data->z,1,data->noknots);
 
   data->noelements = noelements;
   data->noknots  = noknots;
@@ -3114,7 +3113,7 @@ int MirrorMeshes(struct FemType *data,struct BoundaryType *bound,
   data->elementtypes = newelementtypes; 
   data->x = newx;
   data->y = newy;
-  if(data->dim == 3) data->z = newz;
+  data->z = newz;
 
   if(info) printf("The mesh was copied to several identical meshes\n");
 
@@ -3427,25 +3426,21 @@ void ReorderElements(struct FemType *data,struct BoundaryType *bound,
   if(info) printf("Moving knots to new positions\n");
   newx = Rvector(1,data->noknots);
   newy = Rvector(1,data->noknots);
-  if(data->dim == 3) 
-    newz = Rvector(1,data->noknots);
+  newz = Rvector(1,data->noknots);
 
   for(i=1;i<=data->noknots;i++) {
     newx[i] = data->x[indx[i]];
     newy[i] = data->y[indx[i]];
-    if(data->dim == 3) 
-      newz[i] = data->z[indx[i]];
+    newz[i] = data->z[indx[i]];
   }
 
   free_Rvector(data->x,1,data->noknots);
   free_Rvector(data->y,1,data->noknots);
-  if(data->dim == 3)   
-    free_Rvector(data->z,1,data->noknots);
+  free_Rvector(data->z,1,data->noknots);
 
   data->x = newx;
   data->y = newy;
-  if(data->dim == 3) 
-    data->z = newz;
+  data->z = newz;
 
   if(info) printf("Moving the elements to new positions\n");
 
@@ -3538,7 +3533,7 @@ int RemoveUnusedNodes(struct FemType *data,int info)
     if(!j) continue;
     data->x[j] = data->x[i];
     data->y[j] = data->y[i];
-    if(data->dim == 3) data->z[j] = data->z[i];
+    data->z[j] = data->z[i];
   }
   data->noknots = activeknots;
   
@@ -4539,13 +4534,13 @@ int IncreaseElementOrder(struct FemType *data,int info)
 
   newx = Rvector(1,noknots+newknots);
   newy = Rvector(1,noknots+newknots);
-  if(data->dim == 3) newz = Rvector(1,noknots+newknots);
+  newz = Rvector(1,noknots+newknots);
 
 
   for(i=1;i<=noknots;i++) {
     newx[i] = data->x[i];
     newy[i] = data->y[i];
-    if(data->dim == 3) newz[i] = data->z[i];
+    newz[i] = data->z[i];
   }
   for(i=1;i<=noknots;i++) {
     for(j=0;j<maxcon;j++) {
@@ -4554,7 +4549,7 @@ int IncreaseElementOrder(struct FemType *data,int info)
       if(con && ind) {
 	newx[ind] = 0.5*(data->x[i] + data->x[con]);
 	newy[ind] = 0.5*(data->y[i] + data->y[con]);
-	if(data->dim == 3) newz[ind] = 0.5*(data->z[i] + data->z[con]);
+	newz[ind] = 0.5*(data->z[i] + data->z[con]);
       }
     }
   }  
@@ -4630,7 +4625,7 @@ int IncreaseElementOrder(struct FemType *data,int info)
 
   data->x = newx;
   data->y = newy;
-  if(data->dim == 3) data->z = newz;
+  data->z = newz;
   data->topology = newtopo;
 
   data->noknots += newknots;
@@ -5876,21 +5871,21 @@ void ReduceElementOrder(struct FemType *data,int matmin,int matmax)
 
   newx = Rvector(1,j);
   newy = Rvector(1,j);
-  if(data->dim == 3) newz = Rvector(1,j);
+  newz = Rvector(1,j);
 
   for(i=1;i<=data->noknots;i++) {
     newx[indx[i]] = data->x[i];
     newy[indx[i]] = data->y[i];
-    if(data->dim == 3) newz[indx[i]] = data->z[i];
+    newz[indx[i]] = data->z[i];
   }
 
   free_Rvector(data->x,1,data->noknots);
   free_Rvector(data->y,1,data->noknots);
-  if(data->dim == 3) free_Rvector(data->z,1,data->noknots);
+  free_Rvector(data->z,1,data->noknots);
   
   data->x = newx;
   data->y = newy;
-  if(data->dim == 3) data->z = newz;
+  data->z = newz;
   data->noknots = j;
 
   for(element=1;element<=data->noelements;element++) {
@@ -5950,7 +5945,7 @@ void MergeElements(struct FemType *data,struct BoundaryType *bound,
 
       dx = data->x[i] - data->x[j];
       dy = data->y[i] - data->y[j];
-      if(data->dim == 3) dz = data->z[i] - data->z[j];
+      dz = data->z[i] - data->z[j];
       if(fabs(cx*dx+cy*dy+cz*dz) > eps) break;
 
       dist = dx*dx + dy*dy + dz*dz;
@@ -5981,13 +5976,12 @@ void MergeElements(struct FemType *data,struct BoundaryType *bound,
 
   newx = Rvector(1,newnoknots);
   newy = Rvector(1,newnoknots);
-  if(data->dim == 3) 
-    newz = Rvector(1,newnoknots);
+  newz = Rvector(1,newnoknots);
 
   for(i=1;i<=noknots;i++) {
     newx[mergeindx[i]] = data->x[i];
     newy[mergeindx[i]] = data->y[i];
-    if(data->dim == 3) newz[mergeindx[i]] = data->z[i];
+    newz[mergeindx[i]] = data->z[i];
   }
 
 #if 0
@@ -5997,11 +5991,11 @@ void MergeElements(struct FemType *data,struct BoundaryType *bound,
 
   free_Rvector(data->x,1,data->noknots);
   free_Rvector(data->y,1,data->noknots);
-  if(data->dim == 3) free_Rvector(data->z,1,data->noknots);
+  free_Rvector(data->z,1,data->noknots);
   
   data->x = newx;
   data->y = newy;
-  if(data->dim == 3) data->z = newz;
+  data->z = newz;
 
 #if 0
   if(info) printf("Merging the topologies.\n");
@@ -6808,10 +6802,8 @@ omstart:
   newelementtypes = Ivector(1,noelements);
   newx = Rvector(1,noknots);
   newy = Rvector(1,noknots);
-  if(dim == 3) {
-    newz = Rvector(1,noknots);
-    for(i=1;i<=noknots;i++) newz[i] = 0.0;
-  }
+  newz = Rvector(1,noknots);
+  for(i=1;i<=noknots;i++) newz[i] = 0.0;
 
   elemwidth = Rvector(1,nonewelements);
   for(i=1;i<=nonewelements;i++) elemwidth[i] = 0.0;
@@ -7105,7 +7097,7 @@ omstart:
   data->noknots = noknots;
   data->x = newx;
   data->y = newy;
-  if(dim == 3) data->z = newz;
+  data->z = newz;
 
   free_Ivector(data->elementtypes,1,oldnoelements);
   data->elementtypes = newelementtypes;
@@ -7705,7 +7697,7 @@ int CreateBoundaryLayerDivide(struct FemType *data,struct BoundaryType *bound,
   oldtopo = data->topology;
   oldx = data->x;
   oldy = data->y;
-  if(dim == 3) oldz = data->z;
+  oldz = data->z;
 
   noknots = oldnoknots + nonewnodes;
   noelements = oldnoelements + nonewelements;
@@ -7721,7 +7713,7 @@ int CreateBoundaryLayerDivide(struct FemType *data,struct BoundaryType *bound,
   newelementtypes = Ivector(1,noelements);
   newx = Rvector(1,noknots);
   newy = Rvector(1,noknots);
-  if(dim == 3) newz = Rvector(1,noknots);
+  newz = Rvector(1,noknots);
 
   /* Set the old topology */
   for(j=1;j<=data->noelements;j++) {
@@ -7735,7 +7727,7 @@ int CreateBoundaryLayerDivide(struct FemType *data,struct BoundaryType *bound,
   for(i=1;i<=data->noknots;i++) {
     newx[i] = data->x[i];
     newy[i] = data->y[i];
-    if(dim == 3) newz[i] = data->z[i];
+    newz[i] = data->z[i];
   }
 
   noelements = data->noelements;

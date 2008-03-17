@@ -3296,6 +3296,8 @@ int LoadGmshInput(struct FemType *data,struct BoundaryType *bound,
   char line[MAXLINESIZE],filename[MAXFILESIZE];
   int errorno;
 
+  printf("prefix: %s\n",prefix);
+
   sprintf(filename,"%s",prefix);
   if ((in = fopen(filename,"r")) == NULL) {
     sprintf(filename,"%s.msh",prefix);

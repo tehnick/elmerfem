@@ -812,9 +812,11 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
     return(1);
   }
   
-  elemdim =  mesh->dim = GetMaxElementDimension(dat);
+  elemdim =  GetMaxElementDimension(dat);
   printf("Setting elements of %ddim\n",elemdim); 
 
+  /* for mapped surfaces elemdim and space dimension may differ! */
+  mesh->dim = MAX(data->dim,elemdim);
   mesh->nodes = dat->noknots;
   mesh->node = new node_t[mesh->nodes];
   
@@ -1154,7 +1156,7 @@ static int ManipulateMeshDefinition(int inmethod,int outmethod,Real relh)
 	if(data[k].created) {
 	  DestroyKnots(&data[k]);
 	  for(i=0;i<MAXBOUNDARIES;i++) 
-	    DestroyBoundary(boundaries[k]);
+	    DestroyBoundary(&boundaries[k][i]);
 	}
       }
     }
@@ -1313,7 +1315,7 @@ int eg_loadmesh(const char *filename0)
     for(k=0;k<MAXCASES;k++) {
       DestroyKnots(&data[k]);
       for(i=0;i<MAXBOUNDARIES;i++) 
-	DestroyBoundary(boundaries[k]);
+	DestroyBoundary(&boundaries[k][i]);
     }
   }
   else {
@@ -1377,8 +1379,8 @@ int eg_transfermesh(mesh_t *mesh,const char *str)
 
   if(!visited) {
     argv = (char**) malloc((size_t) 10*sizeof(char*));
-    visited = TRUE;
   }
+  visited += 1;
   argc = StringToStrings(str,arguments,10,' ');
   for(i=0;i<argc;i++) argv[i] = &arguments[i][0];
 
@@ -1386,6 +1388,7 @@ int eg_transfermesh(mesh_t *mesh,const char *str)
 
   inmethod = eg.inmethod;
   outmethod = 0;
+
 
   ManipulateMeshDefinition(inmethod,outmethod,eg.relh);
 
