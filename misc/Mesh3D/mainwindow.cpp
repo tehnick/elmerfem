@@ -107,9 +107,15 @@ void MainWindow::createMenus()
   meshMenu->addAction(hidesurfacemeshAct);
   meshMenu->addAction(hidesharpedgesAct);
   meshMenu->addAction(hideselectedAct);
+  meshMenu->addSeparator();
+  shadeMenu = meshMenu->addMenu(tr("Shade model..."));
+  shadeMenu->addAction(flatShadeAct);
+  shadeMenu->addAction(smoothShadeAct);
+  meshMenu->addSeparator();
   meshMenu->addAction(showallAct);
   meshMenu->addAction(resetAct);
-  meshMenu->addAction(shadeAct);
+
+
 
   // Help menu
   helpMenu = menuBar()->addMenu(tr("&Help"));
@@ -211,30 +217,45 @@ void MainWindow::createActions()
   boundaryunifyAct->setStatusTip(tr("Unify boundary (merge selected)"));
   connect(boundaryunifyAct, SIGNAL(triggered()), this, SLOT(boundaryunifySlot()));
 
-  // Mesh -> Hide/Show surface mesh
-  hidesurfacemeshAct = new QAction(QIcon(), tr("Hide/Show surface mesh..."), this);
-  hidesurfacemeshAct->setStatusTip(tr("Hide/show surface mesh (do/do not outline surface elements)"));
+  // Mesh -> Show surface mesh
+  hidesurfacemeshAct = new QAction(QIcon(), tr("Show surface mesh..."), this);
+  hidesurfacemeshAct->setStatusTip(tr("Show/hide surface mesh (do/do not outline surface elements)"));
   connect(hidesurfacemeshAct, SIGNAL(triggered()), this, SLOT(hidesurfacemeshSlot()));
+  if(glWidget->stateDrawSurfaceMesh)
+    hidesurfacemeshAct->setIcon(QIcon(":/icons/dialog-ok.png"));
 
-  // Mesh -> Hide/Show sharp edges
-  hidesharpedgesAct = new QAction(QIcon(), tr("Hide/Show sharp edges..."), this);
-  hidesharpedgesAct->setStatusTip(tr("Hide/show sharp edges"));
+  // Mesh -> Show sharp edges
+  hidesharpedgesAct = new QAction(QIcon(), tr("Show sharp edges..."), this);
+  hidesharpedgesAct->setStatusTip(tr("Show/hide sharp edges"));
   connect(hidesharpedgesAct, SIGNAL(triggered()), this, SLOT(hidesharpedgesSlot()));
+  if(glWidget->stateDrawSharpEdges)
+    hidesharpedgesAct->setIcon(QIcon(":/icons/dialog-ok.png"));
 
-  // Mesh -> Hide/Show selected
-  hideselectedAct = new QAction(QIcon(), tr("&Hide/Show selected..."), this);
-  hideselectedAct->setStatusTip(tr("Hide/show selected objects"));
+  // Mesh -> Show selected
+  hideselectedAct = new QAction(QIcon(), tr("&Show selected..."), this);
+  hideselectedAct->setStatusTip(tr("Show/hide selected objects"));
   connect(hideselectedAct, SIGNAL(triggered()), this, SLOT(hideselectedSlot()));
+  if(glWidget->stateDrawSelected)
+    hideselectedAct->setIcon(QIcon(":/icons/dialog-ok.png"));
+
+  // Mesh -> shade model -> Flat
+  flatShadeAct = new QAction(QIcon(), tr("Flat shade..."), this);
+  flatShadeAct->setStatusTip(tr("Set shading model to flat"));
+  connect(flatShadeAct, SIGNAL(triggered()), this, SLOT(flatShadeSlot()));
+  if(glWidget->stateFlatShade)
+    flatShadeAct->setIcon(QIcon(":/icons/dialog-ok.png"));
+
+  // Mesh -> shade model -> Smooth
+  smoothShadeAct = new QAction(QIcon(), tr("Smooth shade..."), this);
+  smoothShadeAct->setStatusTip(tr("Set shading model to smooth"));
+  connect(smoothShadeAct, SIGNAL(triggered()), this, SLOT(smoothShadeSlot()));
+  if(!glWidget->stateFlatShade)
+    smoothShadeAct->setIcon(QIcon(":/icons/dialog-ok.png"));
 
   // Mesh -> Show all
   showallAct = new QAction(QIcon(), tr("Show all..."), this);
   showallAct->setStatusTip(tr("Show all boundaries"));
   connect(showallAct, SIGNAL(triggered()), this, SLOT(showallSlot()));
-
-  // Mesh -> shade model
-  shadeAct = new QAction(QIcon(), tr("Smooth/Flat shade..."), this);
-  shadeAct->setStatusTip(tr("Toggle shading (Smooth/Flat) model"));
-  connect(shadeAct, SIGNAL(triggered()), this, SLOT(shadeSlot()));
 
   // Mesh -> Reset
   resetAct = new QAction(QIcon(), tr("Reset model view..."), this);
@@ -373,7 +394,7 @@ void MainWindow::hidesurfacemeshSlot()
 
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
-    if(l->type == SURFACEEDGELIST) 
+    if(l->type == SURFACEMESHLIST) 
     {
       l->visible = glWidget->stateDrawSurfaceMesh;
 
@@ -387,10 +408,13 @@ void MainWindow::hidesurfacemeshSlot()
     }
   }
 
- if ( !glWidget->stateDrawSurfaceMesh )
-   logMessage("Surface mesh hidden");
- else
-   logMessage("Surface mesh shown");
+  if(!glWidget->stateDrawSurfaceMesh) {
+    logMessage("Surface mesh hidden");
+    hidesurfacemeshAct->setIcon(QIcon(""));
+  } else {
+    logMessage("Surface mesh shown");
+    hidesurfacemeshAct->setIcon(QIcon(":/icons/dialog-ok.png"));
+  }
 }
 
 
@@ -415,12 +439,14 @@ void MainWindow::hidesharpedgesSlot()
       l->visible = glWidget->stateDrawSharpEdges;
   }
   
-  if ( !glWidget->stateDrawSharpEdges )
+  if ( !glWidget->stateDrawSharpEdges ) {
     logMessage("Sharp edges hidden");
-  else
+    hidesharpedgesAct->setIcon(QIcon(""));
+  } else {
     logMessage("Sharp edges shown");
+    hidesharpedgesAct->setIcon(QIcon(":/icons/dialog-ok.png"));
+  }
 }
-
 
 
 // Mesh -> Hide/Show selected...
@@ -436,13 +462,17 @@ void MainWindow::hideselectedSlot()
     return;
   }
 
-  bool surfaceedgelists_visible = false;
+  bool something_selected = false;
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
-    if(l->type == SURFACEEDGELIST)
-      surfaceedgelists_visible |= l->visible;
-  } 
-  
+    something_selected |= l->selected;
+  }
+
+  if(!something_selected) {
+    logMessage("Nothing selected");
+    return;
+  }
+
   glWidget->stateDrawSelected = !glWidget->stateDrawSelected;
 
   for(int i=0; i<lists; i++) {
@@ -461,10 +491,13 @@ void MainWindow::hideselectedSlot()
     }
   }
   
-  if( !glWidget->stateDrawSelected )
+  if(!glWidget->stateDrawSelected ) {
     logMessage("Selected objects hidden");
-  else
+    hideselectedAct->setIcon(QIcon(""));
+  } else {
     logMessage("Selected objects shown");
+    hideselectedAct->setIcon(QIcon(":/icons/dialog-ok.png"));
+  }
 }
 
 
@@ -521,15 +554,41 @@ void MainWindow::resetSlot()
 }
 
 
-// Mesh -> Smooth/Flat shade
+// Mesh -> Shading model -> Flat
 //-----------------------------------------------------------------------------
-void MainWindow::shadeSlot()
+void MainWindow::flatShadeSlot()
 {
-  glWidget->stateFlatShade = !glWidget->stateFlatShade;
+  if(glWidget->mesh == NULL) {
+    logMessage("Unable to change shading model when mesh is empty");
+    return;
+  }
+
+  glWidget->stateFlatShade = true;
   glWidget->rebuildLists();
   glWidget->updateGL();
 
-  logMessage("Shade model toggle.");
+  logMessage("Shade model: flat");
+  flatShadeAct->setIcon(QIcon(":/icons/dialog-ok.png"));
+  smoothShadeAct->setIcon(QIcon(""));
+}
+
+
+// Mesh -> Shading model -> Smooth
+//-----------------------------------------------------------------------------
+void MainWindow::smoothShadeSlot()
+{
+  if(glWidget->mesh == NULL) {
+    logMessage("Unable to change shading model when mesh is empty");
+    return;
+  }
+
+  glWidget->stateFlatShade = false;
+  glWidget->rebuildLists();
+  glWidget->updateGL();
+
+  logMessage("Shade model: smooth");
+  smoothShadeAct->setIcon(QIcon(":/icons/dialog-ok.png"));
+  flatShadeAct->setIcon(QIcon(""));
 }
 
 

@@ -178,7 +178,7 @@ void GLWidget::paintGL()
       if(l->visible) {
 	glPushName(i);
 
-	if((l->type == SURFACEEDGELIST) && stateDrawSurfaceMesh) {
+	if((l->type == SURFACEMESHLIST) && stateDrawSurfaceMesh) {
 	  
 	  // translate slightly towards viewer
 	  glMatrixMode(GL_PROJECTION);
@@ -399,8 +399,8 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
     if(l->type == SHARPEDGELIST) 
       return;
     
-    // substitute surfaceedgelist with the parent surfacelist:
-    if(l->type == SURFACEEDGELIST)
+    // substitute surfacemeshlist with the parent surfacelist:
+    if(l->type == SURFACEMESHLIST)
       l = &list[l->parent];
 
     // if not ctrl pressed, rebuild all selected lists except this one:
@@ -512,7 +512,7 @@ GLuint GLWidget::makeLists()
   // - All surface elements with index >= 0 will be drawn - one list/index
   //   (list->type = SURFACELIST)
   // - For each surface element list, one auxiliary list will be drawn
-  //   (list->type = SURFACEEDGELIST)
+  //   (list->type = SURFACEMESHLIST)
   // - All edge elements with index >= 0 will be drawn - one list/index
   //   (list->type = EDGELIST)
   // - All point elements with index >= 0 will be drawn - one list/index
@@ -605,9 +605,9 @@ GLuint GLWidget::makeLists()
       // edges of surface elements (just for visual):
       l = &list[current_index++];
       l->nature = PDE_UNKNOWN;
-      l->type = SURFACEEDGELIST;
+      l->type = SURFACEMESHLIST;
       l->index = i;
-      l->object = generateSurfaceEdgeList(l->index, 0, 0, 0);
+      l->object = generateSurfaceMeshList(l->index, 0, 0, 0);
       l->child = -1;
       l->parent = current_index-2;
       l->selected = false;
@@ -758,7 +758,7 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
 
 // Generate surface edge list...
 //-----------------------------------------------------------------------------
-GLuint GLWidget::generateSurfaceEdgeList(int index, double R, double G, double B)
+GLuint GLWidget::generateSurfaceMeshList(int index, double R, double G, double B)
 {
   double x0[3], x1[3], x2[3], x3[3];
 

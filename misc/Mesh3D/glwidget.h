@@ -4,7 +4,7 @@
 #define POINTLIST       2000
 #define EDGELIST        2001
 #define SURFACELIST     2002
-#define SURFACEEDGELIST 2003
+#define SURFACEMESHLIST 2003
 #define SHARPEDGELIST   2004
 
 #include <QGLWidget>
@@ -78,7 +78,7 @@ private:
   QColor backgroundColor;
   
   GLuint generateSurfaceList(int, double, double, double);
-  GLuint generateSurfaceEdgeList(int, double, double, double);
+  GLuint generateSurfaceMeshList(int, double, double, double);
   GLuint generateEdgeList(int, double, double, double);
   GLuint generateSharpEdgeList(double, double, double);
   
