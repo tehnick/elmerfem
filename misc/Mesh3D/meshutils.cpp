@@ -812,5 +812,52 @@ void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
     }
   }
 
+  double **vertex_normals = new double*[mesh->nodes];
+
+  for( int i=0; i<mesh->nodes; i++ )
+  {
+    vertex_normals[i] =  new double[3];
+    vertex_normals[i][0] = 0;
+    vertex_normals[i][1] = 0;
+    vertex_normals[i][2] = 0;
+  }
+
+  for( int i=0; i<mesh->surfaces; i++ )
+  {
+    surface_t *surface = &mesh->surface[i];
+    for(int j=0; j<surface->nodes; j++ )
+    {
+       vertex_normals[surface->node[j]][0] += surface->normal[0];
+       vertex_normals[surface->node[j]][1] += surface->normal[1];
+       vertex_normals[surface->node[j]][2] += surface->normal[2];
+    }
+  }
+  for( int i=0; i<mesh->nodes; i++ )
+  {
+     double s=0;
+     s += vertex_normals[i][0]*vertex_normals[i][0];
+     s += vertex_normals[i][1]*vertex_normals[i][1];
+     s += vertex_normals[i][2]*vertex_normals[i][2];
+     s = sqrt(s);
+     if ( s != 0 ) {
+       vertex_normals[i][0] /= s;
+       vertex_normals[i][1] /= s;
+       vertex_normals[i][2] /= s;
+     }
+  }
+  for( int i=0; i<mesh->surfaces; i++ )
+  {
+    surface_t *surface = &mesh->surface[i];
+    for(int j=0; j<surface->nodes; j++ )
+    {
+       surface->vert_normals[j][0] = vertex_normals[surface->node[j]][0];
+       surface->vert_normals[j][1] = vertex_normals[surface->node[j]][1];
+       surface->vert_normals[j][2] = vertex_normals[surface->node[j]][2];
+    }
+  }
+  for( int i=0; i<mesh->nodes; i++ )
+    delete [] vertex_normals[i];
+  delete [] vertex_normals;
+
   delete helpers;
 }

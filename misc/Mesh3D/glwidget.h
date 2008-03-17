@@ -44,6 +44,8 @@ public:
   double drawTranslate[3];
   double drawScale;
 
+  bool flatShade;
+
 public slots:
 
 signals:

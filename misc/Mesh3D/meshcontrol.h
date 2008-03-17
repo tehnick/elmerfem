@@ -13,6 +13,7 @@ public:
   ~MeshControl();
 
   int generatorType;
+  QString elementCodesString;
   QString tetlibControlString;
   QString nglibMaxH;
   QString nglibFineness;
@@ -28,6 +29,7 @@ public slots:
   void defaultControls();
 
 private slots:
+  void defineElementCodesString(const QString &sq);
   void tetlibClicked();
   void nglibClicked(); 
   void elmerGridClicked();

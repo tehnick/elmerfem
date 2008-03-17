@@ -1,43 +1,3 @@
-/*****************************************************************************
- *                                                                           *
- *  Elmer, A Finite Element Software for Multiphysical Problems              *
- *                                                                           *
- *  Copyright 1st April 1995 - , CSC - Scientific Computing Ltd., Finland    *
- *                                                                           *
- *  This program is free software; you can redistribute it and/or            *
- *  modify it under the terms of the GNU General Public License              *
- *  as published by the Free Software Foundation; either version 2           *
- *  of the License, or (at your option) any later version.                   *
- *                                                                           *
- *  This program is distributed in the hope that it will be useful,          *
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of           *
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the            *
- *  GNU General Public License for more details.                             *
- *                                                                           *
- *  You should have received a copy of the GNU General Public License        *
- *  along with this program (in file fem/GPL-2); if not, write to the        *
- *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,         *
- *  Boston, MA 02110-1301, USA.                                              *
- *                                                                           *
- *****************************************************************************/
-
-/*****************************************************************************
- *                                                                           *
- *  ELMER/Mesh3D mainwindow                                                  *
- *                                                                           *
- *****************************************************************************
- *                                                                           *
- *  Authors: Mikko Lyly, Juha Ruokolainen and Peter Råback                   *
- *  Email:   Juha.Ruokolainen@csc.fi                                         *
- *  Web:     http://www.csc.fi/elmer                                         *
- *  Address: CSC - Scientific Computing Ltd.                                 *
- *           Keilaranta 14                                                   *
- *           02101 Espoo, Finland                                            *
- *                                                                           *
- *  Original Date: 15 Mar 2008                                               *
- *                                                                           *
- *****************************************************************************/
-
 #include <QtGui>
 #include <QFile>
 #include <iostream>
@@ -149,6 +109,7 @@ void MainWindow::createMenus()
   meshMenu->addAction(hideselectedAct);
   meshMenu->addAction(showallAct);
   meshMenu->addAction(resetAct);
+  meshMenu->addAction(shadeAct);
 
   // Help menu
   helpMenu = menuBar()->addMenu(tr("&Help"));
@@ -168,19 +129,7 @@ void MainWindow::createToolBars()
   fileToolBar->addAction(saveAct);
   fileToolBar->addSeparator();
   fileToolBar->addAction(exitAct);
-
-  // Edit toolbar
-  editToolBar = addToolBar(tr("&Edit"));
-  editToolBar->addAction(showsifAct);
-
-  // Mesh toolbar
-  meshToolBar = addToolBar(tr("&Mesh"));
-  meshToolBar->addAction(meshcontrolAct);
-  meshToolBar->addAction(remeshAct);
-  meshToolBar->addAction(boundarydivideAct);
-  meshToolBar->addAction(boundaryunifyAct);
 }
-
 
 
 // Create actions...
@@ -271,13 +220,18 @@ void MainWindow::createActions()
   showallAct->setStatusTip(tr("Show all boundaries"));
   connect(showallAct, SIGNAL(triggered()), this, SLOT(showallSlot()));
 
+  // Mesh -> shade model
+  shadeAct = new QAction(QIcon(), tr("Smooth/Flat shade..."), this);
+  shadeAct->setStatusTip(tr("Toggle shading (Smooth/Flat) model"));
+  connect(shadeAct, SIGNAL(triggered()), this, SLOT(shadeSlot()));
+
   // Mesh -> Reset
   resetAct = new QAction(QIcon(), tr("Reset model view..."), this);
   resetAct->setStatusTip(tr("Reset model"));
   connect(resetAct, SIGNAL(triggered()), this, SLOT(resetSlot()));
 
   // Help -> About
-  aboutAct = new QAction(QIcon(":/icons/help-about.png"), tr("About..."), this);
+  aboutAct = new QAction(QIcon(":/icons/help-about.png"), tr("Info..."), this);
   aboutAct->setStatusTip(tr("Information about the program"));
   connect(aboutAct, SIGNAL(triggered()), this, SLOT(showaboutSlot()));
 }
@@ -381,7 +335,6 @@ void MainWindow::boundaryunifySlot()
 }
 
 
-
 // Mesh -> Hide/Show surface mesh...
 //-----------------------------------------------------------------------------
 void MainWindow::hidesurfacemeshSlot()
@@ -416,7 +369,6 @@ void MainWindow::hidesurfacemeshSlot()
  if ( !vis ) logMessage("Surface mesh hidden");
  else logMessage("Surface mesh shown");
 }
-
 
 
 // Mesh -> Hide/Show sharp edges...
@@ -530,6 +482,18 @@ void MainWindow::resetSlot()
   glWidget->updateGL();
 
   logMessage("Model reset");
+}
+
+
+// Mesh -> Smooth/Flat shade
+//-----------------------------------------------------------------------------
+void MainWindow::shadeSlot()
+{
+  glWidget->flatShade = !glWidget->flatShade;
+  glWidget->rebuildLists();
+  glWidget->updateGL();
+
+  logMessage("Shade model toggle.");
 }
 
 
@@ -1691,6 +1655,7 @@ void MainWindow::makeSteadyHeatSifSlot()
   te->append("Equation 1");
   te->append("  Name = \"Heat equation\"");
   te->append("  Active Solvers(1) = 1");
+  te->append( "  Element = \"" +  meshControl->elementCodesString + "\"" );
   te->append("End\n");
 
   te->append("Solver 1");
@@ -1781,6 +1746,7 @@ void MainWindow::makeLinElastSifSlot()
   te->append("Equation 1");
   te->append("  Name = \"Elasticity analysis\"");
   te->append("  Active Solvers(1) = 1");
+  te->append( "  Element = \"" +  meshControl->elementCodesString + "\"" );
   te->append("End\n");
 
   te->append("Solver 1");

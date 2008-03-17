@@ -52,6 +52,7 @@ class surface_t: public element_t {
   int elements;                    // number of parent elements
   int *element;                    // list of parent elements
   double normal[3];                // unit (outward) normal
+  double vert_normals[4][3];       // unit (outward) normal on corner points
 };
 
 

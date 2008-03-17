@@ -69,6 +69,10 @@ MeshControl::MeshControl(QWidget *parent)
 
   connect(ui.elmerGridStringEdit, SIGNAL(textChanged(const QString&)), this, SLOT(defineElmerGridControlString(const QString&)));
 
+  connect(ui.elmerGridStringEdit, SIGNAL(textChanged(const QString&)), this, SLOT(defineElmerGridControlString(const QString&)));
+
+  connect(ui.elementCodes, SIGNAL(textChanged(const QString&)), this, SLOT(defineElementCodesString(const QString&)));
+
   defaultControls();
 }
 
@@ -89,6 +93,11 @@ void MeshControl::nglibClicked()
 void MeshControl::elmerGridClicked()
 {
   generatorType = GEN_ELMERGRID;
+}
+
+void MeshControl::defineElementCodesString(const QString &qs)
+{
+  elementCodesString = qs;
 }
 
 void MeshControl::defineTetlibControlString(const QString &qs)

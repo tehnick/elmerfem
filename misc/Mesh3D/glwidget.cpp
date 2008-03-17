@@ -56,6 +56,7 @@ GLWidget::GLWidget(QWidget *parent)
   : QGLWidget(parent)
 {
   backgroundColor = QColor::fromRgb(255, 255, 255, 255);
+  flatShade = true;
   lists = 0;
   drawScale = 1.0;
   drawTranslate[0] = 0.0;
@@ -675,8 +676,11 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
       x2[1] = (mesh->node[n2].x[1] - drawTranslate[1]) / drawScale;
       x2[2] = (mesh->node[n2].x[2] - drawTranslate[2]) / drawScale;
       
+      if ( !flatShade ) glNormal3dv(surface->vert_normals[0]); 
       glVertex3dv(x0);
+      if ( !flatShade ) glNormal3dv(surface->vert_normals[1]); 
       glVertex3dv(x1);
+      if ( !flatShade ) glNormal3dv(surface->vert_normals[2]); 
       glVertex3dv(x2);
     }
   }
@@ -714,9 +718,13 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
       x3[1] = (mesh->node[n3].x[1] - drawTranslate[1]) / drawScale;
       x3[2] = (mesh->node[n3].x[2] - drawTranslate[2]) / drawScale;
       
+      if ( !flatShade ) glNormal3dv(surface->vert_normals[0]); 
       glVertex3dv(x0);
+      if ( !flatShade ) glNormal3dv(surface->vert_normals[1]); 
       glVertex3dv(x1);
+      if ( !flatShade ) glNormal3dv(surface->vert_normals[2]); 
       glVertex3dv(x2);
+      if ( !flatShade ) glNormal3dv(surface->vert_normals[3]); 
       glVertex3dv(x3);      
     }
   }
