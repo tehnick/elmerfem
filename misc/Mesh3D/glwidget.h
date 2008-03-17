@@ -44,8 +44,11 @@ public:
   double drawTranslate[3];
   double drawScale;
 
-  bool flatShade;
-
+  bool stateFlatShade;
+  bool stateDrawSurfaceMesh;
+  bool stateDrawSharpEdges;
+  bool stateDrawSelected;
+  
 public slots:
 
 signals:

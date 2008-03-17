@@ -369,13 +369,13 @@ void MainWindow::hidesurfacemeshSlot()
     return;
   }
   
-  bool vis = false;
+  glWidget->stateDrawSurfaceMesh = !glWidget->stateDrawSurfaceMesh;
+
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
     if(l->type == SURFACEEDGELIST) 
     {
-      l->visible = !l->visible;
-      vis = l->visible;
+      l->visible = glWidget->stateDrawSurfaceMesh;
 
       // do not set visible if the parent surface list is hidden
       int p = l->parent;
@@ -387,8 +387,10 @@ void MainWindow::hidesurfacemeshSlot()
     }
   }
 
- if ( !vis ) logMessage("Surface mesh hidden");
- else logMessage("Surface mesh shown");
+ if ( !glWidget->stateDrawSurfaceMesh )
+   logMessage("Surface mesh hidden");
+ else
+   logMessage("Surface mesh shown");
 }
 
 
@@ -404,18 +406,19 @@ void MainWindow::hidesharpedgesSlot()
     logMessage("There are no sharp edges to hide/show");
     return;
   }
-  
-  bool vis = false;
+
+  glWidget->stateDrawSharpEdges = !glWidget->stateDrawSharpEdges;
+
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
-    if(l->type == SHARPEDGELIST)  {
-      l->visible = !l->visible;
-      vis = l->visible;
-    }
+    if(l->type == SHARPEDGELIST)  
+      l->visible = glWidget->stateDrawSharpEdges;
   }
   
-  if ( !vis ) logMessage("Sharp edges hidden");
-  else logMessage("Sharp edges shown");
+  if ( !glWidget->stateDrawSharpEdges )
+    logMessage("Sharp edges hidden");
+  else
+    logMessage("Sharp edges shown");
 }
 
 
@@ -440,27 +443,30 @@ void MainWindow::hideselectedSlot()
       surfaceedgelists_visible |= l->visible;
   } 
   
-  bool vis = false;
+  glWidget->stateDrawSelected = !glWidget->stateDrawSelected;
+
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
     if(l->selected) {
-      l->visible = !l->visible;
-      vis = l->visible;
+      l->visible = glWidget->stateDrawSelected;
 
-      // hide also all the child surfaceedgelist
+      // hide the child surface edge list if parent is hidden
       int c = l->child;
       if(c >= 0) {
 	list_t *lc = &list[c];
 	lc->visible = l->visible;
-	if(!surfaceedgelists_visible)
+	if(!glWidget->stateDrawSurfaceMesh)
 	  lc->visible = false;
       }
     }
   }
   
-  if ( !vis ) logMessage("Selected objects hidden");
-  else logMessage("Selected objects shown");
+  if( !glWidget->stateDrawSelected )
+    logMessage("Selected objects hidden");
+  else
+    logMessage("Selected objects shown");
 }
+
 
 
 // Mesh -> Show all...
@@ -470,6 +476,10 @@ void MainWindow::showallSlot()
   int lists = glWidget->lists;
   list_t *list = glWidget->list;
   
+  glWidget->stateDrawSurfaceMesh = true;
+  glWidget->stateDrawSharpEdges = true;
+  glWidget->stateDrawSelected = true;
+
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
     l->visible = true;
@@ -492,13 +502,16 @@ void MainWindow::resetSlot()
     return;
   }
 
+  glWidget->stateFlatShade = true;
+  glWidget->stateDrawSurfaceMesh = true;
+  glWidget->stateDrawSharpEdges = true;
+  glWidget->stateDrawSelected = true;
+
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
     l->visible = true;
     l->selected = false;
   }
-
-  glWidget->flatShade = true;
 
   glLoadIdentity();
   glWidget->rebuildLists();
@@ -512,7 +525,7 @@ void MainWindow::resetSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::shadeSlot()
 {
-  glWidget->flatShade = !glWidget->flatShade;
+  glWidget->stateFlatShade = !glWidget->stateFlatShade;
   glWidget->rebuildLists();
   glWidget->updateGL();
 
@@ -695,6 +708,7 @@ void MainWindow::openSlot()
   readInputFile(fileName);
   remeshSlot();
 }
+
 
 
 // File -> Load...
@@ -1609,6 +1623,7 @@ void MainWindow::makeElmerMeshFromTetlib()
 
   logMessage("Input file processed");
 }
+
 
 
 // Populate elmer's mesh structure and make GL-lists (nglib):

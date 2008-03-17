@@ -56,12 +56,19 @@ GLWidget::GLWidget(QWidget *parent)
   : QGLWidget(parent)
 {
   backgroundColor = QColor::fromRgb(255, 255, 255, 255);
-  flatShade = true;
+
+  stateFlatShade = true;
+  stateDrawSurfaceMesh = true;
+  stateDrawSharpEdges = true;
+  stateDrawSelected = true;
+
   lists = 0;
+
   drawScale = 1.0;
   drawTranslate[0] = 0.0;
   drawTranslate[1] = 0.0;
   drawTranslate[2] = 0.0;
+
   mesh = NULL;
 
   helpers = new Helpers;
@@ -170,9 +177,19 @@ void GLWidget::paintGL()
 
       if(l->visible) {
 	glPushName(i);
-	
-	if((l->type == SURFACEEDGELIST) || (l->type == SHARPEDGELIST)) {
+
+	if((l->type == SURFACEEDGELIST) && stateDrawSurfaceMesh) {
 	  
+	  // translate slightly towards viewer
+	  glMatrixMode(GL_PROJECTION);
+	  glPushMatrix();
+	  glTranslated(0, 0, 0.01);
+	  glCallList(l->object); 
+	  glPopMatrix();
+	  glMatrixMode(GL_MODELVIEW);
+	  
+	} else if ((l->type == SHARPEDGELIST) && stateDrawSharpEdges) {
+
 	  // translate slightly towards viewer
 	  glMatrixMode(GL_PROJECTION);
 	  glPushMatrix();
@@ -186,7 +203,6 @@ void GLWidget::paintGL()
 	  // translate slightly towards viewer
 	  glMatrixMode(GL_PROJECTION);
 	  glPushMatrix();
-	  // translation should be slightly bigger here than before
 	  glTranslated(0, 0, 0.02);
 	  glCallList(l->object); 
 	  glPopMatrix();
@@ -380,10 +396,8 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
     list_t *l = &list[nearest];
 
     // skip sharp edge lists
-    if(l->type == SHARPEDGELIST) {
-      updateGL();
+    if(l->type == SHARPEDGELIST) 
       return;
-    }
     
     // substitute surfaceedgelist with the parent surfacelist:
     if(l->type == SURFACEEDGELIST)
@@ -678,11 +692,11 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
       x2[1] = (mesh->node[n2].x[1] - drawTranslate[1]) / drawScale;
       x2[2] = (mesh->node[n2].x[2] - drawTranslate[2]) / drawScale;
       
-      if ( !flatShade ) glNormal3dv(surface->vert_normals[0]); 
+      if ( !stateFlatShade ) glNormal3dv(surface->vert_normals[0]); 
       glVertex3dv(x0);
-      if ( !flatShade ) glNormal3dv(surface->vert_normals[1]); 
+      if ( !stateFlatShade ) glNormal3dv(surface->vert_normals[1]); 
       glVertex3dv(x1);
-      if ( !flatShade ) glNormal3dv(surface->vert_normals[2]); 
+      if ( !stateFlatShade ) glNormal3dv(surface->vert_normals[2]); 
       glVertex3dv(x2);
     }
   }
@@ -720,13 +734,13 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
       x3[1] = (mesh->node[n3].x[1] - drawTranslate[1]) / drawScale;
       x3[2] = (mesh->node[n3].x[2] - drawTranslate[2]) / drawScale;
       
-      if ( !flatShade ) glNormal3dv(surface->vert_normals[0]); 
+      if ( !stateFlatShade ) glNormal3dv(surface->vert_normals[0]); 
       glVertex3dv(x0);
-      if ( !flatShade ) glNormal3dv(surface->vert_normals[1]); 
+      if ( !stateFlatShade ) glNormal3dv(surface->vert_normals[1]); 
       glVertex3dv(x1);
-      if ( !flatShade ) glNormal3dv(surface->vert_normals[2]); 
+      if ( !stateFlatShade ) glNormal3dv(surface->vert_normals[2]); 
       glVertex3dv(x2);
-      if ( !flatShade ) glNormal3dv(surface->vert_normals[3]); 
+      if ( !stateFlatShade ) glNormal3dv(surface->vert_normals[3]); 
       glVertex3dv(x3);      
     }
   }
