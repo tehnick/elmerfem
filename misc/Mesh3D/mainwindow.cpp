@@ -498,6 +498,8 @@ void MainWindow::resetSlot()
     l->selected = false;
   }
 
+  glWidget->flatShade = true;
+
   glLoadIdentity();
   glWidget->rebuildLists();
   glWidget->updateGL();
@@ -554,7 +556,7 @@ void MainWindow::showsifSlot()
 void MainWindow::remeshSlot()
 {
   if(activeGenerator == GEN_UNKNOWN) {
-    logMessage("Unable to mesh: no mesh generator");
+    logMessage("Unable to (re)mesh: no input data or mesh generator");
     return;
   }
   
@@ -1633,7 +1635,8 @@ void MainWindow::makeSteadyHeatSifSlot()
     return;
   }
   
-  int dim = glWidget->mesh->dim, cdim = glWidget->mesh->cdim;
+  int dim = glWidget->mesh->dim; 
+  // int cdim = glWidget->mesh->cdim;
 
   if(dim < 1) {
     logMessage("Model dimension inconsistent with SIF syntax");

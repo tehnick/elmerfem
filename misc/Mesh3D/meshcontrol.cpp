@@ -71,7 +71,7 @@ MeshControl::MeshControl(QWidget *parent)
 
   connect(ui.elmerGridStringEdit, SIGNAL(textChanged(const QString&)), this, SLOT(defineElmerGridControlString(const QString&)));
 
-  connect(ui.elementCodes, SIGNAL(textChanged(const QString&)), this, SLOT(defineElementCodesString(const QString&)));
+  connect(ui.elementCodesStringEdit, SIGNAL(textChanged(const QString&)), this, SLOT(defineElementCodesString(const QString&)));
 
   defaultControls();
 }
@@ -145,5 +145,5 @@ void MeshControl::defaultControls()
   ui.nglibFinenessEdit->setText("0.5");
   ui.nglibBgmeshEdit->setText("");
   ui.elmerGridStringEdit->setText("-relh 1.0");
-  ui.elementCodes->setText("");
+  ui.elementCodesStringEdit->setText("");
 }
