@@ -540,6 +540,12 @@ void MainWindow::resetSlot()
   glWidget->stateDrawSharpEdges = true;
   glWidget->stateDrawSelected = true;
 
+  hidesurfacemeshAct->setIcon(QIcon(":/icons/dialog-ok.png"));
+  hidesharpedgesAct->setIcon(QIcon(":/icons/dialog-ok.png"));
+  hideselectedAct->setIcon(QIcon(":/icons/dialog-ok.png"));
+  flatShadeAct->setIcon(QIcon(":/icons/dialog-ok.png"));
+  smoothShadeAct->setIcon(QIcon(""));
+
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
     l->visible = true;
