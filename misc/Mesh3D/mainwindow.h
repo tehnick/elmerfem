@@ -65,6 +65,7 @@ private:
   QMenu *helpMenu;                // Help menu
 
   QToolBar *fileToolBar;          // File toolbar
+  QToolBar *editToolBar;          // Edit toolbar
   QToolBar *meshToolBar;          // Mesh toolbar
 
   QAction *openAct;               // File -> Open...

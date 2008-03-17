@@ -169,6 +169,10 @@ void MainWindow::createToolBars()
   fileToolBar->addSeparator();
   fileToolBar->addAction(exitAct);
 
+  // Edit toolbar
+  editToolBar = addToolBar(tr("&Edit"));
+  editToolBar->addAction(showsifAct);
+
   // Mesh toolbar
   meshToolBar = addToolBar(tr("&Mesh"));
   meshToolBar->addAction(meshcontrolAct);
