@@ -145,4 +145,5 @@ void MeshControl::defaultControls()
   ui.nglibFinenessEdit->setText("0.5");
   ui.nglibBgmeshEdit->setText("");
   ui.elmerGridStringEdit->setText("-relh 1.0");
+  ui.elementCodes->setText("");
 }
