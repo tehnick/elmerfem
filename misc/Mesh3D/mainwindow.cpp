@@ -136,31 +136,31 @@ void MainWindow::createToolBars()
 void MainWindow::createActions()
 {
   // File -> Open file
-  openAct = new QAction(QIcon(":/icons/fileopen.png"), tr("&Open..."), this);
+  openAct = new QAction(QIcon(":/icons/document-open.png"), tr("&Open..."), this);
   openAct->setShortcut(tr("Ctrl+O"));
   openAct->setStatusTip(tr("Open model input file"));
   connect(openAct, SIGNAL(triggered()), this, SLOT(openSlot()));
   
   // File -> Load mesh
-  loadAct = new QAction(QIcon(":/icons/fileimport.png"), tr("&Import..."), this);
+  loadAct = new QAction(QIcon(":/icons/document-open-folder.png"), tr("&Import..."), this);
   loadAct->setShortcut(tr("Ctrl+I"));
   loadAct->setStatusTip(tr("Import Elmer mesh files"));
   connect(loadAct, SIGNAL(triggered()), this, SLOT(loadSlot()));
   
   // File -> Save file
-  saveAct = new QAction(QIcon(":/icons/fileexport.png"), tr("&Export..."), this);
+  saveAct = new QAction(QIcon(":/icons/document-save.png"), tr("&Export..."), this);
   saveAct->setShortcut(tr("Ctrl+E"));
   saveAct->setStatusTip(tr("Export Elmer mesh files"));
   connect(saveAct, SIGNAL(triggered()), this, SLOT(saveSlot()));
 
   // File -> Exit
-  exitAct = new QAction(QIcon(":/icons/exit.png"), tr("E&xit"), this);
+  exitAct = new QAction(QIcon(":/icons/application-exit.png"), tr("E&xit"), this);
   exitAct->setShortcut(tr("Alt+X"));
   exitAct->setStatusTip(tr("Exit"));
   connect(exitAct, SIGNAL(triggered()), this, SLOT(close()));
 
   // Edit -> Sif
-  showsifAct = new QAction(QIcon(":/icons/edit.png"), tr("&Solver input file..."), this);
+  showsifAct = new QAction(QIcon(":/icons/document-properties.png"), tr("&Solver input file..."), this);
   showsifAct->setShortcut(tr("Ctrl+S"));
   showsifAct->setStatusTip(tr("Edit solver input file"));
   connect(showsifAct, SIGNAL(triggered()), this, SLOT(showsifSlot()));
@@ -182,7 +182,7 @@ void MainWindow::createActions()
   connect(meshcontrolAct, SIGNAL(triggered()), this, SLOT(meshcontrolSlot()));
 
   // Mesh -> Remesh
-  remeshAct = new QAction(QIcon(":/icons/redo.png"), tr("&Remesh..."), this);
+  remeshAct = new QAction(QIcon(":/icons/edit-redo.png"), tr("&Remesh..."), this);
   remeshAct->setShortcut(tr("Ctrl+R"));
   remeshAct->setStatusTip(tr("Remesh"));
   connect(remeshAct, SIGNAL(triggered()), this, SLOT(remeshSlot()));
@@ -225,7 +225,7 @@ void MainWindow::createActions()
   connect(resetAct, SIGNAL(triggered()), this, SLOT(resetSlot()));
 
   // Help -> About
-  aboutAct = new QAction(QIcon(":/icons/info.png"), tr("Info..."), this);
+  aboutAct = new QAction(QIcon(":/icons/help-about.png"), tr("Info..."), this);
   aboutAct->setStatusTip(tr("Information about the program"));
   connect(aboutAct, SIGNAL(triggered()), this, SLOT(showaboutSlot()));
 }
