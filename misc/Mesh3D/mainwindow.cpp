@@ -103,19 +103,20 @@ void MainWindow::createMenus()
   meshMenu->addSeparator();
   meshMenu->addAction(boundarydivideAct);
   meshMenu->addAction(boundaryunifyAct);
-  meshMenu->addSeparator();
-  meshMenu->addAction(hidesurfacemeshAct);
-  meshMenu->addAction(hidesharpedgesAct);
-  meshMenu->addAction(hideselectedAct);
-  meshMenu->addSeparator();
-  shadeMenu = meshMenu->addMenu(tr("Shade model"));
+
+  // View menu
+  viewMenu = menuBar()->addMenu(tr("&View"));  
+  viewMenu->addAction(hidesurfacemeshAct);
+  viewMenu->addAction(hidesharpedgesAct);
+  viewMenu->addSeparator();
+  viewMenu->addAction(hideselectedAct);
+  viewMenu->addSeparator();
+  shadeMenu = viewMenu->addMenu(tr("Shade model"));
   shadeMenu->addAction(flatShadeAct);
   shadeMenu->addAction(smoothShadeAct);
-  meshMenu->addSeparator();
-  meshMenu->addAction(showallAct);
-  meshMenu->addAction(resetAct);
-
-
+  viewMenu->addSeparator();
+  viewMenu->addAction(showallAct);
+  viewMenu->addAction(resetAct);
 
   // Help menu
   helpMenu = menuBar()->addMenu(tr("&Help"));
@@ -217,47 +218,45 @@ void MainWindow::createActions()
   boundaryunifyAct->setStatusTip(tr("Unify boundary (merge selected)"));
   connect(boundaryunifyAct, SIGNAL(triggered()), this, SLOT(boundaryunifySlot()));
 
-  // Mesh -> Show surface mesh
-  hidesurfacemeshAct = new QAction(QIcon(), tr("Show surface mesh"), this);
+  // View -> Show surface mesh
+  hidesurfacemeshAct = new QAction(QIcon(), tr("Surface mesh"), this);
   hidesurfacemeshAct->setStatusTip(tr("Show/hide surface mesh (do/do not outline surface elements)"));
   connect(hidesurfacemeshAct, SIGNAL(triggered()), this, SLOT(hidesurfacemeshSlot()));
   if(glWidget->stateDrawSurfaceMesh)
     hidesurfacemeshAct->setIcon(QIcon(":/icons/dialog-ok.png"));
 
-  // Mesh -> Show sharp edges
-  hidesharpedgesAct = new QAction(QIcon(), tr("Show sharp edges"), this);
+  // View -> Show sharp edges
+  hidesharpedgesAct = new QAction(QIcon(), tr("Sharp edges"), this);
   hidesharpedgesAct->setStatusTip(tr("Show/hide sharp edges"));
   connect(hidesharpedgesAct, SIGNAL(triggered()), this, SLOT(hidesharpedgesSlot()));
   if(glWidget->stateDrawSharpEdges)
     hidesharpedgesAct->setIcon(QIcon(":/icons/dialog-ok.png"));
 
-  // Mesh -> Show selected
-  hideselectedAct = new QAction(QIcon(), tr("&Show selected"), this);
+  // View -> Show selected
+  hideselectedAct = new QAction(QIcon(), tr("&Hide/show selected"), this);
   hideselectedAct->setStatusTip(tr("Show/hide selected objects"));
   connect(hideselectedAct, SIGNAL(triggered()), this, SLOT(hideselectedSlot()));
-  if(glWidget->stateDrawSelected)
-    hideselectedAct->setIcon(QIcon(":/icons/dialog-ok.png"));
 
-  // Mesh -> Shade model -> Flat
-  flatShadeAct = new QAction(QIcon(), tr("Flat shade"), this);
+  // View -> Shade model -> Flat
+  flatShadeAct = new QAction(QIcon(), tr("Flat"), this);
   flatShadeAct->setStatusTip(tr("Set shade model to flat"));
   connect(flatShadeAct, SIGNAL(triggered()), this, SLOT(flatShadeSlot()));
   if(glWidget->stateFlatShade)
     flatShadeAct->setIcon(QIcon(":/icons/dialog-ok.png"));
 
-  // Mesh -> Shade model -> Smooth
-  smoothShadeAct = new QAction(QIcon(), tr("Smooth shade"), this);
+  // View -> Shade model -> Smooth
+  smoothShadeAct = new QAction(QIcon(), tr("Smooth"), this);
   smoothShadeAct->setStatusTip(tr("Set shade model to smooth"));
   connect(smoothShadeAct, SIGNAL(triggered()), this, SLOT(smoothShadeSlot()));
   if(!glWidget->stateFlatShade)
     smoothShadeAct->setIcon(QIcon(":/icons/dialog-ok.png"));
 
-  // Mesh -> Show all
+  // View -> Show all
   showallAct = new QAction(QIcon(), tr("Show all"), this);
   showallAct->setStatusTip(tr("Show all objects"));
   connect(showallAct, SIGNAL(triggered()), this, SLOT(showallSlot()));
 
-  // Mesh -> Reset
+  // View -> Reset model view
   resetAct = new QAction(QIcon(), tr("Reset model view"), this);
   resetAct->setStatusTip(tr("Reset model view"));
   connect(resetAct, SIGNAL(triggered()), this, SLOT(resetSlot()));
@@ -475,10 +474,13 @@ void MainWindow::hideselectedSlot()
 
   glWidget->stateDrawSelected = !glWidget->stateDrawSelected;
 
+  bool vis = false;
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
     if(l->selected) {
-      l->visible = glWidget->stateDrawSelected;
+      l->visible = !l->visible;
+      if(l->visible)
+	vis = true;
 
       // hide the child surface edge list if parent is hidden
       int c = l->child;
@@ -491,13 +493,10 @@ void MainWindow::hideselectedSlot()
     }
   }
   
-  if(!glWidget->stateDrawSelected ) {
+  if( !vis )
     logMessage("Selected objects hidden");
-    hideselectedAct->setIcon(QIcon(""));
-  } else {
+  else 
     logMessage("Selected objects shown");
-    hideselectedAct->setIcon(QIcon(":/icons/dialog-ok.png"));
-  }
 }
 
 
@@ -543,7 +542,6 @@ void MainWindow::resetSlot()
 
   hidesurfacemeshAct->setIcon(QIcon(":/icons/dialog-ok.png"));
   hidesharpedgesAct->setIcon(QIcon(":/icons/dialog-ok.png"));
-  hideselectedAct->setIcon(QIcon(":/icons/dialog-ok.png"));
   flatShadeAct->setIcon(QIcon(":/icons/dialog-ok.png"));
   smoothShadeAct->setIcon(QIcon(""));
 
@@ -1464,7 +1462,6 @@ void MainWindow::boundarySelectedSlot(list_t *l)
   statusBar()->showMessage(qs);    
 
   glWidget->stateDrawSelected = true;
-  hideselectedAct->setIcon(QIcon(":/icons/dialog-ok.png"));
   
   // Find the boundary condition block in sif:
   if(l->nature == PDE_BOUNDARY) {
