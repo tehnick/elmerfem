@@ -134,7 +134,7 @@ double* Meshutils::boundingBox(mesh_t *mesh)
   return result;
 }
 
-// Delete mesh...
+// Clear mesh...
 //-----------------------------------------------------------------------------
 void Meshutils::clearMesh(mesh_t *mesh)
 {
@@ -190,7 +190,7 @@ void Meshutils::clearMesh(mesh_t *mesh)
 }
 
 
-// Find parents for boundary elements...
+// Find parent elements for surfaces...
 //----------------------------------------------------------------------------
 void Meshutils::findSurfaceElementParents(mesh_t *mesh)
 {
@@ -330,7 +330,141 @@ void Meshutils::findSurfaceElementParents(mesh_t *mesh)
 }
 
 
-// Find edges for boundary elements...
+
+// Find points for edge elements...
+//-----------------------------------------------------------------------------
+void Meshutils::findEdgeElementPoints(mesh_t *mesh)
+{
+  class hashEntry {
+  public:
+    int edges;
+    int *edge;
+  };
+
+  int keys = mesh->nodes;
+  
+  hashEntry *hash = new hashEntry[keys];
+
+  for(int i = 0; i < keys; i++) {
+    hashEntry *h = &hash[i];
+    h->edges = 0;
+    h->edge = NULL;
+  }
+
+  for(int i = 0; i < mesh->edges; i++) {
+    edge_t *e = &mesh->edge[i];
+
+    if(e->nature == PDE_BOUNDARY) {      
+      for(int k = 0; k < 2; k++) {
+	int n = e->node[k];
+	
+	hashEntry *h = &hash[n];
+	
+	bool found = false;
+	for(int j = 0; j < h->edges; j++) {
+	  if(h->edge[j] == i) {
+	    found = true;
+	    break;
+	  }
+	}
+	
+	if(!found) {
+	  int *tmp = new int[h->edges+1];
+	  for(int j = 0; j < h->edges; j++)
+	    tmp[j] = h->edge[j];
+	  tmp[h->edges] = i;
+	  delete [] h->edge;
+	  
+	  h->edges++;
+	  h->edge = tmp;	
+	}
+      }
+    }
+  }
+  
+  // count points:
+  int count = 0;
+  for(int i = 0; i < keys; i++) {
+    hashEntry *h = &hash[i];
+    if(h->edges > 0) 
+      count++;
+  }
+
+  cout << "Found " << count << " points on boundary edges" << endl;
+  cout.flush();
+
+  // delete old points, if any:
+  if(mesh->points > 0) {
+    cout << "Deleteing old points and creating new" << endl;
+    cout.flush();
+    for(int i = 0; i < mesh->points; i++) {
+      delete [] mesh->point[i].node;
+      delete [] mesh->point[i].edge;
+    }
+    delete [] mesh->point;
+  }
+
+  mesh->points = count;
+  mesh->point = new point_t[mesh->points];
+
+  count = 0;
+  for(int i = 0; i < keys; i++) {
+    hashEntry *h = &hash[i];
+    
+    if(h->edges > 0) {
+      point_t *p = &mesh->point[count++];
+      p->nodes = 1;
+      p->node = new int[1];
+      p->node[0] = i;
+      p->edges = h->edges;
+      p->edge = new int[p->edges];
+      for(int j = 0; j < p->edges; j++) {
+	p->edge[j] = h->edge[j];
+      }
+      p->sharp_point = false;
+    }
+  }
+
+  // delete temp stuff
+  for(int i = 0; i < keys; i++) {
+    hashEntry *h = &hash[i];
+    if(h->edges > 0)
+      delete [] h->edge;
+  }
+
+  delete [] hash;
+
+  // Inverse map
+  cout << "Constructing inverse map from edges to points" << endl;
+  cout.flush();
+
+  for(int i=0; i < mesh->points; i++) {
+    point_t *p = &mesh->point[i];
+
+    for(int j=0; j < p->edges; j++) {
+      int k = p->edge[j];
+      edge_t *e = &mesh->edge[k];
+
+      if(e->points < 2) {
+	e->points = 2;
+	e->point = new int[2];
+	e->point[0] = -1;
+	e->point[1] = -1;
+      }
+            
+      for(int r=0; r < e->points; r++) {
+	if(e->point[r] < 0) {
+	  e->point[r] = i;
+	  break;
+	}
+      }
+    }
+  }  
+}
+
+
+
+// Find edges for surface elements...
 //-----------------------------------------------------------------------------
 void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
 {
@@ -577,8 +711,75 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
 
 }
 
+// Find sharp points for edge elements...
+//-----------------------------------------------------------------------------
+void Meshutils::findSharpPoints(mesh_t *mesh, double limit)
+{
+  double t0[3], t1[3];
+#define PI 3.14159
+#define UNKNOWN -1
+#define SHARP 0
+  cout << "Limit: " << limit << " degrees" << endl;
+  cout.flush();
+  
+  double angle;
+  int count = 0;
+  point_t *point = NULL;
+  edge_t *edge = NULL;
+  Helpers *helpers = new Helpers;
+  
+  for(int i=0; i<mesh->points; i++) {
+    point = &mesh->point[i];
 
-// Find sharp edges for boundary elements...
+    if(point->edges == 2) {
+      int n = point->node[0];
+
+      int e0 = point->edge[0];
+      int e1 = point->edge[1];
+
+      edge = &mesh->edge[e0];
+      int n0 = edge->node[0];
+      if(edge->node[1] != n)
+	n0 = edge->node[1];
+
+      edge = &mesh->edge[e1];
+      int n1 = edge->node[0];
+      if(edge->node[1] != n)
+	n1 = edge->node[1];
+
+      // unit tangent node->node0
+      t0[0] = mesh->node[n0].x[0] - mesh->node[n].x[0];
+      t0[1] = mesh->node[n0].x[1] - mesh->node[n].x[1];
+      t0[2] = mesh->node[n0].x[2] - mesh->node[n].x[2];
+      
+      // unit tangent node->node1
+      t1[0] = mesh->node[n1].x[0] - mesh->node[n].x[0];
+      t1[1] = mesh->node[n1].x[1] - mesh->node[n].x[1];
+      t1[2] = mesh->node[n1].x[2] - mesh->node[n].x[2];
+      
+      helpers->normalize(t0);
+      helpers->normalize(t1);
+
+      double cosofangle = t0[0]*t1[0] + t0[1]*t1[1] + t0[2]*t1[2];
+      angle = acos(cosofangle) / PI * 180.0;
+    } else {
+      angle = 0.0;
+    }    
+    
+    point->sharp_point = false;
+    if(sqrt(angle*angle) < (180.0-limit) ) {
+      point->sharp_point = true;
+      count++;
+    }
+  }
+
+  cout << "Found " << count << " sharp points" << endl;
+  delete helpers;
+}
+
+
+
+// Find sharp edges for surface elements...
 //-----------------------------------------------------------------------------
 void Meshutils::findSharpEdges(mesh_t *mesh, double limit)
 {
@@ -617,7 +818,68 @@ void Meshutils::findSharpEdges(mesh_t *mesh, double limit)
 }
 
 
-// Divide boundary by sharp edges...
+
+// Divide edge by sharp points...
+//-----------------------------------------------------------------------------
+int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
+{
+#define UNKNOWN -1
+#define SHARP 0
+
+  class Bc {
+  public:
+    void propagateIndex(mesh_t* mesh, int index, int i) {
+      edge_t *edge = &mesh->edge[i];
+
+      // index is ok
+      if((edge->index != UNKNOWN) || (edge->nature != PDE_BOUNDARY))
+	return;
+      
+      // set index
+      edge->index = index;
+
+      // propagate index
+      for(int j=0; j < edge->points; j++) {
+	int k = edge->point[j];
+	point_t *point = &mesh->point[k];
+
+	// skip sharp points
+	if(!point->sharp_point) {
+	  for(int m = 0; m < point->edges; m++) {
+	    int n = point->edge[m];
+	    propagateIndex(mesh, index, n);
+	  }
+	}
+
+      }
+    }
+  };
+  
+  Bc *bc = new Bc;
+  
+  // reset bc-indices on edges:
+  for(int i=0; i < mesh->edges; i++)
+    mesh->edge[i].index = UNKNOWN;
+
+  // recursively determine boundary parts:
+  int index = 0;
+  for(int i=0; i < mesh->edges; i++) {
+    edge_t *edge = &mesh->edge[i];
+    if((edge->index == UNKNOWN) && (edge->nature == PDE_BOUNDARY))
+      bc->propagateIndex(mesh, ++index, i);
+  }
+  
+  cout << "Edge divided into " << index << " parts" << endl;
+  
+  delete bc;
+
+  return index;
+}
+
+
+
+
+// Divide surface by sharp edges...
 //-----------------------------------------------------------------------------
 int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
 {
@@ -675,7 +937,7 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
 
 
 
-// Find boundary element normals...
+// Find surface element normals...
 //-----------------------------------------------------------------------------
 void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
 {

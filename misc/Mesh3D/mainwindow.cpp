@@ -147,6 +147,8 @@ void MainWindow::createMenus()
   meshMenu->addSeparator();
   meshMenu->addAction(boundarydivideAct);
   meshMenu->addAction(boundaryunifyAct);
+  meshMenu->addSeparator();
+  meshMenu->addAction(edgedivideAct);
 
   // Help menu
   helpMenu = menuBar()->addMenu(tr("&Help"));
@@ -248,6 +250,11 @@ void MainWindow::createActions()
   boundaryunifyAct->setStatusTip(tr("Unify boundary (merge selected)"));
   connect(boundaryunifyAct, SIGNAL(triggered()), this, SLOT(boundaryunifySlot()));
 
+  // Mesh -> Divide edges
+  edgedivideAct = new QAction(QIcon(), tr("&Divide edges"), this);
+  edgedivideAct->setStatusTip(tr("Divide edges by sharp points"));
+  connect(edgedivideAct, SIGNAL(triggered()), this, SLOT(edgedivideSlot()));
+
   // View -> Show surface mesh
   hidesurfacemeshAct = new QAction(QIcon(), tr("Surface mesh"), this);
   hidesurfacemeshAct->setStatusTip(tr("Show/hide surface mesh (do/do not outline surface elements)"));
@@ -330,6 +337,21 @@ void MainWindow::meshcontrolSlot()
 
   meshControl->show();
 }
+
+
+
+// Mesh -> Divide edges...
+//-----------------------------------------------------------------------------
+void MainWindow::edgedivideSlot()
+{
+  mesh_t *mesh = glWidget->mesh;
+
+  // ?????
+  meshutils->findEdgeElementPoints(mesh);
+  meshutils->findSharpPoints(mesh, 20.0);
+  meshutils->divideEdgeBySharpPoints(mesh);
+}
+
 
 
 
@@ -469,6 +491,7 @@ void MainWindow::hidesharpedgesSlot()
 }
 
 
+
 // Mesh -> Hide/Show selected...
 //-----------------------------------------------------------------------------
 void MainWindow::hideselectedSlot()
@@ -579,7 +602,7 @@ void MainWindow::resetSlot()
 }
 
 
-// Mesh -> Shade model... -> Flat
+// Mesh -> Shade model -> Flat
 //-----------------------------------------------------------------------------
 void MainWindow::flatShadeSlot()
 {
@@ -597,7 +620,7 @@ void MainWindow::flatShadeSlot()
 }
 
 
-// Mesh -> Shade model... -> Smooth
+// Mesh -> Shade model -> Smooth
 //-----------------------------------------------------------------------------
 void MainWindow::smoothShadeSlot()
 {
@@ -634,6 +657,7 @@ void MainWindow::doDivisionSlot(double angle)
   
   synchronizeMenuToState();
   glWidget->rebuildLists();
+  glWidget->updateGL();
 }
 
 

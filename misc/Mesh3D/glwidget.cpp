@@ -140,6 +140,8 @@ void GLWidget::initializeGL()
   glLightModelf( GL_LIGHT_MODEL_LOCAL_VIEWER,1.0 );
   glEnable(GL_LIGHTING);
 
+  // glLightModelf(GL_LIGHT_MODEL_LOCAL_VIEWER,1.0);
+
   glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
   glLightfv(GL_LIGHT0, GL_DIFFUSE, light_diffuse);
   glLightfv(GL_LIGHT0, GL_SPECULAR, light_specular);
@@ -631,7 +633,7 @@ GLuint GLWidget::makeLists()
       l->child = current_index;
       l->parent = -1;
       l->selected = false;
-      l->visible = true;
+      l->visible = stateDrawSurfaceElements;
 
       // edges of surface elements (just for visual):
       l = &list[current_index++];
@@ -657,7 +659,7 @@ GLuint GLWidget::makeLists()
       l->child = -1;
       l->parent = -1;
       l->selected = false;
-      l->visible = true;
+      l->visible = stateDrawEdgeElements;
     }
   }
 

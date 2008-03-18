@@ -32,6 +32,7 @@ class element_t {
 // zero dimensional elements
 class point_t: public element_t {
  public:
+  bool sharp_point;                // marker
   int edges;                       // number of parent edges
   int *edge;                       // list of parent edges
 };
@@ -40,6 +41,8 @@ class point_t: public element_t {
 class edge_t: public element_t {
  public:
   bool sharp_edge;                 // marker
+  int points;                      // number of child points
+  int *point;                      // list of points
   int surfaces;                    // number of parent surfaces
   int *surface;                    // list of parent surfaces
 };
@@ -54,7 +57,6 @@ class surface_t: public element_t {
   double normal[3];                // unit (outward) normal
   double vertex_normals[4][3];     // unit (outward) normal on corner points
 };
-
 
 // mesh class
 class mesh_t {
