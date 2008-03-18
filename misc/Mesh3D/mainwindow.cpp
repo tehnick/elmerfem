@@ -61,6 +61,8 @@ MainWindow::MainWindow()
   tetlibInputOk = false;
   activeGenerator = GEN_UNKNOWN;
 
+  synchronizeMenuToState();
+
   setWindowTitle(tr("Elmer Mesh3D (experimental)"));
 }
 
@@ -69,6 +71,30 @@ MainWindow::MainWindow()
 //-----------------------------------------------------------------------------
 MainWindow::~MainWindow()
 {
+}
+
+
+// Synchronize...
+//-----------------------------------------------------------------------------
+void MainWindow::synchronizeMenuToState()
+{
+  if(glWidget->stateDrawSurfaceMesh)
+    hidesurfacemeshAct->setIcon(iconChecked);
+  else
+    hidesurfacemeshAct->setIcon(iconEmpty);
+  
+  if(glWidget->stateDrawSharpEdges)
+    hidesharpedgesAct->setIcon(iconChecked);
+  else
+    hidesharpedgesAct->setIcon(iconEmpty);
+  
+  if(glWidget->stateFlatShade) {
+    flatShadeAct->setIcon(iconChecked);
+    smoothShadeAct->setIcon(iconEmpty);
+  } else {
+    flatShadeAct->setIcon(iconEmpty);
+    smoothShadeAct->setIcon(iconChecked);
+  }
 }
 
 
@@ -226,15 +252,11 @@ void MainWindow::createActions()
   hidesurfacemeshAct = new QAction(QIcon(), tr("Surface mesh"), this);
   hidesurfacemeshAct->setStatusTip(tr("Show/hide surface mesh (do/do not outline surface elements)"));
   connect(hidesurfacemeshAct, SIGNAL(triggered()), this, SLOT(hidesurfacemeshSlot()));
-  if(glWidget->stateDrawSurfaceMesh)
-    hidesurfacemeshAct->setIcon(iconChecked);
 
   // View -> Show sharp edges
   hidesharpedgesAct = new QAction(QIcon(), tr("Sharp edges"), this);
   hidesharpedgesAct->setStatusTip(tr("Show/hide sharp edges"));
   connect(hidesharpedgesAct, SIGNAL(triggered()), this, SLOT(hidesharpedgesSlot()));
-  if(glWidget->stateDrawSharpEdges)
-    hidesharpedgesAct->setIcon(iconChecked);
 
   // View -> Show selected
   hideselectedAct = new QAction(QIcon(), tr("&Hide/show selected"), this);
@@ -245,15 +267,11 @@ void MainWindow::createActions()
   flatShadeAct = new QAction(QIcon(), tr("Flat"), this);
   flatShadeAct->setStatusTip(tr("Set shade model to flat"));
   connect(flatShadeAct, SIGNAL(triggered()), this, SLOT(flatShadeSlot()));
-  if(glWidget->stateFlatShade)
-    flatShadeAct->setIcon(iconChecked);
 
   // View -> Shade model -> Smooth
   smoothShadeAct = new QAction(QIcon(), tr("Smooth"), this);
   smoothShadeAct->setStatusTip(tr("Set shade model to smooth"));
   connect(smoothShadeAct, SIGNAL(triggered()), this, SLOT(smoothShadeSlot()));
-  if(!glWidget->stateFlatShade)
-    smoothShadeAct->setIcon(iconChecked);
 
   // View -> Show all
   showallAct = new QAction(QIcon(), tr("Show all"), this);
@@ -411,13 +429,11 @@ void MainWindow::hidesurfacemeshSlot()
     }
   }
 
-  if(!glWidget->stateDrawSurfaceMesh) {
+  synchronizeMenuToState();  
+  if(!glWidget->stateDrawSurfaceMesh) 
     logMessage("Surface mesh hidden");
-    hidesurfacemeshAct->setIcon(iconEmpty);
-  } else {
+  else
     logMessage("Surface mesh shown");
-    hidesurfacemeshAct->setIcon(iconChecked);
-  }
 }
 
 
@@ -441,14 +457,14 @@ void MainWindow::hidesharpedgesSlot()
     if(l->type == SHARPEDGELIST)  
       l->visible = glWidget->stateDrawSharpEdges;
   }
+
   
-  if ( !glWidget->stateDrawSharpEdges ) {
+  synchronizeMenuToState();
+
+  if ( !glWidget->stateDrawSharpEdges ) 
     logMessage("Sharp edges hidden");
-    hidesharpedgesAct->setIcon(iconEmpty);
-  } else {
+  else 
     logMessage("Sharp edges shown");
-    hidesharpedgesAct->setIcon(iconChecked);
-  }
 }
 
 
@@ -515,8 +531,7 @@ void MainWindow::showallSlot()
   glWidget->stateDrawSurfaceElements = true;
   glWidget->stateDrawEdgeElements = true;
 
-  hidesurfacemeshAct->setIcon(iconChecked);
-  hidesharpedgesAct->setIcon(iconChecked);
+  synchronizeMenuToState();
 
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
@@ -547,11 +562,6 @@ void MainWindow::resetSlot()
   glWidget->stateDrawSurfaceElements = true;
   glWidget->stateDrawEdgeElements = true;
 
-  hidesurfacemeshAct->setIcon(iconChecked);
-  hidesharpedgesAct->setIcon(iconChecked);
-  flatShadeAct->setIcon(iconChecked);
-  smoothShadeAct->setIcon(iconEmpty);
-
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
     l->visible = true;
@@ -562,6 +572,7 @@ void MainWindow::resetSlot()
   glWidget->rebuildLists();
   glWidget->updateGL();
 
+  synchronizeMenuToState();
   logMessage("Reset model view");
 }
 
@@ -579,9 +590,8 @@ void MainWindow::flatShadeSlot()
   glWidget->rebuildLists();
   glWidget->updateGL();
 
+  synchronizeMenuToState();
   logMessage("Shade model: flat");
-  flatShadeAct->setIcon(iconChecked);
-  smoothShadeAct->setIcon(iconEmpty);
 }
 
 
@@ -598,9 +608,8 @@ void MainWindow::smoothShadeSlot()
   glWidget->rebuildLists();
   glWidget->updateGL();
 
+  synchronizeMenuToState();
   logMessage("Shade model: smooth");
-  smoothShadeAct->setIcon(iconChecked);
-  flatShadeAct->setIcon(iconEmpty);
 }
 
 
@@ -621,6 +630,7 @@ void MainWindow::doDivisionSlot(double angle)
   QString qs = "Boundary divided into " + QString::number(parts) + " parts";
   statusBar()->showMessage(qs);
   
+  synchronizeMenuToState();
   glWidget->rebuildLists();
 }
 

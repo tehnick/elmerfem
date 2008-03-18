@@ -128,6 +128,7 @@ private:
   void logMessage(QString);
   void makeSifBodyBlocks();
   void makeSifBoundaryBlocks(QString);
+  void synchronizeMenuToState();
 };
 
 #endif
