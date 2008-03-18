@@ -96,14 +96,6 @@ void MainWindow::createMenus()
   editMenu->addAction(steadyHeatSifAct);
   editMenu->addAction(linElastSifAct);
 
-  // Mesh menu
-  meshMenu = menuBar()->addMenu(tr("&Mesh"));
-  meshMenu->addAction(meshcontrolAct);
-  meshMenu->addAction(remeshAct);
-  meshMenu->addSeparator();
-  meshMenu->addAction(boundarydivideAct);
-  meshMenu->addAction(boundaryunifyAct);
-
   // View menu
   viewMenu = menuBar()->addMenu(tr("&View"));  
   viewMenu->addAction(hidesurfacemeshAct);
@@ -117,6 +109,14 @@ void MainWindow::createMenus()
   viewMenu->addSeparator();
   viewMenu->addAction(showallAct);
   viewMenu->addAction(resetAct);
+
+  // Mesh menu
+  meshMenu = menuBar()->addMenu(tr("&Mesh"));
+  meshMenu->addAction(meshcontrolAct);
+  meshMenu->addAction(remeshAct);
+  meshMenu->addSeparator();
+  meshMenu->addAction(boundarydivideAct);
+  meshMenu->addAction(boundaryunifyAct);
 
   // Help menu
   helpMenu = menuBar()->addMenu(tr("&Help"));
@@ -134,8 +134,8 @@ void MainWindow::createToolBars()
   fileToolBar->addAction(openAct);
   fileToolBar->addAction(loadAct);
   fileToolBar->addAction(saveAct);
-  fileToolBar->addSeparator();
-  fileToolBar->addAction(exitAct);
+  // fileToolBar->addSeparator();
+  // fileToolBar->addAction(exitAct);
 
   // Edit toolbar
   editToolBar = addToolBar(tr("&Edit"));
