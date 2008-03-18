@@ -196,6 +196,7 @@ void MainWindow::createToolBars()
   // Solver toolbar
   solverToolBar = addToolBar(tr("&Solver"));
   solverToolBar->addAction(runsolverAct);
+  solverToolBar->addAction(resultsAct);
 }
 
 
@@ -312,12 +313,12 @@ void MainWindow::createActions()
   connect(resetAct, SIGNAL(triggered()), this, SLOT(resetSlot()));
 
   // Solver -> run
-  runsolverAct = new QAction(QIcon(":/icons/system-run.png"), tr("Run"), this);
+  runsolverAct = new QAction(QIcon(":/icons/ElmerSolver.png"), tr("Solve"), this);
   runsolverAct->setStatusTip(tr("Run solver"));
   connect(runsolverAct, SIGNAL(triggered()), this, SLOT(runsolverSlot()));
 
   // Solver -> results
-  resultsAct = new QAction(QIcon(":/icons/system-run.png"), tr("Results"), this);
+  resultsAct = new QAction(QIcon(":/icons/ElmerPost.png"), tr("Post process"), this);
   resultsAct->setStatusTip(tr("Run post processing"));
   connect(resultsAct, SIGNAL(triggered()), this, SLOT(resultsSlot()));
 
