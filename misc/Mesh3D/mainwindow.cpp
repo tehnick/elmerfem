@@ -296,7 +296,7 @@ void MainWindow::createActions()
   connect(resetAct, SIGNAL(triggered()), this, SLOT(resetSlot()));
 
   // Solver -> run
-  runsolverAct = new QAction(QIcon(":/icons/help-about.png"), tr("Run"), this);
+  runsolverAct = new QAction(QIcon(":/icons/system-run.png"), tr("Run"), this);
   runsolverAct->setStatusTip(tr("Run solver."));
   connect(runsolverAct, SIGNAL(triggered()), this, SLOT(runsolverSlot()));
 
@@ -2137,7 +2137,17 @@ void MainWindow::makeSifBoundaryBlocks(QString BCtext)
 //-----------------------------------------------------------------------------
 void MainWindow::runsolverSlot()
 {
-  system( "ElmerSolver" );
+  system( "ElmerSolver > ElmerSolver.log" );
+
+  FILE *fp = fopen("ElmerSolver.log", "r" );
+  QTextStream in(fp);
+  QString str = in.readAll();;
+  fclose(fp);
+
+  SifWindow *s = new SifWindow;
+  s->textEdit->append(str);
+  s->show();
+  cout << string(str.toAscii()) << endl;
 }
 
 // About dialog...
