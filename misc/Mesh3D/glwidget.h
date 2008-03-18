@@ -40,6 +40,7 @@ public:
   list_t *list;
   GLuint makeLists();
   void rebuildLists();
+  void rebuildSurfaceLists(void);
   
   double drawTranslate[3];
   double drawScale;

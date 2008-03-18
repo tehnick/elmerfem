@@ -129,14 +129,15 @@ void GLWidget::initializeGL()
   static GLfloat light_position[] = {0.0, 0.0,-5.0, 0.0};
 
   static GLfloat mat_ambient[]    = {0.2, 0.2, 0.2, 1.0};
-  static GLfloat mat_diffuse[]    = {0.6, 0.6, 0.6, 1.0};
+  static GLfloat mat_diffuse[]    = {1.0, 1.0, 1.0, 1.0};
   static GLfloat mat_specular[]   = {0.9, 0.9, 0.9, 1.0};
-  static GLfloat high_shininess[] = {100.0};
+  static GLfloat high_shininess[] = {20.0};
 
   glMatrixMode(GL_MODELVIEW);
   glLoadIdentity();
 
   glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, 1);
+  glLightModelf( GL_LIGHT_MODEL_LOCAL_VIEWER,1.0 );
   glEnable(GL_LIGHTING);
 
   glLightfv(GL_LIGHT0, GL_AMBIENT, light_ambient);
@@ -301,8 +302,14 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
     
     // Rotation:
     double ax = -(double)dy;
-    double ay = (double)dx;
+    double ay =  (double)dx;
     double az = 0.0;
+
+    if ( event->buttons() & Qt::RightButton ) {
+       az = ay;
+       ay = 0;
+    }
+
     double s = 180.0*sqrt(ax*ax+ay*ay+az*az)/(double)(viewport[3]+1);
     double bx = invmatrix[0]*ax + invmatrix[4]*ay + invmatrix[8]*az;
     double by = invmatrix[1]*ax + invmatrix[5]*ay + invmatrix[9]*az;
@@ -497,6 +504,25 @@ void GLWidget::rebuildLists()
   lists = makeLists();
 
   updateGL();
+}
+
+// Compose GL surface lists...
+//-----------------------------------------------------------------------------
+void GLWidget::rebuildSurfaceLists()
+{
+  for( int i=0; i<lists; i++ )
+  {
+     list_t *l = &list[i];
+     if ( l->type == SURFACELIST )
+     {
+       glDeleteLists( l->object,1 );
+       if(l->selected) {
+ 	 l->object = generateSurfaceList(l->index, 1, 0, 0); // red
+       } else {
+ 	 l->object = generateSurfaceList(l->index, 0, 1, 1); // cyan
+       }
+     }
+  }
 }
 
 

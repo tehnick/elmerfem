@@ -260,6 +260,7 @@ void MainWindow::createActions()
 
   // View -> Show selected
   hideselectedAct = new QAction(QIcon(), tr("&Hide/show selected"), this);
+  hideselectedAct->setShortcut(tr("Ctrl+H"));
   hideselectedAct->setStatusTip(tr("Show/hide selected objects"));
   connect(hideselectedAct, SIGNAL(triggered()), this, SLOT(hideselectedSlot()));
 
@@ -510,6 +511,7 @@ void MainWindow::hideselectedSlot()
       }
     }
   }
+  glWidget->updateGL();
   
   if( !vis )
     logMessage("Selected objects hidden");
@@ -587,7 +589,7 @@ void MainWindow::flatShadeSlot()
   }
 
   glWidget->stateFlatShade = true;
-  glWidget->rebuildLists();
+  glWidget->rebuildSurfaceLists();
   glWidget->updateGL();
 
   synchronizeMenuToState();
@@ -605,7 +607,7 @@ void MainWindow::smoothShadeSlot()
   }
 
   glWidget->stateFlatShade = false;
-  glWidget->rebuildLists();
+  glWidget->rebuildSurfaceLists();
   glWidget->updateGL();
 
   synchronizeMenuToState();
