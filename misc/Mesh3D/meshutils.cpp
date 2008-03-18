@@ -445,6 +445,7 @@ void Meshutils::findEdgeElementPoints(mesh_t *mesh)
       int k = p->edge[j];
       edge_t *e = &mesh->edge[k];
 
+      // allocate space for two points, if not yet done:
       if(e->points < 2) {
 	e->points = 2;
 	e->point = new int[2];
@@ -747,12 +748,12 @@ void Meshutils::findSharpPoints(mesh_t *mesh, double limit)
       if(edge->node[1] != n)
 	n1 = edge->node[1];
 
-      // unit tangent node->node0
+      // unit tangent from node to node0
       t0[0] = mesh->node[n0].x[0] - mesh->node[n].x[0];
       t0[1] = mesh->node[n0].x[1] - mesh->node[n].x[1];
       t0[2] = mesh->node[n0].x[2] - mesh->node[n].x[2];
       
-      // unit tangent node->node1
+      // unit tangent from node to node1
       t1[0] = mesh->node[n1].x[0] - mesh->node[n].x[0];
       t1[1] = mesh->node[n1].x[1] - mesh->node[n].x[1];
       t1[2] = mesh->node[n1].x[2] - mesh->node[n].x[2];
@@ -892,7 +893,7 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
       surface_t *surface = &mesh->surface[i];
 
       // index is ok
-      if(surface->index != UNKNOWN)
+      if((surface->index != UNKNOWN) || (surface->nature != PDE_BOUNDARY))
 	return;
 
       // set index
@@ -924,7 +925,7 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
   int index = 0;
   for(int i=0; i < mesh->surfaces; i++) {
     surface_t *surface = &mesh->surface[i];
-    if(surface->index == UNKNOWN) 
+    if((surface->index == UNKNOWN) && (surface->nature == PDE_BOUNDARY)) 
       bc->propagateIndex(mesh, ++index, i);
   }
 

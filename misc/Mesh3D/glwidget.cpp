@@ -426,7 +426,7 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
 	  l2->selected = false;	  
 	  if(l2->type == SURFACELIST) {
 	    l2->object = generateSurfaceList(l2->index, 0, 1, 1); // cyan
-	  } else if(l->type == EDGELIST) {
+	  } else if(l2->type == EDGELIST) {
 	    l2->object = generateEdgeList(l2->index, 0, 1, 0); // green
 	  }
 	}
