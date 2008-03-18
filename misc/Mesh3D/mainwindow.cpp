@@ -191,6 +191,10 @@ void MainWindow::createToolBars()
   meshToolBar->addSeparator();
   meshToolBar->addAction(edgeDivideAct);
   meshToolBar->addAction(edgeUnifyAct);
+
+  // Solver toolbar
+  solverToolBar = addToolBar(tr("&Solver"));
+  solverToolBar->addAction(runsolverAct);
 }
 
 
@@ -308,7 +312,7 @@ void MainWindow::createActions()
 
   // Solver -> run
   runsolverAct = new QAction(QIcon(":/icons/system-run.png"), tr("Run"), this);
-  runsolverAct->setStatusTip(tr("Run solver."));
+  runsolverAct->setStatusTip(tr("Run solver"));
   connect(runsolverAct, SIGNAL(triggered()), this, SLOT(runsolverSlot()));
 
   // Help -> About
@@ -2220,14 +2224,20 @@ void MainWindow::makeSifBoundaryBlocks(QString BCtext)
 //-----------------------------------------------------------------------------
 void MainWindow::runsolverSlot()
 {
+  if(glWidget->mesh == NULL) {
+    logMessage("No mesh - unable to run solver");
+    return;
+  }
+
   system( "ElmerSolver > ElmerSolver.log" );
 
   FILE *fp = fopen("ElmerSolver.log", "r" );
   QTextStream in(fp);
-  QString str = in.readAll();;
+  QString str = in.readAll();
   fclose(fp);
 
   SifWindow *s = new SifWindow;
+  s->setWindowTitle(tr("ElmerSolver log"));
   s->textEdit->append(str);
   s->show();
   cout << string(str.toAscii()) << endl;

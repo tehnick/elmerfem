@@ -77,6 +77,7 @@ private:
   QToolBar *fileToolBar;          // File toolbar
   QToolBar *editToolBar;          // Edit toolbar
   QToolBar *meshToolBar;          // Mesh toolbar
+  QToolBar *solverToolBar;        // Solver toolbar
 
   QAction *openAct;               // File -> Open...
   QAction *loadAct;               // File -> Load...
