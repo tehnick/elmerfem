@@ -52,6 +52,8 @@ BoundaryDivide::BoundaryDivide(QWidget *parent)
   connect(ui.closeButton, SIGNAL(clicked()), this, SLOT(close()));
 
   ui.angleDegreeEdit->setText("20.0");
+
+  target = TARGET_UNKNOWN;
 }
 
 BoundaryDivide::~BoundaryDivide()
@@ -66,6 +68,12 @@ void BoundaryDivide::defineAngle(const QString &qs)
 void BoundaryDivide::divideBoundary()
 {
   double angle = angleDegree.toDouble();
-  emit(signalDoDivision(angle));
+
+  if(target == TARGET_SURFACES)
+    emit(signalDoDivideSurface(angle));
+
+  if(target == TARGET_EDGES)
+    emit(signalDoDivideEdge(angle));
+  
   close();
 }

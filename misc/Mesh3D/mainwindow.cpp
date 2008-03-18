@@ -54,8 +54,11 @@ MainWindow::MainWindow()
   // meshingThread emits (void) when the mesh generation is completed:
   connect(meshingThread, SIGNAL(signalMeshOk()), this, SLOT(meshOkSlot()));
 
-  // boundaryDivide emits (double) when "divide button" has been clicked:
-  connect(boundaryDivide, SIGNAL(signalDoDivision(double)), this, SLOT(doDivisionSlot(double)));
+  // boundaryDivide emits (double) when "divide button" has been clicked (case surface):
+  connect(boundaryDivide, SIGNAL(signalDoDivideSurface(double)), this, SLOT(doDivideSurfaceSlot(double)));
+
+  // boundaryDivide emits (double) when "divide button" has been clicked (case edge):
+  connect(boundaryDivide, SIGNAL(signalDoDivideEdge(double)), this, SLOT(doDivideEdgeSlot(double)));
 
   nglibInputOk = false;
   tetlibInputOk = false;
@@ -145,10 +148,11 @@ void MainWindow::createMenus()
   meshMenu->addAction(meshcontrolAct);
   meshMenu->addAction(remeshAct);
   meshMenu->addSeparator();
-  meshMenu->addAction(boundarydivideAct);
-  meshMenu->addAction(boundaryunifyAct);
+  meshMenu->addAction(surfaceDivideAct);
+  meshMenu->addAction(surfaceUnifyAct);
   meshMenu->addSeparator();
-  meshMenu->addAction(edgedivideAct);
+  meshMenu->addAction(edgeDivideAct);
+  meshMenu->addAction(edgeUnifyAct);
 
   //  SolverMenu
   solverMenu = menuBar()->addMenu(tr("&Solver"));
@@ -181,8 +185,12 @@ void MainWindow::createToolBars()
   meshToolBar = addToolBar(tr("&Mesh"));
   meshToolBar->addAction(meshcontrolAct);
   meshToolBar->addAction(remeshAct);
-  meshToolBar->addAction(boundarydivideAct);
-  meshToolBar->addAction(boundaryunifyAct);
+  meshToolBar->addSeparator();
+  meshToolBar->addAction(surfaceDivideAct);
+  meshToolBar->addAction(surfaceUnifyAct);
+  meshToolBar->addSeparator();
+  meshToolBar->addAction(edgeDivideAct);
+  meshToolBar->addAction(edgeUnifyAct);
 }
 
 
@@ -242,22 +250,25 @@ void MainWindow::createActions()
   remeshAct->setStatusTip(tr("Remesh"));
   connect(remeshAct, SIGNAL(triggered()), this, SLOT(remeshSlot()));
 
-  // Mesh -> Divide boundary
-  boundarydivideAct = new QAction(QIcon(":/icons/divide.png"), tr("&Divide boundary..."), this);
-  boundarydivideAct->setShortcut(tr("Ctrl+D"));
-  boundarydivideAct->setStatusTip(tr("Divide boundary by sharp edges"));
-  connect(boundarydivideAct, SIGNAL(triggered()), this, SLOT(boundarydivideSlot()));
+  // Mesh -> Divide surface
+  surfaceDivideAct = new QAction(QIcon(":/icons/divide.png"), tr("&Divide surface..."), this);
+  surfaceDivideAct->setStatusTip(tr("Divide surface by sharp edges"));
+  connect(surfaceDivideAct, SIGNAL(triggered()), this, SLOT(surfaceDivideSlot()));
 
-  // Mesh -> Unify boundary
-  boundaryunifyAct = new QAction(QIcon(":/icons/unify.png"), tr("&Unify boundary"), this);
-  boundaryunifyAct->setShortcut(tr("Ctrl+U"));
-  boundaryunifyAct->setStatusTip(tr("Unify boundary (merge selected)"));
-  connect(boundaryunifyAct, SIGNAL(triggered()), this, SLOT(boundaryunifySlot()));
+  // Mesh -> Unify surface
+  surfaceUnifyAct = new QAction(QIcon(":/icons/unify.png"), tr("&Unify surface"), this);
+  surfaceUnifyAct->setStatusTip(tr("Unify surface (merge selected)"));
+  connect(surfaceUnifyAct, SIGNAL(triggered()), this, SLOT(surfaceUnifySlot()));
 
-  // Mesh -> Divide edges
-  edgedivideAct = new QAction(QIcon(), tr("&Divide edges"), this);
-  edgedivideAct->setStatusTip(tr("Divide edges by sharp points"));
-  connect(edgedivideAct, SIGNAL(triggered()), this, SLOT(edgedivideSlot()));
+  // Mesh -> Divide edge
+  edgeDivideAct = new QAction(QIcon(":/icons/divide-edge.png"), tr("&Divide edge..."), this);
+  edgeDivideAct->setStatusTip(tr("Divide edge by sharp points"));
+  connect(edgeDivideAct, SIGNAL(triggered()), this, SLOT(edgeDivideSlot()));
+
+  // Mesh -> Unify edges
+  edgeUnifyAct = new QAction(QIcon(":/icons/unify-edge.png"), tr("&Unify edge"), this);
+  edgeUnifyAct->setStatusTip(tr("Unify edge (merge selected)"));
+  connect(edgeUnifyAct, SIGNAL(triggered()), this, SLOT(edgeUnifySlot()));
 
   // View -> Show surface mesh
   hidesurfacemeshAct = new QAction(QIcon(), tr("Surface mesh"), this);
@@ -307,6 +318,7 @@ void MainWindow::createActions()
 }
 
 
+
 // Close mainwindow...
 //-----------------------------------------------------------------------------
 void MainWindow::closeMainWindowSlot()
@@ -316,6 +328,7 @@ void MainWindow::closeMainWindowSlot()
   boundaryDivide->close();
   close();
 }
+
 
 
 // Mesh -> Control...
@@ -349,49 +362,51 @@ void MainWindow::meshcontrolSlot()
 
 
 
-// Mesh -> Divide edges...
+// Mesh -> Divide edge...
 //-----------------------------------------------------------------------------
-void MainWindow::edgedivideSlot()
+void MainWindow::edgeDivideSlot()
 {
-  mesh_t *mesh = glWidget->mesh;
+#define TARGET_UNKNOWN  0
+#define TARGET_SURFACES 1
+#define TARGET_EDGES    2
 
-  meshutils->findEdgeElementPoints(mesh);
-  meshutils->findSharpPoints(mesh, 20.0);
-  meshutils->divideEdgeBySharpPoints(mesh);
-  
-  glWidget->rebuildLists();
-  glWidget->updateGL(); 
-}
-
-
-
-
-// Mesh -> Divide boundary...
-//-----------------------------------------------------------------------------
-void MainWindow::boundarydivideSlot()
-{
+  boundaryDivide->target = TARGET_EDGES;
   boundaryDivide->show();
 }
 
 
 
-// Mesh -> unify boundary...
+// Mesh -> Divide surface...
 //-----------------------------------------------------------------------------
-void MainWindow::boundaryunifySlot()
+void MainWindow::surfaceDivideSlot()
+{
+#define TARGET_UNKNOWN  0
+#define TARGET_SURFACES 1
+#define TARGET_EDGES    2
+
+  boundaryDivide->target = TARGET_SURFACES;
+  boundaryDivide->show();
+}
+
+
+
+// Mesh -> Unify edge...
+//-----------------------------------------------------------------------------
+void MainWindow::edgeUnifySlot()
 {
   mesh_t *mesh = glWidget->mesh;
   int lists = glWidget->lists;
   list_t *list = glWidget->list;
 
   if(mesh == NULL) {
-    logMessage("No boundaries to unify");
+    logMessage("No edges to unify");
     return;
   }
   
   int targetindex = -1;
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
-    if(l->selected && (l->nature == PDE_BOUNDARY)) {
+    if(l->selected && (l->type == EDGELIST) && (l->nature == PDE_BOUNDARY)) {
       if(targetindex < 0) {
 	targetindex = l->index;
 	break;
@@ -400,26 +415,67 @@ void MainWindow::boundaryunifySlot()
   }
 
   if(targetindex < 0) {
-    logMessage("No boundaries selected");
+    logMessage("No edges selected");
     return;
   }
   
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];    
-    if(l->selected && (l->nature == PDE_BOUNDARY)) {
-
-      for(int j=0; j < mesh->surfaces; j++) {
-	surface_t *s = &mesh->surface[j];
-	if((s->index == l->index) && (s->nature == PDE_BOUNDARY)) 
-	  s->index = targetindex;
-      }
-
+    if(l->selected && (l->type == EDGELIST) && (l->nature == PDE_BOUNDARY)) {
       for(int j=0; j < mesh->edges; j++) {
 	edge_t *e = &mesh->edge[j];
 	if((e->index == l->index) && (e->nature == PDE_BOUNDARY)) 
 	  e->index = targetindex;
       }
+    }
+  }
+  
+  cout << "Selected edges marked with index " << targetindex << endl;
+  cout.flush();
 
+  glWidget->rebuildLists();
+
+  logMessage("Selected edges unified");
+}
+
+
+// Mesh -> Unify surface...
+//-----------------------------------------------------------------------------
+void MainWindow::surfaceUnifySlot()
+{
+  mesh_t *mesh = glWidget->mesh;
+  int lists = glWidget->lists;
+  list_t *list = glWidget->list;
+
+  if(mesh == NULL) {
+    logMessage("No surfaces to unify");
+    return;
+  }
+  
+  int targetindex = -1;
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];
+    if(l->selected && (l->type == SURFACELIST) && (l->nature == PDE_BOUNDARY)) {
+      if(targetindex < 0) {
+	targetindex = l->index;
+	break;
+      }
+    }
+  }
+  
+  if(targetindex < 0) {
+    logMessage("No surfaces selected");
+    return;
+  }
+  
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];    
+    if(l->selected && (l->type == SURFACELIST) && (l->nature == PDE_BOUNDARY)) {
+      for(int j=0; j < mesh->surfaces; j++) {
+	surface_t *s = &mesh->surface[j];
+	if((s->index == l->index) && (s->nature == PDE_BOUNDARY)) 
+	  s->index = targetindex;
+      }
     }
   }
   
@@ -469,6 +525,7 @@ void MainWindow::hidesurfacemeshSlot()
   else
     logMessage("Surface mesh shown");
 }
+
 
 
 // Mesh -> Hide/Show sharp edges...
@@ -649,9 +706,35 @@ void MainWindow::smoothShadeSlot()
 }
 
 
-// Make boundary division by sharp edges (signalled by boundaryDivide)...
+// Make edge division by sharp points (signalled by surfaceDivide)...
 //-----------------------------------------------------------------------------
-void MainWindow::doDivisionSlot(double angle)
+void MainWindow::doDivideEdgeSlot(double angle)
+{
+  mesh_t *mesh = glWidget->mesh;
+
+  if(mesh == NULL) {
+    logMessage("No mesh to divide");
+    return;
+  }
+  
+
+  meshutils->findEdgeElementPoints(mesh);
+  meshutils->findSharpPoints(mesh, 20.0);
+  int parts = meshutils->divideEdgeBySharpPoints(mesh);
+  
+  QString qs = "Edge divided into " + QString::number(parts) + " parts";
+  statusBar()->showMessage(qs);
+
+  synchronizeMenuToState();
+  glWidget->rebuildLists();
+  glWidget->updateGL(); 
+}
+
+
+
+// Make surface division by sharp edges (signalled by surfaceDivide)...
+//-----------------------------------------------------------------------------
+void MainWindow::doDivideSurfaceSlot(double angle)
 {
   mesh_t *mesh = glWidget->mesh;
 
@@ -663,7 +746,7 @@ void MainWindow::doDivisionSlot(double angle)
   meshutils->findSharpEdges(mesh, angle);
   int parts = meshutils->divideSurfaceBySharpEdges(mesh);
 
-  QString qs = "Boundary divided into " + QString::number(parts) + " parts";
+  QString qs = "Surface divided into " + QString::number(parts) + " parts";
   statusBar()->showMessage(qs);
   
   synchronizeMenuToState();
