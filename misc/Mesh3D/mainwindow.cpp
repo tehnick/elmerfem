@@ -346,10 +346,12 @@ void MainWindow::edgedivideSlot()
 {
   mesh_t *mesh = glWidget->mesh;
 
-  // ?????
   meshutils->findEdgeElementPoints(mesh);
   meshutils->findSharpPoints(mesh, 20.0);
   meshutils->divideEdgeBySharpPoints(mesh);
+  
+  glWidget->rebuildLists();
+  glWidget->updateGL(); 
 }
 
 

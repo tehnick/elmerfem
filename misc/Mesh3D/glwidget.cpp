@@ -574,6 +574,7 @@ GLuint GLWidget::makeLists()
   }  
   
   cout << "Bcs / materials on surface elements: " << surface_bcs << endl;
+  cout.flush();
 
   // Scan edge elements to determine the number of bcs / mat. indices:
   //---------------------------------------------------------------------------
@@ -595,6 +596,7 @@ GLuint GLWidget::makeLists()
   }  
   
   cout << "Bcs / materials on edge elements: " << edge_bcs << endl;  
+  cout.flush();
 
   // Scan point elements to determine the number of bcs / mat. indices:
   //---------------------------------------------------------------------------
@@ -604,6 +606,7 @@ GLuint GLWidget::makeLists()
   // TODO
 
   cout << "Bcs / materials on point elements: " << point_bcs << endl;  
+  cout.flush();
 
   // Generate lists:
   //---------------------------------------------------------------------------
@@ -648,9 +651,9 @@ GLuint GLWidget::makeLists()
     }
   }
   
-  // Edge lists:
+  // Edge lists (only PDE_BOUNDARY):
   for(i=0; i < mesh->edges; i++) {
-    if(edge_nature[i] > 0) {
+    if(edge_nature[i] == PDE_BOUNDARY) {
       list_t *l = &list[current_index++];
       l->nature = edge_nature[i]; 
       l->type = EDGELIST;
