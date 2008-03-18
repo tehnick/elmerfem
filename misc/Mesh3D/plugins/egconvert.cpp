@@ -1,8 +1,8 @@
 /*  
    ElmerGrid - A simple mesh generation and manipulation utility  
    Copyright (C) 1995- , CSC - Scientific Computing Ltd.   
-
-   Author: Peter Råback
+ 
+   Author: Peter Råback
    Email: Peter.Raback@csc.fi
    Address: CSC - Scientific Computing Ltd.
             Keilaranta 14
@@ -983,11 +983,14 @@ omstart:
 static void ReorderFidapNodes(struct FemType *data,int element,int nodes,int typeflag) 
 {
   int i,j,oldtopology[MAXNODESD2],*topology,dim;
-  int order808[]={1,2,4,3,5,6,8,7};
-  int order408[]={1,3,5,7,2,4,6,8};
-  int order306[]={1,3,5,2,4,6};
   int order203[]={1,3,2};
+  int order306[]={1,3,5,2,4,6};
+  int order408[]={1,3,5,7,2,4,6,8};
+  int order409[]={1,3,5,7,2,4,6,8,9};
+  int order510[]={1,3,6,10,2,5,4,7,8,9};
   int order605[]={1,2,4,3,5};
+  int order808[]={1,2,4,3,5,6,8,7};
+  int order827[]={1,3,9,7,19,21,27,25,2,6,8,4,10,12,18,16,20,24,26,22,11,15,17,13,5,23,14};
 
   dim = data->dim;
   if(typeflag > 10) dim -= 1;
@@ -1019,10 +1022,24 @@ static void ReorderFidapNodes(struct FemType *data,int element,int nodes,int typ
       for(i=0;i<nodes;i++) 
 	topology[i] = oldtopology[order408[i]-1];      
     }
+    else if(nodes == 9) {
+      data->elementtypes[element] = 409;
+      for(i=0;i<nodes;i++) 
+	oldtopology[i] = topology[i];
+      for(i=0;i<nodes;i++) 
+	topology[i] = oldtopology[order409[i]-1];      
+    }
   }
   else if(dim == 3) {
     if(nodes == 4) {
       data->elementtypes[element] = 504;      
+    }
+    else if(nodes == 10) {
+      data->elementtypes[element] = 510;      
+      for(i=0;i<nodes;i++) 
+	oldtopology[i] = topology[i];
+      for(i=0;i<nodes;i++) 
+	topology[i] = oldtopology[order510[i]-1];      
     }
     else if(nodes == 5) {
       data->elementtypes[element] = 605;      
@@ -1039,6 +1056,14 @@ static void ReorderFidapNodes(struct FemType *data,int element,int nodes,int typ
 	oldtopology[i] = topology[i];
       for(i=0;i<nodes;i++) 
 	topology[i] = oldtopology[order808[i]-1];
+      data->elementtypes[element] = 808;            
+    }
+    else if(nodes == 27) {
+      for(i=0;i<nodes;i++) 
+	oldtopology[i] = topology[i];
+      for(i=0;i<nodes;i++) 
+	topology[i] = oldtopology[order827[i]-1];
+      data->elementtypes[element] = 827;                  
     }
     else {
       printf("Unknown Fidap elementtype with %d nodes.\n",nodes);
@@ -1046,6 +1071,7 @@ static void ReorderFidapNodes(struct FemType *data,int element,int nodes,int typ
 
   }
   else printf("ReorderFidapNodes: unknown dimension (%d)\n",data->dim);
+  if(0) printf("dim = %d element = %d elemtype = %d\n",dim,element,data->elementtypes[element]);
 }
 
 
@@ -1124,7 +1150,7 @@ int LoadFidapInput(struct FemType *data,struct BoundaryType *boundaries,char *pr
 
     case 2:
       getline;   
-      if(0) printf("reading the header info\n");
+      if(0) printf("Reading the header info\n");
       sscanf(line,"%d%d%d%d%d",&noknots,&noelements,
 	     &nogroups,&dim,&novel);
       data->noknots = noknots;
@@ -1139,7 +1165,7 @@ int LoadFidapInput(struct FemType *data,struct BoundaryType *boundaries,char *pr
       if(info) printf("Allocating for %d knots and %d %d-node elements.\n",
 		      noknots,noelements,maxnodes);
       AllocateKnots(data);
-      if(info) printf("reading the nodes\n");
+      if(info) printf("Reading the nodes\n");
       for(i=1;i<=noknots;i++) {
 	getline;
 	if (dim == 2)
@@ -1196,7 +1222,7 @@ int LoadFidapInput(struct FemType *data,struct BoundaryType *boundaries,char *pr
 	  data->topology = topology;
 	}
 
-	if(0) printf("reading %d element topologies with %d nodes for %s\n",
+	if(0) printf("Reading %d element topologies with %d nodes for %s\n",
 			elems,nodes,entityname);
 
 	for(entity=1;entity<=maxentity;entity++) {
@@ -1233,7 +1259,8 @@ int LoadFidapInput(struct FemType *data,struct BoundaryType *boundaries,char *pr
     break;
       
     case 10:
-      if(info) printf("reading the velocity field\n");
+      dim = 3;
+      if(info) printf("Reading the velocity field\n");
       CreateVariable(data,2,dim,0.0,"Velocity",FALSE);
       vel = data->dofs[2];
       for(j=1;j<=noknots;j++) {
@@ -1247,8 +1274,7 @@ int LoadFidapInput(struct FemType *data,struct BoundaryType *boundaries,char *pr
       break;
       
     case 11:
-
-      if(info) printf("reading the temperature field\n");
+      if(info) printf("Reading the temperature field\n");
       CreateVariable(data,1,1,0.0,"Temperature",FALSE);
       temp = data->dofs[1];
       for(j=1;j<=noknots;j++) {
@@ -1272,7 +1298,7 @@ end:
       if(data->topology[i][j] > maxknot) maxknot = data->topology[i][j];
 
   if(maxknot > noknots) {
-    if(info) printf("renumbering the nodes from 1 to %d\n",noknots);
+    if(info) printf("Renumbering the nodes from 1 to %d\n",noknots);
 
     ind = ivector(1,maxknot);
     for(i=1;i<=maxknot;i++)
@@ -3447,7 +3473,7 @@ omstart:
     else if( !strncmp(line,"  2412",6)) mode = 2412;
     else if( !strncmp(line,"  2467",6)) mode = 2467;
     else if( !strncmp(line,"  2435",6)) mode = 2435;
-    else if(0 && allocated && strncmp(line,"      ",6)) printf("Unknown command: %s",line);
+    else if(1 && allocated && strncmp(line,"      ",6)) printf("Unknown command: %s",line);
 
     /* node definition */
     if( mode == 2411) {

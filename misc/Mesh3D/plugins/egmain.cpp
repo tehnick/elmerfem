@@ -753,11 +753,6 @@ static int ExportMeshDefinition(int inmethod,int outmethod,int nofile,char *file
 {
   int i;
 
-
-  /********************************/
-  if(info) printf("\nElmergrid saving data:\n");
-
- 
   switch (outmethod) {
   case 1:
     SaveElmergrid(grids,nogrids,filename,info);
@@ -781,9 +776,9 @@ static int ExportMeshDefinition(int inmethod,int outmethod,int nofile,char *file
       CreateVariable(&data[nofile],1,1,0.0,"Number",FALSE);
       for(i=1;i<=data[nofile].alldofs[1];i++)
 	data[nofile].dofs[1][i] = (Real)(i);	
-      SaveSolutionElmer(&data[nofile],boundaries[nofile],eg.saveboundaries ? MAXBOUNDARIES:0,
-			filename,eg.decimals,info);
     }
+    SaveSolutionElmer(&data[nofile],boundaries[nofile],eg.saveboundaries ? MAXBOUNDARIES:0,
+		      filename,eg.decimals,info=TRUE);
     break;
     
   default:
@@ -1148,8 +1143,6 @@ static int ManipulateMeshDefinition(int inmethod,int outmethod,Real relh)
   int i,j,k;
   Real mergeeps;
 
-  if(info) printf("\nElmergrid creating and manipulating meshes\n");
-
   if(inmethod == 1 && outmethod != 1) {
     if(visited) {
       for(k=0;k<MAXCASES;k++) {	    
@@ -1160,10 +1153,8 @@ static int ManipulateMeshDefinition(int inmethod,int outmethod,Real relh)
 	}
       }
     }
-    for(k=0;k<nogrids;k++) {
-      printf("relh =%.5le \n",relh);
+    for(k=0;k<nogrids;k++) 
       CreateElmerGridMesh(&(grids[k]),&(data[k]),boundaries[k],relh,info);
-    }
     nomeshes = nogrids;
   }
 

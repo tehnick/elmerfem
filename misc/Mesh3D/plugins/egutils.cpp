@@ -24,7 +24,7 @@
 */
 
 
-/* -------------------------------:  common.c  :----------------------------
+/* -------------------------------:  egutils.c  :----------------------------
    Includes common operations for operating vectors and such.
 */
 
