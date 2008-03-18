@@ -887,6 +887,8 @@ void MainWindow::loadElmerMesh(QString dirName)
       elements_two_d += ntype;
       break;
     case 5:
+    case 6:
+    case 7:
     case 8:
       elements_three_d += ntype;
       break;
@@ -1035,6 +1037,8 @@ void MainWindow::loadElmerMesh(QString dirName)
       break;
 
     case 5:
+    case 6:
+    case 7:
     case 8:
       element = &mesh->element[current_element++];
       element->nature = PDE_BULK;
@@ -1134,6 +1138,8 @@ void MainWindow::loadElmerMesh(QString dirName)
       break;
 
     case 5:
+    case 6:
+    case 7:
     case 8:
       // can't be boundary elements
       break;
@@ -1672,6 +1678,7 @@ void MainWindow::readInputFile(QString fileName)
 	    (fileSuffix == "FDNEUT") ||
 	    (fileSuffix == "msh") ||
 	    (fileSuffix == "mphtxt") ||
+	    (fileSuffix == "inp") ||    
 	    (fileSuffix == "unv")) {
 
     activeGenerator = GEN_ELMERGRID;
