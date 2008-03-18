@@ -834,7 +834,6 @@ void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
     n_s_t *next;
   } n_s[mesh->nodes];
 
-
   for( int i=0; i<mesh->nodes; i++ )
   {
      n_s[i].index = -1;
@@ -876,6 +875,8 @@ void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
       n_s_t *ptr = &n_s[surf1->node[j]];
       for( ; ptr && ptr->index>=0; ptr=ptr->next )
       {
+        if ( ptr->index == i ) continue;
+
         surface_t *surf2 = &mesh->surface[ptr->index];
         double s = 0.;
 
@@ -898,6 +899,7 @@ void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
     }
   }
 
+  // delete lists
   for( int i=0; i<mesh->nodes; i++ )
   {
      n_s_t *ptr=&n_s[i], *ptr1;
