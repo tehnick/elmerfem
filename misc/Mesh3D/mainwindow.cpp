@@ -157,6 +157,7 @@ void MainWindow::createMenus()
   //  SolverMenu
   solverMenu = menuBar()->addMenu(tr("&Solver"));
   solverMenu->addAction(runsolverAct);
+  solverMenu->addAction(resultsAct);
 
   // Help menu
   helpMenu = menuBar()->addMenu(tr("&Help"));
@@ -314,6 +315,11 @@ void MainWindow::createActions()
   runsolverAct = new QAction(QIcon(":/icons/system-run.png"), tr("Run"), this);
   runsolverAct->setStatusTip(tr("Run solver"));
   connect(runsolverAct, SIGNAL(triggered()), this, SLOT(runsolverSlot()));
+
+  // Solver -> results
+  resultsAct = new QAction(QIcon(":/icons/system-run.png"), tr("Results"), this);
+  resultsAct->setStatusTip(tr("Run post processing"));
+  connect(resultsAct, SIGNAL(triggered()), this, SLOT(resultsSlot()));
 
   // Help -> About
   aboutAct = new QAction(QIcon(":/icons/help-about.png"), tr("About..."), this);
@@ -2241,6 +2247,13 @@ void MainWindow::runsolverSlot()
   s->textEdit->append(str);
   s->show();
   cout << string(str.toAscii()) << endl;
+}
+
+// About dialog...
+//-----------------------------------------------------------------------------
+void MainWindow::resultsSlot()
+{
+  system( "ElmerPost \"readfile skeleton.ep; set MeshStyle 1; set MeshColor Temperature; set DisplayStyle(ColorMesh) 1; UpdateObject; \" &" );
 }
 
 // About dialog...

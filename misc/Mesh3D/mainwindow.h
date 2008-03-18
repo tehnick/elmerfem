@@ -46,6 +46,7 @@ private slots:
   void flatShadeSlot();           // View -> Shade model -> flat
   void smoothShadeSlot();         // View -> Shade model -> smooth
   void runsolverSlot();           // Solver -> Run
+  void resultsSlot();             // Solver -> Results
   void showaboutSlot();           // Help -> About...
 
   void meshOkSlot();                  // signal emitted by meshingThread
@@ -100,6 +101,7 @@ private:
   QAction *showallAct;            // View -> Show all
   QAction *resetAct;              // View -> Reset model view
   QAction *runsolverAct;          // Solver -> Run
+  QAction *resultsAct;            // Solver -> Results
   QAction *aboutAct;              // Help -> About...
 
   int activeGenerator;            // Currently active generator
