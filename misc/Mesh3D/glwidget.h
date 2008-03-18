@@ -47,7 +47,8 @@ public:
   bool stateFlatShade;
   bool stateDrawSurfaceMesh;
   bool stateDrawSharpEdges;
-  bool stateDrawSelected;
+  bool stateDrawSurfaceElements;
+  bool stateDrawEdgeElements;
   
 public slots:
 

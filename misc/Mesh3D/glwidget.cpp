@@ -60,7 +60,8 @@ GLWidget::GLWidget(QWidget *parent)
   stateFlatShade = true;
   stateDrawSurfaceMesh = true;
   stateDrawSharpEdges = true;
-  stateDrawSelected = true;
+  stateDrawSurfaceElements = true;
+  stateDrawEdgeElements = true;
 
   lists = 0;
 
@@ -198,7 +199,7 @@ void GLWidget::paintGL()
 	  glPopMatrix();
 	  glMatrixMode(GL_MODELVIEW);
 
-	} else if(l->type == EDGELIST) {
+	} else if((l->type == EDGELIST) && stateDrawEdgeElements ) {
 	  
 	  // translate slightly towards viewer
 	  glMatrixMode(GL_PROJECTION);
@@ -208,10 +209,14 @@ void GLWidget::paintGL()
 	  glPopMatrix();
 	  glMatrixMode(GL_MODELVIEW);
 
-	} else {
+	} else if((l->type == SURFACELIST) && stateDrawSurfaceElements ) {
 
 	  glCallList(l->object); 
 
+	} else {
+	  
+	  glCallList(l->object); 
+	  
 	}
 
 	glPopName();
@@ -517,26 +522,26 @@ GLuint GLWidget::makeLists()
   //   (list->type = EDGELIST)
   // - All point elements with index >= 0 will be drawn - one list/index
   //   (list->type = POINTLIST)
-  // - A list of sharp edges will be drawn (even if it is empty)
+  // - A list of sharp edges will always be drawn (even if it is empty)
   //---------------------------------------------------------------------------
   
 
   // Scan surface elements to determine the number of bcs / mat. indices:
   //---------------------------------------------------------------------------
   int surface_bcs = 0;
-  int *surface_tmp = new int[mesh->surfaces];
+  int *surface_nature = new int[mesh->surfaces];
   
   for(i=0; i < mesh->surfaces; i++)
-    surface_tmp[i] = 0;
+    surface_nature[i] = 0;
   
   for(i=0; i < mesh->surfaces; i++) {
     surface_t *surface = &mesh->surface[i];
     if(surface->index > 0)
-      surface_tmp[surface->index] = surface->nature;
+      surface_nature[surface->index] = surface->nature;
   }    
   
   for(i=0; i < mesh->surfaces; i++) {
-    if(surface_tmp[i] > 0)
+    if(surface_nature[i] > 0)
       surface_bcs++;
   }  
   
@@ -545,19 +550,19 @@ GLuint GLWidget::makeLists()
   // Scan edge elements to determine the number of bcs / mat. indices:
   //---------------------------------------------------------------------------
   int edge_bcs = 0;
-  int *edge_tmp = new int[mesh->edges];
+  int *edge_nature = new int[mesh->edges];
   
   for(i=0; i < mesh->edges; i++)
-    edge_tmp[i] = 0;
+    edge_nature[i] = 0;
   
   for(i=0; i < mesh->edges; i++) {
     edge_t *edge = &mesh->edge[i];
     if(edge->index > 0)
-      edge_tmp[edge->index] = edge->nature;
+      edge_nature[edge->index] = edge->nature;
   }    
   
   for(i=0; i < mesh->edges; i++) {
-    if(edge_tmp[i] > 0)
+    if(edge_nature[i] > 0)
       edge_bcs++;
   }  
   
@@ -566,7 +571,7 @@ GLuint GLWidget::makeLists()
   // Scan point elements to determine the number of bcs / mat. indices:
   //---------------------------------------------------------------------------
   int point_bcs = 0;
-  int *point_tmp = new int[mesh->points];
+  int *point_nature = new int[mesh->points];
 
   // TODO
 
@@ -589,11 +594,11 @@ GLuint GLWidget::makeLists()
 
   // Surface lists:
   for(i=0; i < mesh->surfaces; i++) {
-    if(surface_tmp[i] > 0) {
+    if(surface_nature[i] > 0) {
 
       // triangles & quads:
       list_t *l = &list[current_index++];
-      l->nature = surface_tmp[i];
+      l->nature = surface_nature[i];
       l->type = SURFACELIST;
       l->index = i;
       l->object = generateSurfaceList(l->index, 0, 1, 1);
@@ -617,9 +622,9 @@ GLuint GLWidget::makeLists()
   
   // Edge lists:
   for(i=0; i < mesh->edges; i++) {
-    if(edge_tmp[i] > 0) {
+    if(edge_nature[i] > 0) {
       list_t *l = &list[current_index++];
-      l->nature = edge_tmp[i]; 
+      l->nature = edge_nature[i]; 
       l->type = EDGELIST;
       l->index = i;
       l->object = generateEdgeList(l->index, 0, 1, 0);
@@ -643,9 +648,9 @@ GLuint GLWidget::makeLists()
   l->selected = false;
   l->visible = stateDrawSharpEdges;
 
-  delete [] surface_tmp;
-  delete [] edge_tmp;
-  delete [] point_tmp;
+  delete [] surface_nature;
+  delete [] edge_nature;
+  delete [] point_nature;
   
   updateGL();
   getMatrix();

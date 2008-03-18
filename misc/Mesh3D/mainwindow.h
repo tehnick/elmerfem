@@ -96,6 +96,10 @@ private:
 
   int activeGenerator;            // Currently active generator
 
+  // images:
+  QIcon iconChecked;
+  QIcon iconEmpty;
+
   // tetlib:
   bool tetlibPresent;
   TetlibAPI *tetlibAPI;
