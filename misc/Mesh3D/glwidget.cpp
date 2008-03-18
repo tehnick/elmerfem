@@ -692,11 +692,11 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
       x2[1] = (mesh->node[n2].x[1] - drawTranslate[1]) / drawScale;
       x2[2] = (mesh->node[n2].x[2] - drawTranslate[2]) / drawScale;
       
-      if ( !stateFlatShade ) glNormal3dv(surface->vert_normals[0]); 
+      if ( !stateFlatShade ) glNormal3dv(surface->vertex_normals[0]); 
       glVertex3dv(x0);
-      if ( !stateFlatShade ) glNormal3dv(surface->vert_normals[1]); 
+      if ( !stateFlatShade ) glNormal3dv(surface->vertex_normals[1]); 
       glVertex3dv(x1);
-      if ( !stateFlatShade ) glNormal3dv(surface->vert_normals[2]); 
+      if ( !stateFlatShade ) glNormal3dv(surface->vertex_normals[2]); 
       glVertex3dv(x2);
     }
   }
@@ -734,13 +734,13 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
       x3[1] = (mesh->node[n3].x[1] - drawTranslate[1]) / drawScale;
       x3[2] = (mesh->node[n3].x[2] - drawTranslate[2]) / drawScale;
       
-      if ( !stateFlatShade ) glNormal3dv(surface->vert_normals[0]); 
+      if ( !stateFlatShade ) glNormal3dv(surface->vertex_normals[0]); 
       glVertex3dv(x0);
-      if ( !stateFlatShade ) glNormal3dv(surface->vert_normals[1]); 
+      if ( !stateFlatShade ) glNormal3dv(surface->vertex_normals[1]); 
       glVertex3dv(x1);
-      if ( !stateFlatShade ) glNormal3dv(surface->vert_normals[2]); 
+      if ( !stateFlatShade ) glNormal3dv(surface->vertex_normals[2]); 
       glVertex3dv(x2);
-      if ( !stateFlatShade ) glNormal3dv(surface->vert_normals[3]); 
+      if ( !stateFlatShade ) glNormal3dv(surface->vertex_normals[3]); 
       glVertex3dv(x3);      
     }
   }

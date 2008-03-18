@@ -814,52 +814,79 @@ void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
     }
   }
 
-  double **vertex_normals = new double*[mesh->nodes];
-
-  for( int i=0; i<mesh->nodes; i++ )
+  for( int i=0; i<mesh->surfaces; i++ )
   {
-    vertex_normals[i] =  new double[3];
-    vertex_normals[i][0] = 0;
-    vertex_normals[i][1] = 0;
-    vertex_normals[i][2] = 0;
+    surface_t *surface = &mesh->surface[i];
+    int n = surface->code / 100;
+    for(int j=0; j<n; j++ )
+    {
+       surface->vertex_normals[j][0] = surface->normal[0];
+       surface->vertex_normals[j][1] = surface->normal[1];
+       surface->vertex_normals[j][2] = surface->normal[2];
+    }
+  }
+
+  for( int i=0; i<mesh->edges; i++ )
+  {
+    edge_t *edge = &mesh->edge[i];
+    int s1 = edge->surface[0], s2 = edge->surface[1];
+    if ( s1>=0 && s2 >= 0 ) {
+      surface_t *surf1 = &mesh->surface[s1];
+      surface_t *surf2 = &mesh->surface[s2];
+      double s,limit_angle = cos(30.*3.14159/180.);
+
+      int n1=edge->node[0],n2=edge->node[1];
+      
+      s = 0.;
+      s += surf1->normal[0]*surf2->normal[0];
+      s += surf1->normal[1]*surf2->normal[1];
+      s += surf1->normal[2]*surf2->normal[2];
+      if ( fabs(s) > limit_angle )
+      {
+        int n = surf1->code / 100;
+        for( int j=0; j<n; j++ )
+        {
+          if ( surf1->node[j]==n1 || surf1->node[j]==n2 )
+          {
+            surf1->vertex_normals[j][0] += surf2->normal[0];
+            surf1->vertex_normals[j][1] += surf2->normal[1];
+            surf1->vertex_normals[j][2] += surf2->normal[2];
+          }
+        }
+        n = surf2->code / 100;
+        for( int j=0; j<n; j++ )
+        {
+          if ( surf2->node[j]==n1 || surf2->node[j]==n2 )
+          {
+            surf2->vertex_normals[j][0] += surf1->normal[0];
+            surf2->vertex_normals[j][1] += surf1->normal[1];
+            surf2->vertex_normals[j][2] += surf1->normal[2];
+          }
+        }
+      }
+    }
   }
 
   for( int i=0; i<mesh->surfaces; i++ )
   {
     surface_t *surface = &mesh->surface[i];
-    for(int j=0; j<surface->nodes; j++ )
+    double s;
+    int n = surface->code / 100;
+
+    for(int j=0; j<n; j++ )
     {
-       vertex_normals[surface->node[j]][0] += surface->normal[0];
-       vertex_normals[surface->node[j]][1] += surface->normal[1];
-       vertex_normals[surface->node[j]][2] += surface->normal[2];
+       s += surface->vertex_normals[j][0]*surface->vertex_normals[j][0];
+       s += surface->vertex_normals[j][1]*surface->vertex_normals[j][1];
+       s += surface->vertex_normals[j][2]*surface->vertex_normals[j][2];
+       s = sqrt(s);
+       if ( s != 0 ) {
+         surface->vertex_normals[j][0] /= s;
+         surface->vertex_normals[j][1] /= s;
+         surface->vertex_normals[j][2] /= s;
+       }
     }
   }
-  for( int i=0; i<mesh->nodes; i++ )
-  {
-     double s=0;
-     s += vertex_normals[i][0]*vertex_normals[i][0];
-     s += vertex_normals[i][1]*vertex_normals[i][1];
-     s += vertex_normals[i][2]*vertex_normals[i][2];
-     s = sqrt(s);
-     if ( s != 0 ) {
-       vertex_normals[i][0] /= s;
-       vertex_normals[i][1] /= s;
-       vertex_normals[i][2] /= s;
-     }
-  }
-  for( int i=0; i<mesh->surfaces; i++ )
-  {
-    surface_t *surface = &mesh->surface[i];
-    for(int j=0; j<surface->nodes; j++ )
-    {
-       surface->vert_normals[j][0] = vertex_normals[surface->node[j]][0];
-       surface->vert_normals[j][1] = vertex_normals[surface->node[j]][1];
-       surface->vert_normals[j][2] = vertex_normals[surface->node[j]][2];
-    }
-  }
-  for( int i=0; i<mesh->nodes; i++ )
-    delete [] vertex_normals[i];
-  delete [] vertex_normals;
+
 
   delete helpers;
 }
