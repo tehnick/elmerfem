@@ -43,7 +43,9 @@ private slots:
   void resetSlot();               // View -> Reset model view...
   void flatShadeSlot();           // View -> Shade model -> flat
   void smoothShadeSlot();         // View -> Shade model -> smooth
+  void runsolverSlot();           // Solver -> run
   void showaboutSlot();           // Help -> About...
+
 
   void closeMainWindowSlot();     // Close MainWindow
 
@@ -70,6 +72,7 @@ private:
   QMenu *meshMenu;                // Mesh menu
   QMenu *helpMenu;                // Help menu
   QMenu *shadeMenu;               // Mesh -> Shade model...
+  QMenu *solverMenu;              // Solver menu
 
   QToolBar *fileToolBar;          // File toolbar
   QToolBar *editToolBar;          // Edit toolbar
@@ -94,6 +97,7 @@ private:
   QAction *smoothShadeAct;        // View -> Shade model -> Smooth
   QAction *showallAct;            // View -> Show all...
   QAction *resetAct;              // View -> Reset model view...
+  QAction *runsolverAct;          // Solver -> Run
   QAction *aboutAct;              // Help -> About...
 
   int activeGenerator;            // Currently active generator

@@ -150,6 +150,10 @@ void MainWindow::createMenus()
   meshMenu->addSeparator();
   meshMenu->addAction(edgedivideAct);
 
+  //  SolverMenu
+  solverMenu = menuBar()->addMenu(tr("&Solver"));
+  solverMenu->addAction(runsolverAct);
+
   // Help menu
   helpMenu = menuBar()->addMenu(tr("&Help"));
   helpMenu->addAction(aboutAct);
@@ -290,6 +294,11 @@ void MainWindow::createActions()
   resetAct = new QAction(QIcon(), tr("Reset model view"), this);
   resetAct->setStatusTip(tr("Reset model view"));
   connect(resetAct, SIGNAL(triggered()), this, SLOT(resetSlot()));
+
+  // Solver -> run
+  runsolverAct = new QAction(QIcon(":/icons/help-about.png"), tr("Run"), this);
+  runsolverAct->setStatusTip(tr("Run solver."));
+  connect(runsolverAct, SIGNAL(triggered()), this, SLOT(runsolverSlot()));
 
   // Help -> About
   aboutAct = new QAction(QIcon(":/icons/help-about.png"), tr("About..."), this);
@@ -2124,6 +2133,12 @@ void MainWindow::makeSifBoundaryBlocks(QString BCtext)
 }
 
 
+// About dialog...
+//-----------------------------------------------------------------------------
+void MainWindow::runsolverSlot()
+{
+  system( "ElmerSolver" );
+}
 
 // About dialog...
 //-----------------------------------------------------------------------------
