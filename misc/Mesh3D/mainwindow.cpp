@@ -1,5 +1,6 @@
 #include <QtGui>
 #include <QFile>
+#include <QFont>
 #include <iostream>
 #include <fstream>
 #include "mainwindow.h"
@@ -69,8 +70,6 @@ MainWindow::MainWindow()
   // post emits (int) when finished:
   connect(post, SIGNAL(finished(int)), this, SLOT(postProcessFinishedSlot(int))) ;
   
-
-
   // set initial state:
   meshControl->nglibPresent = nglibPresent;
   meshControl->tetlibPresent = tetlibPresent;
@@ -78,6 +77,10 @@ MainWindow::MainWindow()
   nglibInputOk = false;
   tetlibInputOk = false;
   activeGenerator = GEN_UNKNOWN;
+
+  QFont sansFont("Courier", 10);
+  sifWindow->textEdit->setCurrentFont(sansFont);
+  solverLogWindow->textEdit->setCurrentFont(sansFont);
 
   synchronizeMenuToState();
 
@@ -2377,7 +2380,6 @@ void MainWindow::runsolverSlot()
     return;
   }
   
-
   solverLogWindow->setWindowTitle(tr("Solver log"));
   solverLogWindow->textEdit->clear();
   solverLogWindow->show();
