@@ -443,6 +443,8 @@ void Meshutils::findEdgeElementPoints(mesh_t *mesh)
 
     for(int j=0; j < p->edges; j++) {
       int k = p->edge[j];
+      if ( k<0 ) continue; // ????
+
       edge_t *e = &mesh->edge[k];
 
       // allocate space for two points, if not yet done:
