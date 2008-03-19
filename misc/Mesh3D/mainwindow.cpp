@@ -1819,9 +1819,8 @@ void MainWindow::doDivideEdgeSlot(double angle)
     return;
   }
   
-
   meshutils->findEdgeElementPoints(mesh);
-  meshutils->findSharpPoints(mesh, 20.0);
+  meshutils->findSharpPoints(mesh, angle);
   int parts = meshutils->divideEdgeBySharpPoints(mesh);
   
   QString qs = "Edge divided into " + QString::number(parts) + " parts";
@@ -2444,7 +2443,7 @@ void MainWindow::resultsSlot()
 
 // Signal (int) emitted by postProcess when finished:
 //-----------------------------------------------------------------------------
-void MainWindow::postProcessFinishedSlot(int exitCode)
+void MainWindow::postProcessFinishedSlot(int)
 {
   logMessage("Post processor finished");
   resultsAct->setIcon(QIcon(":/icons/ElmerPost.png"));
