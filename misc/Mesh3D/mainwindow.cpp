@@ -2241,12 +2241,12 @@ void MainWindow::runsolverSlot()
   FILE *fp = fopen("ElmerSolver.log", "r" );
   QTextStream in(fp);
   QString str = in.readAll();
-  fclose(fp);
 
   SifWindow *s = new SifWindow;
   s->setWindowTitle(tr("ElmerSolver log"));
   s->textEdit->append(str);
   s->show();
+  fclose(fp);
   cout << string(str.toAscii()) << endl;
 }
 
