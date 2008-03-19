@@ -834,8 +834,7 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
 
       // index is ok
       if(!edge->selected || (edge->index != UNKNOWN)
-          || (edge->nature != PDE_BOUNDARY))
-	return;
+        || (edge->nature != PDE_BOUNDARY)) return;
       
       // set index
       edge->index = index;
@@ -868,7 +867,7 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
     {
       if ( edge->selected ) {
         count++;
-        mesh->edge[i].index = UNKNOWN;
+        edge->index = UNKNOWN;
       } else {
         index = max(index,edge->index);
       }
@@ -883,11 +882,8 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
   Bc *bc = new Bc;
 
   // recursively determine boundary parts:
-  for(int i=0; i < mesh->edges; i++) {
-    edge_t *edge = &mesh->edge[i];
-    if(edge->selected && (edge->index == UNKNOWN) && (edge->nature == PDE_BOUNDARY))
-      bc->propagateIndex(mesh, ++index, i);
-  }
+  for(int i=0; i < mesh->edges; i++)
+    bc->propagateIndex(mesh, ++index, i);
   
   cout << "Edge divided into " << index << " parts" << endl;
   
@@ -909,19 +905,18 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
   class Bc {
   public:
     void propagateIndex(mesh_t* mesh, int index, int i) {
-      surface_t *surface = &mesh->surface[i];
+      surface_t *surf = &mesh->surface[i];
 
       // index is ok
-      if(!surface->selected || (surface->index != UNKNOWN) 
-             || (surface->nature != PDE_BOUNDARY) )
-	return;
+      if(!surf->selected || (surf->index != UNKNOWN) 
+        || (surf->nature != PDE_BOUNDARY) ) return;
 
       // set index
-      surface->index = index;
+      surf->index = index;
 
       // propagate index
-      for(int j=0; j<surface->edges; j++) {
-	int k = surface->edge[j];
+      for(int j=0; j<surf->edges; j++) {
+	int k = surf->edge[j];
 	edge_t *edge = &mesh->edge[k];
 
 	// skip sharp edges
@@ -960,11 +955,8 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
   // recursively determine boundary parts:
   Bc *bc = new Bc;
 
-  for(int i=0; i < mesh->surfaces; i++) {
-    surface_t *surf = &mesh->surface[i];
-    if( surf->selected && (surf->index == UNKNOWN) && (surf->nature == PDE_BOUNDARY)) 
-      bc->propagateIndex(mesh, ++index, i);
-  }
+  for(int i=0; i < mesh->surfaces; i++)
+    bc->propagateIndex(mesh, ++index, i);
 
   cout << "Surface divided into " << index << " parts" << endl;
 
