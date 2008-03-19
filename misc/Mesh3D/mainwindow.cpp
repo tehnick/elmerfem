@@ -2367,12 +2367,9 @@ void MainWindow::runsolverSlot()
     return;
   }
   
-  solverLogWindow->setWindowTitle(tr("ElmerSolver log"));
-  solverLogWindow->textEdit->clear();
-  solverLogWindow->show();
-
-  // pass textEdit to the solver thread and start:
-  solverThread->startSolver(solverLogWindow->textEdit);
+  // pass textEdit to the solver thread:
+  QTextEdit *te = solverLogWindow->textEdit;
+  solverThread->startSolver(te);
 
   solverIsRunning = true;
 
@@ -2389,6 +2386,18 @@ void MainWindow::solverReadySlot()
   solverIsRunning = false;
 
   runsolverAct->setIcon(QIcon(":/icons/ElmerSolver.png"));
+
+  solverLogWindow->setWindowTitle(tr("ElmerSolver log"));
+  solverLogWindow->show();
+
+  QFile file;
+  file.setFileName("ElmerSolver.log");
+  file.open(QIODevice::ReadOnly);
+  QTextStream ElmerSolver_Log(&file);
+
+  QTextEdit *te = solverLogWindow->textEdit;
+  te->clear();
+  te->append(ElmerSolver_Log.readAll());
 }
 
 
