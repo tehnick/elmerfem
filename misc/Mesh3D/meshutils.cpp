@@ -862,11 +862,19 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
   // reset bc-indices on edges:
   int index = 0;
   int count = 0;
-  int edge_index[mesh->edges];
 
   for(int i=0; i < mesh->edges; i++)
+  {
+    edge_t *edge=&mesh->edge[i];
+    if(edge->nature == PDE_BOUNDARY && !edge->selected)
+      index = max(index,edge->index);
+  }
+  int edge_index[index];
+
+  for( int i=0; i<index; i++ )
     edge_index[i] = UNKNOWN;
 
+  index = 0;
   for(int i=0; i < mesh->edges; i++)
   {
     edge_t *edge=&mesh->edge[i];
@@ -942,11 +950,20 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
   // reset bc-indices:
   int count = 0;
   int index = 0;
-  int surf_index[mesh->surfaces];
 
   for( int i=0; i<mesh->surfaces; i++ )
+  {
+    surface_t *surf=&mesh->surface[i];
+    if( surf->nature == PDE_BOUNDARY && !surf->selected )
+      index = max(index,surf->index);
+  }
+
+  int surf_index[index];
+
+  for( int i=0; i<index; i++ )
     surf_index[i] = UNKNOWN;
 
+  index = 0;
   for(int i=0; i < mesh->surfaces; i++)
   {
     surface_t *surf=&mesh->surface[i];
