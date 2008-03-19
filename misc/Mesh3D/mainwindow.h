@@ -12,6 +12,7 @@
 #include "boundarydivision.h"
 #include "meshutils.h"
 #include "solverthread.h"
+#include "postprocessingthread.h"
 
 class QAction;
 class QMenu;
@@ -57,6 +58,7 @@ private slots:
   void doDivideSurfaceSlot(double);   // signal emitted by boundaryDivide
   void doDivideEdgeSlot(double);      // signal emitted by boundaryDivide
   void solverReadySlot();             // signal emitted by solverThread
+  void postProcessingReadySlot();     // signal emitted by postProcessingThread
   
 private:
   GLWidget *glWidget;             // central gl widget
@@ -64,6 +66,7 @@ private:
   MeshControl *meshControl;       // mesh generator control
   BoundaryDivide *boundaryDivide; // boundary division control
   SolverThread* solverThread;     // solver thread
+  PostProcessingThread* postProcessingThread;  // post proc. thread
   Meshutils *meshutils;           // mesh manipulation utilities  
   MeshingThread *meshingThread;   // meshing thread
 
@@ -113,6 +116,7 @@ private:
 
   int activeGenerator;            // Currently active generator
   bool solverIsRunning;           // flag
+  bool postProcessorIsRunning;    // flag
 
   // images:
   QIcon iconChecked;

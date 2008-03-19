@@ -40,6 +40,7 @@ MainWindow::MainWindow()
   meshingThread = new MeshingThread;
   meshutils = new Meshutils;
   solverThread = new SolverThread;
+  postProcessingThread = new PostProcessingThread;
 
   createActions();
   createMenus();
@@ -61,6 +62,9 @@ MainWindow::MainWindow()
   // solverThread emits (void) when ready:
   connect(solverThread, SIGNAL(signalSolverReady()), this, SLOT(solverReadySlot()));
 
+  // postProcessingThread emits (void) when ready:
+  connect(postProcessingThread, SIGNAL(signalPostProcessingReady()), this, SLOT(postProcessingReadySlot()));
+
   // set initial state:
   meshControl->nglibPresent = nglibPresent;
   meshControl->tetlibPresent = tetlibPresent;
@@ -69,6 +73,7 @@ MainWindow::MainWindow()
   tetlibInputOk = false;
   activeGenerator = GEN_UNKNOWN;
   solverIsRunning = false;
+  postProcessorIsRunning = false;
 
   synchronizeMenuToState();
 
@@ -2358,7 +2363,6 @@ void MainWindow::runsolverSlot()
 
 // Solver thread emits (void) when ready...
 //-----------------------------------------------------------------------------
-
 void MainWindow::solverReadySlot()
 {
   logMessage("Solver ready");
@@ -2384,8 +2388,30 @@ void MainWindow::solverReadySlot()
 //-----------------------------------------------------------------------------
 void MainWindow::resultsSlot()
 {
-  system( "ElmerPost \"readfile skeleton.ep; set MeshStyle 1; set MeshColor Temperature; set DisplayStyle(ColorMesh) 1; UpdateObject; \" &" );
+  if(postProcessorIsRunning) {
+    logMessage("Post processor is already running");
+    return;
+  }
+  
+  postProcessingThread->startPostProcessing();
+
+  postProcessorIsRunning = true;
+
+  resultsAct->setIcon(QIcon(":/icons/ElmerPost-running.png"));
 }
+
+
+// PostProcessing thread emits (void) when ready...
+//-----------------------------------------------------------------------------
+void MainWindow::postProcessingReadySlot()
+{
+  logMessage("Post processing ready");
+
+  postProcessorIsRunning = false;
+
+  resultsAct->setIcon(QIcon(":/icons/ElmerPost.png"));
+}
+
 
 
 //*****************************************************************************

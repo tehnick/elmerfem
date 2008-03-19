@@ -23,7 +23,7 @@
 
 /*****************************************************************************
  *                                                                           *
- *  ELMER/Mesh3D SolverThread                                                *
+ *  ELMER/Mesh3D PostProcessingThread                                        *
  *                                                                           *
  *****************************************************************************
  *                                                                           *
@@ -41,11 +41,11 @@
 #include <QtGui>
 #include <iostream>
 #include <stdio.h>
-#include "solverthread.h"
+#include "postprocessingthread.h"
 
 using namespace std;
 
-SolverThread::SolverThread(QObject *parent)
+PostProcessingThread::PostProcessingThread(QObject *parent)
   : QThread(parent)
 {
   restart = false;
@@ -54,7 +54,7 @@ SolverThread::SolverThread(QObject *parent)
 
 
 
-SolverThread::~SolverThread()
+PostProcessingThread::~PostProcessingThread()
 {
   mutex.lock();
   abort = true;
@@ -63,7 +63,7 @@ SolverThread::~SolverThread()
   wait();
 }
 
-void SolverThread::startSolver()
+void PostProcessingThread::startPostProcessing()
 {
   QMutexLocker locker(&mutex);
   
@@ -75,7 +75,7 @@ void SolverThread::startSolver()
   }
 }
 
-void SolverThread::run()
+void PostProcessingThread::run()
 {
   forever {
     mutex.lock();
@@ -87,10 +87,10 @@ void SolverThread::run()
     if(abort)
       return;
     
-    system( "ElmerSolver > ElmerSolver.log" );
+    system( "ElmerPost \"readfile skeleton.ep; set MeshStyle 1; set MeshColor Temperature; set DisplayStyle(ColorMesh) 1; UpdateObject; \" " );
     
     if(!restart)
-      emit(signalSolverReady());
+      emit(signalPostProcessingReady());
     
     mutex.lock();
     
