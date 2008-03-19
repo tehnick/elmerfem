@@ -223,6 +223,7 @@ endif
 EXTRA_DIST = \
 	Adaptive.src \
 	AdvectionDiffusion.src \
+	AdvectionReaction.src \
 	ArteryOutlet.src \
 	ArtificialCompressibility.src \
 	BandMatrix.src \
