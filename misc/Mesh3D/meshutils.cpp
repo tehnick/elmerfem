@@ -862,6 +862,11 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
   // reset bc-indices on edges:
   int index = 0;
   int count = 0;
+  int edge_index[mesh->edges];
+
+  for(int i=0; i < mesh->edges; i++)
+    edge_index[i] = UNKNOWN;
+
   for(int i=0; i < mesh->edges; i++)
   {
     edge_t *edge=&mesh->edge[i];
@@ -871,7 +876,9 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
         count++;
         edge->index = UNKNOWN;
       } else {
-        index = max(index,edge->index);
+        if ( edge_index[edge->index] == UNKNOWN )
+          edge_index[edge->index] = ++index;
+        edge->index = edge_index[edge->index];
       }
     }
   }
@@ -935,6 +942,10 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
   // reset bc-indices:
   int count = 0;
   int index = 0;
+  int surf_index[mesh->surfaces];
+
+  for( int i=0; i<mesh->surfaces; i++ )
+    surf_index[i] = UNKNOWN;
 
   for(int i=0; i < mesh->surfaces; i++)
   {
@@ -944,7 +955,9 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
         count++;
         surf->index = UNKNOWN;
       } else {
-        index = max(index,surf->index);
+        if ( surf_index[surf->index] == UNKNOWN )
+          surf_index[surf->index] = ++index;
+        surf->index = surf_index[surf->index];
       }
     }
   }
@@ -953,6 +966,7 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
     cout << "No boundary surfaces to divde." << endl;
     return 0;
   }
+
 
   // recursively determine boundary parts:
   Bc *bc = new Bc;
