@@ -1342,7 +1342,14 @@ void MainWindow::selectAllSurfacesSlot()
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
     if(l->type == SURFACELIST)
+    {
       l->selected = true;
+      for( int j=0; j<mesh->surfaces; j++ ) {
+        surface_t *surf = &mesh->surface[j];
+        if( l->index == surf->index )
+          surf->selected=l->selected;
+      }
+    }
   }
 
   glWidget->rebuildSurfaceLists();
@@ -1370,6 +1377,11 @@ void MainWindow::selectAllEdgesSlot()
     list_t *l = &list[i];
     if(l->type == EDGELIST)
       l->selected = true;
+      for( int j=0; j<mesh->edges; j++ ) {
+        edge_t *edge = &mesh->edge[j];
+        if( l->index == edge->index )
+          edge->selected=l->selected;
+      }
   }
 
   glWidget->rebuildEdgeLists();
