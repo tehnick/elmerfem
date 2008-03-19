@@ -87,7 +87,7 @@ void SolverThread::run()
     if(abort)
       return;
     
-    system( "ElmerSolver &" );
+    system( "ElmerSolver > ElmerSolver.log" );
     
     if(!restart)
       emit(signalSolverReady());

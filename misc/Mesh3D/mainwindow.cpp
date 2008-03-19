@@ -67,6 +67,7 @@ MainWindow::MainWindow()
   nglibInputOk = false;
   tetlibInputOk = false;
   activeGenerator = GEN_UNKNOWN;
+  solverIsRunning = false;
 
   synchronizeMenuToState();
 
@@ -2240,7 +2241,14 @@ void MainWindow::runsolverSlot()
     return;
   }
 
+  if(solverIsRunning) {
+    logMessage("Solver is already running");
+    return;
+  }
+
   solverThread->startSolver();
+
+  solverIsRunning = true;
 }
 
 
@@ -2250,6 +2258,8 @@ void MainWindow::runsolverSlot()
 void MainWindow::solverReadySlot()
 {
   logMessage("Solver ready");
+
+  solverIsRunning = false;
 
   FILE *fp = fopen("ElmerSolver.log", "r" );
   QTextStream in(fp);

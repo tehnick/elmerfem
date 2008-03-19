@@ -108,6 +108,7 @@ private:
   QAction *aboutAct;              // Help -> About...
 
   int activeGenerator;            // Currently active generator
+  bool solverIsRunning;           // flag
 
   // images:
   QIcon iconChecked;
