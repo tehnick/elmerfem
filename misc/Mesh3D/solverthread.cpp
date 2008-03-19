@@ -67,8 +67,10 @@ SolverThread::~SolverThread()
   wait();
 }
 
-void SolverThread::startSolver()
+void SolverThread::startSolver(QTextEdit *te)
 {
+  this->te = te;
+
   QMutexLocker locker(&mutex);
   
   if (!isRunning()) {
@@ -87,9 +89,12 @@ void SolverThread::run()
     // Here, set values to variables that need mutex locked...
     
     mutex.unlock();
-    
+
     if(abort)
       return;
+
+    te->append("Ok start solving.");
+    te->append("Logging to this textEdit is currently broken, though...");
     
     // open log file
     QFile logfile;
@@ -105,7 +110,14 @@ void SolverThread::run()
     istream f(&fb);
     
     // write to stdout && log
-    for(char c = f.get(); !f.eof(); c = f.get()) {
+    QString qs;
+    char c;
+    for(c = f.get(); !f.eof(); c = f.get()) {
+
+      // broken:
+      //qs = c;
+      //te->append(qs);
+
       logstream << c;
       cout << c;
       cout.flush();

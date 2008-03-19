@@ -2366,8 +2366,13 @@ void MainWindow::runsolverSlot()
     logMessage("Solver is already running");
     return;
   }
+  
+  solverLogWindow->setWindowTitle(tr("ElmerSolver log"));
+  solverLogWindow->textEdit->clear();
+  solverLogWindow->show();
 
-  solverThread->startSolver();
+  // pass textEdit to the solver thread and start:
+  solverThread->startSolver(solverLogWindow->textEdit);
 
   solverIsRunning = true;
 
@@ -2384,20 +2389,6 @@ void MainWindow::solverReadySlot()
   solverIsRunning = false;
 
   runsolverAct->setIcon(QIcon(":/icons/ElmerSolver.png"));
-
-  FILE *fp = fopen("ElmerSolver.log", "r" );
-  QTextStream in(fp);
-  QString str = in.readAll();
-  
-  solverLogWindow->setWindowTitle(tr("ElmerSolver log"));
-  solverLogWindow->textEdit->clear();
-  solverLogWindow->textEdit->append(str);
-  solverLogWindow->show();
-
-  fclose(fp);
-
-  cout << string(str.toAscii()) << endl; 
-  cout.flush();
 }
 
 

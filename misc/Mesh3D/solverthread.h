@@ -4,6 +4,7 @@
 #include <QMutex>
 #include <QThread>
 #include <QWaitCondition>
+#include <QTextEdit>
 
 class SolverThread : public QThread
 {
@@ -13,7 +14,7 @@ public:
   SolverThread(QObject *parent = 0);
   ~SolverThread();
 
-  void startSolver();
+  void startSolver(QTextEdit *te);
 
 signals:
   void signalSolverReady();
@@ -27,6 +28,9 @@ private:
   
   bool restart;
   bool abort;
+
+  QTextEdit *te;
+
 };
 
 #endif // SOLVERTHREAD_H
