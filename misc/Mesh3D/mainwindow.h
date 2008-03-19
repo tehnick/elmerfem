@@ -49,6 +49,7 @@ private slots:
   void flatShadeSlot();           // View -> Shade model -> flat
   void smoothShadeSlot();         // View -> Shade model -> smooth
   void runsolverSlot();           // Solver -> Run
+  void killsolverSlot();          // Solver -> Kill
   void resultsSlot();             // Solver -> Results
   void showaboutSlot();           // Help -> About...
 
@@ -77,10 +78,10 @@ private:
   QMenu *fileMenu;                // File menu
   QMenu *editMenu;                // Edit menu
   QMenu *viewMenu;                // View menu
+  QMenu *shadeMenu;               // View -> Shade model
   QMenu *meshMenu;                // Mesh menu
-  QMenu *helpMenu;                // Help menu
-  QMenu *shadeMenu;               // Mesh -> Shade model
   QMenu *solverMenu;              // Solver menu
+  QMenu *helpMenu;                // Help menu
 
   QToolBar *fileToolBar;          // File toolbar
   QToolBar *editToolBar;          // Edit toolbar
@@ -94,12 +95,6 @@ private:
   QAction *showsifAct;            // Edit -> Solver input file...
   QAction *steadyHeatSifAct;      // Edit -> Steady heat conduction
   QAction *linElastSifAct;        // Edit -> Linear elasticity
-  QAction *meshcontrolAct;        // Mesh -> Control...
-  QAction *remeshAct;             // Mesh -> Remesh.
-  QAction *surfaceDivideAct;      // Mesh -> Divide surface...
-  QAction *surfaceUnifyAct;       // Mesh -> Unify surface
-  QAction *edgeUnifyAct;          // Mesh -> Unify surface
-  QAction *edgeDivideAct;         // Mesh -> Divide edges...
   QAction *hidesurfacemeshAct;    // View -> Show surface mesh
   QAction *hidesharpedgesAct;     // View -> Show sharp edges
   QAction *selectAllSurfacesAct;  // View -> Select all surfaces
@@ -109,7 +104,14 @@ private:
   QAction *smoothShadeAct;        // View -> Shade model -> Smooth
   QAction *showallAct;            // View -> Show all
   QAction *resetAct;              // View -> Reset model view
+  QAction *meshcontrolAct;        // Mesh -> Control...
+  QAction *remeshAct;             // Mesh -> Remesh.
+  QAction *surfaceDivideAct;      // Mesh -> Divide surface...
+  QAction *surfaceUnifyAct;       // Mesh -> Unify surface
+  QAction *edgeUnifyAct;          // Mesh -> Unify surface
+  QAction *edgeDivideAct;         // Mesh -> Divide edges...
   QAction *runsolverAct;          // Solver -> Run
+  QAction *killsolverAct;         // Solver -> Kill
   QAction *resultsAct;            // Solver -> Results
   QAction *aboutAct;              // Help -> About...
 

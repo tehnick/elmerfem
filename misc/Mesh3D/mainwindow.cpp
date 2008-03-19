@@ -118,6 +118,7 @@ MainWindow::MainWindow()
   tetlibInputOk = false;
   activeGenerator = GEN_UNKNOWN;
 
+  // set font for text editors:
   QFont sansFont("Courier", 10);
   sifWindow->textEdit->setCurrentFont(sansFont);
   solverLogWindow->textEdit->setCurrentFont(sansFont);
@@ -193,6 +194,8 @@ void MainWindow::createMenus()
   //  SolverMenu
   solverMenu = menuBar()->addMenu(tr("&Solver"));
   solverMenu->addAction(runsolverAct);
+  solverMenu->addAction(killsolverAct);
+  solverMenu->addSeparator();
   solverMenu->addAction(resultsAct);
 
   // Help menu
@@ -232,6 +235,8 @@ void MainWindow::createToolBars()
   // Solver toolbar
   solverToolBar = addToolBar(tr("&Solver"));
   solverToolBar->addAction(runsolverAct);
+  solverToolBar->addAction(killsolverAct);
+  solverToolBar->addSeparator();
   solverToolBar->addAction(resultsAct);
 }
 
@@ -358,12 +363,17 @@ void MainWindow::createActions()
   resetAct->setStatusTip(tr("Reset model view"));
   connect(resetAct, SIGNAL(triggered()), this, SLOT(resetSlot()));
 
-  // Solver -> run
-  runsolverAct = new QAction(QIcon(":/icons/ElmerSolver.png"), tr("Solve"), this);
+  // Solver -> Run
+  runsolverAct = new QAction(QIcon(":/icons/ElmerSolver.png"), tr("Run solver"), this);
   runsolverAct->setStatusTip(tr("Run solver"));
   connect(runsolverAct, SIGNAL(triggered()), this, SLOT(runsolverSlot()));
 
-  // Solver -> results
+  // Solver -> Kill
+  killsolverAct = new QAction(QIcon(":/icons/window-close.png"), tr("Kill solver"), this);
+  killsolverAct->setStatusTip(tr("Kill solver"));
+  connect(killsolverAct, SIGNAL(triggered()), this, SLOT(killsolverSlot()));
+
+  // Solver -> Results
   resultsAct = new QAction(QIcon(":/icons/ElmerPost.png"), tr("Post process"), this);
   resultsAct->setStatusTip(tr("Run post processor"));
   connect(resultsAct, SIGNAL(triggered()), this, SLOT(resultsSlot()));
@@ -2043,8 +2053,11 @@ void MainWindow::makeSteadyHeatSifSlot()
   }
 
   QTextEdit *te = sifWindow->textEdit;
-
+  
   te->clear();
+
+  QFont sansFont("Courier", 10);
+  sifWindow->textEdit->setCurrentFont(sansFont);
 
   te->append("! Sif skeleton for steady heat conduction\n");
 
@@ -2135,6 +2148,9 @@ void MainWindow::makeLinElastSifSlot()
   QTextEdit *te = sifWindow->textEdit;
 
   te->clear();
+
+  QFont sansFont("Courier", 10);
+  sifWindow->textEdit->setCurrentFont(sansFont);
 
   te->append("! Sif skeleton for linear elasticity\n");
 
@@ -2455,6 +2471,16 @@ void MainWindow::solverFinishedSlot(int)
 }
 
 
+// Solver -> Kill
+//-----------------------------------------------------------------------------
+void MainWindow::killsolverSlot()
+{
+  solver->kill();
+
+  logMessage("Solver killed");
+  runsolverAct->setIcon(QIcon(":/icons/ElmerSolver.png"));
+}
+
 
 
 // Post process
@@ -2468,7 +2494,13 @@ void MainWindow::resultsSlot()
     return;
   }
 
-  args << "readfile skeleton.ep; set ColorScaleColor Temperature; set DisplayStyle(ColorScale) 1; set MeshStyle 1; set MeshColor Temperature; set DisplayStyle(ColorMesh) 1; UpdateObject;";
+  args << "readfile skeleton.ep; "
+    "set ColorScaleColor Temperature; "
+    "set DisplayStyle(ColorScale) 1; "
+    "set MeshStyle 1; "
+    "set MeshColor Temperature; "
+    "set DisplayStyle(ColorMesh) 1; "
+    "UpdateObject; ";
   
   post->start("ElmerPost", args);
   
