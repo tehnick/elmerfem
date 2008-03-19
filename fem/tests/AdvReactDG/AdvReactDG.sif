@@ -36,24 +36,25 @@ End
 
 Equation 1
   Active Solvers(1) = 1
+  Convection = constant
 End
 
 Material 1
-  u 1 = Variable Coordinate
+  Convection Velocity 1 = Variable Coordinate
     Real MATC "ux(tx)"
 
-  u 2 = Variable Coordinate
+  Convection Velocity 2 = Variable Coordinate
     Real MATC "uy(tx)"
 
-  gamma = Variable Coordinate
+  Potential Gamma = Variable Coordinate
      Real MATC "g(tx)"
 End
 
 Solver 1
   Equation = "AdvReact"
-  Procedure = File "./AdvReactDG" "AdvReactSolver"
+  Procedure = File "AdvectionReaction" "AdvectionReactionSolver"
   Variable = -nooutput "Potential"
-  Exported Variable 1 = Nodal Result
+  Exported Variable 1 = "Nodal Result"
   Discontinuous Galerkin = Logical TRUE
 
   Linear System Solver = Iterative
@@ -64,7 +65,7 @@ Solver 1
 End
 
 Body Force 1
-  Source = Variable Coordinate
+  Potential Source = Variable Coordinate
     Real MATC "r(tx)*g(tx)+ux(tx)*dx(tx)+uy(tx)*dy(tx)"
 End
 
