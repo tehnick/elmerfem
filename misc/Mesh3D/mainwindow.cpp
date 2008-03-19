@@ -39,9 +39,9 @@ MainWindow::MainWindow()
   boundaryDivide = new BoundaryDivide(this);
   meshingThread = new MeshingThread;
   meshutils = new Meshutils;
-  solverThread = new SolverThread;
-  postProcessingThread = new PostProcessingThread;
   solverLogWindow = new SifWindow;
+  solverThread = new SolverThread;
+  postProcess = new QProcess(this);
 
   createActions();
   createMenus();
@@ -63,9 +63,9 @@ MainWindow::MainWindow()
   // solverThread emits (void) when ready:
   connect(solverThread, SIGNAL(signalSolverReady()), this, SLOT(solverReadySlot()));
 
-  // postProcessingThread emits (void) when ready:
-  connect(postProcessingThread, SIGNAL(signalPostProcessingReady()), this, SLOT(postProcessingReadySlot()));
-
+  // postProcess emits (int) when finished:
+  connect(postProcess, SIGNAL(finished(int)), this, SLOT(postProcessFinishedSlot(int))) ;
+  
   // set initial state:
   meshControl->nglibPresent = nglibPresent;
   meshControl->tetlibPresent = tetlibPresent;
@@ -74,7 +74,6 @@ MainWindow::MainWindow()
   tetlibInputOk = false;
   activeGenerator = GEN_UNKNOWN;
   solverIsRunning = false;
-  postProcessorIsRunning = false;
 
   synchronizeMenuToState();
 
@@ -2405,27 +2404,40 @@ void MainWindow::solverReadySlot()
 //-----------------------------------------------------------------------------
 void MainWindow::resultsSlot()
 {
-  if(postProcessorIsRunning) {
+  QStringList args;
+  
+  if(postProcess->state() == QProcess::Running) {
     logMessage("Post processor is already running");
     return;
   }
+
+  args << "ElmerPost \"readfile skeleton.ep;"
+       << "set ColorScaleColor Temperature;"
+       << "set DisplayStyle(ColorScale) 1;"
+       << "set MeshStyle 1;"
+       << "set MeshColor Temperature;"
+       << "set DisplayStyle(ColorMesh) 1;"
+       << "UpdateObject;\"";
+
+  postProcess->start("ElmerPost", args);
+
+  if(!postProcess->waitForStarted()) {
+    logMessage("Unable to start post processor");
+    return;
+  }
   
-  postProcessingThread->startPostProcessing();
-
-  postProcessorIsRunning = true;
-
   resultsAct->setIcon(QIcon(":/icons/ElmerPost-running.png"));
+
+  logMessage("Post processor started");
 }
 
 
-// PostProcessing thread emits (void) when ready...
+
+// Signal (int) emitted by postProcess when finished:
 //-----------------------------------------------------------------------------
-void MainWindow::postProcessingReadySlot()
+void MainWindow::postProcessFinishedSlot(int exitCode)
 {
-  logMessage("Post processing ready");
-
-  postProcessorIsRunning = false;
-
+  logMessage("Post processor finished");
   resultsAct->setIcon(QIcon(":/icons/ElmerPost.png"));
 }
 
@@ -2471,4 +2483,3 @@ void MainWindow::logMessage(QString message)
   statusBar()->showMessage(message);
   cout.flush();
 }
-

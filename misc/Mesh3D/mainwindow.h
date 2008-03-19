@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
+#include <QProcess>
 #include "plugins/tetlib_api.h"
 #include "plugins/nglib_api.h"
 #include "plugins/elmergrid_api.h"
@@ -12,7 +13,6 @@
 #include "boundarydivision.h"
 #include "meshutils.h"
 #include "solverthread.h"
-#include "postprocessingthread.h"
 
 class QAction;
 class QMenu;
@@ -58,15 +58,14 @@ private slots:
   void doDivideSurfaceSlot(double);   // signal emitted by boundaryDivide
   void doDivideEdgeSlot(double);      // signal emitted by boundaryDivide
   void solverReadySlot();             // signal emitted by solverThread
-  void postProcessingReadySlot();     // signal emitted by postProcessingThread
-  
+  void postProcessFinishedSlot(int);  // signal emitted by postProcess
+
 private:
   GLWidget *glWidget;             // central gl widget
   SifWindow *sifWindow;           // sif text editor
   MeshControl *meshControl;       // mesh generator control
   BoundaryDivide *boundaryDivide; // boundary division control
   SolverThread* solverThread;     // solver thread
-  PostProcessingThread* postProcessingThread;  // post proc. thread
   Meshutils *meshutils;           // mesh manipulation utilities  
   MeshingThread *meshingThread;   // meshing thread
   SifWindow *solverLogWindow;     // Solver log
@@ -117,7 +116,6 @@ private:
 
   int activeGenerator;            // Currently active generator
   bool solverIsRunning;           // flag
-  bool postProcessorIsRunning;    // flag
 
   // images:
   QIcon iconChecked;
@@ -142,6 +140,9 @@ private:
   // elmergrid:
   ElmergridAPI *elmergridAPI;
 
+  // post processor:
+  QProcess *postProcess;
+  
   // private functions:
   void readInputFile(QString);
   void loadElmerMesh(QString);
