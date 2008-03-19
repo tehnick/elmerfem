@@ -69,6 +69,7 @@ private:
   PostProcessingThread* postProcessingThread;  // post proc. thread
   Meshutils *meshutils;           // mesh manipulation utilities  
   MeshingThread *meshingThread;   // meshing thread
+  SifWindow *solverLogWindow;     // Solver log
 
   void createActions();
   void createMenus();

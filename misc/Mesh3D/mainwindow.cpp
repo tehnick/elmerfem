@@ -41,6 +41,7 @@ MainWindow::MainWindow()
   meshutils = new Meshutils;
   solverThread = new SolverThread;
   postProcessingThread = new PostProcessingThread;
+  solverLogWindow = new SifWindow;
 
   createActions();
   createMenus();
@@ -1240,6 +1241,7 @@ void MainWindow::closeMainWindowSlot()
   sifWindow->close();
   meshControl->close();
   boundaryDivide->close();
+  solverLogWindow->close();
   close();
 }
 
@@ -2375,12 +2377,15 @@ void MainWindow::solverReadySlot()
   QTextStream in(fp);
   QString str = in.readAll();
   
-  SifWindow *s = new SifWindow;
-  s->setWindowTitle(tr("ElmerSolver log"));
-  s->textEdit->append(str);
-  s->show();
+  solverLogWindow->setWindowTitle(tr("ElmerSolver log"));
+  solverLogWindow->textEdit->clear();
+  solverLogWindow->textEdit->append(str);
+  solverLogWindow->show();
+
   fclose(fp);
+
   cout << string(str.toAscii()) << endl; 
+  cout.flush();
 }
 
 
