@@ -12,7 +12,6 @@
 #include "meshcontrol.h"
 #include "boundarydivision.h"
 #include "meshutils.h"
-#include "solverthread.h"
 
 class QAction;
 class QMenu;
@@ -57,15 +56,15 @@ private slots:
   void boundarySelectedSlot(list_t*); // signal emitted by glWidget
   void doDivideSurfaceSlot(double);   // signal emitted by boundaryDivide
   void doDivideEdgeSlot(double);      // signal emitted by boundaryDivide
-  void solverReadySlot();             // signal emitted by solverThread
   void postProcessFinishedSlot(int);  // signal emitted by postProcess
-
+  void solverStdoutSlot();            // solver's stdout redirected here
+  void solverFinishedSlot(int);       // signal emitted by solver process
+  
 private:
   GLWidget *glWidget;             // central gl widget
   SifWindow *sifWindow;           // sif text editor
   MeshControl *meshControl;       // mesh generator control
   BoundaryDivide *boundaryDivide; // boundary division control
-  SolverThread* solverThread;     // solver thread
   Meshutils *meshutils;           // mesh manipulation utilities  
   MeshingThread *meshingThread;   // meshing thread
   SifWindow *solverLogWindow;     // Solver log
@@ -115,7 +114,6 @@ private:
   QAction *aboutAct;              // Help -> About...
 
   int activeGenerator;            // Currently active generator
-  bool solverIsRunning;           // flag
 
   // images:
   QIcon iconChecked;
@@ -140,8 +138,9 @@ private:
   // elmergrid:
   ElmergridAPI *elmergridAPI;
 
-  // post processor:
-  QProcess *postProcess;
+  // solver and post processor:
+  QProcess *solver;
+  QProcess *post;
   
   // private functions:
   void readInputFile(QString);

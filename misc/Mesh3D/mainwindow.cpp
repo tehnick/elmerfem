@@ -40,8 +40,8 @@ MainWindow::MainWindow()
   meshingThread = new MeshingThread;
   meshutils = new Meshutils;
   solverLogWindow = new SifWindow;
-  solverThread = new SolverThread;
-  postProcess = new QProcess(this);
+  solver = new QProcess(this);
+  post = new QProcess(this);
 
   createActions();
   createMenus();
@@ -60,12 +60,17 @@ MainWindow::MainWindow()
   // boundaryDivide emits (double) when "divide button" has been clicked (case edge):
   connect(boundaryDivide, SIGNAL(signalDoDivideEdge(double)), this, SLOT(doDivideEdgeSlot(double)));
 
-  // solverThread emits (void) when ready:
-  connect(solverThread, SIGNAL(signalSolverReady()), this, SLOT(solverReadySlot()));
+  // solver emits (int) when finished:
+  connect(solver, SIGNAL(finished(int)), this, SLOT(solverFinishedSlot(int))) ;
 
-  // postProcess emits (int) when finished:
-  connect(postProcess, SIGNAL(finished(int)), this, SLOT(postProcessFinishedSlot(int))) ;
+  // solver emits (void) when there is something to read from stdout:
+  connect(solver, SIGNAL(readyReadStandardOutput()), this, SLOT(solverStdoutSlot()));
+
+  // post emits (int) when finished:
+  connect(post, SIGNAL(finished(int)), this, SLOT(postProcessFinishedSlot(int))) ;
   
+
+
   // set initial state:
   meshControl->nglibPresent = nglibPresent;
   meshControl->tetlibPresent = tetlibPresent;
@@ -73,7 +78,6 @@ MainWindow::MainWindow()
   nglibInputOk = false;
   tetlibInputOk = false;
   activeGenerator = GEN_UNKNOWN;
-  solverIsRunning = false;
 
   synchronizeMenuToState();
 
@@ -2357,47 +2361,50 @@ void MainWindow::makeSifBoundaryBlocks(QString BCtext)
 void MainWindow::runsolverSlot()
 {
   if(glWidget->mesh == NULL) {
-    logMessage("No mesh - unable to run solver");
-    return;
-  }
-
-  if(solverIsRunning) {
-    logMessage("Solver is already running");
+    logMessage("No mesh - unable to start solver");
     return;
   }
   
-  // pass textEdit to the solver thread:
-  QTextEdit *te = solverLogWindow->textEdit;
-  solverThread->startSolver(te);
+  if(solver->state() == QProcess::Running) {
+    logMessage("Solver is currently running");
+    return;
+  }
 
-  solverIsRunning = true;
+  solver->start("ElmerSolver");
+
+  if(!solver->waitForStarted()) {
+    logMessage("Unable to start solver");
+    return;
+  }
+  
+  logMessage("Solver started");
 
   runsolverAct->setIcon(QIcon(":/icons/ElmerSolver-running.png"));
 }
 
 
-// Solver thread emits (void) when ready...
+
+// solver process emits (void) when there is something to read from stdout:
 //-----------------------------------------------------------------------------
-void MainWindow::solverReadySlot()
+void MainWindow::solverStdoutSlot()
+{
+  QString qs = solver->readAllStandardOutput();
+
+  cout << string(qs.toAscii());
+  cout.flush();
+}
+
+
+
+// solver process emits (int) when ready...
+//-----------------------------------------------------------------------------
+void MainWindow::solverFinishedSlot(int)
 {
   logMessage("Solver ready");
-
-  solverIsRunning = false;
-
   runsolverAct->setIcon(QIcon(":/icons/ElmerSolver.png"));
-
-  solverLogWindow->setWindowTitle(tr("ElmerSolver log"));
-  solverLogWindow->show();
-
-  QFile file;
-  file.setFileName("ElmerSolver.log");
-  file.open(QIODevice::ReadOnly);
-  QTextStream ElmerSolver_Log(&file);
-
-  QTextEdit *te = solverLogWindow->textEdit;
-  te->clear();
-  te->append(ElmerSolver_Log.readAll());
 }
+
+
 
 
 // Post process
@@ -2406,22 +2413,16 @@ void MainWindow::resultsSlot()
 {
   QStringList args;
   
-  if(postProcess->state() == QProcess::Running) {
+  if(post->state() == QProcess::Running) {
     logMessage("Post processor is already running");
     return;
   }
 
-  args << "ElmerPost \"readfile skeleton.ep;"
-       << "set ColorScaleColor Temperature;"
-       << "set DisplayStyle(ColorScale) 1;"
-       << "set MeshStyle 1;"
-       << "set MeshColor Temperature;"
-       << "set DisplayStyle(ColorMesh) 1;"
-       << "UpdateObject;\"";
+  args << "\"readfile skeleton.ep; set ColorScaleColor Temperature; set DisplayStyle(ColorScale) 1; set MeshStyle 1; set MeshColor Temperature; set DisplayStyle(ColorMesh) 1; UpdateObject;\"";
 
-  postProcess->start("ElmerPost", args);
+  post->start("ElmerPost", args);
 
-  if(!postProcess->waitForStarted()) {
+  if(!post->waitForStarted()) {
     logMessage("Unable to start post processor");
     return;
   }
@@ -2430,7 +2431,6 @@ void MainWindow::resultsSlot()
 
   logMessage("Post processor started");
 }
-
 
 
 // Signal (int) emitted by postProcess when finished:
