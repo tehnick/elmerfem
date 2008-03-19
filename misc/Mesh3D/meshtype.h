@@ -27,6 +27,7 @@ class element_t {
   int nodes;                       // number of nodes
   int *node;                       // list of nodes
   int index;                       // bc/mat index as defined in input file
+  int selected;                    // element is selected or not
 };
 
 // zero dimensional elements

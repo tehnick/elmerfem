@@ -449,11 +449,20 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
 	l->object = generateSurfaceList(l->index, 0, 1, 1); // cyan
       }
 
+      for( int i=0; i<mesh->surfaces; i++ ) {
+        surface_t *surf = &mesh->surface[i];
+        if ( surf->index == l->index ) surf->selected=l->selected;
+      }
+
     } else if(l->type == EDGELIST) {
       if(l->selected) {
 	l->object = generateEdgeList(l->index, 1, 0, 0); // red
       } else {
 	l->object = generateEdgeList(l->index, 0, 1, 0); // green
+      }
+      for( int i=0; i<mesh->edges; i++ ) {
+        edge_t *edge = &mesh->edge[i];
+        if ( edge->index == l->index ) edge->selected=l->selected;
       }
     }
     
@@ -503,6 +512,12 @@ void GLWidget::rebuildLists()
     lists = 0;
   }
   
+  for( int i=0; i<mesh->edges; i++ )
+    mesh->edge[i].selected = false;
+
+  for( int i=0; i<mesh->surfaces; i++ )
+    mesh->surface[i].selected = false;
+
   lists = makeLists();
 
   updateGL();
