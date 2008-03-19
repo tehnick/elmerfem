@@ -2351,6 +2351,8 @@ void MainWindow::runsolverSlot()
   solverThread->startSolver();
 
   solverIsRunning = true;
+
+  runsolverAct->setIcon(QIcon(":/icons/ElmerSolver-running.png"));
 }
 
 
@@ -2362,6 +2364,8 @@ void MainWindow::solverReadySlot()
   logMessage("Solver ready");
 
   solverIsRunning = false;
+
+  runsolverAct->setIcon(QIcon(":/icons/ElmerSolver.png"));
 
   FILE *fp = fopen("ElmerSolver.log", "r" );
   QTextStream in(fp);
