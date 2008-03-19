@@ -869,9 +869,11 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
     if(edge->nature == PDE_BOUNDARY && !edge->selected)
       index = max(index,edge->index);
   }
+  index++;
+
   int edge_index[index];
 
-  for( int i=0; i<index; i++ )
+  for( int i=0; i<=index; i++ )
     edge_index[i] = UNKNOWN;
 
   index = 0;
@@ -900,7 +902,11 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
 
   // recursively determine boundary parts:
   for(int i=0; i < mesh->edges; i++)
-    bc->propagateIndex(mesh, ++index, i);
+  {
+    edge_t *edge=&mesh->edge[i];
+    if(edge->selected && edge->index==UNKNOWN && edge->nature==PDE_BOUNDARY)
+      bc->propagateIndex(mesh, ++index, i);
+  }
   
   cout << "Edge divided into " << index << " parts" << endl;
   
@@ -957,6 +963,7 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
     if( surf->nature == PDE_BOUNDARY && !surf->selected )
       index = max(index,surf->index);
   }
+  index++;
 
   int surf_index[index];
 
@@ -989,7 +996,11 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
   Bc *bc = new Bc;
 
   for(int i=0; i < mesh->surfaces; i++)
-    bc->propagateIndex(mesh, ++index, i);
+  {
+    surface_t *surf = &mesh->surface[i];
+    if(surf->selected && surf->index==UNKNOWN && surf->nature==PDE_BOUNDARY)
+      bc->propagateIndex(mesh, ++index, i);
+  }
 
   cout << "Surface divided into " << index << " parts" << endl;
 
