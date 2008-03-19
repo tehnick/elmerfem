@@ -36,9 +36,6 @@ MainWindow::MainWindow()
   setCentralWidget(glWidget);
   sifWindow = new SifWindow(this);
   meshControl = new MeshControl(this);
-  meshControl->nglibPresent = nglibPresent;
-  meshControl->tetlibPresent = tetlibPresent;
-  meshControl->defaultControls();
   boundaryDivide = new BoundaryDivide(this);
   meshingThread = new MeshingThread;
   meshutils = new Meshutils;
@@ -64,6 +61,10 @@ MainWindow::MainWindow()
   // solverThread emits (void) when ready:
   connect(solverThread, SIGNAL(signalSolverReady()), this, SLOT(solverReadySlot()));
 
+  // set initial state:
+  meshControl->nglibPresent = nglibPresent;
+  meshControl->tetlibPresent = tetlibPresent;
+  meshControl->defaultControls();
   nglibInputOk = false;
   tetlibInputOk = false;
   activeGenerator = GEN_UNKNOWN;
@@ -80,31 +81,6 @@ MainWindow::MainWindow()
 MainWindow::~MainWindow()
 {
 }
-
-
-// Synchronize...
-//-----------------------------------------------------------------------------
-void MainWindow::synchronizeMenuToState()
-{
-  if(glWidget->stateDrawSurfaceMesh)
-    hidesurfacemeshAct->setIcon(iconChecked);
-  else
-    hidesurfacemeshAct->setIcon(iconEmpty);
-  
-  if(glWidget->stateDrawSharpEdges)
-    hidesharpedgesAct->setIcon(iconChecked);
-  else
-    hidesharpedgesAct->setIcon(iconEmpty);
-  
-  if(glWidget->stateFlatShade) {
-    flatShadeAct->setIcon(iconChecked);
-    smoothShadeAct->setIcon(iconEmpty);
-  } else {
-    flatShadeAct->setIcon(iconEmpty);
-    smoothShadeAct->setIcon(iconChecked);
-  }
-}
-
 
 
 // Create status bar...
@@ -335,572 +311,36 @@ void MainWindow::createActions()
 
 
 
-// Close mainwindow...
+// Synchronize menu to GL glwidget state variables:
 //-----------------------------------------------------------------------------
-void MainWindow::closeMainWindowSlot()
+void MainWindow::synchronizeMenuToState()
 {
-  sifWindow->close();
-  meshControl->close();
-  boundaryDivide->close();
-  close();
-}
-
-
-
-// Mesh -> Control...
-//-----------------------------------------------------------------------------
-void MainWindow::meshcontrolSlot()
-{
-  meshControl->tetlibPresent = this->tetlibPresent;
-  meshControl->nglibPresent = this->nglibPresent;
-
-  if(!tetlibPresent) {
-    meshControl->tetlibPresent = false;
-    meshControl->ui.nglibRadioButton->setChecked(true);
-    meshControl->ui.tetlibRadioButton->setEnabled(false);
-    meshControl->ui.tetlibStringEdit->setEnabled(false);
-  }
-
-  if(!nglibPresent) {
-    meshControl->nglibPresent = false;
-    meshControl->ui.tetlibRadioButton->setChecked(true);
-    meshControl->ui.nglibRadioButton->setEnabled(false);
-    meshControl->ui.nglibMaxHEdit->setEnabled(false);
-    meshControl->ui.nglibFinenessEdit->setEnabled(false);
-    meshControl->ui.nglibBgmeshEdit->setEnabled(false);
-  }
-
-  if(!tetlibPresent && !nglibPresent) 
-    meshControl->ui.elmerGridRadioButton->setChecked(true);  
-
-  meshControl->show();
-}
-
-
-
-// Mesh -> Divide edge...
-//-----------------------------------------------------------------------------
-void MainWindow::edgeDivideSlot()
-{
-#define TARGET_UNKNOWN  0
-#define TARGET_SURFACES 1
-#define TARGET_EDGES    2
-
-  boundaryDivide->target = TARGET_EDGES;
-  boundaryDivide->show();
-}
-
-
-
-// Mesh -> Divide surface...
-//-----------------------------------------------------------------------------
-void MainWindow::surfaceDivideSlot()
-{
-#define TARGET_UNKNOWN  0
-#define TARGET_SURFACES 1
-#define TARGET_EDGES    2
-
-  boundaryDivide->target = TARGET_SURFACES;
-  boundaryDivide->show();
-}
-
-
-
-// Mesh -> Unify edge...
-//-----------------------------------------------------------------------------
-void MainWindow::edgeUnifySlot()
-{
-  mesh_t *mesh = glWidget->mesh;
-  int lists = glWidget->lists;
-  list_t *list = glWidget->list;
-
-  if(mesh == NULL) {
-    logMessage("No edges to unify");
-    return;
-  }
-  
-  int targetindex = -1;
-  for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];
-    if(l->selected && (l->type == EDGELIST) && (l->nature == PDE_BOUNDARY)) {
-      if(targetindex < 0) {
-	targetindex = l->index;
-	break;
-      }
-    }
-  }
-
-  if(targetindex < 0) {
-    logMessage("No edges selected");
-    return;
-  }
-  
-  for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];    
-    if(l->selected && (l->type == EDGELIST) && (l->nature == PDE_BOUNDARY)) {
-      for(int j=0; j < mesh->edges; j++) {
-	edge_t *e = &mesh->edge[j];
-	if((e->index == l->index) && (e->nature == PDE_BOUNDARY)) 
-	  e->index = targetindex;
-      }
-    }
-  }
-  
-  cout << "Selected edges marked with index " << targetindex << endl;
-  cout.flush();
-
-  glWidget->rebuildLists();
-
-  logMessage("Selected edges unified");
-}
-
-
-// Mesh -> Unify surface...
-//-----------------------------------------------------------------------------
-void MainWindow::surfaceUnifySlot()
-{
-  mesh_t *mesh = glWidget->mesh;
-  int lists = glWidget->lists;
-  list_t *list = glWidget->list;
-
-  if(mesh == NULL) {
-    logMessage("No surfaces to unify");
-    return;
-  }
-  
-  int targetindex = -1;
-  for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];
-    if(l->selected && (l->type == SURFACELIST) && (l->nature == PDE_BOUNDARY)) {
-      if(targetindex < 0) {
-	targetindex = l->index;
-	break;
-      }
-    }
-  }
-  
-  if(targetindex < 0) {
-    logMessage("No surfaces selected");
-    return;
-  }
-  
-  for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];    
-    if(l->selected && (l->type == SURFACELIST) && (l->nature == PDE_BOUNDARY)) {
-      for(int j=0; j < mesh->surfaces; j++) {
-	surface_t *s = &mesh->surface[j];
-	if((s->index == l->index) && (s->nature == PDE_BOUNDARY)) 
-	  s->index = targetindex;
-      }
-    }
-  }
-  
-  cout << "Selected surfaces marked with index " << targetindex << endl;
-  cout.flush();
-
-  glWidget->rebuildLists();
-
-  logMessage("Selected surfaces unified");
-}
-
-
-// Mesh -> Hide/Show surface mesh...
-//-----------------------------------------------------------------------------
-void MainWindow::hidesurfacemeshSlot()
-{
-  mesh_t *mesh = glWidget->mesh;
-  int lists = glWidget->lists;
-  list_t *list = glWidget->list;
-
-  if(mesh == NULL) {
-    logMessage("There is no surface mesh to hide/show");
-    return;
-  }
-  
-  glWidget->stateDrawSurfaceMesh = !glWidget->stateDrawSurfaceMesh;
-
-  for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];
-    if(l->type == SURFACEMESHLIST) 
-    {
-      l->visible = glWidget->stateDrawSurfaceMesh;
-
-      // do not set visible if the parent surface list is hidden
-      int p = l->parent;
-      if(p >= 0) {
-	list_t *lp = &list[p];
-	if(!lp->visible)
-	  l->visible = false;
-      }
-    }
-  }
-
-  synchronizeMenuToState();  
-  if(!glWidget->stateDrawSurfaceMesh) 
-    logMessage("Surface mesh hidden");
+  if(glWidget->stateDrawSurfaceMesh)
+    hidesurfacemeshAct->setIcon(iconChecked);
   else
-    logMessage("Surface mesh shown");
-}
-
-
-
-// Mesh -> Hide/Show sharp edges...
-//-----------------------------------------------------------------------------
-void MainWindow::hidesharpedgesSlot()
-{
-  mesh_t *mesh = glWidget->mesh;
-  int lists = glWidget->lists;
-  list_t *list = glWidget->list;
-
-  if(mesh == NULL) {
-    logMessage("There are no sharp edges to hide/show");
-    return;
-  }
-
-  glWidget->stateDrawSharpEdges = !glWidget->stateDrawSharpEdges;
-
-  for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];
-    if(l->type == SHARPEDGELIST)  
-      l->visible = glWidget->stateDrawSharpEdges;
-  }
-
+    hidesurfacemeshAct->setIcon(iconEmpty);
   
-  synchronizeMenuToState();
-
-  if ( !glWidget->stateDrawSharpEdges ) 
-    logMessage("Sharp edges hidden");
-  else 
-    logMessage("Sharp edges shown");
-}
-
-
-
-// Mesh -> Hide/Show selected...
-//-----------------------------------------------------------------------------
-void MainWindow::hideselectedSlot()
-{
-  mesh_t *mesh = glWidget->mesh;
-  int lists = glWidget->lists;
-  list_t *list = glWidget->list;
-
-  if(mesh == NULL) {
-    logMessage("There is nothing to hide/show");
-    return;
-  }
-
-  bool something_selected = false;
-  for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];
-    something_selected |= l->selected;
-  }
-
-  if(!something_selected) {
-    logMessage("Nothing selected");
-    return;
-  }
-
-  bool vis = false;
-  for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];
-    if(l->selected) {
-      l->visible = !l->visible;
-      if(l->visible)
-	vis = true;
-
-      // hide the child surface edge list if parent is hidden
-      int c = l->child;
-      if(c >= 0) {
-	list_t *lc = &list[c];
-	lc->visible = l->visible;
-	if(!glWidget->stateDrawSurfaceMesh)
-	  lc->visible = false;
-      }
-    }
-  }
-  glWidget->updateGL();
+  if(glWidget->stateDrawSharpEdges)
+    hidesharpedgesAct->setIcon(iconChecked);
+  else
+    hidesharpedgesAct->setIcon(iconEmpty);
   
-  if( !vis )
-    logMessage("Selected objects hidden");
-  else 
-    logMessage("Selected objects shown");
-}
-
-
-
-// Mesh -> Show all...
-//-----------------------------------------------------------------------------
-void MainWindow::showallSlot()
-{
-  int lists = glWidget->lists;
-  list_t *list = glWidget->list;
-  
-  glWidget->stateDrawSurfaceMesh = true;
-  glWidget->stateDrawSharpEdges = true;
-  glWidget->stateDrawSurfaceElements = true;
-  glWidget->stateDrawEdgeElements = true;
-
-  synchronizeMenuToState();
-
-  for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];
-    l->visible = true;
-  }
-
-  logMessage("All objects visible");
-}
-
-
-
-// Mesh -> Reset model view...
-//-----------------------------------------------------------------------------
-void MainWindow::resetSlot()
-{
-  mesh_t *mesh = glWidget->mesh;
-  int lists = glWidget->lists;
-  list_t *list = glWidget->list;
-  
-  if(mesh == NULL) {
-    logMessage("There is nothing to reset");
-    return;
-  }
-
-  glWidget->stateFlatShade = true;
-  glWidget->stateDrawSurfaceMesh = true;
-  glWidget->stateDrawSharpEdges = true;
-  glWidget->stateDrawSurfaceElements = true;
-  glWidget->stateDrawEdgeElements = true;
-
-  for(int i=0; i<lists; i++) {
-    list_t *l = &list[i];
-    l->visible = true;
-    l->selected = false;
-  }
-
-  glLoadIdentity();
-  glWidget->rebuildLists();
-  glWidget->updateGL();
-
-  synchronizeMenuToState();
-  logMessage("Reset model view");
-}
-
-
-// Mesh -> Shade model -> Flat
-//-----------------------------------------------------------------------------
-void MainWindow::flatShadeSlot()
-{
-  if(glWidget->mesh == NULL) {
-    logMessage("Refusing to change shade model when mesh is empty");
-    return;
-  }
-
-  glWidget->stateFlatShade = true;
-  glWidget->rebuildSurfaceLists();
-  glWidget->updateGL();
-
-  synchronizeMenuToState();
-  logMessage("Shade model: flat");
-}
-
-
-// Mesh -> Shade model -> Smooth
-//-----------------------------------------------------------------------------
-void MainWindow::smoothShadeSlot()
-{
-  if(glWidget->mesh == NULL) {
-    logMessage("Refusing to change shade model when mesh is empty");
-    return;
-  }
-
-  glWidget->stateFlatShade = false;
-  glWidget->rebuildSurfaceLists();
-  glWidget->updateGL();
-
-  synchronizeMenuToState();
-  logMessage("Shade model: smooth");
-}
-
-
-// Make edge division by sharp points (signalled by surfaceDivide)...
-//-----------------------------------------------------------------------------
-void MainWindow::doDivideEdgeSlot(double angle)
-{
-  mesh_t *mesh = glWidget->mesh;
-
-  if(mesh == NULL) {
-    logMessage("No mesh to divide");
-    return;
-  }
-  
-
-  meshutils->findEdgeElementPoints(mesh);
-  meshutils->findSharpPoints(mesh, 20.0);
-  int parts = meshutils->divideEdgeBySharpPoints(mesh);
-  
-  QString qs = "Edge divided into " + QString::number(parts) + " parts";
-  statusBar()->showMessage(qs);
-
-  synchronizeMenuToState();
-  glWidget->rebuildLists();
-  glWidget->updateGL(); 
-}
-
-
-
-// Make surface division by sharp edges (signalled by surfaceDivide)...
-//-----------------------------------------------------------------------------
-void MainWindow::doDivideSurfaceSlot(double angle)
-{
-  mesh_t *mesh = glWidget->mesh;
-
-  if(mesh == NULL) {
-    logMessage("No mesh to divide");
-    return;
-  }
-  
-  meshutils->findSharpEdges(mesh, angle);
-  int parts = meshutils->divideSurfaceBySharpEdges(mesh);
-
-  QString qs = "Surface divided into " + QString::number(parts) + " parts";
-  statusBar()->showMessage(qs);
-  
-  synchronizeMenuToState();
-  glWidget->rebuildLists();
-  glWidget->updateGL();
-}
-
-
-
-// Edit -> Sif...
-//-----------------------------------------------------------------------------
-void MainWindow::showsifSlot()
-{
-  sifWindow->show();
-}
-
-
-
-// Mesh -> Remesh...
-//-----------------------------------------------------------------------------
-void MainWindow::remeshSlot()
-{
-  if(activeGenerator == GEN_UNKNOWN) {
-    logMessage("Unable to (re)mesh: no input data or mesh generator");
-    return;
-  }
-  
-  if(activeGenerator == GEN_TETLIB) {
-
-    if(!tetlibPresent) {
-      logMessage("tetlib functionality unavailable");
-      return;
-    }
-    
-    if(!tetlibInputOk) {
-      logMessage("Remesh: error: no input data for tetlib");
-      return;
-    }
-
-    // must have "J" in control string:
-    tetlibControlString = meshControl->tetlibControlString;
-
-  } else if(activeGenerator == GEN_NGLIB) {
-
-    if(!nglibPresent) {
-      logMessage("nglib functionality unavailable");
-      return;
-    }
-
-    if(!nglibInputOk) {
-      logMessage("Remesh: error: no input data for nglib");
-      return;
-    }
-
-    char backgroundmesh[1024];
-    sprintf(backgroundmesh, "%s",
-	    (const char*)(meshControl->nglibBackgroundmesh.toAscii()));
-    
-    ngmesh = nglibAPI->Ng_NewMesh();
-    
-    mp->maxh = meshControl->nglibMaxH.toDouble();
-    mp->fineness = meshControl->nglibFineness.toDouble();
-    mp->secondorder = 0;
-    mp->meshsize_filename = backgroundmesh;
-
-  } else if(activeGenerator == GEN_ELMERGRID) {
-
-    // ***** ELMERGRID *****
-    meshutils->clearMesh(glWidget->mesh);
-    glWidget->mesh = new mesh_t;
-    mesh_t *mesh = glWidget->mesh;
-    
-    elmergridAPI->createElmerMeshStructure(mesh, meshControl->elmerGridControlString.toAscii());
-
-    cout << "Nodes: " << mesh->nodes << endl;
-    cout << "Elements: " << mesh->elements << endl;
-    cout << "Surfaces: " << mesh->surfaces << endl;
-    cout.flush();
-    
-    for(int i=0; i<mesh->surfaces; i++ )
-    {
-      surface_t *surface = &mesh->surface[i];
-
-      surface->edges = (int)(surface->code/100);
-      surface->edge = new int[surface->edges];
-      for(int j=0; j<surface->edges; j++)
-        surface->edge[j] = -1;
-    }
-    meshutils->findSurfaceElementEdges(mesh);
-
-    if(0) meshutils->findSurfaceElementParents(mesh);
- 
-    meshutils->findSurfaceElementNormals(mesh);
-    glWidget->rebuildLists();
-
-    return;
-    
+  if(glWidget->stateFlatShade) {
+    flatShadeAct->setIcon(iconChecked);
+    smoothShadeAct->setIcon(iconEmpty);
   } else {
-
-    logMessage("Remesh: uknown generator type");
-    return;
-
+    flatShadeAct->setIcon(iconEmpty);
+    smoothShadeAct->setIcon(iconChecked);
   }
-
-  // Start meshing thread:
-  meshingThread->generate(activeGenerator, tetlibControlString,
-			  tetlibAPI, ngmesh, nggeom, mp, nglibAPI);
-
-  logMessage("Mesh generation initiated");
-  statusBar()->showMessage(tr("Generating mesh..."));
 }
 
 
 
-
-// Mesh is ready (signaled by MeshingThread::run):
-//-----------------------------------------------------------------------------
-void MainWindow::meshOkSlot()
-{
-  logMessage("Mesh generation completed");
-
-  if(activeGenerator == GEN_TETLIB) {
-
-    makeElmerMeshFromTetlib();
-
-  } else if(activeGenerator == GEN_NGLIB) {
-
-    makeElmerMeshFromNglib();
-
-  } else {
-    
-    logMessage("MeshOk: error: unknown mesh generator");
-
-  }
-
-  statusBar()->showMessage(tr("Ready"));
-}
-
+//*****************************************************************************
+//
+//                                File MENU
+//
+//*****************************************************************************
 
 
 // File -> Open...
@@ -928,7 +368,195 @@ void MainWindow::openSlot()
 
 
 
-// File -> Load...
+// Read input file and populate mesh generator's input structures:
+//-----------------------------------------------------------------------------
+void MainWindow::readInputFile(QString fileName)
+{
+  char cs[1024];
+
+  QFileInfo fi(fileName);
+  QString absolutePath = fi.absolutePath();
+  QString baseName = fi.baseName();
+  QString fileSuffix = fi.suffix();
+  QString baseFileName = absolutePath + "/" + baseName;
+  sprintf(cs, "%s", (const char*)(baseFileName.toAscii()));
+
+  activeGenerator = GEN_UNKNOWN;
+  tetlibInputOk = false;
+  nglibInputOk = false;
+
+  // Choose generator according to fileSuffix:
+  //------------------------------------------
+  if((fileSuffix == "smesh") || 
+     (fileSuffix == "poly")) {
+    
+    if(!tetlibPresent) {
+      logMessage("unable to mesh - tetlib unavailable");
+      return;
+    }
+
+    activeGenerator = GEN_TETLIB;
+    cout << "Selected tetlib for smesh/poly-format" << endl;
+
+    in->deinitialize();
+    in->initialize();
+    in->load_poly(cs);
+
+    tetlibInputOk = true;
+
+  } else if(fileSuffix == "off") {
+
+    if(!tetlibPresent) {
+      logMessage("unable to mesh - tetlib unavailable");
+      return;
+    }
+
+    activeGenerator = GEN_TETLIB;
+    cout << "Selected tetlib for off-format" << endl;
+
+    in->deinitialize();
+    in->initialize();
+    in->load_off(cs);
+
+    tetlibInputOk = true;
+
+  } else if(fileSuffix == "ply") {
+
+    if(!tetlibPresent) {
+      logMessage("unable to mesh - tetlib unavailable");
+      return;
+    }
+
+    activeGenerator = GEN_TETLIB;
+    cout << "Selected tetlib for ply-format" << endl;
+
+    in->deinitialize();
+    in->initialize();
+    in->load_ply(cs);
+
+    tetlibInputOk = true;
+
+  } else if(fileSuffix == "mesh") {
+
+    if(!tetlibPresent) {
+      logMessage("unable to mesh - tetlib unavailable");
+      return;
+    }
+
+    activeGenerator = GEN_TETLIB;
+    cout << "Selected tetlib for mesh-format" << endl;
+
+    in->deinitialize();
+    in->initialize();
+    in->load_medit(cs);
+
+    tetlibInputOk = true;
+
+  } else if(fileSuffix == "stl") {
+
+    // for stl there are two alternative generators:
+    if(meshControl->generatorType == GEN_NGLIB) {
+      
+      cout << "nglib" << endl;
+
+      if(!nglibPresent) {
+	logMessage("unable to mesh - nglib unavailable");
+	return;
+      }
+      
+      activeGenerator = GEN_NGLIB;
+      cout << "Selected nglib for stl-format" << endl;
+
+      nglibAPI->Ng_Init();
+      
+      nggeom = nglibAPI->Ng_STL_LoadGeometry((const char*)(fileName.toAscii()), 0);
+      
+      if(!nggeom) {
+	logMessage("Ng_STL_LoadGeometry failed");
+	return;
+      }
+      
+      int rv = nglibAPI->Ng_STL_InitSTLGeometry(nggeom);
+      cout << "InitSTLGeometry: NG_result=" << rv << endl;
+      cout.flush();
+      
+      nglibInputOk = true;
+      
+    } else {
+
+      if(!tetlibPresent) {
+	logMessage("unable to mesh - tetlib unavailable");
+	return;
+      }
+      
+      activeGenerator = GEN_TETLIB;
+      cout << "Selected tetlib for stl-format" << endl;
+      
+      in->deinitialize();
+      in->initialize();
+      in->load_stl(cs);
+      
+      tetlibInputOk = true;
+      
+    }
+
+  } else if((fileSuffix == "grd") ||
+	    (fileSuffix == "FDNEUT") ||
+	    (fileSuffix == "msh") ||
+	    (fileSuffix == "mphtxt") ||
+	    (fileSuffix == "inp") ||    
+	    (fileSuffix == "unv")) {
+
+    activeGenerator = GEN_ELMERGRID;
+    cout << "Selected elmergrid" << endl;
+
+    int errstat = elmergridAPI->loadElmerMeshStructure((const char*)(fileName.toAscii()));
+    
+    if (errstat)
+      logMessage("loadElmerMeshStructure failed!");
+
+    return;
+
+  } else {
+
+    logMessage("Unable to open file: file type unknown");
+    activeGenerator = GEN_UNKNOWN;
+    return;
+
+  }
+}
+  
+
+
+// Populate elmer's mesh structure and make GL-lists (tetlib):
+//-----------------------------------------------------------------------------
+void MainWindow::makeElmerMeshFromTetlib()
+{
+  meshutils->clearMesh(glWidget->mesh);
+  glWidget->mesh = tetlibAPI->createElmerMeshStructure();
+
+  glWidget->rebuildLists();
+
+  logMessage("Input file processed");
+}
+
+
+
+// Populate elmer's mesh structure and make GL-lists (nglib):
+//-----------------------------------------------------------------------------
+void MainWindow::makeElmerMeshFromNglib()
+{
+  meshutils->clearMesh(glWidget->mesh);
+  nglibAPI->ngmesh = this->ngmesh;
+  glWidget->mesh = nglibAPI->createElmerMeshStructure();
+
+  glWidget->rebuildLists();
+
+  logMessage("Input file processed");
+}
+
+
+// File -> Import...
 //-----------------------------------------------------------------------------
 void MainWindow::loadSlot()
 {
@@ -950,34 +578,7 @@ void MainWindow::loadSlot()
 
 
 
-// File -> Save...
-//-----------------------------------------------------------------------------
-void MainWindow::saveSlot()
-{
-  if(glWidget->mesh==NULL) {
-    logMessage("Unable to save mesh: no data");
-    return;
-  }
-
-  QString dirName = QFileDialog::getExistingDirectory(this);
-
-  if (!dirName.isEmpty()) {
-
-    logMessage("Output directory " + dirName);
-
-  } else {
-
-    logMessage("Unable to save: directory undefined");
-    return;
-
-  }
-  
-  saveElmerMesh(dirName);
-}
-
-
-
-// Load mesh files in elmer-format:
+// Import mesh files in elmer-format:
 //-----------------------------------------------------------------------------
 void MainWindow::loadElmerMesh(QString dirName)
 {
@@ -1297,7 +898,34 @@ void MainWindow::loadElmerMesh(QString dirName)
 
 
 
-// Write out mesh files in elmer-format:
+// File -> Export...
+//-----------------------------------------------------------------------------
+void MainWindow::saveSlot()
+{
+  if(glWidget->mesh==NULL) {
+    logMessage("Unable to save mesh: no data");
+    return;
+  }
+
+  QString dirName = QFileDialog::getExistingDirectory(this);
+
+  if (!dirName.isEmpty()) {
+
+    logMessage("Output directory " + dirName);
+
+  } else {
+
+    logMessage("Unable to save: directory undefined");
+    return;
+
+  }
+  
+  saveElmerMesh(dirName);
+}
+
+
+
+// Export mesh files in elmer-format:
 //-----------------------------------------------------------------------------
 void MainWindow::saveElmerMesh(QString dirName)
 {
@@ -1587,6 +1215,596 @@ void MainWindow::saveElmerMesh(QString dirName)
 }
 
 
+// File -> Exit
+//-----------------------------------------------------------------------------
+void MainWindow::closeMainWindowSlot()
+{
+  sifWindow->close();
+  meshControl->close();
+  boundaryDivide->close();
+  close();
+}
+
+
+
+//*****************************************************************************
+//
+//                                View MENU
+//
+//*****************************************************************************
+
+
+// View -> Surface mesh
+//-----------------------------------------------------------------------------
+void MainWindow::hidesurfacemeshSlot()
+{
+  mesh_t *mesh = glWidget->mesh;
+  int lists = glWidget->lists;
+  list_t *list = glWidget->list;
+
+  if(mesh == NULL) {
+    logMessage("There is no surface mesh to hide/show");
+    return;
+  }
+  
+  glWidget->stateDrawSurfaceMesh = !glWidget->stateDrawSurfaceMesh;
+
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];
+    if(l->type == SURFACEMESHLIST) 
+    {
+      l->visible = glWidget->stateDrawSurfaceMesh;
+
+      // do not set visible if the parent surface list is hidden
+      int p = l->parent;
+      if(p >= 0) {
+	list_t *lp = &list[p];
+	if(!lp->visible)
+	  l->visible = false;
+      }
+    }
+  }
+
+  synchronizeMenuToState();  
+  if(!glWidget->stateDrawSurfaceMesh) 
+    logMessage("Surface mesh hidden");
+  else
+    logMessage("Surface mesh shown");
+}
+
+
+
+// View -> Sharp edges
+//-----------------------------------------------------------------------------
+void MainWindow::hidesharpedgesSlot()
+{
+  mesh_t *mesh = glWidget->mesh;
+  int lists = glWidget->lists;
+  list_t *list = glWidget->list;
+
+  if(mesh == NULL) {
+    logMessage("There are no sharp edges to hide/show");
+    return;
+  }
+
+  glWidget->stateDrawSharpEdges = !glWidget->stateDrawSharpEdges;
+
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];
+    if(l->type == SHARPEDGELIST)  
+      l->visible = glWidget->stateDrawSharpEdges;
+  }
+
+  
+  synchronizeMenuToState();
+
+  if ( !glWidget->stateDrawSharpEdges ) 
+    logMessage("Sharp edges hidden");
+  else 
+    logMessage("Sharp edges shown");
+}
+
+
+
+// View -> Hide/Show selected
+//-----------------------------------------------------------------------------
+void MainWindow::hideselectedSlot()
+{
+  mesh_t *mesh = glWidget->mesh;
+  int lists = glWidget->lists;
+  list_t *list = glWidget->list;
+
+  if(mesh == NULL) {
+    logMessage("There is nothing to hide/show");
+    return;
+  }
+
+  bool something_selected = false;
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];
+    something_selected |= l->selected;
+  }
+
+  if(!something_selected) {
+    logMessage("Nothing selected");
+    return;
+  }
+
+  bool vis = false;
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];
+    if(l->selected) {
+      l->visible = !l->visible;
+      if(l->visible)
+	vis = true;
+
+      // hide the child surface edge list if parent is hidden
+      int c = l->child;
+      if(c >= 0) {
+	list_t *lc = &list[c];
+	lc->visible = l->visible;
+	if(!glWidget->stateDrawSurfaceMesh)
+	  lc->visible = false;
+      }
+    }
+  }
+  glWidget->updateGL();
+  
+  if( !vis )
+    logMessage("Selected objects hidden");
+  else 
+    logMessage("Selected objects shown");
+}
+
+
+
+// View -> Show all
+//-----------------------------------------------------------------------------
+void MainWindow::showallSlot()
+{
+  int lists = glWidget->lists;
+  list_t *list = glWidget->list;
+  
+  glWidget->stateDrawSurfaceMesh = true;
+  glWidget->stateDrawSharpEdges = true;
+  glWidget->stateDrawSurfaceElements = true;
+  glWidget->stateDrawEdgeElements = true;
+
+  synchronizeMenuToState();
+
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];
+    l->visible = true;
+  }
+
+  logMessage("All objects visible");
+}
+
+
+
+// View -> Reset model view
+//-----------------------------------------------------------------------------
+void MainWindow::resetSlot()
+{
+  mesh_t *mesh = glWidget->mesh;
+  int lists = glWidget->lists;
+  list_t *list = glWidget->list;
+  
+  if(mesh == NULL) {
+    logMessage("There is nothing to reset");
+    return;
+  }
+
+  glWidget->stateFlatShade = true;
+  glWidget->stateDrawSurfaceMesh = true;
+  glWidget->stateDrawSharpEdges = true;
+  glWidget->stateDrawSurfaceElements = true;
+  glWidget->stateDrawEdgeElements = true;
+
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];
+    l->visible = true;
+    l->selected = false;
+  }
+
+  glLoadIdentity();
+  glWidget->rebuildLists();
+  glWidget->updateGL();
+
+  synchronizeMenuToState();
+  logMessage("Reset model view");
+}
+
+
+// View -> Shade model -> Flat
+//-----------------------------------------------------------------------------
+void MainWindow::flatShadeSlot()
+{
+  if(glWidget->mesh == NULL) {
+    logMessage("Refusing to change shade model when mesh is empty");
+    return;
+  }
+
+  glWidget->stateFlatShade = true;
+  glWidget->rebuildSurfaceLists();
+  glWidget->updateGL();
+
+  synchronizeMenuToState();
+  logMessage("Shade model: flat");
+}
+
+
+// View -> Shade model -> Smooth
+//-----------------------------------------------------------------------------
+void MainWindow::smoothShadeSlot()
+{
+  if(glWidget->mesh == NULL) {
+    logMessage("Refusing to change shade model when mesh is empty");
+    return;
+  }
+
+  glWidget->stateFlatShade = false;
+  glWidget->rebuildSurfaceLists();
+  glWidget->updateGL();
+
+  synchronizeMenuToState();
+  logMessage("Shade model: smooth");
+}
+
+
+
+//*****************************************************************************
+//
+//                                Mesh MENU
+//
+//*****************************************************************************
+
+
+// Mesh -> Control...
+//-----------------------------------------------------------------------------
+void MainWindow::meshcontrolSlot()
+{
+  meshControl->tetlibPresent = this->tetlibPresent;
+  meshControl->nglibPresent = this->nglibPresent;
+
+  if(!tetlibPresent) {
+    meshControl->tetlibPresent = false;
+    meshControl->ui.nglibRadioButton->setChecked(true);
+    meshControl->ui.tetlibRadioButton->setEnabled(false);
+    meshControl->ui.tetlibStringEdit->setEnabled(false);
+  }
+
+  if(!nglibPresent) {
+    meshControl->nglibPresent = false;
+    meshControl->ui.tetlibRadioButton->setChecked(true);
+    meshControl->ui.nglibRadioButton->setEnabled(false);
+    meshControl->ui.nglibMaxHEdit->setEnabled(false);
+    meshControl->ui.nglibFinenessEdit->setEnabled(false);
+    meshControl->ui.nglibBgmeshEdit->setEnabled(false);
+  }
+
+  if(!tetlibPresent && !nglibPresent) 
+    meshControl->ui.elmerGridRadioButton->setChecked(true);  
+
+  meshControl->show();
+}
+
+
+
+// Mesh -> Remesh
+//-----------------------------------------------------------------------------
+void MainWindow::remeshSlot()
+{
+  if(activeGenerator == GEN_UNKNOWN) {
+    logMessage("Unable to (re)mesh: no input data or mesh generator");
+    return;
+  }
+  
+  if(activeGenerator == GEN_TETLIB) {
+
+    if(!tetlibPresent) {
+      logMessage("tetlib functionality unavailable");
+      return;
+    }
+    
+    if(!tetlibInputOk) {
+      logMessage("Remesh: error: no input data for tetlib");
+      return;
+    }
+
+    // must have "J" in control string:
+    tetlibControlString = meshControl->tetlibControlString;
+
+  } else if(activeGenerator == GEN_NGLIB) {
+
+    if(!nglibPresent) {
+      logMessage("nglib functionality unavailable");
+      return;
+    }
+
+    if(!nglibInputOk) {
+      logMessage("Remesh: error: no input data for nglib");
+      return;
+    }
+
+    char backgroundmesh[1024];
+    sprintf(backgroundmesh, "%s",
+	    (const char*)(meshControl->nglibBackgroundmesh.toAscii()));
+    
+    ngmesh = nglibAPI->Ng_NewMesh();
+    
+    mp->maxh = meshControl->nglibMaxH.toDouble();
+    mp->fineness = meshControl->nglibFineness.toDouble();
+    mp->secondorder = 0;
+    mp->meshsize_filename = backgroundmesh;
+
+  } else if(activeGenerator == GEN_ELMERGRID) {
+
+    // ***** ELMERGRID *****
+    meshutils->clearMesh(glWidget->mesh);
+    glWidget->mesh = new mesh_t;
+    mesh_t *mesh = glWidget->mesh;
+    
+    elmergridAPI->createElmerMeshStructure(mesh, meshControl->elmerGridControlString.toAscii());
+
+    cout << "Nodes: " << mesh->nodes << endl;
+    cout << "Elements: " << mesh->elements << endl;
+    cout << "Surfaces: " << mesh->surfaces << endl;
+    cout.flush();
+    
+    for(int i=0; i<mesh->surfaces; i++ )
+    {
+      surface_t *surface = &mesh->surface[i];
+
+      surface->edges = (int)(surface->code/100);
+      surface->edge = new int[surface->edges];
+      for(int j=0; j<surface->edges; j++)
+        surface->edge[j] = -1;
+    }
+    meshutils->findSurfaceElementEdges(mesh);
+
+    if(0) meshutils->findSurfaceElementParents(mesh);
+ 
+    meshutils->findSurfaceElementNormals(mesh);
+    glWidget->rebuildLists();
+
+    return;
+    
+  } else {
+
+    logMessage("Remesh: uknown generator type");
+    return;
+
+  }
+
+  // Start meshing thread:
+  meshingThread->generate(activeGenerator, tetlibControlString,
+			  tetlibAPI, ngmesh, nggeom, mp, nglibAPI);
+
+  logMessage("Mesh generation initiated");
+  statusBar()->showMessage(tr("Generating mesh..."));
+}
+
+
+
+// Mesh is ready (signaled by meshingThread):
+//-----------------------------------------------------------------------------
+void MainWindow::meshOkSlot()
+{
+  logMessage("Mesh generation completed");
+
+  if(activeGenerator == GEN_TETLIB) {
+
+    makeElmerMeshFromTetlib();
+
+  } else if(activeGenerator == GEN_NGLIB) {
+
+    makeElmerMeshFromNglib();
+
+  } else {
+    
+    logMessage("MeshOk: error: unknown mesh generator");
+
+  }
+
+  statusBar()->showMessage(tr("Ready"));
+}
+
+
+
+
+// Mesh -> Divide surface...
+//-----------------------------------------------------------------------------
+void MainWindow::surfaceDivideSlot()
+{
+#define TARGET_UNKNOWN  0
+#define TARGET_SURFACES 1
+#define TARGET_EDGES    2
+  
+  boundaryDivide->target = TARGET_SURFACES;
+  boundaryDivide->show();
+}
+
+
+
+// Make surface division by sharp edges (signalled by boundaryDivide)...
+//-----------------------------------------------------------------------------
+void MainWindow::doDivideSurfaceSlot(double angle)
+{
+  mesh_t *mesh = glWidget->mesh;
+
+  if(mesh == NULL) {
+    logMessage("No mesh to divide");
+    return;
+  }
+  
+  meshutils->findSharpEdges(mesh, angle);
+  int parts = meshutils->divideSurfaceBySharpEdges(mesh);
+
+  QString qs = "Surface divided into " + QString::number(parts) + " parts";
+  statusBar()->showMessage(qs);
+  
+  synchronizeMenuToState();
+  glWidget->rebuildLists();
+  glWidget->updateGL();
+}
+
+
+
+// Mesh -> Unify surface
+//-----------------------------------------------------------------------------
+void MainWindow::surfaceUnifySlot()
+{
+  mesh_t *mesh = glWidget->mesh;
+  int lists = glWidget->lists;
+  list_t *list = glWidget->list;
+
+  if(mesh == NULL) {
+    logMessage("No surfaces to unify");
+    return;
+  }
+  
+  int targetindex = -1;
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];
+    if(l->selected && (l->type == SURFACELIST) && (l->nature == PDE_BOUNDARY)) {
+      if(targetindex < 0) {
+	targetindex = l->index;
+	break;
+      }
+    }
+  }
+  
+  if(targetindex < 0) {
+    logMessage("No surfaces selected");
+    return;
+  }
+  
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];    
+    if(l->selected && (l->type == SURFACELIST) && (l->nature == PDE_BOUNDARY)) {
+      for(int j=0; j < mesh->surfaces; j++) {
+	surface_t *s = &mesh->surface[j];
+	if((s->index == l->index) && (s->nature == PDE_BOUNDARY)) 
+	  s->index = targetindex;
+      }
+    }
+  }
+  
+  cout << "Selected surfaces marked with index " << targetindex << endl;
+  cout.flush();
+
+  glWidget->rebuildLists();
+
+  logMessage("Selected surfaces unified");
+}
+
+
+
+
+// Mesh -> Divide edge...
+//-----------------------------------------------------------------------------
+void MainWindow::edgeDivideSlot()
+{
+#define TARGET_UNKNOWN  0
+#define TARGET_SURFACES 1
+#define TARGET_EDGES    2
+
+  boundaryDivide->target = TARGET_EDGES;
+  boundaryDivide->show();
+}
+
+
+
+// Make edge division by sharp points (signalled by boundaryDivide)...
+//-----------------------------------------------------------------------------
+void MainWindow::doDivideEdgeSlot(double angle)
+{
+  mesh_t *mesh = glWidget->mesh;
+
+  if(mesh == NULL) {
+    logMessage("No mesh to divide");
+    return;
+  }
+  
+
+  meshutils->findEdgeElementPoints(mesh);
+  meshutils->findSharpPoints(mesh, 20.0);
+  int parts = meshutils->divideEdgeBySharpPoints(mesh);
+  
+  QString qs = "Edge divided into " + QString::number(parts) + " parts";
+  statusBar()->showMessage(qs);
+
+  synchronizeMenuToState();
+  glWidget->rebuildLists();
+  glWidget->updateGL(); 
+}
+
+
+
+
+// Mesh -> Unify edge
+//-----------------------------------------------------------------------------
+void MainWindow::edgeUnifySlot()
+{
+  mesh_t *mesh = glWidget->mesh;
+  int lists = glWidget->lists;
+  list_t *list = glWidget->list;
+
+  if(mesh == NULL) {
+    logMessage("No edges to unify");
+    return;
+  }
+  
+  int targetindex = -1;
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];
+    if(l->selected && (l->type == EDGELIST) && (l->nature == PDE_BOUNDARY)) {
+      if(targetindex < 0) {
+	targetindex = l->index;
+	break;
+      }
+    }
+  }
+
+  if(targetindex < 0) {
+    logMessage("No edges selected");
+    return;
+  }
+  
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];    
+    if(l->selected && (l->type == EDGELIST) && (l->nature == PDE_BOUNDARY)) {
+      for(int j=0; j < mesh->edges; j++) {
+	edge_t *e = &mesh->edge[j];
+	if((e->index == l->index) && (e->nature == PDE_BOUNDARY)) 
+	  e->index = targetindex;
+      }
+    }
+  }
+  
+  cout << "Selected edges marked with index " << targetindex << endl;
+  cout.flush();
+
+  glWidget->rebuildLists();
+
+  logMessage("Selected edges unified");
+}
+
+
+
+//*****************************************************************************
+//
+//                                Edit MENU
+//
+//*****************************************************************************
+
+// Edit -> Sif...
+//-----------------------------------------------------------------------------
+void MainWindow::showsifSlot()
+{
+  sifWindow->show();
+}
 
 
 // Boundady selected by double clicking (signaled by glWidget::select):
@@ -1674,198 +1892,7 @@ void MainWindow::boundarySelectedSlot(list_t *l)
 }
 
 
-
-
-// Read input file and populate mesh generator's input structures:
-//-----------------------------------------------------------------------------
-void MainWindow::readInputFile(QString fileName)
-{
-  char cs[1024];
-
-  QFileInfo fi(fileName);
-  QString absolutePath = fi.absolutePath();
-  QString baseName = fi.baseName();
-  QString fileSuffix = fi.suffix();
-  QString baseFileName = absolutePath + "/" + baseName;
-  sprintf(cs, "%s", (const char*)(baseFileName.toAscii()));
-
-  activeGenerator = GEN_UNKNOWN;
-  tetlibInputOk = false;
-  nglibInputOk = false;
-
-  // Choose generator according to fileSuffix:
-  //------------------------------------------
-  if((fileSuffix == "smesh") || 
-     (fileSuffix == "poly")) {
-
-    if(!tetlibPresent) {
-      logMessage("unable to mesh - tetlib unavailable");
-      return;
-    }
-
-    activeGenerator = GEN_TETLIB;
-    cout << "Selected tetlib for smesh/poly-format" << endl;
-
-    in->deinitialize();
-    in->initialize();
-    in->load_poly(cs);
-
-    tetlibInputOk = true;
-
-  } else if(fileSuffix == "off") {
-
-    if(!tetlibPresent) {
-      logMessage("unable to mesh - tetlib unavailable");
-      return;
-    }
-
-    activeGenerator = GEN_TETLIB;
-    cout << "Selected tetlib for off-format" << endl;
-
-    in->deinitialize();
-    in->initialize();
-    in->load_off(cs);
-
-    tetlibInputOk = true;
-
-  } else if(fileSuffix == "ply") {
-
-    if(!tetlibPresent) {
-      logMessage("unable to mesh - tetlib unavailable");
-      return;
-    }
-
-    activeGenerator = GEN_TETLIB;
-    cout << "Selected tetlib for ply-format" << endl;
-
-    in->deinitialize();
-    in->initialize();
-    in->load_ply(cs);
-
-    tetlibInputOk = true;
-
-  } else if(fileSuffix == "mesh") {
-
-    if(!tetlibPresent) {
-      logMessage("unable to mesh - tetlib unavailable");
-      return;
-    }
-
-    activeGenerator = GEN_TETLIB;
-    cout << "Selected tetlib for mesh-format" << endl;
-
-    in->deinitialize();
-    in->initialize();
-    in->load_medit(cs);
-
-    tetlibInputOk = true;
-
-  } else if(fileSuffix == "stl") {
-
-    // for stl there are two alternative generators:
-    if(meshControl->generatorType == GEN_NGLIB) {
-      
-      cout << "nglib" << endl;
-
-      if(!nglibPresent) {
-	logMessage("unable to mesh - nglib unavailable");
-	return;
-      }
-      
-      activeGenerator = GEN_NGLIB;
-      cout << "Selected nglib for stl-format" << endl;
-
-      nglibAPI->Ng_Init();
-      
-      nggeom = nglibAPI->Ng_STL_LoadGeometry((const char*)(fileName.toAscii()), 0);
-      
-      if(!nggeom) {
-	logMessage("Ng_STL_LoadGeometry failed");
-	return;
-      }
-      
-      int rv = nglibAPI->Ng_STL_InitSTLGeometry(nggeom);
-      cout << "InitSTLGeometry: NG_result=" << rv << endl;
-      cout.flush();
-      
-      nglibInputOk = true;
-      
-    } else {
-
-      if(!tetlibPresent) {
-	logMessage("unable to mesh - tetlib unavailable");
-	return;
-      }
-      
-      activeGenerator = GEN_TETLIB;
-      cout << "Selected tetlib for stl-format" << endl;
-      
-      in->deinitialize();
-      in->initialize();
-      in->load_stl(cs);
-      
-      tetlibInputOk = true;
-      
-    }
-
-  } else if((fileSuffix == "grd") ||
-	    (fileSuffix == "FDNEUT") ||
-	    (fileSuffix == "msh") ||
-	    (fileSuffix == "mphtxt") ||
-	    (fileSuffix == "inp") ||    
-	    (fileSuffix == "unv")) {
-
-    activeGenerator = GEN_ELMERGRID;
-    cout << "Selected elmergrid" << endl;
-
-    int errstat = elmergridAPI->loadElmerMeshStructure((const char*)(fileName.toAscii()));
-    
-    if (errstat)
-      logMessage("loadElmerMeshStructure failed!");
-
-    return;
-
-  } else {
-
-    logMessage("Unable to open file: file type unknown");
-    activeGenerator = GEN_UNKNOWN;
-    return;
-
-  }
-}
-  
-
-
-// Populate elmer's mesh structure and make GL-lists (tetlib):
-//-----------------------------------------------------------------------------
-void MainWindow::makeElmerMeshFromTetlib()
-{
-  meshutils->clearMesh(glWidget->mesh);
-  glWidget->mesh = tetlibAPI->createElmerMeshStructure();
-
-  glWidget->rebuildLists();
-
-  logMessage("Input file processed");
-}
-
-
-
-// Populate elmer's mesh structure and make GL-lists (nglib):
-//-----------------------------------------------------------------------------
-void MainWindow::makeElmerMeshFromNglib()
-{
-  meshutils->clearMesh(glWidget->mesh);
-  nglibAPI->ngmesh = this->ngmesh;
-  glWidget->mesh = nglibAPI->createElmerMeshStructure();
-
-  glWidget->rebuildLists();
-
-  logMessage("Input file processed");
-}
-
-
-
-// Make solver input file for steady heat conduction...
+// Make solver input file for steady heat conduction
 //-----------------------------------------------------------------------------
 void MainWindow::makeSteadyHeatSifSlot()
 {
@@ -1956,8 +1983,7 @@ void MainWindow::makeSteadyHeatSifSlot()
 }
 
 
-
-// Make solver input file for linear elasticity...
+// Make solver input file for linear elasticity
 //-----------------------------------------------------------------------------
 void MainWindow::makeLinElastSifSlot()
 {
@@ -2232,7 +2258,16 @@ void MainWindow::makeSifBoundaryBlocks(QString BCtext)
 }
 
 
-// Run solver...
+
+
+//*****************************************************************************
+//
+//                                Solver MENU
+//
+//*****************************************************************************
+
+
+// Solver -> Solve
 //-----------------------------------------------------------------------------
 void MainWindow::runsolverSlot()
 {
@@ -2274,12 +2309,19 @@ void MainWindow::solverReadySlot()
 }
 
 
-// About dialog...
+// Post process
 //-----------------------------------------------------------------------------
 void MainWindow::resultsSlot()
 {
   system( "ElmerPost \"readfile skeleton.ep; set MeshStyle 1; set MeshColor Temperature; set DisplayStyle(ColorMesh) 1; UpdateObject; \" &" );
 }
+
+
+//*****************************************************************************
+//
+//                                Help MENU
+//
+//*****************************************************************************
 
 
 // About dialog...
@@ -2299,6 +2341,14 @@ void MainWindow::showaboutSlot()
 }
 
 
+
+//*****************************************************************************
+//
+//                           Auxiliary non-menu items
+//
+//*****************************************************************************
+
+
 // Log message...
 //-----------------------------------------------------------------------------
 void MainWindow::logMessage(QString message)
@@ -2307,3 +2357,4 @@ void MainWindow::logMessage(QString message)
   statusBar()->showMessage(message);
   cout.flush();
 }
+
