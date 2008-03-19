@@ -512,12 +512,6 @@ void GLWidget::rebuildLists()
     lists = 0;
   }
   
-  for( int i=0; i<mesh->edges; i++ )
-    mesh->edge[i].selected = false;
-
-  for( int i=0; i<mesh->surfaces; i++ )
-    mesh->surface[i].selected = false;
-
   lists = makeLists();
 
   updateGL();
@@ -659,6 +653,7 @@ GLuint GLWidget::makeLists()
 
   // Surface lists:
   for(i=0; i < mesh->surfaces; i++) {
+    mesh->surface[i].selected = false;
     if(surface_nature[i] > 0) {
 
       // triangles & quads:
@@ -687,6 +682,7 @@ GLuint GLWidget::makeLists()
   
   // Edge lists (only PDE_BOUNDARY):
   for(i=0; i < mesh->edges; i++) {
+    mesh->edge[i].selected = false;
     if(edge_nature[i] == PDE_BOUNDARY) {
       list_t *l = &list[current_index++];
       l->nature = edge_nature[i]; 

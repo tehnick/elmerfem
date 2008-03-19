@@ -677,6 +677,8 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
 
     for(int j=0; j < e->surfaces; j++) {
       int k = e->surface[j];
+      if ( k< 0 ) continue;
+
       surface_t *s = &mesh->surface[k];
       
       for(int r=0; r < s->edges; r++) {
