@@ -41,6 +41,7 @@ public:
   GLuint makeLists();
   void rebuildLists();
   void rebuildSurfaceLists(void);
+  void rebuildEdgeLists(void);
   
   double drawTranslate[3];
   double drawScale;

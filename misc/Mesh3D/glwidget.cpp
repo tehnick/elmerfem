@@ -542,6 +542,25 @@ void GLWidget::rebuildSurfaceLists()
   }
 }
 
+// Compose GL edge lists...
+//-----------------------------------------------------------------------------
+void GLWidget::rebuildEdgeLists()
+{
+  for( int i=0; i<lists; i++ )
+  {
+     list_t *l = &list[i];
+     if ( l->type == EDGELIST )
+     {
+       glDeleteLists( l->object,1 );
+       if(l->selected) {
+ 	 l->object = generateEdgeList(l->index, 1, 0, 0); // red
+       } else {
+ 	 l->object = generateEdgeList(l->index, 0, 1, 0); // green
+       }
+     }
+  }
+}
+
 
 
 // Compose GL object lists...

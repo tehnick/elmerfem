@@ -116,6 +116,7 @@ void MainWindow::createMenus()
   viewMenu->addAction(hidesharpedgesAct);
   viewMenu->addSeparator();
   viewMenu->addAction(selectAllSurfacesAct);
+  viewMenu->addAction(selectAllEdgesAct);
   viewMenu->addSeparator();
   viewMenu->addAction(hideselectedAct);
   viewMenu->addSeparator();
@@ -273,6 +274,11 @@ void MainWindow::createActions()
   selectAllSurfacesAct = new QAction(QIcon(), tr("Select all surfaces"), this);
   selectAllSurfacesAct->setStatusTip(tr("Select all surfaces"));
   connect(selectAllSurfacesAct, SIGNAL(triggered()), this, SLOT(selectAllSurfacesSlot()));
+
+  // View -> Select all edges
+  selectAllEdgesAct = new QAction(QIcon(), tr("Select all edges"), this);
+  selectAllEdgesAct->setStatusTip(tr("Select all edges"));
+  connect(selectAllEdgesAct, SIGNAL(triggered()), this, SLOT(selectAllEdgesSlot()));
 
   // View -> Hide/show selected
   hideselectedAct = new QAction(QIcon(), tr("&Hide/show selected"), this);
@@ -1336,6 +1342,33 @@ void MainWindow::selectAllSurfacesSlot()
   glWidget->updateGL();
   
   logMessage("All surfaces selected");
+}
+
+
+
+// View -> Select all edges
+//-----------------------------------------------------------------------------
+void MainWindow::selectAllEdgesSlot()
+{
+  mesh_t *mesh = glWidget->mesh;
+  int lists = glWidget->lists;
+  list_t *list = glWidget->list;
+
+  if(mesh == NULL) {
+    logMessage("There are no edges to select");
+    return;
+  }
+
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];
+    if(l->type == EDGELIST)
+      l->selected = true;
+  }
+
+  glWidget->rebuildEdgeLists();
+  glWidget->updateGL();
+  
+  logMessage("All edges selected");
 }
 
 

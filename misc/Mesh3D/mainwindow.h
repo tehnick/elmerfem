@@ -42,6 +42,7 @@ private slots:
   void hidesurfacemeshSlot();     // View -> Surface mesh
   void hidesharpedgesSlot();      // View -> Sharp edges
   void selectAllSurfacesSlot();   // View -> Select all surfaces
+  void selectAllEdgesSlot();      // View -> Select all edges
   void hideselectedSlot();        // View -> Hide/show selected
   void showallSlot();             // View -> Show all
   void resetSlot();               // View -> Reset model view
@@ -100,6 +101,7 @@ private:
   QAction *hidesurfacemeshAct;    // View -> Show surface mesh
   QAction *hidesharpedgesAct;     // View -> Show sharp edges
   QAction *selectAllSurfacesAct;  // View -> Select all surfaces
+  QAction *selectAllEdgesAct;     // View -> Select all edges
   QAction *hideselectedAct;       // View -> Show selected
   QAction *flatShadeAct;          // View -> Shade model -> Flat
   QAction *smoothShadeAct;        // View -> Shade model -> Smooth
