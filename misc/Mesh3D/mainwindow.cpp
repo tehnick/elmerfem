@@ -42,6 +42,7 @@ MainWindow::MainWindow()
   boundaryDivide = new BoundaryDivide(this);
   meshingThread = new MeshingThread;
   meshutils = new Meshutils;
+  solverThread = new SolverThread;
 
   createActions();
   createMenus();
@@ -59,6 +60,9 @@ MainWindow::MainWindow()
 
   // boundaryDivide emits (double) when "divide button" has been clicked (case edge):
   connect(boundaryDivide, SIGNAL(signalDoDivideEdge(double)), this, SLOT(doDivideEdgeSlot(double)));
+
+  // solverThread emits (void) when ready:
+  connect(solverThread, SIGNAL(signalSolverReady()), this, SLOT(solverReadySlot()));
 
   nglibInputOk = false;
   tetlibInputOk = false;
@@ -2227,7 +2231,7 @@ void MainWindow::makeSifBoundaryBlocks(QString BCtext)
 }
 
 
-// About dialog...
+// Run solver...
 //-----------------------------------------------------------------------------
 void MainWindow::runsolverSlot()
 {
@@ -2236,19 +2240,29 @@ void MainWindow::runsolverSlot()
     return;
   }
 
-  system( "ElmerSolver > ElmerSolver.log" );
+  solverThread->startSolver();
+}
+
+
+// Solver thread emits (void) when ready...
+//-----------------------------------------------------------------------------
+
+void MainWindow::solverReadySlot()
+{
+  logMessage("Solver ready");
 
   FILE *fp = fopen("ElmerSolver.log", "r" );
   QTextStream in(fp);
   QString str = in.readAll();
-
+  
   SifWindow *s = new SifWindow;
   s->setWindowTitle(tr("ElmerSolver log"));
   s->textEdit->append(str);
   s->show();
   fclose(fp);
-  cout << string(str.toAscii()) << endl;
+  cout << string(str.toAscii()) << endl; 
 }
+
 
 // About dialog...
 //-----------------------------------------------------------------------------
@@ -2256,6 +2270,7 @@ void MainWindow::resultsSlot()
 {
   system( "ElmerPost \"readfile skeleton.ep; set MeshStyle 1; set MeshColor Temperature; set DisplayStyle(ColorMesh) 1; UpdateObject; \" &" );
 }
+
 
 // About dialog...
 //-----------------------------------------------------------------------------

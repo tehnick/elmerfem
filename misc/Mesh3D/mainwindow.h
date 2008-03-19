@@ -11,6 +11,7 @@
 #include "meshcontrol.h"
 #include "boundarydivision.h"
 #include "meshutils.h"
+#include "solverthread.h"
 
 class QAction;
 class QMenu;
@@ -53,14 +54,16 @@ private slots:
   void boundarySelectedSlot(list_t*); // signal emitted by glWidget
   void doDivideSurfaceSlot(double);   // signal emitted by boundaryDivide
   void doDivideEdgeSlot(double);      // signal emitted by boundaryDivide
+  void solverReadySlot();             // signal emitted by solverThread
   
 private:
   GLWidget *glWidget;             // central gl widget
   SifWindow *sifWindow;           // sif text editor
   MeshControl *meshControl;       // mesh generator control
   BoundaryDivide *boundaryDivide; // boundary division control
-  MeshingThread *meshingThread;   // meshing thread
+  SolverThread* solverThread;     // solver thread
   Meshutils *meshutils;           // mesh manipulation utilities  
+  MeshingThread *meshingThread;   // meshing thread
 
   void createActions();
   void createMenus();
