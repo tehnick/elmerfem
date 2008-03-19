@@ -2377,6 +2377,11 @@ void MainWindow::runsolverSlot()
     return;
   }
   
+
+  solverLogWindow->setWindowTitle(tr("Solver log"));
+  solverLogWindow->textEdit->clear();
+  solverLogWindow->show();
+
   logMessage("Solver started");
 
   runsolverAct->setIcon(QIcon(":/icons/ElmerSolver-running.png"));
@@ -2389,6 +2394,8 @@ void MainWindow::runsolverSlot()
 void MainWindow::solverStdoutSlot()
 {
   QString qs = solver->readAllStandardOutput();
+
+  solverLogWindow->textEdit->append(qs);
 
   cout << string(qs.toAscii());
   cout.flush();
