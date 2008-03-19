@@ -860,7 +860,8 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
   
   // reset bc-indices on edges:
   for(int i=0; i < mesh->edges; i++)
-    mesh->edge[i].index = UNKNOWN;
+   if (mesh->edge[i].nature == PDE_BOUNDARY)
+     mesh->edge[i].index = UNKNOWN;
 
   // recursively determine boundary parts:
   int index = 0;
@@ -919,7 +920,8 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
   
   // reset bc-indices:
   for(int i=0; i < mesh->surfaces; i++)
-    mesh->surface[i].index = UNKNOWN;
+   if (mesh->surface[i].nature == PDE_BOUNDARY)
+     mesh->surface[i].index = UNKNOWN;
 
   // recursively determine boundary parts:
   int index = 0;
@@ -1110,8 +1112,7 @@ void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
 
      for( int j=0; j<n; j++ )
      {
-        int node=surface->node[j];
-        n_s_t *p = &n_s[node];
+        n_s_t *p = &n_s[surface->node[j]];
         if ( p->index >= 0 ) {
           n_s_t *q = new n_s_t;
           q->next = p->next;
@@ -1159,7 +1160,7 @@ void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
     }
   }
 
-  // delete lists
+  // delete lists:
   for( int i=0; i<mesh->nodes; i++ )
   {
      n_s_t *p=&n_s[i], *q;
