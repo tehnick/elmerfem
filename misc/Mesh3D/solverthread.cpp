@@ -39,9 +39,13 @@
  *****************************************************************************/
 
 #include <QtGui>
-#include <iostream>
-#include <stdio.h>
 #include "solverthread.h"
+
+#include <ext/stdio_filebuf.h>
+#include <cstdlib>
+#include <cstdio>
+#include <unistd.h>
+#include <iostream>
 
 using namespace std;
 
@@ -87,8 +91,33 @@ void SolverThread::run()
     if(abort)
       return;
     
-    system( "ElmerSolver > ElmerSolver.log" );
+    // open log file
+    QFile logfile;
+    logfile.setFileName("ElmerSolver.log");
+    logfile.open(QIODevice::WriteOnly);
+    QTextStream logstream(&logfile);
+
+    // open process
+    FILE *fp = popen("ElmerSolver", "r");
+
+    // redirect stdout
+    __gnu_cxx::stdio_filebuf<char> fb(fp, ios::in);
+    istream f(&fb);
     
+    // write to stdout && log
+    for(char c = f.get(); !f.eof(); c = f.get()) {
+      logstream << c;
+      cout << c;
+      cout.flush();
+    }
+
+    // close process
+    pclose(fp);
+
+    // close log file
+    logfile.close();
+
+    // emit "ok"
     if(!restart)
       emit(signalSolverReady());
     
