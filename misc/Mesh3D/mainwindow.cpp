@@ -318,7 +318,7 @@ void MainWindow::createActions()
 
   // Solver -> results
   resultsAct = new QAction(QIcon(":/icons/ElmerPost.png"), tr("Post process"), this);
-  resultsAct->setStatusTip(tr("Run post processing"));
+  resultsAct->setStatusTip(tr("Run post processor"));
   connect(resultsAct, SIGNAL(triggered()), this, SLOT(resultsSlot()));
 
   // Help -> About
