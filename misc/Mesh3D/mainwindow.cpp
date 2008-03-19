@@ -197,6 +197,7 @@ void MainWindow::createMenus()
   solverMenu->addAction(killsolverAct);
   solverMenu->addSeparator();
   solverMenu->addAction(resultsAct);
+  solverMenu->addAction(killresultsAct);
 
   // Help menu
   helpMenu = menuBar()->addMenu(tr("&Help"));
@@ -238,6 +239,7 @@ void MainWindow::createToolBars()
   solverToolBar->addAction(killsolverAct);
   solverToolBar->addSeparator();
   solverToolBar->addAction(resultsAct);
+  solverToolBar->addAction(killresultsAct);
 }
 
 
@@ -363,50 +365,30 @@ void MainWindow::createActions()
   resetAct->setStatusTip(tr("Reset model view"));
   connect(resetAct, SIGNAL(triggered()), this, SLOT(resetSlot()));
 
-  // Solver -> Run
+  // Solver -> Run solver
   runsolverAct = new QAction(QIcon(":/icons/ElmerSolver.png"), tr("Run solver"), this);
   runsolverAct->setStatusTip(tr("Run solver"));
   connect(runsolverAct, SIGNAL(triggered()), this, SLOT(runsolverSlot()));
 
-  // Solver -> Kill
+  // Solver -> Kill solver
   killsolverAct = new QAction(QIcon(":/icons/window-close.png"), tr("Kill solver"), this);
   killsolverAct->setStatusTip(tr("Kill solver"));
   connect(killsolverAct, SIGNAL(triggered()), this, SLOT(killsolverSlot()));
 
-  // Solver -> Results
-  resultsAct = new QAction(QIcon(":/icons/ElmerPost.png"), tr("Post process"), this);
+  // Solver -> Post process
+  resultsAct = new QAction(QIcon(":/icons/ElmerPost.png"), tr("Run post process"), this);
   resultsAct->setStatusTip(tr("Run post processor"));
   connect(resultsAct, SIGNAL(triggered()), this, SLOT(resultsSlot()));
+
+  // Solver -> Kill process
+  killresultsAct = new QAction(QIcon(":/icons/window-close.png"), tr("Kill post process"), this);
+  killresultsAct->setStatusTip(tr("Kill post process"));
+  connect(killresultsAct, SIGNAL(triggered()), this, SLOT(killresultsSlot()));
 
   // Help -> About
   aboutAct = new QAction(QIcon(":/icons/help-about.png"), tr("About..."), this);
   aboutAct->setStatusTip(tr("Information about the program"));
   connect(aboutAct, SIGNAL(triggered()), this, SLOT(showaboutSlot()));
-}
-
-
-
-// Synchronize menu to GL glwidget state variables:
-//-----------------------------------------------------------------------------
-void MainWindow::synchronizeMenuToState()
-{
-  if(glWidget->stateDrawSurfaceMesh)
-    hidesurfacemeshAct->setIcon(iconChecked);
-  else
-    hidesurfacemeshAct->setIcon(iconEmpty);
-  
-  if(glWidget->stateDrawSharpEdges)
-    hidesharpedgesAct->setIcon(iconChecked);
-  else
-    hidesharpedgesAct->setIcon(iconEmpty);
-  
-  if(glWidget->stateFlatShade) {
-    flatShadeAct->setIcon(iconChecked);
-    smoothShadeAct->setIcon(iconEmpty);
-  } else {
-    flatShadeAct->setIcon(iconEmpty);
-    smoothShadeAct->setIcon(iconChecked);
-  }
 }
 
 
@@ -2416,7 +2398,7 @@ void MainWindow::makeSifBoundaryBlocks(QString BCtext)
 //*****************************************************************************
 
 
-// Solver -> Solve
+// Solver -> Run solver
 //-----------------------------------------------------------------------------
 void MainWindow::runsolverSlot()
 {
@@ -2456,8 +2438,8 @@ void MainWindow::solverStdoutSlot()
 
   solverLogWindow->textEdit->append(qs);
 
-  cout << string(qs.toAscii());
-  cout.flush();
+  // cout << string(qs.toAscii());
+  // cout.flush();
 }
 
 
@@ -2471,7 +2453,7 @@ void MainWindow::solverFinishedSlot(int)
 }
 
 
-// Solver -> Kill
+// Solver -> Kill solver
 //-----------------------------------------------------------------------------
 void MainWindow::killsolverSlot()
 {
@@ -2483,7 +2465,7 @@ void MainWindow::killsolverSlot()
 
 
 
-// Post process
+// Solver -> Run post process
 //-----------------------------------------------------------------------------
 void MainWindow::resultsSlot()
 {
@@ -2523,6 +2505,16 @@ void MainWindow::postProcessFinishedSlot(int)
   resultsAct->setIcon(QIcon(":/icons/ElmerPost.png"));
 }
 
+
+// Solver -> Kill post process
+//-----------------------------------------------------------------------------
+void MainWindow::killresultsSlot()
+{
+  post->kill();
+
+  logMessage("Post process killed");
+  resultsAct->setIcon(QIcon(":/icons/ElmerPost.png"));
+}
 
 
 //*****************************************************************************
@@ -2564,4 +2556,29 @@ void MainWindow::logMessage(QString message)
   cout << string(message.toAscii()) << endl;
   statusBar()->showMessage(message);
   cout.flush();
+}
+
+
+
+// Synchronize menu to GL glwidget state variables:
+//-----------------------------------------------------------------------------
+void MainWindow::synchronizeMenuToState()
+{
+  if(glWidget->stateDrawSurfaceMesh)
+    hidesurfacemeshAct->setIcon(iconChecked);
+  else
+    hidesurfacemeshAct->setIcon(iconEmpty);
+  
+  if(glWidget->stateDrawSharpEdges)
+    hidesharpedgesAct->setIcon(iconChecked);
+  else
+    hidesharpedgesAct->setIcon(iconEmpty);
+  
+  if(glWidget->stateFlatShade) {
+    flatShadeAct->setIcon(iconChecked);
+    smoothShadeAct->setIcon(iconEmpty);
+  } else {
+    flatShadeAct->setIcon(iconEmpty);
+    smoothShadeAct->setIcon(iconChecked);
+  }
 }

@@ -48,9 +48,10 @@ private slots:
   void resetSlot();               // View -> Reset model view
   void flatShadeSlot();           // View -> Shade model -> flat
   void smoothShadeSlot();         // View -> Shade model -> smooth
-  void runsolverSlot();           // Solver -> Run
-  void killsolverSlot();          // Solver -> Kill
-  void resultsSlot();             // Solver -> Results
+  void runsolverSlot();           // Solver -> Run solver
+  void killsolverSlot();          // Solver -> Kill solver
+  void resultsSlot();             // Solver -> Post process
+  void killresultsSlot();         // Solver -> Kill post process
   void showaboutSlot();           // Help -> About...
 
   void meshOkSlot();                  // signal emitted by meshingThread
@@ -110,9 +111,10 @@ private:
   QAction *surfaceUnifyAct;       // Mesh -> Unify surface
   QAction *edgeUnifyAct;          // Mesh -> Unify surface
   QAction *edgeDivideAct;         // Mesh -> Divide edges...
-  QAction *runsolverAct;          // Solver -> Run
-  QAction *killsolverAct;         // Solver -> Kill
-  QAction *resultsAct;            // Solver -> Results
+  QAction *runsolverAct;          // Solver -> Run solver
+  QAction *killsolverAct;         // Solver -> Kill solver
+  QAction *resultsAct;            // Solver -> Post process
+  QAction *killresultsAct;        // Solver -> Kill post process
   QAction *aboutAct;              // Help -> About...
 
   int activeGenerator;            // Currently active generator
