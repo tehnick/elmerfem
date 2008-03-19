@@ -38,9 +38,10 @@ private slots:
   void surfaceDivideSlot();       // Mesh -> Divide surface...
   void surfaceUnifySlot();        // Mesh -> Unify surface
   void edgeUnifySlot();           // Mesh -> Unify edge
-  void edgeDivideSlot();          // Mesh -> Divide edges...
+  void edgeDivideSlot();          // Mesh -> Divide edge...
   void hidesurfacemeshSlot();     // View -> Surface mesh
   void hidesharpedgesSlot();      // View -> Sharp edges
+  void selectAllSurfacesSlot();   // View -> Select all surfaces
   void hideselectedSlot();        // View -> Hide/show selected
   void showallSlot();             // View -> Show all
   void resetSlot();               // View -> Reset model view
@@ -98,6 +99,7 @@ private:
   QAction *edgeDivideAct;         // Mesh -> Divide edges...
   QAction *hidesurfacemeshAct;    // View -> Show surface mesh
   QAction *hidesharpedgesAct;     // View -> Show sharp edges
+  QAction *selectAllSurfacesAct;  // View -> Select all surfaces
   QAction *hideselectedAct;       // View -> Show selected
   QAction *flatShadeAct;          // View -> Shade model -> Flat
   QAction *smoothShadeAct;        // View -> Shade model -> Smooth

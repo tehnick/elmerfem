@@ -491,7 +491,7 @@ void GLWidget::getMatrix()
 
 
 
-// Rebuild boundary lists...
+// Rebuild lists...
 //-----------------------------------------------------------------------------
 void GLWidget::rebuildLists()
 {

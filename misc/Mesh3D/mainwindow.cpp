@@ -115,6 +115,8 @@ void MainWindow::createMenus()
   viewMenu->addAction(hidesurfacemeshAct);
   viewMenu->addAction(hidesharpedgesAct);
   viewMenu->addSeparator();
+  viewMenu->addAction(selectAllSurfacesAct);
+  viewMenu->addSeparator();
   viewMenu->addAction(hideselectedAct);
   viewMenu->addSeparator();
   shadeMenu = viewMenu->addMenu(tr("Shade model"));
@@ -267,7 +269,12 @@ void MainWindow::createActions()
   hidesharpedgesAct->setStatusTip(tr("Show/hide sharp edges"));
   connect(hidesharpedgesAct, SIGNAL(triggered()), this, SLOT(hidesharpedgesSlot()));
 
-  // View -> Show selected
+  // View -> Select all surfaces
+  selectAllSurfacesAct = new QAction(QIcon(), tr("Select all surfaces"), this);
+  selectAllSurfacesAct->setStatusTip(tr("Select all surfaces"));
+  connect(selectAllSurfacesAct, SIGNAL(triggered()), this, SLOT(selectAllSurfacesSlot()));
+
+  // View -> Hide/show selected
   hideselectedAct = new QAction(QIcon(), tr("&Hide/show selected"), this);
   hideselectedAct->setShortcut(tr("Ctrl+H"));
   hideselectedAct->setStatusTip(tr("Show/hide selected objects"));
@@ -1302,6 +1309,33 @@ void MainWindow::hidesharpedgesSlot()
     logMessage("Sharp edges hidden");
   else 
     logMessage("Sharp edges shown");
+}
+
+
+
+// View -> Select all surfaces
+//-----------------------------------------------------------------------------
+void MainWindow::selectAllSurfacesSlot()
+{
+  mesh_t *mesh = glWidget->mesh;
+  int lists = glWidget->lists;
+  list_t *list = glWidget->list;
+
+  if(mesh == NULL) {
+    logMessage("There are no surfaces to select");
+    return;
+  }
+
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];
+    if(l->type == SURFACELIST)
+      l->selected = true;
+  }
+
+  glWidget->rebuildSurfaceLists();
+  glWidget->updateGL();
+  
+  logMessage("All surfaces selected");
 }
 
 
