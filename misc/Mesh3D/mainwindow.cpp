@@ -1,3 +1,43 @@
+/*****************************************************************************
+ *                                                                           *
+ *  Elmer, A Finite Element Software for Multiphysical Problems              *
+ *                                                                           *
+ *  Copyright 1st April 1995 - , CSC - Scientific Computing Ltd., Finland    *
+ *                                                                           *
+ *  This program is free software; you can redistribute it and/or            *
+ *  modify it under the terms of the GNU General Public License              *
+ *  as published by the Free Software Foundation; either version 2           *
+ *  of the License, or (at your option) any later version.                   *
+ *                                                                           *
+ *  This program is distributed in the hope that it will be useful,          *
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of           *
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the            *
+ *  GNU General Public License for more details.                             *
+ *                                                                           *
+ *  You should have received a copy of the GNU General Public License        *
+ *  along with this program (in file fem/GPL-2); if not, write to the        *
+ *  Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,         *
+ *  Boston, MA 02110-1301, USA.                                              *
+ *                                                                           *
+ *****************************************************************************/
+
+/*****************************************************************************
+ *                                                                           *
+ *  ELMER/Mesh3D mainwindow                                                  *
+ *                                                                           *
+ *****************************************************************************
+ *                                                                           *
+ *  Authors: Mikko Lyly, Juha Ruokolainen and Peter Råback                   *
+ *  Email:   Juha.Ruokolainen@csc.fi                                         *
+ *  Web:     http://www.csc.fi/elmer                                         *
+ *  Address: CSC - Scientific Computing Ltd.                                 *
+ *           Keilaranta 14                                                   *
+ *           02101 Espoo, Finland                                            *
+ *                                                                           *
+ *  Original Date: 15 Mar 2008                                               *
+ *                                                                           *
+ *****************************************************************************/
+
 #include <QtGui>
 #include <QFile>
 #include <QFont>
@@ -40,7 +80,7 @@ MainWindow::MainWindow()
   boundaryDivide = new BoundaryDivide(this);
   meshingThread = new MeshingThread;
   meshutils = new Meshutils;
-  solverLogWindow = new SifWindow;
+  solverLogWindow = new SifWindow(this);
   solver = new QProcess(this);
   post = new QProcess(this);
 
@@ -1245,9 +1285,9 @@ void MainWindow::saveElmerMesh(QString dirName)
 void MainWindow::closeMainWindowSlot()
 {
   sifWindow->close();
+  solverLogWindow->close();
   meshControl->close();
   boundaryDivide->close();
-  solverLogWindow->close();
   close();
 }
 
@@ -1894,6 +1934,8 @@ void MainWindow::edgeUnifySlot()
 //-----------------------------------------------------------------------------
 void MainWindow::showsifSlot()
 {
+  QFont sansFont("Courier", 10);
+  sifWindow->textEdit->setCurrentFont(sansFont);
   sifWindow->show();
 }
 
@@ -2426,17 +2468,17 @@ void MainWindow::resultsSlot()
     return;
   }
 
-  args << "\"readfile skeleton.ep; set ColorScaleColor Temperature; set DisplayStyle(ColorScale) 1; set MeshStyle 1; set MeshColor Temperature; set DisplayStyle(ColorMesh) 1; UpdateObject;\"";
-
+  args << "readfile skeleton.ep; set ColorScaleColor Temperature; set DisplayStyle(ColorScale) 1; set MeshStyle 1; set MeshColor Temperature; set DisplayStyle(ColorMesh) 1; UpdateObject;";
+  
   post->start("ElmerPost", args);
-
+  
   if(!post->waitForStarted()) {
     logMessage("Unable to start post processor");
     return;
   }
   
   resultsAct->setIcon(QIcon(":/icons/ElmerPost-running.png"));
-
+  
   logMessage("Post processor started");
 }
 
