@@ -159,7 +159,7 @@ static void ExampleGrid1D(struct GridType **grids,int *nogrids,int info)
 /* Creates an example grid that might be used to analyze 
    flow trough a step. */
 {
-  int i,j;
+  int j;
   struct GridType *grid;
 
   (*nogrids) = 1;
@@ -215,7 +215,7 @@ static void ExampleGrid2D(struct GridType **grids,int *nogrids,int info)
 /* Creates an example grid that might be used to analyze 
    flow trough a step. */
 {
-  int i,j;
+  int j;
   struct GridType *grid;
 
   (*nogrids) = 1;
@@ -435,11 +435,11 @@ void SetElementDivision(struct GridType *grid,Real relh,int info)
    materials that have indeces in interval [firstmat,lastmat]. 
    */
 {
-  int i,j,nx,ny,nxmax,nymax;
+  int i,j,nx,ny,nxmax = 0,nymax = 0;
   int sumxelems,sumyelems,sumxyelems;
   int wantedelems,wantedelemsx,wantedelemsy;
   Real ratio,linearlimit;
-  Real dxmax,dymax,dx,dy,dxlimit;
+  Real dxmax = 0,dymax = 0,dx = 0,dy = 0,dxlimit = 0;
 
   if(0) printf("SetElementDivision\n");
 
@@ -984,7 +984,7 @@ int SetCellKnots(struct GridType *grid, struct CellType *cell,int info)
 {
   int i,j,level,center;
   int degree,centernodes,sidenodes,nonodes;
-  int cnew,cup,cleft,cleftup;
+  int cnew = 0,cup = 0,cleft = 0,cleftup = 0;
   int elemno,knotno;
   int maxwidth,width,numbering;
   int xcells,ycells,*yelems,*xelems;
@@ -1190,12 +1190,12 @@ int SetCellKnots(struct GridType *grid, struct CellType *cell,int info)
 
 int SetCellKnots1D(struct GridType *grid, struct CellType *cell,int info)
 {
-  int i,j;
+  int i;
   int degree,nonodes;
-  int cnew,cup,cleft,cleftup;
+  int cnew,cleft;
   int elemno,knotno;
-  int maxwidth,width;
-  int xcells,ycells,*yelems,*xelems;
+  int maxwidth;
+  int xcells,*xelems;
 
   nonodes = grid->nonodes;
   knotno  = 0;
@@ -1261,7 +1261,7 @@ int GetKnotIndex(struct CellType *cell,int i,int j)
    range [0..n] and [0..m]. Requires only the structure CellType. 
    */
 {
-  int ind,aid,maxj;
+  int ind,aid,maxj = 0;
 
   if(cell->numbering == NUMBER_1D) {
     ind = cell->left1st;
@@ -1355,7 +1355,7 @@ int GetElementIndices(struct CellType *cell,int i,int j,int *ind)
    requires only the structure CellType.
    */
 {
-  int nonodes,numbering,elemind;
+  int nonodes,numbering,elemind = 0;
   
   nonodes = cell->nonodes;
   numbering = cell->numbering;
@@ -1490,7 +1490,7 @@ int GetElementIndex(struct CellType *cell,int i,int j)
    requires only the structure CellType.
    */
 {
-  int elemind;
+  int elemind = 0;
  
   if(cell->numbering == NUMBER_XY) 
     elemind = cell->elem1st+(i-1) + (j-1)*cell->elemwidth;
@@ -1511,7 +1511,7 @@ int GetElementCoordinates(struct CellType *cell,int i,int j,
    rectangular.
    */
 {
-  int k,nonodes,numbering,elemind;
+  int k,nonodes,numbering,elemind = 0;
   Real xrat,yrat;
 
   k = nonodes = cell->nonodes;
@@ -1717,9 +1717,9 @@ int GetSideInfo(struct CellType *cell,int cellno,int side,int element,
 
 void SetElementDivisionExtruded(struct GridType *grid,int info)
 {
-  int i,j,nzmax,sumzelems;
+  int i,nzmax = 0,sumzelems;
   Real ratio,linearlimit;
-  Real dzmax,dz;
+  Real dzmax = 0,dz = 0;
   
   linearlimit = 0.001;
 
@@ -1834,9 +1834,9 @@ void SetElementDivisionExtruded(struct GridType *grid,int info)
 
 void SetElementDivisionCylinder(struct GridType *grid,int info)
 {
-  int i,j,k,nzmax;
+  int i,k;
   Real ratio,eps;
-  Real dzmax,dz;
+  Real dzmax;
   
   eps = 1.0e-8;
 
@@ -1911,7 +1911,7 @@ void SetElementDivisionCylinder(struct GridType *grid,int info)
 int Getline(char *line1,FILE *io) 
 {
   int i,isend;
-  char line0[MAXLINESIZE],*charend,*matcpntr,*matcpntr0;
+  char line0[MAXLINESIZE],*charend;
 
   for(i=0;i<MAXLINESIZE;i++) 
     line0[i] = ' ';
@@ -1954,7 +1954,7 @@ int Getline(char *line1,FILE *io)
 int GetCommand(char *line1,char *line2,FILE *io) 
 {
   int i,j,isend,empty;
-  char line0[MAXLINESIZE],*charend,*matcpntr0,*matcpntr;
+  char line0[MAXLINESIZE],*charend;
 
  newline:
 
@@ -2039,7 +2039,7 @@ int GetCommand(char *line1,char *line2,FILE *io)
 
 int SaveElmergrid(struct GridType *grid,int nogrids,char *prefix,int info)
 {
-  int res,sameline,maxsameline;
+  int sameline,maxsameline;
   int i,j,dim;
   FILE *out;
   char filename[MAXFILESIZE];
@@ -2254,8 +2254,7 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info)
   char filename[MAXFILESIZE];
   char command[MAXLINESIZE],params[MAXLINESIZE];
   FILE *in;
-  int i,j,k,l,error=0;
-  struct GridType grid0;
+  int i,j,k,error=0;
   char *cp;
   int noknots,noelements,dim,axisymmetric;
   int elemcode,maxnodes,totelems,nogrids0,minmat,maxmat;
@@ -2294,10 +2293,10 @@ int LoadElmergrid(struct GridType **grid,int *nogrids,char *prefix,int info)
     if(strstr(command,"VERSION")) {
       sscanf(params,"%ld",&code);
       if(code == 210903) {
-	if(info) printf("Loading ElmerGrid file version: %d\n",code);
+	if(info) printf("Loading ElmerGrid file version: %d\n", (int)code);
       }
       else {
-	printf("Unknown ElmerGrid file version: %d\n",code);
+	printf("Unknown ElmerGrid file version: %d\n", (int)code);
 	return(2);
       }
       *nogrids += 1;
@@ -2806,8 +2805,8 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
 {
   char filename[MAXFILESIZE],command[MAXLINESIZE],params[MAXLINESIZE],*cp;
 
-  FILE *in;
-  int i,j,k,l,error=0;
+  FILE *in = NULL;
+  int i,j;
 
   if( mode == 0) {  
     if (in = fopen("ELMERGRID_STARTINFO","r")) {
@@ -2853,7 +2852,7 @@ int LoadCommands(char *prefix,struct ElmergridType *eg,
 
     if(mode <= 1) {
       if(strstr(command,"INPUT FILE")) {
-	sscanf(params,"%s",&eg->filesin[0]);
+	sscanf(params,"%s", &eg->filesin[0]);
       }
 
       else if(strstr(command,"OUTPUT FILE")) {
@@ -3220,7 +3219,7 @@ end:
 int CreateElmerGridMesh(struct GridType *grid,
 			struct FemType *data,struct BoundaryType *boundaries,
 			Real relh,int info) {
-  int errstat,i,j;  
+  int j;  
   struct CellType *cell;
   
   for(j=0;j<MAXBOUNDARIES;j++) {
@@ -3258,4 +3257,6 @@ int CreateElmerGridMesh(struct GridType *grid,
   }
 
   free(cell);
+
+  return 0; // added by ML 19.03.2008
 }

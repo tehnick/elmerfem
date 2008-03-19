@@ -345,7 +345,7 @@ int Minimi(Real *vector,int first,int last)
 /* Returns the position of the smallest value of vector in range [first,last]. */
 {
   Real min;
-  int i,mini;
+  int i,mini = 0;
 
   min=vector[first];
   for(i=first+1;i<=last;i++)
@@ -374,7 +374,7 @@ int Maximi(Real *vector,int first,int last)
 /* Returns the position of the largest value of vector in range [first,last]. */
 {
   Real max;
-  int i,maxi;
+  int i,maxi = 0;
 
   max=vector[first];
   for(i=first+1;i<=last;i++) 

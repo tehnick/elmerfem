@@ -259,7 +259,7 @@ int LoadSolutionElmer(struct FemType *data,int results,char *prefix,int info)
    */
 {
   int noknots,noelements,novctrs,open;
-  int timesteps,i,j,k,grp;
+  int timesteps,i,j,k = 0,grp;
   Real r;
   FILE *in;
   char line[MAXLINESIZE],filename[MAXFILESIZE],text[MAXNAMESIZE];
@@ -545,11 +545,11 @@ int LoadAbaqusInput(struct FemType *data,struct BoundaryType *bound,
   int noknots,noelements,elemcode,maxnodes,material;
   int mode,allocated,nvalue,nvalue2,maxknot,nosides;
   int boundarytype,boundarynodes,elsetactive;
-  int *nodeindx,*boundindx;
+  int *nodeindx = NULL,*boundindx = NULL;
   
   char filename[MAXFILESIZE];
   char line[MAXLINESIZE];
-  int i,j,*ind;
+  int i,j,*ind = NULL;
   FILE *in;
   Real rvalues[MAXDOFS];
   int ivalues[MAXDOFS],ivalues0[MAXDOFS];
@@ -815,7 +815,7 @@ int LoadNastranInput(struct FemType *data,struct BoundaryType *bound,
   
   char filename[MAXFILESIZE];
   char line[MAXLINESIZE],*cp;
-  int i,j,k,l;
+  int j,k=0;
   FILE *in;
   int ivalues0[MAXDOFS];
 
@@ -982,7 +982,7 @@ omstart:
 
 static void ReorderFidapNodes(struct FemType *data,int element,int nodes,int typeflag) 
 {
-  int i,j,oldtopology[MAXNODESD2],*topology,dim;
+  int i,oldtopology[MAXNODESD2],*topology,dim;
   int order203[]={1,3,2};
   int order306[]={1,3,5,2,4,6};
   int order408[]={1,3,5,7,2,4,6,8};
@@ -1337,7 +1337,7 @@ end:
 static void ReorderAnsysNodes(struct FemType *data,int *oldtopology,
 			      int element,int dim,int nodes) 
 {
-  int i,j,*topology,elementtype;
+  int i,*topology,elementtype = 0;
   int order820[]={1,2,3,4,5,6,7,8,9,10,11,12,17,18,19,20,13,14,15,16};
   int order504[]={1,2,3,5};
   int order306[]={1,2,3,5,6,8};
@@ -1443,12 +1443,12 @@ int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
 		      char *prefix,int info)
 /* This procedure reads the FEM mesh as written by Ansys. */
 {
-  int noknots,noelements,nosides,sidetype,currenttype;
+  int noknots = 0,noelements = 0,nosides,sidetype,currenttype;
   int maxindx,*indx,*revindx,topology[100],ind;
   int i,j,k,l,imax,*nodeindx,*boundindx,boundarynodes;
-  int noansystypes,*ansysdim,*ansysnodes,*ansystypes,boundarytypes;
+  int noansystypes,*ansysdim,*ansysnodes,*ansystypes,boundarytypes = 0;
   int namesexist,maxside,sides;
-  Real x,y,z;
+  Real x,y,z = 0;
   FILE *in;
   char *cp,line[MAXLINESIZE],filename[MAXFILESIZE],
     text[MAXNAMESIZE],text2[MAXNAMESIZE];
@@ -1691,7 +1691,7 @@ int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
   FindPointParents(data,bound,boundarynodes,nodeindx,boundindx,info);
 
   if(namesexist) {
-    int bcind,*bctypes,*bctypeused,*bcused,newsides;
+    int bcind,*bctypes = NULL,*bctypeused = NULL,*bcused = NULL,newsides = 0;
 
     data->bodynamesexist = TRUE;
     if(bound[0].nosides) {
@@ -1792,7 +1792,7 @@ int LoadAnsysInput(struct FemType *data,struct BoundaryType *bound,
 static void ReorderFieldviewNodes(struct FemType *data,int *oldtopology,
 				  int element,int dim,int nodes) 
 {
-  int i,j,*topology,elementtype;
+  int i,*topology,elementtype = 0;
   int order808[]={1,2,4,3,5,6,8,7};
   int order706[]={1,4,6,2,3,5};
   int order404[]={1,2,3,4};
@@ -1835,12 +1835,12 @@ int LoadFieldviewInput(struct FemType *data,struct BoundaryType *bound,char *pre
   int mode,totelems,entity;
   char filename[MAXFILESIZE];
   char line[MAXLINESIZE],*cp;
-  int i,j,k,*ind;
+  int i,j,k;
   FILE *in;
   Real x,y,z;
   int maxindx,sidenodes;
   char *isio;
-  int nobound,nobulk,maxsidenodes,*boundtypes,**boundtopos,*boundnodes,*origtopology;
+  int nobound,nobulk = 0,maxsidenodes,*boundtypes = NULL,**boundtopos = NULL,*boundnodes = NULL,*origtopology;
 
   if ((in = fopen(prefix,"r")) == NULL) {
     AddExtension(prefix,filename,"dat");
@@ -2155,8 +2155,8 @@ int LoadTriangleInput(struct FemType *data,struct BoundaryType *bound,
     printf("Loading nodes from file %s\n",polyfile);
 
   {
-    int bcelems,markers,ind1,ind2,bctype,j2,k2,hit;
-    int elemsides,sideind[2],side,elemind;
+    int bcelems,markers,ind1,ind2,bctype,j2,k2,hit = 0;
+    int elemsides,sideind[2],side,elemind = 0;
 
     bctype = 1;
     elemsides = 3;
@@ -2229,8 +2229,8 @@ int LoadMeditInput(struct FemType *data,struct BoundaryType *bound,
 /* This procedure reads the mesh assuming Medit format
    */
 {
-  int noknots,noelements,maxnodes,dim,elementtype;
-  int i,j,dummyint,allocated;
+  int noknots = 0,noelements = 0,maxnodes,dim = 0,elementtype;
+  int i,j,allocated;
   FILE *in;
   char *cp,line[MAXLINESIZE],nodefile[MAXFILESIZE];
 
@@ -2245,7 +2245,7 @@ int LoadMeditInput(struct FemType *data,struct BoundaryType *bound,
 
   allocated = FALSE;
   maxnodes = 0;
-
+ 
 allocate:
 
   if(allocated) {
@@ -2350,13 +2350,13 @@ int LoadGidInput(struct FemType *data,struct BoundaryType *bound,
   int noknots,noelements,elemcode,maxnodes,material,foundsame;
   int mode,allocated,maxknot,nosides,sideelemtype;
   int boundarytype,materialtype,boundarynodes,side,parent,elemsides;
-  int dim, elemnodes, elembasis, elemtype, bulkdone, usedmax,hits;
+  int dim = 0, elemnodes = 0, elembasis = 0, elemtype = 0, bulkdone, usedmax = 0,hits;
   int minbulk,maxbulk,minbound,maxbound,label,debug;
-  int *usedno, **usedelem;  
+  int *usedno = NULL, **usedelem = NULL;  
   char filename[MAXFILESIZE],line[MAXLINESIZE],*cp;
   int i,j,k,n,ind,inds[MAXNODESD2],sideind[MAXNODESD1];
   FILE *in;
-  Real x,y,z;
+  Real x,y,z = 0;
 
   debug = FALSE;
 
@@ -2707,9 +2707,9 @@ int LoadComsolMesh(struct FemType *data,struct BoundaryType *bound,char *prefix,
 /* Load the grid in Comsol Multiphysics mesh format */
 {
   int noknots,noelements,elemcode,maxnodes,material,allocated;
-  int materialtype,boundarynodes;
-  int dim, elemnodes, elembasis, elemtype;
-  int debug,offset,domains,mindom,minbc,elemdim;
+
+  int dim = 0, elemnodes = 0, elembasis = 0, elemtype;
+  int debug,offset,domains,mindom,minbc,elemdim = 0;
   char filename[MAXFILESIZE],line[MAXLINESIZE],*cp;
   int i,j,k;
   FILE *in;
@@ -2913,7 +2913,7 @@ end:
 
 static int GmshToElmerType(int gmshtype)
 {
-  int elmertype;
+  int elmertype = 0;
 
   switch (gmshtype) {
       
@@ -2993,9 +2993,9 @@ static void GmshToElmerIndx(int elemtype,int elemind[])
 static int LoadGmshInput1(struct FemType *data,struct BoundaryType *bound,
 			  char *filename,int info)
 {
-  int noknots,noelements,maxnodes,dim;
+  int noknots = 0,noelements = 0,maxnodes,dim;
   int elemind[MAXNODESD2],elementtype;
-  int i,j,k,allocated,*revindx,maxindx;
+  int i,j,k,allocated,*revindx = NULL,maxindx;
   int elemno, gmshtype, regphys, regelem, elemnodes,maxelemtype;
   FILE *in;
   char *cp,line[MAXLINESIZE];
@@ -3152,9 +3152,9 @@ allocate:
 static int LoadGmshInput2(struct FemType *data,struct BoundaryType *bound,
 			  char *filename,int info)
 {
-  int noknots,noelements,maxnodes,dim,notags;
+  int noknots = 0,noelements = 0,maxnodes,dim,notags;
   int elemind[MAXNODESD2],elementtype;
-  int i,j,k,allocated,*revindx,maxindx;
+  int i,j,k,allocated,*revindx = NULL,maxindx;
   int elemno, gmshtype, tagphys, taggeom, tagpart, elemnodes,maxelemtype;
   FILE *in;
   char *cp,line[MAXLINESIZE];
@@ -3418,12 +3418,12 @@ int UnvToElmerType(int unvtype)
 int LoadUniversalMesh(struct FemType *data,struct BoundaryType *bound,char *prefix,int info)
      /* Load the grid in universal file format */
 {
-  int noknots,totknots,noelements,elemcode,maxnodes;
+  int noknots,totknots,noelements,elemcode = 0,maxnodes;
   int allocated,dim,ind;
   int reordernodes,reorderelements,nogroups,maxnode,maxelem,elid,unvtype,elmertype;
-  int nonodes,group,grouptype,mode,nopoints;
+  int nonodes,group,grouptype,mode = 0,nopoints;
   int debug,mingroup,maxgroup;
-  int *u2eind,*u2eelem;
+  int *u2eind = NULL,*u2eelem = NULL;
   char filename[MAXFILESIZE],line[MAXLINESIZE],*cp;
   int i,j,k;
   char entityname[MAXNAMESIZE];

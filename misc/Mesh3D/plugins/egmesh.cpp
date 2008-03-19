@@ -65,7 +65,7 @@ void GetElementInfo(int element,struct FemType *data,
 
 int GetElementDimension(int elementtype)
 {
-  int elemdim;
+  int elemdim = 0;
 
   switch (elementtype / 100) {
   case 1:
@@ -468,7 +468,7 @@ void GetElementSide(int element,int side,int normal,
 
 int GetElementGraph(int element,int edge,struct FemType *data,int *ind)
 {
-  int i,j,elemtype,basetype,elemnodes,*elemind,hit,evenodd,quadratic,side;
+  int elemtype,basetype,elemnodes,*elemind,hit,evenodd,quadratic,side;
 
   elemtype = data->elementtypes[element];
   basetype = elemtype / 100;
@@ -782,7 +782,7 @@ static void MovePointAngle(Real *lim,int points,Real *coords,
 			   Real x,Real y,Real *dx,Real *dz)
 {
   static int i=0;
-  Real c,d,x1,y1,z1,degs;
+  Real x1,z1,degs;
 
   degs = FM_PI/180.0;
   x1 = z1 = 0.0;
@@ -817,7 +817,6 @@ static void MovePointAngle(Real *lim,int points,Real *coords,
 static void MovePointSinus(Real *lim,int points,Real *coords,
 			   Real x,Real y,Real *dx,Real *dy)
 {
-  static int i=0;
   Real c,d;
 
   if(y > lim[0]  &&  y < lim[2]) {
@@ -846,7 +845,7 @@ static void MovePointPowerSeries(Real *lim,int points,Real *coords,
 				 Real x,Real y,Real *dx,Real *dy)
 {
   int i,n;
-  Real c,d,t,u;
+  Real d,t,u;
 
   if(y > lim[0]  &&  y < lim[2]) {
     t = x;
@@ -881,7 +880,7 @@ static void MovePointPowerSeries2(Real *lim,int points,Real *coords,
 				 Real x,Real y,Real *dx,Real *dy)
 {
   int i,j,n;
-  Real c,d,e,t,u,h;
+  Real d,e,t,u,h;
 
   if(y > lim[0]  &&  y < lim[2]) {
     t = x;
@@ -994,9 +993,9 @@ void CreateKnots(struct GridType *grid,struct CellType *cell,
   Real globalcoord[DIM*MAXNODESD2];
   Real maplim[3*MAXMAPPINGS];
   int material,nonodes,elemind,elemtype;
-  int mode,level,maplevel,dim;
+  int mode = 0,level,maplevel,dim;
   int celli,cellj,i,j,k,l,ind[MAXNODESD2];
-  Real x,y,z,dx,dy,dz,size,minsize,maxsize;
+  Real x,y,dx,dy,dz,size,minsize,maxsize;
 
   InitializeKnots(data);
 
@@ -1276,8 +1275,8 @@ void DestroyKnots(struct FemType *data)
 int FindParentSide(struct FemType *data,struct BoundaryType *bound,
 		   int sideelem,int sideelemtype,int *sideind)
 {
-  int i,j,k,sideelemtype2,elemind,parent,normal;
-  int elemsides,side,sidenodes,nohits,hit,noparent, bulknodes;
+  int i,j,sideelemtype2,elemind,parent,normal;
+  int elemsides = 0,side,sidenodes,nohits,hit,noparent, bulknodes;
   int sideind2[MAXNODESD1];
 
   hit = FALSE;
@@ -1401,7 +1400,7 @@ int CreateBoundary(struct CellType *cell,struct FemType *data,
    by the flag 'solidmat'.
    */
 {
-  int i,side,more,elem,elemind[2],nosides,no,times;
+  int side,more,elem,elemind[2],nosides,no,times;
   int sidemat,thismat,size,setpoint,dimsides,cellside;
 
   if(data->dim == 1) 
@@ -1740,7 +1739,7 @@ int AllocateBoundary(struct BoundaryType *bound,int size)
 int DestroyBoundary(struct BoundaryType *bound)
 /* Destroys boundaries of various types. */
 {
-  int i,nosides;
+  int nosides;
 
   if(!bound->created) {
     return(1);
@@ -1775,7 +1774,7 @@ int CreatePoints(struct CellType *cell,struct FemType *data,
 		 struct BoundaryType *bound,
 		 int param1,int param2,int pointmode,int pointtype,int info)
 {
-  int size,i,no,corner,times,elem,node;
+  int size,i,no,corner,times,elem = 0,node;
 
   bound->created = FALSE;
   bound->nosides = 0;    
@@ -1969,7 +1968,7 @@ int SetDiscontinuousBoundary(struct FemType *data,struct BoundaryType *bound,
    field variables.
    */
 {
-  int i,j,k,bc,ind,sideind[MAXNODESD1];
+  int i,j,bc,ind,sideind[MAXNODESD1];
   int side,parent,newknots,doublesides,maxtype,newbc;
   int newsuccess,noelements,nonodes,sideelemtype,sidenodes,disconttype;
   int *order;
@@ -2232,7 +2231,7 @@ int SetConnectedBoundary(struct FemType *data,struct BoundaryType *bound,
 			 int bctype,int connecttype,int info)
 /* Create connected boundary conditions for a given bctype */
 {
-  int i,j,k,l,bc,sideelemtype,sidenodes;
+  int i,j,k,bc,sideelemtype,sidenodes;
   int sideind[MAXNODESD1];
 
  
@@ -2272,9 +2271,9 @@ int ElementsToTriangles(struct FemType *data,struct BoundaryType *bound,
 			Real critangle,int info)
 /* Make triangles out of rectangular elements */
 {
-  int i,j,k,l,side,elem,i1,isum,sideelemtype;
+  int i,j,k,l,side = 0,elem,i1,isum = 0,sideelemtype;
   int noelements,elementtype,triangles,noknots,nonodes,newelements,newtype,newmaxnodes;
-  int **newtopo,*newmaterial,*newelementtypes,newnodes,*needed,*divisions,*division1;
+  int **newtopo = NULL,*newmaterial = NULL,*newelementtypes = NULL,newnodes,*needed,*divisions,*division1;
   int sideind[MAXNODESD1], sideind2[MAXNODESD1];
   int allocated,maxanglej,evenodd,newelem;
   Real dx1,dx2,dy1,dy2,ds1,ds2;
@@ -2752,7 +2751,7 @@ int CloneMeshes(struct FemType *data,struct BoundaryType *bound,
   Real *newx,*newy,*newz;
   Real maxcoord[3],mincoord[3];
 
-  int *vparent,*vparent2,*vside,*vside2,*vtypes,*vmaterial,*vnormal,*vdiscont;
+  int *vparent,*vparent2,*vside,*vside2,*vtypes,*vmaterial,*vnormal,*vdiscont = NULL;
   
   printf("CloneMeshes: copying the mesh to a matrix\n");
   if(diffmats) diffmats = 1;
@@ -2936,7 +2935,7 @@ int MirrorMeshes(struct FemType *data,struct BoundaryType *bound,
   Real maxcoord[3],mincoord[3];
   int ind0,elem0,axis1,axis2,axis3,symmcount;
 
-  int *vparent,*vparent2,*vside,*vside2,*vtypes,*vmaterial,*vnormal,*vdiscont;
+  int *vparent,*vparent2,*vside,*vside2,*vtypes,*vmaterial,*vnormal,*vdiscont = NULL;
   
   printf("MirrorMeshes: making a symmetric mapping of the mesh\n");
 
@@ -3127,7 +3126,7 @@ static void ReorderAutomatic(struct FemType *data,int iterations,
 {
   int i,j,k,l,nonodes,maxnodes,noelements,noknots,minwidth,indexwidth;
   int **neighbours,*newrank,*newindx,*oldrank,*oldindx;
-  int nocands,*cands,ind,ind2,cantdo;
+  int nocands = 0,*cands,ind,ind2,cantdo;
   int elemtype,indready,iter,*localorder,*localtmp,nolocal;
   Real *localdist,dx,dy,dz;
 
@@ -3355,7 +3354,7 @@ void ReorderElements(struct FemType *data,struct BoundaryType *bound,
     cz = corder[2];
   }
   else {
-    Real xmin,xmax,ymin,ymax,zmin,zmax;
+    Real xmin,xmax,ymin,ymax,zmin = 0,zmax = 0;
     xmin = xmax = data->x[1];
     ymin = ymax = data->y[1];
     if(data->dim == 3) zmin = zmax = data->z[1];
@@ -3549,7 +3548,7 @@ void RenumberBoundaryTypes(struct FemType *data,struct BoundaryType *bound,
 			   int renumber, int bcoffset, int info)
 {
   int i,j,doinit;
-  int minbc,maxbc,*mapbc;
+  int minbc = 0,maxbc = 0,*mapbc;
   
   if(renumber) {
     if(info) printf("Renumbering boundary types\n");
@@ -3624,8 +3623,8 @@ void RenumberBoundaryTypes(struct FemType *data,struct BoundaryType *bound,
 
 void RenumberMaterialTypes(struct FemType *data,struct BoundaryType *bound,int info)
 {     
-  int i,j,k,l,noelements,doinit;
-  int minmat,maxmat,*mapmat;
+  int i,j,noelements,doinit;
+  int minmat = 0,maxmat = 0,*mapmat;
   
   if(info) printf("Setting new material types\n");
   
@@ -3886,10 +3885,10 @@ static int CompareIndexes(int elemtype,int *ind1,int *ind2)
 int FindNewBoundaries(struct FemType *data,struct BoundaryType *bound,
 		      int *boundnodes,int suggesttype,int dimred,int info)
 {
-  int i,j,k,l,side,identical,element,lowerdim,dim,minedge,maxedge;
-  int nonodes,nosides,newbound;
+  int i,j,side,identical,element,lowerdim,dim,minedge = 0,maxedge = 0;
+  int nonodes,nosides,newbound = 0;
   int sideind[MAXNODESD1],sideind0[MAXNODESD1],sideelemtype,sideelemtype0,allocated;
-  int noboundnodes,sameside,newtype,elemtype;
+  int noboundnodes,sameside,newtype = 0,elemtype;
 
   allocated = FALSE;
   dim = data->dim;
@@ -4048,9 +4047,9 @@ int FindNewBoundaries(struct FemType *data,struct BoundaryType *bound,
 int FindBulkBoundary(struct FemType *data,int mat1,int mat2,
 		     int *boundnodes,int *noboundnodes,int info)
 {
-  int i,j,k;
+  int i,j,k = 0;
   int nonodes,maxnodes,minnodes,material;
-  Real ds,xmin,xmax,ymin,ymax,zmin,zmax,eps;
+  Real ds,xmin = 0,xmax = 0,ymin = 0,ymax = 0,zmin = 0,zmax = 0,eps;
   int *visited,elemdim,*ind;
   Real *anglesum,dx1,dx2,dy1,dy2,dz1,dz2,ds1,ds2,dotprod;
   
@@ -4264,8 +4263,8 @@ int FindBoundaryBoundary(struct FemType *data,struct BoundaryType *bound,int mat
 {
   int i,j,k,l;
   int hits,nonodes,nocorners,maxnodes,minnodes,elemtype,material,bounddim;
-  Real ds,xmin,xmax,ymin,ymax,zmin,zmax,eps,dx1,dx2,dy1,dy2,dz1,dz2,ds1,ds2,dotprod;
-  Real *anglesum;
+  Real ds,xmin,xmax,ymin = 0,ymax = 0,zmin = 0,zmax = 0,eps,dx1,dx2,dy1,dy2,dz1,dz2,ds1,ds2,dotprod;
+  Real *anglesum = NULL;
   int *visited,sideind[MAXNODESD2],elemind[MAXNODESD2];
   
   eps = 1.0e-4;
@@ -4501,8 +4500,8 @@ int FindBoundaryBoundary(struct FemType *data,struct BoundaryType *bound,int mat
 
 int IncreaseElementOrder(struct FemType *data,int info)
 {
-  int i,j,k,l,side,element,maxcon,con,newknots,ind,ind2;
-  int noelements,noknots,nonodes,maxnodes,maxelemtype,hit,node,elemtype;
+  int i,j,side,element,maxcon,con,newknots,ind,ind2;
+  int noelements,noknots,nonodes,maxnodes = 0,maxelemtype,hit,node,elemtype;
   int **newnodetable,inds[2],**newtopo;
   Real *newx,*newy,*newz;
   
@@ -4643,7 +4642,7 @@ int IncreaseElementOrder(struct FemType *data,int info)
 static void CylindricalCoordinateTransformation(struct FemType *data,Real r1,Real r2,
 						int rectangle)
 {
-  int i,j,k,j2,ind1,ind2,nonodes1;
+  int i,j,j2,ind1,ind2,nonodes1;
   Real x,y,r,f,z,q,x2,y2,z2,dx,dy,dz,eps,mult;
   int hits,trials,tests;
   int candidates,*candidatelist,*indx;
@@ -4857,7 +4856,7 @@ static void CylindricalCoordinateCurve(struct FemType *data,
 {
   int i;
   Real x,y,z;
-  Real z0,z1,f0,f,f1,z2,x2,r0;
+  Real z0,z1,f0,f,z2,x2,r0;
   
   printf("Cylindrical coordinate curve, zet=%.3lg  rad=%.3lg  angle=%.3lg\n",
 	 zet,rad,angle);
@@ -5034,7 +5033,7 @@ void SeparateCartesianBoundaries(struct FemType *data,struct BoundaryType *bound
 
 void SeparateMainaxisBoundaries(struct FemType *data,struct BoundaryType *bound)
 {
-  int i,j,k,l,maxtype,addtype,elemsides;
+  int i,j,k,l,maxtype,addtype = 0,elemsides;
   int sideelemtype,sideind[MAXNODESD1];
   int axistype[4],axishit[4],axissum,axismax,done;
   Real x,y,z,sx,sy,sz,sxx,syy,szz,dx,dy,dz;
@@ -5187,7 +5186,7 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
 			 struct FemType *data,struct BoundaryType *bound,
 			 int info)
 {
-  int i,j,k,l,m,n,knot0,knot1,knot2,elem0,size,kmax,noknots,origtype;
+  int i,j,k,l,m,n,knot0,knot1,knot2 = 0,elem0,size,kmax,noknots,origtype;
   int nonodes3d,nonodes2d;
   int cellk,element,level,side,parent,parent2,layers,elemtype;
   int material,material2,ind1,ind2,*indx,*topo;
@@ -5668,7 +5667,7 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
     o = p = 0;
 
     for(element=1;element<=data->noelements;element++) {
-      int blocks, maxradi,addtype;
+      int blocks, maxradi = 0,addtype;
       Real eps,fii,rad,meanrad,maxrad,xc,yc,dfii,fii0,rads[4],fiis[4];
 
       eps = 1.0e-3;
@@ -6074,11 +6073,11 @@ void MergeBoundaries(struct FemType *data,struct BoundaryType *bound,int *double
 void ElementsToBoundaryConditions(struct FemType *data,
 				  struct BoundaryType *bound,int info)
 {
-  int i,j,k,l,sideelemtype,sideelemtype2,elemind,elemind2,parent,sideelem,sameelem;
+  int i,j,k,l,sideelemtype,sideelemtype2,elemind,elemind2,sideelem,sameelem;
   int sideind[MAXNODESD1],sideind2[MAXNODESD1],elemsides,side,hit,same,minelemtype;
   int sidenodes,sidenodes2,maxelemtype,elemtype,elemdim,sideelements,material;
   int *moveelement,*parentorder,*possible,**invtopo;
-  int noelements,maxpossible,noknots,maxelemsides,twiceelem,sideelemdim;
+  int noelements,maxpossible,noknots,maxelemsides,twiceelem,sideelemdim = 0;
   int debug,unmoved;
 
 
@@ -6312,12 +6311,12 @@ void ElementsToBoundaryConditions(struct FemType *data,
 
 int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info)
 {
-  int i,j,k,l,i2,j2,dim;
+  int i,j,i2,j2,dim;
   int noknots,hit,tothits,dimvisited;
-  int *topbot,*indxper;
+  int *topbot = NULL,*indxper;
   int botn,topn,*revindtop,*revindbot;
-  Real eps,dist,dx,dy,dz,coordmax,coordmin;
-  Real *coord,*toparr,*botarr,epsmin;
+  Real eps,dist = 0,dx,dy,dz,coordmax,coordmin;
+  Real *coord = NULL,*toparr,*botarr,epsmin;
 
 
   if(data->dim < 3) periodicdim[2] = 0;
@@ -6516,18 +6515,18 @@ int CreateBoundaryLayer(struct FemType *data,struct BoundaryType *bound,
 /* Create Boundary layers that may be used to solve accurately fluid
    flow problems and similar equations. */
 {
-  int i,j,k,l,m,n,i2,i3,nonodes,maxbc,newbc;
+  int i,j,k,l,m,n,i2,i3,nonodes,maxbc,newbc = 0;
   int noknots,noelements,elemindx,nodeindx,elemtype;
   int oldnoknots,oldnoelements,maxelemtype,oldmaxnodes;
-  int nonewnodes,nonewelements,dolayer,dim,order,midpoints;
+  int nonewnodes,nonewelements,dolayer,dim,order = 0,midpoints = 0;
   int checkmaterials,parent,parent2,use2,second;
-  Real dx,dy,ds,ratio,q,p,rectfactor;
+  Real dx = 0,dy = 0,ds,ratio,q,p,rectfactor;
   Real *newx,*newy,*newz,*oldx,*oldy,*elemwidth;
   Real e1x,e1y,e2x,e2y;
   int sideelemtype,ind[MAXNODESD2],sidebc[MAXNODESD1];
   int *layernode,*newelementtypes,**newtopo,**oldtopo;
-  int *topomap,*newmaterial,*herit,*inside,*nonlin;
-  int endbcs, *endparents, *endtypes, *endnodes, *endnodes2, *endneighbours;
+  int *topomap,*newmaterial,*herit,*inside,*nonlin = NULL;
+  int endbcs, *endparents = NULL, *endtypes = NULL, *endnodes = NULL, *endnodes2 = NULL, *endneighbours = NULL;
 
   if(maxfilters == 1) maxfilters = 1000;
   if(layereps > 0.1) layereps = 0.001;
@@ -7132,7 +7131,7 @@ omstart:
     int method,iter;
     int ind1,ind2,ind3,*fixedx,*fixedy;
     Real *aidx,*aidy,*weights;
-    Real maxerror,minds,dx2,dy2,ds2,fii;
+    Real maxerror = 0,minds,dx2 = 0,dy2 = 0,ds2,fii;
     
     /* There are three methods how to put the weight in the filter,
        1) 1/s, 2) fii/s, 3) sin(fii)/s, the second option seems to be best. */
@@ -7568,14 +7567,14 @@ int CreateBoundaryLayerDivide(struct FemType *data,struct BoundaryType *bound,
    flow problems and similar equations. In this subroutine the boundary layer
    is created by dividing the elements close to boundary. */
 {
-  int i,j,k,l,dim,maxbc,maxelemtype,dolayer,parent,nlayer,sideelemtype,elemind,side;
+  int i,j,k,l,dim,maxbc,maxelemtype,dolayer,parent,nlayer = 0,sideelemtype,elemind,side;
   int noelements,noknots,oldnoknots,oldnoelements,oldmaxnodes,nonewnodes,nonewelements;
   int maxcon,elemsides,elemdone,midpoints,order,bcnodes,elemhits,elemtype,goforit;
   int ind[MAXNODESD2],baseind[2],topnode[2],basenode[2];
   int *layernode,*newelementtypes,**newtopo,**oldtopo,*newmaterial,**edgepairs,*sharednode;
   Real dx[2],dy[2],x0[2],y0[2];
   Real *newx,*newy,*newz,*oldx,*oldy,*oldz;
-  Real slayer,qlayer,ratio,q;
+  Real slayer = 0,qlayer = 0,ratio,q;
 
 
   dim = data->dim;
@@ -8030,8 +8029,8 @@ int CreateBoundaryLayerDivide(struct FemType *data,struct BoundaryType *bound,
 int RotateTranslateScale(struct FemType *data,struct ElmergridType *eg,int info)
 {
   int i;
-  Real x,y,z,xz,yz,yx,zx,zy,xy,cx,cy,cz;
-  Real xmin, xmax, ymin, ymax, zmin, zmax;
+  Real x,y,z,xz,yz,yx,zx,zy,xy,cx,cy,cz = 0;
+  Real xmin, xmax, ymin, ymax, zmin = 0, zmax = 0;
 
   if(eg->scale) {
     if(info) printf("Scaling mesh with vector [%.3lg %.3lg %.3lg]\n",
@@ -8277,7 +8276,7 @@ int DestroyDualGraph(struct FemType *data,int info)
 
 int CreateInverseTopology(struct FemType *data,int info)
 {
-  int i,j,k,l,m,noelements,noknots,elemtype,nonodes,ind,maxcon;
+  int i,j,l,m,noelements,noknots,elemtype,nonodes,ind,maxcon;
   int *neededby,minneeded,maxneeded;
 
   printf("Creating an inverse topology of the finite element mesh\n");  
@@ -8433,4 +8432,6 @@ int SideAndBulkBoundaries(struct FemType *data,struct BoundaryType *bound,struct
     }
   }
   free_Ivector(boundnodes,1,data->noknots);
+
+  return 0; // added by ML 19.03.2008
 }

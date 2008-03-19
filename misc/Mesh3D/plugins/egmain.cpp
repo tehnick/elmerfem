@@ -1029,7 +1029,7 @@ static int DetermineFileType(char *filename,int info)
 
 static int ImportMeshDefinition(int inmethod,int nofile,char *filename,int *nogrids)
 {
-  int i,j,k,errorstat,dim;
+  int i,k,errorstat = 0,dim;
   static int visited = FALSE;
 
 
@@ -1288,11 +1288,10 @@ static int ManipulateMeshDefinition(int inmethod,int outmethod,Real relh)
 #if LIB_MODE
 int eg_loadmesh(const char *filename0)
 {
-  static int i,j,k,l,inmethod,info,errorstat;
-  static int nofile,dim;
-  static Real mergeeps;
+  static int i,k,inmethod,info,errorstat;
+  static int nofile;
+
   static int visited = FALSE;
-  long ii;  
   char filename[MAXFILESIZE];
 
   activemesh = 0;
