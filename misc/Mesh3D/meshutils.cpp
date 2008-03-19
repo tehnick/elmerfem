@@ -856,12 +856,22 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
     }
   };
   
-  Bc *bc = new Bc;
   
   // reset bc-indices on edges:
+  int count = 0;
   for(int i=0; i < mesh->edges; i++)
    if (mesh->edge[i].nature == PDE_BOUNDARY)
+   {
+     count++;
      mesh->edge[i].index = UNKNOWN;
+   }
+
+  if ( count==0 ) {
+    cout << "No boundary edges to divde." << endl;
+    return 0;
+  }
+
+  Bc *bc = new Bc;
 
   // recursively determine boundary parts:
   int index = 0;
@@ -916,14 +926,23 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
     }
   };
   
-  Bc *bc = new Bc;
+  int count = 0;
   
   // reset bc-indices:
   for(int i=0; i < mesh->surfaces; i++)
-   if (mesh->surface[i].nature == PDE_BOUNDARY)
+   if (mesh->surface[i].nature == PDE_BOUNDARY) {
+     count++;
      mesh->surface[i].index = UNKNOWN;
+   }
+
+  if ( count==0 ) {
+    cout << "No boundary surfaces to divde." << endl;
+    return 0;
+  }
 
   // recursively determine boundary parts:
+  Bc *bc = new Bc;
+
   int index = 0;
   for(int i=0; i < mesh->surfaces; i++) {
     surface_t *surface = &mesh->surface[i];
