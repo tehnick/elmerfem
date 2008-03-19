@@ -87,7 +87,13 @@ void PostProcessingThread::run()
     if(abort)
       return;
     
-    system( "ElmerPost \"readfile skeleton.ep; set MeshStyle 1; set MeshColor Temperature; set DisplayStyle(ColorMesh) 1; UpdateObject; \" " );
+    system( "ElmerPost \"readfile skeleton.ep;"
+            "set ColorScaleColor Temperature;"
+            "set DisplayStyle(ColorScale) 1;"
+            "set MeshStyle 1;"
+            "set MeshColor Temperature;"
+            "set DisplayStyle(ColorMesh) 1;"
+            "UpdateObject;\"" );
     
     if(!restart)
       emit(signalPostProcessingReady());
