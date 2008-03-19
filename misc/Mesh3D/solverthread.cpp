@@ -46,6 +46,7 @@
 #include <cstdio>
 #include <unistd.h>
 #include <iostream>
+#include <string>
 
 using namespace std;
 
@@ -83,6 +84,10 @@ void SolverThread::startSolver(QTextEdit *te)
 
 void SolverThread::run()
 {
+#define MAXLINEWIDTH 1024
+
+  char str[MAXLINEWIDTH];
+
   forever {
     mutex.lock();
     
@@ -93,9 +98,6 @@ void SolverThread::run()
     if(abort)
       return;
 
-    te->append("Ok start solving.");
-    te->append("Logging to this textEdit is currently broken, though...");
-    
     // open log file
     QFile logfile;
     logfile.setFileName("ElmerSolver.log");
@@ -105,22 +107,31 @@ void SolverThread::run()
     // open process
     FILE *fp = popen("ElmerSolver", "r");
 
-    // redirect stdout
+    // redirect stdout to custom buffer
     __gnu_cxx::stdio_filebuf<char> fb(fp, ios::in);
     istream f(&fb);
     
-    // write to stdout && log
-    QString qs;
-    char c;
-    for(c = f.get(); !f.eof(); c = f.get()) {
+    // write to stdout, textEdit and log file:
+    char *p = str;
 
-      // broken:
-      //qs = c;
-      //te->append(qs);
+    for(char c = f.get(); !f.eof(); c = f.get()) {
+
+      if((c == '\n') || (c == (char)0)) {
+	te->append(str);
+
+	cout << str << endl;
+	cout.flush();
+
+	memset(str, 0, MAXLINEWIDTH);
+	p = str;
+
+      } else {
+
+	// TODO: Check for overflow
+	*p++ = c;
+      }
 
       logstream << c;
-      cout << c;
-      cout.flush();
     }
 
     // close process
