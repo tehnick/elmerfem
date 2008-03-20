@@ -35,6 +35,7 @@ private slots:
   void makeLinElastSifSlot();     // Edit -> Linear elasticity
   void meshcontrolSlot();         // Mesh -> Control...
   void remeshSlot();              // Mesh -> Remesh
+  void stopMeshingSlot();         // Mesh -> Kill generator
   void surfaceDivideSlot();       // Mesh -> Divide surface...
   void surfaceUnifySlot();        // Mesh -> Unify surface
   void edgeUnifySlot();           // Mesh -> Unify edge
@@ -106,7 +107,8 @@ private:
   QAction *showallAct;            // View -> Show all
   QAction *resetAct;              // View -> Reset model view
   QAction *meshcontrolAct;        // Mesh -> Control...
-  QAction *remeshAct;             // Mesh -> Remesh.
+  QAction *remeshAct;             // Mesh -> Remesh
+  QAction *stopMeshingAct;        // Mesh -> Kill generator
   QAction *surfaceDivideAct;      // Mesh -> Divide surface...
   QAction *surfaceUnifyAct;       // Mesh -> Unify surface
   QAction *edgeUnifyAct;          // Mesh -> Unify surface

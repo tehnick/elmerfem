@@ -249,8 +249,8 @@ void Meshutils::findSurfaceElements(mesh_t *mesh)
   for(int i=0; i < mesh->elements; i++) {
     element_t *e = &mesh->element[i];
 
-    int facenodes;
-    int *facemap;
+    int facenodes = 0;
+    int *facemap = NULL;
     int n[4];
 
     int family = e->code / 100;
@@ -319,8 +319,8 @@ void Meshutils::findSurfaceElements(mesh_t *mesh)
   // count faces that have different materials at either sides:
   int allsurfaces = 0;
   int surfaces = 0;
-  int maxindex1=0;
-  int maxindex2=0;
+  int maxindex1 = 0;
+  int maxindex2 = 0;
   for(int i=0; i<keys; i++) {
     h = &hash[i];
     while(h->next){
@@ -383,8 +383,8 @@ void Meshutils::findSurfaceElements(mesh_t *mesh)
 	int family = e->code / 100;
 	int f = h->face;
 
-	int facenodes;
-	int *facemap;
+	int facenodes = 0;
+	int *facemap = NULL;
 
 	
 	if(family == 5) {

@@ -184,6 +184,7 @@ void MainWindow::createMenus()
   meshMenu = menuBar()->addMenu(tr("&Mesh"));
   meshMenu->addAction(meshcontrolAct);
   meshMenu->addAction(remeshAct);
+  meshMenu->addAction(stopMeshingAct);
   meshMenu->addSeparator();
   meshMenu->addAction(surfaceDivideAct);
   meshMenu->addAction(surfaceUnifyAct);
@@ -226,6 +227,7 @@ void MainWindow::createToolBars()
   meshToolBar = addToolBar(tr("&Mesh"));
   meshToolBar->addAction(meshcontrolAct);
   meshToolBar->addAction(remeshAct);
+  // meshToolBar->addAction(stopMeshingAct);
   meshToolBar->addSeparator();
   meshToolBar->addAction(surfaceDivideAct);
   meshToolBar->addAction(surfaceUnifyAct);
@@ -236,10 +238,10 @@ void MainWindow::createToolBars()
   // Solver toolbar
   solverToolBar = addToolBar(tr("&Solver"));
   solverToolBar->addAction(runsolverAct);
-  solverToolBar->addAction(killsolverAct);
+  // solverToolBar->addAction(killsolverAct);
   solverToolBar->addSeparator();
   solverToolBar->addAction(resultsAct);
-  solverToolBar->addAction(killresultsAct);
+  // solverToolBar->addAction(killresultsAct);
 }
 
 
@@ -298,6 +300,11 @@ void MainWindow::createActions()
   remeshAct->setShortcut(tr("Ctrl+R"));
   remeshAct->setStatusTip(tr("Remesh"));
   connect(remeshAct, SIGNAL(triggered()), this, SLOT(remeshSlot()));
+
+  // Mesh -> Kill generator
+  stopMeshingAct = new QAction(QIcon(":/icons/window-close.png"), tr("&Kill generator"), this);
+  stopMeshingAct->setStatusTip(tr("Kill mesh generator"));
+  connect(stopMeshingAct, SIGNAL(triggered()), this, SLOT(stopMeshingSlot()));
 
   // Mesh -> Divide surface
   surfaceDivideAct = new QAction(QIcon(":/icons/divide.png"), tr("&Divide surface..."), this);
@@ -1702,11 +1709,24 @@ void MainWindow::remeshSlot()
   }
 
   // Start meshing thread:
+  if(meshingThread->isRunning()) {
+    logMessage("Mesh generator is already running");
+    return;
+  }
+
   meshingThread->generate(activeGenerator, tetlibControlString,
 			  tetlibAPI, ngmesh, nggeom, mp, nglibAPI);
 
   logMessage("Mesh generation initiated");
-  statusBar()->showMessage(tr("Generating mesh..."));
+}
+
+
+
+// Mesh -> Remesh
+//-----------------------------------------------------------------------------
+void MainWindow::stopMeshingSlot()
+{
+  meshingThread->stopMeshing();
 }
 
 
