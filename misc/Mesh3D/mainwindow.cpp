@@ -302,8 +302,8 @@ void MainWindow::createActions()
   connect(remeshAct, SIGNAL(triggered()), this, SLOT(remeshSlot()));
 
   // Mesh -> Kill generator
-  stopMeshingAct = new QAction(QIcon(":/icons/window-close.png"), tr("&Kill generator"), this);
-  stopMeshingAct->setStatusTip(tr("Kill mesh generator"));
+  stopMeshingAct = new QAction(QIcon(":/icons/window-close.png"), tr("&Terminate"), this);
+  stopMeshingAct->setStatusTip(tr("Terminate mesh generator"));
   connect(stopMeshingAct, SIGNAL(triggered()), this, SLOT(stopMeshingSlot()));
 
   // Mesh -> Divide surface
