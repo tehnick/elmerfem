@@ -1161,6 +1161,51 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
 }
 
 
+void Meshutils::sort_index(int n, double *a, int *b)
+{
+   int i,j,l,ir,rb;
+   double ra;
+
+   if ( n <= 1 ) return;
+
+   l = n / 2;
+   ir = n-1;
+   while( true ) {
+     if ( l >= 1 ) {
+       l = l - 1;
+       ra = a[l];
+       rb = b[l];
+     } else {
+       ra = a[ir];
+       rb = b[ir];
+       a[ir] = a[0];
+       b[ir] = b[0];
+       ir = ir - 1;
+       if ( ir == 0 ) {
+         a[0] = ra;
+         b[0] = rb;
+         return;
+       }
+     }
+     i = l;
+     j = l + l;
+     while( j <= ir ) {
+       if ( j<ir  ) {
+          if ( a[j]<a[j+1] ) j = j+1;
+       }
+       if ( ra<a[j] ) {
+         a[i] = a[j];
+         b[i] = b[j];
+         i = j;
+         j =  j + i;
+       } else {
+         j = ir + 1;
+       }
+       a[i] = ra;
+       b[i] = rb;
+    }
+  }
+}
 
 
 // Divide surface by sharp edges...
@@ -1246,6 +1291,55 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
     if(surf->selected && surf->index==UNKNOWN && surf->nature==PDE_BOUNDARY)
       bc->propagateIndex(mesh, ++index, i);
   }
+  index++;
+
+  double xmin[index], ymin[index], zmin[index];
+  double xmax[index], ymax[index], zmax[index];
+  double xc,yc,zc,dist[index];
+  int cc[index], order[index], sorder[index];
+
+  for( int i=0; i<index; i++ )
+  {
+    cc[i] = 0;
+    order[i] = i;
+    xmin[i] = ymin[i] = zmin[i] =  1e20;
+    xmax[i] = ymax[i] = zmax[i] = -1e20;
+  }
+
+  for( int i=0; i<mesh->surfaces; i++ )
+  {
+    surface_t *surf=&mesh->surface[i];
+    for( int j=0; j<surf->nodes; j++ ) {
+      cc[surf->index]++;
+      xmin[surf->index] = min(xmin[surf->index],mesh->node[surf->node[j]].x[0]);
+      ymin[surf->index] = min(ymin[surf->index],mesh->node[surf->node[j]].x[1]);
+      zmin[surf->index] = min(zmin[surf->index],mesh->node[surf->node[j]].x[2]);
+
+      xmax[surf->index] = max(xmax[surf->index],mesh->node[surf->node[j]].x[0]);
+      ymax[surf->index] = max(ymax[surf->index],mesh->node[surf->node[j]].x[1]);
+      zmax[surf->index] = max(zmax[surf->index],mesh->node[surf->node[j]].x[2]);
+    }
+  }
+
+  for( int i=0; i<index; i++ )
+  {
+    dist[i] = 0;
+    if ( cc[i]>0 ) {
+      xc = (xmin[i]+xmax[i])/2;
+      yc = (ymin[i]+ymax[i])/2;
+      zc = (zmin[i]+zmax[i])/2;
+      dist[i] += (xc-32.13456)*(xc-32.13456);
+      dist[i] += (yc-5.3*PI)*(yc-5.3*PI);
+      dist[i] += (zc-8.1234)*(zc-8.1234);
+    }
+  }
+
+  sort_index( index, dist, order );
+  for( int i=0; i<index; i++ )
+    sorder[order[i]] = i;
+
+  for( int i=0; i<mesh->surfaces; i++ )
+    mesh->surface[i].index = sorder[mesh->surface[i].index];
 
   cout << "Surface divided into " << index << " parts" << endl;
 

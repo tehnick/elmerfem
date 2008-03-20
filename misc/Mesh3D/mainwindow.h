@@ -77,6 +77,7 @@ private:
   void createMenus();
   void createToolBars();
   void createStatusBar();
+  void applyOperations();
     
   QMenu *fileMenu;                // File menu
   QMenu *editMenu;                // Edit menu

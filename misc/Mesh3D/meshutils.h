@@ -22,5 +22,6 @@ class Meshutils
   void findSharpPoints(mesh_t*, double);
   int divideEdgeBySharpPoints(mesh_t*);
   int divideSurfaceBySharpEdges(mesh_t*);
+  void sort_index(int n, double *a, int *b);
 };
 #endif // #ifndef MESHUTILS_H

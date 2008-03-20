@@ -48,6 +48,22 @@
 using namespace std;
 
 
+#define OP_DIVIDE 1
+#define OP_UNIFY  2
+class operation_t {
+public:
+  operation_t *next;
+  int type;
+  double angle;
+  int selected;
+  int *select_set;
+};
+
+int operations = 0;
+operation_t operation;
+
+
+
 // Construct main window...
 //-----------------------------------------------------------------------------
 MainWindow::MainWindow()
@@ -431,6 +447,9 @@ void MainWindow::openSlot()
 
   }
   
+  operations = 0;
+  operation.next = NULL;
+
   readInputFile(fileName);
   remeshSlot();
 }
@@ -1716,6 +1735,7 @@ void MainWindow::remeshSlot()
     if(0) meshutils->findSurfaceElementParents(mesh);
  
     meshutils->findSurfaceElementNormals(mesh);
+    applyOperations();
     glWidget->rebuildLists();
 
     return;
@@ -1774,6 +1794,7 @@ void MainWindow::meshOkSlot()
 
   }
 
+  applyOperations();
   statusBar()->showMessage(tr("Ready"));
 }
 
@@ -1797,21 +1818,55 @@ void MainWindow::surfaceDivideSlot()
 void MainWindow::doDivideSurfaceSlot(double angle)
 {
   mesh_t *mesh = glWidget->mesh;
+  int lists = glWidget->lists;
+  list_t *list = glWidget->list;
 
   if(mesh == NULL) {
     logMessage("No mesh to divide");
     return;
   }
   
+  operations++;
+  operation_t *p = new operation_t, *q;
+  for( q=&operation; q->next; q=q->next );
+  q->next = p;
+  p->next = NULL;
+
+  p->type = OP_DIVIDE;
+  p->angle = angle;
+
+  int selected=0;
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];
+    if(l->selected && l->type==SURFACELIST && l->nature==PDE_BOUNDARY)
+      selected++;
+  }
+  p->selected = selected;
+  p->select_set = new int[selected];
+  selected = 0;
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];    
+    if(l->selected && l->type == SURFACELIST && l->nature==PDE_BOUNDARY)
+      p->select_set[selected++] = i;
+  }
+  
+
+fprintf( stderr, "go find\n" ); fflush(stderr);
   meshutils->findSharpEdges(mesh, angle);
+fprintf( stderr, "go\n" ); fflush(stderr);
   int parts = meshutils->divideSurfaceBySharpEdges(mesh);
 
+fprintf( stderr, "ä\n" ); fflush(stderr);
   QString qs = "Surface divided into " + QString::number(parts) + " parts";
   statusBar()->showMessage(qs);
   
+fprintf( stderr, "a\n" ); fflush(stderr);
   synchronizeMenuToState();
+fprintf( stderr, "b\n" ); fflush(stderr);
   glWidget->rebuildLists();
+fprintf( stderr, "c\n" ); fflush(stderr);
   glWidget->updateGL();
+fprintf( stderr, "d\n" ); fflush(stderr);
 }
 
 
@@ -1829,14 +1884,12 @@ void MainWindow::surfaceUnifySlot()
     return;
   }
   
-  int targetindex = -1;
+  int targetindex = -1, selected=0;
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
     if(l->selected && (l->type == SURFACELIST) && (l->nature == PDE_BOUNDARY)) {
-      if(targetindex < 0) {
-	targetindex = l->index;
-	break;
-      }
+      selected++;
+      if(targetindex < 0) targetindex = l->index;
     }
   }
   
@@ -1844,10 +1897,22 @@ void MainWindow::surfaceUnifySlot()
     logMessage("No surfaces selected");
     return;
   }
+
+
+  operations++;
+  operation_t *p = new operation_t, *q;
+  for( q=&operation; q->next; q=q->next );
+  q->next = p;
+  p->next = NULL;
+  p->type = OP_UNIFY;
+  p->selected=selected;
+  p->select_set = new int[selected]; 
   
+  selected = 0;
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];    
     if(l->selected && (l->type == SURFACELIST) && (l->nature == PDE_BOUNDARY)) {
+      p->select_set[selected++] = i;
       for(int j=0; j < mesh->surfaces; j++) {
 	surface_t *s = &mesh->surface[j];
 	if((s->index == l->index) && (s->nature == PDE_BOUNDARY)) 
@@ -1863,6 +1928,68 @@ void MainWindow::surfaceUnifySlot()
 
   logMessage("Selected surfaces unified");
 }
+
+
+void MainWindow::applyOperations()
+{
+  mesh_t *mesh = glWidget->mesh;
+
+  operation_t *p = operation.next;
+  for( ; p; p=p->next )
+  {
+    int lists = glWidget->lists;
+    list_t *list = glWidget->list;
+
+    for(int i=0; i<p->selected; i++) {
+      list_t *l = &list[p->select_set[i]];
+      l->selected = true;
+      for( int j=0; j<mesh->surfaces; j++ ) {
+        surface_t *surf = &mesh->surface[j];
+        if( l->index == surf->index )
+          surf->selected=l->selected;
+      }
+    }
+
+    if ( p->type == OP_DIVIDE ) {
+      meshutils->findSharpEdges(mesh, p->angle);
+      int parts = meshutils->divideSurfaceBySharpEdges(mesh);
+
+      QString qs = "Surface divided into " + QString::number(parts) + " parts";
+      statusBar()->showMessage(qs);
+    } else if (p->type == OP_UNIFY ) {
+
+
+      int targetindex = -1, selected=0;
+      for(int i=0; i<lists; i++) {
+        list_t *l = &list[i];
+        if(l->selected && (l->type == SURFACELIST) && (l->nature == PDE_BOUNDARY)) {
+          if(targetindex < 0) {
+            targetindex = l->index;
+            break;
+          }
+        }
+      }
+      for(int i=0; i<lists; i++) {
+        list_t *l = &list[i];    
+        if(l->selected && (l->type == SURFACELIST) && (l->nature == PDE_BOUNDARY)) {
+          for(int j=0; j < mesh->surfaces; j++) {
+            surface_t *s = &mesh->surface[j];
+            if((s->index == l->index) && (s->nature == PDE_BOUNDARY)) 
+              s->index = targetindex;
+          }
+        }
+      }
+      cout << "Selected surfaces marked with index " << targetindex << endl;
+      cout.flush();
+    }
+    glWidget->rebuildLists();
+  }
+  
+
+  synchronizeMenuToState();
+  glWidget->updateGL();
+}
+
 
 
 
