@@ -1705,12 +1705,6 @@ void MainWindow::remeshSlot()
 
   }
 
-  // Start meshing thread:
-  if(meshingThread->isRunning()) {
-    logMessage("Mesh generator is already running");
-    return;
-  }
-
   meshingThread->generate(activeGenerator, tetlibControlString,
 			  tetlibAPI, ngmesh, nggeom, mp, nglibAPI);
 
@@ -1724,6 +1718,16 @@ void MainWindow::remeshSlot()
 void MainWindow::stopMeshingSlot()
 {
   meshingThread->stopMeshing();
+
+  // clean up:
+  if(activeGenerator == GEN_TETLIB) {
+    cout << "Cleaning up...";
+    out->deinitialize();
+    cout << "done" << endl;
+    cout.flush();
+  }
+  
+  logMessage("Mesh generator terminated");
 }
 
 
@@ -1750,8 +1754,6 @@ void MainWindow::meshOkSlot()
 
   statusBar()->showMessage(tr("Ready"));
 }
-
-
 
 
 // Mesh -> Divide surface...

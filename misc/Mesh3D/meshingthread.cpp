@@ -87,8 +87,12 @@ void MeshingThread::generate(int generatorType, QString cs,
   this->mp = mp;
 
   if (!isRunning()) {
+    cout << "Start meshing thread with low priority" << endl;
+    cout.flush();
     start(LowPriority);
   } else {
+    cout << "Meshing thread is already running - restarting" << endl;
+    cout.flush();
     restart = true;
     condition.wakeOne();
   }
@@ -99,25 +103,17 @@ void MeshingThread::stopMeshing()
 {
   // TODO: Check for possible memory leaks
 
-  cout << "Stop meshing... ";
-  cout.flush();
-
   if(!isRunning()) {
-    cout << "thread is not running - there is nothing to terminate" << endl;
+    cout << "Meshing thread is already not running" << endl;
     cout.flush();
     return;
-  }
+  } 
+
+  cout << "Terminating meshing thread... ";
+  cout.flush();
 
   terminate();
 
-  // clean up:
-  if(generatorType == GEN_TETLIB) {
-    cout << "cleaning up... ";
-    cout.flush();
-    out->deinitialize();
-    out->initialize();
-  }
-  
   cout << "done" << endl;
   cout.flush();
 }
@@ -128,7 +124,7 @@ void MeshingThread::run()
   QString qs;
   char ss[1024];
 
-  // Thread even loop:
+  // Thread event loop:
   forever {
     mutex.lock();
 
