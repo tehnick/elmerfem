@@ -1678,10 +1678,7 @@ void MainWindow::remeshSlot()
     
     elmergridAPI->createElmerMeshStructure(mesh, meshControl->elmerGridControlString.toAscii());
 
-    cout << "Nodes: " << mesh->nodes << endl;
-    cout << "Elements: " << mesh->elements << endl;
-    cout << "Surfaces: " << mesh->surfaces << endl;
-    cout.flush();
+    if(mesh->surfaces == 0) meshutils->findSurfaceElements(mesh);
     
     for(int i=0; i<mesh->surfaces; i++ )
     {

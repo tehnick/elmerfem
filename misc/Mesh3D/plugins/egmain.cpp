@@ -842,67 +842,70 @@ int ConvertEgTypeToMeshType(struct FemType *dat,struct BoundaryType *bound,mesh_
     }
 
 
-    allocated = FALSE;
-  do_b:    surfaces = 0;
-    
+    if(eg.saveboundaries) {
 
-    for(j=0;j<MAXBOUNDARIES;j++) {
-      if(bound[j].created == FALSE) continue;
-
-      for(i=1;i<=bound[j].nosides;i++) {
-	GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],dat,ind,&sideelemtype); 
+      allocated = FALSE;
+    do_b:    surfaces = 0;
+      
+      
+      for(j=0;j<MAXBOUNDARIES;j++) {
+	if(bound[j].created == FALSE) continue;
 	
-	if(sideelemtype / 100 < 3 || sideelemtype / 100 > 4) continue;
-	surfaces += 1;
-       
-	if(allocated) {
-	  b = &mesh->surface[surfaces-1];
-	  b->elements = 0;
-	  b->element = new int[2]; 
+	for(i=1;i<=bound[j].nosides;i++) {
+	  GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],dat,ind,&sideelemtype); 
 	  
-	  if(bound[j].parent[i]) {
-	    b->elements += 1;
-	    b->element[0] = bound[j].parent[i]-1;
-	  }
-	  else {
-	    b->element[0] = -1;
-	  }
-
-	  if(bound[j].parent2[i]) {
-	    b->elements += 1;	
-	    b->element[1] = bound[j].parent2[i]-1;
-	  } 
-	  else {
-	    b->element[1] = -1;
-	  }
-	   	 
-	  b->normal[0] = 0.0;
-	  b->normal[1] = 0.0;
-	  b->normal[2] = -1.0;
+	  if(sideelemtype / 100 < 3 || sideelemtype / 100 > 4) continue;
+	  surfaces += 1;
 	  
-	  b->nature = PDE_BOUNDARY;
-	  b->code = sideelemtype;
-	  b->nodes = b->code % 100;
-	  b->node = new int[b->nodes];
-	  for(k=0;k<b->nodes;k++) 
-	    b->node[k] = ind[k]-1;
-	  b->index = bound[j].types[i];
-
-	  b->edges = b->nodes;
-	  b->edge = new int[b->edges];
-	  for(k=0;k<b->edges;k++)
-	    b->edge[k] = -1;	    
+	  if(allocated) {
+	    b = &mesh->surface[surfaces-1];
+	    b->elements = 0;
+	    b->element = new int[2]; 
+	    
+	    if(bound[j].parent[i]) {
+	      b->elements += 1;
+	      b->element[0] = bound[j].parent[i]-1;
+	    }
+	    else {
+	      b->element[0] = -1;
+	    }
+	    
+	    if(bound[j].parent2[i]) {
+	      b->elements += 1;	
+	      b->element[1] = bound[j].parent2[i]-1;
+	    } 
+	    else {
+	      b->element[1] = -1;
+	    }
+	    
+	    b->normal[0] = 0.0;
+	    b->normal[1] = 0.0;
+	    b->normal[2] = -1.0;
+	    
+	    b->nature = PDE_BOUNDARY;
+	    b->code = sideelemtype;
+	    b->nodes = b->code % 100;
+	    b->node = new int[b->nodes];
+	    for(k=0;k<b->nodes;k++) 
+	      b->node[k] = ind[k]-1;
+	    b->index = bound[j].types[i];
+	    
+	    b->edges = b->nodes;
+	    b->edge = new int[b->edges];
+	    for(k=0;k<b->edges;k++)
+	      b->edge[k] = -1;	    
+	  }
 	}
       }
+      
+      if(!allocated) {
+	mesh->surfaces = surfaces;
+	mesh->surface = new surface_t[mesh->surfaces];      
+	allocated = TRUE;
+	goto do_b;
+      }
     }
-    
-    if(!allocated) {
-      mesh->surfaces = surfaces;
-      mesh->surface = new surface_t[mesh->surfaces];      
-      allocated = TRUE;
-      goto do_b;
-    }
-  }  
+  }
 
   else if(elemdim == 2) {
     mesh->elements = 0;
@@ -1385,7 +1388,6 @@ int eg_transfermesh(mesh_t *mesh,const char *str)
   errorstat = ConvertEgTypeToMeshType(&data[activemesh],boundaries[activemesh],mesh);
 
   if(info) printf("Done converting mesh\n");
-
   return(errorstat);
 }
 

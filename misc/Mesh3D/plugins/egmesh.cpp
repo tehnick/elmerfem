@@ -5222,7 +5222,7 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
     printf("CreateKnotsExtruded: not implemented for elementtypes %d!\n",origtype);
     return;
   }
-  printf("Elementtype %d extruded to type %d.\n",origtype,elemtype);
+  if(info) printf("Elementtype %d extruded to type %d.\n",origtype,elemtype);
 
   nonodes2d = origtype%100;
   data->maxnodes = nonodes3d = elemtype%100;
@@ -5362,7 +5362,7 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
     }
   }
   data->noelements = elem0;
-  printf("Extruded mesh has %d elements in %d levels.\n",elem0,level);
+  if(info) printf("Extruded mesh has %d elements in %d levels.\n",elem0,level);
 
 
   /* Set the element coordinates. */

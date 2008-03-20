@@ -686,12 +686,12 @@ void SetElementDivision(struct GridType *grid,Real relh,int info)
       if(dxmax > dymax) {
 	grid->xelems[nxmax] += 1;
 	sumxelems++;
-	dxlimit = (1.0-1.0e-6)*dxmax;
+	dxlimit = dxmax;
       }
       else {
 	grid->yelems[nymax] += 1;
 	sumyelems++;
-	dxlimit = (1.0-1.0e-6)*dymax;
+	dxlimit = dymax;
       }
       
       sumxyelems = 0;
@@ -707,10 +707,13 @@ void SetElementDivision(struct GridType *grid,Real relh,int info)
 
   if(grid->autoratio == 3 || grid->limitdxverify)  {
     
-    if(grid->autoratio == 3) dxlimit = relh * grid->limitdx;
+    if(grid->autoratio == 3) {
+      dxlimit = relh * grid->limitdx;
+      dxmax = dymax = dxlimit;
+    }
 
     for(i=1;i<=nx;i++) {
-      
+
       for(;;) {       
 	if(grid->xlinear[i] || grid->xelems[i]==0) 
 	  dx = (grid->x[i] - grid->x[i-1])/(grid->xelems[i]+1);
@@ -738,8 +741,9 @@ void SetElementDivision(struct GridType *grid,Real relh,int info)
 	  }
 	}
 	dx *= grid->xdens[i];
-
-	if( dx > dxlimit ) 
+	
+	/* choose the best fit for desired density */
+	if(fabs(dx-dxlimit) < fabs( dx*(1+1.0/grid->xelems[i]) -dxlimit) )
 	  grid->xelems[i] += 1;
 	else
 	  break;
@@ -778,7 +782,8 @@ void SetElementDivision(struct GridType *grid,Real relh,int info)
 	}
 	
 	dy *= grid->ydens[i] / grid->xyratio;
-	if( dy > dxlimit ) 
+	/* choose the best fit for desired density */
+	if(fabs(dy-dxlimit) < fabs( dy*(1+1.0/grid->yelems[i]) -dxlimit) )
 	  grid->yelems[i] += 1;
 	else
 	  break; 
@@ -875,6 +880,8 @@ void SetElementDivision(struct GridType *grid,Real relh,int info)
 
   grid->dx0 = dxmax;
   grid->dy0 = dymax;
+
+  printf("dxmax1 = %.3le\n",dxmax);
 }
 
 
@@ -1732,6 +1739,9 @@ void SetElementDivisionExtruded(struct GridType *grid,int info)
       if(grid->zelems[i] < grid->minzelems) grid->zelems[i] = grid->minzelems;
   }
 
+  printf("dxmax2 = %.3le\n",grid->dx0);
+
+
   sumzelems = grid->zcells * grid->minzelems;
   if(sumzelems > grid->totzelems) {
 #if 0
@@ -1750,48 +1760,62 @@ void SetElementDivisionExtruded(struct GridType *grid,int info)
   }
 
   if(grid->autoratio) {
+    int active;
     for(;;) {
       dzmax = 0.0;
+      active = FALSE;
+
       for(i=1;i<=grid->zcells;i++) {
 	if(grid->zelems[i] == 0) continue;
-	if(grid->zlinear[i] == TRUE || grid->zelems[i]==1) 
-	  dz = (grid->z[i] - grid->z[i-1])/grid->zelems[i];
+	if(grid->zlinear[i] == TRUE)
+	  dz = (grid->z[i] - grid->z[i-1])/(grid->zelems[i]+1);
 	else {
 	  if(grid->zexpand[i] > 0.0) {
-	    ratio = pow(grid->zexpand[i],1./(grid->zelems[i]-1.));
+	    ratio = pow(grid->zexpand[i],1./(1.*grid->zelems[i]));
 	    dz = (grid->z[i] - grid->z[i-1]) * 
-	      (1.-ratio) / (1.-pow(ratio,(Real)(grid->zelems[i])));
+	      (1.-ratio) / (1.-pow(ratio,(Real)(grid->zelems[i]+1)));
 	    if(ratio < 1.)   
 	      dz *= grid->zexpand[i];
 	  }
-	  else if(grid->zelems[i]==2) {
-	    dz = (grid->z[i] - grid->z[i-1])/grid->zelems[i];
+	  else if(grid->zelems[i]==1) {
+	    dz = (grid->z[i] - grid->z[i-1])/(grid->zelems[i]+1);
 	  } 
-	  else if(grid->zelems[i]%2 == 0) {
-	    ratio = pow(-grid->zexpand[i],1./(grid->zelems[i]/2-1.));
+	  else if((grid->zelems[i]+1)%2 == 0) {
+	    ratio = pow(-grid->zexpand[i],1./((grid->zelems[i]+1)/2-1.));
 	    dz = 0.5 * (grid->z[i] - grid->z[i-1]) * 
-	      (1.-ratio) / (1.-pow(ratio,(Real)(grid->zelems[i]/2)));
+	      (1.-ratio) / (1.-pow(ratio,(Real)((grid->zelems[i]+1)/2)));
 	  }
-	  else if(grid->zelems[i]%2 == 1) {
-	    ratio = pow(-grid->zexpand[i],1./(grid->zelems[i]/2));
+	  else if((grid->zelems[i]+1)%2 == 1) {
+	    ratio = pow(-grid->zexpand[i],1./((grid->zelems[i]+1)/2));
 	    dz = (grid->z[i] - grid->z[i-1]) / 
-	      (2.0*(1.-pow(ratio,(Real)(grid->zelems[i]/2)))/
-	       (1-ratio) + pow(ratio,(Real)(grid->zelems[i]/2+0.5)));
+	      (2.0*(1.-pow(ratio,(Real)((grid->zelems[i]+1)/2)))/
+	       (1-ratio) + pow(ratio,(Real)((grid->zelems[i]+1)/2+0.5)));
 	  }
 	}
-	dz *= grid->zdens[i];
+	dz *= grid->zdens[i] / grid->xzratio;
+
 	if(dz > dzmax) {
 	  dzmax = dz;
 	  nzmax = i;
 	}
+
+	if(grid->autoratio) {
+	  if(fabs(dz - grid->dx0) < fabs( dz*(1.0/(1.0-1.0/grid->zelems[i])) - grid->dx0) ) {
+	    grid->zelems[i] += 1;
+	    sumzelems++;
+	    active = TRUE;
+	  }
+	}
       }
 
-      if(grid->autoratio && grid->xzratio * grid->dx0 > dzmax) break;
-
-      grid->zelems[nzmax] += 1;
-      sumzelems++;
-
-      if(!grid->autoratio && sumzelems >= grid->totzelems) break;
+      if(grid->autoratio) {
+	if(!active) break;
+      }
+      else {
+	grid->zelems[nzmax] += 1;
+	sumzelems++;
+	if(sumzelems >= grid->totzelems) break;
+      }
     }
   }
 
