@@ -190,7 +190,250 @@ void Meshutils::clearMesh(mesh_t *mesh)
 }
 
 
-// Find parent elements for surfaces...
+
+// Find surface elements for 3D elements when they are not provided 
+//----------------------------------------------------------------------------
+void Meshutils::findSurfaceElements(mesh_t *mesh)
+{
+#define UNKNOWN -1
+
+#define RESETENTRY1             \
+  h->node[0] = UNKNOWN;		\
+  h->node[1] = UNKNOWN;  	\
+  h->element[0] = UNKNOWN;	\
+  h->element[1] = UNKNOWN;	\
+  h->index[0] = UNKNOWN;        \
+  h->index[1] = UNKNOWN;        \
+  h->next = NULL;               
+
+  class hashEntry {
+  public:
+    int node[2];
+    int element[2];
+    int index[2];
+    int face;
+    hashEntry *next;
+  };
+
+
+  if(mesh->elements == 0) return;
+
+  int keys = mesh->nodes;  
+  hashEntry *hash = new hashEntry[keys];
+
+  bool found;
+  hashEntry *h;
+
+  for(int i=0; i<keys; i++) {
+    h = &hash[i];
+    RESETENTRY1;
+  }
+
+  // TODO: only linear elements at the moment
+
+  static int familyfaces[9] = {0, 0, 0, 0, 0, 4, 5, 5, 6};
+
+  static int facenodes808[] = {4, 4, 4, 4, 4, 4};
+  static int facemap808[][4] = {{0,1,2,3}, {4,5,6,7}, {0,1,5,4}, {1,2,6,5}, {2,3,7,6}, {3,0,4,7}};
+
+  static int facenodes706[] = {3, 3, 4, 4, 4};
+  static int facemap706[][4] = {{0,1,2}, {3,4,5}, {0,1,4,5}, {1,2,5,4}, {2,0,3,5}};
+
+  static int facenodes605[] = {4, 3, 3, 3, 3};
+  static int facemap605[][4] = {{0,1,2,3}, {0,1,4}, {1,2,4}, {2,3,4}, {3,0,4}};
+
+  static int facenodes504[4] = {3, 3, 3, 3};
+  static int facemap504[][3] = {{0,1,2}, {0,1,3}, {0,2,3}, {1,2,3}};
+
+
+  for(int i=0; i < mesh->elements; i++) {
+    element_t *e = &mesh->element[i];
+
+    int facenodes;
+    int *facemap;
+    int n[4];
+
+    int family = e->code / 100;
+    int faces = familyfaces[family];
+
+    for(int f=0; f<faces; f++) {
+      if(family == 5) {
+	facenodes = facenodes504[f];
+	facemap = &facemap504[f][0];
+      }
+      else if(family == 6) {
+	facenodes = facenodes605[f];
+	facemap = &facemap605[f][0];
+      }
+      else if(family == 7) {
+	facenodes = facenodes706[f];
+	facemap = &facemap706[f][0];
+      }
+      else if(family == 8) {
+	facenodes = facenodes808[f];
+	facemap = &facemap808[f][0];
+      }
+
+      for(int j=0; j < facenodes; j++) 
+	n[j] = e->node[facemap[j]];
+
+      // Order indexes in an increasing order 
+      for(int k=facenodes-1;k>0;k--) {
+	for(int j=0;j<k;j++) {
+	  if(n[j] > n[j+1]) {
+	    int tmp = n[j+1];
+	    n[j+1] = n[j];
+	    n[j] = tmp;
+	  } 
+	}
+      }
+      
+      // three nodes define a face uniquely also for rectangles
+      h = &hash[n[0]];
+      found = false;
+      while(h->next) {                                       
+	if((h->node[0] == n[1]) && (h->node[1] == n[2])) {
+	  found = true;
+	  break;
+	}
+	h = h->next;
+      }                                                      
+      
+      if(!found) {
+	h->node[0] = n[1];
+	h->node[1] = n[2];
+	h->element[0] = i;
+	h->index[0] = e->index;
+	h->face = f;
+	
+	h->next = new hashEntry;
+	h = h->next;
+	RESETENTRY1;
+      } else {
+	h->index[1] = e->index;
+	h->element[1] = i;
+      }
+    }
+  }
+
+  // count faces that have different materials at either sides:
+  int allsurfaces = 0;
+  int surfaces = 0;
+  int maxindex1=0;
+  int maxindex2=0;
+  for(int i=0; i<keys; i++) {
+    h = &hash[i];
+    while(h->next){
+      if(h->element[0] > UNKNOWN) allsurfaces++;
+      if(h->index[0] != h->index[1]) surfaces++;
+      if(h->index[0] > maxindex1) maxindex1 = h->index[0];
+      if(h->index[1] > maxindex2) maxindex2 = h->index[1];
+      h = h->next;
+    }
+  }
+  cout << "Found " << surfaces << " interface faces of " << allsurfaces << endl;
+
+
+  // Create a index table such that all combinations of materials 
+  // get different BC index  
+  int indextable[maxindex1+1][maxindex2+1];
+  int index1,index2;
+  for(int i=0;i<=maxindex1;i++)
+    for(int j=0;j<=maxindex2;j++)
+      indextable[i][j] = 0;
+
+  for(int i=0; i<keys; i++) {
+    h = &hash[i];
+    while(h->next){
+      if(h->index[0] != h->index[1]) {
+	index1 = h->index[0];
+	index2 = h->index[1];
+	if(index2 == -1) index2 = 0;
+	indextable[index1][index2] = 1;
+      }
+      h = h->next;
+    }
+  }
+  index1=0;
+  for(int i=0;i<=maxindex1;i++)
+    for(int j=0;j<=maxindex2;j++)
+      if(indextable[i][j]) indextable[i][j] = ++index1;
+
+  cout << "Boundaries were numbered up to index " << index1 << endl;
+
+  // Finally set the surfaces:
+  mesh->surfaces = surfaces;
+  mesh->surface = new surface_t[mesh->surfaces]; 
+
+  surfaces = 0;
+  for(int i=0; i<keys; i++) {
+    h = &hash[i];
+
+    while(h->next) {
+      if(h->index[0] != h->index[1]) {
+	surface_t *s = &mesh->surface[surfaces];
+
+	s->elements = 1;
+	s->element = new int[2]; 
+	s->element[0] = h->element[0];
+	s->element[1] = h->element[1];
+	if(s->element[1] >= 0) s->elements = 2;
+	
+	element_t *e = &mesh->element[h->element[0]];
+	int family = e->code / 100;
+	int f = h->face;
+
+	int facenodes;
+	int *facemap;
+
+	
+	if(family == 5) {
+	  facenodes = facenodes504[f];
+	  facemap = &facemap504[f][0];
+	}
+	else if(family == 6) {
+	  facenodes = facenodes605[f];
+	  facemap = &facemap605[f][0];
+	}
+	else if(family == 7) {
+	  facenodes = facenodes706[f];
+	  facemap = &facemap706[f][0];
+	}
+	else if(family == 8) {
+	  facenodes = facenodes808[f];
+	  facemap = &facemap808[f][0];
+	}
+	
+	s->nodes = facenodes;
+	s->code = 101*facenodes;
+	s->node = new int[s->nodes];
+	for(int j=0; j < s->nodes; j++) 
+	  s->node[j] = e->node[facemap[j]];
+
+	index1 = h->index[0];
+	index2 = h->index[1];
+	if(index2 < 0) index2 = 0;
+	
+	s->index = indextable[index1][index2];
+
+	s->edges = s->nodes;
+	s->edge = new int[s->edges];
+	for(int j=0; j < s->edges; j++)
+	  s->edge[j] = UNKNOWN;
+
+	s->nature = PDE_BOUNDARY;
+	surfaces++;
+      }
+      h = h->next;
+    }
+  }
+
+  delete [] hash;
+}
+
+
+
+// Find parent elements for existing surfaces...
 //----------------------------------------------------------------------------
 void Meshutils::findSurfaceElementParents(mesh_t *mesh)
 {
