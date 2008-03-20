@@ -101,8 +101,6 @@ void MeshingThread::generate(int generatorType, QString cs,
 
 void MeshingThread::stopMeshing()
 {
-  // TODO: Check for possible memory leaks
-
   if(!isRunning()) {
     cout << "Meshing thread is already not running" << endl;
     cout.flush();
@@ -111,8 +109,11 @@ void MeshingThread::stopMeshing()
 
   cout << "Terminating meshing thread... ";
   cout.flush();
-
+  
   terminate();
+  
+  restart = false;
+  abort = false;
 
   cout << "done" << endl;
   cout.flush();
