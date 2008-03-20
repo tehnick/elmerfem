@@ -373,7 +373,7 @@ void MainWindow::createActions()
   connect(resetAct, SIGNAL(triggered()), this, SLOT(resetSlot()));
 
   // Solver -> Run solver
-  runsolverAct = new QAction(QIcon(":/icons/ElmerSolver.png"), tr("Run solver"), this);
+  runsolverAct = new QAction(QIcon(":/icons/Solver.png"), tr("Run solver"), this);
   runsolverAct->setStatusTip(tr("Run solver"));
   connect(runsolverAct, SIGNAL(triggered()), this, SLOT(runsolverSlot()));
 
@@ -383,7 +383,7 @@ void MainWindow::createActions()
   connect(killsolverAct, SIGNAL(triggered()), this, SLOT(killsolverSlot()));
 
   // Solver -> Post process
-  resultsAct = new QAction(QIcon(":/icons/ElmerPost.png"), tr("Run post process"), this);
+  resultsAct = new QAction(QIcon(":/icons/Post.png"), tr("Run post process"), this);
   resultsAct->setStatusTip(tr("Run post processor"));
   connect(resultsAct, SIGNAL(triggered()), this, SLOT(resultsSlot()));
 
@@ -2444,7 +2444,7 @@ void MainWindow::runsolverSlot()
 
   logMessage("Solver started");
 
-  runsolverAct->setIcon(QIcon(":/icons/ElmerSolver-running.png"));
+  runsolverAct->setIcon(QIcon(":/icons/Solver-red.png"));
 }
 
 
@@ -2468,7 +2468,7 @@ void MainWindow::solverStdoutSlot()
 void MainWindow::solverFinishedSlot(int)
 {
   logMessage("Solver ready");
-  runsolverAct->setIcon(QIcon(":/icons/ElmerSolver.png"));
+  runsolverAct->setIcon(QIcon(":/icons/Solver.png"));
 }
 
 
@@ -2479,7 +2479,7 @@ void MainWindow::killsolverSlot()
   solver->kill();
 
   logMessage("Solver killed");
-  runsolverAct->setIcon(QIcon(":/icons/ElmerSolver.png"));
+  runsolverAct->setIcon(QIcon(":/icons/Solver.png"));
 }
 
 
@@ -2510,7 +2510,7 @@ void MainWindow::resultsSlot()
     return;
   }
   
-  resultsAct->setIcon(QIcon(":/icons/ElmerPost-running.png"));
+  resultsAct->setIcon(QIcon(":/icons/Post-red.png"));
   
   logMessage("Post processor started");
 }
@@ -2521,7 +2521,7 @@ void MainWindow::resultsSlot()
 void MainWindow::postProcessFinishedSlot(int)
 {
   logMessage("Post processor finished");
-  resultsAct->setIcon(QIcon(":/icons/ElmerPost.png"));
+  resultsAct->setIcon(QIcon(":/icons/Post.png"));
 }
 
 
@@ -2532,7 +2532,7 @@ void MainWindow::killresultsSlot()
   post->kill();
 
   logMessage("Post process killed");
-  resultsAct->setIcon(QIcon(":/icons/ElmerPost.png"));
+  resultsAct->setIcon(QIcon(":/icons/Post.png"));
 }
 
 
