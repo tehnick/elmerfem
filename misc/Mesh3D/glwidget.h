@@ -51,6 +51,7 @@ public:
   bool stateDrawSharpEdges;
   bool stateDrawSurfaceElements;
   bool stateDrawEdgeElements;
+  bool stateDrawCoordinates;
   
 public slots:
 
@@ -86,6 +87,10 @@ private:
   GLuint generateSharpEdgeList(double, double, double);
   
   bool ctrlPressed; // true while ctrl key is held down
+
+  GLUquadricObj *quadratic; 
+  void drawCoordinates();
+
 };
 
 #endif

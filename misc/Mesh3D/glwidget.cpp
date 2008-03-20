@@ -62,6 +62,7 @@ GLWidget::GLWidget(QWidget *parent)
   stateDrawSharpEdges = true;
   stateDrawSurfaceElements = true;
   stateDrawEdgeElements = true;
+  stateDrawCoordinates = true;
 
   lists = 0;
 
@@ -76,6 +77,8 @@ GLWidget::GLWidget(QWidget *parent)
   meshutils = new Meshutils;
 
   ctrlPressed = false;
+
+  quadratic = gluNewQuadric();	// for coordinate axis
 }
 
 
@@ -126,7 +129,7 @@ void GLWidget::initializeGL()
   static GLfloat light_ambient[]  = {0.2, 0.2, 0.2, 1.0};
   static GLfloat light_diffuse[]  = {0.6, 0.6, 0.6, 1.0};
   static GLfloat light_specular[] = {1.0, 1.0, 1.0, 1.0};
-  static GLfloat light_position[] = {0.0, 0.0,-5.0, 0.0};
+  static GLfloat light_position[] = {0.0, 0.0, -5.0, 0.0};
 
   static GLfloat mat_ambient[]    = {0.2, 0.2, 0.2, 1.0};
   static GLfloat mat_diffuse[]    = {1.0, 1.0, 1.0, 1.0};
@@ -226,7 +229,11 @@ void GLWidget::paintGL()
       }
     }
   }
+
+  if(stateDrawCoordinates) 
+    drawCoordinates();
 }
+
 
 
 // Resize window...
@@ -996,4 +1003,56 @@ GLuint GLWidget::generateSharpEdgeList(double R, double G, double B)
   glEndList();
   
   return current;
+}
+
+
+// Draw coordinates:
+//-----------------------------------------------------------------------------
+void GLWidget::drawCoordinates()
+{
+  glMatrixMode(GL_PROJECTION);
+  glPushMatrix();
+  glTranslated(0.8, -0.8, 5.0);
+
+#if 0
+  glBegin(GL_LINES);
+  // x-axis
+  glColor3d(1, 0, 0);
+  glVertex3d(0.0, 0.0, 0.0);
+  glVertex3d(0.4, 0.0, 0.0);
+  // y-axis
+  glColor3d(0, 1, 0);
+  glVertex3d(0.0, 0.0, 0.0);
+  glVertex3d(0.0, 0.4, 0.0);
+  glColor3d(0, 0, 1);
+  // z-axis
+  glVertex3d(0.0, 0.0, 0.0);
+  glVertex3d(0.0, 0.0, 0.4);
+  glEnd();
+#endif
+
+  // z-axis
+  glColor3d(0, 0, 1);
+  gluCylinder(quadratic, 0.02, 0.0, 0.2, 8, 8);  
+
+  // x-axis
+  glColor3d(1, 0, 0);
+  glMatrixMode(GL_MODELVIEW);
+  glPushMatrix();
+  glRotated(90, 0, 1, 0);
+  gluCylinder(quadratic, 0.02, 0.0, 0.2, 8, 8);  
+  glPopMatrix();
+  glMatrixMode(GL_PROJECTION);
+
+  // y-axis
+  glColor3d(0, 1, 0);
+  glMatrixMode(GL_MODELVIEW);
+  glPushMatrix();
+  glRotated(-90, 1, 0, 0);
+  gluCylinder(quadratic, 0.02, 0.0, 0.2, 8, 8);  
+  glPopMatrix();
+  glMatrixMode(GL_PROJECTION);
+
+  glPopMatrix();
+  glMatrixMode(GL_MODELVIEW);
 }

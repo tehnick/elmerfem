@@ -167,6 +167,7 @@ void MainWindow::createMenus()
   viewMenu = menuBar()->addMenu(tr("&View"));  
   viewMenu->addAction(hidesurfacemeshAct);
   viewMenu->addAction(hidesharpedgesAct);
+  viewMenu->addAction(viewCoordinatesAct);
   viewMenu->addSeparator();
   viewMenu->addAction(selectAllSurfacesAct);
   viewMenu->addAction(selectAllEdgesAct);
@@ -239,7 +240,6 @@ void MainWindow::createToolBars()
   solverToolBar = addToolBar(tr("&Solver"));
   solverToolBar->addAction(runsolverAct);
   // solverToolBar->addAction(killsolverAct);
-  solverToolBar->addSeparator();
   solverToolBar->addAction(resultsAct);
   // solverToolBar->addAction(killresultsAct);
 }
@@ -335,6 +335,11 @@ void MainWindow::createActions()
   hidesharpedgesAct = new QAction(QIcon(), tr("Sharp edges"), this);
   hidesharpedgesAct->setStatusTip(tr("Show/hide sharp edges"));
   connect(hidesharpedgesAct, SIGNAL(triggered()), this, SLOT(hidesharpedgesSlot()));
+
+  // View -> Coordinates
+  viewCoordinatesAct = new QAction(QIcon(), tr("Coordinates"), this);
+  viewCoordinatesAct->setStatusTip(tr("View coordinates (RGB=XYZ modulo translation)"));
+  connect(viewCoordinatesAct, SIGNAL(triggered()), this, SLOT(viewCoordinatesSlot()));
 
   // View -> Select all surfaces
   selectAllSurfacesAct = new QAction(QIcon(), tr("Select all surfaces"), this);
@@ -1367,6 +1372,23 @@ void MainWindow::hidesharpedgesSlot()
     logMessage("Sharp edges hidden");
   else 
     logMessage("Sharp edges shown");
+}
+
+
+// View -> Coordinates
+//-----------------------------------------------------------------------------
+void MainWindow::viewCoordinatesSlot()
+{
+  glWidget->stateDrawCoordinates = !glWidget->stateDrawCoordinates;
+
+  synchronizeMenuToState();
+
+  if ( !glWidget->stateDrawCoordinates )
+    logMessage("Coordinates hidden");
+  else 
+    logMessage("Cordinates shown");
+
+  glWidget->updateGL();
 }
 
 
@@ -2600,4 +2622,9 @@ void MainWindow::synchronizeMenuToState()
     flatShadeAct->setIcon(iconEmpty);
     smoothShadeAct->setIcon(iconChecked);
   }
+
+  if(glWidget->stateDrawCoordinates) 
+    viewCoordinatesAct->setIcon(iconChecked);
+  else 
+    viewCoordinatesAct->setIcon(iconEmpty);
 }
