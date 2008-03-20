@@ -5259,31 +5259,34 @@ void CreateKnotsExtruded(struct FemType *dataxy,struct BoundaryType *boundxy,
   }
 
   for(j=0;j<data->noboundaries+newbounds;j++) {
-    if(boundxy[j].created || j>=data->noboundaries) {
-      bound[j] = boundxy[j];
-      bound[j].created = TRUE;
+    if(j < data->noboundaries) 
+      if(!boundxy[j].created) continue;
 
+    if(0) bound[j] = boundxy[j];
+    bound[j].created = TRUE;
+    
+    if(j >= data->noboundaries) 
+      size = dataxy->noelements;
+    else 
       size = bound[j].nosides = boundxy[j].nosides * grid->totzelems; 
-      if(j >= data->noboundaries) size = dataxy->noelements;
-
-      bound[j].coordsystem = COORD_CART3;
-      bound[j].side = Ivector(1,size);
-      bound[j].side2 = Ivector(1,size);
-      bound[j].material = Ivector(1,size);    
-      bound[j].parent = Ivector(1,size);
-      bound[j].parent2 = Ivector(1,size);
-      bound[j].types = Ivector(1,size);
-      bound[j].normal = Ivector(1,size);
-
-      for(i=1;i<=size;i++) {
-	bound[j].types[i] = 0;
-	bound[j].side[i] = 0;
-	bound[j].side2[i] = 0;
-	bound[j].parent[i] = 0;
-	bound[j].parent2[i] = 0;
-	bound[j].material[i] = 0;
-	bound[j].normal[i] = 1;
-      }
+    
+    bound[j].coordsystem = COORD_CART3;
+    bound[j].side = Ivector(1,size);
+    bound[j].side2 = Ivector(1,size);
+    bound[j].material = Ivector(1,size);    
+    bound[j].parent = Ivector(1,size);
+    bound[j].parent2 = Ivector(1,size);
+    bound[j].types = Ivector(1,size);
+    bound[j].normal = Ivector(1,size);
+    
+    for(i=1;i<=size;i++) {
+      bound[j].types[i] = 0;
+      bound[j].side[i] = 0;
+      bound[j].side2[i] = 0;
+      bound[j].parent[i] = 0;
+      bound[j].parent2[i] = 0;
+      bound[j].material[i] = 0;
+      bound[j].normal[i] = 1;
     }
   }
 

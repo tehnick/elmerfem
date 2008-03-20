@@ -880,8 +880,6 @@ void SetElementDivision(struct GridType *grid,Real relh,int info)
 
   grid->dx0 = dxmax;
   grid->dy0 = dymax;
-
-  printf("dxmax1 = %.3le\n",dxmax);
 }
 
 
@@ -1738,9 +1736,6 @@ void SetElementDivisionExtruded(struct GridType *grid,int info)
     for(i=1;i<=grid->zcells;i++)  
       if(grid->zelems[i] < grid->minzelems) grid->zelems[i] = grid->minzelems;
   }
-
-  printf("dxmax2 = %.3le\n",grid->dx0);
-
 
   sumzelems = grid->zcells * grid->minzelems;
   if(sumzelems > grid->totzelems) {
@@ -3276,9 +3271,11 @@ int CreateElmerGridMesh(struct GridType *grid,
       }
     }
   }
+#if 0
   else {
     CreateAllBoundaries(cell,data,boundaries,info);
   }
+#endif
 
   free(cell);
 
