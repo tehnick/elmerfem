@@ -2116,6 +2116,24 @@ void MainWindow::edgeUnifySlot()
 //
 //*****************************************************************************
 
+// Edit -> Heat equation
+//-----------------------------------------------------------------------------
+void MainWindow::heatEquationSlot()
+{
+  bcPropertyEditor->heatEquationActive = !bcPropertyEditor->heatEquationActive;
+  synchronizeMenuToState();
+}
+
+
+// Edit -> Linear elasticity
+//-----------------------------------------------------------------------------
+void MainWindow::linearElasticitySlot()
+{
+  bcPropertyEditor->linearElasticityActive = !bcPropertyEditor->linearElasticityActive;
+  synchronizeMenuToState();
+}
+
+
 // Edit -> Sif...
 //-----------------------------------------------------------------------------
 void MainWindow::showsifSlot()
@@ -2231,7 +2249,6 @@ void MainWindow::generateSifSlot()
     te->append("End\n");
   }
 
-
   if(bcPropertyEditor->linearElasticityActive) {
     currentSolver++;
     te->append("Solver " + QString::number(currentSolver));
@@ -2298,7 +2315,9 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     return;
   }
 
-  if(!l->selected) {
+  bool selected = !l->selected;
+
+  if(selected) {
     if(l->type == SURFACELIST) {
       qs = "Selected surface " + QString::number(l->index);
     } else if(l->type == EDGELIST) {
@@ -2320,31 +2339,67 @@ void MainWindow::boundarySelectedSlot(list_t *l)
   
   // Open the bc property sheet:
   //----------------------------
-  if(bcPropertyEditor->heatEquationActive ||
-     bcPropertyEditor->linearElasticityActive) {
-    qs = "Boundary condition for index " + QString::number(l->index);
-    bcPropertyEditor->setWindowTitle(qs);
-    bcPropertyEditor->editProperties(l->index);
+  if(selected) {
+    if(bcPropertyEditor->heatEquationActive ||
+       bcPropertyEditor->linearElasticityActive) {
+      qs = "Boundary condition for index " + QString::number(l->index);
+      bcPropertyEditor->setWindowTitle(qs);
+      bcPropertyEditor->editProperties(l->index);
+    }
   }
 }
 
 
-// Make solver input file for steady heat conduction
+// Make boundary condition blocks in SIF:
 //-----------------------------------------------------------------------------
-void MainWindow::heatEquationSlot()
+void MainWindow::makeSifBoundaryBlocks()
 {
-  bcPropertyEditor->heatEquationActive = !bcPropertyEditor->heatEquationActive;
-  synchronizeMenuToState();
+  QTextEdit *te = sifWindow->textEdit;
+
+  int j = 0;
+
+  QString qs = "";
+
+  for(int i = 1; i < bcPropertyEditor->maxindex; i++) {
+    bcProperty_t *bp = &bcPropertyEditor->bcProperty[i];
+
+    if(bp->defined) {
+
+      te->append("Boundary condition " + QString::number(++j));
+
+      te->append("  Target boundaries(1) = " + QString::number(i));
+      
+      if(bcPropertyEditor->heatEquationActive) {
+
+	qs = bp->temperature;
+	if(qs != "")
+	  te->append("  Temperature = " + qs);
+	
+	qs = bp->heatFlux;
+	if(qs != "")
+	  te->append("  Heat Flux = " + qs);
+      }
+
+      if(bcPropertyEditor->linearElasticityActive) {
+
+	qs = bp->displacement1;
+	if(qs != "")
+	  te->append("  Displacement 1 = " + qs);
+	
+	qs = bp->displacement2;
+	if(qs != "")
+	  te->append("  Displacement 2 = " + qs);
+	
+	qs = bp->displacement3;
+	if(qs != "")
+	  te->append("  Displacement 3 = " + qs);
+      }
+
+      te->append("End\n");
+    }
+  }
 }
 
-
-// Make solver input file for linear elasticity
-//-----------------------------------------------------------------------------
-void MainWindow::linearElasticitySlot()
-{
-  bcPropertyEditor->linearElasticityActive = !bcPropertyEditor->linearElasticityActive;
-  synchronizeMenuToState();
-}
 
 
 // Make body blocks in SIF:
@@ -2451,91 +2506,6 @@ void MainWindow::makeSifBodyBlocks()
   te->append("End\n");
 }
 
-
-// Make boundary condition blocks in SIF:
-//-----------------------------------------------------------------------------
-void MainWindow::makeSifBoundaryBlocks()
-{
-  mesh_t *mesh = glWidget->mesh;
-  QTextEdit *te = sifWindow->textEdit;
-
-  int maxindex = -1;
-  for(int i=0; i < mesh->surfaces; i++) {
-    element_t *element = &mesh->surface[i];
-    if((element->nature == PDE_BOUNDARY) && (element->index > maxindex))
-      maxindex = element->index;
-  }
-  for(int i=0; i < mesh->edges; i++) {
-    element_t *element = &mesh->edge[i];
-    if((element->nature == PDE_BOUNDARY) && (element->index > maxindex))
-      maxindex = element->index;
-  }
-  for(int i=0; i < mesh->points; i++) {
-    element_t *element = &mesh->point[i];
-    if((element->nature == PDE_BOUNDARY) && (element->index > maxindex))
-      maxindex = element->index;
-  }
-  maxindex++;
-
-  if(maxindex == 0)
-    return;
-
-  bool *tmp = new bool[maxindex];
-
-  for(int i=0; i<maxindex; i++) tmp[i] = false;
-
-  for(int i=0; i < mesh->surfaces; i++) {
-    element_t *element = &mesh->surface[i];
-    if( element->nature == PDE_BOUNDARY )
-      tmp[element->index] = true;
-  }
-  for(int i=0; i < mesh->edges; i++) {
-    element_t *element = &mesh->edge[i];
-    if( element->nature == PDE_BOUNDARY )
-      tmp[element->index] = true;
-  }
-  for(int i=0; i < mesh->points; i++) {
-    element_t *element = &mesh->point[i];
-    if( element->nature == PDE_BOUNDARY )
-      tmp[element->index] = true;
-  }
-
-  int j = 0;
-  QString qs = "";
-  for(int i=1; i < maxindex; i++) {
-    bcProperty_t *bp = &bcPropertyEditor->bcProperty[i];
-
-    if(tmp[i] && bp->defined) {
-
-      te->append("Boundary condition " + QString::number(++j));
-
-      te->append("  Target boundaries(1) = " + QString::number(i));
-      
-      qs = bp->temperature;
-      if(qs != "")
-	te->append("  Temperature = " + qs);
-      
-      qs = bp->heatFlux;
-      if(qs != "")
-	te->append("  Heat Flux = " + qs);
-      
-      qs = bp->displacement1;
-      if(qs != "")
-	te->append("  Displacement 1 = " + qs);
-      
-      qs = bp->displacement2;
-      if(qs != "")
-	te->append("  Displacement 2 = " + qs);
-      
-      qs = bp->displacement3;
-      if(qs != "")
-	te->append("  Displacement 3 = " + qs);
-
-      te->append("End\n");
-    }
-  }
-  delete [] tmp;
-}
 
 
 

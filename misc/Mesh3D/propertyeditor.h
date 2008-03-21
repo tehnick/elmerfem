@@ -39,6 +39,8 @@ public:
 
   Ui::bcPropertyDialog ui;
 
+  int maxindex;
+
 private slots:
   void temperatureChanged(const QString&);
   void heatFluxChanged(const QString&);

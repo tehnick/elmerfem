@@ -53,6 +53,8 @@ PropertyEditor::PropertyEditor(QWidget *parent)
   for(int i = 0; i < MAX_BCS; i++)
     bcProperty[i].defined = false;
 
+  maxindex = MAX_BCS;
+
   ui.setupUi(this);
 
   connect(ui.temperatureEdit,   SIGNAL(textChanged(const QString&)), this, SLOT(temperatureChanged(const QString&)));
