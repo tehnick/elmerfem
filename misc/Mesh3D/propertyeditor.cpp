@@ -45,75 +45,76 @@
 using namespace std;
 
 PropertyEditor::PropertyEditor(QWidget *parent)
-  : QWidget(parent)
+  : QDialog(parent)
 {
   heatEquationActive = false;
   linearElasticityActive = false;
 
-  setWindowFlags(Qt::Window);
+  for(int i = 0; i < MAX_BCS; i++)
+    bcProperty[i].defined = false;
 
-  textEdit = new QTextEdit;
-  textEdit->setLineWrapMode(QTextEdit::NoWrap);
+  ui.setupUi(this);
 
-  connect(textEdit, SIGNAL(textChanged()), this, SLOT(propertiesChanged()));
-
-  clearButton = new QPushButton(tr("Clear"));
-  connect(clearButton, SIGNAL(clicked()), this, SLOT(clearProperties()));
-
-  closeButton = new QPushButton(tr("Close"));
-  connect(closeButton, SIGNAL(clicked()), this, SLOT(close()));
-  
-  QVBoxLayout *layout = new QVBoxLayout;
-  layout->addWidget(textEdit);
-  layout->addWidget(clearButton);
-  layout->addWidget(closeButton);
-  setLayout(layout);
-  
-  setWindowTitle(tr("Property editor"));
+  connect(ui.temperatureEdit,   SIGNAL(textChanged(const QString&)), this, SLOT(temperatureChanged(const QString&)));
+  connect(ui.heatFluxEdit,      SIGNAL(textChanged(const QString&)), this, SLOT(heatFluxChanged(const QString&)));
+  connect(ui.displacement1Edit, SIGNAL(textChanged(const QString&)), this, SLOT(displacement1Changed(const QString&)));
+  connect(ui.displacement2Edit, SIGNAL(textChanged(const QString&)), this, SLOT(displacement2Changed(const QString&)));
+  connect(ui.displacement3Edit, SIGNAL(textChanged(const QString&)), this, SLOT(displacement3Changed(const QString&)));
 }
 
 PropertyEditor::~PropertyEditor()
 {
 }
 
-QSize PropertyEditor::minimumSizeHint() const
-{
-  return QSize(64, 64);
-}
-
-
-QSize PropertyEditor::sizeHint() const
-{
-  return QSize(400, 100);
-}
-
-
 void PropertyEditor::editProperties(int bcIndex)
 {
-  if(bcIndex >= MAX_BCS) {
-    cout << "propertyeditor: index " << bcIndex << " too large" << endl;
-    cout << "Increase MAX_BCS and recompile" << endl;
-    cout.flush();
-    exit(0);
-  }
-
   this->bcIndex = bcIndex;
 
-  QString qs = bcPropertyTable[bcIndex];
-  textEdit->clear();
-  textEdit->append(qs);
+  if(heatEquationActive) 
+    ui.heatEquation->setEnabled(true);
+  else
+    ui.heatEquation->setEnabled(false);
+
+  if(linearElasticityActive)
+    ui.linearElasticity->setEnabled(true);
+  else
+    ui.linearElasticity->setEnabled(false);
+
+  ui.temperatureEdit   -> setText(bcProperty[bcIndex].temperature);
+  ui.heatFluxEdit      -> setText(bcProperty[bcIndex].heatFlux);
+  ui.displacement1Edit -> setText(bcProperty[bcIndex].displacement1);
+  ui.displacement2Edit -> setText(bcProperty[bcIndex].displacement2);
+  ui.displacement3Edit -> setText(bcProperty[bcIndex].displacement3);
 
   this->show();
 }
 
-
-void PropertyEditor::propertiesChanged()
+void PropertyEditor::temperatureChanged(const QString& qs)
 {
-  bcPropertyTable[bcIndex] = textEdit->toPlainText();
+  bcProperty[bcIndex].defined = true;
+  bcProperty[bcIndex].temperature = qs;
 }
 
-
-void PropertyEditor::clearProperties()
+void PropertyEditor::heatFluxChanged(const QString& qs)
 {
-  textEdit->clear();
+  bcProperty[bcIndex].defined = true;
+  bcProperty[bcIndex].heatFlux = qs;
+}
+
+void PropertyEditor::displacement1Changed(const QString& qs)
+{
+  bcProperty[bcIndex].defined = true;
+  bcProperty[bcIndex].displacement1 = qs;
+}
+
+void PropertyEditor::displacement2Changed(const QString& qs)
+{
+  bcProperty[bcIndex].defined = true;
+  bcProperty[bcIndex].displacement2 = qs;
+}
+
+void PropertyEditor::displacement3Changed(const QString& qs)
+{
+  bcProperty[bcIndex].defined = true;
+  bcProperty[bcIndex].displacement3 = qs;
 }

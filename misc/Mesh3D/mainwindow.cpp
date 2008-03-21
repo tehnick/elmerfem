@@ -144,7 +144,6 @@ MainWindow::MainWindow()
   QFont sansFont("Courier", 10);
   sifWindow->textEdit->setCurrentFont(sansFont);
   solverLogWindow->textEdit->setCurrentFont(sansFont);
-  bcPropertyEditor->textEdit->setCurrentFont(sansFont);
 
   synchronizeMenuToState();
 
@@ -2320,12 +2319,13 @@ void MainWindow::boundarySelectedSlot(list_t *l)
   statusBar()->showMessage(qs);    
   
   // Open the bc property sheet:
-  //--------------------------
-  qs = "Boundary condition for index " + QString::number(l->index);
-  QFont sansFont("Courier", 10);
-  bcPropertyEditor->textEdit->setCurrentFont(sansFont);
-  bcPropertyEditor->setWindowTitle(qs);
-  bcPropertyEditor->editProperties(l->index);
+  //----------------------------
+  if(bcPropertyEditor->heatEquationActive ||
+     bcPropertyEditor->linearElasticityActive) {
+    qs = "Boundary condition for index " + QString::number(l->index);
+    bcPropertyEditor->setWindowTitle(qs);
+    bcPropertyEditor->editProperties(l->index);
+  }
 }
 
 
@@ -2501,18 +2501,39 @@ void MainWindow::makeSifBoundaryBlocks()
   }
 
   int j = 0;
+  QString qs = "";
   for(int i=1; i < maxindex; i++) {
-    if(tmp[i]) {
-      QString qs = bcPropertyEditor->bcPropertyTable[i];
-      if(qs != "") {
-	te->append("Boundary condition " + QString::number(++j));
-	te->append("  Target boundaries(1) = " + QString::number(i));
-	te->append("  " + qs);
-	te->append("End\n");
-      }
+    bcProperty_t *bp = &bcPropertyEditor->bcProperty[i];
+
+    if(tmp[i] && bp->defined) {
+
+      te->append("Boundary condition " + QString::number(++j));
+
+      te->append("  Target boundaries(1) = " + QString::number(i));
+      
+      qs = bp->temperature;
+      if(qs != "")
+	te->append("  Temperature = " + qs);
+      
+      qs = bp->heatFlux;
+      if(qs != "")
+	te->append("  Heat Flux = " + qs);
+      
+      qs = bp->displacement1;
+      if(qs != "")
+	te->append("  Displacement 1 = " + qs);
+      
+      qs = bp->displacement2;
+      if(qs != "")
+	te->append("  Displacement 2 = " + qs);
+      
+      qs = bp->displacement3;
+      if(qs != "")
+	te->append("  Displacement 3 = " + qs);
+
+      te->append("End\n");
     }
   }
-
   delete [] tmp;
 }
 

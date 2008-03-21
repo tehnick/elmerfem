@@ -5,12 +5,24 @@
 
 #include <QWidget>
 
+#include "ui_propertyeditor.h"
+
 class QTextEdit;
 class QPushButton;
 class QMenu;
+class QTabWidget;
 
+class bcProperty_t {
+ public:
+  bool defined;
+  QString temperature;
+  QString heatFlux;
+  QString displacement1;
+  QString displacement2;
+  QString displacement3;
+};
 
-class PropertyEditor : public QWidget
+class PropertyEditor : public QDialog
 {
   Q_OBJECT
 
@@ -18,26 +30,23 @@ public:
   PropertyEditor(QWidget *parent = 0);
   ~PropertyEditor();
 
-  QSize minimumSizeHint() const;
-  QSize sizeHint() const;
-
-  QTextEdit *textEdit;
-  
-  QString bcPropertyTable[MAX_BCS];
-
-  void editProperties(int);
+  bcProperty_t bcProperty[MAX_BCS];
 
   bool heatEquationActive;
   bool linearElasticityActive;
 
+  void editProperties(int);
+
+  Ui::bcPropertyDialog ui;
+
 private slots:
-  void propertiesChanged();
-  void clearProperties();
+  void temperatureChanged(const QString&);
+  void heatFluxChanged(const QString&);
+  void displacement1Changed(const QString&);
+  void displacement2Changed(const QString&);
+  void displacement3Changed(const QString&);
 
 private:
-  QPushButton *closeButton;
-  QPushButton *clearButton;
-
   int bcIndex;
 
 };
