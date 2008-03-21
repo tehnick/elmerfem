@@ -439,8 +439,18 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
 	  glDeleteLists(l2->object, 1);
 	  l2->selected = false;	  
 	  if(l2->type == SURFACELIST) {
+            for( int i=0; i<mesh->surfaces; i++ ) {
+              surface_t *surf=&mesh->surface[i];
+              if ( surf->index == l2->index )
+                surf->selected=l2->selected;
+            }
 	    l2->object = generateSurfaceList(l2->index, 0, 1, 1); // cyan
 	  } else if(l2->type == EDGELIST) {
+            for( int i=0; i<mesh->edges; i++ ) {
+              edge_t *edge=&mesh->edge[i];
+              if ( edge->index == l2->index )
+                edge->selected=l2->selected;
+            }
 	    l2->object = generateEdgeList(l2->index, 0, 1, 0); // green
 	  }
 	}

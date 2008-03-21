@@ -1580,6 +1580,17 @@ void MainWindow::resetSlot()
     list_t *l = &list[i];
     l->visible = true;
     l->selected = false;
+
+    for( int j=0; j<mesh->surfaces; j++ ) {
+      surface_t *surf = &mesh->surface[j];
+      if( l->index == surf->index )
+        surf->selected=l->selected;
+    }
+    for( int j=0; j<mesh->edges; j++ ) {
+      edge_t *edge = &mesh->edge[j];
+      if( l->index == edge->index )
+        edge->selected=l->selected;
+    }
   }
 
   glLoadIdentity();
