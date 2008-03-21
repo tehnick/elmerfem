@@ -1118,7 +1118,7 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
 
   int edge_index[index];
 
-  for( int i=0; i<=index; i++ )
+  for( int i=0; i<index; i++ )
     edge_index[i] = UNKNOWN;
 
   index = 0;
@@ -1309,16 +1309,18 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
   for( int i=0; i<mesh->surfaces; i++ )
   {
     surface_t *surf=&mesh->surface[i];
+    int k = surf->index;
     for( int j=0; j<surf->nodes; j++ ) {
-      cc[surf->index]++;
-      xmin[surf->index] = min(xmin[surf->index],mesh->node[surf->node[j]].x[0]);
-      ymin[surf->index] = min(ymin[surf->index],mesh->node[surf->node[j]].x[1]);
-      zmin[surf->index] = min(zmin[surf->index],mesh->node[surf->node[j]].x[2]);
-
-      xmax[surf->index] = max(xmax[surf->index],mesh->node[surf->node[j]].x[0]);
-      ymax[surf->index] = max(ymax[surf->index],mesh->node[surf->node[j]].x[1]);
-      zmax[surf->index] = max(zmax[surf->index],mesh->node[surf->node[j]].x[2]);
-    }
+      int n = surf->node[j];
+      cc[k]++;
+      xmin[k] = min( xmin[k], mesh->node[n].x[0] );
+      ymin[k] = min( ymin[k], mesh->node[n].x[1] );
+      zmin[k] = min( zmin[k], mesh->node[n].x[2] );
+ 
+      xmax[k] = max( xmax[k], mesh->node[n].x[0] );
+      ymax[k] = max( ymax[k], mesh->node[n].x[1] );
+      zmax[k] = max( zmax[k], mesh->node[n].x[2] );
+     }
   }
 
   for( int i=0; i<index; i++ )
@@ -1341,7 +1343,7 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
   for( int i=0; i<mesh->surfaces; i++ )
     mesh->surface[i].index = sorder[mesh->surface[i].index];
 
-  cout << "Surface divided into " << index << " parts" << endl;
+  cout << "Surface divided into " << index-1 << " parts" << endl;
 
   delete bc;
 
