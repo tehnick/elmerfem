@@ -1877,22 +1877,15 @@ void MainWindow::doDivideSurfaceSlot(double angle)
   }
   
 
-fprintf( stderr, "go find\n" ); fflush(stderr);
   meshutils->findSharpEdges(mesh, angle);
-fprintf( stderr, "go\n" ); fflush(stderr);
   int parts = meshutils->divideSurfaceBySharpEdges(mesh);
 
-fprintf( stderr, "ä\n" ); fflush(stderr);
   QString qs = "Surface divided into " + QString::number(parts) + " parts";
   statusBar()->showMessage(qs);
   
-fprintf( stderr, "a\n" ); fflush(stderr);
   synchronizeMenuToState();
-fprintf( stderr, "b\n" ); fflush(stderr);
   glWidget->rebuildLists();
-fprintf( stderr, "c\n" ); fflush(stderr);
   glWidget->updateGL();
-fprintf( stderr, "d\n" ); fflush(stderr);
 }
 
 
