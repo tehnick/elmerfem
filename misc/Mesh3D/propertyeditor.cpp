@@ -82,41 +82,48 @@ void PropertyEditor::editProperties(int bcIndex)
   else
     ui.linearElasticity->setEnabled(false);
 
-  ui.temperatureEdit   -> setText(bcProperty[bcIndex].temperature);
-  ui.heatFluxEdit      -> setText(bcProperty[bcIndex].heatFlux);
-  ui.displacement1Edit -> setText(bcProperty[bcIndex].displacement1);
-  ui.displacement2Edit -> setText(bcProperty[bcIndex].displacement2);
-  ui.displacement3Edit -> setText(bcProperty[bcIndex].displacement3);
+  bcProperty_t *bp = &bcProperty[bcIndex];
+
+  ui.temperatureEdit   -> setText(bp->temperature);
+  ui.heatFluxEdit      -> setText(bp->heatFlux);
+  ui.displacement1Edit -> setText(bp->displacement1);
+  ui.displacement2Edit -> setText(bp->displacement2);
+  ui.displacement3Edit -> setText(bp->displacement3);
 
   this->show();
 }
 
 void PropertyEditor::temperatureChanged(const QString& qs)
 {
-  bcProperty[bcIndex].defined = true;
-  bcProperty[bcIndex].temperature = qs;
+  bcProperty_t *bp = &bcProperty[bcIndex];
+  bp->defined = true;
+  bp->temperature = qs;
 }
 
 void PropertyEditor::heatFluxChanged(const QString& qs)
 {
-  bcProperty[bcIndex].defined = true;
-  bcProperty[bcIndex].heatFlux = qs;
+  bcProperty_t *bp = &bcProperty[bcIndex];
+  bp->defined = true;
+  bp->heatFlux = qs;
 }
 
 void PropertyEditor::displacement1Changed(const QString& qs)
 {
-  bcProperty[bcIndex].defined = true;
-  bcProperty[bcIndex].displacement1 = qs;
+  bcProperty_t *bp = &bcProperty[bcIndex];
+  bp->defined = true;
+  bp->displacement1 = qs;
 }
 
 void PropertyEditor::displacement2Changed(const QString& qs)
 {
-  bcProperty[bcIndex].defined = true;
-  bcProperty[bcIndex].displacement2 = qs;
+  bcProperty_t *bp = &bcProperty[bcIndex];
+  bp->defined = true;
+  bp->displacement2 = qs;
 }
 
 void PropertyEditor::displacement3Changed(const QString& qs)
 {
-  bcProperty[bcIndex].defined = true;
-  bcProperty[bcIndex].displacement3 = qs;
+  bcProperty_t *bp = &bcProperty[bcIndex];
+  bp->defined = true;
+  bp->displacement3 = qs;
 }
