@@ -123,6 +123,9 @@ MainWindow::MainWindow()
   // solver emits (void) when there is something to read from stdout:
   connect(solver, SIGNAL(readyReadStandardOutput()), this, SLOT(solverStdoutSlot()));
 
+  // solver emits (void) when there is something to read from stderr:
+  connect(solver, SIGNAL(readyReadStandardError()), this, SLOT(solverStderrSlot()));
+
   // post emits (int) when finished:
   connect(post, SIGNAL(finished(int)), this, SLOT(postProcessFinishedSlot(int))) ;
   
@@ -2603,6 +2606,19 @@ void MainWindow::runsolverSlot()
 void MainWindow::solverStdoutSlot()
 {
   QString qs = solver->readAllStandardOutput();
+
+  solverLogWindow->textEdit->append(qs);
+
+  // cout << string(qs.toAscii());
+  // cout.flush();
+}
+
+
+// solver process emits (void) when there is something to read from stderr:
+//-----------------------------------------------------------------------------
+void MainWindow::solverStderrSlot()
+{
+  QString qs = solver->readAllStandardError();
 
   solverLogWindow->textEdit->append(qs);
 

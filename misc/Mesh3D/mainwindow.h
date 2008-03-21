@@ -62,6 +62,7 @@ private slots:
   void doDivideEdgeSlot(double);      // signal emitted by boundaryDivide
   void postProcessFinishedSlot(int);  // signal emitted by postProcess
   void solverStdoutSlot();            // solver's stdout redirected here
+  void solverStderrSlot();            // solver's stderr redirected here
   void solverFinishedSlot(int);       // signal emitted by solver process
   
 private:
