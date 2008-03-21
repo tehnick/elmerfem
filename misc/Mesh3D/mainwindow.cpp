@@ -183,6 +183,8 @@ void MainWindow::createMenus()
   editMenu->addAction(heatEquationAct);
   editMenu->addAction(linearElasticityAct);
   editMenu->addSeparator();
+  editMenu->addAction(bcEditModeAct);
+  editMenu->addSeparator();
   editMenu->addAction(generateSifAct);
   editMenu->addSeparator();
   editMenu->addAction(showsifAct);
@@ -297,18 +299,6 @@ void MainWindow::createActions()
   exitAct->setStatusTip(tr("Exit"));
   connect(exitAct, SIGNAL(triggered()), this, SLOT(closeMainWindowSlot()));
 
-  // Edit -> Sif
-  showsifAct = new QAction(QIcon(":/icons/document-properties.png"), tr("&Solver input file..."), this);
-  showsifAct->setShortcut(tr("Ctrl+S"));
-  showsifAct->setStatusTip(tr("Edit solver input file"));
-  connect(showsifAct, SIGNAL(triggered()), this, SLOT(showsifSlot()));
-
-  // Edit -> Generate sif
-  generateSifAct = new QAction(QIcon(""), tr("&Generate sif"), this);
-  generateSifAct->setShortcut(tr("Ctrl+G"));
-  generateSifAct->setStatusTip(tr("Genarete solver input file"));
-  connect(generateSifAct, SIGNAL(triggered()), this, SLOT(generateSifSlot()));
-
   // Edit -> Steady heat conduntion
   heatEquationAct = new QAction(QIcon(), tr("Heat equation"), this);
   heatEquationAct->setStatusTip(tr("Activate heat equation"));
@@ -318,6 +308,23 @@ void MainWindow::createActions()
   linearElasticityAct = new QAction(QIcon(), tr("Linear elasticity"), this);
   linearElasticityAct->setStatusTip(tr("Activate linear elasticity"));
   connect(linearElasticityAct, SIGNAL(triggered()), this, SLOT(linearElasticitySlot()));
+
+  // Edit -> BC edit mode
+  bcEditModeAct = new QAction(QIcon(), tr("BC edit mode"), this);
+  bcEditModeAct->setStatusTip(tr("Boundary condition edit mode"));
+  connect(bcEditModeAct, SIGNAL(triggered()), this, SLOT(bcEditModeSlot()));
+
+  // Edit -> Generate sif
+  generateSifAct = new QAction(QIcon(""), tr("&Generate sif"), this);
+  generateSifAct->setShortcut(tr("Ctrl+G"));
+  generateSifAct->setStatusTip(tr("Genarete solver input file"));
+  connect(generateSifAct, SIGNAL(triggered()), this, SLOT(generateSifSlot()));
+
+  // Edit -> Sif
+  showsifAct = new QAction(QIcon(":/icons/document-properties.png"), tr("&Solver input file..."), this);
+  showsifAct->setShortcut(tr("Ctrl+S"));
+  showsifAct->setStatusTip(tr("Edit solver input file"));
+  connect(showsifAct, SIGNAL(triggered()), this, SLOT(showsifSlot()));
 
   // Mesh -> Control
   meshcontrolAct = new QAction(QIcon(":/icons/configure.png"), tr("&Configure..."), this);
@@ -2118,11 +2125,21 @@ void MainWindow::heatEquationSlot()
 }
 
 
+
 // Edit -> Linear elasticity
 //-----------------------------------------------------------------------------
 void MainWindow::linearElasticitySlot()
 {
   bcPropertyEditor->linearElasticityActive = !bcPropertyEditor->linearElasticityActive;
+  synchronizeMenuToState();
+}
+
+
+// Edit -> Linear elasticity
+//-----------------------------------------------------------------------------
+void MainWindow::bcEditModeSlot()
+{
+  bcPropertyEditor->bcEditMode = !bcPropertyEditor->bcEditMode;
   synchronizeMenuToState();
 }
 
@@ -2332,7 +2349,7 @@ void MainWindow::boundarySelectedSlot(list_t *l)
   
   // Open the bc property sheet:
   //----------------------------
-  if(selected) {
+  if(selected && bcPropertyEditor->bcEditMode) {
     if(bcPropertyEditor->heatEquationActive ||
        bcPropertyEditor->linearElasticityActive) {
       qs = "Boundary condition for index " + QString::number(l->index);
@@ -2719,5 +2736,10 @@ void MainWindow::synchronizeMenuToState()
     linearElasticityAct->setIcon(iconChecked);
   else
     linearElasticityAct->setIcon(iconEmpty);
+    
+  if(bcPropertyEditor->bcEditMode)
+    bcEditModeAct->setIcon(iconChecked);
+  else
+    bcEditModeAct->setIcon(iconEmpty);
     
 }
