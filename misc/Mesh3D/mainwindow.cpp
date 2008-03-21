@@ -353,7 +353,7 @@ void MainWindow::createActions()
   connect(hidesharpedgesAct, SIGNAL(triggered()), this, SLOT(hidesharpedgesSlot()));
 
   // View -> Coordinates
-  viewCoordinatesAct = new QAction(QIcon(), tr("Coordinates"), this);
+  viewCoordinatesAct = new QAction(QIcon(), tr("Compass"), this);
   viewCoordinatesAct->setStatusTip(tr("View coordinates (RGB=XYZ modulo translation)"));
   connect(viewCoordinatesAct, SIGNAL(triggered()), this, SLOT(viewCoordinatesSlot()));
 
@@ -1959,7 +1959,7 @@ void MainWindow::applyOperations()
     } else if (p->type == OP_UNIFY ) {
 
 
-      int targetindex = -1, selected=0;
+      int targetindex = -1;
       for(int i=0; i<lists; i++) {
         list_t *l = &list[i];
         if(l->selected && (l->type == SURFACELIST) && (l->nature == PDE_BOUNDARY)) {

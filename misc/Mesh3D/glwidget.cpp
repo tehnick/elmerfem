@@ -62,7 +62,7 @@ GLWidget::GLWidget(QWidget *parent)
   stateDrawSharpEdges = true;
   stateDrawSurfaceElements = true;
   stateDrawEdgeElements = true;
-  stateDrawCoordinates = true;
+  stateDrawCoordinates = false;
 
   lists = 0;
 
@@ -230,8 +230,12 @@ void GLWidget::paintGL()
     }
   }
 
-  if(stateDrawCoordinates) 
+  if(stateDrawCoordinates) {
+    // push a dummy name
+    glPushName(0xffffffff);
     drawCoordinates();
+    glPopName();
+  }
 }
 
 
@@ -356,6 +360,9 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
 //-----------------------------------------------------------------------------
 void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
 {
+  if(lists == 0) 
+    return;
+
   static list_t dummylist;
   static GLuint buffer[1024];
   const int bufferSize = sizeof(buffer)/sizeof(GLuint);
@@ -1012,24 +1019,10 @@ void GLWidget::drawCoordinates()
 {
   glMatrixMode(GL_PROJECTION);
   glPushMatrix();
-  glTranslated(0.8, -0.8, 5.0);
 
-#if 0
-  glBegin(GL_LINES);
-  // x-axis
-  glColor3d(1, 0, 0);
-  glVertex3d(0.0, 0.0, 0.0);
-  glVertex3d(0.4, 0.0, 0.0);
-  // y-axis
-  glColor3d(0, 1, 0);
-  glVertex3d(0.0, 0.0, 0.0);
-  glVertex3d(0.0, 0.4, 0.0);
-  glColor3d(0, 0, 1);
-  // z-axis
-  glVertex3d(0.0, 0.0, 0.0);
-  glVertex3d(0.0, 0.0, 0.4);
-  glEnd();
-#endif
+  glTranslated(-0.8, -0.8, 5.0);
+
+  glMatrixMode(GL_MODELVIEW);
 
   // z-axis
   glColor3d(0, 0, 1);
@@ -1037,22 +1030,20 @@ void GLWidget::drawCoordinates()
 
   // x-axis
   glColor3d(1, 0, 0);
-  glMatrixMode(GL_MODELVIEW);
-  glPushMatrix();
   glRotated(90, 0, 1, 0);
   gluCylinder(quadratic, 0.02, 0.0, 0.2, 8, 8);  
-  glPopMatrix();
-  glMatrixMode(GL_PROJECTION);
+  glRotated(-90, 0, 1, 0);
 
   // y-axis
   glColor3d(0, 1, 0);
-  glMatrixMode(GL_MODELVIEW);
-  glPushMatrix();
   glRotated(-90, 1, 0, 0);
   gluCylinder(quadratic, 0.02, 0.0, 0.2, 8, 8);  
-  glPopMatrix();
+  glRotated(90, 1, 0, 0);
+  
   glMatrixMode(GL_PROJECTION);
-
   glPopMatrix();
+
   glMatrixMode(GL_MODELVIEW);
+
+  return;
 }
