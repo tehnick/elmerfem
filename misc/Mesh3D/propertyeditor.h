@@ -27,6 +27,9 @@ public:
 
   void editProperties(int);
 
+  bool heatEquationActive;
+  bool linearElasticityActive;
+
 private slots:
   void propertiesChanged();
   void clearProperties();

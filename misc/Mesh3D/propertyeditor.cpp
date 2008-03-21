@@ -47,6 +47,9 @@ using namespace std;
 PropertyEditor::PropertyEditor(QWidget *parent)
   : QWidget(parent)
 {
+  heatEquationActive = false;
+  linearElasticityActive = false;
+
   setWindowFlags(Qt::Window);
 
   textEdit = new QTextEdit;

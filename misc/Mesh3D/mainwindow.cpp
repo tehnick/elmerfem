@@ -137,6 +137,8 @@ MainWindow::MainWindow()
   nglibInputOk = false;
   tetlibInputOk = false;
   activeGenerator = GEN_UNKNOWN;
+  bcPropertyEditor->heatEquationActive = false;
+  bcPropertyEditor->linearElasticityActive = false;
 
   // set font for text editors:
   QFont sansFont("Courier", 10);
@@ -179,12 +181,12 @@ void MainWindow::createMenus()
 
   // Edit menu
   editMenu = menuBar()->addMenu(tr("&Edit"));
+  editMenu->addAction(heatEquationAct);
+  editMenu->addAction(linearElasticityAct);
+  editMenu->addSeparator();
+  editMenu->addAction(generateSifAct);
+  editMenu->addSeparator();
   editMenu->addAction(showsifAct);
-  editMenu->addSeparator();
-  editMenu->addAction(editPropertiesAct);
-  editMenu->addSeparator();
-  editMenu->addAction(steadyHeatSifAct);
-  editMenu->addAction(linElastSifAct);
 
   // View menu
   viewMenu = menuBar()->addMenu(tr("&View"));  
@@ -302,21 +304,21 @@ void MainWindow::createActions()
   showsifAct->setStatusTip(tr("Edit solver input file"));
   connect(showsifAct, SIGNAL(triggered()), this, SLOT(showsifSlot()));
 
-  // Edit -> Properties...
-  editPropertiesAct = new QAction(QIcon(":/icons/document-preview.png"), tr("&Properties..."), this);
-  editPropertiesAct->setShortcut(tr("Ctrl+P"));
-  editPropertiesAct->setStatusTip(tr("Edit properties of selected items"));
-  connect(editPropertiesAct, SIGNAL(triggered()), this, SLOT(editPropertiesSlot()));
+  // Edit -> Generate sif
+  generateSifAct = new QAction(QIcon(""), tr("&Generate sif"), this);
+  generateSifAct->setShortcut(tr("Ctrl+G"));
+  generateSifAct->setStatusTip(tr("Genarete solver input file"));
+  connect(generateSifAct, SIGNAL(triggered()), this, SLOT(generateSifSlot()));
 
   // Edit -> Steady heat conduntion
-  steadyHeatSifAct = new QAction(QIcon(), tr("Heat conduction"), this);
-  steadyHeatSifAct->setStatusTip(tr("Sif skeleton for steady heat conduction"));
-  connect(steadyHeatSifAct, SIGNAL(triggered()), this, SLOT(makeSteadyHeatSifSlot()));
+  heatEquationAct = new QAction(QIcon(), tr("Heat equation"), this);
+  heatEquationAct->setStatusTip(tr("Activate heat equation"));
+  connect(heatEquationAct, SIGNAL(triggered()), this, SLOT(heatEquationSlot()));
 
   // Edit -> Linear elasticity
-  linElastSifAct = new QAction(QIcon(), tr("Linear elasticity"), this);
-  linElastSifAct->setStatusTip(tr("Sif skeleton for linear elasticity"));
-  connect(linElastSifAct, SIGNAL(triggered()), this, SLOT(makeLinElastSifSlot()));
+  linearElasticityAct = new QAction(QIcon(), tr("Linear elasticity"), this);
+  linearElasticityAct->setStatusTip(tr("Activate linear elasticity"));
+  connect(linearElasticityAct, SIGNAL(triggered()), this, SLOT(linearElasticitySlot()));
 
   // Mesh -> Control
   meshcontrolAct = new QAction(QIcon(":/icons/configure.png"), tr("&Configure..."), this);
@@ -2125,12 +2127,164 @@ void MainWindow::showsifSlot()
 }
 
 
-// Edit -> Properities...
+// Edit -> Generate sif
 //-----------------------------------------------------------------------------
-void MainWindow::editPropertiesSlot()
+void MainWindow::generateSifSlot()
 {
-  cout << "Edit properties... not implemented, yet" << endl;
-  cout.flush();
+  if(glWidget->mesh == NULL) {
+    logMessage("Unable to create sif: no mesh");
+    return;
+  }
+  
+  int dim = glWidget->mesh->dim; 
+  int cdim = glWidget->mesh->cdim;
+
+  if((dim < 1) || (cdim < 1)) {
+    logMessage("Model dimension inconsistent with SIF syntax");
+    return;
+  }
+
+  QTextEdit *te = sifWindow->textEdit;
+  
+  te->clear();
+
+  QFont sansFont("Courier", 10);
+  sifWindow->textEdit->setCurrentFont(sansFont);
+
+  // Header block:
+  //---------------
+  te->append("! Sif skeleton for active equations\n");
+  te->append("Header");
+  te->append("  CHECK KEYWORDS Warn");
+  te->append("  Mesh DB \".\" \".\"");
+  te->append("  Include Path \"\"");
+  te->append("  Results Directory \"\"");
+  te->append("End\n");
+  
+  // Simulation block:
+  //------------------
+  te->append("Simulation");
+  te->append("  Max Output Level = 4");
+  te->append("  Coordinate System = \"Cartesian\"");
+  te->append("  Coordinate Mapping(3) = 1 2 3");
+  te->append("  Simulation Type = \"Steady State\"");
+  te->append("  Steady State Max Iterations = 1");
+  te->append("  Output Intervals = 1");
+  te->append("  Solver Input File = \"skeleton.sif\"");
+  te->append("  Post File = \"skeleton.ep\"");
+  te->append("End\n");
+
+  // Constants block:
+  //-----------------
+  te->append("Constants");
+  te->append("  Gravity(4) = 0 -1 0 9.82");
+  te->append("  Stefan Boltzmann = 5.67e-08");
+  te->append("End\n");
+
+  // Body blocks:
+  //-------------
+  makeSifBodyBlocks();
+
+  // Equation block:
+  //---------------
+  int nofSolvers = 0;
+
+  if(bcPropertyEditor->heatEquationActive)
+    nofSolvers++;
+
+  if(bcPropertyEditor->linearElasticityActive)
+    nofSolvers++;
+
+  if(nofSolvers == 0) {
+    logMessage("There are no active solvers - unable to continue with SIF");
+    return;
+  }
+
+  te->append("Equation 1");
+  QString qs = "  Active Solvers(" + QString::number(nofSolvers) + ") =";
+  for(int i = 0; i < nofSolvers; i++) 
+    qs.append(" " + QString::number(i+1));
+  te->append(qs);
+  te->append( "  Element = \"" +  meshControl->elementCodesString + "\"" );
+  te->append("End\n");
+
+  // Solver blocks:
+  //---------------
+  int currentSolver = 0;
+
+  if(bcPropertyEditor->heatEquationActive) {
+    currentSolver++;
+    te->append("Solver " + QString::number(currentSolver));
+    te->append("  Exec Solver = \"Always\"");
+    te->append("  Equation = \"Heat Equation\"");
+    te->append("  Variable = \"Temperature\"");
+    te->append("  Variable Dofs = 1");
+    te->append("  Linear System Solver = \"Iterative\"");
+    te->append("  Linear System Iterative Method = \"BiCGStab\"");
+    te->append("  Linear System Max Iterations = 350");
+    te->append("  Linear System Convergence Tolerance = 1.0e-08");
+    te->append("  Linear System Abort Not Converged = True");
+    te->append("  Linear System Preconditioning = \"ILU0\"");
+    te->append("  Linear System Residual Output = 1");
+    te->append("  Nonlinear System Convergence Tolerance = 1.0e-08");
+    te->append("  Nonlinear System Max Iterations = 1");
+    te->append("  Steady State Convergence Tolerance = 1.0e-08");
+    te->append("End\n");
+  }
+
+
+  if(bcPropertyEditor->linearElasticityActive) {
+    currentSolver++;
+    te->append("Solver " + QString::number(currentSolver));
+    te->append("  Exec Solver = \"Always\"");
+    te->append("  Equation = \"Stress analysis\"");
+    // te->append("  Procedure = \"StressSolve\" \"StressSolver\"");
+    te->append("  Variable = \"Displacement\"");
+    te->append("  Variable dofs = " + QString::number(cdim));
+    te->append("  Linear System Solver = \"Iterative\"");
+    te->append("  Linear System Iterative Method = \"BiCGStab\"");
+    te->append("  Linear System Max Iterations = 350");
+    te->append("  Linear System Convergence Tolerance = 1.0e-08");
+    te->append("  Linear System Abort Not Converged = True");
+    te->append("  Linear System Preconditioning = \"ILU0\"");
+    te->append("  Linear System Residual Output = 1");
+    te->append("  Nonlinear System Convergence Tolerance = 1.0e-08");
+    te->append("  Nonlinear System Max Iterations = 1");
+    te->append("  Steady State Convergence Tolerance = 1.0e-08");
+    te->append("End\n");
+  }
+
+  // Material block:
+  //----------------
+  te->append("Material 1");
+  te->append("  Name = \"Material1\"");
+  te->append("  Density = 1");
+  if(bcPropertyEditor->heatEquationActive) 
+    te->append("  Heat Conductivity = 1");
+  if(bcPropertyEditor->heatEquationActive) {
+    te->append("  Youngs modulus = 1");
+    te->append("  Poisson ratio = 0.3");
+  }
+  te->append("End\n");
+  
+  // Body force block:
+  //------------------
+  te->append("Body Force 1");
+  if(bcPropertyEditor->heatEquationActive) 
+    te->append("  Heat Source = 1");
+  if(bcPropertyEditor->linearElasticityActive) {
+    if(cdim >= 1) 
+      te->append("  Stress BodyForce 1 = 1");
+    if(cdim >= 2) 
+      te->append("  Stress BodyForce 2 = 0");
+    if(cdim >= 3) 
+      te->append("  Stress BodyForce 3 = 0");
+  }
+  te->append("End\n");
+  
+  // Boundary condition blocks:
+  //---------------------------
+  makeSifBoundaryBlocks();
 }
 
 
@@ -2165,267 +2319,31 @@ void MainWindow::boundarySelectedSlot(list_t *l)
 
   statusBar()->showMessage(qs);    
   
-  // Open the property sheet:
+  // Open the bc property sheet:
   //--------------------------
   qs = "Boundary condition for index " + QString::number(l->index);
   QFont sansFont("Courier", 10);
   bcPropertyEditor->textEdit->setCurrentFont(sansFont);
   bcPropertyEditor->setWindowTitle(qs);
   bcPropertyEditor->editProperties(l->index);
-
-  //???????????????????????????????????????
-  //      The following is obsolete:
-  //???????????????????????????????????????
-#if 0
-  // Find the boundary condition block in sif:
-  if(l->nature == PDE_BOUNDARY) {
-    QTextEdit *te = sifWindow->textEdit;
-    QTextCursor cursor = te->textCursor();
-    
-    te->moveCursor(QTextCursor::Start);
-    qs = "Target boundaries(1) = " + QString::number(l->index);
-    bool found = te->find(qs);
-    
-    // Select and highlight bc block:
-    if(found) {
-      te->moveCursor(QTextCursor::Up);
-      te->moveCursor(QTextCursor::Up);
-      te->find("Boundary");
-      
-      cursor.movePosition(QTextCursor::StartOfWord, QTextCursor::KeepAnchor);
-      te->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
-      te->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
-      te->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
-      te->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
-      cursor.select(QTextCursor::BlockUnderCursor);
-    }
-  }
-
-  // Find the body block in sif:
-  if(l->nature == PDE_BULK) {
-    QTextEdit *te = sifWindow->textEdit;
-    QTextCursor cursor = te->textCursor();
-
-    te->moveCursor(QTextCursor::Start);
-    qs = "Target bodies(1) = " + QString::number(l->index);
-    bool found = te->find(qs);
-    
-    // Select and highlight body block:
-    if(found) {
-      te->moveCursor(QTextCursor::Up);
-      te->moveCursor(QTextCursor::Up);
-      te->moveCursor(QTextCursor::Up);
-      te->find("Body");
-      
-      cursor.movePosition(QTextCursor::StartOfWord, QTextCursor::KeepAnchor);
-      te->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
-      te->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
-      te->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
-      te->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
-      te->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
-      te->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
-      te->moveCursor(QTextCursor::Down, QTextCursor::KeepAnchor);
-      cursor.select(QTextCursor::BlockUnderCursor);
-    }
-  }
-#endif
 }
 
 
 // Make solver input file for steady heat conduction
 //-----------------------------------------------------------------------------
-void MainWindow::makeSteadyHeatSifSlot()
+void MainWindow::heatEquationSlot()
 {
-  if(glWidget->mesh == NULL) {
-    logMessage("Unable to create sif: no mesh");
-    return;
-  }
-  
-  int dim = glWidget->mesh->dim; 
-  // int cdim = glWidget->mesh->cdim;
-
-  if(dim < 1) {
-    logMessage("Model dimension inconsistent with SIF syntax");
-    return;
-  }
-
-  QTextEdit *te = sifWindow->textEdit;
-  
-  te->clear();
-
-  QFont sansFont("Courier", 10);
-  sifWindow->textEdit->setCurrentFont(sansFont);
-
-  te->append("! Sif skeleton for steady heat conduction\n");
-
-  te->append("Header");
-  te->append("  CHECK KEYWORDS Warn");
-  te->append("  Mesh DB \".\" \".\"");
-  te->append("  Include Path \"\"");
-  te->append("  Results Directory \"\"");
-  te->append("End\n");
-  
-  te->append("Simulation");
-  te->append("  Max Output Level = 4");
-  te->append("  Coordinate System = \"Cartesian\"");
-  te->append("  Coordinate Mapping(3) = 1 2 3");
-  te->append("  Simulation Type = \"Steady State\"");
-  te->append("  Steady State Max Iterations = 1");
-  te->append("  Output Intervals = 1");
-  te->append("  Solver Input File = \"skeleton.sif\"");
-  te->append("  Post File = \"skeleton.ep\"");
-  te->append("End\n");
-
-  te->append("Constants");
-  te->append("  Gravity(4) = 0 -1 0 9.82");
-  te->append("  Stefan Boltzmann = 5.67e-08");
-  te->append("End\n");
-
-  // Body blocks:
-  //-------------
-  makeSifBodyBlocks();
-
-  te->append("Equation 1");
-  te->append("  Name = \"Heat equation\"");
-  te->append("  Active Solvers(1) = 1");
-  te->append( "  Element = \"" +  meshControl->elementCodesString + "\"" );
-  te->append("End\n");
-
-  te->append("Solver 1");
-  te->append("  Exec Solver = \"Always\"");
-  te->append("  Equation = \"Heat Equation\"");
-  te->append("  Variable = \"Temperature\"");
-  te->append("  Variable Dofs = 1");
-  te->append("  Linear System Solver = \"Iterative\"");
-  te->append("  Linear System Iterative Method = \"BiCGStab\"");
-  te->append("  Linear System Max Iterations = 350");
-  te->append("  Linear System Convergence Tolerance = 1.0e-08");
-  te->append("  Linear System Abort Not Converged = True");
-  te->append("  Linear System Preconditioning = \"ILU0\"");
-  te->append("  Linear System Residual Output = 1");
-  te->append("  Nonlinear System Convergence Tolerance = 1.0e-08");
-  te->append("  Nonlinear System Max Iterations = 1");
-  te->append("  Steady State Convergence Tolerance = 1.0e-08");
-  te->append("End\n");
-
-  te->append("Material 1");
-  te->append("  Name = \"Material1\"");
-  te->append("  Density = 1");
-  te->append("  Heat Conductivity = 1");
-  te->append("End\n");
-
-  te->append("Body Force 1");
-  te->append("  Name = \"BodyForce1\"");
-  te->append("  Heat Source = 1");
-  te->append("End\n");
-
-  // BC-blocks:
-  //-----------
-  makeSifBoundaryBlocks();
+  bcPropertyEditor->heatEquationActive = !bcPropertyEditor->heatEquationActive;
+  synchronizeMenuToState();
 }
 
 
 // Make solver input file for linear elasticity
 //-----------------------------------------------------------------------------
-void MainWindow::makeLinElastSifSlot()
+void MainWindow::linearElasticitySlot()
 {
-  if(glWidget->mesh == NULL) {
-    logMessage("Unable to create sif: no mesh");
-    return;
-  }
-  
-  int dim = glWidget->mesh->dim, cdim = glWidget->mesh->cdim;
-
-  if(dim < 1) {
-    logMessage("Model dimension inconsistent with SIF syntax");
-    return;
-  }
-
-  QTextEdit *te = sifWindow->textEdit;
-
-  te->clear();
-
-  QFont sansFont("Courier", 10);
-  sifWindow->textEdit->setCurrentFont(sansFont);
-
-  te->append("! Sif skeleton for linear elasticity\n");
-
-  te->append("Header");
-  te->append("  CHECK KEYWORDS Warn");
-  te->append("  Mesh DB \".\" \".\"");
-  te->append("  Include Path \"\"");
-  te->append("  Results Directory \"\"");
-  te->append("End\n");
-  
-  te->append("Simulation");
-  te->append("  Max Output Level = 4");
-  te->append("  Coordinate System = \"Cartesian\"");
-  te->append("  Coordinate Mapping(3) = 1 2 3");
-  te->append("  Simulation Type = \"Steady State\"");
-  te->append("  Steady State Max Iterations = 1");
-  te->append("  Output Intervals = 1");
-  te->append("  Solver Input File = \"skeleton.sif\"");
-  te->append("  Post File = \"skeleton.ep\"");
-  te->append("End\n");
-
-  te->append("Constants");
-  te->append("  Gravity(4) = 0 -1 0 9.82");
-  te->append("  Stefan Boltzmann = 5.67e-08");
-  te->append("End\n");
-
-  // Body blocks:
-  //-------------
-  makeSifBodyBlocks();
-
-  te->append("Equation 1");
-  te->append("  Name = \"Elasticity analysis\"");
-  te->append("  Active Solvers(1) = 1");
-  te->append( "  Element = \"" +  meshControl->elementCodesString + "\"" );
-  te->append("End\n");
-
-  te->append("Solver 1");
-  te->append("  Exec Solver = \"Always\"");
-  te->append("  Equation = \"Elasticity analysis\"");
-  te->append("  Procedure = \"StressSolve\" \"StressSolver\"");
-  te->append("  Variable = \"Displacement\"");
-  if(cdim == 3)
-    te->append("  Variable Dofs = 3");
-  if(cdim == 2)
-    te->append("  Variable Dofs = 2");
-  if(cdim == 1)
-    te->append("  Variable Dofs = 1");
-  te->append("  Linear System Solver = \"Iterative\"");
-  te->append("  Linear System Iterative Method = \"BiCGStab\"");
-  te->append("  Linear System Max Iterations = 350");
-  te->append("  Linear System Convergence Tolerance = 1.0e-08");
-  te->append("  Linear System Abort Not Converged = True");
-  te->append("  Linear System Preconditioning = \"ILU0\"");
-  te->append("  Linear System Residual Output = 1");
-  te->append("  Nonlinear System Convergence Tolerance = 1.0e-08");
-  te->append("  Nonlinear System Max Iterations = 1");
-  te->append("  Steady State Convergence Tolerance = 1.0e-08");
-  te->append("End\n");
-
-  te->append("Material 1");
-  te->append("  Name = \"Material1\"");
-  te->append("  Density = 1");
-  te->append("  Youngs modulus = 1");
-  te->append("  Poisson ratio = 0.3");
-  te->append("End\n");
-
-  te->append("Body Force 1");
-  te->append("  Name = \"BodyForce1\"");
-  if(cdim >= 1) 
-    te->append("  Stress BodyForce 1 = 1");
-  if(cdim >= 2) 
-    te->append("  Stress BodyForce 2 = 0");
-  if(cdim >= 3) 
-    te->append("  Stress BodyForce 3 = 0");
-  te->append("End\n");
-
-  // BC-blocks:
-  //-----------
-  makeSifBoundaryBlocks();
+  bcPropertyEditor->linearElasticityActive = !bcPropertyEditor->linearElasticityActive;
+  synchronizeMenuToState();
 }
 
 
@@ -2783,6 +2701,7 @@ void MainWindow::logMessage(QString message)
 //-----------------------------------------------------------------------------
 void MainWindow::synchronizeMenuToState()
 {
+  // glwidget state variables:
   if(glWidget->stateDrawSurfaceMesh)
     hidesurfacemeshAct->setIcon(iconChecked);
   else
@@ -2805,4 +2724,16 @@ void MainWindow::synchronizeMenuToState()
     viewCoordinatesAct->setIcon(iconChecked);
   else 
     viewCoordinatesAct->setIcon(iconEmpty);
+  
+  // bcPropertyEditor state variables:
+  if(bcPropertyEditor->heatEquationActive)
+    heatEquationAct->setIcon(iconChecked);
+  else
+    heatEquationAct->setIcon(iconEmpty);
+    
+  if(bcPropertyEditor->linearElasticityActive)
+    linearElasticityAct->setIcon(iconChecked);
+  else
+    linearElasticityAct->setIcon(iconEmpty);
+    
 }

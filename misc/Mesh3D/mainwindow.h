@@ -32,9 +32,9 @@ private slots:
   void saveSlot();                // File -> Save...
   void closeMainWindowSlot();     // File -> exit
   void showsifSlot();             // Edit -> Solver input file...
-  void editPropertiesSlot();      // Edit -> Properties...
-  void makeSteadyHeatSifSlot();   // Edit -> Steady heat conduction
-  void makeLinElastSifSlot();     // Edit -> Linear elasticity
+  void generateSifSlot();         // Edit -> Generate sif
+  void heatEquationSlot();        // Edit -> Steady heat conduction
+  void linearElasticitySlot();    // Edit -> Linear elasticity
   void meshcontrolSlot();         // Mesh -> Control...
   void remeshSlot();              // Mesh -> Remesh
   void stopMeshingSlot();         // Mesh -> Kill generator
@@ -100,9 +100,9 @@ private:
   QAction *saveAct;               // File -> Save...
   QAction *exitAct;               // File -> Exit
   QAction *showsifAct;            // Edit -> Solver input file...
-  QAction *editPropertiesAct;     // Edit -> Properties...
-  QAction *steadyHeatSifAct;      // Edit -> Steady heat conduction
-  QAction *linElastSifAct;        // Edit -> Linear elasticity
+  QAction *generateSifAct;        // Edit -> generate sif
+  QAction *heatEquationAct;       // Edit -> Steady heat conduction
+  QAction *linearElasticityAct;   // Edit -> Linear elasticity
   QAction *hidesurfacemeshAct;    // View -> Show surface mesh
   QAction *hidesharpedgesAct;     // View -> Show sharp edges
   QAction *viewCoordinatesAct;    // View -> Show sharp edges
