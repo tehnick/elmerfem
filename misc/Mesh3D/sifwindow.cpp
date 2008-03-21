@@ -77,7 +77,7 @@ QSize SifWindow::minimumSizeHint() const
 
 QSize SifWindow::sizeHint() const
 {
-  return QSize(480, 640);
+  return QSize(640, 640);
 }
 
 void SifWindow::clearSif()

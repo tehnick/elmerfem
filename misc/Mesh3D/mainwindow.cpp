@@ -99,6 +99,7 @@ MainWindow::MainWindow()
   solverLogWindow = new SifWindow(this);
   solver = new QProcess(this);
   post = new QProcess(this);
+  bcPropertyEditor = new PropertyEditor;
 
   createActions();
   createMenus();
@@ -141,6 +142,7 @@ MainWindow::MainWindow()
   QFont sansFont("Courier", 10);
   sifWindow->textEdit->setCurrentFont(sansFont);
   solverLogWindow->textEdit->setCurrentFont(sansFont);
+  bcPropertyEditor->textEdit->setCurrentFont(sansFont);
 
   synchronizeMenuToState();
 
@@ -178,6 +180,8 @@ void MainWindow::createMenus()
   // Edit menu
   editMenu = menuBar()->addMenu(tr("&Edit"));
   editMenu->addAction(showsifAct);
+  editMenu->addSeparator();
+  editMenu->addAction(editPropertiesAct);
   editMenu->addSeparator();
   editMenu->addAction(steadyHeatSifAct);
   editMenu->addAction(linElastSifAct);
@@ -297,6 +301,12 @@ void MainWindow::createActions()
   showsifAct->setShortcut(tr("Ctrl+S"));
   showsifAct->setStatusTip(tr("Edit solver input file"));
   connect(showsifAct, SIGNAL(triggered()), this, SLOT(showsifSlot()));
+
+  // Edit -> Properties...
+  editPropertiesAct = new QAction(QIcon(":/icons/document-preview.png"), tr("&Properties..."), this);
+  editPropertiesAct->setShortcut(tr("Ctrl+P"));
+  editPropertiesAct->setStatusTip(tr("Edit properties of selected items"));
+  connect(editPropertiesAct, SIGNAL(triggered()), this, SLOT(editPropertiesSlot()));
 
   // Edit -> Steady heat conduntion
   steadyHeatSifAct = new QAction(QIcon(), tr("Heat conduction"), this);
@@ -1314,7 +1324,8 @@ void MainWindow::closeMainWindowSlot()
   solverLogWindow->close();
   meshControl->close();
   boundaryDivide->close();
-  close();
+  bcPropertyEditor->close();
+  this->close();
 }
 
 
@@ -1769,7 +1780,7 @@ void MainWindow::remeshSlot()
 
 
 
-// Mesh -> Remesh
+// Mesh -> Kill generator
 //-----------------------------------------------------------------------------
 void MainWindow::stopMeshingSlot()
 {
@@ -2114,6 +2125,15 @@ void MainWindow::showsifSlot()
 }
 
 
+// Edit -> Properities...
+//-----------------------------------------------------------------------------
+void MainWindow::editPropertiesSlot()
+{
+  cout << "Edit properties... not implemented, yet" << endl;
+  cout.flush();
+}
+
+
 // Boundady selected by double clicking (signaled by glWidget::select):
 //-----------------------------------------------------------------------------
 void MainWindow::boundarySelectedSlot(list_t *l)
@@ -2145,6 +2165,18 @@ void MainWindow::boundarySelectedSlot(list_t *l)
 
   statusBar()->showMessage(qs);    
   
+  // Open the property sheet:
+  //--------------------------
+  qs = "Boundary condition for index " + QString::number(l->index);
+  QFont sansFont("Courier", 10);
+  bcPropertyEditor->textEdit->setCurrentFont(sansFont);
+  bcPropertyEditor->setWindowTitle(qs);
+  bcPropertyEditor->editProperties(l->index);
+
+  //???????????????????????????????????????
+  //      The following is obsolete:
+  //???????????????????????????????????????
+#if 0
   // Find the boundary condition block in sif:
   if(l->nature == PDE_BOUNDARY) {
     QTextEdit *te = sifWindow->textEdit;
@@ -2196,6 +2228,7 @@ void MainWindow::boundarySelectedSlot(list_t *l)
       cursor.select(QTextCursor::BlockUnderCursor);
     }
   }
+#endif
 }
 
 
@@ -2288,8 +2321,7 @@ void MainWindow::makeSteadyHeatSifSlot()
 
   // BC-blocks:
   //-----------
-  QString BCtext = "!  Temperature = 0\n!  Heat flux = 0";
-  makeSifBoundaryBlocks(BCtext);
+  makeSifBoundaryBlocks();
 }
 
 
@@ -2393,14 +2425,7 @@ void MainWindow::makeLinElastSifSlot()
 
   // BC-blocks:
   //-----------
-  QString BCtext = "";
-  if(cdim >= 1)
-    BCtext.append("!  Displacement 1 = 0");
-  if(cdim >= 2)
-    BCtext.append("\n!  Displacement 2 = 0");
-  if(cdim >= 3)
-    BCtext.append("\n!  Displacement 3 = 0");
-  makeSifBoundaryBlocks(BCtext);
+  makeSifBoundaryBlocks();
 }
 
 
@@ -2511,7 +2536,7 @@ void MainWindow::makeSifBodyBlocks()
 
 // Make boundary condition blocks in SIF:
 //-----------------------------------------------------------------------------
-void MainWindow::makeSifBoundaryBlocks(QString BCtext)
+void MainWindow::makeSifBoundaryBlocks()
 {
   mesh_t *mesh = glWidget->mesh;
   QTextEdit *te = sifWindow->textEdit;
@@ -2560,10 +2585,13 @@ void MainWindow::makeSifBoundaryBlocks(QString BCtext)
   int j = 0;
   for(int i=1; i < maxindex; i++) {
     if(tmp[i]) {
-      te->append("Boundary condition " + QString::number(++j));
-      te->append("  Target boundaries(1) = " + QString::number(i));
-      te->append(BCtext);
-      te->append("End\n");
+      QString qs = bcPropertyEditor->bcPropertyTable[i];
+      if(qs != "") {
+	te->append("Boundary condition " + QString::number(++j));
+	te->append("  Target boundaries(1) = " + QString::number(i));
+	te->append("  " + qs);
+	te->append("End\n");
+      }
     }
   }
 
@@ -2630,11 +2658,7 @@ void MainWindow::solverStdoutSlot()
 void MainWindow::solverStderrSlot()
 {
   QString qs = solver->readAllStandardError();
-
   solverLogWindow->textEdit->append(qs);
-
-  // cout << string(qs.toAscii());
-  // cout.flush();
 }
 
 

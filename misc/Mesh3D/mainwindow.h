@@ -12,6 +12,7 @@
 #include "meshcontrol.h"
 #include "boundarydivision.h"
 #include "meshutils.h"
+#include "propertyeditor.h"
 
 class QAction;
 class QMenu;
@@ -31,6 +32,7 @@ private slots:
   void saveSlot();                // File -> Save...
   void closeMainWindowSlot();     // File -> exit
   void showsifSlot();             // Edit -> Solver input file...
+  void editPropertiesSlot();      // Edit -> Properties...
   void makeSteadyHeatSifSlot();   // Edit -> Steady heat conduction
   void makeLinElastSifSlot();     // Edit -> Linear elasticity
   void meshcontrolSlot();         // Mesh -> Control...
@@ -61,8 +63,8 @@ private slots:
   void doDivideSurfaceSlot(double);   // signal emitted by boundaryDivide
   void doDivideEdgeSlot(double);      // signal emitted by boundaryDivide
   void postProcessFinishedSlot(int);  // signal emitted by postProcess
-  void solverStdoutSlot();            // solver's stdout redirected here
-  void solverStderrSlot();            // solver's stderr redirected here
+  void solverStdoutSlot();            // solver's stdout redirection
+  void solverStderrSlot();            // solver's stderr redirection
   void solverFinishedSlot(int);       // signal emitted by solver process
   
 private:
@@ -98,6 +100,7 @@ private:
   QAction *saveAct;               // File -> Save...
   QAction *exitAct;               // File -> Exit
   QAction *showsifAct;            // Edit -> Solver input file...
+  QAction *editPropertiesAct;     // Edit -> Properties...
   QAction *steadyHeatSifAct;      // Edit -> Steady heat conduction
   QAction *linElastSifAct;        // Edit -> Linear elasticity
   QAction *hidesurfacemeshAct;    // View -> Show surface mesh
@@ -115,8 +118,8 @@ private:
   QAction *stopMeshingAct;        // Mesh -> Kill generator
   QAction *surfaceDivideAct;      // Mesh -> Divide surface...
   QAction *surfaceUnifyAct;       // Mesh -> Unify surface
-  QAction *edgeUnifyAct;          // Mesh -> Unify surface
   QAction *edgeDivideAct;         // Mesh -> Divide edges...
+  QAction *edgeUnifyAct;          // Mesh -> Unify edge
   QAction *runsolverAct;          // Solver -> Run solver
   QAction *killsolverAct;         // Solver -> Kill solver
   QAction *resultsAct;            // Solver -> Post process
@@ -124,6 +127,9 @@ private:
   QAction *aboutAct;              // Help -> About...
 
   int activeGenerator;            // Currently active generator
+
+  // bc property editor:
+  PropertyEditor *bcPropertyEditor;
 
   // images:
   QIcon iconChecked;
@@ -160,7 +166,7 @@ private:
   void makeElmerMeshFromNglib();
   void logMessage(QString);
   void makeSifBodyBlocks();
-  void makeSifBoundaryBlocks(QString);
+  void makeSifBoundaryBlocks();
   void synchronizeMenuToState();
 };
 
