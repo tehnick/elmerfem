@@ -183,7 +183,7 @@ void MainWindow::createMenus()
   editMenu->addAction(heatEquationAct);
   editMenu->addAction(linearElasticityAct);
   editMenu->addSeparator();
-  editMenu->addAction(bcEditModeAct);
+  editMenu->addAction(bcEditAct);
   editMenu->addSeparator();
   editMenu->addAction(generateSifAct);
   editMenu->addSeparator();
@@ -309,10 +309,10 @@ void MainWindow::createActions()
   linearElasticityAct->setStatusTip(tr("Activate linear elasticity"));
   connect(linearElasticityAct, SIGNAL(triggered()), this, SLOT(linearElasticitySlot()));
 
-  // Edit -> BC edit mode
-  bcEditModeAct = new QAction(QIcon(), tr("BC edit mode"), this);
-  bcEditModeAct->setStatusTip(tr("Boundary condition edit mode"));
-  connect(bcEditModeAct, SIGNAL(triggered()), this, SLOT(bcEditModeSlot()));
+  // Edit -> Boundary conditions
+  bcEditAct = new QAction(QIcon(), tr("Boundary conditions"), this);
+  bcEditAct->setStatusTip(tr("Edit boundary conditions"));
+  connect(bcEditAct, SIGNAL(triggered()), this, SLOT(bcEditSlot()));
 
   // Edit -> Generate sif
   generateSifAct = new QAction(QIcon(""), tr("&Generate sif"), this);
@@ -2135,13 +2135,26 @@ void MainWindow::linearElasticitySlot()
 }
 
 
-// Edit -> Linear elasticity
+
+// Edit -> Boundary conditions
 //-----------------------------------------------------------------------------
-void MainWindow::bcEditModeSlot()
+void MainWindow::bcEditSlot()
 {
-  bcPropertyEditor->bcEditMode = !bcPropertyEditor->bcEditMode;
+  if(glWidget->mesh == NULL) {
+    logMessage("Unable to open BC editor - there is no mesh");
+    bcPropertyEditor->close();    
+    bcPropertyEditor->bcEditActive = false;
+    synchronizeMenuToState();
+    return;
+  }
+
+  bcPropertyEditor->bcEditActive = !bcPropertyEditor->bcEditActive;
   synchronizeMenuToState();
+
+  if(bcPropertyEditor->bcEditActive)
+    logMessage("Choose a boundary to edit BCs");
 }
+
 
 
 // Edit -> Sif...
@@ -2325,9 +2338,9 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     return;
   }
 
-  bool selected = !l->selected;
+  //bool selected = !l->selected;
 
-  if(selected) {
+  if(l->selected) {
     if(l->type == SURFACELIST) {
       qs = "Selected surface " + QString::number(l->index);
     } else if(l->type == EDGELIST) {
@@ -2345,19 +2358,24 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     }
   }
 
-  statusBar()->showMessage(qs);    
+  logMessage(qs);    
   
-  // Open the bc property sheet:
-  //----------------------------
-  if(selected && bcPropertyEditor->bcEditMode) {
-    if(bcPropertyEditor->heatEquationActive ||
-       bcPropertyEditor->linearElasticityActive) {
-      qs = "Boundary condition for index " + QString::number(l->index);
-      bcPropertyEditor->setWindowTitle(qs);
-      bcPropertyEditor->editProperties(l->index);
-    }
+  // Open the bc property sheet for selected boundary:
+  //--------------------------------------------------
+  if(l->selected && bcPropertyEditor->bcEditActive) {
+    qs = "Boundary condition for index " + QString::number(l->index);
+    bcPropertyEditor->setWindowTitle(qs);
+    bcPropertyEditor->editProperties(l->index);
+  }
+
+  // Body selection (take no action at the moment):
+  //------------------------------------------------
+  if(glWidget->currentlySelectedBody >= 0) {
+    cout << "*** Selected body: " << glWidget->currentlySelectedBody << endl;
+    cout.flush();
   }
 }
+
 
 
 // Make boundary condition blocks in SIF:
@@ -2737,9 +2755,9 @@ void MainWindow::synchronizeMenuToState()
   else
     linearElasticityAct->setIcon(iconEmpty);
     
-  if(bcPropertyEditor->bcEditMode)
-    bcEditModeAct->setIcon(iconChecked);
+  if(bcPropertyEditor->bcEditActive)
+    bcEditAct->setIcon(iconChecked);
   else
-    bcEditModeAct->setIcon(iconEmpty);
+    bcEditAct->setIcon(iconEmpty);
     
 }

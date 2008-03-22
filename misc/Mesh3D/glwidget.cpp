@@ -63,6 +63,7 @@ GLWidget::GLWidget(QWidget *parent)
   stateDrawSurfaceElements = true;
   stateDrawEdgeElements = true;
   stateDrawCoordinates = false;
+  currentlySelectedBody = -1;
 
   lists = 0;
 
@@ -77,6 +78,7 @@ GLWidget::GLWidget(QWidget *parent)
   meshutils = new Meshutils;
 
   ctrlPressed = false;
+  shiftPressed = false;
 
   quadratic = gluNewQuadric();	// for coordinate axis
 }
@@ -264,7 +266,11 @@ void GLWidget::resizeGL(int width, int height)
 //-----------------------------------------------------------------------------
 void GLWidget::keyPressEvent(QKeyEvent *event)
 {
-  ctrlPressed = true;
+  if(event->key() == Qt::Key_Control)
+    ctrlPressed = true;
+
+  if(event->key() == Qt::Key_Shift)
+    shiftPressed = true;
 }
 
 
@@ -272,7 +278,11 @@ void GLWidget::keyPressEvent(QKeyEvent *event)
 //-----------------------------------------------------------------------------
 void GLWidget::keyReleaseEvent(QKeyEvent *event)
 {
-  ctrlPressed = false;
+  if(event->key() == Qt::Key_Control)
+    ctrlPressed = false;
+
+  if(event->key() == Qt::Key_Shift)
+    shiftPressed = false;
 }
 
 
@@ -282,7 +292,7 @@ void GLWidget::keyReleaseEvent(QKeyEvent *event)
 void GLWidget::mousePressEvent(QMouseEvent *event)
 {
   lastPos = event->pos();
-  setFocus();
+  setFocus();  // for tracing keyboard events
 }
 
 
@@ -297,6 +307,7 @@ void GLWidget::wheelEvent(QWheelEvent *event)
   lastPos = event->pos();
   getMatrix();
 }
+
 
 
 // Mouse moves...
@@ -439,15 +450,15 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
 	  glDeleteLists(l2->object, 1);
 	  l2->selected = false;	  
 	  if(l2->type == SURFACELIST) {
-            for( int i=0; i<mesh->surfaces; i++ ) {
-              surface_t *surf=&mesh->surface[i];
+            for( int j=0; j<mesh->surfaces; j++ ) {
+              surface_t *surf=&mesh->surface[j];
               if ( surf->index == l2->index )
                 surf->selected=l2->selected;
             }
 	    l2->object = generateSurfaceList(l2->index, 0, 1, 1); // cyan
 	  } else if(l2->type == EDGELIST) {
-            for( int i=0; i<mesh->edges; i++ ) {
-              edge_t *edge=&mesh->edge[i];
+            for( int j=0; j<mesh->edges; j++ ) {
+              edge_t *edge=&mesh->edge[j];
               if ( edge->index == l2->index )
                 edge->selected=l2->selected;
             }
@@ -457,9 +468,6 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
       }
     }
 
-    // Emit result to mainwindow:
-    emit(signalBoundarySelected(l));
-    
     // Toggle selection:
     l->selected = !l->selected;
     
@@ -489,7 +497,65 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
         if ( edge->index == l->index ) edge->selected=l->selected;
       }
     }
+
+    // body selection:
+    //----------------
+    currentlySelectedBody = -1;
+    if(shiftPressed) {
+      // check if the selected lists uniquely determines a bulk body:
+      int bulk = -1;
+      bool found = false;
+      for(int i=0; i<lists; i++) {
+	list_t *l2 = &list[i];
+
+	if(l2->selected && (l2->nature == PDE_BULK)) {
+	  if(bulk < 0) {
+	    bulk = l2->index;
+	    found = true;
+	  } else {
+	    if(bulk != l2->index) {
+	      // body is not unique:
+	      found = false;
+	      break;
+	    }
+	  }
+	}
+
+	if(l2->selected && (l2->nature == PDE_BOUNDARY) && (l2->type == SURFACELIST)) {	  
+	  for(int j = 0; j < mesh->surfaces; j++) {
+	    surface_t *surf = &mesh->surface[j];	    
+	    if(surf->index == l2->index) {
+	      for(int k = 0; k < surf->elements; k++) {
+		int l = surf->element[k];
+		if(l < 0) 
+		  break;
+		element_t *elem = &mesh->element[l];
+		if(bulk < 0) {
+		  bulk = elem->index;
+		  found = true;
+		} else {
+		  if(bulk != elem->index) {
+		    // body is not not unique:
+		    found = false;
+		    break;
+		  }
+		}
+	      }
+	    }
+	  }
+	}
+      }
+
+      if(found) {
+	currentlySelectedBody = bulk;
+      } else {
+	currentlySelectedBody = -1;
+      }
+    }
     
+    // Emit result to mainwindow:
+    emit(signalBoundarySelected(l));
+
   } else {
 
     // Emit "nothing selected":

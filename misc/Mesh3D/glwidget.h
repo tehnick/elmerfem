@@ -52,6 +52,7 @@ public:
   bool stateDrawSurfaceElements;
   bool stateDrawEdgeElements;
   bool stateDrawCoordinates;
+  int currentlySelectedBody;
   
 public slots:
 
@@ -86,7 +87,8 @@ private:
   GLuint generateEdgeList(int, double, double, double);
   GLuint generateSharpEdgeList(double, double, double);
   
-  bool ctrlPressed; // true while ctrl key is held down
+  bool ctrlPressed;  // true while ctrl key is held down
+  bool shiftPressed; // true while shift key is held down
 
   GLUquadricObj *quadratic; 
   void drawCoordinates();

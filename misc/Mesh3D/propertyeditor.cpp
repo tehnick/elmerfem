@@ -47,7 +47,7 @@ using namespace std;
 PropertyEditor::PropertyEditor(QWidget *parent)
   : QDialog(parent)
 {
-  bcEditMode = false;
+  bcEditActive = false;
   heatEquationActive = false;
   linearElasticityActive = false;
 

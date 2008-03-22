@@ -32,7 +32,7 @@ public:
 
   bcProperty_t bcProperty[MAX_BCS];
 
-  bool bcEditMode;
+  bool bcEditActive;
   bool heatEquationActive;
   bool linearElasticityActive;
 

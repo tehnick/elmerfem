@@ -34,7 +34,7 @@ private slots:
   void heatEquationSlot();        // Edit -> Steady heat conduction
   void linearElasticitySlot();    // Edit -> Linear elasticity
   void showsifSlot();             // Edit -> Solver input file...
-  void bcEditModeSlot();          // Edit -> BC edit mode
+  void bcEditSlot();              // Edit -> Boundary conditions
   void generateSifSlot();         // Edit -> Generate sif
   void meshcontrolSlot();         // Mesh -> Control...
   void remeshSlot();              // Mesh -> Remesh
@@ -102,7 +102,7 @@ private:
   QAction *exitAct;               // File -> Exit
   QAction *heatEquationAct;       // Edit -> Steady heat conduction
   QAction *linearElasticityAct;   // Edit -> Linear elasticity
-  QAction *bcEditModeAct;         // Edit -> BC edit mode
+  QAction *bcEditAct;             // Edit -> Boundary conditions
   QAction *generateSifAct;        // Edit -> generate sif
   QAction *showsifAct;            // Edit -> Edit SIF...
   QAction *hidesurfacemeshAct;    // View -> Show surface mesh
