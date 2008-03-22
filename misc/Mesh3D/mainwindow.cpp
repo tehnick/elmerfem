@@ -2338,8 +2338,6 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     return;
   }
 
-  //bool selected = !l->selected;
-
   if(l->selected) {
     if(l->type == SURFACELIST) {
       qs = "Selected surface " + QString::number(l->index);

@@ -502,25 +502,53 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
     //----------------
     currentlySelectedBody = -1;
     if(shiftPressed) {
-      // check if the selected lists uniquely determines a bulk body:
-      int bulk = -1;
-      bool found = false;
-      for(int i=0; i<lists; i++) {
+
+      // determine the max bulk index
+      int MAX_BULK_INDEX = -1;
+
+      for(int i = 0; i < mesh->elements; i++) {
+	element_t *elem = &mesh->element[i];
+	if(elem->nature != PDE_BULK)
+	  break;
+	if(elem->index > MAX_BULK_INDEX)
+	  MAX_BULK_INDEX = elem->index;
+      }
+
+      for(int i = 0; i < mesh->surfaces; i++) {
+	surface_t *surf = &mesh->surface[i];
+	if(surf->nature != PDE_BULK)
+	  break;
+	if(surf->index > MAX_BULK_INDEX)
+	  MAX_BULK_INDEX = surf->index;
+      }
+
+      for(int i = 0; i < mesh->edges; i++) {
+	edge_t *edge = &mesh->edge[i];
+	if(edge->nature != PDE_BULK)
+	  break;
+	if(edge->index > MAX_BULK_INDEX)
+	  MAX_BULK_INDEX = edge->index;
+      }
+
+      // allocate temp arrays:
+      bool *tmp1 = new bool[MAX_BULK_INDEX];
+      bool *tmp2 = new bool[MAX_BULK_INDEX];
+      for(int i = 0; i < MAX_BULK_INDEX; i++) {
+	tmp1[i] = true;
+	tmp2[i] = false;
+      }
+      
+      // check if the selected lists uniquely determine a bulk body:
+      for(int i = 0; i < lists; i++) {
 	list_t *l2 = &list[i];
 
 	if(l2->selected && (l2->nature == PDE_BULK)) {
-	  if(bulk < 0) {
-	    bulk = l2->index;
-	    found = true;
-	  } else {
-	    if(bulk != l2->index) {
-	      // body is not unique:
-	      found = false;
-	      break;
-	    }
+	  for(int j = 0; j < MAX_BULK_INDEX; j++) {
+	    if(j != l2->index)
+	      tmp1[j] = false;
 	  }
 	}
-
+	
 	if(l2->selected && (l2->nature == PDE_BOUNDARY) && (l2->type == SURFACELIST)) {	  
 	  for(int j = 0; j < mesh->surfaces; j++) {
 	    surface_t *surf = &mesh->surface[j];	    
@@ -530,27 +558,34 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
 		if(l < 0) 
 		  break;
 		element_t *elem = &mesh->element[l];
-		if(bulk < 0) {
-		  bulk = elem->index;
-		  found = true;
-		} else {
-		  if(bulk != elem->index) {
-		    // body is not not unique:
-		    found = false;
-		    break;
-		  }
-		}
+		if((elem->index < 0) || (elem->index >= MAX_BULK_INDEX))
+		  break;
+		tmp2[elem->index] = true;
+	      }
+	      for(int k = 0; k < MAX_BULK_INDEX; k++) {
+		tmp1[k] &= tmp2[k];
+		tmp2[k] = false;
 	      }
 	    }
 	  }
 	}
       }
 
-      if(found) {
-	currentlySelectedBody = bulk;
-      } else {
-	currentlySelectedBody = -1;
+      // array "tmp1" should contain only one entry with value "true"
+      int count = 0;
+      int found = -1;
+      for(int i = 0; i < MAX_BULK_INDEX; i++) {
+	if( tmp1[i] ) {
+	  count++;
+	  found = i;
+	}
       }
+      
+      if((count == 1) && (found >= 0))
+	currentlySelectedBody = found;
+      
+      delete [] tmp1;
+      delete [] tmp2;
     }
     
     // Emit result to mainwindow:
