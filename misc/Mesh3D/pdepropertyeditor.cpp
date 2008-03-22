@@ -47,19 +47,16 @@ using namespace std;
 PDEPropertyEditor::PDEPropertyEditor(QWidget *parent)
   : QDialog(parent)
 {
-  equations = 0;
-  equation = new equation_t[MAX_EQUATIONS];
-
   ui.setupUi(this);
+  
+  menuAction = NULL;
 
   connect(ui.acceptEquation, SIGNAL(clicked()), this, SLOT(acceptButtonClicked()));
   connect(ui.deleteEquation, SIGNAL(clicked()), this, SLOT(deleteButtonClicked()));
-
 }
 
 PDEPropertyEditor::~PDEPropertyEditor()
 {
-  delete [] equation;
 }
 
 void PDEPropertyEditor::acceptButtonClicked()
@@ -67,41 +64,7 @@ void PDEPropertyEditor::acceptButtonClicked()
   cout << "Accept" << endl;
   cout.flush();
 
-  equation_t *eq = &equation[equations++];
-
-  heatEquation_t he = eq->heatEquation;
-  he.active = ui.heatEquationActive->checkState();
-  he.convectionNone = ui.heatEquationConvectionNone->isChecked();
-  he.convectionConstant = ui.heatEquationConvectionConstant->isChecked();
-  he.convectionComputed = ui.heatEquationConvectionComputed->isChecked();
-  he.phaseChangeSpatial1 = ui.heatEquationPCMNone->isChecked();
-  he.phaseChangeSpatial2 = ui.heatEquationPCMSpatial1->isChecked();
-  he.phaseChangeTemporal = ui.heatEquationPCMSpatial2->isChecked();
-  he.latentHeatRelease = ui.heatEquationPCMLatentHeatRelease->checkState();
-
-  linearElasticity_t le = eq->linearElasticity;
-  le.active = ui.heatEquationActive->checkState();
-  le.planeStress = ui.linearElasticityPlaneStress->checkState();
-
-  navierStokes_t ns = eq->navierStokes;
-  ns.active = ui.navierStokesActive->checkState();
-  ns.turbulenceModelNone = ui.navierStokesTurbulenceModelNone->isChecked();
-  ns.turbulenceModelKE = ui.navierStokesTurbulenceModelKE->isChecked();
-  const QString &keClip = ui.navierStokesKEClipEdit->text();
-  ns.keClip = keClip.toDouble();
-
-  advectionDiffusion_t ad = eq->advectionDiffusion;
-  ad.active = ui.advectionDiffusionActive->checkState();
-  ad.convectionNone = ui.advectionDiffusionConvectionNone->isChecked();
-  ad.convectionConstant = ui.advectionDiffusionConvectionConstant->isChecked();
-  ad.convectionComputed = ui.advectionDiffusionConvectionComputed->isChecked();
-  
-  helmholtzEquation_t h = eq->helmholtzEquation;
-  h.active = ui.helmholtzEquationActive->checkState();  
-  const QString &angularFrequency = ui.helmholtzEquationAngularFrequencyEdit->text();
-  h.angularFrequency = angularFrequency.toDouble();
-
-  close();
+  emit(signalPdeEditorFinished(0, myId));
 }
 
 
@@ -109,6 +72,12 @@ void PDEPropertyEditor::deleteButtonClicked()
 {
   cout << "Delete" << endl;
   cout.flush();
+  
+  emit(signalPdeEditorFinished(1, myId));
+}
 
-  close();
+void PDEPropertyEditor::startEdit(int id)
+{
+  myId = id;
+  this->show();
 }

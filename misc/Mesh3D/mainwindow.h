@@ -1,8 +1,11 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
+#define MAX_EQUATIONS 10
+
 #include <QMainWindow>
 #include <QProcess>
+#include <QAction>
 #include "plugins/tetlib_api.h"
 #include "plugins/nglib_api.h"
 #include "plugins/elmergrid_api.h"
@@ -69,7 +72,11 @@ private slots:
   void solverStdoutSlot();            // solver's stdout redirection
   void solverStderrSlot();            // solver's stderr redirection
   void solverFinishedSlot(int);       // signal emitted by solver process
-  
+  void pdeEditorFinishedSlot(int, int);  // signal emitted by pde editor
+
+  //?????
+  void equationSelectedSlot(QAction*);  // eq selected from menu
+
 private:
   GLWidget *glWidget;             // central gl widget
   SifWindow *sifWindow;           // sif text editor
@@ -136,6 +143,9 @@ private:
 
   // property editors:
   BCPropertyEditor *bcPropertyEditor;
+
+  // ?????
+  int equations;
   PDEPropertyEditor *pdePropertyEditor;
 
   // images:
