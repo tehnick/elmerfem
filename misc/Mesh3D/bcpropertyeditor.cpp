@@ -40,11 +40,11 @@
 
 #include <QtGui>
 #include <iostream>
-#include "propertyeditor.h"
+#include "bcpropertyeditor.h"
 
 using namespace std;
 
-PropertyEditor::PropertyEditor(QWidget *parent)
+BCPropertyEditor::BCPropertyEditor(QWidget *parent)
   : QDialog(parent)
 {
   maxindex = MAX_BCS;
@@ -65,29 +65,28 @@ PropertyEditor::PropertyEditor(QWidget *parent)
   connect(ui.displacement3Edit, SIGNAL(textChanged(const QString&)), this, SLOT(displacement3Changed(const QString&)));
 }
 
-PropertyEditor::~PropertyEditor()
+BCPropertyEditor::~BCPropertyEditor()
 {
 }
 
-void PropertyEditor::editProperties(int bcIndex)
+void BCPropertyEditor::editProperties(int bcIndex)
 {
   this->bcIndex = bcIndex;
 
   updateActiveSheets();
 
-  bcProperty_t *bp = &bcProperty[bcIndex];
+  bcProperty_t *bc = &bcProperty[bcIndex];
 
-  ui.temperatureEdit   -> setText(bp->temperature);
-  ui.heatFluxEdit      -> setText(bp->heatFlux);
-  ui.displacement1Edit -> setText(bp->displacement1);
-  ui.displacement2Edit -> setText(bp->displacement2);
-  ui.displacement3Edit -> setText(bp->displacement3);
+  ui.temperatureEdit   -> setText(bc->temperature);
+  ui.heatFluxEdit      -> setText(bc->heatFlux);
+  ui.displacement1Edit -> setText(bc->displacement1);
+  ui.displacement2Edit -> setText(bc->displacement2);
+  ui.displacement3Edit -> setText(bc->displacement3);
 
   this->show();
 }
 
-
-void PropertyEditor::updateActiveSheets()
+void BCPropertyEditor::updateActiveSheets()
 {
   if(heatEquationActive) 
     ui.heatEquation->setEnabled(true);
@@ -100,39 +99,37 @@ void PropertyEditor::updateActiveSheets()
     ui.linearElasticity->setEnabled(false);
 }
 
-
-
-void PropertyEditor::temperatureChanged(const QString& qs)
+void BCPropertyEditor::temperatureChanged(const QString& qs)
 {
-  bcProperty_t *bp = &bcProperty[bcIndex];
-  bp->defined = true;
-  bp->temperature = qs;
+  bcProperty_t *bc = &bcProperty[bcIndex];
+  bc->defined = true;
+  bc->temperature = qs;
 }
 
-void PropertyEditor::heatFluxChanged(const QString& qs)
+void BCPropertyEditor::heatFluxChanged(const QString& qs)
 {
-  bcProperty_t *bp = &bcProperty[bcIndex];
-  bp->defined = true;
-  bp->heatFlux = qs;
+  bcProperty_t *bc = &bcProperty[bcIndex];
+  bc->defined = true;
+  bc->heatFlux = qs;
 }
 
-void PropertyEditor::displacement1Changed(const QString& qs)
+void BCPropertyEditor::displacement1Changed(const QString& qs)
 {
-  bcProperty_t *bp = &bcProperty[bcIndex];
-  bp->defined = true;
-  bp->displacement1 = qs;
+  bcProperty_t *bc = &bcProperty[bcIndex];
+  bc->defined = true;
+  bc->displacement1 = qs;
 }
 
-void PropertyEditor::displacement2Changed(const QString& qs)
+void BCPropertyEditor::displacement2Changed(const QString& qs)
 {
-  bcProperty_t *bp = &bcProperty[bcIndex];
-  bp->defined = true;
-  bp->displacement2 = qs;
+  bcProperty_t *bc = &bcProperty[bcIndex];
+  bc->defined = true;
+  bc->displacement2 = qs;
 }
 
-void PropertyEditor::displacement3Changed(const QString& qs)
+void BCPropertyEditor::displacement3Changed(const QString& qs)
 {
-  bcProperty_t *bp = &bcProperty[bcIndex];
-  bp->defined = true;
-  bp->displacement3 = qs;
+  bcProperty_t *bc = &bcProperty[bcIndex];
+  bc->defined = true;
+  bc->displacement3 = qs;
 }

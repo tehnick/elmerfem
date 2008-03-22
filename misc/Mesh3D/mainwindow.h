@@ -12,7 +12,8 @@
 #include "meshcontrol.h"
 #include "boundarydivision.h"
 #include "meshutils.h"
-#include "propertyeditor.h"
+#include "bcpropertyeditor.h"
+#include "pdepropertyeditor.h"
 
 class QAction;
 class QMenu;
@@ -31,8 +32,9 @@ private slots:
   void loadSlot();                // File -> Load...
   void saveSlot();                // File -> Save...
   void closeMainWindowSlot();     // File -> exit
-  void heatEquationSlot();        // PDE -> Steady heat conduction
-  void linearElasticitySlot();    // PDE -> Linear elasticity
+  void addEquationSlot();         // Equation -> Add...
+  void heatEquationSlot();        // Equation -> Steady heat conduction
+  void linearElasticitySlot();    // Equation -> Linear elasticity
   void bcEditSlot();              // Edit -> Boundary conditions
   void generateSifSlot();         // Edit -> Generate sif
   void showsifSlot();             // Edit -> Solver input file...
@@ -84,7 +86,7 @@ private:
   void applyOperations();
     
   QMenu *fileMenu;                // File menu
-  QMenu *pdeMenu;                 // PDE menu
+  QMenu *equationMenu;            // Equation menu
   QMenu *editMenu;                // Edit menu
   QMenu *viewMenu;                // View menu
   QMenu *shadeMenu;               // View -> Shade model
@@ -101,8 +103,9 @@ private:
   QAction *loadAct;               // File -> Load...
   QAction *saveAct;               // File -> Save...
   QAction *exitAct;               // File -> Exit
-  QAction *heatEquationAct;       // PDE -> Steady heat conduction
-  QAction *linearElasticityAct;   // PDE -> Linear elasticity
+  QAction *addEquationAct;        // Equation -> Add...
+  QAction *heatEquationAct;       // Equation -> Steady heat conduction
+  QAction *linearElasticityAct;   // Equation -> Linear elasticity
   QAction *bcEditAct;             // Edit -> Boundary conditions
   QAction *generateSifAct;        // Edit -> Generate sif
   QAction *showsifAct;            // Edit -> Edit SIF...
@@ -131,8 +134,9 @@ private:
 
   int activeGenerator;            // Currently active generator
 
-  // bc property editor:
-  PropertyEditor *bcPropertyEditor;
+  // property editors:
+  BCPropertyEditor *bcPropertyEditor;
+  PDEPropertyEditor *pdePropertyEditor;
 
   // images:
   QIcon iconChecked;

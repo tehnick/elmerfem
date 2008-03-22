@@ -1,11 +1,11 @@
-#ifndef PROPERTYEDITOR_H
-#define PROPERTYEDITOR_H
+#ifndef BCPROPERTYEDITOR_H
+#define BCPROPERTYEDITOR_H
 
 #define MAX_BCS 100000
 
 #include <QWidget>
 
-#include "ui_propertyeditor.h"
+#include "ui_bcpropertyeditor.h"
 
 class QTextEdit;
 class QPushButton;
@@ -22,13 +22,13 @@ class bcProperty_t {
   QString displacement3;
 };
 
-class PropertyEditor : public QDialog
+class BCPropertyEditor : public QDialog
 {
   Q_OBJECT
 
 public:
-  PropertyEditor(QWidget *parent = 0);
-  ~PropertyEditor();
+  BCPropertyEditor(QWidget *parent = 0);
+  ~BCPropertyEditor();
 
   bcProperty_t bcProperty[MAX_BCS];
 
@@ -55,4 +55,4 @@ private:
 
 };
 
-#endif // PROPERTYEDITOR_H
+#endif // BCPROPERTYEDITOR_H

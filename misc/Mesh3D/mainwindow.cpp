@@ -99,7 +99,8 @@ MainWindow::MainWindow()
   solverLogWindow = new SifWindow(this);
   solver = new QProcess(this);
   post = new QProcess(this);
-  bcPropertyEditor = new PropertyEditor;
+  bcPropertyEditor = new BCPropertyEditor;
+  pdePropertyEditor = new PDEPropertyEditor;
 
   createActions();
   createMenus();
@@ -178,10 +179,12 @@ void MainWindow::createMenus()
   fileMenu->addSeparator();
   fileMenu->addAction(exitAct);
 
-  // PDE menu
-  pdeMenu = menuBar()->addMenu(tr("PDE"));
-  pdeMenu->addAction(heatEquationAct);
-  pdeMenu->addAction(linearElasticityAct);
+  // Equation menu
+  equationMenu = menuBar()->addMenu(tr("Equation"));
+  equationMenu->addAction(addEquationAct);
+  equationMenu->addSeparator();
+  equationMenu->addAction(heatEquationAct);
+  equationMenu->addAction(linearElasticityAct);
 
   // Edit menu
   editMenu = menuBar()->addMenu(tr("&Edit"));
@@ -301,12 +304,17 @@ void MainWindow::createActions()
   exitAct->setStatusTip(tr("Exit"));
   connect(exitAct, SIGNAL(triggered()), this, SLOT(closeMainWindowSlot()));
 
-  // PDE -> Heat equation
+  // Equation -> Add...
+  addEquationAct = new QAction(QIcon(), tr("Add..."), this);
+  addEquationAct->setStatusTip(tr("Add a PDE-system to the equation list"));
+  connect(addEquationAct, SIGNAL(triggered()), this, SLOT(addEquationSlot()));
+
+  // Equation -> Heat equation
   heatEquationAct = new QAction(QIcon(), tr("Heat equation"), this);
   heatEquationAct->setStatusTip(tr("Activate heat equation"));
   connect(heatEquationAct, SIGNAL(triggered()), this, SLOT(heatEquationSlot()));
 
-  // PDE -> Linear elasticity
+  // Equation -> Linear elasticity
   linearElasticityAct = new QAction(QIcon(), tr("Linear elasticity"), this);
   linearElasticityAct->setStatusTip(tr("Activate linear elasticity"));
   connect(linearElasticityAct, SIGNAL(triggered()), this, SLOT(linearElasticitySlot()));
@@ -2114,11 +2122,20 @@ void MainWindow::edgeUnifySlot()
 
 //*****************************************************************************
 //
-//                                PDE MENU
+//                                  PDE MENU
 //
 //*****************************************************************************
 
-// PDE -> Heat equation
+// Equation -> Add...
+//-----------------------------------------------------------------------------
+void MainWindow::addEquationSlot()
+{
+  pdePropertyEditor->show();
+  synchronizeMenuToState();
+}
+
+
+// Equation -> Heat equation (eventually obsolete)
 //-----------------------------------------------------------------------------
 void MainWindow::heatEquationSlot()
 {
@@ -2129,7 +2146,7 @@ void MainWindow::heatEquationSlot()
 
 
 
-// PDE -> Linear elasticity
+// Equation -> Linear elasticity (eventually obsolete)
 //-----------------------------------------------------------------------------
 void MainWindow::linearElasticitySlot()
 {
