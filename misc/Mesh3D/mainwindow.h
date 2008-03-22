@@ -31,11 +31,11 @@ private slots:
   void loadSlot();                // File -> Load...
   void saveSlot();                // File -> Save...
   void closeMainWindowSlot();     // File -> exit
-  void heatEquationSlot();        // Edit -> Steady heat conduction
-  void linearElasticitySlot();    // Edit -> Linear elasticity
-  void showsifSlot();             // Edit -> Solver input file...
+  void heatEquationSlot();        // PDE -> Steady heat conduction
+  void linearElasticitySlot();    // PDE -> Linear elasticity
   void bcEditSlot();              // Edit -> Boundary conditions
   void generateSifSlot();         // Edit -> Generate sif
+  void showsifSlot();             // Edit -> Solver input file...
   void meshcontrolSlot();         // Mesh -> Control...
   void remeshSlot();              // Mesh -> Remesh
   void stopMeshingSlot();         // Mesh -> Kill generator
@@ -84,6 +84,7 @@ private:
   void applyOperations();
     
   QMenu *fileMenu;                // File menu
+  QMenu *pdeMenu;                 // PDE menu
   QMenu *editMenu;                // Edit menu
   QMenu *viewMenu;                // View menu
   QMenu *shadeMenu;               // View -> Shade model
@@ -100,10 +101,10 @@ private:
   QAction *loadAct;               // File -> Load...
   QAction *saveAct;               // File -> Save...
   QAction *exitAct;               // File -> Exit
-  QAction *heatEquationAct;       // Edit -> Steady heat conduction
-  QAction *linearElasticityAct;   // Edit -> Linear elasticity
+  QAction *heatEquationAct;       // PDE -> Steady heat conduction
+  QAction *linearElasticityAct;   // PDE -> Linear elasticity
   QAction *bcEditAct;             // Edit -> Boundary conditions
-  QAction *generateSifAct;        // Edit -> generate sif
+  QAction *generateSifAct;        // Edit -> Generate sif
   QAction *showsifAct;            // Edit -> Edit SIF...
   QAction *hidesurfacemeshAct;    // View -> Show surface mesh
   QAction *hidesharpedgesAct;     // View -> Show sharp edges

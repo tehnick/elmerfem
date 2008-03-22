@@ -37,9 +37,11 @@ public:
   bool linearElasticityActive;
 
   void editProperties(int);
+  void updateActiveSheets();
 
   Ui::bcPropertyDialog ui;
 
+  int bcIndex;
   int maxindex;
 
 private slots:
@@ -50,7 +52,6 @@ private slots:
   void displacement3Changed(const QString&);
 
 private:
-  int bcIndex;
 
 };
 

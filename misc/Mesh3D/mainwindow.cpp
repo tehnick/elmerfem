@@ -137,8 +137,8 @@ MainWindow::MainWindow()
   nglibInputOk = false;
   tetlibInputOk = false;
   activeGenerator = GEN_UNKNOWN;
-  bcPropertyEditor->heatEquationActive = false;
-  bcPropertyEditor->linearElasticityActive = false;
+  // bcPropertyEditor->heatEquationActive = false;
+  // bcPropertyEditor->linearElasticityActive = false;
 
   // set font for text editors:
   QFont sansFont("Courier", 10);
@@ -178,11 +178,13 @@ void MainWindow::createMenus()
   fileMenu->addSeparator();
   fileMenu->addAction(exitAct);
 
+  // PDE menu
+  pdeMenu = menuBar()->addMenu(tr("PDE"));
+  pdeMenu->addAction(heatEquationAct);
+  pdeMenu->addAction(linearElasticityAct);
+
   // Edit menu
   editMenu = menuBar()->addMenu(tr("&Edit"));
-  editMenu->addAction(heatEquationAct);
-  editMenu->addAction(linearElasticityAct);
-  editMenu->addSeparator();
   editMenu->addAction(bcEditAct);
   editMenu->addSeparator();
   editMenu->addAction(generateSifAct);
@@ -299,12 +301,12 @@ void MainWindow::createActions()
   exitAct->setStatusTip(tr("Exit"));
   connect(exitAct, SIGNAL(triggered()), this, SLOT(closeMainWindowSlot()));
 
-  // Edit -> Steady heat conduntion
+  // PDE -> Heat equation
   heatEquationAct = new QAction(QIcon(), tr("Heat equation"), this);
   heatEquationAct->setStatusTip(tr("Activate heat equation"));
   connect(heatEquationAct, SIGNAL(triggered()), this, SLOT(heatEquationSlot()));
 
-  // Edit -> Linear elasticity
+  // PDE -> Linear elasticity
   linearElasticityAct = new QAction(QIcon(), tr("Linear elasticity"), this);
   linearElasticityAct->setStatusTip(tr("Activate linear elasticity"));
   connect(linearElasticityAct, SIGNAL(triggered()), this, SLOT(linearElasticitySlot()));
@@ -2112,28 +2114,36 @@ void MainWindow::edgeUnifySlot()
 
 //*****************************************************************************
 //
-//                                Edit MENU
+//                                PDE MENU
 //
 //*****************************************************************************
 
-// Edit -> Heat equation
+// PDE -> Heat equation
 //-----------------------------------------------------------------------------
 void MainWindow::heatEquationSlot()
 {
   bcPropertyEditor->heatEquationActive = !bcPropertyEditor->heatEquationActive;
+  bcPropertyEditor->updateActiveSheets();
   synchronizeMenuToState();
 }
 
 
 
-// Edit -> Linear elasticity
+// PDE -> Linear elasticity
 //-----------------------------------------------------------------------------
 void MainWindow::linearElasticitySlot()
 {
   bcPropertyEditor->linearElasticityActive = !bcPropertyEditor->linearElasticityActive;
+  bcPropertyEditor->updateActiveSheets();
   synchronizeMenuToState();
 }
 
+
+//*****************************************************************************
+//
+//                                Edit MENU
+//
+//*****************************************************************************
 
 
 // Edit -> Boundary conditions

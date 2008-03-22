@@ -47,14 +47,14 @@ using namespace std;
 PropertyEditor::PropertyEditor(QWidget *parent)
   : QDialog(parent)
 {
+  maxindex = MAX_BCS;
+
   bcEditActive = false;
   heatEquationActive = false;
   linearElasticityActive = false;
 
   for(int i = 0; i < MAX_BCS; i++)
     bcProperty[i].defined = false;
-
-  maxindex = MAX_BCS;
 
   ui.setupUi(this);
 
@@ -73,15 +73,7 @@ void PropertyEditor::editProperties(int bcIndex)
 {
   this->bcIndex = bcIndex;
 
-  if(heatEquationActive) 
-    ui.heatEquation->setEnabled(true);
-  else
-    ui.heatEquation->setEnabled(false);
-
-  if(linearElasticityActive)
-    ui.linearElasticity->setEnabled(true);
-  else
-    ui.linearElasticity->setEnabled(false);
+  updateActiveSheets();
 
   bcProperty_t *bp = &bcProperty[bcIndex];
 
@@ -93,6 +85,22 @@ void PropertyEditor::editProperties(int bcIndex)
 
   this->show();
 }
+
+
+void PropertyEditor::updateActiveSheets()
+{
+  if(heatEquationActive) 
+    ui.heatEquation->setEnabled(true);
+  else
+    ui.heatEquation->setEnabled(false);
+  
+  if(linearElasticityActive)
+    ui.linearElasticity->setEnabled(true);
+  else
+    ui.linearElasticity->setEnabled(false);
+}
+
+
 
 void PropertyEditor::temperatureChanged(const QString& qs)
 {
