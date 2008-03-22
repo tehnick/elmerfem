@@ -529,6 +529,13 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
 	if(edge->index > MAX_BULK_INDEX)
 	  MAX_BULK_INDEX = edge->index;
       }
+      
+      MAX_BULK_INDEX++;
+      if(MAX_BULK_INDEX == 0) {
+	cout << "Error in body selection: There are no legal body indiced from which to choose" << endl;
+	cout.flush();
+	goto body_selection_finished;
+      }
 
       // allocate temp arrays:
       bool *tmp1 = new bool[MAX_BULK_INDEX];
@@ -587,6 +594,7 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
       delete [] tmp1;
       delete [] tmp2;
     }
+  body_selection_finished:
     
     // Emit result to mainwindow:
     emit(signalBoundarySelected(l));

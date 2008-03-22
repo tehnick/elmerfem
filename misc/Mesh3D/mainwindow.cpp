@@ -2369,7 +2369,7 @@ void MainWindow::boundarySelectedSlot(list_t *l)
   // Body selection (take no action at the moment):
   //------------------------------------------------
   if(glWidget->currentlySelectedBody >= 0) {
-    cout << "*** Selected body: " << glWidget->currentlySelectedBody << endl;
+    cout << "*** Current selection uniquely determines body: " << glWidget->currentlySelectedBody << endl;
     cout.flush();
   }
 }
