@@ -50,8 +50,8 @@ BCPropertyEditor::BCPropertyEditor(QWidget *parent)
   maxindex = MAX_BCS;
 
   bcEditActive = false;
-  heatEquationActive = false;
-  linearElasticityActive = false;
+  heatEquationActive = true;
+  linearElasticityActive = true;
 
   for(int i = 0; i < MAX_BCS; i++)
     bcProperty[i].defined = false;

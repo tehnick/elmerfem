@@ -143,9 +143,6 @@ private:
 
   // property editors:
   BCPropertyEditor *bcPropertyEditor;
-
-  // ?????
-  int equations;
   PDEPropertyEditor *pdePropertyEditor;
 
   // images:

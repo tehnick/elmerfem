@@ -138,7 +138,6 @@ MainWindow::MainWindow()
   nglibInputOk = false;
   tetlibInputOk = false;
   activeGenerator = GEN_UNKNOWN;
-  equations = 0;
 
   // set font for text editors:
   QFont sansFont("Courier", 10);
@@ -182,8 +181,8 @@ void MainWindow::createMenus()
   equationMenu = menuBar()->addMenu(tr("Equation"));
   equationMenu->addAction(addEquationAct);
   equationMenu->addSeparator();
-  equationMenu->addAction(heatEquationAct);
-  equationMenu->addAction(linearElasticityAct);
+  // equationMenu->addAction(heatEquationAct);
+  // equationMenu->addAction(linearElasticityAct);
 
   connect(equationMenu, SIGNAL(triggered(QAction*)), this, SLOT(equationSelectedSlot(QAction*)));
 
@@ -2131,15 +2130,27 @@ void MainWindow::edgeUnifySlot()
 //-----------------------------------------------------------------------------
 void MainWindow::addEquationSlot()
 {
-  if((equations+1) >= MAX_EQUATIONS) {
-    logMessage("Unable to add equation - max limit reached");
+
+  // use the first free slot in pdePropertyEditor array:
+  int current = 0;
+  bool found = false;
+  PDEPropertyEditor *pe = NULL;
+  for(int i = 0; i < MAX_EQUATIONS; i++) {
+    pe = &pdePropertyEditor[i];
+    if(pe->menuAction == NULL) {
+      found = true;
+      current = i;
+      break;
+    }
+  }
+
+  if(!found) {
+    logMessage("Equation max limit reached - unable to add equation");
     return;
   }
 
-  int current = equations++;
-  PDEPropertyEditor *pe = &pdePropertyEditor[current];
+  pe->setWindowTitle("Edit equation");
   QString qs = "Equation " + QString::number(current+1);
-  pe->setWindowTitle(qs);
   pe->ui.equationNameEdit->setText(qs);
   connect(pe, SIGNAL(signalPdeEditorFinished(int,int)), this, SLOT(pdeEditorFinishedSlot(int,int))) ;
   pe->startEdit(current);
@@ -2158,46 +2169,41 @@ void MainWindow::pdeEditorFinishedSlot(int signal, int id)
   const QString &equationName = pe->ui.equationNameEdit->text();
   
   if((equationName == "") && (signal == PDE_OK)) {
-    logMessage("Refusing to add equation with empty name");
+    logMessage("Refusing to add equation with no name");
     return;
   }
   
-  // "Ok" pressed in PDE editor:
-  //-----------------------------
   if(signal == PDE_OK) {
     
-    // Check if this equation already exists:
+    // Equation already exists:
     if(pe->menuAction != NULL) {
       logMessage("Equation updated");
       pe->close();
       return;
     }
 
-    // The equation is new - add to menu:
+    // Equation is new - add to menu:
     QAction *act = new QAction(equationName, this);
     equationMenu->addAction(act);
     pe->menuAction = act;
     pe->close();
+    logMessage("Equation added");
   }
 
-  // "Delete" pressed in PDE editor:
-  //--------------------------------
   if(signal == PDE_DELETE) {
 
-    // remove from menu:
+    // Equation is not in menu:
     if(pe->menuAction == NULL) {
       logMessage("Ready");
       pe->close();
       return;
     }
 
+    // Delete from menu:
     delete pe->menuAction;
+    pe->menuAction = NULL;
     pe->close();
     logMessage("Equation deleted");
-
-
-  // Todo: Cleanup for *pdePropertyEditor
-
   }
 }
 
@@ -2208,7 +2214,7 @@ void MainWindow::pdeEditorFinishedSlot(int signal, int id)
 void MainWindow::equationSelectedSlot(QAction* act)
 {
   // Edit the selected equation:
-  for(int i = 0; i < equations; i++) {
+  for(int i = 0; i < MAX_EQUATIONS; i++) {
     PDEPropertyEditor *pe = &pdePropertyEditor[i];
     if(pe->menuAction == act)
       pe->show();
