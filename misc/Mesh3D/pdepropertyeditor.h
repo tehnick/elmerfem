@@ -15,6 +15,7 @@ public:
   Ui::equationEditor ui;
 
   void startEdit(int);
+  void defaultSettings();
 
   QAction *menuAction;
 

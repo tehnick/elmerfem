@@ -81,3 +81,31 @@ void PDEPropertyEditor::startEdit(int id)
   myId = id;
   this->show();
 }
+
+void PDEPropertyEditor::defaultSettings()
+{
+  Qt::CheckState uc = Qt::Unchecked;
+
+  ui.heatEquationActive->setCheckState(uc);
+  ui.linearElasticityActive->setCheckState(uc);
+  ui.navierStokesActive->setCheckState(uc);
+  ui.heatEquationActive->setCheckState(uc);
+  ui.advectionDiffusionActive->setCheckState(uc);
+  ui.helmholtzEquationActive->setCheckState(uc);
+
+  ui.pdeTabs->setCurrentIndex(0);
+
+  ui.heatEquationConvectionNone->setChecked(true);
+  ui.heatEquationPCMNone->setChecked(true);
+  ui.heatEquationPCMLatentHeatRelease->setChecked(uc);
+
+  ui.linearElasticityPlaneStress->setChecked(uc);
+
+  ui.navierStokesCalculateHydrostaticPressure->setChecked(uc);
+  ui.navierStokesTurbulenceModelNone->setChecked(true);
+  ui.navierStokesKEClipEdit->setText("1.0e-6");
+
+  ui.advectionDiffusionConvectionNone->setChecked(true);
+
+  ui.helmholtzEquationAngularFrequencyEdit->setText("");
+}

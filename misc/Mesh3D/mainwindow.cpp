@@ -2130,7 +2130,6 @@ void MainWindow::edgeUnifySlot()
 //-----------------------------------------------------------------------------
 void MainWindow::addEquationSlot()
 {
-
   // use the first free slot in pdePropertyEditor array:
   int current = 0;
   bool found = false;
@@ -2152,10 +2151,11 @@ void MainWindow::addEquationSlot()
   pe->setWindowTitle("Edit equation");
   QString qs = "Equation " + QString::number(current+1);
   pe->ui.equationNameEdit->setText(qs);
-  connect(pe, SIGNAL(signalPdeEditorFinished(int,int)), this, SLOT(pdeEditorFinishedSlot(int,int))) ;
+  pe->defaultSettings();
+  connect(pe, SIGNAL(signalPdeEditorFinished(int,int)),
+	  this, SLOT(pdeEditorFinishedSlot(int,int))) ;
   pe->startEdit(current);
 }
-
 
 
 // signal (int,int) emitted by equation editor when ready:
@@ -2208,7 +2208,6 @@ void MainWindow::pdeEditorFinishedSlot(int signal, int id)
 }
 
 
-
 // signal (QAction*) emitted by equationMenu when an item has been selected:
 //-----------------------------------------------------------------------------
 void MainWindow::equationSelectedSlot(QAction* act)
@@ -2222,7 +2221,6 @@ void MainWindow::equationSelectedSlot(QAction* act)
 }
 
 
-
 // Equation -> Heat equation (eventually obsolete)
 //-----------------------------------------------------------------------------
 void MainWindow::heatEquationSlot()
@@ -2231,7 +2229,6 @@ void MainWindow::heatEquationSlot()
   bcPropertyEditor->updateActiveSheets();
   synchronizeMenuToState();
 }
-
 
 
 // Equation -> Linear elasticity (eventually obsolete)
