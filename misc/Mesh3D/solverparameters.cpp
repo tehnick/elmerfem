@@ -51,9 +51,6 @@ SolverParameterEditor::SolverParameterEditor(QWidget *parent)
 
   connect(ui.applyButton, SIGNAL(clicked()),
 	  this, SLOT(close()));
-
-  connect(ui.cancelButton, SIGNAL(clicked()),
-	  this, SLOT(close()));
 }
 
 SolverParameterEditor::~SolverParameterEditor()

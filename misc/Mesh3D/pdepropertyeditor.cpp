@@ -120,15 +120,14 @@ void PDEPropertyEditor::defaultSettings()
 
 void PDEPropertyEditor::editNumericalMethods()
 {
+  const QString &equationName = ui.equationNameEdit->text();
+    
   // determine which solver is currently selected in the Tab:
   int currentIndex = ui.pdeTabs->currentIndex();
   const QString &solverName = ui.pdeTabs->tabText(currentIndex);
 
-  cout << "Edit numerical methods for solver: " << currentIndex << endl;
-  cout.flush();
-
   SolverParameterEditor *spe = &solverParameterEditor[currentIndex];
-  spe->setWindowTitle("Solver control for " + solverName);
+  spe->setWindowTitle("Solver control for " + solverName 
+		      + " (" + equationName + ")");
   spe->show();
-
 }
