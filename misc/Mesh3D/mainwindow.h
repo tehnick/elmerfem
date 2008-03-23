@@ -2,6 +2,7 @@
 #define MAINWINDOW_H
 
 #define MAX_EQUATIONS 10
+#define MAX_MATERIALS 10
 
 #include <QMainWindow>
 #include <QProcess>
@@ -17,6 +18,7 @@
 #include "meshutils.h"
 #include "bcpropertyeditor.h"
 #include "pdepropertyeditor.h"
+#include "matpropertyeditor.h"
 
 class QAction;
 class QMenu;
@@ -36,8 +38,7 @@ private slots:
   void saveSlot();                // File -> Save...
   void closeMainWindowSlot();     // File -> exit
   void addEquationSlot();         // Equation -> Add...
-  void heatEquationSlot();        // Equation -> Steady heat conduction
-  void linearElasticitySlot();    // Equation -> Linear elasticity
+  void addMaterialSlot();         // Material -> Add...
   void bcEditSlot();              // Edit -> Boundary conditions
   void generateSifSlot();         // Edit -> Generate sif
   void showsifSlot();             // Edit -> Solver input file...
@@ -73,9 +74,9 @@ private slots:
   void solverStderrSlot();            // solver's stderr redirection
   void solverFinishedSlot(int);       // signal emitted by solver process
   void pdeEditorFinishedSlot(int, int);  // signal emitted by pde editor
-
-  //?????
-  void equationSelectedSlot(QAction*);  // eq selected from menu
+  void matEditorFinishedSlot(int, int);  // signal emitted by mat editor
+  void equationSelectedSlot(QAction*);   // item selected from Equation menu
+  void materialSelectedSlot(QAction*);   // item selected from Material menu
 
 private:
   GLWidget *glWidget;             // central gl widget
@@ -94,6 +95,7 @@ private:
     
   QMenu *fileMenu;                // File menu
   QMenu *equationMenu;            // Equation menu
+  QMenu *materialMenu;            // Material menu
   QMenu *editMenu;                // Edit menu
   QMenu *viewMenu;                // View menu
   QMenu *shadeMenu;               // View -> Shade model
@@ -111,8 +113,7 @@ private:
   QAction *saveAct;               // File -> Save...
   QAction *exitAct;               // File -> Exit
   QAction *addEquationAct;        // Equation -> Add...
-  QAction *heatEquationAct;       // Equation -> Steady heat conduction
-  QAction *linearElasticityAct;   // Equation -> Linear elasticity
+  QAction *addMaterialAct;        // Material -> Add...
   QAction *bcEditAct;             // Edit -> Boundary conditions
   QAction *generateSifAct;        // Edit -> Generate sif
   QAction *showsifAct;            // Edit -> Edit SIF...
@@ -144,6 +145,7 @@ private:
   // property editors:
   BCPropertyEditor *bcPropertyEditor;
   PDEPropertyEditor *pdePropertyEditor;
+  MATPropertyEditor *matPropertyEditor;
 
   // images:
   QIcon iconChecked;

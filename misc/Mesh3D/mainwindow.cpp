@@ -101,6 +101,7 @@ MainWindow::MainWindow()
   post = new QProcess(this);
   bcPropertyEditor = new BCPropertyEditor;
   pdePropertyEditor = new PDEPropertyEditor[MAX_EQUATIONS];
+  matPropertyEditor = new MATPropertyEditor[MAX_MATERIALS];
 
   createActions();
   createMenus();
@@ -181,10 +182,13 @@ void MainWindow::createMenus()
   equationMenu = menuBar()->addMenu(tr("Equation"));
   equationMenu->addAction(addEquationAct);
   equationMenu->addSeparator();
-  // equationMenu->addAction(heatEquationAct);
-  // equationMenu->addAction(linearElasticityAct);
-
   connect(equationMenu, SIGNAL(triggered(QAction*)), this, SLOT(equationSelectedSlot(QAction*)));
+
+  // Material menu
+  materialMenu = menuBar()->addMenu(tr("Material"));
+  materialMenu->addAction(addMaterialAct);
+  materialMenu->addSeparator();
+  connect(materialMenu, SIGNAL(triggered(QAction*)), this, SLOT(materialSelectedSlot(QAction*)));
 
   // Edit menu
   editMenu = menuBar()->addMenu(tr("&Edit"));
@@ -300,7 +304,7 @@ void MainWindow::createActions()
 
   // File -> Exit
   exitAct = new QAction(QIcon(":/icons/application-exit.png"), tr("E&xit"), this);
-  exitAct->setShortcut(tr("Alt+X"));
+  exitAct->setShortcut(tr("Qtrl+Q"));
   exitAct->setStatusTip(tr("Exit"));
   connect(exitAct, SIGNAL(triggered()), this, SLOT(closeMainWindowSlot()));
 
@@ -309,15 +313,10 @@ void MainWindow::createActions()
   addEquationAct->setStatusTip(tr("Add a PDE-system to the equation list"));
   connect(addEquationAct, SIGNAL(triggered()), this, SLOT(addEquationSlot()));
 
-  // Equation -> Heat equation
-  heatEquationAct = new QAction(QIcon(), tr("Heat equation"), this);
-  heatEquationAct->setStatusTip(tr("Activate heat equation"));
-  connect(heatEquationAct, SIGNAL(triggered()), this, SLOT(heatEquationSlot()));
-
-  // Equation -> Linear elasticity
-  linearElasticityAct = new QAction(QIcon(), tr("Linear elasticity"), this);
-  linearElasticityAct->setStatusTip(tr("Activate linear elasticity"));
-  connect(linearElasticityAct, SIGNAL(triggered()), this, SLOT(linearElasticitySlot()));
+  // Material -> Add...
+  addMaterialAct = new QAction(QIcon(), tr("Add..."), this);
+  addMaterialAct->setStatusTip(tr("Add a material set to the material list"));
+  connect(addMaterialAct, SIGNAL(triggered()), this, SLOT(addMaterialSlot()));
 
   // Edit -> Boundary conditions
   bcEditAct = new QAction(QIcon(), tr("Boundary conditions"), this);
@@ -2122,7 +2121,7 @@ void MainWindow::edgeUnifySlot()
 
 //*****************************************************************************
 //
-//                                  PDE MENU
+//                                 Equations MENU
 //
 //*****************************************************************************
 
@@ -2221,24 +2220,107 @@ void MainWindow::equationSelectedSlot(QAction* act)
 }
 
 
-// Equation -> Heat equation (eventually obsolete)
+//*****************************************************************************
+//
+//                                 Material MENU
+//
+//*****************************************************************************
+
+// Material -> Add...
 //-----------------------------------------------------------------------------
-void MainWindow::heatEquationSlot()
+void MainWindow::addMaterialSlot()
 {
-  bcPropertyEditor->heatEquationActive = !bcPropertyEditor->heatEquationActive;
-  bcPropertyEditor->updateActiveSheets();
-  synchronizeMenuToState();
+  // use the first free slot in matPropertyEditor array:
+  int current = 0;
+  bool found = false;
+  MATPropertyEditor *pe = NULL;
+  for(int i = 0; i < MAX_MATERIALS; i++) {
+    pe = &matPropertyEditor[i];
+    if(pe->menuAction == NULL) {
+      found = true;
+      current = i;
+      break;
+    }
+  }
+  
+  if(!found) {
+    logMessage("Material max limit reached - unable to add material");
+    return;
+  }
+
+  pe->setWindowTitle("Edit material");
+  QString qs = "Material " + QString::number(current+1);
+  pe->ui.materialNameEdit->setText(qs);
+  pe->defaultSettings();
+  connect(pe, SIGNAL(signalMatEditorFinished(int,int)),
+	  this, SLOT(matEditorFinishedSlot(int,int))) ;
+  pe->startEdit(current);
 }
 
 
-// Equation -> Linear elasticity (eventually obsolete)
+// signal (int,int) emitted by material editor when ready:
 //-----------------------------------------------------------------------------
-void MainWindow::linearElasticitySlot()
+void MainWindow::matEditorFinishedSlot(int signal, int id)
 {
-  bcPropertyEditor->linearElasticityActive = !bcPropertyEditor->linearElasticityActive;
-  bcPropertyEditor->updateActiveSheets();
-  synchronizeMenuToState();
+#define PDE_OK     0
+#define PDE_DELETE 1
+
+  MATPropertyEditor *pe = &matPropertyEditor[id];
+  const QString &materialName = pe->ui.materialNameEdit->text();
+  
+  if((materialName == "") && (signal == PDE_OK)) {
+    logMessage("Refusing to add material with no name");
+    return;
+  }
+  
+  if(signal == PDE_OK) {
+    
+    // Material already exists:
+    if(pe->menuAction != NULL) {
+      logMessage("Material updated");
+      pe->close();
+      return;
+    }
+
+    // Material is new - add to menu:
+    QAction *act = new QAction(materialName, this);
+    materialMenu->addAction(act);
+    pe->menuAction = act;
+    pe->close();
+    logMessage("Material added");
+  }
+
+  if(signal == PDE_DELETE) {
+
+    // Material is not in menu:
+    if(pe->menuAction == NULL) {
+      logMessage("Ready");
+      pe->close();
+      return;
+    }
+
+    // Delete from menu:
+    delete pe->menuAction;
+    pe->menuAction = NULL;
+    pe->close();
+    logMessage("Material deleted");
+  }
 }
+
+
+// signal (QAction*) emitted by materialMenu when an item has been selected:
+//-----------------------------------------------------------------------------
+void MainWindow::materialSelectedSlot(QAction* act)
+{
+  // Edit the selected material:
+  for(int i = 0; i < MAX_MATERIALS; i++) {
+    MATPropertyEditor *pe = &matPropertyEditor[i];
+    if(pe->menuAction == act)
+      pe->show();
+  }
+}
+
+
 
 
 //*****************************************************************************
@@ -2853,21 +2935,4 @@ void MainWindow::synchronizeMenuToState()
     viewCoordinatesAct->setIcon(iconChecked);
   else 
     viewCoordinatesAct->setIcon(iconEmpty);
-  
-  // bcPropertyEditor state variables:
-  if(bcPropertyEditor->heatEquationActive)
-    heatEquationAct->setIcon(iconChecked);
-  else
-    heatEquationAct->setIcon(iconEmpty);
-    
-  if(bcPropertyEditor->linearElasticityActive)
-    linearElasticityAct->setIcon(iconChecked);
-  else
-    linearElasticityAct->setIcon(iconEmpty);
-    
-  if(bcPropertyEditor->bcEditActive)
-    bcEditAct->setIcon(iconChecked);
-  else
-    bcEditAct->setIcon(iconEmpty);
-    
 }
