@@ -194,7 +194,7 @@ void MainWindow::createActions()
 
   // File -> Exit
   exitAct = new QAction(QIcon(":/icons/application-exit.png"), tr("E&xit"), this);
-  exitAct->setShortcut(tr("Qtrl+Q"));
+  exitAct->setShortcut(tr("Ctrl+Q"));
   exitAct->setStatusTip(tr("Exit"));
   connect(exitAct, SIGNAL(triggered()), 
 	  this, SLOT(closeMainWindowSlot()));
@@ -1418,6 +1418,10 @@ void MainWindow::addEquationSlot()
   pe->setWindowTitle("Edit equation");
   QString qs = "Equation " + QString::number(current+1);
   pe->ui.equationNameEdit->setText(qs);
+  pe->ui.acceptEquation->setText("Add");
+  pe->ui.deleteEquation->setText("Cancel");
+  pe->ui.acceptEquation->setIcon(QIcon(":/icons/list-add.png"));
+  pe->ui.deleteEquation->setIcon(QIcon(":/icons/dialog-close.png"));
   pe->defaultSettings();
   connect(pe, SIGNAL(signalPdeEditorFinished(int,int)),
 	  this, SLOT(pdeEditorFinishedSlot(int,int))) ;
@@ -1482,8 +1486,13 @@ void MainWindow::equationSelectedSlot(QAction* act)
   // Edit the selected equation:
   for(int i = 0; i < MAX_EQUATIONS; i++) {
     PDEPropertyEditor *pe = &pdePropertyEditor[i];
-    if(pe->menuAction == act)
+    if(pe->menuAction == act) {
+      pe->ui.acceptEquation->setText("Update");
+      pe->ui.deleteEquation->setText("Delete");
+      pe->ui.acceptEquation->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
+      pe->ui.deleteEquation->setIcon(QIcon(":/icons/list-remove.png"));
       pe->show();
+    }
   }
 }
 
@@ -1520,6 +1529,10 @@ void MainWindow::addMaterialSlot()
   QString qs = "Material " + QString::number(current+1);
   pe->ui.materialNameEdit->setText(qs);
   pe->defaultSettings();
+  pe->ui.acceptEquation->setText("Add");
+  pe->ui.deleteEquation->setText("Cancel");
+  pe->ui.acceptEquation->setIcon(QIcon(":/icons/list-add.png"));
+  pe->ui.deleteEquation->setIcon(QIcon(":/icons/dialog-close.png"));
   connect(pe, SIGNAL(signalMatEditorFinished(int,int)),
 	  this, SLOT(matEditorFinishedSlot(int,int))) ;
   pe->startEdit(current);
@@ -1583,8 +1596,13 @@ void MainWindow::materialSelectedSlot(QAction* act)
   // Edit the selected material:
   for(int i = 0; i < MAX_MATERIALS; i++) {
     MATPropertyEditor *pe = &matPropertyEditor[i];
-    if(pe->menuAction == act)
+    if(pe->menuAction == act) {
+      pe->ui.acceptEquation->setText("Update");
+      pe->ui.deleteEquation->setText("Delete");
+      pe->ui.acceptEquation->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
+      pe->ui.deleteEquation->setIcon(QIcon(":/icons/list-remove.png"));
       pe->show();
+    }
   }
 }
 
