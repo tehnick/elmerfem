@@ -174,16 +174,22 @@ private:
   QProcess *solver;
   QProcess *post;
   
-  // private functions:
+  // utility functions:
   void readInputFile(QString);
   void loadElmerMesh(QString);
   void saveElmerMesh(QString);
   void makeElmerMeshFromTetlib();
   void makeElmerMeshFromNglib();
   void logMessage(QString);
+  void synchronizeMenuToState();
+
+  // sif parsing functions:
+  void parseGeneralTab(QTextEdit*, Ui::solverParameterEditor);
+  void parseSteadyStateTab(QTextEdit*, Ui::solverParameterEditor);
+  void parseNonlinearSystemTab(QTextEdit*, Ui::solverParameterEditor);
+  void parseLinearSystemTab(QTextEdit*, Ui::solverParameterEditor);
   void makeSifBodyBlocks();
   void makeSifBoundaryBlocks();
-  void synchronizeMenuToState();
 };
 
 #endif
