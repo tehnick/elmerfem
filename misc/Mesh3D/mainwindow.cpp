@@ -109,28 +109,36 @@ MainWindow::MainWindow()
   createStatusBar();
   
   // glWidget emits (list_t*) when a boundary is selected by double clicking:
-  connect(glWidget, SIGNAL(signalBoundarySelected(list_t*)), this, SLOT(boundarySelectedSlot(list_t*)));
+  connect(glWidget, SIGNAL(signalBoundarySelected(list_t*)), 
+	  this, SLOT(boundarySelectedSlot(list_t*)));
 
   // meshingThread emits (void) when the mesh generation is completed:
-  connect(meshingThread, SIGNAL(signalMeshOk()), this, SLOT(meshOkSlot()));
+  connect(meshingThread, SIGNAL(signalMeshOk()), 
+	  this, SLOT(meshOkSlot()));
 
-  // boundaryDivide emits (double) when "divide button" has been clicked (case surface):
-  connect(boundaryDivide, SIGNAL(signalDoDivideSurface(double)), this, SLOT(doDivideSurfaceSlot(double)));
+  // boundaryDivide emits (double) when "divide button" has been clicked:
+  connect(boundaryDivide, SIGNAL(signalDoDivideSurface(double)), 
+	  this, SLOT(doDivideSurfaceSlot(double)));
 
-  // boundaryDivide emits (double) when "divide button" has been clicked (case edge):
-  connect(boundaryDivide, SIGNAL(signalDoDivideEdge(double)), this, SLOT(doDivideEdgeSlot(double)));
+  // boundaryDivide emits (double) when "divide button" has been clicked:
+  connect(boundaryDivide, SIGNAL(signalDoDivideEdge(double)), 
+	  this, SLOT(doDivideEdgeSlot(double)));
 
   // solver emits (int) when finished:
-  connect(solver, SIGNAL(finished(int)), this, SLOT(solverFinishedSlot(int))) ;
+  connect(solver, SIGNAL(finished(int)), 
+	  this, SLOT(solverFinishedSlot(int))) ;
 
   // solver emits (void) when there is something to read from stdout:
-  connect(solver, SIGNAL(readyReadStandardOutput()), this, SLOT(solverStdoutSlot()));
+  connect(solver, SIGNAL(readyReadStandardOutput()), 
+	  this, SLOT(solverStdoutSlot()));
 
   // solver emits (void) when there is something to read from stderr:
-  connect(solver, SIGNAL(readyReadStandardError()), this, SLOT(solverStderrSlot()));
+  connect(solver, SIGNAL(readyReadStandardError()), 
+	  this, SLOT(solverStderrSlot()));
 
   // post emits (int) when finished:
-  connect(post, SIGNAL(finished(int)), this, SLOT(postProcessFinishedSlot(int))) ;
+  connect(post, SIGNAL(finished(int)), 
+	  this, SLOT(postProcessFinishedSlot(int))) ;
   
   // set initial state:
   meshControl->nglibPresent = nglibPresent;
@@ -158,11 +166,207 @@ MainWindow::~MainWindow()
 }
 
 
-// Create status bar...
+
+// Create actions...
 //-----------------------------------------------------------------------------
-void MainWindow::createStatusBar()
+void MainWindow::createActions()
 {
-  statusBar()->showMessage(tr("Ready"));
+  // File -> Open file
+  openAct = new QAction(QIcon(":/icons/document-open.png"), tr("&Open..."), this);
+  openAct->setShortcut(tr("Ctrl+O"));
+  openAct->setStatusTip(tr("Open model input file"));
+  connect(openAct, SIGNAL(triggered()), 
+	  this, SLOT(openSlot()));
+  
+  // File -> Import mesh
+  loadAct = new QAction(QIcon(":/icons/document-open-folder.png"), tr("&Import..."), this);
+  loadAct->setShortcut(tr("Ctrl+I"));
+  loadAct->setStatusTip(tr("Import Elmer mesh files"));
+  connect(loadAct, SIGNAL(triggered()), 
+	  this, SLOT(loadSlot()));
+  
+  // File -> Export file
+  saveAct = new QAction(QIcon(":/icons/document-save.png"), tr("&Export..."), this);
+  saveAct->setShortcut(tr("Ctrl+E"));
+  saveAct->setStatusTip(tr("Export Elmer mesh files"));
+  connect(saveAct, SIGNAL(triggered()), 
+	  this, SLOT(saveSlot()));
+
+  // File -> Exit
+  exitAct = new QAction(QIcon(":/icons/application-exit.png"), tr("E&xit"), this);
+  exitAct->setShortcut(tr("Qtrl+Q"));
+  exitAct->setStatusTip(tr("Exit"));
+  connect(exitAct, SIGNAL(triggered()), 
+	  this, SLOT(closeMainWindowSlot()));
+
+  // Equation -> Add...
+  addEquationAct = new QAction(QIcon(), tr("Add..."), this);
+  addEquationAct->setStatusTip(tr("Add a PDE-system to the equation list"));
+  connect(addEquationAct, SIGNAL(triggered()), 
+	  this, SLOT(addEquationSlot()));
+
+  // Material -> Add...
+  addMaterialAct = new QAction(QIcon(), tr("Add..."), this);
+  addMaterialAct->setStatusTip(tr("Add a material set to the material list"));
+  connect(addMaterialAct, SIGNAL(triggered()), 
+	  this, SLOT(addMaterialSlot()));
+
+  // Edit -> Boundary conditions
+  bcEditAct = new QAction(QIcon(), tr("Boundary conditions"), this);
+  bcEditAct->setStatusTip(tr("Edit boundary conditions"));
+  connect(bcEditAct, SIGNAL(triggered()), 
+	  this, SLOT(bcEditSlot()));
+
+  // Edit -> Generate sif
+  generateSifAct = new QAction(QIcon(""), tr("&Generate sif"), this);
+  generateSifAct->setShortcut(tr("Ctrl+G"));
+  generateSifAct->setStatusTip(tr("Genarete solver input file"));
+  connect(generateSifAct, SIGNAL(triggered()), 
+	  this, SLOT(generateSifSlot()));
+
+  // Edit -> Solver input file...
+  showsifAct = new QAction(QIcon(":/icons/document-properties.png"), tr("&Solver input file..."), this);
+  showsifAct->setShortcut(tr("Ctrl+S"));
+  showsifAct->setStatusTip(tr("Edit solver input file"));
+  connect(showsifAct, SIGNAL(triggered()), 
+	  this, SLOT(showsifSlot()));
+
+  // Mesh -> Control
+  meshcontrolAct = new QAction(QIcon(":/icons/configure.png"), tr("&Configure..."), this);
+  meshcontrolAct->setShortcut(tr("Ctrl+C"));
+  meshcontrolAct->setStatusTip(tr("Configure mesh generators"));
+  connect(meshcontrolAct, SIGNAL(triggered()), 
+	  this, SLOT(meshcontrolSlot()));
+
+  // Mesh -> Remesh
+  remeshAct = new QAction(QIcon(":/icons/edit-redo.png"), tr("&Remesh"), this);
+  remeshAct->setShortcut(tr("Ctrl+R"));
+  remeshAct->setStatusTip(tr("Remesh"));
+  connect(remeshAct, SIGNAL(triggered()), 
+	  this, SLOT(remeshSlot()));
+
+  // Mesh -> Kill generator
+  stopMeshingAct = new QAction(QIcon(":/icons/window-close.png"), tr("&Terminate"), this);
+  stopMeshingAct->setStatusTip(tr("Terminate mesh generator"));
+  connect(stopMeshingAct, SIGNAL(triggered()), 
+	  this, SLOT(stopMeshingSlot()));
+
+  // Mesh -> Divide surface
+  surfaceDivideAct = new QAction(QIcon(":/icons/divide.png"), tr("&Divide surface..."), this);
+  surfaceDivideAct->setStatusTip(tr("Divide surface by sharp edges"));
+  connect(surfaceDivideAct, SIGNAL(triggered()), 
+	  this, SLOT(surfaceDivideSlot()));
+
+  // Mesh -> Unify surface
+  surfaceUnifyAct = new QAction(QIcon(":/icons/unify.png"), tr("&Unify surface"), this);
+  surfaceUnifyAct->setStatusTip(tr("Unify surface (merge selected)"));
+  connect(surfaceUnifyAct, SIGNAL(triggered()), 
+	  this, SLOT(surfaceUnifySlot()));
+
+  // Mesh -> Divide edge
+  edgeDivideAct = new QAction(QIcon(":/icons/divide-edge.png"), tr("&Divide edge..."), this);
+  edgeDivideAct->setStatusTip(tr("Divide edge by sharp points"));
+  connect(edgeDivideAct, SIGNAL(triggered()), 
+	  this, SLOT(edgeDivideSlot()));
+
+  // Mesh -> Unify edges
+  edgeUnifyAct = new QAction(QIcon(":/icons/unify-edge.png"), tr("&Unify edge"), this);
+  edgeUnifyAct->setStatusTip(tr("Unify edge (merge selected)"));
+  connect(edgeUnifyAct, SIGNAL(triggered()), 
+	  this, SLOT(edgeUnifySlot()));
+
+  // View -> Show surface mesh
+  hidesurfacemeshAct = new QAction(QIcon(), tr("Surface mesh"), this);
+  hidesurfacemeshAct->setStatusTip(tr("Show/hide surface mesh "
+				      "(do/do not outline surface elements)"));
+  connect(hidesurfacemeshAct, SIGNAL(triggered()), 
+	  this, SLOT(hidesurfacemeshSlot()));
+
+  // View -> Show sharp edges
+  hidesharpedgesAct = new QAction(QIcon(), tr("Sharp edges"), this);
+  hidesharpedgesAct->setStatusTip(tr("Show/hide sharp edges"));
+  connect(hidesharpedgesAct, SIGNAL(triggered()), 
+	  this, SLOT(hidesharpedgesSlot()));
+
+  // View -> Compass
+  viewCoordinatesAct = new QAction(QIcon(), tr("Compass"), this);
+  viewCoordinatesAct->setStatusTip(tr("View coordinates "
+				      "(RGB=XYZ modulo translation)"));
+  connect(viewCoordinatesAct, SIGNAL(triggered()), 
+	  this, SLOT(viewCoordinatesSlot()));
+
+  // View -> Select all surfaces
+  selectAllSurfacesAct = new QAction(QIcon(), tr("Select all surfaces"), this);
+  selectAllSurfacesAct->setStatusTip(tr("Select all surfaces"));
+  connect(selectAllSurfacesAct, SIGNAL(triggered()), 
+	  this, SLOT(selectAllSurfacesSlot()));
+
+  // View -> Select all edges
+  selectAllEdgesAct = new QAction(QIcon(), tr("Select all edges"), this);
+  selectAllEdgesAct->setStatusTip(tr("Select all edges"));
+  connect(selectAllEdgesAct, SIGNAL(triggered()), 
+	  this, SLOT(selectAllEdgesSlot()));
+
+  // View -> Hide/show selected
+  hideselectedAct = new QAction(QIcon(), tr("&Hide/show selected"), this);
+  hideselectedAct->setShortcut(tr("Ctrl+H"));
+  hideselectedAct->setStatusTip(tr("Show/hide selected objects"));
+  connect(hideselectedAct, SIGNAL(triggered()), 
+	  this, SLOT(hideselectedSlot()));
+
+  // View -> Shade model -> Flat
+  flatShadeAct = new QAction(QIcon(), tr("Flat"), this);
+  flatShadeAct->setStatusTip(tr("Set shade model to flat"));
+  connect(flatShadeAct, SIGNAL(triggered()), 
+	  this, SLOT(flatShadeSlot()));
+
+  // View -> Shade model -> Smooth
+  smoothShadeAct = new QAction(QIcon(), tr("Smooth"), this);
+  smoothShadeAct->setStatusTip(tr("Set shade model to smooth"));
+  connect(smoothShadeAct, SIGNAL(triggered()), 
+	  this, SLOT(smoothShadeSlot()));
+
+  // View -> Show all
+  showallAct = new QAction(QIcon(), tr("Show all"), this);
+  showallAct->setStatusTip(tr("Show all objects"));
+  connect(showallAct, SIGNAL(triggered()), 
+	  this, SLOT(showallSlot()));
+
+  // View -> Reset model view
+  resetAct = new QAction(QIcon(), tr("Reset model view"), this);
+  resetAct->setStatusTip(tr("Reset model view"));
+  connect(resetAct, SIGNAL(triggered()), 
+	  this, SLOT(resetSlot()));
+
+  // Solver -> Run solver
+  runsolverAct = new QAction(QIcon(":/icons/Solver.png"), tr("Run solver"), this);
+  runsolverAct->setStatusTip(tr("Run solver"));
+  connect(runsolverAct, SIGNAL(triggered()), 
+	  this, SLOT(runsolverSlot()));
+
+  // Solver -> Kill solver
+  killsolverAct = new QAction(QIcon(":/icons/window-close.png"), tr("Kill solver"), this);
+  killsolverAct->setStatusTip(tr("Kill solver"));
+  connect(killsolverAct, SIGNAL(triggered()), 
+	  this, SLOT(killsolverSlot()));
+
+  // Solver -> Post process
+  resultsAct = new QAction(QIcon(":/icons/Post.png"), tr("Run post process"), this);
+  resultsAct->setStatusTip(tr("Run post processor"));
+  connect(resultsAct, SIGNAL(triggered()), 
+	  this, SLOT(resultsSlot()));
+
+  // Solver -> Kill process
+  killresultsAct = new QAction(QIcon(":/icons/window-close.png"), tr("Kill post process"), this);
+  killresultsAct->setStatusTip(tr("Kill post process"));
+  connect(killresultsAct, SIGNAL(triggered()), 
+	  this, SLOT(killresultsSlot()));
+
+  // Help -> About
+  aboutAct = new QAction(QIcon(":/icons/help-about.png"), tr("About..."), this);
+  aboutAct->setStatusTip(tr("Information about the program"));
+  connect(aboutAct, SIGNAL(triggered()), 
+	  this, SLOT(showaboutSlot()));
 }
 
 
@@ -182,13 +386,15 @@ void MainWindow::createMenus()
   equationMenu = menuBar()->addMenu(tr("Equation"));
   equationMenu->addAction(addEquationAct);
   equationMenu->addSeparator();
-  connect(equationMenu, SIGNAL(triggered(QAction*)), this, SLOT(equationSelectedSlot(QAction*)));
+  connect(equationMenu, SIGNAL(triggered(QAction*)), 
+	  this, SLOT(equationSelectedSlot(QAction*)));
 
   // Material menu
   materialMenu = menuBar()->addMenu(tr("Material"));
   materialMenu->addAction(addMaterialAct);
   materialMenu->addSeparator();
-  connect(materialMenu, SIGNAL(triggered(QAction*)), this, SLOT(materialSelectedSlot(QAction*)));
+  connect(materialMenu, SIGNAL(triggered(QAction*)), 
+	  this, SLOT(materialSelectedSlot(QAction*)));
 
   // Edit menu
   editMenu = menuBar()->addMenu(tr("&Edit"));
@@ -252,8 +458,6 @@ void MainWindow::createToolBars()
   fileToolBar->addAction(openAct);
   fileToolBar->addAction(loadAct);
   fileToolBar->addAction(saveAct);
-  // fileToolBar->addSeparator();
-  // fileToolBar->addAction(exitAct);
 
   // Edit toolbar
   editToolBar = addToolBar(tr("&Edit"));
@@ -274,181 +478,16 @@ void MainWindow::createToolBars()
   // Solver toolbar
   solverToolBar = addToolBar(tr("&Solver"));
   solverToolBar->addAction(runsolverAct);
-  // solverToolBar->addAction(killsolverAct);
   solverToolBar->addAction(resultsAct);
-  // solverToolBar->addAction(killresultsAct);
 }
 
 
-// Create actions...
+// Create status bar...
 //-----------------------------------------------------------------------------
-void MainWindow::createActions()
+void MainWindow::createStatusBar()
 {
-  // File -> Open file
-  openAct = new QAction(QIcon(":/icons/document-open.png"), tr("&Open..."), this);
-  openAct->setShortcut(tr("Ctrl+O"));
-  openAct->setStatusTip(tr("Open model input file"));
-  connect(openAct, SIGNAL(triggered()), this, SLOT(openSlot()));
-  
-  // File -> Load mesh
-  loadAct = new QAction(QIcon(":/icons/document-open-folder.png"), tr("&Import..."), this);
-  loadAct->setShortcut(tr("Ctrl+I"));
-  loadAct->setStatusTip(tr("Import Elmer mesh files"));
-  connect(loadAct, SIGNAL(triggered()), this, SLOT(loadSlot()));
-  
-  // File -> Save file
-  saveAct = new QAction(QIcon(":/icons/document-save.png"), tr("&Export..."), this);
-  saveAct->setShortcut(tr("Ctrl+E"));
-  saveAct->setStatusTip(tr("Export Elmer mesh files"));
-  connect(saveAct, SIGNAL(triggered()), this, SLOT(saveSlot()));
-
-  // File -> Exit
-  exitAct = new QAction(QIcon(":/icons/application-exit.png"), tr("E&xit"), this);
-  exitAct->setShortcut(tr("Qtrl+Q"));
-  exitAct->setStatusTip(tr("Exit"));
-  connect(exitAct, SIGNAL(triggered()), this, SLOT(closeMainWindowSlot()));
-
-  // Equation -> Add...
-  addEquationAct = new QAction(QIcon(), tr("Add..."), this);
-  addEquationAct->setStatusTip(tr("Add a PDE-system to the equation list"));
-  connect(addEquationAct, SIGNAL(triggered()), this, SLOT(addEquationSlot()));
-
-  // Material -> Add...
-  addMaterialAct = new QAction(QIcon(), tr("Add..."), this);
-  addMaterialAct->setStatusTip(tr("Add a material set to the material list"));
-  connect(addMaterialAct, SIGNAL(triggered()), this, SLOT(addMaterialSlot()));
-
-  // Edit -> Boundary conditions
-  bcEditAct = new QAction(QIcon(), tr("Boundary conditions"), this);
-  bcEditAct->setStatusTip(tr("Edit boundary conditions"));
-  connect(bcEditAct, SIGNAL(triggered()), this, SLOT(bcEditSlot()));
-
-  // Edit -> Generate sif
-  generateSifAct = new QAction(QIcon(""), tr("&Generate sif"), this);
-  generateSifAct->setShortcut(tr("Ctrl+G"));
-  generateSifAct->setStatusTip(tr("Genarete solver input file"));
-  connect(generateSifAct, SIGNAL(triggered()), this, SLOT(generateSifSlot()));
-
-  // Edit -> Sif
-  showsifAct = new QAction(QIcon(":/icons/document-properties.png"), tr("&Solver input file..."), this);
-  showsifAct->setShortcut(tr("Ctrl+S"));
-  showsifAct->setStatusTip(tr("Edit solver input file"));
-  connect(showsifAct, SIGNAL(triggered()), this, SLOT(showsifSlot()));
-
-  // Mesh -> Control
-  meshcontrolAct = new QAction(QIcon(":/icons/configure.png"), tr("&Configure..."), this);
-  meshcontrolAct->setShortcut(tr("Ctrl+C"));
-  meshcontrolAct->setStatusTip(tr("Configure mesh generators"));
-  connect(meshcontrolAct, SIGNAL(triggered()), this, SLOT(meshcontrolSlot()));
-
-  // Mesh -> Remesh
-  remeshAct = new QAction(QIcon(":/icons/edit-redo.png"), tr("&Remesh"), this);
-  remeshAct->setShortcut(tr("Ctrl+R"));
-  remeshAct->setStatusTip(tr("Remesh"));
-  connect(remeshAct, SIGNAL(triggered()), this, SLOT(remeshSlot()));
-
-  // Mesh -> Kill generator
-  stopMeshingAct = new QAction(QIcon(":/icons/window-close.png"), tr("&Terminate"), this);
-  stopMeshingAct->setStatusTip(tr("Terminate mesh generator"));
-  connect(stopMeshingAct, SIGNAL(triggered()), this, SLOT(stopMeshingSlot()));
-
-  // Mesh -> Divide surface
-  surfaceDivideAct = new QAction(QIcon(":/icons/divide.png"), tr("&Divide surface..."), this);
-  surfaceDivideAct->setStatusTip(tr("Divide surface by sharp edges"));
-  connect(surfaceDivideAct, SIGNAL(triggered()), this, SLOT(surfaceDivideSlot()));
-
-  // Mesh -> Unify surface
-  surfaceUnifyAct = new QAction(QIcon(":/icons/unify.png"), tr("&Unify surface"), this);
-  surfaceUnifyAct->setStatusTip(tr("Unify surface (merge selected)"));
-  connect(surfaceUnifyAct, SIGNAL(triggered()), this, SLOT(surfaceUnifySlot()));
-
-  // Mesh -> Divide edge
-  edgeDivideAct = new QAction(QIcon(":/icons/divide-edge.png"), tr("&Divide edge..."), this);
-  edgeDivideAct->setStatusTip(tr("Divide edge by sharp points"));
-  connect(edgeDivideAct, SIGNAL(triggered()), this, SLOT(edgeDivideSlot()));
-
-  // Mesh -> Unify edges
-  edgeUnifyAct = new QAction(QIcon(":/icons/unify-edge.png"), tr("&Unify edge"), this);
-  edgeUnifyAct->setStatusTip(tr("Unify edge (merge selected)"));
-  connect(edgeUnifyAct, SIGNAL(triggered()), this, SLOT(edgeUnifySlot()));
-
-  // View -> Show surface mesh
-  hidesurfacemeshAct = new QAction(QIcon(), tr("Surface mesh"), this);
-  hidesurfacemeshAct->setStatusTip(tr("Show/hide surface mesh (do/do not outline surface elements)"));
-  connect(hidesurfacemeshAct, SIGNAL(triggered()), this, SLOT(hidesurfacemeshSlot()));
-
-  // View -> Show sharp edges
-  hidesharpedgesAct = new QAction(QIcon(), tr("Sharp edges"), this);
-  hidesharpedgesAct->setStatusTip(tr("Show/hide sharp edges"));
-  connect(hidesharpedgesAct, SIGNAL(triggered()), this, SLOT(hidesharpedgesSlot()));
-
-  // View -> Coordinates
-  viewCoordinatesAct = new QAction(QIcon(), tr("Compass"), this);
-  viewCoordinatesAct->setStatusTip(tr("View coordinates (RGB=XYZ modulo translation)"));
-  connect(viewCoordinatesAct, SIGNAL(triggered()), this, SLOT(viewCoordinatesSlot()));
-
-  // View -> Select all surfaces
-  selectAllSurfacesAct = new QAction(QIcon(), tr("Select all surfaces"), this);
-  selectAllSurfacesAct->setStatusTip(tr("Select all surfaces"));
-  connect(selectAllSurfacesAct, SIGNAL(triggered()), this, SLOT(selectAllSurfacesSlot()));
-
-  // View -> Select all edges
-  selectAllEdgesAct = new QAction(QIcon(), tr("Select all edges"), this);
-  selectAllEdgesAct->setStatusTip(tr("Select all edges"));
-  connect(selectAllEdgesAct, SIGNAL(triggered()), this, SLOT(selectAllEdgesSlot()));
-
-  // View -> Hide/show selected
-  hideselectedAct = new QAction(QIcon(), tr("&Hide/show selected"), this);
-  hideselectedAct->setShortcut(tr("Ctrl+H"));
-  hideselectedAct->setStatusTip(tr("Show/hide selected objects"));
-  connect(hideselectedAct, SIGNAL(triggered()), this, SLOT(hideselectedSlot()));
-
-  // View -> Shade model -> Flat
-  flatShadeAct = new QAction(QIcon(), tr("Flat"), this);
-  flatShadeAct->setStatusTip(tr("Set shade model to flat"));
-  connect(flatShadeAct, SIGNAL(triggered()), this, SLOT(flatShadeSlot()));
-
-  // View -> Shade model -> Smooth
-  smoothShadeAct = new QAction(QIcon(), tr("Smooth"), this);
-  smoothShadeAct->setStatusTip(tr("Set shade model to smooth"));
-  connect(smoothShadeAct, SIGNAL(triggered()), this, SLOT(smoothShadeSlot()));
-
-  // View -> Show all
-  showallAct = new QAction(QIcon(), tr("Show all"), this);
-  showallAct->setStatusTip(tr("Show all objects"));
-  connect(showallAct, SIGNAL(triggered()), this, SLOT(showallSlot()));
-
-  // View -> Reset model view
-  resetAct = new QAction(QIcon(), tr("Reset model view"), this);
-  resetAct->setStatusTip(tr("Reset model view"));
-  connect(resetAct, SIGNAL(triggered()), this, SLOT(resetSlot()));
-
-  // Solver -> Run solver
-  runsolverAct = new QAction(QIcon(":/icons/Solver.png"), tr("Run solver"), this);
-  runsolverAct->setStatusTip(tr("Run solver"));
-  connect(runsolverAct, SIGNAL(triggered()), this, SLOT(runsolverSlot()));
-
-  // Solver -> Kill solver
-  killsolverAct = new QAction(QIcon(":/icons/window-close.png"), tr("Kill solver"), this);
-  killsolverAct->setStatusTip(tr("Kill solver"));
-  connect(killsolverAct, SIGNAL(triggered()), this, SLOT(killsolverSlot()));
-
-  // Solver -> Post process
-  resultsAct = new QAction(QIcon(":/icons/Post.png"), tr("Run post process"), this);
-  resultsAct->setStatusTip(tr("Run post processor"));
-  connect(resultsAct, SIGNAL(triggered()), this, SLOT(resultsSlot()));
-
-  // Solver -> Kill process
-  killresultsAct = new QAction(QIcon(":/icons/window-close.png"), tr("Kill post process"), this);
-  killresultsAct->setStatusTip(tr("Kill post process"));
-  connect(killresultsAct, SIGNAL(triggered()), this, SLOT(killresultsSlot()));
-
-  // Help -> About
-  aboutAct = new QAction(QIcon(":/icons/help-about.png"), tr("About..."), this);
-  aboutAct->setStatusTip(tr("Information about the program"));
-  connect(aboutAct, SIGNAL(triggered()), this, SLOT(showaboutSlot()));
+  statusBar()->showMessage(tr("Ready"));
 }
-
 
 
 //*****************************************************************************
@@ -587,7 +626,8 @@ void MainWindow::readInputFile(QString fileName)
 
       nglibAPI->Ng_Init();
       
-      nggeom = nglibAPI->Ng_STL_LoadGeometry((const char*)(fileName.toAscii()), 0);
+      nggeom 
+	= nglibAPI->Ng_STL_LoadGeometry((const char*)(fileName.toAscii()), 0);
       
       if(!nggeom) {
 	logMessage("Ng_STL_LoadGeometry failed");
@@ -1344,6 +1384,210 @@ void MainWindow::closeMainWindowSlot()
   bcPropertyEditor->close();
   this->close();
 }
+
+
+
+//*****************************************************************************
+//
+//                                 Equations MENU
+//
+//*****************************************************************************
+
+// Equation -> Add...
+//-----------------------------------------------------------------------------
+void MainWindow::addEquationSlot()
+{
+  // use the first free slot in pdePropertyEditor array:
+  int current = 0;
+  bool found = false;
+  PDEPropertyEditor *pe = NULL;
+  for(int i = 0; i < MAX_EQUATIONS; i++) {
+    pe = &pdePropertyEditor[i];
+    if(pe->menuAction == NULL) {
+      found = true;
+      current = i;
+      break;
+    }
+  }
+
+  if(!found) {
+    logMessage("Equation max limit reached - unable to add equation");
+    return;
+  }
+
+  pe->setWindowTitle("Edit equation");
+  QString qs = "Equation " + QString::number(current+1);
+  pe->ui.equationNameEdit->setText(qs);
+  pe->defaultSettings();
+  connect(pe, SIGNAL(signalPdeEditorFinished(int,int)),
+	  this, SLOT(pdeEditorFinishedSlot(int,int))) ;
+  pe->startEdit(current);
+}
+
+
+// signal (int,int) emitted by equation editor when ready:
+//-----------------------------------------------------------------------------
+void MainWindow::pdeEditorFinishedSlot(int signal, int id)
+{
+#define PDE_OK     0
+#define PDE_DELETE 1
+
+  PDEPropertyEditor *pe = &pdePropertyEditor[id];
+  const QString &equationName = pe->ui.equationNameEdit->text();
+  
+  if((equationName == "") && (signal == PDE_OK)) {
+    logMessage("Refusing to add equation with no name");
+    return;
+  }
+  
+  if(signal == PDE_OK) {
+    
+    // Equation already exists:
+    if(pe->menuAction != NULL) {
+      logMessage("Equation updated");
+      pe->close();
+      return;
+    }
+
+    // Equation is new - add to menu:
+    QAction *act = new QAction(equationName, this);
+    equationMenu->addAction(act);
+    pe->menuAction = act;
+    pe->close();
+    logMessage("Equation added");
+  }
+
+  if(signal == PDE_DELETE) {
+
+    // Equation is not in menu:
+    if(pe->menuAction == NULL) {
+      logMessage("Ready");
+      pe->close();
+      return;
+    }
+
+    // Delete from menu:
+    delete pe->menuAction;
+    pe->menuAction = NULL;
+    pe->close();
+    logMessage("Equation deleted");
+  }
+}
+
+
+// signal (QAction*) emitted by equationMenu when an item has been selected:
+//-----------------------------------------------------------------------------
+void MainWindow::equationSelectedSlot(QAction* act)
+{
+  // Edit the selected equation:
+  for(int i = 0; i < MAX_EQUATIONS; i++) {
+    PDEPropertyEditor *pe = &pdePropertyEditor[i];
+    if(pe->menuAction == act)
+      pe->show();
+  }
+}
+
+
+//*****************************************************************************
+//
+//                                 Material MENU
+//
+//*****************************************************************************
+
+// Material -> Add...
+//-----------------------------------------------------------------------------
+void MainWindow::addMaterialSlot()
+{
+  // use the first free slot in matPropertyEditor array:
+  int current = 0;
+  bool found = false;
+  MATPropertyEditor *pe = NULL;
+  for(int i = 0; i < MAX_MATERIALS; i++) {
+    pe = &matPropertyEditor[i];
+    if(pe->menuAction == NULL) {
+      found = true;
+      current = i;
+      break;
+    }
+  }
+  
+  if(!found) {
+    logMessage("Material max limit reached - unable to add material");
+    return;
+  }
+
+  pe->setWindowTitle("Edit material");
+  QString qs = "Material " + QString::number(current+1);
+  pe->ui.materialNameEdit->setText(qs);
+  pe->defaultSettings();
+  connect(pe, SIGNAL(signalMatEditorFinished(int,int)),
+	  this, SLOT(matEditorFinishedSlot(int,int))) ;
+  pe->startEdit(current);
+}
+
+
+// signal (int,int) emitted by material editor when ready:
+//-----------------------------------------------------------------------------
+void MainWindow::matEditorFinishedSlot(int signal, int id)
+{
+#define MAT_OK     0
+#define MAT_DELETE 1
+
+  MATPropertyEditor *pe = &matPropertyEditor[id];
+  const QString &materialName = pe->ui.materialNameEdit->text();
+  
+  if((materialName == "") && (signal == MAT_OK)) {
+    logMessage("Refusing to add material with no name");
+    return;
+  }
+  
+  if(signal == MAT_OK) {
+    
+    // Material already exists:
+    if(pe->menuAction != NULL) {
+      logMessage("Material updated");
+      pe->close();
+      return;
+    }
+
+    // Material is new - add to menu:
+    QAction *act = new QAction(materialName, this);
+    materialMenu->addAction(act);
+    pe->menuAction = act;
+    pe->close();
+    logMessage("Material added");
+  }
+
+  if(signal == MAT_DELETE) {
+
+    // Material is not in menu:
+    if(pe->menuAction == NULL) {
+      logMessage("Ready");
+      pe->close();
+      return;
+    }
+
+    // Delete from menu:
+    delete pe->menuAction;
+    pe->menuAction = NULL;
+    pe->close();
+    logMessage("Material deleted");
+  }
+}
+
+
+// signal (QAction*) emitted by materialMenu when an item has been selected:
+//-----------------------------------------------------------------------------
+void MainWindow::materialSelectedSlot(QAction* act)
+{
+  // Edit the selected material:
+  for(int i = 0; i < MAX_MATERIALS; i++) {
+    MATPropertyEditor *pe = &matPropertyEditor[i];
+    if(pe->menuAction == act)
+      pe->show();
+  }
+}
+
 
 
 
@@ -2115,209 +2359,6 @@ void MainWindow::edgeUnifySlot()
   glWidget->rebuildLists();
 
   logMessage("Selected edges unified");
-}
-
-
-
-//*****************************************************************************
-//
-//                                 Equations MENU
-//
-//*****************************************************************************
-
-// Equation -> Add...
-//-----------------------------------------------------------------------------
-void MainWindow::addEquationSlot()
-{
-  // use the first free slot in pdePropertyEditor array:
-  int current = 0;
-  bool found = false;
-  PDEPropertyEditor *pe = NULL;
-  for(int i = 0; i < MAX_EQUATIONS; i++) {
-    pe = &pdePropertyEditor[i];
-    if(pe->menuAction == NULL) {
-      found = true;
-      current = i;
-      break;
-    }
-  }
-
-  if(!found) {
-    logMessage("Equation max limit reached - unable to add equation");
-    return;
-  }
-
-  pe->setWindowTitle("Edit equation");
-  QString qs = "Equation " + QString::number(current+1);
-  pe->ui.equationNameEdit->setText(qs);
-  pe->defaultSettings();
-  connect(pe, SIGNAL(signalPdeEditorFinished(int,int)),
-	  this, SLOT(pdeEditorFinishedSlot(int,int))) ;
-  pe->startEdit(current);
-}
-
-
-// signal (int,int) emitted by equation editor when ready:
-//-----------------------------------------------------------------------------
-void MainWindow::pdeEditorFinishedSlot(int signal, int id)
-{
-#define PDE_OK     0
-#define PDE_DELETE 1
-
-  PDEPropertyEditor *pe = &pdePropertyEditor[id];
-  const QString &equationName = pe->ui.equationNameEdit->text();
-  
-  if((equationName == "") && (signal == PDE_OK)) {
-    logMessage("Refusing to add equation with no name");
-    return;
-  }
-  
-  if(signal == PDE_OK) {
-    
-    // Equation already exists:
-    if(pe->menuAction != NULL) {
-      logMessage("Equation updated");
-      pe->close();
-      return;
-    }
-
-    // Equation is new - add to menu:
-    QAction *act = new QAction(equationName, this);
-    equationMenu->addAction(act);
-    pe->menuAction = act;
-    pe->close();
-    logMessage("Equation added");
-  }
-
-  if(signal == PDE_DELETE) {
-
-    // Equation is not in menu:
-    if(pe->menuAction == NULL) {
-      logMessage("Ready");
-      pe->close();
-      return;
-    }
-
-    // Delete from menu:
-    delete pe->menuAction;
-    pe->menuAction = NULL;
-    pe->close();
-    logMessage("Equation deleted");
-  }
-}
-
-
-// signal (QAction*) emitted by equationMenu when an item has been selected:
-//-----------------------------------------------------------------------------
-void MainWindow::equationSelectedSlot(QAction* act)
-{
-  // Edit the selected equation:
-  for(int i = 0; i < MAX_EQUATIONS; i++) {
-    PDEPropertyEditor *pe = &pdePropertyEditor[i];
-    if(pe->menuAction == act)
-      pe->show();
-  }
-}
-
-
-//*****************************************************************************
-//
-//                                 Material MENU
-//
-//*****************************************************************************
-
-// Material -> Add...
-//-----------------------------------------------------------------------------
-void MainWindow::addMaterialSlot()
-{
-  // use the first free slot in matPropertyEditor array:
-  int current = 0;
-  bool found = false;
-  MATPropertyEditor *pe = NULL;
-  for(int i = 0; i < MAX_MATERIALS; i++) {
-    pe = &matPropertyEditor[i];
-    if(pe->menuAction == NULL) {
-      found = true;
-      current = i;
-      break;
-    }
-  }
-  
-  if(!found) {
-    logMessage("Material max limit reached - unable to add material");
-    return;
-  }
-
-  pe->setWindowTitle("Edit material");
-  QString qs = "Material " + QString::number(current+1);
-  pe->ui.materialNameEdit->setText(qs);
-  pe->defaultSettings();
-  connect(pe, SIGNAL(signalMatEditorFinished(int,int)),
-	  this, SLOT(matEditorFinishedSlot(int,int))) ;
-  pe->startEdit(current);
-}
-
-
-// signal (int,int) emitted by material editor when ready:
-//-----------------------------------------------------------------------------
-void MainWindow::matEditorFinishedSlot(int signal, int id)
-{
-#define PDE_OK     0
-#define PDE_DELETE 1
-
-  MATPropertyEditor *pe = &matPropertyEditor[id];
-  const QString &materialName = pe->ui.materialNameEdit->text();
-  
-  if((materialName == "") && (signal == PDE_OK)) {
-    logMessage("Refusing to add material with no name");
-    return;
-  }
-  
-  if(signal == PDE_OK) {
-    
-    // Material already exists:
-    if(pe->menuAction != NULL) {
-      logMessage("Material updated");
-      pe->close();
-      return;
-    }
-
-    // Material is new - add to menu:
-    QAction *act = new QAction(materialName, this);
-    materialMenu->addAction(act);
-    pe->menuAction = act;
-    pe->close();
-    logMessage("Material added");
-  }
-
-  if(signal == PDE_DELETE) {
-
-    // Material is not in menu:
-    if(pe->menuAction == NULL) {
-      logMessage("Ready");
-      pe->close();
-      return;
-    }
-
-    // Delete from menu:
-    delete pe->menuAction;
-    pe->menuAction = NULL;
-    pe->close();
-    logMessage("Material deleted");
-  }
-}
-
-
-// signal (QAction*) emitted by materialMenu when an item has been selected:
-//-----------------------------------------------------------------------------
-void MainWindow::materialSelectedSlot(QAction* act)
-{
-  // Edit the selected material:
-  for(int i = 0; i < MAX_MATERIALS; i++) {
-    MATPropertyEditor *pe = &matPropertyEditor[i];
-    if(pe->menuAction == act)
-      pe->show();
-  }
 }
 
 
