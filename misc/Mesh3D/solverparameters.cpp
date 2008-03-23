@@ -23,7 +23,7 @@
 
 /*****************************************************************************
  *                                                                           *
- *  ELMER/Mesh3D pdepropertyeditor                                           *
+ *  ELMER/Mesh3D solverparameters                                            *
  *                                                                           *
  *****************************************************************************
  *                                                                           *
@@ -40,95 +40,22 @@
 
 #include <QtGui>
 #include <iostream>
-#include "pdepropertyeditor.h"
+#include "solverparameters.h"
 
 using namespace std;
 
-PDEPropertyEditor::PDEPropertyEditor(QWidget *parent)
+SolverParameterEditor::SolverParameterEditor(QWidget *parent)
   : QDialog(parent)
 {
   ui.setupUi(this);
- 
-  solverParameterEditor = new SolverParameterEditor[MAX_SOLVERS];
 
-  menuAction = NULL;
+  connect(ui.applyButton, SIGNAL(clicked()),
+	  this, SLOT(close()));
 
-  connect(ui.acceptEquation, SIGNAL(clicked()), 
-	  this, SLOT(acceptButtonClicked()));
-
-  connect(ui.deleteEquation, SIGNAL(clicked()), 
-	  this, SLOT(deleteButtonClicked()));
-
-  connect(ui.solverParametersButton, SIGNAL(clicked()),
-	  this, SLOT(editNumericalMethods()));
+  connect(ui.cancelButton, SIGNAL(clicked()),
+	  this, SLOT(close()));
 }
 
-PDEPropertyEditor::~PDEPropertyEditor()
+SolverParameterEditor::~SolverParameterEditor()
 {
-}
-
-void PDEPropertyEditor::acceptButtonClicked()
-{
-  cout << "Accept" << endl;
-  cout.flush();
-
-  emit(signalPdeEditorFinished(0, myId));
-}
-
-
-void PDEPropertyEditor::deleteButtonClicked()
-{
-  cout << "Delete" << endl;
-  cout.flush();
-  
-  emit(signalPdeEditorFinished(1, myId));
-}
-
-void PDEPropertyEditor::startEdit(int id)
-{
-  myId = id;
-  this->show();
-}
-
-void PDEPropertyEditor::defaultSettings()
-{
-  Qt::CheckState uc = Qt::Unchecked;
-
-  ui.heatEquationActive->setCheckState(uc);
-  ui.linearElasticityActive->setCheckState(uc);
-  ui.navierStokesActive->setCheckState(uc);
-  ui.heatEquationActive->setCheckState(uc);
-  ui.advectionDiffusionActive->setCheckState(uc);
-  ui.helmholtzEquationActive->setCheckState(uc);
-
-  ui.pdeTabs->setCurrentIndex(0);
-
-  ui.heatEquationConvectionNone->setChecked(true);
-  ui.heatEquationPCMNone->setChecked(true);
-  ui.heatEquationPCMLatentHeatRelease->setChecked(uc);
-
-  ui.linearElasticityPlaneStress->setChecked(uc);
-
-  ui.navierStokesCalculateHydrostaticPressure->setChecked(uc);
-  ui.navierStokesTurbulenceModelNone->setChecked(true);
-  ui.navierStokesKEClipEdit->setText("1.0e-6");
-
-  ui.advectionDiffusionConvectionNone->setChecked(true);
-
-  ui.helmholtzEquationAngularFrequencyEdit->setText("");
-}
-
-void PDEPropertyEditor::editNumericalMethods()
-{
-  // determine which solver is currently selected in the Tab:
-  int currentIndex = ui.pdeTabs->currentIndex();
-  const QString &solverName = ui.pdeTabs->tabText(currentIndex);
-
-  cout << "Edit numerical methods for solver: " << currentIndex << endl;
-  cout.flush();
-
-  SolverParameterEditor *spe = &solverParameterEditor[currentIndex];
-  spe->setWindowTitle("Solver control for " + solverName);
-  spe->show();
-
 }
