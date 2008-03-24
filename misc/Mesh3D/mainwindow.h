@@ -19,6 +19,7 @@
 #include "bcpropertyeditor.h"
 #include "pdepropertyeditor.h"
 #include "matpropertyeditor.h"
+#include "generatesif.h"
 
 class QAction;
 class QMenu;
@@ -184,11 +185,6 @@ private:
   void synchronizeMenuToState();
 
   // sif parsing functions:
-  void parseProcedure(QTextEdit*, Ui::solverParameterEditor);
-  void parseGeneralTab(QTextEdit*, Ui::solverParameterEditor);
-  void parseSteadyStateTab(QTextEdit*, Ui::solverParameterEditor);
-  void parseNonlinearSystemTab(QTextEdit*, Ui::solverParameterEditor);
-  void parseLinearSystemTab(QTextEdit*, Ui::solverParameterEditor);
   void makeSifBodyBlocks();
   void makeSifBoundaryBlocks();
 };
