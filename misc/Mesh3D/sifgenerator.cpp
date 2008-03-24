@@ -160,7 +160,7 @@ void SifGenerator::makeBodyBlocks()
 //-----------------------------------------------------------------------------
 void SifGenerator::makeEquationBlocks()
 {
-  // At the moment only "Equation 1" is meaningful (index=0)
+  // TODO: At the moment only "Equation 1" is meaningful (index=0)
   PDEPropertyEditor *p = &pe[0];
 
   if(p->menuAction == NULL) {
@@ -209,7 +209,7 @@ void SifGenerator::makeEquationBlocks()
 //-----------------------------------------------------------------------------
 void SifGenerator::makeSolverBlocks()
 {
-  // At the moment only "Equation 1" is meaningful (index=0)
+  // TODO: At the moment only "Equation 1" is meaningful (index=0)
   PDEPropertyEditor *p = &pe[0];
 
   int currentSolver = 0;
@@ -258,36 +258,59 @@ void SifGenerator::makeSolverBlocks()
 //-----------------------------------------------------------------------------
 void SifGenerator::makeMaterialBlocks()
 {
-  // At the moment only "Material 1" is meaningful (index=0)
+  // TODO: At the moment only "Material 1" is meaningful (index=0)
   MATPropertyEditor *m = &me[0];
 
   if(m->menuAction == NULL) {
-    cout << "There is no material defined - aborting" << endl;
+    cout << "There is no material - aborting" << endl;
     return;
   }
 
   Ui::materialEditor ui = m->ui;
+
+  if(ui.densityEdit->text() == "") {
+    cout << "Undefined density - aborting" << endl;
+    return;
+  }
   
   te->append("Material 1");
-  te->append("  Name = " + ui.materialNameEdit->text());
+
+  // Name
+  addLineEdit("  Name = ", ui.materialNameEdit->text());
 
   // General parameters
-  te->append("  Density = " + ui.densityEdit->text());
+  addLineEdit("  Density = ", ui.densityEdit->text());
+  addLineEdit("  Reference Temperature = ", ui.referenceTemperatureEdit->text());
+  addLineEdit("  Reference Temperature = ", ui.referencePressureEdit->text());
+  addLineEdit("  Heat Expansion Coefficient = ", ui.heatExpansionCoefficientEdit->text());
+  addLineEdit("  Heat Capacity = ", ui.heatCapacityEdit->text());
+  addLineEdit("  Convection Velocity 1 = ", ui.convectionVelocity1Edit->text());
+  addLineEdit("  Convection Velocity 2 = ", ui.convectionVelocity2Edit->text());
+  addLineEdit("  Convection Velocity 3 = ", ui.convectionVelocity3Edit->text());
 
-  if(ui.heatEquationActive->isChecked()) {
-    te->append("  Heat Capacity = " + ui.heatEquationHeatCapacityEdit->text());
-    te->append("  Heat Conductivity = " + ui.heatEquationHeatConductivityEdit->text());
-    te->append("  Enthalpy = " + ui.heatEquationEnthalpyEdit->text());
-  }
+  // Heat equation
+  addLineEdit("  Heat Conductivity = ", ui.heatEquationHeatConductivityEdit->text());
+  addLineEdit("  Enthalpy = ", ui.heatEquationEnthalpyEdit->text());
+  
+  // Linear elasticity
+  addLineEdit("  Youngs Modulus = ", ui.linearElasticityYoungsModulusEdit->text());
+  addLineEdit("  Poisson Ratio = ", ui.linearElasticityPoissonRatioEdit->text());
+  
+  // Navier-Stokes
+  addLineEdit("  Viscosity = ", ui.navierStokesViscosityEdit->text());
+  addLineEdit("  Specific Heat Ratio = ", ui.navierStokesSpecificHeatEdit->text());
+  
+  if(ui.navierStokesIncompressibleButton->isChecked())
+    te->append("  Compressibility Model = None");
+  else
+    te->append("  Compressibility Model = Perfect Gas Equation 1");
+  
+  // Advection-diffusion
+  addLineEdit("  Species Diffusivity = ", ui.advectionDiffusionSpeciesDiffEdit->text());
 
-  if(ui.linearElasticityActive->isChecked()) {
-    te->append("  Heat Expansion Coefficient = " + ui.linearElasticityHeatExpansionEdit->text());
-    te->append("  Reference Temperature = " + ui.linearElasticityReferenceTempEdit->text());
-    te->append("  Youngs Modulus = " + ui.linearElasticityYoungsModulusEdit->text());
-    te->append("  Poisson Ratio = " + ui.linearElasticityPoissonRatioEdit->text());
-  }
-
-  // TODO: rest of materials
+  // Helmholtz equation
+  addLineEdit("  Sound Speed = ", ui.helmholtzEquationSoundSpeedEdit->text());
+  addLineEdit("  Damping = ", ui.helmholtzEquationDampingEdit->text());
 
   te->append("End\n");
 }
@@ -297,7 +320,7 @@ void SifGenerator::makeMaterialBlocks()
 //-----------------------------------------------------------------------------
 void SifGenerator::makeBodyForceBlocks()
 {
-  // At the moment only "Equation 1" is meaningful (index=0)
+  // TODO: At the moment only "Equation 1" is meaningful (index=0)
   PDEPropertyEditor *p = &pe[0];
 
   // TODO: add functionality wrt ui
@@ -325,14 +348,12 @@ void SifGenerator::makeBodyForceBlocks()
 //-----------------------------------------------------------------------------
 void SifGenerator::makeBoundaryBlocks()
 {
-  // At the moment only "Equation 1" is meaningful (index=0)
+  // TODO: At the moment only "Equation 1" is meaningful (index=0)
   PDEPropertyEditor *p = &pe[0];
 
   Ui::equationEditor ui = p->ui;
 
   int j = 0;
-
-  QString qs = "";
 
   for(int i = 1; i < bcPropertyEditor->maxindex; i++) {
     bcProperty_t *bp = &bcPropertyEditor->bcProperty[i];
@@ -340,33 +361,17 @@ void SifGenerator::makeBoundaryBlocks()
     if(bp->defined) {
 
       te->append("Boundary condition " + QString::number(++j));
-
       te->append("  Target boundaries(1) = " + QString::number(i));
 
       if(ui.heatEquationActive->isChecked()) {
-
-	qs = bp->temperature;
-	if(qs != "")
-	  te->append("  Temperature = " + qs);
-	
-	qs = bp->heatFlux;
-	if(qs != "")
-	  te->append("  Heat Flux = " + qs);
+	addLineEdit("  Temperature = ", bp->temperature);
+	addLineEdit("  Heat Flux = ", bp->heatFlux);
       }
 
       if(ui.linearElasticityActive->isChecked()) {
-
-	qs = bp->displacement1;
-	if(qs != "")
-	  te->append("  Displacement 1 = " + qs);
-	
-	qs = bp->displacement2;
-	if(qs != "")
-	  te->append("  Displacement 2 = " + qs);
-	
-	qs = bp->displacement3;
-	if(qs != "")
-	  te->append("  Displacement 3 = " + qs);
+	addLineEdit("  Displacement 1 = ", bp->displacement1);
+	addLineEdit("  Displacement 2 = ", bp->displacement2);
+	addLineEdit("  Displacement 3 = ", bp->displacement3);
       }
 
       te->append("End\n");
@@ -379,7 +384,7 @@ void SifGenerator::makeBoundaryBlocks()
 //-----------------------------------------------------------------------------
 void SifGenerator::parseProcedure(Ui::solverParameterEditor ui)
 {
-  if((ui.procedureFileEdit->text() == "") && 
+  if((ui.procedureFileEdit->text() == "") ||
      (ui.procedureFunctionEdit->text() == ""))
     return;
 
@@ -412,26 +417,11 @@ void SifGenerator::parseGeneralTab(Ui::solverParameterEditor ui)
   
   if(ui.execNever->isChecked())
     te->append("  Exec Solver = Never");
-
-  if(ui.stabilizeCheck->isChecked())
-    te->append("  Stabilize = True");
-  else
-    te->append("  Stabilize = False");
-
-  if(ui.bubblesCheck->isChecked())
-    te->append("  Bubbles = True");
-  else
-    te->append("  Bubbles = False");
-
-  if(ui.lumpedMassCheck->isChecked())
-    te->append("  Lumped Mass Matrix = True");
-  else
-    te->append("  Lumped Mass Matrix = False");
-
-  if(ui.optimizeBandwidthCheck->isChecked())
-    te->append("  Optimize Bandwidth = True");
-  else
-    te->append("  Optimize Bandwidth = False"); 
+  
+  addLineBool("  Stabilize = ", ui.stabilizeCheck->isChecked());
+  addLineBool("  Bubbles = ", ui.bubblesCheck->isChecked());
+  addLineBool("  Lumped Mass Matrix = ", ui.lumpedMassCheck->isChecked());
+  addLineBool("  Optimize Bandwidth = ", ui.optimizeBandwidthCheck->isChecked());
 }
 
 
@@ -439,8 +429,13 @@ void SifGenerator::parseGeneralTab(Ui::solverParameterEditor ui)
 //-----------------------------------------------------------------------------
 void SifGenerator::parseSteadyStateTab(Ui::solverParameterEditor ui)
 {
-  te->append("  Steady State Convergence Tolerance = " 
-	     + ui.steadyStateConvergenceToleranceEdit->text());
+  if(ui.steadyStateConvergenceToleranceEdit->text() == "") {
+    cout << "Steady state convergence tolerance is undefined" << endl;
+    return;
+  }
+  
+  addLineEdit("  Steady State Convergence Tolerance = ",
+	      ui.steadyStateConvergenceToleranceEdit->text());
 }
 
 
@@ -448,20 +443,20 @@ void SifGenerator::parseSteadyStateTab(Ui::solverParameterEditor ui)
 //-----------------------------------------------------------------------------
 void SifGenerator::parseNonlinearSystemTab(Ui::solverParameterEditor ui)
 {
-  te->append("  Nonlinear System Convergence Tolerance = " 
-	     + ui.nonlinSystemConvergenceToleranceEdit->text());
-
-  te->append("  Nonlinear System Max Iterations = " 
-	     + ui.nonlinSystemMaxIterationEdit->text());
-
-  te->append("  Nonlinear System Newton After Iterations = " 
-	     + ui.nonlinSystemNewtonAfterIterEdit->text());
-
-  te->append("  Nonlinear System Newton After Tolerance = " 
-	     + ui.nonlinSystemNewtonAfterTolEdit->text());
-
-  te->append("  Nonlinear System Relaxation Factor = " 
-	     + ui.nonlinSystemRelaxationFactorEdit->text());
+  addLineEdit("  Nonlinear System Convergence Tolerance = ",
+	      ui.nonlinSystemConvergenceToleranceEdit->text());
+  
+  addLineEdit("  Nonlinear System Max Iterations = ", 
+	      ui.nonlinSystemMaxIterationEdit->text());
+  
+  addLineEdit("  Nonlinear System Newton After Iterations = ",
+	      ui.nonlinSystemNewtonAfterIterEdit->text());
+  
+  addLineEdit("  Nonlinear System Newton After Tolerance = ", 
+	      ui.nonlinSystemNewtonAfterTolEdit->text());
+  
+  addLineEdit("  Nonlinear System Relaxation Factor = ", 
+	      ui.nonlinSystemRelaxationFactorEdit->text());
 }
 
 
@@ -470,46 +465,59 @@ void SifGenerator::parseNonlinearSystemTab(Ui::solverParameterEditor ui)
 void SifGenerator::parseLinearSystemTab(Ui::solverParameterEditor ui)
 {
   if(ui.linearSystemSolverDirect->isChecked()) {
-
-    te->append("  Linear System Solver = Direct");
-
-    te->append("  Linear System Direct Method = "
-	       + ui.linearSystemDirectMethod->currentText());
+    
+    addLineEdit("  Linear System Solver = ", "Direct");
+    
+    addLineEdit("  Linear System Direct Method = ",
+		ui.linearSystemDirectMethod->currentText());
     
   } else if(ui.linearSystemSolverIterative->isChecked()) {
-
-    te->append("  Linear System Solver = Iterative");
-
-    te->append("  Linear System Iterative Method = "
-	       + ui.linearSystemIterativeMethod->currentText());
-
-    te->append("  Linear System Max Iterations = " 
-	       + ui.linearSystemMaxIterationsEdit->text());
-
-    te->append("  Linear System Convergence Tolerance = " 
-	       + ui.linearSystemConvergenceToleranceEdit->text());
-
-    te->append("  Linear System Preconditioning = " 
-	       + ui.linearSystemPreconditioning->currentText());
-
-    te->append("  Linear System ILUT Tolerance = " 
-	       + ui.linearSystemILUTToleranceEdit->text());
     
-    if(ui.linearSystemAbortWhenNotConvergedCheck->isChecked())
-      te->append("  Linear System Abort Not Converged = True");
-    else
-      te->append("  Linear System Abort Not Converged = False");
-
-    te->append("  Linear System Residual Output = "
-	       + ui.linearSystemResiduaOutputEdit->text());
+    addLineEdit("  Linear System Solver = ", "Iterative");
     
-    te->append("  Linear System Precondition Recompute = "
-	       + ui.linearSystemPreconditionRecomputeEdit->text());
-
+    addLineEdit("  Linear System Iterative Method = ",
+		ui.linearSystemIterativeMethod->currentText());
+    
+    addLineEdit("  Linear System Max Iterations = ", 
+		ui.linearSystemMaxIterationsEdit->text());
+    
+    addLineEdit("  Linear System Convergence Tolerance = ",
+		ui.linearSystemConvergenceToleranceEdit->text());
+    
+    addLineEdit("  Linear System Preconditioning = ",
+		ui.linearSystemPreconditioning->currentText());
+    
+    addLineEdit("  Linear System ILUT Tolerance = ",
+		ui.linearSystemILUTToleranceEdit->text());
+    
+    addLineBool("  Linear System Abort Not Converged = ",
+		ui.linearSystemAbortWhenNotConvergedCheck->isChecked());
+    
+    addLineEdit("  Linear System Residual Output = ",
+		ui.linearSystemResiduaOutputEdit->text());
+    
+    addLineEdit("  Linear System Precondition Recompute = ",
+		ui.linearSystemPreconditionRecomputeEdit->text());
+    
   } else if(ui.linearSystemSolverMultigrid->isChecked()) {
     
-    te->append("  Linear System Solver = Multigrid");
+    addLineEdit("  Linear System Solver = ", "Multigrid");
     
-    // TODO
+    // TODO: rest
   }
+}
+
+
+void SifGenerator::addLineEdit(const QString &var, const QString &val)
+{
+  if(val != "")
+    te->append(var + val);
+}
+
+void SifGenerator::addLineBool(const QString &var, bool val)
+{
+  if(val == true)
+    te->append(var + "True");
+  else
+    te->append(var + "False");
 }

@@ -84,12 +84,4 @@ void MATPropertyEditor::startEdit(int id)
 
 void MATPropertyEditor::defaultSettings()
 {
-  Qt::CheckState uc = Qt::Unchecked;
-
-  ui.heatEquationActive->setCheckState(uc);
-  ui.linearElasticityActive->setCheckState(uc);
-  ui.navierStokesActive->setCheckState(uc);
-  ui.heatEquationActive->setCheckState(uc);
-  ui.advectionDiffusionActive->setCheckState(uc);
-  ui.helmholtzEquationActive->setCheckState(uc);
 }

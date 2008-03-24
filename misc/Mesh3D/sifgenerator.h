@@ -50,6 +50,9 @@ class SifGenerator  {
   void parseSteadyStateTab(Ui::solverParameterEditor);
   void parseNonlinearSystemTab(Ui::solverParameterEditor);
   void parseLinearSystemTab(Ui::solverParameterEditor);
+
+  void addLineEdit(const QString&, const QString&);
+  void addLineBool(const QString&, bool);
 };
 
 #endif // SIFGENERATOR_H
