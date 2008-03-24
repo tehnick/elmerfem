@@ -50,8 +50,8 @@ BCPropertyEditor::BCPropertyEditor(QWidget *parent)
   maxindex = MAX_BCS;
 
   bcEditActive = false;
-  heatEquationActive = true;
-  linearElasticityActive = true;
+  // heatEquationActive = true;
+  // linearElasticityActive = true;
 
   for(int i = 0; i < MAX_BCS; i++)
     bcProperty[i].defined = false;
@@ -88,15 +88,9 @@ void BCPropertyEditor::editProperties(int bcIndex)
 
 void BCPropertyEditor::updateActiveSheets()
 {
-  if(heatEquationActive) 
-    ui.heatEquation->setEnabled(true);
-  else
-    ui.heatEquation->setEnabled(false);
-  
-  if(linearElasticityActive)
-    ui.linearElasticity->setEnabled(true);
-  else
-    ui.linearElasticity->setEnabled(false);
+  // set all active
+  ui.heatEquation->setEnabled(true);
+  ui.linearElasticity->setEnabled(true);
 }
 
 void BCPropertyEditor::temperatureChanged(const QString& qs)

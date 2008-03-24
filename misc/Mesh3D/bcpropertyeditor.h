@@ -33,8 +33,6 @@ public:
   bcProperty_t bcProperty[MAX_BCS];
 
   bool bcEditActive;
-  bool heatEquationActive;
-  bool linearElasticityActive;
 
   void editProperties(int);
   void updateActiveSheets();

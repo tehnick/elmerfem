@@ -54,6 +54,108 @@ void GenerateSif::makeConstantsBlock()
 }
 
 
+// Make Body-blocks:
+//-----------------------------------------------------------------------------
+void GenerateSif::makeBodyBlocks()
+{
+  // find out mesh domain ids:
+  // -------------------------
+  char str[1024];
+  int maxindex=-1;
+  for( int i=0; i < mesh->elements; i++)
+  {
+    element_t *element=&mesh->element[i];
+    if ( (element->nature == PDE_BULK) &&( element->index > maxindex) )
+      maxindex = element->index;
+  }
+
+  for( int i = 0; i < mesh->surfaces; i++)
+  {
+    element_t *element=&mesh->surface[i];
+    if ( (element->nature == PDE_BULK) && (element->index > maxindex) )
+      maxindex = element->index;
+  }
+
+  for( int i = 0; i < mesh->edges; i++)
+  {
+    element_t *element=&mesh->edge[i];
+    if ( (element->nature == PDE_BULK) && (element->index > maxindex) )
+      maxindex = element->index;
+  }
+  
+  for( int i = 0; i < mesh->points; i++)
+  {
+    element_t *element=&mesh->point[i];
+    if ( (element->nature == PDE_BULK) && (element->index > maxindex) )
+      maxindex = element->index;
+  }
+  maxindex++;
+  
+  if(maxindex == 0)
+    return;
+
+  bool *body_tmp = new bool[maxindex];
+  int  *body_id  = new  int[maxindex];
+
+  for(int i = 0; i < maxindex; i++)
+    body_tmp[i] = false;
+
+  maxindex = 0;
+
+  for(int i = 0; i < mesh->elements; i++) {
+    element_t *element = &mesh->element[i];
+    
+    if(element->nature == PDE_BULK)
+      if ( !body_tmp[element->index] ) {
+        body_tmp[element->index] = true;
+        body_id[maxindex++] = element->index;
+      }
+  }
+
+  for(int i = 0; i < mesh->surfaces; i++) {
+    element_t *element = &mesh->surface[i];
+    if(element->nature == PDE_BULK)
+      if ( !body_tmp[element->index] ) {
+        body_tmp[element->index] = true;
+        body_id[maxindex++] = element->index;
+      }
+  }
+  
+  for(int i = 0; i < mesh->edges; i++) {
+    element_t *element = &mesh->edge[i];
+    if(element->nature == PDE_BULK)
+      if ( !body_tmp[element->index] ) {
+        body_tmp[element->index] = true;
+        body_id[maxindex++] = element->index;
+      }
+  }
+
+  for(int i = 0; i < mesh->points; i++) {
+    element_t *element = &mesh->point[i];
+    if(element->nature == PDE_BULK)
+      if ( !body_tmp[element->index] ) {
+        body_tmp[element->index] = true;
+        body_id[maxindex++] = element->index;
+      }
+  }
+  
+  te->append("Body 1");
+  te->append("  Name = \"Body1\"");
+  sprintf( str, "  Target Bodies(%d) =", maxindex );
+  for( int i=0; i < maxindex; i++ ) 
+     sprintf( str, "%s %d", str, max(body_id[i],1) );
+
+  delete [] body_tmp;
+  delete [] body_id;
+
+  te->append(str);
+  te->append("  Body Force = 1");
+  te->append("  Equation = 1");
+  te->append("  Material = 1");
+  te->append("End\n");
+}
+
+
 // Make Equation-blocks:
 //-----------------------------------------------------------------------------
 void GenerateSif::makeEquationBlocks()
@@ -117,11 +219,11 @@ void GenerateSif::makeSolverBlocks()
     te->append("  Equation = \"Heat Equation\"");
     te->append("  Variable = Temperature");
     te->append("  Variable Dofs = 1");
-    parseProcedure(ui, te);
-    parseGeneralTab(ui, te);
-    parseSteadyStateTab(ui, te);
-    parseNonlinearSystemTab(ui, te);
-    parseLinearSystemTab(ui, te);
+    parseProcedure(ui);
+    parseGeneralTab(ui);
+    parseSteadyStateTab(ui);
+    parseNonlinearSystemTab(ui);
+    parseLinearSystemTab(ui);
     // todo: add adaptivity & multigrid
     te->append("End\n");
   }
@@ -134,11 +236,11 @@ void GenerateSif::makeSolverBlocks()
     te->append("  Equation = \"Stress analysis\"");
     te->append("  Variable = Displacement");
     te->append("  Variable dofs = " + QString::number(cdim));
-    parseProcedure(ui, te);
-    parseGeneralTab(ui, te);
-    parseSteadyStateTab(ui, te);
-    parseNonlinearSystemTab(ui, te);
-    parseLinearSystemTab(ui, te);
+    parseProcedure(ui);
+    parseGeneralTab(ui);
+    parseSteadyStateTab(ui);
+    parseNonlinearSystemTab(ui);
+    parseLinearSystemTab(ui);
     // todo: add adaptivity & multigrid
     te->append("End\n");
   }
@@ -194,9 +296,60 @@ void GenerateSif::makeBodyForceBlocks()
 }
 
 
+// Make Booundary-blocks:
+//-----------------------------------------------------------------------------
+void GenerateSif::makeBoundaryBlocks()
+{
+  Ui::equationEditor ui = pe->ui;
+
+  int j = 0;
+
+  QString qs = "";
+
+  for(int i = 1; i < bcPropertyEditor->maxindex; i++) {
+    bcProperty_t *bp = &bcPropertyEditor->bcProperty[i];
+
+    if(bp->defined) {
+
+      te->append("Boundary condition " + QString::number(++j));
+
+      te->append("  Target boundaries(1) = " + QString::number(i));
+
+      if(ui.heatEquationActive->isChecked()) {
+
+	qs = bp->temperature;
+	if(qs != "")
+	  te->append("  Temperature = " + qs);
+	
+	qs = bp->heatFlux;
+	if(qs != "")
+	  te->append("  Heat Flux = " + qs);
+      }
+
+      if(ui.linearElasticityActive->isChecked()) {
+
+	qs = bp->displacement1;
+	if(qs != "")
+	  te->append("  Displacement 1 = " + qs);
+	
+	qs = bp->displacement2;
+	if(qs != "")
+	  te->append("  Displacement 2 = " + qs);
+	
+	qs = bp->displacement3;
+	if(qs != "")
+	  te->append("  Displacement 3 = " + qs);
+      }
+
+      te->append("End\n");
+    }
+  }  
+}
+
+
 // Parse "Procedure fields" from ui to sif:
 //-----------------------------------------------------------------------------
-void GenerateSif::parseProcedure(Ui::solverParameterEditor ui, QTextEdit *te)
+void GenerateSif::parseProcedure(Ui::solverParameterEditor ui)
 {
   if((ui.procedureFileEdit->text() == "") && 
      (ui.procedureFunctionEdit->text() == ""))
@@ -212,7 +365,7 @@ void GenerateSif::parseProcedure(Ui::solverParameterEditor ui, QTextEdit *te)
 
 // Parse "Exec Solver" tab from ui to sif:
 //-----------------------------------------------------------------------------
-void GenerateSif::parseGeneralTab(Ui::solverParameterEditor ui, QTextEdit *te)
+void GenerateSif::parseGeneralTab(Ui::solverParameterEditor ui)
 {
   if(ui.execAlways->isChecked())
     te->append("  Exec Solver = Always");
@@ -256,7 +409,7 @@ void GenerateSif::parseGeneralTab(Ui::solverParameterEditor ui, QTextEdit *te)
 
 // Parse "Steady state" tab from ui to sif:
 //-----------------------------------------------------------------------------
-void GenerateSif::parseSteadyStateTab(Ui::solverParameterEditor ui, QTextEdit *te)
+void GenerateSif::parseSteadyStateTab(Ui::solverParameterEditor ui)
 {
   te->append("  Steady State Convergence Tolerance = " 
 	     + ui.steadyStateConvergenceToleranceEdit->text());
@@ -265,7 +418,7 @@ void GenerateSif::parseSteadyStateTab(Ui::solverParameterEditor ui, QTextEdit *t
 
 // Parse "Nonlinear system" tab from ui to sif:
 //-----------------------------------------------------------------------------
-void GenerateSif::parseNonlinearSystemTab(Ui::solverParameterEditor ui, QTextEdit *te)
+void GenerateSif::parseNonlinearSystemTab(Ui::solverParameterEditor ui)
 {
   te->append("  Nonlinear System Convergence Tolerance = " 
 	     + ui.nonlinSystemConvergenceToleranceEdit->text());
@@ -286,7 +439,7 @@ void GenerateSif::parseNonlinearSystemTab(Ui::solverParameterEditor ui, QTextEdi
 
 // Parse "Linear system" tab from ui to sif:
 //-----------------------------------------------------------------------------
-void GenerateSif::parseLinearSystemTab(Ui::solverParameterEditor ui, QTextEdit *te)
+void GenerateSif::parseLinearSystemTab(Ui::solverParameterEditor ui)
 {
   if(ui.linearSystemSolverDirect->isChecked()) {
 

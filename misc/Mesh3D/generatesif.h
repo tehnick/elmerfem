@@ -3,10 +3,13 @@
 
 #include <QTextEdit>
 
+#include "meshtype.h"
 #include "pdepropertyeditor.h"
+#include "bcpropertyeditor.h"
 #include "solverparameters.h"
 #include "meshcontrol.h"
 #include "ui_pdepropertyeditor.h"
+#include "ui_bcpropertyeditor.h"
 #include "ui_solverparameters.h"
 #include "ui_meshcontrol.h"
 
@@ -21,25 +24,29 @@ class GenerateSif  {
   GenerateSif();
   ~GenerateSif();
 
+  mesh_t *mesh;
   QTextEdit *te;
   PDEPropertyEditor *pe;
+  BCPropertyEditor *bcPropertyEditor;
   MeshControl *meshControl;
   int cdim;
 
   void makeHeaderBlock();
   void makeSimulationBlock();
   void makeConstantsBlock();
+  void makeBodyBlocks();
   void makeEquationBlocks();
   void makeSolverBlocks();
   void makeMaterialBlocks();
   void makeBodyForceBlocks();
+  void makeBoundaryBlocks();
 
  private:
-  void parseProcedure(Ui::solverParameterEditor, QTextEdit*);
-  void parseGeneralTab(Ui::solverParameterEditor, QTextEdit*);
-  void parseSteadyStateTab(Ui::solverParameterEditor, QTextEdit*);
-  void parseNonlinearSystemTab(Ui::solverParameterEditor, QTextEdit*);
-  void parseLinearSystemTab(Ui::solverParameterEditor, QTextEdit*);
+  void parseProcedure(Ui::solverParameterEditor);
+  void parseGeneralTab(Ui::solverParameterEditor);
+  void parseSteadyStateTab(Ui::solverParameterEditor);
+  void parseNonlinearSystemTab(Ui::solverParameterEditor);
+  void parseLinearSystemTab(Ui::solverParameterEditor);
 };
 
 #endif // GENERATESIF_H

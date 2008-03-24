@@ -2451,9 +2451,11 @@ void MainWindow::generateSifSlot()
   // Set up SIF generator:
   //-----------------------
   GenerateSif generateSif;
+  generateSif.mesh = glWidget->mesh;
   generateSif.cdim = cdim;
   generateSif.te = te;
   generateSif.pe = pe;
+  generateSif.bcPropertyEditor = bcPropertyEditor;
   generateSif.meshControl = meshControl;
 
   // Make SIF:
@@ -2461,172 +2463,13 @@ void MainWindow::generateSifSlot()
   generateSif.makeHeaderBlock();
   generateSif.makeSimulationBlock();
   generateSif.makeConstantsBlock();
-  makeSifBodyBlocks(); // still in MainWindow
+  generateSif.makeBodyBlocks();
   generateSif.makeEquationBlocks();
   generateSif.makeSolverBlocks();
   generateSif.makeMaterialBlocks();
   generateSif.makeBodyForceBlocks();
-  makeSifBoundaryBlocks(); // still in MainWindow
+  generateSif.makeBoundaryBlocks();
 }
-
-
-
-// Make body blocks in SIF:
-//-----------------------------------------------------------------------------
-void MainWindow::makeSifBodyBlocks()
-{
-  mesh_t *mesh = glWidget->mesh;
-  QTextEdit *te = sifWindow->textEdit;
-
-  // find out mesh domain ids:
-  // -------------------------
-  char str[1024];
-  int maxindex=-1;
-  for( int i=0; i<mesh->elements; i++)
-  {
-    element_t *element=&mesh->element[i];
-    if ( element->nature==PDE_BULK && element->index > maxindex )
-      maxindex = element->index;
-  }
-
-  for( int i=0; i<mesh->surfaces; i++)
-  {
-    element_t *element=&mesh->surface[i];
-    if ( element->nature==PDE_BULK && element->index > maxindex )
-      maxindex = element->index;
-  }
-
-  for( int i=0; i<mesh->edges; i++)
-  {
-    element_t *element=&mesh->edge[i];
-    if ( element->nature==PDE_BULK && element->index > maxindex )
-      maxindex = element->index;
-  }
-
-  for( int i=0; i<mesh->points; i++)
-  {
-    element_t *element=&mesh->point[i];
-    if ( element->nature==PDE_BULK && element->index > maxindex )
-      maxindex = element->index;
-  }
-  maxindex++;
-
-  if(maxindex == 0)
-    return;
-
-  bool *body_tmp = new bool[maxindex];
-  int  *body_id  = new  int[maxindex];
-
-  for(int i=0; i<maxindex; i++)
-    body_tmp[i] = false;
-
-  maxindex = 0;
-
-  for(int i=0; i <mesh->elements; i++) {
-    element_t *element = &mesh->element[i];
-
-    if(element->nature == PDE_BULK)
-      if ( !body_tmp[element->index] ) {
-        body_tmp[element->index] = true;
-        body_id[maxindex++] = element->index;
-      }
-  }
-
-  for(int i=0; i <mesh->surfaces; i++) {
-    element_t *element = &mesh->surface[i];
-    if(element->nature == PDE_BULK)
-      if ( !body_tmp[element->index] ) {
-        body_tmp[element->index] = true;
-        body_id[maxindex++] = element->index;
-      }
-  }
-
-  for(int i=0; i <mesh->edges; i++) {
-    element_t *element = &mesh->edge[i];
-    if(element->nature == PDE_BULK)
-      if ( !body_tmp[element->index] ) {
-        body_tmp[element->index] = true;
-        body_id[maxindex++] = element->index;
-      }
-  }
-
-  for(int i=0; i <mesh->points; i++) {
-    element_t *element = &mesh->point[i];
-    if(element->nature == PDE_BULK)
-      if ( !body_tmp[element->index] ) {
-        body_tmp[element->index] = true;
-        body_id[maxindex++] = element->index;
-      }
-  }
-
-  te->append("Body 1");
-  te->append("  Name = \"Body1\"");
-  sprintf( str, "  Target Bodies(%d) =", maxindex );
-  for( int i=0; i<maxindex; i++ ) 
-     sprintf( str, "%s %d", str, max(body_id[i],1) );
-
-  delete [] body_tmp;
-  delete [] body_id;
-
-  te->append(str);
-  te->append("  Body Force = 1");
-  te->append("  Equation = 1");
-  te->append("  Material = 1");
-  te->append("End\n");
-}
-
-
-
-// Make boundary condition blocks in SIF:
-//-----------------------------------------------------------------------------
-void MainWindow::makeSifBoundaryBlocks()
-{
-  QTextEdit *te = sifWindow->textEdit;
-
-  int j = 0;
-
-  QString qs = "";
-
-  for(int i = 1; i < bcPropertyEditor->maxindex; i++) {
-    bcProperty_t *bp = &bcPropertyEditor->bcProperty[i];
-
-    if(bp->defined) {
-
-      te->append("Boundary condition " + QString::number(++j));
-
-      te->append("  Target boundaries(1) = " + QString::number(i));
-      
-      if(bcPropertyEditor->heatEquationActive) {
-
-	qs = bp->temperature;
-	if(qs != "")
-	  te->append("  Temperature = " + qs);
-	
-	qs = bp->heatFlux;
-	if(qs != "")
-	  te->append("  Heat Flux = " + qs);
-      }
-
-      if(bcPropertyEditor->linearElasticityActive) {
-
-	qs = bp->displacement1;
-	if(qs != "")
-	  te->append("  Displacement 1 = " + qs);
-	
-	qs = bp->displacement2;
-	if(qs != "")
-	  te->append("  Displacement 2 = " + qs);
-	
-	qs = bp->displacement3;
-	if(qs != "")
-	  te->append("  Displacement 3 = " + qs);
-      }
-
-      te->append("End\n");
-    }
-  }
-}
-
 
 
 

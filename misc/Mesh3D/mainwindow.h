@@ -183,10 +183,6 @@ private:
   void makeElmerMeshFromNglib();
   void logMessage(QString);
   void synchronizeMenuToState();
-
-  // sif parsing functions:
-  void makeSifBodyBlocks();
-  void makeSifBoundaryBlocks();
 };
 
 #endif
