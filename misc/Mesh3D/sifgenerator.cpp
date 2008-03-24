@@ -188,12 +188,14 @@ void SifGenerator::makeEquationBlocks()
   if(ui.helmholtzEquationActive->isChecked())
     nofSolvers++;
 
-
   if(nofSolvers == 0) {
     cout << "There are no active solvers - unable to continue with SIF" << endl;
     cout.flush();
     return;
   }
+
+  cout << "************ " << nofSolvers << endl;
+  cout.flush();
 
   te->append("Equation 1");
   QString qs = "  Active Solvers(" + QString::number(nofSolvers) + ") =";
