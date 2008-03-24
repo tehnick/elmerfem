@@ -189,13 +189,10 @@ void SifGenerator::makeEquationBlocks()
     nofSolvers++;
 
   if(nofSolvers == 0) {
-    cout << "There are no active solvers - unable to continue with SIF" << endl;
+    cout << "There are no active solvers - aborting" << endl;
     cout.flush();
     return;
   }
-
-  cout << "************ " << nofSolvers << endl;
-  cout.flush();
 
   te->append("Equation 1");
   QString qs = "  Active Solvers(" + QString::number(nofSolvers) + ") =";
@@ -392,8 +389,6 @@ void SifGenerator::parseProcedure(Ui::solverParameterEditor ui)
 
   te->append("  Procedure = \"" + ui.procedureFileEdit->text() + "\" "
 	                 + "\"" + ui.procedureFunctionEdit->text() + "\"");
-
-  te->append(ui.procedureFunctionEdit->text());    
 }
 
 
@@ -432,7 +427,7 @@ void SifGenerator::parseGeneralTab(Ui::solverParameterEditor ui)
 void SifGenerator::parseSteadyStateTab(Ui::solverParameterEditor ui)
 {
   if(ui.steadyStateConvergenceToleranceEdit->text() == "") {
-    cout << "Steady state convergence tolerance is undefined" << endl;
+    cout << "Steady state convergence tolerance is undefined - aborting" << endl;
     return;
   }
   
