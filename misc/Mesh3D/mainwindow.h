@@ -184,6 +184,7 @@ private:
   void synchronizeMenuToState();
 
   // sif parsing functions:
+  void parseProcedure(QTextEdit*, Ui::solverParameterEditor);
   void parseGeneralTab(QTextEdit*, Ui::solverParameterEditor);
   void parseSteadyStateTab(QTextEdit*, Ui::solverParameterEditor);
   void parseNonlinearSystemTab(QTextEdit*, Ui::solverParameterEditor);

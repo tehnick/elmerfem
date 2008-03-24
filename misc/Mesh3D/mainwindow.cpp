@@ -2537,14 +2537,15 @@ void MainWindow::generateSifSlot()
     Ui::solverParameterEditor ui = pe->solverParameterEditor[HEAT_EQUATION].ui;
     currentSolver++;
     te->append("Solver " + QString::number(currentSolver));
-    te->append("  Equation = Heat Equation");
+    te->append("  Equation = \"Heat Equation\"");
     te->append("  Variable = Temperature");
     te->append("  Variable Dofs = 1");
+    parseProcedure( te, ui );
     parseGeneralTab( te, ui );
     parseSteadyStateTab( te, ui );
     parseNonlinearSystemTab( te, ui );
     parseLinearSystemTab( te, ui );
-    // todo: adaptivity & multigrid
+    // todo: add adaptivity & multigrid
     te->append("End\n");
   }
 
@@ -2552,14 +2553,15 @@ void MainWindow::generateSifSlot()
     Ui::solverParameterEditor ui = pe->solverParameterEditor[LINEAR_ELASTICITY].ui;
     currentSolver++;
     te->append("Solver " + QString::number(currentSolver));
-    te->append("  Equation = Stress analysis");
+    te->append("  Equation = \"Stress analysis\"");
     te->append("  Variable = Displacement");
     te->append("  Variable dofs = " + QString::number(cdim));
+    parseProcedure( te, ui );
     parseGeneralTab( te, ui );
     parseSteadyStateTab( te, ui );
     parseNonlinearSystemTab( te, ui );
     parseLinearSystemTab( te, ui );
-    // todo: adaptivity & multigrid
+    // todo: add adaptivity & multigrid
     te->append("End\n");
   }
 
@@ -2597,6 +2599,22 @@ void MainWindow::generateSifSlot()
 }
 
 
+// Parse "Procedure fields" from ui to sif:
+//-----------------------------------------------------------------------------
+void MainWindow::parseProcedure(QTextEdit *te, Ui::solverParameterEditor ui)
+{
+  if((ui.procedureFileEdit->text() == "") && 
+     (ui.procedureFunctionEdit->text() == ""))
+    return;
+
+  te->append("  Procedure = \"" + ui.procedureFileEdit->text() + "\" "
+	                 + "\"" + ui.procedureFunctionEdit->text() + "\"");
+
+  te->append(ui.procedureFunctionEdit->text());    
+}
+
+
+
 // Parse "Exec Solver" tab from ui to sif:
 //-----------------------------------------------------------------------------
 void MainWindow::parseGeneralTab(QTextEdit *te, Ui::solverParameterEditor ui)
@@ -2630,9 +2648,9 @@ void MainWindow::parseGeneralTab(QTextEdit *te, Ui::solverParameterEditor ui)
     te->append("  Bubbles = False");
 
   if(ui.lumpedMassCheck->isChecked())
-    te->append("  Lumped mass = True");
+    te->append("  Lumped Mass Matrix = True");
   else
-    te->append("  Lumped mass = False");
+    te->append("  Lumped Mass Matrix = False");
 
   if(ui.optimizeBandwidthCheck->isChecked())
     te->append("  Optimize Bandwidth = True");
@@ -2654,16 +2672,16 @@ void MainWindow::parseSteadyStateTab(QTextEdit *te,Ui::solverParameterEditor ui)
 //-----------------------------------------------------------------------------
 void MainWindow::parseNonlinearSystemTab(QTextEdit *te,Ui::solverParameterEditor ui)
 {
-  te->append("  Nonlinear System Copnvergence Tolerance = " 
+  te->append("  Nonlinear System Convergence Tolerance = " 
 	     + ui.nonlinSystemConvergenceToleranceEdit->text());
 
   te->append("  Nonlinear System Max Iterations = " 
 	     + ui.nonlinSystemMaxIterationEdit->text());
 
-  te->append("  Nonlinear System Newton After Iter = " 
+  te->append("  Nonlinear System Newton After Iterations = " 
 	     + ui.nonlinSystemNewtonAfterIterEdit->text());
 
-  te->append("  Nonlinear System Newton After Tol = " 
+  te->append("  Nonlinear System Newton After Tolerance = " 
 	     + ui.nonlinSystemNewtonAfterTolEdit->text());
 
   te->append("  Nonlinear System Relaxation Factor = " 
@@ -2706,15 +2724,11 @@ void MainWindow::parseLinearSystemTab(QTextEdit *te,Ui::solverParameterEditor ui
     else
       te->append("  Linear System Abort Not Converged = False");
 
-    if(ui.linearSystemResidualOutputCheck->isChecked())
-      te->append("  Linear System Residual Output = True");
-    else
-      te->append("  Linear System Residual Output = False");
-
-    if(ui.linearSystemPreconditiningRecomputeCheck->isChecked())
-      te->append("  Linear System Preconditioning Recompute = True");
-    else
-      te->append("  Linear System Preconditioning Recompute = False");
+    te->append("  Linear System Residual Output = "
+	       + ui.linearSystemResiduaOutputEdit->text());
+    
+    te->append("  Linear System Precondition Recompute = "
+	       + ui.linearSystemPreconditionRecomputeEdit->text());
 
   } else if(ui.linearSystemSolverMultigrid->isChecked()) {
     
