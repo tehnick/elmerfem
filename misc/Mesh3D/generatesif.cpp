@@ -12,8 +12,95 @@ GenerateSif::~GenerateSif()
 }
 
 
+// Make Header-block:
+//-----------------------------------------------------------------------------
+void GenerateSif::makeHeaderBlock()
+{
+  te->append("! Sif skeleton for active equations\n");
+  te->append("Header");
+  te->append("  CHECK KEYWORDS Warn");
+  te->append("  Mesh DB \".\" \".\"");
+  te->append("  Include Path \"\"");
+  te->append("  Results Directory \"\"");
+  te->append("End\n");  
+}
 
-// Make Solevr-blocks:
+
+// Make Simulation-block:
+//-----------------------------------------------------------------------------
+void GenerateSif::makeSimulationBlock()
+{
+  te->append("Simulation");
+  te->append("  Max Output Level = 4");
+  te->append("  Coordinate System = \"Cartesian\"");
+  te->append("  Coordinate Mapping(3) = 1 2 3");
+  te->append("  Simulation Type = \"Steady State\"");
+  te->append("  Steady State Max Iterations = 1");
+  te->append("  Output Intervals = 1");
+  te->append("  Solver Input File = \"skeleton.sif\"");
+  te->append("  Post File = \"skeleton.ep\"");
+  te->append("End\n");
+}
+
+
+// Make Constants-block:
+//-----------------------------------------------------------------------------
+void GenerateSif::makeConstantsBlock()
+{
+  te->append("Constants");
+  te->append("  Gravity(4) = 0 -1 0 9.82");
+  te->append("  Stefan Boltzmann = 5.67e-08");
+  te->append("End\n");
+}
+
+
+// Make Equation-blocks:
+//-----------------------------------------------------------------------------
+void GenerateSif::makeEquationBlocks()
+{
+  if(pe->menuAction == NULL) {
+    cout << "No active equation - aborting" << endl;
+    cout.flush();
+    return;
+  }
+  
+  int nofSolvers = 0;
+
+  Ui::equationEditor ui = pe->ui;
+
+  if(ui.heatEquationActive->isChecked())
+    nofSolvers++;
+
+  if(ui.linearElasticityActive->isChecked())
+    nofSolvers++;
+
+  if(ui.navierStokesActive->isChecked())
+    nofSolvers++;
+
+  if(ui.advectionDiffusionActive->isChecked())
+    nofSolvers++;
+
+  if(ui.helmholtzEquationActive->isChecked())
+    nofSolvers++;
+
+
+  if(nofSolvers == 0) {
+    cout << "There are no active solvers - unable to continue with SIF" << endl;
+    cout.flush();
+    return;
+  }
+
+  te->append("Equation 1");
+  QString qs = "  Active Solvers(" + QString::number(nofSolvers) + ") =";
+  for(int i = 0; i < nofSolvers; i++) 
+    qs.append(" " + QString::number(i+1));
+  te->append(qs);
+  te->append( "  Element = \"" +  meshControl->elementCodesString + "\"" );
+  te->append("End\n");  
+}
+
+
+// Make Solver-blocks:
 //-----------------------------------------------------------------------------
 void GenerateSif::makeSolverBlocks()
 {
@@ -55,6 +142,55 @@ void GenerateSif::makeSolverBlocks()
     // todo: add adaptivity & multigrid
     te->append("End\n");
   }
+}
+
+
+
+// Make Material-blocks:
+//-----------------------------------------------------------------------------
+void GenerateSif::makeMaterialBlocks()
+{
+  // TODO: add functionality wrt ui
+  Ui::equationEditor ui = pe->ui;
+
+  te->append("Material 1");
+  te->append("  Name = \"Material1\"");
+  te->append("  Density = 1");
+
+  if(ui.heatEquationActive->isChecked())
+    te->append("  Heat Conductivity = 1");
+
+  if(ui.linearElasticityActive->isChecked()) {
+    te->append("  Youngs modulus = 1");
+    te->append("  Poisson ratio = 0.3");
+  }
+
+  te->append("End\n");
+}
+
+
+// Make BodyForce-blocks:
+//-----------------------------------------------------------------------------
+void GenerateSif::makeBodyForceBlocks()
+{
+  // TODO: add functionality wrt ui
+  Ui::equationEditor ui = pe->ui;
+
+  te->append("Body Force 1");
+
+  if(ui.heatEquationActive->isChecked())
+    te->append("  Heat Source = 1");
+
+  if(ui.linearElasticityActive->isChecked()) {
+    if(cdim >= 1) 
+      te->append("  Stress BodyForce 1 = 1");
+    if(cdim >= 2) 
+      te->append("  Stress BodyForce 2 = 0");
+    if(cdim >= 3) 
+      te->append("  Stress BodyForce 3 = 0");
+  }
+  
+  te->append("End\n");
 }
 
 
@@ -195,5 +331,4 @@ void GenerateSif::parseLinearSystemTab(Ui::solverParameterEditor ui, QTextEdit *
     
     // TODO
   }
-
 }

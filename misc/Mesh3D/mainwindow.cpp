@@ -2424,9 +2424,6 @@ void MainWindow::showsifSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::generateSifSlot()
 {
-  // Ok, this is the first try with the new Equation and Material menus.
-  // Assuming that there is only 1 body (and hence 1 equation and 1 mat)
-
   if(glWidget->mesh == NULL) {
     logMessage("Unable to create sif: no mesh");
     return;
@@ -2440,229 +2437,36 @@ void MainWindow::generateSifSlot()
     return;
   }
 
+  // Get SIF text editor:
+  //----------------------
   QTextEdit *te = sifWindow->textEdit;
-  
   te->clear();
-
   QFont sansFont("Courier", 10);
   sifWindow->textEdit->setCurrentFont(sansFont);
 
-  // Header block:
-  //---------------
-  te->append("! Sif skeleton for active equations\n");
-  te->append("Header");
-  te->append("  CHECK KEYWORDS Warn");
-  te->append("  Mesh DB \".\" \".\"");
-  te->append("  Include Path \"\"");
-  te->append("  Results Directory \"\"");
-  te->append("End\n");
-  
-  // Simulation block:
-  //------------------
-  te->append("Simulation");
-  te->append("  Max Output Level = 4");
-  te->append("  Coordinate System = \"Cartesian\"");
-  te->append("  Coordinate Mapping(3) = 1 2 3");
-  te->append("  Simulation Type = \"Steady State\"");
-  te->append("  Steady State Max Iterations = 1");
-  te->append("  Output Intervals = 1");
-  te->append("  Solver Input File = \"skeleton.sif\"");
-  te->append("  Post File = \"skeleton.ep\"");
-  te->append("End\n");
+  // Get equation property editor:
+  //------------------------------
+  PDEPropertyEditor *pe = &pdePropertyEditor[0]; // For now, assume index 0
 
-  // Constants block:
-  //-----------------
-  te->append("Constants");
-  te->append("  Gravity(4) = 0 -1 0 9.82");
-  te->append("  Stefan Boltzmann = 5.67e-08");
-  te->append("End\n");
-
-  // Body blocks:
-  //-------------
-  makeSifBodyBlocks();
-
-  // Equation block:
-  //---------------
-  PDEPropertyEditor *pe = &pdePropertyEditor[0];
-  Ui::equationEditor ui = pe->ui;
-
-  if(pe->menuAction == NULL) {
-    logMessage("No active equation - aborting");
-    return;
-  }
-  
-  int nofSolvers = 0;
-
-  if(ui.heatEquationActive->isChecked())
-    nofSolvers++;
-
-  if(ui.linearElasticityActive->isChecked())
-    nofSolvers++;
-
-  if(ui.navierStokesActive->isChecked())
-    nofSolvers++;
-
-  if(ui.advectionDiffusionActive->isChecked())
-    nofSolvers++;
-
-  if(ui.helmholtzEquationActive->isChecked())
-    nofSolvers++;
-
-
-  if(nofSolvers == 0) {
-    logMessage("There are no active solvers - unable to continue with SIF");
-    return;
-  }
-
-  te->append("Equation 1");
-  QString qs = "  Active Solvers(" + QString::number(nofSolvers) + ") =";
-  for(int i = 0; i < nofSolvers; i++) 
-    qs.append(" " + QString::number(i+1));
-  te->append(qs);
-  te->append( "  Element = \"" +  meshControl->elementCodesString + "\"" );
-  te->append("End\n");
-  
-
-  // Solver blocks:
-  //---------------
+  // Set up SIF generator:
+  //-----------------------
   GenerateSif generateSif;
   generateSif.cdim = cdim;
   generateSif.te = te;
   generateSif.pe = pe;
+  generateSif.meshControl = meshControl;
+
+  // Make SIF:
+  //----------
+  generateSif.makeHeaderBlock();
+  generateSif.makeSimulationBlock();
+  generateSif.makeConstantsBlock();
+  makeSifBodyBlocks(); // still in MainWindow
+  generateSif.makeEquationBlocks();
   generateSif.makeSolverBlocks();
-
-  // Material block:
-  //----------------
-  te->append("Material 1");
-  te->append("  Name = \"Material1\"");
-  te->append("  Density = 1");
-  if(bcPropertyEditor->heatEquationActive) 
-    te->append("  Heat Conductivity = 1");
-  if(bcPropertyEditor->heatEquationActive) {
-    te->append("  Youngs modulus = 1");
-    te->append("  Poisson ratio = 0.3");
-  }
-  te->append("End\n");
-  
-  // Body force block:
-  //------------------
-  te->append("Body Force 1");
-  if(bcPropertyEditor->heatEquationActive) 
-    te->append("  Heat Source = 1");
-  if(bcPropertyEditor->linearElasticityActive) {
-    if(cdim >= 1) 
-      te->append("  Stress BodyForce 1 = 1");
-    if(cdim >= 2) 
-      te->append("  Stress BodyForce 2 = 0");
-    if(cdim >= 3) 
-      te->append("  Stress BodyForce 3 = 0");
-  }
-  te->append("End\n");
-  
-  // Boundary condition blocks:
-  //---------------------------
-  makeSifBoundaryBlocks();
-}
-
-
-
-// Boundady selected by double clicking (signaled by glWidget::select):
-//-----------------------------------------------------------------------------
-void MainWindow::boundarySelectedSlot(list_t *l)
-{
-  QString qs;
-
-  if(l->index < 0) {
-    statusBar()->showMessage("Ready");    
-    return;
-  }
-
-  if(l->selected) {
-    if(l->type == SURFACELIST) {
-      qs = "Selected surface " + QString::number(l->index);
-    } else if(l->type == EDGELIST) {
-      qs = "Selected edge " + QString::number(l->index);
-    } else {
-      qs = "Selected object " + QString::number(l->index) + " (type unknown)";
-    }
-  } else {
-    if(l->type == SURFACELIST) {
-      qs = "Unselected surface " + QString::number(l->index);
-    } else if(l->type == EDGELIST) {
-      qs = "Unselected edge " + QString::number(l->index);
-    } else {
-      qs = "Unselected object " + QString::number(l->index) + " (type unknown)";
-    }
-  }
-
-  logMessage(qs);    
-  
-  // Open the bc property sheet for selected boundary:
-  //--------------------------------------------------
-  if(l->selected && bcPropertyEditor->bcEditActive) {
-    qs = "Boundary condition for index " + QString::number(l->index);
-    bcPropertyEditor->setWindowTitle(qs);
-    bcPropertyEditor->editProperties(l->index);
-  }
-
-  // Body selection (take no action at the moment):
-  //------------------------------------------------
-  if(glWidget->currentlySelectedBody >= 0) {
-    cout << "*** Current selection uniquely determines body: " << glWidget->currentlySelectedBody << endl;
-    cout.flush();
-  }
-}
-
-
-
-// Make boundary condition blocks in SIF:
-//-----------------------------------------------------------------------------
-void MainWindow::makeSifBoundaryBlocks()
-{
-  QTextEdit *te = sifWindow->textEdit;
-
-  int j = 0;
-
-  QString qs = "";
-
-  for(int i = 1; i < bcPropertyEditor->maxindex; i++) {
-    bcProperty_t *bp = &bcPropertyEditor->bcProperty[i];
-
-    if(bp->defined) {
-
-      te->append("Boundary condition " + QString::number(++j));
-
-      te->append("  Target boundaries(1) = " + QString::number(i));
-      
-      if(bcPropertyEditor->heatEquationActive) {
-
-	qs = bp->temperature;
-	if(qs != "")
-	  te->append("  Temperature = " + qs);
-	
-	qs = bp->heatFlux;
-	if(qs != "")
-	  te->append("  Heat Flux = " + qs);
-      }
-
-      if(bcPropertyEditor->linearElasticityActive) {
-
-	qs = bp->displacement1;
-	if(qs != "")
-	  te->append("  Displacement 1 = " + qs);
-	
-	qs = bp->displacement2;
-	if(qs != "")
-	  te->append("  Displacement 2 = " + qs);
-	
-	qs = bp->displacement3;
-	if(qs != "")
-	  te->append("  Displacement 3 = " + qs);
-      }
-
-      te->append("End\n");
-    }
-  }
+  generateSif.makeMaterialBlocks();
+  generateSif.makeBodyForceBlocks();
+  makeSifBoundaryBlocks(); // still in MainWindow
 }
 
 
@@ -2769,6 +2573,108 @@ void MainWindow::makeSifBodyBlocks()
   te->append("  Equation = 1");
   te->append("  Material = 1");
   te->append("End\n");
+}
+
+
+
+// Make boundary condition blocks in SIF:
+//-----------------------------------------------------------------------------
+void MainWindow::makeSifBoundaryBlocks()
+{
+  QTextEdit *te = sifWindow->textEdit;
+
+  int j = 0;
+
+  QString qs = "";
+
+  for(int i = 1; i < bcPropertyEditor->maxindex; i++) {
+    bcProperty_t *bp = &bcPropertyEditor->bcProperty[i];
+
+    if(bp->defined) {
+
+      te->append("Boundary condition " + QString::number(++j));
+
+      te->append("  Target boundaries(1) = " + QString::number(i));
+      
+      if(bcPropertyEditor->heatEquationActive) {
+
+	qs = bp->temperature;
+	if(qs != "")
+	  te->append("  Temperature = " + qs);
+	
+	qs = bp->heatFlux;
+	if(qs != "")
+	  te->append("  Heat Flux = " + qs);
+      }
+
+      if(bcPropertyEditor->linearElasticityActive) {
+
+	qs = bp->displacement1;
+	if(qs != "")
+	  te->append("  Displacement 1 = " + qs);
+	
+	qs = bp->displacement2;
+	if(qs != "")
+	  te->append("  Displacement 2 = " + qs);
+	
+	qs = bp->displacement3;
+	if(qs != "")
+	  te->append("  Displacement 3 = " + qs);
+      }
+
+      te->append("End\n");
+    }
+  }
+}
+
+
+
+
+// Boundady selected by double clicking (signaled by glWidget::select):
+//-----------------------------------------------------------------------------
+void MainWindow::boundarySelectedSlot(list_t *l)
+{
+  QString qs;
+
+  if(l->index < 0) {
+    statusBar()->showMessage("Ready");    
+    return;
+  }
+
+  if(l->selected) {
+    if(l->type == SURFACELIST) {
+      qs = "Selected surface " + QString::number(l->index);
+    } else if(l->type == EDGELIST) {
+      qs = "Selected edge " + QString::number(l->index);
+    } else {
+      qs = "Selected object " + QString::number(l->index) + " (type unknown)";
+    }
+  } else {
+    if(l->type == SURFACELIST) {
+      qs = "Unselected surface " + QString::number(l->index);
+    } else if(l->type == EDGELIST) {
+      qs = "Unselected edge " + QString::number(l->index);
+    } else {
+      qs = "Unselected object " + QString::number(l->index) + " (type unknown)";
+    }
+  }
+
+  logMessage(qs);    
+  
+  // Open the bc property sheet for selected boundary:
+  //--------------------------------------------------
+  if(l->selected && bcPropertyEditor->bcEditActive) {
+    qs = "Boundary condition for index " + QString::number(l->index);
+    bcPropertyEditor->setWindowTitle(qs);
+    bcPropertyEditor->editProperties(l->index);
+  }
+
+  // Body selection (take no action at the moment):
+  //------------------------------------------------
+  if(glWidget->currentlySelectedBody >= 0) {
+    cout << "*** Current selection uniquely determines body: " << glWidget->currentlySelectedBody << endl;
+    cout.flush();
+  }
 }
 
 
