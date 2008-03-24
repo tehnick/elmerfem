@@ -1,14 +1,16 @@
-#ifndef GENERATESIF_H
-#define GENERATESIF_H
+#ifndef SIFGENERATOR_H
+#define SIFGENERATOR_H
 
 #include <QTextEdit>
 
 #include "meshtype.h"
 #include "pdepropertyeditor.h"
+#include "matpropertyeditor.h"
 #include "bcpropertyeditor.h"
 #include "solverparameters.h"
 #include "meshcontrol.h"
 #include "ui_pdepropertyeditor.h"
+#include "ui_matpropertyeditor.h"
 #include "ui_bcpropertyeditor.h"
 #include "ui_solverparameters.h"
 #include "ui_meshcontrol.h"
@@ -19,14 +21,15 @@
 #define ADVECTION_DIFFUSION 3
 #define HELMHOLTZ_EQUATION  4
 
-class GenerateSif  {
+class SifGenerator  {
  public:
-  GenerateSif();
-  ~GenerateSif();
+  SifGenerator();
+  ~SifGenerator();
 
   mesh_t *mesh;
   QTextEdit *te;
   PDEPropertyEditor *pe;
+  MATPropertyEditor *me;
   BCPropertyEditor *bcPropertyEditor;
   MeshControl *meshControl;
   int cdim;
@@ -49,4 +52,4 @@ class GenerateSif  {
   void parseLinearSystemTab(Ui::solverParameterEditor);
 };
 
-#endif // GENERATESIF_H
+#endif // SIFGENERATOR_H

@@ -19,7 +19,7 @@
 #include "bcpropertyeditor.h"
 #include "pdepropertyeditor.h"
 #include "matpropertyeditor.h"
-#include "generatesif.h"
+#include "sifgenerator.h"
 
 class QAction;
 class QMenu;
@@ -87,6 +87,7 @@ private:
   Meshutils *meshutils;           // mesh manipulation utilities  
   MeshingThread *meshingThread;   // meshing thread
   SifWindow *solverLogWindow;     // Solver log
+  SifGenerator *sifGenerator;     // SIF generator
 
   void createActions();
   void createMenus();

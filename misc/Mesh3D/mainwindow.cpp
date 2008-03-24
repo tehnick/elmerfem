@@ -102,6 +102,7 @@ MainWindow::MainWindow()
   bcPropertyEditor = new BCPropertyEditor;
   pdePropertyEditor = new PDEPropertyEditor[MAX_EQUATIONS];
   matPropertyEditor = new MATPropertyEditor[MAX_MATERIALS];
+  sifGenerator = new SifGenerator;
 
   createActions();
   createMenus();
@@ -2424,51 +2425,45 @@ void MainWindow::showsifSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::generateSifSlot()
 {
-  if(glWidget->mesh == NULL) {
+  mesh_t *mesh = glWidget->mesh;
+
+  if(mesh == NULL) {
     logMessage("Unable to create sif: no mesh");
     return;
   }
   
-  int dim = glWidget->mesh->dim; 
-  int cdim = glWidget->mesh->cdim;
-
-  if((dim < 1) || (cdim < 1)) {
+  if((mesh->dim < 1) || (mesh->cdim < 1)) {
     logMessage("Model dimension inconsistent with SIF syntax");
     return;
   }
 
-  // Get SIF text editor:
-  //----------------------
-  QTextEdit *te = sifWindow->textEdit;
-  te->clear();
+  // Clear SIF text editor:
+  //------------------------
+  sifWindow->textEdit->clear();
   QFont sansFont("Courier", 10);
   sifWindow->textEdit->setCurrentFont(sansFont);
 
-  // Get equation property editor:
-  //------------------------------
-  PDEPropertyEditor *pe = &pdePropertyEditor[0]; // For now, assume index 0
-
   // Set up SIF generator:
   //-----------------------
-  GenerateSif generateSif;
-  generateSif.mesh = glWidget->mesh;
-  generateSif.cdim = cdim;
-  generateSif.te = te;
-  generateSif.pe = pe;
-  generateSif.bcPropertyEditor = bcPropertyEditor;
-  generateSif.meshControl = meshControl;
+  sifGenerator->mesh = mesh;
+  sifGenerator->cdim = mesh->cdim;
+  sifGenerator->te = sifWindow->textEdit;
+  sifGenerator->pe = pdePropertyEditor;
+  sifGenerator->me = matPropertyEditor;
+  sifGenerator->bcPropertyEditor = bcPropertyEditor;
+  sifGenerator->meshControl = meshControl;
 
   // Make SIF:
   //----------
-  generateSif.makeHeaderBlock();
-  generateSif.makeSimulationBlock();
-  generateSif.makeConstantsBlock();
-  generateSif.makeBodyBlocks();
-  generateSif.makeEquationBlocks();
-  generateSif.makeSolverBlocks();
-  generateSif.makeMaterialBlocks();
-  generateSif.makeBodyForceBlocks();
-  generateSif.makeBoundaryBlocks();
+  sifGenerator->makeHeaderBlock();
+  sifGenerator->makeSimulationBlock();
+  sifGenerator->makeConstantsBlock();
+  sifGenerator->makeBodyBlocks();
+  sifGenerator->makeEquationBlocks();
+  sifGenerator->makeSolverBlocks();
+  sifGenerator->makeMaterialBlocks();
+  sifGenerator->makeBodyForceBlocks();
+  sifGenerator->makeBoundaryBlocks();
 }
 
 

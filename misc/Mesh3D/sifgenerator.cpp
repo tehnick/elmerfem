@@ -1,20 +1,20 @@
-#include "generatesif.h"
+#include "sifgenerator.h"
 #include <iostream>
 
 using namespace std;
 
-GenerateSif::GenerateSif()
+SifGenerator::SifGenerator()
 {
 }
 
-GenerateSif::~GenerateSif()
+SifGenerator::~SifGenerator()
 {
 }
 
 
 // Make Header-block:
 //-----------------------------------------------------------------------------
-void GenerateSif::makeHeaderBlock()
+void SifGenerator::makeHeaderBlock()
 {
   te->append("! Sif skeleton for active equations\n");
   te->append("Header");
@@ -22,13 +22,13 @@ void GenerateSif::makeHeaderBlock()
   te->append("  Mesh DB \".\" \".\"");
   te->append("  Include Path \"\"");
   te->append("  Results Directory \"\"");
-  te->append("End\n");  
+  te->append("End\n");
 }
 
 
 // Make Simulation-block:
 //-----------------------------------------------------------------------------
-void GenerateSif::makeSimulationBlock()
+void SifGenerator::makeSimulationBlock()
 {
   te->append("Simulation");
   te->append("  Max Output Level = 4");
@@ -45,7 +45,7 @@ void GenerateSif::makeSimulationBlock()
 
 // Make Constants-block:
 //-----------------------------------------------------------------------------
-void GenerateSif::makeConstantsBlock()
+void SifGenerator::makeConstantsBlock()
 {
   te->append("Constants");
   te->append("  Gravity(4) = 0 -1 0 9.82");
@@ -56,7 +56,7 @@ void GenerateSif::makeConstantsBlock()
 
 // Make Body-blocks:
 //-----------------------------------------------------------------------------
-void GenerateSif::makeBodyBlocks()
+void SifGenerator::makeBodyBlocks()
 {
   // find out mesh domain ids:
   // -------------------------
@@ -158,9 +158,12 @@ void GenerateSif::makeBodyBlocks()
 
 // Make Equation-blocks:
 //-----------------------------------------------------------------------------
-void GenerateSif::makeEquationBlocks()
+void SifGenerator::makeEquationBlocks()
 {
-  if(pe->menuAction == NULL) {
+  // At the moment only "Equation 1" is meaningful (index=0)
+  PDEPropertyEditor *p = &pe[0];
+
+  if(p->menuAction == NULL) {
     cout << "No active equation - aborting" << endl;
     cout.flush();
     return;
@@ -168,7 +171,7 @@ void GenerateSif::makeEquationBlocks()
   
   int nofSolvers = 0;
 
-  Ui::equationEditor ui = pe->ui;
+  Ui::equationEditor ui = p->ui;
 
   if(ui.heatEquationActive->isChecked())
     nofSolvers++;
@@ -204,17 +207,20 @@ void GenerateSif::makeEquationBlocks()
 
 // Make Solver-blocks:
 //-----------------------------------------------------------------------------
-void GenerateSif::makeSolverBlocks()
+void SifGenerator::makeSolverBlocks()
 {
+  // At the moment only "Equation 1" is meaningful (index=0)
+  PDEPropertyEditor *p = &pe[0];
+
   int currentSolver = 0;
 
   // user interface of the equation property editor:
-  Ui::equationEditor ui = pe->ui;
+  Ui::equationEditor ui = p->ui;
 
   if(ui.heatEquationActive->isChecked()) {
     currentSolver++;
     // user interface of the solver parameter editor:
-    Ui::solverParameterEditor ui = pe->solverParameterEditor[HEAT_EQUATION].ui;
+    Ui::solverParameterEditor ui = p->solverParameterEditor[HEAT_EQUATION].ui;
     te->append("Solver " + QString::number(currentSolver));
     te->append("  Equation = \"Heat Equation\"");
     te->append("  Variable = Temperature");
@@ -231,7 +237,7 @@ void GenerateSif::makeSolverBlocks()
   if(ui.linearElasticityActive->isChecked()) {
     currentSolver++;
     // user interface of the solver parameter editor:
-    Ui::solverParameterEditor ui = pe->solverParameterEditor[LINEAR_ELASTICITY].ui;
+    Ui::solverParameterEditor ui = p->solverParameterEditor[LINEAR_ELASTICITY].ui;
     te->append("Solver " + QString::number(currentSolver));
     te->append("  Equation = \"Stress analysis\"");
     te->append("  Variable = Displacement");
@@ -250,22 +256,38 @@ void GenerateSif::makeSolverBlocks()
 
 // Make Material-blocks:
 //-----------------------------------------------------------------------------
-void GenerateSif::makeMaterialBlocks()
+void SifGenerator::makeMaterialBlocks()
 {
-  // TODO: add functionality wrt ui
-  Ui::equationEditor ui = pe->ui;
+  // At the moment only "Material 1" is meaningful (index=0)
+  MATPropertyEditor *m = &me[0];
 
+  if(m->menuAction == NULL) {
+    cout << "There is no material defined - aborting" << endl;
+    return;
+  }
+
+  Ui::materialEditor ui = m->ui;
+  
   te->append("Material 1");
-  te->append("  Name = \"Material1\"");
-  te->append("  Density = 1");
+  te->append("  Name = " + ui.materialNameEdit->text());
 
-  if(ui.heatEquationActive->isChecked())
-    te->append("  Heat Conductivity = 1");
+  // General parameters
+  te->append("  Density = " + ui.densityEdit->text());
+
+  if(ui.heatEquationActive->isChecked()) {
+    te->append("  Heat Capacity = " + ui.heatEquationHeatCapacityEdit->text());
+    te->append("  Heat Conductivity = " + ui.heatEquationHeatConductivityEdit->text());
+    te->append("  Enthalpy = " + ui.heatEquationEnthalpyEdit->text());
+  }
 
   if(ui.linearElasticityActive->isChecked()) {
-    te->append("  Youngs modulus = 1");
-    te->append("  Poisson ratio = 0.3");
+    te->append("  Heat Expansion Coefficient = " + ui.linearElasticityHeatExpansionEdit->text());
+    te->append("  Reference Temperature = " + ui.linearElasticityReferenceTempEdit->text());
+    te->append("  Youngs Modulus = " + ui.linearElasticityYoungsModulusEdit->text());
+    te->append("  Poisson Ratio = " + ui.linearElasticityPoissonRatioEdit->text());
   }
+
+  // TODO: rest of materials
 
   te->append("End\n");
 }
@@ -273,10 +295,13 @@ void GenerateSif::makeMaterialBlocks()
 
 // Make BodyForce-blocks:
 //-----------------------------------------------------------------------------
-void GenerateSif::makeBodyForceBlocks()
+void SifGenerator::makeBodyForceBlocks()
 {
+  // At the moment only "Equation 1" is meaningful (index=0)
+  PDEPropertyEditor *p = &pe[0];
+
   // TODO: add functionality wrt ui
-  Ui::equationEditor ui = pe->ui;
+  Ui::equationEditor ui = p->ui;
 
   te->append("Body Force 1");
 
@@ -298,9 +323,12 @@ void GenerateSif::makeBodyForceBlocks()
 
 // Make Booundary-blocks:
 //-----------------------------------------------------------------------------
-void GenerateSif::makeBoundaryBlocks()
+void SifGenerator::makeBoundaryBlocks()
 {
-  Ui::equationEditor ui = pe->ui;
+  // At the moment only "Equation 1" is meaningful (index=0)
+  PDEPropertyEditor *p = &pe[0];
+
+  Ui::equationEditor ui = p->ui;
 
   int j = 0;
 
@@ -349,7 +377,7 @@ void GenerateSif::makeBoundaryBlocks()
 
 // Parse "Procedure fields" from ui to sif:
 //-----------------------------------------------------------------------------
-void GenerateSif::parseProcedure(Ui::solverParameterEditor ui)
+void SifGenerator::parseProcedure(Ui::solverParameterEditor ui)
 {
   if((ui.procedureFileEdit->text() == "") && 
      (ui.procedureFunctionEdit->text() == ""))
@@ -365,7 +393,7 @@ void GenerateSif::parseProcedure(Ui::solverParameterEditor ui)
 
 // Parse "Exec Solver" tab from ui to sif:
 //-----------------------------------------------------------------------------
-void GenerateSif::parseGeneralTab(Ui::solverParameterEditor ui)
+void SifGenerator::parseGeneralTab(Ui::solverParameterEditor ui)
 {
   if(ui.execAlways->isChecked())
     te->append("  Exec Solver = Always");
@@ -409,7 +437,7 @@ void GenerateSif::parseGeneralTab(Ui::solverParameterEditor ui)
 
 // Parse "Steady state" tab from ui to sif:
 //-----------------------------------------------------------------------------
-void GenerateSif::parseSteadyStateTab(Ui::solverParameterEditor ui)
+void SifGenerator::parseSteadyStateTab(Ui::solverParameterEditor ui)
 {
   te->append("  Steady State Convergence Tolerance = " 
 	     + ui.steadyStateConvergenceToleranceEdit->text());
@@ -418,7 +446,7 @@ void GenerateSif::parseSteadyStateTab(Ui::solverParameterEditor ui)
 
 // Parse "Nonlinear system" tab from ui to sif:
 //-----------------------------------------------------------------------------
-void GenerateSif::parseNonlinearSystemTab(Ui::solverParameterEditor ui)
+void SifGenerator::parseNonlinearSystemTab(Ui::solverParameterEditor ui)
 {
   te->append("  Nonlinear System Convergence Tolerance = " 
 	     + ui.nonlinSystemConvergenceToleranceEdit->text());
@@ -439,7 +467,7 @@ void GenerateSif::parseNonlinearSystemTab(Ui::solverParameterEditor ui)
 
 // Parse "Linear system" tab from ui to sif:
 //-----------------------------------------------------------------------------
-void GenerateSif::parseLinearSystemTab(Ui::solverParameterEditor ui)
+void SifGenerator::parseLinearSystemTab(Ui::solverParameterEditor ui)
 {
   if(ui.linearSystemSolverDirect->isChecked()) {
 
