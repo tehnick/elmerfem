@@ -1755,6 +1755,40 @@ void MainWindow::modelSummarySlot()
   te->append("Point elements: " + QString::number(mesh->points));
   te->append("");
 
+  // Check equations:
+  int count = 0;
+  for(int i = 0; i < MAX_EQUATIONS; i++) {
+    if(pdePropertyEditor[i].menuAction != NULL)
+      count++;
+  }
+  te->append("GENERAL");
+  te->append("Equations: " + QString::number(count));
+
+  // Check materials:
+  count = 0;
+  for(int i = 0; i < MAX_MATERIALS; i++) {
+    if(matPropertyEditor[i].menuAction != NULL)
+      count++;
+  }
+  te->append("Materials: " + QString::number(count));
+
+  // Check boundary conditions:
+  count = 0;
+  for(int i = 0; i < MAX_BCS; i++) {
+    if(bcPropertyEditor[i].touched)
+      count++;
+  }
+  te->append("Boundary conditions: " + QString::number(count));
+
+  // Check body properties:
+  count = 0;
+  for(int i = 0; i < MAX_BODIES; i++) {
+    if(bodyPropertyEditor[i].touched)
+      count++;
+  }
+  te->append("Body properties: " + QString::number(count));
+  te->append("");
+
   // Count volume bodies:
   //---------------------
   int undetermined = 0;
@@ -1773,12 +1807,15 @@ void MainWindow::modelSummarySlot()
   }
 
   te->append("VOLUME BODIES");
-  int count = 0;
+  count = 0;
   for(int i = 0; i<mesh->elements; i++) {
     if( tmp[i]>0 ) {
       count++;
-      te->append("Body " + QString::number(i) + ": " 
-		 + QString::number(tmp[i]) + " volume elements");
+      QString qs = "Body " + QString::number(i) + ": " 
+	+ QString::number(tmp[i]) + " volume elements";
+      if(bodyPropertyEditor[i].touched) 
+	qs.append(" (Body property set)");
+      te->append(qs);
     }
   }
   te->append("Undetermined: " + QString::number(undetermined));
@@ -1809,8 +1846,11 @@ void MainWindow::modelSummarySlot()
   for(int i = 0; i<mesh->surfaces; i++) {
     if( tmp[i]>0 ) {
       count++;
-      te->append("Body " + QString::number(i) + ": " 
-		 + QString::number(tmp[i]) + " surface elements");
+      QString qs = "Body " + QString::number(i) + ": " 
+	+ QString::number(tmp[i]) + " surface elements";
+      if(bodyPropertyEditor[i].touched) 
+	qs.append(" (Body property set)");
+      te->append(qs);
     }
   }
   te->append("Undetermined: " + QString::number(undetermined));
@@ -1878,8 +1918,11 @@ void MainWindow::modelSummarySlot()
   for(int i = 0; i<mesh->edges; i++) {
     if( tmp[i]>0 ) {
       count++;
-      te->append("Body " + QString::number(i) + ": " 
-		 + QString::number(tmp[i]) + " edge elements");
+      QString qs = "Body " + QString::number(i) + ": " 
+	+ QString::number(tmp[i]) + " edge elements";
+      if(bodyPropertyEditor[i].touched) 
+	qs.append(" (Body property set)");
+      te->append(qs);
     }
   }
   te->append("Undetermined: " + QString::number(undetermined));
