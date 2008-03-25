@@ -383,24 +383,24 @@ void MainWindow::createMenus()
   fileMenu->addSeparator();
   fileMenu->addAction(exitAct);
 
-  // Equation menu
-  equationMenu = menuBar()->addMenu(tr("Equation"));
+  // Model menu
+  modelMenu = menuBar()->addMenu(tr("&Model"));
+  equationMenu = modelMenu->addMenu(tr("Equation"));
   equationMenu->addAction(addEquationAct);
   equationMenu->addSeparator();
   connect(equationMenu, SIGNAL(triggered(QAction*)), 
 	  this, SLOT(equationSelectedSlot(QAction*)));
-
-  // Material menu
-  materialMenu = menuBar()->addMenu(tr("Material"));
+  modelMenu->addSeparator();
+  materialMenu = modelMenu->addMenu(tr("Material"));
   materialMenu->addAction(addMaterialAct);
   materialMenu->addSeparator();
   connect(materialMenu, SIGNAL(triggered(QAction*)), 
 	  this, SLOT(materialSelectedSlot(QAction*)));
+  modelMenu->addSeparator();
+  modelMenu->addAction(bcEditAct);
 
   // Edit menu
   editMenu = menuBar()->addMenu(tr("&Edit"));
-  editMenu->addAction(bcEditAct);
-  editMenu->addSeparator();
   editMenu->addAction(generateSifAct);
   editMenu->addSeparator();
   editMenu->addAction(showsifAct);

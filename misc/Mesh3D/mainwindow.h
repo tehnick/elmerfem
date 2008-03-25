@@ -96,11 +96,12 @@ private:
   void applyOperations();
     
   QMenu *fileMenu;                // File menu
-  QMenu *equationMenu;            // Equation menu
-  QMenu *materialMenu;            // Material menu
+  QMenu *modelMenu;               // Model menu
+  QMenu *equationMenu;            // Model -> Equation menu
+  QMenu *materialMenu;            // Model -> Material menu
   QMenu *editMenu;                // Edit menu
   QMenu *viewMenu;                // View menu
-  QMenu *shadeMenu;               // View -> Shade model
+  QMenu *shadeMenu;               // View -> Shade model menu
   QMenu *meshMenu;                // Mesh menu
   QMenu *solverMenu;              // Solver menu
   QMenu *helpMenu;                // Help menu
