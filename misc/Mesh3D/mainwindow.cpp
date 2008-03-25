@@ -65,6 +65,7 @@ public:
 int operations = 0;
 operation_t operation;
 
+QString saveDirName;
 
 
 // Construct main window...
@@ -191,11 +192,17 @@ void MainWindow::createActions()
 	  this, SLOT(loadSlot()));
   
   // File -> Export file
-  saveAct = new QAction(QIcon(":/icons/document-save.png"), tr("&Export..."), this);
+  saveAct = new QAction(QIcon(":/icons/document-save.png"), tr("&Save..."), this);
   saveAct->setShortcut(tr("Ctrl+E"));
   saveAct->setStatusTip(tr("Export Elmer mesh files"));
   connect(saveAct, SIGNAL(triggered()), 
 	  this, SLOT(saveSlot()));
+
+  // File -> Export file
+  saveAsAct = new QAction(QIcon(":/icons/document-save.png"), tr("&Save As..."), this);
+  saveAsAct->setStatusTip(tr("Export Elmer mesh files"));
+  connect(saveAsAct, SIGNAL(triggered()), 
+	  this, SLOT(saveAsSlot()));
 
   // File -> Exit
   exitAct = new QAction(QIcon(":/icons/application-exit.png"), tr("E&xit"), this);
@@ -384,6 +391,7 @@ void MainWindow::createMenus()
   fileMenu->addAction(openAct);
   fileMenu->addAction(loadAct);
   fileMenu->addAction(saveAct);
+  fileMenu->addAction(saveAsAct);
   fileMenu->addSeparator();
   fileMenu->addAction(exitAct);
 
@@ -531,6 +539,7 @@ void MainWindow::openSlot()
   operations = 0;
   operation.next = NULL;
 
+  saveDirName = "";
   readInputFile(fileName);
   remeshSlot();
 }
@@ -1068,7 +1077,7 @@ void MainWindow::loadElmerMesh(QString dirName)
 
 
 
-// File -> Export...
+// File -> Save
 //-----------------------------------------------------------------------------
 void MainWindow::saveSlot()
 {
@@ -1076,21 +1085,31 @@ void MainWindow::saveSlot()
     logMessage("Unable to save mesh: no data");
     return;
   }
-
-  QString dirName = QFileDialog::getExistingDirectory(this);
-
-  if (!dirName.isEmpty()) {
-
-    logMessage("Output directory " + dirName);
-
+  if (!saveDirName.isEmpty()) {
+    logMessage("Output directory " + saveDirName);
   } else {
+    saveAsSlot();
+    return;
+  }
+  saveElmerMesh(saveDirName);
+}
 
+// File -> SaveAs
+//-----------------------------------------------------------------------------
+void MainWindow::saveAsSlot()
+{
+  if(glWidget->mesh==NULL) {
+    logMessage("Unable to save mesh: no data");
+    return;
+  }
+  saveDirName = QFileDialog::getExistingDirectory(this);
+  if (!saveDirName.isEmpty()) {
+    logMessage("Output directory " + saveDirName);
+  } else {
     logMessage("Unable to save: directory undefined");
     return;
-
   }
-  
-  saveElmerMesh(dirName);
+  saveElmerMesh(saveDirName);
 }
 
 
