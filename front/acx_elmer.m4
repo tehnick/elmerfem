@@ -1722,7 +1722,11 @@ for v in $acx_tcltk_tcl_h_locs; do
 	acx_tcl_h_ok="no"
 	acx_tk_h_ok="no"
 
-	CPPFLAGS="-I$v $acx_tcltk_CPPFLAGS_save $acx_tcltk_CFLAGS_save -I${x_includes}"
+	CPPFLAGS="-I$v $acx_tcltk_CPPFLAGS_save $acx_tcltk_CFLAGS_save"
+	if  test x"$x_includes" != x; then
+	   CPPFLAGS="$CPPFLAGS -I${x_includes}"
+	fi
+	
 
 	AC_MSG_CHECKING([for tcl.h in -I$v])
 	AC_PREPROC_IFELSE(
@@ -1747,7 +1751,10 @@ for v in $acx_tcltk_tcl_h_locs; do
 		acx_tcl_h_ok="no"
 		acx_tk_h_ok="no"
 
-		CPPFLAGS="-I${v}/tk${tcl_h_v} -I${v}/tcl${tcl_h_v} $acx_tcltk_CPPFLAGS_save $acx_tcltk_CFLAGS_save -I${x_includes}"
+		CPPFLAGS="-I${v}/tk${tcl_h_v} -I${v}/tcl${tcl_h_v} $acx_tcltk_CPPFLAGS_save $acx_tcltk_CFLAGS_save"
+		if  test x"$x_includes" != x; then
+		   CPPFLAGS="$CPPFLAGS -I${x_includes}"
+		fi
 
 		AC_MSG_CHECKING([for tcl.h in -I${v}/tcl${tcl_h_v}])
 		AC_PREPROC_IFELSE(
