@@ -1504,7 +1504,7 @@ void MainWindow::equationSelectedSlot(QAction* act)
     PDEPropertyEditor *pe = &pdePropertyEditor[i];
     if(pe->menuAction == act) {
       pe->ui.acceptEquation->setText("Update");
-      pe->ui.deleteEquation->setText("Delete");
+      pe->ui.deleteEquation->setText("Remove");
       pe->ui.acceptEquation->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
       pe->ui.deleteEquation->setIcon(QIcon(":/icons/list-remove.png"));
       pe->show();
@@ -1608,7 +1608,7 @@ void MainWindow::materialSelectedSlot(QAction* act)
     MATPropertyEditor *pe = &matPropertyEditor[i];
     if(pe->menuAction == act) {
       pe->ui.acceptEquation->setText("Update");
-      pe->ui.deleteEquation->setText("Delete");
+      pe->ui.deleteEquation->setText("Remove");
       pe->ui.acceptEquation->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
       pe->ui.deleteEquation->setIcon(QIcon(":/icons/list-remove.png"));
       pe->show();
@@ -2513,6 +2513,17 @@ void MainWindow::boundarySelectedSlot(list_t *l)
       logMessage("Error: index exceeds MAX_BCS (increase it and recompile)");
     } else {
       BCPropertyEditor *bcEdit = &bcPropertyEditor[l->index];
+      if(bcEdit->touched) {
+	bcEdit->ui.applyButton->setText("Update");
+	bcEdit->ui.discardButton->setText("Remove");
+	bcEdit->ui.applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
+	bcEdit->ui.discardButton->setIcon(QIcon(":/icons/list-remove.png"));
+      } else {
+	bcEdit->ui.applyButton->setText("Add");
+	bcEdit->ui.discardButton->setText("Cancel");
+	bcEdit->ui.applyButton->setIcon(QIcon(":/icons/list-add.png"));
+	bcEdit->ui.discardButton->setIcon(QIcon(":/icons/dialog-close.png"));
+      }
       bcEdit->setWindowTitle("Boundary " + QString::number(l->index) );
       bcEdit->show();
     }
