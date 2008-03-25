@@ -1161,6 +1161,8 @@ static int ManipulateMeshDefinition(int inmethod,int outmethod,Real relh)
     nomeshes = nogrids;
   }
 
+  visited = TRUE;
+
   /* At first instance perform operations that should rather be done before extrusion 
      or mesh union. */
   for(k=0;k<nomeshes;k++) {
@@ -1206,7 +1208,10 @@ static int ManipulateMeshDefinition(int inmethod,int outmethod,Real relh)
       if(grids[k].dimension == 3 || grids[k].rotate) {
 	CreateKnotsExtruded(&(data[k]),boundaries[k],&(grids[k]),
 			    &(data[j]),boundaries[j],info);
+#if LIB_MODE
 	activemesh = j;
+	nomeshes = j+1;
+#endif
 #if EXE_MODE
 	data[k] = data[j];
 	boundaries[k] = boundaries[j];

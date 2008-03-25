@@ -3279,5 +3279,5 @@ int CreateElmerGridMesh(struct GridType *grid,
 
   free(cell);
 
-  return 0; // added by ML 19.03.2008
+  return 0;
 }
