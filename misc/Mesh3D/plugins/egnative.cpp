@@ -1985,12 +1985,12 @@ int GetCommand(char *line1,char *line2,FILE *io)
 
   if(isend) return(1);
 
-  empty = TRUE;
-  for(i=1;i<20;i++) if(line0[0] != ' ') empty = FALSE;
-  if(empty) goto newline;
-
-  if(line0[0] == '#' || line0[0] == '%' || line0[0] == '!' || line0[0] == '\n') goto newline;
+  if(line0[0] == '#' || line0[0] == '%' || line0[0] == '!' || line0[0] == '\n' || line0[1] == '\n') goto newline;
   if(!matcactive && line0[0] == '*') goto newline;
+
+  empty = TRUE;
+  for(i=1;i<20;i++) if(line0[i] != ' ') empty = FALSE;
+  if(empty) goto newline;
 
 #if HAVE_MATC
   if(matcactive) {
