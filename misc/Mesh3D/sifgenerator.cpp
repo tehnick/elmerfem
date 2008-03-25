@@ -16,29 +16,60 @@ SifGenerator::~SifGenerator()
 //-----------------------------------------------------------------------------
 void SifGenerator::makeHeaderBlock()
 {
+  Ui::setupDialog ui = generalSetup->ui;
+
   te->append("! Sif skeleton for active equations\n");
   te->append("Header");
-  te->append("  CHECK KEYWORDS Warn");
-  te->append("  Mesh DB \".\" \".\"");
-  te->append("  Include Path \"\"");
-  te->append("  Results Directory \"\"");
+  
+  if(ui.checkKeywordsWarn->isChecked())
+    te->append("  CHECK KEYWORDS Warn");
+
+  const QString &qs1 = ui.meshDBEdit1->text(); 
+  const QString &qs2 = ui.meshDBEdit2->text(); 
+  const QString &qs3 = ui.includePathEdit->text(); 
+  const QString &qs4 = ui.resultsDirectoryEdit->text(); 
+
+  te->append("  Mesh DB \"" +  qs1 + "\" \"" + qs2 + "\"");
+  te->append("  Include Path \"" + qs3 + "\"");
+  te->append("  Results Directory \"" + qs4 + "\"");
   te->append("End\n");
 }
+
 
 
 // Make Simulation-block:
 //-----------------------------------------------------------------------------
 void SifGenerator::makeSimulationBlock()
 {
+  Ui::setupDialog ui = generalSetup->ui;
+
   te->append("Simulation");
-  te->append("  Max Output Level = 4");
-  te->append("  Coordinate System = \"Cartesian\"");
-  te->append("  Coordinate Mapping(3) = 1 2 3");
-  te->append("  Simulation Type = \"Steady State\"");
-  te->append("  Steady State Max Iterations = 1");
-  te->append("  Output Intervals = 1");
-  te->append("  Solver Input File = \"skeleton.sif\"");
-  te->append("  Post File = \"skeleton.ep\"");
+
+  addLineEdit("  Max Output Level = ", 
+	      ui.maxOutputLevelCombo->currentText());
+  addLineEdit("  Coordinate System = ",
+	      ui.coordinateSystemCombo->currentText());
+  addLineEdit("  Coordinate Mapping(3) = ",
+	      ui.coordinateMappingEdit->text());
+  addLineEdit("  Simulation Type = ", 
+	      ui.simulationTypeCombo->currentText());
+  addLineEdit("  Steady State Max Iterations = ",
+	      ui.steadyStateMaxIterEdit->text());
+  addLineEdit("  Output Intervals = ",
+	      ui.outputIntervalsEdit->text());
+  addLineEdit("  Timestepping Method = ",
+	      ui.timesteppingMethodCombo->currentText());
+  addLineEdit("  BDF Order = ",
+	      ui.bdfOrderCombo->currentText());
+  addLineEdit("  Timestepping intervals = ",
+	      ui.timeStepIntervalsEdit->text());
+  addLineEdit("  Timestep Sizes = ",
+	      ui.timestepSizesEdit->text());
+  addLineEdit("  Solver Input File = ", 
+	      ui.solverInputFileEdit->text());
+  addLineEdit("  Post File = ", 
+	      ui.postFileEdit->text());
+
   te->append("End\n");
 }
 
@@ -47,9 +78,15 @@ void SifGenerator::makeSimulationBlock()
 //-----------------------------------------------------------------------------
 void SifGenerator::makeConstantsBlock()
 {
+  Ui::setupDialog ui = generalSetup->ui;
+
   te->append("Constants");
-  te->append("  Gravity(4) = 0 -1 0 9.82");
-  te->append("  Stefan Boltzmann = 5.67e-08");
+
+  addLineEdit("  Gravity(4) = ",
+	      ui.gravityEdit->text());
+  addLineEdit("  Stefan Boltzmann = ",
+	      ui.stefanBoltzmannEdit->text());
+
   te->append("End\n");
 }
 

@@ -4,11 +4,13 @@
 #include <QTextEdit>
 
 #include "meshtype.h"
+#include "generalsetup.h"
 #include "pdepropertyeditor.h"
 #include "matpropertyeditor.h"
 #include "bcpropertyeditor.h"
 #include "solverparameters.h"
 #include "meshcontrol.h"
+#include "ui_generalsetup.h"
 #include "ui_pdepropertyeditor.h"
 #include "ui_matpropertyeditor.h"
 #include "ui_bcpropertyeditor.h"
@@ -28,6 +30,7 @@ class SifGenerator  {
 
   mesh_t *mesh;
   QTextEdit *te;
+  GeneralSetup *generalSetup;
   PDEPropertyEditor *pe;
   MATPropertyEditor *me;
   BCPropertyEditor *bcPropertyEditor;
