@@ -22,6 +22,7 @@
 #include "pdepropertyeditor.h"
 #include "matpropertyeditor.h"
 #include "bodypropertyeditor.h"
+#include "summaryeditor.h"
 #include "sifgenerator.h"
 #include "generalsetup.h"
 
@@ -46,8 +47,9 @@ private slots:
   void modelSetupSlot();          // Model -> Setup...
   void addEquationSlot();         // Model -> Equation...
   void addMaterialSlot();         // Model -> Material...
-  void bodyEditSlot();            // Model -> Body properties
-  void bcEditSlot();              // Model -> Boundary conditions
+  void bodyEditSlot();            // Model -> Set body properties
+  void bcEditSlot();              // Model -> Set boundary conditions
+  void modelSummarySlot();        // Model -> Summary...
   void generateSifSlot();         // Edit -> Generate sif
   void showsifSlot();             // Edit -> Solver input file...
   void meshcontrolSlot();         // Mesh -> Control...
@@ -126,8 +128,9 @@ private:
   QAction *modelSetupAct;         // Model -> Setup...
   QAction *addEquationAct;        // Model -> Equation...
   QAction *addMaterialAct;        // Model -> Material...
-  QAction *bodyEditAct;           // Model -> Body properties
-  QAction *bcEditAct;             // Model -> Boundary conditions
+  QAction *bodyEditAct;           // Model -> Set body properties
+  QAction *bcEditAct;             // Model -> Set boundary conditions
+  QAction *modelSummaryAct;       // Model -> Summary...
   QAction *generateSifAct;        // Edit -> Generate sif
   QAction *showsifAct;            // Edit -> Edit SIF...
   QAction *hidesurfacemeshAct;    // View -> Show surface mesh
@@ -161,6 +164,7 @@ private:
   MATPropertyEditor *matPropertyEditor;
   BCPropertyEditor *bcPropertyEditor;
   BodyPropertyEditor *bodyPropertyEditor;
+  SummaryEditor *summaryEditor;
 
   // images:
   QIcon iconChecked;

@@ -108,6 +108,7 @@ MainWindow::MainWindow()
   matPropertyEditor = new MATPropertyEditor[MAX_MATERIALS];
   bcPropertyEditor = new BCPropertyEditor[MAX_BCS];
   bodyPropertyEditor = new BodyPropertyEditor[MAX_BODIES];
+  summaryEditor = new SummaryEditor;
   sifGenerator = new SifGenerator;
 
   createActions();
@@ -232,17 +233,23 @@ void MainWindow::createActions()
   connect(addMaterialAct, SIGNAL(triggered()), 
 	  this, SLOT(addMaterialSlot()));
 
-  // Model -> Body properties
-  bodyEditAct = new QAction(QIcon(), tr("Body properties"), this);
-  bodyEditAct->setStatusTip(tr("Edit body properties (equivalent to holding down the SHIFT key)"));
+  // Model -> Set body properties
+  bodyEditAct = new QAction(QIcon(), tr("Set body properties"), this);
+  bodyEditAct->setStatusTip(tr("Set body properties (equivalent to holding down the SHIFT key)"));
   connect(bodyEditAct, SIGNAL(triggered()), 
 	  this, SLOT(bodyEditSlot()));
 
-  // Model -> Boundary conditions
-  bcEditAct = new QAction(QIcon(), tr("Boundary conditions"), this);
-  bcEditAct->setStatusTip(tr("Edit boundary conditions (equivalent to holding down the ALT key)"));
+  // Model -> Set boundary conditions
+  bcEditAct = new QAction(QIcon(), tr("Set boundary conditions"), this);
+  bcEditAct->setStatusTip(tr("Set boundary conditions (equivalent to holding down the ALT key)"));
   connect(bcEditAct, SIGNAL(triggered()), 
 	  this, SLOT(bcEditSlot()));
+
+  // Model -> Summary...
+  modelSummaryAct = new QAction(QIcon(), tr("Summary..."), this);
+  modelSummaryAct->setStatusTip(tr("Model summary"));
+  connect(modelSummaryAct, SIGNAL(triggered()), 
+	  this, SLOT(modelSummarySlot()));
 
   // Edit -> Generate sif
   generateSifAct = new QAction(QIcon(""), tr("&Generate sif"), this);
@@ -430,6 +437,8 @@ void MainWindow::createMenus()
   modelMenu->addSeparator();
   modelMenu->addAction(bodyEditAct);
   modelMenu->addAction(bcEditAct);
+  modelMenu->addSeparator();
+  modelMenu->addAction(modelSummaryAct);
 
   // Edit menu
   editMenu = menuBar()->addMenu(tr("&Edit"));
@@ -1675,7 +1684,7 @@ void MainWindow::materialSelectedSlot(QAction* act)
 }
 
 
-// Model -> Body properties
+// Model -> Set body properties
 //-----------------------------------------------------------------------------
 void MainWindow::bodyEditSlot()
 {
@@ -1688,6 +1697,10 @@ void MainWindow::bodyEditSlot()
 
   bodyEditActive = !bodyEditActive;
   glWidget->bodyEditActive = bodyEditActive;
+
+  if(bodyEditActive)
+    bcEditActive = false;
+
   synchronizeMenuToState();
 
   if(bodyEditActive)
@@ -1696,7 +1709,7 @@ void MainWindow::bodyEditSlot()
 
 
 
-// Model -> Boundary conditions
+// Model -> Set boundary conditions
 //-----------------------------------------------------------------------------
 void MainWindow::bcEditSlot()
 {
@@ -1708,10 +1721,209 @@ void MainWindow::bcEditSlot()
   }
 
   bcEditActive = !bcEditActive;
+
+  if(bcEditActive)
+    bodyEditActive = false;
+
   synchronizeMenuToState();
 
   if(bcEditActive)
     logMessage("Double click a boundary to edit BCs");
+}
+
+
+
+// Model -> Summary
+//-----------------------------------------------------------------------------
+void MainWindow::modelSummarySlot()
+{
+  mesh_t *mesh = glWidget->mesh;
+  QTextEdit *te = summaryEditor->ui.summaryEdit;
+  te->clear();
+  summaryEditor->show();
+  
+  if(mesh == NULL) {
+    te->append("No mesh");
+    return;
+  }
+  
+  te->append("FINITE ELEMENT MESH");
+  te->append("Nodes: " + QString::number(mesh->nodes));
+  te->append("Volume elements: " + QString::number(mesh->elements));
+  te->append("Surface elements: " + QString::number(mesh->surfaces));
+  te->append("Edge elements: " + QString::number(mesh->edges));
+  te->append("Point elements: " + QString::number(mesh->points));
+  te->append("");
+
+  // Count volume bodies:
+  //---------------------
+  int undetermined = 0;
+  int *tmp = new int[mesh->elements];
+  for(int i = 0; i < mesh->elements; i++)
+    tmp[i] = 0;
+
+  for(int i = 0; i < mesh->elements; i++) {
+    element_t *e = &mesh->element[i];
+    if(e->nature == PDE_BULK) {
+      if(e->index >= 0)
+	tmp[e->index]++;
+      else
+	undetermined++;
+    }
+  }
+
+  te->append("VOLUME BODIES");
+  int count = 0;
+  for(int i = 0; i<mesh->elements; i++) {
+    if( tmp[i]>0 ) {
+      count++;
+      te->append("Body " + QString::number(i) + ": " 
+		 + QString::number(tmp[i]) + " volume elements");
+    }
+  }
+  te->append("Undetermined: " + QString::number(undetermined));
+  te->append("Total: " + QString::number(count) + " volume bodies");
+  te->append("");
+
+  delete [] tmp;
+
+  // Count surface bodies:
+  //---------------------
+  undetermined = 0;
+  tmp = new int[mesh->surfaces];
+  for(int i = 0; i < mesh->surfaces; i++)
+    tmp[i] = 0;
+
+  for(int i = 0; i < mesh->surfaces; i++) {
+    surface_t *s = &mesh->surface[i];
+    if(s->nature == PDE_BULK) {
+      if(s->index >= 0)
+	tmp[s->index]++;
+      else
+	undetermined++;
+    }
+  }
+
+  te->append("SURFACE BODIES");
+  count = 0;
+  for(int i = 0; i<mesh->surfaces; i++) {
+    if( tmp[i]>0 ) {
+      count++;
+      te->append("Body " + QString::number(i) + ": " 
+		 + QString::number(tmp[i]) + " surface elements");
+    }
+  }
+  te->append("Undetermined: " + QString::number(undetermined));
+  te->append("Total: " + QString::number(count) + " surface bodies");
+  te->append("");
+
+  delete [] tmp;
+
+
+  // Count surface boundaries:
+  //--------------------------
+  undetermined = 0;
+  tmp = new int[mesh->surfaces];
+  for(int i = 0; i < mesh->surfaces; i++)
+    tmp[i] = 0;
+  
+  for(int i = 0; i < mesh->surfaces; i++) {
+    surface_t *s = &mesh->surface[i];
+    if(s->nature == PDE_BOUNDARY) {
+      if(s->index >= 0)
+	tmp[s->index]++;
+      else
+	undetermined++;
+    }
+  }
+
+  te->append("SURFACE BOUNDARIES");
+  count = 0;
+  for(int i = 0; i<mesh->surfaces; i++) {
+    if( tmp[i]>0 ) {
+      count++;
+      QString qs = "Boundary " + QString::number(i) + ": " 
+	+ QString::number(tmp[i]) + " surface elements";
+      if(bcPropertyEditor[i].touched) 
+	qs.append(" (BC set)");
+      te->append(qs);
+    }
+  }
+  te->append("Undetermined: " + QString::number(undetermined));
+  te->append("Total: " + QString::number(count) + " surface boundaries");
+  te->append("");
+
+  delete [] tmp;
+
+
+  // Count edge bodies:
+  //---------------------
+  undetermined = 0;
+  tmp = new int[mesh->edges];
+  for(int i = 0; i < mesh->edges; i++)
+    tmp[i] = 0;
+
+  for(int i = 0; i < mesh->edges; i++) {
+    edge_t *e = &mesh->edge[i];
+    if(e->nature == PDE_BULK) {
+      if(e->index >= 0)
+	tmp[e->index]++;
+      else
+	undetermined++;
+    }
+  }
+
+  te->append("EDGE BODIES");
+  count = 0;
+  for(int i = 0; i<mesh->edges; i++) {
+    if( tmp[i]>0 ) {
+      count++;
+      te->append("Body " + QString::number(i) + ": " 
+		 + QString::number(tmp[i]) + " edge elements");
+    }
+  }
+  te->append("Undetermined: " + QString::number(undetermined));
+  te->append("Total: " + QString::number(count) + " edge bodies");
+  te->append("");
+
+  delete [] tmp;
+
+  // Count edge boundaries:
+  //--------------------------
+  undetermined = 0;
+  tmp = new int[mesh->edges];
+  for(int i = 0; i < mesh->edges; i++)
+    tmp[i] = 0;
+  
+  for(int i = 0; i < mesh->edges; i++) {
+    edge_t *e = &mesh->edge[i];
+    if(e->nature == PDE_BOUNDARY) {
+      if(e->index >= 0)
+	tmp[e->index]++;
+      else
+	undetermined++;
+    }
+  }
+
+  te->append("EDGE BOUNDARIES");
+  count = 0;
+  for(int i = 0; i<mesh->edges; i++) {
+    if( tmp[i]>0 ) {
+      count++;
+      QString qs = "Boundary " + QString::number(i) + ": " 
+	+ QString::number(tmp[i]) + " edge elements";
+      if(bcPropertyEditor[i].touched) 
+	qs.append(" (BC set)");
+      te->append(qs);
+    }
+  }
+  te->append("Undetermined: " + QString::number(undetermined));
+  te->append("Total: " + QString::number(count) + " edge boundaries");
+  te->append("");
+
+  delete [] tmp;
+
+
 }
 
 
