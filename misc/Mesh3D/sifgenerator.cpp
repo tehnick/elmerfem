@@ -193,11 +193,11 @@ void SifGenerator::makeBodyBlocks()
   //const QString &qs1 = bodyEdit->ui.equationCombo->currentText();
   int ind1 = bodyEdit->ui.equationCombo->currentIndex();
   //te->append("  Equation = " + qs1);
-  te->append("  Equation = " + QString::number(ind1));
+  te->append("  Equation = " + QString::number(ind1+1));
   //const QString &qs2 = bodyEdit->ui.materialCombo->currentText();
   int ind2 = bodyEdit->ui.materialCombo->currentIndex();
   //te->append("  Material = " + qs2);
-  te->append("  Material = " + QString::number(ind2));
+  te->append("  Material = " + QString::number(ind2+1));
   te->append("End\n");
 }
 
