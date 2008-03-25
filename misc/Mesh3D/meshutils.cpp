@@ -903,13 +903,13 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
       e->surface[0] = -1;
       e->surface[1] = -1;
 
-      for(int j=0; j < e->surfaces; j++) {
+      for(int j=0; j < e->surfaces; j++)
 	e->surface[j] = h->surface[j];
-      }
 
       e->sharp_edge = false;
 
       e->index = h->index;
+      e->points = 0;
       h = h->next;
     }
   }
@@ -1137,6 +1137,7 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
       }
     }
   }
+fprintf( stderr, "unselected ones: %d\n", index );
 
   if ( count==0 ) {
     cout << "No boundary edges to divde." << endl;
@@ -1152,7 +1153,95 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
     if(edge->selected && edge->index==UNKNOWN && edge->nature==PDE_BOUNDARY)
       bc->propagateIndex(mesh, ++index, i);
   }
+fprintf( stderr, "selected ones: %d\n", index );
+  index++;
   
+  // Create a hopefully mesh indepedent indexing of groupings to enable
+  // reapplying merge/division operations after remeshing. The indices
+  // are given based on group bounding box corner distances from a given
+  // point. Fails if two groups have same bbox, which should not happen 
+  // often though (?)
+  double xmin[index], ymin[index], zmin[index];
+  double xmax[index], ymax[index], zmax[index];
+  double xc,yc,zc,dist[index];
+  int cc[index], order[index], sorder[index];
+  double g_xmin,g_xmax,g_ymin,g_ymax,g_zmin,g_zmax;
+
+  for( int i=0; i<index; i++ )
+  {
+    cc[i] = 0;
+    order[i] = i;
+    xmin[i] = ymin[i] = zmin[i] =  1e20;
+    xmax[i] = ymax[i] = zmax[i] = -1e20;
+  }
+
+  for( int i=0; i<mesh->edges; i++ )
+  {
+    edge_t *edge=&mesh->edge[i];
+    if (edge->nature==PDE_BOUNDARY) {
+      int k = edge->index;
+      for( int j=0; j<edge->nodes; j++ ) {
+        int n = edge->node[j];
+        cc[k]++;
+        xmin[k] = min( xmin[k], mesh->node[n].x[0] );
+        ymin[k] = min( ymin[k], mesh->node[n].x[1] );
+        zmin[k] = min( zmin[k], mesh->node[n].x[2] );
+ 
+        xmax[k] = max( xmax[k], mesh->node[n].x[0] );
+        ymax[k] = max( ymax[k], mesh->node[n].x[1] );
+        zmax[k] = max( zmax[k], mesh->node[n].x[2] );
+       }
+    }
+  }
+
+  g_xmin = g_ymin = g_zmin =  1e20;
+  g_xmax = g_ymax = g_zmax = -1e20;
+  for( int i=0; i<index; i++)
+  {
+    g_xmin = min(xmin[i],g_xmin);
+    g_ymin = min(ymin[i],g_ymin);
+    g_zmin = min(zmin[i],g_zmin);
+
+    g_xmax = max(xmax[i],g_xmax);
+    g_ymax = max(ymax[i],g_ymax);
+    g_zmax = max(zmax[i],g_zmax);
+  }
+
+  double g_scale = max(max(g_xmax-g_xmin,g_ymax-g_ymin),g_zmax-g_zmin);
+  double g_xp = g_xmax + 32.1345 / g_scale;
+  double g_yp = g_ymin - 5.3*PI  / g_scale;
+  double g_zp = g_zmax + 8.1234  / g_scale;
+
+  for( int i=0; i<index; i++ )
+  {
+    dist[i] = 0;
+    if ( cc[i]>0 ) {
+      for( int j=0; j<8; j++ ) {
+        switch(j) {
+          case 0: xc=xmin[i]; yc=ymin[i]; zc=zmin[i]; break;
+          case 1: xc=xmax[i]; break;
+          case 2: yc=xmax[i]; break;
+          case 3: xc=xmin[i]; break;
+          case 4: zc=zmax[i]; break;
+          case 5: yc=ymin[i]; break;
+          case 6: xc=xmax[i]; break;
+          case 7: yc=ymax[i]; break;
+        }
+        dist[i] += (xc-g_xp)*(xc-g_xp);
+        dist[i] += (yc-g_yp)*(yc-g_yp);
+        dist[i] += (zc-g_zp)*(zc-g_zp);
+      }
+    }
+  }
+
+  sort_index( index, dist, order );
+  for( int i=0; i<index; i++ )
+    sorder[order[i]] = i;
+
+  for( int i=0; i<mesh->edges; i++ )
+    if ( mesh->edge[i].nature == PDE_BOUNDARY )
+      mesh->edge[i].index = sorder[mesh->edge[i].index];
+
   cout << "Edge divided into " << index << " parts" << endl;
   
   delete bc;
@@ -1293,10 +1382,16 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
   }
   index++;
 
+  // Create a hopefully mesh indepedent indexing of groupings to enable
+  // reapplying merge/division operations after remeshing. The indices
+  // are given based on group bounding box corner distances from a given
+  // point. Fails if two groups have same bbox, which should not happen 
+  // often though (?)
   double xmin[index], ymin[index], zmin[index];
   double xmax[index], ymax[index], zmax[index];
   double xc,yc,zc,dist[index];
   int cc[index], order[index], sorder[index];
+  double g_xmin,g_xmax,g_ymin,g_ymax,g_zmin,g_zmax;
 
   for( int i=0; i<index; i++ )
   {
@@ -1309,30 +1404,59 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
   for( int i=0; i<mesh->surfaces; i++ )
   {
     surface_t *surf=&mesh->surface[i];
-    int k = surf->index;
-    for( int j=0; j<surf->nodes; j++ ) {
-      int n = surf->node[j];
-      cc[k]++;
-      xmin[k] = min( xmin[k], mesh->node[n].x[0] );
-      ymin[k] = min( ymin[k], mesh->node[n].x[1] );
-      zmin[k] = min( zmin[k], mesh->node[n].x[2] );
+    if ( mesh->surface[i].nature == PDE_BOUNDARY ) {
+      int k = surf->index;
+      for( int j=0; j<surf->nodes; j++ ) {
+        int n = surf->node[j];
+        cc[k]++;
+        xmin[k] = min( xmin[k], mesh->node[n].x[0] );
+        ymin[k] = min( ymin[k], mesh->node[n].x[1] );
+        zmin[k] = min( zmin[k], mesh->node[n].x[2] );
  
-      xmax[k] = max( xmax[k], mesh->node[n].x[0] );
-      ymax[k] = max( ymax[k], mesh->node[n].x[1] );
-      zmax[k] = max( zmax[k], mesh->node[n].x[2] );
-     }
+        xmax[k] = max( xmax[k], mesh->node[n].x[0] );
+        ymax[k] = max( ymax[k], mesh->node[n].x[1] );
+        zmax[k] = max( zmax[k], mesh->node[n].x[2] );
+      }
+    }
   }
+
+  g_xmin = g_ymin = g_zmin =  1e20;
+  g_xmax = g_ymax = g_zmax = -1e20;
+  for( int i=0; i<index; i++)
+  {
+    g_xmin = min(xmin[i],g_xmin);
+    g_ymin = min(ymin[i],g_ymin);
+    g_zmin = min(zmin[i],g_zmin);
+
+    g_xmax = max(xmax[i],g_xmax);
+    g_ymax = max(ymax[i],g_ymax);
+    g_zmax = max(zmax[i],g_zmax);
+  }
+
+  double g_scale = max(max(g_xmax-g_xmin,g_ymax-g_ymin),g_zmax-g_zmin);
+  double g_xp = g_xmax + 32.1345 / g_scale;
+  double g_yp = g_ymin - 5.3*PI  / g_scale;
+  double g_zp = g_zmax + 8.1234  / g_scale;
 
   for( int i=0; i<index; i++ )
   {
     dist[i] = 0;
     if ( cc[i]>0 ) {
-      xc = (xmin[i]+xmax[i])/2;
-      yc = (ymin[i]+ymax[i])/2;
-      zc = (zmin[i]+zmax[i])/2;
-      dist[i] += (xc-32.13456)*(xc-32.13456);
-      dist[i] += (yc-5.3*PI)*(yc-5.3*PI);
-      dist[i] += (zc-8.1234)*(zc-8.1234);
+      for( int j=0; j<8; j++ ) {
+        switch(j) {
+          case 0: xc=xmin[i]; yc=ymin[i]; zc=zmin[i]; break;
+          case 1: xc=xmax[i]; break;
+          case 2: yc=xmax[i]; break;
+          case 3: xc=xmin[i]; break;
+          case 4: zc=zmax[i]; break;
+          case 5: yc=ymin[i]; break;
+          case 6: xc=xmax[i]; break;
+          case 7: yc=ymax[i]; break;
+        }
+        dist[i] += (xc-g_xp)*(xc-g_xp);
+        dist[i] += (yc-g_yp)*(yc-g_yp);
+        dist[i] += (zc-g_zp)*(zc-g_zp);
+      }
     }
   }
 
@@ -1341,7 +1465,8 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
     sorder[order[i]] = i;
 
   for( int i=0; i<mesh->surfaces; i++ )
-    mesh->surface[i].index = sorder[mesh->surface[i].index];
+    if ( mesh->surface[i].nature == PDE_BOUNDARY )
+      mesh->surface[i].index = sorder[mesh->surface[i].index];
 
   cout << "Surface divided into " << index-1 << " parts" << endl;
 

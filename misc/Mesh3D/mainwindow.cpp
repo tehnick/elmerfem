@@ -48,8 +48,11 @@
 using namespace std;
 
 
-#define OP_DIVIDE 1
-#define OP_UNIFY  2
+#define OP_UNIFY_SURFACE  1
+#define OP_DIVIDE_SURFACE 2
+#define OP_UNIFY_EDGE     3
+#define OP_DIVIDE_EDGE    4
+
 class operation_t {
 public:
   operation_t *next;
@@ -518,6 +521,13 @@ void MainWindow::openSlot()
 
   }
   
+  operation_t *p = operation.next,*q;
+  while(p) {
+    delete [] p->select_set;
+    q = p->next;
+    delete p;
+    p = q;
+  }
   operations = 0;
   operation.next = NULL;
 
@@ -2048,8 +2058,8 @@ void MainWindow::remeshSlot()
     if(0) meshutils->findSurfaceElementParents(mesh);
  
     meshutils->findSurfaceElementNormals(mesh);
-    applyOperations();
     glWidget->rebuildLists();
+    applyOperations();
 
     return;
     
@@ -2145,7 +2155,7 @@ void MainWindow::doDivideSurfaceSlot(double angle)
   q->next = p;
   p->next = NULL;
 
-  p->type = OP_DIVIDE;
+  p->type = OP_DIVIDE_SURFACE;
   p->angle = angle;
 
   int selected=0;
@@ -2210,7 +2220,7 @@ void MainWindow::surfaceUnifySlot()
   for( q=&operation; q->next; q=q->next );
   q->next = p;
   p->next = NULL;
-  p->type = OP_UNIFY;
+  p->type = OP_UNIFY_SURFACE;
   p->selected=selected;
   p->select_set = new int[selected]; 
   
@@ -2240,6 +2250,9 @@ void MainWindow::applyOperations()
 {
   mesh_t *mesh = glWidget->mesh;
 
+  cout << "Apply " << operations << " operations" << endl;
+  cout.flush();
+
   operation_t *p = operation.next;
   for( ; p; p=p->next )
   {
@@ -2248,23 +2261,38 @@ void MainWindow::applyOperations()
 
     for(int i=0; i<p->selected; i++) {
       list_t *l = &list[p->select_set[i]];
+
+fprintf( stderr, "select edge: %d %d %d %d\n", i, p->type,p->select_set[i], l->index );
       l->selected = true;
-      for( int j=0; j<mesh->surfaces; j++ ) {
-        surface_t *surf = &mesh->surface[j];
-        if( l->index == surf->index )
-          surf->selected=l->selected;
+      if ( p->type < OP_UNIFY_EDGE ) {
+        for( int j=0; j<mesh->surfaces; j++ ) {
+          surface_t *surf = &mesh->surface[j];
+          if( l->index == surf->index )
+            surf->selected=l->selected;
+        }
+      } else {
+        for( int j=0; j<mesh->edges; j++ ) {
+          edge_t *edge = &mesh->edge[j];
+          if( l->index == edge->index )
+            edge->selected=l->selected;
+        }
       }
     }
 
-    if ( p->type == OP_DIVIDE ) {
+    if ( p->type == OP_DIVIDE_SURFACE ) {
       meshutils->findSharpEdges(mesh, p->angle);
       int parts = meshutils->divideSurfaceBySharpEdges(mesh);
-
       QString qs = "Surface divided into " + QString::number(parts) + " parts";
       statusBar()->showMessage(qs);
-    } else if (p->type == OP_UNIFY ) {
 
+    } else if ( p->type == OP_DIVIDE_EDGE ) {
+      meshutils->findEdgeElementPoints(mesh);
+      meshutils->findSharpPoints(mesh, p->angle);
+      int parts = meshutils->divideEdgeBySharpPoints(mesh);
+      QString qs = "Edges divided into " + QString::number(parts) + " parts";
+      statusBar()->showMessage(qs);
 
+    } else if (p->type == OP_UNIFY_SURFACE ) {
       int targetindex = -1;
       for(int i=0; i<lists; i++) {
         list_t *l = &list[i];
@@ -2286,6 +2314,30 @@ void MainWindow::applyOperations()
         }
       }
       cout << "Selected surfaces marked with index " << targetindex << endl;
+      cout.flush();
+
+    } else if (p->type == OP_UNIFY_EDGE ) {
+      int targetindex = -1;
+      for(int i=0; i<lists; i++) {
+        list_t *l = &list[i];
+        if(l->selected && l->type == EDGELIST && l->nature == PDE_BOUNDARY) {
+          if(targetindex < 0) {
+            targetindex = l->index;
+            break;
+          }
+        }
+      }
+      for(int i=0; i<lists; i++) {
+        list_t *l = &list[i];    
+        if(l->selected && l->type == EDGELIST && l->nature == PDE_BOUNDARY) {
+          for(int j=0; j < mesh->edges; j++) {
+            edge_t *e = &mesh->edge[j];
+            if(e->index == l->index && e->nature == PDE_BOUNDARY)
+              e->index = targetindex;
+          }
+        }
+      }
+      cout << "Selected edges marked with index " << targetindex << endl;
       cout.flush();
     }
     glWidget->rebuildLists();
@@ -2319,12 +2371,39 @@ void MainWindow::edgeDivideSlot()
 void MainWindow::doDivideEdgeSlot(double angle)
 {
   mesh_t *mesh = glWidget->mesh;
+  int lists = glWidget->lists;
+  list_t *list = glWidget->list;
 
   if(mesh == NULL) {
     logMessage("No mesh to divide");
     return;
   }
+
+  operations++;
+  operation_t *p = new operation_t, *q;
+  for( q=&operation; q->next; q=q->next );
+  q->next = p;
+  p->next = NULL;
+
+  p->type = OP_DIVIDE_EDGE;
+  p->angle = angle;
+
+  int selected=0;
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];
+    if(l->selected && l->type==EDGELIST && l->nature==PDE_BOUNDARY)
+      selected++;
+  }
+  p->selected = selected;
+  p->select_set = new int[selected];
+  selected = 0;
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];    
+    if(l->selected && l->type == EDGELIST && l->nature==PDE_BOUNDARY)
+      p->select_set[selected++] = i;
+  }
   
+
   meshutils->findEdgeElementPoints(mesh);
   meshutils->findSharpPoints(mesh, angle);
   int parts = meshutils->divideEdgeBySharpPoints(mesh);
@@ -2353,28 +2432,38 @@ void MainWindow::edgeUnifySlot()
     return;
   }
   
-  int targetindex = -1;
+  int targetindex = -1, selected=0;
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
-    if(l->selected && (l->type == EDGELIST) && (l->nature == PDE_BOUNDARY)) {
-      if(targetindex < 0) {
-	targetindex = l->index;
-	break;
-      }
+    if(l->selected && l->type == EDGELIST && l->nature == PDE_BOUNDARY) {
+      selected++;
+      if(targetindex < 0) targetindex = l->index;
     }
   }
+  
 
   if(targetindex < 0) {
     logMessage("No edges selected");
     return;
   }
+
+  operations++;
+  operation_t *p = new operation_t, *q;
+  for( q=&operation; q->next; q=q->next );
+  q->next = p;
+  p->next = NULL;
+  p->type = OP_UNIFY_EDGE;
+  p->selected=selected;
+  p->select_set = new int[selected]; 
   
+  selected = 0;
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];    
-    if(l->selected && (l->type == EDGELIST) && (l->nature == PDE_BOUNDARY)) {
+    if(l->selected && l->type == EDGELIST && l->nature == PDE_BOUNDARY) {
+      p->select_set[selected++] = i;
       for(int j=0; j < mesh->edges; j++) {
 	edge_t *e = &mesh->edge[j];
-	if((e->index == l->index) && (e->nature == PDE_BOUNDARY)) 
+	if(e->index == l->index && e->nature == PDE_BOUNDARY) 
 	  e->index = targetindex;
       }
     }
