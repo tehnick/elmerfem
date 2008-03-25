@@ -170,6 +170,7 @@ MainWindow::MainWindow()
 //-----------------------------------------------------------------------------
 MainWindow::~MainWindow()
 {
+  closeMainWindowSlot();
 }
 
 
