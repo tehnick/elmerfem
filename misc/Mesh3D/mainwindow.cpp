@@ -103,9 +103,10 @@ MainWindow::MainWindow()
   solverLogWindow = new SifWindow(this);
   solver = new QProcess(this);
   post = new QProcess(this);
-  bcPropertyEditor = new BCPropertyEditor[MAX_BCS];
+  generalSetup = new GeneralSetup;
   pdePropertyEditor = new PDEPropertyEditor[MAX_EQUATIONS];
   matPropertyEditor = new MATPropertyEditor[MAX_MATERIALS];
+  bcPropertyEditor = new BCPropertyEditor[MAX_BCS];
   sifGenerator = new SifGenerator;
 
   createActions();
@@ -211,13 +212,19 @@ void MainWindow::createActions()
   connect(exitAct, SIGNAL(triggered()), 
 	  this, SLOT(closeMainWindowSlot()));
 
-  // Equation -> Add...
+  // Model -> Setup...
+  modelSetupAct = new QAction(QIcon(), tr("Setup..."), this);
+  modelSetupAct->setStatusTip(tr("Setup simulation environment"));
+  connect(modelSetupAct, SIGNAL(triggered()), 	
+	  this, SLOT(modelSetupSlot()));
+
+  // Model -> Equation...
   addEquationAct = new QAction(QIcon(), tr("Add..."), this);
   addEquationAct->setStatusTip(tr("Add a PDE-system to the equation list"));
   connect(addEquationAct, SIGNAL(triggered()), 
 	  this, SLOT(addEquationSlot()));
 
-  // Material -> Add...
+  // Model -> Material...
   addMaterialAct = new QAction(QIcon(), tr("Add..."), this);
   addMaterialAct->setStatusTip(tr("Add a material set to the material list"));
   connect(addMaterialAct, SIGNAL(triggered()), 
@@ -397,6 +404,10 @@ void MainWindow::createMenus()
 
   // Model menu
   modelMenu = menuBar()->addMenu(tr("&Model"));
+
+  modelMenu->addAction(modelSetupAct);
+  modelMenu->addSeparator();
+
   equationMenu = modelMenu->addMenu(tr("Equation"));
   equationMenu->addAction(addEquationAct);
   equationMenu->addSeparator();
@@ -1438,7 +1449,16 @@ void MainWindow::closeMainWindowSlot()
 //*****************************************************************************
 
 
-// Model -> Equation...
+// Model -> Setup...
+//-----------------------------------------------------------------------------
+void MainWindow::modelSetupSlot()
+{
+  generalSetup->show();
+}
+
+
+
+// Model -> Equation -> Add...
 //-----------------------------------------------------------------------------
 void MainWindow::addEquationSlot()
 {
@@ -1542,7 +1562,7 @@ void MainWindow::equationSelectedSlot(QAction* act)
 }
 
 
-// Model -> Material...
+// Model -> Material -> Add...
 //-----------------------------------------------------------------------------
 void MainWindow::addMaterialSlot()
 {
