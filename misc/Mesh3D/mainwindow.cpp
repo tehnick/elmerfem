@@ -2549,6 +2549,7 @@ void MainWindow::runsolverSlot()
   
   solverLogWindow->setWindowTitle(tr("Solver log"));
   solverLogWindow->textEdit->clear();
+  solverLogWindow->activateWindow();  // force focus
   solverLogWindow->show();
 
   logMessage("Solver started");
@@ -2724,4 +2725,9 @@ void MainWindow::synchronizeMenuToState()
     viewCoordinatesAct->setIcon(iconChecked);
   else 
     viewCoordinatesAct->setIcon(iconEmpty);
+
+  if(bcPropertyEditor->bcEditActive)
+    bcEditAct->setIcon(iconChecked);
+  else
+    bcEditAct->setIcon(iconEmpty);
 }
