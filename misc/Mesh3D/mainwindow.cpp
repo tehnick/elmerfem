@@ -107,6 +107,7 @@ MainWindow::MainWindow()
   pdePropertyEditor = new PDEPropertyEditor[MAX_EQUATIONS];
   matPropertyEditor = new MATPropertyEditor[MAX_MATERIALS];
   bcPropertyEditor = new BCPropertyEditor[MAX_BCS];
+  bodyPropertyEditor = new BodyPropertyEditor[MAX_BODIES];
   sifGenerator = new SifGenerator;
 
   createActions();
@@ -2638,6 +2639,11 @@ void MainWindow::boundarySelectedSlot(list_t *l)
   // Open the bc property sheet for selected boundary:
   //--------------------------------------------------
   if(l->selected && bcEditActive) {
+
+    // TODO: Check if this is correct
+    glWidget->ctrlPressed = false;
+    glWidget->shiftPressed = false;
+
     if(l->index >= MAX_BCS) {
       logMessage("Error: index exceeds MAX_BCS (increase it and recompile)");
     } else {
@@ -2661,12 +2667,38 @@ void MainWindow::boundarySelectedSlot(list_t *l)
   // Body selection (take no action at the moment):
   //------------------------------------------------
   if(glWidget->currentlySelectedBody >= 0) {
-    cout << "*** Current selection uniquely determines body: " << glWidget->currentlySelectedBody << endl;
+
+    // TODO: Check if this si correct
+    glWidget->ctrlPressed = false;
+    glWidget->shiftPressed = false;
+
+    int current = glWidget->currentlySelectedBody;
+
+    cout << "*** Current selection uniquely determines body: " << current << endl;
     cout.flush();
+
+    if(current >= MAX_BODIES) {
+      logMessage("Error: index exceeds MAX_BODIES (increase it and recompile)");      
+    } else {
+      BodyPropertyEditor *bodyEdit = &bodyPropertyEditor[current];
+
+      // TODO: Populate the editor's Combo-boxes with current eq. & mat. definitions
+      if(bodyEdit->touched) {
+	bodyEdit->ui.applyButton->setText("Update");
+	bodyEdit->ui.discardButton->setText("Remove");
+	bodyEdit->ui.applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
+	bodyEdit->ui.discardButton->setIcon(QIcon(":/icons/list-remove.png"));
+      } else {
+	bodyEdit->ui.applyButton->setText("Add");
+	bodyEdit->ui.discardButton->setText("Cancel");
+	bodyEdit->ui.applyButton->setIcon(QIcon(":/icons/list-add.png"));
+	bodyEdit->ui.discardButton->setIcon(QIcon(":/icons/dialog-close.png"));
+      }
+      bodyEdit->setWindowTitle("Properties for body " + QString::number(current));
+      bodyEdit->show();
+    }
   }
 }
-
-
 
 
 

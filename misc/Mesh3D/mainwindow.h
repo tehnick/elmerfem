@@ -4,6 +4,7 @@
 #define MAX_EQUATIONS 10
 #define MAX_MATERIALS 10
 // MAX_BCS defined in "bcpropertyeditor.h"
+// MAX_BODIES defined in "bodypropertyeditor.h"
 
 #include <QMainWindow>
 #include <QProcess>
@@ -20,6 +21,7 @@
 #include "bcpropertyeditor.h"
 #include "pdepropertyeditor.h"
 #include "matpropertyeditor.h"
+#include "bodypropertyeditor.h"
 #include "sifgenerator.h"
 #include "generalsetup.h"
 
@@ -156,6 +158,7 @@ private:
   PDEPropertyEditor *pdePropertyEditor;
   MATPropertyEditor *matPropertyEditor;
   BCPropertyEditor *bcPropertyEditor;
+  BodyPropertyEditor *bodyPropertyEditor;
 
   // images:
   QIcon iconChecked;
