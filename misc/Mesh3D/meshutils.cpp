@@ -229,21 +229,21 @@ void Meshutils::findSurfaceElements(mesh_t *mesh)
     RESETENTRY1;
   }
 
-  // TODO: only linear elements at the moment
+  // TODO: only 1st and 2nd order elements
 
   static int familyfaces[9] = {0, 0, 0, 0, 0, 4, 5, 5, 6};
 
-  static int facenodes808[] = {4, 4, 4, 4, 4, 4};
-  static int facemap808[][4] = {{0,1,2,3}, {4,5,6,7}, {0,1,5,4}, {1,2,6,5}, {2,3,7,6}, {3,0,4,7}};
+  static int faceedges8[] = {4, 4, 4, 4, 4, 4};
+  static int facemap8[][8] = {{0,1,2,3,8,9,10,11}, {4,5,6,7,16,17,18,19}, {0,1,5,4,8,13,16,12}, {1,2,6,5,9,14,17,13}, {2,3,7,6,10,15,18,14}, {3,0,4,7,11,12,19,15}};
 
-  static int facenodes706[] = {3, 3, 4, 4, 4};
-  static int facemap706[][4] = {{0,1,2}, {3,4,5}, {0,1,4,3}, {1,2,5,4}, {2,0,3,5}};
+  static int faceedges7[] = {3, 3, 4, 4, 4};
+  static int facemap7[][8] = {{0,1,2,6,7,8}, {3,4,5,12,13,14}, {0,1,4,3,6,10,12,9}, {1,2,5,4,7,11,13,10}, {2,0,3,5,8,9,14,11}};
 
-  static int facenodes605[] = {4, 3, 3, 3, 3};
-  static int facemap605[][4] = {{0,1,2,3}, {0,1,4}, {1,2,4}, {2,3,4}, {3,0,4}};
+  static int faceedges6[] = {4, 3, 3, 3, 3};
+  static int facemap6[][8] = {{0,1,2,3,5,6,7,8}, {0,1,4,5,10,9}, {1,2,4,6,11,10}, {2,3,4,7,12,11}, {3,0,4,8,9,12}};
 
-  static int facenodes504[4] = {3, 3, 3, 3};
-  static int facemap504[][3] = {{0,1,2}, {0,1,3}, {0,2,3}, {1,2,3}};
+  static int faceedges5[4] = {3, 3, 3, 3};
+  static int facemap5[][6] = {{0,1,2,4,5,6}, {0,1,3,4,8,7}, {1,2,3,5,9,8}, {2,0,3,6,7,9}};
 
 
   for(int i=0; i < mesh->elements; i++) {
@@ -258,20 +258,20 @@ void Meshutils::findSurfaceElements(mesh_t *mesh)
 
     for(int f=0; f<faces; f++) {
       if(family == 5) {
-	facenodes = facenodes504[f];
-	facemap = &facemap504[f][0];
+	facenodes = faceedges5[f];
+	facemap = &facemap5[f][0];
       }
       else if(family == 6) {
-	facenodes = facenodes605[f];
-	facemap = &facemap605[f][0];
+	facenodes = faceedges6[f];
+	facemap = &facemap6[f][0];
       }
       else if(family == 7) {
-	facenodes = facenodes706[f];
-	facemap = &facemap706[f][0];
+	facenodes = faceedges7[f];
+	facemap = &facemap7[f][0];
       }
       else if(family == 8) {
-	facenodes = facenodes808[f];
-	facemap = &facemap808[f][0];
+	facenodes = faceedges8[f];
+	facemap = &facemap8[f][0];
       }
 
       for(int j=0; j < facenodes; j++) 
@@ -380,32 +380,39 @@ void Meshutils::findSurfaceElements(mesh_t *mesh)
 	if(s->element[1] >= 0) s->elements = 2;
 	
 	element_t *e = &mesh->element[h->element[0]];
-	int family = e->code / 100;
+	int code = e->code;
+	int family = code / 100;
 	int f = h->face;
 
-	int facenodes = 0;
+	int faceedges = 0;
 	int *facemap = NULL;
+	int degree = 1;
 
-	
 	if(family == 5) {
-	  facenodes = facenodes504[f];
-	  facemap = &facemap504[f][0];
+	  faceedges = faceedges5[f];
+	  if( code == 510) degree = 2;
+	  facemap = &facemap5[f][0];
 	}
 	else if(family == 6) {
-	  facenodes = facenodes605[f];
-	  facemap = &facemap605[f][0];
+	  faceedges = faceedges6[f];
+	  if( code == 613) degree = 2;
+	  facemap = &facemap6[f][0];
 	}
 	else if(family == 7) {
-	  facenodes = facenodes706[f];
-	  facemap = &facemap706[f][0];
+	  faceedges = faceedges7[f];
+	  if( code == 715) degree = 2;
+	  facemap = &facemap7[f][0];
 	}
 	else if(family == 8) {
-	  facenodes = facenodes808[f];
-	  facemap = &facemap808[f][0];
+	  faceedges = faceedges8[f];
+	  if( code == 820 ) degree = 2;
+	  facemap = &facemap8[f][0];
 	}
 	
+	int facenodes = degree * faceedges;
+
 	s->nodes = facenodes;
-	s->code = 101*facenodes;
+	s->code = 100 * faceedges + facenodes;
 	s->node = new int[s->nodes];
 	for(int j=0; j < s->nodes; j++) 
 	  s->node[j] = e->node[facemap[j]];
@@ -1606,6 +1613,25 @@ void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
 	  int tmp = surface->node[1];
 	  surface->node[1] = surface->node[3];
 	  surface->node[3] = tmp;
+
+	} else if(surface->code == 306) {
+	  int tmp = surface->node[1];
+	  surface->node[1] = surface->node[2];
+	  surface->node[2] = tmp;
+	  tmp = surface->node[3];
+	  surface->node[3] = surface->node[5];
+	  surface->node[5] = tmp;
+
+	} else if(surface->code == 408) {
+	  int tmp = surface->node[1];
+	  surface->node[1] = surface->node[3];
+	  surface->node[3] = tmp;
+	  tmp = surface->node[4];
+	  surface->node[4] = surface->node[7];
+	  surface->node[7] = tmp;
+	  tmp = surface->node[5];
+	  surface->node[5] = surface->node[6];
+	  surface->node[6] = tmp;
 
 	} else {
 	  cout << "findSurfaceElementNormals: error: unable to change element orientation" << endl;
