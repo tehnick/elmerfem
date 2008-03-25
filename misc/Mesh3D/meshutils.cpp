@@ -237,7 +237,7 @@ void Meshutils::findSurfaceElements(mesh_t *mesh)
   static int facemap808[][4] = {{0,1,2,3}, {4,5,6,7}, {0,1,5,4}, {1,2,6,5}, {2,3,7,6}, {3,0,4,7}};
 
   static int facenodes706[] = {3, 3, 4, 4, 4};
-  static int facemap706[][4] = {{0,1,2}, {3,4,5}, {0,1,4,5}, {1,2,5,4}, {2,0,3,5}};
+  static int facemap706[][4] = {{0,1,2}, {3,4,5}, {0,1,4,3}, {1,2,5,4}, {2,0,3,5}};
 
   static int facenodes605[] = {4, 3, 3, 3, 3};
   static int facemap605[][4] = {{0,1,2,3}, {0,1,4}, {1,2,4}, {2,3,4}, {3,0,4}};
