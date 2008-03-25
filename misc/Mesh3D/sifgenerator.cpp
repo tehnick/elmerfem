@@ -185,10 +185,19 @@ void SifGenerator::makeBodyBlocks()
   delete [] body_tmp;
   delete [] body_id;
 
+  // Assume only one body with index=1, at the moment:
+  BodyPropertyEditor *bodyEdit = &bodyPropertyEditor[0];
+
   te->append(str);
   te->append("  Body Force = 1");
-  te->append("  Equation = 1");
-  te->append("  Material = 1");
+  //const QString &qs1 = bodyEdit->ui.equationCombo->currentText();
+  int ind1 = bodyEdit->ui.equationCombo->currentIndex();
+  //te->append("  Equation = " + qs1);
+  te->append("  Equation = " + QString::number(ind1));
+  //const QString &qs2 = bodyEdit->ui.materialCombo->currentText();
+  int ind2 = bodyEdit->ui.materialCombo->currentIndex();
+  //te->append("  Material = " + qs2);
+  te->append("  Material = " + QString::number(ind2));
   te->append("End\n");
 }
 

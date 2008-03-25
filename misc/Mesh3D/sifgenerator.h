@@ -7,15 +7,10 @@
 #include "generalsetup.h"
 #include "pdepropertyeditor.h"
 #include "matpropertyeditor.h"
+#include "bodypropertyeditor.h"
 #include "bcpropertyeditor.h"
 #include "solverparameters.h"
 #include "meshcontrol.h"
-#include "ui_generalsetup.h"
-#include "ui_pdepropertyeditor.h"
-#include "ui_matpropertyeditor.h"
-#include "ui_bcpropertyeditor.h"
-#include "ui_solverparameters.h"
-#include "ui_meshcontrol.h"
 
 #define HEAT_EQUATION       0
 #define LINEAR_ELASTICITY   1
@@ -33,6 +28,7 @@ class SifGenerator  {
   GeneralSetup *generalSetup;
   PDEPropertyEditor *pdePropertyEditor;
   MATPropertyEditor *matPropertyEditor;
+  BodyPropertyEditor *bodyPropertyEditor;
   BCPropertyEditor *bcPropertyEditor;
   MeshControl *meshControl;
   int cdim;

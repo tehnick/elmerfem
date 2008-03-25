@@ -79,6 +79,7 @@ GLWidget::GLWidget(QWidget *parent)
 
   ctrlPressed = false;
   shiftPressed = false;
+  altPressed = false;
 
   quadratic = gluNewQuadric();	// for coordinate axis
 }
@@ -261,6 +262,13 @@ void GLWidget::resizeGL(int width, int height)
 }
 
 
+// Focus in event...
+//-----------------------------------------------------------------------------
+void GLWidget::focusInEvent(QFocusEvent *event)
+{
+  // We should check the key pressed status here...
+}
+
 
 // Key pressed...
 //-----------------------------------------------------------------------------
@@ -271,6 +279,9 @@ void GLWidget::keyPressEvent(QKeyEvent *event)
 
   if(event->key() == Qt::Key_Shift)
     shiftPressed = true;
+
+  if(event->key() == Qt::Key_Alt)
+    altPressed = true;
 }
 
 
@@ -283,6 +294,9 @@ void GLWidget::keyReleaseEvent(QKeyEvent *event)
 
   if(event->key() == Qt::Key_Shift)
     shiftPressed = false;
+
+  if(event->key() == Qt::Key_Alt)
+    altPressed = false;
 }
 
 
@@ -501,7 +515,7 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
     // body selection:
     //----------------
     currentlySelectedBody = -1;
-    if(shiftPressed) {
+    if(shiftPressed || bodyEditActive) {
 
       // determine the max bulk index
       int MAX_BULK_INDEX = -1;

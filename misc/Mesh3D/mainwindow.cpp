@@ -155,6 +155,7 @@ MainWindow::MainWindow()
   tetlibInputOk = false;
   activeGenerator = GEN_UNKNOWN;
   bcEditActive = false;
+  bodyEditActive = false;
 
   // set font for text editors:
   QFont sansFont("Courier", 10);
@@ -231,9 +232,15 @@ void MainWindow::createActions()
   connect(addMaterialAct, SIGNAL(triggered()), 
 	  this, SLOT(addMaterialSlot()));
 
-  // Edit -> Boundary conditions
+  // Model -> Body properties
+  bodyEditAct = new QAction(QIcon(), tr("Body properties"), this);
+  bodyEditAct->setStatusTip(tr("Edit body properties (equivalent to holding down the SHIFT key)"));
+  connect(bodyEditAct, SIGNAL(triggered()), 
+	  this, SLOT(bodyEditSlot()));
+
+  // Model -> Boundary conditions
   bcEditAct = new QAction(QIcon(), tr("Boundary conditions"), this);
-  bcEditAct->setStatusTip(tr("Edit boundary conditions"));
+  bcEditAct->setStatusTip(tr("Edit boundary conditions (equivalent to holding down the ALT key)"));
   connect(bcEditAct, SIGNAL(triggered()), 
 	  this, SLOT(bcEditSlot()));
 
@@ -421,6 +428,7 @@ void MainWindow::createMenus()
   connect(materialMenu, SIGNAL(triggered(QAction*)), 
 	  this, SLOT(materialSelectedSlot(QAction*)));
   modelMenu->addSeparator();
+  modelMenu->addAction(bodyEditAct);
   modelMenu->addAction(bcEditAct);
 
   // Edit menu
@@ -1667,6 +1675,46 @@ void MainWindow::materialSelectedSlot(QAction* act)
 }
 
 
+// Model -> Body properties
+//-----------------------------------------------------------------------------
+void MainWindow::bodyEditSlot()
+{
+  if(glWidget->mesh == NULL) {
+    logMessage("Unable to open body editor - there is no mesh");
+    bodyEditActive = false;
+    synchronizeMenuToState();
+    return;
+  }
+
+  bodyEditActive = !bodyEditActive;
+  glWidget->bodyEditActive = bodyEditActive;
+  synchronizeMenuToState();
+
+  if(bodyEditActive)
+    logMessage("Double click a boundary to edit body properties");
+}
+
+
+
+// Model -> Boundary conditions
+//-----------------------------------------------------------------------------
+void MainWindow::bcEditSlot()
+{
+  if(glWidget->mesh == NULL) {
+    logMessage("Unable to open BC editor - there is no mesh");
+    bcEditActive = false;
+    synchronizeMenuToState();
+    return;
+  }
+
+  bcEditActive = !bcEditActive;
+  synchronizeMenuToState();
+
+  if(bcEditActive)
+    logMessage("Double click a boundary to edit BCs");
+}
+
+
 
 //*****************************************************************************
 //
@@ -2527,26 +2575,6 @@ void MainWindow::edgeUnifySlot()
 //*****************************************************************************
 
 
-// Edit -> Boundary conditions
-//-----------------------------------------------------------------------------
-void MainWindow::bcEditSlot()
-{
-  if(glWidget->mesh == NULL) {
-    logMessage("Unable to open BC editor - there is no mesh");
-    bcEditActive = false;
-    synchronizeMenuToState();
-    return;
-  }
-
-  bcEditActive = !bcEditActive;
-  synchronizeMenuToState();
-
-  if(bcEditActive)
-    logMessage("Double click a boundary to edit BCs");
-}
-
-
-
 // Edit -> Sif...
 //-----------------------------------------------------------------------------
 void MainWindow::showsifSlot()
@@ -2587,6 +2615,7 @@ void MainWindow::generateSifSlot()
   sifGenerator->te = sifWindow->textEdit;
   sifGenerator->pdePropertyEditor = pdePropertyEditor;
   sifGenerator->matPropertyEditor = matPropertyEditor;
+  sifGenerator->bodyPropertyEditor = bodyPropertyEditor;
   sifGenerator->bcPropertyEditor = bcPropertyEditor;
   sifGenerator->meshControl = meshControl;
 
@@ -2638,11 +2667,11 @@ void MainWindow::boundarySelectedSlot(list_t *l)
   
   // Open the bc property sheet for selected boundary:
   //--------------------------------------------------
-  if(l->selected && bcEditActive) {
+  if(l->selected && (glWidget->altPressed || bcEditActive)) {
 
-    // TODO: Check if this is correct
     glWidget->ctrlPressed = false;
     glWidget->shiftPressed = false;
+    glWidget->altPressed = false;
 
     if(l->index >= MAX_BCS) {
       logMessage("Error: index exceeds MAX_BCS (increase it and recompile)");
@@ -2666,11 +2695,11 @@ void MainWindow::boundarySelectedSlot(list_t *l)
 
   // Body selection (take no action at the moment):
   //------------------------------------------------
-  if(glWidget->currentlySelectedBody >= 0) {
+  if((glWidget->currentlySelectedBody >= 0) && (glWidget->shiftPressed || bodyEditActive)) {
 
-    // TODO: Check if this si correct
     glWidget->ctrlPressed = false;
     glWidget->shiftPressed = false;
+    glWidget->altPressed = false;
 
     int current = glWidget->currentlySelectedBody;
 
@@ -2682,7 +2711,29 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     } else {
       BodyPropertyEditor *bodyEdit = &bodyPropertyEditor[current];
 
-      // TODO: Populate the editor's Combo-boxes with current eq. & mat. definitions
+
+      // Populate body editor's comboboxes:
+      //-----------------------------------
+      bodyEdit->ui.equationCombo->clear();
+
+      int count = 1;
+      for(int i = 0; i<MAX_EQUATIONS; i++) {
+	PDEPropertyEditor *eqEdit = &pdePropertyEditor[i];
+	if(eqEdit->menuAction != NULL) {
+	  const QString &name = eqEdit->ui.equationNameEdit->text();
+	  bodyEdit->ui.equationCombo->insertItem(count++, name);
+	}
+      }
+      
+      count = 1;
+      for(int i = 0; i<MAX_MATERIALS; i++) {
+	MATPropertyEditor *matEdit = &matPropertyEditor[i];
+	if(matEdit->menuAction != NULL) {
+	  const QString &name = matEdit->ui.materialNameEdit->text();
+	  bodyEdit->ui.materialCombo->insertItem(count++, name);
+	}
+      }
+
       if(bodyEdit->touched) {
 	bodyEdit->ui.applyButton->setText("Update");
 	bodyEdit->ui.discardButton->setText("Remove");
@@ -2907,6 +2958,11 @@ void MainWindow::synchronizeMenuToState()
     viewCoordinatesAct->setIcon(iconChecked);
   else 
     viewCoordinatesAct->setIcon(iconEmpty);
+
+  if(bodyEditActive)
+    bodyEditAct->setIcon(iconChecked);
+  else
+    bodyEditAct->setIcon(iconEmpty);
 
   if(bcEditActive)
     bcEditAct->setIcon(iconChecked);

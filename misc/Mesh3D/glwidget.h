@@ -55,6 +55,8 @@ public:
   int currentlySelectedBody;
   bool ctrlPressed;
   bool shiftPressed;
+  bool altPressed;
+  bool bodyEditActive;
 
 public slots:
 
@@ -66,6 +68,7 @@ protected:
   void paintGL();
   void resizeGL(int, int);
   
+  void focusInEvent(QFocusEvent*);
   void mouseDoubleClickEvent(QMouseEvent*);
   void mousePressEvent(QMouseEvent*);
   void mouseMoveEvent(QMouseEvent*);
