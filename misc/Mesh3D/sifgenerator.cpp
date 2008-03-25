@@ -198,7 +198,7 @@ void SifGenerator::makeBodyBlocks()
 void SifGenerator::makeEquationBlocks()
 {
   // TODO: At the moment only "Equation 1" is meaningful (index=0)
-  PDEPropertyEditor *p = &pe[0];
+  PDEPropertyEditor *p = &pdePropertyEditor[0];
 
   if(p->menuAction == NULL) {
     cout << "No active equation - aborting" << endl;
@@ -246,7 +246,7 @@ void SifGenerator::makeEquationBlocks()
 void SifGenerator::makeSolverBlocks()
 {
   // TODO: At the moment only "Equation 1" is meaningful (index=0)
-  PDEPropertyEditor *p = &pe[0];
+  PDEPropertyEditor *p = &pdePropertyEditor[0];
 
   int currentSolver = 0;
 
@@ -295,7 +295,7 @@ void SifGenerator::makeSolverBlocks()
 void SifGenerator::makeMaterialBlocks()
 {
   // TODO: At the moment only "Material 1" is meaningful (index=0)
-  MATPropertyEditor *m = &me[0];
+  MATPropertyEditor *m = &matPropertyEditor[0];
 
   if(m->menuAction == NULL) {
     cout << "There is no material - aborting" << endl;
@@ -357,7 +357,7 @@ void SifGenerator::makeMaterialBlocks()
 void SifGenerator::makeBodyForceBlocks()
 {
   // TODO: At the moment only "Equation 1" is meaningful (index=0)
-  PDEPropertyEditor *p = &pe[0];
+  PDEPropertyEditor *p = &pdePropertyEditor[0];
 
   // TODO: add functionality wrt ui
   Ui::equationEditor ui = p->ui;
@@ -385,7 +385,7 @@ void SifGenerator::makeBodyForceBlocks()
 void SifGenerator::makeBoundaryBlocks()
 {
   // TODO: At the moment only "Equation 1" is meaningful (index=0)
-  PDEPropertyEditor *eqEdit = &pe[0];
+  PDEPropertyEditor *eqEdit = &pdePropertyEditor[0];
 
   int j = 0;
 

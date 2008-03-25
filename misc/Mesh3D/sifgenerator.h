@@ -31,8 +31,8 @@ class SifGenerator  {
   mesh_t *mesh;
   QTextEdit *te;
   GeneralSetup *generalSetup;
-  PDEPropertyEditor *pe;
-  MATPropertyEditor *me;
+  PDEPropertyEditor *pdePropertyEditor;
+  MATPropertyEditor *matPropertyEditor;
   BCPropertyEditor *bcPropertyEditor;
   MeshControl *meshControl;
   int cdim;
