@@ -99,7 +99,7 @@ MainWindow::MainWindow()
   solverLogWindow = new SifWindow(this);
   solver = new QProcess(this);
   post = new QProcess(this);
-  bcPropertyEditor = new BCPropertyEditor;
+  bcPropertyEditor = new BCPropertyEditor[MAX_BCS];
   pdePropertyEditor = new PDEPropertyEditor[MAX_EQUATIONS];
   matPropertyEditor = new MATPropertyEditor[MAX_MATERIALS];
   sifGenerator = new SifGenerator;
@@ -148,6 +148,7 @@ MainWindow::MainWindow()
   nglibInputOk = false;
   tetlibInputOk = false;
   activeGenerator = GEN_UNKNOWN;
+  bcEditActive = false;
 
   // set font for text editors:
   QFont sansFont("Courier", 10);
@@ -1382,7 +1383,20 @@ void MainWindow::closeMainWindowSlot()
   solverLogWindow->close();
   meshControl->close();
   boundaryDivide->close();
-  bcPropertyEditor->close();
+
+  for(int i = 0; i < MAX_BCS; i++)
+    bcPropertyEditor[i].close();
+
+  for(int i = 0; i < MAX_MATERIALS; i++)
+    matPropertyEditor[i].close();
+
+  for(int i = 0; i < MAX_EQUATIONS; i++)
+    pdePropertyEditor[i].close();
+
+  delete [] bcPropertyEditor;
+  delete [] matPropertyEditor;
+  delete [] pdePropertyEditor;
+  
   this->close();
 }
 
@@ -1390,11 +1404,12 @@ void MainWindow::closeMainWindowSlot()
 
 //*****************************************************************************
 //
-//                                 Equations MENU
+//                                Model MENU
 //
 //*****************************************************************************
 
-// Equation -> Add...
+
+// Model -> Equation...
 //-----------------------------------------------------------------------------
 void MainWindow::addEquationSlot()
 {
@@ -1498,13 +1513,7 @@ void MainWindow::equationSelectedSlot(QAction* act)
 }
 
 
-//*****************************************************************************
-//
-//                                 Material MENU
-//
-//*****************************************************************************
-
-// Material -> Add...
+// Model -> Material...
 //-----------------------------------------------------------------------------
 void MainWindow::addMaterialSlot()
 {
@@ -1606,7 +1615,6 @@ void MainWindow::materialSelectedSlot(QAction* act)
     }
   }
 }
-
 
 
 
@@ -2396,17 +2404,16 @@ void MainWindow::bcEditSlot()
 {
   if(glWidget->mesh == NULL) {
     logMessage("Unable to open BC editor - there is no mesh");
-    bcPropertyEditor->close();    
-    bcPropertyEditor->bcEditActive = false;
+    bcEditActive = false;
     synchronizeMenuToState();
     return;
   }
 
-  bcPropertyEditor->bcEditActive = !bcPropertyEditor->bcEditActive;
+  bcEditActive = !bcEditActive;
   synchronizeMenuToState();
 
-  if(bcPropertyEditor->bcEditActive)
-    logMessage("Choose a boundary to edit BCs");
+  if(bcEditActive)
+    logMessage("Double click a boundary to edit BCs");
 }
 
 
@@ -2501,10 +2508,14 @@ void MainWindow::boundarySelectedSlot(list_t *l)
   
   // Open the bc property sheet for selected boundary:
   //--------------------------------------------------
-  if(l->selected && bcPropertyEditor->bcEditActive) {
-    qs = "Boundary condition for index " + QString::number(l->index);
-    bcPropertyEditor->setWindowTitle(qs);
-    bcPropertyEditor->editProperties(l->index);
+  if(l->selected && bcEditActive) {
+    if(l->index >= MAX_BCS) {
+      logMessage("Error: index exceeds MAX_BCS (increase it and recompile)");
+    } else {
+      BCPropertyEditor *bcEdit = &bcPropertyEditor[l->index];
+      bcEdit->setWindowTitle("Boundary " + QString::number(l->index) );
+      bcEdit->show();
+    }
   }
 
   // Body selection (take no action at the moment):
@@ -2549,7 +2560,6 @@ void MainWindow::runsolverSlot()
   
   solverLogWindow->setWindowTitle(tr("Solver log"));
   solverLogWindow->textEdit->clear();
-  solverLogWindow->activateWindow();  // force focus
   solverLogWindow->show();
 
   logMessage("Solver started");
@@ -2726,7 +2736,7 @@ void MainWindow::synchronizeMenuToState()
   else 
     viewCoordinatesAct->setIcon(iconEmpty);
 
-  if(bcPropertyEditor->bcEditActive)
+  if(bcEditActive)
     bcEditAct->setIcon(iconChecked);
   else
     bcEditAct->setIcon(iconEmpty);

@@ -348,31 +348,31 @@ void SifGenerator::makeBodyForceBlocks()
 void SifGenerator::makeBoundaryBlocks()
 {
   // TODO: At the moment only "Equation 1" is meaningful (index=0)
-  PDEPropertyEditor *p = &pe[0];
-
-  Ui::equationEditor ui = p->ui;
+  PDEPropertyEditor *eqEdit = &pe[0];
 
   int j = 0;
 
-  for(int i = 1; i < bcPropertyEditor->maxindex; i++) {
-    bcProperty_t *bp = &bcPropertyEditor->bcProperty[i];
+  // TODO: replace MAX_BCS with an actual value
+  for(int i = 0; i < MAX_BCS; i++) {
+    BCPropertyEditor *bcEdit = &bcPropertyEditor[i];
+    Ui::bcPropertyDialog ui = bcEdit->ui;
 
-    if(bp->defined) {
-
+    if(bcEdit->touched) {
+      
       te->append("Boundary condition " + QString::number(++j));
       te->append("  Target boundaries(1) = " + QString::number(i));
-
-      if(ui.heatEquationActive->isChecked()) {
-	addLineEdit("  Temperature = ", bp->temperature);
-	addLineEdit("  Heat Flux = ", bp->heatFlux);
+      
+      if(eqEdit->ui.heatEquationActive->isChecked()) {
+	addLineEdit("  Temperature = ", ui.temperatureEdit->text());
+	addLineEdit("  Heat Flux = ", ui.heatFluxEdit->text());
       }
-
-      if(ui.linearElasticityActive->isChecked()) {
-	addLineEdit("  Displacement 1 = ", bp->displacement1);
-	addLineEdit("  Displacement 2 = ", bp->displacement2);
-	addLineEdit("  Displacement 3 = ", bp->displacement3);
+      
+      if(eqEdit->ui.linearElasticityActive->isChecked()) {
+	addLineEdit("  Displacement 1 = ", ui.displacement1Edit->text());
+	addLineEdit("  Displacement 2 = ", ui.displacement2Edit->text());
+	addLineEdit("  Displacement 3 = ", ui.displacement3Edit->text());
       }
-
+      
       te->append("End\n");
     }
   }  

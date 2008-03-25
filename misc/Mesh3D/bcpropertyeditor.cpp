@@ -23,7 +23,7 @@
 
 /*****************************************************************************
  *                                                                           *
- *  ELMER/Mesh3D propertyeditor                                              *
+ *  ELMER/Mesh3D bcpropertyeditor                                            *
  *                                                                           *
  *****************************************************************************
  *                                                                           *
@@ -47,83 +47,26 @@ using namespace std;
 BCPropertyEditor::BCPropertyEditor(QWidget *parent)
   : QDialog(parent)
 {
-  maxindex = MAX_BCS;
-
-  bcEditActive = false;
-  // heatEquationActive = true;
-  // linearElasticityActive = true;
-
-  for(int i = 0; i < MAX_BCS; i++)
-    bcProperty[i].defined = false;
-
   ui.setupUi(this);
 
-  connect(ui.temperatureEdit,   SIGNAL(textChanged(const QString&)), this, SLOT(temperatureChanged(const QString&)));
-  connect(ui.heatFluxEdit,      SIGNAL(textChanged(const QString&)), this, SLOT(heatFluxChanged(const QString&)));
-  connect(ui.displacement1Edit, SIGNAL(textChanged(const QString&)), this, SLOT(displacement1Changed(const QString&)));
-  connect(ui.displacement2Edit, SIGNAL(textChanged(const QString&)), this, SLOT(displacement2Changed(const QString&)));
-  connect(ui.displacement3Edit, SIGNAL(textChanged(const QString&)), this, SLOT(displacement3Changed(const QString&)));
+  touched = false;
+
+  connect(ui.applyButton, SIGNAL(clicked()), this, SLOT(applySlot()));
+  connect(ui.discardButton, SIGNAL(clicked()), this, SLOT(discardSlot()));
 }
 
 BCPropertyEditor::~BCPropertyEditor()
 {
 }
 
-void BCPropertyEditor::editProperties(int bcIndex)
+void BCPropertyEditor::applySlot()
 {
-  this->bcIndex = bcIndex;
-
-  updateActiveSheets();
-
-  bcProperty_t *bc = &bcProperty[bcIndex];
-
-  ui.temperatureEdit   -> setText(bc->temperature);
-  ui.heatFluxEdit      -> setText(bc->heatFlux);
-  ui.displacement1Edit -> setText(bc->displacement1);
-  ui.displacement2Edit -> setText(bc->displacement2);
-  ui.displacement3Edit -> setText(bc->displacement3);
-
-  this->show();
+  touched = true;
+  this->close();
 }
 
-void BCPropertyEditor::updateActiveSheets()
+void BCPropertyEditor::discardSlot()
 {
-  // set all active
-  ui.heatEquation->setEnabled(true);
-  ui.linearElasticity->setEnabled(true);
-}
-
-void BCPropertyEditor::temperatureChanged(const QString& qs)
-{
-  bcProperty_t *bc = &bcProperty[bcIndex];
-  bc->defined = true;
-  bc->temperature = qs;
-}
-
-void BCPropertyEditor::heatFluxChanged(const QString& qs)
-{
-  bcProperty_t *bc = &bcProperty[bcIndex];
-  bc->defined = true;
-  bc->heatFlux = qs;
-}
-
-void BCPropertyEditor::displacement1Changed(const QString& qs)
-{
-  bcProperty_t *bc = &bcProperty[bcIndex];
-  bc->defined = true;
-  bc->displacement1 = qs;
-}
-
-void BCPropertyEditor::displacement2Changed(const QString& qs)
-{
-  bcProperty_t *bc = &bcProperty[bcIndex];
-  bc->defined = true;
-  bc->displacement2 = qs;
-}
-
-void BCPropertyEditor::displacement3Changed(const QString& qs)
-{
-  bcProperty_t *bc = &bcProperty[bcIndex];
-  bc->defined = true;
-  bc->displacement3 = qs;
+  touched = false;
+  this->close();
 }

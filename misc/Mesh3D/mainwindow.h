@@ -3,6 +3,7 @@
 
 #define MAX_EQUATIONS 10
 #define MAX_MATERIALS 10
+// MAX_BCS defined in "bcpropertyeditor.h"
 
 #include <QMainWindow>
 #include <QProcess>
@@ -185,6 +186,9 @@ private:
   void makeElmerMeshFromNglib();
   void logMessage(QString);
   void synchronizeMenuToState();
+
+  // state variables
+  bool bcEditActive;
 };
 
 #endif
