@@ -1,107 +1,122 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE edf>
 <edf version="1.0">
-	<PDE type="BuiltIn">
-		<Name type="String">
-			Heat Equation
-		</Name>
-		<Solver>
-			<Procedure type="File">
-				<Name type="String">
-					"HeatSolve"
-				</Name>
-				<Function type="String">
-					"HeatSolver"
-				</Function>
-			</Procedure>
-			<Variable type="String">
-					"Temperature"
-			</Variable>
-			<VariableDOFs type="Integer">
-				1
-			</VariableDOFs>
-		</Solver>
-		<Material>
-			<Parameter type="Real">
-				Heat Conductivity
-			</Parameter>
-			<Parameter type="Real">
-				Heat Capacity
-			</Parameter>
-		</Material>
-		<BodyForce>
-			<Function type="Real">
-				"Heat Source"
-			</Function>
-		</BodyForce>
-		<Equation>
-			<Property type="Combo">
-				<Name type="String">
-					"Convection"
-				</Name>
-				<Entry type="active">
-					"None"
-				</Entry>
-				<Entry type="">
-					"Constant"
-				</Entry>
-				<Entry type="">
-					"Computed"
-				</Entry>
-			</Property>	
-		</Equation>
-		<BoundaryCondition>
-			<Variable type="Real">
-				"Heat Flux"
-			</Variable>
-		</BoundaryCondition>		
-	</PDE>
+  <PDE type="BuiltIn">
+    <Name type="String">
+      Heat Equation
+    </Name>
+    <Solver>
+      <Procedure type="File">
+        <Name type="String">
+          HeatSolve
+        </Name>
+        <Function type="String">
+          HeatSolver
+        </Function>
+      </Procedure>
+      <Variable type="String">
+        Temperature
+      </Variable>
+      <VariableDOFs type="Integer">
+        1
+      </VariableDOFs>
+    </Solver>
+    <Material>
+      <Parameter type="Real">
+         Heat Conductivity
+      </Parameter>
+      <Parameter type="Real">
+        Heat Capacity
+      </Parameter>
+    </Material>
+    <BodyForce>
+      <Function type="Real">
+        Heat Source
+      </Function>
+    </BodyForce>
+    <Equation>
+      <Property type="Combo">
+        <Name type="String">
+          Convection
+        </Name>
+        <Entry type="active">
+          None
+        </Entry>
+        <Entry type="">
+          Constant
+        </Entry>
+        <Entry type="">
+          Computed
+        </Entry>
+      </Property>	
+    </Equation>
+    <BoundaryCondition>
+      <Variable type="Real">
+        Heat Flux
+      </Variable>
+    </BoundaryCondition>		
+  </PDE>
 
-	<PDE type="BuiltIn">
-		<Name type="String">
-			Linear elasticity
-		</Name>
-		<Solver>
-			<Procedure type="File">
-				<Name type="String">
-					"StressSolve"
-				</Name>
-				<Function type="String">
-					"StressSolver"
-				</Function>
-			</Procedure>
-			<Variable type="String">
-				"Displacement"
-			</Variable>
-			<VariableDOFs type="Integer">
-				3
-			</VariableDOFs>
-		</Solver>
-		<Material>
-			<Parameter type="Real">
-				Youngs modulus
-			</Parameter>
-			<Parameter type="Real">
-				Poisson ratio
-			</Parameter>
-			<Parameter type="Real">
-				Heat expansion coefficient
-			</Parameter>
-		</Material>
-		<BodyForce>
-			<Function type="Real">
-				"Stress body force"
-			</Function>
-		</BodyForce>
-		<Equation>
-			<Property type="Bool">
-				"Plane stress"
-			</Property>	
-		</Equation>
-		<BoundaryCondition>
-			<Variable type="Real">
-				"Normal stress"
-			</Variable>
-		</BoundaryCondition>		
-	</PDE>
+  <PDE type="BuiltIn">
+    <Name type="String">
+      Linear elasticity
+    </Name>
+    <Solver>
+      <Procedure type="File">
+        <Name type="String">
+          StressSolve
+        </Name>
+        <Function type="String">
+          StressSolver
+        </Function>
+      </Procedure>
+      <Variable type="String">
+        Displacement
+      </Variable>
+      <VariableDOFs type="Integer">
+        3
+      </VariableDOFs>
+    </Solver>
+    <Material>
+      <Parameter type="Real">
+        Youngs modulus
+      </Parameter>
+      <Parameter type="Real">
+        Poisson ratio
+      </Parameter>
+      <Parameter type="Real">
+        Heat expansion coefficient
+      </Parameter>
+    </Material>
+    <BodyForce>
+      <Function type="Real">
+        Stress body force
+      </Function>
+    </BodyForce>
+    <Equation>
+      <Property type="Bool">
+        Plane stress
+      </Property>	
+    </Equation>
+    <BoundaryCondition>
+      <Variable type="Real">
+        Displacement 1
+      </Variable>
+      <Variable type="Real">
+        Displacement 2
+      </Variable>
+      <Variable type="Real">
+        Displacement 3
+      </Variable>
+      <Variable type="Real">
+        Normal force 1
+      </Variable>
+      <Variable type="Real">
+        Normal force 2
+      </Variable>
+      <Variable type="Real">
+        Normal force 3
+      </Variable>
+    </BoundaryCondition>		
+  </PDE>
 </edf>

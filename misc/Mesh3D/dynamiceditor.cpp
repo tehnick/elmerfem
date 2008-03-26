@@ -116,13 +116,15 @@ DynamicEditor::DynamicEditor(QWidget *parent)
     QFrame *dummyFrame = new QFrame;
     grid->addWidget(dummyFrame, t->fields, 0);
     
-    // put grid in a group
-    QGroupBox *group = new QGroupBox;
-    group->setLayout(grid);
-    // group->setTitle("Parameters");
+    // put grid in a group/frame
+    // QGroupBox *group = new QGroupBox;
+    // group->setLayout(grid);
+    QFrame *frm = new QFrame;
+    frm->setLayout(grid);
 
-    // finally, add group to tab
-    tabWidget->addTab(group, t->name);
+    // finally, add group/frame to tab
+    // tabWidget->addTab(group, t->name);
+    tabWidget->addTab(frm, t->name);
   }
   
   // Buttons:
