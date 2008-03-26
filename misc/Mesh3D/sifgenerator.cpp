@@ -246,6 +246,11 @@ void SifGenerator::makeEquationBlocks()
     qs.append(" " + QString::number(i+1));
   te->append(qs);
   te->append( "  Element = \"" +  meshControl->elementCodesString + "\"" );
+  if(ui.heatEquationConvectionConstant->isChecked())
+    te->append( "  Convection = Constant" );
+  if(ui.heatEquationConvectionComputed->isChecked())
+    te->append( "  Convection = Computed" );
+
   te->append("End\n");  
 }
 
