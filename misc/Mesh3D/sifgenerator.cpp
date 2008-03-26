@@ -86,6 +86,8 @@ void SifGenerator::makeConstantsBlock()
 	      ui.gravityEdit->text());
   addLineEdit("  Stefan Boltzmann = ",
 	      ui.stefanBoltzmannEdit->text());
+  addLineEdit("  Permittivity of Vacuum = ",
+	      ui.vacuumPermittivityEdit->text());
 
   te->append("End\n");
 }
