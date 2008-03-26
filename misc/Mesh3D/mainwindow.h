@@ -25,6 +25,7 @@
 #include "summaryeditor.h"
 #include "sifgenerator.h"
 #include "generalsetup.h"
+#include "dynamiceditor.h"
 
 class QAction;
 class QMenu;
@@ -50,6 +51,7 @@ private slots:
   void bodyEditSlot();            // Model -> Set body properties
   void bcEditSlot();              // Model -> Set boundary conditions
   void modelSummarySlot();        // Model -> Summary...
+  void dummyEditorSlot();         // Model -> Dummy editor...
   void generateSifSlot();         // Edit -> Generate sif
   void showsifSlot();             // Edit -> Solver input file...
   void meshcontrolSlot();         // Mesh -> Control...
@@ -131,6 +133,7 @@ private:
   QAction *bodyEditAct;           // Model -> Set body properties
   QAction *bcEditAct;             // Model -> Set boundary conditions
   QAction *modelSummaryAct;       // Model -> Summary...
+  QAction *dummyEditorAct;        // Model -> Dummy editor...
   QAction *generateSifAct;        // Edit -> Generate sif
   QAction *showsifAct;            // Edit -> Edit SIF...
   QAction *hidesurfacemeshAct;    // View -> Show surface mesh
@@ -165,6 +168,7 @@ private:
   BCPropertyEditor *bcPropertyEditor;
   BodyPropertyEditor *bodyPropertyEditor;
   SummaryEditor *summaryEditor;
+  DynamicEditor *dynamicEditor;
 
   // images:
   QIcon iconChecked;

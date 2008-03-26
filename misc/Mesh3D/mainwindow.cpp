@@ -110,7 +110,8 @@ MainWindow::MainWindow()
   bodyPropertyEditor = new BodyPropertyEditor[MAX_BODIES];
   summaryEditor = new SummaryEditor;
   sifGenerator = new SifGenerator;
-
+  dynamicEditor = new DynamicEditor;
+  
   createActions();
   createMenus();
   createToolBars();
@@ -250,6 +251,12 @@ void MainWindow::createActions()
   modelSummaryAct->setStatusTip(tr("Model summary"));
   connect(modelSummaryAct, SIGNAL(triggered()), 
 	  this, SLOT(modelSummarySlot()));
+
+  // Model -> Dummy editor...
+  dummyEditorAct = new QAction(QIcon(), tr("Dummy editor..."), this);
+  dummyEditorAct->setStatusTip(tr("Dummy editor for testing"));
+  connect(dummyEditorAct, SIGNAL(triggered()), 
+	  this, SLOT(dummyEditorSlot()));
 
   // Edit -> Generate sif
   generateSifAct = new QAction(QIcon(""), tr("&Generate sif"), this);
@@ -439,6 +446,8 @@ void MainWindow::createMenus()
   modelMenu->addAction(bcEditAct);
   modelMenu->addSeparator();
   modelMenu->addAction(modelSummaryAct);
+  modelMenu->addSeparator();
+  modelMenu->addAction(dummyEditorAct);
 
   // Edit menu
   editMenu = menuBar()->addMenu(tr("&Edit"));
@@ -1968,6 +1977,15 @@ void MainWindow::modelSummarySlot()
 
 
 }
+
+
+// Model -> Dummy editor...
+//-----------------------------------------------------------------------------
+void MainWindow::dummyEditorSlot()
+{
+  dynamicEditor->show();
+}
+
 
 
 
