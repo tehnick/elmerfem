@@ -186,7 +186,7 @@ void SifGenerator::makeBodyBlocks()
   delete [] body_id;
 
   // Assume only one body with index=1, at the moment:
-  BodyPropertyEditor *bodyEdit = &bodyPropertyEditor[0];
+  BodyPropertyEditor *bodyEdit = &bodyPropertyEditor[1];
 
   te->append(str);
   te->append("  Body Force = 1");
@@ -345,10 +345,8 @@ void SifGenerator::makeMaterialBlocks()
   addLineEdit("  Viscosity = ", ui.navierStokesViscosityEdit->text());
   addLineEdit("  Specific Heat Ratio = ", ui.navierStokesSpecificHeatEdit->text());
   
-  if(ui.navierStokesIncompressibleButton->isChecked())
-    te->append("  Compressibility Model = None");
-  else
-    te->append("  Compressibility Model = Perfect Gas Equation 1");
+  te->append("  Compressibility Model = " + 
+             ui.navierStokesCompressibilityCombo->currentText());
   
   // Advection-diffusion
   addLineEdit("  Species Diffusivity = ", ui.advectionDiffusionSpeciesDiffEdit->text());

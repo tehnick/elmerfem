@@ -1188,13 +1188,13 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
       for( int j=0; j<edge->nodes; j++ ) {
         int n = edge->node[j];
         cc[k]++;
-        xmin[k] = min( xmin[k], mesh->node[n].x[0] );
-        ymin[k] = min( ymin[k], mesh->node[n].x[1] );
-        zmin[k] = min( zmin[k], mesh->node[n].x[2] );
+        xmin[k] = min(xmin[k], mesh->node[n].x[0]);
+        ymin[k] = min(ymin[k], mesh->node[n].x[1]);
+        zmin[k] = min(zmin[k], mesh->node[n].x[2]);
  
-        xmax[k] = max( xmax[k], mesh->node[n].x[0] );
-        ymax[k] = max( ymax[k], mesh->node[n].x[1] );
-        zmax[k] = max( zmax[k], mesh->node[n].x[2] );
+        xmax[k] = max(xmax[k], mesh->node[n].x[0]);
+        ymax[k] = max(ymax[k], mesh->node[n].x[1]);
+        zmax[k] = max(zmax[k], mesh->node[n].x[2]);
        }
     }
   }
@@ -1247,6 +1247,7 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
     if ( mesh->edge[i].nature == PDE_BOUNDARY )
       mesh->edge[i].index = sorder[mesh->edge[i].index];
 
+  --index;
   cout << "Edge divided into " << index << " parts" << endl;
   
   delete bc;
@@ -1472,8 +1473,9 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
   for( int i=0; i<mesh->surfaces; i++ )
     if ( mesh->surface[i].nature == PDE_BOUNDARY )
       mesh->surface[i].index = sorder[mesh->surface[i].index];
+  --index;
 
-  cout << "Surface divided into " << index-1 << " parts" << endl;
+  cout << "Surface divided into " << index << " parts" << endl;
 
   delete bc;
 
