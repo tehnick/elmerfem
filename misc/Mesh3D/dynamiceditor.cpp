@@ -7,10 +7,18 @@ using namespace std;
 DynamicEditor::DynamicEditor(QWidget *parent)
   : QWidget(parent)
 {
-  setWindowFlags(Qt::Window);
+  QDomElement element;
+  QDomElement name;
+  QDomElement material;
+  QDomElement param;
+
+  tab_t *t;
+  field_t *f;
 
   addIcon = QIcon(":/icons/list-add.png");
   removeIcon = QIcon(":/icons/list-remove.png");
+
+  setWindowFlags(Qt::Window);
 
   // Read in edf file in xml-format:
   //--------------------------------
@@ -27,75 +35,53 @@ DynamicEditor::DynamicEditor(QWidget *parent)
     QMessageBox::information(window(), tr("Dummy editor"),
 			     tr("This is not an edf file"));
 
+  // Count equations
+  //----------------
+  element = root.firstChildElement("PDE");
+  int equations = 0;
+  while(element.text() != "") {
+    element = element.nextSiblingElement();
+    equations++;
+  }
+
   // Set up tab data:
   //------------------
-  QDomElement element;
-  QDomElement name;
-  QDomElement material;
-  QDomElement param;
-
-  tab_t *t;
-  field_t *f;
-
-  tabs = 2;
+  tabs = equations;
   tab = new tab_t[tabs];
-  
-  // FIRST PAGE
+
   element = root.firstChildElement("PDE");
-  name = element.firstChildElement("Name");
-  material = element.firstChildElement("Material");
+  equations = 0;
+  while(element.text() != "") {
 
-  t = &tab[0];
-  t->name = name.text().trimmed();
-  t->fields = 2; // assumption
-  t->field = new field_t[t->fields];
-
-  param = material.firstChildElement("Parameter");
-  f = &t->field[0];
-  f->type = EDIT_FIELD;
-  f->label = param.text().trimmed();
-  f->editDefault = "0.1";
-
-  param = param.nextSiblingElement("Parameter");
-  f = &t->field[1];
-  f->type = EDIT_FIELD;
-  f->label = param.text().trimmed();
-  f->editDefault = "";
-
-  // SECOND PAGE
-  element = element.nextSiblingElement("PDE");
-  name = element.firstChildElement("Name");
-  material = element.firstChildElement("Material");
-
-  t = &tab[1];
-  t->name = name.text().trimmed();
-  t->fields = 3; // assumption
-  t->field = new field_t[t->fields];
-
-  param = material.firstChildElement("Parameter");
-  f = &t->field[0];
-  f->type = EDIT_FIELD;
-  f->label = param.text().trimmed();
-  f->editDefault = "3";
-
-  param = param.nextSiblingElement("Parameter");
-  f = &t->field[1];
-  f->type = COMBO_FIELD;
-  f->label = param.text().trimmed();
-  f->comboEntries = 5;
-  f->comboEntry = new QString[f->comboEntries];
-  f->comboEntry[0] = "first";
-  f->comboEntry[1] = "second";
-  f->comboEntry[2] = "apple";
-  f->comboEntry[3] = "cat";
-  f->comboEntry[4] = "fifth";
-
-  param = param.nextSiblingElement("Parameter");
-  f = &t->field[2];
-  f->type = EDIT_FIELD;
-  f->label = param.text().trimmed();
-  f->editDefault = "-3.14159";
-
+    name = element.firstChildElement("Name");
+    material = element.firstChildElement("Material");
+    param = material.firstChildElement("Parameter");
+    
+    // count material params
+    int count = 0;
+    while(param.text() != "") {
+      count++;
+      param = param.nextSiblingElement();
+    }
+    
+    t = &tab[equations++];
+    t->name = name.text().trimmed();
+    t->fields = count;
+    t->field = new field_t[t->fields];
+    
+    param = material.firstChildElement("Parameter");
+    count = 0;
+    while(param.text() != "") {
+      f = &t->field[count++];
+      f->type = EDIT_FIELD;
+      f->label = param.text().trimmed();
+      f->editDefault = "";
+      param = param.nextSiblingElement();
+    }
+    
+    element = element.nextSiblingElement();
+  }
+  
   // Set up tabs:
   //-------------
   tabWidget = new QTabWidget;
@@ -133,7 +119,7 @@ DynamicEditor::DynamicEditor(QWidget *parent)
     // put grid in a group
     QGroupBox *group = new QGroupBox;
     group->setLayout(grid);
-    group->setTitle("Parameters");
+    // group->setTitle("Parameters");
 
     // finally, add group to tab
     tabWidget->addTab(group, t->name);
