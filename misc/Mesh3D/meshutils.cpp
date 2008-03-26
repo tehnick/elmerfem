@@ -1144,7 +1144,6 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
       }
     }
   }
-fprintf( stderr, "unselected ones: %d\n", index );
 
   if ( count==0 ) {
     cout << "No boundary edges to divde." << endl;
@@ -1160,7 +1159,6 @@ fprintf( stderr, "unselected ones: %d\n", index );
     if(edge->selected && edge->index==UNKNOWN && edge->nature==PDE_BOUNDARY)
       bc->propagateIndex(mesh, ++index, i);
   }
-fprintf( stderr, "selected ones: %d\n", index );
   index++;
   
   // Create a hopefully mesh indepedent indexing of groupings to enable
@@ -1215,9 +1213,9 @@ fprintf( stderr, "selected ones: %d\n", index );
   }
 
   double g_scale = max(max(g_xmax-g_xmin,g_ymax-g_ymin),g_zmax-g_zmin);
-  double g_xp = g_xmax + 32.1345 / g_scale;
-  double g_yp = g_ymin - 5.3*PI  / g_scale;
-  double g_zp = g_zmax + 8.1234  / g_scale;
+  double g_xp = g_xmax + 32.1345 * g_scale;
+  double g_yp = g_ymin - 5.3*PI  * g_scale;
+  double g_zp = g_zmax + 8.1234  * g_scale;
 
   for( int i=0; i<index; i++ )
   {
@@ -1441,9 +1439,9 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
   }
 
   double g_scale = max(max(g_xmax-g_xmin,g_ymax-g_ymin),g_zmax-g_zmin);
-  double g_xp = g_xmax + 32.1345 / g_scale;
-  double g_yp = g_ymin - 5.3*PI  / g_scale;
-  double g_zp = g_zmax + 8.1234  / g_scale;
+  double g_xp = g_xmax + 32.1345 * g_scale;
+  double g_yp = g_ymin - 5.3*PI  * g_scale;
+  double g_zp = g_zmax + 8.1234  * g_scale;
 
   for( int i=0; i<index; i++ )
   {

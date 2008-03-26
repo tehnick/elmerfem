@@ -2605,7 +2605,6 @@ void MainWindow::applyOperations()
     for(int i=0; i<p->selected; i++) {
       list_t *l = &list[p->select_set[i]];
 
-fprintf( stderr, "select edge: %d %d %d %d\n", i, p->type,p->select_set[i], l->index );
       l->selected = true;
       if ( p->type < OP_UNIFY_EDGE ) {
         for( int j=0; j<mesh->surfaces; j++ ) {
