@@ -75,7 +75,7 @@ static struct GridType *grids;
 static struct FemType data[MAXCASES];
 static struct BoundaryType *boundaries[MAXCASES];
 static struct ElmergridType eg;
-int info,nogrids,nomeshes,activemesh;
+int info=TRUE,nogrids=0,nomeshes=0,activemesh=0;
 
   char *IOmethods[] = {
     /*0*/ "EG",
@@ -1296,7 +1296,7 @@ static int ManipulateMeshDefinition(int inmethod,int outmethod,Real relh)
 #if LIB_MODE
 int eg_loadmesh(const char *filename0)
 {
-  static int i,k,inmethod,info,errorstat;
+  static int i,k,inmethod,errorstat;
   static int nofile;
 
   static int visited = FALSE;
