@@ -7,6 +7,7 @@ TARGET =
 DEPENDPATH += . forms plugins tmp\rcc\release_shared
 INCLUDEPATH += .
 QT += opengl
+QT += xml
 
 # Input
 HEADERS += bcpropertyeditor.h \

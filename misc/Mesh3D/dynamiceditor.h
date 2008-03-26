@@ -3,6 +3,7 @@
 
 #include <QWidget>
 #include <QIcon>
+#include <QDomDocument>
 
 class QTabWidget;
 class QPushButton;
@@ -51,6 +52,11 @@ private slots:
   void removeButtonClicked();
 
 private:
+  QDomDocument domDocument;
+  QString errorStr;
+  int errorLine;
+  int errorColumn;
+
   QPushButton *addButton;
   QPushButton *removeButton;
 

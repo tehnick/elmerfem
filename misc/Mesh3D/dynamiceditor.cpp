@@ -7,49 +7,81 @@ using namespace std;
 DynamicEditor::DynamicEditor(QWidget *parent)
   : QWidget(parent)
 {
+  setWindowFlags(Qt::Window);
+
   addIcon = QIcon(":/icons/list-add.png");
   removeIcon = QIcon(":/icons/list-remove.png");
+
+  // Read in edf file in xml-format:
+  //--------------------------------
+  QFile file("edf.xml");
+  
+  if(!domDocument.setContent(&file, true, &errorStr, &errorLine, &errorColumn))
+    QMessageBox::information(window(), tr("Dummy editor"),
+			     tr("Parse error at line %1, column %2:\n%3")
+			     .arg(errorLine).arg(errorColumn).arg(errorStr));
+  
+  QDomElement root = domDocument.documentElement();
+  
+  if(root.tagName() != "edf")
+    QMessageBox::information(window(), tr("Dummy editor"),
+			     tr("This is not an edf file"));
+
+  // Set up tab data:
+  //------------------
+  QDomElement element;
+  QDomElement name;
+  QDomElement material;
+  QDomElement param;
 
   tab_t *t;
   field_t *f;
 
-  setWindowFlags(Qt::Window);
-  
-  // Set up data:
-  //-------------
   tabs = 2;
   tab = new tab_t[tabs];
   
   // FIRST PAGE
+  element = root.firstChildElement("PDE");
+  name = element.firstChildElement("Name");
+  material = element.firstChildElement("Material");
+
   t = &tab[0];
-  t->name = "First page";
-  t->fields = 2;
+  t->name = name.text().trimmed();
+  t->fields = 2; // assumption
   t->field = new field_t[t->fields];
 
+  param = material.firstChildElement("Parameter");
   f = &t->field[0];
   f->type = EDIT_FIELD;
-  f->label = "Parameter 1";
+  f->label = param.text().trimmed();
   f->editDefault = "0.1";
 
+  param = param.nextSiblingElement("Parameter");
   f = &t->field[1];
   f->type = EDIT_FIELD;
-  f->label = "Enthalpy";
+  f->label = param.text().trimmed();
   f->editDefault = "";
 
   // SECOND PAGE
+  element = element.nextSiblingElement("PDE");
+  name = element.firstChildElement("Name");
+  material = element.firstChildElement("Material");
+
   t = &tab[1];
-  t->name = "Second page";
-  t->fields = 3;
+  t->name = name.text().trimmed();
+  t->fields = 3; // assumption
   t->field = new field_t[t->fields];
 
+  param = material.firstChildElement("Parameter");
   f = &t->field[0];
   f->type = EDIT_FIELD;
-  f->label = "Mass";
+  f->label = param.text().trimmed();
   f->editDefault = "3";
 
+  param = param.nextSiblingElement("Parameter");
   f = &t->field[1];
   f->type = COMBO_FIELD;
-  f->label = "Choose";
+  f->label = param.text().trimmed();
   f->comboEntries = 5;
   f->comboEntry = new QString[f->comboEntries];
   f->comboEntry[0] = "first";
@@ -58,9 +90,10 @@ DynamicEditor::DynamicEditor(QWidget *parent)
   f->comboEntry[3] = "cat";
   f->comboEntry[4] = "fifth";
 
+  param = param.nextSiblingElement("Parameter");
   f = &t->field[2];
   f->type = EDIT_FIELD;
-  f->label = "Strange param.";
+  f->label = param.text().trimmed();
   f->editDefault = "-3.14159";
 
   // Set up tabs:
@@ -111,12 +144,12 @@ DynamicEditor::DynamicEditor(QWidget *parent)
   addButton = new QPushButton(tr("&Add"));
   addButton->setIcon(addIcon);
   connect(addButton, SIGNAL(clicked()),
-	  this, SLOT(acceptButtonClicked()));
+	  this, SLOT(addButtonClicked()));
   
   removeButton = new QPushButton(tr("&Remove"));
   removeButton->setIcon(removeIcon);
   connect(removeButton, SIGNAL(clicked()),
-	  this, SLOT(deleteButtonClicked()));
+	  this, SLOT(removeButtonClicked()));
 
   QHBoxLayout *buttonLayout = new QHBoxLayout;  
   buttonLayout->addWidget(addButton);
