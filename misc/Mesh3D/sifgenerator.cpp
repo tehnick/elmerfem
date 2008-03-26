@@ -295,6 +295,24 @@ void SifGenerator::makeSolverBlocks()
     // todo: add adaptivity & multigrid
     te->append("End\n");
   }
+
+  if(ui.navierStokesActive->isChecked()) {
+    currentSolver++;
+    // user interface of the solver parameter editor:
+    Ui::solverParameterEditor ui = p->solverParameterEditor[NAVIER_STOKES].ui;
+    te->append("Solver " + QString::number(currentSolver));
+    te->append("  Equation = \"Navier-Stokes\"");
+    te->append("  Variable = Flow Solution");
+    te->append("  Variable dofs = " + QString::number(cdim+1));
+    parseProcedure(ui);
+    parseGeneralTab(ui);
+    parseSteadyStateTab(ui);
+    parseNonlinearSystemTab(ui);
+    parseLinearSystemTab(ui);
+    // todo: add adaptivity & multigrid
+    te->append("End\n");
+  }
+
 }
 
 
@@ -415,6 +433,12 @@ void SifGenerator::makeBoundaryBlocks()
 	addLineEdit("  Displacement 1 = ", ui.displacement1Edit->text());
 	addLineEdit("  Displacement 2 = ", ui.displacement2Edit->text());
 	addLineEdit("  Displacement 3 = ", ui.displacement3Edit->text());
+      }
+
+      if(eqEdit->ui.navierStokesActive->isChecked()) {
+	addLineEdit("  Velocity 1 = ", ui.Velocity1Edit->text());
+	addLineEdit("  Velocity 2 = ", ui.Velocity2Edit->text());
+	addLineEdit("  Velocity 3 = ", ui.Velocity3Edit->text());
       }
       
       te->append("End\n");
