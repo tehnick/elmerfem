@@ -3566,39 +3566,41 @@ void RenumberBoundaryTypes(struct FemType *data,struct BoundaryType *bound,
       }
     }
     if(doinit) return;
-    
-    mapbc = Ivector(minbc,maxbc);
-    for(i=minbc;i<=maxbc;i++) mapbc[i] = 0;
-    
-    for(j=0;j < MAXBOUNDARIES;j++) {
-      if(!bound[j].created) continue;
-      for(i=1;i<=bound[j].nosides;i++)
-	mapbc[bound[j].types[i]] = TRUE;
-    }
-    
-    j = 0;
-    for(i=minbc;i<=maxbc;i++) 
-      if(mapbc[i]) {
-	j++;
-	mapbc[i] = j;
-      }    
 
-    if(maxbc - minbc >= j || minbc != 1) { 
-      if(info) printf("Mapping boundary types from [%d %d] to [%d %d]\n",minbc,maxbc,1,j);    
-    
+    if(minbc != 1 || maxbc != 1) {
+      mapbc = Ivector(minbc,maxbc);
+      for(i=minbc;i<=maxbc;i++) mapbc[i] = 0;
+      
       for(j=0;j < MAXBOUNDARIES;j++) {
 	if(!bound[j].created) continue;
 	for(i=1;i<=bound[j].nosides;i++)
-	  bound[j].types[i] = mapbc[bound[j].types[i]];
+	  mapbc[bound[j].types[i]] = TRUE;
       }
-      if(data->boundarynamesexist) {
-	for(j=minbc;j<=MIN(maxbc,MAXBODIES-1);j++) {
-	  if(mapbc[j]) 
-	    strcpy(data->boundaryname[mapbc[j]],data->boundaryname[j]);
+      
+      j = 0;
+      for(i=minbc;i<=maxbc;i++) 
+	if(mapbc[i]) {
+	  j++;
+	  mapbc[i] = j;
+	}    
+      
+      if(maxbc - minbc >= j || minbc != 1) { 
+	if(info) printf("Mapping boundary types from [%d %d] to [%d %d]\n",minbc,maxbc,1,j);    
+	
+	for(j=0;j < MAXBOUNDARIES;j++) {
+	  if(!bound[j].created) continue;
+	  for(i=1;i<=bound[j].nosides;i++)
+	    bound[j].types[i] = mapbc[bound[j].types[i]];
+	}
+	if(data->boundarynamesexist) {
+	  for(j=minbc;j<=MIN(maxbc,MAXBODIES-1);j++) {
+	    if(mapbc[j]) 
+	      strcpy(data->boundaryname[mapbc[j]],data->boundaryname[j]);
+	  }
 	}
       }
+      free_Ivector(mapbc,minbc,maxbc);
     }
-    free_Ivector(mapbc,minbc,maxbc);
   }
 
   if(bcoffset) {
@@ -3643,6 +3645,8 @@ void RenumberMaterialTypes(struct FemType *data,struct BoundaryType *bound,int i
     maxmat = MAX(maxmat,data->material[j]);
     minmat = MIN(minmat,data->material[j]);    
   }
+
+  if(minmat == 1 && maxmat == 1) return;
 
   mapmat = Ivector(minmat,maxmat);
   for(i=minmat;i<=maxmat;i++) mapmat[i] = 0;
@@ -6084,7 +6088,7 @@ void ElementsToBoundaryConditions(struct FemType *data,
   int debug,unmoved;
 
 
-  if(info) printf("Making elements to boundary conditions\n");
+  if(info) printf("Setting elements to boundary conditions\n");
 
   for(j=0;j < MAXBOUNDARIES;j++) 
     bound[j].created = FALSE;
@@ -6101,7 +6105,7 @@ void ElementsToBoundaryConditions(struct FemType *data,
   if(info) printf("Trailing bulk elementtype is %d\n",minelemtype);
 
   elemdim = GetElementDimension(maxelemtype);
-  if( elemdim - GetElementDimension(minelemtype) == 0) return;
+  if( elemdim == GetElementDimension(minelemtype) ) return;
 
   moveelement = Ivector(1,noelements); 
 
@@ -6128,7 +6132,10 @@ void ElementsToBoundaryConditions(struct FemType *data,
   }
   if(info) printf("There are %d (out of %d) lower dimensional elements.\n",
 		  sideelements,noelements);
-  if(sideelements == 0) return;
+  if(sideelements == 0) {
+    free_Ivector(moveelement,1,noelements);
+    return;
+  }
 
   AllocateBoundary(bound,sideelements);
 
@@ -6144,11 +6151,12 @@ void ElementsToBoundaryConditions(struct FemType *data,
 
   j = 1;
   maxpossible = possible[1];
-  for(i=1;i<=noknots;i++)
+  for(i=1;i<=noknots;i++) {
     if(maxpossible < possible[i]) {
       maxpossible = possible[i]; 
       j = i;
     }  
+  }
   if(info) printf("Node %d belongs to maximum of %d elements\n",j,maxpossible);
 
   /* Make a table showing to which elements a node belongs to 
@@ -6303,6 +6311,7 @@ void ElementsToBoundaryConditions(struct FemType *data,
   free_Ivector(parentorder,1,noelements);
   free_Ivector(moveelement,1,noelements); 
   free_Ivector(possible,1,noknots);
+  free_Imatrix(invtopo,1,noknots,1,maxpossible);
 
   RenumberMaterialTypes(data,bound,info);
 
