@@ -15,8 +15,13 @@ EdfEditor::EdfEditor(QWidget *parent)
   // Tree widget:
   //-------------
   edfTree = new QTreeWidget;
-  edfTree->setColumnCount(2);
 
+  connect(edfTree, SIGNAL(itemClicked(QTreeWidgetItem*,int)),
+	  this, SLOT(treeItemClicked(QTreeWidgetItem*,int)));
+
+  edfTree->setColumnCount(2);
+  
+  edfTree->header()->setResizeMode(QHeaderView::Stretch);
   QStringList qsl;
   qsl << "Tag" << "Value";
   edfTree->setHeaderLabels(qsl);
@@ -41,7 +46,6 @@ EdfEditor::EdfEditor(QWidget *parent)
   mainLayout->addWidget(edfTree);
   mainLayout->addLayout(buttonLayout);
   setLayout(mainLayout);
-
 }
 
 //----------------------------------------------------------------------------
@@ -59,10 +63,11 @@ void EdfEditor::insertEntry(QDomElement element,
   QTreeWidgetItem *newItem = new QTreeWidgetItem(parentItem);
   
   newItem->setText(0, element.tagName().trimmed());
-  
-  if(element.childNodes().count() == 1)
+  newItem->setFlags(newItem->flags() | Qt::ItemIsEditable);
+
+  if(element.childNodes().count() == 1) 
     newItem->setText(1, element.text().trimmed());
-  
+
   edfTree->addTopLevelItem(newItem);
   
   if(!element.firstChildElement().isNull()) 
@@ -74,13 +79,10 @@ void EdfEditor::insertEntry(QDomElement element,
 //----------------------------------------------------------------------------
 void EdfEditor::setupEditor(QDomDocument &elmerDefs)
 {
-  // get root entry
+  // get root entry & recursively add all entries to the tree:
   root = elmerDefs.documentElement();
   element = root.firstChildElement("PDE");
-
-  // recursively add entries to tree view
   insertEntry(element, NULL);
-
   this->show();
 }
 
@@ -93,7 +95,7 @@ QSize EdfEditor::minimumSizeHint() const
 //----------------------------------------------------------------------------
 QSize EdfEditor::sizeHint() const
 {
-  return QSize(720, 480);
+  return QSize(480, 320);
 }
 
 //----------------------------------------------------------------------------
@@ -110,4 +112,13 @@ void EdfEditor::removeButtonClicked()
   cout << "Edf editor: Remove-button clicked" << endl;
   cout.flush();
   close();
+}
+
+//----------------------------------------------------------------------------
+void EdfEditor::treeItemClicked(QTreeWidgetItem *item, int column)
+{
+  cout << "Item clicked: ";
+  cout << string(item->text(column).trimmed().toAscii());
+  cout << endl;
+  cout.flush();
 }

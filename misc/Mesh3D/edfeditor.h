@@ -26,6 +26,7 @@ signals:
 private slots:
   void addButtonClicked();
   void removeButtonClicked();
+  void treeItemClicked(QTreeWidgetItem*, int);
 
 private:
   QIcon addIcon;
