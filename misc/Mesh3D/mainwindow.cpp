@@ -1800,7 +1800,7 @@ void MainWindow::modelSummarySlot()
 
   // This is almost duplicate info with the above, they might be fused in some way...
   te->append("ELEMENT TYPES");
-  int elementtypes[828];
+  int *elementtypes = new int[828];
   for(int i=0;i<=827;i++)
     elementtypes[i] = 0;
   for(int i=0;i<mesh->elements;i++)
@@ -1814,6 +1814,7 @@ void MainWindow::modelSummarySlot()
   for(int i=827;i>0;i--)
     if(elementtypes[i])  te->append(QString::number(i) + ": " + QString::number(elementtypes[i]));
   te->append("");
+  delete [] elementtypes;
 
 
   // Check equations:
