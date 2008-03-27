@@ -26,6 +26,7 @@
 #include "summaryeditor.h"
 #include "sifgenerator.h"
 #include "generalsetup.h"
+#include "edfeditor.h"
 #include "dynamiceditor.h"
 
 class QAction;
@@ -55,6 +56,7 @@ private slots:
   void dummyEditorSlot();         // Model -> Dummy editor...
   void generateSifSlot();         // Edit -> Generate sif
   void showsifSlot();             // Edit -> Solver input file...
+  void editDefinitionsSlot();     // Edit -> Definitions...
   void meshcontrolSlot();         // Mesh -> Control...
   void remeshSlot();              // Mesh -> Remesh
   void stopMeshingSlot();         // Mesh -> Kill generator
@@ -100,6 +102,7 @@ private:
   MeshingThread *meshingThread;   // meshing thread
   SifWindow *solverLogWindow;     // Solver log
   SifGenerator *sifGenerator;     // SIF generator
+  EdfEditor *edfEditor;           // Edf editor
 
   void createActions();
   void createMenus();
@@ -137,6 +140,7 @@ private:
   QAction *dummyEditorAct;        // Model -> Dummy editor...
   QAction *generateSifAct;        // Edit -> Generate sif
   QAction *showsifAct;            // Edit -> Edit SIF...
+  QAction *editDefinitionsAct;    // Edit -> Edit SIF...
   QAction *hidesurfacemeshAct;    // View -> Show surface mesh
   QAction *hidesharpedgesAct;     // View -> Show sharp edges
   QAction *viewCoordinatesAct;    // View -> Show sharp edges

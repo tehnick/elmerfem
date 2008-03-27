@@ -111,6 +111,7 @@ MainWindow::MainWindow()
   summaryEditor = new SummaryEditor;
   sifGenerator = new SifGenerator;
   elmerDefs = new QDomDocument;
+  edfEditor = new EdfEditor;
   dynamicEditor = new DynamicEditor;
   
   createActions();
@@ -306,6 +307,12 @@ void MainWindow::createActions()
   connect(showsifAct, SIGNAL(triggered()), 
 	  this, SLOT(showsifSlot()));
 
+  // Edit -> Definitions...
+  editDefinitionsAct = new QAction(QIcon(), tr("&Definitions..."), this);
+  editDefinitionsAct->setStatusTip(tr("Edit elmer definitions file"));
+  connect(editDefinitionsAct, SIGNAL(triggered()), 
+	  this, SLOT(editDefinitionsSlot()));
+
   // Mesh -> Control
   meshcontrolAct = new QAction(QIcon(":/icons/configure.png"), tr("&Configure..."), this);
   meshcontrolAct->setShortcut(tr("Ctrl+C"));
@@ -488,6 +495,8 @@ void MainWindow::createMenus()
   editMenu->addAction(generateSifAct);
   editMenu->addSeparator();
   editMenu->addAction(showsifAct);
+  editMenu->addSeparator();
+  editMenu->addAction(editDefinitionsAct);
 
   // View menu
   viewMenu = menuBar()->addMenu(tr("&View"));  
@@ -3077,6 +3086,16 @@ void MainWindow::boundarySelectedSlot(list_t *l)
   }
 }
 
+
+// Edit -> Definitions...
+//-----------------------------------------------------------------------------
+void MainWindow::editDefinitionsSlot()
+{
+  if(elmerDefs == NULL)
+    return;
+  
+  edfEditor->setupEditor(*elmerDefs);
+}
 
 
 //*****************************************************************************
