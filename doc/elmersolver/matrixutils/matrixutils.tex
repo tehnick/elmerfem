@@ -1,7 +1,7 @@
-\chapter{Matrix manipulation utilities}
+\Chapter{Matrix manipulation utilities}
 \noindent
 
-
+\begin{versiona}
 \section{\Idx{Dirichlet conditions}}
 
 In finite element method there are two kinds of boundary conditions. 
@@ -14,124 +14,35 @@ Technically the Dirichlet conditions in ElmerSolver are set through manipulating
 in the matrix rather than its structure. To be more specific, in setting the degree of freedom with index
 $i$ the $i$:th row of the matrix is set zero, except for the diagonal which is set to be unity. When also
 the r.h.s. of the equation is set to the desired value, the solution will satisfy the Dirichlet condition.
-
-There is a handicap with this procedure which is that the symmetry of the original matrix will be lost.
-This may affect the performance of linear system solvers. To ensure to symmetricity of the matrix equation there
-are two remedies. Also the column may be zeroed and the known values may be subtracted from the r.h.s. This is envoked
-by the keyword 
-\sifbegin
-  \sifitemnt{Linear System Symmetric}{Logical True}
-\sifend
-The second option is to eliminate all the rows and columns related to the 
-known values. This reduces the size of the matrix but of has an additional cost
-as a secondary matrix is created and the values are copied into it. This
-feature is activated by the \texttt{EliminateDirichlet} subroutine called before the 
-linear system solver with the syntax
-\ttbegin
-  Before Linsolve = "EliminateDirichlet" "EliminateDirichlet"
-\ttend
-Both these keywords should locate in the \texttt{Solver} section.
-
-
-The typical way to give boundary conditions is to define in the \texttt{Boundary condition}
-section the values related to the variable under solution, for example. 
-\ttbegin
-Boundary Condition 1
-  Target Boundaries(2) = 2 3
-  Temperature = 273
-  Velocity 1 = 1.0
-End
-\ttend
-If the variables are not listed in the keyword listing the user shoul also define the type which 
-is \texttt{Real}.
-
-There is also a possibility to define boundary conditions for nodes that are created on the fly.
-For example, in the case below the two nodes are given a temperature value. 
-\ttbegin
-Boundary Condition 2
-  Target Nodes(2) = 100 200
-  Temperature = 293
-End
-\ttend
-A variation of this technique is to give coordinate values which are transformed into 
-nodal indexes corresponding to the nearest nodes at the time of first call. 
-\ttbegin
-  Boundary Condition 3
-  Target Coordinates(3,2) = Real 1.0 1.0 1.0 0.5 1.0 0.0
-  Temperature = 300
-End
-\ttend
-In the above the keyword dimension is \texttt{Target Boundaries(n,DIM)}.
-One should not mix
-the conditions defined by \texttt{Target Boundaries}, \texttt{Target Nodes}, and
-\texttt{Target Coordinates} in the same boundary condition definition. 
-
-\subsection*{Conditions for bodies}
+The Dirichlet conditions may be set to existing boundary elements. Additionally Dirichlet conditions may
+be set for set of nodes that are created on-the-fly.
 
 Usually the Dirichlet conditions are given at objects which have a lower dimension than the 
 leading dimension in the geometry, i.e. for 3D problems values are usually fixed only at 2D faces.
-However, it is possible also to set the conditions for the bodies. This may be done in the 
-\texttt{Body force} section just in the same way as in the \texttt{Boundary condition} section normally. 
-\ttbegin
-Body Force 1 
-  Temperature = 273
-  Velocity 1 = 1.0
-End
-\ttend
-When the body force is assigned to a body the values will be fixed as defined. 
+However, it is possible also to set the conditions for the bodies also. This may be particularly 
+useful when the condition is only conditional.
 
-
-\subsection*{Conditional Dirichlet conditions}
+There is a handicap with this procedure which is that the symmetry of the original matrix will be lost.
+This may affect the performance of linear system solvers. To ensure to symmetricity of the matrix equation there
+are two remedies. Also the column may be zeroed and the known values may be subtracted from the r.h.s. 
+The second option is to eliminate all the rows and columns related to the 
+known values. This reduces the size of the matrix but of has an additional cost
+as a secondary matrix is created and the values are copied into it. 
 
 Sometimes the Dirichlet conditions should depend on other variables in a way which 
 defined whether or not to set the conditions at all. For example, the temperature at a 
 boundary should be defined only if the flow is inside the boundary. For outflow the definition
 of the temperature is not physically justified. For this kind of purposes the user may give a condition 
-that is a \texttt{Real} valued variable that has the name of the field variable followed 
-by a string \texttt{Condition}. If this variable is positive the Dirichlet condition is applied,
-otherwise not. For example, 
-\ttbegin
-Boundary Condition 1
-  Target Boundaries(2) = 2 3
-  Temperature = 273
-  Temperature Condition = Equals Velocity 1 
-End
-\ttend
-would define the temperature only if the \texttt{Velocity 1} would be positive.
+that is a variable in itself. If this variable is positive the Dirichlet condition is applied,
+
+\section{Periodic conditions}
+
+Periodic BCs may be considered to be a special case of Diricghlet conditions where the fixed
+value is given as linear combination of other unknown values.
+The periodic boundary conditions in Elmer are very flexible. In fact they may even be antiperiodic. 
 
 
-
-\section{\Idx{Periodic boundary conditions}}
-
-The periodic boundary conditions in Elmer qre very flexible. In fact they may even be antiperiodic. 
-In the \texttt{Boundary Condition} section the following keywords are used to activate the 
-periodic BCs.
-\sifbegin
-  \sifitem{Periodic BC}{Integer}  
-   This refers to the counterpart of the periodic boundary condition. This means that 
-   periodic boundaries come in pairs, and for the other boundary you only need to give pointer to.
-   \sifitem{Anti Periodic BC}{Integer}  
-   The system may be also antiperiodic i.e. the absolute value is the same but the sign is different.
-   \sifitem{Periodic BC Translate(3)}{Real}
-   The periodic boundary is mapped to the other boundary by three different operations: 
-   translation, rotatition and scaling. This generality is not usually needed and therefore 
-   default value is used. For the translation vector the default is the vector that is obtained when 
-   moving in the normal direction of the first boundary until the target boundary is hit. 
-   If this is not desired the user may give another translation vector using this keyword.
-   \sifitem{Periodic BC Rotate(3)}{Real}
-   By default no rotation is performed prior to the mapping of values. This keyword may be used to give 
-   the angles of rotation. 
-  \sifitem{Periodic BC Scale(3)}{Real}
-  By default there is no scaling performed prior to the mapping of values. This keyword may be used to give 
-  a scaling vector if this is desired.
-  \sifitem{Periodic BC Temperature}{Logical True}
-  The user should define the variables that are to be periodic in nature. 
-  This is done by attaching their names into logical expressions following 
-  the string \texttt{Periodic BC}.
-\sifend
-
-
-\section{Setting nodal loads}
+\section{Setting and computing nodal loads}
 
 Similarly to the Dirichlet values one may also set nodal loads i.e. entries for the 
 r.h.s. of the matrix equation. Generally there are good reasons to avoid the use of nodal loads
@@ -140,29 +51,12 @@ There are, however, some uses also for setting nodal loads. For example, in mult
 sometimes it may be a good solution to transfer the forces directly in nodal form as this is 
 the most accurate way to compute the forces resulting from the discrete system. 
 
-The nodal loads are given exactly as the Dirichlet conditions except that 
-a string \texttt{Load} is attached to the name of the variable, for example
-\ttbegin
-Boundary Condition 1
-  Target Boundaries(2) = 2 3
-  Temperature Load = Real 1.0
-End
-\ttend
-This may be used also for the on-the-fly conditions created by the \texttt{Target Nodes} and 
-\texttt{Target Coordinates} keywords, and to the conditions in the body force section.
-Note that there are no conditional nodal loads as there are conditional Dirichlet conditions. 
-For nodal loads this may be achieved in a simpler way. 
-
-
-\section{Computing nodal loads}
-
-In finite element method it is possible to evaluate the nodal loads after the solution 
+It is possible to evaluate the nodal loads after the solution 
 is computed. This however, requires that the original matrix $A_0$ that has not been 
 eliminated for Dirichlet conditions is saved. Then the the nodal forces may be computed from
 \begin{equation}
   f = A_0 x - b .
 \end{equation}
-
 
 
 %Toimii nyt myös StressSolve:n osalta myös transienttina tuo 'Constant Bulk System' olettaen, että r-ehdot eivät
@@ -174,7 +68,6 @@ eliminated for Dirichlet conditions is saved. Then the the nodal forces may be c
 
 %Mesh Update 1 DOFs = Equals Displacment 1
 %Displacement Load 1 DOFs = Equals Stress 1
-
 
 
 \section{Active and passive elements}
@@ -192,37 +85,98 @@ The geometry of the whole system is meshed as usual, and the passive
 elements are only omitted from the equations. The passive definition
 is done solverwise and elementwise. The former means that, eg., the
 temperature may be passive and the displacements active at the same
-element.
-
-The passive property of elements is defined with a real valued
+element. The passive property of elements is defined with a real valued
 parameter with the name constructed from the name of the variable
 followed by \texttt{Passive} in the \texttt{Body Force} section.
-\ttbegin
-Body Force 1
-  Temperature Passive = Variable Time
-    Real
-      0.0    1.0
-      5.0    1.0
-      5.2   -1.0
-      8.0   -1.0
-    End
-End
-\ttend
-
 When the parameter obtains a value greater than zero the element is
-passive. In the above example, the temperature solver (ie. the heat
-equation solver) is passive from time instants 0.0 seconds to 5.1 s,
-and active after 5.1 seconds.
-
-Note that it is not possible to control components of vector valued
-variables separately. Thus the \texttt{Displacement 1},
-\texttt{Displacement 2} and \texttt{Displacement 3} variables of
-Stress analysis solver are all switched of with the keyword
-\texttt{Displacement Passive}. Also, the Navier-Stokes solver is
-controlled with the keyword \texttt{Flow Solution Passive} which
-affects both the pressure and the velocity components.
+passive. 
 
 
+\section{Keywords for Matrix manipulation}
+\end{versiona}
+
+\sifbegin
+  \sifitemnt{Solver}{solver id}
+  \sifbegin
+    \sifitem{Linear System Symmetric}{Logical True}
+    Make the matrix symmetric by eliminating the known values from the r.h.s and zeroing the matrix entries.
+    \sifitem{Before Linsolve}{"EliminateDirichlet" "EliminateDirichlet"}
+    Creates a secondary matrix with a reduced size by eliminating Dirichlet 
+    conditions and passing this to the linear system solver.
+    \sifitem{Exported Variable i}{Variable Loads}
+    This introduction of an additional variable with the suffix \texttt{Loads} 
+    activates computation of the resulting loads.
+  \sifend
+
+  \sifitemnt{Boundary condition}{bc id}
+  \sifbegin
+     \sifitem{Target Boundaries(n)}{Integer}
+     The set of boundaries for which the Dirichlet conditions will be applied on.
+     \sifitem{Target Nodes(n)}{Integer}
+     Sets point conditions on-the-fly. These points refer to the obsolute indexing of the nodes.
+     \sifitem{Target Coordinates(n,DIM)}{Real} 
+      Ccoordinate values which are transformed into 
+      nodal indexes corresponding to the nearest nodes at the time of first call. 
+     Target groups defined by \texttt{Target Boundaries}, \texttt{Target Nodes}, and
+     \texttt{Target Coordinates} should not reside in the same boundary condition definition.
+     \sifitem{Variable}{Real}
+     Each variable which has an equation that is solved for, may be set by giving its value 
+     at the boundary conditions section. 
+     If the variables are not listed in the keyword listing the user shoul also define the type which 
+     is \texttt{Real}.
+     \sifitem{Variable i}{Real}
+     For multicomponent fields the Dirichlet condition may be set to each field separately.
+     \sifitem{Variable Condition}{Real}
+     The Dirichlet condition related to the variable is set active only if the condition is positive. 
+     \sifitem{Variable Load }{Real} 
+     Sets the goven value to the r.h.s. of the matrix equation related to the solution of the variable. Note that this
+     value is a nodal quantity. The nodal loads are given exactly as the Dirichlet conditions except that 
+     a string \texttt{Load} is attached to the name of the variable.
+   \sifend
+   The following keywords in the boundary condition section are used to control the 
+   periodic boundary conditions.
+   \sifbegin
+     \sifitem{Periodic BC}{Integer}  
+     This refers to the counterpart of the periodic boundary condition. This means that 
+     periodic boundaries come in pairs, and for the other boundary you only need to give pointer to.
+     \sifitem{Anti Periodic BC}{Integer}  
+     The system may be also antiperiodic i.e. the absolute value is the same but the sign is different.
+     \sifitem{Periodic BC Translate(3)}{Real}
+     The periodic boundary is mapped to the other boundary by three different operations: 
+     translation, rotatition and scaling. This generality is not usually needed and therefore 
+     default value is used. For the translation vector the default is the vector that is obtained when 
+     moving in the normal direction of the first boundary until the target boundary is hit. 
+     If this is not desired the user may give another translation vector using this keyword.
+     \sifitem{Periodic BC Rotate(3)}{Real}
+     By default no rotation is performed prior to the mapping of values. This keyword may be used to give 
+     the angles of rotation. 
+      \sifitem{Periodic BC Scale(3)}{Real}
+      By default there is no scaling performed prior to the mapping of values. This keyword may be used to give 
+      a scaling vector if this is desired.
+      \sifitem{Periodic BC Variable}{Logical True}
+      The user should define the variables that are to be periodic in nature. 
+      This is done by attaching their names into logical expressions following 
+      the string \texttt{Periodic BC}.
+    \sifend 
+
+   \sifitemnt{Body Force}{body force id}
+   \sifbegin
+     \sifitem{Variable}{Real}
+     The setting of Dirichlet conditions for the whole body follows the same logic as for the boundaries.
+     When the body force is assigned to a body the values will be fixed as defined. 
+    \sifitem{Variable Load }{Real} 
+     Sets the goven value to the r.h.s. of the matrix equation related to the solution of the variable. Note that this
+     value is a nodal quantity. The nodal loads are given exactly as the Dirichlet conditions except that 
+     a string \texttt{Load} is attached to the name of the variable.
+    \sifitem{Variable Passive}{Real}
+     If this variable obtains a positive value the element is set passive and assembled for.
+     Note that it is not possible to control components of vector valued
+     variables separately. 
+  \sifend
+\sifend
+
+\begin{versiona}
 \bibliography{elmerbib}
 \bibliographystyle{plain}
+\end{versiona}
 

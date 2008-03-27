@@ -13,6 +13,7 @@
 \RequirePackage{times}
 \RequirePackage{fancyheadings}
 \RequirePackage{multirow}
+\RequirePackage{comment}
 
 \usepackage{makeidx}  
 \makeindex             
@@ -20,6 +21,20 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \input{elmerdef}
+
+% use these definitions to make a long manual
+\includecomment{versiona}
+\newcommand{\Chapter}{\chapter}
+\newcommand{\Include}{\include}
+
+% use these definitions to make a keyword manual
+%\excludecomment{versiona}
+%\newcommand{\Chapter}{\section*}
+%\newcommand{\Include}{\input} % input does not require page breaks
+%\renewcommand{\sifitem}[2]{\item[\tt{#1}]\index{#1}\hspace{1mm}{\color{SifCol}\hspace{1mm}\tt{#2}}\newline} 
+%\renewcommand{\sifitemnt}[2]{\item[\tt{#1}]\index{#1}\hspace{1mm}{\color{SifCol}\hspace{1mm}\tt{#2}}} 
+
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -32,10 +47,9 @@
 \begin{document}
 \maketitle
 
-\include{rights}
-\include{about}
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{versiona}
+\Include{rights}
+\Include{about}
 
 \pagestyle{empty}
 % Table of contents:
@@ -43,61 +57,61 @@
 \setcounter{tocdepth}{1}  
 \tableofcontents
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 \newpage
 %\renewcommand{\chaptername}{Chapter}
 %\pagenumbering{arabic}
 \pagestyle{fancy}
+
+\end{versiona}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
 % input file
 \graphicspath{{./}{input/}}
-\include{input/input}
+\Include{input/input}
 
 % fem utilities
+\begin{versiona}
 \graphicspath{{./}{fem/}}
-\include{fem/fem}
+\Include{fem/fem}
+\end{versiona}
 
 % linear systems
 \graphicspath{{./}{linearsystems/}}
-\include{linearsystems/linearsystems}
+\Include{linearsystems/linearsystems}
 
 % nonlinear systems
 \graphicspath{{./}{nonlinear/}}
-\include{nonlinear/nonlinear}
+\Include{nonlinear/nonlinear}
 
 % time dependent systems
 \graphicspath{{./}{timeintegration/}}
-\include{timeintegration/timeintegration}
+\Include{timeintegration/timeintegration}
 
 % eigenvalue problems
 \graphicspath{{./}{eigenvalue/}}
-\include{eigenvalue/eigenvalue}
+\Include{eigenvalue/eigenvalue}
 
 % adaptive solving
 \graphicspath{{./}{adaptive/}}
-\include{adaptive/adaptive}
+\Include{adaptive/adaptive}
 
 \graphicspath{{./}{matrixutils/}}
-\include{matrixutils/matrixutils}
+\Include{matrixutils/matrixutils}
 
 % additional utilities
 \graphicspath{{./}{utilities/}}
-\include{utilities/utilities}
+\Include{utilities/utilities}
 
-% fem utilities
-%\graphicspath{{./}{fem/}}
-%\include{fem/pfem}
+\begin{versiona}
 
 
 \graphicspath{{./}{compilation/}}
-\include{compilation/compilation}
+\Include{compilation/compilation}
 
 \graphicspath{{./}{programming/}}
-\include{programming/programming}
+\Include{programming/programming}
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -107,24 +121,25 @@
 
 % This is to be found in the Elmer Overview
 %\graphicspath{{./}{flowchart/}}
-%\include{flowchart/flowchart}
+%\Include{flowchart/flowchart}
 
 \graphicspath{{./}{meshformat/}}
-\include{meshformat/meshformat}
+\Include{meshformat/meshformat}
 
 \graphicspath{{./}{resultformat/}}
-\include{resultformat/resultformat}
+\Include{resultformat/resultformat}
 
 \graphicspath{{./}{postinput/}}
-\include{postinput/postinput}
+\Include{postinput/postinput}
 
 \graphicspath{{./}{elements/}}
-\include{elements/elements}
+\Include{elements/elements}
 
 % fem utilities
 \graphicspath{{./}{fem/}}
-\include{fem/pfem}
+\Include{fem/pfem}
 
+\end{versiona}
 
 
 

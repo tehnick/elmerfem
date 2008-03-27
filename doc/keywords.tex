@@ -1,0 +1,264 @@
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\documentclass[a4paper,english,10pt]{report}    % list options between brackets
+
+\RequirePackage[dvips]{color}
+\RequirePackage{setspace}
+\RequirePackage{floatflt,epsfig}
+\RequirePackage{float}
+\RequirePackage{amsfonts}
+\RequirePackage{amsmath}
+\RequirePackage{alltt}
+\RequirePackage[sectionbib]{chapterbib}
+\RequirePackage{ae}
+\RequirePackage{times}
+\RequirePackage{fancyheadings}
+\RequirePackage{comment}
+\RequirePackage{makeidx}  
+
+\makeindex             
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\input{elmerdef}
+\pagenumbering{roman}
+
+% use these definitions to make a long manual
+%\includecomment{versiona}
+%\newcommand{\Chapter}{\chapter}
+%\newcommand{\Include}{\include}
+
+% use these definitions to make a keyword manual
+\excludecomment{versiona}
+\newcommand{\Chapter}{\section*}
+\newcommand{\Include}{\input} % input does not require page breaks
+
+\renewcommand{\sifitem}[2]{\item[\tt{#1}]\index{#1}\hspace{1mm}{\color{SifCol}\hspace{1mm}\tt{#2}}\newline} 
+%item with two fields but no text
+\renewcommand{\sifitemnt}[2]{\item[\tt{#1}]\index{#1}\hspace{1mm}{\color{SifCol}\hspace{1mm}\tt{#2}}} 
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\title{\Huge{\bf Keywords \\ for \\ ElmerSolver and Models Manuals}}
+\author{CSC, the Finnish IT Center for Science}
+\date{\today}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+\maketitle
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{versiona}
+\Include{models/rights}
+\Include{models/about}
+
+
+%\pagenumbering{roman}
+\pagestyle{empty}
+
+% Table of contents:
+
+
+\setcounter{secnumdepth}{2}
+\setcounter{tocdepth}{1}  
+
+\tableofcontents
+\end{versiona}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Headings and Chapter name
+
+%\renewcommand{\chaptername}{Model}
+\newpage
+\pagestyle{fancy}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\clearpage
+\pagenumbering{arabic}
+
+
+%%%%%%%%%%%%% ElmerSolver %%%%%%%%%%%%%%%%%%%%%%
+
+% input file
+\chapter{Structure of the Command File}
+
+\graphicspath{{./}{input/}}
+\Include{elmersolver/input/input}
+
+\chapter{Generic Keywords of ElmerSolver}
+% fem utilities
+\begin{versiona}
+\graphicspath{{./}{fem/}}
+\Include{elmersolver/fem/fem}
+\end{versiona}
+
+% linear systems
+\graphicspath{{./}{linearsystems/}}
+\Include{elmersolver/linearsystems/linearsystems}
+
+% nonlinear systems
+\graphicspath{{./}{nonlinear/}}
+\Include{elmersolver/nonlinear/nonlinear}
+
+% time dependent systems
+\graphicspath{{./}{timeintegration/}}
+\Include{elmersolver/timeintegration/timeintegration}
+
+% eigenvalue problems
+\graphicspath{{./}{eigenvalue/}}
+\Include{elmersolver/eigenvalue/eigenvalue}
+
+% adaptive solving
+\graphicspath{{./}{adaptive/}}
+\Include{elmersolver/adaptive/adaptive}
+
+\graphicspath{{./}{matrixutils/}}
+\Include{elmersolver/matrixutils/matrixutils}
+
+% additional utilities
+\graphicspath{{./}{utilities/}}
+\Include{elmersolver/utilities/utilities}
+
+
+%%%%%%%%%%%% Models Manual %%%%%%%%%%%%%%%%%%
+
+\chapter{Keywords of Physical Models}
+
+% Heat and Mass Transfer
+\graphicspath{{./}{heatequation/}}
+\Include{models/heatequation/heatequation}
+
+\graphicspath{{./}{navier-stokes/}}
+\Include{models/navier-stokes/navier-stokes}
+
+\graphicspath{{./}{advectiondiffusion/}}
+\Include{models/advectiondiffusion/advectiondiffusion}
+
+\graphicspath{{./}{stresssolve/}}
+\Include{models/stresssolve/stresssolve}
+
+\graphicspath{{./}{meshsolve/}}
+\Include{models/meshsolve/meshsolve}
+
+\graphicspath{{./}{linearplate/}}
+\Include{models/linearplate/linearplate}
+
+% This is under construction, says Mikko
+%\graphicspath{{./}{vonkarman/}}
+%\Include{models/vonkarman/vonkarman}
+
+
+\graphicspath{{./}{helmholtzsolve/}}
+\Include{models/helmholtzsolve/helmholtzsolve}
+
+\graphicspath{{./}{electrostatics/}}
+\Include{models/electrostatics/electrostatics}
+
+\graphicspath{{./}{statcurrent/}}
+\Include{models/statcurrent/statcurrent}
+
+\graphicspath{{./}{magnetostatics/}}
+\Include{models/magnetostatics/magnetostatics}
+
+\graphicspath{{./}{mhd/}}
+\Include{models/mhd/mhd}
+
+\graphicspath{{./}{electrokinetics/}}
+\Include{models/electrokinetics/electrokinetics}
+
+\graphicspath{{./}{PoissonBoltzmann/}}
+\Include{models/PoissonBoltzmann/PoissonBoltzmann}
+
+\graphicspath{{./}{reynolds/}}
+\Include{models/reynolds/reynolds}
+
+% BEM solvers
+\graphicspath{{./}{poissonbem/}}
+\Include{models/poissonbem/poissonbem}
+
+\graphicspath{{./}{helmholtzbem/}}
+\Include{models/helmholtzbem/helmholtzbem}
+
+% free surface solvers
+\graphicspath{{./}{freesurface2d/}}
+\Include{models/freesurface2d/freesurface2d}
+
+\graphicspath{{./}{freesurface/}}
+\Include{models/freesurface/freesurface}
+
+\graphicspath{{./}{phasechange/}}
+\Include{models/phasechange/phasechange}
+
+
+% Utility solvers - No new physics
+\graphicspath{{./}{levelset/}}
+\Include{models/levelset/levelset}
+
+\graphicspath{{./}{dft/}}
+\Include{models/dft/dft}
+
+\graphicspath{{./}{rigidbody/}}
+\Include{models/rigidbody/rigidbody}
+
+\graphicspath{{./}{moving_elstat/}}
+\Include{models/moving_elstat/moving_elstat}
+
+\graphicspath{{./}{artifcomp/}}
+\Include{models/artifcomp/artifcomp}
+
+\graphicspath{{./}{blockpreconditioning/}}
+\Include{models/blockpreconditioning/blockpreconditioning}
+
+%Mika said that this would become obsolite / PR
+%\graphicspath{{./}{operatorsplitting/}}
+%\Include{models/operatorsplitting/operatorsplitting}
+
+\graphicspath{{./}{linearrestriction/}}
+\Include{models/linearrestriction/linearrestriction}
+
+\graphicspath{{./}{arterybc/}}
+\Include{models/arterybc/arterybc}
+
+% Basic operations: div, grad, curl etc.
+\graphicspath{{./}{streamlines/}}
+\Include{models/streamlines/streamlines}
+\Include{models/fluxsolver/fluxsolver}
+\Include{models/vorticitysolver/vorticitysolver}
+\Include{models/scalarpotential/scalarpotential}
+
+% Force computation
+\Include{models/fluidicforce/fluidicforce}
+\graphicspath{{./}{electricforce/}}
+\Include{models/electricforce/electricforce}
+
+% Saving of data
+\graphicspath{{./}{savedata/}}
+\Include{models/savedata/savedata}
+
+\graphicspath{{./}{resultoutput/}}
+\Include{models/resultoutput/resultoutput}
+
+\graphicspath{{./}{reloaddata/}}
+\Include{models/reloaddata/reloadsol}
+
+\graphicspath{{./}{reloadinput/}}
+\Include{models/reloadinput/reloadinput}
+
+\graphicspath{{./}{filter/}}
+\Include{models/filter/filter}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Include the index
+\printindex
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\end{document}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
