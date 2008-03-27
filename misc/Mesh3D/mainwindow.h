@@ -9,6 +9,7 @@
 #include <QMainWindow>
 #include <QProcess>
 #include <QAction>
+#include <QDomDocument>
 #include "plugins/tetlib_api.h"
 #include "plugins/nglib_api.h"
 #include "plugins/elmergrid_api.h"
@@ -159,9 +160,7 @@ private:
   QAction *killresultsAct;        // Solver -> Kill post process
   QAction *aboutAct;              // Help -> About...
 
-  int activeGenerator;            // Currently active generator
-
-  // property editors:
+  // property editors etc.:
   GeneralSetup *generalSetup;
   PDEPropertyEditor *pdePropertyEditor;
   MATPropertyEditor *matPropertyEditor;
@@ -169,6 +168,7 @@ private:
   BodyPropertyEditor *bodyPropertyEditor;
   SummaryEditor *summaryEditor;
   DynamicEditor *dynamicEditor;
+  QDomDocument *elmerDefs;
 
   // images:
   QIcon iconChecked;
@@ -207,6 +207,7 @@ private:
   void synchronizeMenuToState();
 
   // state variables
+  int activeGenerator;
   bool bcEditActive;
   bool bodyEditActive;
 };

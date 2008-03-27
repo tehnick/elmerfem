@@ -110,6 +110,7 @@ MainWindow::MainWindow()
   bodyPropertyEditor = new BodyPropertyEditor[MAX_BODIES];
   summaryEditor = new SummaryEditor;
   sifGenerator = new SifGenerator;
+  elmerDefs = new QDomDocument;
   dynamicEditor = new DynamicEditor;
   
   createActions();
@@ -164,8 +165,32 @@ MainWindow::MainWindow()
   sifWindow->textEdit->setCurrentFont(sansFont);
   solverLogWindow->textEdit->setCurrentFont(sansFont);
 
-  synchronizeMenuToState();
+  // read in elmer definitions file:
+  QFile file("edf.xml");
 
+  if(!file.exists())
+    QMessageBox::information(window(), tr("Elmer definitions file"),
+			     tr("Definitions file does not exist"));
+
+  QString errStr;
+  int errRow;
+  int errCol;
+
+  if(!elmerDefs->setContent(&file, true, &errStr, &errRow, &errCol)) {
+    QMessageBox::information(window(), tr("Elmer definitions file"),
+			     tr("Parse error at line %1, col %2:\n%3")
+			     .arg(errRow).arg(errCol).arg(errStr));
+    file.close();
+  }
+  
+  if(elmerDefs->documentElement().tagName() != "edf") {
+    QMessageBox::information(window(), tr("Elmer definitions file"),
+			     tr("This is not an edf file"));
+    file.close();
+  }
+  
+  // initialization ready:
+  synchronizeMenuToState();
   setWindowTitle(tr("Elmer Mesh3D (experimental)"));
 }
 
@@ -1983,9 +2008,9 @@ void MainWindow::modelSummarySlot()
 //-----------------------------------------------------------------------------
 void MainWindow::dummyEditorSlot()
 {
+  dynamicEditor->setupTabs(*elmerDefs);
   dynamicEditor->show();
 }
-
 
 
 
