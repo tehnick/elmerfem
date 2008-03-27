@@ -53,15 +53,24 @@ private slots:
 
 private:
   QDomDocument domDocument;
-  QString errorStr;
-  int errorLine;
-  int errorColumn;
+  QString errStr;
+  int errRow;
+  int errCol;
 
   QPushButton *addButton;
   QPushButton *removeButton;
 
   QIcon addIcon;
   QIcon removeIcon;
+
+  QDomElement root;
+  QDomElement element;
+  QDomElement name;
+  QDomElement material;
+  QDomElement param;
+
+  tab_t *t;
+  field_t *f;
 };
 
 #endif // DYNAMICEDITOR_H

@@ -7,14 +7,6 @@ using namespace std;
 DynamicEditor::DynamicEditor(QWidget *parent)
   : QWidget(parent)
 {
-  QDomElement element;
-  QDomElement name;
-  QDomElement material;
-  QDomElement param;
-
-  tab_t *t;
-  field_t *f;
-
   addIcon = QIcon(":/icons/list-add.png");
   removeIcon = QIcon(":/icons/list-remove.png");
 
@@ -24,22 +16,25 @@ DynamicEditor::DynamicEditor(QWidget *parent)
   //--------------------------------
   QFile file("edf.xml");
   
-  if(!domDocument.setContent(&file, true, &errorStr, &errorLine, &errorColumn))
+  bool ok = domDocument.setContent(&file, true, &errStr, &errRow, &errCol);
+
+  if(!ok) {
     QMessageBox::information(window(), tr("Dummy editor"),
-			     tr("Parse error at line %1, column %2:\n%3")
-			     .arg(errorLine).arg(errorColumn).arg(errorStr));
+			     tr("Parse error at line %1, col %2:\n%3")
+			     .arg(errRow).arg(errCol).arg(errStr));
+    file.close();
+  }
   
-  QDomElement root = domDocument.documentElement();
+  root = domDocument.documentElement();
   
   if(root.tagName() != "edf")
     QMessageBox::information(window(), tr("Dummy editor"),
 			     tr("This is not an edf file"));
 
   // Count equations
-  //----------------
   element = root.firstChildElement("PDE");
   int equations = 0;
-  while(element.text() != "") {
+  while(!element.isNull()) {
     element = element.nextSiblingElement();
     equations++;
   }
@@ -51,15 +46,15 @@ DynamicEditor::DynamicEditor(QWidget *parent)
 
   element = root.firstChildElement("PDE");
   equations = 0;
-  while(element.text() != "") {
+  while(!element.isNull()) {
 
     name = element.firstChildElement("Name");
     material = element.firstChildElement("Material");
     param = material.firstChildElement("Parameter");
     
-    // count material params
+    // Count material params for the eqtaion
     int count = 0;
-    while(param.text() != "") {
+    while(!param.isNull()) {
       count++;
       param = param.nextSiblingElement();
     }
@@ -71,7 +66,7 @@ DynamicEditor::DynamicEditor(QWidget *parent)
     
     param = material.firstChildElement("Parameter");
     count = 0;
-    while(param.text() != "") {
+    while(!param.isNull()) {
       f = &t->field[count++];
       f->type = EDIT_FIELD;
       f->label = param.text().trimmed();
@@ -85,6 +80,7 @@ DynamicEditor::DynamicEditor(QWidget *parent)
   // Set up tabs:
   //-------------
   tabWidget = new QTabWidget;
+  tabWidget->setTabShape(QTabWidget::Triangular);
   
   for(int i = 0; i < tabs; i++) {
     t = &tab[i];
@@ -116,14 +112,11 @@ DynamicEditor::DynamicEditor(QWidget *parent)
     QFrame *dummyFrame = new QFrame;
     grid->addWidget(dummyFrame, t->fields, 0);
     
-    // put grid in a group/frame
-    // QGroupBox *group = new QGroupBox;
-    // group->setLayout(grid);
+    // put grid in a frame
     QFrame *frm = new QFrame;
     frm->setLayout(grid);
 
-    // finally, add group/frame to tab
-    // tabWidget->addTab(group, t->name);
+    // finally, add frame to tab
     tabWidget->addTab(frm, t->name);
   }
   
@@ -131,13 +124,11 @@ DynamicEditor::DynamicEditor(QWidget *parent)
   //----------
   addButton = new QPushButton(tr("&Add"));
   addButton->setIcon(addIcon);
-  connect(addButton, SIGNAL(clicked()),
-	  this, SLOT(addButtonClicked()));
+  connect(addButton, SIGNAL(clicked()), this, SLOT(addButtonClicked()));
   
   removeButton = new QPushButton(tr("&Remove"));
   removeButton->setIcon(removeIcon);
-  connect(removeButton, SIGNAL(clicked()),
-	  this, SLOT(removeButtonClicked()));
+  connect(removeButton, SIGNAL(clicked()), this, SLOT(removeButtonClicked()));
 
   QHBoxLayout *buttonLayout = new QHBoxLayout;  
   buttonLayout->addWidget(addButton);
