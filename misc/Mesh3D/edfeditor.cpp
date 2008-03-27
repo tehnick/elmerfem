@@ -26,6 +26,8 @@ EdfEditor::EdfEditor(QWidget *parent)
   qsl << "Tag" << "Value";
   edfTree->setHeaderLabels(qsl);
 
+  edfTree->setAlternatingRowColors(true);
+
   // Buttons:
   //---------
   addButton = new QPushButton(tr("&Add child"));
@@ -82,8 +84,8 @@ void EdfEditor::setupEditor(QDomDocument &elmerDefs)
   // get root entry & recursively add all entries to the tree:
   edfTree->clear();
   root = elmerDefs.documentElement();
-  element = root.firstChildElement("PDE");
-  insertEntry(element, NULL);
+  insertEntry(root, NULL);
+  edfTree->setCurrentItem(NULL);
 }
 
 //----------------------------------------------------------------------------
