@@ -733,7 +733,7 @@ CONTAINS
         IF ( .NOT.InsideQuotes ) THEN
            IF ( readstr(i:i) == '!' .OR. readstr(i:i) == '#' .OR. &
                 readstr(i:i) == '=' .OR. readstr(i:i) == '(' .OR. &
-                readstr(i:i+1) == '::' ) EXIT 
+                readstr(i:i) == ';' .OR. readstr(i:i+1) == '::' ) EXIT 
            IF (ICHAR( readstr(i:i))<32.AND.ICHAR(readstr(i:i))/=Tab) EXIT
         END IF
 
@@ -745,8 +745,9 @@ CONTAINS
           END IF
 
           IF ( .NOT.InsideQuotes ) THEN
-             IF ( readstr(i:i) == ' ' .OR. readstr(i:i)   == '=' .OR. &
-                  readstr(i:i) == '(' .OR. readstr(i:i+1) == '::' ) EXIT 
+             IF ( readstr(i:i) == ' ' .OR. readstr(i:i) == '=' .OR. &
+                  readstr(i:i) == ';' .OR. readstr(i:i) == '(' .OR. &
+                  readstr(i:i+1) == '::' ) EXIT 
              IF ( ICHAR( readstr(i:i))<32 ) EXIT
           END IF
 
@@ -779,6 +780,8 @@ CONTAINS
      IF ( i <= inlen ) THEN
        Prefix = ' '
        IF ( ReadStr(i:i) == '=' ) THEN
+         ValueStarts = i + 1
+       ELSE IF ( ReadStr(i:i) == ';' ) THEN
          ValueStarts = i + 1
        ELSE IF ( ReadStr(i:i) == '(' ) THEN
          ValueStarts = i + 1
