@@ -37,6 +37,7 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs)
   tabWidget = new QTabWidget;
   tabWidget->setTabShape(QTabWidget::Triangular);
 
+fprintf( stderr, "eh %d ?\n", tabs );
   tabs = 0;
   element = root.firstChildElement("PDE");
   while(!element.isNull()) {
@@ -51,6 +52,7 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs)
       params++;
       param = param.nextSiblingElement();
     }
+fprintf( stderr, "%d\n", params );
     
     QGridLayout *grid = new QGridLayout;
 
@@ -60,13 +62,51 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs)
 
       // label
       QLabel *label = new QLabel;
-      label->setText(param.text().trimmed());
+
+      QString Name = param.attribute( "Name", "" );
+      QString sifName   = param.attribute( "SifName", Name );
+      QString nodeType  = param.attribute( "Type", "Edit" );
+      QString paramType = param.attribute( "NameType", "Real" );
+      QString paramDefault = param.attribute( "DefaultValue", "" );
+
+cout << "Name: " << string(Name.toAscii()) << endl;
+cout << "type: " << string(nodeType.toAscii()) << endl;
+cout << "param type: " << string(paramType.toAscii()) << endl;
+cout << "sifname: " << string(sifName.toAscii()) << endl;
+cout << "+" << endl;
+
+      label->setText(Name);
       grid->addWidget(label, params, 0);
 
       // line edit
-      QLineEdit *edit = new QLineEdit;
-      edit->setText("");
-      grid->addWidget(edit, params, 1);
+      if ( nodeType == "Edit" ) 
+      {
+        QLineEdit *edit = new QLineEdit;
+        edit->setText(paramDefault);
+        grid->addWidget(edit, params, 1);
+      } else if (nodeType == "Combo" ) {
+        QComboBox *combo = new QComboBox;
+
+        combo->setObjectName(Name);
+        int count = 0, active=0;
+        QDomElement item = param.firstChildElement("Item");
+        while( !item.isNull() ) {
+          QString itemType = item.attribute( "Type", "" );
+          if ( itemType == "Active" ) active=count;
+          combo->insertItem(count++,item.text().trimmed() );
+          item = item.nextSiblingElement();
+        } 
+        combo->setCurrentIndex(active);
+        grid->addWidget(combo, params, 1);
+      } else if ( nodeType == "Logical" ) {
+        QCheckBox *l = new QCheckBox;
+        l->setText("");
+        l->setChecked(false);
+        if ( paramDefault == "true" ) {
+          l->setChecked(true);
+        }
+        grid->addWidget(l, params, 1);
+      }
 
       params++;
       param = param.nextSiblingElement();
