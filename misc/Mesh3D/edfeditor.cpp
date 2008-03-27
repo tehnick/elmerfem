@@ -28,11 +28,11 @@ EdfEditor::EdfEditor(QWidget *parent)
 
   // Buttons:
   //---------
-  addButton = new QPushButton(tr("&Add"));
+  addButton = new QPushButton(tr("&Add child"));
   addButton->setIcon(addIcon);
   connect(addButton, SIGNAL(clicked()), this, SLOT(addButtonClicked()));
   
-  removeButton = new QPushButton(tr("&Remove"));
+  removeButton = new QPushButton(tr("&Remove child"));
   removeButton->setIcon(removeIcon);
   connect(removeButton, SIGNAL(clicked()), this, SLOT(removeButtonClicked()));
 
@@ -45,7 +45,7 @@ EdfEditor::EdfEditor(QWidget *parent)
   QVBoxLayout *mainLayout = new QVBoxLayout;
   mainLayout->addWidget(edfTree);
   mainLayout->addLayout(buttonLayout);
-  setLayout(mainLayout);
+  setLayout(mainLayout);  
 }
 
 //----------------------------------------------------------------------------
@@ -61,7 +61,7 @@ void EdfEditor::insertEntry(QDomElement element,
     return;
   
   QTreeWidgetItem *newItem = new QTreeWidgetItem(parentItem);
-  
+
   newItem->setText(0, element.tagName().trimmed());
   newItem->setFlags(newItem->flags() | Qt::ItemIsEditable);
 
@@ -80,10 +80,10 @@ void EdfEditor::insertEntry(QDomElement element,
 void EdfEditor::setupEditor(QDomDocument &elmerDefs)
 {
   // get root entry & recursively add all entries to the tree:
+  edfTree->clear();
   root = elmerDefs.documentElement();
   element = root.firstChildElement("PDE");
   insertEntry(element, NULL);
-  this->show();
 }
 
 //----------------------------------------------------------------------------
@@ -101,17 +101,20 @@ QSize EdfEditor::sizeHint() const
 //----------------------------------------------------------------------------
 void EdfEditor::addButtonClicked()
 {
-  cout << "Edf editor: Add-button clicked" << endl;
-  cout.flush();
-  close();
+  QTreeWidgetItem *current = edfTree->currentItem();
+  QTreeWidgetItem *newItem = new QTreeWidgetItem(current);
+  newItem->setFlags(newItem->flags() | Qt::ItemIsEditable);
+  newItem->setText(0, "[Tag]");
+  newItem->setText(1, "[Value]");
+  current->addChild(newItem);
 }
 
 //----------------------------------------------------------------------------
 void EdfEditor::removeButtonClicked()
 {
-  cout << "Edf editor: Remove-button clicked" << endl;
-  cout.flush();
-  close();
+  QTreeWidgetItem *current = edfTree->currentItem();
+  QTreeWidgetItem *parent = current->parent();
+  parent->removeChild(current);
 }
 
 //----------------------------------------------------------------------------

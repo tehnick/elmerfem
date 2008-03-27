@@ -199,6 +199,8 @@ MainWindow::MainWindow()
     }
   }
 
+  edfEditor->setupEditor(*elmerDefs);
+
   // initialization ready:
   synchronizeMenuToState();
   setWindowTitle(tr("Elmer Mesh3D (experimental)"));
@@ -3093,8 +3095,8 @@ void MainWindow::editDefinitionsSlot()
 {
   if(elmerDefs == NULL)
     return;
-  
-  edfEditor->setupEditor(*elmerDefs);
+
+  edfEditor->show();
 }
 
 
