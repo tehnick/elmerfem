@@ -15,10 +15,10 @@ EdfEditor::EdfEditor(QWidget *parent)
   // Tree widget:
   //-------------
   edfTree = new QTreeWidget;
-  edfTree->setColumnCount(1);
+  edfTree->setColumnCount(2);
 
   QStringList qsl;
-  qsl << "Equation"; 
+  qsl << "Tag" << "Value";
   edfTree->setHeaderLabels(qsl);
 
   // Buttons:
@@ -50,50 +50,36 @@ EdfEditor::~EdfEditor()
 }
 
 //----------------------------------------------------------------------------
+void EdfEditor::insertEntry(QDomElement element,
+			    QTreeWidgetItem *parentItem)
+{
+  if(element.isNull())
+    return;
+  
+  QTreeWidgetItem *newItem = new QTreeWidgetItem(parentItem);
+  
+  newItem->setText(0, element.tagName().trimmed());
+  
+  if(element.childNodes().count() == 1)
+    newItem->setText(1, element.text().trimmed());
+  
+  edfTree->addTopLevelItem(newItem);
+  
+  if(!element.firstChildElement().isNull()) 
+    insertEntry(element.firstChildElement(), newItem);
+  
+  insertEntry(element.nextSiblingElement(), parentItem);      
+}
+
+//----------------------------------------------------------------------------
 void EdfEditor::setupEditor(QDomDocument &elmerDefs)
 {
-  class Test {
-  public:
-    void printStuff(QDomElement e, int level) {
-
-      if(e.isNull())
-	return;
-      
-      for(int i=0; i<level; i++) cout << "  ";
-
-      QString qs1 = e.tagName().trimmed();
-      cout << "tag=" << string(qs1.toAscii()) << endl;
-      
-      QDomNodeList nl = e.childNodes();
-
-      if(nl.count() == 1) {
-	for(int i=0; i<level; i++) cout << "  ";
-
-	QString qs2 = e.text().trimmed();
-	cout << "  " << string(qs2.toAscii()) << endl;
-	cout.flush();
-      }
-      
-      if(!e.firstChildElement().isNull()) 
-	printStuff(e.firstChildElement(), level+1);
-      
-      printStuff(e.nextSiblingElement(), level);
-      
-    }
-  };
-
-  Test test;
-
-  // Get root element of elmerDefs:
-  //-------------------------------
+  // get root entry
   root = elmerDefs.documentElement();
-  element = root.firstChildElement();
-  int level = 0;
+  element = root.firstChildElement("PDE");
 
-  while(!element.isNull()) {
-    test.printStuff(element, level);
-    element = element.nextSiblingElement();
-  }
+  // recursively add entries to tree view
+  insertEntry(element, NULL);
 
   this->show();
 }
@@ -107,7 +93,7 @@ QSize EdfEditor::minimumSizeHint() const
 //----------------------------------------------------------------------------
 QSize EdfEditor::sizeHint() const
 {
-  return QSize(400, 300);
+  return QSize(720, 480);
 }
 
 //----------------------------------------------------------------------------

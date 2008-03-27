@@ -41,6 +41,9 @@ private:
   QDomElement name;
   QDomElement material;
   QDomElement param;
+
+  void insertEntry(QDomElement element,
+		   QTreeWidgetItem *parentItem);
 };
 
 #endif // EDFEDITOR_H
