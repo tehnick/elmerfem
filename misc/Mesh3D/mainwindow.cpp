@@ -168,27 +168,36 @@ MainWindow::MainWindow()
   // read in elmer definitions file:
   QFile file("edf.xml");
 
-  if(!file.exists())
+  if(!file.exists()) {
+
+    elmerDefs = NULL;
     QMessageBox::information(window(), tr("Elmer definitions file"),
 			     tr("Definitions file does not exist"));
 
-  QString errStr;
-  int errRow;
-  int errCol;
+  } else {  
 
-  if(!elmerDefs->setContent(&file, true, &errStr, &errRow, &errCol)) {
-    QMessageBox::information(window(), tr("Elmer definitions file"),
-			     tr("Parse error at line %1, col %2:\n%3")
-			     .arg(errRow).arg(errCol).arg(errStr));
-    file.close();
+    QString errStr;
+    int errRow;
+    int errCol;
+    
+    if(!elmerDefs->setContent(&file, true, &errStr, &errRow, &errCol)) {
+      QMessageBox::information(window(), tr("Elmer definitions file"),
+			       tr("Parse error at line %1, col %2:\n%3")
+			       .arg(errRow).arg(errCol).arg(errStr));
+      file.close();
+      
+    } else {
+      
+      if(elmerDefs->documentElement().tagName() != "edf") {
+	QMessageBox::information(window(), tr("Elmer definitions file"),
+				 tr("This is not an edf file"));
+	delete elmerDefs;
+	file.close();
+	
+      }
+    }
   }
-  
-  if(elmerDefs->documentElement().tagName() != "edf") {
-    QMessageBox::information(window(), tr("Elmer definitions file"),
-			     tr("This is not an edf file"));
-    file.close();
-  }
-  
+
   // initialization ready:
   synchronizeMenuToState();
   setWindowTitle(tr("Elmer Mesh3D (experimental)"));
@@ -1999,8 +2008,6 @@ void MainWindow::modelSummarySlot()
   te->append("");
 
   delete [] tmp;
-
-
 }
 
 
@@ -2008,6 +2015,9 @@ void MainWindow::modelSummarySlot()
 //-----------------------------------------------------------------------------
 void MainWindow::dummyEditorSlot()
 {
+  if(elmerDefs == NULL)
+    return;
+
   dynamicEditor->setupTabs(*elmerDefs);
   dynamicEditor->show();
 }
