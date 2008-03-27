@@ -1,119 +1,74 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE edf>
 <edf version="1.0">
+
   <PDE type="BuiltIn">
-    <Name type="String">
-      Heat Equation
-    </Name>
+    <Name type="String"> Heat Equation </Name>
+
     <Solver>
       <Procedure type="File">
-        <Name type="String">
-          HeatSolve
-        </Name>
-        <Function type="String">
-          HeatSolver
-        </Function>
+        <Name type="String"> HeatSolve </Name>
+        <Function type="String"> HeatSolver </Function>
       </Procedure>
-      <Variable type="Real">
-        Temperature
-      </Variable>
+      <Variable type="Real"> Flow[velocity:3 pressure:1] </Variable>
     </Solver>
+
     <Material>
-      <Parameter type="Real">
-         Heat Conductivity
-      </Parameter>
-      <Parameter type="Real">
-        Heat Capacity
-      </Parameter>
+      <Parameter type="Real"> Heat Capacity </Parameter>
+      <Parameter type="Real"> Heat Conductivity </Parameter>
     </Material>
+
     <BodyForce>
-      <Function type="Real">
-        Heat Source
-      </Function>
+      <Parameter type="Real"> Heat Source </Parameter>
     </BodyForce>
+
     <Equation>
-      <Property type="Combo">
-        <Name type="String">
-          Convection
-        </Name>
-        <Entry type="active">
-          None
-        </Entry>
-        <Entry type="">
-          Constant
-        </Entry>
-        <Entry type="">
-          Computed
-        </Entry>
-      </Property>	
+      <Parameter type="Combo" NameType="String" Name="Convection" SifName="Convection">
+        <Entry type="Active"> None </Entry>
+        <Entry type=""> Constant </Entry>
+        <Entry type=""> Computed </Entry>
+      </Parameter>	
     </Equation>
+
     <BoundaryCondition>
-      <Variable type="Real">
-        Heat Flux
-      </Variable>
+      <Parameter Type="Edit" NameType="Real" SifName="Variable"> $Variable </Parameter>
+      <Parameter Type="Edit" NameType="Real" SifName="Heat Flux"> Heat Flux </Parameter>
+      <Parameter Type="Edit" NameType="Real" SifName="External Temperature"> External Temperature </Parameter>
+      <Parameter type="Edit" NameType="Real" SifName="Heat Transfer Coefficient"> Heat Transfer Coefficient </Parameter>
     </BoundaryCondition>		
   </PDE>
 
   <PDE type="BuiltIn">
-    <Name type="String">
-      Linear elasticity
-    </Name>
-    <Active type="bool">
-      False
-    </Active>
+    <Name type="String"> Linear elasticity </Name>
+    <Active type="bool"> False </Active>
+
     <Solver>
       <Procedure type="File">
-        <Name type="String">
-          StressSolve
-        </Name>
-        <Function type="String">
-          StressSolver
-        </Function>
+        <Name type="String"> StressSolve </Name>
+        <Function type="String"> StressSolver </Function>
       </Procedure>
-      <Variable type="Vector">
-        Displacement
-      </Variable>
+
+      <Parameter type="Real Vector(cdim)"> Displacement </Parameter>
     </Solver>
+
     <Material>
-      <Parameter type="Real">
-        Youngs modulus
-      </Parameter>
-      <Parameter type="Real">
-        Poisson ratio
-      </Parameter>
-      <Parameter type="Real">
-        Heat expansion coefficient
-      </Parameter>
+      <Parameter type="Real"> Youngs modulus </Parameter>
+      <Parameter type="Real"> Poisson ratio </Parameter>
+      <Parameter type="Real"> Heat expansion coefficient </Parameter>
     </Material>
+
     <BodyForce>
-      <Function type="Real">
-        Stress body force
-      </Function>
+      <Function type="Real Vector(dim)"> Stress Bodyforce </Function>
     </BodyForce>
+
     <Equation>
-      <Property type="Bool">
-        Plane stress
-      </Property>	
+      <Property type="Bool"> Plane stress </Property>	
     </Equation>
+
     <BoundaryCondition>
-      <Variable type="Real">
-        Displacement 1
-      </Variable>
-      <Variable type="Real">
-        Displacement 2
-      </Variable>
-      <Variable type="Real">
-        Displacement 3
-      </Variable>
-      <Variable type="Real">
-        Normal force 1
-      </Variable>
-      <Variable type="Real">
-        Normal force 2
-      </Variable>
-      <Variable type="Real">
-        Normal force 3
-      </Variable>
+      <Parameter type="Real Vector(dim)"> Displacement </Parameter>
+      <Parameter type="Real Vector"> Force </Parameter>
+      <Parameter type="Real"> Normal Force </Parameter>
     </BoundaryCondition>		
   </PDE>
 </edf>
