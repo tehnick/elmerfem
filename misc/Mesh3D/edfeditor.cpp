@@ -157,52 +157,55 @@ QSize EdfEditor::sizeHint() const
 void EdfEditor::updateElement(QTreeWidgetItem *item, int column)
 {
   // get element from hash
-  QDomElement oldElement = elementForItem.value(item);
+  QDomElement element = elementForItem.value(item);
 
-  if(oldElement.isNull())
+  if(element.isNull())
     return;
-  
-  // create new element
-  QDomElement newElement = elmerDefs->createElement(item->text(0));
 
+  // set new tag
+  element.setTagName(item->text(0).trimmed());
+
+  // delete old attributes
+  QDomNamedNodeMap oldAttributes = element.attributes();
+  for(int i = 0; i<(int)oldAttributes.length(); i++) {
+    QDomNode node = oldAttributes.item(i);
+    QString name =  node.nodeName();
+    element.removeAttribute(name);
+  }
+  
   // set new attributes
   QStringList list = item->text(1).trimmed().split(" ");
-
   for(int i = 0; i < list.size(); i++) {
     QString qs = list.at(i).trimmed();
     QStringList qsl = qs.split("=");
-
     if(qsl.size() < 2)
       break;
-
     QString attribute = qsl.at(0).trimmed();
     QString attributeValue = qsl.at(1).trimmed();
-    newElement.setAttribute(attribute, attributeValue);
+    element.setAttribute(attribute, attributeValue);
   }
   
-  // set new value (only if old element has no children)
-  if(oldElement.firstChildElement().isNull()) {
+  // set new text (only if old element has no children)
+  if(element.firstChildElement().isNull()) {
+
+    // Remove old text node
+    QDomNodeList children = element.childNodes();
+    for(int i=0;  i<(int)children.length(); i++) {
+      QDomNode node = children.at(i);
+      if(node.isText())
+	element.removeChild(node);
+    }
+    
+    // New text node
     QDomText text = elmerDefs->createTextNode(item->text(2));
-    newElement.appendChild(text);
+    element.appendChild(text);
+    
   } else {
+    
     // clear value from tree view to avoid confusions:
     item->setText(2, "");
+
   }
-
-  // clone all children of old element:
-  QDomElement child = oldElement.firstChildElement();
-  while(!child.isNull()) {
-    QDomNode clone = child.cloneNode(true);
-    newElement.appendChild(clone);
-    child = child.nextSiblingElement();
-  }
-
-  // replace old element with the new one
-  QDomElement parentElement = elementForItem.value(item->parent());
-  parentElement.replaceChild(newElement, oldElement);  
-
-  // update hash
-  elementForItem.insert(item, newElement);  
 }
 
 //----------------------------------------------------------------------------
@@ -267,7 +270,8 @@ void EdfEditor::saveAsButtonClicked()
 {
   QString fileName;
 
-  fileName = QFileDialog::getSaveFileName(this, tr("Save definitions"), "", tr("EDF (*.xml)") );
+  fileName = QFileDialog::getSaveFileName(this,
+                 tr("Save definitions"), "", tr("EDF (*.xml)") );
 
   if(fileName.isEmpty())
     return;
