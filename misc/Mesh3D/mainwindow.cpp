@@ -2047,7 +2047,10 @@ void MainWindow::dummyEditorSlot()
 {
   if(elmerDefs == NULL)
     return;
-
+  
+  // always create a new instance:
+  delete dynamicEditor;
+  dynamicEditor = new DynamicEditor;
   dynamicEditor->setupTabs(*elmerDefs);
   dynamicEditor->show();
 }
