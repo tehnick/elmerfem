@@ -27,16 +27,24 @@ signals:
 private slots:
   void addButtonClicked();
   void removeButtonClicked();
+  void saveAsButtonClicked();
+  void applyButtonClicked();
+
   void treeItemClicked(QTreeWidgetItem*, int);
+  void updateElement(QTreeWidgetItem*, int);
 
 private:
   QIcon addIcon;
   QIcon removeIcon;
+  QIcon saveAsIcon;
+  QIcon applyIcon;
 
   QTreeWidget *edfTree;
 
   QPushButton *addButton;
   QPushButton *removeButton;
+  QPushButton *saveAsButton;
+  QPushButton *applyButton;
 
   QDomElement root;
   QDomElement element;
@@ -46,11 +54,9 @@ private:
 
   QDomDocument *elmerDefs;
 
-  QHash<QTreeWidgetItem*, QDomElement> domElementForItem;
+  QHash<QTreeWidgetItem*, QDomElement> elementForItem;
 
-  void insertTreeEntry(QDomElement element, 
-		       QTreeWidgetItem *parentItem);
-
+  void insertItem(QDomElement, QTreeWidgetItem*);
 };
 
 #endif // EDFEDITOR_H
