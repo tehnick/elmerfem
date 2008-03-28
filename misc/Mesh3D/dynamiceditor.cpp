@@ -56,37 +56,47 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs)
 
     params = 0;
     param = material.firstChildElement("Parameter");
+
     for( ; !param.isNull(); param=param.nextSiblingElement(), params++ ) {
 
       // label
       QLabel *label = new QLabel;
 
-      QString widget  = param.attribute( "Widget", "Edit" );
-      QString name = param.attribute( "Name", "" );
-      QString sifName   = param.attribute( "SifName", name );
-      QString paramType = param.attribute( "Type", "Real" );
-      QString paramDefault = param.attribute( "DefaultValue", "" );
+      QString widget_type  = param.attribute( "Widget", "Edit" );
 
-cout << "Name: " << string(name.toAscii()) << endl;
-cout << "type: " << string(widget.toAscii()) << endl;
-cout << "param type: " << string(paramType.toAscii()) << endl;
-cout << "sifname: " << string(sifName.toAscii()) << endl;
-cout << "+" << endl;
+      QString paramType    = param.firstChildElement( "Type" ).text().trimmed();
 
-      label->setText(name);
+      QString labelName = param.firstChildElement( "Name" ).text().trimmed();
+      QString sifName      = param.firstChildElement( "SifName" ).text().trimmed();
+      if ( sifName == "" ) sifName = labelName;
+
+      QString paramDefault = param.firstChildElement( "DefaultValue").text().trimmed();
+
+      QString whatis       = param.firstChildElement( "Whatis").text().trimmed();
+      QString toolTip      = param.firstChildElement( "ToolTip").text().trimmed();
+      QString statusTip    = param.firstChildElement( "StatusTip").text().trimmed();
+
+      label->setText(labelName);
       grid->addWidget(label, params, 0);
 
       // line edit
-      if ( widget == "Edit" ) 
-      {
+      if ( widget_type == "Edit" ) {
         QLineEdit *edit = new QLineEdit;
+
         edit->setText(paramDefault);
+        edit->setWhatsThis(whatis);
+        edit->setStatusTip(statusTip);
+
+        edit->setProperty( "dom address", "/" + name.text().trimmed() + "/Material/" + labelName  );
         grid->addWidget(edit, params, 1);
 
-      } else if ( widget == "Combo" ) {
+QString q  = edit->property("dom address").toString();
+cout << string(q.toAscii())<< endl;
+
+      } else if ( widget_type == "Combo" ) {
         QComboBox *combo = new QComboBox;
 
-        combo->setObjectName(name);
+        combo->setObjectName(labelName);
         int count = 0, active=0;
 
         QDomElement item = param.firstChildElement("Item");
@@ -96,14 +106,23 @@ cout << "+" << endl;
           combo->insertItem(count++,item.text().trimmed() );
         } 
         combo->setCurrentIndex(active);
+        combo->setWhatsThis(whatis);
+        combo->setStatusTip(statusTip);
+
+        combo->setProperty( "dom entry", "/" + name.text().trimmed() + "/Material/" + labelName  );
         grid->addWidget(combo, params, 1);
 
-      } else if ( widget == "CheckBox" ) {
+      } else if ( widget_type == "CheckBox" ) {
         QCheckBox *l = new QCheckBox;
         l->setText("");
         l->setChecked(false);
         if ( paramDefault == "true" )
           l->setChecked(true);
+
+        l->setProperty( "dom entry", "/" + name.text().trimmed() + "/Material/" + labelName  );
+
+        l->setWhatsThis(whatis);
+        l->setStatusTip(statusTip);
         grid->addWidget(l, params, 1);
       }
     }
