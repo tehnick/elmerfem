@@ -95,21 +95,19 @@ void EdfEditor::insertItem(QDomElement element,
   newItem->setText(0, element.tagName().trimmed());
   newItem->setFlags(newItem->flags() | Qt::ItemIsEditable);
 
-  // display element attributes and value
-  if(element.firstChildElement().isNull()) {
-
-    // display attributes
-    QStringList list;
-    QDomNamedNodeMap attributeMap = element.attributes();
-    for(int index = 0; index < attributeMap.count(); index++) {
-      QDomNode attribute = attributeMap.item(index);
-      list << attribute.nodeName() + "=\"" + attribute.nodeValue() + "\"";
-    }
-    newItem->setText(1, list.join(" "));
-
-    // diaplay value
-    newItem->setText(2, element.text().split("\n").join(" ").trimmed());
+  
+  // display attributes
+  QStringList list;
+  QDomNamedNodeMap attributeMap = element.attributes();
+  for(int index = 0; index < attributeMap.count(); index++) {
+    QDomNode attribute = attributeMap.item(index);
+    list << attribute.nodeName() + "=\"" + attribute.nodeValue() + "\"";
   }
+  newItem->setText(1, list.join(" "));
+  
+  // display value
+  if(element.firstChildElement().isNull()) 
+    newItem->setText(2, element.text().split("\n").join(" ").trimmed());
   
   // update hash
   elementForItem.insert(newItem, element);
@@ -185,6 +183,13 @@ void EdfEditor::updateElement(QTreeWidgetItem *item, int column)
   // set new value
   QDomText text = elmerDefs->createTextNode(item->text(2));
   newElement.appendChild(text);
+
+  QDomElement child = oldElement.firstChildElement();
+  while(!child.isNull()) {
+    QDomNode clone = child.cloneNode(true);
+    newElement.appendChild(clone);
+    child = child.nextSiblingElement();
+  }
 
   // replace old element with new
   QDomElement parentElement = elementForItem.value(item->parent());
@@ -329,7 +334,7 @@ void EdfEditor::applyButtonClicked()
 //----------------------------------------------------------------------------
 void EdfEditor::treeItemClicked(QTreeWidgetItem *item, int column)
 {
-  return;
+  // return;
 
   cout << "Item clicked: ";
   cout << string(item->text(column).trimmed().toAscii());
@@ -346,6 +351,3 @@ void EdfEditor::treeItemClicked(QTreeWidgetItem *item, int column)
   cout << "Value=\"" << string(qs.toAscii()) << "\"" << endl;
   cout.flush();
 }
-
-
-// TODO: make edited changes in document
