@@ -20,8 +20,12 @@ EdfEditor::EdfEditor(QWidget *parent)
 	  this, SLOT(treeItemClicked(QTreeWidgetItem*,int)));
 
   edfTree->setColumnCount(3);
-  
-  // edfTree->header()->setResizeMode(QHeaderView::Stretch);
+  edfTree->setColumnWidth(0,200);
+  edfTree->setColumnWidth(1,200);
+  edfTree->setColumnWidth(2,200);
+
+  //edfTree->header()->setResizeMode(QHeaderView::Stretch);
+
   QStringList qsl;
   qsl << "Tag" << "Attributes" << "Value";
   edfTree->setHeaderLabels(qsl);
@@ -60,6 +64,9 @@ void EdfEditor::insertEntry(QDomElement element,
 {
   if(element.isNull())
     return;
+
+  if(parentItem != NULL)
+    parentItem->setExpanded(true);
   
   QTreeWidgetItem *newItem = new QTreeWidgetItem(parentItem);
   
@@ -78,9 +85,9 @@ void EdfEditor::insertEntry(QDomElement element,
     newItem->setText(1, list.join(" "));
 
     // display value
-    newItem->setText(2, element.text().trimmed());
+    newItem->setText(2, element.text().split("\n").join(" ").trimmed());
   }
-
+  
   edfTree->addTopLevelItem(newItem);
   
   if(!element.firstChildElement().isNull()) 
@@ -108,7 +115,7 @@ QSize EdfEditor::minimumSizeHint() const
 //----------------------------------------------------------------------------
 QSize EdfEditor::sizeHint() const
 {
-  return QSize(480, 320);
+  return QSize(720, 480);
 }
 
 //----------------------------------------------------------------------------

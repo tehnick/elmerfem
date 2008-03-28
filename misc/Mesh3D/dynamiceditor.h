@@ -29,6 +29,7 @@ signals:
 private slots:
   void addButtonClicked();
   void removeButtonClicked();
+  void DynamicEditor::lSlot(int);
 
 private:
   QIcon addIcon;
