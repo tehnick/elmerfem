@@ -19,13 +19,12 @@ EdfEditor::EdfEditor(QWidget *parent)
   connect(edfTree, SIGNAL(itemClicked(QTreeWidgetItem*,int)),
 	  this, SLOT(treeItemClicked(QTreeWidgetItem*,int)));
 
-  edfTree->setColumnCount(2);
+  edfTree->setColumnCount(3);
   
-  edfTree->header()->setResizeMode(QHeaderView::Stretch);
+  // edfTree->header()->setResizeMode(QHeaderView::Stretch);
   QStringList qsl;
-  qsl << "Tag" << "Value";
+  qsl << "Tag" << "Attributes" << "Value";
   edfTree->setHeaderLabels(qsl);
-
   edfTree->setAlternatingRowColors(true);
 
   // Buttons:
@@ -34,7 +33,7 @@ EdfEditor::EdfEditor(QWidget *parent)
   addButton->setIcon(addIcon);
   connect(addButton, SIGNAL(clicked()), this, SLOT(addButtonClicked()));
   
-  removeButton = new QPushButton(tr("&Remove child"));
+  removeButton = new QPushButton(tr("&Remove"));
   removeButton->setIcon(removeIcon);
   connect(removeButton, SIGNAL(clicked()), this, SLOT(removeButtonClicked()));
 
@@ -63,12 +62,30 @@ void EdfEditor::insertEntry(QDomElement element,
     return;
   
   QTreeWidgetItem *newItem = new QTreeWidgetItem(parentItem);
-
+  
   newItem->setText(0, element.tagName().trimmed());
   newItem->setFlags(newItem->flags() | Qt::ItemIsEditable);
 
-  if(element.childNodes().count() == 1) 
-    newItem->setText(1, element.text().trimmed());
+  if(element.childNodes().count() == 1) {
+
+    // display attributes
+    QDomNamedNodeMap namedNodeMap = element.attributes();
+    QString qs = "";
+    for(int index = 0; index < (int)namedNodeMap.length(); index++) {
+      QDomNode node = namedNodeMap.item(index);
+      if(node.isAttr()) {
+	QDomAttr attr = node.toAttr();
+	qs.append(attr.name().trimmed());
+	qs.append("=\"");
+	qs.append(attr.value().trimmed());
+	qs.append("\"");
+      }
+    }
+    newItem->setText(1, qs);
+
+    // display value
+    newItem->setText(2, element.text().trimmed());
+  }
 
   edfTree->addTopLevelItem(newItem);
   
@@ -104,17 +121,27 @@ QSize EdfEditor::sizeHint() const
 void EdfEditor::addButtonClicked()
 {
   QTreeWidgetItem *current = edfTree->currentItem();
+  
+  if(current == NULL)
+    return;
+
   QTreeWidgetItem *newItem = new QTreeWidgetItem(current);
   newItem->setFlags(newItem->flags() | Qt::ItemIsEditable);
   newItem->setText(0, "[Tag]");
-  newItem->setText(1, "[Value]");
+  newItem->setText(1, "[Attributes]");
+  newItem->setText(2, "[Value]");
   current->addChild(newItem);
+  newItem->parent()->setExpanded(true);
 }
 
 //----------------------------------------------------------------------------
 void EdfEditor::removeButtonClicked()
 {
   QTreeWidgetItem *current = edfTree->currentItem();
+
+  if(current == NULL)
+    return;
+
   QTreeWidgetItem *parent = current->parent();
   parent->removeChild(current);
 }
