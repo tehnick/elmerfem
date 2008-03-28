@@ -5,6 +5,7 @@
 #include <QDomDocument>
 #include <QIcon>
 #include <QTreeWidget>
+#include <QHash>
 
 class QPushButton;
 
@@ -43,8 +44,12 @@ private:
   QDomElement material;
   QDomElement param;
 
-  void insertEntry(QDomElement element, 
-		   QTreeWidgetItem *parentItem);
+  QDomDocument *elmerDefs;
+
+  QHash<QTreeWidgetItem*, QDomElement> domElementForItem;
+
+  void insertTreeEntry(QDomElement element, 
+		       QTreeWidgetItem *parentItem);
 
 };
 

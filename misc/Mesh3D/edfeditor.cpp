@@ -50,7 +50,9 @@ EdfEditor::EdfEditor(QWidget *parent)
   QVBoxLayout *mainLayout = new QVBoxLayout;
   mainLayout->addWidget(edfTree);
   mainLayout->addLayout(buttonLayout);
-  setLayout(mainLayout);  
+  setLayout(mainLayout);
+
+  setWindowTitle("Elmer Definitions File editor");
 }
 
 //----------------------------------------------------------------------------
@@ -59,23 +61,26 @@ EdfEditor::~EdfEditor()
 }
 
 //----------------------------------------------------------------------------
-void EdfEditor::insertEntry(QDomElement element,
-			    QTreeWidgetItem *parentItem)
+void EdfEditor::insertTreeEntry(QDomElement element,
+				QTreeWidgetItem *parentItem)
 {
   if(element.isNull())
     return;
 
+  // set expanded
   if(parentItem != NULL)
     parentItem->setExpanded(true);
-  
+
+  // create new tree item
   QTreeWidgetItem *newItem = new QTreeWidgetItem(parentItem);
-  
+
   newItem->setText(0, element.tagName().trimmed());
   newItem->setFlags(newItem->flags() | Qt::ItemIsEditable);
 
+  // display element attributes and value for inner-most elements
   if(element.firstChildElement().isNull()) {
 
-    // display attributes
+    // attributes
     QStringList list;
     QDomNamedNodeMap attributeMap = element.attributes();
     for(int index = 0; index < attributeMap.count(); index++) {
@@ -84,25 +89,31 @@ void EdfEditor::insertEntry(QDomElement element,
     }
     newItem->setText(1, list.join(" "));
 
-    // display value
+    // value
     newItem->setText(2, element.text().split("\n").join(" ").trimmed());
   }
   
+  // update hash
+  domElementForItem.insert(newItem, element);
+
+  // add item
   edfTree->addTopLevelItem(newItem);
   
   if(!element.firstChildElement().isNull()) 
-    insertEntry(element.firstChildElement(), newItem);
+    insertTreeEntry(element.firstChildElement(), newItem);
   
-  insertEntry(element.nextSiblingElement(), parentItem);      
+  insertTreeEntry(element.nextSiblingElement(), parentItem);      
 }
 
 //----------------------------------------------------------------------------
 void EdfEditor::setupEditor(QDomDocument &elmerDefs)
 {
+  this->elmerDefs = &elmerDefs;
+
   // get root entry & recursively add all entries to the tree:
   edfTree->clear();
   root = elmerDefs.documentElement();
-  insertEntry(root, NULL);
+  insertTreeEntry(root, NULL);
   edfTree->setCurrentItem(NULL);
 }
 
@@ -126,13 +137,20 @@ void EdfEditor::addButtonClicked()
   if(current == NULL)
     return;
 
+  // add to tree:
   QTreeWidgetItem *newItem = new QTreeWidgetItem(current);
   newItem->setFlags(newItem->flags() | Qt::ItemIsEditable);
   newItem->setText(0, "[Tag]");
-  newItem->setText(1, "[Attributes]");
-  newItem->setText(2, "[Value]");
+  //newItem->setText(1, "[Attributes]");
+  //newItem->setText(2, "[Value]");
   current->addChild(newItem);
   newItem->parent()->setExpanded(true);
+
+  // add new entry to document and hash
+  QDomElement parent = domElementForItem.value(newItem->parent());
+  QDomElement newElement = elmerDefs->createElement("[tag]");
+  parent.appendChild(newElement);
+  domElementForItem.insert(newItem, newElement);
 }
 
 //----------------------------------------------------------------------------
@@ -145,6 +163,8 @@ void EdfEditor::removeButtonClicked()
 
   QTreeWidgetItem *parent = current->parent();
   parent->removeChild(current);
+
+  // TODO: update in document
 }
 
 //----------------------------------------------------------------------------
@@ -153,5 +173,13 @@ void EdfEditor::treeItemClicked(QTreeWidgetItem *item, int column)
   cout << "Item clicked: ";
   cout << string(item->text(column).trimmed().toAscii());
   cout << endl;
+
+  // test hash:
+  QDomElement element = domElementForItem.value(item);
+  QString qs = element.tagName().trimmed();
+  cout << "element tag name from hash: " << string(qs.toAscii()) << endl;
   cout.flush();
 }
+
+
+// TODO: make edited changes in document
