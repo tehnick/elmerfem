@@ -66,22 +66,16 @@ void EdfEditor::insertEntry(QDomElement element,
   newItem->setText(0, element.tagName().trimmed());
   newItem->setFlags(newItem->flags() | Qt::ItemIsEditable);
 
-  if(element.childNodes().count() == 1) {
+  if(element.firstChildElement().isNull()) {
 
     // display attributes
-    QDomNamedNodeMap namedNodeMap = element.attributes();
-    QString qs = "";
-    for(int index = 0; index < (int)namedNodeMap.length(); index++) {
-      QDomNode node = namedNodeMap.item(index);
-      if(node.isAttr()) {
-	QDomAttr attr = node.toAttr();
-	qs.append(attr.name().trimmed());
-	qs.append("=\"");
-	qs.append(attr.value().trimmed());
-	qs.append("\"");
-      }
+    QStringList list;
+    QDomNamedNodeMap attributeMap = element.attributes();
+    for(int index = 0; index < attributeMap.count(); index++) {
+      QDomNode attribute = attributeMap.item(index);
+      list << attribute.nodeName() + "=\"" + attribute.nodeValue() + "\"";
     }
-    newItem->setText(1, qs);
+    newItem->setText(1, list.join(" "));
 
     // display value
     newItem->setText(2, element.text().trimmed());
