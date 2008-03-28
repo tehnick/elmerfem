@@ -4866,7 +4866,6 @@ END IF
 
        IF ( ASSOCIATED( RightElement ) ) THEN
 
-!        IF ( ANY(Boundary % BoundaryInfo % OutBody(:) > 0) ) THEN
          IF ( k > 0 ) THEN
             IF ( LeftElement % BodyId == k ) THEN
                Element => RightElement
@@ -4874,7 +4873,7 @@ END IF
                Element => LeftElement
             END IF
          ELSE
-#if 1
+#if 0
             CALL Warn( 'CheckNormalDirection', 'Depreceated use of "Density" to orient normals,' )
             CALL Warn( 'CheckNormalDirection', 'please use the keyword "Normal Target Body".' )
             CALL Warn( 'CheckNormalDirection', ' ' )
@@ -4898,10 +4897,7 @@ END IF
               Element => RightElement
             END IF
 #else
-            CALL Warn( 'CheckNormalDirection', 'To be safe Normal direction should be defined by' )
-            CALL Warn( 'CheckNormalDirection', '"Normal Target Body=body_id" for internal boundaries.')
-            CALL Warn( 'CheckNormalDirection', ' ' )
-            IF(leftElement % BodyId > RightElement % BodyId) THEN
+            IF (LeftElement % BodyId > RightElement % BodyId) THEN
               Element => LeftElement
             ELSE
               Element => RightElement
@@ -4951,12 +4947,10 @@ END IF
 
     IF ( PRESENT(turn) ) turn = .FALSE.
     IF ( x1*Normal(1) + y1*Normal(2) + z1*Normal(3) > 0 ) THEN
-!      IF ( ANY( Element % BodyId /= Boundary % BoundaryInfo % OutBody(:) ) ) THEN
        IF ( Element % BodyId /= k ) THEN
           Normal = -Normal
           IF ( PRESENT(turn) ) turn = .TRUE.
        END IF
-!   ELSE IF ( ANY( Element % BodyId == Boundary % BoundaryInfo % OutBody(:) ) THEN
     ELSE IF (  Element % BodyId == k ) THEN
        Normal = -Normal
        IF ( PRESENT(turn) ) turn = .TRUE.
