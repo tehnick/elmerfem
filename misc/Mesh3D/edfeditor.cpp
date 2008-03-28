@@ -180,10 +180,16 @@ void EdfEditor::updateElement(QTreeWidgetItem *item, int column)
     newElement.setAttribute(attribute, attributeValue);
   }
   
-  // set new value
-  QDomText text = elmerDefs->createTextNode(item->text(2));
-  newElement.appendChild(text);
+  // set new value (only if old element has no children)
+  if(oldElement.firstChildElement().isNull()) {
+    QDomText text = elmerDefs->createTextNode(item->text(2));
+    newElement.appendChild(text);
+  } else {
+    // clear value from tree view to avoid confusions:
+    item->setText(2, "");
+  }
 
+  // clone all children of old element:
   QDomElement child = oldElement.firstChildElement();
   while(!child.isNull()) {
     QDomNode clone = child.cloneNode(true);
@@ -191,7 +197,7 @@ void EdfEditor::updateElement(QTreeWidgetItem *item, int column)
     child = child.nextSiblingElement();
   }
 
-  // replace old element with new
+  // replace old element with the new one
   QDomElement parentElement = elementForItem.value(item->parent());
   parentElement.replaceChild(newElement, oldElement);  
 
@@ -259,9 +265,6 @@ void EdfEditor::removeButtonClicked()
 //----------------------------------------------------------------------------
 void EdfEditor::saveAsButtonClicked()
 {
-  cout << "Saving definitions..." << endl;
-  cout.flush();
-  
   QString fileName;
 
   fileName = QFileDialog::getSaveFileName(this, tr("Save definitions"), "", tr("EDF (*.xml)") );
@@ -283,9 +286,6 @@ void EdfEditor::saveAsButtonClicked()
 //----------------------------------------------------------------------------
 void EdfEditor::openButtonClicked()
 {
-  cout << "Opening definitions..." << endl;
-  cout.flush();
-  
   QString fileName;
 
   fileName = QFileDialog::getOpenFileName(this, 
@@ -334,7 +334,7 @@ void EdfEditor::applyButtonClicked()
 //----------------------------------------------------------------------------
 void EdfEditor::treeItemClicked(QTreeWidgetItem *item, int column)
 {
-  // return;
+  return;
 
   cout << "Item clicked: ";
   cout << string(item->text(column).trimmed().toAscii());
