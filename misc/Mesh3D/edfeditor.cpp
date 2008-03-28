@@ -9,6 +9,7 @@ EdfEditor::EdfEditor(QWidget *parent)
 {
   addIcon = QIcon(":/icons/list-add.png");
   removeIcon = QIcon(":/icons/list-remove.png");
+  openIcon = QIcon(":/icons/document-open.png");
   saveAsIcon = QIcon(":/icons/document-save.png");
   applyIcon = QIcon(":/icons/dialog-close.png");
 
@@ -43,6 +44,10 @@ EdfEditor::EdfEditor(QWidget *parent)
   removeButton->setIcon(removeIcon);
   connect(removeButton, SIGNAL(clicked()), this, SLOT(removeButtonClicked()));
 
+  openButton = new QPushButton(tr("&Open"));
+  openButton->setIcon(openIcon);
+  connect(openButton, SIGNAL(clicked()), this, SLOT(openButtonClicked()));
+
   saveAsButton = new QPushButton(tr("&Save as"));
   saveAsButton->setIcon(saveAsIcon);
   connect(saveAsButton, SIGNAL(clicked()), this, SLOT(saveAsButtonClicked()));
@@ -54,6 +59,7 @@ EdfEditor::EdfEditor(QWidget *parent)
   QHBoxLayout *buttonLayout = new QHBoxLayout;  
   buttonLayout->addWidget(addButton);
   buttonLayout->addWidget(removeButton);
+  buttonLayout->addWidget(openButton);
   buttonLayout->addWidget(saveAsButton);
   buttonLayout->addWidget(applyButton);
 
@@ -267,6 +273,52 @@ void EdfEditor::saveAsButtonClicked()
 
   elmerDefs->save(out, indent);
 }
+
+
+//----------------------------------------------------------------------------
+void EdfEditor::openButtonClicked()
+{
+  cout << "Opening definitions..." << endl;
+  cout.flush();
+  
+  QString fileName;
+
+  fileName = QFileDialog::getOpenFileName(this, 
+	      tr("Open definitions"), "", tr("EDF (*.xml)") );
+
+  if(fileName.isEmpty())
+    return;
+
+  QFile file;
+  file.setFileName(fileName);
+  file.open(QIODevice::ReadOnly);
+
+  QString errStr;
+  int errRow;
+  int errCol;
+
+  if(!elmerDefs->setContent(&file, true, &errStr, &errRow, &errCol)) {
+    QMessageBox::information(window(), tr("Elmer definitions file"),
+			     tr("Parse error at line %1, col %2:\n%3")
+			     .arg(errRow).arg(errCol).arg(errStr));
+    file.close();
+    return;
+
+  } else {
+      
+    if(elmerDefs->documentElement().tagName() != "edf") {
+      QMessageBox::information(window(), tr("Elmer definitions file"),
+			       tr("This is not an edf file"));
+      delete elmerDefs;
+      file.close();
+      return;
+      
+    }
+  }
+  
+  setupEditor(*elmerDefs);
+}
+
 
 //----------------------------------------------------------------------------
 void EdfEditor::applyButtonClicked()

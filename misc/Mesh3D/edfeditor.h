@@ -27,6 +27,7 @@ signals:
 private slots:
   void addButtonClicked();
   void removeButtonClicked();
+  void openButtonClicked();
   void saveAsButtonClicked();
   void applyButtonClicked();
 
@@ -36,6 +37,7 @@ private slots:
 private:
   QIcon addIcon;
   QIcon removeIcon;
+  QIcon openIcon;
   QIcon saveAsIcon;
   QIcon applyIcon;
 
@@ -43,6 +45,7 @@ private:
 
   QPushButton *addButton;
   QPushButton *removeButton;
+  QPushButton *openButton;
   QPushButton *saveAsButton;
   QPushButton *applyButton;
 
