@@ -17,6 +17,18 @@ DynamicEditor::~DynamicEditor()
 {
 }
 
+class hash_entry_t
+{
+public:
+  QObject *obj;
+  QDomElement elem;
+} h;
+
+QHash<QString, hash_entry_t>  hash;
+//QHash<QString, QObject *>   hash;
+//QHash<QString, QDomElement> qhash;
+
+
 //----------------------------------------------------------------------------
 void DynamicEditor::setupTabs(QDomDocument &elmerDefs)
 {
@@ -79,22 +91,21 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs)
       label->setText(labelName);
       grid->addWidget(label, params, 0);
 
+      h.obj = NULL;
       // line edit
       if ( widget_type == "Edit" ) {
         QLineEdit *edit = new QLineEdit;
+        h.obj = edit;
 
         edit->setText(paramDefault);
         edit->setWhatsThis(whatis);
         edit->setStatusTip(statusTip);
 
-        edit->setProperty( "dom address", "/" + name.text().trimmed() + "/Material/" + labelName  );
         grid->addWidget(edit, params, 1);
-
-QString q  = edit->property("dom address").toString();
-cout << string(q.toAscii())<< endl;
 
       } else if ( widget_type == "Combo" ) {
         QComboBox *combo = new QComboBox;
+        h.obj = combo;
 
         combo->setObjectName(labelName);
         int count = 0, active=0;
@@ -109,21 +120,30 @@ cout << string(q.toAscii())<< endl;
         combo->setWhatsThis(whatis);
         combo->setStatusTip(statusTip);
 
-        combo->setProperty( "dom entry", "/" + name.text().trimmed() + "/Material/" + labelName  );
         grid->addWidget(combo, params, 1);
 
       } else if ( widget_type == "CheckBox" ) {
+
         QCheckBox *l = new QCheckBox;
+        h.obj = l;
+
         l->setText("");
         l->setChecked(false);
-        if ( paramDefault == "true" )
-          l->setChecked(true);
+        if ( paramDefault == "true" ) l->setChecked(true);
 
-        l->setProperty( "dom entry", "/" + name.text().trimmed() + "/Material/" + labelName  );
 
         l->setWhatsThis(whatis);
         l->setStatusTip(statusTip);
+
+        connect(l, SIGNAL(stateChanged(int)), this, SLOT(lSlot(int)));
         grid->addWidget(l, params, 1);
+      }
+
+      if ( h.obj ) {
+        QString q = "/"+name.text().trimmed()+"/Material/"+labelName;
+        h.obj->setProperty( "dom address",q);
+        h.elem=param;
+        hash[q] = h;
       }
     }
 
@@ -166,6 +186,19 @@ cout << string(q.toAscii())<< endl;
   // Window title:
   //---------------
   setWindowTitle(tr("Dynamic editor"));
+}
+
+
+void DynamicEditor::lSlot(int state)
+{
+  QDomElement param;
+  QString q = QObject::sender()->property("dom address").toString();
+
+  param = hash[q].elem.firstChildElement( "Activate" );
+  for( ;!param.isNull(); param=param.nextSiblingElement("Activate") ) {
+    q = param.text().trimmed();
+    ((QWidget *)hash[q].obj)->setEnabled(state);
+  }
 }
 
 
