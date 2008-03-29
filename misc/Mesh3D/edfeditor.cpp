@@ -29,6 +29,13 @@ EdfEditor::EdfEditor(QWidget *parent)
 
   // edfTree->header()->setResizeMode(QHeaderView::Stretch);
 
+  // Set internal drag'n drop mode on:
+  //----------------------------------
+  // edfTree->setDragEnabled(true);
+  // edfTree->setDragDropMode(QAbstractItemView::InternalMove);
+  // edfTree->setDropIndicatorShown(true);
+  // edfTree->setDragDropOverwriteMode(false);
+
   QStringList qsl;
   qsl << "Tag" << "Attributes" << "Value";
   edfTree->setHeaderLabels(qsl);
@@ -251,6 +258,9 @@ void EdfEditor::addButtonClicked()
   newItem->setText(2, newValue);
   current->addChild(newItem);
   newItem->parent()->setExpanded(true);
+
+  // clear the value field for current item (as it just became parent)
+  current->setText(2, "");
 
   // add to document
   QDomElement newElement = elmerDefs->createElement(newTag);

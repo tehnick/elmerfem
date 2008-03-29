@@ -24,6 +24,8 @@ public:
 
 signals:
 
+protected:
+
 private slots:
   void addButtonClicked();
   void removeButtonClicked();
