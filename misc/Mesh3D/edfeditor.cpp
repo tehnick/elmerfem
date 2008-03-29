@@ -13,7 +13,8 @@ EdfEditor::EdfEditor(QWidget *parent)
   saveAsIcon = QIcon(":/icons/document-save.png");
   applyIcon = QIcon(":/icons/dialog-close.png");
 
-  setWindowFlags(Qt::Window);
+  lastActive = NULL;
+  ctrlPressed = false;
 
   // Set up tree widget:
   //--------------------
@@ -78,6 +79,8 @@ EdfEditor::EdfEditor(QWidget *parent)
   setLayout(mainLayout);
 
   setWindowTitle("Elmer Definitions File editor");
+
+  setFocusPolicy(Qt::ClickFocus);
 }
 
 //----------------------------------------------------------------------------
@@ -136,6 +139,9 @@ void EdfEditor::setupEditor(QDomDocument &elmerDefs)
   disconnect(edfTree, SIGNAL(itemChanged(QTreeWidgetItem*, int)),
 	     this, SLOT(updateElement(QTreeWidgetItem*, int)));
 
+  // clear hash
+  elementForItem.clear(); 
+
   // get root entry & recursively add all children to the tree:
   edfTree->clear();
   QDomElement root = elmerDefs.documentElement();
@@ -144,7 +150,6 @@ void EdfEditor::setupEditor(QDomDocument &elmerDefs)
 
   connect(edfTree, SIGNAL(itemChanged(QTreeWidgetItem*, int)),
 	  this, SLOT(updateElement(QTreeWidgetItem*, int)));
-
 }
 
 //----------------------------------------------------------------------------
@@ -365,23 +370,81 @@ void EdfEditor::applyButtonClicked()
   this->close();
 }
 
+// Swap the place of two items...
 //----------------------------------------------------------------------------
 void EdfEditor::treeItemClicked(QTreeWidgetItem *item, int column)
 {
+  if(item == lastActive)
+    return;
+
+  if(lastActive == NULL) {
+    lastActive = item;
+    return;
+  }
+
+  if(!ctrlPressed)
+    return;
+
+  // cout << "Item clicked: ";
+  // cout << string(item->text(column).trimmed().toAscii());
+  // cout << endl;
+
+  // for swap, items must have same parent:
+  if(item->parent() != lastActive->parent()) {
+    cout << "Not the same parent" << endl;
+    cout.flush();
+    lastActive = item;
+    return;
+  }
+
+  // get elements from hash:
+  QDomElement element = elementForItem.value(item);  
+  QDomElement lastActiveElement = elementForItem.value(lastActive);  
+
+  // also elements must have same parent (should always be true):
+  if(element.parentNode() != lastActiveElement.parentNode()) {
+    cout << "Parent node mismatch" << endl;
+    cout.flush();
+    lastActive = item;
+    return;
+  }
+  
+  // deep clone elements:
+  QDomNode clone = element.cloneNode(true);
+  QDomNode lastActiveClone = lastActiveElement.cloneNode(true);
+
+  // cross replace elements with teir clones:
+  element.parentNode().replaceChild(lastActiveClone, element);
+  lastActiveElement.parentNode().replaceChild(clone, lastActiveElement);
+
+  // remove elements from document:
+  element.parentNode().removeChild(element);
+  lastActiveElement.parentNode().removeChild(lastActiveElement);
+
+  // make sure that old elements are freed and nulled:
+  element.clear();
+  lastActiveElement.clear();
+
+  // rebuild tree & hash:
+  setupEditor(*elmerDefs);
+
+  lastActive = NULL;
   return;
+}
 
-  cout << "Item clicked: ";
-  cout << string(item->text(column).trimmed().toAscii());
-  cout << endl;
+// Key pressed...
+//-----------------------------------------------------------------------------
+void EdfEditor::keyPressEvent(QKeyEvent *event)
+{
+  if(event->key() == Qt::Key_Control)
+    ctrlPressed = true;
+}
 
-  // test hash:
-  QDomElement element = elementForItem.value(item);
-  QString qs = element.tagName().trimmed();
-  cout << "element tag name from hash: " << string(qs.toAscii()) << " ";
-  qs = element.attribute("attribute").trimmed();
-  cout << "Attribute=\"" << string(qs.toAscii()) << "\" ";
-  cout.flush();
-  qs = element.text().trimmed();
-  cout << "Value=\"" << string(qs.toAscii()) << "\"" << endl;
-  cout.flush();
+
+// Key released...
+//-----------------------------------------------------------------------------
+void EdfEditor::keyReleaseEvent(QKeyEvent *event)
+{
+  if(event->key() == Qt::Key_Control)
+    ctrlPressed = false;
 }

@@ -25,6 +25,8 @@ public:
 signals:
 
 protected:
+  void keyPressEvent(QKeyEvent*);
+  void keyReleaseEvent(QKeyEvent*);
 
 private slots:
   void addButtonClicked();
@@ -53,6 +55,9 @@ private:
   QDomDocument *elmerDefs;
   QHash<QTreeWidgetItem*, QDomElement> elementForItem;
   void insertItemForElement(QDomElement, QTreeWidgetItem*);
+
+  QTreeWidgetItem *lastActive;
+  bool ctrlPressed;
 };
 
 #endif // EDFEDITOR_H
