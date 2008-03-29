@@ -150,6 +150,8 @@ void EdfEditor::setupEditor(QDomDocument &elmerDefs)
 
   connect(edfTree, SIGNAL(itemChanged(QTreeWidgetItem*, int)),
 	  this, SLOT(updateElement(QTreeWidgetItem*, int)));
+
+  edfTree->setCurrentItem(NULL);
 }
 
 //----------------------------------------------------------------------------
@@ -279,6 +281,8 @@ void EdfEditor::addButtonClicked()
 
   // update hash
   elementForItem.insert(newItem, newElement);
+
+  edfTree->setCurrentItem(newItem);
 }
 
 //----------------------------------------------------------------------------
@@ -298,6 +302,8 @@ void EdfEditor::removeButtonClicked()
 
   // update hash
   elementForItem.remove(currentItem);
+
+  edfTree->setCurrentItem(NULL);
 }
 
 //----------------------------------------------------------------------------
@@ -361,6 +367,8 @@ void EdfEditor::openButtonClicked()
   }
   
   setupEditor(*elmerDefs);
+
+  edfTree->setCurrentItem(NULL);
 }
 
 
@@ -391,7 +399,7 @@ void EdfEditor::treeItemClicked(QTreeWidgetItem *item, int column)
 
   // for swap, items must have same parent:
   if(item->parent() != lastActive->parent()) {
-    cout << "Not the same parent" << endl;
+    cout << "Items do not belong to the same parent - unable to swap" << endl;
     cout.flush();
     lastActive = item;
     return;
@@ -403,7 +411,7 @@ void EdfEditor::treeItemClicked(QTreeWidgetItem *item, int column)
 
   // also elements must have same parent (should always be true):
   if(element.parentNode() != lastActiveElement.parentNode()) {
-    cout << "Parent node mismatch" << endl;
+    cout << "Parent node mismatch - unable to swap items" << endl;
     cout.flush();
     lastActive = item;
     return;
@@ -413,11 +421,11 @@ void EdfEditor::treeItemClicked(QTreeWidgetItem *item, int column)
   QDomNode clone = element.cloneNode(true);
   QDomNode lastActiveClone = lastActiveElement.cloneNode(true);
 
-  // cross replace elements with teir clones:
+  // cross replace elements with their new clones:
   element.parentNode().replaceChild(lastActiveClone, element);
   lastActiveElement.parentNode().replaceChild(clone, lastActiveElement);
 
-  // remove elements from document:
+  // remove old elements from document:
   element.parentNode().removeChild(element);
   lastActiveElement.parentNode().removeChild(lastActiveElement);
 
@@ -429,6 +437,8 @@ void EdfEditor::treeItemClicked(QTreeWidgetItem *item, int column)
   setupEditor(*elmerDefs);
 
   lastActive = NULL;
+  edfTree->setCurrentItem(NULL);
+
   return;
 }
 
