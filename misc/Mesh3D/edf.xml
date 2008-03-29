@@ -1,112 +1,97 @@
-<?xml version="1.0" encoding="UTF-8"?>
+<?xml version='1.0' encoding='UTF-8'?>
 <!DOCTYPE edf>
-<edf version="1.0">
+<edf version="1.0" >
+   <ALL Widget="" >
+      <Name>Stuff for all 'Solvers'</Name>
+      <Solver>
+         <Parameter Widget="Combo" >
+            <Name> Execute Solver </Name>
+            <Whatis>The ElmerSolver executes this specific solver at times specified by this solver. Default value is to execute 'Always' meaning at every coupled iteration step.</Whatis>
+            <StatusTip>Change when this solver is executed.</StatusTip>
+            <Item Type="Active"> Always </Item>
+            <Item> Before Simulation </Item>
+            <Item> After Simulation </Item>
+            <Item> Before Timestep </Item>
+            <Item> After Timestep </Item>
+            <Item> Never </Item>
+         </Parameter>
+      </Solver>
+   </ALL>
 
-  <ALL Widget="">
-    <Name>Stuff for all 'Solvers'</Name>
-
-    <Solver>
-       <Parameter Widget="Combo">
-          <Name> Execute Solver </Name>
-          <Item Active="True"> Always </Item>
-          <Item> Before Simulation </Item>
-          <Item> After Simulation </Item>
-          <Item> Before Timestep </Item>
-          <Item> After Timestep </Item>
-          <Item> Never </Item>
-        </Parameter>
-     </Solver>
-  </ALL>
-
-  <PDE Widget="">
-    <Name>Heat Equation</Name>
-
-    <Solver>
-      <Procedure Widget="File">
-        <FileName Widget="String"> HeatSolve </FileName>
-        <Function Widget="String"> HeatSolver </Function>
-      </Procedure>
-      <Variable Widget="Edit"> Temperature </Variable>
-    </Solver>
-
-    <Material>
-      <Parameter Widget="Edit">
-         <Name> Heat Capacity </Name>
-         <SifName> Heat Capacity </SifName>
-         <DefaultValue> 1000 </DefaultValue>>
+   <PDE Widget="" >
+      <Name>Heat Equation</Name>
+      <Solver>
+         <Procedure Widget="File" >
+            <FileName Widget="String" > HeatSolve </FileName>
+            <Function Widget="String" > HeatSolver </Function>
+         </Procedure>
+         <Variable Widget="Edit" > Temperature </Variable>
+      </Solver>
+      <Material>
+         <Parameter Widget="Edit" >
+            <Name> Heat Capacity </Name>
+            <SifName> Heat Capacity </SifName>
+            <DefaultValue> 1000 </DefaultValue>>
          <Whatis> This is a longer text to describe why you should set value to this parameter what ever it is...</Whatis>
-         <StatusTip> Set value to specific heat capacity </StatusTip>
-      </Parameter>
-
-      <Parameter Widget="Edit">
-         <Name> Heat Conductivity </Name>
-         <SifName> Heat Conductivity </SifName>
-         <DefaultValue> 1 </DefaultValue>>
+            <StatusTip> Set value to specific heat capacity </StatusTip>
+         </Parameter>
+         <Parameter Widget="Edit" >
+            <Name> Heat Conductivity </Name>
+            <SifName> Heat Conductivity </SifName>
+            <DefaultValue> 1 </DefaultValue>>
          <Whatis> This is a longer text to describe why you should set value to this parameter what ever it is...</Whatis>
-         <StatusTip> Set value to heat conductivity. </StatusTip>
-      </Parameter>
-
-      <Parameter Widget="CheckBox">
-         <Name> some name </Name>>
+            <StatusTip> Set value to heat conductivity. </StatusTip>
+         </Parameter>
+         <Parameter Widget="CheckBox" >
+            <Name> some name </Name>>
          <DefaultValue> true </DefaultValue>>
          <Activate>/Heat Equation/Material/Heat Conductivity</Activate>
-         <Whatis> This is a longer text to describe why you should set value to this parameter what ever it is...</Whatis>
-         <StatusTip> switch on "some name". </StatusTip>
-      </Parameter>
-    </Material>
-
-    <BodyForce>
-      <Parameter Widget="Edit"> Heat Source </Parameter>
-    </BodyForce>
-
-    <Equation>
-      <Parameter Widget="Combo" Type="String" Name="Convection" SifName="Convection">
-        <Item Widget="Active"> None </Item>
-        <Item Widget=""> Constant </Item>
-        <Item Widget=""> Computed </Item>
-      </Parameter>	
-    </Equation>
-
-    <BoundaryCondition>
-      <Parameter Widget="Edit" Type="Real" SifName="$Variable"> $Variable </Parameter>
-      <Parameter Widget="Edit" Type="Real" SifName="Heat Flux"> Heat Flux </Parameter>
-      <Parameter Widget="Edit" Type="Real" SifName="External Temperature"> External Temperature </Parameter>
-      <Parameter Widget="Edit" Type="Real" SifName="Heat Transfer Coefficient"> Heat Transfer Coefficient </Parameter>
-    </BoundaryCondition>		
-  </PDE>
-
-  <PDE Widget="">
-    <Name>Linear elasticity</Name>
-
-    <Active Widget="bool"> False </Active>
-
-    <Solver>
-      <Procedure Widget="File">
-        <FileName Widget="String"> StressSolve </FileName>
-        <Function Widget="String"> StressSolver </Function>
-      </Procedure>
-
-      <Parameter Widget="Real Vector(cdim)"> Displacement </Parameter>
-    </Solver>
-
-    <Material>
-      <Parameter Widget="Real"> Youngs modulus </Parameter>
-      <Parameter Widget="Real"> Poisson ratio </Parameter>
-      <Parameter Widget="Real"> Heat expansion coefficient </Parameter>
-    </Material>
-
-    <BodyForce>
-      <Function Widget="Real Vector(dim)"> Stress Bodyforce </Function>
-    </BodyForce>
-
-    <Equation>
-      <Property Widget="Bool"> Plane stress </Property>	
-    </Equation>
-
-    <BoundaryCondition>
-      <Parameter Widget="Real Vector(dim)"> Displacement </Parameter>
-      <Parameter Widget="Real Vector"> Force </Parameter>
-      <Parameter Widget="Real"> Normal Force </Parameter>
-    </BoundaryCondition>		
-  </PDE>
+            <Whatis> This is a longer text to describe why you should set value to this parameter what ever it is...</Whatis>
+            <StatusTip> switch on "some name". </StatusTip>
+         </Parameter>
+      </Material>
+      <BodyForce>
+         <Parameter Widget="Edit" > Heat Source </Parameter>
+      </BodyForce>
+      <Equation>
+         <Parameter Widget="Combo" SifName="Convection" Type="String" Name="Convection" >
+            <Item Widget="Active" > None </Item>
+            <Item Widget="" > Constant </Item>
+            <Item Widget="" > Computed </Item>
+         </Parameter>
+      </Equation>
+      <BoundaryCondition>
+         <Parameter Widget="Edit" SifName="$Variable" Type="Real" > $Variable </Parameter>
+         <Parameter Widget="Edit" SifName="Heat Flux" Type="Real" > Heat Flux </Parameter>
+         <Parameter Widget="Edit" SifName="External Temperature" Type="Real" > External Temperature </Parameter>
+         <Parameter Widget="Edit" SifName="Heat Transfer Coefficient" Type="Real" > Heat Transfer Coefficient </Parameter>
+      </BoundaryCondition>
+   </PDE>
+   <PDE Widget="" >
+      <Name>Linear elasticity</Name>
+      <Active Widget="bool" > False </Active>
+      <Solver>
+         <Procedure Widget="File" >
+            <FileName Widget="String" > StressSolve </FileName>
+            <Function Widget="String" > StressSolver </Function>
+         </Procedure>
+         <Parameter Widget="Real Vector(cdim)" > Displacement </Parameter>
+      </Solver>
+      <Material>
+         <Parameter Widget="Real" > Youngs modulus </Parameter>
+         <Parameter Widget="Real" > Poisson ratio </Parameter>
+         <Parameter Widget="Real" > Heat expansion coefficient </Parameter>
+      </Material>
+      <BodyForce>
+         <Function Widget="Real Vector(dim)" > Stress Bodyforce </Function>
+      </BodyForce>
+      <Equation>
+         <Property Widget="Bool" > Plane stress </Property>
+      </Equation>
+      <BoundaryCondition>
+         <Parameter Widget="Real Vector(dim)" > Displacement </Parameter>
+         <Parameter Widget="Real Vector" > Force </Parameter>
+         <Parameter Widget="Real" > Normal Force </Parameter>
+      </BoundaryCondition>
+   </PDE>
 </edf>

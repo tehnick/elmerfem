@@ -80,10 +80,10 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section)
         QString sifName   = param.firstChildElement("SifName").text().trimmed();
         if ( sifName == "" ) sifName = labelName;
 
-        QString paramDefault = param.firstChildElement( "DefaultValue").text().trimmed();
+        QString paramDefault = param.firstChildElement("DefaultValue").text().trimmed();
 
-        QString whatis    = param.firstChildElement( "Whatis").text().trimmed();
-        QString statusTip = param.firstChildElement( "StatusTip").text().trimmed();
+        QString whatis    = param.firstChildElement("Whatis").text().trimmed();
+        QString statusTip = param.firstChildElement("StatusTip").text().trimmed();
 
         label->setText(labelName);
         grid->addWidget(label, params, 0);
@@ -102,7 +102,7 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section)
           int count = 0, active=0;
 
           QDomElement item = param.firstChildElement("Item");
-          for( ; !item.isNull(); item=item.nextSiblingElement() ) {
+          for( ; !item.isNull(); item=item.nextSiblingElement("Item") ) {
             QString itemType = item.attribute( "Type", "" );
             if ( itemType == "Active" ) active=count;
             combo->insertItem(count++,item.text().trimmed() );
