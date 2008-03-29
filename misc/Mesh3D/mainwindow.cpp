@@ -112,7 +112,15 @@ MainWindow::MainWindow()
   sifGenerator = new SifGenerator;
   elmerDefs = new QDomDocument;
   edfEditor = new EdfEditor;
-  dynamicEditor = new DynamicEditor;
+
+  dynamicEditorSimulation = new DynamicEditor;
+  dynamicEditorConstants = new DynamicEditor;
+  dynamicEditorSolver = new DynamicEditor;
+  dynamicEditorIC = new DynamicEditor;
+  dynamicEditorBC = new DynamicEditor;;
+  dynamicEditorEquation = new DynamicEditor;
+  dynamicEditorMaterial = new DynamicEditor;
+  dynamicEditorBodyForce = new DynamicEditor;
   
   createActions();
   createMenus();
@@ -2049,10 +2057,43 @@ void MainWindow::dummyEditorSlot()
     return;
   
   // always create a new instance:
-  delete dynamicEditor;
-  dynamicEditor = new DynamicEditor;
-  dynamicEditor->setupTabs(*elmerDefs);
-  dynamicEditor->show();
+
+  delete dynamicEditorSimulation;
+  delete dynamicEditorConstants;
+  delete dynamicEditorEquation;
+  delete dynamicEditorSolver;
+  delete dynamicEditorIC;
+  delete dynamicEditorBC;
+  delete dynamicEditorMaterial;
+  delete dynamicEditorBodyForce;
+
+  dynamicEditorSimulation = new DynamicEditor;
+  dynamicEditorSimulation->setupTabs(*elmerDefs, "Simulation");
+  dynamicEditorSimulation->show();
+
+  dynamicEditorConstants = new DynamicEditor;
+  dynamicEditorConstants->setupTabs(*elmerDefs, "Constants");
+  dynamicEditorConstants->show();
+
+  dynamicEditorSolver = new DynamicEditor;
+  dynamicEditorSolver->setupTabs(*elmerDefs, "Solver" );
+  dynamicEditorSolver->show();
+
+  dynamicEditorMaterial = new DynamicEditor;
+  dynamicEditorMaterial->setupTabs(*elmerDefs, "Material" );
+  dynamicEditorMaterial->show();
+
+  dynamicEditorBodyForce = new DynamicEditor;
+  dynamicEditorBodyForce->setupTabs(*elmerDefs, "BodyForce" );
+  dynamicEditorBodyForce->show();
+
+  dynamicEditorIC = new DynamicEditor;
+  dynamicEditorIC->setupTabs(*elmerDefs, "InitialCondition" );
+  dynamicEditorIC->show();
+
+  dynamicEditorBC = new DynamicEditor;
+  dynamicEditorBC->setupTabs(*elmerDefs, "BoundaryCondition" );
+  dynamicEditorBC->show();
 }
 
 

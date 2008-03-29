@@ -19,7 +19,7 @@ public:
   QSize minimumSizeHint() const;
   QSize sizeHint() const;
 
-  void setupTabs(QDomDocument&);
+  void setupTabs(QDomDocument&, QString);
 
   QTabWidget *tabWidget;
   int tabs;
@@ -39,9 +39,10 @@ private:
   QPushButton *removeButton;
 
   QDomElement root;
+  QDomElement all_stuff;
   QDomElement element;
   QDomElement name;
-  QDomElement material;
+  QDomElement section;
   QDomElement param;
 };
 

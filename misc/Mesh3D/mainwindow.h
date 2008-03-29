@@ -171,7 +171,16 @@ private:
   BCPropertyEditor *bcPropertyEditor;
   BodyPropertyEditor *bodyPropertyEditor;
   SummaryEditor *summaryEditor;
-  DynamicEditor *dynamicEditor;
+
+  DynamicEditor *dynamicEditorSimulation;
+  DynamicEditor *dynamicEditorConstants;
+  DynamicEditor *dynamicEditorMaterial;
+  DynamicEditor *dynamicEditorSolver;
+  DynamicEditor *dynamicEditorBC;
+  DynamicEditor *dynamicEditorIC;
+  DynamicEditor *dynamicEditorEquation;
+  DynamicEditor *dynamicEditorBodyForce;
+
   QDomDocument *elmerDefs;
 
   // images:

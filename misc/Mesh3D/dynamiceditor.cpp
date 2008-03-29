@@ -20,17 +20,15 @@ DynamicEditor::~DynamicEditor()
 class hash_entry_t
 {
 public:
-  QObject *obj;
+  QWidget *widget;
   QDomElement elem;
 } h;
 
 QHash<QString, hash_entry_t>  hash;
-//QHash<QString, QObject *>   hash;
-//QHash<QString, QDomElement> qhash;
 
 
 //----------------------------------------------------------------------------
-void DynamicEditor::setupTabs(QDomDocument &elmerDefs)
+void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section)
 {
   // Get root element of elmerDefs:
   //-------------------------------
@@ -44,120 +42,106 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs)
     element = element.nextSiblingElement();
   }
 
-  // Set up tabs:
-  //--------------
+
   tabWidget = new QTabWidget;
   tabWidget->setTabShape(QTabWidget::Triangular);
 
   tabs = 0;
-  element = root.firstChildElement("PDE");
+  all_stuff = root.firstChildElement("ALL");
+  element   = root.firstChildElement("PDE");
+
   while(!element.isNull()) {
 
     name = element.firstChildElement("Name");
-    material = element.firstChildElement("Material");
-    param = material.firstChildElement("Parameter");
-    
-    // count mat params
-    int params = 0;
-    while(!param.isNull()) {
-      params++;
-      param = param.nextSiblingElement();
-    }
-    
+
     QGridLayout *grid = new QGridLayout;
+  
+    int params = 0;
 
-    params = 0;
-    param = material.firstChildElement("Parameter");
+    for( int iter=0; iter<2; iter++ )
+    {
+      if ( iter==0 )
+        section = all_stuff.firstChildElement(Section);
+      else 
+        section = element.firstChildElement(Section);
 
-    for( ; !param.isNull(); param=param.nextSiblingElement(), params++ ) {
+      param = section.firstChildElement("Parameter");
+      
+      for( ;!param.isNull(); param=param.nextSiblingElement(), params++ ) {
 
-      // label
-      QLabel *label = new QLabel;
+        // label
+        QLabel *label = new QLabel;
 
-      QString widget_type  = param.attribute( "Widget", "Edit" );
+        QString widget_type = param.attribute("Widget","Edit");
 
-      QString paramType    = param.firstChildElement( "Type" ).text().trimmed();
+        QString paramType = param.firstChildElement("Type").text().trimmed();
 
-      QString labelName = param.firstChildElement( "Name" ).text().trimmed();
-      QString sifName      = param.firstChildElement( "SifName" ).text().trimmed();
-      if ( sifName == "" ) sifName = labelName;
+        QString labelName = param.firstChildElement("Name").text().trimmed();
+        QString sifName   = param.firstChildElement("SifName").text().trimmed();
+        if ( sifName == "" ) sifName = labelName;
 
-      QString paramDefault = param.firstChildElement( "DefaultValue").text().trimmed();
+        QString paramDefault = param.firstChildElement( "DefaultValue").text().trimmed();
 
-      QString whatis       = param.firstChildElement( "Whatis").text().trimmed();
-      QString toolTip      = param.firstChildElement( "ToolTip").text().trimmed();
-      QString statusTip    = param.firstChildElement( "StatusTip").text().trimmed();
+        QString whatis    = param.firstChildElement( "Whatis").text().trimmed();
+        QString statusTip = param.firstChildElement( "StatusTip").text().trimmed();
 
-      label->setText(labelName);
-      grid->addWidget(label, params, 0);
+        label->setText(labelName);
+        grid->addWidget(label, params, 0);
 
-      h.obj = NULL;
-      // line edit
-      if ( widget_type == "Edit" ) {
-        QLineEdit *edit = new QLineEdit;
-        h.obj = edit;
+        h.widget = NULL;
+        if ( widget_type == "Edit" ) {
+          QLineEdit *edit = new QLineEdit;
+          h.widget = edit;
+          edit->setText(paramDefault);
+  
+        } else if ( widget_type == "Combo" ) {
+          QComboBox *combo = new QComboBox;
+          h.widget = combo;
 
-        edit->setText(paramDefault);
-        edit->setWhatsThis(whatis);
-        edit->setStatusTip(statusTip);
+          combo->setObjectName(labelName);
+          int count = 0, active=0;
 
-        grid->addWidget(edit, params, 1);
+          QDomElement item = param.firstChildElement("Item");
+          for( ; !item.isNull(); item=item.nextSiblingElement() ) {
+            QString itemType = item.attribute( "Type", "" );
+            if ( itemType == "Active" ) active=count;
+            combo->insertItem(count++,item.text().trimmed() );
+          } 
+          combo->setCurrentIndex(active);
 
-      } else if ( widget_type == "Combo" ) {
-        QComboBox *combo = new QComboBox;
-        h.obj = combo;
+        } else if ( widget_type == "CheckBox" ) {
+          QCheckBox *l = new QCheckBox;
+          h.widget = l;
+          l->setText("");
+          l->setChecked(false);
+          if ( paramDefault == "true" ) l->setChecked(true);
+          connect(l, SIGNAL(stateChanged(int)), this, SLOT(lSlot(int)));
+        }
 
-        combo->setObjectName(labelName);
-        int count = 0, active=0;
+        if ( h.widget ) {
+          h.widget->setWhatsThis(whatis);
+          h.widget->setStatusTip(statusTip);
 
-        QDomElement item = param.firstChildElement("Item");
-        for( ; !item.isNull(); item=item.nextSiblingElement() ) {
-          QString itemType = item.attribute( "Type", "" );
-          if ( itemType == "Active" ) active=count;
-          combo->insertItem(count++,item.text().trimmed() );
-        } 
-        combo->setCurrentIndex(active);
-        combo->setWhatsThis(whatis);
-        combo->setStatusTip(statusTip);
+          QString q = "/"+name.text().trimmed()+"/"+Section+"/"+labelName;
+          h.widget->setProperty( "dom address",q);
+          h.elem=param;
+          hash[q] = h;
 
-        grid->addWidget(combo, params, 1);
-
-      } else if ( widget_type == "CheckBox" ) {
-
-        QCheckBox *l = new QCheckBox;
-        h.obj = l;
-
-        l->setText("");
-        l->setChecked(false);
-        if ( paramDefault == "true" ) l->setChecked(true);
-
-
-        l->setWhatsThis(whatis);
-        l->setStatusTip(statusTip);
-
-        connect(l, SIGNAL(stateChanged(int)), this, SLOT(lSlot(int)));
-        grid->addWidget(l, params, 1);
-      }
-
-      if ( h.obj ) {
-        QString q = "/"+name.text().trimmed()+"/Material/"+labelName;
-        h.obj->setProperty( "dom address",q);
-        h.elem=param;
-        hash[q] = h;
+          grid->addWidget(h.widget, params, 1);
+        }
       }
     }
-
     // add a dummy frame for stretching
     QFrame *dummyFrame = new QFrame;
     grid->addWidget(dummyFrame, params, 0);
-    
+  
     // put grid in a frame
     QFrame *frm = new QFrame;
     frm->setLayout(grid);
-
-    // add frame to tab
+ 
+   // add frame to tab
     tabWidget->addTab(frm, name.text().trimmed());
-    
+
     tabs++;
     element = element.nextSiblingElement();
   }
@@ -185,7 +169,7 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs)
 
   // Window title:
   //---------------
-  setWindowTitle(tr("Dynamic editor"));
+  setWindowTitle(Section);
 }
 
 
@@ -194,10 +178,10 @@ void DynamicEditor::lSlot(int state)
   QDomElement param;
   QString q = QObject::sender()->property("dom address").toString();
 
-  param = hash[q].elem.firstChildElement( "Activate" );
+  param = hash[q].elem.firstChildElement("Activate");
   for( ;!param.isNull(); param=param.nextSiblingElement("Activate") ) {
     q = param.text().trimmed();
-    ((QWidget *)hash[q].obj)->setEnabled(state);
+    hash[q].widget->setEnabled(state);
   }
 }
 
