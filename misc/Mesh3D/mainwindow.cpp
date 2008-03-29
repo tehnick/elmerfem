@@ -2075,6 +2075,10 @@ void MainWindow::dummyEditorSlot()
   dynamicEditorConstants->setupTabs(*elmerDefs, "Constants");
   dynamicEditorConstants->show();
 
+  dynamicEditorEquation = new DynamicEditor;
+  dynamicEditorEquation->setupTabs(*elmerDefs, "Equation");
+  dynamicEditorEquation->show();
+
   dynamicEditorSolver = new DynamicEditor;
   dynamicEditorSolver->setupTabs(*elmerDefs, "Solver" );
   dynamicEditorSolver->show();
