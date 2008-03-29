@@ -42,24 +42,15 @@ private:
   QIcon applyIcon;
 
   QTreeWidget *edfTree;
-
   QPushButton *addButton;
   QPushButton *removeButton;
   QPushButton *openButton;
   QPushButton *saveAsButton;
   QPushButton *applyButton;
 
-  QDomElement root;
-  QDomElement element;
-  QDomElement name;
-  QDomElement material;
-  QDomElement param;
-
   QDomDocument *elmerDefs;
-
   QHash<QTreeWidgetItem*, QDomElement> elementForItem;
-
-  void insertItem(QDomElement, QTreeWidgetItem*);
+  void insertItemForElement(QDomElement, QTreeWidgetItem*);
 };
 
 #endif // EDFEDITOR_H

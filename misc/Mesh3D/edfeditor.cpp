@@ -15,8 +15,8 @@ EdfEditor::EdfEditor(QWidget *parent)
 
   setWindowFlags(Qt::Window);
 
-  // Tree widget:
-  //-------------
+  // Set up tree widget:
+  //--------------------
   edfTree = new QTreeWidget;
 
   connect(edfTree, SIGNAL(itemClicked(QTreeWidgetItem*,int)),
@@ -27,7 +27,7 @@ EdfEditor::EdfEditor(QWidget *parent)
   edfTree->setColumnWidth(1,200);
   edfTree->setColumnWidth(2,200);
 
-  //edfTree->header()->setResizeMode(QHeaderView::Stretch);
+  // edfTree->header()->setResizeMode(QHeaderView::Stretch);
 
   QStringList qsl;
   qsl << "Tag" << "Attributes" << "Value";
@@ -79,8 +79,8 @@ EdfEditor::~EdfEditor()
 }
 
 //----------------------------------------------------------------------------
-void EdfEditor::insertItem(QDomElement element,
-			   QTreeWidgetItem *parentItem)
+void EdfEditor::insertItemForElement(QDomElement element,
+				     QTreeWidgetItem *parentItem)
 {
   if(element.isNull())
     return;
@@ -99,7 +99,7 @@ void EdfEditor::insertItem(QDomElement element,
   // display attributes
   QStringList list;
   QDomNamedNodeMap attributeMap = element.attributes();
-  for(int index = 0; index < attributeMap.count(); index++) {
+  for(int index = 0; index < (int)attributeMap.length(); index++) {
     QDomNode attribute = attributeMap.item(index);
     list << attribute.nodeName() + "=\"" + attribute.nodeValue() + "\"";
   }
@@ -116,9 +116,9 @@ void EdfEditor::insertItem(QDomElement element,
   edfTree->addTopLevelItem(newItem);
   
   if(!element.firstChildElement().isNull()) 
-    insertItem(element.firstChildElement(), newItem);
+    insertItemForElement(element.firstChildElement(), newItem);
   
-  insertItem(element.nextSiblingElement(), parentItem);      
+  insertItemForElement(element.nextSiblingElement(), parentItem);      
 }
 
 //----------------------------------------------------------------------------
@@ -126,14 +126,13 @@ void EdfEditor::setupEditor(QDomDocument &elmerDefs)
 {
   this->elmerDefs = &elmerDefs;
 
-  // get root entry & recursively add all entries to the tree:
-
   disconnect(edfTree, SIGNAL(itemChanged(QTreeWidgetItem*, int)),
 	     this, SLOT(updateElement(QTreeWidgetItem*, int)));
 
+  // get root entry & recursively add all children to the tree:
   edfTree->clear();
-  root = elmerDefs.documentElement();
-  insertItem(root, NULL);
+  QDomElement root = elmerDefs.documentElement();
+  insertItemForElement(root, NULL);
   edfTree->setCurrentItem(NULL);
 
   connect(edfTree, SIGNAL(itemChanged(QTreeWidgetItem*, int)),
@@ -169,26 +168,46 @@ void EdfEditor::updateElement(QTreeWidgetItem *item, int column)
   QDomNamedNodeMap oldAttributes = element.attributes();
   for(int i = 0; i<(int)oldAttributes.length(); i++) {
     QDomNode node = oldAttributes.item(i);
-    QString name =  node.nodeName();
+    QString name = node.nodeName();
     element.removeAttribute(name);
   }
   
-  // set new attributes
-  QStringList list = item->text(1).trimmed().split(" ");
-  for(int i = 0; i < list.size(); i++) {
-    QString qs = list.at(i).trimmed();
-    QStringList qsl = qs.split("=");
-    if(qsl.size() < 2)
-      break;
-    QString attribute = qsl.at(0).trimmed();
-    QString attributeValue = qsl.at(1).trimmed();
-    element.setAttribute(attribute, attributeValue);
+  // parse and set new attributes
+  QString pattern = "([a-zA-Z0-9]+)[ \t]*=[ \t]*[\"]([^\"]+)[\"]";
+  QRegExp expression(pattern);
+  QString qs = item->text(1).trimmed();
+  int index = qs.indexOf(expression);
+  QString parsedString = "";
+  if(index < 0)
+    parsedString = qs;
+
+  while(index >= 0) {
+    int length = expression.matchedLength();
+    QString currentMatch = qs.mid(index, length);
+    QStringList currentList = currentMatch.split("=");
+    QString name = currentList.at(0);
+    QString value = currentList.at(1);
+
+    int firstPar = value.indexOf("\"", 0);
+    int secondPar = value.indexOf("\"", firstPar+1);
+    value = value.mid(firstPar+1, secondPar-firstPar-1);
+
+    // cout << string(name.toAscii()) << " " << string(value.toAscii()) << endl;
+    // cout.flush();
+
+    parsedString.append(name + "=\"" + value + "\" ");
+
+    element.setAttribute(name.trimmed(), value.trimmed());
+    index = qs.indexOf(expression, index + length);
   }
-  
+
+  // update display with parsed attributes
+  item->setText(1, parsedString);
+
   // set new text (only if old element has no children)
   if(element.firstChildElement().isNull()) {
 
-    // Remove old text node
+    // remove old text node
     QDomNodeList children = element.childNodes();
     for(int i=0;  i<(int)children.length(); i++) {
       QDomNode node = children.at(i);
@@ -196,7 +215,7 @@ void EdfEditor::updateElement(QTreeWidgetItem *item, int column)
 	element.removeChild(node);
     }
     
-    // New text node
+    // new text node
     QDomText text = elmerDefs->createTextNode(item->text(2));
     element.appendChild(text);
     
@@ -204,8 +223,9 @@ void EdfEditor::updateElement(QTreeWidgetItem *item, int column)
     
     // clear value from tree view to avoid confusions:
     item->setText(2, "");
-
   }
+
+  // no need to update hash
 }
 
 //----------------------------------------------------------------------------
