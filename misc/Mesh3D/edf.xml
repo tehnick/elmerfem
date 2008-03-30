@@ -6,6 +6,7 @@
       <Solver>
          <Parameter Widget="Combo" >
             <Name> Execute Solver </Name>
+            <Type> String </Type> 
             <Whatis>The ElmerSolver executes this specific solver at times specified by this solver. Default value is to execute 'Always' meaning at every coupled iteration step.</Whatis>
             <StatusTip>Change when this solver is executed.</StatusTip>
             <Item Type="Active"> Always </Item>
@@ -18,8 +19,41 @@
       </Solver>
    </ALL>
 
-   <PDE Widget="" >
+   <PDE Name="General">
       <Name>General</Name>
+      <Equation>
+         <Parameter Widget="Label" > <Name> Convection </Name> </Parameter>
+         <Parameter Widget="Combo">
+            <Type> String </Type> 
+            <Name> Convection </Name>
+            <Item Type="Active" > None </Item>
+            <Item> Constant
+            </Item>
+            <Item> Computed </Item>
+         </Parameter>
+
+         <Parameter Widget="Edit" >
+          <Name> Convection Velocity 1</Name>
+          <SifName> Material:Convection velocity 1</SifName>
+          <Whatis> Convection velocity. </Whatis>
+          <StatusTip> Convection velocity </StatusTip>
+         </Parameter>
+
+         <Parameter Widget="Edit" >
+          <Name> Convection Velocity 2</Name>
+          <SifName> Material:Convection velocity 2</SifName>
+          <Whatis> Convection velocity. </Whatis>
+          <StatusTip> Convection velocity </StatusTip>
+         </Parameter>
+
+         <Parameter Widget="Edit" >
+          <Name> Convection Velocity 3</Name>
+          <SifName> Material:Convection velocity 3</SifName>
+          <Whatis> Convection velocity. </Whatis>
+          <StatusTip> Convection velocity </StatusTip>
+         </Parameter>
+      </Equation>
+
       <Material>
          <Parameter Widget="Label" > <Name> Properties </Name> </Parameter>
 
@@ -30,7 +64,7 @@
          </Parameter>
 
          <Parameter Widget="Edit" >
-            <Name> Heat Capacity </Name>
+          <Name> Heat Capacity </Name>
           <Whatis>Specific heat capacity value may be entered here.</Whatis>
           <StatusTip> Set value to specific heat capacity </StatusTip>
          </Parameter>
@@ -53,30 +87,10 @@
           <Whatis> Material heat expansion coefficient.</Whatis>
           <StatusTip> Set value to heat expansion coefficient.</StatusTip>
          </Parameter>
-
-         <Parameter Widget="Label" > <Name> Convection </Name> </Parameter>
-
-         <Parameter Widget="Edit" >
-          <Name> Convection Velocity 1</Name>
-          <Whatis> Convection velocity. </Whatis>
-          <StatusTip> Convection velocity </StatusTip>
-         </Parameter>
-
-         <Parameter Widget="Edit" >
-          <Name> Convection Velocity 2</Name>
-          <Whatis> Convection velocity. </Whatis>
-          <StatusTip> Convection velocity </StatusTip>
-         </Parameter>
-
-         <Parameter Widget="Edit" >
-          <Name> Convection Velocity 3</Name>
-          <Whatis> Convection velocity. </Whatis>
-          <StatusTip> Convection velocity </StatusTip>
-         </Parameter>
       </Material>
     </PDE>
 
-   <PDE Widget="" >
+   <PDE Name="Heat Equation">
       <Name>Heat Equation</Name>
       <Solver>
          <Procedure Widget="File" >
@@ -101,25 +115,9 @@
             <StatusTip> switch on "some name". </StatusTip>
          </Parameter>
       </Material>
-      <BodyForce>
-         <Parameter Widget="Edit" > Heat Source </Parameter>
-      </BodyForce>
-      <Equation>
-         <Parameter Widget="Combo" SifName="Convection" Type="String" Name="Convection" >
-            <Item Widget="Active" > None </Item>
-            <Item Widget="" > Constant </Item>
-            <Item Widget="" > Computed </Item>
-         </Parameter>
-      </Equation>
-      <BoundaryCondition>
-         <Parameter Widget="Edit" SifName="$Variable" Type="Real" > $Variable </Parameter>
-         <Parameter Widget="Edit" SifName="Heat Flux" Type="Real" > Heat Flux </Parameter>
-         <Parameter Widget="Edit" SifName="External Temperature" Type="Real" > External Temperature </Parameter>
-         <Parameter Widget="Edit" SifName="Heat Transfer Coefficient" Type="Real" > Heat Transfer Coefficient </Parameter>
-      </BoundaryCondition>
    </PDE>
 
-   <PDE Widget="" >
+   <PDE Name="Linear Elasticity">
       <Name>Linear elasticity</Name>
       <Active Widget="bool" > False </Active>
       <Solver>
@@ -132,11 +130,11 @@
 
       <Material>
          <Parameter Widget="Edit" > 
-           <Name> Youngs modulus </Name>
+           <Name>Youngs modulus</Name>
          </Parameter>
 
          <Parameter Widget="Edit" >
-          <Name>Poisson ratio </Name>
+           <Name>Poisson ratio</Name>
          </Parameter>
       </Material>
    </PDE>
