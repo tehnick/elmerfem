@@ -21,6 +21,8 @@
    <PDE Widget="" >
       <Name>General</Name>
       <Material>
+         <Parameter Widget="Label" > <Name> Properties: </Name> </Parameter>
+
          <Parameter Widget="Edit" >
           <Name> Density </Name>
           <Whatis>Density value may be entered here.</Whatis>
@@ -51,6 +53,8 @@
           <Whatis> Material heat expansion coefficient.</Whatis>
           <StatusTip> Set value to heat expansion coefficient.</StatusTip>
          </Parameter>
+
+         <Parameter Widget="Label" > <Name> Convection: </Name> </Parameter>
 
          <Parameter Widget="Edit" >
           <Name> Convection Velocity 1</Name>
@@ -114,6 +118,7 @@
          <Parameter Widget="Edit" SifName="Heat Transfer Coefficient" Type="Real" > Heat Transfer Coefficient </Parameter>
       </BoundaryCondition>
    </PDE>
+
    <PDE Widget="" >
       <Name>Linear elasticity</Name>
       <Active Widget="bool" > False </Active>
@@ -124,21 +129,15 @@
          </Procedure>
          <Parameter Widget="Real Vector(cdim)" > Displacement </Parameter>
       </Solver>
+
       <Material>
-         <Parameter Widget="Real" > Youngs modulus </Parameter>
-         <Parameter Widget="Real" > Poisson ratio </Parameter>
-         <Parameter Widget="Real" > Heat expansion coefficient </Parameter>
+         <Parameter Widget="Edit" > 
+           <Name> Youngs modulus </Name>
+         </Parameter>
+
+         <Parameter Widget="Edit" >
+          <Name>Poisson ratio </Name>
+         </Parameter>
       </Material>
-      <BodyForce>
-         <Function Widget="Real Vector(dim)" > Stress Bodyforce </Function>
-      </BodyForce>
-      <Equation>
-         <Property Widget="Bool" > Plane stress </Property>
-      </Equation>
-      <BoundaryCondition>
-         <Parameter Widget="Real Vector(dim)" > Displacement </Parameter>
-         <Parameter Widget="Real Vector" > Force </Parameter>
-         <Parameter Widget="Real" > Normal Force </Parameter>
-      </BoundaryCondition>
    </PDE>
 </edf>

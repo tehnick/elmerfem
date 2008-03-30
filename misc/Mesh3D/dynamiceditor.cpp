@@ -116,6 +116,9 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section)
           l->setChecked(false);
           if ( paramDefault == "true" ) l->setChecked(true);
           connect(l, SIGNAL(stateChanged(int)), this, SLOT(lSlot(int)));
+        } else if ( widget_type == "Label" ) {
+          QLabel *label = new QLabel;
+          h.widget = label;
         }
 
         if ( h.widget ) {
