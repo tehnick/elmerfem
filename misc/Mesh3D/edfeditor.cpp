@@ -397,7 +397,7 @@ void EdfEditor::treeItemClicked(QTreeWidgetItem *item, int column)
 
   // items must have the same parent:
   if(item->parent() != lastActive->parent()) {
-    cout << "Items do not belong to the same parent - unable to swap" << endl;
+    cout << "Items have different parent - unable to swap" << endl;
     cout.flush();
     lastActive = item;
     return;
@@ -409,7 +409,7 @@ void EdfEditor::treeItemClicked(QTreeWidgetItem *item, int column)
 
   // elements must have the same parent (should always be true):
   if(element.parentNode() != lastActiveElement.parentNode()) {
-    cout << "Parent node mismatch - unable to swap items" << endl;
+    cout << "Parent element mismatch - unable to swap items" << endl;
     cout.flush();
     lastActive = item;
     return;
@@ -419,15 +419,15 @@ void EdfEditor::treeItemClicked(QTreeWidgetItem *item, int column)
   QDomNode clone = element.cloneNode(true);
   QDomNode lastActiveClone = lastActiveElement.cloneNode(true);
 
-  // cross replace elements with their clones:
+  // replace elements with their clones:
   element.parentNode().replaceChild(lastActiveClone, element);
   lastActiveElement.parentNode().replaceChild(clone, lastActiveElement);
 
-  // remove elements from the document:
+  // remove old elements from the document:
   element.parentNode().removeChild(element);
   lastActiveElement.parentNode().removeChild(lastActiveElement);
 
-  // make sure that old elements are cleared (they should be already):
+  // make sure that both old elements are cleared (they should be already):
   element.clear();
   lastActiveElement.clear();
 
@@ -437,8 +437,11 @@ void EdfEditor::treeItemClicked(QTreeWidgetItem *item, int column)
   // set focus back to the last selected item:
   lastActive = NULL;
   for(int i = 0; i < elementForItem.count(); i++) {
-    if(elementForItem.values().at(i) == lastActiveClone) 
+    if(elementForItem.values().at(i) == lastActiveClone) {
       edfTree->setCurrentItem(elementForItem.keys().at(i));
+      edfTree->scrollToItem(elementForItem.keys().at(i), 
+			    QAbstractItemView::PositionAtCenter);
+    }
   }
 
   return;
