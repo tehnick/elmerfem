@@ -6,10 +6,10 @@
       <Solver>
          <Parameter Widget="Combo" >
             <Name> Execute Solver </Name>
-            <Type> String </Type> 
+            <Type> String </Type>
             <Whatis>The ElmerSolver executes this specific solver at times specified by this solver. Default value is to execute 'Always' meaning at every coupled iteration step.</Whatis>
             <StatusTip>Change when this solver is executed.</StatusTip>
-            <Item Type="Active"> Always </Item>
+            <Item Type="Active" > Always </Item>
             <Item> Before Simulation </Item>
             <Item> After Simulation </Item>
             <Item> Before Timestep </Item>
@@ -18,79 +18,72 @@
          </Parameter>
       </Solver>
    </ALL>
-
-   <PDE Name="General">
+   <PDE Name="General" >
       <Name>General</Name>
       <Equation>
-         <Parameter Widget="Label" > <Name> Convection </Name> </Parameter>
-         <Parameter Widget="Combo">
-            <Type> String </Type> 
+         <Parameter Widget="Label" >
+            <Name> Convection </Name>
+         </Parameter>
+         <Parameter Widget="Combo" >
+            <Type> String </Type>
             <Name> Convection </Name>
             <Item Type="Active" > None </Item>
             <Item> Constant
             </Item>
             <Item> Computed </Item>
          </Parameter>
-
          <Parameter Widget="Edit" >
-          <Name> Convection Velocity 1</Name>
-          <SifName> Material:Convection velocity 1</SifName>
-          <Whatis> Convection velocity. </Whatis>
-          <StatusTip> Convection velocity </StatusTip>
+            <Name> Convection Velocity 1</Name>
+            <SifName> Material:Convection velocity 1</SifName>
+            <Whatis> Convection velocity for 'Constant' convection model. Despite its association, may be space and time varying. </Whatis>
+            <StatusTip> Convection velocity </StatusTip>
          </Parameter>
-
          <Parameter Widget="Edit" >
-          <Name> Convection Velocity 2</Name>
-          <SifName> Material:Convection velocity 2</SifName>
-          <Whatis> Convection velocity. </Whatis>
-          <StatusTip> Convection velocity </StatusTip>
+            <Name> Convection Velocity 2</Name>
+            <SifName> Material:Convection velocity 2</SifName>
+            <Whatis> Convection velocity for 'Constant' convection model. Despite its association, may be space and time varying. </Whatis>
+            <StatusTip> Convection velocity </StatusTip>
          </Parameter>
-
          <Parameter Widget="Edit" >
-          <Name> Convection Velocity 3</Name>
-          <SifName> Material:Convection velocity 3</SifName>
-          <Whatis> Convection velocity. </Whatis>
-          <StatusTip> Convection velocity </StatusTip>
+            <Name> Convection Velocity 3</Name>
+            <SifName> Material:Convection velocity 3</SifName>
+            <Whatis> Convection velocity for 'Constant' convection model. Despite its association, may be space and time varying. </Whatis>
+            <StatusTip> Convection velocity </StatusTip>
          </Parameter>
       </Equation>
-
       <Material>
-         <Parameter Widget="Label" > <Name> Properties </Name> </Parameter>
-
-         <Parameter Widget="Edit" >
-          <Name> Density </Name>
-          <Whatis>Density value may be entered here.</Whatis>
-          <StatusTip> Set value to specific heat capacity </StatusTip>
+         <Parameter Widget="Label" >
+            <Name> Properties </Name>
          </Parameter>
-
          <Parameter Widget="Edit" >
-          <Name> Heat Capacity </Name>
-          <Whatis>Specific heat capacity value may be entered here.</Whatis>
-          <StatusTip> Set value to specific heat capacity </StatusTip>
+            <Name> Density </Name>
+            <Whatis>Density value may be entered here. Some models, like the ideal gas model compute density internally. In such case this value may not be necessery.</Whatis>
+            <StatusTip>Give value to density.</StatusTip>
          </Parameter>
-
+         <Parameter Widget="Edit" >
+            <Name> Heat Capacity </Name>
+            <Whatis>Specific heat capacity value may be entered here.</Whatis>
+            <StatusTip> Set value to specific heat capacity </StatusTip>
+         </Parameter>
          <Parameter Widget="Edit" >
             <Name> Reference Temperature </Name>
-          <Whatis> Reference temperature value for various situations.</Whatis>
-          <StatusTip> Set value to reference temperature.</StatusTip>
+            <Whatis> Reference temperature value for various situations.</Whatis>
+            <StatusTip> Set value to reference temperature.</StatusTip>
          </Parameter>
-
          <Parameter Widget="Edit" >
             <Name> Reference Pressure </Name>
-          <Whatis> Reference pressure for compressible flow computations.</Whatis>
-          <StatusTip> Set value to reference pressure.</StatusTip>
+            <Whatis> Reference pressure for compressible flow computations.</Whatis>
+            <StatusTip> Set value to reference pressure.</StatusTip>
          </Parameter>
-
          <Parameter Widget="Edit" >
-          <Name> Heat expansion Coeff.</Name>
-          <SifName> Heat expansion Coefficient</SifName>
-          <Whatis> Material heat expansion coefficient.</Whatis>
-          <StatusTip> Set value to heat expansion coefficient.</StatusTip>
+            <Name> Heat expansion Coeff.</Name>
+            <SifName> Heat expansion Coefficient</SifName>
+            <Whatis> Material heat expansion coefficient.</Whatis>
+            <StatusTip> Set value to heat expansion coefficient.</StatusTip>
          </Parameter>
       </Material>
-    </PDE>
-
-   <PDE Name="Heat Equation">
+   </PDE>
+   <PDE Name="Heat Equation" >
       <Name>Heat Equation</Name>
       <Solver>
          <Procedure Widget="File" >
@@ -104,7 +97,7 @@
             <Name> Heat Conductivity </Name>
             <SifName> Heat Conductivity </SifName>
             <DefaultValue> 1 </DefaultValue>>
-         <Whatis> This is a longer text to describe why you should set value to this parameter what ever it is...</Whatis>
+         <Whatis>Give value to heat conductivity material property.</Whatis>
             <StatusTip> Set value to heat conductivity. </StatusTip>
          </Parameter>
          <Parameter Widget="CheckBox" >
@@ -116,8 +109,7 @@
          </Parameter>
       </Material>
    </PDE>
-
-   <PDE Name="Linear Elasticity">
+   <PDE Name="Linear Elasticity" >
       <Name>Linear elasticity</Name>
       <Active Widget="bool" > False </Active>
       <Solver>
@@ -127,14 +119,12 @@
          </Procedure>
          <Parameter Widget="Real Vector(cdim)" > Displacement </Parameter>
       </Solver>
-
       <Material>
-         <Parameter Widget="Edit" > 
-           <Name>Youngs modulus</Name>
-         </Parameter>
-
          <Parameter Widget="Edit" >
-           <Name>Poisson ratio</Name>
+            <Name>Youngs modulus</Name>
+         </Parameter>
+         <Parameter Widget="Edit" >
+            <Name>Poisson ratio</Name>
          </Parameter>
       </Material>
    </PDE>
