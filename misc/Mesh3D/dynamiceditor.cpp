@@ -85,8 +85,10 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section)
         QString whatis    = param.firstChildElement("Whatis").text().trimmed();
         QString statusTip = param.firstChildElement("StatusTip").text().trimmed();
 
-        label->setText(labelName);
-        grid->addWidget(label, params, 0);
+        if ( widget_type != "Label" ) {
+          label->setText(labelName);
+          grid->addWidget(label, params, 0);
+        }
 
         h.widget = NULL;
         if ( widget_type == "Edit" ) {
@@ -118,6 +120,11 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section)
           connect(l, SIGNAL(stateChanged(int)), this, SLOT(lSlot(int)));
         } else if ( widget_type == "Label" ) {
           QLabel *label = new QLabel;
+          QFont font;
+          font.setBold(true);
+          font.setUnderline(true);
+          label->setFont(font);
+          label->setText(labelName);
           h.widget = label;
         }
 
