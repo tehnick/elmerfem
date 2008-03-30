@@ -28,6 +28,8 @@ EdfEditor::EdfEditor(QWidget *parent)
   edfTree->setColumnWidth(1,200);
   edfTree->setColumnWidth(2,200);
 
+  edfTree->setAnimated(true);
+
   // edfTree->header()->setResizeMode(QHeaderView::Stretch);
 
   // Set internal drag'n drop mode on:
@@ -393,11 +395,7 @@ void EdfEditor::treeItemClicked(QTreeWidgetItem *item, int column)
   if(!ctrlPressed)
     return;
 
-  // cout << "Item clicked: ";
-  // cout << string(item->text(column).trimmed().toAscii());
-  // cout << endl;
-
-  // for swap, items must have same parent:
+  // items must have the same parent:
   if(item->parent() != lastActive->parent()) {
     cout << "Items do not belong to the same parent - unable to swap" << endl;
     cout.flush();
@@ -405,11 +403,11 @@ void EdfEditor::treeItemClicked(QTreeWidgetItem *item, int column)
     return;
   }
 
-  // get elements from hash:
+  // get elements:
   QDomElement element = elementForItem.value(item);  
   QDomElement lastActiveElement = elementForItem.value(lastActive);  
 
-  // also elements must have same parent (should always be true):
+  // elements must have the same parent (should always be true):
   if(element.parentNode() != lastActiveElement.parentNode()) {
     cout << "Parent node mismatch - unable to swap items" << endl;
     cout.flush();
@@ -417,27 +415,31 @@ void EdfEditor::treeItemClicked(QTreeWidgetItem *item, int column)
     return;
   }
   
-  // deep clone elements:
+  // clone elements:
   QDomNode clone = element.cloneNode(true);
   QDomNode lastActiveClone = lastActiveElement.cloneNode(true);
 
-  // cross replace elements with their new clones:
+  // cross replace elements with their clones:
   element.parentNode().replaceChild(lastActiveClone, element);
   lastActiveElement.parentNode().replaceChild(clone, lastActiveElement);
 
-  // remove old elements from document:
+  // remove elements from the document:
   element.parentNode().removeChild(element);
   lastActiveElement.parentNode().removeChild(lastActiveElement);
 
-  // make sure that old elements are freed and nulled:
+  // make sure that old elements are cleared (they should be already):
   element.clear();
   lastActiveElement.clear();
 
   // rebuild tree & hash:
   setupEditor(*elmerDefs);
 
+  // set focus back to the last selected item:
   lastActive = NULL;
-  edfTree->setCurrentItem(NULL);
+  for(int i = 0; i < elementForItem.count(); i++) {
+    if(elementForItem.values().at(i) == lastActiveClone) 
+      edfTree->setCurrentItem(elementForItem.keys().at(i));
+  }
 
   return;
 }
