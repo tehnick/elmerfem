@@ -239,18 +239,31 @@ void DynamicEditor::comboSlot(QString select)
   item = hash[q].elem.firstChildElement("Item");
   for( ;!item.isNull(); item=item.nextSiblingElement("Item") ) {
     QDomElement itemName = item.firstChildElement("Name");
+    if ( itemName.text().trimmed() != select ) {
+      QDomElement activ;
 
+      activ = item.firstChildElement("Activate");
+      for( ;!activ.isNull(); activ=activ.nextSiblingElement("Activate") ) {
+        QString s=activ.text().trimmed() + ID;
+
+        QString widget_enabled = hash[s].elem.attribute("Enabled","True");
+        if ( widget_enabled == "False" ) 
+          hash[s].widget->setEnabled(false);
+        else
+          hash[s].widget->setEnabled(true);
+      }
+    }
+  }
+
+  item = hash[q].elem.firstChildElement("Item");
+  for( ;!item.isNull(); item=item.nextSiblingElement("Item") ) {
+    QDomElement itemName = item.firstChildElement("Name");
     if ( itemName.text().trimmed() == select ) {
       QDomElement activ;
       activ = item.firstChildElement("Activate");
       for( ;!activ.isNull(); activ=activ.nextSiblingElement("Activate") ) {
         QString s=activ.text().trimmed() + ID;
         hash[s].widget->setEnabled(true);
-      }
-      activ = item.firstChildElement("Deactivate");
-      for( ;!activ.isNull(); activ=activ.nextSiblingElement("Deactivate") ) {
-        QString s=activ.text().trimmed() + ID;
-        hash[s].widget->setEnabled(false);
       }
     }
   }
