@@ -88,7 +88,6 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
 
         QString paramDefault = param.firstChildElement("DefaultValue").text().trimmed();
 
-
         QString whatis    = param.firstChildElement("Whatis").text().trimmed();
         QString statusTip = param.firstChildElement("StatusTip").text().trimmed();
 
@@ -97,7 +96,7 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
           QLineEdit *edit = new QLineEdit;
           h.widget = edit;
           edit->setText(paramDefault);
-  
+          connect(edit, SIGNAL(returnPressed()), this, SLOT(editSlot()));
         } else if ( widget_type == "Combo" ) {
           QComboBox *combo = new QComboBox;
           h.widget = combo;
@@ -212,6 +211,14 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
   setWindowTitle(Section);
 }
 
+//----------------------------------------------------------------------------
+void DynamicEditor::editSlot()
+{
+  QLineEdit *q = (QLineEdit *)QObject::sender();
+  cout << string(q->text().toAscii()) << endl;
+}
+
+//----------------------------------------------------------------------------
 void DynamicEditor::lSlot(int state)
 {
   QDomElement param;
@@ -227,6 +234,7 @@ void DynamicEditor::lSlot(int state)
   }
 }
 
+//----------------------------------------------------------------------------
 void DynamicEditor::comboSlot(QString select)
 {
   QString q = QObject::sender()->property("dom address").toString();

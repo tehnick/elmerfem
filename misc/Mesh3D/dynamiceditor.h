@@ -42,6 +42,7 @@ private slots:
   void discardButtonClicked();
   void lSlot(int);
   void comboSlot(QString);
+  void editSlot();
 
 private:
   QIcon addIcon;
