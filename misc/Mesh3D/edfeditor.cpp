@@ -4,16 +4,20 @@
 
 using namespace std;
 
+// ctor...
+//----------------------------------------------------------------------------
 EdfEditor::EdfEditor(QWidget *parent)
   : QWidget(parent)
 {
   addIcon = QIcon(":/icons/list-add.png");
   removeIcon = QIcon(":/icons/list-remove.png");
+  collapseIcon = QIcon(":/icons/arrow-up.png");
+  expandIcon = QIcon(":/icons/arrow-down.png");
   openIcon = QIcon(":/icons/document-open.png");
   saveAsIcon = QIcon(":/icons/document-save.png");
   applyIcon = QIcon(":/icons/dialog-close.png");
 
-  lastActive = NULL;
+  lastActiveItem = NULL;
   ctrlPressed = false;
 
   // Set up tree widget:
@@ -29,8 +33,6 @@ EdfEditor::EdfEditor(QWidget *parent)
   edfTree->setColumnWidth(2,200);
 
   edfTree->setAnimated(true);
-
-  // edfTree->header()->setResizeMode(QHeaderView::Stretch);
 
   // Set internal drag'n drop mode on:
   //----------------------------------
@@ -54,6 +56,11 @@ EdfEditor::EdfEditor(QWidget *parent)
   removeButton->setIcon(removeIcon);
   connect(removeButton, SIGNAL(clicked()), this, SLOT(removeButtonClicked()));
 
+  expandCollapseAllButton = new QPushButton(tr("Collapse all"));
+  expandCollapseAllButton->setIcon(collapseIcon);
+  connect(expandCollapseAllButton, SIGNAL(clicked()),
+	  this, SLOT(expandCollapseAllButtonClicked()));
+
   openButton = new QPushButton(tr("&Open"));
   openButton->setIcon(openIcon);
   connect(openButton, SIGNAL(clicked()), this, SLOT(openButtonClicked()));
@@ -69,6 +76,7 @@ EdfEditor::EdfEditor(QWidget *parent)
   QHBoxLayout *buttonLayout = new QHBoxLayout;  
   buttonLayout->addWidget(addButton);
   buttonLayout->addWidget(removeButton);
+  buttonLayout->addWidget(expandCollapseAllButton);
   buttonLayout->addWidget(openButton);
   buttonLayout->addWidget(saveAsButton);
   buttonLayout->addWidget(applyButton);
@@ -83,13 +91,31 @@ EdfEditor::EdfEditor(QWidget *parent)
   setWindowTitle("Elmer Definitions File editor");
 
   setFocusPolicy(Qt::ClickFocus);
+
+  expandCollapseAll = false;
 }
 
+// dtor...
 //----------------------------------------------------------------------------
 EdfEditor::~EdfEditor()
 {
 }
 
+// Min window size...
+//----------------------------------------------------------------------------
+QSize EdfEditor::minimumSizeHint() const
+{
+  return QSize(64, 64);
+}
+
+// Default window size...
+//----------------------------------------------------------------------------
+QSize EdfEditor::sizeHint() const
+{
+  return QSize(720, 480);
+}
+
+// Add items from document to tree view...
 //----------------------------------------------------------------------------
 void EdfEditor::insertItemForElement(QDomElement element,
 				     QTreeWidgetItem *parentItem)
@@ -107,7 +133,6 @@ void EdfEditor::insertItemForElement(QDomElement element,
   newItem->setText(0, element.tagName().trimmed());
   newItem->setFlags(newItem->flags() | Qt::ItemIsEditable);
 
-  
   // display attributes
   QStringList list;
   QDomNamedNodeMap attributeMap = element.attributes();
@@ -133,6 +158,7 @@ void EdfEditor::insertItemForElement(QDomElement element,
   insertItemForElement(element.nextSiblingElement(), parentItem);      
 }
 
+// Construct tree view...
 //----------------------------------------------------------------------------
 void EdfEditor::setupEditor(QDomDocument &elmerDefs)
 {
@@ -141,11 +167,11 @@ void EdfEditor::setupEditor(QDomDocument &elmerDefs)
   disconnect(edfTree, SIGNAL(itemChanged(QTreeWidgetItem*, int)),
 	     this, SLOT(updateElement(QTreeWidgetItem*, int)));
 
-  // clear hash
+  // clear tree view & hash
+  edfTree->clear();
   elementForItem.clear(); 
 
-  // get root entry & recursively add all children to the tree:
-  edfTree->clear();
+  // get root entry & recursively add items to the tree:
   QDomElement root = elmerDefs.documentElement();
   insertItemForElement(root, NULL);
   edfTree->setCurrentItem(NULL);
@@ -156,18 +182,7 @@ void EdfEditor::setupEditor(QDomDocument &elmerDefs)
   edfTree->setCurrentItem(NULL);
 }
 
-//----------------------------------------------------------------------------
-QSize EdfEditor::minimumSizeHint() const
-{
-  return QSize(64, 64);
-}
-
-//----------------------------------------------------------------------------
-QSize EdfEditor::sizeHint() const
-{
-  return QSize(720, 480);
-}
-
+// Tree view item has been edited: update document accordingly...
 //----------------------------------------------------------------------------
 void EdfEditor::updateElement(QTreeWidgetItem *item, int column)
 {
@@ -192,7 +207,9 @@ void EdfEditor::updateElement(QTreeWidgetItem *item, int column)
   QString pattern = "([a-zA-Z0-9]+)[ \t]*=[ \t]*[\"]([^\"]+)[\"]";
   QRegExp expression(pattern);
   QString qs = item->text(1).trimmed();
+
   int index = qs.indexOf(expression);
+
   QString parsedString = "";
   if(index < 0)
     parsedString = qs;
@@ -208,9 +225,6 @@ void EdfEditor::updateElement(QTreeWidgetItem *item, int column)
     int secondPar = value.indexOf("\"", firstPar+1);
     value = value.mid(firstPar+1, secondPar-firstPar-1);
 
-    // cout << string(name.toAscii()) << " " << string(value.toAscii()) << endl;
-    // cout.flush();
-
     parsedString.append(name + "=\"" + value + "\" ");
 
     element.setAttribute(name.trimmed(), value.trimmed());
@@ -220,7 +234,7 @@ void EdfEditor::updateElement(QTreeWidgetItem *item, int column)
   // update display with parsed attributes
   item->setText(1, parsedString);
 
-  // set new text (only if old element has no children)
+  // set new text (iff old element has no children)
   if(element.firstChildElement().isNull()) {
 
     // remove old text node
@@ -244,6 +258,7 @@ void EdfEditor::updateElement(QTreeWidgetItem *item, int column)
   // no need to update hash
 }
 
+// Add tree view item & document element...
 //----------------------------------------------------------------------------
 void EdfEditor::addButtonClicked()
 {
@@ -257,7 +272,7 @@ void EdfEditor::addButtonClicked()
   QString newAttributeValue = "empty";
   QString newValue = "empty";
   
-  // add to tree:
+  // add item to tree view:
   QTreeWidgetItem *newItem = new QTreeWidgetItem(current);
 
   newItem->setFlags(newItem->flags() | Qt::ItemIsEditable);
@@ -287,6 +302,7 @@ void EdfEditor::addButtonClicked()
   edfTree->setCurrentItem(newItem);
 }
 
+// Remove item from tree view item & element from document...
 //----------------------------------------------------------------------------
 void EdfEditor::removeButtonClicked()
 {
@@ -308,6 +324,7 @@ void EdfEditor::removeButtonClicked()
   edfTree->setCurrentItem(NULL);
 }
 
+// Save as...
 //----------------------------------------------------------------------------
 void EdfEditor::saveAsButtonClicked()
 {
@@ -330,6 +347,24 @@ void EdfEditor::saveAsButtonClicked()
 }
 
 
+// Expand/collapse tree view...
+//----------------------------------------------------------------------------
+void EdfEditor::expandCollapseAllButtonClicked()
+{
+  if(expandCollapseAll) {
+    edfTree->expandAll();
+    expandCollapseAllButton->setText("Collapse all");
+    expandCollapseAllButton->setIcon(collapseIcon);
+    expandCollapseAll = false;
+  } else {
+    edfTree->collapseAll();
+    expandCollapseAllButton->setText("Expand all");
+    expandCollapseAllButton->setIcon(expandIcon);
+    expandCollapseAll = true;
+  }
+}
+
+// Open...
 //----------------------------------------------------------------------------
 void EdfEditor::openButtonClicked()
 {
@@ -374,21 +409,22 @@ void EdfEditor::openButtonClicked()
 }
 
 
+// Close...
 //----------------------------------------------------------------------------
 void EdfEditor::applyButtonClicked()
 {
   this->close();
 }
 
-// Swap the place of two items...
+// Change the place of two items and elements...
 //----------------------------------------------------------------------------
 void EdfEditor::treeItemClicked(QTreeWidgetItem *item, int column)
 {
-  if(item == lastActive)
+  if(item == lastActiveItem)
     return;
 
-  if(lastActive == NULL) {
-    lastActive = item;
+  if(lastActiveItem == NULL) {
+    lastActiveItem = item;
     return;
   }
 
@@ -396,48 +432,48 @@ void EdfEditor::treeItemClicked(QTreeWidgetItem *item, int column)
     return;
 
   // items must have the same parent:
-  if(item->parent() != lastActive->parent()) {
-    cout << "Items have different parent - unable to swap" << endl;
-    cout.flush();
-    lastActive = item;
+  if(item->parent() != lastActiveItem->parent()) {
+    // cout << "Items have different parent - unable to swap" << endl;
+    // cout.flush();
+    lastActiveItem = item;
     return;
   }
 
   // get elements:
   QDomElement element = elementForItem.value(item);  
-  QDomElement lastActiveElement = elementForItem.value(lastActive);  
+  QDomElement lastActiveItemElement = elementForItem.value(lastActiveItem);  
 
   // elements must have the same parent (should always be true):
-  if(element.parentNode() != lastActiveElement.parentNode()) {
-    cout << "Parent element mismatch - unable to swap items" << endl;
-    cout.flush();
-    lastActive = item;
+  if(element.parentNode() != lastActiveItemElement.parentNode()) {
+    // cout << "Parent element mismatch - unable to swap items" << endl;
+    // cout.flush();
+    lastActiveItem = item;
     return;
   }
   
   // clone elements:
   QDomNode clone = element.cloneNode(true);
-  QDomNode lastActiveClone = lastActiveElement.cloneNode(true);
+  QDomNode lastActiveItemClone = lastActiveItemElement.cloneNode(true);
 
   // replace elements with their clones:
-  element.parentNode().replaceChild(lastActiveClone, element);
-  lastActiveElement.parentNode().replaceChild(clone, lastActiveElement);
+  element.parentNode().replaceChild(lastActiveItemClone, element);
+  lastActiveItemElement.parentNode().replaceChild(clone, lastActiveItemElement);
 
   // remove old elements from the document:
   element.parentNode().removeChild(element);
-  lastActiveElement.parentNode().removeChild(lastActiveElement);
+  lastActiveItemElement.parentNode().removeChild(lastActiveItemElement);
 
-  // make sure that both old elements are cleared (they should be already):
+  // make sure that old elements are cleared (they should be already):
   element.clear();
-  lastActiveElement.clear();
+  lastActiveItemElement.clear();
 
   // rebuild tree & hash:
   setupEditor(*elmerDefs);
 
   // set focus back to the last selected item:
-  lastActive = NULL;
+  lastActiveItem = NULL;
   for(int i = 0; i < elementForItem.count(); i++) {
-    if(elementForItem.values().at(i) == lastActiveClone) {
+    if(elementForItem.values().at(i) == lastActiveItemClone) {
       edfTree->setCurrentItem(elementForItem.keys().at(i));
       edfTree->scrollToItem(elementForItem.keys().at(i), 
 			    QAbstractItemView::PositionAtCenter);
@@ -453,6 +489,9 @@ void EdfEditor::keyPressEvent(QKeyEvent *event)
 {
   if(event->key() == Qt::Key_Control)
     ctrlPressed = true;
+
+  if(event->key() == Qt::Key_Alt)
+    altPressed = true;
 }
 
 
@@ -462,4 +501,7 @@ void EdfEditor::keyReleaseEvent(QKeyEvent *event)
 {
   if(event->key() == Qt::Key_Control)
     ctrlPressed = false;
+
+  if(event->key() == Qt::Key_Alt)
+    altPressed = false;
 }

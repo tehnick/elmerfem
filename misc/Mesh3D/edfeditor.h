@@ -31,6 +31,7 @@ protected:
 private slots:
   void addButtonClicked();
   void removeButtonClicked();
+  void expandCollapseAllButtonClicked();
   void openButtonClicked();
   void saveAsButtonClicked();
   void applyButtonClicked();
@@ -41,6 +42,8 @@ private slots:
 private:
   QIcon addIcon;
   QIcon removeIcon;
+  QIcon collapseIcon;
+  QIcon expandIcon;
   QIcon openIcon;
   QIcon saveAsIcon;
   QIcon applyIcon;
@@ -48,6 +51,7 @@ private:
   QTreeWidget *edfTree;
   QPushButton *addButton;
   QPushButton *removeButton;
+  QPushButton *expandCollapseAllButton;
   QPushButton *openButton;
   QPushButton *saveAsButton;
   QPushButton *applyButton;
@@ -56,8 +60,10 @@ private:
   QHash<QTreeWidgetItem*, QDomElement> elementForItem;
   void insertItemForElement(QDomElement, QTreeWidgetItem*);
 
-  QTreeWidgetItem *lastActive;
+  bool expandCollapseAll;
+  QTreeWidgetItem *lastActiveItem;
   bool ctrlPressed;
+  bool altPressed;
 };
 
 #endif // EDFEDITOR_H
