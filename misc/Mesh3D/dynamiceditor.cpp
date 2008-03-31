@@ -71,6 +71,7 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
 
         // label
         QString widget_type = param.attribute("Widget","Edit");
+        QString widget_enabled = param.attribute("Enabled","True");
 
         QString paramType = param.firstChildElement("Type").text().trimmed();
 
@@ -79,6 +80,7 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
         if ( sifName == "" ) sifName = labelName;
 
         QString paramDefault = param.firstChildElement("DefaultValue").text().trimmed();
+
 
         QString whatis    = param.firstChildElement("Whatis").text().trimmed();
         QString statusTip = param.firstChildElement("StatusTip").text().trimmed();
@@ -100,9 +102,11 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
           for( ; !item.isNull(); item=item.nextSiblingElement("Item") ) {
             QString itemType = item.attribute( "Type", "" );
             if ( itemType == "Active" ) active=count;
-            combo->insertItem(count++,item.text().trimmed() );
+            QDomElement itemName = item.firstChildElement("Name");
+            combo->insertItem(count++,itemName.text().trimmed() );
           } 
           combo->setCurrentIndex(active);
+          connect(combo, SIGNAL(activated(QString)), this, SLOT(comboSlot(QString)));
 
         } else if ( widget_type == "CheckBox" ) {
           QCheckBox *l = new QCheckBox;
@@ -129,6 +133,8 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
           h.widget->setProperty( "dom address",q);
           h.elem=param;
           hash[q] = h;
+
+          if ( widget_enabled == "False" ) h.widget->setEnabled(false);
 
            h.widget->setFixedHeight(20);
           if ( widget_type != "Label" ) {
@@ -209,6 +215,34 @@ void DynamicEditor::lSlot(int state)
   for( ;!param.isNull(); param=param.nextSiblingElement("Activate") ) {
     q = param.text().trimmed();
     hash[q].widget->setEnabled(state);
+  }
+}
+
+void DynamicEditor::comboSlot(QString select)
+{
+  QString q = QObject::sender()->property("dom address").toString();
+  QDomElement item;
+
+  int ind = q.lastIndexOf( '/', -1); 
+  QString ID = q.mid(ind,-1);
+
+  item = hash[q].elem.firstChildElement("Item");
+  for( ;!item.isNull(); item=item.nextSiblingElement("Item") ) {
+    QDomElement itemName = item.firstChildElement("Name");
+
+    if ( itemName.text().trimmed() == select ) {
+      QDomElement activ;
+      activ = item.firstChildElement("Activate");
+      for( ;!activ.isNull(); activ=activ.nextSiblingElement("Activate") ) {
+        QString s=activ.text().trimmed() + ID;
+        hash[s].widget->setEnabled(true);
+      }
+      activ = item.firstChildElement("Deactivate");
+      for( ;!activ.isNull(); activ=activ.nextSiblingElement("Deactivate") ) {
+        QString s=activ.text().trimmed() + ID;
+        hash[s].widget->setEnabled(false);
+      }
+    }
   }
 }
 

@@ -9,12 +9,12 @@
             <Type> String </Type>
             <Whatis>The ElmerSolver executes this specific solver at times specified by this solver. Default value is to execute 'Always' meaning at every coupled iteration step.</Whatis>
             <StatusTip>Change when this solver is executed.</StatusTip>
-            <Item Type="Active" > Always </Item>
-            <Item> Before Simulation </Item>
-            <Item> After Simulation </Item>
-            <Item> Before Timestep </Item>
-            <Item> After Timestep </Item>
-            <Item> Never </Item>
+            <Item Type="Active" > <Name> Always </Name> </Item>
+            <Item> <Name> Before Simulation </Name> </Item>
+            <Item> <Name> After Simulation </Name> </Item>
+            <Item> <Name> Before Timestep </Name> </Item>
+            <Item> <Name> After Timestep </Name> </Item>
+            <Item> <Name> Never </Name> </Item>
          </Parameter>
       </Solver>
    </ALL>
@@ -73,10 +73,10 @@
         <Parameter Widget="Combo"> 
           <Name> Phase Change Model </Name>
           <Type> String </Type>
-          <Item Type="Active"> None </Item>
-          <Item> Spatial 1 </Item>
-          <Item> Spatial 2 </Item>
-          <Item> Temporal </Item>
+          <Item Type="Active"> <Name> None </Name> </Item>
+          <Item> <Name> Spatial 1 </Name> </Item>
+          <Item> <Name> Spatial 2 </Name> </Item>
+          <Item> <Name> Temporal </Name> </Item>
           <Whatis> One of: None, Spatial 1, Spatial 2 and Temporal. Note that when solidification is modelled, the enthalpy-temperature- and viscosity-temperature-curves must be defined in the material section. </Whatis>
         </Parameter>
 
@@ -86,24 +86,38 @@
         <Parameter Widget="Combo" >
             <Type> String </Type>
             <Name> Convection </Name>
-            <Item Type="Active" > None </Item>
-            <Item> Constant
+            <Item Type="Active" >
+               <Name> None </Name>
+               <Deactivate> /Heat Equation/Equation/Convection Velocity 1 </Deactivate>
+               <Deactivate> /Heat Equation/Equation/Convection Velocity 2 </Deactivate>
+               <Deactivate> /Heat Equation/Equation/Convection Velocity 3 </Deactivate>
             </Item>
-            <Item> Computed </Item>
+            <Item>
+               <Name> Constant </Name>
+               <Activate> /Heat Equation/Equation/Convection Velocity 1 </Activate>
+               <Activate> /Heat Equation/Equation/Convection Velocity 2 </Activate>
+               <Activate> /Heat Equation/Equation/Convection Velocity 3 </Activate>
+            </Item>
+            <Item>
+               <Name> Computed </Name>
+               <Deactivate> /Heat Equation/Equation/Convection Velocity 1 </Deactivate>
+               <Deactivate> /Heat Equation/Equation/Convection Velocity 2 </Deactivate>
+               <Deactivate> /Heat Equation/Equation/Convection Velocity 3 </Deactivate>
+            </Item>
          </Parameter>
-         <Parameter Widget="Edit" >
+         <Parameter Widget="Edit" Enabled="False" >
             <Name> Convection Velocity 1</Name>
             <SifName> Material:Convection velocity 1</SifName>
             <Whatis> Convection velocity for 'Constant' convection model. Despite its association, may be space and time varying. </Whatis>
             <StatusTip> Convection velocity </StatusTip>
          </Parameter>
-         <Parameter Widget="Edit" >
+         <Parameter Widget="Edit"  Enabled="False">
             <Name> Convection Velocity 2</Name>
             <SifName> Material:Convection velocity 2</SifName>
             <Whatis> Convection velocity for 'Constant' convection model. Despite its association, may be space and time varying. </Whatis>
             <StatusTip> Convection velocity </StatusTip>
          </Parameter>
-         <Parameter Widget="Edit" >
+         <Parameter Widget="Edit"  Enabled="False">
             <Name> Convection Velocity 3</Name>
             <SifName> Material:Convection velocity 3</SifName>
             <Whatis> Convection velocity for 'Constant' convection model. Despite its association, may be space and time varying. </Whatis>
@@ -247,39 +261,54 @@
          <Parameter Widget="Combo" >
             <Name> Radiation </Name>
             <Type> String </Type>
-            <Item Type="Active" > None </Item>
-            <Item> Idealized </Item>
-            <Item> Diffuse Gray </Item>
+            <Item Type="Active" > <Name> None </Name>
+              <Deactivate> /Heat Equation/BoundaryCondition/Emissivity </Deactivate>
+              <Deactivate> /Heat Equation/BoundaryCondition/Radiation Target Body   </Deactivate>
+              <Deactivate> /Heat Equation/BoundaryCondition/Radiation Boundary      </Deactivate>
+              <Deactivate> /Heat Equation/BoundaryCondition/Radiation Boundary Open </Deactivate>
+            </Item>
+            <Item> 
+              <Name> Idealized </Name>
+              <Activate> /Heat Equation/BoundaryCondition/Emissivity </Activate>
+              <Deactivate> /Heat Equation/BoundaryCondition/Radiation Target Body   </Deactivate>
+              <Deactivate> /Heat Equation/BoundaryCondition/Radiation Boundary      </Deactivate>
+              <Deactivate> /Heat Equation/BoundaryCondition/Radiation Boundary Open </Deactivate>
+            </Item>
+            <Item>
+              <Name> Diffuse Gray </Name>
+              <Activate> /Heat Equation/BoundaryCondition/Emissivity </Activate>
+              <Activate> /Heat Equation/BoundaryCondition/Radiation Target Body </Activate>
+              <Activate> /Heat Equation/BoundaryCondition/Radiation Boundary </Activate>
+              <Activate> /Heat Equation/BoundaryCondition/Radiation Boundary Open </Activate>
+            </Item>
          </Parameter>
 
-	<Parameter Widget="Edit">
+	<Parameter Widget="Edit" Enabled="False">
            <Name> Emissivity </Name>
            <Whatis> Emissivity of the radiating surface, required for radiation model is present.</Whatis>
            <StatusTip> Emissivity of the radiating surface, required for radiation model is present.</StatusTip>
          </Parameter>
 
-         <Parameter  Widget="CheckBox">
+         <Parameter  Widget="CheckBox" Enabled="False">
            <Name> Radiation Boundary Open </Name>
            <Type> Logical </Type>
            <Whatis> The closures may be partially open. Then no normalization of the view factors is enforced. The missing part of the radiation angle is assumed to be ideal radiation. Therefore if this option is enforced also the parameter External Temperature must be given.  </Whatis>
            <StatusTip> Account for missing space angle to have a full closure. </StatusTip>
          </Parameter>
 
-         <Parameter  Widget="Edit">
+         <Parameter  Widget="Edit" Enabled="False">
            <Name> Radiation Boundary </Name>
            <Type> Integer </Type>
            <Whatis> If there are many closures with radiation boundary conditions that do not see each other the view factors may be computed separately. This keyword is used to group the boundaries to independent sets. The default is one. </Whatis>
            <StatusTip> Account for missing space angle to have a full closure. </StatusTip>
          </Parameter>
 
-         <Parameter  Widget="Edit">
+         <Parameter  Widget="Edit" Enabled="False">
            <Name> Radiation Target Body </Name>
            <Type> Integer </Type>
            <Whatis> Normal points to this 'body's direction. </Whatis>
            <StatusTip> Normal points to this 'body's direction. </StatusTip>
          </Parameter>
-
-
       </BoundaryCondition>
    </PDE>
    <PDE Name="Linear Elasticity" >
