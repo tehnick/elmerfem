@@ -5,9 +5,17 @@
 #include <QtGui>
 #include <QIcon>
 #include <QDomDocument>
+#include <QLayout>
 
 class QTabWidget;
 class QPushButton;
+
+class hash_entry_t
+{
+ public:
+  QWidget *widget;
+  QDomElement elem;
+};
 
 class DynamicEditor : public QWidget
 {
@@ -34,6 +42,7 @@ public:
   int ID;               // id in propertyarray
 
   bool touched;
+
 signals:
   void dynamicEditorReady(int, int);
 
@@ -45,6 +54,9 @@ private slots:
   void editSlot();
 
 private:
+  hash_entry_t h;
+  QHash<QString, hash_entry_t>  hash;
+
   QIcon addIcon;
   QIcon removeIcon;
 

@@ -11,26 +11,16 @@ DynamicEditor::DynamicEditor(QWidget *parent)
   removeIcon = QIcon(":/icons/list-remove.png");
   setWindowFlags(Qt::Window);
 
-  touched = false;
-
   menuAction = NULL;
   ID = -1;
+
+  touched = false;
 }
 
 //----------------------------------------------------------------------------
 DynamicEditor::~DynamicEditor()
 {
 }
-
-class hash_entry_t
-{
-public:
-  QWidget *widget;
-  QDomElement elem;
-} h;
-
-QHash<QString, hash_entry_t>  hash;
-
 
 //----------------------------------------------------------------------------
 void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
@@ -41,21 +31,13 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
   //-------------------------------
   root = elmerDefs.documentElement();
 
-  // count equations (tabs)
-  tabs = 0;
-  element = root.firstChildElement("PDE");
-  while(!element.isNull()) {
-    tabs++;
-    element = element.nextSiblingElement();
-  }
-
-
   tabWidget = new QTabWidget;
   tabWidget->setTabShape(QTabWidget::Triangular);
 
-  tabs = 0;
   all_stuff = root.firstChildElement("ALL");
   element   = root.firstChildElement("PDE");
+
+  tabs = 0;
 
   while(!element.isNull()) {
 
