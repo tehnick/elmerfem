@@ -211,9 +211,12 @@ void DynamicEditor::lSlot(int state)
   QDomElement param;
   QString q = QObject::sender()->property("dom address").toString();
 
+  int ind = q.lastIndexOf( '/', -1); 
+  QString ID = q.mid(ind,-1);
+
   param = hash[q].elem.firstChildElement("Activate");
   for( ;!param.isNull(); param=param.nextSiblingElement("Activate") ) {
-    q = param.text().trimmed();
+    q = param.text().trimmed() + ID;
     hash[q].widget->setEnabled(state);
   }
 }
