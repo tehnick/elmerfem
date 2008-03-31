@@ -3,6 +3,7 @@
 
 #include <QWidget>
 #include "ui_bcpropertyeditor.h"
+#include "dynamiceditor.h"
 
 #define MAX_BCS 1000
 
@@ -14,7 +15,8 @@ public:
   BCPropertyEditor(QWidget *parent = 0);
   ~BCPropertyEditor();
 
-  Ui::bcPropertyDialog ui;
+//  Ui::bcPropertyDialog ui;
+  DynamicEditor *bcPropertyDialog;
 
   bool touched;
 

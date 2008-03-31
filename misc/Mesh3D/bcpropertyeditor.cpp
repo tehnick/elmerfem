@@ -47,12 +47,14 @@ using namespace std;
 BCPropertyEditor::BCPropertyEditor(QWidget *parent)
   : QDialog(parent)
 {
-  ui.setupUi(this);
+//  ui.setupUi(this);
 
   touched = false;
 
-  connect(ui.applyButton, SIGNAL(clicked()), this, SLOT(applySlot()));
-  connect(ui.discardButton, SIGNAL(clicked()), this, SLOT(discardSlot()));
+//  connect(ui.applyButton, SIGNAL(clicked()), this, SLOT(applySlot()));
+//  connect(ui.discardButton, SIGNAL(clicked()), this, SLOT(discardSlot()));
+
+    bcPropertyDialog = NULL;
 }
 
 BCPropertyEditor::~BCPropertyEditor()

@@ -19,24 +19,27 @@ public:
   QSize minimumSizeHint() const;
   QSize sizeHint() const;
 
-  void setupTabs(QDomDocument&, QString);
+  void setupTabs(QDomDocument&, QString, int);
 
   QTabWidget *tabWidget;
   int tabs;
 
+  QPushButton *applyButton;
+  QPushButton *discardButton;
+
+  bool touched;
+
+
 signals:
 
 private slots:
-  void addButtonClicked();
-  void removeButtonClicked();
+  void applyButtonClicked();
+  void discardButtonClicked();
   void lSlot(int);
 
 private:
   QIcon addIcon;
   QIcon removeIcon;
-
-  QPushButton *addButton;
-  QPushButton *removeButton;
 
   QDomElement root;
   QDomElement all_stuff;

@@ -28,7 +28,7 @@ QHash<QString, hash_entry_t>  hash;
 
 
 //----------------------------------------------------------------------------
-void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section)
+void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
 {
   // Get root element of elmerDefs:
   //-------------------------------
@@ -70,8 +70,6 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section)
       for( ;!param.isNull(); param=param.nextSiblingElement(), params++ ) {
 
         // label
-        QLabel *label = new QLabel;
-
         QString widget_type = param.attribute("Widget","Edit");
 
         QString paramType = param.firstChildElement("Type").text().trimmed();
@@ -84,11 +82,6 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section)
 
         QString whatis    = param.firstChildElement("Whatis").text().trimmed();
         QString statusTip = param.firstChildElement("StatusTip").text().trimmed();
-
-        if ( widget_type != "Label" ) {
-          label->setText(labelName);
-          grid->addWidget(label, params, 0);
-        }
 
         h.widget = NULL;
         if ( widget_type == "Edit" ) {
@@ -132,12 +125,19 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section)
           h.widget->setWhatsThis(whatis);
           h.widget->setStatusTip(statusTip);
 
-          QString q = "/"+name.text().trimmed()+"/"+Section+"/"+labelName;
+          QString q = "/"+name.text().trimmed()+"/"+Section+"/"+labelName+QString::number(ID);
           h.widget->setProperty( "dom address",q);
           h.elem=param;
           hash[q] = h;
 
-          grid->addWidget(h.widget, params, 1);
+          if ( widget_type != "Label" ) {
+            QLabel *label = new QLabel;
+            label->setText(labelName);
+            grid->addWidget(label, params, 0);
+            grid->addWidget(h.widget, params, 1);
+          } else {
+            grid->addWidget(h.widget, params, 0);
+          }
         }
       }
     }
@@ -158,17 +158,17 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section)
 
   // Buttons:
   //----------
-  addButton = new QPushButton(tr("&Add"));
-  addButton->setIcon(addIcon);
-  connect(addButton, SIGNAL(clicked()), this, SLOT(addButtonClicked()));
+  applyButton = new QPushButton(tr("&Add"));
+  applyButton->setIcon(addIcon);
+  connect(applyButton, SIGNAL(clicked()), this, SLOT(applyButtonClicked()));
   
-  removeButton = new QPushButton(tr("&Remove"));
-  removeButton->setIcon(removeIcon);
-  connect(removeButton, SIGNAL(clicked()), this, SLOT(removeButtonClicked()));
+  discardButton = new QPushButton(tr("&Remove"));
+  discardButton->setIcon(removeIcon);
+  connect(discardButton, SIGNAL(clicked()), this, SLOT(discardButtonClicked()));
 
   QHBoxLayout *buttonLayout = new QHBoxLayout;  
-  buttonLayout->addWidget(addButton);
-  buttonLayout->addWidget(removeButton);
+  buttonLayout->addWidget(applyButton);
+  buttonLayout->addWidget(discardButton);
 
   // Main layout:
   //-------------
@@ -209,17 +209,19 @@ QSize DynamicEditor::sizeHint() const
 }
 
 //----------------------------------------------------------------------------
-void DynamicEditor::addButtonClicked()
+void DynamicEditor::applyButtonClicked()
 {
   cout << "Dynamic editor: Add-button clicked" << endl;
   cout.flush();
+  touched = true;
   close();
 }
 
 //----------------------------------------------------------------------------
-void DynamicEditor::removeButtonClicked()
+void DynamicEditor::discardButtonClicked()
 {
   cout << "Dynamic editor: Remove-button clicked" << endl;
   cout.flush();
+  touched = false;
   close();
 }
