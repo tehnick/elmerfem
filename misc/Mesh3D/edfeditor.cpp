@@ -469,7 +469,7 @@ void EdfEditor::appendButtonClicked()
   QDomElement element = tmpRoot.firstChildElement();
   while(!element.isNull()) {
     root.appendChild(element);
-    element = element.nextSiblingElement();
+    element = tmpRoot.firstChildElement();
   }
   
   setupEditor(*elmerDefs);
