@@ -212,7 +212,6 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
   setWindowTitle(Section);
 }
 
-
 void DynamicEditor::lSlot(int state)
 {
   QDomElement param;
