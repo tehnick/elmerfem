@@ -27,12 +27,13 @@ signals:
 protected:
   void keyPressEvent(QKeyEvent*);
   void keyReleaseEvent(QKeyEvent*);
-
+  
 private slots:
   void addButtonClicked();
   void removeButtonClicked();
   void expandCollapseAllButtonClicked();
   void openButtonClicked();
+  void appendButtonClicked();
   void saveAsButtonClicked();
   void applyButtonClicked();
 
@@ -45,6 +46,7 @@ private:
   QIcon collapseIcon;
   QIcon expandIcon;
   QIcon openIcon;
+  QIcon appendIcon;
   QIcon saveAsIcon;
   QIcon applyIcon;
 
@@ -53,6 +55,7 @@ private:
   QPushButton *removeButton;
   QPushButton *expandCollapseAllButton;
   QPushButton *openButton;
+  QPushButton *appendButton;
   QPushButton *saveAsButton;
   QPushButton *applyButton;
 

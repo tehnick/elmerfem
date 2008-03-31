@@ -14,6 +14,7 @@ EdfEditor::EdfEditor(QWidget *parent)
   collapseIcon = QIcon(":/icons/arrow-up.png");
   expandIcon = QIcon(":/icons/arrow-down.png");
   openIcon = QIcon(":/icons/document-open.png");
+  appendIcon = QIcon(":/icons/tab-new-background.png"); // todo
   saveAsIcon = QIcon(":/icons/document-save.png");
   applyIcon = QIcon(":/icons/dialog-close.png");
 
@@ -27,6 +28,9 @@ EdfEditor::EdfEditor(QWidget *parent)
   connect(edfTree, SIGNAL(itemClicked(QTreeWidgetItem*,int)),
 	  this, SLOT(treeItemClicked(QTreeWidgetItem*,int)));
 
+  connect(edfTree, SIGNAL(itemSelectionChanged()),
+	  this, SLOT(selectionChanged()));
+
   edfTree->setColumnCount(3);
   edfTree->setColumnWidth(0,200);
   edfTree->setColumnWidth(1,200);
@@ -36,10 +40,10 @@ EdfEditor::EdfEditor(QWidget *parent)
 
   // Set internal drag'n drop mode on:
   //----------------------------------
-  // edfTree->setDragEnabled(true);
-  // edfTree->setDragDropMode(QAbstractItemView::InternalMove);
-  // edfTree->setDropIndicatorShown(true);
-  // edfTree->setDragDropOverwriteMode(false);
+  edfTree->setDragEnabled(true);
+  edfTree->setDragDropMode(QAbstractItemView::InternalMove);
+  edfTree->setDropIndicatorShown(true);
+  edfTree->setDragDropOverwriteMode(false);
 
   QStringList qsl;
   qsl << "Tag" << "Attributes" << "Value";
@@ -65,6 +69,10 @@ EdfEditor::EdfEditor(QWidget *parent)
   openButton->setIcon(openIcon);
   connect(openButton, SIGNAL(clicked()), this, SLOT(openButtonClicked()));
 
+  appendButton = new QPushButton(tr("&Append"));
+  appendButton->setIcon(appendIcon);
+  connect(appendButton, SIGNAL(clicked()), this, SLOT(appendButtonClicked()));
+
   saveAsButton = new QPushButton(tr("&Save as"));
   saveAsButton->setIcon(saveAsIcon);
   connect(saveAsButton, SIGNAL(clicked()), this, SLOT(saveAsButtonClicked()));
@@ -78,6 +86,7 @@ EdfEditor::EdfEditor(QWidget *parent)
   buttonLayout->addWidget(removeButton);
   buttonLayout->addWidget(expandCollapseAllButton);
   buttonLayout->addWidget(openButton);
+  buttonLayout->addWidget(appendButton);
   buttonLayout->addWidget(saveAsButton);
   buttonLayout->addWidget(applyButton);
 
@@ -409,10 +418,68 @@ void EdfEditor::openButtonClicked()
 }
 
 
+// Append...
+//----------------------------------------------------------------------------
+void EdfEditor::appendButtonClicked()
+{
+  QString fileName;
+
+  fileName = QFileDialog::getOpenFileName(this, 
+	      tr("Open definitions"), "", tr("EDF (*.xml)") );
+
+  if(fileName.isEmpty())
+    return;
+
+  QFile file;
+  file.setFileName(fileName);
+  file.open(QIODevice::ReadOnly);
+
+  QDomDocument tmpDoc;
+
+  QString errStr;
+  int errRow;
+  int errCol;
+
+  if(!tmpDoc.setContent(&file, true, &errStr, &errRow, &errCol)) {
+    QMessageBox::information(window(), tr("Elmer definitions file"),
+			     tr("Parse error at line %1, col %2:\n%3")
+			     .arg(errRow).arg(errCol).arg(errStr));
+    file.close();
+    return;
+
+  } else {
+      
+    if(tmpDoc.documentElement().tagName() != "edf") {
+      QMessageBox::information(window(), tr("Elmer definitions file"),
+			       tr("This is not an edf file"));
+      file.close();
+      return;      
+    }
+  }
+
+
+  // add new elements to the document
+  QDomElement root = elmerDefs->documentElement();
+  QDomElement tmpRoot = tmpDoc.documentElement();
+
+  QDomElement element = tmpRoot.firstChildElement();
+  while(!element.isNull()) {
+    root.appendChild(element);
+    element = element.nextSiblingElement();
+  }
+  
+  setupEditor(*elmerDefs);
+
+  edfTree->setCurrentItem(NULL);
+}
+
+
 // Close...
 //----------------------------------------------------------------------------
 void EdfEditor::applyButtonClicked()
 {
+  // rebuild document from tree view:
+  //---------------------------------
   this->close();
 }
 
@@ -505,3 +572,4 @@ void EdfEditor::keyReleaseEvent(QKeyEvent *event)
   if(event->key() == Qt::Key_Alt)
     altPressed = false;
 }
+
