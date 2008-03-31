@@ -161,6 +161,12 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
 
   // Buttons:
   //----------
+  QLabel *lbl = new QLabel;
+  lbl->setText("Name:");
+
+  nameEdit  = new QLineEdit;
+  nameEdit->setText(Section + " " + QString::number(ID));
+
   applyButton = new QPushButton(tr("&Add"));
   applyButton->setIcon(addIcon);
   connect(applyButton, SIGNAL(clicked()), this, SLOT(applyButtonClicked()));
@@ -170,6 +176,8 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
   connect(discardButton, SIGNAL(clicked()), this, SLOT(discardButtonClicked()));
 
   QHBoxLayout *buttonLayout = new QHBoxLayout;  
+  buttonLayout->addWidget(lbl);
+  buttonLayout->addWidget(nameEdit);
   buttonLayout->addWidget(applyButton);
   buttonLayout->addWidget(discardButton);
 

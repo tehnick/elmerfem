@@ -2,6 +2,7 @@
 #define DYNAMICEDITOR_H
 
 #include <QWidget>
+#include <QtGui>
 #include <QIcon>
 #include <QDomDocument>
 
@@ -22,6 +23,7 @@ public:
   void setupTabs(QDomDocument&, QString, int);
 
   QTabWidget *tabWidget;
+  QLineEdit *nameEdit;
   int tabs;
 
   QPushButton *applyButton;
