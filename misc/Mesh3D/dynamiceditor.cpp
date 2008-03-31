@@ -181,11 +181,17 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
   buttonLayout->addWidget(applyButton);
   buttonLayout->addWidget(discardButton);
 
+  QHBoxLayout *spareButtonLayout = new QHBoxLayout;  
+  spareButton = new QPushButton(tr("SpareButton"));;
+  spareButton->setVisible(false);
+  spareButtonLayout->addWidget(spareButton);
+
   // Main layout:
   //-------------
   QVBoxLayout *mainLayout = new QVBoxLayout;
   mainLayout->addWidget(tabWidget);
   mainLayout->addLayout(buttonLayout);
+  mainLayout->addLayout(spareButtonLayout);
   setLayout(mainLayout);
 
   // Window title:

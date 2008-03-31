@@ -27,6 +27,7 @@ public:
   int tabs;
 
   QPushButton *applyButton;
+  QPushButton *spareButton;
   QPushButton *discardButton;
 
   bool touched;
