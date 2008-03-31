@@ -461,7 +461,6 @@ void Meshutils::findSurfaceElementParents(mesh_t *mesh)
   };
 
   int keys = mesh->nodes;
-  
   hashEntry *hash = new hashEntry[keys];
 
   bool found;
@@ -1760,3 +1759,317 @@ void Meshutils::findSurfaceElementNormals(mesh_t *mesh)
 
   delete helpers;
 }
+
+
+
+// Increase elementorder from 1 to 2
+//----------------------------------------------------------------------------
+void Meshutils::increaseElementOrder(mesh_t *mesh)
+{
+#define UNKNOWN -1
+
+  class hashEntry {
+  public:
+    int node1;
+    int noedge;
+    hashEntry *next;
+  };
+
+  if(mesh->elements == 0 && mesh->surfaces == 0) return;
+
+  int keys = mesh->nodes;  
+  hashEntry *hash = new hashEntry[keys];
+  hashEntry *h;
+
+  for(int i=0; i<keys; i++) {
+    h = &hash[i];
+    h->node1 = UNKNOWN;
+    h->noedge = UNKNOWN;
+    h->next = NULL;
+  }
+
+  static int familylinnodes[9] = {0, 1, 2, 3, 4, 4, 5, 6, 8};
+  static int familyedges[9]    = {0, 0, 1, 3, 4, 6, 8, 9, 12};
+
+  static int edgemap8[][2] = {{0,1}, {1,2}, {2,3}, {3,0}, {0,4}, {1,5}, {2,6}, {3,7}, {4,5}, {5,6}, {6,7}, {7,4}};
+  static int edgemap7[][2] = {{0,1}, {1,2}, {2,0}, {0,3}, {1,4}, {2,5}, {3,4}, {4,5}, {5,6}};
+  static int edgemap6[][2] = {{0,1}, {1,2}, {2,3}, {3,0}, {0,4}, {1,4}, {2,4}, {3,4}};
+  static int edgemap5[][2] = {{0,1}, {1,2}, {2,0}, {0,3}, {1,3}, {2,3}};
+  static int edgemap4[][2] = {{0,1}, {1,2}, {2,3}, {3,0}};
+  static int edgemap3[][2] = {{0,1}, {1,2}, {2,0}};
+  static int edgemap2[][2] = {{0,1}};
+
+
+  // First go through elements and find all new edges introduced by the 2nd order 
+  int noedges = 0;
+  for(int i=0; i < mesh->elements + mesh->surfaces; i++) {
+
+    element_t *e;
+    if(i < mesh->elements) 
+      e = &mesh->element[i];
+    else 
+      e = &mesh->surface[i - mesh->elements];
+
+    int *edgemap = NULL;
+    int family = e->code / 100;
+    int edges = familyedges[family];
+
+    // Skip undtermined and nonlinear element 
+    if(e->nodes < 2 || e->nodes > familylinnodes[family]) continue;
+
+    for(int f=0; f<edges; f++) {
+      if(family == 3) 
+	edgemap = &edgemap3[f][0];
+      else if(family == 4) 
+	edgemap = &edgemap4[f][0];
+      if(family == 5) 
+	edgemap = &edgemap5[f][0];
+      else if(family == 6) 
+	edgemap = &edgemap6[f][0];
+      else if(family == 7) 
+	edgemap = &edgemap7[f][0];
+      else if(family == 8) 
+	edgemap = &edgemap8[f][0];
+
+      int n0 = e->node[edgemap[0]];
+      int n1 = e->node[edgemap[1]];
+
+      if(n0 < 0 || n1 < 0) continue;
+
+      // Order indexes in an increasing order 
+      if(n0 > n1) {
+	int tmp = n0;
+	n0 = n1;
+	n1 = tmp;
+      }
+
+      h = &hash[n0];
+      bool found = false;
+      while(h->next) {                                       
+	if(h->node1 == n1) {
+	  found = true;
+	  break;
+	}
+	h = h->next;
+      }                                                      
+      
+      if(!found) {
+	h->node1 = n1;
+	h->noedge = noedges;
+
+	h->next = new hashEntry;
+	h = h->next;
+	h->node1 = UNKNOWN;
+	h->noedge = UNKNOWN;
+	h->next = NULL;
+	noedges++;
+      }
+    }
+  }
+  
+  cout << "Found " << noedges << " edges in the mesh " << endl;
+  
+  if(noedges == 0) {
+    return;
+    delete [] hash;
+  }
+
+  // Then redifine the mesh using the additional nodes
+  int quadnodes = mesh->nodes + noedges;  
+  node_t *quadnode = new node_t[quadnodes];
+  
+  // Copy linear nodes
+  for(int i=0;i<mesh->nodes;i++) {
+    quadnode[i].x[0] = mesh->node[i].x[0];  
+    quadnode[i].x[1] = mesh->node[i].x[1];  
+    quadnode[i].x[2] = mesh->node[i].x[2];  
+    quadnode[i].index = mesh->node[i].index;
+  }
+
+  // Quadratic nodes are taken to be means of the linear nodes
+  for(int i=0; i<keys; i++) {
+    int j = 0;
+    h = &hash[i];
+    while(h->next){
+      if(h->noedge > UNKNOWN) {
+	j++;
+	int n0 = i;
+	int n1 = h->node1;
+	int j = mesh->nodes + i;
+	quadnode[j].x[0] = 0.5*(quadnode[n0].x[0] + quadnode[n1].x[0]); 
+	quadnode[j].x[1] = 0.5*(quadnode[n0].x[1] + quadnode[n1].x[1]); 
+	quadnode[j].x[2] = 0.5*(quadnode[n0].x[2] + quadnode[n1].x[2]); 
+	quadnode[j].index = UNKNOWN;
+      }
+      h = h->next;     
+    }
+  }
+  delete [] mesh->node;
+  mesh->node = quadnode;
+
+  cout << "Set " << quadnodes << " additional nodes" << endl;
+
+
+  int tmpnode[27];
+
+  for(int i=0; i < mesh->elements + mesh->surfaces + mesh->edges; i++) {
+    
+    element_t *e;
+    if(i < mesh->elements) 
+      e = &mesh->element[i];
+    else if (i < mesh->elements + mesh->surfaces) 
+      e = &mesh->surface[i - mesh->elements];
+    else 
+      e = &mesh->edge[i - mesh->elements - mesh->surfaces];
+
+    int *edgemap = NULL;
+    int family = e->code / 100;
+    int edges = familyedges[family];
+
+    /* Not a linear element */
+    if(e->nodes < 2 || e->nodes > familylinnodes[family]) continue;
+
+    int linnodes = e->nodes;
+    for(int j=0;j<linnodes;j++)
+      tmpnode[j] = e->node[j];
+
+    delete e->node;
+    e->code += edges;
+    e->nodes += edges;
+    e->node = new int[e->nodes];
+    for(int j=0;j<linnodes;j++)
+      e->node[j] = tmpnode[j];
+
+
+    for(int f=0; f<edges; f++) {
+
+      if(family == 2) 
+	edgemap = &edgemap2[f][0];
+      if(family == 3) 
+	edgemap = &edgemap3[f][0];
+      else if(family == 4) 
+	edgemap = &edgemap4[f][0];
+      if(family == 5) 
+	edgemap = &edgemap5[f][0];
+      else if(family == 6) 
+	edgemap = &edgemap6[f][0];
+      else if(family == 7) 
+	edgemap = &edgemap7[f][0];
+      else if(family == 8) 
+	edgemap = &edgemap8[f][0];
+      
+      int n0 = e->node[edgemap[0]];
+      int n1 = e->node[edgemap[1]];
+      if(n0 < 0 || n1 < 0) continue;
+
+      // Order indexes in an increasing order 
+      if(n0 > n1) {
+	int tmp = n0;
+	n0 = n1;
+	n1 = tmp;
+      }
+      
+      h = &hash[n0];
+      bool found = false;
+      while(h->next) {                                       
+	if(h->node1 == n1) {
+	  found = true;
+	  e->node[linnodes+f] = h->noedge + mesh->nodes;
+	  break;
+	}
+	h = h->next;
+      }                                                            
+      if(!found) {
+	cout << "All edges should be found!? " << endl;
+      }
+    }    
+  }
+  mesh->nodes = quadnodes;
+
+  delete [] hash;
+}
+
+
+
+// Decrease elementorder from >1 to 1
+//----------------------------------------------------------------------------
+void Meshutils::decreaseElementOrder(mesh_t *mesh)
+{
+  if(mesh->elements == 0 && mesh->surfaces == 0) return;
+
+  static int familylinnodes[9] = {0, 1, 2, 3, 4, 4, 5, 6, 8};
+
+  int *activenodes = new int[mesh->nodes];
+  for(int i=0;i<mesh->nodes;i++)
+    activenodes[i] = -1;
+
+  int noedges = 0;
+  for(int i=0; i < mesh->elements + mesh->surfaces; i++) {
+
+    element_t *e;
+    if(i < mesh->elements) 
+      e = &mesh->element[i];
+    else 
+      e = &mesh->surface[i - mesh->elements];
+
+    int family = e->code / 100;
+    int linnodes = familylinnodes[family];
+
+    for(int j=0;j<linnodes;j++)
+      activenodes[e->node[j]] = 0;
+  }
+
+  int linnodes = 0;
+  for(int i=0;i<mesh->nodes;i++)
+    if(activenodes[i] > -1) {
+      activenodes[i] = linnodes;
+      linnodes++;
+    }
+
+  cout << "Setting " << linnodes << " linear nodes of the total " << mesh->nodes << " nodes" << endl;
+  if(linnodes == mesh->nodes) return;
+
+
+  // Copy linear nodes
+  node_t *linnode = new node_t[linnodes];
+  for(int i=0;i<mesh->nodes;i++) {
+    int j = activenodes[i];
+    if(j > -1) {   
+      linnode[j].x[0] = mesh->node[i].x[0];  
+      linnode[j].x[1] = mesh->node[i].x[1];  
+      linnode[j].x[2] = mesh->node[i].x[2];
+    }
+  }
+  delete [] mesh->node;
+  mesh->node = linnode;
+  mesh->nodes = linnodes;
+
+
+  int tmpnode[8];
+
+  for(int i=0; i < mesh->elements + mesh->surfaces + mesh->edges; i++) {
+    
+    element_t *e;
+    if(i < mesh->elements) 
+      e = &mesh->element[i];
+    else if (i < mesh->elements + mesh->surfaces) 
+      e = &mesh->surface[i - mesh->elements];
+    else 
+      e = &mesh->edge[i - mesh->elements - mesh->surfaces];
+
+    int family = e->code / 100;
+    int linnodes = familylinnodes[family];
+
+    for(int j=0;j<linnodes;j++)
+      tmpnode[j] = e->node[j];
+
+    delete e->node;
+    e->code = 100*family + linnodes;
+    e->nodes = linnodes;
+    e->node = new int[e->nodes];
+
+    for(int j=0;j<linnodes;j++)
+      e->node[j] = activenodes[tmpnode[j]];
+  }
+}
+
