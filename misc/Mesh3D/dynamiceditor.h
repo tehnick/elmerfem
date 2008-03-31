@@ -30,10 +30,12 @@ public:
   QPushButton *spareButton;
   QPushButton *discardButton;
 
+  QAction *menuAction;  // action for menu item
+  int ID;               // id in propertyarray
+
   bool touched;
-
-
 signals:
+  void dynamicEditorReady(int, int);
 
 private slots:
   void applyButtonClicked();

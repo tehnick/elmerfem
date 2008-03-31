@@ -10,6 +10,11 @@ DynamicEditor::DynamicEditor(QWidget *parent)
   addIcon = QIcon(":/icons/list-add.png");
   removeIcon = QIcon(":/icons/list-remove.png");
   setWindowFlags(Qt::Window);
+
+  touched = false;
+
+  menuAction = NULL;
+  ID = -1;
 }
 
 //----------------------------------------------------------------------------
@@ -30,6 +35,8 @@ QHash<QString, hash_entry_t>  hash;
 //----------------------------------------------------------------------------
 void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
 {
+  this->ID = ID;
+
   // Get root element of elmerDefs:
   //-------------------------------
   root = elmerDefs.documentElement();
@@ -265,17 +272,31 @@ QSize DynamicEditor::sizeHint() const
 //----------------------------------------------------------------------------
 void DynamicEditor::applyButtonClicked()
 {
+#define MAT_OK     0
+#define MAT_DELETE 1
+
   cout << "Dynamic editor: Add-button clicked" << endl;
   cout.flush();
+
   touched = true;
+
+  emit(dynamicEditorReady(MAT_OK, ID));
+
   close();
 }
 
 //----------------------------------------------------------------------------
 void DynamicEditor::discardButtonClicked()
 {
+#define MAT_OK     0
+#define MAT_DELETE 1
+
   cout << "Dynamic editor: Remove-button clicked" << endl;
   cout.flush();
+
   touched = false;
+
+  emit(dynamicEditorReady(MAT_DELETE, ID));
+
   close();
 }

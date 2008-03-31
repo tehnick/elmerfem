@@ -105,7 +105,7 @@ MainWindow::MainWindow()
   post = new QProcess(this);
   generalSetup = new GeneralSetup;
   pdePropertyEditor = new PDEPropertyEditor[MAX_EQUATIONS];
-  matPropertyEditor = new MATPropertyEditor[MAX_MATERIALS];
+  matPropertyEditor = new DynamicEditor[MAX_MATERIALS];
   bcPropertyEditor = new BCPropertyEditor[MAX_BCS];
   bodyPropertyEditor = new BodyPropertyEditor[MAX_BODIES];
   summaryEditor = new SummaryEditor;
@@ -1650,7 +1650,8 @@ void MainWindow::addMaterialSlot()
   // use the first free slot in matPropertyEditor array:
   int current = 0;
   bool found = false;
-  MATPropertyEditor *pe = NULL;
+
+  DynamicEditor *pe = NULL;
   for(int i = 0; i < MAX_MATERIALS; i++) {
     pe = &matPropertyEditor[i];
     if(pe->menuAction == NULL) {
@@ -1664,18 +1665,16 @@ void MainWindow::addMaterialSlot()
     logMessage("Material max limit reached - unable to add material");
     return;
   }
+  
+  pe->setupTabs(*elmerDefs, "Material", current );
+  pe->applyButton->setText("Add");
+  pe->applyButton->setIcon(QIcon(":/icons/list-add.png"));
+  pe->discardButton->setText("Cancel");
+  pe->discardButton->setIcon(QIcon(":/icons/dialog-close.png"));
+  pe->show();
 
-  pe->setWindowTitle("Edit material");
-  QString qs = "Material " + QString::number(current+1);
-  pe->ui.materialNameEdit->setText(qs);
-  pe->defaultSettings();
-  pe->ui.acceptEquation->setText("Add");
-  pe->ui.deleteEquation->setText("Cancel");
-  pe->ui.acceptEquation->setIcon(QIcon(":/icons/list-add.png"));
-  pe->ui.deleteEquation->setIcon(QIcon(":/icons/dialog-close.png"));
-  connect(pe, SIGNAL(signalMatEditorFinished(int,int)),
-	  this, SLOT(matEditorFinishedSlot(int,int))) ;
-  pe->startEdit(current);
+  connect(pe, SIGNAL(dynamicEditorReady(int,int)),
+	  this, SLOT(matEditorFinishedSlot(int,int)));
 }
 
 
@@ -1686,11 +1685,12 @@ void MainWindow::matEditorFinishedSlot(int signal, int id)
 #define MAT_OK     0
 #define MAT_DELETE 1
 
-  MATPropertyEditor *pe = &matPropertyEditor[id];
-  const QString &materialName = pe->ui.materialNameEdit->text();
+  DynamicEditor *pe = &matPropertyEditor[id];
   
+  const QString &materialName = pe->nameEdit->text().trimmed();
+
   if((materialName == "") && (signal == MAT_OK)) {
-    logMessage("Refusing to add material with no name");
+    logMessage("Refusing to add/update material with no name");
     return;
   }
   
@@ -1698,6 +1698,7 @@ void MainWindow::matEditorFinishedSlot(int signal, int id)
     
     // Material already exists:
     if(pe->menuAction != NULL) {
+      pe->menuAction->setText(materialName);
       logMessage("Material updated");
       pe->close();
       return;
@@ -1735,16 +1736,20 @@ void MainWindow::materialSelectedSlot(QAction* act)
 {
   // Edit the selected material:
   for(int i = 0; i < MAX_MATERIALS; i++) {
-    MATPropertyEditor *pe = &matPropertyEditor[i];
+    DynamicEditor *pe = &matPropertyEditor[i];
     if(pe->menuAction == act) {
-      pe->ui.acceptEquation->setText("Update");
-      pe->ui.deleteEquation->setText("Remove");
-      pe->ui.acceptEquation->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
-      pe->ui.deleteEquation->setIcon(QIcon(":/icons/list-remove.png"));
+      pe->applyButton->setText("Update");
+      pe->discardButton->setText("Remove");
+      pe->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
+      pe->discardButton->setIcon(QIcon(":/icons/list-remove.png"));
       pe->show();
     }
   }
 }
+
+
+
+
 
 
 // Model -> Set body properties
@@ -3000,7 +3005,7 @@ void MainWindow::generateSifSlot()
   sifGenerator->generalSetup = generalSetup;
   sifGenerator->te = sifWindow->textEdit;
   sifGenerator->pdePropertyEditor = pdePropertyEditor;
-  sifGenerator->matPropertyEditor = matPropertyEditor;
+  // TODO ????? sifGenerator->matPropertyEditor = matPropertyEditor;
   sifGenerator->bodyPropertyEditor = bodyPropertyEditor;
   sifGenerator->bcPropertyEditor = bcPropertyEditor;
   sifGenerator->meshControl = meshControl;
@@ -3120,9 +3125,9 @@ void MainWindow::boundarySelectedSlot(list_t *l)
       
       count = 1;
       for(int i = 0; i<MAX_MATERIALS; i++) {
-	MATPropertyEditor *matEdit = &matPropertyEditor[i];
+	DynamicEditor *matEdit = &matPropertyEditor[i];
 	if(matEdit->menuAction != NULL) {
-	  const QString &name = matEdit->ui.materialNameEdit->text();
+	  const QString &name = matEdit->nameEdit->text().trimmed();
 	  bodyEdit->ui.materialCombo->insertItem(count++, name);
 	}
       }

@@ -167,7 +167,7 @@ private:
   // property editors etc.:
   GeneralSetup *generalSetup;
   PDEPropertyEditor *pdePropertyEditor;
-  MATPropertyEditor *matPropertyEditor;
+  DynamicEditor *matPropertyEditor;
   BCPropertyEditor *bcPropertyEditor;
   BodyPropertyEditor *bodyPropertyEditor;
   SummaryEditor *summaryEditor;
