@@ -125,11 +125,12 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
           h.widget->setWhatsThis(whatis);
           h.widget->setStatusTip(statusTip);
 
-          QString q = "/"+name.text().trimmed()+"/"+Section+"/"+labelName+QString::number(ID);
+          QString q = "/"+name.text().trimmed()+"/"+Section+"/"+labelName+"/"+QString::number(ID);
           h.widget->setProperty( "dom address",q);
           h.elem=param;
           hash[q] = h;
 
+           h.widget->setFixedHeight(20);
           if ( widget_type != "Label" ) {
             QLabel *label = new QLabel;
             label->setText(labelName);
@@ -150,7 +151,9 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
     frm->setLayout(grid);
  
    // add frame to tab
-    tabWidget->addTab(frm, name.text().trimmed());
+   if (params>0) {
+     tabWidget->addTab(frm, name.text().trimmed());
+   }
 
     tabs++;
     element = element.nextSiblingElement();
