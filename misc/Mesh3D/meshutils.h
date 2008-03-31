@@ -23,5 +23,7 @@ class Meshutils
   int divideEdgeBySharpPoints(mesh_t*);
   int divideSurfaceBySharpEdges(mesh_t*);
   void sort_index(int n, double *a, int *b);
+  void increaseElementOrder(mesh_t*);
+  void decreaseElementOrder(mesh_t*);
 };
 #endif // #ifndef MESHUTILS_H

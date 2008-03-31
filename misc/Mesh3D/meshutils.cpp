@@ -2021,10 +2021,7 @@ void Meshutils::decreaseElementOrder(mesh_t *mesh)
 
   int linnodes = 0;
   for(int i=0;i<mesh->nodes;i++)
-    if(activenodes[i] > -1) {
-      activenodes[i] = linnodes;
-      linnodes++;
-    }
+    if(activenodes[i] > -1) activenodes[i] = linnodes++;
 
   cout << "Setting " << linnodes << " linear nodes of the total " << mesh->nodes << " nodes" << endl;
   if(linnodes == mesh->nodes) return;
