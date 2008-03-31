@@ -18,6 +18,7 @@
          </Parameter>
       </Solver>
    </ALL>
+
    <PDE Name="General" >
       <Name>General</Name>
       <Equation>
@@ -51,30 +52,36 @@
             <StatusTip> Convection velocity </StatusTip>
          </Parameter>
       </Equation>
+
       <Material>
          <Parameter Widget="Label" >
             <Name> Properties </Name>
          </Parameter>
+
          <Parameter Widget="Edit" >
             <Name> Density </Name>
             <Whatis>Density value may be entered here. Some models, like the ideal gas model compute density internally. In such case this value may not be necessery.</Whatis>
             <StatusTip>Give value to density.</StatusTip>
          </Parameter>
+
          <Parameter Widget="Edit" >
             <Name> Heat Capacity </Name>
             <Whatis>Specific heat capacity value may be entered here.</Whatis>
             <StatusTip> Set value to specific heat capacity </StatusTip>
          </Parameter>
+
          <Parameter Widget="Edit" >
             <Name> Reference Temperature </Name>
             <Whatis> Reference temperature value for various situations.</Whatis>
             <StatusTip> Set value to reference temperature.</StatusTip>
          </Parameter>
+
          <Parameter Widget="Edit" >
             <Name> Reference Pressure </Name>
             <Whatis> Reference pressure for compressible flow computations.</Whatis>
             <StatusTip> Set value to reference pressure.</StatusTip>
          </Parameter>
+
          <Parameter Widget="Edit" >
             <Name> Heat expansion Coeff.</Name>
             <SifName> Heat expansion Coefficient</SifName>
@@ -92,26 +99,68 @@
          </Procedure>
          <Variable Widget="Edit" > Temperature </Variable>
       </Solver>
+
       <Material>
          <Parameter Widget="Edit" >
             <Name> Heat Conductivity </Name>
-            <SifName> Heat Conductivity </SifName>
-            <DefaultValue> 1 </DefaultValue>>
-         <Whatis>Give value to heat conductivity material property.</Whatis>
             <StatusTip> Set value to heat conductivity. </StatusTip>
-         </Parameter>
-         <Parameter Widget="CheckBox" >
-            <Name> some name </Name>>
-         <DefaultValue> true </DefaultValue>>
-         <Activate>/Heat Equation/Material/Heat Conductivity</Activate>
-            <Whatis> This is a longer text to describe why you should set value to this parameter what ever it is...</Whatis>
-            <StatusTip> switch on "some name". </StatusTip>
+            <Whatis>Give value to heat conductivity material property.</Whatis>
          </Parameter>
       </Material>
+
+      <BoundaryCondition>
+         <Parameter  Widget="Edit">
+           <Name> Temperature </Name>
+           <Whatis> Give temperature value for this boundary. </Whatis>
+           <StatusTip> Give temperature value for this boundary. </StatusTip>
+         </Parameter>
+
+         <Parameter  Widget="Edit">
+           <Name> Heat Flux </Name>
+           <Whatis> Give heat flux. </Whatis>
+           <StatusTip> Give heat flux. </StatusTip>
+         </Parameter>
+
+         <Parameter  Widget="Edit">
+           <Name> Heat Transfer Coeff. </Name>
+           <SifName> Heat Transfer Coefficient </SifName>
+           <Whatis> Give transfer coefficient. </Whatis>
+           <StatusTip> Give heat transfer flux. </StatusTip>
+         </Parameter>
+
+         <Parameter  Widget="Edit">
+           <Name> External Temperature </Name>
+           <Whatis> Give external temprature. </Whatis>
+           <StatusTip> Give external temperature. </StatusTip>
+         </Parameter>
+
+         <Parameter Widget="Label" > Radiation Settings </Parameter>
+
+         <Parameter Widget="Combo" >
+            <Type> String </Type>
+            <Name> Radiation </Name>
+            <Item Type="Active" > None </Item>
+            <Item> Idealized </Item>
+            <Item> Diffuse Gray </Item>
+         </Parameter>
+
+         <Parameter  Widget="Edit">
+           <Name> Radiation Target Body </Name>
+           <Type> Integer </Type>
+           <Whatis> Normal points to this 'body' direction. </Whatis>
+           <StatusTip> Normal points to this 'body' direction. </StatusTip>
+         </Parameter>
+
+         <Parameter  Widget="CheckBox">
+           <Name> Radiation Boundary Open </Name>
+           <Type> Logical </Type>
+           <Whatis> Account for missing space angle to have a full closure. </Whatis>
+           <StatusTip> Account for missing space angle to have a full closure. </StatusTip>
+         </Parameter>
+      </BoundaryCondition>
    </PDE>
    <PDE Name="Linear Elasticity" >
       <Name>Linear elasticity</Name>
-      <Active Widget="bool" > False </Active>
       <Solver>
          <Procedure Widget="File" >
             <FileName Widget="String" > StressSolve </FileName>
@@ -119,6 +168,7 @@
          </Procedure>
          <Parameter Widget="Real Vector(cdim)" > Displacement </Parameter>
       </Solver>
+
       <Material>
          <Parameter Widget="Edit" >
             <Name>Youngs modulus</Name>
