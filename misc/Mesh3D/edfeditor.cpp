@@ -188,6 +188,11 @@ void EdfEditor::setupEditor(QDomDocument &elmerDefs)
   connect(edfTree, SIGNAL(itemChanged(QTreeWidgetItem*, int)),
 	  this, SLOT(updateElement(QTreeWidgetItem*, int)));
 
+  edfTree->expandAll();
+  expandCollapseAllButton->setText("Collapse all");
+  expandCollapseAllButton->setIcon(collapseIcon);
+  expandCollapseAll = false;
+
   edfTree->setCurrentItem(NULL);
 }
 
@@ -456,7 +461,6 @@ void EdfEditor::appendButtonClicked()
       return;      
     }
   }
-
 
   // add new elements to the document
   QDomElement root = elmerDefs->documentElement();
