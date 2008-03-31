@@ -15,7 +15,7 @@ public:
   BCPropertyEditor(QWidget *parent = 0);
   ~BCPropertyEditor();
 
-//  Ui::bcPropertyDialog ui;
+  Ui::bcPropertyDialog ui;
   DynamicEditor *bcPropertyDialog;
 
   bool touched;
