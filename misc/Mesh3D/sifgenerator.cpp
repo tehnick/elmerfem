@@ -333,11 +333,13 @@ void SifGenerator::makeSolverBlocks()
 //-----------------------------------------------------------------------------
 void SifGenerator::makeMaterialBlocks()
 {
-  for(int material = 0; material < MAX_MATERIALS; material++) {
-    DynamicEditor *matEditor = &matPropertyEditor[material];
+  int sifIndex = 0;
+
+  for(int index = 0; index < MAX_MATERIALS; index++) {
+    DynamicEditor *matEditor = &matPropertyEditor[index];
     
     if(matEditor->menuAction != NULL) {      
-      te->append("Material " + QString::number(material+1));
+      te->append("Material " + QString::number(++sifIndex));
       
       QString name = matEditor->nameEdit->text().trimmed();
       addLineEdit("  Name = ", name);
