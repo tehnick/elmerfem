@@ -218,6 +218,47 @@ void DynamicEditor::editSlot()
 {
   QLineEdit *q = (QLineEdit *)QObject::sender();
   cout << string(q->text().toAscii()) << endl;
+
+  QTextEdit *textEdit = new QTextEdit;
+
+  QString s = q->text();
+  s.replace( ';', '\n' );
+
+  textEdit->append( s);
+  textEdit->setLineWrapMode(QTextEdit::NoWrap);
+
+  QPushButton *closeButton;
+
+  closeButton = new QPushButton(tr("&Close"));
+  connect(closeButton, SIGNAL(clicked()), this, SLOT(lineEditClose()));
+  closeButton->setProperty("line name", (unsigned long long)q );
+  closeButton->setProperty("text name", (unsigned long long)textEdit );
+  
+  QVBoxLayout *layout = new QVBoxLayout;
+  layout->addWidget(textEdit);
+  layout->addWidget(closeButton);
+
+  QFrame *frm = new QFrame;
+  frm->setLayout(layout);
+
+  frm->show();
+}
+
+//----------------------------------------------------------------------------
+void DynamicEditor::lineEditClose()
+{
+  QTextEdit *t = (QTextEdit *)(QObject::sender())->
+         property("text name").toULongLong();
+
+  QLineEdit *l = (QLineEdit *)(QObject::sender())->
+         property("line name").toULongLong();
+
+  QString q = t->toPlainText();
+  q.replace( '\n', ';' );
+
+  l->setText(q);
+
+  ((QFrame *)t->parent())->close();
 }
 
 //----------------------------------------------------------------------------

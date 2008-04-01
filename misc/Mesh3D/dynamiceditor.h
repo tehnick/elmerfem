@@ -54,6 +54,7 @@ private slots:
   void lSlot(int);
   void comboSlot(QString);
   void editSlot();
+  void lineEditClose();
 
 private:
   hash_entry_t h;
