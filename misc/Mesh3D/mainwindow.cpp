@@ -3355,7 +3355,7 @@ void MainWindow::loadDefinitions()
   //-------------------------------
   QString generalDefs = "edf/edf.xml";
 
-  cout << "Loading: " << string(generalDefs.toAscii()) << endl;
+  cout << "Load " << string(generalDefs.toAscii()) << "...";
   cout.flush();
 
   QFile file(generalDefs);
@@ -3395,6 +3395,9 @@ void MainWindow::loadDefinitions()
 
   edfEditor->setupEditor(*elmerDefs);
 
+  cout << "done" << endl;
+  cout.flush();
+
   // load additional definitions:
   //-----------------------------
   QDirIterator iterator("edf", QDirIterator::Subdirectories);
@@ -3406,7 +3409,7 @@ void MainWindow::loadDefinitions()
 
     if((fileSuffix == "xml") && (fileName != generalDefs)) {
 
-      cout << "Loading: " << string(fileName.toAscii()) << endl;;
+      cout << "Load " << string(fileName.toAscii()) << "...";
       cout.flush();
 
       file.setFileName(fileName);
@@ -3443,7 +3446,9 @@ void MainWindow::loadDefinitions()
       }
       
       edfEditor->setupEditor(*elmerDefs);
-      
+
+      cout << "done" << endl;
+      cout.flush();
     }
   }
 }

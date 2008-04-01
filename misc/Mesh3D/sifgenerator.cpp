@@ -348,9 +348,11 @@ void SifGenerator::makeMaterialBlocks()
 	hash_entry_t entry = matEditor->hash.values().at(i); 
 	
 	QWidget *widget = entry.widget;
-        if ( entry.widget->isEnabled() ) {
-          QDomElement elem = entry.elem;
-	
+
+	QDomElement elem;
+        if ( widget->isEnabled() ) {
+          elem = entry.elem;
+	  
           if(elem.attribute("Widget", "") == "CheckBox") 
 	   handleCheckBox(elem, widget);
 	
@@ -369,7 +371,7 @@ void SifGenerator::makeMaterialBlocks()
 void SifGenerator::handleLineEdit(QDomElement elem, QWidget *widget)
 {
   QString name = elem.firstChildElement("SifName").text().trimmed();
-  if ( name == "" )
+  if( name == "" )
     name= elem.firstChildElement("Name").text().trimmed();
 
   QLineEdit *lineEdit = (QLineEdit*)widget;
@@ -378,10 +380,9 @@ void SifGenerator::handleLineEdit(QDomElement elem, QWidget *widget)
 }
 
 void SifGenerator::handleComboBox(QDomElement elem, QWidget *widget)
-{
-  
+{  
   QString name = elem.firstChildElement("SifName").text().trimmed();
-  if ( name == "" )
+  if( name == "" )
     name= elem.firstChildElement("Name").text().trimmed();
 
   QComboBox *comboBox = (QComboBox*)widget;
@@ -393,10 +394,10 @@ void SifGenerator::handleComboBox(QDomElement elem, QWidget *widget)
 
 void SifGenerator::handleCheckBox(QDomElement elem, QWidget *widget)
 {
-  QString name    = elem.firstChildElement("SifName").text().trimmed();
-  if ( name == "" )
+  QString name = elem.firstChildElement("SifName").text().trimmed();
+  if( name == "" )
     name = elem.firstChildElement("Name").text().trimmed();
-
+  
   QString def_val = elem.firstChildElement("DefaultValue").text().trimmed();
   if ( def_val == "" )
     def_val = "False";
