@@ -3352,10 +3352,14 @@ void MainWindow::synchronizeMenuToState()
 //-----------------------------------------------------------------------------
 void MainWindow::loadDefinitions()
 {
-  cout << "Loading edf: edf.xml" << endl;
+  // load general definitions file:
+  //-------------------------------
+  QString generalDefs = "edf/edf.xml";
+
+  cout << "Loading: " << string(generalDefs.toAscii()) << endl;
   cout.flush();
 
-  QFile file("edf/edf.xml");
+  QFile file(generalDefs);
   
   QString errStr;
   int errRow;
@@ -3364,14 +3368,14 @@ void MainWindow::loadDefinitions()
   if(!file.exists()) {
 
     elmerDefs = NULL;
-    QMessageBox::information(window(), tr("Elmer definitions file"),
+    QMessageBox::information(window(), tr("Edf loader: ") + generalDefs,
 			     tr("Definitions file does not exist"));
     return;
 
   } else {  
 
     if(!elmerDefs->setContent(&file, true, &errStr, &errRow, &errCol)) {
-      QMessageBox::information(window(), tr("Elmer definitions file"),
+      QMessageBox::information(window(), tr("Edf loader: ") + generalDefs,
 			       tr("Parse error at line %1, col %2:\n%3")
 			       .arg(errRow).arg(errCol).arg(errStr));
       file.close();
@@ -3380,7 +3384,7 @@ void MainWindow::loadDefinitions()
     } else {
 
       if(elmerDefs->documentElement().tagName() != "edf") {
-	QMessageBox::information(window(), tr("Elmer definitions file"),
+	QMessageBox::information(window(), tr("Edf loader: ") + generalDefs,
 				 tr("This is not an edf file"));
 	delete elmerDefs;
 	file.close();	
@@ -3392,7 +3396,8 @@ void MainWindow::loadDefinitions()
 
   edfEditor->setupEditor(*elmerDefs);
 
-  // load additional modules:
+  // load additional definitions:
+  //-----------------------------
   QDirIterator iterator("edf", QDirIterator::Subdirectories);
 
   while (iterator.hasNext()) {
@@ -3400,9 +3405,9 @@ void MainWindow::loadDefinitions()
     QFileInfo fileInfo(fileName);
     QString fileSuffix = fileInfo.suffix();
 
-    if((fileSuffix == "xml") && (fileName != "edf/edf.xml")) {
+    if((fileSuffix == "xml") && (fileName != generalDefs)) {
 
-      cout << "Loading edf: " << string(fileName.toAscii()) << endl;;
+      cout << "Loading: " << string(fileName.toAscii()) << endl;;
       cout.flush();
 
       file.setFileName(fileName);
@@ -3411,7 +3416,7 @@ void MainWindow::loadDefinitions()
       tmpDoc.clear();
 
       if(!tmpDoc.setContent(&file, true, &errStr, &errRow, &errCol)) {
-	QMessageBox::information(window(), tr("Edf loader"),
+	QMessageBox::information(window(), tr("Edf loader: ") + fileName,
 				 tr("Parse error at line %1, col %2:\n%3")
 				 .arg(errRow).arg(errCol).arg(errStr));
 	file.close();
@@ -3420,7 +3425,7 @@ void MainWindow::loadDefinitions()
       } else {
 
 	if(tmpDoc.documentElement().tagName() != "edf") {
-	  QMessageBox::information(window(), tr("Edf loader"),
+	  QMessageBox::information(window(), tr("Edf loader: ") + fileName,
 				   tr("This is not an edf file"));
 	  file.close();
 	  return;      
