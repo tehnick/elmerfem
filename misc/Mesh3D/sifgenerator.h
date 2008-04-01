@@ -54,10 +54,9 @@ class SifGenerator  {
   void parseNonlinearSystemTab(Ui::solverParameterEditor);
   void parseLinearSystemTab(Ui::solverParameterEditor);
 
-  void addLineEdit(const QString&, const QString&);
-  void addLineBool(const QString&, bool);
+  void addSifLine(const QString&, const QString&);
+  void addSifLineBool(const QString&, bool);
 
-  // test
   void handleLineEdit(QDomElement, QWidget*);
   void handleComboBox(QDomElement, QWidget*);
   void handleCheckBox(QDomElement, QWidget*);

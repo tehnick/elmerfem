@@ -45,29 +45,29 @@ void SifGenerator::makeSimulationBlock()
 
   te->append("Simulation");
 
-  addLineEdit("  Max Output Level = ", 
+  addSifLine("  Max Output Level = ", 
 	      ui.maxOutputLevelCombo->currentText());
-  addLineEdit("  Coordinate System = ",
+  addSifLine("  Coordinate System = ",
 	      ui.coordinateSystemCombo->currentText());
-  addLineEdit("  Coordinate Mapping(3) = ",
+  addSifLine("  Coordinate Mapping(3) = ",
 	      ui.coordinateMappingEdit->text());
-  addLineEdit("  Simulation Type = ", 
+  addSifLine("  Simulation Type = ", 
 	      ui.simulationTypeCombo->currentText());
-  addLineEdit("  Steady State Max Iterations = ",
+  addSifLine("  Steady State Max Iterations = ",
 	      ui.steadyStateMaxIterEdit->text());
-  addLineEdit("  Output Intervals = ",
+  addSifLine("  Output Intervals = ",
 	      ui.outputIntervalsEdit->text());
-  addLineEdit("  Timestepping Method = ",
+  addSifLine("  Timestepping Method = ",
 	      ui.timesteppingMethodCombo->currentText());
-  addLineEdit("  BDF Order = ",
+  addSifLine("  BDF Order = ",
 	      ui.bdfOrderCombo->currentText());
-  addLineEdit("  Timestepping intervals = ",
+  addSifLine("  Timestepping intervals = ",
 	      ui.timeStepIntervalsEdit->text());
-  addLineEdit("  Timestep Sizes = ",
+  addSifLine("  Timestep Sizes = ",
 	      ui.timestepSizesEdit->text());
-  addLineEdit("  Solver Input File = ", 
+  addSifLine("  Solver Input File = ", 
 	      ui.solverInputFileEdit->text());
-  addLineEdit("  Post File = ", 
+  addSifLine("  Post File = ", 
 	      ui.postFileEdit->text());
 
   te->append("End\n");
@@ -82,11 +82,11 @@ void SifGenerator::makeConstantsBlock()
 
   te->append("Constants");
 
-  addLineEdit("  Gravity(4) = ",
+  addSifLine("  Gravity(4) = ",
 	      ui.gravityEdit->text());
-  addLineEdit("  Stefan Boltzmann = ",
+  addSifLine("  Stefan Boltzmann = ",
 	      ui.stefanBoltzmannEdit->text());
-  addLineEdit("  Permittivity of Vacuum = ",
+  addSifLine("  Permittivity of Vacuum = ",
 	      ui.vacuumPermittivityEdit->text());
 
   te->append("End\n");
@@ -342,11 +342,10 @@ void SifGenerator::makeMaterialBlocks()
       te->append("Material " + QString::number(++sifIndex));
       
       QString name = matEditor->nameEdit->text().trimmed();
-      addLineEdit("  Name = ", name);
+      addSifLine("  Name = ", name);
       
       for(int i = 0; i < matEditor->hash.count(); i++) {
-	QString key = matEditor->hash.keys().at(i);
-	hash_entry_t entry = matEditor->hash[key];
+	hash_entry_t entry = matEditor->hash.values().at(i); 
 	
 	QWidget *widget = entry.widget;
         if ( entry.widget->isEnabled() ) {
@@ -375,7 +374,7 @@ void SifGenerator::handleLineEdit(QDomElement elem, QWidget *widget)
 
   QLineEdit *lineEdit = (QLineEdit*)widget;
   QString value = lineEdit->text().trimmed();
-  addLineEdit("  " + name + " = ", value);
+  addSifLine("  " + name + " = ", value);
 }
 
 void SifGenerator::handleComboBox(QDomElement elem, QWidget *widget)
@@ -387,8 +386,9 @@ void SifGenerator::handleComboBox(QDomElement elem, QWidget *widget)
 
   QComboBox *comboBox = (QComboBox*)widget;
   QString value = comboBox->currentText().trimmed();
+
   if(value != "None")
-    addLineEdit("  " + name + " = ", value);
+    addSifLine("  " + name + " = ", value);
 }
 
 void SifGenerator::handleCheckBox(QDomElement elem, QWidget *widget)
@@ -402,6 +402,7 @@ void SifGenerator::handleCheckBox(QDomElement elem, QWidget *widget)
     def_val = "False";
 
   QCheckBox *checkBox = (QCheckBox*)widget;
+  
   if(checkBox->isChecked()) {
     if ( def_val != "True" )
       te->append("  " + name + " = True");
@@ -463,20 +464,20 @@ void SifGenerator::makeBoundaryBlocks()
       te->append("  Target boundaries(1) = " + QString::number(i));
       
       if(eqEdit->ui.heatEquationActive->isChecked()) {
-	addLineEdit("  Temperature = ", ui.temperatureEdit->text());
-	addLineEdit("  Heat Flux = ", ui.heatFluxEdit->text());
+	addSifLine("  Temperature = ", ui.temperatureEdit->text());
+	addSifLine("  Heat Flux = ", ui.heatFluxEdit->text());
       }
       
       if(eqEdit->ui.linearElasticityActive->isChecked()) {
-	addLineEdit("  Displacement 1 = ", ui.displacement1Edit->text());
-	addLineEdit("  Displacement 2 = ", ui.displacement2Edit->text());
-	addLineEdit("  Displacement 3 = ", ui.displacement3Edit->text());
+	addSifLine("  Displacement 1 = ", ui.displacement1Edit->text());
+	addSifLine("  Displacement 2 = ", ui.displacement2Edit->text());
+	addSifLine("  Displacement 3 = ", ui.displacement3Edit->text());
       }
 
       if(eqEdit->ui.navierStokesActive->isChecked()) {
-	addLineEdit("  Velocity 1 = ", ui.Velocity1Edit->text());
-	addLineEdit("  Velocity 2 = ", ui.Velocity2Edit->text());
-	addLineEdit("  Velocity 3 = ", ui.Velocity3Edit->text());
+	addSifLine("  Velocity 1 = ", ui.Velocity1Edit->text());
+	addSifLine("  Velocity 2 = ", ui.Velocity2Edit->text());
+	addSifLine("  Velocity 3 = ", ui.Velocity3Edit->text());
       }
       
       te->append("End\n");
@@ -521,10 +522,10 @@ void SifGenerator::parseGeneralTab(Ui::solverParameterEditor ui)
   if(ui.execNever->isChecked())
     te->append("  Exec Solver = Never");
   
-  addLineBool("  Stabilize = ", ui.stabilizeCheck->isChecked());
-  addLineBool("  Bubbles = ", ui.bubblesCheck->isChecked());
-  addLineBool("  Lumped Mass Matrix = ", ui.lumpedMassCheck->isChecked());
-  addLineBool("  Optimize Bandwidth = ", ui.optimizeBandwidthCheck->isChecked());
+  addSifLineBool("  Stabilize = ", ui.stabilizeCheck->isChecked());
+  addSifLineBool("  Bubbles = ", ui.bubblesCheck->isChecked());
+  addSifLineBool("  Lumped Mass Matrix = ", ui.lumpedMassCheck->isChecked());
+  addSifLineBool("  Optimize Bandwidth = ", ui.optimizeBandwidthCheck->isChecked());
 }
 
 
@@ -537,7 +538,7 @@ void SifGenerator::parseSteadyStateTab(Ui::solverParameterEditor ui)
     return;
   }
   
-  addLineEdit("  Steady State Convergence Tolerance = ",
+  addSifLine("  Steady State Convergence Tolerance = ",
 	      ui.steadyStateConvergenceToleranceEdit->text());
 }
 
@@ -546,19 +547,19 @@ void SifGenerator::parseSteadyStateTab(Ui::solverParameterEditor ui)
 //-----------------------------------------------------------------------------
 void SifGenerator::parseNonlinearSystemTab(Ui::solverParameterEditor ui)
 {
-  addLineEdit("  Nonlinear System Convergence Tolerance = ",
+  addSifLine("  Nonlinear System Convergence Tolerance = ",
 	      ui.nonlinSystemConvergenceToleranceEdit->text());
   
-  addLineEdit("  Nonlinear System Max Iterations = ", 
+  addSifLine("  Nonlinear System Max Iterations = ", 
 	      ui.nonlinSystemMaxIterationEdit->text());
   
-  addLineEdit("  Nonlinear System Newton After Iterations = ",
+  addSifLine("  Nonlinear System Newton After Iterations = ",
 	      ui.nonlinSystemNewtonAfterIterEdit->text());
   
-  addLineEdit("  Nonlinear System Newton After Tolerance = ", 
+  addSifLine("  Nonlinear System Newton After Tolerance = ", 
 	      ui.nonlinSystemNewtonAfterTolEdit->text());
   
-  addLineEdit("  Nonlinear System Relaxation Factor = ", 
+  addSifLine("  Nonlinear System Relaxation Factor = ", 
 	      ui.nonlinSystemRelaxationFactorEdit->text());
 }
 
@@ -569,55 +570,55 @@ void SifGenerator::parseLinearSystemTab(Ui::solverParameterEditor ui)
 {
   if(ui.linearSystemSolverDirect->isChecked()) {
     
-    addLineEdit("  Linear System Solver = ", "Direct");
+    addSifLine("  Linear System Solver = ", "Direct");
     
-    addLineEdit("  Linear System Direct Method = ",
+    addSifLine("  Linear System Direct Method = ",
 		ui.linearSystemDirectMethod->currentText());
     
   } else if(ui.linearSystemSolverIterative->isChecked()) {
     
-    addLineEdit("  Linear System Solver = ", "Iterative");
+    addSifLine("  Linear System Solver = ", "Iterative");
     
-    addLineEdit("  Linear System Iterative Method = ",
+    addSifLine("  Linear System Iterative Method = ",
 		ui.linearSystemIterativeMethod->currentText());
     
-    addLineEdit("  Linear System Max Iterations = ", 
+    addSifLine("  Linear System Max Iterations = ", 
 		ui.linearSystemMaxIterationsEdit->text());
     
-    addLineEdit("  Linear System Convergence Tolerance = ",
+    addSifLine("  Linear System Convergence Tolerance = ",
 		ui.linearSystemConvergenceToleranceEdit->text());
     
-    addLineEdit("  Linear System Preconditioning = ",
+    addSifLine("  Linear System Preconditioning = ",
 		ui.linearSystemPreconditioning->currentText());
     
-    addLineEdit("  Linear System ILUT Tolerance = ",
+    addSifLine("  Linear System ILUT Tolerance = ",
 		ui.linearSystemILUTToleranceEdit->text());
     
-    addLineBool("  Linear System Abort Not Converged = ",
+    addSifLineBool("  Linear System Abort Not Converged = ",
 		ui.linearSystemAbortWhenNotConvergedCheck->isChecked());
     
-    addLineEdit("  Linear System Residual Output = ",
+    addSifLine("  Linear System Residual Output = ",
 		ui.linearSystemResiduaOutputEdit->text());
     
-    addLineEdit("  Linear System Precondition Recompute = ",
+    addSifLine("  Linear System Precondition Recompute = ",
 		ui.linearSystemPreconditionRecomputeEdit->text());
     
   } else if(ui.linearSystemSolverMultigrid->isChecked()) {
     
-    addLineEdit("  Linear System Solver = ", "Multigrid");
+    addSifLine("  Linear System Solver = ", "Multigrid");
     
     // TODO: rest
   }
 }
 
 
-void SifGenerator::addLineEdit(const QString &var, const QString &val)
+void SifGenerator::addSifLine(const QString &var, const QString &val)
 {
   if(val != "")
     te->append(var + val);
 }
 
-void SifGenerator::addLineBool(const QString &var, bool val)
+void SifGenerator::addSifLineBool(const QString &var, bool val)
 {
   if(val == true)
     te->append(var + "True");
