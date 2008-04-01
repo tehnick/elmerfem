@@ -293,6 +293,7 @@
 !----------------------------------------------------------------------------------------
 !     Non-linear iteration starts here
 !----------------------------------------------------------------------------------------
+
       CALL SolveNonLinear()
 
       DisplMax = 0.0d0
@@ -312,10 +313,10 @@
     SUBROUTINE SolveNonLinear
 !------------------------------------------------------------------------------
      DO NonLinIter = 1,NonLinMaxIt
-       PRINT *,'********************************************************'
-       PRINT *,'Newton iter',nonliniter
-       PRINT *,'********************************************************'
-	CALL FLUSH
+       CALL Info('ShellSolver','********************************************************')
+       WRITE( Message,'(A,I4)') 'Newton iteration',nonliniter
+       CALL Info('ShellSolver',Message)
+       CALL Info('ShellSolver','********************************************************')
 
        IF ( StabilityAnalysis ) THEN
          SELECT CASE( NonLinIter )
@@ -345,8 +346,8 @@
      CALL SetDirichletBCs()
 
      at = CPUTime() - at
-     PRINT *,'Assembly (s): ',at
-	CALL FLUSH
+     WRITE(Message,'(a,F8.2)') ' Assembly: (s)', at
+     CALL Info('ShellSolve',Message)
 
 !    Solve the system and we are done:
 !    ---------------------------------
@@ -355,10 +356,10 @@
      PrevNorm = Norm
      PrevUNorm = Unorm
 
-
 !    First iterate is a special case, solving for Lamda=1:
 !    -----------------------------------------------------
      Norm = DefaultSolve()
+
 
      Unorm = 0.0d0
      DO i = 1, Solver % Mesh % NumberOfNodes
@@ -384,9 +385,13 @@
        ABS(UNorm - PrevUnorm)/ABS(UNorm + PrevUNorm)
 
      st = CPUTime() - st
-     PRINT *,'Solve (s):    ',st
-     PRINT *,'Relative change =',RelChange, RelUChange
-	CALL FLUSH
+
+
+     WRITE(Message,'(a,F8.2)') 'Solve: (s)', st
+     CALL Info('ShellSolve',Message)
+
+     WRITE(Message,'(a,2F8.3)') 'Relative Change = ',RelChange, RelUChange 
+     CALL Info('ShellSolve',Message)
 
      IF( RelChange < NonlinConvTol ) THEN
        StressComputation = GetLogical( SolverParams, 'Stress Computation', GotIt )
@@ -395,9 +400,8 @@
      END IF
 
      IF( StressComputation .AND. Solver % NOFEigenValues <= 0  ) THEN
-        PRINT *,'Entering stress calculation routines...'
-	CALL FLUSH
-        CALL CalculateStresses()
+      CALL Info('ShellSolve','Entering stress calculation routines...')
+      CALL CalculateStresses()
      END IF ! If Stress Calculation
 
      IF( RelChange < NonlinConvTol ) EXIT
@@ -566,8 +570,9 @@
 
      IF ( nPL > 0 ) THEN
        
-       PRINT *,'INFO: ShellSolver: Point loads set at', nPL, 'nodes'
-	CALL FLUSH
+       WRITE( Message,'(A,I9)' ) 'Number of point loads set',nPL
+       CALL Info('ShellSolve',Message)
+
        DO iPL = 1, nPL
           xp = PointLoad(iPL, 1)
           yp = PointLoad(iPL, 2)
@@ -859,8 +864,9 @@
         END DO
 
         at = CPUTime() - at
-        PRINT *,'Stress calculation (s): ',at
-	CALL FLUSH
+
+        WRITE(Message,'(a,F8.2)') ' Stress calculation: (s)', at
+        CALL Info('ShellSolver',Message)
 
 !       Finally, release the auxiliary arrays:
 !       -------------------------------------- 
@@ -2078,10 +2084,9 @@
              l14 = SQRT(x14**2 + y14**2)
              h = MAX(l21,l32,l43,l14)
              Kappa = (Thickness**2)/(Thickness**2 + alpha*(h**2))
-          CASE DEFAULT
-             PRINT *,'ERROR: Illegal number of nodes for Smitc elements.'
-	CALL FLUSH
-          END SELECT
+           CASE DEFAULT
+             CALL Fatal('ShellSolver','Illegal number of nodes for Smitc elements')
+           END SELECT
 !------------------------------------------------------------------------------
      END SUBROUTINE ShearCorrectionFactor
 !------------------------------------------------------------------------------
@@ -2305,8 +2310,7 @@
           ShearStrain(1:2,1:24) = MATMUL(invJ,ShearRef(1:2,1:24))
 
        CASE DEFAULT
-          PRINT *,'ERROR: Illegal number of nodes for Smitc elements.'
-	CALL FLUSH
+         CALL Fatal('ShellSolver','Illegal number of nodes for Smitc elements.')
        END SELECT
 !------------------------------------------------------------------------------
      END SUBROUTINE CovariantInterpolation
