@@ -33,7 +33,7 @@ class SifGenerator  {
   PDEPropertyEditor *pdePropertyEditor;
   DynamicEditor *matPropertyEditor;
   BodyPropertyEditor *bodyPropertyEditor;
-  BCPropertyEditor *bcPropertyEditor;
+  DynamicEditor *bcPropertyEditor;
   MeshControl *meshControl;
   int cdim;
 

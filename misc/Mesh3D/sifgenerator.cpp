@@ -454,6 +454,7 @@ void SifGenerator::makeBoundaryBlocks()
   int j = 0;
 
   // TODO: replace MAX_BCS with an actual value
+#if 0
   for(int i = 0; i < MAX_BCS; i++) {
     BCPropertyEditor *bcEdit = &bcPropertyEditor[i];
     Ui::bcPropertyDialog ui = bcEdit->ui;
@@ -483,6 +484,7 @@ void SifGenerator::makeBoundaryBlocks()
       te->append("End\n");
     }
   }  
+#endif
 }
 
 

@@ -106,7 +106,7 @@ MainWindow::MainWindow()
   generalSetup = new GeneralSetup;
   pdePropertyEditor = new PDEPropertyEditor[MAX_EQUATIONS];
   matPropertyEditor = new DynamicEditor[MAX_MATERIALS];
-  bcPropertyEditor = new BCPropertyEditor[MAX_BCS];
+  bcPropertyEditor = new DynamicEditor[MAX_BCS];
   bodyPropertyEditor = new BodyPropertyEditor[MAX_BODIES];
   summaryEditor = new SummaryEditor;
   sifGenerator = new SifGenerator;
@@ -1831,8 +1831,7 @@ void MainWindow::modelSummarySlot()
   // Check boundary conditions:
   count = 0;
   for(int i = 0; i < MAX_BCS; i++) {
-    if(bcPropertyEditor[i].bcPropertyDialog && 
-       bcPropertyEditor[i].bcPropertyDialog->touched) count++;
+    if( bcPropertyEditor[i].touched) count++;
   }
   te->append("Boundary conditions: " + QString::number(count));
 
@@ -1940,8 +1939,7 @@ void MainWindow::modelSummarySlot()
       count++;
       QString qs = "Boundary " + QString::number(i) + ": " 
 	+ QString::number(tmp[i]) + " surface elements";
-      if(bcPropertyEditor[i].bcPropertyDialog && 
-         bcPropertyEditor[i].bcPropertyDialog->touched) qs.append(" (BC set)");
+      if(bcPropertyEditor[i].touched) qs.append(" (BC set)");
       te->append(qs);
     }
   }
@@ -2011,8 +2009,7 @@ void MainWindow::modelSummarySlot()
       count++;
       QString qs = "Boundary " + QString::number(i) + ": " 
 	+ QString::number(tmp[i]) + " edge elements";
-      if(bcPropertyEditor[i].bcPropertyDialog && 
-          bcPropertyEditor[i].bcPropertyDialog->touched) qs.append(" (BC set)");
+      if( bcPropertyEditor[i].touched) qs.append(" (BC set)");
       te->append(qs);
     }
   }
@@ -3039,27 +3036,26 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     if(l->index >= MAX_BCS) {
       logMessage("Error: index exceeds MAX_BCS (increase it and recompile)");
     } else {
-      BCPropertyEditor *bcEdit = &bcPropertyEditor[l->index];
+      DynamicEditor *bcEdit = &bcPropertyEditor[l->index];
 
-      if ( !bcEdit->bcPropertyDialog) {
-        bcEdit->bcPropertyDialog = new DynamicEditor;
-        bcEdit->bcPropertyDialog->setupTabs(*elmerDefs, "BoundaryCondition",l->index );
+      if ( bcEdit->ID == -1 ) {
+        bcEdit->setupTabs(*elmerDefs, "BoundaryCondition",l->index );
      }
 
-      if(bcEdit->bcPropertyDialog->touched) {
-    	bcEdit->bcPropertyDialog->applyButton->setText("Update");
-    	bcEdit->bcPropertyDialog->discardButton->setText("Remove");
-    	bcEdit->bcPropertyDialog->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
-    	bcEdit->bcPropertyDialog->discardButton->setIcon(QIcon(":/icons/list-remove.png"));
+      if(bcEdit->touched) {
+    	bcEdit->applyButton->setText("Update");
+    	bcEdit->discardButton->setText("Remove");
+    	bcEdit->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
+    	bcEdit->discardButton->setIcon(QIcon(":/icons/list-remove.png"));
       } else {
-    	bcEdit->bcPropertyDialog->applyButton->setText("Add");
-    	bcEdit->bcPropertyDialog->discardButton->setText("Cancel");
-    	bcEdit->bcPropertyDialog->applyButton->setIcon(QIcon(":/icons/list-add.png"));
-    	bcEdit->bcPropertyDialog->discardButton->setIcon(QIcon(":/icons/dialog-close.png"));
+    	bcEdit->applyButton->setText("Add");
+    	bcEdit->discardButton->setText("Cancel");
+    	bcEdit->applyButton->setIcon(QIcon(":/icons/list-add.png"));
+    	bcEdit->discardButton->setIcon(QIcon(":/icons/dialog-close.png"));
       }
-      bcEdit->bcPropertyDialog->setWindowTitle("Boundary "+QString::number(l->index) );
-      bcEdit->bcPropertyDialog->raise();
-      bcEdit->bcPropertyDialog->show();
+      bcEdit->setWindowTitle("Boundary "+QString::number(l->index) );
+      bcEdit->raise();
+      bcEdit->show();
     }
   }
 

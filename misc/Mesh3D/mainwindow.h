@@ -168,7 +168,7 @@ private:
   GeneralSetup *generalSetup;
   PDEPropertyEditor *pdePropertyEditor;
   DynamicEditor *matPropertyEditor;
-  BCPropertyEditor *bcPropertyEditor;
+  DynamicEditor *bcPropertyEditor;
   BodyPropertyEditor *bodyPropertyEditor;
   SummaryEditor *summaryEditor;
 
