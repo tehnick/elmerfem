@@ -218,6 +218,7 @@ private:
   void makeElmerMeshFromNglib();
   void logMessage(QString);
   void synchronizeMenuToState();
+  void loadDefinitions();
 
   // state variables
   int activeGenerator;

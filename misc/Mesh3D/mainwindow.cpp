@@ -174,40 +174,8 @@ MainWindow::MainWindow()
   sifWindow->textEdit->setCurrentFont(sansFont);
   solverLogWindow->textEdit->setCurrentFont(sansFont);
 
-  // read in elmer definitions file:
-  QFile file("edf.xml");
-
-  if(!file.exists()) {
-
-    elmerDefs = NULL;
-    QMessageBox::information(window(), tr("Elmer definitions file"),
-			     tr("Definitions file does not exist"));
-
-  } else {  
-
-    QString errStr;
-    int errRow;
-    int errCol;
-    
-    if(!elmerDefs->setContent(&file, true, &errStr, &errRow, &errCol)) {
-      QMessageBox::information(window(), tr("Elmer definitions file"),
-			       tr("Parse error at line %1, col %2:\n%3")
-			       .arg(errRow).arg(errCol).arg(errStr));
-      file.close();
-      
-    } else {
-      
-      if(elmerDefs->documentElement().tagName() != "edf") {
-	QMessageBox::information(window(), tr("Elmer definitions file"),
-				 tr("This is not an edf file"));
-	delete elmerDefs;
-	file.close();
-	
-      }
-    }
-  }
-
-  edfEditor->setupEditor(*elmerDefs);
+  // load definition files:
+  loadDefinitions();
 
   // initialization ready:
   synchronizeMenuToState();
@@ -1667,6 +1635,7 @@ void MainWindow::addMaterialSlot()
   }
   
   pe->setupTabs(*elmerDefs, "Material", current );
+
   pe->applyButton->setText("Add");
   pe->applyButton->setIcon(QIcon(":/icons/list-add.png"));
   pe->discardButton->setText("Cancel");
@@ -1739,8 +1708,8 @@ void MainWindow::materialSelectedSlot(QAction* act)
     DynamicEditor *pe = &matPropertyEditor[i];
     if(pe->menuAction == act) {
       pe->applyButton->setText("Update");
-      pe->discardButton->setText("Remove");
       pe->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
+      pe->discardButton->setText("Remove");
       pe->discardButton->setIcon(QIcon(":/icons/list-remove.png"));
       pe->show();
     }
@@ -3376,4 +3345,101 @@ void MainWindow::synchronizeMenuToState()
     bcEditAct->setIcon(iconChecked);
   else
     bcEditAct->setIcon(iconEmpty);
+}
+
+
+// Load definitions...
+//-----------------------------------------------------------------------------
+void MainWindow::loadDefinitions()
+{
+  cout << "Loading edf: edf.xml" << endl;
+  cout.flush();
+
+  QFile file("edf/edf.xml");
+  
+  QString errStr;
+  int errRow;
+  int errCol;
+  
+  if(!file.exists()) {
+
+    elmerDefs = NULL;
+    QMessageBox::information(window(), tr("Elmer definitions file"),
+			     tr("Definitions file does not exist"));
+    return;
+
+  } else {  
+
+    if(!elmerDefs->setContent(&file, true, &errStr, &errRow, &errCol)) {
+      QMessageBox::information(window(), tr("Elmer definitions file"),
+			       tr("Parse error at line %1, col %2:\n%3")
+			       .arg(errRow).arg(errCol).arg(errStr));
+      file.close();
+      return;
+
+    } else {
+
+      if(elmerDefs->documentElement().tagName() != "edf") {
+	QMessageBox::information(window(), tr("Elmer definitions file"),
+				 tr("This is not an edf file"));
+	delete elmerDefs;
+	file.close();	
+	return;
+
+      }
+    }
+  }
+
+  edfEditor->setupEditor(*elmerDefs);
+
+  // load additional modules:
+  QDirIterator iterator("edf", QDirIterator::Subdirectories);
+
+  while (iterator.hasNext()) {
+    QString fileName = iterator.next();
+    QFileInfo fileInfo(fileName);
+    QString fileSuffix = fileInfo.suffix();
+
+    if((fileSuffix == "xml") && (fileName != "edf/edf.xml")) {
+
+      cout << "Loading edf: " << string(fileName.toAscii()) << endl;;
+      cout.flush();
+
+      file.setFileName(fileName);
+
+      QDomDocument tmpDoc;
+      tmpDoc.clear();
+
+      if(!tmpDoc.setContent(&file, true, &errStr, &errRow, &errCol)) {
+	QMessageBox::information(window(), tr("Edf loader"),
+				 tr("Parse error at line %1, col %2:\n%3")
+				 .arg(errRow).arg(errCol).arg(errStr));
+	file.close();
+	return;
+
+      } else {
+
+	if(tmpDoc.documentElement().tagName() != "edf") {
+	  QMessageBox::information(window(), tr("Edf loader"),
+				   tr("This is not an edf file"));
+	  file.close();
+	  return;      
+	}
+      }
+      
+      // add new elements to the document
+      QDomElement root = elmerDefs->documentElement();
+      QDomElement tmpRoot = tmpDoc.documentElement();
+      
+      QDomElement element = tmpRoot.firstChildElement();
+
+      while(!element.isNull()) {
+	root.appendChild(element);
+	element = tmpRoot.firstChildElement();
+      }
+      
+      edfEditor->setupEditor(*elmerDefs);
+      
+    }
+  }
 }

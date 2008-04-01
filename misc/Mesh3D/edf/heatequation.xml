@@ -1,72 +1,6 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <!DOCTYPE edf>
 <edf version="1.0" >
-   <ALL Widget="" >
-      <Name>Stuff for all 'Solvers'</Name>
-      <Solver>
-         <Parameter Widget="Combo" >
-            <Name> Execute Solver </Name>
-            <Type> String </Type>
-            <Whatis>The ElmerSolver executes this specific solver at times specified by this solver. Default value is to execute 'Always' meaning at every coupled iteration step.</Whatis>
-            <StatusTip>Change when this solver is executed.</StatusTip>
-            <Item Type="Active" > <Name> Always </Name> </Item>
-            <Item> <Name> Before Simulation </Name> </Item>
-            <Item> <Name> After Simulation </Name> </Item>
-            <Item> <Name> Before Timestep </Name> </Item>
-            <Item> <Name> After Timestep </Name> </Item>
-            <Item> <Name> Never </Name> </Item>
-         </Parameter>
-      </Solver>
-   </ALL>
-
-   <PDE Name="General" >
-      <Name>General</Name>
-      <Equation>
-      </Equation>
-
-      <Material>
-         <Parameter Widget="Label" >
-            <Name> Properties </Name>
-         </Parameter>
-
-         <Parameter Widget="Edit" >
-            <Name> Density </Name>
-            <Whatis>Density value may be entered here. Some models, like the ideal gas model compute density internally. In such case this value may not be necessery.</Whatis>
-            <StatusTip>Give value to density.</StatusTip>
-         </Parameter>
-
-         <Parameter Widget="Edit" >
-            <Name> Heat Capacity </Name>
-            <Whatis>Specific heat capacity value may be entered here.</Whatis>
-            <StatusTip> Set value to specific heat capacity </StatusTip>
-         </Parameter>
-
-         <Parameter Widget="Edit" >
-            <Name> Specific Heat Ratio </Name>
-            <Whatis> The ratio of specific heats (in constant pressure versus in constant volume) may be given with this keyword. The default value of this setting is 5/3, which is the appropriate value for monoatomic ideal gas. </Whatis>
-         </Parameter>
-
-         <Parameter Widget="Edit" >
-            <Name> Reference Temperature </Name>
-            <Whatis> Reference temperature value for various situations.</Whatis>
-            <StatusTip> Set value to reference temperature.</StatusTip>
-         </Parameter>
-
-         <Parameter Widget="Edit" >
-            <Name> Reference Pressure </Name>
-            <Whatis> Reference pressure for compressible flow computations.</Whatis>
-            <StatusTip> Set value to reference pressure.</StatusTip>
-         </Parameter>
-
-         <Parameter Widget="Edit" >
-            <Name> Heat expansion Coeff.</Name>
-            <SifName> Heat expansion Coefficient</SifName>
-            <Whatis> Material heat expansion coefficient.</Whatis>
-            <StatusTip> Set value to heat expansion coefficient.</StatusTip>
-         </Parameter>
-      </Material>
-   </PDE>
-
    <PDE Name="Heat Equation" >
       <Name>Heat Equation</Name>
 
@@ -345,26 +279,5 @@
            <StatusTip> Normal points to this 'body's direction. </StatusTip>
          </Parameter>
       </BoundaryCondition>
-   </PDE>
-
-   <PDE Name="Linear Elasticity" >
-      <Name>Linear elasticity</Name>
-      <Solver>
-         <Procedure Widget="File" >
-            <FileName Widget="String" > StressSolve </FileName>
-            <Function Widget="String" > StressSolver </Function>
-         </Procedure>
-         <Parameter Widget="Real Vector(cdim)" > Displacement </Parameter>
-      </Solver>
-
-      <Material>
-         <Parameter Widget="Label" > <Name> Properties </Name> </Parameter>
-         <Parameter Widget="Edit" >
-            <Name>Youngs modulus</Name>
-         </Parameter>
-         <Parameter Widget="Edit" >
-            <Name>Poisson ratio</Name>
-         </Parameter>
-      </Material>
    </PDE>
 </edf>
