@@ -19,6 +19,9 @@
 #define ADVECTION_DIFFUSION 3
 #define HELMHOLTZ_EQUATION  4
 
+
+#define MAX_MATERIALS 10
+
 class SifGenerator  {
  public:
   SifGenerator();
@@ -53,6 +56,11 @@ class SifGenerator  {
 
   void addLineEdit(const QString&, const QString&);
   void addLineBool(const QString&, bool);
+
+  // test
+  void handleLineEdit(QDomElement, QWidget*);
+  void handleComboBox(QDomElement, QWidget*);
+  void handleCheckBox(QDomElement, QWidget*);
 };
 
 #endif // SIFGENERATOR_H

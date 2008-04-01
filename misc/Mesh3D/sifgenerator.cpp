@@ -327,115 +327,76 @@ void SifGenerator::makeSolverBlocks()
 
 
 
+
+
 // Make Material-blocks:
 //-----------------------------------------------------------------------------
 void SifGenerator::makeMaterialBlocks()
 {
-  // TODO: At the moment only "Material 1" is meaningful (index=0)
-  DynamicEditor *matEditor = &matPropertyEditor[0];
-
-  if(matEditor->menuAction == NULL) {
-    cout << "There is no material - aborting" << endl;
-    return;
-  }
-
-
-
-  cout << "SIF MATERIAL BLOCK GENERATOR" << endl;
-  cout.flush();
-
-  for(int i = 0; i < matEditor->hash.count(); i++) {
-    QString key = matEditor->hash.keys().at(i);
-    hash_entry_t h = matEditor->hash[key];
-
-    QWidget *widget = h.widget;
-    QDomElement elem = h.elem;
-
-    if(elem.attribute("Widget", "") == "CheckBox") {
-      QCheckBox *checkBox = (QCheckBox*)widget;
-      bool value = checkBox->isChecked();
-      cout << "Key " << i << ": " << string(key.toAscii()) << endl;
-      cout << "  Check box value: " << value << endl;
-      cout.flush();      
-    }
-
-    if(elem.attribute("Widget", "") == "Edit") {
-      QLineEdit *lineEdit = (QLineEdit*)widget;
-      QString value = lineEdit->text().trimmed();
-      if(value != "") {
-	cout << "Key " << i << ": " << string(key.toAscii()) << endl;
-	cout << "  Line edit value: " << string(value.toAscii()) << endl;
+  for(int material = 0; material < MAX_MATERIALS; material++) {
+    DynamicEditor *matEditor = &matPropertyEditor[material];
+    
+    if(matEditor->menuAction != NULL) {      
+      te->append("Material " + QString::number(material+1));
+      
+      QString name = matEditor->nameEdit->text().trimmed();
+      addLineEdit("  Name = ", name);
+      
+      for(int i = 0; i < matEditor->hash.count(); i++) {
+	QString key = matEditor->hash.keys().at(i);
+	hash_entry_t entry = matEditor->hash[key];
+	
+	QWidget *widget = entry.widget;
+	QDomElement elem = entry.elem;
+	
+	if(elem.attribute("Widget", "") == "CheckBox") 
+	  handleCheckBox(elem, widget);
+	
+	if(elem.attribute("Widget", "") == "Edit")
+	  handleLineEdit(elem, widget);
+	
+	if(elem.attribute("Widget", "") == "Combo")
+	  handleComboBox(elem, widget);
       }
-      cout.flush();
+      te->append("End\n");
     }
-
-    if(elem.attribute("Widget", "") == "Combo") {
-      QComboBox *comboBox = (QComboBox*)widget;
-      QString value = comboBox->currentText().trimmed();
-      if(value != "") {
-	cout << "Key " << i << ": " << string(key.toAscii()) << endl;
-	cout << "  Combo box value: " << string(value.toAscii()) << endl;
-      }
-      cout.flush();
-    }
-
   }
-
-
-
-
-
-
-  // old stuff below
-#if 0
-  Ui::materialEditor ui = m->ui;
-
-  if(ui.densityEdit->text() == "") {
-    cout << "Undefined density - aborting" << endl;
-    return;
-  }
-  
-  te->append("Material 1");
-
-  // Name
-  addLineEdit("  Name = ", ui.materialNameEdit->text());
-
-  // General parameters
-  addLineEdit("  Density = ", ui.densityEdit->text());
-  addLineEdit("  Reference Temperature = ", ui.referenceTemperatureEdit->text());
-  addLineEdit("  Reference Temperature = ", ui.referencePressureEdit->text());
-  addLineEdit("  Heat Expansion Coefficient = ", ui.heatExpansionCoefficientEdit->text());
-  addLineEdit("  Heat Capacity = ", ui.heatCapacityEdit->text());
-  addLineEdit("  Convection Velocity 1 = ", ui.convectionVelocity1Edit->text());
-  addLineEdit("  Convection Velocity 2 = ", ui.convectionVelocity2Edit->text());
-  addLineEdit("  Convection Velocity 3 = ", ui.convectionVelocity3Edit->text());
-
-  // Heat equation
-  addLineEdit("  Heat Conductivity = ", ui.heatEquationHeatConductivityEdit->text());
-  addLineEdit("  Enthalpy = ", ui.heatEquationEnthalpyEdit->text());
-  
-  // Linear elasticity
-  addLineEdit("  Youngs Modulus = ", ui.linearElasticityYoungsModulusEdit->text());
-  addLineEdit("  Poisson Ratio = ", ui.linearElasticityPoissonRatioEdit->text());
-  
-  // Navier-Stokes
-  addLineEdit("  Viscosity = ", ui.navierStokesViscosityEdit->text());
-  addLineEdit("  Specific Heat Ratio = ", ui.navierStokesSpecificHeatEdit->text());
-  
-  te->append("  Compressibility Model = " + 
-             ui.navierStokesCompressibilityCombo->currentText());
-  
-  // Advection-diffusion
-  addLineEdit("  Species Diffusivity = ", ui.advectionDiffusionSpeciesDiffEdit->text());
-
-  // Helmholtz equation
-  addLineEdit("  Sound Speed = ", ui.helmholtzEquationSoundSpeedEdit->text());
-  addLineEdit("  Damping = ", ui.helmholtzEquationDampingEdit->text());
-
-  te->append("End\n");
-#endif
-
 }
+
+void SifGenerator::handleLineEdit(QDomElement elem, QWidget *widget)
+{
+  QString name = elem.firstChildElement("Name").text().trimmed();
+  QLineEdit *lineEdit = (QLineEdit*)widget;
+  QString value = lineEdit->text().trimmed();
+  addLineEdit("  " + name + " = ", value);
+}
+
+void SifGenerator::handleComboBox(QDomElement elem, QWidget *widget)
+{
+  
+  QString name = elem.firstChildElement("Name").text().trimmed();
+  QComboBox *comboBox = (QComboBox*)widget;
+  QString value = comboBox->currentText().trimmed();
+  if(value != "None")
+    addLineEdit("  " + name + " = ", value);
+}
+
+void SifGenerator::handleCheckBox(QDomElement elem, QWidget *widget)
+{
+  QString name = elem.firstChildElement("Name").text().trimmed();
+  QCheckBox *checkBox = (QCheckBox*)widget;
+  if(checkBox->isChecked())
+    te->append("  " + name + " = True");
+  else
+    te->append("  " + name + " = False");
+}
+
+
+
+
+
+
+
 
 
 // Make BodyForce-blocks:
