@@ -180,7 +180,7 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
   INTEGER :: CapBodies, CapBody, Permi, Permj, iter, MaxIterations
   INTEGER :: i, j, k, n, t, istat, bf_id, LocalNodes, DIM, NonlinearIter
   
-  LOGICAL :: AllocationsDone = .FALSE., gotIt
+  LOGICAL :: AllocationsDone = .FALSE., gotIt, FluxBC
   LOGICAL :: CalculateField, CalculateFlux, CalculateEnergy
   LOGICAL :: CalculateCapMatrix, ConstantWeights
   LOGICAL :: PiezoMaterial, CalculateSurfCharge, SaveBulk, ConstantBulk
@@ -687,24 +687,26 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
           IF ( CurrentElement % TYPE % ElementCode == 101 ) CYCLE
 
-          IF ( .NOT. ListGetLogical(Model % BCs(i) % Values, &
-              'Electric Flux BC',gotIt) ) CYCLE
+          FluxBC = ListGetLogical(Model % BCs(i) % Values, &
+              'Electric Flux BC',gotIt)
+          IF( gotIt .AND. .NOT. FluxBC) CYCLE
           
           ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
           ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
           ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(NodeIndexes)
           
-          Load = 0.0d0
 !------------------------------------------------------------------------------
 !             BC: epsilon@Phi/@n = g
 !------------------------------------------------------------------------------
-          Load(1:n) = Load(1:n) + &
-              ListGetReal( Model % BCs(i) % Values,'Electric Flux', &
-              n,NodeIndexes,gotIt )
-          IF ( .NOT. gotit )  Load(1:n) = Load(1:n) + &
-              ListGetReal( Model % BCs(i) % Values, &
+          Load = 0.0d0
+          Load(1:n) = ListGetReal( Model % BCs(i) % Values,'Electric Flux', &
+              n,NodeIndexes,GotIt )
+          IF ( .NOT. GotIt )  Load(1:n) = ListGetReal( Model % BCs(i) % Values, &
               'Surface Charge Density', n,NodeIndexes,gotIt )
-          Load(1:n) = Load(1:n) / PermittivityOfVacuum
+          IF(GotIt) THEN
+            FluxBC = .TRUE.
+            Load(1:n) = Load(1:n) / PermittivityOfVacuum
+          END IF
 
 !------------------------------------------------------------------------------
 !             BC: -epsilon@Phi/@n = -alpha Phi + beta
@@ -714,6 +716,8 @@ SUBROUTINE StatElecSolver( Model,Solver,dt,TransientSimulation )
           
           Alpha = GetConstReal( Model % BCs(i) % Values, & 
               'Layer Relative Permittivity', gotit )
+          IF(.NOT. (GotIt .OR. FluxBC)) CYCLE
+
           IF ( Gotit ) THEN
             LayerH = GetConstReal( Model % BCs(i) % Values, &
                 'Layer Thickness', gotit )
