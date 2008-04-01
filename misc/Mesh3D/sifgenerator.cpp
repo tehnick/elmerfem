@@ -367,7 +367,10 @@ void SifGenerator::makeMaterialBlocks()
 
 void SifGenerator::handleLineEdit(QDomElement elem, QWidget *widget)
 {
-  QString name = elem.firstChildElement("Name").text().trimmed();
+  QString name = elem.firstChildElement("SifName").text().trimmed();
+  if ( name == "" )
+    name= elem.firstChildElement("Name").text().trimmed();
+
   QLineEdit *lineEdit = (QLineEdit*)widget;
   QString value = lineEdit->text().trimmed();
   addLineEdit("  " + name + " = ", value);
@@ -376,7 +379,10 @@ void SifGenerator::handleLineEdit(QDomElement elem, QWidget *widget)
 void SifGenerator::handleComboBox(QDomElement elem, QWidget *widget)
 {
   
-  QString name = elem.firstChildElement("Name").text().trimmed();
+  QString name = elem.firstChildElement("SifName").text().trimmed();
+  if ( name == "" )
+    name= elem.firstChildElement("Name").text().trimmed();
+
   QComboBox *comboBox = (QComboBox*)widget;
   QString value = comboBox->currentText().trimmed();
   if(value != "None")
@@ -385,7 +391,10 @@ void SifGenerator::handleComboBox(QDomElement elem, QWidget *widget)
 
 void SifGenerator::handleCheckBox(QDomElement elem, QWidget *widget)
 {
-  QString name = elem.firstChildElement("Name").text().trimmed();
+  QString name = elem.firstChildElement("SifName").text().trimmed();
+  if ( name == "" )
+    name= elem.firstChildElement("Name").text().trimmed();
+
   QCheckBox *checkBox = (QCheckBox*)widget;
   if(checkBox->isChecked())
     te->append("  " + name + " = True");
