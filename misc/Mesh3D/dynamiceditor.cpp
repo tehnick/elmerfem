@@ -25,7 +25,23 @@ DynamicEditor::~DynamicEditor()
 //----------------------------------------------------------------------------
 void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
 {
+  // Clear:
+  //-------
   this->ID = ID;
+
+  hash.clear();
+
+  QLayout *layout = this->layout();
+  if(layout != NULL) {
+    QLayoutItem *item;
+    while((item = layout->takeAt(0)) != 0)
+      delete item;
+    if(tabWidget != NULL) {
+      tabWidget->clear();
+      delete tabWidget;
+    }
+    delete layout;
+  }
 
   // Get root element of elmerDefs:
   //-------------------------------
