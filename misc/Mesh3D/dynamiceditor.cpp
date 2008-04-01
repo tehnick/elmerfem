@@ -79,6 +79,7 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
           h.widget = edit;
           edit->setText(paramDefault);
           connect(edit, SIGNAL(returnPressed()), this, SLOT(editSlot()));
+
         } else if ( widget_type == "Combo" ) {
           QComboBox *combo = new QComboBox;
           h.widget = combo;
@@ -101,8 +102,9 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
           h.widget = l;
           l->setText("");
           l->setChecked(false);
-          if ( paramDefault == "true" ) l->setChecked(true);
+          if ( paramDefault == "True" ) l->setChecked(true);
           connect(l, SIGNAL(stateChanged(int)), this, SLOT(lSlot(int)));
+
         } else if ( widget_type == "Label" ) {
           QLabel *label = new QLabel;
           QFont font;
@@ -124,7 +126,7 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
 
           if ( widget_enabled == "False" ) h.widget->setEnabled(false);
 
-           h.widget->setFixedHeight(20);
+          h.widget->setFixedHeight(20);
           if ( widget_type != "Label" ) {
             QLabel *label = new QLabel;
             label->setText(labelName);
