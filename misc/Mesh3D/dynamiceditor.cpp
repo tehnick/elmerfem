@@ -90,21 +90,16 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
         QString statusTip = param.firstChildElement("StatusTip").text().trimmed();
 
         h.widget = NULL;
-	h.lineEdit = NULL;
-	h.comboBox = NULL;
-	h.checkBox = NULL;
 
         if ( widget_type == "Edit" ) {
           QLineEdit *edit = new QLineEdit;
           h.widget = edit;
-	  h.lineEdit = edit;
           edit->setText(paramDefault);
           connect(edit, SIGNAL(returnPressed()), this, SLOT(editSlot()));
 
         } else if ( widget_type == "Combo" ) {
           QComboBox *combo = new QComboBox;
           h.widget = combo;
-	  h.comboBox = combo;
 
           combo->setObjectName(labelName);
           int count = 0, active=0;
@@ -122,7 +117,6 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
         } else if ( widget_type == "CheckBox" ) {
           QCheckBox *l = new QCheckBox;
           h.widget = l;
-	  h.checkBox = l;
 
           l->setText("");
           l->setChecked(false);

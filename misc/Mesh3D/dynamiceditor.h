@@ -14,9 +14,6 @@ class hash_entry_t
 {
  public:
   QWidget *widget;
-  QLineEdit *lineEdit;
-  QComboBox *comboBox;
-  QCheckBox *checkBox;
   QDomElement elem;
 };
 

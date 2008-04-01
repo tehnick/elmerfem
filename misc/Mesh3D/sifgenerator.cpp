@@ -332,31 +332,35 @@ void SifGenerator::makeSolverBlocks()
 void SifGenerator::makeMaterialBlocks()
 {
   // TODO: At the moment only "Material 1" is meaningful (index=0)
-  DynamicEditor *m = &matPropertyEditor[0];
+  DynamicEditor *matEditor = &matPropertyEditor[0];
 
-  if(m->menuAction == NULL) {
+  if(matEditor->menuAction == NULL) {
     cout << "There is no material - aborting" << endl;
     return;
   }
 
+
+
   cout << "SIF MATERIAL BLOCK GENERATOR" << endl;
   cout.flush();
 
-  for(int i = 0; i < m->hash.count(); i++) {
-    QString key = m->hash.keys().at(i);
+  for(int i = 0; i < matEditor->hash.count(); i++) {
+    QString key = matEditor->hash.keys().at(i);
+    hash_entry_t h = matEditor->hash[key];
 
-    hash_entry_t h = m->hash[key];
+    QWidget *widget = h.widget;
+    QDomElement elem = h.elem;
 
-    QCheckBox *checkBox = h.checkBox;
-    if(checkBox != NULL) {
+    if(elem.attribute("Widget", "") == "CheckBox") {
+      QCheckBox *checkBox = (QCheckBox*)widget;
       bool value = checkBox->isChecked();
       cout << "Key " << i << ": " << string(key.toAscii()) << endl;
       cout << "  Check box value: " << value << endl;
       cout.flush();      
     }
 
-    QLineEdit *lineEdit = h.lineEdit;
-    if(lineEdit != NULL) {
+    if(elem.attribute("Widget", "") == "Edit") {
+      QLineEdit *lineEdit = (QLineEdit*)widget;
       QString value = lineEdit->text().trimmed();
       if(value != "") {
 	cout << "Key " << i << ": " << string(key.toAscii()) << endl;
@@ -365,8 +369,8 @@ void SifGenerator::makeMaterialBlocks()
       cout.flush();
     }
 
-    QComboBox *comboBox = h.comboBox;
-    if(comboBox != NULL) {
+    if(elem.attribute("Widget", "") == "Combo") {
+      QComboBox *comboBox = (QComboBox*)widget;
       QString value = comboBox->currentText().trimmed();
       if(value != "") {
 	cout << "Key " << i << ": " << string(key.toAscii()) << endl;
@@ -374,16 +378,15 @@ void SifGenerator::makeMaterialBlocks()
       }
       cout.flush();
     }
+
   }
-  
-  
 
 
 
 
 
 
-
+  // old stuff below
 #if 0
   Ui::materialEditor ui = m->ui;
 
