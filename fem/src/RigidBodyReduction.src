@@ -1039,7 +1039,7 @@ INTEGER FUNCTION RigidBody( Model, Solver, A, b, x, n, DOFs, Norm )
 CONTAINS
 
 !------------------------------------------------------------------------------
-  SUBROUTINE ComputeMassCenter( Centers, Model, Solver, Index, n )
+  SUBROUTINE ComputeMassCenter( Centers, Model, Solver, Indx, n )
 !------------------------------------------------------------------------------
 !******************************************************************************
 !
@@ -1060,7 +1060,7 @@ CONTAINS
 !  INTEGER :: n
 !     INPUT: Number of bodies to consider
 !
-!  INTEGER :: Index( Model % NumberOfBodies )
+!  INTEGER :: Indx( Model % NumberOfBodies )
 !     INPUT: Indeces of these bodies and all other array elements set to -1
 !
 !******************************************************************************
@@ -1072,7 +1072,7 @@ CONTAINS
     TYPE(Model_t) :: Model
     TYPE(Solver_t) :: Solver
     REAL(KIND=dp), POINTER :: Centers(:,:)
-    INTEGER :: n, INDEX( Model % NumberOfBodies )
+    INTEGER :: n, Indx( Model % NumberOfBodies )
 
     TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
     TYPE(Element_t), POINTER :: CurrentElement
@@ -1111,7 +1111,7 @@ CONTAINS
 
        Rigid = .FALSE.
        DO i = 1, Model % NumberOfBodies
-          IF ( CurrentElement % BodyId == INDEX(i) ) THEN
+          IF ( CurrentElement % BodyId == Indx(i) ) THEN
              Rigid = .TRUE.
              EXIT
           END IF

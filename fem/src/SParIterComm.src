@@ -3246,13 +3246,13 @@ END SUBROUTINE ExchangeResult
 ! Index to Nodes structure. Return value -1 means QueriedNode was
 ! not found.
 !
-FUNCTION SearchNode( ParallelInfo, QueriedNode, First, Last ) RESULT ( Index )
+FUNCTION SearchNode( ParallelInfo, QueriedNode, First, Last ) RESULT ( Indx )
 
   USE Types
   IMPLICIT NONE
 
   TYPE (ParallelInfo_t) :: ParallelInfo
-  INTEGER :: QueriedNode, Index
+  INTEGER :: QueriedNode, Indx
   INTEGER, OPTIONAL :: First,Last
 
   ! Local variables
@@ -3261,7 +3261,7 @@ FUNCTION SearchNode( ParallelInfo, QueriedNode, First, Last ) RESULT ( Index )
 
   !*********************************************************************
 
-  Index = -1
+  Indx = -1
   Upper = SIZE(ParallelInfo % GlobalDOFs)
   Lower = 1
   IF ( PRESENT( Last  ) ) Upper = Last
@@ -3273,10 +3273,10 @@ FUNCTION SearchNode( ParallelInfo, QueriedNode, First, Last ) RESULT ( Index )
 
 10 CONTINUE
   IF ( ParallelInfo % GlobalDOFs(Lower) == QueriedNode ) THEN
-     Index = Lower
+     Indx = Lower
      RETURN
   ELSE IF ( ParallelInfo % GlobalDOFs(Upper) == QueriedNode ) THEN
-     Index = Upper
+     Indx = Upper
      RETURN
   END IF
 
@@ -3303,12 +3303,12 @@ END FUNCTION SearchNode
 ! Search an element Item from an ordered integer array(N) and return
 ! Index to that array element. Return value -1 means Item was not found.
 !
-FUNCTION SearchIAItem( N, IArray, Item, SortOrder ) RESULT ( Index )
+FUNCTION SearchIAItem( N, IArray, Item, SortOrder ) RESULT ( Indx )
 
   USE types
   IMPLICIT NONE
 
-  INTEGER :: Item, Index, i
+  INTEGER :: Item, Indx, i
   INTEGER :: N
   INTEGER, DIMENSION(:) :: IArray
   INTEGER, OPTIONAL :: SortOrder(:)
@@ -3319,7 +3319,7 @@ FUNCTION SearchIAItem( N, IArray, Item, SortOrder ) RESULT ( Index )
 
   !*********************************************************************
 
-  Index = -1
+  Indx = -1
   Upper =  N
   Lower =  1
 
@@ -3328,16 +3328,16 @@ FUNCTION SearchIAItem( N, IArray, Item, SortOrder ) RESULT ( Index )
   IF ( Upper == 0 ) RETURN
 
   IF ( .NOT. PRESENT(SortOrder) ) THEN
-     Index = SearchIAItemLinear( n,IArray,Item )
+     Indx = SearchIAItemLinear( n,IArray,Item )
      RETURN
   END IF
 
   DO WHILE( .TRUE. )
      IF ( IArray(Lower) == Item ) THEN
-        Index = Lower
+        Indx = Lower
         EXIT
      ELSE IF ( IArray(Upper) == Item ) THEN
-        Index = Upper
+        Indx = Upper
         EXIT
      END IF
 
@@ -3353,7 +3353,7 @@ FUNCTION SearchIAItem( N, IArray, Item, SortOrder ) RESULT ( Index )
      END IF
   END DO
 
- IF (Index>0) Index  = SortOrder(Index)
+ IF (Indx > 0) Indx  = SortOrder(Indx)
   RETURN
 !*********************************************************************
 END FUNCTION SearchIAItem
@@ -3364,24 +3364,24 @@ END FUNCTION SearchIAItem
 ! Search an element Item from an ordered integer array(N) and return
 ! Index to that array element. Return value -1 means Item was not found.
 !
-FUNCTION SearchIAItemLinear( N, IArray, Item ) RESULT ( Index )
+FUNCTION SearchIAItemLinear( N, IArray, Item ) RESULT ( Indx )
 
   USE types
   IMPLICIT NONE
 
   INTEGER :: N
   INTEGER, DIMENSION(*) :: IArray
-  INTEGER :: Item, Index, i
+  INTEGER :: Item, Indx, i
 
   ! Local variables
 
   INTEGER :: Lower, Upper, lou
   !*********************************************************************
 
-  Index = -1
+  Indx = -1
   DO i=1,N
      IF ( IArray(i) == Item ) THEN
-       Index = i
+       Indx = i
        RETURN
      END IF
   END DO
