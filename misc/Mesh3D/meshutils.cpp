@@ -1895,7 +1895,7 @@ void Meshutils::increaseElementOrder(mesh_t *mesh)
 	j++;
 	int n0 = i;
 	int n1 = h->node1;
-	int j = mesh->nodes + i;
+	int j = mesh->nodes + h->noedge;
 	quadnode[j].x[0] = 0.5*(quadnode[n0].x[0] + quadnode[n1].x[0]); 
 	quadnode[j].x[1] = 0.5*(quadnode[n0].x[1] + quadnode[n1].x[1]); 
 	quadnode[j].x[2] = 0.5*(quadnode[n0].x[2] + quadnode[n1].x[2]); 
