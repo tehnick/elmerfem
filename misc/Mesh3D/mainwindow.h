@@ -181,6 +181,7 @@ private:
   DynamicEditor *dynamicEditorEquation;
   DynamicEditor *dynamicEditorBodyForce;
 
+  // elmer definitions:
   QDomDocument *elmerDefs;
 
   // images:

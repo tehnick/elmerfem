@@ -14,6 +14,9 @@ class hash_entry_t
 {
  public:
   QWidget *widget;
+  QLineEdit *lineEdit;
+  QComboBox *comboBox;
+  QCheckBox *checkBox;
   QDomElement elem;
 };
 
@@ -43,6 +46,8 @@ public:
 
   bool touched;
 
+  QHash<QString, hash_entry_t> hash;
+
 signals:
   void dynamicEditorReady(int, int);
 
@@ -55,7 +60,6 @@ private slots:
 
 private:
   hash_entry_t h;
-  QHash<QString, hash_entry_t>  hash;
 
   QIcon addIcon;
   QIcon removeIcon;

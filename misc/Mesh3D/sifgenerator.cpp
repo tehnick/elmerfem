@@ -324,18 +324,67 @@ void SifGenerator::makeSolverBlocks()
 
 
 
+
+
+
 // Make Material-blocks:
 //-----------------------------------------------------------------------------
 void SifGenerator::makeMaterialBlocks()
 {
   // TODO: At the moment only "Material 1" is meaningful (index=0)
-  MATPropertyEditor *m = &matPropertyEditor[0];
+  DynamicEditor *m = &matPropertyEditor[0];
 
   if(m->menuAction == NULL) {
     cout << "There is no material - aborting" << endl;
     return;
   }
 
+  cout << "SIF MATERIAL BLOCK GENERATOR" << endl;
+  cout.flush();
+
+  for(int i = 0; i < m->hash.count(); i++) {
+    QString key = m->hash.keys().at(i);
+
+    hash_entry_t h = m->hash[key];
+
+    QCheckBox *checkBox = h.checkBox;
+    if(checkBox != NULL) {
+      bool value = checkBox->isChecked();
+      cout << "Key " << i << ": " << string(key.toAscii()) << endl;
+      cout << "  Check box value: " << value << endl;
+      cout.flush();      
+    }
+
+    QLineEdit *lineEdit = h.lineEdit;
+    if(lineEdit != NULL) {
+      QString value = lineEdit->text().trimmed();
+      if(value != "") {
+	cout << "Key " << i << ": " << string(key.toAscii()) << endl;
+	cout << "  Line edit value: " << string(value.toAscii()) << endl;
+      }
+      cout.flush();
+    }
+
+    QComboBox *comboBox = h.comboBox;
+    if(comboBox != NULL) {
+      QString value = comboBox->currentText().trimmed();
+      if(value != "") {
+	cout << "Key " << i << ": " << string(key.toAscii()) << endl;
+	cout << "  Combo box value: " << string(value.toAscii()) << endl;
+      }
+      cout.flush();
+    }
+  }
+  
+  
+
+
+
+
+
+
+
+#if 0
   Ui::materialEditor ui = m->ui;
 
   if(ui.densityEdit->text() == "") {
@@ -381,6 +430,8 @@ void SifGenerator::makeMaterialBlocks()
   addLineEdit("  Damping = ", ui.helmholtzEquationDampingEdit->text());
 
   te->append("End\n");
+#endif
+
 }
 
 

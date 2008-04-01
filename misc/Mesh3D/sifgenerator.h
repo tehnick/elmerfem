@@ -11,6 +11,7 @@
 #include "bcpropertyeditor.h"
 #include "solverparameters.h"
 #include "meshcontrol.h"
+#include "dynamiceditor.h"
 
 #define HEAT_EQUATION       0
 #define LINEAR_ELASTICITY   1
@@ -27,7 +28,7 @@ class SifGenerator  {
   QTextEdit *te;
   GeneralSetup *generalSetup;
   PDEPropertyEditor *pdePropertyEditor;
-  MATPropertyEditor *matPropertyEditor;
+  DynamicEditor *matPropertyEditor;
   BodyPropertyEditor *bodyPropertyEditor;
   BCPropertyEditor *bcPropertyEditor;
   MeshControl *meshControl;

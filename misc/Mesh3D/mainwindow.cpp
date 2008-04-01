@@ -2974,7 +2974,10 @@ void MainWindow::generateSifSlot()
   sifGenerator->generalSetup = generalSetup;
   sifGenerator->te = sifWindow->textEdit;
   sifGenerator->pdePropertyEditor = pdePropertyEditor;
-  // TODO ????? sifGenerator->matPropertyEditor = matPropertyEditor;
+
+  //?????
+  sifGenerator->matPropertyEditor = matPropertyEditor;
+
   sifGenerator->bodyPropertyEditor = bodyPropertyEditor;
   sifGenerator->bcPropertyEditor = bcPropertyEditor;
   sifGenerator->meshControl = meshControl;
