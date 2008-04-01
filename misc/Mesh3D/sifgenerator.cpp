@@ -349,16 +349,18 @@ void SifGenerator::makeMaterialBlocks()
 	hash_entry_t entry = matEditor->hash[key];
 	
 	QWidget *widget = entry.widget;
-	QDomElement elem = entry.elem;
+        if ( entry.widget->isEnabled() ) {
+          QDomElement elem = entry.elem;
 	
-	if(elem.attribute("Widget", "") == "CheckBox") 
-	  handleCheckBox(elem, widget);
+          if(elem.attribute("Widget", "") == "CheckBox") 
+	   handleCheckBox(elem, widget);
 	
-	if(elem.attribute("Widget", "") == "Edit")
-	  handleLineEdit(elem, widget);
+	 if(elem.attribute("Widget", "") == "Edit")
+	   handleLineEdit(elem, widget);
 	
-	if(elem.attribute("Widget", "") == "Combo")
-	  handleComboBox(elem, widget);
+	 if(elem.attribute("Widget", "") == "Combo")
+	   handleComboBox(elem, widget);
+        }
       }
       te->append("End\n");
     }
@@ -391,20 +393,23 @@ void SifGenerator::handleComboBox(QDomElement elem, QWidget *widget)
 
 void SifGenerator::handleCheckBox(QDomElement elem, QWidget *widget)
 {
-  QString name = elem.firstChildElement("SifName").text().trimmed();
+  QString name    = elem.firstChildElement("SifName").text().trimmed();
   if ( name == "" )
-    name= elem.firstChildElement("Name").text().trimmed();
+    name = elem.firstChildElement("Name").text().trimmed();
+
+  QString def_val = elem.firstChildElement("DefaultValue").text().trimmed();
+  if ( def_val == "" )
+    def_val = "False";
 
   QCheckBox *checkBox = (QCheckBox*)widget;
-  if(checkBox->isChecked())
-    te->append("  " + name + " = True");
-  else
-    te->append("  " + name + " = False");
+  if(checkBox->isChecked()) {
+    if ( def_val != "True" )
+      te->append("  " + name + " = True");
+  } else {
+    if ( def_val != "False" )
+      te->append("  " + name + " = False");
+  }
 }
-
-
-
-
 
 
 
