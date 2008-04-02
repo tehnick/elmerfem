@@ -133,8 +133,8 @@ void EdfEditor::insertItemForElement(QDomElement element,
     return;
 
   // set expanded
-  if(parentItem != NULL)
-    parentItem->setExpanded(true);
+//  if(parentItem != NULL)
+//    parentItem->setExpanded(true);
 
   // create new tree item
   QTreeWidgetItem *newItem = new QTreeWidgetItem(parentItem);
@@ -417,7 +417,7 @@ void EdfEditor::openButtonClicked()
     }
   }
   
-  setupEditor(*elmerDefs);
+//  setupEditor(*elmerDefs);
 
   edfTree->setCurrentItem(NULL);
 }
