@@ -75,6 +75,7 @@ private slots:
   void discardButtonClicked();
   void lSlot(int);
   void comboSlot(QString);
+  void textChangedSlot(QString);
 
 private:
   hash_entry_t h;

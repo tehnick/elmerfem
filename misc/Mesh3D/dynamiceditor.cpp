@@ -113,6 +113,7 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
           edit->lineEdit->setText(paramDefault);
           edit->name = fullName;
           connect(edit->lineEdit, SIGNAL(returnPressed()), edit, SLOT(editSlot()));
+          connect(edit->lineEdit, SIGNAL(textChanged(QString)), this, SLOT(textChangedSlot(QString)));
 
         } else if ( widget_type == "Combo" ) {
           QComboBox *combo = new QComboBox;
@@ -307,6 +308,25 @@ void DynamicEditor::lSlot(int state)
   for( ;!param.isNull(); param=param.nextSiblingElement("Activate") ) {
     q = param.text().trimmed() + ID;
     hash[q].widget->setEnabled(state);
+  }
+}
+
+//----------------------------------------------------------------------------
+void DynamicEditor::textChangedSlot(QString text)
+{
+  QDomElement param;
+  QString q = QObject::sender()->property("dom address").toString();
+
+  int ind = q.lastIndexOf( '/', -1); 
+  QString ID = q.mid(ind,-1);
+
+  param = hash[q].elem.firstChildElement("Activate");
+  for( ;!param.isNull(); param=param.nextSiblingElement("Activate") ) {
+    q = param.text().trimmed() + ID;
+    if ( text != "" ) 
+      hash[q].widget->setEnabled(true);
+    else
+      hash[q].widget->setEnabled(false);
   }
 }
 
