@@ -24,10 +24,11 @@ class DynLineEdit : public QWidget
 public:
   DynLineEdit(QWidget *parent=0);
  ~DynLineEdit();
-
-  QLineEdit *lineEdit;
-  QTextEdit *textEdit;
   QString name;
+  QLineEdit *lineEdit;
+
+private:
+  QTextEdit *textEdit;
   QLabel *label;
   QFrame *frame;
   QLayout *layout;
