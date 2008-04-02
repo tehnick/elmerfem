@@ -212,7 +212,7 @@
 
      INTEGER, POINTER :: NodeIndexes(:)
      LOGICAL :: Stabilize = .TRUE., Bubbles = .TRUE., UseBubbles,NewtonLinearization = .FALSE., &
-         Found, GotIt, HeatFluxBC
+         Found, GotIt, HeatFluxBC, ImplicitHeatGap
 ! Which compressibility model is used
      CHARACTER(LEN=MAX_NAME_LEN) :: CompressibilityFlag, ConvectionField
      INTEGER :: CompressibilityModel
@@ -977,7 +977,10 @@
 !------------------------------------------------------------------------------
           Work(1:n) = GetReal( BC, 'Heat Transfer Coefficient',Found )
           IF ( GetLogical( BC, 'Heat Gap', Found ) ) THEN
-            IF ( GetLogical( BC, 'Heat Gap Implicit', Found ) ) THEN
+            ImplicitHeatGap = GetLogical( BC, 'Heat Gap Implicit', Found )
+            IF (.NOT. Found ) ImplicitHeatGap = .TRUE.
+
+            IF ( ImplicitHeatGap ) THEN
                AText(1:n) = 0.0d0
              ELSE
                AText(1:n) = GapTemperature( Solver, Element, Temperature, TempPerm, n)
@@ -1023,7 +1026,9 @@
           END IF
 
           IF ( GetLogical( BC, 'Heat Gap', Found ) ) THEN
-             IF ( GetLogical( BC, 'Heat Gap Implicit', Found ) ) &
+             ImplicitHeatGap = GetLogical( BC, 'Heat Gap Implicit', Found )
+             IF (.NOT. Found ) ImplicitHeatGap = .TRUE.
+             IF ( ImplicitHeatGap ) THEN
                CALL AddHeatGap( Solver, Element, STIFF, TempPerm)
           END IF
           CALL DefaultUpdateEquations( STIFF, FORCE )
