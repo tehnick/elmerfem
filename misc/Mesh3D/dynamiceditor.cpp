@@ -237,8 +237,6 @@ void DynLineEdit::editSlot()
   cout << string(s.toAscii()) << endl;
 
   if ( frame ) {
-    s.replace( ';', '\n' );
-    textEdit->append(s);
     frame->show();
     frame->raise();
     return;
