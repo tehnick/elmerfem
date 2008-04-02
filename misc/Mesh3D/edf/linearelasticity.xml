@@ -79,6 +79,7 @@ stress. </Whatis>
       </Solver>
 
       <Equation>
+         <Parameter Widget="Label"> <Name> Options </Name> </Parameter>
          <Parameter Widget="CheckBox"> 
             <Name> Calculate Stresses </Name>
             <StatusTip> Calculate Stresses as a post processing step.</StatusTip>
@@ -92,7 +93,7 @@ stress. </Whatis>
       </Equation>
 
       <InitialCondition>
-          <Parameter Widget="Label"> <Name> Properties </Name> </Parameter>
+          <Parameter Widget="Label"> <Name> Variables </Name> </Parameter>
 
           <Parameter Widget="Edit">
              <Name> Displacement 1 </Name>
@@ -106,10 +107,44 @@ stress. </Whatis>
              <Name> Displacement 3 </Name>
              <Whatis> Initial condition for the displacement in coordinate direction 1. </Whatis>
           </Parameter>
+
+          <Parameter Widget="Label"> <Name> ...for time dependent simulations... </Name> </Parameter>
+          <Parameter Widget="Edit">
+             <Name> Displacement Velocity 1 </Name>
+             <Whatis> Initial condition for the displacement velocity in coordinate direction 1. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit">
+             <Name> Displacement Velocity 2 </Name>
+             <Whatis> Initial condition for the displacement velocity in coordinate direction 2. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit">
+             <Name> Displacement Velocity 3 </Name>
+             <Whatis> Initial condition for the displacement velocity in coordinate direction 3. </Whatis>
+          </Parameter>
       </InitialCondition>
 
       <BodyForce>
-          <Parameter Widget="Label"> <Name> Bodywise Dirichlet settings </Name> </Parameter>
+          <Parameter Widget="Label"> <Name> Volume forces </Name> </Parameter>
+          <Parameter Widget="Edit">
+             <Name> Force 1 </Name>
+             <SifName> Stress Bodyforce 1 </SifName>
+             <Whatis> Volume force in coordinate direction 1. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit">
+             <Name> Force 2 </Name>
+             <SifName> Stress Bodyforce 2 </SifName>
+             <Whatis> Volume force in coordinate direction 2. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit">
+             <Name> Force 3 </Name>
+             <SifName> Stress Bodyforce 3 </SifName>
+             <Whatis> Volume force in coordinate direction 3. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit">
+             <Name> Pressure </Name>
+             <SifName> Stress Pressure </SifName>
+          </Parameter>
+          <Parameter Widget="Label"> <Name> Bodywise Dirichlet Conditions </Name> </Parameter>
           <Parameter Widget="Edit">
              <Name> Displacement 1 </Name>
              <Whatis> Dirichlet condition for the displacement in coordinate direction 1. </Whatis>
@@ -133,27 +168,6 @@ stress. </Whatis>
           <Parameter Widget="Edit">
              <Name> Displacement 3 Condition </Name>
              <Whatis> If the given value is less than zero, don't set the Dirichlet condition. To be generally useful space and/or time varying values may be given. </Whatis>
-          </Parameter>
-
-          <Parameter Widget="Label"> <Name> Volume forces </Name> </Parameter>
-          <Parameter Widget="Edit">
-             <Name> Force 1 </Name>
-             <SifName> Stress Bodyforce 1 </SifName>
-             <Whatis> Volume force in coordinate direction 1. </Whatis>
-          </Parameter>
-          <Parameter Widget="Edit">
-             <Name> Force 2 </Name>
-             <SifName> Stress Bodyforce 2 </SifName>
-             <Whatis> Volume force in coordinate direction 2. </Whatis>
-          </Parameter>
-          <Parameter Widget="Edit">
-             <Name> Force 3 </Name>
-             <SifName> Stress Bodyforce 3 </SifName>
-             <Whatis> Volume force in coordinate direction 3. </Whatis>
-          </Parameter>
-          <Parameter Widget="Edit">
-             <Name> Pressure </Name>
-             <SifName> Stress Pressure </SifName>
           </Parameter>
       </BodyForce>
 
@@ -190,6 +204,7 @@ stress. </Whatis>
            <Name> Rayleigh beta </Name>
          </Parameter>
  
+        <Parameter Widget="Label"> <Name> Material pricipal directions </Name> </Parameter>
         <Parameter Widget="CheckBox">
           <Name> Rotate Elasticity Tensor </Name>
           <Whatis> For anisotropic materials the principal directions of anisotropy do not always correspond to the coordinate axes. Setting this keyord to True enables the user to input Youngs Modulus matrix with respect to the principal directions of anisotropy. Otherwise Youngs Modulus should be given with respect to the coordinate axis directions. </Whatis>
@@ -217,7 +232,7 @@ stress. </Whatis>
             <Whatis>  The Dirichlet conditions for the vector variables may be given in normal-tangential coordinate system instead of the coordinate axis directed system. The first component will in this case be the normal component and the components 2, 3 two orthogonal tangent directions. </Whatis>
          </Parameter>
 
-         <Parameter Widget="Label"> <Name> Dirichlet settings </Name> </Parameter>
+         <Parameter Widget="Label"> <Name> Dirichlet Conditions </Name> </Parameter>
           <Parameter Widget="Edit">
              <Name> Displacement 1 </Name>
              <Whatis> Dirichlet condition for the displacement in coordinate direction 1. </Whatis>
@@ -274,7 +289,6 @@ stress. </Whatis>
              <Name> Damping coefficient </Name>
              <SifName> Damping </SifName>
           </Parameter>
-
       </BoundaryCondition>
    </PDE>
 </edf>
