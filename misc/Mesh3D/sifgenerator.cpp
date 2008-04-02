@@ -18,7 +18,6 @@ void SifGenerator::makeHeaderBlock()
 {
   Ui::setupDialog ui = generalSetup->ui;
 
-  te->append("! Sif skeleton for active equations\n");
   te->append("Header");
   
   if(ui.checkKeywordsWarn->isChecked())
@@ -28,7 +27,7 @@ void SifGenerator::makeHeaderBlock()
   const QString &qs2 = ui.meshDBEdit2->text(); 
   const QString &qs3 = ui.includePathEdit->text(); 
   const QString &qs4 = ui.resultsDirectoryEdit->text(); 
-
+  
   te->append("  Mesh DB \"" +  qs1 + "\" \"" + qs2 + "\"");
   te->append("  Include Path \"" + qs3 + "\"");
   te->append("  Results Directory \"" + qs4 + "\"");
@@ -72,6 +71,7 @@ void SifGenerator::makeSimulationBlock()
 
   te->append("End\n");
 }
+
 
 
 // Make Constants-block:
@@ -187,19 +187,27 @@ void SifGenerator::makeBodyBlocks()
   delete [] body_tmp;
   delete [] body_id;
 
+  te->append(str);
+
   // Assume only one body with index=1, at the moment:
   BodyPropertyEditor *bodyEdit = &bodyPropertyEditor[1];
+  
+  int index = bodyEdit->ui.equationCombo->currentIndex();
+  if(index > -1)
+    te->append("  Equation = " + QString::number(index+1));
+  
+  index = bodyEdit->ui.materialCombo->currentIndex();
+  if(index > -1)
+    te->append("  Material = " + QString::number(index+1));
+  
+  index = bodyEdit->ui.bodyForceCombo->currentIndex();
+  if(index > -1)
+    te->append("  Body Force = " + QString::number(index+1));
+  
+  index = bodyEdit->ui.initialConditionCombo->currentIndex();
+  if(index > -1)
+    te->append("  Initial condition = " + QString::number(index+1));
 
-  te->append(str);
-  te->append("  Body Force = 1");
-  //const QString &qs1 = bodyEdit->ui.equationCombo->currentText();
-  int ind1 = bodyEdit->ui.equationCombo->currentIndex();
-  //te->append("  Equation = " + qs1);
-  te->append("  Equation = " + QString::number(ind1+1));
-  //const QString &qs2 = bodyEdit->ui.materialCombo->currentText();
-  int ind2 = bodyEdit->ui.materialCombo->currentIndex();
-  //te->append("  Material = " + qs2);
-  te->append("  Material = " + QString::number(ind2+1));
   te->append("End\n");
 }
 
@@ -368,50 +376,7 @@ void SifGenerator::makeMaterialBlocks()
   }
 }
 
-void SifGenerator::handleLineEdit(QDomElement elem, QWidget *widget)
-{
-  QString name = elem.firstChildElement("SifName").text().trimmed();
-  if( name == "" )
-    name= elem.firstChildElement("Name").text().trimmed();
 
-  QLineEdit *lineEdit = (QLineEdit*)widget;
-  QString value = lineEdit->text().trimmed();
-  addSifLine("  " + name + " = ", value);
-}
-
-void SifGenerator::handleComboBox(QDomElement elem, QWidget *widget)
-{  
-  QString name = elem.firstChildElement("SifName").text().trimmed();
-  if( name == "" )
-    name= elem.firstChildElement("Name").text().trimmed();
-
-  QComboBox *comboBox = (QComboBox*)widget;
-  QString value = comboBox->currentText().trimmed();
-
-  if(value != "None")
-    addSifLine("  " + name + " = ", value);
-}
-
-void SifGenerator::handleCheckBox(QDomElement elem, QWidget *widget)
-{
-  QString name = elem.firstChildElement("SifName").text().trimmed();
-  if( name == "" )
-    name = elem.firstChildElement("Name").text().trimmed();
-  
-  QString def_val = elem.firstChildElement("DefaultValue").text().trimmed();
-  if ( def_val == "" )
-    def_val = "False";
-
-  QCheckBox *checkBox = (QCheckBox*)widget;
-  
-  if(checkBox->isChecked()) {
-    if ( def_val != "True" )
-      te->append("  " + name + " = True");
-  } else {
-    if ( def_val != "False" )
-      te->append("  " + name + " = False");
-  }
-}
 
 // Make body force blocks:
 //-----------------------------------------------------------------------------
@@ -502,9 +467,9 @@ void SifGenerator::makeInitialConditionBlocks()
 void SifGenerator::makeBoundaryBlocks()
 {
   // TODO: At the moment only "Equation 1" is meaningful (index=0)
-  PDEPropertyEditor *eqEdit = &pdePropertyEditor[0];
 
-  int j = 0;
+  //PDEPropertyEditor *eqEdit = &pdePropertyEditor[0];
+  // int j = 0;
 
   // TODO: replace MAX_BCS with an actual value
 #if 0
@@ -666,6 +631,11 @@ void SifGenerator::parseLinearSystemTab(Ui::solverParameterEditor ui)
   }
 }
 
+//------------------------------------------------------------------------
+//
+//                         COMMON UTILITY FUNCTIONS
+//
+//------------------------------------------------------------------------
 
 void SifGenerator::addSifLine(const QString &var, const QString &val)
 {
@@ -679,4 +649,50 @@ void SifGenerator::addSifLineBool(const QString &var, bool val)
     te->append(var + "True");
   else
     te->append(var + "False");
+}
+
+
+void SifGenerator::handleLineEdit(QDomElement elem, QWidget *widget)
+{
+  QString name = elem.firstChildElement("SifName").text().trimmed();
+  if( name == "" )
+    name= elem.firstChildElement("Name").text().trimmed();
+
+  QLineEdit *lineEdit = (QLineEdit*)widget;
+  QString value = lineEdit->text().trimmed();
+  addSifLine("  " + name + " = ", value);
+}
+
+void SifGenerator::handleComboBox(QDomElement elem, QWidget *widget)
+{  
+  QString name = elem.firstChildElement("SifName").text().trimmed();
+  if( name == "" )
+    name= elem.firstChildElement("Name").text().trimmed();
+
+  QComboBox *comboBox = (QComboBox*)widget;
+  QString value = comboBox->currentText().trimmed();
+
+  if(value != "None")
+    addSifLine("  " + name + " = ", value);
+}
+
+void SifGenerator::handleCheckBox(QDomElement elem, QWidget *widget)
+{
+  QString name = elem.firstChildElement("SifName").text().trimmed();
+  if( name == "" )
+    name = elem.firstChildElement("Name").text().trimmed();
+  
+  QString def_val = elem.firstChildElement("DefaultValue").text().trimmed();
+  if ( def_val == "" )
+    def_val = "False";
+
+  QCheckBox *checkBox = (QCheckBox*)widget;
+  
+  if(checkBox->isChecked()) {
+    if ( def_val != "True" )
+      te->append("  " + name + " = True");
+  } else {
+    if ( def_val != "False" )
+      te->append("  " + name + " = False");
+  }
 }

@@ -3299,9 +3299,10 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     }
   }
 
-  // Body selection (take no action at the moment):
-  //------------------------------------------------
-  if((glWidget->currentlySelectedBody >= 0) && (glWidget->shiftPressed || bodyEditActive)) {
+  // Body selection:
+  //----------------
+  if((glWidget->currentlySelectedBody >= 0) &&
+     (glWidget->shiftPressed || bodyEditActive)) {
 
     glWidget->ctrlPressed = false;
     glWidget->shiftPressed = false;
