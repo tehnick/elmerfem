@@ -17,6 +17,27 @@ class hash_entry_t
   QDomElement elem;
 };
 
+class DynLineEdit : public QWidget
+{
+  Q_OBJECT
+
+public:
+  DynLineEdit(QWidget *parent=0);
+ ~DynLineEdit();
+
+  QLineEdit *lineEdit;
+  QTextEdit *textEdit;
+  QString name;
+  QLabel *label;
+  QFrame *frame;
+  QLayout *layout;
+  QPushButton *closeButton;
+
+private slots:
+  void editSlot();
+  void lineEditClose();
+};
+
 class DynamicEditor : public QWidget
 {
   Q_OBJECT
@@ -53,8 +74,6 @@ private slots:
   void discardButtonClicked();
   void lSlot(int);
   void comboSlot(QString);
-  void editSlot();
-  void lineEditClose();
 
 private:
   hash_entry_t h;

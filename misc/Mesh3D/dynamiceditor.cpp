@@ -4,6 +4,21 @@
 
 using namespace std;
 
+DynLineEdit::DynLineEdit(QWidget *parent) : QWidget(parent)
+{
+   name = "";
+   label = NULL;
+   frame  = NULL;
+   layout = NULL;
+   textEdit = NULL;
+   closeButton = NULL; 
+   lineEdit = new QLineEdit;
+}
+
+DynLineEdit::~DynLineEdit()
+{
+}
+
 DynamicEditor::DynamicEditor(QWidget *parent)
   : QWidget(parent)
 {
@@ -89,13 +104,15 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
         QString whatis    = param.firstChildElement("Whatis").text().trimmed();
         QString statusTip = param.firstChildElement("StatusTip").text().trimmed();
 
+        QString fullName  = "/"+name.text().trimmed()+"/"+Section+"/"+labelName+"/"+QString::number(ID);
         h.widget = NULL;
 
         if ( widget_type == "Edit" ) {
-          QLineEdit *edit = new QLineEdit;
-          h.widget = edit;
-          edit->setText(paramDefault);
-          connect(edit, SIGNAL(returnPressed()), this, SLOT(editSlot()));
+          DynLineEdit *edit = new DynLineEdit;
+          h.widget = edit->lineEdit;
+          edit->lineEdit->setText(paramDefault);
+          edit->name = fullName;
+          connect(edit->lineEdit, SIGNAL(returnPressed()), edit, SLOT(editSlot()));
 
         } else if ( widget_type == "Combo" ) {
           QComboBox *combo = new QComboBox;
@@ -137,10 +154,9 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
           h.widget->setWhatsThis(whatis);
           h.widget->setStatusTip(statusTip);
 
-          QString q = "/"+name.text().trimmed()+"/"+Section+"/"+labelName+"/"+QString::number(ID);
-          h.widget->setProperty( "dom address",q);
+          h.widget->setProperty( "dom address",fullName);
           h.elem=param;
-          hash[q] = h;
+          hash[fullName] = h;
 
           if ( widget_enabled == "False" ) h.widget->setEnabled(false);
 
@@ -214,51 +230,70 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
 }
 
 //----------------------------------------------------------------------------
-void DynamicEditor::editSlot()
+void DynLineEdit::editSlot()
 {
-  QLineEdit *q = (QLineEdit *)QObject::sender();
-  cout << string(q->text().toAscii()) << endl;
-
-  QTextEdit *textEdit = new QTextEdit;
-
+  QLineEdit *q =  lineEdit;
   QString s = q->text();
-  s.replace( ';', '\n' );
+  cout << string(s.toAscii()) << endl;
 
-  textEdit->append( s);
+  if ( frame ) {
+    s.replace( ';', '\n' );
+    textEdit->append(s);
+    frame->show();
+    frame->raise();
+    return;
+  }
+
+  textEdit = new QTextEdit;
   textEdit->setLineWrapMode(QTextEdit::NoWrap);
 
-  QPushButton *closeButton;
+  s.replace( ';', '\n' );
+  textEdit->append(s);
 
   closeButton = new QPushButton(tr("&Close"));
   connect(closeButton, SIGNAL(clicked()), this, SLOT(lineEditClose()));
-  closeButton->setProperty("line name", (unsigned long long)q );
-  closeButton->setProperty("text name", (unsigned long long)textEdit );
+
+  label = new QLabel;
+  label->setText(name);
   
-  QVBoxLayout *layout = new QVBoxLayout;
+  layout = new QVBoxLayout;
+  layout->addWidget(label);
   layout->addWidget(textEdit);
   layout->addWidget(closeButton);
 
-  QFrame *frm = new QFrame;
-  frm->setLayout(layout);
-
-  frm->show();
+  frame = new QFrame;
+  frame->setLayout(layout);
+  frame->show();
+  frame->setWindowTitle(name);
 }
 
 //----------------------------------------------------------------------------
-void DynamicEditor::lineEditClose()
+void DynLineEdit::lineEditClose()
 {
-  QTextEdit *t = (QTextEdit *)(QObject::sender())->
-         property("text name").toULongLong();
-
-  QLineEdit *l = (QLineEdit *)(QObject::sender())->
-         property("line name").toULongLong();
-
-  QString q = t->toPlainText();
+  QString q = textEdit->toPlainText();
   q.replace( '\n', ';' );
 
-  l->setText(q);
+  lineEdit->setText(q);
 
-  ((QFrame *)t->parent())->close();
+  frame->close();
+
+  name = "";
+
+  delete label;
+  label = NULL;
+
+  delete textEdit;
+  textEdit = NULL;
+
+  delete closeButton;
+  closeButton = NULL;
+
+  delete layout;
+  layout = NULL;
+
+  delete frame;
+  frame = NULL;
+
 }
 
 //----------------------------------------------------------------------------
