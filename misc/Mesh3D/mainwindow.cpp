@@ -3318,7 +3318,6 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     } else {
       BodyPropertyEditor *bodyEdit = &bodyPropertyEditor[current];
 
-
       // Populate body editor's comboboxes:
       //-----------------------------------
       bodyEdit->ui.equationCombo->clear();

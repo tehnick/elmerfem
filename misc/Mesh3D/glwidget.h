@@ -8,6 +8,8 @@
 #define SHARPEDGELIST   2004
 
 #include <QGLWidget>
+#include <QHash>
+
 #include "helpers.h"
 #include "meshutils.h"
 
@@ -57,6 +59,9 @@ public:
   bool shiftPressed;
   bool altPressed;
   bool bodyEditActive;
+
+  QHash<int, int> boundaryMap;
+  QHash<int, int> bodyMap;
 
 public slots:
 

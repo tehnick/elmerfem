@@ -336,7 +336,16 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
 
   dy = -dy;
   
-  if (event->buttons() & Qt::LeftButton) {
+  if ((event->buttons() & Qt::MidButton) ||
+      ((event->buttons() & Qt::LeftButton) && 
+       (event->buttons() & Qt::RightButton)) ) {
+
+    // Scale:
+    double s = exp(-dy*0.01);
+    glScaled(s, s, s);
+    updateGL();
+
+  } else if (event->buttons() & Qt::LeftButton) {
     
     // Rotation:
     double ax = -(double)dy;
@@ -365,13 +374,6 @@ void GLWidget::mouseMoveEvent(QMouseEvent *event)
     glLoadIdentity();
     glTranslated(ax, ay, az);
     glMultMatrixd(matrix);
-    updateGL();
-
-  } else if (event->buttons() & Qt::MidButton) {
-
-    // Scale:
-    double s = exp(dy*0.01);
-    glScaled(s, s, s);
     updateGL();
   }
 
@@ -570,7 +572,8 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
 	  }
 	}
 	
-	if(l2->selected && (l2->nature == PDE_BOUNDARY) && (l2->type == SURFACELIST)) {	  
+	if(l2->selected && (l2->nature == PDE_BOUNDARY) && 
+	   (l2->type == SURFACELIST)) {	  
 	  for(int j = 0; j < mesh->surfaces; j++) {
 	    surface_t *surf = &mesh->surface[j];	    
 	    if(surf->index == l2->index) {
@@ -728,7 +731,34 @@ GLuint GLWidget::makeLists()
   // - A list of sharp edges will always be drawn (even if it is empty)
   //---------------------------------------------------------------------------
   
+  // Simultaneously, construct hash for mapping bosy & boundary incides:
+  boundaryMap.clear();
+  bodyMap.clear();
+  int boundaryCount = 0;
+  int bodyCount = 0;
 
+  // Scan volume elements to determine the number of mat. ind. (just for hash):
+  //---------------------------------------------------------------------------
+  int *element_nature = new int[mesh->elements];
+
+  for(i=0; i < mesh->elements; i++)
+    element_nature[i] = 0;
+  
+  for(i=0; i < mesh->elements; i++) {
+    element_t *element = &mesh->element[i];
+    if(element->index >= 0)  // accept also index 0
+      element_nature[element->index] = element->nature;
+  }    
+  
+  for(i=0; i < mesh->elements; i++) {
+    if(element_nature[i] == PDE_BULK) {
+      bodyMap.insert(i, bodyCount);
+      bodyCount++;
+    }
+  }  
+
+  delete [] element_nature;
+  
   // Scan surface elements to determine the number of bcs / mat. indices:
   //---------------------------------------------------------------------------
   int surface_bcs = 0;
@@ -744,8 +774,13 @@ GLuint GLWidget::makeLists()
   }    
   
   for(i=0; i < mesh->surfaces; i++) {
-    if(surface_nature[i] > 0)
+    if(surface_nature[i] > 0) {
       surface_bcs++;
+      if(surface_nature[i] == PDE_BULK)
+	bodyMap.insert(i, bodyCount++);
+      if(surface_nature[i] == PDE_BOUNDARY)
+	boundaryMap.insert(i, boundaryCount++);
+    }
   }  
   
   cout << "Bcs / materials on surface elements: " << surface_bcs << endl;
@@ -766,8 +801,13 @@ GLuint GLWidget::makeLists()
   }    
   
   for(i=0; i < mesh->edges; i++) {
-    if(edge_nature[i] > 0)
+    if(edge_nature[i] > 0) {
       edge_bcs++;
+      if(edge_nature[i] == PDE_BULK)
+	bodyMap.insert(i, bodyCount++);
+      if(edge_nature[i] == PDE_BOUNDARY)
+	boundaryMap.insert(i, boundaryCount++);
+    }
   }  
   
   cout << "Bcs / materials on edge elements: " << edge_bcs << endl;  
