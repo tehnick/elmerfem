@@ -3316,13 +3316,16 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     if(current >= MAX_BODIES) {
       logMessage("Error: index exceeds MAX_BODIES (increase it and recompile)");      
     } else {
-      BodyPropertyEditor *bodyEdit = &bodyPropertyEditor[current];
+      int n = glWidget->bodyMap.value(current);
+      BodyPropertyEditor *bodyEdit = &bodyPropertyEditor[n];
 
       // Populate body editor's comboboxes:
       //-----------------------------------
       bodyEdit->ui.equationCombo->clear();
 
       int count = 1;
+      for(int i = 0; i<MAX_EQUATIONS; i++) 
+	bodyEdit->ui.equationCombo->removeItem(i);
       for(int i = 0; i<MAX_EQUATIONS; i++) {
 	PDEPropertyEditor *eqEdit = &pdePropertyEditor[i];
 	if(eqEdit->menuAction != NULL) {
@@ -3332,6 +3335,8 @@ void MainWindow::boundarySelectedSlot(list_t *l)
       }
       
       count = 1;
+      for(int i = 0; i<MAX_MATERIALS; i++) 
+	bodyEdit->ui.materialCombo->removeItem(i);
       for(int i = 0; i<MAX_MATERIALS; i++) {
 	DynamicEditor *matEdit = &matPropertyEditor[i];
 	if(matEdit->menuAction != NULL) {
@@ -3341,6 +3346,8 @@ void MainWindow::boundarySelectedSlot(list_t *l)
       }
 
       count = 1;
+      for(int i = 0; i<MAX_BODYFORCES; i++) 
+	bodyEdit->ui.bodyForceCombo->removeItem(i);
       for(int i = 0; i<MAX_BODYFORCES; i++) {
 	DynamicEditor *bodyForceEdit = &bodyForceEditor[i];
 	if(bodyForceEdit->menuAction != NULL) {
@@ -3350,6 +3357,8 @@ void MainWindow::boundarySelectedSlot(list_t *l)
       }
 
       count = 1;
+      for(int i = 0; i<MAX_INITIALCONDITIONS; i++) 
+	bodyEdit->ui.initialConditionCombo->removeItem(i);
       for(int i = 0; i<MAX_INITIALCONDITIONS; i++) {
 	DynamicEditor *initialConditionEdit = &initialConditionEditor[i];
 	if(initialConditionEdit->menuAction != NULL) {
