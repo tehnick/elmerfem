@@ -3324,8 +3324,8 @@ void MainWindow::boundarySelectedSlot(list_t *l)
       bodyEdit->ui.equationCombo->clear();
 
       int count = 1;
-      for(int i = 0; i<MAX_EQUATIONS; i++) 
-	bodyEdit->ui.equationCombo->removeItem(i);
+      while(bodyEdit->ui.equationCombo->count() > 0) 
+	bodyEdit->ui.equationCombo->removeItem(0);
       for(int i = 0; i<MAX_EQUATIONS; i++) {
 	PDEPropertyEditor *eqEdit = &pdePropertyEditor[i];
 	if(eqEdit->menuAction != NULL) {
@@ -3335,8 +3335,8 @@ void MainWindow::boundarySelectedSlot(list_t *l)
       }
       
       count = 1;
-      for(int i = 0; i<MAX_MATERIALS; i++) 
-	bodyEdit->ui.materialCombo->removeItem(i);
+      while(bodyEdit->ui.materialCombo->count() > 0) 
+	bodyEdit->ui.materialCombo->removeItem(0);
       for(int i = 0; i<MAX_MATERIALS; i++) {
 	DynamicEditor *matEdit = &matPropertyEditor[i];
 	if(matEdit->menuAction != NULL) {
@@ -3346,8 +3346,8 @@ void MainWindow::boundarySelectedSlot(list_t *l)
       }
 
       count = 1;
-      for(int i = 0; i<MAX_BODYFORCES; i++) 
-	bodyEdit->ui.bodyForceCombo->removeItem(i);
+      while(bodyEdit->ui.bodyForceCombo->count() > 0) 
+	bodyEdit->ui.bodyForceCombo->removeItem(0);
       for(int i = 0; i<MAX_BODYFORCES; i++) {
 	DynamicEditor *bodyForceEdit = &bodyForceEditor[i];
 	if(bodyForceEdit->menuAction != NULL) {
@@ -3357,8 +3357,8 @@ void MainWindow::boundarySelectedSlot(list_t *l)
       }
 
       count = 1;
-      for(int i = 0; i<MAX_INITIALCONDITIONS; i++) 
-	bodyEdit->ui.initialConditionCombo->removeItem(i);
+      while(bodyEdit->ui.initialConditionCombo->count() > 0) 
+	bodyEdit->ui.initialConditionCombo->removeItem(0);
       for(int i = 0; i<MAX_INITIALCONDITIONS; i++) {
 	DynamicEditor *initialConditionEdit = &initialConditionEditor[i];
 	if(initialConditionEdit->menuAction != NULL) {
