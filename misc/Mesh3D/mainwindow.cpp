@@ -106,6 +106,8 @@ MainWindow::MainWindow()
   generalSetup = new GeneralSetup;
   pdePropertyEditor = new PDEPropertyEditor[MAX_EQUATIONS];
   matPropertyEditor = new DynamicEditor[MAX_MATERIALS];
+  bodyForceEditor = new DynamicEditor[MAX_BODYFORCES];
+  initialConditionEditor = new DynamicEditor[MAX_INITIALCONDITIONS];
   bcPropertyEditor = new DynamicEditor[MAX_BCS];
   bodyPropertyEditor = new BodyPropertyEditor[MAX_BODIES];
   summaryEditor = new SummaryEditor;
@@ -247,6 +249,18 @@ void MainWindow::createActions()
   connect(addMaterialAct, SIGNAL(triggered()), 
 	  this, SLOT(addMaterialSlot()));
 
+  // Model -> Body force...
+  addBodyForceAct = new QAction(QIcon(), tr("Add..."), this);
+  addBodyForceAct->setStatusTip(tr("Add a body force..."));
+  connect(addBodyForceAct, SIGNAL(triggered()), 
+	  this, SLOT(addBodyForceSlot()));
+
+  // Model -> Initial condition...
+  addInitialConditionAct = new QAction(QIcon(), tr("Add..."), this);
+  addInitialConditionAct->setStatusTip(tr("Add an initial condition..."));
+  connect(addInitialConditionAct, SIGNAL(triggered()), 
+	  this, SLOT(addInitialConditionSlot()));
+
   // Model -> Set body properties
   bodyEditAct = new QAction(QIcon(), tr("Set body properties"), this);
   bodyEditAct->setStatusTip(tr("Set body properties (equivalent to holding down the SHIFT key)"));
@@ -254,8 +268,8 @@ void MainWindow::createActions()
 	  this, SLOT(bodyEditSlot()));
 
   // Model -> Set boundary conditions
-  bcEditAct = new QAction(QIcon(), tr("Set boundary conditions"), this);
-  bcEditAct->setStatusTip(tr("Set boundary conditions (equivalent to holding down the ALT key)"));
+  bcEditAct = new QAction(QIcon(), tr("Set boundary properties"), this);
+  bcEditAct->setStatusTip(tr("Set boundary properties (equivalent to holding down the ALT key)"));
   connect(bcEditAct, SIGNAL(triggered()), 
 	  this, SLOT(bcEditSlot()));
 
@@ -454,12 +468,28 @@ void MainWindow::createMenus()
   equationMenu->addSeparator();
   connect(equationMenu, SIGNAL(triggered(QAction*)), 
 	  this, SLOT(equationSelectedSlot(QAction*)));
+
   modelMenu->addSeparator();
   materialMenu = modelMenu->addMenu(tr("Material"));
   materialMenu->addAction(addMaterialAct);
   materialMenu->addSeparator();
   connect(materialMenu, SIGNAL(triggered(QAction*)), 
 	  this, SLOT(materialSelectedSlot(QAction*)));
+
+  modelMenu->addSeparator();
+  bodyForceMenu = modelMenu->addMenu(tr("Body force"));
+  bodyForceMenu->addAction(addBodyForceAct);
+  bodyForceMenu->addSeparator();
+  connect(bodyForceMenu, SIGNAL(triggered(QAction*)), 
+	  this, SLOT(bodyForceSelectedSlot(QAction*)));
+  
+  modelMenu->addSeparator();
+  initialConditionMenu = modelMenu->addMenu(tr("Initial condition"));
+  initialConditionMenu->addAction(addInitialConditionAct);
+  initialConditionMenu->addSeparator();
+  connect(initialConditionMenu, SIGNAL(triggered(QAction*)), 
+	  this, SLOT(initialConditionSelectedSlot(QAction*)));
+  
   modelMenu->addSeparator();
   modelMenu->addAction(bodyEditAct);
   modelMenu->addAction(bcEditAct);
@@ -1610,6 +1640,7 @@ void MainWindow::equationSelectedSlot(QAction* act)
   }
 }
 
+//*****************************************************************************
 
 // Model -> Material -> Add...
 //-----------------------------------------------------------------------------
@@ -1645,7 +1676,6 @@ void MainWindow::addMaterialSlot()
   connect(pe, SIGNAL(dynamicEditorReady(int,int)),
 	  this, SLOT(matEditorFinishedSlot(int,int)));
 }
-
 
 // signal (int,int) emitted by material editor when ready:
 //-----------------------------------------------------------------------------
@@ -1698,7 +1728,6 @@ void MainWindow::matEditorFinishedSlot(int signal, int id)
   }
 }
 
-
 // signal (QAction*) emitted by materialMenu when an item has been selected:
 //-----------------------------------------------------------------------------
 void MainWindow::materialSelectedSlot(QAction* act)
@@ -1715,6 +1744,217 @@ void MainWindow::materialSelectedSlot(QAction* act)
     }
   }
 }
+
+//*****************************************************************************
+
+// Model -> Body force -> Add...
+//-----------------------------------------------------------------------------
+void MainWindow::addBodyForceSlot()
+{
+  // use the first free slot in bodyForceEditor array:
+  int current = 0;
+  bool found = false;
+
+  DynamicEditor *pe = NULL;
+  for(int i = 0; i < MAX_BODYFORCES; i++) {
+    pe = &bodyForceEditor[i];
+    if(pe->menuAction == NULL) {
+      found = true;
+      current = i;
+      break;
+    }
+  }
+  
+  if(!found) {
+    logMessage("Body force max limit reached - unable to add");
+    return;
+  }
+  
+  pe->setupTabs(*elmerDefs, "BodyForce", current);
+
+  pe->applyButton->setText("Add");
+  pe->applyButton->setIcon(QIcon(":/icons/list-add.png"));
+  pe->discardButton->setText("Cancel");
+  pe->discardButton->setIcon(QIcon(":/icons/dialog-close.png"));
+  pe->show();
+
+  connect(pe, SIGNAL(dynamicEditorReady(int,int)),
+	  this, SLOT(bodyForceEditorFinishedSlot(int,int)));
+}
+
+// signal (int,int) emitted by body force editor when ready:
+//-----------------------------------------------------------------------------
+void MainWindow::bodyForceEditorFinishedSlot(int signal, int id)
+{
+#define MAT_OK     0
+#define MAT_DELETE 1
+  
+  DynamicEditor *pe = &bodyForceEditor[id];
+  
+  const QString &bodyForceName = pe->nameEdit->text().trimmed();
+  
+  if((bodyForceName == "") && (signal == MAT_OK)) {
+    logMessage("Refusing to add/update body force with no name");
+    return;
+  }
+  
+  if(signal == MAT_OK) {
+    
+    // Body force already exists:
+    if(pe->menuAction != NULL) {
+      pe->menuAction->setText(bodyForceName);
+      logMessage("Body force updated");
+      pe->close();
+      return;
+    }
+    
+    // Body force is new - add to menu:
+    QAction *act = new QAction(bodyForceName, this);
+    bodyForceMenu->addAction(act);
+    pe->menuAction = act;
+    pe->close();
+    logMessage("Body force added");
+  }
+  
+  if(signal == MAT_DELETE) {
+    
+    // Body force is not in menu:
+    if(pe->menuAction == NULL) {
+      logMessage("Ready");
+      pe->close();
+      return;
+    }
+    
+    // Delete from menu:
+    delete pe->menuAction;
+    pe->menuAction = NULL;
+    pe->close();
+    logMessage("Body force deleted");
+  }
+}
+
+// signal (QAction*) emitted by bodyForceMenu when an item has been selected:
+//-----------------------------------------------------------------------------
+void MainWindow::bodyForceSelectedSlot(QAction* act)
+{
+  // Edit the selected body force:
+  for(int i = 0; i < MAX_BODYFORCES; i++) {
+    DynamicEditor *pe = &bodyForceEditor[i];
+    if(pe->menuAction == act) {
+      pe->applyButton->setText("Update");
+      pe->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
+      pe->discardButton->setText("Remove");
+      pe->discardButton->setIcon(QIcon(":/icons/list-remove.png"));
+      pe->show();
+    }
+  }
+}
+
+//*****************************************************************************
+
+// Model -> Initial condition -> Add...
+//-----------------------------------------------------------------------------
+void MainWindow::addInitialConditionSlot()
+{
+  // use the first free slot in initialConditionEditor array:
+  int current = 0;
+  bool found = false;
+  
+  DynamicEditor *pe = NULL;
+  for(int i = 0; i < MAX_INITIALCONDITIONS; i++) {
+    pe = &initialConditionEditor[i];
+    if(pe->menuAction == NULL) {
+      found = true;
+      current = i;
+      break;
+    }
+  }
+  
+  if(!found) {
+    logMessage("Initial condition max limit reached - unable to add");
+    return;
+  }
+  
+  pe->setupTabs(*elmerDefs, "InitialCondition", current);
+
+  pe->applyButton->setText("Add");
+  pe->applyButton->setIcon(QIcon(":/icons/list-add.png"));
+  pe->discardButton->setText("Cancel");
+  pe->discardButton->setIcon(QIcon(":/icons/dialog-close.png"));
+  pe->show();
+  
+  connect(pe, SIGNAL(dynamicEditorReady(int,int)),
+	  this, SLOT(initialConditionEditorFinishedSlot(int,int)));
+}
+
+// signal (int,int) emitted by initial condition editor when ready:
+//-----------------------------------------------------------------------------
+void MainWindow::initialConditionEditorFinishedSlot(int signal, int id)
+{
+#define MAT_OK     0
+#define MAT_DELETE 1
+
+  DynamicEditor *pe = &initialConditionEditor[id];
+  
+  const QString &initialConditionName = pe->nameEdit->text().trimmed();
+  
+  if((initialConditionName == "") && (signal == MAT_OK)) {
+    logMessage("Refusing to add/update initial condition with no name");
+    return;
+  }
+  
+  if(signal == MAT_OK) {
+    
+    // Initial condition already exists:
+    if(pe->menuAction != NULL) {
+      pe->menuAction->setText(initialConditionName);
+      logMessage("Initial condition updated");
+      pe->close();
+      return;
+    }
+
+    // Initial condition is new - add to menu:
+    QAction *act = new QAction(initialConditionName, this);
+    initialConditionMenu->addAction(act);
+    pe->menuAction = act;
+    pe->close();
+    logMessage("Initial condition added");
+  }
+
+  if(signal == MAT_DELETE) {
+
+    // Initial condition is not in menu:
+    if(pe->menuAction == NULL) {
+      logMessage("Ready");
+      pe->close();
+      return;
+    }
+    
+    // Delete from menu:
+    delete pe->menuAction;
+    pe->menuAction = NULL;
+    pe->close();
+    logMessage("Initial condition deleted");
+  }
+}
+
+// signal (QAction*) emitted by initialConditionMenu when item selected:
+//-----------------------------------------------------------------------------
+void MainWindow::initialConditionSelectedSlot(QAction* act)
+{
+  // Edit the selected initial condition:
+  for(int i = 0; i < MAX_INITIALCONDITIONS; i++) {
+    DynamicEditor *pe = &initialConditionEditor[i];
+    if(pe->menuAction == act) {
+      pe->applyButton->setText("Update");
+      pe->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
+      pe->discardButton->setText("Remove");
+      pe->discardButton->setIcon(QIcon(":/icons/list-remove.png"));
+      pe->show();
+    }
+  }
+}
+
 
 
 
@@ -2971,10 +3211,7 @@ void MainWindow::generateSifSlot()
   sifGenerator->generalSetup = generalSetup;
   sifGenerator->te = sifWindow->textEdit;
   sifGenerator->pdePropertyEditor = pdePropertyEditor;
-
-  //?????
   sifGenerator->matPropertyEditor = matPropertyEditor;
-
   sifGenerator->bodyPropertyEditor = bodyPropertyEditor;
   sifGenerator->bcPropertyEditor = bcPropertyEditor;
   sifGenerator->meshControl = meshControl;
@@ -3097,6 +3334,24 @@ void MainWindow::boundarySelectedSlot(list_t *l)
 	if(matEdit->menuAction != NULL) {
 	  const QString &name = matEdit->nameEdit->text().trimmed();
 	  bodyEdit->ui.materialCombo->insertItem(count++, name);
+	}
+      }
+
+      count = 1;
+      for(int i = 0; i<MAX_BODYFORCES; i++) {
+	DynamicEditor *bodyForceEdit = &bodyForceEditor[i];
+	if(bodyForceEdit->menuAction != NULL) {
+	  const QString &name = bodyForceEdit->nameEdit->text().trimmed();
+	  bodyEdit->ui.bodyForceCombo->insertItem(count++, name);
+	}
+      }
+
+      count = 1;
+      for(int i = 0; i<MAX_INITIALCONDITIONS; i++) {
+	DynamicEditor *initialConditionEdit = &initialConditionEditor[i];
+	if(initialConditionEdit->menuAction != NULL) {
+	  const QString &name = initialConditionEdit->nameEdit->text().trimmed();
+	  bodyEdit->ui.initialConditionCombo->insertItem(count++, name);
 	}
       }
 

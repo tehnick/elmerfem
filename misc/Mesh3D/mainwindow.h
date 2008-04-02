@@ -1,8 +1,10 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#define MAX_EQUATIONS 10
-#define MAX_MATERIALS 10
+#define MAX_EQUATIONS         10
+#define MAX_MATERIALS         10
+#define MAX_BODYFORCES        10
+#define MAX_INITIALCONDITIONS 10
 // MAX_BCS defined in "bcpropertyeditor.h"
 // MAX_BODIES defined in "bodypropertyeditor.h"
 
@@ -42,6 +44,7 @@ public:
   ~MainWindow();
 
 private slots:
+  // menu slots:
   void openSlot();                // File -> Open...
   void loadSlot();                // File -> Load...
   void saveSlot();                // File -> Save...
@@ -50,6 +53,8 @@ private slots:
   void modelSetupSlot();          // Model -> Setup...
   void addEquationSlot();         // Model -> Equation...
   void addMaterialSlot();         // Model -> Material...
+  void addBodyForceSlot();        // Model -> Body force...
+  void addInitialConditionSlot(); // Model -> Initial condition...
   void bodyEditSlot();            // Model -> Set body properties
   void bcEditSlot();              // Model -> Set boundary conditions
   void modelSummarySlot();        // Model -> Summary...
@@ -80,20 +85,29 @@ private slots:
   void killresultsSlot();         // Solver -> Kill post process
   void showaboutSlot();           // Help -> About...
 
+  // other public slots:
   void meshOkSlot();                  // signal emitted by meshingThread
   void boundarySelectedSlot(list_t*); // signal emitted by glWidget
   void doDivideSurfaceSlot(double);   // signal emitted by boundaryDivide
   void doDivideEdgeSlot(double);      // signal emitted by boundaryDivide
+
   void postProcessFinishedSlot(int);  // signal emitted by postProcess
   void solverStdoutSlot();            // solver's stdout redirection
   void solverStderrSlot();            // solver's stderr redirection
   void solverFinishedSlot(int);       // signal emitted by solver process
+
   void pdeEditorFinishedSlot(int, int);  // signal emitted by pde editor
   void matEditorFinishedSlot(int, int);  // signal emitted by mat editor
-  void equationSelectedSlot(QAction*);   // item selected from Equation menu
-  void materialSelectedSlot(QAction*);   // item selected from Material menu
+  void bodyForceEditorFinishedSlot(int, int);  // signal emitted by bf editor
+  void initialConditionEditorFinishedSlot(int, int);  // emitted by ic editor
+
+  void equationSelectedSlot(QAction*);   // signal emitted by Equation menu
+  void materialSelectedSlot(QAction*);   // signal emitted by Material menu
+  void bodyForceSelectedSlot(QAction*);  // signal emitted by BodyForce menu
+  void initialConditionSelectedSlot(QAction*);  // emitted by Initial c. menu
 
 private:
+  // widgets and helpers:
   GLWidget *glWidget;             // central gl widget
   SifWindow *sifWindow;           // sif text editor
   MeshControl *meshControl;       // mesh generator control
@@ -114,6 +128,8 @@ private:
   QMenu *modelMenu;               // Model menu
   QMenu *equationMenu;            // Model -> Equation menu
   QMenu *materialMenu;            // Model -> Material menu
+  QMenu *bodyForceMenu;           // Model -> Body force...
+  QMenu *initialConditionMenu;    // Model -> Initial condition...
   QMenu *editMenu;                // Edit menu
   QMenu *viewMenu;                // View menu
   QMenu *shadeMenu;               // View -> Shade model menu
@@ -134,6 +150,8 @@ private:
   QAction *modelSetupAct;         // Model -> Setup...
   QAction *addEquationAct;        // Model -> Equation...
   QAction *addMaterialAct;        // Model -> Material...
+  QAction *addBodyForceAct;       // Model -> Body force...
+  QAction *addInitialConditionAct;  // Model -> Initial condition...
   QAction *bodyEditAct;           // Model -> Set body properties
   QAction *bcEditAct;             // Model -> Set boundary conditions
   QAction *modelSummaryAct;       // Model -> Summary...
@@ -164,10 +182,12 @@ private:
   QAction *killresultsAct;        // Solver -> Kill post process
   QAction *aboutAct;              // Help -> About...
 
-  // property editors etc.:
+  // property editors etc:
   GeneralSetup *generalSetup;
   PDEPropertyEditor *pdePropertyEditor;
   DynamicEditor *matPropertyEditor;
+  DynamicEditor *bodyForceEditor;
+  DynamicEditor *initialConditionEditor;
   DynamicEditor *bcPropertyEditor;
   BodyPropertyEditor *bodyPropertyEditor;
   SummaryEditor *summaryEditor;
