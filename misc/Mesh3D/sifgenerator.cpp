@@ -99,7 +99,7 @@ void SifGenerator::makeBodyBlocks()
 {
   // find out mesh domain ids:
   // -------------------------
-  char str[1024];
+  // char str[1024];
   int maxindex=-1;
   for( int i=0; i < mesh->elements; i++)
   {
@@ -177,38 +177,40 @@ void SifGenerator::makeBodyBlocks()
         body_id[maxindex++] = element->index;
       }
   }
-  
-  te->append("Body 1");
-  te->append("  Name = \"Body1\"");
-  sprintf( str, "  Target Bodies(%d) =", maxindex );
-  for( int i=0; i < maxindex; i++ ) 
-     sprintf( str, "%s %d", str, max(body_id[i],1) );
 
   delete [] body_tmp;
   delete [] body_id;
+  
+  int sifIndex = 0;
+  for(int index = 0; index < MAX_BODIES; index++) {
+    BodyPropertyEditor *bodyEdit = &bodyPropertyEditor[index];
 
-  te->append(str);
+    if(bodyEdit->touched) {
+      te->append("Body " + QString::number(++sifIndex));
+      te->append("  Target Bodies(1) = " + QString::number(index));
 
-  // Assume only one body with index=1, at the moment:
-  BodyPropertyEditor *bodyEdit = &bodyPropertyEditor[1];
-  
-  int index = bodyEdit->ui.equationCombo->currentIndex();
-  if(index > -1)
-    te->append("  Equation = " + QString::number(index+1));
-  
-  index = bodyEdit->ui.materialCombo->currentIndex();
-  if(index > -1)
-    te->append("  Material = " + QString::number(index+1));
-  
-  index = bodyEdit->ui.bodyForceCombo->currentIndex();
-  if(index > -1)
-    te->append("  Body Force = " + QString::number(index+1));
-  
-  index = bodyEdit->ui.initialConditionCombo->currentIndex();
-  if(index > -1)
-    te->append("  Initial condition = " + QString::number(index+1));
+      te->append("  Name = " + bodyEdit->ui.nameEdit->text().trimmed());
 
-  te->append("End\n");
+      int i = bodyEdit->ui.equationCombo->currentIndex();
+      if(i > -1)
+	te->append("  Equation = " + QString::number(i+1));
+      
+      i = bodyEdit->ui.materialCombo->currentIndex();
+      if(i > -1)
+	te->append("  Material = " + QString::number(i+1));
+      
+      i = bodyEdit->ui.bodyForceCombo->currentIndex();
+
+      if(i > -1)
+	te->append("  Body Force = " + QString::number(i+1));
+      
+      i = bodyEdit->ui.initialConditionCombo->currentIndex();
+      if(i > -1)
+	te->append("  Initial condition = " + QString::number(i+1));
+      
+      te->append("End\n");      
+    }
+  }
 }
 
 

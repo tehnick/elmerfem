@@ -3371,6 +3371,7 @@ void MainWindow::boundarySelectedSlot(list_t *l)
 	bodyEdit->ui.discardButton->setIcon(QIcon(":/icons/dialog-close.png"));
       }
       bodyEdit->setWindowTitle("Properties for body " + QString::number(current));
+      bodyEdit->ui.nameEdit->setText("Body " + QString::number(current));
       bodyEdit->show();
     }
   }
