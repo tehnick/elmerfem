@@ -413,39 +413,91 @@ void SifGenerator::handleCheckBox(QDomElement elem, QWidget *widget)
   }
 }
 
-
-
-
-
-// Make BodyForce-blocks:
+// Make body force blocks:
 //-----------------------------------------------------------------------------
 void SifGenerator::makeBodyForceBlocks()
 {
-  // TODO: At the moment only "Equation 1" is meaningful (index=0)
-  PDEPropertyEditor *p = &pdePropertyEditor[0];
+  int sifIndex = 0;
 
-  // TODO: add functionality wrt ui
-  Ui::equationEditor ui = p->ui;
+  for(int index = 0; index < MAX_BODYFORCES; index++) {
+    DynamicEditor *bfEdit = &bodyForceEditor[index];
+    
+    if(bfEdit->menuAction != NULL) { 
+      te->append("Body Force " + QString::number(++sifIndex));
+      
+      QString name = bfEdit->nameEdit->text().trimmed();
+      addSifLine("  Name = ", name);
+      
+      for(int i = 0; i < bfEdit->hash.count(); i++) {
+	hash_entry_t entry = bfEdit->hash.values().at(i); 
+	
+	QWidget *widget = entry.widget;
 
-  te->append("Body Force 1");
-
-  if(ui.heatEquationActive->isChecked())
-    te->append("  Heat Source = 1");
-
-  if(ui.linearElasticityActive->isChecked()) {
-    if(cdim >= 1) 
-      te->append("  Stress BodyForce 1 = 1");
-    if(cdim >= 2) 
-      te->append("  Stress BodyForce 2 = 0");
-    if(cdim >= 3) 
-      te->append("  Stress BodyForce 3 = 0");
+	QDomElement elem;
+        if ( widget->isEnabled() ) {
+          elem = entry.elem;
+	  
+          if(elem.attribute("Widget", "") == "CheckBox") 
+	   handleCheckBox(elem, widget);
+	
+	 if(elem.attribute("Widget", "") == "Edit")
+	   handleLineEdit(elem, widget);
+	
+	 if(elem.attribute("Widget", "") == "Combo")
+	   handleComboBox(elem, widget);
+        }
+      }
+      te->append("End\n");
+    }
   }
-  
-  te->append("End\n");
 }
 
 
-// Make Booundary-blocks:
+// Make initial condition blocks:
+//-----------------------------------------------------------------------------
+void SifGenerator::makeInitialConditionBlocks()
+{
+  int sifIndex = 0;
+  
+  for(int index = 0; index < MAX_INITIALCONDITIONS; index++) {
+    DynamicEditor *icEdit = &initialConditionEditor[index];
+    
+    if(icEdit->menuAction != NULL) { 
+      te->append("Initial Condition " + QString::number(++sifIndex));
+      
+      QString name = icEdit->nameEdit->text().trimmed();
+      addSifLine("  Name = ", name);
+      
+      for(int i = 0; i < icEdit->hash.count(); i++) {
+	hash_entry_t entry = icEdit->hash.values().at(i); 
+	
+	QWidget *widget = entry.widget;
+
+	QDomElement elem;
+        if ( widget->isEnabled() ) {
+          elem = entry.elem;
+	  
+          if(elem.attribute("Widget", "") == "CheckBox") 
+	   handleCheckBox(elem, widget);
+	
+	 if(elem.attribute("Widget", "") == "Edit")
+	   handleLineEdit(elem, widget);
+	
+	 if(elem.attribute("Widget", "") == "Combo")
+	   handleComboBox(elem, widget);
+        }
+      }
+      te->append("End\n");
+    }
+  }
+}
+
+
+
+
+
+
+// Make Boundary-blocks:
 //-----------------------------------------------------------------------------
 void SifGenerator::makeBoundaryBlocks()
 {

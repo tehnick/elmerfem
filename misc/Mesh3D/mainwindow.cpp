@@ -3212,6 +3212,8 @@ void MainWindow::generateSifSlot()
   sifGenerator->te = sifWindow->textEdit;
   sifGenerator->pdePropertyEditor = pdePropertyEditor;
   sifGenerator->matPropertyEditor = matPropertyEditor;
+  sifGenerator->bodyForceEditor = bodyForceEditor;
+  sifGenerator->initialConditionEditor = initialConditionEditor;
   sifGenerator->bodyPropertyEditor = bodyPropertyEditor;
   sifGenerator->bcPropertyEditor = bcPropertyEditor;
   sifGenerator->meshControl = meshControl;
@@ -3226,6 +3228,7 @@ void MainWindow::generateSifSlot()
   sifGenerator->makeSolverBlocks();
   sifGenerator->makeMaterialBlocks();
   sifGenerator->makeBodyForceBlocks();
+  sifGenerator->makeInitialConditionBlocks();
   sifGenerator->makeBoundaryBlocks();
 }
 

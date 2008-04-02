@@ -20,7 +20,9 @@
 #define HELMHOLTZ_EQUATION  4
 
 
-#define MAX_MATERIALS 10
+#define MAX_MATERIALS         10
+#define MAX_BODYFORCES        10
+#define MAX_INITIALCONDITIONS 10
 
 class SifGenerator  {
  public:
@@ -32,6 +34,8 @@ class SifGenerator  {
   GeneralSetup *generalSetup;
   PDEPropertyEditor *pdePropertyEditor;
   DynamicEditor *matPropertyEditor;
+  DynamicEditor *bodyForceEditor;
+  DynamicEditor *initialConditionEditor;
   BodyPropertyEditor *bodyPropertyEditor;
   DynamicEditor *bcPropertyEditor;
   MeshControl *meshControl;
@@ -45,6 +49,7 @@ class SifGenerator  {
   void makeSolverBlocks();
   void makeMaterialBlocks();
   void makeBodyForceBlocks();
+  void makeInitialConditionBlocks();
   void makeBoundaryBlocks();
 
  private:
