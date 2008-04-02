@@ -751,8 +751,14 @@
 
          IF ( ConvectionFlag == 'constant' ) THEN
            U(1:n) = GetReal( Material, 'Convection Velocity 1', Found )
+           IF ( .NOT. Found ) &
+              U(1:n) = GetReal( Equation, 'Convection Velocity 1', Found )
            V(1:n) = GetReal( Material, 'Convection Velocity 2', Found )
+           IF ( .NOT. Found ) &
+             V(1:n) = GetReal( Equation, 'Convection Velocity 2', Found )
            W(1:n) = GetReal( Material, 'Convection Velocity 3', Found )
+           IF ( .NOT. Found ) &
+             W(1:n) = GetReal( Equation, 'Convection Velocity 3', Found )
          ELSE IF ( ConvectionFlag == 'computed' ) THEN
            DO i=1,n
              k = FlowPerm(Element % NodeIndexes(i))
@@ -1028,7 +1034,7 @@
           IF ( GetLogical( BC, 'Heat Gap', Found ) ) THEN
              ImplicitHeatGap = GetLogical( BC, 'Heat Gap Implicit', Found )
              IF (.NOT. Found ) ImplicitHeatGap = .TRUE.
-             IF ( ImplicitHeatGap ) THEN
+             IF ( ImplicitHeatGap ) &
                CALL AddHeatGap( Solver, Element, STIFF, TempPerm)
           END IF
           CALL DefaultUpdateEquations( STIFF, FORCE )
