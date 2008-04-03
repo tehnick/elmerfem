@@ -147,47 +147,95 @@ void EdfEditor::previewButtonClicked()
     return;
   
   // always create a new instance:
-
+  QMainWindow *sandBox = new QMainWindow;
+  QMdiArea *mdiArea = new QMdiArea;
+  sandBox->setCentralWidget(mdiArea);
+  sandBox->setWindowTitle(tr("Preview definitions"));
+  sandBox->show();
 
   delete dynamicEditorSimulation;
   dynamicEditorSimulation = new DynamicEditor;
   dynamicEditorSimulation->setupTabs(*elmerDefs, "Simulation",1);
-  dynamicEditorSimulation->show();
+  QMdiSubWindow *simulationSubWindow = new QMdiSubWindow;
+  simulationSubWindow->setWidget(dynamicEditorSimulation);
+  simulationSubWindow->setAttribute(Qt::WA_DeleteOnClose);
+  mdiArea->addSubWindow(simulationSubWindow);
+  simulationSubWindow->show();
+  //dynamicEditorSimulation->show();
 
   delete dynamicEditorConstants;
   dynamicEditorConstants = new DynamicEditor;
   dynamicEditorConstants->setupTabs(*elmerDefs, "Constants",1);
-  dynamicEditorConstants->show();
+  QMdiSubWindow *constantsSubWindow = new QMdiSubWindow;
+  constantsSubWindow->setWidget(dynamicEditorConstants);
+  constantsSubWindow->setAttribute(Qt::WA_DeleteOnClose);
+  mdiArea->addSubWindow(constantsSubWindow);
+  constantsSubWindow->show();
+  //dynamicEditorConstants->show();
 
   delete dynamicEditorEquation;
   dynamicEditorEquation = new DynamicEditor;
   dynamicEditorEquation->setupTabs(*elmerDefs, "Equation",1);
-  dynamicEditorEquation->show();
+  QMdiSubWindow *equationSubWindow = new QMdiSubWindow;
+  equationSubWindow->setWidget(dynamicEditorEquation);
+  equationSubWindow->setAttribute(Qt::WA_DeleteOnClose);
+  mdiArea->addSubWindow(equationSubWindow);
+  equationSubWindow->show();
+  //dynamicEditorEquation->show();
 
   delete dynamicEditorSolver;
   dynamicEditorSolver = new DynamicEditor;
   dynamicEditorSolver->setupTabs(*elmerDefs, "Solver",1 );
-  dynamicEditorSolver->show();
+  QMdiSubWindow *solverSubWindow = new QMdiSubWindow;
+  solverSubWindow->setWidget(dynamicEditorSolver);
+  solverSubWindow->setAttribute(Qt::WA_DeleteOnClose);
+  mdiArea->addSubWindow(solverSubWindow);
+  solverSubWindow->show();
+  //dynamicEditorSolver->show();
 
   delete dynamicEditorMaterial;
   dynamicEditorMaterial = new DynamicEditor;
   dynamicEditorMaterial->setupTabs(*elmerDefs, "Material",1 );
-  dynamicEditorMaterial->show();
+  QMdiSubWindow *materialSubWindow = new QMdiSubWindow;
+  materialSubWindow->setWidget(dynamicEditorMaterial);
+  materialSubWindow->setAttribute(Qt::WA_DeleteOnClose);
+  mdiArea->addSubWindow(materialSubWindow);
+  materialSubWindow->show();
+  //dynamicEditorMaterial->show();
 
   delete dynamicEditorBodyForce;
   dynamicEditorBodyForce = new DynamicEditor;
   dynamicEditorBodyForce->setupTabs(*elmerDefs, "BodyForce",1 );
-  dynamicEditorBodyForce->show();
+  QMdiSubWindow *bodyForceSubWindow = new QMdiSubWindow;
+  bodyForceSubWindow->setWidget(dynamicEditorBodyForce);
+  bodyForceSubWindow->setAttribute(Qt::WA_DeleteOnClose);
+  mdiArea->addSubWindow(bodyForceSubWindow);
+  bodyForceSubWindow->show();
+  //dynamicEditorBodyForce->show();
 
   delete dynamicEditorIC;
   dynamicEditorIC = new DynamicEditor;
   dynamicEditorIC->setupTabs(*elmerDefs, "InitialCondition",1 );
-  dynamicEditorIC->show();
+  QMdiSubWindow *initialConditionSubWindow = new QMdiSubWindow;
+  initialConditionSubWindow->setWidget(dynamicEditorIC);
+  initialConditionSubWindow->setAttribute(Qt::WA_DeleteOnClose);
+  mdiArea->addSubWindow(initialConditionSubWindow);
+  initialConditionSubWindow->show();
+  //dynamicEditorIC->show();
 
   delete dynamicEditorBC;
   dynamicEditorBC = new DynamicEditor;
   dynamicEditorBC->setupTabs(*elmerDefs, "BoundaryCondition",1 );
-  dynamicEditorBC->show();
+  QMdiSubWindow *bcSubWindow = new QMdiSubWindow;
+  bcSubWindow->setWidget(dynamicEditorBC);
+  bcSubWindow->setAttribute(Qt::WA_DeleteOnClose);
+  mdiArea->addSubWindow(bcSubWindow);
+  bcSubWindow->show();
+  //dynamicEditorBC->show();
+
+  mdiArea->tileSubWindows();
+  //mdiArea->cascadeSubWindows();
+
 }
 
 
