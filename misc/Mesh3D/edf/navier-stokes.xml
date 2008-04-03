@@ -1,0 +1,271 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE edf>
+<edf version="1.0" >
+   <PDE Name="Navier-Stokes" >
+      <Name>Navier-Stokes</Name>
+      <Solver>
+         <Procedure Widget="File" >
+            <FileName Widget="String" >FlowSolve </FileName>
+            <Function Widget="String" >FlowSolver </Function>
+         </Procedure>
+         <Parameter Widget="" >Flow Solution</Parameter>
+      </Solver>
+
+      <InitialCondition>
+          <Parameter Widget="Label"> <Name> Variables </Name> </Parameter>
+
+          <Parameter Widget="Edit">
+             <Name> Velocity 1 </Name>
+             <Whatis> Initial condition for the velocity in coordinate direction 1. </Whatis>
+          </Parameter>
+
+          <Parameter Widget="Edit">
+             <Name> Velocity 2 </Name>
+             <Whatis> Initial condition for the velocity in coordinate direction 2. </Whatis>
+          </Parameter>
+
+          <Parameter Widget="Edit">
+             <Name> Velocity 3 </Name>
+             <Whatis> Initial condition for the velocity in coordinate direction 3. </Whatis>
+          </Parameter>
+
+          <Parameter Widget="Edit">
+             <Name> Pressure </Name>
+             <Whatis> Initial condition for the pressure. </Whatis>
+          </Parameter>
+      </InitialCondition>
+
+      <BodyForce>
+          <Parameter Widget="Label"> <Name> Volume forces </Name> </Parameter>
+          <Parameter Widget="Edit">
+             <Name> Force 1 </Name>
+             <SifName> Flow Bodyforce 1 </SifName>
+             <Whatis> Volume force in coordinate direction 1. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit">
+             <Name> Force 2 </Name>
+             <SifName> Flow Bodyforce 2 </SifName>
+             <Whatis> Volume force in coordinate direction 2. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit">
+             <Name> Force 3 </Name>
+             <SifName> Flow Bodyforce 3 </SifName>
+             <Whatis> Volume force in coordinate direction 3. </Whatis>
+          </Parameter>
+
+          <Parameter Widget="Label"> <Name> Bodywise Dirichlet Conditions </Name> </Parameter>
+          <Parameter Widget="Edit">
+             <Name> Velocity 1 </Name>
+             <Activate> /Navier-Stokes/BodyForce/Velocity 1 Condition </Activate>
+             <Whatis> Dirichlet condition for the velocity in coordinate direction 1. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit" Enabled="False">
+             <Name> Velocity 1 Condition </Name>
+             <Whatis> If the given value is less than zero, don't set the Dirichlet condition. To be generally useful space and/or time varying values may be given. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit">
+             <Name> Velocity 2 </Name>
+             <Activate> /Navier-Stokes/BodyForce/Velocity 2 Condition </Activate>
+             <Whatis> Dirichlet condition for the velocity in coordinate direction 2. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit" Enabled="False">
+             <Name> Velocity 2 Condition </Name>
+             <Whatis> If the given value is less than zero, don't set the Dirichlet condition. To be generally useful space and/or time varying values may be given. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit">
+             <Name> Velocity 3 </Name>
+             <Activate> /Navier-Stokes/BodyForce/Velocity 3 Condition </Activate>
+             <Whatis> Dirichlet condition for the velocity in coordinate direction 3. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit" Enabled="False">
+             <Name> Velocity 3 Condition </Name>
+             <Whatis> If the given value is less than zero, don't set the Dirichlet condition. To be generally useful space and/or time varying values may be given. </Whatis>
+          </Parameter>
+      </BodyForce>
+
+      <Material>
+         <Parameter Widget="Label" > <Name> Visocity Settings </Name> </Parameter>
+
+         <Parameter Widget="Edit">
+            <Name>Viscosity</Name>
+            <Whatis> The molecular viscosity of the material. </Whatis>
+         </Parameter>
+
+
+         <Parameter Widget="Combo">
+            <Name>Viscosity Model</Name>
+            <Type>String </Type>
+            <Whatis> The non-newtionian and turbulent viscosity models. </Whatis>
+            <Item> <Name> None </Name> </Item>
+            <Item> <Name>power law </Name>
+              <Activate> /Navier-Stokes/Material/Viscosity Exponent </Activate>
+              <Activate> /Navier-Stokes/Material/Critical Shear Rate </Activate>
+            </Item>
+            <Item> <Name>power law too </Name> </Item>
+            <Item> <Name>carreau </Name> </Item>
+            <Item> <Name>cross </Name> </Item>
+            <Item> <Name>powell eyring </Name> </Item>
+            <Item> <Name>thermal carreau </Name> </Item>
+            <Item> <Name>smagorinsky </Name> </Item>
+            <Item> <Name>k-epsilon </Name> </Item>
+            <Item> <Name>rng k-epsilon </Name> </Item>
+            <Item> <Name>spalart-allmaras </Name> </Item>
+            <Item> <Name>k-omega </Name> </Item>
+            <Item> <Name>sst k-omega </Name> </Item>
+            <Item> <Name>levelset </Name> </Item>
+            <Item> <Name>user function </Name> </Item>
+         </Parameter>
+
+         <Parameter Widget="Edit" Enabled="False" Visible="False">
+           <Name> Critical Shear Rate </Name>
+         </Parameter>
+         <Parameter Widget="Edit" Enabled="False" Visible="False">
+           <Name> Viscosity Exponent </Name>
+         </Parameter>
+
+         <Parameter Widget="Label" > <Name> Other properties </Name> </Parameter>
+
+         <Parameter Widget="Edit" >
+            <Name>Poisson ratio</Name>
+            <Whatis> For isotropic materials Poisson ratio must be given with this keyword. </Whatis>
+         </Parameter>
+
+         <Parameter Widget="Edit">
+           <Name> Damping coefficient </Name>
+           <SifName> Damping </SifName>
+           <Whatis> Damping proportional to deformation velocity. </Whatis>
+         </Parameter>
+
+         <Parameter Widget="CheckBox">
+           <Name> Rayleigh Damping </Name>
+           <Whatis> Damping proportional to linear combination of stiffness and mass. </Whatis>
+           <Activate> /Navier-Stokes/Material/Rayleigh alpha </Activate>
+           <Activate> /Navier-Stokes/Material/Rayleigh beta </Activate>
+         </Parameter>
+
+         <Parameter Widget="Edit" Enabled="False">
+           <Name> Rayleigh alpha </Name>
+         </Parameter>
+
+         <Parameter Widget="Edit" Enabled="False">
+           <Name> Rayleigh beta </Name>
+         </Parameter>
+
+          <Parameter Widget="Edit">
+             <Name> Stress 6-vector </Name>
+             <SifName> Stress(6) </SifName>
+             <Whatis> Stress engineering 6-vector corresponding to a prestressed state. This is added to the load case in buckling and/or geometric stiffness analysis. </Whatis>
+          </Parameter>
+
+          <Parameter Widget="Edit">
+             <Name> Strain 6-vector </Name>
+             <SifName> Strain(6) </SifName>
+             <Whatis> Strain engineering 6-vector corresponding to a prestressed state. This is converted to the corresponding stress and added to the load case in buckling and/or geometric stiffness analysis. </Whatis>
+          </Parameter>
+ 
+        <Parameter Widget="Label"> <Name> Material pricipal directions </Name> </Parameter>
+        <Parameter Widget="CheckBox">
+          <Name> Rotate Elasticity Tensor </Name>
+          <Whatis> For anisotropic materials the principal directions of anisotropy do not always correspond to the coordinate axes. Setting this keyord to True enables the user to input Youngs Modulus matrix with respect to the principal directions of anisotropy. Otherwise Youngs Modulus should be given with respect to the coordinate axis directions. </Whatis>
+          <Activate> /Navier-Stokes/Material/Unit Vector 1</Activate>
+          <Activate> /Navier-Stokes/Material/Unit Vector 2</Activate>
+          <Activate> /Navier-Stokes/Material/Unit Vector 3</Activate>
+        </Parameter>
+        <Parameter Widget="Edit" Enabled="False">
+           <Name> Unit Vector 1 </Name>
+           <SifName> Material Coordinates Unit Vector 1(3) </SifName>
+        </Parameter>
+        <Parameter Widget="Edit" Enabled="False">
+           <Name> Unit Vector 2 </Name>
+           <SifName> Material Coordinates Unit Vector 2(3) </SifName>
+        </Parameter>
+        <Parameter Widget="Edit" Enabled="False">
+           <Name> Unit Vector 3 </Name>
+           <SifName> Material Coordinates Unit Vector 3(3) </SifName>
+        </Parameter>
+      </Material>
+
+     <BoundaryCondition>
+         <Parameter Widget="Label"> <Name> Normal-Tangential Coordinate System</Name> </Parameter>
+         <Parameter Widget="CheckBox">
+            <Name> Use normal-tangential coordinate system </Name>
+            <SifName> Normal-Tangential Velocity </SifName>
+            <Activate> /Navier-Stokes/BoundaryCondition/Change of variables</Activate>
+            <Whatis>  The Dirichlet conditions for the vector variables may be given in normal-tangential coordinate system instead of the coordinate axis directed system. The first component will in this case be the normal component and the components 2, 3 two orthogonal tangent directions. </Whatis>
+         </Parameter>
+
+         <Parameter Widget="CheckBox" Enabled="False">
+            <Name> Change of variables </Name>
+            <DefaultValue> True </DefaultValue>
+            <SifName> Normal-Tangential Velocity Rotate </SifName>
+            <Whatis> If checked, do change of variables from x,y,z -> n,t1,t2. This change of variables is only needed if Dirichlet conditions are present. </Whatis>
+         </Parameter>
+
+         <Parameter Widget="Label"> <Name> Dirichlet Conditions </Name> </Parameter>
+          <Parameter Widget="Edit">
+             <Name> Velocity 1 </Name>
+             <Activate> /Navier-Stokes/BoundaryCondition/Velocity 1 Condition </Activate>
+             <Whatis> Dirichlet condition for the velocity in coordinate direction 1. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit" Enabled="False">
+             <Name> Velocity 1 Condition </Name>
+             <Whatis> If the given value is less than zero, don't set the Dirichlet condition. To be generally useful space and/or time varying values may be given. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit">
+             <Name> Velocity 2 </Name>
+             <Activate> /Navier-Stokes/BoundaryCondition/Velocity 2 Condition </Activate>
+             <Whatis> Dirichlet condition for the velocity in coordinate direction 2. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit" Enabled="False">
+             <Name> Velocity 2 Condition </Name>
+             <Whatis> If the given value is less than zero, don't set the Dirichlet condition. To be generally useful space and/or time varying values may be given. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit">
+             <Name> Velocity 3 </Name>
+             <Activate> /Navier-Stokes/BoundaryCondition/Velocity 3 Condition </Activate>
+             <Whatis> Dirichlet condition for the velocity in coordinate direction 3. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit" Enabled="False">
+             <Name> Velocity 3 Condition </Name>
+             <Whatis> If the given value is less than zero, don't set the Dirichlet condition. To be generally useful space and/or time varying values may be given. </Whatis>
+          </Parameter>
+
+         <Parameter Widget="Label"> <Name> Traction boundary conditions </Name> </Parameter>
+
+         <Parameter Widget="Edit">
+            <Name> Normal Force </Name>
+            <Whatis> A force normal to the boundary is given with this keyword. </Whatis>
+         </Parameter>
+         <Parameter Widget="Edit">
+            <Name> Force 1 </Name>
+            <Whatis> A force in coordinate direction 1 is given with this keyword. </Whatis>
+         </Parameter>
+         <Parameter Widget="Edit">
+            <Name> Force 2 </Name>
+            <Whatis> A force in coordinate direction 2 is given with this keyword. </Whatis>
+         </Parameter>
+         <Parameter Widget="Edit">
+            <Name> Force 3 </Name>
+            <Whatis> A force in coordinate direction 3 is given with this keyword. </Whatis>
+         </Parameter>
+          <Parameter Widget="Edit">
+             <Name> Stress 6-vector </Name>
+             <SifName> Stress(6) </SifName>
+             <Whatis> Stress engineering 6-vector as input is multiplied by outward unit normal to gain the traction on the boundary. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit">
+             <Name> Spring coefficient </Name>
+             <SifName> Spring </SifName>
+          </Parameter>
+          <Parameter Widget="Edit">
+             <Name> Damping coefficient </Name>
+             <SifName> Damping </SifName>
+          </Parameter>
+         <Parameter Widget="Label"> <Name> Miscellaneous </Name> </Parameter>
+         <Parameter Widget="CheckBox">
+            <Name>Model Lumping Boundary</Name>
+            <Whatis> When using the model lumping utility the user must define which boundary is to be loaded in order to determined the lumped model. </Whatis>
+          </Parameter>
+      </BoundaryCondition>
+   </PDE>
+</edf>
