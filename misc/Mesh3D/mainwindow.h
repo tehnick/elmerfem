@@ -58,7 +58,6 @@ private slots:
   void bodyEditSlot();            // Model -> Set body properties
   void bcEditSlot();              // Model -> Set boundary conditions
   void modelSummarySlot();        // Model -> Summary...
-  void dummyEditorSlot();         // Model -> Dummy editor...
   void generateSifSlot();         // Edit -> Generate sif
   void showsifSlot();             // Edit -> Solver input file...
   void editDefinitionsSlot();     // Edit -> Definitions...
@@ -155,7 +154,6 @@ private:
   QAction *bodyEditAct;           // Model -> Set body properties
   QAction *bcEditAct;             // Model -> Set boundary conditions
   QAction *modelSummaryAct;       // Model -> Summary...
-  QAction *dummyEditorAct;        // Model -> Dummy editor...
   QAction *generateSifAct;        // Edit -> Generate sif
   QAction *showsifAct;            // Edit -> Edit SIF...
   QAction *editDefinitionsAct;    // Edit -> Edit SIF...
@@ -191,15 +189,6 @@ private:
   DynamicEditor *bcPropertyEditor;
   BodyPropertyEditor *bodyPropertyEditor;
   SummaryEditor *summaryEditor;
-
-  DynamicEditor *dynamicEditorSimulation;
-  DynamicEditor *dynamicEditorConstants;
-  DynamicEditor *dynamicEditorMaterial;
-  DynamicEditor *dynamicEditorSolver;
-  DynamicEditor *dynamicEditorBC;
-  DynamicEditor *dynamicEditorIC;
-  DynamicEditor *dynamicEditorEquation;
-  DynamicEditor *dynamicEditorBodyForce;
 
   // elmer definitions:
   QDomDocument *elmerDefs;

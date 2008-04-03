@@ -73,6 +73,10 @@ EdfEditor::EdfEditor(QWidget *parent)
   appendButton->setIcon(appendIcon);
   connect(appendButton, SIGNAL(clicked()), this, SLOT(appendButtonClicked()));
 
+  previewButton = new QPushButton(tr("&Preview"));
+  previewButton->setIcon(openIcon);
+  connect(previewButton, SIGNAL(clicked()), this, SLOT(previewButtonClicked()));
+
   saveAsButton = new QPushButton(tr("&Save as"));
   saveAsButton->setIcon(saveAsIcon);
   connect(saveAsButton, SIGNAL(clicked()), this, SLOT(saveAsButtonClicked()));
@@ -87,6 +91,7 @@ EdfEditor::EdfEditor(QWidget *parent)
   buttonLayout->addWidget(expandCollapseAllButton);
   buttonLayout->addWidget(openButton);
   buttonLayout->addWidget(appendButton);
+  buttonLayout->addWidget(previewButton);
   buttonLayout->addWidget(saveAsButton);
   buttonLayout->addWidget(applyButton);
 
@@ -102,6 +107,15 @@ EdfEditor::EdfEditor(QWidget *parent)
   setFocusPolicy(Qt::ClickFocus);
 
   expandCollapseAll = false;
+
+  dynamicEditorSimulation = new DynamicEditor;
+  dynamicEditorConstants = new DynamicEditor;
+  dynamicEditorEquation = new DynamicEditor;
+  dynamicEditorSolver = new DynamicEditor;
+  dynamicEditorMaterial = new DynamicEditor;
+  dynamicEditorBodyForce = new DynamicEditor;
+  dynamicEditorBC = new DynamicEditor;
+  dynamicEditorIC = new DynamicEditor;
 }
 
 // dtor...
@@ -123,6 +137,59 @@ QSize EdfEditor::sizeHint() const
 {
   return QSize(720, 480);
 }
+
+// preview panels
+//-----------------------------------------------------------------------------
+void EdfEditor::previewButtonClicked()
+{
+  if(elmerDefs == NULL)
+    return;
+  
+  // always create a new instance:
+
+
+  delete dynamicEditorSimulation;
+  dynamicEditorSimulation = new DynamicEditor;
+  dynamicEditorSimulation->setupTabs(*elmerDefs, "Simulation",1);
+  dynamicEditorSimulation->show();
+
+  delete dynamicEditorConstants;
+  dynamicEditorConstants = new DynamicEditor;
+  dynamicEditorConstants->setupTabs(*elmerDefs, "Constants",1);
+  dynamicEditorConstants->show();
+
+  delete dynamicEditorEquation;
+  dynamicEditorEquation = new DynamicEditor;
+  dynamicEditorEquation->setupTabs(*elmerDefs, "Equation",1);
+  dynamicEditorEquation->show();
+
+  delete dynamicEditorSolver;
+  dynamicEditorSolver = new DynamicEditor;
+  dynamicEditorSolver->setupTabs(*elmerDefs, "Solver",1 );
+  dynamicEditorSolver->show();
+
+  delete dynamicEditorMaterial;
+  dynamicEditorMaterial = new DynamicEditor;
+  dynamicEditorMaterial->setupTabs(*elmerDefs, "Material",1 );
+  dynamicEditorMaterial->show();
+
+  delete dynamicEditorBodyForce;
+  dynamicEditorBodyForce = new DynamicEditor;
+  dynamicEditorBodyForce->setupTabs(*elmerDefs, "BodyForce",1 );
+  dynamicEditorBodyForce->show();
+
+  delete dynamicEditorIC;
+  dynamicEditorIC = new DynamicEditor;
+  dynamicEditorIC->setupTabs(*elmerDefs, "InitialCondition",1 );
+  dynamicEditorIC->show();
+
+  delete dynamicEditorBC;
+  dynamicEditorBC = new DynamicEditor;
+  dynamicEditorBC->setupTabs(*elmerDefs, "BoundaryCondition",1 );
+  dynamicEditorBC->show();
+}
+
+
 
 // Add items from document to tree view...
 //----------------------------------------------------------------------------

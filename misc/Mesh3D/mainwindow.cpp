@@ -115,15 +115,6 @@ MainWindow::MainWindow()
   elmerDefs = new QDomDocument;
   edfEditor = new EdfEditor;
 
-  dynamicEditorSimulation = new DynamicEditor;
-  dynamicEditorConstants = new DynamicEditor;
-  dynamicEditorSolver = new DynamicEditor;
-  dynamicEditorIC = new DynamicEditor;
-  dynamicEditorBC = new DynamicEditor;;
-  dynamicEditorEquation = new DynamicEditor;
-  dynamicEditorMaterial = new DynamicEditor;
-  dynamicEditorBodyForce = new DynamicEditor;
-  
   createActions();
   createMenus();
   createToolBars();
@@ -278,12 +269,6 @@ void MainWindow::createActions()
   modelSummaryAct->setStatusTip(tr("Model summary"));
   connect(modelSummaryAct, SIGNAL(triggered()), 
 	  this, SLOT(modelSummarySlot()));
-
-  // Model -> Dummy editor...
-  dummyEditorAct = new QAction(QIcon(), tr("Dummy editor..."), this);
-  dummyEditorAct->setStatusTip(tr("Dummy editor for testing"));
-  connect(dummyEditorAct, SIGNAL(triggered()), 
-	  this, SLOT(dummyEditorSlot()));
 
   // Edit -> Generate sif
   generateSifAct = new QAction(QIcon(""), tr("&Generate sif"), this);
@@ -496,7 +481,6 @@ void MainWindow::createMenus()
   modelMenu->addSeparator();
   modelMenu->addAction(modelSummaryAct);
   modelMenu->addSeparator();
-  modelMenu->addAction(dummyEditorAct);
 
   // Edit menu
   editMenu = menuBar()->addMenu(tr("&Edit"));
@@ -2258,58 +2242,6 @@ void MainWindow::modelSummarySlot()
   te->append("");
 
   delete [] tmp;
-}
-
-
-// Model -> Dummy editor...
-//-----------------------------------------------------------------------------
-void MainWindow::dummyEditorSlot()
-{
-  if(elmerDefs == NULL)
-    return;
-  
-  // always create a new instance:
-
-
-  delete dynamicEditorSimulation;
-  dynamicEditorSimulation = new DynamicEditor;
-  dynamicEditorSimulation->setupTabs(*elmerDefs, "Simulation",1);
-  dynamicEditorSimulation->show();
-
-  delete dynamicEditorConstants;
-  dynamicEditorConstants = new DynamicEditor;
-  dynamicEditorConstants->setupTabs(*elmerDefs, "Constants",1);
-  dynamicEditorConstants->show();
-
-  delete dynamicEditorEquation;
-  dynamicEditorEquation = new DynamicEditor;
-  dynamicEditorEquation->setupTabs(*elmerDefs, "Equation",1);
-  dynamicEditorEquation->show();
-
-  delete dynamicEditorSolver;
-  dynamicEditorSolver = new DynamicEditor;
-  dynamicEditorSolver->setupTabs(*elmerDefs, "Solver",1 );
-  dynamicEditorSolver->show();
-
-  delete dynamicEditorMaterial;
-  dynamicEditorMaterial = new DynamicEditor;
-  dynamicEditorMaterial->setupTabs(*elmerDefs, "Material",1 );
-  dynamicEditorMaterial->show();
-
-  delete dynamicEditorBodyForce;
-  dynamicEditorBodyForce = new DynamicEditor;
-  dynamicEditorBodyForce->setupTabs(*elmerDefs, "BodyForce",1 );
-  dynamicEditorBodyForce->show();
-
-  delete dynamicEditorIC;
-  dynamicEditorIC = new DynamicEditor;
-  dynamicEditorIC->setupTabs(*elmerDefs, "InitialCondition",1 );
-  dynamicEditorIC->show();
-
-  delete dynamicEditorBC;
-  dynamicEditorBC = new DynamicEditor;
-  dynamicEditorBC->setupTabs(*elmerDefs, "BoundaryCondition",1 );
-  dynamicEditorBC->show();
 }
 
 

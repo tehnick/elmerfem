@@ -6,6 +6,7 @@
 #include <QIcon>
 #include <QTreeWidget>
 #include <QHash>
+#include "dynamiceditor.h"
 
 class QPushButton;
 
@@ -36,6 +37,7 @@ private slots:
   void appendButtonClicked();
   void saveAsButtonClicked();
   void applyButtonClicked();
+  void previewButtonClicked();
 
   void treeItemClicked(QTreeWidgetItem*, int);
   void updateElement(QTreeWidgetItem*, int);
@@ -58,6 +60,16 @@ private:
   QPushButton *appendButton;
   QPushButton *saveAsButton;
   QPushButton *applyButton;
+  QPushButton *previewButton;
+
+  DynamicEditor *dynamicEditorSimulation;
+  DynamicEditor *dynamicEditorConstants;
+  DynamicEditor *dynamicEditorMaterial;
+  DynamicEditor *dynamicEditorSolver;
+  DynamicEditor *dynamicEditorBC;
+  DynamicEditor *dynamicEditorIC;
+  DynamicEditor *dynamicEditorEquation;
+  DynamicEditor *dynamicEditorBodyForce;
 
   QDomDocument *elmerDefs;
   QHash<QTreeWidgetItem*, QDomElement> elementForItem;
