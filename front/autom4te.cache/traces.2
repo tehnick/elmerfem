@@ -712,7 +712,7 @@ You should run autoupdate.], [autoconf/oldnames.m4:96: AC_STDC_HEADERS is expand
 configure.in:23: the top level])
 m4trace:configure.in:23: -1- m4_pattern_allow([^STDC_HEADERS$])
 m4trace:configure.in:25: -1- m4_pattern_allow([^XMKMF$])
-m4trace:configure.in:27: -1- AM_CONDITIONAL([HAVE_WINDRES], [which windres > /dev/null])
+m4trace:configure.in:27: -1- AM_CONDITIONAL([HAVE_WINDRES], [test `which windres` != ""])
 m4trace:configure.in:27: -1- m4_pattern_allow([^HAVE_WINDRES_TRUE$])
 m4trace:configure.in:27: -1- m4_pattern_allow([^HAVE_WINDRES_FALSE$])
 m4trace:configure.in:27: -1- _AM_SUBST_NOTMAKE([HAVE_WINDRES_TRUE])
@@ -2235,7 +2235,7 @@ esac
 AC_SUBST(SH_LDFLAGS)
 AC_SUBST(SH_LD)
 ])
-m4trace:acx_elmer.m4:1794: -1- AC_DEFUN([ACX_TCLTK], [
+m4trace:acx_elmer.m4:1801: -1- AC_DEFUN([ACX_TCLTK], [
 AC_REQUIRE([AC_PATH_X])
 AC_PREREQ(2.50)
 acx_tcltk_ok=no
@@ -2331,7 +2331,11 @@ for v in $acx_tcltk_tcl_h_locs; do
 	acx_tcl_h_ok="no"
 	acx_tk_h_ok="no"
 
-	CPPFLAGS="-I$v $acx_tcltk_CPPFLAGS_save $acx_tcltk_CFLAGS_save -I${x_includes}"
+	CPPFLAGS="-I$v $acx_tcltk_CPPFLAGS_save $acx_tcltk_CFLAGS_save"
+	if  test x"$x_includes" != x; then
+	   CPPFLAGS="$CPPFLAGS -I${x_includes}"
+	fi
+	
 
 	AC_MSG_CHECKING([for tcl.h in -I$v])
 	AC_PREPROC_IFELSE(
@@ -2356,7 +2360,10 @@ for v in $acx_tcltk_tcl_h_locs; do
 		acx_tcl_h_ok="no"
 		acx_tk_h_ok="no"
 
-		CPPFLAGS="-I${v}/tk${tcl_h_v} -I${v}/tcl${tcl_h_v} $acx_tcltk_CPPFLAGS_save $acx_tcltk_CFLAGS_save -I${x_includes}"
+		CPPFLAGS="-I${v}/tk${tcl_h_v} -I${v}/tcl${tcl_h_v} $acx_tcltk_CPPFLAGS_save $acx_tcltk_CFLAGS_save"
+		if  test x"$x_includes" != x; then
+		   CPPFLAGS="$CPPFLAGS -I${x_includes}"
+		fi
 
 		AC_MSG_CHECKING([for tcl.h in -I${v}/tcl${tcl_h_v}])
 		AC_PREPROC_IFELSE(
@@ -2401,7 +2408,7 @@ else
         $2
 fi
 ])
-m4trace:acx_elmer.m4:1816: -1- AC_DEFUN([ACX_FORTRAN_CPP], [
+m4trace:acx_elmer.m4:1823: -1- AC_DEFUN([ACX_FORTRAN_CPP], [
 AC_PREREQ(2.50)
 acx_fortran_cpp_ok=no
 
@@ -2413,7 +2420,7 @@ case "$FC" in
 esac
 AC_SUBST(FORTRAN_CPP_FLAG)
 ])
-m4trace:acx_elmer.m4:1840: -1- AC_DEFUN([ACX_LANG_COMPILER_MS], [AC_CACHE_CHECK([whether we are using the Microsoft _AC_LANG compiler],
+m4trace:acx_elmer.m4:1847: -1- AC_DEFUN([ACX_LANG_COMPILER_MS], [AC_CACHE_CHECK([whether we are using the Microsoft _AC_LANG compiler],
                 [acx_cv_[]_AC_LANG_ABBREV[]_compiler_ms],
 [AC_COMPILE_IFELSE([AC_LANG_PROGRAM([], [[#ifndef _MSC_VER
        choke me
@@ -2842,7 +2849,7 @@ m4trace:configure.in:44: -1- ACX_TCLTK([], [AC_MSG_ERROR([Tcl/tk not found.])])
 m4trace:configure.in:44: -1- _m4_warn([obsolete], [The macro `AC_HELP_STRING' is obsolete.
 You should run autoupdate.], [autoconf/general.m4:209: AC_HELP_STRING is expanded from...
 autoconf/general.m4:1391: AC_ARG_WITH is expanded from...
-acx_elmer.m4:1794: ACX_TCLTK is expanded from...
+acx_elmer.m4:1801: ACX_TCLTK is expanded from...
 configure.in:44: the top level])
 m4trace:configure.in:44: -1- m4_pattern_allow([^TCLTK_LIBS$])
 m4trace:configure.in:44: -2- m4_pattern_allow([^HAVE_MATC$])
