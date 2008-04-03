@@ -25,6 +25,7 @@
 #include "pdepropertyeditor.h"
 #include "matpropertyeditor.h"
 #include "bodypropertyeditor.h"
+#include "boundarypropertyeditor.h"
 #include "summaryeditor.h"
 #include "sifgenerator.h"
 #include "generalsetup.h"
@@ -193,6 +194,7 @@ private:
   DynamicEditor *initialConditionEditor;
   DynamicEditor *bcPropertyEditor;
   BodyPropertyEditor *bodyPropertyEditor;
+  BoundaryPropertyEditor *boundaryPropertyEditor;
   SummaryEditor *summaryEditor;
 
   // elmer definitions:

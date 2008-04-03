@@ -110,6 +110,7 @@ MainWindow::MainWindow()
   initialConditionEditor = new DynamicEditor[MAX_INITIALCONDITIONS];
   bcPropertyEditor = new DynamicEditor[MAX_BCS];
   bodyPropertyEditor = new BodyPropertyEditor[MAX_BODIES];
+  boundaryPropertyEditor = new BoundaryPropertyEditor[MAX_BOUNDARIES];
   summaryEditor = new SummaryEditor;
   sifGenerator = new SifGenerator;
   elmerDefs = new QDomDocument;
@@ -3333,27 +3334,37 @@ void MainWindow::boundarySelectedSlot(list_t *l)
       return;
     }
     
-    DynamicEditor *bcEdit = &bcPropertyEditor[n];
+    BoundaryPropertyEditor *boundaryEdit = &boundaryPropertyEditor[n];
     
-    if ( bcEdit->ID == -1 ) {
-      bcEdit->setupTabs(*elmerDefs, "BoundaryCondition", n+1 );
+    // Populate boundary editor's comboboxes:
+    //---------------------------------------
+    while(boundaryEdit->ui.boundaryConditionCombo->count() > 0) 
+      boundaryEdit->ui.boundaryConditionCombo->removeItem(0);
+    
+    int count = 1;
+    for(int i = 0; i<MAX_BCS; i++) {
+      DynamicEditor *bcEdit = &bcPropertyEditor[i];
+      if(bcEdit->menuAction != NULL) {
+	const QString &name = bcEdit->nameEdit->text().trimmed();
+	boundaryEdit->ui.boundaryConditionCombo->insertItem(count++, name);
+      }
     }
     
-    if(bcEdit->touched) {
-      bcEdit->applyButton->setText("Update");
-      bcEdit->discardButton->setText("Remove");
-      bcEdit->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
-      bcEdit->discardButton->setIcon(QIcon(":/icons/list-remove.png"));
+    if(boundaryEdit->touched) {
+      boundaryEdit->ui.applyButton->setText("Update");
+      boundaryEdit->ui.discardButton->setText("Remove");
+      boundaryEdit->ui.applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
+      boundaryEdit->ui.discardButton->setIcon(QIcon(":/icons/list-remove.png"));
     } else {
-      bcEdit->applyButton->setText("Add");
-      bcEdit->discardButton->setText("Cancel");
-      bcEdit->applyButton->setIcon(QIcon(":/icons/list-add.png"));
-      bcEdit->discardButton->setIcon(QIcon(":/icons/dialog-close.png"));
+      boundaryEdit->ui.applyButton->setText("Add");
+      boundaryEdit->ui.discardButton->setText("Cancel");
+      boundaryEdit->ui.applyButton->setIcon(QIcon(":/icons/list-add.png"));
+      boundaryEdit->ui.discardButton->setIcon(QIcon(":/icons/dialog-close.png"));
     }
 
-    bcEdit->setWindowTitle("Boundary "+QString::number(l->index) );
-    bcEdit->raise();
-    bcEdit->show();
+    boundaryEdit->setWindowTitle("Properties for boundary " + QString::number(l->index));
+    // boundaryEdit->ui.nameEdit->setText("Boundary Property " + QString::number(n+1));
+    boundaryEdit->show();
   }
 
   // Body selection:
