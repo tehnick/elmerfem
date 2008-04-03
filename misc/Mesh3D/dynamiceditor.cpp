@@ -92,6 +92,7 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
         // label
         QString widget_type = param.attribute("Widget","Edit");
         QString widget_enabled = param.attribute("Enabled","True");
+        QString widget_visible = param.attribute("Visible","True");
 
         QString paramType = param.firstChildElement("Type").text().trimmed();
 
@@ -165,10 +166,16 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
           if ( widget_type != "Label" ) {
             QLabel *label = new QLabel;
             label->setText(labelName);
-            grid->addWidget(label, params, 0);
+            h.label = label;
+            grid->addWidget(h.label,  params, 0);
             grid->addWidget(h.widget, params, 1);
           } else {
+            h.label = NULL;
             grid->addWidget(h.widget, params, 0);
+          }
+          if ( widget_visible == "False" ) {
+            h.widget->setVisible(false);
+            if ( h.label != NULL ) h.label->setVisible(false);
           }
         }
       }
@@ -308,6 +315,11 @@ void DynamicEditor::lSlot(int state)
   for( ;!param.isNull(); param=param.nextSiblingElement("Activate") ) {
     q = param.text().trimmed() + ID;
     hash[q].widget->setEnabled(state);
+    QString widget_visible = hash[q].elem.attribute("Visible","True");
+    if ( state == false && widget_visible == "False" ) {
+      hash[q].label->setVisible(false);
+      hash[q].widget->setVisible(false);
+    }
   }
 }
 
@@ -323,10 +335,19 @@ void DynamicEditor::textChangedSlot(QString text)
   param = hash[q].elem.firstChildElement("Activate");
   for( ;!param.isNull(); param=param.nextSiblingElement("Activate") ) {
     q = param.text().trimmed() + ID;
-    if ( text != "" ) 
+    QString widget_visible = hash[q].elem.attribute("Visible","True");
+
+    if ( text != "" ) {
       hash[q].widget->setEnabled(true);
-    else
+      hash[q].widget->setVisible(true);
+      if ( hash[q].label ) hash[q].label->setVisible(true);
+    } else {
       hash[q].widget->setEnabled(false);
+      if ( widget_visible == "False" ) {
+        hash[q].label->setVisible(false);
+        hash[q].widget->setVisible(false);
+      }
+    }
   }
 }
 
@@ -348,12 +369,22 @@ void DynamicEditor::comboSlot(QString select)
       activ = item.firstChildElement("Activate");
       for( ;!activ.isNull(); activ=activ.nextSiblingElement("Activate") ) {
         QString s=activ.text().trimmed() + ID;
+        hash_entry_t h = hash[s];
 
-        QString widget_enabled = hash[s].elem.attribute("Enabled","True");
-        if ( widget_enabled == "False" ) 
-          hash[s].widget->setEnabled(false);
-        else
-          hash[s].widget->setEnabled(true);
+        QString widget_enabled = h.elem.attribute("Enabled","True");
+        QString widget_visible = h.elem.attribute("Visible","True");
+
+        if ( widget_enabled == "False" ) {
+          h.widget->setEnabled(false);
+          if ( widget_visible == "False" ) {
+            h.label->setVisible(false);
+            h.widget->setVisible(false);
+          }
+        } else {
+          h.widget->setEnabled(true);
+          h.label->setVisible(true);
+          h.widget->setVisible(true);
+        }
       }
     }
   }
@@ -366,10 +397,15 @@ void DynamicEditor::comboSlot(QString select)
       activ = item.firstChildElement("Activate");
       for( ;!activ.isNull(); activ=activ.nextSiblingElement("Activate") ) {
         QString s=activ.text().trimmed() + ID;
-        hash[s].widget->setEnabled(true);
+        hash_entry_t h = hash[s];
+        h.widget->setEnabled(true);
+        h.widget->setVisible(true);
+        h.label->setVisible(true);
       }
     }
   }
+//  this->close();
+// this->layout()->show();
 }
 
 
