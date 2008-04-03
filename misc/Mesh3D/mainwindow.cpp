@@ -3198,7 +3198,7 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     }
   }
 
-  logMessage(qs);    
+  logMessage(qs);
   
   // Open the bc property sheet for selected boundary:
   //--------------------------------------------------
@@ -3238,85 +3238,90 @@ void MainWindow::boundarySelectedSlot(list_t *l)
   //----------------
   if((glWidget->currentlySelectedBody >= 0) &&
      (glWidget->shiftPressed || bodyEditActive)) {
-
+    
     glWidget->ctrlPressed = false;
     glWidget->shiftPressed = false;
     glWidget->altPressed = false;
-
+    
     int current = glWidget->currentlySelectedBody;
-
-    cout << "*** Current selection uniquely determines body: " << current << endl;
+    
+    cout << "Current selection uniquely determines body: " << current << endl;
     cout.flush();
 
-    if(current >= MAX_BODIES) {
-      logMessage("Error: index exceeds MAX_BODIES (increase it and recompile)");      
-    } else {
-      int n = glWidget->bodyMap.value(current);
-      BodyPropertyEditor *bodyEdit = &bodyPropertyEditor[n];
-
-      // Populate body editor's comboboxes:
-      //-----------------------------------
-      bodyEdit->ui.equationCombo->clear();
-
-      int count = 1;
-      while(bodyEdit->ui.equationCombo->count() > 0) 
-	bodyEdit->ui.equationCombo->removeItem(0);
-      for(int i = 0; i<MAX_EQUATIONS; i++) {
-	PDEPropertyEditor *eqEdit = &pdePropertyEditor[i];
-	if(eqEdit->menuAction != NULL) {
-	  const QString &name = eqEdit->ui.equationNameEdit->text();
-	  bodyEdit->ui.equationCombo->insertItem(count++, name);
-	}
-      }
-      
-      count = 1;
-      while(bodyEdit->ui.materialCombo->count() > 0) 
-	bodyEdit->ui.materialCombo->removeItem(0);
-      for(int i = 0; i<MAX_MATERIALS; i++) {
-	DynamicEditor *matEdit = &matPropertyEditor[i];
-	if(matEdit->menuAction != NULL) {
-	  const QString &name = matEdit->nameEdit->text().trimmed();
-	  bodyEdit->ui.materialCombo->insertItem(count++, name);
-	}
-      }
-
-      count = 1;
-      while(bodyEdit->ui.bodyForceCombo->count() > 0) 
-	bodyEdit->ui.bodyForceCombo->removeItem(0);
-      for(int i = 0; i<MAX_BODYFORCES; i++) {
-	DynamicEditor *bodyForceEdit = &bodyForceEditor[i];
-	if(bodyForceEdit->menuAction != NULL) {
-	  const QString &name = bodyForceEdit->nameEdit->text().trimmed();
-	  bodyEdit->ui.bodyForceCombo->insertItem(count++, name);
-	}
-      }
-
-      count = 1;
-      while(bodyEdit->ui.initialConditionCombo->count() > 0) 
-	bodyEdit->ui.initialConditionCombo->removeItem(0);
-      for(int i = 0; i<MAX_INITIALCONDITIONS; i++) {
-	DynamicEditor *initialConditionEdit = &initialConditionEditor[i];
-	if(initialConditionEdit->menuAction != NULL) {
-	  const QString &name = initialConditionEdit->nameEdit->text().trimmed();
-	  bodyEdit->ui.initialConditionCombo->insertItem(count++, name);
-	}
-      }
-
-      if(bodyEdit->touched) {
-	bodyEdit->ui.applyButton->setText("Update");
-	bodyEdit->ui.discardButton->setText("Remove");
-	bodyEdit->ui.applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
-	bodyEdit->ui.discardButton->setIcon(QIcon(":/icons/list-remove.png"));
-      } else {
-	bodyEdit->ui.applyButton->setText("Add");
-	bodyEdit->ui.discardButton->setText("Cancel");
-	bodyEdit->ui.applyButton->setIcon(QIcon(":/icons/list-add.png"));
-	bodyEdit->ui.discardButton->setIcon(QIcon(":/icons/dialog-close.png"));
-      }
-      bodyEdit->setWindowTitle("Properties for body " + QString::number(current));
-      bodyEdit->ui.nameEdit->setText("Body " + QString::number(current));
-      bodyEdit->show();
+    // check renumbering:
+    int n = glWidget->bodyMap.value(current);
+    if(n >= MAX_BODIES) {
+      logMessage("Error: index exceeds MAX_BODIES (increase it and recompile)");
+      return;
     }
+      
+    BodyPropertyEditor *bodyEdit = &bodyPropertyEditor[n];
+    
+    // Populate body editor's comboboxes:
+    //-----------------------------------
+    while(bodyEdit->ui.equationCombo->count() > 0) 
+      bodyEdit->ui.equationCombo->removeItem(0);
+
+    int count = 1;
+    for(int i = 0; i<MAX_EQUATIONS; i++) {
+      PDEPropertyEditor *eqEdit = &pdePropertyEditor[i];
+      if(eqEdit->menuAction != NULL) {
+	const QString &name = eqEdit->ui.equationNameEdit->text();
+	bodyEdit->ui.equationCombo->insertItem(count++, name);
+      }
+    }
+    
+    while(bodyEdit->ui.materialCombo->count() > 0) 
+      bodyEdit->ui.materialCombo->removeItem(0);
+
+    count = 1;
+    for(int i = 0; i<MAX_MATERIALS; i++) {
+      DynamicEditor *matEdit = &matPropertyEditor[i];
+      if(matEdit->menuAction != NULL) {
+	const QString &name = matEdit->nameEdit->text().trimmed();
+	bodyEdit->ui.materialCombo->insertItem(count++, name);
+      }
+    }
+    
+    while(bodyEdit->ui.bodyForceCombo->count() > 0) 
+      bodyEdit->ui.bodyForceCombo->removeItem(0);
+
+    count = 1;
+    for(int i = 0; i<MAX_BODYFORCES; i++) {
+      DynamicEditor *bodyForceEdit = &bodyForceEditor[i];
+      if(bodyForceEdit->menuAction != NULL) {
+	const QString &name = bodyForceEdit->nameEdit->text().trimmed();
+	bodyEdit->ui.bodyForceCombo->insertItem(count++, name);
+      }
+    }
+    
+    while(bodyEdit->ui.initialConditionCombo->count() > 0) 
+      bodyEdit->ui.initialConditionCombo->removeItem(0);
+
+    count = 1;
+    for(int i = 0; i<MAX_INITIALCONDITIONS; i++) {
+      DynamicEditor *initialConditionEdit = &initialConditionEditor[i];
+      if(initialConditionEdit->menuAction != NULL) {
+	const QString &name = initialConditionEdit->nameEdit->text().trimmed();
+	bodyEdit->ui.initialConditionCombo->insertItem(count++, name);
+      }
+    }
+    
+    if(bodyEdit->touched) {
+      bodyEdit->ui.applyButton->setText("Update");
+      bodyEdit->ui.discardButton->setText("Remove");
+      bodyEdit->ui.applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
+      bodyEdit->ui.discardButton->setIcon(QIcon(":/icons/list-remove.png"));
+    } else {
+      bodyEdit->ui.applyButton->setText("Add");
+      bodyEdit->ui.discardButton->setText("Cancel");
+      bodyEdit->ui.applyButton->setIcon(QIcon(":/icons/list-add.png"));
+      bodyEdit->ui.discardButton->setIcon(QIcon(":/icons/dialog-close.png"));
+    }
+
+    bodyEdit->setWindowTitle("Properties for body " + QString::number(current));
+    bodyEdit->ui.nameEdit->setText("Body " + QString::number(current));
+    bodyEdit->show();
   }
 }
 

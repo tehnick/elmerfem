@@ -190,9 +190,6 @@ void SifGenerator::makeBodyBlocks()
 
       int originalIndex = bodyMap.key(index);
 
-      cout << index << " " << originalIndex << endl;
-      cout.flush();
-
       te->append("  Target Bodies(1) = " + QString::number(originalIndex));
 
       te->append("  Name = " + bodyEdit->ui.nameEdit->text().trimmed());
