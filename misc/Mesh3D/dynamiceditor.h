@@ -13,7 +13,7 @@ class QPushButton;
 class hash_entry_t
 {
  public:
-  QWidget *widget;
+  QWidget *widget,*label;
   QDomElement elem;
 };
 
