@@ -1,0 +1,107 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE edf>
+<edf version="1.0" >
+   <PDE Name="Mesh Adaptation" >
+      <Name>Mesh Adaptation</Name>
+      <Solver>
+         <Procedure Widget="File" >
+            <FileName Widget="String" > MeshSolve </FileName>
+            <Function Widget="String" > MeshSolver </Function>
+         </Procedure>
+         <Parameter Widget="" > Mesh Update </Parameter>
+      </Solver>
+
+
+      <InitialCondition>
+          <Parameter Widget="Label"> <Name> Variables </Name> </Parameter>
+
+          <Parameter Widget="Edit">
+             <Name> Mesh Update 1 </Name>
+             <Whatis> Initial condition for the mesh displacement in coordinate direction 1. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit">
+             <Name> Mesh Update 2 </Name>
+             <Whatis> Initial condition for the mesh displacement in coordinate direction 2. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit">
+             <Name> Mesh Update 3 </Name>
+             <Whatis> Initial condition for the mesh displacement in coordinate direction 3. </Whatis>
+          </Parameter>
+
+          <Parameter Widget="Label"> <Name> ...for time dependent simulations... </Name> </Parameter>
+          <Parameter Widget="Edit">
+             <Name> Mesh Velocity 1 </Name>
+             <Whatis> Initial condition for the mesh displacement velocity in coordinate direction 1. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit">
+             <Name> Mesh Velocity 2 </Name>
+             <Whatis> Initial condition for the mesh displacement velocity in coordinate direction 2. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit">
+             <Name> Mesh Velocity 3 </Name>
+             <Whatis> Initial condition for the mesh displacement velocity in coordinate direction 3. </Whatis>
+          </Parameter>
+      </InitialCondition>
+
+      <Material>
+         <Parameter Widget="Label" > <Name> Properties </Name> </Parameter>
+         <Parameter Widget="Edit" >
+            <Name>Elastic modulus</Name>
+            <SifName>Mesh Elastic Modulus</SifName>
+            <Whatis> The scalar elastic modulus must be given with this keyword.  Note that this value is fictional, and may be chosen freely to influence mesh quality.</Whatis>
+         </Parameter>
+
+         <Parameter Widget="Edit" >
+            <Name>Poisson ratio</Name>
+            <SifName>Mesh Poisson ratio</SifName>
+            <Whatis>  Poisson ratio must be given with this keyword.  Note that this value is fictional, and may be chosen freely to influence mesh quality.</Whatis>
+         </Parameter>
+      </Material>
+
+     <BoundaryCondition>
+         <Parameter Widget="Label"> <Name> Normal-Tangential Coordinate System</Name> </Parameter>
+         <Parameter Widget="CheckBox">
+            <Name> Use normal-tangential coordinate system </Name>
+            <SifName> Normal-Tangential Mesh Update </SifName>
+            <Activate> /Mesh Adaptation/BoundaryCondition/Change of variables</Activate>
+            <Whatis>  The Dirichlet conditions for the vector variables may be given in normal-tangential coordinate system instead of the coordinate axis directed system. The first component will in this case be the normal component and the components 2, 3 two orthogonal tangent directions. </Whatis>
+         </Parameter>
+
+         <Parameter Widget="CheckBox" Enabled="False">
+            <Name> Change of variables </Name>
+            <DefaultValue> True </DefaultValue>
+            <SifName> Normal-Tangential Mesh Update Rotate </SifName>
+            <Whatis> If checked, do change of variables from x,y,z -> n,t1,t2. This change of variables is only needed if Dirichlet conditions are present. </Whatis>
+         </Parameter>
+
+         <Parameter Widget="Label"> <Name> Dirichlet Conditions </Name> </Parameter>
+          <Parameter Widget="Edit">
+             <Name> Mesh Update 1 </Name>
+             <Activate> /Mesh Adaptation/BoundaryCondition/Mesh Update 1 Condition </Activate>
+             <Whatis> Dirichlet condition for the displacement in coordinate direction 1. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit" Enabled="False">
+             <Name> Mesh Update 1 Condition </Name>
+             <Whatis> If the given value is less than zero, don't set the Dirichlet condition. To be generally useful space and/or time varying values may be given. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit">
+             <Name> Mesh Update 2 </Name>
+             <Activate> /Mesh Adaptation/BoundaryCondition/Mesh Update 2 Condition </Activate>
+             <Whatis> Dirichlet condition for the displacement in coordinate direction 2. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit" Enabled="False">
+             <Name> Mesh Update 2 Condition </Name>
+             <Whatis> If the given value is less than zero, don't set the Dirichlet condition. To be generally useful space and/or time varying values may be given. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit">
+             <Name> Mesh Update 3 </Name>
+             <Activate> /Mesh Adaptation/BoundaryCondition/Mesh Update 3 Condition </Activate>
+             <Whatis> Dirichlet condition for the displacement in coordinate direction 3. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit" Enabled="False">
+             <Name> Mesh Update 3 Condition </Name>
+             <Whatis> If the given value is less than zero, don't set the Dirichlet condition. To be generally useful space and/or time varying values may be given. </Whatis>
+          </Parameter>
+      </BoundaryCondition>
+   </PDE>
+</edf>
