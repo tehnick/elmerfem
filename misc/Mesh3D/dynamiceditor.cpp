@@ -196,7 +196,7 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
   lbl->setText("Name:");
 
   nameEdit  = new QLineEdit;
-  nameEdit->setText(Section + " " + QString::number(ID+1));
+  nameEdit->setText(Section + " " + QString::number(ID));
 
   applyButton = new QPushButton(tr("&Add"));
   applyButton->setIcon(addIcon);

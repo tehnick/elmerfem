@@ -3208,30 +3208,34 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     glWidget->shiftPressed = false;
     glWidget->altPressed = false;
 
-    if(l->index >= MAX_BCS) {
+    // renumbering:
+    int n = glWidget->boundaryMap.value(l->index);
+    if(n >= MAX_BCS) {
       logMessage("Error: index exceeds MAX_BCS (increase it and recompile)");
-    } else {
-      DynamicEditor *bcEdit = &bcPropertyEditor[l->index];
-
-      if ( bcEdit->ID == -1 ) {
-        bcEdit->setupTabs(*elmerDefs, "BoundaryCondition",l->index );
-     }
-
-      if(bcEdit->touched) {
-    	bcEdit->applyButton->setText("Update");
-    	bcEdit->discardButton->setText("Remove");
-    	bcEdit->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
-    	bcEdit->discardButton->setIcon(QIcon(":/icons/list-remove.png"));
-      } else {
-    	bcEdit->applyButton->setText("Add");
-    	bcEdit->discardButton->setText("Cancel");
-    	bcEdit->applyButton->setIcon(QIcon(":/icons/list-add.png"));
-    	bcEdit->discardButton->setIcon(QIcon(":/icons/dialog-close.png"));
-      }
-      bcEdit->setWindowTitle("Boundary "+QString::number(l->index) );
-      bcEdit->raise();
-      bcEdit->show();
+      return;
     }
+    
+    DynamicEditor *bcEdit = &bcPropertyEditor[n];
+    
+    if ( bcEdit->ID == -1 ) {
+      bcEdit->setupTabs(*elmerDefs, "BoundaryCondition", n+1 );
+    }
+    
+    if(bcEdit->touched) {
+      bcEdit->applyButton->setText("Update");
+      bcEdit->discardButton->setText("Remove");
+      bcEdit->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
+      bcEdit->discardButton->setIcon(QIcon(":/icons/list-remove.png"));
+    } else {
+      bcEdit->applyButton->setText("Add");
+      bcEdit->discardButton->setText("Cancel");
+      bcEdit->applyButton->setIcon(QIcon(":/icons/list-add.png"));
+      bcEdit->discardButton->setIcon(QIcon(":/icons/dialog-close.png"));
+    }
+
+    bcEdit->setWindowTitle("Boundary "+QString::number(l->index) );
+    bcEdit->raise();
+    bcEdit->show();
   }
 
   // Body selection:
@@ -3247,14 +3251,14 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     
     cout << "Current selection uniquely determines body: " << current << endl;
     cout.flush();
-
-    // check renumbering:
+ 
+    // renumbering:
     int n = glWidget->bodyMap.value(current);
     if(n >= MAX_BODIES) {
       logMessage("Error: index exceeds MAX_BODIES (increase it and recompile)");
       return;
     }
-      
+     
     BodyPropertyEditor *bodyEdit = &bodyPropertyEditor[n];
     
     // Populate body editor's comboboxes:
@@ -3320,7 +3324,7 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     }
 
     bodyEdit->setWindowTitle("Properties for body " + QString::number(current));
-    bodyEdit->ui.nameEdit->setText("Body " + QString::number(current));
+    bodyEdit->ui.nameEdit->setText("Body Property " + QString::number(n+1));
     bodyEdit->show();
   }
 }
