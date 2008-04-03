@@ -349,7 +349,7 @@ void SifGenerator::makeMaterialBlocks()
   int sifIndex = 0;
 
   for(int index = 0; index < MAX_MATERIALS; index++) {
-    DynamicEditor *matEditor = &matPropertyEditor[index];
+    DynamicEditor *matEditor = &materialEditor[index];
     
     if(matEditor->menuAction != NULL) {      
       te->append("Material " + QString::number(++sifIndex));

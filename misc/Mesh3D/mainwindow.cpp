@@ -105,12 +105,12 @@ MainWindow::MainWindow()
   post = new QProcess(this);
   generalSetup = new GeneralSetup;
   pdePropertyEditor = new PDEPropertyEditor[MAX_EQUATIONS];
-  matPropertyEditor = new DynamicEditor[MAX_MATERIALS];
+  materialEditor = new DynamicEditor[MAX_MATERIALS];
   bodyForceEditor = new DynamicEditor[MAX_BODYFORCES];
   initialConditionEditor = new DynamicEditor[MAX_INITIALCONDITIONS];
-  bcPropertyEditor = new DynamicEditor[MAX_BCS];
-  bodyPropertyEditor = new BodyPropertyEditor[MAX_BODIES];
+  boundaryConditionEditor = new DynamicEditor[MAX_BCS];
   boundaryPropertyEditor = new BoundaryPropertyEditor[MAX_BOUNDARIES];
+  bodyPropertyEditor = new BodyPropertyEditor[MAX_BODIES];
   summaryEditor = new SummaryEditor;
   sifGenerator = new SifGenerator;
   elmerDefs = new QDomDocument;
@@ -1501,16 +1501,16 @@ void MainWindow::closeMainWindowSlot()
   boundaryDivide->close();
 
   for(int i = 0; i < MAX_BCS; i++)
-    bcPropertyEditor[i].close();
+    boundaryConditionEditor[i].close();
 
   for(int i = 0; i < MAX_MATERIALS; i++)
-    matPropertyEditor[i].close();
+    materialEditor[i].close();
 
   for(int i = 0; i < MAX_EQUATIONS; i++)
     pdePropertyEditor[i].close();
 
-  delete [] bcPropertyEditor;
-  delete [] matPropertyEditor;
+  delete [] boundaryConditionEditor;
+  delete [] materialEditor;
   delete [] pdePropertyEditor;
   
   this->close();
@@ -1644,13 +1644,13 @@ void MainWindow::equationSelectedSlot(QAction* act)
 //-----------------------------------------------------------------------------
 void MainWindow::addMaterialSlot()
 {
-  // use the first free slot in matPropertyEditor array:
+  // use the first free slot in materialEditor array:
   int current = 0;
   bool found = false;
 
   DynamicEditor *pe = NULL;
   for(int i = 0; i < MAX_MATERIALS; i++) {
-    pe = &matPropertyEditor[i];
+    pe = &materialEditor[i];
     if(pe->menuAction == NULL) {
       found = true;
       current = i;
@@ -1682,7 +1682,7 @@ void MainWindow::matEditorFinishedSlot(int signal, int id)
 #define MAT_OK     0
 #define MAT_DELETE 1
 
-  DynamicEditor *pe = &matPropertyEditor[id];
+  DynamicEditor *pe = &materialEditor[id];
   
   const QString &materialName = pe->nameEdit->text().trimmed();
 
@@ -1732,7 +1732,7 @@ void MainWindow::materialSelectedSlot(QAction* act)
 {
   // Edit the selected material:
   for(int i = 0; i < MAX_MATERIALS; i++) {
-    DynamicEditor *pe = &matPropertyEditor[i];
+    DynamicEditor *pe = &materialEditor[i];
     if(pe->menuAction == act) {
       pe->applyButton->setText("Update");
       pe->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
@@ -1965,7 +1965,7 @@ void MainWindow::addBoundaryConditionSlot()
   
   DynamicEditor *pe = NULL;
   for(int i = 0; i < MAX_BCS; i++) {
-    pe = &bcPropertyEditor[i];
+    pe = &boundaryConditionEditor[i];
     if(pe->menuAction == NULL) {
       found = true;
       current = i;
@@ -1997,7 +1997,7 @@ void MainWindow::boundaryConditionEditorFinishedSlot(int signal, int id)
 #define MAT_OK     0
 #define MAT_DELETE 1
 
-  DynamicEditor *pe = &bcPropertyEditor[id];
+  DynamicEditor *pe = &boundaryConditionEditor[id];
   
   const QString &boundaryConditionName = pe->nameEdit->text().trimmed();
   
@@ -2047,7 +2047,7 @@ void MainWindow::boundaryConditionSelectedSlot(QAction* act)
 {
   // Edit the selected boundary condition:
   for(int i = 0; i < MAX_BCS; i++) {
-    DynamicEditor *pe = &bcPropertyEditor[i];
+    DynamicEditor *pe = &boundaryConditionEditor[i];
     if(pe->menuAction == act) {
       pe->applyButton->setText("Update");
       pe->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
@@ -2166,7 +2166,7 @@ void MainWindow::modelSummarySlot()
   // Check materials:
   count = 0;
   for(int i = 0; i < MAX_MATERIALS; i++) {
-    if(matPropertyEditor[i].menuAction != NULL)
+    if(materialEditor[i].menuAction != NULL)
       count++;
   }
   te->append("Materials: " + QString::number(count));
@@ -2174,7 +2174,7 @@ void MainWindow::modelSummarySlot()
   // Check boundary conditions:
   count = 0;
   for(int i = 0; i < MAX_BCS; i++) {
-    if( bcPropertyEditor[i].touched) count++;
+    if( boundaryConditionEditor[i].touched) count++;
   }
   te->append("Boundary conditions: " + QString::number(count));
 
@@ -2282,7 +2282,7 @@ void MainWindow::modelSummarySlot()
       count++;
       QString qs = "Boundary " + QString::number(i) + ": " 
 	+ QString::number(tmp[i]) + " surface elements";
-      if(bcPropertyEditor[i].touched) qs.append(" (BC set)");
+      if(boundaryConditionEditor[i].touched) qs.append(" (BC set)");
       te->append(qs);
     }
   }
@@ -2352,7 +2352,7 @@ void MainWindow::modelSummarySlot()
       count++;
       QString qs = "Boundary " + QString::number(i) + ": " 
 	+ QString::number(tmp[i]) + " edge elements";
-      if( bcPropertyEditor[i].touched) qs.append(" (BC set)");
+      if( boundaryConditionEditor[i].touched) qs.append(" (BC set)");
       te->append(qs);
     }
   }
@@ -3262,11 +3262,11 @@ void MainWindow::generateSifSlot()
   sifGenerator->generalSetup = generalSetup;
   sifGenerator->te = sifWindow->textEdit;
   sifGenerator->pdePropertyEditor = pdePropertyEditor;
-  sifGenerator->matPropertyEditor = matPropertyEditor;
+  sifGenerator->materialEditor = materialEditor;
   sifGenerator->bodyForceEditor = bodyForceEditor;
   sifGenerator->initialConditionEditor = initialConditionEditor;
   sifGenerator->bodyPropertyEditor = bodyPropertyEditor;
-  sifGenerator->bcPropertyEditor = bcPropertyEditor;
+  sifGenerator->boundaryConditionEditor = boundaryConditionEditor;
   sifGenerator->meshControl = meshControl;
 
   sifGenerator->bodyMap = glWidget->bodyMap;
@@ -3319,14 +3319,15 @@ void MainWindow::boundarySelectedSlot(list_t *l)
 
   logMessage(qs);
   
-  // Open the bc property sheet for selected boundary:
-  //--------------------------------------------------
-  if(l->selected && (glWidget->altPressed || bcEditActive)) {
 
+  // Open bc property sheet for selected boundary:
+  //-----------------------------------------------
+  if(l->selected && (glWidget->altPressed || bcEditActive)) {
+    
     glWidget->ctrlPressed = false;
     glWidget->shiftPressed = false;
     glWidget->altPressed = false;
-
+    
     // renumbering:
     int n = glWidget->boundaryMap.value(l->index);
     if(n >= MAX_BCS) {
@@ -3343,7 +3344,7 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     
     int count = 1;
     for(int i = 0; i<MAX_BCS; i++) {
-      DynamicEditor *bcEdit = &bcPropertyEditor[i];
+      DynamicEditor *bcEdit = &boundaryConditionEditor[i];
       if(bcEdit->menuAction != NULL) {
 	const QString &name = bcEdit->nameEdit->text().trimmed();
 	boundaryEdit->ui.boundaryConditionCombo->insertItem(count++, name);
@@ -3363,12 +3364,11 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     }
 
     boundaryEdit->setWindowTitle("Properties for boundary " + QString::number(l->index));
-    // boundaryEdit->ui.nameEdit->setText("Boundary Property " + QString::number(n+1));
     boundaryEdit->show();
   }
 
-  // Body selection:
-  //----------------
+  // Open body property sheet for selected body:
+  //---------------------------------------------
   if((glWidget->currentlySelectedBody >= 0) &&
      (glWidget->shiftPressed || bodyEditActive)) {
     
@@ -3409,7 +3409,7 @@ void MainWindow::boundarySelectedSlot(list_t *l)
 
     count = 1;
     for(int i = 0; i<MAX_MATERIALS; i++) {
-      DynamicEditor *matEdit = &matPropertyEditor[i];
+      DynamicEditor *matEdit = &materialEditor[i];
       if(matEdit->menuAction != NULL) {
 	const QString &name = matEdit->nameEdit->text().trimmed();
 	bodyEdit->ui.materialCombo->insertItem(count++, name);

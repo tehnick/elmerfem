@@ -34,11 +34,11 @@ class SifGenerator  {
   QTextEdit *te;
   GeneralSetup *generalSetup;
   PDEPropertyEditor *pdePropertyEditor;
-  DynamicEditor *matPropertyEditor;
+  DynamicEditor *materialEditor;
   DynamicEditor *bodyForceEditor;
   DynamicEditor *initialConditionEditor;
+  DynamicEditor *boundaryConditionEditor;
   BodyPropertyEditor *bodyPropertyEditor;
-  DynamicEditor *bcPropertyEditor;
   MeshControl *meshControl;
   int cdim;
 

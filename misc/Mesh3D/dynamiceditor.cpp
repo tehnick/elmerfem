@@ -376,7 +376,7 @@ void DynamicEditor::comboSlot(QString select)
 //----------------------------------------------------------------------------
 QSize DynamicEditor::minimumSizeHint() const
 {
-  return QSize(64, 64);
+  return QSize(128, 128);
 }
 
 //----------------------------------------------------------------------------

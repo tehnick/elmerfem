@@ -189,12 +189,12 @@ private:
   // property editors etc:
   GeneralSetup *generalSetup;
   PDEPropertyEditor *pdePropertyEditor;
-  DynamicEditor *matPropertyEditor;
+  DynamicEditor *materialEditor;
   DynamicEditor *bodyForceEditor;
   DynamicEditor *initialConditionEditor;
-  DynamicEditor *bcPropertyEditor;
-  BodyPropertyEditor *bodyPropertyEditor;
+  DynamicEditor *boundaryConditionEditor;
   BoundaryPropertyEditor *boundaryPropertyEditor;
+  BodyPropertyEditor *bodyPropertyEditor;
   SummaryEditor *summaryEditor;
 
   // elmer definitions:
