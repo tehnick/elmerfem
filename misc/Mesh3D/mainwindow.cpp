@@ -3150,6 +3150,9 @@ void MainWindow::generateSifSlot()
   sifGenerator->bcPropertyEditor = bcPropertyEditor;
   sifGenerator->meshControl = meshControl;
 
+  sifGenerator->bodyMap = glWidget->bodyMap;
+  sifGenerator->boundaryMap = glWidget->boundaryMap;
+
   // Make SIF:
   //----------
   sifGenerator->makeHeaderBlock();

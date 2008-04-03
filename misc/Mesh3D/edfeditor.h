@@ -51,6 +51,7 @@ private:
   QIcon appendIcon;
   QIcon saveAsIcon;
   QIcon applyIcon;
+  QIcon previewIcon;
 
   QTreeWidget *edfTree;
   QPushButton *addButton;

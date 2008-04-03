@@ -2,6 +2,7 @@
 #define SIFGENERATOR_H
 
 #include <QTextEdit>
+#include <QHash>
 
 #include "meshtype.h"
 #include "generalsetup.h"
@@ -51,6 +52,9 @@ class SifGenerator  {
   void makeBodyForceBlocks();
   void makeInitialConditionBlocks();
   void makeBoundaryBlocks();
+  
+  QHash<int, int> bodyMap;
+  QHash<int, int> boundaryMap;
 
  private:
   void parseProcedure(Ui::solverParameterEditor);

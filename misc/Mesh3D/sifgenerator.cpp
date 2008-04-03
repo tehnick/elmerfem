@@ -182,12 +182,18 @@ void SifGenerator::makeBodyBlocks()
   delete [] body_id;
   
   int sifIndex = 0;
-  for(int index = 0; index < MAX_BODIES; index++) {
+  for(int index = 0; index < bodyMap.count(); index++) {
     BodyPropertyEditor *bodyEdit = &bodyPropertyEditor[index];
 
     if(bodyEdit->touched) {
       te->append("Body " + QString::number(++sifIndex));
-      te->append("  Target Bodies(1) = " + QString::number(index));
+
+      int originalIndex = bodyMap.key(index);
+
+      cout << index << " " << originalIndex << endl;
+      cout.flush();
+
+      te->append("  Target Bodies(1) = " + QString::number(originalIndex));
 
       te->append("  Name = " + bodyEdit->ui.nameEdit->text().trimmed());
 

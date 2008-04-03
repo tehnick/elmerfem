@@ -17,6 +17,7 @@ EdfEditor::EdfEditor(QWidget *parent)
   appendIcon = QIcon(":/icons/tab-new-background.png"); // todo
   saveAsIcon = QIcon(":/icons/document-save.png");
   applyIcon = QIcon(":/icons/dialog-close.png");
+  previewIcon = QIcon(":/icons/document-preview.png");
 
   lastActiveItem = NULL;
   ctrlPressed = false;
@@ -74,7 +75,7 @@ EdfEditor::EdfEditor(QWidget *parent)
   connect(appendButton, SIGNAL(clicked()), this, SLOT(appendButtonClicked()));
 
   previewButton = new QPushButton(tr("&Preview"));
-  previewButton->setIcon(openIcon);
+  previewButton->setIcon(previewIcon);
   connect(previewButton, SIGNAL(clicked()), this, SLOT(previewButtonClicked()));
 
   saveAsButton = new QPushButton(tr("&Save as"));
