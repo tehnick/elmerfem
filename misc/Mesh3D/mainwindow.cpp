@@ -248,9 +248,15 @@ void MainWindow::createActions()
 
   // Model -> Initial condition...
   addInitialConditionAct = new QAction(QIcon(), tr("Add..."), this);
-  addInitialConditionAct->setStatusTip(tr("Add an initial condition..."));
+  addInitialConditionAct->setStatusTip(tr("Add initial conditions..."));
   connect(addInitialConditionAct, SIGNAL(triggered()), 
 	  this, SLOT(addInitialConditionSlot()));
+
+  // Model -> Boundary condition...
+  addBoundaryConditionAct = new QAction(QIcon(), tr("Add..."), this);
+  addBoundaryConditionAct->setStatusTip(tr("Add boundary conditions..."));
+  connect(addBoundaryConditionAct, SIGNAL(triggered()), 
+	  this, SLOT(addBoundaryConditionSlot()));
 
   // Model -> Set body properties
   bodyEditAct = new QAction(QIcon(), tr("Set body properties"), this);
@@ -474,6 +480,13 @@ void MainWindow::createMenus()
   initialConditionMenu->addSeparator();
   connect(initialConditionMenu, SIGNAL(triggered(QAction*)), 
 	  this, SLOT(initialConditionSelectedSlot(QAction*)));
+  
+  modelMenu->addSeparator();
+  boundaryConditionMenu = modelMenu->addMenu(tr("Boundary condition"));
+  boundaryConditionMenu->addAction(addBoundaryConditionAct);
+  boundaryConditionMenu->addSeparator();
+  connect(boundaryConditionMenu, SIGNAL(triggered(QAction*)), 
+	  this, SLOT(boundaryConditionSelectedSlot(QAction*)));
   
   modelMenu->addSeparator();
   modelMenu->addAction(bodyEditAct);
@@ -1754,7 +1767,7 @@ void MainWindow::addBodyForceSlot()
     return;
   }
   
-  pe->setupTabs(*elmerDefs, "BodyForce", current);
+  pe->setupTabs(*elmerDefs, "BodyForce", current );
 
   pe->applyButton->setText("Add");
   pe->applyButton->setIcon(QIcon(":/icons/list-add.png"));
@@ -1929,6 +1942,111 @@ void MainWindow::initialConditionSelectedSlot(QAction* act)
   // Edit the selected initial condition:
   for(int i = 0; i < MAX_INITIALCONDITIONS; i++) {
     DynamicEditor *pe = &initialConditionEditor[i];
+    if(pe->menuAction == act) {
+      pe->applyButton->setText("Update");
+      pe->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
+      pe->discardButton->setText("Remove");
+      pe->discardButton->setIcon(QIcon(":/icons/list-remove.png"));
+      pe->show();
+    }
+  }
+}
+
+//*****************************************************************************
+
+// Model -> Boundary condition -> Add...
+//-----------------------------------------------------------------------------
+void MainWindow::addBoundaryConditionSlot()
+{
+  // use the first free slot in boundaryConditionEditor array:
+  int current = 0;
+  bool found = false;
+  
+  DynamicEditor *pe = NULL;
+  for(int i = 0; i < MAX_BCS; i++) {
+    pe = &bcPropertyEditor[i];
+    if(pe->menuAction == NULL) {
+      found = true;
+      current = i;
+      break;
+    }
+  }
+  
+  if(!found) {
+    logMessage("Boundary condition max limit reached - unable to add");
+    return;
+  }
+  
+  pe->setupTabs(*elmerDefs, "BoundaryCondition", current);
+  
+  pe->applyButton->setText("Add");
+  pe->applyButton->setIcon(QIcon(":/icons/list-add.png"));
+  pe->discardButton->setText("Cancel");
+  pe->discardButton->setIcon(QIcon(":/icons/dialog-close.png"));
+  pe->show();
+  
+  connect(pe, SIGNAL(dynamicEditorReady(int,int)),
+	  this, SLOT(boundaryConditionEditorFinishedSlot(int,int)));
+}
+
+// signal (int,int) emitted by boundary condition editor when ready:
+//-----------------------------------------------------------------------------
+void MainWindow::boundaryConditionEditorFinishedSlot(int signal, int id)
+{
+#define MAT_OK     0
+#define MAT_DELETE 1
+
+  DynamicEditor *pe = &bcPropertyEditor[id];
+  
+  const QString &boundaryConditionName = pe->nameEdit->text().trimmed();
+  
+  if((boundaryConditionName == "") && (signal == MAT_OK)) {
+    logMessage("Refusing to add/update boundary condition with no name");
+    return;
+  }
+  
+  if(signal == MAT_OK) {
+    
+    // Boundary condition already exists:
+    if(pe->menuAction != NULL) {
+      pe->menuAction->setText(boundaryConditionName);
+      logMessage("Boundary condition updated");
+      pe->close();
+      return;
+    }
+
+    // Boundary condition is new - add to menu:
+    QAction *act = new QAction(boundaryConditionName, this);
+    boundaryConditionMenu->addAction(act);
+    pe->menuAction = act;
+    pe->close();
+    logMessage("Boundary condition added");
+  }
+
+  if(signal == MAT_DELETE) {
+
+    // Bopundary condition is not in menu:
+    if(pe->menuAction == NULL) {
+      logMessage("Ready");
+      pe->close();
+      return;
+    }
+    
+    // Delete from menu:
+    delete pe->menuAction;
+    pe->menuAction = NULL;
+    pe->close();
+    logMessage("Boundary condition deleted");
+  }
+}
+
+// signal (QAction*) emitted by boundaryConditionMenu when item selected:
+//-----------------------------------------------------------------------------
+void MainWindow::boundaryConditionSelectedSlot(QAction* act)
+{
+  // Edit the selected boundary condition:
+  for(int i = 0; i < MAX_BCS; i++) {
+    DynamicEditor *pe = &bcPropertyEditor[i];
     if(pe->menuAction == act) {
       pe->applyButton->setText("Update");
       pe->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
