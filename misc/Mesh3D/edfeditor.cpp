@@ -29,9 +29,6 @@ EdfEditor::EdfEditor(QWidget *parent)
   connect(edfTree, SIGNAL(itemClicked(QTreeWidgetItem*,int)),
 	  this, SLOT(treeItemClicked(QTreeWidgetItem*,int)));
 
-  connect(edfTree, SIGNAL(itemSelectionChanged()),
-	  this, SLOT(selectionChanged()));
-
   edfTree->setColumnCount(3);
   edfTree->setColumnWidth(0,200);
   edfTree->setColumnWidth(1,200);
