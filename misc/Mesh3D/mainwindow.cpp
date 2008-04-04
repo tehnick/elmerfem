@@ -3742,6 +3742,7 @@ void MainWindow::loadDefinitions()
   }
 
   edfEditor->setupEditor(*elmerDefs);
+  file.close();
 
   cout << "done" << endl;
   cout.flush();
@@ -3794,6 +3795,8 @@ void MainWindow::loadDefinitions()
       }
       
       edfEditor->setupEditor(*elmerDefs);
+
+      file.close();
 
       cout << "done" << endl;
       cout.flush();
