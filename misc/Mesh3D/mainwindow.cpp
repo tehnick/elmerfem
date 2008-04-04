@@ -1510,6 +1510,7 @@ void MainWindow::closeMainWindowSlot()
     pdePropertyEditor[i].close();
 
   delete [] boundaryConditionEditor;
+  delete [] initialConditionEditor;
   delete [] materialEditor;
   delete [] pdePropertyEditor;
   
@@ -3258,15 +3259,20 @@ void MainWindow::generateSifSlot()
   // Set up SIF generator:
   //-----------------------
   sifGenerator->mesh = mesh;
-  sifGenerator->cdim = mesh->cdim;
-  sifGenerator->generalSetup = generalSetup;
   sifGenerator->te = sifWindow->textEdit;
+  sifGenerator->cdim = mesh->cdim;
+
+  sifGenerator->generalSetup = generalSetup;
   sifGenerator->pdePropertyEditor = pdePropertyEditor;
+
   sifGenerator->materialEditor = materialEditor;
   sifGenerator->bodyForceEditor = bodyForceEditor;
   sifGenerator->initialConditionEditor = initialConditionEditor;
-  sifGenerator->bodyPropertyEditor = bodyPropertyEditor;
   sifGenerator->boundaryConditionEditor = boundaryConditionEditor;
+
+  sifGenerator->boundaryPropertyEditor = boundaryPropertyEditor;
+  sifGenerator->bodyPropertyEditor = bodyPropertyEditor;
+
   sifGenerator->meshControl = meshControl;
 
   sifGenerator->bodyMap = glWidget->bodyMap;
@@ -3619,7 +3625,8 @@ void MainWindow::showaboutSlot()
   QMessageBox::about(this, tr("Information about Mesh3D"),
 		     tr("Mesh3D is a preprocessor for three dimensional "
 			"modeling with Elmer finite element software. "
-			"The program can use elmergrid, tetlib, and nglib, "
+			"The program uses elmergrid, and optionally "
+			"tetlib or nglib, "
 			"as finite element mesh generators:\n\n"
 			"http://www.csc.fi/elmer/\n"
 			"http://tetgen.berlios.de/\n"

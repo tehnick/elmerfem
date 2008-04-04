@@ -8,6 +8,7 @@
 #include "generalsetup.h"
 #include "pdepropertyeditor.h"
 #include "matpropertyeditor.h"
+#include "boundarypropertyeditor.h"
 #include "bodypropertyeditor.h"
 #include "bcpropertyeditor.h"
 #include "solverparameters.h"
@@ -20,7 +21,6 @@
 #define ADVECTION_DIFFUSION 3
 #define HELMHOLTZ_EQUATION  4
 
-
 #define MAX_MATERIALS         10
 #define MAX_BODYFORCES        10
 #define MAX_INITIALCONDITIONS 10
@@ -32,13 +32,18 @@ class SifGenerator  {
 
   mesh_t *mesh;
   QTextEdit *te;
+
   GeneralSetup *generalSetup;
   PDEPropertyEditor *pdePropertyEditor;
+
   DynamicEditor *materialEditor;
   DynamicEditor *bodyForceEditor;
   DynamicEditor *initialConditionEditor;
   DynamicEditor *boundaryConditionEditor;
+
+  BoundaryPropertyEditor *boundaryPropertyEditor;
   BodyPropertyEditor *bodyPropertyEditor;
+
   MeshControl *meshControl;
   int cdim;
 

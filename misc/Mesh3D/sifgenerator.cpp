@@ -467,47 +467,59 @@ void SifGenerator::makeInitialConditionBlocks()
 
 
 
-// Make Boundary-blocks:
+// Make boundary blocks:
 //-----------------------------------------------------------------------------
 void SifGenerator::makeBoundaryBlocks()
 {
-  // TODO: At the moment only "Equation 1" is meaningful (index=0)
+  int sifIndex = 0;
+  for(int index = 0; index < boundaryMap.count(); index++) {
+    BoundaryPropertyEditor *bEdit = &boundaryPropertyEditor[index];
 
-  //PDEPropertyEditor *eqEdit = &pdePropertyEditor[0];
-  // int j = 0;
+    if(bEdit->touched) {
+      te->append("Boundary Condition " + QString::number(++sifIndex));
 
-  // TODO: replace MAX_BCS with an actual value
-#if 0
-  for(int i = 0; i < MAX_BCS; i++) {
-    BCPropertyEditor *bcEdit = &bcPropertyEditor[i];
-    Ui::bcPropertyDialog ui = bcEdit->ui;
+      int originalIndex = boundaryMap.key(index);
 
-    if(bcEdit->touched) {
-      
-      te->append("Boundary condition " + QString::number(++j));
-      te->append("  Target boundaries(1) = " + QString::number(i));
-      
-      if(eqEdit->ui.heatEquationActive->isChecked()) {
-	addSifLine("  Temperature = ", ui.temperatureEdit->text());
-	addSifLine("  Heat Flux = ", ui.heatFluxEdit->text());
-      }
-      
-      if(eqEdit->ui.linearElasticityActive->isChecked()) {
-	addSifLine("  Displacement 1 = ", ui.displacement1Edit->text());
-	addSifLine("  Displacement 2 = ", ui.displacement2Edit->text());
-	addSifLine("  Displacement 3 = ", ui.displacement3Edit->text());
-      }
+      te->append("  Target Boundaries(1) = " + QString::number(originalIndex));
 
-      if(eqEdit->ui.navierStokesActive->isChecked()) {
-	addSifLine("  Velocity 1 = ", ui.Velocity1Edit->text());
-	addSifLine("  Velocity 2 = ", ui.Velocity2Edit->text());
-	addSifLine("  Velocity 3 = ", ui.Velocity3Edit->text());
-      }
-      
-      te->append("End\n");
+      int i = bEdit->ui.boundaryConditionCombo->currentIndex();
+      const QString &name = bEdit->ui.boundaryConditionCombo->currentText().trimmed();
+      if(i > -1) 
+	te->append("  Name = " +  name);
+
+      // check which one of the dynamic editors has "name" typed in nameEdit:
+      for(int j = 0; j < MAX_BCS; j++) {
+	DynamicEditor *bc = &boundaryConditionEditor[j];
+	if(bc->menuAction != NULL) {
+	  if(bc->nameEdit->text().trimmed() == name) {
+	    
+	    // go through the hash of this dynamic editor:
+	    //--------------------------------------------
+	    for(int i = 0; i < bc->hash.count(); i++) {
+	      hash_entry_t entry = bc->hash.values().at(i); 
+	      
+	      QWidget *widget = entry.widget;
+	      
+	      QDomElement elem;
+	      if ( widget->isEnabled() ) {
+		elem = entry.elem;
+		
+		if(elem.attribute("Widget", "") == "CheckBox") 
+		  handleCheckBox(elem, widget);
+		
+		if(elem.attribute("Widget", "") == "Edit")
+		  handleLineEdit(elem, widget);
+		
+		if(elem.attribute("Widget", "") == "Combo")
+		  handleComboBox(elem, widget);
+	      }
+	    }
+	  }
+	}
+      }      
+      te->append("End\n");      
     }
-  }  
-#endif
+  }
 }
 
 
