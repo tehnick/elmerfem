@@ -277,6 +277,12 @@ void MainWindow::createActions()
   connect(modelSummaryAct, SIGNAL(triggered()), 
 	  this, SLOT(modelSummarySlot()));
 
+  // Model -> Clear
+  modelClearAct = new QAction(QIcon(), tr("Clear all"), this);
+  modelClearAct->setStatusTip(tr("Clear all model definitions"));
+  connect(modelClearAct, SIGNAL(triggered()), 
+	  this, SLOT(modelClearSlot()));
+
   // Edit -> Generate sif
   generateSifAct = new QAction(QIcon(""), tr("&Generate sif"), this);
   generateSifAct->setShortcut(tr("Ctrl+G"));
@@ -494,6 +500,8 @@ void MainWindow::createMenus()
   modelMenu->addAction(bcEditAct);
   modelMenu->addSeparator();
   modelMenu->addAction(modelSummaryAct);
+  modelMenu->addSeparator();
+  modelMenu->addAction(modelClearAct);
   modelMenu->addSeparator();
 
   // Edit menu
@@ -2114,7 +2122,7 @@ void MainWindow::bcEditSlot()
 
 
 
-// Model -> Summary
+// Model -> Summary...
 //-----------------------------------------------------------------------------
 void MainWindow::modelSummarySlot()
 {
@@ -2364,6 +2372,64 @@ void MainWindow::modelSummarySlot()
   delete [] tmp;
 }
 
+
+// Model -> Clear
+//-----------------------------------------------------------------------------
+void MainWindow::modelClearSlot()
+{
+  // clear equations:
+  for(int i = 0; i < MAX_EQUATIONS; i++) {
+    PDEPropertyEditor *pe = &pdePropertyEditor[i];
+    if(pe->menuAction != NULL)
+      delete pe->menuAction;
+  }
+  delete [] pdePropertyEditor;
+  pdePropertyEditor = new PDEPropertyEditor[MAX_EQUATIONS];
+
+  // clear materials:
+  for(int i = 0; i < MAX_MATERIALS; i++) {
+    DynamicEditor *de = &materialEditor[i];
+    if(de->menuAction != NULL)
+      delete de->menuAction;
+  }
+  delete [] materialEditor;
+  materialEditor = new DynamicEditor[MAX_MATERIALS];
+
+  // clear body forces:
+  for(int i = 0; i < MAX_BODYFORCES; i++) {
+    DynamicEditor *de = &bodyForceEditor[i];
+    if(de->menuAction != NULL)
+      delete de->menuAction;
+  }
+  delete [] bodyForceEditor;
+  bodyForceEditor = new DynamicEditor[MAX_BODYFORCES];
+
+  // clear initial conditions:
+  for(int i = 0; i < MAX_INITIALCONDITIONS; i++) {
+    DynamicEditor *de = &initialConditionEditor[i];
+    if(de->menuAction != NULL)
+      delete de->menuAction;
+  }
+  delete [] initialConditionEditor;
+  initialConditionEditor = new DynamicEditor[MAX_INITIALCONDITIONS];
+
+  // clear boundary conditions:
+  for(int i = 0; i < MAX_BCS; i++) {
+    DynamicEditor *de = &boundaryConditionEditor[i];
+    if(de->menuAction != NULL)
+      delete de->menuAction;
+  }
+  delete [] boundaryConditionEditor;
+  boundaryConditionEditor = new DynamicEditor[MAX_BCS];
+
+  // clear boundary setting:
+  delete [] boundaryPropertyEditor;
+  boundaryPropertyEditor = new BoundaryPropertyEditor[MAX_BOUNDARIES];
+
+  // clear body settings:
+  delete [] bodyPropertyEditor;
+  bodyPropertyEditor = new BodyPropertyEditor[MAX_BODIES];
+}
 
 
 //*****************************************************************************
