@@ -174,8 +174,8 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
             grid->addWidget(h.widget, params, 0);
           }
           if ( widget_visible == "False" ) {
-            h.widget->setVisible(false);
-            if ( h.label != NULL ) h.label->setVisible(false);
+            h.widget->hide();
+            if ( h.label != NULL ) h.label->hide();
           }
         }
       }
@@ -299,7 +299,6 @@ void DynLineEdit::lineEditClose()
 
   delete frame;
   frame = NULL;
-
 }
 
 //----------------------------------------------------------------------------
@@ -317,8 +316,8 @@ void DynamicEditor::lSlot(int state)
     hash[q].widget->setEnabled(state);
     QString widget_visible = hash[q].elem.attribute("Visible","True");
     if ( state == false && widget_visible == "False" ) {
-      hash[q].label->setVisible(false);
-      hash[q].widget->setVisible(false);
+      hash[q].label->hide();
+      hash[q].widget->hide();
     }
   }
 }
@@ -339,13 +338,13 @@ void DynamicEditor::textChangedSlot(QString text)
 
     if ( text != "" ) {
       hash[q].widget->setEnabled(true);
-      hash[q].widget->setVisible(true);
-      if ( hash[q].label ) hash[q].label->setVisible(true);
+      hash[q].widget->show();
+      hash[q].label->show();
     } else {
       hash[q].widget->setEnabled(false);
       if ( widget_visible == "False" ) {
-        hash[q].label->setVisible(false);
-        hash[q].widget->setVisible(false);
+        hash[q].label->hide();
+        hash[q].widget->hide();
       }
     }
   }
@@ -377,13 +376,13 @@ void DynamicEditor::comboSlot(QString select)
         if ( widget_enabled == "False" ) {
           h.widget->setEnabled(false);
           if ( widget_visible == "False" ) {
-            h.label->setVisible(false);
-            h.widget->setVisible(false);
+            h.label->hide();
+            h.widget->hide();
           }
         } else {
           h.widget->setEnabled(true);
-          h.label->setVisible(true);
-          h.widget->setVisible(true);
+          h.label->show();
+          h.widget->show();
         }
       }
     }
@@ -399,8 +398,8 @@ void DynamicEditor::comboSlot(QString select)
         QString s=activ.text().trimmed() + ID;
         hash_entry_t h = hash[s];
         h.widget->setEnabled(true);
-        h.widget->setVisible(true);
-        h.label->setVisible(true);
+        h.label->show();
+        h.widget->show();
       }
     }
   }
