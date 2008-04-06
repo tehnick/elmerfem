@@ -264,9 +264,9 @@ void GLWidget::resizeGL(int width, int height)
 
 // Focus in event...
 //-----------------------------------------------------------------------------
-void GLWidget::focusInEvent(QFocusEvent *event)
+void GLWidget::focusInEvent(QFocusEvent*)
 {
-  // We should check the key pressed status here...
+  // Should we check the key pressed status here?
 }
 
 
@@ -415,14 +415,17 @@ void GLWidget::mouseDoubleClickEvent(QMouseEvent *event)
   GLdouble x = event->x();
   GLdouble y = (double)viewport[3]-event->y()-1;
   
-  GLdouble delX = 3.0;
-  GLdouble delY = 3.0;
+  GLdouble deltaX = 3.0;
+  GLdouble deltaY = 3.0;
   
-  gluPickMatrix(x, y, delX, delY, viewport);
+  gluPickMatrix(x, y, deltaX, deltaY, viewport);
   glMultMatrixd(projection); 
   
   glMatrixMode(GL_MODELVIEW);
-  updateGL();
+
+  // updateGL();
+  paintGL();
+
   hits = glRenderMode(GL_RENDER);
   
   GLuint smallestz = 0xffffffff;
