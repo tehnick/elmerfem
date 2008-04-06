@@ -221,6 +221,8 @@ void SifGenerator::makeBodyBlocks()
 //-----------------------------------------------------------------------------
 void SifGenerator::makeEquationBlocks()
 {
+
+#if 0
   // TODO: At the moment only "Equation 1" is meaningful (index=0)
   PDEPropertyEditor *p = &pdePropertyEditor[0];
 
@@ -267,6 +269,7 @@ void SifGenerator::makeEquationBlocks()
     te->append( "  Convection = Computed" );
 
   te->append("End\n");  
+#endif
 }
 
 
@@ -275,6 +278,8 @@ void SifGenerator::makeEquationBlocks()
 void SifGenerator::makeSolverBlocks()
 {
   // TODO: At the moment only "Equation 1" is meaningful (index=0)
+
+#if 0
   PDEPropertyEditor *p = &pdePropertyEditor[0];
 
   int currentSolver = 0;
@@ -332,7 +337,7 @@ void SifGenerator::makeSolverBlocks()
     // todo: add adaptivity & multigrid
     te->append("End\n");
   }
-
+#endif
 }
 
 

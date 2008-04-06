@@ -7,7 +7,6 @@
 #include "meshtype.h"
 #include "maxlimits.h"
 #include "generalsetup.h"
-#include "pdepropertyeditor.h"
 #include "boundarypropertyeditor.h"
 #include "bodypropertyeditor.h"
 #include "solverparameters.h"
@@ -29,8 +28,7 @@ class SifGenerator  {
   QTextEdit *te;
 
   GeneralSetup *generalSetup;
-  PDEPropertyEditor *pdePropertyEditor;
-
+  DynamicEditor *equationEditor;
   DynamicEditor *materialEditor;
   DynamicEditor *bodyForceEditor;
   DynamicEditor *initialConditionEditor;

@@ -15,7 +15,6 @@
 #include "meshcontrol.h"
 #include "boundarydivision.h"
 #include "meshutils.h"
-#include "pdepropertyeditor.h"
 #include "bodypropertyeditor.h"
 #include "boundarypropertyeditor.h"
 #include "summaryeditor.h"
@@ -182,7 +181,7 @@ private:
 
   // property editors etc:
   GeneralSetup *generalSetup;
-  PDEPropertyEditor *pdePropertyEditor;
+  DynamicEditor *equationEditor;
   DynamicEditor *materialEditor;
   DynamicEditor *bodyForceEditor;
   DynamicEditor *initialConditionEditor;

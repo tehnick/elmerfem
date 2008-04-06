@@ -104,7 +104,7 @@ MainWindow::MainWindow()
   solver = new QProcess(this);
   post = new QProcess(this);
   generalSetup = new GeneralSetup;
-  pdePropertyEditor = new PDEPropertyEditor[MAX_EQUATIONS];
+  equationEditor = new DynamicEditor[MAX_EQUATIONS];
   materialEditor = new DynamicEditor[MAX_MATERIALS];
   bodyForceEditor = new DynamicEditor[MAX_BODYFORCES];
   initialConditionEditor = new DynamicEditor[MAX_INITIALCONDITIONS];
@@ -1515,12 +1515,12 @@ void MainWindow::closeMainWindowSlot()
     materialEditor[i].close();
 
   for(int i = 0; i < MAX_EQUATIONS; i++)
-    pdePropertyEditor[i].close();
+    equationEditor[i].close();
 
   delete [] boundaryConditionEditor;
   delete [] initialConditionEditor;
   delete [] materialEditor;
-  delete [] pdePropertyEditor;
+  delete [] equationEditor;
   
   this->close();
 //  exit(0);
@@ -1543,62 +1543,65 @@ void MainWindow::modelSetupSlot()
 }
 
 
+//*****************************************************************************
 
 // Model -> Equation -> Add...
 //-----------------------------------------------------------------------------
 void MainWindow::addEquationSlot()
 {
-  // use the first free slot in pdePropertyEditor array:
+  // use the first free slot in equationEditor array:
   int current = 0;
   bool found = false;
-  PDEPropertyEditor *pe = NULL;
+  
+  DynamicEditor *pe = NULL;
+
   for(int i = 0; i < MAX_EQUATIONS; i++) {
-    pe = &pdePropertyEditor[i];
+    pe = &equationEditor[i];
     if(pe->menuAction == NULL) {
       found = true;
       current = i;
       break;
     }
   }
-
+  
   if(!found) {
     logMessage("Equation max limit reached - unable to add equation");
     return;
   }
+  
+  pe->setupTabs(*elmerDefs, "Equation", current);
 
-  pe->setWindowTitle("Edit equation");
-  QString qs = "Equation " + QString::number(current+1);
-  pe->ui.equationNameEdit->setText(qs);
-  pe->ui.acceptEquation->setText("Add");
-  pe->ui.deleteEquation->setText("Cancel");
-  pe->ui.acceptEquation->setIcon(QIcon(":/icons/list-add.png"));
-  pe->ui.deleteEquation->setIcon(QIcon(":/icons/dialog-close.png"));
-  pe->defaultSettings();
-  connect(pe, SIGNAL(signalPdeEditorFinished(int,int)),
-	  this, SLOT(pdeEditorFinishedSlot(int,int))) ;
-  pe->startEdit(current);
+  pe->applyButton->setText("Add");
+  pe->applyButton->setIcon(QIcon(":/icons/list-add.png"));
+  pe->discardButton->setText("Cancel");
+  pe->discardButton->setIcon(QIcon(":/icons/dialog-close.png"));
+  pe->show();
+  
+  connect(pe, SIGNAL(dynamicEditorReady(int,int)),
+	  this, SLOT(pdeEditorFinishedSlot(int,int)));
 }
-
 
 // signal (int,int) emitted by equation editor when ready:
 //-----------------------------------------------------------------------------
 void MainWindow::pdeEditorFinishedSlot(int signal, int id)
 {
-#define PDE_OK     0
-#define PDE_DELETE 1
-
-  PDEPropertyEditor *pe = &pdePropertyEditor[id];
-  const QString &equationName = pe->ui.equationNameEdit->text();
+#define MAT_OK     0
+#define MAT_DELETE 1
   
-  if((equationName == "") && (signal == PDE_OK)) {
-    logMessage("Refusing to add equation with no name");
+  DynamicEditor *pe = &equationEditor[id];
+  
+  const QString &equationName = pe->nameEdit->text().trimmed();
+
+  if((equationName == "") && (signal == MAT_OK)) {
+    logMessage("Refusing to add/update equation without name");
     return;
   }
   
-  if(signal == PDE_OK) {
+  if(signal == MAT_OK) {
     
     // Equation already exists:
     if(pe->menuAction != NULL) {
+      pe->menuAction->setText(equationName);
       logMessage("Equation updated");
       pe->close();
       return;
@@ -1612,7 +1615,7 @@ void MainWindow::pdeEditorFinishedSlot(int signal, int id)
     logMessage("Equation added");
   }
 
-  if(signal == PDE_DELETE) {
+  if(signal == MAT_DELETE) {
 
     // Equation is not in menu:
     if(pe->menuAction == NULL) {
@@ -1629,19 +1632,18 @@ void MainWindow::pdeEditorFinishedSlot(int signal, int id)
   }
 }
 
-
 // signal (QAction*) emitted by equationMenu when an item has been selected:
 //-----------------------------------------------------------------------------
 void MainWindow::equationSelectedSlot(QAction* act)
 {
-  // Edit the selected equation:
+  // Edit the selected material:
   for(int i = 0; i < MAX_EQUATIONS; i++) {
-    PDEPropertyEditor *pe = &pdePropertyEditor[i];
+    DynamicEditor *pe = &equationEditor[i];
     if(pe->menuAction == act) {
-      pe->ui.acceptEquation->setText("Update");
-      pe->ui.deleteEquation->setText("Remove");
-      pe->ui.acceptEquation->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
-      pe->ui.deleteEquation->setIcon(QIcon(":/icons/list-remove.png"));
+      pe->applyButton->setText("Update");
+      pe->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
+      pe->discardButton->setText("Remove");
+      pe->discardButton->setIcon(QIcon(":/icons/list-remove.png"));
       pe->show();
     }
   }
@@ -2166,7 +2168,7 @@ void MainWindow::modelSummarySlot()
   // Check equations:
   int count = 0;
   for(int i = 0; i < MAX_EQUATIONS; i++) {
-    if(pdePropertyEditor[i].menuAction != NULL)
+    if(equationEditor[i].menuAction != NULL)
       count++;
   }
   te->append("GENERAL");
@@ -2379,12 +2381,12 @@ void MainWindow::modelClearSlot()
 {
   // clear equations:
   for(int i = 0; i < MAX_EQUATIONS; i++) {
-    PDEPropertyEditor *pe = &pdePropertyEditor[i];
+    DynamicEditor *pe = &equationEditor[i];
     if(pe->menuAction != NULL)
       delete pe->menuAction;
   }
-  delete [] pdePropertyEditor;
-  pdePropertyEditor = new PDEPropertyEditor[MAX_EQUATIONS];
+  delete [] equationEditor;
+  equationEditor = new DynamicEditor[MAX_EQUATIONS];
 
   // clear materials:
   for(int i = 0; i < MAX_MATERIALS; i++) {
@@ -3329,8 +3331,7 @@ void MainWindow::generateSifSlot()
   sifGenerator->cdim = mesh->cdim;
 
   sifGenerator->generalSetup = generalSetup;
-  sifGenerator->pdePropertyEditor = pdePropertyEditor;
-
+  sifGenerator->equationEditor = equationEditor;
   sifGenerator->materialEditor = materialEditor;
   sifGenerator->bodyForceEditor = bodyForceEditor;
   sifGenerator->initialConditionEditor = initialConditionEditor;
@@ -3469,9 +3470,9 @@ void MainWindow::boundarySelectedSlot(list_t *l)
 
     int count = 1;
     for(int i = 0; i<MAX_EQUATIONS; i++) {
-      PDEPropertyEditor *eqEdit = &pdePropertyEditor[i];
+      DynamicEditor *eqEdit = &equationEditor[i];
       if(eqEdit->menuAction != NULL) {
-	const QString &name = eqEdit->ui.equationNameEdit->text();
+	const QString &name = eqEdit->nameEdit->text().trimmed();
 	bodyEdit->ui.equationCombo->insertItem(count++, name);
       }
     }
