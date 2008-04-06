@@ -1,12 +1,10 @@
 #ifndef PDEPROPERTYEDITOR_H
 #define PDEPROPERTYEDITOR_H
 
-#define MAX_SOLVERS 10
-
 #include <QWidget>
 #include "ui_pdepropertyeditor.h"
+#include "maxlimits.h"
 #include "solverparameters.h"
-
 
 class PDEPropertyEditor : public QDialog
 {

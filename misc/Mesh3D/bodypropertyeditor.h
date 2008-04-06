@@ -4,8 +4,6 @@
 #include <QWidget>
 #include "ui_bodypropertyeditor.h"
 
-#define MAX_BODIES 100
-
 class BodyPropertyEditor : public QDialog
 {
   Q_OBJECT

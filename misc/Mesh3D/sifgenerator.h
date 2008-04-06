@@ -5,12 +5,11 @@
 #include <QHash>
 
 #include "meshtype.h"
+#include "maxlimits.h"
 #include "generalsetup.h"
 #include "pdepropertyeditor.h"
-#include "matpropertyeditor.h"
 #include "boundarypropertyeditor.h"
 #include "bodypropertyeditor.h"
-#include "bcpropertyeditor.h"
 #include "solverparameters.h"
 #include "meshcontrol.h"
 #include "dynamiceditor.h"
@@ -20,10 +19,6 @@
 #define NAVIER_STOKES       2
 #define ADVECTION_DIFFUSION 3
 #define HELMHOLTZ_EQUATION  4
-
-#define MAX_MATERIALS         10
-#define MAX_BODYFORCES        10
-#define MAX_INITIALCONDITIONS 10
 
 class SifGenerator  {
  public:

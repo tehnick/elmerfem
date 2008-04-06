@@ -4,8 +4,6 @@
 #include <QWidget>
 #include "ui_boundarypropertyeditor.h"
 
-#define MAX_BOUNDARIES 100
-
 class BoundaryPropertyEditor : public QDialog
 {
   Q_OBJECT

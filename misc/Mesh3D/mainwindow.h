@@ -1,17 +1,11 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#define MAX_EQUATIONS         10
-#define MAX_MATERIALS         10
-#define MAX_BODYFORCES        10
-#define MAX_INITIALCONDITIONS 10
-// MAX_BCS defined in "bcpropertyeditor.h"
-// MAX_BODIES defined in "bodypropertyeditor.h"
-
 #include <QMainWindow>
 #include <QProcess>
 #include <QAction>
 #include <QDomDocument>
+#include "maxlimits.h"
 #include "plugins/tetlib_api.h"
 #include "plugins/nglib_api.h"
 #include "plugins/elmergrid_api.h"
@@ -21,9 +15,7 @@
 #include "meshcontrol.h"
 #include "boundarydivision.h"
 #include "meshutils.h"
-#include "bcpropertyeditor.h"
 #include "pdepropertyeditor.h"
-#include "matpropertyeditor.h"
 #include "bodypropertyeditor.h"
 #include "boundarypropertyeditor.h"
 #include "summaryeditor.h"
