@@ -147,8 +147,9 @@ void SifGenerator::makeEquationBlocks()
       QString name = eqEditor->nameEdit->text().trimmed();
       addSifLine("  Name = ", name);
 
-      cout << "Name = " << string(name.toAscii()) << endl;
-      
+      QString solverString = "";
+      int nofSolvers = 0;
+
       for(int i = 0; i < eqEditor->hash.count(); i++) {
 	hash_entry_t entry = eqEditor->hash.values().at(i); 
 	
@@ -157,26 +158,22 @@ void SifGenerator::makeEquationBlocks()
         if ( widget->isEnabled() ) {
           QDomElement elem = entry.elem;
 	  
-	  // active?
-	  bool active = false;
-	  if(elem.firstChildElement("Active").isNull()) {
-	    if(elem.attribute("Widget", "") == "CheckBox") {
-	      QCheckBox *checkBox = (QCheckBox*)widget;
-	      if(checkBox->isChecked())
-		active = true;
+	  // solver active?
+	  QString key = eqEditor->hash.keys().at(i);
+	  QStringList keyList = key.split("/");
+	  
+	  if((keyList.at(3).trimmed() == "Active") &&
+	     (elem.attribute("Widget", "") == "CheckBox")) {
+	    QCheckBox *checkBox = (QCheckBox*)widget;
+	    if(checkBox->isChecked()) {
+	      nofSolvers++; // for this eq.
+	      sifSolver++;  // all solvers
+	      solverString += " " + QString::number(sifSolver);
 	    }
 	  }
-	  
-	  if(active) {
-	    // TODO ?????
-	    sifSolver++;
-	    QString key = eqEditor->hash.keys().at(i);
-	    cout << "Active Solver(?) = " << sifSolver << endl;
-	    cout << "Key: " << string(key.toAscii()) << endl;
-	    cout.flush();
-	  }
-	  
-          if(elem.attribute("Widget", "") == "CheckBox") 
+
+          if((elem.attribute("Widget", "") == "CheckBox") &&
+	     (keyList.at(3).trimmed() != "Active")) 
 	    handleCheckBox(elem, widget);
 	  
 	  if(elem.attribute("Widget", "") == "Edit")
@@ -186,59 +183,15 @@ void SifGenerator::makeEquationBlocks()
 	    handleComboBox(elem, widget);
         }
       }
+
+      if(nofSolvers > 0)
+	te->append("  Active Solvers(" 
+		   + QString::number(nofSolvers) 
+		   + ") =" + solverString);
+      
       te->append("End\n");
     }
   }
-  
-
-#if 0
-  // TODO: At the moment only "Equation 1" is meaningful (index=0)
-  PDEPropertyEditor *p = &pdePropertyEditor[0];
-
-  if(p->menuAction == NULL) {
-    cout << "No active equation - aborting" << endl;
-    cout.flush();
-    return;
-  }
-  
-  int nofSolvers = 0;
-
-  Ui::equationEditor ui = p->ui;
-  
-  if(ui.heatEquationActive->isChecked())
-    nofSolvers++;
-  
-  if(ui.linearElasticityActive->isChecked())
-    nofSolvers++;
-  
-  if(ui.navierStokesActive->isChecked())
-    nofSolvers++;
-  
-  if(ui.advectionDiffusionActive->isChecked())
-    nofSolvers++;
-  
-  if(ui.helmholtzEquationActive->isChecked())
-    nofSolvers++;
-  
-  if(nofSolvers == 0) {
-    cout << "There are no active solvers - aborting" << endl;
-    cout.flush();
-    return;
-  }
-  
-  te->append("Equation 1");
-  QString qs = "  Active Solvers(" + QString::number(nofSolvers) + ") =";
-  for(int i = 0; i < nofSolvers; i++) 
-    qs.append(" " + QString::number(i+1));
-  te->append(qs);
-  te->append( "  Element = \"" +  meshControl->elementCodesString + "\"" );
-  if(ui.heatEquationConvectionConstant->isChecked())
-    te->append( "  Convection = Constant" );
-  if(ui.heatEquationConvectionComputed->isChecked())
-    te->append( "  Convection = Computed" );
-  
-  te->append("End\n");  
-#endif
 }
 
 // Make Solver-blocks:
