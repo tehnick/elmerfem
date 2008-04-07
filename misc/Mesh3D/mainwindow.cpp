@@ -107,9 +107,10 @@ MainWindow::MainWindow()
   equationEditor = new DynamicEditor[MAX_EQUATIONS];
   materialEditor = new DynamicEditor[MAX_MATERIALS];
   bodyForceEditor = new DynamicEditor[MAX_BODYFORCES];
-  initialConditionEditor = new DynamicEditor[MAX_INITIALCONDITIONS];
   boundaryConditionEditor = new DynamicEditor[MAX_BCS];
   boundaryPropertyEditor = new BoundaryPropertyEditor[MAX_BOUNDARIES];
+  initialConditionEditor = new DynamicEditor[MAX_INITIALCONDITIONS];
+  solverParameterEditor = new SolverParameterEditor[MAX_SOLVERS];
   bodyPropertyEditor = new BodyPropertyEditor[MAX_BODIES];
   summaryEditor = new SummaryEditor;
   sifGenerator = new SifGenerator;
@@ -1579,6 +1580,40 @@ void MainWindow::addEquationSlot()
   
   connect(pe, SIGNAL(dynamicEditorReady(int,int)),
 	  this, SLOT(pdeEditorFinishedSlot(int,int)));
+
+  pe->spareButton->setText("Edit Numerical Methods");
+  pe->spareButton->show();
+  connect( pe->spareButton, SIGNAL(clicked()), this, SLOT(editNumericalMethods()) );
+}
+
+void MainWindow::editNumericalMethods()
+{
+  DynamicEditor *pe = NULL;
+  bool found = false; 
+  int current = -1;
+
+  for(int i = 0; i < MAX_EQUATIONS; i++) {
+    pe = &equationEditor[i];
+    if(pe->menuAction == NULL) {
+      found = true;
+      current = i;
+      break;
+    }
+  }
+
+
+  if(!found) {
+    logMessage("SolverParameterEditor - active equation not found.");
+    return;
+  }
+
+  current = pe->tabWidget->currentIndex();
+
+  SolverParameterEditor *spe = &solverParameterEditor[current];
+  spe->setWindowTitle("Solver control for " + pe->tabWidget->tabText(current)
+   		      + " (" + pe->nameEdit->text() + ")");
+
+  spe->show();
 }
 
 // signal (int,int) emitted by equation editor when ready:

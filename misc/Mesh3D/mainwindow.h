@@ -101,6 +101,8 @@ private slots:
   void initialConditionSelectedSlot(QAction*);  // emitted by ic menu
   void boundaryConditionSelectedSlot(QAction*);  // emitted by bc menu
 
+  void editNumericalMethods();
+
 private:
   // widgets and helpers:
   GLWidget *glWidget;             // central gl widget
@@ -188,6 +190,7 @@ private:
   DynamicEditor *boundaryConditionEditor;
   BoundaryPropertyEditor *boundaryPropertyEditor;
   BodyPropertyEditor *bodyPropertyEditor;
+  SolverParameterEditor *solverParameterEditor;
   SummaryEditor *summaryEditor;
 
   // elmer definitions:
