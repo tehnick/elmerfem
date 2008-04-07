@@ -1620,7 +1620,7 @@ void MainWindow::editNumericalMethods()
     spe->generalOptions = new DynamicEditor;
     spe->generalOptions->setupTabs(*elmerDefs, "Solver", current);
 
-    for( int i=0; i<pe->tabWidget->count(); i++ )
+    for( int i=0; i<spe->generalOptions->tabWidget->count(); i++ )
     {
       if ( spe->generalOptions->tabWidget->tabText(i) == pe->tabWidget->tabText(current) )
       {
