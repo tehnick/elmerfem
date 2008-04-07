@@ -230,8 +230,8 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
   //-------------
   QVBoxLayout *mainLayout = new QVBoxLayout;
   mainLayout->addWidget(tabWidget);
-  mainLayout->addLayout(buttonLayout);
   mainLayout->addLayout(spareButtonLayout);
+  mainLayout->addLayout(buttonLayout);
   setLayout(mainLayout);
 
   // Window title:
