@@ -35,6 +35,15 @@
           </Parameter>
       </InitialCondition>
 
+      <Equation>
+          <Parameter Widget="CheckBox">
+            <Name> Convect </Name>
+            <SifName> NS Convect </SifName>
+            <DefaultValue> True </DefaultValue>
+            <Whatis> If checked, solve Navier-Stokes equations with convection. </Whatis>
+          </Parameter>
+      </Equation>
+
       <BodyForce>
           <Parameter Widget="Label"> <Name> Volume forces </Name> </Parameter>
           <Parameter Widget="Edit">
@@ -81,6 +90,29 @@
              <Name> Velocity 3 Condition </Name>
              <Whatis> If the given value is less than zero, don't set the Dirichlet condition. To be generally useful space and/or time varying values may be given. </Whatis>
           </Parameter>
+
+          <Parameter Widget="Label"> <Name> Other options </Name> </Parameter>
+          <Parameter Widget="CheckBox">
+            <Name> Boussinesq </Name>
+            <Whatis> Use Boussinesq body force for incompressible flow. </Whatis>
+          </Parameter>
+
+          <Parameter Widget="CheckBox">
+            <Name> Potential Force </Name>
+            <Whatis> If checked, the force used for the electricstatic coupling is activated. </Whatis>
+            <Activate> /Navier-Stokes/BodyForce/Potential Field </Activate>
+            <Activate> /Navier-Stokes/BodyForce/Potential Coefficient </Activate>
+          </Parameter>
+            
+          <Parameter Widget="Edit" Enabled="False">
+            <Name> Potential Field </Name>
+            <Whatis> The field to which gradient the external force is proportional to. For example the electrostatic field. </Whatis>
+          </Parameter>
+
+          <Parameter Widget="Edit" Enabled="False">
+            <Name> Potential Coefficient </Name>
+            <Whatis> The coefficient that multiplies the gradient term. For example, the charge density.</Whatis>
+          </Parameter>
       </BodyForce>
 
       <Material>
@@ -97,92 +129,111 @@
             <Type>String </Type>
             <Whatis> The non-newtionian and turbulent viscosity models. </Whatis>
             <Item> <Name> None </Name> </Item>
-            <Item> <Name>power law </Name>
-              <Activate> /Navier-Stokes/Material/Viscosity Exponent </Activate>
-              <Activate> /Navier-Stokes/Material/Critical Shear Rate </Activate>
+            <Item> <Name>Power law </Name>
+              <Activate> /Navier-Stokes/Material/Viscosity Exponent</Activate>
+              <Activate> /Navier-Stokes/Material/Critical Shear Rate</Activate>
             </Item>
-            <Item> <Name>power law too </Name> </Item>
-            <Item> <Name>carreau </Name> </Item>
-            <Item> <Name>cross </Name> </Item>
-            <Item> <Name>powell eyring </Name> </Item>
-            <Item> <Name>thermal carreau </Name> </Item>
-            <Item> <Name>smagorinsky </Name> </Item>
-            <Item> <Name>k-epsilon </Name> </Item>
-            <Item> <Name>rng k-epsilon </Name> </Item>
-            <Item> <Name>spalart-allmaras </Name> </Item>
-            <Item> <Name>k-omega </Name> </Item>
-            <Item> <Name>sst k-omega </Name> </Item>
-            <Item> <Name>levelset </Name> </Item>
-            <Item> <Name>user function </Name> </Item>
+            <Item> <Name>Power law too </Name>
+              <Activate> /Navier-Stokes/Material/Viscosity Exponent </Activate>
+            </Item>
+            <Item> <Name>Carreau </Name>
+              <Activate> /Navier-Stokes/Material/Viscosity Difference </Activate>
+              <Activate> /Navier-Stokes/Material/Viscosity Exponent </Activate>
+              <Activate> /Navier-Stokes/Material/Viscosity Transition </Activate>
+              <Activate> /Navier-Stokes/Material/Yasuda Coefficient </Activate>
+            </Item>
+            <Item> <Name>Cross </Name>
+              <Activate> /Navier-Stokes/Material/Viscosity Difference </Activate>
+              <Activate> /Navier-Stokes/Material/Viscosity Exponent </Activate>
+              <Activate> /Navier-Stokes/Material/Viscosity Transition </Activate>
+            </Item>
+            <Item> <Name>Powell Eyring </Name>
+              <Activate> /Navier-Stokes/Material/Viscosity Difference </Activate>
+              <Activate> /Navier-Stokes/Material/Viscosity Transition </Activate>
+            </Item>
+            <Item> <Name>Thermal Carreau </Name>
+               <Activate> /Navier-Stokes/Material/Viscosity Difference </Activate>
+               <Activate> /Navier-Stokes/Material/Viscosity Exponent </Activate>
+               <Activate> /Navier-Stokes/Material/Viscosity Transition </Activate>
+               <Activate> /Navier-Stokes/Material/Yasuda Coefficient </Activate>
+               <Activate> /Navier-Stokes/Material/Viscosity Temp Exp </Activate>
+               <Activate> /Navier-Stokes/Material/Viscosity Temp Ref </Activate>
+            </Item>
+            <Item> <Name>Smagorinsky </Name>
+               <Activate> /Navier-Stokes/Material/Smagorinsky Constant </Activate>
+            </Item>
+            <Item> <Name>K-Epsilon </Name>
+            </Item>
+            <Item> <Name>RNG K-Epsilon </Name>
+            </Item>
+            <Item> <Name>Spalart-Allmaras </Name>
+            </Item>
+            <Item> <Name>K-Omega </Name>
+            </Item>
+            <Item> <Name>SST K-Omega </Name>
+            </Item>
+            <Item> <Name>Levelset </Name>
+               <Activate> /Navier-Stokes/Material/Viscosity Difference </Activate>
+               <Activate> /Navier-Stokes/Material/Levelset Bandwidth </Activate>
+            </Item>
+            <Item> <Name>User Function </Name>
+            </Item>
          </Parameter>
 
-         <Parameter Widget="Edit" Enabled="False" Visible="False">
-           <Name> Critical Shear Rate </Name>
-         </Parameter>
-         <Parameter Widget="Edit" Enabled="False" Visible="False">
+         <Parameter Widget="Edit" Enabled="False">
            <Name> Viscosity Exponent </Name>
          </Parameter>
-
-         <Parameter Widget="Label" > <Name> Other properties </Name> </Parameter>
-
-         <Parameter Widget="Edit" >
-            <Name>Poisson ratio</Name>
-            <Whatis> For isotropic materials Poisson ratio must be given with this keyword. </Whatis>
+         <Parameter Widget="Edit" Enabled="False">
+           <Name> Critical Shear Rate </Name>
+         </Parameter>
+         <Parameter Widget="Edit" Enabled="False">
+           <Name> Viscosity Difference </Name>
+         </Parameter>
+         <Parameter Widget="Edit" Enabled="False">
+           <Name> Viscosity Transition </Name>
+         </Parameter>
+         <Parameter Widget="Edit" Enabled="False">
+           <Name> Yasuda Coefficient </Name>
+           <DefaultValue> 2 </DefaultValue>
+         </Parameter>
+         <Parameter Widget="Edit" Enabled="False">
+           <Name> Viscosity Temp Ref </Name>
+         </Parameter>
+         <Parameter Widget="Edit" Enabled="False">
+           <Name> Viscosity Temp Exp </Name>
+         </Parameter>
+         <Parameter Widget="Edit" Enabled="False">
+           <Name> Smagorinsky Constant </Name>
+         </Parameter>
+         <Parameter Widget="Edit" Enabled="False">
+           <Name> Levelset bandwidth </Name>
          </Parameter>
 
-         <Parameter Widget="Edit">
-           <Name> Damping coefficient </Name>
-           <SifName> Damping </SifName>
-           <Whatis> Damping proportional to deformation velocity. </Whatis>
+         <Parameter Widget="Label" > <Name> Compressibility models </Name> </Parameter>
+
+         <Parameter Widget="Combo" >
+            <Name>Compressibility Model</Name>
+            <Type> String </Type>
+            <Item> <Name> Incompressible </Name> </Item>
+            <Item> <Name> Thermal </Name> </Item>
+            <Item> <Name> Perfect Gas </Name> </Item>
+            <Item> <Name> User Function </Name> </Item>
+            <Item> <Name> Artificial Compressible </Name> </Item>
+            <Whatis> Compressibility model for the flow computations. </Whatis>
          </Parameter>
+
+         <Parameter Widget="Label"> <Name> Porous media settings </Name> </Parameter>
 
          <Parameter Widget="CheckBox">
-           <Name> Rayleigh Damping </Name>
-           <Whatis> Damping proportional to linear combination of stiffness and mass. </Whatis>
-           <Activate> /Navier-Stokes/Material/Rayleigh alpha </Activate>
-           <Activate> /Navier-Stokes/Material/Rayleigh beta </Activate>
+           <Name> Porous Media </Name>
+           <Activate> /Navier-Stokes/Material/Porous Resistance </Activate>
+           <Whatis> If checked, the porous model will be active in the material. </Whatis>
          </Parameter>
 
          <Parameter Widget="Edit" Enabled="False">
-           <Name> Rayleigh alpha </Name>
+           <Name> Porous Resistance </Name>
+           <Whatis> This keyword may give a constant resistance or also a orthotropic resistance where the resistance of each velocity component is given separately. </Whatis>
          </Parameter>
-
-         <Parameter Widget="Edit" Enabled="False">
-           <Name> Rayleigh beta </Name>
-         </Parameter>
-
-          <Parameter Widget="Edit">
-             <Name> Stress 6-vector </Name>
-             <SifName> Stress(6) </SifName>
-             <Whatis> Stress engineering 6-vector corresponding to a prestressed state. This is added to the load case in buckling and/or geometric stiffness analysis. </Whatis>
-          </Parameter>
-
-          <Parameter Widget="Edit">
-             <Name> Strain 6-vector </Name>
-             <SifName> Strain(6) </SifName>
-             <Whatis> Strain engineering 6-vector corresponding to a prestressed state. This is converted to the corresponding stress and added to the load case in buckling and/or geometric stiffness analysis. </Whatis>
-          </Parameter>
- 
-        <Parameter Widget="Label"> <Name> Material pricipal directions </Name> </Parameter>
-        <Parameter Widget="CheckBox">
-          <Name> Rotate Elasticity Tensor </Name>
-          <Whatis> For anisotropic materials the principal directions of anisotropy do not always correspond to the coordinate axes. Setting this keyord to True enables the user to input Youngs Modulus matrix with respect to the principal directions of anisotropy. Otherwise Youngs Modulus should be given with respect to the coordinate axis directions. </Whatis>
-          <Activate> /Navier-Stokes/Material/Unit Vector 1</Activate>
-          <Activate> /Navier-Stokes/Material/Unit Vector 2</Activate>
-          <Activate> /Navier-Stokes/Material/Unit Vector 3</Activate>
-        </Parameter>
-        <Parameter Widget="Edit" Enabled="False">
-           <Name> Unit Vector 1 </Name>
-           <SifName> Material Coordinates Unit Vector 1(3) </SifName>
-        </Parameter>
-        <Parameter Widget="Edit" Enabled="False">
-           <Name> Unit Vector 2 </Name>
-           <SifName> Material Coordinates Unit Vector 2(3) </SifName>
-        </Parameter>
-        <Parameter Widget="Edit" Enabled="False">
-           <Name> Unit Vector 3 </Name>
-           <SifName> Material Coordinates Unit Vector 3(3) </SifName>
-        </Parameter>
       </Material>
 
      <BoundaryCondition>
@@ -233,39 +284,33 @@
          <Parameter Widget="Label"> <Name> Traction boundary conditions </Name> </Parameter>
 
          <Parameter Widget="Edit">
-            <Name> Normal Force </Name>
-            <Whatis> A force normal to the boundary is given with this keyword. </Whatis>
+            <Name> External Pressure </Name>
+            <Whatis> A pressure boundary condition directed normal to the surface. </Whatis>
          </Parameter>
+
+         <Parameter Widget="Edit"> 
+            <Name> Pressure 1 </Name>
+            <Whatis> A pressure force in the coordinate direction 1. </Whatis>
+         </Parameter>
+         <Parameter Widget="Edit"> 
+            <Name> Pressure 2 </Name>
+            <Whatis> A pressure force in the coordinate direction 2. </Whatis>
+         </Parameter>
+         <Parameter Widget="Edit"> 
+            <Name> Pressure 3 </Name>
+            <Whatis> A pressure force in the coordinate direction 3. </Whatis>
+         </Parameter>
+
          <Parameter Widget="Edit">
-            <Name> Force 1 </Name>
-            <Whatis> A force in coordinate direction 1 is given with this keyword. </Whatis>
+            <Name> Surface Tension Coefficient </Name>
+            <Whatis> Triggers the same physical model as the previous one except no linearity is assumed. The value is assumed to hold the dependence explicitely. </Whatis>
          </Parameter>
+
          <Parameter Widget="Edit">
-            <Name> Force 2 </Name>
-            <Whatis> A force in coordinate direction 2 is given with this keyword. </Whatis>
+            <Name> Surface Tension Expansion Coefficient </Name>
+            <Whatis> Triggers a tangetial stress boundary condition to be used. If the keyword Surface Tension Expansion Coefficient is given, a linear dependence of the surface tension coefficient on the temperature is assumed. Note that this boundary condition is the tangential derivative of the surface tension coefficient. </Whatis>
          </Parameter>
-         <Parameter Widget="Edit">
-            <Name> Force 3 </Name>
-            <Whatis> A force in coordinate direction 3 is given with this keyword. </Whatis>
-         </Parameter>
-          <Parameter Widget="Edit">
-             <Name> Stress 6-vector </Name>
-             <SifName> Stress(6) </SifName>
-             <Whatis> Stress engineering 6-vector as input is multiplied by outward unit normal to gain the traction on the boundary. </Whatis>
-          </Parameter>
-          <Parameter Widget="Edit">
-             <Name> Spring coefficient </Name>
-             <SifName> Spring </SifName>
-          </Parameter>
-          <Parameter Widget="Edit">
-             <Name> Damping coefficient </Name>
-             <SifName> Damping </SifName>
-          </Parameter>
-         <Parameter Widget="Label"> <Name> Miscellaneous </Name> </Parameter>
-         <Parameter Widget="CheckBox">
-            <Name>Model Lumping Boundary</Name>
-            <Whatis> When using the model lumping utility the user must define which boundary is to be loaded in order to determined the lumped model. </Whatis>
-          </Parameter>
+
       </BoundaryCondition>
    </PDE>
 </edf>
