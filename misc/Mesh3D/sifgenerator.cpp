@@ -11,7 +11,6 @@ SifGenerator::~SifGenerator()
 {
 }
 
-
 // Make Header-block:
 //-----------------------------------------------------------------------------
 void SifGenerator::makeHeaderBlock()
@@ -23,18 +22,17 @@ void SifGenerator::makeHeaderBlock()
   if(ui.checkKeywordsWarn->isChecked())
     te->append("  CHECK KEYWORDS Warn");
 
-  const QString &qs1 = ui.meshDBEdit1->text(); 
-  const QString &qs2 = ui.meshDBEdit2->text(); 
-  const QString &qs3 = ui.includePathEdit->text(); 
-  const QString &qs4 = ui.resultsDirectoryEdit->text(); 
+  const QString &qs1 = ui.meshDBEdit1->text().trimmed(); 
+  const QString &qs2 = ui.meshDBEdit2->text().trimmed(); 
+  const QString &qs3 = ui.includePathEdit->text().trimmed(); 
+  const QString &qs4 = ui.resultsDirectoryEdit->text().trimmed(); 
   
   te->append("  Mesh DB \"" +  qs1 + "\" \"" + qs2 + "\"");
   te->append("  Include Path \"" + qs3 + "\"");
   te->append("  Results Directory \"" + qs4 + "\"");
+
   te->append("End\n");
 }
-
-
 
 // Make Simulation-block:
 //-----------------------------------------------------------------------------
@@ -45,34 +43,32 @@ void SifGenerator::makeSimulationBlock()
   te->append("Simulation");
 
   addSifLine("  Max Output Level = ", 
-	      ui.maxOutputLevelCombo->currentText());
+	     ui.maxOutputLevelCombo->currentText().trimmed());
   addSifLine("  Coordinate System = ",
-	      ui.coordinateSystemCombo->currentText());
+	     ui.coordinateSystemCombo->currentText().trimmed());
   addSifLine("  Coordinate Mapping(3) = ",
-	      ui.coordinateMappingEdit->text());
+	     ui.coordinateMappingEdit->text().trimmed());
   addSifLine("  Simulation Type = ", 
-	      ui.simulationTypeCombo->currentText());
+	     ui.simulationTypeCombo->currentText().trimmed());
   addSifLine("  Steady State Max Iterations = ",
-	      ui.steadyStateMaxIterEdit->text());
+	     ui.steadyStateMaxIterEdit->text().trimmed());
   addSifLine("  Output Intervals = ",
-	      ui.outputIntervalsEdit->text());
+	     ui.outputIntervalsEdit->text().trimmed());
   addSifLine("  Timestepping Method = ",
-	      ui.timesteppingMethodCombo->currentText());
+	     ui.timesteppingMethodCombo->currentText().trimmed());
   addSifLine("  BDF Order = ",
-	      ui.bdfOrderCombo->currentText());
+	     ui.bdfOrderCombo->currentText().trimmed());
   addSifLine("  Timestepping intervals = ",
-	      ui.timeStepIntervalsEdit->text());
+	     ui.timeStepIntervalsEdit->text().trimmed());
   addSifLine("  Timestep Sizes = ",
-	      ui.timestepSizesEdit->text());
+	     ui.timestepSizesEdit->text().trimmed());
   addSifLine("  Solver Input File = ", 
-	      ui.solverInputFileEdit->text());
+	     ui.solverInputFileEdit->text().trimmed());
   addSifLine("  Post File = ", 
-	      ui.postFileEdit->text());
+	     ui.postFileEdit->text().trimmed());
 
   te->append("End\n");
 }
-
-
 
 // Make Constants-block:
 //-----------------------------------------------------------------------------
@@ -81,14 +77,14 @@ void SifGenerator::makeConstantsBlock()
   Ui::setupDialog ui = generalSetup->ui;
 
   te->append("Constants");
-
+  
   addSifLine("  Gravity(4) = ",
-	      ui.gravityEdit->text());
+	     ui.gravityEdit->text().trimmed());
   addSifLine("  Stefan Boltzmann = ",
-	      ui.stefanBoltzmannEdit->text());
+	     ui.stefanBoltzmannEdit->text().trimmed());
   addSifLine("  Permittivity of Vacuum = ",
-	      ui.vacuumPermittivityEdit->text());
-
+	     ui.vacuumPermittivityEdit->text().trimmed());
+  
   te->append("End\n");
 }
 
@@ -97,94 +93,13 @@ void SifGenerator::makeConstantsBlock()
 //-----------------------------------------------------------------------------
 void SifGenerator::makeBodyBlocks()
 {
-  // find out mesh domain ids:
-  // -------------------------
-  // char str[1024];
-  int maxindex=-1;
-  for( int i=0; i < mesh->elements; i++)
-  {
-    element_t *element=&mesh->element[i];
-    if ( (element->nature == PDE_BULK) &&( element->index > maxindex) )
-      maxindex = element->index;
-  }
+  int i;
 
-  for( int i = 0; i < mesh->surfaces; i++)
-  {
-    element_t *element=&mesh->surface[i];
-    if ( (element->nature == PDE_BULK) && (element->index > maxindex) )
-      maxindex = element->index;
-  }
-
-  for( int i = 0; i < mesh->edges; i++)
-  {
-    element_t *element=&mesh->edge[i];
-    if ( (element->nature == PDE_BULK) && (element->index > maxindex) )
-      maxindex = element->index;
-  }
-  
-  for( int i = 0; i < mesh->points; i++)
-  {
-    element_t *element=&mesh->point[i];
-    if ( (element->nature == PDE_BULK) && (element->index > maxindex) )
-      maxindex = element->index;
-  }
-  maxindex++;
-  
-  if(maxindex == 0)
-    return;
-
-  bool *body_tmp = new bool[maxindex];
-  int  *body_id  = new  int[maxindex];
-
-  for(int i = 0; i < maxindex; i++)
-    body_tmp[i] = false;
-
-  maxindex = 0;
-
-  for(int i = 0; i < mesh->elements; i++) {
-    element_t *element = &mesh->element[i];
-    
-    if(element->nature == PDE_BULK)
-      if ( !body_tmp[element->index] ) {
-        body_tmp[element->index] = true;
-        body_id[maxindex++] = element->index;
-      }
-  }
-
-  for(int i = 0; i < mesh->surfaces; i++) {
-    element_t *element = &mesh->surface[i];
-    if(element->nature == PDE_BULK)
-      if ( !body_tmp[element->index] ) {
-        body_tmp[element->index] = true;
-        body_id[maxindex++] = element->index;
-      }
-  }
-  
-  for(int i = 0; i < mesh->edges; i++) {
-    element_t *element = &mesh->edge[i];
-    if(element->nature == PDE_BULK)
-      if ( !body_tmp[element->index] ) {
-        body_tmp[element->index] = true;
-        body_id[maxindex++] = element->index;
-      }
-  }
-
-  for(int i = 0; i < mesh->points; i++) {
-    element_t *element = &mesh->point[i];
-    if(element->nature == PDE_BULK)
-      if ( !body_tmp[element->index] ) {
-        body_tmp[element->index] = true;
-        body_id[maxindex++] = element->index;
-      }
-  }
-
-  delete [] body_tmp;
-  delete [] body_id;
-  
   int sifIndex = 0;
+
   for(int index = 0; index < bodyMap.count(); index++) {
     BodyPropertyEditor *bodyEdit = &bodyPropertyEditor[index];
-
+    
     if(bodyEdit->touched) {
       te->append("Body " + QString::number(++sifIndex));
 
@@ -194,7 +109,7 @@ void SifGenerator::makeBodyBlocks()
 
       te->append("  Name = " + bodyEdit->ui.nameEdit->text().trimmed());
 
-      int i = bodyEdit->ui.equationCombo->currentIndex();
+      i = bodyEdit->ui.equationCombo->currentIndex();
       if(i > -1)
 	te->append("  Equation = " + QString::number(i+1));
       
@@ -216,12 +131,11 @@ void SifGenerator::makeBodyBlocks()
   }
 }
 
-
 // Make Equation-blocks:
 //-----------------------------------------------------------------------------
 void SifGenerator::makeEquationBlocks()
 {
-
+  
 #if 0
   // TODO: At the moment only "Equation 1" is meaningful (index=0)
   PDEPropertyEditor *p = &pdePropertyEditor[0];
@@ -235,28 +149,28 @@ void SifGenerator::makeEquationBlocks()
   int nofSolvers = 0;
 
   Ui::equationEditor ui = p->ui;
-
+  
   if(ui.heatEquationActive->isChecked())
     nofSolvers++;
-
+  
   if(ui.linearElasticityActive->isChecked())
     nofSolvers++;
-
+  
   if(ui.navierStokesActive->isChecked())
     nofSolvers++;
-
+  
   if(ui.advectionDiffusionActive->isChecked())
     nofSolvers++;
-
+  
   if(ui.helmholtzEquationActive->isChecked())
     nofSolvers++;
-
+  
   if(nofSolvers == 0) {
     cout << "There are no active solvers - aborting" << endl;
     cout.flush();
     return;
   }
-
+  
   te->append("Equation 1");
   QString qs = "  Active Solvers(" + QString::number(nofSolvers) + ") =";
   for(int i = 0; i < nofSolvers; i++) 
@@ -267,26 +181,23 @@ void SifGenerator::makeEquationBlocks()
     te->append( "  Convection = Constant" );
   if(ui.heatEquationConvectionComputed->isChecked())
     te->append( "  Convection = Computed" );
-
+  
   te->append("End\n");  
 #endif
 }
-
 
 // Make Solver-blocks:
 //-----------------------------------------------------------------------------
 void SifGenerator::makeSolverBlocks()
 {
-  // TODO: At the moment only "Equation 1" is meaningful (index=0)
-
 #if 0
   PDEPropertyEditor *p = &pdePropertyEditor[0];
-
+  
   int currentSolver = 0;
-
+  
   // user interface of the equation property editor:
   Ui::equationEditor ui = p->ui;
-
+  
   if(ui.heatEquationActive->isChecked()) {
     currentSolver++;
     // user interface of the solver parameter editor:
@@ -303,7 +214,7 @@ void SifGenerator::makeSolverBlocks()
     // todo: add adaptivity & multigrid
     te->append("End\n");
   }
-
+  
   if(ui.linearElasticityActive->isChecked()) {
     currentSolver++;
     // user interface of the solver parameter editor:
@@ -320,7 +231,7 @@ void SifGenerator::makeSolverBlocks()
     // todo: add adaptivity & multigrid
     te->append("End\n");
   }
-
+  
   if(ui.navierStokesActive->isChecked()) {
     currentSolver++;
     // user interface of the solver parameter editor:
@@ -339,12 +250,6 @@ void SifGenerator::makeSolverBlocks()
   }
 #endif
 }
-
-
-
-
-
-
 
 
 // Make Material-blocks:

@@ -1167,7 +1167,7 @@ int Meshutils::divideEdgeBySharpPoints(mesh_t *mesh)
   // often though (?)
   double xmin[index], ymin[index], zmin[index];
   double xmax[index], ymax[index], zmax[index];
-  double xc,yc,zc,dist[index];
+  double xc = 0, yc = 0, zc = 0, dist[index];
   int cc[index], order[index], sorder[index];
   double g_xmin,g_xmax,g_ymin,g_ymax,g_zmin,g_zmax;
 
@@ -1394,7 +1394,7 @@ int Meshutils::divideSurfaceBySharpEdges(mesh_t *mesh)
   // often though (?)
   double xmin[index], ymin[index], zmin[index];
   double xmax[index], ymax[index], zmax[index];
-  double xc,yc,zc,dist[index];
+  double xc = 0, yc = 0, zc = 0, dist[index];
   int cc[index], order[index], sorder[index];
   double g_xmin,g_xmax,g_ymin,g_ymax,g_zmin,g_zmax;
 
@@ -2003,7 +2003,7 @@ void Meshutils::decreaseElementOrder(mesh_t *mesh)
   for(int i=0;i<mesh->nodes;i++)
     activenodes[i] = -1;
 
-  int noedges = 0;
+  // int noedges = 0;
   for(int i=0; i < mesh->elements + mesh->surfaces; i++) {
 
     element_t *e;
