@@ -1611,8 +1611,22 @@ void MainWindow::editNumericalMethods()
   current = pe->tabWidget->currentIndex();
 
   SolverParameterEditor *spe = &solverParameterEditor[current];
+
   spe->setWindowTitle("Solver control for " + pe->tabWidget->tabText(current)
    		      + " (" + pe->nameEdit->text() + ")");
+
+  DynamicEditor *de = new DynamicEditor;
+  de->setupTabs(*elmerDefs, "Solver", current);
+
+  for( int i=0; i<pe->tabWidget->count(); i++ )
+  {
+   if ( de->tabWidget->tabText(i) == pe->tabWidget->tabText(current) )
+   {
+      spe->ui.solverControlTabs->removeTab(0);
+      spe->ui.solverControlTabs->insertTab(0,de->tabWidget->widget(i),"General");
+      break;
+   }
+  }
 
   spe->show();
 }
