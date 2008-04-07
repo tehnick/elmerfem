@@ -101,7 +101,7 @@ private slots:
   void initialConditionSelectedSlot(QAction*);  // emitted by ic menu
   void boundaryConditionSelectedSlot(QAction*);  // emitted by bc menu
 
-  void editNumericalMethods();
+  void editNumericalMethods(int, int);   // signal emitted by dynamic editor
 
 private:
   // widgets and helpers:

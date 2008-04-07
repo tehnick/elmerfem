@@ -1,5 +1,5 @@
 #define MAX_EQUATIONS           10 // equations
-#define MAX_SOLVERS             10 // solver/equiation
+#define MAX_SOLVERS             10 // solvers/equation
 #define MAX_MATERIALS           10 // materials
 #define MAX_BODYFORCES          10 // body forces
 #define MAX_INITIALCONDITIONS   10 // initial conditions

@@ -169,6 +169,9 @@ void SifGenerator::makeEquationBlocks()
 	      nofSolvers++; // for this eq.
 	      sifSolver++;  // all solvers
 	      solverString += " " + QString::number(sifSolver);
+
+	      // make solver block:
+	      // todo
 	    }
 	  }
 
@@ -194,11 +197,16 @@ void SifGenerator::makeEquationBlocks()
   }
 }
 
+void SifGenerator::makeSolverBlocks()
+{
+}
+
+
+#if 0
 // Make Solver-blocks:
 //-----------------------------------------------------------------------------
 void SifGenerator::makeSolverBlocks()
 {
-#if 0
   PDEPropertyEditor *p = &pdePropertyEditor[0];
   
   int currentSolver = 0;
@@ -256,8 +264,8 @@ void SifGenerator::makeSolverBlocks()
     // todo: add adaptivity & multigrid
     te->append("End\n");
   }
-#endif
 }
+#endif
 
 
 // Make Material-blocks:

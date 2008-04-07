@@ -1584,11 +1584,24 @@ void MainWindow::addEquationSlot()
   pe->spareButton->setText("Edit Numerical Methods");
   pe->spareButton->show();
   pe->spareButton->setIcon(QIcon(":/icons/tools-wizard.png"));
-  connect( pe->spareButton, SIGNAL(clicked()), this, SLOT(editNumericalMethods()) );
+
+  // connect( pe->spareButton, SIGNAL(clicked()), this, SLOT(editNumericalMethods()) );
+
+  connect(pe, SIGNAL(dynamicEditorSpareButtonClicked(int, int)),
+	  this, SLOT(editNumericalMethods(int, int)));
 }
 
-void MainWindow::editNumericalMethods()
+
+// signal (int, int) emitted by dynamic editor when "spare button" clicked:
+//-----------------------------------------------------------------------------
+void MainWindow::editNumericalMethods(int tab, int id)
 {
+  cout << "**** tab: " << tab << " **** id: " << id << endl;
+  cout.flush();
+
+  // TODO:
+
+#if 0
   DynamicEditor *pe = NULL;
   bool found = false; 
   int current = -1;
@@ -1601,7 +1614,6 @@ void MainWindow::editNumericalMethods()
       break;
     }
   }
-
 
   if(!found) {
     logMessage("SolverParameterEditor - active equation not found.");
@@ -1632,6 +1644,7 @@ void MainWindow::editNumericalMethods()
   }
 
   spe->show();
+#endif
 }
 
 // signal (int,int) emitted by equation editor when ready:
@@ -3405,7 +3418,7 @@ void MainWindow::generateSifSlot()
   sifGenerator->makeConstantsBlock();
   sifGenerator->makeBodyBlocks();
   sifGenerator->makeEquationBlocks();
-  sifGenerator->makeSolverBlocks();
+  // sifGenerator->makeSolverBlocks();
   sifGenerator->makeMaterialBlocks();
   sifGenerator->makeBodyForceBlocks();
   sifGenerator->makeInitialConditionBlocks();

@@ -69,10 +69,12 @@ public:
 
 signals:
   void dynamicEditorReady(int, int);
+  void dynamicEditorSpareButtonClicked(int, int);
 
 private slots:
   void applyButtonClicked();
   void discardButtonClicked();
+  void spareButtonClicked();
   void lSlot(int);
   void comboSlot(QString);
   void textChangedSlot(QString);

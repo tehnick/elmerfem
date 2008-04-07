@@ -225,6 +225,7 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
   spareButton = new QPushButton(tr("SpareButton"));;
   spareButton->setVisible(false);
   spareButtonLayout->addWidget(spareButton);
+  connect(spareButton, SIGNAL(clicked()), this, SLOT(spareButtonClicked()));  
 
   // Main layout:
   //-------------
@@ -436,6 +437,12 @@ void DynamicEditor::applyButtonClicked()
   emit(dynamicEditorReady(MAT_OK, ID));
 
   close();
+}
+
+//----------------------------------------------------------------------------
+void DynamicEditor::spareButtonClicked()
+{
+  emit(dynamicEditorSpareButtonClicked(tabWidget->currentIndex(), ID));
 }
 
 //----------------------------------------------------------------------------
