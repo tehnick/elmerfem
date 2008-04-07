@@ -135,7 +135,62 @@ void SifGenerator::makeBodyBlocks()
 //-----------------------------------------------------------------------------
 void SifGenerator::makeEquationBlocks()
 {
+  int sifIndex = 0;
+  int sifSolver = 0;
+
+  for(int index = 0; index < MAX_EQUATIONS; index++) {
+    DynamicEditor *eqEditor = &equationEditor[index];
+    
+    if(eqEditor->menuAction != NULL) {      
+      te->append("Equation " + QString::number(++sifIndex));
+      
+      QString name = eqEditor->nameEdit->text().trimmed();
+      addSifLine("  Name = ", name);
+
+      cout << "Name = " << string(name.toAscii()) << endl;
+      
+      for(int i = 0; i < eqEditor->hash.count(); i++) {
+	hash_entry_t entry = eqEditor->hash.values().at(i); 
+	
+	QWidget *widget = entry.widget;
+
+        if ( widget->isEnabled() ) {
+          QDomElement elem = entry.elem;
+	  
+	  // active?
+	  bool active = false;
+	  if(elem.firstChildElement("Active").isNull()) {
+	    if(elem.attribute("Widget", "") == "CheckBox") {
+	      QCheckBox *checkBox = (QCheckBox*)widget;
+	      if(checkBox->isChecked())
+		active = true;
+	    }
+	  }
+	  
+	  if(active) {
+	    // TODO ?????
+	    sifSolver++;
+	    QString key = eqEditor->hash.keys().at(i);
+	    cout << "Active Solver(?) = " << sifSolver << endl;
+	    cout << "Key: " << string(key.toAscii()) << endl;
+	    cout.flush();
+	  }
+	  
+          if(elem.attribute("Widget", "") == "CheckBox") 
+	    handleCheckBox(elem, widget);
+	  
+	  if(elem.attribute("Widget", "") == "Edit")
+	    handleLineEdit(elem, widget);
+	  
+	  if(elem.attribute("Widget", "") == "Combo")
+	    handleComboBox(elem, widget);
+        }
+      }
+      te->append("End\n");
+    }
+  }
   
+
 #if 0
   // TODO: At the moment only "Equation 1" is meaningful (index=0)
   PDEPropertyEditor *p = &pdePropertyEditor[0];
@@ -313,18 +368,17 @@ void SifGenerator::makeBodyForceBlocks()
 	
 	QWidget *widget = entry.widget;
 
-	QDomElement elem;
         if ( widget->isEnabled() ) {
-          elem = entry.elem;
+          QDomElement elem = entry.elem;
 	  
           if(elem.attribute("Widget", "") == "CheckBox") 
-	   handleCheckBox(elem, widget);
-	
-	 if(elem.attribute("Widget", "") == "Edit")
-	   handleLineEdit(elem, widget);
-	
-	 if(elem.attribute("Widget", "") == "Combo")
-	   handleComboBox(elem, widget);
+	    handleCheckBox(elem, widget);
+	  
+	  if(elem.attribute("Widget", "") == "Edit")
+	    handleLineEdit(elem, widget);
+	  
+	  if(elem.attribute("Widget", "") == "Combo")
+	    handleComboBox(elem, widget);
         }
       }
       te->append("End\n");
@@ -352,19 +406,18 @@ void SifGenerator::makeInitialConditionBlocks()
 	hash_entry_t entry = icEdit->hash.values().at(i); 
 	
 	QWidget *widget = entry.widget;
-
-	QDomElement elem;
+	
         if ( widget->isEnabled() ) {
-          elem = entry.elem;
+          QDomElement elem = entry.elem;
 	  
           if(elem.attribute("Widget", "") == "CheckBox") 
-	   handleCheckBox(elem, widget);
-	
-	 if(elem.attribute("Widget", "") == "Edit")
-	   handleLineEdit(elem, widget);
-	
-	 if(elem.attribute("Widget", "") == "Combo")
-	   handleComboBox(elem, widget);
+	    handleCheckBox(elem, widget);
+	  
+	  if(elem.attribute("Widget", "") == "Edit")
+	    handleLineEdit(elem, widget);
+	  
+	  if(elem.attribute("Widget", "") == "Combo")
+	    handleComboBox(elem, widget);
         }
       }
       te->append("End\n");
