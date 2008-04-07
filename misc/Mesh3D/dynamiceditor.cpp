@@ -80,10 +80,12 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
 
     for( int iter=0; iter<2; iter++ )
     {
-      if ( iter==0 )
+      if ( iter==0 ) {
+        if ( name.text().trimmed() == "General" ) continue;
         section = all_stuff.firstChildElement(Section);
-      else 
+      } else  {
         section = element.firstChildElement(Section);
+      }
 
       param = section.firstChildElement("Parameter");
       
