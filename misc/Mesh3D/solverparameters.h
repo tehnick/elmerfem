@@ -2,6 +2,7 @@
 #define SOLVERPARAMETERS_H
 
 #include <QWidget>
+#include "dynamiceditor.h"
 #include "ui_solverparameters.h"
 
 class SolverParameterEditor : public QDialog
@@ -12,6 +13,7 @@ public:
   SolverParameterEditor(QWidget *parent = 0);
   ~SolverParameterEditor();
 
+  DynamicEditor *generalOptions;
   Ui::solverParameterEditor ui;
 
 signals:

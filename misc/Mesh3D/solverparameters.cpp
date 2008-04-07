@@ -48,6 +48,7 @@ SolverParameterEditor::SolverParameterEditor(QWidget *parent)
   : QDialog(parent)
 {
   ui.setupUi(this);
+  generalOptions = NULL;
 
   connect(ui.applyButton, SIGNAL(clicked()),
 	  this, SLOT(close()));

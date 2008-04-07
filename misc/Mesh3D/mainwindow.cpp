@@ -1615,17 +1615,20 @@ void MainWindow::editNumericalMethods()
   spe->setWindowTitle("Solver control for " + pe->tabWidget->tabText(current)
    		      + " (" + pe->nameEdit->text() + ")");
 
-  DynamicEditor *de = new DynamicEditor;
-  de->setupTabs(*elmerDefs, "Solver", current);
-
-  for( int i=0; i<pe->tabWidget->count(); i++ )
+  if ( spe->generalOptions == NULL )
   {
-   if ( de->tabWidget->tabText(i) == pe->tabWidget->tabText(current) )
-   {
-      spe->ui.solverControlTabs->removeTab(0);
-      spe->ui.solverControlTabs->insertTab(0,de->tabWidget->widget(i),"General");
-      break;
-   }
+    spe->generalOptions = new DynamicEditor;
+    spe->generalOptions->setupTabs(*elmerDefs, "Solver", current);
+
+    for( int i=0; i<pe->tabWidget->count(); i++ )
+    {
+      if ( spe->generalOptions->tabWidget->tabText(i) == pe->tabWidget->tabText(current) )
+      {
+        spe->ui.solverControlTabs->removeTab(0);
+        spe->ui.solverControlTabs->insertTab(0,spe->generalOptions->tabWidget->widget(i),"General");
+        break;
+      }
+    }
   }
 
   spe->show();
