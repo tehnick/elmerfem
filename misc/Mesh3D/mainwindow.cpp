@@ -1583,6 +1583,7 @@ void MainWindow::addEquationSlot()
 
   pe->spareButton->setText("Edit Numerical Methods");
   pe->spareButton->show();
+  pe->spareButton->setIcon(QIcon(":/icons/tools-wizard.png"));
   connect( pe->spareButton, SIGNAL(clicked()), this, SLOT(editNumericalMethods()) );
 }
 
