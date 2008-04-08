@@ -237,21 +237,6 @@ void SifGenerator::makeSolverBlocks(QString solverName)
   SolverParameterEditor *spe, *tmp;
   Ui::solverParameterEditor ui;
 
-  if(solverName == "Heat Equation") {
-    te->append("  Variable = Temperature");
-    te->append("  Variable DOFs = 1");
-  }
-
-  if(solverName == "Linear elasticity") {
-    te->append("  Variable = Displacement");
-    te->append("  Variable DOFs = " + QString::number(cdim));
-  }
-
-  if(solverName == "Navier-Stokes") {
-    te->append("  Variable = Flow Solution");
-    te->append("  Variable DOFs = " + QString::number(cdim+1));
-  }
-
   bool found = false;
 
   for(int i = 0; i < MAX_SOLVERS; i++) {
@@ -269,7 +254,43 @@ void SifGenerator::makeSolverBlocks(QString solverName)
     tmp = spe;
   }
 
-  ui = tmp->ui;    
+  ui = tmp->ui; 
+
+  bool procedureDefined = true;
+  if((ui.procedureFileEdit->text() == "") ||
+     (ui.procedureFunctionEdit->text() == ""))
+    procedureDefined = false;
+
+  if(solverName == "Heat Equation") {
+    te->append("  Variable = Temperature");
+    te->append("  Variable DOFs = 1");
+    if(procedureDefined) {
+      parseProcedure(ui);
+    } else {
+      te->append("  Procedure = HeatSolve HeatSolver");
+    }
+  }
+
+  if(solverName == "Linear elasticity") {
+    te->append("  Variable = Displacement");
+    te->append("  Variable DOFs = " + QString::number(cdim));
+    if(procedureDefined) {
+      parseProcedure(ui);
+    } else {
+      te->append("  Procedure = StressSolve StressSolver");
+    }
+  }
+
+  if(solverName == "Navier-Stokes") {
+    te->append("  Variable = Flow Solution");
+    te->append("  Variable DOFs = " + QString::number(cdim+1));
+    if(procedureDefined) {
+      parseProcedure(ui);
+    } else {
+      te->append("  Procedure = FlowSolve FlowSolver");
+    }
+  }
+
   parseGeneralTab(ui);
   parseSteadyStateTab(ui);
   parseNonlinearSystemTab(ui);
