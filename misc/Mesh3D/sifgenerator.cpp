@@ -131,13 +131,13 @@ void SifGenerator::makeBodyBlocks()
   }
 }
 
-// Make Equation-blocks:
+
+
+// Make Equation/Solver -blocks:
 //-----------------------------------------------------------------------------
 void SifGenerator::makeEquationBlocks()
 {
   // enumerate solvers && write solver blocks:
-  QTextEdit *solverEdit = new QTextEdit;
-  solverEdit->clear();
   int solverNumber = 0;
   QHash<QString, int> numberForSolver;
   numberForSolver.clear();
@@ -159,12 +159,11 @@ void SifGenerator::makeEquationBlocks()
 	    if(checkBox->isChecked()) {
 	      if(!numberForSolver.contains(solverName)) {
 		numberForSolver.insert(solverName, ++solverNumber);
-		// write solver block:
-		solverEdit->append("Solver " + QString::number(solverNumber));
-		solverEdit->append("  Name = " + solverName);
-		// TODO: go through numerical edit defs.
-		solverEdit->append("End");
-		solverEdit->append("");
+		te->append("Solver " + QString::number(solverNumber));
+		te->append("  Name = " + solverName);
+		makeSolverBlocks(solverName);
+		te->append("End");
+		te->append("");
 	      }
 	    }
 	  }
@@ -230,81 +229,52 @@ void SifGenerator::makeEquationBlocks()
     }
 
   }
-
-  // finally append solver blocks:
-  te->append(solverEdit->toPlainText());
-  delete solverEdit;
 }
 
-void SifGenerator::makeSolverBlocks()
+//-------------------------------------------------------------------------
+void SifGenerator::makeSolverBlocks(QString solverName)
 {
-}
+  SolverParameterEditor *spe, *tmp;
+  Ui::solverParameterEditor ui;
 
-
-#if 0
-// Make Solver-blocks:
-//-----------------------------------------------------------------------------
-void SifGenerator::makeSolverBlocks()
-{
-  PDEPropertyEditor *p = &pdePropertyEditor[0];
-  
-  int currentSolver = 0;
-  
-  // user interface of the equation property editor:
-  Ui::equationEditor ui = p->ui;
-  
-  if(ui.heatEquationActive->isChecked()) {
-    currentSolver++;
-    // user interface of the solver parameter editor:
-    Ui::solverParameterEditor ui = p->solverParameterEditor[HEAT_EQUATION].ui;
-    te->append("Solver " + QString::number(currentSolver));
-    te->append("  Equation = \"Heat Equation\"");
+  if(solverName == "Heat Equation") {
     te->append("  Variable = Temperature");
-    te->append("  Variable Dofs = 1");
-    parseProcedure(ui);
-    parseGeneralTab(ui);
-    parseSteadyStateTab(ui);
-    parseNonlinearSystemTab(ui);
-    parseLinearSystemTab(ui);
-    // todo: add adaptivity & multigrid
-    te->append("End\n");
+    te->append("  Variable DOFs = 1");
   }
-  
-  if(ui.linearElasticityActive->isChecked()) {
-    currentSolver++;
-    // user interface of the solver parameter editor:
-    Ui::solverParameterEditor ui = p->solverParameterEditor[LINEAR_ELASTICITY].ui;
-    te->append("Solver " + QString::number(currentSolver));
-    te->append("  Equation = \"Stress analysis\"");
+
+  if(solverName == "Linear elasticity") {
     te->append("  Variable = Displacement");
-    te->append("  Variable dofs = " + QString::number(cdim));
-    parseProcedure(ui);
-    parseGeneralTab(ui);
-    parseSteadyStateTab(ui);
-    parseNonlinearSystemTab(ui);
-    parseLinearSystemTab(ui);
-    // todo: add adaptivity & multigrid
-    te->append("End\n");
+    te->append("  Variable DOFs = " + QString::number(cdim));
   }
-  
-  if(ui.navierStokesActive->isChecked()) {
-    currentSolver++;
-    // user interface of the solver parameter editor:
-    Ui::solverParameterEditor ui = p->solverParameterEditor[NAVIER_STOKES].ui;
-    te->append("Solver " + QString::number(currentSolver));
-    te->append("  Equation = \"Navier-Stokes\"");
-    te->append("  Variable = Flow Solution");
-    te->append("  Variable dofs = " + QString::number(cdim+1));
-    parseProcedure(ui);
-    parseGeneralTab(ui);
-    parseSteadyStateTab(ui);
-    parseNonlinearSystemTab(ui);
-    parseLinearSystemTab(ui);
-    // todo: add adaptivity & multigrid
-    te->append("End\n");
+
+  bool found = false;
+
+  for(int i = 0; i < MAX_SOLVERS; i++) {
+    spe = &solverParameterEditor[i];
+    QString currentName = spe->solverName.trimmed();
+    if(currentName == solverName) {
+      found = true;
+      break;
+    }
   }
+
+  if(!found) {
+    tmp = new SolverParameterEditor;
+  } else {
+    tmp = spe;
+  }
+
+  ui = tmp->ui;    
+  parseGeneralTab(ui);
+  parseSteadyStateTab(ui);
+  parseNonlinearSystemTab(ui);
+  parseLinearSystemTab(ui);
+  // todo: add adaptivity & multigrid
+
+  if(!found)
+    delete tmp;
 }
-#endif
+
 
 
 // Make Material-blocks:

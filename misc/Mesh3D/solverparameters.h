@@ -16,6 +16,8 @@ public:
   DynamicEditor *generalOptions;
   Ui::solverParameterEditor ui;
 
+  QString solverName;
+
 signals:
 
 private slots:

@@ -33,6 +33,8 @@ class SifGenerator  {
   DynamicEditor *bodyForceEditor;
   DynamicEditor *initialConditionEditor;
   DynamicEditor *boundaryConditionEditor;
+  
+  SolverParameterEditor *solverParameterEditor;
 
   BoundaryPropertyEditor *boundaryPropertyEditor;
   BodyPropertyEditor *bodyPropertyEditor;
@@ -45,7 +47,7 @@ class SifGenerator  {
   void makeConstantsBlock();
   void makeBodyBlocks();
   void makeEquationBlocks();
-  void makeSolverBlocks();
+  void makeSolverBlocks(QString);
   void makeMaterialBlocks();
   void makeBodyForceBlocks();
   void makeInitialConditionBlocks();

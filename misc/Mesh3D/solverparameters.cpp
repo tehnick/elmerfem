@@ -52,6 +52,8 @@ SolverParameterEditor::SolverParameterEditor(QWidget *parent)
 
   connect(ui.applyButton, SIGNAL(clicked()),
 	  this, SLOT(close()));
+
+  solverName = "";
 }
 
 SolverParameterEditor::~SolverParameterEditor()

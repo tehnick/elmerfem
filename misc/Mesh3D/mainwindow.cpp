@@ -1615,6 +1615,8 @@ void MainWindow::editNumericalMethods(int current, int id)
 
   spe->setWindowTitle("Solver control for " + title );
 
+  spe->solverName = title;
+
   if ( spe->generalOptions == NULL )
   {
     spe->generalOptions = new DynamicEditor;
@@ -3415,6 +3417,8 @@ void MainWindow::generateSifSlot()
   sifGenerator->bodyForceEditor = bodyForceEditor;
   sifGenerator->initialConditionEditor = initialConditionEditor;
   sifGenerator->boundaryConditionEditor = boundaryConditionEditor;
+
+  sifGenerator->solverParameterEditor = solverParameterEditor;
 
   sifGenerator->boundaryPropertyEditor = boundaryPropertyEditor;
   sifGenerator->bodyPropertyEditor = bodyPropertyEditor;
