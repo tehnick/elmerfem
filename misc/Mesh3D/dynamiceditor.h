@@ -56,6 +56,9 @@ public:
   QLineEdit *nameEdit;
   int tabs;
 
+  QGroupBox *spareBox;
+  QScrollArea *spareScroll;
+
   QPushButton *applyButton;
   QPushButton *spareButton;
   QPushButton *discardButton;

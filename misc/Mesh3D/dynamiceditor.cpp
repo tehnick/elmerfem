@@ -227,10 +227,14 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
   spareButtonLayout->addWidget(spareButton);
   connect(spareButton, SIGNAL(clicked()), this, SLOT(spareButtonClicked()));  
 
+  spareScroll = new QScrollArea;
+  spareScroll->hide();
+
   // Main layout:
   //-------------
   QVBoxLayout *mainLayout = new QVBoxLayout;
   mainLayout->addWidget(tabWidget);
+  mainLayout->addWidget(spareScroll);
   mainLayout->addLayout(spareButtonLayout);
   mainLayout->addLayout(buttonLayout);
   setLayout(mainLayout);

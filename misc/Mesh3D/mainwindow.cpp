@@ -1729,10 +1729,34 @@ void MainWindow::addMaterialSlot()
   pe->applyButton->setIcon(QIcon(":/icons/list-add.png"));
   pe->discardButton->setText("Cancel");
   pe->discardButton->setIcon(QIcon(":/icons/dialog-close.png"));
-  pe->show();
 
   connect(pe, SIGNAL(dynamicEditorReady(int,int)),
 	  this, SLOT(matEditorFinishedSlot(int,int)));
+
+  QLabel *l = new QLabel(tr("Apply this material to bodies:"));
+  QCheckBox *a = new QCheckBox(tr("Body 1"));
+  QCheckBox *b = new QCheckBox(tr("Body 2"));
+  QCheckBox *c = new QCheckBox(tr("Body 3"));
+  QCheckBox *d = new QCheckBox(tr("Body 4"));
+  QCheckBox *e = new QCheckBox(tr("Body 5"));
+  QCheckBox *f = new QCheckBox(tr("Body 6"));
+
+  QVBoxLayout *slayout = new QVBoxLayout;
+  slayout->addWidget(l);
+  slayout->addWidget(a);
+  slayout->addWidget(b);
+  slayout->addWidget(c);
+  slayout->addWidget(d);
+  slayout->addWidget(e);
+  slayout->addWidget(f);
+
+  QGroupBox *box = new QGroupBox;
+  box->setLayout(slayout);
+
+    pe->spareScroll->setWidget(box);
+    pe->spareScroll->show();
+
+  pe->show();
 }
 
 // signal (int,int) emitted by material editor when ready:
