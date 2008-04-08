@@ -11,6 +11,9 @@ class BodyPropertyEditor : public QDialog
 
 signals:
   void BodyMaterialComboChanged(BodyPropertyEditor *, QString);
+  void BodyInitialComboChanged(BodyPropertyEditor *, QString);
+  void BodyForceComboChanged(BodyPropertyEditor *, QString);
+  void BodyEquationComboChanged(BodyPropertyEditor *, QString);
 
 public:
   BodyPropertyEditor(QWidget *parent = 0);
@@ -18,11 +21,17 @@ public:
 
   Ui::bodyPropertyDialog ui;
   DynamicEditor *material;
+  DynamicEditor *initial;
+  DynamicEditor *force;
+  DynamicEditor *equation;
 
   bool touched;
 
 public slots:
   void materialComboChanged(QString);
+  void initialComboChanged(QString);
+  void forceComboChanged(QString);
+  void equationComboChanged(QString);
 
 private slots:
   void applySlot();

@@ -53,6 +53,11 @@ using namespace std;
 #define OP_UNIFY_EDGE     3
 #define OP_DIVIDE_EDGE    4
 
+#define BODY_MATERIAL 1
+#define BODY_INITIAL  2
+#define BODY_FORCE    3
+#define BODY_EQUATION 4
+
 class operation_t {
 public:
   operation_t *next;
@@ -1589,6 +1594,8 @@ void MainWindow::addEquationSlot()
 
   connect(pe, SIGNAL(dynamicEditorSpareButtonClicked(int, int)),
 	  this, SLOT(editNumericalMethods(int, int)));
+
+  createBodyCheckBoxes(BODY_EQUATION,pe);
 }
 
 
@@ -1701,10 +1708,32 @@ void MainWindow::equationSelectedSlot(QAction* act)
       pe->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
       pe->discardButton->setText("Remove");
       pe->discardButton->setIcon(QIcon(":/icons/list-remove.png"));
+      createBodyCheckBoxes(BODY_EQUATION,pe);
       pe->show();
     }
   }
 }
+
+//-----------------------------------------------------------------------------
+void MainWindow::equationBodyChanged(int state)
+{
+  QWidget *a = (QWidget *)QObject::sender();
+  if  (glWidget->mesh ) {
+     DynamicEditor *mat  = (DynamicEditor *)a->property("material").toULongLong();
+     BodyPropertyEditor *body = (BodyPropertyEditor *)a->property("body").toULongLong();
+ 
+     QString mat_name = mat->nameEdit->text().trimmed();
+     int ind = body->ui.equationCombo->findText(mat_name);
+     body->equation = NULL;
+     if ( state ) {
+       body->equation = mat;
+       body->ui.equationCombo->setCurrentIndex(ind);
+     } else {
+       body->ui.equationCombo->setCurrentIndex(-1);
+     }
+  }
+}
+
 
 //*****************************************************************************
 
@@ -1741,7 +1770,7 @@ void MainWindow::addMaterialSlot()
   connect(pe, SIGNAL(dynamicEditorReady(int,int)),
 	  this, SLOT(matEditorFinishedSlot(int,int)));
 
-  createMaterialBodies(pe);
+  createBodyCheckBoxes(BODY_MATERIAL,pe);
   pe->show();
 }
 
@@ -1808,8 +1837,7 @@ void MainWindow::materialSelectedSlot(QAction* act)
       pe->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
       pe->discardButton->setText("Remove");
       pe->discardButton->setIcon(QIcon(":/icons/list-remove.png"));
-
-      createMaterialBodies(pe);
+      createBodyCheckBoxes(BODY_MATERIAL, pe);
       pe->show();
     }
   }
@@ -1817,48 +1845,71 @@ void MainWindow::materialSelectedSlot(QAction* act)
 
 
 //-----------------------------------------------------------------------------
-void MainWindow::createMaterialBodies(DynamicEditor *pe)
+void MainWindow::createBodyCheckBoxes(int which,DynamicEditor *pe)
 {
-  if  (glWidget->mesh ) {
-     QVBoxLayout *slayout = new QVBoxLayout;
-     QLabel *l = new QLabel(tr("Apply this material to bodies:"));
-     slayout->addWidget(l);
-     for( int i=0; i<glWidget->bodyMap.count(); i++ )
-     {
-        int n=glWidget->bodyMap.key(i);
-        if ( n >= 0 ) {
-           int m=glWidget->bodyMap.value(n);
+  if  (!glWidget->mesh ) return;
 
-           BodyPropertyEditor *body = &bodyPropertyEditor[m];
-           QString title = body->ui.nameEdit->text().trimmed();
-           QCheckBox *a;
+//  if ( pe->spareScroll->widget() ) {
+//    delete pe->spareScroll->widget();
+//  }
 
-           a = new QCheckBox("Body " + QString::number(n));
-           if ( title == "" )
-             a = new QCheckBox("Body " + QString::number(n));
-           else
-             a = new QCheckBox(title);
+  QVBoxLayout *slayout = new QVBoxLayout;
+  QLabel *l = new QLabel(tr("Apply to bodies:"));
+  slayout->addWidget(l);
 
-           QString mat_name = pe->nameEdit->text().trimmed();
+  for( int i=0; i<glWidget->bodyMap.count(); i++ )
+  {
+     int n=glWidget->bodyMap.key(i);
+     if ( n >= 0 ) {
+        int m=glWidget->bodyMap.value(n);
 
-           if ( body->material==pe )
-             a->setChecked(true);
-           else if ( body->material != NULL )
-             a->setEnabled(false);
+        BodyPropertyEditor *body = &bodyPropertyEditor[m];
+        QString title = body->ui.nameEdit->text().trimmed();
+        QCheckBox *a;
 
-           a->setProperty( "body", (unsigned long long)body );
-           a->setProperty( "material", (unsigned long long)pe );
-           connect(a, SIGNAL(stateChanged(int)), this, SLOT(materialBodyChanged(int)));
-           slayout->addWidget(a);
+        if ( title == "" )
+          a = new QCheckBox("Body " + QString::number(n));
+        else
+          a = new QCheckBox(title);
+
+        DynamicEditor *p = NULL;
+
+        switch(which) {
+          case BODY_MATERIAL:
+            p=body->material;
+            connect(a, SIGNAL(stateChanged(int)), this, SLOT(materialBodyChanged(int)));
+          break;
+          case BODY_INITIAL:
+            p=body->initial;
+            connect(a, SIGNAL(stateChanged(int)), this, SLOT(initialBodyChanged(int)));
+          break;
+          case BODY_FORCE: 
+            p=body->force;
+            connect(a, SIGNAL(stateChanged(int)), this, SLOT(forceBodyChanged(int)));
+          break;
+          case BODY_EQUATION : 
+            p=body->equation;
+            connect(a, SIGNAL(stateChanged(int)), this, SLOT(equationBodyChanged(int)));
+          break;
         }
+
+        a->setProperty( "body", (unsigned long long)body );
+        a->setProperty( "material", (unsigned long long)pe );
+
+        if ( p==pe )
+          a->setChecked(true);
+        else if ( p != NULL )
+          a->setEnabled(false);
+
+        slayout->addWidget(a);
      }
+  }
 
-     QGroupBox *box = new QGroupBox;
-     box->setLayout(slayout);
+  QGroupBox *box = new QGroupBox;
+  box->setLayout(slayout);
 
-     pe->spareScroll->setWidget(box);
-     pe->spareScroll->show();
-   }
+  pe->spareScroll->setWidget(box);
+  pe->spareScroll->show();
 }
 
 
@@ -1872,10 +1923,11 @@ void MainWindow::materialBodyChanged(int state)
  
      QString mat_name = mat->nameEdit->text().trimmed();
      int ind = body->ui.materialCombo->findText(mat_name);
+
      body->material = NULL;
      if ( state ) {
-       body->ui.materialCombo->setCurrentIndex(ind);
        body->material = mat;
+       body->ui.materialCombo->setCurrentIndex(ind);
      } else {
        body->ui.materialCombo->setCurrentIndex(-1);
      }
@@ -1918,6 +1970,8 @@ void MainWindow::addBodyForceSlot()
 
   connect(pe, SIGNAL(dynamicEditorReady(int,int)),
 	  this, SLOT(bodyForceEditorFinishedSlot(int,int)));
+
+  createBodyCheckBoxes( BODY_FORCE, pe );
 }
 
 // signal (int,int) emitted by body force editor when ready:
@@ -1983,10 +2037,32 @@ void MainWindow::bodyForceSelectedSlot(QAction* act)
       pe->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
       pe->discardButton->setText("Remove");
       pe->discardButton->setIcon(QIcon(":/icons/list-remove.png"));
+      createBodyCheckBoxes( BODY_FORCE, pe );
       pe->show();
     }
   }
 }
+
+//-----------------------------------------------------------------------------
+void MainWindow::forceBodyChanged(int state)
+{
+  QWidget *a = (QWidget *)QObject::sender();
+  if  (glWidget->mesh ) {
+     DynamicEditor *mat  = (DynamicEditor *)a->property("material").toULongLong();
+     BodyPropertyEditor *body = (BodyPropertyEditor *)a->property("body").toULongLong();
+ 
+     QString mat_name = mat->nameEdit->text().trimmed();
+     int ind = body->ui.bodyForceCombo->findText(mat_name);
+     body->force = NULL;
+     if ( state ) {
+       body->force = mat;
+       body->ui.bodyForceCombo->setCurrentIndex(ind);
+     } else {
+       body->ui.bodyForceCombo->setCurrentIndex(-1);
+     }
+  }
+}
+
 
 //*****************************************************************************
 
@@ -2023,6 +2099,8 @@ void MainWindow::addInitialConditionSlot()
   
   connect(pe, SIGNAL(dynamicEditorReady(int,int)),
 	  this, SLOT(initialConditionEditorFinishedSlot(int,int)));
+
+  createBodyCheckBoxes( BODY_INITIAL, pe );
 }
 
 // signal (int,int) emitted by initial condition editor when ready:
@@ -2088,10 +2166,32 @@ void MainWindow::initialConditionSelectedSlot(QAction* act)
       pe->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
       pe->discardButton->setText("Remove");
       pe->discardButton->setIcon(QIcon(":/icons/list-remove.png"));
+      createBodyCheckBoxes( BODY_INITIAL, pe );
       pe->show();
     }
   }
 }
+
+//-----------------------------------------------------------------------------
+void MainWindow::initialBodyChanged(int state)
+{
+  QWidget *a = (QWidget *)QObject::sender();
+  if  (glWidget->mesh ) {
+     DynamicEditor *mat  = (DynamicEditor *)a->property("material").toULongLong();
+     BodyPropertyEditor *body = (BodyPropertyEditor *)a->property("body").toULongLong();
+ 
+     QString mat_name = mat->nameEdit->text().trimmed();
+     int ind = body->ui.initialConditionCombo->findText(mat_name);
+     body->initial = NULL;
+     if ( state ) {
+       body->initial = mat;
+       body->ui.initialConditionCombo->setCurrentIndex(ind);
+     } else {
+       body->ui.initialConditionCombo->setCurrentIndex(-1);
+     }
+  }
+}
+
 
 //*****************************************************************************
 
@@ -3596,6 +3696,11 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     
     // Populate body editor's comboboxes:
     //-----------------------------------
+
+    // Equation:
+    // =========
+    int takethis=-1;
+    bodyEdit->disconnect(SIGNAL(BodyEquationComboChanged(BodyPropertyEditor *,QString)));
     while(bodyEdit->ui.equationCombo->count() > 0) 
       bodyEdit->ui.equationCombo->removeItem(0);
 
@@ -3604,50 +3709,78 @@ void MainWindow::boundarySelectedSlot(list_t *l)
       DynamicEditor *eqEdit = &equationEditor[i];
       if(eqEdit->menuAction != NULL) {
 	const QString &name = eqEdit->nameEdit->text().trimmed();
-	bodyEdit->ui.equationCombo->insertItem(count++, name);
+	bodyEdit->ui.equationCombo->insertItem(count, name);
+        if ( bodyEdit->equation == eqEdit ) takethis = count;
+        count++;
       }
     }
+    connect( bodyEdit,SIGNAL(BodyEquationComboChanged(BodyPropertyEditor *,QString)), 
+          this, SLOT(equationComboChanged(BodyPropertyEditor *,QString)) );
+    bodyEdit->ui.equationCombo->setCurrentIndex(takethis-1);
     
+    // Material
+    // =========
+    bodyEdit->disconnect(SIGNAL(BodyMaterialComboChanged(BodyPropertyEditor *,QString)));
     while(bodyEdit->ui.materialCombo->count() > 0) 
       bodyEdit->ui.materialCombo->removeItem(0);
 
     count = 1;
+    takethis = -1;
     for(int i = 0; i<MAX_MATERIALS; i++) {
       DynamicEditor *matEdit = &materialEditor[i];
       if(matEdit->menuAction != NULL) {
 	const QString &name = matEdit->nameEdit->text().trimmed();
 	bodyEdit->ui.materialCombo->insertItem(count, name);
-        if ( bodyEdit->material == matEdit )
-          bodyEdit->ui.materialCombo->setCurrentIndex(count);
+        if ( bodyEdit->material == matEdit ) takethis = count;
         count++;
       }
     }
-    connect( bodyEdit, SIGNAL(BodyMaterialComboChanged(BodyPropertyEditor *,QString)), 
+    connect( bodyEdit,SIGNAL(BodyMaterialComboChanged(BodyPropertyEditor *,QString)), 
           this, SLOT(materialComboChanged(BodyPropertyEditor *,QString)) );
+    bodyEdit->ui.materialCombo->setCurrentIndex(takethis-1);
     
+
+    // Bodyforce:
+    //===========
+    bodyEdit->disconnect(SIGNAL(BodyForceComboChanged(BodyPropertyEditor *,QString)));
     while(bodyEdit->ui.bodyForceCombo->count() > 0) 
       bodyEdit->ui.bodyForceCombo->removeItem(0);
 
     count = 1;
+    takethis = -1;
     for(int i = 0; i<MAX_BODYFORCES; i++) {
       DynamicEditor *bodyForceEdit = &bodyForceEditor[i];
       if(bodyForceEdit->menuAction != NULL) {
 	const QString &name = bodyForceEdit->nameEdit->text().trimmed();
-	bodyEdit->ui.bodyForceCombo->insertItem(count++, name);
+	bodyEdit->ui.bodyForceCombo->insertItem(count, name);
+        if ( bodyEdit->force == bodyForceEdit ) takethis = count;
+        count++;
       }
     }
+    connect( bodyEdit,SIGNAL(BodyForceComboChanged(BodyPropertyEditor *,QString)), 
+          this, SLOT(forceComboChanged(BodyPropertyEditor *,QString)) );
+    bodyEdit->ui.bodyForceCombo->setCurrentIndex(takethis-1);
     
+    // Initial Condition:
+    //====================
+    bodyEdit->disconnect(SIGNAL(BodyInitialComboChanged(BodyPropertyEditor *,QString)));
     while(bodyEdit->ui.initialConditionCombo->count() > 0) 
       bodyEdit->ui.initialConditionCombo->removeItem(0);
 
     count = 1;
+    takethis = -1;
     for(int i = 0; i<MAX_INITIALCONDITIONS; i++) {
       DynamicEditor *initialConditionEdit = &initialConditionEditor[i];
       if(initialConditionEdit->menuAction != NULL) {
 	const QString &name = initialConditionEdit->nameEdit->text().trimmed();
-	bodyEdit->ui.initialConditionCombo->insertItem(count++, name);
+	bodyEdit->ui.initialConditionCombo->insertItem(count, name);
+        if ( bodyEdit->initial == initialConditionEdit ) takethis = count;
+        count++;
       }
     }
+    connect( bodyEdit,SIGNAL(BodyInitialComboChanged(BodyPropertyEditor *,QString)), 
+          this, SLOT(initialComboChanged(BodyPropertyEditor *,QString)) );
+    bodyEdit->ui.initialConditionCombo->setCurrentIndex(takethis-1);
     
     if(bodyEdit->touched) {
       bodyEdit->ui.applyButton->setText("Update");
@@ -3674,8 +3807,53 @@ void MainWindow::materialComboChanged(BodyPropertyEditor *b, QString text)
   {
     DynamicEditor *mat = &materialEditor[i];
     if ( mat->ID >= 0 ) {
-       if ( mat->nameEdit->text().trimmed() == text ) {
+       if ( mat->nameEdit->text().trimmed()==text ) {
          b->material = mat; 
+         break;
+       }
+    }
+  }
+}
+
+//-----------------------------------------------------------------------------
+void MainWindow::initialComboChanged(BodyPropertyEditor *b, QString text)
+{
+  for( int i=0; i<MAX_INITIALCONDITIONS; i++ )
+  {
+    DynamicEditor *mat = &initialConditionEditor[i];
+    if ( mat->ID >= 0 ) {
+       if ( mat->nameEdit->text().trimmed()==text )
+         b->initial = mat; 
+         break;
+    }
+  }
+}
+
+//-----------------------------------------------------------------------------
+void MainWindow::forceComboChanged(BodyPropertyEditor *b, QString text)
+{
+  for( int i=0; i<MAX_BODYFORCES; i++ )
+  {
+    DynamicEditor *mat = &bodyForceEditor[i];
+    if ( mat->ID >= 0 ) {
+       if ( mat->nameEdit->text().trimmed()==text ) {
+         b->force = mat; 
+         break;
+       }
+    }
+  }
+}
+
+//-----------------------------------------------------------------------------
+void MainWindow::equationComboChanged(BodyPropertyEditor *b, QString text)
+{
+  for( int i=0; i<MAX_EQUATIONS; i++ )
+  {
+    DynamicEditor *mat = &equationEditor[i];
+    if ( mat->ID >= 0 ) {
+       if ( mat->nameEdit->text().trimmed()==text ) {
+         b->equation = mat; 
+         break;
        }
     }
   }

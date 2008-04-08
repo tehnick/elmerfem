@@ -102,9 +102,15 @@ private slots:
   void boundaryConditionSelectedSlot(QAction*);  // emitted by bc menu
 
   void materialComboChanged(BodyPropertyEditor *,QString);
+  void initialComboChanged(BodyPropertyEditor *,QString);
+  void forceComboChanged(BodyPropertyEditor *,QString);
+  void equationComboChanged(BodyPropertyEditor *,QString);
 
   void editNumericalMethods(int, int);   // signal emitted by dynamic editor
   void materialBodyChanged(int);
+  void initialBodyChanged(int);
+  void forceBodyChanged(int);
+  void equationBodyChanged(int);
 
 private:
   // widgets and helpers:
@@ -235,7 +241,7 @@ private:
   void logMessage(QString);
   void synchronizeMenuToState();
   void loadDefinitions();
-  void createMaterialBodies(DynamicEditor *);
+  void createBodyCheckBoxes(int,DynamicEditor *);
 
   // state variables
   int activeGenerator;

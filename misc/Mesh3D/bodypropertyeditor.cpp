@@ -51,12 +51,26 @@ BodyPropertyEditor::BodyPropertyEditor(QWidget *parent)
   ui.setupUi(this);
 
   touched = false;
+
   material = NULL;
+  initial  = NULL;
+  force    = NULL;
+  equation = NULL;
 
   connect(ui.applyButton, SIGNAL(clicked()), this, SLOT(applySlot()));
   connect(ui.discardButton, SIGNAL(clicked()), this, SLOT(discardSlot()));
+
   connect(ui.materialCombo, SIGNAL(currentIndexChanged(QString)), this, 
            SLOT(materialComboChanged(QString)));
+
+  connect(ui.initialConditionCombo, SIGNAL(currentIndexChanged(QString)), this, 
+           SLOT(initialComboChanged(QString)));
+
+  connect(ui.bodyForceCombo, SIGNAL(currentIndexChanged(QString)), this, 
+           SLOT(forceComboChanged(QString)));
+
+  connect(ui.equationCombo, SIGNAL(currentIndexChanged(QString)), this, 
+           SLOT(equationComboChanged(QString)));
 }
 
 BodyPropertyEditor::~BodyPropertyEditor()
@@ -79,3 +93,19 @@ void BodyPropertyEditor::materialComboChanged(QString text)
 {
    emit( BodyMaterialComboChanged(this,text) );
 }
+
+void BodyPropertyEditor::initialComboChanged(QString text)
+{
+   emit( BodyInitialComboChanged(this,text) );
+}
+
+void BodyPropertyEditor::forceComboChanged(QString text)
+{
+   emit( BodyForceComboChanged(this,text) );
+}
+
+void BodyPropertyEditor::equationComboChanged(QString text)
+{
+   emit( BodyEquationComboChanged(this,text) );
+}
+
