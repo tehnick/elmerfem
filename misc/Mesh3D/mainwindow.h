@@ -101,7 +101,10 @@ private slots:
   void initialConditionSelectedSlot(QAction*);  // emitted by ic menu
   void boundaryConditionSelectedSlot(QAction*);  // emitted by bc menu
 
+  void materialComboChanged(BodyPropertyEditor *,QString);
+
   void editNumericalMethods(int, int);   // signal emitted by dynamic editor
+  void materialBodyChanged(int);
 
 private:
   // widgets and helpers:
@@ -232,6 +235,7 @@ private:
   void logMessage(QString);
   void synchronizeMenuToState();
   void loadDefinitions();
+  void createMaterialBodies(DynamicEditor *);
 
   // state variables
   int activeGenerator;

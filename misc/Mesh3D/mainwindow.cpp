@@ -923,7 +923,7 @@ void MainWindow::loadElmerMesh(QString dirName)
   meshutils->clearMesh(glWidget->mesh);
   glWidget->mesh = new mesh_t;
   mesh_t *mesh = glWidget->mesh;
-  
+
   mesh->nodes = nodes;
   mesh->node = new node_t[nodes];
 
@@ -1626,7 +1626,7 @@ void MainWindow::editNumericalMethods(int current, int id)
     {
       if ( spe->generalOptions->tabWidget->tabText(i) == title )
       {
-//        spe->ui.solverControlTabs->removeTab(0);
+//      spe->ui.solverControlTabs->removeTab(0);
         spe->ui.solverControlTabs->insertTab(0,spe->generalOptions->tabWidget->widget(i),
                      "Solver specific options");
         break;
@@ -1741,29 +1741,7 @@ void MainWindow::addMaterialSlot()
   connect(pe, SIGNAL(dynamicEditorReady(int,int)),
 	  this, SLOT(matEditorFinishedSlot(int,int)));
 
-  QLabel *l = new QLabel(tr("Apply this material to bodies:"));
-  QCheckBox *a = new QCheckBox(tr("Body 1"));
-  QCheckBox *b = new QCheckBox(tr("Body 2"));
-  QCheckBox *c = new QCheckBox(tr("Body 3"));
-  QCheckBox *d = new QCheckBox(tr("Body 4"));
-  QCheckBox *e = new QCheckBox(tr("Body 5"));
-  QCheckBox *f = new QCheckBox(tr("Body 6"));
-
-  QVBoxLayout *slayout = new QVBoxLayout;
-  slayout->addWidget(l);
-  slayout->addWidget(a);
-  slayout->addWidget(b);
-  slayout->addWidget(c);
-  slayout->addWidget(d);
-  slayout->addWidget(e);
-  slayout->addWidget(f);
-
-  QGroupBox *box = new QGroupBox;
-  box->setLayout(slayout);
-
-  pe->spareScroll->setWidget(box);
-  pe->spareScroll->show();
-
+  createMaterialBodies(pe);
   pe->show();
 }
 
@@ -1830,10 +1808,80 @@ void MainWindow::materialSelectedSlot(QAction* act)
       pe->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
       pe->discardButton->setText("Remove");
       pe->discardButton->setIcon(QIcon(":/icons/list-remove.png"));
+
+      createMaterialBodies(pe);
       pe->show();
     }
   }
 }
+
+
+//-----------------------------------------------------------------------------
+void MainWindow::createMaterialBodies(DynamicEditor *pe)
+{
+  if  (glWidget->mesh ) {
+     QVBoxLayout *slayout = new QVBoxLayout;
+     QLabel *l = new QLabel(tr("Apply this material to bodies:"));
+     slayout->addWidget(l);
+     for( int i=0; i<glWidget->bodyMap.count(); i++ )
+     {
+        int n=glWidget->bodyMap.key(i);
+        if ( n >= 0 ) {
+           int m=glWidget->bodyMap.value(n);
+
+           BodyPropertyEditor *body = &bodyPropertyEditor[m];
+           QString title = body->ui.nameEdit->text().trimmed();
+           QCheckBox *a;
+
+           a = new QCheckBox("Body " + QString::number(n));
+           if ( title == "" )
+             a = new QCheckBox("Body " + QString::number(n));
+           else
+             a = new QCheckBox(title);
+
+           QString mat_name = pe->nameEdit->text().trimmed();
+
+           if ( body->material==pe )
+             a->setChecked(true);
+           else if ( body->material != NULL )
+             a->setEnabled(false);
+
+           a->setProperty( "body", (unsigned long long)body );
+           a->setProperty( "material", (unsigned long long)pe );
+           connect(a, SIGNAL(stateChanged(int)), this, SLOT(materialBodyChanged(int)));
+           slayout->addWidget(a);
+        }
+     }
+
+     QGroupBox *box = new QGroupBox;
+     box->setLayout(slayout);
+
+     pe->spareScroll->setWidget(box);
+     pe->spareScroll->show();
+   }
+}
+
+
+//-----------------------------------------------------------------------------
+void MainWindow::materialBodyChanged(int state)
+{
+  QWidget *a = (QWidget *)QObject::sender();
+  if  (glWidget->mesh ) {
+     DynamicEditor *mat  = (DynamicEditor *)a->property("material").toULongLong();
+     BodyPropertyEditor *body = (BodyPropertyEditor *)a->property("body").toULongLong();
+ 
+     QString mat_name = mat->nameEdit->text().trimmed();
+     int ind = body->ui.materialCombo->findText(mat_name);
+     body->material = NULL;
+     if ( state ) {
+       body->ui.materialCombo->setCurrentIndex(ind);
+       body->material = mat;
+     } else {
+       body->ui.materialCombo->setCurrentIndex(-1);
+     }
+  }
+}
+
 
 //*****************************************************************************
 
@@ -3568,9 +3616,14 @@ void MainWindow::boundarySelectedSlot(list_t *l)
       DynamicEditor *matEdit = &materialEditor[i];
       if(matEdit->menuAction != NULL) {
 	const QString &name = matEdit->nameEdit->text().trimmed();
-	bodyEdit->ui.materialCombo->insertItem(count++, name);
+	bodyEdit->ui.materialCombo->insertItem(count, name);
+        if ( bodyEdit->material == matEdit )
+          bodyEdit->ui.materialCombo->setCurrentIndex(count);
+        count++;
       }
     }
+    connect( bodyEdit, SIGNAL(BodyMaterialComboChanged(BodyPropertyEditor *,QString)), 
+          this, SLOT(materialComboChanged(BodyPropertyEditor *,QString)) );
     
     while(bodyEdit->ui.bodyForceCombo->count() > 0) 
       bodyEdit->ui.bodyForceCombo->removeItem(0);
@@ -3611,6 +3664,20 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     bodyEdit->setWindowTitle("Properties for body " + QString::number(current));
     bodyEdit->ui.nameEdit->setText("Body Property " + QString::number(n+1));
     bodyEdit->show();
+  }
+}
+
+//-----------------------------------------------------------------------------
+void MainWindow::materialComboChanged(BodyPropertyEditor *b, QString text)
+{
+  for( int i=0; i<MAX_MATERIALS; i++ )
+  {
+    DynamicEditor *mat = &materialEditor[i];
+    if ( mat->ID >= 0 ) {
+       if ( mat->nameEdit->text().trimmed() == text ) {
+         b->material = mat; 
+       }
+    }
   }
 }
 

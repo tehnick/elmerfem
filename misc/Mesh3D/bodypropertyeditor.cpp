@@ -40,6 +40,7 @@
 
 #include <QtGui>
 #include <iostream>
+#include "mainwindow.h"
 #include "bodypropertyeditor.h"
 
 using namespace std;
@@ -50,9 +51,12 @@ BodyPropertyEditor::BodyPropertyEditor(QWidget *parent)
   ui.setupUi(this);
 
   touched = false;
+  material = NULL;
 
   connect(ui.applyButton, SIGNAL(clicked()), this, SLOT(applySlot()));
   connect(ui.discardButton, SIGNAL(clicked()), this, SLOT(discardSlot()));
+  connect(ui.materialCombo, SIGNAL(currentIndexChanged(QString)), this, 
+           SLOT(materialComboChanged(QString)));
 }
 
 BodyPropertyEditor::~BodyPropertyEditor()
@@ -69,4 +73,9 @@ void BodyPropertyEditor::discardSlot()
 {
   touched = false;
   this->close();
+}
+
+void BodyPropertyEditor::materialComboChanged(QString text)
+{
+   emit( BodyMaterialComboChanged(this,text) );
 }
