@@ -1594,38 +1594,15 @@ void MainWindow::addEquationSlot()
 
 // signal (int, int) emitted by dynamic editor when "spare button" clicked:
 //-----------------------------------------------------------------------------
-void MainWindow::editNumericalMethods(int tab, int id)
+void MainWindow::editNumericalMethods(int current, int id)
 {
-  cout << "**** tab: " << tab << " **** id: " << id << endl;
-  cout.flush();
 
-  // TODO:
+  DynamicEditor *pe = &equationEditor[0];
 
-#if 0
-  DynamicEditor *pe = NULL;
-  bool found = false; 
-  int current = -1;
-
-  for(int i = 0; i < MAX_EQUATIONS; i++) {
-    pe = &equationEditor[i];
-    if(pe->menuAction == NULL) {
-      found = true;
-      current = i;
-      break;
-    }
-  }
-
-  if(!found) {
-    logMessage("SolverParameterEditor - active equation not found.");
-    return;
-  }
-
-  current = pe->tabWidget->currentIndex();
-
+  QString title = equationEditor[0].tabWidget->tabText(current);
   SolverParameterEditor *spe = &solverParameterEditor[current];
 
-  spe->setWindowTitle("Solver control for " + pe->tabWidget->tabText(current)
-   		      + " (" + pe->nameEdit->text() + ")");
+  spe->setWindowTitle("Solver control for " + pe->tabWidget->tabText(current) );
 
   if ( spe->generalOptions == NULL )
   {
@@ -1634,7 +1611,7 @@ void MainWindow::editNumericalMethods(int tab, int id)
 
     for( int i=0; i<spe->generalOptions->tabWidget->count(); i++ )
     {
-      if ( spe->generalOptions->tabWidget->tabText(i) == pe->tabWidget->tabText(current) )
+      if ( spe->generalOptions->tabWidget->tabText(i) == title )
       {
         spe->ui.solverControlTabs->removeTab(0);
         spe->ui.solverControlTabs->insertTab(0,spe->generalOptions->tabWidget->widget(i),"General");
@@ -1644,7 +1621,7 @@ void MainWindow::editNumericalMethods(int tab, int id)
   }
 
   spe->show();
-#endif
+  spe->raise();
 }
 
 // signal (int,int) emitted by equation editor when ready:
