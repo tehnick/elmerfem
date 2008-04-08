@@ -1597,12 +1597,17 @@ void MainWindow::addEquationSlot()
 void MainWindow::editNumericalMethods(int current, int id)
 {
 
-  DynamicEditor *pe = &equationEditor[0];
+  QString title="";
 
-  QString title = equationEditor[0].tabWidget->tabText(current);
+  for( int i=0; i<MAX_EQUATIONS; i++ ) {
+    if ( equationEditor[i].ID == id ) {
+      title = equationEditor[i].tabWidget->tabText(current);
+      break;
+    }
+  }
   SolverParameterEditor *spe = &solverParameterEditor[current];
 
-  spe->setWindowTitle("Solver control for " + pe->tabWidget->tabText(current) );
+  spe->setWindowTitle("Solver control for " + title );
 
   if ( spe->generalOptions == NULL )
   {
