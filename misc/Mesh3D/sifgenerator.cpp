@@ -160,7 +160,7 @@ void SifGenerator::makeEquationBlocks()
 	      if(!numberForSolver.contains(solverName)) {
 		numberForSolver.insert(solverName, ++solverNumber);
 		te->append("Solver " + QString::number(solverNumber));
-		te->append("  Name = " + solverName);
+		te->append("  Equation = " + solverName);
 		makeSolverBlocks(solverName);
 		te->append("End");
 		te->append("");
