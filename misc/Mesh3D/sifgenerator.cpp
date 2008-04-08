@@ -247,6 +247,11 @@ void SifGenerator::makeSolverBlocks(QString solverName)
     te->append("  Variable DOFs = " + QString::number(cdim));
   }
 
+  if(solverName == "Navier-Stokes") {
+    te->append("  Variable = Flow Solution");
+    te->append("  Variable DOFs = " + QString::number(cdim+1));
+  }
+
   bool found = false;
 
   for(int i = 0; i < MAX_SOLVERS; i++) {
