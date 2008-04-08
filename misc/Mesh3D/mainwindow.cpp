@@ -1618,8 +1618,9 @@ void MainWindow::editNumericalMethods(int current, int id)
     {
       if ( spe->generalOptions->tabWidget->tabText(i) == title )
       {
-        spe->ui.solverControlTabs->removeTab(0);
-        spe->ui.solverControlTabs->insertTab(0,spe->generalOptions->tabWidget->widget(i),"General");
+//        spe->ui.solverControlTabs->removeTab(0);
+        spe->ui.solverControlTabs->insertTab(0,spe->generalOptions->tabWidget->widget(i),
+                     "Solver specific options");
         break;
       }
     }
