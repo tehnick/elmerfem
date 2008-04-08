@@ -1605,6 +1605,12 @@ void MainWindow::editNumericalMethods(int current, int id)
       break;
     }
   }
+
+  if ( title == "General" ) {
+    logMessage( "No solver controls for 'General' equation options" );
+    return;
+  }
+
   SolverParameterEditor *spe = &solverParameterEditor[current];
 
   spe->setWindowTitle("Solver control for " + title );
@@ -1753,8 +1759,8 @@ void MainWindow::addMaterialSlot()
   QGroupBox *box = new QGroupBox;
   box->setLayout(slayout);
 
-    pe->spareScroll->setWidget(box);
-    pe->spareScroll->show();
+  pe->spareScroll->setWidget(box);
+  pe->spareScroll->show();
 
   pe->show();
 }
