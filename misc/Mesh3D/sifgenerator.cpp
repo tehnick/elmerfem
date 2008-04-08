@@ -135,13 +135,50 @@ void SifGenerator::makeBodyBlocks()
 //-----------------------------------------------------------------------------
 void SifGenerator::makeEquationBlocks()
 {
-  int sifIndex = 0;
-  int sifSolver = 0;
-
+  // enumerate solvers && write solver blocks:
+  QTextEdit *solverEdit = new QTextEdit;
+  solverEdit->clear();
+  int solverNumber = 0;
+  QHash<QString, int> numberForSolver;
+  numberForSolver.clear();
   for(int index = 0; index < MAX_EQUATIONS; index++) {
     DynamicEditor *eqEditor = &equationEditor[index];
-    
-    if(eqEditor->menuAction != NULL) {      
+    if(eqEditor->menuAction != NULL) {
+      for(int i = 0; i < eqEditor->hash.count(); i++) {
+	hash_entry_t entry = eqEditor->hash.values().at(i); 
+	QWidget *widget = entry.widget;
+        if(widget->isEnabled()) {
+	  QString key = eqEditor->hash.keys().at(i);
+	  QStringList keySplitted = key.split("/");
+	  QString solverName = keySplitted.at(1).trimmed();
+	  QString labelName = keySplitted.at(3).trimmed();
+          QDomElement elem = entry.elem;
+	  if((labelName == "Active") &&
+	     (elem.attribute("Widget", "") == "CheckBox")) {
+	    QCheckBox *checkBox = (QCheckBox*)widget;
+	    if(checkBox->isChecked()) {
+	      if(!numberForSolver.contains(solverName)) {
+		numberForSolver.insert(solverName, ++solverNumber);
+		// write solver block:
+		solverEdit->append("Solver " + QString::number(solverNumber));
+		solverEdit->append("  Name = " + solverName);
+		// TODO: go through numerical edit defs.
+		solverEdit->append("End");
+		solverEdit->append("");
+	      }
+	    }
+	  }
+	}
+      }
+    }
+  }
+  
+  // generate equation blocks:
+  int sifIndex = 0;
+  for(int index = 0; index < MAX_EQUATIONS; index++) {
+    DynamicEditor *eqEditor = &equationEditor[index];
+
+    if(eqEditor->menuAction != NULL) {
       te->append("Equation " + QString::number(++sifIndex));
       
       QString name = eqEditor->nameEdit->text().trimmed();
@@ -152,31 +189,28 @@ void SifGenerator::makeEquationBlocks()
 
       for(int i = 0; i < eqEditor->hash.count(); i++) {
 	hash_entry_t entry = eqEditor->hash.values().at(i); 
-	
 	QWidget *widget = entry.widget;
 
-        if ( widget->isEnabled() ) {
+        if(widget->isEnabled()) {
           QDomElement elem = entry.elem;
-	  
-	  // solver active?
 	  QString key = eqEditor->hash.keys().at(i);
-	  QStringList keyList = key.split("/");
-	  
-	  if((keyList.at(3).trimmed() == "Active") &&
+	  QStringList keySplitted = key.split("/");	  
+	  QString solverName = keySplitted.at(1).trimmed();
+	  QString labelName = keySplitted.at(3).trimmed();
+
+	  // solver active?
+	  if((labelName == "Active") &&
 	     (elem.attribute("Widget", "") == "CheckBox")) {
 	    QCheckBox *checkBox = (QCheckBox*)widget;
 	    if(checkBox->isChecked()) {
-	      nofSolvers++; // for this eq.
-	      sifSolver++;  // all solvers
-	      solverString += " " + QString::number(sifSolver);
-
-	      // make solver block:
-	      // todo
+	      nofSolvers++;
+	      solverNumber = numberForSolver.value(solverName);
+	      solverString += " " + QString::number(solverNumber);
 	    }
 	  }
-
+	  
           if((elem.attribute("Widget", "") == "CheckBox") &&
-	     (keyList.at(3).trimmed() != "Active")) 
+	     (labelName != "Active")) 
 	    handleCheckBox(elem, widget);
 	  
 	  if(elem.attribute("Widget", "") == "Edit")
@@ -194,7 +228,12 @@ void SifGenerator::makeEquationBlocks()
       
       te->append("End\n");
     }
+
   }
+
+  // finally append solver blocks:
+  te->append(solverEdit->toPlainText());
+  delete solverEdit;
 }
 
 void SifGenerator::makeSolverBlocks()
