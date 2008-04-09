@@ -3638,6 +3638,8 @@ void MainWindow::generateSifSlot()
   // Clear SIF text editor:
   //------------------------
   sifWindow->textEdit->clear();
+  sifWindow->firstTime = true;
+  sifWindow->found = false;
   // QFont sansFont("Courier", 10);
   // sifWindow->textEdit->setCurrentFont(sansFont);
 

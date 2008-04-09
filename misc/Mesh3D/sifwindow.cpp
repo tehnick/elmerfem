@@ -62,6 +62,7 @@ SifWindow::SifWindow(QWidget *parent)
   createToolBars();
   createStatusBar();
 
+  firstTime = true;
   found = false;
 
   setWindowTitle(tr("Solver Input File"));
@@ -175,6 +176,9 @@ void SifWindow::newSlot()
 {
   textEdit->clear();
 
+  firstTime = true;
+  found = false;
+
   statusBar()->showMessage(tr("Ready"));
 }
 
@@ -204,6 +208,9 @@ void SifWindow::openSlot()
 
   textEdit->append(line);
 
+  firstTime = true;
+  found = false;
+  
   statusBar()->showMessage(tr("Ready"));
 }
 
@@ -253,7 +260,7 @@ void SifWindow::findSlot()
   QString searchString = lineEdit->text().trimmed();
   QTextDocument *document = textEdit->document();
   
-  if(found)
+  if(!firstTime && found)
     document->undo();
 
   found = false;
@@ -273,6 +280,7 @@ void SifWindow::findSlot()
     QTextCharFormat plainFormat(highlightCursor.charFormat());
     QTextCharFormat colorFormat = plainFormat;
     colorFormat.setForeground(Qt::red);
+    colorFormat.setFontWeight(QFont::Bold);
     
     while(!highlightCursor.isNull() && !highlightCursor.atEnd()) {
       highlightCursor = document->find(searchString, highlightCursor);
@@ -284,10 +292,12 @@ void SifWindow::findSlot()
     }
     
     cursor.endEditBlock();
+    firstTime = false;
     
     if(!found)
       QMessageBox::information(this, tr("String not found"),
 			"The string was not found in the document");
+
   }
 
   statusBar()->showMessage(tr("Ready"));

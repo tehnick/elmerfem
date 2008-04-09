@@ -18,6 +18,7 @@ public:
   QSize sizeHint() const;
 
   QTextEdit *textEdit;
+  bool firstTime;
   bool found;
 
 private slots:
