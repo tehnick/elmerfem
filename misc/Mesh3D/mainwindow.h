@@ -129,6 +129,7 @@ private:
   void createToolBars();
   void createStatusBar();
   void applyOperations();
+  void populateBodyComboBoxes(BodyPropertyEditor *);
     
   QMenu *fileMenu;                // File menu
   QMenu *modelMenu;               // Model menu

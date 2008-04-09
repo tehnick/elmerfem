@@ -107,7 +107,10 @@ void SifGenerator::makeBodyBlocks()
 
       te->append("  Target Bodies(1) = " + QString::number(originalIndex));
 
-      te->append("  Name = " + bodyEdit->ui.nameEdit->text().trimmed());
+      if ( bodyEdit->ui.nameEdit->text().trimmed() == "" )
+        te->append("  Name = Body " + QString::number(sifIndex) );
+      else
+        te->append("  Name = " + bodyEdit->ui.nameEdit->text().trimmed());
 
       i = bodyEdit->ui.equationCombo->currentIndex();
       if(i > -1)
@@ -118,7 +121,6 @@ void SifGenerator::makeBodyBlocks()
 	te->append("  Material = " + QString::number(i+1));
       
       i = bodyEdit->ui.bodyForceCombo->currentIndex();
-
       if(i > -1)
 	te->append("  Body Force = " + QString::number(i+1));
       
@@ -267,7 +269,7 @@ void SifGenerator::makeSolverBlocks(QString solverName)
     if(procedureDefined) {
       parseProcedure(ui);
     } else {
-      te->append("  Procedure = HeatSolve HeatSolver");
+      te->append("  Procedure = \"HeatSolve\" \"HeatSolver\"");
     }
   }
 
@@ -277,7 +279,7 @@ void SifGenerator::makeSolverBlocks(QString solverName)
     if(procedureDefined) {
       parseProcedure(ui);
     } else {
-      te->append("  Procedure = StressSolve StressSolver");
+      te->append("  Procedure = \"StressSolve\" \"StressSolver\"");
     }
   }
 
@@ -287,7 +289,7 @@ void SifGenerator::makeSolverBlocks(QString solverName)
     if(procedureDefined) {
       parseProcedure(ui);
     } else {
-      te->append("  Procedure = FlowSolve FlowSolver");
+      te->append("  Procedure = \"FlowSolve\" \"FlowSolver\"");
     }
   }
 
