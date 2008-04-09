@@ -1,13 +1,11 @@
 #ifndef SIFWINDOW_H
 #define SIFWINDOW_H
 
-#include <QWidget>
+#include <QMainWindow>
 
 class QTextEdit;
-class QPushButton;
-class QMenu;
 
-class SifWindow : public QWidget
+class SifWindow : public QMainWindow
 {
   Q_OBJECT
 
@@ -21,12 +19,31 @@ public:
   QTextEdit *textEdit;
 
 private slots:
-  void clearSif();
+  void openSlot();
+  void saveSlot();
+  void printSlot();
+  void exitSlot();
+
+  void clearSlot();
 
 private:
-  QPushButton *closeButton;
-  QPushButton *clearButton;
+  QAction *openAct;
+  QAction *saveAct;
+  QAction *printAct;
+  QAction *exitAct;
 
+  QAction *clearAct;
+
+  QMenu *fileMenu;
+  QMenu *editMenu;
+
+  QToolBar *fileToolBar;
+  QToolBar *editToolBar;
+
+  void createActions();
+  void createMenus();
+  void createToolBars();
+  void createStatusBar();
 };
 
 #endif
