@@ -105,11 +105,13 @@ private slots:
   void initialComboChanged(BodyPropertyEditor *,QString);
   void forceComboChanged(BodyPropertyEditor *,QString);
   void equationComboChanged(BodyPropertyEditor *,QString);
+  void boundaryComboChanged(BoundaryPropertyEditor *,QString);
 
   void editNumericalMethods(int, int);   // signal emitted by dynamic editor
   void materialBodyChanged(int);
   void initialBodyChanged(int);
   void forceBodyChanged(int);
+  void bcBoundaryChanged(int);
   void equationBodyChanged(int);
 
 private:
@@ -130,6 +132,7 @@ private:
   void createStatusBar();
   void applyOperations();
   void populateBodyComboBoxes(BodyPropertyEditor *);
+  void populateBoundaryComboBoxes(BoundaryPropertyEditor *);
     
   QMenu *fileMenu;                // File menu
   QMenu *modelMenu;               // Model menu
@@ -242,6 +245,7 @@ private:
   void logMessage(QString);
   void synchronizeMenuToState();
   void loadDefinitions();
+  void createBoundaryCheckBoxes(DynamicEditor *);
   void createBodyCheckBoxes(int,DynamicEditor *);
 
   // state variables

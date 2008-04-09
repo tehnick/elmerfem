@@ -50,9 +50,13 @@ BoundaryPropertyEditor::BoundaryPropertyEditor(QWidget *parent)
   ui.setupUi(this);
 
   touched = false;
+  condition = NULL;
 
   connect(ui.applyButton, SIGNAL(clicked()), this, SLOT(applySlot()));
   connect(ui.discardButton, SIGNAL(clicked()), this, SLOT(discardSlot()));
+
+  connect(ui.boundaryConditionCombo, SIGNAL(currentIndexChanged(QString)), this, 
+           SLOT(boundaryComboChanged(QString)));
 }
 
 BoundaryPropertyEditor::~BoundaryPropertyEditor()
@@ -69,4 +73,10 @@ void BoundaryPropertyEditor::discardSlot()
 {
   touched = false;
   this->close();
+}
+
+
+void BoundaryPropertyEditor::boundaryComboChanged(QString text)
+{
+   emit( BoundaryComboChanged(this,text) );
 }

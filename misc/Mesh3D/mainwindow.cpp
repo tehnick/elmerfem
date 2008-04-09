@@ -1555,6 +1555,78 @@ void MainWindow::modelSetupSlot()
   generalSetup->show();
 }
 
+//-----------------------------------------------------------------------------
+void MainWindow::createBodyCheckBoxes(int which,DynamicEditor *pe)
+{
+  if  (!glWidget->mesh ) return;
+
+  if ( pe->spareScroll->widget() ) {
+    delete pe->spareScroll->widget();
+  }
+
+  QVBoxLayout *slayout = new QVBoxLayout;
+  QLabel *l = new QLabel(tr("Apply to bodies:"));
+  slayout->addWidget(l);
+
+  for( int i=0; i<glWidget->bodyMap.count(); i++ )
+  {
+     int n=glWidget->bodyMap.key(i);
+     if ( n >= 0 ) {
+        int m=glWidget->bodyMap.value(n);
+
+        BodyPropertyEditor *body = &bodyPropertyEditor[m];
+        populateBodyComboBoxes(body);
+
+        QString title = body->ui.nameEdit->text().trimmed();
+        QCheckBox *a;
+
+        if ( title == "" )
+          a = new QCheckBox("Body " + QString::number(n));
+        else
+          a = new QCheckBox(title);
+
+        DynamicEditor *p = NULL;
+
+        switch(which) {
+          case BODY_MATERIAL:
+            p=body->material;
+            connect(a, SIGNAL(stateChanged(int)), this, SLOT(materialBodyChanged(int)));
+          break;
+          case BODY_INITIAL:
+            p=body->initial;
+            connect(a, SIGNAL(stateChanged(int)), this, SLOT(initialBodyChanged(int)));
+          break;
+          case BODY_FORCE:
+            p=body->force;
+            connect(a, SIGNAL(stateChanged(int)), this, SLOT(forceBodyChanged(int)));
+          break;
+          case BODY_EQUATION:
+            p=body->equation;
+            connect(a, SIGNAL(stateChanged(int)), this, SLOT(equationBodyChanged(int)));
+          break;
+        }
+
+        a->setProperty( "body", (unsigned long long)body );
+        a->setProperty( "material", (unsigned long long)pe );
+
+        if ( p==pe )
+          a->setChecked(true);
+        else if ( p != NULL )
+          a->setEnabled(false);
+
+        slayout->addWidget(a);
+     }
+  }
+
+  QGroupBox *box = new QGroupBox;
+  box->setLayout(slayout);
+
+  pe->spareScroll->setWidget(box);
+  pe->spareScroll->show();
+}
+
+
+//-----------------------------------------------------------------------------
 
 //*****************************************************************************
 
@@ -1851,78 +1923,6 @@ void MainWindow::materialSelectedSlot(QAction* act)
 }
 
 
-//-----------------------------------------------------------------------------
-void MainWindow::createBodyCheckBoxes(int which,DynamicEditor *pe)
-{
-  if  (!glWidget->mesh ) return;
-
-  if ( pe->spareScroll->widget() ) {
-    delete pe->spareScroll->widget();
-  }
-
-  QVBoxLayout *slayout = new QVBoxLayout;
-  QLabel *l = new QLabel(tr("Apply to bodies:"));
-  slayout->addWidget(l);
-
-  for( int i=0; i<glWidget->bodyMap.count(); i++ )
-  {
-     int n=glWidget->bodyMap.key(i);
-     if ( n >= 0 ) {
-        int m=glWidget->bodyMap.value(n);
-
-        BodyPropertyEditor *body = &bodyPropertyEditor[m];
-        populateBodyComboBoxes(body);
-
-        QString title = body->ui.nameEdit->text().trimmed();
-        QCheckBox *a;
-
-        if ( title == "" )
-          a = new QCheckBox("Body " + QString::number(n));
-        else
-          a = new QCheckBox(title);
-
-        DynamicEditor *p = NULL;
-
-        switch(which) {
-          case BODY_MATERIAL:
-            p=body->material;
-            connect(a, SIGNAL(stateChanged(int)), this, SLOT(materialBodyChanged(int)));
-          break;
-          case BODY_INITIAL:
-            p=body->initial;
-            connect(a, SIGNAL(stateChanged(int)), this, SLOT(initialBodyChanged(int)));
-          break;
-          case BODY_FORCE:
-            p=body->force;
-            connect(a, SIGNAL(stateChanged(int)), this, SLOT(forceBodyChanged(int)));
-          break;
-          case BODY_EQUATION:
-            p=body->equation;
-            connect(a, SIGNAL(stateChanged(int)), this, SLOT(equationBodyChanged(int)));
-          break;
-        }
-
-        a->setProperty( "body", (unsigned long long)body );
-        a->setProperty( "material", (unsigned long long)pe );
-
-        if ( p==pe )
-          a->setChecked(true);
-        else if ( p != NULL )
-          a->setEnabled(false);
-
-        slayout->addWidget(a);
-     }
-  }
-
-  QGroupBox *box = new QGroupBox;
-  box->setLayout(slayout);
-
-  pe->spareScroll->setWidget(box);
-  pe->spareScroll->show();
-}
-
-
-//-----------------------------------------------------------------------------
 void MainWindow::materialBodyChanged(int state)
 {
   QWidget *a = (QWidget *)QObject::sender();
@@ -2203,6 +2203,62 @@ void MainWindow::initialBodyChanged(int state)
 
 
 //*****************************************************************************
+//-----------------------------------------------------------------------------
+void MainWindow::createBoundaryCheckBoxes(DynamicEditor *pe)
+{
+  if  (!glWidget->mesh ) return;
+
+  if ( pe->spareScroll->widget() ) {
+    delete pe->spareScroll->widget();
+  }
+
+  QVBoxLayout *slayout = new QVBoxLayout;
+  QLabel *l = new QLabel(tr("Apply to boundaries:"));
+  slayout->addWidget(l);
+
+  for( int i=0; i<glWidget->boundaryMap.count(); i++ )
+  {
+     int n=glWidget->boundaryMap.key(i);
+     if ( n >= 0 ) {
+        int m=glWidget->boundaryMap.value(n);
+
+        BoundaryPropertyEditor *boundary = &boundaryPropertyEditor[m];
+        populateBoundaryComboBoxes(boundary);
+
+        QString title =  ""; // boundary->ui.nameEdit->text().trimmed();
+        QCheckBox *a;
+
+        if ( title == "" )
+          a = new QCheckBox("Boundary " + QString::number(n));
+        else
+          a = new QCheckBox(title);
+
+        DynamicEditor *p = NULL;
+
+        p=boundary->condition;
+        connect(a, SIGNAL(stateChanged(int)), this, SLOT(bcBoundaryChanged(int)));
+
+        a->setProperty( "boundary", (unsigned long long)boundary );
+        a->setProperty( "condition", (unsigned long long)pe );
+
+        if ( p==pe )
+          a->setChecked(true);
+        else if ( p != NULL )
+          a->setEnabled(false);
+
+        slayout->addWidget(a);
+     }
+  }
+
+  QGroupBox *box = new QGroupBox;
+  box->setLayout(slayout);
+
+  pe->spareScroll->setWidget(box);
+  pe->spareScroll->show();
+}
+
+
+//-----------------------------------------------------------------------------
 
 // Model -> Boundary condition -> Add...
 //-----------------------------------------------------------------------------
@@ -2237,6 +2293,14 @@ void MainWindow::addBoundaryConditionSlot()
   
   connect(pe, SIGNAL(dynamicEditorReady(int,int)),
 	  this, SLOT(boundaryConditionEditorFinishedSlot(int,int)));
+
+  // Boundary condition is new - add to menu:
+  const QString &boundaryConditionName = pe->nameEdit->text().trimmed();
+  QAction *act = new QAction(boundaryConditionName, this);
+  boundaryConditionMenu->addAction(act);
+  pe->menuAction = act;
+
+  createBoundaryCheckBoxes(pe);
 }
 
 // signal (int,int) emitted by boundary condition editor when ready:
@@ -2264,13 +2328,6 @@ void MainWindow::boundaryConditionEditorFinishedSlot(int signal, int id)
       pe->close();
       return;
     }
-
-    // Boundary condition is new - add to menu:
-    QAction *act = new QAction(boundaryConditionName, this);
-    boundaryConditionMenu->addAction(act);
-    pe->menuAction = act;
-    pe->close();
-    logMessage("Boundary condition added");
   }
 
   if(signal == MAT_DELETE) {
@@ -2302,11 +2359,33 @@ void MainWindow::boundaryConditionSelectedSlot(QAction* act)
       pe->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
       pe->discardButton->setText("Remove");
       pe->discardButton->setIcon(QIcon(":/icons/list-remove.png"));
-      pe->show();
+      createBoundaryCheckBoxes(pe);
+      pe->show(); pe->raise();
     }
   }
 }
 
+//-----------------------------------------------------------------------------
+void MainWindow::bcBoundaryChanged(int state)
+{
+  QWidget *a = (QWidget *)QObject::sender();
+  if  (glWidget->mesh ) {
+     DynamicEditor *mat  = (DynamicEditor *)a->property("condition").toULongLong();
+     BoundaryPropertyEditor *boundary = 
+           (BoundaryPropertyEditor *)a->property("boundary").toULongLong();
+ 
+     QString mat_name = mat->nameEdit->text().trimmed();
+     int ind = boundary->ui.boundaryConditionCombo->findText(mat_name);
+     boundary->condition = NULL;
+     if ( state ) {
+       boundary->touched = true;
+       boundary->condition = mat;
+       boundary->ui.boundaryConditionCombo->setCurrentIndex(ind);
+     } else {
+       boundary->ui.boundaryConditionCombo->setCurrentIndex(-1);
+     }
+  }
+}
 
 
 
@@ -3649,20 +3728,7 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     }
     
     BoundaryPropertyEditor *boundaryEdit = &boundaryPropertyEditor[n];
-    
-    // Populate boundary editor's comboboxes:
-    //---------------------------------------
-    while(boundaryEdit->ui.boundaryConditionCombo->count() > 0) 
-      boundaryEdit->ui.boundaryConditionCombo->removeItem(0);
-    
-    int count = 1;
-    for(int i = 0; i<MAX_BCS; i++) {
-      DynamicEditor *bcEdit = &boundaryConditionEditor[i];
-      if(bcEdit->menuAction != NULL) {
-	const QString &name = bcEdit->nameEdit->text().trimmed();
-	boundaryEdit->ui.boundaryConditionCombo->insertItem(count++, name);
-      }
-    }
+    populateBoundaryComboBoxes(boundaryEdit);
     
     if(boundaryEdit->touched) {
       boundaryEdit->ui.applyButton->setText("Update");
@@ -3722,6 +3788,46 @@ void MainWindow::boundarySelectedSlot(list_t *l)
   }
 }
 
+// Populate boundary editor's comboboxes:
+//---------------------------------------
+void MainWindow::populateBoundaryComboBoxes(BoundaryPropertyEditor *boundary)
+{
+  boundary->disconnect(SIGNAL(BoundaryComboChanged(BoundaryPropertyEditor *,QString)));
+  while(boundary->ui.boundaryConditionCombo->count() > 0) 
+    boundary->ui.boundaryConditionCombo->removeItem(0);
+    
+  int takethis=-1;
+  int count = 1;
+  for(int i = 0; i<MAX_BCS; i++) {
+    DynamicEditor *bcEdit = &boundaryConditionEditor[i];
+    if(bcEdit->menuAction != NULL) {
+      const QString &name = bcEdit->nameEdit->text().trimmed();
+      boundary->ui.boundaryConditionCombo->insertItem(count, name);
+      if ( boundary->condition == bcEdit ) takethis = count;
+      count++;
+    }
+  }
+  connect( boundary,SIGNAL(BoundaryComboChanged(BoundaryPropertyEditor *,QString)), 
+        this, SLOT(boundaryComboChanged(BoundaryPropertyEditor *,QString)) );
+  boundary->ui.boundaryConditionCombo->setCurrentIndex(takethis-1);
+}
+
+//-----------------------------------------------------------------------------
+void MainWindow::boundaryComboChanged(BoundaryPropertyEditor *b, QString text)
+{
+  for( int i=0; i<MAX_BCS; i++ )
+  {
+    DynamicEditor *mat = &boundaryConditionEditor[i];
+    if ( mat->ID >= 0 ) {
+       if ( mat->nameEdit->text().trimmed()==text )
+         b->condition = mat; 
+         b->touched = true;
+         break;
+    }
+  }
+}
+
+    
 // Populate body editor's comboboxes:
 //-----------------------------------
 void MainWindow::populateBodyComboBoxes(BodyPropertyEditor *bodyEdit)
