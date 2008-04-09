@@ -170,9 +170,9 @@ MainWindow::MainWindow()
   bodyEditActive = false;
 
   // set font for text editors:
-  QFont sansFont("Courier", 10);
-  sifWindow->textEdit->setCurrentFont(sansFont);
-  solverLogWindow->textEdit->setCurrentFont(sansFont);
+  // QFont sansFont("Courier", 10);
+  // sifWindow->textEdit->setCurrentFont(sansFont);
+  // solverLogWindow->textEdit->setCurrentFont(sansFont);
 
   // load definition files:
   loadDefinitions();
@@ -3613,8 +3613,8 @@ void MainWindow::edgeUnifySlot()
 //-----------------------------------------------------------------------------
 void MainWindow::showsifSlot()
 {
-  QFont sansFont("Courier", 10);
-  sifWindow->textEdit->setCurrentFont(sansFont);
+  // QFont sansFont("Courier", 10);
+  // sifWindow->textEdit->setCurrentFont(sansFont);
   sifWindow->show();
 }
 
@@ -3638,8 +3638,8 @@ void MainWindow::generateSifSlot()
   // Clear SIF text editor:
   //------------------------
   sifWindow->textEdit->clear();
-  QFont sansFont("Courier", 10);
-  sifWindow->textEdit->setCurrentFont(sansFont);
+  // QFont sansFont("Courier", 10);
+  // sifWindow->textEdit->setCurrentFont(sansFont);
 
   // Set up SIF generator:
   //-----------------------

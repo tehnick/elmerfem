@@ -4,6 +4,7 @@
 #include <QMainWindow>
 
 class QTextEdit;
+class QLineEdit;
 
 class SifWindow : public QMainWindow
 {
@@ -19,19 +20,25 @@ public:
   QTextEdit *textEdit;
 
 private slots:
+  void newSlot();
   void openSlot();
   void saveSlot();
   void printSlot();
-  void exitSlot();
-
+  void findSlot();
   void clearSlot();
 
 private:
+  QLineEdit *lineEdit;
+
+  QAction *newAct;
   QAction *openAct;
   QAction *saveAct;
   QAction *printAct;
   QAction *exitAct;
-
+  QAction *cutAct;
+  QAction *copyAct;
+  QAction *pasteAct;
+  QAction *findAct;
   QAction *clearAct;
 
   QMenu *fileMenu;
@@ -44,6 +51,8 @@ private:
   void createMenus();
   void createToolBars();
   void createStatusBar();
+
+  bool firstTime;
 };
 
 #endif
