@@ -53,6 +53,7 @@ private:
   void createStatusBar();
 
   bool firstTime;
+  bool found;
 };
 
 #endif

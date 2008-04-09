@@ -42,6 +42,8 @@
 #include <iostream>
 #include "sifwindow.h"
 
+using namespace std;
+
 SifWindow::SifWindow(QWidget *parent)
   : QMainWindow(parent)
 {
@@ -53,6 +55,7 @@ SifWindow::SifWindow(QWidget *parent)
   setCentralWidget(textEdit);
 
   lineEdit = new QLineEdit;
+  connect(lineEdit, SIGNAL(returnPressed()), this, SLOT(findSlot()));
 
   createActions();
   createMenus();
@@ -60,6 +63,7 @@ SifWindow::SifWindow(QWidget *parent)
   createStatusBar();
 
   firstTime = true;
+  found = false;
 
   setWindowTitle(tr("Editor"));
 }
@@ -259,20 +263,20 @@ void SifWindow::printSlot()
 
 void SifWindow::findSlot()
 {
-  // the following code snippet is from Qt's "textfinder" example:
   QString searchString = lineEdit->text().trimmed();
   QTextDocument *document = textEdit->document();
   
-  bool found = false;
-  
-  if(firstTime == false)
+  if(!firstTime && found)
     document->undo();
+
+  found = false;
   
   if(searchString == "") {
-    QMessageBox::information(this, tr("Empty search field"),
+    QMessageBox::information(this,
+			     tr("Empty search field"),
 			     "String to search for is empty");
   } else {
-
+    
     QTextCursor highlightCursor(document);  
     QTextCursor cursor(document);
     
@@ -283,14 +287,10 @@ void SifWindow::findSlot()
     colorFormat.setForeground(Qt::red);
     
     while(!highlightCursor.isNull() && !highlightCursor.atEnd()) {
-      highlightCursor = document->find(searchString, 
-				       highlightCursor,
-				       QTextDocument::FindWholeWords);
+      highlightCursor = document->find(searchString, highlightCursor);
       
       if(!highlightCursor.isNull()) {
 	found = true;
-	highlightCursor.movePosition(QTextCursor::WordRight,
-				     QTextCursor::KeepAnchor);
 	highlightCursor.mergeCharFormat(colorFormat);
       }
     }
@@ -298,10 +298,10 @@ void SifWindow::findSlot()
     cursor.endEditBlock();
     firstTime = false;
     
-    if(found == false) {
-      QMessageBox::information(this, tr("String not found"),
+    if(!found)
+      QMessageBox::information(this,
+			       tr("String not found"),
 			       "String to search for was not found");
-    }
   }
 
   statusBar()->showMessage(tr("Ready"));
