@@ -62,7 +62,6 @@ SifWindow::SifWindow(QWidget *parent)
   createToolBars();
   createStatusBar();
 
-  firstTime = true;
   found = false;
 
   setWindowTitle(tr("Solver Input File"));
@@ -129,10 +128,6 @@ void SifWindow::createActions()
   findAct->setShortcut(tr("Ctrl+F"));
   findAct->setStatusTip(tr("Find text in document"));
   connect(findAct, SIGNAL(triggered()), this, SLOT(findSlot()));
-
-  clearAct = new QAction(QIcon(":/icons/edit-clear.png"), tr("Clear"), this);
-  clearAct->setStatusTip(tr("Clear document"));
-  connect(clearAct, SIGNAL(triggered()), this, SLOT(clearSlot()));
 }
 
 void SifWindow::createMenus()
@@ -152,8 +147,6 @@ void SifWindow::createMenus()
   editMenu->addAction(pasteAct);
   editMenu->addSeparator();
   editMenu->addAction(findAct);
-  editMenu->addSeparator();
-  editMenu->addAction(clearAct);
 }
 
 void SifWindow::createToolBars()
@@ -163,8 +156,6 @@ void SifWindow::createToolBars()
   fileToolBar->addAction(openAct);
   fileToolBar->addAction(saveAct);
   fileToolBar->addAction(printAct);
-  fileToolBar->addSeparator();
-  fileToolBar->addAction(exitAct);
 
   editToolBar = addToolBar(tr("&Edit"));
   editToolBar->addAction(cutAct);
@@ -173,8 +164,6 @@ void SifWindow::createToolBars()
   editToolBar->addSeparator();
   editToolBar->addWidget(lineEdit);
   editToolBar->addAction(findAct);
-  editToolBar->addSeparator();
-  editToolBar->addAction(clearAct);
 }
 
 void SifWindow::createStatusBar()
@@ -248,8 +237,6 @@ void SifWindow::printSlot()
   QTextDocument *document = textEdit->document();
   QPrinter printer;
 
-  statusBar()->showMessage(tr("Printing..."));
-
   QPrintDialog *printDialog = new QPrintDialog(&printer, this);
   if (printDialog->exec() != QDialog::Accepted)
     return;
@@ -266,15 +253,16 @@ void SifWindow::findSlot()
   QString searchString = lineEdit->text().trimmed();
   QTextDocument *document = textEdit->document();
   
-  if(!firstTime && found)
+  if(found)
     document->undo();
 
   found = false;
   
   if(searchString == "") {
     QMessageBox::information(this,
-			     tr("Empty search field"),
-			     "String to search for is empty");
+			     tr("Empty string"),
+			     "Please enter a string in the "
+			     "line edit box in the tool bar");
   } else {
     
     QTextCursor highlightCursor(document);  
@@ -296,19 +284,11 @@ void SifWindow::findSlot()
     }
     
     cursor.endEditBlock();
-    firstTime = false;
     
     if(!found)
       QMessageBox::information(this, tr("String not found"),
-			       "String to search for was not found");
+			"The string was not found in the document");
   }
-
-  statusBar()->showMessage(tr("Ready"));
-}
-
-void SifWindow::clearSlot()
-{
-  textEdit->clear();
 
   statusBar()->showMessage(tr("Ready"));
 }

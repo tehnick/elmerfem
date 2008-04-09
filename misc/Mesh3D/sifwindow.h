@@ -18,7 +18,6 @@ public:
   QSize sizeHint() const;
 
   QTextEdit *textEdit;
-  bool firstTime;
   bool found;
 
 private slots:
@@ -27,7 +26,6 @@ private slots:
   void saveSlot();
   void printSlot();
   void findSlot();
-  void clearSlot();
 
 private:
   QLineEdit *lineEdit;
@@ -41,7 +39,6 @@ private:
   QAction *copyAct;
   QAction *pasteAct;
   QAction *findAct;
-  QAction *clearAct;
 
   QMenu *fileMenu;
   QMenu *editMenu;
