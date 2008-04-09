@@ -65,7 +65,7 @@ SifWindow::SifWindow(QWidget *parent)
   firstTime = true;
   found = false;
 
-  setWindowTitle(tr("Editor"));
+  setWindowTitle(tr("Solver Input File"));
 }
 
 SifWindow::~SifWindow()
@@ -127,7 +127,7 @@ void SifWindow::createActions()
 
   findAct = new QAction(QIcon(":/icons/edit-find.png"), tr("&Find"), this);
   findAct->setShortcut(tr("Ctrl+F"));
-  findAct->setStatusTip(tr("Find specific string"));
+  findAct->setStatusTip(tr("Find text in document"));
   connect(findAct, SIGNAL(triggered()), this, SLOT(findSlot()));
 
   clearAct = new QAction(QIcon(":/icons/edit-clear.png"), tr("Clear"), this);
@@ -299,8 +299,7 @@ void SifWindow::findSlot()
     firstTime = false;
     
     if(!found)
-      QMessageBox::information(this,
-			       tr("String not found"),
+      QMessageBox::information(this, tr("String not found"),
 			       "String to search for was not found");
   }
 

@@ -4023,6 +4023,8 @@ void MainWindow::runsolverSlot()
   
   solverLogWindow->setWindowTitle(tr("Solver log"));
   solverLogWindow->textEdit->clear();
+  solverLogWindow->firstTime = true;
+  solverLogWindow->found = false;
   solverLogWindow->show();
 
   logMessage("Solver started");

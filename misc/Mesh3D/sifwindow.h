@@ -18,6 +18,8 @@ public:
   QSize sizeHint() const;
 
   QTextEdit *textEdit;
+  bool firstTime;
+  bool found;
 
 private slots:
   void newSlot();
@@ -51,9 +53,6 @@ private:
   void createMenus();
   void createToolBars();
   void createStatusBar();
-
-  bool firstTime;
-  bool found;
 };
 
 #endif
