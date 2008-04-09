@@ -159,25 +159,26 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
           h.widget->setStatusTip(statusTip);
 
           h.widget->setProperty( "dom address",fullName);
-          h.elem=param;
+          h.elem = param;
           hash[fullName] = h;
 
           if ( widget_enabled == "False" ) h.widget->setEnabled(false);
 
-          h.widget->setFixedHeight(20);
+          h.widget->setFixedHeight(16);
           if ( widget_type != "Label" ) {
             QLabel *label = new QLabel;
             label->setText(labelName);
             h.label = label;
             grid->addWidget(h.label,  params, 0);
             grid->addWidget(h.widget, params, 1);
+
+            if ( widget_visible == "False" ) {
+              h.label->hide();
+              h.widget->hide();
+            }
           } else {
             h.label = NULL;
             grid->addWidget(h.widget, params, 0);
-          }
-          if ( widget_visible == "False" ) {
-            h.widget->hide();
-            if ( h.label != NULL ) h.label->hide();
           }
         }
       }
@@ -205,7 +206,7 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
   lbl->setText("Name:");
 
   nameEdit  = new QLineEdit;
-  nameEdit->setText(Section + " " + QString::number(ID));
+  nameEdit->setText(Section + " " + QString::number(ID+1));
 
   applyButton = new QPushButton(tr("&Add"));
   applyButton->setIcon(addIcon);
@@ -383,13 +384,11 @@ void DynamicEditor::comboSlot(QString select)
         if ( widget_enabled == "False" ) {
           h.widget->setEnabled(false);
           if ( widget_visible == "False" ) {
-            h.label->hide();
-            h.widget->hide();
+            h.label->hide(); h.widget->hide();
           }
         } else {
           h.widget->setEnabled(true);
-          h.label->show();
-          h.widget->show();
+          h.label->show(); h.widget->show();
         }
       }
     }
@@ -405,13 +404,13 @@ void DynamicEditor::comboSlot(QString select)
         QString s=activ.text().trimmed() + ID;
         hash_entry_t h = hash[s];
         h.widget->setEnabled(true);
-        h.label->show();
-        h.widget->show();
+        h.label->show(); h.widget->show();
       }
     }
   }
 //  this->close();
-// this->layout()->show();
+  this->hide();
+  this->show();
 }
 
 

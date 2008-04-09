@@ -1712,7 +1712,7 @@ void MainWindow::editNumericalMethods(int current, int id)
   if ( spe->generalOptions == NULL )
   {
     spe->generalOptions = new DynamicEditor;
-    spe->generalOptions->setupTabs(*elmerDefs, "Solver", current);
+    spe->generalOptions->setupTabs(*elmerDefs, "Solver", current );
 
     for( int i=0; i<spe->generalOptions->tabWidget->count(); i++ )
     {
@@ -2098,7 +2098,7 @@ void MainWindow::addInitialConditionSlot()
     return;
   }
   
-  pe->setupTabs(*elmerDefs, "InitialCondition", current);
+  pe->setupTabs(*elmerDefs, "InitialCondition", current );
 
   pe->applyButton->setText("Add");
   pe->applyButton->setIcon(QIcon(":/icons/list-add.png"));
@@ -2283,7 +2283,7 @@ void MainWindow::addBoundaryConditionSlot()
     return;
   }
   
-  pe->setupTabs(*elmerDefs, "BoundaryCondition", current);
+  pe->setupTabs(*elmerDefs, "BoundaryCondition", current );
   
   pe->applyButton->setText("Add");
   pe->applyButton->setIcon(QIcon(":/icons/list-add.png"));
@@ -3817,10 +3817,10 @@ void MainWindow::boundaryComboChanged(BoundaryPropertyEditor *b, QString text)
 {
   for( int i=0; i<MAX_BCS; i++ )
   {
-    DynamicEditor *mat = &boundaryConditionEditor[i];
-    if ( mat->ID >= 0 ) {
-       if ( mat->nameEdit->text().trimmed()==text )
-         b->condition = mat; 
+    DynamicEditor *bc = &boundaryConditionEditor[i];
+    if ( bc->ID >= 0 ) {
+       if ( bc->nameEdit->text().trimmed()==text )
+         b->condition = bc; 
          b->touched = true;
          break;
     }
@@ -3939,10 +3939,10 @@ void MainWindow::initialComboChanged(BodyPropertyEditor *b, QString text)
 {
   for( int i=0; i<MAX_INITIALCONDITIONS; i++ )
   {
-    DynamicEditor *mat = &initialConditionEditor[i];
-    if ( mat->ID >= 0 ) {
-       if ( mat->nameEdit->text().trimmed()==text )
-         b->initial = mat; 
+    DynamicEditor *ic = &initialConditionEditor[i];
+    if ( ic->ID >= 0 ) {
+       if ( ic->nameEdit->text().trimmed()==text )
+         b->initial = ic; 
          b->touched = true;
          break;
     }
@@ -3954,10 +3954,10 @@ void MainWindow::forceComboChanged(BodyPropertyEditor *b, QString text)
 {
   for( int i=0; i<MAX_BODYFORCES; i++ )
   {
-    DynamicEditor *mat = &bodyForceEditor[i];
-    if ( mat->ID >= 0 ) {
-       if ( mat->nameEdit->text().trimmed()==text ) {
-         b->force = mat; 
+    DynamicEditor *bf = &bodyForceEditor[i];
+    if ( bf->ID >= 0 ) {
+       if ( bf->nameEdit->text().trimmed()==text ) {
+         b->force = bf; 
          b->touched = true;
          break;
        }
@@ -3970,10 +3970,10 @@ void MainWindow::equationComboChanged(BodyPropertyEditor *b, QString text)
 {
   for( int i=0; i<MAX_EQUATIONS; i++ )
   {
-    DynamicEditor *mat = &equationEditor[i];
-    if ( mat->ID >= 0 ) {
-       if ( mat->nameEdit->text().trimmed()==text ) {
-         b->equation = mat; 
+    DynamicEditor *equ = &equationEditor[i];
+    if ( equ->ID >= 0 ) {
+       if ( equ->nameEdit->text().trimmed()==text ) {
+         b->equation = equ; 
          b->touched = true;
          break;
        }
