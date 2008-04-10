@@ -554,13 +554,15 @@ void SifGenerator::parseSolverSpecificTab(DynamicEditor *solEditor, QString solv
         for( int i=1; i<dofsplit.count(); i++)
         {
           dof = dofsplit.at(i).trimmed();
-          QString subDof = dof.split(" ").at(0);
+
+          QStringList subDofSplit = dof.split(" ");
+          QString subDof = subDofSplit.at(0).trimmed();
 
           dofs = engine.evaluate(subDof).toInt32();
-          varName = varName + " " + subVarName+":"+QString::number(dofs);
+          varName = varName + " " + subVarName + ":" + QString::number(dofs);
 
-          if ( i<dofsplit.count()-1) 
-            subVarName = dof.split(" ").at(1).trimmed();
+          if ( subDofSplit.count() > 1 )
+            subVarName = subDofSplit.at(1).trimmed();
         }
         varName = varName + "]";
         addSifLine( "  Variable = ", varName );
