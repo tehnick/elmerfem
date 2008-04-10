@@ -535,13 +535,15 @@ void SifGenerator::parseSolverSpecificTab(DynamicEditor *solEditor, QString solv
     if ( tabName != solverName ) continue;
 
 
-    // variable name handled separately...
-    // ----------------------------------
-    if ( labelName == "Variable" ) {
+    // variable names handled separately...
+    // ------------------------------------
+    if ( labelName=="Variable" || labelName.mid(0,17)=="Exported Variable" ) {
       int dofs = 1;
 
       QLineEdit *l = (QLineEdit *)entry.widget;
       QString varName = l->text().trimmed();
+
+      if ( varName == "" ) continue;
 
       QStringList dofsplit = varName.split("[");
       if ( dofsplit.count()>1 ) {
@@ -559,13 +561,14 @@ void SifGenerator::parseSolverSpecificTab(DynamicEditor *solEditor, QString solv
           QString subDof = subDofSplit.at(0).trimmed();
 
           dofs = engine.evaluate(subDof).toInt32();
-          varName = varName + " " + subVarName + ":" + QString::number(dofs);
+          if (i>1) varName = varName + " ";
+          varName = varName + subVarName + ":" + QString::number(dofs);
 
           if ( subDofSplit.count() > 1 )
             subVarName = subDofSplit.at(1).trimmed();
         }
         varName = varName + "]";
-        addSifLine( "  Variable = ", varName );
+        addSifLine( "  " + labelName + " = ", varName );
       } else {
         dofsplit = varName.split("(");
         if ( dofsplit.count()>1 ) {
@@ -576,7 +579,7 @@ void SifGenerator::parseSolverSpecificTab(DynamicEditor *solEditor, QString solv
           dofs = engine.evaluate(dof).toInt32();
         }
         if ( dofs <= 0 ) dofs = 1;
-        addSifLine( "  Variable = -dofs ",  QString::number(dofs) + " " + varName );
+        addSifLine( "  "+labelName+" = -dofs ",  QString::number(dofs) + " " + varName );
       }
       continue;
     }
