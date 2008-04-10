@@ -60,7 +60,6 @@ class SifGenerator  {
 
  private:
   void parseSolverSpecificTab(DynamicEditor *, QString);
-  void parseProcedure(Ui::solverParameterEditor);
   void parseGeneralTab(Ui::solverParameterEditor);
   void parseSteadyStateTab(Ui::solverParameterEditor);
   void parseNonlinearSystemTab(Ui::solverParameterEditor);

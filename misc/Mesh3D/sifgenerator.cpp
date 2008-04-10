@@ -497,18 +497,6 @@ void SifGenerator::makeBoundaryBlocks()
 }
 
 
-// Parse "Procedure fields" from ui to sif:
-//-----------------------------------------------------------------------------
-void SifGenerator::parseProcedure(Ui::solverParameterEditor ui)
-{
-  if((ui.procedureFileEdit->text() == "") ||
-     (ui.procedureFunctionEdit->text() == ""))
-    return;
-
-  te->append("  Procedure = \"" + ui.procedureFileEdit->text() + "\" "
-	                 + "\"" + ui.procedureFunctionEdit->text() + "\"");
-}
-
 
 // Parse "Solver specific tab"
 //-----------------------------------------------------------------------------
