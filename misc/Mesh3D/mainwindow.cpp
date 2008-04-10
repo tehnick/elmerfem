@@ -198,29 +198,38 @@ void MainWindow::createActions()
   // File -> Open file
   openAct = new QAction(QIcon(":/icons/document-open.png"), tr("&Open..."), this);
   openAct->setShortcut(tr("Ctrl+O"));
-  openAct->setStatusTip(tr("Open model input file"));
+  openAct->setStatusTip(tr("Open geometry input file"));
   connect(openAct, SIGNAL(triggered()), 
 	  this, SLOT(openSlot()));
   
-  // File -> Import mesh
-  loadAct = new QAction(QIcon(":/icons/document-open-folder.png"), tr("&Import..."), this);
-  loadAct->setShortcut(tr("Ctrl+I"));
-  loadAct->setStatusTip(tr("Import Elmer mesh files"));
+  // File -> Load mesh...
+  loadAct = new QAction(QIcon(":/icons/document-open-folder.png"), tr("&Load mesh..."), this);
+  loadAct->setShortcut(tr("Ctrl+L"));
+  loadAct->setStatusTip(tr("Load Elmer mesh files"));
   connect(loadAct, SIGNAL(triggered()), 
 	  this, SLOT(loadSlot()));
   
-  // File -> Export file
+  // File -> Load project...
+  loadProjectAct = new QAction(QIcon(":/icons/document-import.png"), tr("Load &project..."), this);
+  loadProjectAct->setStatusTip(tr("Load previously saved project"));
+  connect(loadProjectAct, SIGNAL(triggered()), this, SLOT(loadProjectSlot()));
+
+  // File -> Save...
   saveAct = new QAction(QIcon(":/icons/document-save.png"), tr("&Save..."), this);
-  saveAct->setShortcut(tr("Ctrl+E"));
-  saveAct->setStatusTip(tr("Export Elmer mesh files"));
+  saveAct->setShortcut(tr("Ctrl+S"));
+  saveAct->setStatusTip(tr("Save Elmer mesh and SIF-files"));
   connect(saveAct, SIGNAL(triggered()), 
 	  this, SLOT(saveSlot()));
 
-  // File -> Export file
-  saveAsAct = new QAction(QIcon(":/icons/document-save.png"), tr("&Save As..."), this);
-  saveAsAct->setStatusTip(tr("Export Elmer mesh files"));
-  connect(saveAsAct, SIGNAL(triggered()), 
-	  this, SLOT(saveAsSlot()));
+  // File -> Save as...
+  saveAsAct = new QAction(QIcon(":/icons/document-save-as.png"), tr("&Save as..."), this);
+  saveAsAct->setStatusTip(tr("Save Elmer mesh and SIF-files"));
+  connect(saveAsAct, SIGNAL(triggered()), this, SLOT(saveAsSlot()));
+
+  // File -> Save project...
+  saveProjectAct = new QAction(QIcon(":/icons/document-export.png"), tr("&Save project..."), this);
+  saveProjectAct->setStatusTip(tr("Save current project"));
+  connect(saveProjectAct, SIGNAL(triggered()), this, SLOT(saveProjectSlot()));
 
   // File -> Exit
   exitAct = new QAction(QIcon(":/icons/application-exit.png"), tr("E&xit"), this);
@@ -456,8 +465,11 @@ void MainWindow::createMenus()
   fileMenu = menuBar()->addMenu(tr("&File"));
   fileMenu->addAction(openAct);
   fileMenu->addAction(loadAct);
+  fileMenu->addAction(loadProjectAct);
+  fileMenu->addSeparator();
   fileMenu->addAction(saveAct);
   fileMenu->addAction(saveAsAct);
+  fileMenu->addAction(saveProjectAct);
   fileMenu->addSeparator();
   fileMenu->addAction(exitAct);
 
@@ -571,7 +583,11 @@ void MainWindow::createToolBars()
   fileToolBar = addToolBar(tr("&File"));
   fileToolBar->addAction(openAct);
   fileToolBar->addAction(loadAct);
+  fileToolBar->addAction(loadProjectAct);
+  fileToolBar->addSeparator();
   fileToolBar->addAction(saveAct);
+  fileToolBar->addAction(saveAsAct);
+  fileToolBar->addAction(saveProjectAct);
 
   // Edit toolbar
   editToolBar = addToolBar(tr("&Edit"));
@@ -836,7 +852,7 @@ void MainWindow::makeElmerMeshFromNglib()
 }
 
 
-// File -> Import...
+// File -> Load mesh...
 //-----------------------------------------------------------------------------
 void MainWindow::loadSlot()
 {
@@ -1178,7 +1194,7 @@ void MainWindow::loadElmerMesh(QString dirName)
 
 
 
-// File -> Save
+// File -> Save...
 //-----------------------------------------------------------------------------
 void MainWindow::saveSlot()
 {
@@ -1195,7 +1211,7 @@ void MainWindow::saveSlot()
   saveElmerMesh(saveDirName);
 }
 
-// File -> SaveAs
+// File -> Save as...
 //-----------------------------------------------------------------------------
 void MainWindow::saveAsSlot()
 {
@@ -1213,6 +1229,156 @@ void MainWindow::saveAsSlot()
   saveElmerMesh(saveDirName);
 }
 
+
+// File -> Save project...
+//-----------------------------------------------------------------------------
+void MainWindow::saveProjectSlot()
+{
+  QString projectDirName = QFileDialog::getExistingDirectory(this, tr("Choose project directory"));
+
+  if (!projectDirName.isEmpty()) {
+    logMessage("Project directory " + projectDirName);
+  } else {
+    logMessage("Unable to save project: directory undefined");
+    return;
+  }
+
+  QString equationFileName = projectDirName + "/equation.dat";
+  logMessage("Saving equation data in " + equationFileName);
+
+  QFile equationFile(equationFileName);
+  if(!equationFile.open(QIODevice::WriteOnly)) {
+    logMessage("Unable to open " + equationFileName + " for writing");
+    return;
+  }
+
+  QTextStream equationStream(&equationFile);
+
+  for(int i = 0; i < MAX_EQUATIONS; i++) {
+    DynamicEditor *de = &equationEditor[i];
+
+    equationStream << i << "/" << (de->menuAction != NULL) << endl;
+    
+    if(de->menuAction != NULL)
+      equationStream << de->nameEdit->text().trimmed() << "\n";
+
+    for(int j = 0; j < de->hash.count(); j++) {
+      QString key = de->hash.keys().at(j);
+      hash_entry_t value = de->hash.values().at(j);
+      QDomElement elem = value.elem;
+      QWidget *widget = value.widget;
+
+      equationStream << key.toAscii() << "\n";
+      if(elem.attribute("Widget", "") == "CheckBox") {
+	QCheckBox *checkBox = (QCheckBox*)widget;
+	equationStream << "CheckBox: " << checkBox->isChecked() << "\n";
+      } else if(elem.attribute("Widget", "") == "Edit") {
+	QLineEdit *lineEdit = (QLineEdit*)widget;
+	equationStream << "Edit: " << lineEdit->text().toAscii() << "\n";
+      } else if(elem.attribute("Widget", "") == "Combo") {
+	QComboBox *comboBox = (QComboBox*)widget;
+	equationStream << "Combo: " << comboBox->currentText().toAscii() << "\n";
+      } else {
+	equationStream << "None: " << "\n";
+      }
+    }
+    equationStream << "End\n";
+  }
+  equationFile.close();
+
+}
+
+// File -> Load project...
+//-----------------------------------------------------------------------------
+void MainWindow::loadProjectSlot()
+{
+  // Have to rewrite all this in a much more generic way...:
+
+  QString projectDirName = QFileDialog::getExistingDirectory(this, tr("Choose project directory"));
+
+  if (!projectDirName.isEmpty()) {
+    logMessage("Project directory " + projectDirName);
+  } else {
+    logMessage("Unable to save project: directory undefined");
+    return;
+  }
+
+  QString equationFileName = projectDirName + "/equation.dat";
+  logMessage("Loading equation data from " + equationFileName);
+
+  QFile equationFile(equationFileName);
+  if(!equationFile.open(QIODevice::ReadOnly)) {
+    logMessage("Unable to open " + equationFileName + " for reading");
+    return;
+  }
+
+  QTextStream equationStream(&equationFile);
+
+  logMessage("Clearing model data");
+  modelClearSlot();
+
+  QString line = "";
+  QStringList splittedLine;
+
+  for(int i = 0; i < MAX_EQUATIONS; i++) {
+    DynamicEditor *de = &equationEditor[i];
+
+    line = equationStream.readLine();
+    splittedLine = line.split("/");
+
+    if(splittedLine.count() != 2) {
+      logMessage("Unexpected line in equation.dat - aborting");
+      return;
+    }
+
+    int equationNumber = splittedLine.at(0).toInt();
+    int menuActionDefined = splittedLine.at(1).toInt();
+
+    // set up tabs and add to menu
+    if(menuActionDefined > 0) {
+      QString name = equationStream.readLine();
+
+      de->setupTabs(*elmerDefs, "Equation", i);
+
+      de->nameEdit->setText(name);
+
+      de->applyButton->setText("Update");
+      de->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
+      de->discardButton->setText("Remove");
+      de->discardButton->setIcon(QIcon(":/icons/list-remove.png"));
+
+      connect(de, SIGNAL(dynamicEditorReady(int,int)), this, SLOT(pdeEditorFinishedSlot(int,int)));
+
+      de->spareButton->setText("Edit Numerical Methods");
+      de->spareButton->show();
+      de->spareButton->setIcon(QIcon(":/icons/tools-wizard.png"));      
+
+      connect(de, SIGNAL(dynamicEditorSpareButtonClicked(int, int)), this, SLOT(editNumericalMethods(int, int)));
+
+      const QString &equationName = name;
+      QAction *act = new QAction(equationName, this);
+      equationMenu->addAction(act);
+      de->menuAction = act;      
+
+      createBodyCheckBoxes(BODY_EQUATION, de);
+    }
+
+    line = equationStream.readLine();
+    while(line != "End") {
+      cout << string(line.toAscii()) << endl;
+      splittedLine = line.split("/");
+      // todo: check hash
+
+      line = equationStream.readLine();
+      cout << string(line.toAscii()) << endl;
+      splittedLine = line.split(":");
+      // todo: set contents
+
+      line = equationStream.readLine();
+    }
+  }
+  equationFile.close();
+}
 
 
 // Export mesh files in elmer-format:
