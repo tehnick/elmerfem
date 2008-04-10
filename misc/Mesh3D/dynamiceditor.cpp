@@ -28,7 +28,6 @@ DynamicEditor::DynamicEditor(QWidget *parent)
 
   menuAction = NULL;
   ID = -1;
-
   touched = false;
 }
 
@@ -164,7 +163,7 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
 
           if ( widget_enabled == "False" ) h.widget->setEnabled(false);
 
-          h.widget->setFixedHeight(16);
+          h.widget->setFixedHeight(18);
           if ( widget_type != "Label" ) {
             QLabel *label = new QLabel;
             label->setText(labelName);
