@@ -1177,10 +1177,15 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-  FUNCTION GetSolverParams() RESULT(SolverParam)
+  FUNCTION GetSolverParams(Solver) RESULT(SolverParam)
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: SolverParam
-     SolverParam => CurrentModel % Solver % Values
+     TYPE(Solver_t), OPTIONAL :: Solver
+     IF ( PRESENT(Solver) ) THEN
+       SolverParam => Solver % Values
+     ELSE
+       SolverParam => CurrentModel % Solver % Values
+     END IF
 !------------------------------------------------------------------------------
   END FUNCTION GetSolverParams
 !------------------------------------------------------------------------------
@@ -1622,7 +1627,7 @@ CONTAINS
 
      CHARACTER(LEN=MAX_NAME_LEN) :: str
 
-     LOGICAL :: Found
+     LOGICAL :: Found, BUpd
 
      INTEGER :: n, nd
      INTEGER(KIND=AddrInt) :: Proc
@@ -1696,23 +1701,26 @@ CONTAINS
      Indexes => GetIndexStore()
      n = GetElementDOFs( Indexes, Element, Solver )
      CALL UpdateGlobalEquations( A,G,b,f,n,x % DOFs,x % Perm(Indexes(1:n)) )
-     IF ( PRESENT( BulkUpdate) ) THEN
-       IF ( BulkUpdate ) THEN
-           IF ( .NOT. ASSOCIATED( A % BulkRHS ) ) THEN
-             ALLOCATE( Solver % Matrix % BulkRHS(SIZE(A % RHS)) )
-             A % BulkRHS = 0.0_dp
-          END IF
- 
-           IF ( .NOT. ASSOCIATED( A % BulkValues ) ) THEN
-             ALLOCATE( Solver % Matrix % BulkValues(SIZE(A % Values)) )
-             A % BulkValues = 0.0_dp
-          END IF
-          SaveValues => A % Values
-          A % Values => A % BulkValues
-          CALL UpdateGlobalEquations( A,G,A % BulkRHS,f,n, &
-                   x % DOFs,x % Perm(Indexes(1:n)), RotateNT=.FALSE. )
-          A % Values => SaveValues
+
+     BUpd = .FALSE.
+     IF ( PRESENT(BulkUpdate) ) BUpd=BulkUpdate 
+     BUpd = BUpd .OR. GetLogical( GetSolverParams(Solver), 'Calculate Loads', Found )
+
+     IF ( BUpd ) THEN
+        IF ( .NOT. ASSOCIATED( A % BulkRHS ) ) THEN
+          ALLOCATE( Solver % Matrix % BulkRHS(SIZE(A % RHS)) )
+          A % BulkRHS = 0.0_dp
        END IF
+
+        IF ( .NOT. ASSOCIATED( A % BulkValues ) ) THEN
+          ALLOCATE( Solver % Matrix % BulkValues(SIZE(A % Values)) )
+          A % BulkValues = 0.0_dp
+       END IF
+       SaveValues => A % Values
+       A % Values => A % BulkValues
+       CALL UpdateGlobalEquations( A,G,A % BulkRHS,f,n, &
+                x % DOFs,x % Perm(Indexes(1:n)), RotateNT=.FALSE. )
+       A % Values => SaveValues
      END IF
 !------------------------------------------------------------------------------
   END SUBROUTINE DefaultUpdateEquationsR
@@ -1735,6 +1743,8 @@ CONTAINS
      REAL(KIND=dp), POINTER    :: b(:), SaveValues(:)
 
      REAL(KIND=dp), POINTER :: G(:,:), F(:)
+
+     LOGICAL :: Found, BUpd
 
      INTEGER :: i,j,n,DOFs
      INTEGER, POINTER :: Indexes(:)
@@ -1794,23 +1804,26 @@ CONTAINS
      END DO
 
      CALL UpdateGlobalEquations( A,G,b,f,n,x % DOFs,x % Perm(Indexes(1:n)) )
-     IF ( PRESENT( BulkUpdate) ) THEN
-       IF ( BulkUpdate ) THEN
-          IF ( .NOT. ASSOCIATED( A % BulkRHS ) ) THEN
-            ALLOCATE( Solver % Matrix % BulkRHS(SIZE(A % RHS)) )
-            A % BulkRHS = 0.0_dp
-         END IF
 
-          IF ( .NOT. ASSOCIATED( A % BulkValues ) ) THEN
-            ALLOCATE( Solver % Matrix % BulkValues(SIZE(A % Values)) )
-            A % BulkValues = 0.0_dp
-         END IF
-          SaveValues => A % Values
-          A % Values => A % BulkValues
-          CALL UpdateGlobalEquations( A,G,A % BulkRHS,f,n, &
-            x % DOFs,x % Perm(Indexes(1:n)), RotateNT=.FALSE. )
-          A % Values => SaveValues
+     BUpd = .FALSE.
+     IF ( PRESENT(BulkUpdate) ) BUpd=BulkUpdate 
+     BUpd = BUpd .OR. GetLogical( GetSolverParams(Solver), 'Calculate Loads', Found )
+
+     IF (BUpd) THEN
+        IF ( .NOT. ASSOCIATED( A % BulkRHS ) ) THEN
+          ALLOCATE( Solver % Matrix % BulkRHS(SIZE(A % RHS)) )
+          A % BulkRHS = 0.0_dp
        END IF
+
+        IF ( .NOT. ASSOCIATED( A % BulkValues ) ) THEN
+          ALLOCATE( Solver % Matrix % BulkValues(SIZE(A % Values)) )
+          A % BulkValues = 0.0_dp
+       END IF
+        SaveValues => A % Values
+        A % Values => A % BulkValues
+        CALL UpdateGlobalEquations( A,G,A % BulkRHS,f,n, &
+          x % DOFs,x % Perm(Indexes(1:n)), RotateNT=.FALSE. )
+        A % Values => SaveValues
      END IF
  
      DEALLOCATE( G, F)
@@ -1830,6 +1843,8 @@ CONTAINS
     TYPE(Solver_t), POINTER :: Solver
     TYPE(Variable_t), POINTER :: x
     TYPE(Element_t), POINTER  :: Element, P1, P2
+
+    LOGICAL :: Found, BUpd
 
     INTEGER :: n
     INTEGER, POINTER :: Indexes(:)
@@ -1866,15 +1881,18 @@ CONTAINS
 
     CALL UpdateGlobalForce( Solver % Matrix % RHS, &
        F, n, x % DOFs, x % Perm(Indexes(1:n)) )
-    IF ( PRESENT(BulkUpdate) ) THEN
-      IF ( BulkUpdate ) THEN
-         IF ( .NOT. ASSOCIATED( Solver % Matrix % BulkRHS ) ) THEN 
-           ALLOCATE( Solver % Matrix % BulkRHS(SIZE(Solver % Matrix % RHS)) )
-           Solver % Matrix % BulkRHS = 0.0_dp
-         END IF
-         CALL UpdateGlobalForce( Solver % Matrix % BulkRHS, &
-            F, n, x % DOFs, x % Perm(Indexes(1:n)), RotateNT=.FALSE. )
+
+    BUpd = .FALSE.
+    IF ( PRESENT(BulkUpdate) ) BUpd=BulkUpdate 
+    BUpd = BUpd .OR. GetLogical( GetSolverParams(Solver), 'Calculate Loads', Found )
+
+    IF ( BUpd ) THEN
+      IF ( .NOT. ASSOCIATED( Solver % Matrix % BulkRHS ) ) THEN 
+        ALLOCATE( Solver % Matrix % BulkRHS(SIZE(Solver % Matrix % RHS)) )
+        Solver % Matrix % BulkRHS = 0.0_dp
       END IF
+      CALL UpdateGlobalForce( Solver % Matrix % BulkRHS, &
+         F, n, x % DOFs, x % Perm(Indexes(1:n)), RotateNT=.FALSE. )
     END IF
 !------------------------------------------------------------------------------
   END SUBROUTINE DefaultUpdateForceR

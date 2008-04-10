@@ -789,6 +789,7 @@ CONTAINS
       !------------------------------------------------------------------------------
     END SELECT
 
+
     l = 1
     DO WHILE( .TRUE. )
       str = ComponentName( 'exported variable', l )
@@ -859,7 +860,33 @@ CONTAINS
       END IF
       l = l + 1
     END DO
-      !------------------------------------------------------------------------------
+
+    IF ( ListGetLogical( Solver % Values,'Calculate Loads', Found ) ) THEN
+      Var_name = GetVarName(Solver % Variable) // ' Loads'
+      Var => VariableGet( Solver % Mesh % Variables, var_name )
+      IF ( .NOT. ASSOCIATED(Var) ) THEN
+        ALLOCATE( Solution(nRows) )
+        DOFs = Solver % Variable % DOFs
+        Solution = 0.0d0
+        Perm => Solver % Variable % Perm
+
+        CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
+           var_name, Solver % Variable % DOFs, Solution, &
+              Solver % Variable % Perm, Output=VariableOutput )
+
+        IF ( DOFs > 1 ) THEN
+          n = LEN_TRIM( Var_name )
+          DO j=1,DOFs
+            tmpname = ComponentName( var_name(1:n), j )
+            Component => Solution( j:nRows-DOFs+j:DOFs )
+            CALL VariableAdd( Solver % Mesh % Variables, Solver % Mesh, Solver,&
+                tmpname, 1, Component, Perm, Output=VariableOutput )
+          END DO
+        END IF
+      END IF
+    END IF
+    !------------------------------------------------------------------------------
+
 
     Solver % NOFEigenValues = 0
     !   NULLIFY( Solver % Variable % PrevValues )
