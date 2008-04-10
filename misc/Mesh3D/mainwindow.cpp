@@ -2221,7 +2221,6 @@ void MainWindow::createBoundaryCheckBoxes(DynamicEditor *pe)
      int n=glWidget->boundaryMap.key(i);
      if ( n >= 0 ) {
         int m=glWidget->boundaryMap.value(n);
-cerr << i << " " << n << " " << m << endl;
 
         BoundaryPropertyEditor *boundary = &boundaryPropertyEditor[m];
         populateBoundaryComboBoxes(boundary);
@@ -3818,14 +3817,15 @@ void MainWindow::populateBoundaryComboBoxes(BoundaryPropertyEditor *boundary)
 //-----------------------------------------------------------------------------
 void MainWindow::boundaryComboChanged(BoundaryPropertyEditor *b, QString text)
 {
-  for( int i=0; i<MAX_BCS; i++ )
+  for( int i=0; i<100; i++ )
   {
     DynamicEditor *bc = &boundaryConditionEditor[i];
     if ( bc->ID >= 0 ) {
-       if ( bc->nameEdit->text().trimmed()==text )
+       if ( bc->nameEdit->text().trimmed()==text ) {
          b->condition = bc; 
          b->touched = true;
          break;
+       }
     }
   }
 }
@@ -3944,10 +3944,11 @@ void MainWindow::initialComboChanged(BodyPropertyEditor *b, QString text)
   {
     DynamicEditor *ic = &initialConditionEditor[i];
     if ( ic->ID >= 0 ) {
-       if ( ic->nameEdit->text().trimmed()==text )
+       if ( ic->nameEdit->text().trimmed()==text ) {
          b->initial = ic; 
          b->touched = true;
          break;
+      }
     }
   }
 }
