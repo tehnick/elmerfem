@@ -323,8 +323,16 @@ void DynamicEditor::lSlot(int state)
     hash[q].widget->setEnabled(state);
     QString widget_visible = hash[q].elem.attribute("Visible","True");
     if ( state == false && widget_visible == "False" ) {
-      hash[q].label->hide();
-      hash[q].widget->hide();
+      hash[q].label->hide(); hash[q].widget->hide();
+    }
+  }
+  param = hash[q].elem.firstChildElement("Deactivate");
+  for( ;!param.isNull(); param=param.nextSiblingElement("Deactivate") ) {
+    q = param.text().trimmed() + ID;
+    hash[q].widget->setEnabled(!state);
+    QString widget_visible = hash[q].elem.attribute("Visible","True");
+    if ( state == true && widget_visible == "False" ) {
+      hash[q].label->hide(); hash[q].widget->hide();
     }
   }
 }

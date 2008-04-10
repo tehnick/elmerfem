@@ -68,23 +68,23 @@
              <Activate> /Navier-Stokes/BodyForce/Velocity 1 Condition </Activate>
              <Whatis> Dirichlet condition for the velocity in coordinate direction 1. </Whatis>
           </Parameter>
-          <Parameter Widget="Edit" Enabled="False">
-             <Name> Velocity 1 Condition </Name>
-             <Whatis> If the given value is less than zero, don't set the Dirichlet condition. To be generally useful space and/or time varying values may be given. </Whatis>
-          </Parameter>
           <Parameter Widget="Edit">
              <Name> Velocity 2 </Name>
              <Activate> /Navier-Stokes/BodyForce/Velocity 2 Condition </Activate>
              <Whatis> Dirichlet condition for the velocity in coordinate direction 2. </Whatis>
           </Parameter>
-          <Parameter Widget="Edit" Enabled="False">
-             <Name> Velocity 2 Condition </Name>
-             <Whatis> If the given value is less than zero, don't set the Dirichlet condition. To be generally useful space and/or time varying values may be given. </Whatis>
-          </Parameter>
           <Parameter Widget="Edit">
              <Name> Velocity 3 </Name>
              <Activate> /Navier-Stokes/BodyForce/Velocity 3 Condition </Activate>
              <Whatis> Dirichlet condition for the velocity in coordinate direction 3. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit" Enabled="False">
+             <Name> Velocity 1 Condition </Name>
+             <Whatis> If the given value is less than zero, don't set the Dirichlet condition. To be generally useful space and/or time varying values may be given. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit" Enabled="False">
+             <Name> Velocity 2 Condition </Name>
+             <Whatis> If the given value is less than zero, don't set the Dirichlet condition. To be generally useful space and/or time varying values may be given. </Whatis>
           </Parameter>
           <Parameter Widget="Edit" Enabled="False">
              <Name> Velocity 3 Condition </Name>
@@ -263,28 +263,36 @@
          </Parameter>
 
          <Parameter Widget="Label"> <Name> Dirichlet Conditions </Name> </Parameter>
+          <Parameter Widget="CheckBox">
+             <Name> Noslip wall BC </Name>
+             <Deactivate> /Navier-Stokes/BoundaryCondition/Velocity 1 </Deactivate>
+             <Deactivate> /Navier-Stokes/BoundaryCondition/Velocity 2 </Deactivate>
+             <Deactivate> /Navier-Stokes/BoundaryCondition/Velocity 3 </Deactivate>
+             <Whatis> Noslip condition for velocities + turbulence variables. </Whatis>
+          </Parameter>
+
           <Parameter Widget="Edit">
              <Name> Velocity 1 </Name>
              <Activate> /Navier-Stokes/BoundaryCondition/Velocity 1 Condition </Activate>
              <Whatis> Dirichlet condition for the velocity in coordinate direction 1. </Whatis>
-          </Parameter>
-          <Parameter Widget="Edit" Enabled="False">
-             <Name> Velocity 1 Condition </Name>
-             <Whatis> If the given value is less than zero, don't set the Dirichlet condition. To be generally useful space and/or time varying values may be given. </Whatis>
           </Parameter>
           <Parameter Widget="Edit">
              <Name> Velocity 2 </Name>
              <Activate> /Navier-Stokes/BoundaryCondition/Velocity 2 Condition </Activate>
              <Whatis> Dirichlet condition for the velocity in coordinate direction 2. </Whatis>
           </Parameter>
-          <Parameter Widget="Edit" Enabled="False">
-             <Name> Velocity 2 Condition </Name>
-             <Whatis> If the given value is less than zero, don't set the Dirichlet condition. To be generally useful space and/or time varying values may be given. </Whatis>
-          </Parameter>
           <Parameter Widget="Edit">
              <Name> Velocity 3 </Name>
              <Activate> /Navier-Stokes/BoundaryCondition/Velocity 3 Condition </Activate>
              <Whatis> Dirichlet condition for the velocity in coordinate direction 3. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit" Enabled="False">
+             <Name> Velocity 1 Condition </Name>
+             <Whatis> If the given value is less than zero, don't set the Dirichlet condition. To be generally useful space and/or time varying values may be given. </Whatis>
+          </Parameter>
+          <Parameter Widget="Edit" Enabled="False">
+             <Name> Velocity 2 Condition </Name>
+             <Whatis> If the given value is less than zero, don't set the Dirichlet condition. To be generally useful space and/or time varying values may be given. </Whatis>
           </Parameter>
           <Parameter Widget="Edit" Enabled="False">
              <Name> Velocity 3 Condition </Name>
@@ -313,12 +321,24 @@
 
          <Parameter Widget="Edit">
             <Name> Surface Tension Coefficient </Name>
-            <Whatis> Triggers the same physical model as the previous one except no linearity is assumed. The value is assumed to hold the dependence explicitely. </Whatis>
+            <Whatis> Tangential derivative of this coefficient is used as (tangential) force. </Whatis>
          </Parameter>
 
          <Parameter Widget="Edit">
             <Name> Surface Tension Expansion Coefficient </Name>
             <Whatis> Triggers a tangetial stress boundary condition to be used. If the keyword Surface Tension Expansion Coefficient is given, a linear dependence of the surface tension coefficient on the temperature is assumed. Note that this boundary condition is the tangential derivative of the surface tension coefficient. </Whatis>
+         </Parameter>
+         <Parameter Widget="Edit">
+            <Name> Slip Coefficient 1 </Name>
+            <Whatis> Apply friction type of boundary condition: slip_i*u_i - (tau,n)_i = f_i." </Whatis>
+         </Parameter>
+         <Parameter Widget="Edit">
+            <Name> Slip Coefficient 2 </Name>
+            <Whatis> Apply friction type of boundary condition: slip_i*u_i - (tau,n)_i = f_i." </Whatis>
+         </Parameter>
+         <Parameter Widget="Edit">
+            <Name> Slip Coefficient 3 </Name>
+            <Whatis> Apply friction type of boundary condition: slip_i*u_i - (tau,n)_i = f_i." </Whatis>
          </Parameter>
 
       </BoundaryCondition>
