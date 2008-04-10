@@ -4271,7 +4271,8 @@ void MainWindow::resultsSlot()
 
   args << "readfile skeleton.ep; "
     "set ColorScaleY -0.85; "
-    "set ColorScaleDecimals 3;"
+    "set ColorScaleEntries  4;"
+    "set ColorScaleDecimals 2;"
     "set ColorScaleColor " + name + ";"
     "set DisplayStyle(ColorScale) 1; "
     "set MeshStyle 1; "
