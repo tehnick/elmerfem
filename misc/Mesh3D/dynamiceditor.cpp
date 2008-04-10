@@ -215,10 +215,22 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
   discardButton->setIcon(removeIcon);
   connect(discardButton, SIGNAL(clicked()), this, SLOT(discardButtonClicked()));
 
+  okButton = new QPushButton(tr("&OK"));
+  okButton->setIcon(addIcon);
+  connect(okButton, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
+
+  newButton = new QPushButton(tr("&New"));
+  newButton->setIcon(addIcon);
+  connect(newButton, SIGNAL(clicked()), this, SLOT(newButtonClicked()));
+
+  QHBoxLayout *nameLayout = new QHBoxLayout;  
+  nameLayout->addWidget(lbl);
+  nameLayout->addWidget(nameEdit);
+
   QHBoxLayout *buttonLayout = new QHBoxLayout;  
-  buttonLayout->addWidget(lbl);
-  buttonLayout->addWidget(nameEdit);
+  buttonLayout->addWidget(newButton);
   buttonLayout->addWidget(applyButton);
+  buttonLayout->addWidget(okButton);
   buttonLayout->addWidget(discardButton);
 
   QHBoxLayout *spareButtonLayout = new QHBoxLayout;  
@@ -236,6 +248,7 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
   mainLayout->addWidget(tabWidget);
   mainLayout->addWidget(spareScroll);
   mainLayout->addLayout(spareButtonLayout);
+  mainLayout->addLayout(nameLayout);
   mainLayout->addLayout(buttonLayout);
   setLayout(mainLayout);
 
@@ -433,22 +446,10 @@ QSize DynamicEditor::sizeHint() const
   return QSize(400, 300);
 }
 
-//----------------------------------------------------------------------------
-void DynamicEditor::applyButtonClicked()
-{
-#define MAT_OK     0
-#define MAT_DELETE 1
-
-  cout << "Dynamic editor: Add-button clicked" << endl;
-  cout.flush();
-
-  touched = true;
-
-  emit(dynamicEditorReady(MAT_OK, ID));
-
-  close();
-}
-
+#define MAT_APPLY  0
+#define MAT_OK     1
+#define MAT_NEW    2
+#define MAT_DELETE 3
 //----------------------------------------------------------------------------
 void DynamicEditor::spareButtonClicked()
 {
@@ -456,10 +457,21 @@ void DynamicEditor::spareButtonClicked()
 }
 
 //----------------------------------------------------------------------------
+void DynamicEditor::applyButtonClicked()
+{
+
+  cout << "Dynamic editor: apply-button clicked" << endl;
+  cout.flush();
+
+  touched = true;
+
+  emit(dynamicEditorReady(MAT_APPLY, ID));
+}
+
+
+//----------------------------------------------------------------------------
 void DynamicEditor::discardButtonClicked()
 {
-#define MAT_OK     0
-#define MAT_DELETE 1
 
   cout << "Dynamic editor: Remove-button clicked" << endl;
   cout.flush();
@@ -467,6 +479,27 @@ void DynamicEditor::discardButtonClicked()
   touched = false;
 
   emit(dynamicEditorReady(MAT_DELETE, ID));
+}
 
-  close();
+//----------------------------------------------------------------------------
+void DynamicEditor::okButtonClicked()
+{
+
+  cout << "Dynamic editor: ok-button clicked" << endl;
+  cout.flush();
+
+  touched = false;
+
+  emit(dynamicEditorReady(MAT_OK, ID));
+}
+
+//----------------------------------------------------------------------------
+void DynamicEditor::newButtonClicked()
+{
+  cout << "Dynamic editor: next-button clicked" << endl;
+  cout.flush();
+
+  touched = false;
+
+  emit(dynamicEditorReady(MAT_NEW, ID));
 }

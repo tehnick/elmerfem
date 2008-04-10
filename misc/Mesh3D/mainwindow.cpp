@@ -1896,35 +1896,38 @@ void MainWindow::editNumericalMethods(int current, int id)
   spe->raise();
 }
 
+
+#define MAT_APPLY  0
+#define MAT_OK     1
+#define MAT_NEW    2
+#define MAT_DELETE 3
+
 // signal (int,int) emitted by equation editor when ready:
 //-----------------------------------------------------------------------------
 void MainWindow::pdeEditorFinishedSlot(int signal, int id)
 {
-#define MAT_OK     0
-#define MAT_DELETE 1
   
   DynamicEditor *pe = &equationEditor[id];
   
   const QString &equationName = pe->nameEdit->text().trimmed();
 
-  if((equationName == "") && (signal == MAT_OK)) {
+  bool signalOK = signal==MAT_OK || signal==MAT_APPLY;
+
+  if((equationName == "") && signalOK ) {
     logMessage("Refusing to add/update equation without name");
     return;
   }
   
-  if(signal == MAT_OK) {
-    
-    // Equation already exists:
+  if( signalOK ) {
     if(pe->menuAction != NULL) {
       pe->menuAction->setText(equationName);
       logMessage("Equation updated");
-      pe->close();
-      return;
+      if ( signal==MAT_OK ) pe->close();
     }
-  }
+  } else if (signal==MAT_NEW) {
+    addEquationSlot();
 
-  if(signal == MAT_DELETE) {
-
+  } else if(signal == MAT_DELETE) {
     // Equation is not in menu:
     if(pe->menuAction == NULL) {
       logMessage("Ready");
@@ -1953,8 +1956,7 @@ void MainWindow::equationSelectedSlot(QAction* act)
       pe->discardButton->setText("Remove");
       pe->discardButton->setIcon(QIcon(":/icons/list-remove.png"));
       createBodyCheckBoxes(BODY_EQUATION,pe);
-      pe->show();
-      pe->raise();
+      pe->show(); pe->raise();
     }
   }
 }
@@ -2030,30 +2032,28 @@ void MainWindow::addMaterialSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::matEditorFinishedSlot(int signal, int id)
 {
-#define MAT_OK     0
-#define MAT_DELETE 1
 
   DynamicEditor *pe = &materialEditor[id];
   
-
   const QString &materialName = pe->nameEdit->text().trimmed();
-  if((materialName == "") && (signal == MAT_OK)) {
+
+  bool signalOK = signal==MAT_OK || signal==MAT_APPLY;
+  if((materialName == "") && signalOK ) {
     logMessage("Refusing to add/update material with no name");
     return;
   }
   
-  if(signal == MAT_OK) {
-    
-    // Material already exists:
+  if( signalOK ) {
     if(pe->menuAction != NULL) {
       pe->menuAction->setText(materialName);
       logMessage("Material updated");
-      pe->close();
+      if ( signal == MAT_OK ) pe->close();
       return;
     }
-  }
+  } else if ( signal==MAT_NEW ) {
+    addMaterialSlot();
 
-  if(signal == MAT_DELETE) {
+  } else if(signal == MAT_DELETE) {
 
     // Material is not in menu:
     if(pe->menuAction == NULL) {
@@ -2160,31 +2160,28 @@ void MainWindow::addBodyForceSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::bodyForceEditorFinishedSlot(int signal, int id)
 {
-#define MAT_OK     0
-#define MAT_DELETE 1
-  
   DynamicEditor *pe = &bodyForceEditor[id];
   
   const QString &bodyForceName = pe->nameEdit->text().trimmed();
+
+  bool signalOK = signal==MAT_OK || signal==MAT_APPLY;
   
-  if((bodyForceName == "") && (signal == MAT_OK)) {
+  if((bodyForceName == "") && signalOK ) {
     logMessage("Refusing to add/update body force with no name");
     return;
   }
   
-  if(signal == MAT_OK) {
-    // Body force already exists:
+  if( signalOK ) {
     if(pe->menuAction != NULL) {
       pe->menuAction->setText(bodyForceName);
       logMessage("Body force updated");
-      pe->close();
-      return;
+      if ( signal==MAT_OK ) pe->close();
     }
-  }
-  
-  if(signal == MAT_DELETE) {
-    
-    // Body force is not in menu:
+
+  } else if (signal==MAT_NEW) {
+     addBodyForceSlot(); 
+
+  } else if(signal == MAT_DELETE) {
     if(pe->menuAction == NULL) {
       logMessage("Ready");
       pe->close();
@@ -2288,30 +2285,26 @@ void MainWindow::addInitialConditionSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::initialConditionEditorFinishedSlot(int signal, int id)
 {
-#define MAT_OK     0
-#define MAT_DELETE 1
-
   DynamicEditor *pe = &initialConditionEditor[id];
   
   const QString &initialConditionName = pe->nameEdit->text().trimmed();
   
-  if((initialConditionName == "") && (signal == MAT_OK)) {
+  bool signalOK = signal==MAT_OK || signal==MAT_APPLY;
+  if((initialConditionName == "") && signalOK ) {
     logMessage("Refusing to add/update initial condition with no name");
     return;
   }
   
-  if(signal == MAT_OK) {
-    
-    // Initial condition already exists:
+  if( signalOK ) {
     if(pe->menuAction != NULL) {
       pe->menuAction->setText(initialConditionName);
       logMessage("Initial condition updated");
-      pe->close();
-      return;
+      if ( signal==MAT_OK ) pe->close();
     }
-  }
+  } else if (signal==MAT_NEW ) {
+     addInitialConditionSlot();
 
-  if(signal == MAT_DELETE) {
+  } else if(signal == MAT_DELETE) {
 
     // Initial condition is not in menu:
     if(pe->menuAction == NULL) {
@@ -2473,30 +2466,27 @@ void MainWindow::addBoundaryConditionSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::boundaryConditionEditorFinishedSlot(int signal, int id)
 {
-#define MAT_OK     0
-#define MAT_DELETE 1
-
   DynamicEditor *pe = &boundaryConditionEditor[id];
   
   const QString &boundaryConditionName = pe->nameEdit->text().trimmed();
   
-  if((boundaryConditionName == "") && (signal == MAT_OK)) {
+  bool signalOK = signal==MAT_OK || signal==MAT_APPLY;
+
+  if((boundaryConditionName == "") && signalOK ) {
     logMessage("Refusing to add/update boundary condition with no name");
     return;
   }
   
-  if(signal == MAT_OK) {
-    
-    // Boundary condition already exists:
+  if( signalOK ) {
     if(pe->menuAction != NULL) {
       pe->menuAction->setText(boundaryConditionName);
       logMessage("Boundary condition updated");
-      pe->close();
-      return;
+      if ( signal==MAT_OK ) pe->close();
     }
-  }
+  } else if ( signal==MAT_NEW ) {
+    addBoundaryConditionSlot();
 
-  if(signal == MAT_DELETE) {
+  } else if(signal == MAT_DELETE) {
 
     // Bopundary condition is not in menu:
     if(pe->menuAction == NULL) {

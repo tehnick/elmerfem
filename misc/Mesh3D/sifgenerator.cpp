@@ -263,46 +263,8 @@ void SifGenerator::makeSolverBlocks(QString solverName)
     tmp->generalOptions->setupTabs(*elmerDefs, "Solver", current );
   }
 
-  ui = tmp->ui; 
-
-#if 0
-  bool procedureDefined = true;
-  if((ui.procedureFileEdit->text() == "") ||
-     (ui.procedureFunctionEdit->text() == ""))
-    procedureDefined = false;
-
-  if(solverName == "Heat Equation") {
-    te->append("  Variable = Temperature");
-    te->append("  Variable DOFs = 1");
-    if(procedureDefined) {
-      parseProcedure(ui);
-    } else {
-      te->append("  Procedure = \"HeatSolve\" \"HeatSolver\"");
-    }
-  }
-
-  if(solverName == "Linear elasticity") {
-    te->append("  Variable = Displacement");
-    te->append("  Variable DOFs = " + QString::number(cdim));
-    if(procedureDefined) {
-      parseProcedure(ui);
-    } else {
-      te->append("  Procedure = \"StressSolve\" \"StressSolver\"");
-    }
-  }
-
-  if(solverName == "Navier-Stokes") {
-    te->append("  Variable = Flow Solution");
-    te->append("  Variable DOFs = " + QString::number(cdim+1));
-    if(procedureDefined) {
-      parseProcedure(ui);
-    } else {
-      te->append("  Procedure = \"FlowSolve\" \"FlowSolver\"");
-    }
-  }
-#endif
-
   parseSolverSpecificTab(tmp->generalOptions, solverName);
+  ui = tmp->ui; 
   parseGeneralTab(ui);
   parseSteadyStateTab(ui);
   parseNonlinearSystemTab(ui);
@@ -515,6 +477,7 @@ void SifGenerator::parseSolverSpecificTab(DynamicEditor *solEditor, QString solv
   for(int i = 0; i < solEditor->hash.count(); i++) {
     hash_entry_t entry = solEditor->hash.values().at(i);
 
+
     QString key = solEditor->hash.keys().at(i);
     QStringList keySplitted = key.split("/");	  
     QString tabName   = keySplitted.at(1).trimmed();
@@ -526,13 +489,14 @@ void SifGenerator::parseSolverSpecificTab(DynamicEditor *solEditor, QString solv
     // variable names handled separately...
     // ------------------------------------
     if ( labelName=="Variable" || labelName.mid(0,17)=="Exported Variable" ) {
-      int dofs = 1;
+      if( entry.elem.attribute("Widget", "") != "Edit") continue;
 
       QLineEdit *l = (QLineEdit *)entry.widget;
       QString varName = l->text().trimmed();
 
       if ( varName == "" ) continue;
 
+      int dofs=1;
       QStringList dofsplit = varName.split("[");
       if ( dofsplit.count()>1 ) {
         varName = dofsplit.at(0).trimmed() + "[";
