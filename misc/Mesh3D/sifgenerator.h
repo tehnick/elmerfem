@@ -3,6 +3,7 @@
 
 #include <QTextEdit>
 #include <QHash>
+#include <QScriptEngine>
 
 #include "meshtype.h"
 #include "maxlimits.h"
@@ -27,6 +28,7 @@ class SifGenerator  {
   mesh_t *mesh;
   QTextEdit *te;
 
+  QDomDocument *elmerDefs;
   GeneralSetup *generalSetup;
   DynamicEditor *equationEditor;
   DynamicEditor *materialEditor;
@@ -40,7 +42,7 @@ class SifGenerator  {
   BodyPropertyEditor *bodyPropertyEditor;
 
   MeshControl *meshControl;
-  int cdim;
+  int dim,cdim;
 
   void makeHeaderBlock();
   void makeSimulationBlock();
@@ -57,6 +59,7 @@ class SifGenerator  {
   QHash<int, int> boundaryMap;
 
  private:
+  void parseSolverSpecificTab(DynamicEditor *, QString);
   void parseProcedure(Ui::solverParameterEditor);
   void parseGeneralTab(Ui::solverParameterEditor);
   void parseSteadyStateTab(Ui::solverParameterEditor);

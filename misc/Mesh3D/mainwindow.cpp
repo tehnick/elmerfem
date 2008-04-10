@@ -3647,6 +3647,7 @@ void MainWindow::generateSifSlot()
   //-----------------------
   sifGenerator->mesh = mesh;
   sifGenerator->te = sifWindow->textEdit;
+  sifGenerator->dim = mesh->dim;
   sifGenerator->cdim = mesh->cdim;
 
   sifGenerator->generalSetup = generalSetup;
@@ -3663,6 +3664,7 @@ void MainWindow::generateSifSlot()
 
   sifGenerator->meshControl = meshControl;
 
+  sifGenerator->elmerDefs = elmerDefs;
   sifGenerator->bodyMap = glWidget->bodyMap;
   sifGenerator->boundaryMap = glWidget->boundaryMap;
 

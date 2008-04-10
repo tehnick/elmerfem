@@ -240,12 +240,14 @@ void SifGenerator::makeSolverBlocks(QString solverName)
   Ui::solverParameterEditor ui;
 
   bool found = false;
+  int current=-1;
 
   for(int i = 0; i < MAX_SOLVERS; i++) {
     spe = &solverParameterEditor[i];
     QString currentName = spe->solverName.trimmed();
     if(currentName == solverName) {
       found = true;
+      current = i;
       break;
     }
   }
@@ -256,8 +258,14 @@ void SifGenerator::makeSolverBlocks(QString solverName)
     tmp = spe;
   }
 
+  if ( !tmp->generalOptions ) {
+    tmp->generalOptions = new DynamicEditor;
+    tmp->generalOptions->setupTabs(*elmerDefs, "Solver", current );
+  }
+
   ui = tmp->ui; 
 
+#if 0
   bool procedureDefined = true;
   if((ui.procedureFileEdit->text() == "") ||
      (ui.procedureFunctionEdit->text() == ""))
@@ -292,7 +300,9 @@ void SifGenerator::makeSolverBlocks(QString solverName)
       te->append("  Procedure = \"FlowSolve\" \"FlowSolver\"");
     }
   }
+#endif
 
+  parseSolverSpecificTab(tmp->generalOptions, solverName);
   parseGeneralTab(ui);
   parseSteadyStateTab(ui);
   parseNonlinearSystemTab(ui);
@@ -300,7 +310,10 @@ void SifGenerator::makeSolverBlocks(QString solverName)
   // todo: add adaptivity & multigrid
 
   if(!found)
+  {
+    delete tmp->generalOptions;
     delete tmp;
+  }
 }
 
 
@@ -497,6 +510,92 @@ void SifGenerator::parseProcedure(Ui::solverParameterEditor ui)
 }
 
 
+// Parse "Solver specific tab"
+//-----------------------------------------------------------------------------
+void SifGenerator::parseSolverSpecificTab(DynamicEditor *solEditor, QString solverName)
+{
+  if ( !solEditor ) return;
+
+  QScriptEngine engine; 
+
+  QScriptValue dim_QSV  = QScriptValue(&engine,dim);
+  engine.globalObject().setProperty( "dim", dim_QSV );
+
+  QScriptValue cdim_QSV = QScriptValue(&engine,cdim);
+  engine.globalObject().setProperty( "cdim", cdim_QSV );
+
+  for(int i = 0; i < solEditor->hash.count(); i++) {
+    hash_entry_t entry = solEditor->hash.values().at(i);
+
+    QString key = solEditor->hash.keys().at(i);
+    QStringList keySplitted = key.split("/");	  
+    QString tabName   = keySplitted.at(1).trimmed();
+    QString labelName = keySplitted.at(3).trimmed();
+
+    if ( tabName != solverName ) continue;
+
+
+    // variable name handled separately...
+    // ----------------------------------
+    if ( labelName == "Variable" ) {
+      int dofs = 1;
+
+      QLineEdit *l = (QLineEdit *)entry.widget;
+      QString varName = l->text().trimmed();
+
+      QStringList dofsplit = varName.split("[");
+      if ( dofsplit.count()>1 ) {
+        varName = dofsplit.at(0).trimmed() + "[";
+        QString dof = dofsplit.at(1).trimmed();
+        dof = dof.split("]").at(0).trimmed();
+
+        dofsplit = dof.split(":");
+        QString subVarName = dofsplit.at(0).trimmed();
+        for( int i=1; i<dofsplit.count(); i++)
+        {
+          dof = dofsplit.at(i).trimmed();
+          QString subDof = dof.split(" ").at(0);
+
+          dofs = engine.evaluate(subDof).toInt32();
+          varName = varName + " " + subVarName+":"+QString::number(dofs);
+
+          if ( i<dofsplit.count()-1) 
+            subVarName = dof.split(" ").at(1).trimmed();
+        }
+        varName = varName + "]";
+        addSifLine( "  Variable = ", varName );
+      } else {
+        dofsplit = varName.split("(");
+        if ( dofsplit.count()>1 ) {
+          varName = dofsplit.at(0).trimmed();
+          QString dof = dofsplit.at(1).trimmed();
+          dofsplit = dof.split(")");
+          dof = dofsplit.at(0).trimmed();
+          dofs = engine.evaluate(dof).toInt32();
+        }
+        if ( dofs <= 0 ) dofs = 1;
+        addSifLine( "  Variable = -dofs ",  QString::number(dofs) + " " + varName );
+      }
+      continue;
+    }
+
+    QWidget *widget = entry.widget;
+
+    QDomElement elem;
+    if ( widget->isEnabled() ) {
+      elem = entry.elem;
+
+      if(elem.attribute("Widget", "") == "CheckBox")
+       handleCheckBox(elem, widget);
+
+     if(elem.attribute("Widget", "") == "Edit")
+       handleLineEdit(elem, widget);
+
+     if(elem.attribute("Widget", "") == "Combo")
+       handleComboBox(elem, widget);
+    }
+  }
+}
 
 // Parse "Exec Solver" tab from ui to sif:
 //-----------------------------------------------------------------------------
