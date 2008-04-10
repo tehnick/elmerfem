@@ -4093,9 +4093,7 @@ void MainWindow::resultsSlot()
   }
 
   
-  QFile file;
-
-  file.setFileName("skeleton.ep");
+  QFile file("skeleton.ep");
   if(!file.exists()) {
     logMessage("Elmerpost input file does not exist.");
     return;
@@ -4107,7 +4105,7 @@ void MainWindow::resultsSlot()
   int nn, ne, nt, nf;
   QString type, name;
 
-  header >> nn >> ne >> nt >> nf >> type >> name;
+  header >> nn >> ne >> nf >> nt >> type >> name;
   if ( type == "vector:" )
     name = name + "_abs";
 
