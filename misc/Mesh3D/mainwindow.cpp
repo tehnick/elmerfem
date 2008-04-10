@@ -2221,6 +2221,7 @@ void MainWindow::createBoundaryCheckBoxes(DynamicEditor *pe)
      int n=glWidget->boundaryMap.key(i);
      if ( n >= 0 ) {
         int m=glWidget->boundaryMap.value(n);
+cerr << i << " " << n << " " << m << endl;
 
         BoundaryPropertyEditor *boundary = &boundaryPropertyEditor[m];
         populateBoundaryComboBoxes(boundary);
@@ -4090,12 +4091,36 @@ void MainWindow::resultsSlot()
     return;
   }
 
+  
+  QFile file;
+
+  file.setFileName("skeleton.ep");
+  if(!file.exists()) {
+    logMessage("Elmerpost input file does not exist.");
+    return;
+  }
+
+  file.open(QIODevice::ReadOnly);
+  QTextStream header(&file);
+
+  int nn, ne, nt, nf;
+  QString type, name;
+
+  header >> nn >> ne >> nt >> nf >> type >> name;
+  if ( type == "vector:" )
+    name = name + "_abs";
+
+  file.close();
+
   args << "readfile skeleton.ep; "
-    "set ColorScaleColor Temperature; "
+    "set ColorScaleY -0.85; "
+    "set ColorScaleDecimals 3;"
+    "set ColorScaleColor " + name + ";"
     "set DisplayStyle(ColorScale) 1; "
     "set MeshStyle 1; "
-    "set MeshColor Temperature; "
+    "set MeshColor " + name + ";"
     "set DisplayStyle(ColorMesh) 1; "
+    "translate -y 0.2; "
     "UpdateObject; ";
   
   post->start("ElmerPost", args);
