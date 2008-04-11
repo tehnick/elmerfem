@@ -529,6 +529,8 @@ VARIABLE *elm_rotor_2D( VARIABLE *A )
             elm  = &model->Elements[i];
             elmt = elm->ElementType;
 
+            if ( elmt->ElementCode < 300 || elmt->ElementCode > 500 ) continue;
+
             for( j=0; j<elmt->NumberOfNodes; j++ )
             {
                 n = k*model->NofNodes + elm->Topology[j];
@@ -778,6 +780,8 @@ VARIABLE *elm_rotor_3D( VARIABLE *A )
         {
             elm  = &model->Elements[i];
             elmt = elm->ElementType;
+
+            if ( elmt->ElementCode <500 ) continue;
 
             for( j=0; j<elmt->NumberOfNodes; j++ )
             {

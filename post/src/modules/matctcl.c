@@ -122,7 +122,7 @@ static VARIABLE *matc_element( VARIABLE *ptr )
 
 int Matctcl_Init()
 {
-   extern VARIABLE *elm_gradient(), *elm_divergence(),*elm_rotor_3D();
+   extern VARIABLE *elm_gradient(), *elm_divergence(),*elm_rotor_3D(),*elm_rotor_2D();
 
 #if 1
    com_init(
@@ -136,8 +136,12 @@ int Matctcl_Init()
            );
 
    com_init(
-              "curl", FALSE, FALSE, elm_rotor_3D, 1, 1,
-              "r = curl(v): compute curl of a vector variable v.\n"
+              "curl3d", FALSE, FALSE, elm_rotor_3D, 1, 1,
+              "r = curl3d(v): compute curl of a vector variable v (in 3D).\n"
+           );
+   com_init(
+              "curl2d", FALSE, FALSE, elm_rotor_2D, 1, 1,
+              "r = curl2d(v): compute curl of a vector variable v (in 2D).\n"
            );
 #endif
 
