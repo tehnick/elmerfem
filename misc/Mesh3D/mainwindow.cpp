@@ -1257,17 +1257,20 @@ void MainWindow::saveProjectSlot()
   for(int i = 0; i < MAX_EQUATIONS; i++) {
     DynamicEditor *de = &equationEditor[i];
 
+    // Menu item number and activation flag:
     equationStream << i << "/" << (de->menuAction != NULL) << endl;
-    
+
+    // Name of the equation:
     if(de->menuAction != NULL)
       equationStream << de->nameEdit->text().trimmed() << "\n";
 
+    // Write all stuff in hash:
     for(int j = 0; j < de->hash.count(); j++) {
       QString key = de->hash.keys().at(j);
       hash_entry_t value = de->hash.values().at(j);
       QDomElement elem = value.elem;
       QWidget *widget = value.widget;
-
+      
       equationStream << key.toAscii() << "\n";
       if(elem.attribute("Widget", "") == "CheckBox") {
 	QCheckBox *checkBox = (QCheckBox*)widget;
@@ -1278,8 +1281,9 @@ void MainWindow::saveProjectSlot()
       } else if(elem.attribute("Widget", "") == "Combo") {
 	QComboBox *comboBox = (QComboBox*)widget;
 	equationStream << "Combo: " << comboBox->currentText().toAscii() << "\n";
-      } else {
-	equationStream << "None: " << "\n";
+      } else if(elem.attribute("Widget", "") == "Label") {
+	QLabel *label = (QLabel*)widget;
+	equationStream << "Label: " << label->text().toAscii() << "\n";
       }
     }
     equationStream << "End\n";
@@ -1292,7 +1296,12 @@ void MainWindow::saveProjectSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::loadProjectSlot()
 {
-  // Have to rewrite all this in a much more generic way...:
+  QString line = "";
+  QString line1 = "";
+  QString line2 = "";
+  QStringList splittedLine;
+  QStringList splittedLine1;
+  QStringList splittedLine2;
 
   QString projectDirName = QFileDialog::getExistingDirectory(this, tr("Choose project directory"));
 
@@ -1317,12 +1326,10 @@ void MainWindow::loadProjectSlot()
   logMessage("Clearing model data");
   modelClearSlot();
 
-  QString line = "";
-  QStringList splittedLine;
-
   for(int i = 0; i < MAX_EQUATIONS; i++) {
     DynamicEditor *de = &equationEditor[i];
 
+    // Equation number and activation flag:
     line = equationStream.readLine();
     splittedLine = line.split("/");
 
@@ -1336,12 +1343,12 @@ void MainWindow::loadProjectSlot()
 
     // set up tabs and add to menu
     if(menuActionDefined > 0) {
+
+      // name of the equation
       QString name = equationStream.readLine();
 
       de->setupTabs(*elmerDefs, "Equation", i);
-
       de->nameEdit->setText(name);
-
       de->applyButton->setText("Update");
       de->applyButton->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
       de->discardButton->setText("Remove");
@@ -1363,18 +1370,54 @@ void MainWindow::loadProjectSlot()
       createBodyCheckBoxes(BODY_EQUATION, de);
     }
 
-    line = equationStream.readLine();
-    while(line != "End") {
-      cout << string(line.toAscii()) << endl;
-      splittedLine = line.split("/");
-      // todo: check hash
+    // set contents:
+    line1 = equationStream.readLine();
+    while(line1.trimmed() != "End") {
+      line2 = equationStream.readLine();
+      if(line2.trimmed() == "End")
+	break;
 
-      line = equationStream.readLine();
-      cout << string(line.toAscii()) << endl;
-      splittedLine = line.split(":");
-      // todo: set contents
+      splittedLine1 = line1.split("/");
+      splittedLine2 = line2.split(":");
 
-      line = equationStream.readLine();
+      for(int j = 0; j < de->hash.count(); j++) {
+	QString key = de->hash.keys().at(j);
+	QStringList splittedKey = key.split("/");
+	hash_entry_t value = de->hash.values().at(j);
+	QWidget *widget = value.widget;
+	QDomElement elem = value.elem;
+	
+	if((splittedLine1.at(1) == splittedKey.at(1)) &&
+	   (splittedLine1.at(2) == splittedKey.at(2)) &&
+	   (splittedLine1.at(3) == splittedKey.at(3))) {
+
+	  // match:
+	  if(elem.attribute("Widget", "") == "CheckBox") {
+	    if(splittedLine2.at(0).trimmed() != "CheckBox")
+	      logMessage("Load project: type mismatch with checkBox");
+	    QCheckBox *checkBox = (QCheckBox*)widget;
+	    if(splittedLine2.at(1).toInt() == 1)
+	      checkBox->setChecked(true);
+	    else
+	      checkBox->setChecked(false);
+	  } else if(elem.attribute("Widget", "") == "Edit") {
+	    if(splittedLine2.at(0).trimmed() != "Edit")
+	      logMessage("Load project: type mismatch with lineEdit");
+	    QLineEdit *lineEdit = (QLineEdit*)widget;
+	    lineEdit->setText(splittedLine2.at(1));
+	  } else if(elem.attribute("Widget", "") == "Combo") {
+	    if(splittedLine2.at(0).trimmed() != "Combo")
+	      logMessage("Load project: type mismatch with comboBox");
+	    QComboBox *comboBox = (QComboBox*)widget;
+	    for(int k = 0; k < comboBox->count(); k++) {
+	      QString current = comboBox->itemText(k).trimmed();
+	      if(current == splittedLine2.at(1).trimmed())
+		comboBox->setCurrentIndex(k);
+	    }
+	  }
+	}
+      }
+      line1 = equationStream.readLine();
     }
   }
   equationFile.close();
