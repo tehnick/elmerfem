@@ -268,7 +268,7 @@ VARIABLE *elm_gradient( VARIABLE *A )
  
      double *af = MATR( A );
  
-     int i,j,k,n,status;
+     int i,j,k,n,status,dim;
 
      VARIABLE *res;
 
@@ -284,6 +284,14 @@ VARIABLE *elm_gradient( VARIABLE *A )
      rx  = &M(res,0,0);
      ry  = &M(res,1,0);
      rz  = &M(res,2,0);
+
+     dim = 1;
+     for( k=0; k<model->NofElements; k++ )
+      if ( model->Elements[k].ElementType->ElementCode>=500 ) {
+        dim=3;
+        break;
+      } else if ( model->Elements[k].ElementType->ElementCode>=300 ) 
+        dim=2;
 
      for( k=0; k<model->NofTimesteps; k++ )
      {
@@ -305,16 +313,18 @@ VARIABLE *elm_gradient( VARIABLE *A )
              {
                  n = k*model->NofNodes + elm->Topology[j];
                  F[j] = af[n];
+                 dFdX[j] = af[n];
+                 dFdY[j] = af[n];
+                 dFdZ[j] = af[n];
              }
- 
-             if ( elmt->PartialW )
+             if ( dim==3 && elmt->PartialW )
                  status = elm_element_gradient_3D(
                      model, elm,F,dFdX,dFdY,dFdZ,elmt->NumberOfNodes,elmt->NodeU,elmt->NodeV,elmt->NodeW
                    );
-             else if ( elmt->PartialV )
+             else if ( dim==2 && elmt->PartialV )
                  status = elm_element_gradient_2D(
-                     model, elm,F,dFdX,dFdY,dFdZ,elmt->NumberOfNodes,elmt->NodeU,elmt->NodeV
-                   );
+                     model, elm,F,dFdX,dFdY,dFdZ,elmt->NumberOfNodes,elmt->NodeU,elmt->NodeV 
+                   ); 
              else continue;
  
              if ( !status ) 
@@ -1091,7 +1101,7 @@ VARIABLE *elm_divergence( VARIABLE *A )
 
     unsigned char *References = (unsigned char *)malloc( model->NofNodes*sizeof(unsigned char) );
 
-    int i,j,k,n,status;
+    int i,j,k,n,status,dim;
 
     double *ax = &M(A,0,0);
     double *ay = &M(A,1,0);
@@ -1105,6 +1115,14 @@ VARIABLE *elm_divergence( VARIABLE *A )
         free( References );
         error( "div: variable size does not match with the element model.\n" );
     }
+
+    dim = 1;
+    for( k=0; k<model->NofElements; k++ )
+     if ( model->Elements[k].ElementType->ElementCode>=500 ) {
+       dim=3;
+       break;
+     } else if ( model->Elements[k].ElementType->ElementCode>=300 ) 
+       dim=2;
 
     res = var_temp_new( TYPE_DOUBLE, 1, model->NofNodes*model->NofTimesteps );
     rf = MATR(res);
@@ -1130,9 +1148,9 @@ VARIABLE *elm_divergence( VARIABLE *A )
                 FZ[j] = az[n];
             }
 
-             if ( elmt->PartialW )
+             if ( dim==3 && elmt->PartialW )
                  status = elm_element_divergence_3D( model,elm,FX,FY,FZ,D );
-             else if ( elmt->PartialV )
+             else if ( dim==2 && elmt->PartialV )
                  status = elm_element_divergence_2D( model,elm,FX,FY,FZ,D );
              else continue;
 
