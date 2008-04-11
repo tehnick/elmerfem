@@ -58,7 +58,7 @@ void SifGenerator::makeSimulationBlock()
 	     ui.timesteppingMethodCombo->currentText().trimmed());
   addSifLine("  BDF Order = ",
 	     ui.bdfOrderCombo->currentText().trimmed());
-  addSifLine("  Timestepping intervals = ",
+  addSifLine("  Timestep intervals = ",
 	     ui.timeStepIntervalsEdit->text().trimmed());
   addSifLine("  Timestep Sizes = ",
 	     ui.timestepSizesEdit->text().trimmed());
