@@ -4018,7 +4018,7 @@ void MainWindow::populateBoundaryComboBoxes(BoundaryPropertyEditor *boundary)
 //-----------------------------------------------------------------------------
 void MainWindow::boundaryComboChanged(BoundaryPropertyEditor *b, QString text)
 {
-  for( int i=0; i<100; i++ )
+  for( int i=0; i<MAX_BCS; i++ )
   {
     DynamicEditor *bc = &boundaryConditionEditor[i];
     if ( bc->ID >= 0 ) {
