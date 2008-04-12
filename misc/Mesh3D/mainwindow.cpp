@@ -1816,7 +1816,55 @@ void MainWindow::createBodyCheckBoxes(int which,DynamicEditor *pe)
         }
 
         a->setProperty( "body", (unsigned long long)body );
-        a->setProperty( "material", (unsigned long long)pe );
+        a->setProperty( "editor", (unsigned long long)pe );
+
+        if ( p==pe )
+          a->setChecked(true);
+        else if ( p != NULL )
+          a->setEnabled(false);
+
+        slayout->addWidget(a);
+     }
+  }
+
+  for( int i=0; i<MAX_BOUNDARIES; i++ )
+  {
+     BoundaryPropertyEditor *boundary=&boundaryPropertyEditor[i];
+     if ( boundary->bodyProperties ) {
+        BodyPropertyEditor *body = boundary->bodyProperties;
+        populateBodyComboBoxes(body);
+
+        QString title = body->ui.nameEdit->text().trimmed();
+        QCheckBox *a;
+
+        if ( title == "" )
+          a = new QCheckBox("Boundary " + QString::number(i));
+        else
+          a = new QCheckBox(title);
+
+        DynamicEditor *p = NULL;
+
+        switch(which) {
+          case BODY_MATERIAL:
+            p=body->material;
+            connect(a, SIGNAL(stateChanged(int)), this, SLOT(materialBodyChanged(int)));
+          break;
+          case BODY_INITIAL:
+            p=body->initial;
+            connect(a, SIGNAL(stateChanged(int)), this, SLOT(initialBodyChanged(int)));
+          break;
+          case BODY_FORCE:
+            p=body->force;
+            connect(a, SIGNAL(stateChanged(int)), this, SLOT(forceBodyChanged(int)));
+          break;
+          case BODY_EQUATION:
+            p=body->equation;
+            connect(a, SIGNAL(stateChanged(int)), this, SLOT(equationBodyChanged(int)));
+          break;
+        }
+
+        a->setProperty( "body", (unsigned long long)body );
+        a->setProperty( "editor", (unsigned long long)pe );
 
         if ( p==pe )
           a->setChecked(true);
@@ -2009,7 +2057,7 @@ void MainWindow::equationBodyChanged(int state)
 {
   QWidget *a = (QWidget *)QObject::sender();
   if  (glWidget->mesh ) {
-     DynamicEditor *mat  = (DynamicEditor *)a->property("material").toULongLong();
+     DynamicEditor *mat  = (DynamicEditor *)a->property("editor").toULongLong();
      BodyPropertyEditor *body = (BodyPropertyEditor *)a->property("body").toULongLong();
  
      QString mat_name = mat->nameEdit->text().trimmed();
@@ -2136,7 +2184,7 @@ void MainWindow::materialBodyChanged(int state)
 {
   QWidget *a = (QWidget *)QObject::sender();
   if  (glWidget->mesh ) {
-     DynamicEditor *mat  = (DynamicEditor *)a->property("material").toULongLong();
+     DynamicEditor *mat  = (DynamicEditor *)a->property("editor").toULongLong();
      BodyPropertyEditor *body = (BodyPropertyEditor *)a->property("body").toULongLong();
  
      QString mat_name = mat->nameEdit->text().trimmed();
@@ -2262,7 +2310,7 @@ void MainWindow::forceBodyChanged(int state)
 {
   QWidget *a = (QWidget *)QObject::sender();
   if  (glWidget->mesh ) {
-     DynamicEditor *mat  = (DynamicEditor *)a->property("material").toULongLong();
+     DynamicEditor *mat  = (DynamicEditor *)a->property("editor").toULongLong();
      BodyPropertyEditor *body = (BodyPropertyEditor *)a->property("body").toULongLong();
  
      QString mat_name = mat->nameEdit->text().trimmed();
@@ -2387,7 +2435,7 @@ void MainWindow::initialBodyChanged(int state)
 {
   QWidget *a = (QWidget *)QObject::sender();
   if  (glWidget->mesh ) {
-     DynamicEditor *mat  = (DynamicEditor *)a->property("material").toULongLong();
+     DynamicEditor *mat  = (DynamicEditor *)a->property("editor").toULongLong();
      BodyPropertyEditor *body = (BodyPropertyEditor *)a->property("body").toULongLong();
  
      QString mat_name = mat->nameEdit->text().trimmed();
@@ -3918,7 +3966,6 @@ void MainWindow::boundarySelectedSlot(list_t *l)
   // Open bc property sheet for selected boundary:
   //-----------------------------------------------
   if(l->selected && (glWidget->altPressed || bcEditActive)) {
-    
     glWidget->ctrlPressed = false;
     glWidget->shiftPressed = false;
     glWidget->altPressed = false;
@@ -3932,6 +3979,9 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     
     BoundaryPropertyEditor *boundaryEdit = &boundaryPropertyEditor[n];
     populateBoundaryComboBoxes(boundaryEdit);
+
+    connect( boundaryEdit, SIGNAL(BoundaryAsABodyChanged(BoundaryPropertyEditor *,int)),
+          this, SLOT(boundaryAsABodyChanged(BoundaryPropertyEditor *,int)) );
     
     if(boundaryEdit->touched) {
       boundaryEdit->ui.applyButton->setText("Update");
@@ -3949,28 +3999,51 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     boundaryEdit->show();
   }
 
+  BodyPropertyEditor *bodyEdit = NULL;
+  int current = -1, n =-1;
+
+  // boundary as a body treatment
+  // ----------------------------
+  if(l->selected && glWidget->ctrlPressed ) {
+    glWidget->ctrlPressed = false;
+    glWidget->shiftPressed = false;
+    glWidget->altPressed = false;
+
+    // renumbering:
+    int n = glWidget->boundaryMap.value(l->index);
+    if(n >= MAX_BCS) {
+      logMessage("Error: index exceeds MAX_BCS (increase it and recompile)");
+      return;
+    }
+    BoundaryPropertyEditor *boundaryEdit = &boundaryPropertyEditor[n];
+    bodyEdit = boundaryEdit->bodyProperties;
+  }
+
   // Open body property sheet for selected body:
   //---------------------------------------------
-  if((glWidget->currentlySelectedBody >= 0) &&
-     (glWidget->shiftPressed || bodyEditActive)) {
+  if( (glWidget->currentlySelectedBody >= 0) &&
+      (glWidget->shiftPressed || bodyEditActive) ) {
     
     glWidget->ctrlPressed = false;
     glWidget->shiftPressed = false;
     glWidget->altPressed = false;
     
-    int current = glWidget->currentlySelectedBody;
+    current = glWidget->currentlySelectedBody;
     
     cout << "Current selection uniquely determines body: " << current << endl;
     cout.flush();
  
     // renumbering:
-    int n = glWidget->bodyMap.value(current);
+    n = glWidget->bodyMap.value(current);
     if(n >= MAX_BODIES) {
       logMessage("Error: index exceeds MAX_BODIES (increase it and recompile)");
       return;
     }
      
-    BodyPropertyEditor *bodyEdit = &bodyPropertyEditor[n];
+    bodyEdit =  &bodyPropertyEditor[n];
+  }
+
+  if ( bodyEdit ) {
     populateBodyComboBoxes(bodyEdit);
     
     if(bodyEdit->touched) {
@@ -3990,6 +4063,7 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     bodyEdit->show();
   }
 }
+
 
 // Populate boundary editor's comboboxes:
 //---------------------------------------
@@ -4012,6 +4086,7 @@ void MainWindow::populateBoundaryComboBoxes(BoundaryPropertyEditor *boundary)
   }
   connect( boundary,SIGNAL(BoundaryComboChanged(BoundaryPropertyEditor *,QString)), 
         this, SLOT(boundaryComboChanged(BoundaryPropertyEditor *,QString)) );
+
   boundary->ui.boundaryConditionCombo->setCurrentIndex(takethis-1);
 }
 
@@ -4028,6 +4103,20 @@ void MainWindow::boundaryComboChanged(BoundaryPropertyEditor *b, QString text)
          break;
        }
     }
+  }
+}
+
+//-----------------------------------------------------------------------------
+void MainWindow::boundaryAsABodyChanged(BoundaryPropertyEditor *b, int status)
+{
+  int indx=glWidget->bodyMap.count();
+
+  if ( status ) {
+    for( int i=0; i<MAX_BOUNDARIES; i++ )
+      if ( boundaryPropertyEditor[i].bodyProperties ) indx++;
+    b->bodyProperties = &bodyPropertyEditor[indx];
+  } else {
+    b->bodyProperties = NULL;
   }
 }
 

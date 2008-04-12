@@ -107,6 +107,7 @@ private slots:
   void initialComboChanged(BodyPropertyEditor *,QString);
   void forceComboChanged(BodyPropertyEditor *,QString);
   void equationComboChanged(BodyPropertyEditor *,QString);
+  void boundaryAsABodyChanged(BoundaryPropertyEditor *,int);
   void boundaryComboChanged(BoundaryPropertyEditor *,QString);
 
   void editNumericalMethods(int, int);   // signal emitted by dynamic editor

@@ -95,17 +95,53 @@ void SifGenerator::makeBodyBlocks()
 {
   int i;
 
-  int sifIndex = 0;
+  int sifIndex = 0, maxOriginalIndex=-1;
 
   for(int index = 0; index < bodyMap.count(); index++) {
     BodyPropertyEditor *bodyEdit = &bodyPropertyEditor[index];
     
+    int originalIndex = bodyMap.key(index);
+    maxOriginalIndex = max(maxOriginalIndex, originalIndex );
+
     if(bodyEdit->touched) {
       te->append("Body " + QString::number(++sifIndex));
 
-      int originalIndex = bodyMap.key(index);
-
       te->append("  Target Bodies(1) = " + QString::number(originalIndex));
+
+      if ( bodyEdit->ui.nameEdit->text().trimmed() == "" )
+        te->append("  Name = Body " + QString::number(sifIndex) );
+      else
+        te->append("  Name = " + bodyEdit->ui.nameEdit->text().trimmed());
+
+      i = bodyEdit->ui.equationCombo->currentIndex();
+      if(i > -1)
+	te->append("  Equation = " + QString::number(i+1));
+      
+      i = bodyEdit->ui.materialCombo->currentIndex();
+      if(i > -1)
+	te->append("  Material = " + QString::number(i+1));
+      
+      i = bodyEdit->ui.bodyForceCombo->currentIndex();
+      if(i > -1)
+	te->append("  Body Force = " + QString::number(i+1));
+      
+      i = bodyEdit->ui.initialConditionCombo->currentIndex();
+      if(i > -1)
+	te->append("  Initial condition = " + QString::number(i+1));
+      
+      te->append("End\n");      
+    }
+  }
+
+  for( int index=0; index < MAX_BOUNDARIES; index++ )
+  {
+    BodyPropertyEditor *bodyEdit=boundaryPropertyEditor[index].bodyProperties;
+
+    if(bodyEdit && bodyEdit->touched ) {
+      te->append("Body " + QString::number(++sifIndex));
+
+      boundaryPropertyEditor[index].bodyID = ++maxOriginalIndex;
+      te->append("  Target Bodies(1) = " + QString::number(maxOriginalIndex));
 
       if ( bodyEdit->ui.nameEdit->text().trimmed() == "" )
         te->append("  Name = Body " + QString::number(sifIndex) );
@@ -417,6 +453,10 @@ void SifGenerator::makeBoundaryBlocks()
       int originalIndex = boundaryMap.key(index);
 
       te->append("  Target Boundaries(1) = " + QString::number(originalIndex));
+
+      if ( bEdit->bodyProperties ) {
+        te->append("  Body id = " + QString::number(bEdit->bodyID) );
+      }
 
       int i = bEdit->ui.boundaryConditionCombo->currentIndex();
       const QString &name = bEdit->ui.boundaryConditionCombo->currentText().trimmed();
