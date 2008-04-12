@@ -1838,7 +1838,7 @@ void MainWindow::createBodyCheckBoxes(int which,DynamicEditor *pe)
         QCheckBox *a;
 
         if ( title == "" )
-          a = new QCheckBox("Boundary " + QString::number(i));
+          a = new QCheckBox("Body(Boundary " + QString::number(i)+ ")");
         else
           a = new QCheckBox(title);
 
@@ -4017,6 +4017,8 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     }
     BoundaryPropertyEditor *boundaryEdit = &boundaryPropertyEditor[n];
     bodyEdit = boundaryEdit->bodyProperties;
+    bodyEdit->setWindowTitle("Properties for body " + QString::number(current));
+    bodyEdit->ui.nameEdit->setText("Body Property(Boundary " + QString::number(n+1) +  ")");
   }
 
   // Open body property sheet for selected body:
@@ -4041,6 +4043,8 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     }
      
     bodyEdit =  &bodyPropertyEditor[n];
+    bodyEdit->setWindowTitle("Properties for body " + QString::number(current));
+    bodyEdit->ui.nameEdit->setText("Body Property " + QString::number(n+1));
   }
 
   if ( bodyEdit ) {
@@ -4058,8 +4062,6 @@ void MainWindow::boundarySelectedSlot(list_t *l)
       bodyEdit->ui.discardButton->setIcon(QIcon(":/icons/dialog-close.png"));
     }
 
-    bodyEdit->setWindowTitle("Properties for body " + QString::number(current));
-    bodyEdit->ui.nameEdit->setText("Body Property " + QString::number(n+1));
     bodyEdit->show();
   }
 }
