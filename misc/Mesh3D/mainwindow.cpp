@@ -4005,9 +4005,6 @@ void MainWindow::boundarySelectedSlot(list_t *l)
   // boundary as a body treatment
   // ----------------------------
   if(l->selected && glWidget->ctrlPressed ) {
-    glWidget->ctrlPressed = false;
-    glWidget->shiftPressed = false;
-    glWidget->altPressed = false;
 
     // renumbering:
     int n = glWidget->boundaryMap.value(l->index);
@@ -4018,6 +4015,10 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     BoundaryPropertyEditor *boundaryEdit = &boundaryPropertyEditor[n];
     bodyEdit = boundaryEdit->bodyProperties;
     if ( bodyEdit ) {
+      glWidget->ctrlPressed = false;
+      glWidget->shiftPressed = false;
+      glWidget->altPressed = false;
+
       bodyEdit->setWindowTitle("Properties for body " + QString::number(current));
       bodyEdit->ui.nameEdit->setText("Body Property(Boundary " + QString::number(n+1) +  ")");
     }
