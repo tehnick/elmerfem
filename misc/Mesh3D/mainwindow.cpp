@@ -4017,8 +4017,10 @@ void MainWindow::boundarySelectedSlot(list_t *l)
     }
     BoundaryPropertyEditor *boundaryEdit = &boundaryPropertyEditor[n];
     bodyEdit = boundaryEdit->bodyProperties;
-    bodyEdit->setWindowTitle("Properties for body " + QString::number(current));
-    bodyEdit->ui.nameEdit->setText("Body Property(Boundary " + QString::number(n+1) +  ")");
+    if ( bodyEdit ) {
+      bodyEdit->setWindowTitle("Properties for body " + QString::number(current));
+      bodyEdit->ui.nameEdit->setText("Body Property(Boundary " + QString::number(n+1) +  ")");
+    }
   }
 
   // Open body property sheet for selected body:
