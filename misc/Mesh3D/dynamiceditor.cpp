@@ -161,7 +161,6 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
 
           h.widget->setProperty( "dom address",fullName);
           h.elem = param;
-          hash[fullName] = h;
 
           if ( widget_enabled == "False" ) h.widget->setEnabled(false);
 
@@ -181,6 +180,7 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
             h.label = NULL;
             grid->addWidget(h.widget, params, 0);
           }
+          hash[fullName] = h;
         }
       }
     }
