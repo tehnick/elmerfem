@@ -3,6 +3,7 @@
 
 #include <QMainWindow>
 
+class QGraphicsScene;
 class QGraphicsView;
 
 class ConvergenceView : public QMainWindow
@@ -16,10 +17,12 @@ public:
   QSize minimumSizeHint() const;
   QSize sizeHint() const;
 
+  QGraphicsScene *scene;
+  QGraphicsView *view;
+
 private slots:
 
 private:
-  QGraphicsView *view;
 
 };
 

@@ -48,9 +48,9 @@ ConvergenceView::ConvergenceView(QWidget *parent)
   : QMainWindow(parent)
 {
   setWindowFlags(Qt::Window);
-  setWindowTitle(tr("Convergence view"));
-
-  view = new QGraphicsView(this);
+  setWindowTitle(tr("Convergence"));
+  scene = new QGraphicsScene(this);
+  view = new QGraphicsView(scene);
   setCentralWidget(view);
 }
 

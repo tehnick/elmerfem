@@ -4340,6 +4340,10 @@ void MainWindow::solverStdoutSlot()
   if(!convergenceView->isVisible())
     convergenceView->show();
 
+  QGraphicsScene *scene = convergenceView->scene;
+  scene->addText("Convergence plot");
+  scene->addLine(0,0,100,100);
+
   QString qs = solver->readAllStandardOutput();
 
   solverLogWindow->textEdit->append(qs);
