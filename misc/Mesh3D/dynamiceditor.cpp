@@ -403,14 +403,9 @@ void DynamicEditor::comboSlot(QString select)
         QString widget_enabled = h.elem.attribute("Enabled","True");
         QString widget_visible = h.elem.attribute("Visible","True");
 
-        if ( widget_enabled == "False" ) {
-          h.widget->setEnabled(false);
-          if ( widget_visible == "False" ) {
-            h.label->hide(); h.widget->hide();
-          }
-        } else {
-          h.widget->setEnabled(true);
-          h.label->show(); h.widget->show();
+        h.widget->setEnabled(false);
+        if ( widget_visible == "False" ) {
+          h.label->hide(); h.widget->hide();
         }
       }
     }
@@ -430,8 +425,6 @@ void DynamicEditor::comboSlot(QString select)
       }
     }
   }
-//  this->close();
-  this->hide();
   this->show();
 }
 
