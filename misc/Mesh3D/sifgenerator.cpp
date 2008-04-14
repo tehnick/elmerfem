@@ -176,6 +176,7 @@ void SifGenerator::makeBodyBlocks()
 void SifGenerator::makeEquationBlocks()
 {
   // enumerate solvers && write solver blocks:
+
   int solverNumber = 0;
   QHash<QString, int> numberForSolver;
   numberForSolver.clear();
@@ -223,6 +224,10 @@ void SifGenerator::makeEquationBlocks()
 
       QString solverString = "";
       int nofSolvers = 0;
+      int solverActive[MAX_SOLVERS];
+
+      for( int i=0; i<MAX_SOLVERS; i++ )
+        solverActive[i] = false;
 
       for(int i = 0; i < eqEditor->hash.count(); i++) {
 	hash_entry_t entry = eqEditor->hash.values().at(i); 
@@ -236,16 +241,32 @@ void SifGenerator::makeEquationBlocks()
 	  QString labelName = keySplitted.at(3).trimmed();
 
 	  // solver active?
-	  if((labelName == "Active") &&
-	     (elem.attribute("Widget", "") == "CheckBox")) {
+	  if((labelName == "Active") && (elem.attribute("Widget", "") == "CheckBox")) {
 	    QCheckBox *checkBox = (QCheckBox*)widget;
 	    if(checkBox->isChecked()) {
 	      nofSolvers++;
 	      solverNumber = numberForSolver.value(solverName);
-	      solverString += " " + QString::number(solverNumber);
+              solverActive[solverNumber] = true;
+              solverString += " " + QString::number(solverNumber);
 	    }
 	  }
-	  
+        }
+      }
+
+      for(int i = 0; i < eqEditor->hash.count(); i++) {
+	hash_entry_t entry = eqEditor->hash.values().at(i); 
+	QWidget *widget = entry.widget;
+
+        if(widget->isEnabled()) {
+          QDomElement elem = entry.elem;
+	  QString key = eqEditor->hash.keys().at(i);
+	  QStringList keySplitted = key.split("/");	  
+	  QString solverName = keySplitted.at(1).trimmed();
+	  QString labelName = keySplitted.at(3).trimmed();
+
+          solverNumber = numberForSolver.value(solverName);
+          if ( !solverActive[solverNumber] ) continue;
+
           if((elem.attribute("Widget", "") == "CheckBox") &&
 	     (labelName != "Active")) 
 	    handleCheckBox(elem, widget);
