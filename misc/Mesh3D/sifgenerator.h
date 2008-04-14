@@ -68,6 +68,7 @@ class SifGenerator  {
   void addSifLine(const QString&, const QString&);
   void addSifLineBool(const QString&, bool);
 
+  void handleBCLineEdit(QDomElement, QWidget*,int *);
   void handleLineEdit(QDomElement, QWidget*);
   void handleComboBox(QDomElement, QWidget*);
   void handleCheckBox(QDomElement, QWidget*);

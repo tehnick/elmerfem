@@ -465,6 +465,15 @@ void SifGenerator::makeInitialConditionBlocks()
 void SifGenerator::makeBoundaryBlocks()
 {
   int sifIndex = 0;
+  int boundaryBC[MAX_BOUNDARIES];
+
+  for(int index = 0; index < boundaryMap.count(); index++) {
+    BoundaryPropertyEditor *bEdit = &boundaryPropertyEditor[index];
+    if(bEdit->touched)
+      boundaryBC[index] = ++sifIndex;
+  }
+
+  sifIndex = 0;
   for(int index = 0; index < boundaryMap.count(); index++) {
     BoundaryPropertyEditor *bEdit = &boundaryPropertyEditor[index];
 
@@ -505,7 +514,7 @@ void SifGenerator::makeBoundaryBlocks()
 		  handleCheckBox(elem, widget);
 		
 		if(elem.attribute("Widget", "") == "Edit")
-		  handleLineEdit(elem, widget);
+		  handleBCLineEdit(elem, widget, boundaryBC);
 		
 		if(elem.attribute("Widget", "") == "Combo")
 		  handleComboBox(elem, widget);
@@ -746,6 +755,25 @@ void SifGenerator::addSifLineBool(const QString &var, bool val)
     te->append(var + "False");
 }
 
+
+void SifGenerator::handleBCLineEdit(QDomElement elem, QWidget *widget,int *boundaryBC)
+{
+  QString name = elem.firstChildElement("SifName").text().trimmed();
+  if( name == "" )
+    name= elem.firstChildElement("Name").text().trimmed();
+
+  QLineEdit *lineEdit = (QLineEdit*)widget;
+  QString value = lineEdit->text().trimmed();
+
+  if ( name=="Periodic BC" && value != "" ) 
+  {
+     int val = value.toInt(); 
+     val = boundaryMap.value(val);
+     value=QString::number(boundaryBC[val]);
+  }
+
+  addSifLine("  " + name + " = ", value);
+}
 
 void SifGenerator::handleLineEdit(QDomElement elem, QWidget *widget)
 {
