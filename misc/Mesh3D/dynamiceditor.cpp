@@ -22,7 +22,9 @@ DynLineEdit::~DynLineEdit()
 DynamicEditor::DynamicEditor(QWidget *parent)
   : QWidget(parent)
 {
+  newIcon = QIcon(":/icons/document-new.png");
   addIcon = QIcon(":/icons/list-add.png");
+  okIcon = QIcon(":/icons/dialog-ok-apply.png");
   removeIcon = QIcon(":/icons/list-remove.png");
   setWindowFlags(Qt::Window);
 
@@ -216,11 +218,11 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
   connect(discardButton, SIGNAL(clicked()), this, SLOT(discardButtonClicked()));
 
   okButton = new QPushButton(tr("&OK"));
-  okButton->setIcon(addIcon);
+  okButton->setIcon(okIcon);
   connect(okButton, SIGNAL(clicked()), this, SLOT(okButtonClicked()));
 
   newButton = new QPushButton(tr("&New"));
-  newButton->setIcon(addIcon);
+  newButton->setIcon(newIcon);
   connect(newButton, SIGNAL(clicked()), this, SLOT(newButtonClicked()));
 
   QHBoxLayout *nameLayout = new QHBoxLayout;  

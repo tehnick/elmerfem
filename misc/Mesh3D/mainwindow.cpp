@@ -169,6 +169,7 @@ MainWindow::MainWindow()
   activeGenerator = GEN_UNKNOWN;
   bcEditActive = false;
   bodyEditActive = false;
+  showConvergence = true;
 
   // set font for text editors:
   // QFont sansFont("Courier", 10);
@@ -438,13 +439,18 @@ void MainWindow::createActions()
   connect(killsolverAct, SIGNAL(triggered()), 
 	  this, SLOT(killsolverSlot()));
 
+  // Solver -> Show convergence
+  showConvergenceAct = new QAction(QIcon(iconChecked), tr("Show convergence"), this);
+  showConvergenceAct->setStatusTip(tr("Show/hide convergence plot"));
+  connect(showConvergenceAct, SIGNAL(triggered()), this, SLOT(showConvergenceSlot()));
+
   // Solver -> Post process
   resultsAct = new QAction(QIcon(":/icons/Post.png"), tr("Run post process"), this);
   resultsAct->setStatusTip(tr("Run post processor"));
   connect(resultsAct, SIGNAL(triggered()), 
 	  this, SLOT(resultsSlot()));
 
-  // Solver -> Kill process
+  // Solver -> Kill post process
   killresultsAct = new QAction(QIcon(":/icons/window-close.png"), tr("Kill post process"), this);
   killresultsAct->setStatusTip(tr("Kill post process"));
   connect(killresultsAct, SIGNAL(triggered()), 
@@ -565,6 +571,7 @@ void MainWindow::createMenus()
   solverMenu = menuBar()->addMenu(tr("&Solver"));
   solverMenu->addAction(runsolverAct);
   solverMenu->addAction(killsolverAct);
+  solverMenu->addAction(showConvergenceAct);
   solverMenu->addSeparator();
   solverMenu->addAction(resultsAct);
   solverMenu->addAction(killresultsAct);
@@ -4337,16 +4344,24 @@ void MainWindow::runsolverSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::solverStdoutSlot()
 {
-  if(!convergenceView->isVisible())
-    convergenceView->show();
-
-  QGraphicsScene *scene = convergenceView->scene;
-  scene->addText("Convergence plot");
-  scene->addLine(0,0,100,100);
-
   QString qs = solver->readAllStandardOutput();
-
   solverLogWindow->textEdit->append(qs);
+
+  if(!showConvergence) {
+
+    // hide convergence plot
+    convergenceView->hide();
+
+  } else {
+
+    // draw convergence plot
+    if(!convergenceView->isVisible())
+      convergenceView->show();
+    
+    QGraphicsScene *scene = convergenceView->scene;
+    scene->addText("Convergence plot");
+    scene->addLine(0,0,100,100);
+  }
 }
 
 
@@ -4377,6 +4392,16 @@ void MainWindow::killsolverSlot()
 
   logMessage("Solver killed");
   runsolverAct->setIcon(QIcon(":/icons/Solver.png"));
+}
+
+// Solver -> Show convergence
+//-----------------------------------------------------------------------------
+void MainWindow::showConvergenceSlot()
+{
+  solver->kill();
+
+  showConvergence = !showConvergence;
+  synchronizeMenuToState();
 }
 
 
@@ -4537,6 +4562,11 @@ void MainWindow::synchronizeMenuToState()
     bcEditAct->setIcon(iconChecked);
   else
     bcEditAct->setIcon(iconEmpty);
+
+  if(showConvergence)
+    showConvergenceAct->setIcon(iconChecked);
+  else
+    showConvergenceAct->setIcon(iconEmpty);
 }
 
 

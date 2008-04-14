@@ -77,6 +77,7 @@ private slots:
   void smoothShadeSlot();         // View -> Shade model -> smooth
   void runsolverSlot();           // Solver -> Run solver
   void killsolverSlot();          // Solver -> Kill solver
+  void showConvergenceSlot();     // Solver -> Show convergence...
   void resultsSlot();             // Solver -> Post process
   void killresultsSlot();         // Solver -> Kill post process
   void showaboutSlot();           // Help -> About...
@@ -197,6 +198,7 @@ private:
   QAction *edgeUnifyAct;          // Mesh -> Unify edge
   QAction *runsolverAct;          // Solver -> Run solver
   QAction *killsolverAct;         // Solver -> Kill solver
+  QAction *showConvergenceAct;    // Solver -> Show convergence...
   QAction *resultsAct;            // Solver -> Post process
   QAction *killresultsAct;        // Solver -> Kill post process
   QAction *aboutAct;              // Help -> About...
@@ -259,6 +261,7 @@ private:
   int activeGenerator;
   bool bcEditActive;
   bool bodyEditActive;
+  bool showConvergence;
 };
 
 #endif

@@ -89,7 +89,9 @@ private slots:
 private:
   hash_entry_t h;
 
+  QIcon newIcon;
   QIcon addIcon;
+  QIcon okIcon;
   QIcon removeIcon;
 
   QDomElement root;
