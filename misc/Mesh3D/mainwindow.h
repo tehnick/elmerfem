@@ -22,6 +22,7 @@
 #include "generalsetup.h"
 #include "edfeditor.h"
 #include "dynamiceditor.h"
+#include "convergenceview.h"
 
 class QAction;
 class QMenu;
@@ -128,6 +129,7 @@ private:
   SifWindow *solverLogWindow;     // Solver log
   SifGenerator *sifGenerator;     // SIF generator
   EdfEditor *edfEditor;           // Edf editor
+  ConvergenceView *convergenceView; // Convergence plotter
 
   void createActions();
   void createMenus();

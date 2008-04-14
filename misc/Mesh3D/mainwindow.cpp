@@ -121,6 +121,7 @@ MainWindow::MainWindow()
   sifGenerator = new SifGenerator;
   elmerDefs = new QDomDocument;
   edfEditor = new EdfEditor;
+  convergenceView = new ConvergenceView;
 
   createActions();
   createMenus();
@@ -4336,12 +4337,12 @@ void MainWindow::runsolverSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::solverStdoutSlot()
 {
+  if(!convergenceView->isVisible())
+    convergenceView->show();
+
   QString qs = solver->readAllStandardOutput();
 
   solverLogWindow->textEdit->append(qs);
-
-  // cout << string(qs.toAscii());
-  // cout.flush();
 }
 
 
