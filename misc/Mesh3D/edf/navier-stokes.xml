@@ -78,6 +78,34 @@
              <Whatis> Volume force in coordinate direction 3. </Whatis>
           </Parameter>
 
+          <Parameter Widget="Label"> <Name> ...other options </Name> </Parameter>
+          <Parameter Widget="CheckBox">
+            <Name> Boussinesq</Name>
+            <Whatis> Use Boussinesq body force for incompressible flow. </Whatis>
+          </Parameter>
+
+          <Parameter Widget="CheckBox">
+            <Name> Hydrostatic pressure </Name>
+            <Whatis> If the Boussinesq model is on compute hydrostatic pressure field instead of the default deviation from the hydrostatic field. Otherwise also add the gravity force. </Whatis>
+          </Parameter>
+
+          <Parameter Widget="CheckBox">
+            <Name> Potential Force </Name>
+            <Whatis> If checked, the force used for the electricstatic coupling is activated. </Whatis>
+            <Activate> /Navier-Stokes/BodyForce/Potential Field </Activate>
+            <Activate> /Navier-Stokes/BodyForce/Potential Coefficient </Activate>
+          </Parameter>
+            
+          <Parameter Widget="Edit" Enabled="False">
+            <Name> Potential Field </Name>
+            <Whatis> The field to which gradient the external force is proportional to. For example the electrostatic field. </Whatis>
+          </Parameter>
+
+          <Parameter Widget="Edit" Enabled="False">
+            <Name> Potential Coefficient </Name>
+            <Whatis> The coefficient that multiplies the gradient term. For example, the charge density.</Whatis>
+          </Parameter>
+
           <Parameter Widget="Label"> <Name> Bodywise Dirichlet Conditions </Name> </Parameter>
           <Parameter Widget="Edit">
              <Name> Velocity 1 </Name>
@@ -105,29 +133,6 @@
           <Parameter Widget="Edit" Enabled="False">
              <Name> Velocity 3 Condition </Name>
              <Whatis> If the given value is less than zero, don't set the Dirichlet condition. To be generally useful space and/or time varying values may be given. </Whatis>
-          </Parameter>
-
-          <Parameter Widget="Label"> <Name> Other options </Name> </Parameter>
-          <Parameter Widget="CheckBox">
-            <Name> Boussinesq </Name>
-            <Whatis> Use Boussinesq body force for incompressible flow. </Whatis>
-          </Parameter>
-
-          <Parameter Widget="CheckBox">
-            <Name> Potential Force </Name>
-            <Whatis> If checked, the force used for the electricstatic coupling is activated. </Whatis>
-            <Activate> /Navier-Stokes/BodyForce/Potential Field </Activate>
-            <Activate> /Navier-Stokes/BodyForce/Potential Coefficient </Activate>
-          </Parameter>
-            
-          <Parameter Widget="Edit" Enabled="False">
-            <Name> Potential Field </Name>
-            <Whatis> The field to which gradient the external force is proportional to. For example the electrostatic field. </Whatis>
-          </Parameter>
-
-          <Parameter Widget="Edit" Enabled="False">
-            <Name> Potential Coefficient </Name>
-            <Whatis> The coefficient that multiplies the gradient term. For example, the charge density.</Whatis>
           </Parameter>
       </BodyForce>
 
