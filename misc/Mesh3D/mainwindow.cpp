@@ -1781,9 +1781,13 @@ void MainWindow::createBodyCheckBoxes(int which,DynamicEditor *pe)
     delete pe->spareScroll->widget();
   }
 
-  QVBoxLayout *slayout = new QVBoxLayout;
+  QGridLayout *slayout = new QGridLayout;
   QLabel *l = new QLabel(tr("Apply to bodies:"));
-  slayout->addWidget(l);
+
+  int count = 0, even = 0;
+
+  slayout->addWidget(l,count,0);
+  count++;
 
   for( int i=0; i<glWidget->bodyMap.count(); i++ )
   {
@@ -1831,7 +1835,9 @@ void MainWindow::createBodyCheckBoxes(int which,DynamicEditor *pe)
         else if ( p != NULL )
           a->setEnabled(false);
 
-        slayout->addWidget(a);
+        slayout->addWidget(a,count,even);
+        even = 1 - even;
+        if (!even) count++;
      }
   }
 
@@ -1879,7 +1885,9 @@ void MainWindow::createBodyCheckBoxes(int which,DynamicEditor *pe)
         else if ( p != NULL )
           a->setEnabled(false);
 
-        slayout->addWidget(a);
+        slayout->addWidget(a,count,even);
+        even = 1-even;
+        if (!even) count++;
      }
   }
 
@@ -1887,6 +1895,7 @@ void MainWindow::createBodyCheckBoxes(int which,DynamicEditor *pe)
   box->setLayout(slayout);
 
   pe->spareScroll->setWidget(box);
+  pe->spareScroll->setMinimumHeight(80);
   pe->spareScroll->show();
 }
 
@@ -2470,9 +2479,13 @@ void MainWindow::createBoundaryCheckBoxes(DynamicEditor *pe)
     delete pe->spareScroll->widget();
   }
 
-  QVBoxLayout *slayout = new QVBoxLayout;
+  QGridLayout *slayout = new QGridLayout;
   QLabel *l = new QLabel(tr("Apply to boundaries:"));
-  slayout->addWidget(l);
+  int count=0,even=0;
+
+  slayout->addWidget(l,count,0);
+  count++;
+
 
   for( int i=0; i<glWidget->boundaryMap.count(); i++ )
   {
@@ -2504,7 +2517,9 @@ void MainWindow::createBoundaryCheckBoxes(DynamicEditor *pe)
         else if ( p != NULL )
           a->setEnabled(false);
 
-        slayout->addWidget(a);
+        slayout->addWidget(a,count,even);
+        even = 1-even;
+        if (!even) count++;
      }
   }
 
@@ -2512,6 +2527,7 @@ void MainWindow::createBoundaryCheckBoxes(DynamicEditor *pe)
   box->setLayout(slayout);
 
   pe->spareScroll->setWidget(box);
+  pe->spareScroll->setMinimumHeight(80);
   pe->spareScroll->show();
 }
 
