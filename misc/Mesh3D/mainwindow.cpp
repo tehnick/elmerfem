@@ -4346,7 +4346,7 @@ void MainWindow::solverStdoutSlot()
 {
   QString qs = solver->readAllStandardOutput();
 
-  if ( qs.at(qs.size()-1).unicode()=='\n' ) qs.chop(1);
+  while( qs.at(qs.size()-1).unicode()=='\n' ) qs.chop(1);
   solverLogWindow->textEdit->append(qs);
 
   if(!showConvergence) {
@@ -4373,7 +4373,7 @@ void MainWindow::solverStderrSlot()
 {
   QString qs = solver->readAllStandardError();
 
-  if ( qs.at(qs.size()-1).unicode()=='\n' ) qs.chop(1);
+  while( qs.at(qs.size()-1).unicode()=='\n' ) qs.chop(1);
   solverLogWindow->textEdit->append(qs);
 }
 
