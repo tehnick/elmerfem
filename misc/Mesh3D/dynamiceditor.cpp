@@ -336,8 +336,8 @@ void DynamicEditor::lSlot(int state)
   for( ;!param.isNull(); param=param.nextSiblingElement("Activate") ) {
     q = param.text().trimmed() + ID;
     hash[q].widget->setEnabled(state);
-    QString widget_visible = hash[q].elem.attribute("Visible","True");
-    if ( state == false && widget_visible == "False" ) {
+    QString widget_visible = hash[q].elem.attribute("Visible","Unknown");
+    if ( state == false && widget_visible != "Unknown" ) {
       hash[q].label->hide(); hash[q].widget->hide();
     }
   }
@@ -345,8 +345,8 @@ void DynamicEditor::lSlot(int state)
   for( ;!param.isNull(); param=param.nextSiblingElement("Deactivate") ) {
     q = param.text().trimmed() + ID;
     hash[q].widget->setEnabled(!state);
-    QString widget_visible = hash[q].elem.attribute("Visible","True");
-    if ( state == true && widget_visible == "False" ) {
+    QString widget_visible = hash[q].elem.attribute("Visible","Unknown");
+    if ( state == true && widget_visible != "Unknown" ) {
       hash[q].label->hide(); hash[q].widget->hide();
     }
   }
@@ -364,7 +364,7 @@ void DynamicEditor::textChangedSlot(QString text)
   param = hash[q].elem.firstChildElement("Activate");
   for( ;!param.isNull(); param=param.nextSiblingElement("Activate") ) {
     q = param.text().trimmed() + ID;
-    QString widget_visible = hash[q].elem.attribute("Visible","True");
+    QString widget_visible = hash[q].elem.attribute("Visible","Uknown");
 
     if ( text != "" ) {
       hash[q].widget->setEnabled(true);
@@ -372,7 +372,7 @@ void DynamicEditor::textChangedSlot(QString text)
       hash[q].label->show();
     } else {
       hash[q].widget->setEnabled(false);
-      if ( widget_visible == "False" ) {
+      if ( widget_visible != "Unkown" ) {
         hash[q].label->hide();
         hash[q].widget->hide();
       }
@@ -401,10 +401,10 @@ void DynamicEditor::comboSlot(QString select)
         hash_entry_t h = hash[s];
 
         QString widget_enabled = h.elem.attribute("Enabled","True");
-        QString widget_visible = h.elem.attribute("Visible","True");
+        QString widget_visible = h.elem.attribute("Visible","Unknown");
 
         h.widget->setEnabled(false);
-        if ( widget_visible == "False" ) {
+        if ( widget_visible != "Unknown" ) {
           h.label->hide(); h.widget->hide();
         }
       }
