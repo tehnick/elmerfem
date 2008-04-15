@@ -4344,6 +4344,8 @@ void MainWindow::runsolverSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::solverStdoutSlot()
 {
+  QGraphicsScene *scene = convergenceView->scene;
+
   QString qs = solver->readAllStandardOutput();
 
   while( qs.at(qs.size()-1).unicode()=='\n' ) qs.chop(1);
@@ -4360,7 +4362,21 @@ void MainWindow::solverStdoutSlot()
     if(!convergenceView->isVisible())
       convergenceView->show();
     
-    QGraphicsScene *scene = convergenceView->scene;
+    QStringList qsl = qs.split("\n");
+    for(int i = 0; i < qsl.count(); i++) {
+      QString tmp = qsl.at(i).trimmed();
+      if(tmp.contains("ComputeChange")) {
+	
+	// parse line, which is supposed to be of the following form:
+	// ComputeChange: NS (ITER=1) (NRM,RELC): (  0.0000000      0.0000000     ) :: heat equation
+
+	QByteArray ba = tmp.toAscii();
+
+	cout << string(ba) << "*** PARSE *** " << endl;
+	cout.flush();	
+      }
+    }
+
     scene->addText("Convergence plot");
     scene->addLine(0,0,100,100);
   }
@@ -4421,7 +4437,6 @@ void MainWindow::resultsSlot()
     return;
   }
 
-  
   QFile file("skeleton.ep");
   if(!file.exists()) {
     logMessage("Elmerpost input file does not exist.");
