@@ -2036,6 +2036,12 @@ void MainWindow::pdeEditorFinishedSlot(int signal, int id)
     addEquationSlot();
 
   } else if(signal == MAT_DELETE) {
+
+    for( int i=0; i<MAX_BODIES; i++ ) {
+       BodyPropertyEditor *body = &bodyPropertyEditor[i];
+       if ( body->equation == pe ) body->equation=NULL;
+    }
+
     // Equation is not in menu:
     if(pe->menuAction == NULL) {
       logMessage("Ready");
@@ -2162,6 +2168,11 @@ void MainWindow::matEditorFinishedSlot(int signal, int id)
     addMaterialSlot();
 
   } else if(signal == MAT_DELETE) {
+
+    for( int i=0; i<MAX_BODIES; i++ ) {
+       BodyPropertyEditor *body = &bodyPropertyEditor[i];
+       if ( body->material == pe ) body->material=NULL;
+    }
 
     // Material is not in menu:
     if(pe->menuAction == NULL) {
@@ -2290,6 +2301,11 @@ void MainWindow::bodyForceEditorFinishedSlot(int signal, int id)
      addBodyForceSlot(); 
 
   } else if(signal == MAT_DELETE) {
+    for( int i=0; i<MAX_BODIES; i++ ) {
+       BodyPropertyEditor *body = &bodyPropertyEditor[i];
+       if ( body->force == pe ) body->force=NULL;
+    }
+
     if(pe->menuAction == NULL) {
       logMessage("Ready");
       pe->close();
@@ -2413,6 +2429,11 @@ void MainWindow::initialConditionEditorFinishedSlot(int signal, int id)
      addInitialConditionSlot();
 
   } else if(signal == MAT_DELETE) {
+
+    for( int i=0; i<MAX_BODIES; i++ ) {
+       BodyPropertyEditor *body = &bodyPropertyEditor[i];
+       if ( body->initial == pe ) body->initial=NULL;
+    }
 
     // Initial condition is not in menu:
     if(pe->menuAction == NULL) {
@@ -2603,6 +2624,11 @@ void MainWindow::boundaryConditionEditorFinishedSlot(int signal, int id)
 
   } else if(signal == MAT_DELETE) {
 
+    for( int i=0; i<MAX_BOUNDARIES; i++ ) {
+       BoundaryPropertyEditor *bndry = &boundaryPropertyEditor[i];
+       if ( bndry->condition == pe ) bndry->condition=NULL;
+    }
+
     // Bopundary condition is not in menu:
     if(pe->menuAction == NULL) {
       logMessage("Ready");
@@ -2614,6 +2640,7 @@ void MainWindow::boundaryConditionEditorFinishedSlot(int signal, int id)
     delete pe->menuAction;
     pe->menuAction = NULL;
     pe->close();
+
     logMessage("Boundary condition deleted");
   }
 }
