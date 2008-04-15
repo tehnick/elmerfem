@@ -2921,11 +2921,17 @@ CONTAINS
 
     ! Steady state output is done within MainUtils
     IF(SteadyState) THEN        
-      WRITE( Message, '(a,g20.12,g20.12,a)') 'SS (NRM,RELC): (',Norm, Change,&
+      iterV => VariableGet( Solver % Mesh % Variables, 'coupled iter' )
+      n = NINT(iterV % Values(1))
+      WRITE( Message, '(a,g15.8,g15.8,a)') &
+         'SS (ITER='//TRIM(i2s(n))//') (NRM,RELC): (',Norm, Change,&
           ' ) :: '// TRIM(ListGetString( Solver % Values, 'Equation'))
       CALL Info( 'ComputeChange', Message, Level=3 )
     ELSE
-      WRITE( Message, '(a,g20.12,g20.12,a)') 'NS (NRM,RELC): (',Norm, Change,&
+      iterV => VariableGet( Solver % Mesh % Variables, 'nonlin iter' )
+      n = NINT(iterV % Values(1))-1
+      WRITE( Message, '(a,g15.8,g15.8,a)') &
+         'NS (ITER='//TRIM(i2s(n))//') (NRM,RELC): (',Norm, Change,&
           ' ) :: '// TRIM(ListGetString( Solver % Values, 'Equation'))
       CALL Info( 'ComputeChange', Message, Level=3 )
     END IF
@@ -2935,7 +2941,26 @@ CONTAINS
 !------------------------------------------------------------------------------
     
 
-
+!------------------------------------------------------------------------------
+  FUNCTION i2s(value) RESULT(string)
+!------------------------------------------------------------------------------
+    INTEGER :: value
+    CHARACTER(LEN=16) :: string
+!------------------------------------------------------------------------------
+    INTEGER :: val
+    INTEGER :: i,n,t
+!------------------------------------------------------------------------------
+     string = ' '
+     val = value
+     n= LOG10(REAL(value))+1
+     DO i=n-1,0,-1
+      t = REAL(val,KIND=8)/10**i
+      string(n-i:n-i) = CHAR(t+ICHAR('0'))
+      val = val - t*10**i
+     END DO
+!------------------------------------------------------------------------------
+  END FUNCTION i2s
+!------------------------------------------------------------------------------
 
 
 
