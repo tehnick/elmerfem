@@ -191,10 +191,13 @@ void DynamicEditor::setupTabs(QDomDocument &elmerDefs, QString Section, int ID)
     // put grid in a frame
     QFrame *frm = new QFrame;
     frm->setLayout(grid);
+
+    QScrollArea *src = new QScrollArea;
+    src->setWidget(frm);
  
    // add frame to tab
    if (params>0) {
-     tabWidget->addTab(frm, name.text().trimmed());
+     tabWidget->addTab(src, name.text().trimmed());
    }
 
     tabs++;
