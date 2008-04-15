@@ -30,8 +30,7 @@ int main(int argc, char **argv)
            break;
          }
       }
-      else if ( strstr( line, "(NRM,RELC)" ) ) {
-        ptr = line;
+      else if ( ptr=strstr( line, "(NRM,RELC)" ) ) {
         while( *ptr != '\0' && *ptr!='+' && *ptr != '-' && *ptr != '.' && !isdigit(*ptr) ) ptr++;
         n = sscanf( ptr, "%lf", &f );
         if ( n==1 && f != 0.0 ) norm = f;
