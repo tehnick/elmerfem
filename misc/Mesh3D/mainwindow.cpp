@@ -4408,27 +4408,40 @@ void MainWindow::solverStdoutSlot()
     QStringList qsl = qs.split("\n");
     for(int i = 0; i < qsl.count(); i++) {
       QString tmp = qsl.at(i).trimmed();
-      if(tmp.contains("ComputeChange")) {
-	
-	// parse line:
-	QStringList tmpSplitted = tmp.split("(");
-	QString tmp2 = tmpSplitted.at(3).trimmed();
-	QStringList tmp2Splitted = tmp2.split(" ");
-	QString qs1 = tmp2Splitted.at(0).trimmed();
-	QString qs2 = tmp2Splitted.at(6).trimmed();
-	double res1 = qs1.toDouble();
-	double res2 = qs2.toDouble();
-
-	cout << "***** " << res2 << endl;
+      if(tmp.contains("ComputeChange") && tmp.contains("NS")) {
+	cout << "Line contains: ComputeChange && NS" << endl;
 	cout.flush();
 
-#if 0
+	// parse line:
+	double res1 = 0.0;
+	double res2 = 0.0;
+	QStringList tmpSplitted = tmp.split("(");
+	cout << "Count: " << tmpSplitted.count() << endl;
+	if(tmpSplitted.count() > 2) {
+	  QString tmp2 = tmpSplitted.at(2).trimmed();
+	  QStringList tmp2Splitted = tmp2.split(" ");
+	  QString qs1 = tmp2Splitted.at(0).trimmed();
+	  res1 = qs1.toDouble();
+	  int pos = 1;
+	  while(tmp2Splitted.at(pos).trimmed() == "") {
+	    pos++;
+	    if(pos > tmp2Splitted.count())
+	      break;
+	  }
+	  QString qs2 = tmp2Splitted.at(pos).trimmed();
+	  res2 = qs2.toDouble();
+	}
+
+	cout << "***** " << res1 << "/" << res2 << endl;
+	cout.flush();
+
+#if 1
 	xValues[solverIter] = (double)(solverIter+1);
 	yValues[solverIter] = res2;
 	solverIter++;
 
 	// set data and plot:
-	convergenceView->residual->setData(xValues, yValues, solverIter);
+	convergenceView->residual->setRawData(xValues, yValues, solverIter);
 
 #endif
       }

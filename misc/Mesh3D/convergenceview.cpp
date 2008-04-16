@@ -59,13 +59,15 @@ ConvergenceView::ConvergenceView()
   this->resize(600, 400);
 
   // set data and plot (test):
+#if 0
   int n = 2;
   double x[2], y[2];
   x[0] = 0.0;
   x[1] = 10.0;
   y[0] = 2.0;
-  y[1] = 0.001;
+  y[1] = 1.5;
   residual->setData(x, y, n);
+#endif
 }
 
 ConvergenceView::~ConvergenceView()
