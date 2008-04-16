@@ -50,18 +50,17 @@ CurveData::CurveData():
 
 void CurveData::append(double *x, double *y, int count)
 {
-  int newSize = ( (d_count + count) / 1000 + 1 ) * 1000;
-  if ( newSize > size() )
-    {
-      d_x.resize(newSize);
-      d_y.resize(newSize);
-    }
+  int newSize = ((d_count + count) / 1000 + 1) * 1000;
+  if(newSize > size()) {
+    d_x.resize(newSize);
+    d_y.resize(newSize);
+  }
   
-  for ( register int i = 0; i < count; i++ )
-    {
-      d_x[d_count + i] = x[i];
-      d_y[d_count + i] = y[i];
-    }
+  for(register int i = 0; i < count; i++) {
+    d_x[d_count + i] = x[i];
+    d_y[d_count + i] = y[i];
+  }
+  
   d_count += count;
 }
 
@@ -92,11 +91,11 @@ ConvergenceView::ConvergenceView() :
 {
   setAutoReplot(false);
 
-  setTitle("Convergence");
+  setTitle("Convergence monitor");
   insertLegend(new QwtLegend(), QwtPlot::RightLegend);
 
-  setAxisTitle(xBottom, "Iteration");
-  setAxisTitle(yLeft, "Residual");
+  setAxisTitle(xBottom, "Nonlinear system iteration");
+  setAxisTitle(yLeft, "Relative change");
 
   setAxisScaleEngine(QwtPlot::yLeft, new QwtLog10ScaleEngine);
 
@@ -120,7 +119,7 @@ void ConvergenceView::appendData(double *x, double *y, int size)
     d_data = new CurveData;
   
   if(d_curve == NULL) {
-    d_curve = new QwtPlotCurve("Nonlinear");
+    d_curve = new QwtPlotCurve(name);
     d_curve->setRenderHint(QwtPlotItem::RenderAntialiased);
     d_curve->setPen(QPen(Qt::red));
     d_curve->attach(this);
@@ -128,7 +127,7 @@ void ConvergenceView::appendData(double *x, double *y, int size)
   
   d_data->append(x, y, size);
   d_curve->setRawData(d_data->x(), d_data->y(), d_data->count());
-
+  
   replot();
 }
 

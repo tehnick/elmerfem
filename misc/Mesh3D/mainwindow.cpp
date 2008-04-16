@@ -4412,10 +4412,15 @@ void MainWindow::solverStdoutSlot()
       QString tmp = qsl.at(i).trimmed();
       if(tmp.contains("ComputeChange") && tmp.contains("NS")) {
 
-	// parse line:
+	// check solver name:
+	QStringList tmpSplitted = tmp.split(":");
+	int last = tmpSplitted.count() - 1;
+	QString name = tmpSplitted.at(last).trimmed();
+
+	// parse rest of the line:
 	double res1 = 0.0;
 	double res2 = 0.0;
-	QStringList tmpSplitted = tmp.split("(");
+	tmpSplitted = tmp.split("(");
 
 	if(tmpSplitted.count() > 2) {
 	  QString tmp2 = tmpSplitted.at(2).trimmed();
@@ -4433,6 +4438,7 @@ void MainWindow::solverStdoutSlot()
 	}
 
 	// res1 = norm, res2 = relative change
+	convergenceView->name = name;
 	convergenceView->appendData((double)(solverIter++), res2);
       }
     }

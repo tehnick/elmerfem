@@ -34,6 +34,8 @@ public:
   ConvergenceView();
   ~ConvergenceView();
 
+  QString name;
+
   void appendData(double x, double y);
   void appendData(double *x, double *y, int size);
   void removeData();
