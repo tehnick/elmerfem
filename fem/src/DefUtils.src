@@ -1702,8 +1702,11 @@ CONTAINS
      n = GetElementDOFs( Indexes, Element, Solver )
      CALL UpdateGlobalEquations( A,G,b,f,n,x % DOFs,x % Perm(Indexes(1:n)) )
 
-     BUpd = .FALSE.
-     IF ( PRESENT(BulkUpdate) ) BUpd=BulkUpdate 
+     IF ( PRESENT(BulkUpdate) ) THEN
+       BUpd=BulkUpdate 
+     ELSE
+       IF ( ASSOCIATED(Element % BoundaryInfo) ) RETURN
+     END IF
      BUpd = BUpd .OR. GetLogical( GetSolverParams(Solver), 'Calculate Loads', Found )
 
      IF ( BUpd ) THEN
@@ -1806,7 +1809,12 @@ CONTAINS
      CALL UpdateGlobalEquations( A,G,b,f,n,x % DOFs,x % Perm(Indexes(1:n)) )
 
      BUpd = .FALSE.
-     IF ( PRESENT(BulkUpdate) ) BUpd=BulkUpdate 
+     IF ( PRESENT(BulkUpdate) ) THEN
+       BUpd=BulkUpdate 
+     ELSE IF ( ASSOCIATED(Element % BoundaryInfo) ) THEN
+       DEALLOCATE(G,F)
+       RETURN
+     END IF
      BUpd = BUpd .OR. GetLogical( GetSolverParams(Solver), 'Calculate Loads', Found )
 
      IF (BUpd) THEN
@@ -1883,7 +1891,11 @@ CONTAINS
        F, n, x % DOFs, x % Perm(Indexes(1:n)) )
 
     BUpd = .FALSE.
-    IF ( PRESENT(BulkUpdate) ) BUpd=BulkUpdate 
+    IF ( PRESENT(BulkUpdate) ) THEN
+      BUpd=BulkUpdate 
+    ELSE
+       IF ( ASSOCIATED(Element % BoundaryInfo) ) RETURN
+    END IF
     BUpd = BUpd .OR. GetLogical( GetSolverParams(Solver), 'Calculate Loads', Found )
 
     IF ( BUpd ) THEN
