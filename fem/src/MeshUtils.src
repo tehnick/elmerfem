@@ -1395,6 +1395,10 @@ END SUBROUTINE CreateGlobalNumbering
     REAL(KIND=dp) :: x(4), RotMatrix(4,4),TrsMatrix(4,4),SclMatrix(4,4), &
            TrfMatrix(4,4),Identity(4,4), x1(3), x2(3), Normal(3), dist
 
+    REAL(KIND=dp) :: scl_x, scl_y, scl_z
+    REAL(KIND=dp) :: xmin_1, xmax_1, ymin_1, ymax_1, zmin_1, zmax_1
+    REAL(KIND=dp) :: xmin_2, xmax_2, ymin_2, ymax_2, zmin_2, zmax_2
+
     SAVE Parray
 !------------------------------------------------------------------------------
 
@@ -1487,8 +1491,13 @@ END SUBROUTINE CreateGlobalNumbering
     CALL AllocateVector( InvPerm1, BMesh1 % NumberOfNodes )
     CALL AllocateVector( InvPerm2, BMesh2 % NumberOfNodes )
 
-    k1 = 0
-    k2 = 0
+    xmin_1 =  HUGE(dp); ymin_1 =  HUGE(dp); zmin_1 =  HUGE(dp)
+    xmin_2 =  HUGE(dp); ymin_2 =  HUGE(dp); zmin_2 =  HUGE(dp)
+
+    xmax_1 = -HUGE(dp); ymax_1 = -HUGE(dp); zmax_1 = -HUGE(dp)
+    xmax_2 = -HUGE(dp); ymax_2 = -HUGE(dp); zmax_2 = -HUGE(dp)
+
+    k1 = 0; k2 = 0
     DO i=1,Mesh % NumberOfNodes
        IF ( Perm1(i) > 0 ) THEN
           k1 = k1 + 1
@@ -1497,6 +1506,14 @@ END SUBROUTINE CreateGlobalNumbering
           BMesh1 % Nodes % x(k1)  = Mesh % Nodes % x(i)
           BMesh1 % Nodes % y(k1)  = Mesh % Nodes % y(i)
           BMesh1 % Nodes % z(k1)  = Mesh % Nodes % z(i)
+
+          xmin_1 = MIN( xmin_1, Mesh % Nodes % x(i) )
+          ymin_1 = MIN( ymin_1, Mesh % Nodes % y(i) )
+          zmin_1 = MIN( zmin_1, Mesh % Nodes % z(i) )
+
+          xmax_1 = MAX( xmax_1, Mesh % Nodes % x(i) )
+          ymax_1 = MAX( ymax_1, Mesh % Nodes % y(i) )
+          zmax_1 = MAX( zmax_1, Mesh % Nodes % z(i) )
        END IF
 
        IF ( Perm2(i) > 0 ) THEN
@@ -1506,8 +1523,37 @@ END SUBROUTINE CreateGlobalNumbering
           BMesh2 % Nodes % x(k2)  = Mesh % Nodes % x(i)
           BMesh2 % Nodes % y(k2)  = Mesh % Nodes % y(i)
           BMesh2 % Nodes % z(k2)  = Mesh % Nodes % z(i)
+
+          xmin_2 = MIN( xmin_2, Mesh % Nodes % x(i) )
+          ymin_2 = MIN( ymin_2, Mesh % Nodes % y(i) )
+          zmin_2 = MIN( zmin_2, Mesh % Nodes % z(i) )
+
+          xmax_2 = MAX( xmax_2, Mesh % Nodes % x(i) )
+          ymax_2 = MAX( ymax_2, Mesh % Nodes % y(i) )
+          zmax_2 = MAX( zmax_2, Mesh % Nodes % z(i) )
        END IF
     END DO
+
+    scl_x = xmax_2 - xmin_2
+    IF ( ABS(scl_x) > AEPS ) THEN
+      scl_x = (xmax_1 - xmin_1) / scl_x
+    ELSE
+      scl_x = 1.0_dp
+    END IF
+
+    scl_y = ymax_2 - ymin_2
+    IF ( ABS(scl_y) > AEPS ) THEN
+      scl_y = (ymax_1 - ymin_1) / scl_y
+    ELSE
+      scl_y = 1.0_dp
+    END IF
+
+    scl_z = zmax_2 - zmin_2
+    IF ( ABS(scl_z) > AEPS ) THEN
+      scl_z = (zmax_1 - zmin_1) / scl_z
+    ELSE
+      scl_z = 1.0_dp
+    END IF
 
 !
 !   Renumber the element node pointers to use
@@ -1561,10 +1607,14 @@ END SUBROUTINE CreateGlobalNumbering
       x2(2) = BMesh2 % Nodes % y(1)
       x2(3) = BMesh2 % Nodes % z(1)
 
-      dist = SUM( Normal*(x1-x2) )
-      DO i=1,3
-        TrsMatrix(4,i) = dist * Normal(i)
-      END DO
+!     dist = SUM( Normal*(x1-x2) )
+!     DO i=1,3
+!       TrsMatrix(4,i) = dist * Normal(i)
+!     END DO
+
+      TrsMatrix(4,1) = scl_x*(xmin_1 - xmin_2)
+      TrsMatrix(4,2) = scl_y*(ymin_1 - ymin_2)
+      TrsMatrix(4,3) = scl_z*(zmin_1 - zmin_2)
     ELSE
       DO i=1,SIZE(Parray,1)
          TrsMatrix(4,i) = Parray(i,1)
@@ -1577,9 +1627,13 @@ END SUBROUTINE CreateGlobalNumbering
                    'Periodic BC Scale', Gotit )
 
     IF ( GotIt ) THEN
-       DO i=1,SIZE(Parray,1)
-          SclMatrix(i,i) = Parray(i,1)
-       END DO
+      DO i=1,SIZE(Parray,1)
+        SclMatrix(i,i) = Parray(i,1)
+      END DO
+    ELSE
+      SclMatrix(1,1) = scl_x
+      SclMatrix(2,2) = scl_y
+      SclMatrix(3,3) = scl_z
     END IF
 
 !
