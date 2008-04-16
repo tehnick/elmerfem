@@ -98,12 +98,7 @@ ConvergenceView::ConvergenceView() :
   setAxisTitle(xBottom, "Iteration");
   setAxisTitle(yLeft, "Residual");
 
-#if 0
-  residual = new QwtPlotCurve("Nonlinear system");
-  residual->setRenderHint(QwtPlotItem::RenderAntialiased);
-  residual->setPen(QPen(Qt::red));
-  residual->attach(this);
-#endif
+  setAxisScaleEngine(QwtPlot::yLeft, new QwtLog10ScaleEngine);
 
   this->resize(600, 400);
 }

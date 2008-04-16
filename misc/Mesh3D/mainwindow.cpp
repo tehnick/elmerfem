@@ -4416,7 +4416,7 @@ void MainWindow::solverStdoutSlot()
 	double res1 = 0.0;
 	double res2 = 0.0;
 	QStringList tmpSplitted = tmp.split("(");
-	cout << "Count: " << tmpSplitted.count() << endl;
+
 	if(tmpSplitted.count() > 2) {
 	  QString tmp2 = tmpSplitted.at(2).trimmed();
 	  QStringList tmp2Splitted = tmp2.split(" ");
