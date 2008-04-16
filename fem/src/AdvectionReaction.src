@@ -260,7 +260,7 @@
            !------------------------------------------------------------------------------         
            LOAD(1:n) = GetReal( BodyForce, TRIM(VariableName) // ' Source', Found )    
            IF (.NOT.Found) THEN
-              WRITE(Message,'(A A A)') 'Body Force >',TRIM(VariableName) // ' Source','< not found'
+              WRITE(Message,'(A,A,A)') 'Body Force >',TRIM(VariableName) // ' Source','< not found'
               CALL INFO(SolverName, Message, Level=42)
               LOAD(1:n)  = 0.0d0
            END IF
@@ -273,7 +273,7 @@
            !-----------------------
            Gamma(1:n)  = GetReal( Material, TRIM(VariableName) // ' Gamma', Found )
            IF (.NOT.Found) THEN
-              WRITE(Message,'(A A A)') 'Material Property >',TRIM(VariableName) // ' Gamma','< not found'
+              WRITE(Message,'(A,A,A)') 'Material Property >',TRIM(VariableName) // ' Gamma','< not found'
               CALL INFO(SolverName, Message, Level=42)
               Gamma(1:n)  = 0.0d0
            END IF
@@ -771,7 +771,7 @@
            FlowDOFs     =  FlowSol % DOFs
            FlowSolution => FlowSol % Values
         ELSE
-           WRITE(Message,'(A A A)') &
+           WRITE(Message,'(A,A,A)') &
                 'Convection flag set to >computed<, but no variable >',FlowSolName,'< found'
            CALL FATAL(SolverName,Message)              
         END IF
@@ -801,7 +801,7 @@
      ELSE IF (ConvectionFlag == 'none' ) THEN
         Velo = 0.0d0
      ELSE  
-        WRITE(Message,'(A A A)') 'Convection flag >', ConvectionFlag ,'< not recognised'
+        WRITE(Message,'(A,A,A)') 'Convection flag >', ConvectionFlag ,'< not recognised'
         CALL FATAL(SolverName,Message) 
      END IF
      CALL INFO(SolverName,Message,Level=10)
