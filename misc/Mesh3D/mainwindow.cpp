@@ -4422,7 +4422,7 @@ void MainWindow::solverStdoutSlot()
 	cout << "***** " << res2 << endl;
 	cout.flush();
 
-#if 1
+#if 0
 	xValues[solverIter] = (double)(solverIter+1);
 	yValues[solverIter] = res2;
 	solverIter++;
