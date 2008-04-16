@@ -45,10 +45,29 @@ using namespace std;
 
 ConvergenceView::ConvergenceView()
 {
-  setTitle("Residual");
+  setTitle("Convergence");
+  insertLegend(new QwtLegend(), QwtPlot::RightLegend);
+
+  setAxisTitle(xBottom, "Iteration");
+  setAxisTitle(yLeft, "Residual");
+
+  residual = new QwtPlotCurve("Nonlinear system");
+  residual->setRenderHint(QwtPlotItem::RenderAntialiased);
+  residual->setPen(QPen(Qt::red));
+  residual->attach(this);
+
+  this->resize(600, 400);
+
+  // set data and plot (test):
+  int n = 2;
+  double x[2], y[2];
+  x[0] = 0.0;
+  x[1] = 10.0;
+  y[0] = 2.0;
+  y[1] = 0.001;
+  residual->setData(x, y, n);
 }
 
 ConvergenceView::~ConvergenceView()
 {
 }
-

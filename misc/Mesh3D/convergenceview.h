@@ -1,6 +1,7 @@
 #ifndef CONVERGENCEVIEW_H
 #define CONVERGENCEVIEW_H
 
+#include <qapplication.h>
 #include <qwt_plot.h>
 #include <qwt_plot_marker.h>
 #include <qwt_plot_curve.h>
@@ -14,6 +15,8 @@ class ConvergenceView : public QwtPlot
 public:
   ConvergenceView();
   ~ConvergenceView();
+
+  QwtPlotCurve *residual;
 };
 
 #endif // CONVERGENCEVIEW_H

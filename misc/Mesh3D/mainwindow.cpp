@@ -4376,6 +4376,8 @@ void MainWindow::runsolverSlot()
   solverLogWindow->found = false;
   solverLogWindow->show();
 
+  solverIter = 0;
+
   logMessage("Solver started");
 
   runsolverAct->setIcon(QIcon(":/icons/Solver-red.png"));
@@ -4408,14 +4410,27 @@ void MainWindow::solverStdoutSlot()
       QString tmp = qsl.at(i).trimmed();
       if(tmp.contains("ComputeChange")) {
 	
-	// parse line, which is supposed to be of the following form:
-	// ComputeChange: NS (ITER=1) (NRM,RELC): 
-	// (  0.0000000      0.0000000     ) :: heat equation
+	// parse line:
+	QStringList tmpSplitted = tmp.split("(");
+	QString tmp2 = tmpSplitted.at(3).trimmed();
+	QStringList tmp2Splitted = tmp2.split(" ");
+	QString qs1 = tmp2Splitted.at(0).trimmed();
+	QString qs2 = tmp2Splitted.at(6).trimmed();
+	double res1 = qs1.toDouble();
+	double res2 = qs2.toDouble();
 
-	QByteArray ba = tmp.toAscii();
+	cout << "***** " << res2 << endl;
+	cout.flush();
 
-	cout << string(ba) << "*** PARSE *** " << endl;
-	cout.flush();	
+#if 1
+	xValues[solverIter] = (double)(solverIter+1);
+	yValues[solverIter] = res2;
+	solverIter++;
+
+	// set data and plot:
+	convergenceView->residual->setData(xValues, yValues, solverIter);
+
+#endif
       }
     }
   }
