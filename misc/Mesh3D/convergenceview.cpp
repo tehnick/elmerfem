@@ -89,17 +89,37 @@ ConvergenceView::ConvergenceView() :
   d_data(NULL),
   d_curve(NULL)
 {
-  setAutoReplot(false);
+  setAutoReplot(true);
+  setCanvasBackground(QColor(Qt::white));
+  setTitle("Nonlinear system convergence");
 
-  setTitle("Convergence monitor");
-  insertLegend(new QwtLegend(), QwtPlot::RightLegend);
+  // legend
+  QwtLegend *legend = new QwtLegend;
+  legend->setFrameStyle(QFrame::Box|QFrame::Sunken);
+  insertLegend(legend, QwtPlot::RightLegend);
 
-  setAxisTitle(xBottom, "Nonlinear system iteration");
+  // grid
+  QwtPlotGrid *grid = new QwtPlotGrid;
+  grid->enableXMin(true);
+  grid->setMajPen(QPen(Qt::black, 0, Qt::DotLine));
+  grid->setMinPen(QPen(Qt::gray, 0 , Qt::DotLine));
+  // grid->attach(this);
+  
+  // axes
+  setAxisTitle(xBottom, "Iteration step");
   setAxisTitle(yLeft, "Relative change");
 
-  setAxisScaleEngine(QwtPlot::yLeft, new QwtLog10ScaleEngine);
+  setAxisMaxMajor(QwtPlot::xBottom, 20);
+  setAxisMaxMinor(QwtPlot::xBottom, 1);
+  setAxisMaxMajor(QwtPlot::yLeft, 10);
+  setAxisMaxMinor(QwtPlot::yLeft, 10);
+
+  // scale engine
+  QwtLog10ScaleEngine *scaleEngine = new QwtLog10ScaleEngine;
+  setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
 
   this->resize(600, 400);
+  this->setWindowTitle("Convergence monitor");
 }
 
 ConvergenceView::~ConvergenceView()
@@ -127,8 +147,6 @@ void ConvergenceView::appendData(double *x, double *y, int size)
   
   d_data->append(x, y, size);
   d_curve->setRawData(d_data->x(), d_data->y(), d_data->count());
-  
-  replot();
 }
 
 void ConvergenceView::removeData()
