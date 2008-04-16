@@ -370,7 +370,7 @@
         RelativeChange = Solver % Variable % NonlinChange 
         
         IF (RelativeChange < NonlinearTol)  THEN 
-           WRITE(Message,'(A I6 A I6 A)') &
+           WRITE(Message,'(A,I6,A,I6,A)') &
                 'Nonlinear iteration converged after ', iter, &
                 ' out of max ',NonlinearIterMax,' iterations'
            CALL INFO(SolverName,Message)
@@ -455,7 +455,7 @@
        END WHERE
        DEALLOCATE( Ref )
     ELSE
-       WRITE(Message,'(AAA)') 'Exported Variable >',TRIM(VariableName) //   'Nodal Result','< not found'
+       WRITE(Message,'(A,A,A)') 'Exported Variable >',TRIM(VariableName) //   'Nodal Result','< not found'
        CALL FATAL(SolverName,Message)
     END IF
 
