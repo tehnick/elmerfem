@@ -38,33 +38,17 @@
  *                                                                           *
  *****************************************************************************/
 
-#include <QtGui>
 #include <iostream>
 #include "convergenceview.h"
 
 using namespace std;
 
-ConvergenceView::ConvergenceView(QWidget *parent)
-  : QMainWindow(parent)
+ConvergenceView::ConvergenceView()
 {
-  setWindowFlags(Qt::Window);
-  setWindowTitle(tr("Convergence"));
-  scene = new QGraphicsScene(this);
-  view = new QGraphicsView(scene);
-  setCentralWidget(view);
+  setTitle("Residual");
 }
 
 ConvergenceView::~ConvergenceView()
 {
 }
 
-QSize ConvergenceView::minimumSizeHint() const
-{
-  return QSize(64, 64);
-}
-
-
-QSize ConvergenceView::sizeHint() const
-{
-  return QSize(480, 480);
-}

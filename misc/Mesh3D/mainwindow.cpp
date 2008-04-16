@@ -4387,8 +4387,6 @@ void MainWindow::runsolverSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::solverStdoutSlot()
 {
-  QGraphicsScene *scene = convergenceView->scene;
-
   QString qs = solver->readAllStandardOutput();
 
   while( qs.at(qs.size()-1).unicode()=='\n' ) qs.chop(1);
@@ -4411,7 +4409,8 @@ void MainWindow::solverStdoutSlot()
       if(tmp.contains("ComputeChange")) {
 	
 	// parse line, which is supposed to be of the following form:
-	// ComputeChange: NS (ITER=1) (NRM,RELC): (  0.0000000      0.0000000     ) :: heat equation
+	// ComputeChange: NS (ITER=1) (NRM,RELC): 
+	// (  0.0000000      0.0000000     ) :: heat equation
 
 	QByteArray ba = tmp.toAscii();
 
@@ -4419,9 +4418,6 @@ void MainWindow::solverStdoutSlot()
 	cout.flush();	
       }
     }
-
-    scene->addText("Convergence plot");
-    scene->addLine(0,0,100,100);
   }
 }
 

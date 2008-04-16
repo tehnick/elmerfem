@@ -1,29 +1,19 @@
 #ifndef CONVERGENCEVIEW_H
 #define CONVERGENCEVIEW_H
 
-#include <QMainWindow>
+#include <qwt_plot.h>
+#include <qwt_plot_marker.h>
+#include <qwt_plot_curve.h>
+#include <qwt_legend.h>
+#include <qwt_data.h>
+#include <qwt_text.h>
+#include <math.h>
 
-class QGraphicsScene;
-class QGraphicsView;
-
-class ConvergenceView : public QMainWindow
+class ConvergenceView : public QwtPlot
 {
-  Q_OBJECT
-
 public:
-  ConvergenceView(QWidget *parent = 0);
+  ConvergenceView();
   ~ConvergenceView();
-
-  QSize minimumSizeHint() const;
-  QSize sizeHint() const;
-
-  QGraphicsScene *scene;
-  QGraphicsView *view;
-
-private slots:
-
-private:
-
 };
 
 #endif // CONVERGENCEVIEW_H
