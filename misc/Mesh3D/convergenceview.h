@@ -10,13 +10,38 @@
 #include <qwt_text.h>
 #include <math.h>
 
+class CurveData
+{
+public:
+  CurveData();
+  
+  void append(double *x, double *y, int count);
+  
+  int count() const;
+  int size() const;
+  const double *x() const;
+  const double *y() const;
+  
+private:
+  int d_count;
+  QwtArray<double> d_x;
+  QwtArray<double> d_y;
+};
+
+
 class ConvergenceView : public QwtPlot
 {
 public:
   ConvergenceView();
   ~ConvergenceView();
 
-  QwtPlotCurve *residual;
+  void appendData(double x, double y);
+  void appendData(double *x, double *y, int size);
+  void removeData();
+
+private:
+  CurveData *d_data;
+  QwtPlotCurve *d_curve;
 };
 
 #endif // CONVERGENCEVIEW_H

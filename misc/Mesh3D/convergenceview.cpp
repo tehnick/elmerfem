@@ -43,33 +43,107 @@
 
 using namespace std;
 
-ConvergenceView::ConvergenceView()
+CurveData::CurveData():
+  d_count(0)
 {
+}
+
+void CurveData::append(double *x, double *y, int count)
+{
+  int newSize = ( (d_count + count) / 1000 + 1 ) * 1000;
+  if ( newSize > size() )
+    {
+      d_x.resize(newSize);
+      d_y.resize(newSize);
+    }
+  
+  for ( register int i = 0; i < count; i++ )
+    {
+      d_x[d_count + i] = x[i];
+      d_y[d_count + i] = y[i];
+    }
+  d_count += count;
+}
+
+int CurveData::count() const
+{
+  return d_count;
+}
+
+int CurveData::size() const
+{
+  return d_x.size();
+}
+
+const double *CurveData::x() const
+{
+  return d_x.data();
+}
+
+const double *CurveData::y() const
+{
+  return d_y.data();
+}
+
+
+ConvergenceView::ConvergenceView() :
+  d_data(NULL),
+  d_curve(NULL)
+{
+  setAutoReplot(false);
+
   setTitle("Convergence");
   insertLegend(new QwtLegend(), QwtPlot::RightLegend);
 
   setAxisTitle(xBottom, "Iteration");
   setAxisTitle(yLeft, "Residual");
 
+#if 0
   residual = new QwtPlotCurve("Nonlinear system");
   residual->setRenderHint(QwtPlotItem::RenderAntialiased);
   residual->setPen(QPen(Qt::red));
   residual->attach(this);
+#endif
 
   this->resize(600, 400);
-
-  // set data and plot (test):
-#if 0
-  int n = 2;
-  double x[2], y[2];
-  x[0] = 0.0;
-  x[1] = 10.0;
-  y[0] = 2.0;
-  y[1] = 1.5;
-  residual->setData(x, y, n);
-#endif
 }
 
 ConvergenceView::~ConvergenceView()
 {
+  delete d_data;
+}
+
+
+void ConvergenceView::appendData(double x, double y)
+{
+  appendData(&x, &y, 1);
+}
+
+void ConvergenceView::appendData(double *x, double *y, int size)
+{
+  if(d_data == NULL)
+    d_data = new CurveData;
+  
+  if(d_curve == NULL) {
+    d_curve = new QwtPlotCurve("Nonlinear");
+    d_curve->setRenderHint(QwtPlotItem::RenderAntialiased);
+    d_curve->setPen(QPen(Qt::red));
+    d_curve->attach(this);
+  }
+  
+  d_data->append(x, y, size);
+  d_curve->setRawData(d_data->x(), d_data->y(), d_data->count());
+
+  replot();
+}
+
+void ConvergenceView::removeData()
+{
+  delete d_curve;
+  d_curve = NULL;
+  
+  delete d_data;
+  d_data = NULL;
+  
+  replot();
 }

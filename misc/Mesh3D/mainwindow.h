@@ -265,8 +265,6 @@ private:
 
   // convergence plot
   int solverIter;
-  double xValues[10000];
-  double yValues[10000];
 };
 
 #endif

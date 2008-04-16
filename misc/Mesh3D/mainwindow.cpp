@@ -4376,7 +4376,9 @@ void MainWindow::runsolverSlot()
   solverLogWindow->found = false;
   solverLogWindow->show();
 
+  // convergence plot:
   solverIter = 0;
+  convergenceView->removeData();
 
   logMessage("Solver started");
 
@@ -4409,8 +4411,6 @@ void MainWindow::solverStdoutSlot()
     for(int i = 0; i < qsl.count(); i++) {
       QString tmp = qsl.at(i).trimmed();
       if(tmp.contains("ComputeChange") && tmp.contains("NS")) {
-	cout << "Line contains: ComputeChange && NS" << endl;
-	cout.flush();
 
 	// parse line:
 	double res1 = 0.0;
@@ -4432,18 +4432,8 @@ void MainWindow::solverStdoutSlot()
 	  res2 = qs2.toDouble();
 	}
 
-	cout << "***** " << res1 << "/" << res2 << endl;
-	cout.flush();
-
-#if 1
-	xValues[solverIter] = (double)(solverIter+1);
-	yValues[solverIter] = res2;
-	solverIter++;
-
-	// set data and plot:
-	convergenceView->residual->setRawData(xValues, yValues, solverIter);
-
-#endif
+	// res1 = norm, res2 = relative change
+	convergenceView->appendData((double)(solverIter++), res2);
       }
     }
   }
