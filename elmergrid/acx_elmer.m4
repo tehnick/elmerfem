@@ -552,6 +552,27 @@ if test "$host" = unknown; then
   AC_MSG_ERROR([unknown system type, your build will most likely be screwed. quitting.])
 fi
 
+dnl find out the flags that enable 64 bit compilation
+AC_DEFUN([ACX_CHECK_B64FLAGS],
+[
+AC_PREREQ([2.50])
+dnl AC_REQUIRE([AC_PROG_FC])
+AC_REQUIRE([AC_PROG_CC])
+AC_REQUIRE([ACX_PROG_AR])
+dnl AC_REQUIRE([AC_PROG_CXX])
+
+AC_ARG_WITH(64bits,
+	[AC_HELP_STRING([--with-64bits=yes(/no)], [Try to compile using 64 bits (default)])])
+
+
+if test -z "$host"; then
+  host=unknown
+fi
+canonical_host_type=$host
+if test "$host" = unknown; then
+  AC_MSG_ERROR([unknown system type, your build will most likely be screwed. quitting.])
+fi
+
 dnl by default, use no flags at all
 B64FLAGS=
 B64CFLAGS=
@@ -593,6 +614,10 @@ case "$canonical_host_type" in
 	  g95 | gfortran)
 	        B64FCFLAGS=$B64FLAGS
 		;;
+	  pgf*)
+	        # portland group
+	        B64FCFLAGS="-fPIC"
+	        ;;
 	  *)
 	        B64FCFLAGS=$B64FLAGS
 		;;
@@ -604,6 +629,10 @@ case "$canonical_host_type" in
 	  ifort | ifc)
 		true
 	  ;;
+	  pgf*)
+	        # portland group
+	        B64FFLAGS="-fPIC"
+	        ;;
           *)
 	      B64FFLAGS=$B64FLAGS
           ;;
@@ -615,6 +644,10 @@ case "$canonical_host_type" in
 	  icc | icc)
 		true
 	  ;;
+	  pgcc*)
+	        # portland group
+	        B64CFLAGS="-fPIC"
+	        ;;
           *)
 	      B64CFLAGS=$B64FLAGS
           ;;
@@ -625,6 +658,10 @@ case "$canonical_host_type" in
  	case "$CC" in 
 	  icc | icc)
 		true
+	  ;;
+	  pgC*)
+	        # portland group
+	        B64CXXFLAGS="-fPIC"
 	  ;;
 	  *)
        		B64CXXFLAGS=$B64FLAGS
@@ -759,7 +796,7 @@ if test "$with_64bits" != no; then
 
 	if test x"$CXX" != x; then
            AC_MSG_CHECKING([for 64 bit CXXFLAGS])
-           AC_MSG_RESULT($B64CXXFLAGS)
+           AC_MSG_RESULT($B64CXXFLAGS	)
 	   CXXFLAGS="$CXXFLAGS $B64CXXFLAGS"
 	fi
 
@@ -810,6 +847,7 @@ fi
 
 AC_SUBST(B64FLAGS)
 ])dnl ACX_CHECK_B64FLAGS
+
 
 dnl
 dnl @synopsis ACX_MATC([ACTION-IF-FOUND[, ACTION-IF-NOT-FOUND]])
