@@ -85,9 +85,7 @@ const double *CurveData::y() const
 }
 
 
-ConvergenceView::ConvergenceView() :
-  d_data(NULL),
-  d_curve(NULL)
+ConvergenceView::ConvergenceView() 
 {
   setAutoReplot(true);
   setCanvasBackground(QColor(Qt::white));
@@ -108,7 +106,6 @@ ConvergenceView::ConvergenceView() :
   // axes
   setAxisTitle(xBottom, "Iteration step");
   setAxisTitle(yLeft, "Relative change");
-
   setAxisMaxMajor(QwtPlot::xBottom, 20);
   setAxisMaxMinor(QwtPlot::xBottom, 1);
   setAxisMaxMajor(QwtPlot::yLeft, 10);
@@ -118,20 +115,21 @@ ConvergenceView::ConvergenceView() :
   QwtLog10ScaleEngine *scaleEngine = new QwtLog10ScaleEngine;
   setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
 
-  this->resize(600, 400);
-  this->setWindowTitle("Convergence monitor");
-
+  // pens
   pen[0] = QPen(Qt::red);
   pen[1] = QPen(Qt::green);
   pen[2] = QPen(Qt::blue);
   pen[3] = QPen(Qt::black);
   pen[4] = QPen(Qt::cyan);
   pen[5] = QPen(Qt::yellow);
+
+  this->resize(600, 400);
+  this->setWindowTitle("Convergence monitor");
 }
 
 ConvergenceView::~ConvergenceView()
 {
-  delete d_data;
+  curveList.clear();
 }
 
 

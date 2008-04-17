@@ -17,7 +17,7 @@ class CurveData
 public:
   CurveData();
   
-  void append(double *x, double *y, int count);
+  void append(double*, double*, int);
   
   int count() const;
   int size() const;
@@ -43,14 +43,12 @@ public:
   ConvergenceView();
   ~ConvergenceView();
 
-  void appendData(double x, double y, QString name);
-  void appendData(double *x, double *y, int size, QString name);
+  void appendData(double, double, QString);
+  void appendData(double*, double*, int, QString);
   void removeData();
 
 private:
   QHash<QString, Curve*> curveList;
-  CurveData *d_data;
-  QwtPlotCurve *d_curve;
   QPen pen[MAX_EQUATIONS];
 };
 
