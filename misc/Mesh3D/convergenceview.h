@@ -43,9 +43,11 @@ public:
   ConvergenceView();
   ~ConvergenceView();
 
-  void appendData(double, double, QString);
-  void appendData(double*, double*, int, QString);
+  void appendData(double, QString);
+  void appendData(double*, int, QString);
   void removeData();
+
+  QString title;
 
 private:
   QHash<QString, Curve*> curveList;

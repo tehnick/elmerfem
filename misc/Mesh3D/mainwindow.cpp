@@ -4377,7 +4377,6 @@ void MainWindow::runsolverSlot()
   solverLogWindow->show();
 
   // convergence plot:
-  solverIter = 0;
   convergenceView->removeData();
 
   logMessage("Solver started");
@@ -4425,6 +4424,15 @@ void MainWindow::solverStdoutSlot()
     for(int i = 0; i < qsl.count(); i++) {
       QString tmp = qsl.at(i).trimmed();
 
+      if(tmp.contains("Time:")) {
+	QStringList tmpSplitted = tmp.split(" ");
+	int last = tmpSplitted.count()-1;
+	QString timeString = tmpSplitted.at(last);
+	double timeDouble = timeString.toDouble();
+	convergenceView->title = "Nonlinear system convergence (time="
+	  + QString::number(timeDouble) + ")";
+      }   
+
       if(tmp.contains("ComputeChange") && tmp.contains("NS")) {
 
 	// check solver name:
@@ -4455,7 +4463,7 @@ void MainWindow::solverStdoutSlot()
 	}
 
 	// res1 = norm, res2 = relative change
-	convergenceView->appendData((double)(solverIter++), res2, name);
+	convergenceView->appendData(res2, name);
       }
     }
   }

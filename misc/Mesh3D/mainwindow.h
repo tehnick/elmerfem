@@ -262,9 +262,6 @@ private:
   bool bcEditActive;
   bool bodyEditActive;
   bool showConvergence;
-
-  // convergence plot
-  int solverIter;
 };
 
 #endif

@@ -89,7 +89,8 @@ ConvergenceView::ConvergenceView()
 {
   setAutoReplot(true);
   setCanvasBackground(QColor(Qt::white));
-  setTitle("Nonlinear system convergence");
+  title = "Nonlinear system convergence";
+  setTitle(title);
 
   // legend
   QwtLegend *legend = new QwtLegend;
@@ -133,12 +134,12 @@ ConvergenceView::~ConvergenceView()
 }
 
 
-void ConvergenceView::appendData(double x, double y, QString name)
+void ConvergenceView::appendData(double y, QString name)
 {
-  appendData(&x, &y, 1, name);
+  appendData(&y, 1, name);
 }
 
-void ConvergenceView::appendData(double *x, double *y, int size, QString name)
+void ConvergenceView::appendData(double *y, int size, QString name)
 {
   Curve *curve = curveList.value(name, NULL);
   
@@ -152,15 +153,12 @@ void ConvergenceView::appendData(double *x, double *y, int size, QString name)
     curveList.insert(name, curve);
   }
 
-  // test:
-  double xx = (double)(curve->d_data->count());
-  curve->d_data->append(&xx, y, size);
-
-  // old:
-  //curve->d_data->append(xx, y, size);
+  double x = (double)(curve->d_data->count());
+  curve->d_data->append(&x, y, size);
   curve->d_curve->setRawData(curve->d_data->x(), 
 			     curve->d_data->y(), 
 			     curve->d_data->count());
+  setTitle(title);
 }
 
 void ConvergenceView::removeData()
@@ -173,6 +171,7 @@ void ConvergenceView::removeData()
     curve->d_curve = NULL;
   }
   curveList.clear();  
+  title = "";
   clear();
   replot();
 }
