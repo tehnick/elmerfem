@@ -4378,6 +4378,7 @@ void MainWindow::runsolverSlot()
 
   // convergence plot:
   convergenceView->removeData();
+  convergenceView->title = "Nonlinear system convergence";
 
   logMessage("Solver started");
 
@@ -4426,7 +4427,7 @@ void MainWindow::solverStdoutSlot()
 
       if(tmp.contains("Time:")) {
 	QStringList tmpSplitted = tmp.split(" ");
-	int last = tmpSplitted.count()-1;
+	int last = tmpSplitted.count() - 1;
 	QString timeString = tmpSplitted.at(last);
 	double timeDouble = timeString.toDouble();
 	convergenceView->title = "Nonlinear system convergence (time="

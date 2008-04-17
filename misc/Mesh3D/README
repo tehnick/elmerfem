@@ -4,6 +4,7 @@ Build instructions:
 Prequisites:
 
    - qt 4                        (tested with 4.2.2 and newer)
+   - qwt 5                       (for qt 4)
 
 Optional components:
 
@@ -13,12 +14,21 @@ Optional components:
 Tetlib should be installed as described in ../tetgen_patches/REAEDME
 Nglib should be installed as described in ../netgen_patches/README
 
-Please read the file LICENSES before using any of these software packages.
+Please read the file LICENSES before using any of these software components.
+
+To begin with, create a qt 4 project file for Mesh3D:
 
    $ qmake -project
 
 At this point, you may need to edit the file "Mesh3D.pro" and add the
 following lines somewhere in the file:
+
+   INCLUDEPATH += /path/to/qwt5/headers
+   LIBS += -L/path/to/qwt5/lib -lqwt5
+
+Note that libqtw5 may have a different name on different machines.
+
+You may also need to add:
 
    QT += opengl xml script
 
@@ -26,9 +36,9 @@ If you are using Windows, you should also add:
 
    RC_FILE += Mesh3D.rc   
 
-Finally:
+Finally, type:
 
    $ qmake
    $ make
 
-This should produce the executable "./release/Mesh3D". If the libs of tetgen and netgen are found in the path, their functionality will be available to the main program. If the libs are not found, the main program will run, but with some functionality disabled.
+This should produce the executable "./Mesh3D" or "./release/Mesh3D.exe". If the libs of tetgen and netgen are found in the path, their functionality will be available to the program. If the libs are not found, the program will run, but with some functionality disabled.
