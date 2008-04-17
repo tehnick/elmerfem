@@ -510,6 +510,7 @@ fi
 LIBS=$acx_check_stdcxxlib_save_LIBS
 ])
 
+
 dnl find out the flags that enable 64 bit compilation
 AC_DEFUN([ACX_CHECK_B64FLAGS],
 [
@@ -572,6 +573,10 @@ case "$canonical_host_type" in
 	  g95 | gfortran)
 	        B64FCFLAGS=$B64FLAGS
 		;;
+	  pgf*)
+	        # portland group
+	        B64FCFLAGS="-fPIC"
+	        ;;
 	  *)
 	        B64FCFLAGS=$B64FLAGS
 		;;
@@ -583,6 +588,10 @@ case "$canonical_host_type" in
 	  ifort | ifc)
 		true
 	  ;;
+	  pgf*)
+	        # portland group
+	        B64FFLAGS="-fPIC"
+	        ;;
           *)
 	      B64FFLAGS=$B64FLAGS
           ;;
@@ -594,6 +603,10 @@ case "$canonical_host_type" in
 	  icc | icc)
 		true
 	  ;;
+	  pgcc*)
+	        # portland group
+	        B64CFLAGS="-fPIC"
+	        ;;
           *)
 	      B64CFLAGS=$B64FLAGS
           ;;
@@ -604,6 +617,10 @@ case "$canonical_host_type" in
  	case "$CC" in 
 	  icc | icc)
 		true
+	  ;;
+	  pgC*)
+	        # portland group
+	        B64CXXFLAGS="-fPIC"
 	  ;;
 	  *)
        		B64CXXFLAGS=$B64FLAGS
@@ -738,7 +755,7 @@ if test "$with_64bits" != no; then
 
 	if test x"$CXX" != x; then
            AC_MSG_CHECKING([for 64 bit CXXFLAGS])
-           AC_MSG_RESULT($B64CXXFLAGS)
+           AC_MSG_RESULT($B64CXXFLAGS	)
 	   CXXFLAGS="$CXXFLAGS $B64CXXFLAGS"
 	fi
 
@@ -755,6 +772,7 @@ AC_CHECK_SIZEOF(void*)
 case "$ac_cv_sizeof_voidp" in
   "8")
     AC_DEFINE(ARCH_64_BITS, 1,[64 bit arch.])
+
     if test x"$with_64bits" = xno; then
 	AC_MSG_WARN([Explicitely requested 32 bits, but got 64 bits.])
     fi	
@@ -766,6 +784,8 @@ case "$ac_cv_sizeof_voidp" in
     AC_DEFINE(ARCH_32_BITS, 1,[Couldn't determine. sticking with 32 bits.])
   ;;
 esac
+
+AM_CONDITIONAL(USE_64BIT_ARCH, test "$ac_cv_sizeof_voidp" -eq "8")
 
 if test "$with_64bits" != no; then
    AC_MSG_CHECKING(to see if we got 64 bits)
