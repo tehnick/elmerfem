@@ -165,6 +165,13 @@ void ConvergenceView::appendData(double *x, double *y, int size, QString name)
 
 void ConvergenceView::removeData()
 {
+  for(int i = 0; i < curveList.count(); i++) {
+    Curve *curve = curveList.values().at(i);
+    delete curve->d_data;
+    curve->d_data = NULL;
+    delete curve->d_curve;
+    curve->d_curve = NULL;
+  }
   curveList.clear();  
   replot();
 }
