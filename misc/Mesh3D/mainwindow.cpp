@@ -4392,8 +4392,22 @@ void MainWindow::runsolverSlot()
 void MainWindow::solverStdoutSlot()
 {
   QString qs = solver->readAllStandardOutput();
+  static QString qs_save="";
+
+  if ( qs_save != "" ) qs = qs_save + qs;
+
+  int n = qs.lastIndexOf('\n');
+  if ( n>=0 && n<qs.size()-1 ) {
+    qs_save = qs.mid(n+1);
+    qs = qs.mid(0,n);
+  } else if ( n<0 ) {
+      qs_save=qs;
+      return;
+  } else qs_save="";
 
   while( qs.at(qs.size()-1).unicode()=='\n' ) qs.chop(1);
+  if ( qs=="" ) return;
+
   solverLogWindow->textEdit->append(qs);
 
   if(!showConvergence) {
@@ -4410,6 +4424,7 @@ void MainWindow::solverStdoutSlot()
     QStringList qsl = qs.split("\n");
     for(int i = 0; i < qsl.count(); i++) {
       QString tmp = qsl.at(i).trimmed();
+
       if(tmp.contains("ComputeChange") && tmp.contains("NS")) {
 
 	// check solver name:
@@ -4423,7 +4438,7 @@ void MainWindow::solverStdoutSlot()
 	tmpSplitted = tmp.split("(");
 
 	if(tmpSplitted.count() > 2) {
-	  QString tmp2 = tmpSplitted.at(2).trimmed();
+	  QString tmp2 = tmpSplitted.at(3).trimmed();
 	  QStringList tmp2Splitted = tmp2.split(" ");
 	  QString qs1 = tmp2Splitted.at(0).trimmed();
 	  res1 = qs1.toDouble();

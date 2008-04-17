@@ -173,5 +173,6 @@ void ConvergenceView::removeData()
     curve->d_curve = NULL;
   }
   curveList.clear();  
+  clear();
   replot();
 }
