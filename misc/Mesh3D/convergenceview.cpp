@@ -120,6 +120,13 @@ ConvergenceView::ConvergenceView() :
 
   this->resize(600, 400);
   this->setWindowTitle("Convergence monitor");
+
+  pen[0] = QPen(Qt::red);
+  pen[1] = QPen(Qt::green);
+  pen[2] = QPen(Qt::blue);
+  pen[3] = QPen(Qt::black);
+  pen[4] = QPen(Qt::cyan);
+  pen[5] = QPen(Qt::yellow);
 }
 
 ConvergenceView::~ConvergenceView()
@@ -128,34 +135,38 @@ ConvergenceView::~ConvergenceView()
 }
 
 
-void ConvergenceView::appendData(double x, double y)
+void ConvergenceView::appendData(double x, double y, QString name)
 {
-  appendData(&x, &y, 1);
+  appendData(&x, &y, 1, name);
 }
 
-void ConvergenceView::appendData(double *x, double *y, int size)
+void ConvergenceView::appendData(double *x, double *y, int size, QString name)
 {
-  if(d_data == NULL)
-    d_data = new CurveData;
+  Curve *curve = curveList.value(name, NULL);
   
-  if(d_curve == NULL) {
-    d_curve = new QwtPlotCurve(name);
-    d_curve->setRenderHint(QwtPlotItem::RenderAntialiased);
-    d_curve->setPen(QPen(Qt::red));
-    d_curve->attach(this);
+  if(curve == NULL) {
+    curve = new Curve;
+    curve->d_data = new CurveData;    
+    curve->d_curve = new QwtPlotCurve(name);
+    curve->d_curve->setRenderHint(QwtPlotItem::RenderAntialiased);
+    curve->d_curve->setPen(pen[curveList.count()]);
+    curve->d_curve->attach(this);
+    curveList.insert(name, curve);
   }
-  
-  d_data->append(x, y, size);
-  d_curve->setRawData(d_data->x(), d_data->y(), d_data->count());
+
+  // test:
+  double xx = (double)(curve->d_data->count());
+  curve->d_data->append(&xx, y, size);
+
+  // old:
+  //curve->d_data->append(xx, y, size);
+  curve->d_curve->setRawData(curve->d_data->x(), 
+			     curve->d_data->y(), 
+			     curve->d_data->count());
 }
 
 void ConvergenceView::removeData()
 {
-  delete d_curve;
-  d_curve = NULL;
-  
-  delete d_data;
-  d_data = NULL;
-  
+  curveList.clear();  
   replot();
 }

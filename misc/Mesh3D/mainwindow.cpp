@@ -4439,7 +4439,7 @@ void MainWindow::solverStdoutSlot()
 
 	// res1 = norm, res2 = relative change
 	convergenceView->name = name;
-	convergenceView->appendData((double)(solverIter++), res2);
+	convergenceView->appendData((double)(solverIter++), res2, name);
       }
     }
   }
