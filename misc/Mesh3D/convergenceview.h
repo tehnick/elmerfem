@@ -43,8 +43,6 @@ public:
   ConvergenceView();
   ~ConvergenceView();
 
-  QString name;
-
   void appendData(double x, double y, QString name);
   void appendData(double *x, double *y, int size, QString name);
   void removeData();
