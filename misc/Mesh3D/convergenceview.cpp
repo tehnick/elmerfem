@@ -147,7 +147,7 @@ void ConvergenceView::appendData(double *y, int size, QString name)
     curve = new Curve;
     curve->d_data = new CurveData;    
     curve->d_curve = new QwtPlotCurve(name);
-    curve->d_curve->setRenderHint(QwtPlotItem::RenderAntialiased);
+//    curve->d_curve->setRenderHint(QwtPlotItem::RenderAntialiased);
     curve->d_curve->setPen(pen[curveList.count()]);
     curve->d_curve->attach(this);
     curveList.insert(name, curve);
@@ -163,7 +163,7 @@ void ConvergenceView::appendData(double *y, int size, QString name)
 
 void ConvergenceView::removeData()
 {
-  for(int i = 0; i < curveList.count(); i++) {
+  for( int i = 0; i < curveList.count(); i++) {
     Curve *curve = curveList.values().at(i);
     delete curve->d_data;
     curve->d_data = NULL;
