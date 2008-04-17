@@ -712,6 +712,8 @@ ARFLAGS
 CPP
 GREP
 EGREP
+USE_64BIT_ARCH_TRUE
+USE_64BIT_ARCH_FALSE
 B64FLAGS
 mpi_dir
 mpi_lib_dir
@@ -2396,6 +2398,7 @@ else
 fi
 
   MAINT=$MAINTAINER_MODE_TRUE
+
 
 
 
@@ -4655,6 +4658,10 @@ case "$canonical_host_type" in
 	  g95 | gfortran)
 	        B64FCFLAGS=$B64FLAGS
 		;;
+	  pgf*)
+	        # portland group
+	        B64FCFLAGS="-fPIC"
+	        ;;
 	  *)
 	        B64FCFLAGS=$B64FLAGS
 		;;
@@ -4666,6 +4673,10 @@ case "$canonical_host_type" in
 	  ifort | ifc)
 		true
 	  ;;
+	  pgf*)
+	        # portland group
+	        B64FFLAGS="-fPIC"
+	        ;;
           *)
 	      B64FFLAGS=$B64FLAGS
           ;;
@@ -4677,6 +4688,10 @@ case "$canonical_host_type" in
 	  icc | icc)
 		true
 	  ;;
+	  pgcc*)
+	        # portland group
+	        B64CFLAGS="-fPIC"
+	        ;;
           *)
 	      B64CFLAGS=$B64FLAGS
           ;;
@@ -4687,6 +4702,10 @@ case "$canonical_host_type" in
  	case "$CC" in
 	  icc | icc)
 		true
+	  ;;
+	  pgC*)
+	        # portland group
+	        B64CXXFLAGS="-fPIC"
 	  ;;
 	  *)
        		B64CXXFLAGS=$B64FLAGS
@@ -4828,8 +4847,8 @@ echo "${ECHO_T}$B64FCFLAGS" >&6; }
 	if test x"$CXX" != x; then
            { echo "$as_me:$LINENO: checking for 64 bit CXXFLAGS" >&5
 echo $ECHO_N "checking for 64 bit CXXFLAGS... $ECHO_C" >&6; }
-           { echo "$as_me:$LINENO: result: $B64CXXFLAGS" >&5
-echo "${ECHO_T}$B64CXXFLAGS" >&6; }
+           { echo "$as_me:$LINENO: result: $B64CXXFLAGS	" >&5
+echo "${ECHO_T}$B64CXXFLAGS	" >&6; }
 	   CXXFLAGS="$CXXFLAGS $B64CXXFLAGS"
 	fi
 
@@ -5255,6 +5274,7 @@ cat >>confdefs.h <<\_ACEOF
 #define ARCH_64_BITS 1
 _ACEOF
 
+
     if test x"$with_64bits" = xno; then
 	{ echo "$as_me:$LINENO: WARNING: Explicitely requested 32 bits, but got 64 bits." >&5
 echo "$as_me: WARNING: Explicitely requested 32 bits, but got 64 bits." >&2;}
@@ -5275,6 +5295,15 @@ _ACEOF
 
   ;;
 esac
+
+ if test "$ac_cv_sizeof_voidp" -eq "8"; then
+  USE_64BIT_ARCH_TRUE=
+  USE_64BIT_ARCH_FALSE='#'
+else
+  USE_64BIT_ARCH_TRUE='#'
+  USE_64BIT_ARCH_FALSE=
+fi
+
 
 if test "$with_64bits" != no; then
    { echo "$as_me:$LINENO: checking to see if we got 64 bits" >&5
@@ -5724,6 +5753,13 @@ if test -z "${am__fastdepCC_TRUE}" && test -z "${am__fastdepCC_FALSE}"; then
   { { echo "$as_me:$LINENO: error: conditional \"am__fastdepCC\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
 echo "$as_me: error: conditional \"am__fastdepCC\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+if test -z "${USE_64BIT_ARCH_TRUE}" && test -z "${USE_64BIT_ARCH_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"USE_64BIT_ARCH\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"USE_64BIT_ARCH\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
@@ -6401,6 +6437,8 @@ for ac_last_try in false false false false false :; do
   cat >conf$$subs.sed <<_ACEOF
 GREP!$GREP$ac_delim
 EGREP!$EGREP$ac_delim
+USE_64BIT_ARCH_TRUE!$USE_64BIT_ARCH_TRUE$ac_delim
+USE_64BIT_ARCH_FALSE!$USE_64BIT_ARCH_FALSE$ac_delim
 B64FLAGS!$B64FLAGS$ac_delim
 mpi_dir!$mpi_dir$ac_delim
 mpi_lib_dir!$mpi_lib_dir$ac_delim
@@ -6416,7 +6454,7 @@ LIBOBJS!$LIBOBJS$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 15; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 17; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5
