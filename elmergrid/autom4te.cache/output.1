@@ -714,6 +714,8 @@ EGREP
 USE_64BIT_ARCH_TRUE
 USE_64BIT_ARCH_FALSE
 B64FLAGS
+USE_WINDOWS_COMPILER_TRUE
+USE_WINDOWS_COMPILER_FALSE
 MATC_LIBS
 MAINTAINER_MODE_TRUE
 MAINTAINER_MODE_FALSE
@@ -2434,6 +2436,9 @@ fi
 
 
 
+
+
+
 if test -z "$host"; then
   host=unknown
 fi
@@ -2502,6 +2507,11 @@ _ACEOF
         
 cat >>confdefs.h <<\_ACEOF
 @%:@define MINGW32 1
+_ACEOF
+
+        
+cat >>confdefs.h <<\_ACEOF
+@%:@define WIN32 1
 _ACEOF
 
   ;;
@@ -4612,6 +4622,10 @@ case "$canonical_host_type" in
 	  g95 | gfortran)
 	        B64FCFLAGS=$B64FLAGS
 		;;
+	  pgf*)
+	        # portland group
+	        B64FCFLAGS="-fPIC"
+	        ;;
 	  *)
 	        B64FCFLAGS=$B64FLAGS
 		;;
@@ -4623,6 +4637,10 @@ case "$canonical_host_type" in
 	  ifort | ifc)
 		true
 	  ;;
+	  pgf*)
+	        # portland group
+	        B64FFLAGS="-fPIC"
+	        ;;
           *)
 	      B64FFLAGS=$B64FLAGS
           ;;
@@ -4634,6 +4652,10 @@ case "$canonical_host_type" in
 	  icc | icc)
 		true
 	  ;;
+	  pgcc*)
+	        # portland group
+	        B64CFLAGS="-fPIC"
+	        ;;
           *)
 	      B64CFLAGS=$B64FLAGS
           ;;
@@ -4644,6 +4666,10 @@ case "$canonical_host_type" in
  	case "$CC" in 
 	  icc | icc)
 		true
+	  ;;
+	  pgC*)
+	        # portland group
+	        B64CXXFLAGS="-fPIC"
 	  ;;
 	  *)
        		B64CXXFLAGS=$B64FLAGS
@@ -4785,8 +4811,8 @@ echo "${ECHO_T}$B64FCFLAGS" >&6; }
 	if test x"$CXX" != x; then
            { echo "$as_me:$LINENO: checking for 64 bit CXXFLAGS" >&5
 echo $ECHO_N "checking for 64 bit CXXFLAGS... $ECHO_C" >&6; }
-           { echo "$as_me:$LINENO: result: $B64CXXFLAGS" >&5
-echo "${ECHO_T}$B64CXXFLAGS" >&6; }
+           { echo "$as_me:$LINENO: result: $B64CXXFLAGS	" >&5
+echo "${ECHO_T}$B64CXXFLAGS	" >&6; }
 	   CXXFLAGS="$CXXFLAGS $B64CXXFLAGS"
 	fi
 
@@ -5268,6 +5294,95 @@ fi
 LIBS="-L. $LIBS -L$prefix/lib"
 LDFLAGS="-L. $LDFLAGS -L$prefix/lib"
 
+{ echo "$as_me:$LINENO: checking whether we are using the Microsoft C compiler" >&5
+echo $ECHO_N "checking whether we are using the Microsoft C compiler... $ECHO_C" >&6; }
+if test "${acx_cv_c_compiler_ms+set}" = set; then
+  echo $ECHO_N "(cached) $ECHO_C" >&6
+else
+  cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+int
+main ()
+{
+#ifndef _MSC_VER
+       choke me
+#endif
+
+  ;
+  return 0;
+}
+_ACEOF
+rm -f conftest.$ac_objext
+if { (ac_try="$ac_compile"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
+  (eval "$ac_compile") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest.$ac_objext; then
+  acx_compiler_ms=yes
+else
+  echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+	acx_compiler_ms=no
+fi
+
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+acx_cv_c_compiler_ms=$acx_compiler_ms
+
+fi
+{ echo "$as_me:$LINENO: result: $acx_cv_c_compiler_ms" >&5
+echo "${ECHO_T}$acx_cv_c_compiler_ms" >&6; }
+
+if test "$acx_cv_c_compiler_ms" = "yes"; then
+	
+cat >>confdefs.h <<\_ACEOF
+@%:@define STDCALLBULL __stdcall
+_ACEOF
+
+	
+cat >>confdefs.h <<\_ACEOF
+@%:@define C_DLLEXPORT __declspec(dllexport)
+_ACEOF
+
+
+else
+	
+cat >>confdefs.h <<\_ACEOF
+@%:@define STDCALLBULL 
+_ACEOF
+
+	
+cat >>confdefs.h <<\_ACEOF
+@%:@define C_DLLEXPORT 
+_ACEOF
+
+fi
+ if test "$acx_cv_c_compiler_ms" = "yes"; then
+  USE_WINDOWS_COMPILER_TRUE=
+  USE_WINDOWS_COMPILER_FALSE='#'
+else
+  USE_WINDOWS_COMPILER_TRUE='#'
+  USE_WINDOWS_COMPILER_FALSE=
+fi
+
+
+
 
 
 acx_matc_ok=no
@@ -5293,6 +5408,7 @@ if test "x$MATC_LIBS" != x; then
 	save_LIBS="$LIBS"; LIBS="$MATC_LIBS $LIBS"
 	{ echo "$as_me:$LINENO: checking for mtc_init in $MATC_LIBS" >&5
 echo $ECHO_N "checking for mtc_init in $MATC_LIBS... $ECHO_C" >&6; }
+
 	cat >conftest.$ac_ext <<_ACEOF
 /* confdefs.h.  */
 _ACEOF
@@ -5343,6 +5459,7 @@ fi
 
 rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
       conftest$ac_exeext conftest.$ac_ext
+
 	{ echo "$as_me:$LINENO: result: $acx_matc_ok" >&5
 echo "${ECHO_T}$acx_matc_ok" >&6; }
 	LIBS="$save_LIBS"
@@ -5597,6 +5714,13 @@ if test -z "${USE_64BIT_ARCH_TRUE}" && test -z "${USE_64BIT_ARCH_FALSE}"; then
   { { echo "$as_me:$LINENO: error: conditional \"USE_64BIT_ARCH\" was never defined.
 Usually this means the macro was only invoked conditionally." >&5
 echo "$as_me: error: conditional \"USE_64BIT_ARCH\" was never defined.
+Usually this means the macro was only invoked conditionally." >&2;}
+   { (exit 1); exit 1; }; }
+fi
+if test -z "${USE_WINDOWS_COMPILER_TRUE}" && test -z "${USE_WINDOWS_COMPILER_FALSE}"; then
+  { { echo "$as_me:$LINENO: error: conditional \"USE_WINDOWS_COMPILER\" was never defined.
+Usually this means the macro was only invoked conditionally." >&5
+echo "$as_me: error: conditional \"USE_WINDOWS_COMPILER\" was never defined.
 Usually this means the macro was only invoked conditionally." >&2;}
    { (exit 1); exit 1; }; }
 fi
@@ -6283,6 +6407,8 @@ EGREP!$EGREP$ac_delim
 USE_64BIT_ARCH_TRUE!$USE_64BIT_ARCH_TRUE$ac_delim
 USE_64BIT_ARCH_FALSE!$USE_64BIT_ARCH_FALSE$ac_delim
 B64FLAGS!$B64FLAGS$ac_delim
+USE_WINDOWS_COMPILER_TRUE!$USE_WINDOWS_COMPILER_TRUE$ac_delim
+USE_WINDOWS_COMPILER_FALSE!$USE_WINDOWS_COMPILER_FALSE$ac_delim
 MATC_LIBS!$MATC_LIBS$ac_delim
 MAINTAINER_MODE_TRUE!$MAINTAINER_MODE_TRUE$ac_delim
 MAINTAINER_MODE_FALSE!$MAINTAINER_MODE_FALSE$ac_delim
@@ -6291,7 +6417,7 @@ LIB@&t@OBJS!$LIB@&t@OBJS$ac_delim
 LTLIBOBJS!$LTLIBOBJS$ac_delim
 _ACEOF
 
-  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 10; then
+  if test `sed -n "s/.*$ac_delim\$/X/p" conf$$subs.sed | grep -c X` = 12; then
     break
   elif $ac_last_try; then
     { { echo "$as_me:$LINENO: error: could not make $CONFIG_STATUS" >&5
