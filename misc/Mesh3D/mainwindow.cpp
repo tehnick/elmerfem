@@ -4435,10 +4435,12 @@ void MainWindow::solverStdoutSlot()
 	// parse rest of the line:
 	double res1 = 0.0;
 	double res2 = 0.0;
+        int n = tmp.indexOf("NRM,RELC");
+        tmp = tmp.mid(n);
 	tmpSplitted = tmp.split("(");
 
-	if(tmpSplitted.count() > 2) {
-	  QString tmp2 = tmpSplitted.at(3).trimmed();
+	if(tmpSplitted.count() >= 2) {
+	  QString tmp2 = tmpSplitted.at(1).trimmed();
 	  QStringList tmp2Splitted = tmp2.split(" ");
 	  QString qs1 = tmp2Splitted.at(0).trimmed();
 	  res1 = qs1.toDouble();
