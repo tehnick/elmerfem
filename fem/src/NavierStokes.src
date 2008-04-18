@@ -802,7 +802,7 @@ MODULE NavierStokes
 
    REAL(KIND=dp) :: xx, yy, ydot, ydotdot, MassFlux
 
-   INTEGER :: i,j,k,k1,k2,t,q,p,c,DIM,N_Integ
+   INTEGER :: i,j,k,l,k1,k2,t,q,p,c,DIM,N_Integ
 
    LOGICAL :: stat
 
@@ -916,8 +916,8 @@ MODULE NavierStokes
        END DO
      END IF
 
-     DO q=1,N
-       DO i=1,DIM
+     DO q=1,n
+       DO i=1,dim
          k = (q-1)*c + i
          IF ( NormalTangential ) THEN
             SELECT CASE(i)
@@ -930,8 +930,8 @@ MODULE NavierStokes
             END SELECT
 
             DO j=1,dim
-               k = (q-1)*c + j
-               BoundaryVector(k) = BoundaryVector(k) + &
+               l = (q-1)*c + j
+               BoundaryVector(l) = BoundaryVector(l) + &
                  s * Basis(q) * Force(i) * Vect(j)
             END DO
          ELSE
