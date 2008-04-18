@@ -56,11 +56,33 @@ public:
 
   QString title;
 
+private slots:
+  void showGridSlot();
+
 private:
   QwtPlot *plot;
+  QwtPlotGrid *grid;
+  QwtLegend *legend;
+  QwtLog10ScaleEngine *scaleEngine;
 
   QHash<QString, Curve*> curveList;
   QPen pen[MAX_EQUATIONS];
+
+  QAction *exitAct;
+  QAction *showGridAct;
+
+  QMenu *fileMenu;
+  QMenu *viewMenu;
+
+  QToolBar *fileToolBar;
+  QToolBar *viewToolBar;
+
+  void createActions();
+  void createMenus();
+  void createToolBars();
+  void createStatusBar();  
+
+  bool showGrid;
 };
 
 #endif // CONVERGENCEVIEW_H

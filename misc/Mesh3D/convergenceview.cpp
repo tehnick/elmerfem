@@ -44,6 +44,7 @@
 
 using namespace std;
 
+//-----------------------------------------------------------------------------
 CurveData::CurveData()
   : d_count(0)
 {
@@ -85,6 +86,7 @@ const double *CurveData::y() const
   return d_y.data();
 }
 
+//-----------------------------------------------------------------------------
 ConvergenceView::ConvergenceView(QWidget *parent)
   : QMainWindow(parent)
 {
@@ -97,16 +99,16 @@ ConvergenceView::ConvergenceView(QWidget *parent)
   plot->setTitle(title);
 
   // legend
-  QwtLegend *legend = new QwtLegend;
+  legend = new QwtLegend;
   legend->setFrameStyle(QFrame::Box|QFrame::Sunken);
   plot->insertLegend(legend, QwtPlot::RightLegend);
   
   // grid
-  QwtPlotGrid *grid = new QwtPlotGrid;
+  grid = new QwtPlotGrid;
   grid->enableXMin(true);
   grid->setMajPen(QPen(Qt::black, 0, Qt::DotLine));
   grid->setMinPen(QPen(Qt::gray, 0 , Qt::DotLine));
-  // grid->attach(plot);
+
   
   // axes
   plot->setAxisTitle(QwtPlot::xBottom, "Iteration step");
@@ -117,7 +119,7 @@ ConvergenceView::ConvergenceView(QWidget *parent)
   plot->setAxisMaxMinor(QwtPlot::yLeft, 10);
 
   // scale engine
-  QwtLog10ScaleEngine *scaleEngine = new QwtLog10ScaleEngine;
+  scaleEngine = new QwtLog10ScaleEngine;
   plot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
 
   // pens
@@ -127,6 +129,13 @@ ConvergenceView::ConvergenceView(QWidget *parent)
   pen[3] = QPen(Qt::black);
   pen[4] = QPen(Qt::cyan);
   pen[5] = QPen(Qt::yellow);
+
+  createActions();
+  createMenus();
+  createToolBars();
+  createStatusBar();
+
+  showGrid = false;
 
   setCentralWidget(plot);
   setWindowTitle("Convergence monitor");
@@ -191,5 +200,52 @@ QSize ConvergenceView::minimumSizeHint() const
 
 QSize ConvergenceView::sizeHint() const
 {
-  return QSize(480, 480);
+  return QSize(480, 640);
+}
+
+void ConvergenceView::createActions()
+{
+  exitAct = new QAction(QIcon(":/icons/application-exit.png"), tr("&Quit"), this);
+  exitAct->setShortcut(tr("Ctrl+Q"));
+  exitAct->setStatusTip("Quit monitor");
+  connect(exitAct, SIGNAL(triggered()), this, SLOT(close()));
+
+  showGridAct = new QAction(QIcon(""), tr("&Show grid"), this);
+  showGridAct->setStatusTip("Show grid");
+  connect(showGridAct, SIGNAL(triggered()), this, SLOT(showGridSlot()));  
+}
+
+void ConvergenceView::createMenus()
+{
+  fileMenu = menuBar()->addMenu(tr("&File"));
+  fileMenu->addAction(exitAct);
+
+  viewMenu = menuBar()->addMenu(tr("&View"));
+  viewMenu->addAction(showGridAct);
+}
+
+void ConvergenceView::createToolBars()
+{
+  //fileToolBar = addToolBar(tr("&File"));
+  //fileToolBar->addAction(exitAct);
+}
+
+void ConvergenceView::createStatusBar()
+{
+  statusBar()->showMessage("Ready");
+}
+
+void ConvergenceView::showGridSlot()
+{
+  showGrid = !showGrid;
+  
+  if(showGrid) {
+    grid->attach(plot);
+    showGridAct->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
+  } else {
+    grid->detach();
+    showGridAct->setIcon(QIcon(""));
+  }
+
+  plot->replot();
 }
