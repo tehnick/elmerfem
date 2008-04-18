@@ -1037,7 +1037,6 @@
 
       CALL Info( 'FlowSolve', 'Assembly done', Level=4 )
 
-#if 1
 !------------------------------------------------------------------------------
 !     Neumann & Newton boundary conditions
 !------------------------------------------------------------------------------
@@ -1054,6 +1053,7 @@
         IF ( GetElementFamily() == 1 ) CYCLE
 
         CALL GetElementNodes( ElementNodes )
+        NodeIndexes => Element % NodeIndexes
 
         BC => GetBC()
 
@@ -1087,12 +1087,12 @@
               
           IF ( ASSOCIATED( TempSol ) ) THEN
             Beta(1:n) = GetReal( BC, &
-             'Surface Tension Expansion Coefficient',gotIt )
+                'Surface Tension Expansion Coefficient',gotIt )
 
             IF ( gotIt ) THEN
               DO j=1,n
                 k = TempPerm( NodeIndexes(j) )
-                IF ( k>0 ) Beta(j) = 1.0D0 - Beta(j) * Temperature(k)
+                IF ( k>0 ) Beta(j) = 1.0d0 - Beta(j) * Temperature(k)
               END DO
               Beta(1:n) = Beta(1:n) * GetReal(BC, 'Surface Tension Coefficient' )
             ELSE
@@ -1187,7 +1187,6 @@
 !------------------------------------------------------------------------------
         END IF
       END DO
-#endif
 !------------------------------------------------------------------------------
 
       !
