@@ -4463,7 +4463,7 @@ void MainWindow::solverStdoutSlot()
 	      break;
 	  }
 	  QString qs2 = tmp2Splitted.at(pos).trimmed();
-	  res2 = qs2.toDouble();
+	  res2 = max( qs2.toDouble(), 1.0e-16 );
 	}
 
 	// res1 = norm, res2 = relative change
