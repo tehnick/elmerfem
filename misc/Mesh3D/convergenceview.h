@@ -1,7 +1,10 @@
 #ifndef CONVERGENCEVIEW_H
 #define CONVERGENCEVIEW_H
 
+#include <QMainWindow>
 #include <QHash>
+#include "maxlimits.h"
+
 #include <qwt_plot.h>
 #include <qwt_plot_marker.h>
 #include <qwt_plot_curve.h>
@@ -10,7 +13,6 @@
 #include <qwt_data.h>
 #include <qwt_text.h>
 #include <qwt_scale_engine.h>
-#include "maxlimits.h"
 
 class CurveData
 {
@@ -37,11 +39,16 @@ public:
   QwtPlotCurve *d_curve;
 };
 
-class ConvergenceView : public QwtPlot
+class ConvergenceView : public QMainWindow
 {
+  Q_OBJECT
+
 public:
-  ConvergenceView();
+  ConvergenceView(QWidget *parent = 0);
   ~ConvergenceView();
+
+  QSize minimumSizeHint() const;
+  QSize sizeHint() const;
 
   void appendData(double, QString);
   void appendData(double*, int, QString);
@@ -50,6 +57,8 @@ public:
   QString title;
 
 private:
+  QwtPlot *plot;
+
   QHash<QString, Curve*> curveList;
   QPen pen[MAX_EQUATIONS];
 };

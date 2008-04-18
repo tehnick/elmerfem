@@ -38,13 +38,15 @@
  *                                                                           *
  *****************************************************************************/
 
+#include <QtGui>
 #include <iostream>
 #include "convergenceview.h"
 
 using namespace std;
 
-CurveData::CurveData():
-  d_count(0)
+
+CurveData::CurveData()
+  : d_count(0)
 {
 }
 
@@ -84,37 +86,40 @@ const double *CurveData::y() const
   return d_y.data();
 }
 
-
-ConvergenceView::ConvergenceView() 
+ConvergenceView::ConvergenceView(QWidget *parent)
+  : QMainWindow(parent)
 {
-  setAutoReplot(true);
-  setCanvasBackground(QColor(Qt::white));
+  plot = new QwtPlot;
+  setCentralWidget(plot);
+
+  plot->setAutoReplot(true);
+  plot->setCanvasBackground(QColor(Qt::white));
   title = "Nonlinear system convergence";
-  setTitle(title);
+  plot->setTitle(title);
 
   // legend
   QwtLegend *legend = new QwtLegend;
   legend->setFrameStyle(QFrame::Box|QFrame::Sunken);
-  insertLegend(legend, QwtPlot::RightLegend);
+  plot->insertLegend(legend, QwtPlot::RightLegend);
 
   // grid
   QwtPlotGrid *grid = new QwtPlotGrid;
   grid->enableXMin(true);
   grid->setMajPen(QPen(Qt::black, 0, Qt::DotLine));
   grid->setMinPen(QPen(Qt::gray, 0 , Qt::DotLine));
-  // grid->attach(this);
+  // grid->attach(plot);
   
   // axes
-  setAxisTitle(xBottom, "Iteration step");
-  setAxisTitle(yLeft, "Relative change");
-  setAxisMaxMajor(QwtPlot::xBottom, 20);
-  setAxisMaxMinor(QwtPlot::xBottom, 1);
-  setAxisMaxMajor(QwtPlot::yLeft, 10);
-  setAxisMaxMinor(QwtPlot::yLeft, 10);
+  plot->setAxisTitle(QwtPlot::xBottom, "Iteration step");
+  plot->setAxisTitle(QwtPlot::yLeft, "Relative change");
+  plot->setAxisMaxMajor(QwtPlot::xBottom, 20);
+  plot->setAxisMaxMinor(QwtPlot::xBottom, 1);
+  plot->setAxisMaxMajor(QwtPlot::yLeft, 10);
+  plot->setAxisMaxMinor(QwtPlot::yLeft, 10);
 
   // scale engine
   QwtLog10ScaleEngine *scaleEngine = new QwtLog10ScaleEngine;
-  setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
+  plot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
 
   // pens
   pen[0] = QPen(Qt::red);
@@ -124,8 +129,8 @@ ConvergenceView::ConvergenceView()
   pen[4] = QPen(Qt::cyan);
   pen[5] = QPen(Qt::yellow);
 
-  this->resize(600, 400);
-  this->setWindowTitle("Convergence monitor");
+  // this->resize(600, 400);
+  // this->setWindowTitle("Convergence monitor");
 }
 
 ConvergenceView::~ConvergenceView()
@@ -149,7 +154,7 @@ void ConvergenceView::appendData(double *y, int size, QString name)
     curve->d_curve = new QwtPlotCurve(name);
 //    curve->d_curve->setRenderHint(QwtPlotItem::RenderAntialiased);
     curve->d_curve->setPen(pen[curveList.count()]);
-    curve->d_curve->attach(this);
+    curve->d_curve->attach(plot);
     curveList.insert(name, curve);
   }
 
@@ -158,7 +163,7 @@ void ConvergenceView::appendData(double *y, int size, QString name)
   curve->d_curve->setRawData(curve->d_data->x(), 
 			     curve->d_data->y(), 
 			     curve->d_data->count());
-  setTitle(title);
+  plot->setTitle(title);
 }
 
 void ConvergenceView::removeData()
@@ -172,6 +177,17 @@ void ConvergenceView::removeData()
   }
   curveList.clear();  
   title = "";
-  clear();
-  replot();
+  plot->clear();
+  plot->replot();
+}
+
+QSize ConvergenceView::minimumSizeHint() const
+{
+  return QSize(64, 64);
+}
+
+
+QSize ConvergenceView::sizeHint() const
+{
+  return QSize(640, 640);
 }
