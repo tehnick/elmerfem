@@ -4378,7 +4378,7 @@ void MainWindow::runsolverSlot()
 
   // convergence plot:
   convergenceView->removeData();
-  convergenceView->title = "Nonlinear system convergence";
+  convergenceView->title = "Convergence history";
 
   logMessage("Solver started");
 
@@ -4413,11 +4413,13 @@ void MainWindow::solverStdoutSlot()
   if(!showConvergence) {
 
     // hide convergence plot
+    //----------------------
     convergenceView->hide();
 
   } else {
 
     // draw convergence plot
+    //----------------------
     if(!convergenceView->isVisible())
       convergenceView->show();
     
@@ -4430,11 +4432,12 @@ void MainWindow::solverStdoutSlot()
 	int last = tmpSplitted.count() - 1;
 	QString timeString = tmpSplitted.at(last);
 	double timeDouble = timeString.toDouble();
-	convergenceView->title = "Nonlinear system convergence (time="
+	convergenceView->title = "Convergence history (time="
 	  + QString::number(timeDouble) + ")";
       }   
 
-      if(tmp.contains("ComputeChange") && tmp.contains("NS")) {
+      if(tmp.contains("ComputeChange")) { // && tmp.contains("NS")) {
+	QString copyOfTmp = tmp;
 
 	// check solver name:
 	QStringList tmpSplitted = tmp.split(":");
@@ -4464,7 +4467,11 @@ void MainWindow::solverStdoutSlot()
 	}
 
 	// res1 = norm, res2 = relative change
-	convergenceView->appendData(res2, name);
+	if(copyOfTmp.contains("NS"))	
+	  convergenceView->appendData(res2, "NS/" + name);
+
+	if(copyOfTmp.contains("SS"))
+	  convergenceView->appendData(res2, "SS/" + name);
       }
     }
   }

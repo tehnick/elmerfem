@@ -58,6 +58,7 @@ public:
 
 private slots:
   void showGridSlot();
+  void showLegendSlot();
 
 private:
   QwtPlot *plot;
@@ -70,6 +71,7 @@ private:
 
   QAction *exitAct;
   QAction *showGridAct;
+  QAction *showLegendAct;
 
   QMenu *fileMenu;
   QMenu *viewMenu;
@@ -83,6 +85,7 @@ private:
   void createStatusBar();  
 
   bool showGrid;
+  bool showLegend;
 };
 
 #endif // CONVERGENCEVIEW_H

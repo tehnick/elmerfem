@@ -108,9 +108,9 @@ ConvergenceView::ConvergenceView(QWidget *parent)
   grid->enableXMin(true);
   grid->setMajPen(QPen(Qt::black, 0, Qt::DotLine));
   grid->setMinPen(QPen(Qt::gray, 0 , Qt::DotLine));
+  grid->attach(plot);
 
-  
-  // axes
+  // axis
   plot->setAxisTitle(QwtPlot::xBottom, "Iteration step");
   plot->setAxisTitle(QwtPlot::yLeft, "Relative change");
   plot->setAxisMaxMajor(QwtPlot::xBottom, 20);
@@ -135,10 +135,11 @@ ConvergenceView::ConvergenceView(QWidget *parent)
   createToolBars();
   createStatusBar();
 
-  showGrid = false;
-
   setCentralWidget(plot);
   setWindowTitle("Convergence monitor");
+
+  showLegend = true;
+  showGrid = true;
 }
 
 ConvergenceView::~ConvergenceView()
@@ -207,27 +208,35 @@ void ConvergenceView::createActions()
 {
   exitAct = new QAction(QIcon(":/icons/application-exit.png"), tr("&Quit"), this);
   exitAct->setShortcut(tr("Ctrl+Q"));
-  exitAct->setStatusTip("Quit monitor");
+  exitAct->setStatusTip("Quit convergence monitor");
   connect(exitAct, SIGNAL(triggered()), this, SLOT(close()));
 
-  showGridAct = new QAction(QIcon(""), tr("&Show grid"), this);
+  showGridAct = new QAction(QIcon(":/icons/dialog-ok-apply.png"), tr("&Grid"), this);
   showGridAct->setStatusTip("Show grid");
   connect(showGridAct, SIGNAL(triggered()), this, SLOT(showGridSlot()));  
+
+  showLegendAct = new QAction(QIcon(":/icons/dialog-ok-apply.png"), tr("&Legend"), this);
+  showLegendAct->setStatusTip("Show legend");
+  connect(showLegendAct, SIGNAL(triggered()), this, SLOT(showLegendSlot()));  
 }
 
 void ConvergenceView::createMenus()
 {
   fileMenu = menuBar()->addMenu(tr("&File"));
   fileMenu->addAction(exitAct);
-
+  
   viewMenu = menuBar()->addMenu(tr("&View"));
   viewMenu->addAction(showGridAct);
+  viewMenu->addAction(showLegendAct);
 }
 
 void ConvergenceView::createToolBars()
 {
-  //fileToolBar = addToolBar(tr("&File"));
-  //fileToolBar->addAction(exitAct);
+#if 0
+  viewToolBar = addToolBar(tr("&View"));
+  viewToolBar->addAction(showGridAct);
+  viewToolBar->addAction(showLegendAct);
+#endif
 }
 
 void ConvergenceView::createStatusBar()
@@ -245,6 +254,23 @@ void ConvergenceView::showGridSlot()
   } else {
     grid->detach();
     showGridAct->setIcon(QIcon(""));
+  }
+
+  plot->replot();
+}
+
+void ConvergenceView::showLegendSlot()
+{
+  showLegend = !showLegend;
+  
+  if(showLegend) {
+    legend = new QwtLegend;
+    legend->setFrameStyle(QFrame::Box|QFrame::Sunken);
+    plot->insertLegend(legend, QwtPlot::RightLegend);
+    showLegendAct->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
+  } else {
+    delete legend;
+    showLegendAct->setIcon(QIcon(""));
   }
 
   plot->replot();
