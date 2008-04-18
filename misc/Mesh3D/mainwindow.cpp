@@ -121,7 +121,7 @@ MainWindow::MainWindow()
   sifGenerator = new SifGenerator;
   elmerDefs = new QDomDocument;
   edfEditor = new EdfEditor;
-  convergenceView = new ConvergenceView;
+  convergenceView = new ConvergenceView(this);
 
   createActions();
   createMenus();

@@ -44,7 +44,6 @@
 
 using namespace std;
 
-
 CurveData::CurveData()
   : d_count(0)
 {
@@ -89,8 +88,8 @@ const double *CurveData::y() const
 ConvergenceView::ConvergenceView(QWidget *parent)
   : QMainWindow(parent)
 {
-  plot = new QwtPlot;
-  setCentralWidget(plot);
+  plot = new QwtPlot(this);
+  plot->resize(200, 200);
 
   plot->setAutoReplot(true);
   plot->setCanvasBackground(QColor(Qt::white));
@@ -101,7 +100,7 @@ ConvergenceView::ConvergenceView(QWidget *parent)
   QwtLegend *legend = new QwtLegend;
   legend->setFrameStyle(QFrame::Box|QFrame::Sunken);
   plot->insertLegend(legend, QwtPlot::RightLegend);
-
+  
   // grid
   QwtPlotGrid *grid = new QwtPlotGrid;
   grid->enableXMin(true);
@@ -129,13 +128,14 @@ ConvergenceView::ConvergenceView(QWidget *parent)
   pen[4] = QPen(Qt::cyan);
   pen[5] = QPen(Qt::yellow);
 
-  // this->resize(600, 400);
-  // this->setWindowTitle("Convergence monitor");
+  setCentralWidget(plot);
+  setWindowTitle("Convergence monitor");
 }
 
 ConvergenceView::~ConvergenceView()
 {
   curveList.clear();
+  delete plot;
 }
 
 
@@ -153,7 +153,9 @@ void ConvergenceView::appendData(double *y, int size, QString name)
     curve->d_data = new CurveData;    
     curve->d_curve = new QwtPlotCurve(name);
 //    curve->d_curve->setRenderHint(QwtPlotItem::RenderAntialiased);
-    curve->d_curve->setPen(pen[curveList.count()]);
+    QPen currentPen = pen[curveList.count()];
+    currentPen.setWidth(2);
+    curve->d_curve->setPen(currentPen);
     curve->d_curve->attach(plot);
     curveList.insert(name, curve);
   }
@@ -189,5 +191,5 @@ QSize ConvergenceView::minimumSizeHint() const
 
 QSize ConvergenceView::sizeHint() const
 {
-  return QSize(640, 640);
+  return QSize(480, 480);
 }
