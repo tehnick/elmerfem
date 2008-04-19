@@ -59,6 +59,8 @@ public:
 private slots:
   void showGridSlot();
   void showLegendSlot();
+  void showNSHistorySlot();
+  void showSSHistorySlot();
 
 private:
   QwtPlot *plot;
@@ -72,6 +74,8 @@ private:
   QAction *exitAct;
   QAction *showGridAct;
   QAction *showLegendAct;
+  QAction *showNSHistoryAct;
+  QAction *showSSHistoryAct;
 
   QMenu *fileMenu;
   QMenu *viewMenu;
@@ -86,6 +90,8 @@ private:
 
   bool showGrid;
   bool showLegend;
+  bool showNSHistory;
+  bool showSSHistory;
 };
 
 #endif // CONVERGENCEVIEW_H

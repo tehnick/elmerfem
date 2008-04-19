@@ -140,6 +140,8 @@ ConvergenceView::ConvergenceView(QWidget *parent)
 
   showLegend = true;
   showGrid = true;
+  showNSHistory = true;
+  showSSHistory = false;
 }
 
 ConvergenceView::~ConvergenceView()
@@ -156,6 +158,16 @@ void ConvergenceView::appendData(double y, QString name)
 
 void ConvergenceView::appendData(double *y, int size, QString name)
 {
+  QStringList nameSplitted = name.trimmed().split("/");
+
+  bool NS = false;
+  if(nameSplitted.at(0) == "NS")
+    NS = true;
+
+  bool SS = false;
+  if(nameSplitted.at(0) == "SS")
+    SS = true;
+
   Curve *curve = curveList.value(name, NULL);
   
   if(curve == NULL) {
@@ -166,7 +178,13 @@ void ConvergenceView::appendData(double *y, int size, QString name)
     QPen currentPen = pen[curveList.count()];
     currentPen.setWidth(2);
     curve->d_curve->setPen(currentPen);
-    curve->d_curve->attach(plot);
+
+    if(NS && showNSHistory)
+      curve->d_curve->attach(plot);
+
+    if(SS && showSSHistory)
+      curve->d_curve->attach(plot);
+
     curveList.insert(name, curve);
   }
 
@@ -217,7 +235,16 @@ void ConvergenceView::createActions()
 
   showLegendAct = new QAction(QIcon(":/icons/dialog-ok-apply.png"), tr("&Legend"), this);
   showLegendAct->setStatusTip("Show legend");
-  connect(showLegendAct, SIGNAL(triggered()), this, SLOT(showLegendSlot()));  
+  connect(showLegendAct, SIGNAL(triggered()), this, SLOT(showLegendSlot())); 
+
+  showNSHistoryAct = new QAction(QIcon(":/icons/dialog-ok-apply.png"), 
+				 tr("&Nonlinear system"), this);
+  showNSHistoryAct->setStatusTip("Show nonlinear system convergence history");
+  connect(showNSHistoryAct, SIGNAL(triggered()), this, SLOT(showNSHistorySlot())); 
+
+  showSSHistoryAct = new QAction(QIcon(""), tr("&Steady state"), this);
+  showSSHistoryAct->setStatusTip("Show steady state convergence history");
+  connect(showSSHistoryAct, SIGNAL(triggered()), this, SLOT(showSSHistorySlot())); 
 }
 
 void ConvergenceView::createMenus()
@@ -228,6 +255,9 @@ void ConvergenceView::createMenus()
   viewMenu = menuBar()->addMenu(tr("&View"));
   viewMenu->addAction(showGridAct);
   viewMenu->addAction(showLegendAct);
+  viewMenu->addSeparator();
+  viewMenu->addAction(showNSHistoryAct);
+  viewMenu->addAction(showSSHistoryAct);
 }
 
 void ConvergenceView::createToolBars()
@@ -271,6 +301,58 @@ void ConvergenceView::showLegendSlot()
   } else {
     delete legend;
     showLegendAct->setIcon(QIcon(""));
+  }
+
+  plot->replot();
+}
+
+void ConvergenceView::showNSHistorySlot()
+{
+  showNSHistory = !showNSHistory;
+  
+  if(showNSHistory) {
+    showNSHistoryAct->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
+  } else {
+    showNSHistoryAct->setIcon(QIcon(""));
+  }
+
+  // attach/detach curves:
+  for(int i = 0; i < curveList.count(); i++) {
+    QString key = curveList.keys().at(i);
+    Curve *curve = curveList.values().at(i);
+    QStringList keySplitted = key.trimmed().split("/");
+    if(keySplitted.at(0) == "NS") {
+      if(showNSHistory)
+	curve->d_curve->attach(plot);
+      else
+	curve->d_curve->detach();
+    }
+  }
+
+  plot->replot();
+}
+
+void ConvergenceView::showSSHistorySlot()
+{
+  showSSHistory = !showSSHistory;
+  
+  if(showSSHistory) {
+    showSSHistoryAct->setIcon(QIcon(":/icons/dialog-ok-apply.png"));
+  } else {
+    showSSHistoryAct->setIcon(QIcon(""));
+  }
+
+  // attach/detach curves:
+  for(int i = 0; i < curveList.count(); i++) {
+    QString key = curveList.keys().at(i);
+    Curve *curve = curveList.values().at(i);
+    QStringList keySplitted = key.trimmed().split("/");
+    if(keySplitted.at(0) == "SS") {
+      if(showSSHistory)
+	curve->d_curve->attach(plot);
+      else
+	curve->d_curve->detach();
+    }
   }
 
   plot->replot();
