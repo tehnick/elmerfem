@@ -122,7 +122,11 @@ ConvergenceView::ConvergenceView(QWidget *parent)
   scaleEngine = new QwtLog10ScaleEngine;
   plot->setAxisScaleEngine(QwtPlot::yLeft, scaleEngine);
 
-  // pens
+  // default pen
+  for(int i = 0; i < MAX_EQUATIONS; i++)
+    pen[i] = QPen(Qt::black);
+
+  // available colors
   pen[0] = QPen(Qt::red);
   pen[1] = QPen(Qt::green);
   pen[2] = QPen(Qt::blue);
@@ -202,11 +206,12 @@ void ConvergenceView::removeData()
     Curve *curve = curveList.values().at(i);
     delete curve->d_data;
     curve->d_data = NULL;
+    curve->d_curve->detach();
     delete curve->d_curve;
     curve->d_curve = NULL;
   }
   curveList.clear();  
-  title = "";
+  title = "Convergence history";
   plot->clear();
   plot->replot();
 }
@@ -245,6 +250,10 @@ void ConvergenceView::createActions()
   showSSHistoryAct = new QAction(QIcon(""), tr("&Steady state"), this);
   showSSHistoryAct->setStatusTip("Show steady state convergence history");
   connect(showSSHistoryAct, SIGNAL(triggered()), this, SLOT(showSSHistorySlot())); 
+
+  clearHistoryAct = new QAction(QIcon(""), tr("&Clear history"), this);
+  clearHistoryAct->setStatusTip("Clear current convergence history");
+  connect(clearHistoryAct, SIGNAL(triggered()), this, SLOT(clearHistorySlot())); 
 }
 
 void ConvergenceView::createMenus()
@@ -258,6 +267,8 @@ void ConvergenceView::createMenus()
   viewMenu->addSeparator();
   viewMenu->addAction(showNSHistoryAct);
   viewMenu->addAction(showSSHistoryAct);
+  viewMenu->addSeparator();
+  viewMenu->addAction(clearHistoryAct);
 }
 
 void ConvergenceView::createToolBars()
@@ -356,4 +367,9 @@ void ConvergenceView::showSSHistorySlot()
   }
 
   plot->replot();
+}
+
+void ConvergenceView::clearHistorySlot()
+{
+  removeData();
 }

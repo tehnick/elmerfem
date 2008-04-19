@@ -61,6 +61,7 @@ private slots:
   void showLegendSlot();
   void showNSHistorySlot();
   void showSSHistorySlot();
+  void clearHistorySlot();
 
 private:
   QwtPlot *plot;
@@ -76,6 +77,7 @@ private:
   QAction *showLegendAct;
   QAction *showNSHistoryAct;
   QAction *showSSHistoryAct;
+  QAction *clearHistoryAct;
 
   QMenu *fileMenu;
   QMenu *viewMenu;
