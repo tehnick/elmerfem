@@ -296,9 +296,16 @@ void ConvergenceView::savePictureSlot()
   QPixmap pixmap = QPixmap::grabWidget(plot);
   
   QString fileName = QFileDialog::getSaveFileName(this,
-	  tr("Save picture"), "", tr("JPG (*.jpg)"));
+	  tr("Save picture"), "", tr("Picture files (*.bmp *.jpg *.png *.pbm *.pgm *.ppm)"));
 
-  bool ok = pixmap.save(fileName, "JPG", 95); // fixed quality
+  if(fileName == "")
+    return;
+
+  QFileInfo fi(fileName);
+  QString suffix = fi.suffix();
+  suffix.toUpper();
+
+  bool ok = pixmap.save(fileName, suffix.toAscii(), 95); // fixed quality
 
   if(!ok) {
     cout << "Failed writing picture" << endl;
