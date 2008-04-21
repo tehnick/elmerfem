@@ -233,6 +233,11 @@ void MainWindow::createActions()
   saveProjectAct->setStatusTip(tr("Save current project"));
   connect(saveProjectAct, SIGNAL(triggered()), this, SLOT(saveProjectSlot()));
 
+  // File -> Save picture as...
+  savePictureAct = new QAction(QIcon(""), tr("&Save picture as..."), this);
+  savePictureAct->setStatusTip(tr("Save picture"));
+  connect(savePictureAct, SIGNAL(triggered()), this, SLOT(savePictureSlot()));
+
   // File -> Exit
   exitAct = new QAction(QIcon(":/icons/application-exit.png"), tr("E&xit"), this);
   exitAct->setShortcut(tr("Ctrl+Q"));
@@ -477,6 +482,8 @@ void MainWindow::createMenus()
   fileMenu->addAction(saveAct);
   fileMenu->addAction(saveAsAct);
   fileMenu->addAction(saveProjectAct);
+  fileMenu->addSeparator();
+  fileMenu->addAction(savePictureAct);
   fileMenu->addSeparator();
   fileMenu->addAction(exitAct);
 
@@ -1756,6 +1763,34 @@ void MainWindow::closeMainWindowSlot()
 //  exit(0);
 }
 
+
+// File -> Save picture as...
+//-----------------------------------------------------------------------------
+void MainWindow::savePictureSlot()
+{
+  bool withAlpha = false;
+
+  QImage image = glWidget->grabFrameBuffer(withAlpha);
+
+  QString fileName = QFileDialog::getSaveFileName(this,
+	tr("Save picture"), "", tr("Picture files (*.bmp *.jpg *.png *.pbm *.pgm *.ppm)"));
+  
+  if(fileName == "") {
+    logMessage("File name is empty");
+    return;
+  }
+
+  QFileInfo fi(fileName);
+  QString suffix = fi.suffix();
+  suffix.toUpper();
+  
+  bool ok = image.save(fileName, suffix.toAscii(), 95); // fixed quality
+  
+  if(!ok) {
+    cout << "Failed writing picture" << endl;
+    cout.flush();
+  }
+}
 
 
 //*****************************************************************************
