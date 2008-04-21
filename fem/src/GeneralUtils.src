@@ -1467,4 +1467,54 @@ END FUNCTION ComponentNameVar
 !------------------------------------------------------------------------------
 
 
+!------------------------------------------------------------------------------
+! Given the filename0 (and suffix0) find the 1st free filename
+! that does not exist in the current working directory
+!------------------------------------------------------------------------------
+
+  FUNCTION NextFreeFilename(Filename0,Suffix0) RESULT (Filename)
+
+    CHARACTER(LEN=MAX_NAME_LEN) :: Filename0
+    CHARACTER(LEN=MAX_NAME_LEN), OPTIONAL :: Suffix0 
+    CHARACTER(LEN=MAX_NAME_LEN) :: Filename
+    CHARACTER(LEN=MAX_NAME_LEN) :: Prefix, Suffix
+    LOGICAL :: FileIs
+    INTEGER :: No, ind, len
+    
+    ind = INDEX( FileName0,'.' )
+    len = LEN_TRIM(Filename0)
+    IF(ind > 0) THEN
+      Prefix = Filename0(1:ind-1)
+      Suffix = Filename0(ind:len)
+    ELSE
+      Prefix = Filename0(1:len)
+      IF(PRESENT(Suffix0)) THEN
+        Suffix = '.'//TRIM(Suffix0)
+      ELSE
+        Suffix = '.dat'
+      END IF
+    END IF
+
+    No = 0
+    DO WHILE (.TRUE.)
+      No = No + 1
+      IF( No < 10) THEN
+        WRITE( FileName,'(A,I1,A)') TRIM(Prefix),No,TRIM(Suffix)
+      ELSE IF( No < 100) THEN
+        WRITE( FileName,'(A,I2,A)') TRIM(Prefix),No,TRIM(Suffix)
+      ELSE IF( No < 1000) THEN
+        WRITE( FileName,'(A,I3,A)') TRIM(Prefix),No,TRIM(Suffix)
+      ELSE IF( No < 10000) THEN
+        WRITE( FileName,'(A,I4,A)') TRIM(Prefix),No,TRIM(Suffix)
+      ELSE IF( No < 100000) THEN
+        WRITE( FileName,'(A,I5,A)') TRIM(Prefix),No,TRIM(Suffix)
+      END IF
+
+      INQUIRE( FILE=Filename, EXIST=FileIs )
+      IF(.NOT. FileIs) EXIT
+    END DO
+!------------------------------------------------------------------------------
+  END FUNCTION NextFreeFilename
+!------------------------------------------------------------------------------
+    
 END MODULE GeneralUtils

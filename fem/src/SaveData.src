@@ -200,6 +200,10 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     
     ScalarsFile = ListGetString(Solver % Values,'Filename',GotIt )
     IF(.NOT. GotIt) ScalarsFile = DefaultScalarsFile
+
+    IF(ListGetLogical(Solver % Values,'Filename Numbering',GotIt)) THEN
+      ScalarsFile = NextFreeFilename( ScalarsFile ) 
+    END IF
     
     ScalarNamesFile = TRIM(ScalarsFile) // '.' // TRIM("names")
     
@@ -2199,6 +2203,10 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
 
   SideFile = ListGetString(Solver % Values,'Filename',GotIt )
   IF(.NOT. GotIt) SideFile = DefaultSideFile
+
+  IF(ListGetLogical(Solver % Values,'Filename Numbering',GotIt)) THEN
+    SideFile = NextFreeFilename( SideFile ) 
+  END IF
 
   FileAppend = ListGetLogical(Solver % Values,'File Append',GotIt )
   MovingMesh = ListGetLogical(Solver % Values,'Moving Mesh',GotIt )
