@@ -234,8 +234,8 @@ void MainWindow::createActions()
   connect(saveProjectAct, SIGNAL(triggered()), this, SLOT(saveProjectSlot()));
 
   // File -> Save picture as...
-  savePictureAct = new QAction(QIcon(""), tr("&Save picture as..."), this);
-  savePictureAct->setStatusTip(tr("Save picture"));
+  savePictureAct = new QAction(QIcon(":/icons/view-preview.png"), tr("&Save picture as..."), this);
+  savePictureAct->setStatusTip(tr("Save picture in file"));
   connect(savePictureAct, SIGNAL(triggered()), this, SLOT(savePictureSlot()));
 
   // File -> Exit
@@ -603,6 +603,7 @@ void MainWindow::createToolBars()
   fileToolBar->addAction(saveAct);
   fileToolBar->addAction(saveAsAct);
   fileToolBar->addAction(saveProjectAct);
+  fileToolBar->addAction(savePictureAct);
 
   // Edit toolbar
   editToolBar = addToolBar(tr("&Edit"));
