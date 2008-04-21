@@ -229,6 +229,10 @@ QSize ConvergenceView::sizeHint() const
 
 void ConvergenceView::createActions()
 {
+  savePictureAct = new QAction(QIcon(""), tr("&Save picture as..."), this);
+  savePictureAct->setStatusTip("Save picture in jpg-format");
+  connect(savePictureAct, SIGNAL(triggered()), this, SLOT(savePictureSlot())); 
+
   exitAct = new QAction(QIcon(":/icons/application-exit.png"), tr("&Quit"), this);
   exitAct->setShortcut(tr("Ctrl+Q"));
   exitAct->setStatusTip("Quit convergence monitor");
@@ -259,6 +263,8 @@ void ConvergenceView::createActions()
 void ConvergenceView::createMenus()
 {
   fileMenu = menuBar()->addMenu(tr("&File"));
+  fileMenu->addAction(savePictureAct);
+  fileMenu->addSeparator();
   fileMenu->addAction(exitAct);
   
   viewMenu = menuBar()->addMenu(tr("&View"));
@@ -283,6 +289,21 @@ void ConvergenceView::createToolBars()
 void ConvergenceView::createStatusBar()
 {
   statusBar()->showMessage("Ready");
+}
+
+void ConvergenceView::savePictureSlot()
+{
+  QPixmap pixmap = QPixmap::grabWidget(plot);
+  
+  QString fileName = QFileDialog::getSaveFileName(this,
+	  tr("Save picture"), "", tr("JPG (*.jpg)"));
+
+  bool ok = pixmap.save(fileName, "JPG", 95); // fixed quality
+
+  if(!ok) {
+    cout << "Failed writing picture" << endl;
+    cout.flush();
+  }
 }
 
 void ConvergenceView::showGridSlot()

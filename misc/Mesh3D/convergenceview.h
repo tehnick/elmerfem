@@ -57,6 +57,7 @@ public:
   QString title;
 
 private slots:
+  void savePictureSlot();
   void showGridSlot();
   void showLegendSlot();
   void showNSHistorySlot();
@@ -72,6 +73,7 @@ private:
   QHash<QString, Curve*> curveList;
   QPen pen[MAX_EQUATIONS];
 
+  QAction *savePictureAct;
   QAction *exitAct;
   QAction *showGridAct;
   QAction *showLegendAct;
