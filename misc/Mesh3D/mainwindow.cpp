@@ -603,6 +603,7 @@ void MainWindow::createToolBars()
   fileToolBar->addAction(saveAct);
   fileToolBar->addAction(saveAsAct);
   fileToolBar->addAction(saveProjectAct);
+  fileToolBar->addSeparator();
   fileToolBar->addAction(savePictureAct);
 
   // Edit toolbar
