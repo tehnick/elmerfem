@@ -491,39 +491,55 @@ CONTAINS
     INTEGER :: Unit
     CHARACTER(LEN=*) :: FileName, IncludePath
 !------------------------------------------------------------------------------
-    INTEGER :: k,k0,k1,l
-    CHARACTER(LEN=1024) :: TmpName
+    INTEGER :: i,j,k,k0,k1,l
+    CHARACTER(LEN=1024) :: name, TmpName
 !------------------------------------------------------------------------------
-    IF ( INDEX(FileName,':') == 0 .AND. FileName(1:1) /= '/' .AND. &
-              FileName(1:1) /= Backslash ) THEN
+
+    i = 1
+    name = FileName
+    DO WHILE( name(i:i) == ' ' .OR. name(i:i)=='"')
+      i = i + 1
+    END DO
+    j = LEN_TRIM(name)
+    IF ( name(j:j) == '"' ) j=j-1
+    name = TRIM(name(i:j))
+
+    IF ( INDEX(name,':') == 0 .AND. name(1:1) /= '/' .AND. &
+              name(1:1) /= Backslash ) THEN
        k0 = 1
        DO WHILE( IncludePath(k0:k0) == '"' )
          k0 = k0+1
        END DO
        k1 = INDEX( IncludePath, ';' )
+
        DO WHILE( k1 >= k0 )
          DO k = k1-1,k0,-1
-           IF ( IncludePath(k:k) /= ' ' ) EXIT
+           IF ( IncludePath(k:k) /= ' ' .AND. IncludePath(k:k)/='"' ) EXIT
          END DO 
+         IF ( IncludePath(k:k) == '"' ) k=k-1
          IF ( k >= k0 ) THEN
-           WRITE( TmpName,'(a,a,a)' ) IncludePath(k0:k), '/', TRIM(FileName)
-           OPEN( Unit, FILE=TRIM(TmpName), STATUS='OLD',ERR=10 )
+           WRITE( tmpName,'(a,a,a)' ) IncludePath(k0:k), '/', TRIM(name)
+           OPEN( Unit, FILE=TRIM(tmpName), STATUS='OLD',ERR=10 )
            RETURN
          END IF
 10       CONTINUE
          k0 = k1+1
          k1 = INDEX( IncludePath(k0:), ';' ) + k0 - 1
        END DO
-       IF ( LEN_TRIM(IncludePath)>0 ) THEN
-         WRITE( TmpName,'(a,a,a)' ) TRIM(IncludePath(k0:)), '/', TRIM(FileName)
+
+       IF ( LEN_TRIM(IncludePath(k0:))>0 ) THEN
+         k1 = INDEX( IncludePath(k0:), '"' ) + k0 - 2
+         IF ( k1 < k0 ) k1=LEN_TRIM(IncludePath)
+         WRITE( tmpName,'(a,a,a)' ) TRIM(IncludePath(k0:k1)), '/', TRIM(name)
          OPEN( Unit, FILE=TRIM(TmpName), STATUS='OLD',ERR=20 )
          RETURN
        END IF
+
 20     CONTINUE
-       OPEN( Unit, FILE=TRIM(FileName), STATUS='OLD' )
-     ELSE
-       OPEN( Unit, FILE=TRIM(FileName), STATUS='OLD' )
-     END IF
+       OPEN( Unit, FILE=TRIM(name), STATUS='OLD' )
+    ELSE
+       OPEN( Unit, FILE=TRIM(name), STATUS='OLD' )
+    END IF
 !------------------------------------------------------------------------------
   END SUBROUTINE OpenIncludeFile
 !------------------------------------------------------------------------------
