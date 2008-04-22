@@ -1772,6 +1772,8 @@ void MainWindow::savePictureSlot()
 {
   bool withAlpha = false;
 
+  glReadBuffer(GL_FRONT);
+
   QImage image = glWidget->grabFrameBuffer(withAlpha);
 
   QString fileName = QFileDialog::getSaveFileName(this,
