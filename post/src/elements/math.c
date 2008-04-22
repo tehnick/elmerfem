@@ -268,19 +268,20 @@ VARIABLE *elm_gradient( VARIABLE *A )
  
      double *af = MATR( A );
  
-     int i,j,k,n,status,dim;
+     int i,j,k,n,status,dim, cols;
 
      VARIABLE *res;
 
      double *rx, *ry, *rz;
 
-     if ( NROW(A) != 1 || NCOL(A) != model->NofNodes*model->NofTimesteps )
+     cols = NCOL(A) / model->NofNodes;
+     if ( NROW(A) != 1 )
      {
          free( References );
-         error( "grad: variable size does not match with the element model\n" );
+         error( "I can only compute the gradient of a scalar variable\n" );
      }
  
-     res = (VARIABLE *)var_temp_new( TYPE_DOUBLE, 3, model->NofTimesteps*model->NofNodes );
+     res = (VARIABLE *)var_temp_new( TYPE_DOUBLE, 3, cols*model->NofNodes );
      rx  = &M(res,0,0);
      ry  = &M(res,1,0);
      rz  = &M(res,2,0);
@@ -293,7 +294,7 @@ VARIABLE *elm_gradient( VARIABLE *A )
       } else if ( model->Elements[k].ElementType->ElementCode>=300 ) 
         dim=2;
 
-     for( k=0; k<model->NofTimesteps; k++ )
+     for( k=0; k<cols; k++ )
      {
          for( j=0; j<model->NofNodes; j++ )
          {
@@ -498,7 +499,7 @@ VARIABLE *elm_rotor_2D( VARIABLE *A )
 
     unsigned char *References = (unsigned char *)malloc( model->NofNodes*sizeof(unsigned char) );
 
-    int i,j,k,n;
+    int i,j,k,n,cols;
 
     double *ax = &M(A,0,0);
     double *ay = &M(A,1,0);
@@ -507,16 +508,17 @@ VARIABLE *elm_rotor_2D( VARIABLE *A )
     VARIABLE *res;
     double *rf;
 
-    if ( NROW(A) != 3 || NCOL(A) != model->NofNodes*model->NofTimesteps )
+    cols = NCOL(A) / model->NofNodes;
+    if ( NROW(A) != 3 )
     {
         free( References );
-        error( "curl 2D: variable size does not match with the element model.\n" );
+        error( "curl 2D: vector variable needed as input.\n" );
     }
 
-    res = var_temp_new( TYPE_DOUBLE, 1, model->NofTimesteps*model->NofNodes );
+    res = var_temp_new( TYPE_DOUBLE, 1, cols*model->NofNodes );
     rf = MATR(res);
  
-    for( k=0; k<model->NofTimesteps; k++ )
+    for( k=0; k<cols; k++ )
     {
         for( j=0; j<model->NofNodes; j++ )
         {
@@ -744,7 +746,7 @@ VARIABLE *elm_rotor_3D( VARIABLE *A )
 
     unsigned char *References = (unsigned char *)malloc( model->NofNodes*sizeof(unsigned char) );
 
-    int i,j,k,n;
+    int i,j,k,n, cols;
 
     double *ax = &M(A,0,0);
     double *ay = &M(A,1,0);
@@ -754,18 +756,19 @@ VARIABLE *elm_rotor_3D( VARIABLE *A )
 
     double *rx, *ry, *rz;
 
-    if ( NROW(A) != 3 || NCOL(A) != model->NofNodes*model->NofTimesteps )
+    cols = NCOL(A) / model->NofNodes;
+    if ( NROW(A) != 3 )
     {
         free( References );
-        error( "curl: variable size does not match with the element model.\n" );
+        error( "curl: vector variable needed as input.\n" );
     }
 
-    res = var_temp_new( TYPE_DOUBLE, 3, model->NofTimesteps*model->NofNodes );
+    res = var_temp_new( TYPE_DOUBLE, 3, cols*model->NofNodes );
     rx = &M(res,0,0);
     ry = &M(res,1,0);
     rz = &M(res,2,0);
 
-    for( k=0; k<model->NofTimesteps; k++ )
+    for( k=0; k<cols; k++ )
     {
         for( j=0; j<model->NofNodes; j++ )
         {
@@ -1105,7 +1108,7 @@ VARIABLE *elm_divergence( VARIABLE *A )
 
     unsigned char *References = (unsigned char *)malloc( model->NofNodes*sizeof(unsigned char) );
 
-    int i,j,k,n,status,dim;
+    int i,j,k,n,status,dim,cols;
 
     double *ax = &M(A,0,0);
     double *ay = &M(A,1,0);
@@ -1114,10 +1117,11 @@ VARIABLE *elm_divergence( VARIABLE *A )
     VARIABLE *res;
     double *rf;
 
-    if ( NROW(A) != 3 || NCOL(A) != model->NofNodes*model->NofTimesteps )
+     cols = NCOL(A) / model->NofNodes;
+    if ( NROW(A) != 3 )
     {
         free( References );
-        error( "div: variable size does not match with the element model.\n" );
+        error( "div: vector variable needed as input.\n" );
     }
 
     dim = 1;
@@ -1128,10 +1132,10 @@ VARIABLE *elm_divergence( VARIABLE *A )
      } else if ( model->Elements[k].ElementType->ElementCode>=300 ) 
        dim=2;
 
-    res = var_temp_new( TYPE_DOUBLE, 1, model->NofNodes*model->NofTimesteps );
+    res = var_temp_new( TYPE_DOUBLE, 1, model->NofNodes*cols );
     rf = MATR(res);
 
-    for( k=0; k<model->NofTimesteps; k++ )
+    for( k=0; k<cols; k++ )
     {
         for( j=0; j<model->NofNodes; j++ )
         {
