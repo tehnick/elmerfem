@@ -988,19 +988,17 @@ MODULE NavierStokesCylindrical
    LOGICAL :: stat
 
    TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
-REAL(KIND=dp) :: xx,yy,ydot,ydotdot
 !------------------------------------------------------------------------------
 
    IF ( CurrentCoordinateSystem() == CylindricSymmetric ) THEN
-     DIM = 3
+     dim = 3
    ELSE
-     DIM = CoordinateSystemDimension()
+     dim = CoordinateSystemDimension()
    END IF
-   c = DIM + 1
-   n = Element % TYPE % NumberOfNodes
+   c = dim + 1
 
-   BoundaryVector = 0.0D0
-   BoundaryMatrix = 0.0D0
+   BoundaryVector = 0.0_dp
+   BoundaryMatrix = 0.0_dp
 !
 !------------------------------------------------------------------------------
 !  Integration stuff
@@ -1046,6 +1044,7 @@ REAL(KIND=dp) :: xx,yy,ydot,ydotdot
 !    Add to load: tangetial derivative of something
 !------------------------------------------------------------------------------
 !
+     TangentForce = 0._dp
      DO i=1,dim
        TangentForce(i) = SUM( NodalBeta(1:n)*dBasisdx(1:n,i) )
      END DO
@@ -1062,7 +1061,7 @@ REAL(KIND=dp) :: xx,yy,ydot,ydotdot
 !    Add to load: given force in normal direction
 !------------------------------------------------------------------------------
      Normal = NormalVector( Element, Nodes, u,v,.TRUE. )
-     Alpha = SUM( NodalExtPressure(1:n)*Basis )
+     Alpha = SUM( NodalExtPressure(1:n)*Basis(1:n) )
      IF ( NormalTangential ) THEN
        Force(1) = Force(1) + Alpha
      ELSE
@@ -1072,14 +1071,15 @@ REAL(KIND=dp) :: xx,yy,ydot,ydotdot
      END IF
 !------------------------------------------------------------------------------
 
-     Alpha = SUM( NodalAlpha(1:n)*Basis )
+     Alpha = SUM( NodalAlpha(1:n)*Basis(1:n) )
 !
 
      SELECT CASE( Element % Type % Dimension )
         CASE(1)
            Tangent(1) =  Normal(2)
            Tangent(2) = -Normal(1)
-           Tangent(3) =  0.0d0
+           Tangent(3) =  0.0_dp
+           Tangent2   =  0.0_dp
         CASE(2)
            CALL TangentDirections( Normal, Tangent, Tangent2 ) 
      END SELECT
