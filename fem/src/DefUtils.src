@@ -687,10 +687,46 @@ CONTAINS
   END SUBROUTINE GetRealArray
 
 
-
-  FUNCTION GetElementProperty( Name, UElement ) RESULT(vals)
+  SUBROUTINE SetElementProperty( Name, Values, UElement )
     CHARACTER(LEN=*) :: Name
-    REAL(KIND=dp), POINTER :: Vals(:)
+    REAL(KIND=dp) :: Values(:)
+    TYPE(Element_t), POINTER, OPTIONAL :: UElement
+
+    TYPE(ElementData_t), POINTER :: p
+
+    TYPE(Element_t), POINTER :: Element
+
+    Element => CurrentModel % CurrentElement
+    IF ( PRESENT( UElement ) ) Element => UElement
+
+    p => Element % PropertyData
+    DO WHILE( ASSOCIATED(p) )
+      IF ( Name==p % Name ) EXIT
+      p => p % Next
+    END DO
+
+    IF ( ASSOCIATED(p) ) THEN
+      IF ( SIZE(P % Values) == SIZE(Values) ) THEN
+        P % Values = Values
+      ELSE
+        DEALLOCATE( P % Values )
+        ALLOCATE( P % Values(SIZE(Values)) )
+        P % Values = Values
+      END IF
+    ELSE
+      ALLOCATE(p)
+      ALLOCATE( P % Values(SIZE(Values)) )
+      p % Values = Values
+      p % Name = Name
+      p % Next => Element % PropertyData
+      Element % PropertyData => p
+    END IF
+  END SUBROUTINE SetElementProperty
+
+
+  FUNCTION GetElementProperty( Name, UElement ) RESULT(Values)
+    CHARACTER(LEN=*) :: Name
+    REAL(KIND=dp), POINTER :: Values(:)
     TYPE(Element_t), POINTER, OPTIONAL :: UElement
 
     TYPE(ElementData_t), POINTER :: p
@@ -701,12 +737,12 @@ CONTAINS
     IF ( PRESENT( UElement ) ) Element => UElement
 
 
-    Vals => NULL()
+    Values => NULL()
     p=> Element % PropertyData
 
     DO WHILE( ASSOCIATED(p) )
       IF ( Name==p % Name ) THEN
-        Vals => p % Values
+        Values => p % Values
         RETURN
       END IF
       p => p % Next
@@ -1181,6 +1217,7 @@ CONTAINS
 !------------------------------------------------------------------------------
      TYPE(ValueList_t), POINTER :: SolverParam
      TYPE(Solver_t), OPTIONAL :: Solver
+
      IF ( PRESENT(Solver) ) THEN
        SolverParam => Solver % Values
      ELSE
