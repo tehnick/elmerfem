@@ -937,8 +937,8 @@ MODULE StressLocal
 
 !------------------------------------------------------------------------------
 
-     LoadAtIp = 0.0d0
-     LoadAtIp_im = 0.0d0
+     LoadAtIp = 0.0_dp
+     LoadAtIp_im = 0.0_dp
      DO i=1,dim
        LoadAtIp(i) = SUM( LOAD(i,1:n)*Basis(1:n) )
        LoadAtIp_im(i) = SUM( LOAD_im(i,1:n)*Basis(1:n) )
@@ -953,7 +953,7 @@ MODULE StressLocal
        LoadAtIp_im = LoadAtIp_im + SUM( NodalBeta_im(1:n)*Basis(1:n) ) * Normal
      END IF
 
-     Stress = 0.0d0
+     Stress = 0.0_dp
      SELECT CASE(dim)
      CASE(2)
        Stress(1,1) = SUM( NodalStress(1,1:n)*Basis(1:n) )
@@ -978,7 +978,8 @@ MODULE StressLocal
         CASE(1)
            Tangent(1) =  Normal(2)
            Tangent(2) = -Normal(1)
-           Tangent(3) =  0.0d0
+           Tangent(3) =  0.0_dp
+           Tangent2   =  0.0_dp
         CASE(2)
            CALL TangentDirections( Normal, Tangent, Tangent2 ) 
         END SELECT
