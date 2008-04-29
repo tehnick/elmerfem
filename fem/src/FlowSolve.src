@@ -982,7 +982,8 @@
                    Convect, StabilizeFlag, CompressibilityModel /= Incompressible, &
                    PseudoCompressible, PseudoCompressibility, GasConstant, Porous, Drag, &
                    PotentialForce, PotentialField, PotentialCoefficient, &
-                   MagneticForce, NewtonLinearization,Element,n,ElementNodes )
+                   MagneticForce, divDiscretization, gradpDiscretization, NewtonLinearization, &
+                   Element,n,ElementNodes )
 !------------------------------------------------------------------------------
            END SELECT
 !------------------------------------------------------------------------------
@@ -1092,7 +1093,7 @@
             IF ( gotIt ) THEN
               DO j=1,n
                 k = TempPerm( NodeIndexes(j) )
-                IF ( k>0 ) Beta(j) = 1.0d0 - Beta(j) * Temperature(k)
+                IF ( k>0 ) Beta(j) = 1.0_dp - Beta(j) * Temperature(k)
               END DO
               Beta(1:n) = Beta(1:n) * GetReal(BC, 'Surface Tension Coefficient' )
             ELSE
@@ -1252,8 +1253,7 @@
       st = CPUTime()
 
       IF ( NonlinearRelax /= 1.0d0 ) PSolution = FlowSolution
-      CALL SolveSystem( StiffMatrix, ParMatrix, ForceVector, &
-              FlowSolution, UNorm, NSDOFs, Solver )
+      Unorm = DefaultSolve()
       RelativeChange = Solver % Variable % NonlinChange	
 
       st = CPUTIme()-st

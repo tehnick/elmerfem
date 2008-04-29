@@ -448,7 +448,6 @@ MODULE NavierStokes
        DO p=1,N
          DO i=1,DIM
            SU(p,i,c) = SU(p,i,c) + dBasisdx(p,i)
-
            IF(Porous) THEN
              SU(p,i,i) = SU(p,i,i) + Viscosity * Drag(i) * Basis(p)
            END IF
@@ -456,13 +455,9 @@ MODULE NavierStokes
            IF ( Convect ) THEN
              DO j=1,DIM
                SU(p,i,i) = SU(p,i,i) + Density * dBasisdx(p,j) * Velo(j)
-
                SU(p,i,i) = SU(p,i,i) - Viscosity * ddBasisddx(p,j,j)
-
                SU(p,i,i) = SU(p,i,i) - dViscositydx(j) * dBasisdx(p,j)
-
                SU(p,i,j) = SU(p,i,j) - Viscosity * ddBasisddx(p,j,i)
-
                SU(p,i,j) = SU(p,i,j) - dViscositydx(j) * dBasisdx(p,i)
              END DO
            END IF
@@ -477,15 +472,11 @@ MODULE NavierStokes
 
            IF ( Convect )  THEN
              SW(p,i,c) = SW(p,i,c) + Density * dBasisdx(p,i)
-             DO j=1,DIM
+             DO j=1,dim
                SW(p,i,i) = SW(p,i,i) + Density * dBasisdx(p,j) * Velo(j)
-
                SW(p,i,i) = SW(p,i,i) - Viscosity * ddBasisddx(p,j,j)
- 
                SW(p,i,j) = SW(p,i,j) - dViscositydx(j) * dBasisdx(p,i)
-
                SW(p,i,j) = SW(p,i,j) - Viscosity * ddBasisddx(p,i,j)
- 
                SW(p,i,i) = SW(p,i,i) - dViscositydx(j) * dBasisdx(p,j)
              END DO
            ELSE
@@ -544,8 +535,8 @@ MODULE NavierStokes
 !      Diffusive terms
 !      Convection terms, Picard linearization
 !------------------------------------------------------------------------------
-       DO i=1,DIM
-         DO j = 1,DIM
+       DO i=1,dim
+         DO j = 1,dim
            A(i,i) = A(i,i) + s * Viscosity * dBasisdx(q,j) * dBasisdx(p,j)
            IF ( divDiscretization ) THEN
               A(i,j) = A(i,j) + s * Viscosity * dBasisdx(q,j) * dBasisdx(p,i)
@@ -887,7 +878,7 @@ MODULE NavierStokes
      IF ( ANY( NodalSlipCoeff(:,:) /= 0.0d0 ) ) THEN
        DO p=1,n
          DO q=1,n
-           DO i=1,DIM
+           DO i=1,dim
              SlipCoeff = SUM( NodalSlipCoeff(i,1:n) * Basis(1:n) )
 
              IF ( NormalTangential ) THEN
