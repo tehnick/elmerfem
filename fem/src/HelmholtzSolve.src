@@ -293,9 +293,18 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
         Material => GetMaterial()
         Damping(1:n)    = GetReal( Material, 'Sound Damping', Found )
         SoundSpeed(1:n) = GetReal( Material, 'Sound Speed', Found )
+
         ConvVelo(1,1:n) = GetReal( Material, 'Convection Velocity 1', Found )
+        IF ( .NOT. Found ) &
+           ConvVelo(1,1:n) = GetReal( Equation, 'Convection Velocity 1', Found )
+
         ConvVelo(2,1:n) = GetReal( Material, 'Convection Velocity 2', Found )
+        IF ( .NOT. Found ) &
+           ConvVelo(2,1:n) = GetReal( Equation, 'Convection Velocity 2', Found )
+
         ConvVelo(3,1:n) = GetReal( Material, 'Convection Velocity 3', Found )
+        IF ( .NOT. Found ) &
+           ConvVelo(3,1:n) = GetReal( Equation, 'Convection Velocity 3', Found )
 
 !       The source term on nodes:
 !       -------------------------
