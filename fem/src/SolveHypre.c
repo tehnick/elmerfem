@@ -29,11 +29,12 @@
 
 void STDCALLBULL FC_FUNC(solvehypre,SOLVEHYPRE)
  (
-   int *nrows,int *rows, int *cols, double *vals, int *perm,
-   int *invperm, int *globaldofs, int *owner,  double *xvec,
-   double *rhsvec, int *pe, int *ILUn, int *Rounds, double *TOL,
-   double *sai_threshold, int *sai_maxlevels, double *sai_filter,
-   int *sai_sym, int *use_parasails
+  int *nrows,int *rows, int *cols, double *vals, int *perm,
+  int *invperm, int *globaldofs, int *owner,  double *xvec,
+  double *rhsvec, int *pe, int *ILUn, int *Rounds, double *TOL,
+  double *sai_threshold, int *sai_maxlevels, double *sai_filter,
+  int *sai_sym, int *bamg_CoarsenType, int *bamg_RelaxType, 
+  int *bamg_NumSweeps, int *bamg_MaxLevels, int *hypre_method
  )
 {
    int i, j, k, *rcols;
@@ -71,6 +72,8 @@ st  = realtime_();
       }
    }
 
+  /* which process number am I? */
+   MPI_Comm_rank(MPI_COMM_WORLD, &myid);
    /* Create the matrix.
       Note that this is a square matrix, so we indicate the row partition
       size twice (since number of rows = number of cols) */
@@ -137,60 +140,125 @@ st  = realtime_();
 
    HYPRE_IJVectorAssemble(x);
    HYPRE_IJVectorGetObject(x, (void **) &par_x);
-fprintf( stderr, "setup time: %g\n", realtime_()-st );
-st = realtime_();
+   fprintf( stderr, "ID no. %i: setup time: %g\n", myid, realtime_()-st );
+   st = realtime_();
 
    /* Choose a solver and solve the system */
+   /* NB.: hypremethod = 0 ... BiCGStab + ILUn
+                         1 ... BiCGStab + ParaSails
+                         2 ... BiCGStab + BoomerAMG
+                        10 ... BoomerAMG 
+   */
+   if ( *hypre_method < 10) { /* BiGSTAB methods */
+     /* Create solver */
+     HYPRE_ParCSRBiCGSTABCreate(MPI_COMM_WORLD, &solver);
 
-  /* Create solver */
-   HYPRE_ParCSRBiCGSTABCreate(MPI_COMM_WORLD, &solver);
-
-   /* Set some parameters (See Reference Manual for more parameters) */
-   HYPRE_ParCSRBiCGSTABSetMaxIter(solver, *Rounds); /* max iterations */
-   HYPRE_ParCSRBiCGSTABSetTol(solver, *TOL);       /* conv. tolerance */
-   HYPRE_ParCSRBiCGSTABSetStopCrit(solver, 0);     /* use the two norm as the stopping criteria */
-   HYPRE_ParCSRBiCGSTABSetPrintLevel(solver, 2);   /* print solve info */
-   HYPRE_ParCSRBiCGSTABSetLogging(solver, 1);      /* needed to get run info later */
-
-   if ( *use_parasails == 0 ) {
-     HYPRE_EuclidCreate( MPI_COMM_WORLD, &precond );
-     {
+     /* Set some parameters (See Reference Manual for more parameters) */
+     HYPRE_ParCSRBiCGSTABSetMaxIter(solver, *Rounds); /* max iterations */
+     HYPRE_ParCSRBiCGSTABSetTol(solver, *TOL);       /* conv. tolerance */
+     HYPRE_ParCSRBiCGSTABSetStopCrit(solver, 0);     /* use the two norm as the stopping criteria */
+     HYPRE_ParCSRBiCGSTABSetPrintLevel(solver, 2);   /* print solve info */
+     HYPRE_ParCSRBiCGSTABSetLogging(solver, 1);      /* needed to get run info later */
+     if ( *hypre_method == 0 ) {
+       HYPRE_EuclidCreate( MPI_COMM_WORLD, &precond );
+       {
          static char *argv[5], str[3];
          argv[0] = "-level";
          sprintf( str, "%d", *ILUn );
+	 if (myid == 0) fprintf( stderr,"SolveHypre: using BiCGStab + ILU%i\n",*ILUn); 
          argv[1] = str;
          HYPRE_EuclidSetParams( precond, 2, argv );
-     }
+       }
 
-     /* Set the PCG preconditioner */
-     HYPRE_BiCGSTABSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_EuclidSolve,
-                (HYPRE_PtrToSolverFcn) HYPRE_EuclidSetup, precond);
-   } else {
-    /* Now set up the ParaSails preconditioner and specify any parameters */
-     HYPRE_ParaSailsCreate(MPI_COMM_WORLD, &precond);
-     {
-       /* Set some parameters (See Reference Manual for more parameters) */
-       HYPRE_ParaSailsSetParams(precond, *sai_threshold, *sai_maxlevels);
-       HYPRE_ParaSailsSetFilter(precond, *sai_filter);
-       HYPRE_ParaSailsSetSym(precond, *sai_sym);
-       HYPRE_ParaSailsSetLogging(precond, 3);
+       /* Set the PCG preconditioner */
+       HYPRE_BiCGSTABSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_EuclidSolve,
+				(HYPRE_PtrToSolverFcn) HYPRE_EuclidSetup, precond);
+     } else if (*hypre_method == 1) { 
+       if (myid == 0) fprintf( stderr,"SolveHypre: using BiCGStab + paraSails\n"); 
+       /* Now set up the ParaSails preconditioner and specify any parameters */
+       HYPRE_ParaSailsCreate(MPI_COMM_WORLD, &precond);
+       {
+	 /* Set some parameters (See Reference Manual for more parameters) */
+	 HYPRE_ParaSailsSetParams(precond, *sai_threshold, *sai_maxlevels);
+	 HYPRE_ParaSailsSetFilter(precond, *sai_filter);
+	 HYPRE_ParaSailsSetSym(precond, *sai_sym);
+	 HYPRE_ParaSailsSetLogging(precond, 3);
+       }
+       /* Set the PCG preconditioner */
+       HYPRE_BiCGSTABSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_ParaSailsSolve,
+				(HYPRE_PtrToSolverFcn) HYPRE_ParaSailsSetup, precond);
+     } else if(*hypre_method == 2){
+       if (myid == 0) fprintf( stderr,"SolveHypre: using BiCGStab + boomerAMG\n");
+       HYPRE_BoomerAMGCreate(&precond);
+       {
+	 /* Set some parameters (See Reference Manual for more parameters) */
+	 HYPRE_BoomerAMGSetPrintLevel(precond, 1); /* print amg solution info */
+	 HYPRE_BoomerAMGSetCoarsenType(precond, *bamg_CoarsenType);
+	 HYPRE_BoomerAMGSetRelaxType(precond, *bamg_RelaxType); /* Sym G.S./Jacobi hybrid */ 
+	 HYPRE_BoomerAMGSetNumSweeps(precond, 1);
+	 HYPRE_BoomerAMGSetTol(precond, 0.0); /* conv. tolerance zero */
+	 HYPRE_BoomerAMGSetMaxIter(precond, 1); /* do only one iteration! */
+       }
+       /* Set the BiCGSTAB preconditioner */
+       HYPRE_BiCGSTABSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_BoomerAMGSolve,
+				(HYPRE_PtrToSolverFcn) HYPRE_BoomerAMGSetup, precond);
+     } else {
+       fprintf( stderr,"Hypre precodnitioning mehtod not implemented\n");
+       exit(EXIT_FAILURE);
      }
-     /* Set the PCG preconditioner */
-     HYPRE_BiCGSTABSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_ParaSailsSolve,
-                (HYPRE_PtrToSolverFcn) HYPRE_ParaSailsSetup, precond);
+     
+
+     /* Now setup and solve! */
+     HYPRE_ParCSRBiCGSTABSetup(solver, parcsr_A, par_b, par_x);
+     HYPRE_ParCSRBiCGSTABSolve(solver, parcsr_A, par_b, par_x);
+
+     /* Destroy solver and preconditioner */
+     HYPRE_ParCSRBiCGSTABDestroy(solver);
+     if ( *hypre_method == 0 ) {
+       HYPRE_EuclidDestroy(precond);
+     } else if ( *hypre_method == 1 ) {
+       HYPRE_ParaSailsDestroy(precond);
+     } else {
+       HYPRE_BoomerAMGDestroy(precond);
+     }
+   } else if ( *hypre_method == 10 ) { /* boomer AMG */
+      int num_iterations;
+      double final_res_norm;
+
+      if (myid == 0) fprintf( stderr,"SolveHypre: using BoomerAMG\n"); 
+
+      /* Create solver */
+      HYPRE_BoomerAMGCreate(&solver);
+
+      /* Set some parameters (See Reference Manual for more parameters) */
+      HYPRE_BoomerAMGSetPrintLevel(solver, 3);  /* print solve info + parameters */
+      HYPRE_BoomerAMGSetCoarsenType(solver, *bamg_CoarsenType); /* Falgout coarsening */
+      HYPRE_BoomerAMGSetRelaxType(solver, *bamg_RelaxType);   /* G-S/Jacobi hybrid relaxation */
+      HYPRE_BoomerAMGSetNumSweeps(solver, *bamg_NumSweeps);   /* Sweeeps on each level */
+      HYPRE_BoomerAMGSetMaxLevels(solver, *bamg_MaxLevels);
+      HYPRE_BoomerAMGSetTol(solver, *TOL);      /* conv. tolerance */
+
+      /* Now setup and solve! */
+      HYPRE_BoomerAMGSetup(solver, parcsr_A, par_b, par_x);
+      HYPRE_BoomerAMGSolve(solver, parcsr_A, par_b, par_x);
+
+      /* Run info - needed logging turned on */
+      HYPRE_BoomerAMGGetNumIterations(solver, &num_iterations);
+      HYPRE_BoomerAMGGetFinalRelativeResidualNorm(solver, &final_res_norm);
+      if (myid == 0)
+      {
+	fprintf(stderr,"BoomerAMG:\n");
+	fprintf(stderr,"Iterations = %d\n", num_iterations);
+	fprintf(stderr,"Final Relative Residual Norm = %e\n", final_res_norm);
+	fprintf(stderr,"\n");
+      }
+
+      /* Destroy solver */
+      HYPRE_BoomerAMGDestroy(solver);
+   } else {
+     fprintf( stderr,"Hypre solver not implemented\n");
+     exit(EXIT_FAILURE);
    }
-
-   /* Now setup and solve! */
-   HYPRE_ParCSRBiCGSTABSetup(solver, parcsr_A, par_b, par_x);
-   HYPRE_ParCSRBiCGSTABSolve(solver, parcsr_A, par_b, par_x);
-
-   /* Destroy solver and preconditioner */
-   HYPRE_ParCSRBiCGSTABDestroy(solver);
-   if ( *use_parasails == 0 ) {
-     HYPRE_EuclidDestroy(precond);
-   } else {
-     HYPRE_ParaSailsDestroy(precond);
-   }      
 
    for( k=0,i=0; i<local_size; i++ )
       if ( owner[i] ) rcols[k++] = globaldofs[i];
@@ -200,7 +268,7 @@ st = realtime_();
    for( i=0,k=0; i<local_size; i++ )
      if ( owner[i] ) xvec[perm[i]-1] = txvec[k++];
 
-fprintf( stderr, "solve time: %g\n", realtime_()-st );
+   fprintf( stderr, "ID no. %i: solve time: %g\n", myid, realtime_()-st );
    free( txvec );
    free( rcols );
 
