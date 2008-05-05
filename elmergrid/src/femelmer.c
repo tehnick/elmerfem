@@ -960,6 +960,7 @@ int SaveElmerInput(struct FemType *data,struct BoundaryType *bound,
 
   sumsides = 0;
 
+  printf("normal bc\n");
 
   /* Save normal boundaries */
   for(j=0;j < MAXBOUNDARIES;j++) {
@@ -983,9 +984,10 @@ int SaveElmerInput(struct FemType *data,struct BoundaryType *bound,
       fprintf(out,"\n");
     }
   }
-  
-  /* Save Discontinuous boundaries */
-  for(j=0;j < MAXBOUNDARIES;j++) {
+
+
+  /* Save Discontinuous boundaries: this is obsolite */
+  if(0) for(j=0;j < MAXBOUNDARIES;j++) {
 
     if(bound[j].created == FALSE) continue;
     if(bound[j].nosides == 0) continue;
@@ -1008,9 +1010,22 @@ int SaveElmerInput(struct FemType *data,struct BoundaryType *bound,
       for(l=0;l<nodesd1;l++)
 	fprintf(out,"%d ",ind2[l]);
       fprintf(out,"\n");
+    }
+  }
+
+
+  /* Save additional connection arising from discontinuous boundaries */
+  if(1) for(j=0;j < MAXBOUNDARIES;j++) {
+    
+    if(bound[j].created == FALSE) continue;
+    if(bound[j].nosides == 0) continue;
+    if(!bound[j].ediscont) continue;
+    
+    for(i=1; i <= bound[j].nosides; i++) {
+      if(!bound[j].parent2[i] || !bound[j].discont[i]) continue;
       
-      /* Save additional connections that arise at the discontinous boundary */
       GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],data,ind,&sideelemtype);       
+      nodesd1 = sideelemtype%100;
       conelemtype = 100 + nodesd1 + 1;
       
       sumsides += nodesd1;
@@ -1024,6 +1039,7 @@ int SaveElmerInput(struct FemType *data,struct BoundaryType *bound,
       }
     }
   }
+
 
   newtype = 0;
   for(j=0;j < MAXBOUNDARIES;j++) {
