@@ -117,8 +117,53 @@ INTERFACE ComponentName
    MODULE PROCEDURE ComponentNameStr, ComponentNameVar
 END INTERFACE
 
+    REAL(KIND=dp), PRIVATE :: AdvanceTime1, AdvanceTime2
 
 CONTAINS
+
+!------------------------------------------------------------------------------
+  SUBROUTINE StartAdvanceOutput( SolverName, OutputType )
+!------------------------------------------------------------------------------
+     CHARACTER(LEN=*) :: SolverName, OutputType
+!------------------------------------------------------------------------------
+     REAL(KIND=dp) :: RealTime
+
+     AdvanceTime1 = RealTime()
+     AdvanceTime2 = RealTime()
+     CALL Info( SolverName, OutputType, Level=5 )
+!------------------------------------------------------------------------------
+  END SUBROUTINE StartAdvanceOutput
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+  SUBROUTINE AdvanceOutput(t,n,dot_t,percent_t)
+!------------------------------------------------------------------------------
+     INTEGER :: t,n
+     REAL(KIND=dp), OPTIONAL :: dot_t,percent_t
+!------------------------------------------------------------------------------
+     INTEGER :: i
+     REAL(KIND=dp) :: RealTime, d_t, p_t
+!------------------------------------------------------------------------------
+     d_t = 1._dp
+     p_t = 20._dp
+     IF ( PRESENT(dot_t) ) d_t = dot_t
+     IF ( PRESENT(percent_t) ) p_t = percent_t
+
+     IF ( RealTime() - AdvanceTime1 > d_t ) THEN
+       CALL Info( '', '.', Level=5, noAdvance=.TRUE. )
+
+       IF ( RealTime() - AdvanceTime2 > p_t ) THEN
+         i = NINT(t*100.0/n)
+         WRITE(Message, '(i3,a)' ) i, '%'
+         CALL Info( '', Message, Level=5 )
+         AdvanceTime2 = RealTime()
+       END IF
+       AdvanceTime1 = RealTime()
+     END IF
+!------------------------------------------------------------------------------
+  END SUBROUTINE AdvanceOutput
+!------------------------------------------------------------------------------
 
 
 !------------------------------------------------------------------------------
