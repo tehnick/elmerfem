@@ -300,6 +300,23 @@ CONTAINS
   END FUNCTION GetMesh
 
 
+  FUNCTION GetElementIndex(Element) RESULT(Indx)
+     TYPE(Element_t), OPTIONAL :: Element
+     INTEGER :: Indx
+
+     IF ( PRESENT(Element) ) THEN
+       Indx = Element % ElementIndex
+     ELSE
+       Indx = CurrentModel % CurrentElement % ElementIndex
+     END IF
+  END FUNCTION GetElementIndex
+
+
+  FUNCTION GetCurrentElement() RESULT(Element)
+    TYPE(Element_t), POINTER :: Element
+    Element => CurrentModel % CurrentElement
+  END FUNCTION GetCurrentElement
+
 
   FUNCTION GetNOFActive( USolver ) RESULT(n)
      INTEGER :: n
