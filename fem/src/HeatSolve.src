@@ -485,6 +485,7 @@
 
      StabilizeFlag = GetString( SolverParams, &
           'Stabilization Method',Found )
+
      SELECT CASE(StabilizeFlag)
      CASE('stabilized')
        Stabilize = .TRUE.
@@ -598,17 +599,10 @@
 !------------------------------------------------------------------------------
 !      Bulk elements
 !------------------------------------------------------------------------------
+       CALL StartAdvanceOutput( 'HeatSolve', 'Assembly:' )
        DO t=1,Solver % NumberOfActiveElements
 
-         IF ( RealTime() - at0 > 1.0 ) THEN
-           WRITE(Message,'(a,i3,a)' ) '   Assembly: ', INT(100.0 - 100.0 * &
-            (Solver % NumberOfActiveElements-t) / &
-               (1.0*Solver % NumberOfActiveElements)), ' % done'
-                       
-           CALL Info( 'HeatSolve', Message, Level=5 )
-
-           at0 = RealTime()
-         END IF
+         CALL AdvanceOutput(t,GetNOFActive())
 !------------------------------------------------------------------------------
 !        Check if this element belongs to a body where temperature 
 !        should be calculated
@@ -1046,10 +1040,11 @@
       IF ( TransientSimulation .AND. ConstantBulk ) CALL AddGlobalTime()
 
       CALL DefaultFinishAssembly()
+      CALL Info( 'HeatSolve', 'Assembly done', Level=4 )
+
       CALL DefaultDirichletBCs()
 
 !------------------------------------------------------------------------------
-      CALL Info( 'HeatSolve', 'Assembly done', Level=4 )
 
 !------------------------------------------------------------------------------
 !     Solve the system and check for convergence
@@ -1290,13 +1285,14 @@ CONTAINS
         DO j=Solver % Matrix % Rows(i),Solver % Matrix % Rows(i+1)-1
           n=n+1
           STIFF(1,n) = Solver % Matrix % Values(j)
-          MASS(1,n)  = Solver % Matrix % MassValues(l)
+          MASS(1,n)  = Solver % Matrix % MassValues(j)
           X(n,:) = Solver % Variable % PrevValues(Solver % Matrix % Cols(j),:)
         END DO
         FORCE(1) = Solver % Matrix % RHS(i)
         Solver % Matrix % Force(i,1) = FORCE(1)
         k = MIN( Solver % DoneTime, Solver % Order )
         CALL BDFLocal( n, dt, MASS, STIFF, FORCE, X, k )
+
         n = 0
         DO j=Solver % Matrix % Rows(i),Solver % Matrix % Rows(i+1)-1
            n=n+1

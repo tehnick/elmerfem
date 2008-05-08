@@ -851,17 +851,13 @@ CONTAINS
 !------------------------------------------------------------------------------
   SUBROUTINE BulkAssembly()
 !------------------------------------------------------------------------------
+     CALL StartAdvanceOutput( 'StressSolve', 'Assembly:')
      body_id = -1
      DO t=1,Solver % NumberOFActiveElements
 
-       IF ( RealTime() - at0 > 1.0 ) THEN
-         WRITE(Message,'(a,i3,a)' ) '   Assembly: ', INT(100.0 - 100.0 * &
-          (Solver % NumberOfActiveElements-t) / &
-             (1.0*Solver % NumberOfActiveElements)), ' % done'
-                     
-         CALL Info( 'StressSolve', Message, Level=5 )
-         at0 = RealTime()
-       END IF
+!------------------------------------------------------------------------------
+
+       CALL AdvanceOutput(t,GetNOFActive())
 
 !------------------------------------------------------------------------------
 

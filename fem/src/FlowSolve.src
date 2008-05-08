@@ -263,7 +263,7 @@
        PseudoPressureExists, PSolution, Drag, PotentialField, PotentialCoefficient, &
        ComputeFree, Indexes
 
-      REAL(KIND=dp) :: at,at0,totat,st,totst,CPUTime,RealTime
+      REAL(KIND=dp) :: at,at0,at1,totat,st,totst,CPUTime,RealTime
 !------------------------------------------------------------------------------
 
      INTERFACE
@@ -563,6 +563,7 @@
 
        at  = CPUTime()
        at0 = RealTime()
+       at1 = RealTime()
 
        CALL Info( 'FlowSolve', ' ', Level=4 )
        CALL Info( 'FlowSolve', ' ', Level=4 )
@@ -579,20 +580,11 @@
 
        bf_id   = -1
        body_id = -1
+
+       CALL StartAdvanceOutput( 'FlowSolve', 'Assembly: ' )
        DO t = 1,Solver % NumberOFActiveElements
 
-         IF ( RealTime() - at0 > 1.0 ) THEN
-           WRITE( Message,'(a,i3,a)' ) '   Assembly: ', INT(100.0 - 100.0 * &
-            (Solver % NumberOfActiveElements-t) / &
-               (1.0*Solver %  NumberOfActiveElements)), ' % done'
-
-           CALL Info( 'FlowSolve', Message, Level=5 )
-                       
-           at0 = RealTime()
-         END IF
-!------------------------------------------------------------------------------
-!        should be calculated
-!------------------------------------------------------------------------------
+         CALL AdvanceOutput( t,GetNOFActive() )
 !
          Element => GetActiveElement(t)
          NodeIndexes => Element % NodeIndexes

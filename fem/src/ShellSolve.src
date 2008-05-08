@@ -414,15 +414,13 @@
 !-----------------------------------------------------------------------------
    SUBROUTINE BulkAssembly
 !-----------------------------------------------------------------------------
+     CALL StartAdvanceOutput('ShellSolve', 'Assembly:')
      DO t=1,Solver % NumberOfActiveElements
+!-----------------------------------------------------------------------------
 
-       IF( RealTime() - at0 > 1.0 ) THEN
-          WRITE(*,'(a,i3,a)') ' Assembly:', &
-               INT(100.0 - 100.0*(Solver % NumberOfActiveElements - t) &
-               /(1.0 * Solver % NumberOfActiveElements) ),' % done'
-          at0 = RealTime()
-       END IF
+       CALL AdvanceOutput(t,Solver % NumberOFActiveElements)
 
+!-----------------------------------------------------------------------------
        CurrentElement => GetActiveElement( t )
        n = GetElementNOFNodes()
        NodeIndexes => CurrentElement % NodeIndexes

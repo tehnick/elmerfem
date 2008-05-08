@@ -263,17 +263,13 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
 !    Do the bulk assembly:
 !    ---------------------
 
+     CALL StartAdvanceOutput('HelmholtzSolve', 'Assembly:' )
 !------------------------------------------------------------------------------
      DO t=1,Solver % NumberOfActiveElements
 !------------------------------------------------------------------------------
-        IF ( RealTime() - at0 > 1.0 ) THEN
-          WRITE(Message,'(a,i3,a)' ) '   Assembly: ', INT(100.0 - 100.0 * &
-           (Solver % NumberOfActiveElements-t) / &
-              (1.0*Solver % NumberOfActiveElements)), ' % done'
-          CALL Info( 'HelmholtzSolve', Message, Level=5 )
-                      
-          at0 = RealTime()
-        END IF
+
+        CALL AdvanceOutput( t,Solver % NumberOFActiveElements )
+
 !------------------------------------------------------------------------------
         Element => GetActiveElement(t)
         n  = GetElementNOFNodes()
@@ -421,9 +417,9 @@ SUBROUTINE HelmholtzSolver( Model,Solver,dt,TransientSimulation )
 !------------------------------------------------------------------------------
 
      CALL DefaultFinishAssembly()
-     CALL DefaultDirichletBCs()
-
      CALL Info( 'HelmholtzSolve', 'Assembly done', Level=4 )
+
+     CALL DefaultDirichletBCs()
 !
 !    Solve the system and we are done:
 !    ---------------------------------
