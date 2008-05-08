@@ -1708,7 +1708,7 @@ CONTAINS
       TYPE(Element_t) :: Element
 !------------------------------------------------------------------------------
       TYPE(Element_t), POINTER :: Parent,Left,Right
-      INTEGER :: i,j,k,l, Ind(n)
+      INTEGER :: i,j,k,l, Ind(n), IndSave(n)
       REAL(KIND=dp) :: x0,y0,z0,x,y,z
 !------------------------------------------------------------------------------
       Left  => Element % BoundaryInfo % Left
@@ -1727,7 +1727,7 @@ CONTAINS
         x0 = ElementNodes % x(i)
         y0 = ElementNodes % y(i)
         z0 = ElementNodes % z(i)
-        DO j=1,Parent % TYPE % NumberOfNodes
+        DO j=1,Parent % Type % NumberOfNodes
           k = Parent % NodeIndexes(j)
           x = Solver % Mesh % Nodes % x(k) - x0
           y = Solver % Mesh % Nodes % y(k) - y0
@@ -1741,10 +1741,16 @@ CONTAINS
         DO j=1,n
           k = TempPerm( Element % NodeIndexes(i) )
           l = TempPerm( Ind(j) )
-          IF ( k > 0 .AND. l > 0 ) &
+          IF ( k > 0 .AND. l > 0 ) THEN
             CALL AddToMatrixElement( Solver % Matrix,k,l,-STIFF(i,j) )
+            CALL AddToMatrixElement( Solver % Matrix,l,k,-STIFF(i,j) )
+          END IF
         END DO
       END DO
+      IndSave = Element % NodeIndexes
+      Element % NodeIndexes = Ind
+      CALL DefaultUpdateEquations( STIFF, FORCE )
+      Element % NodeIndexes = IndSave
 !------------------------------------------------------------------------------
     END SUBROUTINE AddHeatGap
 !------------------------------------------------------------------------------
