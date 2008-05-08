@@ -975,33 +975,20 @@
             END DO
           END IF  ! of radition
 !------------------------------------------------------------------------------
-          Work(1:n) = GetReal( BC, 'Heat Transfer Coefficient',Found )
-          IF ( GetLogical( BC, 'Heat Gap', Found ) ) THEN
-            ImplicitHeatGap = GetLogical( BC, 'Heat Gap Implicit', Found )
-            IF (.NOT. Found ) ImplicitHeatGap = .TRUE.
+          AText(1:n) = GetReal( BC, 'External Temperature',Found )
+          Work(1:n)  = GetReal( BC, 'Heat Transfer Coefficient',Found )
 
-            IF ( ImplicitHeatGap ) THEN
-               AText(1:n) = 0.0d0
-             ELSE
-               AText(1:n) = GapTemperature( Solver, Element, Temperature, TempPerm, n)
-            END IF
-          ELSE
-            IF ( ANY(Work(1:n) /= 0.0d0) ) THEN
-               AText(1:n) = GetReal( BC, 'External Temperature',Found )
-            ELSE
-               AText(1:n) = 0.0d0
-            END IF
+          IF ( Found ) THEN
+            DO j=1,n
+!------------------------------------------------------------------------------
+!             BC: -k@T/@n = \alpha(T - Text)
+!------------------------------------------------------------------------------
+              k = TempPerm(Element % NodeIndexes(j))
+              LOAD(j) = LOAD(j) + Work(j) * AText(j)
+
+              HeatTransferCoeff(j) = HeatTransferCoeff(j) + Work(j)
+            END DO
           END IF
-
-          DO j=1,n
-!------------------------------------------------------------------------------
-!           BC: -k@T/@n = \alpha(T - Text)
-!------------------------------------------------------------------------------
-            k = TempPerm(Element % NodeIndexes(j))
-            LOAD(j) = LOAD(j) + Work(j) * AText(j)
-
-            HeatTransferCoeff(j) = HeatTransferCoeff(j) + Work(j)
-          END DO
 !------------------------------------------------------------------------------
 !         BC: -k@T/@n = g
 !------------------------------------------------------------------------------
@@ -1025,12 +1012,9 @@
             CALL Default1stOrderTime( MASS, STIFF, FORCE )
           END IF
 
-          IF ( GetLogical( BC, 'Heat Gap', Found ) ) THEN
-             ImplicitHeatGap = GetLogical( BC, 'Heat Gap Implicit', Found )
-             IF (.NOT. Found ) ImplicitHeatGap = .TRUE.
-             IF ( ImplicitHeatGap ) &
-               CALL AddHeatGap( Solver, Element, STIFF, TempPerm)
-          END IF
+          IF ( GetLogical( BC, 'Heat Gap', Found ) ) &
+            CALL AddHeatGap( Solver, Element, STIFF, FORCE, TempPerm)
+
           CALL DefaultUpdateEquations( STIFF, FORCE )
 !------------------------------------------------------------------------------
         END IF ! of heat-flux bc
@@ -1660,50 +1644,10 @@ CONTAINS
 
 
 !------------------------------------------------------------------------------
-    FUNCTION GapTemperature( Solver, Element, Temperature, TempPerm, n ) RESULT(T)
+    SUBROUTINE AddHeatGap( Solver, Element, STIFF, FORCE, TempPerm )
 !------------------------------------------------------------------------------
       TYPE(Solver_t) :: Solver
-      TYPE(Element_t), POINTER :: Element
-      INTEGER :: TempPerm(:), n
-      REAL(KIND=dp) :: Temperature(:)
-!------------------------------------------------------------------------------
-      TYPE(Element_t), POINTER :: Parent, Left, Right
-      INTEGER :: i,j,k
-      REAL(KIND=dp) :: x0,y0,z0,x,y,z,T(n)
-!------------------------------------------------------------------------------
-      Left  => Element % BoundaryInfo % Left
-      Right => Element % BoundaryInfo % Right
-
-      T = 0.d0
-      IF ( .NOT. ASSOCIATED(Left) .OR. .NOT.ASSOCIATED(Right) ) RETURN
-
-      DO i=1,n
-        Parent => Left
-        k = Element % NodeIndexes(i)
-        IF ( ANY( Parent % NodeIndexes == k ) ) Parent => Right
-
-        x0 = ElementNodes % x(i)
-        y0 = ElementNodes % y(i)
-        z0 = ElementNodes % z(i)
-        DO j=1,Parent % TYPE % NumberOfNodes
-          k = Parent % NodeIndexes(j)
-          x = Solver % Mesh % Nodes % x(k) - x0
-          y = Solver % Mesh % Nodes % y(k) - y0
-          z = Solver % Mesh % Nodes % z(k) - z0
-          IF ( x**2 + y**2 + z**2 < AEPS ) EXIT
-        END DO
-        T(i) = Temperature( TempPerm( k ) )
-      END DO
-!------------------------------------------------------------------------------
-    END FUNCTION GapTemperature
-!------------------------------------------------------------------------------
-
-
-!------------------------------------------------------------------------------
-    SUBROUTINE AddHeatGap( Solver, Element, STIFF, TempPerm )
-!------------------------------------------------------------------------------
-      TYPE(Solver_t) :: Solver
-      REAL(KIND=dp) :: STIFF(:,:)
+      REAL(KIND=dp) :: STIFF(:,:), FORCE(:)
       INTEGER :: TempPerm(:)
       TYPE(Element_t) :: Element
 !------------------------------------------------------------------------------
@@ -1747,6 +1691,7 @@ CONTAINS
           END IF
         END DO
       END DO
+
       IndSave = Element % NodeIndexes
       Element % NodeIndexes = Ind
       CALL DefaultUpdateEquations( STIFF, FORCE )
