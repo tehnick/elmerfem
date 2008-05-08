@@ -468,26 +468,14 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
         Value = Var % Norm
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value)
 
-      CASE ('log norm')
-        Value = LOG10(Var % Norm)
-        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value)
-
       CASE ('nonlinear change')
         Value = Var % NonlinChange
-        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value)
-
-      CASE ('log nonlinear change')
-        Value = LOG10(Var % NonlinChange)
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value)
 
       CASE ('steady state change')
         Value = Var % SteadyChange
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value)
-
-      CASE ('log steady state change')
-        Value = LOG10(Var % SteadyChange)
-        CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value)
-
+	
       CASE ('dofs','sum','max','min','max abs','min abs','mean','variance') 
         Value = VectorStatistics(Var,Oper)
         CALL AddToSaveList(TRIM(Oper)//': '//TRIM(VariableName),Value)
@@ -711,6 +699,12 @@ SUBROUTINE SaveScalars( Model,Solver,dt,TransientSimulation )
     END IF
 
     OPEN (10, FILE=ScalarNamesFile)
+    IF(ListCheckPresent( Model % Simulation,'Comment' )) THEN
+      WRITE(10,*) ListGetString(Model % Simulation,'Comment')
+    END IF 		
+    IF(ListCheckPresent( Solver % Values,'Comment' )) THEN
+      WRITE(10,*) ListGetString(Solver % Values,'Comment')
+    END IF 		
     WRITE(10,*) 'Variables in columns of matrix: '//TRIM(ScalarsFile)
     DO No=1,NoValues 
       WRITE(10,'(I4,": ",A)') No,TRIM(ValueNames(No))
@@ -2752,6 +2746,12 @@ SUBROUTINE SaveLine( Model,Solver,dt,TransientSimulation )
     
     SideNamesFile = TRIM(SideFile) // '.' // TRIM("names")
     OPEN (10, FILE=SideNamesFile)
+    IF(ListCheckPresent( Model % Simulation,'Comment' )) THEN
+      WRITE(10,*) ListGetString(Model % Simulation,'Comment')
+    END IF 		
+    IF(ListCheckPresent( Solver % Values,'Comment' )) THEN
+      WRITE(10,*) ListGetString(Solver % Values,'Comment')
+    END IF 		
     WRITE(10,'(A,A)') 'Variables in file: ',TRIM(SideFile)
     WRITE(10,'(I7,A)') SavedNodes,' nodes for each step'
     IF(SavedNodes > 0) THEN
