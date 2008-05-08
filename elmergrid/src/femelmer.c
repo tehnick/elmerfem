@@ -1024,6 +1024,7 @@ int SaveElmerInput(struct FemType *data,struct BoundaryType *bound,
     for(i=1; i <= bound[j].nosides; i++) {
       if(!bound[j].parent2[i] || !bound[j].discont[i]) continue;
       
+      GetElementSide(bound[j].parent2[i],bound[j].side2[i],-bound[j].normal[i],data,ind2,&sideelemtype); 
       GetElementSide(bound[j].parent[i],bound[j].side[i],bound[j].normal[i],data,ind,&sideelemtype);       
       nodesd1 = sideelemtype%100;
       conelemtype = 100 + nodesd1 + 1;
