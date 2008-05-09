@@ -107,7 +107,7 @@
          NonlinearTol, NewtonTol, Relax, PermittivityOfVacuum, &
          Betapos, Betaneg, Alphapos, Alphaneg
      INTEGER :: Zpos, Zneg, NonlinearIter, NewtonIter, iter, LocalNodes
-     LOGICAL :: SymmetricCharges, NewtonLinearization = .FALSE.
+     LOGICAL :: SymmetricCharges, NewtonLinearization = .FALSE., FluxBC
      TYPE(ValueList_t), POINTER :: SolverParams
 
      INTEGER, POINTER :: NodeIndexes(:)
@@ -403,9 +403,10 @@
          DO i=1,Model % NumberOfBCs
            IF ( CurrentElement % BoundaryInfo % Constraint == &
                Model % BCs(i) % Tag ) THEN
-             
-             IF ( .NOT. ListGetLogical(Model % BCs(i) % Values, &
-                 'Electric Flux BC',gotIt) ) CYCLE
+
+	      FluxBC = ListGetLogical(Model % BCs(i) % Values,'Electric Flux BC',gotIt) 
+              IF( GotIt .AND. .NOT. FluxBC) CYCLE            	
+
 !------------------------------------------------------------------------------
 !             Set the current element pointer in the model structure to
 !             reflect the element being processed
@@ -415,16 +416,18 @@
              n = CurrentElement % TYPE % NumberOfNodes
              NodeIndexes => CurrentElement % NodeIndexes
              IF ( ANY( PotentialPerm(NodeIndexes) <= 0 ) ) CYCLE
-             
-             ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
-             ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
-             ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(NodeIndexes)
-             
+
 !------------------------------------------------------------------------------
 !             BC: epsilon@Phi/@n = sigma
 !------------------------------------------------------------------------------
              Load(1:n) = ListGetReal( Model % BCs(i) % Values,'Surface Charge', &
                  n,NodeIndexes,gotIt )
+	     IF(.NOT. GotIt) CYCLE
+            
+             ElementNodes % x(1:n) = Solver % Mesh % Nodes % x(NodeIndexes)
+             ElementNodes % y(1:n) = Solver % Mesh % Nodes % y(NodeIndexes)
+             ElementNodes % z(1:n) = Solver % Mesh % Nodes % z(NodeIndexes)
+
 !------------------------------------------------------------------------------
 !             Get element matrix and rhs due to boundary conditions ...
 !------------------------------------------------------------------------------
@@ -451,8 +454,10 @@
 !------------------------------------------------------------------------------
 !    Dirichlet boundary conditions
 !------------------------------------------------------------------------------
-       CALL SetDirichletBoundaries( Model,StiffMatrix,ForceVector, &
-           ComponentName(Solver % Variable),1,1,PotentialPerm )
+!       CALL SetDirichletBoundaries( Model,StiffMatrix,ForceVector, &
+!           ComponentName(Solver % Variable),1,1,PotentialPerm )
+
+       CALL DefaultDirichletBCs( )
 
        at = CPUTime() - at
        WRITE( Message, * ) 'Assembly (s)          :',at
