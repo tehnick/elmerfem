@@ -1373,7 +1373,7 @@ void MainWindow::loadProjectSlot()
 
       connect(de, SIGNAL(dynamicEditorReady(int,int)), this, SLOT(pdeEditorFinishedSlot(int,int)));
 
-      de->spareButton->setText("Edit Numerical Methods");
+      de->spareButton->setText("Edit Solver Settings");
       de->spareButton->show();
       de->spareButton->setIcon(QIcon(":/icons/tools-wizard.png"));      
 
@@ -1978,7 +1978,7 @@ void MainWindow::addEquationSlot()
   connect(pe, SIGNAL(dynamicEditorReady(int,int)),
 	  this, SLOT(pdeEditorFinishedSlot(int,int)));
 
-  pe->spareButton->setText("Edit Numerical Methods");
+  pe->spareButton->setText("Edit Solver Settings");
   pe->spareButton->show();
   pe->spareButton->setIcon(QIcon(":/icons/tools-wizard.png"));
 
