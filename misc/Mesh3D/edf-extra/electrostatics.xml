@@ -3,13 +3,6 @@
 <edf version="1.0" >
    <PDE Name="Electrostatics" >
       <Name>Electrostatics</Name>
-      <Constants>
-          <Parameter Widget="Edit" >
-            <Name>  Permittivity of Vacuum </Name>
-            <Type> String </Type>
-            <Whatis> Give the permittivity of vacuum, in SI units its 8.8541878176E-12 F/m. </Whatis>
-         </Parameter>    
-      </Constants>   
       <Material>
         <Parameter Widget="Label" > <Name> Properties </Name> </Parameter>
          <Parameter Widget="Edit" >
@@ -35,11 +28,14 @@
          </Parameter>    
       </InitialCondition>   
       <Solver>
-         <Procedure Widget="File" >
-            <FileName Widget="String" > StatElecSolve </FileName>
-            <Function Widget="String" > StatElecSolver </Function>
-         </Procedure>
-         <Variable Widget="Edit" > Potential </Variable>
+         <Parameter Widget="Edit" >
+           <Name> Procedure </Name>
+           <DefaultValue> "StatElecSolve" "StatElecSolver" </DefaultValue>
+         </Parameter>
+        <Parameter Widget="Edit">
+           <Name> Variable </Name>
+           <DefaultValue> Potential</DefaultValue>
+         </Parameter>
          <Parameter Widget="CheckBox" >
             <Name> Calculate Electric Field </Name>
             <Type> Logical </Type>
@@ -51,7 +47,7 @@
             <Whatis> Calculate the electric flux from the electric potential. </Whatis>
          </Parameter>
         <Parameter Widget="CheckBox" >
-            <Name> Calculate Electric Electric Energy </Name>
+            <Name> Calculate Electric Energy </Name>
             <Type> Logical </Type>
             <Whatis> Calculate the electric energy from the electric potential. </Whatis>
          </Parameter>
@@ -60,7 +56,7 @@
             <Type> Logical </Type>
             <Whatis> Calculate the surface charge from the electric potential. </Whatis>
          </Parameter>
-         <Parameter Widget="Checkbox" >
+         <Parameter Widget="CheckBox" >
             <Name> Constant Weights </Name>
             <Type> Logical </Type>
             <Whatis> Use constant weights in computing nodal values of derived fields rather than weighing by element Jacobian. </Whatis>
@@ -69,13 +65,15 @@
             <Name> Calculate Capacitance Matrix </Name>
             <Type> Logical </Type>
             <Whatis> Calculate the capacitance matrix. </Whatis>
+            <Activate>/Electrostatics/Solver/Capacitance Bodies</Activate>
+            <Activate>/Electrostatics/Solver/Capacitance Matrix Filename</Activate>
          </Parameter>
-         <Parameter Widget="Edit" >
+         <Parameter Widget="Edit"  Enabled="False" Visible="True">
             <Name> Capacitance Bodies </Name>
             <Type> String </Type>
             <Whatis> Number of different bodies in capacitance matrix computation. </Whatis>
          </Parameter>    
-         <Parameter Widget="Edit" >
+         <Parameter Widget="Edit" Enabled="False" Visible="True">
             <Name> Capacitance Matrix Filename </Name>
             <Type> String </Type>
             <Whatis> File to save the capacitance matrix. </Whatis>
@@ -87,28 +85,29 @@
          <Parameter  Widget="Edit">
            <Name> Potential </Name>
            <Whatis> Give potential value for this boundary. </Whatis>
-           <StatusTip> Give potential value for this boundary. </StatusTip>
          </Parameter>
 
          <Parameter  Widget="Edit">
            <Name> Potential Condition </Name>
            <Whatis> If the given value is less than zero, apply flux condition insted of the Dirichlet Condition. To be generally useful space and/or time varying values may be given. </Whatis>
-           <StatusTip> Give potential condition value for this boundary. </StatusTip>
          </Parameter>
 
-         <Parameter  Widget="Edit">
-           <Name> Capacitance Body </Name>
+         <Parameter  Widget="Edit" Enabled="False" Visible="True">
+           <Name>Capacitance Body</Name>
            <Whatis> These should provide continous numbering from 1 to the total number of bodies. Ground
                    may be defined with value 0 or by explicitely setting potential to zero somewhere.</Whatis>
-           <StatusTip> Give integer number for the capacitance body. </StatusTip>
          </Parameter>
-
+ 
          <Parameter Widget="Label" > <Name> Neumann conditions </Name> </Parameter>
-         <Parameter  Widget="Edit">
+        <Parameter  Widget="Edit">
            <Name> Elecric Flux </Name>
            <Whatis> Give electric flux equivalent to the surface charge density. </Whatis>
-           <StatusTip> Give electric flux. </StatusTip>
          </Parameter>
       </BoundaryCondition>
    </PDE>
 </edf>
+
+
+
+
+
