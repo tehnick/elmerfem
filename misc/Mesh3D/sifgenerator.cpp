@@ -84,7 +84,11 @@ void SifGenerator::makeConstantsBlock()
 	     ui.stefanBoltzmannEdit->text().trimmed());
   addSifLine("  Permittivity of Vacuum = ",
 	     ui.vacuumPermittivityEdit->text().trimmed());
-  
+  addSifLine("  Boltzmann Constant = ",
+	     ui.boltzmannEdit->text().trimmed());
+  addSifLine("  Unit Charge = ",
+	     ui.unitChargeEdit->text().trimmed());
+
   te->append("End\n");
 }
 
