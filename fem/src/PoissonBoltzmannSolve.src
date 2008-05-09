@@ -115,7 +115,7 @@
      INTEGER, POINTER :: ChargeFieldPerm(:)
      INTEGER :: i, j, k, n, t, istat, bf_id, DIM
  
-     LOGICAL :: AllocationsDone = .FALSE., gotIt, Found
+     LOGICAL :: AllocationsDone = .FALSE., gotIt, Found, NonDimensional
      LOGICAL :: CalculateField, CalculateCharge, CalculateEnergy, ConstantWeights
 
      CHARACTER(LEN=MAX_NAME_LEN) :: EquationName, Name, NameField, NameEnergy, NameCharge
@@ -141,9 +141,11 @@
 
      Norm = Solver % Variable % Norm
      DIM = CoordinateSystemDimension()
-
+     
 
      SolverParams => GetSolverParams()
+
+     NonDimensional = .TRUE.
 
      NonlinearIter = GetInteger(   SolverParams, &
          'Nonlinear System Max Iterations', Found )
@@ -514,21 +516,20 @@ CONTAINS
     k = ListGetInteger( Model % Bodies(CurrentElement % BodyId) % &
         Values, 'Material', minv=1, maxv=Model % NumberOfMaterials )
     
-    Permittivity(1:n) = ListGetReal( Model % Materials(k) % Values, &
-        'Relative Permittivity',n, NodeIndexes, gotIt )
-    IF ( .NOT. gotIt ) THEN
-      Permittivity(1:n) = ListGetReal( Model % Materials(k) % Values, &
-          'Permittivity',n, NodeIndexes )
-    END IF
-    
-    ReferenceTemperature = ListGetConstReal(Model % Materials(k) % Values, &
-        'Reference Temperature')
-    
-    SymmetricCharges = .TRUE.
-    
+
     Betapos = ListGetConstReal(Model % Materials(k) % Values, &
-        'Poisson Boltzmann Beta',GotIt)         
-    IF(.NOT. GotIt) THEN       
+         'Poisson Boltzmann Beta',GotIt)         
+    IF(.NOT. GotIt) NonDimensional = .FALSE.
+ 
+    Alphapos = ListGetConstReal(Model % Materials(k) % Values, &
+        'Poisson Boltzmann Alpha',GotIt)         
+    IF(.NOT. GotIt) NonDimensional = .FALSE.
+
+    SymmetricCharges = .TRUE.
+    IF(.NOT. NonDimensional) THEN
+      Permittivity(1:n) = ListGetReal( Model % Materials(k) % Values, &
+          'Relative Permittivity',n, NodeIndexes )
+    
       Zpos = ListGetInteger(Model % Materials(k) % Values, &
           'Charge Number',GotIt)
       IF(.NOT. GotIt) THEN
@@ -541,12 +542,10 @@ CONTAINS
       ELSE
         Zneg = -Zpos
       END IF
+      ReferenceTemperature = ListGetConstReal(Model % Materials(k) % Values, &
+         'Reference Temperature')
       Betapos = Cunit * Zpos / ReferenceTemperature
-    END IF
-    
-    Alphapos = ListGetConstReal(Model % Materials(k) % Values, &
-        'Poisson Boltzmann Alpha',GotIt)         
-    IF(.NOT. GotIt) THEN           
+
       Npos = ListGetConstReal(Model % Materials(k) % Values, &
           'Ion Density',GotIt)
       IF(.NOT. GotIt) THEN
@@ -559,13 +558,13 @@ CONTAINS
         Nneg = Npos
       END IF
       Alphapos = 2.0 * Npos * Zpos * Ccharge 
-    END IF
     
-    IF(.NOT. SymmetricCharges) THEN
-      Betapos = Cunit * Zpos / ReferenceTemperature
-      Betaneg = Cunit * Zneg / ReferenceTemperature
-      Alphapos = Npos * Zpos * Ccharge 
-      Alphaneg = Nneg * Zneg * Ccharge 
+      IF(.NOT. SymmetricCharges) THEN
+        Betapos = Cunit * Zpos / ReferenceTemperature
+        Betaneg = Cunit * Zneg / ReferenceTemperature
+        Alphapos = Npos * Zpos * Ccharge 
+        Alphaneg = Nneg * Zneg * Ccharge 
+      END IF
     END IF
 
   END SUBROUTINE ElectrolyteMaterialParameters
@@ -624,7 +623,11 @@ CONTAINS
       
       S = S * SqrtElementMetric * SqrtMetric
       
-      C = PermittivityOfVacuum * SUM( Permittivity(1:n) * Basis(1:n) )
+      IF(NonDimensional) THEN
+        C = 1.0_dp
+      ELSE
+        C = PermittivityOfVacuum * SUM( Permittivity(1:n) * Basis(1:n) )
+      END IF
       Pot = SUM( LocalPot(1:n) * Basis(1:n) )
 
 !------------------------------------------------------------------------------
@@ -847,11 +850,9 @@ CONTAINS
          k = ListGetInteger( Model % Bodies( Element % BodyId ) % &
              Values, 'Material', minv=1, maxv=Model % NumberOfMaterials )
          
-         Permittivity(1:n) = ListGetReal( Model % Materials(k) % Values, &
-             'Relative Permittivity',n, NodeIndexes, gotIt )
-         IF ( .NOT. gotIt ) THEN
+	 IF(.NOT. NonDimensional) THEN
            Permittivity(1:n) = ListGetReal( Model % Materials(k) % Values, &
-               'Permittivity',n, NodeIndexes )
+               'Relative Permittivity',n, NodeIndexes )
          END IF
          
          EnergyDensity = 0.0d0
