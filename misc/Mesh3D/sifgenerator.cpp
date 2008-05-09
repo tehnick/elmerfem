@@ -668,6 +668,10 @@ void SifGenerator::parseSteadyStateTab(Ui::solverParameterEditor ui)
   
   addSifLine("  Steady State Convergence Tolerance = ",
 	      ui.steadyStateConvergenceToleranceEdit->text());
+
+  if( ui.steadyStateConvergenceMeasureCombo->currentText().trimmed() != "Norm") 
+    addSifLine("  Steady State Convergence Measure = ",
+	       ui.steadyStateConvergenceMeasureCombo->currentText().trimmed());
 }
 
 
@@ -689,6 +693,11 @@ void SifGenerator::parseNonlinearSystemTab(Ui::solverParameterEditor ui)
   
   addSifLine("  Nonlinear System Relaxation Factor = ", 
 	      ui.nonlinSystemRelaxationFactorEdit->text());
+
+  if( ui.nonlinSystemConvergenceMeasureCombo->currentText().trimmed() != "Norm") 
+    addSifLine("  Nonlinear System Convergence Measure = ",
+	       ui.nonlinSystemConvergenceMeasureCombo->currentText().trimmed());
+
 }
 
 
