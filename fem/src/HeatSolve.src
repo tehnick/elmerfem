@@ -212,7 +212,7 @@
 
      INTEGER, POINTER :: NodeIndexes(:)
      LOGICAL :: Stabilize = .TRUE., Bubbles = .TRUE., UseBubbles,NewtonLinearization = .FALSE., &
-         Found, GotIt, HeatFluxBC, ImplicitHeatGap
+         Found, GotIt, HeatFluxBC, HeatGapBC
 ! Which compressibility model is used
      CHARACTER(LEN=MAX_NAME_LEN) :: CompressibilityFlag, ConvectionField
      INTEGER :: CompressibilityModel
@@ -239,6 +239,8 @@
 
      REAL(KIND=dp), ALLOCATABLE :: TSolution(:),TSolution1(:), vals(:)
      REAL(KIND=dp) :: Jx,Jy,Jz,JAbs, Power, MeltPoint
+
+     INTEGER, ALLOCATABLE, SAVE :: Indexes(:), SaveIndexes(:)
 
      REAL(KIND=dp), ALLOCATABLE :: MASS(:,:), &
        STIFF(:,:), LOAD(:), HeatConductivity(:,:,:), &
@@ -416,17 +418,19 @@
                  LocalTemperature,      &
                  HeatCapacity,Enthalpy, &
                  GasConstant, AText,    &
-                 HeatConductivity,            &
-                 STIFF,LOAD, &
+                 HeatConductivity,      &
+                 STIFF,LOAD,            &
+                 Indexes, SaveIndexes,  &
                  FORCE, TimeForce )
        END IF
 
        ALLOCATE( &
+                 Indexes(N), SaveIndexes(N),           &
                  U( N ),   V( N ),  W( N ),            &
                  MU( 3,N ),                            &
                  Pressure( N ),                        &
                  dPressureDt( N ),                     &
-                 PressureCoeff( N ),                  &
+                 PressureCoeff( N ),                   &
                  ElementNodes % x( N ),                &
                  ElementNodes % y( N ),                &
                  ElementNodes % z( N ),                &
@@ -915,7 +919,6 @@
 !     Neumann & Newton boundary conditions
 !------------------------------------------------------------------------------
       DO t=1, Solver % Mesh % NumberOfBoundaryElements
-
         Element => GetBoundaryElement(t)
         IF ( .NOT. ActiveBoundaryElement() ) CYCLE
 
@@ -924,100 +927,18 @@
 
         BC => GetBC()
         HeatFluxBC = GetLogical( BC, 'Heat Flux BC', Found )
-        IF ( .NOT. Found ) HeatFluxBC = .TRUE.
+        IF ( Found .AND. .NOT. HeatFluxBC ) CYCLE
 
-        IF ( HeatFluxBC ) THEN
-          CALL GetElementNodes( ElementNodes )
+        HeatGapBC = ListGetLogical( BC, 'Heat Gap', Found )
+        CALL AddHeatFluxBC()
 
-          HeatTransferCoeff = 0.0D0
-          LOAD  = 0.0D0
-!------------------------------------------------------------------------------
-!         BC: -k@T/@n = \epsilon\sigma(T^4 - Text^4)
-!------------------------------------------------------------------------------
-          RadiationFlag = GetString( BC, 'Radiation', Found )
-
-          IF ( Found .AND. RadiationFlag(1:4) /= 'none' ) THEN
-
-            Emissivity = SUM( GetReal(BC, 'Emissivity') ) / n
-!------------------------------------------------------------------------------
-            IF (  RadiationFlag(1:9) == 'idealized' ) THEN
-              AText(1:n) = GetReal( BC, 'External Temperature' )
-            ELSE
-              CALL DiffuseGrayRadiation( Model, Solver, Element, & 
-                  Temperature, TempPerm, ForceVector, VisibleFraction)
-              IF( GetLogical( BC, 'Radiation Boundary Open', Found) ) THEN
-                AText(1:n) = GetReal( BC, 'External Temperature' )
-                Atext(1:n) = ( (1 - VisibleFraction) * Atext(1:n)**4 + &
-                    VisibleFraction * Text**4 ) ** 0.25_dp
-              ELSE
-                AText(1:n) = Text
-              END IF
-            END IF
-!------------------------------------------------------------------------------
-!           Add our own contribution to surface temperature (and external
-!           if using linear type iteration or idealized radiation)
-!------------------------------------------------------------------------------
-            DO j=1,n
-              k = TempPerm(Element % NodeIndexes(j))
-              Text = AText(j)
-
-              IF ( NewtonLinearization ) THEN
-                 HeatTransferCoeff(j) = Emissivity * 4*Temperature(k)**3 * &
-                                   StefanBoltzmann
-                 LOAD(j) = Emissivity*(3*Temperature(k)**4+Text**4) * &
-                                   StefanBoltzmann
-              ELSE
-                 HeatTransferCoeff(j) = Emissivity * (Temperature(k)**3 + &
-                 Temperature(k)**2*Text+Temperature(k)*Text**2 + Text**3) * &
-                                   StefanBoltzmann 
-                 LOAD(j) = HeatTransferCoeff(j) * Text
-              END IF
-            END DO
-          END IF  ! of radition
-!------------------------------------------------------------------------------
-          AText(1:n) = GetReal( BC, 'External Temperature',Found )
-          Work(1:n)  = GetReal( BC, 'Heat Transfer Coefficient',Found )
-
-          IF ( Found ) THEN
-            DO j=1,n
-!------------------------------------------------------------------------------
-!             BC: -k@T/@n = \alpha(T - Text)
-!------------------------------------------------------------------------------
-              k = TempPerm(Element % NodeIndexes(j))
-              LOAD(j) = LOAD(j) + Work(j) * AText(j)
-
-              HeatTransferCoeff(j) = HeatTransferCoeff(j) + Work(j)
-            END DO
-          END IF
-!------------------------------------------------------------------------------
-!         BC: -k@T/@n = g
-!------------------------------------------------------------------------------
-          LOAD(1:n) = LOAD(1:n) +  GetReal( BC, 'Heat Flux', Found )
-!------------------------------------------------------------------------------
-!         Get element matrix and rhs due to boundary conditions ...
-!------------------------------------------------------------------------------
-          IF ( CurrentCoordinateSystem() == Cartesian ) THEN
-            CALL DiffuseConvectiveBoundary( STIFF,FORCE, &
-              LOAD,HeatTransferCoeff,Element,n,ElementNodes )
-          ELSE
-            CALL DiffuseConvectiveGenBoundary(STIFF,FORCE,&
-              LOAD,HeatTransferCoeff,Element,n,ElementNodes ) 
-          END IF
-
-!------------------------------------------------------------------------------
-!         Update global matrices from local matrices
-!------------------------------------------------------------------------------
-          IF ( TransientSimulation .AND. .NOT. ConstantBulk ) THEN
-            MASS = 0.d0
-            CALL Default1stOrderTime( MASS, STIFF, FORCE )
-          END IF
-
-          IF ( GetLogical( BC, 'Heat Gap', Found ) ) &
-            CALL AddHeatGap( Solver, Element, STIFF, FORCE, TempPerm)
-
-          CALL DefaultUpdateEquations( STIFF, FORCE )
-!------------------------------------------------------------------------------
-        END IF ! of heat-flux bc
+        IF ( HeatGapBC ) THEN
+          CALL FindGapIndexes( Element, Indexes, n )
+          SaveIndexes(1:n) = Element % NodeIndexes
+          Element % NodeIndexes = Indexes(1:n)
+          CALL AddHeatFluxBC()
+          Element % NodeIndexes = SaveIndexes(1:n)
+        END IF
       END DO   ! Neumann & Newton BCs
 !------------------------------------------------------------------------------
 
@@ -1243,6 +1164,103 @@
 
 CONTAINS
 
+
+!------------------------------------------------------------------------------
+   SUBROUTINE AddHeatFluxBC()
+!------------------------------------------------------------------------------
+      CALL GetElementNodes( ElementNodes )
+
+      HeatTransferCoeff = 0.0D0
+      LOAD  = 0.0D0
+!------------------------------------------------------------------------------
+!     BC: -k@T/@n = \epsilon\sigma(T^4 - Text^4)
+!------------------------------------------------------------------------------
+      RadiationFlag = GetString( BC, 'Radiation', Found )
+
+      IF ( Found .AND. RadiationFlag(1:4) /= 'none' ) THEN
+        Emissivity = SUM( GetReal(BC, 'Emissivity') ) / n
+!------------------------------------------------------------------------------
+        IF (  RadiationFlag(1:9) == 'idealized' ) THEN
+          AText(1:n) = GetReal( BC, 'External Temperature' )
+        ELSE
+          CALL DiffuseGrayRadiation( Model, Solver, Element, & 
+              Temperature, TempPerm, ForceVector, VisibleFraction, Text)
+
+          IF( GetLogical( BC, 'Radiation Boundary Open', Found) ) THEN
+            AText(1:n) = GetReal( BC, 'External Temperature' )
+            Atext(1:n) = ( (1 - VisibleFraction) * Atext(1:n)**4 + &
+                VisibleFraction * Text**4 ) ** 0.25_dp
+          ELSE
+            AText(1:n) = Text
+          END IF
+        END IF
+!------------------------------------------------------------------------------
+!       Add our own contribution to surface temperature (and external
+!       if using linear type iteration or idealized radiation)
+!------------------------------------------------------------------------------
+        DO j=1,n
+          k = TempPerm(Element % NodeIndexes(j))
+          Text = AText(j)
+
+          IF ( .NOT. HeatGapBC .AND. NewtonLinearization ) THEN
+             HeatTransferCoeff(j) = Emissivity * 4*Temperature(k)**3 * &
+                               StefanBoltzmann
+             LOAD(j) = Emissivity*(3*Temperature(k)**4+Text**4) * &
+                               StefanBoltzmann
+          ELSE
+             HeatTransferCoeff(j) = Emissivity * (Temperature(k)**3 + &
+             Temperature(k)**2*Text+Temperature(k)*Text**2 + Text**3) * &
+                               StefanBoltzmann 
+             LOAD(j) = HeatTransferCoeff(j) * Text
+          END IF
+        END DO
+      END IF  ! of radition
+!------------------------------------------------------------------------------
+      AText(1:n) = GetReal( BC, 'External Temperature',Found )
+      Work(1:n)  = GetReal( BC, 'Heat Transfer Coefficient',Found )
+
+      IF ( Found ) THEN
+        DO j=1,n
+!------------------------------------------------------------------------------
+!         BC: -k@T/@n = \alpha(T - Text)
+!------------------------------------------------------------------------------
+          k = TempPerm(Element % NodeIndexes(j))
+          LOAD(j) = LOAD(j) + Work(j) * AText(j)
+          HeatTransferCoeff(j) = HeatTransferCoeff(j) + Work(j)
+        END DO
+      END IF
+!------------------------------------------------------------------------------
+!     BC: -k@T/@n = g
+!------------------------------------------------------------------------------
+      LOAD(1:n) = LOAD(1:n) +  GetReal( BC, 'Heat Flux', Found )
+!------------------------------------------------------------------------------
+!     Get element matrix and rhs due to boundary conditions ...
+!------------------------------------------------------------------------------
+      IF ( CurrentCoordinateSystem() == Cartesian ) THEN
+        CALL DiffuseConvectiveBoundary( STIFF,FORCE, &
+          LOAD,HeatTransferCoeff,Element,n,ElementNodes )
+      ELSE
+        CALL DiffuseConvectiveGenBoundary(STIFF,FORCE,&
+          LOAD,HeatTransferCoeff,Element,n,ElementNodes ) 
+      END IF
+
+!------------------------------------------------------------------------------
+!     Update global matrices from local matrices
+!------------------------------------------------------------------------------
+      IF ( TransientSimulation .AND. .NOT. ConstantBulk ) THEN
+        MASS = 0.d0
+        CALL Default1stOrderTime( MASS, STIFF, FORCE )
+      END IF
+
+      IF ( HeatGapBC ) &
+        CALL AddHeatGap( Solver, Element, STIFF, TempPerm)
+
+      CALL DefaultUpdateEquations( STIFF, FORCE )
+!------------------------------------------------------------------------------
+    END SUBROUTINE AddHeatFluxBC
+!------------------------------------------------------------------------------
+
+
 !------------------------------------------------------------------------------
     SUBROUTINE AddGlobalTime()
 !------------------------------------------------------------------------------
@@ -1290,14 +1308,14 @@ CONTAINS
 
 !------------------------------------------------------------------------------
     SUBROUTINE DiffuseGrayRadiation( Model, Solver, Element,  &
-               Temperature, TempPerm, ForceVector,AngleFraction)
+      Temperature, TempPerm, ForceVector,AngleFraction, Text)
 !------------------------------------------------------------------------------
       TYPE(Model_t)  :: Model
       TYPE(Solver_t) :: Solver
       TYPE(Element_t), POINTER :: Element
       INTEGER :: TempPerm(:)
       REAL(KIND=dp) :: Temperature(:), ForceVector(:)
-      REAL(KIND=dp) :: AngleFraction
+      REAL(KIND=dp) :: AngleFraction, Text
 !------------------------------------------------------------------------------
       REAL(KIND=dp) :: Area, Asum
       INTEGER :: i,j,k,l,m,ImplicitFactors
@@ -1643,16 +1661,15 @@ CONTAINS
 !------------------------------------------------------------------------------
 
 
+
 !------------------------------------------------------------------------------
-    SUBROUTINE AddHeatGap( Solver, Element, STIFF, FORCE, TempPerm )
+    SUBROUTINE FindGapIndexes( Element, Indexes, n )
 !------------------------------------------------------------------------------
-      TYPE(Solver_t) :: Solver
-      REAL(KIND=dp) :: STIFF(:,:), FORCE(:)
-      INTEGER :: TempPerm(:)
       TYPE(Element_t) :: Element
+      INTEGER :: n,Indexes(:)
 !------------------------------------------------------------------------------
       TYPE(Element_t), POINTER :: Parent,Left,Right
-      INTEGER :: i,j,k,l, Ind(n), IndSave(n)
+      INTEGER :: i,j,k,l
       REAL(KIND=dp) :: x0,y0,z0,x,y,z
 !------------------------------------------------------------------------------
       Left  => Element % BoundaryInfo % Left
@@ -1678,27 +1695,39 @@ CONTAINS
           z = Solver % Mesh % Nodes % z(k) - z0
           IF ( x**2 + y**2 + z**2 < AEPS ) EXIT
         END DO
-        Ind(i) = k
+        Indexes(i) = k
       END DO
+!------------------------------------------------------------------------------
+    END SUBROUTINE FindGapIndexes
+!------------------------------------------------------------------------------
 
+
+!------------------------------------------------------------------------------
+    SUBROUTINE AddHeatGap( Solver, Element, STIFF, TempPerm )
+!------------------------------------------------------------------------------
+      TYPE(Solver_t) :: Solver
+      REAL(KIND=dp) :: STIFF(:,:)
+      INTEGER :: TempPerm(:)
+      TYPE(Element_t) :: Element
+!------------------------------------------------------------------------------
+      TYPE(Element_t), POINTER :: Parent,Left,Right
+      INTEGER :: i,j,k,l, Ind(n)
+      REAL(KIND=dp) :: x0,y0,z0,x,y,z
+!------------------------------------------------------------------------------
+      CALL FindGapIndexes( Element, Ind, n )
       DO i=1,n
         DO j=1,n
           k = TempPerm( Element % NodeIndexes(i) )
           l = TempPerm( Ind(j) )
           IF ( k > 0 .AND. l > 0 ) THEN
             CALL AddToMatrixElement( Solver % Matrix,k,l,-STIFF(i,j) )
-            CALL AddToMatrixElement( Solver % Matrix,l,k,-STIFF(i,j) )
           END IF
         END DO
       END DO
-
-      IndSave = Element % NodeIndexes
-      Element % NodeIndexes = Ind
-      CALL DefaultUpdateEquations( STIFF, FORCE )
-      Element % NodeIndexes = IndSave
 !------------------------------------------------------------------------------
     END SUBROUTINE AddHeatGap
 !------------------------------------------------------------------------------
+
 
 !------------------------------------------------------------------------------
   END SUBROUTINE HeatSolver
