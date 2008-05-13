@@ -355,7 +355,7 @@ int cam_display_list( camera_t *camera, object_t *object )
 {
     double t = RealTime(), ct = CPUTime();
 
-    int FitToPage = 0;
+    int FitToPage = 0, nofcameras;
     camera_t *cam;
 
     if ( GlobalOptions.OutputPS ) {
@@ -363,6 +363,9 @@ int cam_display_list( camera_t *camera, object_t *object )
                 GlobalOptions.FitToPagePS );
     }
     if ( user_hook_before_all ) (*user_hook_before_all)( camera,object );
+
+     nofcameras = 0;
+     for( cam=camera; cam != NULL; cam = cam->Next, nofcameras++ );
 
     for( GlobalPass=0; GlobalPass < 2; GlobalPass++ )
     {
@@ -373,7 +376,7 @@ int cam_display_list( camera_t *camera, object_t *object )
             gra_set_projection( cam->ProjectionType, cam->FieldAngle,
                                 cam->ViewportLowX, cam->ViewportHighX,
                                 cam->ViewportLowY, cam->ViewportHighY,
-	       	 	        cam->ClipNear, cam->ClipFar, TRUE );
+	       	 	        cam->ClipNear, cam->ClipFar, nofcameras>1 );
 
             gra_push_matrix();
 
@@ -393,7 +396,6 @@ int cam_display_list( camera_t *camera, object_t *object )
 
              if ( BreakLoop ) break;
 
-             gra_draw_viewport_frame();
         }
         if ( BreakLoop ) break;
     } 

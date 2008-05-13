@@ -82,7 +82,7 @@ static int vis_colscale( geometry_t *geometry, element_model_t *model,
  
     double CScl,CAdd,*C,y,xl;
 
-    GLboolean clip[6];
+    GLboolean clip[6], lights_on;
 
     float coords[4][3];
 
@@ -106,6 +106,7 @@ static int vis_colscale( geometry_t *geometry, element_model_t *model,
     gra_push_matrix();
     gra_load_identity();
 
+    glGetBooleanv( GL_LIGHTING, &lights_on );
     glDisable( GL_LIGHTING );
 
     gra_polygon_mode( GRA_FILL );
@@ -247,7 +248,7 @@ static int vis_colscale( geometry_t *geometry, element_model_t *model,
       }
     }
 
-    glEnable( GL_LIGHTING );
+    if ( lights_on ) glEnable( GL_LIGHTING );
     gra_pop_matrix();
 
     glMatrixMode( GL_MODELVIEW );

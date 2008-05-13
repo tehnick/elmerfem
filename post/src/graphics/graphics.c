@@ -49,7 +49,6 @@
  ******************************************************************************/
 
 #define MODULE_GRAPHICS
-#define NO_VIEWPORT_FRAME
 
 #include "../elmerpost.h"
 
@@ -120,9 +119,6 @@ void gra_init()
 
 void gra_draw_viewport_frame()
 {
-#if defined(NO_VIEWPORT_FRAME)
-  return;
-#endif
     float Color[4];
 
     GLboolean DepthEnabled;
