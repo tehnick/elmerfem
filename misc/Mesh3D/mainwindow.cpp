@@ -23,7 +23,7 @@
 
 /*****************************************************************************
  *                                                                           *
- *  ELMER/Mesh3D mainwindow                                                  *
+ *  ElmerGUI mainwindow                                                      *
  *                                                                           *
  *****************************************************************************
  *                                                                           *
@@ -181,7 +181,7 @@ MainWindow::MainWindow()
 
   // initialization ready:
   synchronizeMenuToState();
-  setWindowTitle(tr("Elmer Mesh3D (experimental)"));
+  setWindowTitle(tr("ElmerGUI"));
 }
 
 
@@ -4645,8 +4645,8 @@ void MainWindow::killresultsSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::showaboutSlot()
 {
-  QMessageBox::about(this, tr("Information about Mesh3D"),
-		     tr("Mesh3D is a preprocessor for three dimensional "
+  QMessageBox::about(this, tr("Information about ElmerGUI"),
+		     tr("ElmerGUI is a preprocessor for three dimensional "
 			"modeling with Elmer finite element software. "
 			"The program uses elmergrid, and optionally "
 			"tetlib or nglib, "

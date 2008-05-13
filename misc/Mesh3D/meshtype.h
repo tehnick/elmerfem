@@ -17,6 +17,8 @@ class node_t {
  public:
   double x[3];                     // 3d-coordinates
   int index;                       // optional tag
+  int elements;
+  int *element;
 };
 
 // base element class
