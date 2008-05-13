@@ -106,6 +106,8 @@ static int vis_colscale( geometry_t *geometry, element_model_t *model,
     gra_push_matrix();
     gra_load_identity();
 
+    glDisable( GL_LIGHTING );
+
     gra_polygon_mode( GRA_FILL );
 
     if ( !ColorData || !ColorData->f )
@@ -245,13 +247,14 @@ static int vis_colscale( geometry_t *geometry, element_model_t *model,
       }
     }
 
+    glEnable( GL_LIGHTING );
     gra_pop_matrix();
 
     glMatrixMode( GL_MODELVIEW );
     gra_pop_matrix();
 
     for( i=0; i<6; i++ )
-      if ( clip[i] ) glDisable( GL_CLIP_PLANE0+i );
+      if ( clip[i] ) glEnable( GL_CLIP_PLANE0+i );
 
     return TRUE;
 }
