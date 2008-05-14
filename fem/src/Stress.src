@@ -156,7 +156,7 @@ MODULE StressLocal
      REAL(KIND=dp) :: RayleighAlpha(:), RayleighBeta(:)
      REAL(KIND=dp), DIMENSION(:) :: NodalPoisson, NodalDensity, NodalDamping
 
-     LOGICAL :: PlaneStress, Isotropic, StabilityAnalysis, GeometricStiffness
+     LOGICAL :: PlaneStress, Isotropic(2), StabilityAnalysis, GeometricStiffness
      LOGICAL :: RotateC, RayleighDamping
 
 
@@ -249,7 +249,7 @@ MODULE StressLocal
          !-------------------------------------------------------
          HeatExpansion = 0.0d0
          DO i=1,3
-           IF ( Isotropic ) THEN
+           IF ( Isotropic(2) ) THEN
               HeatExpansion(i,i) = SUM( NodalHeatExpansion(1,1,1:n)*Basis(1:n) )
            ELSE
               DO j=1,3
@@ -259,10 +259,10 @@ MODULE StressLocal
          END DO
        END IF
 
-       IF ( Isotropic ) Poisson = SUM( Basis(1:n) * NodalPoisson(1:n) )
+       IF ( Isotropic(1) ) Poisson = SUM( Basis(1:n) * NodalPoisson(1:n) )
 
        C = 0
-       IF ( .NOT. Isotropic ) THEN 
+       IF ( .NOT. Isotropic(1) ) THEN 
           DO i=1,SIZE(ElasticModulus,1)
             DO j=1,SIZE(ElasticModulus,2)
                C(i,j) = SUM( Basis(1:n) * ElasticModulus(i,j,1:n) )
@@ -275,7 +275,7 @@ MODULE StressLocal
        SELECT CASE(dim)
        CASE(2)
          IF ( CSymmetry ) THEN
-           IF ( Isotropic ) THEN
+           IF ( Isotropic(1) ) THEN
               C(1,1) = 1.0d0 - Poisson
               C(1,2) = Poisson
               C(1,3) = Poisson
@@ -292,7 +292,7 @@ MODULE StressLocal
            Radius = SUM( Nodes % x(1:n) * Basis(1:n) )
            s = s * Radius
          ELSE
-           IF ( Isotropic ) THEN
+           IF ( Isotropic(1) ) THEN
               IF ( PlaneStress ) THEN
                  C(1,1) = 1.0d0
                  C(1,2) = Poisson
@@ -335,7 +335,7 @@ MODULE StressLocal
          END IF
 
        CASE(3)
-         IF ( Isotropic ) THEN
+         IF ( Isotropic(1) ) THEN
             C = 0
             C(1,1) = 1.0d0 - Poisson
             C(1,2) = Poisson
@@ -598,7 +598,7 @@ MODULE StressLocal
      REAL(KIND=dp) :: NodalHeatExpansion(:,:,:)
      REAL(KIND=dp) :: TransformMatrix(:,:), NodalPoisson(:)
 
-     LOGICAL :: PlaneStress, Isotropic
+     LOGICAL :: PlaneStress, Isotropic(2)
      LOGICAL :: RotateC
 
      TYPE(Nodes_t) :: Nodes
@@ -673,7 +673,7 @@ MODULE StressLocal
          !-------------------------------------------------------
          HeatExpansion = 0.0d0
          DO i=1,3
-           IF ( Isotropic ) THEN
+           IF ( Isotropic(2) ) THEN
               HeatExpansion(i,i) = SUM( NodalHeatExpansion(1,1,1:n)*Basis(1:n) )
            ELSE
               DO j=1,3
@@ -683,10 +683,10 @@ MODULE StressLocal
          END DO
        END IF
 
-       IF ( Isotropic ) Poisson = SUM( Basis(1:n) * NodalPoisson(1:n) )
+       IF ( Isotropic(1) ) Poisson = SUM( Basis(1:n) * NodalPoisson(1:n) )
 
        C = 0
-       IF ( .NOT. Isotropic ) THEN 
+       IF ( .NOT. Isotropic(1) ) THEN 
           DO i=1,SIZE(ElasticModulus,1)
             DO j=1,SIZE(ElasticModulus,2)
                C(i,j) = SUM( Basis(1:n) * ElasticModulus(i,j,1:n) )
@@ -699,7 +699,7 @@ MODULE StressLocal
        SELECT CASE(dim)
        CASE(2)
          IF ( CSymmetry ) THEN
-           IF ( Isotropic ) THEN
+           IF ( Isotropic(1) ) THEN
               C(1,1) = 1.0d0 - Poisson
               C(1,2) = Poisson
               C(1,3) = Poisson
@@ -716,7 +716,7 @@ MODULE StressLocal
            Radius = SUM( Nodes % x(1:n) * Basis(1:n) )
            s = s * Radius
          ELSE
-           IF ( Isotropic ) THEN
+           IF ( Isotropic(1) ) THEN
               IF ( PlaneStress ) THEN
                  C(1,1) = 1.0d0
                  C(1,2) = Poisson
@@ -759,7 +759,7 @@ MODULE StressLocal
          END IF
 
        CASE(3)
-         IF ( Isotropic ) THEN
+         IF ( Isotropic(1) ) THEN
             C = 0
             C(1,1) = 1.0d0 - Poisson
             C(1,2) = Poisson
@@ -1065,7 +1065,7 @@ MODULE StressLocal
       Heatexpansion, NodalTemp, Isotropic, CSymmetry, PlaneStress,     &
       NodalDisp, Basis, dBasisdx, Nodes, dim, n, nBasis )
 !------------------------------------------------------------------------------
-     LOGICAL :: Isotropic, CSymmetry, PlaneStress
+     LOGICAL :: Isotropic(2), CSymmetry, PlaneStress
      INTEGER :: n,nd,dim
      INTEGER, OPTIONAL :: nBasis
      TYPE(Nodes_t) :: Nodes
@@ -1088,24 +1088,28 @@ MODULE StressLocal
 !
 !    Material parameters:
 !    --------------------
-     IF ( Isotropic ) Poisson = SUM( Basis(1:n) * PoissonRatio(1:n) )
+     IF ( Isotropic(1) ) Poisson = SUM( Basis(1:n) * PoissonRatio(1:n) )
 
      C = 0
-     IF ( .NOT. Isotropic ) THEN 
-        DO i=1,SIZE(ElasticModulus,1)
-          DO j=1,SIZE(ElasticModulus,2)
-             C(i,j) = SUM( Basis(1:n) * ElasticModulus(i,j,1:n) )
-          END DO
+     IF ( Isotropic(1) ) THEN 
+       Young = SUM( Basis(1:n) * ElasticModulus(1,1,1:n) )
+     ELSE
+       DO i=1,SIZE(ElasticModulus,1)
+         DO j=1,SIZE(ElasticModulus,2)
+            C(i,j) = SUM( Basis(1:n) * ElasticModulus(i,j,1:n) )
+         END DO
+       END DO
+     END IF
+
+     IF ( Isotropic(2) ) THEN
+        DO i=1,ic
+          HEXP(i,i) = SUM( Basis(1:n) * HeatExpansion(1,1,1:n) )
         END DO
+     ELSE
         DO i=1,ic
           DO j=1,ic
             HEXP(i,j) = SUM( Basis(1:n) * HeatExpansion(i,j,1:n) )
           END DO
-        END DO
-     ELSE
-        Young = SUM( Basis(1:n) * ElasticModulus(1,1,1:n) )
-        DO i=1,ic
-          HEXP(i,i) = SUM( Basis(1:n) * HeatExpansion(1,1,1:n) )
         END DO
      END IF
 
@@ -1114,7 +1118,7 @@ MODULE StressLocal
      SELECT CASE(dim)
      CASE(2)
        IF ( CSymmetry ) THEN
-         IF ( Isotropic ) THEN
+         IF ( Isotropic(1) ) THEN
             C(1,1) = 1.0d0 - Poisson
             C(1,2) = Poisson
             C(1,3) = Poisson
@@ -1129,7 +1133,7 @@ MODULE StressLocal
             C = C * Young / ( (1+Poisson) * (1-2*Poisson) )
          END IF
        ELSE
-         IF ( Isotropic ) THEN
+         IF ( Isotropic(1) ) THEN
             IF ( PlaneStress ) THEN
                C(1,1) = 1.0d0
                C(1,2) = Poisson
@@ -1170,7 +1174,7 @@ MODULE StressLocal
        END IF
 
      CASE(3)
-       IF ( Isotropic ) THEN
+       IF ( Isotropic(1) ) THEN
           C = 0
           C(1,1) = 1.0d0 - Poisson
           C(1,2) = Poisson
@@ -1313,22 +1317,28 @@ MODULE StressLocal
       IF ( .NOT. stat ) RETURN
 
       IsScalar = SIZE(HWrk,1) == 1 .AND. SIZE(HWrk,2) == 1
-
-      IF ( SIZE(Hwrk,1) == 1 ) THEN
-         DO i=1,MIN(6,SIZE(HWrk,2) )
-            Tensor( i,i,1:n ) = Hwrk( 1,1,1:n )
-         END DO
-      ELSE IF ( SIZE(Hwrk,2) == 1 ) THEN
-         DO i=1,MIN(6,SIZE(Hwrk,1))
-            Tensor( i,i,1:n ) = Hwrk( i,1,1:n )
-         END DO
-      ELSE
-        DO i=1,MIN(6,SIZE(Hwrk,1))
-           DO j=1,MIN(6,SIZE(Hwrk,2))
-              Tensor( i,j,1:n ) = Hwrk( i,j,1:n )
-           END DO
+      IF ( IsScalar ) THEN
+        DO i=1,SIZE(Tensor,1)
+          Tensor(i,i,1:n) = Hwrk(1,1,1:n)
         END DO
+      ELSE
+        IF ( SIZE(Hwrk,1) == 1 ) THEN
+           DO i=1,MIN(6,SIZE(HWrk,2) )
+              Tensor( i,i,1:n ) = Hwrk( 1,1,1:n )
+           END DO
+        ELSE IF ( SIZE(Hwrk,2) == 1 ) THEN
+           DO i=1,MIN(6,SIZE(Hwrk,1))
+              Tensor( i,i,1:n ) = Hwrk( i,1,1:n )
+           END DO
+        ELSE
+          DO i=1,MIN(6,SIZE(Hwrk,1))
+             DO j=1,MIN(6,SIZE(Hwrk,2))
+                Tensor( i,j,1:n ) = Hwrk( i,j,1:n )
+             END DO
+          END DO
+        END IF
       END IF
+
 !------------------------------------------------------------------------------
    END SUBROUTINE InputTensor
 !------------------------------------------------------------------------------

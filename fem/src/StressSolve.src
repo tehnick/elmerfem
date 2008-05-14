@@ -343,7 +343,7 @@
      INTEGER, POINTER :: TempPerm(:),DisplPerm(:),StressPerm(:),NodeIndexes(:)
 
      LOGICAL :: GotForceBC,Found,RayleighDamping
-     LOGICAL :: PlaneStress, CalcStress, CalcStressAll, Isotropic = .TRUE.
+     LOGICAL :: PlaneStress, CalcStress, CalcStressAll, Isotropic(2) = .TRUE.
      LOGICAL :: Contact = .FALSE.
      LOGICAL :: stat, stat2, stat3, RotateC, MeshDisplacementActive, &
                 ConstantBulkSystem, ConstantBulkMatrix, ConstantBulkMatrixInUse, ConstantSystem, &
@@ -887,14 +887,14 @@ CONTAINS
 	  RayleighBeta(1:N) = GetReal( Material, 'Rayleigh beta', Found )
        END IF
 
-       CALL InputTensor( HeatExpansionCoeff, Isotropic,  &
+       CALL InputTensor( HeatExpansionCoeff, Isotropic(2),  &
            'Heat Expansion Coefficient', Material, n, NodeIndexes )
 
-       CALL InputTensor( ElasticModulus, Isotropic, &
+       CALL InputTensor( ElasticModulus, Isotropic(1), &
            'Youngs Modulus', Material, n, NodeIndexes )
 
        PoissonRatio = 0.0d0
-       IF ( Isotropic )  PoissonRatio(1:n) = GetReal( Material, 'Poisson Ratio' )
+       IF ( Isotropic(1) )  PoissonRatio(1:n) = GetReal( Material, 'Poisson Ratio' )
 
        ReferenceTemperature(1:n) = GetReal(Material, &
              'Reference Temperature', Found )
@@ -1345,7 +1345,7 @@ CONTAINS
      TYPE(Element_t), POINTER :: Element
 
      INTEGER :: i,j,k,l,p,q, t, dim,elem, IND(9), BodyId,EqId
-     LOGICAL :: stat, CSymmetry, Isotropic, ComputeFlag
+     LOGICAL :: stat, CSymmetry, Isotropic(2), ComputeFlag
      INTEGER, POINTER :: Visited(:), Indexes(:), Permutation(:)
      REAL(KIND=dp) :: u,v,w,x,y,z,Strain(3,3),Stress(3,3),LGrad(3,3),detJ, &
           Young, Poisson, Ident(3,3), C(6,6), S(6), weight, st, Work(9), Principal(3), Relax
@@ -1446,10 +1446,10 @@ CONTAINS
         ! ------------------------
         Material => GetMaterial()
 
-        CALL InputTensor( HeatExpansionCoeff, Isotropic,  &
+        CALL InputTensor( HeatExpansionCoeff, Isotropic(2),  &
             'Heat Expansion Coefficient', Material, n, Element % NodeIndexes )
 
-        CALL InputTensor( ElasticModulus, Isotropic, &
+        CALL InputTensor( ElasticModulus, Isotropic(1), &
                 'Youngs Modulus', Material, n, Element % NodeIndexes )
         PlaneStress = ListGetLogical( Equation, 'Plane Stress', stat )
         PoissonRatio(1:n) = GetReal( Material, 'Poisson Ratio', Stat )
@@ -2275,7 +2275,7 @@ CONTAINS
      REAL(KIND=dp) :: Grad(3,3), Strain(3,3), Stress1(3,3), Stress2(3,3)
      REAL(KIND=dp) :: Identity(3,3), YoungsAverage
 
-     LOGICAL :: PlaneStress, Isotropic, CSymmetry = .FALSE.
+     LOGICAL :: PlaneStress, Isotropic(2)=.TRUE., CSymmetry = .FALSE.
      TYPE(ValueList_t), POINTER :: Material, Equation, BodyForce, BC
      TYPE(GaussIntegrationPoints_t), TARGET :: IntegStuff
 
@@ -2354,7 +2354,7 @@ CONTAINS
      Material => GetMaterial( Element )
      NodalPoissonRatio(1:pn) = GetReal( &
                   Material, 'Poisson Ratio',Found, Element )
-     CALL InputTensor( ElasticModulus, Isotropic, &
+     CALL InputTensor( ElasticModulus, Isotropic(1), &
                  'Youngs Modulus', Material, Pn, Element % NodeIndexes )
 
      ! Given traction:
@@ -2489,7 +2489,7 @@ CONTAINS
      REAL(KIND=dp), ALLOCATABLE :: NodalPoissonRatio(:)
      REAL(KIND=dp), ALLOCATABLE :: EdgeBasis(:), Basis(:), dBasisdx(:,:)
 
-     LOGICAL :: PlaneStress, Isotropic, CSymmetry
+     LOGICAL :: PlaneStress, Isotropic(2)=.TRUE., CSymmetry
 
      TYPE(ValueList_t), POINTER :: Material, Equation
 
@@ -2610,7 +2610,7 @@ CONTAINS
            ! --------------------
            Material => GetMaterial( Element )
            NodalPoissonRatio(1:pn) = GetReal( Material, 'Poisson Ratio', Found, Element )
-           CALL InputTensor( ElasticModulus, Isotropic, &
+           CALL InputTensor( ElasticModulus, Isotropic(1), &
                          'Youngs Modulus', Material, pn, Element % NodeIndexes )
 
            ! Elementwise nodal solution:
@@ -2688,7 +2688,7 @@ CONTAINS
      REAL(KIND=dp), ALLOCATABLE :: Basis(:), dBasisdx(:,:)
      REAL(KIND=dp), ALLOCATABLE :: NodalForce(:,:), Veloc(:,:), Accel(:,:)
 
-     LOGICAL :: PlaneStress, CSymmetry, Isotropic, Transient
+     LOGICAL :: PlaneStress, CSymmetry, Isotropic(2)=.TRUE., Transient
 
      REAL(KIND=dp) :: u, v, w, s, detJ
      REAL(KIND=dp) :: Residual(3), ResidualNorm, Area
@@ -2740,7 +2740,7 @@ CONTAINS
      ! --------------------
      Material => GetMaterial()
 
-     CALL InputTensor( ElasticModulus, Isotropic, &
+     CALL InputTensor( ElasticModulus, Isotropic(1), &
            'Youngs Modulus', Material, n, Element % NodeIndexes )
 
      NodalPoissonRatio(1:n) = GetReal( Material, 'Poisson Ratio', Found )
