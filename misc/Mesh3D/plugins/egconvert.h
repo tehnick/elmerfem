@@ -14,4 +14,4 @@ int LoadComsolMesh(struct FemType *data,struct BoundaryType *bound,char *prefix,
 int LoadGidInput(struct FemType *data,struct BoundaryType *bound,char *prefix,int info);
 int LoadGmshInput(struct FemType *data,struct BoundaryType *bound,char *prefix,int info);
 int LoadUniversalMesh(struct FemType *data,struct BoundaryType *bound,char *prefix,int info);
-
+int LoadCGsimMesh(struct FemType *data,char *prefix,int info);

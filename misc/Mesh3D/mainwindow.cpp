@@ -818,7 +818,8 @@ void MainWindow::readInputFile(QString fileName)
 	    (fileSuffix == "msh") ||
 	    (fileSuffix == "mphtxt") ||
 	    (fileSuffix == "inp") ||    
-	    (fileSuffix == "unv")) {
+	    (fileSuffix == "unv") ||
+            (fileSuffix == "plt")) {
 
     activeGenerator = GEN_ELMERGRID;
     cout << "Selected elmergrid" << endl;

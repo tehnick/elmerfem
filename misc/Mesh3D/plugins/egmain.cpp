@@ -94,6 +94,7 @@ int info=TRUE,nogrids=0,nomeshes=0,activemesh=0;
     /*13*/ "GID",
     /*14*/ "GMSH",
     /*15*/ "PARTITIONED",
+    /*16*/ "CGSIM",
   };
 
 
@@ -1018,6 +1019,7 @@ static int DetermineFileType(char *filename,int info)
     else if(strstr(filename,".unv")) mode = 8;
     else if(strstr(filename,".mphtxt")) mode = 9;
     else if(strstr(filename,".msh")) mode = 14;
+    else if(strstr(filename,".plt")) mode = 16;
   }
   if(mode == -1) {
     if(info) printf("Could not determine the filetype based on the suffix\n");
@@ -1116,6 +1118,10 @@ static int ImportMeshDefinition(int inmethod,int nofile,char *filename,int *nogr
     errorstat = LoadGmshInput(&(data[nofile]),boundaries[nofile],eg.filesin[nofile],info);
     break;
 
+  case 16:
+    errorstat = LoadCGsimMesh(&(data[nofile]),eg.filesin[nofile],info);
+    break;
+
 #if EXE_MODE
   case 15: 
     if(info) printf("Partitioned solution is fused on-the-fly therefore no other operations may be performed.\n");
@@ -1129,6 +1135,7 @@ static int ImportMeshDefinition(int inmethod,int nofile,char *filename,int *nogr
     errorstat = 1;
     Instructions();
 #endif
+
   }  
 
   if(!errorstat) *nogrids = MAX(*nogrids,1);

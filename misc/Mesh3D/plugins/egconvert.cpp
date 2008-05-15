@@ -3697,3 +3697,152 @@ end:
 }
 
 
+
+int LoadCGsimMesh(struct FemType *data,char *prefix,int info)
+/* Load the mesh from postprocessing format of CGsim */
+{
+  int noknots,noelements,maxnodes,material,allocated,dim,debug,thismat,thisknots,thiselems;
+  char filename[MAXFILESIZE],line[MAXLINESIZE],*cp;
+  int i,j,k,l,n,ind,inds[MAXNODESD2],sideind[MAXNODESD1],savedofs;
+  Real dummyreal;
+  FILE *in;
+
+
+  strcpy(filename,prefix);
+  if ((in = fopen(filename,"r")) == NULL) {
+    AddExtension(prefix,filename,"plt");
+    if ((in = fopen(filename,"r")) == NULL) {
+      printf("LoadCGsimMesh: opening of the CGsim mesh file '%s' wasn't succesfull !\n",
+	     filename);
+      return(1);
+    }
+  }
+
+  printf("Reading mesh from CGsim mesh file %s.\n",filename);
+  InitializeKnots(data);
+
+  debug = FALSE;
+  allocated = FALSE;
+  savedofs = FALSE;
+
+omstart:
+
+  maxnodes = 4;
+  noknots = 0;
+  noelements = 0;
+  material = 0;
+  dim = 2;
+  thismat = 0;
+
+
+  for(;;) {
+    
+
+    if(Getrow(line,in,FALSE)) goto end;
+    if(!line) goto end;
+    
+    cp = strstr(line,"ZONE");    
+    if(!cp) continue;
+    
+
+    thismat += 1;
+    cp = strstr(line," N=");
+    cp += 3;
+    thisknots = next_int(&cp);
+
+    cp = strstr(line,",E=");
+    cp += 3;
+    thiselems = next_int(&cp);
+
+    if(debug) {
+      printf("%s",line);
+      printf("thismat = %d knots = %d elems = %d\n",thismat,thisknots,thiselems);
+    }
+
+    for(i=1;i<=thisknots;i++) {
+      getline;
+
+      if(allocated) {
+	cp = line;
+	data->x[noknots+i] = next_real(&cp);
+	data->y[noknots+i] = next_real(&cp);
+	data->z[noknots+i] = 0.0;
+
+	if(savedofs == 1) {
+	  for(j=1;j<=4;j++)
+	    dummyreal = next_real(&cp);	    
+	  data->dofs[1][noknots+i] = next_real(&cp);
+	}
+	else if(savedofs == 5) {
+	  for(j=1;j<=5;j++)	  
+	    data->dofs[j][noknots+i] = next_real(&cp);	  
+	}
+
+      }
+    }
+
+    for(i=1;i<=thiselems;i++) {
+      getline;
+
+      if(allocated) {
+	cp = line;
+	for(j=0;j<4;j++) 
+	  inds[j] = next_int(&cp);
+	for(j=0;j<4;j++) 
+	  data->topology[noelements+i][j] = inds[j]+noknots;
+	if(inds[2] == inds[3]) 
+	  data->elementtypes[noelements+i] = 303;
+	else
+	  data->elementtypes[noelements+i] = 404;	  
+	data->material[noelements+i] = thismat;
+      }
+   }
+
+    noknots += thisknots;
+    noelements += thiselems;
+  }
+
+ end:
+
+  if(!allocated) {
+    if(noknots == 0 || noelements == 0 || maxnodes == 0) {
+       printf("Invalid mesh consits of %d knots and %d %d-node elements.\n",
+	     noknots,noelements,maxnodes);     
+       fclose(in);
+       return(2);
+    }
+
+    rewind(in);
+    data->noknots = noknots;
+    data->noelements = noelements;
+    data->maxnodes = maxnodes;
+    data->dim = dim;
+
+    
+    if(info) {
+      printf("Allocating for %d knots and %d %d-node elements.\n",
+	     noknots,noelements,maxnodes);
+    }  
+    AllocateKnots(data);
+
+    if(savedofs == 1) {
+      CreateVariable(data,1,1,0.0,"Temperature",FALSE);
+    }
+    else if(savedofs == 5) {
+      CreateVariable(data,1,1,0.0,"dTdX",FALSE);
+      CreateVariable(data,2,1,0.0,"dTdY",FALSE);
+      CreateVariable(data,3,1,0.0,"Qx",FALSE);
+      CreateVariable(data,4,1,0.0,"Qy",FALSE);
+      CreateVariable(data,5,1,0.0,"Temperature",FALSE);
+    }
+
+    allocated = TRUE;
+    goto omstart;    
+  }
+  fclose(in);
+
+  if(info) printf("The CGsim mesh was loaded from file %s.\n\n",filename);
+  return(0);
+}
+
+
