@@ -1203,17 +1203,20 @@ void GLWidget::drawCoordinates()
   // z-axis
   glColor3d(0, 0, 1);
   gluCylinder(quadratic, 0.02, 0.0, 0.2, 8, 8);  
+  renderText(0.0, 0.0, 0.25, "X");
 
   // x-axis
   glColor3d(1, 0, 0);
   glRotated(90, 0, 1, 0);
   gluCylinder(quadratic, 0.02, 0.0, 0.2, 8, 8);  
+  renderText(0.0, 0.0, 0.25, "Y");
   glRotated(-90, 0, 1, 0);
 
   // y-axis
   glColor3d(0, 1, 0);
   glRotated(-90, 1, 0, 0);
   gluCylinder(quadratic, 0.02, 0.0, 0.2, 8, 8);  
+  renderText(0.0, 0.0, 0.25, "Z");
   glRotated(90, 1, 0, 0);
   
   glMatrixMode(GL_PROJECTION);
