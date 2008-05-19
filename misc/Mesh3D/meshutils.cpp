@@ -725,6 +725,8 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
 #define RESETENTRY              \
     h->surfaces = 0;            \
     h->surface = NULL;          \
+    h->parentindex[0] = UNKNOWN; \
+    h->parentindex[1] = UNKNOWN; \
     h->next = NULL;
 
   int keys = mesh->nodes;
@@ -737,6 +739,7 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
     int index;
     int surfaces;
     int *surface;
+    int parentindex[2];
     hashEntry *next;
   };
   
@@ -749,6 +752,8 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
     h = &hash[i];
     RESETENTRY;
   }
+
+  bool createindexes = (!mesh->edges && !mesh->elements);
 
   if ( mesh->edge && mesh->edges>0 ) {  
     // add existing edges first:
@@ -847,6 +852,7 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
 	h->surfaces = 1;
 	h->surface = new int[1];
 	h->surface[0] = i;
+	h->parentindex[0] = s->index;
         h->index = UNKNOWN;
         h->nature = PDE_UNKNOWN;
 	h->next = new hashEntry;
@@ -859,7 +865,7 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
         for(int j=0; j<h->surfaces; j++)
         {
           tmp[j] = h->surface[j];
-          if ( tmp[j] == i ) found=true; 
+          if ( tmp[j] == i ) found = true; 
         }
         if ( found ) {
           delete [] tmp;
@@ -869,6 +875,13 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
           for(int j=0; j<h->surfaces; j++)
              h->surface[j] = tmp[j];
           h->surface[h->surfaces++] = i;
+	  if( s->index < h->parentindex[0]) {	    
+	    h->parentindex[1] = h->parentindex[0];
+	    h->parentindex[0] = s->index;
+	  }
+	  else {
+	    h->parentindex[1] = s->index;
+	  }	    
           delete [] tmp;
         }
       }
@@ -883,10 +896,71 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
       edges++;
   }
 
+    
+
   cout << "Found " << edges << " edges on boundary" << endl;
 
   mesh->edges = edges;
   mesh->edge = new edge_t[edges];
+
+  if(createindexes) {
+    cout << "Creating edge indexes " << endl;
+
+    int maxindex1 = UNKNOWN;
+    int maxindex2 = UNKNOWN;
+    
+    for(int i=0; i<keys; i++) {
+      h = &hash[i];
+      while(h->next){
+	if(h->parentindex[0] > maxindex1) maxindex1 = h->parentindex[0];
+	if(h->parentindex[1] > maxindex2) maxindex2 = h->parentindex[1];
+	h = h->next;
+      }
+    }
+ 
+    // Create a index table such that all combinations of materials 
+    // get different BC index  
+    int indextable[maxindex1+2][maxindex2+2];
+    int index1,index2;
+    for(int i=-1;i<=maxindex1;i++)
+      for(int j=-1;j<=maxindex2;j++)
+	indextable[i+1][j+1] = 0;
+
+    int edgebcs=0;
+    for(int i=0; i<keys; i++) {
+      h = &hash[i];
+      while(h->next){
+	if(h->parentindex[0] != h->parentindex[1]) {
+	  index1 = h->parentindex[0];
+	  index2 = h->parentindex[1];
+	  indextable[index1+1][index2+1] = 1;
+	  edgebcs += 1;
+	}
+	h = h->next;
+      }
+    }
+
+    index1=0;
+    for(int i=-1;i<=maxindex1;i++)
+      for(int j=-1;j<=maxindex2;j++) 
+	if(indextable[i+1][j+1]) indextable[i+1][j+1] = ++index1;
+
+    cout << edgebcs << " boundary edges were numbered up to index " << index1 << endl;
+    
+    for(int i=0; i<keys; i++) {
+      h = &hash[i];
+      while(h->next){
+	if(h->parentindex[0] != h->parentindex[1]) {
+	  index1 = h->parentindex[0];
+	  index2 = h->parentindex[1];
+	  h->index = indextable[index1+1][index2+1];
+	  h->nature = PDE_BOUNDARY;
+	}
+	h = h->next;
+      }
+    }
+  }
+
 
   // Create edges:
   edges = 0;
@@ -964,6 +1038,9 @@ void Meshutils::findSurfaceElementEdges(mesh_t *mesh)
 #endif
 
 }
+
+
+
 
 // Find sharp points for edge elements...
 //-----------------------------------------------------------------------------
