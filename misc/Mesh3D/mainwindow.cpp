@@ -389,6 +389,12 @@ void MainWindow::createActions()
   connect(viewCoordinatesAct, SIGNAL(triggered()), 
 	  this, SLOT(viewCoordinatesSlot()));
 
+  // View -> Select all undefined
+  selectAllUndefinedAct = new QAction(QIcon(), tr("Select all undefined entities"), this);
+  selectAllUndefinedAct->setStatusTip(tr("Select all undefined entities"));
+  connect(selectAllUndefinedAct, SIGNAL(triggered()), 
+	  this, SLOT(selectAllUndefinedSlot()));
+
   // View -> Select all surfaces
   selectAllSurfacesAct = new QAction(QIcon(), tr("Select all surfaces"), this);
   selectAllSurfacesAct->setStatusTip(tr("Select all surfaces"));
@@ -552,6 +558,8 @@ void MainWindow::createMenus()
   viewMenu->addSeparator();
   viewMenu->addAction(selectAllSurfacesAct);
   viewMenu->addAction(selectAllEdgesAct);
+  viewMenu->addSeparator();
+  viewMenu->addAction(selectAllUndefinedAct);
   viewMenu->addSeparator();
   viewMenu->addAction(hideselectedAct);
   viewMenu->addSeparator();
@@ -3184,6 +3192,39 @@ void MainWindow::viewCoordinatesSlot()
 }
 
 
+
+// View -> Select all undefined
+//-----------------------------------------------------------------------------
+void MainWindow::selectAllUndefinedSlot()
+{
+  mesh_t *mesh = glWidget->mesh;
+  int lists = glWidget->lists;
+  list_t *list = glWidget->list;
+
+  if(mesh == NULL) {
+    logMessage("There are no entities from which to select");
+    return;
+  }
+
+  // At the moment only edges are included in search:
+  for(int i = 0; i < lists; i++) {
+    list_t *l = &list[i];
+    if(l->type == EDGELIST) {
+      for( int j = 0; j < mesh->edges; j++ ) {
+        edge_t *edge = &mesh->edge[j];
+        if( l->index == edge->index ) {
+	  if( edge->nature == PDE_UNKNOWN )
+	    edge->selected = true;
+	}
+      }
+    }
+  }
+  
+  glWidget->rebuildEdgeLists();
+  glWidget->updateGL();
+  
+  logMessage("All undefined entities selected");
+}
 
 // View -> Select all surfaces
 //-----------------------------------------------------------------------------
