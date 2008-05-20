@@ -4,5 +4,5 @@
 #define MAX_BODYFORCES          10 // body forces
 #define MAX_INITIALCONDITIONS   10 // initial conditions
 #define MAX_BODIES             100 // bodies (as in input file & sif)
-#define MAX_BOUNDARIES         100 // boundaries (as in input file)
-#define MAX_BCS                100 // boundary conditions (as in sif)
+#define MAX_BOUNDARIES         200 // boundaries (as in input file)
+#define MAX_BCS                200 // boundary conditions (as in sif)

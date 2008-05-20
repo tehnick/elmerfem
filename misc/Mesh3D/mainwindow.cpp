@@ -3292,9 +3292,6 @@ void MainWindow::selectDefinedSurfacesSlot()
     }
   }
 
-  for (int i=0;i<=nmax;i++)
-    cout << "Surface " << i << " act " << activebody[i] << endl;  
-
   for(int i=0; i<lists; i++) {
     list_t *l = &list[i];
     if(l->type == SURFACELIST) {
@@ -3304,7 +3301,7 @@ void MainWindow::selectDefinedSurfacesSlot()
     }
   }
 
-  for( int i = 0; i < mesh->edges; i++ ) {
+  for( int i = 0; i < mesh->surfaces; i++ ) {
     surface_t *surface = &mesh->surface[i];
     if( surface->nature == PDE_BULK ) { 
       int j = surface->index;
