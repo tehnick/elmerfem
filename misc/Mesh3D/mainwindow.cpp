@@ -389,12 +389,6 @@ void MainWindow::createActions()
   connect(viewCoordinatesAct, SIGNAL(triggered()), 
 	  this, SLOT(viewCoordinatesSlot()));
 
-  // View -> Select all undefined
-  selectAllUndefinedAct = new QAction(QIcon(), tr("Select all undefined entities"), this);
-  selectAllUndefinedAct->setStatusTip(tr("Select all undefined entities"));
-  connect(selectAllUndefinedAct, SIGNAL(triggered()), 
-	  this, SLOT(selectAllUndefinedSlot()));
-
   // View -> Select all surfaces
   selectAllSurfacesAct = new QAction(QIcon(), tr("Select all surfaces"), this);
   selectAllSurfacesAct->setStatusTip(tr("Select all surfaces"));
@@ -406,6 +400,12 @@ void MainWindow::createActions()
   selectAllEdgesAct->setStatusTip(tr("Select all edges"));
   connect(selectAllEdgesAct, SIGNAL(triggered()), 
 	  this, SLOT(selectAllEdgesSlot()));
+
+  // View -> Select defined edges
+  selectDefinedEdgesAct = new QAction(QIcon(), tr("Select defined edges"), this);
+  selectDefinedEdgesAct->setStatusTip(tr("Select defined edges"));
+  connect(selectDefinedEdgesAct, SIGNAL(triggered()), 
+	  this, SLOT(selectDefinedEdgesSlot()));
 
   // View -> Hide/show selected
   hideselectedAct = new QAction(QIcon(), tr("&Hide/show selected"), this);
@@ -558,8 +558,7 @@ void MainWindow::createMenus()
   viewMenu->addSeparator();
   viewMenu->addAction(selectAllSurfacesAct);
   viewMenu->addAction(selectAllEdgesAct);
-  viewMenu->addSeparator();
-  viewMenu->addAction(selectAllUndefinedAct);
+  viewMenu->addAction(selectDefinedEdgesAct);
   viewMenu->addSeparator();
   viewMenu->addAction(hideselectedAct);
   viewMenu->addSeparator();
@@ -3193,9 +3192,9 @@ void MainWindow::viewCoordinatesSlot()
 
 
 
-// View -> Select all undefined
+// View -> Select defined edges
 //-----------------------------------------------------------------------------
-void MainWindow::selectAllUndefinedSlot()
+void MainWindow::selectDefinedEdgesSlot()
 {
   mesh_t *mesh = glWidget->mesh;
   int lists = glWidget->lists;
@@ -3207,24 +3206,50 @@ void MainWindow::selectAllUndefinedSlot()
   }
 
   // At the moment only edges are included in search:
-  for(int i = 0; i < lists; i++) {
-    list_t *l = &list[i];
-    if(l->type == EDGELIST) {
-      for( int j = 0; j < mesh->edges; j++ ) {
-        edge_t *edge = &mesh->edge[j];
-        if( l->index == edge->index ) {
-	  if( edge->nature == PDE_UNKNOWN )
-	    edge->selected = true;
-	}
-      }
+  int nmax = 0;
+  for( int i=0; i<glWidget->boundaryMap.count(); i++ ) {
+    int n = glWidget->boundaryMap.key(i);
+    if(n > nmax) nmax = n;
+  }
+
+  bool *activeboundary = new bool[nmax+1];
+  for (int i=0;i<=nmax;i++)
+    activeboundary[i] = false;
+
+  for( int i=0; i<glWidget->boundaryMap.count(); i++ ) {
+    int n=glWidget->boundaryMap.key(i);
+    if ( n >= 0 ) {
+      int m = glWidget->boundaryMap.value(n);
+      BoundaryPropertyEditor *boundary = &boundaryPropertyEditor[m];
+      activeboundary[n] = boundary->condition;
     }
   }
-  
+
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];
+    if(l->type == EDGELIST) {
+      int j = l->index;
+      if( j < 0) continue;
+      if( activeboundary[j]) l->selected = true;
+    }
+  }
+
+  for( int i = 0; i < mesh->edges; i++ ) {
+    edge_t *edge = &mesh->edge[i];
+    if( edge->nature == PDE_BOUNDARY ) { 
+      int j = edge->index;
+      if( j < 0) continue;
+      if( activeboundary[j] ) edge->selected = true;
+    }
+  }
+  delete [] activeboundary;
+
   glWidget->rebuildEdgeLists();
   glWidget->updateGL();
   
-  logMessage("All undefined entities selected");
+  logMessage("All defined entities selected");
 }
+
 
 // View -> Select all surfaces
 //-----------------------------------------------------------------------------
@@ -3280,7 +3305,7 @@ void MainWindow::selectAllEdgesSlot()
       for( int j=0; j<mesh->edges; j++ ) {
         edge_t *edge = &mesh->edge[j];
         if( l->index == edge->index )
-          edge->selected=l->selected;
+          edge->selected = l->selected;
       }
   }
 
