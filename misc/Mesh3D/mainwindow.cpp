@@ -407,6 +407,12 @@ void MainWindow::createActions()
   connect(selectDefinedEdgesAct, SIGNAL(triggered()), 
 	  this, SLOT(selectDefinedEdgesSlot()));
 
+  // View -> Select defined surfaces
+  selectDefinedSurfacesAct = new QAction(QIcon(), tr("Select defined surfaces"), this);
+  selectDefinedSurfacesAct->setStatusTip(tr("Select defined surfaces"));
+  connect(selectDefinedSurfacesAct, SIGNAL(triggered()), 
+	  this, SLOT(selectDefinedSurfacesSlot()));
+
   // View -> Hide/show selected
   hideselectedAct = new QAction(QIcon(), tr("&Hide/show selected"), this);
   hideselectedAct->setShortcut(tr("Ctrl+H"));
@@ -558,7 +564,9 @@ void MainWindow::createMenus()
   viewMenu->addSeparator();
   viewMenu->addAction(selectAllSurfacesAct);
   viewMenu->addAction(selectAllEdgesAct);
+  viewMenu->addSeparator();
   viewMenu->addAction(selectDefinedEdgesAct);
+  viewMenu->addAction(selectDefinedSurfacesAct);
   viewMenu->addSeparator();
   viewMenu->addAction(hideselectedAct);
   viewMenu->addSeparator();
@@ -3247,8 +3255,71 @@ void MainWindow::selectDefinedEdgesSlot()
   glWidget->rebuildEdgeLists();
   glWidget->updateGL();
   
-  logMessage("All defined entities selected");
+  logMessage("Defined edges selected");
 }
+
+
+// View -> Select defined surfaces
+//-----------------------------------------------------------------------------
+void MainWindow::selectDefinedSurfacesSlot()
+{
+  mesh_t *mesh = glWidget->mesh;
+  int lists = glWidget->lists;
+  list_t *list = glWidget->list;
+
+  if(mesh == NULL) {
+    logMessage("There are no entities from which to select");
+    return;
+  }
+
+  // At the moment only surfaces are included in search:
+  int nmax = 0;
+  for( int i=0; i<glWidget->bodyMap.count(); i++ ) {
+    int n = glWidget->bodyMap.key(i);
+    if(n > nmax) nmax = n;
+  }
+
+  bool *activebody = new bool[nmax+1];
+  for (int i=0;i<=nmax;i++)
+    activebody[i] = false;
+
+  for( int i=0; i<glWidget->bodyMap.count(); i++ ) {
+    int n=glWidget->bodyMap.key(i);
+    if ( n >= 0 ) {
+      int m = glWidget->bodyMap.value(n);
+      BodyPropertyEditor *body = &bodyPropertyEditor[m];
+      activebody[n] = body->material && body->equation;
+    }
+  }
+
+  for (int i=0;i<=nmax;i++)
+    cout << "Surface " << i << " act " << activebody[i] << endl;  
+
+  for(int i=0; i<lists; i++) {
+    list_t *l = &list[i];
+    if(l->type == SURFACELIST) {
+      int j = l->index;
+      if( j < 0) continue;
+      if( activebody[j]) l->selected = true;
+    }
+  }
+
+  for( int i = 0; i < mesh->edges; i++ ) {
+    surface_t *surface = &mesh->surface[i];
+    if( surface->nature == PDE_BULK ) { 
+      int j = surface->index;
+      if( j < 0) continue;
+      if( activebody[j] ) surface->selected = true;
+    }
+  }
+  delete [] activebody;
+
+  glWidget->rebuildSurfaceLists();
+  glWidget->updateGL();
+  
+  logMessage("Defined surfaces selected");
+}
+
 
 
 // View -> Select all surfaces

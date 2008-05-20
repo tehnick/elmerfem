@@ -72,6 +72,7 @@ private slots:
   void selectAllSurfacesSlot();   // View -> Select all surfaces
   void selectAllEdgesSlot();      // View -> Select all edges
   void selectDefinedEdgesSlot();  // View -> Select defined edges
+  void selectDefinedSurfacesSlot();// View -> Select defined surfaces
   void hideselectedSlot();        // View -> Hide/show selected
   void showallSlot();             // View -> Show all
   void resetSlot();               // View -> Reset model view
@@ -188,6 +189,7 @@ private:
   QAction *selectAllSurfacesAct;  // View -> Select all surfaces
   QAction *selectAllEdgesAct;     // View -> Select all edges
   QAction *selectDefinedEdgesAct; // View -> Select defined edges
+  QAction *selectDefinedSurfacesAct; // View -> Select defined surfaces
   QAction *hideselectedAct;       // View -> Show selected
   QAction *flatShadeAct;          // View -> Shade model -> Flat
   QAction *smoothShadeAct;        // View -> Shade model -> Smooth
