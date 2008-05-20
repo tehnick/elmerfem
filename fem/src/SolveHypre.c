@@ -32,9 +32,7 @@ void STDCALLBULL FC_FUNC(solvehypre,SOLVEHYPRE)
   int *nrows,int *rows, int *cols, double *vals, int *perm,
   int *invperm, int *globaldofs, int *owner,  double *xvec,
   double *rhsvec, int *pe, int *ILUn, int *Rounds, double *TOL,
-  double *sai_threshold, int *sai_maxlevels, double *sai_filter,
-  int *sai_sym, int *bamg_CoarsenType, int *bamg_RelaxType, 
-  int *bamg_NumSweeps, int *bamg_MaxLevels, int *hypre_method
+  int *hypre_method, int *hypre_intpara, double *hypre_dppara
  )
 {
    int i, j, k, *rcols;
@@ -143,6 +141,9 @@ st  = realtime_();
    fprintf( stderr, "ID no. %i: setup time: %g\n", myid, realtime_()-st );
    st = realtime_();
 
+
+/*    fprintf(stderr,"HYRPE INT: %d %d  %d %d %d \n", hypre_intpara[0], hypre_intpara[1], hypre_intpara[2], hypre_intpara[3], hypre_intpara[4]);  */
+/*    fprintf(stderr,"HYRPE DP: %d %d %d %d %d \n", hypre_dppara[0], hypre_dppara[1], hypre_dppara[2], hypre_dppara[3], hypre_dppara[4]);  */
    /* Choose a solver and solve the system */
    /* NB.: hypremethod = 0 ... BiCGStab + ILUn
                          1 ... BiCGStab + ParaSails
@@ -179,25 +180,43 @@ st  = realtime_();
        HYPRE_ParaSailsCreate(MPI_COMM_WORLD, &precond);
        {
 	 /* Set some parameters (See Reference Manual for more parameters) */
-	 HYPRE_ParaSailsSetParams(precond, *sai_threshold, *sai_maxlevels);
-	 HYPRE_ParaSailsSetFilter(precond, *sai_filter);
-	 HYPRE_ParaSailsSetSym(precond, *sai_sym);
+         /* threshold = dppara[0]; maxlevels= intpara[1] */
+	 HYPRE_ParaSailsSetParams(precond, hypre_dppara[0], hypre_intpara[1]);
+	 /* filter = dppara[1] */
+	 HYPRE_ParaSailsSetFilter(precond, hypre_dppara[1]);
+         /* symmetry = intpara[0] */
+	 HYPRE_ParaSailsSetSym(precond, hypre_intpara[0]);
 	 HYPRE_ParaSailsSetLogging(precond, 3);
        }
        /* Set the PCG preconditioner */
        HYPRE_BiCGSTABSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_ParaSailsSolve,
 				(HYPRE_PtrToSolverFcn) HYPRE_ParaSailsSetup, precond);
      } else if(*hypre_method == 2){
-       if (myid == 0) fprintf( stderr,"SolveHypre: using BiCGStab + boomerAMG\n");
+       if (myid == 0) {
+	 fprintf( stderr,"SolveHypre: using BiCGStab + boomerAMG\n");
+	 fprintf( stderr,"RelaxType=%d\n",hypre_intpara[0]); 
+	 fprintf( stderr,"CoarsenType=%d\n",hypre_intpara[1]); 
+	 fprintf( stderr,"NumSweeps=%d\n",hypre_intpara[2]); 
+	 fprintf( stderr,"MaxLevels=%d\n",hypre_intpara[3]); 
+	 fprintf( stderr,"Interpolation Type=%d\n",hypre_intpara[4]); 
+	 fprintf( stderr,"Smooth Type=%d\n",hypre_intpara[5]);
+	 fprintf( stderr,"Cycle Type=%d\n",hypre_intpara[6]);
+	 fprintf( stderr,"DOFs=%d\n",hypre_intpara[7]);
+       }
        HYPRE_BoomerAMGCreate(&precond);
        {
 	 /* Set some parameters (See Reference Manual for more parameters) */
+	 HYPRE_BoomerAMGSetNumFunctions(precond, hypre_intpara[7]); /* No. of PDE's */
 	 HYPRE_BoomerAMGSetPrintLevel(precond, 1); /* print amg solution info */
-	 HYPRE_BoomerAMGSetCoarsenType(precond, *bamg_CoarsenType);
-	 HYPRE_BoomerAMGSetRelaxType(precond, *bamg_RelaxType); /* Sym G.S./Jacobi hybrid */ 
-	 HYPRE_BoomerAMGSetNumSweeps(precond, 1);
+	 HYPRE_BoomerAMGSetNumSweeps(precond, 1); /* fixed for preconditioner to 1 */
 	 HYPRE_BoomerAMGSetTol(precond, 0.0); /* conv. tolerance zero */
 	 HYPRE_BoomerAMGSetMaxIter(precond, 1); /* do only one iteration! */
+	 HYPRE_BoomerAMGSetRelaxType(precond, hypre_intpara[0]);   /* G-S/Jacobi hybrid relaxation */
+	 HYPRE_BoomerAMGSetCoarsenType(precond, hypre_intpara[1]);  /* coarsening type */
+	 
+	 HYPRE_BoomerAMGSetMaxLevels(precond, hypre_intpara[3]); /* levels of coarsening */
+	 HYPRE_BoomerAMGSetInterpType(precond, hypre_intpara[4]);  /* interpolation type */
+	 HYPRE_BoomerAMGSetSmoothType(precond, hypre_intpara[5]);  /* smoother type */
        }
        /* Set the BiCGSTAB preconditioner */
        HYPRE_BiCGSTABSetPrecond(solver, (HYPRE_PtrToSolverFcn) HYPRE_BoomerAMGSolve,
@@ -225,18 +244,31 @@ st  = realtime_();
       int num_iterations;
       double final_res_norm;
 
-      if (myid == 0) fprintf( stderr,"SolveHypre: using BoomerAMG\n"); 
-
+      if (myid == 0) {
+	fprintf( stderr,"SolveHypre: using BoomerAMG\n"); 
+	fprintf( stderr,"RelaxType=%d\n",hypre_intpara[0]); 
+	fprintf( stderr,"CoarsenType=%d\n",hypre_intpara[1]); 
+	fprintf( stderr,"NumSweeps=%d\n",hypre_intpara[2]); 
+	fprintf( stderr,"MaxLevels=%d\n",hypre_intpara[3]); 
+	fprintf( stderr,"Interpolation Type=%d\n",hypre_intpara[4]); 
+	fprintf( stderr,"Smooth Type=%d\n",hypre_intpara[5]);
+ 	fprintf( stderr,"Cycle Type=%d\n",hypre_intpara[6]);
+  	fprintf( stderr,"DOFs=%d\n",hypre_intpara[7]);
+      }
       /* Create solver */
       HYPRE_BoomerAMGCreate(&solver);
 
       /* Set some parameters (See Reference Manual for more parameters) */
-      HYPRE_BoomerAMGSetPrintLevel(solver, 3);  /* print solve info + parameters */
-      HYPRE_BoomerAMGSetCoarsenType(solver, *bamg_CoarsenType); /* Falgout coarsening */
-      HYPRE_BoomerAMGSetRelaxType(solver, *bamg_RelaxType);   /* G-S/Jacobi hybrid relaxation */
-      HYPRE_BoomerAMGSetNumSweeps(solver, *bamg_NumSweeps);   /* Sweeeps on each level */
-      HYPRE_BoomerAMGSetMaxLevels(solver, *bamg_MaxLevels);
+      HYPRE_BoomerAMGSetNumFunctions(solver, hypre_intpara[7]); /* No. of PDE's */
+      HYPRE_BoomerAMGSetPrintLevel(solver, 3);  
+      HYPRE_BoomerAMGSetRelaxType(solver, hypre_intpara[0]);   /* G-S/Jacobi hybrid relaxation */
+      HYPRE_BoomerAMGSetCoarsenType(solver, hypre_intpara[1]);  /* coarsening type */
+      HYPRE_BoomerAMGSetNumSweeps(solver, hypre_intpara[2]);   /* Sweeeps on each level */
+      HYPRE_BoomerAMGSetMaxLevels(solver, hypre_intpara[3]); /* levels of coarsening */
+      HYPRE_BoomerAMGSetInterpType(solver, hypre_intpara[4]);  /* interpolation type */
+      HYPRE_BoomerAMGSetSmoothType(solver, hypre_intpara[5]);  /* smoother type */
       HYPRE_BoomerAMGSetTol(solver, *TOL);      /* conv. tolerance */
+      HYPRE_BoomerAMGSetMaxIter(solver, *Rounds); /* iteration rounds */
 
       /* Now setup and solve! */
       HYPRE_BoomerAMGSetup(solver, parcsr_A, par_b, par_x);
