@@ -1738,7 +1738,7 @@ void MainWindow::saveElmerMesh(QString dirName)
   file.close();
 
   // Sif:
-  file.setFileName("skeleton.sif");
+  file.setFileName("case.sif");
   file.open(QIODevice::WriteOnly);
   QTextStream sif(&file);
 
@@ -1753,7 +1753,7 @@ void MainWindow::saveElmerMesh(QString dirName)
   file.open(QIODevice::WriteOnly);
   QTextStream startinfo(&file);
 
-  startinfo << "skeleton.sif\n1\n";
+  startinfo << "case.sif\n1\n";
 
   file.close();
 
@@ -4765,7 +4765,7 @@ void MainWindow::resultsSlot()
     return;
   }
 
-  QFile file("skeleton.ep");
+  QFile file("case.ep");
   if(!file.exists()) {
     logMessage("Elmerpost input file does not exist.");
     return;
@@ -4783,7 +4783,7 @@ void MainWindow::resultsSlot()
 
   file.close();
 
-  args << "readfile skeleton.ep; "
+  args << "readfile case.ep; "
     "set ColorScaleY -0.85; "
     "set ColorScaleEntries  4;"
     "set ColorScaleDecimals 2;"
