@@ -42,6 +42,7 @@
 #include <QtOpenGL>
 #include <QWheelEvent>
 #include <QKeyEvent>
+#include <QLocale>
 #include <math.h>
 #include <iostream>
 #include <stdio.h>
@@ -63,6 +64,9 @@ GLWidget::GLWidget(QWidget *parent)
   stateDrawSurfaceElements = true;
   stateDrawEdgeElements = true;
   stateDrawCoordinates = false;
+  stateDrawElementNumbers = false;
+  stateDrawNodeNumbers = false;
+
   currentlySelectedBody = -1;
 
   lists = 0;
@@ -238,6 +242,47 @@ void GLWidget::paintGL()
     glPushName(0xffffffff);
     drawCoordinates();
     glPopName();
+  }
+
+
+  if(mesh) {
+     float xabs[3], xrel[3];
+ 
+     if(stateDrawElementNumbers) {
+       for(int i=0; i < mesh->surfaces; i++) {
+	 surface_t *surface = &mesh->surface[i];
+	 
+	 int nodes = surface->code / 100;
+	 xabs[0] = xabs[1] = xabs[2] = 0.0;
+	 for(int j=0; j < nodes;j++) {
+	   int ind = surface->node[j];
+	   xabs[0] = xabs[0] + mesh->node[ind].x[0];
+	   xabs[1] = xabs[1] + mesh->node[ind].x[1];
+	   xabs[2] = xabs[2] + mesh->node[ind].x[2];
+	 }
+	 xrel[0] = (xabs[0]/nodes - drawTranslate[0]) / drawScale;
+	 xrel[1] = (xabs[1]/nodes - drawTranslate[1]) / drawScale;
+	 xrel[2] = (xabs[2]/nodes - drawTranslate[2]) / drawScale;
+	 
+	 glColor3d(0.5, 0, 0);
+	 renderText(xrel[0], xrel[1], xrel[2]+1.0e-6, QString::number(i+1) );
+       }
+     }       
+
+     if(stateDrawNodeNumbers) {
+       for(int i=0; i < mesh->nodes; i++) {
+	 xabs[0] = mesh->node[i].x[0];
+	 xabs[1] = mesh->node[i].x[1];
+	 xabs[2] = mesh->node[i].x[2];
+	 
+	 xrel[0] = (xabs[0] - drawTranslate[0]) / drawScale;
+	 xrel[1] = (xabs[1] - drawTranslate[1]) / drawScale;
+	 xrel[2] = (xabs[2] - drawTranslate[2]) / drawScale;
+	 
+	 glColor3d(0, 0, 0.5);
+	 renderText(xrel[0], xrel[1], xrel[2]+1.0e-6, QString::number(i+1) );
+       }
+     }
   }
 }
 
@@ -1001,10 +1046,43 @@ GLuint GLWidget::generateSurfaceList(int index, double R, double G, double B)
     }
   }
 
+
   glEnd();
 
   glEndList();
+
+#if 0
+
+  // Draw indexes:
+  //------------
   
+  cout << "draw indexes" << endl; 
+
+  for(int i=0; i < mesh->surfaces; i++) {
+    surface_t *surface = &mesh->surface[i];
+
+    if((surface->index == index)) {
+      int nodes = surface->code/100;
+
+      x0[0] = x0[1] = x0[2] = 0.0;
+      for(int j=0;j<nodes;j++) {
+	int ind = surface->node[j];
+	x0[0] = x0[0] + mesh->node[ind].x[0];
+	x0[1] = x0[1] + mesh->node[ind].x[1];
+	x0[2] = x0[2] + mesh->node[ind].x[2];
+      }
+      x1[0] = (x0[0]/nodes - drawTranslate[0]) / drawScale;
+      x1[1] = (x0[1]/nodes - drawTranslate[1]) / drawScale;
+      x1[2] = (x0[2]/nodes - drawTranslate[2]) / drawScale;
+
+      glColor3d(1, 1, 1);
+      renderText(x1[0], x1[1], x1[2], "c");
+    }
+    renderText(0.0, 0.0, 0.0, "A");
+  }
+  
+#endif
+
   return current;
 }
 

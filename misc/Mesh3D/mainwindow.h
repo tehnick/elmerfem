@@ -72,6 +72,8 @@ private slots:
   void selectAllSurfacesSlot();   // View -> Select all surfaces
   void selectAllEdgesSlot();      // View -> Select all edges
   void selectDefinedEdgesSlot();  // View -> Select defined edges
+  void showelementnumbersSlot();  // View -> Show numbering -> element numbering
+  void shownodenumbersSlot();     // View -> Show numbering -> node numbering
   void selectDefinedSurfacesSlot();// View -> Select defined surfaces
   void hideselectedSlot();        // View -> Hide/show selected
   void showallSlot();             // View -> Show all
@@ -153,6 +155,7 @@ private:
   QMenu *editMenu;                // Edit menu
   QMenu *viewMenu;                // View menu
   QMenu *shadeMenu;               // View -> Shade model menu
+  QMenu *numberingMenu;           // View -> Show numbering menu
   QMenu *meshMenu;                // Mesh menu
   QMenu *solverMenu;              // Solver menu
   QMenu *helpMenu;                // Help menu
@@ -190,6 +193,8 @@ private:
   QAction *selectAllEdgesAct;     // View -> Select all edges
   QAction *selectDefinedEdgesAct; // View -> Select defined edges
   QAction *selectDefinedSurfacesAct; // View -> Select defined surfaces
+  QAction *showelementnumbersAct; // View -> Show numbering -> element numbers
+  QAction *shownodenumbersAct;    // View -> Show numbering -> node numbers
   QAction *hideselectedAct;       // View -> Show selected
   QAction *flatShadeAct;          // View -> Shade model -> Flat
   QAction *smoothShadeAct;        // View -> Shade model -> Smooth
