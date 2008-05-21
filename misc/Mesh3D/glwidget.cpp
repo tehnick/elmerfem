@@ -183,6 +183,8 @@ void GLWidget::initializeGL()
 //-----------------------------------------------------------------------------
 void GLWidget::paintGL()
 {
+  float xabs[3], xrel[3];
+
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
   
   if(lists) {
@@ -244,32 +246,41 @@ void GLWidget::paintGL()
     glPopName();
   }
 
-
   if(mesh) {
-     float xabs[3], xrel[3];
- 
-     if(stateDrawElementNumbers) {
-       for(int i=0; i < mesh->surfaces; i++) {
-	 surface_t *surface = &mesh->surface[i];
-	 
-	 int nodes = surface->code / 100;
-	 xabs[0] = xabs[1] = xabs[2] = 0.0;
-	 for(int j=0; j < nodes;j++) {
-	   int ind = surface->node[j];
-	   xabs[0] = xabs[0] + mesh->node[ind].x[0];
-	   xabs[1] = xabs[1] + mesh->node[ind].x[1];
-	   xabs[2] = xabs[2] + mesh->node[ind].x[2];
-	 }
-	 xrel[0] = (xabs[0]/nodes - drawTranslate[0]) / drawScale;
-	 xrel[1] = (xabs[1]/nodes - drawTranslate[1]) / drawScale;
-	 xrel[2] = (xabs[2]/nodes - drawTranslate[2]) / drawScale;
-	 
-	 glColor3d(0.5, 0, 0);
-	 renderText(xrel[0], xrel[1], xrel[2]+1.0e-6, QString::number(i+1) );
-       }
-     }       
+    if(stateDrawElementNumbers) {
+      glMatrixMode(GL_PROJECTION);
+      glPushMatrix();
+      glTranslated(0, 0, 0.1);
+      glColor3d(0.5, 0, 0);
+      
+      for(int i=0; i < mesh->surfaces; i++) {
+	surface_t *surface = &mesh->surface[i];
+	int nodes = surface->code / 100;
 
+	xabs[0] = xabs[1] = xabs[2] = 0.0;
+
+	for(int j=0; j < nodes;j++) {
+	  int ind = surface->node[j];
+	  xabs[0] = xabs[0] + mesh->node[ind].x[0];
+	  xabs[1] = xabs[1] + mesh->node[ind].x[1];
+	  xabs[2] = xabs[2] + mesh->node[ind].x[2];
+	}
+	xrel[0] = (xabs[0]/nodes - drawTranslate[0]) / drawScale;
+	xrel[1] = (xabs[1]/nodes - drawTranslate[1]) / drawScale;
+	xrel[2] = (xabs[2]/nodes - drawTranslate[2]) / drawScale;
+	
+	renderText(xrel[0], xrel[1], xrel[2], QString::number(i+1) );
+      }
+       glPopMatrix();
+       glMatrixMode(GL_MODELVIEW);
+    }       
+    
      if(stateDrawNodeNumbers) {
+      glMatrixMode(GL_PROJECTION);
+      glPushMatrix();
+      glTranslated(0, 0, 0.1);
+      glColor3d(0, 0, 0.5);
+
        for(int i=0; i < mesh->nodes; i++) {
 	 xabs[0] = mesh->node[i].x[0];
 	 xabs[1] = mesh->node[i].x[1];
@@ -279,9 +290,10 @@ void GLWidget::paintGL()
 	 xrel[1] = (xabs[1] - drawTranslate[1]) / drawScale;
 	 xrel[2] = (xabs[2] - drawTranslate[2]) / drawScale;
 	 
-	 glColor3d(0, 0, 0.5);
-	 renderText(xrel[0], xrel[1], xrel[2]+1.0e-6, QString::number(i+1) );
+	 renderText(xrel[0], xrel[1], xrel[2], QString::number(i+1) );
        }
+       glPopMatrix();
+       glMatrixMode(GL_MODELVIEW);
      }
   }
 }
