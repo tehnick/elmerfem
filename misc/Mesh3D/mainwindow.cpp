@@ -587,6 +587,7 @@ void MainWindow::createMenus()
   shadeMenu = viewMenu->addMenu(tr("Shade model"));
   shadeMenu->addAction(flatShadeAct);
   shadeMenu->addAction(smoothShadeAct);
+  viewMenu->addSeparator();
   numberingMenu = viewMenu->addMenu(tr("Show numbering"));
   numberingMenu->addAction(showelementnumbersAct);
   numberingMenu->addAction(shownodenumbersAct);
