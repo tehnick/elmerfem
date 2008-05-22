@@ -214,7 +214,8 @@ void MainWindow::createActions()
   // File -> Load project...
   loadProjectAct = new QAction(QIcon(":/icons/document-import.png"), tr("Load &project..."), this);
   loadProjectAct->setStatusTip(tr("Load previously saved project"));
-  connect(loadProjectAct, SIGNAL(triggered()), this, SLOT(loadProjectSlot()));
+  connect(loadProjectAct, SIGNAL(triggered()), 
+	  this, SLOT(loadProjectSlot()));
 
   // File -> Definitions...
   editDefinitionsAct = new QAction(QIcon(":/icons/games-config-custom.png"), tr("&Definitions..."), this);
@@ -225,24 +226,27 @@ void MainWindow::createActions()
   // File -> Save...
   saveAct = new QAction(QIcon(":/icons/document-save.png"), tr("&Save..."), this);
   saveAct->setShortcut(tr("Ctrl+S"));
-  saveAct->setStatusTip(tr("Save Elmer mesh and SIF-files"));
+  saveAct->setStatusTip(tr("Save Elmer mesh and sif-files"));
   connect(saveAct, SIGNAL(triggered()), 
 	  this, SLOT(saveSlot()));
 
   // File -> Save as...
   saveAsAct = new QAction(QIcon(":/icons/document-save-as.png"), tr("&Save as..."), this);
-  saveAsAct->setStatusTip(tr("Save Elmer mesh and SIF-files"));
-  connect(saveAsAct, SIGNAL(triggered()), this, SLOT(saveAsSlot()));
+  saveAsAct->setStatusTip(tr("Save Elmer mesh and sif-files"));
+  connect(saveAsAct, SIGNAL(triggered()), 
+	  this, SLOT(saveAsSlot()));
 
   // File -> Save project...
   saveProjectAct = new QAction(QIcon(":/icons/document-export.png"), tr("&Save project..."), this);
   saveProjectAct->setStatusTip(tr("Save current project"));
-  connect(saveProjectAct, SIGNAL(triggered()), this, SLOT(saveProjectSlot()));
+  connect(saveProjectAct, SIGNAL(triggered()), 
+	  this, SLOT(saveProjectSlot()));
 
   // File -> Save picture as...
   savePictureAct = new QAction(QIcon(":/icons/view-preview.png"), tr("&Save picture as..."), this);
   savePictureAct->setStatusTip(tr("Save picture in file"));
-  connect(savePictureAct, SIGNAL(triggered()), this, SLOT(savePictureSlot()));
+  connect(savePictureAct, SIGNAL(triggered()), 
+	  this, SLOT(savePictureSlot()));
 
   // File -> Exit
   exitAct = new QAction(QIcon(":/icons/application-exit.png"), tr("E&xit"), this);
@@ -254,7 +258,7 @@ void MainWindow::createActions()
   // Model -> Setup...
   modelSetupAct = new QAction(QIcon(), tr("Setup..."), this);
   modelSetupAct->setStatusTip(tr("Setup simulation environment"));
-  connect(modelSetupAct, SIGNAL(triggered()), 	
+  connect(modelSetupAct, SIGNAL(triggered()), 
 	  this, SLOT(modelSetupSlot()));
 
   // Model -> Equation...
@@ -271,7 +275,7 @@ void MainWindow::createActions()
 
   // Model -> Body force...
   addBodyForceAct = new QAction(QIcon(), tr("Add..."), this);
-  addBodyForceAct->setStatusTip(tr("Add a body force..."));
+  addBodyForceAct->setStatusTip(tr("Add body forces..."));
   connect(addBodyForceAct, SIGNAL(triggered()), 
 	  this, SLOT(addBodyForceSlot()));
 
@@ -324,7 +328,6 @@ void MainWindow::createActions()
   showsifAct->setStatusTip(tr("Edit solver input file"));
   connect(showsifAct, SIGNAL(triggered()), 
 	  this, SLOT(showsifSlot()));
-
 
   // Mesh -> Control
   meshcontrolAct = new QAction(QIcon(":/icons/configure.png"), tr("&Configure..."), this);
@@ -468,13 +471,13 @@ void MainWindow::createActions()
 
   // Solver -> Run solver
   runsolverAct = new QAction(QIcon(":/icons/Solver.png"), tr("Run solver"), this);
-  runsolverAct->setStatusTip(tr("Run solver"));
+  runsolverAct->setStatusTip(tr("Run ElmerSolver"));
   connect(runsolverAct, SIGNAL(triggered()), 
 	  this, SLOT(runsolverSlot()));
 
   // Solver -> Kill solver
   killsolverAct = new QAction(QIcon(":/icons/window-close.png"), tr("Kill solver"), this);
-  killsolverAct->setStatusTip(tr("Kill solver"));
+  killsolverAct->setStatusTip(tr("Kill ElmerSolver"));
   connect(killsolverAct, SIGNAL(triggered()), 
 	  this, SLOT(killsolverSlot()));
 
@@ -484,14 +487,14 @@ void MainWindow::createActions()
   connect(showConvergenceAct, SIGNAL(triggered()), this, SLOT(showConvergenceSlot()));
 
   // Solver -> Post process
-  resultsAct = new QAction(QIcon(":/icons/Post.png"), tr("Run post process"), this);
-  resultsAct->setStatusTip(tr("Run post processor"));
+  resultsAct = new QAction(QIcon(":/icons/Post.png"), tr("Run postprocessor"), this);
+  resultsAct->setStatusTip(tr("Run ElmerPost for visualization"));
   connect(resultsAct, SIGNAL(triggered()), 
 	  this, SLOT(resultsSlot()));
 
   // Solver -> Kill post process
-  killresultsAct = new QAction(QIcon(":/icons/window-close.png"), tr("Kill post process"), this);
-  killresultsAct->setStatusTip(tr("Kill post process"));
+  killresultsAct = new QAction(QIcon(":/icons/window-close.png"), tr("Kill postprocessor"), this);
+  killresultsAct->setStatusTip(tr("Kill ElmerPost"));
   connect(killresultsAct, SIGNAL(triggered()), 
 	  this, SLOT(killresultsSlot()));
 
