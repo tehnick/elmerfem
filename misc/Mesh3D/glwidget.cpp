@@ -42,7 +42,6 @@
 #include <QtOpenGL>
 #include <QWheelEvent>
 #include <QKeyEvent>
-#include <QLocale>
 #include <math.h>
 #include <iostream>
 #include <stdio.h>
@@ -64,7 +63,8 @@ GLWidget::GLWidget(QWidget *parent)
   stateDrawSurfaceElements = true;
   stateDrawEdgeElements = true;
   stateDrawCoordinates = false;
-  stateDrawElementNumbers = false;
+  stateDrawSurfaceNumbers = false;
+  stateDrawEdgeNumbers = false;
   stateDrawNodeNumbers = false;
 
   currentlySelectedBody = -1;
@@ -247,7 +247,7 @@ void GLWidget::paintGL()
   }
 
   if(mesh) {
-    if(stateDrawElementNumbers) {
+    if(stateDrawSurfaceNumbers) {
       glMatrixMode(GL_PROJECTION);
       glPushMatrix();
       glTranslated(0, 0, 0.1);
@@ -275,7 +275,35 @@ void GLWidget::paintGL()
        glMatrixMode(GL_MODELVIEW);
     }       
     
-     if(stateDrawNodeNumbers) {
+    if(stateDrawEdgeNumbers) {
+      glMatrixMode(GL_PROJECTION);
+      glPushMatrix();
+      glTranslated(0, 0, 0.1);
+      glColor3d(0.0, 0.5, 0);
+      
+      for(int i=0; i < mesh->edges; i++) {
+	edge_t *edge = &mesh->edge[i];
+	int nodes = edge->code / 100;
+
+	xabs[0] = xabs[1] = xabs[2] = 0.0;
+
+	for(int j=0; j < nodes;j++) {
+	  int ind = edge->node[j];
+	  xabs[0] = xabs[0] + mesh->node[ind].x[0];
+	  xabs[1] = xabs[1] + mesh->node[ind].x[1];
+	  xabs[2] = xabs[2] + mesh->node[ind].x[2];
+	}
+	xrel[0] = (xabs[0]/nodes - drawTranslate[0]) / drawScale;
+	xrel[1] = (xabs[1]/nodes - drawTranslate[1]) / drawScale;
+	xrel[2] = (xabs[2]/nodes - drawTranslate[2]) / drawScale;
+	
+	renderText(xrel[0], xrel[1], xrel[2], QString::number(i+1) );
+      }
+       glPopMatrix();
+       glMatrixMode(GL_MODELVIEW);
+    }       
+     
+    if(stateDrawNodeNumbers) {
       glMatrixMode(GL_PROJECTION);
       glPushMatrix();
       glTranslated(0, 0, 0.1);

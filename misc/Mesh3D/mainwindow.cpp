@@ -426,20 +426,27 @@ void MainWindow::createActions()
   connect(flatShadeAct, SIGNAL(triggered()), 
 	  this, SLOT(flatShadeSlot()));
 
-  // View -> Show element numbers
-  showelementnumbersAct = new QAction(QIcon(), tr("Element numbers"), this);
-  showelementnumbersAct->setStatusTip(tr("Show element numbers "
-				      "(Show the element numbers)"));
-  connect(showelementnumbersAct, SIGNAL(triggered()), 
-	  this, SLOT(showelementnumbersSlot()));
+  // View -> Show surface numbers
+  showSurfaceNumbersAct = new QAction(QIcon(), tr("Surface element numbers"), this);
+  showSurfaceNumbersAct->setStatusTip(tr("Show surface element numbers "
+				      "(Show the surface element numbering)"));
+  connect(showSurfaceNumbersAct, SIGNAL(triggered()), 
+	  this, SLOT(showSurfaceNumbersSlot()));
+
+  // View -> Show edge numbers
+  showEdgeNumbersAct = new QAction(QIcon(), tr("Edge element numbers"), this);
+  showEdgeNumbersAct->setStatusTip(tr("Show edge element numbers "
+				      "(Show the node element numbering)"));
+  connect(showEdgeNumbersAct, SIGNAL(triggered()), 
+	  this, SLOT(showEdgeNumbersSlot()));
 
   // View -> Show node numbers
-  shownodenumbersAct = new QAction(QIcon(), tr("Node numbers"), this);
-  shownodenumbersAct->setStatusTip(tr("Show node numbers "
+  showNodeNumbersAct = new QAction(QIcon(), tr("Node numbers"), this);
+  showNodeNumbersAct->setStatusTip(tr("Show node numbers "
 				      "(Show the node numbers)"));
-  connect(shownodenumbersAct, SIGNAL(triggered()), 
-	  this, SLOT(shownodenumbersSlot()));
-
+  connect(showNodeNumbersAct, SIGNAL(triggered()), 
+	  this, SLOT(showNodeNumbersSlot()));
+  
   // View -> Shade model -> Smooth
   smoothShadeAct = new QAction(QIcon(), tr("Smooth"), this);
   smoothShadeAct->setStatusTip(tr("Set shade model to smooth"));
@@ -589,8 +596,9 @@ void MainWindow::createMenus()
   shadeMenu->addAction(smoothShadeAct);
   viewMenu->addSeparator();
   numberingMenu = viewMenu->addMenu(tr("Show numbering"));
-  numberingMenu->addAction(showelementnumbersAct);
-  numberingMenu->addAction(shownodenumbersAct);
+  numberingMenu->addAction(showSurfaceNumbersAct);
+  numberingMenu->addAction(showEdgeNumbersAct);
+  numberingMenu->addAction(showNodeNumbersAct);
   viewMenu->addSeparator();
   viewMenu->addAction(showallAct);
   viewMenu->addAction(resetAct);
@@ -3497,7 +3505,8 @@ void MainWindow::resetSlot()
   glWidget->stateDrawSharpEdges = true;
   glWidget->stateDrawSurfaceElements = true;
   glWidget->stateDrawEdgeElements = true;
-  glWidget->stateDrawElementNumbers = false;
+  glWidget->stateDrawSurfaceNumbers = false;
+  glWidget->stateDrawEdgeNumbers = false;
   glWidget->stateDrawNodeNumbers = false;
 
   for(int i=0; i<lists; i++) {
@@ -3563,28 +3572,45 @@ void MainWindow::smoothShadeSlot()
 }
 
 
-// View -> Show numbering -> Element numbering
+// View -> Show numbering -> Surface numbering
 //-----------------------------------------------------------------------------
-void MainWindow::showelementnumbersSlot()
+void MainWindow::showSurfaceNumbersSlot()
 {
   if(glWidget->mesh == NULL) {
-    logMessage("Refusing to show element numbering when mesh is empty");
+    logMessage("Refusing to show surface element numbering when mesh is empty");
     return;
   }
-  glWidget->stateDrawElementNumbers = !glWidget->stateDrawElementNumbers;
+  glWidget->stateDrawSurfaceNumbers = !glWidget->stateDrawSurfaceNumbers;
   glWidget->updateGL();
   synchronizeMenuToState();
 
-  if(glWidget->stateDrawElementNumbers) 
-    logMessage("Element numbering turned on");
+  if(glWidget->stateDrawSurfaceNumbers) 
+    logMessage("Surface element numbering turned on");
   else
-    logMessage("Element numbering turned off");   
+    logMessage("Surface element numbering turned off");   
 }
 
+// View -> Show numbering -> Edge numbering
+//-----------------------------------------------------------------------------
+void MainWindow::showEdgeNumbersSlot()
+{
+  if(glWidget->mesh == NULL) {
+    logMessage("Refusing to show edge element numbering when mesh is empty");
+    return;
+  }
+  glWidget->stateDrawEdgeNumbers = !glWidget->stateDrawEdgeNumbers;
+  glWidget->updateGL();
+  synchronizeMenuToState();
+
+  if(glWidget->stateDrawEdgeNumbers) 
+    logMessage("Edge element numbering turned on");
+  else
+    logMessage("Edge element numbering turned off");   
+}
 
 // View -> Shade model -> Smooth
 //-----------------------------------------------------------------------------
-void MainWindow::shownodenumbersSlot()
+void MainWindow::showNodeNumbersSlot()
 {
   if(glWidget->mesh == NULL) {
     logMessage("Refusing to show node numbering when mesh is empty");
@@ -4896,15 +4922,20 @@ void MainWindow::synchronizeMenuToState()
     smoothShadeAct->setIcon(iconChecked);
   }
 
-  if(glWidget->stateDrawElementNumbers) 
-    showelementnumbersAct->setIcon(iconChecked);
+  if(glWidget->stateDrawSurfaceNumbers) 
+    showSurfaceNumbersAct->setIcon(iconChecked);
   else 
-     showelementnumbersAct->setIcon(iconEmpty);   
+    showSurfaceNumbersAct->setIcon(iconEmpty);   
+
+  if(glWidget->stateDrawEdgeNumbers) 
+    showEdgeNumbersAct->setIcon(iconChecked);
+  else 
+    showEdgeNumbersAct->setIcon(iconEmpty);   
 
   if(glWidget->stateDrawNodeNumbers) 
-    shownodenumbersAct->setIcon(iconChecked);
+    showNodeNumbersAct->setIcon(iconChecked);
   else 
-    shownodenumbersAct->setIcon(iconEmpty);   
+    showNodeNumbersAct->setIcon(iconEmpty);   
 
   if(glWidget->stateDrawCoordinates) 
     viewCoordinatesAct->setIcon(iconChecked);
