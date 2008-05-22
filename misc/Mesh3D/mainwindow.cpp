@@ -216,6 +216,12 @@ void MainWindow::createActions()
   loadProjectAct->setStatusTip(tr("Load previously saved project"));
   connect(loadProjectAct, SIGNAL(triggered()), this, SLOT(loadProjectSlot()));
 
+  // File -> Definitions...
+  editDefinitionsAct = new QAction(QIcon(), tr("&Definitions..."), this);
+  editDefinitionsAct->setStatusTip(tr("Load and edit elmer sif definitions file"));
+  connect(editDefinitionsAct, SIGNAL(triggered()), 
+	  this, SLOT(editDefinitionsSlot()));
+
   // File -> Save...
   saveAct = new QAction(QIcon(":/icons/document-save.png"), tr("&Save..."), this);
   saveAct->setShortcut(tr("Ctrl+S"));
@@ -313,17 +319,12 @@ void MainWindow::createActions()
 	  this, SLOT(generateSifSlot()));
 
   // Edit -> Solver input file...
-  showsifAct = new QAction(QIcon(":/icons/document-properties.png"), tr("&Solver input file..."), this);
+  showsifAct = new QAction(QIcon(":/icons/document-properties.png"), tr("&Edit sif"), this);
   showsifAct->setShortcut(tr("Ctrl+S"));
   showsifAct->setStatusTip(tr("Edit solver input file"));
   connect(showsifAct, SIGNAL(triggered()), 
 	  this, SLOT(showsifSlot()));
 
-  // Edit -> Definitions...
-  editDefinitionsAct = new QAction(QIcon(), tr("&Definitions..."), this);
-  editDefinitionsAct->setStatusTip(tr("Edit elmer definitions file"));
-  connect(editDefinitionsAct, SIGNAL(triggered()), 
-	  this, SLOT(editDefinitionsSlot()));
 
   // Mesh -> Control
   meshcontrolAct = new QAction(QIcon(":/icons/configure.png"), tr("&Configure..."), this);
@@ -512,6 +513,8 @@ void MainWindow::createMenus()
   fileMenu->addAction(loadAct);
   fileMenu->addAction(loadProjectAct);
   fileMenu->addSeparator();
+  fileMenu->addAction(editDefinitionsAct);
+  fileMenu->addSeparator();
   fileMenu->addAction(saveAct);
   fileMenu->addAction(saveAsAct);
   fileMenu->addAction(saveProjectAct);
@@ -519,6 +522,18 @@ void MainWindow::createMenus()
   fileMenu->addAction(savePictureAct);
   fileMenu->addSeparator();
   fileMenu->addAction(exitAct);
+
+  // Mesh menu
+  meshMenu = menuBar()->addMenu(tr("&Mesh"));
+  meshMenu->addAction(meshcontrolAct);
+  meshMenu->addAction(remeshAct);
+  meshMenu->addAction(stopMeshingAct);
+  meshMenu->addSeparator();
+  meshMenu->addAction(surfaceDivideAct);
+  meshMenu->addAction(surfaceUnifyAct);
+  meshMenu->addSeparator();
+  meshMenu->addAction(edgeDivideAct);
+  meshMenu->addAction(edgeUnifyAct);
 
   // Model menu
   modelMenu = menuBar()->addMenu(tr("&Model"));
@@ -569,14 +584,6 @@ void MainWindow::createMenus()
   modelMenu->addAction(modelClearAct);
   modelMenu->addSeparator();
 
-  // Edit menu
-  editMenu = menuBar()->addMenu(tr("&Edit"));
-  editMenu->addAction(generateSifAct);
-  editMenu->addSeparator();
-  editMenu->addAction(showsifAct);
-  editMenu->addSeparator();
-  editMenu->addAction(editDefinitionsAct);
-
   // View menu
   viewMenu = menuBar()->addMenu(tr("&View"));  
   viewMenu->addAction(hidesurfacemeshAct);
@@ -603,20 +610,14 @@ void MainWindow::createMenus()
   viewMenu->addAction(showallAct);
   viewMenu->addAction(resetAct);
 
-  // Mesh menu
-  meshMenu = menuBar()->addMenu(tr("&Mesh"));
-  meshMenu->addAction(meshcontrolAct);
-  meshMenu->addAction(remeshAct);
-  meshMenu->addAction(stopMeshingAct);
-  meshMenu->addSeparator();
-  meshMenu->addAction(surfaceDivideAct);
-  meshMenu->addAction(surfaceUnifyAct);
-  meshMenu->addSeparator();
-  meshMenu->addAction(edgeDivideAct);
-  meshMenu->addAction(edgeUnifyAct);
+  // Edit menu
+  editMenu = menuBar()->addMenu(tr("&Sif"));
+  editMenu->addAction(generateSifAct);
+  editMenu->addSeparator();
+  editMenu->addAction(showsifAct);
 
   //  SolverMenu
-  solverMenu = menuBar()->addMenu(tr("&Solver"));
+  solverMenu = menuBar()->addMenu(tr("&Run"));
   solverMenu->addAction(runsolverAct);
   solverMenu->addAction(killsolverAct);
   solverMenu->addAction(showConvergenceAct);
