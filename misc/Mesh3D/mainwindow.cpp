@@ -217,8 +217,8 @@ void MainWindow::createActions()
   connect(loadProjectAct, SIGNAL(triggered()), this, SLOT(loadProjectSlot()));
 
   // File -> Definitions...
-  editDefinitionsAct = new QAction(QIcon(), tr("&Definitions..."), this);
-  editDefinitionsAct->setStatusTip(tr("Load and edit elmer sif definitions file"));
+  editDefinitionsAct = new QAction(QIcon(":/icons/games-config-custom.png"), tr("&Definitions..."), this);
+  editDefinitionsAct->setStatusTip(tr("Load and edit Elmer sif definitions file"));
   connect(editDefinitionsAct, SIGNAL(triggered()), 
 	  this, SLOT(editDefinitionsSlot()));
 
@@ -312,14 +312,14 @@ void MainWindow::createActions()
 	  this, SLOT(modelClearSlot()));
 
   // Edit -> Generate sif
-  generateSifAct = new QAction(QIcon(""), tr("&Generate sif"), this);
+  generateSifAct = new QAction(QIcon(""), tr("&Generate"), this);
   generateSifAct->setShortcut(tr("Ctrl+G"));
   generateSifAct->setStatusTip(tr("Genarete solver input file"));
   connect(generateSifAct, SIGNAL(triggered()), 
 	  this, SLOT(generateSifSlot()));
 
   // Edit -> Solver input file...
-  showsifAct = new QAction(QIcon(":/icons/document-properties.png"), tr("&Edit sif"), this);
+  showsifAct = new QAction(QIcon(":/icons/document-properties.png"), tr("&Edit..."), this);
   showsifAct->setShortcut(tr("Ctrl+S"));
   showsifAct->setStatusTip(tr("Edit solver input file"));
   connect(showsifAct, SIGNAL(triggered()), 
