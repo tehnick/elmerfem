@@ -313,6 +313,7 @@ EXTRA_DIST = \
 	ResultOutputSolve.src \
 	ResultToPost.src \
 	ResultToResult.src \
+	ReynoldsSolver.src \
 	RigidBodyReduction.src \
 	SaveData.src \
 	ScalarPotentialSolver.src \
