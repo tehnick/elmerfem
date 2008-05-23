@@ -142,6 +142,11 @@ bind . <Control-m> { UpdateObject; if { $DisplayStyle(ColorMesh) } { set Display
          -command { UpdateObject; if { $DisplayStyle(ColorScale) } colscale_edit }
 pack .menubar.disp -side left
 
+.menubar.disp.menu add checkbutton
+.menubar.disp.menu entryconfigure last -label "Mode Display ..." -variable DisplayStyle(ModeDisplay)      \
+         -command { UpdateObject; if { $DisplayStyle(ModeDisplay) } ModeDisplay }
+pack .menubar.disp -side left
+
 
 set DisplayStyle(MeshLines)   0
 set DisplayStyle(ColorMesh)   0
@@ -150,6 +155,7 @@ set DisplayStyle(Vectors)     0
 set DisplayStyle(Isosurface)  0
 set DisplayStyle(Spheres)     0
 set DisplayStyle(ColorScale)  0
+set DisplayStyle(ModeDisplay)  0
 
 #menubutton .menubar.options -menu .menubar.options.menu -text "Options" -underline 0
 #menu .menubar.options.menu

@@ -174,6 +174,7 @@ source $ELMER_POST_HOME/tcl/isosurface.tcl
 source $ELMER_POST_HOME/tcl/particle.tcl
 source $ELMER_POST_HOME/tcl/sphere.tcl
 source $ELMER_POST_HOME/tcl/colorscale.tcl
+source $ELMER_POST_HOME/tcl/modedisplay.tcl
 source $ELMER_POST_HOME/tcl/saveimage.tcl
 source $ELMER_POST_HOME/tcl/LoadSicopolis.tcl
 
