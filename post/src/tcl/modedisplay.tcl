@@ -84,6 +84,9 @@ proc ModeDisplay {} {
     label $w.title -text "Mode Display"
     pack $w.title
 
+    label $w.sp1 -text ""
+    pack $w.sp1 -side top
+
     set DVector "Displacement"
     frame $w.arrow
     label $w.arrow.label -text "Displacement Variable: "
@@ -95,7 +98,7 @@ proc ModeDisplay {} {
     pack $w.arrow.but -side left -fill x
 
 
-    frame $w.file -relief sunken
+    frame $w.file -relief ridge
     label $w.file.mlab -text "Select Mode: "
     entry $w.file.mode -width 10 -textvariable DMode
     label $w.file.dlab -text "Disp scale: "
@@ -108,14 +111,9 @@ proc ModeDisplay {} {
     pack $w.file.flab $w.file.frms $w.file.clab $w.file.cycl
 # -side left
 
-    set DLoop "Animate"
-    button $w.file.but -textvariable DLoop -command { mode_animate; }
-
-    pack $w.file.but -side left
-    pack $w.file -side top
-
-    label $w.sp4 -text \n
-    pack $w.sp4 -side top
+    label $w.file.sp4 -text ""
+    pack $w.file.sp4 -side top
+    pack $w.file -side top -expand 1 -fill both
 
     frame $w.command
     label $w.command.lab -text "Do after frame:"
@@ -123,6 +121,11 @@ proc ModeDisplay {} {
     pack $w.command.lab -side left
     pack $w.command.cmd -side left -expand 1
     pack $w.command
+
+    frame $w.anim -relief ridge
+    button $w.anim.but -textvariable DLoop -command { mode_animate; } -relief ridge
+    pack $w.anim.but -side left -fill both -expand 1
+    pack $w.anim -side top -expand 1 -fill both
 
     frame $w.but
     button  $w.but.exit -text "Close" -command "destroy $w"
