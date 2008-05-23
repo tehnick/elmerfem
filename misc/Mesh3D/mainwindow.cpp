@@ -617,7 +617,7 @@ void MainWindow::createMenus()
   shadeMenu->addAction(flatShadeAct);
   shadeMenu->addAction(smoothShadeAct);
   viewMenu->addSeparator();
-  numberingMenu = viewMenu->addMenu(tr("Show numbering"));
+  numberingMenu = viewMenu->addMenu(tr("Numbering"));
   numberingMenu->addAction(showSurfaceNumbersAct);
   numberingMenu->addAction(showEdgeNumbersAct);
   numberingMenu->addAction(showNodeNumbersAct);

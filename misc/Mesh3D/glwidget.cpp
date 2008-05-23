@@ -376,6 +376,18 @@ void GLWidget::paintGL()
 
 	if(stateDrawBodyIndex && (surface->nature == PDE_BULK))
 	  renderText(xrel[0], xrel[1], xrel[2], QString::number(surface->index) );
+
+	// case 3d:
+	if(stateDrawBodyIndex && (surface->nature == PDE_BOUNDARY)) {
+	  for(int i = 0; i < surface->elements; i++) {
+	    int j = surface->element[i];
+	    if(j >= 0) {
+	      element_t *element = &mesh->element[j];
+	      renderText(xrel[0], xrel[1], xrel[2], QString::number(element->index) );
+	    }
+	  }
+	}
+
       }
 
       glPopMatrix();
