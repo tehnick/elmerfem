@@ -397,12 +397,14 @@ CONTAINS
 
 
 
-  SUBROUTINE GetScalarLocalSolution( x,name,UElement,USolver )
+  SUBROUTINE GetScalarLocalSolution( x,name,UElement,USolver,tStep )
      REAL(KIND=dp) :: x(:)
      CHARACTER(LEN=*), OPTIONAL :: name
      TYPE(Solver_t)  , OPTIONAL, TARGET :: USolver
      TYPE(Element_t),  OPTIONAL, TARGET :: UElement
+     INTEGER, OPTIONAL :: tStep
 
+     REAL(KIND=dp), POINTER :: Values(:)
      TYPE(Variable_t), POINTER :: Variable
      TYPE(Solver_t)  , POINTER :: Solver
      TYPE(Element_t),  POINTER :: Element
@@ -426,20 +428,32 @@ CONTAINS
 
      IF ( ASSOCIATED( Variable ) ) THEN
         Indexes => GetIndexStore()
-        n = GetElementDOFs( Indexes, Element, Solver )
+        IF ( ASSOCIATED(Variable % Solver ) ) THEN
+          n = GetElementDOFs( Indexes, Element, Variable % Solver )
+        ELSE
+          n = GetElementDOFs( Indexes, Element, Solver )
+        END IF
         n = MIN( n, SIZE(x) )
+
+        Values => Variable % Values
+        IF ( PRESENT(tStep) ) THEN
+          IF ( tStep<0 ) THEN
+            IF ( ASSOCIATED(Variable % PrevValues) .AND. -tStep<=SIZE(Variable % PrevValues,2)) &
+              Values => Variable % PrevValues(:,-tStep)
+          END IF
+        END IF
 
         IF ( ASSOCIATED( Variable % Perm ) ) THEN
            IF ( ALL( Variable % Perm(Indexes(1:n)) > 0 ) ) THEN
              DO i=1,n
                 IF ( Indexes(i) <= SIZE(Variable % Perm) ) &
-                  x(i) = Variable % Values(Variable % Perm(Indexes(i)))
+                  x(i) = Values(Variable % Perm(Indexes(i)))
              END DO
            END IF
         ELSE
            DO i=1,n
              IF ( Indexes(i) <= SIZE(Variable % Values) ) &
-               x(i) = Variable % Values(Indexes(i))
+               x(i) = Values(Indexes(i))
            END DO
         END IF
      END IF
@@ -447,11 +461,12 @@ CONTAINS
 
 
 
-  SUBROUTINE GetVectorLocalSolution( x,name,UElement,USolver )
+  SUBROUTINE GetVectorLocalSolution( x,name,UElement,USolver,tStep )
      REAL(KIND=dp) :: x(:,:)
      CHARACTER(LEN=*), OPTIONAL :: name
      TYPE(Solver_t),  OPTIONAL, TARGET :: USolver
      TYPE(Element_t), OPTIONAL, TARGET :: UElement
+     INTEGER, OPTIONAL :: tStep
 
      TYPE(Variable_t), POINTER :: Variable
      TYPE(Solver_t)  , POINTER :: Solver
@@ -459,6 +474,7 @@ CONTAINS
 
      INTEGER :: i, j, n
      INTEGER, POINTER :: Indexes(:)
+     REAL(KIND=dp), POINTER ::  Values(:)
 
      Solver => CurrentModel % Solver
      IF ( PRESENT(USolver) ) Solver => USolver
@@ -477,14 +493,27 @@ CONTAINS
 
      IF ( ASSOCIATED( Variable ) ) THEN
         Indexes => GetIndexStore()
-        n = GetElementDOFs( Indexes, Element, Solver )
+        IF ( ASSOCIATED(Variable % Solver ) ) THEN
+          n = GetElementDOFs( Indexes, Element, Variable % Solver )
+        ELSE
+          n = GetElementDOFs( Indexes, Element, Solver )
+        END IF
         n = MIN( n, SIZE(x) )
+
+        Values => Variable % Values
+        IF ( PRESENT(tStep) ) THEN
+          IF ( tStep<0 ) THEN
+            IF ( ASSOCIATED(Variable % PrevValues) .AND. -tStep<=SIZE(Variable % PrevValues,2)) &
+              Values => Variable % PrevValues(:,-tStep)
+          END IF
+        END IF
+
         DO i=1,Variable % DOFs
            IF ( ASSOCIATED( Variable % Perm ) ) THEN
               IF ( ALL( Variable % Perm(Indexes(1:n)) > 0 ) ) THEN
                 DO j=1,n
                   IF ( Indexes(j) <= SIZE( Variable % Perm ) ) THEN
-                    x(i,j) = Variable % Values( Variable % DOFs * &
+                    x(i,j) = Values( Variable % DOFs * &
                         (Variable % Perm(Indexes(j))-1)+i )
                   END IF
                 END DO
@@ -493,7 +522,7 @@ CONTAINS
               DO j=1,n
                 IF ( Variable % DOFs*(Indexes(j)-1)+i <= &
                                 SIZE( Variable % Values ) ) THEN
-                  x(i,j) = Variable % Values(Variable % DOFs*(Indexes(j)-1)+i)
+                  x(i,j) = Values(Variable % DOFs*(Indexes(j)-1)+i)
                 END IF
               END DO
            END IF

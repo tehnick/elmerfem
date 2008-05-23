@@ -451,128 +451,13 @@
      INTEGER, ALLOCATABLE :: Indexes(:)
      REAL(KIND=dp),ALLOCATABLE :: Work(:)
 
-     DO i=1,CurrentModel % NumberOfBodies
-       Mesh => CurrentModel % Meshes
-       DO WHILE( ASSOCIATED( Mesh ) )
-         ALLOCATE( Indexes(Mesh % MaxElementDOFs), Work(Mesh % MaxElementDOFs) )
-         CALL SetCurrentMesh( CurrentModel, Mesh )
 
-         DO t=1, Mesh % NumberOfBulkElements+Mesh % NumberOfBoundaryElements
-           CurrentElement =>  Mesh % Elements(t)
-           CurrentModel % CurrentElement => CurrentElement
-
-           IF ( CurrentElement % BodyId == i ) THEN
-             j = ListGetInteger(CurrentModel % Bodies(i) % Values, &
-                'Initial Condition',GotIt, 1, CurrentModel % NumberOfICs )
-
-             IF ( GotIt ) THEN
-               n    = GetElementNOFNodes()
-
-               Var => Mesh % Variables
-               DO WHILE( ASSOCIATED(Var) ) 
-                 IF ( ASSOCIATED( Var % Solver ) ) THEN
-                   DOFs = GetElementDOFs( Indexes, USolver=Var % Solver )
-                 ELSE
-                   DOFs = GetElementDOFs( Indexes )
-                 END IF
-
-                 Solver => Var % Solver
-                 IF ( .NOT. ASSOCIATED(Solver) ) Solver => CurrentModel % Solver
-
-                 str = ListGetString( Solver % Values, 'Namespace', Found )
-                 IF (Found) CALL ListSetNamespace(TRIM(str))
-
-                 IF ( Var % DOFs <= 1 ) THEN
-                    Work(1:n) = GetReal( CurrentModel % ICs(j) % Values, &
-                           Var % Name, GotIt )
-                    IF ( GotIt ) THEN
-                      DO k=1,n
-                        k1 = Indexes(k)
-                        IF ( ASSOCIATED(Var % Perm) ) k1 = Var % Perm(k1)
-                        IF ( k1>0 ) Var % Values(k1) = Work(k)
-                      END DO
-                    END IF
-
-
-                    IF ( Transient .AND. Solver % TimeOrder==2 ) THEN
-                      Work(1:n) = GetReal( CurrentModel % ICs(j) % Values, &
-                             TRIM(Var % Name) // ' Velocity', GotIt )
-                      IF ( GotIt ) THEN
-                        DO k=1,n
-                          k1 = Indexes(k)
-                          IF ( ASSOCIATED(Var % Perm) ) k1 = Var % Perm(k1)
-                          IF ( k1>0 ) Var % PrevValues(k1,1) = Work(k)
-                        END DO
-                      END IF
-                      Work(1:n) = GetReal( CurrentModel % ICs(j) % Values, &
-                             TRIM(Var % Name) // ' Acceleration', GotIt )
-                      IF ( GotIt ) THEN
-                        DO k=1,n
-                          k1 = Indexes(k)
-                          IF ( ASSOCIATED(Var % Perm) ) k1 = Var % Perm(k1)
-                          IF ( k1>0 ) Var % PrevValues(k1,2) = Work(k)
-                        END DO
-                      END IF
-                    END IF
-                 ELSE
-                    CALL ListGetRealArray( CurrentModel % ICs(j) % Values, &
-                      Var % Name, WorkA, n, CurrentElement % NodeIndexes, gotIt )
-
-                    IF ( GotIt ) THEN
-                      DO k=1,n
-                        k1 = Indexes(k)
-                        DO l=1,MIN(SIZE(WorkA,1),Var % DOFs)
-                          IF ( ASSOCIATED(Var % Perm) ) k1 = Var % Perm(k1)
-                          IF ( k1>0 ) Var % Values(Var % DOFs*(k1-1)+l) = WorkA(l,1,k)
-                        END DO
-                      END DO
-                    END IF
-                 END IF
-                 CALL ListSetNamespace('')
-                 Var => Var % Next
-               END DO
-             END IF
-           END IF
-         END DO
-         DEALLOCATE( Indexes, Work )
-         Mesh => Mesh % Next
-       END DO
-     END DO
-
-!------------------------------------------------------------------------------
-!    Check if we are restarting
-!------------------------------------------------------------------------------
-     RestartFile = ListGetString( CurrentModel % Simulation, &
-                 'Restart File', GotIt )
-
-     IF ( GotIt ) THEN
-       k = ListGetInteger( CurrentModel % Simulation,'Restart Position',GotIt, &
-                  minv=0 )
-
-       Mesh => CurrentModel % Meshes
-       DO WHILE( ASSOCIATED(Mesh) ) 
-         IF ( LEN_TRIM(Mesh % Name) > 0 ) THEN
-           OutputName = TRIM(Mesh % Name) // '/' // TRIM(RestartFile)
-         ELSE
-           OutputName = TRIM(RestartFile)
-         END IF
-
-         IF ( ParEnv % PEs > 1 ) THEN
-            IF ( ParEnv % MyPE < 10 ) THEN
-               WRITE( OutputName, '(a,i1)' ) TRIM(OutputName) // '.',ParEnv % MyPe
-            ELSE IF ( ParEnv % MyPE < 100 ) THEN
-               WRITE( OutputName, '(a,i2)' ) TRIM(OutputName) // '.',ParEnv % MyPE
-            ELSE IF ( ParENv % MyPe < 1000 ) THEN
-               WRITE( OutputName, '(a,i3)' ) TRIM(OutputName) // '.',ParEnv % MyPE
-            ELSE
-               WRITE( OutputName, '(a,i4)' ) TRIM(OutputName) // '.',ParEnv % MyPE
-            END IF
-         END IF
-
-         CALL SetCurrentMesh( CurrentModel, Mesh )
-         CALL LoadRestartFile( OutputName,k,Mesh )
-         Mesh => Mesh % Next
-       END DO
+     IF (GetLogical(GetSimulation(),'Restart Before Initial Conditions',Found)) THEN
+       CALL Restart
+       CALL InitCond
+     ELSE
+       CALL InitCond
+       CALL Restart
      END IF
 
 !------------------------------------------------------------------------------
@@ -668,6 +553,155 @@
      END IF
 !------------------------------------------------------------------------------
    END SUBROUTINE SetInitialConditions
+!------------------------------------------------------------------------------
+
+
+!------------------------------------------------------------------------------
+   SUBROUTINE InitCond
+!------------------------------------------------------------------------------
+     USE DefUtils
+     INTEGER :: DOFs
+     CHARACTER(LEN=MAX_NAME_LEN) :: str
+     LOGICAL :: Found
+     TYPE(Solver_t), POINTER :: Solver
+     INTEGER, ALLOCATABLE :: Indexes(:)
+     REAL(KIND=dp),ALLOCATABLE :: Work(:)
+!------------------------------------------------------------------------------
+     DO i=1,CurrentModel % NumberOfBodies
+       Mesh => CurrentModel % Meshes
+       DO WHILE( ASSOCIATED( Mesh ) )
+         ALLOCATE( Indexes(Mesh % MaxElementDOFs), Work(Mesh % MaxElementDOFs) )
+         CALL SetCurrentMesh( CurrentModel, Mesh )
+
+         DO t=1, Mesh % NumberOfBulkElements+Mesh % NumberOfBoundaryElements
+           CurrentElement =>  Mesh % Elements(t)
+           CurrentModel % CurrentElement => CurrentElement
+
+           IF ( CurrentElement % BodyId == i ) THEN
+             j = ListGetInteger(CurrentModel % Bodies(i) % Values, &
+                'Initial Condition',GotIt, 1, CurrentModel % NumberOfICs )
+
+             IF ( GotIt ) THEN
+               n    = GetElementNOFNodes()
+
+               Var => Mesh % Variables
+               DO WHILE( ASSOCIATED(Var) ) 
+                 IF ( ASSOCIATED( Var % Solver ) ) THEN
+                   DOFs = GetElementDOFs( Indexes, USolver=Var % Solver )
+                 ELSE
+                   DOFs = GetElementDOFs( Indexes )
+                 END IF
+
+                 Solver => Var % Solver
+                 IF ( .NOT. ASSOCIATED(Solver) ) Solver => CurrentModel % Solver
+
+                 str = ListGetString( Solver % Values, 'Namespace', Found )
+                 IF (Found) CALL ListSetNamespace(TRIM(str))
+
+                 IF ( Var % DOFs <= 1 ) THEN
+                    Work(1:n) = GetReal( CurrentModel % ICs(j) % Values, &
+                           Var % Name, GotIt )
+                    IF ( GotIt ) THEN
+                      DO k=1,n
+                        k1 = Indexes(k)
+                        IF ( ASSOCIATED(Var % Perm) ) k1 = Var % Perm(k1)
+                        IF ( k1>0 ) Var % Values(k1) = Work(k)
+                      END DO
+                    END IF
+
+
+                    IF ( Transient .AND. Solver % TimeOrder==2 ) THEN
+                      Work(1:n) = GetReal( CurrentModel % ICs(j) % Values, &
+                             TRIM(Var % Name) // ' Velocity', GotIt )
+                      IF ( GotIt ) THEN
+                        DO k=1,n
+                          k1 = Indexes(k)
+                          IF ( ASSOCIATED(Var % Perm) ) k1 = Var % Perm(k1)
+                          IF ( k1>0 ) Var % PrevValues(k1,1) = Work(k)
+                        END DO
+                      END IF
+                      Work(1:n) = GetReal( CurrentModel % ICs(j) % Values, &
+                             TRIM(Var % Name) // ' Acceleration', GotIt )
+                      IF ( GotIt ) THEN
+                        DO k=1,n
+                          k1 = Indexes(k)
+                          IF ( ASSOCIATED(Var % Perm) ) k1 = Var % Perm(k1)
+                          IF ( k1>0 ) Var % PrevValues(k1,2) = Work(k)
+                        END DO
+                      END IF
+                    END IF
+                 ELSE
+                    CALL ListGetRealArray( CurrentModel % ICs(j) % Values, &
+                      Var % Name, WorkA, n, CurrentElement % NodeIndexes, gotIt )
+
+                    IF ( GotIt ) THEN
+                      DO k=1,n
+                        k1 = Indexes(k)
+                        DO l=1,MIN(SIZE(WorkA,1),Var % DOFs)
+                          IF ( ASSOCIATED(Var % Perm) ) k1 = Var % Perm(k1)
+                          IF ( k1>0 ) Var % Values(Var % DOFs*(k1-1)+l) = WorkA(l,1,k)
+                        END DO
+                      END DO
+                    END IF
+                 END IF
+                 CALL ListSetNamespace('')
+                 Var => Var % Next
+               END DO
+             END IF
+           END IF
+         END DO
+         DEALLOCATE( Indexes, Work )
+         Mesh => Mesh % Next
+       END DO
+     END DO
+!------------------------------------------------------------------------------
+   END SUBROUTINE InitCond
+!------------------------------------------------------------------------------
+
+!------------------------------------------------------------------------------
+!    Check if we are restarting
+!------------------------------------------------------------------------------
+   SUBROUTINE Restart
+!------------------------------------------------------------------------------
+     USE DefUtils
+     INTEGER :: k
+     LOGICAL :: Gotit
+!------------------------------------------------------------------------------
+
+     RestartFile = ListGetString( CurrentModel % Simulation, &
+                 'Restart File', GotIt )
+
+     IF ( GotIt ) THEN
+       k = ListGetInteger( CurrentModel % Simulation,'Restart Position',GotIt, &
+                  minv=0 )
+
+       Mesh => CurrentModel % Meshes
+       DO WHILE( ASSOCIATED(Mesh) ) 
+         IF ( LEN_TRIM(Mesh % Name) > 0 ) THEN
+           OutputName = TRIM(Mesh % Name) // '/' // TRIM(RestartFile)
+         ELSE
+           OutputName = TRIM(RestartFile)
+         END IF
+
+         IF ( ParEnv % PEs > 1 ) THEN
+            IF ( ParEnv % MyPE < 10 ) THEN
+               WRITE( OutputName, '(a,i1)' ) TRIM(OutputName) // '.',ParEnv % MyPe
+            ELSE IF ( ParEnv % MyPE < 100 ) THEN
+               WRITE( OutputName, '(a,i2)' ) TRIM(OutputName) // '.',ParEnv % MyPE
+            ELSE IF ( ParENv % MyPe < 1000 ) THEN
+               WRITE( OutputName, '(a,i3)' ) TRIM(OutputName) // '.',ParEnv % MyPE
+            ELSE
+               WRITE( OutputName, '(a,i4)' ) TRIM(OutputName) // '.',ParEnv % MyPE
+            END IF
+         END IF
+
+         CALL SetCurrentMesh( CurrentModel, Mesh )
+         CALL LoadRestartFile( OutputName,k,Mesh )
+         Mesh => Mesh % Next
+       END DO
+     END IF
+!------------------------------------------------------------------------------
+   END SUBROUTINE Restart
 !------------------------------------------------------------------------------
 
 
