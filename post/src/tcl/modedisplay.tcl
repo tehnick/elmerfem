@@ -42,28 +42,30 @@ set DScale  "1"
 set DCycles "1"
 set DMode   "1"
 set DFrame  "20"
-set tloop   "Animate"
+set DLoop   "Animate"
+set DCmd    ""
 
 proc mode_animate {} {
-  global DCycles DVector DMode DScale DFrame tloop
+  global DCycles DVector DMode DScale DFrame DLoop DCmd
 
-  if { $tloop == "Animate" } {
-    set tloop "Stop"
+  if { $DLoop == "Animate" } {
+    set DLoop "Stop"
     math function f(d,t) import nodes {  _f=d(0:2,time(t-1)) };
     math n=nodes;
 
-    do i 0 [@ $DCycles*$DFrame] {
-      if { $tloop == "Animate" } {
+    do t 1 [@ $DCycles*$DFrame] {
+      if { $DLoop == "Animate" } {
         math nodes=n;
         return
       }
-      math t=$i/$DFrame*2*pi
+      math t=$t/$DFrame*2*pi
       math nodes=n+sin(t)*f($DVector,$DMode)*$DScale
-      UpdateObject; display
+      update; display;
+     if { $DCmd != "" } { catch [eval $DCmd]; }
     }
   }
   math nodes=n;
-  set tloop "Animate"
+  set DLoop "Animate"
 }
 
 proc ModeDisplay {} {
@@ -106,14 +108,21 @@ proc ModeDisplay {} {
     pack $w.file.flab $w.file.frms $w.file.clab $w.file.cycl
 # -side left
 
-    set tloop "Animate"
-    button $w.file.but -textvariable tloop -command { mode_animate; }
+    set DLoop "Animate"
+    button $w.file.but -textvariable DLoop -command { mode_animate; }
 
     pack $w.file.but -side left
     pack $w.file -side top
 
     label $w.sp4 -text \n
     pack $w.sp4 -side top
+
+    frame $w.command
+    label $w.command.lab -text "Do after frame:"
+    entry $w.command.cmd -textvariable DCmd -width 30
+    pack $w.command.lab -side left
+    pack $w.command.cmd -side left -expand 1
+    pack $w.command
 
     frame $w.but
     button  $w.but.exit -text "Close" -command "destroy $w"
