@@ -53,12 +53,16 @@ proc mode_animate {} {
     math n=nodes;
 
     do i 0 [@ $DCycles*$DFrame] {
-      if { $tloop == "Animate" } return
+      if { $tloop == "Animate" } {
+        math nodes=n;
+        return
+      }
       math t=$i/$DFrame*2*pi
       math nodes=n+sin(t)*f($DVector,$DMode)*$DScale
       UpdateObject; display
     }
   }
+  math nodes=n;
   set tloop "Animate"
 }
 
