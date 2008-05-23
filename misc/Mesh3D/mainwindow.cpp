@@ -451,6 +451,12 @@ void MainWindow::createActions()
   connect(showNodeNumbersAct, SIGNAL(triggered()), 
 	  this, SLOT(showNodeNumbersSlot()));
   
+  // View -> Show boundray index
+  showBoundaryIndexAct = new QAction(QIcon(), tr("Boundary index"), this);
+  showBoundaryIndexAct->setStatusTip(tr("Show boundary index"));
+  connect(showBoundaryIndexAct, SIGNAL(triggered()), 
+	  this, SLOT(showBoundaryIndexSlot()));
+  
   // View -> Shade model -> Smooth
   smoothShadeAct = new QAction(QIcon(), tr("Smooth"), this);
   smoothShadeAct->setStatusTip(tr("Set shade model to smooth"));
@@ -609,6 +615,8 @@ void MainWindow::createMenus()
   numberingMenu->addAction(showSurfaceNumbersAct);
   numberingMenu->addAction(showEdgeNumbersAct);
   numberingMenu->addAction(showNodeNumbersAct);
+  numberingMenu->addSeparator();
+  numberingMenu->addAction(showBoundaryIndexAct);
   viewMenu->addSeparator();
   viewMenu->addAction(showallAct);
   viewMenu->addAction(resetAct);
@@ -3612,7 +3620,7 @@ void MainWindow::showEdgeNumbersSlot()
     logMessage("Edge element numbering turned off");   
 }
 
-// View -> Shade model -> Smooth
+// View -> Numbering -> Node numbers
 //-----------------------------------------------------------------------------
 void MainWindow::showNodeNumbersSlot()
 {
@@ -3628,6 +3636,24 @@ void MainWindow::showNodeNumbersSlot()
     logMessage("Node numbering turned on");
   else 
     logMessage("Node numbering turned off");    
+}
+
+// View -> Numbering -> Boundary index
+//-----------------------------------------------------------------------------
+void MainWindow::showBoundaryIndexSlot()
+{
+  if(glWidget->mesh == NULL) {
+    logMessage("Refusing to show boundary indixes when mesh is empty");
+    return;
+  }
+  glWidget->stateDrawBoundaryIndex = !glWidget->stateDrawBoundaryIndex;
+  glWidget->updateGL();
+  synchronizeMenuToState();
+  
+  if(glWidget->stateDrawBoundaryIndex) 
+    logMessage("Boundary indices visible");
+  else 
+    logMessage("Boundary indixes hidden");    
 }
 
 
@@ -4940,6 +4966,11 @@ void MainWindow::synchronizeMenuToState()
     showNodeNumbersAct->setIcon(iconChecked);
   else 
     showNodeNumbersAct->setIcon(iconEmpty);   
+
+  if(glWidget->stateDrawBoundaryIndex) 
+    showBoundaryIndexAct->setIcon(iconChecked);
+  else 
+    showBoundaryIndexAct->setIcon(iconEmpty);   
 
   if(glWidget->stateDrawCoordinates) 
     viewCoordinatesAct->setIcon(iconChecked);

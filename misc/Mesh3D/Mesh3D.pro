@@ -7,7 +7,7 @@ TARGET =
 DEPENDPATH += . forms plugins tmp\rcc\release_shared
 INCLUDEPATH += .
 
-INCLUDEPATH +=  /c/Qwt-5.0.2/include -lqwt5
+INCLUDEPATH +=  /c/Qwt-5.0.2/include
 LIBS += -L/c/Qwt-5.0.2/lib -lqwt5
 
 QT += xml script opengl
