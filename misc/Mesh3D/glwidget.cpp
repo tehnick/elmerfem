@@ -67,6 +67,7 @@ GLWidget::GLWidget(QWidget *parent)
   stateDrawEdgeNumbers = false;
   stateDrawNodeNumbers = false;
   stateDrawBoundaryIndex = false;
+  stateDrawBodyIndex = false;
 
   currentlySelectedBody = -1;
 
@@ -325,7 +326,7 @@ void GLWidget::paintGL()
        glMatrixMode(GL_MODELVIEW);
     }
 
-    if(stateDrawBoundaryIndex) {
+    if(stateDrawBoundaryIndex || stateDrawBodyIndex) {
       glMatrixMode(GL_PROJECTION);
       glPushMatrix();
       glTranslated(0, 0, 0.1);
@@ -347,7 +348,10 @@ void GLWidget::paintGL()
 	xrel[1] = (xabs[1]/nodes - drawTranslate[1]) / drawScale;
 	xrel[2] = (xabs[2]/nodes - drawTranslate[2]) / drawScale;
 	
-	if(edge->nature == PDE_BOUNDARY)
+	if(stateDrawBoundaryIndex && (edge->nature == PDE_BOUNDARY))
+	  renderText(xrel[0], xrel[1], xrel[2], QString::number(edge->index) );
+
+	if(stateDrawBodyIndex && (edge->nature == PDE_BULK))
 	  renderText(xrel[0], xrel[1], xrel[2], QString::number(edge->index) );
       }
       
@@ -367,13 +371,16 @@ void GLWidget::paintGL()
 	xrel[1] = (xabs[1]/nodes - drawTranslate[1]) / drawScale;
 	xrel[2] = (xabs[2]/nodes - drawTranslate[2]) / drawScale;
 	
-	if(surface->nature == PDE_BOUNDARY)
+	if(stateDrawBoundaryIndex && (surface->nature == PDE_BOUNDARY))
+	  renderText(xrel[0], xrel[1], xrel[2], QString::number(surface->index) );
+
+	if(stateDrawBodyIndex && (surface->nature == PDE_BULK))
 	  renderText(xrel[0], xrel[1], xrel[2], QString::number(surface->index) );
       }
 
       glPopMatrix();
       glMatrixMode(GL_MODELVIEW);
-    }       
+    }
   }
 }
 

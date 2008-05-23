@@ -58,6 +58,7 @@ public:
   bool stateDrawEdgeNumbers;
   bool stateDrawNodeNumbers;
   bool stateDrawBoundaryIndex;
+  bool stateDrawBodyIndex;
   int currentlySelectedBody;
   bool ctrlPressed;
   bool shiftPressed;

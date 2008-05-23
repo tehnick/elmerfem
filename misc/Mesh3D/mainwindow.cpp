@@ -457,6 +457,12 @@ void MainWindow::createActions()
   connect(showBoundaryIndexAct, SIGNAL(triggered()), 
 	  this, SLOT(showBoundaryIndexSlot()));
   
+  // View -> Show body index
+  showBodyIndexAct = new QAction(QIcon(), tr("Body index"), this);
+  showBodyIndexAct->setStatusTip(tr("Show body index"));
+  connect(showBodyIndexAct, SIGNAL(triggered()), 
+	  this, SLOT(showBodyIndexSlot()));
+  
   // View -> Shade model -> Smooth
   smoothShadeAct = new QAction(QIcon(), tr("Smooth"), this);
   smoothShadeAct->setStatusTip(tr("Set shade model to smooth"));
@@ -617,6 +623,7 @@ void MainWindow::createMenus()
   numberingMenu->addAction(showNodeNumbersAct);
   numberingMenu->addSeparator();
   numberingMenu->addAction(showBoundaryIndexAct);
+  numberingMenu->addAction(showBodyIndexAct);
   viewMenu->addSeparator();
   viewMenu->addAction(showallAct);
   viewMenu->addAction(resetAct);
@@ -3643,7 +3650,7 @@ void MainWindow::showNodeNumbersSlot()
 void MainWindow::showBoundaryIndexSlot()
 {
   if(glWidget->mesh == NULL) {
-    logMessage("Refusing to show boundary indixes when mesh is empty");
+    logMessage("Refusing to show boundary indices when mesh is empty");
     return;
   }
   glWidget->stateDrawBoundaryIndex = !glWidget->stateDrawBoundaryIndex;
@@ -3653,7 +3660,26 @@ void MainWindow::showBoundaryIndexSlot()
   if(glWidget->stateDrawBoundaryIndex) 
     logMessage("Boundary indices visible");
   else 
-    logMessage("Boundary indixes hidden");    
+    logMessage("Boundary indices hidden");    
+}
+
+
+// View -> Numbering -> Body index
+//-----------------------------------------------------------------------------
+void MainWindow::showBodyIndexSlot()
+{
+  if(glWidget->mesh == NULL) {
+    logMessage("Refusing to show body indices when mesh is empty");
+    return;
+  }
+  glWidget->stateDrawBodyIndex = !glWidget->stateDrawBodyIndex;
+  glWidget->updateGL();
+  synchronizeMenuToState();
+  
+  if(glWidget->stateDrawBodyIndex) 
+    logMessage("Body indices visible");
+  else 
+    logMessage("Body indices hidden");    
 }
 
 
@@ -4967,10 +4993,15 @@ void MainWindow::synchronizeMenuToState()
   else 
     showNodeNumbersAct->setIcon(iconEmpty);   
 
-  if(glWidget->stateDrawBoundaryIndex) 
+  if(glWidget->stateDrawBoundaryIndex)
     showBoundaryIndexAct->setIcon(iconChecked);
   else 
     showBoundaryIndexAct->setIcon(iconEmpty);   
+
+  if(glWidget->stateDrawBodyIndex)
+    showBodyIndexAct->setIcon(iconChecked);
+  else 
+    showBodyIndexAct->setIcon(iconEmpty);   
 
   if(glWidget->stateDrawCoordinates) 
     viewCoordinatesAct->setIcon(iconChecked);

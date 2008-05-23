@@ -76,6 +76,7 @@ private slots:
   void showEdgeNumbersSlot();     // View -> Show numbering -> edge numbering
   void showNodeNumbersSlot();     // View -> Show numbering -> node numbering
   void showBoundaryIndexSlot();   // View -> Show numbering -> boundary index
+  void showBodyIndexSlot();       // View -> Show numbering -> body index
   void selectDefinedSurfacesSlot();// View -> Select defined surfaces
   void hideselectedSlot();        // View -> Hide/show selected
   void showallSlot();             // View -> Show all
@@ -199,6 +200,7 @@ private:
   QAction *showEdgeNumbersAct;    // View -> Show numbering -> edge numbers
   QAction *showNodeNumbersAct;    // View -> Show numbering -> node numbers
   QAction *showBoundaryIndexAct;  // View -> Show numbering -> boundary index
+  QAction *showBodyIndexAct;      // View -> Show numbering -> body index
   QAction *hideselectedAct;       // View -> Show selected
   QAction *flatShadeAct;          // View -> Shade model -> Flat
   QAction *smoothShadeAct;        // View -> Shade model -> Smooth
