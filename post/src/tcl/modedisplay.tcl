@@ -60,6 +60,7 @@ proc mode_animate {} {
       }
       math t=$t/$DFrame*2*pi
       math nodes=n+sin(t)*f($DVector,$DMode)*$DScale
+      timestep $DMode
       update; display;
      if { $DCmd != "" } { catch [eval $DCmd]; }
     }
