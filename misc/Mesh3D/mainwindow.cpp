@@ -523,9 +523,9 @@ void MainWindow::createActions()
   connect(killresultsAct, SIGNAL(triggered()), 
 	  this, SLOT(killresultsSlot()));
 
-  // Solver -> Compile...
-  compileSolverAct = new QAction(QIcon(""), tr("Compile..."), this);
-  compileSolverAct->setStatusTip(tr("Compile solver as a shared library"));
+  // Solver -> Compiler...
+  compileSolverAct = new QAction(QIcon(""), tr("Compiler..."), this);
+  compileSolverAct->setStatusTip(tr("Compile Elmer specific source code (f90) into a shared library (dll)"));
   connect(compileSolverAct, SIGNAL(triggered()), 
 	  this, SLOT(compileSolverSlot()));
 
@@ -4995,7 +4995,7 @@ void MainWindow::compilerStderrSlot()
 //-----------------------------------------------------------------------------
 void MainWindow::compilerFinishedSlot(int)
 {
-  logMessage("Compiler finished");
+  logMessage("Ready");
   solverLogWindow->statusBar()->showMessage("Ready");
   solverLogWindow->textEdit->append("Ready");
 }
