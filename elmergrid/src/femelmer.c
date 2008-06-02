@@ -910,8 +910,6 @@ int SaveElmerInput(struct FemType *data,struct BoundaryType *bound,
     return(3);
   }
 
-  if(data->pelems) printf("P-element definitions will become obsolite in ElmerGrid\n");
-
   for(i=1;i<=noelements;i++) {
     elemtype = data->elementtypes[i];
     material = data->material[i];
@@ -919,28 +917,6 @@ int SaveElmerInput(struct FemType *data,struct BoundaryType *bound,
     if(material < MAXBODIES) usedbody[material] += 1;
     fprintf(out,"%d %d %d",i,material,elemtype);
 
-    if(data->pelems) {
-      j = data->pelemtypes[i];
-
-      k = j; j=j/10; k=k-10*j;
-      if(k!=1) fprintf(out,"n%d",k);
-
-      k = j; j=j/10; k=k-10*j;
-      if(k!=0) fprintf(out,"e%d",k);
-
-      k = j; j=j/10; k=k-10*j;
-      if(k!=0) fprintf(out,"f%d",k);
-
-      k = j; j=j/10; k=k-10*j;
-      if(k!=0) fprintf(out,"d%d",k);
-
-      k = j; j=j/100; k=k-100*j;
-      if(k!=0) fprintf(out,"b%d",k);
-
-      k = j; j=j/100; k=k-100*j;
-      if(k!=0) fprintf(out,"p%d",k);
-    }
-      
     bulktypes[elemtype] += 1;
     nodesd2 = elemtype%100;
     for(j=0;j < nodesd2;j++) 
@@ -1049,26 +1025,6 @@ int SaveElmerInput(struct FemType *data,struct BoundaryType *bound,
       newtype = MAX(newtype, bound[j].types[i]);
   }
   
-  if(data->periodicexist) {
-    newtype++;
-    k = 0;
- 
-    for(i=1; i <= data->noknots; i++) {
-      j = data->periodic[i];      
-
-      if(i != j) {
-	k++;
-	sumsides++;
-	sideelemtype = 102;
-	fprintf(out,"%d %d %d %d %d %d %d\n",
-		sumsides,newtype,0,0,sideelemtype,i,j);
-	sidetypes[sideelemtype] += 1;
-      }
-    }
-    if(info) printf("Added %d periodic boundary conditions to boundary %d and elementtype 102.\n",
-		    k,newtype);
-  }
-
 
   if(data->connectexist) {
     int *connect,newsides,newline,count;
@@ -1185,11 +1141,8 @@ int SaveElmerInputFemBem(struct FemType *data,struct BoundaryType *bound,
     return(1);
   }
 
-  if(data->pelems) smallerror("P-element definitions are obsolite in ElmerGrid");
-  if(data->periodicexist) smallerror("Periodicity data is not saved in the FEM/BEM version");
   if(data->connectexist) smallerror("Connectivity data is not saved in the FEM/BEM version");
   if(data->nopartitions > 1) smallerror("Partitioning data is not saved in the FEM/BEM version");
-
 
   noelements = data->noelements;
   noknots = data->noknots;
@@ -1710,7 +1663,7 @@ static int PartitionElementsByNodes(struct FemType *data,int info)
 
  omstart:
 
-  /* First round count the equally joined elements and 
+  /* In the first round count the equally joined elements and 
      on the second round split them equally using cumulative numbering */
 
   for(i=1;i<=noelements;i++) {
@@ -1940,11 +1893,11 @@ int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
 {
   int i,j,k,ind,minpart,maxpart;
   int noknots, noelements,nonodes,elemsinpart,periodic;
-  int partitions1, partitions2, partitions3,partitions;
+  int partitions1,partitions2,partitions3,partitions;
+  int vpartitions1,vpartitions2,vpartitions3,vpartitions;
   int *indx,*nopart,*inpart;
-  Real xmax,xmin,ymax,ymin,zmax,zmin,arrange0;
   Real *arrange;
-  Real x,y,z,cx,cy,cz,dx,dy,dz;
+  Real x,y,z,cx,cy,cz;
   
   partitions1 = dimpart[0];
   partitions2 = dimpart[1];
@@ -1971,29 +1924,19 @@ int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
     data->nopartitions = partitions;
   }
   inpart = data->elempart;
+  
+  vpartitions1 = partitions1;
+  vpartitions2 = partitions2;
+  vpartitions3 = partitions3;
 
-  periodic = data->periodicexist;
+  periodic = dimper[0] || dimper[1] || dimper[2];
   if(periodic) {
-    xmin = xmax = data->x[1];
-    ymin = ymax = data->y[1];
-    if(data->dim > 2) zmin = zmax = data->z[1];
-    else zmin = zmax = 0.0;
-    for(i=1;i<=data->noknots;i++) {
-      if(xmin > data->x[i]) xmin = data->x[i];
-      if(xmax < data->x[i]) xmax = data->x[i];
-      if(ymin > data->y[i]) ymin = data->y[i];
-      if(ymax < data->y[i]) ymax = data->y[i];
-      if(data->dim > 2) {
-	if(zmin > data->z[i]) zmin = data->z[i];
-	if(zmax < data->z[i]) zmax = data->z[i];
-      }
-    }
-    dx = xmax-xmin;
-    dy = ymax-ymin;
-    if(data->dim > 2) dz = zmax-zmin;
+    if(dimper[0] && partitions1 > 1) vpartitions1 *= 2;
+    if(dimper[1] && partitions2 > 1) vpartitions2 *= 2;
+    if(dimper[2] && partitions3 > 1) vpartitions3 *= 2;
   }
-
-  nopart = Ivector(1,partitions);
+  vpartitions = vpartitions1 * vpartitions2 * vpartitions3;
+  nopart = Ivector(1,vpartitions);
   noelements = data->noelements;
   noknots = data->noknots;
 
@@ -2018,12 +1961,11 @@ int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
   for(i=1;i<=noelements;i++) 
     inpart[i] = 1;
   
-  if(partitions1 > 1) {
+  if(vpartitions1 > 1) {
+
     if(info) printf("Ordering 1st direction with (%.3lg*x + %.3lg*y + %.3lg*z)\n",cx,cy,cz);
-    if(periodic) arrange0 = cx * xmax + 0.5 * (cy*(ymin + ymax) + cz*(zmin + zmax));
 
     for(j=1;j<=noelements;j++) {
-
       nonodes = data->elementtypes[j]%100;
       x = y = z = 0.0;
       for(i=0;i<nonodes;i++) {
@@ -2033,26 +1975,21 @@ int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
 	if(data->dim==3) z += data->z[k];
       }
       arrange[j] = (cx*x + cy*y + cz*z) / nonodes;
-      if(periodic && dimper[0]) {
-	arrange[j] += 0.5*arrange0/partitions1;
-	if(arrange[j] > arrange0) arrange[j] -= arrange0;
-      }
     }
+
     SortIndex(noelements,arrange,indx);
 
     for(i=1;i<=noelements;i++) {
       ind = indx[i];
-      k = (i*partitions1-1)/noelements+1;
+      k = (i*vpartitions1-1)/noelements+1;
       inpart[ind] = k;
     }
   } 
 
  
   /* Partition in the 2nd direction taking into account the 1st direction */
-  if(partitions2 > 1) {
+  if(vpartitions2 > 1) {
     if(info) printf("Ordering in the 2nd direction.\n");
-
-    if(periodic) arrange0 = cx * ymax + 0.5 * (-cy*(xmin + xmax) + cz*(zmin + zmax));
 
     for(j=1;j<=noelements;j++) {
       nonodes = data->elementtypes[j]%100;
@@ -2064,36 +2001,30 @@ int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
 	if(data->dim==3) z += data->z[k];
       }
       arrange[j] = (-cy*x + cx*y + cz*z) / nonodes;
-      if(dimper[1]) {
-	arrange[j] += 0.5*arrange0/partitions2;
-	if(arrange[j] > arrange0) arrange[j] -= arrange0;
-      }
     }
     SortIndex(noelements,arrange,indx);
     
-    for(i=1;i<=partitions;i++)
+    for(i=1;i<=vpartitions;i++)
       nopart[i] = 0;
     
-    elemsinpart = noelements / (partitions1*partitions2);
+    elemsinpart = noelements / (vpartitions1*vpartitions2);
     for(i=1;i<=noelements;i++) {
       j = 0;
       ind = indx[i];
       do {
 	j++;
-	k = (inpart[ind]-1) * partitions2 + j;
+	k = (inpart[ind]-1) * vpartitions2 + j;
       }
-      while(nopart[k] >= elemsinpart && j < partitions2);
+      while(nopart[k] >= elemsinpart && j < vpartitions2);
       
       nopart[k] += 1;
-      inpart[ind] = (inpart[ind]-1)*partitions2 + j;
+      inpart[ind] = (inpart[ind]-1)*vpartitions2 + j;
     }
   }  
 
   /* Partition in the 3rd direction taking into account the 1st and 2nd direction */
-  if(partitions3 > 1) {
+  if(vpartitions3 > 1) {
     if(info) printf("Ordering in the 3rd direction.\n");
-
-    if(periodic) arrange0 = cx * zmax + 0.5 * (-cz*(xmin + xmax) - cy*(ymin + ymax));
 
     for(j=1;j<=noelements;j++) {
       nonodes = data->elementtypes[j]%100;
@@ -2105,29 +2036,67 @@ int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
 	if(data->dim==3) z += data->z[k];
       }
       arrange[j] = (-cz*x - cy*y + cx*z) / nonodes;
-      if(dimper[2]) {
-	arrange[j] += 0.5*arrange0/partitions3;
-	if(arrange[j] > arrange0) arrange[j] -= arrange0;
-      }
     }
     SortIndex(noelements,arrange,indx);
 
-    for(i=1;i<=partitions;i++)
+    for(i=1;i<=vpartitions;i++)
       nopart[i] = 0;
     
-    elemsinpart = noelements / (partitions1*partitions2*partitions3);
+    elemsinpart = noelements / (vpartitions1*vpartitions2*vpartitions3);
     for(i=1;i<=noelements;i++) {
       j = 0;
       ind = indx[i];
       do {
 	j++;
-	k = (inpart[ind]-1)*partitions3 + j;
+	k = (inpart[ind]-1)*vpartitions3 + j;
       }
-      while(nopart[k] >= elemsinpart && j < partitions3);
+      while(nopart[k] >= elemsinpart && j < vpartitions3);
     
       nopart[k] += 1;
-      inpart[ind] = (inpart[ind]-1)*partitions3 + j;
+      inpart[ind] = (inpart[ind]-1)*vpartitions3 + j;
     }
+  }
+
+
+  /* For periodic systems the number of virtual partitions is larger. Now map the mesh so that the 
+     1st and last partition for each direction will be joined */
+  if(periodic) {
+    int *partmap;
+    int p1,p2,p3,q1,q2,q3;
+    int P,Q;
+    p1=p2=p3=1;
+    partmap = Ivector(1,vpartitions);
+    for(i=1;i<=vpartitions;i++)
+      partmap[i] = 0;
+    for(p1=1;p1<=vpartitions1;p1++) {
+      q1 = p1;
+      if(dimper[0] && vpartitions1 > 1) {
+	if(q1==vpartitions1) q1 = 0;
+	q1 = q1/2 + 1;
+      }
+      for(p2=1;p2<=vpartitions2;p2++) {
+	q2 = p2;
+	if(dimper[1] && vpartitions2 > 1) {
+	  if(q2==vpartitions2) q2 = 0;
+	  q2 = q2/2 + 1;
+	}
+	for(p3=1;p3<=vpartitions3;p3++) {
+	  q3 = p3;
+	  if(dimper[2] && vpartitions3 > 1) {
+	    if(q3==vpartitions3) q3 = 0;
+	    q3 = q3/2 + 1;
+	  }
+	  
+	  P = vpartitions3 * vpartitions2 * (p1 - 1) + vpartitions3 * (p2-1) + p3;
+	  Q = partitions3 * partitions2 * (q1 - 1) + partitions3 * (q2-1) + q3;
+
+	  partmap[P] = Q;
+	}
+      }
+    }
+    for(i=1;i<=noelements;i++)
+      inpart[i] = partmap[inpart[i]];
+    free_Ivector(partmap,1,vpartitions);
   }
 
   for(i=1;i<=partitions;i++)
@@ -2141,9 +2110,8 @@ int PartitionSimpleElements(struct FemType *data,int dimpart[],int dimper[],
     maxpart = MAX( nopart[i], maxpart );
   }
 
-
   free_Rvector(arrange,1,noelements);
-  free_Ivector(nopart,1,partitions);
+  free_Ivector(nopart,1,vpartitions);
   free_Ivector(indx,1,noelements);
 
   PartitionNodesByElements(data,info);
@@ -2160,11 +2128,11 @@ int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
 {
   int i,j,k,ind,minpart,maxpart;
   int noknots, noelements,nonodes,elemsinpart,periodic;
-  int partitions1, partitions2, partitions3,partitions;
-  int *indx,*part1,*part2,*part3,*nopart,*inpart,*nodepart;
-  Real xmax,xmin,ymax,ymin,zmax,zmin,arrange0;
+  int partitions1,partitions2,partitions3,partitions;
+  int vpartitions1,vpartitions2,vpartitions3,vpartitions;
+  int *indx,*part1,*nopart,*inpart,*nodepart;
   Real *arrange;
-  Real x,y,z,cx,cy,cz,dx,dy,dz;
+  Real x,y,z,cx,cy,cz;
   
   partitions1 = dimpart[0];
   partitions2 = dimpart[1];
@@ -2193,28 +2161,18 @@ int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
   inpart = data->elempart;
   nodepart = data->nodepart;
 
-  periodic = data->periodicexist;
+  vpartitions1 = partitions1;
+  vpartitions2 = partitions2;
+  vpartitions3 = partitions3;
+  periodic = dimper[0] || dimper[1] || dimper[2];
   if(periodic) {
-    xmin = xmax = data->x[1];
-    ymin = ymax = data->y[1];
-    if(data->dim > 2) zmin = zmax = data->z[1];
-    else zmin = zmax = 0.0;
-    for(i=1;i<=data->noknots;i++) {
-      if(xmin > data->x[i]) xmin = data->x[i];
-      if(xmax < data->x[i]) xmax = data->x[i];
-      if(ymin > data->y[i]) ymin = data->y[i];
-      if(ymax < data->y[i]) ymax = data->y[i];
-      if(data->dim > 2) {
-	if(zmin > data->z[i]) zmin = data->z[i];
-	if(zmax < data->z[i]) zmax = data->z[i];
-      }
-    }
-    dx = xmax-xmin;
-    dy = ymax-ymin;
-    if(data->dim > 2) dz = zmax-zmin;
+    if(dimper[0] && partitions1 > 1) vpartitions1 *= 2;
+    if(dimper[1] && partitions2 > 1) vpartitions2 *= 2;
+    if(dimper[2] && partitions3 > 1) vpartitions3 *= 2;
   }
+  vpartitions = vpartitions1 * vpartitions2 * vpartitions3;
 
-  nopart = Ivector(1,partitions);
+  nopart = Ivector(1,vpartitions);
   noelements = data->noelements;
   noknots = data->noknots;
 
@@ -2240,106 +2198,124 @@ int PartitionSimpleNodes(struct FemType *data,int dimpart[],int dimper[],
   for(i=1;i<=noknots;i++) 
     nodepart[i] = 1;  
 
-  if(partitions1 > 1) {
+  if(vpartitions1 > 1) {
     if(info) printf("Ordering 1st direction with (%.3lg*x + %.3lg*y + %.3lg*z)\n",cx,cy,cz);
-
-    part1 = Ivector(1,noknots);
-
-    if(periodic) arrange0 = cx * xmax + 0.5 * (cy*(ymin + ymax) + cz*(zmin + zmax));
-
     for(j=1;j<=noknots;j++) {
       x = data->x[j];
       y = data->y[j];
       if(data->dim==3) z = data->z[k];
-
       arrange[j] = cx*x + cy*y + cz*z;
-      if(periodic && dimper[0]) {
-	arrange[j] += 0.5*arrange0/partitions1;
-	if(arrange[j] > arrange0) arrange[j] -= arrange0;
-      }
     }
     SortIndex(noknots,arrange,indx);
     
     for(i=1;i<=noknots;i++) {
       ind = indx[i];
-      k = (i*partitions1-1)/noknots+1;
+      k = (i*vpartitions1-1)/noknots+1;
       nodepart[ind] = k;
     }
   } 
 
   /* Partition in the 2nd direction taking into account the 1st direction */
-  if(partitions2 > 1) {
+  if(vpartitions2 > 1) {
     if(info) printf("Ordering in the 2nd direction.\n");
-
-    if(periodic) arrange0 = cx * ymax + 0.5 * (-cy*(xmin + xmax) + cz*(zmin + zmax));
-
     for(j=1;j<=noknots;j++) {
       x = data->x[j];
       y = data->y[j];
       if(data->dim==3) z = data->z[j];
-
       arrange[j] = -cy*x + cx*y + cz*z;
-      if(dimper[1]) {
-	arrange[j] += 0.5*arrange0/partitions2;
-	if(arrange[j] > arrange0) arrange[j] -= arrange0;
-      }
     }
     SortIndex(noknots,arrange,indx);
     
-    for(i=1;i<=partitions;i++)
+    for(i=1;i<=vpartitions;i++)
       nopart[i] = 0;
     
-    elemsinpart = noknots / (partitions1*partitions2);
+    elemsinpart = noknots / (vpartitions1*vpartitions2);
     for(i=1;i<=noknots;i++) {
       j = 0;
       ind = indx[i];
       do {
 	j++;
-	k = (nodepart[ind]-1) * partitions2 + j;
+	k = (nodepart[ind]-1) * vpartitions2 + j;
       }
-      while(nopart[k] >= elemsinpart && j < partitions2);
+      while(nopart[k] >= elemsinpart && j < vpartitions2);
       
       nopart[k] += 1;
-      nodepart[ind] = (nodepart[ind]-1)*partitions2 + j;
+      nodepart[ind] = (nodepart[ind]-1)*vpartitions2 + j;
     }
   }  
 
   /* Partition in the 3rd direction taking into account the 1st and 2nd direction */
-  if(partitions3 > 1) {
+  if(vpartitions3 > 1) {
     if(info) printf("Ordering in the 3rd direction.\n");
-
-    if(periodic) arrange0 = cx * zmax + 0.5 * (-cz*(xmin + xmax) - cy*(ymin + ymax));
-
     for(j=1;j<=noknots;j++) {
       x = data->x[j];
       y = data->y[j];
       if(data->dim==3) z = data->z[j];
       arrange[j] = -cz*x - cy*y + cx*z;
-      if(dimper[2]) {
-	arrange[j] += 0.5*arrange0/partitions3;
-	if(arrange[j] > arrange0) arrange[j] -= arrange0;
-      }
     }
     SortIndex(noknots,arrange,indx);
 
-    for(i=1;i<=partitions;i++)
+    for(i=1;i<=vpartitions;i++)
       nopart[i] = 0;
     
-    elemsinpart = noknots / (partitions1*partitions2*partitions3);
+    elemsinpart = noknots / (vpartitions1*vpartitions2*vpartitions3);
     for(i=1;i<=noknots;i++) {
       j = 0;
       ind = indx[i];
       do {
 	j++;
-	k = (nodepart[ind]-1)*partitions3 + j;
+	k = (nodepart[ind]-1)*vpartitions3 + j;
       }
-      while(nopart[k] >= elemsinpart && j < partitions3);
+      while(nopart[k] >= elemsinpart && j < vpartitions3);
     
       nopart[k] += 1;
-      nodepart[ind] = (nodepart[ind]-1)*partitions3 + j;
+      nodepart[ind] = (nodepart[ind]-1)*vpartitions3 + j;
     }
   }
   
+
+  /* For periodic systems the number of virtual partitions is larger. Now map the mesh so that the 
+     1st and last partition for each direction will be joined */
+  if(periodic) {
+    int *partmap;
+    int p1,p2,p3,q1,q2,q3;
+    int P,Q;
+    p1=p2=p3=1;
+    partmap = Ivector(1,vpartitions);
+    for(i=1;i<=vpartitions;i++)
+      partmap[i] = 0;
+    for(p1=1;p1<=vpartitions1;p1++) {
+      q1 = p1;
+      if(dimper[0] && vpartitions1 > 1) {
+	if(q1==vpartitions1) q1 = 0;
+	q1 = q1/2 + 1;
+      }
+      for(p2=1;p2<=vpartitions2;p2++) {
+	q2 = p2;
+	if(dimper[1] && vpartitions2 > 1) {
+	  if(q2==vpartitions2) q2 = 0;
+	  q2 = q2/2 + 1;
+	}
+	for(p3=1;p3<=vpartitions3;p3++) {
+	  q3 = p3;
+	  if(dimper[2] && vpartitions3 > 1) {
+	    if(q3==vpartitions3) q3 = 0;
+	    q3 = q3/2 + 1;
+	  }
+	  
+	  P = vpartitions3 * vpartitions2 * (p1 - 1) + vpartitions3 * (p2-1) + p3;
+	  Q = partitions3 * partitions2 * (q1 - 1) + partitions3 * (q2-1) + q3;
+
+	  partmap[P] = Q;
+	}
+      }
+    }
+    for(i=1;i<=noknots;i++)
+      nodepart[i] = partmap[nodepart[i]];
+    free_Ivector(partmap,1,vpartitions);
+  }
+
+
   for(i=1;i<=partitions;i++)
     nopart[i] = 0;
   for(i=1;i<=noknots;i++) 
@@ -3370,20 +3346,15 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     neededtimes2 = neededtimes;
   }
 
-  /* Define new BC numbers for indirect and periodic connections. These should not be mixed with
+  /* Define new BC numbers for indirect connections. These should not be mixed with
      existing BCs as they only serve the purpose of automatically creating the matrix structure. */
-  if(periodic || indirect) {
-    periodictype = 0;
+  if(indirect) {
+    indirecttype = 0;
     for(j=0;j < MAXBOUNDARIES;j++) 
       for(i=1; i <= bound[j].nosides; i++) 
-	if(bound[j].types[i] > periodictype) periodictype = bound[j].types[i];
-    periodictype++;
-    indirecttype = periodictype; 
-    if(periodic) {
-      if(info) printf("Periodic connections given index %d and elementtype 102.\n",periodictype);
-      indirecttype = periodictype + 1;
-    }
-    if(indirect && info) printf("Indirect connections given index %d and elementtype 102.\n",indirecttype);
+	if(bound[j].types[i] > indirecttype) indirecttype = bound[j].types[i];
+    indirecttype++;
+    if(info) printf("Indirect connections given index %d and elementtype 102.\n",indirecttype);
   }
 
   /* The output format is the same for all partitions */
@@ -3646,38 +3617,6 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
     }
     sidesinpart[part] = sumsides;
         
-    /* The periodic boundary conditions */
-    if(periodic) {
-      for(i=1; i <= data->noknots; i++) {
-	ind = indxper[i]; 
-
-	if(i != ind) {
-	  bcneeded = 0;
-
-	  /* Check if either of the periodic nodes belong to the current partition */
-	  for(k=1;k<=neededtimes[ind];k++) 
-	    if(part == data->partitiontable[k][ind]) bcneeded++;
-
-	  for(k=1;k<=neededtimes[i];k++) 
-	    if(part == data->partitiontable[k][i]) bcneeded++;
-
-	  if(!bcneeded) continue;
-
-	  sumsides++;
-	  sideelemtype = 102;
-	  if(reorder) {
-	    fprintf(out,"%d %d %d %d %d %d %d\n",
-		    sumsides,periodictype,0,0,sideelemtype,order[i],order[ind]);
-	  } else {
-	    fprintf(out,"%d %d %d %d %d %d %d\n",
-		    sumsides,periodictype,0,0,sideelemtype,i,ind);	    
-	  }
-	  sidetypes[sideelemtype] += 1;
-	  periodicinpart[part] += 1;
-	}
-      }
-    }
-
 
     /* Boundary nodes that express indirect couplings between different partitions.
        This makes it possible for ElmerSolver to create a matrix connection that 
@@ -3890,14 +3829,11 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 	printf("   %-5s %-10s %-10s %-8s %-8s %-8s",
 			   "part","elements","nodes","shared","bc elems","orphan");
 	if(indirect) printf(" %-8s","indirect");
-	if(periodic) printf(" %-8s","periodic");
 	printf("\n");
       }
       printf("   %-5d %-10d %-10d %-8d %-8d %-8d",
-	     part,elementsinpart[part],ownnodes[part],sharednodes[part],sidesinpart[part],
-	     orphannodes,indirectinpart[part],periodicinpart[part]);
+	     part,elementsinpart[part],ownnodes[part],sharednodes[part],sidesinpart[part],orphannodes);
       if(indirect) printf(" %-8d",indirectinpart[part]);
-      if(periodic) printf(" %-8d",periodicinpart[part]);
       printf("\n");
     }
   } /* of part */

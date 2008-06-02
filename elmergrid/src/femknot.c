@@ -646,7 +646,6 @@ void InitializeKnots(struct FemType *data)
   data->noboundaries = 0;
   data->mapgeo = 1;
   data->nocorners = 0;
-  data->pelems = 0;
 
   data->boundarynamesexist = FALSE;
   data->bodynamesexist = FALSE;
@@ -1831,7 +1830,7 @@ static int CreateNewNodes(struct FemType *data,int *order,int material,int new)
 
   noknots = data->noknots;
 
-  printf("Creating %d new nodes for discoutinuous boundary.\n",new);
+  printf("Creating %d new nodes for discontinuous boundary.\n",new);
 
   /* Allocate for the new nodes */
   newsize = noknots+new;
@@ -1933,6 +1932,9 @@ int SetDiscontinuousBoundary(struct FemType *data,struct BoundaryType *bound,
   int *order;
   int mat1,mat2,par1,par2,mat1old,mat2old,material;
   static int hitsexist=FALSE,hitslength,*hits;
+
+  printf("a1\n");
+
 
   if(boundtype < 0) {
     newbc = TRUE;

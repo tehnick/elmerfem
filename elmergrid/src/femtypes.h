@@ -194,8 +194,6 @@ struct FemType {
     *elementtypes, /* types of elements if not all the same */
     *material,     /* material for each element */
     **topology,    /* element topology */
-    pelems,        /* are there p-type elements */
-    *pelemtypes,
     bodynamesexist,
     boundarynamesexist;
   int edofs[MAXDOFS],   /* number of dofs in each node */

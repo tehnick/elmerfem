@@ -1516,6 +1516,21 @@ int main(int argc, char *argv[])
     nomeshes++;
     break;
 
+
+  case 18:
+    boundaries[nofile] = (struct BoundaryType*)
+      malloc((size_t) (MAXBOUNDARIES)*sizeof(struct BoundaryType)); 	
+    for(i=0;i<MAXBOUNDARIES;i++) {
+      boundaries[nofile][i].created = FALSE; 
+      boundaries[nofile][i].nosides = 0;
+    }
+   
+    if(LoadCGsimMesh(&(data[nofile]),eg.filesin[nofile],info))
+       Goodbye();
+    nomeshes++;
+    break;
+
+
   default:
     Instructions();
     Goodbye();
@@ -1829,10 +1844,6 @@ int main(int argc, char *argv[])
     if(info) printf("Renumbering material indexes finished\n");
   }
 
-  for(k=0;k<nomeshes;k++) 
-    if(eg.periodicdim[0] || eg.periodicdim[1] || eg.periodicdim[2]) 
-      FindPeriodicNodes(&data[k],eg.periodicdim,info);
-   
   for(k=0;k<nomeshes;k++) {
     int noopt = 0;
     if(eg.partitions) {
@@ -1844,6 +1855,8 @@ int main(int argc, char *argv[])
     }
 #if PARTMETIS
     if(eg.metis) {
+      if(eg.periodicdim[0] || eg.periodicdim[1] || eg.periodicdim[2]) 
+	FindPeriodicNodes(&data[k],eg.periodicdim,info);
       if(eg.partopt % 5 <= 1) 
 	PartitionMetisElements(&data[k],eg.metis,eg.partopt % 5,info);
       else
@@ -1853,80 +1866,6 @@ int main(int argc, char *argv[])
 #endif
     if(eg.partitions || eg.metis ) 
       OptimizePartitioning(&data[k],boundaries[k],noopt,info);
-  }
-
-
-  if(eg.pelems || eg.belems || eg.advancedmat) {
-    int currenttype;
-
-    printf("\n***********************************************************************************\n");
-    printf("The advanced elements block will become obsolite and the stuff for defining the\n");
-    printf("non-Lagrangian elements is moved into the ElmerSolver command file!\n");
-    printf("\n***********************************************************************************\n");
-
-    for(k=0;k<nomeshes;k++) {
-      data[k].pelemtypes = Ivector(1,data[k].noelements); 
-      data[k].pelems = TRUE;
-
-      for(j=1;j<=data[k].noelements;j++) 
-	data[k].pelemtypes[j] = 1;
-
-      if(eg.pelems) {    
-	for(l=0;l<eg.pelems;l++)  
-	  printf("Setting element between materials %d and %d to have p=%d.\n",
-		 eg.pelemmap[3*l],eg.pelemmap[3*l+1],eg.pelemmap[3*l+2]);
-
-	for(j=1;j<=data[k].noelements;j++) {
-	  currenttype = data[k].material[j];
-	  for(l=0;l<eg.pelems;l++) 
-	    if(currenttype >= eg.pelemmap[3*l] && currenttype <= eg.pelemmap[3*l+1]) {
-	      data[k].pelemtypes[j] += 1000000 * eg.pelemmap[3*l+2];
-	      currenttype = -1;
-	    }
-	}
-	printf("Creating p-elements finished\n");
-      }
-      
-      if(eg.belems) {    
-	for(l=0;l<eg.belems;l++)  
-	  printf("Setting element between materials %d and %d to have bubble dofs=%d.\n",
-		 eg.belemmap[3*l],eg.belemmap[3*l+1],eg.belemmap[3*l+2]);
-
-	for(j=1;j<=data[k].noelements;j++) {
-	  currenttype = data[k].material[j];
-	  for(l=0;l<eg.belems;l++) 
-	    if(currenttype >= eg.belemmap[3*l] && currenttype <= eg.belemmap[3*l+1]) {
-	      data[k].pelemtypes[j] += 10000 * eg.belemmap[3*l+2];
-	      currenttype = -1;
-	    }
-	}
-	if(info) printf("Creating bubble elements finished\n");
-      }
-
-      if(eg.advancedmat) {
-	for(l=0;l<eg.advancedmat;l++) {
-	  printf("Setting element of material %d to have advanced settings [%d %d %d %d %d %d]\n",
-		 eg.advancedelem[7*l],eg.advancedelem[7*l+1],eg.advancedelem[7*l+2],
-		 eg.advancedelem[7*l+3],eg.advancedelem[7*l+4],eg.advancedelem[7*l+5],
-		 eg.advancedelem[7*l+6]);
-
-	  for(i=1;i<=6;i++) {
-	    if(eg.advancedelem[7*l+i] < 0 || eg.advancedelem[7*l+i] > 99) {
-	      if(info) printf("Advanced elements limited to 9 or 99 (not %d)!\n",eg.advancedelem[7*l+i]);
-	    }
-	  }
-
-	  for(j=1;j<=data[k].noelements;j++) {
-	    if( data[k].material[j] == eg.advancedelem[7*l]) {
-	      data[k].pelemtypes[j] = 1 * eg.advancedelem[7*l+1] + 10*eg.advancedelem[7*l+2] + 
-		100*eg.advancedelem[7*l+3] + 1000*eg.advancedelem[7*l+4] + 
-		10000*eg.advancedelem[7*l+5] + 1000000*eg.advancedelem[7*l+6];
-	    }
-	  }
-	}
-	if(info) printf("Creating advanced elements finished\n");
-      }
-    }
   }
 
 
