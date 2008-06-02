@@ -1866,6 +1866,10 @@ int main(int argc, char *argv[])
 #endif
     if(eg.partitions || eg.metis ) 
       OptimizePartitioning(&data[k],boundaries[k],noopt,info);
+    if(data[k].periodicexist) {
+      free_Ivector(data[k].periodic,1,data[k].noknots);
+      data[k].periodicexist = FALSE;
+    }
   }
 
 

@@ -2868,7 +2868,6 @@ int OptimizePartitioning(struct FemType *data,struct BoundaryType *bound,int noo
     }
   }    
    
-
   optimize = 1;
   probnodes = Ivector(1,noknots);
   for(i=1;i<=noknots;i++)
@@ -2976,7 +2975,6 @@ optimizeownership:
       
       /* One strange owner is still ok. */
       if(owners - elemparts[elempart[i]] <= 1) continue;
-
 
       for(j=1;j<=partitions;j++) 
 	for(k=1;k<=partitions;k++) 
@@ -3092,8 +3090,8 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   int i,j,k,l,l2,m,ind,ind2,sideind[MAXNODESD1],sidehit[MAXNODESD1],elemhit[MAXNODESD2];
   char filename[MAXFILESIZE],filename2[MAXFILESIZE],outstyle[MAXFILESIZE];
   char directoryname[MAXFILESIZE],subdirectoryname[MAXFILESIZE];
-  int *neededtimes,*elempart,*indxper,*elementsinpart,*periodicinpart,*indirectinpart,*sidesinpart;
-  int maxneededtimes,periodic,periodictype,indirecttype,bcneeded,trueparent,*ownerpart;
+  int *neededtimes,*elempart,*elementsinpart,*indirectinpart,*sidesinpart;
+  int maxneededtimes,indirecttype,bcneeded,trueparent,*ownerpart;
   int *sharednodes,*ownnodes,reorder,*order,*invorder,*bcnodesaved,*bcnodesaved2,orphannodes;
   int *bcnodedummy,*elementhalo,*neededtimes2;
   FILE *out,*outfiles[MAXPARTITIONS+1];
@@ -3118,13 +3116,6 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
   ownerpart = data->nodepart;
   noelements = data->noelements;
   noknots = data->noknots;
-
-  /* Are there periodic boundaries */
-  periodic = data->periodicexist;
-  if(periodic) {
-    if(info) printf("There seems to be peridic boundaries\n");
-    indxper = data->periodic;
-  }
 
   minelemtype = 101;
   maxelemtype = GetMaxElementType(data);
@@ -3177,12 +3168,11 @@ int SaveElmerInputPartitioned(struct FemType *data,struct BoundaryType *bound,
 		  directoryname,subdirectoryname);
 
   elementsinpart = Ivector(1,partitions);
-  periodicinpart = Ivector(1,partitions);
   indirectinpart = Ivector(1,partitions);
   sidesinpart = Ivector(1,partitions);
   elementhalo = Ivector(1,partitions);
   for(i=1;i<=partitions;i++)
-    elementsinpart[i] = periodicinpart[i] = indirectinpart[i] = sidesinpart[i] = elementhalo[i] = 0;
+    elementsinpart[i] = indirectinpart[i] = sidesinpart[i] = elementhalo[i] = 0;
 
   for(j=1;j<=partitions;j++)
     for(i=minelemtype;i<=maxelemtype;i++)

@@ -6989,7 +6989,7 @@ void ElementsToBoundaryConditions(struct FemType *data,
 int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info)
 {
   int i,j,k,l,i2,j2,dim,jmin;
-  int noelements,noknots,hit,tothits,dimvisited;
+  int noelements,noknots,hit,tothits;
   int *topbot,*indxper;
   int botn,topn,*indbot,*revindtop,*revindbot;
   Real eps,dist,dx,dy,dz,coordmax,coordmin,ds;
@@ -7006,11 +7006,12 @@ int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info)
 
   noknots = data->noknots;
   tothits = 0;
-  dimvisited = FALSE;
 
   data->periodicexist = TRUE;
   indxper = Ivector(1,noknots);
   data->periodic = indxper;
+  topbot = Ivector(1,noknots);
+ 
 
   for(i=1;i<=noknots;i++) 
     indxper[i] = i;
@@ -7035,10 +7036,6 @@ int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info)
 		    dim,coordmin,coordmax);
 
     if(coordmax-coordmin < 1.0e-10) continue;
-
-    if(!dimvisited) {
-      topbot = Ivector(1,noknots);
-    }
     eps = 1.0e-5 * (coordmax-coordmin);
 
     topn = botn = 0;
@@ -7082,7 +7079,6 @@ int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info)
 	revindbot[botn] = i;  
       }
     }
-
     
     if(data->dim == 2) {
       for(i=1;i<=botn;i++) {
@@ -7102,9 +7098,6 @@ int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info)
 	  tothits++;
 	  if(indxper[j] == j) indxper[j2] = j;
 	  else if(indxper[indxper[j]]==indxper[j]) {
-#if 0
-	    printf("case2: j=[%d %d]  i=[%d %d]\n",j,j2,i,i2);
-#endif
 	    indxper[j2] = indxper[j];
 	  }
 	  else {
@@ -7117,9 +7110,8 @@ int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info)
 	}
       }
     }
-
-    dx = dy = dz = 0.0;
-    if(data->dim == 3) {
+    else if(data->dim == 3) {
+      dx = dy = dz = 0.0;
       for(i=1;i<=botn;i++) {
 	j = revindbot[i];
 	hit = FALSE;
@@ -7165,8 +7157,11 @@ int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info)
 	}
       }
     }
-    dimvisited = TRUE;
 
+    free_Rvector(toparr,1,topn);
+    free_Rvector(botarr,1,botn);
+    free_Ivector(revindtop,1,topn);
+    free_Ivector(revindbot,1,botn);
   }
 
   if(info) printf("Found all in all %d periodic nodes.\n",tothits);
@@ -7177,6 +7172,9 @@ int FindPeriodicNodes(struct FemType *data,int periodicdim[],int info)
       if(i!=indxper[i]) printf("i=%d per=%d\n",i,indxper[i]);
   }
 #endif
+
+ dealloc:
+  free_Ivector(topbot,1,noknots);
 
   return(0);
 }
